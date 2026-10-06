@@ -1,0 +1,5 @@
+pnpm-lock.yaml
+src/shared/api/generated/
+.next/
+docs/
+.claude/
