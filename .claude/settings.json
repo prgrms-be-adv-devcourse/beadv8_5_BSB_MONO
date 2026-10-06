@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "enableAllProjectMcpServers": true,
+  "permissions": {
+    "allow": [
+      "Bash(./gradlew build:*)",
+      "Bash(./gradlew test:*)",
+      "Bash(./gradlew bootRun:*)",
+      "Bash(./gradlew clean:*)",
+      "Bash(./gradlew compileJava:*)",
+      "Bash(./gradlew dependencies:*)",
+      "Bash(./gradlew tasks:*)",
+      "Bash(./gradlew.bat build:*)",
+      "Bash(./gradlew.bat test:*)",
+      "Bash(./gradlew.bat bootRun:*)",
+      "Bash(./gradlew.bat clean:*)",
+      "Bash(./gradlew.bat compileJava:*)",
+      "Bash(./gradlew.bat dependencies:*)",
+      "Bash(./gradlew.bat tasks:*)"
+    ]
+  }
+}

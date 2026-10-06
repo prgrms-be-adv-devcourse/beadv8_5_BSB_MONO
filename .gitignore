@@ -1,0 +1,22 @@
+### OS ###
+.DS_Store
+
+### IDE ###
+.idea
+*.iws
+*.iml
+*.ipr
+.vscode/
+
+### Env ###
+.env
+.env.*
+!.env.example
+
+### MCP ###
+/.shrimp_data/
+
+### Claude Code (개인용) ###
+.claude/skills/karpathy-guidelines
+.claude/output-styles/
+.claude/settings.local.json

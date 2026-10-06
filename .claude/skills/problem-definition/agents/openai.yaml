@@ -1,0 +1,4 @@
+interface:
+  display_name: 'Problem Definition'
+  short_description: 'Find the kingpin problem and define the right solution'
+  default_prompt: 'Use $problem-definition to investigate this topic, brief the core problem, and identify the kingpin before proposing a solution.'
