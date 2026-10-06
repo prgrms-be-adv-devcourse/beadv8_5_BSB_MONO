@@ -1,0 +1,9 @@
+# 앱 이미지 빌드에 필요한 파일만 허용하는 방식 (나머지는 전부 제외)
+# 새 파일(.env 등)이 생겨도 실수로 빌드 컨텍스트에 들어가지 않는다
+*
+
+!gradlew
+!gradle/
+!settings.gradle.kts
+!build.gradle.kts
+!src/

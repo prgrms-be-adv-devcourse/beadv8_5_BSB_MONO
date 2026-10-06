@@ -1,0 +1,51 @@
+# 테스트 전용 설정 (@ActiveProfiles("test")로 활성화)
+# 공통 설정(application.yaml)은 그대로 쓰고, 외부 인프라 없이 테스트가 돌도록 필요한 값만 덮어쓴다
+spring:
+  datasource:
+    # MySQL 대신 H2 인메모리 DB 사용 (MySQL 문법 호환 모드)
+    url: jdbc:h2:mem:bukang-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        # SQL은 System.out 대신 로거(org.hibernate.SQL)로 출력한다 (true면 로거와 중복 출력됨)
+        show_sql: false
+        format_sql: true
+    open-in-view: false
+
+  kafka:
+    bootstrap-servers: localhost:9092
+    listener:
+      # 브로커 없이도 컨텍스트가 뜨도록 리스너 자동 시작을 끈다 (Kafka 통합 테스트에서는 Testcontainers로 따로 띄운다)
+      auto-startup: false
+
+  elasticsearch:
+    # Elasticsearch 통합 테스트에서는 Testcontainers(@ServiceConnection)가 이 값을 덮어쓴다
+    uris: http://localhost:9200
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+# JWT 서명 키 (dev와 동일)
+jwt:
+  secret: jwt-dev-secret-key-1423-1126-7541-3217
+
+# 민감 정보 변환 정보 (dev와 동일, salt는 16진수 문자열)
+crypto:
+  password: brH8W0e5axggiZDMxLeEcRiYSf5qght3KtDgWC+dT48=
+  salt: d4cc93043cca7c91
+  hmac-secret: 5iXOaGlN4SRsdZBruRwXESrPF3qrRAiVpoRGyhCngqo=
+
+logging:
+  level:
+    com.bukang: debug
+    org.hibernate.SQL: debug
+    # 바인딩 값까지 확인해야 할 때만 켠다 (테스트 로그가 많아짐)
+    # org.hibernate.orm.jdbc.bind: trace

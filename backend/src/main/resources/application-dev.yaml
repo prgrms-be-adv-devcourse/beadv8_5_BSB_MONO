@@ -1,0 +1,47 @@
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/bukang-db
+    username: bukang2
+    password: bukang2
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        # SQL은 System.out 대신 로거(org.hibernate.SQL)로 출력한다 (true면 로거와 중복 출력됨)
+        show_sql: false
+        format_sql: true
+        highlight_sql: true
+    open-in-view: false
+
+  kafka:
+    bootstrap-servers:
+      - localhost:9092
+
+  elasticsearch:
+    uris: http://localhost:9200
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+jwt:
+  secret: jwt-dev-secret-key-1423-1126-7541-3217
+
+# 민감 정보 변환 정보
+crypto:
+  hmac-secret: 5iXOaGlN4SRsdZBruRwXESrPF3qrRAiVpoRGyhCngqo=
+  password: brH8W0e5axggiZDMxLeEcRiYSf5qght3KtDgWC+dT48=
+  salt: d4cc93043cca7c91
+
+logging:
+  level:
+    com.bukang: debug
+    # 실행되는 SQL과 ? 자리에 바인딩되는 값 (Hibernate 6 이상 로거 이름)
+    org.hibernate.SQL: debug
+    org.hibernate.orm.jdbc.bind: trace
+    # Elasticsearch 요청/응답 본문
+    org.springframework.data.elasticsearch.client.WIRE: trace

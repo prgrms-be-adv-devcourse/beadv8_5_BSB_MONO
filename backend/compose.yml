@@ -1,0 +1,140 @@
+services:
+
+  # Spring 앱 (운영 프로파일로 실행, 루트 Dockerfile로 빌드)
+  # profiles 지정으로 기본 `docker compose up`에서는 제외된다
+  # (bootRun 시 Spring Boot가 compose를 띄울 때 앱 컨테이너가 8080을 선점하지 않도록)
+  # 실행: docker compose --profile app up -d --build
+  bukang:
+    build: .
+    image: bukang-app:latest
+    container_name: bukang-app
+    profiles: [ app ]
+    ports:
+      - "8080:8080"
+    # 접속 정보와 비밀값(JWT_SECRET, CRYPTO_* 등)은 모두 .env에서 읽는다 (.env.example 참고)
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+    # 인프라가 모두 healthy 상태가 된 뒤에 시작
+    depends_on:
+      bukang-db:
+        condition: service_healthy
+      bukang-kafka:
+        condition: service_healthy
+      bukang-elasticsearch:
+        condition: service_healthy
+      bukang-redis:
+        condition: service_healthy
+
+  bukang-db:
+    # 팀원 간 버전 차이를 막기 위해 LTS 버전으로 고정
+    image: mysql:8.4
+    container_name: bukang-db
+    # 한글 저장/정렬을 위해 문자셋을 utf8mb4로 명시
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: bukang-admin
+      MYSQL_DATABASE: bukang-db
+      MYSQL_USER: bukang2
+      MYSQL_PASSWORD: bukang2
+      # NOW() 등 DB 시간 함수를 한국 시간 기준으로 동작시킨다
+      TZ: Asia/Seoul
+    healthcheck:
+      test: [ "CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Kafka 호환 브로커 Redpanda (JVM 없는 단일 바이너리라 노트북에서도 가볍게 동작)
+  bukang-kafka:
+    image: redpandadata/redpanda:v26.2.3
+    container_name: bukang-kafka
+    command:
+      - redpanda
+      - start
+      # 로컬 개발용 모드 (토픽 자동 생성 허용, 리소스 사용 최소화)
+      - --mode=dev-container
+      - --smp=1
+      - --memory=512M
+      # 리스너를 두 개로 나눈다
+      # internal: 같은 Docker 네트워크의 컨테이너(앱, Kafka Console)가 접속 (bukang-kafka:29092)
+      # external: 호스트에서 실행하는 앱이 접속 (application-dev.yaml의 localhost:9092)
+      - --kafka-addr=internal://0.0.0.0:29092,external://0.0.0.0:9092
+      - --advertise-kafka-addr=internal://bukang-kafka:29092,external://localhost:9092
+    ports:
+      - "9092:9092"
+    healthcheck:
+      test: [ "CMD-SHELL", "rpk cluster health | grep -E 'Healthy:.+true'" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # Kafka 관리 UI (토픽/메시지/컨슈머 그룹 조회) → http://localhost:8091
+  bukang-kafka-console:
+    image: redpandadata/console:v3.12.0
+    container_name: bukang-kafka-console
+    ports:
+      # 8080은 Spring 앱, 8090은 Elasticvue가 사용하므로 8091 사용
+      - "8091:8080"
+    environment:
+      # 컨테이너 내부에서 접속하므로 internal 리스너와 서비스 이름을 사용
+      KAFKA_BROKERS: bukang-kafka:29092
+      REDPANDA_ADMINAPI_ENABLED: "true"
+      REDPANDA_ADMINAPI_URLS: http://bukang-kafka:9644
+    depends_on:
+      bukang-kafka:
+        # 브로커가 healthy 상태가 된 뒤에 시작
+        condition: service_healthy
+
+  # Elasticsearch + nori (단일 노드, 로컬 개발용으로 보안 비활성화)
+  bukang-elasticsearch:
+    build: ./docker/elasticsearch
+    image: bukang-elasticsearch:9.4.5-nori
+    container_name: bukang-elasticsearch
+    ports:
+      - "9200:9200"
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+      # 브라우저에서 동작하는 Elasticvue가 ES에 직접 요청할 수 있도록 CORS 허용
+      http.cors.enabled: "true"
+      http.cors.allow-origin: "http://localhost:8090"
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -fs 'localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s' || exit 1" ]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+  # Elasticsearch 관리 UI (Kibana 대체, 인덱스 조회와 REST 쿼리 작성 가능) → http://localhost:8090
+  bukang-elasticvue:
+    # Docker Hub에 최신 버전 태그가 올라오지 않아 latest 사용 (앱과 무관한 UI 도구라 영향 없음)
+    image: cars10/elasticvue:latest
+    container_name: bukang-elasticvue
+    ports:
+      # 컨테이너 포트 8080은 Spring 앱과 겹치므로 호스트는 8090 사용
+      - "8090:8080"
+    environment:
+      # 접속할 클러스터를 미리 등록 (브라우저에서 접속하므로 localhost 주소 사용)
+      ELASTICVUE_CLUSTERS: '[{"name": "bukang-local", "uri": "http://localhost:9200"}]'
+
+  # Redis
+  bukang-redis:
+    image: redis:8.2
+    container_name: bukang-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
