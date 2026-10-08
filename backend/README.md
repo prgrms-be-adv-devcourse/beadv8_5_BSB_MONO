@@ -2,6 +2,8 @@
 
 Spring Boot 4.1 / Java 25 백엔드입니다. 명령은 이 폴더(`backend/`)에서 실행합니다.
 
+Gradle 멀티 모듈로 `common`(공통 라이브러리), `member-service`(8080), `cash-service`(8081)가 있습니다. 구조는 [`CLAUDE.md`](CLAUDE.md)를 참고합니다.
+
 ## 실행 환경
 
 ### 컨테이너 구성 (`compose.yml`)
@@ -14,13 +16,18 @@ Spring Boot 4.1 / Java 25 백엔드입니다. 명령은 이 폴더(`backend/`)�
 | `bukang-elasticsearch` | Elasticsearch 9.4.5 + nori 한글 분석기 | `localhost:9200` |
 | `bukang-elasticvue` | Elasticsearch 관리 화면 (Elasticvue) | http://localhost:8090 |
 | `bukang-redis` | Redis 8.2 | `localhost:6379` |
-| `bukang` | Spring 앱 (prod 프로파일) | http://localhost:8080 |
+| `member-service` | 회원 서비스 (prod 프로파일) | http://localhost:8080 |
+| `cash-service` | 캐시 서비스 (prod 프로파일) | http://localhost:8081 |
 
-`bukang`(앱) 서비스는 `app` 프로파일로 분리되어 있어서 `--profile app`을 붙일 때만 실행됩니다.
+앱 서비스(`member-service`, `cash-service`)는 `app` 프로파일로 분리되어 있어서 `--profile app`을 붙일 때만 실행됩니다.
 
 ### 개발 실행 (앱 컨테이너 제외)
 
-IDE나 `bootRun`으로 앱을 실행하면 Spring Boot가 `compose.yml`의 인프라 컨테이너를 자동으로 띄웁니다. 이미 실행 중이면 그대로 사용합니다. 앱이 직접 띄운 컨테이너는 앱을 종료할 때 함께 멈춥니다.
+IDE나 `./gradlew :member-service:bootRun`(또는 `:cash-service:bootRun`)으로 서비스를 실행하면 Spring Boot가 `compose.yml`의 인프라 컨테이너를 자동으로 띄웁니다. 이미 실행 중이면 그대로 사용합니다.
+여러 서비스가 같은 인프라를 쓰므로 서비스를 종료해도 컨테이너는 멈추지 않습니다(`lifecycle-management: start-only`). 정리할 때는 `docker compose down`을 실행합니다.
+
+IntelliJ에서는 `MemberApplication`, `CashApplication`을 바로 실행하면 됩니다. 실행 위치(working directory)가 저장소 루트, `backend/`, 모듈 폴더 중 어디여도
+`common`의 `LocalDevEnvironmentPostProcessor`가 `backend/compose.yml`과 `backend/.env`를 찾아 적용합니다.
 
 `docker/elasticsearch/Dockerfile`을 수정했다면 `docker compose up -d --build`로 이미지를 다시 만듭니다.
 
@@ -42,13 +49,13 @@ IDE나 `bootRun`으로 앱을 실행하면 Spring Boot가 `compose.yml`의 인�
    | `MYSQL_USER` / `MYSQL_PASS` / `MYSQL_DB` | `compose.yml`의 `bukang-db` 값과 동일 |
    | `JWT_SECRET` | 32자 이상의 임의 문자열 |
 
-2. IDE나 `bootRun`으로 실행 중인 앱이 있으면 종료합니다. 같은 8080 포트를 사용합니다.
+2. IDE나 `bootRun`으로 실행 중인 서비스가 있으면 종료합니다. 같은 포트(8080, 8081)를 사용합니다.
 
 3. 앱 이미지를 빌드하고 전체 컨테이너를 실행합니다.
 
    ```bash
-   docker compose --profile app up -d --build   # 앱 + 인프라 실행 (인프라가 healthy가 된 뒤 앱 시작)
-   docker compose logs -f bukang                # 앱 로그 확인 ("Started BukangApplication"이면 성공)
+   docker compose --profile app up -d --build   # 서비스 + 인프라 실행 (인프라가 healthy가 된 뒤 서비스 시작)
+   docker compose logs -f member-service        # 로그 확인 ("Started MemberApplication"이면 성공)
    docker compose --profile app down            # 앱 포함 전체 중지 + 삭제
    ```
 
@@ -65,7 +72,7 @@ IDE나 `bootRun`으로 앱을 실행하면 Spring Boot가 `compose.yml`의 인�
 | `phone` | AES 암호문 (같은 값도 매번 다른 암호문) | 꺼내서 보여 주거나 발송할 때 (복호화) |
 | `phone_hash` | HMAC 해시 (같은 값이면 항상 같은 해시, unique) | 조회, 중복 검사 (`WHERE phone_hash = ?`) |
 
-### 구성 요소 (`global/config/crypto`)
+### 구성 요소 (`member-service`의 `config/crypto`)
 
 | 클래스 | 역할 |
 |---|---|
@@ -128,7 +135,7 @@ IDE나 `bootRun`으로 앱을 실행하면 Spring Boot가 `compose.yml`의 인�
 ## Kafka 메시지 직렬화 (`JsonConverter`)
 
 Kafka에는 메시지를 **JSON 문자열**로 보냅니다. Kafka 직렬화기는 `StringSerializer`/`StringDeserializer`로 고정하고(`application.yaml`),
-객체와 JSON 사이의 변환은 애플리케이션 코드에서 `JsonConverter`(`global/json`)로 합니다.
+객체와 JSON 사이의 변환은 애플리케이션 코드에서 `JsonConverter`(`common`의 `json`)로 합니다.
 
 ### Spring Kafka의 JSON 직렬화기를 쓰지 않는 이유
 
@@ -156,7 +163,7 @@ Kafka에는 메시지를 **JSON 문자열**로 보냅니다. Kafka 직렬화기�
 
 아래 코드의 토픽, 메시지 클래스, 그룹 ID는 사용법을 보여 주기 위한 예시입니다.
 
-1. **메시지 클래스**를 만듭니다. 생산자와 소비자가 함께 쓰므로 `shared` 패키지에 두고, `record`로 만들면 별도 설정 없이 변환됩니다.
+1. **메시지 클래스**를 만듭니다. 생산자와 소비자(다른 서비스)가 함께 쓰므로 `common`의 `event` 패키지에 두고, `record`로 만들면 별도 설정 없이 변환됩니다.
 
    ```java
    public record EmailSendMessage(
@@ -168,7 +175,7 @@ Kafka에는 메시지를 **JSON 문자열**로 보냅니다. Kafka 직렬화기�
    ```
 
 2. **토픽 이름**은 [Kafka 토픽 네이밍 컨벤션](../.claude/rules/kafka-topic-convention.md)(`<message-type>.<dataset-name>.<data-name>`)을 따르고,
-   상수로 한곳에 모아 생산자와 소비자가 같은 상수를 참조합니다. 오타가 나면 오류 없이 다른 토픽이 새로 만들어지기 때문입니다.
+   상수로 한곳(`common`의 `event/KafkaTopics`)에 모아 생산자와 소비자가 같은 상수를 참조합니다. 오타가 나면 오류 없이 다른 토픽이 새로 만들어지기 때문입니다.
 
    ```java
    public final class KafkaTopics {
@@ -241,13 +248,14 @@ Kafka에는 메시지를 **JSON 문자열**로 보냅니다. Kafka 직렬화기�
 
 | 주소 | 내용 |
 |---|---|
-| http://localhost:8080/swagger-ui.html | Swagger UI (dev 프로파일에서만 열림, prod에서는 비활성화) |
+| http://localhost:8080/swagger-ui.html | 회원 서비스 Swagger UI (dev 프로파일에서만 열림, prod에서는 비활성화) |
+| http://localhost:8081/swagger-ui.html | 캐시 서비스 Swagger UI |
 | http://localhost:8080/v3/api-docs | OpenAPI 문서 원본(JSON) |
 
 ### 작성 규칙
 
 컨트롤러와 요청 DTO의 Swagger 애노테이션은 [`.claude/rules/swagger-convention.md`](../.claude/rules/swagger-convention.md)를 따릅니다.
-참고 구현은 `boundedcontext/member/in/ApiV1AuthController.java`와 `AuthApiExamples.java`입니다.
+참고 구현은 `member-service`의 `in/ApiV1AuthController.java`와 `AuthApiExamples.java`입니다.
 
 - 컨트롤러에 `@Tag`, 엔드포인트마다 `@Operation`과 `@ApiResponses`를 붙입니다.
 - 응답 코드는 그 API가 **실제로 반환하는 코드만** 적습니다. 생성 API의 201은 springdoc이 추론하지 못하므로 직접 명시합니다.

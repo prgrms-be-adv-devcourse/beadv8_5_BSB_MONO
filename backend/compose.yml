@@ -1,13 +1,16 @@
 services:
 
-  # Spring 앱 (운영 프로파일로 실행, 루트 Dockerfile로 빌드)
+  # Spring 앱 (운영 프로파일로 실행, backend/Dockerfile에 MODULE 인자를 넘겨 서비스별로 빌드)
   # profiles 지정으로 기본 `docker compose up`에서는 제외된다
-  # (bootRun 시 Spring Boot가 compose를 띄울 때 앱 컨테이너가 8080을 선점하지 않도록)
+  # (bootRun 시 Spring Boot가 compose를 띄울 때 앱 컨테이너가 포트를 선점하지 않도록)
   # 실행: docker compose --profile app up -d --build
-  bukang:
-    build: .
-    image: bukang-app:latest
-    container_name: bukang-app
+  member-service:
+    build:
+      context: .
+      args:
+        MODULE: member-service
+    image: bukang-member-service:latest
+    container_name: bukang-member-service
     profiles: [ app ]
     ports:
       - "8080:8080"
@@ -26,6 +29,27 @@ services:
       bukang-elasticsearch:
         condition: service_healthy
       bukang-redis:
+        condition: service_healthy
+
+  cash-service:
+    build:
+      context: .
+      args:
+        MODULE: cash-service
+    image: bukang-cash-service:latest
+    container_name: bukang-cash-service
+    profiles: [ app ]
+    ports:
+      - "8081:8081"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+    depends_on:
+      bukang-db:
+        condition: service_healthy
+      bukang-kafka:
         condition: service_healthy
 
   bukang-db:

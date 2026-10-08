@@ -1,0 +1,28 @@
+# 테스트 전용 설정 (@ActiveProfiles("test")로 활성화)
+spring:
+  datasource:
+    # MySQL 대신 H2 인메모리 DB 사용 (MySQL 문법 호환 모드)
+    url: jdbc:h2:mem:bukang-cash-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        show_sql: false
+        format_sql: true
+    open-in-view: false
+
+  kafka:
+    bootstrap-servers: localhost:9092
+    listener:
+      # 브로커 없이도 컨텍스트가 뜨도록 리스너 자동 시작을 끈다
+      auto-startup: false
+
+logging:
+  level:
+    com.bukang: debug
+    org.hibernate.SQL: debug
