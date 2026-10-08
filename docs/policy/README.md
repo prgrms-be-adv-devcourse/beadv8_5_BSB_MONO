@@ -8,7 +8,7 @@
 | 문서 | 내용 |
 |---|---|
 | 이 문서 | 1~8장 정책 본문 (원본 그대로 옮김) |
-| [settlement.md](settlement.md) | 6장 판매자 정산을 화면 · 데이터 수준으로 풀어 쓴 상세안 |
+| [payout.md](payout.md) | 6장 판매자 정산을 화면 · 데이터 수준으로 풀어 쓴 상세안 |
 | [party-lottery.md](party-lottery.md) | 10/5 파티 · 추첨 수정안 (기록용) |
 | [listing-gaps.md](listing-gaps.md) | 10/5 러너블 입점 안내 비교 (기록용) |
 
