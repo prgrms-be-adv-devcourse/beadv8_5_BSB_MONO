@@ -6,7 +6,7 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import com.bukang.common.rsdata.RsData;
+import com.bukang.common.global.rsdata.RsData;
 
 /**
  * Spring Security 예외 처리 (회원 서비스 전용)

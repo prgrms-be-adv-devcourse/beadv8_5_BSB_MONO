@@ -1,4 +1,4 @@
-package com.bukang.common.standard;
+package com.bukang.common.standard.resulttype;
 
 public interface ResultType<T> {
 	int status();

@@ -1,4 +1,4 @@
-package com.bukang.common.json;
+package com.bukang.common.global.json;
 
 import org.springframework.stereotype.Component;
 

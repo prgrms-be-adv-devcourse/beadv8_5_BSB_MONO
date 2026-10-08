@@ -1,8 +1,8 @@
-package com.bukang.common.jpa;
+package com.bukang.common.global.jpa.entity;
 
 import java.time.LocalDateTime;
 
-import com.bukang.common.standard.HasModelTypeCode;
+import com.bukang.common.standard.modeltype.HasModelTypeCode;
 
 import jakarta.persistence.MappedSuperclass;
 import lombok.Getter;

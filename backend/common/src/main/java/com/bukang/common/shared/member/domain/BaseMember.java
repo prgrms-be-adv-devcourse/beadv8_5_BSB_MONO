@@ -1,8 +1,8 @@
-package com.bukang.common.event.member;
+package com.bukang.common.shared.member.domain;
 
 import static lombok.AccessLevel.*;
 
-import com.bukang.common.jpa.BaseEntity;
+import com.bukang.common.global.jpa.entity.BaseEntity;
 
 import jakarta.persistence.MappedSuperclass;
 import lombok.Getter;

@@ -1,4 +1,4 @@
-package com.bukang.common.standard;
+package com.bukang.common.standard.modeltype;
 
 public interface HasModelTypeCode {
 	String getModelTypeCode();

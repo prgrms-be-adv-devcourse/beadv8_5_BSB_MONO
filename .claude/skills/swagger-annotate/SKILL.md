@@ -26,7 +26,7 @@ argument-hint: "[컨트롤러 클래스명 또는 경로]"
 1. **성공 코드**: 반환문이 `ok()`(200)인지 `created()`(201)인지, 성공 메시지 문자열
 2. **던지는 예외**: Controller → Facade → UseCase/Service 호출 흐름을 따라가며 `throw`와 예외 메시지 문자열을 모은다
 3. **예외 → 상태 코드**: 도메인 예외는 `BusinessException`을 상속하므로 예외 클래스 생성자의 `HttpStatus`가 상태 코드다.
-   그 밖의 예외는 `backend/common`의 `exception/GlobalExceptionHandler.java`(Security 예외는 `member-service`의 `security/AuthExceptionHandler.java`)에서 상태 코드와 응답 메시지를 확인한다
+   그 밖의 예외는 `backend/common`의 `global/exception/GlobalExceptionHandler.java`(Security 예외는 `member-service`의 `security/AuthExceptionHandler.java`)에서 상태 코드와 응답 메시지를 확인한다
    (핸들러가 고정 메시지를 쓰는지, `exception.getMessage()`를 쓰는지 구분)
 4. **입력 검증**: `@Valid @RequestBody`가 있으면 요청 DTO의 검증 애노테이션 `message`, 그리고 400(형식 오류)
 5. **인증**: 해당 서비스의 `security/WebConfig.java`(member-service)에서 이 경로가 `permitAll`인지 인증 필요인지 (인증 필요면 401 포함)

@@ -27,7 +27,7 @@ IDE나 `./gradlew :member-service:bootRun`(또는 `:cash-service:bootRun`)으로
 여러 서비스가 같은 인프라를 쓰므로 서비스를 종료해도 컨테이너는 멈추지 않습니다(`lifecycle-management: start-only`). 정리할 때는 `docker compose down`을 실행합니다.
 
 IntelliJ에서는 `MemberApplication`, `CashApplication`을 바로 실행하면 됩니다. 실행 위치(working directory)가 저장소 루트, `backend/`, 모듈 폴더 중 어디여도
-`common`의 `LocalDevEnvironmentPostProcessor`가 `backend/compose.yml`과 `backend/.env`를 찾아 적용합니다.
+`common`의 `global/config/LocalDevEnvironmentPostProcessor`가 `backend/compose.yml`과 `backend/.env`를 찾아 적용합니다.
 
 `docker/elasticsearch/Dockerfile`을 수정했다면 `docker compose up -d --build`로 이미지를 다시 만듭니다.
 
@@ -135,7 +135,7 @@ IntelliJ에서는 `MemberApplication`, `CashApplication`을 바로 실행하면 
 ## Kafka 메시지 직렬화 (`JsonConverter`)
 
 Kafka에는 메시지를 **JSON 문자열**로 보냅니다. Kafka 직렬화기는 `StringSerializer`/`StringDeserializer`로 고정하고(`application.yaml`),
-객체와 JSON 사이의 변환은 애플리케이션 코드에서 `JsonConverter`(`common`의 `json`)로 합니다.
+객체와 JSON 사이의 변환은 애플리케이션 코드에서 `JsonConverter`(`common`의 `global/json`)로 합니다.
 
 ### Spring Kafka의 JSON 직렬화기를 쓰지 않는 이유
 
@@ -163,7 +163,7 @@ Kafka에는 메시지를 **JSON 문자열**로 보냅니다. Kafka 직렬화기�
 
 아래 코드의 토픽, 메시지 클래스, 그룹 ID는 사용법을 보여 주기 위한 예시입니다.
 
-1. **메시지 클래스**를 만듭니다. 생산자와 소비자(다른 서비스)가 함께 쓰므로 `common`의 `event` 패키지에 두고, `record`로 만들면 별도 설정 없이 변환됩니다.
+1. **메시지 클래스**를 만듭니다. 생산자와 소비자(다른 서비스)가 함께 쓰므로 `common`의 `shared/<도메인>/event` 패키지에 두고, `record`로 만들면 별도 설정 없이 변환됩니다.
 
    ```java
    public record EmailSendMessage(
@@ -175,7 +175,7 @@ Kafka에는 메시지를 **JSON 문자열**로 보냅니다. Kafka 직렬화기�
    ```
 
 2. **토픽 이름**은 [Kafka 토픽 네이밍 컨벤션](../.claude/rules/kafka-topic-convention.md)(`<message-type>.<dataset-name>.<data-name>`)을 따르고,
-   상수로 한곳(`common`의 `event/KafkaTopics`)에 모아 생산자와 소비자가 같은 상수를 참조합니다. 오타가 나면 오류 없이 다른 토픽이 새로 만들어지기 때문입니다.
+   상수로 한곳에 모아 생산자와 소비자가 같은 상수를 참조합니다. 오타가 나면 오류 없이 다른 토픽이 새로 만들어지기 때문입니다.
 
    ```java
    public final class KafkaTopics {

@@ -1,4 +1,4 @@
-package com.bukang.common.jpa;
+package com.bukang.common.global.jpa.entity;
 
 import java.time.LocalDateTime;
 

@@ -1,8 +1,8 @@
-package com.bukang.common.rsdata;
+package com.bukang.common.global.rsdata;
 
 import org.springframework.http.HttpStatus;
 
-import com.bukang.common.standard.ResultType;
+import com.bukang.common.standard.resulttype.ResultType;
 
 public record RsData<T>(int status, String message, T data) implements ResultType<T> {
 	public static <T> RsData<T> of(HttpStatus status, String message, T data) {

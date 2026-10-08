@@ -1,4 +1,4 @@
-package com.bukang.common.exception;
+package com.bukang.common.global.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -7,7 +7,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import com.bukang.common.rsdata.RsData;
+import com.bukang.common.global.rsdata.RsData;
 
 /**
  * 모든 서비스가 공통으로 쓰는 예외 처리
