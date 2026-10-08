@@ -14,11 +14,12 @@ RUN chmod +x gradlew
 
 # 모듈 소스를 복사한다. settings.gradle.kts에 등록된 모듈 폴더가 모두 있어야 Gradle이 설정 단계를 통과한다
 COPY common common
+COPY jwt jwt
 COPY member-service member-service
 COPY cash-service cash-service
 
 # Gradle 캐시(~/.gradle)를 빌드 간에 유지해서, 의존성은 변경된 것만 새로 받는다
-# :<모듈>:bootJar 는 그 서비스와 의존하는 common만 빌드한다
+# :<모듈>:bootJar 는 그 서비스와 의존하는 라이브러리 모듈(common, jwt)만 빌드한다
 RUN --mount=type=cache,target=/root/.gradle ./gradlew :${MODULE}:bootJar --no-daemon
 
 # ── 2단계: 실행 (JRE 이미지에 jar만 복사) ──

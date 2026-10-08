@@ -57,3 +57,8 @@ springdoc:
       title: Bukang Member API
       description: 크루 중심 마라톤 대회 예매·커머스 플랫폼 API
       version: v1
+
+# JWT 유효 기간 (서명 키 jwt.secret은 프로파일별 yaml에 있다)
+jwt:
+  access-token-expiration: 30m
+  refresh-token-expiration: 14d

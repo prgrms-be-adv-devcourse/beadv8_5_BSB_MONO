@@ -19,10 +19,8 @@ dependencies {
 	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.0") //swagger and openapi
 	implementation("org.springframework.boot:spring-boot-starter-data-redis") // redis
 
-	// JWT
-	implementation("io.jsonwebtoken:jjwt-api:0.13.0")
-	runtimeOnly("io.jsonwebtoken:jjwt-impl:0.13.0")
-	runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.13.0")
+	// JWT 발급·검증 (jjwt는 jwt 모듈이 가져온다)
+	implementation(project(":jwt"))
 
 	developmentOnly("org.springframework.boot:spring-boot-devtools") // dev-tools
 

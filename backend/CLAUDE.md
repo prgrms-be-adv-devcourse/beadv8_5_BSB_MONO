@@ -10,6 +10,7 @@
 | 모듈 | 종류 | 포트 | 역할 |
 |---|---|---|---|
 | `common` | 라이브러리(jar) | - | 모든 서비스가 함께 쓰는 코드 (응답 형식, 예외, JPA 부모 클래스, 서비스 간 이벤트) |
+| `jwt` | 라이브러리(jar) | - | JWT 발급·검증 (`JwtProvider`). 웹·JPA 의존성이 없어 게이트웨이(WebFlux)에서도 쓴다 |
 | `member-service` | Spring Boot 앱 | 8080 | 회원가입, 로그인, 인증 |
 | `cash-service` | Spring Boot 앱 | 8081 | 회원 복제본(`CashMember`), 캐시 (뼈대만 있음) |
 
@@ -40,7 +41,7 @@ Windows에서는 `gradlew.bat`, Git Bash에서는 `./gradlew`를 사용합니다
 
 ```
 backend/
-├── settings.gradle.kts        include("common", "member-service", "cash-service")
+├── settings.gradle.kts        include("common", "jwt", "member-service", "cash-service")
 ├── build.gradle.kts           모든 모듈 공통 설정
 ├── compose.yml                공용 인프라 (MySQL, Kafka, Elasticsearch, Redis) + 서비스별 앱 컨테이너
 ├── common/      com.bukang.common
@@ -57,6 +58,7 @@ backend/
 │   └── standard/              프레임워크와 무관한 인터페이스
 │       ├── modeltype/         HasModelTypeCode
 │       └── resulttype/        ResultType
+├── jwt/         com.bukang.jwt     JwtProvider, JwtProperties(jwt.*), JwtAutoConfiguration(빈 자동 등록)
 ├── member-service/  com.bukang.member
 │   ├── in/ app/ domain/ out/  컨트롤러 / Facade·UseCase / 엔티티·도메인 예외 / Repository
 │   ├── domain/                SourceMember, Member, exception/
