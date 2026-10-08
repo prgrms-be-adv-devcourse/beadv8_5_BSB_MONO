@@ -7,7 +7,7 @@ paths:
 # Swagger(OpenAPI) 애노테이션 컨벤션
 
 `@RestController`를 새로 만들거나 수정할 때 아래 규칙에 따라 Swagger 애노테이션을 함께 작성합니다.
-참고 구현은 `boundedcontext/member/in/ApiV1AuthController.java`와 `AuthApiExamples.java`입니다.
+참고 구현은 `member-service`의 `in/ApiV1AuthController.java`와 `AuthApiExamples.java`입니다.
 
 **참고 구현에서 가져오는 것은 애노테이션 구성 방식과 작성 패턴뿐입니다.** 응답 코드, 에러 종류, 메시지, 예시 값은
 대상 컨트롤러의 실제 코드에서 새로 조사해 작성합니다. Auth의 에러(이메일 중복 409, 로그인 실패 401 등)를 다른 컨트롤러에
