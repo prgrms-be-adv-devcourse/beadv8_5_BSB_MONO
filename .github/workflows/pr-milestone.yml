@@ -1,0 +1,26 @@
+name: pr-milestone
+
+# 머지된 PR에 마감이 가장 가까운 GitHub 마일스톤(세미 제출 / 세미 발표 / 최종 발표)을 붙인다.
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  milestone:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const run = require('./.github/scripts/pr-milestone.js')
+            await run({ github, context, core })

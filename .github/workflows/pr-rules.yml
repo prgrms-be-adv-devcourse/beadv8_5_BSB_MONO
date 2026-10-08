@@ -1,0 +1,55 @@
+name: pr-rules
+
+# husky(commitlint)는 각자 PC의 커밋만 검사한다. 웹에서 만든 PR 제목과 브랜치 이름은 여기서 검사한다.
+on:
+  pull_request:
+    types: [opened, reopened, edited, synchronize, labeled, unlabeled]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # 이 job 이름(pr-title)이 main 브랜치 보호의 필수 체크다.
+  pr-title:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: frontend/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+
+      # 커밋과 같은 commitlint 설정(frontend/commitlint.config.mjs)으로 PR 제목을 검사한다.
+      # 제목은 사용자 입력이라 스크립트에 직접 넣지 않고 환경 변수로 넘긴다.
+      - env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: printf '%s\n' "$PR_TITLE" | pnpm exec commitlint --verbose
+
+  # 이 job 이름(pr-branch)이 main 브랜치 보호의 필수 체크다.
+  pr-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const check = require('./.github/scripts/pr-rules.js')
+            await check({ context, core })

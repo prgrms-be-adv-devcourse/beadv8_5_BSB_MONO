@@ -1,16 +1,12 @@
 name: backend-ci
 
-# backend/ 변경이 있을 때만 돈다
+# 모든 PR에서 돌고, backend/ 변경이 없으면 backend job을 건너뛴다.
+# on.paths로 거르면 워크플로 자체가 안 떠서 필수 체크가 영원히 대기 상태가 된다.
+# 건너뛴 job은 필수 체크에서 통과로 친다.
 on:
   pull_request:
-    paths:
-      - 'backend/**'
-      - '.github/workflows/backend-ci.yml'
   push:
     branches: [main]
-    paths:
-      - 'backend/**'
-      - '.github/workflows/backend-ci.yml'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -18,13 +14,32 @@ concurrency:
 
 permissions:
   contents: read
+  pull-requests: read
 
 defaults:
   run:
     working-directory: backend
 
 jobs:
-  check:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - '.github/workflows/backend-ci.yml'
+
+  # 이 job 이름(backend)이 main 브랜치 보호의 필수 체크다. 바꾸면 보호 규칙도 같이 바꾼다.
+  backend:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
