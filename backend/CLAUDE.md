@@ -44,12 +44,19 @@ backend/
 ├── build.gradle.kts           모든 모듈 공통 설정
 ├── compose.yml                공용 인프라 (MySQL, Kafka, Elasticsearch, Redis) + 서비스별 앱 컨테이너
 ├── common/      com.bukang.common
-│   ├── standard/              HasModelTypeCode, ResultType (프레임워크와 무관한 인터페이스)
-│   ├── rsdata/                RsData (공통 응답)
-│   ├── json/                  JsonConverter
-│   ├── jpa/                   BaseEntity, BaseIdAndTime, BaseManualIdAndTime
-│   ├── exception/             BusinessException, GlobalExceptionHandler
-│   └── event/                 KafkaTopics, member/ MemberJoinedEvent, BaseMember, ReplicaMember (공개 필드만)
+│   ├── global/                기술 공통 (도메인 지식 없음)
+│   │   ├── config/            LocalDevEnvironmentPostProcessor (compose.yml, .env 위치 탐색)
+│   │   ├── exception/         BusinessException, GlobalExceptionHandler
+│   │   ├── jpa/entity/        BaseEntity, BaseIdAndTime, BaseManualIdAndTime
+│   │   ├── json/              JsonConverter
+│   │   └── rsdata/            RsData (공통 응답)
+│   ├── shared/                서비스 간 계약 (도메인 지식 있음)
+│   │   └── member/
+│   │       ├── domain/        BaseMember, ReplicaMember (공개 필드만)
+│   │       └── event/         MemberJoinedEvent
+│   └── standard/              프레임워크와 무관한 인터페이스
+│       ├── modeltype/         HasModelTypeCode
+│       └── resulttype/        ResultType
 ├── member-service/  com.bukang.member
 │   ├── in/ app/ domain/ out/  컨트롤러 / Facade·UseCase / 엔티티·도메인 예외 / Repository
 │   ├── domain/                SourceMember, Member, exception/
@@ -64,10 +71,11 @@ backend/
   서비스의 `@SpringBootApplication(scanBasePackages = {"com.bukang.<서비스>", "com.bukang.common"})`로 common의 빈도 등록합니다.
 - **서비스끼리는 서로 의존하지 않습니다.** 다른 서비스의 클래스가 필요하면 `common`에 올릴지(계약: 이벤트, 공개 필드) 먼저 검토합니다.
   `common`에는 특정 서비스 전용 코드(Spring Security, 회원 엔티티 등)를 넣지 않습니다.
+- `common` 안에서 `global`(기술 공통)은 `shared`(서비스 간 계약)를 참조하지 않습니다. 의존 방향은 `shared` → `global` → `standard`입니다.
 - 다른 서비스가 회원 정보를 가져야 하면 `ReplicaMember`를 상속한 엔티티에 Kafka 이벤트(`MemberJoinedEvent`)로 복제해 보관합니다.
   `BaseMember`(원본·복제본 공통)에는 공개 정보(username, nickname)만 두고, 비밀번호·이메일·휴대폰 번호는 `SourceMember`에만 둡니다.
   unique 제약은 원본 엔티티(`Member`)에만 겁니다.
-- 도메인 예외는 `common/exception/BusinessException`을 상속하고 생성자에서 `HttpStatus`를 정합니다.
+- 도메인 예외는 `common`의 `global/exception/BusinessException`을 상속하고 생성자에서 `HttpStatus`를 정합니다.
   `GlobalExceptionHandler`가 한 번에 처리하므로 도메인을 추가해도 핸들러는 고치지 않습니다.
   Spring Security 예외는 `member-service`의 `AuthExceptionHandler`가 처리합니다.
 - API 응답은 성공·실패 모두 `RsData {status, message, data}` 형식입니다.
@@ -89,7 +97,7 @@ Spring Boot 4의 모듈화된 스타터를 사용합니다. 테스트 지원도 
 
 ## 설정 관련 주의사항
 
-- `backend/.env`와 `backend/compose.yml`은 `common`의 `LocalDevEnvironmentPostProcessor`가 실행 위치(working directory)와 상관없이 찾아 적용합니다.
+- `backend/.env`와 `backend/compose.yml`은 `common`의 `global/config/LocalDevEnvironmentPostProcessor`가 실행 위치(working directory)와 상관없이 찾아 적용합니다.
 - 프로파일: `dev`(기본, 로컬 MySQL 등 compose 인프라), `test`(H2, Kafka 리스너 꺼짐), `prod`(값은 `.env` 환경변수).
 - dev/test의 암호화 키와 JWT 키는 개발용으로 yaml에 들어 있습니다. prod 키는 `.env`에만 두고 dev와 다른 값을 씁니다.
 - 인증은 JWT + Redis(Stateless)가 목표지만, JWT 필터를 구현하기 전까지는 세션으로 로그인 상태를 유지합니다 (`member-service`의 `security/WebConfig`).

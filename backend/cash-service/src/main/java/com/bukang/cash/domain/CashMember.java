@@ -2,7 +2,7 @@ package com.bukang.cash.domain;
 
 import java.time.LocalDateTime;
 
-import com.bukang.common.event.member.ReplicaMember;
+import com.bukang.common.shared.member.domain.ReplicaMember;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;

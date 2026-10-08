@@ -1,4 +1,4 @@
-package com.bukang.common.exception;
+package com.bukang.common.global.exception;
 
 import org.springframework.http.HttpStatus;
 

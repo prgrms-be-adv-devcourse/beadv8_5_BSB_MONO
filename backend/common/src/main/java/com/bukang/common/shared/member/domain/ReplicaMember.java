@@ -1,4 +1,4 @@
-package com.bukang.common.event.member;
+package com.bukang.common.shared.member.domain;
 
 import java.time.LocalDateTime;
 

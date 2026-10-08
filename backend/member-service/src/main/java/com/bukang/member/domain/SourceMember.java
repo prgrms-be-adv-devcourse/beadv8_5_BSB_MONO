@@ -9,7 +9,7 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import com.bukang.common.event.member.BaseMember;
+import com.bukang.common.shared.member.domain.BaseMember;
 import com.bukang.member.config.crypto.EncryptedStringConverter;
 
 import jakarta.persistence.Column;

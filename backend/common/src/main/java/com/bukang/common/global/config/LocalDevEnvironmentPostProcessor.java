@@ -1,4 +1,4 @@
-package com.bukang.common.config;
+package com.bukang.common.global.config;
 
 import java.io.IOException;
 import java.io.Reader;

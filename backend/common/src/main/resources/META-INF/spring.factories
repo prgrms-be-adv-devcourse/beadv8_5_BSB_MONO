@@ -1,2 +1,2 @@
 org.springframework.boot.EnvironmentPostProcessor=\
-com.bukang.common.config.LocalDevEnvironmentPostProcessor
+com.bukang.common.global.config.LocalDevEnvironmentPostProcessor
