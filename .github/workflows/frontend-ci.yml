@@ -1,27 +1,45 @@
 name: frontend-ci
 
-# frontend/ 변경이 있을 때만 돈다
+# 모든 PR에서 돌고, frontend/ 변경이 없으면 frontend job을 건너뛴다.
+# on.paths로 거르면 워크플로 자체가 안 떠서 필수 체크가 영원히 대기 상태가 된다.
+# 건너뛴 job은 필수 체크에서 통과로 친다.
 on:
   pull_request:
-    paths:
-      - 'frontend/**'
-      - '.github/workflows/frontend-ci.yml'
   push:
     branches: [main]
-    paths:
-      - 'frontend/**'
-      - '.github/workflows/frontend-ci.yml'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
 
 defaults:
   run:
     working-directory: frontend
 
 jobs:
-  check:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'frontend/**'
+              - '.github/workflows/frontend-ci.yml'
+
+  # 이 job 이름(frontend)이 main 브랜치 보호의 필수 체크다. 바꾸면 보호 규칙도 같이 바꾼다.
+  frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     env:
       API_MOCKING: 'on'

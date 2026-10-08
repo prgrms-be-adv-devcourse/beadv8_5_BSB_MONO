@@ -64,23 +64,52 @@ Claude는 Linear 이슈를 만들거나 고칠 때, 이슈 작업을 시작할 �
 
 ## 작업 흐름
 
-1. **시작**: 이슈를 나에게 배정하고 In Progress로 바꾼다.
+1. **시작**: 이슈를 나에게 배정한다. 상태는 브랜치를 푸시하거나 PR을 열면 In Progress로 바뀐다.
 2. **브랜치**: `<type>/PRO-<번호>-<짧은-설명>`. type은 커밋과 같은 Conventional Commits 종류다. 예: `feat/PRO-12-crew-invite-accept`
+   이슈에서 `Cmd+Shift+.`로 브랜치 이름을 복사할 수 있지만, 앞의 `<type>/`은 직접 붙인다.
 3. **PR**: 제목은 커밋 규칙을 따르고, 본문에 `Closes PRO-12`를 넣는다.
-4. **끝**: PR이 머지되면 본문에 `Closes`로 적은 이슈가 Done으로 옮겨진다. PR이 없는 일(기획, 디자인)은 결과물 링크를 댓글로 남기고 직접 Done으로 바꾼다.
+4. **끝**: PR이 머지되면 연결된 이슈가 Done으로 옮겨진다. PR이 없는 일(기획, 디자인)은 결과물 링크를 댓글로 남기고 직접 Done으로 바꾼다.
 
-### PR 자동 연결 (GitHub Actions)
+### PR 자동 연결 (Linear 공식 GitHub 연동)
 
-Linear 공식 GitHub 연동은 쓰지 않는다(저장소가 부트캠프 조직 소유라 앱 설치 승인을 받기 어렵다). 대신 `.github/workflows/linear-sync.yml`이 PR 이벤트마다 Linear API를 부른다.
+Linear 공식 GitHub 연동을 쓴다. 브랜치 이름, PR 제목·본문, 커밋 메시지에 있는 `PRO-<번호>`로 이미 있는 이슈를 찾아 PR을 연결한다.
+연동은 이슈를 새로 만들지 않는다. 번호가 없는 작업은 어떤 이슈와도 연결되지 않는다.
 
 | PR 상황 | 하는 일 |
 | --- | --- |
-| 열림, 본문 수정 | 브랜치 이름·제목·본문에 있는 `PRO-<번호>` 이슈에 PR 링크를 붙인다 |
-| 머지됨 | 본문에 `Closes`·`Fixes`·`Resolves` 뒤에 적은 이슈만 Done으로 옮긴다 |
+| 브랜치 푸시, PR 열림 | 이슈에 PR을 연결하고 In Progress로 옮긴다 |
+| PR 진행 중 | 이슈 화면에 CI 결과, 리뷰 승인, 머지 여부가 보인다 |
+| 머지됨 | 연결된 이슈를 Done으로 옮긴다 |
 
-- 공식 연동과 달리 PR을 열어도 In Progress로 바뀌지 않는다. 시작할 때 직접 바꾼다.
-- 머지하지 않고 닫은 PR은 이슈 상태를 바꾸지 않는다.
-- 저장소 Secrets의 `LINEAR_API_KEY`(저장소 관리자의 개인 키)로 동작하므로, Linear 기록에는 그 사람 이름이 남는다. 키가 없으면 아무것도 하지 않고 넘어간다.
+- 브랜치 이름이나 PR 제목에 번호가 있으면 머지할 때 그 이슈도 Done이 된다. Done으로 옮기지 않고 연결만 하려면 브랜치·제목에서 번호를 빼고 본문에 `Refs PRO-12`로 쓴다.
+- 상태 자동 변경 규칙은 Linear 팀 설정 → Workflow의 Pull request 자동화에서 정한다. 우리 팀 상태에는 In Review가 없으므로, 리뷰 요청 단계는 In Progress에 그대로 둔다.
+- 연동의 GitHub Issues 동기화는 켜지 않는다(아래 "GitHub 이슈는 쓰지 않는다").
+
+## GitHub 활용
+
+할 일의 원본은 Linear 하나다. **GitHub 이슈는 쓰지 않는다**(양쪽에 적으면 금방 어긋난다). GitHub에서는 PR·CI·마일스톤만 쓴다.
+Wiki와 Projects 탭은 팀 작업용이 아니라 외부 공개용이다. Projects는 프로젝트 진행 상황을, Wiki는 팀 규칙(브랜치·커밋·코드 컨벤션)을 밖에서 볼 수 있게 보여 준다.
+
+### main에 머지하려면 (브랜치 보호)
+
+main에는 직접 푸시할 수 없고 PR로만 들어간다. 팀원 1명의 승인을 받고 아래 필수 체크가 모두 통과해야 머지 버튼이 열린다.
+저장소 관리자는 PR에서만 이 조건을 건너뛰고 머지할 수 있다(main 직접 푸시는 관리자도 막힌다).
+
+| 필수 체크 | 워크플로 | 검사 내용 |
+| --- | --- | --- |
+| `backend` | `backend-ci.yml` | `./gradlew build` (backend/ 변경이 없으면 건너뛰고 통과) |
+| `frontend` | `frontend-ci.yml` | lint, format, typecheck, test, build (frontend/ 변경이 없으면 건너뛰고 통과) |
+| `pr-title` | `pr-rules.yml` | PR 제목이 커밋 규칙(commitlint)에 맞는지 |
+| `pr-branch` | `pr-rules.yml` | 브랜치 이름이 `<type>/PRO-<번호>-<짧은-설명>`인지 |
+
+- Linear 이슈가 없는 작업(설정 정리 등)은 PR에 `no-issue` 라벨을 붙이면 브랜치 이름 검사를 건너뛴다.
+- 제목 설명을 영어 대문자로 시작하면 commitlint가 막는다(`subject-case`). `ci: GitHub 설정 추가` ✗ → `ci: 저장소 설정 추가` ✓
+- 필수 체크 이름은 job 이름이다. job 이름을 바꾸면 브랜치 보호 규칙도 같이 바꾼다.
+
+### 마일스톤
+
+GitHub 마일스톤은 Linear 마일스톤과 같은 이름·날짜로 둔다: 세미 제출(10/22), 세미 발표(10/23), 최종 발표(11/23).
+`pr-milestone.yml`이 머지된 PR에 **머지 날짜(한국 시간) 이후로 마감이 가장 가까운 마일스톤**을 자동으로 붙인다. 직접 붙여 둔 PR은 건드리지 않는다.
 
 ## Claude 작업 규칙
 
