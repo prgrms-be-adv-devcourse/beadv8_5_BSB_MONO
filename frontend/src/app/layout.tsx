@@ -1,17 +1,19 @@
 import type { Metadata } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
+import { Barlow_Condensed, Noto_Sans_KR } from 'next/font/google'
 
 import { Providers } from './_providers'
 
 import './globals.css'
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
+// 피그마 텍스트 스타일의 글꼴. 본문은 Noto Sans KR, Display·Eyebrow는 Barlow Condensed
+const notoSansKr = Noto_Sans_KR({
+  variable: '--font-noto-sans-kr',
   subsets: ['latin'],
 })
 
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
+const barlowCondensed = Barlow_Condensed({
+  variable: '--font-barlow-condensed',
+  weight: ['600', '700', '800'],
   subsets: ['latin'],
 })
 
@@ -22,7 +24,10 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
-    <html lang="ko" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
+    <html
+      lang="ko"
+      className={`${notoSansKr.variable} ${barlowCondensed.variable} h-full antialiased`}
+    >
       <body className="flex min-h-full flex-col">
         <Providers>{children}</Providers>
       </body>

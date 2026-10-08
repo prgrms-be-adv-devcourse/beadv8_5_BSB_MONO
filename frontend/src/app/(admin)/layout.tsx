@@ -2,8 +2,8 @@ import type { ReactNode } from 'react'
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-full flex-1 flex-col md:flex-row">
-      <aside className="border-b border-neutral-200 px-4 py-3 text-sm font-bold md:w-56 md:border-r md:border-b-0">
+    <div className="flex min-h-full flex-1 flex-col tablet:flex-row">
+      <aside className="border-b border-border-default px-4 py-3 text-label-strong tablet:w-56 tablet:border-r tablet:border-b-0">
         관리자
       </aside>
       <div className="flex-1">{children}</div>
