@@ -1,4 +1,4 @@
-package com.bukang.boundedcontext.payout.domain;
+package com.bukang.payout.domain;
 
 import static jakarta.persistence.EnumType.STRING;
 import static jakarta.persistence.FetchType.LAZY;
@@ -6,7 +6,7 @@ import static lombok.AccessLevel.PROTECTED;
 
 import java.time.LocalDateTime;
 
-import com.bukang.global.jpa.entity.BaseIdAndTime;
+import com.bukang.common.global.jpa.entity.BaseIdAndTime;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

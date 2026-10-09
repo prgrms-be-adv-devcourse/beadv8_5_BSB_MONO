@@ -1,4 +1,4 @@
-package com.bukang.boundedcontext.payout.out;
+package com.bukang.payout.out;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -12,20 +12,16 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.ActiveProfiles;
 
-import com.bukang.boundedcontext.payout.domain.Payout;
-import com.bukang.boundedcontext.payout.domain.PayoutItem;
-import com.bukang.boundedcontext.payout.domain.PayoutRecordType;
-import com.bukang.global.config.crypto.CryptoConfig;
+import com.bukang.payout.domain.Payout;
+import com.bukang.payout.domain.PayoutItem;
+import com.bukang.payout.domain.PayoutRecordType;
 
 import jakarta.persistence.EntityManager;
 
-// 슬라이스 테스트는 일반 @Configuration을 띄우지 않는다. Member 엔티티의 암호화 컨버터가 쓰는 TextEncryptor 빈을 직접 불러온다
 @DataJpaTest
-@Import(CryptoConfig.class)
 @ActiveProfiles("test")
 class PayoutRepositoryTest {
 	private static final BigDecimal FEE_RATE = new BigDecimal("0.0550");

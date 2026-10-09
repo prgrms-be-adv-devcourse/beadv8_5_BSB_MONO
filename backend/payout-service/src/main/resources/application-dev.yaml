@@ -1,0 +1,23 @@
+spring:
+  # 지금은 다른 서비스와 같은 DB(bukang-db)를 쓰고, 테이블 이름 접두사(PAYOUT_)로 구분한다
+  datasource:
+    url: jdbc:mysql://localhost:3306/bukang-db
+    username: bukang2
+    password: bukang2
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        show_sql: false
+        format_sql: true
+        highlight_sql: true
+    open-in-view: false
+
+logging:
+  level:
+    com.bukang: debug
+    org.hibernate.SQL: debug
+    org.hibernate.orm.jdbc.bind: trace
