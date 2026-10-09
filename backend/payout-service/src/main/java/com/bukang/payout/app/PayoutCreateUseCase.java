@@ -12,6 +12,7 @@ import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.bukang.payout.domain.BusinessDayCalendar;
 import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutTargetDate;
 import com.bukang.payout.out.PayoutRepository;
@@ -31,6 +32,7 @@ public class PayoutCreateUseCase {
 
 	private final PayoutRepository payoutRepository;
 	private final PayoutSourcePort payoutSourcePort;
+	private final BusinessDayCalendar businessDayCalendar;
 
 	@Transactional
 	public void run(LocalDate targetDate, LocalDateTime now) {
@@ -49,7 +51,7 @@ public class PayoutCreateUseCase {
 				return;
 			}
 
-			Payout payout = new Payout(sellerId, raceId, payoutMonth, now);
+			Payout payout = new Payout(sellerId, raceId, payoutMonth, now, businessDayCalendar);
 			entries.forEach(entry -> payout.addItem(entry.orderItemId(), entry.price(), FEE_RATE, targetDate));
 
 			// 정산 ID의 끝 4자리는 PK에서 만들므로 저장해서 ID를 받은 뒤에 붙인다

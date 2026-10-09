@@ -13,9 +13,27 @@ import org.junit.jupiter.api.Test;
 class PayoutTest {
 	private static final BigDecimal FEE_RATE = new BigDecimal("0.0550");
 	private static final LocalDate TARGET_DATE = LocalDate.of(2026, 9, 29);
+	private static final BusinessDayCalendar CALENDAR = new BusinessDayCalendar();
 
 	private Payout newPayout() {
-		return new Payout(1, 10, YearMonth.of(2026, 9), LocalDateTime.of(2026, 9, 29, 3, 0));
+		return new Payout(1, 10, YearMonth.of(2026, 9), LocalDateTime.of(2026, 9, 29, 3, 0), CALENDAR);
+	}
+
+	private Payout newPayout(YearMonth payoutMonth) {
+		return new Payout(1, 10, payoutMonth, payoutMonth.atEndOfMonth().atTime(3, 0), CALENDAR);
+	}
+
+	@Test
+	@DisplayName("지급 예정일은 정산 월의 다음 달 20일이다 (2026-09 → 10/20 화)")
+	void scheduledPayDateIsNextMonth20th() {
+		assertThat(newPayout(YearMonth.of(2026, 9)).getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 10, 20));
+	}
+
+	@Test
+	@DisplayName("다음 달 20일이 주말이면 다음 월요일에 지급한다 (2026-05 → 6/20 토 → 6/22, 2026-08 → 9/20 일 → 9/21)")
+	void scheduledPayDateSkipsWeekend() {
+		assertThat(newPayout(YearMonth.of(2026, 5)).getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 6, 22));
+		assertThat(newPayout(YearMonth.of(2026, 8)).getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 9, 21));
 	}
 
 	@Test

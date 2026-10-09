@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.test.context.ActiveProfiles;
 
+import com.bukang.payout.domain.BusinessDayCalendar;
 import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutItem;
 import com.bukang.payout.domain.PayoutStatus;
@@ -34,14 +35,18 @@ class PayoutCreateUseCaseTest {
 		return raceDate -> raceDate.equals(RACE_DATE) ? entries : List.of();
 	}
 
+	private PayoutCreateUseCase useCaseSelling(List<SoldEntry> entries) {
+		return new PayoutCreateUseCase(payoutRepository, sourceReturning(entries), new BusinessDayCalendar());
+	}
+
 	@Test
 	@DisplayName("정산 대상일에 판매자 × 대회별로 정산 내역을 만들고, 참가권마다 정산 항목을 만든다")
 	void createsPayoutPerSellerAndRace() {
-		PayoutCreateUseCase useCase = new PayoutCreateUseCase(payoutRepository, sourceReturning(List.of(
+		PayoutCreateUseCase useCase = useCaseSelling(List.of(
 			new SoldEntry(100, 1, 10, 50_000L),
 			new SoldEntry(101, 1, 10, 50_000L),
 			new SoldEntry(200, 2, 20, 30_000L)
-		)));
+		));
 
 		useCase.run(TARGET_DATE, NOW);
 
@@ -52,6 +57,7 @@ class PayoutCreateUseCaseTest {
 		assertThat(seller1.getRaceId()).isEqualTo(10);
 		assertThat(seller1.getPayoutMonth()).isEqualTo("2026-09");
 		assertThat(seller1.getStatus()).isEqualTo(PayoutStatus.CALCULATED);
+		assertThat(seller1.getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 10, 20));
 		assertThat(seller1.getPayoutAmount()).isEqualTo(94_500L);
 		assertThat(seller1.getItems())
 			.extracting(PayoutItem::getOrderItemId)
@@ -64,9 +70,9 @@ class PayoutCreateUseCaseTest {
 	@Test
 	@DisplayName("정산 ID는 'ST-만든 날-16진수 4자리' 형식이다")
 	void assignsPayoutCode() {
-		PayoutCreateUseCase useCase = new PayoutCreateUseCase(payoutRepository, sourceReturning(List.of(
+		PayoutCreateUseCase useCase = useCaseSelling(List.of(
 			new SoldEntry(100, 1, 10, 50_000L)
-		)));
+		));
 
 		useCase.run(TARGET_DATE, NOW);
 
@@ -77,9 +83,9 @@ class PayoutCreateUseCaseTest {
 	@Test
 	@DisplayName("같은 날 배치를 두 번 돌려도 정산 내역이 중복으로 만들어지지 않는다")
 	void runTwiceDoesNotDuplicate() {
-		PayoutCreateUseCase useCase = new PayoutCreateUseCase(payoutRepository, sourceReturning(List.of(
+		PayoutCreateUseCase useCase = useCaseSelling(List.of(
 			new SoldEntry(100, 1, 10, 50_000L)
-		)));
+		));
 
 		useCase.run(TARGET_DATE, NOW);
 		useCase.run(TARGET_DATE, NOW.plusHours(1));
