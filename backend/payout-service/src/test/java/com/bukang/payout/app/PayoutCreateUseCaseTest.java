@@ -24,8 +24,8 @@ import com.bukang.payout.out.SoldEntry;
 @ActiveProfiles("test")
 class PayoutCreateUseCaseTest {
 	private static final LocalDate RACE_DATE = LocalDate.of(2026, 9, 25);
-	private static final LocalDate TARGET_DATE = LocalDate.of(2026, 9, 29);
-	private static final LocalDateTime NOW = LocalDateTime.of(2026, 9, 29, 3, 0);
+	private static final LocalDate TARGET_DATE = LocalDate.of(2026, 9, 26);
+	private static final LocalDateTime NOW = LocalDateTime.of(2026, 9, 26, 3, 0);
 
 	@Autowired
 	private PayoutRepository payoutRepository;
@@ -77,7 +77,7 @@ class PayoutCreateUseCaseTest {
 		useCase.run(TARGET_DATE, NOW);
 
 		Payout payout = payoutRepository.findAll().getFirst();
-		assertThat(payout.getPayoutCode()).matches("ST-20260929-[0-9A-F]{4}");
+		assertThat(payout.getPayoutCode()).matches("ST-20260926-[0-9A-F]{4}");
 	}
 
 	@Test

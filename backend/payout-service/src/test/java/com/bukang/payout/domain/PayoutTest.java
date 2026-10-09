@@ -12,11 +12,11 @@ import org.junit.jupiter.api.Test;
 
 class PayoutTest {
 	private static final BigDecimal FEE_RATE = new BigDecimal("0.0550");
-	private static final LocalDate TARGET_DATE = LocalDate.of(2026, 9, 29);
+	private static final LocalDate TARGET_DATE = LocalDate.of(2026, 9, 26);
 	private static final BusinessDayCalendar CALENDAR = new BusinessDayCalendar();
 
 	private Payout newPayout() {
-		return new Payout(1, 10, YearMonth.of(2026, 9), LocalDateTime.of(2026, 9, 29, 3, 0), CALENDAR);
+		return new Payout(1, 10, YearMonth.of(2026, 9), LocalDateTime.of(2026, 9, 26, 3, 0), CALENDAR);
 	}
 
 	private Payout newPayout(YearMonth payoutMonth) {

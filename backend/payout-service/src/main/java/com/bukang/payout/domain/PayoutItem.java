@@ -50,6 +50,6 @@ public class PayoutItem extends BaseIdAndTime {
 	@Column(nullable = false, precision = 5, scale = 4)
 	private BigDecimal feeRate;
 
-	// 정산 대상일: 대회 다음 날부터 이의 제기 3일이 지난 날
+	// 정산 대상일: 대회 다음 날
 	private LocalDate targetDate;
 }

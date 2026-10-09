@@ -3,12 +3,12 @@ package com.bukang.payout.domain;
 import java.time.LocalDate;
 
 /**
- * 정산 대상일: 참가권은 대회 다음 날부터 3일의 이의 제기 기간이 지난 날에 정산 대상이 된다 (payout.md 2-4)
- * 예: 대회 9/25 → 이의 제기 9/26~9/28 → 정산 대상일 9/29
+ * 정산 대상일: 참가권은 대회가 끝난 다음 날에 정산 대상이 된다 (피그잼 06 정책 최종안 · 1차 2장)
+ * 예: 대회 9/25 → 정산 대상일 9/26 → 지급 10/20
  */
 public final class PayoutTargetDate {
-	// 대회 다음 날(1일) + 이의 제기 3일
-	private static final int DAYS_AFTER_RACE = 1 + 3;
+	// 대회 다음 날
+	private static final int DAYS_AFTER_RACE = 1;
 
 	private PayoutTargetDate() {
 	}
