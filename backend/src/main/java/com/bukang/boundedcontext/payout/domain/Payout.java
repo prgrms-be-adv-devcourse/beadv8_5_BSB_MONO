@@ -9,6 +9,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import com.bukang.global.jpa.entity.BaseIdAndTime;
@@ -65,7 +66,8 @@ public class Payout extends BaseIdAndTime {
 
 	private LocalDateTime paidAt;
 
-	@OneToMany(mappedBy = "payout", cascade = ALL, orphanRemoval = true)
+	// 정산 항목은 추가만 한다. orphanRemoval을 켜면 리스트에서 빼는 것만으로 행이 지워지므로 쓰지 않는다
+	@OneToMany(mappedBy = "payout", cascade = ALL)
 	private List<PayoutItem> items = new ArrayList<>();
 
 	public Payout(int sellerId, int raceId, YearMonth payoutMonth, LocalDateTime settledAt) {
@@ -74,6 +76,11 @@ public class Payout extends BaseIdAndTime {
 		this.payoutMonth = payoutMonth.toString();
 		this.settledAt = settledAt;
 		this.status = PayoutStatus.CALCULATED;
+	}
+
+	// 바깥에서 remove, clear로 정산 기록을 바꾸지 못하도록 읽기 전용으로 내보낸다 (추가는 addItem으로만)
+	public List<PayoutItem> getItems() {
+		return Collections.unmodifiableList(items);
 	}
 
 	// 정산 항목은 정산 내역을 통해서만 만든다 (payout_id NOT NULL)
