@@ -14,7 +14,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "api:generate": "orval",
-    "prepare": "cd .. && husky frontend/.husky"
+    "prepare": "cd .. && husky frontend/.husky",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
@@ -35,6 +37,9 @@
     "@commitlint/cli": "^21.2.3",
     "@commitlint/config-conventional": "^21.2.3",
     "@ianvs/prettier-plugin-sort-imports": "^4.7.1",
+    "@storybook/addon-docs": "^10.6.1",
+    "@storybook/addon-themes": "^10.6.1",
+    "@storybook/nextjs-vite": "^10.6.1",
     "@tailwindcss/postcss": "^4",
     "@tanstack/react-query-devtools": "^5.104.1",
     "@testing-library/dom": "^10.4.2",
@@ -57,6 +62,7 @@
     "orval": "^8.39.0",
     "prettier": "^3.9.9",
     "prettier-plugin-tailwindcss": "^0.8.1",
+    "storybook": "^10.6.1",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^5.0.3"
