@@ -3,6 +3,7 @@ package com.bukang.file.in;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MissingRequestHeaderException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -23,7 +24,17 @@ public class FileExceptionHandler {
 			.body(RsData.of(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.", null));
 	}
 
-	// 경로 변수·헤더의 숫자 형식 오류 (예: 파일 ID에 문자)
+	// 필수 쿼리 파라미터 누락 (예: 대상별 파일 조회의 refType, refId)
+	@ExceptionHandler(MissingServletRequestParameterException.class)
+	public ResponseEntity<RsData<Void>> missingServletRequestParameterException(
+		MissingServletRequestParameterException exception
+	) {
+		return ResponseEntity
+			.status(HttpStatus.BAD_REQUEST)
+			.body(RsData.of(HttpStatus.BAD_REQUEST, "필수 요청 값이 없습니다.", null));
+	}
+
+	// 경로 변수·헤더·쿼리 파라미터의 숫자 형식 오류 (예: 파일 ID에 문자)
 	@ExceptionHandler(MethodArgumentTypeMismatchException.class)
 	public ResponseEntity<RsData<Void>> methodArgumentTypeMismatchException(
 		MethodArgumentTypeMismatchException exception

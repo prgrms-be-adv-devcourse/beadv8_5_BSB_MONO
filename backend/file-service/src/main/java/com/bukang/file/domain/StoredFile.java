@@ -99,6 +99,31 @@ public class StoredFile extends BaseIdAndTime {
 		return status == FileStatus.DELETED;
 	}
 
+	public boolean isUploaded() {
+		return status == FileStatus.UPLOADED;
+	}
+
+	public boolean isActive() {
+		return status == FileStatus.ACTIVE;
+	}
+
+	public boolean isLinkedTo(String targetRefType, int targetRefId) {
+		return isActive() && targetRefType.equals(refType) && refId != null && refId == targetRefId;
+	}
+
+	// 확정 경로에 객체가 있는 상태 (이미지 URL을 만들 수 있다)
+	public boolean hasConfirmedObject() {
+		return isUploaded() || isActive();
+	}
+
+	public void linkTo(String targetRefType, int targetRefId, String targetImageType, int targetSortNo) {
+		this.refType = targetRefType;
+		this.refId = targetRefId;
+		this.imageType = targetImageType;
+		this.sortNo = targetSortNo;
+		this.status = FileStatus.ACTIVE;
+	}
+
 	public ImageFormat getFormat() {
 		return ImageFormat.fromContentType(contentType)
 			.orElseThrow(() -> new IllegalStateException("저장된 형식을 알 수 없습니다: " + contentType));

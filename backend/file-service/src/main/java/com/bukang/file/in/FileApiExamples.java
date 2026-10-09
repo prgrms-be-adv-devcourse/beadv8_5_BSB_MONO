@@ -42,6 +42,68 @@ final class FileApiExamples {
 		}
 		""";
 
+	static final String FIND_BY_REF_SUCCESS = """
+		{
+			"status": 200,
+			"message": "파일 목록을 조회했습니다.",
+			"data": [
+				{
+					"id": 2,
+					"createDate": "2026-10-09T21:27:00",
+					"modifyDate": "2026-10-09T21:30:00",
+					"originFileName": "course-map.png",
+					"contentType": "image/png",
+					"fileSize": 512000,
+					"status": "ACTIVE",
+					"refType": "Race",
+					"refId": 1,
+					"imageType": "DETAIL",
+					"sortNo": 0,
+					"url": "https://crewrun-file-dev.s3.ap-northeast-2.amazonaws.com/files/8c1d2e3f-4a5b-6c7d-8e9f-0a1b2c3d4e5f.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Expires=1800&X-Amz-Signature=..."
+				},
+				{
+					"id": 1,
+					"createDate": "2026-10-09T21:25:35",
+					"modifyDate": "2026-10-09T21:30:00",
+					"originFileName": "race-thumbnail.png",
+					"contentType": "image/png",
+					"fileSize": 204800,
+					"status": "ACTIVE",
+					"refType": "Race",
+					"refId": 1,
+					"imageType": "THUMBNAIL",
+					"sortNo": 0,
+					"url": "https://crewrun-file-dev.s3.ap-northeast-2.amazonaws.com/files/3f2a9c1e-7b4d-4e8a-9c0f-1a2b3c4d5e6f.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Expires=1800&X-Amz-Signature=..."
+				}
+			]
+		}
+		""";
+
+	static final String FIND_SUCCESS = """
+		{
+			"status": 200,
+			"message": "파일을 조회했습니다.",
+			"data": {
+				"id": 1,
+				"createDate": "2026-10-09T21:25:35",
+				"modifyDate": "2026-10-09T21:30:00",
+				"originFileName": "race-thumbnail.png",
+				"contentType": "image/png",
+				"fileSize": 204800,
+				"status": "ACTIVE",
+				"refType": "Race",
+				"refId": 1,
+				"imageType": "THUMBNAIL",
+				"sortNo": 0,
+				"url": "https://crewrun-file-dev.s3.ap-northeast-2.amazonaws.com/files/3f2a9c1e-7b4d-4e8a-9c0f-1a2b3c4d5e6f.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Expires=1800&X-Amz-Signature=..."
+			}
+		}
+		""";
+
+	static final String MISSING_PARAMETER = """
+		{ "status": 400, "message": "필수 요청 값이 없습니다.", "data": null }
+		""";
+
 	static final String ISSUE_INVALID_INPUT = """
 		{ "status": 400, "message": "파일명을 작성해주세요.", "data": null }
 		""";

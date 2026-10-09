@@ -1,14 +1,17 @@
 package com.bukang.file.in;
 
 import java.net.URI;
+import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.bukang.common.global.rsdata.RsData;
@@ -28,7 +31,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
-@Tag(name = "File", description = "이미지 업로드 URL 발급, 업로드 완료 확인 API")
+@Tag(name = "File", description = "이미지 업로드 URL 발급, 업로드 완료 확인, 파일 조회 API")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/file/files")
@@ -64,6 +67,56 @@ public class ApiV1FileController {
 		FileUploadDto upload = fileFacade.issueUploadUrl(request, memberId);
 		return ResponseEntity.created(URI.create("/api/v1/file/files/" + upload.getFileId()))
 			.body(RsData.of(HttpStatus.CREATED, "업로드 URL을 발급했습니다.", upload));
+	}
+
+	@GetMapping
+	@Operation(summary = "대상별 파일 목록 조회",
+		description = "대상(대회 등)에 연결된 파일을 용도(imageType) → 노출 순서(sortNo) 순으로 돌려준다. "
+			+ "이미지 URL은 30분 뒤 만료되는 presigned GET URL이다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "조회 성공",
+			content = @Content(examples = @ExampleObject(value = FileApiExamples.FIND_BY_REF_SUCCESS))),
+		@ApiResponse(responseCode = "400", description = "필수 요청 값 없음 또는 대상 ID 형식 오류",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "필수 요청 값 없음", value = FileApiExamples.MISSING_PARAMETER),
+				@ExampleObject(name = "대상 ID 형식 오류", value = FileApiExamples.INVALID_VALUE_TYPE)
+			}))
+	})
+	public ResponseEntity<RsData<List<FileDto>>> findByRef(
+		@Parameter(description = "대상 종류 (대상 엔티티 클래스 이름)", example = "Race")
+		@RequestParam String refType,
+		@Parameter(description = "대상 ID", example = "1")
+		@RequestParam int refId
+	) {
+		return ResponseEntity.ok()
+			.body(RsData.of(HttpStatus.OK, "파일 목록을 조회했습니다.", fileFacade.findByRef(refType, refId)));
+	}
+
+	@GetMapping("/{fileId}")
+	@Operation(summary = "파일 조회",
+		description = "파일 정보와 이미지 URL을 돌려준다. 대상에 연결된 파일은 누구나, 연결 전 파일은 올린 회원만 볼 수 있다. "
+			+ "업로드를 확인하기 전 파일은 URL이 null이다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "조회 성공",
+			content = @Content(examples = @ExampleObject(value = FileApiExamples.FIND_SUCCESS))),
+		@ApiResponse(responseCode = "400", description = "파일 ID·회원 ID 형식 오류",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = FileApiExamples.INVALID_VALUE_TYPE))),
+		@ApiResponse(responseCode = "403", description = "다른 회원이 올린, 연결 전 파일",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = FileApiExamples.NOT_OWNER))),
+		@ApiResponse(responseCode = "404", description = "없거나 삭제된 파일",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = FileApiExamples.FILE_NOT_FOUND)))
+	})
+	public ResponseEntity<RsData<FileDto>> findById(
+		@Parameter(description = "요청한 회원 ID (연결 전 파일을 볼 때 필요)", example = "1")
+		@RequestHeader(name = MemberIdHeader.NAME, required = false) Integer memberId,
+		@Parameter(description = "파일 ID", example = "1")
+		@PathVariable int fileId
+	) {
+		return ResponseEntity.ok()
+			.body(RsData.of(HttpStatus.OK, "파일을 조회했습니다.", fileFacade.findById(fileId, memberId)));
 	}
 
 	@PostMapping("/{fileId}/complete")
