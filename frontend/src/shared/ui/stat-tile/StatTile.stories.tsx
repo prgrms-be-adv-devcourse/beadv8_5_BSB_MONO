@@ -7,6 +7,12 @@ const meta = {
   component: StatTile,
   args: { label: '결제 완료', value: '5', unit: '명', caption: '전체 8명 중 62%', tone: 'surface' },
   argTypes: { tone: { control: 'inline-radio', options: ['surface', 'hero', 'accent'] } },
+} satisfies Meta<typeof StatTile>
+
+export default meta
+type Story = StoryObj<typeof meta>
+
+export const Playground: Story = {
   decorators: [
     (Story) => (
       <div className="max-w-48">
@@ -14,17 +20,12 @@ const meta = {
       </div>
     ),
   ],
-} satisfies Meta<typeof StatTile>
-
-export default meta
-type Story = StoryObj<typeof meta>
-
-export const Playground: Story = {}
+}
 
 export const Tones: Story = {
   decorators: [
     (Story) => (
-      <div className="rounded-lg bg-bg-hero p-4">
+      <div className="max-w-xl rounded-lg bg-bg-hero p-4">
         <Story />
       </div>
     ),

@@ -53,7 +53,7 @@ export const Tones: Story = {
 /** accent·live·onHero는 네이비·코발트 면 위에서 쓴다. */
 export const OnHero: Story = {
   render: () => (
-    <div className="flex flex-wrap gap-2 rounded-lg bg-bg-hero p-4">
+    <div className="flex w-fit flex-wrap gap-2 rounded-lg bg-bg-hero p-4">
       <Badge tone="accent">참가 확정</Badge>
       <Badge tone="live">LIVE</Badge>
       <Badge tone="onHero">D-12</Badge>

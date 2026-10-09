@@ -78,7 +78,7 @@ export const AccentOnHero: Story = {
   args: { variant: 'accent', children: '크루로 신청하기' },
   decorators: [
     (Story) => (
-      <div className="rounded-lg bg-bg-hero p-6">
+      <div className="w-fit rounded-lg bg-bg-hero p-6">
         <Story />
       </div>
     ),
