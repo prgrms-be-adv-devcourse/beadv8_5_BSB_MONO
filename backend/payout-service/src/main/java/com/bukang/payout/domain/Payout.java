@@ -1,4 +1,4 @@
-package com.bukang.boundedcontext.payout.domain;
+package com.bukang.payout.domain;
 
 import static jakarta.persistence.CascadeType.ALL;
 import static jakarta.persistence.EnumType.STRING;
@@ -12,7 +12,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import com.bukang.global.jpa.entity.BaseIdAndTime;
+import com.bukang.common.global.jpa.entity.BaseIdAndTime;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

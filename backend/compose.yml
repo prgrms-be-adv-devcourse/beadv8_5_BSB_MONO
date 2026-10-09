@@ -52,6 +52,25 @@ services:
       bukang-kafka:
         condition: service_healthy
 
+  payout-service:
+    build:
+      context: .
+      args:
+        MODULE: payout-service
+    image: bukang-payout-service:latest
+    container_name: bukang-payout-service
+    profiles: [ app ]
+    ports:
+      - "8082:8082"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+    depends_on:
+      bukang-db:
+        condition: service_healthy
+
   bukang-db:
     # 팀원 간 버전 차이를 막기 위해 LTS 버전으로 고정
     image: mysql:8.4

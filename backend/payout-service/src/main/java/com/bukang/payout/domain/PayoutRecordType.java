@@ -1,4 +1,4 @@
-package com.bukang.boundedcontext.payout.domain;
+package com.bukang.payout.domain;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
