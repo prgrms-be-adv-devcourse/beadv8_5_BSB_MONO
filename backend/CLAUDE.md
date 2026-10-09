@@ -13,11 +13,13 @@
 | `member-service` | Spring Boot 앱 | 8080 | 회원가입, 로그인, 인증 |
 | `cash-service` | Spring Boot 앱 | 8081 | 회원 복제본(`CashMember`), 캐시 (뼈대만 있음) |
 | `payout-service` | Spring Boot 앱 | 8082 | 정산 내역(`Payout`), 정산 항목, 지급보류 (엔티티만 있음) |
+| `file-service` | Spring Boot 앱 | 8083 | 대회 이미지 등 파일 저장 (뼈대만 있음) |
 
 인프라(`compose.yml`: MySQL, Kafka, Elasticsearch, Redis)는 모든 서비스가 공용으로 씁니다.
 
 - Java 25 (Gradle toolchain), Spring Boot 4.1.1, Gradle 9.7.1 (Kotlin DSL)
-- 루트 패키지: `com.bukang` (`group`은 `com`). 모듈별 패키지는 `com.bukang.common`, `com.bukang.member`, `com.bukang.cash`, `com.bukang.payout`
+- 루트 패키지: `com.bukang` (`group`은 `com`). 모듈별 패키지는 `com.bukang.common`, `com.bukang.member`, `com.bukang.cash`, `com.bukang.payout`, `com.bukang.file`
+  (모듈 폴더 이름은 케밥 케이스 `<도메인>-service`, Java 패키지는 하이픈을 쓸 수 없으므로 도메인 한 단어)
 - 공통 빌드 설정(Java 버전, Spring Boot BOM, Lombok, Checkstyle)은 루트 `build.gradle.kts`, 모듈별 의존성은 각 모듈의 `build.gradle.kts`에 있습니다.
 - 운영에서는 Nginx가 HTTP 요청을 받아 `/api`를 이 앱으로 라우팅합니다. 별도 API 게이트웨이는 아직 없습니다.
 
@@ -30,6 +32,7 @@ Windows에서는 `gradlew.bat`, Git Bash에서는 `./gradlew`를 사용합니다
 ./gradlew :member-service:bootRun        # 회원 서비스 실행 (dev 프로파일, compose.yml 인프라 자동 실행)
 ./gradlew :cash-service:bootRun          # 캐시 서비스 실행 (8081)
 ./gradlew :payout-service:bootRun        # 정산 서비스 실행 (8082)
+./gradlew :file-service:bootRun          # 파일 서비스 실행 (8083)
 ./gradlew test                           # 전체 테스트 (test 프로파일, H2)
 ./gradlew :member-service:test           # 한 모듈만 테스트
 ./gradlew :member-service:test --tests "com.bukang.member.MemberApplicationTests"              # 단일 테스트 클래스
@@ -42,7 +45,7 @@ Windows에서는 `gradlew.bat`, Git Bash에서는 `./gradlew`를 사용합니다
 
 ```
 backend/
-├── settings.gradle.kts        include("common", "member-service", "cash-service", "payout-service")
+├── settings.gradle.kts        include("common", "member-service", "cash-service", "payout-service", "file-service")
 ├── build.gradle.kts           모든 모듈 공통 설정
 ├── compose.yml                공용 인프라 (MySQL, Kafka, Elasticsearch, Redis) + 서비스별 앱 컨테이너
 ├── common/      com.bukang.common
@@ -67,9 +70,11 @@ backend/
 │   └── dto/                   MemberDto, MemberJoinRequestDto, MemberLoginRequestDto, MemberSearchCondition
 ├── cash-service/    com.bukang.cash
 │   └── domain/                CashMember extends ReplicaMember
-└── payout-service/  com.bukang.payout
-    ├── domain/                Payout, PayoutItem, PayoutHold, 상태·사유 enum
-    └── out/                   PayoutRepository
+├── payout-service/  com.bukang.payout
+│   ├── domain/                Payout, PayoutItem, PayoutHold, 상태·사유 enum
+│   └── out/                   PayoutRepository
+└── file-service/    com.bukang.file
+    └── FileApplication        (뼈대만 있음)
 ```
 
 - `common`은 실행 앱이 아니라 jar 라이브러리입니다. 각 서비스는 `implementation(project(":common"))`으로 의존합니다.

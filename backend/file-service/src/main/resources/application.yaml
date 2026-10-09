@@ -1,0 +1,37 @@
+server:
+  # member-service(8080), cash-service(8081), payout-service(8082)와 동시에 실행하므로 포트를 나눈다
+  port: 8083
+
+spring:
+  application:
+    name: file-service
+
+  profiles:
+    active: dev
+
+  output:
+    ansi:
+      enabled: always
+
+  # 개발 실행(bootRun/IDE) 시 backend/compose.yml의 인프라를 자동으로 띄운다
+  # compose.yml과 .env 경로는 common의 LocalDevEnvironmentPostProcessor가 실행 위치와 상관없이 찾아 준다
+  docker:
+    compose:
+      # 여러 서비스가 같은 인프라를 함께 쓰므로, 한 서비스를 종료해도 컨테이너는 멈추지 않는다
+      lifecycle-management: start-only
+
+# Swagger / OpenAPI V3 설정 (prod에서는 비활성화)
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: method
+    persist-authorization: true
+  default-produces-media-type: application/json
+  open-api:
+    info:
+      title: Bukang File API
+      description: 크루 중심 마라톤 대회 예매·커머스 플랫폼 파일 API
+      version: v1
