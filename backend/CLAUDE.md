@@ -13,9 +13,9 @@
 | `member-service` | Spring Boot 앱 | 8080 | 회원가입, 로그인, 인증 |
 | `cash-service` | Spring Boot 앱 | 8081 | 회원 복제본(`CashMember`), 캐시 (뼈대만 있음) |
 | `payout-service` | Spring Boot 앱 | 8082 | 정산 내역(`Payout`), 정산 항목, 지급보류 (엔티티만 있음) |
-| `file-service` | Spring Boot 앱 | 8083 | 대회 이미지 등 파일 저장 (뼈대만 있음) |
+| `file-service` | Spring Boot 앱 | 8083 | 대회 이미지 등 파일 저장 (S3, presigned URL) |
 
-인프라(`compose.yml`: MySQL, Kafka, Elasticsearch, Redis)는 모든 서비스가 공용으로 씁니다.
+인프라(`compose.yml`: MySQL, Kafka, Elasticsearch, Redis, 로컬 S3 대체재 S3Mock)는 모든 서비스가 공용으로 씁니다.
 
 - Java 25 (Gradle toolchain), Spring Boot 4.1.1, Gradle 9.7.1 (Kotlin DSL)
 - 루트 패키지: `com.bukang` (`group`은 `com`). 모듈별 패키지는 `com.bukang.common`, `com.bukang.member`, `com.bukang.cash`, `com.bukang.payout`, `com.bukang.file`
@@ -74,7 +74,8 @@ backend/
 │   ├── domain/                Payout, PayoutItem, PayoutHold, 상태·사유 enum
 │   └── out/                   PayoutRepository
 └── file-service/    com.bukang.file
-    └── FileApplication        (뼈대만 있음)
+    ├── config/                S3Properties(file.storage.s3), S3Config(S3Client, S3Presigner)
+    └── out/storage/           FileStorage(presigned URL, 객체 확인·삭제), S3FileStorage
 ```
 
 - `common`은 실행 앱이 아니라 jar 라이브러리입니다. 각 서비스는 `implementation(project(":common"))`으로 의존합니다.

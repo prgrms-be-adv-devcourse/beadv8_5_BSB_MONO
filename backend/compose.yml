@@ -86,11 +86,22 @@ services:
         required: false
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      # 기본은 compose의 S3Mock. .env에서 S3_ENDPOINT·S3_PUBLIC_ENDPOINT를 빈 값으로 두면 실제 AWS S3를 쓴다
+      # 앱은 컨테이너 주소(bukang-s3mock)로 접속하고, presigned URL은 브라우저가 쓰는 주소(localhost)로 서명한다
+      S3_BUCKET: ${S3_BUCKET:-bukang-file}
+      AWS_REGION: ${AWS_REGION:-ap-northeast-2}
+      S3_ENDPOINT: ${S3_ENDPOINT-http://bukang-s3mock:9090}
+      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT-http://localhost:9090}
+      S3_PATH_STYLE: ${S3_PATH_STYLE:-true}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY-s3mock}
+      S3_SECRET_KEY: ${S3_SECRET_KEY-s3mock}
     depends_on:
       bukang-db:
         condition: service_healthy
       bukang-kafka:
         condition: service_healthy
+      bukang-s3mock:
+        condition: service_started
 
   bukang-db:
     # 팀원 간 버전 차이를 막기 위해 LTS 버전으로 고정
@@ -190,6 +201,19 @@ services:
     environment:
       # 접속할 클러스터를 미리 등록 (브라우저에서 접속하므로 localhost 주소 사용)
       ELASTICVUE_CLUSTERS: '[{"name": "bukang-local", "uri": "http://localhost:9200"}]'
+
+  # 로컬 S3 대체재 (Adobe S3Mock) → http://localhost:9090
+  # 팀원 PC와 CI에는 AWS 계정이 없어서 로컬에서는 이 컨테이너를 S3처럼 쓴다 (path-style 주소만 지원)
+  # LocalStack은 인증 토큰이 필요하고 MinIO 커뮤니티판은 유지보수가 끝나서 S3Mock을 쓴다
+  # presigned URL의 서명과 만료는 검사하지 않으므로, 서명 관련 동작은 실제 S3에서 확인한다
+  bukang-s3mock:
+    image: adobe/s3mock:5.2.3
+    container_name: bukang-s3mock
+    ports:
+      - "9090:9090"
+    environment:
+      # 시작할 때 버킷을 만든다 (file-service의 기본 버킷 이름과 같다)
+      COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: bukang-file
 
   # Redis
   bukang-redis:
