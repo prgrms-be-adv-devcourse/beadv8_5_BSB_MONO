@@ -38,6 +38,8 @@ import lombok.NoArgsConstructor;
 })
 public class Payout extends BaseIdAndTime {
 	private static final DateTimeFormatter CODE_DATE = DateTimeFormatter.ofPattern("yyyyMMdd");
+	// 정기 지급일: 정산 월의 다음 달 20일 (휴일이면 다음 영업일, payout.md 2-4)
+	private static final int PAY_DAY_OF_MONTH = 20;
 
 	// 정산 ID: ST-정산 내역을 만든 날-16진수 4자리 (예: ST-20261029-0A3F)
 	// 끝 4자리를 PK에서 만들어 저장 뒤에 채우므로 NULL을 허용한다
@@ -73,18 +75,25 @@ public class Payout extends BaseIdAndTime {
 	@Column(nullable = false)
 	private LocalDateTime settledAt;
 
+	// 지급 예정일. 지급 배치는 이 날이 지난 CALCULATED만 지급한다
+	// 보류를 풀 때(PRO-26) 해제일 뒤 돌아오는 지급일(20일)로 다시 정하므로, 배치는 보류 기록을 보지 않아도 된다
+	@Column(nullable = false)
+	private LocalDate scheduledPayDate;
+
 	private LocalDateTime paidAt;
 
 	// 정산 항목은 추가만 한다. orphanRemoval을 켜면 리스트에서 빼는 것만으로 행이 지워지므로 쓰지 않는다
 	@OneToMany(mappedBy = "payout", cascade = ALL)
 	private List<PayoutItem> items = new ArrayList<>();
 
-	public Payout(int sellerId, int raceId, YearMonth payoutMonth, LocalDateTime settledAt) {
+	public Payout(int sellerId, int raceId, YearMonth payoutMonth, LocalDateTime settledAt,
+		BusinessDayCalendar calendar) {
 		this.sellerId = sellerId;
 		this.raceId = raceId;
 		this.payoutMonth = payoutMonth.toString();
 		this.settledAt = settledAt;
 		this.status = PayoutStatus.CALCULATED;
+		this.scheduledPayDate = calendar.nextOrSame(payoutMonth.plusMonths(1).atDay(PAY_DAY_OF_MONTH));
 	}
 
 	// 바깥에서 remove, clear로 정산 기록을 바꾸지 못하도록 읽기 전용으로 내보낸다 (추가는 addItem으로만)
@@ -111,6 +120,17 @@ public class Payout extends BaseIdAndTime {
 	// 저장해서 ID를 받은 뒤 부른다. 하루 65,536건을 넘지 않는 한 같은 날 같은 코드가 나오지 않는다
 	public void assignPayoutCode() {
 		this.payoutCode = "ST-%s-%04X".formatted(settledAt.format(CODE_DATE), getId() & 0xFFFF);
+	}
+
+	// 세미의 지급 완료는 실제 송금 없이 상태만 바꾸는 모의 지급이다 (payout.md 1장 지급 5번)
+	// 보류된 정산 내역은 지급 완료로 바꿀 수 없다. 배치가 CALCULATED만 고르지만, 잘못 불려도 여기서 막는다
+	public void pay(LocalDateTime paidAt) {
+		if (status != PayoutStatus.CALCULATED) {
+			throw new IllegalStateException("정산 예정 상태가 아니라 지급할 수 없습니다. payoutId=%d, status=%s"
+				.formatted(getId(), status));
+		}
+		this.status = PayoutStatus.PAID;
+		this.paidAt = paidAt;
 	}
 
 	private static long feeOf(long price, BigDecimal feeRate) {
