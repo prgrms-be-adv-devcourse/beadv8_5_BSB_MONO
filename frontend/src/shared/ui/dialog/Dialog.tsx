@@ -19,7 +19,8 @@ export type DialogProps = {
   confirming?: boolean
 }
 
-// 화면 가운데 떠서 확인을 받는 창. 모바일은 폭 320에 버튼이 반씩, 태블릿 이상은 폭 480에 버튼 오른쪽 정렬.
+// 화면 가운데 떠서 확인을 받는 창. 모바일 폭 320, 태블릿 이상 폭 480.
+// 버튼은 화면 폭과 상관없이 반씩 나눠 본문과 좌우 끝을 맞춘다. 오른쪽 정렬은 왼쪽에 빈 공간이 커서 쓰지 않는다.
 export function Dialog({
   open,
   onOpenChange,
@@ -31,7 +32,6 @@ export function Dialog({
   onConfirm,
   confirming = false,
 }: DialogProps) {
-  const button = 'flex-1 tablet:flex-none'
   return (
     <AlertDialog.Root open={open} onOpenChange={onOpenChange}>
       <AlertDialog.Portal>
@@ -47,9 +47,9 @@ export function Dialog({
               </AlertDialog.Description>
             )}
           </div>
-          <div className="flex gap-2 tablet:justify-end">
+          <div className="flex gap-2">
             {type !== 'alert' && (
-              <AlertDialog.Close render={<Button variant="secondary" className={button} />}>
+              <AlertDialog.Close render={<Button variant="secondary" className="flex-1" />}>
                 {cancelLabel}
               </AlertDialog.Close>
             )}
@@ -57,7 +57,7 @@ export function Dialog({
               variant={type === 'danger' ? 'danger' : 'primary'}
               loading={confirming}
               onClick={onConfirm}
-              className={button}
+              className="flex-1"
             >
               {confirmLabel}
             </Button>
