@@ -12,6 +12,13 @@ const meta = {
     description: '관심 있는 대회와 굿즈를 담아 보세요.',
     action: <Button variant="secondary">대회 둘러보기</Button>,
   },
+  decorators: [
+    (Story) => (
+      <div className="max-w-md rounded-lg bg-bg-surface">
+        <Story />
+      </div>
+    ),
+  ],
   argTypes: { action: { control: false } },
 } satisfies Meta<typeof EmptyState>
 
