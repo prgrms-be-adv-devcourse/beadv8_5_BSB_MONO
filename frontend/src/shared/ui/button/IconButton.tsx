@@ -8,10 +8,10 @@ export type IconButtonVariant = 'primary' | 'secondary' | 'ghost'
 export type IconButtonSize = 's' | 'm'
 
 const VARIANT: Record<IconButtonVariant, string> = {
-  primary: 'bg-bg-brand text-text-on-brand hover:bg-bg-brand-hover disabled:bg-bg-disabled',
+  primary: 'bg-bg-brand text-text-on-brand enabled:hover:bg-bg-brand-hover disabled:bg-bg-disabled',
   secondary:
-    'bg-bg-surface text-text-primary inset-ring inset-ring-border-strong disabled:bg-bg-disabled disabled:inset-ring-border-disabled',
-  ghost: 'text-text-primary',
+    'bg-bg-surface text-text-primary inset-ring inset-ring-border-strong enabled:hover:bg-bg-subtle disabled:bg-bg-disabled disabled:inset-ring-border-disabled',
+  ghost: 'text-text-primary enabled:hover:bg-bg-subtle',
 }
 
 // S 32 / M 44(기본). 아이콘은 S 16, M 20.

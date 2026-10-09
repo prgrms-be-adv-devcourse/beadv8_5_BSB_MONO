@@ -12,13 +12,14 @@ export type ButtonSize = 's' | 'm' | 'l'
 // 테두리는 피그마처럼 안쪽 선(inset-ring)이라 크기가 바뀌지 않는다.
 const VARIANT: Record<ButtonVariant, string> = {
   primary:
-    'bg-bg-brand text-text-on-brand hover:bg-bg-brand-hover disabled:bg-bg-disabled disabled:text-text-disabled',
+    'bg-bg-brand text-text-on-brand enabled:hover:bg-bg-brand-hover disabled:bg-bg-disabled disabled:text-text-disabled',
   secondary:
-    'bg-bg-surface text-text-primary inset-ring inset-ring-border-strong disabled:bg-bg-disabled disabled:text-text-disabled disabled:inset-ring-border-disabled',
-  ghost: 'text-text-primary disabled:text-text-disabled',
+    'bg-bg-surface text-text-primary inset-ring inset-ring-border-strong enabled:hover:bg-bg-subtle disabled:bg-bg-disabled disabled:text-text-disabled disabled:inset-ring-border-disabled',
+  ghost: 'text-text-primary enabled:hover:bg-bg-subtle disabled:text-text-disabled',
   danger:
-    'bg-bg-danger text-text-on-danger hover:bg-bg-danger-hover disabled:bg-bg-disabled disabled:text-text-disabled',
-  accent: 'bg-bg-accent text-text-on-accent disabled:bg-bg-disabled disabled:text-text-disabled',
+    'bg-bg-danger text-text-on-danger enabled:hover:bg-bg-danger-hover disabled:bg-bg-disabled disabled:text-text-disabled',
+  accent:
+    'bg-bg-accent text-text-on-accent enabled:hover:bg-bg-accent-hover disabled:bg-bg-disabled disabled:text-text-disabled',
 }
 
 const SIZE: Record<ButtonSize, string> = {
@@ -27,13 +28,13 @@ const SIZE: Record<ButtonSize, string> = {
   l: 'gap-2 px-5 py-4 text-label-l',
 }
 
-// 피그마 Loading 상태의 Spinner 색. Accent도 피그마에서는 OnBrand(흰색)다.
+// 피그마 Loading 상태의 Spinner 색. Accent는 라임 위에서 보이도록 네이비(on-accent)다.
 const SPINNER_COLOR: Record<ButtonVariant, string> = {
   primary: 'text-text-on-brand',
   secondary: 'text-text-primary',
   ghost: 'text-text-primary',
   danger: 'text-text-on-brand',
-  accent: 'text-text-on-brand',
+  accent: 'text-text-on-accent',
 }
 
 export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
