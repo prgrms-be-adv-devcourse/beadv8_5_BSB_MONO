@@ -9,7 +9,7 @@ argument-hint: "[컨트롤러 클래스명 또는 경로]"
 대상: $ARGUMENTS (비어 있으면 사용자가 지목한 컨트롤러, 그것도 없으면 IDE에서 열린 컨트롤러. 대상이 불분명하면 물어본다)
 
 먼저 `.claude/rules/swagger-convention.md`를 읽고, 참고 구현인
-`backend/src/main/java/com/bukang/boundedcontext/member/in/ApiV1AuthController.java`와 `AuthApiExamples.java`를 본다.
+`backend/member-service/src/main/java/com/bukang/member/in/ApiV1AuthController.java`와 `AuthApiExamples.java`를 본다.
 이 문서의 단계는 컨벤션을 적용하는 순서이고, 규칙 자체는 컨벤션 파일이 기준이다.
 
 참고 구현에서 따르는 것은 **애노테이션 구성 방식과 작성 패턴**(어떤 애노테이션을 어디에 어떤 형식으로 쓰는지)뿐이다.
@@ -26,10 +26,10 @@ argument-hint: "[컨트롤러 클래스명 또는 경로]"
 1. **성공 코드**: 반환문이 `ok()`(200)인지 `created()`(201)인지, 성공 메시지 문자열
 2. **던지는 예외**: Controller → Facade → UseCase/Service 호출 흐름을 따라가며 `throw`와 예외 메시지 문자열을 모은다
 3. **예외 → 상태 코드**: 도메인 예외는 `BusinessException`을 상속하므로 예외 클래스 생성자의 `HttpStatus`가 상태 코드다.
-   그 밖의 예외는 `global/exception/GlobalExceptionHandler.java`에서 상태 코드와 응답 메시지를 확인한다
+   그 밖의 예외는 `backend/common`의 `global/exception/GlobalExceptionHandler.java`(Security 예외는 `member-service`의 `security/AuthExceptionHandler.java`)에서 상태 코드와 응답 메시지를 확인한다
    (핸들러가 고정 메시지를 쓰는지, `exception.getMessage()`를 쓰는지 구분)
 4. **입력 검증**: `@Valid @RequestBody`가 있으면 요청 DTO의 검증 애노테이션 `message`, 그리고 400(형식 오류)
-5. **인증**: `global/security/WebConfig.java`에서 이 경로가 `permitAll`인지 인증 필요인지 (인증 필요면 401 포함)
+5. **인증**: 해당 서비스의 `security/WebConfig.java`(member-service)에서 이 경로가 `permitAll`인지 인증 필요인지 (인증 필요면 401 포함)
 6. **응답 DTO 필드**: 성공 예시의 `data`를 채우기 위해 필드 목록 확인
 
 핸들러가 없는 예외가 나오면 문서에 억지로 넣지 말고, 그 예외가 500 또는 다른 코드로 나간다는 사실을 사용자에게 알린다.
