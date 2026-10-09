@@ -80,6 +80,23 @@ IntelliJ에서는 `MemberApplication`, `CashApplication`, `PayoutApplication`, `
 - 키가 비어 있으면 AWS SDK 기본 자격 증명 체인(환경변수, `~/.aws`, EC2 역할)을 씁니다. AWS 키는 `.env`에만 두고 커밋하지 않습니다.
 - 버킷은 퍼블릭 액세스 차단을 켠 비공개 버킷입니다. 이미지는 짧게 만료되는 presigned GET URL로 보여 줍니다.
 
+### 업로드 흐름과 객체 경로
+
+```
+① POST /api/v1/file/files               업로드 URL 발급 (파일은 PENDING, 키 uploads/{uuid}.{확장자})
+② 브라우저 → S3 PUT                       응답의 headers(content-type, content-length)를 그대로 붙인다
+③ POST /api/v1/file/files/{id}/complete  서버가 uploads/ → files/로 복사하고, 복사본의 크기·앞부분(매직 바이트)을 확인 → UPLOADED
+```
+
+| 경로 | 내용 | 정리 |
+|---|---|---|
+| `uploads/` | 브라우저가 presigned URL로 올린 원본. 확인이 끝나면 지운다 | 확인하지 않고 남은 객체는 S3 수명 주기 규칙(`uploads/` 1일 뒤 만료)으로 지운다 |
+| `files/` | 서버가 확인을 마친 파일. 업로드 URL을 주지 않는다 | 대상에서 빠진 파일은 정리 배치(PRO-57) |
+
+presigned URL은 만료 전까지 여러 번 쓸 수 있어서, 확인을 마친 뒤 같은 URL로 다른 내용을 덮어쓸 수 있습니다.
+확인한 파일을 업로드 URL이 없는 `files/`로 옮겨 두면 확인한 내용이 바뀌지 않습니다.
+업로드 URL에는 `content-type`과 `content-length`가 서명되므로, 다른 형식이나 크기로 올리면 실제 S3가 거절합니다.
+
 ## 민감정보 암호화
 
 복호화가 필요한 개인정보(현재 휴대폰 번호)는 DB에 **AES-256-GCM 암호문**으로 저장합니다.

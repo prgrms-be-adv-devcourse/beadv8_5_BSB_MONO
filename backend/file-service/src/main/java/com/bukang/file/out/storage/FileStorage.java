@@ -16,6 +16,9 @@ public interface FileStorage {
 	// 형식 판별용으로 앞부분만 읽는다. 객체가 length보다 짧으면 있는 만큼만 돌려준다
 	byte[] readFirstBytes(String key, int length);
 
+	// 같은 버킷 안에서 복사한다 (Content-Type 등 메타데이터도 함께 복사된다)
+	void copy(String sourceKey, String targetKey);
+
 	void delete(String key);
 
 	// 비공개 버킷의 객체를 잠시 열어 볼 수 있는 URL

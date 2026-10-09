@@ -87,6 +87,23 @@ class S3FileStorageTest {
 	}
 
 	@Test
+	@DisplayName("같은 버킷 안에서 복사하면 내용과 Content-Type이 그대로 복사된다")
+	void copy() throws Exception {
+		String uploadKey = "uploads/copy-test.png";
+		String confirmedKey = "files/copy-test.png";
+		upload(fileStorage.presignPut(uploadKey, "image/png", PNG_BYTES.length), PNG_BYTES);
+
+		fileStorage.copy(uploadKey, confirmedKey);
+
+		assertThat(fileStorage.head(confirmedKey))
+			.hasValueSatisfying(stored -> {
+				assertThat(stored.size()).isEqualTo(PNG_BYTES.length);
+				assertThat(stored.contentType()).isEqualTo("image/png");
+			});
+		assertThat(fileStorage.readFirstBytes(confirmedKey, PNG_BYTES.length)).containsExactly(PNG_BYTES);
+	}
+
+	@Test
 	@DisplayName("없는 객체를 확인하면 빈 값이다")
 	void headMissingObject() {
 		assertThat(fileStorage.head("files/not-exists.png")).isEmpty();

@@ -86,6 +86,15 @@ public class S3FileStorage implements FileStorage {
 	}
 
 	@Override
+	public void copy(String sourceKey, String targetKey) {
+		s3Client.copyObject(request -> request
+			.sourceBucket(properties.bucket())
+			.sourceKey(sourceKey)
+			.destinationBucket(properties.bucket())
+			.destinationKey(targetKey));
+	}
+
+	@Override
 	public void delete(String key) {
 		s3Client.deleteObject(request -> request
 			.bucket(properties.bucket())
