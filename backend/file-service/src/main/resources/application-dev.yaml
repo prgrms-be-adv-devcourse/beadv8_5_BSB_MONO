@@ -16,6 +16,10 @@ spring:
         highlight_sql: true
     open-in-view: false
 
+  kafka:
+    bootstrap-servers:
+      - localhost:9092
+
 logging:
   level:
     com.bukang: debug

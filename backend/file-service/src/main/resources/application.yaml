@@ -20,6 +20,20 @@ spring:
       # 여러 서비스가 같은 인프라를 함께 쓰므로, 한 서비스를 종료해도 컨테이너는 멈추지 않는다
       lifecycle-management: start-only
 
+  # Kafka 메시지는 JSON 문자열로 주고받는다 (이유는 member-service의 application.yaml과 README 참고)
+  kafka:
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      auto-offset-reset: earliest
+      properties:
+        # 구독한 토픽이 없으면 브로커에 자동 생성을 요청한다 (브로커도 자동 생성을 허용해야 동작)
+        "[allow.auto.create.topics]": true
+
 # Swagger / OpenAPI V3 설정 (prod에서는 비활성화)
 springdoc:
   api-docs:

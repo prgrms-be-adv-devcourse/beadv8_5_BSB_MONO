@@ -11,6 +11,7 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-webmvc") // spring-web
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa") // dataJpa
 	implementation("org.springframework.boot:spring-boot-starter-validation") // @Valid 요청 검증
+	implementation("org.springframework.boot:spring-boot-starter-kafka") // kafka (서비스 간 이벤트)
 	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.0") //swagger and openapi
 
 	developmentOnly("org.springframework.boot:spring-boot-devtools") // dev-tools
@@ -21,6 +22,7 @@ dependencies {
 	runtimeOnly("com.mysql:mysql-connector-j")
 
 	testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
+	testImplementation("org.springframework.boot:spring-boot-starter-kafka-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
 
 	// QueryDSL (Jakarta 버전, 버전은 Spring Boot BOM의 querydsl.version 사용)

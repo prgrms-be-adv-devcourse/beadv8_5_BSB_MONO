@@ -89,6 +89,8 @@ services:
     depends_on:
       bukang-db:
         condition: service_healthy
+      bukang-kafka:
+        condition: service_healthy
 
   bukang-db:
     # 팀원 간 버전 차이를 막기 위해 LTS 버전으로 고정
