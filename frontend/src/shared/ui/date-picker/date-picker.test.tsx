@@ -226,6 +226,51 @@ describe('DatePicker', () => {
     expect(screen.getByRole('button', { name: /2026년 11월, 연·월 고르기/ })).toBeInTheDocument()
   })
 
+  describe('연·월 휠을 마우스로 끌기', () => {
+    // 한 줄 높이 44. 위로 끌면 다음 값, 아래로 끌면 이전 값으로 넘어간다.
+    function dragWheel(name: '연도' | '월', dy: number) {
+      const wheel = screen.getByRole('listbox', { name })
+      fireEvent.pointerDown(wheel, { button: 0, pointerId: 1, pointerType: 'mouse', clientY: 300 })
+      fireEvent.pointerMove(window, { pointerId: 1, pointerType: 'mouse', clientY: 300 + dy })
+      fireEvent.pointerUp(window, { pointerId: 1, pointerType: 'mouse', clientY: 300 + dy })
+    }
+    const header = (label: string) =>
+      screen.getByRole('button', { name: new RegExp(`${label}, 연·월 고르기`) })
+
+    it('위로 두 줄 끌면 두 달 뒤로 넘어간다', async () => {
+      render(<DatePicker mode="single" defaultMonth={day(1)} />)
+      await userEvent.click(header('2026년 10월'))
+      dragWheel('월', -88)
+
+      expect(header('2026년 12월')).toBeInTheDocument()
+    })
+
+    it('아래로 끌면 앞 연도로 넘어간다', async () => {
+      render(<DatePicker mode="single" defaultMonth={day(1)} />)
+      await userEvent.click(header('2026년 10월'))
+      dragWheel('연도', 44)
+
+      expect(header('2025년 10월')).toBeInTheDocument()
+    })
+
+    it('반 줄보다 적게 끌면 그대로다', async () => {
+      render(<DatePicker mode="single" defaultMonth={day(1)} />)
+      await userEvent.click(header('2026년 10월'))
+      dragWheel('월', -15)
+
+      expect(header('2026년 10월')).toBeInTheDocument()
+    })
+
+    it('끈 뒤 손을 뗀 줄의 click으로 값이 또 바뀌지 않는다', async () => {
+      render(<DatePicker mode="single" defaultMonth={day(1)} />)
+      await userEvent.click(header('2026년 10월'))
+      dragWheel('월', -44)
+      fireEvent.click(screen.getByRole('option', { name: '10월' }))
+
+      expect(header('2026년 11월')).toBeInTheDocument()
+    })
+  })
+
   it('연·월을 누르면 휠이 열리고 화살표로 달을 바꾼다', async () => {
     render(<DatePicker mode="single" defaultMonth={day(1)} />)
     await userEvent.click(screen.getByRole('button', { name: /2026년 10월, 연·월 고르기/ }))

@@ -1,11 +1,21 @@
 'use client'
 
-import { useEffect, useId, useRef, type KeyboardEvent } from 'react'
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type MouseEvent,
+  type PointerEvent,
+} from 'react'
 
 import { cn } from '@/shared/lib'
 
 const ROW = 44
 const SETTLE_MS = 120
+// 이만큼 움직이기 전까지는 끌기가 아니라 클릭으로 본다
+const DRAG_THRESHOLD = 4
 
 type Option = { value: number; label: string }
 
@@ -20,10 +30,15 @@ type WheelColumnProps = {
 
 // 한 열(연도 또는 월). 브라우저 기본 스크롤에 칸마다 멈추는 scroll-snap을 걸고,
 // 스크롤이 멈추면 가운데 줄의 값을 고른다. 키보드는 위·아래 화살표로 한 칸씩 옮긴다.
+// 터치는 기본 스크롤로 굴러가지만 마우스는 끌어도 스크롤되지 않아서, 마우스 끌기만 직접 굴린다.
 function WheelColumn({ label, options, value, onChange, align, className }: WheelColumnProps) {
   const ref = useRef<HTMLDivElement>(null)
   const settleTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const mounted = useRef(false)
+  const [dragging, setDragging] = useState(false)
+  const draggingRef = useRef(false)
+  const suppressClick = useRef(false)
+  const stopDrag = useRef<() => void>(undefined)
   const id = useId()
   const index = Math.max(
     0,
@@ -40,9 +55,19 @@ function WheelColumn({ label, options, value, onChange, align, className }: Whee
     mounted.current = true
   }, [index])
 
-  useEffect(() => () => clearTimeout(settleTimer.current), [])
+  useEffect(
+    () => () => {
+      clearTimeout(settleTimer.current)
+      stopDrag.current?.()
+    },
+    [],
+  )
 
   function handleScroll() {
+    // 끄는 동안에는 손을 뗄 때 값을 정한다
+    if (draggingRef.current) {
+      return
+    }
     clearTimeout(settleTimer.current)
     settleTimer.current = setTimeout(() => {
       const el = ref.current
@@ -69,6 +94,83 @@ function WheelColumn({ label, options, value, onChange, align, className }: Whee
     }
   }
 
+  function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
+    if (event.pointerType !== 'mouse' || event.button !== 0) {
+      return
+    }
+    const pointerId = event.pointerId
+    const startY = event.clientY
+    // 휠은 늘 지금 값 줄에 멈춰 있으므로 그 줄 위치에서 시작한다
+    const startTop = index * ROW
+    let moved = false
+
+    function rowAt(clientY: number) {
+      const top = startTop - (clientY - startY)
+      return Math.min(options.length - 1, Math.max(0, Math.round(top / ROW)))
+    }
+
+    function move(e: globalThis.PointerEvent) {
+      if (e.pointerId !== pointerId) {
+        return
+      }
+      if (!moved && Math.abs(e.clientY - startY) < DRAG_THRESHOLD) {
+        return
+      }
+      if (!moved) {
+        moved = true
+        draggingRef.current = true
+        // 칸마다 멈추는 snap이 끄는 손을 따라오지 못하게 하므로 끄는 동안은 끈다
+        setDragging(true)
+      }
+      if (ref.current) {
+        ref.current.scrollTop = startTop - (e.clientY - startY)
+      }
+    }
+
+    function end(e: globalThis.PointerEvent) {
+      if (e.pointerId !== pointerId) {
+        return
+      }
+      stop()
+      if (!moved) {
+        return
+      }
+      draggingRef.current = false
+      setDragging(false)
+      const next = rowAt(e.clientY)
+      // 값이 그대로면 index가 안 바뀌어 다시 맞추지 않으므로 여기서 가운데로 돌려놓는다
+      ref.current?.scrollTo?.({ top: next * ROW, behavior: 'smooth' })
+      if (options[next].value !== value) {
+        onChange(options[next].value)
+      }
+      // 손을 뗀 줄에 이어서 오는 click이 그 줄을 또 고르지 않게 한 번 막는다
+      suppressClick.current = true
+      setTimeout(() => {
+        suppressClick.current = false
+      })
+    }
+
+    function stop() {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', end)
+      window.removeEventListener('pointercancel', end)
+      stopDrag.current = undefined
+    }
+
+    stopDrag.current?.()
+    stopDrag.current = stop
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', end)
+    window.addEventListener('pointercancel', end)
+  }
+
+  function handleClickCapture(event: MouseEvent<HTMLDivElement>) {
+    if (suppressClick.current) {
+      suppressClick.current = false
+      event.stopPropagation()
+    }
+  }
+
   return (
     <div
       ref={ref}
@@ -78,8 +180,11 @@ function WheelColumn({ label, options, value, onChange, align, className }: Whee
       tabIndex={0}
       onScroll={handleScroll}
       onKeyDown={handleKeyDown}
+      onPointerDown={handlePointerDown}
+      onClickCapture={handleClickCapture}
       className={cn(
-        'h-55 snap-y snap-mandatory [scrollbar-width:none] overflow-y-auto py-22 outline-none focus-visible:rounded-md focus-visible:inset-ring-2 focus-visible:inset-ring-border-focus [&::-webkit-scrollbar]:hidden',
+        'h-55 cursor-grab [scrollbar-width:none] overflow-y-auto py-22 outline-none focus-visible:rounded-md focus-visible:inset-ring-2 focus-visible:inset-ring-border-focus [&::-webkit-scrollbar]:hidden',
+        dragging ? 'cursor-grabbing snap-none select-none' : 'snap-y snap-mandatory',
         className,
       )}
     >
@@ -93,7 +198,7 @@ function WheelColumn({ label, options, value, onChange, align, className }: Whee
             aria-selected={distance === 0}
             onClick={() => onChange(option.value)}
             className={cn(
-              'flex h-11 cursor-default snap-center items-center text-heading-l select-none',
+              'flex h-11 snap-center items-center text-heading-l select-none',
               align === 'right' ? 'justify-end' : 'justify-start',
               distance === 0 ? 'text-text-primary' : 'font-medium text-text-disabled',
               distance >= 2 && 'opacity-50',
