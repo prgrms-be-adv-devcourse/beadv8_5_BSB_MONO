@@ -17,7 +17,6 @@ import org.springframework.test.context.ActiveProfiles;
 
 import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutItem;
-import com.bukang.payout.domain.PayoutRecordType;
 
 import jakarta.persistence.EntityManager;
 
@@ -36,8 +35,8 @@ class PayoutRepositoryTest {
 	@DisplayName("정산 내역(Payout)을 정산 항목(PayoutItem)과 함께 저장하면, 다시 읽을 때 항목도 함께 나온다")
 	void saveWithItems() {
 		Payout payout = new Payout(1, 10, YearMonth.of(2026, 9), LocalDateTime.of(2026, 9, 29, 3, 0));
-		payout.addItem(100, PayoutRecordType.SALE, 50_000L, FEE_RATE, LocalDate.of(2026, 9, 29));
-		payout.addItem(101, PayoutRecordType.SALE, 50_000L, FEE_RATE, LocalDate.of(2026, 9, 29));
+		payout.addItem(100, 50_000L, FEE_RATE, LocalDate.of(2026, 9, 29));
+		payout.addItem(101, 50_000L, FEE_RATE, LocalDate.of(2026, 9, 29));
 
 		payoutRepository.save(payout);
 		entityManager.flush();
