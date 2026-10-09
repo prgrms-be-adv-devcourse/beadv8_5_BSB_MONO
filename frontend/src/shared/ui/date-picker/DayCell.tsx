@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes, Ref } from 'react'
 
-import { cn } from '@/shared/lib'
+import { cn, toIsoDate } from '@/shared/lib'
 
 export type DayCellState = {
   /** Selected·Range Start·Range End: 코발트 원 */
@@ -46,6 +46,8 @@ export function DayCell({
   return (
     <button
       type="button"
+      // 끌어서 기간을 고를 때 손가락 아래 칸의 날짜를 읽는다
+      data-day={toIsoDate(date)}
       disabled={disabled}
       aria-disabled={readOnly || undefined}
       className={cn(

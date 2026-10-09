@@ -1,9 +1,9 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { DatePicker } from './DatePicker'
-import { nextRange, selectionText, toggleDate } from './selection'
+import { dragRange, nextRange, selectionText, toggleDate } from './selection'
 
 const day = (d: number) => new Date(2026, 9, d) // 2026년 10월
 
@@ -25,6 +25,17 @@ describe('nextRange (시안의 기간 고르기 규칙)', () => {
       from: day(14),
       to: undefined,
     })
+  })
+})
+
+describe('dragRange (끌어서 기간 고르기)', () => {
+  it('누른 날과 지금 손가락이 있는 날 중 앞이 시작, 뒤가 종료다', () => {
+    expect(dragRange(day(12), day(16))).toEqual({ from: day(12), to: day(16) })
+    expect(dragRange(day(12), day(9))).toEqual({ from: day(9), to: day(12) })
+  })
+
+  it('누른 날로 돌아오면 시작일만 남는다', () => {
+    expect(dragRange(day(12), day(12))).toEqual({ from: day(12), to: undefined })
   })
 })
 
@@ -73,6 +84,99 @@ describe('DatePicker', () => {
     await userEvent.click(cell(16))
 
     expect(onSelect).toHaveBeenLastCalledWith({ from: day(9), to: day(16) })
+  })
+
+  describe('끌어서 기간 고르기', () => {
+    // jsdom은 화면 배치를 계산하지 않아서, 손가락 아래 칸을 돌려주는 elementFromPoint를 흉내 낸다
+    function pointAt(d: number) {
+      document.elementFromPoint = () => cell(d)
+    }
+    afterEach(() => {
+      // @ts-expect-error 흉내 낸 함수를 지운다
+      delete document.elementFromPoint
+    })
+
+    function drag(from: number, ...through: number[]) {
+      fireEvent.pointerDown(cell(from), { button: 0, pointerId: 1 })
+      for (const d of through) {
+        pointAt(d)
+        fireEvent.pointerMove(window, { pointerId: 1 })
+      }
+      fireEvent.pointerUp(window, { pointerId: 1 })
+      // 손을 뗀 칸에서 브라우저가 보내는 click
+      fireEvent.click(cell(through.at(-1) ?? from))
+    }
+
+    it('누른 날에서 끌어 놓은 날까지가 기간이 된다', () => {
+      const onSelect = vi.fn()
+      render(<DatePicker mode="range" defaultMonth={day(1)} onSelect={onSelect} />)
+      drag(12, 13, 14, 16)
+
+      expect(onSelect).toHaveBeenCalledTimes(1)
+      expect(onSelect).toHaveBeenCalledWith({ from: day(12), to: day(16) })
+    })
+
+    it('앞쪽으로 끌면 놓은 날이 시작일이 된다', () => {
+      const onSelect = vi.fn()
+      render(<DatePicker mode="range" defaultMonth={day(1)} onSelect={onSelect} />)
+      drag(16, 14, 9)
+
+      expect(onSelect).toHaveBeenCalledWith({ from: day(9), to: day(16) })
+    })
+
+    it('끄는 동안에는 기간을 미리 보여 주고 onSelect는 놓을 때 한 번만 부른다', () => {
+      const onSelect = vi.fn()
+      render(
+        <DatePicker
+          mode="range"
+          defaultMonth={day(1)}
+          onSelect={onSelect}
+          footer={{ onConfirm: () => {} }}
+        />,
+      )
+      fireEvent.pointerDown(cell(12), { button: 0, pointerId: 1 })
+      pointAt(15)
+      fireEvent.pointerMove(window, { pointerId: 1 })
+
+      expect(screen.getByText('10월 12일 (월) ~ 10월 15일 (목)')).toBeInTheDocument()
+      expect(onSelect).not.toHaveBeenCalled()
+    })
+
+    it('움직이지 않고 떼면 지금처럼 한 번 누른 것으로 친다', async () => {
+      const onSelect = vi.fn()
+      render(<DatePicker mode="range" defaultMonth={day(1)} onSelect={onSelect} />)
+      drag(12)
+
+      expect(onSelect).toHaveBeenCalledWith({ from: day(12), to: undefined })
+    })
+
+    it('끄는 중에 고를 수 없는 날은 건너뛰고 직전 날을 유지한다', () => {
+      const onSelect = vi.fn()
+      render(
+        <DatePicker
+          mode="range"
+          defaultMonth={day(1)}
+          isDateDisabled={(date) => date.getTime() === day(17).getTime()}
+          onSelect={onSelect}
+        />,
+      )
+      fireEvent.pointerDown(cell(12), { button: 0, pointerId: 1 })
+      for (const d of [15, 17]) {
+        pointAt(d)
+        fireEvent.pointerMove(window, { pointerId: 1 })
+      }
+      fireEvent.pointerUp(window, { pointerId: 1 })
+
+      expect(onSelect).toHaveBeenCalledWith({ from: day(12), to: day(15) })
+    })
+
+    it('읽기 전용이면 끌어도 바뀌지 않는다', () => {
+      const onSelect = vi.fn()
+      render(<DatePicker mode="range" defaultMonth={day(1)} readOnly onSelect={onSelect} />)
+      drag(12, 16)
+
+      expect(onSelect).not.toHaveBeenCalled()
+    })
   })
 
   it('고를 수 없는 날은 누를 수 없다', async () => {

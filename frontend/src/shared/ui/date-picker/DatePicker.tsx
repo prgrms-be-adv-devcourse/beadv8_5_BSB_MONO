@@ -42,6 +42,7 @@ import {
   type DatePickerSelection,
   type DateRange,
 } from './selection'
+import { useRangeDrag } from './useRangeDrag'
 
 // 한국은 일요일이 주 시작이다.
 const WEEK_STARTS_ON = 0
@@ -332,9 +333,19 @@ export function DatePicker(props: DatePickerProps) {
   const [innerSelected, setInnerSelected] = useState<Date | DateRange | Date[] | undefined>(
     props.defaultSelected,
   )
+  const rangeDrag = useRangeDrag({
+    enabled: props.mode === 'range' && !readOnly,
+    onCommit: (range) => {
+      setInnerSelected(range)
+      if (props.mode === 'range') {
+        props.onSelect?.(range)
+      }
+    },
+  })
   const selection = {
     mode: props.mode,
-    selected: props.selected !== undefined ? props.selected : innerSelected,
+    // 끄는 동안에는 미리 보기 기간을 그린다
+    selected: rangeDrag.preview ?? (props.selected !== undefined ? props.selected : innerSelected),
   } as DatePickerSelection
   const anchor = props.defaultMonth ?? firstSelectedDate(selection) ?? today
 
@@ -395,7 +406,13 @@ export function DatePicker(props: DatePickerProps) {
 
   return (
     <div
-      className={cn('relative flex w-full flex-col gap-2 rounded-lg bg-bg-surface p-4', className)}
+      {...rangeDrag.handlers}
+      className={cn(
+        'relative flex w-full flex-col gap-2 rounded-lg bg-bg-surface p-4',
+        // 기간 모드에서는 날짜 칸을 끌어도 화면이 스크롤되거나 글자가 선택되지 않게 한다
+        props.mode === 'range' && !readOnly && 'select-none [&_[data-day]]:touch-none',
+        className,
+      )}
     >
       <Header
         label={format(shownMonth, 'yyyy년 M월')}

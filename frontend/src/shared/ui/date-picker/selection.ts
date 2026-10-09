@@ -23,6 +23,17 @@ export function nextRange(current: DateRange | undefined, date: Date): DateRange
   return { from: current.from, to: date }
 }
 
+/**
+ * 끌어서 기간 고르기: 처음 누른 날(anchor)과 지금 손가락이 있는 날 중 앞이 시작, 뒤가 종료.
+ * 누른 날로 돌아오면 시작일만 남긴다(한 번 누른 것과 같은 상태).
+ */
+export function dragRange(anchor: Date, date: Date): DateRange {
+  if (isSameDay(anchor, date)) {
+    return { from: anchor, to: undefined }
+  }
+  return isBefore(date, anchor) ? { from: date, to: anchor } : { from: anchor, to: date }
+}
+
 /** 여러 날 고르기: 누를 때마다 켜고 끈다. */
 export function toggleDate(current: Date[] | undefined, date: Date): Date[] {
   const list = current ?? []

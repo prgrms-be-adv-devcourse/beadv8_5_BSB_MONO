@@ -33,7 +33,7 @@ export const Single: Story = {
   ),
 }
 
-/** 기간 고르기. 첫 클릭이 시작, 두 번째 클릭이 끝이다. */
+/** 기간 고르기. 첫 클릭이 시작, 두 번째 클릭이 끝이다. 시작일을 누른 채 끌어서 한 번에 고를 수도 있다. */
 export const Range: Story = {
   render: () => (
     <DatePicker
