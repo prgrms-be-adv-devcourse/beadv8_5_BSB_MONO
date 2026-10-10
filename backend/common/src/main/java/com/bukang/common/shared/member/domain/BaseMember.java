@@ -19,15 +19,9 @@ import lombok.Setter;
 @NoArgsConstructor
 public abstract class BaseMember extends BaseEntity {
 	// unique 제약은 원본(Member 엔티티)에만 건다. 복제본은 이벤트 순서에 따라 잠깐 값이 겹칠 수 있다
-	private String username;
 	private String nickname;
 
-	public BaseMember(String username, String nickname) {
-		this.username = username;
+	public BaseMember(String nickname) {
 		this.nickname = nickname;
-	}
-
-	public boolean isSystem() {
-		return "system".equals(username);
 	}
 }

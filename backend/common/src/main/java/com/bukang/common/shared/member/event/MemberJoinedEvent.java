@@ -10,7 +10,6 @@ public record MemberJoinedEvent(
 	int id,
 	LocalDateTime createDate,
 	LocalDateTime modifyDate,
-	String username,
 	String nickname
 ) {
 }
