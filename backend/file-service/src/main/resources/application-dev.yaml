@@ -16,6 +16,12 @@ spring:
         highlight_sql: true
     open-in-view: false
 
+  # Spring Batch 실행 기록 테이블(BATCH_)을 앱을 켤 때 만든다 (기본값은 H2 같은 내장 DB에서만 만든다)
+  # 테이블이 이미 있으면 CREATE 오류를 무시하고 넘어간다 (continue-on-error 기본값 true)
+  batch:
+    jdbc:
+      initialize-schema: always
+
   kafka:
     bootstrap-servers:
       - localhost:9092

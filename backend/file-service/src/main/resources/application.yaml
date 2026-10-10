@@ -34,6 +34,11 @@ spring:
         # 구독한 토픽이 없으면 브로커에 자동 생성을 요청한다 (브로커도 자동 생성을 허용해야 동작)
         "[allow.auto.create.topics]": true
 
+  # 파일 정리 배치(PRO-57). 켜 두면 앱을 켤 때마다 등록된 Job이 실행되므로 끈다 (Job은 스케줄러가 시작한다)
+  batch:
+    job:
+      enabled: false
+
 # 파일 저장소 (S3). 기본값은 compose의 로컬 S3Mock(localhost:9090)이다
 # .env에 S3_ENDPOINT를 빈 값으로 두고 버킷·리전·키를 넣으면 실제 AWS S3를 쓴다 (.env.example 참고)
 file:
