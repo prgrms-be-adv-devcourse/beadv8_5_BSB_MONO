@@ -140,11 +140,13 @@ public class MemberJoinRequestDto {
 
 | 필드 | example |
 |---|---|
-| username | `runner1` |
+| email | `runner1@crewrun.com` |
 | password | `password1234` |
+| name | `김러너` |
 | nickname | `러너1` |
-| email | `runner1@bukang.com` |
 | phone | `010-1234-5678` |
+| birthDate | `1995-04-12` |
+| gender | `FEMALE` |
 
 ## 6. 기타
 

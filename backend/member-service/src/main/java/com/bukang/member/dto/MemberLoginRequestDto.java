@@ -9,7 +9,7 @@ import lombok.Getter;
 @AllArgsConstructor
 @Getter
 public class MemberLoginRequestDto {
-	@Schema(description = "이메일", example = "runner1@bukang.com")
+	@Schema(description = "이메일", example = "runner1@crewrun.com")
 	@NotBlank(message = "이메일을 입력해주세요.")
 	private final String email;
 

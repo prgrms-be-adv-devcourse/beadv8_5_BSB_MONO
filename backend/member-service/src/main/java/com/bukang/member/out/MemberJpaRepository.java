@@ -30,20 +30,14 @@ public class MemberJpaRepository {
 					member.id,
 					member.createDate,
 					member.modifyDate,
-					member.username,
 					member.nickname,
 					member.email,
 					member.phone
 				))
 			.from(member)
 			.where(
-				usernameEq(condition.getUsername()),
 				phoneEq(condition.getPhone())
 			).fetch();
-	}
-
-	public BooleanExpression usernameEq(String username) {
-		return username != null ? member.username.eq(username) : null;
 	}
 
 	public BooleanExpression nicknameEq(String nickname) {
@@ -58,11 +52,10 @@ public class MemberJpaRepository {
 		return email != null ? member.email.eq(email) : null;
 	}
 
-	// usernameEq(...).and(...)로 체이닝하면 첫 조건이 null일 때 NPE가 나므로 Expressions.allOf로 조합한다
+	// nicknameEq(...).and(...)로 체이닝하면 첫 조건이 null일 때 NPE가 나므로 Expressions.allOf로 조합한다
 	// allOf는 null 조건을 건너뛰고, 모든 조건이 null이면 null을 반환한다 (where에 그대로 넣을 수 있음)
 	public BooleanExpression allCondition(MemberSearchCondition condition) {
 		return Expressions.allOf(
-			usernameEq(condition.getUsername()),
 			nicknameEq(condition.getNickname()),
 			phoneEq(condition.getPhone()),
 			emailEq(condition.getEmail())

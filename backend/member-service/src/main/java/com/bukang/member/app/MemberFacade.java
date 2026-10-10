@@ -27,16 +27,18 @@ public class MemberFacade {
 	@Transactional
 	public MemberDto join(MemberJoinRequestDto memberJoinDto) {
 		return memberJoinUseCase.join(
-			memberJoinDto.getUsername(),
 			memberJoinDto.getEmail(),
 			memberJoinDto.getPassword(),
+			memberJoinDto.getName(),
 			memberJoinDto.getNickname(),
-			memberJoinDto.getPhone()
+			memberJoinDto.getPhone(),
+			memberJoinDto.getBirthDate(),
+			memberJoinDto.getGender()
 		).toDto();
 	}
 
-	public boolean existsByUsername(String username) {
-		return memberRepository.existsByUsername(username);
+	public boolean existsByEmail(String email) {
+		return memberRepository.existsByEmail(email);
 	}
 
 	public MemberDto login(MemberLoginRequestDto memberLoginRequestDto) {

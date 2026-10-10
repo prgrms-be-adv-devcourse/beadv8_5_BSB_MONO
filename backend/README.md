@@ -155,7 +155,7 @@ presigned URL은 만료 전까지 여러 번 쓸 수 있어서, 확인을 마친
    if (memberRepository.existsByPhoneHash(phoneHash)) {
    	throw new DuplicatePhoneException("이미 사용 중인 전화번호입니다.");
    }
-   new Member(username, email, passwordEncoder.encode(password), nickname, phone, phoneHash);
+   new Member(email, passwordEncoder.encode(password), name, nickname, phone, phoneHash, birthDate, gender);
    ```
 
 4. 값을 바꾸는 메서드도 원문과 해시를 **함께** 받아 둘 다 바꿉니다. 해시는 자동으로 갱신되지 않습니다.

@@ -12,9 +12,8 @@ final class AuthApiExamples {
 				"id": 1,
 				"createDate": "2026-10-05T21:25:35",
 				"modifyDate": "2026-10-05T21:25:35",
-				"username": "runner1",
 				"nickname": "러너1",
-				"email": "runner1@bukang.com"
+				"email": "runner1@crewrun.com"
 			}
 		}
 		""";
@@ -27,9 +26,8 @@ final class AuthApiExamples {
 				"id": 1,
 				"createDate": "2026-10-05T21:25:35",
 				"modifyDate": "2026-10-05T21:25:35",
-				"username": "runner1",
 				"nickname": "러너1",
-				"email": "runner1@bukang.com"
+				"email": "runner1@crewrun.com"
 			}
 		}
 		""";
