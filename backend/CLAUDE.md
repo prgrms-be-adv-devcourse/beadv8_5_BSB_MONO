@@ -13,9 +13,9 @@
 | `member-service` | Spring Boot 앱 | 8080 | 회원가입, 로그인, 인증 |
 | `cash-service` | Spring Boot 앱 | 8081 | 회원 복제본(`CashMember`), 캐시 (뼈대만 있음) |
 | `payout-service` | Spring Boot 앱 | 8082 | 정산 내역(`Payout`), 정산 항목, 지급보류 (엔티티만 있음) |
-| `file-service` | Spring Boot 앱 | 8083 | 대회 이미지 등 파일 저장 (뼈대만 있음) |
+| `file-service` | Spring Boot 앱 | 8083 | 대회 이미지 등 파일 저장 (S3, presigned URL) |
 
-인프라(`compose.yml`: MySQL, Kafka, Elasticsearch, Redis)는 모든 서비스가 공용으로 씁니다.
+인프라(`compose.yml`: MySQL, Kafka, Elasticsearch, Redis, 로컬 S3 대체재 S3Mock)는 모든 서비스가 공용으로 씁니다.
 
 - Java 25 (Gradle toolchain), Spring Boot 4.1.1, Gradle 9.7.1 (Kotlin DSL)
 - 루트 패키지: `com.bukang` (`group`은 `com`). 모듈별 패키지는 `com.bukang.common`, `com.bukang.member`, `com.bukang.cash`, `com.bukang.payout`, `com.bukang.file`
@@ -56,6 +56,7 @@ backend/
 │   │   ├── json/              JsonConverter
 │   │   └── rsdata/            RsData (공통 응답)
 │   ├── shared/                서비스 간 계약 (도메인 지식 있음)
+│   │   ├── file/domain/       FileType·FileKind (파일 용도·종류), FileRef (파일 연결 대상, 엔티티로만 만듦)
 │   │   └── member/
 │   │       ├── domain/        BaseMember, ReplicaMember (공개 필드만)
 │   │       └── event/         MemberJoinedEvent
@@ -74,8 +75,16 @@ backend/
 │   ├── domain/                Payout, PayoutItem, PayoutHold, 상태·사유 enum
 │   └── out/                   PayoutRepository
 └── file-service/    com.bukang.file
-    └── FileApplication        (뼈대만 있음)
+    ├── in/                    ApiV1FileController(업로드 URL 발급·완료, 조회), InternalV1FileController(대상에 연결, 내부 전용)
+    ├── app/                   FileFacade, FileUploadUseCase, FileLinkUseCase
+    ├── domain/                StoredFile(FILE_FILE), FileStatus, FileFormat, exception/
+    ├── config/                S3Properties(file.storage.s3), S3Config(S3Client, S3Presigner)
+    └── out/                   StoredFileRepository, storage/(FileStorage, S3FileStorage)
 ```
+
+- 파일은 브라우저가 presigned PUT으로 S3 `uploads/`에 직접 올리고, 완료 API가 `files/`로 옮긴 뒤 형식·크기를 확인한다 (README "파일 저장소" 참고).
+- 다른 서비스는 파일을 파일 ID로만 참조한다. 대상(대회 등)을 저장할 때 `/internal/v1/file/refs/{refType}/{refId}/files`를 동기 호출해 연결하고, `/internal/**`은 게이트웨이에 노출하지 않는다.
+- 회원 ID는 `X-Member-Id` 헤더로 받는다. 게이트웨이가 토큰을 검사해 이 헤더를 넣어 줄 예정이다(PRO-20).
 
 - `common`은 실행 앱이 아니라 jar 라이브러리입니다. 각 서비스는 `implementation(project(":common"))`으로 의존합니다.
   서비스의 `@SpringBootApplication(scanBasePackages = {"com.bukang.<서비스>", "com.bukang.common"})`로 common의 빈도 등록합니다.

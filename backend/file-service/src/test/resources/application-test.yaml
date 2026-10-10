@@ -22,6 +22,18 @@ spring:
       # 브로커 없이도 컨텍스트가 뜨도록 리스너 자동 시작을 끈다
       auto-startup: false
 
+# 테스트는 개인 .env와 상관없이 로컬 S3Mock 값을 쓴다 (실제 S3에 요청하지 않는다)
+file:
+  storage:
+    s3:
+      bucket: bukang-file
+      region: ap-northeast-2
+      endpoint: http://localhost:9090
+      public-endpoint: ""
+      path-style: true
+      access-key: s3mock
+      secret-key: s3mock
+
 logging:
   level:
     com.bukang: debug

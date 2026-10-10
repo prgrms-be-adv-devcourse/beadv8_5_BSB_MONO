@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>파일 업로드 테스트 (file-service 개발용)</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 24px; font-family: system-ui, sans-serif; background: #f5f6f8; color: #222; }
+    h1 { margin: 0 0 4px; font-size: 22px; }
+    h2 { margin: 0 0 4px; font-size: 17px; }
+    .desc { margin: 0 0 20px; color: #666; font-size: 14px; }
+    .panel { background: #fff; border: 1px solid #e2e4e8; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+    .form { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; align-items: end; margin-top: 12px; }
+    label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: #444; }
+    label.inline { flex-direction: row; align-items: center; gap: 6px; }
+    input, select, button { font: inherit; padding: 8px; border: 1px solid #ccd0d6; border-radius: 6px; }
+    button { background: #2f6fed; color: #fff; border: none; cursor: pointer; }
+    button.secondary { background: #6b7280; }
+    button:disabled { background: #b8c2d6; cursor: not-allowed; }
+    .hint { font-size: 12px; color: #888; margin: 4px 0 0; }
+    .card { border: 1px solid #e2e4e8; border-radius: 8px; padding: 12px; margin-top: 12px; }
+    .card h3 { margin: 0 0 8px; font-size: 15px; word-break: break-all; }
+    .steps { list-style: none; padding: 0; margin: 0 0 8px; font-size: 13px; }
+    .steps li { padding: 2px 0; }
+    .actions { display: flex; gap: 8px; margin: 8px 0; }
+    .ok { color: #1a7f37; }
+    .fail { color: #cf222e; }
+    .wait { color: #888; }
+    progress { width: 100%; height: 10px; }
+    .keys { font-size: 12px; font-family: ui-monospace, monospace; background: #f6f8fa; padding: 8px; border-radius: 6px; word-break: break-all; white-space: pre-wrap; }
+    .preview img, .preview video { max-width: 100%; max-height: 240px; margin-top: 8px; border-radius: 6px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 12px; }
+    th, td { border-bottom: 1px solid #e2e4e8; padding: 6px; text-align: left; }
+    td input[type=number] { width: 70px; }
+    .message { margin-top: 12px; font-size: 14px; }
+    .ref-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-top: 12px; }
+    .ref-item { border: 1px solid #e2e4e8; border-radius: 8px; padding: 8px; font-size: 12px; }
+    .ref-item img, .ref-item video { width: 100%; max-height: 140px; object-fit: cover; border-radius: 6px; }
+    pre { margin: 0; max-height: 360px; overflow: auto; font-size: 12px; background: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 6px; white-space: pre-wrap; word-break: break-all; }
+  </style>
+</head>
+<body>
+  <h1>파일 업로드 테스트</h1>
+  <p class="desc">
+    ① 업로드 URL 발급 → ② 브라우저가 S3에 직접 PUT → ③ 업로드 완료 확인(UPLOADED) → ④ 대상에 연결(ACTIVE) → ⑤ 조회 순서로 확인합니다. (개발용 페이지)
+  </p>
+
+  <!-- 1. 업로드 -->
+  <div class="panel">
+    <h2>1. 업로드 (①~③)</h2>
+    <div class="form">
+      <label>
+        회원 ID (X-Member-Id 헤더)
+        <input id="memberId" type="number" min="1" value="1">
+        <span class="hint">게이트웨이가 생기면 JWT에서 꺼내 넣어 줄 값</span>
+      </label>
+      <label>
+        파일 용도 (fileType)
+        <select id="fileType"></select>
+        <span class="hint" id="fileTypeHint"></span>
+      </label>
+      <label>
+        파일 선택 (여러 개 가능)
+        <input id="files" type="file" multiple>
+        <span class="hint">개수 제한은 ④ 연결할 때 검사합니다</span>
+      </label>
+      <div>
+        <label class="inline"><input id="autoComplete" type="checkbox" checked> PUT 후 바로 완료 확인</label>
+        <span class="hint">끄면 ②·③ 버튼을 직접 누릅니다</span>
+        <button id="uploadButton" type="button" style="width: 100%; margin-top: 6px;">업로드</button>
+      </div>
+    </div>
+    <div id="results"></div>
+  </div>
+
+  <!-- 2. 연결 -->
+  <div class="panel">
+    <h2>2. 대상에 연결 (④, 내부 API)</h2>
+    <p class="hint">
+      PUT /internal/v1/file/refs/{refType}/{refId}/files — 실제로는 product-service가 대회를 저장할 때 부릅니다.
+      체크한 파일 목록이 그 대상의 파일 전체가 되고, 목록에서 빠진 기존 파일은 DELETED가 됩니다.
+    </p>
+    <div class="form">
+      <label>대상 종류 (refType, 클래스 이름)<input id="refType" value="Race"></label>
+      <label>대상 ID (refId)<input id="refId" type="number" value="1"></label>
+      <label>
+        소유자 회원 ID (ownerId, 본문)
+        <input id="ownerId" type="number" value="1">
+        <span class="hint">product-service가 받은 X-Member-Id를 넣는 값</span>
+      </label>
+      <button id="linkButton" type="button">연결</button>
+    </div>
+    <table>
+      <thead>
+        <tr><th>연결</th><th>파일 ID</th><th>파일명</th><th>보낼 용도 (fileType)</th><th>순서 (sortNo)</th><th>상태</th></tr>
+      </thead>
+      <tbody id="linkTableBody"></tbody>
+    </table>
+    <div id="linkMessage" class="message"></div>
+  </div>
+
+  <!-- 3. 조회 -->
+  <div class="panel">
+    <h2>3. 조회 (⑤)</h2>
+    <div class="form">
+      <button id="refListButton" type="button">대상별 목록 조회 (위 refType·refId)</button>
+    </div>
+    <p class="hint">GET /api/v1/file/files?refType=&amp;refId= — 연결된(ACTIVE) 파일만 용도 → 순서 순으로 나옵니다. 회원 헤더 없음.</p>
+    <div id="refList" class="ref-list"></div>
+
+    <div class="form">
+      <label>파일 ID<input id="findFileId" type="number" min="1"></label>
+      <label>
+        조회하는 회원 ID (X-Member-Id)
+        <input id="viewerId" type="number" min="1">
+        <span class="hint">비우면 헤더 없이 보냅니다</span>
+      </label>
+      <button id="findButton" type="button" class="secondary">파일 단건 조회</button>
+    </div>
+    <p class="hint">GET /api/v1/file/files/{fileId} — 연결된 파일은 누구나, 연결 전 파일은 올린 회원만 볼 수 있습니다.</p>
+    <div id="findResult" class="message"></div>
+  </div>
+
+  <div class="panel">
+    <h2>요청·응답 기록</h2>
+    <pre id="log"></pre>
+  </div>
+
+  <script>
+    // common의 FileType·FileKind와 같은 값
+    const FILE_TYPES = {
+      THUMBNAIL: { label: '대표 이미지', kind: 'IMAGE', maxCount: 1 },
+      DETAIL: { label: '대회 소개 이미지', kind: 'IMAGE', maxCount: 5 },
+      COURSE: { label: '코스 안내 이미지', kind: 'IMAGE', maxCount: 7 },
+      INTRO_VIDEO: { label: '대회 소개 영상', kind: 'VIDEO', maxCount: 1 },
+      ROSTER: { label: '크루원 명단', kind: 'EXCEL', maxCount: 1 },
+    };
+    const KINDS = {
+      IMAGE: { accept: 'image/jpeg,image/png,image/webp', description: 'JPG·PNG·WebP, 10MB 이하' },
+      VIDEO: { accept: 'video/mp4,video/quicktime,.mp4,.mov', description: 'MP4·MOV, 100MB 이하' },
+      EXCEL: { accept: '.xlsx,.xls', description: 'XLSX·XLS, 5MB 이하' },
+    };
+    // 브라우저가 모르는 확장자는 file.type이 빈 문자열이라, 확장자로 Content-Type을 보완한다
+    const CONTENT_TYPE_BY_EXTENSION = {
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      png: 'image/png',
+      webp: 'image/webp',
+      mp4: 'video/mp4',
+      mov: 'video/quicktime',
+      xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      xls: 'application/vnd.ms-excel',
+    };
+
+    const $ = id => document.getElementById(id);
+    // 완료 확인까지 마친 파일 (연결 표에 나온다). fileId → 정보
+    const uploadedFiles = new Map();
+
+    // ---------- 1. 업로드 ----------
+
+    Object.entries(FILE_TYPES).forEach(([value, { label }]) => {
+      $('fileType').add(new Option(`${label} (${value})`, value));
+    });
+    $('fileType').addEventListener('change', applyAccept);
+    applyAccept();
+
+    // 용도를 바꾸면 파일 선택 창에 보일 형식도 바꾼다
+    function applyAccept() {
+      const kind = KINDS[FILE_TYPES[$('fileType').value].kind];
+      $('files').accept = kind.accept;
+      $('fileTypeHint').textContent = kind.description;
+    }
+
+    $('uploadButton').addEventListener('click', async () => {
+      const files = [...$('files').files];
+      if (files.length === 0) {
+        alert('파일을 선택해 주세요.');
+        return;
+      }
+      $('uploadButton').disabled = true;
+      // 한 파일씩 차례로 올린다
+      for (const file of files) {
+        await uploadOne(file, $('fileType').value, $('memberId').value, $('autoComplete').checked);
+      }
+      $('uploadButton').disabled = false;
+    });
+
+    async function uploadOne(file, fileType, memberId, autoComplete) {
+      const card = createCard(file);
+      const upload = await createUploadUrl(file, fileType, memberId, card);
+      if (!upload) {
+        return;
+      }
+      if (autoComplete) {
+        if (await putToS3(upload, file, card)) {
+          await completeUpload(upload, memberId, fileType, file, card);
+        }
+        return;
+      }
+      // 직접 누르기: ③을 먼저 누르면 "업로드된 파일이 없습니다"(400), 여러 번 눌러도 같은 결과(멱등)
+      card.manualButtons(
+        () => putToS3(upload, file, card),
+        () => completeUpload(upload, memberId, fileType, file, card));
+    }
+
+    // ① 업로드 URL 발급: 서버가 형식·크기를 검사하고 PENDING 파일을 만든다
+    async function createUploadUrl(file, fileType, memberId, card) {
+      try {
+        const contentType = file.type || guessContentType(file.name);
+        const body = { fileType, fileName: file.name, contentType, fileSize: file.size };
+        const result = await callApi('① 업로드 URL 발급', 'POST', '/api/v1/file/files', { memberId, body });
+        if (result.httpStatus !== 201) {
+          card.step(0, 'fail', `① 발급 실패 (${result.httpStatus}): ${result.body.message}`);
+          return null;
+        }
+        const upload = result.body.data;
+        card.step(0, 'ok', `① 발급 완료: 파일 ID ${upload.fileId} (PENDING), URL 만료 ${new Date(upload.expiresAt).toLocaleTimeString()}`);
+        card.keys(upload.uploadUrl);
+        return upload;
+      } catch (error) {
+        card.step(0, 'fail', `① 발급 오류: ${error.message}`);
+        return null;
+      }
+    }
+
+    // ② S3에 직접 PUT: 응답의 headers를 그대로 붙인다 (서명에 Content-Type·크기가 묶여 있다)
+    // 진행률을 보려고 fetch 대신 XMLHttpRequest를 쓴다 (fetch는 업로드 진행률을 알려 주지 않는다)
+    function putToS3(upload, file, card) {
+      return new Promise(resolve => {
+        const xhr = new XMLHttpRequest();
+        xhr.open(upload.method, upload.uploadUrl);
+        Object.entries(upload.headers).forEach(([name, value]) => {
+          // content-length는 브라우저가 파일 크기로 직접 넣는다 (직접 넣으려 하면 브라우저가 막는다)
+          if (name.toLowerCase() !== 'content-length') {
+            xhr.setRequestHeader(name, value);
+          }
+        });
+        xhr.upload.onprogress = event => {
+          if (event.lengthComputable) {
+            card.progress(event.loaded / event.total);
+          }
+        };
+        xhr.onload = () => {
+          log(`② S3 ${upload.method} → ${xhr.status}`, xhr.responseText || '(본문 없음)');
+          if (xhr.status === 200) {
+            card.step(1, 'ok', '② S3 업로드 완료 (uploads/에 올라감)');
+            resolve(true);
+          } else {
+            card.step(1, 'fail', `② S3가 ${xhr.status}로 거절했습니다. 아래 기록의 S3 오류(XML)를 확인하세요.`);
+            resolve(false);
+          }
+        };
+        // 응답을 아예 못 받으면(상태 0) 대부분 버킷 CORS에 이 페이지 주소가 없어서다
+        xhr.onerror = () => {
+          const message = `② S3 요청이 막혔습니다. 버킷 CORS에 ${location.origin}과 PUT이 허용되어 있는지 확인하세요.`;
+          log('② S3 오류', message);
+          card.step(1, 'fail', message);
+          resolve(false);
+        };
+        xhr.send(file);
+      });
+    }
+
+    // ③ 업로드 완료 확인: 서버가 files/로 복사하고 크기·매직 바이트를 검사해 UPLOADED로 바꾼다
+    async function completeUpload(upload, memberId, fileType, file, card) {
+      try {
+        const result = await callApi(
+          '③ 업로드 완료 확인', 'POST', `/api/v1/file/files/${upload.fileId}/complete`, { memberId });
+        if (result.httpStatus !== 200) {
+          card.step(2, 'fail', `③ 확인 실패 (${result.httpStatus}): ${result.body.message}`);
+          return;
+        }
+        const stored = result.body.data;
+        card.step(2, 'ok', `③ 확인 완료: 상태 ${stored.status} (files/로 옮겨짐)`);
+        card.preview(stored);
+        if (!uploadedFiles.has(stored.id)) {
+          const sameTypeCount = [...uploadedFiles.values()].filter(item => item.fileType === fileType).length;
+          uploadedFiles.set(stored.id, {
+            fileId: stored.id,
+            name: file.name,
+            fileType,
+            sendType: fileType,
+            sortNo: sameTypeCount,
+            checked: false,
+            status: stored.status,
+            ref: null,
+          });
+          renderLinkTable();
+        }
+      } catch (error) {
+        card.step(2, 'fail', `③ 확인 오류: ${error.message}`);
+      }
+    }
+
+    function guessContentType(fileName) {
+      const extension = fileName.split('.').pop().toLowerCase();
+      return CONTENT_TYPE_BY_EXTENSION[extension] ?? '';
+    }
+
+    // presigned URL의 경로에서 객체 키(uploads/…)를 꺼낸다. 확정 키는 앞부분만 files/로 바뀐다
+    function uploadKeyOf(uploadUrl) {
+      const path = decodeURIComponent(new URL(uploadUrl).pathname);
+      const index = path.indexOf('uploads/');
+      return index >= 0 ? path.substring(index) : path;
+    }
+
+    function createCard(file) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      const title = document.createElement('h3');
+      title.textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB, ${file.type || '형식 모름'})`;
+      const steps = document.createElement('ul');
+      steps.className = 'steps';
+      ['① 업로드 URL 발급', '② S3 업로드', '③ 업로드 완료 확인'].forEach(text => {
+        const item = document.createElement('li');
+        item.className = 'wait';
+        item.textContent = `${text} 대기`;
+        steps.append(item);
+      });
+      const actions = document.createElement('div');
+      actions.className = 'actions';
+      const bar = document.createElement('progress');
+      bar.max = 1;
+      bar.value = 0;
+      const keys = document.createElement('div');
+      const preview = document.createElement('div');
+      preview.className = 'preview';
+      card.append(title, steps, actions, bar, keys, preview);
+      $('results').prepend(card);
+
+      return {
+        step(index, state, text) {
+          steps.children[index].className = state;
+          steps.children[index].textContent = text;
+        },
+        progress(ratio) {
+          bar.value = ratio;
+        },
+        keys(uploadUrl) {
+          const uploadKey = uploadKeyOf(uploadUrl);
+          keys.className = 'keys';
+          keys.textContent = [
+            `저장소: ${new URL(uploadUrl).host}`,
+            `업로드 키: ${uploadKey}`,
+            `확정 키: ${uploadKey.replace(/^uploads\//, 'files/')}  ← S3 콘솔에서 이 키를 찾으세요`,
+          ].join('\n');
+        },
+        manualButtons(onPut, onComplete) {
+          const putButton = document.createElement('button');
+          putButton.textContent = '② S3에 올리기';
+          putButton.addEventListener('click', async () => {
+            putButton.disabled = true;
+            // 성공하면 다시 누르지 못하게 둔다 (같은 URL로 다시 올리면 uploads/에 쓰이지 않는 객체가 남는다)
+            putButton.disabled = await onPut();
+          });
+          const completeButton = document.createElement('button');
+          completeButton.textContent = '③ 완료 확인';
+          completeButton.className = 'secondary';
+          completeButton.addEventListener('click', onComplete);
+          actions.append(putButton, completeButton);
+        },
+        preview(stored) {
+          bar.value = 1;
+          preview.replaceChildren(mediaOf(stored));
+        },
+      };
+    }
+
+    // 파일 형식에 맞게 이미지·영상·내려받기 링크를 만든다
+    function mediaOf(stored) {
+      if (stored.contentType.startsWith('image/')) {
+        const image = document.createElement('img');
+        image.src = stored.url;
+        image.alt = stored.originFileName;
+        return image;
+      }
+      if (stored.contentType.startsWith('video/')) {
+        const video = document.createElement('video');
+        video.src = stored.url;
+        video.controls = true;
+        return video;
+      }
+      const link = document.createElement('a');
+      link.href = stored.url;
+      link.textContent = `${stored.originFileName} 내려받기`;
+      return link;
+    }
+
+    // ---------- 2. 연결 ----------
+
+    function renderLinkTable() {
+      const body = $('linkTableBody');
+      body.replaceChildren();
+      if (uploadedFiles.size === 0) {
+        const row = body.insertRow();
+        const cell = row.insertCell();
+        cell.colSpan = 6;
+        cell.className = 'hint';
+        cell.textContent = '③ 완료 확인까지 마친 파일이 여기에 나옵니다.';
+        return;
+      }
+      uploadedFiles.forEach(item => {
+        const row = body.insertRow();
+
+        const check = document.createElement('input');
+        check.type = 'checkbox';
+        check.checked = item.checked;
+        check.addEventListener('change', () => item.checked = check.checked);
+        row.insertCell().append(check);
+
+        row.insertCell().textContent = item.fileId;
+        row.insertCell().textContent = item.name;
+
+        // 업로드 때와 다른 용도를 골라 보내면 400 "업로드할 때 정한 파일 용도와 다릅니다"
+        const typeSelect = document.createElement('select');
+        Object.entries(FILE_TYPES).forEach(([value, { label }]) => {
+          typeSelect.add(new Option(`${label} (${value})`, value, false, value === item.sendType));
+        });
+        typeSelect.addEventListener('change', () => item.sendType = typeSelect.value);
+        row.insertCell().append(typeSelect);
+
+        const sortInput = document.createElement('input');
+        sortInput.type = 'number';
+        sortInput.min = 0;
+        sortInput.value = item.sortNo;
+        sortInput.addEventListener('change', () => item.sortNo = Number(sortInput.value));
+        row.insertCell().append(sortInput);
+
+        const statusCell = row.insertCell();
+        statusCell.textContent = item.ref ? `${item.status} (${item.ref})` : item.status;
+        statusCell.className = item.status === 'DELETED' ? 'fail' : item.status === 'ACTIVE' ? 'ok' : '';
+      });
+    }
+    renderLinkTable();
+
+    $('linkButton').addEventListener('click', async () => {
+      const refType = $('refType').value;
+      const refId = $('refId').value;
+      const selected = [...uploadedFiles.values()].filter(item => item.checked);
+      if (selected.length === 0
+        && !confirm('빈 목록을 보내면 이 대상에 연결된 파일이 모두 DELETED가 됩니다. 계속할까요?')) {
+        return;
+      }
+      const body = {
+        ownerId: $('ownerId').value === '' ? null : Number($('ownerId').value),
+        files: selected.map(item => ({ fileId: item.fileId, fileType: item.sendType, sortNo: item.sortNo })),
+      };
+      const url = `/internal/v1/file/refs/${encodeURIComponent(refType)}/${encodeURIComponent(refId)}/files`;
+      const result = await callApi('④ 대상에 연결', 'PUT', url, { body });
+      showMessage($('linkMessage'), result.httpStatus === 200, `④ ${result.httpStatus}: ${result.body.message}`);
+      if (result.httpStatus !== 200) {
+        return;
+      }
+      // 응답에 온 파일은 ACTIVE, 이 대상에 붙어 있다가 목록에서 빠진 파일은 DELETED
+      const ref = `${refType}/${refId}`;
+      const linkedIds = new Set(result.body.data.map(file => file.id));
+      uploadedFiles.forEach(item => {
+        if (linkedIds.has(item.fileId)) {
+          item.status = 'ACTIVE';
+          item.ref = ref;
+        } else if (item.ref === ref) {
+          item.status = 'DELETED';
+          item.ref = null;
+        }
+      });
+      renderLinkTable();
+      await loadRefList();
+    });
+
+    // ---------- 3. 조회 ----------
+
+    $('refListButton').addEventListener('click', loadRefList);
+
+    async function loadRefList() {
+      const refType = encodeURIComponent($('refType').value);
+      const refId = encodeURIComponent($('refId').value);
+      const result = await callApi('⑤ 대상별 목록 조회', 'GET', `/api/v1/file/files?refType=${refType}&refId=${refId}`);
+      const list = $('refList');
+      list.replaceChildren();
+      if (result.httpStatus !== 200) {
+        showMessage(list, false, `⑤ ${result.httpStatus}: ${result.body.message}`);
+        return;
+      }
+      if (result.body.data.length === 0) {
+        list.textContent = '연결된 파일이 없습니다.';
+        return;
+      }
+      result.body.data.forEach(stored => {
+        const item = document.createElement('div');
+        item.className = 'ref-item';
+        const text = document.createElement('div');
+        text.textContent = `${stored.fileType} #${stored.sortNo} · 파일 ${stored.id} · ${stored.status}`;
+        item.append(mediaOf(stored), text);
+        list.append(item);
+      });
+    }
+
+    $('findButton').addEventListener('click', async () => {
+      const fileId = $('findFileId').value;
+      if (fileId === '') {
+        alert('파일 ID를 입력해 주세요.');
+        return;
+      }
+      const result = await callApi('⑤ 파일 단건 조회', 'GET', `/api/v1/file/files/${encodeURIComponent(fileId)}`,
+        { memberId: $('viewerId').value });
+      const box = $('findResult');
+      if (result.httpStatus !== 200) {
+        showMessage(box, false, `⑤ ${result.httpStatus}: ${result.body.message}`);
+        return;
+      }
+      const stored = result.body.data;
+      showMessage(box, true, `⑤ 200: 파일 ${stored.id} · ${stored.fileType} · ${stored.status}`
+        + (stored.url ? '' : ' (확인 전이라 URL 없음)'));
+      if (stored.url) {
+        box.append(mediaOf(stored));
+      }
+    });
+
+    // ---------- 공통 ----------
+
+    // memberId가 있으면 X-Member-Id 헤더를 붙인다 (내부 API와 목록 조회는 헤더 없음)
+    async function callApi(title, method, url, { memberId, body } = {}) {
+      const headers = {};
+      if (memberId) {
+        headers['X-Member-Id'] = memberId;
+      }
+      if (body !== undefined) {
+        headers['Content-Type'] = 'application/json';
+      }
+      const response = await fetch(url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+      const json = await response.json();
+      log(`${title}: ${method} ${url} → ${response.status}`, { headers, request: body ?? null, response: json });
+      return { httpStatus: response.status, body: json };
+    }
+
+    function showMessage(element, ok, text) {
+      const message = document.createElement('div');
+      message.className = ok ? 'ok' : 'fail';
+      message.textContent = text;
+      element.replaceChildren(message);
+    }
+
+    function log(title, data) {
+      const text = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+      $('log').textContent = `[${new Date().toLocaleTimeString()}] ${title}\n${text}\n\n` + $('log').textContent;
+    }
+  </script>
+</body>
+</html>

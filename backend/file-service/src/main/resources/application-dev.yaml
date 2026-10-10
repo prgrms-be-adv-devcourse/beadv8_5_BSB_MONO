@@ -20,6 +20,17 @@ spring:
     bootstrap-servers:
       - localhost:9092
 
+  # 업로드 테스트 페이지(dev-static/upload-test.html)는 dev 프로파일에서만 연다 (prod에서는 열리지 않는다)
+  # 이 값을 정하면 Spring 기본 위치가 바뀌므로 기본 위치 4곳도 함께 적는다
+  web:
+    resources:
+      static-locations:
+        - classpath:/META-INF/resources/
+        - classpath:/resources/
+        - classpath:/static/
+        - classpath:/public/
+        - classpath:/dev-static/
+
 logging:
   level:
     com.bukang: debug

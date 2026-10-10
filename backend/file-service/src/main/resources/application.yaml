@@ -34,6 +34,23 @@ spring:
         # 구독한 토픽이 없으면 브로커에 자동 생성을 요청한다 (브로커도 자동 생성을 허용해야 동작)
         "[allow.auto.create.topics]": true
 
+# 파일 저장소 (S3). 기본값은 compose의 로컬 S3Mock(localhost:9090)이다
+# .env에 S3_ENDPOINT를 빈 값으로 두고 버킷·리전·키를 넣으면 실제 AWS S3를 쓴다 (.env.example 참고)
+file:
+  storage:
+    s3:
+      bucket: ${S3_BUCKET:bukang-file}
+      region: ${AWS_REGION:ap-northeast-2}
+      endpoint: ${S3_ENDPOINT:http://localhost:9090}
+      public-endpoint: ${S3_PUBLIC_ENDPOINT:}
+      path-style: ${S3_PATH_STYLE:true}
+      # S3Mock은 키를 검사하지 않으므로 아무 값이나 넣는다
+      access-key: ${S3_ACCESS_KEY:s3mock}
+      secret-key: ${S3_SECRET_KEY:s3mock}
+      # 업로드 URL은 바로 쓰므로 짧게, 이미지 URL은 화면을 보는 동안 열려야 하므로 길게 둔다
+      upload-url-expiration: 10m
+      download-url-expiration: 30m
+
 # Swagger / OpenAPI V3 설정 (prod에서는 비활성화)
 springdoc:
   api-docs:

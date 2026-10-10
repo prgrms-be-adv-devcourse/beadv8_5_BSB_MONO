@@ -16,6 +16,7 @@ Gradle 멀티 모듈로 `common`(공통 라이브러리), `member-service`(8080)
 | `bukang-elasticsearch` | Elasticsearch 9.4.5 + nori 한글 분석기 | `localhost:9200` |
 | `bukang-elasticvue` | Elasticsearch 관리 화면 (Elasticvue) | http://localhost:8090 |
 | `bukang-redis` | Redis 8.2 | `localhost:6379` |
+| `bukang-s3mock` | 로컬 S3 대체재 (Adobe S3Mock, 버킷 `bukang-file`) | http://localhost:9090 |
 | `member-service` | 회원 서비스 (prod 프로파일) | http://localhost:8080 |
 | `cash-service` | 캐시 서비스 (prod 프로파일) | http://localhost:8081 |
 | `payout-service` | 정산 서비스 (prod 프로파일) | http://localhost:8082 |
@@ -62,6 +63,40 @@ IntelliJ에서는 `MemberApplication`, `CashApplication`, `PayoutApplication`, `
    ```
 
 앱 컨테이너는 Docker 내부 서비스 이름(`bukang-db`, `bukang-kafka:29092` 등)으로 인프라에 접속하므로, `.env`의 주소에는 `localhost` 대신 서비스 이름을 사용합니다. 운영 프로파일에서는 Swagger가 비활성화됩니다.
+
+## 파일 저장소 (S3)
+
+`file-service`는 대회 이미지·소개 영상·크루원 명단(엑셀) 파일을 S3에 둡니다. 파일 본문은 서버를 거치지 않고, 브라우저가 서버에서 받은 presigned URL로 S3에 직접 올리고 받습니다.
+접속 설정은 `file-service`의 `application.yaml`(`file.storage.s3`)에 있습니다.
+API 사용법(단계별 요청·응답, 파일 종류, 연결 규칙)은 [`file-service/README.md`](file-service/README.md)에 있습니다.
+
+| 실행 방법 | 쓰는 S3 | 설정 |
+|---|---|---|
+| `bootRun`, IDE | 로컬 S3Mock (`localhost:9090`) | 기본값 그대로 |
+| `docker compose --profile app up` | 로컬 S3Mock (컨테이너 안에서는 `bukang-s3mock:9090`) | `compose.yml`이 넘긴다 |
+| 실제 AWS S3로 확인 | 실제 버킷 | `.env`에 `S3_*` 값을 채운다 (`.env.example` 참고) |
+| 운영 서버 | 실제 버킷 | 환경변수. 키 대신 EC2 IAM 역할 |
+
+- S3Mock은 path-style 주소(`http://localhost:9090/<버킷>/<키>`)만 지원하고, presigned URL의 서명과 만료를 검사하지 않습니다. 서명 관련 동작은 실제 S3에서 확인합니다.
+- 키가 비어 있으면 AWS SDK 기본 자격 증명 체인(환경변수, `~/.aws`, EC2 역할)을 씁니다. AWS 키는 `.env`에만 두고 커밋하지 않습니다.
+- 버킷은 퍼블릭 액세스 차단을 켠 비공개 버킷입니다. 이미지는 짧게 만료되는 presigned GET URL로 보여 줍니다.
+
+### 업로드 흐름과 객체 경로
+
+```
+① POST /api/v1/file/files               업로드 URL 발급 (파일은 PENDING, 키 uploads/{uuid}.{확장자})
+② 브라우저 → S3 PUT                       응답의 headers(content-type, content-length)를 그대로 붙인다
+③ POST /api/v1/file/files/{id}/complete  서버가 uploads/ → files/로 복사하고, 복사본의 크기·앞부분(매직 바이트)을 확인 → UPLOADED
+```
+
+| 경로 | 내용 | 정리 |
+|---|---|---|
+| `uploads/` | 브라우저가 presigned URL로 올린 원본. 확인이 끝나면 지운다 | 확인하지 않고 남은 객체는 S3 수명 주기 규칙(`uploads/` 1일 뒤 만료)으로 지운다 |
+| `files/` | 서버가 확인을 마친 파일. 업로드 URL을 주지 않는다 | 대상에서 빠진 파일은 정리 배치(PRO-57) |
+
+presigned URL은 만료 전까지 여러 번 쓸 수 있어서, 확인을 마친 뒤 같은 URL로 다른 내용을 덮어쓸 수 있습니다.
+확인한 파일을 업로드 URL이 없는 `files/`로 옮겨 두면 확인한 내용이 바뀌지 않습니다.
+업로드 URL에는 `content-type`과 `content-length`가 서명되므로, 다른 형식이나 크기로 올리면 실제 S3가 거절합니다.
 
 ## 민감정보 암호화
 
@@ -253,6 +288,7 @@ Kafka에는 메시지를 **JSON 문자열**로 보냅니다. Kafka 직렬화기�
 | http://localhost:8080/swagger-ui.html | 회원 서비스 Swagger UI (dev 프로파일에서만 열림, prod에서는 비활성화) |
 | http://localhost:8081/swagger-ui.html | 캐시 서비스 Swagger UI |
 | http://localhost:8082/swagger-ui.html | 정산 서비스 Swagger UI |
+| http://localhost:8083/swagger-ui.html | 파일 서비스 Swagger UI |
 | http://localhost:8080/v3/api-docs | OpenAPI 문서 원본(JSON) |
 
 ### 작성 규칙

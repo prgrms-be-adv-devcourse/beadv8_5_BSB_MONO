@@ -5,8 +5,17 @@ plugins {
 	id("io.spring.dependency-management")
 }
 
+dependencyManagement {
+	imports {
+		// Spring Boot BOM은 AWS SDK 버전을 관리하지 않으므로 SDK BOM을 따로 가져온다
+		mavenBom("software.amazon.awssdk:bom:2.55.13")
+	}
+}
+
 dependencies {
 	implementation(project(":common"))
+
+	implementation("software.amazon.awssdk:s3") // S3 업로드·조회, presigned URL
 
 	implementation("org.springframework.boot:spring-boot-starter-webmvc") // spring-web
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa") // dataJpa
@@ -24,6 +33,9 @@ dependencies {
 	testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-kafka-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
+	// S3 구현 테스트: Docker로 S3Mock을 띄운다 (Docker가 없으면 그 테스트만 건너뛴다)
+	testImplementation("org.testcontainers:testcontainers-junit-jupiter")
+	testImplementation("com.adobe.testing:s3mock-testcontainers:5.2.3")
 
 	// QueryDSL (Jakarta 버전, 버전은 Spring Boot BOM의 querydsl.version 사용)
 	val querydslVersion = dependencyManagement.importedProperties["querydsl.version"]
