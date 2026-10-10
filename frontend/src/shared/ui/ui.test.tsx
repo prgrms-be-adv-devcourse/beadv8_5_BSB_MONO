@@ -1,9 +1,10 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 
 import { Button } from './button/Button'
+import { Carousel, CarouselSlide } from './carousel/Carousel'
 import { Textarea } from './field/Textarea'
 import { TextField } from './field/TextField'
 import { pageSlots } from './pagination/Pagination'
@@ -84,5 +85,47 @@ describe('ProgressBar', () => {
     render(<ProgressBar value={140} />)
 
     expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '100')
+  })
+})
+
+describe('Carousel', () => {
+  function renderCarousel(autoPlayMs: number | false = false) {
+    Element.prototype.scrollTo = vi.fn()
+    return render(
+      <Carousel label="추천 대회" autoPlayMs={autoPlayMs}>
+        <CarouselSlide image={null} title="첫째" />
+        <CarouselSlide image={null} title="둘째" />
+        <CarouselSlide image={null} />
+      </Carousel>,
+    )
+  }
+
+  it('장마다 순서를 붙이고, 점을 누르면 그 장이 지금 장이 된다', async () => {
+    renderCarousel()
+
+    expect(screen.getByRole('group', { name: '3 / 3' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: '2번째 배너 보기' }))
+
+    expect(screen.getByRole('button', { name: '2번째 배너 보기' })).toHaveAttribute(
+      'aria-current',
+      'true',
+    )
+    expect(Element.prototype.scrollTo).toHaveBeenCalled()
+  })
+
+  it('자동 넘김은 마지막 장 다음에 첫 장으로 돌아간다', () => {
+    vi.useFakeTimers()
+    renderCarousel(5000)
+    const current = () =>
+      screen.getAllByRole('button').findIndex((b) => b.getAttribute('aria-current') === 'true')
+
+    // 장이 바뀔 때마다 다시 그려지도록 5초씩 나눠 흘려보낸다.
+    const tick = () => act(() => vi.advanceTimersByTime(5000))
+    tick()
+    expect(current()).toBe(1)
+    tick()
+    tick()
+    expect(current()).toBe(0)
+    vi.useRealTimers()
   })
 })

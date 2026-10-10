@@ -23,6 +23,12 @@ export {
   type IconButtonSize,
   type IconButtonVariant,
 } from './button/IconButton'
+export {
+  Carousel,
+  CarouselSlide,
+  type CarouselProps,
+  type CarouselSlideProps,
+} from './carousel/Carousel'
 export { Checkbox, type CheckboxProps } from './choice/Checkbox'
 export { Radio, RadioGroup, type RadioProps } from './choice/Radio'
 export { Switch, type SwitchProps } from './choice/Switch'
