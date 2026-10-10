@@ -165,8 +165,9 @@
 - ~~IAM 정책에 `uploads/*` 추가~~ (3-5에서 실제 버킷에 업로드·복사·삭제가 모두 성공해 권한은 충분하다. 남은 확인: `s3:ListBucket`이 있어야 없는 객체에 404가 온다)
 - PRO-54 결과 기록
 - product-service FileClient (계약 합의 필요)
-- Backlog PRO-57~59
-- 푸시와 PR (아직 하지 않음)
+- PRO-57 정리 배치: 구현과 테스트를 마쳤다 (2026-10-11, 커밋·PR 전). 기준과 기록은 [BATCH-ROADMAP.md](BATCH-ROADMAP.md)
+- Backlog PRO-58~59
+- ~~푸시와 PR~~ (완료: 1~3단계는 PR #11~#14로 dev에 머지됨)
 
 ## 논의 기록
 
@@ -328,6 +329,7 @@
   - 수정자 기록을 다시 넣을지, 넣는다면 판매자 ID와 회원 ID를 어떻게 구분할지
   - 관리자 여럿이 같은 대상을 고칠 때: 지금 `link`는 이미 연결된 파일도 `ownerId`와 `createUser`가 같아야 해서, 다른 관리자가 올린 파일이 있으면 403이 난다 (검사 순서를 "이미 이 대상에 연결됨"이 먼저 오게 바꾸면 해결)
   - 크루원 명단(ROSTER)처럼 민감한 파일의 공개 범위 (지금은 연결되면 누구나 조회 가능)
-- 정리 작업이 아직 없다. 대상: 오래된 UPLOADED(연결 안 된) 파일, 남은 `uploads/` 객체, DELETED 파일의 `files/` 객체(`link`에서 목록에 빠져 DELETED가 돼도 S3 객체는 남는다).
+- ~~정리 작업이 아직 없다. 대상: 오래된 UPLOADED(연결 안 된) 파일, 남은 `uploads/` 객체, DELETED 파일의 `files/` 객체(`link`에서 목록에 빠져 DELETED가 돼도 S3 객체는 남는다).~~
+  (PRO-57 정리 배치로 해결, [BATCH-ROADMAP.md](BATCH-ROADMAP.md). 행 없이 남은 객체는 아직 지우지 않는다)
 - 프론트: `file.type`이 빈 값일 때(브라우저가 모르는 확장자) 확장자로 보완한다.
 - `backup/PRO-56` 브랜치와 stash 정리.

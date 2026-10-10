@@ -60,7 +60,7 @@ public class FileLinkUseCase {
 		}
 
 		// 목록에서 빠진 기존 파일은 DELETED로 바꾼다 (DB 상태만 바꾸고 S3 객체는 남는다)
-		// S3 객체를 지울 정리 배치는 아직 없다. 만들어야 한다 (ROADMAP 남은 것)
+		// 1일 뒤 정리 배치(fileCleanupJob)가 행과 S3 객체를 지운다 (BATCH-ROADMAP.md)
 		storedFileRepository.findAllByRefTypeAndRefIdAndStatus(refType, refId, FileStatus.ACTIVE).stream()
 			.filter(file -> !itemsByFileId.containsKey(file.getId()))
 			.forEach(StoredFile::delete);
