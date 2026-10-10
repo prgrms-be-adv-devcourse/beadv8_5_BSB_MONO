@@ -32,8 +32,8 @@ import lombok.NoArgsConstructor;
 	indexes = {
 		// 대상별 파일 조회 (대회 상세의 대표·소개 이미지)
 		@Index(name = "idx_file_ref", columnList = "ref_type, ref_id, file_type, status"),
-		// 오래된 미연결 파일 정리
-		@Index(name = "idx_file_status_create", columnList = "status, create_date")
+		// 오래된 미연결·삭제 파일 정리 (마지막으로 바뀐 시각 기준, 정리 배치가 쓴다)
+		@Index(name = "idx_file_status_modify", columnList = "status, modify_date")
 	}
 )
 public class StoredFile extends BaseIdAndTime {
