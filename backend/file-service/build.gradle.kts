@@ -21,6 +21,7 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa") // dataJpa
 	implementation("org.springframework.boot:spring-boot-starter-validation") // @Valid 요청 검증
 	implementation("org.springframework.boot:spring-boot-starter-kafka") // kafka (서비스 간 이벤트)
+	implementation("org.springframework.boot:spring-boot-starter-batch-jdbc") // Spring Batch (실행 기록은 DB의 BATCH_ 테이블)
 	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.0") //swagger and openapi
 
 	developmentOnly("org.springframework.boot:spring-boot-devtools") // dev-tools
@@ -33,6 +34,7 @@ dependencies {
 	testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-kafka-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
+	testImplementation("org.springframework.boot:spring-boot-starter-batch-jdbc-test") // Job 테스트 (@SpringBatchTest)
 	// S3 구현 테스트: Docker로 S3Mock을 띄운다 (Docker가 없으면 그 테스트만 건너뛴다)
 	testImplementation("org.testcontainers:testcontainers-junit-jupiter")
 	testImplementation("com.adobe.testing:s3mock-testcontainers:5.2.3")

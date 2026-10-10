@@ -7,6 +7,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.List;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -119,6 +120,27 @@ class S3FileStorageTest {
 		upload(fileStorage.presignPut(key, "image/png", body.length), body);
 
 		assertThat(fileStorage.readFirstBytes(key, 12)).containsExactly(body);
+	}
+
+	@Test
+	@DisplayName("여러 객체를 요청 한 번(DeleteObjects)으로 지우고, 없는 키는 실패로 치지 않는다")
+	void deleteAll() throws Exception {
+		String first = "files/delete-all-1.png";
+		String second = "files/delete-all-2.png";
+		upload(fileStorage.presignPut(first, "image/png", PNG_BYTES.length), PNG_BYTES);
+		upload(fileStorage.presignPut(second, "image/png", PNG_BYTES.length), PNG_BYTES);
+
+		List<String> failedKeys = fileStorage.deleteAll(List.of(first, second, "files/not-exists.png"));
+
+		assertThat(failedKeys).isEmpty();
+		assertThat(fileStorage.head(first)).isEmpty();
+		assertThat(fileStorage.head(second)).isEmpty();
+	}
+
+	@Test
+	@DisplayName("지울 키가 없으면 요청 없이 빈 결과를 돌려준다")
+	void deleteAllWithoutKeys() {
+		assertThat(fileStorage.deleteAll(List.of())).isEmpty();
 	}
 
 	// 브라우저처럼 presigned URL에 서명 헤더를 붙여 PUT 한다

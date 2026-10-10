@@ -75,8 +75,9 @@ backend/
 │   ├── domain/                Payout, PayoutItem, PayoutHold, 상태·사유 enum
 │   └── out/                   PayoutRepository
 └── file-service/    com.bukang.file
-    ├── in/                    ApiV1FileController(업로드 URL 발급·완료, 조회), InternalV1FileController(대상에 연결, 내부 전용)
-    ├── app/                   FileFacade, FileUploadUseCase, FileLinkUseCase
+    ├── in/                    ApiV1FileController(업로드 URL 발급·완료, 조회), InternalV1FileController(대상에 연결, 내부 전용),
+    │                          FileCleanupBatchJobConfig·FileCleanupScheduler(정리 배치, prod에서 매일 05:00)
+    ├── app/                   FileFacade, FileUploadUseCase, FileLinkUseCase, FileCleanupUseCase
     ├── domain/                StoredFile(FILE_FILE), FileStatus, FileFormat, exception/
     ├── config/                S3Properties(file.storage.s3), S3Config(S3Client, S3Presigner)
     └── out/                   StoredFileRepository, storage/(FileStorage, S3FileStorage)
@@ -85,6 +86,8 @@ backend/
 - 파일은 브라우저가 presigned PUT으로 S3 `uploads/`에 직접 올리고, 완료 API가 `files/`로 옮긴 뒤 형식·크기를 확인한다 (README "파일 저장소" 참고).
 - 다른 서비스는 파일을 파일 ID로만 참조한다. 대상(대회 등)을 저장할 때 `/internal/v1/file/refs/{refType}/{refId}/files`를 동기 호출해 연결하고, `/internal/**`은 게이트웨이에 노출하지 않는다.
 - 회원 ID는 `X-Member-Id` 헤더로 받는다. 게이트웨이가 토큰을 검사해 이 헤더를 넣어 줄 예정이다(PRO-20).
+- 대상에 붙지 않은 파일(PENDING·UPLOADED·DELETED)은 마지막으로 바뀐 뒤 1일이 지나면 Spring Batch 정리 배치가 DB 행을 지우고 커밋한 뒤 S3 객체를 지운다.
+  실행 기록은 DB의 `BATCH_` 테이블에 남는다 (`file-service/BATCH-ROADMAP.md`).
 
 - `common`은 실행 앱이 아니라 jar 라이브러리입니다. 각 서비스는 `implementation(project(":common"))`으로 의존합니다.
   서비스의 `@SpringBootApplication(scanBasePackages = {"com.bukang.<서비스>", "com.bukang.common"})`로 common의 빈도 등록합니다.

@@ -28,6 +28,10 @@ FROM eclipse-temurin:25-jre
 ARG MODULE
 WORKDIR /app
 
+# 컨테이너는 서버(EC2)·PC의 시간대와 상관없이 UTC로 돈다. JVM 시각을 한국 시간으로 맞춘다
+# (LocalDateTime으로 남기는 createDate·modifyDate, 배치 기준 시각이 MySQL(compose의 TZ: Asia/Seoul)과 같은 시계를 쓴다)
+ENV TZ=Asia/Seoul
+
 # root 대신 앱 전용 시스템 계정으로 실행 (앱이 탈취돼도 컨테이너 내 권한을 최소화)
 RUN useradd --system --no-create-home --shell /usr/sbin/nologin spring
 
