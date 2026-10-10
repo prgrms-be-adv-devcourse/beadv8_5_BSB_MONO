@@ -1,0 +1,32 @@
+name: linear-sync
+
+# Linear 공식 GitHub 연동이 동작하지 않아, PR 이벤트로 Linear 이슈를 직접 갱신한다.
+# 저장소 Settings → Secrets and variables → Actions에 LINEAR_API_KEY가 있어야 한다.
+#
+# pull_request_target을 쓰는 이유: main의 워크플로·스크립트로 돌기 때문에, 이 파일이 들어가기 전에
+# 갈라진 브랜치의 PR도 동기화된다. PR 쪽 코드는 체크아웃하지 않으므로(기본값이 main) 시크릿이 새지 않는다.
+on:
+  pull_request_target:
+    types: [opened, reopened, edited, ready_for_review, closed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+
+      - uses: actions/github-script@v7
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+        with:
+          script: |
+            const sync = require('./.github/scripts/linear-sync.js')
+            await sync({ context, core })
