@@ -1,7 +1,8 @@
 name: linear-sync
 
 # Linear 공식 GitHub 연동이 동작하지 않아, PR 이벤트로 Linear 이슈를 직접 갱신한다.
-# 저장소 Settings → Secrets and variables → Actions에 LINEAR_API_KEY가 있어야 한다.
+# 팀원마다 자기 Linear 개인 API 키를 저장소 시크릿 LINEAR_API_KEY_<GitHub 아이디>로 등록한다
+# (대문자, '-'는 '_'로). 등록 방법은 docs/LINEAR-API-KEY.md. 팀원이 바뀌면 아래 env도 같이 고친다.
 #
 # pull_request_target을 쓰는 이유: main의 워크플로·스크립트로 돌기 때문에, 이 파일이 들어가기 전에
 # 갈라진 브랜치의 PR도 동기화된다. PR 쪽 코드는 체크아웃하지 않으므로(기본값이 main) 시크릿이 새지 않는다.
@@ -24,8 +25,13 @@ jobs:
           sparse-checkout: .github/scripts
 
       - uses: actions/github-script@v7
+        # 모든 시크릿(toJSON(secrets))을 넘기지 않고 팀원 키만 골라 넘긴다
         env:
-          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+          LINEAR_API_KEY_JIEUNSSE: ${{ secrets.LINEAR_API_KEY_JIEUNSSE }}
+          LINEAR_API_KEY_KHB3025: ${{ secrets.LINEAR_API_KEY_KHB3025 }}
+          LINEAR_API_KEY_BBANGHO: ${{ secrets.LINEAR_API_KEY_BBANGHO }}
+          LINEAR_API_KEY_KSOHEEE: ${{ secrets.LINEAR_API_KEY_KSOHEEE }}
+          LINEAR_API_KEY_DAWIT_LEE: ${{ secrets.LINEAR_API_KEY_DAWIT_LEE }}
         with:
           script: |
             const sync = require('./.github/scripts/linear-sync.js')

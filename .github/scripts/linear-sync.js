@@ -2,6 +2,8 @@
 // - PR이 열리거나 바뀌면: 언급된 이슈에 PR 링크를 붙이고, 시작 전 이슈는 In Progress로 옮긴다
 // - PR이 머지되면: 브랜치 이름·제목에 있거나 닫는 키워드(Closes 등)로 적은 이슈를 Done으로 옮긴다
 //   본문에 Refs PRO-12로만 적은 이슈는 링크만 붙고 Done이 되지 않는다
+// - Linear에 바꾼 사람이 제대로 남도록, 이벤트를 일으킨 사람(머지한 사람 등)의 개인 키를 쓴다.
+//   그 사람 키가 없으면 PR 작성자 키를 쓴다
 
 const TEAM_KEY = 'PRO'
 const LINEAR_API = 'https://api.linear.app/graphql'
@@ -24,6 +26,21 @@ function findClosing(text) {
 // 머지되면 Done으로 옮길 이슈: 브랜치 이름·제목의 번호 + 본문의 닫는 키워드
 function findToComplete(pr) {
   return [...new Set([...findMentioned(`${pr.head.ref}\n${pr.title}`), ...findClosing(pr.body ?? '')])]
+}
+
+// 시크릿 이름은 대문자·숫자·밑줄만 쓸 수 있어 GitHub 아이디의 '-'를 '_'로 바꾼다
+function keyName(login) {
+  return `LINEAR_API_KEY_${login.toUpperCase().replace(/-/g, '_')}`
+}
+
+function pickApiKey(logins, env) {
+  for (const login of logins) {
+    const name = keyName(login)
+    if (env[name]) {
+      return { apiKey: env[name], name }
+    }
+  }
+  return null
 }
 
 async function linear(apiKey, query, variables) {
@@ -80,13 +97,18 @@ async function moveState(apiKey, issueId, fromTypes, toType, toName) {
 }
 
 module.exports = async ({ context, core }) => {
-  const apiKey = process.env.LINEAR_API_KEY
-  if (!apiKey) {
-    core.notice('LINEAR_API_KEY 시크릿이 없어 Linear 동기화를 건너뜁니다.')
+  const pr = context.payload.pull_request
+  const logins = [...new Set([context.payload.sender.login, pr.user.login])]
+  const picked = pickApiKey(logins, process.env)
+  if (!picked) {
+    core.warning(
+      `${logins.map(keyName).join(', ')} 시크릿이 없어 Linear 동기화를 건너뜁니다. docs/LINEAR-API-KEY.md를 보고 등록하세요.`,
+    )
     return
   }
+  const { apiKey } = picked
+  core.info(`${picked.name} 키로 동기화합니다.`)
 
-  const pr = context.payload.pull_request
   const mentioned = findMentioned(`${pr.head.ref}\n${pr.title}\n${pr.body ?? ''}`)
   if (mentioned.length === 0) {
     core.info('PR에 이슈 번호가 없습니다.')
@@ -126,3 +148,5 @@ module.exports = async ({ context, core }) => {
 module.exports.findMentioned = findMentioned
 module.exports.findClosing = findClosing
 module.exports.findToComplete = findToComplete
+module.exports.keyName = keyName
+module.exports.pickApiKey = pickApiKey
