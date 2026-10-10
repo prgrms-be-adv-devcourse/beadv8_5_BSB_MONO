@@ -71,6 +71,27 @@ services:
       bukang-db:
         condition: service_healthy
 
+  file-service:
+    build:
+      context: .
+      args:
+        MODULE: file-service
+    image: bukang-file-service:latest
+    container_name: bukang-file-service
+    profiles: [ app ]
+    ports:
+      - "8083:8083"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+    depends_on:
+      bukang-db:
+        condition: service_healthy
+      bukang-kafka:
+        condition: service_healthy
+
   bukang-db:
     # 팀원 간 버전 차이를 막기 위해 LTS 버전으로 고정
     image: mysql:8.4

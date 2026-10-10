@@ -9,6 +9,7 @@
 !common/
 !member-service/
 !cash-service/
+!file-service/
 
 # 위에서 허용한 모듈 폴더 안의 빌드 결과물은 다시 제외한다
 **/build/
