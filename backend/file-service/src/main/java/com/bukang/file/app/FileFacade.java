@@ -1,9 +1,12 @@
 package com.bukang.file.app;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.file.domain.FileStatus;
 import com.bukang.file.domain.StoredFile;
@@ -28,8 +31,10 @@ public class FileFacade {
 
 	private final FileUploadUseCase fileUploadUseCase;
 	private final FileLinkUseCase fileLinkUseCase;
+	private final FileCleanupUseCase fileCleanupUseCase;
 	private final StoredFileRepository storedFileRepository;
 	private final FileStorage fileStorage;
+	private final TransactionTemplate transactionTemplate;
 
 	@Transactional
 	public FileUploadDto createUploadUrl(FileUploadRequestDto request, int memberId) {
@@ -57,6 +62,20 @@ public class FileFacade {
 		return fileLinkUseCase.link(refType, refId, request.getOwnerId(), request.getFiles()).stream()
 			.map(this::toDto)
 			.toList();
+	}
+
+	// 정리 배치가 한 묶음씩 부른다. 지운 건수를 돌려주고, 0이 되면 배치가 끝난다
+	// 행 삭제가 커밋된 뒤에 S3 객체를 지워야 한다. S3를 먼저 지우면 커밋이 실패했을 때 객체 없는 행이 되살아난다
+	// NOT_SUPPORTED: 이 메서드는 트랜잭션 없이 실행한다 (클래스에 붙은 readOnly 트랜잭션을 쓰지 않는다)
+	// 트랜잭션이 이 메서드 전체를 감싸면, 행 삭제가 그 트랜잭션에 합쳐져 메서드가 끝날 때(S3 삭제 뒤)에야 커밋된다
+	@Transactional(propagation = Propagation.NOT_SUPPORTED)
+	public int cleanupMore(int limit, LocalDateTime cutoff) {
+		// transactionTemplate.execute(): 넘긴 람다만 새 트랜잭션으로 실행하고, execute()가 값을 돌려주기 전에 커밋한다
+		// 그래서 다음 줄로 넘어온 시점에는 행 삭제가 이미 커밋되어 있다 (cleanupMore가 끝날 때 커밋하는 것이 아니다)
+		List<String> deletedKeys = transactionTemplate.execute(status ->
+			fileCleanupUseCase.deleteOldRows(limit, cutoff));
+		fileCleanupUseCase.deleteObjects(deletedKeys);
+		return deletedKeys.size();
 	}
 
 	// 대상에 연결된 파일만 돌려준다
