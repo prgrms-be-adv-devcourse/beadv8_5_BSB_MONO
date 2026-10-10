@@ -1,8 +1,9 @@
 package com.bukang.file.dto;
 
+import com.bukang.common.shared.file.domain.FileType;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.PositiveOrZero;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -15,11 +16,10 @@ public class FileLinkItemDto {
 	@NotNull(message = "파일 ID를 작성해주세요.")
 	private final Integer fileId;
 
-	// 값의 종류(THUMBNAIL, DETAIL 등)는 대상 서비스가 정한다
-	@Schema(description = "대상 안에서의 용도 (대문자·숫자·밑줄, 20자 이하)", example = "THUMBNAIL")
-	@NotNull(message = "이미지 용도를 작성해주세요.")
-	@Pattern(regexp = "^[A-Z][A-Z0-9_]{0,19}$", message = "이미지 용도는 대문자, 숫자, 밑줄로 20자 이하로 작성해주세요.")
-	private final String imageType;
+	// 업로드할 때 정한 용도와 같아야 한다 (다른 칸에 잘못 넣는 것을 막는다)
+	@Schema(description = "파일 용도 (업로드 URL 발급 때 정한 값)", example = "THUMBNAIL")
+	@NotNull(message = "파일 용도를 작성해주세요.")
+	private final FileType fileType;
 
 	@Schema(description = "같은 용도 안에서의 노출 순서 (0부터)", example = "0")
 	@NotNull(message = "노출 순서를 작성해주세요.")

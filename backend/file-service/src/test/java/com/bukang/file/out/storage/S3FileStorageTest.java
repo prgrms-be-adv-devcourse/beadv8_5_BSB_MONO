@@ -19,6 +19,7 @@ import com.adobe.testing.s3mock.testcontainers.S3MockContainer;
 import com.bukang.file.config.S3Config;
 import com.bukang.file.config.S3Properties;
 
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
@@ -48,8 +49,9 @@ class S3FileStorageTest {
 			BUCKET, "ap-northeast-2", S3_MOCK.getHttpEndpoint(), null, true, "s3mock", "s3mock",
 			Duration.ofMinutes(10), Duration.ofMinutes(30));
 		S3Config s3Config = new S3Config();
-		s3Client = s3Config.s3Client(properties);
-		s3Presigner = s3Config.s3Presigner(properties);
+		AwsCredentialsProvider credentials = s3Config.s3Credentials(properties);
+		s3Client = s3Config.s3Client(properties, credentials);
+		s3Presigner = s3Config.s3Presigner(properties, credentials);
 		fileStorage = new S3FileStorage(s3Client, s3Presigner, properties);
 	}
 

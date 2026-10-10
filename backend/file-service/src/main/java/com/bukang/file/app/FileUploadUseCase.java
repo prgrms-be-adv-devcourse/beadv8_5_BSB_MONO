@@ -4,7 +4,9 @@ import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 
-import com.bukang.file.domain.ImageFormat;
+import com.bukang.common.shared.file.domain.FileKind;
+import com.bukang.common.shared.file.domain.FileType;
+import com.bukang.file.domain.FileFormat;
 import com.bukang.file.domain.StoredFile;
 import com.bukang.file.domain.exception.FileAccessDeniedException;
 import com.bukang.file.domain.exception.InvalidFileException;
@@ -26,59 +28,72 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class FileUploadUseCase {
-	// 정책: 이미지 한 장 10MB 이하
-	static final long MAX_FILE_SIZE = 10L * 1024 * 1024;
 	// 업로드 경로에 남은 객체는 S3 수명 주기 규칙으로 정리할 수 있다
 	static final String UPLOAD_PREFIX = "uploads/";
 	static final String CONFIRMED_PREFIX = "files/";
+	private static final long MEGABYTE = 1024L * 1024;
 
 	private final StoredFileRepository storedFileRepository;
 	private final FileStorage fileStorage;
 
-	public StoredFile issue(String fileName, String contentType, long fileSize, int memberId) {
-		ImageFormat format = ImageFormat.fromContentType(contentType)
-			.orElseThrow(() -> new InvalidFileException("JPG, PNG, WebP 이미지만 올릴 수 있습니다."));
-		if (fileSize > MAX_FILE_SIZE) {
-			throw new InvalidFileException("이미지는 10MB 이하만 올릴 수 있습니다.");
+	public StoredFile create(FileType fileType, String fileName, String contentType, long fileSize, int memberId) {
+		FileKind kind = fileType.getKind();
+
+		FileFormat format = FileFormat.fromContentType(contentType)
+			.filter(f -> f.getKind() == kind)
+			.orElseThrow(() -> new InvalidFileException(
+					"%s 파일은 %s만 올릴 수 있습니다.".formatted(kind.getLabel(), FileFormat.labelsOf(kind))));
+
+		if (fileSize > kind.getMaxSize()) {
+			throw new InvalidFileException(
+				"%s 파일은 %dMB 이하만 올릴 수 있습니다.".formatted(kind.getLabel(), kind.getMaxSize() / MEGABYTE));
 		}
 
 		// 키에는 원본 파일명을 넣지 않는다 (한글·특수문자, 같은 이름 충돌)
 		String uploadKey = UPLOAD_PREFIX + UUID.randomUUID() + "." + format.getExtension();
 		return storedFileRepository.save(
-			StoredFile.pending(uploadKey, baseName(fileName), format, fileSize, memberId));
+			StoredFile.pending(uploadKey, baseName(fileName), fileType, format, fileSize, memberId));
 	}
 
 	// 형식·크기가 신고와 다르면 확정 경로의 객체를 지우고 파일을 삭제 상태로 바꾼 뒤 예외를 던진다
 	// (호출하는 트랜잭션은 이 예외에도 삭제 상태를 커밋해야 한다)
 	public StoredFile complete(int fileId, int memberId) {
+		// 본인 파일인지 확인하고, 이미 확인을 마친 파일이면 그대로 돌려준다 (다시 불러도 같은 결과)
 		StoredFile file = findOwnedFile(fileId, memberId);
 		if (!file.isPending()) {
 			return file;
 		}
 
+		// 브라우저가 업로드 경로(uploads/)에 실제로 올렸는지 확인한다
 		String uploadKey = file.getS3Key();
 		if (fileStorage.head(uploadKey).isEmpty()) {
 			throw new InvalidFileException("업로드된 파일이 없습니다. 업로드 URL로 파일을 먼저 올려주세요.");
 		}
 
+		// 확정 경로로 옮긴다: uploads/abc.png → files/abc.png
+		// S3에는 이동이 없어서 S3 안에서 복사한 뒤 원본을 지운다
 		String confirmedKey = CONFIRMED_PREFIX + uploadKey.substring(UPLOAD_PREFIX.length());
 		fileStorage.copy(uploadKey, confirmedKey);
 		fileStorage.delete(uploadKey);
 
+		// 복사본의 실제 크기·Content-Type과 앞부분(매직 바이트)을 가져온다
 		StoredObject confirmed = fileStorage.head(confirmedKey)
 			.orElseThrow(() -> new IllegalStateException("복사한 파일을 찾을 수 없습니다: " + confirmedKey));
-		byte[] head = fileStorage.readFirstBytes(confirmedKey, ImageFormat.SIGNATURE_LENGTH);
+		byte[] head = fileStorage.readFirstBytes(confirmedKey, FileFormat.SIGNATURE_LENGTH);
 
+		// 신고한 값과 다르면 복사본을 지우고 삭제 상태로 바꾼다
 		if (!matchesDeclared(file, confirmed, head)) {
 			fileStorage.delete(confirmedKey);
 			file.delete();
 			throw new InvalidFileException("올린 파일이 신고한 형식이나 크기와 다릅니다. 업로드 URL을 다시 받아 올려주세요.");
 		}
 
+		// PENDING → UPLOADED, 키를 확정 경로로 바꾼다
 		file.confirmUpload(confirmedKey);
 		return file;
 	}
 
+	// 없거나 삭제된 파일은 404, 다른 회원이 올린 파일은 403
 	private StoredFile findOwnedFile(int fileId, int memberId) {
 		StoredFile file = storedFileRepository.findById(fileId)
 			.filter(found -> !found.isDeleted())
@@ -89,9 +104,12 @@ public class FileUploadUseCase {
 		return file;
 	}
 
+	// 발급 때 신고한 값(DB)과 S3에 실제로 올라간 값을 비교한다
+	// 크기가 같은지 → 종류별 최대 크기 이하인지 → Content-Type이 같은지
+	// → 앞부분이 신고한 형식의 매직 바이트와 맞는지 (FileFormat.matches)
 	private boolean matchesDeclared(StoredFile file, StoredObject uploaded, byte[] head) {
 		return uploaded.size() == file.getFileSize()
-			&& uploaded.size() <= MAX_FILE_SIZE
+			&& uploaded.size() <= file.getFileType().getKind().getMaxSize()
 			&& file.getContentType().equalsIgnoreCase(uploaded.contentType())
 			&& file.getFormat().matches(head);
 	}

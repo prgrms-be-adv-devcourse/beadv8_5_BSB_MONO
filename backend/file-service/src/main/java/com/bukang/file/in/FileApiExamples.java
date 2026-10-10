@@ -4,7 +4,7 @@ package com.bukang.file.in;
  * ApiV1FileController의 Swagger 응답 예시 (실제 응답 메시지와 같게 유지한다)
  */
 final class FileApiExamples {
-	static final String ISSUE_SUCCESS = """
+	static final String CREATE_SUCCESS = """
 		{
 			"status": 201,
 			"message": "업로드 URL을 발급했습니다.",
@@ -29,13 +29,14 @@ final class FileApiExamples {
 				"id": 1,
 				"createDate": "2026-10-09T21:25:35",
 				"modifyDate": "2026-10-09T21:26:10",
+				"createUser": 1,
 				"originFileName": "race-thumbnail.png",
 				"contentType": "image/png",
 				"fileSize": 204800,
 				"status": "UPLOADED",
 				"refType": null,
 				"refId": null,
-				"imageType": "DEFAULT",
+				"fileType": "THUMBNAIL",
 				"sortNo": 0,
 				"url": "https://crewrun-file-dev.s3.ap-northeast-2.amazonaws.com/files/3f2a9c1e-7b4d-4e8a-9c0f-1a2b3c4d5e6f.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Expires=1800&X-Amz-Signature=..."
 			}
@@ -48,32 +49,34 @@ final class FileApiExamples {
 			"message": "파일 목록을 조회했습니다.",
 			"data": [
 				{
-					"id": 2,
-					"createDate": "2026-10-09T21:27:00",
-					"modifyDate": "2026-10-09T21:30:00",
-					"originFileName": "course-map.png",
-					"contentType": "image/png",
-					"fileSize": 512000,
-					"status": "ACTIVE",
-					"refType": "Race",
-					"refId": 1,
-					"imageType": "DETAIL",
-					"sortNo": 0,
-					"url": "https://crewrun-file-dev.s3.ap-northeast-2.amazonaws.com/files/8c1d2e3f-4a5b-6c7d-8e9f-0a1b2c3d4e5f.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Expires=1800&X-Amz-Signature=..."
-				},
-				{
 					"id": 1,
 					"createDate": "2026-10-09T21:25:35",
 					"modifyDate": "2026-10-09T21:30:00",
+					"createUser": 1,
 					"originFileName": "race-thumbnail.png",
 					"contentType": "image/png",
 					"fileSize": 204800,
 					"status": "ACTIVE",
 					"refType": "Race",
 					"refId": 1,
-					"imageType": "THUMBNAIL",
+					"fileType": "THUMBNAIL",
 					"sortNo": 0,
 					"url": "https://crewrun-file-dev.s3.ap-northeast-2.amazonaws.com/files/3f2a9c1e-7b4d-4e8a-9c0f-1a2b3c4d5e6f.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Expires=1800&X-Amz-Signature=..."
+				},
+				{
+					"id": 2,
+					"createDate": "2026-10-09T21:27:00",
+					"modifyDate": "2026-10-09T21:30:00",
+					"createUser": 1,
+					"originFileName": "race-intro.png",
+					"contentType": "image/png",
+					"fileSize": 512000,
+					"status": "ACTIVE",
+					"refType": "Race",
+					"refId": 1,
+					"fileType": "DETAIL",
+					"sortNo": 0,
+					"url": "https://crewrun-file-dev.s3.ap-northeast-2.amazonaws.com/files/8c1d2e3f-4a5b-6c7d-8e9f-0a1b2c3d4e5f.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Expires=1800&X-Amz-Signature=..."
 				}
 			]
 		}
@@ -87,13 +90,14 @@ final class FileApiExamples {
 				"id": 1,
 				"createDate": "2026-10-09T21:25:35",
 				"modifyDate": "2026-10-09T21:30:00",
+				"createUser": 1,
 				"originFileName": "race-thumbnail.png",
 				"contentType": "image/png",
 				"fileSize": 204800,
 				"status": "ACTIVE",
 				"refType": "Race",
 				"refId": 1,
-				"imageType": "THUMBNAIL",
+				"fileType": "THUMBNAIL",
 				"sortNo": 0,
 				"url": "https://crewrun-file-dev.s3.ap-northeast-2.amazonaws.com/files/3f2a9c1e-7b4d-4e8a-9c0f-1a2b3c4d5e6f.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Expires=1800&X-Amz-Signature=..."
 			}
@@ -104,7 +108,7 @@ final class FileApiExamples {
 		{ "status": 400, "message": "필수 요청 값이 없습니다.", "data": null }
 		""";
 
-	static final String ISSUE_INVALID_INPUT = """
+	static final String CREATE_INVALID_INPUT = """
 		{ "status": 400, "message": "파일명을 작성해주세요.", "data": null }
 		""";
 
@@ -113,11 +117,11 @@ final class FileApiExamples {
 		""";
 
 	static final String UNSUPPORTED_TYPE = """
-		{ "status": 400, "message": "JPG, PNG, WebP 이미지만 올릴 수 있습니다.", "data": null }
+		{ "status": 400, "message": "이미지 파일은 JPG, PNG, WebP만 올릴 수 있습니다.", "data": null }
 		""";
 
 	static final String TOO_LARGE = """
-		{ "status": 400, "message": "이미지는 10MB 이하만 올릴 수 있습니다.", "data": null }
+		{ "status": 400, "message": "이미지 파일은 10MB 이하만 올릴 수 있습니다.", "data": null }
 		""";
 
 	static final String INVALID_VALUE_TYPE = """
@@ -142,6 +146,10 @@ final class FileApiExamples {
 
 	static final String NOT_OWNER = """
 		{ "status": 403, "message": "본인이 올린 파일만 처리할 수 있습니다.", "data": null }
+		""";
+
+	static final String NOT_LINKED = """
+		{ "status": 403, "message": "연결된 파일이 아닙니다(현재 상태: 업로드 완료). 본인이 올린 파일만 볼 수 있습니다.", "data": null }
 		""";
 
 	static final String FILE_NOT_FOUND = """

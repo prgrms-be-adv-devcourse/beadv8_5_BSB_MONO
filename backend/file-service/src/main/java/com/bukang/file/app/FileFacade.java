@@ -32,13 +32,16 @@ public class FileFacade {
 	private final FileStorage fileStorage;
 
 	@Transactional
-	public FileUploadDto issueUploadUrl(FileUploadRequestDto request, int memberId) {
-		StoredFile file = fileUploadUseCase.issue(
+	public FileUploadDto createUploadUrl(FileUploadRequestDto request, int memberId) {
+		// 용도에 맞는 형식·크기인지 검사하고, 업로드 경로(uploads/) 키로 PENDING 파일을 저장한다
+		StoredFile file = fileUploadUseCase.create(
+			request.getFileType(),
 			request.getFileName(),
 			request.getContentType(),
 			request.getFileSize(),
 			memberId
 		);
+		// 브라우저가 S3에 직접 올릴 presigned PUT URL과, 함께 보내야 할 헤더·만료 시각을 만든다 (S3 호출 없음)
 		PresignedUpload upload = fileStorage.presignPut(file.getS3Key(), file.getContentType(), file.getFileSize());
 		return new FileUploadDto(file.getId(), upload.url(), UPLOAD_METHOD, upload.headers(), upload.expiresAt());
 	}
@@ -58,9 +61,8 @@ public class FileFacade {
 
 	// 대상에 연결된 파일만 돌려준다
 	public List<FileDto> findByRef(String refType, int refId) {
-		return storedFileRepository
-			.findAllByRefTypeAndRefIdAndStatusOrderByImageTypeAscSortNoAscIdAsc(refType, refId, FileStatus.ACTIVE)
-			.stream()
+		return storedFileRepository.findAllByRefTypeAndRefIdAndStatus(refType, refId, FileStatus.ACTIVE).stream()
+			.sorted(StoredFile.DISPLAY_ORDER)
 			.map(this::toDto)
 			.toList();
 	}
@@ -71,11 +73,15 @@ public class FileFacade {
 			.filter(found -> !found.isDeleted())
 			.orElseThrow(() -> new StoredFileNotFoundException("존재하지 않는 파일입니다."));
 		if (!file.isActive() && (memberId == null || !file.isOwnedBy(memberId))) {
-			throw new FileAccessDeniedException("본인이 올린 파일만 처리할 수 있습니다.");
+			throw new FileAccessDeniedException("연결된 파일이 아닙니다(현재 상태: %s). 본인이 올린 파일만 볼 수 있습니다."
+				.formatted(file.getStatus().getLabel()));
 		}
 		return toDto(file);
 	}
 
+	// 보기 URL(presigned GET)은 만료가 있어 DB에 저장하지 않고, 응답을 만들 때마다 새로 만든다
+	// URL을 만들려면 S3Presigner(Spring 빈)가 필요한데 엔티티는 빈을 주입받을 수 없어서,
+	// URL은 여기서 만들고 엔티티의 toDto(url)에 넘긴다
 	// 업로드 확인 전 파일은 확정 경로에 객체가 없으므로 URL을 만들지 않는다
 	private FileDto toDto(StoredFile file) {
 		String url = file.hasConfirmedObject() ? fileStorage.presignGet(file.getS3Key()) : null;

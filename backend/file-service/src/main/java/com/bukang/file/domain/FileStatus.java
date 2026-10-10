@@ -10,9 +10,10 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum FileStatus {
 	PENDING("업로드 대기"),
-	UPLOADED("업로드 완료"),
-	ACTIVE("연결됨"),
+	UPLOADED("업로드 완료"), // 파일 업로드는 완료, refId가 채워지지 않은 상태
+	ACTIVE("연결됨"), // 파일 업로드 및 refId가 채워진 상태
 	DELETED("삭제됨");
 
-	private final String korean;
+	// 화면과 메시지에 쓰는 이름
+	private final String label;
 }

@@ -28,8 +28,10 @@ public class S3FileStorage implements FileStorage {
 	private final S3Presigner s3Presigner;
 	private final S3Properties properties;
 
+	// 업로드 URL 발급
 	@Override
 	public PresignedUpload presignPut(String key, String contentType, long contentLength) {
+		// Put 요청 객체 생성
 		PutObjectRequest putObjectRequest = PutObjectRequest.builder()
 			.bucket(properties.bucket())
 			.key(key)
@@ -37,10 +39,12 @@ public class S3FileStorage implements FileStorage {
 			.contentLength(contentLength)
 			.build();
 
+		// 서명 만료시간과 Put요청 객체를 더해 presigned Put요청 객체 생성
 		PresignedPutObjectRequest presigned = s3Presigner.presignPutObject(request -> request
 			.signatureDuration(properties.uploadUrlExpiration())
 			.putObjectRequest(putObjectRequest));
 
+		// Headers 조합
 		Map<String, String> headers = new LinkedHashMap<>();
 		// 값이 여러 개인 헤더는 쉼표로 잇는다 (HTTP 헤더 규칙)
 		presigned.signedHeaders().forEach((name, values) -> {
@@ -48,6 +52,7 @@ public class S3FileStorage implements FileStorage {
 				headers.put(name, String.join(",", values));
 			}
 		});
+		// presignedPutUrl, headers, 만료시간을 셋팅하여 반환
 		return new PresignedUpload(presigned.url().toString(), headers, presigned.expiration());
 	}
 
@@ -87,6 +92,7 @@ public class S3FileStorage implements FileStorage {
 
 	@Override
 	public void copy(String sourceKey, String targetKey) {
+		// S3에게 "uploads/abc.png의 내용으로 files/abc.png라는 객체를 새로 만들어라"라고 요청 (HTTP 요청이 전달됨)
 		s3Client.copyObject(request -> request
 			.sourceBucket(properties.bucket())
 			.sourceKey(sourceKey)

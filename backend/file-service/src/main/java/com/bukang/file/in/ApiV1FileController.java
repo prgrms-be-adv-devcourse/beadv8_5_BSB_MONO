@@ -42,36 +42,40 @@ public class ApiV1FileController {
 	// 에러 응답은 GlobalExceptionHandler, FileExceptionHandler가 RsData(data: null) 형식으로 반환한다
 	@PostMapping
 	@Operation(summary = "업로드 URL 발급",
-		description = "형식(JPG·PNG·WebP)과 크기(10MB 이하)를 검사한 뒤 파일을 업로드 대기 상태로 만들고, "
-			+ "S3에 직접 올릴 presigned PUT URL(10분)을 발급한다. 브라우저는 응답의 headers를 그대로 붙여 PUT 한다.")
+		description = "파일 용도(fileType)에 맞는 형식과 크기를 검사한 뒤 파일을 업로드 대기 상태로 만들고, "
+			+ "S3에 직접 올릴 presigned PUT URL(10분)을 발급한다. 브라우저는 응답의 headers를 그대로 붙여 PUT 한다. "
+			+ "이미지(THUMBNAIL, DETAIL, COURSE)는 JPG·PNG·WebP 10MB, 동영상(INTRO_VIDEO)은 MP4·MOV 100MB, "
+			+ "엑셀(ROSTER)은 XLSX·XLS 5MB 이하만 받는다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "201", description = "발급 성공",
-			content = @Content(examples = @ExampleObject(value = FileApiExamples.ISSUE_SUCCESS))),
-		@ApiResponse(responseCode = "400", description = "입력값 검증 실패, 요청 본문 형식 오류, 받을 수 없는 형식, 10MB 초과 또는 회원 ID 형식 오류",
+			content = @Content(examples = @ExampleObject(value = FileApiExamples.CREATE_SUCCESS))),
+		@ApiResponse(responseCode = "400",
+			description = "입력값 검증 실패, 요청 본문 형식 오류, 용도에 맞지 않는 형식, 크기 초과 또는 회원 ID 형식 오류",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
-				@ExampleObject(name = "입력값 검증 실패", value = FileApiExamples.ISSUE_INVALID_INPUT),
+				@ExampleObject(name = "입력값 검증 실패", value = FileApiExamples.CREATE_INVALID_INPUT),
 				@ExampleObject(name = "요청 본문 형식 오류", value = FileApiExamples.INVALID_BODY),
-				@ExampleObject(name = "받을 수 없는 형식", value = FileApiExamples.UNSUPPORTED_TYPE),
-				@ExampleObject(name = "10MB 초과", value = FileApiExamples.TOO_LARGE),
+				@ExampleObject(name = "용도에 맞지 않는 형식", value = FileApiExamples.UNSUPPORTED_TYPE),
+				@ExampleObject(name = "크기 초과", value = FileApiExamples.TOO_LARGE),
 				@ExampleObject(name = "회원 ID 형식 오류", value = FileApiExamples.INVALID_VALUE_TYPE)
 			})),
 		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = FileApiExamples.LOGIN_REQUIRED)))
 	})
-	public ResponseEntity<RsData<FileUploadDto>> issueUploadUrl(
+	public ResponseEntity<RsData<FileUploadDto>> createUploadUrl(
 		@Parameter(description = "요청한 회원 ID (게이트웨이가 넣어 줄 예정)", example = "1")
-		@RequestHeader(MemberIdHeader.NAME) int memberId,
+		@RequestHeader("X-Member-Id") int memberId,
 		@Valid @RequestBody FileUploadRequestDto request
 	) {
-		FileUploadDto upload = fileFacade.issueUploadUrl(request, memberId);
+		FileUploadDto upload = fileFacade.createUploadUrl(request, memberId);
 		return ResponseEntity.created(URI.create("/api/v1/file/files/" + upload.getFileId()))
 			.body(RsData.of(HttpStatus.CREATED, "업로드 URL을 발급했습니다.", upload));
 	}
 
 	@GetMapping
 	@Operation(summary = "대상별 파일 목록 조회",
-		description = "대상(대회 등)에 연결된 파일을 용도(imageType) → 노출 순서(sortNo) 순으로 돌려준다. "
+		description = "대상(대회 등)에 연결된 파일을 용도(fileType: 대표 이미지 → 소개 이미지 → 코스 → 소개 영상 → 명단) → "
+			+ "노출 순서(sortNo) 순으로 돌려준다. "
 			+ "이미지 URL은 30분 뒤 만료되는 presigned GET URL이다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "조회 성공",
@@ -104,14 +108,14 @@ public class ApiV1FileController {
 				examples = @ExampleObject(value = FileApiExamples.INVALID_VALUE_TYPE))),
 		@ApiResponse(responseCode = "403", description = "다른 회원이 올린, 연결 전 파일",
 			content = @Content(schema = @Schema(implementation = RsData.class),
-				examples = @ExampleObject(value = FileApiExamples.NOT_OWNER))),
+				examples = @ExampleObject(value = FileApiExamples.NOT_LINKED))),
 		@ApiResponse(responseCode = "404", description = "없거나 삭제된 파일",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = FileApiExamples.FILE_NOT_FOUND)))
 	})
 	public ResponseEntity<RsData<FileDto>> findById(
 		@Parameter(description = "요청한 회원 ID (연결 전 파일을 볼 때 필요)", example = "1")
-		@RequestHeader(name = MemberIdHeader.NAME, required = false) Integer memberId,
+		@RequestHeader(name = "X-Member-Id", required = false) Integer memberId,
 		@Parameter(description = "파일 ID", example = "1")
 		@PathVariable int fileId
 	) {
@@ -144,9 +148,11 @@ public class ApiV1FileController {
 	})
 	public ResponseEntity<RsData<FileDto>> completeUpload(
 		@Parameter(description = "요청한 회원 ID (게이트웨이가 넣어 줄 예정)", example = "1")
-		@RequestHeader(MemberIdHeader.NAME) int memberId,
+		@RequestHeader("X-Member-Id")
+		int memberId,
 		@Parameter(description = "업로드 URL 발급 때 받은 파일 ID", example = "1")
-		@PathVariable int fileId
+		@PathVariable
+		int fileId
 	) {
 		FileDto file = fileFacade.completeUpload(fileId, memberId);
 		return ResponseEntity.ok()
