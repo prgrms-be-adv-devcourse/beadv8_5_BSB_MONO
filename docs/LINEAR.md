@@ -82,8 +82,9 @@ Linear 공식 GitHub 연동이 동작하지 않아, `linear-sync.yml`이 Linear 
 | 머지 없이 닫힘 | 아무것도 바꾸지 않는다 |
 
 - Done으로 옮기지 않고 연결만 하려면 브랜치·제목에서 번호를 빼고 본문에 `Refs PRO-12`로 쓴다.
-- 저장소 시크릿 `LINEAR_API_KEY`(Linear 개인 API 키)가 필요하다. 없으면 워크플로가 아무것도 하지 않고 넘어간다.
-  Linear에는 키를 만든 사람이 바꾼 것으로 기록된다.
+- 팀원마다 자기 Linear 개인 API 키를 저장소 시크릿 `LINEAR_API_KEY_<GitHub 아이디>`로 등록한다. 방법은 [LINEAR-API-KEY.md](LINEAR-API-KEY.md).
+  이벤트를 일으킨 사람(머지한 사람 등)의 키를 쓰고, 없으면 PR 작성자 키를 쓴다. 둘 다 없으면 아무것도 하지 않고 넘어간다.
+  Linear에는 그 키 주인이 바꾼 것으로 기록된다.
 - 실행 기록은 PR의 Checks 탭 `linear-sync`에서 본다. 이슈 갱신에 실패하면 이 체크가 빨간색이 된다(머지는 막지 않는다).
 
 ## GitHub 활용
