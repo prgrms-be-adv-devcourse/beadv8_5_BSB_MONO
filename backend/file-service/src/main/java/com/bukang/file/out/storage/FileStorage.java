@@ -1,5 +1,6 @@
 package com.bukang.file.out.storage;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -20,6 +21,10 @@ public interface FileStorage {
 	void copy(String sourceKey, String targetKey);
 
 	void delete(String key);
+
+	// 여러 객체를 한꺼번에 지운다 (정리 배치). 없는 키는 지운 것으로 친다
+	// 지우지 못한 키를 돌려준다. 요청 자체가 실패하면(네트워크, 권한 등) 예외가 난다
+	List<String> deleteAll(List<String> keys);
 
 	// 비공개 버킷의 객체를 잠시 열어 볼 수 있는 URL
 	String presignGet(String key);

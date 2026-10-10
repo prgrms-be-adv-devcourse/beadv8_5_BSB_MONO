@@ -2,8 +2,10 @@ package com.bukang.file.support;
 
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.bukang.file.out.storage.FileStorage;
@@ -17,6 +19,10 @@ public class FakeFileStorage implements FileStorage {
 	private static final String BASE_URL = "http://fake-s3/bukang-file/";
 
 	private final Map<String, Stored> objects = new ConcurrentHashMap<>();
+	// deleteAll에서 지우지 못한 것으로 돌려줄 키 (DeleteObjects 응답의 errors 흉내)
+	private final Set<String> failingDeleteKeys = ConcurrentHashMap.newKeySet();
+	// true면 deleteAll 요청 자체가 실패한다 (네트워크·권한 오류 흉내)
+	private volatile boolean deleteRequestFails;
 
 	// 브라우저의 PUT 업로드 대신 호출한다
 	public void upload(String key, byte[] body, String contentType) {
@@ -31,8 +37,18 @@ public class FakeFileStorage implements FileStorage {
 		return objects.get(key).body();
 	}
 
+	public void failOnDelete(String key) {
+		failingDeleteKeys.add(key);
+	}
+
+	public void failDeleteRequest() {
+		deleteRequestFails = true;
+	}
+
 	public void clear() {
 		objects.clear();
+		failingDeleteKeys.clear();
+		deleteRequestFails = false;
 	}
 
 	@Override
@@ -65,6 +81,19 @@ public class FakeFileStorage implements FileStorage {
 	@Override
 	public void delete(String key) {
 		objects.remove(key);
+	}
+
+	@Override
+	public List<String> deleteAll(List<String> keys) {
+		if (deleteRequestFails) {
+			throw new IllegalStateException("S3 삭제 요청이 실패했습니다 (테스트)");
+		}
+		keys.stream()
+			.filter(key -> !failingDeleteKeys.contains(key))
+			.forEach(objects::remove);
+		return keys.stream()
+			.filter(failingDeleteKeys::contains)
+			.toList();
 	}
 
 	@Override
