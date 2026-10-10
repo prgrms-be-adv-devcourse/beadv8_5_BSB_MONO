@@ -16,7 +16,7 @@ export type CarouselProps = {
   className?: string
 }
 
-// 홈 배너 캐러셀. 다음 장이 살짝 보이고 손가락·트랙패드로 넘긴다(CSS scroll-snap).
+// 홈 배너 캐러셀. 지금 장이 가운데 오고 양옆 장이 살짝 보이며, 손가락·트랙패드로 넘긴다(CSS scroll-snap).
 // 데스크톱도 모바일과 같은 모양이라 화살표는 없고, 점을 눌러 이동한다.
 export function Carousel({ label, children, autoPlayMs = 5000, className }: CarouselProps) {
   const slides = Children.toArray(children)
@@ -25,26 +25,38 @@ export function Carousel({ label, children, autoPlayMs = 5000, className }: Caro
   const [index, setIndex] = useState(0)
   const [paused, setPaused] = useState(false)
 
-  const scrollToIndex = useCallback((next: number) => {
+  // 한 장이 차지하는 가로 길이(장 폭 + 간격)
+  const slideStep = useCallback(() => {
     const track = trackRef.current
-    const slide = track?.children[next] as HTMLElement | undefined
-    if (!track || !slide) {
-      return
+    const first = track?.children[0] as HTMLElement | undefined
+    const second = track?.children[1] as HTMLElement | undefined
+    if (!first) {
+      return 0
     }
-    setIndex(next)
-    // 트랙 왼쪽 여백(scroll-padding)만큼은 snap이 알아서 맞춘다.
-    track.scrollTo({ left: slide.offsetLeft - track.offsetLeft, behavior: 'smooth' })
+    return second ? second.offsetLeft - first.offsetLeft : first.offsetWidth
   }, [])
+
+  const scrollToIndex = useCallback(
+    (next: number) => {
+      const track = trackRef.current
+      const slide = track?.children[next] as HTMLElement | undefined
+      if (!track || !slide) {
+        return
+      }
+      setIndex(next)
+      // 트랙 좌우 여백이 (트랙 폭 - 장 폭) / 2라서, n번째 장이 가운데 오는 위치는 n × 한 장 길이다.
+      track.scrollTo({ left: next * slideStep(), behavior: 'smooth' })
+    },
+    [slideStep],
+  )
 
   // 손으로 넘겼을 때 지금 장 번호를 맞춘다.
   function handleScroll() {
     const track = trackRef.current
-    const first = track?.children[0] as HTMLElement | undefined
-    const second = track?.children[1] as HTMLElement | undefined
-    if (!track || !first) {
+    const step = slideStep()
+    if (!track || !step) {
       return
     }
-    const step = second ? second.offsetLeft - first.offsetLeft : first.offsetWidth
     setIndex(Math.min(count - 1, Math.max(0, Math.round(track.scrollLeft / step))))
   }
 
@@ -79,7 +91,8 @@ export function Carousel({ label, children, autoPlayMs = 5000, className }: Caro
       <div
         ref={trackRef}
         onScroll={handleScroll}
-        className="flex w-full snap-x snap-mandatory scroll-px-4 [scrollbar-width:none] gap-2.5 overflow-x-auto px-4 [&::-webkit-scrollbar]:hidden"
+        // 좌우 여백 6.25%씩 두고 장이 안쪽 폭을 채우면, 장 폭이 전체의 87.5%가 되고 어느 장이든 가운데에 온다.
+        className="flex w-full snap-x snap-mandatory [scrollbar-width:none] gap-2.5 overflow-x-auto px-[6.25%] [&::-webkit-scrollbar]:hidden"
       >
         {slides.map((slide, i) => (
           <div
@@ -87,8 +100,8 @@ export function Carousel({ label, children, autoPlayMs = 5000, className }: Caro
             role="group"
             aria-roledescription="slide"
             aria-label={`${i + 1} / ${count}`}
-            // 시안 420/480 폭. 오른쪽에 다음 장이 살짝 보인다.
-            className="relative w-[87.5%] shrink-0 snap-start"
+            // 시안 420/480 폭. 트랙 안쪽 폭(전체의 87.5%)을 꽉 채우고, 양옆에 이전·다음 장이 살짝 보인다.
+            className="relative w-full shrink-0 snap-center"
           >
             {slide}
             <span
