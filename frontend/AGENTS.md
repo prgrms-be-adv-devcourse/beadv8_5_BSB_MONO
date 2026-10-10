@@ -23,6 +23,7 @@ pnpm lint           # ESLint (FSD 층 규칙 포함)
 pnpm format         # Prettier
 pnpm typecheck      # next typegen + tsc
 pnpm test           # Vitest
+pnpm storybook      # 시안 컴포넌트 확인 (localhost:6006). 스토리는 컴포넌트 옆 *.stories.tsx
 pnpm build
 pnpm api:generate   # orval. OPENAPI_URL=<springdoc 주소> 필요
 ```

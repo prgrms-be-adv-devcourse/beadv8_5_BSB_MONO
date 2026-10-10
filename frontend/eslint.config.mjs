@@ -62,7 +62,14 @@ const eslintConfig = defineConfig([
     },
   },
   prettier,
-  globalIgnores(['.next/**', 'out/**', 'build/**', 'next-env.d.ts', 'src/shared/api/generated/**']),
+  globalIgnores([
+    '.next/**',
+    'storybook-static/**',
+    'out/**',
+    'build/**',
+    'next-env.d.ts',
+    'src/shared/api/generated/**',
+  ]),
 ])
 
 export default eslintConfig

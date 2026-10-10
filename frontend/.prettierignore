@@ -3,3 +3,4 @@ src/shared/api/generated/
 .next/
 docs/
 .claude/
+storybook-static/

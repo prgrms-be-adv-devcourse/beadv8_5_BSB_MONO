@@ -1,26 +1,380 @@
 @import 'tailwindcss';
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+ * 디자인 토큰. 원본은 피그마 '프론트엔드 시안'의 변수·텍스트 스타일·이펙트 스타일이다.
+ * 피그마 이름의 '/'를 '-'로 바꿔 그대로 옮겼다. (color/bg/surface → --color-bg-surface → bg-bg-surface)
+ * Tailwind 기본 색·글자 크기·둥글기·그림자·화면 폭 기준은 지워서 시안에 없는 값을 쓰지 못하게 한다.
+ */
+
+/* 다크 모드는 피그마 Color 컬렉션의 Dark 모드. 시스템 설정을 따르지 않고 .dark 클래스로만 켠다. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-*: initial;
+  --text-*: initial;
+  --radius-*: initial;
+  --shadow-*: initial;
+  --breakpoint-*: initial;
+
+  /* 원색 (Primitives). 화면에서는 아래 의미 색을 쓰고, 원색은 의미 색이 가리키는 값으로만 둔다. */
+  --color-brand-50: #ebf1ff;
+  --color-brand-100: #d6e2ff;
+  --color-brand-200: #adc5ff;
+  --color-brand-300: #7fa4ff;
+  --color-brand-400: #4d80ff;
+  --color-brand-500: #0057ff;
+  --color-brand-600: #0046cc;
+  --color-brand-700: #0038a3;
+  --color-brand-800: #002d82;
+  --color-brand-900: #00225f;
+
+  --color-navy-50: #f2f4f8;
+  --color-navy-100: #e3e7ef;
+  --color-navy-200: #c3cbda;
+  --color-navy-300: #95a2bb;
+  --color-navy-400: #637494;
+  --color-navy-500: #435473;
+  --color-navy-600: #33415c;
+  --color-navy-700: #26324a;
+  --color-navy-800: #1b2539;
+  --color-navy-900: #14213d;
+  --color-navy-950: #0b1222;
+
+  --color-neutral-0: #ffffff;
+  --color-neutral-25: #f7f9fc;
+  --color-neutral-50: #f1f4f8;
+  --color-neutral-100: #e8edf3;
+  --color-neutral-200: #d9e0e8;
+  --color-neutral-300: #c2cbd6;
+  --color-neutral-400: #97a3b3;
+  --color-neutral-500: #6f7c8e;
+  --color-neutral-600: #536072;
+  --color-neutral-700: #3c4757;
+  --color-neutral-800: #283240;
+  --color-neutral-900: #18202b;
+
+  --color-green-50: #ecfbf2;
+  --color-green-100: #d1f5df;
+  --color-green-400: #4ade80;
+  --color-green-600: #16a34a;
+  --color-green-700: #15803d;
+  --color-green-900: #14532d;
+
+  --color-red-50: #fef2f2;
+  --color-red-100: #fee2e2;
+  --color-red-300: #fca5a5;
+  --color-red-400: #f87171;
+  --color-red-600: #dc2626;
+  --color-red-700: #b91c1c;
+  --color-red-900: #7f1d1d;
+
+  --color-amber-50: #fffbeb;
+  --color-amber-100: #fef3c7;
+  --color-amber-400: #fbbf24;
+  --color-amber-600: #d97706;
+  --color-amber-700: #b45309;
+  --color-amber-900: #78350f;
+
+  --color-violet-50: #f5f3ff;
+  --color-violet-100: #ede9fe;
+  --color-violet-300: #c4b5fd;
+  --color-violet-400: #a78bfa;
+  --color-violet-600: #7c3aed;
+  --color-violet-700: #6d28d9;
+  --color-violet-900: #4c1d95;
+
+  --color-lime-50: #f8ffe5;
+  --color-lime-100: #efffc2;
+  --color-lime-200: #e2ff8a;
+  --color-lime-300: #d4ff57;
+  --color-lime-400: #c6ff1f;
+  --color-lime-500: #a8e000;
+  --color-lime-600: #84b300;
+  --color-lime-700: #638600;
+  --color-lime-800: #4a6500;
+  --color-lime-900: #2e3f00;
+
+  /* 의미 색 (Color 컬렉션, Light 모드). Dark 모드 값은 아래 .dark에 있다. */
+  --color-bg-default: var(--color-neutral-50);
+  --color-bg-surface: var(--color-neutral-0);
+  --color-bg-subtle: var(--color-neutral-100);
+  --color-bg-inverse: var(--color-navy-900);
+  --color-bg-brand: var(--color-brand-500);
+  --color-bg-brand-hover: var(--color-brand-600);
+  --color-bg-brand-subtle: var(--color-brand-50);
+  --color-bg-danger: var(--color-red-600);
+  --color-bg-danger-hover: var(--color-red-700);
+  --color-bg-disabled: var(--color-neutral-100);
+  --color-bg-success-subtle: var(--color-green-50);
+  --color-bg-warning-subtle: var(--color-amber-50);
+  --color-bg-danger-subtle: var(--color-red-50);
+  --color-bg-info-subtle: var(--color-violet-50);
+  --color-bg-control-off: var(--color-neutral-300);
+  --color-bg-control-thumb: var(--color-neutral-0);
+  --color-bg-track: var(--color-neutral-100);
+  --color-bg-accent: var(--color-lime-400);
+  --color-bg-accent-hover: var(--color-lime-500);
+  --color-bg-accent-subtle: var(--color-lime-100);
+  --color-bg-hero: var(--color-navy-950);
+  --color-bg-hero-raised: var(--color-navy-800);
+  --color-bg-track-on-hero: var(--color-navy-700);
+
+  --color-text-primary: var(--color-navy-900);
+  --color-text-secondary: var(--color-navy-700);
+  --color-text-tertiary: var(--color-navy-500);
+  --color-text-inverse: var(--color-neutral-0);
+  --color-text-on-brand: var(--color-neutral-0);
+  --color-text-on-danger: var(--color-neutral-0);
+  --color-text-brand: var(--color-brand-700);
+  --color-text-disabled: var(--color-neutral-400);
+  --color-text-success: var(--color-green-700);
+  --color-text-warning: var(--color-amber-700);
+  --color-text-danger: var(--color-red-700);
+  --color-text-info: var(--color-violet-700);
+  --color-text-on-accent: var(--color-navy-950);
+  --color-text-accent: var(--color-lime-800);
+  --color-text-on-hero: var(--color-neutral-0);
+  --color-text-on-hero-muted: var(--color-navy-300);
+  --color-text-on-hero-accent: var(--color-lime-400);
+  --color-text-on-hero-success: var(--color-green-400);
+
+  --color-border-default: var(--color-neutral-200);
+  --color-border-strong: var(--color-neutral-300);
+  --color-border-brand: var(--color-brand-500);
+  --color-border-focus: var(--color-brand-500);
+  --color-border-danger: var(--color-red-600);
+  --color-border-disabled: var(--color-neutral-100);
+  --color-border-accent: var(--color-lime-400);
+
+  /*
+   * 간격 (Spacing 컬렉션). 피그마 spacing/N = N × 4px이고 Tailwind 기본 배수(0.25rem = 4px)와 같아서
+   * p-4(16px), gap-0.5(2px)처럼 피그마 번호를 그대로 쓴다. 피그마에 있는 번호: 0, 0.5, 1~6, 8, 10, 12, 16
+   */
+  --spacing: 0.25rem;
+
+  /* 둥글기 (Radius 컬렉션). radius/none, radius/full은 Tailwind 기본 rounded-none, rounded-full을 쓴다. */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+
+  /* 그림자 (이펙트 스타일 Shadow/SM·MD·LG). 색은 navy-900에 투명도를 준 값이다. */
+  --shadow-sm: 0 1px 2px 0 #14213d0f, 0 1px 3px 0 #14213d14;
+  --shadow-md: 0 4px 8px -2px #14213d14, 0 2px 4px -2px #14213d0f;
+  --shadow-lg: 0 12px 24px -4px #14213d1f, 0 4px 8px -4px #14213d0f;
+
+  /* 화면 폭 기준 (Layout 컬렉션 breakpoint/*). tablet:, desktop: 으로 쓴다. */
+  --breakpoint-tablet: 48rem;
+  --breakpoint-desktop: 80rem;
+
+  /*
+   * 글자 (텍스트 스타일). text-heading-xl 하나로 크기·줄 높이·자간·굵기가 함께 들어간다.
+   * Display·Eyebrow는 피그마에서 Barlow Condensed라 font-display를 같이 붙인다.
+   * 여기 값은 모바일 기준이고, 화면 폭에 따라 바뀌는 값은 아래 @layer base에 있다.
+   */
+  --text-display-xl: 64px;
+  --text-display-xl--line-height: 64px;
+  --text-display-xl--letter-spacing: -0.01em;
+  --text-display-xl--font-weight: 800;
+  --text-display-l: 48px;
+  --text-display-l--line-height: 52px;
+  --text-display-l--letter-spacing: -0.005em;
+  --text-display-l--font-weight: 700;
+  --text-display-m: 32px;
+  --text-display-m--line-height: 36px;
+  --text-display-m--letter-spacing: -0.005em;
+  --text-display-m--font-weight: 700;
+  --text-display-s: 24px;
+  --text-display-s--line-height: 28px;
+  --text-display-s--letter-spacing: 0;
+  --text-display-s--font-weight: 600;
+  --text-eyebrow: 14px;
+  --text-eyebrow--line-height: 18px;
+  --text-eyebrow--letter-spacing: 0.08em;
+  --text-eyebrow--font-weight: 600;
+
+  --text-heading-xl: 28px;
+  --text-heading-xl--line-height: 36px;
+  --text-heading-xl--letter-spacing: -0.025em;
+  --text-heading-xl--font-weight: 700;
+  --text-heading-l: 22px;
+  --text-heading-l--line-height: 30px;
+  --text-heading-l--letter-spacing: -0.02em;
+  --text-heading-l--font-weight: 700;
+  --text-heading-m: 20px;
+  --text-heading-m--line-height: 28px;
+  --text-heading-m--letter-spacing: -0.02em;
+  --text-heading-m--font-weight: 700;
+  --text-heading-s: 16px;
+  --text-heading-s--line-height: 24px;
+  --text-heading-s--letter-spacing: -0.015em;
+  --text-heading-s--font-weight: 700;
+
+  --text-body-l: 14px;
+  --text-body-l--line-height: 22px;
+  --text-body-l--letter-spacing: -0.01em;
+  --text-body-l--font-weight: 400;
+  --text-body-m: 14px;
+  --text-body-m--line-height: 22px;
+  --text-body-m--letter-spacing: -0.01em;
+  --text-body-m--font-weight: 400;
+  --text-body-s: 14px;
+  --text-body-s--line-height: 22px;
+  --text-body-s--letter-spacing: -0.01em;
+  --text-body-s--font-weight: 400;
+  --text-caption: 12px;
+  --text-caption--line-height: 18px;
+  --text-caption--letter-spacing: -0.01em;
+  --text-caption--font-weight: 400;
+
+  --text-label-l: 16px;
+  --text-label-l--line-height: 22px;
+  --text-label-l--letter-spacing: -0.01em;
+  --text-label-l--font-weight: 500;
+  --text-label-m: 14px;
+  --text-label-m--line-height: 20px;
+  --text-label-m--letter-spacing: -0.01em;
+  --text-label-m--font-weight: 500;
+  --text-label-s: 12px;
+  --text-label-s--line-height: 16px;
+  --text-label-s--letter-spacing: -0.01em;
+  --text-label-s--font-weight: 500;
+  --text-label-strong: 14px;
+  --text-label-strong--line-height: 20px;
+  --text-label-strong--letter-spacing: -0.01em;
+  --text-label-strong--font-weight: 700;
+  --text-label-tag: 12px;
+  --text-label-tag--line-height: 16px;
+  --text-label-tag--letter-spacing: 0;
+  --text-label-tag--font-weight: 700;
 }
 
+/* 글꼴은 layout.tsx의 next/font가 만든 변수를 가리키므로 inline으로 둔다. */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-*: initial;
+  --font-sans: var(--font-noto-sans-kr);
+  --font-display: var(--font-barlow-condensed);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  /* 의미 색 Dark 모드. Light와 같은 값인 토큰은 적지 않았다. */
+  .dark {
+    --color-bg-default: var(--color-navy-950);
+    --color-bg-surface: var(--color-navy-900);
+    --color-bg-subtle: var(--color-navy-800);
+    --color-bg-inverse: var(--color-neutral-25);
+    --color-bg-brand-subtle: var(--color-brand-900);
+    --color-bg-disabled: var(--color-navy-800);
+    --color-bg-success-subtle: var(--color-green-900);
+    --color-bg-warning-subtle: var(--color-amber-900);
+    --color-bg-danger-subtle: var(--color-red-900);
+    --color-bg-info-subtle: var(--color-violet-900);
+    --color-bg-control-off: var(--color-navy-600);
+    --color-bg-track: var(--color-navy-700);
+    --color-bg-accent-subtle: var(--color-lime-900);
+    --color-bg-hero: var(--color-navy-800);
+    --color-bg-hero-raised: var(--color-navy-700);
+    --color-bg-track-on-hero: var(--color-navy-600);
+
+    --color-text-primary: var(--color-neutral-25);
+    --color-text-secondary: var(--color-navy-200);
+    --color-text-tertiary: var(--color-navy-300);
+    --color-text-inverse: var(--color-navy-900);
+    --color-text-brand: var(--color-brand-300);
+    --color-text-disabled: var(--color-navy-500);
+    --color-text-success: var(--color-green-400);
+    --color-text-warning: var(--color-amber-400);
+    --color-text-danger: var(--color-red-300);
+    --color-text-info: var(--color-violet-300);
+    --color-text-accent: var(--color-lime-400);
+    --color-text-on-hero-muted: var(--color-navy-200);
+
+    --color-border-default: var(--color-navy-700);
+    --color-border-strong: var(--color-navy-600);
+    --color-border-focus: var(--color-brand-400);
+    --color-border-danger: var(--color-red-400);
+    --color-border-disabled: var(--color-navy-800);
   }
-}
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  /*
+   * 레이아웃 (Layout 컬렉션). 맞는 유틸리티가 없어 max-w-(--layout-content-max-width)처럼 쓴다.
+   * layout/frame-width는 피그마 프레임 폭이라 옮기지 않았다.
+   */
+  :root {
+    --layout-columns: 4;
+    --layout-page-margin: 16px;
+    --layout-gutter: 16px;
+    --layout-content-max-width: 1200px;
+    --layout-header-height: 56px;
+    --layout-form-max-width: none;
+    --layout-app-max-width: 480px;
+  }
+
+  /* Typography·Layout 컬렉션의 Tablet 모드 */
+  @media (width >= 48rem) {
+    :root {
+      --layout-columns: 8;
+      --layout-page-margin: 24px;
+      --layout-gutter: 24px;
+      --layout-header-height: 64px;
+      --layout-form-max-width: 480px;
+
+      --text-display-l: 56px;
+      --text-display-l--line-height: 60px;
+      --text-display-m: 36px;
+      --text-display-m--line-height: 40px;
+      --text-display-s: 26px;
+      --text-display-s--line-height: 30px;
+      --text-heading-xl: 32px;
+      --text-heading-xl--line-height: 40px;
+      --text-heading-l: 24px;
+      --text-heading-l--line-height: 32px;
+      --text-body-l: 17px;
+      --text-body-l--line-height: 28px;
+      --text-body-m: 15px;
+      --text-body-m--line-height: 24px;
+      --text-body-s: 13px;
+      --text-body-s--line-height: 20px;
+      --text-label-tag: 11px;
+      --text-label-tag--line-height: 14px;
+    }
+  }
+
+  /* Typography·Layout 컬렉션의 Desktop 모드 */
+  @media (width >= 80rem) {
+    :root {
+      --layout-columns: 12;
+      --layout-page-margin: 40px;
+      --layout-header-height: 72px;
+
+      --text-display-l: 64px;
+      --text-display-l--line-height: 68px;
+      --text-display-m: 40px;
+      --text-display-m--line-height: 44px;
+      --text-display-s: 28px;
+      --text-display-s--line-height: 32px;
+      --text-heading-xl: 28px;
+      --text-heading-xl--line-height: 36px;
+      --text-heading-l: 18px;
+      --text-heading-l--line-height: 26px;
+      --text-heading-m: 22px;
+      --text-heading-m--line-height: 30px;
+      --text-heading-s: 18px;
+      --text-heading-s--line-height: 26px;
+      --text-body-l: 14px;
+      --text-body-l--line-height: 22px;
+      --text-body-m: 14px;
+      --text-body-m--line-height: 22px;
+      --text-body-s: 14px;
+      --text-body-s--line-height: 22px;
+      --text-label-tag: 12px;
+      --text-label-tag--line-height: 16px;
+    }
+  }
+
+  body {
+    background-color: var(--color-bg-default);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+  }
 }
