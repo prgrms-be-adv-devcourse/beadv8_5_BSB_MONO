@@ -38,6 +38,19 @@ export { TextField, type TextFieldProps } from './field/TextField'
 export { FOCUS_RING } from './focus-ring'
 export { Hero, type HeroProps } from './hero/Hero'
 export { Icon, Spinner, type IconName, type IconProps } from './icon/icons'
+export { checkImageFile, validateImageFile, type ImageRules } from './image-upload/image-file'
+export {
+  ImageUpload,
+  type ImageUploadProps,
+  type ImageUploadValue,
+} from './image-upload/ImageUpload'
+export {
+  ImageCropDialog,
+  ImageListDialog,
+  type ImageCropDialogProps,
+  type ImageListDialogProps,
+} from './image-upload/ImageUploadDialog'
+export { useImageList, type ImageItem, type UploadImage } from './image-upload/use-image-list'
 export {
   LoadMore,
   Pagination,
