@@ -1,6 +1,15 @@
 'use client'
 
-import { Children, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import {
+  Children,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent,
+  type PointerEvent,
+  type ReactNode,
+} from 'react'
 
 import { cn } from '@/shared/lib'
 
@@ -17,13 +26,21 @@ export type CarouselProps = {
 }
 
 // 홈 배너 캐러셀. 지금 장이 가운데 오고 양옆 장이 살짝 보이며, 손가락·트랙패드로 넘긴다(CSS scroll-snap).
-// 데스크톱도 모바일과 같은 모양이라 화살표는 없고, 점을 눌러 이동한다.
+// 데스크톱도 모바일과 같은 모양이라 화살표는 없고, 점을 누르거나 마우스로 잡고 끌어 이동한다.
+
+// 이만큼(px) 움직여야 끌기로 본다. 그보다 적으면 배너 클릭이다.
+const DRAG_START = 5
+// 한 장 폭의 이 비율 넘게 끌면 다음(이전) 장으로 넘긴다.
+const DRAG_FLIP = 0.15
 export function Carousel({ label, children, autoPlayMs = 5000, className }: CarouselProps) {
   const slides = Children.toArray(children)
   const count = slides.length
   const trackRef = useRef<HTMLDivElement>(null)
   const [index, setIndex] = useState(0)
   const [paused, setPaused] = useState(false)
+
+  const drag = useRef<{ x: number; scroll: number; moved: boolean } | null>(null)
+  const [dragging, setDragging] = useState(false)
 
   // 한 장이 차지하는 가로 길이(장 폭 + 간격)
   const slideStep = useCallback(() => {
@@ -60,6 +77,62 @@ export function Carousel({ label, children, autoPlayMs = 5000, className }: Caro
     setIndex(Math.min(count - 1, Math.max(0, Math.round(track.scrollLeft / step))))
   }
 
+  // 마우스로 잡고 끌기. 손가락·트랙패드는 브라우저 스크롤이 이미 해 주므로 마우스만 다룬다.
+  function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
+    if (event.pointerType !== 'mouse' || event.button !== 0 || !trackRef.current) {
+      return
+    }
+    drag.current = { x: event.clientX, scroll: trackRef.current.scrollLeft, moved: false }
+  }
+
+  function handlePointerMove(event: PointerEvent<HTMLDivElement>) {
+    const start = drag.current
+    const track = trackRef.current
+    if (!start || !track) {
+      return
+    }
+    const dx = event.clientX - start.x
+    if (!start.moved) {
+      if (Math.abs(dx) < DRAG_START) {
+        return
+      }
+      // 움직이기 시작한 뒤에야 잡는다. 처음부터 잡으면 배너 링크 클릭이 트랙으로 빼앗긴다.
+      start.moved = true
+      track.setPointerCapture(event.pointerId)
+      setDragging(true)
+    }
+    track.scrollLeft = start.scroll - dx
+  }
+
+  function handlePointerUp(event: PointerEvent<HTMLDivElement>) {
+    const start = drag.current
+    if (!start) {
+      return
+    }
+    drag.current = null
+    if (!start.moved) {
+      return
+    }
+    // 클릭 막기(handleClickCapture)가 이 값을 봐야 해서 moved는 다음 클릭까지 남겨 둔다.
+    dragMoved.current = true
+    setDragging(false)
+    const dx = event.clientX - start.x
+    const step = slideStep()
+    const from = step ? Math.round(start.scroll / step) : index
+    const flip = step && Math.abs(dx) > step * DRAG_FLIP ? (dx < 0 ? 1 : -1) : 0
+    scrollToIndex(Math.min(count - 1, Math.max(0, from + flip)))
+  }
+
+  const dragMoved = useRef(false)
+  // 끌고 나서 손을 뗄 때 생기는 클릭은 배너를 연 것으로 치지 않는다.
+  function handleClickCapture(event: MouseEvent) {
+    if (dragMoved.current) {
+      event.preventDefault()
+      event.stopPropagation()
+      dragMoved.current = false
+    }
+  }
+
   useEffect(() => {
     if (autoPlayMs === false || paused || count < 2) {
       return
@@ -91,8 +164,19 @@ export function Carousel({ label, children, autoPlayMs = 5000, className }: Caro
       <div
         ref={trackRef}
         onScroll={handleScroll}
-        // 좌우 여백 6.25%씩 두고 장이 안쪽 폭을 채우면, 장 폭이 전체의 87.5%가 되고 어느 장이든 가운데에 온다.
-        className="flex w-full snap-x snap-mandatory [scrollbar-width:none] gap-2.5 overflow-x-auto px-[6.25%] [&::-webkit-scrollbar]:hidden"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        onClickCapture={handleClickCapture}
+        // 이미지·링크를 브라우저 기본 끌기(파일 끌기)로 집어 가지 않게 막는다.
+        onDragStart={(event) => event.preventDefault()}
+        className={cn(
+          // 좌우 여백 6.25%씩 두고 장이 안쪽 폭을 채우면, 장 폭이 전체의 87.5%가 되고 어느 장이든 가운데에 온다.
+          'flex w-full [scrollbar-width:none] gap-2.5 overflow-x-auto px-[6.25%] [&::-webkit-scrollbar]:hidden',
+          // 끄는 동안 snap이 켜져 있으면 장 경계로 계속 끌려가서 끈다.
+          dragging ? 'cursor-grabbing select-none' : 'cursor-grab snap-x snap-mandatory',
+        )}
       >
         {slides.map((slide, i) => (
           <div
