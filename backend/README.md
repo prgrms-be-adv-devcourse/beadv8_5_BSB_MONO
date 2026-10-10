@@ -66,8 +66,9 @@ IntelliJ에서는 `MemberApplication`, `CashApplication`, `PayoutApplication`, `
 
 ## 파일 저장소 (S3)
 
-`file-service`는 이미지를 S3에 둡니다. 파일 본문은 서버를 거치지 않고, 브라우저가 서버에서 받은 presigned URL로 S3에 직접 올리고 받습니다.
+`file-service`는 대회 이미지·소개 영상·크루원 명단(엑셀) 파일을 S3에 둡니다. 파일 본문은 서버를 거치지 않고, 브라우저가 서버에서 받은 presigned URL로 S3에 직접 올리고 받습니다.
 접속 설정은 `file-service`의 `application.yaml`(`file.storage.s3`)에 있습니다.
+API 사용법(단계별 요청·응답, 파일 종류, 연결 규칙)은 [`file-service/README.md`](file-service/README.md)에 있습니다.
 
 | 실행 방법 | 쓰는 S3 | 설정 |
 |---|---|---|
@@ -287,6 +288,7 @@ Kafka에는 메시지를 **JSON 문자열**로 보냅니다. Kafka 직렬화기�
 | http://localhost:8080/swagger-ui.html | 회원 서비스 Swagger UI (dev 프로파일에서만 열림, prod에서는 비활성화) |
 | http://localhost:8081/swagger-ui.html | 캐시 서비스 Swagger UI |
 | http://localhost:8082/swagger-ui.html | 정산 서비스 Swagger UI |
+| http://localhost:8083/swagger-ui.html | 파일 서비스 Swagger UI |
 | http://localhost:8080/v3/api-docs | OpenAPI 문서 원본(JSON) |
 
 ### 작성 규칙
