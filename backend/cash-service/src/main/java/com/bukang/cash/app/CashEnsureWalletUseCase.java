@@ -11,11 +11,11 @@ import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
-public class CashCreateWalletUseCase {
+public class CashEnsureWalletUseCase {
 	private final WalletRepository walletRepository;
 	private final CashMemberRepository cashMemberRepository;
 
-	public Wallet createWallet(int cashMemberId) {
+	public Wallet ensureWallet(int cashMemberId) {
 		return walletRepository.findByHolderId(cashMemberId)
 			.orElseGet(() -> {
 				CashMember member = cashMemberRepository.getReferenceById(cashMemberId);

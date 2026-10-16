@@ -26,7 +26,7 @@ import com.bukang.cash.out.WalletRepository;
 
 import jakarta.persistence.EntityManager;
 
-// 회원 복제(syncMember)는 커밋 후 Kafka로 발행하므로 거치지 않고, CashMember를 직접 저장한 뒤 지갑 흐름을 확인한다
+// 지갑·원장 동작만 확인하기 위해 syncMember는 거치지 않고, CashMember를 직접 저장한 뒤 지갑 흐름을 확인한다
 @SpringBootTest
 @ActiveProfiles("test")
 @Transactional
@@ -53,7 +53,7 @@ class CashWalletTest {
 	@Test
 	@DisplayName("지갑을 만들면 잔액 0원으로 저장된다")
 	void createWallet() {
-		cashFacade.createWallet(MEMBER_ID);
+		cashFacade.ensureWallet(MEMBER_ID);
 		entityManager.flush();
 		entityManager.clear();
 
@@ -65,8 +65,8 @@ class CashWalletTest {
 	@Test
 	@DisplayName("같은 회원으로 지갑을 두 번 만들어도 지갑은 하나만 남는다")
 	void createWalletTwice() {
-		Wallet first = cashFacade.createWallet(MEMBER_ID);
-		Wallet second = cashFacade.createWallet(MEMBER_ID);
+		Wallet first = cashFacade.ensureWallet(MEMBER_ID);
+		Wallet second = cashFacade.ensureWallet(MEMBER_ID);
 
 		assertThat(second.getId()).isEqualTo(first.getId());
 		assertThat(walletRepository.count()).isEqualTo(1);
@@ -75,7 +75,7 @@ class CashWalletTest {
 	@Test
 	@DisplayName("회원 ID로 현재 잔액을 조회한다")
 	void getBalance() {
-		Wallet wallet = cashFacade.createWallet(MEMBER_ID);
+		Wallet wallet = cashFacade.ensureWallet(MEMBER_ID);
 		walletLedgerRepository.save(
 			wallet.credit(10_000, LedgerType.충전__PG결제_토스페이먼츠, LedgerRefType.WalletCharge, 1)
 		);
@@ -99,7 +99,7 @@ class CashWalletTest {
 	@Test
 	@DisplayName("원장의 유형·증감 금액·거래 후 잔액·참조 ID가 그대로 저장되고 조회된다")
 	void saveAndFindLedger() {
-		Wallet wallet = cashFacade.createWallet(MEMBER_ID);
+		Wallet wallet = cashFacade.ensureWallet(MEMBER_ID);
 		walletLedgerRepository.save(
 			wallet.credit(10_000, LedgerType.충전__PG결제_토스페이먼츠, LedgerRefType.WalletCharge, 1)
 		);

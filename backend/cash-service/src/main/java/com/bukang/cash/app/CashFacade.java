@@ -21,7 +21,7 @@ import lombok.RequiredArgsConstructor;
 public class CashFacade {
 	private final CashSupport cashSupport;
 	private final CashSyncMemberUseCase cashSyncMemberUseCase;
-	private final CashCreateWalletUseCase cashCreateWalletUseCase;
+	private final CashEnsureWalletUseCase cashEnsureWalletUseCase;
 	private final CashCompleteOrderPaymentUseCase cashCompleteOrderPaymentUseCase;
 	private final CashCancelOrderPaymentUseCase cashCancelOrderPaymentUseCase;
 	private final CashRefundPaymentUseCase cashRefundPaymentUseCase;
@@ -31,12 +31,14 @@ public class CashFacade {
 	@Transactional
 	public CashMember syncMember(int id, LocalDateTime createDate, LocalDateTime modifyDate,
 		String nickname) {
-		return cashSyncMemberUseCase.syncMember(id, createDate, modifyDate, nickname);
+		CashMember cashMember = cashSyncMemberUseCase.syncMember(id, createDate, modifyDate, nickname);
+		cashEnsureWalletUseCase.ensureWallet(cashMember.getId());
+		return cashMember;
 	}
 
 	@Transactional
-	public Wallet createWallet(int id) {
-		return cashCreateWalletUseCase.createWallet(id);
+	public Wallet ensureWallet(int id) {
+		return cashEnsureWalletUseCase.ensureWallet(id);
 	}
 
 	@Transactional(readOnly = true)

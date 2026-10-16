@@ -5,7 +5,6 @@ import org.springframework.stereotype.Component;
 
 import com.bukang.cash.app.CashFacade;
 import com.bukang.common.global.json.JsonConverter;
-import com.bukang.common.shared.cash.event.CashMemberCreatedEvent;
 import com.bukang.common.shared.kafka.KafkaTopics;
 import com.bukang.common.shared.member.event.MemberJoinedEvent;
 import com.bukang.common.shared.member.event.MemberModifiedEvent;
@@ -28,11 +27,5 @@ public class CashEventListener {
 	public void handleMemberModified(String message) {
 		MemberModifiedEvent event = jsonConverter.fromJson(message, MemberModifiedEvent.class);
 		cashFacade.syncMember(event.id(), event.createDate(), event.modifyDate(), event.nickname());
-	}
-
-	@KafkaListener(topics = KafkaTopics.CASH_MEMBER_CREATED, groupId = "CashEventListener__handleCashMemberCreated__1")
-	public void handleCashMemberCreated(String message) {
-		CashMemberCreatedEvent event = jsonConverter.fromJson(message, CashMemberCreatedEvent.class);
-		cashFacade.createWallet(event.id());
 	}
 }

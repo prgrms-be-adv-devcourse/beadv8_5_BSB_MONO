@@ -13,8 +13,6 @@ public final class KafkaTopics {
 	// 판매자 정보가 바뀌었다 (등록 신청, 승인·반려). 상품 서비스가 판매자 복제본에 저장한다
 	public static final String SELLER_CHANGED = "queuing.seller.changed";
 
-	// 캐시 회원 복제본을 처음 저장한 뒤 지갑을 만든다 (cash → cash)
-	public static final String CASH_MEMBER_CREATED = "cash.member.created";
 	// 대회·종목을 저장한 뒤 이미지 연결을 요청한다 (product → file)
 	public static final String RACE_FILE_LINK_REQUESTED = "race.filelink.requested";
 	// 대기열 활성 시간이 끝나 임시 확보한 자리를 해제한다 (order → product)
