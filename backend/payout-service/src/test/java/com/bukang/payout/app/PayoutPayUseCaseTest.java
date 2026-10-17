@@ -2,6 +2,7 @@ package com.bukang.payout.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
@@ -43,7 +44,7 @@ class PayoutPayUseCaseTest {
 	// 9월분(2026-09)은 10/20, 10월분(2026-10)은 11/20이 지급 예정일이다
 	private Payout savePayout(int sellerId, YearMonth payoutMonth) {
 		LocalDateTime settledAt = payoutMonth.atDay(29).atTime(3, 0);
-		return payoutRepository.save(new Payout(sellerId, 10, "테스트 대회", payoutMonth, settledAt,
+		return payoutRepository.save(Payout.finalStage(sellerId, 10, "테스트 대회", payoutMonth, 0L, settledAt,
 			new BusinessDayCalendar()));
 	}
 
@@ -115,5 +116,46 @@ class PayoutPayUseCaseTest {
 
 	private PayoutStatus statusOf(Payout payout) {
 		return payoutRepository.findById(payout.getId()).orElseThrow().getStatus();
+	}
+
+	@Test
+	@DisplayName("1차: 환불 마감 9/30 → 정산 월 2026-09 → 10/20에 40,000(환불 없음) · 20,000(R0)을 지급 완료한다")
+	void paysFirstPayoutOnPayDate() {
+		BusinessDayCalendar calendar = new BusinessDayCalendar();
+		LocalDateTime settledAt = LocalDateTime.of(2026, 10, 1, 3, 0);
+		Payout twoTickets = Payout.first(1, 10, "테스트 대회", YearMonth.of(2026, 9), settledAt, calendar);
+		twoTickets.recordAdvance(10, 100_000L, 2, LocalDate.of(2026, 10, 1));
+		Payout oneTicket = Payout.first(2, 10, "테스트 대회", YearMonth.of(2026, 9), settledAt, calendar);
+		oneTicket.recordAdvance(10, 50_000L, 1, LocalDate.of(2026, 10, 1));
+		payoutRepository.save(twoTickets);
+		payoutRepository.save(oneTicket);
+
+		assertThat(twoTickets.getScheduledPayDate()).isEqualTo(PAY_DATE);
+		useCase().run(PAY_DATE, NOW);
+
+		Payout paidTwo = payoutRepository.findById(twoTickets.getId()).orElseThrow();
+		assertThat(paidTwo.getStatus()).isEqualTo(PayoutStatus.PAID);
+		assertThat(paidTwo.getPayoutAmount()).isEqualTo(40_000L);
+		Payout paidOne = payoutRepository.findById(oneTicket.getId()).orElseThrow();
+		assertThat(paidOne.getStatus()).isEqualTo(PayoutStatus.PAID);
+		assertThat(paidOne.getPayoutAmount()).isEqualTo(20_000L);
+	}
+
+	@Test
+	@DisplayName("지급액이 0원인 정산 내역도 0원으로 지급 완료(PAID)한다")
+	void paysZeroAmountPayout() {
+		// 판매액 50,000 − 수수료 2,750 − 선지급 차감 47,250 = 0원
+		Payout zero = Payout.finalStage(1, 10, "테스트 대회", YearMonth.of(2026, 9), 47_250L,
+			LocalDateTime.of(2026, 10, 1, 3, 0), new BusinessDayCalendar());
+		zero.addItem(100, 50_000L, new BigDecimal("0.0550"), LocalDate.of(2026, 10, 1));
+		payoutRepository.save(zero);
+		assertThat(zero.getPayoutAmount()).isZero();
+
+		useCase().run(PAY_DATE, NOW);
+
+		Payout paid = payoutRepository.findById(zero.getId()).orElseThrow();
+		assertThat(paid.getStatus()).isEqualTo(PayoutStatus.PAID);
+		assertThat(paid.getPayoutAmount()).isZero();
+		assertThat(paid.getPaidAt()).isEqualTo(NOW);
 	}
 }

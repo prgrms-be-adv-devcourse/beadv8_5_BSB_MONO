@@ -44,4 +44,11 @@ class PayoutTargetDateTest {
 	void raceDateForTargetDate() {
 		assertThat(PayoutTargetDate.raceDateFor(LocalDate.of(2026, 10, 1))).isEqualTo(LocalDate.of(2026, 9, 30));
 	}
+
+	@Test
+	@DisplayName("1차 정산 대상일은 환불 마감일 다음 날이다 (마감 9/30 → 10/1, 거꾸로 10/1 → 9/30)")
+	void firstTargetDateIsDayAfterRefundDeadline() {
+		assertThat(PayoutTargetDate.firstOf(LocalDate.of(2026, 9, 30))).isEqualTo(LocalDate.of(2026, 10, 1));
+		assertThat(PayoutTargetDate.refundDeadlineFor(LocalDate.of(2026, 10, 1))).isEqualTo(LocalDate.of(2026, 9, 30));
+	}
 }

@@ -20,7 +20,7 @@ class PayoutCancelTest {
 	private static final LocalDateTime CANCELED_AT = LocalDateTime.of(2026, 10, 15, 14, 0);
 
 	private Payout newPayout() {
-		return new Payout(1, 10, "테스트 대회", YearMonth.of(2026, 9), SETTLED_AT, CALENDAR);
+		return Payout.finalStage(1, 10, "테스트 대회", YearMonth.of(2026, 9), 0L, SETTLED_AT, CALENDAR);
 	}
 
 	private PayoutHold hold(Payout payout) {

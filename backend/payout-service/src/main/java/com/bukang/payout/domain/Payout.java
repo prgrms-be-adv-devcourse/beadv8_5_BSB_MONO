@@ -27,15 +27,15 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * 정산 내역: 판매자 × 대회 × 월로 한 번에 지급하는 묶음
- * 판매자, 대회는 다른 도메인이라 연관관계 없이 ID만 둔다
+ * 정산 내역: 판매자 × 대회 × 월 × 단계(1차 / 최종)로 한 번에 지급하는 묶음 (payout.md 4-3)
+ * 같은 달이어도 1차와 최종은 따로 만든다. 판매자, 대회는 다른 도메인이라 연관관계 없이 ID만 둔다
  */
 @Entity
 @NoArgsConstructor(access = PROTECTED)
 @Getter
 // 정산 생성 배치가 두 번 돌아도 같은 묶음이 두 번 지급되지 않도록 DB에서 막는다
 @Table(name = "PAYOUT_PAYOUT", uniqueConstraints = {
-	@UniqueConstraint(columnNames = {"seller_id", "race_id", "payout_month"})
+	@UniqueConstraint(columnNames = {"seller_id", "race_id", "payout_month", "payout_stage"})
 })
 public class Payout extends BaseIdAndTime {
 	private static final DateTimeFormatter CODE_DATE = DateTimeFormatter.ofPattern("yyyyMMdd");
@@ -58,7 +58,11 @@ public class Payout extends BaseIdAndTime {
 	@Column(nullable = false, length = 200)
 	private String raceName;
 
-	// YYYY-MM. 정산 대상일이 속한 달
+	@Enumerated(STRING)
+	@Column(nullable = false, length = 10)
+	private PayoutStage payoutStage;
+
+	// YYYY-MM. 1차는 환불 마감일이 속한 달, 최종은 대회일이 속한 달 (실행일 · 정산 대상일이 아니다)
 	@Column(nullable = false, length = 7)
 	private String payoutMonth;
 
@@ -71,6 +75,12 @@ public class Payout extends BaseIdAndTime {
 	@Column(nullable = false)
 	private long feeAmount;
 
+	// 선지급 차감: 최종에서 빼는 ADVANCE 잔고 (1차 선금 − 회수 요청액, 손에 남은 선금). 1차는 0이다 (payout.md 4-4)
+	// 만들 때의 값이고, 같은 금액의 ADVANCE_OFFSET 원장 줄이 함께 생긴다
+	@Column(nullable = false)
+	private long advanceDeductionAmount;
+
+	// 지급액: 이 묶음 원장 줄의 합 (캐시). 상계 줄이 더해지면 줄고, 취소하면 0이 된다
 	@Column(nullable = false)
 	private long payoutAmount;
 
@@ -102,19 +112,38 @@ public class Payout extends BaseIdAndTime {
 	@OneToMany(mappedBy = "payout", cascade = ALL)
 	private List<PayoutStatusHistory> statusHistories = new ArrayList<>();
 
-	public Payout(int sellerId, int raceId, String raceName, YearMonth payoutMonth, LocalDateTime settledAt,
-		BusinessDayCalendar calendar) {
+	private Payout(int sellerId, int raceId, String raceName, PayoutStage payoutStage, YearMonth payoutMonth,
+		long advanceDeductionAmount, LocalDateTime settledAt, BusinessDayCalendar calendar) {
 		this.sellerId = sellerId;
 		this.raceId = raceId;
 		this.raceName = raceName;
+		this.payoutStage = payoutStage;
 		this.payoutMonth = payoutMonth.toString();
+		this.advanceDeductionAmount = advanceDeductionAmount;
 		this.settledAt = settledAt;
 		this.scheduledPayDate = payDayOf(payoutMonth.plusMonths(1), calendar);
 		// 정산 내역은 배치가 만든다
 		changeStatus(PayoutStatus.CALCULATED, PayoutHold.SYSTEM_MEMBER_ID, settledAt, null);
+		// 최종은 그때 남은 선금(ADVANCE 잔고)을 한 줄로 뺀다. 0원이어도 남겨 "뺄 선금이 없었다"를 기록한다 (PRO-214)
+		if (payoutStage == PayoutStage.FINAL) {
+			addLine(PayoutRecordType.ADVANCE_OFFSET, null, null, -advanceDeductionAmount, null, null);
+		}
 	}
 
-	// 바깥에서 remove, clear로 정산 기록을 바꾸지 못하도록 읽기 전용으로 내보낸다 (추가는 addItem으로만)
+	// 1차 정산 내역: 정산 월은 환불 마감일의 달이다
+	public static Payout first(int sellerId, int raceId, String raceName, YearMonth payoutMonth,
+		LocalDateTime settledAt, BusinessDayCalendar calendar) {
+		return new Payout(sellerId, raceId, raceName, PayoutStage.FIRST, payoutMonth, 0L, settledAt, calendar);
+	}
+
+	// 최종 정산 내역: 정산 월은 대회일의 달이고, 선지급 차감은 만들 때의 ADVANCE 잔고(1차 선금 − 회수 요청액)다
+	public static Payout finalStage(int sellerId, int raceId, String raceName, YearMonth payoutMonth,
+		long advanceDeductionAmount, LocalDateTime settledAt, BusinessDayCalendar calendar) {
+		return new Payout(sellerId, raceId, raceName, PayoutStage.FINAL, payoutMonth, advanceDeductionAmount,
+			settledAt, calendar);
+	}
+
+	// 바깥에서 remove, clear로 원장 줄을 바꾸지 못하도록 읽기 전용으로 내보낸다 (추가는 Payout의 메서드로만)
 	public List<PayoutItem> getItems() {
 		return Collections.unmodifiableList(items);
 	}
@@ -123,19 +152,81 @@ public class Payout extends BaseIdAndTime {
 		return Collections.unmodifiableList(statusHistories);
 	}
 
-	// 정산 항목(PayoutItem)은 정산 내역(Payout)을 통해서만 만든다 (payout_id NOT NULL)
-	// 세미는 정산 대상일 전에 환불된 참가권이 빠지므로 판매(SALE)만 기록한다 (payout.md 2-3)
-	public PayoutItem addItem(int orderItemId, long price, BigDecimal feeRate, LocalDate targetDate) {
-		PayoutItem item = new PayoutItem(this, orderItemId, PayoutRecordType.SALE, price, feeRate, targetDate);
-		items.add(item);
+	/**
+	 * 1차 선금 줄(ADVANCE_PAID)을 코스마다 한 줄씩 쓴다. 참가권 목록 없이 판매 집계(가격 합 · 장수)만으로 계산한다 (PRO-214)
+	 * 코스 하나는 참가권 가격이 하나다. 그래서 가격 합 ÷ 장수가 1장 가격이고,
+	 * 선금 = DOWN(1장 가격 × 40%) × 장수는 장마다 40%를 버려 더한 값(정책 Q7)과 같다. 회수 몫(1장 × 40%)과도 정확히 맞는다
+	 * 가격 합이 장수로 나누어떨어지지 않으면 가격이 섞인 것이므로 계산하지 않고 실패로 남긴다
+	 */
+	public PayoutItem recordAdvance(int raceCourseId, long priceSum, int ticketCount, LocalDate targetDate) {
+		if (payoutStage != PayoutStage.FIRST) {
+			throw new IllegalStateException("선금은 1차 정산에만 씁니다. payoutStage=%s".formatted(payoutStage));
+		}
+		if (ticketCount <= 0 || priceSum % ticketCount != 0) {
+			throw new IllegalStateException(
+				"한 코스의 참가권 가격이 하나가 아닙니다. raceId=%d, raceCourseId=%d, priceSum=%d, ticketCount=%d"
+					.formatted(raceId, raceCourseId, priceSum, ticketCount));
+		}
+		boolean alreadyRecorded = items.stream()
+			.anyMatch(item -> item.getRecordType() == PayoutRecordType.ADVANCE_PAID
+				&& Integer.valueOf(raceCourseId).equals(item.getRaceCourseId()));
+		if (alreadyRecorded) {
+			throw new IllegalStateException(
+				"선금 줄은 코스마다 하나만 씁니다. raceId=%d, raceCourseId=%d".formatted(raceId, raceCourseId));
+		}
+		salesAmount += priceSum;
+		long share = TwoStagePayoutCalculator.firstShare(priceSum / ticketCount) * ticketCount;
+		return addLine(PayoutRecordType.ADVANCE_PAID, null, raceCourseId, share, null, targetDate);
+	}
 
-		// 수수료는 참가권 1장마다 원 미만을 버리고, 정산 내역의 수수료는 그 합이다 (payout.md 2-1)
+	// 최종 정산에 참가권 1장을 넣는다. 원장 줄은 정산 내역(Payout)을 통해서만 만든다 (금액 캐시와 함께 바뀌어야 하므로)
+	// 환불 마감일까지 환불된 참가권은 판매 내역에서 빠지므로 판매만 기록한다 (payout.md 2-3)
+	// 참가권마다 판매(+가격)와 수수료(−가격 × 5.5%, 원 미만 버림) 두 줄을 쓰고, 코스별로 볼 수 있게 코스를 적는다
+	// 지급액은 언제나 이 묶음 원장 줄의 합이다
+	public PayoutItem addItem(int orderItemId, Integer raceCourseId, long price, BigDecimal feeRate,
+		LocalDate targetDate) {
+		if (payoutStage != PayoutStage.FINAL) {
+			throw new IllegalStateException("1차 정산은 참가권 줄 없이 recordAdvance로 만듭니다. raceId=%d".formatted(raceId));
+		}
 		salesAmount += price;
-		feeAmount += item.getFeeAmount();
-		// 정책 공식(판매액 − 환불액 − 수수료)과 같은 모양으로 둔다. 세미는 refundAmount가 항상 0이다:
-		// 대상일 전 환불은 항목이 안 생기고, 대상일 후 환불은 막는다(PRO-28). 최종에서는 대상일~지급 사이 환불이
-		// 음수 정산 항목(PRO-32), 지급 뒤 환불은 회수(PRO-33)가 된다 (payout.md 2-2, 4-2)
-		payoutAmount = salesAmount - refundAmount - feeAmount;
+		long fee = TwoStagePayoutCalculator.rate(price, feeRate);
+		feeAmount += fee;
+		PayoutItem sale = addLine(PayoutRecordType.SALE, orderItemId, raceCourseId, price, feeRate, targetDate);
+		addLine(PayoutRecordType.FEE, orderItemId, raceCourseId, -fee, feeRate, targetDate);
+		return sale;
+	}
+
+	// 코스를 모를 때(테스트 · 샘플 데이터)
+	public PayoutItem addItem(int orderItemId, long price, BigDecimal feeRate, LocalDate targetDate) {
+		return addItem(orderItemId, null, price, feeRate, targetDate);
+	}
+
+	/**
+	 * 송금 전 묶음에서 판매자가 갚을 돈을 뺀다 (회수 상계, PRO-214)
+	 * 묶음 금액까지만 뺀다. 묶음은 0 아래로 내려가지 않고, 남은 갚을 돈은 RECEIVABLE에 남아 입금으로 받는다
+	 *
+	 * @param receivable 같은 판매자 × 대회의 갚을 돈(RECEIVABLE 잔고)
+	 * @return 이번에 뺀 금액. 뺄 게 없으면 0이고 줄을 쓰지 않는다
+	 */
+	public long offsetReceivable(long receivable) {
+		if (status != PayoutStatus.CALCULATED && status != PayoutStatus.HELD) {
+			throw new IllegalStateException("송금 전 정산 내역에서만 상계할 수 있습니다. payoutId=%d, status=%s"
+				.formatted(getId(), status));
+		}
+		long offset = Math.min(receivable, payoutAmount);
+		if (offset <= 0) {
+			return 0;
+		}
+		addLine(PayoutRecordType.RECOVERY_OFFSET, null, null, -offset, null, null);
+		return offset;
+	}
+
+	private PayoutItem addLine(PayoutRecordType recordType, Integer orderItemId, Integer raceCourseId, long amount,
+		BigDecimal feeRate, LocalDate targetDate) {
+		PayoutItem item = PayoutItem.ofPayout(this, recordType, orderItemId, raceCourseId, amount, feeRate,
+			targetDate);
+		items.add(item);
+		payoutAmount += amount;
 		return item;
 	}
 
@@ -195,7 +286,8 @@ public class Payout extends BaseIdAndTime {
 	}
 
 	// 대회 취소로 닫기: 지급 전(CALCULATED · HELD) 정산 내역을 CANCELED로 바꿔 다시는 지급되지 않게 한다 (PRO-34)
-	// 금액 칸은 만들 때 그대로 둔다(얼마가 나갈 뻔했는지 남긴다). 합계 · 지급 조회는 상태로 고르므로 CANCELED는 빠진다
+	// 원장 줄은 지우지 않고 반대 부호 줄을 더해 되돌린다(PRO-214). 그래서 조건 없이 더해도 선금 · 갚을 돈 잔고가 맞는다
+	// 지급액(줄의 합)은 0이 되고, 판매액 · 수수료 칸은 만들 때 그대로 둔다(얼마가 나갈 뻔했는지 남긴다)
 	// 보류 중이었으면 보류 기록은 HELD로 두고 상태만 최신으로 바꾼다. 무엇이었는지는 상태 이력에 남는다
 	// 이미 지급한 정산 내역은 닫지 않는다. 지급 뒤 대회 취소는 회수(PRO-33)가 맡는다
 	public void cancel(int canceledBy, LocalDateTime canceledAt, String reason) {
@@ -205,6 +297,9 @@ public class Payout extends BaseIdAndTime {
 		if (status == PayoutStatus.CANCELED) {
 			throw new IllegalStateException("이미 취소된 정산 내역입니다. payoutId=%d".formatted(getId()));
 		}
+		List<PayoutItem> original = List.copyOf(items);
+		original.forEach(item -> addLine(item.getRecordType().canceled(), item.getOrderItemId(),
+			item.getRaceCourseId(), -item.getAmount(), item.getFeeRate(), item.getTargetDate()));
 		changeStatus(PayoutStatus.CANCELED, canceledBy, canceledAt, reason);
 	}
 

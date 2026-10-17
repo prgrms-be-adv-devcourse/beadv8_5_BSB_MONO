@@ -3,12 +3,16 @@ package com.bukang.payout.domain;
 import java.time.LocalDate;
 
 /**
- * 정산 대상일: 참가권은 대회가 끝난 다음 날에 정산 대상이 된다 (피그잼 06 정책 최종안 · 1차 2장)
- * 예: 대회 9/25 → 정산 대상일 9/26 → 지급 10/20
+ * 정산 대상일 (피그잼 06 대상일 1번, payout.md 4-3)
+ * 1차: 환불 마감일 다음 날. 예: 마감 9/30 → 1차 대상일 10/1, 정산 월 2026-09 → 지급 10/20
+ * 최종: 대회 다음 날. 예: 대회 9/25 → 최종 대상일 9/26, 정산 월 2026-09 → 지급 10/20
+ * 정산 월은 대상일이 아니라 환불 마감일 · 대회일의 달이다 (월말이면 대상일은 다음 달이 된다)
  */
 public final class PayoutTargetDate {
-	// 대회 다음 날
+	// 대회 다음 날 (이의 제기 기간 없음. payout.md의 '+3일'은 10/8 제안이라 피그잼 06에 맞춰 고쳤다)
 	private static final int DAYS_AFTER_RACE = 1;
+	// 환불 마감일 다음 날
+	private static final int DAYS_AFTER_REFUND_DEADLINE = 1;
 
 	private PayoutTargetDate() {
 	}
@@ -20,6 +24,16 @@ public final class PayoutTargetDate {
 	// 정산 대상일이 targetDate인 대회의 대회일 (배치가 오늘 정산할 대회를 찾을 때 쓴다)
 	public static LocalDate raceDateFor(LocalDate targetDate) {
 		return targetDate.minusDays(DAYS_AFTER_RACE);
+	}
+
+	// 1차 정산 대상일: 환불 마감일 다음 날
+	public static LocalDate firstOf(LocalDate refundDeadline) {
+		return refundDeadline.plusDays(DAYS_AFTER_REFUND_DEADLINE);
+	}
+
+	// 1차 정산 대상일이 targetDate인 대회의 환불 마감일 (1차 배치가 오늘 정산할 대회를 찾을 때 쓴다)
+	public static LocalDate refundDeadlineFor(LocalDate targetDate) {
+		return targetDate.minusDays(DAYS_AFTER_REFUND_DEADLINE);
 	}
 
 	// 정산 대상일 전날까지만 환불할 수 있다. 정산 대상일 당일부터는 대회 취소·일정 변경 환불도 막는다 (payout.md 2-2, PRO-28)

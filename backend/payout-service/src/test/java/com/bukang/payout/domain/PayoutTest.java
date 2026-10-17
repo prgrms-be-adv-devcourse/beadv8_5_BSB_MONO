@@ -1,6 +1,7 @@
 package com.bukang.payout.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -16,11 +17,12 @@ class PayoutTest {
 	private static final BusinessDayCalendar CALENDAR = new BusinessDayCalendar();
 
 	private Payout newPayout() {
-		return new Payout(1, 10, "테스트 대회", YearMonth.of(2026, 9), LocalDateTime.of(2026, 9, 26, 3, 0), CALENDAR);
+		return Payout.finalStage(1, 10, "테스트 대회", YearMonth.of(2026, 9), 0L,
+			LocalDateTime.of(2026, 9, 26, 3, 0), CALENDAR);
 	}
 
 	private Payout newPayout(YearMonth payoutMonth) {
-		return new Payout(1, 10, "테스트 대회", payoutMonth, payoutMonth.atEndOfMonth().atTime(3, 0), CALENDAR);
+		return Payout.finalStage(1, 10, "테스트 대회", payoutMonth, 0L, payoutMonth.atEndOfMonth().atTime(3, 0), CALENDAR);
 	}
 
 	@Test
@@ -61,5 +63,47 @@ class PayoutTest {
 
 		assertThat(payout.getFeeAmount()).isEqualTo(5_500L);
 		assertThat(payout.getPayoutAmount()).isEqualTo(100_100L - 5_500L);
+	}
+
+	@Test
+	@DisplayName("1차는 판매 집계로 1장 몫(가격 × 40% 버림) × 장수를 선금 한 줄로 쓴다 (33,333원 × 10장 → 133,330, 합계에 곱한 133,332가 아니다)")
+	void firstPayoutIsFortyPercentPerTicket() {
+		Payout first = Payout.first(1, 10, "테스트 대회", YearMonth.of(2026, 9), LocalDateTime.of(2026, 10, 1, 3, 0),
+			CALENDAR);
+
+		first.recordAdvance(10, 333_330L, 10, LocalDate.of(2026, 10, 1));
+
+		assertThat(first.getPayoutStage()).isEqualTo(PayoutStage.FIRST);
+		assertThat(first.getSalesAmount()).isEqualTo(333_330L);
+		assertThat(first.getFeeAmount()).isZero();
+		assertThat(first.getPayoutAmount()).isEqualTo(133_330L);
+		assertThat(first.getItems()).singleElement()
+			.satisfies(item -> assertThat(item.getRecordType()).isEqualTo(PayoutRecordType.ADVANCE_PAID));
+	}
+
+	@Test
+	@DisplayName("가격 합이 장수로 나누어떨어지지 않으면(가격이 섞임) 1차 선금을 만들지 않는다")
+	void firstPayoutRejectsMixedPrices() {
+		Payout first = Payout.first(1, 10, "테스트 대회", YearMonth.of(2026, 9), LocalDateTime.of(2026, 10, 1, 3, 0),
+			CALENDAR);
+
+		assertThatThrownBy(() -> first.recordAdvance(10, 83_333L, 2, LocalDate.of(2026, 10, 1)))
+			.isInstanceOf(IllegalStateException.class);
+	}
+
+	@Test
+	@DisplayName("최종은 판매자 정산액에서 선지급 차감을 뺀다 (33,333원 × 10장, 1차 133,330 → 181,670)")
+	void finalPayoutDeductsAdvance() {
+		Payout last = Payout.finalStage(1, 10, "테스트 대회", YearMonth.of(2026, 9), 133_330L,
+			LocalDateTime.of(2026, 10, 1, 3, 0), CALENDAR);
+
+		for (int orderItemId = 1; orderItemId <= 10; orderItemId++) {
+			last.addItem(orderItemId, 33_333L, FEE_RATE, TARGET_DATE);
+		}
+
+		assertThat(last.getPayoutStage()).isEqualTo(PayoutStage.FINAL);
+		assertThat(last.getFeeAmount()).isEqualTo(18_330L);
+		assertThat(last.getAdvanceDeductionAmount()).isEqualTo(133_330L);
+		assertThat(last.getPayoutAmount()).isEqualTo(181_670L);
 	}
 }

@@ -114,7 +114,8 @@ class ApiV1PayoutSellerControllerTest {
 	}
 
 	private Payout savePayout(int sellerId, int raceId, YearMonth month, LocalDate targetDate) {
-		Payout payout = new Payout(sellerId, raceId, "대회 %d".formatted(raceId), month, targetDate.atTime(3, 0),
+		Payout payout = Payout.finalStage(sellerId, raceId, "대회 %d".formatted(raceId), month, 0L,
+			targetDate.atTime(3, 0),
 			CALENDAR);
 		entityManager.persist(payout);
 		entityManager.flush();
@@ -178,11 +179,14 @@ class ApiV1PayoutSellerControllerTest {
 					fieldWithPath("data[].payoutCode").description("정산 ID 표기 (ST-정산 내역을 만든 날-16진수 4자리)"),
 					fieldWithPath("data[].raceId").description("대회 ID"),
 					fieldWithPath("data[].raceName").description("대회 이름 (정산 내역을 만들 때 저장한 값)"),
-					fieldWithPath("data[].payoutMonth").description("정산 월 (정산 대상일이 속한 달, yyyy-MM)"),
+					fieldWithPath("data[].payoutStage").description("정산 단계 (FIRST: 1차 선금 40%, FINAL: 최종)"),
+					fieldWithPath("data[].payoutMonth").description("정산 월 (1차는 환불 마감일, 최종은 대회일이 속한 달, yyyy-MM)"),
 					fieldWithPath("data[].salesAmount").description("판매액"),
-					fieldWithPath("data[].refundAmount").description("환불액 (세미는 항상 0)"),
-					fieldWithPath("data[].feeAmount").description("플랫폼 수수료 (참가권마다 5.5%, 원 미만 버림의 합)"),
-					fieldWithPath("data[].payoutAmount").description("지급액 (판매액 − 환불액 − 수수료)"),
+					fieldWithPath("data[].refundAmount").description("환불액 (1차 생성 뒤 환불. 지금은 항상 0)"),
+					fieldWithPath("data[].feeAmount").description("플랫폼 수수료 (최종만. 참가권마다 5.5%, 원 미만 버림의 합)"),
+					fieldWithPath("data[].advanceDeductionAmount").description("선지급 차감 (최종만. 1차 지급액 − 회수액)"),
+					fieldWithPath("data[].payoutAmount").description(
+						"지급액 (1차: 참가권마다 가격 × 40% 버림의 합, 최종: 판매액 − 환불액 − 수수료 − 선지급 차감)"),
 					fieldWithPath("data[].status").description("상태 (CALCULATED: 정산 예정, HELD: 지급보류, PAID: 지급 완료, "
 						+ "CANCELED: 대회 취소로 닫힘)"),
 					fieldWithPath("data[].settledAt").description("정산 내역을 만든 일시"),

@@ -98,7 +98,7 @@ class ApiV1PayoutHoldControllerTest {
 	}
 
 	private Payout savePayout() {
-		return payoutRepository.save(new Payout(1, 10, "테스트 대회", YearMonth.of(2026, 9),
+		return payoutRepository.save(Payout.finalStage(1, 10, "테스트 대회", YearMonth.of(2026, 9), 0L,
 			LocalDateTime.of(2026, 9, 29, 3, 0), new BusinessDayCalendar()));
 	}
 

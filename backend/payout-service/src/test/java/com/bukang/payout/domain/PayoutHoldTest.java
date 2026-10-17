@@ -26,7 +26,7 @@ class PayoutHoldTest {
 
 	// 지급 예정일은 정산 월 다음 달 20일이다 (2026-10 → 11/20)
 	private Payout newPayout(YearMonth payoutMonth) {
-		return new Payout(1, 10, "테스트 대회", payoutMonth, payoutMonth.atDay(26).atTime(3, 0), CALENDAR);
+		return Payout.finalStage(1, 10, "테스트 대회", payoutMonth, 0L, payoutMonth.atDay(26).atTime(3, 0), CALENDAR);
 	}
 
 	private PayoutHold hold(Payout payout) {

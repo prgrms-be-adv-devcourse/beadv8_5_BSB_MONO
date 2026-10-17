@@ -57,8 +57,8 @@ class OrderSoldEntryAdapterTest {
 		List<SoldEntry> entries = adapter.findSoldEntries(LocalDate.of(2026, 9, 22), LocalDate.of(2026, 9, 28));
 
 		assertThat(entries).containsExactly(
-			new SoldEntry(1, 3, 5, LocalDate.of(2026, 9, 22), 60_000L),
-			new SoldEntry(4, 3, 7, LocalDate.of(2026, 9, 28), 55_000L)
+			new SoldEntry(1, 3, 5, null, LocalDate.of(2026, 9, 22), 60_000L),
+			new SoldEntry(4, 3, 7, null, LocalDate.of(2026, 9, 28), 55_000L)
 		);
 		server.verify();
 	}

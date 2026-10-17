@@ -2,11 +2,9 @@ package com.bukang.payout.domain;
 
 import static jakarta.persistence.EnumType.STRING;
 import static jakarta.persistence.FetchType.LAZY;
-import static lombok.AccessLevel.PACKAGE;
 import static lombok.AccessLevel.PROTECTED;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDate;
 
 import com.bukang.common.global.jpa.entity.BaseIdAndTime;
@@ -14,49 +12,130 @@ import com.bukang.common.global.jpa.entity.BaseIdAndTime;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
-import lombok.AllArgsConstructor;
+import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * 정산 항목: 정산 내역에 묶인 참가권 1장 (주문 상품 하나)
+ * 원장 줄: 판매자 몫이 얼마 늘었는지(+) 줄었는지(−) 한 번의 움직임 (PRO-214)
+ * 정산 묶음(payout)에 붙는 줄과 회수(recovery)에 붙는 줄이 있다. 어느 쪽이든 판매자 · 대회를 함께 적어
+ * 판매자 × 대회 × 계정으로 잔고를 바로 더할 수 있게 한다
  * 추가만 하고 고치지 않는다. 그래서 setter와 변경 메서드를 두지 않는다
+ *
+ * 중복 방지 (같은 줄이 두 번 들어가지 않게)
+ * - 참가권 줄: (order_item_id, record_type) 유일. 늦게 들어온 참가권이 다른 묶음에 또 들어가는 것까지 막는다 (PRO-118)
+ * - 묶음째 줄(order_item_id NULL): MySQL 유일 인덱스는 NULL끼리 막지 않으므로, NULL일 때만 값을 갖는 칼럼
+ *   bundle_key(예: P1:ADVANCE_PAID:C3, R4:RECOVERY_REQUESTED)에 유일 제약을 건다. 코스가 있으면 키에 코스를 넣는다
+ *   DB 생성 칼럼으로 두면 테스트 DB(H2)에서 INSERT 때 DB가 닫혀, 저장 직전에 Java에서 계산해 넣는다 (PRO-214, 원인 미확인)
+ * - 상계 줄(RECOVERY_OFFSET)은 한 묶음에 여러 번 생길 수 있어 bundle_key를 두지 않는다.
+ *   상계액을 잔고로 다시 계산하고 묶음 행을 잠그므로, 다시 실행해도 0원이라 줄이 생기지 않는다
  */
 @Entity
 @NoArgsConstructor(access = PROTECTED)
-@AllArgsConstructor(access = PACKAGE)
 @Getter
-@Table(name = "PAYOUT_PAYOUT_ITEM")
+@Table(name = "PAYOUT_PAYOUT_ITEM",
+	uniqueConstraints = {
+		@UniqueConstraint(name = "uk_payout_item_order_item_record", columnNames = {"order_item_id", "record_type"}),
+		@UniqueConstraint(name = "uk_payout_item_bundle_key", columnNames = {"bundle_key"})
+	},
+	indexes = {
+		@Index(name = "idx_payout_item_payout", columnList = "payout_id"),
+		@Index(name = "idx_payout_item_seller_race", columnList = "seller_id, race_id, account")
+	})
 public class PayoutItem extends BaseIdAndTime {
-	@ManyToOne(fetch = LAZY, optional = false)
-	@JoinColumn(name = "payout_id", nullable = false)
+	// 정산 묶음에 붙는 줄(선금 · 판매 · 수수료 · 선지급 차감 · 상계 · 취소)이면 그 묶음. 회수 줄이면 NULL
+	@ManyToOne(fetch = LAZY)
+	@JoinColumn(name = "payout_id")
 	private Payout payout;
 
-	// 주문 도메인의 주문 상품 ID
+	// 회수 줄(요청 · 입금)이면 그 회수. 묶음 줄이면 NULL
+	@ManyToOne(fetch = LAZY)
+	@JoinColumn(name = "recovery_id")
+	private PayoutRecovery recovery;
+
 	@Column(nullable = false)
-	private int orderItemId;
+	private int sellerId;
+
+	@Column(nullable = false)
+	private int raceId;
 
 	@Enumerated(STRING)
-	@Column(nullable = false, length = 20)
+	@Column(nullable = false, columnDefinition = "varchar(20)")
+	private PayoutAccount account;
+
+	@Enumerated(STRING)
+	@Column(nullable = false, columnDefinition = "varchar(30)")
 	private PayoutRecordType recordType;
 
-	// 판매는 +, 환불은 -
+	// 주문 도메인의 주문 상품 ID. 참가권 줄에만 있고, 묶음째 줄(선금 · 선지급 차감 · 상계 · 대회 취소 회수)은 NULL
+	private Integer orderItemId;
+
+	// 상품 도메인의 코스 ID. 정산 묶음은 대회 단위이고, 판매자가 코스별로 보도록 줄에 코스를 적는다 (PRO-214)
+	// 선금(코스마다 한 줄) · 판매 · 수수료 · 일정 변경 회수 줄에 있고, 선지급 차감 · 상계 · 대회 취소 회수 줄은 NULL
+	private Integer raceCourseId;
+
+	// 판매자 기준 부호: 판매자에게 가면 +, 판매자에게서 오면 −
 	@Column(nullable = false)
 	private long amount;
 
-	// 기록 시점의 수수료율 (예: 0.0550). 나중에 수수료율이 바뀌어도 이 항목은 그대로다
-	@Column(nullable = false, precision = 5, scale = 4)
+	// 판매 · 수수료 줄의 근거 수수료율 (예: 0.0550). 나중에 수수료율이 바뀌어도 이 줄은 그대로다. 다른 줄은 NULL
+	@Column(precision = 5, scale = 4)
 	private BigDecimal feeRate;
 
-	// 정산 대상일: 대회 다음 날
+	// 정산 대상일: 1차는 환불 마감일 다음 날, 최종은 대회 다음 날. 회수 줄은 NULL
 	private LocalDate targetDate;
 
-	// 이 참가권 1장의 수수료: 금액 × 수수료율, 원 미만 버림. 정산 내역의 수수료는 이 값의 합이다 (payout.md 2-1)
-	// 칸으로 저장하지 않고 계산한다. 금액과 수수료율이 바뀌지 않으므로 언제 계산해도 같다
-	public long getFeeAmount() {
-		return BigDecimal.valueOf(amount).multiply(feeRate).setScale(0, RoundingMode.FLOOR).longValueExact();
+	// 묶음째 줄 중복 방지 키. 참가권 줄과 상계 줄은 NULL (저장 직전에 정한다)
+	@Column(length = 60, updatable = false)
+	private String bundleKey;
+
+	private PayoutItem(Payout payout, PayoutRecovery recovery, int sellerId, int raceId, PayoutRecordType recordType,
+		Integer orderItemId, Integer raceCourseId, long amount, BigDecimal feeRate, LocalDate targetDate) {
+		this.payout = payout;
+		this.recovery = recovery;
+		this.sellerId = sellerId;
+		this.raceId = raceId;
+		this.account = recordType.getAccount();
+		this.recordType = recordType;
+		this.orderItemId = orderItemId;
+		this.raceCourseId = raceCourseId;
+		this.amount = amount;
+		this.feeRate = feeRate;
+		this.targetDate = targetDate;
+	}
+
+	// 정산 묶음에 붙는 줄. Payout 안에서만 만든다 (묶음 금액 캐시와 함께 바뀌어야 하므로)
+	static PayoutItem ofPayout(Payout payout, PayoutRecordType recordType, Integer orderItemId, Integer raceCourseId,
+		long amount, BigDecimal feeRate, LocalDate targetDate) {
+		return new PayoutItem(payout, null, payout.getSellerId(), payout.getRaceId(), recordType, orderItemId,
+			raceCourseId, amount, feeRate, targetDate);
+	}
+
+	// 회수에 붙는 줄 (요청 · 입금)
+	public static PayoutItem ofRecovery(PayoutRecovery recovery, PayoutRecordType recordType, Integer orderItemId,
+		Integer raceCourseId, long amount) {
+		return new PayoutItem(null, recovery, recovery.getSellerId(), recovery.getRaceId(), recordType, orderItemId,
+			raceCourseId, amount, null, null);
+	}
+
+	// 묶음(payout)은 먼저 저장돼 ID가 있으므로 줄을 저장하기 직전에 키를 만든다
+	@PrePersist
+	void assignBundleKey() {
+		if (orderItemId != null || recordType == PayoutRecordType.RECOVERY_OFFSET
+			|| recordType == PayoutRecordType.RECOVERY_OFFSET_CANCELED) {
+			return;
+		}
+		// 선금은 코스마다 한 줄이라 코스가 있으면 키에 넣는다 (예: P1:ADVANCE_PAID:C3)
+		String course = raceCourseId == null ? "" : ":C" + raceCourseId;
+		if (payout != null) {
+			this.bundleKey = "P%d:%s%s".formatted(payout.getId(), recordType, course);
+		} else if (recovery != null) {
+			this.bundleKey = "R%d:%s%s".formatted(recovery.getId(), recordType, course);
+		}
 	}
 }

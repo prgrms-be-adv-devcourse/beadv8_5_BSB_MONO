@@ -7,6 +7,7 @@ import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutItem;
 import com.bukang.payout.domain.PayoutRecordType;
 import com.bukang.payout.domain.PayoutStatus;
+import com.bukang.payout.domain.TwoStagePayoutCalculator;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -19,7 +20,7 @@ import lombok.Getter;
 @Getter
 public class PayoutItemDto {
 	private final int id;
-	private final int orderItemId;
+	private final Integer orderItemId;
 	private final PayoutRecordType recordType;
 	private final long amount;
 	private final BigDecimal feeRate;
@@ -41,7 +42,7 @@ public class PayoutItemDto {
 			item.getRecordType(),
 			item.getAmount(),
 			item.getFeeRate(),
-			item.getFeeAmount(),
+			TwoStagePayoutCalculator.rate(item.getAmount(), item.getFeeRate()),
 			item.getTargetDate(),
 			payout.getId(),
 			payout.getPayoutCode(),

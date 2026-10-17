@@ -48,4 +48,19 @@ class PayoutRecoveryTest {
 		assertThatThrownBy(() -> new PayoutRecovery(1, 10, PayoutRecoveryReason.RACE_CANCELED, 0, REQUESTED_AT))
 			.isInstanceOf(IllegalArgumentException.class);
 	}
+
+	@Test
+	@DisplayName("회수 키는 대회 취소면 대회로, 일정 변경이면 참가권으로 만든다")
+	void recoveryKey() {
+		assertThat(newRecovery().getRecoveryKey()).isEqualTo("R10:RACE_CANCELED");
+		assertThat(PayoutRecovery.scheduleChanged(1, 10, 101, 20_000, REQUESTED_AT).getRecoveryKey())
+			.isEqualTo("O101:SCHEDULE_CHANGED");
+	}
+
+	@Test
+	@DisplayName("참가권 없는 일정 변경 회수는 만들 수 없다")
+	void scheduleChangedNeedsTicket() {
+		assertThatThrownBy(() -> new PayoutRecovery(1, 10, PayoutRecoveryReason.SCHEDULE_CHANGED, 20_000, REQUESTED_AT))
+			.isInstanceOf(IllegalArgumentException.class);
+	}
 }

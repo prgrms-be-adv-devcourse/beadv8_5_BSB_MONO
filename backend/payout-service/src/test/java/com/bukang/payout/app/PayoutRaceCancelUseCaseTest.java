@@ -24,6 +24,7 @@ import com.bukang.payout.domain.PayoutRecoveryStatus;
 import com.bukang.payout.domain.PayoutStatus;
 import com.bukang.payout.domain.PayoutStatusHistory;
 import com.bukang.payout.out.PayoutHoldRepository;
+import com.bukang.payout.out.PayoutItemRepository;
 import com.bukang.payout.out.PayoutRecoveryRepository;
 import com.bukang.payout.out.PayoutRepository;
 
@@ -49,10 +50,14 @@ class PayoutRaceCancelUseCaseTest {
 	private PayoutRecoveryRepository payoutRecoveryRepository;
 
 	@Autowired
+	private PayoutItemRepository payoutItemRepository;
+
+	@Autowired
 	private EntityManager entityManager;
 
 	private PayoutRaceCancelUseCase useCase() {
-		return new PayoutRaceCancelUseCase(payoutRepository, payoutRecoveryRepository);
+		return new PayoutRaceCancelUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository,
+			new PayoutLedgerUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository));
 	}
 
 	private PayoutHoldUseCase holdUseCase() {
@@ -61,11 +66,14 @@ class PayoutRaceCancelUseCaseTest {
 
 	// 유일 조건 (seller_id, race_id, payout_month)에 걸리지 않도록 정산 월을 달리해 만든다
 	// 참가권 한 장(price)을 넣어 지급액이 생기게 한다 (5.5% 수수료를 뗀 금액)
+	// 참가권 줄은 (주문 상품, 줄 종류)가 유일하므로 묶음마다 다른 주문 상품 ID를 쓴다
+	private int nextOrderItemId = 1;
+
 	private Payout savePayout(int raceId, YearMonth month, long price) {
-		Payout payout = new Payout(SELLER_ID, raceId, "테스트 대회", month,
+		Payout payout = Payout.finalStage(SELLER_ID, raceId, "테스트 대회", month, 0L,
 			month.atEndOfMonth().atTime(3, 0), new BusinessDayCalendar());
 		if (price > 0) {
-			payout.addItem(1, price, FEE_RATE, month.atEndOfMonth());
+			payout.addItem(nextOrderItemId++, price, FEE_RATE, month.atEndOfMonth());
 		}
 		return payoutRepository.save(payout);
 	}
@@ -86,8 +94,9 @@ class PayoutRaceCancelUseCaseTest {
 		assertThat(result).isEqualTo(new PayoutRaceCancelUseCase.CancelResult(1, 1, false));
 		Payout reloaded = reload(payout);
 		assertThat(reloaded.getStatus()).isEqualTo(PayoutStatus.CANCELED);
-		// 금액 칸은 만들 때 그대로 둔다
-		assertThat(reloaded.getPayoutAmount()).isEqualTo(47_250);
+		// 원장 줄을 반대 부호로 되돌려 지급액(줄의 합)은 0, 판매액 칸은 만들 때 그대로 둔다 (PRO-214)
+		assertThat(reloaded.getPayoutAmount()).isZero();
+		assertThat(reloaded.getSalesAmount()).isEqualTo(50_000);
 		PayoutStatusHistory last = reloaded.getStatusHistories().getLast();
 		assertThat(last.getFromStatus()).isEqualTo(PayoutStatus.CALCULATED);
 		assertThat(last.getToStatus()).isEqualTo(PayoutStatus.CANCELED);

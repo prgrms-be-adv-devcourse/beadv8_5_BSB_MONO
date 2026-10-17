@@ -8,5 +8,7 @@ import java.time.LocalDate;
  * 참가권 order_item은 항상 quantity = 1이므로 price는 참가권 1장 값이고, 정산 항목 1개 = 참가권 1장이다
  * raceDate는 정산 대상일과 정산 월을 대회일에서 계산하기 위해 받는다 (기간으로 조회하므로 참가권마다 대회일이 다르다)
  */
-public record SoldEntry(int orderItemId, int sellerId, int raceId, LocalDate raceDate, long price) {
+// raceCourseId: 참가권의 코스. 원장 판매 · 수수료 줄에 적어 판매자가 코스별로 본다 (PRO-214). 주문 서비스가 아직 안 보내면 NULL
+public record SoldEntry(int orderItemId, int sellerId, int raceId, Integer raceCourseId, LocalDate raceDate,
+	long price) {
 }

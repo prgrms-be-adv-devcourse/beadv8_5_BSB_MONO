@@ -68,9 +68,11 @@ public class OrderSoldEntryAdapter implements SoldEntryPort {
 	}
 
 	// 주문 서비스 응답(SoldEntryDto)의 모양. 포트의 SoldEntry가 응답 형식에 묶이지 않도록 따로 둔다
-	private record SoldEntryResponse(int orderItemId, int sellerId, int raceId, LocalDate raceDate, long price) {
+	// raceCourseId는 주문 서비스 응답에 아직 없다 (PRO-224에서 더한다). 없으면 NULL로 받는다
+	private record SoldEntryResponse(int orderItemId, int sellerId, int raceId, Integer raceCourseId,
+		LocalDate raceDate, long price) {
 		SoldEntry toSoldEntry() {
-			return new SoldEntry(orderItemId, sellerId, raceId, raceDate, price);
+			return new SoldEntry(orderItemId, sellerId, raceId, raceCourseId, raceDate, price);
 		}
 	}
 }

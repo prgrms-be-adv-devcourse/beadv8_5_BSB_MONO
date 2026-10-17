@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.IntFunction;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -29,6 +30,7 @@ import com.bukang.payout.out.RacePort;
 import com.bukang.payout.out.SellerAccountPort;
 import com.bukang.payout.out.SoldEntry;
 import com.bukang.payout.out.SoldEntryPort;
+import com.bukang.payout.support.StubRacePort;
 
 /**
  * 정산 대상일 배치가 판매자 × 대회 묶음마다 트랜잭션을 나누는지 확인한다 (PRO-60)
@@ -36,7 +38,7 @@ import com.bukang.payout.out.SoldEntryPort;
  */
 @DataJpaTest
 @ActiveProfiles("test")
-@Import({PayoutGroupCreator.class, BusinessDayCalendar.class})
+@Import({PayoutGroupCreator.class, BusinessDayCalendar.class, PayoutLedgerUseCase.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class PayoutCreateUseCaseTransactionTest {
 	private static final LocalDate RACE_DATE = LocalDate.of(2026, 9, 25);
@@ -44,7 +46,7 @@ class PayoutCreateUseCaseTransactionTest {
 	private static final LocalDateTime NOW = LocalDateTime.of(2026, 9, 26, 3, 0);
 
 	// 대회 30의 이름은 PAYOUT_PAYOUT.race_name(200자)보다 길어 정산 내역 저장이 DB에서 실패한다
-	private static final RacePort RACE_NAMES = raceId -> raceId == 30
+	private static final IntFunction<Optional<String>> RACE_NAMES = raceId -> raceId == 30
 		? Optional.of("가".repeat(201))
 		: Optional.of("대회 " + raceId);
 
@@ -75,16 +77,16 @@ class PayoutCreateUseCaseTransactionTest {
 	private PayoutCreateUseCase useCaseSelling(List<SoldEntry> entries, SellerAccountPort sellerAccountPort) {
 		SoldEntryPort soldEntryPort = (from, to) -> entries;
 		return new PayoutCreateUseCase(payoutRepository, payoutGroupCreator, soldEntryPort, sellerAccountPort,
-			RACE_NAMES);
+			new StubRacePort(RACE_NAMES, List.of(), entries), raceId -> List.of());
 	}
 
 	@Test
 	@DisplayName("한 묶음 저장이 DB에서 실패해도 같은 날 다른 묶음의 정산 내역은 저장된다")
 	void failedGroupDoesNotRollBackOthers() {
 		PayoutCreateUseCase useCase = useCaseSelling(List.of(
-			new SoldEntry(100, 1, 10, RACE_DATE, 50_000L),
-			new SoldEntry(300, 3, 30, RACE_DATE, 40_000L),
-			new SoldEntry(200, 2, 20, RACE_DATE, 30_000L)
+			new SoldEntry(100, 1, 10, 10, RACE_DATE, 50_000L),
+			new SoldEntry(300, 3, 30, 30, RACE_DATE, 40_000L),
+			new SoldEntry(200, 2, 20, 20, RACE_DATE, 30_000L)
 		), sellerId -> true);
 
 		useCase.run(TARGET_DATE, NOW);
@@ -92,7 +94,8 @@ class PayoutCreateUseCaseTransactionTest {
 		assertThat(payoutRepository.findAll())
 			.extracting(Payout::getSellerId)
 			.containsExactlyInAnyOrder(1, 2);
-		assertThat(payoutItemRepository.count()).isEqualTo(2);
+		// 최종 묶음 2개 × (선지급 차감 1줄 + 참가권 판매 · 수수료 2줄) (PRO-214)
+		assertThat(payoutItemRepository.count()).isEqualTo(6);
 	}
 
 	@Test
@@ -106,8 +109,8 @@ class PayoutCreateUseCaseTransactionTest {
 			return true;
 		};
 		PayoutCreateUseCase useCase = useCaseSelling(List.of(
-			new SoldEntry(100, 1, 10, RACE_DATE, 50_000L),
-			new SoldEntry(200, 2, 20, RACE_DATE, 30_000L)
+			new SoldEntry(100, 1, 10, 10, RACE_DATE, 50_000L),
+			new SoldEntry(200, 2, 20, 20, RACE_DATE, 30_000L)
 		), sellerAccountPort);
 
 		useCase.run(TARGET_DATE, NOW);
@@ -130,8 +133,8 @@ class PayoutCreateUseCaseTransactionTest {
 			return true;
 		};
 		PayoutCreateUseCase useCase = useCaseSelling(List.of(
-			new SoldEntry(100, 1, 10, RACE_DATE, 50_000L),
-			new SoldEntry(200, 2, 20, RACE_DATE, 30_000L)
+			new SoldEntry(100, 1, 10, 10, RACE_DATE, 50_000L),
+			new SoldEntry(200, 2, 20, 20, RACE_DATE, 30_000L)
 		), sellerAccountPort);
 
 		useCase.run(TARGET_DATE, NOW);
@@ -145,8 +148,8 @@ class PayoutCreateUseCaseTransactionTest {
 		Payout retried = payouts.stream().filter(p -> p.getSellerId() == 2).findFirst().orElseThrow();
 		assertThat(retried.getPayoutMonth()).isEqualTo("2026-09");
 		assertThat(payoutItemRepository.findAll())
-			.filteredOn(item -> item.getOrderItemId() == 200)
+			.filteredOn(item -> Integer.valueOf(200).equals(item.getOrderItemId()))
 			.extracting(PayoutItem::getTargetDate)
-			.containsExactly(TARGET_DATE);
+			.containsOnly(TARGET_DATE);
 	}
 }
