@@ -6,7 +6,14 @@ import { BottomNav } from '@/widgets/bottom-nav'
 import { OfflineBody } from '@/widgets/status-screens'
 import { RACE_BANNERS, RaceCard, type RaceSummary } from '@/entities/race'
 import { cn } from '@/shared/lib'
-import { buttonClassName, Carousel, CarouselSlide, FOCUS_RING, Skeleton } from '@/shared/ui'
+import {
+  buttonClassName,
+  Carousel,
+  CarouselSlide,
+  DragScroll,
+  FOCUS_RING,
+  Skeleton,
+} from '@/shared/ui'
 
 export type HomePageProps = {
   state?: 'loading' | 'offline'
@@ -58,11 +65,15 @@ export function HomePage({ state, closingSoon, openRaces }: HomePageProps) {
           {closingSoon.length === 0 ? (
             <EmptyRow>곧 마감되는 대회가 없어요</EmptyRow>
           ) : (
-            <div className="flex [scrollbar-width:none] gap-4 overflow-x-auto px-(--layout-page-margin)">
+            <DragScroll className="scroll-px-(--layout-page-margin) gap-4 px-(--layout-page-margin)">
               {closingSoon.map((race) => (
-                <RaceCard key={`${race.id}-${race.option}`} race={race} className="w-54 shrink-0" />
+                <RaceCard
+                  key={`${race.id}-${race.option}`}
+                  race={race}
+                  className="w-54 shrink-0 snap-start"
+                />
               ))}
-            </div>
+            </DragScroll>
           )}
         </section>
 

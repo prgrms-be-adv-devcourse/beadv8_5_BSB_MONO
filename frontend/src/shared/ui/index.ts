@@ -35,6 +35,7 @@ export {
   type CarouselProps,
   type CarouselSlideProps,
 } from './carousel/Carousel'
+export { DragScroll, type DragScrollProps } from './drag-scroll/DragScroll'
 export { Checkbox, type CheckboxProps } from './choice/Checkbox'
 export { Radio, RadioGroup, type RadioProps } from './choice/Radio'
 export { Switch, type SwitchProps } from './choice/Switch'

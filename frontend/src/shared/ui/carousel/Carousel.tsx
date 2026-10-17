@@ -93,6 +93,11 @@ export function Carousel({ label, children, autoPlayMs = 5000, className }: Caro
     if (!start || !track) {
       return
     }
+    // 트랙 밖에서 버튼을 떼면 pointerup이 오지 않는다. 버튼이 이미 떼어졌으면 끌기를 끝낸다.
+    if ((event.buttons & 1) === 0) {
+      handlePointerUp(event)
+      return
+    }
     const dx = event.clientX - start.x
     if (!start.moved) {
       if (Math.abs(dx) < DRAG_START) {
