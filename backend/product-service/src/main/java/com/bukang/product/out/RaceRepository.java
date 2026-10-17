@@ -43,6 +43,29 @@ public interface RaceRepository extends JpaRepository<Race, Integer> {
 	@Query("select r from Race r where r.id in :ids")
 	List<Race> findAllByIdForShare(@Param("ids") Collection<Integer> ids);
 
+	// 정산 대상 대회 조회는 거르는 날짜 칸(환불 마감일 LocalDate / 대회 일시 LocalDateTime)과 경계 · 정렬이 달라 두 쿼리로 둔다
+	// QueryDSL로 날짜 조건만 바꿔 끼우면 쿼리 2개치고 코드(커스텀 리포지토리)가 늘고,
+	// JPQL 하나로 합치면 날짜 인자를 4개나 받아야 해서 지금처럼 둔다. 필요하면 그때 리팩토링한다 (PRO-230)
+
+	// 정산 1차 대상: 환불 마감일이 [from, to](양 끝 포함)이고 판매 상태가 statuses 중 하나인 대회
+	@Query("""
+		select r from Race r
+		where r.refundDeadline between :from and :to and r.saleStatus in :statuses
+		order by r.refundDeadline, r.id
+		""")
+	List<Race> findPayoutTargetsByRefundDeadline(@Param("from") LocalDate from, @Param("to") LocalDate to,
+		@Param("statuses") Collection<RaceSaleStatus> statuses);
+
+	// 정산 최종 대상: 대회 일시가 [from, to)이고 판매 상태가 statuses 중 하나인 대회
+	// 날짜 기간을 받아 끝 날의 다음 날 0시 미만으로 자른다
+	@Query("""
+		select r from Race r
+		where r.raceDate >= :from and r.raceDate < :to and r.saleStatus in :statuses
+		order by r.raceDate, r.id
+		""")
+	List<Race> findPayoutTargetsByRaceDate(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to,
+		@Param("statuses") Collection<RaceSaleStatus> statuses);
+
 	// 판매 상태 배치가 바꿀 대회 (판매 예정인데 판매 시작일이 된 대회)
 	@Query("select r.id from Race r where r.saleStatus = :status and r.saleOpenDate <= :today")
 	List<Integer> findIdsToOpen(@Param("status") RaceSaleStatus status, @Param("today") LocalDate today);

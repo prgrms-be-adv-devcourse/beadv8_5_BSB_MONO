@@ -1,5 +1,6 @@
 package com.bukang.product.app;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -26,6 +27,7 @@ import com.bukang.product.dto.RaceDetailDto;
 import com.bukang.product.dto.RacePageDto;
 import com.bukang.product.dto.RaceSaveDto;
 import com.bukang.product.dto.RaceSaveRequestDto;
+import com.bukang.product.dto.RaceScheduleDto;
 import com.bukang.product.dto.RaceSearchCondition;
 import com.bukang.product.dto.RaceSuggestionDto;
 import com.bukang.product.dto.SellerRaceDto;
@@ -45,6 +47,7 @@ public class ProductFacade {
 	private final RaceUpdateUseCase raceUpdateUseCase;
 	private final RaceSearchUseCase raceSearchUseCase;
 	private final RaceQueryUseCase raceQueryUseCase;
+	private final RaceScheduleQueryUseCase raceScheduleQueryUseCase;
 	private final RaceSaleStatusUseCase raceSaleStatusUseCase;
 	private final RaceHoldUseCase raceHoldUseCase;
 	private final RaceCancelUseCase raceCancelUseCase;
@@ -143,6 +146,16 @@ public class ProductFacade {
 
 	public RaceCourseInfoDto findCourseInfo(int raceCourseId) {
 		return raceQueryUseCase.findCourseInfo(raceCourseId);
+	}
+
+	// 정산 서비스의 1차 정산 대상 대회 (내부 API)
+	public List<RaceScheduleDto> findRacesByRefundDeadline(LocalDate from, LocalDate to) {
+		return raceScheduleQueryUseCase.findByRefundDeadline(from, to);
+	}
+
+	// 정산 서비스의 최종 정산 대상 대회 (내부 API)
+	public List<RaceScheduleDto> findRacesByRaceDate(LocalDate from, LocalDate to) {
+		return raceScheduleQueryUseCase.findByRaceDate(from, to);
 	}
 
 	// 시각이 지난 대회의 판매 상태를 바꾸고(커밋), 바뀐 대회의 검색 문서를 다시 색인한다. 바꾼 종목 문서 수를 돌려준다
