@@ -27,7 +27,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * 정산 생성 배치의 한 묶음(판매자 × 대회 × 단계)을 트랜잭션 하나로 저장한다 (PRO-60)
+ * 정산 생성 배치의 정산 내역 하나(판매자 × 대회 × 단계)을 트랜잭션 하나로 저장한다 (PRO-60)
  * 정산 내역 · 정산 항목 · 자동 보류는 함께 저장되거나 함께 롤백된다. 보류만 빠지면 계좌 없는 판매자에게 지급될 수 있다
  * PayoutCreateUseCase 안의 메서드로 두면 같은 객체 안의 호출이라 트랜잭션 프록시를 거치지 않으므로 별도 빈으로 둔다
  */
@@ -45,8 +45,8 @@ public class PayoutGroupCreator {
 	private final PayoutLedgerUseCase payoutLedgerUseCase;
 
 	/**
-	 * 1차 정산 내역을 만든다. 정산 월은 환불 마감일의 달이고, 선금 한 줄은 판매 집계(가격 합 · 장수)로 계산한다
-	 * 선금 = DOWN(1장 가격 × 40%) × 장수. 참가권 목록은 받지 않는다 (PRO-214)
+	 * 1차 정산 내역을 만든다. 정산 월은 환불 기한의 달이고, 1차 정산금 줄은 판매 집계(가격 합 · 장수)로 계산한다
+	 * 1차 정산금 = DOWN(1장 가격 × 40%) × 장수. 참가권 목록은 받지 않는다 (PRO-214)
 	 * 다른 서비스에 묻는 값(대회 이름, 계좌 등록 여부)은 부르는 쪽이 미리 구해 넘긴다
 	 * (다른 서비스 응답을 기다리는 동안 DB 트랜잭션을 열어 두지 않기 위해서다)
 	 */
@@ -65,8 +65,8 @@ public class PayoutGroupCreator {
 	}
 
 	/**
-	 * 최종 정산 내역을 만든다. 정산 월은 대회일의 달이고, 같은 판매자 × 대회의 남은 선금(ADVANCE 잔고)을 선지급 차감으로 뺀다
-	 * 만든 뒤 아직 못 받은 갚을 돈(RECEIVABLE)이 있으면 이 묶음에서 바로 상계한다 (PRO-214)
+	 * 최종 정산 내역을 만든다. 정산 월은 대회일의 달이고, 같은 판매자 × 대회의 남은 1차 정산금(ADVANCE 잔고)을 1차 정산금 차감으로 뺀다
+	 * 만든 뒤 아직 못 받은 갚을 돈(RECEIVABLE)이 있으면 이 정산 내역에서 바로 상계한다 (PRO-214)
 	 * 1차가 보류 중이면 최종도 같은 사유로 보류한다 (사유는 PRO-189에서 다시 정한다)
 	 */
 	@Transactional
@@ -75,11 +75,11 @@ public class PayoutGroupCreator {
 		Optional<Payout> first = payoutRepository.findFirstBySellerIdAndRaceIdAndPayoutStageOrderByIdAsc(
 			group.sellerId(), group.raceId(), PayoutStage.FIRST);
 		if (first.isEmpty()) {
-			// 1차 없이 최종 대상이 된 경우의 처리는 PRO-190에서 정한다. 그때까지는 선지급 차감 없이 만들고 드러낸다
+			// 1차 없이 최종 대상이 된 경우의 처리는 PRO-190에서 정한다. 그때까지는 1차 정산금 차감 없이 만들고 드러낸다
 			log.warn("1차 정산 내역 없이 최종 정산을 만듭니다. 선지급 차감은 0입니다. sellerId={}, raceId={}",
 				group.sellerId(), group.raceId());
 		}
-		// 남은 선금 = 1차 선금 − 회수 요청액. 회수 요청 때 이미 선금에서 뺐으므로 진행 중인 회수액을 또 빼지 않는다
+		// 남은 1차 정산금 = 1차 정산금 − 회수 요청액. 회수 요청 때 이미 1차 정산금에서 뺐으므로 진행 중인 회수액을 또 빼지 않는다
 		long advanceDeduction = payoutLedgerUseCase.balance(group.sellerId(), group.raceId(), PayoutAccount.ADVANCE);
 
 		Payout payout = Payout.finalStage(group.sellerId(), group.raceId(), group.raceName(), YearMonth.from(raceDate),
@@ -121,7 +121,7 @@ public class PayoutGroupCreator {
 
 	/**
 	 * 1차 정산 내역 하나로 묶이는 판매자 × 대회의 코스별 판매 집계와, 저장에 필요한 다른 서비스의 값
-	 * 정산 묶음은 대회 단위이고, 선금 줄은 코스마다 하나씩 쓴다
+	 * 정산 내역은 대회 단위이고, 1차 정산금 줄은 코스마다 하나씩 쓴다
 	 */
 	public record FirstGroup(int sellerId, int raceId, String raceName, boolean hasPayoutAccount,
 		List<CourseSale> courses) {

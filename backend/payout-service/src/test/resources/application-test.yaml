@@ -30,7 +30,9 @@ logging:
     com.bukang: debug
     org.hibernate.SQL: debug
 
-# 테스트는 주문 서비스를 띄우지 않는다. 어댑터를 만들 수 있게 주소만 둔다 (배치 테스트는 가짜 포트, 어댑터 테스트는 MockRestServiceServer)
+# 테스트는 주문 · 상품 서비스를 띄우지 않는다. 어댑터를 만들 수 있게 주소만 둔다 (배치 테스트는 가짜 포트, 어댑터 테스트는 MockRestServiceServer)
+# 상품 어댑터(ProductRaceAdapter)는 테스트 프로파일에서 뜨지 않고 FakeRaceAdapter가 대신 뜬다
 payout:
   services:
     order: http://localhost:8084
+    product: http://localhost:8085

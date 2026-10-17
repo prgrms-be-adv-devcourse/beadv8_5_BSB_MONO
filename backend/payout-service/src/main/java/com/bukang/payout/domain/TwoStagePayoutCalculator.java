@@ -10,7 +10,7 @@ import java.util.List;
  * 버림은 DOWN(0 쪽으로)이다. 음수 항목에서 FLOOR는 1원 더 빼므로 쓰지 않는다 (PRO-114)
  */
 public final class TwoStagePayoutCalculator {
-	// 1차 정산(선금) 비율. 수수료는 떼지 않는다
+	// 1차 정산금 비율. 수수료는 떼지 않는다
 	public static final BigDecimal FIRST_RATE = new BigDecimal("0.40");
 	// 플랫폼 수수료율 5.5% (부가세 포함). 최종 정산에서만 뗀다
 	public static final BigDecimal FEE_RATE = new BigDecimal("0.0550");

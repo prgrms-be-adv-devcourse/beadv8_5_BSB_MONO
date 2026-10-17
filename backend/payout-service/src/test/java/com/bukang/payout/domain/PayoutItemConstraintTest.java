@@ -18,8 +18,8 @@ import jakarta.persistence.PersistenceException;
 
 /**
  * 원장 줄 중복 방지 (PRO-214 완료 기준 2)
- * - 참가권 줄: (order_item_id, record_type) 유일. 다른 정산 묶음이어도 막는다
- * - 묶음째 줄: bundle_key 유일
+ * - 참가권 줄: (order_item_id, record_type) 유일. 다른 정산 내역이어도 막는다
+ * - 참가권 없는 줄: bundle_key 유일
  */
 @DataJpaTest
 @ActiveProfiles("test")
@@ -37,7 +37,7 @@ class PayoutItemConstraintTest {
 	}
 
 	@Test
-	@DisplayName("이미 최종 묶음에 있는 참가권의 판매 줄을 다른 묶음에 넣으면 저장에 실패한다")
+	@DisplayName("이미 최종 정산 내역에 있는 참가권의 판매 줄을 다른 정산 내역에 넣으면 저장에 실패한다")
 	void sameSaleInAnotherPayout() {
 		Payout december = finalPayout(YearMonth.of(2026, 12));
 		december.addItem(101, 50_000L, FEE_RATE, TARGET_DATE);
@@ -54,7 +54,7 @@ class PayoutItemConstraintTest {
 	}
 
 	@Test
-	@DisplayName("같은 1차 묶음에 선금 줄을 두 번 넣으면 저장에 실패한다 (bundle_key)")
+	@DisplayName("같은 1차 정산 내역에 1차 정산금 줄을 두 번 넣으면 저장에 실패한다 (bundle_key)")
 	void advancePaidTwice() {
 		Payout first = Payout.first(1, 7, "대회 A", YearMonth.of(2026, 10), SETTLED_AT, CALENDAR);
 		first.recordAdvance(7, 50_000L, 1, TARGET_DATE);

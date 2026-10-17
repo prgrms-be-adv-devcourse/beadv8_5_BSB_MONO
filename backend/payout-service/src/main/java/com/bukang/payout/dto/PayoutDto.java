@@ -21,13 +21,13 @@ public class PayoutDto {
 	private final String payoutCode;
 	private final int raceId;
 	private final String raceName;
-	// 정산 단계: FIRST(1차, 선금 40%) / FINAL(최종). 같은 대회 · 같은 달에 두 줄이 생길 수 있다
+	// 정산 단계: FIRST(1차 정산금, 40%) / FINAL(최종). 같은 대회 · 같은 달에 두 줄이 생길 수 있다
 	private final PayoutStage payoutStage;
 	private final String payoutMonth;
 	private final long salesAmount;
 	private final long refundAmount;
 	private final long feeAmount;
-	// 선지급 차감: 최종에서 뺀 1차 지급액 − 회수액. 1차는 0이다
+	// 1차 정산금 차감: 최종에서 뺀 1차 지급액 − 회수액. 1차는 0이다
 	private final long advanceDeductionAmount;
 	private final long payoutAmount;
 	private final PayoutStatus status;

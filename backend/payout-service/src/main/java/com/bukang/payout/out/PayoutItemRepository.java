@@ -12,7 +12,7 @@ import com.bukang.payout.domain.PayoutItem;
 
 public interface PayoutItemRepository extends JpaRepository<PayoutItem, Integer> {
 	// 원장 잔고: 판매자 × 대회 × 계정의 줄을 더한다 (PRO-214). 잔고는 따로 저장하지 않는다
-	// 취소된 묶음의 줄도 반대 줄과 함께 더해져 0이 되므로 상태로 거르지 않는다
+	// 취소된 정산 내역의 줄도 반대 줄과 함께 더해져 0이 되므로 상태로 거르지 않는다
 	@Query("""
 		select coalesce(sum(i.amount), 0) from PayoutItem i
 		where i.sellerId = :sellerId and i.raceId = :raceId and i.account = :account

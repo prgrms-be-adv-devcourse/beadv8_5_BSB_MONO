@@ -34,3 +34,4 @@ logging:
 payout:
   services:
     order: http://bukang-order-service:8084
+    product: http://bukang-product-service:8085

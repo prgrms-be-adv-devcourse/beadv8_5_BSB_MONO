@@ -9,8 +9,8 @@ package com.bukang.payout.domain;
  * @param refundAmount           환불액 (1차 생성 뒤 환불)
  * @param feeAmount              남은 참가권의 수수료 합 (최종에서만 뗀다)
  * @param sellerSettlementAmount 판매자 정산액 = 순매출 − 수수료 (판매자가 받을 돈 전부)
- * @param advanceDeductionAmount 선지급 차감 = 1차 지급액 − 회수액 (손에 남은 선금)
- * @param finalPayoutAmount      최종 지급액 = 판매자 정산액 − 선지급 차감
+ * @param advanceDeductionAmount 1차 정산금 차감 = 1차 지급액 − 회수액 (손에 남은 1차 정산금)
+ * @param finalPayoutAmount      최종 지급액 = 판매자 정산액 − 1차 정산금 차감
  */
 public record TwoStageAmounts(long firstPayoutAmount, long recoveryAmount, long salesAmount, long refundAmount,
 	long feeAmount, long sellerSettlementAmount, long advanceDeductionAmount, long finalPayoutAmount) {

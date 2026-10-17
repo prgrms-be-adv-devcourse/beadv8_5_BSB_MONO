@@ -22,9 +22,9 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * 일정 변경 환불의 회수 요청 (payout.md 4-2, PRO-33 · PRO-214)
- * 1차 정산을 만든 뒤의 환불은 1차 송금 전 · 뒤를 나누지 않고 항상 회수 요청으로 기록한다
+ * 1차 정산을 만든 뒤의 환불은 1차 지급 전 · 뒤를 나누지 않고 항상 회수 요청으로 기록한다
  * 회수액은 그 참가권의 1차 몫(가격 × 40%, 원 미만 버림)이다. 가격은 주문 쪽 값을 받는다
- * 요청하면 같은 판매자 × 대회의 송금 전 묶음에서 바로 상계하고, 다 갚으면 회수가 바로 끝난다(구매자 환불로 이어짐)
+ * 요청하면 같은 판매자 × 대회의 지급 전 정산 내역에서 바로 상계하고, 다 갚으면 회수가 바로 끝난다(구매자 환불로 이어짐)
  *
  * 지금은 정산 쪽 진입점만 만든다. 주문 서비스가 환불 신청 때 부르는 연결과 "회수 대기" 환불은 order 담당과 맞춘다
  */
@@ -39,7 +39,7 @@ public class PayoutRecoveryRequestUseCase {
 	/**
 	 * @param raceCourseId 환불된 참가권의 코스 (원장 줄에 적어 코스별로 본다)
 	 * @param price 환불된 참가권의 가격 (주문 상품 가격)
-	 * @return 만든 회수. 1차 정산이 없으면(선금을 준 적이 없으면) 돌려받을 것이 없어 빈 값
+	 * @return 만든 회수. 1차 정산이 없으면(1차 정산금을 준 적이 없으면) 돌려받을 것이 없어 빈 값
 	 */
 	@Transactional
 	public Optional<PayoutRecovery> requestScheduleChange(int sellerId, int raceId, int raceCourseId, int orderItemId,
@@ -58,7 +58,7 @@ public class PayoutRecoveryRequestUseCase {
 		long amount = TwoStagePayoutCalculator.firstShare(price);
 		PayoutRecovery recovery = payoutRecoveryRepository.save(
 			PayoutRecovery.scheduleChanged(sellerId, raceId, orderItemId, amount, now));
-		// 선금에서 빼고, 같은 금액을 갚을 돈으로 옮긴다
+		// 1차 정산금에서 빼고, 같은 금액을 갚을 돈으로 옮긴다
 		payoutItemRepository.save(
 			PayoutItem.ofRecovery(recovery, PayoutRecordType.RECOVERY_REQUESTED, orderItemId, raceCourseId, -amount));
 		payoutItemRepository.save(

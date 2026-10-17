@@ -66,7 +66,7 @@ class PayoutRaceCancelUseCaseTest {
 
 	// 유일 조건 (seller_id, race_id, payout_month)에 걸리지 않도록 정산 월을 달리해 만든다
 	// 참가권 한 장(price)을 넣어 지급액이 생기게 한다 (5.5% 수수료를 뗀 금액)
-	// 참가권 줄은 (주문 상품, 줄 종류)가 유일하므로 묶음마다 다른 주문 상품 ID를 쓴다
+	// 참가권 줄은 (주문 상품, 줄 종류)가 유일하므로 정산 내역마다 다른 주문 상품 ID를 쓴다
 	private int nextOrderItemId = 1;
 
 	private Payout savePayout(int raceId, YearMonth month, long price) {

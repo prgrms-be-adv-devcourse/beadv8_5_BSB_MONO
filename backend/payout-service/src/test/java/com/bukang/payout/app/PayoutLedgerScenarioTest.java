@@ -42,8 +42,8 @@ import jakarta.persistence.EntityManager;
 /**
  * 원장 방식 정산의 금액 시나리오 (PRO-214 완료 기준 1)
  * 대회 A, 판매자 1명, 참가권 5만 원 × 10장(101~110). 1장의 1차 몫 20,000, 수수료 2,750, 최종 몫 47,250
- * 환불 마감일 2026-10-31 → 1차 생성 11/1, 송금 11/20. 대회일 12/13 → 최종 생성 12/14, 송금 2027-01-20
- * 모든 시나리오에서 정산 묶음마다 원장 줄 합 = 지급액(payout_amount)인지도 확인한다
+ * 환불 기한 2026-10-31 → 1차 생성 11/1, 지급 11/20. 대회일 12/13 → 최종 생성 12/14, 지급 2027-01-20
+ * 모든 시나리오에서 정산 내역마다 원장 줄 합 = 지급액(payout_amount)인지도 확인한다
  */
 @DataJpaTest
 @ActiveProfiles("test")
@@ -137,7 +137,7 @@ class PayoutLedgerScenarioTest {
 		return ledgerUseCase.balance(SELLER_ID, RACE_ID, account);
 	}
 
-	// 판매자가 실제로 받은 돈 = 송금된 정산 묶음 지급액 합 − 입금으로 돌려준 회수액
+	// 판매자가 실제로 받은 돈 = 지급된 정산 내역 지급액 합 − 입금으로 돌려준 회수액
 	private long sellerReceived() {
 		entityManager.flush();
 		long paid = payoutRepository.findByRaceId(RACE_ID).stream()
@@ -177,7 +177,7 @@ class PayoutLedgerScenarioTest {
 	}
 
 	@Test
-	@DisplayName("코스가 둘인 대회: 1차 선금은 코스마다 한 줄, 최종 판매 · 수수료 줄에도 코스가 남아 코스별로 더할 수 있다")
+	@DisplayName("코스가 둘인 대회: 1차 정산금은 코스마다 한 줄, 최종 판매 · 수수료 줄에도 코스가 남아 코스별로 더할 수 있다")
 	void twoCourses() {
 		int course10k = 71;
 		int course5k = 72;
@@ -215,7 +215,7 @@ class PayoutLedgerScenarioTest {
 	}
 
 	@Test
-	@DisplayName("1차 송금 뒤 3장 환불, 108 · 109는 최종 전 입금, 110은 최종 생성 때 상계: 최종 170,750, 받은 돈 330,750")
+	@DisplayName("1차 지급 뒤 3장 환불, 108 · 109는 최종 전 입금, 110은 최종 생성 때 상계: 최종 170,750, 받은 돈 330,750")
 	void threeRefundsAfterFirstPay() {
 		createFirst();
 		pay(FIRST_PAY_DATE);
@@ -239,7 +239,7 @@ class PayoutLedgerScenarioTest {
 	}
 
 	@Test
-	@DisplayName("108번 1차 송금 전 환불: 요청 즉시 1차 묶음에서 상계해 송금 180,000, 회수는 바로 완료")
+	@DisplayName("108번 1차 지급 전 환불: 요청 즉시 1차 정산 내역에서 상계해 지급 180,000, 회수는 바로 완료")
 	void refundBeforeFirstPay() {
 		createFirst();
 		PayoutRecovery r108 = requestRecovery(108, LocalDateTime.of(2026, 11, 5, 10, 0));
@@ -251,7 +251,7 @@ class PayoutLedgerScenarioTest {
 
 		pay(FIRST_PAY_DATE);
 		assertThat(sellerReceived()).isEqualTo(180_000L);
-		// 최종: 9장 × 47,250 − 남은 선금 180,000 = 245,250
+		// 최종: 9장 × 47,250 − 남은 1차 정산금 180,000 = 245,250
 		createFinal(101, 102, 103, 104, 105, 106, 107, 109, 110);
 		assertThat(lineSum(payout(PayoutStage.FINAL))).isEqualTo(245_250L);
 		pay(FINAL_PAY_DATE);
@@ -260,7 +260,7 @@ class PayoutLedgerScenarioTest {
 	}
 
 	@Test
-	@DisplayName("1차 송금 뒤 8장 환불, 미입금: 최종에서 54,500 상계해 0원, 남은 105,500 입금하면 8건 모두 완료")
+	@DisplayName("1차 지급 뒤 8장 환불, 미입금: 최종에서 54,500 상계해 0원, 남은 105,500 입금하면 8건 모두 완료")
 	void eightRefundsUnpaid() {
 		createFirst();
 		pay(FIRST_PAY_DATE);
@@ -313,7 +313,7 @@ class PayoutLedgerScenarioTest {
 	}
 
 	@Test
-	@DisplayName("1차 지급 전 대회 취소: 반대 줄로 되돌려 ADVANCE 0, 1차 묶음 줄 합 0, 회수 없음")
+	@DisplayName("1차 지급 전 대회 취소: 반대 줄로 되돌려 ADVANCE 0, 1차 정산 내역 줄 합 0, 회수 없음")
 	void raceCanceledBeforeFirstPay() {
 		createFirst();
 		raceCancelUseCase.cancelRace(RACE_ID, LocalDateTime.of(2026, 11, 10, 10, 0));

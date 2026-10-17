@@ -16,9 +16,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * 회수: 판매자에게 주었거나 주기로 한 선금 중 환불된 참가권 몫을 돌려받는 절차 (payout.md 4-2, PRO-33)
+ * 회수: 판매자에게 주었거나 주기로 한 1차 정산금 중 환불된 참가권 몫을 돌려받는 절차 (payout.md 4-2, PRO-33)
  * 돈의 기록은 원장 줄(요청 · 상계 · 입금)이 맡고, 이 엔티티는 절차(요청 · 완료 상태, 완료 방식)만 맡는다 (PRO-214)
- * - 대회 취소: 대회당 1건, 금액은 그때 남은 선금(ADVANCE 잔고)
+ * - 대회 취소: 대회당 1건, 금액은 그때 남은 1차 정산금(ADVANCE 잔고)
  * - 일정 변경: 환불된 참가권마다 1건, 금액은 그 참가권의 1차 몫(가격 × 40%, 원 미만 버림)
  * 같은 판매자 × 대회의 갚을 돈(RECEIVABLE)이 0이 될 때(상계 또는 입금) 그 대회의 요청 중인 회수를 함께 완료한다
  * 회수가 끝나야 구매자 환불이 나간다 (정책 원문)
@@ -114,7 +114,7 @@ public class PayoutRecovery extends BaseIdAndTime {
 		finish(PayoutRecoveryCompletion.DEPOSIT, completedBy, completedAt);
 	}
 
-	// 송금 전 정산 묶음에서 빼서 갚을 돈이 0이 됐다
+	// 지급 전 정산 내역에서 빼서 갚을 돈이 0이 됐다
 	public void completeByOffset(LocalDateTime completedAt) {
 		finish(PayoutRecoveryCompletion.OFFSET, PayoutHold.SYSTEM_MEMBER_ID, completedAt);
 	}

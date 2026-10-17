@@ -144,7 +144,7 @@ class PayoutPayUseCaseTest {
 	@Test
 	@DisplayName("지급액이 0원인 정산 내역도 0원으로 지급 완료(PAID)한다")
 	void paysZeroAmountPayout() {
-		// 판매액 50,000 − 수수료 2,750 − 선지급 차감 47,250 = 0원
+		// 판매액 50,000 − 수수료 2,750 − 1차 정산금 차감 47,250 = 0원
 		Payout zero = Payout.finalStage(1, 10, "테스트 대회", YearMonth.of(2026, 9), 47_250L,
 			LocalDateTime.of(2026, 10, 1, 3, 0), new BusinessDayCalendar());
 		zero.addItem(100, 50_000L, new BigDecimal("0.0550"), LocalDate.of(2026, 10, 1));

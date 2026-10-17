@@ -66,7 +66,7 @@ class PayoutTest {
 	}
 
 	@Test
-	@DisplayName("1차는 판매 집계로 1장 몫(가격 × 40% 버림) × 장수를 선금 한 줄로 쓴다 (33,333원 × 10장 → 133,330, 합계에 곱한 133,332가 아니다)")
+	@DisplayName("1차는 판매 집계로 1장 몫(가격 × 40% 버림) × 장수를 1차 정산금 한 줄로 쓴다 (33,333원 × 10장 → 133,330, 합계에 곱한 133,332가 아니다)")
 	void firstPayoutIsFortyPercentPerTicket() {
 		Payout first = Payout.first(1, 10, "테스트 대회", YearMonth.of(2026, 9), LocalDateTime.of(2026, 10, 1, 3, 0),
 			CALENDAR);
@@ -82,7 +82,7 @@ class PayoutTest {
 	}
 
 	@Test
-	@DisplayName("가격 합이 장수로 나누어떨어지지 않으면(가격이 섞임) 1차 선금을 만들지 않는다")
+	@DisplayName("가격 합이 장수로 나누어떨어지지 않으면(가격이 섞임) 1차 정산금을 만들지 않는다")
 	void firstPayoutRejectsMixedPrices() {
 		Payout first = Payout.first(1, 10, "테스트 대회", YearMonth.of(2026, 9), LocalDateTime.of(2026, 10, 1, 3, 0),
 			CALENDAR);
@@ -92,7 +92,7 @@ class PayoutTest {
 	}
 
 	@Test
-	@DisplayName("최종은 판매자 정산액에서 선지급 차감을 뺀다 (33,333원 × 10장, 1차 133,330 → 181,670)")
+	@DisplayName("최종은 판매자 정산액에서 1차 정산금 차감을 뺀다 (33,333원 × 10장, 1차 133,330 → 181,670)")
 	void finalPayoutDeductsAdvance() {
 		Payout last = Payout.finalStage(1, 10, "테스트 대회", YearMonth.of(2026, 9), 133_330L,
 			LocalDateTime.of(2026, 10, 1, 3, 0), CALENDAR);

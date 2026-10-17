@@ -33,8 +33,8 @@ import com.bukang.payout.out.SoldEntryPort;
 import com.bukang.payout.support.StubRacePort;
 
 /**
- * 정산 대상일 배치가 판매자 × 대회 묶음마다 트랜잭션을 나누는지 확인한다 (PRO-60)
- * 테스트 전체를 감싸는 트랜잭션이 있으면 묶음별 커밋 · 롤백이 보이지 않으므로 끄고, 진짜 프록시(PayoutGroupCreator 빈)를 쓴다
+ * 정산 대상일 배치가 판매자 × 대회 정산 내역마다 트랜잭션을 나누는지 확인한다 (PRO-60)
+ * 테스트 전체를 감싸는 트랜잭션이 있으면 정산 내역별 커밋 · 롤백이 보이지 않으므로 끄고, 진짜 프록시(PayoutGroupCreator 빈)를 쓴다
  */
 @DataJpaTest
 @ActiveProfiles("test")
@@ -81,7 +81,7 @@ class PayoutCreateUseCaseTransactionTest {
 	}
 
 	@Test
-	@DisplayName("한 묶음 저장이 DB에서 실패해도 같은 날 다른 묶음의 정산 내역은 저장된다")
+	@DisplayName("정산 내역 하나의 저장이 DB에서 실패해도 같은 날 다른 정산 내역은 저장된다")
 	void failedGroupDoesNotRollBackOthers() {
 		PayoutCreateUseCase useCase = useCaseSelling(List.of(
 			new SoldEntry(100, 1, 10, 10, RACE_DATE, 50_000L),
@@ -94,12 +94,12 @@ class PayoutCreateUseCaseTransactionTest {
 		assertThat(payoutRepository.findAll())
 			.extracting(Payout::getSellerId)
 			.containsExactlyInAnyOrder(1, 2);
-		// 최종 묶음 2개 × (선지급 차감 1줄 + 참가권 판매 · 수수료 2줄) (PRO-214)
+		// 최종 정산 내역 2개 × (1차 정산금 차감 1줄 + 참가권 판매 · 수수료 2줄) (PRO-214)
 		assertThat(payoutItemRepository.count()).isEqualTo(6);
 	}
 
 	@Test
-	@DisplayName("판매자 정보를 묻다 실패한 묶음은 건너뛰고, 다른 묶음은 저장된다")
+	@DisplayName("판매자 정보를 묻다 실패한 정산 내역은 건너뛰고, 다른 정산 내역은 저장된다")
 	void failedLookupSkipsOnlyThatGroup() {
 		// 판매자 2의 계좌 확인이 실패한다 (회원 서비스 장애 등)
 		SellerAccountPort sellerAccountPort = sellerId -> {
@@ -122,7 +122,7 @@ class PayoutCreateUseCaseTransactionTest {
 	}
 
 	@Test
-	@DisplayName("어제 실패한 묶음은 오늘 실행이 되돌아보기로 다시 만들고, 정산 대상일과 정산 월은 원래 날짜로 남긴다")
+	@DisplayName("어제 실패한 정산 내역은 오늘 실행이 되돌아보기로 다시 만들고, 정산 대상일과 정산 월은 원래 날짜로 남긴다")
 	void failedGroupIsCreatedOnNextRun() {
 		// 9/26에는 회원 서비스가 멈춰 판매자 2의 계좌 확인이 실패하고, 9/27에는 돌아온다
 		AtomicBoolean memberServiceDown = new AtomicBoolean(true);

@@ -3,23 +3,17 @@ package com.bukang.payout.out;
 import java.time.LocalDate;
 import java.util.List;
 
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
-import lombok.extern.slf4j.Slf4j;
-
 /**
- * 임시 어댑터: 상품 서비스(B)와 아직 연결하지 않아 대상 대회를 하나도 돌려주지 않는다
- * 가짜 날짜로 정산(실제 돈)을 만들지 않기 위해서다. 그래서 이 어댑터를 쓰는 동안 1차 · 최종 정산 모두 만들어지지 않는다
- * 상품 서비스와 연결할 때(HTTP 호출) 이 클래스를 진짜 어댑터로 바꾼다 (주문 서비스의 FakeRaceCourseAdapter와 같은 방식)
+ * 테스트용 어댑터: 상품 서비스를 띄우지 않는 테스트 프로파일에서 대상 대회를 하나도 돌려주지 않는다
+ * 배치 테스트는 이 빈 대신 StubRacePort를 직접 넣으므로, 이 어댑터는 스프링 컨텍스트를 띄우기 위해서만 있다
+ * dev(로컬)와 prod는 ProductRaceAdapter가 실제 상품 서비스를 부른다 (PRO-224)
  */
-@Slf4j
 @Component
+@Profile("test")
 public class FakeRaceAdapter implements RacePort {
-	// 호출마다 경고를 남기면 로그가 묻히므로, 앱을 켤 때 한 번만 알린다
-	public FakeRaceAdapter() {
-		log.warn("상품 서비스 연결 전이라 정산 대상 대회를 돌려주지 않습니다(FakeRaceAdapter). 정산이 만들어지지 않습니다.");
-	}
-
 	@Override
 	public List<RaceSchedule> findRacesByRefundDeadline(LocalDate fromRefundDeadline, LocalDate toRefundDeadline) {
 		return List.of();

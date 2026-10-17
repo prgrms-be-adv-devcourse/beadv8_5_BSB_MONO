@@ -12,7 +12,7 @@ import lombok.RequiredArgsConstructor;
 public enum PayoutRecoveryCompletion {
 	// 판매자 입금을 확인해 끝남 (지금은 관리자 확인, 판매자 입금 요청 · 시스템 확인 이슈에서 바뀐다)
 	DEPOSIT("입금"),
-	// 송금 전 정산 묶음에서 빼서 끝남
+	// 지급 전 정산 내역에서 빼서 끝남
 	OFFSET("상계");
 
 	private final String korean;

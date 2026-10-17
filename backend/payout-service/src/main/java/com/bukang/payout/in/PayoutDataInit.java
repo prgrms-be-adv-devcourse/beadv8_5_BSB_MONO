@@ -113,7 +113,7 @@ public class PayoutDataInit {
 	}
 
 	// 정산 생성 배치(PayoutCreateUseCase)처럼 1차는 환불 마감일 다음 날, 최종은 대회 다음 날 03:00에 만든다
-	// 대회 하나는 코스 하나라 참가권 가격이 하나다 (PRO-214). 1차는 판매 집계(가격 합 · 장수)로 선금 한 줄을 쓴다
+	// 대회 하나는 코스 하나라 참가권 가격이 하나다 (PRO-214). 1차는 판매 집계(가격 합 · 장수)로 1차 정산금 한 줄을 쓴다
 	private StagePair createPayouts(int raceId, String raceName, LocalDate raceDate, int count, long price) {
 		LocalDate refundDeadline = raceDate.minusDays(REFUND_DEADLINE_DAYS_BEFORE_RACE);
 		LocalDate firstTargetDate = PayoutTargetDate.firstOf(refundDeadline);

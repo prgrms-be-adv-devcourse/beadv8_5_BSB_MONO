@@ -83,7 +83,7 @@ class PayoutCreateUseCaseTest {
 
 	private PayoutCreateUseCase useCaseSelling(List<SoldEntry> entries, SellerAccountPort sellerAccountPort,
 		List<RaceSchedule> schedules) {
-		// 테스트 전체가 트랜잭션 하나라 묶음별 트랜잭션은 보이지 않는다 (묶음별 트랜잭션은 PayoutCreateUseCaseTransactionTest)
+		// 테스트 전체가 트랜잭션 하나라 정산 내역별 트랜잭션은 보이지 않는다 (정산 내역별 트랜잭션은 PayoutCreateUseCaseTransactionTest)
 		PayoutGroupCreator payoutGroupCreator =
 			new PayoutGroupCreator(payoutRepository, payoutHoldRepository, new BusinessDayCalendar(),
 				new PayoutLedgerUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository));
@@ -151,7 +151,7 @@ class PayoutCreateUseCaseTest {
 		assertThat(seller1.getStatus()).isEqualTo(PayoutStatus.CALCULATED);
 		assertThat(seller1.getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 10, 20));
 		assertThat(seller1.getPayoutAmount()).isEqualTo(94_500L);
-		// 최종은 참가권마다 판매 · 수수료 두 줄과 묶음째 선지급 차감 한 줄 (PRO-214)
+		// 최종은 참가권마다 판매 · 수수료 두 줄과 참가권 없는 1차 정산금 차감 한 줄 (PRO-214)
 		assertThat(seller1.getItems())
 			.filteredOn(item -> item.getRecordType() == PayoutRecordType.SALE)
 			.extracting(PayoutItem::getOrderItemId)
@@ -273,7 +273,7 @@ class PayoutCreateUseCaseTest {
 	}
 
 	@Test
-	@DisplayName("한 대회의 참가권 대회일이 서로 다르면 어느 날로 정산할지 고르지 않고 그 묶음을 만들지 않는다")
+	@DisplayName("한 대회의 참가권 대회일이 서로 다르면 어느 날로 정산할지 고르지 않고 그 정산 내역을 만들지 않는다")
 	void skipsGroupWithMixedRaceDates() {
 		PayoutCreateUseCase useCase = useCaseSelling(List.of(
 			new SoldEntry(100, 1, 10, 10, LocalDate.of(2026, 9, 27), 50_000L),
@@ -400,7 +400,7 @@ class PayoutCreateUseCaseTest {
 	}
 
 	@Test
-	@DisplayName("1차가 실패한 실행에서 최종이 먼저 만들어지면, 다음 실행은 1차를 만들지 않아 선금이 두 번 나가지 않는다")
+	@DisplayName("1차가 실패한 실행에서 최종이 먼저 만들어지면, 다음 실행은 1차를 만들지 않아 1차 정산금이 두 번 나가지 않는다")
 	void skipsFirstWhenFinalAlreadyExists() {
 		// 환불 마감 9/28, 대회 10/1: 10/2 실행의 되돌아보기 기간에 1차와 최종이 함께 들어온다
 		LocalDate raceDate = LocalDate.of(2026, 10, 1);
@@ -421,7 +421,7 @@ class PayoutCreateUseCaseTest {
 		PayoutCreateUseCase useCase = new PayoutCreateUseCase(payoutRepository, payoutGroupCreator,
 			soldEntriesReturning(entries), sellerId -> true, new StubRacePort(RACE_NAMES, schedules, entries), flaky);
 
-		// 10/2: 1차는 판매 집계를 못 받아 실패, 최종은 선지급 차감 없이 판매자 정산액 전부로 만들어진다
+		// 10/2: 1차는 판매 집계를 못 받아 실패, 최종은 1차 정산금 차감 없이 판매자 정산액 전부로 만들어진다
 		useCase.run(LocalDate.of(2026, 10, 2), LocalDateTime.of(2026, 10, 2, 3, 0));
 		assertThat(payoutOf(1, PayoutStage.FINAL).getPayoutAmount()).isEqualTo(47_250L);
 
