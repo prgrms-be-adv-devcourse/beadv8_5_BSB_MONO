@@ -52,6 +52,11 @@ class InternalV1OrderControllerTest {
 	private static final int COURSE_YESTERDAY = 13;
 	private static final int COURSE_UNPAID = 14;
 	private static final int COURSE_OVERDUE = 15;
+	// 판매 집계: 11/15 대회(100)의 다른 코스와, 같은 대회에 다른 판매자가 판 코스
+	private static final int COURSE_1115_HALF = 16;
+	private static final int COURSE_1115_OTHER_SELLER = 17;
+	private static final int OTHER_SELLER_ID = 8;
+	private static final String SUMMARY_URL = "/internal/v1/order/sold-summary";
 	private static final int TICKET_PRICE = StubRaceCoursePort.PRICE;
 
 	@Autowired
@@ -109,6 +114,7 @@ class InternalV1OrderControllerTest {
 			.andExpect(jsonPath("$.data[0].orderItemId").value(first))
 			.andExpect(jsonPath("$.data[0].sellerId").value(StubRaceCoursePort.SELLER_ID))
 			.andExpect(jsonPath("$.data[0].raceId").value(100))
+			.andExpect(jsonPath("$.data[0].raceCourseId").value(COURSE_1115))
 			.andExpect(jsonPath("$.data[0].raceDate").value("2026-11-15"))
 			.andExpect(jsonPath("$.data[0].price").value(TICKET_PRICE))
 			.andExpect(jsonPath("$.data[1].orderItemId").value(third));
@@ -203,6 +209,85 @@ class InternalV1OrderControllerTest {
 			.andExpect(jsonPath("$.data.count").value(0));
 	}
 
+	// ---------- 1차 정산용 판매 집계 (PRO-231) ----------
+
+	@Test
+	@DisplayName("대회 100의 결제 참가권을 판매자 × 코스로 묶어 결제 금액 합과 장수를 판매자 · 코스 순으로 돌려준다")
+	void soldSummaryGroupsBySellerAndCourse() throws Exception {
+		putSummaryCourses();
+		paidOrderItem(1, COURSE_1115);
+		paidOrderItem(2, COURSE_1115);
+		paidOrderItem(3, COURSE_1115_HALF);
+		paidOrderItem(4, COURSE_1115_OTHER_SELLER);
+
+		summarizeSold(100)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.message").value("판매 집계를 조회했습니다."))
+			.andExpect(jsonPath("$.data.length()").value(3))
+			.andExpect(jsonPath("$.data[0].sellerId").value(StubRaceCoursePort.SELLER_ID))
+			.andExpect(jsonPath("$.data[0].raceId").value(100))
+			.andExpect(jsonPath("$.data[0].raceCourseId").value(COURSE_1115))
+			.andExpect(jsonPath("$.data[0].priceSum").value(TICKET_PRICE * 2))
+			.andExpect(jsonPath("$.data[0].ticketCount").value(2))
+			.andExpect(jsonPath("$.data[1].sellerId").value(StubRaceCoursePort.SELLER_ID))
+			.andExpect(jsonPath("$.data[1].raceCourseId").value(COURSE_1115_HALF))
+			.andExpect(jsonPath("$.data[1].priceSum").value(TICKET_PRICE))
+			.andExpect(jsonPath("$.data[1].ticketCount").value(1))
+			.andExpect(jsonPath("$.data[2].sellerId").value(OTHER_SELLER_ID))
+			.andExpect(jsonPath("$.data[2].raceCourseId").value(COURSE_1115_OTHER_SELLER))
+			.andExpect(jsonPath("$.data[2].priceSum").value(TICKET_PRICE))
+			.andExpect(jsonPath("$.data[2].ticketCount").value(1));
+	}
+
+	@Test
+	@DisplayName("취소(CANCELED) · 결제 대기 · 만료 주문 상품과 다른 대회(101)는 집계에서 빠진다")
+	void soldSummaryOnlyPaidOfThatRace() throws Exception {
+		paidOrderItem(1, COURSE_1115);
+		markCanceled(paidOrderItem(2, COURSE_1115));
+		createdOrder(3, COURSE_1115);
+		orderExpiryUseCase.expireOverdue(LocalDateTime.now().plusHours(1));
+		createdOrder(4, COURSE_1115);
+		paidOrderItem(5, COURSE_1116);
+
+		summarizeSold(100)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.length()").value(1))
+			.andExpect(jsonPath("$.data[0].raceCourseId").value(COURSE_1115))
+			.andExpect(jsonPath("$.data[0].priceSum").value(TICKET_PRICE))
+			.andExpect(jsonPath("$.data[0].ticketCount").value(1));
+	}
+
+	@Test
+	@DisplayName("판매가 없는 대회는 200과 빈 목록이다")
+	void soldSummaryEmpty() throws Exception {
+		summarizeSold(999)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.length()").value(0));
+	}
+
+	@Test
+	@DisplayName("raceId가 없으면 400 '필수 요청 값(raceId)이 없습니다.'이고, 숫자가 아니면 400 형식 오류다")
+	void soldSummaryInvalidRaceId() throws Exception {
+		mockMvc.perform(get(SUMMARY_URL))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+			.andExpect(jsonPath("$.message").value("필수 요청 값(raceId)이 없습니다."));
+		mockMvc.perform(get(SUMMARY_URL).param("raceId", "abc"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message").value("요청 값의 형식이 올바르지 않습니다."));
+	}
+
+	private ResultActions summarizeSold(int raceId) throws Exception {
+		return mockMvc.perform(get(SUMMARY_URL).param("raceId", String.valueOf(raceId)));
+	}
+
+	// 11/15 대회(100)에 코스를 둘 더한다: 같은 판매자의 다른 코스, 다른 판매자(8)의 코스
+	private void putSummaryCourses() {
+		LocalDateTime raceDate = LocalDateTime.of(2026, 11, 15, 8, 0);
+		raceCoursePort.put(courseOn(COURSE_1115_HALF, 100, raceDate));
+		raceCoursePort.put(courseOf(COURSE_1115_OTHER_SELLER, 100, raceDate, OTHER_SELLER_ID));
+	}
+
 	private ResultActions countActiveTickets(int memberId) throws Exception {
 		return mockMvc.perform(get("/internal/v1/order/members/{memberId}/active-tickets/count", memberId));
 	}
@@ -212,9 +297,13 @@ class InternalV1OrderControllerTest {
 	}
 
 	private static RaceCourseInfo courseOn(int raceCourseId, int raceId, LocalDateTime raceDate) {
+		return courseOf(raceCourseId, raceId, raceDate, StubRaceCoursePort.SELLER_ID);
+	}
+
+	private static RaceCourseInfo courseOf(int raceCourseId, int raceId, LocalDateTime raceDate, int sellerId) {
 		LocalDateTime now = LocalDateTime.now();
 		return new RaceCourseInfo(raceCourseId, raceId, raceDate, now.minusDays(1), now.plusDays(30), 14, null,
-			StubRaceCoursePort.SELLER_ID, "테스트 대회 종목 " + raceCourseId, StubRaceCoursePort.PRICE,
+			sellerId, "테스트 대회 종목 " + raceCourseId, StubRaceCoursePort.PRICE,
 			true, raceDate.toLocalDate().minusDays(10), null);
 	}
 

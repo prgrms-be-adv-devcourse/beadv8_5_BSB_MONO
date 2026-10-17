@@ -17,8 +17,10 @@ import org.springframework.web.bind.annotation.RestController;
 import com.bukang.common.global.rsdata.RsData;
 import com.bukang.order.app.ActiveTicketQueryUseCase;
 import com.bukang.order.app.SoldEntryQueryUseCase;
+import com.bukang.order.app.SoldSummaryQueryUseCase;
 import com.bukang.order.dto.ActiveTicketCountDto;
 import com.bukang.order.dto.SoldEntryDto;
+import com.bukang.order.dto.SoldSummaryDto;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -43,13 +45,15 @@ public class InternalV1OrderController {
 	private static final ZoneId RACE_ZONE = ZoneId.of("Asia/Seoul");
 
 	private final SoldEntryQueryUseCase soldEntryQueryUseCase;
+	private final SoldSummaryQueryUseCase soldSummaryQueryUseCase;
 	private final ActiveTicketQueryUseCase activeTicketQueryUseCase;
 
 	@GetMapping("/sold-entries")
 	@Operation(summary = "정산용 판매 내역 조회",
 		description = "정산 서비스가 정산 대상일 배치에서 부른다. from ~ to(양 끝 포함, 최대 31일)에 열린 대회의 주문 상품 중 "
 			+ "결제 완료이고 취소되지 않은 참가권을 주문 상품 ID 순으로 돌려준다. 정산 배치는 놓친 날을 따라잡으려고 7일치를 묻는다. "
-			+ "필드는 정산 서비스의 SoldEntry와 같고, raceDate는 주문 때 복사한 대회 날짜, price는 1장 값(키트 포함)이다.")
+			+ "필드는 정산 서비스의 SoldEntry와 같고, raceCourseId는 참가권의 코스, raceDate는 주문 때 복사한 대회 날짜, "
+			+ "price는 1장 값(키트 포함)이다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "조회 성공 (없으면 빈 목록)",
 			content = @Content(examples = {
@@ -72,6 +76,31 @@ public class InternalV1OrderController {
 	) {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "판매 내역을 조회했습니다.", soldEntryQueryUseCase.findSoldEntries(from, to)));
+	}
+
+	@GetMapping("/sold-summary")
+	@Operation(summary = "1차 정산용 판매 집계 조회",
+		description = "정산 서비스가 1차 정산 생성 배치에서 부른다. 이 대회의 주문 상품 중 결제 완료이고 취소되지 않은 참가권을 "
+			+ "판매자 × 코스로 묶어 결제 금액 합(priceSum)과 장수(ticketCount)를 판매자, 코스 순으로 돌려준다. "
+			+ "priceSum은 판매 내역 조회의 price와 같은 금액을 더한 값이다. 판매가 없거나 없는 대회면 빈 목록이다. "
+			+ "필드는 정산 서비스의 SoldSummary와 같다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "조회 성공 (없으면 빈 목록)",
+			content = @Content(examples = {
+				@ExampleObject(name = "판매 있음", value = OrderInternalApiExamples.SOLD_SUMMARY_SUCCESS),
+				@ExampleObject(name = "판매 없음", value = OrderInternalApiExamples.SOLD_SUMMARY_EMPTY)
+			})),
+		@ApiResponse(responseCode = "400", description = "대회 ID 없음 또는 형식 오류",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "대회 ID 없음", value = OrderInternalApiExamples.MISSING_RACE_ID),
+				@ExampleObject(name = "대회 ID 형식 오류", value = OrderInternalApiExamples.INVALID_VALUE_TYPE)
+			}))
+	})
+	public ResponseEntity<RsData<List<SoldSummaryDto>>> summarizeSold(
+		@Parameter(description = "대회 ID", example = "5") @RequestParam int raceId
+	) {
+		return ResponseEntity.ok()
+			.body(RsData.of(HttpStatus.OK, "판매 집계를 조회했습니다.", soldSummaryQueryUseCase.summarizeSold(raceId)));
 	}
 
 	// 회원 서비스가 탈퇴 전에 끝나지 않은 참가권이 있는지 묻는다 (BE-022)
