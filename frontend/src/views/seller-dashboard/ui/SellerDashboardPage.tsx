@@ -89,6 +89,11 @@ function TodoRow({
   )
 }
 
+// 아직 데이터가 없고, 에러가 났거나 재시도 중이면 실패로 본다
+function isFailing(query: { data: unknown; isError: boolean; failureCount: number }) {
+  return query.data === undefined && (query.isError || query.failureCount > 0)
+}
+
 function DashboardBody() {
   const summary = payoutApi.useSummary({ query: { select: unwrapData } })
   const races = useQuery(myRacesQueryOptions())
@@ -101,7 +106,8 @@ function DashboardBody() {
     kits.data && closing && summary.data
       ? shippableCount(kits.data) + closing.length + summary.data.heldCount
       : undefined
-  const todoFailed = kits.isError || races.isError || summary.isError
+  // 재시도 중(failureCount > 0)이어도 첫 실패부터 「-」를 보여 준다. 재시도가 성공하면 숫자로 바뀐다
+  const todoFailed = isFailing(kits) || isFailing(races) || isFailing(summary)
 
   return (
     <>
@@ -193,7 +199,7 @@ function DashboardBody() {
             count={
               kits.data ? (
                 <CountBadge count={shippableCount(kits.data)} />
-              ) : kits.isError ? (
+              ) : isFailing(kits) ? (
                 <Badge tone="neutral">-</Badge>
               ) : (
                 <Skeleton className="h-6 w-10" />

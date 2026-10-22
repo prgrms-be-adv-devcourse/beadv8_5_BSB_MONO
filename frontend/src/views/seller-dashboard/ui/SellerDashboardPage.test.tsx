@@ -7,8 +7,8 @@ import { server } from '@/shared/testing'
 
 import { SellerDashboardPage } from './SellerDashboardPage'
 
-function renderPage() {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+function renderPage(queries: { retry: number; retryDelay?: number } = { retry: 0 }) {
+  const client = new QueryClient({ defaultOptions: { queries } })
   return render(
     <QueryClientProvider client={client}>
       <SellerDashboardPage />
@@ -74,6 +74,27 @@ describe('SellerDashboardPage', () => {
       ),
     )
     renderPage()
+
+    const link = await screen.findByRole('link', { name: /배송 대기 키트/ })
+    expect(await within(link).findByText('-')).toBeInTheDocument()
+  })
+
+  it('키트 건수 요청이 재시도 중이어도 첫 실패부터 - 를 보여 준다', async () => {
+    server.use(
+      http.get('*/api/v1/order/seller/kits/summary', () =>
+        HttpResponse.json(
+          {
+            status: 503,
+            code: 'ORDER_EXTERNAL_SERVICE_UNAVAILABLE',
+            message: '잠시 뒤',
+            data: null,
+          },
+          { status: 503 },
+        ),
+      ),
+    )
+    // 재시도 간격을 길게 줘서, 재시도가 끝나기 전에 - 가 먼저 보이는지 본다
+    renderPage({ retry: 3, retryDelay: 60_000 })
 
     const link = await screen.findByRole('link', { name: /배송 대기 키트/ })
     expect(await within(link).findByText('-')).toBeInTheDocument()
