@@ -146,7 +146,122 @@ export const raceFormSchema = createRaceFormSchema()
 
 export type RaceFormValues = z.input<typeof raceFormSchema>
 
-// TODO(PRO-144): 종목 추가 창이 생기면 빈 목록에서 시작한다. 그 전까지는 시안의 두 종목을 기본으로 둔다.
+export const COURSE_FORM_ERRORS = {
+  nameRequired: '종목 이름을 입력해 주세요.',
+  nameMax: `종목 이름은 ${productZod.registerBodyCoursesItemNameMax}자 이하로 입력해 주세요.`,
+  courseTypeRequired: '종목 구분을 골라 주세요.',
+  number: '숫자만 입력해 주세요.',
+  distancePositive: '거리는 0보다 커야 해요.',
+  timeLimitPositive: '제한 시간은 1분 이상이어야 해요.',
+  quotaPositive: '정원은 1명 이상이어야 해요.',
+  pricePositive: '참가비는 1원 이상이어야 해요.',
+  minAge: `최소 나이는 만 ${productZod.registerBodyCoursesItemMinAgeMin}세 이상이어야 해요.`,
+  maxAgeOrder: '최대 나이는 최소 나이보다 작을 수 없어요.',
+} as const
+
+export const COURSE_TYPE_LABELS: Record<RaceCourseInput['courseType'], string> = {
+  KM_5: '5K',
+  KM_10: '10K',
+  HALF: '하프',
+  FULL: '풀',
+  ULTRA: '울트라',
+}
+
+/** 종목 추가 창의 입력값. 숫자 칸도 입력 그대로(글자) 받는다 */
+export type CourseDraft = {
+  name: string
+  courseType: RaceCourseInput['courseType'] | ''
+  distanceKm: string
+  timeLimitMinutes: string
+  price: string
+  individualQuota: string
+  minAge: string
+  maxAge: string
+}
+
+export const COURSE_DRAFT_DEFAULTS: CourseDraft = {
+  name: '',
+  courseType: '',
+  distanceKm: '',
+  timeLimitMinutes: '',
+  price: '',
+  individualQuota: '',
+  minAge: String(productZod.registerBodyCoursesItemMinAgeMin),
+  maxAge: '',
+}
+
+const numberText = (pattern: RegExp) =>
+  z.string().trim().regex(pattern, COURSE_FORM_ERRORS.number).transform(Number)
+const wholeNumber = numberText(/^\d+$/)
+
+const courseDraftSchema = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .min(1, COURSE_FORM_ERRORS.nameRequired)
+      .max(productZod.registerBodyCoursesItemNameMax, COURSE_FORM_ERRORS.nameMax),
+    courseType: z.enum(['KM_5', 'KM_10', 'HALF', 'FULL', 'ULTRA'], {
+      error: COURSE_FORM_ERRORS.courseTypeRequired,
+    }),
+    // 서버는 소수 둘째 자리까지 받는다
+    distanceKm: numberText(/^\d+(\.\d{1,2})?$/).pipe(
+      z.number().positive(COURSE_FORM_ERRORS.distancePositive),
+    ),
+    timeLimitMinutes: wholeNumber.pipe(z.number().min(1, COURSE_FORM_ERRORS.timeLimitPositive)),
+    // 서버 RaceCourseSaveRequestDto가 @Positive라 0원은 막는다 (orval zod는 min(0)뿐)
+    price: wholeNumber.pipe(z.number().min(1, COURSE_FORM_ERRORS.pricePositive)),
+    individualQuota: wholeNumber.pipe(z.number().min(1, COURSE_FORM_ERRORS.quotaPositive)),
+    minAge: wholeNumber.pipe(
+      z.number().min(productZod.registerBodyCoursesItemMinAgeMin, COURSE_FORM_ERRORS.minAge),
+    ),
+    // 비우면 상한 없음
+    maxAge: z.union([
+      z
+        .string()
+        .trim()
+        .length(0)
+        .transform(() => undefined),
+      wholeNumber,
+    ]),
+  })
+  .superRefine((v, ctx) => {
+    if (v.maxAge !== undefined && v.maxAge < v.minAge) {
+      ctx.addIssue({ code: 'custom', path: ['maxAge'], message: COURSE_FORM_ERRORS.maxAgeOrder })
+    }
+  })
+
+export type CourseDraftErrors = Partial<Record<keyof CourseDraft, string>>
+
+/**
+ * 종목 추가 창의 입력을 종목 한 줄로 바꾼다. 틀린 칸이 있으면 칸별 오류를 돌려준다.
+ * 노면 · 키트는 세미 시안대로 도로 · 기념 티셔츠 포함으로 고정한다(키트 배송 표와 같다).
+ */
+export function toCourseInput(
+  draft: CourseDraft,
+): { course: RaceCourseInput } | { errors: CourseDraftErrors } {
+  const parsed = courseDraftSchema.safeParse(draft)
+  if (!parsed.success) {
+    const errors: CourseDraftErrors = {}
+    for (const issue of parsed.error.issues) {
+      const key = issue.path[0] as keyof CourseDraft
+      errors[key] ??= issue.message
+    }
+    return { errors }
+  }
+  return {
+    course: {
+      ...parsed.data,
+      surface: 'ROAD',
+      kitIncluded: true,
+      kitPrice: 0,
+      tshirtSizeOption: ['S', 'M', 'L', 'XL', 'XXL'],
+      crewQuota: 0,
+    },
+  }
+}
+
+// 시안의 두 종목을 기본으로 두고, 판매자가 종목 추가 · 삭제로 바꾼다
 const DRAFT_COURSES: RaceCourseInput[] = [
   {
     name: '10K',

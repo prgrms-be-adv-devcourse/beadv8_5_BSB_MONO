@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { server } from '@/shared/testing'
 import { ToastProvider } from '@/shared/ui'
 
-import { RACE_FORM_ERRORS } from '../model/race-form'
+import { COURSE_FORM_ERRORS, RACE_FORM_ERRORS } from '../model/race-form'
 import { SellerRaceNewPage } from './SellerRaceNewPage'
 
 // 화면이 '오늘'을 불러올 때 읽으므로 가져오기 전에 날짜를 고정한다 (지난 날은 고를 수 없다)
@@ -99,5 +99,41 @@ describe('SellerRaceNewPage', () => {
     renderPage()
     expect(screen.getByRole('cell', { name: '₩45,000' })).toBeInTheDocument()
     expect(screen.getByRole('cell', { name: '2,000명' })).toBeInTheDocument()
+  })
+
+  it('종목 추가 창에서 칸을 채우면 종목 표에 한 줄이 늘고, 삭제로 지울 수 있다', async () => {
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: '종목 추가' }))
+    const dialog = await screen.findByRole('alertdialog', { name: '종목 추가' })
+
+    // 빈 칸으로 추가하면 창이 그대로 남고 칸 아래에 오류가 보인다
+    await userEvent.click(within(dialog).getByRole('button', { name: '추가' }))
+    expect(within(dialog).getByText(COURSE_FORM_ERRORS.nameRequired)).toBeInTheDocument()
+
+    await userEvent.type(within(dialog).getByRole('textbox', { name: '종목 이름' }), '하프')
+    await userEvent.click(within(dialog).getByRole('combobox', { name: '종목 구분' }))
+    await userEvent.click(await screen.findByRole('option', { name: '하프' }))
+    const fill = async (label: string, text: string) =>
+      userEvent.type(within(dialog).getByRole('textbox', { name: label }), text)
+    await fill('거리 (km)', '21.1')
+    await fill('참가비 (원)', '55000')
+    await fill('모집 정원 (명)', '500')
+    await fill('제한 시간 (분)', '180')
+    await userEvent.click(within(dialog).getByRole('button', { name: '추가' }))
+
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    expect(screen.getByRole('cell', { name: '하프' })).toBeInTheDocument()
+    expect(screen.getByRole('cell', { name: '₩55,000' })).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: '하프 종목 삭제' }))
+    expect(screen.queryByRole('cell', { name: '하프' })).not.toBeInTheDocument()
+  })
+
+  it('종목을 모두 지우고 등록하기를 누르면 종목을 추가하라고 한다', async () => {
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: '10K 종목 삭제' }))
+    await userEvent.click(screen.getByRole('button', { name: '5K 종목 삭제' }))
+    await userEvent.click(screen.getByRole('button', { name: '등록하기' }))
+    expect(await screen.findByText(RACE_FORM_ERRORS.coursesRequired)).toBeInTheDocument()
   })
 })

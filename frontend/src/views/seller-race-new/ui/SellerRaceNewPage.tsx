@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { isAfter, isBefore, parseISO, startOfToday } from 'date-fns'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { Controller, useForm, useWatch } from 'react-hook-form'
+import { Controller, useFieldArray, useForm, useWatch } from 'react-hook-form'
 
 import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
 import { parseRaceDateInput } from '@/entities/race'
@@ -37,6 +37,7 @@ import {
   type RaceFormValues,
 } from '../model/race-form'
 import { useRegisterRace } from '../model/use-register-race'
+import { CourseAddDialog } from './CourseAddDialog'
 
 const FORM_ID = 'seller-race-new'
 
@@ -75,10 +76,12 @@ const KITS = [
 
 const LINK = cn('rounded-sm text-label-m text-text-brand', FOCUS_RING)
 
-// 종목 표의 한 줄 (TODO(PRO-144): 키트 칸 나누기 · 종목 추가 창)
-function courseRow(course: RaceCourseInput) {
+// 종목 표의 한 줄 (TODO(PRO-144): 키트 칸 나누기)
+function courseRow(course: RaceCourseInput, id: string, index: number) {
   const sizes = course.tshirtSizeOption ?? []
   return {
+    id,
+    index,
     course: course.name,
     price: formatWon(course.price),
     capacity: `${formatNumber(course.crewQuota + course.individualQuota)}명`,
@@ -104,7 +107,9 @@ export function SellerRaceNewPage() {
     mode: 'onTouched',
     defaultValues: RACE_FORM_DEFAULTS,
   })
-  const courses = useWatch({ control, name: 'courses' })
+  // 종목 표의 줄 키는 useFieldArray의 id다. 이름이 같은 종목도 따로 지울 수 있다
+  const courseFields = useFieldArray({ control, name: 'courses' })
+  const [courseOpen, setCourseOpen] = useState(false)
   const schedule = useWatch({
     control,
     name: ['raceDate', 'individualOpenAt', 'applicationCloseAt', 'refundDeadline'],
@@ -319,22 +324,36 @@ export function SellerRaceNewPage() {
         <ConsoleCard
           title="종목 · 참가권"
           aside={
-            // TODO(PRO-144): 종목 추가 창
-            <button type="button" className={LINK}>
+            <button type="button" className={LINK} onClick={() => setCourseOpen(true)}>
               종목 추가
             </button>
           }
         >
           <DataTable
             label="종목 · 참가권"
-            rows={courses.map(courseRow)}
-            rowKey={(r) => r.course}
+            rows={courseFields.fields.map((f, i) => courseRow(f, f.id, i))}
+            rowKey={(r) => r.id}
             columns={[
               { key: 'course', header: '종목', render: (r) => r.course },
               { key: 'price', header: '참가비', align: 'right', render: (r) => r.price },
               { key: 'capacity', header: '모집 정원', align: 'right', render: (r) => r.capacity },
               { key: 'age', header: '참가 나이 (최소 ~ 최대)', render: (r) => r.age },
               { key: 'kit', header: '키트 (참가권 포함)', render: (r) => r.kit },
+              {
+                key: 'remove',
+                header: '',
+                align: 'right',
+                render: (r) => (
+                  <button
+                    type="button"
+                    className={LINK}
+                    aria-label={`${r.course} 종목 삭제`}
+                    onClick={() => courseFields.remove(r.index)}
+                  >
+                    삭제
+                  </button>
+                ),
+              },
             ]}
           />
           {errors.courses?.message && (
@@ -406,6 +425,11 @@ export function SellerRaceNewPage() {
         </ConsoleCard>
       </form>
 
+      <CourseAddDialog
+        open={courseOpen}
+        onOpenChange={setCourseOpen}
+        onAdd={(course) => courseFields.append(course)}
+      />
       <ImageCropDialog
         open={cropOpen}
         onOpenChange={setCropOpen}
