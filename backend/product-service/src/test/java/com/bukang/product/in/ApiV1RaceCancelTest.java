@@ -5,9 +5,6 @@ import static com.bukang.product.support.RaceRequests.race;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -83,9 +80,9 @@ class ApiV1RaceCancelTest extends ProductIntegrationTest {
 
 		LocalDateTime canceledAt = findRace(onSale.raceId()).getCanceledAt();
 		assertThat(cancelEvents()).containsExactly(new RaceCancelEvent(onSale.raceId(), SELLER_ID, canceledAt));
-		verify(kafka()).send(eq(KafkaTopics.ORDER_RACE_CANCEL), eq(String.valueOf(onSale.raceId())), anyString());
+		assertThat(outboxKeys(KafkaTopics.ORDER_RACE_CANCEL)).containsExactly(String.valueOf(onSale.raceId()));
 		// 주문 서비스가 읽는 필드 이름(raceId, sellerId, canceledAt) 그대로 보냈는지 본문을 직접 읽어 확인한다
-		String payload = sentMessages(KafkaTopics.ORDER_RACE_CANCEL).getFirst();
+		String payload = outboxPayloads(KafkaTopics.ORDER_RACE_CANCEL).getFirst();
 		int sentRaceId = JsonPath.read(payload, "$.raceId");
 		int sentSellerId = JsonPath.read(payload, "$.sellerId");
 		String sentCanceledAt = JsonPath.read(payload, "$.canceledAt");
@@ -311,7 +308,7 @@ class ApiV1RaceCancelTest extends ProductIntegrationTest {
 			.andExpect(jsonPath("$.message").value("이미 취소된 대회입니다."));
 
 		assertThat(findRace(onSale.raceId()).getCanceledAt()).isEqualTo(firstCanceledAt);
-		assertThat(sentMessages(KafkaTopics.ORDER_RACE_CANCEL)).hasSize(1);
+		assertThat(outboxPayloads(KafkaTopics.ORDER_RACE_CANCEL)).hasSize(1);
 	}
 
 	@Test
@@ -379,7 +376,7 @@ class ApiV1RaceCancelTest extends ProductIntegrationTest {
 		Race closed = findRace(finished.raceId());
 		assertThat(closed.getSaleStatus()).isEqualTo(RaceSaleStatus.CLOSED);
 		assertThat(closed.getCanceledAt()).isNull();
-		assertThat(sentMessages(KafkaTopics.ORDER_RACE_CANCEL)).isEmpty();
+		assertThat(outboxPayloads(KafkaTopics.ORDER_RACE_CANCEL)).isEmpty();
 	}
 
 	// ---------- 요청한 사람·대회 확인 ----------
@@ -430,7 +427,7 @@ class ApiV1RaceCancelTest extends ProductIntegrationTest {
 			.andExpect(status().isNotFound())
 			.andExpect(jsonPath("$.message").value("존재하지 않는 대회입니다."));
 
-		assertThat(sentMessages(KafkaTopics.ORDER_RACE_CANCEL)).isEmpty();
+		assertThat(outboxPayloads(KafkaTopics.ORDER_RACE_CANCEL)).isEmpty();
 	}
 
 	@Test
@@ -530,7 +527,7 @@ class ApiV1RaceCancelTest extends ProductIntegrationTest {
 	}
 
 	private List<RaceCancelEvent> cancelEvents() {
-		return sentMessages(KafkaTopics.ORDER_RACE_CANCEL).stream()
+		return outboxPayloads(KafkaTopics.ORDER_RACE_CANCEL).stream()
 			.map(payload -> jsonConverter.fromJson(payload, RaceCancelEvent.class))
 			.toList();
 	}
@@ -550,6 +547,6 @@ class ApiV1RaceCancelTest extends ProductIntegrationTest {
 		Race notCanceled = findRace(raceId);
 		assertThat(notCanceled.getSaleStatus()).isEqualTo(RaceSaleStatus.ON_SALE);
 		assertThat(notCanceled.getCanceledAt()).isNull();
-		assertThat(sentMessages(KafkaTopics.ORDER_RACE_CANCEL)).isEmpty();
+		assertThat(outboxPayloads(KafkaTopics.ORDER_RACE_CANCEL)).isEmpty();
 	}
 }

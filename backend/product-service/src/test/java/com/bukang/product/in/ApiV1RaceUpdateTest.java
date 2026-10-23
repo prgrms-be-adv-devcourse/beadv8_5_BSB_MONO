@@ -846,7 +846,7 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 	}
 
 	private List<String> fileLinkMessages() {
-		return sentMessages(KafkaTopics.RACE_FILE_LINK_REQUESTED);
+		return outboxPayloads(KafkaTopics.RACE_FILE_LINK_REQUESTED);
 	}
 
 	private FileLinkRequestedEvent lastFileLink() {

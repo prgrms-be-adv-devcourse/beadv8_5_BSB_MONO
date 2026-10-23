@@ -6,9 +6,6 @@ import static com.bukang.product.support.RaceRequests.race;
 import static com.bukang.product.support.RaceRequests.thumbnail;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -321,7 +318,7 @@ class ApiV1RaceRegisterTest extends ProductIntegrationTest {
 				halfCourse().images(halfThumbnail, halfKit))
 			.build());
 
-		List<String> payloads = sentMessages(KafkaTopics.RACE_FILE_LINK_REQUESTED);
+		List<String> payloads = outboxPayloads(KafkaTopics.RACE_FILE_LINK_REQUESTED);
 		assertThat(payloads).hasSize(1);
 		String payload = payloads.getFirst();
 		int ownerId = JsonPath.read(payload, "$.ownerId");
@@ -344,8 +341,8 @@ class ApiV1RaceRegisterTest extends ProductIntegrationTest {
 		assertThat(halfFileIds).containsExactly(halfThumbnail.getFileId(), halfKit.getFileId());
 		assertThat(halfFileTypes).containsExactly("THUMBNAIL", "KIT");
 		// 같은 대회의 메시지가 순서대로 처리되도록 대회 ID를 key로 보낸다
-		verify(kafka()).send(eq(KafkaTopics.RACE_FILE_LINK_REQUESTED), eq(String.valueOf(registered.raceId())),
-			anyString());
+		assertThat(outboxKeys(KafkaTopics.RACE_FILE_LINK_REQUESTED))
+			.containsExactly(String.valueOf(registered.raceId()));
 	}
 
 	// ---------- 인증·권한 ----------
@@ -697,6 +694,6 @@ class ApiV1RaceRegisterTest extends ProductIntegrationTest {
 	private void assertNothingSaved() {
 		assertThat(raceRepository.count()).isZero();
 		assertThat(raceCourseRepository.count()).isZero();
-		assertThat(sentMessages(KafkaTopics.RACE_FILE_LINK_REQUESTED)).isEmpty();
+		assertThat(outboxPayloads(KafkaTopics.RACE_FILE_LINK_REQUESTED)).isEmpty();
 	}
 }

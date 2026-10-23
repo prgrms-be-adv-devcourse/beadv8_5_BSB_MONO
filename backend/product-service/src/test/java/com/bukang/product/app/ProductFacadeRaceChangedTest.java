@@ -27,19 +27,16 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 
 /**
- * ProductFacade가 대회를 바꾼 뒤 대기열 서비스에 대회 변경 메시지(queuing.race.changed)를 보내는지 확인한다.
- * - 등록·수정·취소는 커밋한 뒤 대회 ID를 key로 1건을 보내고, 상태 배치는 판매 상태를 바꾼 대회마다 1건을 보낸다
+ * ProductFacade가 대회를 바꾸면서 대기열 서비스에 보낼 대회 변경 메시지(queuing.race.changed)를 아웃박스에 남기는지 확인한다.
+ * - 등록·수정·취소는 대회 ID를 key로 1건을 남기고, 상태 배치는 판매 상태를 바꾼 대회마다 1건을 남긴다
  * - 메시지에는 대기열의 진입 판정에 쓰는 칸(판매 상태, 개인 예매 오픈, 접수 마감)과 대회 행의 수정 일시를 담는다
  *
- * 보낸 메시지를 확인하는 방법 (Kafka 브로커 없이)
- * 요약: 미리 끼워 둔 spy가 send 호출을 기록하고, 테스트는 그 기록에서 key와 본문을 각각 꺼내 기대값과 비교한다.
- * 1. 테스트 시작 전: ProductIntegrationTest의 @MockitoSpyBean이 스프링의 KafkaTemplate 빈을
- *    기록용 spy로 바꿔 ProductFacade에 넣는다 (상품 코드는 진짜인지 spy인지 모른다)
- * 2. productFacade.registerRace 등을 부르면: 상품 코드가 send(토픽, key, 본문)를 부르고,
- *    spy가 이 호출을 기록한 뒤 브로커에 보내지 않고 바로 성공을 돌려준다
- * 3. key 확인: raceChangedKeys()가 기록에서 queuing.race.changed 호출의 key(2번째 인자)만 꺼낸다
- * 4. 본문 확인: raceChangedMessages()·lastRaceChanged()가 같은 호출의 본문(3번째 인자)을 꺼낸다
- * 기록은 테스트마다 비워지므로, 각 테스트는 그 테스트 안에서 보낸 메시지만 센다.
+ * 메시지를 확인하는 방법 (Kafka 브로커 없이)
+ * 대회 저장과 같은 트랜잭션에서 아웃박스(PRODUCT_OUTBOX_EVENT)에 남긴 행을 읽는다. 테스트에서는 릴레이가 돌지 않아 보내지 않는다.
+ * 1. key 확인: raceChangedKeys()가 queuing.race.changed 행의 key(ref_id = 대회 ID)만 꺼낸다
+ * 2. 본문 확인: raceChangedMessages()·lastRaceChanged()가 같은 행의 본문(payload)을 꺼낸다
+ * 아웃박스는 테스트마다 비워지므로, 각 테스트는 그 테스트 안에서 남긴 메시지만 센다.
+ * Kafka로 보내는 일은 ProductOutboxRelayTest가 확인한다.
  */
 class ProductFacadeRaceChangedTest extends ProductIntegrationTest {
 	// 등록 요청과 수정 요청이 같은 일정을 쓰도록 기준 시각을 테스트마다 하나로 고정한다
@@ -145,11 +142,11 @@ class ProductFacadeRaceChangedTest extends ProductIntegrationTest {
 	}
 
 	private List<String> raceChangedMessages() {
-		return sentMessages(KafkaTopics.RACE_CHANGED);
+		return outboxPayloads(KafkaTopics.RACE_CHANGED);
 	}
 
 	private List<String> raceChangedKeys() {
-		return sentKeys(KafkaTopics.RACE_CHANGED);
+		return outboxKeys(KafkaTopics.RACE_CHANGED);
 	}
 
 	private RaceChangedEvent lastRaceChanged() {

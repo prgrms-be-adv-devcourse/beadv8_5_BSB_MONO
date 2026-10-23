@@ -16,7 +16,8 @@ import jakarta.persistence.EntityManager;
 @EnableJpaAuditing
 // ES 문서의 createdAt·lastModifiedAt (domain/document/BaseDocument)
 @EnableElasticsearchAuditing
-@EnableScheduling // 대회 판매 상태 배치(RaceSaleStatusScheduler, test 프로파일 제외)
+// 대회 판매 상태 배치(RaceSaleStatusScheduler), 아웃박스 릴레이(ProductOutboxRelayScheduler). 둘 다 test 프로파일 제외
+@EnableScheduling
 public class ProductApplication {
 
 	public static void main(String[] args) {

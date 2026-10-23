@@ -24,14 +24,14 @@ import com.bukang.product.support.RaceRequests.RaceBuilder;
 import com.jayway.jsonpath.JsonPath;
 
 /**
- * ProductFacade가 대회를 저장한 뒤 대기열 서비스에 종목 변경 메시지(queuing.racecourse.changed)를 보내는지 확인한다.
- * - 등록은 종목마다 1건, 수정은 바뀐 종목·새 종목·뺀 종목마다 1건을 보낸다. key는 모두 대회 ID다
+ * ProductFacade가 대회를 저장하면서 대기열 서비스에 보낼 종목 변경 메시지(queuing.racecourse.changed)를 아웃박스에 남기는지 확인한다.
+ * - 등록은 종목마다 1건, 수정은 바뀐 종목·새 종목·뺀 종목마다 1건을 남긴다. key는 모두 대회 ID다
  * - 뺀 종목은 deleted=true와 삭제 시각(수정을 시작한 시각)을 담는다
- * - 취소는 종목 메시지를 보내지 않는다 (대회 메시지만 보낸다)
+ * - 취소는 종목 메시지를 남기지 않는다 (대회 메시지만 남긴다)
  *
- * 보낸 메시지는 ProductFacadeRaceChangedTest와 같은 방법으로 확인한다.
- * 기록용 KafkaTemplate(spy)에 남은 send(토픽, key, 본문) 호출에서 이 토픽의 key와 본문을 꺼낸다.
- * 등록할 때도 종목 메시지가 나가므로, 수정 테스트는 등록 때 보낸 건수를 세어 두고 그 뒤에 보낸 메시지만 본다.
+ * 메시지는 ProductFacadeRaceChangedTest와 같은 방법으로 확인한다.
+ * 아웃박스(PRODUCT_OUTBOX_EVENT)에 남은 이 토픽의 행에서 key(ref_id)와 본문(payload)을 꺼낸다.
+ * 등록할 때도 종목 메시지가 남으므로, 수정 테스트는 등록 때 남긴 건수를 세어 두고 그 뒤에 남긴 메시지만 본다.
  */
 class ProductFacadeRaceCourseChangedTest extends ProductIntegrationTest {
 	// 등록 요청과 수정 요청이 같은 일정을 쓰도록 기준 시각을 테스트마다 하나로 고정한다
@@ -145,7 +145,7 @@ class ProductFacadeRaceCourseChangedTest extends ProductIntegrationTest {
 
 		String raceKey = String.valueOf(registered.raceId());
 		// 대회 메시지는 등록 때 1건, 취소 때 1건
-		assertThat(sentKeys(KafkaTopics.RACE_CHANGED)).containsExactly(raceKey, raceKey);
+		assertThat(outboxKeys(KafkaTopics.RACE_CHANGED)).containsExactly(raceKey, raceKey);
 		// 종목 메시지는 등록 때 보낸 2건 그대로다
 		assertThat(raceCourseChangedKeys()).containsExactly(raceKey, raceKey);
 	}
@@ -172,11 +172,11 @@ class ProductFacadeRaceCourseChangedTest extends ProductIntegrationTest {
 	}
 
 	private List<String> raceCourseChangedMessages() {
-		return sentMessages(KafkaTopics.RACE_COURSE_CHANGED);
+		return outboxPayloads(KafkaTopics.RACE_COURSE_CHANGED);
 	}
 
 	private List<String> raceCourseChangedKeys() {
-		return sentKeys(KafkaTopics.RACE_COURSE_CHANGED);
+		return outboxKeys(KafkaTopics.RACE_COURSE_CHANGED);
 	}
 
 	// 이 테스트에서 보낸 종목 메시지 전체 (보낸 순서대로)
