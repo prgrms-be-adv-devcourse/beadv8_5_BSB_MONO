@@ -8,6 +8,9 @@ spring:
 
   jpa:
     hibernate:
+      # 표는 Flyway가 만들고 바꾼다 (BUK-29). 전환 중이라 한 번 더 update로 둔다: V1은 표가 이미 있으면 건너뛰어,
+      # 팀원 로컬 DB의 옛 주문 표에 빠진 칸이 있으면 validate로는 뜨지 않는다. Flyway가 먼저 돌고 Hibernate가 빠진 칸을 채운다
+      # 서버에 한 번 배포한 뒤 validate로 바꾼다 (compose.yml의 order-service 줄과 함께)
       ddl-auto: update
     properties:
       hibernate:
@@ -15,6 +18,16 @@ spring:
         format_sql: true
         highlight_sql: true
     open-in-view: false
+
+  # 표 변경은 Flyway SQL(db/migration)로만 한다 (BUK-29)
+  # 모든 서비스가 같은 스키마를 쓰므로, 기록 표는 order 전용 이름으로 둔다 (회원의 flyway_schema_history_member와 섞이지 않게)
+  # 기준선을 0번으로 둬 V1(create table if not exists)은 항상 돈다. 주문 표가 이미 있는 DB에서는 아무것도 바꾸지 않는다
+  # SQL 번호는 날짜·시각이라 머지 순서와 다를 수 있어 out-of-order를 켠다
+  flyway:
+    table: flyway_schema_history_order
+    baseline-on-migrate: true
+    baseline-version: 0
+    out-of-order: true
 
   kafka:
     bootstrap-servers:

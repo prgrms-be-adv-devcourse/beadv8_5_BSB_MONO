@@ -158,6 +158,21 @@ backend/
   규칙과 다른 기존 테이블(상품의 `race`, `race_course`, `participation_hold`)은 서비스별로 DB를 나눌 때(최종, Flyway) 맞춥니다.
   테이블 이름을 바꿀 때는 Flyway가 없는 서비스라면 배포 전에 서버 DB에서 `RENAME TABLE`을 먼저 실행합니다.
   compose가 `ddl-auto: update`로 띄워서, 이름만 바꿔 배포하면 빈 새 테이블이 생기고 기존 데이터는 옛 테이블에 남습니다.
+- 표 변경은 Flyway SQL로 합니다. 지금 Flyway를 쓰는 서비스는 `member-service`, `order-service`이고, 나머지는 compose가 `ddl-auto: update`로 띄웁니다.
+  - Flyway 서비스: 엔티티를 고치면 같은 커밋에 `src/main/resources/db/migration/V<날짜시각>__설명.sql`을 더합니다. 이미 돈 SQL 파일은 고치지 않습니다.
+    dev·prod는 `ddl-auto: validate`라 SQL을 빠뜨리면 앱이 뜨지 않습니다. `Flyway*ValidateTest`가 빈 DB에 SQL을 모두 돌린 뒤 칸 이름·타입을
+    엔티티와 맞춰 보므로, 칸을 빠뜨리면 테스트에서 먼저 실패합니다(길이·not null·인덱스·제약은 Hibernate validate가 보지 않으니 리뷰로 봅니다).
+    같은 DB를 함께 쓰므로 기록 표 이름을 서비스마다 다르게 둡니다(`flyway_schema_history_<서비스>`). 설정은 `member-service`의 `application-dev.yaml`을 따릅니다.
+  - `order-service`는 전환 중입니다(BUK-29). V1은 `create table if not exists`라 표가 이미 있으면 통째로 건너뛰어, 지난 배포 뒤 엔티티에 더한 칸이
+    서버·로컬 표에 없으면 `validate`로는 뜨지 않습니다. 그래서 서버에 한 번 배포할 때까지 dev와 compose는 `update`로 둡니다
+    (Flyway가 먼저 돌고 Hibernate가 빠진 칸을 채움). 그 뒤 dev는 `validate`로, compose의 `order-service` 줄은 지웁니다.
+  - **다른 서비스도 Flyway를 넣기를 권합니다.** `update`는 표·칸을 더하기만 해서 이름 바꾸기·칸 지우기·제약 바꾸기·데이터 옮기기를 못 하고,
+    그때마다 서버 DB에서 SQL을 손으로 돌려야 합니다(주문 BUK-6). 또 서비스별로 DB를 나눌 때(최종) Flyway가 있으면 새 DB에 SQL을 처음부터 돌려
+    표를 그대로 만들고 접속 주소만 바꾸면 되지만, 없으면 표 구조를 손으로 옮겨야 합니다.
+    넣는 방법: 의존성 2줄(`spring-boot-starter-flyway`, `flyway-mysql`), 지금 표를 `create table if not exists`로 적은 `V1__baseline.sql`
+    (인덱스·제약은 create table 안에. 밖에 두면 표가 이미 있는 DB에서 "이미 있음"으로 실패), dev·prod의 Flyway 설정, 테스트의
+    `flyway.enabled: false`, `Flyway*ValidateTest`·`FlywayExistingTablesTest`. 서버 표에 빠진 칸이 있을 수 있으니 첫 배포는 `update`로 두고,
+    한 번 배포한 뒤 `validate`로 바꾸고 compose에서 그 서비스의 `SPRING_JPA_HIBERNATE_DDL_AUTO` 줄을 지웁니다. `order-service`(BUK-29)가 본보기입니다.
 
 ## 의존성 구성 (`member-service/build.gradle.kts`)
 
