@@ -91,11 +91,12 @@ class PayoutLedgerScenarioTest {
 		ledgerUseCase = new PayoutLedgerUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository);
 		creator = new PayoutCreateStepUseCase(payoutRepository, calendar, ledgerUseCase,
 			new PayoutHoldUseCase(payoutRepository, payoutHoldRepository, calendar));
-		payUseCase = new PayoutPayUseCase(new PayoutPayStepUseCase(payoutRepository), transfer -> {
-		});
 		raceCancelUseCase = new PayoutRaceCancelUseCase(payoutRepository, ledgerUseCase);
 		claimUseCase = new PayoutClaimUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository,
 			payoutClaimRepository);
+		PayoutPayStepUseCase payStepUseCase = new PayoutPayStepUseCase(payoutRepository, raceCancelUseCase);
+		payUseCase = new PayoutPayUseCase(payStepUseCase, transfer -> {
+		});
 	}
 
 	private FinalPayoutSource finalSource(int... orderItemIds) {

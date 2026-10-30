@@ -13,8 +13,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.test.context.ActiveProfiles;
 
+import com.bukang.payout.app.PayoutLedgerUseCase;
 import com.bukang.payout.app.PayoutPayStepUseCase;
 import com.bukang.payout.app.PayoutPayUseCase;
+import com.bukang.payout.app.PayoutRaceCancelUseCase;
 import com.bukang.payout.domain.BusinessDayCalendar;
 import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutHold;
@@ -22,6 +24,8 @@ import com.bukang.payout.domain.PayoutHoldStatus;
 import com.bukang.payout.domain.PayoutStage;
 import com.bukang.payout.domain.PayoutStatus;
 import com.bukang.payout.out.PayoutHoldRepository;
+import com.bukang.payout.out.PayoutItemRepository;
+import com.bukang.payout.out.PayoutRecoveryRepository;
 import com.bukang.payout.out.PayoutRepository;
 
 import jakarta.persistence.EntityManager;
@@ -45,7 +49,19 @@ class PayoutDataInitTest {
 	private PayoutHoldRepository payoutHoldRepository;
 
 	@Autowired
+	private PayoutItemRepository payoutItemRepository;
+
+	@Autowired
+	private PayoutRecoveryRepository payoutRecoveryRepository;
+
+	@Autowired
 	private EntityManager entityManager;
+
+	// 대회 취소를 표시한 지급 중이 없으면 부르지 않는다. 지급 단계를 만들려고 실제 저장소로 묶어 둔다
+	private PayoutRaceCancelUseCase raceCancelUseCase() {
+		return new PayoutRaceCancelUseCase(payoutRepository,
+			new PayoutLedgerUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository));
+	}
 
 	private PayoutDataInit dataInit() {
 		return new PayoutDataInit(null, payoutRepository, payoutHoldRepository, new BusinessDayCalendar());
@@ -137,7 +153,7 @@ class PayoutDataInitTest {
 		dataInit().makeSamplePayouts(today);
 		flushAndClear();
 
-		new PayoutPayUseCase(new PayoutPayStepUseCase(payoutRepository), transfer -> {
+		new PayoutPayUseCase(new PayoutPayStepUseCase(payoutRepository, raceCancelUseCase()), transfer -> {
 		}).run(today, today.atTime(4, 0));
 		flushAndClear();
 

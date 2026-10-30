@@ -23,6 +23,8 @@ import com.bukang.payout.domain.exception.PayoutHoldNotFoundException;
 import com.bukang.payout.domain.exception.PayoutNotFoundException;
 import com.bukang.payout.dto.PayoutHoldDto;
 import com.bukang.payout.out.PayoutHoldRepository;
+import com.bukang.payout.out.PayoutItemRepository;
+import com.bukang.payout.out.PayoutRecoveryRepository;
 import com.bukang.payout.out.PayoutRepository;
 
 import jakarta.persistence.EntityManager;
@@ -40,14 +42,26 @@ class PayoutHoldUseCaseTest {
 	private PayoutHoldRepository payoutHoldRepository;
 
 	@Autowired
+	private PayoutItemRepository payoutItemRepository;
+
+	@Autowired
+	private PayoutRecoveryRepository payoutRecoveryRepository;
+
+	@Autowired
 	private EntityManager entityManager;
+
+	// 대회 취소를 표시한 지급 중이 없으면 부르지 않는다. 지급 단계를 만들려고 실제 저장소로 묶어 둔다
+	private PayoutRaceCancelUseCase raceCancelUseCase() {
+		return new PayoutRaceCancelUseCase(payoutRepository,
+			new PayoutLedgerUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository));
+	}
 
 	private PayoutHoldUseCase useCase() {
 		return new PayoutHoldUseCase(payoutRepository, payoutHoldRepository, new BusinessDayCalendar());
 	}
 
 	private PayoutPayUseCase payUseCase() {
-		return new PayoutPayUseCase(new PayoutPayStepUseCase(payoutRepository), transfer -> {
+		return new PayoutPayUseCase(new PayoutPayStepUseCase(payoutRepository, raceCancelUseCase()), transfer -> {
 		});
 	}
 

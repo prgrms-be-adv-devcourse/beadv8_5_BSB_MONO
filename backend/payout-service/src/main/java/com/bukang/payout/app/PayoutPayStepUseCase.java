@@ -28,7 +28,10 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 @RequiredArgsConstructor
 public class PayoutPayStepUseCase {
+	private static final String RACE_CANCELED_REASON = "대회 취소 (지급 거절)";
+
 	private final PayoutRepository payoutRepository;
+	private final PayoutRaceCancelUseCase payoutRaceCancelUseCase;
 
 	@Transactional(readOnly = true)
 	public List<Long> findTargetIds(LocalDate today) {
@@ -87,6 +90,7 @@ public class PayoutPayStepUseCase {
 
 	// 캐시 서비스가 돈을 옮긴 뒤 지급 완료로 바꾼다
 	// 다른 배치가 같은 지급 중 건을 다시 요청해 먼저 지급 완료했으면 바꾸지 않는다 (캐시 서비스는 돈을 한 번만 옮겼다)
+	// 지급 중에 대회가 취소됐으면, 지급 완료와 같은 트랜잭션에서 그 대회의 회수를 만든다 (PRO-253)
 	@Transactional
 	public boolean complete(long payoutId, LocalDateTime now) {
 		Payout payout = payoutRepository.findById(payoutId).orElseThrow(PayoutNotFoundException::new);
@@ -94,14 +98,24 @@ public class PayoutPayStepUseCase {
 			return false;
 		}
 		payout.pay(now);
+		if (payout.isRaceCanceled()) {
+			payoutRaceCancelUseCase.recoverAfterPayResult(payout.getSellerId(), payout.getRaceId(), now);
+		}
 		return true;
 	}
 
 	// 캐시 서비스가 거절해 돈이 옮겨지지 않았으므로 정산 예정으로 되돌린다. 다음 실행에서 다시 지급한다
+	// 지급 중에 대회가 취소됐으면 되돌리지 않고 취소로 닫는다. 되돌리면 다음 지급 배치가 정산금을 내보낸다 (PRO-253)
 	@Transactional
 	public void revert(long payoutId, LocalDateTime now, String reason) {
 		Payout payout = payoutRepository.findById(payoutId).orElseThrow(PayoutNotFoundException::new);
-		payout.revertPaying(now, reason);
+		if (!payout.isRaceCanceled()) {
+			payout.revertPaying(now, reason);
+			return;
+		}
+		log.info("지급 중에 대회가 취소돼, 거절된 정산 내역을 정산 예정으로 되돌리지 않고 취소로 닫습니다. payoutId={}", payoutId);
+		payout.cancelRejected(now, RACE_CANCELED_REASON);
+		payoutRaceCancelUseCase.recoverAfterPayResult(payout.getSellerId(), payout.getRaceId(), now);
 	}
 
 	/**

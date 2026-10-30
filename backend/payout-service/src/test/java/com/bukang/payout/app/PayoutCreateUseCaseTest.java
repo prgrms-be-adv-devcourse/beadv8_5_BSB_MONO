@@ -329,7 +329,7 @@ class PayoutCreateUseCaseTest {
 	@Test
 	@DisplayName("1차 대상 대회를 상품 서비스에서 받지 못해도 같은 실행의 최종 정산은 만들고, 실행 결과에 실패로 남긴다 (PRO-241)")
 	void firstRaceLookupFailureDoesNotStopFinal() {
-		List<SoldEntry> entries = List.of(new SoldEntry(100, 1, 10, 10, RACE_DATE, 50_000L));
+		List<SoldEntry> entries = List.of(new SoldEntry(100, 1, 10, 10L, RACE_DATE, 50_000L));
 		StubRacePort working = new StubRacePort(RACE_NAMES, List.of(), entries);
 		RacePort firstLookupDown = new RacePort() {
 			@Override
@@ -354,7 +354,7 @@ class PayoutCreateUseCaseTest {
 
 		assertThat(payoutRepository.findAll())
 			.extracting(Payout::getRaceId, Payout::getPayoutStage)
-			.containsExactly(tuple(10, PayoutStage.FINAL));
+			.containsExactly(tuple(10L, PayoutStage.FINAL));
 		assertThat(result.created()).isEqualTo(1);
 		assertThat(result.failed()).isEqualTo(1);
 	}
