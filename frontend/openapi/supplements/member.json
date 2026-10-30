@@ -90,6 +90,76 @@
           "$ref": "#/components/schemas/SellerDto"
         }
       }
+    },
+    "createCrew": {
+      "201": {
+        "wrapper": "RsDataCrewHomeDto",
+        "data": {
+          "$ref": "#/components/schemas/CrewHomeDto"
+        }
+      }
+    },
+    "findMyCrews": {
+      "200": {
+        "wrapper": "RsDataListMyCrewDto",
+        "data": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/MyCrewDto"
+          }
+        }
+      }
+    },
+    "findCrew": {
+      "200": {
+        "wrapper": "RsDataCrewHomeDto",
+        "data": {
+          "$ref": "#/components/schemas/CrewHomeDto"
+        }
+      }
+    },
+    "createCrewInvite": {
+      "201": {
+        "wrapper": "RsDataCrewInviteCreatedDto",
+        "data": {
+          "$ref": "#/components/schemas/CrewInviteCreatedDto"
+        }
+      }
+    },
+    "findCrewInvites": {
+      "200": {
+        "wrapper": "RsDataListCrewInviteDto",
+        "data": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/CrewInviteDto"
+          }
+        }
+      }
+    },
+    "findCrewInvite": {
+      "200": {
+        "wrapper": "RsDataCrewInvitePreviewDto",
+        "data": {
+          "$ref": "#/components/schemas/CrewInvitePreviewDto"
+        }
+      }
+    },
+    "joinCrew": {
+      "201": {
+        "wrapper": "RsDataCrewJoinedDto",
+        "data": {
+          "$ref": "#/components/schemas/CrewJoinedDto"
+        }
+      }
+    },
+    "transferCrewLeader": {
+      "200": {
+        "wrapper": "RsDataCrewHomeDto",
+        "data": {
+          "$ref": "#/components/schemas/CrewHomeDto"
+        }
+      }
     }
   },
   "schemas": {
@@ -225,6 +295,243 @@
         "representativeName",
         "status",
         "requestedAt"
+      ]
+    },
+    "CrewMemberDto": {
+      "type": "object",
+      "description": "크루원 (실명 없이 닉네임만)",
+      "properties": {
+        "memberId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "nickname": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "LEADER",
+            "MANAGER",
+            "MEMBER"
+          ],
+          "description": "크루 역할 (LEADER: 크루장, MANAGER: 운영진, MEMBER: 크루원)"
+        }
+      },
+      "required": [
+        "memberId",
+        "nickname",
+        "role"
+      ]
+    },
+    "CrewHomeDto": {
+      "type": "object",
+      "description": "크루 홈",
+      "properties": {
+        "crewId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "name": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "myRole": {
+          "type": "string",
+          "enum": [
+            "LEADER",
+            "MANAGER",
+            "MEMBER"
+          ],
+          "description": "요청한 회원의 역할. 크루 역할 (LEADER: 크루장, MANAGER: 운영진, MEMBER: 크루원)"
+        },
+        "memberCount": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/CrewMemberDto"
+          }
+        }
+      },
+      "required": [
+        "crewId",
+        "name",
+        "createdAt",
+        "myRole",
+        "memberCount",
+        "members"
+      ]
+    },
+    "MyCrewDto": {
+      "type": "object",
+      "description": "내 크루 목록의 크루 하나",
+      "properties": {
+        "crewId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "name": {
+          "type": "string"
+        },
+        "myRole": {
+          "type": "string",
+          "enum": [
+            "LEADER",
+            "MANAGER",
+            "MEMBER"
+          ],
+          "description": "크루 역할 (LEADER: 크루장, MANAGER: 운영진, MEMBER: 크루원)"
+        },
+        "memberCount": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "required": [
+        "crewId",
+        "name",
+        "myRole",
+        "memberCount"
+      ]
+    },
+    "CrewInviteCreatedDto": {
+      "type": "object",
+      "description": "만든 초대 링크. inviteToken은 이 응답에서만 받는다",
+      "properties": {
+        "inviteId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "inviteToken": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "inviteId",
+        "inviteToken",
+        "createdAt",
+        "expiresAt"
+      ]
+    },
+    "CrewInviteSenderDto": {
+      "type": "object",
+      "properties": {
+        "memberId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "nickname": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "memberId",
+        "nickname"
+      ]
+    },
+    "CrewInviteDto": {
+      "type": "object",
+      "description": "아직 쓸 수 있는 초대",
+      "properties": {
+        "inviteId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "createdBy": {
+          "$ref": "#/components/schemas/CrewInviteSenderDto"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "inviteId",
+        "createdBy",
+        "createdAt",
+        "expiresAt"
+      ]
+    },
+    "CrewInvitePreviewDto": {
+      "type": "object",
+      "description": "초대 받기 화면 정보",
+      "properties": {
+        "crewId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "crewName": {
+          "type": "string"
+        },
+        "memberCount": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "alreadyMember": {
+          "type": "boolean",
+          "description": "요청한 회원이 이미 이 크루의 크루원인지"
+        }
+      },
+      "required": [
+        "crewId",
+        "crewName",
+        "memberCount",
+        "expiresAt",
+        "alreadyMember"
+      ]
+    },
+    "CrewJoinedDto": {
+      "type": "object",
+      "description": "초대로 가입한 결과",
+      "properties": {
+        "crewId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "crewName": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "LEADER",
+            "MANAGER",
+            "MEMBER"
+          ],
+          "description": "크루 역할 (LEADER: 크루장, MANAGER: 운영진, MEMBER: 크루원)"
+        },
+        "joinedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "crewId",
+        "crewName",
+        "role",
+        "joinedAt"
       ]
     }
   }
