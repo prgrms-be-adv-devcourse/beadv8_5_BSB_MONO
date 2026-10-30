@@ -7,7 +7,7 @@ import { useState } from 'react'
 import { AppHeader } from '@/widgets/app-header'
 import { loginHref, useAuthStatus } from '@/features/auth'
 import { RacePoster, type RaceDetail, type RaceOption } from '@/entities/race'
-import { cn, formatNumber, formatWon } from '@/shared/lib'
+import { cn, formatNumber, formatWon, useTrackOnce } from '@/shared/lib'
 import {
   Alert,
   Badge,
@@ -49,6 +49,11 @@ export function RaceDetailPage({
 }: RaceDetailPageProps) {
   const toast = useToast()
   const authStatus = useAuthStatus()
+  useTrackOnce('view_item', {
+    raceId: race.id,
+    raceName: race.title,
+    saleStatus: race.status.label,
+  })
   const [optionId, setOptionId] = useState(
     race.options.find((o) => o.id === initialOptionId && !o.soldOut)?.id ??
       race.options.find((o) => !o.soldOut)?.id ??

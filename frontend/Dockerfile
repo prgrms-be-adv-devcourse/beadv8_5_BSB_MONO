@@ -24,11 +24,14 @@ ARG NEXT_PUBLIC_IMAGE_CDN_URL=
 ARG SITE_URL=
 # 토스 결제창 클라이언트 키(test_ck_만). 비우면 API_MOCKING=off(이 기본값)에서는 충전 버튼이 실패 화면으로 간다
 ARG NEXT_PUBLIC_TOSS_CLIENT_KEY=
+# Google 태그 관리자 컨테이너 ID. 비우면 GTM을 넣지 않고 사용자 활동 이벤트도 보내지 않는다
+ARG NEXT_PUBLIC_GTM_ID=
 ENV API_MOCKING=${API_MOCKING} \
     IMAGE_REMOTE_HOSTS=${IMAGE_REMOTE_HOSTS} \
     NEXT_PUBLIC_IMAGE_CDN_URL=${NEXT_PUBLIC_IMAGE_CDN_URL} \
     SITE_URL=${SITE_URL} \
     NEXT_PUBLIC_TOSS_CLIENT_KEY=${NEXT_PUBLIC_TOSS_CLIENT_KEY} \
+    NEXT_PUBLIC_GTM_ID=${NEXT_PUBLIC_GTM_ID} \
     NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .

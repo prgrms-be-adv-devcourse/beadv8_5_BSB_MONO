@@ -45,7 +45,7 @@ export function SellerDashboardPage({ state }: { state?: 'loading' | 'offline' }
       title="판매자 홈"
       description="오늘 처리할 일과 다음 정산을 한눈에 봐요."
       actions={
-        <Link href="/seller/races/new" className={buttonClassName()}>
+        <Link href="/seller/races/new?from=home" className={buttonClassName()}>
           대회 등록
         </Link>
       }

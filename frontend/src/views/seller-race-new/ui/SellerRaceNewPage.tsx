@@ -9,7 +9,7 @@ import { Controller, useFieldArray, useForm, useWatch } from 'react-hook-form'
 import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
 import { parseRaceDateInput } from '@/entities/race'
 import { ApiError } from '@/shared/api'
-import { cn, formatNumber, formatWon } from '@/shared/lib'
+import { cn, formatNumber, formatWon, type SellerRaceFormEntry } from '@/shared/lib'
 import {
   Alert,
   Button,
@@ -36,6 +36,7 @@ import {
   type RaceCourseInput,
   type RaceFormValues,
 } from '../model/race-form'
+import { errorSections, useRaceFormTracking } from '../model/use-race-form-tracking'
 import { useRegisterRace } from '../model/use-register-race'
 import { CourseAddDialog } from './CourseAddDialog'
 
@@ -92,9 +93,10 @@ function courseRow(course: RaceCourseInput, id: string, index: number) {
 
 // 피그마 V2 · S02 대회 등록 (+ S02-1~3 이미지 올리기 · 자르기 창, S02-4 등록 완료)
 // 사진은 고를 때는 브라우저 안 주소로 미리 보여 주고, 등록하기를 누를 때 파일 서비스로 올린다.
-export function SellerRaceNewPage() {
+export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceFormEntry }) {
   const router = useRouter()
   const registerRace = useRegisterRace()
+  const tracking = useRaceFormTracking(entry)
   const {
     control,
     register,
@@ -147,22 +149,29 @@ export function SellerRaceNewPage() {
 
   const submit = handleSubmit(
     (values) => {
-      if (!coverFile) {
-        setCoverError(RACE_FORM_ERRORS.coverRequired)
+      if (!coverFile || introError) {
+        if (!coverFile) setCoverError(RACE_FORM_ERRORS.coverRequired)
+        tracking.formError(errorSections({}, true))
         return
       }
-      if (introError) return
       const introList = intro.flatMap((v) => {
         const file = introFiles[v.url]
         return file ? [file] : []
       })
+      const registered = tracking.beforeRegister()
       registerRace.mutate(
         { values, images: { cover: coverFile, intro: introList } },
-        { onSuccess: (saved) => router.push(`/seller/races?registered=${saved.raceId}`) },
+        {
+          onSuccess: (saved) => {
+            registered(saved.raceId, values.courses.length)
+            router.push(`/seller/races?registered=${saved.raceId}`)
+          },
+        },
       )
     },
-    () => {
+    (invalid) => {
       if (!coverFile) setCoverError(RACE_FORM_ERRORS.coverRequired)
+      tracking.formError(errorSections(invalid, !coverFile || introError !== undefined))
     },
   )
 

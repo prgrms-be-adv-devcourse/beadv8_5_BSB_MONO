@@ -21,7 +21,7 @@ import {
   type RaceOption,
 } from '@/entities/race'
 import { ApiError, memberApi, orderApi, unwrapData, useIdempotencyKey } from '@/shared/api'
-import { cn, formatWon } from '@/shared/lib'
+import { cn, formatWon, trackEvent, useTrackOnce } from '@/shared/lib'
 import {
   Alert,
   BottomCta,
@@ -89,6 +89,7 @@ export function RaceApplyPage({
     'follow',
   )
   const remaining = preview ? previewRemainingSeconds : timer.remaining
+  useTrackOnce('apply_start', preview ? null : { raceId: race.id, courseId: option.id })
   return (
     <>
       <AppHeader type="sub" title="참가 신청" />
@@ -228,6 +229,9 @@ function ParticipantForm({
 
   async function addToCart() {
     await orderApi.addItem({ raceCourseId: Number(option.id) })
+    trackEvent('add_to_cart', {
+      item: { raceId: race.id, courseId: option.id, price: option.price, name: race.title },
+    })
     await queryClient.invalidateQueries({ queryKey: orderApi.getFindCartQueryKey() })
   }
 

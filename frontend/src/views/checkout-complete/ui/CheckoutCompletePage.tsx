@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { AppHeader } from '@/widgets/app-header'
 import { raceDetailQueryOptions } from '@/entities/race'
 import { orderApi, unwrapData } from '@/shared/api'
-import { formatNumber } from '@/shared/lib'
+import { formatNumber, orderTrackItems, useTrackOnce } from '@/shared/lib'
 import { Badge, BibCard, BottomCta, buttonClassName, KeyValue, Skeleton } from '@/shared/ui'
 
 // 피그마 V2 · M08 참가 확정
@@ -20,6 +20,14 @@ export function CheckoutCompletePage({ orderId }: { orderId: number }) {
     enabled: raceId !== undefined,
   })
   const item = order.data?.items?.[0]
+  // 새로고침으로 다시 보내도 GA4가 같은 주문 번호(transaction_id)를 한 번으로 센다
+  const paid = order.data?.status === 'PAID' ? order.data : undefined
+  useTrackOnce(
+    'purchase',
+    paid
+      ? { orderId: String(orderId), items: orderTrackItems(paid), value: paid.totalAmount ?? 0 }
+      : null,
+  )
   // 참가자 이름은 참가 신청 API로 불러온다 (예매 흐름 스토어는 새로고침하면 비어서 쓰지 않는다)
   const participationId = item?.participationId
   const participation = orderApi.useFindById(participationId ?? 0, {

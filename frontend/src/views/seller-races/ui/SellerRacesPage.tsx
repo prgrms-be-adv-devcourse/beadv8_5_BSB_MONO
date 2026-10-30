@@ -58,7 +58,7 @@ export function SellerRacesPage({ registeredRaceId }: { registeredRaceId?: strin
       title="대회 관리"
       description="판매가 시작된 대회는 구매자에게 유리한 변경만 할 수 있어요."
       actions={
-        <Link href="/seller/races/new" className={buttonClassName()}>
+        <Link href="/seller/races/new?from=races" className={buttonClassName()}>
           대회 등록
         </Link>
       }
@@ -79,7 +79,10 @@ export function SellerRacesPage({ registeredRaceId }: { registeredRaceId?: strin
           title="아직 등록한 대회가 없어요"
           description="대회를 등록하면 여기에서 판매 현황을 보고 바꿀 수 있어요"
           action={
-            <Link href="/seller/races/new" className={buttonClassName({ variant: 'secondary' })}>
+            <Link
+              href="/seller/races/new?from=races"
+              className={buttonClassName({ variant: 'secondary' })}
+            >
               대회 등록
             </Link>
           }

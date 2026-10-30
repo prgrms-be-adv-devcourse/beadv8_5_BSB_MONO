@@ -17,16 +17,17 @@ describe('TermsPage (조회 전용)', () => {
     expect(screen.queryByText(/시안용 예시/)).not.toBeInTheDocument()
   })
 
-  it('개인정보 수집 · 이용에 수집 항목, 이용 목적, 보유 기간, 제3자 제공을 보여 준다', () => {
+  it('개인정보 수집 · 이용에 수집 항목, 이용 목적, 보유 기간, 제3자 제공, 쿠키와 이용 통계를 보여 준다', () => {
     render(<TermsPage slug="privacy" />)
 
     expect(screen.getByRole('heading', { name: '[필수] 개인정보 수집 · 이용' })).toBeInTheDocument()
-    for (const title of ['수집 항목', '이용 목적', '보유 기간', '제3자 제공']) {
+    for (const title of ['수집 항목', '이용 목적', '보유 기간', '제3자 제공', '쿠키와 이용 통계']) {
       expect(screen.getByRole('heading', { name: title })).toBeInTheDocument()
     }
     expect(
       screen.getByText(/이메일, 비밀번호, 이름, 생년월일, 휴대폰 번호, 닉네임/),
     ).toBeInTheDocument()
-    expect(screen.getByText(/시행일 2026\.10\.01 · 버전 1\.0/)).toBeInTheDocument()
+    expect(screen.getByText(/Google 애널리틱스와 Google 태그 관리자로 보내요/)).toBeInTheDocument()
+    expect(screen.getByText(/시행일 2026\.10\.30 · 버전 1\.1/)).toBeInTheDocument()
   })
 })

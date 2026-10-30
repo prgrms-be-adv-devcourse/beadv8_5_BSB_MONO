@@ -11,7 +11,7 @@ import { ConsoleCard } from '@/widgets/console-page'
 import { loginHref, useAuthStatus } from '@/features/auth'
 import { formatSellerDate, isNoApplication, SELLER_STATUS } from '@/entities/member'
 import { memberApi, unwrapData, type memberModel } from '@/shared/api'
-import { cn } from '@/shared/lib'
+import { cn, trackEvent, useTrackOnce } from '@/shared/lib'
 import {
   Alert,
   Badge,
@@ -72,6 +72,7 @@ export function SellerApplyPage() {
   const queryClient = useQueryClient()
   const apply = memberApi.useApply()
   const [formError, setFormError] = useState<string>()
+  useTrackOnce('seller_apply_start', {})
   // 반려 뒤 다시 신청하면 전에 낸 값을 채운다. 신청 전(404)이면 빈 폼 그대로.
   const mine = memberApi.useFindMine({
     query: { select: unwrapData, enabled: useAuthStatus() === 'authenticated', retry: false },
@@ -103,6 +104,7 @@ export function SellerApplyPage() {
         onSuccess: (response) => {
           // 응답이 방금 낸 신청이라 결과 화면이 다시 부르지 않고 바로 쓴다.
           queryClient.setQueryData(memberApi.getFindMineQueryKey(), response)
+          trackEvent('seller_apply_submit', { isBusiness: values.business === 'business' })
           router.push('/seller-apply/result')
         },
         onError: (error) => setFormError(applyErrorMessage(error)),
