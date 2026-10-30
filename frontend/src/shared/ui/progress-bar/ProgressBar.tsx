@@ -37,7 +37,7 @@ const TONE = {
 // 100(다 참)일 때만 초록으로 바뀐다.
 const COMPLETE = {
   brand: { value: 'text-text-success', fill: 'bg-text-success' },
-  onHero: { value: 'text-text-on-hero-success', fill: 'bg-text-on-hero-success' },
+  onHero: { value: 'text-text-on-hero-success', fill: 'bg-bg-success-on-hero' },
 }
 
 // 진행 정도(크루 결제 5/8명, 접수 마감률)를 막대로 보여 준다. indeterminate면 값 없이 기다리는 중을 보여 준다.

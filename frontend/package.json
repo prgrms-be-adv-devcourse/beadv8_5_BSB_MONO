@@ -15,6 +15,7 @@
     "test:watch": "vitest",
     "api:generate": "node -e \"require('fs').rmSync('src/shared/api/generated',{recursive:true,force:true})\" && orval",
     "api:pull": "node scripts/pull-openapi.mjs",
+    "tokens": "node scripts/generate-tokens/index.mjs",
     "prepare": "cd .. && husky frontend/.husky",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build"

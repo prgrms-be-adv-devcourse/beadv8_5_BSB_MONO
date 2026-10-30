@@ -1,4 +1,4 @@
-// 피그마 시안의 기본 컴포넌트. 색·글자·간격은 globals.css 토큰만 쓴다.
+// 피그마 시안의 기본 컴포넌트. 색·글자·간격은 tokens.css 토큰만 쓴다.
 export { Alert, type AlertProps, type AlertTone } from './alert/Alert'
 export {
   Avatar,

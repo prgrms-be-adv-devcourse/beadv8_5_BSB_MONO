@@ -331,7 +331,7 @@ function Cropper({ file, outputSize, onPickAnother, onCancel, onApply }: Cropper
         onPointerCancel={() => (drag.current = null)}
         onKeyDown={onKeyDown}
         className={cn(
-          'relative flex h-80 cursor-grab touch-none items-center justify-center overflow-hidden rounded-md bg-navy-950 select-none active:cursor-grabbing',
+          'relative flex h-80 cursor-grab touch-none items-center justify-center overflow-hidden rounded-md bg-bg-overlay select-none active:cursor-grabbing',
           FOCUS_RING,
         )}
       >
@@ -358,7 +358,7 @@ function Cropper({ file, outputSize, onPickAnother, onCancel, onApply }: Cropper
             />
           )}
         </div>
-        <div className="pointer-events-none absolute size-65 shadow-[0_0_0_9999px_color-mix(in_srgb,var(--color-navy-950)_60%,transparent)] outline-2 outline-bg-surface" />
+        <div className="pointer-events-none absolute size-65 shadow-[0_0_0_9999px_color-mix(in_srgb,var(--color-bg-overlay)_60%,transparent)] outline-2 outline-bg-surface" />
       </div>
 
       <div className="flex items-center gap-3 text-text-secondary">
@@ -527,7 +527,7 @@ export function ImageListDialog({
                     </span>
                   )}
                   {item.status === 'uploading' && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-navy-950/55 px-4">
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-bg-overlay/55 px-4">
                       <p className="text-caption text-text-inverse">
                         올리는 중 {Math.round(item.progress * 100)}%
                       </p>

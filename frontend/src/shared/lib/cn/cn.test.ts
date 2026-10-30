@@ -24,8 +24,8 @@ describe('cn', () => {
     )
   })
 
-  it('TEXT_STYLES가 globals.css의 --text-* 토큰과 같다', () => {
-    const css = readFileSync(resolve(__dirname, '../../../app/globals.css'), 'utf8')
+  it('TEXT_STYLES가 tokens.css의 --text-* 토큰과 같다', () => {
+    const css = readFileSync(resolve(__dirname, '../../../app/tokens.css'), 'utf8')
     // --text-heading-xl--line-height 같은 하위 속성과 --text-*: initial은 빼고 이름만 모은다
     const tokens = new Set(
       [...css.matchAll(/--text-([a-z0-9]+(?:-[a-z0-9]+)*):/g)].map((m) => m[1]),
