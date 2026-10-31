@@ -40,7 +40,7 @@ import com.bukang.cash.out.WalletRepository;
 import com.bukang.cash.out.pg.PaymentApprovalResult;
 import com.bukang.cash.out.pg.PaymentClient;
 
-// PRO-86: 같은 orderId로 충전 confirm이 동시에 여러 번 와도 중복 적립 없이 하나의 결과로 수렴하는지,
+// 같은 orderId로 충전 confirm이 동시에 여러 번 와도 중복 적립 없이 하나의 결과로 수렴하는지,
 // 그리고 PaymentClient.approve가 실제로 몇 번 불리는지 확인한다 (완료 기준: "한 번만 불리고"를 전제함)
 @SpringBootTest
 @ActiveProfiles("test")
@@ -72,7 +72,7 @@ class ChargeConfirmConcurrencyTest {
 	}
 
 	@Test
-	@DisplayName("PRO-86: 같은 orderId로 충전 confirm이 동시에 여러 번 와도 중복 적립 없이 하나의 결과로 수렴한다")
+	@DisplayName("같은 orderId로 충전 confirm이 동시에 여러 번 와도 중복 적립 없이 하나의 결과로 수렴한다")
 	void concurrentSameOrderIdChargeConfirm_convergesToSingleResult() throws InterruptedException {
 		createCustomerWallet();
 		given(paymentClient.approve(anyString(), anyString(), anyLong()))
@@ -90,18 +90,18 @@ class ChargeConfirmConcurrencyTest {
 			.count();
 
 		printAttemptSummary(results);
-		System.out.println("PRO-86 paymentClient.approve 호출 횟수: " + approveInvocationCount);
+		System.out.println("paymentClient.approve 호출 횟수: " + approveInvocationCount);
 
 		assertThat(errorCount).as("예외 없이 전부 응답해야 한다").isZero();
 		assertThat(completedCount).as("10개 요청 모두 COMPLETED를 받아야 한다(멱등)").isEqualTo(10);
+		assertThat(approveInvocationCount).as("IN_PROGRESS 선점 덕분에 Toss는 한 번만 불려야 한다").isEqualTo(1);
 		assertBalance(CUSTOMER_ID, 10_000);
 		assertThat(walletChargeRepository.count()).as("충전 기록은 하나만 남아야 한다").isEqualTo(1);
 		assertThat(walletLedgerRepository.findAll()).as("장부도 한 줄만 남아야 한다").hasSize(1);
 	}
 
 	@Test
-	@DisplayName("PRO-86: Toss가 실제로 그러듯 처음 한 번만 승인하고 나머지를 ALREADY_PROCESSED_PAYMENT로 거절해도, "
-		+ "PRO-200 재조회 덕분에 전부 예외 없이 COMPLETED로 수렴한다")
+	@DisplayName("IN_PROGRESS 선점으로 애초에 Toss를 한 번만 부르며 예외 없이 COMPLETED로 수렴한다")
 	void concurrentSameOrderIdChargeConfirm_withRealisticTossRejection_stillConvergesSafely()
 		throws InterruptedException {
 		createCustomerWallet();
@@ -123,14 +123,53 @@ class ChargeConfirmConcurrencyTest {
 		long completedCount = results.stream().filter(r -> r.dto() != null
 			&& r.dto().outcome() == CashChargeResponseDto.Outcome.COMPLETED).count();
 		long errorCount = results.stream().filter(r -> r.error() != null).count();
+		long approveInvocationCount = mockingDetails(paymentClient).getInvocations().stream()
+			.map(Invocation::getMethod)
+			.filter(method -> method.getName().equals("approve"))
+			.count();
 
 		printAttemptSummary(results);
 
 		assertThat(errorCount).as("Toss 거절이 섞여도 예외 없이 전부 응답해야 한다").isZero();
 		assertThat(completedCount).as("10개 요청 모두 COMPLETED를 받아야 한다").isEqualTo(10);
+		assertThat(approveInvocationCount)
+			.as("IN_PROGRESS 선점 덕분에 ALREADY_PROCESSED_PAYMENT 거절 분기를 탈 일 없이 한 번만 불려야 한다")
+			.isEqualTo(1);
 		assertBalance(CUSTOMER_ID, 10_000);
 		assertThat(walletChargeRepository.count()).as("충전 기록은 하나만 남아야 한다").isEqualTo(1);
 		assertThat(walletLedgerRepository.findAll()).as("장부도 한 줄만 남아야 한다").hasSize(1);
+	}
+
+
+	@Test
+	@DisplayName("같은 orderId로 충전 confirm이 동시에 여러 번 왔는데 Toss가 거절하면, "
+		+ "Toss는 한 번만 불리고 전부 FAILED로 수렴한다")
+	void concurrentSameOrderIdChargeConfirm_whenTossRejects_convergesToFailedForAll() throws InterruptedException {
+		createCustomerWallet();
+		given(paymentClient.approve(anyString(), anyString(), anyLong())).willAnswer(invocation -> {
+			Thread.sleep(300);
+			throw new PaymentApprovalFailedException("카드 한도를 초과했습니다.", "EXCEED_MAX_DAILY_PAYMENT_COUNT");
+		});
+
+		List<AttemptResult> results = runConcurrently(10, i ->
+			() -> cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 10_000));
+
+		long failedCount = results.stream().filter(r -> r.dto() != null
+			&& r.dto().outcome() == CashChargeResponseDto.Outcome.FAILED).count();
+		long errorCount = results.stream().filter(r -> r.error() != null).count();
+		long approveInvocationCount = mockingDetails(paymentClient).getInvocations().stream()
+			.map(Invocation::getMethod)
+			.filter(method -> method.getName().equals("approve"))
+			.count();
+
+		printAttemptSummary(results);
+
+		assertThat(errorCount).as("예외 없이 전부 응답해야 한다").isZero();
+		assertThat(failedCount).as("10개 요청 모두 FAILED를 받아야 한다").isEqualTo(10);
+		assertThat(approveInvocationCount).as("IN_PROGRESS 선점 덕분에 Toss는 한 번만 불려야 한다").isEqualTo(1);
+		assertBalance(CUSTOMER_ID, 0);
+		assertThat(walletChargeRepository.count()).as("충전 기록은 하나만 남아야 한다").isEqualTo(1);
+		assertThat(walletLedgerRepository.findAll()).as("적립 장부는 생기지 않아야 한다").isEmpty();
 	}
 
 	private List<AttemptResult> runConcurrently(
@@ -164,10 +203,10 @@ class ChargeConfirmConcurrencyTest {
 		for (int i = 0; i < results.size(); i++) {
 			AttemptResult attempt = results.get(i);
 			if (attempt.error() != null) {
-				System.out.printf("PRO-86 #%d 예외: %s: %s%n",
+				System.out.printf("#%d 예외: %s: %s%n",
 					i, attempt.error().getClass().getName(), attempt.error().getMessage());
 			} else {
-				System.out.printf("PRO-86 #%d 결과: %s%n", i, attempt.dto().outcome());
+				System.out.printf("#%d 결과: %s%n", i, attempt.dto().outcome());
 			}
 		}
 	}

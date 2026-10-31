@@ -55,6 +55,10 @@ cash:
   wallet:
     system-member-id: 1
     holding-member-id: 2
+  charge:
+    confirm:
+      max-wait-attempts: 20
+      wait-interval-millis: 100
 
   # PG(Toss페이먼츠) 결제 승인 연동 (PRO-81). mode가 fake면 가짜로 바로 승인하고, http면 실제 Toss API를 부른다
   # 로컬 개발·테스트는 Toss 서버를 안 거쳐도 되게 fake가 기본이고, 운영(prod)은 http다

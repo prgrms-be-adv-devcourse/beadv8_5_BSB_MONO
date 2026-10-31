@@ -55,6 +55,11 @@ public class WalletCharge extends BaseIdAndTime {
 		this.idempotencyKey = idempotencyKey;
 		this.status = ChargeStatus.REQUESTED;
 	}
+	// 지갑 락 안에서 이 orderId를 선점했다는 표시. 이 상태인 동안 다른 요청은 Toss를 다시 부르지 않는다
+	public void markInProgress() {
+		this.status = ChargeStatus.IN_PROGRESS;
+	}
+
 	public void markCompleted(String pgPaymentKey, LocalDateTime chargeDate) {
 		this.pgPaymentKey = pgPaymentKey;
 		this.status = ChargeStatus.COMPLETED;

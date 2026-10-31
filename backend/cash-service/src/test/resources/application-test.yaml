@@ -32,3 +32,10 @@ crypto:
   enabled: true # common global/crypto의 암호화 빈(TextEncryptor, EncryptedStringConverter)을 켠다
   password: n+86ZkalYKdULzFVMlZsrsLFcZuIOQLgP9kYjeVUoxI=
   salt: b4deee42e7e94cbe
+
+cash:
+  charge:
+    confirm:
+      # (10회 x 50ms = 500ms)
+      max-wait-attempts: 10
+      wait-interval-millis: 50
