@@ -13,6 +13,7 @@ import com.bukang.payout.domain.PayoutAccount;
 import com.bukang.payout.domain.PayoutItem;
 import com.bukang.payout.domain.PayoutRecordType;
 import com.bukang.payout.domain.PayoutRecovery;
+import com.bukang.payout.domain.PayoutRecoveryCompletion;
 import com.bukang.payout.domain.PayoutRecoveryReason;
 import com.bukang.payout.domain.PayoutRecoveryStatus;
 import com.bukang.payout.domain.PayoutStage;
@@ -57,8 +58,11 @@ public class PayoutLedgerUseCase {
 	@Transactional
 	public Optional<PayoutRecovery> recoverScheduleChange(long sellerId, long raceId, long raceCourseId,
 		long orderItemId, long price, LocalDateTime now) {
-		if (payoutRecoveryRepository.existsByOrderItemId(orderItemId)) {
-			throw new PayoutRecoveryConflictException("이미 회수를 요청한 참가권입니다.");
+		// 같은 환불 알림이 다시 와도(Kafka 재전달) 실패로 보지 않고 이미 만든 회수를 돌려준다.
+		// 409로 던지면 소비자가 재시도하다 DLT로 보내 이미 처리한 환불이 실패로 쌓인다 (R1)
+		Optional<PayoutRecovery> existing = payoutRecoveryRepository.findByOrderItemId(orderItemId);
+		if (existing.isPresent()) {
+			return existing;
 		}
 		if (findLive(sellerId, raceId, PayoutStage.FINAL).isPresent()) {
 			// 최종 정산을 만든 뒤의 환불은 번 돈(EARNING)까지 되돌려야 해서 아직 정하지 않았다 (PRO-214 미룸)
@@ -108,6 +112,32 @@ public class PayoutLedgerUseCase {
 	}
 
 	/**
+	 * 대회 취소로 지급 전 1차 정산 내역을 닫은 뒤, 그 1차 정산 내역에서 상계로 끝났던 일정 변경 회수를 되돌린다 (R9)
+	 * 1차 정산 내역의 상계 줄은 정산 내역 취소로 되돌아가지만 회수 줄(요청 · 갚을 돈 추가)은 회수에 붙어 남는다.
+	 * 그대로 두면 판매자가 받은 적 없는 몫이 1차 정산금 잔고 −, 갚을 돈 +로 남아 청구된다
+	 * 최종 정산이 없을 때만 부른다. 그때 상계로 끝난 회수는 모두 1차 정산 내역에서 갚은 몫이다
+	 * 대회 취소 회수(recoverRaceCancel)를 만들기 전에 불러야 남은 1차 정산금을 맞게 센다
+	 */
+	@Transactional(propagation = Propagation.MANDATORY)
+	public List<PayoutRecovery> revertOffsetRecoveries(long sellerId, long raceId) {
+		List<PayoutRecovery> offset = payoutRecoveryRepository.findBySellerIdAndRaceIdAndStatus(
+				sellerId, raceId, PayoutRecoveryStatus.COMPLETED).stream()
+			.filter(recovery -> recovery.getReasonType() == PayoutRecoveryReason.SCHEDULE_CHANGED)
+			.filter(recovery -> recovery.getCompletion() == PayoutRecoveryCompletion.OFFSET)
+			.toList();
+		for (PayoutRecovery recovery : offset) {
+			long amount = recovery.getAmount();
+			Long orderItemId = recovery.getOrderItemId();
+			payoutItemRepository.save(PayoutItem.ofRecovery(recovery, PayoutRecordType.RECOVERY_REQUESTED_CANCELED,
+				orderItemId, null, amount));
+			payoutItemRepository.save(PayoutItem.ofRecovery(recovery, PayoutRecordType.RECEIVABLE_ADDED_CANCELED,
+				orderItemId, null, -amount));
+			recovery.cancelByRaceCancel();
+		}
+		return offset;
+	}
+
+	/**
 	 * 관리자의 회수 완료: 판매자의 입금을 확인하고 회수를 끝낸다 (payout.md 4-2, PRO-33)
 	 * 판매자 입금 요청 · 시스템 입금 확인 이슈가 생기기 전까지 쓰는 임시 경로다 (PRO-214)
 	 *
@@ -119,7 +149,7 @@ public class PayoutLedgerUseCase {
 	public PayoutRecovery confirmDeposit(long recoveryId, long completedBy, LocalDateTime now) {
 		PayoutRecovery recovery = payoutRecoveryRepository.findByIdForUpdate(recoveryId)
 			.orElseThrow(PayoutRecoveryNotFoundException::new);
-		if (recovery.getStatus() == PayoutRecoveryStatus.COMPLETED) {
+		if (recovery.getStatus() != PayoutRecoveryStatus.REQUESTED) {
 			throw new PayoutRecoveryConflictException("이미 완료된 회수입니다.");
 		}
 		long receivable = balance(recovery.getSellerId(), recovery.getRaceId(), PayoutAccount.RECEIVABLE);

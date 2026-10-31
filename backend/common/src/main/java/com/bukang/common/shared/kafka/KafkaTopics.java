@@ -25,6 +25,8 @@ public final class KafkaTopics {
 	public static final String PRODUCT_HOLD_RESTORE = "product.hold.restore";
 	// 판매자가 대회를 취소했다. 주문 서비스가 참가권을 일괄 환불한다 (product → order)
 	public static final String ORDER_RACE_CANCEL = "order.race.cancel";
+	// 참가권을 환불했다. 정산 서비스가 판매자에게서 돌려받을 회수를 남긴다 (order → payout, 발행은 order 담당과 맞춘다)
+	public static final String ORDER_ITEM_REFUNDED = "queuing.orderitem.refunded";
 
 	private KafkaTopics() {
 	}

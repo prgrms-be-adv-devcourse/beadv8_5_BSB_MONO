@@ -123,6 +123,15 @@ public class PayoutItem extends BaseIdAndTime {
 			raceCourseId, amount, null, null);
 	}
 
+	// 청구 입금 확인 줄: 정산 내역 · 회수 어느 쪽에도 붙지 않고 판매자 × 대회로만 남긴다 (선 환불 후 회수 R5)
+	// 청구는 판매자 × 대회 합계로 받으므로 회수 한 건에 나눠 적지 않는다. 중복은 청구 ID 키로 막는다
+	public static PayoutItem ofClaim(PayoutClaim claim, PayoutRecordType recordType, long amount) {
+		PayoutItem item = new PayoutItem(null, null, claim.getSellerId(), claim.getRaceId(), recordType, null, null,
+			amount, null, null);
+		item.bundleKey = "C%d:%s".formatted(claim.getId(), recordType);
+		return item;
+	}
+
 	// 정산 내역(payout)은 먼저 저장돼 ID가 있으므로 줄을 저장하기 직전에 키를 만든다
 	@PrePersist
 	void assignBundleKey() {

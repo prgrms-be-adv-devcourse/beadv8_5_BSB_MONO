@@ -119,8 +119,18 @@ public class PayoutRecovery extends BaseIdAndTime {
 		finish(PayoutRecoveryCompletion.OFFSET, PayoutHold.SYSTEM_MEMBER_ID, completedAt);
 	}
 
+	// 대회 취소로 되돌렸다. 1차 지급 전에 상계로 끝나 판매자가 그 몫을 받은 적이 없는 회수만 되돌린다 (R9)
+	// 완료 방식 · 완료 시각은 상계로 끝났던 기록으로 그대로 둔다
+	public void cancelByRaceCancel() {
+		if (status != PayoutRecoveryStatus.COMPLETED || completion != PayoutRecoveryCompletion.OFFSET) {
+			throw new IllegalStateException("상계로 끝난 회수만 대회 취소로 되돌릴 수 있습니다. recoveryId=%d, status=%s"
+				.formatted(getId(), status));
+		}
+		this.status = PayoutRecoveryStatus.CANCELED;
+	}
+
 	private void finish(PayoutRecoveryCompletion completion, long completedBy, LocalDateTime completedAt) {
-		if (status == PayoutRecoveryStatus.COMPLETED) {
+		if (status != PayoutRecoveryStatus.REQUESTED) {
 			throw new PayoutRecoveryConflictException("이미 완료된 회수입니다.");
 		}
 		this.status = PayoutRecoveryStatus.COMPLETED;

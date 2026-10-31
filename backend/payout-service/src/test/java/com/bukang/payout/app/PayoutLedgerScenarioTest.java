@@ -436,14 +436,15 @@ class PayoutLedgerScenarioTest {
 	}
 
 	@Test
-	@DisplayName("같은 참가권으로 회수를 두 번 요청하면 두 번째는 충돌(409)이고, 원장 줄은 한 번만 남는다")
+	@DisplayName("TC-RECOV-2-1 같은 참가권으로 회수를 두 번 요청하면 두 번째도 같은 회수를 돌려주고, 원장 줄은 한 번만 남는다")
 	void duplicateRecoveryRequest() {
 		createFirst();
 		pay(FIRST_PAY_DATE);
-		requestRecovery(108, LocalDateTime.of(2026, 11, 26, 10, 0));
+		PayoutRecovery first = requestRecovery(108, LocalDateTime.of(2026, 11, 26, 10, 0));
 
-		assertThatThrownBy(() -> requestRecovery(108, LocalDateTime.of(2026, 11, 26, 11, 0)))
-			.isInstanceOf(PayoutRecoveryConflictException.class);
+		PayoutRecovery again = requestRecovery(108, LocalDateTime.of(2026, 11, 26, 11, 0));
+
+		assertThat(again.getId()).isEqualTo(first.getId());
 		entityManager.flush();
 		assertThat(payoutItemRepository.findAll())
 			.filteredOn(item -> Long.valueOf(108L).equals(item.getOrderItemId()))
@@ -471,5 +472,67 @@ class PayoutLedgerScenarioTest {
 		entityManager.flush();
 		assertThat(payoutItemRepository.findAll()).isEmpty();
 		assertThat(payoutRecoveryRepository.findAll()).isEmpty();
+	}
+
+	// 1차 지급 전 108번 환불(상계로 완료) 뒤 대회 취소. 판매자가 받은 돈이 없으므로 갚을 돈도 없어야 한다 (R9)
+	private void refundBeforeFirstPayThenCancelRace() {
+		createFirst();
+		requestRecovery(108, LocalDateTime.of(2026, 11, 5, 10, 0));
+		raceCancelUseCase.cancelRace(RACE_ID, LocalDateTime.of(2026, 11, 10, 10, 0));
+		entityManager.flush();
+		entityManager.clear();
+	}
+
+	@Test
+	@DisplayName("TC-CANCEL-1-1 1차 지급 전 환불이 상계로 끝난 뒤 대회가 취소되면 갚을 돈은 0원이다")
+	void raceCanceledAfterOffsetRefundLeavesNoReceivable() {
+		refundBeforeFirstPayThenCancelRace();
+
+		assertThat(balance(PayoutAccount.RECEIVABLE)).isZero();
+	}
+
+	@Test
+	@DisplayName("TC-CANCEL-2-1 1차 지급 전 환불이 상계로 끝난 뒤 대회가 취소되면 1차 정산금 잔고는 0원이다")
+	void raceCanceledAfterOffsetRefundLeavesNoAdvance() {
+		refundBeforeFirstPayThenCancelRace();
+
+		assertThat(balance(PayoutAccount.ADVANCE)).isZero();
+	}
+
+	@Test
+	@DisplayName("TC-CANCEL-3-1 되돌린 108번 회수는 회수 취소 상태가 된다")
+	void raceCanceledAfterOffsetRefundCancelsRecovery() {
+		refundBeforeFirstPayThenCancelRace();
+
+		assertThat(payoutRecoveryRepository.findAll())
+			.filteredOn(recovery -> Long.valueOf(108L).equals(recovery.getOrderItemId()))
+			.extracting(PayoutRecovery::getStatus)
+			.containsExactly(PayoutRecoveryStatus.CANCELED);
+	}
+
+	@Test
+	@DisplayName("TC-CANCEL-4-1 받은 돈이 없으면 대회 취소 회수를 만들지 않는다")
+	void raceCanceledAfterOffsetRefundCreatesNoRaceCancelRecovery() {
+		refundBeforeFirstPayThenCancelRace();
+
+		assertThat(payoutRecoveryRepository.findAll())
+			.filteredOn(recovery -> recovery.getReasonType() == PayoutRecoveryReason.RACE_CANCELED)
+			.isEmpty();
+	}
+
+	@Test
+	@DisplayName("TC-CANCEL-5-1 1차 지급 뒤 요청 중인 회수는 대회 취소로 되돌리지 않는다")
+	void raceCanceledKeepsRecoveryRequestedAfterFirstPay() {
+		createFirst();
+		pay(FIRST_PAY_DATE);
+		requestRecovery(108, LocalDateTime.of(2026, 11, 26, 10, 0));
+		raceCancelUseCase.cancelRace(RACE_ID, LocalDateTime.of(2026, 12, 1, 10, 0));
+		entityManager.flush();
+		entityManager.clear();
+
+		assertThat(payoutRecoveryRepository.findAll())
+			.filteredOn(recovery -> Long.valueOf(108L).equals(recovery.getOrderItemId()))
+			.extracting(PayoutRecovery::getStatus)
+			.containsExactly(PayoutRecoveryStatus.REQUESTED);
 	}
 }
