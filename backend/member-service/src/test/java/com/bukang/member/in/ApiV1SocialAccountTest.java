@@ -39,7 +39,6 @@ import com.bukang.member.app.SocialAccountUseCase;
 import com.bukang.member.app.SocialJoinUseCase;
 import com.bukang.member.domain.SocialProvider;
 import com.bukang.member.domain.TermsType;
-import com.bukang.member.dto.MemberJoinRequestDto;
 import com.bukang.member.dto.SocialJoinRequestDto;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.RefreshTokenRepository;
@@ -47,6 +46,7 @@ import com.bukang.member.out.SellerRepository;
 import com.bukang.member.out.SocialAccountRepository;
 import com.bukang.member.out.TermsAgreementRepository;
 import com.bukang.member.out.cash.CashBalancePort;
+import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
 import com.bukang.member.out.oauth2.InMemorySocialLoginStore;
 import com.bukang.member.out.oauth2.LinkTicket;
 import com.bukang.member.out.oauth2.PendingSignup;
@@ -63,8 +63,11 @@ import jakarta.servlet.http.Cookie;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Import(InMemorySocialLoginStore.Config.class)
+@Import({InMemorySocialLoginStore.Config.class, InMemoryIdentityVerificationStore.Config.class})
 class ApiV1SocialAccountTest {
+	@Autowired
+	private InMemoryIdentityVerificationStore identityStore;
+
 	private static final String ACCOUNTS = "/api/v1/member/members/me/social-accounts/";
 	private static final String STATE = "state-1";
 
@@ -121,7 +124,7 @@ class ApiV1SocialAccountTest {
 				new StoredAuthorization(provider, STATE, "http://localhost/callback", Set.of("profile"), Map.of(),
 					null, null));
 		});
-		emailMemberId = memberFacade.join(new MemberJoinRequestDto("runner1@crewrun.com", "password1234", "김러너",
+		emailMemberId = memberFacade.join(identityStore.joinRequest("runner1@crewrun.com", "password1234", "김러너",
 			"러너1", "010-1234-5678", LocalDate.of(1995, 4, 12), null,
 			List.of(TermsType.SERVICE, TermsType.PRIVACY))).getId();
 	}
@@ -265,8 +268,9 @@ class ApiV1SocialAccountTest {
 	private long socialMember(String kakaoUserId, String email) {
 		store.savePendingSignup("pending-" + kakaoUserId,
 			new PendingSignup(SocialProvider.KAKAO, kakaoUserId, email, null));
-		return socialJoinUseCase.join("pending-" + kakaoUserId, new SocialJoinRequestDto(null, "김소셜", "소셜러너",
-			"010-9876-5432", LocalDate.of(1995, 4, 12), null, List.of(TermsType.SERVICE, TermsType.PRIVACY)))
+		String token = identityStore.verify("김소셜", LocalDate.of(1995, 4, 12), "010-9876-5432");
+		return socialJoinUseCase.join("pending-" + kakaoUserId, new SocialJoinRequestDto(null, "소셜러너", null,
+			List.of(TermsType.SERVICE, TermsType.PRIVACY), token))
 			.member().getId();
 	}
 

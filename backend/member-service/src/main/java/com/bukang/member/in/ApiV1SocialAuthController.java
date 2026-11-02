@@ -147,7 +147,8 @@ public class ApiV1SocialAuthController {
 	}
 
 	@PostMapping("/join")
-	@Operation(summary = "소셜 회원가입", description = "가입 대기 쿠키의 소셜 계정으로 회원을 만든다. 약관·입력 검사는 이메일 가입과 같다. "
+	@Operation(summary = "소셜 회원가입", description = "가입 대기 쿠키의 소셜 계정으로 회원을 만든다. 약관·입력·본인인증 검사는 이메일 가입과 같다. "
+		+ "이름 · 생년월일 · 휴대폰 번호는 본인인증 토큰으로 서버가 확인한 값을 쓴다. "
 		+ "제공자가 확인된 이메일을 줬으면 그 값을 쓰고 본문 email은 무시한다. 성공하면 로그인과 같이 Access Token은 본문, "
 		+ "Refresh Token은 쿠키로 내려주고 가입 대기 쿠키를 지운다.")
 	@ApiResponses({
@@ -155,18 +156,22 @@ public class ApiV1SocialAuthController {
 			headers = @Header(name = HttpHeaders.SET_COOKIE,
 				description = "refreshToken=...; Path=/api/v1/auth; Max-Age=1209600; Secure; HttpOnly; SameSite=Lax"),
 			content = @Content(examples = @ExampleObject(value = SocialAuthApiExamples.JOIN_SUCCESS))),
-		@ApiResponse(responseCode = "400", description = "입력값 검증 실패, 만 14세 미만, 필수 약관 미동의, 이메일 없음",
+		@ApiResponse(responseCode = "400", description = "입력값 검증 실패, 만 14세 미만, 필수 약관 미동의, 이메일 없음, "
+			+ "본인인증 결과가 없거나 15분이 지남",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "입력값 검증 실패", value = AuthApiExamples.JOIN_INVALID_INPUT),
 				@ExampleObject(name = "만 14세 미만", value = AuthApiExamples.JOIN_UNDER_AGE),
 				@ExampleObject(name = "필수 약관 미동의", value = AuthApiExamples.JOIN_REQUIRED_TERMS_NOT_AGREED),
-				@ExampleObject(name = "이메일 없음", value = SocialAuthApiExamples.JOIN_EMAIL_REQUIRED)
+				@ExampleObject(name = "이메일 없음", value = SocialAuthApiExamples.JOIN_EMAIL_REQUIRED),
+				@ExampleObject(name = "본인인증 다시 하기", value = IdentityVerificationApiExamples.VERIFICATION_REQUIRED)
 			})),
 		@ApiResponse(responseCode = "401", description = "가입 대기가 없거나 15분이 지남",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = SocialAuthApiExamples.SIGNUP_EXPIRED))),
-		@ApiResponse(responseCode = "409", description = "이메일·닉네임 중복, 이미 가입한 휴대폰 번호(계정 연결 안내) 또는 이미 연결된 소셜 계정",
+		@ApiResponse(responseCode = "409", description = "이메일·닉네임 중복, 이미 가입한 휴대폰 번호(계정 연결 안내), 이미 가입한 사람 "
+			+ "또는 이미 연결된 소셜 계정",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "이미 가입한 사람", value = IdentityVerificationApiExamples.DUPLICATE_IDENTITY),
 				@ExampleObject(name = "이메일 중복", value = AuthApiExamples.DUPLICATE_EMAIL),
 				@ExampleObject(name = "닉네임 중복", value = AuthApiExamples.DUPLICATE_NICKNAME),
 				@ExampleObject(name = "이미 가입한 휴대폰 번호", value = SocialAuthApiExamples.PHONE_TAKEN),

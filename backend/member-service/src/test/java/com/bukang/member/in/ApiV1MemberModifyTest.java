@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
@@ -39,9 +40,9 @@ import com.bukang.common.shared.member.web.MemberIdHeader;
 import com.bukang.member.app.MemberFacade;
 import com.bukang.member.domain.Member;
 import com.bukang.member.domain.TermsType;
-import com.bukang.member.dto.MemberJoinRequestDto;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.TermsAgreementRepository;
+import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
 
 // 게이트웨이가 토큰을 검사하고 넣어 주는 X-Member-Id 헤더를 테스트에서는 직접 넣는다
 // 수정 이벤트는 스프링 이벤트로 발행됐는지만 본다. Kafka로 나가는 건 MemberKafkaPublisherTest가 확인한다
@@ -49,7 +50,11 @@ import com.bukang.member.out.TermsAgreementRepository;
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @RecordApplicationEvents
+@Import(InMemoryIdentityVerificationStore.Config.class)
 class ApiV1MemberModifyTest {
+	@Autowired
+	private InMemoryIdentityVerificationStore identityStore;
+
 	private static final String ME = "/api/v1/member/members/me";
 	private static final String NAME = "김러너";
 	private static final String NICKNAME = "러너1";
@@ -293,7 +298,7 @@ class ApiV1MemberModifyTest {
 	}
 
 	private long joinDirectly(String email, String nickname, String phone) {
-		return memberFacade.join(new MemberJoinRequestDto(
+		return memberFacade.join(identityStore.joinRequest(
 			email, "password1234", NAME, nickname, phone, LocalDate.of(1995, 4, 12), null,
 			List.of(TermsType.SERVICE, TermsType.PRIVACY)
 		)).getId();

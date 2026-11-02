@@ -14,21 +14,26 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.bukang.common.shared.member.web.MemberIdHeader;
 import com.bukang.member.app.MemberFacade;
 import com.bukang.member.domain.TermsType;
-import com.bukang.member.dto.MemberJoinRequestDto;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.TermsAgreementRepository;
+import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
 
 // 게이트웨이가 토큰을 검사하고 넣어 주는 X-Member-Id 헤더를 테스트에서는 직접 넣는다
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@Import(InMemoryIdentityVerificationStore.Config.class)
 class ApiV1MemberMeTest {
+	@Autowired
+	private InMemoryIdentityVerificationStore identityStore;
+
 	private static final String ME = "/api/v1/member/members/me";
 
 	@Autowired
@@ -47,7 +52,7 @@ class ApiV1MemberMeTest {
 
 	@BeforeEach
 	void setUp() {
-		memberId = memberFacade.join(new MemberJoinRequestDto(
+		memberId = memberFacade.join(identityStore.joinRequest(
 			"runner1@crewrun.com", "password1234", "김러너", "러너1", "010-1234-5678", LocalDate.of(1995, 4, 12), null,
 			List.of(TermsType.SERVICE, TermsType.PRIVACY)
 		)).getId();

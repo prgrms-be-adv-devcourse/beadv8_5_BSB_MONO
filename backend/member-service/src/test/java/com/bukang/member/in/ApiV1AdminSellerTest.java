@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.event.ApplicationEvents;
@@ -34,18 +35,22 @@ import com.bukang.member.app.SellerFacade;
 import com.bukang.member.domain.Member;
 import com.bukang.member.domain.Seller;
 import com.bukang.member.domain.TermsType;
-import com.bukang.member.dto.MemberJoinRequestDto;
 import com.bukang.member.dto.SellerApplyRequestDto;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.SellerRepository;
 import com.bukang.member.out.TermsAgreementRepository;
+import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
 
 // 관리자의 판매자 신청 목록·승인·반려 (BE-020). 관리자는 회원 역할 칸(ADMIN)으로 알아본다
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @RecordApplicationEvents
+@Import(InMemoryIdentityVerificationStore.Config.class)
 class ApiV1AdminSellerTest {
+	@Autowired
+	private InMemoryIdentityVerificationStore identityStore;
+
 	private static final String ADMIN_SELLERS = "/api/v1/member/admin/sellers";
 
 	@Autowired
@@ -221,7 +226,7 @@ class ApiV1AdminSellerTest {
 	}
 
 	private long join(String email, String nickname, String phone) {
-		return memberFacade.join(new MemberJoinRequestDto(
+		return memberFacade.join(identityStore.joinRequest(
 			email, "password1234", "김러너", nickname, phone, LocalDate.of(1995, 4, 12), null,
 			List.of(TermsType.SERVICE, TermsType.PRIVACY)
 		)).getId();

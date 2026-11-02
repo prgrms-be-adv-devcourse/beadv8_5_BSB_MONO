@@ -91,24 +91,11 @@ export interface MemberJoinRequestDto {
      */
   password: string;
   /**
-     * 실명
-     * @minLength 1
-     */
-  name: string;
-  /**
      * 닉네임 (한글 2~8자, 영문 4~16자, 한글·영문·숫자만)
      * @minLength 1
      * @pattern ^[가-힣A-Za-z0-9]+$
      */
   nickname: string;
-  /**
-     * 휴대폰 번호 (하이픈 생략 가능)
-     * @minLength 1
-     * @pattern ^01[016789]-?\d{3,4}-?\d{4}$
-     */
-  phone: string;
-  /** 생년월일 */
-  birthDate: string;
   /**
      * 성별 (선택)
      * @nullable
@@ -116,6 +103,11 @@ export interface MemberJoinRequestDto {
   gender?: MemberJoinRequestDtoGender;
   /** 동의한 약관 종류 (SERVICE, PRIVACY는 필수). 동의하지 않은 선택 약관은 빼고 보낸다 */
   agreedTerms: MemberJoinRequestDtoAgreedTermsItem[];
+  /**
+     * 본인인증 결과의 인증 토큰. 이름 · 생년월일 · 휴대폰 번호는 이 인증으로 확인한 값으로 가입한다
+     * @minLength 1
+     */
+  verificationToken: string;
 }
 
 /**
@@ -197,24 +189,11 @@ export interface SocialJoinRequestDto {
      */
   email?: string | null;
   /**
-     * 실명
-     * @minLength 1
-     */
-  name: string;
-  /**
      * 닉네임 (한글 2~8자, 영문 4~16자, 한글·영문·숫자만)
      * @minLength 1
      * @pattern ^[가-힣A-Za-z0-9]+$
      */
   nickname: string;
-  /**
-     * 휴대폰 번호 (하이픈 생략 가능)
-     * @minLength 1
-     * @pattern ^01[016789]-?\d{3,4}-?\d{4}$
-     */
-  phone: string;
-  /** 생년월일 */
-  birthDate: string;
   /**
      * 성별 (선택)
      * @nullable
@@ -222,6 +201,11 @@ export interface SocialJoinRequestDto {
   gender?: SocialJoinRequestDtoGender;
   /** 동의한 약관 종류 (SERVICE, PRIVACY는 필수). 동의하지 않은 선택 약관은 빼고 보낸다 */
   agreedTerms: SocialJoinRequestDtoAgreedTermsItem[];
+  /**
+     * 본인인증 결과의 인증 토큰. 이름 · 생년월일 · 휴대폰 번호는 이 인증으로 확인한 값으로 가입한다
+     * @minLength 1
+     */
+  verificationToken: string;
 }
 
 /**
@@ -242,6 +226,42 @@ export interface CrewCreateRequestDto {
 export interface CrewLeaderTransferRequestDto {
   /** 크루장을 넘겨받을 크루원의 회원 ID */
   memberId: number;
+}
+
+/**
+ * 본인인증 결과. 가입 화면은 이 값으로 이름 · 생년월일 · 휴대폰 번호를 채우고 잠근다
+ */
+export interface VerifiedIdentityDto {
+  /** 가입 요청에 넣는 인증 토큰(인증 ID와 같다). 15분 동안 쓸 수 있다 */
+  verificationToken: string;
+  /** 인증된 실명 */
+  name: string;
+  /** 인증된 생년월일 */
+  birthDate: string;
+  /** 인증된 휴대폰 번호 */
+  phone: string;
+}
+
+/**
+ * 본인인증 시작 응답
+ */
+export interface IdentityVerificationStartDto {
+  /** 포트원 SDK requestIdentityVerification()에 넘길 인증 ID. 15분 안에 인증을 마쳐야 한다 */
+  identityVerificationId: string;
+}
+
+export interface RsDataVerifiedIdentityDto {
+  status?: number;
+  code?: string;
+  message?: string;
+  data?: VerifiedIdentityDto;
+}
+
+export interface RsDataIdentityVerificationStartDto {
+  status?: number;
+  code?: string;
+  message?: string;
+  data?: IdentityVerificationStartDto;
 }
 
 export type MemberDtoSocialProvidersItem = typeof MemberDtoSocialProvidersItem[keyof typeof MemberDtoSocialProvidersItem];
@@ -487,6 +507,47 @@ export interface CrewJoinedDto {
   /** 크루 역할 (LEADER: 크루장, MANAGER: 운영진, MEMBER: 크루원) */
   role: CrewJoinedDtoRole;
   joinedAt: string;
+}
+
+export interface RsDataVoid {
+  status?: number;
+  code?: string;
+  message?: string;
+  /** @nullable */
+  data?: null;
+}
+
+/**
+ * 통신사 (MVNO는 알뜰폰)
+ */
+export type PassVerificationRequestDtoCarrier = typeof PassVerificationRequestDtoCarrier[keyof typeof PassVerificationRequestDtoCarrier];
+
+
+export const PassVerificationRequestDtoCarrier = {
+  SKT: 'SKT',
+  KT: 'KT',
+  LGU: 'LGU',
+  MVNO: 'MVNO',
+} as const;
+
+/**
+ * PASS 본인인증 요청. 실제 연동에서는 PASS 창에 입력하는 값이다
+ */
+export interface PassVerificationRequestDto {
+  /** 통신사 (MVNO는 알뜰폰) */
+  carrier: PassVerificationRequestDtoCarrier;
+  /**
+     * 실명
+     * @minLength 1
+     */
+  name: string;
+  /** 생년월일 */
+  birthDate: string;
+  /**
+     * 휴대폰 번호 (하이픈 생략 가능)
+     * @pattern ^01[016789]-?\d{3,4}-?\d{4}$
+     */
+  phone: string;
 }
 
 export interface RsDataMemberDto {

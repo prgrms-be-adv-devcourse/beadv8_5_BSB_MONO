@@ -74,37 +74,16 @@ describe('signupAccountSchema', () => {
 })
 
 describe('signupProfileSchema', () => {
-  const validProfile = {
-    name: '김러너',
-    birth: '1995-03-02',
-    phone: '010-1234-5678',
-    nickname: '달리는곰',
-  }
+  // 이름 · 생년월일 · 휴대폰 번호는 본인인증으로 받으므로 닉네임과 성별만 검사한다
+  const validProfile = { nickname: '달리는곰', gender: '' as const }
 
-  it('맞는 값은 통과한다', () => {
+  it('맞는 값은 통과하고, 성별은 고르지 않아도 된다', () => {
     expect(signupProfileSchema.safeParse(validProfile).success).toBe(true)
+    expect(signupProfileSchema.safeParse({ ...validProfile, gender: 'FEMALE' }).success).toBe(true)
+    expect(signupProfileSchema.safeParse({ ...validProfile, gender: 'OTHER' }).success).toBe(false)
   })
 
-  it('없는 날짜나 형식이 틀린 생년월일은 막는다', () => {
-    for (const birth of ['', '1995.03.02', '1995-02-30', '19950302']) {
-      const result = signupProfileSchema.safeParse({ ...validProfile, birth })
-      expect(firstError(result)).toEqual({ path: 'birth', message: AUTH_ERRORS.birthFormat })
-    }
-  })
-
-  it('만 14세 미만은 막는다', () => {
-    const year = new Date().getFullYear() - 10
-    const result = signupProfileSchema.safeParse({ ...validProfile, birth: `${year}-01-01` })
-    expect(firstError(result)).toEqual({ path: 'birth', message: AUTH_ERRORS.birthUnder14 })
-  })
-
-  it('휴대폰 번호 형식과 닉네임 길이를 검사한다', () => {
-    expect(
-      firstError(signupProfileSchema.safeParse({ ...validProfile, phone: '02-123-4567' })),
-    ).toEqual({
-      path: 'phone',
-      message: AUTH_ERRORS.phoneFormat,
-    })
+  it('닉네임 길이를 검사한다', () => {
     expect(firstError(signupProfileSchema.safeParse({ ...validProfile, nickname: '곰' }))).toEqual({
       path: 'nickname',
       message: AUTH_ERRORS.nicknameLength,

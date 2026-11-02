@@ -33,12 +33,14 @@ import type {
   MemberJoinRequestDto,
   MemberLoginRequestDto,
   MemberModifyRequestDto,
+  PassVerificationRequestDto,
   RsData,
   RsDataCrewHomeDto,
   RsDataCrewInviteCreatedDto,
   RsDataCrewInvitePreviewDto,
   RsDataCrewJoinedDto,
   RsDataEmailAvailabilityResponseDto,
+  RsDataIdentityVerificationStartDto,
   RsDataListCrewInviteDto,
   RsDataListMyCrewDto,
   RsDataListSellerDto,
@@ -47,6 +49,8 @@ import type {
   RsDataSellerDto,
   RsDataSocialSignupInfoDto,
   RsDataTokenReissueResponseDto,
+  RsDataVerifiedIdentityDto,
+  RsDataVoid,
   SellerApplyRequestDto,
   SellerRejectRequestDto,
   SocialCallbackParams,
@@ -74,6 +78,95 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getVerifyIdentityWithMockPassUrl = () => {
+
+
+
+
+  return `/api/v1/auth/identity-verifications/pass`
+}
+
+/**
+ * 가짜 응답 모드(API_MOCKING=on)의 체험용 인증 화면에서만 부른다. 백엔드에는 없는 API다. 입력한 이름 · 생년월일 · 휴대폰 번호를 인증된 정보로 돌려준다.
+ * @summary 체험용 PASS 본인인증 (가짜 응답 모드 전용)
+ */
+export const verifyIdentityWithMockPass = async (passVerificationRequestDto: PassVerificationRequestDto, options?: Parameters<typeof customFetch>[1]): Promise<RsDataVerifiedIdentityDto> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<RsDataVerifiedIdentityDto>(getVerifyIdentityWithMockPassUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(passVerificationRequestDto)
+  }
+);}
+
+
+
+
+
+export const getVerifyIdentityWithMockPassMutationKey = () => ['verifyIdentityWithMockPass'] as const;
+
+export const getVerifyIdentityWithMockPassMutationOptions = <TError = RsDataVoid,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyIdentityWithMockPass>>, TError,VerifyIdentityWithMockPassMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof verifyIdentityWithMockPass>>, TError,VerifyIdentityWithMockPassMutationVariables, TContext> => {
+
+const mutationKey = getVerifyIdentityWithMockPassMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof verifyIdentityWithMockPass>>, VerifyIdentityWithMockPassMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  verifyIdentityWithMockPass(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type VerifyIdentityWithMockPassMutationResult = NonNullable<Awaited<ReturnType<typeof verifyIdentityWithMockPass>>>
+    export type VerifyIdentityWithMockPassMutationBody = PassVerificationRequestDto
+    export type VerifyIdentityWithMockPassMutationError = RsDataVoid
+    export type VerifyIdentityWithMockPassMutationVariables = {data: PassVerificationRequestDto}
+
+    /**
+ * @summary 체험용 PASS 본인인증 (가짜 응답 모드 전용)
+ */
+export const useVerifyIdentityWithMockPass = <TError = RsDataVoid,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyIdentityWithMockPass>>, TError,VerifyIdentityWithMockPassMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof verifyIdentityWithMockPass>>,
+        TError,
+        VerifyIdentityWithMockPassMutationVariables,
+        TContext
+      > => {
+      return useMutation(getVerifyIdentityWithMockPassMutationOptions(options), queryClient);
+    }
 
 export const getFindMeUrl = () => {
 
@@ -2937,5 +3030,155 @@ export const useTransferCrewLeader = <TError = RsData,
         TContext
       > => {
       return useMutation(getTransferCrewLeaderMutationOptions(options), queryClient);
+    }
+
+export const getCompleteIdentityVerificationUrl = (identityVerificationId: string,) => {
+
+
+
+
+  return `/api/v1/auth/identity-verifications/${identityVerificationId}/complete`
+}
+
+/**
+ * 포트원 창이 끝나면 부른다. 서버가 포트원 조회 API로 결과를 직접 확인하고, 확인된 이름 · 생년월일 · 휴대폰 번호와 CI 해시를 15분 동안 저장한다. 화면이 보낸 인증 결과는 쓰지 않는다. 이미 확인한 ID를 다시 부르면 저장한 결과를 그대로 돌려준다.
+ * @summary 본인인증 확인
+ */
+export const completeIdentityVerification = async (identityVerificationId: string, options?: Parameters<typeof customFetch>[1]): Promise<RsDataVerifiedIdentityDto> => {
+
+  return customFetch<RsDataVerifiedIdentityDto>(getCompleteIdentityVerificationUrl(identityVerificationId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getCompleteIdentityVerificationMutationKey = () => ['completeIdentityVerification'] as const;
+
+export const getCompleteIdentityVerificationMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeIdentityVerification>>, TError,CompleteIdentityVerificationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof completeIdentityVerification>>, TError,CompleteIdentityVerificationMutationVariables, TContext> => {
+
+const mutationKey = getCompleteIdentityVerificationMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof completeIdentityVerification>>, CompleteIdentityVerificationMutationVariables> = (props) => {
+          const {identityVerificationId} = props ?? {};
+
+          return  completeIdentityVerification(identityVerificationId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CompleteIdentityVerificationMutationResult = NonNullable<Awaited<ReturnType<typeof completeIdentityVerification>>>
+
+    export type CompleteIdentityVerificationMutationError = RsData
+    export type CompleteIdentityVerificationMutationVariables = {identityVerificationId: string}
+
+    /**
+ * @summary 본인인증 확인
+ */
+export const useCompleteIdentityVerification = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeIdentityVerification>>, TError,CompleteIdentityVerificationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof completeIdentityVerification>>,
+        TError,
+        CompleteIdentityVerificationMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCompleteIdentityVerificationMutationOptions(options), queryClient);
+    }
+
+export const getStartIdentityVerificationUrl = () => {
+
+
+
+
+  return `/api/v1/auth/identity-verifications`
+}
+
+/**
+ * 포트원 창을 열 인증 ID를 만들어 15분 동안 저장한다. 화면은 이 ID로 PortOne.requestIdentityVerification()을 부른다. 서버가 만든 ID의 결과만 가입에 쓸 수 있다.
+ * @summary 본인인증 시작
+ */
+export const startIdentityVerification = async ( options?: Parameters<typeof customFetch>[1]): Promise<RsDataIdentityVerificationStartDto> => {
+
+  return customFetch<RsDataIdentityVerificationStartDto>(getStartIdentityVerificationUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getStartIdentityVerificationMutationKey = () => ['startIdentityVerification'] as const;
+
+export const getStartIdentityVerificationMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startIdentityVerification>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof startIdentityVerification>>, TError,void, TContext> => {
+
+const mutationKey = getStartIdentityVerificationMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof startIdentityVerification>>, void> = () => {
+
+
+          return  startIdentityVerification(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type StartIdentityVerificationMutationResult = NonNullable<Awaited<ReturnType<typeof startIdentityVerification>>>
+
+    export type StartIdentityVerificationMutationError = unknown
+
+
+    /**
+ * @summary 본인인증 시작
+ */
+export const useStartIdentityVerification = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startIdentityVerification>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof startIdentityVerification>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getStartIdentityVerificationMutationOptions(options), queryClient);
     }
 

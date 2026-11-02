@@ -19,6 +19,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.test.EmbeddedKafkaBroker;
 import org.springframework.kafka.test.context.EmbeddedKafka;
@@ -43,10 +44,11 @@ import com.bukang.member.domain.TermsType;
 import com.bukang.member.domain.exception.DuplicateEmailException;
 import com.bukang.member.domain.exception.DuplicateNicknameException;
 import com.bukang.member.dto.MemberDto;
-import com.bukang.member.dto.MemberJoinRequestDto;
 import com.bukang.member.dto.MemberModifyRequestDto;
 import com.bukang.member.dto.SellerApplyRequestDto;
 import com.bukang.member.dto.SellerDto;
+import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
+import com.bukang.member.out.identity.VerifiedIdentity;
 
 // 실제 임베디드 Kafka 브로커로 가입·수정 이벤트가 커밋 뒤에만 queuing.member.joined·modified에,
 // 판매자 변경 이벤트가 커밋 뒤에만 queuing.seller.changed에 나가는지 확인한다.
@@ -58,7 +60,11 @@ import com.bukang.member.dto.SellerDto;
 	topics = {KafkaTopics.MEMBER_MEMBER_JOINED, KafkaTopics.MEMBER_MODIFIED, KafkaTopics.SELLER_CHANGED})
 @TestPropertySource(properties =
 	"spring.datasource.url=jdbc:h2:mem:bukang-member-kafka-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1")
+@Import(InMemoryIdentityVerificationStore.Config.class)
 class MemberKafkaPublisherTest {
+	@Autowired
+	private InMemoryIdentityVerificationStore identityStore;
+
 	private static final Duration POLL_TIMEOUT = Duration.ofSeconds(10);
 
 	@Autowired
@@ -138,8 +144,8 @@ class MemberKafkaPublisherTest {
 	void notSendWhenRolledBack() {
 		transactionTemplate.executeWithoutResult(status -> {
 			memberJoinUseCase.join(
-				"rollback@crewrun.com", "password1234", "김롤백", "롤백러너", "010-2000-0002",
-				LocalDate.of(1995, 4, 12), null, List.of(TermsType.SERVICE, TermsType.PRIVACY)
+				"rollback@crewrun.com", "password1234", "롤백러너", null, List.of(TermsType.SERVICE, TermsType.PRIVACY),
+				new VerifiedIdentity("김롤백", LocalDate.of(1995, 4, 12), "010-2000-0002", "ci-rollback", null)
 			);
 			status.setRollbackOnly();
 		});
@@ -280,7 +286,7 @@ class MemberKafkaPublisherTest {
 	}
 
 	private MemberDto join(String email, String nickname, String phone) {
-		return memberFacade.join(new MemberJoinRequestDto(
+		return memberFacade.join(identityStore.joinRequest(
 			email, "password1234", "김러너", nickname, phone, LocalDate.of(1995, 4, 12), null,
 			List.of(TermsType.SERVICE, TermsType.PRIVACY)
 		));
