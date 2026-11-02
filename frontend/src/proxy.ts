@@ -33,6 +33,8 @@ export const config = {
     '/cart/:path*',
     '/checkout/:path*',
     '/notifications/:path*',
+    '/crews/:path*',
+    '/invite/:path*',
     '/races/:raceId/apply/:path*',
   ],
 }

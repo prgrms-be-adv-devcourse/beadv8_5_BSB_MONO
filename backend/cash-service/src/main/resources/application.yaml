@@ -55,6 +55,13 @@ cash:
   wallet:
     system-member-id: 1
     holding-member-id: 2
+  charge:
+    confirm:
+      # 선점(IN_PROGRESS)한 요청을 기다리는 예산(20회 x 100ms = 2초)은 Toss 응답 제한(clients.pg.timeout, 5초)보다
+      # 짧으면 안 된다 — 선점한 쪽이 Toss 응답을 기다리는 동안 다른 쪽이 먼저 포기해버릴 수 있다.
+      # 5초 + 지갑 잠금·기록 처리 여유분을 더해 70회 x 100ms = 7초로 둔다
+      max-wait-attempts: 70
+      wait-interval-millis: 100
 
   # PG(Toss페이먼츠) 결제 승인 연동 (PRO-81). mode가 fake면 가짜로 바로 승인하고, http면 실제 Toss API를 부른다
   # 로컬 개발·테스트는 Toss 서버를 안 거쳐도 되게 fake가 기본이고, 운영(prod)은 http다

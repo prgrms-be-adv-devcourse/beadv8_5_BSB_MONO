@@ -1,6 +1,7 @@
 // 약관 문구. 서버의 generateStaticParams도 쓰므로 'use client' 파일과 분리한다.
 // 근거는 레포에 있는 것만 쓴다: 회원 · 약관 코드(backend/member-service Member · TermsDataInit · MemberWithdrawUseCase),
-// 가입 요청(MemberJoinRequestDto), 참가 신청(ParticipationApplyRequestDto), docs/policy/listing-gaps.md.
+// 가입 요청(MemberJoinRequestDto), 참가 신청(ParticipationApplyRequestDto), docs/policy/listing-gaps.md,
+// 분석 쿠키 처리방침 문구(정책 담당 세션 10/30, 근거: 사용자 활동 추적 계획 4장 개인정보 규칙 · 쿠키 동의).
 // 정책 문서에 없는 법률 조항(보유 기간 법령 근거, 마케팅 수신 방법 · 철회, 약관 변경 고지 기간 등)은 넣지 않는다.
 // TODO(content): 위 항목은 정책이 정해지면 채운다.
 export const TERMS = {
@@ -40,6 +41,10 @@ export const TERMS = {
         '제3자 제공',
         '대회에 참가 신청할 때 대회를 연 판매자(주최자)에게 참가자 정보를 넘기는 것은 신청 단계에서 따로 동의를 받아요. 동의하지 않으면 신청할 수 없어요.',
       ],
+      [
+        '쿠키와 이용 통계',
+        '크루런은 서비스 이용 통계를 내려고 분석 쿠키를 써요. 분석 쿠키는 다시 방문한 브라우저를 알아보려고 브라우저에 저장하는 작은 파일이에요. 이 쿠키로 모은 화면 방문과 버튼 사용 기록은 Google 애널리틱스와 Google 태그 관리자로 보내요. 이 기록은 구매 화면과 판매자 센터를 더 쓰기 쉽게 고치는 데에만 써요. 이메일, 이름, 휴대폰 번호, 생년월일, 회원 번호처럼 회원을 알아볼 수 있는 정보는 보내지 않아요. 브라우저 설정에서 쿠키 저장을 거부하거나 저장된 쿠키를 지울 수 있어요. 다만 쿠키를 모두 거부하면 로그인 상태가 유지되지 않아 일부 서비스를 이용하기 어려워요.',
+      ],
     ],
   },
   marketing: {
@@ -51,9 +56,13 @@ export const TERMS = {
   },
 } as const
 
-/** 약관 데이터(member_terms)의 기본 시행일과 버전. TermsDataInit의 값이다. 최종 개정일은 정해진 값이 없어 보여 주지 않는다. */
-export const TERMS_EFFECTIVE_DATE = '2026.10.01'
-export const TERMS_VERSION = '1.0'
+/**
+ * 약관 화면에 보여 주는 시행일과 버전. 10/30 처리방침에 쿠키와 이용 통계 조항을 더하며 1.1로 올렸다.
+ * 약관 데이터(member_terms)의 기본값(backend TermsDataInit)은 아직 1.0 · 2026-10-01이라 맞춰야 한다.
+ * 최종 개정일은 정해진 값이 없어 보여 주지 않는다.
+ */
+export const TERMS_EFFECTIVE_DATE = '2026.10.30'
+export const TERMS_VERSION = '1.1'
 
 export type TermsSlug = keyof typeof TERMS
 

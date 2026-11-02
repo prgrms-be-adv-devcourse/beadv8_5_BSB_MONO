@@ -9,6 +9,7 @@ import {
   type ChargeOutcome,
   type ChargeReturn,
 } from '@/features/deposit-charge'
+import { trackEvent } from '@/shared/lib'
 import { Skeleton } from '@/shared/ui'
 
 /**
@@ -28,9 +29,15 @@ function nextHref(outcome: ChargeOutcome, returnOrderId: number | undefined): Ro
 // 토스 결제창이 successUrl·failUrl로 돌려보내는 화면. 충전을 확정하는 동안 로딩만 보여 준다.
 export function DepositChargeReturnPage(params: ChargeReturn) {
   const router = useRouter()
-  useConfirmChargeReturn(params, ({ outcome, returnOrderId }) =>
-    router.replace(nextHref(outcome, returnOrderId)),
-  )
+  useConfirmChargeReturn(params, ({ outcome, returnOrderId }) => {
+    if (outcome === 'completed') {
+      trackEvent('deposit_charge_done', {
+        amount: params.amount ?? 0,
+        duringCheckout: returnOrderId !== undefined,
+      })
+    }
+    router.replace(nextHref(outcome, returnOrderId))
+  })
   return (
     <>
       <AppHeader type="sub" title="예치금 충전" />
