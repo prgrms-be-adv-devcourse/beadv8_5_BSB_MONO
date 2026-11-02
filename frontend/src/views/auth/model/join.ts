@@ -10,7 +10,8 @@ import { agreedTermTypes, type SignupTermChecks } from './signup-terms'
 
 /**
  * 가입 단계 입력을 가입 요청(POST /api/v1/auth/join) 본문으로 바꾼다.
- * 약관은 동의한 종류만 agreedTerms로 보낸다("만 14세 이상"은 약관이 아니라 보내지 않는다). 성별은 선택이라 비워 둔다.
+ * 이름 · 생년월일 · 휴대폰 번호는 보내지 않는다. 서버가 본인인증 토큰으로 확인한 값을 쓴다.
+ * 약관은 동의한 종류만 agreedTerms로 보낸다("만 14세 이상"은 약관이 아니라 보내지 않는다). 성별은 고르지 않으면 뺀다.
  */
 export function toJoinRequest(
   account: SignupAccountValues,
@@ -22,21 +23,19 @@ export function toJoinRequest(
   return {
     email,
     password,
-    name: profile.name.trim(),
     nickname: profile.nickname.trim(),
-    phone: profile.phone.trim(),
-    // 날짜 선택기 값이 이미 API 형식(YYYY-MM-DD)이다
-    birthDate: profile.birth.trim(),
+    gender: profile.gender || undefined,
     agreedTerms: agreedTermTypes(terms),
     verificationToken,
   }
 }
 
 /**
- * 가입 실패를 어느 칸에 보여 줄지. form은 칸이 아닌 화면 아래 문구.
- * verification은 본인 확인을 처음부터 다시 해야 한다는 뜻이다(화면 아래 문구 + 인증 결과 지우기).
+ * 가입 실패를 어디에 보여 줄지. nickname은 닉네임 칸, form은 칸이 아닌 화면 아래 문구.
+ * verification은 본인인증을 처음부터 다시 해야 한다는 뜻이다(화면 아래 문구 + 인증 결과 지우기).
+ * duplicate는 이미 가입한 사람이라는 뜻이다(모달로 로그인 안내, 시안 M04-P 3).
  */
-export type JoinErrorTarget = keyof SignupProfileValues | 'form' | 'verification'
+export type JoinErrorTarget = 'nickname' | 'form' | 'verification' | 'duplicate'
 
 /**
  * 가입 실패 응답을 화면 문구로 바꾼다.
@@ -52,8 +51,10 @@ export function joinErrorMessage(error: unknown): { target: JoinErrorTarget; mes
       return { target: 'form', message: AUTH_ERRORS.emailTaken }
     case 'MEMBER_DUPLICATE_NICKNAME':
       return { target: 'nickname', message }
+    // 휴대폰 번호는 본인인증으로 받으므로, 번호가 겹치면 같은 사람이 이미 가입한 것이다
     case 'MEMBER_DUPLICATE_PHONE':
-      return { target: 'phone', message }
+    case 'MEMBER_DUPLICATE_IDENTITY':
+      return { target: 'duplicate', message }
     case 'MEMBER_REQUIRED_TERMS_NOT_AGREED':
       return { target: 'form', message: AUTH_ERRORS.joinTermsRequired }
     case 'INVALID_REQUEST':
@@ -62,7 +63,7 @@ export function joinErrorMessage(error: unknown): { target: JoinErrorTarget; mes
     case 'AUTH_VERIFICATION_REQUIRED':
       return { target: 'verification', message: AUTH_ERRORS.verificationExpired }
     case 'MEMBER_UNDER_AGE':
-      return { target: 'birth', message: AUTH_ERRORS.birthUnder14 }
+      return { target: 'form', message: AUTH_ERRORS.birthUnder14 }
     default:
       return { target: 'form', message }
   }

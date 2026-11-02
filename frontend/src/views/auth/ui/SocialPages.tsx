@@ -8,8 +8,9 @@ import { z } from 'zod'
 
 import { AppHeader } from '@/widgets/app-header'
 import { safeNextPath, socialProviderOf, useAuthStatus, useSocialJoin } from '@/features/auth'
+import { IdentityVerificationBand, LockedIdentityFields } from '@/features/identity-verification'
 import { ApiError, memberApi, unwrapData } from '@/shared/api'
-import { BottomCta, Button, Spinner, Stepper, TextField } from '@/shared/ui'
+import { BottomCta, Button, Divider, Spinner, Stepper, TextField } from '@/shared/ui'
 
 import { joinErrorMessage } from '../model/join'
 import {
@@ -17,11 +18,11 @@ import {
   signupProfileSchema,
   type SignupProfileValues,
 } from '../model/schemas'
+import { saveSignupDraft, takeSignupDraft } from '../model/signup-draft'
 import { useSignupStep } from '../model/signup-store'
 import { agreedTermTypes } from '../model/signup-terms'
-import { useSignupVerification } from '../model/use-signup-verification'
 import { CenterBody, StepIntro } from './parts'
-import { SignupProfileFields, SignupTermsSheet, VerificationNeededHint } from './SignupPages'
+import { DuplicateIdentityDialog, SignupProfileFields, SignupTermsSheet } from './SignupPages'
 
 const FAILED_LOGIN = '/login?error=AUTH_SOCIAL_FAILED'
 
@@ -93,7 +94,13 @@ function SocialSignupForm({
   const router = useRouter()
   const terms = useSignupStep((s) => s.terms)
   const termsAgreed = useSignupStep((s) => s.termsAgreed)
+  const account = useSignupStep((s) => s.account)
+  const profile = useSignupStep((s) => s.profile)
+  const verification = useSignupStep((s) => s.verification)
+  const setVerification = useSignupStep((s) => s.setVerification)
+  const restoreDraft = useSignupStep((s) => s.restoreDraft)
   const [termsOpen, setTermsOpen] = useState(!termsAgreed)
+  const [duplicate, setDuplicate] = useState(false)
   const join = useSocialJoin()
   const [formError, setFormError] = useState<string>()
   const providerLabel = socialProviderOf(provider)?.label ?? '소셜'
@@ -111,34 +118,30 @@ function SocialSignupForm({
     handleSubmit,
     setError,
     setValue,
+    getValues,
     control,
     formState: { errors, isValid, isSubmitting },
   } = useForm<SocialSignupValues>({
     resolver: zodResolver(schema),
     mode: 'onTouched',
+    // 모바일 본인인증에서 돌아오면 남겨 둔 이메일 · 닉네임으로 시작한다
     defaultValues: {
-      email: lockedEmail ?? '',
-      name: name ?? '',
-      birth: '',
-      phone: '',
-      nickname: '',
+      email: lockedEmail ?? account.email,
+      nickname: profile.nickname,
+      gender: '',
     },
   })
-
-  const { verification, onVerified, reset } = useSignupVerification(setValue)
-  const phone = useWatch({ control, name: 'phone' })
+  const gender = useWatch({ control, name: 'gender' })
 
   const onSubmit = handleSubmit((values) => {
-    // 가입 버튼은 본인 확인 뒤에만 켜지지만, Enter 제출도 같은 조건으로 막는다
+    // 가입 버튼은 본인인증 뒤에만 켜지지만, Enter 제출도 같은 조건으로 막는다
     if (!verification) return
     setFormError(undefined)
     join.mutate(
       {
         email: lockedEmail ? undefined : values.email.trim(),
-        name: values.name.trim(),
         nickname: values.nickname.trim(),
-        phone: values.phone.trim(),
-        birthDate: values.birth.trim(),
+        gender: values.gender || undefined,
         agreedTerms: agreedTermTypes(terms),
         verificationToken: verification.verificationToken,
       },
@@ -155,9 +158,8 @@ function SocialSignupForm({
           }
           // 같은 사람이 이메일이 다른 소셜 계정으로 다시 가입하려는 경우다. 새 회원 대신 계정 연결로 안내한다
           if (error instanceof ApiError && error.code === 'AUTH_SOCIAL_PHONE_TAKEN') {
-            setError('phone', { message: '이 번호로 가입한 계정이 있어요.' }, { shouldFocus: true })
             setFormError(
-              `원래 쓰던 방법으로 로그인한 뒤 마이 → 계정 연결에서 ${providerLabel} 계정을 연결해 주세요.`,
+              `이 번호로 가입한 계정이 있어요. 원래 쓰던 방법으로 로그인한 뒤 마이 → 계정 연결에서 ${providerLabel} 계정을 연결해 주세요.`,
             )
             return
           }
@@ -166,9 +168,10 @@ function SocialSignupForm({
             return
           }
           const { target, message } = joinErrorMessage(error)
-          if (target === 'verification') reset()
-          if (target === 'form' || target === 'verification') setFormError(message)
-          else setError(target, { message }, { shouldFocus: true })
+          if (target === 'duplicate') return setDuplicate(true)
+          if (target === 'nickname') return setError(target, { message }, { shouldFocus: true })
+          if (target === 'verification') setVerification(null)
+          setFormError(message)
         },
       },
     )
@@ -188,11 +191,33 @@ function SocialSignupForm({
         <div className="bg-bg-surface px-4 pt-3 pb-1">
           <Stepper steps={STEPS} current={termsAgreed ? 1 : 0} />
         </div>
+        <p className="bg-bg-brand-subtle px-4 py-3 text-body-s text-text-primary">
+          {providerLabel} 계정으로 가입하고 있어요
+        </p>
         <CenterBody center={false}>
-          <StepIntro
-            title="회원 정보를 적어요"
-            description={`${providerLabel} 계정으로 가입해요. 대회 신청에 필요한 정보만 받아요.`}
+          <IdentityVerificationBand
+            verification={verification}
+            onVerified={setVerification}
+            onBeforeOpen={() =>
+              saveSignupDraft({
+                terms,
+                termsAgreed,
+                email: lockedEmail ? undefined : getValues('email'),
+                nickname: getValues('nickname'),
+              })
+            }
+            onReturn={() => {
+              const draft = takeSignupDraft()
+              if (!draft) return
+              restoreDraft(draft)
+              setTermsOpen(!draft.termsAgreed)
+              if (!lockedEmail && draft.email) setValue('email', draft.email)
+              if (draft.nickname) setValue('nickname', draft.nickname, { shouldValidate: true })
+            }}
           />
+          <Divider type="section" className="-mx-4" />
+          <StepIntro title="회원 정보" description="마지막 단계예요. 다음은 가입 완료예요." />
+          <LockedIdentityFields identity={verification} provider={{ name, label: providerLabel }} />
           {lockedEmail ? (
             <TextField
               label="이메일"
@@ -214,10 +239,8 @@ function SocialSignupForm({
           <SignupProfileFields
             register={register as unknown as UseFormRegister<SignupProfileValues>}
             errors={errors}
-            phone={phone}
-            verification={verification}
-            onVerified={onVerified}
-            onResetVerification={reset}
+            gender={gender}
+            onGenderChange={(value) => setValue('gender', value, { shouldValidate: true })}
           />
           {formError && (
             <p role="alert" className="text-caption text-text-danger">
@@ -228,21 +251,19 @@ function SocialSignupForm({
         <BottomCta
           className="sticky bottom-0 z-10"
           primary={
-            <div className="flex flex-col gap-2">
-              <VerificationNeededHint show={!verification} />
-              <Button
-                type="submit"
-                size="l"
-                disabled={!isValid || !verification}
-                loading={submitting}
-              >
-                가입 완료
-              </Button>
-            </div>
+            <Button
+              type="submit"
+              size="l"
+              disabled={!isValid || !verification}
+              loading={submitting}
+            >
+              가입 완료
+            </Button>
           }
         />
       </form>
       <SignupTermsSheet open={termsOpen} onOpenChange={setTermsOpen} />
+      <DuplicateIdentityDialog open={duplicate} onOpenChange={setDuplicate} />
     </>
   )
 }

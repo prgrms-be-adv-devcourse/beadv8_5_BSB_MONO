@@ -1,12 +1,5 @@
 import { http, HttpResponse, type RequestHandler } from 'msw'
 
-import {
-  answerPassVerification,
-  answerPhoneVerificationConfirm,
-  answerPhoneVerificationRequest,
-  readMockVerificationToken,
-  type MockAnswer,
-} from '@/shared/api'
 import { getBukangCashAPIMock } from '@/shared/api/generated/cash/cash.msw'
 import {
   getBukangFileAPIMock,
@@ -46,6 +39,7 @@ import {
 import type { SearchParams } from '@/shared/api/generated/product/product.schemas'
 
 import { fileUploadHandlers } from './file-upload'
+import { answerMockPass, readMockVerificationToken, type MockAnswer } from './identity-verification'
 import {
   clearMockBalanceCookie,
   clearMockMemberCookie,
@@ -132,7 +126,7 @@ const authHandlers = [
   // 시작 · 콜백(제공자 화면을 다녀오는 302)은 목으로 흉내 내지 않는다.
   http.post('*/api/v1/auth/oauth2/join', async ({ request }) => {
     const body = (await request.json().catch(() => ({}))) as Record<string, unknown>
-    if (!readMockVerificationToken(body.verificationToken, body)) return verificationRequired()
+    if (!readMockVerificationToken(body.verificationToken)) return verificationRequired()
     return HttpResponse.json(getSocialJoinResponseMock(), {
       status: 201,
       headers: withCookies(issueMockRefreshCookie(), issueMockLoginMarkCookie()),
@@ -245,9 +239,16 @@ const signupHandlers = [
         { status: 400 },
       )
     }
-    if (!readMockVerificationToken(body.verificationToken, body)) return verificationRequired()
+    // 이름 · 휴대폰 번호 · 생년월일은 본인인증 토큰에 담긴 값을 쓴다 (백엔드와 같다)
+    const identity = readMockVerificationToken(body.verificationToken)
+    if (!identity) return verificationRequired()
     // 가입한 프로필을 쿠키에 담아 두면 같은 이메일로 로그인할 때 그 정보로 시작한다 (mock-member.ts)
-    const profile = profileFromJoinBody(body)
+    const profile = profileFromJoinBody({
+      ...body,
+      name: identity.name,
+      phone: identity.phone,
+      birthDate: identity.birthDate,
+    })
     return HttpResponse.json(
       { status: 201, message: 'Member Joined Successfully', data: null },
       {
@@ -281,41 +282,24 @@ const signupHandlers = [
 ]
 
 /**
- * 휴대폰 인증 · PASS 본인인증 목. 규칙은 shared/api/identity-verification-mock.ts에 있고,
- * 실제 백엔드 모드에서 브라우저가 쓰는 가짜 응답과 같은 규칙이다. 백엔드에는 아직 이 API가 없다.
+ * 체험용 PASS 본인인증 목. 가짜 응답 모드의 체험용 인증 창이 부른다. 규칙은 identity-verification.ts에 있다.
+ * 실제 백엔드 모드는 포트원 창을 열고 백엔드의 본인인증 시작 · 확인 API를 쓴다.
  */
 const toResponse = <T>({ status, body }: MockAnswer<T>) => HttpResponse.json(body, { status })
 
-/** 요청 본문. JSON이 아니면 빈 객체로 보고 규칙 함수가 400으로 답한다 */
-const jsonBody = async (request: Request) =>
-  (await request.json().catch(() => ({}))) as Record<string, unknown>
-
 const identityVerificationHandlers = [
-  http.post('*/api/v1/auth/phone-verifications', async ({ request }) =>
-    toResponse(answerPhoneVerificationRequest(await jsonBody(request))),
-  ),
-  http.post(
-    '*/api/v1/auth/phone-verifications/:verificationId/confirm',
-    async ({ request, params }) =>
-      toResponse(
-        answerPhoneVerificationConfirm(String(params.verificationId), await jsonBody(request)),
-      ),
-  ),
   http.post('*/api/v1/auth/identity-verifications/pass', async ({ request }) =>
-    toResponse(answerPassVerification(await jsonBody(request))),
+    toResponse(answerMockPass((await request.json().catch(() => ({}))) as Record<string, unknown>)),
   ),
 ]
 
-/**
- * 가입 요청에 휴대폰 인증 · PASS 본인인증 토큰이 없거나, 지났거나, 요청의 휴대폰 번호와 다를 때.
- * 실제 백엔드는 아직 이 토큰을 확인하지 않는다(목업 전용).
- */
+/** 가입 요청에 본인인증 토큰이 없거나 15분이 지났을 때. 백엔드와 같은 400 AUTH_VERIFICATION_REQUIRED다 */
 function verificationRequired() {
   return HttpResponse.json(
     {
       status: 400,
       code: 'AUTH_VERIFICATION_REQUIRED',
-      message: '본인 확인을 다시 해주세요.',
+      message: '본인인증을 다시 해주세요.',
       data: null,
     },
     { status: 400 },

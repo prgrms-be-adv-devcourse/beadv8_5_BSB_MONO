@@ -6,7 +6,8 @@ import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { getAuthStatus } from '@/shared/api'
-import { pickDate, server } from '@/shared/testing'
+import { server } from '@/shared/testing'
+import { ToastProvider } from '@/shared/ui'
 
 import { SignupStepProvider } from '../model/signup-store'
 import { termChecks } from '../model/signup-terms'
@@ -21,23 +22,41 @@ vi.mock('next/navigation', () => ({
 
 beforeEach(() => replace.mockClear())
 
-function withProviders(ui: ReactNode, termsAgreed = true) {
+// 본인인증을 마친 결과. 본인인증 버튼과 창은 signup-verification.test.tsx에서 확인한다
+const VERIFIED = {
+  verificationToken: 'mock-verification.token',
+  name: '김인증',
+  birthDate: '1995-04-12',
+  phone: '010-9876-5432',
+}
+
+function withProviders(ui: ReactNode, { termsAgreed = true, verified = false } = {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return (
     <QueryClientProvider client={client}>
-      <SignupStepProvider initialState={{ terms: termChecks(termsAgreed), termsAgreed }}>
-        {ui}
-      </SignupStepProvider>
+      <ToastProvider>
+        <SignupStepProvider
+          initialState={{
+            terms: termChecks(termsAgreed),
+            termsAgreed,
+            verification: verified ? VERIFIED : null,
+          }}
+        >
+          {ui}
+        </SignupStepProvider>
+      </ToastProvider>
     </QueryClientProvider>
   )
 }
 
-// 휴대폰 번호 칸에 넣은 번호로 인증까지 마친다 (목업 인증번호는 언제나 123456). 인증해야 가입 버튼이 켜진다.
-async function verifyPhone(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('button', { name: '인증번호 받기' }))
-  await user.type(await screen.findByLabelText('인증번호'), '123456')
-  await user.click(screen.getByRole('button', { name: '인증번호 확인하기' }))
-  await screen.findByText('휴대폰 인증을 마쳤어요')
+function signupInfo(provider: 'KAKAO' | 'GOOGLE', email: string) {
+  return http.get('*/api/v1/auth/oauth2/signup', () =>
+    HttpResponse.json({
+      status: 200,
+      message: '소셜 가입 정보 조회 성공',
+      data: { provider, email, emailLocked: true, name: '김러너' },
+    }),
+  )
 }
 
 describe('LoginPage 소셜 로그인', () => {
@@ -64,16 +83,29 @@ describe('LoginPage 소셜 로그인', () => {
 })
 
 describe('SocialSignupPage', () => {
-  it('제공자가 확인한 이메일은 고칠 수 없게 보여 주고, 가입하면 로그인 상태로 next에 간다', async () => {
+  it('본인인증 전에는 제공자 이름만 보여 주고 나머지 칸은 비운 채 잠그며, 가입 버튼이 꺼져 있다', async () => {
+    server.use(signupInfo('KAKAO', 'runner@kakao.com'))
+    render(withProviders(<SocialSignupPage />))
+
+    const email = await screen.findByLabelText('이메일')
+    expect(email).toHaveValue('runner@kakao.com')
+    expect(email).toHaveAttribute('readonly')
+    expect(screen.getByLabelText('이름')).toHaveValue('김러너')
+    expect(screen.getByLabelText('이름')).toBeDisabled()
+    expect(
+      screen.getByText('카카오에서 받은 이름이에요. 본인인증을 하면 인증된 이름으로 바뀌어요'),
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText('휴대폰 번호')).toHaveValue('')
+    expect(screen.getAllByText('본인인증을 하면 채워져요')).toHaveLength(2)
+    expect(screen.getByRole('button', { name: '휴대폰 본인인증' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '가입 완료' })).toBeDisabled()
+    expect(screen.getByText('카카오 계정으로 가입하고 있어요')).toBeInTheDocument()
+  })
+
+  it('본인인증을 마쳤으면 인증된 이름으로 바꿔 잠그고, 가입하면 인증 토큰을 보내 로그인 상태로 next에 간다', async () => {
     let body: Record<string, unknown> | undefined
     server.use(
-      http.get('*/api/v1/auth/oauth2/signup', () =>
-        HttpResponse.json({
-          status: 200,
-          message: '소셜 가입 정보 조회 성공',
-          data: { provider: 'KAKAO', email: 'runner@kakao.com', emailLocked: true, name: '김러너' },
-        }),
-      ),
+      signupInfo('KAKAO', 'runner@kakao.com'),
       http.post('*/api/v1/auth/oauth2/join', async ({ request }) => {
         body = (await request.json()) as Record<string, unknown>
         return HttpResponse.json(
@@ -87,49 +119,27 @@ describe('SocialSignupPage', () => {
       }),
     )
     const user = userEvent.setup()
-    render(withProviders(<SocialSignupPage next="/races/12" />))
+    render(withProviders(<SocialSignupPage next="/races/12" />, { verified: true }))
 
-    const email = await screen.findByLabelText('이메일')
-    expect(email).toHaveValue('runner@kakao.com')
-    expect(email).toHaveAttribute('readonly')
-    expect(screen.getByLabelText('이름')).toHaveValue('김러너')
-
-    await pickDate(user, '생년월일', '1995-04-12')
-    await user.type(screen.getByLabelText('휴대폰 번호'), '01098765432')
+    await screen.findByLabelText('이메일')
+    expect(screen.getByText('본인인증 완료')).toBeInTheDocument()
+    expect(screen.getByLabelText('이름')).toHaveValue('김인증')
+    expect(screen.getByLabelText('휴대폰 번호')).toHaveValue('010-9876-5432')
     await user.type(screen.getByLabelText('닉네임'), '소셜러너')
-    // 본인 확인 전에는 가입 버튼이 꺼져 있고, 왜 꺼졌는지 버튼 위에 알려 준다
-    expect(screen.getByRole('button', { name: '가입 완료' })).toBeDisabled()
-    expect(
-      screen.getByText('휴대폰 인증이나 PASS 본인인증을 마치면 가입할 수 있어요.'),
-    ).toBeInTheDocument()
-    await verifyPhone(user)
     await user.click(screen.getByRole('button', { name: '가입 완료' }))
 
     await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/races/12'))
-    expect(body).toMatchObject({
-      name: '김러너',
+    expect(body).toEqual({
       nickname: '소셜러너',
       agreedTerms: ['SERVICE', 'PRIVACY', 'MARKETING'],
-      verificationToken: expect.stringMatching(/^mock-verification\./),
+      verificationToken: 'mock-verification.token',
     })
-    expect(body?.email).toBeUndefined()
     expect(getAuthStatus()).toBe('authenticated')
   })
 
   it('휴대폰 번호로 이미 가입한 사람이면 새로 가입하지 않고 계정 연결을 안내한다', async () => {
     server.use(
-      http.get('*/api/v1/auth/oauth2/signup', () =>
-        HttpResponse.json({
-          status: 200,
-          message: '소셜 가입 정보 조회 성공',
-          data: {
-            provider: 'GOOGLE',
-            email: 'runner@gmail.com',
-            emailLocked: true,
-            name: '김러너',
-          },
-        }),
-      ),
+      signupInfo('GOOGLE', 'runner@gmail.com'),
       http.post('*/api/v1/auth/oauth2/join', () =>
         HttpResponse.json(
           { status: 409, code: 'AUTH_SOCIAL_PHONE_TAKEN', message: '이미 가입', data: null },
@@ -138,19 +148,15 @@ describe('SocialSignupPage', () => {
       ),
     )
     const user = userEvent.setup()
-    render(withProviders(<SocialSignupPage />))
+    render(withProviders(<SocialSignupPage />, { verified: true }))
 
     await screen.findByLabelText('이메일')
-    await pickDate(user, '생년월일', '1995-04-12')
-    await user.type(screen.getByLabelText('휴대폰 번호'), '01098765432')
     await user.type(screen.getByLabelText('닉네임'), '소셜러너')
-    await verifyPhone(user)
     await user.click(screen.getByRole('button', { name: '가입 완료' }))
 
-    expect(await screen.findByText('이 번호로 가입한 계정이 있어요.')).toBeInTheDocument()
     expect(
-      screen.getByText(
-        '원래 쓰던 방법으로 로그인한 뒤 마이 → 계정 연결에서 구글 계정을 연결해 주세요.',
+      await screen.findByText(
+        '이 번호로 가입한 계정이 있어요. 원래 쓰던 방법으로 로그인한 뒤 마이 → 계정 연결에서 구글 계정을 연결해 주세요.',
       ),
     ).toBeInTheDocument()
     expect(replace).not.toHaveBeenCalled()

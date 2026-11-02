@@ -1,58 +1,121 @@
-import {
-  answerPassVerification,
-  answerPhoneVerificationConfirm,
-  answerPhoneVerificationRequest,
-  ApiError,
-  memberApi,
-  unwrapData,
-  type memberModel,
-  type MockAnswer,
-} from '@/shared/api'
+import { requestIdentityVerification as openPortOneWindow } from '@portone/browser-sdk/v2'
+
+import { ApiError, memberApi, unwrapData, type memberModel } from '@/shared/api'
 import { clientEnv } from '@/shared/config'
 
 /**
- * 휴대폰 인증 · PASS 본인인증 요청. 백엔드에는 아직 이 API가 없다(목업).
- * - 가짜 응답 모드(API_MOCKING=on): /api로 보내 MSW 핸들러가 답한다.
- * - 실제 백엔드 모드: 보내면 404가 나므로 브라우저 안에서 같은 규칙(shared/api/identity-verification-mock.ts)으로 답한다.
- * 어느 쪽이든 실패는 ApiError(code)로 던진다.
+ * 가입 본인인증 (포트원 V2 + KG이니시스 통합인증, BUK-33).
+ * 순서: 백엔드가 인증 ID를 만든다 → 포트원 창을 연다 → 백엔드가 포트원에서 결과를 직접 확인한다.
+ * 가짜 응답 모드(API_MOCKING=on)는 포트원 창 대신 체험용 창(MockPassSheet)이 verifyWithMockPass를 부른다.
  */
-type Mode = { mocking: boolean }
 
-const browserMode = (): Mode => ({ mocking: clientEnv.NEXT_PUBLIC_API_MOCKING === 'on' })
+export type VerifiedIdentity = memberModel.VerifiedIdentityDto
 
-/** 브라우저 안 가짜 응답을 진짜 응답처럼 바꾼다. 화면이 멈춘 것처럼 보이지 않게 조금 기다린다. */
-async function fromLocal<T>(answer: MockAnswer<T>, url: string): Promise<T> {
-  await new Promise((resolve) => setTimeout(resolve, 300))
-  if (answer.status >= 300 || answer.body.data === null) {
-    throw new ApiError(answer.status, answer.body, url)
+export type IdentityVerificationOutcome =
+  | { status: 'verified'; identity: VerifiedIdentity }
+  /** 모바일은 포트원 창이 페이지를 옮겨 간다. 결과는 돌아온 주소의 쿼리로 온다 (completeFromRedirect) */
+  | { status: 'redirecting' }
+  /** 사용자가 포트원 창을 직접 닫았다. 실패가 아니므로 안내 없이 원래 화면으로 돌아온다 */
+  | { status: 'cancelled' }
+  | { status: 'failed'; message: string }
+
+export const IDENTITY_MESSAGES = {
+  failed: '본인인증을 마치지 못했어요. 다시 시도해 주세요.',
+  ciMissing: '이 인증 방법으로는 가입할 수 없어요. 다른 인증 방법을 골라 주세요.',
+  unavailable: '본인인증 결과를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.',
+  notConfigured: '지금은 본인인증을 할 수 없어요. 잠시 후 다시 시도해 주세요.',
+} as const
+
+/** 가짜 응답 모드인지. 이때는 포트원 창 대신 체험용 창을 쓴다 */
+export function isIdentityMock() {
+  return clientEnv.NEXT_PUBLIC_API_MOCKING === 'on'
+}
+
+function failureMessage(error: unknown): string {
+  if (!(error instanceof ApiError)) return IDENTITY_MESSAGES.failed
+  if (error.code === 'AUTH_VERIFICATION_CI_MISSING') return IDENTITY_MESSAGES.ciMissing
+  if (error.code === 'AUTH_VERIFICATION_UNAVAILABLE') return IDENTITY_MESSAGES.unavailable
+  return IDENTITY_MESSAGES.failed
+}
+
+// 포트원 문서에 「사용자가 창을 닫음」 코드가 따로 없다. SDK 오류 코드(Cancelled)나 취소 문구로 판단한다
+function isCancel(code: string | undefined, message: string | undefined) {
+  return code === 'Cancelled' || (message ?? '').includes('취소')
+}
+
+async function complete(identityVerificationId: string): Promise<IdentityVerificationOutcome> {
+  try {
+    const identity = unwrapData(
+      await memberApi.completeIdentityVerification(identityVerificationId),
+    )
+    return { status: 'verified', identity }
+  } catch (error) {
+    return { status: 'failed', message: failureMessage(error) }
   }
-  return answer.body.data
 }
 
-export async function requestPhoneCode(
-  phone: string,
-  mode = browserMode(),
-): Promise<memberModel.PhoneVerificationDto> {
-  const url = memberApi.getRequestPhoneVerificationUrl()
-  if (!mode.mocking) return fromLocal(answerPhoneVerificationRequest({ phone }), url)
-  return unwrapData(await memberApi.requestPhoneVerification({ phone }))
+/**
+ * 포트원 본인인증 창을 열고 결과를 받는다. 창을 여는 일과 결과를 받는 일은 모두 이 함수 하나에서 한다.
+ * redirectUrl은 모바일에서 인증을 마친 뒤 돌아올 가입 화면 주소다. PC는 창이 닫히면 이 함수가 결과를 돌려준다.
+ */
+export async function requestIdentityVerification({
+  redirectUrl,
+}: {
+  redirectUrl: string
+}): Promise<IdentityVerificationOutcome> {
+  const storeId = clientEnv.NEXT_PUBLIC_PORTONE_STORE_ID
+  const channelKey = clientEnv.NEXT_PUBLIC_PORTONE_IDENTITY_CHANNEL_KEY
+  if (!storeId || !channelKey) return { status: 'failed', message: IDENTITY_MESSAGES.notConfigured }
+
+  const identityVerificationId = await memberApi
+    .startIdentityVerification()
+    .then((response) => unwrapData(response).identityVerificationId)
+    .catch(() => undefined)
+  if (!identityVerificationId) return { status: 'failed', message: IDENTITY_MESSAGES.notConfigured }
+
+  const response = await openPortOneWindow({
+    storeId,
+    channelKey,
+    identityVerificationId,
+    redirectUrl,
+  }).catch(() => null)
+  // undefined는 페이지를 옮겨 가는 중이라는 뜻이다(리디렉션 방식)
+  if (response === undefined) return { status: 'redirecting' }
+  if (response === null) return { status: 'failed', message: IDENTITY_MESSAGES.failed }
+  if (response.code) {
+    return isCancel(response.code, response.message)
+      ? { status: 'cancelled' }
+      : { status: 'failed', message: IDENTITY_MESSAGES.failed }
+  }
+  return complete(identityVerificationId)
 }
 
-export async function confirmPhoneCode(
-  verificationId: string,
-  code: string,
-  mode = browserMode(),
-): Promise<memberModel.IdentityVerificationDto> {
-  const url = memberApi.getConfirmPhoneVerificationUrl(verificationId)
-  if (!mode.mocking) return fromLocal(answerPhoneVerificationConfirm(verificationId, { code }), url)
-  return unwrapData(await memberApi.confirmPhoneVerification(verificationId, { code }))
+/**
+ * 모바일 리디렉션으로 돌아온 주소의 쿼리에서 결과를 받는다. 본인인증으로 돌아온 주소가 아니면 null.
+ * 포트원은 identityVerificationId와, 실패했으면 code를 붙여 돌려보낸다.
+ */
+export async function completeFromRedirect(
+  search: URLSearchParams,
+): Promise<IdentityVerificationOutcome | null> {
+  const identityVerificationId = search.get('identityVerificationId')
+  if (!identityVerificationId) return null
+  const code = search.get('code')
+  if (code) {
+    return isCancel(code, search.get('message') ?? undefined)
+      ? { status: 'cancelled' }
+      : { status: 'failed', message: IDENTITY_MESSAGES.failed }
+  }
+  return complete(identityVerificationId)
 }
 
-export async function verifyWithPass(
+/** 체험용 창의 인증 (가짜 응답 모드 전용). 입력한 값을 확인된 정보로 돌려받는다 */
+export async function verifyWithMockPass(
   body: memberModel.PassVerificationRequestDto,
-  mode = browserMode(),
-): Promise<memberModel.IdentityVerificationDto> {
-  const url = memberApi.getVerifyIdentityWithPassUrl()
-  if (!mode.mocking) return fromLocal(answerPassVerification(body), url)
-  return unwrapData(await memberApi.verifyIdentityWithPass(body))
+): Promise<IdentityVerificationOutcome> {
+  try {
+    const identity = unwrapData(await memberApi.verifyIdentityWithMockPass(body))
+    return { status: 'verified', identity }
+  } catch {
+    return { status: 'failed', message: IDENTITY_MESSAGES.failed }
+  }
 }

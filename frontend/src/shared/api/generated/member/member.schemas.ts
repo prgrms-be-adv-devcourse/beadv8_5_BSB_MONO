@@ -80,11 +80,6 @@ export const MemberJoinRequestDtoAgreedTermsItem = {
  */
 export interface MemberJoinRequestDto {
   /**
-     * 휴대폰 인증 · PASS 본인인증으로 받은 인증 토큰 (목업. 백엔드는 아직 확인하지 않는다)
-     * @nullable
-     */
-  verificationToken?: string | null;
-  /**
      * 이메일 (로그인 ID)
      * @minLength 1
      */
@@ -96,24 +91,11 @@ export interface MemberJoinRequestDto {
      */
   password: string;
   /**
-     * 실명
-     * @minLength 1
-     */
-  name: string;
-  /**
      * 닉네임 (한글 2~8자, 영문 4~16자, 한글·영문·숫자만)
      * @minLength 1
      * @pattern ^[가-힣A-Za-z0-9]+$
      */
   nickname: string;
-  /**
-     * 휴대폰 번호 (하이픈 생략 가능)
-     * @minLength 1
-     * @pattern ^01[016789]-?\d{3,4}-?\d{4}$
-     */
-  phone: string;
-  /** 생년월일 */
-  birthDate: string;
   /**
      * 성별 (선택)
      * @nullable
@@ -121,6 +103,11 @@ export interface MemberJoinRequestDto {
   gender?: MemberJoinRequestDtoGender;
   /** 동의한 약관 종류 (SERVICE, PRIVACY는 필수). 동의하지 않은 선택 약관은 빼고 보낸다 */
   agreedTerms: MemberJoinRequestDtoAgreedTermsItem[];
+  /**
+     * 본인인증 결과의 인증 토큰. 이름 · 생년월일 · 휴대폰 번호는 이 인증으로 확인한 값으로 가입한다
+     * @minLength 1
+     */
+  verificationToken: string;
 }
 
 /**
@@ -197,20 +184,10 @@ export const SocialJoinRequestDtoAgreedTermsItem = {
  */
 export interface SocialJoinRequestDto {
   /**
-     * 휴대폰 인증 · PASS 본인인증으로 받은 인증 토큰 (목업. 백엔드는 아직 확인하지 않는다)
-     * @nullable
-     */
-  verificationToken?: string | null;
-  /**
      * 이메일. 제공자가 확인된 이메일을 줬으면 무시하고, 안 줬으면 필수
      * @nullable
      */
   email?: string | null;
-  /**
-     * 실명
-     * @minLength 1
-     */
-  name: string;
   /**
      * 닉네임 (한글 2~8자, 영문 4~16자, 한글·영문·숫자만)
      * @minLength 1
@@ -218,20 +195,53 @@ export interface SocialJoinRequestDto {
      */
   nickname: string;
   /**
-     * 휴대폰 번호 (하이픈 생략 가능)
-     * @minLength 1
-     * @pattern ^01[016789]-?\d{3,4}-?\d{4}$
-     */
-  phone: string;
-  /** 생년월일 */
-  birthDate: string;
-  /**
      * 성별 (선택)
      * @nullable
      */
   gender?: SocialJoinRequestDtoGender;
   /** 동의한 약관 종류 (SERVICE, PRIVACY는 필수). 동의하지 않은 선택 약관은 빼고 보낸다 */
   agreedTerms: SocialJoinRequestDtoAgreedTermsItem[];
+  /**
+     * 본인인증 결과의 인증 토큰. 이름 · 생년월일 · 휴대폰 번호는 이 인증으로 확인한 값으로 가입한다
+     * @minLength 1
+     */
+  verificationToken: string;
+}
+
+/**
+ * 본인인증 시작 응답
+ */
+export interface IdentityVerificationStartDto {
+  /** 포트원 SDK requestIdentityVerification()에 넘길 인증 ID. 15분 안에 인증을 마쳐야 한다 */
+  identityVerificationId: string;
+}
+
+/**
+ * 본인인증 결과. 가입 화면은 이 값으로 이름 · 생년월일 · 휴대폰 번호를 채우고 잠근다
+ */
+export interface VerifiedIdentityDto {
+  /** 가입 요청에 넣는 인증 토큰(인증 ID와 같다). 15분 동안 쓸 수 있다 */
+  verificationToken: string;
+  /** 인증된 실명 */
+  name: string;
+  /** 인증된 생년월일 */
+  birthDate: string;
+  /** 인증된 휴대폰 번호 */
+  phone: string;
+}
+
+export interface RsDataIdentityVerificationStartDto {
+  status?: number;
+  code?: string;
+  message?: string;
+  data?: IdentityVerificationStartDto;
+}
+
+export interface RsDataVerifiedIdentityDto {
+  status?: number;
+  code?: string;
+  message?: string;
+  data?: VerifiedIdentityDto;
 }
 
 export type MemberDtoSocialProvidersItem = typeof MemberDtoSocialProvidersItem[keyof typeof MemberDtoSocialProvidersItem];
@@ -358,44 +368,6 @@ export interface RsDataVoid {
 }
 
 /**
- * 휴대폰 인증번호 받기 요청
- */
-export interface PhoneVerificationRequestDto {
-  /**
-     * 휴대폰 번호 (하이픈 생략 가능)
-     * @pattern ^01[016789]-?\d{3,4}-?\d{4}$
-     */
-  phone: string;
-}
-
-/**
- * 인증번호를 보낸 결과
- */
-export interface PhoneVerificationDto {
-  /** 인증번호를 확인할 때 쓰는 값 */
-  verificationId: string;
-  /** 인증번호를 쓸 수 있는 남은 초 */
-  expiresInSeconds: number;
-}
-
-export interface RsDataPhoneVerificationDto {
-  status?: number;
-  message?: string;
-  data?: PhoneVerificationDto;
-}
-
-/**
- * 휴대폰 인증번호 확인 요청
- */
-export interface PhoneVerificationConfirmRequestDto {
-  /**
-     * 문자로 받은 6자리 숫자
-     * @pattern ^\d{6}$
-     */
-  code: string;
-}
-
-/**
  * 통신사 (MVNO는 알뜰폰)
  */
 export type PassVerificationRequestDtoCarrier = typeof PassVerificationRequestDtoCarrier[keyof typeof PassVerificationRequestDtoCarrier];
@@ -426,45 +398,6 @@ export interface PassVerificationRequestDto {
      * @pattern ^01[016789]-?\d{3,4}-?\d{4}$
      */
   phone: string;
-}
-
-/**
- * 인증한 방법
- */
-export type IdentityVerificationDtoMethod = typeof IdentityVerificationDtoMethod[keyof typeof IdentityVerificationDtoMethod];
-
-
-export const IdentityVerificationDtoMethod = {
-  PHONE: 'PHONE',
-  PASS: 'PASS',
-} as const;
-
-/**
- * 본인 확인 결과
- */
-export interface IdentityVerificationDto {
-  /** 가입 요청에 넣는 인증 토큰. 30분 동안 쓸 수 있다 */
-  verificationToken: string;
-  /** 인증한 방법 */
-  method: IdentityVerificationDtoMethod;
-  /** 인증한 휴대폰 번호 */
-  phone: string;
-  /**
-     * PASS로 확인한 실명. 휴대폰 인증이면 null
-     * @nullable
-     */
-  name?: string | null;
-  /**
-     * PASS로 확인한 생년월일. 휴대폰 인증이면 null
-     * @nullable
-     */
-  birthDate?: string | null;
-}
-
-export interface RsDataIdentityVerificationDto {
-  status?: number;
-  message?: string;
-  data?: IdentityVerificationDto;
 }
 
 export interface RsDataMemberDto {

@@ -11,15 +11,6 @@ export { restoreSession } from './auth-session'
 export { customFetch, type CustomFetchInit } from './fetcher'
 export { createIdempotencyKey } from './idempotency'
 export { useIdempotencyKey } from './use-idempotency-key'
-export {
-  answerPassVerification,
-  answerPhoneVerificationConfirm,
-  answerPhoneVerificationRequest,
-  MOCK_CODE_TTL_SECONDS,
-  MOCK_VERIFICATION_CODE,
-  readMockVerificationToken,
-  type MockAnswer,
-} from './identity-verification-mock'
 export { getQueryClient } from './query-client'
 export { unwrapData, type RsData } from './rs-data'
 

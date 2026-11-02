@@ -2117,6 +2117,111 @@
           }
         }
       }
+    },
+    "/api/v1/auth/identity-verifications": {
+      "post": {
+        "tags": [
+          "IdentityVerification"
+        ],
+        "summary": "본인인증 시작",
+        "description": "포트원 창을 열 인증 ID를 만들어 15분 동안 저장한다. 화면은 이 ID로 PortOne.requestIdentityVerification()을 부른다. 서버가 만든 ID의 결과만 가입에 쓸 수 있다.",
+        "operationId": "startIdentityVerification",
+        "responses": {
+          "201": {
+            "description": "인증 ID 발급",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsDataIdentityVerificationStartDto"
+                },
+                "example": {
+                  "status": 201,
+                  "message": "본인인증을 시작했습니다.",
+                  "data": {
+                    "identityVerificationId": "crewrun-iv-6f1c2b9e-3a5d-4c7e-9b1a-2d8f0e4c6a71"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/identity-verifications/{identityVerificationId}/complete": {
+      "post": {
+        "tags": [
+          "IdentityVerification"
+        ],
+        "summary": "본인인증 확인",
+        "description": "포트원 창이 끝나면 부른다. 서버가 포트원 조회 API로 결과를 직접 확인하고, 확인된 이름 · 생년월일 · 휴대폰 번호와 CI 해시를 15분 동안 저장한다. 화면이 보낸 인증 결과는 쓰지 않는다. 이미 확인한 ID를 다시 부르면 저장한 결과를 그대로 돌려준다.",
+        "operationId": "completeIdentityVerification",
+        "parameters": [
+          {
+            "name": "identityVerificationId",
+            "in": "path",
+            "description": "본인인증 시작에서 받은 인증 ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "crewrun-iv-6f1c2b9e-3a5d-4c7e-9b1a-2d8f0e4c6a71"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "본인인증 확인",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsDataVerifiedIdentityDto"
+                },
+                "example": {
+                  "status": 200,
+                  "message": "본인인증을 확인했습니다.",
+                  "data": {
+                    "verificationToken": "crewrun-iv-6f1c2b9e-3a5d-4c7e-9b1a-2d8f0e4c6a71",
+                    "name": "김러너",
+                    "birthDate": "1995-04-12",
+                    "phone": "010-1234-5678"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "서버가 만들지 않았거나 15분이 지난 인증 ID, 인증 실패, CI를 주지 않는 인증 방법",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 400,
+                  "code": "AUTH_VERIFICATION_FAILED",
+                  "message": "본인인증을 마치지 못했습니다. 다시 시도해주세요.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "포트원 조회 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 503,
+                  "code": "AUTH_VERIFICATION_UNAVAILABLE",
+                  "message": "본인인증 결과를 확인하지 못했습니다. 잠시 후 다시 시도해주세요.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2216,31 +2321,12 @@
             "maxLength": 2147483647,
             "minLength": 10
           },
-          "name": {
-            "type": "string",
-            "description": "실명",
-            "example": "김러너",
-            "minLength": 1
-          },
           "nickname": {
             "type": "string",
             "description": "닉네임 (한글 2~8자, 영문 4~16자, 한글·영문·숫자만)",
             "example": "러너1",
             "minLength": 1,
             "pattern": "^[가-힣A-Za-z0-9]+$"
-          },
-          "phone": {
-            "type": "string",
-            "description": "휴대폰 번호 (하이픈 생략 가능)",
-            "example": "010-1234-5678",
-            "minLength": 1,
-            "pattern": "^01[016789]-?\\d{3,4}-?\\d{4}$"
-          },
-          "birthDate": {
-            "type": "string",
-            "format": "date",
-            "description": "생년월일",
-            "example": "1995-04-12"
           },
           "gender": {
             "type": [
@@ -2270,16 +2356,20 @@
                 "MARKETING"
               ]
             }
+          },
+          "verificationToken": {
+            "type": "string",
+            "description": "본인인증 결과의 인증 토큰. 이름 · 생년월일 · 휴대폰 번호는 이 인증으로 확인한 값으로 가입한다",
+            "example": "crewrun-iv-6f1c2b9e-3a5d-4c7e-9b1a-2d8f0e4c6a71",
+            "minLength": 1
           }
         },
         "required": [
           "agreedTerms",
-          "birthDate",
           "email",
-          "name",
           "nickname",
           "password",
-          "phone"
+          "verificationToken"
         ]
       },
       "SellerApplyRequestDto": {
@@ -2350,31 +2440,12 @@
             "description": "이메일. 제공자가 확인된 이메일을 줬으면 무시하고, 안 줬으면 필수",
             "example": "runner1@crewrun.com"
           },
-          "name": {
-            "type": "string",
-            "description": "실명",
-            "example": "김러너",
-            "minLength": 1
-          },
           "nickname": {
             "type": "string",
             "description": "닉네임 (한글 2~8자, 영문 4~16자, 한글·영문·숫자만)",
             "example": "러너1",
             "minLength": 1,
             "pattern": "^[가-힣A-Za-z0-9]+$"
-          },
-          "phone": {
-            "type": "string",
-            "description": "휴대폰 번호 (하이픈 생략 가능)",
-            "example": "010-1234-5678",
-            "minLength": 1,
-            "pattern": "^01[016789]-?\\d{3,4}-?\\d{4}$"
-          },
-          "birthDate": {
-            "type": "string",
-            "format": "date",
-            "description": "생년월일",
-            "example": "1995-04-12"
           },
           "gender": {
             "type": [
@@ -2404,15 +2475,102 @@
                 "MARKETING"
               ]
             }
+          },
+          "verificationToken": {
+            "type": "string",
+            "description": "본인인증 결과의 인증 토큰. 이름 · 생년월일 · 휴대폰 번호는 이 인증으로 확인한 값으로 가입한다",
+            "example": "crewrun-iv-6f1c2b9e-3a5d-4c7e-9b1a-2d8f0e4c6a71",
+            "minLength": 1
           }
         },
         "required": [
           "agreedTerms",
+          "nickname",
+          "verificationToken"
+        ]
+      },
+      "IdentityVerificationStartDto": {
+        "type": "object",
+        "description": "본인인증 시작 응답",
+        "properties": {
+          "identityVerificationId": {
+            "type": "string",
+            "description": "포트원 SDK requestIdentityVerification()에 넘길 인증 ID. 15분 안에 인증을 마쳐야 한다",
+            "example": "crewrun-iv-6f1c2b9e-3a5d-4c7e-9b1a-2d8f0e4c6a71"
+          }
+        },
+        "required": [
+          "identityVerificationId"
+        ]
+      },
+      "VerifiedIdentityDto": {
+        "type": "object",
+        "description": "본인인증 결과. 가입 화면은 이 값으로 이름 · 생년월일 · 휴대폰 번호를 채우고 잠근다",
+        "properties": {
+          "verificationToken": {
+            "type": "string",
+            "description": "가입 요청에 넣는 인증 토큰(인증 ID와 같다). 15분 동안 쓸 수 있다",
+            "example": "crewrun-iv-6f1c2b9e-3a5d-4c7e-9b1a-2d8f0e4c6a71"
+          },
+          "name": {
+            "type": "string",
+            "description": "인증된 실명",
+            "example": "김러너"
+          },
+          "birthDate": {
+            "type": "string",
+            "format": "date",
+            "description": "인증된 생년월일",
+            "example": "1995-04-12"
+          },
+          "phone": {
+            "type": "string",
+            "description": "인증된 휴대폰 번호",
+            "example": "010-1234-5678"
+          }
+        },
+        "required": [
           "birthDate",
           "name",
-          "nickname",
-          "phone"
+          "phone",
+          "verificationToken"
         ]
+      },
+      "RsDataIdentityVerificationStartDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/IdentityVerificationStartDto"
+          }
+        }
+      },
+      "RsDataVerifiedIdentityDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/VerifiedIdentityDto"
+          }
+        }
       }
     }
   }
