@@ -282,6 +282,51 @@ class ApiV1AuthJoinTest {
 	}
 
 	@Test
+	@DisplayName("CI를 주지 않는 인증 방법(카카오)으로도 가입하고, 세 값 해시와 이름 + 생년월일 해시를 남긴다")
+	void joinWithoutCi() throws Exception {
+		String token = identityStore.verify("김카카오", LocalDate.of(1995, 4, 12), PHONE, null);
+
+		joinWithToken(EMAIL, PASSWORD, NICKNAME, token, DEFAULT_AGREED_TERMS)
+			.andExpect(status().isCreated());
+
+		Member member = memberRepository.findByEmail(EMAIL).orElseThrow();
+		assertThat(member.getCiHash()).isNull();
+		assertThat(member.getIdentityHash()).hasSize(64);
+		assertThat(member.getNameBirthHash()).hasSize(64);
+	}
+
+	@Test
+	@DisplayName("CI가 없어도 이름 · 생년월일 · 휴대폰 번호가 같으면 두 번째 가입은 409 MEMBER_DUPLICATE_IDENTITY다")
+	void joinFailsWithSameNameBirthPhone() throws Exception {
+		String first = identityStore.verify("김카카오", LocalDate.of(1995, 4, 12), PHONE, null);
+		joinWithToken(EMAIL, PASSWORD, NICKNAME, first, DEFAULT_AGREED_TERMS)
+			.andExpect(status().isCreated());
+
+		// 하이픈만 다른 같은 번호다
+		String second = identityStore.verify("김카카오", LocalDate.of(1995, 4, 12), "01012345678", null);
+		joinWithToken("runner2@crewrun.com", PASSWORD, "러너2", second, DEFAULT_AGREED_TERMS)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("MEMBER_DUPLICATE_IDENTITY"));
+	}
+
+	@Test
+	@DisplayName("동시 가입으로 1인 1계정 검사를 통과해도 DB 유니크 제약에 걸려 하나만 가입하고 409 MEMBER_DUPLICATE_IDENTITY다")
+	void joinRaceFailsOnIdentityConstraint() throws Exception {
+		String first = identityStore.verifyWithIdentityHash("김러너", LocalDate.of(1995, 4, 12), PHONE, "same-identity");
+		joinWithToken(EMAIL, PASSWORD, NICKNAME, first, DEFAULT_AGREED_TERMS)
+			.andExpect(status().isCreated());
+		// 먼저 가입한 사람이 아직 없다고 답하게 해, 두 요청이 동시에 검사를 통과한 상황을 만든다
+		willReturn(false).given(memberRepository).existsByIdentityHash(anyString());
+
+		String second = identityStore.verifyWithIdentityHash("김러너", LocalDate.of(1995, 4, 12), "010-9999-8888",
+			"same-identity");
+		joinWithToken("runner2@crewrun.com", PASSWORD, "러너2", second, DEFAULT_AGREED_TERMS)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("MEMBER_DUPLICATE_IDENTITY"));
+		assertThat(memberRepository.count()).isOne();
+	}
+
+	@Test
 	@DisplayName("탈퇴한 회원과 같은 사람(CI 해시)은 다시 가입할 수 있다")
 	void joinAllowedAfterWithdrawal() throws Exception {
 		String first = identityStore.verify("김러너", LocalDate.of(1995, 4, 12), PHONE, "same-ci");
@@ -387,14 +432,15 @@ class ApiV1AuthJoinTest {
 		));
 	}
 
+	// joinDirectly(김러너)와 다른 사람으로 가입한다. 같은 사람이면 이메일 · 번호 중복보다 1인 1계정 검사에 먼저 걸린다
 	private ResultActions join(String email, String nickname, String phone) throws Exception {
-		return joinWith(email, PASSWORD, "김러너", nickname, phone);
+		return joinWith(email, PASSWORD, "박러너", nickname, phone);
 	}
 
 	// agreedTermsField는 JSON 칸 하나(예: "agreedTerms": [...])이고, 빈 문자열이면 칸을 아예 보내지 않는다
 	private ResultActions join(String email, String nickname, String phone, String agreedTermsField)
 		throws Exception {
-		return joinWith(email, PASSWORD, "김러너", nickname, phone, agreedTermsField);
+		return joinWith(email, PASSWORD, "박러너", nickname, phone, agreedTermsField);
 	}
 
 	// 총 길이가 length인 이메일 (로컬 파트 64자, 도메인 라벨 63자 이하라 형식 검사를 통과한다)

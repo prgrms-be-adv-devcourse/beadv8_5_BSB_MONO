@@ -42,6 +42,9 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 	// 1인 1계정 검사 (BUK-33). 탈퇴한 회원은 빼고 찾는다
 	boolean existsByCiHashAndStatusNot(String ciHash, MemberStatus status);
 
+	// 1인 1계정 검사 (BUK-33). 이름 + 생년월일 + 휴대폰 번호 해시
+	boolean existsByIdentityHash(String identityHash);
+
 	// 정보 수정 때 내 행을 빼고 중복을 찾는다
 	boolean existsByNicknameAndIdNot(String nickname, long id);
 

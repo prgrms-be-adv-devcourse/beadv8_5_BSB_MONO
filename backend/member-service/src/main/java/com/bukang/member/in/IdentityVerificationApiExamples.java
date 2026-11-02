@@ -45,15 +45,6 @@ final class IdentityVerificationApiExamples {
 		}
 		""";
 
-	static final String CI_MISSING = """
-		{
-			"status": 400,
-			"code": "AUTH_VERIFICATION_CI_MISSING",
-			"message": "이 인증 방법으로는 가입할 수 없습니다. 다른 인증 방법을 골라주세요.",
-			"data": null
-		}
-		""";
-
 	static final String UNAVAILABLE = """
 		{
 			"status": 503,

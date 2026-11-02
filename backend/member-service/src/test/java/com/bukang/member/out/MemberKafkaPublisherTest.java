@@ -145,7 +145,8 @@ class MemberKafkaPublisherTest {
 		transactionTemplate.executeWithoutResult(status -> {
 			memberJoinUseCase.join(
 				"rollback@crewrun.com", "password1234", "롤백러너", null, List.of(TermsType.SERVICE, TermsType.PRIVACY),
-				new VerifiedIdentity("김롤백", LocalDate.of(1995, 4, 12), "010-2000-0002", "ci-rollback", null)
+				new VerifiedIdentity("김롤백", LocalDate.of(1995, 4, 12), "010-2000-0002", "ci-rollback",
+					"identity-rollback", "name-birth-rollback", null)
 			);
 			status.setRollbackOnly();
 		});

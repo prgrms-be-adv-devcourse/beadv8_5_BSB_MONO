@@ -3,6 +3,7 @@ package com.bukang.member.app;
 import org.springframework.dao.DataIntegrityViolationException;
 
 import com.bukang.member.domain.exception.DuplicateEmailException;
+import com.bukang.member.domain.exception.DuplicateIdentityException;
 import com.bukang.member.domain.exception.DuplicateNicknameException;
 import com.bukang.member.domain.exception.DuplicatePhoneException;
 
@@ -14,10 +15,12 @@ final class MemberDuplicateExceptions {
 	static final String DUPLICATE_EMAIL_MESSAGE = "이미 사용 중인 이메일입니다.";
 	static final String DUPLICATE_NICKNAME_MESSAGE = "이미 사용 중인 닉네임입니다.";
 	static final String DUPLICATE_PHONE_MESSAGE = "이미 사용 중인 전화번호입니다.";
+	static final String DUPLICATE_IDENTITY_MESSAGE = "이미 가입한 사람입니다. 로그인하거나 계정 연결에서 연결해주세요.";
 	// Member의 @UniqueConstraint 이름과 같아야 한다
 	private static final String EMAIL_CONSTRAINT = "uk_member_email";
 	private static final String NICKNAME_CONSTRAINT = "uk_member_nickname";
 	private static final String PHONE_CONSTRAINT = "uk_member_phone_hash";
+	private static final String IDENTITY_CONSTRAINT = "uk_member_identity_hash";
 
 	private MemberDuplicateExceptions() {
 	}
@@ -29,6 +32,10 @@ final class MemberDuplicateExceptions {
 			return exception;
 		}
 		String lowerCaseMessage = message.toLowerCase();
+		// 같은 사람(이름 + 생년월일 + 휴대폰 번호)이 동시에 두 번 가입하면 늦은 쪽이 이 제약에 걸린다
+		if (lowerCaseMessage.contains(IDENTITY_CONSTRAINT)) {
+			return new DuplicateIdentityException(DUPLICATE_IDENTITY_MESSAGE);
+		}
 		if (lowerCaseMessage.contains(NICKNAME_CONSTRAINT)) {
 			return new DuplicateNicknameException(DUPLICATE_NICKNAME_MESSAGE);
 		}
