@@ -5,9 +5,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { mockGa4Reporter, server } from '@/shared/testing'
 
-const ga4 = vi.hoisted(() => ({
-  result: { status: 'notConfigured' } as { status: string; reporter?: unknown },
-}))
+const ga4 = vi.hoisted(() => {
+  // CI는 API_MOCKING=on으로 돈다. 그러면 서버의 관리자 확인이 MSW 기본 핸들러로 바로 가서
+  // 이 테스트가 server.use로 바꾼 403 · 500 응답을 쓰지 않는다. 실제 API 모드로 고정한다
+  process.env.API_MOCKING = 'off'
+  return { result: { status: 'notConfigured' } as { status: string; reporter?: unknown } }
+})
 vi.mock('server-only', () => ({}))
 vi.mock('@/shared/ga4', () => ({ getGa4Reporter: async () => ga4.result }))
 
