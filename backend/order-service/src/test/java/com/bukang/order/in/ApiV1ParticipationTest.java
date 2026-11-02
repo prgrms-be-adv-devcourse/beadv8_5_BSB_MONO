@@ -109,7 +109,7 @@ class ApiV1ParticipationTest {
 		Participation saved = participationRepository.findAll().getFirst();
 		assertThat(saved.getStatus()).isEqualTo(ParticipationStatus.PENDING);
 		assertThat(saved.getActiveFlag()).isTrue();
-		assertThat(saved.getCrewApplicationId()).isNull();
+		assertThat(saved.getPartyId()).isNull();
 	}
 
 	@Test

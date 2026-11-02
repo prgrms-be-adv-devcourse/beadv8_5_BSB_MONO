@@ -12,6 +12,9 @@ x-app-healthcheck: &app-healthcheck
 # application-prod.yaml의 validate 그대로면 빈 DB에서 "missing table"로 뜨지 않는다. 그래서 compose 실행에서만 update로 덮어
 # dev와 같은 방식(Hibernate가 없는 표·칼럼을 만듦)으로 표를 만든다. 서비스에 Flyway가 생기면 그 서비스의 줄을 지운다
 # member-service는 Flyway가 표를 만들고 validate로 확인하므로 넣지 않는다. 표만 확인하려면 .env에 JPA_DDL_AUTO=validate
+# order-service는 Flyway가 있지만 전환 중이라 한 번 더 update로 둔다 (BUK-29). V1은 표가 이미 있으면 건너뛰어,
+# 지난 배포 뒤 엔티티에 더한 칸이 서버 표에 없으면 validate로는 뜨지 않기 때문이다. Flyway가 먼저 돌고 Hibernate가 빠진 칸을 채운다.
+# 이 설정으로 서버에 한 번 배포한 뒤 order-service의 줄을 지운다
 x-jpa-ddl-auto: &jpa-ddl-auto ${JPA_DDL_AUTO:-update}
 
 services:
@@ -229,6 +232,7 @@ services:
         required: false
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      # 전환 중 (BUK-29, 위 x-jpa-ddl-auto 주석). 서버에 한 번 배포한 뒤 지운다
       SPRING_JPA_HIBERNATE_DDL_AUTO: *jpa-ddl-auto
     healthcheck:
       <<: *app-healthcheck
