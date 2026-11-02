@@ -13,5 +13,5 @@ public interface SoldSummaryPort {
 	 * 이 대회의 결제 완료 · 미취소 참가권을 판매자 × 코스별로 묶어 가격 합과 장수를 돌려준다
 	 * 정산 대상일 전에 취소된 참가권은 넣지 않는다 (정산 전 취소, payout.md 1장 정산 대상일 5번)
 	 */
-	List<SoldSummary> summarizeSold(int raceId);
+	List<SoldSummary> summarizeSold(long raceId);
 }

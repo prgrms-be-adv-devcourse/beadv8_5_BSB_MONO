@@ -28,7 +28,7 @@ public class HttpActiveTicketAdapter implements ActiveTicketPort {
 	private final RestClient restClient;
 
 	@Override
-	public int countActiveTickets(int memberId) {
+	public int countActiveTickets(long memberId) {
 		RsData<Count> response;
 		try {
 			response = restClient.get()

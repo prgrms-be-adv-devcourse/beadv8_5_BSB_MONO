@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import com.bukang.order.domain.Order;
 import com.bukang.order.domain.Participation;
 import com.bukang.order.domain.QueueAdmission;
+import com.bukang.order.domain.ShippingAddress;
 import com.bukang.order.domain.exception.ApplicationPeriodException;
 import com.bukang.order.domain.exception.OrderConflictException;
 import com.bukang.order.domain.exception.ParticipationAccessDeniedException;
@@ -29,15 +30,15 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * 바로 결제 예매 ([결제하기], 정책 3장·4장). 신청서 진입 때 저장한 입장 끝 시각이 남았는지 확인하고(PRO-191, PRO-249),
- * 상품 서비스(B)에 자리 1석을 확보받아 입장 끝 시각을 결제 기한으로 하는 주문을 만든다 (정책 4장 2-4 "입장 뒤 10분 안에 신청서 + 결제")
+ * 상품 서비스(B)에 자리 1석을 확보받아 입장 끝 시각을 결제 기한으로 하는 주문을 만든다 (예매창 15분, 최종 정책 개요 3-1, 8장 2-1)
  * 확보하면 참가 신청 PENDING → APPLIED, 주문 CREATED. 매진이면 참가 신청 FAILED, 주문 없음 (ERD 추천안 v4 8·9쪽)
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class OrderCreateUseCase {
-	// 정책상 가장 긴 입장 시간 (정책 4장 2-4 "입장 뒤 10분 안에 신청서 + 결제"). 대기열이 더 긴 끝 시각을 줘도 여기까지만 자리를 잡는다
-	static final long MAX_ADMISSION_MINUTES = 10;
+	// 정책상 가장 긴 입장 시간 (예매창 15분, 최종 정책 개요 3-1, 8장 2-1). 대기열이 더 긴 끝 시각을 줘도 여기까지만 자리를 잡는다
+	static final long MAX_ADMISSION_MINUTES = 15;
 
 	// Order·OrderItem의 @UniqueConstraint 이름과 같아야 한다
 	private static final List<String> ORDER_CONSTRAINTS = List.of("uk_order_idempotency",
@@ -49,7 +50,7 @@ public class OrderCreateUseCase {
 	private final SeatHoldPort seatHoldPort;
 	private final QueueAdmissionRepository queueAdmissionRepository;
 
-	public OrderCreateResult create(int memberId, int participationId, String idempotencyKey, LocalDateTime now) {
+	public OrderCreateResult create(long memberId, long participationId, String idempotencyKey, LocalDateTime now) {
 		// 같은 신청서로 들어온 요청을 줄 세운다. 먼저 끝난 요청이 만든 주문을 뒤 요청이 아래에서 찾는다
 		Participation participation = participationRepository.findByIdForUpdate(participationId)
 			.orElseThrow(() -> new ParticipationNotFoundException("존재하지 않는 참가 신청입니다."));
@@ -62,7 +63,7 @@ public class OrderCreateUseCase {
 			if (!existing.get().isFor(participationId)) {
 				throw OrderConflictException.keyReused("이미 다른 주문에 쓴 Idempotency-Key입니다. 새 키로 다시 요청해주세요.");
 			}
-			return OrderCreateResult.existing(existing.get().toDto());
+			return OrderCreateResult.existing(existing.get().toDto(applicationShippingAddress(participation)));
 		}
 
 		// 매진으로 이미 끝난 신청서로 다시 요청하면(같은 키 재시도 포함) 처음과 같은 매진 결과를 돌려준다
@@ -103,12 +104,17 @@ public class OrderCreateUseCase {
 			throw exception;
 		}
 		order.assignOrderNo();
-		return OrderCreateResult.created(order.toDto());
+		return OrderCreateResult.created(order.toDto(applicationShippingAddress(participation)));
+	}
+
+	// 결제 전이라 배송이 없을 때 주문 응답에 보여 줄 배송지 (Order.toDto)
+	private static ShippingAddress applicationShippingAddress(Participation participation) {
+		return participation.getParticipant().getShippingAddress();
 	}
 
 	// 대기열 데이터가 잘못돼 끝 시각이 너무 멀면, 매진 자리를 오래 묶지 않게 정책상 최대 입장 시간으로 자른다
-	private LocalDateTime capAdmissionEndsAt(LocalDateTime admissionEndsAt, LocalDateTime now, int memberId,
-		int raceCourseId) {
+	private LocalDateTime capAdmissionEndsAt(LocalDateTime admissionEndsAt, LocalDateTime now, long memberId,
+		long raceCourseId) {
 		LocalDateTime max = now.plusMinutes(MAX_ADMISSION_MINUTES);
 		if (admissionEndsAt.isAfter(max)) {
 			log.warn("대기열 입장 끝 시각이 정책상 최대 입장 시간보다 멀어 줄입니다. memberId={}, raceCourseId={}, admissionEndsAt={}",

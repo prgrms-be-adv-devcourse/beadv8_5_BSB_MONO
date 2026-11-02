@@ -15,7 +15,7 @@ import com.bukang.payout.domain.PayoutStage;
  * @param feeAmount    시스템 지갑으로 옮길 수수료. 0원 이상이다
  * @param stage        1차 / 최종. 캐시 서비스가 장부를 나눠 쓸 때 쓴다
  */
-public record PayoutTransfer(int payoutId, int sellerId, long payoutAmount, long feeAmount, PayoutStage stage) {
+public record PayoutTransfer(long payoutId, long sellerId, long payoutAmount, long feeAmount, PayoutStage stage) {
 	public static PayoutTransfer from(Payout payout) {
 		return new PayoutTransfer(payout.getId(), payout.getSellerId(), payout.getPayoutAmount(),
 			payout.getFeeAmount(), payout.getPayoutStage());

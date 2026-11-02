@@ -6,5 +6,5 @@ package com.bukang.member.out.order;
  * 묻지 못하면 WithdrawCheckFailedException(503)을 던진다
  */
 public interface ActiveTicketPort {
-	int countActiveTickets(int memberId);
+	int countActiveTickets(long memberId);
 }

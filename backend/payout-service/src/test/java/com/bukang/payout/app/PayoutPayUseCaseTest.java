@@ -67,7 +67,7 @@ class PayoutPayUseCaseTest {
 	}
 
 	// 지급 예정일은 정산 월(대회일의 달)의 다음 달 20일이다. 10/17 토 대회는 11/20 금, 11/17 화 대회는 12/20 일이 밀려 12/21 월
-	private Payout savePayout(int sellerId, LocalDate raceDate) {
+	private Payout savePayout(long sellerId, LocalDate raceDate) {
 		LocalDateTime settledAt = raceDate.plusDays(1).atTime(3, 0);
 		return payoutRepository.save(Payout.finalStage(sellerId, 10, "테스트 대회", raceDate, settledAt,
 			new BusinessDayCalendar()));
@@ -316,7 +316,7 @@ class PayoutPayUseCaseTest {
 		Payout payout = savePayoutWithSale(1);
 		PayoutPayStepUseCase conflicting = new PayoutPayStepUseCase(payoutRepository) {
 			@Override
-			public Start start(int payoutId, LocalDate today, LocalDateTime now) {
+			public Start start(long payoutId, LocalDate today, LocalDateTime now) {
 				throw new ObjectOptimisticLockingFailureException(Payout.class, payoutId);
 			}
 		};
@@ -329,7 +329,7 @@ class PayoutPayUseCaseTest {
 	}
 
 	// 10/17 대회분(11/20 지급), 판매 50,000 → 지급액 47,250 · 수수료 2,750
-	private Payout savePayoutWithSale(int sellerId) {
+	private Payout savePayoutWithSale(long sellerId) {
 		Payout payout = savePayout(sellerId, LocalDate.of(2026, 10, 17));
 		payout.addItem(100 + sellerId, 50_000L, new BigDecimal("0.0550"), LocalDate.of(2026, 9, 26));
 		return payout;
@@ -337,7 +337,7 @@ class PayoutPayUseCaseTest {
 
 	// PRO-188: 최종은 같은 판매자 · 대회의 1차가 지급 완료된 뒤에만 지급한다
 	// 마감일 = 대회일 = 10/17이면 1차 · 최종 모두 11/20 지급 예정이다 (같은 날 지급)
-	private Payout saveFirstWithAdvance(int sellerId, long priceSum) {
+	private Payout saveFirstWithAdvance(long sellerId, long priceSum) {
 		Payout first = Payout.first(sellerId, 10, "테스트 대회", LocalDate.of(2026, 10, 17),
 			LocalDateTime.of(2026, 10, 18, 3, 0), new BusinessDayCalendar());
 		if (priceSum > 0) {

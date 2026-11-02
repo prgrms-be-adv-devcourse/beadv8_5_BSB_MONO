@@ -42,7 +42,7 @@ public class PayoutStatusHistory extends BaseIdAndTime {
 
 	// 바꾼 회원 ID. 배치 · 이벤트가 바꾸면 PayoutHold.SYSTEM_MEMBER_ID(0)
 	@Column(nullable = false)
-	private int changedBy;
+	private long changedBy;
 
 	@Column(nullable = false)
 	private LocalDateTime changedAt;
@@ -51,7 +51,7 @@ public class PayoutStatusHistory extends BaseIdAndTime {
 	@Column(length = 200)
 	private String reason;
 
-	PayoutStatusHistory(Payout payout, PayoutStatus fromStatus, PayoutStatus toStatus, int changedBy,
+	PayoutStatusHistory(Payout payout, PayoutStatus fromStatus, PayoutStatus toStatus, long changedBy,
 		LocalDateTime changedAt, String reason) {
 		this.payout = payout;
 		this.fromStatus = fromStatus;

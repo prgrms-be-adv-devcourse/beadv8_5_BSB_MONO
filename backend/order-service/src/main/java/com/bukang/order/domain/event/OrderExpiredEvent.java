@@ -7,5 +7,5 @@ package com.bukang.order.domain.event;
  * @param orderId         만료한 주문 ID
  * @param participationId 자리를 확보할 때 상품 서비스에 보낸 참가 신청 ID
  */
-public record OrderExpiredEvent(int orderId, int participationId) {
+public record OrderExpiredEvent(long orderId, long participationId) {
 }

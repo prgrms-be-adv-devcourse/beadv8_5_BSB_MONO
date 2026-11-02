@@ -6,7 +6,7 @@ import com.bukang.cash.domain.wallet.Wallet;
  * 지갑 잔액 조회 응답
  */
 public record WalletBalanceResponseDto(
-	int holderId,
+	long holderId,
 	long balance
 ) {
 	public static WalletBalanceResponseDto from(Wallet wallet) {

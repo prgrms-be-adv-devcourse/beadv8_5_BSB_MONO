@@ -64,9 +64,9 @@ class ApiV1AdminSellerTest {
 	@Autowired
 	private ApplicationEvents applicationEvents;
 
-	private int adminId;
-	private int applicantId;
-	private int sellerId;
+	private long adminId;
+	private long applicantId;
+	private long sellerId;
 
 	@BeforeEach
 	void setUp() {
@@ -110,8 +110,8 @@ class ApiV1AdminSellerTest {
 	@Test
 	@DisplayName("상태로 거르면 그 상태 신청만, 비우면 전체를 최근 신청부터 돌려준다")
 	void findAllFiltersByStatus() throws Exception {
-		int otherApplicantId = join("runner2@crewrun.com", "러너2", "010-1234-5672");
-		int approvedId = applyDirectly(otherApplicantId);
+		long otherApplicantId = join("runner2@crewrun.com", "러너2", "010-1234-5672");
+		long approvedId = applyDirectly(otherApplicantId);
 		sellerFacade.approve(adminId, approvedId);
 
 		mockMvc.perform(get(ADMIN_SELLERS).param("status", "PENDING").header(MemberIdHeader.NAME, adminId))
@@ -220,14 +220,14 @@ class ApiV1AdminSellerTest {
 			.andExpect(jsonPath("$.code").value("SELLER_NOT_FOUND"));
 	}
 
-	private int join(String email, String nickname, String phone) {
+	private long join(String email, String nickname, String phone) {
 		return memberFacade.join(new MemberJoinRequestDto(
 			email, "password1234", "김러너", nickname, phone, LocalDate.of(1995, 4, 12), null,
 			List.of(TermsType.SERVICE, TermsType.PRIVACY)
 		)).getId();
 	}
 
-	private int applyDirectly(int memberId) {
+	private long applyDirectly(long memberId) {
 		return sellerFacade.apply(memberId,
 			new SellerApplyRequestDto(SellerType.BUSINESS, "크루런 스포츠", "123-45-67890", "김러너")).getId();
 	}
@@ -246,7 +246,7 @@ class ApiV1AdminSellerTest {
 		assertThat(sellerRepository.findById(sellerId).orElseThrow().getStatus()).isEqualTo(SellerStatus.PENDING);
 	}
 
-	private ResultActions review(int id, String action, String reason) throws Exception {
+	private ResultActions review(long id, String action, String reason) throws Exception {
 		MockHttpServletRequestBuilder request = post(ADMIN_SELLERS + "/" + id + "/" + action)
 			.header(MemberIdHeader.NAME, adminId);
 		if (reason != null) {

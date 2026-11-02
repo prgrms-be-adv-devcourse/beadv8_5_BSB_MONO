@@ -30,7 +30,7 @@ import jakarta.persistence.EntityManager;
 @DataJpaTest
 @ActiveProfiles("test")
 class PayoutHoldUseCaseTest {
-	private static final int ADMIN_ID = 99;
+	private static final long ADMIN_ID = 99;
 	private static final LocalDateTime HELD_AT = LocalDateTime.of(2026, 10, 12, 10, 0);
 
 	@Autowired

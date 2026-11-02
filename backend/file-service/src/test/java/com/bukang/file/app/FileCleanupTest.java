@@ -32,7 +32,7 @@ import com.bukang.file.support.FakeFileStorageConfig;
 @ActiveProfiles("test")
 @Import(FakeFileStorageConfig.class)
 class FileCleanupTest {
-	private static final int OWNER_ID = 1;
+	private static final long OWNER_ID = 1;
 	private static final int LIMIT = 100;
 	private static final String RACE = "Race";
 	private static final byte[] BODY = {0x01};
@@ -146,7 +146,7 @@ class FileCleanupTest {
 	@Test
 	@DisplayName("한 번에 limit건만 지우고, 다시 부르면 남은 파일을 지운다 (늘 첫 페이지를 읽어도 건너뛰는 파일이 없다)")
 	void deleteByLimit() {
-		List<Integer> ids = List.of(
+		List<Long> ids = List.of(
 			saveWithObject(uploadedFile()).getId(),
 			saveWithObject(uploadedFile()).getId(),
 			saveWithObject(uploadedFile()).getId());

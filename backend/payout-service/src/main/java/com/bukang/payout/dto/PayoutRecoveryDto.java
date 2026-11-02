@@ -12,15 +12,15 @@ import lombok.Getter;
 @AllArgsConstructor
 @Getter
 public class PayoutRecoveryDto {
-	private final int id;
-	private final int sellerId;
-	private final int raceId;
+	private final long id;
+	private final long sellerId;
+	private final long raceId;
 	private final PayoutRecoveryReason reasonType;
 	private final long amount;
 	private final PayoutRecoveryStatus status;
 	private final LocalDateTime requestedAt;
 	// 요청 중에는 null
-	private final Integer completedBy;
+	private final Long completedBy;
 	private final LocalDateTime completedAt;
 
 	public static PayoutRecoveryDto from(PayoutRecovery recovery) {

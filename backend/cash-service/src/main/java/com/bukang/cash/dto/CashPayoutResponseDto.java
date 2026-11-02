@@ -1,16 +1,16 @@
 package com.bukang.cash.dto;
 
-public record CashPayoutResponseDto(Outcome outcome, int settlementAmount, int feeAmount) {
+public record CashPayoutResponseDto(Outcome outcome, long settlementAmount, long feeAmount) {
 	public enum Outcome {
 		PAID,
 		ALREADY_PAID
 	}
 
-	public static CashPayoutResponseDto paid(int settlementAmount, int feeAmount) {
+	public static CashPayoutResponseDto paid(long settlementAmount, long feeAmount) {
 		return new CashPayoutResponseDto(Outcome.PAID, settlementAmount, feeAmount);
 	}
 
-	public static CashPayoutResponseDto alreadyPaid(int settlementAmount, int feeAmount) {
+	public static CashPayoutResponseDto alreadyPaid(long settlementAmount, long feeAmount) {
 		return new CashPayoutResponseDto(Outcome.ALREADY_PAID, settlementAmount, feeAmount);
 	}
 

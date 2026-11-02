@@ -22,6 +22,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.bukang.order.app.OrderCancelUseCase;
 import com.bukang.order.app.OrderCreateResult;
 import com.bukang.order.app.OrderCreateUseCase;
 import com.bukang.order.app.OrderPayUseCase;
@@ -53,15 +54,15 @@ import com.jayway.jsonpath.JsonPath;
 	StubRefundEligibilityPortConfig.class, StubSellerLookupPortConfig.class})
 class ApiV1SellerKitTest {
 	private static final String BASE_URL = "/api/v1/order/seller/kits";
-	private static final int COURSE_ID = 60;
-	private static final int RACE_ID = 600;
-	private static final int OTHER_COURSE_ID = 61;
-	private static final int OTHER_RACE_ID = 610;
-	private static final int BUYER_ID = 1;
+	private static final long COURSE_ID = 60;
+	private static final long RACE_ID = 600;
+	private static final long OTHER_COURSE_ID = 61;
+	private static final long OTHER_RACE_ID = 610;
+	private static final long BUYER_ID = 1;
 	// 판매자로 승인된 회원. 판매자 ID는 종목의 판매자(StubRaceCoursePort.SELLER_ID)다
-	private static final int SELLER_MEMBER_ID = 70;
-	private static final int OTHER_SELLER_MEMBER_ID = 71;
-	private static final int NOT_SELLER_MEMBER_ID = 72;
+	private static final long SELLER_MEMBER_ID = 70;
+	private static final long OTHER_SELLER_MEMBER_ID = 71;
+	private static final long NOT_SELLER_MEMBER_ID = 72;
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -80,6 +81,9 @@ class ApiV1SellerKitTest {
 
 	@Autowired
 	private OrderPayUseCase orderPayUseCase;
+
+	@Autowired
+	private OrderCancelUseCase orderCancelUseCase;
 
 	@Autowired
 	private StubRaceCoursePort raceCoursePort;
@@ -112,8 +116,8 @@ class ApiV1SellerKitTest {
 	void sellerShipsAndDelivers() throws Exception {
 		approveSellers();
 		raceCoursePort.put(StubRaceCoursePort.openCourse(COURSE_ID, RACE_ID, 14, null, LocalDate.now().minusDays(1)));
-		int orderId = paidOrder();
-		int itemId = itemIdOf(orderId);
+		long orderId = paidOrder();
+		long itemId = itemIdOf(orderId);
 
 		mockMvc.perform(get(BASE_URL).header("X-Member-Id", SELLER_MEMBER_ID).param("raceId", String.valueOf(RACE_ID)))
 			.andExpect(status().isOk())
@@ -145,11 +149,38 @@ class ApiV1SellerKitTest {
 	}
 
 	@Test
+	@DisplayName("취소 중(환불 결과를 기다림)인 참가권의 키트는 판매자 목록·건수에서 빠지고, 결제 완료로 되돌아오면 다시 보인다")
+	void cancelingKitHidden() throws Exception {
+		approveSellers();
+		raceCoursePort.put(StubRaceCoursePort.openCourse(COURSE_ID, RACE_ID, 14, null, LocalDate.now().plusDays(5)));
+		long orderId = paidOrder();
+		long itemId = itemIdOf(orderId);
+		transactionTemplate.executeWithoutResult(status -> {
+			Order order = orderRepository.findByIdForUpdate(orderId).orElseThrow();
+			order.startCancelItem(order.findItem(itemId), LocalDateTime.now());
+		});
+
+		mockMvc.perform(get(BASE_URL).header("X-Member-Id", SELLER_MEMBER_ID))
+			.andExpect(jsonPath("$.data.totalElements").value(0));
+		mockMvc.perform(get(BASE_URL + "/summary").header("X-Member-Id", SELLER_MEMBER_ID))
+			.andExpect(jsonPath("$.data.preparing").value(0))
+			.andExpect(jsonPath("$.data.beforeRefundDeadline").value(0));
+
+		orderCancelUseCase.revertCancel(orderId, itemId);
+
+		mockMvc.perform(get(BASE_URL).header("X-Member-Id", SELLER_MEMBER_ID))
+			.andExpect(jsonPath("$.data.totalElements").value(1));
+		mockMvc.perform(get(BASE_URL + "/summary").header("X-Member-Id", SELLER_MEMBER_ID))
+			.andExpect(jsonPath("$.data.preparing").value(1))
+			.andExpect(jsonPath("$.data.beforeRefundDeadline").value(1));
+	}
+
+	@Test
 	@DisplayName("판매자가 아닌 회원은 네 API 모두 403 ORDER_SELLER_FORBIDDEN이고, 다른 판매자의 참가권은 403 ORDER_FORBIDDEN이다")
 	void notSellerOrOtherSeller() throws Exception {
 		approveSellers();
 		raceCoursePort.put(StubRaceCoursePort.openCourse(COURSE_ID, RACE_ID, 14, null, LocalDate.now().minusDays(1)));
-		int itemId = itemIdOf(paidOrder());
+		long itemId = itemIdOf(paidOrder());
 
 		for (ResultActions result : new ResultActions[] {
 			mockMvc.perform(get(BASE_URL).header("X-Member-Id", NOT_SELLER_MEMBER_ID)),
@@ -178,7 +209,7 @@ class ApiV1SellerKitTest {
 	void invalidRequests() throws Exception {
 		approveSellers();
 		raceCoursePort.put(StubRaceCoursePort.openCourse(COURSE_ID, RACE_ID, 14, null, LocalDate.now().plusDays(5)));
-		int itemId = itemIdOf(paidOrder());
+		long itemId = itemIdOf(paidOrder());
 
 		ship(SELLER_MEMBER_ID, itemId, "CJ대한통운", " ")
 			.andExpect(status().isBadRequest())
@@ -207,8 +238,8 @@ class ApiV1SellerKitTest {
 		LocalDate refundDeadline = LocalDate.now().minusDays(1);
 		raceCoursePort.put(StubRaceCoursePort.openCourse(COURSE_ID, RACE_ID, 14, null, refundDeadline));
 		raceCoursePort.put(otherSellerCourse(refundDeadline));
-		int firstOrderId = paidOrder(BUYER_ID, COURSE_ID);
-		int secondOrderId = paidOrder(BUYER_ID + 1, COURSE_ID);
+		long firstOrderId = paidOrder(BUYER_ID, COURSE_ID);
+		long secondOrderId = paidOrder(BUYER_ID + 1, COURSE_ID);
 		paidOrder(BUYER_ID + 2, OTHER_COURSE_ID);
 
 		// 한 페이지에 다 들어가지 않아야 건수 쿼리가 따로 돈다
@@ -252,7 +283,7 @@ class ApiV1SellerKitTest {
 		sellerLookupPort.approve(OTHER_SELLER_MEMBER_ID, StubRaceCoursePort.SELLER_ID + 1);
 	}
 
-	private ResultActions ship(int memberId, int orderItemId, String carrier, String trackingNumber)
+	private ResultActions ship(long memberId, long orderItemId, String carrier, String trackingNumber)
 		throws Exception {
 		return mockMvc.perform(post(BASE_URL + "/" + orderItemId + "/shipment")
 			.header("X-Member-Id", memberId)
@@ -260,20 +291,20 @@ class ApiV1SellerKitTest {
 			.content("{\"carrier\": \"%s\", \"trackingNumber\": \"%s\"}".formatted(carrier, trackingNumber)));
 	}
 
-	private int paidOrder() throws Exception {
+	private long paidOrder() throws Exception {
 		return paidOrder(BUYER_ID, COURSE_ID);
 	}
 
-	private int paidOrder(int buyerId, int courseId) throws Exception {
-		int participationId = apply(buyerId, courseId);
+	private long paidOrder(long buyerId, long courseId) throws Exception {
+		long participationId = apply(buyerId, courseId);
 		OrderCreateResult result = transactionTemplate.execute(status -> orderCreateUseCase.create(buyerId,
 			participationId, UUID.randomUUID().toString(), LocalDateTime.now()));
-		int orderId = result.order().getId();
+		long orderId = result.order().getId();
 		transactionTemplate.execute(status -> orderPayUseCase.pay(buyerId, orderId, LocalDateTime.now()));
 		return orderId;
 	}
 
-	private int apply(int buyerId, int courseId) throws Exception {
+	private long apply(long buyerId, long courseId) throws Exception {
 		QueueEntry.enter(mockMvc, buyerId, courseId);
 		String body = mockMvc.perform(post("/api/v1/order/participations")
 				.header("X-Member-Id", buyerId)
@@ -287,10 +318,10 @@ class ApiV1SellerKitTest {
 							"zipcode": "04700", "address": "서울 성동구 왕십리로 00", "addressDetail": "101동 1001호" } } }
 					""".formatted(courseId)))
 			.andReturn().getResponse().getContentAsString();
-		return JsonPath.read(body, "$.data.id");
+		return JsonPath.<Number>read(body, "$.data.id").longValue();
 	}
 
-	private int itemIdOf(int orderId) {
+	private long itemIdOf(long orderId) {
 		return transactionTemplate.execute(status -> {
 			Order order = orderRepository.findById(orderId).orElseThrow();
 			return order.getItems().getFirst().getId();

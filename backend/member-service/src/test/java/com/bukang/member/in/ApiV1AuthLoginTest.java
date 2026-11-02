@@ -71,7 +71,7 @@ class ApiV1AuthLoginTest {
 	@MockitoBean
 	private RefreshTokenRepository refreshTokenRepository;
 
-	private int memberId;
+	private long memberId;
 
 	@BeforeEach
 	void setUp() {

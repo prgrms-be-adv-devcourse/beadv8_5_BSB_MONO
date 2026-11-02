@@ -250,7 +250,7 @@ class MemberKafkaPublisherTest {
 			.doesNotContain("롤백대표");
 	}
 
-	private SellerDto applySeller(int memberId, String representativeName) {
+	private SellerDto applySeller(long memberId, String representativeName) {
 		return sellerFacade.apply(memberId,
 			new SellerApplyRequestDto(SellerType.BUSINESS, "크루런 스포츠", "1234567890", representativeName));
 	}
@@ -287,7 +287,7 @@ class MemberKafkaPublisherTest {
 	}
 
 	// 4칸 중 닉네임만 바꾼다 (이름·생년월일은 가입 때 값 그대로)
-	private MemberDto modify(int memberId, String nickname, String phone) {
+	private MemberDto modify(long memberId, String nickname, String phone) {
 		return memberFacade.modifyMe(memberId, new MemberModifyRequestDto(
 			"김러너", nickname, phone, LocalDate.of(1995, 4, 12)
 		));

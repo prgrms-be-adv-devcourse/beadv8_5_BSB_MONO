@@ -19,7 +19,7 @@ import lombok.NoArgsConstructor;
 @Table(name = "CASH_MEMBER")
 public class CashMember extends ReplicaMember {
 	public CashMember(
-		int id,
+		long id,
 		LocalDateTime createDate,
 		LocalDateTime modifyDate,
 		String nickname

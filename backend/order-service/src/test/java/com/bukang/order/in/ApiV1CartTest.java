@@ -41,11 +41,11 @@ import com.jayway.jsonpath.JsonPath;
 @Import(StubRaceCoursePortConfig.class)
 class ApiV1CartTest {
 	private static final String BASE_URL = "/api/v1/order/cart";
-	private static final int MEMBER_ID = 1;
-	private static final int OTHER_MEMBER_ID = 2;
-	private static final int COURSE_ID = 10;
-	private static final int OTHER_COURSE_ID = 11;
-	private static final int CLOSED_COURSE_ID = 12;
+	private static final long MEMBER_ID = 1;
+	private static final long OTHER_MEMBER_ID = 2;
+	private static final long COURSE_ID = 10;
+	private static final long OTHER_COURSE_ID = 11;
+	private static final long CLOSED_COURSE_ID = 12;
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -110,7 +110,7 @@ class ApiV1CartTest {
 	@Test
 	@DisplayName("같은 참가권을 다시 담으면 200으로 기존 항목을 돌려주고 수량은 1이다")
 	void addSameCourseTwice() throws Exception {
-		int itemId = addAndGetId(MEMBER_ID, COURSE_ID);
+		long itemId = addAndGetId(MEMBER_ID, COURSE_ID);
 
 		add(MEMBER_ID, COURSE_ID)
 			.andExpect(status().isOk())
@@ -140,7 +140,7 @@ class ApiV1CartTest {
 	@Test
 	@DisplayName("담은 항목을 빼면 빈 장바구니를 돌려주고, 그 뒤에는 다른 종목을 담을 수 있다")
 	void removeItem() throws Exception {
-		int itemId = addAndGetId(MEMBER_ID, COURSE_ID);
+		long itemId = addAndGetId(MEMBER_ID, COURSE_ID);
 
 		remove(MEMBER_ID, itemId)
 			.andExpect(status().isOk())
@@ -171,7 +171,7 @@ class ApiV1CartTest {
 	@Test
 	@DisplayName("장바구니가 있을 때 다른 종목을 동시에 담아도 한 종목만 남고, 늦은 쪽은 한 종목 규칙으로 409다")
 	void addOtherCoursesTogether() throws Exception {
-		int itemId = addAndGetId(MEMBER_ID, COURSE_ID);
+		long itemId = addAndGetId(MEMBER_ID, COURSE_ID);
 		remove(MEMBER_ID, itemId).andExpect(status().isOk());
 
 		List<String> bodies = addTogether(MEMBER_ID, COURSE_ID, OTHER_COURSE_ID);
@@ -202,7 +202,7 @@ class ApiV1CartTest {
 	@Test
 	@DisplayName("뺀 참가권은 다시 담을 수 있다")
 	void addAgainAfterRemove() throws Exception {
-		int itemId = addAndGetId(MEMBER_ID, COURSE_ID);
+		long itemId = addAndGetId(MEMBER_ID, COURSE_ID);
 		remove(MEMBER_ID, itemId).andExpect(status().isOk());
 
 		add(MEMBER_ID, COURSE_ID).andExpect(status().isCreated());
@@ -211,7 +211,7 @@ class ApiV1CartTest {
 	@Test
 	@DisplayName("다른 회원의 장바구니 항목은 뺄 수 없다")
 	void removeOthersItem() throws Exception {
-		int itemId = addAndGetId(MEMBER_ID, COURSE_ID);
+		long itemId = addAndGetId(MEMBER_ID, COURSE_ID);
 
 		remove(OTHER_MEMBER_ID, itemId)
 			.andExpect(status().isForbidden())
@@ -263,11 +263,11 @@ class ApiV1CartTest {
 		mockMvc.perform(get(BASE_URL))
 			.andExpect(status().isUnauthorized())
 			.andExpect(jsonPath("$.message").value("로그인이 필요합니다."))
-			.andExpect(jsonPath("$.code").value("ORDER_LOGIN_REQUIRED"));
+			.andExpect(jsonPath("$.code").value("LOGIN_REQUIRED"));
 	}
 
 	// 같은 회원이 두 종목을 동시에 담고 응답 본문을 모은다
-	private List<String> addTogether(int memberId, int firstCourseId, int secondCourseId) throws Exception {
+	private List<String> addTogether(long memberId, long firstCourseId, long secondCourseId) throws Exception {
 		CountDownLatch start = new CountDownLatch(1);
 		List<String> bodies = new ArrayList<>();
 		try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
@@ -285,25 +285,25 @@ class ApiV1CartTest {
 		return bodies;
 	}
 
-	private ResultActions find(int memberId) throws Exception {
+	private ResultActions find(long memberId) throws Exception {
 		return mockMvc.perform(get(BASE_URL).header("X-Member-Id", memberId));
 	}
 
-	private ResultActions add(int memberId, int raceCourseId) throws Exception {
+	private ResultActions add(long memberId, long raceCourseId) throws Exception {
 		return mockMvc.perform(post(BASE_URL + "/items")
 			.header("X-Member-Id", memberId)
 			.contentType(MediaType.APPLICATION_JSON)
 			.content("{\"raceCourseId\": %d}".formatted(raceCourseId)));
 	}
 
-	private ResultActions remove(int memberId, int cartItemId) throws Exception {
+	private ResultActions remove(long memberId, long cartItemId) throws Exception {
 		return mockMvc.perform(delete(BASE_URL + "/items/" + cartItemId).header("X-Member-Id", memberId));
 	}
 
-	private int addAndGetId(int memberId, int raceCourseId) throws Exception {
+	private long addAndGetId(long memberId, long raceCourseId) throws Exception {
 		String body = add(memberId, raceCourseId)
 			.andExpect(status().isCreated())
 			.andReturn().getResponse().getContentAsString();
-		return JsonPath.read(body, "$.data.id");
+		return JsonPath.<Number>read(body, "$.data.id").longValue();
 	}
 }

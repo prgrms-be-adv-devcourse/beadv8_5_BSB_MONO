@@ -17,7 +17,7 @@ import lombok.Getter;
 @AllArgsConstructor
 @Getter
 public class RaceDetailDto {
-	private final int raceId;
+	private final long raceId;
 	private final String title;
 	private final String description;
 	private final String location;
@@ -44,7 +44,7 @@ public class RaceDetailDto {
 
 	public static RaceDetailDto from(Race race) {
 		List<RaceDetailCourseDto> courses = race.getCourses().stream()
-			.sorted(Comparator.comparingInt(RaceCourse::getId))
+			.sorted(Comparator.comparingLong(RaceCourse::getId))
 			.map(RaceDetailCourseDto::from)
 			.toList();
 		return new RaceDetailDto(race.getId(), race.getTitle(), race.getDescription(), race.getLocation(),

@@ -14,7 +14,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
-// 만들어진 OpenAPI 명세(/v3/api-docs)에 로그인 방식·헤더 설명·쿼리 칸이 맞게 나오는지 확인한다
+// 만들어진 OpenAPI 명세(/v3/api-docs)에 로그인 방식·헤더 칸과 설명·쿼리 칸이 맞게 나오는지 확인한다
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
@@ -36,6 +36,9 @@ class MemberSwaggerConfigTest {
 			.andExpect(jsonPath(ME + ".get.security[0].bearerAuth").exists())
 			.andExpect(jsonPath(ME + ".get.parameters[?(@.name == 'X-Member-Id')].description")
 				.value(hasItem(containsString("게이트웨이"))))
+			// @LoginMemberId 인자가 쿼리 칸(memberId)이 아니라 헤더 칸으로 나온다
+			.andExpect(jsonPath(ME + ".get.parameters[?(@.name == 'X-Member-Id')].in").value(hasItem("header")))
+			.andExpect(jsonPath(ME + ".get.parameters[?(@.name == 'memberId')]").isEmpty())
 			.andExpect(jsonPath(LOGIN + ".post.security").doesNotExist());
 	}
 

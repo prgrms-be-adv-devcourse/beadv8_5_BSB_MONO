@@ -4,12 +4,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.bukang.common.global.rsdata.RsData;
-import com.bukang.common.shared.member.web.MemberIdHeader;
+import com.bukang.common.shared.member.web.LoginMemberId;
 import com.bukang.queue.app.QueueFacade;
 import com.bukang.queue.dto.QueueAdmissionDto;
 
@@ -61,12 +60,11 @@ public class InternalV1QueueController {
 				examples = @ExampleObject(value = QueueApiExamples.LOGIN_REQUIRED)))
 	})
 	public ResponseEntity<RsData<QueueAdmissionDto>> getAdmission(
-		@Parameter(description = "확인할 회원 ID (주문 서비스가 받은 X-Member-Id를 그대로 넣는다)", example = "1")
-		@RequestHeader(MemberIdHeader.NAME) @Positive(message = MemberIdHeader.INVALID_MESSAGE) int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "대회 ID", example = "1")
-		@PathVariable @Positive(message = "대회 ID는 0보다 커야 합니다.") int raceId,
+		@PathVariable @Positive(message = "대회 ID는 0보다 커야 합니다.") long raceId,
 		@Parameter(description = "종목 ID", example = "1")
-		@PathVariable @Positive(message = "종목 ID는 0보다 커야 합니다.") int raceCourseId
+		@PathVariable @Positive(message = "종목 ID는 0보다 커야 합니다.") long raceCourseId
 	) {
 		QueueAdmissionDto admission = queueFacade.getAdmission(memberId, raceId, raceCourseId);
 		String message = admission.isAdmitted() ? "대기열에 입장 중입니다." : "대기열에 입장 중이 아닙니다.";

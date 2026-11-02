@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.bukang.common.global.rsdata.RsData;
 import com.bukang.common.global.web.IdempotencyKeyHeader;
-import com.bukang.common.shared.member.web.MemberIdHeader;
+import com.bukang.common.shared.member.web.LoginMemberId;
 import com.bukang.order.app.OrderCancelUseCase;
 import com.bukang.order.app.OrderCreateResult;
 import com.bukang.order.app.OrderFacade;
@@ -37,7 +37,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 
@@ -95,8 +94,7 @@ public class ApiV1OrderController {
 			}))
 	})
 	public ResponseEntity<RsData<OrderDto>> create(
-		@Parameter(description = "요청한 회원 ID (게이트웨이가 넣어 줄 예정)", example = "1")
-		@RequestHeader(MemberIdHeader.NAME) @Positive(message = MemberIdHeader.INVALID_MESSAGE) int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "중복 주문 방지 키. 같은 [결제하기] 재시도에는 같은 값을 보낸다 (예: UUID)",
 			example = "6f1c2a7e-3b9d-4f0a-9c55-0d2e8b7a1f43")
 		@RequestHeader(IdempotencyKeyHeader.NAME)
@@ -150,10 +148,9 @@ public class ApiV1OrderController {
 			}))
 	})
 	public ResponseEntity<RsData<OrderDto>> pay(
-		@Parameter(description = "요청한 회원 ID (게이트웨이가 넣어 줄 예정)", example = "1")
-		@RequestHeader(MemberIdHeader.NAME) @Positive(message = MemberIdHeader.INVALID_MESSAGE) int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "주문 ID", example = "1")
-		@PathVariable int orderId
+		@PathVariable long orderId
 	) {
 		OrderPayResult result = orderFacade.pay(orderId, memberId);
 		String message = result.alreadyPaid() ? "이미 결제한 주문입니다." : "결제했습니다. 참가가 확정되었습니다.";
@@ -165,10 +162,15 @@ public class ApiV1OrderController {
 		description = "결제한 주문 상품(참가권, 키트 포함)을 취소하고 예치금으로 전액 돌려준다. 환불 기한 날짜까지(그날 23:59:59 포함)는 자동 승인하고, "
 			+ "판매 시작 뒤 대회 일정이 바뀌었으면 바뀐 날(알린 날)부터 7일 동안은 환불 기한과 상관없이 자동 승인한다. "
 			+ "일부만 취소하면 주문은 PARTIAL_CANCELED, 모두 취소하면 CANCELED가 되고, 참가 신청은 CANCELED가 되어 같은 대회에 다시 신청할 수 있다. "
-			+ "정산 대상일(대회 다음 날)이 지난 참가권은 정산 서비스가 거절한다. 같은 취소를 다시 보내면 409로 막혀 환불은 한 번만 일어난다.")
+			+ "정산 대상일(대회 다음 날)이 지난 참가권은 정산 서비스가 거절한다. 같은 취소를 다시 보내면 409로 막혀 환불은 한 번만 일어난다. "
+			+ "예치금 환불 응답을 받지 못하면(시간 초과·5xx) 202로 답하고 주문 상품은 취소 중(CANCELING)으로 남는다. "
+			+ "1분 뒤부터 재처리가 환불을 다시 확인해 취소로 마무리하므로, 주문 상세를 다시 조회해 상태를 본다. "
+			+ "예치금이 환불을 거절하면(4xx) 결제 완료로 되돌리고 503으로 답한다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "취소·환불 완료",
 			content = @Content(examples = @ExampleObject(value = OrderApiExamples.CANCEL_SUCCESS))),
+		@ApiResponse(responseCode = "202", description = "취소 처리 중 (예치금 환불 결과를 아직 모름, 재처리가 마무리)",
+			content = @Content(examples = @ExampleObject(value = OrderApiExamples.CANCEL_PENDING))),
 		@ApiResponse(responseCode = "400", description = "주문 ID·주문 상품 ID·회원 ID 오류",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "ID 형식 오류", value = OrderApiExamples.INVALID_VALUE_TYPE),
@@ -186,27 +188,35 @@ public class ApiV1OrderController {
 				@ExampleObject(name = "주문에 없는 상품", value = OrderApiExamples.ORDER_ITEM_NOT_FOUND),
 				@ExampleObject(name = "없는 종목", value = OrderApiExamples.COURSE_NOT_FOUND)
 			})),
-		@ApiResponse(responseCode = "409", description = "이미 취소함, 결제 전 상품, 환불 기한 지남, 정산 대상일 지남",
+		@ApiResponse(responseCode = "409", description = "이미 취소함, 취소 처리 중, 결제 전 상품, 환불 기한 지남, 정산 대상일 지남",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "이미 취소함", value = OrderApiExamples.ALREADY_CANCELED),
+				@ExampleObject(name = "취소 처리 중", value = OrderApiExamples.ALREADY_CANCELING),
 				@ExampleObject(name = "결제 전 상품", value = OrderApiExamples.NOT_PAID_ITEM),
 				@ExampleObject(name = "환불 기한 지남", value = OrderApiExamples.REFUND_PERIOD_PASSED),
 				@ExampleObject(name = "환불 기한·일정 변경 환불 기간 지남", value = OrderApiExamples.SCHEDULE_CHANGE_REFUND_PASSED),
 				@ExampleObject(name = "정산 대상일 지남", value = OrderApiExamples.PAYOUT_STARTED)
 			})),
-		@ApiResponse(responseCode = "503", description = "정산 서비스에 환불 가능 여부를 묻지 못함 (연결 실패, 시간 초과, 오류 응답, 응답 형식 오류)",
-			content = @Content(schema = @Schema(implementation = RsData.class),
-				examples = @ExampleObject(value = OrderApiExamples.PAYOUT_UNAVAILABLE)))
+		@ApiResponse(responseCode = "503",
+			description = "정산 서비스에 환불 가능 여부를 묻지 못함 (연결 실패, 시간 초과, 오류 응답, 응답 형식 오류), "
+				+ "예치금이 환불을 거절함(결제 완료로 되돌림)",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "정산 서비스 연결 실패", value = OrderApiExamples.PAYOUT_UNAVAILABLE),
+				@ExampleObject(name = "예치금 환불 거절", value = OrderApiExamples.WALLET_UNAVAILABLE)
+			}))
 	})
 	public ResponseEntity<RsData<OrderDto>> cancelItem(
-		@Parameter(description = "요청한 회원 ID (게이트웨이가 넣어 줄 예정)", example = "1")
-		@RequestHeader(MemberIdHeader.NAME) @Positive(message = MemberIdHeader.INVALID_MESSAGE) int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "주문 ID", example = "1")
-		@PathVariable int orderId,
+		@PathVariable long orderId,
 		@Parameter(description = "취소할 주문 상품 ID", example = "1")
-		@PathVariable int orderItemId
+		@PathVariable long orderItemId
 	) {
 		OrderCancelUseCase.CancelResult result = orderFacade.cancelItem(orderId, orderItemId, memberId);
+		if (result.refundPending()) {
+			return ResponseEntity.accepted().body(RsData.of(HttpStatus.ACCEPTED,
+				"취소 처리 중입니다. 예치금 환불이 확인되면 취소가 마무리됩니다.", result.order()));
+		}
 		return ResponseEntity.ok().body(RsData.of(HttpStatus.OK,
 			"취소했습니다. 예치금 %,d원을 돌려드렸습니다.".formatted(result.refundedAmount()), result.order()));
 	}
@@ -230,8 +240,7 @@ public class ApiV1OrderController {
 				examples = @ExampleObject(value = OrderApiExamples.LOGIN_REQUIRED)))
 	})
 	public ResponseEntity<RsData<OrderPageDto>> findMine(
-		@Parameter(description = "요청한 회원 ID (게이트웨이가 넣어 줄 예정)", example = "1")
-		@RequestHeader(MemberIdHeader.NAME) @Positive(message = MemberIdHeader.INVALID_MESSAGE) int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "조회 시작일 (주문 일자, 생략 가능)", example = "2026-10-01")
 		@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
 		@Parameter(description = "조회 종료일 (이날 주문까지 포함, 생략 가능)", example = "2026-10-31")
@@ -267,10 +276,9 @@ public class ApiV1OrderController {
 				examples = @ExampleObject(value = OrderApiExamples.ORDER_NOT_FOUND)))
 	})
 	public ResponseEntity<RsData<OrderDto>> findById(
-		@Parameter(description = "요청한 회원 ID (게이트웨이가 넣어 줄 예정)", example = "1")
-		@RequestHeader(MemberIdHeader.NAME) @Positive(message = MemberIdHeader.INVALID_MESSAGE) int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "주문 ID", example = "1")
-		@PathVariable int orderId
+		@PathVariable long orderId
 	) {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "주문을 조회했습니다.", orderFacade.findById(orderId, memberId)));

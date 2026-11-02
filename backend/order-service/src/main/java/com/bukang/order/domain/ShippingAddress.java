@@ -10,8 +10,8 @@ import lombok.NoArgsConstructor;
 
 /**
  * 키트 배송지 (ERD v5 orders.recipient_name ~ address_detail, delivery와 같은 칸)
- * 정책상 신청 때 받아(3장 1-2, 5장 3-2) 참가 신청에 두고, 주문을 만들 때 주문에 그대로 옮긴다
- * 컬럼 이름은 주문(orders) 기준이고, 참가 신청에서는 shipping_ 접두사를 붙여 쓴다 (ParticipantInfo의 @AttributeOverrides)
+ * 정책상 신청 때 받아(3장 1-2, 5장 3-2) 참가 신청에 두고, 결제할 때 배송(ORDER_SHIPMENT)에 복사한다 (BUK-6)
+ * 컬럼 이름은 배송 기준이고, 참가 신청에서는 shipping_ 접두사를 붙여 쓴다 (ParticipantInfo의 @AttributeOverrides)
  */
 @Embeddable
 @NoArgsConstructor(access = PROTECTED)

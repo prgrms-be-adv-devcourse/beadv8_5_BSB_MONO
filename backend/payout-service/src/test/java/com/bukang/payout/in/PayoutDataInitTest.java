@@ -34,7 +34,7 @@ import jakarta.persistence.EntityManager;
 @DataJpaTest
 @ActiveProfiles("test")
 class PayoutDataInitTest {
-	private static final int SELLER_ID = 7;
+	private static final long SELLER_ID = 7;
 	// 2026-10-28 수. 이번 달 지급일(10/20 화)이 지났으므로 최근 지급일의 달은 10월이다
 	private static final LocalDate TODAY = LocalDate.of(2026, 10, 28);
 
@@ -51,7 +51,7 @@ class PayoutDataInitTest {
 		return new PayoutDataInit(null, payoutRepository, payoutHoldRepository, new BusinessDayCalendar());
 	}
 
-	private Payout payout(int raceId, PayoutStage stage) {
+	private Payout payout(long raceId, PayoutStage stage) {
 		return payoutRepository.findFirstBySellerIdAndRaceIdAndPayoutStageOrderByIdAsc(SELLER_ID, raceId, stage)
 			.orElseThrow();
 	}

@@ -37,7 +37,7 @@ import com.bukang.cash.out.WalletWithdrawalRepository;
 @SpringBootTest
 @ActiveProfiles("test")
 class WithdrawalConcurrencyTest {
-	private static final int CUSTOMER_ID = 3;
+	private static final long CUSTOMER_ID = 3;
 
 	@Autowired
 	private CashFacade cashFacade;
@@ -124,7 +124,7 @@ class WithdrawalConcurrencyTest {
 		}
 	}
 
-	private void createCustomerWallet(int initialBalance) {
+	private void createCustomerWallet(long initialBalance) {
 		transactionTemplate.executeWithoutResult(status -> {
 			LocalDateTime now = LocalDateTime.of(2026, 10, 18, 10, 0);
 			CashMember member = cashMemberRepository.save(new CashMember(CUSTOMER_ID, now, now, "러너" + CUSTOMER_ID));

@@ -27,7 +27,7 @@ public class SellerApplyUseCase {
 	private final SellerRepository sellerRepository;
 
 	public Seller apply(
-		int memberId,
+		long memberId,
 		SellerType sellerType,
 		String businessName,
 		String businessNumber,

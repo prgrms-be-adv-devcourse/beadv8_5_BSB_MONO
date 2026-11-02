@@ -10,12 +10,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.bukang.common.global.rsdata.RsData;
-import com.bukang.common.shared.member.web.MemberIdHeader;
+import com.bukang.common.shared.member.web.LoginMemberId;
 import com.bukang.order.dto.QueueAdmissionDto;
 import com.bukang.order.out.queue.FakeQueueAdmissionAdapter;
 
@@ -45,8 +44,8 @@ public class DevQueueDummyController {
 
 	@PostMapping("/dev/queue-dummy/enter")
 	public ResponseEntity<RsData<QueueAdmissionDto>> enter(
-		@RequestHeader(MemberIdHeader.NAME) int memberId,
-		@RequestParam int raceCourseId
+		@LoginMemberId long memberId,
+		@RequestParam long raceCourseId
 	) {
 		LocalDateTime now = LocalDateTime.now();
 		LocalDateTime endsAt = fakeQueueAdmissionAdapter.enter(memberId, raceCourseId, now);

@@ -10,7 +10,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import com.bukang.member.domain.Terms;
 import com.bukang.member.domain.TermsType;
 
-public interface TermsRepository extends JpaRepository<Terms, Integer> {
+public interface TermsRepository extends JpaRepository<Terms, Long> {
 	boolean existsByTypeAndVersion(TermsType type, String version);
 
 	// 시행일이 지난 약관을 최근 순으로 가져온다. 시행일이 같으면 나중에 만든 것이 먼저 온다

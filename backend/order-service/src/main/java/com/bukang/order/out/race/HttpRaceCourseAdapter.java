@@ -40,7 +40,7 @@ public class HttpRaceCourseAdapter implements RaceCoursePort {
 	private final RestClient restClient;
 
 	@Override
-	public Optional<RaceCourseInfo> findCourse(int raceCourseId) {
+	public Optional<RaceCourseInfo> findCourse(long raceCourseId) {
 		RsData<CourseBody> response;
 		try {
 			response = restClient.get()
@@ -72,16 +72,16 @@ public class HttpRaceCourseAdapter implements RaceCoursePort {
 	// 티셔츠 사이즈 목록은 B enum(TshirtSize) 이름 그대로 문자열로 받는다. 없으면 티셔츠가 없는 종목이다
 	@JsonIgnoreProperties(ignoreUnknown = true)
 	record CourseBody(
-		Integer raceCourseId,
-		Integer raceId,
+		Long raceCourseId,
+		Long raceId,
 		LocalDateTime raceDate,
 		LocalDateTime applicationOpenAt,
 		LocalDateTime applicationCloseAt,
 		Integer minAge,
 		Integer maxAge,
-		Integer sellerId,
+		Long sellerId,
 		String courseName,
-		Integer price,
+		Long price,
 		Boolean kitIncluded,
 		LocalDate refundDeadline,
 		LocalDateTime scheduleChangedAt,

@@ -51,7 +51,7 @@ public class MemberFacade {
 		return new EmailAvailabilityResponseDto(!memberRepository.existsByEmail(email));
 	}
 
-	public MemberDto findMe(int memberId) {
+	public MemberDto findMe(long memberId) {
 		// 탈퇴한 회원은 없는 회원으로 본다 (BE-022)
 		return memberRepository.findActiveById(memberId)
 			.orElseThrow(() -> new MemberNotFoundException("존재하지 않는 회원입니다."))
@@ -59,7 +59,7 @@ public class MemberFacade {
 	}
 
 	@Transactional
-	public MemberDto modifyMe(int memberId, MemberModifyRequestDto memberModifyRequestDto) {
+	public MemberDto modifyMe(long memberId, MemberModifyRequestDto memberModifyRequestDto) {
 		return memberModifyUseCase.modify(
 			memberId,
 			memberModifyRequestDto.getName(),
@@ -70,7 +70,7 @@ public class MemberFacade {
 	}
 
 	@Transactional
-	public void withdrawMe(int memberId) {
+	public void withdrawMe(long memberId) {
 		memberWithdrawUseCase.withdraw(memberId);
 	}
 
@@ -82,7 +82,7 @@ public class MemberFacade {
 			.grantAdmin();
 	}
 
-	public MemberAdminDto checkAdmin(int memberId) {
+	public MemberAdminDto checkAdmin(long memberId) {
 		return new MemberAdminDto(adminVerifyUseCase.isAdmin(memberId));
 	}
 

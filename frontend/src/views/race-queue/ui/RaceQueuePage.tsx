@@ -10,10 +10,14 @@ import { loginHref } from '@/features/auth'
 import { skippedNotice, useAdmissionTimer, useQueuePosition } from '@/features/queue-admission'
 import { BottomCta, buttonClassName, Dialog, formatTimer, Icon, ProgressBar } from '@/shared/ui'
 
+import { useQueueTracking } from '../model/use-queue-tracking'
+
 // 피그마 V2 · M05-Q1 대기열 · 차례 기다리기 / M05-Q2 대기열 · 내 차례
 // 같은 주소에서 입장 여부에 따라 두 화면을 바꿔 그린다.
 // 들어오면 대기열에 등록하고(useQueuePosition) 차례가 올 때까지 순번을 짧은 간격마다 다시 묻는다.
 // 차례가 오면 주문 서비스에 입장 확인을 묻고, 입장하면 버튼을 누르지 않아도 신청서(M05)로 넘어간다.
+// 넘어가는 동안에는 기다리는 화면을 그대로 둔다. 내 차례 화면(M05-Q2)을 그리면 남은 시간이 잠깐 깜빡이기 때문이다.
+// 내 차례 화면은 시안 미리보기에서만 그린다. 남은 시간은 신청서 위쪽 띠에서 보여 준다.
 // 남은 시간은 신청서에서 1초씩 줄여 가고, 0이 되면 입장 시간 만료 화면(M07-1)으로 간다.
 // 예상 대기 시간은 API가 주지 않아 그리지 않는다. 내 앞 인원은 순번을 받으면 작게 보여 준다.
 // 상단 timer bar 띠는 이 화면에 없다(신청서 M05부터). 왼쪽 위 X는 대회 상세로 이동만 한다.
@@ -57,6 +61,7 @@ export function RaceQueuePage({
 
   // 차례가 오면 신청서로 자동으로 넘어간다 (시안 미리보기는 머문다)
   const admitted = remaining !== null
+  useQueueTracking(raceId, admitted, !preview)
   useEffect(() => {
     if (admitted && !preview) router.replace(applyHref)
   }, [admitted, preview, applyHref, router])
@@ -115,7 +120,7 @@ export function RaceQueuePage({
             }
           />
         </>
-      ) : remaining !== null ? (
+      ) : preview && remaining !== null ? (
         <>
           <main className="flex flex-1 flex-col items-center justify-center gap-8 px-4 py-6">
             <h1 className="text-center text-heading-l text-text-primary">

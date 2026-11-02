@@ -39,7 +39,7 @@ public class RaceRegisterUseCase {
 	private final RaceRepository raceRepository;
 	private final RaceRequestValidator raceRequestValidator;
 
-	public RaceSaveResult register(int memberId, String idempotencyKey, RaceSaveRequestDto request,
+	public RaceSaveResult register(long memberId, String idempotencyKey, RaceSaveRequestDto request,
 		LocalDateTime now) {
 		// 회원당 승인된 판매자는 1명이라고 가정한다 (ProductSellerRepository)
 		ProductSeller seller = productSellerRepository.findByMemberIdAndStatus(memberId, SellerStatus.APPROVED)
@@ -70,7 +70,7 @@ public class RaceRegisterUseCase {
 
 	// 같은 판매자가 같은 Idempotency-Key로 이미 등록한 대회
 	// 승인된 판매자가 아니면 등록한 대회도 없다고 보고 빈 값을 돌려준다 (이어지는 등록이 403으로 막는다)
-	public Optional<RaceSaveDto> findRegistered(int memberId, String idempotencyKey) {
+	public Optional<RaceSaveDto> findRegistered(long memberId, String idempotencyKey) {
 		return productSellerRepository.findByMemberIdAndStatus(memberId, SellerStatus.APPROVED)
 			.flatMap(seller -> raceRepository.findBySellerAndIdempotencyKey(seller, idempotencyKey))
 			.map(RaceRegisterUseCase::toDto);
@@ -78,7 +78,7 @@ public class RaceRegisterUseCase {
 
 	// 등록 응답과 같은 모양으로 만든다. 종목은 요청 순서대로 저장되어(IDENTITY) ID 오름차순이 등록 요청의 종목 순서다
 	private static RaceSaveDto toDto(Race race) {
-		List<Integer> courseIds = race.getCourses().stream()
+		List<Long> courseIds = race.getCourses().stream()
 			.map(RaceCourse::getId)
 			.sorted()
 			.toList();

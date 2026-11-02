@@ -30,8 +30,8 @@ import com.bukang.order.out.InternalHttpClients;
 
 class HttpWalletAdapterTest {
 	private static final String BASE_URL = "http://cash";
-	private static final int ORDER_ID = 101;
-	private static final int MEMBER_ID = 7;
+	private static final long ORDER_ID = 101;
+	private static final long MEMBER_ID = 7;
 	private static final String PAY_URL = BASE_URL + "/internal/v1/cash/payments/101";
 	private static final String CANCEL_URL = PAY_URL + "/cancel";
 	private static final String REFUND_URL = PAY_URL + "/refund";
@@ -183,7 +183,7 @@ class HttpWalletAdapterTest {
 	}
 
 	// 예치금 서비스 InternalV1CashController가 실제로 돌려주는 모양 (data = CashPaymentDto)
-	private String payResponse(String outcome, int shortage) {
+	private String payResponse(String outcome, long shortage) {
 		return """
 			{ "status": 200, "message": "결제했습니다.", "data": { "outcome": "%s", "shortage": %d } }
 			""".formatted(outcome, shortage);

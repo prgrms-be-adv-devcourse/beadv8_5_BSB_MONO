@@ -31,23 +31,23 @@ public class PayoutSellerFacade {
 	private final PayoutSellerVerifyUseCase sellerVerifyUseCase;
 	private final PayoutSellerQueryUseCase payoutSellerQueryUseCase;
 
-	public PayoutSummaryDto summary(int memberId, LocalDate today) {
-		int sellerId = sellerVerifyUseCase.verify(memberId);
+	public PayoutSummaryDto summary(long memberId, LocalDate today) {
+		long sellerId = sellerVerifyUseCase.verify(memberId);
 		return payoutSellerQueryUseCase.summary(sellerId, today);
 	}
 
-	public List<PayoutDto> payouts(int memberId, YearMonth fromMonth, YearMonth toMonth) {
-		int sellerId = sellerVerifyUseCase.verify(memberId);
+	public List<PayoutDto> payouts(long memberId, YearMonth fromMonth, YearMonth toMonth) {
+		long sellerId = sellerVerifyUseCase.verify(memberId);
 		return payoutSellerQueryUseCase.payouts(sellerId, fromMonth, toMonth);
 	}
 
-	public PageDto<PayoutItemDto> items(int memberId, LocalDate from, LocalDate to, int page, int size) {
-		int sellerId = sellerVerifyUseCase.verify(memberId);
+	public PageDto<PayoutItemDto> items(long memberId, LocalDate from, LocalDate to, int page, int size) {
+		long sellerId = sellerVerifyUseCase.verify(memberId);
 		return payoutSellerQueryUseCase.items(sellerId, from, to, page, size);
 	}
 
-	public List<SellerPayoutHoldDto> holds(int memberId, LocalDate from, LocalDate to) {
-		int sellerId = sellerVerifyUseCase.verify(memberId);
+	public List<SellerPayoutHoldDto> holds(long memberId, LocalDate from, LocalDate to) {
+		long sellerId = sellerVerifyUseCase.verify(memberId);
 		return payoutSellerQueryUseCase.holds(sellerId, from, to);
 	}
 }

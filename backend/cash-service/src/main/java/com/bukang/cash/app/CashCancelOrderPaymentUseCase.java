@@ -25,7 +25,7 @@ public class CashCancelOrderPaymentUseCase {
 
 	// 몇 번을, 언제 불러도 안전하다: 결제 전이면 선점해서 늦게 오는 pay를 거절하고,
 	// 결제됐으면 돌려주고, 이미 취소·환불됐으면 그냥 성공(아무것도 안 바꿈)한다
-	public void cancelPayment(int orderId, int customerId) {
+	public void cancelPayment(long orderId, long customerId) {
 		//1.고객 지갑이 없으면 지갑 없이는 결제도 성공할 수 없었으므로 취소할 것도 없이 성공으로 끝낸다
 		if (!cashSupport.hasWallet(customerId)) {
 			log.warn("지갑 없는 회원의 결제 취소 요청, 아무것도 안 바꾸고 끝냄. orderId={}, customerId={}",
@@ -55,7 +55,7 @@ public class CashCancelOrderPaymentUseCase {
 		//6.결제됐으면(COMPLETED) 반대 방향 장부 2줄을 남기고 지갑을 되돌린다
 		//  결제 전(PENDING/FAILED거나 방금 선점용으로 만든 행)이면 지갑은 안 건드리고 상태만 CANCELED로 선점한다
 		if (payment.getStatus() == PaymentStatus.COMPLETED) {
-			int amount = payment.getAmount();
+			long amount = payment.getAmount();
 			walletLedgerRepository.save(
 				customerWallet.credit(amount, LedgerType.환불__주문취소, LedgerRefType.Order, orderId));
 			walletLedgerRepository.save(

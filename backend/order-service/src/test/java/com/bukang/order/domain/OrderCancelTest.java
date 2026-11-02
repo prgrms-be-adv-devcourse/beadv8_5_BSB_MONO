@@ -55,14 +55,62 @@ class OrderCancelTest {
 		assertThat(order.getCanceledAmount()).isEqualTo(50_000);
 	}
 
+	@Test
+	@DisplayName("취소를 시작하면 취소 중과 시작 시각만 남고 주문 상태는 그대로다. 환불이 확인돼 마무리하면 취소가 된다")
+	void startThenCompleteCancel() {
+		Order order = paidOrderWithTwoItems();
+		OrderItem first = order.getItems().get(0);
+
+		order.startCancelItem(first, NOW);
+		assertThat(first.getStatus()).isEqualTo(OrderItemStatus.CANCELING);
+		assertThat(first.getCancelRequestedAt()).isEqualTo(NOW);
+		assertThat(order.getStatus()).isEqualTo(OrderStatus.PAID);
+		assertThat(order.getCanceledAmount()).isZero();
+		assertThatThrownBy(() -> order.startCancelItem(first, NOW))
+			.isInstanceOf(OrderItemNotCancelableException.class)
+			.hasMessage("취소 처리 중인 상품입니다. 잠시 뒤 주문 내역에서 확인해주세요.");
+
+		order.cancelItem(first, NOW.plusMinutes(1));
+		assertThat(first.getStatus()).isEqualTo(OrderItemStatus.CANCELED);
+		assertThat(order.getStatus()).isEqualTo(OrderStatus.PARTIAL_CANCELED);
+		assertThat(order.getCanceledAmount()).isEqualTo(50_000);
+	}
+
+	@Test
+	@DisplayName("환불이 거절되면 취소 중을 결제 완료로 되돌리고 시작 시각을 지운다. 취소 중이 아니면 되돌릴 수 없다")
+	void revertCancel() {
+		Order order = paidOrderWithTwoItems();
+		OrderItem first = order.getItems().get(0);
+		order.startCancelItem(first, NOW);
+
+		order.revertCancelItem(first);
+		assertThat(first.getStatus()).isEqualTo(OrderItemStatus.PAID);
+		assertThat(first.getCancelRequestedAt()).isNull();
+		assertThatThrownBy(() -> order.revertCancelItem(first)).isInstanceOf(IllegalStateException.class);
+	}
+
+	@Test
+	@DisplayName("대회 취소 일괄 환불은 결제 완료만 고르고 취소 중은 건너뛴다 (재처리가 같은 주문 ID로 환불하고 마무리한다)")
+	void cancelPaidItemsSkipsCanceling() {
+		Order order = paidOrderWithTwoItems();
+		OrderItem first = order.getItems().get(0);
+		OrderItem second = order.getItems().get(1);
+		order.startCancelItem(first, NOW);
+
+		assertThat(order.cancelPaidItems(NOW.plusMinutes(1))).containsExactly(second);
+		assertThat(first.getStatus()).isEqualTo(OrderItemStatus.CANCELING);
+		assertThat(order.getStatus()).isEqualTo(OrderStatus.PARTIAL_CANCELED);
+		assertThat(order.getCanceledAmount()).isEqualTo(50_000);
+	}
+
 	private static Order paidOrderWithTwoItems() {
 		Order order = Order.forParticipation(participation(1), COURSE, "key", NOW.plusMinutes(10));
 		order.getItems().add(OrderItem.ticket(order, participation(2), COURSE));
-		order.markPaid(NOW);
+		order.markPaid(NOW, null);
 		return order;
 	}
 
-	private static Participation participation(int memberId) {
+	private static Participation participation(long memberId) {
 		ParticipantInfo info = new ParticipantInfo("김러너", LocalDate.of(1994, 6, 25), Gender.MALE, "010-1234-5678",
 			"김가족", "010-9876-5432", "L",
 			new ShippingAddress("김러너", "010-1234-5678", "04700", "서울 성동구 왕십리로 00", null));

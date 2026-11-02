@@ -10,6 +10,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 import com.bukang.order.domain.Order;
 import com.bukang.order.domain.OrderItem;
 import com.bukang.order.domain.Participation;
+import com.bukang.order.domain.exception.ExternalServiceRejectedException;
+import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
 import com.bukang.order.domain.exception.OrderAccessDeniedException;
 import com.bukang.order.domain.exception.OrderNotFoundException;
 import com.bukang.order.domain.exception.ParticipationNotFoundException;
@@ -24,18 +26,24 @@ import com.bukang.order.out.race.RaceCoursePort;
 import com.bukang.order.out.wallet.WalletPort;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * 결제한 참가권을 주문 상품 단위로 취소·환불한다 (정책 5장). 키트는 같은 주문 상품이라 함께 취소된다
- * 환불 기한 안이거나, 대회 일정이 바뀐 뒤 7일 안이면 자동 승인 (ERD v4 환불 판정):
- * 주문 상품 CANCELED, 주문 PARTIAL_CANCELED/CANCELED, 참가 신청 CANCELED
- * → 예치금 환불(D) → 자리 복구 메시지를 아웃박스에 저장(B에는 커밋 뒤 Kafka product.hold.restore로 간다, PRO-270)
- * 정산 대상일이 지난 참가권은 정산 서비스(E)가 거절한다
- * 자리 복구를 환불보다 먼저 HTTP로 부르면, 환불이 실패해 주문이 결제 완료로 롤백돼도 자리는 이미 판매 가능으로 풀려
- * 정원보다 더 팔릴 수 있었다. 이제 환불이 실패하면 복구 메시지도 함께 롤백되고, 커밋된 취소만 자리를 되돌린다
- * 환불은 주문 단위로 멱등이라, 환불 뒤 커밋이 실패해 롤백되면 같은 취소를 다시 요청하면 된다
- * 트랜잭션은 이 클래스가 단계마다 연다. 바깥 트랜잭션 없이 부른다 (OrderFacade.cancelItem)
+ * 환불 기한 안이거나, 대회 일정이 바뀐 뒤 7일 안이면 자동 승인 (ERD v4 환불 판정). 정산 대상일이 지난 참가권은 정산 서비스(E)가 거절한다
+ * 판정 뒤 세 단계로 나눈다 (BUK-9). 예치금 환불 HTTP를 기다리는 동안 주문 잠금과 DB 커넥션을 쥐지 않는다
+ * 1. 트랜잭션 1: 주문을 잠가 다시 확인하고 주문 상품을 취소 중(CANCELING) + 시작 시각으로 커밋한다
+ * 2. 트랜잭션 밖: 예치금 환불(D). 주문 ID로 멱등이라 몇 번 불러도 돈은 한 번만 움직인다
+ * 3. 트랜잭션 2 (completeCancel): 주문 상품·주문 취소, 참가 신청 취소, 자리 복구 메시지를 아웃박스에 저장
+ *    (B에는 커밋 뒤 Kafka product.hold.restore로 간다, PRO-270). 환불이 확인된 취소만 자리를 되돌려 정원보다 더 팔리지 않는다
+ * 환불 결과에 따라
+ * - 성공: 트랜잭션 2로 마무리한다
+ * - 거절(4xx, ExternalServiceRejectedException): 돈이 움직이지 않았으므로 결제 완료로 되돌리고(revertCancel) 예외를 그대로 던진다
+ * - 모름(시간 초과·5xx, ExternalServiceUnavailableException): D가 이미 환불했을 수 있어 취소 중으로 두고 "취소 처리 중"으로 답한다.
+ *   1분 뒤부터 OrderCancelRetryUseCase가 같은 주문 ID로 환불을 다시 불러 마무리한다
+ * 트랜잭션은 이 클래스가 단계마다 연다. 바깥 트랜잭션 없이 부른다 (OrderFacade.cancelItem, OrderCancelRetryUseCase)
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class OrderCancelUseCase {
@@ -47,15 +55,16 @@ public class OrderCancelUseCase {
 	private final WalletPort walletPort;
 	private final TransactionTemplate transactionTemplate;
 
-	public record CancelResult(OrderDto order, int refundedAmount) {
+	// refundPending: 환불 결과를 몰라 취소 중으로 남았다 (컨트롤러가 202 "취소 처리 중"으로 답한다)
+	public record CancelResult(OrderDto order, long refundedAmount, boolean refundPending) {
 	}
 
 	/**
-	 * 두 단계로 취소한다. 다른 서비스에 묻는 판정(종목 정보, 정산 대상일)은 잠금과 DB 커넥션을 쥐기 전에 하고,
-	 * 그다음 주문을 잠가 상태를 다시 확인한 뒤 바꾼다. 정산 서비스가 느려도 주문 행 잠금이 그동안 붙잡히지 않는다
+	 * 다른 서비스에 묻는 판정(종목 정보, 정산 대상일)은 잠금과 DB 커넥션을 쥐기 전에 하고,
+	 * 그다음 주문을 잠가 상태를 다시 확인한 뒤 취소 중으로 바꾼다. 정산 서비스가 느려도 주문 행 잠금이 그동안 붙잡히지 않는다
 	 * 판정과 잠금 사이에 같은 상품이 먼저 취소되면 잠근 뒤의 확인(checkCancelable)이 409로 막는다
 	 */
-	public CancelResult cancel(int memberId, int orderId, int orderItemId, LocalDateTime now) {
+	public CancelResult cancel(long memberId, long orderId, long orderItemId, LocalDateTime now) {
 		CancelTarget target = transactionTemplate.execute(status -> readTarget(memberId, orderId, orderItemId));
 		RaceCourseInfo course = raceCoursePort.findCourse(target.raceCourseId())
 			.orElseThrow(() -> new RaceCourseNotFoundException("존재하지 않는 종목입니다."));
@@ -65,37 +74,88 @@ public class OrderCancelUseCase {
 		if (!isBeforePayout(target.copiedRaceDate(), course.raceDate().toLocalDate())) {
 			throw RefundNotAllowedException.payoutStarted("정산이 시작된 참가권이라 취소할 수 없습니다.");
 		}
-		return transactionTemplate.execute(status -> cancelLocked(memberId, orderId, orderItemId, now));
+		transactionTemplate.executeWithoutResult(status -> startCancel(memberId, orderId, orderItemId, now));
+
+		try {
+			// 주문 하나 = 참가권 하나라, 주문 단위 전액 환불이 이 상품의 환불이다. 금액은 D가 결제 기록으로 정한다
+			walletPort.refund(orderId, memberId);
+		} catch (ExternalServiceRejectedException exception) {
+			revertCancel(orderId, orderItemId);
+			throw exception;
+		} catch (ExternalServiceUnavailableException exception) {
+			log.warn("예치금 환불 결과를 몰라 취소 중으로 둡니다. 재처리가 마무리합니다. orderId={}, orderItemId={}, cause={}",
+				orderId, orderItemId, exception.getMessage());
+			return pending(orderId);
+		}
+		try {
+			return completeCancel(orderId, orderItemId, now);
+		} catch (RuntimeException exception) {
+			// 돈은 이미 돌려줬다. 실패로 답하면 회원이 다시 눌러도 409라, 취소 중으로 두고 재처리가 마무리하게 한다
+			log.error("환불은 됐지만 취소를 마무리하지 못해 취소 중으로 둡니다. 재처리가 마무리합니다. orderId={}, orderItemId={}",
+				orderId, orderItemId, exception);
+			return pending(orderId);
+		}
+	}
+
+	private CancelResult pending(long orderId) {
+		OrderDto order = transactionTemplate.execute(status -> orderRepository.findById(orderId)
+			.orElseThrow(() -> new OrderNotFoundException("존재하지 않는 주문입니다.")).toDto());
+		return new CancelResult(order, 0, true);
 	}
 
 	// 판정에 필요한 값만 잠그지 않고 읽는다. 없는 주문·남의 주문·결제 전 상품은 다른 서비스를 부르기 전에 거른다
-	private CancelTarget readTarget(int memberId, int orderId, int orderItemId) {
+	private CancelTarget readTarget(long memberId, long orderId, long orderItemId) {
 		Order order = findOwnedOrder(orderRepository.findById(orderId), memberId);
 		OrderItem item = order.findItem(orderItemId);
 		item.checkCancelable();
 		return new CancelTarget(item.getRaceCourseId(), item.getRaceDate().toLocalDate());
 	}
 
-	private CancelResult cancelLocked(int memberId, int orderId, int orderItemId, LocalDateTime now) {
-		// 주문을 먼저 잠근다. 같은 상품 취소가 동시에 와도 한 요청씩 처리되어 환불이 한 번만 일어난다
+	// 주문을 잠가 다시 확인한다. 같은 상품 취소가 동시에 와도 한 요청만 취소 중으로 바꾸고, 나머지는 409로 막혀 환불을 부르지 않는다
+	private void startCancel(long memberId, long orderId, long orderItemId, LocalDateTime now) {
 		Order order = findOwnedOrder(orderRepository.findByIdForUpdate(orderId), memberId);
 		OrderItem item = order.findItem(orderItemId);
-		item.checkCancelable();
-
-		// 참가 신청도 잠근다. 참가자 정보 수정과 겹쳐도 CANCELED가 옛 상태로 덮이지 않는다 (잠금 순서: 주문 → 참가 신청)
-		Participation participation = participationRepository.findByIdForUpdate(item.getParticipationId())
-			.orElseThrow(() -> new ParticipationNotFoundException("존재하지 않는 참가 신청입니다."));
-		order.cancelItem(item, now);
-		participation.markCanceled(now);
-
-		// 주문 하나 = 참가권 하나라, 주문 단위 전액 환불이 이 상품의 환불이다. 금액은 D가 결제 기록으로 정한다
-		walletPort.refund(order.getId(), memberId);
-		// 환불이 성공한 뒤에만 남긴다. 이 트랜잭션이 커밋돼야 보내진다 (롤백되면 메시지도 없다)
-		orderOutboxKafkaAppendUseCase.appendSeatRestore(item.getParticipationId());
-		return new CancelResult(order.toDto(), item.getAmount());
+		order.startCancelItem(item, now);
 	}
 
-	private Order findOwnedOrder(Optional<Order> found, int memberId) {
+	/**
+	 * 환불이 확인된 취소 중을 마무리한다. 사용자 취소와 재처리(OrderCancelRetryUseCase)가 함께 쓴다
+	 * 주문을 먼저 잠그고, 아직 취소 중일 때만 바꾼다. 둘이 겹쳐도 먼저 잠근 쪽만 취소하고 뒤쪽은 그대로 돌아간다
+	 * 참가 신청도 잠근다. 참가자 정보 수정과 겹쳐도 CANCELED가 옛 상태로 덮이지 않는다 (잠금 순서: 주문 → 참가 신청)
+	 */
+	public CancelResult completeCancel(long orderId, long orderItemId, LocalDateTime now) {
+		return transactionTemplate.execute(status -> {
+			Order order = orderRepository.findByIdForUpdate(orderId)
+				.orElseThrow(() -> new OrderNotFoundException("존재하지 않는 주문입니다."));
+			OrderItem item = order.findItem(orderItemId);
+			if (!item.isCanceling()) {
+				return new CancelResult(order.toDto(), item.getCanceledAmount(), false);
+			}
+			Participation participation = participationRepository.findByIdForUpdate(item.getParticipationId())
+				.orElseThrow(() -> new ParticipationNotFoundException("존재하지 않는 참가 신청입니다."));
+			order.cancelItem(item, now);
+			participation.markCanceled(now);
+			// 이 트랜잭션이 커밋돼야 보내진다 (롤백되면 메시지도 없다)
+			orderOutboxKafkaAppendUseCase.appendSeatRestore(item.getParticipationId());
+			return new CancelResult(order.toDto(), item.getAmount(), false);
+		});
+	}
+
+	// 예치금이 환불을 거절했다(4xx). 아직 취소 중일 때만 결제 완료로 되돌린다. 되돌렸으면 true
+	public boolean revertCancel(long orderId, long orderItemId) {
+		return Boolean.TRUE.equals(transactionTemplate.execute(status -> {
+			Order order = orderRepository.findByIdForUpdate(orderId)
+				.orElseThrow(() -> new OrderNotFoundException("존재하지 않는 주문입니다."));
+			OrderItem item = order.findItem(orderItemId);
+			if (!item.isCanceling()) {
+				return false;
+			}
+			order.revertCancelItem(item);
+			return true;
+		}));
+	}
+
+	private Order findOwnedOrder(Optional<Order> found, long memberId) {
 		Order order = found.orElseThrow(() -> new OrderNotFoundException("존재하지 않는 주문입니다."));
 		if (!order.isOwnedBy(memberId)) {
 			throw new OrderAccessDeniedException("본인의 주문만 취소할 수 있습니다.");
@@ -104,7 +164,7 @@ public class OrderCancelUseCase {
 	}
 
 	// 잠그기 전에 읽어 둔 판정 재료. 주문 상품의 대회 날짜는 주문 때 복사한 값이라 잠근 뒤에도 바뀌지 않는다
-	private record CancelTarget(int raceCourseId, LocalDate copiedRaceDate) {
+	private record CancelTarget(long raceCourseId, LocalDate copiedRaceDate) {
 	}
 
 	/**

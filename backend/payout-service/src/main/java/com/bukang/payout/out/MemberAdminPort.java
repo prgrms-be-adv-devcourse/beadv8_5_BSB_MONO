@@ -10,5 +10,5 @@ public interface MemberAdminPort {
 	 * @throws com.bukang.payout.domain.exception.PayoutMemberNotFoundException 없거나 탈퇴한 회원
 	 * @throws com.bukang.payout.domain.exception.PayoutMemberUnavailableException 회원 서비스가 응답하지 않음
 	 */
-	boolean isAdmin(int memberId);
+	boolean isAdmin(long memberId);
 }

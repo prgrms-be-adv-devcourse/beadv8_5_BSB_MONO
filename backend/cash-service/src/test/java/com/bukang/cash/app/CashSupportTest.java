@@ -70,7 +70,7 @@ class CashSupportTest {
 		assertThat(wallet.getHolder().getId()).isEqualTo(cashWalletProperties.holdingMemberId());
 	}
 
-	private Wallet createWallet(int memberId, String nickname) {
+	private Wallet createWallet(long memberId, String nickname) {
 		LocalDateTime now = LocalDateTime.of(2026, 10, 12, 10, 0);
 		CashMember member = cashMemberRepository.save(new CashMember(memberId, now, now, nickname));
 		return walletRepository.save(new Wallet(member));

@@ -30,24 +30,24 @@ public class SellerKitFacade {
 	private final SellerLookupPort sellerLookupPort;
 	private final KitDeliveryUseCase kitDeliveryUseCase;
 
-	public SellerKitPageDto findKits(int memberId, Integer raceId, KitDeliveryStatus status, int page, int size) {
+	public SellerKitPageDto findKits(long memberId, Long raceId, KitDeliveryStatus status, int page, int size) {
 		return kitDeliveryUseCase.findKits(sellerIdOf(memberId), raceId, status, page, size);
 	}
 
-	public SellerKitSummaryDto summarize(int memberId, Integer raceId) {
+	public SellerKitSummaryDto summarize(long memberId, Long raceId) {
 		return kitDeliveryUseCase.summarize(sellerIdOf(memberId), raceId, LocalDateTime.now());
 	}
 
-	public OrderItemDto ship(int memberId, int orderItemId, KitShipmentRequestDto request) {
+	public OrderItemDto ship(long memberId, long orderItemId, KitShipmentRequestDto request) {
 		return kitDeliveryUseCase.ship(sellerIdOf(memberId), orderItemId, request.getCarrier(),
 			request.getTrackingNumber(), LocalDateTime.now());
 	}
 
-	public OrderItemDto completeDelivery(int memberId, int orderItemId) {
+	public OrderItemDto completeDelivery(long memberId, long orderItemId) {
 		return kitDeliveryUseCase.completeDelivery(sellerIdOf(memberId), orderItemId, LocalDateTime.now());
 	}
 
-	private int sellerIdOf(int memberId) {
+	private long sellerIdOf(long memberId) {
 		return sellerLookupPort.findApprovedSellerId(memberId)
 			.orElseThrow(() -> new SellerAccessDeniedException(NOT_SELLER_MESSAGE));
 	}

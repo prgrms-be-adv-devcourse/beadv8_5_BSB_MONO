@@ -1,5 +1,6 @@
 package com.bukang.product.in;
 
+import static com.bukang.product.support.JsonIds.id;
 import static com.bukang.product.support.RaceRequests.course;
 import static com.bukang.product.support.RaceRequests.race;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -103,7 +104,7 @@ class ApiV1RaceCancelTest extends ProductIntegrationTest {
 
 		cancelRace(onSale.raceId(), SELLER_MEMBER_ID).andExpect(status().isOk());
 
-		for (int participationId : List.of(2, 3)) {
+		for (long participationId : List.of(2, 3)) {
 			ParticipationHold released = findHold(participationId);
 			assertThat(released.getStatus()).isEqualTo(HoldStatus.RELEASED);
 			assertThat(released.getReleaseReason()).isEqualTo(HoldReleaseReason.RACE_CANCELED);
@@ -126,8 +127,8 @@ class ApiV1RaceCancelTest extends ProductIntegrationTest {
 			.course(course(), course().name("하프").type(CourseType.HALF).distanceKm("21.1").timeLimitMinutes(180))
 			.build());
 		RegisteredRace other = registerOnSale(race().title("2026 부산 바다 런").build());
-		int tenKm = target.courseIds().get(0);
-		int half = target.courseIds().get(1);
+		long tenKm = target.courseIds().get(0);
+		long half = target.courseIds().get(1);
 		holdSeat(tenKm, 1);
 		holdSeat(tenKm, 2);
 		holdSeat(half, 3);
@@ -200,25 +201,25 @@ class ApiV1RaceCancelTest extends ProductIntegrationTest {
 		// 취소 전에는 둘 다 나온다 (빠졌는지 확인하는 아래 검사가 처음부터 비어 있어 통과하는 것을 막는다)
 		searchRaces()
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.races[*].raceId").value(hasItem(canceled.raceId())));
+			.andExpect(jsonPath("$.data.races[*].raceId").value(hasItem(id(canceled.raceId()))));
 		suggestRaces("서울")
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.races[*].raceId").value(hasItem(canceled.raceId())))
-			.andExpect(jsonPath("$.data.courses[*].raceId").value(hasItem(canceled.raceId())));
+			.andExpect(jsonPath("$.data.races[*].raceId").value(hasItem(id(canceled.raceId()))))
+			.andExpect(jsonPath("$.data.courses[*].raceId").value(hasItem(id(canceled.raceId()))));
 
 		cancelRace(canceled.raceId(), SELLER_MEMBER_ID).andExpect(status().isOk());
 		syncRaceDocuments();
 
 		searchRaces()
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.races[*].raceId").value(not(hasItem(canceled.raceId()))))
-			.andExpect(jsonPath("$.data.races[*].raceId").value(hasItem(kept.raceId())));
+			.andExpect(jsonPath("$.data.races[*].raceId").value(not(hasItem(id(canceled.raceId())))))
+			.andExpect(jsonPath("$.data.races[*].raceId").value(hasItem(id(kept.raceId()))));
 		suggestRaces("서울")
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.races[*].raceId").value(not(hasItem(canceled.raceId()))))
-			.andExpect(jsonPath("$.data.races[*].raceId").value(hasItem(kept.raceId())))
-			.andExpect(jsonPath("$.data.courses[*].raceId").value(not(hasItem(canceled.raceId()))))
-			.andExpect(jsonPath("$.data.courses[*].raceId").value(hasItem(kept.raceId())));
+			.andExpect(jsonPath("$.data.races[*].raceId").value(not(hasItem(id(canceled.raceId())))))
+			.andExpect(jsonPath("$.data.races[*].raceId").value(hasItem(id(kept.raceId()))))
+			.andExpect(jsonPath("$.data.courses[*].raceId").value(not(hasItem(id(canceled.raceId())))))
+			.andExpect(jsonPath("$.data.courses[*].raceId").value(hasItem(id(kept.raceId()))));
 	}
 
 	@Test
@@ -477,11 +478,11 @@ class ApiV1RaceCancelTest extends ProductIntegrationTest {
 
 	// ---------- 도우미 ----------
 
-	private ResultActions cancelRace(int raceId, Integer memberId) throws Exception {
+	private ResultActions cancelRace(long raceId, Long memberId) throws Exception {
 		return postAs(racePath(raceId) + "/cancel", memberId);
 	}
 
-	private String racePath(int raceId) {
+	private String racePath(long raceId) {
 		return RACES_PATH + "/" + raceId;
 	}
 
@@ -493,13 +494,13 @@ class ApiV1RaceCancelTest extends ProductIntegrationTest {
 		return mockMvc.perform(get(RACES_PATH + "/suggestions").param("keyword", keyword));
 	}
 
-	private void holdSeat(int raceCourseId, int participationId) throws Exception {
+	private void holdSeat(long raceCourseId, long participationId) throws Exception {
 		hold(raceCourseId, participationId)
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.held").value(true));
 	}
 
-	private void sellSeat(int participationId) throws Exception {
+	private void sellSeat(long participationId) throws Exception {
 		sell(participationId)
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.result").value("SOLD"));
@@ -515,15 +516,15 @@ class ApiV1RaceCancelTest extends ProductIntegrationTest {
 			.build();
 	}
 
-	private Race findRace(int raceId) {
+	private Race findRace(long raceId) {
 		return raceRepository.findById(raceId).orElseThrow();
 	}
 
-	private RaceCourse findCourse(int raceCourseId) {
+	private RaceCourse findCourse(long raceCourseId) {
 		return raceCourseRepository.findById(raceCourseId).orElseThrow();
 	}
 
-	private ParticipationHold findHold(int participationId) {
+	private ParticipationHold findHold(long participationId) {
 		return participationHoldRepository.findByParticipationId(participationId).orElseThrow();
 	}
 
@@ -534,7 +535,7 @@ class ApiV1RaceCancelTest extends ProductIntegrationTest {
 	}
 
 	// 판매 중지 API가 아직 없어 판매 상태를 DB에서 직접 바꾼다
-	private void changeSaleStatus(int raceId, RaceSaleStatus saleStatus) {
+	private void changeSaleStatus(long raceId, RaceSaleStatus saleStatus) {
 		Integer updated = transactionTemplate.execute(transaction -> entityManager
 			.createQuery("update Race r set r.saleStatus = :saleStatus where r.id = :id")
 			.setParameter("saleStatus", saleStatus)
@@ -544,7 +545,7 @@ class ApiV1RaceCancelTest extends ProductIntegrationTest {
 	}
 
 	// 취소되지 않았는지: 판매 중 그대로, 취소 일시 없음, 취소 메시지 없음
-	private void assertNotCanceled(int raceId) {
+	private void assertNotCanceled(long raceId) {
 		Race notCanceled = findRace(raceId);
 		assertThat(notCanceled.getSaleStatus()).isEqualTo(RaceSaleStatus.ON_SALE);
 		assertThat(notCanceled.getCanceledAt()).isNull();

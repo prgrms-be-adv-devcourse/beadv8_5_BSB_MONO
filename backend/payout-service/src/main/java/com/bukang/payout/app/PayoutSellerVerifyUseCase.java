@@ -27,7 +27,7 @@ import lombok.RequiredArgsConstructor;
 public class PayoutSellerVerifyUseCase {
 	private final SellerLookupPort sellerLookupPort;
 
-	public int verify(int memberId) {
+	public long verify(long memberId) {
 		SellerOfMember seller = sellerLookupPort.findSellerOf(memberId)
 			.orElseThrow(PayoutSellerMemberNotFoundException::new);
 		if (!seller.isApproved()) {

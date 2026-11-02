@@ -17,7 +17,7 @@ import lombok.RequiredArgsConstructor;
 public class SellerResultCheckUseCase {
 	private final SellerRepository sellerRepository;
 
-	public Seller check(int memberId, LocalDateTime now) {
+	public Seller check(long memberId, LocalDateTime now) {
 		Seller seller = sellerRepository.findLatestByMemberIdForUpdate(memberId)
 			.orElseThrow(() -> new SellerNotFoundException("판매자 신청 내역이 없습니다."));
 		seller.checkResult(now);

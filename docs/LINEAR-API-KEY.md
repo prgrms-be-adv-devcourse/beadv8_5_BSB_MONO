@@ -63,7 +63,7 @@ gh api repos/prgrms-be-adv-devcourse/beadv8_5_BSB_MONO --jq .permissions.admin
 
 - 경로: **Settings → Account → Security & access → Personal API keys → New API key**
 - 이름은 `crewrun linear-sync`처럼 알아보기 쉽게 짓습니다.
-- 권한은 **Read + Write**, 팀은 **`Programmers-05`를 포함**해 주세요.
+- 권한은 **Read + Write**, 팀은 **`BUK`(bukang-final 워크스페이스)를 포함**해 주세요.
 - 만든 키(`lin_api_...`)를 복사해 둡니다. 창을 닫으면 다시 볼 수 없으니 바로 2번으로 넘어가세요.
 
 **2 → 등록:** 아래 명령을 실행하면 `? Paste your secret` 입력창이 뜹니다. 키를 붙여 넣고 Enter를 누르면 됩니다.
@@ -88,14 +88,14 @@ gh secret list --repo prgrms-be-adv-devcourse/beadv8_5_BSB_MONO
 
 ### 4. 실제 동작 확인 (다음 PR 때)
 
-다음에 이슈 번호(`PRO-<번호>`)가 들어간 PR을 열면, PR의 **Checks** 탭 `linear-sync` 로그에
+다음에 이슈 번호(`BUK-<번호>`)가 들어간 PR을 열면, PR의 **Checks** 탭 `linear-sync` 로그에
 `LINEAR_API_KEY_<내 아이디> 키로 동기화합니다.`가 찍히고 Linear 이슈에 PR 링크가 붙는다.
 
 | 로그                                         | 원인과 조치                                                       |
 | -------------------------------------------- | ----------------------------------------------------------------- |
 | `... 시크릿이 없어 Linear 동기화를 건너뜁니다` | 시크릿 이름 오타. 3단계 목록에서 이름을 표와 비교하고 2단계를 다시 한다 |
 | 체크가 빨간색, 경고에 `Authentication` 관련 오류 | 키가 틀렸거나 지워졌다. Linear에서 새 키를 만들어 2단계를 다시 한다      |
-| 경고에 이슈를 찾을 수 없다는 오류              | 키 권한에 `Programmers-05` 팀이 없다. 권한을 고쳐 새 키로 다시 등록한다   |
+| 경고에 이슈를 찾을 수 없다는 오류              | 키 권한에 `BUK` 팀이 없다. 권한을 고쳐 새 키로 다시 등록한다   |
 
 ## 키를 바꾸거나 없앨 때
 

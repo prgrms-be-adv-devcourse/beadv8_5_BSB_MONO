@@ -11,7 +11,6 @@ import org.springframework.web.method.annotation.HandlerMethodValidationExceptio
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import com.bukang.common.global.rsdata.RsData;
-import com.bukang.common.shared.member.web.MemberIdHeader;
 
 /**
  * 파일 서비스 전용 요청 예외 처리
@@ -22,14 +21,9 @@ public class FileExceptionHandler {
 	// 입력값 오류 코드는 common GlobalExceptionHandler와 같은 값을 쓴다
 	private static final String INVALID_REQUEST = "INVALID_REQUEST";
 
-	// 회원 ID 헤더가 없으면 로그인이 안 된 것이고, 그 밖의 헤더가 없으면 잘못된 요청이다
+	// 필수 요청 헤더(예: 중복 요청 방지 키)가 없으면 잘못된 요청이다. 회원 ID 헤더는 common의 @LoginMemberId가 처리한다
 	@ExceptionHandler(MissingRequestHeaderException.class)
 	public ResponseEntity<RsData<Void>> missingRequestHeaderException(MissingRequestHeaderException exception) {
-		if (MemberIdHeader.NAME.equalsIgnoreCase(exception.getHeaderName())) {
-			return ResponseEntity
-				.status(HttpStatus.UNAUTHORIZED)
-				.body(RsData.of(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.", null));
-		}
 		return ResponseEntity
 			.status(HttpStatus.BAD_REQUEST)
 			.body(RsData.of(HttpStatus.BAD_REQUEST, INVALID_REQUEST,

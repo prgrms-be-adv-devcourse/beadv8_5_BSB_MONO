@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.bukang.common.global.rsdata.RsData;
 import com.bukang.common.global.web.IdempotencyKeyHeader;
-import com.bukang.common.shared.member.web.MemberIdHeader;
+import com.bukang.common.shared.member.web.LoginMemberId;
 import com.bukang.order.app.CartAddResult;
 import com.bukang.order.app.CartFacade;
 import com.bukang.order.dto.CartCheckoutDto;
@@ -31,7 +31,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 
@@ -64,8 +63,7 @@ public class ApiV1CartController {
 				examples = @ExampleObject(value = CartApiExamples.LOGIN_REQUIRED)))
 	})
 	public ResponseEntity<RsData<CartDto>> findCart(
-		@Parameter(description = "요청한 회원 ID (게이트웨이가 넣어 줄 예정)", example = "1")
-		@RequestHeader(MemberIdHeader.NAME) @Positive(message = MemberIdHeader.INVALID_MESSAGE) int memberId
+		@LoginMemberId long memberId
 	) {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "장바구니를 조회했습니다.", cartFacade.findCart(memberId)));
@@ -103,8 +101,7 @@ public class ApiV1CartController {
 			}))
 	})
 	public ResponseEntity<RsData<CartItemDto>> addItem(
-		@Parameter(description = "요청한 회원 ID (게이트웨이가 넣어 줄 예정)", example = "1")
-		@RequestHeader(MemberIdHeader.NAME) @Positive(message = MemberIdHeader.INVALID_MESSAGE) int memberId,
+		@LoginMemberId long memberId,
 		@Valid @RequestBody CartItemAddRequestDto request
 	) {
 		CartAddResult result = cartFacade.addItem(request, memberId);
@@ -138,10 +135,9 @@ public class ApiV1CartController {
 				examples = @ExampleObject(value = CartApiExamples.ITEM_NOT_FOUND)))
 	})
 	public ResponseEntity<RsData<CartDto>> removeItem(
-		@Parameter(description = "요청한 회원 ID (게이트웨이가 넣어 줄 예정)", example = "1")
-		@RequestHeader(MemberIdHeader.NAME) @Positive(message = MemberIdHeader.INVALID_MESSAGE) int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "장바구니 항목 ID", example = "1")
-		@PathVariable int cartItemId
+		@PathVariable long cartItemId
 	) {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "장바구니에서 뺐습니다.", cartFacade.removeItem(cartItemId, memberId)));
@@ -183,8 +179,7 @@ public class ApiV1CartController {
 				examples = @ExampleObject(value = CartApiExamples.PARTICIPATION_NOT_FOUND)))
 	})
 	public ResponseEntity<RsData<CartCheckoutDto>> checkout(
-		@Parameter(description = "요청한 회원 ID (게이트웨이가 넣어 줄 예정)", example = "1")
-		@RequestHeader(MemberIdHeader.NAME) @Positive(message = MemberIdHeader.INVALID_MESSAGE) int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "중복 주문 방지 키. 같은 장바구니 결제 재시도에는 같은 값을 보낸다 (예: UUID)",
 			example = "6f1c2a7e-3b9d-4f0a-9c55-0d2e8b7a1f43")
 		@RequestHeader(IdempotencyKeyHeader.NAME)

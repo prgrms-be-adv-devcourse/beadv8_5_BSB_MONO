@@ -27,7 +27,7 @@ import jakarta.persistence.EntityManager;
 @SpringBootTest
 @ActiveProfiles("test")
 class EncryptedFieldsTest {
-	private static final int CUSTOMER_ID = 5;
+	private static final long CUSTOMER_ID = 5;
 
 	@Autowired
 	private CashMemberRepository cashMemberRepository;

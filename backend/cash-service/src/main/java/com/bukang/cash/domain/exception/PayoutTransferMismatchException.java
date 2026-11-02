@@ -12,10 +12,10 @@ import lombok.Getter;
  */
 @Getter
 public class PayoutTransferMismatchException extends BusinessException {
-	private final int storedSettlementAmount;
-	private final int storedFeeAmount;
+	private final long storedSettlementAmount;
+	private final long storedFeeAmount;
 
-	public PayoutTransferMismatchException(String message, int storedSettlementAmount, int storedFeeAmount) {
+	public PayoutTransferMismatchException(String message, long storedSettlementAmount, long storedFeeAmount) {
 		super(HttpStatus.CONFLICT, message);
 		this.storedSettlementAmount = storedSettlementAmount;
 		this.storedFeeAmount = storedFeeAmount;

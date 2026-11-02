@@ -23,7 +23,7 @@ public class MemberModifyUseCase {
 	private final MemberRepository memberRepository;
 	private final BlindIndexGenerator blindIndexGenerator;
 
-	public Member modify(int memberId, String name, String nickname, String phone, LocalDate birthDate) {
+	public Member modify(long memberId, String name, String nickname, String phone, LocalDate birthDate) {
 		// 탈퇴한 회원은 없는 회원으로 본다 (BE-022)
 		Member member = memberRepository.findActiveById(memberId)
 			.orElseThrow(() -> new MemberNotFoundException("존재하지 않는 회원입니다."));

@@ -13,8 +13,8 @@ import lombok.Getter;
 @AllArgsConstructor
 @Getter
 public class SellerDto {
-	private final int id;
-	private final int memberId;
+	private final long id;
+	private final long memberId;
 	private final SellerType sellerType;
 	private final String businessName;
 	private final String businessNumber;

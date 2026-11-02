@@ -9,9 +9,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class FakeQueueAdmissionAdapterTest {
-	private static final int MEMBER_ID = 1;
-	private static final int RACE_ID = 5;
-	private static final int COURSE_ID = 50;
+	private static final long MEMBER_ID = 1;
+	private static final long RACE_ID = 5;
+	private static final long COURSE_ID = 50;
 	private static final LocalDateTime NOW = LocalDateTime.of(2026, 10, 15, 11, 0);
 
 	private final FakeQueueAdmissionAdapter adapter = new FakeQueueAdmissionAdapter(10);
@@ -51,10 +51,12 @@ class FakeQueueAdmissionAdapterTest {
 	}
 
 	@Test
-	@DisplayName("입장 시간 설정은 1~10분만 받는다 (10분보다 길면 결제 기한과 타이머가 어긋난다)")
+	@DisplayName("입장 시간 설정은 1~15분만 받는다 (15분보다 길면 결제 기한과 타이머가 어긋난다)")
 	void rejectsInvalidMinutes() {
 		assertThatThrownBy(() -> new FakeQueueAdmissionAdapter(0)).isInstanceOf(IllegalArgumentException.class);
-		assertThatThrownBy(() -> new FakeQueueAdmissionAdapter(11)).isInstanceOf(IllegalArgumentException.class);
+		assertThatThrownBy(() -> new FakeQueueAdmissionAdapter(16)).isInstanceOf(IllegalArgumentException.class);
+		assertThat(new FakeQueueAdmissionAdapter(15).findAdmissionEndsAt(MEMBER_ID, RACE_ID, COURSE_ID, NOW))
+			.contains(NOW.plusMinutes(15));
 	}
 
 	@Test

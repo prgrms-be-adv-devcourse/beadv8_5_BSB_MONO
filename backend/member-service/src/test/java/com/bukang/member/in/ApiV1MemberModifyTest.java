@@ -3,7 +3,7 @@ package com.bukang.member.in;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.willReturn;
 import static org.mockito.Mockito.clearInvocations;
@@ -75,7 +75,7 @@ class ApiV1MemberModifyTest {
 	@Autowired
 	private ApplicationEvents applicationEvents;
 
-	private int memberId;
+	private long memberId;
 
 	@BeforeEach
 	void setUp() {
@@ -274,7 +274,7 @@ class ApiV1MemberModifyTest {
 		@Test
 		@DisplayName("내 닉네임의 대소문자만 바꾸면 200과 바뀐 닉네임을 받는다")
 		void modifyNicknameLetterCaseOnly() throws Exception {
-			int caseMemberId = joinDirectly("runner2@crewrun.com", "Runner1", OTHER_PHONE);
+			long caseMemberId = joinDirectly("runner2@crewrun.com", "Runner1", OTHER_PHONE);
 
 			modify(caseMemberId, NAME, "runner1", OTHER_PHONE, BIRTH_DATE)
 				.andExpect(status().isOk())
@@ -288,18 +288,18 @@ class ApiV1MemberModifyTest {
 
 	// 다른 회원이 아직 없다고 답하게 해, 두 요청이 동시에 중복 검사를 통과한 상황을 만든다
 	private void skipDuplicateChecks() {
-		willReturn(false).given(memberRepository).existsByNicknameAndIdNot(anyString(), anyInt());
-		willReturn(false).given(memberRepository).existsByPhoneHashAndIdNot(anyString(), anyInt());
+		willReturn(false).given(memberRepository).existsByNicknameAndIdNot(anyString(), anyLong());
+		willReturn(false).given(memberRepository).existsByPhoneHashAndIdNot(anyString(), anyLong());
 	}
 
-	private int joinDirectly(String email, String nickname, String phone) {
+	private long joinDirectly(String email, String nickname, String phone) {
 		return memberFacade.join(new MemberJoinRequestDto(
 			email, "password1234", NAME, nickname, phone, LocalDate.of(1995, 4, 12), null,
 			List.of(TermsType.SERVICE, TermsType.PRIVACY)
 		)).getId();
 	}
 
-	private ResultActions modify(int id, String name, String nickname, String phone, String birthDate)
+	private ResultActions modify(long id, String name, String nickname, String phone, String birthDate)
 		throws Exception {
 		return mockMvc.perform(put(ME)
 			.header(MemberIdHeader.NAME, id)

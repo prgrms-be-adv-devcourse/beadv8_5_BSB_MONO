@@ -52,7 +52,7 @@ public class InternalV1MemberController {
 				examples = @ExampleObject(value = MemberInternalApiExamples.MEMBER_NOT_FOUND)))
 	})
 	public ResponseEntity<RsData<MemberSellerDto>> findSellerOfMember(
-		@Parameter(description = "회원 ID", example = "7") @PathVariable int memberId
+		@Parameter(description = "회원 ID", example = "7") @PathVariable long memberId
 	) {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "회원의 판매자 신청을 조회했습니다.", sellerFacade.findSellerOfMember(memberId)));
@@ -75,7 +75,7 @@ public class InternalV1MemberController {
 	})
 	public ResponseEntity<RsData<MemberAdminDto>> checkAdmin(
 		@Parameter(description = "확인할 회원 ID (관리자 API를 부른 회원)", example = "1")
-		@PathVariable int memberId
+		@PathVariable long memberId
 	) {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "관리자 여부를 조회했습니다.", memberFacade.checkAdmin(memberId)));

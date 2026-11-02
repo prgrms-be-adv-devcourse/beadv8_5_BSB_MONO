@@ -5,18 +5,16 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.bukang.common.global.rsdata.RsData;
-import com.bukang.common.shared.member.web.MemberIdHeader;
+import com.bukang.common.shared.member.web.LoginMemberId;
 import com.bukang.member.app.SellerFacade;
 import com.bukang.member.dto.SellerApplyRequestDto;
 import com.bukang.member.dto.SellerDto;
 
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -56,8 +54,7 @@ public class ApiV1SellerController {
 				examples = @ExampleObject(value = SellerApiExamples.ALREADY_APPLIED)))
 	})
 	public ResponseEntity<RsData<SellerDto>> apply(
-		@Parameter(description = "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)", example = "1")
-		@RequestHeader(MemberIdHeader.NAME) int memberId,
+		@LoginMemberId long memberId,
 		@Valid @RequestBody SellerApplyRequestDto sellerApplyRequestDto
 	) {
 		return ResponseEntity.status(HttpStatus.CREATED)
@@ -79,8 +76,7 @@ public class ApiV1SellerController {
 				examples = @ExampleObject(value = SellerApiExamples.MY_SELLER_NOT_FOUND)))
 	})
 	public ResponseEntity<RsData<SellerDto>> findMine(
-		@Parameter(description = "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)", example = "1")
-		@RequestHeader(MemberIdHeader.NAME) int memberId
+		@LoginMemberId long memberId
 	) {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "판매자 신청 내역을 조회했습니다.", sellerFacade.findMine(memberId)));
@@ -104,8 +100,7 @@ public class ApiV1SellerController {
 				examples = @ExampleObject(value = SellerApiExamples.NOT_REVIEWED)))
 	})
 	public ResponseEntity<RsData<SellerDto>> checkMyResult(
-		@Parameter(description = "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)", example = "1")
-		@RequestHeader(MemberIdHeader.NAME) int memberId
+		@LoginMemberId long memberId
 	) {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "판매자 신청 결과를 확인했습니다.", sellerFacade.checkMyResult(memberId)));

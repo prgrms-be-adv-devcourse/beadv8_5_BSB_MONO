@@ -32,7 +32,7 @@ public class CashSpecialWalletCheck implements ApplicationRunner {
 		checkWallet(cashWalletProperties.holdingMemberId());
 	}
 
-	private void checkWallet(int memberId) {
+	private void checkWallet(long memberId) {
 		if (walletRepository.findByHolderId(memberId).isPresent()) {
 			return;
 		}

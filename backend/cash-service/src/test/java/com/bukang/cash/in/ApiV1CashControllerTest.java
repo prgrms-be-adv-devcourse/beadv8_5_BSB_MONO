@@ -86,6 +86,7 @@ class ApiV1CashControllerTest {
 		mockMvc.perform(get("/api/v1/cash/wallets/balance"))
 			.andExpect(status().isUnauthorized())
 			.andExpect(jsonPath("$.status").value(401))
+			.andExpect(jsonPath("$.code").value("LOGIN_REQUIRED"))
 			.andExpect(jsonPath("$.message").value("로그인이 필요합니다."))
 			.andExpect(jsonPath("$.data").isEmpty());
 	}
@@ -107,7 +108,7 @@ class ApiV1CashControllerTest {
 				.header(MemberIdHeader.NAME, "abc"))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
-			.andExpect(jsonPath("$.message").value("요청 값의 형식이 올바르지 않습니다."));
+			.andExpect(jsonPath("$.message").value(MemberIdHeader.INVALID_MESSAGE));
 	}
 
 	@Test
@@ -215,7 +216,7 @@ class ApiV1CashControllerTest {
 				.content(CHARGE_CONFIRM_BODY))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
-			.andExpect(jsonPath("$.message").value("요청 값의 형식이 올바르지 않습니다."));
+			.andExpect(jsonPath("$.message").value(MemberIdHeader.INVALID_MESSAGE));
 	}
 
 	@Test
@@ -284,7 +285,7 @@ class ApiV1CashControllerTest {
 		assertThat(walletWithdrawalRepository.count()).isZero();
 	}
 
-	private Wallet createWalletWithBalance(int memberId, int balance) {
+	private Wallet createWalletWithBalance(long memberId, long balance) {
 		LocalDateTime now = LocalDateTime.of(2026, 10, 12, 10, 0);
 		CashMember member = cashMemberRepository.save(new CashMember(memberId, now, now, "러너" + memberId));
 		Wallet wallet = walletRepository.save(new Wallet(member));

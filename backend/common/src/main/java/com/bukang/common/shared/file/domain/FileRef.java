@@ -1,6 +1,6 @@
 package com.bukang.common.shared.file.domain;
 
-import com.bukang.common.global.jpa.entity.BaseEntity;
+import com.bukang.common.global.jpa.entity.BaseIdAndTime;
 
 import lombok.Getter;
 
@@ -13,15 +13,15 @@ import lombok.Getter;
 public final class FileRef {
 	// 대상 엔티티의 클래스 이름
 	private final String type;
-	private final int id;
+	private final long id;
 
-	private FileRef(String type, int id) {
+	private FileRef(String type, long id) {
 		this.type = type;
 		this.id = id;
 	}
 
-	// 저장해서 ID가 생긴 엔티티로만 만든다
-	public static FileRef of(BaseEntity target) {
+	// 저장해서 ID가 생긴 엔티티로만 만든다. 파일을 붙이는 대상(종목 등)은 BaseIdAndTime을 상속해 ID가 long이다
+	public static FileRef of(BaseIdAndTime target) {
 		if (target.getId() <= 0) {
 			throw new IllegalArgumentException("저장되지 않은 엔티티로는 파일 연결 대상을 만들 수 없습니다: " + target);
 		}

@@ -11,9 +11,8 @@ import lombok.Getter;
 @MappedSuperclass
 @Getter
 // 모든 엔티티들의 조상
+// ID 타입은 서비스마다 옮기는 중이라(int → long) 여기서 정하지 않는다. 각 부모(BaseIdAndTime 등)나 엔티티가 정한다
 public abstract class BaseEntity implements HasModelTypeCode {
-	public abstract int getId();
-
 	public abstract LocalDateTime getCreateDate();
 
 	public abstract LocalDateTime getModifyDate();

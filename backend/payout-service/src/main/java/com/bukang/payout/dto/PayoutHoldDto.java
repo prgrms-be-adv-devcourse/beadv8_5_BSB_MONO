@@ -12,16 +12,16 @@ import lombok.Getter;
 @AllArgsConstructor
 @Getter
 public class PayoutHoldDto {
-	private final int id;
+	private final long id;
 	private final String holdCode;
-	private final int payoutId;
+	private final long payoutId;
 	private final PayoutHoldReason reasonType;
 	private final String reason;
 	private final PayoutHoldStatus status;
-	private final int heldBy;
+	private final long heldBy;
 	private final LocalDateTime heldAt;
 	// 보류 중에는 null
-	private final Integer releasedBy;
+	private final Long releasedBy;
 	private final LocalDateTime releasedAt;
 
 	public static PayoutHoldDto from(PayoutHold hold) {

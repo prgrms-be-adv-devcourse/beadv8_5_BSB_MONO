@@ -52,7 +52,7 @@ public class ProductFacade {
 	private final RaceDocumentSyncProcessUseCase raceDocumentSyncProcessUseCase;
 
 	@Transactional
-	public ProductMember syncMember(int id, LocalDateTime createDate, LocalDateTime modifyDate, String nickname) {
+	public ProductMember syncMember(long id, LocalDateTime createDate, LocalDateTime modifyDate, String nickname) {
 		return productSyncMemberUseCase.syncMember(id, createDate, modifyDate, nickname);
 	}
 
@@ -69,7 +69,7 @@ public class ProductFacade {
 	// 그래서 다음 줄로 넘어온 시점에는 저장이 이미 커밋되어 있고, 저장이 실패하면 예외가 나서 다음 줄로 오지 않는다
 	// 같은 판매자가 같은 Idempotency-Key로 다시 보내면(두 번 클릭, 응답을 못 받은 재시도) 새로 만들지 않고 처음 대회를 돌려준다
 	@Transactional(propagation = Propagation.NOT_SUPPORTED)
-	public RaceRegisterResult registerRace(int memberId, String idempotencyKey, RaceSaveRequestDto request) {
+	public RaceRegisterResult registerRace(long memberId, String idempotencyKey, RaceSaveRequestDto request) {
 		Optional<RaceSaveDto> registered = findRegisteredRace(memberId, idempotencyKey);
 		if (registered.isPresent()) {
 			return RaceRegisterResult.existing(registered.get());
@@ -92,12 +92,12 @@ public class ProductFacade {
 		return RaceRegisterResult.created(result.dto());
 	}
 
-	private Optional<RaceSaveDto> findRegisteredRace(int memberId, String idempotencyKey) {
+	private Optional<RaceSaveDto> findRegisteredRace(long memberId, String idempotencyKey) {
 		return transactionTemplate.execute(status -> raceRegisterUseCase.findRegistered(memberId, idempotencyKey));
 	}
 
 	@Transactional(propagation = Propagation.NOT_SUPPORTED)
-	public RaceSaveDto updateRace(int memberId, int raceId, RaceSaveRequestDto request) {
+	public RaceSaveDto updateRace(long memberId, long raceId, RaceSaveRequestDto request) {
 		RaceSaveResult result = transactionTemplate.execute(status -> {
 			RaceSaveResult saved = raceUpdateUseCase.update(memberId, raceId, request);
 			appendRaceSaved(saved);
@@ -109,7 +109,7 @@ public class ProductFacade {
 	// 판매자가 대회를 취소한다. 주문·대기열 서비스에 보낼 취소 메시지와 검색 문서 동기화 이벤트(공개 목록에서 빠짐)를
 	// 같은 트랜잭션에서 남긴다
 	@Transactional(propagation = Propagation.NOT_SUPPORTED)
-	public RaceSaveDto cancelRace(int memberId, int raceId) {
+	public RaceSaveDto cancelRace(long memberId, long raceId) {
 		RaceCancelResult result = transactionTemplate.execute(status -> {
 			RaceCancelResult canceled = raceCancelUseCase.cancel(memberId, raceId, LocalDateTime.now());
 			productOutboxKafkaAppendUseCase.appendRaceEvent(KafkaTopics.ORDER_RACE_CANCEL, raceId,
@@ -135,18 +135,18 @@ public class ProductFacade {
 	}
 
 	@Transactional
-	public HoldSellResult sellSeat(int participationId) {
+	public HoldSellResult sellSeat(long participationId) {
 		return raceHoldUseCase.sell(participationId, LocalDateTime.now());
 	}
 
 	@Transactional
-	public boolean restoreSeat(int participationId) {
+	public boolean restoreSeat(long participationId) {
 		return raceHoldUseCase.restore(participationId, LocalDateTime.now());
 	}
 
 	// 대기열 활성 시간이 끝나 주문 서비스가 보낸 해제 요청 (Kafka product.hold.cancel)
 	@Transactional
-	public boolean cancelHold(int participationId) {
+	public boolean cancelHold(long participationId) {
 		return raceHoldUseCase.release(participationId, HoldReleaseReason.EXPIRED, LocalDateTime.now());
 	}
 
@@ -158,15 +158,15 @@ public class ProductFacade {
 		return raceSearchUseCase.suggest(keyword);
 	}
 
-	public RaceDetailDto findRace(int raceId, Integer memberId) {
+	public RaceDetailDto findRace(long raceId, Long memberId) {
 		return raceQueryUseCase.findDetail(raceId, memberId);
 	}
 
-	public List<SellerRaceDto> findMyRaces(int memberId) {
+	public List<SellerRaceDto> findMyRaces(long memberId) {
 		return raceQueryUseCase.findMine(memberId);
 	}
 
-	public RaceCourseInfoDto findCourseInfo(int raceCourseId) {
+	public RaceCourseInfoDto findCourseInfo(long raceCourseId) {
 		return raceQueryUseCase.findCourseInfo(raceCourseId);
 	}
 

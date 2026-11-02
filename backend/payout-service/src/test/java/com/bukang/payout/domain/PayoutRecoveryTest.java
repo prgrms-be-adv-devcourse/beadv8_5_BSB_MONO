@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 import com.bukang.payout.domain.exception.PayoutRecoveryConflictException;
 
 class PayoutRecoveryTest {
-	private static final int ADMIN_ID = 99;
+	private static final long ADMIN_ID = 99;
 	private static final LocalDateTime REQUESTED_AT = LocalDateTime.of(2026, 10, 15, 14, 0);
 
 	private PayoutRecovery newRecovery() {

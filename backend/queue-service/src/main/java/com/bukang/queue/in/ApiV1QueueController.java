@@ -6,12 +6,11 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.bukang.common.global.rsdata.RsData;
-import com.bukang.common.shared.member.web.MemberIdHeader;
+import com.bukang.common.shared.member.web.LoginMemberId;
 import com.bukang.queue.app.QueueFacade;
 import com.bukang.queue.dto.QueueRegisterRequestDto;
 import com.bukang.queue.dto.QueueStatusDto;
@@ -75,8 +74,7 @@ public class ApiV1QueueController {
 				examples = @ExampleObject(value = QueueApiExamples.QUEUE_UNAVAILABLE)))
 	})
 	public ResponseEntity<RsData<QueueStatusDto>> register(
-		@Parameter(description = "요청한 회원 ID (게이트웨이가 넣어 준다)", example = "1")
-		@RequestHeader(MemberIdHeader.NAME) @Positive(message = MemberIdHeader.INVALID_MESSAGE) int memberId,
+		@LoginMemberId long memberId,
 		@Valid @RequestBody QueueRegisterRequestDto request
 	) {
 		return ResponseEntity.ok()
@@ -114,12 +112,11 @@ public class ApiV1QueueController {
 				examples = @ExampleObject(value = QueueApiExamples.QUEUE_UNAVAILABLE)))
 	})
 	public ResponseEntity<RsData<QueueStatusDto>> getStatus(
-		@Parameter(description = "요청한 회원 ID (게이트웨이가 넣어 준다)", example = "1")
-		@RequestHeader(MemberIdHeader.NAME) @Positive(message = MemberIdHeader.INVALID_MESSAGE) int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "대회 ID", example = "1")
-		@PathVariable @Positive(message = "대회 ID는 0보다 커야 합니다.") int raceId,
+		@PathVariable @Positive(message = "대회 ID는 0보다 커야 합니다.") long raceId,
 		@Parameter(description = "종목 ID", example = "1")
-		@PathVariable @Positive(message = "종목 ID는 0보다 커야 합니다.") int raceCourseId
+		@PathVariable @Positive(message = "종목 ID는 0보다 커야 합니다.") long raceCourseId
 	) {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "대기열 상태를 조회했습니다.",

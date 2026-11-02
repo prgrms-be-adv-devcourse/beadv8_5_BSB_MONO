@@ -9,12 +9,11 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.bukang.common.global.rsdata.RsData;
-import com.bukang.common.shared.member.web.MemberIdHeader;
+import com.bukang.common.shared.member.web.LoginMemberId;
 import com.bukang.order.app.ParticipationFacade;
 import com.bukang.order.dto.ParticipantInfoDto;
 import com.bukang.order.dto.ParticipantInfoRequestDto;
@@ -30,7 +29,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 
 @Tag(name = "Participation", description = "참가 신청서 작성·취소, 참가 신청 조회, 참가자 정보 수정, 최근 참가자 정보 조회 API")
@@ -82,8 +80,7 @@ public class ApiV1ParticipationController {
 			}))
 	})
 	public ResponseEntity<RsData<ParticipationDto>> apply(
-		@Parameter(description = "요청한 회원 ID (게이트웨이가 넣어 줄 예정)", example = "1")
-		@RequestHeader(MemberIdHeader.NAME) @Positive(message = MemberIdHeader.INVALID_MESSAGE) int memberId,
+		@LoginMemberId long memberId,
 		@Valid @RequestBody ParticipationApplyRequestDto request
 	) {
 		ParticipationDto participation = participationFacade.apply(request, memberId);
@@ -112,8 +109,7 @@ public class ApiV1ParticipationController {
 				examples = @ExampleObject(value = ParticipationApiExamples.LOGIN_REQUIRED)))
 	})
 	public ResponseEntity<RsData<ParticipantInfoDto>> findLatestParticipant(
-		@Parameter(description = "요청한 회원 ID (게이트웨이가 넣어 줄 예정)", example = "1")
-		@RequestHeader(MemberIdHeader.NAME) @Positive(message = MemberIdHeader.INVALID_MESSAGE) int memberId
+		@LoginMemberId long memberId
 	) {
 		return participationFacade.findLatestParticipant(memberId)
 			.map(participant -> ResponseEntity.ok()
@@ -143,10 +139,9 @@ public class ApiV1ParticipationController {
 				examples = @ExampleObject(value = ParticipationApiExamples.PARTICIPATION_NOT_FOUND)))
 	})
 	public ResponseEntity<RsData<ParticipationDto>> findById(
-		@Parameter(description = "요청한 회원 ID (게이트웨이가 넣어 줄 예정)", example = "1")
-		@RequestHeader(MemberIdHeader.NAME) @Positive(message = MemberIdHeader.INVALID_MESSAGE) int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "참가 신청 ID", example = "1")
-		@PathVariable int participationId
+		@PathVariable long participationId
 	) {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "참가 신청을 조회했습니다.",
@@ -182,10 +177,9 @@ public class ApiV1ParticipationController {
 			}))
 	})
 	public ResponseEntity<RsData<ParticipationDto>> cancelBeforePayment(
-		@Parameter(description = "요청한 회원 ID (게이트웨이가 넣어 줄 예정)", example = "1")
-		@RequestHeader(MemberIdHeader.NAME) @Positive(message = MemberIdHeader.INVALID_MESSAGE) int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "참가 신청 ID", example = "1")
-		@PathVariable int participationId
+		@PathVariable long participationId
 	) {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "참가 신청서를 취소했습니다.",
@@ -233,10 +227,9 @@ public class ApiV1ParticipationController {
 			}))
 	})
 	public ResponseEntity<RsData<ParticipationDto>> changeParticipant(
-		@Parameter(description = "요청한 회원 ID (게이트웨이가 넣어 줄 예정)", example = "1")
-		@RequestHeader(MemberIdHeader.NAME) @Positive(message = MemberIdHeader.INVALID_MESSAGE) int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "참가 신청 ID", example = "1")
-		@PathVariable int participationId,
+		@PathVariable long participationId,
 		@Valid @RequestBody ParticipantInfoRequestDto request
 	) {
 		return ResponseEntity.ok()

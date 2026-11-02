@@ -76,7 +76,7 @@ class ApiV1AuthReissueLogoutTest {
 	private RefreshTokenRepository refreshTokenRepository;
 
 	private final Map<Long, Saved> redis = new HashMap<>();
-	private int memberId;
+	private long memberId;
 
 	@BeforeEach
 	void setUp() {

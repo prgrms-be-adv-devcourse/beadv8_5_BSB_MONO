@@ -58,8 +58,8 @@ import com.jayway.jsonpath.JsonPath;
 @Import(RestDocsConfig.class)
 @ActiveProfiles("test")
 class ApiV1PayoutHoldControllerTest {
-	private static final int ADMIN_ID = 99;
-	private static final int MEMBER_ID = 8;
+	private static final long ADMIN_ID = 99;
+	private static final long MEMBER_ID = 8;
 
 	private static final HeaderDescriptor MEMBER_ID_HEADER =
 		headerWithName("X-Member-Id").description("요청한 관리자 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)");
@@ -119,26 +119,28 @@ class ApiV1PayoutHoldControllerTest {
 			LocalDateTime.of(2026, 10, 18, 3, 0), new BusinessDayCalendar()));
 	}
 
-	private ResultActions hold(int payoutId, String body) throws Exception {
+	private ResultActions hold(long payoutId, String body) throws Exception {
 		return mockMvc.perform(post("/api/v1/payout/payouts/{payoutId}/holds", payoutId)
 			.header("X-Member-Id", ADMIN_ID)
 			.contentType(MediaType.APPLICATION_JSON)
 			.content(body));
 	}
 
-	private ResultActions holdAccount(int payoutId) throws Exception {
+	private ResultActions holdAccount(long payoutId) throws Exception {
 		return hold(payoutId, """
 			{"reasonType": "ACCOUNT_NOT_REGISTERED", "reason": "계좌 확인 중"}
 			""");
 	}
 
-	private ResultActions release(int holdId) throws Exception {
+	private ResultActions release(long holdId) throws Exception {
 		return mockMvc.perform(post("/api/v1/payout/holds/{holdId}/release", holdId)
 			.header("X-Member-Id", ADMIN_ID));
 	}
 
-	private int holdIdOf(ResultActions result) throws Exception {
-		return JsonPath.read(result.andReturn().getResponse().getContentAsString(), "$.data.id");
+	private long holdIdOf(ResultActions result) throws Exception {
+		// JsonPath는 int 범위의 숫자를 Integer로 읽으므로 Number로 받아 long으로 바꾼다
+		String body = result.andReturn().getResponse().getContentAsString();
+		return JsonPath.<Number>read(body, "$.data.id").longValue();
 	}
 
 	private PayoutStatus statusOf(Payout payout) {
@@ -178,7 +180,7 @@ class ApiV1PayoutHoldControllerTest {
 	@DisplayName("보류를 풀면 200을 돌려주고, 정산 내역은 CALCULATED로 돌아간다")
 	void releaseHold() throws Exception {
 		Payout payout = savePayout();
-		int holdId = holdIdOf(holdAccount(payout.getId()));
+		long holdId = holdIdOf(holdAccount(payout.getId()));
 
 		release(holdId)
 			.andExpect(status().isOk())
@@ -210,7 +212,7 @@ class ApiV1PayoutHoldControllerTest {
 	@DisplayName("이미 해제된 보류를 다시 풀면 409")
 	void releaseTwice() throws Exception {
 		Payout payout = savePayout();
-		int holdId = holdIdOf(holdAccount(payout.getId()));
+		long holdId = holdIdOf(holdAccount(payout.getId()));
 		release(holdId);
 
 		release(holdId)
@@ -237,6 +239,7 @@ class ApiV1PayoutHoldControllerTest {
 	void missingMemberId() throws Exception {
 		mockMvc.perform(post("/api/v1/payout/holds/{holdId}/release", 1))
 			.andExpect(status().isUnauthorized())
+			.andExpect(jsonPath("$.code").value("LOGIN_REQUIRED"))
 			.andExpect(jsonPath("$.message").value("로그인이 필요합니다."))
 			.andDo(document("payout-hold-unauthorized", ERROR_RESPONSE));
 	}
@@ -303,7 +306,7 @@ class ApiV1PayoutHoldControllerTest {
 	@DisplayName("일반 회원이 보류를 풀면 403이고, 보류는 그대로다")
 	void nonAdminCannotRelease() throws Exception {
 		Payout payout = savePayout();
-		int holdId = holdIdOf(holdAccount(payout.getId()));
+		long holdId = holdIdOf(holdAccount(payout.getId()));
 
 		mockMvc.perform(post("/api/v1/payout/holds/{holdId}/release", holdId)
 				.header("X-Member-Id", MEMBER_ID))

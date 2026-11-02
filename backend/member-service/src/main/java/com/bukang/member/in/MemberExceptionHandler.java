@@ -9,7 +9,6 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.bukang.common.global.rsdata.RsData;
-import com.bukang.common.shared.member.web.MemberIdHeader;
 
 /**
  * 회원 서비스 전용 요청 예외 처리
@@ -19,14 +18,9 @@ import com.bukang.common.shared.member.web.MemberIdHeader;
 @Order(Ordered.HIGHEST_PRECEDENCE)
 @RestControllerAdvice
 public class MemberExceptionHandler {
-	// 회원 ID 헤더는 게이트웨이가 토큰을 확인했을 때만 넣으므로, 없으면 로그인하지 않은 요청이다
+	// 필수 요청 헤더가 없으면 잘못된 요청이다. 회원 ID 헤더는 common의 @LoginMemberId가 처리한다
 	@ExceptionHandler(MissingRequestHeaderException.class)
 	public ResponseEntity<RsData<Void>> missingRequestHeaderException(MissingRequestHeaderException exception) {
-		if (MemberIdHeader.NAME.equalsIgnoreCase(exception.getHeaderName())) {
-			return ResponseEntity
-				.status(HttpStatus.UNAUTHORIZED)
-				.body(RsData.of(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.", null));
-		}
 		return ResponseEntity
 			.status(HttpStatus.BAD_REQUEST)
 			.body(RsData.of(HttpStatus.BAD_REQUEST, "필수 요청 헤더(%s)가 없습니다.".formatted(exception.getHeaderName()), null));

@@ -8,14 +8,14 @@ import org.springframework.security.core.userdetails.User;
 import com.bukang.member.domain.Member;
 
 public class CustomUserDetails extends User {
-	private final int id;
+	private final long id;
 
 	public CustomUserDetails(Member member) {
 		super(member.getEmail(), member.getPassword(), List.of(new SimpleGrantedAuthority("ROLE_USER")));
 		this.id = member.getId();
 	}
 
-	public int getId() {
+	public long getId() {
 		return id;
 	}
 }

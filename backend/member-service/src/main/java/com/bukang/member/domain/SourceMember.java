@@ -42,7 +42,7 @@ public abstract class SourceMember extends BaseMember {
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "member_id")
-	private int id;
+	private long id;
 	@CreatedDate
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private LocalDateTime createDate;

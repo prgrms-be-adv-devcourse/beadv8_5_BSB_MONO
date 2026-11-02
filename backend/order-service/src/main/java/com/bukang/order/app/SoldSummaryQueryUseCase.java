@@ -22,7 +22,7 @@ import lombok.RequiredArgsConstructor;
 public class SoldSummaryQueryUseCase {
 	private final OrderItemRepository orderItemRepository;
 
-	public List<SoldSummaryDto> summarizeSold(int raceId) {
+	public List<SoldSummaryDto> summarizeSold(long raceId) {
 		return orderItemRepository.summarizeSold(raceId);
 	}
 }

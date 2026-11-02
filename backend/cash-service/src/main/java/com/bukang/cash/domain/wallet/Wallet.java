@@ -27,7 +27,7 @@ public class Wallet extends BaseManualIdAndTime {
 	@ManyToOne(fetch = LAZY, optional = false)
 	private CashMember holder;
 
-	private int balance;
+	private long balance;
 	@Version
 	private long version;
 
@@ -40,25 +40,25 @@ public class Wallet extends BaseManualIdAndTime {
 		return balance > 0;
 	}
 
-	public WalletLedger credit(int amount, LedgerType ledgerType, LedgerRefType refTypeCode, int refId) {
+	public WalletLedger credit(long amount, LedgerType ledgerType, LedgerRefType refTypeCode, long refId) {
 		balance += amount;
 		return addLedger(amount, ledgerType, refTypeCode, refId);
 	}
 
-	public WalletLedger credit(int amount, LedgerType ledgerType, WalletCharge charge) {
+	public WalletLedger credit(long amount, LedgerType ledgerType, WalletCharge charge) {
 		return credit(amount, ledgerType, LedgerRefType.WalletCharge, charge.getId());
 	}
 
-	public WalletLedger debit(int amount, LedgerType ledgerType, LedgerRefType refTypeCode, int refId) {
+	public WalletLedger debit(long amount, LedgerType ledgerType, LedgerRefType refTypeCode, long refId) {
 		balance -= amount;
 		return addLedger(-amount, ledgerType, refTypeCode, refId);
 	}
 
-	public WalletLedger debit(int amount, LedgerType ledgerType, WalletWithdrawal withdrawal) {
+	public WalletLedger debit(long amount, LedgerType ledgerType, WalletWithdrawal withdrawal) {
 		return debit(amount, ledgerType, LedgerRefType.Withdrawal, withdrawal.getId());
 	}
 
-	private WalletLedger addLedger(int amount, LedgerType ledgerType, LedgerRefType refTypeCode, int refId) {
+	private WalletLedger addLedger(long amount, LedgerType ledgerType, LedgerRefType refTypeCode, long refId) {
 		return new WalletLedger(this, holder, ledgerType, amount, balance, refTypeCode, refId);
 	}
 }

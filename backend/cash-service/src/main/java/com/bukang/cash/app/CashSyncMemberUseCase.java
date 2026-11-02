@@ -14,7 +14,7 @@ import lombok.RequiredArgsConstructor;
 public class CashSyncMemberUseCase {
 	private final CashMemberRepository cashMemberRepository;
 
-	public CashMember syncMember(int id, LocalDateTime createDate, LocalDateTime modifyDate, String nickname) {
+	public CashMember syncMember(long id, LocalDateTime createDate, LocalDateTime modifyDate, String nickname) {
 		CashMember cashMember = new CashMember(id, createDate, modifyDate, nickname);
 		return cashMemberRepository.save(cashMember);
 	}

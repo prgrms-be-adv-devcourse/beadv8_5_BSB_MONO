@@ -15,15 +15,15 @@ import com.bukang.order.out.seat.SeatSellResult;
  * 자리 복구·해제는 주문 아웃박스에 남으므로 SeatOutboxMessages로 확인한다
  */
 public class StubSeatHoldPort implements SeatHoldPort {
-	private final Map<Integer, Integer> remainingSeats = new ConcurrentHashMap<>();
+	private final Map<Long, Integer> remainingSeats = new ConcurrentHashMap<>();
 	private final AtomicInteger holdCalls = new AtomicInteger();
-	private final Map<Integer, LocalDateTime> expiresAt = new ConcurrentHashMap<>();
-	private final Set<Integer> sold = ConcurrentHashMap.newKeySet();
+	private final Map<Long, LocalDateTime> expiresAt = new ConcurrentHashMap<>();
+	private final Set<Long> sold = ConcurrentHashMap.newKeySet();
 	// 자리 확보 때 예상하지 못한 오류(타임아웃 등)를 낼 종목
-	private final Set<Integer> failingCourses = ConcurrentHashMap.newKeySet();
+	private final Set<Long> failingCourses = ConcurrentHashMap.newKeySet();
 
 	@Override
-	public SeatHoldResult hold(int raceCourseId, int participationId, LocalDateTime requestedExpiresAt) {
+	public SeatHoldResult hold(long raceCourseId, long participationId, LocalDateTime requestedExpiresAt) {
 		holdCalls.incrementAndGet();
 		if (failingCourses.contains(raceCourseId)) {
 			throw new IllegalStateException("상품 서비스 응답 없음 (테스트)");
@@ -44,7 +44,7 @@ public class StubSeatHoldPort implements SeatHoldPort {
 	}
 
 	@Override
-	public SeatSellResult sell(int participationId) {
+	public SeatSellResult sell(long participationId) {
 		// 이미 판매한 자리는 기한과 상관없이 SOLD (SeatHoldPort.sell의 멱등 계약)
 		if (sold.contains(participationId)) {
 			return SeatSellResult.SOLD;
@@ -58,20 +58,20 @@ public class StubSeatHoldPort implements SeatHoldPort {
 	}
 
 	// 상품 서비스 쪽 기한만 지나게 만든다 (주문 쪽 사본은 그대로). 결제 직전 만료 상황을 재현할 때 쓴다
-	public void expire(int participationId) {
+	public void expire(long participationId) {
 		expiresAt.put(participationId, LocalDateTime.now().minusSeconds(1));
 	}
 
 	// 판매(HELD → SOLD)까지 끝난 자리인지
-	public boolean isSold(int participationId) {
+	public boolean isSold(long participationId) {
 		return sold.contains(participationId);
 	}
 
-	public void failHold(int raceCourseId) {
+	public void failHold(long raceCourseId) {
 		failingCourses.add(raceCourseId);
 	}
 
-	public void setRemainingSeats(int raceCourseId, int seats) {
+	public void setRemainingSeats(long raceCourseId, int seats) {
 		remainingSeats.put(raceCourseId, seats);
 	}
 

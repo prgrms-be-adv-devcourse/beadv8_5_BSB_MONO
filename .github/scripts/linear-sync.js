@@ -1,11 +1,12 @@
 // PR과 Linear 이슈를 잇는다. 공식 GitHub 연동이 동작하지 않아 대신 쓴다 (docs/LINEAR.md).
 // - PR이 열리거나 바뀌면: 언급된 이슈에 PR 링크를 붙이고, 시작 전 이슈는 In Progress로 옮긴다
 // - PR이 머지되면: 브랜치 이름·제목에 있거나 닫는 키워드(Closes 등)로 적은 이슈를 Done으로 옮긴다
-//   본문에 Refs PRO-12로만 적은 이슈는 링크만 붙고 Done이 되지 않는다
+//   본문에 Refs BUK-12로만 적은 이슈는 링크만 붙고 Done이 되지 않는다
 // - Linear에 바꾼 사람이 제대로 남도록, 이벤트를 일으킨 사람(머지한 사람 등)의 개인 키를 쓴다.
 //   그 사람 키가 없으면 PR 작성자 키를 쓴다
 
-const TEAM_KEY = 'PRO'
+// 최종 프로젝트의 새 워크스페이스 팀 키. 세미 때 쓰던 PRO 이슈는 이전 워크스페이스에 있어 새 API 키로 찾을 수 없다
+const TEAM_KEY = 'BUK'
 const LINEAR_API = 'https://api.linear.app/graphql'
 
 // 브랜치 이름, 제목, 본문 어디에 있든 언급된 이슈 (링크용)
@@ -14,7 +15,7 @@ function findMentioned(text) {
   return [...new Set((text.match(re) ?? []).map((id) => id.toUpperCase()))]
 }
 
-// "Closes PRO-12"처럼 닫는 키워드 뒤에 온 이슈만
+// "Closes BUK-12"처럼 닫는 키워드 뒤에 온 이슈만
 function findClosing(text) {
   const re = new RegExp(
     `\\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\\s*:?\\s+(${TEAM_KEY}-\\d+)\\b`,
@@ -71,6 +72,9 @@ async function attachPr(apiKey, issueId, pr) {
     if (isAlreadyLinked(e)) {
       return 'already linked'
     }
+    if (isNotFound(e)) {
+      return 'not found, skipped'
+    }
     throw e
   }
 }
@@ -79,20 +83,37 @@ function isAlreadyLinked(error) {
   return /already been linked/i.test(error.message)
 }
 
+// 이슈 번호가 이 워크스페이스에 없을 때(오타, 이전 워크스페이스의 이슈 등)
+function isNotFound(error) {
+  return /not found/i.test(error.message)
+}
+
 // fromTypes 상태인 이슈만 toType 상태(이름이 toName이면 그것, 없으면 첫 번째)로 옮긴다
 async function moveState(apiKey, issueId, fromTypes, toType, toName) {
-  const data = await linear(
-    apiKey,
-    `query($id: String!, $type: String!) {
-      issue(id: $id) {
-        id
-        state { type }
-        team { states(filter: { type: { eq: $type } }) { nodes { id name } } }
-      }
-    }`,
-    { id: issueId, type: toType },
-  )
+  let data
+  try {
+    data = await linear(
+      apiKey,
+      `query($id: String!, $type: String!) {
+        issue(id: $id) {
+          id
+          state { type }
+          team { states(filter: { type: { eq: $type } }) { nodes { id name } } }
+        }
+      }`,
+      { id: issueId, type: toType },
+    )
+  } catch (e) {
+    // 없는 이슈 번호는 attachPr처럼 실패로 세지 않고 건너뛴다
+    if (isNotFound(e)) {
+      return 'not found, skipped'
+    }
+    throw e
+  }
   const { issue } = data
+  if (!issue) {
+    return 'not found, skipped'
+  }
   if (!fromTypes.includes(issue.state.type)) {
     return `skipped (${issue.state.type})`
   }
@@ -163,3 +184,4 @@ module.exports.findToComplete = findToComplete
 module.exports.keyName = keyName
 module.exports.pickApiKey = pickApiKey
 module.exports.isAlreadyLinked = isAlreadyLinked
+module.exports.isNotFound = isNotFound

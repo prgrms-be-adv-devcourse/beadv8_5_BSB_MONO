@@ -40,7 +40,7 @@ jobs:
           - { name: order-service, context: backend, module: order-service }
           - { name: product-service, context: backend, module: product-service }
           - { name: queue-service, context: backend, module: queue-service }
-          # web은 SITE_URL·NEXT_PUBLIC_TOSS_CLIENT_KEY·IMAGE_REMOTE_HOSTS를 빌드할 때 이미지에 고정한다 (저장소 Variables에서 읽음)
+          # web은 SITE_URL·NEXT_PUBLIC_TOSS_CLIENT_KEY·NEXT_PUBLIC_GTM_ID·IMAGE_REMOTE_HOSTS를 빌드할 때 이미지에 고정한다 (저장소 Variables에서 읽음)
           - { name: web, context: frontend, module: '' }
     steps:
       - uses: actions/checkout@v4
@@ -62,6 +62,7 @@ jobs:
             MODULE=${{ matrix.module }}
             ${{ matrix.name == 'web' && format('SITE_URL={0}', vars.SITE_URL) || '' }}
             ${{ matrix.name == 'web' && format('NEXT_PUBLIC_TOSS_CLIENT_KEY={0}', vars.NEXT_PUBLIC_TOSS_CLIENT_KEY) || '' }}
+            ${{ matrix.name == 'web' && format('NEXT_PUBLIC_GTM_ID={0}', vars.NEXT_PUBLIC_GTM_ID) || '' }}
             ${{ matrix.name == 'web' && format('IMAGE_REMOTE_HOSTS={0}', vars.IMAGE_REMOTE_HOSTS) || '' }}
           push: true
           tags: |

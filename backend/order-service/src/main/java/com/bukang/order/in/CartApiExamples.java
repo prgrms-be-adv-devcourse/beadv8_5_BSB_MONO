@@ -86,7 +86,7 @@ final class CartApiExamples {
 		""";
 
 	static final String LOGIN_REQUIRED = """
-		{ "status": 401, "code": "ORDER_LOGIN_REQUIRED", "message": "로그인이 필요합니다.", "data": null }
+		{ "status": 401, "code": "LOGIN_REQUIRED", "message": "로그인이 필요합니다.", "data": null }
 		""";
 
 	static final String NOT_OWNER = """

@@ -11,13 +11,13 @@ import lombok.Getter;
 @AllArgsConstructor
 @Getter
 public class ParticipationDto {
-	private final int id;
+	private final long id;
 	private final LocalDateTime createDate;
 	private final LocalDateTime modifyDate;
-	private final int raceId;
-	private final int raceCourseId;
+	private final long raceId;
+	private final long raceCourseId;
 	// 신청한 회원 ID
-	private final int memberId;
+	private final long memberId;
 	private final ParticipationType participationType;
 	private final ParticipationStatus status;
 	private final ParticipantInfoDto participant;

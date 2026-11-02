@@ -19,7 +19,7 @@ final class QueueApiExamples {
 		""";
 
 	static final String INVALID_MEMBER_ID = """
-		{ "status": 400, "message": "회원 ID가 올바르지 않습니다.", "data": null }
+		{ "status": 400, "code": "INVALID_REQUEST", "message": "회원 ID가 올바르지 않습니다.", "data": null }
 		""";
 
 	static final String INVALID_RACE_ID = """
@@ -27,7 +27,7 @@ final class QueueApiExamples {
 		""";
 
 	static final String LOGIN_REQUIRED = """
-		{ "status": 401, "message": "로그인이 필요합니다.", "data": null }
+		{ "status": 401, "code": "LOGIN_REQUIRED", "message": "로그인이 필요합니다.", "data": null }
 		""";
 
 	private QueueApiExamples() {

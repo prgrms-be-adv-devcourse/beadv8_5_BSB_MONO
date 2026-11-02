@@ -5,5 +5,5 @@ package com.bukang.member.out.cash;
  * 묻지 못하면 WithdrawCheckFailedException(503)을 던진다. 잔액을 모르면 탈퇴하지 않는다
  */
 public interface CashBalancePort {
-	int findBalance(int memberId);
+	long findBalance(long memberId);
 }

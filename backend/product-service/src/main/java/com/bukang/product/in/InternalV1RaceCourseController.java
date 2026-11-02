@@ -50,7 +50,7 @@ public class InternalV1RaceCourseController {
 	})
 	public ResponseEntity<RsData<RaceCourseInfoDto>> findCourseInfo(
 		@Parameter(description = "종목 ID", example = "1")
-		@PathVariable int raceCourseId
+		@PathVariable long raceCourseId
 	) {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "종목 정보를 조회했습니다.", productFacade.findCourseInfo(raceCourseId)));

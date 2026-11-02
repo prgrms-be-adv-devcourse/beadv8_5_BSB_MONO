@@ -138,7 +138,7 @@ public class RaceCourseDocument extends BaseDocument {
 	private LocalDateTime raceCreatedAt;
 
 	@Field(type = FieldType.Integer)
-	private int price;
+	private long price;
 
 	@Field(type = FieldType.Boolean)
 	private boolean kitIncluded;

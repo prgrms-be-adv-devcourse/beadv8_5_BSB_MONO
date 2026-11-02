@@ -16,7 +16,7 @@ import {
   toRaceListItem,
   type RaceListItem,
 } from '@/entities/race'
-import { cn, formatNumber } from '@/shared/lib'
+import { cn, formatNumber, useTrackOnce } from '@/shared/lib'
 import {
   Badge,
   BottomSheet,
@@ -64,6 +64,11 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
     ? []
     : (list.data?.pages.flatMap((p) => p.races ?? []) ?? []).map((race) => toRaceListItem(race))
   const total = empty ? 0 : (list.data?.pages[0]?.totalElements ?? 0)
+  // 처음 목록이 보일 때 한 번. 검색어는 사람이 이름 · 전화번호를 적을 수 있어 있음 · 없음만 보낸다. 시안 미리보기는 보내지 않는다
+  useTrackOnce(
+    'view_item_list',
+    state || loading ? null : { hasKeyword: keyword.trim() !== '', resultCount: total },
+  )
   // 'preview': ?preview=menu로 첫 대회의 더보기 메뉴를 열어 둔다
   const [menuRace, setMenuRace] = useState<RaceListItem | 'preview' | null>(
     state === 'menu' ? 'preview' : null,

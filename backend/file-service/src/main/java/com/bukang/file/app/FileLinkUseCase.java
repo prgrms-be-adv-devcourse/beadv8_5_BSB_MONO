@@ -35,7 +35,7 @@ public class FileLinkUseCase {
 
 	private final StoredFileRepository storedFileRepository;
 
-	public List<StoredFile> link(String refType, int refId, int ownerId, List<FileLinkItemDto> items) {
+	public List<StoredFile> link(String refType, long refId, long ownerId, List<FileLinkItemDto> items) {
 		if (!REF_TYPE_PATTERN.matcher(refType).matches()) {
 			throw new InvalidFileLinkException("대상 종류는 대문자로 시작하는 영문자·숫자 50자 이하로 작성해주세요.");
 		}
@@ -43,10 +43,10 @@ public class FileLinkUseCase {
 			throw new InvalidFileLinkException("대상 ID는 0보다 커야 합니다.");
 		}
 		// { fileId_1 : { FileLinkItemDto1 }, fileId_2: { ... } .... } 형태 변환
-		Map<Integer, FileLinkItemDto> itemsByFileId = indexByFileId(items);
+		Map<Long, FileLinkItemDto> itemsByFileId = indexByFileId(items);
 		validateCounts(items); // 파일 종류별 개수 제한 검증
 
-		Map<Integer, StoredFile> filesById = storedFileRepository.findAllById(itemsByFileId.keySet()).stream()
+		Map<Long, StoredFile> filesById = storedFileRepository.findAllById(itemsByFileId.keySet()).stream()
 			.filter(file -> !file.isDeleted())
 			.collect(Collectors.toMap(StoredFile::getId, Function.identity()));
 
@@ -74,8 +74,8 @@ public class FileLinkUseCase {
 			.toList();
 	}
 
-	private Map<Integer, FileLinkItemDto> indexByFileId(List<FileLinkItemDto> items) {
-		Map<Integer, FileLinkItemDto> itemsByFileId = new LinkedHashMap<>();
+	private Map<Long, FileLinkItemDto> indexByFileId(List<FileLinkItemDto> items) {
+		Map<Long, FileLinkItemDto> itemsByFileId = new LinkedHashMap<>();
 		for (FileLinkItemDto item : items) {
 			if (itemsByFileId.putIfAbsent(item.getFileId(), item) != null) {
 				throw new InvalidFileLinkException(withItem("같은 파일을 두 번 연결할 수 없습니다.", item));
@@ -96,7 +96,7 @@ public class FileLinkUseCase {
 		});
 	}
 
-	private void checkLinkable(StoredFile file, FileLinkItemDto item, String refType, int refId, int ownerId) {
+	private void checkLinkable(StoredFile file, FileLinkItemDto item, String refType, long refId, long ownerId) {
 		if (!file.isOwnedBy(ownerId)) {
 			throw new FileAccessDeniedException(withItem("본인이 올린 파일만 처리할 수 있습니다.", item));
 		}

@@ -10,9 +10,9 @@ import lombok.Getter;
 @AllArgsConstructor
 @Getter
 public class SellerRaceCourseDto {
-	private final int raceCourseId;
+	private final long raceCourseId;
 	private final String name;
-	private final int price;
+	private final long price;
 	private final CourseStatus status;
 	// 크루 몫 + 개인 몫
 	private final int quota;

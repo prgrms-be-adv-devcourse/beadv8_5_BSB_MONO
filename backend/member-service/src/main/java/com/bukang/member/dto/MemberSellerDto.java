@@ -10,7 +10,7 @@ import com.bukang.member.domain.Seller;
  * @param sellerId 판매자 신청서 ID (MEMBER_SELLER.seller_id). 회원 ID와 다른 값이다
  * @param status   그 신청의 상태 (PENDING, APPROVED, REJECTED)
  */
-public record MemberSellerDto(Integer sellerId, SellerStatus status) {
+public record MemberSellerDto(Long sellerId, SellerStatus status) {
 	public static final MemberSellerDto NONE = new MemberSellerDto(null, null);
 
 	public static MemberSellerDto from(Seller seller) {

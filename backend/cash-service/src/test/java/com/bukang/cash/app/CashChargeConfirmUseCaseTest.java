@@ -2,7 +2,7 @@ package com.bukang.cash.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
@@ -26,6 +26,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import com.bukang.cash.domain.charge.ChargeStatus;
 import com.bukang.cash.domain.charge.WalletCharge;
 import com.bukang.cash.domain.exception.ChargeAmountTooSmallException;
+import com.bukang.cash.domain.exception.ChargeInProgressException;
 import com.bukang.cash.domain.exception.ChargeMemberMismatchException;
 import com.bukang.cash.domain.exception.PaymentApprovalFailedException;
 import com.bukang.cash.domain.exception.WalletNotFoundException;
@@ -47,7 +48,7 @@ import com.bukang.cash.out.pg.PaymentClient;
 @SpringBootTest
 @ActiveProfiles("test")
 class CashChargeConfirmUseCaseTest {
-	private static final int CUSTOMER_ID = 3;
+	private static final long CUSTOMER_ID = 3;
 
 	@Autowired
 	private CashFacade cashFacade;
@@ -83,7 +84,7 @@ class CashChargeConfirmUseCaseTest {
 
 		assertThat(walletChargeRepository.findByIdempotencyKey("order_1")).isEmpty();
 		assertBalance(CUSTOMER_ID, 0);
-		verify(paymentClient, never()).approve(anyString(), anyString(), anyInt());
+		verify(paymentClient, never()).approve(anyString(), anyString(), anyLong());
 	}
 
 	@Test
@@ -108,7 +109,7 @@ class CashChargeConfirmUseCaseTest {
 	@DisplayName("승인 성공 시 장부 1줄(충전__PG결제_토스페이먼츠)이 남는다")
 	void approvedChargeLeavesOneLedgerEntry() {
 		createCustomerWallet(0);
-		given(paymentClient.approve(anyString(), anyString(), anyInt()))
+		given(paymentClient.approve(anyString(), anyString(), anyLong()))
 			.willReturn(new PaymentApprovalResult(10_000, "toss_key_1"));
 
 		cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 10_000);
@@ -124,7 +125,7 @@ class CashChargeConfirmUseCaseTest {
 	@DisplayName("PG 승인이 거절되면 예외 대신 실패 행과 200 실패 응답을 남기고, 잔액·장부는 그대로다")
 	void pgApprovalFailureMarksFailedAndReturnsFailedResponse() {
 		createCustomerWallet(0);
-		given(paymentClient.approve(anyString(), anyString(), anyInt()))
+		given(paymentClient.approve(anyString(), anyString(), anyLong()))
 			.willThrow(new PaymentApprovalFailedException("PG사가 결제 승인을 거절했습니다."));
 
 		CashChargeResponseDto response = cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 10_000);
@@ -139,10 +140,10 @@ class CashChargeConfirmUseCaseTest {
 	}
 
 	@Test
-	@DisplayName("PRO-200: ALREADY_PROCESSED_PAYMENT로 거절돼도 재조회해서 실제로 승인된 거래면 COMPLETED로 반영한다")
+	@DisplayName("ALREADY_PROCESSED_PAYMENT로 거절돼도 재조회해서 실제로 승인된 거래면 COMPLETED로 반영한다")
 	void recoversAsCompletedWhenAlreadyProcessedButActuallyDone() {
 		createCustomerWallet(0);
-		given(paymentClient.approve(anyString(), anyString(), anyInt()))
+		given(paymentClient.approve(anyString(), anyString(), anyLong()))
 			.willThrow(new PaymentApprovalFailedException("이미 처리가 끝난 결제 입니다.", "ALREADY_PROCESSED_PAYMENT"));
 		given(paymentClient.findCompletedByOrderId("order_1"))
 			.willReturn(Optional.of(new PaymentApprovalResult(10_000, "toss_key_1")));
@@ -157,10 +158,10 @@ class CashChargeConfirmUseCaseTest {
 	}
 
 	@Test
-	@DisplayName("PRO-200: ALREADY_PROCESSED_PAYMENT로 거절됐는데 재조회해도 승인된 게 아니면 기존처럼 FAILED로 남는다")
+	@DisplayName("ALREADY_PROCESSED_PAYMENT로 거절됐는데 재조회해도 승인된 게 아니면 기존처럼 FAILED로 남는다")
 	void staysFailedWhenAlreadyProcessedButRecheckStillNotDone() {
 		createCustomerWallet(0);
-		given(paymentClient.approve(anyString(), anyString(), anyInt()))
+		given(paymentClient.approve(anyString(), anyString(), anyLong()))
 			.willThrow(new PaymentApprovalFailedException("이미 처리가 끝난 결제 입니다.", "ALREADY_PROCESSED_PAYMENT"));
 		given(paymentClient.findCompletedByOrderId("order_1")).willReturn(Optional.empty());
 
@@ -173,10 +174,10 @@ class CashChargeConfirmUseCaseTest {
 	}
 
 	@Test
-	@DisplayName("PRO-200: ALREADY_PROCESSED_PAYMENT가 아닌 다른 거절 코드는 재조회 없이 바로 FAILED로 남는다")
+	@DisplayName("ALREADY_PROCESSED_PAYMENT가 아닌 다른 거절 코드는 재조회 없이 바로 FAILED로 남는다")
 	void doesNotRecheckForOtherRejectionCodes() {
 		createCustomerWallet(0);
-		given(paymentClient.approve(anyString(), anyString(), anyInt()))
+		given(paymentClient.approve(anyString(), anyString(), anyLong()))
 			.willThrow(new PaymentApprovalFailedException("카드 한도를 초과했습니다.", "EXCEED_MAX_DAILY_PAYMENT_COUNT"));
 
 		CashChargeResponseDto response = cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 10_000);
@@ -198,7 +199,23 @@ class CashChargeConfirmUseCaseTest {
 		assertThat(response.outcome()).isEqualTo(CashChargeResponseDto.Outcome.COMPLETED);
 		assertThat(response.balance()).isEqualTo(10_000);
 		assertBalance(CUSTOMER_ID, 10_000);
-		verify(paymentClient, never()).approve(anyString(), anyString(), anyInt());
+		verify(paymentClient, never()).approve(anyString(), anyString(), anyLong());
+	}
+
+	@Test
+	@DisplayName("IN_PROGRESS인 채로 멈춰 있으면(선점한 쪽이 응답 없음) 계속 기다리지 않고 "
+		+ "예외로 알리며, Toss를 새로 부르지도 않는다")
+	void stuckInProgressEventuallyThrows() {
+		Wallet wallet = createCustomerWallet(0);
+		WalletCharge charge = walletChargeRepository.save(new WalletCharge(wallet, 10_000, "TOSS", "order_1"));
+		ReflectionTestUtils.setField(charge, "status", ChargeStatus.IN_PROGRESS);
+		walletChargeRepository.saveAndFlush(charge);
+
+		assertThatThrownBy(() -> cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 10_000))
+			.isInstanceOf(ChargeInProgressException.class);
+
+		assertBalance(CUSTOMER_ID, 0);
+		verify(paymentClient, never()).approve(anyString(), anyString(), anyLong());
 	}
 
 	@Test
@@ -220,7 +237,7 @@ class CashChargeConfirmUseCaseTest {
 	}
 
 	@Test
-	@DisplayName("PRO-200: 타임아웃(연결 실패)으로 FAILED 저장된 뒤 재시도하면 PG를 다시 불러, "
+	@DisplayName("타임아웃(연결 실패)으로 FAILED 저장된 뒤 재시도하면 PG를 다시 불러, "
 		+ "ALREADY_PROCESSED_PAYMENT 거절과 재조회로 COMPLETED까지 복구된다")
 	void retryAfterTimeoutFailure_recoversToCompletedViaAlreadyProcessed() {
 		createCustomerWallet(0);
@@ -253,7 +270,7 @@ class CashChargeConfirmUseCaseTest {
 	@Test
 	@DisplayName("다른 회원의 orderId로 요청하면 거절하고 PG를 부르지 않는다")
 	void rejectsWhenOrderIdBelongsToAnotherMember() {
-		int otherMemberId = 4;
+		long otherMemberId = 4;
 		Wallet otherWallet = createWallet(otherMemberId, 10_000);
 		WalletCharge otherCharge = walletChargeRepository.save(
 			new WalletCharge(otherWallet, 10_000, "TOSS", "order_1"));
@@ -267,7 +284,7 @@ class CashChargeConfirmUseCaseTest {
 
 		assertBalance(otherMemberId, 10_000);
 		assertBalance(CUSTOMER_ID, 0);
-		verify(paymentClient, never()).approve(anyString(), anyString(), anyInt());
+		verify(paymentClient, never()).approve(anyString(), anyString(), anyLong());
 	}
 
 	@Test
@@ -277,11 +294,11 @@ class CashChargeConfirmUseCaseTest {
 			.isInstanceOf(WalletNotFoundException.class);
 	}
 
-	private Wallet createCustomerWallet(int initialBalance) {
+	private Wallet createCustomerWallet(long initialBalance) {
 		return createWallet(CUSTOMER_ID, initialBalance);
 	}
 
-	private Wallet createWallet(int memberId, int initialBalance) {
+	private Wallet createWallet(long memberId, long initialBalance) {
 		return transactionTemplate.execute(status -> {
 			LocalDateTime now = LocalDateTime.of(2026, 10, 15, 10, 0);
 			CashMember member = cashMemberRepository.save(new CashMember(memberId, now, now, "러너" + memberId));
@@ -294,7 +311,7 @@ class CashChargeConfirmUseCaseTest {
 		});
 	}
 
-	private void assertBalance(int holderId, int expected) {
+	private void assertBalance(long holderId, int expected) {
 		assertThat(walletRepository.findById(holderId).orElseThrow().getBalance()).isEqualTo(expected);
 	}
 }

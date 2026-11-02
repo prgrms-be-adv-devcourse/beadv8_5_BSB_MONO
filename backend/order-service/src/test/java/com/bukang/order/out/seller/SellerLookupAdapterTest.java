@@ -26,7 +26,7 @@ class SellerLookupAdapterTest {
 		runner.run(context -> {
 			SellerLookupPort port = context.getBean(SellerLookupPort.class);
 			assertThat(port).isInstanceOf(FakeSellerLookupAdapter.class);
-			assertThat(port.findApprovedSellerId(7)).contains(7);
+			assertThat(port.findApprovedSellerId(7)).contains(7L);
 		});
 	}
 

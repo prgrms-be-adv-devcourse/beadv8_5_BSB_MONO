@@ -7,6 +7,6 @@ import lombok.Getter;
 @AllArgsConstructor
 @Getter
 public class RaceTitleSuggestionDto {
-	private final int raceId;
+	private final long raceId;
 	private final String title;
 }

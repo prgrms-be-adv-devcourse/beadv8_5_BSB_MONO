@@ -30,24 +30,24 @@ public class WalletLedger extends BaseIdAndTime {
 	@Enumerated(STRING)
 	@Column(nullable = false)
 	private LedgerRefType refTypeCode;
-	private int refId;
+	private long refId;
 
 	@ManyToOne(fetch = LAZY, optional = false)
 	private CashMember holder;
 	@ManyToOne(fetch = LAZY, optional = false)
 	private Wallet wallet;
 
-	private int amount; // 변동 금액 (+/−)
-	private int balanceAfter;
+	private long amount; // 변동 금액 (+/−)
+	private long balanceAfter;
 
 	public WalletLedger(
 		Wallet wallet,
 		CashMember holder,
 		LedgerType ledgerType,
-		int amount,
-		int balanceAfter,
+		long amount,
+		long balanceAfter,
 		LedgerRefType refTypeCode,
-		int refId
+		long refId
 	) {
 		this.wallet = wallet;
 		this.holder = holder;

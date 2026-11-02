@@ -11,12 +11,12 @@ import org.springframework.test.web.servlet.MockMvc;
  * 대회 ID는 가짜·스텁 대기열이 쓰지 않아 아무 양수나 보낸다
  */
 public final class QueueEntry {
-	private static final int ANY_RACE_ID = 1;
+	private static final long ANY_RACE_ID = 1;
 
 	private QueueEntry() {
 	}
 
-	public static void enter(MockMvc mockMvc, int memberId, int raceCourseId) throws Exception {
+	public static void enter(MockMvc mockMvc, long memberId, long raceCourseId) throws Exception {
 		mockMvc.perform(get("/api/v1/order/queue/admission")
 				.header("X-Member-Id", memberId)
 				.param("raceId", String.valueOf(ANY_RACE_ID))

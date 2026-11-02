@@ -8,13 +8,13 @@ package com.bukang.order.out.wallet;
  */
 public interface WalletPort {
 	// 같은 주문은 한 번만 차감한다. 이미 결제된 주문이면 차감 없이 PAID, 잔액이 모자라면 부족 금액을 준다 (D PRO-79)
-	WalletPayResult pay(int orderId, int memberId, int amount);
+	WalletPayResult pay(long orderId, long memberId, long amount);
 
 	// 그 주문의 결제를 되돌린다. 몇 번, 언제 불러도 안전하다:
 	// 결제됐으면 돌려주고, 결제 전이면 막아 두어 뒤늦게 온 결제를 거절하고, 이미 취소·환불됐으면 그냥 성공한다 (D PRO-80)
-	void cancelPayment(int orderId, int memberId);
+	void cancelPayment(long orderId, long memberId);
 
 	// 결제한 참가권을 취소하면 그 주문의 결제 금액 전액을 돌려준다. 금액은 D가 결제 기록으로 정하고, 주문마다 한 번만 환불한다
 	// 부분 취소가 없고 주문 하나 = 참가권 하나라 주문 단위로 충분하다 (D PRO-83)
-	void refund(int orderId, int memberId);
+	void refund(long orderId, long memberId);
 }

@@ -53,11 +53,11 @@ public abstract class QueueIntegrationTest {
 		return LocalDateTime.of(2026, 10, 15, hour, 0);
 	}
 
-	protected QueueRace findRace(int raceId) {
+	protected QueueRace findRace(long raceId) {
 		return queueRaceRepository.findById(raceId).orElseThrow();
 	}
 
-	protected QueueRaceCourse findCourse(int raceCourseId) {
+	protected QueueRaceCourse findCourse(long raceCourseId) {
 		return queueRaceCourseRepository.findById(raceCourseId).orElseThrow();
 	}
 }

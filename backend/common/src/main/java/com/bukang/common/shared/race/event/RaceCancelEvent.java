@@ -8,8 +8,8 @@ import java.time.LocalDateTime;
  * 판매 시작 일시 전이라 산 사람이 없는 대회도 보낸다. 대회 ID를 key로 보낸다.
  */
 public record RaceCancelEvent(
-	int raceId,
-	int sellerId,
+	long raceId,
+	long sellerId,
 	LocalDateTime canceledAt
 ) {
 }

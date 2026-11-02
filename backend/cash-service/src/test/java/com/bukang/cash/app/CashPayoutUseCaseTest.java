@@ -37,8 +37,8 @@ import com.bukang.cash.out.WalletRepository;
 @SpringBootTest
 @ActiveProfiles("test")
 class CashPayoutUseCaseTest {
-	private static final int SELLER_APPLICATION_ID = 50;
-	private static final int SELLER_MEMBER_ID = 10;
+	private static final long SELLER_APPLICATION_ID = 50;
+	private static final long SELLER_MEMBER_ID = 10;
 
 	@Autowired
 	private CashFacade cashFacade;
@@ -103,8 +103,8 @@ class CashPayoutUseCaseTest {
 		List<WalletLedger> feeLedgers = ledgersFor(PayoutTransferType.FEE);
 		assertThat(settlementLedgers).hasSize(2);
 		assertThat(feeLedgers).hasSize(2);
-		int settlementRefId = settlementLedgers.get(0).getRefId();
-		int feeRefId = feeLedgers.get(0).getRefId();
+		long settlementRefId = settlementLedgers.get(0).getRefId();
+		long feeRefId = feeLedgers.get(0).getRefId();
 		assertThat(settlementLedgers).as("대금 이동 2줄은 같은 ref_id를 가리킨다")
 			.allMatch(ledger -> ledger.getRefId() == settlementRefId);
 		assertThat(feeLedgers).as("수수료 이동 2줄은 같은 ref_id를 가리킨다")
@@ -195,7 +195,7 @@ class CashPayoutUseCaseTest {
 			.toList();
 	}
 
-	private void assertBalance(int holderId, int expectedDelta) {
+	private void assertBalance(long holderId, int expectedDelta) {
 		assertThat(walletRepository.findById(holderId).orElseThrow().getBalance()).isEqualTo(expectedDelta);
 	}
 
@@ -207,7 +207,7 @@ class CashPayoutUseCaseTest {
 		createWallet(cashWalletProperties.systemMemberId(), "시스템");
 	}
 
-	private void createWallet(int memberId, String nickname) {
+	private void createWallet(long memberId, String nickname) {
 		transactionTemplate.executeWithoutResult(status -> {
 			LocalDateTime now = LocalDateTime.of(2026, 10, 20, 10, 0);
 			CashMember member = cashMemberRepository.save(new CashMember(memberId, now, now, nickname));

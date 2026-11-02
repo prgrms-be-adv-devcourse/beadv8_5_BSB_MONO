@@ -3,6 +3,7 @@ package com.bukang.order.in;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.matchesPattern;
 import static org.mockito.Mockito.doReturn;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -43,7 +44,6 @@ import com.bukang.order.domain.OrderStatus;
 import com.bukang.order.domain.Participation;
 import com.bukang.order.domain.ParticipationStatus;
 import com.bukang.order.domain.QueueAdmission;
-import com.bukang.order.domain.ShippingAddress;
 import com.bukang.order.out.OrderItemRepository;
 import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationRepository;
@@ -63,10 +63,10 @@ import com.jayway.jsonpath.JsonPath;
 @Import({StubRaceCoursePortConfig.class, StubSeatHoldPortConfig.class, StubQueueAdmissionPortConfig.class})
 class ApiV1OrderTest {
 	private static final String BASE_URL = "/api/v1/order/orders";
-	private static final int MEMBER_ID = 1;
-	private static final int OTHER_MEMBER_ID = 2;
-	private static final int COURSE_ID = 10;
-	private static final int RACE_ID = 100;
+	private static final long MEMBER_ID = 1;
+	private static final long OTHER_MEMBER_ID = 2;
+	private static final long COURSE_ID = 10;
+	private static final long RACE_ID = 100;
 	private static final String ORDER_NO_PATTERN = "^OD-\\d{8}-[0-9A-F]{4}$";
 
 	@Autowired
@@ -116,11 +116,11 @@ class ApiV1OrderTest {
 	}
 
 	@Test
-	@DisplayName("[결제하기]하면 자리를 확보해 참가 신청은 APPLIED, 주문은 CREATED가 되고 결제 기한은 신청서 진입 때 받은 입장 끝 시각(10분 뒤)이다")
+	@DisplayName("[결제하기]하면 자리를 확보해 참가 신청은 APPLIED, 주문은 CREATED가 되고 결제 기한은 신청서 진입 때 받은 입장 끝 시각(15분 뒤)이다")
 	void create() throws Exception {
 		// DB(H2·MySQL)는 마이크로초까지만 저장한다. Linux의 now()는 나노초까지 나오므로 비교 기준도 맞춰 자른다
 		LocalDateTime before = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
-		int participationId = applyAndGetId(MEMBER_ID);
+		long participationId = applyAndGetId(MEMBER_ID);
 
 		create(MEMBER_ID, participationId, newKey())
 			.andExpect(status().isCreated())
@@ -152,7 +152,7 @@ class ApiV1OrderTest {
 	void createUsesAdmissionEndsAt() throws Exception {
 		LocalDateTime endsAt = LocalDateTime.now().plusMinutes(4).withNano(0);
 		queueAdmissionPort.admitUntil(COURSE_ID, endsAt);
-		int participationId = applyAndGetId(MEMBER_ID);
+		long participationId = applyAndGetId(MEMBER_ID);
 
 		create(MEMBER_ID, participationId, newKey()).andExpect(status().isCreated());
 
@@ -162,24 +162,36 @@ class ApiV1OrderTest {
 	}
 
 	@Test
-	@DisplayName("대기열이 정책(입장 뒤 10분)보다 먼 끝 시각을 주면 결제 기한을 지금부터 10분으로 자른다")
+	@DisplayName("대기열이 정책(예매창 15분)만큼 끝 시각을 주면 자르지 않고 그 끝 시각을 결제 기한으로 쓴다")
+	void createKeepsFifteenMinuteAdmission() throws Exception {
+		LocalDateTime endsAt = LocalDateTime.now().plusMinutes(15).withNano(0);
+		queueAdmissionPort.admitUntil(COURSE_ID, endsAt);
+		long participationId = applyAndGetId(MEMBER_ID);
+
+		create(MEMBER_ID, participationId, newKey()).andExpect(status().isCreated());
+
+		assertThat(orderRepository.findAll().getFirst().getPaymentDueAt()).isEqualTo(endsAt);
+	}
+
+	@Test
+	@DisplayName("대기열이 정책(예매창 15분)보다 먼 끝 시각을 주면 결제 기한을 지금부터 15분으로 자른다")
 	void createCapsAdmissionEndsAt() throws Exception {
-		queueAdmissionPort.admitUntil(COURSE_ID, LocalDateTime.now().plusHours(1));
-		int participationId = applyAndGetId(MEMBER_ID);
+		queueAdmissionPort.admitUntil(COURSE_ID, LocalDateTime.now().plusMinutes(16));
+		long participationId = applyAndGetId(MEMBER_ID);
 
 		LocalDateTime before = LocalDateTime.now();
 		create(MEMBER_ID, participationId, newKey()).andExpect(status().isCreated());
 		LocalDateTime after = LocalDateTime.now();
 
 		assertThat(orderRepository.findAll().getFirst().getPaymentDueAt())
-			.isBetween(before.plusMinutes(10), after.plusMinutes(10));
+			.isBetween(before.plusMinutes(15), after.plusMinutes(15));
 	}
 
 	@Test
 	@DisplayName("신청서 진입 때 입장하지 못했거나 저장한 입장 시간이 끝났으면 403이고, 자리를 확보하지 않는다")
 	void createNotAdmitted() throws Exception {
 		queueAdmissionPort.notAdmitted(COURSE_ID);
-		int participationId = applyAndGetId(MEMBER_ID);
+		long participationId = applyAndGetId(MEMBER_ID);
 
 		create(MEMBER_ID, participationId, newKey())
 			.andExpect(status().isForbidden())
@@ -200,7 +212,7 @@ class ApiV1OrderTest {
 	void createUsesSavedAdmissionWithoutAskingQueue() throws Exception {
 		LocalDateTime endsAt = LocalDateTime.now().plusMinutes(4).withNano(0);
 		queueAdmissionPort.admitUntil(COURSE_ID, endsAt);
-		int participationId = applyAndGetId(MEMBER_ID);
+		long participationId = applyAndGetId(MEMBER_ID);
 		// 신청서를 쓰는 동안 대기열이 멈추거나 입장이 풀린 경우
 		queueAdmissionPort.notAdmitted(COURSE_ID);
 
@@ -212,7 +224,7 @@ class ApiV1OrderTest {
 	@Test
 	@DisplayName("입장 상태 API를 부르지 않고(주소 직접 입력) [결제하기]하면 대기열이 입장 중이라고 해도 403이다")
 	void createWithoutEntry() throws Exception {
-		int participationId = applyAndGetId(MEMBER_ID);
+		long participationId = applyAndGetId(MEMBER_ID);
 		queueAdmissionRepository.deleteAll();
 
 		create(MEMBER_ID, participationId, newKey())
@@ -224,9 +236,9 @@ class ApiV1OrderTest {
 	@Test
 	@DisplayName("같은 키로 다시 보내면 입장 시간이 끝났어도 처음 주문을 돌려준다")
 	void createRetryAfterAdmissionEnded() throws Exception {
-		int participationId = applyAndGetId(MEMBER_ID);
+		long participationId = applyAndGetId(MEMBER_ID);
 		String key = newKey();
-		int orderId = createAndGetId(MEMBER_ID, participationId, key);
+		long orderId = createAndGetId(MEMBER_ID, participationId, key);
 		queueAdmissionPort.notAdmitted(COURSE_ID);
 
 		create(MEMBER_ID, participationId, key)
@@ -237,8 +249,8 @@ class ApiV1OrderTest {
 	@Test
 	@DisplayName("주문 상품에 정산이 쓰는 판매자 ID·대회 ID·금액(참가비, 키트 포함)이 저장된다")
 	void createStoresSettlementFields() throws Exception {
-		int participationId = applyAndGetId(MEMBER_ID);
-		int ticketPrice = StubRaceCoursePort.PRICE;
+		long participationId = applyAndGetId(MEMBER_ID);
+		long ticketPrice = StubRaceCoursePort.PRICE;
 
 		create(MEMBER_ID, participationId, newKey())
 			.andExpect(status().isCreated())
@@ -259,9 +271,9 @@ class ApiV1OrderTest {
 	}
 
 	@Test
-	@DisplayName("신청서에서 받은 키트 배송지가 주문에 그대로 옮겨진다 (ERD orders 배송지 칸)")
+	@DisplayName("결제 전 주문 응답에는 신청서에서 받은 키트 배송지가 보인다 (배송은 결제 때 만든다, BUK-6)")
 	void createCopiesShippingAddress() throws Exception {
-		int participationId = applyAndGetId(MEMBER_ID);
+		long participationId = applyAndGetId(MEMBER_ID);
 
 		create(MEMBER_ID, participationId, newKey())
 			.andExpect(status().isCreated())
@@ -270,18 +282,14 @@ class ApiV1OrderTest {
 			.andExpect(jsonPath("$.data.shippingAddress.zipcode").value("04700"))
 			.andExpect(jsonPath("$.data.shippingAddress.address").value("서울 성동구 왕십리로 00"))
 			.andExpect(jsonPath("$.data.shippingAddress.addressDetail").value("101동 1001호"));
-
-		ShippingAddress saved = orderRepository.findAll().getFirst().getShippingAddress();
-		assertThat(saved.getZipcode()).isEqualTo("04700");
-		assertThat(saved.getAddress()).isEqualTo("서울 성동구 왕십리로 00");
 	}
 
 	@Test
-	@DisplayName("참가자 정보 수정이 주문을 찾은 뒤 [결제하기]가 주문을 만들면 409로 거절하고, 주문·신청서의 배송지는 그대로다")
+	@DisplayName("참가자 정보 수정이 주문을 찾은 뒤 [결제하기]가 주문을 만들면 409로 거절하고, 신청서의 배송지는 그대로다")
 	void changeParticipantWhileOrderCreated() throws Exception {
-		int participationId = applyAndGetId(MEMBER_ID);
+		long participationId = applyAndGetId(MEMBER_ID);
 		create(MEMBER_ID, participationId, newKey()).andExpect(status().isCreated());
-		int orderId = orderRepository.findAll().getFirst().getId();
+		long orderId = orderRepository.findAll().getFirst().getId();
 		// 수정이 주문을 찾을 때는 아직 없었고, 신청서를 잠그기 전에 [결제하기]가 주문을 만든 경합을 만든다
 		doReturn(Optional.empty()).doReturn(Optional.of(orderId))
 			.when(orderItemRepository).findOrderIdByParticipationId(participationId);
@@ -299,15 +307,14 @@ class ApiV1OrderTest {
 			.andExpect(jsonPath("$.message").value("방금 주문이 만들어졌습니다. 잠시 뒤 다시 시도해주세요."))
 			.andExpect(jsonPath("$.code").value("ORDER_PARTICIPATION_CHANGE_RETRY"));
 
-		assertThat(orderRepository.findAll().getFirst().getShippingAddress().getZipcode()).isEqualTo("04700");
 		assertThat(participationRepository.findById(participationId).orElseThrow()
 			.getParticipant().getShippingAddress().getZipcode()).isEqualTo("04700");
 	}
 
 	@Test
-	@DisplayName("주문을 만든 뒤 참가자 정보에서 배송지를 고치면 주문의 배송지도 바뀐다 (키트는 주문의 배송지로 보낸다)")
+	@DisplayName("주문을 만든 뒤 참가자 정보에서 배송지를 고치면 결제 전 주문 응답의 배송지도 바뀐다")
 	void changeParticipantUpdatesOrderShippingAddress() throws Exception {
-		int participationId = applyAndGetId(MEMBER_ID);
+		long participationId = applyAndGetId(MEMBER_ID);
 		create(MEMBER_ID, participationId, newKey()).andExpect(status().isCreated());
 
 		mockMvc.perform(put("/api/v1/order/participations/" + participationId + "/participant")
@@ -321,19 +328,21 @@ class ApiV1OrderTest {
 					"""))
 			.andExpect(status().isOk());
 
-		ShippingAddress changed = orderRepository.findAll().getFirst().getShippingAddress();
-		assertThat(changed.getRecipientName()).isEqualTo("김가족");
-		assertThat(changed.getZipcode()).isEqualTo("48094");
-		assertThat(changed.getAddress()).isEqualTo("부산 해운대구 해운대로 00");
-		assertThat(changed.getAddressDetail()).isNull();
+		mockMvc.perform(get("/api/v1/order/orders/" + orderRepository.findAll().getFirst().getId())
+				.header("X-Member-Id", MEMBER_ID))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.shippingAddress.recipientName").value("김가족"))
+			.andExpect(jsonPath("$.data.shippingAddress.zipcode").value("48094"))
+			.andExpect(jsonPath("$.data.shippingAddress.address").value("부산 해운대구 해운대로 00"))
+			.andExpect(jsonPath("$.data.shippingAddress.addressDetail").isEmpty());
 	}
 
 	@Test
 	@DisplayName("같은 Idempotency-Key로 다시 보내면 200으로 처음 주문을 돌려주고, 자리는 한 번만 확보한다")
 	void createWithSameKey() throws Exception {
-		int participationId = applyAndGetId(MEMBER_ID);
+		long participationId = applyAndGetId(MEMBER_ID);
 		String key = newKey();
-		int orderId = createAndGetId(MEMBER_ID, participationId, key);
+		long orderId = createAndGetId(MEMBER_ID, participationId, key);
 
 		create(MEMBER_ID, participationId, key)
 			.andExpect(status().isOk())
@@ -350,7 +359,7 @@ class ApiV1OrderTest {
 		String key = newKey();
 		createAndGetId(MEMBER_ID, applyAndGetId(MEMBER_ID), key);
 		raceCoursePort.put(StubRaceCoursePort.openCourse(COURSE_ID + 1, RACE_ID + 1, 14, null));
-		int otherRace = applyAndGetId(MEMBER_ID, COURSE_ID + 1);
+		long otherRace = applyAndGetId(MEMBER_ID, COURSE_ID + 1);
 
 		create(MEMBER_ID, otherRace, key)
 			.andExpect(status().isConflict())
@@ -364,7 +373,7 @@ class ApiV1OrderTest {
 	@Test
 	@DisplayName("다른 키로 같은 신청서를 다시 보내면 이미 결제 대기라 409다")
 	void createTwiceWithDifferentKey() throws Exception {
-		int participationId = applyAndGetId(MEMBER_ID);
+		long participationId = applyAndGetId(MEMBER_ID);
 		create(MEMBER_ID, participationId, newKey()).andExpect(status().isCreated());
 
 		create(MEMBER_ID, participationId, newKey())
@@ -379,7 +388,7 @@ class ApiV1OrderTest {
 	@Test
 	@DisplayName("남은 자리가 없으면 409, 참가 신청은 FAILED로 끝나 주문이 없고 같은 대회에 다시 신청할 수 있다")
 	void soldOut() throws Exception {
-		int participationId = applyAndGetId(MEMBER_ID);
+		long participationId = applyAndGetId(MEMBER_ID);
 		seatHoldPort.setRemainingSeats(COURSE_ID, 0);
 
 		create(MEMBER_ID, participationId, newKey())
@@ -400,7 +409,7 @@ class ApiV1OrderTest {
 	@Test
 	@DisplayName("매진으로 끝난 신청서로 같은 키를 다시 보내도 처음과 같은 매진 응답을 받는다")
 	void soldOutRetryWithSameKey() throws Exception {
-		int participationId = applyAndGetId(MEMBER_ID);
+		long participationId = applyAndGetId(MEMBER_ID);
 		seatHoldPort.setRemainingSeats(COURSE_ID, 0);
 		String key = newKey();
 		create(MEMBER_ID, participationId, key).andExpect(status().isConflict());
@@ -415,8 +424,8 @@ class ApiV1OrderTest {
 	@Test
 	@DisplayName("마지막 1석에 두 명이 동시에 [결제하기]하면 한 명만 자리를 확보한다")
 	void lastSeatRace() throws Exception {
-		int first = applyAndGetId(MEMBER_ID);
-		int second = applyAndGetId(OTHER_MEMBER_ID);
+		long first = applyAndGetId(MEMBER_ID);
+		long second = applyAndGetId(OTHER_MEMBER_ID);
 		seatHoldPort.setRemainingSeats(COURSE_ID, 1);
 
 		CountDownLatch start = new CountDownLatch(1);
@@ -439,7 +448,7 @@ class ApiV1OrderTest {
 	@Test
 	@DisplayName("접수 기간이 아니면 409이고 자리를 확보하지 않으며 참가 신청은 PENDING 그대로다")
 	void notAccepting() throws Exception {
-		int participationId = applyAndGetId(MEMBER_ID);
+		long participationId = applyAndGetId(MEMBER_ID);
 		raceCoursePort.put(StubRaceCoursePort.closedCourse(COURSE_ID, RACE_ID));
 
 		create(MEMBER_ID, participationId, newKey())
@@ -455,7 +464,7 @@ class ApiV1OrderTest {
 	@Test
 	@DisplayName("다른 회원의 신청서는 403, 없는 신청서는 404다")
 	void notOwnerOrMissing() throws Exception {
-		int participationId = applyAndGetId(MEMBER_ID);
+		long participationId = applyAndGetId(MEMBER_ID);
 
 		create(OTHER_MEMBER_ID, participationId, newKey())
 			.andExpect(status().isForbidden())
@@ -472,7 +481,7 @@ class ApiV1OrderTest {
 	@Test
 	@DisplayName("Idempotency-Key가 없으면 400, 64자를 넘으면 400이다")
 	void invalidIdempotencyKey() throws Exception {
-		int participationId = applyAndGetId(MEMBER_ID);
+		long participationId = applyAndGetId(MEMBER_ID);
 
 		mockMvc.perform(post(BASE_URL)
 				.header("X-Member-Id", MEMBER_ID)
@@ -503,8 +512,8 @@ class ApiV1OrderTest {
 	@Test
 	@DisplayName("만료 정리: 기한 1초 전에는 그대로, 기한이 되면 참가 신청 RELEASED·주문 EXPIRED가 되고 다시 신청할 수 있다")
 	void expireOverdue() throws Exception {
-		int participationId = applyAndGetId(MEMBER_ID);
-		int orderId = createAndGetId(MEMBER_ID, participationId, newKey());
+		long participationId = applyAndGetId(MEMBER_ID);
+		long orderId = createAndGetId(MEMBER_ID, participationId, newKey());
 		LocalDateTime due = orderRepository.findById(orderId).orElseThrow().getPaymentDueAt();
 
 		OrderExpiryUseCase.ExpiryResult early = orderExpiryUseCase.expireOverdue(due.minusSeconds(1));
@@ -528,7 +537,7 @@ class ApiV1OrderTest {
 	@Test
 	@DisplayName("만료 정리를 두 번 돌려도 결과가 같고, 해제 시각도 바뀌지 않는다")
 	void expireOverdueTwice() throws Exception {
-		int participationId = applyAndGetId(MEMBER_ID);
+		long participationId = applyAndGetId(MEMBER_ID);
 		createAndGetId(MEMBER_ID, participationId, newKey());
 		// DB는 마이크로초까지만 저장하므로, 저장된 해제 시각과 비교할 수 있게 잘라서 넣는다
 		LocalDateTime later = LocalDateTime.now().plusMinutes(30).truncatedTo(ChronoUnit.MICROS);
@@ -544,7 +553,7 @@ class ApiV1OrderTest {
 	@Test
 	@DisplayName("만료 정리는 결제 대기 건만 건드리고, 자리 확보 전(PENDING) 신청은 그대로 둔다")
 	void expireOverdueSkipsPending() throws Exception {
-		int pending = applyAndGetId(MEMBER_ID);
+		long pending = applyAndGetId(MEMBER_ID);
 
 		orderExpiryUseCase.expireOverdue(LocalDateTime.now().plusDays(1));
 
@@ -556,18 +565,18 @@ class ApiV1OrderTest {
 	@Test
 	@DisplayName("결제 기한 늘리기 API는 없다 (10/14 연장 없음으로 정함)")
 	void deadlineExtensionRemoved() throws Exception {
-		int orderId = createAndGetId(MEMBER_ID, applyAndGetId(MEMBER_ID), newKey());
+		long orderId = createAndGetId(MEMBER_ID, applyAndGetId(MEMBER_ID), newKey());
 
 		mockMvc.perform(post(BASE_URL + "/" + orderId + "/deadline-extension").header("X-Member-Id", MEMBER_ID))
 			.andExpect(status().isNotFound());
 	}
 
-	private Integer createStatusAfter(CountDownLatch start, int memberId, int participationId) throws Exception {
+	private Integer createStatusAfter(CountDownLatch start, long memberId, long participationId) throws Exception {
 		start.await();
 		return create(memberId, participationId, newKey()).andReturn().getResponse().getStatus();
 	}
 
-	private ResultActions create(int memberId, int participationId, String key) throws Exception {
+	private ResultActions create(long memberId, long participationId, String key) throws Exception {
 		return mockMvc.perform(post(BASE_URL)
 			.header("X-Member-Id", memberId)
 			.header("Idempotency-Key", key)
@@ -575,18 +584,18 @@ class ApiV1OrderTest {
 			.content(createBody(participationId)));
 	}
 
-	private int createAndGetId(int memberId, int participationId, String key) throws Exception {
+	private long createAndGetId(long memberId, long participationId, String key) throws Exception {
 		String body = create(memberId, participationId, key)
 			.andExpect(status().isCreated())
 			.andReturn().getResponse().getContentAsString();
-		return JsonPath.read(body, "$.data.id");
+		return JsonPath.<Number>read(body, "$.data.id").longValue();
 	}
 
-	private int applyAndGetId(int memberId) throws Exception {
+	private long applyAndGetId(long memberId) throws Exception {
 		return applyAndGetId(memberId, COURSE_ID);
 	}
 
-	private int applyAndGetId(int memberId, int raceCourseId) throws Exception {
+	private long applyAndGetId(long memberId, long raceCourseId) throws Exception {
 		QueueEntry.enter(mockMvc, memberId, raceCourseId);
 		String body = mockMvc.perform(post("/api/v1/order/participations")
 				.header("X-Member-Id", memberId)
@@ -601,10 +610,10 @@ class ApiV1OrderTest {
 					""".formatted(raceCourseId)))
 			.andExpect(status().isCreated())
 			.andReturn().getResponse().getContentAsString();
-		return JsonPath.read(body, "$.data.id");
+		return JsonPath.<Number>read(body, "$.data.id").longValue();
 	}
 
-	private static String createBody(int participationId) {
+	private static String createBody(long participationId) {
 		return "{\"participationId\": %d}".formatted(participationId);
 	}
 

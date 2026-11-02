@@ -41,7 +41,7 @@ public class OrderSoldSummaryAdapter implements SoldSummaryPort {
 	}
 
 	@Override
-	public List<SoldSummary> summarizeSold(int raceId) {
+	public List<SoldSummary> summarizeSold(long raceId) {
 		RsData<List<SoldSummaryResponse>> body = restClient.get()
 			.uri(PATH, raceId)
 			.retrieve()
@@ -64,7 +64,7 @@ public class OrderSoldSummaryAdapter implements SoldSummaryPort {
 	}
 
 	// 주문 서비스 응답(SoldSummaryDto)의 모양. 포트의 SoldSummary가 응답 형식에 묶이지 않도록 따로 둔다
-	private record SoldSummaryResponse(int sellerId, int raceId, int raceCourseId, long priceSum, int ticketCount) {
+	private record SoldSummaryResponse(long sellerId, long raceId, long raceCourseId, long priceSum, int ticketCount) {
 		SoldSummary toSoldSummary() {
 			return new SoldSummary(sellerId, raceId, raceCourseId, priceSum, ticketCount);
 		}

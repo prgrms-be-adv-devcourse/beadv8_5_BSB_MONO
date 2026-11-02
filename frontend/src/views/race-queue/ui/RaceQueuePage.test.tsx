@@ -125,7 +125,10 @@ describe('RaceQueuePage', () => {
     await act(() => vi.advanceTimersByTimeAsync(ADMISSION_POLL_MS))
     await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/races/1/apply?option=2'))
     expect(admissionAsked).toBe(1)
-    expect(screen.getByRole('timer')).toHaveTextContent('남은 시간10:00')
+    // 넘어가는 동안 내 차례 화면의 전체 화면 남은 시간을 그리지 않고 기다리는 화면을 둔다
+    expect(screen.queryByRole('timer')).not.toBeInTheDocument()
+    expect(screen.queryByText(/내 차례예요/)).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /잠시 기다리고 있어요/ })).toBeInTheDocument()
 
     // 차례가 오면 더 묻지 않는다
     await act(() => vi.advanceTimersByTimeAsync(ADMISSION_POLL_MS * 2))
@@ -195,14 +198,13 @@ describe('RaceQueuePage', () => {
     )
   })
 
-  it('남은 시간이 1초씩 줄고 0이 되면 입장 시간 만료 화면(M07-1)으로 간다', async () => {
+  it('남은 시간이 0이 되면 입장 시간 만료 화면(M07-1)으로 간다', async () => {
     mockQueueOpen()
     server.use(orderMock.getFindAdmissionMockHandler({ status: 200, data: admitted(2) }))
     renderQueue()
 
-    expect(await screen.findByRole('timer')).toHaveTextContent('00:02')
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/races/1/apply?option=2'))
     await act(() => vi.advanceTimersByTimeAsync(1000))
-    expect(screen.getByRole('timer')).toHaveTextContent('00:01')
     expect(replace).not.toHaveBeenCalledWith('/checkout?result=timeout&raceId=1')
 
     await act(() => vi.advanceTimersByTimeAsync(1000))

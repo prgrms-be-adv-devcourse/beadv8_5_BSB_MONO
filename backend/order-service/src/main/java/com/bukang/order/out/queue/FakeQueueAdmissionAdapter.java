@@ -19,8 +19,8 @@ import lombok.extern.slf4j.Slf4j;
  *   그래서 프론트 타이머(남은 시간 API)와 [결제하기]의 결제 기한이 같은 시각이 된다
  * - 끝 시각이 지나면 [결제하기]는 입장 중이 아니다(403). 결제 페이지를 다시 열면(남은 시간 API) 대기열을 다시 통과한 것으로 보고
  *   다시 입장시킨다. 그래서 더미 API 없이도 입장이 끝난 회원이 다시 살 수 있다
- * - 입장 시간은 order.clients.queue.fake-admission-minutes(1~10분, 기본 10분, 정책 4장 2-4)로 줄여 만료를 빨리 확인할 수 있다
- *   10분보다 길면 [결제하기]가 결제 기한을 10분으로 잘라 타이머와 어긋나므로 받지 않는다
+ * - 입장 시간은 order.clients.queue.fake-admission-minutes(1~15분, 기본 15분, 예매창 15분)로 줄여 만료를 빨리 확인할 수 있다
+ *   15분보다 길면 [결제하기]가 결제 기한을 15분으로 잘라 타이머와 어긋나므로 받지 않는다
  * 메모리에만 두므로 앱을 다시 켜면 모두 처음 입장으로 돌아간다. 오래 켜 두어도 기록이 끝없이 늘지 않게 줄인다
  * (기록이 PRUNE_AT개를 넘으면 끝난 지 RETENTION_MINUTES분 지난 기록을 지우고, 그래도 MAX_ENTRIES개를 넘으면 끝난 기록을 모두 지운다)
  * 끝난 기록은 [결제하기]가 403을 내는 데 쓰이므로 끝나자마자 지우지 않는다
@@ -31,7 +31,7 @@ import lombok.extern.slf4j.Slf4j;
 @ConditionalOnProperty(prefix = "order.clients.queue", name = "mode", havingValue = "fake", matchIfMissing = true)
 public class FakeQueueAdmissionAdapter implements QueueAdmissionPort {
 	// 정책상 가장 긴 입장 시간 (OrderCreateUseCase.MAX_ADMISSION_MINUTES와 같다)
-	static final long MAX_ADMISSION_MINUTES = 10;
+	static final long MAX_ADMISSION_MINUTES = 15;
 	// 끝난 기록을 남겨 두는 시간. 그 뒤에 [결제하기]를 하면 다시 입장한 것으로 친다
 	static final long RETENTION_MINUTES = 60;
 	static final int PRUNE_AT = 1_000;
@@ -44,7 +44,7 @@ public class FakeQueueAdmissionAdapter implements QueueAdmissionPort {
 
 	// 호출마다 경고를 남기면 로그가 묻히므로, 앱을 켤 때 한 번만 알린다
 	@Autowired
-	public FakeQueueAdmissionAdapter(@Value("${order.clients.queue.fake-admission-minutes:10}") long admissionMinutes) {
+	public FakeQueueAdmissionAdapter(@Value("${order.clients.queue.fake-admission-minutes:15}") long admissionMinutes) {
 		this(admissionMinutes, PRUNE_AT, MAX_ENTRIES);
 	}
 
@@ -62,7 +62,7 @@ public class FakeQueueAdmissionAdapter implements QueueAdmissionPort {
 	}
 
 	@Override
-	public Optional<LocalDateTime> findAdmissionEndsAt(int memberId, int raceId, int raceCourseId,
+	public Optional<LocalDateTime> findAdmissionEndsAt(long memberId, long raceId, long raceCourseId,
 		LocalDateTime now) {
 		pruneIfLarge(now);
 		LocalDateTime endsAt = admissionEndsAt.computeIfAbsent(new Admission(memberId, raceCourseId),
@@ -72,7 +72,7 @@ public class FakeQueueAdmissionAdapter implements QueueAdmissionPort {
 
 	// 결제 페이지를 다시 열면, 끝난 입장은 대기열을 다시 통과한 것으로 보고 다시 입장시킨다
 	@Override
-	public Optional<LocalDateTime> findAdmissionEndsAtOnPageOpen(int memberId, int raceId, int raceCourseId,
+	public Optional<LocalDateTime> findAdmissionEndsAtOnPageOpen(long memberId, long raceId, long raceCourseId,
 		LocalDateTime now) {
 		pruneIfLarge(now);
 		LocalDateTime endsAt = admissionEndsAt.compute(new Admission(memberId, raceCourseId),
@@ -83,7 +83,7 @@ public class FakeQueueAdmissionAdapter implements QueueAdmissionPort {
 	}
 
 	// 대기열을 다시 통과한 것으로 친다 (dev 더미 API). 입장 끝 시각을 지금부터 다시 센다
-	public LocalDateTime enter(int memberId, int raceCourseId, LocalDateTime now) {
+	public LocalDateTime enter(long memberId, long raceCourseId, LocalDateTime now) {
 		pruneIfLarge(now);
 		LocalDateTime endsAt = now.plusMinutes(admissionMinutes);
 		admissionEndsAt.put(new Admission(memberId, raceCourseId), endsAt);
@@ -106,6 +106,6 @@ public class FakeQueueAdmissionAdapter implements QueueAdmissionPort {
 		return admissionEndsAt.size();
 	}
 
-	private record Admission(int memberId, int raceCourseId) {
+	private record Admission(long memberId, long raceCourseId) {
 	}
 }

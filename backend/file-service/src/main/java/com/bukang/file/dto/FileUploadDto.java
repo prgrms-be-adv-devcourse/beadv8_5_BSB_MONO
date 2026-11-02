@@ -14,7 +14,7 @@ import lombok.Getter;
 @AllArgsConstructor
 @Getter
 public class FileUploadDto {
-	private final int fileId;
+	private final long fileId;
 	private final String uploadUrl;
 	private final String method;
 	private final Map<String, String> headers;

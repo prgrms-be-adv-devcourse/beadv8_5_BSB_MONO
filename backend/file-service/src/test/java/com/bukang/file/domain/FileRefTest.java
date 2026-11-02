@@ -3,12 +3,11 @@ package com.bukang.file.domain;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import java.time.LocalDateTime;
-
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
-import com.bukang.common.global.jpa.entity.BaseEntity;
+import com.bukang.common.global.jpa.entity.BaseIdAndTime;
 import com.bukang.common.shared.file.domain.FileRef;
 
 /**
@@ -40,26 +39,10 @@ class FileRefTest {
 	}
 
 	// product-service의 대회 엔티티 대신 쓰는 테스트용 엔티티 (클래스 이름 Race가 대상 종류가 된다)
-	private static class Race extends BaseEntity {
-		private final int id;
-
-		Race(int id) {
-			this.id = id;
-		}
-
-		@Override
-		public int getId() {
-			return id;
-		}
-
-		@Override
-		public LocalDateTime getCreateDate() {
-			return null;
-		}
-
-		@Override
-		public LocalDateTime getModifyDate() {
-			return null;
+	// ID는 저장할 때 JPA가 넣으므로, 테스트에서는 필드에 직접 넣는다
+	private static class Race extends BaseIdAndTime {
+		Race(long id) {
+			ReflectionTestUtils.setField(this, "id", id);
 		}
 	}
 }

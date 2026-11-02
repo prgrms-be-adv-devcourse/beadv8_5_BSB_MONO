@@ -12,7 +12,6 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import com.bukang.cash.domain.exception.PayoutTransferMismatchException;
 import com.bukang.cash.dto.CashPayoutResponseDto;
 import com.bukang.common.global.rsdata.RsData;
-import com.bukang.common.shared.member.web.MemberIdHeader;
 
 /**
  * 예치금 서비스 전용 요청 예외 처리 (product-service의 ProductExceptionHandler와 같은 방식)
@@ -23,21 +22,16 @@ public class CashExceptionHandler {
 	// 입력값 오류 코드는 common GlobalExceptionHandler와 같은 값을 쓴다
 	private static final String INVALID_REQUEST = "INVALID_REQUEST";
 
-	// 회원 ID 헤더가 없으면 로그인이 안 된 것이고, 그 밖의 헤더가 없으면 잘못된 요청이다
+	// 필수 요청 헤더(예: 중복 요청 방지 키)가 없으면 잘못된 요청이다. 회원 ID 헤더는 common의 @LoginMemberId가 처리한다
 	@ExceptionHandler(MissingRequestHeaderException.class)
 	public ResponseEntity<RsData<Void>> missingRequestHeaderException(MissingRequestHeaderException exception) {
-		if (MemberIdHeader.NAME.equalsIgnoreCase(exception.getHeaderName())) {
-			return ResponseEntity
-				.status(HttpStatus.UNAUTHORIZED)
-				.body(RsData.of(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.", null));
-		}
 		return ResponseEntity
 			.status(HttpStatus.BAD_REQUEST)
 			.body(RsData.of(HttpStatus.BAD_REQUEST, INVALID_REQUEST,
 				"필수 요청 헤더(%s)가 없습니다.".formatted(exception.getHeaderName()), null));
 	}
 
-	// 컨트롤러 파라미터에 직접 붙인 검증(예: 회원 ID @Positive) 실패. 첫 번째 오류 메시지를 응답한다
+	// 컨트롤러 파라미터에 직접 붙인 검증(예: 경로 변수 @Positive) 실패. 첫 번째 오류 메시지를 응답한다
 	// 이런 검증이 있는 메서드는 @Valid 요청 본문 오류도 이 예외로 오므로, 공통 처리(MethodArgumentNotValidException)와 같은 코드를 붙인다
 	@ExceptionHandler(HandlerMethodValidationException.class)
 	public ResponseEntity<RsData<Void>> handlerMethodValidationException(HandlerMethodValidationException exception) {

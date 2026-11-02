@@ -1,7 +1,7 @@
 package com.bukang.cash.dto;
 
-public record CashWithdrawalResponseDto(int withdrawnAmount, int balance) {
-	public static CashWithdrawalResponseDto of(int withdrawnAmount, int balance) {
+public record CashWithdrawalResponseDto(long withdrawnAmount, long balance) {
+	public static CashWithdrawalResponseDto of(long withdrawnAmount, long balance) {
 		return new CashWithdrawalResponseDto(withdrawnAmount, balance);
 	}
 

@@ -140,7 +140,7 @@ public class RaceRequestValidator {
 		List<RaceImageRequestDto> allImages = new ArrayList<>();
 		request.getCourses().forEach(course -> allImages.addAll(course.getImages()));
 
-		Set<Integer> fileIds = new HashSet<>();
+		Set<Long> fileIds = new HashSet<>();
 		for (RaceImageRequestDto image : allImages) {
 			if (!fileIds.add(image.getFileId())) {
 				throw new InvalidRaceException(withImage("같은 파일을 두 번 연결할 수 없습니다.", image));

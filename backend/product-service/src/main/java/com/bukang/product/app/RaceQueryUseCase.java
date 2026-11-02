@@ -31,14 +31,14 @@ public class RaceQueryUseCase {
 	private final RaceCourseRepository raceCourseRepository;
 
 	// 취소된 대회는 등록한 판매자만 볼 수 있다. 다른 사람에게는 없는 대회(404)로 보인다
-	public RaceDetailDto findDetail(int raceId, Integer memberId) {
+	public RaceDetailDto findDetail(long raceId, Long memberId) {
 		Race race = raceRepository.findById(raceId)
 			.filter(found -> found.isVisibleTo(memberId))
 			.orElseThrow(RaceNotFoundException::new);
 		return RaceDetailDto.from(race);
 	}
 
-	public List<SellerRaceDto> findMine(int memberId) {
+	public List<SellerRaceDto> findMine(long memberId) {
 		ProductSeller seller = productSellerRepository.findByMemberIdAndStatus(memberId, SellerStatus.APPROVED)
 			.orElseThrow(SellerNotApprovedException::new);
 		return raceRepository.findAllBySellerOrderByIdDesc(seller).stream()
@@ -47,7 +47,7 @@ public class RaceQueryUseCase {
 	}
 
 	// 주문 서비스 RaceCoursePort 계약: 없는 종목이면 찾지 못한 것으로 본다
-	public RaceCourseInfoDto findCourseInfo(int raceCourseId) {
+	public RaceCourseInfoDto findCourseInfo(long raceCourseId) {
 		RaceCourse course = raceCourseRepository.findById(raceCourseId)
 			.orElseThrow(RaceCourseNotFoundException::new);
 		return RaceCourseInfoDto.from(course);

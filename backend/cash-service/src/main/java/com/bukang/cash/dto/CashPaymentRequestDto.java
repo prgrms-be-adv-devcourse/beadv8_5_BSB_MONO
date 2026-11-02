@@ -13,10 +13,10 @@ public class CashPaymentRequestDto {
 	@Schema(description = "결제할 회원 ID (지갑 주인)", example = "3")
 	@NotNull(message = "회원 ID를 작성해주세요.")
 	@Positive(message = "회원 ID는 0보다 커야 합니다.")
-	private final Integer memberId;
+	private final Long memberId;
 
 	@Schema(description = "결제 금액", example = "10000")
 	@NotNull(message = "결제 금액을 작성해주세요.")
 	@Positive(message = "결제 금액은 0보다 커야 합니다.")
-	private final Integer amount;
+	private final Long amount;
 }

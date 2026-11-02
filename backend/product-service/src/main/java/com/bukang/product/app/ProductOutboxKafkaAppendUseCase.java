@@ -27,7 +27,7 @@ public class ProductOutboxKafkaAppendUseCase {
 	private final JsonConverter jsonConverter;
 
 	// 대회 ID를 key로 보낼 메시지를 남긴다. topic은 KafkaTopics 상수다
-	public void appendRaceEvent(String topic, int raceId, Object event) {
+	public void appendRaceEvent(String topic, long raceId, Object event) {
 		String payload = jsonConverter.toJson(event);
 		productOutboxKafkaEventRepository.save(ProductOutboxKafkaEvent.pending(RACE_REF_TYPE, raceId, topic, payload));
 	}

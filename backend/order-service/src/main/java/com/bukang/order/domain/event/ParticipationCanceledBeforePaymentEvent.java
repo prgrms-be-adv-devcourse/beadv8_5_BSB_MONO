@@ -7,5 +7,5 @@ package com.bukang.order.domain.event;
  *
  * @param participationId 취소한 참가 신청 ID (자리를 확보할 때 상품 서비스에 보낸 ID)
  */
-public record ParticipationCanceledBeforePaymentEvent(int participationId) {
+public record ParticipationCanceledBeforePaymentEvent(long participationId) {
 }

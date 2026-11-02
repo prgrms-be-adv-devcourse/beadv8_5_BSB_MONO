@@ -12,7 +12,7 @@ import { useQueueAdmission } from '@/features/queue-admission'
 import { parseKstDateTime, RACE_DETAIL, raceDetailQueryOptions } from '@/entities/race'
 import { invalidateTicketQueries } from '@/entities/ticket'
 import { orderApi, unwrapData, type orderModel } from '@/shared/api'
-import { formatNumber } from '@/shared/lib'
+import { formatNumber, orderTrackItems, useTrackOnce } from '@/shared/lib'
 import {
   Alert,
   BottomCta,
@@ -287,6 +287,20 @@ function OrderCheckout({
   })
 
   const status = order.data?.status
+  // 결제할 수 있는 주문이 보일 때 한 번. 모자란 금액은 잔액을 받은 뒤 화면 계산과 같은 값으로 보낸다
+  const payable = status === 'CREATED' ? order.data : undefined
+  // 충전을 다녀와 다시 열린 화면(charged)은 같은 주문의 결제 시작을 한 번 더 세지 않는다
+  useTrackOnce(
+    'begin_checkout',
+    payable && !charged
+      ? { items: orderTrackItems(payable), value: payable.totalAmount ?? 0 }
+      : null,
+  )
+  const shortage =
+    payable && deposit.balance !== undefined
+      ? Math.max(0, (payable.totalAmount ?? 0) - deposit.balance)
+      : 0
+  useTrackOnce('deposit_short', shortage > 0 ? { shortage } : null)
   // 충전하고 돌아왔으면 같은 주문으로 한 번 다시 결제한다. 기한이 지났으면 부르지 않고 시간 초과 화면을 보여 준다.
   const resumed = useRef(false)
   const canResume = charged && status === 'CREATED' && remaining > 0 && failure === null

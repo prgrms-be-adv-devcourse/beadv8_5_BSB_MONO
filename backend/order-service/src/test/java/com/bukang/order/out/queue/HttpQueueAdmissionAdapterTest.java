@@ -26,9 +26,9 @@ import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
 
 class HttpQueueAdmissionAdapterTest {
 	private static final String BASE_URL = "http://queue";
-	private static final int MEMBER_ID = 3;
-	private static final int RACE_ID = 1;
-	private static final int RACE_COURSE_ID = 11;
+	private static final long MEMBER_ID = 3;
+	private static final long RACE_ID = 1;
+	private static final long RACE_COURSE_ID = 11;
 	private static final String URL = BASE_URL + "/internal/v1/queue/races/1/racecourses/11";
 	// 대기열 시계는 주문과 다를 수 있다. 끝 시각은 남은 시간으로만 센다
 	private static final LocalDateTime NOW = LocalDateTime.of(2026, 10, 16, 14, 0, 0, 123_456_789);

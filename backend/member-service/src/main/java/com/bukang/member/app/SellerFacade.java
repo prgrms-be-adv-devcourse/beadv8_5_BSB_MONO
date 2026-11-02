@@ -32,7 +32,7 @@ public class SellerFacade {
 	private final MemberRepository memberRepository;
 
 	@Transactional
-	public SellerDto apply(int memberId, SellerApplyRequestDto request) {
+	public SellerDto apply(long memberId, SellerApplyRequestDto request) {
 		return SellerDto.from(sellerApplyUseCase.apply(
 			memberId,
 			request.getSellerType(),
@@ -43,20 +43,20 @@ public class SellerFacade {
 		));
 	}
 
-	public SellerDto findMine(int memberId) {
+	public SellerDto findMine(long memberId) {
 		return sellerRepository.findFirstByMemberIdOrderByIdDesc(memberId)
 			.map(SellerDto::from)
 			.orElseThrow(() -> new SellerNotFoundException("판매자 신청 내역이 없습니다."));
 	}
 
 	@Transactional
-	public SellerDto checkMyResult(int memberId) {
+	public SellerDto checkMyResult(long memberId) {
 		return SellerDto.from(sellerResultCheckUseCase.check(memberId, LocalDateTime.now()));
 	}
 
 	// 다른 서비스(정산)가 회원 ID로 판매자 ID를 찾는다. 탈퇴했거나 없는 회원은 404, 신청이 없으면 빈 칸으로 돌려준다
 	// 대기·승인 신청이 있으면 다시 신청할 수 없으므로(SellerApplyUseCase) 승인된 신청이 있으면 가장 최근 신청이 그것이다
-	public MemberSellerDto findSellerOfMember(int memberId) {
+	public MemberSellerDto findSellerOfMember(long memberId) {
 		memberRepository.findActiveById(memberId)
 			.orElseThrow(() -> new MemberNotFoundException("존재하지 않는 회원입니다."));
 		return sellerRepository.findFirstByMemberIdOrderByIdDesc(memberId)
@@ -65,7 +65,7 @@ public class SellerFacade {
 	}
 
 	// status가 null이면 전체를 최근 신청부터 돌려준다
-	public List<SellerDto> findAllForAdmin(int adminId, SellerStatus status) {
+	public List<SellerDto> findAllForAdmin(long adminId, SellerStatus status) {
 		adminVerifyUseCase.verify(adminId);
 		List<Seller> sellers = status == null
 			? sellerRepository.findAllByOrderByIdDesc()
@@ -74,13 +74,13 @@ public class SellerFacade {
 	}
 
 	@Transactional
-	public SellerDto approve(int adminId, int sellerId) {
+	public SellerDto approve(long adminId, long sellerId) {
 		adminVerifyUseCase.verify(adminId);
 		return SellerDto.from(sellerReviewUseCase.approve(adminId, sellerId, LocalDateTime.now()));
 	}
 
 	@Transactional
-	public SellerDto reject(int adminId, int sellerId, String reason) {
+	public SellerDto reject(long adminId, long sellerId, String reason) {
 		adminVerifyUseCase.verify(adminId);
 		return SellerDto.from(sellerReviewUseCase.reject(adminId, sellerId, reason, LocalDateTime.now()));
 	}

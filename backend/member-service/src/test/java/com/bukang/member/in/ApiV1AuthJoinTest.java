@@ -246,7 +246,7 @@ class ApiV1AuthJoinTest {
 		join(EMAIL, NICKNAME, PHONE, "\"agreedTerms\": [\"SERVICE\", \"PRIVACY\"]")
 			.andExpect(status().isCreated());
 
-		int memberId = memberRepository.findByEmail(EMAIL).orElseThrow().getId();
+		long memberId = memberRepository.findByEmail(EMAIL).orElseThrow().getId();
 		Map<TermsType, Boolean> agreedByType = agreedByType(memberId);
 		assertThat(agreedByType).containsOnlyKeys(TermsType.SERVICE, TermsType.PRIVACY, TermsType.MARKETING);
 		assertThat(agreedByType).containsEntry(TermsType.SERVICE, true)
@@ -260,7 +260,7 @@ class ApiV1AuthJoinTest {
 		join(EMAIL, NICKNAME, PHONE, "\"agreedTerms\": [\"SERVICE\", \"PRIVACY\", \"MARKETING\"]")
 			.andExpect(status().isCreated());
 
-		int memberId = memberRepository.findByEmail(EMAIL).orElseThrow().getId();
+		long memberId = memberRepository.findByEmail(EMAIL).orElseThrow().getId();
 		assertThat(agreedByType(memberId)).containsEntry(TermsType.MARKETING, true);
 	}
 
@@ -309,7 +309,7 @@ class ApiV1AuthJoinTest {
 		}
 	}
 
-	private Map<TermsType, Boolean> agreedByType(int memberId) {
+	private Map<TermsType, Boolean> agreedByType(long memberId) {
 		Map<TermsType, Boolean> agreedByType = new HashMap<>();
 		for (TermsAgreement agreement : termsAgreementRepository.findByMemberId(memberId)) {
 			agreedByType.put(agreement.getTerms().getType(), agreement.isAgreed());

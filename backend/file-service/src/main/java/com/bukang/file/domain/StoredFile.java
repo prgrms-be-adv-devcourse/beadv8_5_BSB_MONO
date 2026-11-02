@@ -41,7 +41,7 @@ public class StoredFile extends BaseIdAndTime {
 	public static final Comparator<StoredFile> DISPLAY_ORDER = Comparator
 		.comparing(StoredFile::getFileType)
 		.thenComparingInt(StoredFile::getSortNo)
-		.thenComparingInt(StoredFile::getId);
+		.thenComparingLong(StoredFile::getId);
 
 	// 연결한 대상의 종류 (대상 엔티티의 getModelTypeCode(), 예: Race)
 	@Column(name = "ref_type", length = 50)
@@ -49,7 +49,7 @@ public class StoredFile extends BaseIdAndTime {
 
 	// 연결한 대상의 ID
 	@Column(name = "ref_id")
-	private Integer refId;
+	private Long refId;
 
 	// 대상 안에서의 용도. 값은 common의 FileType이 정한다
 	// 컬럼 타입을 직접 적으면 Hibernate가 MySQL enum 타입이나 허용 값 CHECK 제약을 만들지 않는다
@@ -80,10 +80,10 @@ public class StoredFile extends BaseIdAndTime {
 
 	// 올린 회원 ID
 	@Column(nullable = false)
-	private int createUser;
+	private long createUser;
 
 	private StoredFile(String s3Key, String originFileNm, FileType fileType, FileFormat format, long fileSize,
-		int memberId) {
+		long memberId) {
 		this.s3Key = s3Key;
 		this.originFileNm = originFileNm;
 		this.fileType = fileType;
@@ -94,11 +94,11 @@ public class StoredFile extends BaseIdAndTime {
 	}
 
 	public static StoredFile pending(String s3Key, String originFileNm, FileType fileType, FileFormat format,
-		long fileSize, int memberId) {
+		long fileSize, long memberId) {
 		return new StoredFile(s3Key, originFileNm, fileType, format, fileSize, memberId);
 	}
 
-	public boolean isOwnedBy(int memberId) {
+	public boolean isOwnedBy(long memberId) {
 		return createUser == memberId;
 	}
 
@@ -118,7 +118,7 @@ public class StoredFile extends BaseIdAndTime {
 		return status == FileStatus.ACTIVE;
 	}
 
-	public boolean isLinkedTo(String targetRefType, int targetRefId) {
+	public boolean isLinkedTo(String targetRefType, long targetRefId) {
 		return isActive() && targetRefType.equals(refType) && refId != null && refId == targetRefId;
 	}
 
@@ -127,7 +127,7 @@ public class StoredFile extends BaseIdAndTime {
 		return isUploaded() || isActive();
 	}
 
-	public void linkTo(String targetRefType, int targetRefId, int targetSortNo) {
+	public void linkTo(String targetRefType, long targetRefId, int targetSortNo) {
 		this.refType = targetRefType;
 		this.refId = targetRefId;
 		this.sortNo = targetSortNo;

@@ -8,7 +8,9 @@ import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Set;
+import java.util.function.BooleanSupplier;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 import com.bukang.payout.app.PayoutCreateStepUseCase.CourseSale;
@@ -126,6 +128,11 @@ public class PayoutCreateUseCase {
 				sellerAccountPort.hasPayoutAccount(key.sellerId()), courseSales), refundDeadline, now);
 			counts.created++;
 		} catch (RuntimeException exception) {
+			if (isSavedByOther(exception, () -> payoutRepository.existsBySellerIdAndRaceIdAndPayoutStage(
+				key.sellerId(), key.raceId(), PayoutStage.FIRST))) {
+				counts.skipSavedByOther(key, PayoutStage.FIRST);
+				return;
+			}
 			counts.failed++;
 			log.error("1차 정산 내역을 만들지 못했습니다. sellerId={}, raceId={}, 코스 {}개",
 				key.sellerId(), key.raceId(), courses.size(), exception);
@@ -163,7 +170,7 @@ public class PayoutCreateUseCase {
 			// 정산 월은 실행일이 아니라 대회일로 정한다. 실행일로 정하면 월말 대회를 다음 달 실행이
 			// 다시 볼 때 정산 월이 달라져 아래 중복 확인을 통과하고, 같은 참가권이 두 번 지급된다
 			// 이미 만든 정산 내역은 건너뛴다 (되돌아보기로 매일 같은 대회를 다시 보므로 대부분 여기서 걸린다)
-			// 확인과 저장 사이에 다른 인스턴스가 먼저 저장하면 DB 유일 제약이 막고, 실패로 남는다
+			// 확인과 저장 사이에 다른 인스턴스가 먼저 저장하면 DB 유일 제약이 막고, 이미 있음으로 센다 (PRO-120)
 			if (payoutRepository.existsBySellerIdAndRaceIdAndPayoutMonthAndPayoutStage(
 				key.sellerId(), key.raceId(), payoutMonth.toString(), PayoutStage.FINAL)) {
 				counts.skipped++;
@@ -173,7 +180,28 @@ public class PayoutCreateUseCase {
 				sellerAccountPort.hasPayoutAccount(key.sellerId()), entries), race.raceDate(), now);
 			counts.created++;
 		} catch (RuntimeException exception) {
+			if (isSavedByOther(exception, () -> payoutRepository.existsBySellerIdAndRaceIdAndPayoutMonthAndPayoutStage(
+				key.sellerId(), key.raceId(), payoutMonth.toString(), PayoutStage.FINAL))) {
+				counts.skipSavedByOther(key, PayoutStage.FINAL);
+				return;
+			}
 			counts.fail(key, entries, exception);
+		}
+	}
+
+	// 존재 확인과 저장 사이에 다른 서버가 같은 정산 내역을 먼저 저장하면 DB 유일 제약에 걸린다 (PRO-120)
+	// 그 정산 내역은 이미 있으므로 실패가 아니다. 다른 제약 위반(값이 너무 김 등)이면 정산 내역이 없으므로 실패로 남긴다
+	// 다시 확인하는 조회도 실패하면(DB 연결 끊김 등) 있는지 모르므로 실패로 센다. 예외를 밖으로 던지면 반복이 끊겨
+	// 다음 정산 내역을 만들지 못한다 (PR #252 리뷰)
+	private static boolean isSavedByOther(RuntimeException exception, BooleanSupplier savedNow) {
+		if (!(exception instanceof DataIntegrityViolationException)) {
+			return false;
+		}
+		try {
+			return savedNow.getAsBoolean();
+		} catch (RuntimeException recheckException) {
+			log.warn("유일 제약 위반 뒤 정산 내역이 있는지 다시 확인하지 못해 실패로 셉니다.", recheckException);
+			return false;
 		}
 	}
 
@@ -188,7 +216,7 @@ public class PayoutCreateUseCase {
 	}
 
 	// 정산 내역 하나로 묶이는 판매자 × 대회
-	private record SellerRace(int sellerId, int raceId) {
+	private record SellerRace(long sellerId, long raceId) {
 	}
 
 	// 단계 하나의 실행 결과
@@ -197,7 +225,14 @@ public class PayoutCreateUseCase {
 		private int skipped;
 		private int failed;
 
-		private void failRace(PayoutStage stage, int raceId, RuntimeException exception) {
+		// 다른 실행이 먼저 만든 정산 내역은 정상 상황이라 실패로 세지 않고 WARN만 남긴다 (PRO-120)
+		private void skipSavedByOther(SellerRace key, PayoutStage stage) {
+			skipped++;
+			log.warn("다른 실행이 같은 정산 내역을 먼저 만들어 건너뜁니다. stage={}, sellerId={}, raceId={}",
+				stage, key.sellerId(), key.raceId());
+		}
+
+		private void failRace(PayoutStage stage, long raceId, RuntimeException exception) {
 			failed++;
 			log.error("정산용 판매 값을 주문 서비스에서 받지 못했습니다. stage={}, raceId={}", stage, raceId, exception);
 		}

@@ -14,7 +14,13 @@ import type {
 } from 'msw';
 
 import type {
+  RsDataCrewHomeDto,
+  RsDataCrewInviteCreatedDto,
+  RsDataCrewInvitePreviewDto,
+  RsDataCrewJoinedDto,
   RsDataEmailAvailabilityResponseDto,
+  RsDataListCrewInviteDto,
+  RsDataListMyCrewDto,
   RsDataListSellerDto,
   RsDataMemberDto,
   RsDataMemberLoginResponseDto,
@@ -44,6 +50,22 @@ export const getCheckMyResultResponseMock = (): RsDataSellerDto => ({"status":20
 export const getFindMineResponseMock = (): RsDataSellerDto => ({"status":200,"message":"판매자 신청 내역을 조회했습니다.","data":{"id":1,"memberId":1,"sellerType":"BUSINESS","businessName":"크루런 스포츠","businessNumber":"123-45-67890","representativeName":"김러너","status":"REJECTED","requestedAt":"2026-10-05T21:25:35","reviewedAt":"2026-10-06T10:12:08","rejectReason":"사업자등록번호를 확인할 수 없습니다.","resultCheckedAt":null}})
 
 export const getFindAllResponseMock = (): RsDataListSellerDto => ({"status":200,"message":"판매자 신청 목록을 조회했습니다.","data":[{"id":1,"memberId":1,"sellerType":"BUSINESS","businessName":"크루런 스포츠","businessNumber":"123-45-67890","representativeName":"김러너","status":"PENDING","requestedAt":"2026-10-05T21:25:35","reviewedAt":null,"rejectReason":null,"resultCheckedAt":null}]})
+
+export const getCreateCrewResponseMock = (): RsDataCrewHomeDto => ({"status":201,"message":"크루를 만들었습니다.","data":{"crewId":1,"name":"새벽한강크루","createdAt":"2026-11-02T20:10:00","myRole":"LEADER","memberCount":1,"members":[{"memberId":1,"nickname":"새벽러너","role":"LEADER"}]}})
+
+export const getFindMyCrewsResponseMock = (): RsDataListMyCrewDto => ({"status":200,"message":"내 크루 목록을 조회했습니다.","data":[{"crewId":1,"name":"새벽한강크루","myRole":"LEADER","memberCount":3},{"crewId":5,"name":"판교점심런","myRole":"MEMBER","memberCount":12}]})
+
+export const getFindCrewResponseMock = (): RsDataCrewHomeDto => ({"status":200,"message":"크루를 조회했습니다.","data":{"crewId":1,"name":"새벽한강크루","createdAt":"2026-11-02T20:10:00","myRole":"LEADER","memberCount":3,"members":[{"memberId":1,"nickname":"새벽러너","role":"LEADER"},{"memberId":4,"nickname":"한강페이서","role":"MANAGER"},{"memberId":2,"nickname":"주말10K","role":"MEMBER"}]}})
+
+export const getCreateCrewInviteResponseMock = (): RsDataCrewInviteCreatedDto => ({"status":201,"message":"초대 링크를 만들었습니다.","data":{"inviteId":3,"inviteToken":"q7Xk2LmZ9vBn4RtW8yCp1A","createdAt":"2026-11-02T20:30:00","expiresAt":"2026-11-03T20:30:00"}})
+
+export const getFindCrewInvitesResponseMock = (): RsDataListCrewInviteDto => ({"status":200,"message":"초대 목록을 조회했습니다.","data":[{"inviteId":3,"createdBy":{"memberId":1,"nickname":"새벽러너"},"createdAt":"2026-11-02T20:30:00","expiresAt":"2026-11-03T20:30:00"}]})
+
+export const getFindCrewInviteResponseMock = (): RsDataCrewInvitePreviewDto => ({"status":200,"message":"초대 링크를 조회했습니다.","data":{"crewId":1,"crewName":"새벽한강크루","memberCount":3,"expiresAt":"2026-11-03T20:30:00","alreadyMember":false}})
+
+export const getJoinCrewResponseMock = (): RsDataCrewJoinedDto => ({"status":201,"message":"크루에 가입했습니다.","data":{"crewId":1,"crewName":"새벽한강크루","role":"MEMBER","joinedAt":"2026-11-02T21:05:12"}})
+
+export const getTransferCrewLeaderResponseMock = (): RsDataCrewHomeDto => ({"status":200,"message":"크루장을 넘겼습니다.","data":{"crewId":1,"name":"새벽한강크루","createdAt":"2026-11-02T20:10:00","myRole":"MEMBER","memberCount":3,"members":[{"memberId":2,"nickname":"주말10K","role":"LEADER"},{"memberId":4,"nickname":"한강페이서","role":"MANAGER"},{"memberId":1,"nickname":"새벽러너","role":"MEMBER"}]}})
 
 
 export const getFindMeMockHandler = (overrideResponse?: RsDataMemberDto | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<RsDataMemberDto> | RsDataMemberDto), options?: RequestHandlerOptions) => {
@@ -207,6 +229,142 @@ export const getFindAllMockHandler = (overrideResponse?: RsDataListSellerDto | (
       })
   }, options)
 }
+
+export const getCreateCrewMockHandler = (overrideResponse?: RsDataCrewHomeDto | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<RsDataCrewHomeDto> | RsDataCrewHomeDto), options?: RequestHandlerOptions) => {
+  return http.post('*/api/v1/member/crews', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getCreateCrewResponseMock(),
+      { status: 201
+      })
+  }, options)
+}
+
+export const getFindMyCrewsMockHandler = (overrideResponse?: RsDataListMyCrewDto | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<RsDataListMyCrewDto> | RsDataListMyCrewDto), options?: RequestHandlerOptions) => {
+  return http.get('*/api/v1/member/crews/me', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getFindMyCrewsResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
+export const getFindCrewMockHandler = (overrideResponse?: RsDataCrewHomeDto | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<RsDataCrewHomeDto> | RsDataCrewHomeDto), options?: RequestHandlerOptions) => {
+  return http.get('*/api/v1/member/crews/:crewId', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getFindCrewResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
+export const getDisbandCrewMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.delete>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
+  return http.delete('*/api/v1/member/crews/:crewId', async (info: Parameters<Parameters<typeof http.delete>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+
+    return new HttpResponse(null,
+      { status: 200
+      })
+  }, options)
+}
+
+export const getCreateCrewInviteMockHandler = (overrideResponse?: RsDataCrewInviteCreatedDto | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<RsDataCrewInviteCreatedDto> | RsDataCrewInviteCreatedDto), options?: RequestHandlerOptions) => {
+  return http.post('*/api/v1/member/crews/:crewId/invites', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getCreateCrewInviteResponseMock(),
+      { status: 201
+      })
+  }, options)
+}
+
+export const getFindCrewInvitesMockHandler = (overrideResponse?: RsDataListCrewInviteDto | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<RsDataListCrewInviteDto> | RsDataListCrewInviteDto), options?: RequestHandlerOptions) => {
+  return http.get('*/api/v1/member/crews/:crewId/invites', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getFindCrewInvitesResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
+export const getCancelCrewInviteMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.delete>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
+  return http.delete('*/api/v1/member/crews/:crewId/invites/:inviteId', async (info: Parameters<Parameters<typeof http.delete>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+
+    return new HttpResponse(null,
+      { status: 200
+      })
+  }, options)
+}
+
+export const getFindCrewInviteMockHandler = (overrideResponse?: RsDataCrewInvitePreviewDto | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<RsDataCrewInvitePreviewDto> | RsDataCrewInvitePreviewDto), options?: RequestHandlerOptions) => {
+  return http.get('*/api/v1/member/crews/invites/:inviteToken', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getFindCrewInviteResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
+export const getJoinCrewMockHandler = (overrideResponse?: RsDataCrewJoinedDto | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<RsDataCrewJoinedDto> | RsDataCrewJoinedDto), options?: RequestHandlerOptions) => {
+  return http.post('*/api/v1/member/crews/invites/:inviteToken/join', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getJoinCrewResponseMock(),
+      { status: 201
+      })
+  }, options)
+}
+
+export const getLeaveCrewMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.delete>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
+  return http.delete('*/api/v1/member/crews/:crewId/members/me', async (info: Parameters<Parameters<typeof http.delete>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+
+    return new HttpResponse(null,
+      { status: 200
+      })
+  }, options)
+}
+
+export const getRemoveCrewMemberMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.delete>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
+  return http.delete('*/api/v1/member/crews/:crewId/members/:memberId', async (info: Parameters<Parameters<typeof http.delete>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+
+    return new HttpResponse(null,
+      { status: 200
+      })
+  }, options)
+}
+
+export const getTransferCrewLeaderMockHandler = (overrideResponse?: RsDataCrewHomeDto | ((info: Parameters<Parameters<typeof http.put>[1]>[0]) => Promise<RsDataCrewHomeDto> | RsDataCrewHomeDto), options?: RequestHandlerOptions) => {
+  return http.put('*/api/v1/member/crews/:crewId/leader', async (info: Parameters<Parameters<typeof http.put>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getTransferCrewLeaderResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
 export const getBukangMemberAPIMock = () => [
   getFindMeMockHandler(),
   getModifyMeMockHandler(),
@@ -221,5 +379,17 @@ export const getBukangMemberAPIMock = () => [
   getApproveMockHandler(),
   getCheckMyResultMockHandler(),
   getFindMineMockHandler(),
-  getFindAllMockHandler()
+  getFindAllMockHandler(),
+  getCreateCrewMockHandler(),
+  getFindMyCrewsMockHandler(),
+  getFindCrewMockHandler(),
+  getDisbandCrewMockHandler(),
+  getCreateCrewInviteMockHandler(),
+  getFindCrewInvitesMockHandler(),
+  getCancelCrewInviteMockHandler(),
+  getFindCrewInviteMockHandler(),
+  getJoinCrewMockHandler(),
+  getLeaveCrewMockHandler(),
+  getRemoveCrewMemberMockHandler(),
+  getTransferCrewLeaderMockHandler()
 ]

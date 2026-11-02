@@ -33,7 +33,7 @@ import lombok.NoArgsConstructor;
 public class RaceDocumentSyncEvent extends BaseIdAndTime {
 	// 검색 문서를 맞출 대회 ID
 	@Column(name = "race_id", nullable = false)
-	private int raceId;
+	private long raceId;
 
 	@Enumerated(STRING)
 	@Column(name = "status", nullable = false, columnDefinition = "varchar(20)")
@@ -51,12 +51,12 @@ public class RaceDocumentSyncEvent extends BaseIdAndTime {
 	@Column(name = "complete_date")
 	private LocalDateTime completeDate;
 
-	private RaceDocumentSyncEvent(int raceId) {
+	private RaceDocumentSyncEvent(long raceId) {
 		this.raceId = raceId;
 		this.status = SyncStatus.PENDING;
 	}
 
-	public static RaceDocumentSyncEvent pending(int raceId) {
+	public static RaceDocumentSyncEvent pending(long raceId) {
 		return new RaceDocumentSyncEvent(raceId);
 	}
 

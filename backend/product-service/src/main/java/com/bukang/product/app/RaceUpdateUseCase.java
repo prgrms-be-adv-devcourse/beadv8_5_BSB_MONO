@@ -42,7 +42,7 @@ public class RaceUpdateUseCase {
 	private final RaceCourseRepository raceCourseRepository;
 	private final RaceRequestValidator raceRequestValidator;
 
-	public RaceSaveResult update(int memberId, int raceId, RaceSaveRequestDto request) {
+	public RaceSaveResult update(long memberId, long raceId, RaceSaveRequestDto request) {
 		ProductSeller seller = productSellerRepository.findByMemberIdAndStatus(memberId, SellerStatus.APPROVED)
 			.orElseThrow(SellerNotApprovedException::new);
 		// 잠그고 읽는다. 같은 순간 취소가 커밋되면 취소된 상태를 보고 막힌다 (잠그지 않으면 취소된 대회를 고친다)
@@ -54,7 +54,7 @@ public class RaceUpdateUseCase {
 		// 대회 칸이 바뀌었는지는 수정 전후의 수정 일시로 본다 (바뀐 칸이 있을 때만 updated_at이 바뀐다)
 		LocalDateTime modifyDateBefore = race.getModifyDate();
 		// 종목도 같은 방법으로 종목마다 본다
-		Map<Integer, LocalDateTime> courseModifyDatesBefore = race.getCourses().stream()
+		Map<Long, LocalDateTime> courseModifyDatesBefore = race.getCourses().stream()
 			.collect(Collectors.toMap(RaceCourse::getId, RaceCourse::getModifyDate));
 
 		// 판매 시작 일시가 요청 값으로 바뀌기 전에, 지금 판매가 시작됐는지 먼저 판단한다
@@ -63,7 +63,7 @@ public class RaceUpdateUseCase {
 		race.update(request, saleStarted, now);
 
 		// 요청의 종목과 짝을 맞춘 기존 종목은 지워 나가고, 끝까지 남은 종목이 요청에 없는(뺄) 종목이다
-		Map<Integer, RaceCourse> remainingCourses = new LinkedHashMap<>();
+		Map<Long, RaceCourse> remainingCourses = new LinkedHashMap<>();
 		race.getCourses().forEach(course -> remainingCourses.put(course.getId(), course));
 		Map<RaceCourse, List<RaceImageRequestDto>> imagesByCourse = new LinkedHashMap<>();
 		for (RaceCourseSaveRequestDto courseRequest : request.getCourses()) {

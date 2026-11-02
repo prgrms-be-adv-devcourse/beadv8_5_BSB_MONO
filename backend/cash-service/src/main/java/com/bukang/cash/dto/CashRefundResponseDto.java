@@ -1,4 +1,4 @@
 package com.bukang.cash.dto;
 
-public record CashRefundResponseDto(int amount) {
+public record CashRefundResponseDto(long amount) {
 }

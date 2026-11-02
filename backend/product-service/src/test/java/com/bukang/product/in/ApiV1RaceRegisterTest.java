@@ -29,6 +29,7 @@ import org.springframework.test.web.servlet.ResultActions;
 
 import com.bukang.common.shared.file.domain.FileType;
 import com.bukang.common.shared.kafka.KafkaTopics;
+import com.bukang.common.shared.member.web.MemberIdHeader;
 import com.bukang.common.shared.race.domain.RaceSaleStatus;
 import com.bukang.common.shared.seller.domain.SellerStatus;
 import com.bukang.common.shared.seller.domain.SellerType;
@@ -44,6 +45,7 @@ import com.bukang.product.domain.document.RaceCourseDocument;
 import com.bukang.product.dto.RaceCourseSaveRequestDto;
 import com.bukang.product.dto.RaceImageRequestDto;
 import com.bukang.product.dto.RaceSaveRequestDto;
+import com.bukang.product.support.JsonIds;
 import com.bukang.product.support.ProductIntegrationTest;
 import com.bukang.product.support.RaceRequests.CourseBuilder;
 import com.bukang.product.support.RaceRequests.RaceBuilder;
@@ -68,8 +70,8 @@ class ApiV1RaceRegisterTest extends ProductIntegrationTest {
 	private static final String SALE_OPEN_TOO_SOON_MESSAGE =
 		"판매 시작일은 오늘로부터 이틀 뒤(%s)부터 정할 수 있습니다. 크루 예매 시작·개인 예매 오픈 일시를 확인해주세요.";
 	// 판매자 신청이 승인 대기인 회원 (테스트 안에서 직접 넣는다)
-	private static final int PENDING_SELLER_MEMBER_ID = 9003;
-	private static final int PENDING_SELLER_ID = 7003;
+	private static final long PENDING_SELLER_MEMBER_ID = 9003;
+	private static final long PENDING_SELLER_ID = 7003;
 
 	// ---------- 등록 성공 ----------
 
@@ -92,8 +94,8 @@ class ApiV1RaceRegisterTest extends ProductIntegrationTest {
 			.andReturn();
 
 		String body = result.getResponse().getContentAsString();
-		int raceId = JsonPath.read(body, "$.data.raceId");
-		int courseId = JsonPath.read(body, "$.data.courseIds[0]");
+		long raceId = JsonIds.readLong(body, "$.data.raceId");
+		long courseId = JsonIds.readLong(body, "$.data.courseIds[0]");
 		String saleOpenDate = JsonPath.read(body, "$.data.saleOpenDate");
 		assertThat(LocalDate.parse(saleOpenDate)).isEqualTo(individualOpenAt.toLocalDate());
 		assertThat(result.getResponse().getHeader("Location")).isEqualTo(RACES_PATH + "/" + raceId);
@@ -127,8 +129,8 @@ class ApiV1RaceRegisterTest extends ProductIntegrationTest {
 		String saleOpenDate = JsonPath.read(body, "$.data.saleOpenDate");
 		assertThat(LocalDate.parse(saleOpenDate)).isEqualTo(crewSaleStartAt.toLocalDate());
 
-		int raceId = JsonPath.read(body, "$.data.raceId");
-		int courseId = JsonPath.read(body, "$.data.courseIds[0]");
+		long raceId = JsonIds.readLong(body, "$.data.raceId");
+		long courseId = JsonIds.readLong(body, "$.data.courseIds[0]");
 		Race savedRace = raceRepository.findById(raceId).orElseThrow();
 		assertThat(savedRace.getSaleOpenDate()).isEqualTo(crewSaleStartAt.toLocalDate());
 		assertThat(savedRace.getCrewSaleStartAt()).isEqualTo(crewSaleStartAt);
@@ -243,13 +245,13 @@ class ApiV1RaceRegisterTest extends ProductIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("등록 요청의 종목에 courseId(Integer.MAX_VALUE)를 넣어도 무시하고 새 종목으로 저장한다")
+	@DisplayName("등록 요청의 종목에 courseId(Long.MAX_VALUE)를 넣어도 무시하고 새 종목으로 저장한다")
 	void ignoreCourseIdOnRegister() throws Exception {
-		RegisteredRace registered = register(upcomingRace().course(course().courseId(Integer.MAX_VALUE)).build());
+		RegisteredRace registered = register(upcomingRace().course(course().courseId(Long.MAX_VALUE)).build());
 
 		assertThat(registered.courseId()).isNotEqualTo(Integer.MAX_VALUE);
 		assertThat(raceCourseRepository.findById(registered.courseId())).isPresent();
-		assertThat(raceCourseRepository.findById(Integer.MAX_VALUE)).isEmpty();
+		assertThat(raceCourseRepository.findById(Long.MAX_VALUE)).isEmpty();
 	}
 
 	@Test
@@ -320,13 +322,13 @@ class ApiV1RaceRegisterTest extends ProductIntegrationTest {
 		List<String> payloads = outboxPayloads(KafkaTopics.RACE_FILE_LINK_REQUESTED);
 		assertThat(payloads).hasSize(1);
 		String payload = payloads.getFirst();
-		int ownerId = JsonPath.read(payload, "$.ownerId");
+		long ownerId = JsonIds.readLong(payload, "$.ownerId");
 		List<String> refTypes = JsonPath.read(payload, "$.refs[*].refType");
-		List<Integer> refIds = JsonPath.read(payload, "$.refs[*].refId");
-		List<Integer> tenKFileIds = JsonPath.read(payload, "$.refs[0].files[*].fileId");
+		List<Long> refIds = JsonIds.readLongs(payload, "$.refs[*].refId");
+		List<Long> tenKFileIds = JsonIds.readLongs(payload, "$.refs[0].files[*].fileId");
 		List<String> tenKFileTypes = JsonPath.read(payload, "$.refs[0].files[*].fileType");
 		List<Integer> tenKSortNos = JsonPath.read(payload, "$.refs[0].files[*].sortNo");
-		List<Integer> halfFileIds = JsonPath.read(payload, "$.refs[1].files[*].fileId");
+		List<Long> halfFileIds = JsonIds.readLongs(payload, "$.refs[1].files[*].fileId");
 		List<String> halfFileTypes = JsonPath.read(payload, "$.refs[1].files[*].fileType");
 
 		// 파일 소유자는 판매자 ID(7001)가 아니라 등록한 회원 ID다 (파일을 올린 회원과 같아야 연결된다)
@@ -362,7 +364,7 @@ class ApiV1RaceRegisterTest extends ProductIntegrationTest {
 			.contentType(MediaType.APPLICATION_JSON)
 			.content(jsonConverter.toJson(upcomingRace().build())));
 
-		expectError(result, HttpStatus.BAD_REQUEST, "요청 값의 형식이 올바르지 않습니다.");
+		expectError(result, HttpStatus.BAD_REQUEST, MemberIdHeader.INVALID_MESSAGE);
 		assertNothingSaved();
 	}
 
@@ -414,7 +416,7 @@ class ApiV1RaceRegisterTest extends ProductIntegrationTest {
 				"참가 최소 나이는 만 14세 이상이어야 합니다."),
 			Arguments.of("개인 정원 -1명", upcomingRace().course(course().quota(0, -1)).build(), "개인 정원은 0 이상이어야 합니다."),
 			Arguments.of("이미지 파일 ID 0",
-				upcomingRace().course(course().images(new RaceImageRequestDto(0, FileType.THUMBNAIL, 0))).build(),
+				upcomingRace().course(course().images(new RaceImageRequestDto(0L, FileType.THUMBNAIL, 0))).build(),
 				"파일 ID는 0보다 커야 합니다.")
 		);
 	}

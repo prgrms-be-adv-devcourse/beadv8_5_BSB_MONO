@@ -23,9 +23,10 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 @Slf4j
 public class TermsDataInit {
-	private static final String BASE_VERSION = "1.0";
-	// 오늘 가입하는 회원에게 바로 적용되도록 지난 날짜로 고정한다
-	private static final LocalDate BASE_EFFECTIVE_DATE = LocalDate.of(2026, 10, 1);
+	private static final String BASE_VERSION = "1.1";
+	// 웹 약관 화면(1.1, 2026.10.30)과 같은 날짜다. 이 날짜부터 가입하는 회원은 1.1에 동의한 것으로 저장된다
+	// 이미 만들어진 1.0 약관은 지우지 않아서, 그 전에 가입한 회원의 동의 기록이 그대로 남는다
+	private static final LocalDate BASE_EFFECTIVE_DATE = LocalDate.of(2026, 10, 30);
 
 	private final TermsRepository termsRepository;
 

@@ -17,20 +17,20 @@ import lombok.RequiredArgsConstructor;
 public class SellerReviewUseCase {
 	private final SellerRepository sellerRepository;
 
-	public Seller approve(int adminId, int sellerId, LocalDateTime now) {
+	public Seller approve(long adminId, long sellerId, LocalDateTime now) {
 		Seller seller = findSeller(sellerId);
 		seller.approve(adminId, now);
 		return seller;
 	}
 
-	public Seller reject(int adminId, int sellerId, String reason, LocalDateTime now) {
+	public Seller reject(long adminId, long sellerId, String reason, LocalDateTime now) {
 		Seller seller = findSeller(sellerId);
 		seller.reject(adminId, reason, now);
 		return seller;
 	}
 
 	// 줄을 잠그고 읽어, 같은 신청을 동시에 심사하면 뒤 요청이 409(이미 심사함)가 되게 한다
-	private Seller findSeller(int sellerId) {
+	private Seller findSeller(long sellerId) {
 		return sellerRepository.findByIdForUpdate(sellerId)
 			.orElseThrow(() -> new SellerNotFoundException("존재하지 않는 판매자 신청입니다."));
 	}

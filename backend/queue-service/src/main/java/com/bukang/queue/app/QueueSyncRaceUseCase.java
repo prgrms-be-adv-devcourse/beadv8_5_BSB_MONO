@@ -23,7 +23,7 @@ public class QueueSyncRaceUseCase {
 	// 같은 메시지가 다시 오면 수정 일시가 같아 건너뛰므로 결과가 같다
 	// 행을 잠그고 읽어, 같은 대회의 메시지가 동시에 와도 최신 커밋 값과 비교한다 (QueueRaceRepository.findByIdForUpdate)
 	public QueueRace syncRace(
-		int raceId,
+		long raceId,
 		RaceSaleStatus saleStatus,
 		LocalDateTime individualOpenAt,
 		LocalDateTime applicationCloseAt,

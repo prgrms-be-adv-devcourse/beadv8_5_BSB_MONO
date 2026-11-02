@@ -21,7 +21,7 @@ import com.bukang.cash.dto.WalletBalanceResponseDto;
 import com.bukang.cash.dto.WalletLedgerItemDto;
 import com.bukang.common.global.rsdata.RsData;
 import com.bukang.common.global.web.IdempotencyKeyHeader;
-import com.bukang.common.shared.member.web.MemberIdHeader;
+import com.bukang.common.shared.member.web.LoginMemberId;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -34,7 +34,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 
@@ -67,8 +66,7 @@ public class ApiV1CashController {
 				examples = @ExampleObject(value = CashApiExamples.WALLET_NOT_FOUND)))
 	})
 	public ResponseEntity<RsData<WalletBalanceResponseDto>> getBalance(
-		@Parameter(description = "조회할 회원 ID (게이트웨이가 Access Token에서 넣어준다)", example = "3")
-		@RequestHeader(MemberIdHeader.NAME) @Positive(message = MemberIdHeader.INVALID_MESSAGE) int memberId
+		@LoginMemberId long memberId
 	) {
 		WalletBalanceResponseDto walletBalanceResponseDto = cashFacade.getBalance(memberId);
 		return ResponseEntity.ok(RsData.of(HttpStatus.OK, "잔액 조회 성공", walletBalanceResponseDto));
@@ -96,8 +94,7 @@ public class ApiV1CashController {
 				examples = @ExampleObject(value = CashApiExamples.WALLET_NOT_FOUND)))
 	})
 	public ResponseEntity<RsData<PageDto<WalletLedgerItemDto>>> getLedgers(
-		@Parameter(description = "조회할 회원 ID (게이트웨이가 Access Token에서 넣어준다)", example = "3")
-		@RequestHeader(MemberIdHeader.NAME) @Positive(message = MemberIdHeader.INVALID_MESSAGE) int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "탭 필터. 생략하면 전체", example = "CHARGE")
 		@RequestParam(required = false) LedgerCategory category,
 		@Parameter(description = "페이지 번호 (0부터)", example = "0")
@@ -138,8 +135,7 @@ public class ApiV1CashController {
 				examples = @ExampleObject(value = CashApiExamples.WALLET_NOT_FOUND)))
 	})
 	public ResponseEntity<RsData<CashChargeResponseDto>> confirmWalletCharge(
-		@Parameter(description = "충전할 회원 ID (게이트웨이가 Access Token에서 넣어준다)", example = "3")
-		@RequestHeader(MemberIdHeader.NAME) @Positive(message = MemberIdHeader.INVALID_MESSAGE) int memberId,
+		@LoginMemberId long memberId,
 		@Valid @RequestBody CashChargeConfirmRequestDto request
 	) {
 		CashChargeResponseDto response = cashFacade.confirmWalletCharge(
@@ -177,8 +173,7 @@ public class ApiV1CashController {
 				examples = @ExampleObject(value = CashApiExamples.WITHDRAWAL_MEMBER_MISMATCH)))
 	})
 	public ResponseEntity<RsData<CashWithdrawalResponseDto>> requestWithdrawal(
-		@Parameter(description = "환급할 회원 ID (게이트웨이가 Access Token에서 넣어준다)", example = "3")
-		@RequestHeader(MemberIdHeader.NAME) @Positive(message = MemberIdHeader.INVALID_MESSAGE) int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "중복 환급 방지 키. 같은 [환급 신청] 재시도에는 같은 값을 보낸다 (예: UUID)",
 			example = "6f1c2a7e-3b9d-4f0a-9c55-0d2e8b7a1f43")
 		@RequestHeader(IdempotencyKeyHeader.NAME)

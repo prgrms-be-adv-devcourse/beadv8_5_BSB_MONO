@@ -28,7 +28,7 @@ import com.bukang.queue.support.QueueIntegrationTest;
  * - 새 메시지가 먼저 잠그면: 옛 메시지가 기다렸다가 수정 일시 비교로 건너뛴다
  */
 class QueueSyncConcurrencyTest extends QueueIntegrationTest {
-	private static final int RACE_ID = 1;
+	private static final long RACE_ID = 1;
 	private static final LocalDateTime INDIVIDUAL_OPEN_AT = LocalDateTime.of(2026, 10, 20, 10, 0);
 	private static final LocalDateTime APPLICATION_CLOSE_AT = LocalDateTime.of(2026, 11, 1, 18, 0);
 	// 나중에 온 메시지가 잠긴 행 앞에서 기다리는 동안 커밋하지 않고 둘 시간. H2의 잠금 대기 한도(기본 1초)보다 짧게 둔다

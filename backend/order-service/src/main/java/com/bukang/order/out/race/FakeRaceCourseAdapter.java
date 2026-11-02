@@ -29,7 +29,7 @@ public class FakeRaceCourseAdapter implements RaceCoursePort {
 	}
 
 	@Override
-	public Optional<RaceCourseInfo> findCourse(int raceCourseId) {
+	public Optional<RaceCourseInfo> findCourse(long raceCourseId) {
 		if (raceCourseId <= 0) {
 			return Optional.empty();
 		}

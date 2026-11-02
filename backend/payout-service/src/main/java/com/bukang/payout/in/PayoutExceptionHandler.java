@@ -22,15 +22,16 @@ public class PayoutExceptionHandler {
 	// 입력값 오류 코드는 common GlobalExceptionHandler와 같은 값을 쓴다
 	private static final String INVALID_REQUEST = "INVALID_REQUEST";
 
-	// 쓰는 요청 헤더는 회원 ID 헤더뿐이다
+	// 필수 요청 헤더가 없으면 잘못된 요청이다. 회원 ID 헤더는 common의 @LoginMemberId가 처리한다
 	@ExceptionHandler(MissingRequestHeaderException.class)
 	public ResponseEntity<RsData<Void>> missingRequestHeaderException(MissingRequestHeaderException exception) {
 		return ResponseEntity
-			.status(HttpStatus.UNAUTHORIZED)
-			.body(RsData.of(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.", null));
+			.status(HttpStatus.BAD_REQUEST)
+			.body(RsData.of(HttpStatus.BAD_REQUEST, INVALID_REQUEST,
+				"필수 요청 헤더(%s)가 없습니다.".formatted(exception.getHeaderName()), null));
 	}
 
-	// 컨트롤러 파라미터에 직접 붙인 검증(회원 ID @Positive) 실패. 첫 번째 오류 메시지를 응답한다
+	// 컨트롤러 파라미터에 직접 붙인 검증(예: 경로 변수 @Positive) 실패. 첫 번째 오류 메시지를 응답한다
 	// 이런 검증이 있는 메서드는 @Valid 요청 본문 오류(예: 보류 사유 없음)도 이 예외로 오므로,
 	// 공통 처리(MethodArgumentNotValidException)와 같은 코드를 붙인다
 	@ExceptionHandler(HandlerMethodValidationException.class)

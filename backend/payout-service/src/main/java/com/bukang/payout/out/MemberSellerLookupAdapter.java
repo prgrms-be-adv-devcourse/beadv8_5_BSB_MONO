@@ -53,7 +53,7 @@ public class MemberSellerLookupAdapter implements SellerLookupPort {
 	}
 
 	@Override
-	public Optional<SellerOfMember> findSellerOf(int memberId) {
+	public Optional<SellerOfMember> findSellerOf(long memberId) {
 		RsData<MemberSellerResponse> body;
 		try {
 			body = restClient.get()
@@ -88,6 +88,6 @@ public class MemberSellerLookupAdapter implements SellerLookupPort {
 	}
 
 	// 회원 서비스 응답(MemberSellerDto)의 모양. 포트의 SellerOfMember가 응답 형식에 묶이지 않도록 따로 둔다
-	private record MemberSellerResponse(Integer sellerId, SellerStatus status) {
+	private record MemberSellerResponse(Long sellerId, SellerStatus status) {
 	}
 }

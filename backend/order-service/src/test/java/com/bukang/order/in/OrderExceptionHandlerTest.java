@@ -16,11 +16,16 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.bukang.common.global.exception.GlobalExceptionHandler;
 import com.bukang.common.global.rsdata.RsData;
+import com.bukang.common.shared.member.web.LoginMemberId;
+import com.bukang.common.shared.member.web.LoginMemberIdArgumentResolver;
+import com.bukang.common.shared.member.web.MemberIdHeader;
 
 /**
  * 주문 서비스의 모든 API가 따르는 요청 헤더 규칙을 확인한다.
- * 아직 실제 API가 없으므로, 헤더를 받는 테스트 전용 컨트롤러를 스프링 컨텍스트 없이(standalone) 붙여 확인한다.
+ * 헤더를 받는 테스트 전용 컨트롤러를 스프링 컨텍스트 없이(standalone) 붙여 확인한다.
+ * 회원 ID 헤더는 common의 리졸버와 GlobalExceptionHandler가 처리하므로, 실제 서비스처럼 셋을 함께 붙인다.
  * 컨트롤러는 켜지 않는 프로파일에서만 빈이 되므로 다른 테스트의 컨텍스트에는 이 경로가 생기지 않는다.
  */
 class OrderExceptionHandlerTest {
@@ -29,7 +34,8 @@ class OrderExceptionHandlerTest {
 	@BeforeEach
 	void setUp() {
 		mockMvc = MockMvcBuilders.standaloneSetup(new HeaderEchoController())
-			.setControllerAdvice(new OrderExceptionHandler())
+			.setCustomArgumentResolvers(new LoginMemberIdArgumentResolver())
+			.setControllerAdvice(new OrderExceptionHandler(), new GlobalExceptionHandler())
 			.build();
 	}
 
@@ -50,7 +56,7 @@ class OrderExceptionHandlerTest {
 			.andExpect(status().isUnauthorized())
 			.andExpect(jsonPath("$.status").value(401))
 			.andExpect(jsonPath("$.message").value("로그인이 필요합니다."))
-			.andExpect(jsonPath("$.code").value("ORDER_LOGIN_REQUIRED"))
+			.andExpect(jsonPath("$.code").value("LOGIN_REQUIRED"))
 			.andExpect(jsonPath("$.data").doesNotExist());
 	}
 
@@ -60,7 +66,7 @@ class OrderExceptionHandlerTest {
 		mockMvc.perform(get("/test/member").header("X-Member-Id", "abc"))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.status").value(400))
-			.andExpect(jsonPath("$.message").value("요청 값의 형식이 올바르지 않습니다."))
+			.andExpect(jsonPath("$.message").value(MemberIdHeader.INVALID_MESSAGE))
 			.andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
 	}
 
@@ -90,13 +96,13 @@ class OrderExceptionHandlerTest {
 	@Profile("order-exception-handler-test-only")
 	static class HeaderEchoController {
 		@GetMapping("/test/member")
-		RsData<Integer> member(@RequestHeader("X-Member-Id") int memberId) {
+		RsData<Long> member(@LoginMemberId long memberId) {
 			return RsData.of(HttpStatus.OK, "회원 ID를 받았습니다.", memberId);
 		}
 
 		@GetMapping("/test/idempotent")
 		RsData<String> idempotent(
-			@RequestHeader("X-Member-Id") int memberId,
+			@LoginMemberId long memberId,
 			@RequestHeader("Idempotency-Key") String idempotencyKey
 		) {
 			return RsData.of(HttpStatus.OK, "요청을 받았습니다.", idempotencyKey);
@@ -104,7 +110,7 @@ class OrderExceptionHandlerTest {
 
 		@GetMapping("/test/param")
 		RsData<String> param(
-			@RequestHeader("X-Member-Id") int memberId,
+			@LoginMemberId long memberId,
 			@RequestParam("keyword") String keyword
 		) {
 			return RsData.of(HttpStatus.OK, "요청을 받았습니다.", keyword);

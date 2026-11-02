@@ -46,11 +46,11 @@ public class ParticipationHold extends BaseIdAndTime {
 	// 주문 서비스의 참가 신청 ID (ERD 이름은 application_id, 주문 서비스는 참가 신청을 participation으로 부른다)
 	// 같은 신청으로 두 번 확보해도 자리는 한 번만 잡히게 하는 멱등 키다 (UK)
 	@Column(name = "application_id", nullable = false, unique = true)
-	private int participationId;
+	private long participationId;
 
 	// 크루 참가 신청 ID. 크루 자리만 있다 (null = 개인 자리). 세미는 개인 예매만 해서 늘 null이다
 	@Column(name = "crew_application_id")
-	private Integer crewApplicationId;
+	private Long crewApplicationId;
 
 	@Enumerated(STRING)
 	@Column(name = "status", nullable = false, columnDefinition = "varchar(20)")
@@ -69,7 +69,7 @@ public class ParticipationHold extends BaseIdAndTime {
 	@Column(name = "release_reason", columnDefinition = "varchar(20)")
 	private HoldReleaseReason releaseReason;
 
-	private ParticipationHold(RaceCourse raceCourse, int participationId, LocalDateTime expiresAt) {
+	private ParticipationHold(RaceCourse raceCourse, long participationId, LocalDateTime expiresAt) {
 		this.raceCourse = raceCourse;
 		this.participationId = participationId;
 		this.expiresAt = expiresAt;
@@ -77,7 +77,7 @@ public class ParticipationHold extends BaseIdAndTime {
 	}
 
 	// 개인 자리 1석. 종목 카운터를 올린 뒤에만 만든다
-	public static ParticipationHold individual(RaceCourse raceCourse, int participationId, LocalDateTime expiresAt) {
+	public static ParticipationHold individual(RaceCourse raceCourse, long participationId, LocalDateTime expiresAt) {
 		return new ParticipationHold(raceCourse, participationId, expiresAt);
 	}
 }

@@ -43,7 +43,7 @@ class ApiV1MemberMeTest {
 	@Autowired
 	private TermsAgreementRepository termsAgreementRepository;
 
-	private int memberId;
+	private long memberId;
 
 	@BeforeEach
 	void setUp() {

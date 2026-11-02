@@ -10,8 +10,8 @@ import com.bukang.common.shared.seller.domain.SellerType;
  * 브로커에 평문 JSON으로 남으므로 대회 상세에 공개하는 판매자 정보만 담는다. 정산 계좌, 연락처는 넣지 않는다.
  */
 public record SellerChangedEvent(
-	int id,
-	int memberId,
+	long id,
+	long memberId,
 	SellerType sellerType,
 	String businessName,
 	String businessNumber,

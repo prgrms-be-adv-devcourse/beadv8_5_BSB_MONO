@@ -33,7 +33,7 @@ public class OrderPayUseCase {
 	private final WalletPort walletPort;
 	private final SeatHoldPort seatHoldPort;
 
-	public OrderPayResult pay(int memberId, int orderId, LocalDateTime now) {
+	public OrderPayResult pay(long memberId, long orderId, LocalDateTime now) {
 		// 주문을 먼저 잠근다. 같은 주문의 결제 요청과 만료 정리 배치가 주문 → 참가 신청 순서로 줄을 선다
 		Order order = orderRepository.findByIdForUpdate(orderId)
 			.orElseThrow(() -> new OrderNotFoundException("존재하지 않는 주문입니다."));
@@ -63,7 +63,8 @@ public class OrderPayUseCase {
 			throw OrderNotPayableException.deadlinePassed("결제 기한이 지나 결제하지 못했습니다. 빠져나간 예치금은 돌려드렸습니다.");
 		}
 
-		order.markPaid(now);
+		// 키트가 있으면 이 때 참가 신청의 배송지로 발송 대기 배송을 만든다 (BUK-6)
+		order.markPaid(now, participation.getParticipant().getShippingAddress());
 		participation.markConfirmed(now);
 		return new OrderPayResult(order.toDto(), false);
 	}

@@ -27,20 +27,20 @@ public class PayoutAdminFacade {
 	private final PayoutHoldUseCase payoutHoldUseCase;
 	private final PayoutLedgerUseCase payoutLedgerUseCase;
 
-	public PayoutHoldDto hold(int memberId, int payoutId, PayoutHoldReason reasonType, String reason,
+	public PayoutHoldDto hold(long memberId, long payoutId, PayoutHoldReason reasonType, String reason,
 		LocalDateTime now) {
 		payoutAdminVerifyUseCase.verify(memberId);
 		return payoutHoldUseCase.hold(payoutId, reasonType, reason, memberId, now);
 	}
 
-	public PayoutHoldDto release(int memberId, int holdId, LocalDateTime now) {
+	public PayoutHoldDto release(long memberId, long holdId, LocalDateTime now) {
 		payoutAdminVerifyUseCase.verify(memberId);
 		return payoutHoldUseCase.release(holdId, memberId, now);
 	}
 
 	// 입금 확인 규칙은 원장 유스케이스가 맡는다 (payout.md 4-2, PRO-33).
 	// 응답 DTO는 원장 트랜잭션이 커밋된 뒤에 만든다. PayoutRecovery에 지연 로딩 연관이 없어 안전하다
-	public PayoutRecoveryDto completeRecovery(int memberId, int recoveryId, LocalDateTime now) {
+	public PayoutRecoveryDto completeRecovery(long memberId, long recoveryId, LocalDateTime now) {
 		payoutAdminVerifyUseCase.verify(memberId);
 		return PayoutRecoveryDto.from(payoutLedgerUseCase.confirmDeposit(recoveryId, memberId, now));
 	}

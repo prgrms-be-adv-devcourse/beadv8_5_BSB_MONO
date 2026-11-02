@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.within;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willReturn;
@@ -109,7 +108,7 @@ class ApiV1MemberWithdrawTest {
 	@MockitoBean
 	private RefreshTokenRepository refreshTokenRepository;
 
-	private int memberId;
+	private long memberId;
 
 	@BeforeEach
 	void setUp() {
@@ -165,13 +164,13 @@ class ApiV1MemberWithdrawTest {
 	@Test
 	@DisplayName("남은 예치금이 있으면 409 MEMBER_WITHDRAW_CASH_LEFT이고, 참가권은 묻지 않으며 아무것도 바뀌지 않는다")
 	void withdrawFailsWithCashLeft() throws Exception {
-		given(cashBalancePort.findBalance(memberId)).willReturn(1_000);
+		given(cashBalancePort.findBalance(memberId)).willReturn(1_000L);
 
 		withdraw(memberId)
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("MEMBER_WITHDRAW_CASH_LEFT"));
 
-		verify(activeTicketPort, never()).countActiveTickets(anyInt());
+		verify(activeTicketPort, never()).countActiveTickets(anyLong());
 		assertNothingChanged();
 	}
 
@@ -202,7 +201,7 @@ class ApiV1MemberWithdrawTest {
 		willThrow(new WithdrawCheckFailedException(HttpActiveTicketAdapter.UNAVAILABLE_MESSAGE))
 			.given(activeTicketPort).countActiveTickets(memberId);
 		// 예외를 던지게 해 둔 목을 다시 정하므로, 호출 없이 정하는 will...given 형태를 쓴다
-		willReturn(0).given(cashBalancePort).findBalance(memberId);
+		willReturn(0L).given(cashBalancePort).findBalance(memberId);
 
 		withdraw(memberId)
 			.andExpect(status().isServiceUnavailable())
@@ -261,7 +260,7 @@ class ApiV1MemberWithdrawTest {
 	void rejoinAfterWithdraw() throws Exception {
 		withdraw(memberId).andExpect(status().isOk());
 
-		int rejoinedId = join(EMAIL, NICKNAME, PHONE);
+		long rejoinedId = join(EMAIL, NICKNAME, PHONE);
 		assertThat(rejoinedId).isNotEqualTo(memberId);
 		assertThat(memberRepository.findActiveByEmail(EMAIL)).hasValueSatisfying(member ->
 			assertThat(member.getId()).isEqualTo(rejoinedId));
@@ -296,7 +295,7 @@ class ApiV1MemberWithdrawTest {
 	@Test
 	@DisplayName("탈퇴하면 대기 중 판매자 신청을 \"회원 탈퇴\" 사유로 반려하고 반려 이벤트를 보낸다")
 	void withdrawRejectsPendingSellerApplication() throws Exception {
-		int sellerId = sellerFacade.apply(memberId,
+		long sellerId = sellerFacade.apply(memberId,
 			new SellerApplyRequestDto(SellerType.BUSINESS, "크루런 스포츠", "123-45-67890", "김러너")).getId();
 
 		withdraw(memberId).andExpect(status().isOk());
@@ -315,14 +314,14 @@ class ApiV1MemberWithdrawTest {
 		return applicationEvents.stream(MemberModifiedEvent.class).toList();
 	}
 
-	private int join(String email, String nickname, String phone) {
+	private long join(String email, String nickname, String phone) {
 		return memberFacade.join(new MemberJoinRequestDto(
 			email, PASSWORD, "김러너", nickname, phone, LocalDate.of(1995, 4, 12), Gender.FEMALE,
 			List.of(TermsType.SERVICE, TermsType.PRIVACY)
 		)).getId();
 	}
 
-	private ResultActions withdraw(int id) throws Exception {
+	private ResultActions withdraw(long id) throws Exception {
 		return mockMvc.perform(delete(ME).header(MemberIdHeader.NAME, id));
 	}
 }

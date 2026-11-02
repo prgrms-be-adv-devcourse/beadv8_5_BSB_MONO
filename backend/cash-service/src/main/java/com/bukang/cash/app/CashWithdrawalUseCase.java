@@ -26,7 +26,7 @@ public class CashWithdrawalUseCase {
 	private final WalletLedgerRepository walletLedgerRepository;
 
 	public CashWithdrawalResponseDto requestWithdrawal(
-		int customerId, String bankCode, String accountNumber, String accountHolder, String idempotencyKey
+		long customerId, String bankCode, String accountNumber, String accountHolder, String idempotencyKey
 	) {
 		Wallet customerWallet = walletRepository.findByIdForUpdate(customerId)
 			.orElseThrow(() -> new WalletNotFoundException("존재하지 않는 지갑입니다."));
@@ -39,7 +39,7 @@ public class CashWithdrawalUseCase {
 			return toDto(existing.get(), customerWallet.getBalance());
 		}
 
-		int amount = customerWallet.getBalance();
+		long amount = customerWallet.getBalance();
 		if (amount <= 0) {
 			throw new WalletBalanceEmptyException("환급할 잔액이 없습니다.");
 		}
@@ -52,7 +52,7 @@ public class CashWithdrawalUseCase {
 		return toDto(withdrawal, customerWallet.getBalance());
 	}
 
-	private CashWithdrawalResponseDto toDto(WalletWithdrawal withdrawal, int balance) {
+	private CashWithdrawalResponseDto toDto(WalletWithdrawal withdrawal, long balance) {
 		return CashWithdrawalResponseDto.of(withdrawal.getAmount(), balance);
 	}
 }

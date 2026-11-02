@@ -51,7 +51,7 @@ class PayoutRepositoryTest {
 		assertThat(found.getItems())
 			.filteredOn(item -> item.getRecordType() == PayoutRecordType.SALE)
 			.extracting(PayoutItem::getOrderItemId)
-			.containsExactlyInAnyOrder(100, 101);
+			.containsExactlyInAnyOrder(100L, 101L);
 	}
 
 	@Test

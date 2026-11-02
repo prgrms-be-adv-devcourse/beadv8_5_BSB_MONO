@@ -7,8 +7,6 @@ import static lombok.AccessLevel.PROTECTED;
 import java.time.LocalDateTime;
 
 import com.bukang.common.global.jpa.entity.BaseIdAndTime;
-import com.bukang.order.domain.exception.KitNotShippableException;
-import com.bukang.order.domain.exception.KitShippingInfoInvalidException;
 import com.bukang.order.domain.exception.OrderItemNotCancelableException;
 import com.bukang.order.dto.OrderItemDto;
 import com.bukang.order.out.race.RaceCourseInfo;
@@ -27,6 +25,7 @@ import lombok.NoArgsConstructor;
 /**
  * 주문 상품. 참가권 1장(키트 포함) = 1행이고 수량은 늘 1이다 (09 ERD order_item, 굿즈 삭제)
  * 정산(E)은 이 행의 판매자·대회·대회 날짜·금액을 읽는다 (정산 SoldEntryPort → /internal/v1/order/sold-entries?raceId=)
+ * 키트 배송은 배송(Shipment)으로 옮겼다 (BUK-6). DB의 옛 kit_* 컬럼은 값을 옮긴 뒤 다음 배포에서 지운다
  */
 @Entity
 @NoArgsConstructor(access = PROTECTED)
@@ -46,24 +45,22 @@ import lombok.NoArgsConstructor;
 )
 public class OrderItem extends BaseIdAndTime {
 	private static final int TICKET_QUANTITY = 1;
-	public static final int MAX_CARRIER_LENGTH = 30;
-	public static final int MAX_TRACKING_NUMBER_LENGTH = 50;
 
 	@ManyToOne(fetch = LAZY, optional = false)
 	@JoinColumn(name = "order_id", nullable = false)
 	private Order order;
 
 	@Column(name = "participation_id", nullable = false)
-	private int participationId;
+	private long participationId;
 
 	@Column(name = "race_id", nullable = false)
-	private int raceId;
+	private long raceId;
 
 	@Column(name = "race_course_id", nullable = false)
-	private int raceCourseId;
+	private long raceCourseId;
 
 	@Column(name = "seller_id", nullable = false)
-	private int sellerId;
+	private long sellerId;
 
 	// 대회 일시 사본 (주문 당시 종목 정보). 정산 배치가 대회 날짜로 판매 내역을 찾는 조건이다
 	@Column(name = "race_date", nullable = false)
@@ -74,42 +71,28 @@ public class OrderItem extends BaseIdAndTime {
 	private String itemName;
 
 	@Column(name = "unit_price", nullable = false)
-	private int unitPrice;
+	private long unitPrice;
 
 	@Column(name = "quantity", nullable = false)
 	private int quantity;
 
 	// 정산 판매액 = 실제 결제 금액 (정책 6장 1-5)
 	@Column(name = "amount", nullable = false)
-	private int amount;
+	private long amount;
 
 	@Enumerated(STRING)
 	@Column(name = "status", nullable = false, columnDefinition = "varchar(20)")
 	private OrderItemStatus status;
 
 	@Column(name = "canceled_amount", nullable = false)
-	private int canceledAmount;
+	private long canceledAmount;
 
 	@Column(name = "canceled_at")
 	private LocalDateTime canceledAt;
 
-	// 키트 배송 상태. 키트가 있는 종목만 배송 준비로 시작하고, 없으면 null (PRO-136)
-	@Enumerated(STRING)
-	@Column(name = "kit_delivery_status", columnDefinition = "varchar(20)")
-	private KitDeliveryStatus kitDeliveryStatus;
-
-	// 판매자가 발송할 때 넣은 택배사·송장 번호 (배송 중부터 있다)
-	@Column(name = "kit_carrier", length = MAX_CARRIER_LENGTH)
-	private String kitCarrier;
-
-	@Column(name = "kit_tracking_number", length = MAX_TRACKING_NUMBER_LENGTH)
-	private String kitTrackingNumber;
-
-	@Column(name = "kit_shipped_at")
-	private LocalDateTime kitShippedAt;
-
-	@Column(name = "kit_delivered_at")
-	private LocalDateTime kitDeliveredAt;
+	// 취소를 시작한 시각 (BUK-9). 환불 결과를 모르는 취소 중을 재처리가 이 시각으로 고른다. 결제 완료로 되돌리면 지운다
+	@Column(name = "cancel_requested_at")
+	private LocalDateTime cancelRequestedAt;
 
 	static OrderItem ticket(Order order, Participation participation, RaceCourseInfo course) {
 		OrderItem item = new OrderItem();
@@ -124,7 +107,6 @@ public class OrderItem extends BaseIdAndTime {
 		item.quantity = TICKET_QUANTITY;
 		item.amount = item.unitPrice * TICKET_QUANTITY;
 		item.status = OrderItemStatus.ORDERED;
-		item.kitDeliveryStatus = course.kitIncluded() ? KitDeliveryStatus.PREPARING : null;
 		return item;
 	}
 
@@ -133,9 +115,13 @@ public class OrderItem extends BaseIdAndTime {
 	}
 
 	// 결제한 상품만 취소할 수 있다. 같은 취소가 두 번 오면 두 번째는 여기서 막혀 환불도 한 번만 일어난다
+	// 취소 중이면 환불 결과를 기다리는 중이라 다시 시작하지 않는다. 재처리가 마무리한다 (BUK-9)
 	public void checkCancelable() {
 		if (status == OrderItemStatus.CANCELED) {
 			throw new OrderItemNotCancelableException("이미 취소한 상품입니다.");
+		}
+		if (status == OrderItemStatus.CANCELING) {
+			throw new OrderItemNotCancelableException("취소 처리 중인 상품입니다. 잠시 뒤 주문 내역에서 확인해주세요.");
 		}
 		if (status != OrderItemStatus.PAID) {
 			throw new OrderItemNotCancelableException(
@@ -143,78 +129,49 @@ public class OrderItem extends BaseIdAndTime {
 		}
 	}
 
-	void cancel(LocalDateTime canceledAt) {
+	// 사용자 취소의 첫 단계: 환불을 부르기 전에 취소 중과 시작 시각을 커밋한다 (결제 완료 → 취소 중)
+	void startCancel(LocalDateTime requestedAt) {
 		checkCancelable();
+		this.status = OrderItemStatus.CANCELING;
+		this.cancelRequestedAt = requestedAt;
+	}
+
+	public boolean isCanceling() {
+		return status == OrderItemStatus.CANCELING;
+	}
+
+	// 취소 중에서 마무리하거나(사용자 취소, BUK-9) 결제 완료에서 바로 취소한다(대회 취소 일괄 환불)
+	void cancel(LocalDateTime canceledAt) {
+		if (status != OrderItemStatus.CANCELING) {
+			checkCancelable();
+		}
 		this.status = OrderItemStatus.CANCELED;
 		this.canceledAmount = amount;
 		this.canceledAt = canceledAt;
 	}
 
-	// 판매자가 키트를 보냈다(배송 준비 → 배송 중). 결제한 키트만, 한 번만 발송한다
-	// 환불 기한이 지났는지는 종목 정보를 알아야 해서 부르는 쪽(KitDeliveryUseCase)이 확인한다
-	public void shipKit(String carrier, String trackingNumber, LocalDateTime shippedAt) {
-		checkKitShippable();
-		checkShippingInfo(carrier, trackingNumber);
-		this.kitDeliveryStatus = KitDeliveryStatus.SHIPPING;
-		this.kitCarrier = carrier.strip();
-		this.kitTrackingNumber = trackingNumber.strip();
-		this.kitShippedAt = shippedAt;
-	}
-
-	// 키트를 보낼 수 있는 주문 상품인지 (키트 있음, 아직 안 보냄, 결제 완료)
-	public void checkKitShippable() {
-		checkHasKit();
-		if (kitDeliveryStatus != KitDeliveryStatus.PREPARING) {
-			throw new KitNotShippableException("이미 발송한 키트입니다.");
+	// 예치금이 환불을 거절했다(4xx). 돈이 움직이지 않았으므로 결제 완료로 되돌리고 시작 시각을 지운다 (취소 중 → 결제 완료)
+	void revertCancel() {
+		if (status != OrderItemStatus.CANCELING) {
+			throw new IllegalStateException(
+				"취소 중인 상품만 되돌릴 수 있습니다(현재 상태: %s).".formatted(status.getLabel()));
 		}
-		if (status != OrderItemStatus.PAID) {
-			throw new KitNotShippableException(
-				"결제한 참가권의 키트만 발송할 수 있습니다(현재 상태: %s).".formatted(status.getLabel()));
-		}
+		this.status = OrderItemStatus.PAID;
+		this.cancelRequestedAt = null;
 	}
 
-	// 구매자가 키트를 받았다(배송 중 → 배송 완료). 보낸 키트만, 한 번만 완료한다
-	// 결제 상태는 보지 않는다. 발송 뒤 대회 취소로 환불돼도 이미 보낸 키트는 받게 된다 (정책 5장 4-3)
-	public void completeKitDelivery(LocalDateTime deliveredAt) {
-		checkKitDeliverable();
-		this.kitDeliveryStatus = KitDeliveryStatus.DELIVERED;
-		this.kitDeliveredAt = deliveredAt;
-	}
-
-	public void checkKitDeliverable() {
-		checkHasKit();
-		if (kitDeliveryStatus == KitDeliveryStatus.PREPARING) {
-			throw new KitNotShippableException("아직 발송하지 않은 키트입니다.");
-		}
-		if (kitDeliveryStatus == KitDeliveryStatus.DELIVERED) {
-			throw new KitNotShippableException("이미 배송 완료한 키트입니다.");
-		}
-	}
-
-	// 택배사·송장 번호가 있고 길이 안인지. 앞뒤 공백은 빼고 센다
-	public static void checkShippingInfo(String carrier, String trackingNumber) {
-		if (isInvalidText(carrier, MAX_CARRIER_LENGTH) || isInvalidText(trackingNumber, MAX_TRACKING_NUMBER_LENGTH)) {
-			throw new KitShippingInfoInvalidException("택배사(%d자 이하)와 송장 번호(%d자 이하)를 넣어 주세요."
-				.formatted(MAX_CARRIER_LENGTH, MAX_TRACKING_NUMBER_LENGTH));
-		}
-	}
-
-	private static boolean isInvalidText(String value, int maxLength) {
-		return value == null || value.isBlank() || value.strip().length() > maxLength;
-	}
-
-	private void checkHasKit() {
-		if (kitDeliveryStatus == null) {
-			throw new KitNotShippableException("키트가 없는 참가권입니다.");
-		}
-	}
-
-	public boolean isSoldBy(int sellerId) {
+	public boolean isSoldBy(long sellerId) {
 		return this.sellerId == sellerId;
 	}
 
-	public OrderItemDto toDto() {
+	// 키트 배송 칸은 배송(Shipment)에서 채운다. 배송이 아직 없으면 kitDeliveryStatus만 부르는 쪽이 정한다 (Order.toDto)
+	OrderItemDto toDto(KitDeliveryStatus kitDeliveryStatus, Shipment shipment) {
+		if (shipment == null) {
+			return new OrderItemDto(getId(), participationId, raceCourseId, sellerId, itemName, unitPrice, quantity,
+				amount, status, kitDeliveryStatus, null, null, null, null);
+		}
 		return new OrderItemDto(getId(), participationId, raceCourseId, sellerId, itemName, unitPrice, quantity,
-			amount, status, kitDeliveryStatus, kitCarrier, kitTrackingNumber, kitShippedAt, kitDeliveredAt);
+			amount, status, shipment.getStatus().getKitDeliveryStatus(), shipment.getCarrier(),
+			shipment.getTrackingNumber(), shipment.getShippedAt(), shipment.getDeliveredAt());
 	}
 }

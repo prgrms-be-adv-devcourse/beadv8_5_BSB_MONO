@@ -22,7 +22,7 @@ public class CartCheckoutItemDto {
 		FAILED
 	}
 
-	private final int participationId;
+	private final long participationId;
 	private final Outcome outcome;
 	// SOLD_OUT·FAILED일 때의 오류 코드 (단건 API와 같은 값, 예: ORDER_RACE_CANCELED). 성공이면 응답에서 빠진다
 	@JsonInclude(JsonInclude.Include.NON_NULL)

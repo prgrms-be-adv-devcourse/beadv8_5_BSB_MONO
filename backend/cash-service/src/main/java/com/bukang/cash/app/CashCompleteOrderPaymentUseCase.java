@@ -25,7 +25,7 @@ public class CashCompleteOrderPaymentUseCase {
 	private final PaymentRepository paymentRepository;
 	private final WalletLedgerRepository walletLedgerRepository;
 
-	public CashPaymentResponseDto completeOrderPayment(int orderId, int customerId, int salePrice) {
+	public CashPaymentResponseDto completeOrderPayment(long orderId, long customerId, long salePrice) {
 		//1.지갑 잠금 (고객 지갑, 보관 지갑 / ID 작은 쪽부터)
 		LockedWallets lockedWallets = cashSupport.lockCustomerAndHoldingWallets(customerId);
 		Wallet customerWallet = lockedWallets.customerWallet();

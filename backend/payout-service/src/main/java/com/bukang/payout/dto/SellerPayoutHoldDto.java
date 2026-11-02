@@ -18,11 +18,11 @@ import lombok.Getter;
 @AllArgsConstructor
 @Getter
 public class SellerPayoutHoldDto {
-	private final int id;
+	private final long id;
 	private final String holdCode;
-	private final int payoutId;
+	private final long payoutId;
 	private final String payoutCode;
-	private final int raceId;
+	private final long raceId;
 	private final String raceName;
 	private final long payoutAmount;
 	// 판매자 화면에 사유를 보여 준다 (payout.md 1장 지급보류 2번)

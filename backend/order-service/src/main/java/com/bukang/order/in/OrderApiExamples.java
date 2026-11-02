@@ -107,7 +107,7 @@ final class OrderApiExamples {
 		""";
 
 	static final String LOGIN_REQUIRED = """
-		{ "status": 401, "code": "ORDER_LOGIN_REQUIRED", "message": "로그인이 필요합니다.", "data": null }
+		{ "status": 401, "code": "LOGIN_REQUIRED", "message": "로그인이 필요합니다.", "data": null }
 		""";
 
 	static final String NOT_OWNER = """
@@ -347,6 +347,38 @@ final class OrderApiExamples {
 		}
 		""";
 
+	static final String CANCEL_PENDING = """
+		{
+			"status": 202,
+			"message": "취소 처리 중입니다. 예치금 환불이 확인되면 취소가 마무리됩니다.",
+			"data": {
+				"id": 1,
+				"createDate": "2026-10-12T10:00:00",
+				"orderNo": "OD-20261012-0001",
+				"buyerId": 1,
+				"raceId": 1,
+				"status": "PAID",
+				"totalAmount": 50000,
+				"canceledAmount": 0,
+				"paymentDueAt": "2026-10-12T10:10:00",
+				"paidAt": "2026-10-12T10:04:12",
+				"items": [
+					{
+						"id": 1,
+						"participationId": 1,
+						"raceCourseId": 1,
+						"sellerId": 1,
+						"itemName": "2026 서울 하프 마라톤 10K",
+						"unitPrice": 50000,
+						"quantity": 1,
+						"amount": 50000,
+						"status": "CANCELING"
+					}
+				]
+			}
+		}
+		""";
+
 	static final String CANCEL_NOT_OWNER = """
 		{ "status": 403, "code": "ORDER_FORBIDDEN", "message": "본인의 주문만 취소할 수 있습니다.", "data": null }
 		""";
@@ -357,6 +389,16 @@ final class OrderApiExamples {
 
 	static final String ALREADY_CANCELED = """
 		{ "status": 409, "code": "ORDER_ITEM_NOT_CANCELABLE", "message": "이미 취소한 상품입니다.", "data": null }
+		""";
+
+	static final String ALREADY_CANCELING = """
+		{ "status": 409, "code": "ORDER_ITEM_NOT_CANCELABLE",
+			"message": "취소 처리 중인 상품입니다. 잠시 뒤 주문 내역에서 확인해주세요.", "data": null }
+		""";
+
+	static final String WALLET_UNAVAILABLE = """
+		{ "status": 503, "code": "ORDER_EXTERNAL_SERVICE_UNAVAILABLE",
+			"message": "예치금 서비스에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요.", "data": null }
 		""";
 
 	static final String NOT_PAID_ITEM = """

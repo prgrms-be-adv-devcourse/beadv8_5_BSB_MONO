@@ -15,7 +15,7 @@ public class ParticipationApplyRequestDto {
 	@Schema(description = "신청할 종목(참가권) ID", example = "1")
 	@NotNull(message = "종목을 선택해주세요.")
 	@Positive(message = "종목 ID는 0보다 커야 합니다.")
-	private final Integer raceCourseId;
+	private final Long raceCourseId;
 
 	@Schema(description = "참가자 정보")
 	@NotNull(message = "참가자 정보를 작성해주세요.")

@@ -6,13 +6,12 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.bukang.common.global.rsdata.RsData;
-import com.bukang.common.shared.member.web.MemberIdHeader;
+import com.bukang.common.shared.member.web.LoginMemberId;
 import com.bukang.order.app.SellerKitFacade;
 import com.bukang.order.domain.KitDeliveryStatus;
 import com.bukang.order.dto.KitShipmentRequestDto;
@@ -31,7 +30,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 
 // 판매자 키트 배송 관리 (시안 S08, PRO-197). 로그인한 회원이 승인된 판매자일 때만 쓴다
@@ -70,10 +68,9 @@ public class ApiV1SellerKitController {
 				examples = @ExampleObject(value = SellerKitApiExamples.SELLER_UNAVAILABLE)))
 	})
 	public ResponseEntity<RsData<SellerKitPageDto>> findKits(
-		@Parameter(description = "요청한 회원 ID (게이트웨이가 넣어 줄 예정)", example = "7")
-		@RequestHeader(MemberIdHeader.NAME) @Positive(message = MemberIdHeader.INVALID_MESSAGE) int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "대회 ID (생략하면 모든 대회)", example = "1")
-		@RequestParam(required = false) Integer raceId,
+		@RequestParam(required = false) Long raceId,
 		@Parameter(description = "배송 상태 (PREPARING 배송 준비 / SHIPPING 배송 중 / DELIVERED 배송 완료, 생략 가능)")
 		@RequestParam(required = false) KitDeliveryStatus status,
 		@Parameter(description = "페이지 번호 (0부터)", example = "0")
@@ -107,10 +104,9 @@ public class ApiV1SellerKitController {
 				examples = @ExampleObject(value = SellerKitApiExamples.SELLER_UNAVAILABLE)))
 	})
 	public ResponseEntity<RsData<SellerKitSummaryDto>> summarize(
-		@Parameter(description = "요청한 회원 ID (게이트웨이가 넣어 줄 예정)", example = "7")
-		@RequestHeader(MemberIdHeader.NAME) @Positive(message = MemberIdHeader.INVALID_MESSAGE) int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "대회 ID (생략하면 모든 대회)", example = "1")
-		@RequestParam(required = false) Integer raceId
+		@RequestParam(required = false) Long raceId
 	) {
 		return ResponseEntity.ok().body(RsData.of(HttpStatus.OK, "키트 배송 건수를 조회했습니다.",
 			sellerKitFacade.summarize(memberId, raceId)));
@@ -149,9 +145,8 @@ public class ApiV1SellerKitController {
 				examples = @ExampleObject(value = SellerKitApiExamples.SELLER_UNAVAILABLE)))
 	})
 	public ResponseEntity<RsData<OrderItemDto>> ship(
-		@Parameter(description = "요청한 회원 ID (게이트웨이가 넣어 줄 예정)", example = "7")
-		@RequestHeader(MemberIdHeader.NAME) @Positive(message = MemberIdHeader.INVALID_MESSAGE) int memberId,
-		@Parameter(description = "주문 상품 ID", example = "12") @PathVariable int orderItemId,
+		@LoginMemberId long memberId,
+		@Parameter(description = "주문 상품 ID", example = "12") @PathVariable long orderItemId,
 		@Valid @RequestBody KitShipmentRequestDto request
 	) {
 		return ResponseEntity.ok().body(RsData.of(HttpStatus.OK, "키트를 발송 처리했습니다.",
@@ -186,9 +181,8 @@ public class ApiV1SellerKitController {
 				examples = @ExampleObject(value = SellerKitApiExamples.SELLER_UNAVAILABLE)))
 	})
 	public ResponseEntity<RsData<OrderItemDto>> completeDelivery(
-		@Parameter(description = "요청한 회원 ID (게이트웨이가 넣어 줄 예정)", example = "7")
-		@RequestHeader(MemberIdHeader.NAME) @Positive(message = MemberIdHeader.INVALID_MESSAGE) int memberId,
-		@Parameter(description = "주문 상품 ID", example = "12") @PathVariable int orderItemId
+		@LoginMemberId long memberId,
+		@Parameter(description = "주문 상품 ID", example = "12") @PathVariable long orderItemId
 	) {
 		return ResponseEntity.ok().body(RsData.of(HttpStatus.OK, "키트를 배송 완료로 바꿨습니다.",
 			sellerKitFacade.completeDelivery(memberId, orderItemId)));

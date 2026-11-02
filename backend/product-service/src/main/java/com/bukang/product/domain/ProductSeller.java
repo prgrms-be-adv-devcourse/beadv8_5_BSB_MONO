@@ -36,7 +36,7 @@ import lombok.NoArgsConstructor;
 )
 public class ProductSeller extends BaseEntity {
 	@Id
-	private int id;
+	private long id;
 
 	// 판매자로 등록한 회원. 반려 뒤 재신청하면 한 회원에 행이 여러 개일 수 있다
 	@ManyToOne(fetch = LAZY)
@@ -70,7 +70,7 @@ public class ProductSeller extends BaseEntity {
 	private LocalDateTime reviewedAt;
 
 	public ProductSeller(
-		int id,
+		long id,
 		ProductMember member,
 		SellerType sellerType,
 		String businessName,

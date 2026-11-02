@@ -78,7 +78,7 @@ class OrderSoldEntryAdapterTest {
 				""", MediaType.APPLICATION_JSON));
 
 		assertThat(adapter.findSoldEntries(5))
-			.containsExactly(new SoldEntry(1, 3, 5, 11, LocalDate.of(2026, 9, 22), 60_000L));
+			.containsExactly(new SoldEntry(1L, 3L, 5L, 11L, LocalDate.of(2026, 9, 22), 60_000L));
 	}
 
 	@Test

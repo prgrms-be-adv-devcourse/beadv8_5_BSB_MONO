@@ -31,12 +31,12 @@ import com.bukang.queue.support.QueueIntegrationTest;
  * active 회원은 대부분 active ZSet에 끝 시각을 직접 넣어 만든다. 승격과 이어서 확인할 때만 스케줄러가 부르는 QueueFacade.promote()를 쓴다.
  */
 class ApiV1QueueControllerTest extends QueueIntegrationTest {
-	private static final int RACE_ID = 1;
-	private static final int OTHER_RACE_ID = 2;
-	private static final int RACE_COURSE_ID = 11;
-	private static final int OTHER_RACE_COURSE_ID = 12;
-	private static final int MEMBER_ID = 7;
-	private static final int OTHER_MEMBER_ID = 8;
+	private static final long RACE_ID = 1;
+	private static final long OTHER_RACE_ID = 2;
+	private static final long RACE_COURSE_ID = 11;
+	private static final long OTHER_RACE_COURSE_ID = 12;
+	private static final long MEMBER_ID = 7;
+	private static final long OTHER_MEMBER_ID = 8;
 	private static final String WAITING_KEY = "race:1:racecourse:11:waiting";
 	private static final String ACTIVE_KEY = "race:1:racecourse:11:active";
 	private static final String QUEUES_KEY = "queue:waiting";
@@ -225,6 +225,7 @@ class ApiV1QueueControllerTest extends QueueIntegrationTest {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(requestBody()))
 			.andExpect(status().isUnauthorized())
+			.andExpect(jsonPath("$.code").value("LOGIN_REQUIRED"))
 			.andExpect(jsonPath("$.message").value("로그인이 필요합니다."));
 	}
 
@@ -357,11 +358,12 @@ class ApiV1QueueControllerTest extends QueueIntegrationTest {
 	void rejectStatusWithoutMemberIdHeader() throws Exception {
 		mockMvc.perform(get(STATUS_URL, RACE_ID, RACE_COURSE_ID))
 			.andExpect(status().isUnauthorized())
+			.andExpect(jsonPath("$.code").value("LOGIN_REQUIRED"))
 			.andExpect(jsonPath("$.message").value("로그인이 필요합니다."));
 	}
 
 	// 대회 1·종목 11로 등록한다
-	private ResultActions register(int memberId) throws Exception {
+	private ResultActions register(long memberId) throws Exception {
 		return mockMvc.perform(post("/api/v1/queue")
 			.header(MemberIdHeader.NAME, memberId)
 			.contentType(MediaType.APPLICATION_JSON)
@@ -373,11 +375,11 @@ class ApiV1QueueControllerTest extends QueueIntegrationTest {
 	}
 
 	// 대회 1·종목 11의 순번을 조회한다
-	private ResultActions getStatus(int memberId) throws Exception {
+	private ResultActions getStatus(long memberId) throws Exception {
 		return getStatus(memberId, RACE_COURSE_ID);
 	}
 
-	private ResultActions getStatus(int memberId, int raceCourseId) throws Exception {
+	private ResultActions getStatus(long memberId, long raceCourseId) throws Exception {
 		return mockMvc.perform(get(STATUS_URL, RACE_ID, raceCourseId)
 			.header(MemberIdHeader.NAME, memberId));
 	}
@@ -390,7 +392,7 @@ class ApiV1QueueControllerTest extends QueueIntegrationTest {
 	}
 
 	private void saveRace(
-		int raceId,
+		long raceId,
 		RaceSaleStatus saleStatus,
 		LocalDateTime individualOpenAt,
 		LocalDateTime applicationCloseAt
@@ -399,7 +401,7 @@ class ApiV1QueueControllerTest extends QueueIntegrationTest {
 	}
 
 	// 종목 11을 raceId 대회의 종목으로 넣는다
-	private void saveCourse(int raceId, boolean deleted) {
+	private void saveCourse(long raceId, boolean deleted) {
 		queueRaceCourseRepository.save(new QueueRaceCourse(RACE_COURSE_ID, raceId, at(10), deleted));
 	}
 

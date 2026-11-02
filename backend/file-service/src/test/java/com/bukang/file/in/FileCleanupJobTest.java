@@ -46,7 +46,7 @@ import com.bukang.file.support.FakeFileStorageConfig;
 @ActiveProfiles("test")
 @Import(FakeFileStorageConfig.class)
 class FileCleanupJobTest {
-	private static final int OWNER_ID = 1;
+	private static final long OWNER_ID = 1;
 	private static final String RACE = "Race";
 	private static final byte[] BODY = {0x01};
 
