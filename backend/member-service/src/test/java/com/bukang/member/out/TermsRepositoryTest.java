@@ -18,6 +18,7 @@ import com.bukang.member.domain.TermsType;
 @SpringBootTest
 @ActiveProfiles("test")
 class TermsRepositoryTest {
+	// 기본 약관(TermsDataInit)의 시행일보다 뒤여야 한다. 약관 버전을 올려 시행일이 바뀌면 이 날짜도 그 뒤로 옮긴다
 	private static final LocalDate TODAY = LocalDate.of(2026, 11, 2);
 	private static final String TEST_VERSION_PREFIX = "t-";
 
