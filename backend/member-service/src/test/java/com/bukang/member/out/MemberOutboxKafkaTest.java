@@ -44,8 +44,8 @@ import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
 @SpringBootTest
 @ActiveProfiles("test")
 @EmbeddedKafka(partitions = 1, topics = KafkaTopics.MEMBER_MEMBER_JOINED)
-@TestPropertySource(properties =
-	"spring.datasource.url=jdbc:h2:mem:bukang-member-outbox-kafka-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1")
+@TestPropertySource(properties = "spring.datasource.url=jdbc:h2:mem:bukang-member-outbox-kafka-test;"
+	+ "MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1")
 @Import(InMemoryIdentityVerificationStore.Config.class)
 class MemberOutboxKafkaTest {
 	private static final Duration POLL_TIMEOUT = Duration.ofSeconds(10);

@@ -32,7 +32,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
-import org.springframework.data.domain.Limit;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
@@ -47,6 +46,9 @@ import com.bukang.common.shared.seller.event.SellerChangedEvent;
 import com.bukang.member.domain.MemberOutboxEvent;
 import com.bukang.member.domain.MemberOutboxStatus;
 import com.bukang.member.out.MemberOutboxEventRepository;
+
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 
 /**
  * 아웃박스 발행 작업(MemberOutboxRelayUseCase)을 확인한다 (BUK-41)
@@ -73,6 +75,8 @@ class MemberOutboxRelayTest {
 	private MemberOutboxEventRepository memberOutboxEventRepository;
 	@Autowired
 	private TransactionTemplate transactionTemplate;
+	@Autowired
+	private EntityManager entityManager;
 
 	// 실제 KafkaTemplate을 감싼다. 자동 설정 빈의 타입이 KafkaTemplate<?, ?>라 같은 타입으로 받는다
 	@MockitoSpyBean
@@ -247,9 +251,11 @@ class MemberOutboxRelayTest {
 		CountDownLatch release = new CountDownLatch(1);
 		ExecutorService anotherServer = Executors.newSingleThreadExecutor();
 		try {
-			// 다른 서버의 발행 작업이 첫 행(회원 1001)을 읽어 락을 쥔 채 머무는 상황
+			// 다른 서버의 발행 작업이 첫 행(회원 1001)에 락을 쥔 채 머무는 상황
+			// H2는 FETCH FIRST와 함께 쓴 FOR UPDATE가 조건에 맞는 행을 모두 잠가, 첫 행 하나만 ID로 잠근다
+			long firstId = allRows().get(0).getId();
 			Future<?> holder = anotherServer.submit(() -> transactionTemplate.executeWithoutResult(status -> {
-				memberOutboxEventRepository.findByStatusOrderByIdAsc(MemberOutboxStatus.PENDING, Limit.of(1));
+				entityManager.find(MemberOutboxEvent.class, firstId, LockModeType.PESSIMISTIC_WRITE);
 				locked.countDown();
 				await(release);
 			}));

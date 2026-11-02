@@ -197,9 +197,11 @@ class MemberOutboxAppendTest {
 
 		List<MemberOutboxEvent> rows = allRows();
 		assertThat(rows).extracting(MemberOutboxEvent::getTopic)
-			.containsExactly(KafkaTopics.MEMBER_MEMBER_JOINED, KafkaTopics.MEMBER_MODIFIED, KafkaTopics.MEMBER_WITHDRAWN);
+			.containsExactly(
+				KafkaTopics.MEMBER_MEMBER_JOINED, KafkaTopics.MEMBER_MODIFIED, KafkaTopics.MEMBER_WITHDRAWN);
 		MemberModifiedEvent modifiedBody = jsonConverter.fromJson(rows.get(1).getPayload(), MemberModifiedEvent.class);
-		MemberWithdrawnEvent withdrawnBody = jsonConverter.fromJson(rows.get(2).getPayload(), MemberWithdrawnEvent.class);
+		MemberWithdrawnEvent withdrawnBody =
+			jsonConverter.fromJson(rows.get(2).getPayload(), MemberWithdrawnEvent.class);
 		assertThat(modifiedBody.nickname()).isEqualTo(Member.WITHDRAWN_NICKNAME);
 		assertThat(withdrawnBody.eventId()).isEqualTo(rows.get(2).getEventId());
 		assertThat(withdrawnBody.id()).isEqualTo(joined.getId());
@@ -242,8 +244,8 @@ class MemberOutboxAppendTest {
 			List.of(TermsType.SERVICE, TermsType.PRIVACY, TermsType.MARKETING));
 		LocalDateTime changedAt = LocalDateTime.of(2026, 11, 2, 15, 0);
 
-		transactionTemplate.executeWithoutResult(status ->
-			memberRepository.findById(joined.getId()).orElseThrow().publishMarketingConsentChangedEvent(false, changedAt));
+		transactionTemplate.executeWithoutResult(status -> memberRepository.findById(joined.getId()).orElseThrow()
+			.publishMarketingConsentChangedEvent(false, changedAt));
 
 		MemberOutboxEvent row = allRows().get(1);
 		MarketingConsentChangedEvent body =
