@@ -45,7 +45,7 @@ import jakarta.persistence.EntityManager;
 /**
  * 원장 방식 정산의 금액 시나리오 (PRO-214 완료 기준 1)
  * 대회 A, 판매자 1명, 참가권 5만 원 × 10장(101~110). 1장의 1차 몫 20,000, 수수료 2,750, 최종 몫 47,250
- * 환불 기한 2026-10-31 토 → 1차 생성 11/1, 지급 11/2 월. 대회일 12/13 일 → 최종 생성 12/14, 지급 12/15 화
+ * 환불 기한 2026-10-31 토 → 1차 생성 11/1, 지급 11/20 금. 대회일 12/13 일 → 최종 생성 12/14, 지급 2027-01-20 수
  * 모든 시나리오에서 정산 내역마다 원장 줄 합 = 지급액(payout_amount)인지도 확인한다
  */
 @DataJpaTest
@@ -57,8 +57,8 @@ class PayoutLedgerScenarioTest {
 	private static final long PRICE = 50_000L;
 	private static final LocalDate REFUND_DEADLINE = LocalDate.of(2026, 10, 31);
 	private static final LocalDate RACE_DATE = LocalDate.of(2026, 12, 13);
-	private static final LocalDate FIRST_PAY_DATE = LocalDate.of(2026, 11, 2);
-	private static final LocalDate FINAL_PAY_DATE = LocalDate.of(2026, 12, 15);
+	private static final LocalDate FIRST_PAY_DATE = LocalDate.of(2026, 11, 20);
+	private static final LocalDate FINAL_PAY_DATE = LocalDate.of(2027, 1, 20);
 
 	@Autowired
 	private PayoutRepository payoutRepository;

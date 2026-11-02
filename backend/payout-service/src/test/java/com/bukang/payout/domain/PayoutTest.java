@@ -31,39 +31,38 @@ class PayoutTest {
 		return Payout.first(1, 10, "테스트 대회", refundDeadline, refundDeadline.plusDays(1).atTime(3, 0), CALENDAR);
 	}
 
-	// 2026-10-11 일 ~ 10-17 토. 마감일을 1일째로 세어 3일째(마감일 + 2일)에 지급한다. 주말이어도 그날 지급한다 (10/28 결정)
+	// 정산 월(환불 마감일의 달)의 다음 달 20일에 지급한다. 20일이 주말이어도 그날 지급한다 (11/2 결정, 날짜 규칙 통일)
+	// 2026년 20일: 6/20 토, 9/20 일, 10/20 화, 11/20 금, 12/20 일, 2027-01-20 수
 	@ParameterizedTest(name = "환불 마감일 {0} → {1} 지급")
 	@CsvSource({
-		"2026-10-11, 2026-10-13", // 일 → 화
-		"2026-10-12, 2026-10-14", // 월 → 수
-		"2026-10-13, 2026-10-15", // 화 → 목
-		"2026-10-14, 2026-10-16", // 수 → 금
-		"2026-10-15, 2026-10-17", // 목 → 토 (주말에도 지급)
-		"2026-10-16, 2026-10-18", // 금 → 일 (주말에도 지급)
-		"2026-10-17, 2026-10-19", // 토 → 월
-		"2026-10-30, 2026-11-01", // 달이 바뀌어도 마감일 + 2일이다. 정산 월은 마감일의 달(2026-10)
-		"2026-12-31, 2027-01-02" // 해가 바뀌어도 같다
+		"2026-10-11, 2026-11-20", // 10월 마감 → 11/20 금
+		"2026-10-01, 2026-11-20", // 달의 첫날이어도 다음 달 20일
+		"2026-10-31, 2026-11-20", // 달의 끝날이어도 정산 월은 마감일의 달(2026-10)
+		"2026-10-25, 2026-11-20", // 마감일이 20일 뒤여도 다음 달 20일
+		"2026-09-15, 2026-10-20", // 9월 마감 → 10/20 화
+		"2026-08-15, 2026-09-20", // TC-DAY-1-1 9/20 일요일에도 그날 지급
+		"2026-05-15, 2026-06-20", // TC-DAY-1-2 6/20 토요일에도 그날 지급
+		"2026-12-31, 2027-01-20" // 해가 바뀌어도 같다
 	})
-	@DisplayName("1차 정산의 지급 예정일은 환불 마감일 + 2일이고, 정산 월은 환불 마감일의 달이다")
-	void firstPayDateIsRefundDeadlinePlus2Days(LocalDate refundDeadline, LocalDate expectedPayDate) {
+	@DisplayName("1차 정산의 지급 예정일은 정산 월(환불 마감일의 달)의 다음 달 20일이고, 주말이어도 그날이다")
+	void firstPayDateIsTwentiethOfNextMonth(LocalDate refundDeadline, LocalDate expectedPayDate) {
 		Payout payout = firstPayout(refundDeadline);
 
 		assertThat(payout.getScheduledPayDate()).isEqualTo(expectedPayDate);
 		assertThat(payout.getPayoutMonth()).isEqualTo(YearMonth.from(refundDeadline).toString());
 	}
 
-	// 대회일을 1일째로 세어 3일째(대회일 + 2일)에 지급한다. 주말이어도 그날 지급한다 (10/28 결정)
+	// 최종도 정산 월(대회일의 달)의 다음 달 20일이다. 마감일과 대회일이 같은 달이면 1차와 같은 날 지급된다 (10/29 결정)
 	@ParameterizedTest(name = "대회일 {0} → {1} 지급")
 	@CsvSource({
-		"2026-10-18, 2026-10-20", // 일 → 화
-		"2026-10-17, 2026-10-19", // 토 → 월
-		"2026-10-16, 2026-10-18", // 금 → 일 (주말에도 지급)
-		"2026-10-15, 2026-10-17", // 목 → 토 (주말에도 지급)
-		"2026-10-12, 2026-10-14", // 월 → 수
-		"2026-10-31, 2026-11-02" // 달이 바뀌어도 대회일 + 2일이다. 정산 월은 대회일의 달(2026-10)
+		"2026-10-17, 2026-11-20", // 10월 대회 → 11/20 금
+		"2026-10-31, 2026-11-20", // 달의 끝날이어도 정산 월은 대회일의 달(2026-10)
+		"2026-11-01, 2026-12-20", // TC-DAY-1-3 11월 대회 → 12/20 일요일에도 그날 지급
+		"2026-08-25, 2026-09-20", // TC-DAY-1-4 9/20 일요일에도 그날 지급
+		"2026-12-20, 2027-01-20" // 해가 바뀌어도 같다
 	})
-	@DisplayName("최종 정산의 지급 예정일은 대회일 + 2일이고, 정산 월은 대회일의 달이다")
-	void finalPayDateIsRaceDatePlus2Days(LocalDate raceDate, LocalDate expectedPayDate) {
+	@DisplayName("최종 정산의 지급 예정일은 정산 월(대회일의 달)의 다음 달 20일이고, 주말이어도 그날이다")
+	void finalPayDateIsTwentiethOfNextMonth(LocalDate raceDate, LocalDate expectedPayDate) {
 		Payout payout = finalPayout(raceDate);
 
 		assertThat(payout.getScheduledPayDate()).isEqualTo(expectedPayDate);

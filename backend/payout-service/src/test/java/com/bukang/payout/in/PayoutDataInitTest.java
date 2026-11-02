@@ -7,6 +7,8 @@ import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.test.context.ActiveProfiles;
@@ -26,13 +28,14 @@ import jakarta.persistence.EntityManager;
 
 /**
  * dev 정산 샘플 데이터: 실행한 날 기준의 상대 날짜로 만들어, 언제 띄워도 지급 완료 · 지급 예정 · 보류 · 해제된 보류가 모두 보인다
- * 지급 예정일은 도메인 규칙(기준일 + 2일, 해제는 max(원래 지급 예정일, 해제일 + 1일))이 계산한 값이어야 한다
+ * 지급 예정일은 도메인 규칙(정산 월의 다음 달 20일, 주말이어도 그날. 해제는 max(원래 지급 예정일, 해제일 + 1일))이
+ * 계산한 값이어야 한다
  */
 @DataJpaTest
 @ActiveProfiles("test")
 class PayoutDataInitTest {
 	private static final long SELLER_ID = 7;
-	// 2026-10-28 수. 어느 날이어도 같은 상대 날짜가 나와야 하므로 특별한 날을 고르지 않았다
+	// 2026-10-28 수. 이번 달 지급일(10/20 화)이 지났으므로 최근 지급일의 달은 10월이다
 	private static final LocalDate TODAY = LocalDate.of(2026, 10, 28);
 
 	@Autowired
@@ -59,23 +62,21 @@ class PayoutDataInitTest {
 	}
 
 	@Test
-	@DisplayName("지급 완료 대회: 1차는 마감일(대회 70일 전) + 2일, 최종은 대회일(60일 전) + 2일 04:00에 지급 완료")
+	@DisplayName("지급 완료 대회: 석 달 전(7/12) 대회 · 마감(7/2) → 1차 · 최종 모두 다음 달 20일(8/20) 04:00에 지급 완료")
 	void paidRace() {
 		dataInit().makeSamplePayouts(TODAY);
 		flushAndClear();
 
-		Payout first = payout(1, PayoutStage.FIRST);
-		assertThat(first.getStatus()).isEqualTo(PayoutStatus.PAID);
-		assertThat(first.getScheduledPayDate()).isEqualTo(TODAY.minusDays(68));
-		assertThat(first.getPaidAt()).isEqualTo(TODAY.minusDays(68).atTime(4, 0));
-		Payout last = payout(1, PayoutStage.FINAL);
-		assertThat(last.getStatus()).isEqualTo(PayoutStatus.PAID);
-		assertThat(last.getScheduledPayDate()).isEqualTo(TODAY.minusDays(58));
-		assertThat(last.getPaidAt()).isEqualTo(TODAY.minusDays(58).atTime(4, 0));
+		for (PayoutStage stage : List.of(PayoutStage.FIRST, PayoutStage.FINAL)) {
+			Payout payout = payout(1, stage);
+			assertThat(payout.getStatus()).isEqualTo(PayoutStatus.PAID);
+			assertThat(payout.getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 8, 20));
+			assertThat(payout.getPaidAt()).isEqualTo(LocalDate.of(2026, 8, 20).atTime(4, 0));
+		}
 	}
 
 	@Test
-	@DisplayName("해제된 보류: 계좌 미등록으로 자동 보류된 1차 · 최종을 30일 전에 풀면 해제일 + 1일에 지급 완료")
+	@DisplayName("해제된 보류: 계좌 미등록으로 자동 보류된 1차 · 최종(9/21 지급 예정)을 9/24에 풀면 해제일 + 1일(9/25)에 지급 완료")
 	void releasedHolds() {
 		dataInit().makeSamplePayouts(TODAY);
 		flushAndClear();
@@ -83,8 +84,8 @@ class PayoutDataInitTest {
 		for (PayoutStage stage : List.of(PayoutStage.FIRST, PayoutStage.FINAL)) {
 			Payout payout = payout(6, stage);
 			assertThat(payout.getStatus()).isEqualTo(PayoutStatus.PAID);
-			assertThat(payout.getScheduledPayDate()).isEqualTo(TODAY.minusDays(29));
-			assertThat(payout.getPaidAt()).isEqualTo(TODAY.minusDays(29).atTime(4, 0));
+			assertThat(payout.getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 9, 25));
+			assertThat(payout.getPaidAt()).isEqualTo(LocalDate.of(2026, 9, 25).atTime(4, 0));
 		}
 		assertThat(payoutHoldRepository.findAll())
 			.filteredOn(hold -> hold.getStatus() == PayoutHoldStatus.RELEASED)
@@ -92,19 +93,21 @@ class PayoutDataInitTest {
 	}
 
 	@Test
-	@DisplayName("지급 예정: 어제 열린 대회의 최종과 어제 환불 마감한 대회의 1차가 내일 지급 예정이다 (1차는 이미 지급 완료)")
+	@DisplayName("지급 예정: 10/5 대회의 최종과 어제 환불 마감한 대회의 1차가 다음 달 20일(11/20) 지급 예정이다 (10/5 대회의 1차는 10/20에 지급 완료)")
 	void scheduledPayouts() {
 		dataInit().makeSamplePayouts(TODAY);
 		flushAndClear();
 
-		assertThat(payout(7, PayoutStage.FIRST).getStatus()).isEqualTo(PayoutStatus.PAID);
+		Payout nightRunFirst = payout(7, PayoutStage.FIRST);
+		assertThat(nightRunFirst.getStatus()).isEqualTo(PayoutStatus.PAID);
+		assertThat(nightRunFirst.getPaidAt()).isEqualTo(LocalDate.of(2026, 10, 20).atTime(4, 0));
 		Payout nightRunFinal = payout(7, PayoutStage.FINAL);
 		assertThat(nightRunFinal.getStatus()).isEqualTo(PayoutStatus.CALCULATED);
-		assertThat(nightRunFinal.getScheduledPayDate()).isEqualTo(TODAY.plusDays(1));
+		assertThat(nightRunFinal.getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 11, 20));
 
 		Payout forestFirst = payout(9, PayoutStage.FIRST);
 		assertThat(forestFirst.getStatus()).isEqualTo(PayoutStatus.CALCULATED);
-		assertThat(forestFirst.getScheduledPayDate()).isEqualTo(TODAY.plusDays(1));
+		assertThat(forestFirst.getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 11, 20));
 		// 대회 전이라 최종 정산 대상일이 오지 않았다
 		assertThat(payoutRepository.existsBySellerIdAndRaceIdAndPayoutStage(SELLER_ID, 9, PayoutStage.FINAL))
 			.isFalse();
@@ -125,18 +128,26 @@ class PayoutDataInitTest {
 			.satisfies(hold -> assertThat(hold.getHeldAt()).isBefore(held.getScheduledPayDate().atStartOfDay()));
 	}
 
-	@Test
-	@DisplayName("오늘 지급 배치가 돌아도 지급 예정 샘플은 지급되지 않는다 (띄운 직후 화면에서 지급 예정이 보인다)")
-	void todayPayBatchKeepsScheduled() {
-		dataInit().makeSamplePayouts(TODAY);
+	// 지급일이 20일로 모이므로 띄운 날이 지급일 전 · 지급일 당일 · 지급일 뒤 · 월초 · 20일이 주말인 달이어도 같아야 한다
+	// 2026-12-20은 일요일이지만 12월 지급일은 그대로 12/20이다 (주말이어도 그날)
+	@ParameterizedTest(name = "{0}에 띄움")
+	@ValueSource(strings = {"2026-10-01", "2026-10-19", "2026-10-20", "2026-10-28", "2026-12-20", "2026-12-21"})
+	@DisplayName("어느 날 띄워도 오늘 지급 배치가 지급 예정 샘플을 지급하지 않고, 지급 완료 샘플은 오늘 04:00까지 지급된 것이다")
+	void todayPayBatchKeepsScheduled(LocalDate today) {
+		dataInit().makeSamplePayouts(today);
 		flushAndClear();
 
 		new PayoutPayUseCase(new PayoutPayStepUseCase(payoutRepository), transfer -> {
-		}).run(TODAY, TODAY.atTime(4, 0));
+		}).run(today, today.atTime(4, 0));
 		flushAndClear();
 
 		assertThat(payout(7, PayoutStage.FINAL).getStatus()).isEqualTo(PayoutStatus.CALCULATED);
 		assertThat(payout(9, PayoutStage.FIRST).getStatus()).isEqualTo(PayoutStatus.CALCULATED);
+		assertThat(payout(8, PayoutStage.FINAL).getStatus()).isEqualTo(PayoutStatus.HELD);
+		assertThat(payoutRepository.findAll())
+			.filteredOn(payout -> payout.getStatus() == PayoutStatus.PAID)
+			.hasSize(6)
+			.allSatisfy(payout -> assertThat(payout.getPaidAt()).isBeforeOrEqualTo(today.atTime(4, 0)));
 	}
 
 	@Test
