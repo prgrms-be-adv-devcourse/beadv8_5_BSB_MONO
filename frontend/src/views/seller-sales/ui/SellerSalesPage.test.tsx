@@ -91,7 +91,7 @@ describe('SellerSalesPage', () => {
     expect(await screen.findByText('등록한 대회가 없어요')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '대회 등록' })).toHaveAttribute(
       'href',
-      '/seller/races/new',
+      '/seller/races/new?from=sales',
     )
   })
 })

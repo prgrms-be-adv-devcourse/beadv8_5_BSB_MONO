@@ -17,6 +17,7 @@ import com.bukang.order.domain.event.OrderRaceCanceledEvent;
 import com.bukang.order.domain.exception.KitNotShippableException;
 import com.bukang.order.domain.exception.OrderItemNotFoundException;
 import com.bukang.order.domain.exception.OrderNotPayableException;
+import com.bukang.order.dto.AdminOrderSummaryDto;
 import com.bukang.order.dto.OrderDto;
 import com.bukang.order.dto.OrderItemDto;
 import com.bukang.order.dto.OrderSummaryDto;
@@ -53,7 +54,9 @@ import lombok.NoArgsConstructor;
 		// 결제 기한이 지난 결제 대기 주문 찾기 (만료 정리 배치, PRO-42)
 		@Index(name = "idx_order_due", columnList = "status, payment_due_at"),
 		// 취소된 대회의 주문 찾기 (일괄 환불, PRO-135)
-		@Index(name = "idx_order_race", columnList = "race_id, id")
+		@Index(name = "idx_order_race", columnList = "race_id, id"),
+		// 관리자 주문번호 검색 (BUK-26). 주문 ID 아래 16비트로 만들어 유일하다고 보장하지 않으므로 unique는 걸지 않는다
+		@Index(name = "idx_order_no", columnList = "order_no")
 	}
 )
 public class Order extends BaseIdAndTime {
@@ -320,6 +323,11 @@ public class Order extends BaseIdAndTime {
 	// 주문 상품 하나의 응답 (판매자 키트 발송·배송 완료)
 	public OrderItemDto toItemDto(OrderItem item) {
 		return item.toDto(null, findKitShipment(item));
+	}
+
+	public AdminOrderSummaryDto toAdminSummaryDto() {
+		return new AdminOrderSummaryDto(getId(), orderNo, buyerId, getCreateDate(), items.getFirst().getItemName(),
+			items.size(), totalAmount, canceledAmount, status, status.getLabel(), paidAt);
 	}
 
 	public OrderSummaryDto toSummaryDto() {
