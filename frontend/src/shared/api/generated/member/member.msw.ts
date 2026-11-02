@@ -486,6 +486,36 @@ export const getStartIdentityVerificationMockHandler = (overrideResponse?: RsDat
       })
   }, options)
 }
+
+export const getVerifyPasswordResetMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
+  return http.post('*/api/v1/auth/password-reset/verify', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+
+    return new HttpResponse(null,
+      { status: 200
+      })
+  }, options)
+}
+
+export const getRequestPasswordResetMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
+  return http.post('*/api/v1/auth/password-reset/request', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+
+    return new HttpResponse(null,
+      { status: 200
+      })
+  }, options)
+}
+
+export const getConfirmPasswordResetMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
+  return http.post('*/api/v1/auth/password-reset/confirm', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+
+    return new HttpResponse(null,
+      { status: 200
+      })
+  }, options)
+}
 export const getBukangMemberAPIMock = () => [
   getVerifyIdentityWithMockPassMockHandler(),
   getFindMeMockHandler(),
@@ -521,5 +551,8 @@ export const getBukangMemberAPIMock = () => [
   getRemoveCrewMemberMockHandler(),
   getTransferCrewLeaderMockHandler(),
   getCompleteIdentityVerificationMockHandler(),
-  getStartIdentityVerificationMockHandler()
+  getStartIdentityVerificationMockHandler(),
+  getVerifyPasswordResetMockHandler(),
+  getRequestPasswordResetMockHandler(),
+  getConfirmPasswordResetMockHandler()
 ]
