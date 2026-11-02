@@ -272,6 +272,33 @@ describe('PasswordNewPage', () => {
     expect(screen.queryByLabelText('새 비밀번호')).not.toBeInTheDocument()
   })
 
+  it('링크 확인이 서버 오류로 실패하면 만료 안내 대신 다시 시도를 보여 주고, 같은 토큰으로 다시 확인한다', async () => {
+    const user = userEvent.setup()
+    const sent: unknown[] = []
+    let fail = true
+    server.use(
+      http.post('*/api/v1/auth/password-reset/verify', async ({ request }) => {
+        sent.push(await request.json())
+        if (fail) {
+          return HttpResponse.json(
+            { status: 500, code: 'INTERNAL_ERROR', message: '오류', data: null },
+            { status: 500 },
+          )
+        }
+        return HttpResponse.json({ status: 200, message: 'ok', data: null })
+      }),
+    )
+    openResetLink('link-token')
+
+    expect(await screen.findByText('링크를 확인하지 못했어요')).toBeInTheDocument()
+    expect(screen.queryByText('링크를 쓸 수 없어요')).not.toBeInTheDocument()
+    fail = false
+    await user.click(screen.getByRole('button', { name: '다시 시도' }))
+
+    expect(await screen.findByLabelText('새 비밀번호')).toBeInTheDocument()
+    expect(sent).toEqual([{ token: 'link-token' }, { token: 'link-token' }])
+  })
+
   it('주소에 토큰이 없으면 다시 받기 안내를 보여 준다', async () => {
     window.history.replaceState(null, '', '/password-reset/new')
     render(withQueryClient(<PasswordNewPage />))
