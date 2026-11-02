@@ -14,10 +14,11 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.bukang.member.app.MemberFacade;
+import com.bukang.member.app.MemberJoinUseCase;
 import com.bukang.member.domain.Member;
 import com.bukang.member.domain.TermsType;
-import com.bukang.member.dto.MemberJoinRequestDto;
 import com.bukang.member.out.MemberRepository;
+import com.bukang.member.out.identity.VerifiedIdentity;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -39,17 +40,20 @@ public class MemberDataInit {
 
 	private final MemberDataInit self;
 	private final MemberFacade memberFacade;
+	private final MemberJoinUseCase memberJoinUseCase;
 	private final MemberRepository memberRepository;
 	private final JdbcTemplate jdbcTemplate;
 
 	public MemberDataInit(
 		@Lazy MemberDataInit self,
 		MemberFacade memberFacade,
+		MemberJoinUseCase memberJoinUseCase,
 		MemberRepository memberRepository,
 		JdbcTemplate jdbcTemplate
 	) {
 		this.self = self;
 		this.memberFacade = memberFacade;
+		this.memberJoinUseCase = memberJoinUseCase;
 		this.memberRepository = memberRepository;
 		this.jdbcTemplate = jdbcTemplate;
 	}
@@ -106,10 +110,10 @@ public class MemberDataInit {
 			return;
 		}
 
-		memberFacade.join(new MemberJoinRequestDto(
-			email, BASE_PASSWORD, name, nickname, phone, BASE_BIRTH_DATE, null,
-			List.of(TermsType.SERVICE, TermsType.PRIVACY)
-		));
+		// 개발용 회원은 본인인증을 거치지 않는다. CI 해시 · 인증 시각이 비어 있어 1인 1계정 검사에 걸리지 않는다
+		VerifiedIdentity identity = new VerifiedIdentity(name, BASE_BIRTH_DATE, phone, null, null);
+		memberJoinUseCase.join(email, BASE_PASSWORD, nickname, null, List.of(TermsType.SERVICE, TermsType.PRIVACY),
+			identity);
 		log.info("기본 회원 생성: {}", email);
 	}
 }

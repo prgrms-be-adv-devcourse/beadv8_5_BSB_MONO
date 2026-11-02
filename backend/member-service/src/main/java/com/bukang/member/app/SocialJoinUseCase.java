@@ -17,6 +17,7 @@ import com.bukang.member.dto.MemberLoginResult;
 import com.bukang.member.dto.SocialJoinRequestDto;
 import com.bukang.member.dto.SocialSignupInfoDto;
 import com.bukang.member.out.SocialAccountRepository;
+import com.bukang.member.out.identity.VerifiedIdentity;
 import com.bukang.member.out.oauth2.PendingSignup;
 import com.bukang.member.out.oauth2.SocialLoginStore;
 
@@ -34,6 +35,7 @@ public class SocialJoinUseCase {
 	static final String PHONE_TAKEN_MESSAGE = "이 휴대폰 번호로 가입한 계정이 있습니다. 원래 쓰던 방법으로 로그인한 뒤 계정 연결에서 연결해주세요.";
 
 	private final MemberJoinUseCase memberJoinUseCase;
+	private final IdentityVerificationUseCase identityVerificationUseCase;
 	private final SocialAccountRepository socialAccountRepository;
 	private final SocialLoginStore socialLoginStore;
 	private final TokenIssueUseCase tokenIssueUseCase;
@@ -58,16 +60,19 @@ public class SocialJoinUseCase {
 			throw new SocialAccountAlreadyLinkedException(ALREADY_LINKED_MESSAGE);
 		}
 
+		// 이름 · 휴대폰 번호 · 생년월일은 본인인증으로 확인한 값만 쓴다 (BUK-33)
+		VerifiedIdentity identity = identityVerificationUseCase.takeForJoin(request.getVerificationToken());
+
 		// 휴대폰 번호는 회원마다 하나라서, 겹치면 이미 가입한 사람이 다른 이메일의 소셜 계정으로 온 것이다
 		// 닉네임 중복보다 먼저 확인해야 새 닉네임을 고르게 하지 않고 계정 연결로 안내할 수 있다
-		if (memberJoinUseCase.isPhoneTaken(request.getPhone())) {
+		if (memberJoinUseCase.isPhoneTaken(identity.phone())) {
 			throw new SocialPhoneTakenException(PHONE_TAKEN_MESSAGE);
 		}
 
 		Member member;
 		try {
-			member = memberJoinUseCase.joinSocial(email, request.getName(), request.getNickname(),
-				request.getPhone(), request.getBirthDate(), request.getGender(), request.getAgreedTerms());
+			member = memberJoinUseCase.joinSocial(email, request.getNickname(), request.getGender(),
+				request.getAgreedTerms(), identity);
 		} catch (DuplicatePhoneException exception) {
 			// 위 확인과 저장 사이에 같은 번호로 먼저 가입한 경우
 			throw new SocialPhoneTakenException(PHONE_TAKEN_MESSAGE);

@@ -20,6 +20,7 @@ import com.bukang.member.dto.MemberLoginRequestDto;
 import com.bukang.member.dto.MemberLoginResult;
 import com.bukang.member.dto.MemberModifyRequestDto;
 import com.bukang.member.out.MemberRepository;
+import com.bukang.member.out.identity.VerifiedIdentity;
 
 import lombok.RequiredArgsConstructor;
 
@@ -28,6 +29,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class MemberFacade {
 	private final MemberJoinUseCase memberJoinUseCase;
+	private final IdentityVerificationUseCase identityVerificationUseCase;
 	private final MemberModifyUseCase memberModifyUseCase;
 	private final MemberWithdrawUseCase memberWithdrawUseCase;
 	private final MemberRepository memberRepository;
@@ -39,15 +41,14 @@ public class MemberFacade {
 
 	@Transactional
 	public MemberDto join(MemberJoinRequestDto memberJoinDto) {
+		VerifiedIdentity identity = identityVerificationUseCase.takeForJoin(memberJoinDto.getVerificationToken());
 		return memberJoinUseCase.join(
 			memberJoinDto.getEmail(),
 			memberJoinDto.getPassword(),
-			memberJoinDto.getName(),
 			memberJoinDto.getNickname(),
-			memberJoinDto.getPhone(),
-			memberJoinDto.getBirthDate(),
 			memberJoinDto.getGender(),
-			memberJoinDto.getAgreedTerms()
+			memberJoinDto.getAgreedTerms(),
+			identity
 		).toDto();
 	}
 

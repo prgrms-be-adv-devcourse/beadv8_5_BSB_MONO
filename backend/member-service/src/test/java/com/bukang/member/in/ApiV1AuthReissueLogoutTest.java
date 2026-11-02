@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
@@ -35,7 +36,6 @@ import com.bukang.jwt.JwtProvider;
 import com.bukang.jwt.TokenType;
 import com.bukang.member.app.MemberFacade;
 import com.bukang.member.domain.TermsType;
-import com.bukang.member.dto.MemberJoinRequestDto;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.RefreshTokenRepository;
 import com.bukang.member.out.RefreshTokenRepository.NewFamily;
@@ -43,6 +43,7 @@ import com.bukang.member.out.RefreshTokenRepository.Rotation;
 import com.bukang.member.out.RotationOutcome;
 import com.bukang.member.out.RotationResult;
 import com.bukang.member.out.TermsAgreementRepository;
+import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
 import com.jayway.jsonpath.JsonPath;
 
 import jakarta.servlet.http.Cookie;
@@ -52,7 +53,11 @@ import jakarta.servlet.http.Cookie;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@Import(InMemoryIdentityVerificationStore.Config.class)
 class ApiV1AuthReissueLogoutTest {
+	@Autowired
+	private InMemoryIdentityVerificationStore identityStore;
+
 	private static final String EMAIL = "runner1@crewrun.com";
 	private static final String PASSWORD = "password1234";
 	private static final String INVALID_MESSAGE = "유효하지 않은 Refresh Token입니다. 다시 로그인해주세요.";
@@ -93,7 +98,7 @@ class ApiV1AuthReissueLogoutTest {
 		willAnswer(invocation -> deleteIfFamily(invocation.getArgument(0), invocation.getArgument(1)))
 			.given(refreshTokenRepository).deleteIfFamily(anyLong(), anyString());
 
-		memberId = memberFacade.join(new MemberJoinRequestDto(
+		memberId = memberFacade.join(identityStore.joinRequest(
 			EMAIL, PASSWORD, "김러너", "러너1", "010-1234-5678", LocalDate.of(1995, 4, 12), null,
 			List.of(TermsType.SERVICE, TermsType.PRIVACY)
 		)).getId();

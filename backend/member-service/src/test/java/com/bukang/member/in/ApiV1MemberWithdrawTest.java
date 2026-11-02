@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -51,7 +52,6 @@ import com.bukang.member.domain.MemberStatus;
 import com.bukang.member.domain.Seller;
 import com.bukang.member.domain.TermsType;
 import com.bukang.member.domain.exception.WithdrawCheckFailedException;
-import com.bukang.member.dto.MemberJoinRequestDto;
 import com.bukang.member.dto.SellerApplyRequestDto;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.RefreshTokenRepository;
@@ -59,6 +59,7 @@ import com.bukang.member.out.SellerRepository;
 import com.bukang.member.out.TermsAgreementRepository;
 import com.bukang.member.out.cash.CashBalancePort;
 import com.bukang.member.out.cash.HttpCashBalanceAdapter;
+import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
 import com.bukang.member.out.order.ActiveTicketPort;
 import com.bukang.member.out.order.HttpActiveTicketAdapter;
 
@@ -68,7 +69,11 @@ import com.bukang.member.out.order.HttpActiveTicketAdapter;
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @RecordApplicationEvents
+@Import(InMemoryIdentityVerificationStore.Config.class)
 class ApiV1MemberWithdrawTest {
+	@Autowired
+	private InMemoryIdentityVerificationStore identityStore;
+
 	private static final String ME = "/api/v1/member/members/me";
 	private static final String EMAIL = "runner1@crewrun.com";
 	private static final String PASSWORD = "password1234";
@@ -315,7 +320,7 @@ class ApiV1MemberWithdrawTest {
 	}
 
 	private long join(String email, String nickname, String phone) {
-		return memberFacade.join(new MemberJoinRequestDto(
+		return memberFacade.join(identityStore.joinRequest(
 			email, PASSWORD, "김러너", nickname, phone, LocalDate.of(1995, 4, 12), Gender.FEMALE,
 			List.of(TermsType.SERVICE, TermsType.PRIVACY)
 		)).getId();

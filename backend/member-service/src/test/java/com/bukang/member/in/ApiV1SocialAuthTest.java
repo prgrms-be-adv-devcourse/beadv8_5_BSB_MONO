@@ -42,12 +42,12 @@ import com.bukang.member.domain.Member;
 import com.bukang.member.domain.SocialProvider;
 import com.bukang.member.domain.TermsType;
 import com.bukang.member.domain.exception.SocialLoginFailedException;
-import com.bukang.member.dto.MemberJoinRequestDto;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.RefreshTokenRepository;
 import com.bukang.member.out.RefreshTokenRepository.NewFamily;
 import com.bukang.member.out.SocialAccountRepository;
 import com.bukang.member.out.TermsAgreementRepository;
+import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
 import com.bukang.member.out.oauth2.InMemorySocialLoginStore;
 import com.bukang.member.out.oauth2.SocialIdentity;
 import com.bukang.member.out.oauth2.SocialOAuth2Client;
@@ -60,8 +60,11 @@ import jakarta.servlet.http.Cookie;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Import(InMemorySocialLoginStore.Config.class)
+@Import({InMemorySocialLoginStore.Config.class, InMemoryIdentityVerificationStore.Config.class})
 class ApiV1SocialAuthTest {
+	@Autowired
+	private InMemoryIdentityVerificationStore identityStore;
+
 	private static final String STATE = "state-1";
 	private static final String KAKAO_USER = "4000000001";
 
@@ -341,7 +344,7 @@ class ApiV1SocialAuthTest {
 	}
 
 	private void joinEmailMember(String email) {
-		memberFacade.join(new MemberJoinRequestDto(email, "password1234", "김러너", "러너1", "010-1234-5678",
+		memberFacade.join(identityStore.joinRequest(email, "password1234", "김러너", "러너1", "010-1234-5678",
 			LocalDate.of(1995, 4, 12), null, List.of(TermsType.SERVICE, TermsType.PRIVACY)));
 	}
 
@@ -361,14 +364,16 @@ class ApiV1SocialAuthTest {
 			.cookie(new Cookie("oauth2Request", requestId)));
 	}
 
+	// 이름 · 휴대폰 번호 · 생년월일은 본인인증 결과로 넣는다 (같은 번호면 같은 사람으로 본다)
 	private ResultActions join(String pendingId, String email) throws Exception {
 		String emailJson = email == null ? "null" : "\"" + email + "\"";
+		String token = identityStore.verify("김소셜", LocalDate.of(1995, 4, 12), "010-9876-5432");
 		return mockMvc.perform(post("/api/v1/auth/oauth2/join")
 			.cookie(new Cookie("oauth2Signup", pendingId))
 			.contentType(MediaType.APPLICATION_JSON)
 			.content("""
-				{ "email": %s, "name": "김소셜", "nickname": "소셜러너", "phone": "010-9876-5432",
-					"birthDate": "1995-04-12", "agreedTerms": ["SERVICE", "PRIVACY"] }
-				""".formatted(emailJson)));
+				{ "email": %s, "nickname": "소셜러너", "agreedTerms": ["SERVICE", "PRIVACY"],
+					"verificationToken": "%s" }
+				""".formatted(emailJson, token)));
 	}
 }

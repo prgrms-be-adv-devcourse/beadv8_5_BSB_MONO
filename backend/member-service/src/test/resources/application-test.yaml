@@ -55,3 +55,8 @@ logging:
     org.hibernate.SQL: debug
     # 바인딩 값까지 확인해야 할 때만 켠다 (테스트 로그가 많아짐)
     # org.hibernate.orm.jdbc.bind: trace
+
+# 본인인증 (BUK-33). 테스트는 포트원을 부르지 않고 PortOneIdentityClient를 목으로 바꾼다
+member:
+  identity:
+    ci-hash-key: identity-ci-hash-test-key

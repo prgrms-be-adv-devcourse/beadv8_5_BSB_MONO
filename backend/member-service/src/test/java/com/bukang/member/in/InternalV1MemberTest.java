@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
@@ -24,18 +25,22 @@ import com.bukang.member.app.MemberFacade;
 import com.bukang.member.app.SellerFacade;
 import com.bukang.member.domain.Member;
 import com.bukang.member.domain.TermsType;
-import com.bukang.member.dto.MemberJoinRequestDto;
 import com.bukang.member.dto.SellerApplyRequestDto;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.SellerRepository;
 import com.bukang.member.out.TermsAgreementRepository;
+import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
 
 // 정산 서비스가 부르는 회원 내부 API: 회원 ID로 판매자 ID 찾기, 관리자 여부 조회
 // 회원 ID와 판매자 ID가 같은 번호가 되지 않게, 판매자 신청을 한 번 더 만들어 번호를 어긋나게 둔다
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@Import(InMemoryIdentityVerificationStore.Config.class)
 class InternalV1MemberTest {
+	@Autowired
+	private InMemoryIdentityVerificationStore identityStore;
+
 	private static final String SELLER_OF_MEMBER = "/internal/v1/member/members/{memberId}/seller";
 	private static final String ADMIN_OF_MEMBER = "/internal/v1/member/members/{memberId}/admin";
 
@@ -193,7 +198,7 @@ class InternalV1MemberTest {
 	}
 
 	private long join(String email, String nickname, String phone) {
-		return memberFacade.join(new MemberJoinRequestDto(
+		return memberFacade.join(identityStore.joinRequest(
 			email, "password1234", "김러너", nickname, phone, LocalDate.of(1995, 4, 12), null,
 			List.of(TermsType.SERVICE, TermsType.PRIVACY)
 		)).getId();

@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.event.ApplicationEvents;
@@ -33,18 +34,22 @@ import com.bukang.member.app.SellerFacade;
 import com.bukang.member.domain.Member;
 import com.bukang.member.domain.Seller;
 import com.bukang.member.domain.TermsType;
-import com.bukang.member.dto.MemberJoinRequestDto;
 import com.bukang.member.dto.SellerApplyRequestDto;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.SellerRepository;
 import com.bukang.member.out.TermsAgreementRepository;
+import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
 
 // 판매자 등록 신청과 내 신청 조회 (BE-020). X-Member-Id 헤더는 테스트에서 직접 넣는다
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @RecordApplicationEvents
+@Import(InMemoryIdentityVerificationStore.Config.class)
 class ApiV1SellerTest {
+	@Autowired
+	private InMemoryIdentityVerificationStore identityStore;
+
 	private static final String SELLERS = "/api/v1/member/sellers";
 	private static final String MY_SELLER = "/api/v1/member/sellers/me";
 	private static final String RESULT_CHECK = "/api/v1/member/sellers/me/result-check";
@@ -351,7 +356,7 @@ class ApiV1SellerTest {
 	}
 
 	private long join(String email, String nickname, String phone) {
-		return memberFacade.join(new MemberJoinRequestDto(
+		return memberFacade.join(identityStore.joinRequest(
 			email, "password1234", "김러너", nickname, phone, LocalDate.of(1995, 4, 12), null,
 			List.of(TermsType.SERVICE, TermsType.PRIVACY)
 		)).getId();

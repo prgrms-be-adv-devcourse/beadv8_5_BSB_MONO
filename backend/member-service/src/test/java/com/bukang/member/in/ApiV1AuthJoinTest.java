@@ -9,9 +9,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -21,6 +23,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
@@ -28,17 +31,22 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
 import com.bukang.member.app.MemberFacade;
+import com.bukang.member.domain.Member;
 import com.bukang.member.domain.TermsAgreement;
 import com.bukang.member.domain.TermsType;
-import com.bukang.member.dto.MemberJoinRequestDto;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.TermsAgreementRepository;
 import com.bukang.member.out.TermsRepository;
+import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@Import(InMemoryIdentityVerificationStore.Config.class)
 class ApiV1AuthJoinTest {
+	@Autowired
+	private InMemoryIdentityVerificationStore identityStore;
+
 	private static final String EMAIL = "runner1@crewrun.com";
 	private static final String PASSWORD = "password1234";
 	private static final String NICKNAME = "러너1";
@@ -128,22 +136,6 @@ class ApiV1AuthJoinTest {
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
 			.andExpect(jsonPath("$.message").value("이메일은 255자 이하로 작성해주세요."));
-	}
-
-	@Test
-	@DisplayName("이름이 255자면 가입할 수 있다")
-	void joinSucceedsWithNameOfMaxLength() throws Exception {
-		joinWith(EMAIL, PASSWORD, "가".repeat(255), NICKNAME, PHONE)
-			.andExpect(status().isCreated());
-	}
-
-	@Test
-	@DisplayName("이름이 255자를 넘으면 400이다")
-	void joinFailsWithTooLongName() throws Exception {
-		joinWith(EMAIL, PASSWORD, "가".repeat(256), NICKNAME, PHONE)
-			.andExpect(status().isBadRequest())
-			.andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
-			.andExpect(jsonPath("$.message").value("이름은 255자 이하로 작성해주세요."));
 	}
 
 	// 영문 72자, 한글 24자(3바이트씩), 섞어서 72바이트
@@ -241,6 +233,70 @@ class ApiV1AuthJoinTest {
 	}
 
 	@Test
+	@DisplayName("본인인증으로 확인한 이름 · 생년월일 · 휴대폰 번호로 가입하고, CI 해시와 인증 시각을 남긴다")
+	void joinUsesVerifiedIdentity() throws Exception {
+		String token = identityStore.verify("박인증", LocalDate.of(1990, 1, 2), "010-5555-6666", "ci-hash-park");
+
+		joinWithToken(EMAIL, PASSWORD, NICKNAME, token, DEFAULT_AGREED_TERMS)
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.data.name").value("박인증"))
+			.andExpect(jsonPath("$.data.phone").value("010-5555-6666"))
+			.andExpect(jsonPath("$.data.birthDate").value("1990-01-02"));
+
+		Member member = memberRepository.findByEmail(EMAIL).orElseThrow();
+		assertThat(member.getCiHash()).isEqualTo("ci-hash-park");
+		assertThat(member.getVerifiedAt()).isNotNull();
+		// 가입이 커밋되면 인증 결과를 지워 같은 토큰으로 두 번 가입할 수 없다
+		assertThat(identityStore.findVerified(token)).isEmpty();
+	}
+
+	@Test
+	@DisplayName("본인인증 토큰이 없으면 400 INVALID_REQUEST, 저장소에 없으면 400 AUTH_VERIFICATION_REQUIRED다")
+	void joinFailsWithoutVerification() throws Exception {
+		mockMvc.perform(post("/api/v1/auth/join")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{ "email": "%s", "password": "%s", "nickname": "%s", %s }
+					""".formatted(EMAIL, PASSWORD, NICKNAME, DEFAULT_AGREED_TERMS)))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+			.andExpect(jsonPath("$.message").value("본인인증을 해주세요."));
+
+		joinWithToken(EMAIL, PASSWORD, NICKNAME, "crewrun-iv-expired", DEFAULT_AGREED_TERMS)
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("AUTH_VERIFICATION_REQUIRED"));
+		assertThat(memberRepository.count()).isZero();
+	}
+
+	@Test
+	@DisplayName("같은 사람(CI 해시)이 다른 이메일 · 번호로 다시 가입하면 409 MEMBER_DUPLICATE_IDENTITY다")
+	void joinFailsWithSameIdentity() throws Exception {
+		String first = identityStore.verify("김러너", LocalDate.of(1995, 4, 12), PHONE, "same-ci");
+		joinWithToken(EMAIL, PASSWORD, NICKNAME, first, DEFAULT_AGREED_TERMS)
+			.andExpect(status().isCreated());
+
+		String second = identityStore.verify("김러너", LocalDate.of(1995, 4, 12), "010-9999-8888", "same-ci");
+		joinWithToken("runner2@crewrun.com", PASSWORD, "러너2", second, DEFAULT_AGREED_TERMS)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("MEMBER_DUPLICATE_IDENTITY"));
+	}
+
+	@Test
+	@DisplayName("탈퇴한 회원과 같은 사람(CI 해시)은 다시 가입할 수 있다")
+	void joinAllowedAfterWithdrawal() throws Exception {
+		String first = identityStore.verify("김러너", LocalDate.of(1995, 4, 12), PHONE, "same-ci");
+		joinWithToken(EMAIL, PASSWORD, NICKNAME, first, DEFAULT_AGREED_TERMS)
+			.andExpect(status().isCreated());
+		Member withdrawn = memberRepository.findByEmail(EMAIL).orElseThrow();
+		withdrawn.withdraw(LocalDateTime.now());
+		memberRepository.saveAndFlush(withdrawn);
+
+		String again = identityStore.verify("김러너", LocalDate.of(1995, 4, 12), PHONE, "same-ci");
+		joinWithToken(EMAIL, PASSWORD, NICKNAME, again, DEFAULT_AGREED_TERMS)
+			.andExpect(status().isCreated());
+	}
+
+	@Test
 	@DisplayName("필수 약관만 동의하면 201이고, 현재 약관 3개에 대해 동의 기록이 남으며 마케팅은 미동의다")
 	void joinRecordsAgreementPerTerms() throws Exception {
 		join(EMAIL, NICKNAME, PHONE, "\"agreedTerms\": [\"SERVICE\", \"PRIVACY\"]")
@@ -325,7 +381,7 @@ class ApiV1AuthJoinTest {
 	}
 
 	private void joinDirectly(String email, String nickname, String phone) {
-		memberFacade.join(new MemberJoinRequestDto(
+		memberFacade.join(identityStore.joinRequest(
 			email, "password1234", "김러너", nickname, phone, LocalDate.of(1995, 4, 12), null,
 			List.of(TermsType.SERVICE, TermsType.PRIVACY)
 		));
@@ -352,7 +408,14 @@ class ApiV1AuthJoinTest {
 		return joinWith(email, password, name, nickname, phone, DEFAULT_AGREED_TERMS);
 	}
 
+	// 이름 · 휴대폰 번호 · 생년월일은 본인인증 결과로 넣는다. CI 해시는 매번 달라 같은 사람 검사에는 걸리지 않는다
 	private ResultActions joinWith(String email, String password, String name, String nickname, String phone,
+		String agreedTermsField) throws Exception {
+		String token = identityStore.verify(name, LocalDate.of(1995, 4, 12), phone, "ci-" + UUID.randomUUID());
+		return joinWithToken(email, password, nickname, token, agreedTermsField);
+	}
+
+	private ResultActions joinWithToken(String email, String password, String nickname, String token,
 		String agreedTermsField) throws Exception {
 		String extraField = agreedTermsField.isEmpty() ? "" : ", " + agreedTermsField;
 		return mockMvc.perform(post("/api/v1/auth/join")
@@ -361,11 +424,9 @@ class ApiV1AuthJoinTest {
 				{
 					"email": "%s",
 					"password": "%s",
-					"name": "%s",
 					"nickname": "%s",
-					"phone": "%s",
-					"birthDate": "1995-04-12"%s
+					"verificationToken": "%s"%s
 				}
-				""".formatted(email, password, name, nickname, phone, extraField)));
+				""".formatted(email, password, nickname, token, extraField)));
 	}
 }
