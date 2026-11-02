@@ -41,7 +41,7 @@ public class ApiV1IdentityVerificationController {
 			useReturnTypeSchema = true,
 			content = @Content(examples = @ExampleObject(value = IdentityVerificationApiExamples.START_SUCCESS)))
 	})
-	public ResponseEntity<RsData<IdentityVerificationStartDto>> start() {
+	public ResponseEntity<RsData<IdentityVerificationStartDto>> startIdentityVerification() {
 		IdentityVerificationStartDto data = new IdentityVerificationStartDto(identityVerificationUseCase.start());
 		return ResponseEntity.status(HttpStatus.CREATED)
 			.body(RsData.of(HttpStatus.CREATED, "본인인증을 시작했습니다.", data));
@@ -65,7 +65,7 @@ public class ApiV1IdentityVerificationController {
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = IdentityVerificationApiExamples.UNAVAILABLE)))
 	})
-	public ResponseEntity<RsData<VerifiedIdentityDto>> complete(
+	public ResponseEntity<RsData<VerifiedIdentityDto>> completeIdentityVerification(
 		@Parameter(description = "본인인증 시작에서 받은 인증 ID", example = "crewrun-iv-6f1c2b9e-3a5d-4c7e-9b1a-2d8f0e4c6a71")
 		@PathVariable String identityVerificationId
 	) {
