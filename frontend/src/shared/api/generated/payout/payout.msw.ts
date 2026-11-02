@@ -35,16 +35,6 @@ export const getItemsResponseMock = (): RsDataPayoutItemPageDto => ({"status":20
 export const getHoldsResponseMock = (): RsDataListSellerPayoutHoldDto => ({"status":200,"message":"지급보류 내역을 조회했습니다.","data":[{"id":1,"holdCode":"HD-20261012-0001","payoutId":1,"payoutCode":"ST-20260926-0001","raceId":10,"raceName":"2026 한강 나이트런","payoutAmount":94500,"reasonType":"ACCOUNT_NOT_REGISTERED","reason":"정산 계좌 등록 요청 중","status":"HELD","heldAt":"2026-10-12T10:00:00","releasedAt":null}]})
 
 
-export const getCompleteMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
-  return http.post('*/api/v1/payout/recoveries/:recoveryId/complete', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
-  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
-
-    return new HttpResponse(null,
-      { status: 200
-      })
-  }, options)
-}
-
 export const getHoldMockHandler = (overrideResponse?: RsDataPayoutHoldDto | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<RsDataPayoutHoldDto> | RsDataPayoutHoldDto), options?: RequestHandlerOptions) => {
   return http.post('*/api/v1/payout/payouts/:payoutId/holds', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
 
@@ -127,7 +117,6 @@ export const getHoldsMockHandler = (overrideResponse?: RsDataListSellerPayoutHol
   }, options)
 }
 export const getBukangPayoutAPIMock = () => [
-  getCompleteMockHandler(),
   getHoldMockHandler(),
   getReleaseMockHandler(),
   getRefundEligibilityMockHandler(),

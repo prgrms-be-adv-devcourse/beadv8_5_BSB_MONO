@@ -158,6 +158,9 @@ backend/
   규칙과 다른 기존 테이블(상품의 `race`, `race_course`, `participation_hold`)은 서비스별로 DB를 나눌 때(최종, Flyway) 맞춥니다.
   테이블 이름을 바꿀 때는 Flyway가 없는 서비스라면 배포 전에 서버 DB에서 `RENAME TABLE`을 먼저 실행합니다.
   compose가 `ddl-auto: update`로 띄워서, 이름만 바꿔 배포하면 빈 새 테이블이 생기고 기존 데이터는 옛 테이블에 남습니다.
+- Flyway 서비스(`member-service`, `payout-service`)는 엔티티를 고치면 같은 커밋에 `src/main/resources/db/migration/V<날짜시각>__설명.sql`을 더합니다.
+  이미 돈 SQL 파일은 고치지 않습니다. dev·prod가 `ddl-auto: validate`라 SQL을 빠뜨리면 앱이 뜨지 않습니다.
+  `payout-service`의 enum 칸은 DB ENUM이라 enum 값을 더할 때도 ENUM 목록을 바꾸는 SQL이 필요합니다(`PayoutEnumColumnTest`가 확인).
 
 ## 의존성 구성 (`member-service/build.gradle.kts`)
 

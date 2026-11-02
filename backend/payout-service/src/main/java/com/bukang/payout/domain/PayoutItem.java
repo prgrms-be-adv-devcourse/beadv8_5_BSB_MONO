@@ -64,12 +64,13 @@ public class PayoutItem extends BaseIdAndTime {
 	@Column(nullable = false)
 	private long raceId;
 
+	// 계정 · 줄 종류는 DB ENUM 칸이다. 값을 더하면 같은 PR에 ENUM 목록을 바꾸는 Flyway SQL을 넣는다 (PayoutEnumColumnTest가 확인)
 	@Enumerated(STRING)
-	@Column(nullable = false, columnDefinition = "varchar(20)")
+	@Column(nullable = false, length = 20)
 	private PayoutAccount account;
 
 	@Enumerated(STRING)
-	@Column(nullable = false, columnDefinition = "varchar(30)")
+	@Column(nullable = false, length = 30)
 	private PayoutRecordType recordType;
 
 	// 주문 도메인의 주문 상품 ID. 참가권 줄에만 있고, 참가권 없는 줄(1차 정산금 · 1차 정산금 차감 · 상계 · 대회 취소 회수)은 NULL
@@ -121,6 +122,15 @@ public class PayoutItem extends BaseIdAndTime {
 		Long raceCourseId, long amount) {
 		return new PayoutItem(null, recovery, recovery.getSellerId(), recovery.getRaceId(), recordType, orderItemId,
 			raceCourseId, amount, null, null);
+	}
+
+	// 청구 입금 확인 줄: 정산 내역 · 회수 어느 쪽에도 붙지 않고 판매자 × 대회로만 남긴다 (선 환불 후 회수 R5)
+	// 청구는 판매자 × 대회 합계로 받으므로 회수 한 건에 나눠 적지 않는다. 중복은 청구 ID 키로 막는다
+	public static PayoutItem ofClaim(PayoutClaim claim, PayoutRecordType recordType, long amount) {
+		PayoutItem item = new PayoutItem(null, null, claim.getSellerId(), claim.getRaceId(), recordType, null, null,
+			amount, null, null);
+		item.bundleKey = "C%d:%s".formatted(claim.getId(), recordType);
+		return item;
 	}
 
 	// 정산 내역(payout)은 먼저 저장돼 ID가 있으므로 줄을 저장하기 직전에 키를 만든다
