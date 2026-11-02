@@ -1,7 +1,7 @@
 'use client'
 
 import Script from 'next/script'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { Button } from '@/shared/ui'
 
@@ -33,7 +33,7 @@ type PostcodeData = {
 }
 
 type PostcodeWindow = {
-  kakao: {
+  kakao?: {
     Postcode: new (options: {
       oncomplete: (data: PostcodeData) => void
       shorthand: boolean
@@ -56,10 +56,17 @@ export function AddressSearch({
   const [open, setOpen] = useState(false)
   const [failed, setFailed] = useState(false)
   const panel = useRef<HTMLDivElement>(null)
+  // 창은 연 순간의 콜백을 기억하므로, 연 뒤 화면 상태(제출 여부 등)가 바뀌어도 최신 콜백을 부르게 한다
+  const select = useRef(onSelect)
+  useEffect(() => {
+    select.current = onSelect
+  })
 
   const embed = () => {
     if (!panel.current) return
     const { kakao } = window as unknown as PostcodeWindow
+    // 광고 차단 등으로 스크립트가 비어 있으면 불러오기 실패와 같이 다룬다
+    if (!kakao?.Postcode) return fail()
     new kakao.Postcode({
       // 「서울」이 아니라 「서울특별시」로 받아야 대회 찾기 지역 필터와 글자가 같다
       shorthand: false,
@@ -67,7 +74,7 @@ export function AddressSearch({
       height: '100%',
       oncomplete: (data) => {
         setOpen(false)
-        onSelect({
+        select.current({
           zipcode: data.zonecode,
           address: data.roadAddress || data.autoRoadAddress || data.jibunAddress,
           sido: data.sido,
@@ -85,19 +92,21 @@ export function AddressSearch({
 
   return (
     <div className="flex flex-col gap-2">
-      <Button
-        type="button"
-        variant="secondary"
-        size="m"
-        className="self-start"
-        onClick={() => setOpen(true)}
-      >
-        주소 검색
-      </Button>
-      {failed && (
+      {/* 실패한 스크립트는 next/script가 성공으로 기억해 다시 열면 빈 창이 되므로, 실패하면 버튼을 숨긴다 */}
+      {failed ? (
         <p role="alert" className="text-caption text-text-danger">
           {ADDRESS_SEARCH_UNAVAILABLE}
         </p>
+      ) : (
+        <Button
+          type="button"
+          variant="secondary"
+          size="m"
+          className="self-start"
+          onClick={() => setOpen(true)}
+        >
+          주소 검색
+        </Button>
       )}
       {open && (
         <div className="flex flex-col gap-2">

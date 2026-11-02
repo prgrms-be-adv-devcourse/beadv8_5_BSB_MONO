@@ -14,21 +14,29 @@ export const PARTICIPANT_ERRORS = {
   zipcodeFormat: '우편번호 5자리를 입력해 주세요.',
 } as const
 
-export const participantFormSchema = z.object({
+const baseSchema = z.object({
   gender: z.enum(['MALE', 'FEMALE']),
   tshirtSize: z.string().max(10).optional(),
   emergencyContactName: z.string().trim().min(1, PARTICIPANT_ERRORS.contactName).max(50),
   emergencyContactPhone: z.string().trim().regex(PHONE, PARTICIPANT_ERRORS.phoneFormat),
-  // 키트가 없는 종목은 빈 칸이다
-  zipcode: z
-    .string()
-    .trim()
-    .regex(/^(\d{5})?$/, PARTICIPANT_ERRORS.zipcodeFormat),
+  zipcode: z.string().trim(),
   address: z.string().trim().max(255),
   addressDetail: z.string().trim().max(255),
 })
 
-export type ParticipantFormValues = z.infer<typeof participantFormSchema>
+/** 키트가 있는 참가권(배송지 있음)은 우편번호 5자리와 주소를 꼭 받는다. 없으면 빈 칸이다. */
+export function participantFormSchema(hasKit: boolean) {
+  if (!hasKit) return baseSchema
+  return baseSchema.extend({
+    zipcode: z
+      .string()
+      .trim()
+      .regex(/^\d{5}$/, PARTICIPANT_ERRORS.zipcodeFormat),
+    address: z.string().trim().min(1, PARTICIPANT_ERRORS.address).max(255),
+  })
+}
+
+export type ParticipantFormValues = z.infer<typeof baseSchema>
 
 export function toFormValues(participant: orderModel.ParticipantInfoDto): ParticipantFormValues {
   return {

@@ -88,6 +88,7 @@ function ParticipantForm({
 }) {
   const router = useRouter()
   const change = useChangeParticipant()
+  const hasKit = participant.shippingAddress != null
   const {
     control,
     register,
@@ -96,7 +97,7 @@ function ParticipantForm({
     setFocus,
     formState: { errors },
   } = useForm<ParticipantFormValues>({
-    resolver: zodResolver(participantFormSchema),
+    resolver: zodResolver(participantFormSchema(hasKit)),
     mode: 'onTouched',
     defaultValues: toFormValues(participant),
   })
@@ -109,7 +110,6 @@ function ParticipantForm({
     setValue('addressDetail', '', { shouldDirty: true })
     setFocus('addressDetail')
   }
-  const hasKit = participant.shippingAddress != null
 
   return (
     <>
