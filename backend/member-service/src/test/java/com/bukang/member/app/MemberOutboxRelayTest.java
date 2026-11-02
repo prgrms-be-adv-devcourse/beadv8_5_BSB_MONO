@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -18,6 +19,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.function.IntSupplier;
 
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.errors.RecordTooLargeException;
@@ -247,32 +249,13 @@ class MemberOutboxRelayTest {
 	void skipRowsLockedByAnotherRelay() throws Exception {
 		joined(MEMBER_ID);
 		joined(OTHER_MEMBER_ID);
-		CountDownLatch locked = new CountDownLatch(1);
-		CountDownLatch release = new CountDownLatch(1);
-		ExecutorService anotherServer = Executors.newSingleThreadExecutor();
-		try {
-			// 다른 서버의 발행 작업이 첫 행(회원 1001)에 락을 쥔 채 머무는 상황
-			// H2는 FETCH FIRST와 함께 쓴 FOR UPDATE가 조건에 맞는 행을 모두 잠가, 첫 행 하나만 ID로 잠근다
-			long firstId = allRows().get(0).getId();
-			Future<?> holder = anotherServer.submit(() -> transactionTemplate.executeWithoutResult(status -> {
-				entityManager.find(MemberOutboxEvent.class, firstId, LockModeType.PESSIMISTIC_WRITE);
-				locked.countDown();
-				await(release);
-			}));
-			assertThat(locked.await(5, TimeUnit.SECONDS)).isTrue();
 
-			int sent = relayAt(now);
+		int sent = whileAnotherRelayLocksFirstRow(() -> relayAt(now));
 
-			release.countDown();
-			holder.get(5, TimeUnit.SECONDS);
-			assertThat(sent).isEqualTo(1);
-			List<ProducerRecord<String, String>> records = sentRecords(1);
-			assertThat(records.get(0).key()).isEqualTo("1002");
-			assertThat(allRows().get(0).getStatus()).isEqualTo(MemberOutboxStatus.PENDING);
-		} finally {
-			release.countDown();
-			anotherServer.shutdownNow();
-		}
+		assertThat(sent).isEqualTo(1);
+		List<ProducerRecord<String, String>> records = sentRecords(1);
+		assertThat(records.get(0).key()).isEqualTo("1002");
+		assertThat(allRows().get(0).getStatus()).isEqualTo(MemberOutboxStatus.PENDING);
 	}
 
 	@Test
@@ -284,6 +267,75 @@ class MemberOutboxRelayTest {
 		relayAt(LocalDateTime.now().plusMinutes(6));
 
 		assertThat(output).contains("5분 넘게");
+	}
+
+	@Test
+	@DisplayName("5분 넘은 보낼 차례 행 에러 로그는 매 실행이 아니라 1분에 한 번만 남긴다")
+	void logStalePendingAtMostOncePerMinute(CapturedOutput output) {
+		failSendTo(MEMBER_ID, new TimeoutException("브로커 응답 없음"));
+		joined(MEMBER_ID);
+		// 마지막으로 남긴 시각은 공용 빈에 남으므로, 다른 테스트의 실행 시각과 겹치지 않게 하루 뒤로 돌린다
+		LocalDateTime later = LocalDateTime.now().plusDays(1);
+
+		relayAt(later);
+		relayAt(later.plusSeconds(1));
+		relayAt(later.plusSeconds(2));
+
+		assertThat(output.getAll().split("5분 넘게", -1)).hasSize(2);
+	}
+
+	@Test
+	@DisplayName("다른 서버가 회원 1001의 앞 행에 락을 쥐고 있으면, 회원 1001의 뒤 행은 먼저 보내지 않고 다른 회원 행만 보낸다")
+	void keepOrderWhenAnotherRelayHoldsEarlierRow() throws Exception {
+		joined(MEMBER_ID);
+		modified(MEMBER_ID);
+		joined(OTHER_MEMBER_ID);
+
+		int sent = whileAnotherRelayLocksFirstRow(() -> relayAt(now));
+
+		assertThat(sent).isEqualTo(1);
+		assertThat(sentRecords(1).get(0).key()).isEqualTo("1002");
+		List<MemberOutboxEvent> rows = allRows();
+		assertThat(rows.get(1).getStatus()).isEqualTo(MemberOutboxStatus.PENDING);
+	}
+
+	@Test
+	@DisplayName("메시지 문제로 정하지 않은 오류(send가 바로 던진 예외 포함)는 연결 문제로 보고 다섯 번 실패해도 포기하지 않는다")
+	void unknownFailureIsTreatedAsConnectionProblem() {
+		doThrow(new IllegalStateException("알 수 없는 오류")).when(kafka()).send(keyIs(MEMBER_ID));
+		joined(MEMBER_ID);
+
+		for (int i = 0; i < 5; i++) {
+			relayAt(now.plusHours(i));
+		}
+
+		MemberOutboxEvent row = allRows().get(0);
+		assertThat(row.getStatus()).isEqualTo(MemberOutboxStatus.PENDING);
+		assertThat(row.getRetryCount()).isEqualTo(5);
+	}
+
+	// 다른 서버의 발행 작업이 첫 행에 락을 쥔 채 머무는 동안 relay를 돌린다
+	// H2는 FETCH FIRST와 함께 쓴 FOR UPDATE가 조건에 맞는 행을 모두 잠가, 첫 행 하나만 ID로 잠근다
+	private int whileAnotherRelayLocksFirstRow(IntSupplier relay) throws Exception {
+		long firstId = allRows().get(0).getId();
+		CountDownLatch locked = new CountDownLatch(1);
+		CountDownLatch release = new CountDownLatch(1);
+		ExecutorService anotherServer = Executors.newSingleThreadExecutor();
+		try {
+			Future<?> holder = anotherServer.submit(() -> transactionTemplate.executeWithoutResult(status -> {
+				entityManager.find(MemberOutboxEvent.class, firstId, LockModeType.PESSIMISTIC_WRITE);
+				locked.countDown();
+				await(release);
+			}));
+			assertThat(locked.await(5, TimeUnit.SECONDS)).isTrue();
+			int sent = relay.getAsInt();
+			release.countDown();
+			holder.get(5, TimeUnit.SECONDS);
+			return sent;
+		} finally {
+			release.countDown();
+			anotherServer.shutdownNow();
+		}
 	}
 
 	private void joined(long memberId) {
