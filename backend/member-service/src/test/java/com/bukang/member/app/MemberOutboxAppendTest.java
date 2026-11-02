@@ -294,6 +294,26 @@ class MemberOutboxAppendTest {
 	}
 
 	@Test
+	@DisplayName("새 필드가 없는 옛 본문(배포 중 옛 서버가 보낸 메시지)도 새 이벤트 레코드로 읽는다")
+	void newConsumerReadsOldPayload() {
+		String oldJoined = "{\"id\":1001,\"createDate\":\"2026-10-14T10:00:00\","
+			+ "\"modifyDate\":\"2026-10-14T10:00:00\",\"nickname\":\"테스터\"}";
+		String oldModified = oldJoined;
+		String oldSeller = "{\"id\":7,\"memberId\":1001,\"sellerType\":\"INDIVIDUAL\",\"representativeName\":\"대표\","
+			+ "\"status\":\"PENDING\",\"requestedAt\":\"2026-10-14T10:00:00\"}";
+
+		MemberJoinedEvent joined = jsonConverter.fromJson(oldJoined, MemberJoinedEvent.class);
+		MemberModifiedEvent modified = jsonConverter.fromJson(oldModified, MemberModifiedEvent.class);
+		SellerChangedEvent seller = jsonConverter.fromJson(oldSeller, SellerChangedEvent.class);
+
+		assertThat(joined.id()).isEqualTo(1001L);
+		assertThat(joined.marketingAgreed()).isNotEqualTo(Boolean.TRUE);
+		assertThat(joined.eventId()).isNull();
+		assertThat(modified.eventId()).isNull();
+		assertThat(seller.eventId()).isNull();
+	}
+
+	@Test
 	@DisplayName("토픽·헤더 이름이 받는 쪽과 약속한 문자열 그대로다")
 	void contractNames() {
 		assertThat(KafkaTopics.MEMBER_MEMBER_JOINED).isEqualTo("queuing.member.joined");
