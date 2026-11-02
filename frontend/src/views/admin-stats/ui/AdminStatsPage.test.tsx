@@ -2,57 +2,78 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { server } from '@/shared/testing'
 
 import { AdminStatsPage } from './AdminStatsPage'
+
+// jsdom에는 그래프 크기를 잴 ResizeObserver가 없어 그래프 부품만 점 개수를 적는 대역으로 바꾼다
+vi.mock('./TrendChart', () => ({
+  default: ({ points }: { points: unknown[] }) => <div>그래프 점 {points.length}개</div>,
+}))
 
 const PERIOD = {
   current: { start: '2026-10-26', end: '2026-11-01' },
   previous: { start: '2026-10-19', end: '2026-10-25' },
 }
 
+const funnel = (steps: { event: string; label: string; users: number }[]) => ({
+  status: 'ok',
+  data: { period: PERIOD, steps: steps.map((s) => ({ ...s, previousUsers: 10 })) },
+})
+
+const trend = {
+  status: 'ok',
+  data: {
+    period: PERIOD,
+    points: [
+      { date: '2026-10-26', previousDate: '2026-10-19', value: 5, previousValue: 4 },
+      { date: '2026-10-27', previousDate: '2026-10-20', value: 6, previousValue: 3 },
+    ],
+  },
+}
+
 const BODY = {
-  buyer: {
-    status: 'ok',
-    data: {
-      period: PERIOD,
-      steps: [
-        { event: 'view_item_list', label: '대회 목록', users: 100, previousUsers: 80 },
-        { event: 'view_item', label: '대회 상세', users: 40, previousUsers: 30 },
-        { event: 'purchase', label: '결제 완료', users: 30, previousUsers: 20 },
-      ],
-    },
-  },
-  seller: {
-    status: 'ok',
-    data: {
-      period: PERIOD,
-      steps: [
-        { event: 'seller_apply_start', label: '판매자 신청 시작', users: 5, previousUsers: 3 },
-      ],
-    },
-  },
   realtime: {
     status: 'ok',
     data: { activeUsers: 23, topScreens: [{ name: '대회 목록 | 크루런', activeUsers: 9 }] },
   },
+  buyer: funnel([
+    { event: 'view_item_list', label: '대회 목록', users: 1240 },
+    { event: 'view_item', label: '대회 상세', users: 980 },
+    { event: 'queue_enter', label: '대기열 진입', users: 620 },
+    { event: 'queue_pass', label: '대기열 통과', users: 260 },
+  ]),
+  seller: funnel([
+    { event: 'seller_apply_start', label: '판매자 신청 시작', users: 48 },
+    { event: 'seller_apply_submit', label: '신청 제출', users: 31 },
+  ]),
+  formErrors: {
+    status: 'ok',
+    data: { period: PERIOD, groups: [{ name: '종목 · 참가권', users: 9 }] },
+  },
+  visitors: trend,
+  purchases: trend,
 }
+
+type Section = keyof typeof BODY
 
 const requests: string[] = []
 
-function mockStats(override: Partial<Record<keyof typeof BODY, () => Response>> = {}) {
+function mockStats(override: Partial<Record<Section, () => Response>> = {}) {
   requests.length = 0
   server.use(
     http.get('*/admin/stats/data', ({ request }) => {
       const params = new URL(request.url).searchParams
       requests.push(params.toString())
-      const section = params.get('section') as keyof typeof BODY
+      const section = params.get('section') as Section
       return override[section]?.() ?? HttpResponse.json(BODY[section])
     }),
   )
 }
+
+const failed = () => HttpResponse.json({ status: 502, message: 'x', data: null }, { status: 502 })
 
 function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -63,43 +84,102 @@ function renderPage() {
   )
 }
 
-const card = (title: string) => screen.getByRole('heading', { name: title }).closest('section')!
+const block = (title: string) => screen.getByRole('region', { name: title })
+const SLOW = { timeout: 4000 }
 
 describe('AdminStatsPage', () => {
-  it('세 영역의 사람 수와 가장 많이 빠진 단계를 보여 준다', async () => {
+  it('지금 접속 중, 일별 추이, 구매·판매자 단계를 보여 준다', async () => {
     mockStats()
     renderPage()
 
-    expect(await screen.findByText('23')).toBeInTheDocument()
-    expect(screen.getByText('대회 목록 | 크루런')).toBeInTheDocument()
-    const buyer = card('구매 단계별 남는 사람 수')
-    expect(await within(buyer).findByText('40명')).toBeInTheDocument()
-    expect(within(buyer).getByText('40%')).toBeInTheDocument()
-    expect(within(buyer).getByText('가장 많이 빠짐')).toBeInTheDocument()
-    expect(within(buyer).getByText('10/26 ~ 11/1 (앞 기간 10/19 ~ 10/25)')).toBeInTheDocument()
-    expect(await within(card('판매자 단계별 남는 사람 수')).findByText('5명')).toBeInTheDocument()
+    const realtime = await screen.findByRole('region', { name: '지금 접속 중' })
+    expect(await within(realtime).findByText('23')).toBeInTheDocument()
+    expect(within(realtime).getByText('대회 목록 | 크루런')).toBeInTheDocument()
+
+    expect(await within(block('일별 추이')).findAllByText('그래프 점 2개')).toHaveLength(2)
+
+    const buyer = block('구매 단계')
+    expect(await within(buyer).findByText('1,240명')).toBeInTheDocument()
+    expect(within(buyer).getByText('시작 단계')).toBeInTheDocument()
+    expect(within(buyer).getByText('앞 단계의 42%')).toBeInTheDocument()
+    expect(
+      within(buyer).getByText(
+        '가장 많이 빠지는 단계는 「대기열 진입 → 대기열 통과」예요. 「대기열 진입」까지 온 사람의 58%가 다음 단계로 가지 않았어요.',
+      ),
+    ).toBeInTheDocument()
+
+    const seller = block('판매자 단계')
+    expect(await within(seller).findByText('48명')).toBeInTheDocument()
+    expect(await within(seller).findByText('종목 · 참가권')).toBeInTheDocument()
+    expect(
+      screen.getByText('10/26 (월) ~ 11/1 (일) · 비교 기간 10/19 (월) ~ 10/25 (일)', {
+        exact: false,
+      }),
+    ).toBeInTheDocument()
   })
 
-  it('한 영역이 실패하면 그 영역만 「불러오지 못함」이고 나머지는 그대로다', async () => {
+  it('한 영역이 실패하면 그 영역만 「불러오지 못했어요」이고 나머지는 그대로다', async () => {
+    mockStats({ buyer: failed, purchases: failed })
+    renderPage()
+
+    await screen.findByRole('region', { name: '구매 단계' })
+    expect(
+      await within(block('구매 단계')).findByText('구매 단계를 불러오지 못했어요', {}, SLOW),
+    ).toBeInTheDocument()
+    const trends = block('일별 추이')
+    expect(
+      await within(trends).findByText('일별 구매 수를 불러오지 못했어요', {}, SLOW),
+    ).toBeInTheDocument()
+    expect(within(trends).getByText('그래프 점 2개')).toBeInTheDocument()
+    expect(within(block('판매자 단계')).getByText('48명')).toBeInTheDocument()
+    expect(within(block('지금 접속 중')).getByText('23')).toBeInTheDocument()
+  })
+
+  it('다시 시도는 실패한 영역만 다시 부른다', async () => {
+    let fail = true
+    mockStats({ seller: () => (fail ? failed() : HttpResponse.json(BODY.seller)) })
+    const user = userEvent.setup()
+    renderPage()
+    const seller = await screen.findByRole('region', { name: '판매자 단계' })
+    await within(seller).findByText('판매자 단계를 불러오지 못했어요', {}, SLOW)
+
+    fail = false
+    requests.length = 0
+    await user.click(within(seller).getByRole('button', { name: '다시 시도' }))
+
+    expect(await within(seller).findByText('48명')).toBeInTheDocument()
+    expect(requests.every((r) => r.startsWith('section=seller'))).toBe(true)
+  })
+
+  it('키가 없으면 화면 전체에 「GA4 연결 정보가 없어요」만 보이고 기간 고르기를 숨긴다', async () => {
+    mockStats({ realtime: () => HttpResponse.json({ status: 'notConfigured' }) })
+    renderPage()
+
+    expect(await screen.findByText('GA4 연결 정보가 없어요')).toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: '지난 7일' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: '구매 단계' })).not.toBeInTheDocument()
+  })
+
+  it('기록이 없으면 0명과 「계산할 수 없어요」, 빈 기간 안내를 보여 준다', async () => {
     mockStats({
-      buyer: () => HttpResponse.json({ status: 502, message: 'x', data: null }, { status: 502 }),
+      buyer: () =>
+        HttpResponse.json(
+          funnel([
+            { event: 'view_item_list', label: '대회 목록', users: 0 },
+            { event: 'view_item', label: '대회 상세', users: 0 },
+          ]),
+        ),
+      formErrors: () => HttpResponse.json({ status: 'ok', data: { period: PERIOD, groups: [] } }),
     })
     renderPage()
 
-    const buyer = card('구매 단계별 남는 사람 수')
+    const buyer = await screen.findByRole('region', { name: '구매 단계' })
     expect(
-      await within(buyer).findByText('불러오지 못함', {}, { timeout: 4000 }),
+      await within(buyer).findByText('이 기간에는 구매 기록이 없어요. 기간을 넓혀 보세요.'),
     ).toBeInTheDocument()
-    expect(within(card('판매자 단계별 남는 사람 수')).getByText('5명')).toBeInTheDocument()
-    expect(within(card('지금 접속 중')).getByText('23')).toBeInTheDocument()
-  })
-
-  it('키가 없으면 「GA4 연결 정보가 없습니다」를 보여 준다', async () => {
-    const notConfigured = () => HttpResponse.json({ status: 'notConfigured' })
-    mockStats({ buyer: notConfigured, seller: notConfigured, realtime: notConfigured })
-    renderPage()
-
-    await waitFor(() => expect(screen.getAllByText('GA4 연결 정보가 없습니다')).toHaveLength(3))
+    expect(within(buyer).getAllByText('0명')).toHaveLength(2)
+    expect(within(buyer).getByText('계산할 수 없어요')).toBeInTheDocument()
+    expect(await within(block('판매자 단계')).findByText('입력 오류가 없어요')).toBeInTheDocument()
   })
 
   it('관리자가 아니면 숫자 대신 안내를 보여 준다', async () => {
@@ -108,22 +188,37 @@ describe('AdminStatsPage', () => {
         { status: 403, code: 'MEMBER_NOT_ADMIN', message: '관리자만', data: null },
         { status: 403 },
       )
-    mockStats({ buyer: denied, seller: denied, realtime: denied })
+    mockStats({
+      realtime: denied,
+      buyer: denied,
+      seller: denied,
+      formErrors: denied,
+      visitors: denied,
+      purchases: denied,
+    })
     renderPage()
 
-    await waitFor(() => expect(screen.getAllByText('관리자만 이용할 수 있어요.')).toHaveLength(3))
+    await waitFor(() => expect(screen.getAllByText('관리자만 이용할 수 있어요.')).toHaveLength(6))
   })
 
-  it('기간을 바꾸면 그 기간으로 다시 묻는다', async () => {
+  it('기간을 바꾸면 기간을 쓰는 영역을 그 기간으로 다시 묻는다', async () => {
     mockStats()
     const user = userEvent.setup()
     renderPage()
-    await screen.findByText('23')
+    await within(await screen.findByRole('region', { name: '구매 단계' })).findByText('1,240명')
 
     await user.click(screen.getByRole('tab', { name: '지난 30일' }))
-    await within(card('구매 단계별 남는 사람 수')).findByText('40명')
 
-    expect(requests).toContain('section=buyer&period=30d')
-    expect(requests).toContain('section=seller&period=30d')
+    await waitFor(() =>
+      expect(requests).toEqual(
+        expect.arrayContaining([
+          'section=buyer&period=30d',
+          'section=seller&period=30d',
+          'section=formErrors&period=30d',
+          'section=visitors&period=30d',
+          'section=purchases&period=30d',
+        ]),
+      ),
+    )
   })
 })

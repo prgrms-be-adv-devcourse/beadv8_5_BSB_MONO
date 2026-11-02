@@ -42,20 +42,26 @@ export type FunnelStepStat = FunnelStep & {
 export type FunnelStepView = FunnelStepStat & {
   /** 앞 단계 대비 남은 비율(0~1). 첫 단계이거나 앞 단계가 0명이면 없음 */
   rate?: number
-  /** 앞 단계에서 가장 많이 빠진 단계 */
+  /** 첫 단계를 1로 본 막대 길이(0~1). 첫 단계가 0명이면 0 */
+  barRatio: number
+  /** 앞 단계 대비 비율이 가장 낮은 단계 (가장 많이 빠지는 단계) */
   biggestDrop: boolean
 }
 
-/** 단계마다 앞 단계 대비 비율을 붙이고, 빠진 사람이 가장 많은 단계를 표시한다. */
+/** 단계마다 앞 단계 대비 비율과 막대 길이를 붙이고, 비율이 가장 낮은 단계를 표시한다. */
 export function toFunnelView(steps: FunnelStepStat[]): FunnelStepView[] {
-  const drops = steps.map((step, i) => (i === 0 ? 0 : steps[i - 1].users - step.users))
-  const maxDrop = Math.max(0, ...drops)
-  return steps.map((step, i) => {
-    const before = i === 0 ? undefined : steps[i - 1].users
-    return {
-      ...step,
-      rate: before ? step.users / before : undefined,
-      biggestDrop: maxDrop > 0 && drops[i] === maxDrop,
-    }
-  })
+  const first = steps[0]?.users ?? 0
+  const rates = steps.map((step, i) =>
+    i > 0 && steps[i - 1].users > 0 ? step.users / steps[i - 1].users : undefined,
+  )
+  const known = rates.filter((rate): rate is number => rate !== undefined)
+  // 모든 단계가 그대로 남았으면(비율 100%) 강조할 단계가 없다
+  const lowest = known.length > 0 && Math.min(...known) < 1 ? Math.min(...known) : undefined
+  const lowestIndex = lowest === undefined ? -1 : rates.indexOf(lowest)
+  return steps.map((step, i) => ({
+    ...step,
+    rate: rates[i],
+    barRatio: first > 0 ? Math.min(step.users / first, 1) : 0,
+    biggestDrop: i === lowestIndex,
+  }))
 }

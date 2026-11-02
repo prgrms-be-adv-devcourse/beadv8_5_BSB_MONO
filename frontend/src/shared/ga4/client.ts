@@ -1,9 +1,13 @@
 import type { Ga4Config } from './config'
 import {
   parseRealtime,
+  parseUsersByDate,
+  parseUsersByDimension,
   parseUsersByEvent,
   realtimeScreensRequest,
   realtimeTotalRequest,
+  usersByDateRequest,
+  usersByDimensionRequest,
   usersByEventRequest,
   type Ga4Reporter,
 } from './report'
@@ -30,6 +34,16 @@ export function createGa4Reporter(config: Ga4Config): Ga4Reporter {
       const ga4 = await getClient()
       const [response] = await ga4.runReport(usersByEventRequest(property, input), options)
       return parseUsersByEvent(response.rows, input)
+    },
+    async usersByDate(input) {
+      const ga4 = await getClient()
+      const [response] = await ga4.runReport(usersByDateRequest(property, input), options)
+      return parseUsersByDate(response.rows, input)
+    },
+    async usersByDimension(input) {
+      const ga4 = await getClient()
+      const [response] = await ga4.runReport(usersByDimensionRequest(property, input), options)
+      return parseUsersByDimension(response.rows)
     },
     async realtime({ topScreens }) {
       const ga4 = await getClient()

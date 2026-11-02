@@ -18,9 +18,32 @@ export type RealtimeOverview = {
   topScreens: { name: string; activeUsers: number }[]
 }
 
+export type UsersByDateInput = {
+  /** activeUsers: 방문한 사람 수 · totalUsers: (eventName과 함께) 그 이벤트를 보낸 사람 수 */
+  metric: 'activeUsers' | 'totalUsers'
+  /** 주면 이 이벤트를 보낸 기록만 센다 */
+  eventName?: string
+  dateRanges: Ga4DateRange[]
+}
+
+/** [기간 이름][날짜 'YYYY-MM-DD'] = 그날 사람 수. 기록이 없는 날은 키가 없다 */
+export type UsersByDate = Record<string, Record<string, number>>
+
+export type UsersByDimensionInput = {
+  eventName: string
+  /** 이벤트 범위 맞춤 측정기준 (customEvent:...) */
+  dimension: string
+  dateRange: Ga4DateRange
+}
+
+/** 이벤트 매개변수 값별 사람 수, 많은 순 */
+export type UsersByDimension = { value: string; users: number }[]
+
 /** GA4 보고서를 부르는 곳. 실제 GA4와 가짜 응답 모드가 같은 모양을 쓴다 */
 export interface Ga4Reporter {
   usersByEvent(input: UsersByEventInput): Promise<UsersByEvent>
+  usersByDate(input: UsersByDateInput): Promise<UsersByDate>
+  usersByDimension(input: UsersByDimensionInput): Promise<UsersByDimension>
   realtime(input: { topScreens: number }): Promise<RealtimeOverview>
 }
 
@@ -105,4 +128,61 @@ export function parseRealtime(
       activeUsers: Number(row.metricValues?.[0]?.value ?? 0),
     })),
   }
+}
+
+export function usersByDateRequest(property: string, input: UsersByDateInput) {
+  return {
+    property,
+    dateRanges: input.dateRanges,
+    dimensions: [{ name: 'date' }],
+    metrics: [{ name: input.metric }],
+    ...(input.eventName && {
+      dimensionFilter: {
+        filter: {
+          fieldName: 'eventName',
+          stringFilter: { matchType: 'EXACT' as const, value: input.eventName },
+        },
+      },
+    }),
+  }
+}
+
+/** GA4의 date 값(YYYYMMDD)을 'YYYY-MM-DD'로 바꿔 기간 이름별로 모은다 */
+export function parseUsersByDate(
+  rows: Row[] | null | undefined,
+  input: UsersByDateInput,
+): UsersByDate {
+  const result: UsersByDate = Object.fromEntries(input.dateRanges.map((range) => [range.name, {}]))
+  for (const row of rows ?? []) {
+    const raw = row.dimensionValues?.[0]?.value ?? ''
+    const rangeName = row.dimensionValues?.[1]?.value ?? input.dateRanges[0]?.name ?? ''
+    if (!/^\d{8}$/.test(raw) || !result[rangeName]) continue
+    const date = `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`
+    result[rangeName][date] = Number(row.metricValues?.[0]?.value ?? 0)
+  }
+  return result
+}
+
+export function usersByDimensionRequest(property: string, input: UsersByDimensionInput) {
+  return {
+    property,
+    dateRanges: [input.dateRange],
+    dimensions: [{ name: input.dimension }],
+    metrics: [{ name: 'totalUsers' }],
+    dimensionFilter: {
+      filter: {
+        fieldName: 'eventName',
+        stringFilter: { matchType: 'EXACT' as const, value: input.eventName },
+      },
+    },
+    orderBys: [{ metric: { metricName: 'totalUsers' }, desc: true }],
+    limit: 100,
+  }
+}
+
+export function parseUsersByDimension(rows: Row[] | null | undefined): UsersByDimension {
+  return (rows ?? []).map((row) => ({
+    value: row.dimensionValues?.[0]?.value ?? '',
+    users: Number(row.metricValues?.[0]?.value ?? 0),
+  }))
 }

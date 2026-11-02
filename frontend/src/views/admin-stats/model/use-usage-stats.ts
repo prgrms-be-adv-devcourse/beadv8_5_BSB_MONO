@@ -2,11 +2,13 @@ import { useQuery } from '@tanstack/react-query'
 
 import {
   statsPeriodSearch,
-  type FunnelKind,
+  type FormErrorStats,
   type FunnelStats,
   type RealtimeStats,
   type StatsPeriodQuery,
   type StatsResponse,
+  type StatsSection,
+  type TrendStats,
 } from '@/entities/usage-stats'
 import { ApiError, customFetch } from '@/shared/api'
 
@@ -18,15 +20,13 @@ const STATS_URL = '/admin/stats/data'
 /** 실시간 영역을 새로 불러오는 간격 */
 export const REALTIME_REFRESH_MS = 60_000
 
-export function useFunnelStats(kind: FunnelKind, query: StatsPeriodQuery) {
-  return useQuery({
-    queryKey: ['admin-stats', kind, query],
-    queryFn: () =>
-      customFetch<StatsResponse<FunnelStats>>(
-        `${STATS_URL}?section=${kind}&${statsPeriodSearch(query)}`,
-      ),
-    retry: retryUnlessDenied,
-  })
+type SectionData = {
+  realtime: RealtimeStats
+  buyer: FunnelStats
+  seller: FunnelStats
+  formErrors: FormErrorStats
+  visitors: TrendStats
+  purchases: TrendStats
 }
 
 export function useRealtimeStats() {
@@ -34,6 +34,21 @@ export function useRealtimeStats() {
     queryKey: ['admin-stats', 'realtime'],
     queryFn: () => customFetch<StatsResponse<RealtimeStats>>(`${STATS_URL}?section=realtime`),
     refetchInterval: REALTIME_REFRESH_MS,
+    retry: retryUnlessDenied,
+  })
+}
+
+/** 고른 기간을 쓰는 영역 (구매·판매자 단계, 입력 오류, 일별 추이) */
+export function usePeriodStats<S extends Exclude<StatsSection, 'realtime'>>(
+  section: S,
+  query: StatsPeriodQuery,
+) {
+  return useQuery({
+    queryKey: ['admin-stats', section, query],
+    queryFn: () =>
+      customFetch<StatsResponse<SectionData[S]>>(
+        `${STATS_URL}?section=${section}&${statsPeriodSearch(query)}`,
+      ),
     retry: retryUnlessDenied,
   })
 }

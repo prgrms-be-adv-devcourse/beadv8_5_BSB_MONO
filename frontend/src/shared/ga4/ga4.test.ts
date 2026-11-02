@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest'
 
 import { readGa4Config } from './config'
-import { parseRealtime, parseUsersByEvent, usersByEventRequest } from './report'
+import {
+  parseRealtime,
+  parseUsersByDate,
+  parseUsersByDimension,
+  parseUsersByEvent,
+  usersByDateRequest,
+  usersByDimensionRequest,
+  usersByEventRequest,
+} from './report'
 
 // 테스트용 가짜 키. 실제 키가 아니다
 const KEY = { client_email: 'stats@example.iam.gserviceaccount.com', private_key: 'not-a-real-key' }
@@ -86,5 +94,67 @@ describe('GA4 보고서 요청과 응답', () => {
       ),
     ).toEqual({ activeUsers: 23, topScreens: [{ name: '대회 목록', activeUsers: 9 }] })
     expect(parseRealtime(undefined, undefined)).toEqual({ activeUsers: 0, topScreens: [] })
+  })
+})
+
+describe('GA4 날짜별 · 매개변수별 보고서', () => {
+  const dateRanges = [
+    { name: 'current', startDate: '2026-10-30', endDate: '2026-11-01' },
+    { name: 'previous', startDate: '2026-10-27', endDate: '2026-10-29' },
+  ]
+
+  it('방문자는 활성 사용자 수를 거르지 않고, 구매는 purchase 이벤트로 거른다', () => {
+    const visitors = usersByDateRequest('properties/123', { metric: 'activeUsers', dateRanges })
+    const purchases = usersByDateRequest('properties/123', {
+      metric: 'totalUsers',
+      eventName: 'purchase',
+      dateRanges,
+    })
+
+    expect(visitors).toMatchObject({
+      dimensions: [{ name: 'date' }],
+      metrics: [{ name: 'activeUsers' }],
+    })
+    expect(visitors).not.toHaveProperty('dimensionFilter')
+    expect(purchases.dimensionFilter?.filter).toEqual({
+      fieldName: 'eventName',
+      stringFilter: { matchType: 'EXACT', value: 'purchase' },
+    })
+  })
+
+  it('GA4 날짜(YYYYMMDD)를 YYYY-MM-DD로 바꿔 기간별로 모은다', () => {
+    const rows = [
+      {
+        dimensionValues: [{ value: '20261030' }, { value: 'current' }],
+        metricValues: [{ value: '12' }],
+      },
+      {
+        dimensionValues: [{ value: '20261028' }, { value: 'previous' }],
+        metricValues: [{ value: '9' }],
+      },
+    ]
+
+    expect(parseUsersByDate(rows, { metric: 'activeUsers', dateRanges })).toEqual({
+      current: { '2026-10-30': 12 },
+      previous: { '2026-10-28': 9 },
+    })
+  })
+
+  it('입력 오류 묶음은 seller_race_form_error 이벤트의 매개변수 값별 사람 수로 센다', () => {
+    const input = {
+      eventName: 'seller_race_form_error',
+      dimension: 'customEvent:error_sections',
+      dateRange: dateRanges[0],
+    }
+
+    expect(usersByDimensionRequest('properties/123', input)).toMatchObject({
+      dimensions: [{ name: 'customEvent:error_sections' }],
+      metrics: [{ name: 'totalUsers' }],
+    })
+    expect(
+      parseUsersByDimension([
+        { dimensionValues: [{ value: '이미지' }], metricValues: [{ value: '3' }] },
+      ]),
+    ).toEqual([{ value: '이미지', users: 3 }])
   })
 })

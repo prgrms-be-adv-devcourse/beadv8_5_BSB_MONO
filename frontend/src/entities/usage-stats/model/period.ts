@@ -74,3 +74,22 @@ export function statsPeriodSearch(query: StatsPeriodQuery): string {
   }
   return params.toString()
 }
+
+/** 기간 안의 날짜를 처음부터 차례로 */
+export function spanDates({ start, end }: DateSpan): string[] {
+  const dates: string[] = []
+  for (let day = toDay(start); day <= toDay(end); day++) dates.push(fromDay(day))
+  return dates
+}
+
+const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
+
+/** '2026-10-26' → '10/26' */
+export function formatStatsDay(iso: string): string {
+  return `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}`
+}
+
+/** '2026-10-26' → '10/26 (월)' */
+export function formatStatsDayWithWeekday(iso: string): string {
+  return `${formatStatsDay(iso)} (${WEEKDAYS[new Date(`${iso}T00:00:00Z`).getUTCDay()]})`
+}

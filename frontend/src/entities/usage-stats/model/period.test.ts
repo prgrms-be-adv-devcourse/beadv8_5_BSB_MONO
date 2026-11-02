@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { resolveStatsPeriod, seoulToday, statsPeriodQuerySchema } from './period'
+import {
+  formatStatsDayWithWeekday,
+  resolveStatsPeriod,
+  seoulToday,
+  spanDates,
+  statsPeriodQuerySchema,
+} from './period'
 
 describe('resolveStatsPeriod', () => {
   it('지난 7일은 어제에서 끝나고, 앞 기간은 그 바로 앞 7일이다', () => {
@@ -51,5 +57,16 @@ describe('statsPeriodQuerySchema', () => {
 describe('seoulToday', () => {
   it('UTC로 전날 밤이어도 한국 날짜를 준다', () => {
     expect(seoulToday(new Date('2026-11-01T16:30:00Z'))).toBe('2026-11-02')
+  })
+})
+
+describe('날짜 표시', () => {
+  it('요일을 붙여 짧게 쓰고, 기간의 날짜를 차례로 늘어놓는다', () => {
+    expect(formatStatsDayWithWeekday('2026-10-26')).toBe('10/26 (월)')
+    expect(spanDates({ start: '2026-10-31', end: '2026-11-02' })).toEqual([
+      '2026-10-31',
+      '2026-11-01',
+      '2026-11-02',
+    ])
   })
 })

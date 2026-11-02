@@ -1,46 +1,71 @@
 'use client'
 
-import type { UseQueryResult } from '@tanstack/react-query'
-import { useState, type ReactNode } from 'react'
+import dynamic from 'next/dynamic'
+import { Fragment, useState } from 'react'
 
-import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
+import { ConsolePage } from '@/widgets/console-page'
 import {
+  formatStatsDayWithWeekday,
+  resolveStatsPeriod,
   seoulToday,
   STATS_PERIOD_ITEMS,
-  toFunnelView,
   type DateSpan,
-  type FunnelKind,
-  type FunnelStats,
   type StatsPeriodKind,
   type StatsPeriodQuery,
-  type StatsResponse,
+  type TrendKind,
 } from '@/entities/usage-stats'
 import { formatNumber } from '@/shared/lib'
-import { Badge, Button, DataTable, Segmented, Skeleton, StatTile, TextField } from '@/shared/ui'
+import { Button, DataTable, Divider, EmptyState, Segmented, Skeleton, TextField } from '@/shared/ui'
 
-import { isNotAdminError, useFunnelStats, useRealtimeStats } from '../model/use-usage-stats'
+import { usePeriodStats, useRealtimeStats } from '../model/use-usage-stats'
+import { FunnelSection } from './FunnelSection'
+import { SectionState, StatsBlock, SubHeading } from './StatsBlock'
 
-// 어드민 「이용 통계」(admin-spec R-06 · F-13). GA4 숫자를 사람 수로만 보여 준다.
-// TODO(design): 디자인 계약(A-STATS)이 나오면 그 모양으로 맞춘다. 지금은 기존 어드민 부품으로 만든 뼈대다.
+// 어드민 「이용 통계」 (admin-spec R-06 · F-13, 디자인 계약 A-STATS · 피그마 961:157).
+// GA4 숫자를 사람 수로만 보여 준다. 영역마다 따로 불러와 따로 실패한다.
 
-const TEXT = {
-  loadFailed: '불러오지 못함',
-  notConfigured: 'GA4 연결 정보가 없습니다',
-  notAdmin: '관리자만 이용할 수 있어요.',
-}
+// Recharts는 이 화면에서만 쓰므로 필요할 때 따로 불러온다 (구매자 화면 번들에 들어가지 않게)
+const TrendChart = dynamic(() => import('./TrendChart'), {
+  ssr: false,
+  loading: () => <Skeleton shape="rect" className="h-40 w-full rounded-md" />,
+})
 
 export function AdminStatsPage() {
   const [query, setQuery] = useState<StatsPeriodQuery>({ period: '7d' })
+  const realtime = useRealtimeStats()
+
+  // 키가 없으면 영역마다 같은 안내를 반복하지 않고 화면 전체에 한 번만 보여 준다
+  if (realtime.data?.status === 'notConfigured') {
+    return (
+      <ConsolePage title="이용 통계">
+        <div className="flex flex-1 items-center justify-center py-20">
+          <EmptyState
+            icon="CircleAlert"
+            title="GA4 연결 정보가 없어요"
+            description="서버 환경 변수에 GA4 속성 ID와 서비스 계정 키를 넣으면 숫자가 보여요."
+          />
+        </div>
+      </ConsolePage>
+    )
+  }
 
   return (
     <ConsolePage
       title="이용 통계"
-      description="GA4 기준 어제까지의 기록입니다. 지금 접속 중만 실시간이에요. 사람 수만 보여 줘요."
+      description="GA4 기준 어제까지의 기록이에요. 「지금 접속 중」만 몇 초 안에 반영돼요."
+      actions={<PeriodPicker query={query} onChange={setQuery} />}
     >
-      <PeriodPicker query={query} onChange={setQuery} />
-      <RealtimeCard />
-      <FunnelCard kind="buyer" title="구매 단계별 남는 사람 수" query={query} />
-      <FunnelCard kind="seller" title="판매자 단계별 남는 사람 수" query={query} />
+      {[
+        <RealtimeSection key="realtime" result={realtime} />,
+        <TrendSection key="trend" query={query} />,
+        <FunnelSection key="buyer" kind="buyer" query={query} />,
+        <FunnelSection key="seller" kind="seller" query={query} />,
+      ].map((section, i) => (
+        <Fragment key={section.key}>
+          {i > 0 && <Divider />}
+          {section}
+        </Fragment>
+      ))}
     </ConsolePage>
   )
 }
@@ -55,6 +80,7 @@ function PeriodPicker({
   const [kind, setKind] = useState<StatsPeriodKind>(query.period)
   const [custom, setCustom] = useState<DateSpan>({ start: '', end: '' })
   const today = seoulToday()
+  const period = resolveStatsPeriod(query, today)
   const customValid = Boolean(custom.start && custom.end && custom.start <= custom.end)
 
   const choose = (next: StatsPeriodKind) => {
@@ -63,7 +89,7 @@ function PeriodPicker({
   }
 
   return (
-    <div className="flex flex-wrap items-end gap-3">
+    <div className="flex flex-col items-end gap-2">
       <Segmented
         label="기간"
         layout="hug"
@@ -71,17 +97,22 @@ function PeriodPicker({
         value={kind}
         onChange={choose}
       />
+      {period && (
+        <p className="text-caption text-text-tertiary">
+          {spanText(period.current)} · 비교 기간 {spanText(period.previous)}
+        </p>
+      )}
       {kind === 'custom' && (
-        <>
+        <div className="flex items-end gap-2">
           <TextField
-            label="시작일"
+            label="시작 날짜"
             type="date"
             max={today}
             value={custom.start}
             onChange={(e) => setCustom((c) => ({ ...c, start: e.target.value }))}
           />
           <TextField
-            label="종료일"
+            label="끝 날짜"
             type="date"
             max={today}
             value={custom.end}
@@ -94,146 +125,123 @@ function PeriodPicker({
           >
             적용
           </Button>
-        </>
+        </div>
       )}
     </div>
   )
 }
 
-function RealtimeCard() {
-  const realtime = useRealtimeStats()
+function RealtimeSection({ result }: { result: ReturnType<typeof useRealtimeStats> }) {
   return (
-    <ConsoleCard title="지금 접속 중" aside={<span className="text-caption">최근 30분</span>}>
-      <SectionBody result={realtime}>
+    <StatsBlock
+      title="지금 접속 중"
+      description="최근 30분 동안 접속한 사람 수예요. 몇 초 안에 반영돼요."
+    >
+      <SectionState result={result} name="지금 접속 중을">
         {(data) => (
-          <div className="flex gap-4">
-            <StatTile label="접속한 사람" value={formatNumber(data.activeUsers)} unit="명" />
-            <ol aria-label="많이 본 화면" className="flex flex-2 flex-col gap-2">
-              {data.topScreens.map((screen) => (
-                <li key={screen.name} className="flex justify-between gap-4 text-body-m">
-                  <span className="truncate">{screen.name}</span>
-                  <span className="shrink-0 text-text-secondary">
-                    {formatNumber(screen.activeUsers)}명
-                  </span>
-                </li>
-              ))}
-            </ol>
+          <div className="flex items-start gap-4">
+            <div className="flex w-80 shrink-0 flex-col items-center gap-1 rounded-lg bg-bg-subtle p-4">
+              <span className="text-label-s text-text-secondary">최근 30분 접속자</span>
+              <span className="flex items-baseline gap-1">
+                <span className="font-display text-display-s">
+                  {formatNumber(data.activeUsers)}
+                </span>
+                <span className="text-label-m">명</span>
+              </span>
+            </div>
+            <div className="flex min-w-0 flex-1 flex-col gap-2">
+              <SubHeading>많이 본 화면 5개</SubHeading>
+              {data.topScreens.length === 0 ? (
+                <p className="py-3 text-body-s text-text-secondary">
+                  최근 30분 동안 본 화면이 없어요
+                </p>
+              ) : (
+                <DataTable
+                  label="많이 본 화면"
+                  rows={data.topScreens}
+                  rowKey={(s) => s.name}
+                  columns={[
+                    // GA4 실시간 보고서는 화면 주소 대신 화면 제목을 준다
+                    { key: 'name', header: '화면', render: (s) => s.name },
+                    {
+                      key: 'users',
+                      header: '사람 수',
+                      align: 'right',
+                      render: (s) => `${formatNumber(s.activeUsers)}명`,
+                    },
+                  ]}
+                />
+              )}
+            </div>
           </div>
         )}
-      </SectionBody>
-    </ConsoleCard>
+      </SectionState>
+    </StatsBlock>
   )
 }
 
-function FunnelCard({
-  kind,
-  title,
-  query,
-}: {
-  kind: FunnelKind
-  title: string
-  query: StatsPeriodQuery
-}) {
-  const funnel = useFunnelStats(kind, query)
-  const period = funnel.data?.status === 'ok' ? funnel.data.data.period : undefined
+const TREND_COPY: Record<TrendKind, { title: string; name: string }> = {
+  visitors: { title: '일별 방문자 수', name: '일별 방문자 수를' },
+  purchases: { title: '일별 구매 수', name: '일별 구매 수를' },
+}
+
+function TrendSection({ query }: { query: StatsPeriodQuery }) {
   return (
-    <ConsoleCard
-      title={title}
-      aside={
-        period && (
-          <span className="text-caption text-text-tertiary">
-            {spanLabel(period.current)} (앞 기간 {spanLabel(period.previous)})
-          </span>
-        )
-      }
+    <StatsBlock
+      title="일별 추이"
+      description="고른 기간의 날짜마다 방문한 사람 수와 구매한 사람 수예요. 회색 점선은 바로 앞 기간이에요."
     >
-      <SectionBody result={funnel}>{(data) => <FunnelTable kind={kind} data={data} />}</SectionBody>
-    </ConsoleCard>
+      <div className="grid grid-cols-2 gap-6">
+        <TrendPanel kind="visitors" query={query} />
+        <TrendPanel kind="purchases" query={query} />
+      </div>
+    </StatsBlock>
   )
 }
 
-function FunnelTable({ kind, data }: { kind: FunnelKind; data: FunnelStats }) {
-  const steps = toFunnelView(data.steps)
+function TrendPanel({ kind, query }: { kind: TrendKind; query: StatsPeriodQuery }) {
+  const result = usePeriodStats(kind, query)
   return (
-    <DataTable
-      label={kind === 'buyer' ? '구매 단계' : '판매자 단계'}
-      rows={steps}
-      rowKey={(s) => s.event}
-      columns={[
-        {
-          key: 'label',
-          header: '단계',
-          render: (s) => (
-            <span className="flex items-center gap-2">
-              {s.label}
-              {s.biggestDrop && <Badge tone="warning">가장 많이 빠짐</Badge>}
-            </span>
-          ),
-        },
-        {
-          key: 'users',
-          header: '사람 수',
-          align: 'right',
-          render: (s) => `${formatNumber(s.users)}명`,
-        },
-        {
-          key: 'rate',
-          header: '앞 단계 대비',
-          align: 'right',
-          render: (s) => (s.rate === undefined ? '-' : `${Math.round(s.rate * 100)}%`),
-        },
-        {
-          key: 'previous',
-          header: '앞 기간',
-          align: 'right',
-          render: (s) => `${formatNumber(s.previousUsers)}명`,
-        },
-      ]}
-    />
+    <div className="flex min-w-0 flex-col gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <SubHeading>{TREND_COPY[kind].title}</SubHeading>
+        <TrendLegend />
+      </div>
+      <SectionState result={result} name={TREND_COPY[kind].name}>
+        {(data) => (
+          <figure aria-label={`${TREND_COPY[kind].title} 그래프`}>
+            <TrendChart points={data.points} />
+            {/* 그래프를 보지 못하는 사용자를 위해 같은 숫자를 글로도 둔다 */}
+            <figcaption className="sr-only">
+              {data.points
+                .map(
+                  (p) =>
+                    `${p.date} ${formatNumber(p.value)}명, 지난 기간 ${p.previousDate} ${formatNumber(p.previousValue)}명`,
+                )
+                .join('. ')}
+            </figcaption>
+          </figure>
+        )}
+      </SectionState>
+    </div>
   )
 }
 
-/** 영역 하나의 로딩 · 실패 · 키 없음 · 정상을 나눈다. 다른 영역에는 영향이 없다 */
-function SectionBody<T>({
-  result,
-  children,
-}: {
-  result: UseQueryResult<StatsResponse<T>>
-  children: (data: T) => ReactNode
-}) {
-  if (result.isPending) {
-    return (
-      <div role="status" aria-label="불러오는 중">
-        <Skeleton shape="rect" className="h-24 rounded-md" />
-      </div>
-    )
-  }
-  if (result.isError) {
-    return (
-      <div className="flex items-center justify-between gap-4 rounded-md bg-bg-subtle p-4">
-        <p className="text-body-m text-text-secondary">
-          {isNotAdminError(result.error) ? TEXT.notAdmin : TEXT.loadFailed}
-        </p>
-        {!isNotAdminError(result.error) && (
-          <Button variant="secondary" onClick={() => result.refetch()}>
-            다시 시도
-          </Button>
-        )}
-      </div>
-    )
-  }
-  if (result.data.status === 'notConfigured') {
-    return (
-      <p className="rounded-md bg-bg-subtle p-4 text-body-m text-text-secondary">
-        {TEXT.notConfigured}
-      </p>
-    )
-  }
-  return children(result.data.data)
+function TrendLegend() {
+  return (
+    <span aria-hidden className="flex items-center gap-3 text-caption text-text-tertiary">
+      <span className="flex items-center gap-1">
+        <span className="h-0.5 w-4 bg-bg-brand" />
+        이번 기간
+      </span>
+      <span className="flex items-center gap-1">
+        <span className="w-4 border-t-2 border-dashed border-border-strong" />
+        지난 기간
+      </span>
+    </span>
+  )
 }
 
-/** 2026-10-26 ~ 2026-11-01 → 10/26 ~ 11/1 */
-function spanLabel({ start, end }: DateSpan) {
-  const md = (iso: string) => `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}`
-  return `${md(start)} ~ ${md(end)}`
+function spanText({ start, end }: DateSpan) {
+  return `${formatStatsDayWithWeekday(start)} ~ ${formatStatsDayWithWeekday(end)}`
 }

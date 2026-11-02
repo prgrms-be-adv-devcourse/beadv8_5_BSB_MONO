@@ -30,6 +30,21 @@ export const MOCK_REALTIME = {
   ],
 }
 
+/** 대회 등록 입력 오류 묶음 조합별 사람 수 (GTM이 error_sections로 보내는 모양) */
+export const MOCK_FORM_ERROR_ROWS = [
+  { value: '종목 · 참가권', users: 6 },
+  { value: '기본 정보,이미지', users: 4 },
+  { value: '취소 · 환불 정책', users: 3 },
+  { value: '이미지', users: 2 },
+  { value: '키트 배송,종목 · 참가권', users: 1 },
+]
+
+/** 날짜마다 조금씩 다른 예시 숫자. 같은 날짜면 늘 같은 값이라 화면이 새로 불러와도 흔들리지 않는다 */
+function dailyUsers(date: string, base: number, spread: number) {
+  const seed = [...date].reduce((sum, ch) => sum * 31 + ch.charCodeAt(0), 7)
+  return base + (Math.abs(seed) % spread)
+}
+
 export const mockGa4Reporter: Ga4Reporter = {
   async usersByEvent({ events, dateRanges }) {
     return Object.fromEntries(
@@ -38,6 +53,27 @@ export const mockGa4Reporter: Ga4Reporter = {
         Object.fromEntries(events.map((event) => [event, USERS[event]?.[i] ?? 0])),
       ]),
     )
+  },
+  async usersByDate({ eventName, dateRanges }) {
+    const [base, spread] = eventName === 'purchase' ? [20, 18] : [150, 90]
+    return Object.fromEntries(
+      dateRanges.map((range, i) => {
+        const days: Record<string, number> = {}
+        for (
+          let d = new Date(`${range.startDate}T00:00:00Z`);
+          d <= new Date(`${range.endDate}T00:00:00Z`);
+          d.setUTCDate(d.getUTCDate() + 1)
+        ) {
+          const date = d.toISOString().slice(0, 10)
+          // 비교 기간은 조금 적게 보여 늘어난 모양을 흉내 낸다
+          days[date] = dailyUsers(date, i === 0 ? base : Math.round(base * 0.85), spread)
+        }
+        return [range.name, days]
+      }),
+    )
+  },
+  async usersByDimension() {
+    return MOCK_FORM_ERROR_ROWS
   },
   async realtime({ topScreens }) {
     return { ...MOCK_REALTIME, topScreens: MOCK_REALTIME.topScreens.slice(0, topScreens) }

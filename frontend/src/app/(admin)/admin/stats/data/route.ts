@@ -1,13 +1,20 @@
 import {
   FUNNELS,
+  rankFormErrors,
   resolveStatsPeriod,
   seoulToday,
   statsPeriodQuerySchema,
   TOP_SCREEN_COUNT,
+  toTrendPoints,
+  type FormErrorStats,
   type FunnelKind,
   type FunnelStats,
   type RealtimeStats,
+  type StatsPeriod,
   type StatsResponse,
+  type StatsSection,
+  type TrendKind,
+  type TrendStats,
 } from '@/entities/usage-stats'
 import { ApiError, customFetch } from '@/shared/api'
 import { getGa4Reporter, type Ga4Reporter } from '@/shared/ga4'
@@ -17,7 +24,7 @@ import { getGa4Reporter, type Ga4Reporter } from '@/shared/ga4'
  *
  * 주소가 /api 밖인 이유: 운영 Nginx는 /api를 백엔드 게이트웨이로 보내므로 Next까지 오지 않는다.
  *
- * GET /admin/stats/data?section=buyer|seller&period=7d|30d|custom[&start&end]
+ * GET /admin/stats/data?section=buyer|seller|formErrors|visitors|purchases&period=7d|30d|custom[&start&end]
  * GET /admin/stats/data?section=realtime
  * - 200 { status: 'ok', data } · { status: 'notConfigured' }(키 없음)
  * - 401 로그인 필요 · 403 관리자 아님 · 400 기간 오류 · 502 GA4 호출 실패(영역마다 따로)
@@ -25,8 +32,8 @@ import { getGa4Reporter, type Ga4Reporter } from '@/shared/ga4'
 export async function GET(request: Request): Promise<Response> {
   const params = new URL(request.url).searchParams
   const section = params.get('section')
-  if (section !== 'buyer' && section !== 'seller' && section !== 'realtime') {
-    return error(400, '영역(section)은 buyer, seller, realtime 중 하나입니다.', 'INVALID_REQUEST')
+  if (!isSection(section)) {
+    return error(400, `영역(section)은 ${SECTIONS.join(', ')} 중 하나입니다.`, 'INVALID_REQUEST')
   }
 
   const denied = await checkAdmin(request.headers.get('Authorization'))
@@ -45,7 +52,7 @@ export async function GET(request: Request): Promise<Response> {
     const query = statsPeriodQuerySchema.safeParse(Object.fromEntries(params))
     const period = query.success ? resolveStatsPeriod(query.data, seoulToday()) : null
     if (!period) return error(400, '기간이 올바르지 않습니다.', 'INVALID_REQUEST')
-    return ok<FunnelStats>({ status: 'ok', data: await funnel(ga4.reporter, section, period) })
+    return ok({ status: 'ok', data: await periodSection(ga4.reporter, section, period) })
   } catch (e) {
     // 키는 오류에 들어 있지 않지만, 혹시 몰라 오류 문구만 남긴다
     console.error(`[ga4] ${section} 불러오기 실패: ${e instanceof Error ? e.message : String(e)}`)
@@ -80,10 +87,40 @@ async function checkAdmin(authorization: string | null): Promise<Response | null
   }
 }
 
+const SECTIONS: StatsSection[] = [
+  'realtime',
+  'buyer',
+  'seller',
+  'formErrors',
+  'visitors',
+  'purchases',
+]
+
+function isSection(value: string | null): value is StatsSection {
+  return SECTIONS.includes(value as StatsSection)
+}
+
+function periodSection(
+  reporter: Ga4Reporter,
+  section: Exclude<StatsSection, 'realtime'>,
+  period: StatsPeriod,
+): Promise<FunnelStats | FormErrorStats | TrendStats> {
+  switch (section) {
+    case 'buyer':
+    case 'seller':
+      return funnel(reporter, section, period)
+    case 'formErrors':
+      return formErrors(reporter, period)
+    case 'visitors':
+    case 'purchases':
+      return trend(reporter, section, period)
+  }
+}
+
 async function funnel(
   reporter: Ga4Reporter,
   kind: FunnelKind,
-  period: FunnelStats['period'],
+  period: StatsPeriod,
 ): Promise<FunnelStats> {
   const { siteArea, steps } = FUNNELS[kind]
   const users = await reporter.usersByEvent({
@@ -102,6 +139,34 @@ async function funnel(
       previousUsers: users.previous?.[step.event] ?? 0,
     })),
   }
+}
+
+/** 판매자 대회 등록 입력 오류 묶음 순위. 고른 기간만 센다 */
+async function formErrors(reporter: Ga4Reporter, period: StatsPeriod): Promise<FormErrorStats> {
+  const rows = await reporter.usersByDimension({
+    eventName: 'seller_race_form_error',
+    dimension: 'customEvent:error_sections',
+    dateRange: { name: 'current', startDate: period.current.start, endDate: period.current.end },
+  })
+  return { period, groups: rankFormErrors(rows) }
+}
+
+/** 일별 추이. 방문자는 그날 활성 사용자 수, 구매는 그날 purchase 이벤트를 보낸 사람 수 */
+async function trend(
+  reporter: Ga4Reporter,
+  kind: TrendKind,
+  period: StatsPeriod,
+): Promise<TrendStats> {
+  const byDate = await reporter.usersByDate({
+    ...(kind === 'visitors'
+      ? { metric: 'activeUsers' as const }
+      : { metric: 'totalUsers' as const, eventName: 'purchase' }),
+    dateRanges: [
+      { name: 'current', startDate: period.current.start, endDate: period.current.end },
+      { name: 'previous', startDate: period.previous.start, endDate: period.previous.end },
+    ],
+  })
+  return { period, points: toTrendPoints(period, byDate) }
 }
 
 function realtime(reporter: Ga4Reporter): Promise<RealtimeStats> {

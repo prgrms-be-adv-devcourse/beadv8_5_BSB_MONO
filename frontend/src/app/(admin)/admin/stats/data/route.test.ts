@@ -135,3 +135,47 @@ describe('GET /admin/stats/data 숫자', () => {
     expect((await get('section=nope')).status).toBe(400)
   })
 })
+
+describe('GET /admin/stats/data 일별 추이 · 입력 오류', () => {
+  it('일별 방문자 수는 기간의 날짜마다 이번 기간과 비교 기간 사람 수를 준다', async () => {
+    const usersByDate = vi.spyOn(mockGa4Reporter, 'usersByDate')
+    const body = await (
+      await get('section=visitors&period=custom&start=2026-10-30&end=2026-11-01')
+    ).json()
+
+    expect(usersByDate).toHaveBeenCalledWith(expect.objectContaining({ metric: 'activeUsers' }))
+    expect(body.data.points).toHaveLength(3)
+    expect(body.data.points[0]).toMatchObject({ date: '2026-10-30', previousDate: '2026-10-27' })
+  })
+
+  it('일별 구매 수는 purchase 이벤트를 보낸 사람 수로 센다', async () => {
+    const usersByDate = vi.spyOn(mockGa4Reporter, 'usersByDate')
+    await get('section=purchases&period=7d')
+
+    expect(usersByDate).toHaveBeenCalledWith(
+      expect.objectContaining({ metric: 'totalUsers', eventName: 'purchase' }),
+    )
+  })
+
+  it('GA4가 빈 날짜를 빼고 줘도 0명으로 채운다', async () => {
+    vi.spyOn(mockGa4Reporter, 'usersByDate').mockResolvedValueOnce({
+      current: { '2026-10-31': 4 },
+      previous: {},
+    })
+    const body = await (
+      await get('section=visitors&period=custom&start=2026-10-30&end=2026-11-01')
+    ).json()
+
+    expect(body.data.points.map((p: { value: number }) => p.value)).toEqual([0, 4, 0])
+  })
+
+  it('입력 오류 묶음은 상위 3개만 준다', async () => {
+    const body = await (await get('section=formErrors&period=7d')).json()
+
+    expect(body.data.groups).toEqual([
+      { name: '종목 · 참가권', users: 7 },
+      { name: '이미지', users: 6 },
+      { name: '기본 정보', users: 4 },
+    ])
+  })
+})

@@ -2,4 +2,11 @@
 import 'server-only'
 
 export { getGa4Reporter, type Ga4ReporterResult } from './reporter'
-export type { Ga4DateRange, Ga4Reporter, RealtimeOverview, UsersByEvent } from './report'
+export type {
+  Ga4DateRange,
+  Ga4Reporter,
+  RealtimeOverview,
+  UsersByDate,
+  UsersByDimension,
+  UsersByEvent,
+} from './report'

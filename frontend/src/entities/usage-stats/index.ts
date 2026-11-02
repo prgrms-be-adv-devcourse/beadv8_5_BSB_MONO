@@ -7,9 +7,12 @@ export {
   type FunnelStepView,
 } from './model/funnels'
 export {
+  formatStatsDay,
+  formatStatsDayWithWeekday,
   MAX_CUSTOM_DAYS,
   resolveStatsPeriod,
   seoulToday,
+  spanDates,
   STATS_PERIOD_ITEMS,
   statsPeriodQuerySchema,
   statsPeriodSearch,
@@ -22,7 +25,13 @@ export {
   TOP_SCREEN_COUNT,
   type FunnelStats,
   type RealtimeStats,
-  type StatsData,
   type StatsResponse,
   type StatsSection,
 } from './model/response'
+export {
+  FORM_ERROR_TOP,
+  rankFormErrors,
+  type FormErrorGroup,
+  type FormErrorStats,
+} from './model/form-errors'
+export { toTrendPoints, type TrendKind, type TrendPoint, type TrendStats } from './model/trend'
