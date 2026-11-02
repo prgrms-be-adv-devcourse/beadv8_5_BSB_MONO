@@ -3666,7 +3666,7 @@
           "IdentityVerification"
         ],
         "summary": "본인인증 확인",
-        "description": "포트원 창이 끝나면 부른다. 서버가 포트원 조회 API로 결과를 직접 확인하고, 확인된 이름 · 생년월일 · 휴대폰 번호와 CI 해시를 15분 동안 저장한다. 화면이 보낸 인증 결과는 쓰지 않는다. 이미 확인한 ID를 다시 부르면 저장한 결과를 그대로 돌려준다.",
+        "description": "포트원 창이 끝나면 부른다. 서버가 포트원 조회 API로 결과를 직접 확인하고, 확인된 이름 · 생년월일 · 휴대폰 번호와 해시를 15분 동안 저장한다. 화면이 보낸 인증 결과는 쓰지 않는다. 모든 인증 방법을 받고, CI는 인증사가 줄 때만 저장한다. 이미 가입한 사람이면 409로 알린다. 이미 확인한 ID를 다시 부르면 저장한 결과를 그대로 돌려준다.",
         "operationId": "completeIdentityVerification",
         "parameters": [
           {
@@ -3702,7 +3702,7 @@
             }
           },
           "400": {
-            "description": "서버가 만들지 않았거나 15분이 지난 인증 ID, 인증 실패, CI를 주지 않는 인증 방법",
+            "description": "서버가 만들지 않았거나 15분이 지난 인증 ID 또는 인증 실패",
             "content": {
               "application/json": {
                 "schema": {
@@ -3728,6 +3728,22 @@
                   "status": 503,
                   "code": "AUTH_VERIFICATION_UNAVAILABLE",
                   "message": "본인인증 결과를 확인하지 못했습니다. 잠시 후 다시 시도해주세요.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "이미 가입한 사람 (CI 또는 이름 · 생년월일 · 휴대폰 번호가 같음)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 409,
+                  "code": "MEMBER_DUPLICATE_IDENTITY",
+                  "message": "이미 가입한 사람입니다. 로그인하거나 계정 연결에서 연결해주세요.",
                   "data": null
                 }
               }
