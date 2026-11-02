@@ -61,3 +61,8 @@ function retryUnlessDenied(failureCount: number, error: Error) {
 export function isNotAdminError(error: unknown) {
   return error instanceof ApiError && error.status === 403
 }
+
+/** 토큰 재발급까지 실패한 401. 로그인이 풀린 것이라 다시 시도해도 같다 */
+export function isLoginRequiredError(error: unknown) {
+  return error instanceof ApiError && error.status === 401
+}

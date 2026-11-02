@@ -230,6 +230,21 @@ describe('AdminStatsPage', () => {
     expect(within(trends).queryByText('지난 기간보다')).not.toBeInTheDocument()
   })
 
+  it('로그인이 풀려 401이면 「불러오지 못함」 대신 다시 로그인하라고 알린다', async () => {
+    mockStats({
+      buyer: () =>
+        HttpResponse.json(
+          { status: 401, code: 'LOGIN_REQUIRED', message: '로그인이 필요합니다.', data: null },
+          { status: 401 },
+        ),
+    })
+    renderPage()
+
+    const buyer = await screen.findByRole('region', { name: '구매 단계' })
+    expect(await within(buyer).findByText('로그인이 풀렸어요', {}, SLOW)).toBeInTheDocument()
+    expect(within(buyer).queryByText('구매 단계를 불러오지 못했어요')).not.toBeInTheDocument()
+  })
+
   it('관리자가 아니면 숫자 대신 안내를 보여 준다', async () => {
     const denied = () =>
       HttpResponse.json(

@@ -7,7 +7,7 @@ import type { StatsResponse } from '@/entities/usage-stats'
 import { cn } from '@/shared/lib'
 import { Alert, Button, Skeleton } from '@/shared/ui'
 
-import { isNotAdminError } from '../model/use-usage-stats'
+import { isLoginRequiredError, isNotAdminError } from '../model/use-usage-stats'
 
 // 이용 통계의 영역 틀과 영역 하나의 상태(로딩 · 불러오지 못함 · 관리자 아님 · 정상). 디자인 계약 A-STATS 「상태별 문구」.
 
@@ -69,6 +69,16 @@ export function SectionState<T>({
   if (result.isError) {
     if (isNotAdminError(result.error)) {
       return <Alert tone="danger" title="관리자만 이용할 수 있어요." />
+    }
+    // 「불러오지 못함」으로 뭉뚱그리면 GA4 문제로 보여서 따로 알린다
+    if (isLoginRequiredError(result.error)) {
+      return (
+        <Alert
+          tone="danger"
+          title="로그인이 풀렸어요"
+          description="다시 로그인하면 숫자가 보여요."
+        />
+      )
     }
     return (
       <div className="flex items-center gap-3">
