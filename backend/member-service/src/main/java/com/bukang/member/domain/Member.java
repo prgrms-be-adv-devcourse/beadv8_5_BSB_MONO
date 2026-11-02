@@ -186,24 +186,12 @@ public class Member extends SourceMember {
 		return width;
 	}
 
-	// 이름·닉네임·휴대폰·생년월일을 바꾸고, 하나라도 바뀌었으면 true를 돌려준다 (BE-012)
-	// 휴대폰은 해시로 비교해, 하이픈 유무만 다른 같은 번호면 저장된 값을 그대로 둔다
-	public boolean modify(String name, String nickname, String phone, String phoneHash, LocalDate birthDate) {
-		boolean phoneChanged = !getPhoneHash().equals(phoneHash);
-		boolean changed = phoneChanged
-			|| !getName().equals(name)
-			|| !getNickname().equals(nickname)
-			|| !getBirthDate().equals(birthDate);
-		if (!changed) {
+	// 닉네임을 바꾸고, 바뀌었으면 true를 돌려준다 (BE-012). 이름 · 생년월일 · 휴대폰 번호는 본인인증 값이라 바꾸지 않는다 (BUK-33)
+	public boolean changeNickname(String nickname) {
+		if (getNickname().equals(nickname)) {
 			return false;
 		}
-		setName(name);
 		setNickname(nickname);
-		if (phoneChanged) {
-			setPhone(phone);
-			setPhoneHash(phoneHash);
-		}
-		setBirthDate(birthDate);
 		return true;
 	}
 

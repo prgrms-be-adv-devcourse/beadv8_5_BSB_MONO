@@ -279,7 +279,7 @@ export const getModifyMeUrl = () => {
 }
 
 /**
- * X-Member-Id 헤더의 회원의 이름, 생년월일, 휴대폰 번호, 닉네임을 바꾼다. 다른 회원이 쓰는 닉네임·휴대폰 번호인지 검사하고(내 행은 제외, 휴대폰은 하이픈 유무 무관), 4칸이 모두 그대로면 저장하지 않는다.
+ * X-Member-Id 헤더의 회원의 닉네임을 바꾼다. 이름, 생년월일, 휴대폰 번호는 본인인증으로 받은 값이라 바꿀 수 없고, 요청에 와도 무시한다. 다른 회원이 쓰는 닉네임인지 검사하고(내 행은 제외), 닉네임이 그대로면 저장하지 않는다.
  * @summary 내 정보 수정
  */
 export const modifyMe = async (memberModifyRequestDto: MemberModifyRequestDto, options?: Parameters<typeof customFetch>[1]): Promise<RsDataMemberDto> => {

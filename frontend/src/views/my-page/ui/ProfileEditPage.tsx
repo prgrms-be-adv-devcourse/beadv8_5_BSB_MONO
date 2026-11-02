@@ -15,7 +15,7 @@ import { modifyErrorMessage, profileSchema, type ProfileValues } from '../model/
 
 // 피그마 V2 · M30-1 회원 정보 수정. 계정 설정(/me/settings)의 수정 버튼으로 들어온다.
 // 고칠 수 있는 값은 닉네임 하나다. 이름 · 생년월일 · 휴대폰은 본인인증으로 확인한 값이라 계정 설정에서 보기만 한다.
-// 내 정보 수정(PUT /api/v1/member/members/me)은 4칸을 통째로 받으므로, 나머지 3칸은 조회한 값을 그대로 보낸다.
+// 내 정보 수정(PUT /api/v1/member/members/me)은 닉네임만 받는다(BUK-33).
 export function ProfileEditPage() {
   const me = memberApi.useFindMe({
     // 로그인 확인(재발급)이 끝난 뒤에만 부른다. 로그아웃으로 캐시를 지운 뒤 다시 부르지도 않는다.
@@ -57,12 +57,7 @@ function ProfileForm({ member }: { member: memberModel.MemberDto }) {
     setFormError(undefined)
     modify.mutate(
       {
-        data: {
-          name: member.name ?? '',
-          birthDate: member.birthDate ?? '',
-          phone: member.phone ?? '',
-          nickname: values.nickname,
-        },
+        data: { nickname: values.nickname },
       },
       {
         onSuccess: (response) => {
