@@ -29,6 +29,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.common.global.json.JsonConverter;
 import com.bukang.member.app.MemberFacade;
@@ -95,6 +97,9 @@ class ApiV1PasswordResetTest {
 
 	@Autowired
 	private InMemoryMemberMailSender mailSender;
+
+	@Autowired
+	private PlatformTransactionManager transactionManager;
 
 	@MockitoBean
 	private RefreshTokenRepository refreshTokenRepository;
@@ -247,6 +252,31 @@ class ApiV1PasswordResetTest {
 
 		post(BASE + "verify", Map.of("token", first)).andExpect(status().isBadRequest());
 		post(BASE + "verify", Map.of("token", second)).andExpect(status().isOk());
+	}
+
+	@Test
+	@DisplayName("비밀번호를 바꾸는 중에 새 링크를 요청해도, 그다음 새 링크를 받으면 그 사이 링크는 쓸 수 없다")
+	void linkRequestedDuringConfirmIsInvalidatedByNextLink() throws Exception {
+		requestReset(EMAIL);
+		String first = tokenOf(mailSender.sent().getFirst());
+		// 변경이 커밋되기 전에 같은 회원의 새 링크 요청이 끼어든 상황
+		new TransactionTemplate(transactionManager).executeWithoutResult(tx -> {
+			try {
+				post(BASE + "confirm", Map.of("token", first, "password", NEW_PASSWORD)).andExpect(status().isOk());
+				resetStore.clearCooldowns();
+				requestReset(EMAIL).andExpect(status().isOk());
+			} catch (Exception e) {
+				throw new IllegalStateException(e);
+			}
+		});
+		String during = tokenOf(mailSender.sent().stream()
+			.filter(mail -> TOKEN.matcher(mail.text()).find()).toList().getLast());
+		resetStore.clearCooldowns();
+		requestReset(EMAIL);
+		String latest = tokenOf(mailSender.sent().getLast());
+
+		post(BASE + "verify", Map.of("token", during)).andExpect(status().isBadRequest());
+		post(BASE + "verify", Map.of("token", latest)).andExpect(status().isOk());
 	}
 
 	@Test
