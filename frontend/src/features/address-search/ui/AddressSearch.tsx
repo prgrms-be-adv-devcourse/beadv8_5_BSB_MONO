@@ -56,24 +56,39 @@ export function AddressSearch({
   const [open, setOpen] = useState(false)
   const [failed, setFailed] = useState(false)
   const panel = useRef<HTMLDivElement>(null)
+  // 창을 붙인 칸. 처음 불러올 때는 onLoad와 onReady가 둘 다 불려 두 번 붙지 않게 막는다
+  const embeddedIn = useRef<HTMLElement>(null)
+  const root = useRef<HTMLDivElement>(null)
+  const notice = useRef<HTMLParagraphElement>(null)
   // 창은 연 순간의 콜백을 기억하므로, 연 뒤 화면 상태(제출 여부 등)가 바뀌어도 최신 콜백을 부르게 한다
   const select = useRef(onSelect)
   useEffect(() => {
     select.current = onSelect
   })
+  // 누른 버튼이 안내 문구로 바뀌어 초점이 사라지지 않게 문구로 옮긴다
+  useEffect(() => {
+    if (failed) notice.current?.focus()
+  }, [failed])
+
+  // 창이 닫히면 그 안의 초점도 사라지므로 주소 검색 버튼으로 돌린다
+  const close = () => {
+    setOpen(false)
+    root.current?.querySelector('button')?.focus()
+  }
 
   const embed = () => {
-    if (!panel.current) return
+    if (!panel.current || embeddedIn.current === panel.current) return
     const { kakao } = window as unknown as PostcodeWindow
     // 광고 차단 등으로 스크립트가 비어 있으면 불러오기 실패와 같이 다룬다
     if (!kakao?.Postcode) return fail()
+    embeddedIn.current = panel.current
     new kakao.Postcode({
       // 「서울」이 아니라 「서울특별시」로 받아야 대회 찾기 지역 필터와 글자가 같다
       shorthand: false,
       width: '100%',
       height: '100%',
       oncomplete: (data) => {
-        setOpen(false)
+        close()
         select.current({
           zipcode: data.zonecode,
           address: data.roadAddress || data.autoRoadAddress || data.jibunAddress,
@@ -91,10 +106,10 @@ export function AddressSearch({
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div ref={root} className="flex flex-col gap-2">
       {/* 실패한 스크립트는 next/script가 성공으로 기억해 다시 열면 빈 창이 되므로, 실패하면 버튼을 숨긴다 */}
       {failed ? (
-        <p role="alert" className="text-caption text-text-danger">
+        <p ref={notice} role="alert" tabIndex={-1} className="text-caption text-text-danger">
           {ADDRESS_SEARCH_UNAVAILABLE}
         </p>
       ) : (
@@ -110,7 +125,8 @@ export function AddressSearch({
       )}
       {open && (
         <div className="flex flex-col gap-2">
-          <Script src={POSTCODE_SCRIPT} onReady={embed} onError={fail} />
+          {/* 다른 화면에서 이미 불렀던 주소는 next/script가 onReady 없이 onLoad만 부를 때가 있다(실패했거나 불러오는 중) */}
+          <Script src={POSTCODE_SCRIPT} onLoad={embed} onReady={embed} onError={fail} />
           {/* 카카오 창의 최소 높이는 400. 아래 로고가 가려지지 않게 넉넉히 둔다 */}
           <div
             ref={panel}
@@ -122,7 +138,7 @@ export function AddressSearch({
             size="s"
             className="self-end"
             aria-label="주소 검색 닫기"
-            onClick={() => setOpen(false)}
+            onClick={close}
           >
             닫기
           </Button>
