@@ -53,8 +53,10 @@ public class PayoutRecovery extends BaseIdAndTime {
 	@Column(nullable = false)
 	private long amount;
 
+	// DB ENUM이 아니라 글자 칸으로 둔다. ENUM이면 상태를 새로 만들 때 기존 DB가 받지 못한다 (CANCELED, PR #265 리뷰)
+	// 값은 코드의 enum으로만 읽고 쓴다 (PayoutItem의 줄 종류 칸과 같은 방식)
 	@Enumerated(STRING)
-	@Column(nullable = false, length = 20)
+	@Column(nullable = false, columnDefinition = "varchar(20)")
 	private PayoutRecoveryStatus status;
 
 	@Column(nullable = false)
