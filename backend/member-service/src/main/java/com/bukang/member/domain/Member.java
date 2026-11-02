@@ -41,7 +41,11 @@ import lombok.NoArgsConstructor;
 	@UniqueConstraint(name = "uk_member_nickname", columnNames = "nickname"),
 	@UniqueConstraint(name = "uk_member_phone_hash", columnNames = "phone_hash"),
 	@UniqueConstraint(name = "uk_member_identity_hash", columnNames = "identity_hash")
-}, indexes = @Index(name = "idx_member_name_birth_hash", columnList = "name_birth_hash"),
+}, indexes = {
+	@Index(name = "idx_member_name_birth_hash", columnList = "name_birth_hash"),
+	@Index(name = "idx_member_withdrawn_identity_hash", columnList = "withdrawn_identity_hash"),
+	@Index(name = "idx_member_withdrawn_ci_hash", columnList = "withdrawn_ci_hash")
+},
 	check = @CheckConstraint(name = "ck_member_personal_info", constraint = Member.PERSONAL_INFO_CHECK))
 @AttributeOverride(name = "nickname", column = @Column(name = "nickname", length = 16))
 public class Member extends SourceMember {
@@ -181,8 +185,12 @@ public class Member extends SourceMember {
 		setPhoneHash(null);
 		setBirthDate(null);
 		setGender(null);
-		// 개인정보로 만든 해시도 비워, 탈퇴한 사람이 이메일 · 번호처럼 다시 가입할 수 있게 한다
+		// 본인인증 해시는 재가입 제한용 칸으로 옮기고 비운다 (탈퇴 후 30일 재가입 제한)
+		// identity_hash에는 유니크 제약이 있어, 남겨 두면 30일이 지나도 같은 사람이 다시 가입할 수 없다
+		setWithdrawnIdentityHash(getIdentityHash());
+		setWithdrawnCiHash(getCiHash());
 		setIdentityHash(null);
+		setCiHash(null);
 		setNameBirthHash(null);
 	}
 

@@ -61,9 +61,12 @@ public class ApiV1IdentityVerificationController {
 				@ExampleObject(name = "인증 ID가 없거나 지남", value = IdentityVerificationApiExamples.VERIFICATION_REQUIRED),
 				@ExampleObject(name = "인증 실패", value = IdentityVerificationApiExamples.VERIFICATION_FAILED)
 			})),
-		@ApiResponse(responseCode = "409", description = "이미 가입한 사람 (CI 또는 이름 · 생년월일 · 휴대폰 번호가 같음)",
-			content = @Content(schema = @Schema(implementation = RsData.class),
-				examples = @ExampleObject(value = IdentityVerificationApiExamples.DUPLICATE_IDENTITY))),
+		@ApiResponse(responseCode = "409", description = "이미 가입한 사람 (CI 또는 이름 · 생년월일 · 휴대폰 번호가 같음) "
+			+ "또는 탈퇴하고 30일이 지나지 않은 사람",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "이미 가입한 사람", value = IdentityVerificationApiExamples.DUPLICATE_IDENTITY),
+				@ExampleObject(name = "탈퇴 후 재가입 제한", value = IdentityVerificationApiExamples.REJOIN_TOO_SOON)
+			})),
 		@ApiResponse(responseCode = "503", description = "포트원 조회 실패 (연결 실패, 응답 지연, 인증 키 오류)",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = IdentityVerificationApiExamples.UNAVAILABLE)))

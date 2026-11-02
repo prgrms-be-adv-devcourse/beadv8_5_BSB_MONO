@@ -63,6 +63,18 @@ final class IdentityVerificationApiExamples {
 		}
 		""";
 
+	static final String REJOIN_TOO_SOON = """
+		{
+			"status": 409,
+			"code": "MEMBER_REJOIN_TOO_SOON",
+			"message": "탈퇴하고 30일이 지나야 다시 가입할 수 있습니다. 12월 2일부터 가입할 수 있습니다.",
+			"data": {
+				"rejoinableDate": "2026-12-02",
+				"blockDays": 30
+			}
+		}
+		""";
+
 	private IdentityVerificationApiExamples() {
 	}
 }

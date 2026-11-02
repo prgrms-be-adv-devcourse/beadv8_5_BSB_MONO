@@ -91,6 +91,13 @@ public abstract class SourceMember extends BaseMember {
 	@Column(name = "name_birth_hash", length = 64)
 	private String nameBirthHash;
 
+	// 탈퇴 후 재가입 제한용으로 옮겨 둔 해시 (탈퇴 후 30일 재가입 제한). 30일이 지나면 정리 작업이 비운다
+	@Column(name = "withdrawn_identity_hash", length = 64)
+	private String withdrawnIdentityHash;
+
+	@Column(name = "withdrawn_ci_hash", length = 64)
+	private String withdrawnCiHash;
+
 	@Column(name = "verified_at")
 	private LocalDateTime verifiedAt;
 

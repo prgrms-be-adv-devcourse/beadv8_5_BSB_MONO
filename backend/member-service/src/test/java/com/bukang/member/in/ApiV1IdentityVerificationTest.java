@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
@@ -26,6 +27,7 @@ import org.springframework.test.web.servlet.ResultActions;
 
 import com.bukang.member.app.IdentityHasher;
 import com.bukang.member.app.MemberFacade;
+import com.bukang.member.domain.Member;
 import com.bukang.member.domain.TermsType;
 import com.bukang.member.dto.MemberJoinRequestDto;
 import com.bukang.member.out.MemberRepository;
@@ -164,6 +166,22 @@ class ApiV1IdentityVerificationTest {
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("MEMBER_DUPLICATE_IDENTITY"));
 		assertThat(store.findVerified(id)).isEmpty();
+	}
+
+	@Test
+	@DisplayName("탈퇴하고 30일이 지나지 않은 사람이면 인증 직후 409 MEMBER_REJOIN_TOO_SOON이다")
+	void completeFailsWhenRejoinTooSoon() throws Exception {
+		joinSamePerson();
+		Member member = memberRepository.findByEmail("joined@crewrun.com").orElseThrow();
+		member.withdraw(LocalDateTime.now());
+		memberRepository.saveAndFlush(member);
+		String id = start();
+		given(portOneIdentityClient.find(id)).willReturn(verified(id, null));
+
+		complete(id)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("MEMBER_REJOIN_TOO_SOON"))
+			.andExpect(jsonPath("$.data.rejoinableDate").value(LocalDate.now().plusDays(30).toString()));
 	}
 
 	// 서버와 같은 해시로 「김러너 · 1995-04-12 · 010-1234-5678」을 가입시킨다
