@@ -8,17 +8,6 @@
 import * as zod from 'zod';
 
 /**
- * 판매자의 입금을 확인한 회수를 회수 완료(COMPLETED)로 바꾸고 확인한 관리자와 일시를 남긴다.
- * @summary 회수 완료
- */
-export const CompleteParams = zod.object({
-  "recoveryId": zod.int().describe('회수 ID')
-})
-
-export const CompleteResponse = zod.unknown()
-
-
-/**
  * 정산 예정(CALCULATED)인 정산 내역에 지급보류를 걸어 지급 배치에서 지급되지 않게 한다. 한 정산 내역에는 보류를 하나만 걸 수 있고, 지급보류 ID(HD-)를 붙인다.
  * @summary 지급보류 걸기
  */

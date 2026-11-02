@@ -14,6 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,9 +34,13 @@ import org.springframework.test.web.servlet.ResultActions;
 
 import com.bukang.payout.domain.PayoutClaim;
 import com.bukang.payout.domain.PayoutClaimStatus;
+import com.bukang.payout.domain.PayoutItem;
+import com.bukang.payout.domain.PayoutRecordType;
+import com.bukang.payout.domain.PayoutRecovery;
 import com.bukang.payout.out.MemberAdminPort;
 import com.bukang.payout.out.PayoutClaimRepository;
 import com.bukang.payout.out.PayoutItemRepository;
+import com.bukang.payout.out.PayoutRecoveryRepository;
 import com.bukang.payout.support.RestDocsConfig;
 
 // 통과한 테스트만 REST Docs 스니펫(build/generated-snippets)을 남긴다. 문서는 src/docs/asciidoc/index.adoc에서 묶는다
@@ -65,6 +70,9 @@ class ApiV1PayoutClaimControllerTest {
 	@Autowired
 	private PayoutItemRepository payoutItemRepository;
 
+	@Autowired
+	private PayoutRecoveryRepository payoutRecoveryRepository;
+
 	// 회원 서비스 대신 관리자 여부를 정한다. 정하지 않은 회원은 일반 회원(false)이다
 	@MockitoBean
 	private MemberAdminPort memberAdminPort;
@@ -77,10 +85,16 @@ class ApiV1PayoutClaimControllerTest {
 	@AfterEach
 	void tearDown() {
 		payoutItemRepository.deleteAll();
+		payoutRecoveryRepository.deleteAll();
 		payoutClaimRepository.deleteAll();
 	}
 
+	// 청구 금액과 같은 갚을 돈(회수 요청 105,500)을 함께 남긴다. 확인할 때 둘이 다르면 거부한다
 	private PayoutClaim saveClaim() {
+		PayoutRecovery recovery = payoutRecoveryRepository.save(
+			PayoutRecovery.scheduleChanged(1, 7, 108, 105_500, LocalDateTime.of(2026, 11, 26, 10, 0)));
+		payoutItemRepository.save(
+			PayoutItem.ofRecovery(recovery, PayoutRecordType.RECEIVABLE_ADDED, 108L, 7L, 105_500));
 		return payoutClaimRepository.save(new PayoutClaim(1, 7, 105_500, LocalDate.of(2026, 12, 14)));
 	}
 
@@ -148,6 +162,7 @@ class ApiV1PayoutClaimControllerTest {
 	@DisplayName("TC-CONFIRM-4-2 관리자가 아닌 회원이 청구 입금을 확인하면 403이고, 청구와 원장은 그대로다")
 	void nonAdminCannotConfirm() throws Exception {
 		PayoutClaim claim = saveClaim();
+		long lines = payoutItemRepository.count();
 
 		confirm(claim.getId(), MEMBER_ID)
 			.andExpect(status().isForbidden())
@@ -155,6 +170,6 @@ class ApiV1PayoutClaimControllerTest {
 			.andDo(document("payout-claim-confirm-forbidden", ERROR_RESPONSE));
 		assertThat(payoutClaimRepository.findById(claim.getId()).orElseThrow().getStatus())
 			.isEqualTo(PayoutClaimStatus.OPEN);
-		assertThat(payoutItemRepository.count()).isZero();
+		assertThat(payoutItemRepository.count()).isEqualTo(lines);
 	}
 }
