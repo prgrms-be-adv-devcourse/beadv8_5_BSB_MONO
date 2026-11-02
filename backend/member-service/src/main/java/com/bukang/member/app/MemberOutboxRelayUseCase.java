@@ -19,6 +19,7 @@ import org.apache.kafka.common.header.Headers;
 import org.springframework.data.domain.Limit;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.bukang.common.shared.kafka.KafkaEventHeaders;
@@ -62,7 +63,9 @@ public class MemberOutboxRelayUseCase {
 	private LocalDateTime lastStaleLogAt;
 
 	// 보낸 건수를 돌려준다. 상태 변경은 더티 체킹으로 커밋된다
-	@Transactional
+	// READ COMMITTED: MySQL 기본(REPEATABLE READ)이면 FOR UPDATE가 인덱스 끝 빈 구간에도 락을 걸어,
+	// 보내는 동안 새 아웃박스 행 저장(가입·정보 변경 요청)이 함께 기다린다
+	@Transactional(isolation = Isolation.READ_COMMITTED)
 	public int relay(LocalDateTime now) {
 		List<MemberOutboxEvent> events = memberOutboxEventRepository
 			.findByStatusOrderByIdAsc(MemberOutboxStatus.PENDING, Limit.of(BATCH_SIZE));
