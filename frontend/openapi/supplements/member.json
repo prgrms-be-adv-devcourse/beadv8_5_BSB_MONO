@@ -107,14 +107,6 @@
         }
       }
     },
-    "issueSocialLinkTicket": {
-      "201": {
-        "wrapper": "RsDataSocialLinkTicketDto",
-        "data": {
-          "$ref": "#/components/schemas/SocialLinkTicketDto"
-        }
-      }
-    },
     "unlinkSocialAccount": {
       "200": {
         "wrapper": "RsDataMemberDto",
@@ -307,19 +299,6 @@
       "required": [
         "provider",
         "emailLocked"
-      ]
-    },
-    "SocialLinkTicketDto": {
-      "type": "object",
-      "description": "계정 연결 표",
-      "properties": {
-        "linkTicket": {
-          "type": "string",
-          "description": "2분 동안 한 번만 쓸 수 있는 연결 표"
-        }
-      },
-      "required": [
-        "linkTicket"
       ]
     }
   }
