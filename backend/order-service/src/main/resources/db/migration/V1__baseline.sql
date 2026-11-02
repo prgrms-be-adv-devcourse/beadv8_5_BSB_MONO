@@ -44,6 +44,7 @@ create table if not exists order_order (
 	constraint uk_order_idempotency unique (buyer_id, idempotency_key),
 	index idx_order_buyer (buyer_id, id),
 	index idx_order_due (status, payment_due_at),
+	index idx_order_no (order_no),
 	index idx_order_race (race_id, id)
 ) engine=InnoDB;
 
