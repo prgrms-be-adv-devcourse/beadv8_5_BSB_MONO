@@ -64,7 +64,12 @@ src/
 - API 타입·훅은 orval로 생성해 `shared/api/generated/<서비스>/`에 둔다. 생성 파일은 직접 고치지 않는다.
   - 명세는 서비스별로 `openapi/<서비스>.json`에 커밋해 둔다 (member, cash, payout, file, order, product).
   - 성공 응답 스키마가 명세에 없는 API는 `openapi/supplements/<서비스>.json`으로 보충한다. 백엔드가 스키마를 내면 지운다.
+  - 백엔드에 없는 가짜 응답 모드 전용 API는 보충 파일의 `paths`에 적는다. 지금은 체험용 PASS 본인인증(`/api/v1/auth/identity-verifications/pass`) 하나다.
   - 게이트웨이가 넣는 `X-Member-Id` 헤더는 요청 함수 인자에서 뺀다 (`orval.config.ts`).
+- 가입 본인인증은 포트원 V2 + KG이니시스 통합인증이다. `features/identity-verification`의 `requestIdentityVerification()` 하나가 백엔드에서 인증 ID 받기 → 포트원 창 열기 → 백엔드 확인을 한다.
+  가입 요청에는 이름 · 생년월일 · 휴대폰 번호 대신 `verificationToken`을 보내고, 백엔드가 포트원에서 확인한 값으로 회원을 만든다.
+  가짜 응답 모드에서는 포트원 창 대신 체험용 창(`MockPassSheet`)이 열리고 MSW가 답한다(`shared/mocks/identity-verification.ts`).
+  모바일은 포트원 창이 페이지를 옮겨 가므로, 창을 열기 전에 약관 동의와 이메일 · 닉네임을 sessionStorage에 남기고 돌아오면 되살린다(`views/auth/model/signup-draft.ts`).
 - 가져올 때는 `@/shared/api`의 서비스별 묶음을 쓴다: `productApi`(요청 함수·훅), `productModel`(타입), `productZod`.
 - 응답은 `RsData{status, message, data, code?}`로 감싸여 온다. `customFetch`는 본문을 그대로 돌려주고, data는 `unwrapData`로 꺼낸다(`select: unwrapData`).
   2xx가 아니면 `ApiError`(`serverMessage`, `code`)를 던진다.

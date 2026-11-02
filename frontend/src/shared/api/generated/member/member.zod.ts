@@ -8,6 +8,34 @@
 import * as zod from 'zod';
 
 /**
+ * 가짜 응답 모드(API_MOCKING=on)의 체험용 인증 화면에서만 부른다. 백엔드에는 없는 API다. 입력한 이름 · 생년월일 · 휴대폰 번호를 인증된 정보로 돌려준다.
+ * @summary 체험용 PASS 본인인증 (가짜 응답 모드 전용)
+ */
+
+export const verifyIdentityWithMockPassBodyPhoneRegExp = new RegExp('^01[016789]-?\\d{3,4}-?\\d{4}$');
+
+
+export const VerifyIdentityWithMockPassBody = zod.object({
+  "carrier": zod.enum(['SKT', 'KT', 'LGU', 'MVNO']).describe('통신사 (MVNO는 알뜰폰)'),
+  "name": zod.string().min(1).describe('실명'),
+  "birthDate": zod.iso.date().describe('생년월일'),
+  "phone": zod.string().regex(verifyIdentityWithMockPassBodyPhoneRegExp).describe('휴대폰 번호 (하이픈 생략 가능)')
+}).describe('PASS 본인인증 요청. 실제 연동에서는 PASS 창에 입력하는 값이다')
+
+export const VerifyIdentityWithMockPassResponse = zod.object({
+  "status": zod.int().optional(),
+  "code": zod.string().optional(),
+  "message": zod.string().optional(),
+  "data": zod.object({
+  "verificationToken": zod.string().describe('가입 요청에 넣는 인증 토큰(인증 ID와 같다). 15분 동안 쓸 수 있다'),
+  "name": zod.string().describe('인증된 실명'),
+  "birthDate": zod.iso.date().describe('인증된 생년월일'),
+  "phone": zod.string().describe('인증된 휴대폰 번호')
+}).optional().describe('본인인증 결과. 가입 화면은 이 값으로 이름 · 생년월일 · 휴대폰 번호를 채우고 잠근다')
+})
+
+
+/**
  * 게이트웨이가 Access Token에서 꺼내 넣은 회원 ID(X-Member-Id 헤더)로 로그인한 회원의 정보를 조회한다.
  * @summary 내 정보 조회
  */
@@ -140,22 +168,17 @@ export const joinBodyPasswordMax = 2147483647;
 
 
 
-
 export const joinBodyNicknameRegExp = new RegExp('^[가-힣A-Za-z0-9]+$');
 
-
-export const joinBodyPhoneRegExp = new RegExp('^01[016789]-?\\d{3,4}-?\\d{4}$');
 
 
 export const JoinBody = zod.object({
   "email": zod.email().min(1).describe('이메일 (로그인 ID)'),
   "password": zod.string().min(joinBodyPasswordMin).max(joinBodyPasswordMax).describe('비밀번호 (10자 이상)'),
-  "name": zod.string().min(1).describe('실명'),
   "nickname": zod.string().min(1).regex(joinBodyNicknameRegExp).describe('닉네임 (한글 2~8자, 영문 4~16자, 한글·영문·숫자만)'),
-  "phone": zod.string().min(1).regex(joinBodyPhoneRegExp).describe('휴대폰 번호 (하이픈 생략 가능)'),
-  "birthDate": zod.iso.date().describe('생년월일'),
   "gender": zod.union([zod.literal('MALE'),zod.literal('FEMALE'),zod.literal(null)]).nullish().describe('성별 (선택)'),
-  "agreedTerms": zod.array(zod.enum(['SERVICE', 'PRIVACY', 'MARKETING'])).describe('동의한 약관 종류 (SERVICE, PRIVACY는 필수). 동의하지 않은 선택 약관은 빼고 보낸다')
+  "agreedTerms": zod.array(zod.enum(['SERVICE', 'PRIVACY', 'MARKETING'])).describe('동의한 약관 종류 (SERVICE, PRIVACY는 필수). 동의하지 않은 선택 약관은 빼고 보낸다'),
+  "verificationToken": zod.string().min(1).describe('본인인증 결과의 인증 토큰. 이름 · 생년월일 · 휴대폰 번호는 이 인증으로 확인한 값으로 가입한다')
 }).describe('회원가입 요청')
 
 export const JoinResponse = zod.void()
@@ -416,21 +439,16 @@ export const FindSocialSignupResponse = zod.object({
  */
 
 
-
 export const socialJoinBodyNicknameRegExp = new RegExp('^[가-힣A-Za-z0-9]+$');
 
-
-export const socialJoinBodyPhoneRegExp = new RegExp('^01[016789]-?\\d{3,4}-?\\d{4}$');
 
 
 export const SocialJoinBody = zod.object({
   "email": zod.email().nullish().describe('이메일. 제공자가 확인된 이메일을 줬으면 무시하고, 안 줬으면 필수'),
-  "name": zod.string().min(1).describe('실명'),
   "nickname": zod.string().min(1).regex(socialJoinBodyNicknameRegExp).describe('닉네임 (한글 2~8자, 영문 4~16자, 한글·영문·숫자만)'),
-  "phone": zod.string().min(1).regex(socialJoinBodyPhoneRegExp).describe('휴대폰 번호 (하이픈 생략 가능)'),
-  "birthDate": zod.iso.date().describe('생년월일'),
   "gender": zod.union([zod.literal('MALE'),zod.literal('FEMALE'),zod.literal(null)]).nullish().describe('성별 (선택)'),
-  "agreedTerms": zod.array(zod.enum(['SERVICE', 'PRIVACY', 'MARKETING'])).describe('동의한 약관 종류 (SERVICE, PRIVACY는 필수). 동의하지 않은 선택 약관은 빼고 보낸다')
+  "agreedTerms": zod.array(zod.enum(['SERVICE', 'PRIVACY', 'MARKETING'])).describe('동의한 약관 종류 (SERVICE, PRIVACY는 필수). 동의하지 않은 선택 약관은 빼고 보낸다'),
+  "verificationToken": zod.string().min(1).describe('본인인증 결과의 인증 토큰. 이름 · 생년월일 · 휴대폰 번호는 이 인증으로 확인한 값으로 가입한다')
 }).describe('소셜 회원가입 요청')
 
 export const SocialJoinResponse = zod.object({
@@ -720,4 +738,39 @@ export const TransferCrewLeaderResponse = zod.object({
   "role": zod.enum(['LEADER', 'MANAGER', 'MEMBER']).describe('크루 역할 (LEADER: 크루장, MANAGER: 운영진, MEMBER: 크루원)')
 }).describe('크루원 (실명 없이 닉네임만)'))
 }).optional().describe('크루 홈')
+})
+
+
+/**
+ * 포트원 창이 끝나면 부른다. 서버가 포트원 조회 API로 결과를 직접 확인하고, 확인된 이름 · 생년월일 · 휴대폰 번호와 CI 해시를 15분 동안 저장한다. 화면이 보낸 인증 결과는 쓰지 않는다. 이미 확인한 ID를 다시 부르면 저장한 결과를 그대로 돌려준다.
+ * @summary 본인인증 확인
+ */
+export const CompleteIdentityVerificationParams = zod.object({
+  "identityVerificationId": zod.string().describe('본인인증 시작에서 받은 인증 ID')
+})
+
+export const CompleteIdentityVerificationResponse = zod.object({
+  "status": zod.int().optional(),
+  "code": zod.string().optional(),
+  "message": zod.string().optional(),
+  "data": zod.object({
+  "verificationToken": zod.string().describe('가입 요청에 넣는 인증 토큰(인증 ID와 같다). 15분 동안 쓸 수 있다'),
+  "name": zod.string().describe('인증된 실명'),
+  "birthDate": zod.iso.date().describe('인증된 생년월일'),
+  "phone": zod.string().describe('인증된 휴대폰 번호')
+}).optional().describe('본인인증 결과. 가입 화면은 이 값으로 이름 · 생년월일 · 휴대폰 번호를 채우고 잠근다')
+})
+
+
+/**
+ * 포트원 창을 열 인증 ID를 만들어 15분 동안 저장한다. 화면은 이 ID로 PortOne.requestIdentityVerification()을 부른다. 서버가 만든 ID의 결과만 가입에 쓸 수 있다.
+ * @summary 본인인증 시작
+ */
+export const StartIdentityVerificationResponse = zod.object({
+  "status": zod.int().optional(),
+  "code": zod.string().optional(),
+  "message": zod.string().optional(),
+  "data": zod.object({
+  "identityVerificationId": zod.string().describe('포트원 SDK requestIdentityVerification()에 넘길 인증 ID. 15분 안에 인증을 마쳐야 한다')
+}).optional().describe('본인인증 시작 응답')
 })

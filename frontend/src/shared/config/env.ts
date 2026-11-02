@@ -38,6 +38,10 @@ const clientSchema = z.object({
    * 가짜 응답 모드(API_MOCKING=on)에서도 넣지 않는다. 값은 레포에 쓰지 않고 .env.local · 저장소 Variables에 넣는다.
    */
   NEXT_PUBLIC_GTM_ID: optional(z.string().startsWith('GTM-', 'GTM ID는 GTM-으로 시작합니다.')),
+  /** 포트원 상점 아이디(store-로 시작). 가입 본인인증 창을 열 때 쓴다. 비우면 실제 백엔드 모드에서 본인인증 창이 열리지 않는다. */
+  NEXT_PUBLIC_PORTONE_STORE_ID: optional(z.string()),
+  /** 포트원 본인인증 채널 키(KG이니시스 통합인증). 상점 아이디와 같은 상점의 채널이어야 한다. */
+  NEXT_PUBLIC_PORTONE_IDENTITY_CHANNEL_KEY: optional(z.string()),
   /** next.config가 API_MOCKING 값을 그대로 넣는다. 브라우저가 가짜 응답 모드인지 알아야 토스 결제창을 건너뛸 수 있다. */
   NEXT_PUBLIC_API_MOCKING: z.enum(['on', 'off']).default('off'),
 })
@@ -60,5 +64,7 @@ export const clientEnv = clientSchema.parse({
   NEXT_PUBLIC_IMAGE_CDN_URL: process.env.NEXT_PUBLIC_IMAGE_CDN_URL,
   NEXT_PUBLIC_TOSS_CLIENT_KEY: process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY,
   NEXT_PUBLIC_GTM_ID: process.env.NEXT_PUBLIC_GTM_ID,
+  NEXT_PUBLIC_PORTONE_STORE_ID: process.env.NEXT_PUBLIC_PORTONE_STORE_ID,
+  NEXT_PUBLIC_PORTONE_IDENTITY_CHANNEL_KEY: process.env.NEXT_PUBLIC_PORTONE_IDENTITY_CHANNEL_KEY,
   NEXT_PUBLIC_API_MOCKING: process.env.NEXT_PUBLIC_API_MOCKING,
 })

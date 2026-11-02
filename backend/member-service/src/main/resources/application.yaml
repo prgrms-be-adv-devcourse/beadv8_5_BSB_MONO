@@ -97,6 +97,15 @@ member:
       google:
         client-id: ${OAUTH2_GOOGLE_CLIENT_ID:}
         client-secret: ${OAUTH2_GOOGLE_CLIENT_SECRET:}
+  # 가입 본인인증 (IdentityVerificationProperties, BUK-33, 포트원 V2 + KG이니시스 통합인증). 키 값은 .env에만 둔다
+  identity:
+    # 같은 사람(CI 해시)이 두 번째 계정을 못 만들게 한다. 테스트 채널 CI가 모두 같은 값이면 false로 끈다
+    unique-ci-check: true
+    # CI를 해시할 때 섞는 비밀 키. 비우면 본인인증 확인이 실패한다
+    ci-hash-key: ${IDENTITY_CI_HASH_KEY:}
+    portone:
+      api-secret: ${PORTONE_API_SECRET:}
+      store-id: ${PORTONE_STORE_ID:}
   # 회원 탈퇴 전에 남은 예치금·참가권을 묻는 내부 API (BE-022). 로컬 개발은 bootRun으로 띄운 서비스 포트로 부른다
   clients:
     # 연결·응답 시간 제한. 넘으면 탈퇴하지 않고 503으로 다시 시도하게 한다

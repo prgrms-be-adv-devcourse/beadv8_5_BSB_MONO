@@ -58,6 +58,9 @@ services:
         SITE_URL: ${SITE_URL:-http://localhost}
         # 토스 결제창 클라이언트 키(test_ck_만). 비우면 API_MOCKING=off에서는 충전 버튼이 실패 화면으로 간다
         NEXT_PUBLIC_TOSS_CLIENT_KEY: ${NEXT_PUBLIC_TOSS_CLIENT_KEY:-}
+        # 포트원 본인인증 상점 아이디·채널 키. 비우면 API_MOCKING=off에서는 가입 본인인증 창이 열리지 않는다
+        NEXT_PUBLIC_PORTONE_STORE_ID: ${NEXT_PUBLIC_PORTONE_STORE_ID:-}
+        NEXT_PUBLIC_PORTONE_IDENTITY_CHANNEL_KEY: ${NEXT_PUBLIC_PORTONE_IDENTITY_CHANNEL_KEY:-}
     image: bukang-web:latest
     container_name: bukang-web
     profiles: [ app ]

@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -26,16 +27,20 @@ import com.bukang.member.crew.out.CrewInviteRepository;
 import com.bukang.member.crew.out.CrewMemberRepository;
 import com.bukang.member.crew.out.CrewRepository;
 import com.bukang.member.domain.TermsType;
-import com.bukang.member.dto.MemberJoinRequestDto;
 import com.bukang.member.out.MemberKafkaPublisher;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.TermsAgreementRepository;
+import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
 
 // 파티 서비스가 부르는 크루 내부 API: 크루원 여부·가입 시각, 크루원 수
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@Import(InMemoryIdentityVerificationStore.Config.class)
 class InternalV1CrewTest {
+	@Autowired
+	private InMemoryIdentityVerificationStore identityStore;
+
 	private static final String MEMBER_STATUS = "/internal/v1/member/crews/{crewId}/members/{memberId}";
 	private static final String MEMBER_COUNT = "/internal/v1/member/crews/{crewId}/member-count";
 
@@ -149,7 +154,7 @@ class InternalV1CrewTest {
 	}
 
 	private long join(String email, String nickname, String phone) {
-		return memberFacade.join(new MemberJoinRequestDto(
+		return memberFacade.join(identityStore.joinRequest(
 			email, "password1234", "김러너", nickname, phone, LocalDate.of(1995, 4, 12), null,
 			List.of(TermsType.SERVICE, TermsType.PRIVACY)
 		)).getId();

@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
@@ -43,10 +44,10 @@ import com.bukang.member.crew.out.CrewInviteRepository;
 import com.bukang.member.crew.out.CrewMemberRepository;
 import com.bukang.member.crew.out.CrewRepository;
 import com.bukang.member.domain.TermsType;
-import com.bukang.member.dto.MemberJoinRequestDto;
 import com.bukang.member.out.MemberKafkaPublisher;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.TermsAgreementRepository;
+import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
 import com.jayway.jsonpath.JsonPath;
 
 // 크루 만들기·조회, 초대 링크 만들기·취소·가입 (BE-027~030). X-Member-Id 헤더는 테스트에서 직접 넣는다
@@ -54,7 +55,11 @@ import com.jayway.jsonpath.JsonPath;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@Import(InMemoryIdentityVerificationStore.Config.class)
 class ApiV1CrewTest {
+	@Autowired
+	private InMemoryIdentityVerificationStore identityStore;
+
 	private static final String CREWS = "/api/v1/member/crews";
 	private static final String MY_CREWS = "/api/v1/member/crews/me";
 	private static final String CREW = "/api/v1/member/crews/{crewId}";
@@ -540,7 +545,7 @@ class ApiV1CrewTest {
 	}
 
 	private long join(String email, String nickname, String phone) {
-		return memberFacade.join(new MemberJoinRequestDto(
+		return memberFacade.join(identityStore.joinRequest(
 			email, "password1234", "김러너", nickname, phone, LocalDate.of(1995, 4, 12), null,
 			List.of(TermsType.SERVICE, TermsType.PRIVACY)
 		)).getId();

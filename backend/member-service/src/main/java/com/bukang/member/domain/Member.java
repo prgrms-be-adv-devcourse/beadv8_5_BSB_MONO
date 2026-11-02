@@ -159,6 +159,12 @@ public class Member extends SourceMember {
 	// 탈퇴: 상태와 탈퇴 시각을 함께 바꾸고 개인정보 칸을 비운다 (BE-022 결정 5). 줄은 주문·결제 기록이 가리키므로 남긴다
 	// 비밀번호 해시는 개인정보 목록에 없어 그대로 두지만, 이메일이 비어 로그인에 쓰일 수 없다
 	// 소셜 연결 행도 제공자 회원번호(그 사람을 알아보는 값)가 있어 지운다. 지우는 일은 unlinkAllSocial이 한다
+	// 가입 때 본인인증 결과를 남긴다 (BUK-33). CI는 해시만 받는다
+	public void recordIdentityVerification(String ciHash, LocalDateTime verifiedAt) {
+		setCiHash(ciHash);
+		setVerifiedAt(verifiedAt);
+	}
+
 	public void withdraw(LocalDateTime withdrawnAt) {
 		setStatus(MemberStatus.WITHDRAWN);
 		setWithdrawnAt(withdrawnAt);

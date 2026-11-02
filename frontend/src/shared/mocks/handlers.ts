@@ -40,6 +40,7 @@ import type { SearchParams } from '@/shared/api/generated/product/product.schema
 
 import { crewHandlers } from './crews'
 import { fileUploadHandlers } from './file-upload'
+import { answerMockPass, readMockVerificationToken, type MockAnswer } from './identity-verification'
 import {
   clearMockBalanceCookie,
   clearMockMemberCookie,
@@ -124,12 +125,14 @@ const authHandlers = [
   }),
   // 소셜 가입은 로그인과 같이 Refresh Token 쿠키를 심는다(재발급이 이어서 성공해야 로그인 상태가 유지된다).
   // 시작 · 콜백(제공자 화면을 다녀오는 302)은 목으로 흉내 내지 않는다.
-  http.post('*/api/v1/auth/oauth2/join', () =>
-    HttpResponse.json(getSocialJoinResponseMock(), {
+  http.post('*/api/v1/auth/oauth2/join', async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as Record<string, unknown>
+    if (!readMockVerificationToken(body.verificationToken)) return verificationRequired()
+    return HttpResponse.json(getSocialJoinResponseMock(), {
       status: 201,
       headers: withCookies(issueMockRefreshCookie(), issueMockLoginMarkCookie()),
-    }),
-  ),
+    })
+  }),
   http.post('*/api/v1/auth/reissue', ({ cookies }) => {
     if (!cookies[MOCK_REFRESH_COOKIE_NAME]) {
       return HttpResponse.json(
@@ -237,8 +240,16 @@ const signupHandlers = [
         { status: 400 },
       )
     }
+    // 이름 · 휴대폰 번호 · 생년월일은 본인인증 토큰에 담긴 값을 쓴다 (백엔드와 같다)
+    const identity = readMockVerificationToken(body.verificationToken)
+    if (!identity) return verificationRequired()
     // 가입한 프로필을 쿠키에 담아 두면 같은 이메일로 로그인할 때 그 정보로 시작한다 (mock-member.ts)
-    const profile = profileFromJoinBody(body)
+    const profile = profileFromJoinBody({
+      ...body,
+      name: identity.name,
+      phone: identity.phone,
+      birthDate: identity.birthDate,
+    })
     return HttpResponse.json(
       { status: 201, message: 'Member Joined Successfully', data: null },
       {
@@ -270,6 +281,31 @@ const signupHandlers = [
     })
   }),
 ]
+
+/**
+ * 체험용 PASS 본인인증 목. 가짜 응답 모드의 체험용 인증 창이 부른다. 규칙은 identity-verification.ts에 있다.
+ * 실제 백엔드 모드는 포트원 창을 열고 백엔드의 본인인증 시작 · 확인 API를 쓴다.
+ */
+const toResponse = <T>({ status, body }: MockAnswer<T>) => HttpResponse.json(body, { status })
+
+const identityVerificationHandlers = [
+  http.post('*/api/v1/auth/identity-verifications/pass', async ({ request }) =>
+    toResponse(answerMockPass((await request.json().catch(() => ({}))) as Record<string, unknown>)),
+  ),
+]
+
+/** 가입 요청에 본인인증 토큰이 없거나 15분이 지났을 때. 백엔드와 같은 400 AUTH_VERIFICATION_REQUIRED다 */
+function verificationRequired() {
+  return HttpResponse.json(
+    {
+      status: 400,
+      code: 'AUTH_VERIFICATION_REQUIRED',
+      message: '본인인증을 다시 해주세요.',
+      data: null,
+    },
+    { status: 400 },
+  )
+}
 
 /**
  * 내 참가권 목. 생성된 주문 목록 예시는 결제 대기 · 기한 만료 주문뿐이라 참가권이 하나도 안 보인다.
@@ -614,6 +650,7 @@ export const handlers = [
   ...crewHandlers,
   ...notificationHandlers,
   ...withdrawHandlers,
+  ...identityVerificationHandlers,
   ...signupHandlers,
   ...fileUploadHandlers,
   myOrdersHandler,

@@ -6,10 +6,12 @@ import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { getAuthStatus } from '@/shared/api'
-import { memberMock, pickDate, server } from '@/shared/testing'
+import { memberMock, server } from '@/shared/testing'
+import { ToastProvider } from '@/shared/ui'
 
 import { AUTH_ERRORS } from '../model/schemas'
 import { SignupStepProvider } from '../model/signup-store'
+import { termChecks } from '../model/signup-terms'
 import { PasswordNewPage, PasswordResetPage } from './FindAccountPages'
 import { LoginPage } from './LoginPage'
 import { SignupAccountPage, SignupProfilePage } from './SignupPages'
@@ -26,15 +28,22 @@ beforeEach(() => {
   replace.mockClear()
 })
 
-// 약관 시트가 열려 있으면 시트가 포커스를 가져가 뒤쪽 입력칸 타이핑이 가끔 빠진다. 먼저 동의해 시트를 닫는다.
-async function agreeAllTerms(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('checkbox', { name: '모두 동의해요 (선택 포함)' }))
-  await user.click(screen.getByRole('button', { name: '동의하고 계속하기' }))
+// 본인인증을 마친 결과 (계정 · 회원 정보 단계는 약관 동의와 본인인증을 마쳐야 열린다)
+const VERIFIED = {
+  verificationToken: 'mock-verification.token',
+  name: '김러너',
+  birthDate: '1995-03-02',
+  phone: '010-1234-5678',
 }
+const IDENTITY_DONE = { termsAgreed: true, terms: termChecks(true), verification: VERIFIED }
 
 function withQueryClient(ui: ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return <QueryClientProvider client={client}>{ui}</QueryClientProvider>
+  return (
+    <QueryClientProvider client={client}>
+      <ToastProvider>{ui}</ToastProvider>
+    </QueryClientProvider>
+  )
 }
 
 async function fillLogin(user: ReturnType<typeof userEvent.setup>, password = 'password1') {
@@ -156,6 +165,8 @@ describe('SignupProfilePage', () => {
         <SignupStepProvider
           initialState={{
             termsAgreed: true,
+            terms: termChecks(true),
+            verification: VERIFIED,
             account: {
               email: 'runner@crewrun.kr',
               password: 'password123',
@@ -168,9 +179,9 @@ describe('SignupProfilePage', () => {
       ),
     )
 
-    await user.type(screen.getByLabelText('이름'), '김러너')
-    await pickDate(user, '생년월일', '1995-03-02')
-    await user.type(screen.getByLabelText('휴대폰 번호'), '010-1234-5678')
+    // 이름 · 생년월일 · 휴대폰 번호는 본인인증 결과로 잠겨 있다
+    expect(screen.getByLabelText('이름')).toHaveValue('김러너')
+    expect(screen.getByLabelText('이름')).toBeDisabled()
     await user.type(screen.getByLabelText('닉네임'), '곰')
     await user.tab()
 
@@ -215,11 +226,10 @@ describe('비밀번호 확인 칸', () => {
   it('확인 칸이 비어 있으면 비밀번호를 입력해도 다르다는 오류를 먼저 띄우지 않는다', async () => {
     const user = userEvent.setup()
     render(
-      <SignupStepProvider>
+      <SignupStepProvider initialState={IDENTITY_DONE}>
         <SignupAccountPage />
       </SignupStepProvider>,
     )
-    await agreeAllTerms(user)
 
     await user.type(screen.getByLabelText('비밀번호'), 'password123')
     expect(screen.queryByText(AUTH_ERRORS.passwordMismatch)).not.toBeInTheDocument()
@@ -228,11 +238,10 @@ describe('비밀번호 확인 칸', () => {
   it('가입 계정 화면에서도 비밀번호를 고치면 확인 칸 오류가 바로 뜬다', async () => {
     const user = userEvent.setup()
     render(
-      <SignupStepProvider>
+      <SignupStepProvider initialState={IDENTITY_DONE}>
         <SignupAccountPage />
       </SignupStepProvider>,
     )
-    await agreeAllTerms(user)
 
     await user.type(screen.getByLabelText('비밀번호'), 'password123')
     await user.type(screen.getByLabelText('비밀번호 확인'), 'password123')

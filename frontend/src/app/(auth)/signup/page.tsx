@@ -1,7 +1,4 @@
-import { SignupAccountPage } from '@/views/auth'
+import { SignupIdentityPage } from '@/views/auth'
 
-// 들어오면 약관 동의(M04-0) 바텀시트부터 뜬다. ?preview=error 로 M04-1E(입력 오류)를 볼 수 있다
-export default async function Page({ searchParams }: PageProps<'/signup'>) {
-  const { preview } = await searchParams
-  return <SignupAccountPage invalid={preview === 'error'} />
-}
+// 가입의 첫 화면. 약관 동의(M04-0) 바텀시트가 먼저 뜨고, 그 아래가 본인 확인(M04-P 1)이다
+export default SignupIdentityPage

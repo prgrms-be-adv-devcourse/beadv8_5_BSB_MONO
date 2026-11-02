@@ -48,20 +48,24 @@ public class ApiV1AuthController {
 	// ResponseEntity.created()의 201은 springdoc이 추론하지 못하므로 응답 코드를 직접 명시한다
 	// 에러 응답은 GlobalExceptionHandler가 RsData(code: 오류 코드, data: null) 형식으로 반환한다
 	@PostMapping("/join")
-	@Operation(summary = "회원가입", description = "필수 약관 동의를 확인하고 이메일, 닉네임, 휴대폰 번호 중복을 검사한 뒤 회원을 생성한다. "
+	@Operation(summary = "회원가입", description = "본인인증 토큰으로 서버가 확인한 이름 · 생년월일 · 휴대폰 번호로 회원을 만든다. "
+		+ "필수 약관 동의를 확인하고, 같은 사람(CI 해시) · 이메일 · 닉네임 · 휴대폰 번호 중복을 검사한다. "
 		+ "지금 버전의 약관마다 동의 여부를 기록한다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "201", description = "가입 성공",
 			content = @Content(examples = @ExampleObject(value = AuthApiExamples.JOIN_SUCCESS))),
-		@ApiResponse(responseCode = "400", description = "입력값 검증 실패, 요청 본문 형식 오류(모르는 약관 종류 포함), 만 14세 미만 또는 필수 약관 미동의",
+		@ApiResponse(responseCode = "400", description = "입력값 검증 실패, 요청 본문 형식 오류(모르는 약관 종류 포함), 만 14세 미만, "
+			+ "필수 약관 미동의 또는 본인인증 결과가 없거나 15분이 지남",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "입력값 검증 실패", value = AuthApiExamples.JOIN_INVALID_INPUT),
 				@ExampleObject(name = "요청 본문 형식 오류", value = AuthApiExamples.INVALID_BODY),
 				@ExampleObject(name = "만 14세 미만", value = AuthApiExamples.JOIN_UNDER_AGE),
-				@ExampleObject(name = "필수 약관 미동의", value = AuthApiExamples.JOIN_REQUIRED_TERMS_NOT_AGREED)
+				@ExampleObject(name = "필수 약관 미동의", value = AuthApiExamples.JOIN_REQUIRED_TERMS_NOT_AGREED),
+				@ExampleObject(name = "본인인증 다시 하기", value = IdentityVerificationApiExamples.VERIFICATION_REQUIRED)
 			})),
-		@ApiResponse(responseCode = "409", description = "이메일, 닉네임 또는 휴대폰 번호 중복",
+		@ApiResponse(responseCode = "409", description = "이미 가입한 사람, 이메일, 닉네임 또는 휴대폰 번호 중복",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "이미 가입한 사람", value = IdentityVerificationApiExamples.DUPLICATE_IDENTITY),
 				@ExampleObject(name = "이메일 중복", value = AuthApiExamples.DUPLICATE_EMAIL),
 				@ExampleObject(name = "닉네임 중복", value = AuthApiExamples.DUPLICATE_NICKNAME),
 				@ExampleObject(name = "휴대폰 번호 중복", value = AuthApiExamples.DUPLICATE_PHONE)

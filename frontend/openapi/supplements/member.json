@@ -607,6 +607,115 @@
         "role",
         "joinedAt"
       ]
+    },
+    "RsDataVoid": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "data": {
+          "type": "null"
+        }
+      }
+    },
+    "PassVerificationRequestDto": {
+      "type": "object",
+      "description": "PASS 본인인증 요청. 실제 연동에서는 PASS 창에 입력하는 값이다",
+      "properties": {
+        "carrier": {
+          "type": "string",
+          "enum": [
+            "SKT",
+            "KT",
+            "LGU",
+            "MVNO"
+          ],
+          "description": "통신사 (MVNO는 알뜰폰)",
+          "example": "SKT"
+        },
+        "name": {
+          "type": "string",
+          "description": "실명",
+          "example": "김러너",
+          "minLength": 1
+        },
+        "birthDate": {
+          "type": "string",
+          "format": "date",
+          "description": "생년월일",
+          "example": "1995-04-12"
+        },
+        "phone": {
+          "type": "string",
+          "description": "휴대폰 번호 (하이픈 생략 가능)",
+          "example": "010-1234-5678",
+          "pattern": "^01[016789]-?\\d{3,4}-?\\d{4}$"
+        }
+      },
+      "required": [
+        "carrier",
+        "name",
+        "birthDate",
+        "phone"
+      ]
+    }
+  },
+  "paths": {
+    "/api/v1/auth/identity-verifications/pass": {
+      "post": {
+        "tags": [
+          "본인 확인 (목업)"
+        ],
+        "operationId": "verifyIdentityWithMockPass",
+        "summary": "체험용 PASS 본인인증 (가짜 응답 모드 전용)",
+        "description": "가짜 응답 모드(API_MOCKING=on)의 체험용 인증 화면에서만 부른다. 백엔드에는 없는 API다. 입력한 이름 · 생년월일 · 휴대폰 번호를 인증된 정보로 돌려준다.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PassVerificationRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsDataVerifiedIdentityDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "입력값이 틀림",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsDataVoid"
+                },
+                "example": {
+                  "status": 400,
+                  "code": "INVALID_REQUEST",
+                  "message": "본인인증 정보를 확인해주세요.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

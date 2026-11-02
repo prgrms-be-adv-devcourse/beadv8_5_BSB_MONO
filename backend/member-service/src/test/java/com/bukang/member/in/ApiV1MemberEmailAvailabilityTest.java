@@ -16,20 +16,25 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.bukang.member.app.MemberFacade;
 import com.bukang.member.domain.TermsType;
-import com.bukang.member.dto.MemberJoinRequestDto;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.TermsAgreementRepository;
+import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
 
 // 로그인 전에 부르는 API라 X-Member-Id 헤더를 넣지 않는다
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@Import(InMemoryIdentityVerificationStore.Config.class)
 class ApiV1MemberEmailAvailabilityTest {
+	@Autowired
+	private InMemoryIdentityVerificationStore identityStore;
+
 	private static final String PATH = "/api/v1/member/members/email-availability";
 	private static final String EMAIL = "runner1@crewrun.com";
 
@@ -65,7 +70,7 @@ class ApiV1MemberEmailAvailabilityTest {
 	@Test
 	@DisplayName("이미 가입된 이메일이면 409가 아니라 200에 available이 false다")
 	void unavailableWhenExists() throws Exception {
-		memberFacade.join(new MemberJoinRequestDto(
+		memberFacade.join(identityStore.joinRequest(
 			EMAIL, "password1234", "김러너", "러너1", "010-1234-5678", LocalDate.of(1995, 4, 12), null,
 			List.of(TermsType.SERVICE, TermsType.PRIVACY)
 		));

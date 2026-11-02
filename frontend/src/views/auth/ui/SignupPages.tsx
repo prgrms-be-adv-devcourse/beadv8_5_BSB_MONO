@@ -3,12 +3,16 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState, type FormEvent } from 'react'
-import { useForm, type FieldErrors, type UseFormRegister } from 'react-hook-form'
+import { useEffect, useState } from 'react'
+import { useForm, useWatch, type FieldErrors, type UseFormRegister } from 'react-hook-form'
 
 import { AppHeader } from '@/widgets/app-header'
 import { checkEmailAvailable, useLogin } from '@/features/auth'
-import { BirthDateField } from '@/entities/member'
+import {
+  IdentityMockNotice,
+  LockedIdentityFields,
+  useIdentityVerification,
+} from '@/features/identity-verification'
 import { memberApi } from '@/shared/api'
 import { cn } from '@/shared/lib'
 import {
@@ -16,11 +20,14 @@ import {
   BottomSheet,
   Button,
   Checkbox,
+  Dialog,
   FOCUS_RING,
   Icon,
-  PhoneField,
+  Radio,
+  RadioGroup,
   Stepper,
   TextField,
+  useToast,
 } from '@/shared/ui'
 
 import { joinErrorMessage, toJoinRequest } from '../model/join'
@@ -31,23 +38,95 @@ import {
   type SignupAccountValues,
   type SignupProfileValues,
 } from '../model/schemas'
+import { saveSignupDraft, takeSignupDraft } from '../model/signup-draft'
 import { useSignupStep } from '../model/signup-store'
 import { requiredTermsChecked, SIGNUP_TERMS } from '../model/signup-terms'
 import { CenterBody, StepIntro } from './parts'
 
-const STEPS = ['약관', '계정', '회원 정보']
+const STEPS = ['약관', '본인 확인', '계정', '회원 정보']
 
-// 피그마 V2 · M04-0 약관 동의(바텀시트) → M04-1 계정(이메일 · 비밀번호) (+ M04-1E 입력 오류)
-// invalid는 시안 미리보기(?preview=error)용. 약관을 건너뛰고 M04-1E 오류를 띄운 채로 보여 준다.
-// 입력값과 약관 체크는 SignupStepProvider((auth) 레이아웃)에 남아 회원 정보 단계에서 돌아와도 그대로다.
+// 시안 M04-P 1 · 이메일 가입 본인 확인. 가입의 첫 화면이고, 약관 동의(M04-0) 바텀시트를 이 화면 위에 띄운다.
+// 비밀번호를 넣기 전에 본인인증을 받아, 모바일에서 포트원 창을 다녀와도 다시 받을 비밀번호가 없다.
+// 인증을 마치면 계정(이메일 · 비밀번호) 단계로 넘어간다. 이미 인증했으면 확인된 정보를 보여 주고 「다음」으로 넘어간다.
+export function SignupIdentityPage() {
+  const router = useRouter()
+  const terms = useSignupStep((s) => s.terms)
+  const termsAgreed = useSignupStep((s) => s.termsAgreed)
+  const verification = useSignupStep((s) => s.verification)
+  const setVerification = useSignupStep((s) => s.setVerification)
+  const restoreDraft = useSignupStep((s) => s.restoreDraft)
+  const [termsOpen, setTermsOpen] = useState(!termsAgreed)
+
+  const { start, opening, mock, element } = useIdentityVerification({
+    onVerified: (identity) => {
+      setVerification(identity)
+      router.push('/signup/account')
+    },
+    onBeforeOpen: () => saveSignupDraft({ terms, termsAgreed }),
+    onReturn: () => {
+      const draft = takeSignupDraft()
+      if (draft) {
+        restoreDraft(draft)
+        setTermsOpen(!draft.termsAgreed)
+      }
+    },
+  })
+  // 약관 시트를 동의 없이 닫았다면 버튼이 시트를 다시 연다. 동의해야 본인인증을 시작한다.
+  const onPrimary = () => {
+    if (!termsAgreed) return setTermsOpen(true)
+    if (verification) return router.push('/signup/account')
+    start()
+  }
+
+  return (
+    <>
+      <AppHeader type="sub" title="가입하기" />
+      {termsAgreed && (
+        <div className="bg-bg-surface px-4 pt-3 pb-1">
+          <Stepper steps={STEPS} current={1} />
+        </div>
+      )}
+      <CenterBody center={false}>
+        <StepIntro
+          title="본인 확인"
+          description="본인인증을 하면 이름·생년월일·휴대폰 번호가 채워져요. 다음 단계에서 이메일과 비밀번호를 정해요."
+        />
+        {mock && <IdentityMockNotice />}
+        {verification && <LockedIdentityFields identity={verification} />}
+      </CenterBody>
+      <BottomCta
+        className="sticky bottom-0 z-10"
+        primary={
+          <Button size="l" loading={opening} onClick={onPrimary}>
+            {verification ? '다음' : '휴대폰 본인인증'}
+          </Button>
+        }
+      />
+      {element}
+      <SignupTermsSheet open={termsOpen} onOpenChange={setTermsOpen} />
+    </>
+  )
+}
+
+// 피그마 V2 · M04-1 계정(이메일 · 비밀번호) (+ M04-1E 입력 오류). 약관 동의와 본인인증을 마친 뒤 온다.
+// invalid는 시안 미리보기(?preview=error)용. 앞 단계를 건너뛰고 M04-1E 오류를 띄운 채로 보여 준다.
+// 입력값은 SignupStepProvider((auth) 레이아웃)에 남아 회원 정보 단계에서 돌아와도 그대로다.
 export function SignupAccountPage({ invalid = false }: { invalid?: boolean }) {
   const router = useRouter()
   const termsAgreed = useSignupStep((s) => s.termsAgreed)
+  const verification = useSignupStep((s) => s.verification)
+  const ready = invalid || (termsAgreed && verification !== null)
+  useEffect(() => {
+    if (!ready) router.replace('/signup')
+  }, [ready, router])
+
+  return ready ? <SignupAccountForm invalid={invalid} /> : null
+}
+
+function SignupAccountForm({ invalid }: { invalid: boolean }) {
+  const router = useRouter()
   const account = useSignupStep((s) => s.account)
   const setAccount = useSignupStep((s) => s.setAccount)
-
-  const [termsOpen, setTermsOpen] = useState(!invalid && !termsAgreed)
-  const agreed = invalid || termsAgreed
 
   const {
     register,
@@ -96,26 +175,18 @@ export function SignupAccountPage({ invalid = false }: { invalid?: boolean }) {
       return false
     }
   }
-  const onNext = handleSubmit(async () => {
+  // 입력 칸에서 Enter를 눌러도 같은 길로 오도록 form 제출에 묶는다. 버튼이 꺼져 있으면 Enter로도 제출되지 않는다.
+  const onFormSubmit = handleSubmit(async () => {
     if (await checkEmail()) router.push('/signup/profile')
   })
-  // 약관 시트를 동의 없이 닫았다면 "다음"이 시트를 다시 연다. 동의해야 다음 단계로 간다.
-  // 입력 칸에서 Enter를 눌러도 같은 길로 오도록 form 제출에 묶는다. 버튼이 꺼져 있으면 Enter로도 제출되지 않는다.
-  const onFormSubmit = (event: FormEvent<HTMLFormElement>) => {
-    if (termsAgreed || invalid) return onNext(event)
-    event.preventDefault()
-    setTermsOpen(true)
-  }
 
   return (
     <>
       <AppHeader type="sub" title="가입하기" />
       <form noValidate onSubmit={onFormSubmit} className="contents">
-        {agreed && (
-          <div className="bg-bg-surface px-4 pt-3 pb-1">
-            <Stepper steps={STEPS} current={1} />
-          </div>
-        )}
+        <div className="bg-bg-surface px-4 pt-3 pb-1">
+          <Stepper steps={STEPS} current={2} />
+        </div>
         <CenterBody center={false}>
           <StepIntro
             title="계정을 만들어요"
@@ -163,18 +234,19 @@ export function SignupAccountPage({ invalid = false }: { invalid?: boolean }) {
           }
         />
       </form>
-      <SignupTermsSheet open={termsOpen} onOpenChange={setTermsOpen} />
     </>
   )
 }
 
-// 피그마 V2 · M04-2 가입 · 회원 정보
-// 약관 동의와 계정 입력을 마치지 않고 들어오면(주소 직접 입력, 새로고침) 첫 단계로 돌려보낸다.
+// 시안 M04-P 4 · 이메일 가입 회원 정보. 이름 · 생년월일 · 휴대폰 번호는 본인인증 결과로 잠겨 있고, 닉네임과 성별만 적는다.
+// 앞 단계(약관 · 본인인증 · 계정)를 마치지 않고 들어오면(주소 직접 입력, 새로고침) 첫 단계로 돌려보낸다.
 export function SignupProfilePage() {
   const router = useRouter()
   const termsAgreed = useSignupStep((s) => s.termsAgreed)
   const account = useSignupStep((s) => s.account)
-  const ready = termsAgreed && signupAccountSchema.safeParse(account).success
+  const verification = useSignupStep((s) => s.verification)
+  const ready =
+    termsAgreed && verification !== null && signupAccountSchema.safeParse(account).success
   useEffect(() => {
     if (!ready) router.replace('/signup')
   }, [ready, router])
@@ -188,20 +260,27 @@ function SignupProfileForm() {
   const terms = useSignupStep((s) => s.terms)
   const profile = useSignupStep((s) => s.profile)
   const setProfile = useSignupStep((s) => s.setProfile)
+  const verification = useSignupStep((s) => s.verification)
+  const setVerification = useSignupStep((s) => s.setVerification)
   const join = memberApi.useJoin()
   const login = useLogin()
+  const toast = useToast()
   const [formError, setFormError] = useState<string>()
+  const [duplicate, setDuplicate] = useState(false)
   const {
     register,
     handleSubmit,
     subscribe,
     setError,
+    setValue,
+    control,
     formState: { errors, isValid, isSubmitting },
   } = useForm<SignupProfileValues>({
     resolver: zodResolver(signupProfileSchema),
     mode: 'onTouched',
     defaultValues: profile,
   })
+  const gender = useWatch({ control, name: 'gender' })
   useEffect(
     () =>
       subscribe({
@@ -214,7 +293,8 @@ function SignupProfileForm() {
   // 가입 API는 토큰을 주지 않는다. 로그인만 실패하면 가입은 됐으므로 로그인 화면으로 보낸다.
   const onSubmit = handleSubmit((values) => {
     setFormError(undefined)
-    const body = toJoinRequest(account, values, terms)
+    if (!verification) return
+    const body = toJoinRequest(account, values, terms, verification.verificationToken)
     join.mutate(
       { data: body },
       {
@@ -228,8 +308,15 @@ function SignupProfileForm() {
           ),
         onError: (error) => {
           const { target, message } = joinErrorMessage(error)
-          if (target === 'form') setFormError(message)
-          else setError(target, { message }, { shouldFocus: true })
+          if (target === 'duplicate') return setDuplicate(true)
+          if (target === 'nickname') return setError(target, { message }, { shouldFocus: true })
+          // 본인인증 결과가 지났으면 인증 결과를 지운다. 그러면 첫 단계(본인 확인)로 돌아가므로 안내는 Toast로 띄운다
+          if (target === 'verification') {
+            toast({ message, tone: 'error' })
+            setVerification(null)
+            return
+          }
+          setFormError(message)
         },
       },
     )
@@ -241,32 +328,38 @@ function SignupProfileForm() {
   const submitting = isSubmitting || join.isPending || join.isSuccess
 
   return (
-    <form noValidate onSubmit={onSubmit} className="contents">
-      <AppHeader type="sub" title="가입하기" />
-      <div className="bg-bg-surface px-4 pt-3 pb-1">
-        <Stepper steps={STEPS} current={2} />
-      </div>
-      <CenterBody center={false}>
-        <StepIntro
-          title="회원 정보를 적어요"
-          description="마지막 단계예요. 다음은 가입 완료예요."
+    <>
+      <form noValidate onSubmit={onSubmit} className="contents">
+        <AppHeader type="sub" title="가입하기" />
+        <div className="bg-bg-surface px-4 pt-3 pb-1">
+          <Stepper steps={STEPS} current={3} />
+        </div>
+        <CenterBody center={false}>
+          <StepIntro title="회원 정보" description="마지막 단계예요. 다음은 가입 완료예요." />
+          <LockedIdentityFields identity={verification} />
+          <SignupProfileFields
+            register={register}
+            errors={errors}
+            gender={gender}
+            onGenderChange={(gender) => setValue('gender', gender, { shouldValidate: true })}
+          />
+          {formError && (
+            <p role="alert" className="text-caption text-text-danger">
+              {formError}
+            </p>
+          )}
+        </CenterBody>
+        <BottomCta
+          className="sticky bottom-0 z-10"
+          primary={
+            <Button type="submit" size="l" disabled={!isValid} loading={submitting}>
+              가입 완료
+            </Button>
+          }
         />
-        <SignupProfileFields register={register} errors={errors} />
-        {formError && (
-          <p role="alert" className="text-caption text-text-danger">
-            {formError}
-          </p>
-        )}
-      </CenterBody>
-      <BottomCta
-        className="sticky bottom-0 z-10"
-        primary={
-          <Button type="submit" size="l" disabled={!isValid} loading={submitting}>
-            가입 완료
-          </Button>
-        }
-      />
-    </form>
+      </form>
+      <DuplicateIdentityDialog open={duplicate} onOpenChange={setDuplicate} />
+    </>
   )
 }
 
@@ -343,43 +436,66 @@ export function SignupTermsSheet({
   )
 }
 
-/** 회원 정보 칸(이름 · 생년월일 · 휴대폰 · 닉네임). 이메일 가입과 소셜 가입이 함께 쓴다. */
+const GENDERS: { value: SignupProfileValues['gender']; label: string }[] = [
+  { value: 'FEMALE', label: '여성' },
+  { value: 'MALE', label: '남성' },
+  { value: '', label: '선택 안 함' },
+]
+
+/** 회원 정보 칸(닉네임 · 성별). 이메일 가입과 소셜 가입이 함께 쓴다. 이름 · 생년월일 · 휴대폰 번호는 본인인증으로 받는다 */
 export function SignupProfileFields({
   register,
   errors,
+  gender,
+  onGenderChange,
 }: {
   register: UseFormRegister<SignupProfileValues>
   errors: FieldErrors<SignupProfileValues>
+  gender: SignupProfileValues['gender']
+  onGenderChange: (gender: SignupProfileValues['gender']) => void
 }) {
   return (
     <>
-      <TextField
-        label="이름"
-        autoComplete="name"
-        error={errors.name?.message}
-        {...register('name')}
-      />
-      <BirthDateField
-        label="생년월일"
-        helper="만 14세 미만은 가입할 수 없어요"
-        error={errors.birth?.message}
-        {...register('birth')}
-      />
-      <PhoneField
-        label="휴대폰 번호"
-        placeholder="010-1234-5678"
-        error={errors.phone?.message}
-        {...register('phone')}
-      />
       <TextField
         label="닉네임"
         helper="다른 사람에게는 실명 대신 닉네임이 보여요. 한글 2~8자, 영문 4~16자"
         error={errors.nickname?.message}
         {...register('nickname')}
       />
-      <p className="text-caption text-text-tertiary">
-        이름 · 생년월일 · 휴대폰 번호는 대회 신청 때 참가자 정보로 그대로 가져와요.
-      </p>
+      <fieldset className="flex flex-col gap-2">
+        <legend className="mb-2 text-label-strong text-text-primary">성별 (선택)</legend>
+        <RadioGroup
+          value={gender}
+          onValueChange={(value) => onGenderChange(value as SignupProfileValues['gender'])}
+          className="flex flex-row gap-5"
+        >
+          {GENDERS.map((item) => (
+            <Radio key={item.label} value={item.value} label={item.label} />
+          ))}
+        </RadioGroup>
+      </fieldset>
     </>
+  )
+}
+
+/** 시안 M04-P 3 · 이미 가입한 사람. 같은 사람(본인인증)이나 같은 휴대폰 번호로 이미 가입했으면 로그인을 안내한다 */
+export function DuplicateIdentityDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  const router = useRouter()
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="이미 가입한 사람이에요"
+      body="로그인하거나 계정을 연결해 주세요. 계정 연결은 로그인한 뒤 마이 › 계정 관리에서 해요."
+      cancelLabel="닫기"
+      confirmLabel="로그인하기"
+      onConfirm={() => router.push('/login')}
+    />
   )
 }

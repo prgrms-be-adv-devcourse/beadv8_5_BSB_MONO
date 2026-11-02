@@ -2,7 +2,6 @@ import { z } from 'zod'
 
 import {
   BIRTH_UNDER_14_MESSAGE,
-  isJoinableAge,
   isNicknameWidthValid,
   NICKNAME_PATTERN,
   parseBirth,
@@ -28,6 +27,8 @@ export const AUTH_ERRORS = {
   emailCheckFailed: '이메일을 확인하지 못했어요. 잠시 후 다시 시도해 주세요.',
   // 시안에 없는 문구. 가입 요청에서 필수 약관이 빠졌다는 서버 응답
   joinTermsRequired: '필수 약관에 동의해 주세요.',
+  // 시안에 없는 문구. 본인인증 결과가 15분이 지나 서버에서 사라졌다는 응답
+  verificationExpired: '본인인증한 지 15분이 지났어요. 다시 본인인증해 주세요.',
   nameRequired: '이름을 입력해 주세요.',
   birthFormat: '생년월일을 골라 주세요.',
   birthUnder14: BIRTH_UNDER_14_MESSAGE,
@@ -84,14 +85,10 @@ export const signupAccountSchema = z
   .refine(confirmMatches, MISMATCH)
 export type SignupAccountValues = z.infer<typeof signupAccountSchema>
 
+// 이름 · 생년월일 · 휴대폰 번호는 본인인증으로 받으므로 회원 정보 단계에서는 닉네임과 성별(선택)만 적는다
 export const signupProfileSchema = z.object({
-  name,
-  birth: birth.refine((value) => {
-    const date = parseBirth(value)
-    return date === null || isJoinableAge(date)
-  }, AUTH_ERRORS.birthUnder14),
-  phone,
   nickname,
+  gender: z.enum(['', 'MALE', 'FEMALE']),
 })
 export type SignupProfileValues = z.infer<typeof signupProfileSchema>
 
