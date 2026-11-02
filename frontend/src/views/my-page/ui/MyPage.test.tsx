@@ -29,11 +29,13 @@ beforeEach(() => {
 describe('MyPage 로그아웃', () => {
   it('로그아웃을 누르면 로그아웃 API를 부르고, 응답이 온 뒤 문서를 새로 불러 로그인 화면으로 간다', async () => {
     let authorization: string | null = null
-    let reloadedBeforeResponse = false
+    // 응답을 붙잡아 두고, 응답 전에는 이동하지 않는지 본다
+    let release = () => {}
+    const held = new Promise<void>((resolve) => (release = resolve))
     server.use(
-      http.post('*/api/v1/auth/logout', ({ request }) => {
+      http.post('*/api/v1/auth/logout', async ({ request }) => {
         authorization = request.headers.get('Authorization')
-        reloadedBeforeResponse = reloadToLogin.mock.calls.length > 0
+        await held
         return HttpResponse.json({ status: 200, message: '로그아웃 성공', data: null })
       }),
     )
@@ -47,9 +49,11 @@ describe('MyPage 로그아웃', () => {
 
     await user.click(screen.getByRole('button', { name: '로그아웃' }))
 
+    await vi.waitFor(() => expect(authorization).toBe('Bearer access-token'))
+    expect(reloadToLogin).not.toHaveBeenCalled()
+    release()
     await vi.waitFor(() => expect(reloadToLogin).toHaveBeenCalledTimes(1))
     expect(authorization).toBe('Bearer access-token')
-    expect(reloadedBeforeResponse).toBe(false)
     expect(replace).not.toHaveBeenCalled()
     // 새로 불러오기 전까지 토큰을 그대로 두어 화면이 로그아웃 상태로 다시 그려지지 않는다
     expect(getAuthStatus()).toBe('authenticated')
