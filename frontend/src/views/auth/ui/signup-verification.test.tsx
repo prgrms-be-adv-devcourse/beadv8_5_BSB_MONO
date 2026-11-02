@@ -148,6 +148,35 @@ describe('본인 확인 단계 (포트원)', () => {
     expect(push).not.toHaveBeenCalledWith('/signup/account')
   })
 
+  it('탈퇴하고 30일이 지나지 않았으면 인증 직후 다시 가입할 수 있는 날을 알려 준다', async () => {
+    portOneSucceeds()
+    server.use(
+      http.post('*/api/v1/auth/identity-verifications/:id/complete', () =>
+        HttpResponse.json(
+          {
+            status: 409,
+            code: 'MEMBER_REJOIN_TOO_SOON',
+            message: '재가입 제한',
+            data: { rejoinableDate: '2026-12-02', blockDays: 30 },
+          },
+          { status: 409 },
+        ),
+      ),
+    )
+    const user = userEvent.setup()
+    renderIdentityStep()
+
+    await user.click(screen.getByRole('button', { name: '휴대폰 본인인증' }))
+
+    const dialog = await screen.findByRole('alertdialog', { name: '아직 다시 가입할 수 없어요' })
+    expect(
+      within(dialog).getByText(
+        '탈퇴하고 30일이 지나야 다시 가입할 수 있어요. 12월 2일부터 가입할 수 있어요.',
+      ),
+    ).toBeInTheDocument()
+    expect(push).not.toHaveBeenCalled()
+  })
+
   it('포트원 상점 아이디 · 채널 키가 없으면 창을 열지 않고 안내한다', async () => {
     env.NEXT_PUBLIC_PORTONE_STORE_ID = undefined
     const user = userEvent.setup()

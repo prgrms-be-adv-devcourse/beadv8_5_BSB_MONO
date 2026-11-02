@@ -9,6 +9,7 @@ import {
   prepareIdentityVerification,
   requestIdentityVerification,
   type IdentityVerificationOutcome,
+  type RejoinInfo,
   type VerifiedIdentity,
 } from '../api/identity-verification'
 import { MockPassSheet } from '../ui/MockPassSheet'
@@ -29,6 +30,8 @@ export type UseIdentityVerificationOptions = {
   onReturn?: () => void
   /** 이미 가입한 사람이면 부른다(시안 M04-P 3). 화면이 로그인을 안내하는 모달을 띄운다 */
   onDuplicate?: () => void
+  /** 탈퇴하고 30일이 지나지 않은 사람이면 부른다. 화면이 다시 가입할 수 있는 날을 알려 준다 */
+  onRejoinTooSoon?: (rejoin: RejoinInfo) => void
 }
 
 /**
@@ -42,6 +45,7 @@ export function useIdentityVerification({
   onBeforeOpen,
   onReturn,
   onDuplicate,
+  onRejoinTooSoon,
 }: UseIdentityVerificationOptions): {
   start: () => void
   opening: boolean
@@ -80,6 +84,7 @@ export function useIdentityVerification({
     if (outcome.status === 'verified') done(outcome.identity)
     if (outcome.status === 'failed') setFailure(outcome.message)
     if (outcome.status === 'duplicate') onDuplicate?.()
+    if (outcome.status === 'rejoinTooSoon') onRejoinTooSoon?.(outcome.rejoin)
   }
   useIdentityRedirect((outcome) => {
     onReturn?.()

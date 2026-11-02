@@ -8,7 +8,12 @@ import { z } from 'zod'
 
 import { AppHeader } from '@/widgets/app-header'
 import { safeNextPath, socialProviderOf, useAuthStatus, useSocialJoin } from '@/features/auth'
-import { IdentityVerificationBand, LockedIdentityFields } from '@/features/identity-verification'
+import {
+  IdentityVerificationBand,
+  LockedIdentityFields,
+  rejoinInfoOf,
+  type RejoinInfo,
+} from '@/features/identity-verification'
 import { ApiError, memberApi, unwrapData } from '@/shared/api'
 import { BottomCta, Button, Divider, Spinner, Stepper, TextField } from '@/shared/ui'
 
@@ -22,7 +27,12 @@ import { saveSignupDraft, takeSignupDraft } from '../model/signup-draft'
 import { useSignupStep } from '../model/signup-store'
 import { agreedTermTypes } from '../model/signup-terms'
 import { CenterBody, StepIntro } from './parts'
-import { DuplicateIdentityDialog, SignupProfileFields, SignupTermsSheet } from './SignupPages'
+import {
+  DuplicateIdentityDialog,
+  RejoinTooSoonDialog,
+  SignupProfileFields,
+  SignupTermsSheet,
+} from './SignupPages'
 
 const FAILED_LOGIN = '/login?error=AUTH_SOCIAL_FAILED'
 
@@ -101,6 +111,7 @@ function SocialSignupForm({
   const restoreDraft = useSignupStep((s) => s.restoreDraft)
   const [termsOpen, setTermsOpen] = useState(!termsAgreed)
   const [duplicate, setDuplicate] = useState(false)
+  const [rejoin, setRejoin] = useState<RejoinInfo | null>(null)
   const join = useSocialJoin()
   const [formError, setFormError] = useState<string>()
   const providerLabel = socialProviderOf(provider)?.label ?? '소셜'
@@ -169,6 +180,7 @@ function SocialSignupForm({
           }
           const { target, message } = joinErrorMessage(error)
           if (target === 'duplicate') return setDuplicate(true)
+          if (target === 'rejoinTooSoon') return setRejoin(rejoinInfoOf(error))
           if (target === 'nickname') return setError(target, { message }, { shouldFocus: true })
           if (target === 'verification') setVerification(null)
           setFormError(message)
@@ -199,6 +211,7 @@ function SocialSignupForm({
             verification={verification}
             onVerified={setVerification}
             onDuplicate={() => setDuplicate(true)}
+            onRejoinTooSoon={setRejoin}
             onBeforeOpen={() =>
               saveSignupDraft({
                 terms,
@@ -265,6 +278,7 @@ function SocialSignupForm({
       </form>
       <SignupTermsSheet open={termsOpen} onOpenChange={setTermsOpen} />
       <DuplicateIdentityDialog open={duplicate} onOpenChange={setDuplicate} />
+      <RejoinTooSoonDialog rejoin={rejoin} onClose={() => setRejoin(null)} />
     </>
   )
 }

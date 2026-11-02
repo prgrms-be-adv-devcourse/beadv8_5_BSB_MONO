@@ -11,7 +11,10 @@ import { checkEmailAvailable, useLogin } from '@/features/auth'
 import {
   IdentityMockNotice,
   LockedIdentityFields,
+  rejoinInfoOf,
+  rejoinMessage,
   useIdentityVerification,
+  type RejoinInfo,
 } from '@/features/identity-verification'
 import { memberApi } from '@/shared/api'
 import { cn } from '@/shared/lib'
@@ -57,9 +60,11 @@ export function SignupIdentityPage() {
   const restoreDraft = useSignupStep((s) => s.restoreDraft)
   const [termsOpen, setTermsOpen] = useState(!termsAgreed)
   const [duplicate, setDuplicate] = useState(false)
+  const [rejoin, setRejoin] = useState<RejoinInfo | null>(null)
 
   const { start, opening, mock, element } = useIdentityVerification({
     onDuplicate: () => setDuplicate(true),
+    onRejoinTooSoon: setRejoin,
     onVerified: (identity) => {
       setVerification(identity)
       router.push('/signup/account')
@@ -107,6 +112,7 @@ export function SignupIdentityPage() {
       {element}
       <SignupTermsSheet open={termsOpen} onOpenChange={setTermsOpen} />
       <DuplicateIdentityDialog open={duplicate} onOpenChange={setDuplicate} />
+      <RejoinTooSoonDialog rejoin={rejoin} onClose={() => setRejoin(null)} />
     </>
   )
 }
@@ -270,6 +276,7 @@ function SignupProfileForm() {
   const toast = useToast()
   const [formError, setFormError] = useState<string>()
   const [duplicate, setDuplicate] = useState(false)
+  const [rejoin, setRejoin] = useState<RejoinInfo | null>(null)
   const {
     register,
     handleSubmit,
@@ -312,6 +319,7 @@ function SignupProfileForm() {
         onError: (error) => {
           const { target, message } = joinErrorMessage(error)
           if (target === 'duplicate') return setDuplicate(true)
+          if (target === 'rejoinTooSoon') return setRejoin(rejoinInfoOf(error))
           if (target === 'nickname') return setError(target, { message }, { shouldFocus: true })
           // 본인인증 결과가 지났으면 인증 결과를 지운다. 그러면 첫 단계(본인 확인)로 돌아가므로 안내는 Toast로 띄운다
           if (target === 'verification') {
@@ -362,6 +370,7 @@ function SignupProfileForm() {
         />
       </form>
       <DuplicateIdentityDialog open={duplicate} onOpenChange={setDuplicate} />
+      <RejoinTooSoonDialog rejoin={rejoin} onClose={() => setRejoin(null)} />
     </>
   )
 }
@@ -499,6 +508,29 @@ export function DuplicateIdentityDialog({
       cancelLabel="닫기"
       confirmLabel="로그인하기"
       onConfirm={() => router.push('/login')}
+    />
+  )
+}
+
+/** 탈퇴하고 30일이 지나지 않은 사람에게 다시 가입할 수 있는 날을 알려 준다 (11/2 결정, 시안 없어 「이미 가입한 사람이에요」와 같은 모양) */
+export function RejoinTooSoonDialog({
+  rejoin,
+  onClose,
+}: {
+  rejoin: RejoinInfo | null
+  onClose: () => void
+}) {
+  return (
+    <Dialog
+      open={rejoin !== null}
+      onOpenChange={(open) => {
+        if (!open) onClose()
+      }}
+      type="alert"
+      title="아직 다시 가입할 수 없어요"
+      body={rejoin ? rejoinMessage(rejoin) : undefined}
+      confirmLabel="확인"
+      onConfirm={onClose}
     />
   )
 }
