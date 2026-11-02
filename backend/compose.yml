@@ -71,6 +71,9 @@ services:
       BACKEND_URL: http://bukang-gateway:8000
       # 실행 중에 새로 그리는 페이지도 같은 값을 쓰게 한다 (위 build.args와 같은 값)
       SITE_URL: ${SITE_URL:-http://localhost}
+      # 어드민 이용 통계의 GA4 연결 정보. 빌드가 아니라 실행할 때 읽으므로 build.args에는 넣지 않는다 (frontend/.env.example 참고)
+      GA4_PROPERTY_ID: ${GA4_PROPERTY_ID:-}
+      GA4_SERVICE_ACCOUNT_KEY: ${GA4_SERVICE_ACCOUNT_KEY:-}
     depends_on:
       gateway:
         condition: service_healthy
