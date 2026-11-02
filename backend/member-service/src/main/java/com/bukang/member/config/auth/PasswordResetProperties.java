@@ -15,6 +15,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param requestCooldown 같은 이메일로 다시 요청할 수 있기까지의 시간
  * @param dailyLimit 같은 이메일로 dailyWindow 동안 요청할 수 있는 횟수
  * @param dailyWindow 횟수를 세는 기간
+ * @param ipDailyLimit 같은 IP로 dailyWindow 동안 요청할 수 있는 횟수. 여러 이메일로 Gmail 하루 발송 한도를 다 쓰지 못하게 한다
  * @param retryDelays 메일 발송이 실패했을 때 다시 보내기까지 기다리는 시간. 개수만큼 다시 보낸다
  * @param fromName 메일의 보내는 사람 이름. 주소는 spring.mail.username을 쓴다
  */
@@ -25,6 +26,7 @@ public record PasswordResetProperties(
 	@DefaultValue("1m") Duration requestCooldown,
 	@DefaultValue("5") int dailyLimit,
 	@DefaultValue("24h") Duration dailyWindow,
+	@DefaultValue("20") int ipDailyLimit,
 	@DefaultValue({"2s", "10s", "30s"}) List<Duration> retryDelays,
 	@DefaultValue("크루런") String fromName
 ) {

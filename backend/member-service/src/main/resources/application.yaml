@@ -125,6 +125,8 @@ member:
       request-cooldown: 1m
       daily-limit: 5
       daily-window: 24h
+      # 같은 IP의 하루 요청 수. 여러 이메일로 Gmail 하루 발송 한도(500통)를 다 쓰지 못하게 한다
+      ip-daily-limit: 20
       # 발송이 실패하면 이 간격으로 최대 3번 다시 보낸다
       retry-delays: 2s, 10s, 30s
   # 가입 본인인증 (IdentityVerificationProperties, BUK-33, 포트원 V2 + KG이니시스 통합인증). 키 값은 .env에만 둔다

@@ -13,6 +13,9 @@ public interface PasswordResetStore {
 	 */
 	boolean tryAcquireRequest(String emailHash, Duration cooldown, int dailyLimit, Duration window);
 
+	// 같은 IP의 요청을 하나 센다. window 안에서 dailyLimit를 넘으면 거짓
+	boolean tryAcquireIpRequest(String ipHash, int dailyLimit, Duration window);
+
 	/**
 	 * 회원의 새 링크를 저장하고 이전 링크를 지운다. 회원당 쓸 수 있는 링크는 가장 최근 것 하나다
 	 */

@@ -51,11 +51,13 @@ public class PasswordResetUseCase {
 	 * 가입하지 않은 이메일, 탈퇴한 회원이면 메일을 보내지 않고 똑같이 끝낸다
 	 * 비밀번호가 없는 소셜 가입 회원에게는 링크 대신 소셜 로그인 안내 메일을 보낸다
 	 * 횟수 제한은 회원을 찾기 전에 걸어, 가입하지 않은 이메일도 같은 429를 받는다
+	 * IP당 제한은 여러 이메일로 Gmail 하루 발송 한도를 다 써서 진짜 회원이 메일을 못 받는 일을 막는다
 	 */
 	@Transactional(readOnly = true)
-	public void request(String rawEmail) {
+	public void request(String rawEmail, String clientIp) {
 		String email = rawEmail.trim();
-		if (!store.tryAcquireRequest(sha256(email.toLowerCase(Locale.ROOT)), properties.requestCooldown(),
+		if (!store.tryAcquireIpRequest(sha256(clientIp), properties.ipDailyLimit(), properties.dailyWindow())
+			|| !store.tryAcquireRequest(sha256(email.toLowerCase(Locale.ROOT)), properties.requestCooldown(),
 			properties.dailyLimit(), properties.dailyWindow())) {
 			throw new PasswordResetTooManyRequestsException(TOO_MANY_MESSAGE);
 		}
@@ -112,14 +114,17 @@ public class PasswordResetUseCase {
 	}
 
 	// 비밀번호는 이미 커밋됐으므로 여기서 실패해도 응답을 실패로 바꾸지 않는다
+	// 로그인 정리가 실패하면 알림 메일에 "모두 풀렸다"고 쓰지 않는다. 남은 로그인이 있다고 믿게 해야 직접 로그아웃한다
 	private void afterPasswordChanged(long memberId, String email) {
+		boolean loggedOut = false;
 		try {
 			refreshTokenRepository.deleteAll(memberId);
+			loggedOut = true;
 			store.deleteLatestToken(memberId);
 		} catch (RuntimeException e) {
 			log.warn("비밀번호를 바꾼 뒤 로그인 정리에 실패했습니다. memberId={}", memberId, e);
 		}
-		mailDispatcher.dispatch(PasswordResetMails.passwordChanged(email, properties.requestPageLink()));
+		mailDispatcher.dispatch(PasswordResetMails.passwordChanged(email, properties.requestPageLink(), loggedOut));
 	}
 
 	private String newToken() {

@@ -2,6 +2,7 @@ package com.bukang.member.in;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -20,6 +21,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -29,13 +31,16 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/auth/password-reset")
 public class ApiV1PasswordResetController {
+	private static final String REAL_IP_HEADER = "X-Real-IP";
+
 	private final PasswordResetUseCase passwordResetUseCase;
 
 	@PostMapping("/request")
 	@Operation(summary = "비밀번호 재설정 메일 요청", description = "가입한 이메일이면 30분 동안 한 번 쓸 수 있는 재설정 링크를 메일로 보낸다. "
 		+ "가입하지 않은 이메일·탈퇴한 회원도 같은 200으로 응답하고 메일은 보내지 않는다. "
 		+ "비밀번호 없는 소셜 가입 회원에게는 링크 대신 소셜 로그인 안내 메일을 보낸다. "
-		+ "메일은 응답 뒤 따로 보내고, 실패하면 최대 3번 다시 보낸다. 같은 이메일은 1분에 1번, 하루 5번까지 받는다.")
+		+ "메일은 응답 뒤 따로 보내고, 실패하면 최대 3번 다시 보낸다. 같은 이메일은 1분에 1번, 하루 5번까지, "
+		+ "같은 IP는 하루 20번까지 받는다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "요청 받음 (가입 여부와 상관없이 같은 응답)",
 			content = @Content(examples = @ExampleObject(value = PasswordResetApiExamples.REQUEST_SUCCESS))),
@@ -44,13 +49,24 @@ public class ApiV1PasswordResetController {
 				@ExampleObject(name = "입력값 검증 실패", value = PasswordResetApiExamples.REQUEST_INVALID_INPUT),
 				@ExampleObject(name = "요청 본문 형식 오류", value = PasswordResetApiExamples.INVALID_BODY)
 			})),
-		@ApiResponse(responseCode = "429", description = "같은 이메일로 1분 안에 다시 요청했거나 하루 5번을 넘김",
+		@ApiResponse(responseCode = "429", description = "같은 이메일로 1분 안에 다시 요청했거나 하루 5번을 넘김, 같은 IP가 하루 20번을 넘김",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = PasswordResetApiExamples.TOO_MANY)))
 	})
-	public ResponseEntity<RsData<Void>> requestPasswordReset(@Valid @RequestBody PasswordResetRequestDto request) {
-		passwordResetUseCase.request(request.getEmail());
+	public ResponseEntity<RsData<Void>> requestPasswordReset(@Valid @RequestBody PasswordResetRequestDto request,
+		HttpServletRequest httpRequest) {
+		passwordResetUseCase.request(request.getEmail(), clientIp(httpRequest));
 		return ResponseEntity.ok(RsData.of(HttpStatus.OK, "가입된 이메일이면 재설정 메일을 보냈습니다.", null));
+	}
+
+	/**
+	 * Nginx가 접속자 IP로 덮어써 넣는 X-Real-IP를 쓴다. 클라이언트가 보낸 값은 Nginx에서 사라진다
+	 * X-Forwarded-For는 클라이언트가 보낸 값 뒤에 이어 붙는 방식이라 맨 앞 값을 위조할 수 있어 쓰지 않는다
+	 * Nginx가 없는 로컬은 접속 주소를 쓴다
+	 */
+	private static String clientIp(HttpServletRequest request) {
+		String realIp = request.getHeader(REAL_IP_HEADER);
+		return StringUtils.hasText(realIp) ? realIp.trim() : request.getRemoteAddr();
 	}
 
 	@PostMapping("/verify")

@@ -37,20 +37,24 @@ final class PasswordResetMails {
 		return new OutgoingMail(to, "[크루런] 비밀번호 재설정 링크", text, html(body));
 	}
 
-	static OutgoingMail passwordChanged(String to, String resetPageLink) {
+	// loggedOut: 모든 기기의 로그인을 풀었는지. 실패했으면 직접 로그아웃하라고 안내한다
+	static OutgoingMail passwordChanged(String to, String resetPageLink, boolean loggedOut) {
+		String logout = loggedOut
+			? "다른 기기의 로그인도 모두 풀렸어요."
+			: "다른 기기에서 로그인되어 있다면 로그아웃해 주세요.";
 		String text = """
 			크루런 비밀번호가 바뀌었어요.
-			다른 기기의 로그인도 모두 풀렸어요.
+			%s
 
 			본인이 바꾸지 않았다면 아래 링크에서 비밀번호 재설정을 다시 해 주세요.
 			%s
-			""".formatted(resetPageLink);
+			""".formatted(logout, resetPageLink);
 		String body = """
 			<p>크루런 비밀번호가 바뀌었어요.<br>
-			다른 기기의 로그인도 모두 풀렸어요.</p>
+			%s</p>
 			<p>본인이 바꾸지 않았다면 비밀번호 재설정을 다시 해 주세요.</p>
 			<p>%s</p>
-			""".formatted(button(resetPageLink, "비밀번호 재설정하기"));
+			""".formatted(logout, button(resetPageLink, "비밀번호 재설정하기"));
 		return new OutgoingMail(to, "[크루런] 비밀번호가 바뀌었어요", text, html(body));
 	}
 

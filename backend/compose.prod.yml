@@ -60,6 +60,9 @@ services:
   gateway:
     image: ghcr.io/prgrms-be-adv-devcourse/bukang-gateway:${IMAGE_TAG:-latest}
     restart: unless-stopped
+    # 운영에서는 게이트웨이를 호스트에 열지 않는다. Nginx·web은 컨테이너 이름(gateway)으로 부른다
+    # Nginx를 건너뛰고 게이트웨이로 바로 오면 X-Real-IP를 위조해 비밀번호 재설정의 IP 제한을 피할 수 있다 (BUK-40)
+    ports: !reset []
   member-service:
     image: ghcr.io/prgrms-be-adv-devcourse/bukang-member-service:${IMAGE_TAG:-latest}
     restart: unless-stopped
