@@ -10,6 +10,10 @@ public final class KafkaTopics {
 	// 회원 이벤트 (member-service가 발행하고 캐시·상품 서비스가 구독한다)
 	public static final String MEMBER_MEMBER_JOINED = "queuing.member.joined";
 	public static final String MEMBER_MODIFIED = "queuing.member.modified";
+	// 회원이 탈퇴했다. 정보 변경 이벤트(닉네임 "탈퇴한 회원")와 함께 보내, 받는 쪽이 닉네임을 비교하지 않고 탈퇴를 안다
+	public static final String MEMBER_WITHDRAWN = "queuing.member.withdrawn";
+	// 회원의 마케팅 수신 동의가 바뀌었다
+	public static final String MARKETING_CONSENT_CHANGED = "queuing.marketingconsent.changed";
 	// 판매자 정보가 바뀌었다 (등록 신청, 승인·반려). 상품 서비스가 판매자 복제본에 저장한다
 	public static final String SELLER_CHANGED = "queuing.seller.changed";
 	// 대회가 바뀌었다 (등록·수정·취소, 상태 배치의 판매 상태 변경). 대기열 서비스가 대회 복제본에 저장한다

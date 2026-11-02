@@ -42,7 +42,7 @@ spring:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
       properties:
-        # 브로커 연결 대기 3초 (Kafka가 죽어 있으면 커밋 뒤 보내기가 가입 응답을 기본 60초 붙잡는다, BE-011)
+        # 브로커 연결 대기 3초. 기다리는 쪽은 아웃박스 발행 작업 스레드뿐이고 사용자 요청은 기다리지 않는다 (BE-011, BUK-41)
         "[max.block.ms]": 3000
 
     consumer:

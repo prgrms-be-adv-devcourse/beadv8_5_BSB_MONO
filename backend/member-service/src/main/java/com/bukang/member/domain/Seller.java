@@ -6,6 +6,7 @@ import static jakarta.persistence.GenerationType.IDENTITY;
 import static lombok.AccessLevel.PROTECTED;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 import com.bukang.common.global.jpa.entity.BaseEntity;
 import com.bukang.common.shared.seller.domain.SellerStatus;
@@ -169,7 +170,8 @@ public class Seller extends BaseEntity {
 			representativeName,
 			status,
 			requestedAt,
-			reviewedAt
+			reviewedAt,
+			UUID.randomUUID().toString()
 		));
 	}
 

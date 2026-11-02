@@ -28,7 +28,7 @@ import lombok.RequiredArgsConstructor;
  * 확인 순서: 이미 탈퇴 → 404, 크루장인 크루 있음 → 409, 예치금 > 0 → 409, 끝나지 않은 참가권 ≥ 1 → 409,
  * 확인 실패 → 503 (아무것도 바꾸지 않음)
  * 크루장이 아닌 회원은 탈퇴와 같은 트랜잭션에서 모든 크루의 크루원 행을 지운다 (BE-029)
- * 호출하는 쪽(MemberFacade)의 트랜잭션 하나에서 처리하고, 다른 서비스 사본은 커밋 뒤 수정 이벤트로 덮는다
+ * 호출하는 쪽(MemberFacade)의 트랜잭션 하나에서 처리하고, 다른 서비스 사본은 아웃박스로 나간 수정·탈퇴 이벤트로 덮는다
  */
 @Service
 @RequiredArgsConstructor
@@ -78,7 +78,7 @@ public class MemberWithdrawUseCase {
 		crewMembershipService.leaveAllCrews(memberId);
 		// 그 회원의 모든 기기 재발급을 막는다. Redis 오류면 예외가 나가 탈퇴도 롤백된다
 		refreshTokenRepository.deleteAll(memberId);
-		// 커밋된 뒤에만 Kafka로 나간다 (MemberKafkaPublisher, AFTER_COMMIT)
+		// 같은 트랜잭션에서 아웃박스에 정보 변경 → 탈퇴 두 줄을 남긴다 (MemberOutboxAppendUseCase)
 		member.publishWithdrawnEvent();
 		// 커밋된 뒤 카카오 연결을 끊는다. 실패해도 탈퇴는 그대로다 (BE-034, SocialUnlinkEventListener)
 		if (!unlinked.isEmpty()) {

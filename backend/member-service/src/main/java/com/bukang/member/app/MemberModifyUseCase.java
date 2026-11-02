@@ -16,7 +16,7 @@ import com.bukang.member.out.MemberRepository;
 import lombok.RequiredArgsConstructor;
 
 // 내 정보(이름·생년월일·휴대폰·닉네임) 수정 (BE-012)
-// 4칸 중 하나라도 바뀌어 저장했을 때만 수정 이벤트를 발행하고, 커밋 뒤 Kafka로 나간다 (BE-015)
+// 4칸 중 하나라도 바뀌어 저장했을 때만 수정 이벤트를 발행하고, 같은 트랜잭션에서 아웃박스에 남는다 (BE-015, BUK-41)
 @Service
 @RequiredArgsConstructor
 public class MemberModifyUseCase {
