@@ -128,4 +128,25 @@ describe('WithdrawPage 중복 요청', () => {
     await vi.waitFor(() => expect(reloadTo).toHaveBeenCalledWith('/me/withdraw/done'))
     expect(calls).toBe(1)
   })
+
+  // 성공한 뒤 완료 화면이 뜨기까지 문서를 새로 불러오는 동안 토큰이 남아 있다
+  it('성공한 뒤 완료 화면이 뜨기 전에 다시 눌러도 요청은 한 번만 간다', async () => {
+    let calls = 0
+    server.use(
+      http.delete('*/api/v1/member/members/me', () => {
+        calls += 1
+        return HttpResponse.json({ status: 200, message: '탈퇴했습니다.', data: null })
+      }),
+    )
+    const user = await openConfirm()
+    const dialog = await screen.findByRole('alertdialog')
+    const button = within(dialog).getByRole('button', { name: '탈퇴하기' })
+    await user.click(button)
+    await vi.waitFor(() => expect(reloadTo).toHaveBeenCalledWith('/me/withdraw/done'))
+
+    await user.click(button)
+
+    expect(calls).toBe(1)
+    expect(screen.queryByRole('alert', { hidden: true })).not.toBeInTheDocument()
+  })
 })
