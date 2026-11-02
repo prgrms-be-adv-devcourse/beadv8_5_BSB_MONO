@@ -20,6 +20,10 @@ final class AuthCookies {
 	static final String OAUTH2_PATH = "/api/v1/auth/oauth2";
 	static final Duration OAUTH2_REQUEST_AGE = Duration.ofMinutes(10);
 	static final Duration OAUTH2_SIGNUP_AGE = Duration.ofMinutes(15);
+	// 계정 연결 표는 시작 API에만 실린다. 표를 받은 브라우저에서 시작할 때만 연결로 처리하려고 쿠키로 준다 (BE-032)
+	static final String OAUTH2_LINK = "oauth2Link";
+	static final String OAUTH2_LINK_PATH = "/api/v1/auth/oauth2/authorize";
+	static final Duration OAUTH2_LINK_AGE = Duration.ofMinutes(2);
 
 	private AuthCookies() {
 	}
@@ -34,6 +38,10 @@ final class AuthCookies {
 
 	static ResponseCookie oauth2Signup(String pendingId) {
 		return cookie(OAUTH2_SIGNUP, pendingId, OAUTH2_PATH, OAUTH2_SIGNUP_AGE);
+	}
+
+	static ResponseCookie oauth2Link(String ticket) {
+		return cookie(OAUTH2_LINK, ticket, OAUTH2_LINK_PATH, OAUTH2_LINK_AGE);
 	}
 
 	static ResponseCookie expired(String name, String path) {

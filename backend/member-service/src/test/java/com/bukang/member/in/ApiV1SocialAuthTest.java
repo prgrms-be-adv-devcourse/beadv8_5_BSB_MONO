@@ -279,6 +279,29 @@ class ApiV1SocialAuthTest {
 	}
 
 	@Test
+	@DisplayName("카카오로 가입한 사람이 다른 이메일의 구글로 가입하면 닉네임보다 먼저 휴대폰 번호로 막고 409 AUTH_SOCIAL_PHONE_TAKEN이다")
+	void phoneTakenGuidesToLink() throws Exception {
+		String kakaoRequest = authorize("kakao", "/");
+		identity(new SocialIdentity(SocialProvider.KAKAO, KAKAO_USER, "runner@kakao.com", null));
+		String kakaoPending = callback("kakao", kakaoRequest, STATE).andReturn()
+			.getResponse().getCookie("oauth2Signup").getValue();
+		join(kakaoPending, null).andExpect(status().isCreated());
+
+		String googleRequest = authorize("google", "/");
+		identity(new SocialIdentity(SocialProvider.GOOGLE, "google-sub-1", "runner@gmail.com", null));
+		String googlePending = callback("google", googleRequest, STATE).andReturn()
+			.getResponse().getCookie("oauth2Signup").getValue();
+
+		// 같은 닉네임·같은 번호로 보낸다. 닉네임 중복이 아니라 번호로 안내해야 계정 연결로 갈 수 있다
+		join(googlePending, null)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("AUTH_SOCIAL_PHONE_TAKEN"));
+		assertThat(socialAccountRepository.findActiveMemberId(SocialProvider.GOOGLE, "google-sub-1")).isEmpty();
+		// 실패하면 가입 대기를 남긴다
+		assertThat(store.findPendingSignup(googlePending)).isPresent();
+	}
+
+	@Test
 	@DisplayName("가입 대기 쿠키가 없거나 지났으면 401 AUTH_SOCIAL_SIGNUP_EXPIRED다")
 	void signupExpired() throws Exception {
 		mockMvc.perform(get("/api/v1/auth/oauth2/signup"))

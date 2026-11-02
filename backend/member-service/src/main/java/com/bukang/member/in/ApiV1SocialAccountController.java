@@ -1,5 +1,6 @@
 package com.bukang.member.in;
 
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -13,10 +14,10 @@ import com.bukang.common.shared.member.web.LoginMemberId;
 import com.bukang.member.app.SocialAccountUseCase;
 import com.bukang.member.domain.SocialProvider;
 import com.bukang.member.dto.MemberDto;
-import com.bukang.member.dto.SocialLinkTicketDto;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -37,10 +38,13 @@ public class ApiV1SocialAccountController {
 
 	@PostMapping("/{provider}/link-ticket")
 	@Operation(summary = "계정 연결 표 발급", description = "로그인한 회원이 소셜 계정을 연결할 때 먼저 부른다. 2분 동안 한 번만 쓸 수 있는 "
-		+ "연결 표를 돌려주고, 프론트는 /api/v1/auth/oauth2/authorize/{provider}?linkTicket=...&next=/me/accounts로 "
-		+ "화면을 이동한다.")
+		+ "연결 표를 httpOnly 쿠키(oauth2Link, Path=/api/v1/auth/oauth2/authorize)로 심는다. 프론트는 이어서 "
+		+ "/api/v1/auth/oauth2/authorize/{provider}?next=/me/accounts로 화면을 이동한다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "201", description = "발급 성공",
+			headers = @Header(name = HttpHeaders.SET_COOKIE,
+				description = "oauth2Link=...; Path=/api/v1/auth/oauth2/authorize; Max-Age=120; "
+					+ "Secure; HttpOnly; SameSite=Lax"),
 			content = @Content(examples = @ExampleObject(value = SocialAuthApiExamples.LINK_TICKET_SUCCESS))),
 		@ApiResponse(responseCode = "404", description = "회원이 없거나 지원하지 않는 제공자",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
@@ -51,13 +55,14 @@ public class ApiV1SocialAccountController {
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = SocialAuthApiExamples.PROVIDER_ALREADY_LINKED)))
 	})
-	public ResponseEntity<RsData<SocialLinkTicketDto>> issueLinkTicket(
+	public ResponseEntity<RsData<Void>> issueLinkTicket(
 		@LoginMemberId long memberId,
 		@Parameter(description = "소셜 로그인 제공자 (kakao, google)", example = "kakao") @PathVariable String provider
 	) {
-		SocialLinkTicketDto ticket = socialAccountUseCase.issueLinkTicket(memberId, SocialProvider.fromPath(provider));
+		String ticket = socialAccountUseCase.issueLinkTicket(memberId, SocialProvider.fromPath(provider));
 		return ResponseEntity.status(HttpStatus.CREATED)
-			.body(RsData.of(HttpStatus.CREATED, "연결 표 발급 성공", ticket));
+			.header(HttpHeaders.SET_COOKIE, AuthCookies.oauth2Link(ticket).toString())
+			.body(RsData.of(HttpStatus.CREATED, "연결 표 발급 성공", null));
 	}
 
 	@DeleteMapping("/{provider}")

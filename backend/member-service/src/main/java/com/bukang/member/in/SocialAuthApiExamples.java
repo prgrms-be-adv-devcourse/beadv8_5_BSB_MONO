@@ -51,12 +51,21 @@ final class SocialAuthApiExamples {
 		{ "status": 400, "code": "AUTH_SOCIAL_EMAIL_REQUIRED", "message": "이메일을 입력해주세요.", "data": null }
 		""";
 
+	static final String PHONE_TAKEN = """
+		{
+			"status": 409,
+			"code": "AUTH_SOCIAL_PHONE_TAKEN",
+			"message": "이 휴대폰 번호로 가입한 계정이 있습니다. 원래 쓰던 방법으로 로그인한 뒤 계정 연결에서 연결해주세요.",
+			"data": null
+		}
+		""";
+
 	static final String ALREADY_LINKED = """
 		{ "status": 409, "code": "AUTH_SOCIAL_ALREADY_LINKED", "message": "이미 다른 회원에 연결된 소셜 계정입니다.", "data": null }
 		""";
 
 	static final String LINK_TICKET_SUCCESS = """
-		{ "status": 201, "message": "연결 표 발급 성공", "data": { "linkTicket": "8f1c2a9e4b7d4c3a9f0e6b5d2c1a7e3f" } }
+		{ "status": 201, "message": "연결 표 발급 성공", "data": null }
 		""";
 
 	static final String PROVIDER_ALREADY_LINKED = """
