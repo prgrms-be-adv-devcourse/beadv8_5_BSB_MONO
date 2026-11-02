@@ -131,6 +131,12 @@ describe('CrewHomePage (M09)', () => {
     expect(screen.getByRole('link', { name: '내 크루로 가기' })).toHaveAttribute('href', '/crews')
   })
 
+  it('없는 크루면 없는 크루라고 안내한다', async () => {
+    renderPage(<CrewHomePage crewId={404} />)
+    expect(await screen.findByText('없는 크루예요')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '내 크루로 가기' })).toHaveAttribute('href', '/crews')
+  })
+
   it('크루원이 5명을 넘으면 나머지는 더 보기로 펼친다', async () => {
     const members = Array.from({ length: 7 }, (_, i) => ({
       memberId: i + 1,
@@ -156,7 +162,7 @@ describe('CrewInvitesPage (M27)', () => {
     const user = userEvent.setup()
     const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue()
     renderPage(<CrewInvitesPage crewId={1} />)
-    await user.click(screen.getByRole('button', { name: '초대 링크 만들기' }))
+    await user.click(await screen.findByRole('button', { name: '초대 링크 만들기' }))
     expect(await screen.findByText('초대 링크를 만들었어요')).toBeInTheDocument()
     expect(screen.getByText(/\/invite\/q7Xk2LmZ9vBn4RtW8yCp1A$/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '링크 복사하기' }))
@@ -181,6 +187,89 @@ describe('CrewInvitesPage (M27)', () => {
     expect(within(dialog).getByText('이 초대를 취소할까요?')).toBeInTheDocument()
     await user.click(within(dialog).getByRole('button', { name: '초대 취소하기' }))
     await vi.waitFor(() => expect(canceled).toBe('/api/v1/member/crews/1/invites/3'))
+  })
+})
+
+/** 크루 홈 응답의 내 역할만 바꾼다 */
+function mockCrewRole(myRole: 'LEADER' | 'MANAGER' | 'MEMBER') {
+  const example = memberMock.getFindCrewResponseMock()
+  server.use(memberMock.getFindCrewMockHandler({ ...example, data: { ...example.data!, myRole } }))
+}
+
+/** 보낸 초대 두 개: 1번 회원(나)이 보낸 것, 9번 회원이 보낸 것 */
+function mockTwoInvites() {
+  const invite = (inviteId: number, memberId: number, nickname: string) => ({
+    inviteId,
+    createdBy: { memberId, nickname },
+    createdAt: '2026-11-02T20:30:00',
+    expiresAt: '2099-11-03T20:30:00',
+  })
+  server.use(
+    memberMock.getFindCrewInvitesMockHandler({
+      status: 200,
+      message: '조회',
+      data: [invite(3, 1, '새벽러너'), invite(4, 9, '달리는곰')],
+    }),
+  )
+}
+
+const cancelButtons = () => screen.queryAllByRole('button', { name: '초대 취소' })
+
+describe('CrewInvitesPage 역할별 권한', () => {
+  it('크루장은 다른 사람이 보낸 초대도 취소할 수 있다', async () => {
+    mockCrewRole('LEADER')
+    mockTwoInvites()
+    renderPage(<CrewInvitesPage crewId={1} />)
+    await screen.findByText(/달리는곰이 보냄/)
+    expect(cancelButtons()).toHaveLength(2)
+  })
+
+  it('운영진은 자기가 보낸 초대만 취소할 수 있다', async () => {
+    mockCrewRole('MANAGER')
+    mockTwoInvites()
+    renderPage(<CrewInvitesPage crewId={1} />)
+    const others = (await screen.findByText(/달리는곰이 보냄/)).closest('li')!
+    expect(within(others).queryByRole('button', { name: '초대 취소' })).not.toBeInTheDocument()
+    const mine = screen.getByText(/새벽러너가 보냄/).closest('li')!
+    expect(within(mine).getByRole('button', { name: '초대 취소' })).toBeInTheDocument()
+  })
+
+  it('크루원이 주소를 직접 열면 초대 권한이 없다고 안내하고 목록을 부르지 않는다', async () => {
+    let listed = false
+    server.use(
+      http.get('*/api/v1/member/crews/:crewId/invites', () => {
+        listed = true
+        return failWith(403, 'CREW_INVITE_FORBIDDEN')
+      }),
+    )
+    mockCrewRole('MEMBER')
+    renderPage(<CrewInvitesPage crewId={1} />)
+    expect(await screen.findByText('크루장과 운영진만 초대할 수 있어요')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '크루 홈으로 가기' })).toHaveAttribute(
+      'href',
+      '/crews/1',
+    )
+    expect(screen.queryByRole('button', { name: '초대 링크 만들기' })).not.toBeInTheDocument()
+    expect(listed).toBe(false)
+  })
+
+  it('방금 만든 링크를 취소하면 위쪽 링크 카드도 사라진다', async () => {
+    server.use(
+      http.delete('*/api/v1/member/crews/:crewId/invites/:inviteId', () =>
+        HttpResponse.json({ status: 200, message: '취소', data: null }),
+      ),
+    )
+    const user = userEvent.setup()
+    renderPage(<CrewInvitesPage crewId={1} />)
+    await user.click(await screen.findByRole('button', { name: '초대 링크 만들기' }))
+    expect(await screen.findByRole('button', { name: '링크 복사하기' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '초대 취소' }))
+    const dialog = await screen.findByRole('alertdialog')
+    await user.click(within(dialog).getByRole('button', { name: '초대 취소하기' }))
+    await vi.waitFor(() =>
+      expect(screen.queryByRole('button', { name: '링크 복사하기' })).not.toBeInTheDocument(),
+    )
+    expect(screen.getByRole('button', { name: '초대 링크 만들기' })).toBeInTheDocument()
   })
 })
 
@@ -221,5 +310,18 @@ describe('CrewInvitePage (M10)', () => {
     renderPage(<CrewInvitePage inviteToken="q7Xk2LmZ9vBn4RtW8yCp1A" />)
     await user.click(await screen.findByRole('button', { name: '새벽한강크루에 가입하기' }))
     expect(await screen.findByText('초대 링크가 끝났어요')).toBeInTheDocument()
+  })
+
+  it('가입하는 사이 이미 크루원이 됐으면(409) 크루 홈으로 보낸다', async () => {
+    server.use(
+      http.post('*/api/v1/member/crews/invites/:inviteToken/join', () =>
+        failWith(409, 'CREW_ALREADY_MEMBER'),
+      ),
+    )
+    const user = userEvent.setup()
+    renderPage(<CrewInvitePage inviteToken="q7Xk2LmZ9vBn4RtW8yCp1A" />)
+    await user.click(await screen.findByRole('button', { name: '새벽한강크루에 가입하기' }))
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/crews/1'))
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 })

@@ -2,7 +2,11 @@ const KST_OFFSET_MS = 9 * 60 * 60 * 1000
 const MINUTE_MS = 60 * 1000
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
 
-/** 백엔드가 주는 시간대 없는 한국 시각(2026-11-03T20:30:00)을 ms로 바꾼다. */
+/**
+ * 백엔드가 주는 시간대 없는 한국 시각(2026-11-03T20:30:00)을 ms로 바꾼다.
+ * 서버가 한국 시각(Asia/Seoul)으로 돈다는 약속에 기댄다. 주문 결제 기한 등 다른 화면도 같은 약속이다.
+ * 지금 compose.yml은 DB 컨테이너에만 TZ를 지정해서, member-service가 UTC로 돌면 9시간 어긋난다(백엔드에 확인 요청).
+ */
 export function parseKstDateTime(value: string): number {
   return new Date(`${value}+09:00`).getTime()
 }
