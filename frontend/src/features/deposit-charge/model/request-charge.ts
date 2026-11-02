@@ -1,4 +1,5 @@
 import { clientEnv } from '@/shared/config'
+import { trackEvent } from '@/shared/lib'
 
 import { savePendingCharge } from '../lib/pending-charge'
 
@@ -58,6 +59,7 @@ export async function requestCharge(
   { amount, returnOrderId }: ChargeRequest,
   env: Env = browserEnv(),
 ): Promise<'redirecting' | 'canceled'> {
+  trackEvent('deposit_charge_start', { amount, duringCheckout: returnOrderId !== undefined })
   const orderId = `charge-${crypto.randomUUID()}`
   savePendingCharge({ orderId, amount, returnOrderId })
   const successUrl = returnUrl(env.origin, 'success')
