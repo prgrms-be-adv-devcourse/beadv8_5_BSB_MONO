@@ -4,7 +4,13 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { completePostcode, installPostcodeFake, productMock, server } from '@/shared/testing'
+import {
+  completePostcode,
+  installPostcodeFake,
+  postcodeFake,
+  productMock,
+  server,
+} from '@/shared/testing'
 
 import { RaceChangeNoticePage } from './RaceChangeNoticePage'
 import { TicketDetailPage } from './TicketDetailPage'
@@ -174,6 +180,31 @@ describe('TicketEditPage', () => {
         addressDetail: '3층',
       },
     })
+  })
+
+  it('키트가 있는 참가권은 우편번호 · 주소를 비운 채 저장하지 않는다', async () => {
+    let requested = false
+    server.use(
+      http.put('*/api/v1/order/participations/:participationId/participant', () => {
+        requested = true
+        return undefined
+      }),
+    )
+    postcodeFake.failLoad = true
+    const user = userEvent.setup()
+    renderWithClient(<TicketEditPage ticketId="1-1" />)
+
+    // 주소 검색을 못 불러와 직접 입력이 열린 상태
+    await user.click(await screen.findByRole('button', { name: '주소 검색' }))
+    const address = screen.getByLabelText('주소')
+    await vi.waitFor(() => expect(address).not.toHaveAttribute('readonly'))
+    await user.clear(screen.getByLabelText('우편번호'))
+    await user.clear(address)
+    await user.click(screen.getByRole('button', { name: '저장하기' }))
+
+    expect(await screen.findByText('키트를 받을 주소를 입력해 주세요.')).toBeInTheDocument()
+    expect(screen.getByText('우편번호 5자리를 입력해 주세요.')).toBeInTheDocument()
+    expect(requested).toBe(false)
   })
 
   it('접수가 마감됐으면(409) 서버 문구를 보여 준다', async () => {

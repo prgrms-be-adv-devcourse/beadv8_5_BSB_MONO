@@ -89,4 +89,22 @@ describe('AddressSearch', () => {
     expect(onUnavailable).toHaveBeenCalled()
     expect(onSelect).not.toHaveBeenCalled()
   })
+
+  it('불러오기에 실패하면 주소 검색 버튼을 숨겨 빈 창을 다시 열지 않는다', async () => {
+    postcodeFake.failLoad = true
+    renderSearch()
+    await userEvent.click(screen.getByRole('button', { name: '주소 검색' }))
+
+    expect(await screen.findByText(ADDRESS_SEARCH_UNAVAILABLE)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '주소 검색' })).not.toBeInTheDocument()
+  })
+
+  it('스크립트는 불렀는데 카카오 창이 없으면(차단 등) 불러오기 실패로 본다', async () => {
+    Reflect.deleteProperty(window, 'kakao')
+    const { onUnavailable } = renderSearch()
+    await userEvent.click(screen.getByRole('button', { name: '주소 검색' }))
+
+    expect(await screen.findByText(ADDRESS_SEARCH_UNAVAILABLE)).toBeInTheDocument()
+    expect(onUnavailable).toHaveBeenCalled()
+  })
 })

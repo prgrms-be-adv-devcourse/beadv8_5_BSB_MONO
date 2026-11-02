@@ -187,4 +187,17 @@ describe('SellerRaceNewPage · 지역 주소 검색', () => {
     await userEvent.type(screen.getByRole('textbox', { name: '시·군·구' }), '성동구')
     expect(sido).toHaveValue('서울특별시')
   })
+
+  it('창을 연 채로 등록하기를 눌러 오류가 난 뒤 주소를 고르면 시·도 · 시·군·구 오류가 모두 사라진다', async () => {
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: '주소 검색' }))
+    await userEvent.click(screen.getByRole('button', { name: '등록하기' }))
+    expect(await screen.findByText(RACE_FORM_ERRORS.sigunguRequired)).toBeInTheDocument()
+
+    completePostcode()
+    await waitFor(() =>
+      expect(screen.queryByText(RACE_FORM_ERRORS.sigunguRequired)).not.toBeInTheDocument(),
+    )
+    expect(screen.queryByText(RACE_FORM_ERRORS.sidoRequired)).not.toBeInTheDocument()
+  })
 })
