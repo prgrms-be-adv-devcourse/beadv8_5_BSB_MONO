@@ -62,12 +62,8 @@ function ProfileForm({ member }: { member: memberModel.MemberDto }) {
     setFormError(undefined)
     modify.mutate(
       {
-        data: {
-          name: values.name,
-          birthDate: values.birth,
-          phone: values.phone,
-          nickname: values.nickname,
-        },
+        // 가입 뒤에는 닉네임만 바꿀 수 있다(BUK-33). 이름 · 생년월일 · 휴대폰 번호는 서버가 받지 않는다
+        data: { nickname: values.nickname },
       },
       {
         onSuccess: (response) => {

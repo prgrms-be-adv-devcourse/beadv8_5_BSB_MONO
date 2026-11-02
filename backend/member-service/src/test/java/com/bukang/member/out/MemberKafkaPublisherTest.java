@@ -170,7 +170,7 @@ class MemberKafkaPublisherTest {
 	void sendModifiedEventAfterCommit() {
 		MemberDto joined = join("modified@crewrun.com", "수정전러너", "010-2000-0005");
 
-		MemberDto modified = modify(joined.getId(), "수정러너", "010-2000-0005");
+		MemberDto modified = modify(joined.getId(), "수정러너");
 
 		ConsumerRecord<String, String> record =
 			pollUntilNickname(KafkaTopics.MEMBER_MODIFIED, "수정러너", new ArrayList<>());
@@ -189,9 +189,7 @@ class MemberKafkaPublisherTest {
 		MemberDto joined = join("rollbackmodify@crewrun.com", "롤백전러너", "010-2000-0006");
 
 		transactionTemplate.executeWithoutResult(status -> {
-			memberModifyUseCase.modify(
-				joined.getId(), "김러너", "수정롤백러너", "010-2000-0006", LocalDate.of(1995, 4, 12)
-			);
+			memberModifyUseCase.modify(joined.getId(), "수정롤백러너");
 			status.setRollbackOnly();
 		});
 
@@ -205,7 +203,7 @@ class MemberKafkaPublisherTest {
 		join("taken@crewrun.com", "선점러너", "010-2000-0007");
 		MemberDto joined = join("modifyfail@crewrun.com", "실패전러너", "010-2000-0008");
 
-		assertThatThrownBy(() -> modify(joined.getId(), "선점러너", "010-2000-0008"))
+		assertThatThrownBy(() -> modify(joined.getId(), "선점러너"))
 			.isInstanceOf(DuplicateNicknameException.class);
 
 		assertNotSentBeforeMarker(KafkaTopics.MEMBER_MODIFIED, "선점러너");
@@ -292,11 +290,9 @@ class MemberKafkaPublisherTest {
 		));
 	}
 
-	// 4칸 중 닉네임만 바꾼다 (이름·생년월일은 가입 때 값 그대로)
-	private MemberDto modify(long memberId, String nickname, String phone) {
-		return memberFacade.modifyMe(memberId, new MemberModifyRequestDto(
-			"김러너", nickname, phone, LocalDate.of(1995, 4, 12)
-		));
+	// 닉네임만 바꾼다. 이름 · 생년월일 · 휴대폰 번호는 본인인증 값이라 수정 요청에 없다
+	private MemberDto modify(long memberId, String nickname) {
+		return memberFacade.modifyMe(memberId, new MemberModifyRequestDto(nickname));
 	}
 
 	// 파티션이 1개라 토픽 안의 메시지 순서가 지켜진다. 뒤에 보낸 표시 회원의 메시지가 올 때까지 읽어,
@@ -308,7 +304,7 @@ class MemberKafkaPublisherTest {
 		MemberDto markerMember = join("marker" + consumerCount + "@crewrun.com", marker, phone);
 		if (KafkaTopics.MEMBER_MODIFIED.equals(topic)) {
 			marker = "표시수정" + consumerCount;
-			modify(markerMember.getId(), marker, phone);
+			modify(markerMember.getId(), marker);
 		}
 
 		List<ConsumerRecord<String, String>> received = new ArrayList<>();

@@ -8,8 +8,9 @@ import {
 } from '@/entities/member'
 import { ApiError, memberZod } from '@/shared/api'
 
-// 내 정보 수정 입력 검사. 규칙은 orval이 만든 memberZod.ModifyMeBody(백엔드 MemberModifyRequestDto)를 따르고,
+// 내 정보 수정 입력 검사. 닉네임 규칙은 orval이 만든 memberZod.ModifyMeBody(백엔드 MemberModifyRequestDto)를 따르고,
 // 문구만 화면 말투로 바꾼다. 닉네임 칸 수는 명세에 없는 백엔드 커스텀 검증(@NicknameWidth)이라 entities/member 규칙을 쓴다.
+// 가입 뒤에는 닉네임만 바꿀 수 있다(BUK-33). 이름 · 생년월일 · 휴대폰 번호는 서버가 받지 않아 형식만 본다.
 
 export const PROFILE_ERRORS = {
   name: '이름을 입력해 주세요.',
@@ -31,19 +32,19 @@ const follow = (schema: z.ZodType, message: string) =>
     .refine((value) => schema.safeParse(value).success, message)
 
 export const profileSchema = z.object({
-  name: follow(body.name, PROFILE_ERRORS.name),
+  name: z.string().trim().min(1, PROFILE_ERRORS.name),
   birth: z
     .string()
     .trim()
-    .refine(
-      (value) => parseBirth(value) !== null && body.birthDate.safeParse(value).success,
-      PROFILE_ERRORS.birth,
-    )
+    .refine((value) => parseBirth(value) !== null, PROFILE_ERRORS.birth)
     .refine((value) => {
       const date = parseBirth(value)
       return date === null || isJoinableAge(date)
     }, PROFILE_ERRORS.birthUnder14),
-  phone: follow(body.phone, PROFILE_ERRORS.phone),
+  phone: z
+    .string()
+    .trim()
+    .regex(/^01[016789]-?\d{3,4}-?\d{4}$/, PROFILE_ERRORS.phone),
   nickname: follow(body.nickname, PROFILE_ERRORS.nicknameChars).refine(
     isNicknameWidthValid,
     PROFILE_ERRORS.nicknameWidth,
