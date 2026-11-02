@@ -45,7 +45,7 @@ function renderPage() {
 describe('ProfileEditPage', () => {
   beforeEach(() => server.use(memberMock.getFindMeMockHandler(ME)))
 
-  it('내 정보로 칸을 채우고, 저장하면 4칸을 통째로 보내 캐시를 바꾼 뒤 마이로 간다', async () => {
+  it('내 정보로 칸을 채우고, 저장하면 닉네임만 보내 캐시를 바꾼 뒤 마이로 간다', async () => {
     let body: unknown
     const updated = { ...ME, data: { ...ME.data, nickname: '달리는곰' } }
     server.use(
@@ -65,12 +65,8 @@ describe('ProfileEditPage', () => {
     await user.click(screen.getByRole('button', { name: '저장하기' }))
 
     await vi.waitFor(() => expect(push).toHaveBeenCalledWith('/me'))
-    expect(body).toEqual({
-      name: '김러너',
-      birthDate: '1995-04-12',
-      phone: '010-1234-5678',
-      nickname: '달리는곰',
-    })
+    // 가입 뒤에는 닉네임만 바꿀 수 있다. 이름 · 생년월일 · 휴대폰 번호는 보내지 않는다
+    expect(body).toEqual({ nickname: '달리는곰' })
     expect(client.getQueryData(memberApi.getFindMeQueryKey())).toEqual(updated)
   })
 
