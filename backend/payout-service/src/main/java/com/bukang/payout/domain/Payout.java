@@ -40,7 +40,7 @@ import lombok.NoArgsConstructor;
 public class Payout extends BaseIdAndTime {
 	private static final DateTimeFormatter CODE_DATE = DateTimeFormatter.ofPattern("yyyyMMdd");
 	// 지급일: 정산 월(1차는 환불 마감일의 달, 최종은 대회일의 달)의 다음 달 20일 (10/29 결정)
-	// 휴일이면 다음 영업일에 지급한다. 지급 배치가 그날 04:00에 지급한다
+	// 주말이어도 그날 지급한다(11/2 결정, 보류 해제 뒤 지급일과 같게 휴일 보정 없음). 지급 배치가 그날 04:00에 지급한다
 	private static final int PAY_DAY_OF_MONTH = 20;
 	// 보류를 풀면 해제일 다음 날 지급한다 (원래 지급 예정일보다 앞당기지는 않는다)
 	private static final int PAY_DAYS_AFTER_RELEASE = 1;
@@ -323,7 +323,7 @@ public class Payout extends BaseIdAndTime {
 	}
 
 	// 지급보류 풀기: 정산 예정으로 돌리고 지급 예정일을 max(원래 지급 예정일, 해제일 + 1일)로 다시 정한다
-	// (10/28 결정, 10/29 지급일을 20일로 되돌릴 때도 유지. 해제 뒤 지급일에는 영업일 보정을 하지 않는다)
+	// (10/28 결정, 10/29 지급일을 20일로 되돌릴 때도 유지, 11/2 다시 확인. 휴일 보정은 없다: 주말에도 지급)
 	// 원래 지급 예정일보다 앞당기지 않는다 (PRO-128). 보류를 걸 때는 지급 예정일을 바꾸지 않으므로
 	// 지금 값이 원래 지급 예정일(또는 이전 해제로 이미 늦춰진 날)이다. 해제일은 갈수록 늦어지므로
 	// 지금 값과 비교해도 원래 지급 예정일과 비교한 것과 같다. 그래서 원래 지급 예정일을 따로 저장하지 않는다
@@ -369,8 +369,9 @@ public class Payout extends BaseIdAndTime {
 		this.status = to;
 	}
 
-	// 그 달의 지급일: 20일, 휴일이면 다음 영업일. dev 샘플 데이터(PayoutDataInit)도 이 날짜로 시나리오를 맞춘다
+	// 그 달의 지급일: 20일. 주말이어도 그날이다 (11/2 결정). dev 샘플 데이터(PayoutDataInit)도 이 날짜로 시나리오를 맞춘다
+	// calendar는 지금 쓰지 않는다. 휴일 보정을 다시 켤 때 호출부를 다시 고치지 않도록 인자로 남겨 둔다 (10/28과 같은 방식)
 	public static LocalDate payDayOf(YearMonth month, BusinessDayCalendar calendar) {
-		return calendar.nextOrSame(month.atDay(PAY_DAY_OF_MONTH));
+		return month.atDay(PAY_DAY_OF_MONTH);
 	}
 }

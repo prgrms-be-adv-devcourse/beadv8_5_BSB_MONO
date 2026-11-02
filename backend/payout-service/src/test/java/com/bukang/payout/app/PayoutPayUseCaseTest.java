@@ -66,7 +66,7 @@ class PayoutPayUseCaseTest {
 		});
 	}
 
-	// 지급 예정일은 정산 월(대회일의 달)의 다음 달 20일이다. 10/17 토 대회는 11/20 금, 11/17 화 대회는 12/20 일이 밀려 12/21 월
+	// 지급 예정일은 정산 월(대회일의 달)의 다음 달 20일이다. 10/17 토 대회는 11/20 금, 11/17 화 대회는 12/20 일 (주말이어도 그날)
 	private Payout savePayout(long sellerId, LocalDate raceDate) {
 		LocalDateTime settledAt = raceDate.plusDays(1).atTime(3, 0);
 		return payoutRepository.save(Payout.finalStage(sellerId, 10, "테스트 대회", raceDate, settledAt,

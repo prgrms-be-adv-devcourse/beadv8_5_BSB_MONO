@@ -32,7 +32,7 @@ public class PayoutDto {
 	private final long payoutAmount;
 	private final PayoutStatus status;
 	private final LocalDateTime settledAt;
-	// 지급 예정일. 1차 · 최종 모두 정산 월의 다음 달 20일 (휴일이면 다음 영업일)
+	// 지급 예정일. 1차 · 최종 모두 정산 월의 다음 달 20일 (주말이어도 그날)
 	// 보류를 풀면 다시 정한다: 1차 · 최종 모두 원래 지급 예정일과 해제일 + 1일 중 늦은 날
 	private final LocalDate scheduledPayDate;
 	// 지급 완료 전에는 null

@@ -100,7 +100,7 @@ public class ApiV1PayoutHoldController {
 	@Operation(summary = "지급보류 풀기",
 		description = "지급보류를 해제하고 정산 내역을 정산 예정(CALCULATED)으로 돌린다. "
 			+ "지급 예정일은 다시 정한다. 1차 · 최종 모두 해제일 다음 날(주말에도 지급)이며, "
-			+ "원래 지급 예정일(정산 월의 다음 달 20일, 휴일이면 다음 영업일)보다 앞당기지 않는다.")
+			+ "원래 지급 예정일(정산 월의 다음 달 20일, 주말에도 지급)보다 앞당기지 않는다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "해제 성공",
 			content = @Content(examples = @ExampleObject(value = PayoutApiExamples.RELEASE_SUCCESS))),

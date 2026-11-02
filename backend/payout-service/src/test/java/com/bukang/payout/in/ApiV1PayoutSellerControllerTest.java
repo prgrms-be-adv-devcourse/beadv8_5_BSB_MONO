@@ -270,7 +270,7 @@ class ApiV1PayoutSellerControllerTest {
 						+ "CANCELED: 대회 취소로 닫힘)"),
 					fieldWithPath("data[].settledAt").description("정산 내역을 만든 일시"),
 					fieldWithPath("data[].scheduledPayDate").description(
-						"지급 예정일. 1차 · 최종 모두 정산 월의 다음 달 20일, 휴일이면 다음 영업일 (보류를 풀면 원래 지급 예정일과 해제일 + 1일 중 늦은 날로 다시 정한다)"),
+						"지급 예정일. 1차 · 최종 모두 정산 월의 다음 달 20일, 주말이어도 그날 (보류를 풀면 원래 지급 예정일과 해제일 + 1일 중 늦은 날로 다시 정한다)"),
 					fieldWithPath("data[].paidAt").description("지급 완료 일시 (지급 전에는 null)")
 						.optional().type(JsonFieldType.STRING)
 				)));
