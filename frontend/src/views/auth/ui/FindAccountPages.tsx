@@ -170,8 +170,9 @@ export function PasswordNewPage() {
     ),
   )
 
+  // 확인 단계는 400(쓸 수 없는 링크 · 토큰 없음)만 만료로 본다. 서버 오류나 네트워크 오류는 링크가 살아 있을 수 있다.
   const linkExpired =
-    verifyLink.isError ||
+    (verifyLink.error instanceof ApiError && verifyLink.error.status === 400) ||
     (confirmReset.error instanceof ApiError &&
       confirmReset.error.code === 'AUTH_RESET_TOKEN_INVALID')
   if (linkExpired) {
@@ -191,6 +192,29 @@ export function PasswordNewPage() {
             <Link href="/password-reset" className={buttonClassName({ size: 'l' })}>
               재설정 링크 다시 받기
             </Link>
+          }
+        />
+      </>
+    )
+  }
+  // 토큰은 이미 주소에서 지웠으므로 들고 있는 토큰으로 다시 확인한다
+  if (verifyLink.isError) {
+    return (
+      <>
+        <AppHeader type="sub" title="비밀번호 재설정" />
+        <main className="flex flex-1 items-center justify-center px-4 py-6">
+          <EmptyState
+            icon="CircleAlert"
+            title="링크를 확인하지 못했어요"
+            description="잠시 뒤 다시 시도해 주세요."
+          />
+        </main>
+        <BottomCta
+          className="sticky bottom-0 z-10"
+          primary={
+            <Button size="l" onClick={() => verify({ data: { token: tokenRef.current } })}>
+              다시 시도
+            </Button>
           }
         />
       </>
