@@ -349,14 +349,6 @@ export interface SocialSignupInfoDto {
   name?: string | null;
 }
 
-/**
- * 계정 연결 표
- */
-export interface SocialLinkTicketDto {
-  /** 2분 동안 한 번만 쓸 수 있는 연결 표 */
-  linkTicket: string;
-}
-
 export interface RsDataVoid {
   status?: number;
   code?: string;
@@ -517,12 +509,6 @@ export interface RsDataSocialSignupInfoDto {
   data?: SocialSignupInfoDto;
 }
 
-export interface RsDataSocialLinkTicketDto {
-  status?: number;
-  message?: string;
-  data?: SocialLinkTicketDto;
-}
-
 export type CheckEmailAvailabilityParams = {
 /**
  * 확인할 이메일
@@ -553,10 +539,6 @@ export type AuthorizeSocialParams = {
  * 끝난 뒤 돌아갈 앱 내부 경로. 앱 내부 경로가 아니면 '/'(연결이면 '/me/accounts')로 바꾼다
  */
 next?: string;
-/**
- * 계정 연결 표 (link-ticket API로 받은 값, 2분 1회용). 없으면 로그인·가입으로 처리한다
- */
-linkTicket?: string;
 };
 
 export type SocialCallbackParams = {

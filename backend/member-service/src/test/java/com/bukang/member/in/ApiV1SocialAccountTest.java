@@ -27,6 +27,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -55,7 +56,6 @@ import com.bukang.member.out.oauth2.SocialOAuth2Client.AuthorizationStart;
 import com.bukang.member.out.oauth2.SocialUnlinkPort;
 import com.bukang.member.out.oauth2.StoredAuthorization;
 import com.bukang.member.out.order.ActiveTicketPort;
-import com.jayway.jsonpath.JsonPath;
 
 import jakarta.servlet.http.Cookie;
 
@@ -136,18 +136,27 @@ class ApiV1SocialAccountTest {
 	}
 
 	@Test
-	@DisplayName("연결 표를 받아 시작하면 회원 ID가 인가 요청에 저장되고, 콜백 뒤 이메일이 달라도 연결해 계정 연결 화면으로 보낸다")
+	@DisplayName("연결 표 쿠키를 받아 시작하면 회원 ID가 인가 요청에 저장되고, 콜백 뒤 이메일이 달라도 연결해 계정 연결 화면으로 보낸다")
 	void linkFlow() throws Exception {
-		String ticket = JsonPath.read(issueTicket(emailMemberId, "google")
+		MockHttpServletResponse issued = issueTicket(emailMemberId, "google")
 			.andExpect(status().isCreated())
-			.andReturn().getResponse().getContentAsString(), "$.data.linkTicket");
+			.andExpect(jsonPath("$.data").doesNotExist())
+			.andReturn().getResponse();
+		Cookie linkCookie = issued.getCookie("oauth2Link");
+		assertThat(linkCookie.isHttpOnly()).isTrue();
+		assertThat(linkCookie.getPath()).isEqualTo("/api/v1/auth/oauth2/authorize");
+		assertThat(linkCookie.getMaxAge()).isEqualTo(120);
+		String ticket = linkCookie.getValue();
 		assertThat(store.takeLinkTicket(ticket)).contains(new LinkTicket(emailMemberId, SocialProvider.GOOGLE));
 		store.saveLinkTicket(ticket, new LinkTicket(emailMemberId, SocialProvider.GOOGLE));
 
-		String requestId = mockMvc.perform(get("/api/v1/auth/oauth2/authorize/google")
-				.param("linkTicket", ticket).param("next", "/me/accounts"))
+		MockHttpServletResponse started = mockMvc.perform(get("/api/v1/auth/oauth2/authorize/google")
+				.cookie(new Cookie("oauth2Link", ticket)).param("next", "/me/accounts"))
 			.andExpect(status().isFound())
-			.andReturn().getResponse().getCookie("oauth2Request").getValue();
+			.andReturn().getResponse();
+		// 연결 표 쿠키는 한 번 쓰면 지운다
+		assertThat(started.getCookie("oauth2Link").getMaxAge()).isZero();
+		String requestId = started.getCookie("oauth2Request").getValue();
 		identity(new SocialIdentity(SocialProvider.GOOGLE, "google-sub-1", "different@gmail.com", null));
 
 		callback("google", requestId)
@@ -176,12 +185,27 @@ class ApiV1SocialAccountTest {
 	@Test
 	@DisplayName("잘못되거나 다른 제공자의 연결 표로 시작하면 계정 연결 화면에 AUTH_SOCIAL_FAILED를 붙여 보낸다")
 	void linkRejectsBadTicket() throws Exception {
-		mockMvc.perform(get("/api/v1/auth/oauth2/authorize/kakao").param("linkTicket", "unknown"))
+		mockMvc.perform(get("/api/v1/auth/oauth2/authorize/kakao").cookie(new Cookie("oauth2Link", "unknown")))
 			.andExpect(header().string(HttpHeaders.LOCATION, "/me/accounts?error=AUTH_SOCIAL_FAILED"));
 
 		store.saveLinkTicket("google-ticket", new LinkTicket(emailMemberId, SocialProvider.GOOGLE));
-		mockMvc.perform(get("/api/v1/auth/oauth2/authorize/kakao").param("linkTicket", "google-ticket"))
+		mockMvc.perform(get("/api/v1/auth/oauth2/authorize/kakao").cookie(new Cookie("oauth2Link", "google-ticket")))
 			.andExpect(header().string(HttpHeaders.LOCATION, "/me/accounts?error=AUTH_SOCIAL_FAILED"));
+	}
+
+	@Test
+	@DisplayName("연결 표를 주소에 붙여 보내도 연결로 처리하지 않는다 (남이 만든 링크로 연결되지 않게)")
+	void linkTicketInQueryIgnored() throws Exception {
+		store.saveLinkTicket("attacker-ticket", new LinkTicket(emailMemberId, SocialProvider.KAKAO));
+
+		String requestId = mockMvc.perform(get("/api/v1/auth/oauth2/authorize/kakao")
+				.param("linkTicket", "attacker-ticket"))
+			.andExpect(status().isFound())
+			.andReturn().getResponse().getCookie("oauth2Request").getValue();
+
+		assertThat(store.takeAuthorization(requestId)).hasValueSatisfying(
+			authorization -> assertThat(authorization.isLink()).isFalse());
+		assertThat(store.takeLinkTicket("attacker-ticket")).isPresent();
 	}
 
 	@Test
@@ -249,7 +273,7 @@ class ApiV1SocialAccountTest {
 	private String startLink(long memberId, SocialProvider provider) throws Exception {
 		store.saveLinkTicket("ticket", new LinkTicket(memberId, provider));
 		return mockMvc.perform(get("/api/v1/auth/oauth2/authorize/" + provider.getPathValue())
-				.param("linkTicket", "ticket"))
+				.cookie(new Cookie("oauth2Link", "ticket")))
 			.andReturn().getResponse().getCookie("oauth2Request").getValue();
 	}
 

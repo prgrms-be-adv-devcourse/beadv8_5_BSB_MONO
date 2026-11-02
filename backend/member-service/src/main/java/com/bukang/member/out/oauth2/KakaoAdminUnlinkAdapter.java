@@ -31,7 +31,7 @@ public class KakaoAdminUnlinkAdapter implements SocialUnlinkPort {
 			return;
 		}
 		if (adminKey == null || adminKey.isBlank()) {
-			log.info("카카오 어드민 키가 없어 연결 끊기를 건너뜁니다. providerUserId={}", providerUserId);
+			log.info("카카오 어드민 키가 없어 연결 끊기를 건너뜁니다.");
 			return;
 		}
 		MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
@@ -47,7 +47,9 @@ public class KakaoAdminUnlinkAdapter implements SocialUnlinkPort {
 				.toBodilessEntity();
 		} catch (RestClientException exception) {
 			// 우리 쪽 탈퇴·해제는 이미 커밋됐다. 사용자의 카카오 「연결된 서비스」에 크루런이 남을 뿐이다
-			log.warn("카카오 연결 끊기에 실패했습니다. providerUserId={}, cause={}", providerUserId, exception.toString());
+			// 다시 시도하지 않는다. 재시도·아웃박스로 옮길지는 남은 일로 둔다
+			// 카카오 회원번호는 사람을 알아보는 값이라 탈퇴 뒤 로그에 남지 않게 적지 않는다
+			log.warn("카카오 연결 끊기에 실패했습니다. cause={}", exception.toString());
 		}
 	}
 }

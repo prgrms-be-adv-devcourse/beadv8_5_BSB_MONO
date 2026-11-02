@@ -153,6 +153,14 @@ function SocialSignupForm({
             setFormError('이미 가입된 소셜 계정이에요. 로그인 화면에서 다시 로그인해 주세요.')
             return
           }
+          // 같은 사람이 이메일이 다른 소셜 계정으로 다시 가입하려는 경우다. 새 회원 대신 계정 연결로 안내한다
+          if (error instanceof ApiError && error.code === 'AUTH_SOCIAL_PHONE_TAKEN') {
+            setError('phone', { message: '이 번호로 가입한 계정이 있어요.' }, { shouldFocus: true })
+            setFormError(
+              `원래 쓰던 방법으로 로그인한 뒤 마이 → 계정 연결에서 ${providerLabel} 계정을 연결해 주세요.`,
+            )
+            return
+          }
           if (error instanceof ApiError && error.code === 'AUTH_SOCIAL_EMAIL_REQUIRED') {
             setError('email', { message: '이메일을 입력해 주세요.' }, { shouldFocus: true })
             return

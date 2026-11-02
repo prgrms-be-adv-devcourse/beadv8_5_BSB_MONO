@@ -61,6 +61,11 @@ public class MemberJoinUseCase {
 		return create(email, null, name, nickname, phone, birthDate, gender, agreedTerms);
 	}
 
+	// 이 휴대폰 번호로 가입한 회원이 있는지 본다. 소셜 가입이 다른 중복 검사보다 먼저 확인해 계정 연결을 안내한다 (BE-033)
+	public boolean isPhoneTaken(String phone) {
+		return memberRepository.existsByPhoneHash(blindIndexGenerator.generatePhone(phone));
+	}
+
 	// password가 null이면 비밀번호 없는 회원(소셜)이다. 암호화는 모든 검사를 통과한 뒤에만 한다
 	private Member create(
 		String email,

@@ -16,7 +16,6 @@ import com.bukang.member.domain.exception.MemberNotFoundException;
 import com.bukang.member.domain.exception.SocialAccountAlreadyLinkedException;
 import com.bukang.member.domain.exception.SocialProviderAlreadyLinkedException;
 import com.bukang.member.dto.MemberDto;
-import com.bukang.member.dto.SocialLinkTicketDto;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.SocialAccountRepository;
 import com.bukang.member.out.oauth2.LinkTicket;
@@ -41,15 +40,16 @@ public class SocialAccountUseCase {
 	private final ApplicationEventPublisher eventPublisher;
 
 	// 연결 표를 만든다. Access Token은 화면 이동에 실을 수 없어서, 토큰으로 인증된 이 API가 2분짜리 1회용 표를 준다 (결정 3)
+	// 표는 컨트롤러가 httpOnly 쿠키로 심는다. 주소에 실으면 남이 만든 링크로 피해자 소셜 계정이 연결될 수 있다
 	@Transactional(readOnly = true)
-	public SocialLinkTicketDto issueLinkTicket(long memberId, SocialProvider provider) {
+	public String issueLinkTicket(long memberId, SocialProvider provider) {
 		Member member = findActive(memberId);
 		if (member.hasSocial(provider)) {
 			throw new SocialProviderAlreadyLinkedException("이미 연결된 소셜 로그인입니다.");
 		}
 		String ticket = SocialRedirects.randomId();
 		socialLoginStore.saveLinkTicket(ticket, new LinkTicket(memberId, provider));
-		return new SocialLinkTicketDto(ticket);
+		return ticket;
 	}
 
 	// 콜백에서 받은 소셜 계정을 연결한다. 본인이 로그인해 시작했으므로 이메일은 비교하지 않는다 (결정 4)

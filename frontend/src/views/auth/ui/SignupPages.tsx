@@ -401,10 +401,12 @@ export function SignupProfileFields({
         error={errors.name?.message}
         {...register('name')}
       />
+      {/* 달력 칸은 처음 그릴 때만 폼 값을 읽는다. PASS가 채운 값을 보이도록 인증 결과가 바뀌면 다시 그린다 */}
       <BirthDateField
+        key={verification?.verificationToken ?? 'unverified'}
         label="생년월일"
         helper="만 14세 미만은 가입할 수 없어요"
-        readOnly={passVerified}
+        disabled={passVerified}
         error={errors.birth?.message}
         {...register('birth')}
       />

@@ -5,7 +5,7 @@ import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { PHONE_VERIFICATION_MESSAGES } from '@/features/identity-verification'
-import { server } from '@/shared/testing'
+import { pickDate, server } from '@/shared/testing'
 
 import { AUTH_ERRORS } from '../model/schemas'
 import { SignupStepProvider, type SignupStepInitial } from '../model/signup-store'
@@ -86,7 +86,7 @@ describe('휴대폰 번호 인증', () => {
     renderProfileStep()
 
     await user.type(screen.getByLabelText('이름'), '김러너')
-    await user.type(screen.getByLabelText('생년월일'), '1995-03-02')
+    await pickDate(user, '생년월일', '1995-03-02')
     await user.type(screen.getByLabelText('휴대폰 번호'), '01012345678')
     await user.type(screen.getByLabelText('닉네임'), '달리는곰')
     await user.click(screen.getByRole('button', { name: '인증번호 받기' }))
@@ -146,7 +146,7 @@ describe('PASS 본인인증', () => {
     await user.click(await screen.findByRole('button', { name: 'LG U+' }))
     const sheet = await screen.findByRole('dialog')
     await user.type(within(sheet).getByLabelText('이름'), '김러너')
-    await user.type(within(sheet).getByLabelText('생년월일'), '1995-04-12')
+    await pickDate(user, '생년월일', '1995-04-12')
     await user.type(within(sheet).getByLabelText('휴대폰 번호'), '01098765432')
     await user.click(within(sheet).getByRole('button', { name: '본인인증 마치기' }))
     await screen.findByText(/PASS로 본인인증을 마쳤어요/)
@@ -161,12 +161,15 @@ describe('PASS 본인인증', () => {
 
     for (const [label, value] of [
       ['이름', '김러너'],
-      ['생년월일', '1995-04-12'],
       ['휴대폰 번호', '010-9876-5432'],
     ]) {
       expect(screen.getByLabelText(label)).toHaveValue(value)
       expect(screen.getByLabelText(label)).toHaveAttribute('readonly')
     }
+    // 생년월일은 달력 칸이라 고른 날을 버튼 글자로 보여 주고, 잠그면 버튼이 꺼진다
+    const birth = screen.getByRole('button', { name: /^생년월일/ })
+    expect(birth).toHaveTextContent('1995-04-12')
+    expect(birth).toBeDisabled()
     // PASS로 번호까지 확인했으므로 휴대폰 인증 버튼은 숨긴다
     expect(screen.queryByRole('button', { name: '인증번호 받기' })).not.toBeInTheDocument()
 

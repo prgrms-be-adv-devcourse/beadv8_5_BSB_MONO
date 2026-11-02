@@ -1,6 +1,8 @@
 package com.bukang.member.in;
 
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -59,7 +61,7 @@ public class ApiV1SocialAuthController {
 	@GetMapping("/authorize/{provider}")
 	@Operation(summary = "소셜 로그인 시작", description = "state·PKCE를 만들어 Redis에 10분 저장하고, 그 요청 ID를 httpOnly 쿠키"
 		+ "(oauth2Request)로 심은 뒤 제공자 로그인 화면으로 보낸다. fetch가 아니라 화면 이동으로 연다. "
-		+ "linkTicket이 있으면 로그인한 회원의 계정 연결로 처리한다.")
+		+ "계정 연결 표 쿠키(oauth2Link)가 있으면 로그인한 회원의 계정 연결로 처리하고, 결과와 상관없이 그 쿠키를 지운다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "302", description = "제공자 로그인 화면으로 이동. 키가 설정되지 않았거나 연결 표가 잘못됐으면 "
 			+ "/login?error=AUTH_SOCIAL_FAILED (연결이면 next?error=AUTH_SOCIAL_FAILED)",
@@ -73,16 +75,21 @@ public class ApiV1SocialAuthController {
 		@Parameter(description = "끝난 뒤 돌아갈 앱 내부 경로. 앱 내부 경로가 아니면 '/'(연결이면 '/me/accounts')로 바꾼다",
 			example = "/races/12")
 		@RequestParam(required = false) String next,
-		@Parameter(description = "계정 연결 표 (link-ticket API로 받은 값, 2분 1회용). 없으면 로그인·가입으로 처리한다")
-		@RequestParam(required = false) String linkTicket,
+		@Parameter(hidden = true) @CookieValue(name = AuthCookies.OAUTH2_LINK, required = false) String linkTicket,
 		HttpServletRequest request
 	) {
 		AuthorizeResult result = socialLoginUseCase.begin(SocialProvider.fromPath(provider), next, linkTicket, request);
-		if (result.requestId() == null) {
-			return redirect(frontUrl(result.location()));
+		// 연결 표는 한 번만 쓰므로, 표 쿠키를 받았으면 결과와 상관없이 지운다
+		List<ResponseCookie> cookies = new ArrayList<>();
+		if (linkTicket != null) {
+			cookies.add(AuthCookies.expired(AuthCookies.OAUTH2_LINK, AuthCookies.OAUTH2_LINK_PATH));
 		}
+		if (result.requestId() == null) {
+			return redirect(frontUrl(result.location()), cookies.toArray(ResponseCookie[]::new));
+		}
+		cookies.add(AuthCookies.oauth2Request(result.requestId()));
 		// 제공자 로그인 화면은 다른 도메인이라 front 주소를 붙이지 않는다
-		return redirect(result.location(), AuthCookies.oauth2Request(result.requestId()));
+		return redirect(result.location(), cookies.toArray(ResponseCookie[]::new));
 	}
 
 	@GetMapping("/callback/{provider}")
@@ -158,11 +165,11 @@ public class ApiV1SocialAuthController {
 		@ApiResponse(responseCode = "401", description = "가입 대기가 없거나 15분이 지남",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = SocialAuthApiExamples.SIGNUP_EXPIRED))),
-		@ApiResponse(responseCode = "409", description = "이메일·닉네임·휴대폰 중복 또는 이미 연결된 소셜 계정",
+		@ApiResponse(responseCode = "409", description = "이메일·닉네임 중복, 이미 가입한 휴대폰 번호(계정 연결 안내) 또는 이미 연결된 소셜 계정",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "이메일 중복", value = AuthApiExamples.DUPLICATE_EMAIL),
 				@ExampleObject(name = "닉네임 중복", value = AuthApiExamples.DUPLICATE_NICKNAME),
-				@ExampleObject(name = "휴대폰 번호 중복", value = AuthApiExamples.DUPLICATE_PHONE),
+				@ExampleObject(name = "이미 가입한 휴대폰 번호", value = SocialAuthApiExamples.PHONE_TAKEN),
 				@ExampleObject(name = "이미 연결된 소셜 계정", value = SocialAuthApiExamples.ALREADY_LINKED)
 			}))
 	})

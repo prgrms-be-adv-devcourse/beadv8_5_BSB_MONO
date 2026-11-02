@@ -126,8 +126,8 @@ function PassForm({
       />
       <BirthDateField
         label="생년월일"
-        value={birthDate}
-        onChange={(event) => setBirthDate(event.currentTarget.value)}
+        name="passBirthDate"
+        onChange={(event) => setBirthDate(event.target.value)}
       />
       <PhoneField
         label="휴대폰 번호"

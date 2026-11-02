@@ -47,7 +47,8 @@ public class SocialLoginUseCase {
 
 	/**
 	 * 인가 요청을 만들어 Redis에 10분 저장한다 (BE-031 결정 3)
-	 * linkTicket이 있으면 계정 연결이다. 표를 꺼내 지우고 회원 ID를 인가 요청에 함께 저장한다 (BE-032 결정 3)
+	 * linkTicket(연결 표 쿠키 값)이 있으면 계정 연결이다. 표를 꺼내 지우고 회원 ID를 인가 요청에 함께 저장한다 (BE-032 결정 3)
+	 * 키 설정을 먼저 확인해, 키가 없을 때 표만 소모되지 않게 한다
 	 * requestId가 null이면 실패라서 쿠키를 심지 않고 location(실패 화면)으로 보낸다
 	 */
 	public AuthorizeResult begin(SocialProvider provider, String next, String linkTicket, HttpServletRequest request) {
@@ -56,6 +57,10 @@ public class SocialLoginUseCase {
 		String safeNext = SocialRedirects.safeNextPath(next, fallback);
 		String failurePath = link ? safeNext : SocialRedirects.LOGIN_PATH;
 
+		if (!socialOAuth2Client.isConfigured(provider)) {
+			log.warn("키가 설정되지 않은 소셜 로그인으로 시작했습니다. provider={}", provider);
+			return AuthorizeResult.failed(failed(failurePath));
+		}
 		Long linkMemberId = null;
 		if (link) {
 			Optional<LinkTicket> ticket = socialLoginStore.takeLinkTicket(linkTicket);
@@ -63,10 +68,6 @@ public class SocialLoginUseCase {
 				return AuthorizeResult.failed(failed(failurePath));
 			}
 			linkMemberId = ticket.get().memberId();
-		}
-		if (!socialOAuth2Client.isConfigured(provider)) {
-			log.warn("키가 설정되지 않은 소셜 로그인으로 시작했습니다. provider={}", provider);
-			return AuthorizeResult.failed(failed(failurePath));
 		}
 
 		AuthorizationStart start = socialOAuth2Client.begin(provider, request);

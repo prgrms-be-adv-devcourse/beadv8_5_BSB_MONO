@@ -42,7 +42,6 @@ import type {
   RsDataMemberLoginResponseDto,
   RsDataPhoneVerificationDto,
   RsDataSellerDto,
-  RsDataSocialLinkTicketDto,
   RsDataSocialSignupInfoDto,
   RsDataTokenReissueResponseDto,
   RsDataVoid,
@@ -1602,7 +1601,7 @@ export const getAuthorizeSocialUrl = (provider: 'kakao' | 'google',
 }
 
 /**
- * state·PKCE를 만들어 Redis에 10분 저장하고, 그 요청 ID를 httpOnly 쿠키(oauth2Request)로 심은 뒤 제공자 로그인 화면으로 보낸다. fetch가 아니라 화면 이동으로 연다. linkTicket이 있으면 로그인한 회원의 계정 연결로 처리한다.
+ * state·PKCE를 만들어 Redis에 10분 저장하고, 그 요청 ID를 httpOnly 쿠키(oauth2Request)로 심은 뒤 제공자 로그인 화면으로 보낸다. fetch가 아니라 화면 이동으로 연다. 계정 연결 표 쿠키(oauth2Link)가 있으면 로그인한 회원의 계정 연결로 처리하고, 결과와 상관없이 그 쿠키를 지운다.
  * @summary 소셜 로그인 시작
  */
 export const authorizeSocial = async (provider: 'kakao' | 'google',
@@ -2024,12 +2023,12 @@ export const getIssueSocialLinkTicketUrl = (provider: 'kakao' | 'google',) => {
 }
 
 /**
- * 로그인한 회원이 소셜 계정을 연결할 때 먼저 부른다. 2분 동안 한 번만 쓸 수 있는 연결 표를 돌려주고, 프론트는 /api/v1/auth/oauth2/authorize/{provider}?linkTicket=...&next=/me/accounts로 화면을 이동한다.
+ * 로그인한 회원이 소셜 계정을 연결할 때 먼저 부른다. 2분 동안 한 번만 쓸 수 있는 연결 표를 httpOnly 쿠키(oauth2Link, Path=/api/v1/auth/oauth2/authorize)로 심는다. 프론트는 이어서 /api/v1/auth/oauth2/authorize/{provider}?next=/me/accounts로 화면을 이동한다.
  * @summary 계정 연결 표 발급
  */
-export const issueSocialLinkTicket = async (provider: 'kakao' | 'google', options?: Parameters<typeof customFetch>[1]): Promise<RsDataSocialLinkTicketDto> => {
+export const issueSocialLinkTicket = async (provider: 'kakao' | 'google', options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
 
-  return customFetch<RsDataSocialLinkTicketDto>(getIssueSocialLinkTicketUrl(provider),
+  return customFetch<unknown>(getIssueSocialLinkTicketUrl(provider),
   {
     ...options,
     method: 'POST'

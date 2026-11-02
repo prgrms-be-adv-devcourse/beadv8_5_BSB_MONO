@@ -23,15 +23,15 @@ export function useSocialJoin() {
 
 /**
  * 로그인한 회원의 소셜 계정 연결을 시작한다.
- * Access Token은 화면 이동에 실을 수 없으므로 먼저 2분짜리 1회용 연결 표를 받고, 그 표를 실어 제공자 로그인으로 옮긴다.
+ * Access Token은 화면 이동에 실을 수 없으므로 먼저 2분짜리 1회용 연결 표를 받는다.
+ * 표는 서버가 httpOnly 쿠키로 심어서 프론트는 만지지 않는다. 이어서 같은 브라우저로 시작 주소를 열면 연결로 처리된다.
  * 연결 결과는 제공자 화면을 다녀온 뒤 계정 연결 화면 주소(?linked=, ?error=)로 알 수 있다.
  */
 export function useLinkSocial() {
   return useMutation({
     mutationFn: async (provider: SocialProviderId) => {
-      const { linkTicket } = unwrapData(await memberApi.issueSocialLinkTicket(provider))
-      if (!linkTicket) throw new Error('연결 표가 없습니다.')
-      goToSocialLogin(socialAuthorizeHref(provider, { next: '/me/accounts', linkTicket }))
+      await memberApi.issueSocialLinkTicket(provider)
+      goToSocialLogin(socialAuthorizeHref(provider, { next: '/me/accounts' }))
     },
   })
 }
