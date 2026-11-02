@@ -39,9 +39,9 @@ import lombok.NoArgsConstructor;
 })
 public class Payout extends BaseIdAndTime {
 	private static final DateTimeFormatter CODE_DATE = DateTimeFormatter.ofPattern("yyyyMMdd");
-	// 지급일: 기준일(1차는 환불 마감일, 최종은 대회일)을 1일째로 세어 3일째, 즉 기준일 + 2일 (10/28 결정)
-	// 주말이어도 그날 지급한다. 지급 배치가 그날 04:00에 지급한다
-	private static final int PAY_DAYS_AFTER_BASE_DATE = 2;
+	// 지급일: 정산 월(1차는 환불 마감일의 달, 최종은 대회일의 달)의 다음 달 20일 (10/29 결정)
+	// 주말이어도 그날 지급한다(11/2 결정, 보류 해제 뒤 지급일과 같게 휴일 보정 없음). 지급 배치가 그날 04:00에 지급한다
+	private static final int PAY_DAY_OF_MONTH = 20;
 	// 보류를 풀면 해제일 다음 날 지급한다 (원래 지급 예정일보다 앞당기지는 않는다)
 	private static final int PAY_DAYS_AFTER_RELEASE = 1;
 
@@ -130,20 +130,22 @@ public class Payout extends BaseIdAndTime {
 		changeStatus(PayoutStatus.CALCULATED, PayoutHold.SYSTEM_MEMBER_ID, settledAt, null);
 	}
 
-	// 1차 정산 내역: 정산 월은 환불 마감일의 달이고, 지급 예정일은 환불 마감일 + 2일이다 (예: 마감 10/11 일 → 10/13 화)
-	// calendar는 지금 쓰지 않는다. 영업일 보정을 다시 켤 때 호출부를 다시 고치지 않도록 인자로 남겨 둔다 (10/28 결정)
+	// 1차 정산 내역: 정산 월은 환불 마감일의 달이고, 지급 예정일은 정산 월의 다음 달 20일이다 (예: 마감 10/11 → 11/20)
 	public static Payout first(long sellerId, long raceId, String raceName, LocalDate refundDeadline,
 		LocalDateTime settledAt, BusinessDayCalendar calendar) {
-		return new Payout(sellerId, raceId, raceName, PayoutStage.FIRST, YearMonth.from(refundDeadline), settledAt,
-			refundDeadline.plusDays(PAY_DAYS_AFTER_BASE_DATE));
+		YearMonth payoutMonth = YearMonth.from(refundDeadline);
+		return new Payout(sellerId, raceId, raceName, PayoutStage.FIRST, payoutMonth, settledAt,
+			payDayOf(payoutMonth.plusMonths(1), calendar));
 	}
 
-	// 최종 정산 내역: 정산 월은 대회일의 달이고, 지급 예정일은 대회일 + 2일이다 (예: 대회 10/17 토 → 10/19 월)
-	// 1차 정산금 차감은 만든 뒤 deductAdvance로 쓴다. calendar는 first와 같은 이유로 남겨 둔다
+	// 최종 정산 내역: 정산 월은 대회일의 달이고, 지급 예정일은 정산 월의 다음 달 20일이다 (예: 대회 10/17 → 11/20)
+	// 마감일과 대회일이 같은 달이면 1차와 같은 날 지급된다. 그날은 지급 배치가 1차 → 최종 순서로 지급한다 (PRO-188)
+	// 1차 정산금 차감은 만든 뒤 deductAdvance로 쓴다
 	public static Payout finalStage(long sellerId, long raceId, String raceName, LocalDate raceDate,
 		LocalDateTime settledAt, BusinessDayCalendar calendar) {
-		return new Payout(sellerId, raceId, raceName, PayoutStage.FINAL, YearMonth.from(raceDate), settledAt,
-			raceDate.plusDays(PAY_DAYS_AFTER_BASE_DATE));
+		YearMonth payoutMonth = YearMonth.from(raceDate);
+		return new Payout(sellerId, raceId, raceName, PayoutStage.FINAL, payoutMonth, settledAt,
+			payDayOf(payoutMonth.plusMonths(1), calendar));
 	}
 
 	// 바깥에서 remove, clear로 원장 줄을 바꾸지 못하도록 읽기 전용으로 내보낸다 (추가는 Payout의 메서드로만)
@@ -320,11 +322,12 @@ public class Payout extends BaseIdAndTime {
 		return new PayoutHold(this, reasonType, reason, heldBy, heldAt);
 	}
 
-	// 지급보류 풀기: 정산 예정으로 돌리고 지급 예정일을 max(원래 지급 예정일, 해제일 + 1일)로 다시 정한다 (10/28 결정)
+	// 지급보류 풀기: 정산 예정으로 돌리고 지급 예정일을 max(원래 지급 예정일, 해제일 + 1일)로 다시 정한다
+	// (10/28 결정, 10/29 지급일을 20일로 되돌릴 때도 유지, 11/2 다시 확인. 휴일 보정은 없다: 주말에도 지급)
 	// 원래 지급 예정일보다 앞당기지 않는다 (PRO-128). 보류를 걸 때는 지급 예정일을 바꾸지 않으므로
 	// 지금 값이 원래 지급 예정일(또는 이전 해제로 이미 늦춰진 날)이다. 해제일은 갈수록 늦어지므로
 	// 지금 값과 비교해도 원래 지급 예정일과 비교한 것과 같다. 그래서 원래 지급 예정일을 따로 저장하지 않는다
-	// calendar는 first와 같은 이유로 남겨 둔다
+	// calendar는 지금 쓰지 않는다. 해제 뒤 지급일에도 영업일 보정을 켤 때 호출부를 다시 고치지 않도록 인자로 남겨 둔다
 	// 지급 배치는 상태와 지급 예정일만 보므로, 보류 기록을 보지 않아도 다음 지급일에 지급된다
 	public void release(PayoutHold hold, long releasedBy, LocalDateTime releasedAt, BusinessDayCalendar calendar) {
 		// ==로 비교하지 않는다. LAZY로 읽은 hold.getPayout()은 Hibernate 프록시라 같은 행이어도 this와 다른 객체다
@@ -364,5 +367,11 @@ public class Payout extends BaseIdAndTime {
 	private void changeStatus(PayoutStatus to, long changedBy, LocalDateTime changedAt, String reason) {
 		statusHistories.add(new PayoutStatusHistory(this, status, to, changedBy, changedAt, reason));
 		this.status = to;
+	}
+
+	// 그 달의 지급일: 20일. 주말이어도 그날이다 (11/2 결정). dev 샘플 데이터(PayoutDataInit)도 이 날짜로 시나리오를 맞춘다
+	// calendar는 지금 쓰지 않는다. 휴일 보정을 다시 켤 때 호출부를 다시 고치지 않도록 인자로 남겨 둔다 (10/28과 같은 방식)
+	public static LocalDate payDayOf(YearMonth month, BusinessDayCalendar calendar) {
+		return month.atDay(PAY_DAY_OF_MONTH);
 	}
 }

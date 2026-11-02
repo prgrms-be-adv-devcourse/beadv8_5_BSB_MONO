@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutHold;
+import com.bukang.payout.domain.PayoutStage;
 import com.bukang.payout.out.PayoutRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -36,11 +37,18 @@ public class PayoutRaceCancelUseCase {
 	public CancelResult cancelRace(long raceId, LocalDateTime now) {
 		List<Payout> payouts = payoutRepository.findByRaceId(raceId);
 		int canceled = 0;
+		boolean firstCanceled = false;
 		for (Payout payout : payouts) {
 			if (payout.getStatus().isBeforePayment()) {
 				payout.cancel(PayoutHold.SYSTEM_MEMBER_ID, now, CANCEL_REASON);
 				canceled++;
+				firstCanceled |= payout.getPayoutStage() == PayoutStage.FIRST;
 			}
+		}
+		boolean hasFinal = payouts.stream().anyMatch(payout -> payout.getPayoutStage() == PayoutStage.FINAL);
+		// 1차 지급 전 대회 취소: 그 1차 정산 내역에서 상계로 끝났던 회수도 되돌린다 (R9). 회수를 만들기 전에 한다
+		if (firstCanceled && !hasFinal) {
+			payoutLedgerUseCase.revertOffsetRecoveries(payouts.getFirst().getSellerId(), raceId);
 		}
 
 		boolean recoveryCreated = !payouts.isEmpty()

@@ -30,7 +30,10 @@ public enum PayoutRecordType {
 	SALE_CANCELED(PayoutAccount.EARNING, "판매 취소"),
 	FEE_CANCELED(PayoutAccount.EARNING, "수수료 취소"),
 	ADVANCE_OFFSET_CANCELED(PayoutAccount.ADVANCE, "선지급 차감 취소"),
-	RECOVERY_OFFSET_CANCELED(PayoutAccount.RECEIVABLE, "회수 상계 취소");
+	RECOVERY_OFFSET_CANCELED(PayoutAccount.RECEIVABLE, "회수 상계 취소"),
+	// 대회 취소로 1차 지급 전에 상계로 끝난 회수를 되돌린다. 회수 요청 때의 두 줄을 반대 부호로 쓴다 (R9)
+	RECOVERY_REQUESTED_CANCELED(PayoutAccount.ADVANCE, "회수 요청 취소"),
+	RECEIVABLE_ADDED_CANCELED(PayoutAccount.RECEIVABLE, "갚을 돈 추가 취소");
 
 	private final PayoutAccount account;
 	private final String korean;

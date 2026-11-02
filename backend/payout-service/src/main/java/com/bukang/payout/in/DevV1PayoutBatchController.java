@@ -32,7 +32,7 @@ import lombok.RequiredArgsConstructor;
 /**
  * 개발용: 새벽 스케줄러(03:00 정산 대상일 배치, 04:00 지급 배치)를 기다리지 않고 바로 돌려 확인한다 (MVP 확인용)
  * dev 프로파일에서만 빈이 만들어져, prod에는 이 경로가 없다
- * today를 넘기면 그날 실행한 것처럼 돈다 (예: 지급 배치를 대회일 + 2일로 돌려 지급 완료까지 확인)
+ * today를 넘기면 그날 실행한 것처럼 돈다 (예: 지급 배치를 다음 달 20일로 돌려 지급 완료까지 확인)
  */
 @Tag(name = "PayoutDev", description = "정산 배치 수동 실행 API (dev 프로파일 전용)")
 @Profile("dev")

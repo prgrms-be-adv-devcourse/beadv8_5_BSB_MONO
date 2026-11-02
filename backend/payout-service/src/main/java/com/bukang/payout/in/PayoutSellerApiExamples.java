@@ -9,7 +9,7 @@ final class PayoutSellerApiExamples {
 			"status": 200,
 			"message": "정산 요약을 조회했습니다.",
 			"data": {
-				"nextPayDate": "2026-09-27",
+				"nextPayDate": "2026-10-20",
 				"scheduledPayoutAmount": 94500,
 				"heldCount": 1
 			}
@@ -48,7 +48,7 @@ final class PayoutSellerApiExamples {
 					"payoutAmount": 54500,
 					"status": "CALCULATED",
 					"settledAt": "2026-09-26T03:00:00",
-					"scheduledPayDate": "2026-09-27",
+					"scheduledPayDate": "2026-10-20",
 					"paidAt": null
 				},
 				{
@@ -65,7 +65,7 @@ final class PayoutSellerApiExamples {
 					"payoutAmount": 40000,
 					"status": "CALCULATED",
 					"settledAt": "2026-09-16T03:00:00",
-					"scheduledPayDate": "2026-09-17",
+					"scheduledPayDate": "2026-10-20",
 					"paidAt": null
 				}
 			]
@@ -91,7 +91,7 @@ final class PayoutSellerApiExamples {
 						"raceId": 10,
 						"raceName": "2026 한강 나이트런",
 						"payoutStatus": "CALCULATED",
-						"scheduledPayDate": "2026-09-27"
+						"scheduledPayDate": "2026-10-20"
 					}
 				],
 				"page": 0,

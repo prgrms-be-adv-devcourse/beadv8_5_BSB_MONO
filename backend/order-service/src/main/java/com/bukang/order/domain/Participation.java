@@ -53,9 +53,9 @@ public class Participation extends BaseIdAndTime {
 	@Column(name = "member_id", nullable = false)
 	private long memberId;
 
-	// 크루원 신청만 채운다. 세미는 늘 NULL (최종 프로젝트)
-	@Column(name = "crew_application_id")
-	private Long crewApplicationId;
+	// 파티원 신청만 채운다(order_party.id). 개인 신청은 NULL
+	@Column(name = "party_id")
+	private Long partyId;
 
 	@Enumerated(STRING)
 	@Column(name = "participation_type", nullable = false, columnDefinition = "varchar(20)")

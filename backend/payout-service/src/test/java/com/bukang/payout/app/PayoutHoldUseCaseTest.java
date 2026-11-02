@@ -84,24 +84,24 @@ class PayoutHoldUseCaseTest {
 	}
 
 	@Test
-	@DisplayName("보류 중인 최종 정산 내역은 10/19 배치에서 지급되지 않고, 10/20에 풀면 다음 날 10/21 배치에서 지급된다")
+	@DisplayName("보류 중인 최종 정산 내역은 지급일 11/20 배치에서 지급되지 않고, 11/23에 풀면 다음 날 11/24 배치에서 지급된다")
 	void releasedPayoutIsPaidOnNextPayDate() {
 		Payout payout = saveFinalPayout();
 		PayoutHoldDto hold = holdOf(payout);
 
-		payUseCase().run(LocalDate.of(2026, 10, 19), LocalDateTime.of(2026, 10, 19, 4, 0));
+		payUseCase().run(LocalDate.of(2026, 11, 20), LocalDateTime.of(2026, 11, 20, 4, 0));
 		assertThat(reload(payout).getStatus()).isEqualTo(PayoutStatus.HELD);
 
-		// 보류를 풀면 해제일 다음 날에 지급한다 (10/20 화 → 10/21 수)
-		PayoutHoldDto released = useCase().release(hold.getId(), 77, LocalDateTime.of(2026, 10, 20, 9, 0));
+		// 보류를 풀면 해제일 다음 날에 지급한다. 다음 달 20일까지 기다리지 않는다 (11/23 월 → 11/24 화)
+		PayoutHoldDto released = useCase().release(hold.getId(), 77, LocalDateTime.of(2026, 11, 23, 9, 0));
 		assertThat(released.getStatus()).isEqualTo(PayoutHoldStatus.RELEASED);
 		assertThat(released.getReleasedBy()).isEqualTo(77);
-		assertThat(reload(payout).getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 10, 21));
+		assertThat(reload(payout).getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 11, 24));
 
-		payUseCase().run(LocalDate.of(2026, 10, 20), LocalDateTime.of(2026, 10, 20, 4, 0));
+		payUseCase().run(LocalDate.of(2026, 11, 23), LocalDateTime.of(2026, 11, 23, 4, 0));
 		assertThat(reload(payout).getStatus()).isEqualTo(PayoutStatus.CALCULATED);
 
-		payUseCase().run(LocalDate.of(2026, 10, 21), LocalDateTime.of(2026, 10, 21, 4, 0));
+		payUseCase().run(LocalDate.of(2026, 11, 24), LocalDateTime.of(2026, 11, 24, 4, 0));
 		assertThat(reload(payout).getStatus()).isEqualTo(PayoutStatus.PAID);
 	}
 
@@ -168,7 +168,7 @@ class PayoutHoldUseCaseTest {
 		entityManager.flush();
 		entityManager.clear();
 
-		readByBatch.pay(LocalDateTime.of(2026, 10, 19, 4, 0));
+		readByBatch.pay(LocalDateTime.of(2026, 11, 20, 4, 0));
 		assertThatThrownBy(() -> payoutRepository.saveAndFlush(readByBatch))
 			.isInstanceOf(ObjectOptimisticLockingFailureException.class);
 	}

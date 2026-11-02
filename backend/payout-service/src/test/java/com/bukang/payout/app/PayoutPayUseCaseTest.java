@@ -36,8 +36,8 @@ import jakarta.persistence.EntityManager;
 @DataJpaTest
 @ActiveProfiles("test")
 class PayoutPayUseCaseTest {
-	private static final LocalDate PAY_DATE = LocalDate.of(2026, 10, 19);
-	private static final LocalDateTime NOW = LocalDateTime.of(2026, 10, 19, 4, 0);
+	private static final LocalDate PAY_DATE = LocalDate.of(2026, 11, 20);
+	private static final LocalDateTime NOW = LocalDateTime.of(2026, 11, 20, 4, 0);
 
 	@Autowired
 	private PayoutRepository payoutRepository;
@@ -66,7 +66,7 @@ class PayoutPayUseCaseTest {
 		});
 	}
 
-	// 지급 예정일은 대회일 + 2일이다. 10/17 토 대회는 10/19 월, 11/17 화 대회는 11/19 목
+	// 지급 예정일은 정산 월(대회일의 달)의 다음 달 20일이다. 10/17 토 대회는 11/20 금, 11/17 화 대회는 12/20 일 (주말이어도 그날)
 	private Payout savePayout(long sellerId, LocalDate raceDate) {
 		LocalDateTime settledAt = raceDate.plusDays(1).atTime(3, 0);
 		return payoutRepository.save(Payout.finalStage(sellerId, 10, "테스트 대회", raceDate, settledAt,
@@ -74,35 +74,35 @@ class PayoutPayUseCaseTest {
 	}
 
 	@Test
-	@DisplayName("10/19에 지급 예정일이 된 정산 내역(10/17 대회분)이 지급 완료(PAID)로 바뀌고 지급 시각이 남는다")
+	@DisplayName("11/20에 지급 예정일이 된 정산 내역(10/17 대회분)이 지급 완료(PAID)로 바뀌고 지급 시각이 남는다")
 	void paysPreviousMonthOnPayDate() {
-		Payout dueOct19 = savePayout(1, LocalDate.of(2026, 10, 17));
+		Payout dueNov20 = savePayout(1, LocalDate.of(2026, 10, 17));
 
 		useCase().run(PAY_DATE, NOW);
 
-		Payout paid = payoutRepository.findById(dueOct19.getId()).orElseThrow();
+		Payout paid = payoutRepository.findById(dueNov20.getId()).orElseThrow();
 		assertThat(paid.getStatus()).isEqualTo(PayoutStatus.PAID);
 		assertThat(paid.getPaidAt()).isEqualTo(NOW);
 	}
 
 	@Test
-	@DisplayName("지급 예정일이 안 된 정산 내역(11/17 대회분, 11/19 지급)은 10/19에 지급하지 않는다")
+	@DisplayName("지급 예정일이 안 된 정산 내역(11/17 대회분, 12/21 지급)은 11/20에 지급하지 않는다")
 	void doesNotPayCurrentMonth() {
-		Payout dueNov19 = savePayout(1, LocalDate.of(2026, 11, 17));
+		Payout dueDec21 = savePayout(1, LocalDate.of(2026, 11, 17));
 
 		useCase().run(PAY_DATE, NOW);
 
-		assertThat(statusOf(dueNov19)).isEqualTo(PayoutStatus.CALCULATED);
+		assertThat(statusOf(dueDec21)).isEqualTo(PayoutStatus.CALCULATED);
 	}
 
 	@Test
-	@DisplayName("지급 예정일 전날(10/18)에는 10/17 대회분도 지급하지 않는다")
+	@DisplayName("지급 예정일 전날(11/19)에는 10/17 대회분도 지급하지 않는다")
 	void doesNotPayBeforePayDate() {
-		Payout dueOct19 = savePayout(1, LocalDate.of(2026, 10, 17));
+		Payout dueNov20 = savePayout(1, LocalDate.of(2026, 10, 17));
 
 		useCase().run(PAY_DATE.minusDays(1), NOW.minusDays(1));
 
-		assertThat(statusOf(dueOct19)).isEqualTo(PayoutStatus.CALCULATED);
+		assertThat(statusOf(dueNov20)).isEqualTo(PayoutStatus.CALCULATED);
 	}
 
 	@Test
@@ -121,22 +121,22 @@ class PayoutPayUseCaseTest {
 	@Test
 	@DisplayName("같은 날 다시 돌려도 이미 지급한 정산 내역의 지급 시각은 바뀌지 않는다")
 	void runTwiceKeepsFirstPaidAt() {
-		Payout dueOct19 = savePayout(1, LocalDate.of(2026, 10, 17));
+		Payout dueNov20 = savePayout(1, LocalDate.of(2026, 10, 17));
 
 		useCase().run(PAY_DATE, NOW);
 		useCase().run(PAY_DATE, NOW.plusHours(1));
 
-		assertThat(payoutRepository.findById(dueOct19.getId()).orElseThrow().getPaidAt()).isEqualTo(NOW);
+		assertThat(payoutRepository.findById(dueNov20.getId()).orElseThrow().getPaidAt()).isEqualTo(NOW);
 	}
 
 	@Test
-	@DisplayName("10/19 실행을 놓쳐도 10/20 실행에서 10/17 대회분을 지급한다")
+	@DisplayName("11/20 실행을 놓쳐도 11/21 실행에서 10/17 대회분을 지급한다")
 	void catchesUpMissedPayDate() {
-		Payout dueOct19 = savePayout(1, LocalDate.of(2026, 10, 17));
+		Payout dueNov20 = savePayout(1, LocalDate.of(2026, 10, 17));
 
 		useCase().run(PAY_DATE.plusDays(1), NOW.plusDays(1));
 
-		assertThat(statusOf(dueOct19)).isEqualTo(PayoutStatus.PAID);
+		assertThat(statusOf(dueNov20)).isEqualTo(PayoutStatus.PAID);
 	}
 
 	private PayoutStatus statusOf(Payout payout) {
@@ -144,7 +144,7 @@ class PayoutPayUseCaseTest {
 	}
 
 	@Test
-	@DisplayName("1차: 환불 마감 10/17 → 10/19에 40,000(환불 없음) · 20,000(R0)을 지급 완료한다")
+	@DisplayName("1차: 환불 마감 10/17 → 11/20에 40,000(환불 없음) · 20,000(R0)을 지급 완료한다")
 	void paysFirstPayoutOnPayDate() {
 		BusinessDayCalendar calendar = new BusinessDayCalendar();
 		LocalDateTime settledAt = LocalDateTime.of(2026, 10, 18, 3, 0);
@@ -328,7 +328,7 @@ class PayoutPayUseCaseTest {
 		assertThat(result).isEqualTo(new PayoutPayResultDto(PAY_DATE, 0, 0, 0));
 	}
 
-	// 10/17 대회분(10/19 지급), 판매 50,000 → 지급액 47,250 · 수수료 2,750
+	// 10/17 대회분(11/20 지급), 판매 50,000 → 지급액 47,250 · 수수료 2,750
 	private Payout savePayoutWithSale(long sellerId) {
 		Payout payout = savePayout(sellerId, LocalDate.of(2026, 10, 17));
 		payout.addItem(100 + sellerId, 50_000L, new BigDecimal("0.0550"), LocalDate.of(2026, 9, 26));
@@ -336,7 +336,7 @@ class PayoutPayUseCaseTest {
 	}
 
 	// PRO-188: 최종은 같은 판매자 · 대회의 1차가 지급 완료된 뒤에만 지급한다
-	// 마감일 = 대회일 = 10/17이면 1차 · 최종 모두 10/19 지급 예정이다 (같은 날 지급)
+	// 마감일 = 대회일 = 10/17이면 1차 · 최종 모두 11/20 지급 예정이다 (같은 날 지급)
 	private Payout saveFirstWithAdvance(long sellerId, long priceSum) {
 		Payout first = Payout.first(sellerId, 10, "테스트 대회", LocalDate.of(2026, 10, 17),
 			LocalDateTime.of(2026, 10, 18, 3, 0), new BusinessDayCalendar());
@@ -391,7 +391,7 @@ class PayoutPayUseCaseTest {
 		assertThat(statusOf(first)).isEqualTo(PayoutStatus.HELD);
 		assertThat(statusOf(last)).isEqualTo(PayoutStatus.CALCULATED);
 
-		// 10/19 해제 → 1차는 10/20 지급 예정
+		// 11/20 해제 → 1차는 11/21 지급 예정
 		Payout heldFirst = payoutRepository.findById(first.getId()).orElseThrow();
 		heldFirst.release(payoutHoldRepository.findById(hold.getId()).orElseThrow(), 99, NOW.plusHours(5),
 			new BusinessDayCalendar());

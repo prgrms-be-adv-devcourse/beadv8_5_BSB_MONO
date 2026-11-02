@@ -8,17 +8,6 @@
 import * as zod from 'zod';
 
 /**
- * 판매자의 입금을 확인한 회수를 회수 완료(COMPLETED)로 바꾸고 확인한 관리자와 일시를 남긴다.
- * @summary 회수 완료
- */
-export const CompleteParams = zod.object({
-  "recoveryId": zod.int().describe('회수 ID')
-})
-
-export const CompleteResponse = zod.unknown()
-
-
-/**
  * 정산 예정(CALCULATED)인 정산 내역에 지급보류를 걸어 지급 배치에서 지급되지 않게 한다. 한 정산 내역에는 보류를 하나만 걸 수 있고, 지급보류 ID(HD-)를 붙인다.
  * @summary 지급보류 걸기
  */
@@ -55,7 +44,7 @@ export const HoldResponse = zod.object({
 
 
 /**
- * 지급보류를 해제하고 정산 내역을 정산 예정(CALCULATED)으로 돌린다. 지급 예정일은 다시 정한다. 1차 · 최종 모두 해제일 다음 날(주말에도 지급)이며, 원래 지급 예정일(1차는 환불 마감일 + 2일, 최종은 대회일 + 2일)보다 앞당기지 않는다.
+ * 지급보류를 해제하고 정산 내역을 정산 예정(CALCULATED)으로 돌린다. 지급 예정일은 다시 정한다. 1차 · 최종 모두 해제일 다음 날(주말에도 지급)이며, 원래 지급 예정일(정산 월의 다음 달 20일, 주말에도 지급)보다 앞당기지 않는다.
  * @summary 지급보류 풀기
  */
 export const ReleaseParams = zod.object({

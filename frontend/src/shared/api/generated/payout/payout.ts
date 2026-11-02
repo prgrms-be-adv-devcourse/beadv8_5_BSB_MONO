@@ -60,81 +60,6 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   return result;
 };
 
-export const getCompleteUrl = (recoveryId: number,) => {
-
-
-
-
-  return `/api/v1/payout/recoveries/${recoveryId}/complete`
-}
-
-/**
- * 판매자의 입금을 확인한 회수를 회수 완료(COMPLETED)로 바꾸고 확인한 관리자와 일시를 남긴다.
- * @summary 회수 완료
- */
-export const complete = async (recoveryId: number, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
-
-  return customFetch<unknown>(getCompleteUrl(recoveryId),
-  {
-    ...options,
-    method: 'POST'
-
-
-  }
-);}
-
-
-
-
-
-export const getCompleteMutationKey = () => ['complete'] as const;
-
-export const getCompleteMutationOptions = <TError = RsData,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof complete>>, TError,CompleteMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof complete>>, TError,CompleteMutationVariables, TContext> => {
-
-const mutationKey = getCompleteMutationKey();
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof complete>>, CompleteMutationVariables> = (props) => {
-          const {recoveryId} = props ?? {};
-
-          return  complete(recoveryId,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type CompleteMutationResult = NonNullable<Awaited<ReturnType<typeof complete>>>
-
-    export type CompleteMutationError = RsData
-    export type CompleteMutationVariables = {recoveryId: number}
-
-    /**
- * @summary 회수 완료
- */
-export const useComplete = <TError = RsData,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof complete>>, TError,CompleteMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof complete>>,
-        TError,
-        CompleteMutationVariables,
-        TContext
-      > => {
-      return useMutation(getCompleteMutationOptions(options), queryClient);
-    }
-
 export const getHoldUrl = (payoutId: number,) => {
 
 
@@ -234,7 +159,7 @@ export const getReleaseUrl = (holdId: number,) => {
 }
 
 /**
- * 지급보류를 해제하고 정산 내역을 정산 예정(CALCULATED)으로 돌린다. 지급 예정일은 다시 정한다. 1차 · 최종 모두 해제일 다음 날(주말에도 지급)이며, 원래 지급 예정일(1차는 환불 마감일 + 2일, 최종은 대회일 + 2일)보다 앞당기지 않는다.
+ * 지급보류를 해제하고 정산 내역을 정산 예정(CALCULATED)으로 돌린다. 지급 예정일은 다시 정한다. 1차 · 최종 모두 해제일 다음 날(주말에도 지급)이며, 원래 지급 예정일(정산 월의 다음 달 20일, 주말에도 지급)보다 앞당기지 않는다.
  * @summary 지급보류 풀기
  */
 export const release = async (holdId: number, options?: Parameters<typeof customFetch>[1]): Promise<RsDataPayoutHoldDto> => {

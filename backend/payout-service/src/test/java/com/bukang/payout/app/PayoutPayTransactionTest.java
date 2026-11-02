@@ -43,8 +43,8 @@ import com.bukang.payout.out.PayoutStatusHistoryRepository;
 @Import({PayoutPayStepUseCase.class, PayoutHoldUseCase.class, BusinessDayCalendar.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class PayoutPayTransactionTest {
-	private static final LocalDate PAY_DATE = LocalDate.of(2026, 10, 19);
-	private static final LocalDateTime NOW = LocalDateTime.of(2026, 10, 19, 4, 0);
+	private static final LocalDate PAY_DATE = LocalDate.of(2026, 11, 20);
+	private static final LocalDateTime NOW = LocalDateTime.of(2026, 11, 20, 4, 0);
 
 	@Autowired
 	private PayoutRepository payoutRepository;
@@ -76,7 +76,7 @@ class PayoutPayTransactionTest {
 		payoutRepository.deleteAllInBatch();
 	}
 
-	// 10/17 대회분(10/19 지급), 판매 50,000 → 지급액 47,250 · 수수료 2,750
+	// 10/17 대회분(11/20 지급), 판매 50,000 → 지급액 47,250 · 수수료 2,750
 	private Payout savePayoutWithSale() {
 		Payout payout = Payout.finalStage(1, 10, "테스트 대회", LocalDate.of(2026, 10, 17),
 			LocalDateTime.of(2026, 10, 18, 3, 0), new BusinessDayCalendar());

@@ -18,17 +18,17 @@ class PayoutHoldTest {
 	private static final long ADMIN_ID = 99;
 	private static final LocalDateTime HELD_AT = LocalDateTime.of(2026, 10, 12, 10, 0);
 
-	// 대회일 10/17 토: 지급 예정일 10/19 월
+	// 대회일 10/17 토: 지급 예정일 11/20 금
 	private Payout newPayout() {
 		return finalPayout(LocalDate.of(2026, 10, 17));
 	}
 
-	// 최종 정산의 지급 예정일은 대회일 + 2일이다
+	// 최종 정산의 지급 예정일은 정산 월(대회일의 달)의 다음 달 20일이다 (주말이어도 그날)
 	private Payout finalPayout(LocalDate raceDate) {
 		return Payout.finalStage(1, 10, "테스트 대회", raceDate, raceDate.plusDays(1).atTime(3, 0), CALENDAR);
 	}
 
-	// 1차 정산의 지급 예정일은 환불 마감일 + 2일이다
+	// 1차 정산의 지급 예정일은 정산 월(환불 마감일의 달)의 다음 달 20일이다 (주말이어도 그날)
 	private Payout firstPayout(LocalDate refundDeadline) {
 		return Payout.first(1, 10, "테스트 대회", refundDeadline, refundDeadline.plusDays(1).atTime(3, 0), CALENDAR);
 	}
@@ -70,7 +70,7 @@ class PayoutHoldTest {
 	@DisplayName("지급 완료된 정산 내역에는 보류를 걸 수 없다")
 	void cannotHoldPaid() {
 		Payout payout = newPayout();
-		payout.pay(LocalDateTime.of(2026, 10, 19, 4, 0));
+		payout.pay(LocalDateTime.of(2026, 11, 20, 4, 0));
 
 		assertThatThrownBy(() -> hold(payout))
 			.isInstanceOf(PayoutHoldConflictException.class)
@@ -92,15 +92,15 @@ class PayoutHoldTest {
 		assertThat(hold.getReleasedBy()).isEqualTo(77);
 	}
 
-	// 환불 마감일 10/15 목의 원래 지급 예정일은 10/17 토다. 2026-10-18 일, 10-23 금, 10-24 토
-	// 1차도 최종과 같은 규칙이다: max(원래 지급 예정일, 해제일 + 1일) (10/28 결정)
+	// 환불 마감일 10/15 목의 원래 지급 예정일은 11/20 금이다. 2026-11-21 토, 11-27 금, 11-28 토
+	// 1차도 최종과 같은 규칙이다: max(원래 지급 예정일, 해제일 + 1일) (10/28 결정, 10/29 유지)
 	@ParameterizedTest(name = "{0} 해제 → {1} 지급")
 	@CsvSource({
-		"2026-10-14, 2026-10-17", // 해제일 다음 날(10/15)이 원래 지급 예정일보다 빠르면 앞당기지 않는다 (PRO-128)
-		"2026-10-16, 2026-10-17", // 해제일 다음 날이 원래 지급 예정일과 같다
-		"2026-10-17, 2026-10-18", // 지급 예정일 당일 해제는 다음 날 (일요일에도 지급)
-		"2026-10-20, 2026-10-21", // 지급 예정일이 지났다
-		"2026-10-23, 2026-10-24" // 금요일 해제 → 토요일 지급 (영업일 보정 없음)
+		"2026-11-10, 2026-11-20", // 해제일 다음 날(11/11)이 원래 지급 예정일보다 빠르면 앞당기지 않는다 (PRO-128)
+		"2026-11-19, 2026-11-20", // 해제일 다음 날이 원래 지급 예정일과 같다
+		"2026-11-20, 2026-11-21", // 지급 예정일 당일 해제는 다음 날 (토요일에도 지급)
+		"2026-11-25, 2026-11-26", // 지급 예정일이 지났다. 다음 달 20일까지 기다리지 않는다
+		"2026-11-27, 2026-11-28" // 금요일 해제 → 토요일 지급 (주말에도 지급)
 	})
 	@DisplayName("1차 정산의 보류를 풀면 해제일 다음 날에 지급하되, 원래 지급 예정일보다 앞당기지 않는다")
 	void releaseReschedulesFirstPayDate(LocalDate releaseDate, LocalDate expectedPayDate) {
@@ -112,19 +112,19 @@ class PayoutHoldTest {
 		assertThat(payout.getScheduledPayDate()).isEqualTo(expectedPayDate);
 	}
 
-	// 대회일 10/17 토의 원래 지급 예정일은 10/19 월이다. 2026-10-18 일, 10-23 금, 10-24 토, 10-25 일
+	// 대회일 11/1 일의 원래 지급 예정일은 12/20 일이다 (주말이어도 그날). 2026-12-20 일, 12-25 금, 12-26 토, 12-27 일
 	@ParameterizedTest(name = "{0} 해제 → {1} 지급")
 	@CsvSource({
-		"2026-10-15, 2026-10-19", // 해제일 다음 날(10/16)이 원래 지급 예정일보다 빠르면 앞당기지 않는다
-		"2026-10-18, 2026-10-19", // 해제일 다음 날이 원래 지급 예정일과 같다 (일요일 해제)
-		"2026-10-19, 2026-10-20", // 지급 예정일 당일 해제는 다음 날
-		"2026-10-21, 2026-10-22", // 지급 예정일이 지났다
-		"2026-10-23, 2026-10-24", // 금요일 해제 → 토요일 지급 (영업일 보정 없음)
-		"2026-10-24, 2026-10-25" // 토요일 해제 → 일요일 지급
+		"2026-12-10, 2026-12-20", // TC-DAY-2-1 해제일 다음 날(12/11)이 원래 지급 예정일보다 빠르면 앞당기지 않는다
+		"2026-12-19, 2026-12-20", // TC-DAY-2-2 해제일 다음 날이 원래 지급 예정일과 같다
+		"2026-12-20, 2026-12-21", // TC-DAY-2-3 지급 예정일 당일(일요일) 해제는 다음 날
+		"2026-12-23, 2026-12-24", // TC-DAY-2-4 지급 예정일이 지났다
+		"2026-12-25, 2026-12-26", // TC-DAY-2-5 금요일 해제 → 토요일 지급 (주말에도 지급)
+		"2026-12-26, 2026-12-27" // 토요일 해제 → 일요일 지급
 	})
 	@DisplayName("최종 정산의 보류를 풀면 해제일 다음 날에 지급하되, 원래 지급 예정일보다 앞당기지 않는다")
 	void releaseReschedulesFinalPayDate(LocalDate releaseDate, LocalDate expectedPayDate) {
-		Payout payout = newPayout();
+		Payout payout = finalPayout(LocalDate.of(2026, 11, 1));
 		PayoutHold hold = hold(payout);
 
 		payout.release(hold, ADMIN_ID, releaseDate.atTime(9, 0), CALENDAR);
@@ -135,9 +135,9 @@ class PayoutHoldTest {
 	// 해제는 지금 지급 예정일과 비교한다. 해제일은 갈수록 늦어지므로 원래 지급 예정일과 비교한 것과 결과가 같다
 	@ParameterizedTest(name = "{0} 해제 → 다시 보류 → {1} 해제 → {2} 지급")
 	@CsvSource({
-		"2026-10-21, 2026-10-21, 2026-10-22", // 같은 날 두 번 풀어도 하루 더 밀지 않는다
-		"2026-10-21, 2026-10-24, 2026-10-25", // 뒤에 푼 날 + 1일
-		"2026-10-15, 2026-10-16, 2026-10-19" // 두 번 모두 원래 지급 예정일(10/19) 전에 풀면 그대로
+		"2026-11-23, 2026-11-23, 2026-11-24", // 같은 날 두 번 풀어도 하루 더 밀지 않는다
+		"2026-11-23, 2026-11-27, 2026-11-28", // 뒤에 푼 날 + 1일
+		"2026-11-10, 2026-11-16, 2026-11-20" // 두 번 모두 원래 지급 예정일(11/20) 전에 풀면 그대로
 	})
 	@DisplayName("두 번 보류하고 풀어도 max(원래 지급 예정일, 마지막 해제일 + 1일)에 지급한다")
 	void releaseTwice(LocalDate firstRelease, LocalDate secondRelease, LocalDate expectedPayDate) {

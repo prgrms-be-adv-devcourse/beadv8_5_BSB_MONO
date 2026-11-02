@@ -1,0 +1,240 @@
+package com.bukang.payout.app;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.springframework.test.context.ActiveProfiles;
+
+import com.bukang.common.shared.order.event.OrderItemRefundReason;
+import com.bukang.common.shared.order.event.OrderItemRefundedEvent;
+import com.bukang.payout.app.PayoutCreateStepUseCase.CourseSale;
+import com.bukang.payout.app.PayoutCreateStepUseCase.FinalPayoutSource;
+import com.bukang.payout.app.PayoutCreateStepUseCase.FirstPayoutSource;
+import com.bukang.payout.domain.BusinessDayCalendar;
+import com.bukang.payout.domain.Payout;
+import com.bukang.payout.domain.PayoutRecovery;
+import com.bukang.payout.domain.PayoutRecoveryReason;
+import com.bukang.payout.domain.PayoutRecoveryStatus;
+import com.bukang.payout.domain.PayoutStage;
+import com.bukang.payout.domain.exception.PayoutRecoveryConflictException;
+import com.bukang.payout.out.PayoutHoldRepository;
+import com.bukang.payout.out.PayoutItemRepository;
+import com.bukang.payout.out.PayoutRecoveryRepository;
+import com.bukang.payout.out.PayoutRepository;
+import com.bukang.payout.out.SoldEntry;
+
+import jakarta.persistence.EntityManager;
+
+/**
+ * 참가권 환불 알림을 받아 회수를 남긴다 (선 환불 후 회수 R1, AC-RECOV)
+ * 대회 7, 판매자 1, 참가권 5만 원 × 10장. 1장의 1차 몫 20,000원
+ */
+@DataJpaTest
+@ActiveProfiles("test")
+@ExtendWith(OutputCaptureExtension.class)
+class PayoutRefundUseCaseTest {
+	private static final long SELLER_ID = 1;
+	private static final long RACE_ID = 7;
+	private static final long PRICE = 50_000L;
+	private static final LocalDate REFUND_DEADLINE = LocalDate.of(2026, 10, 31);
+	private static final LocalDateTime REFUNDED_AT = LocalDateTime.of(2026, 11, 26, 10, 0);
+	private static final LocalDate RACE_DATE = LocalDate.of(2026, 11, 28);
+
+	@Autowired
+	private PayoutRepository payoutRepository;
+
+	@Autowired
+	private PayoutItemRepository payoutItemRepository;
+
+	@Autowired
+	private PayoutHoldRepository payoutHoldRepository;
+
+	@Autowired
+	private PayoutRecoveryRepository payoutRecoveryRepository;
+
+	@Autowired
+	private EntityManager entityManager;
+
+	private PayoutCreateStepUseCase creator;
+	private PayoutRefundUseCase refundUseCase;
+	private PayoutRaceCancelUseCase raceCancelUseCase;
+
+	@BeforeEach
+	void setUp() {
+		BusinessDayCalendar calendar = new BusinessDayCalendar();
+		PayoutLedgerUseCase ledgerUseCase = new PayoutLedgerUseCase(payoutRepository, payoutItemRepository,
+			payoutRecoveryRepository);
+		creator = new PayoutCreateStepUseCase(payoutRepository, calendar, ledgerUseCase,
+			new PayoutHoldUseCase(payoutRepository, payoutHoldRepository, calendar));
+		refundUseCase = new PayoutRefundUseCase(payoutRepository, ledgerUseCase);
+		raceCancelUseCase = new PayoutRaceCancelUseCase(payoutRepository, ledgerUseCase);
+	}
+
+	private void createFirst() {
+		creator.createFirst(new FirstPayoutSource(SELLER_ID, RACE_ID, "대회 A", true,
+			List.of(new CourseSale(RACE_ID, PRICE * 10, 10))), REFUND_DEADLINE,
+			REFUND_DEADLINE.plusDays(1).atTime(3, 0));
+	}
+
+	private OrderItemRefundedEvent refunded(long orderItemId, long price) {
+		return refunded(orderItemId, price, OrderItemRefundReason.SCHEDULE_CHANGED);
+	}
+
+	private OrderItemRefundedEvent refunded(long orderItemId, long price, OrderItemRefundReason reason) {
+		return new OrderItemRefundedEvent(orderItemId, RACE_ID, RACE_ID, price, REFUNDED_AT, reason);
+	}
+
+	private Payout first() {
+		return payoutRepository.findFirstBySellerIdAndRaceIdAndPayoutStageOrderByIdAsc(SELLER_ID, RACE_ID,
+			PayoutStage.FIRST).orElseThrow();
+	}
+
+	private List<PayoutRecovery> recoveries() {
+		entityManager.flush();
+		entityManager.clear();
+		return payoutRecoveryRepository.findAll();
+	}
+
+	@Test
+	@DisplayName("TC-RECOV-1-1 1차 정산이 있는 대회의 참가권이 환불되면 그 참가권의 회수가 20,000원으로 하나 생긴다")
+	void refundCreatesRecovery() {
+		createFirst();
+
+		refundUseCase.recordRefund(refunded(108, PRICE), REFUNDED_AT);
+
+		assertThat(recoveries())
+			.extracting(PayoutRecovery::getOrderItemId, PayoutRecovery::getAmount, PayoutRecovery::getSellerId)
+			.containsExactly(tuple(108L, 20_000L, SELLER_ID));
+	}
+
+	@Test
+	@DisplayName("TC-RECOV-1-2 가격 50,001원 참가권이 환불되면 회수는 원 미만을 버린 20,000원이다")
+	void refundAmountRoundsDown() {
+		createFirst();
+
+		refundUseCase.recordRefund(refunded(108, 50_001L), REFUNDED_AT);
+
+		assertThat(recoveries()).extracting(PayoutRecovery::getAmount).containsExactly(20_000L);
+	}
+
+	@Test
+	@DisplayName("TC-RECOV-1-3 가격 33,334원 참가권 3장이 환불되면 장마다 버린 뒤 더해 회수 합은 39,999원이다")
+	void refundAmountsSumAfterRoundingEachTicket() {
+		createFirst();
+
+		for (long orderItemId = 101; orderItemId <= 103; orderItemId++) {
+			refundUseCase.recordRefund(refunded(orderItemId, 33_334L), REFUNDED_AT);
+		}
+
+		assertThat(recoveries()).extracting(PayoutRecovery::getAmount).containsExactly(13_333L, 13_333L, 13_333L);
+	}
+
+	@Test
+	@DisplayName("TC-RECOV-2-1 같은 참가권 환불 알림이 다시 와도 오류 없이 회수는 하나다")
+	void sameRefundTwiceKeepsOneRecovery() {
+		createFirst();
+
+		refundUseCase.recordRefund(refunded(108, PRICE), REFUNDED_AT);
+		refundUseCase.recordRefund(refunded(108, PRICE), REFUNDED_AT.plusMinutes(1));
+
+		assertThat(recoveries()).hasSize(1)
+			.extracting(PayoutRecovery::getStatus).containsExactly(PayoutRecoveryStatus.COMPLETED);
+	}
+
+	@Test
+	@DisplayName("TC-RECOV-3-1 1차 정산이 없는 대회의 환불 알림은 회수와 원장 줄을 남기지 않는다")
+	void refundWithoutFirstIsIgnored() {
+		refundUseCase.recordRefund(refunded(108, PRICE), REFUNDED_AT);
+
+		assertThat(recoveries()).isEmpty();
+		assertThat(payoutItemRepository.findAll()).isEmpty();
+	}
+
+	@Test
+	@DisplayName("TC-REV1-1 대회 취소로 101~110번이 일괄 환불돼 사유가 대회 취소인 알림 10개가 와도 회수는 대회 취소 회수 1건뿐이다")
+	void raceCancelRefundsAreIgnored() {
+		createFirst();
+		first().pay(REFUNDED_AT.minusDays(20));
+
+		raceCancelUseCase.cancelRace(RACE_ID, REFUNDED_AT);
+		for (long orderItemId = 101; orderItemId <= 110; orderItemId++) {
+			refundUseCase.recordRefund(refunded(orderItemId, PRICE, OrderItemRefundReason.RACE_CANCELED),
+				REFUNDED_AT);
+		}
+
+		// 환불 알림으로 생긴 회수 0건, 대회 취소 알림으로 생긴 회수 1건(남은 1차 정산금 200,000원)
+		assertThat(recoveries())
+			.extracting(PayoutRecovery::getReasonType, PayoutRecovery::getOrderItemId, PayoutRecovery::getAmount)
+			.containsExactly(tuple(PayoutRecoveryReason.RACE_CANCELED, null, 200_000L));
+	}
+
+	@Test
+	@DisplayName("TC-REV1-2 1차 20만 원 지급 뒤 일정 변경으로 5장이 환불되면 회수 5건 10만 원, 최종 정산 지급액은 36,250원이다")
+	void scheduleChangeRefundsAreRecoveredAndOffset() {
+		createFirst();
+		first().pay(REFUNDED_AT.minusDays(20));
+
+		for (long orderItemId = 101; orderItemId <= 105; orderItemId++) {
+			refundUseCase.recordRefund(refunded(orderItemId, PRICE, OrderItemRefundReason.SCHEDULE_CHANGED),
+				REFUNDED_AT);
+		}
+		assertThat(recoveries()).hasSize(5).extracting(PayoutRecovery::getAmount).containsOnly(20_000L);
+
+		List<SoldEntry> remaining = List.of(106L, 107L, 108L, 109L, 110L).stream()
+			.map(orderItemId -> new SoldEntry(orderItemId, SELLER_ID, RACE_ID, RACE_ID, RACE_DATE, PRICE))
+			.toList();
+		creator.createFinal(new FinalPayoutSource(SELLER_ID, RACE_ID, "대회 A", true, remaining), RACE_DATE,
+			RACE_DATE.plusDays(1).atTime(3, 0));
+		entityManager.flush();
+		entityManager.clear();
+
+		Payout finalPayout = payoutRepository.findFirstBySellerIdAndRaceIdAndPayoutStageOrderByIdAsc(SELLER_ID,
+			RACE_ID, PayoutStage.FINAL).orElseThrow();
+		// 250,000(남은 5장) − 13,750(수수료) − 100,000(남은 1차 정산금) − 100,000(상계) = 36,250
+		assertThat(finalPayout.getPayoutAmount()).isEqualTo(36_250L);
+		assertThat(recoveries()).extracting(PayoutRecovery::getStatus).containsOnly(PayoutRecoveryStatus.COMPLETED);
+	}
+
+	@Test
+	@DisplayName("TC-REV1-3 사유가 빠진 환불 알림은 회수를 남기지 않고 잘못된 메시지로 거절한다 (재시도 없이 실패함으로)")
+	void refundWithoutReasonIsRejected() {
+		createFirst();
+
+		assertThatThrownBy(() -> refundUseCase.recordRefund(refunded(108, PRICE, null), REFUNDED_AT))
+			.isInstanceOf(IllegalArgumentException.class);
+		assertThat(recoveries()).isEmpty();
+	}
+
+	@Test
+	@DisplayName("TC-REV3-1 최종 정산을 만든 뒤 일정 변경 환불 알림이 오면 409로 거절하고 회수는 0건, 이유를 담은 ERROR 로그를 1건 남긴다")
+	void refundAfterFinalIsRejectedWithLog(CapturedOutput output) {
+		createFirst();
+		first().pay(REFUNDED_AT.minusDays(20));
+		List<SoldEntry> all = List.of(101L, 102L, 103L, 104L, 105L, 106L, 107L, 108L, 109L, 110L).stream()
+			.map(orderItemId -> new SoldEntry(orderItemId, SELLER_ID, RACE_ID, RACE_ID, RACE_DATE, PRICE))
+			.toList();
+		creator.createFinal(new FinalPayoutSource(SELLER_ID, RACE_ID, "대회 A", true, all), RACE_DATE,
+			RACE_DATE.plusDays(1).atTime(3, 0));
+
+		assertThatThrownBy(() -> refundUseCase.recordRefund(
+			refunded(108, PRICE, OrderItemRefundReason.SCHEDULE_CHANGED), REFUNDED_AT))
+			.isInstanceOf(PayoutRecoveryConflictException.class);
+		assertThat(recoveries()).isEmpty();
+		List<String> logs = output.getAll().lines().filter(line -> line.contains("최종 정산 뒤 환불이라")).toList();
+		assertThat(logs).hasSize(1);
+		assertThat(logs.getFirst()).contains("ERROR", "sellerId=1", "raceId=7", "orderItemId=108", "price=50000");
+	}
+}
