@@ -13,8 +13,11 @@ import org.springframework.stereotype.Component;
 
 import com.bukang.common.global.json.JsonConverter;
 import com.bukang.common.shared.kafka.KafkaTopics;
+import com.bukang.common.shared.order.event.OrderItemRefundedEvent;
 import com.bukang.common.shared.race.event.RaceCancelEvent;
 import com.bukang.payout.app.PayoutRaceCancelUseCase;
+import com.bukang.payout.app.PayoutRefundUseCase;
+import com.bukang.payout.domain.exception.PayoutRecoveryConflictException;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,6 +46,7 @@ public class PayoutKafkaConsumer {
 	private static final ZoneId ZONE = ZoneId.of("Asia/Seoul");
 
 	private final PayoutRaceCancelUseCase payoutRaceCancelUseCase;
+	private final PayoutRefundUseCase payoutRefundUseCase;
 	private final JsonConverter jsonConverter;
 
 	// 판매자가 대회를 취소했다 (상품 서비스가 발행, key는 대회 ID). 지급 전 정산 내역은 닫고, 지급한 돈은 회수를 만든다
@@ -60,6 +64,24 @@ public class PayoutKafkaConsumer {
 	public void handleRaceCancel(String payload) {
 		RaceCancelEvent event = jsonConverter.fromJson(payload, RaceCancelEvent.class);
 		payoutRaceCancelUseCase.cancelRace(event.raceId(), LocalDateTime.now(ZONE));
+	}
+
+	// 구매자에게 참가권을 환불했다 (주문 서비스가 발행, key는 주문 상품 ID). 1차 정산을 받은 참가권이면 회수를 남긴다
+	// 같은 참가권으로 다시 와도 이미 만든 회수를 돌려주므로 같은 메시지를 다시 처리해도 안전하다
+	@KafkaListener(topics = KafkaTopics.ORDER_ITEM_REFUNDED, groupId = GROUP_ID)
+	@RetryableTopic(
+		attempts = RETRY_ATTEMPTS,
+		backOff = @BackOff(delay = RETRY_DELAY_MILLIS, multiplier = RETRY_MULTIPLIER),
+		// 다시 해도 결과가 같은 실패는 재시도 없이 바로 DLT로 보낸다
+		// 깨진 JSON · 사유 없는 알림(IllegalArgumentException), 최종 정산 뒤 환불(PayoutRecoveryConflictException)
+		exclude = {IllegalArgumentException.class, PayoutRecoveryConflictException.class},
+		numPartitions = PARTITIONS,
+		retryTopicSuffix = RETRY_TOPIC_SUFFIX,
+		dltTopicSuffix = DLT_TOPIC_SUFFIX
+	)
+	public void handleItemRefunded(String payload) {
+		OrderItemRefundedEvent event = jsonConverter.fromJson(payload, OrderItemRefundedEvent.class);
+		payoutRefundUseCase.recordRefund(event, LocalDateTime.now(ZONE));
 	}
 
 	// 끝까지 실패한 메시지. 닫히지 않은 정산 내역이 지급될 수 있으므로 운영자가 확인해 직접 보류를 걸고 다시 보내야 한다

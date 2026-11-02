@@ -36,6 +36,22 @@ final class PayoutInternalApiExamples {
 		{ "status": 400, "message": "요청 값의 형식이 올바르지 않습니다.", "data": null }
 		""";
 
+	static final String HAS_RECEIVABLE = """
+		{
+			"status": 200,
+			"message": "판매자 갚을 돈을 조회했습니다.",
+			"data": { "sellerId": 1, "hasReceivable": true, "raceIds": [7] }
+		}
+		""";
+
+	static final String NO_RECEIVABLE = """
+		{
+			"status": 200,
+			"message": "판매자 갚을 돈을 조회했습니다.",
+			"data": { "sellerId": 1, "hasReceivable": false, "raceIds": [] }
+		}
+		""";
+
 	private PayoutInternalApiExamples() {
 	}
 }

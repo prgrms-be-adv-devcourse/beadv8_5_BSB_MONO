@@ -158,11 +158,12 @@ backend/
   규칙과 다른 기존 테이블(상품의 `race`, `race_course`, `participation_hold`)은 서비스별로 DB를 나눌 때(최종, Flyway) 맞춥니다.
   테이블 이름을 바꿀 때는 Flyway가 없는 서비스라면 배포 전에 서버 DB에서 `RENAME TABLE`을 먼저 실행합니다.
   compose가 `ddl-auto: update`로 띄워서, 이름만 바꿔 배포하면 빈 새 테이블이 생기고 기존 데이터는 옛 테이블에 남습니다.
-- 표 변경은 Flyway SQL로 합니다. 지금 Flyway를 쓰는 서비스는 `member-service`, `order-service`이고, 나머지는 compose가 `ddl-auto: update`로 띄웁니다.
+- 표 변경은 Flyway SQL로 합니다. 지금 Flyway를 쓰는 서비스는 `member-service`, `payout-service`, `order-service`이고, 나머지는 compose가 `ddl-auto: update`로 띄웁니다.
   - Flyway 서비스: 엔티티를 고치면 같은 커밋에 `src/main/resources/db/migration/V<날짜시각>__설명.sql`을 더합니다. 이미 돈 SQL 파일은 고치지 않습니다.
     dev·prod는 `ddl-auto: validate`라 SQL을 빠뜨리면 앱이 뜨지 않습니다. `Flyway*ValidateTest`가 빈 DB에 SQL을 모두 돌린 뒤 칸 이름·타입을
     엔티티와 맞춰 보므로, 칸을 빠뜨리면 테스트에서 먼저 실패합니다(길이·not null·인덱스·제약은 Hibernate validate가 보지 않으니 리뷰로 봅니다).
     같은 DB를 함께 쓰므로 기록 표 이름을 서비스마다 다르게 둡니다(`flyway_schema_history_<서비스>`). 설정은 `member-service`의 `application-dev.yaml`을 따릅니다.
+  - `payout-service`의 enum 칸은 DB ENUM이라 enum 값을 더할 때도 ENUM 목록을 바꾸는 SQL이 필요합니다(`PayoutEnumColumnTest`가 확인).
   - `order-service`는 전환 중입니다(BUK-29). V1은 `create table if not exists`라 표가 이미 있으면 통째로 건너뛰어, 지난 배포 뒤 엔티티에 더한 칸이
     서버·로컬 표에 없으면 `validate`로는 뜨지 않습니다. 그래서 서버에 한 번 배포할 때까지 dev와 compose는 `update`로 둡니다
     (Flyway가 먼저 돌고 Hibernate가 빠진 칸을 채움). 그 뒤 dev는 `validate`로, compose의 `order-service` 줄은 지웁니다.

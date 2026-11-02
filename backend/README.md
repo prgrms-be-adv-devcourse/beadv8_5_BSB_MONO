@@ -80,7 +80,10 @@ IntelliJ에서는 `MemberApplication`, `CashApplication`, `PayoutApplication`, `
 모든 서비스의 `application-prod.yaml`은 `ddl-auto: validate`(표를 만들지 않고 엔티티와 맞는지만 확인)입니다.
 
 - `member-service`는 Flyway(`db/migration`, 기록 표 `flyway_schema_history_member`)가 먼저 표를 만들고 validate로 확인합니다.
-- `cash`·`payout`·`file`·`order`·`product`는 아직 Flyway가 없습니다. 그래서 `compose.yml`이 이 다섯 서비스에만 `SPRING_JPA_HIBERNATE_DDL_AUTO=update`를 넘겨,
+- `payout-service`도 같은 방식입니다(기록 표 `flyway_schema_history_payout`, PR #265). V1은 2026-11-02 운영 표 그대로이고,
+  이후 SQL이 ID를 bigint로, enum 칸을 DB ENUM으로 맞춥니다. enum 값을 더하면 ENUM 목록을 바꾸는 SQL도 같이 넣습니다(`PayoutEnumColumnTest`가 확인).
+  로컬에서 `payout-service`가 `Schema-validation`으로 뜨지 않으면 로컬 DB의 `payout_*` 표를 지우고 다시 띄웁니다.
+- `cash`·`file`·`order`·`product`는 아직 Flyway가 없습니다. 그래서 `compose.yml`이 이 네 서비스에만 `SPRING_JPA_HIBERNATE_DDL_AUTO=update`를 넘겨,
   dev처럼 Hibernate가 없는 표·칼럼을 만들게 합니다(`x-jpa-ddl-auto`). `update`는 칼럼을 지우거나 타입을 바꾸지 않습니다.
   어떤 서비스에 Flyway가 생기면 `compose.yml`에서 그 서비스의 `SPRING_JPA_HIBERNATE_DDL_AUTO` 줄을 지웁니다.
 - prod 프로파일은 dev 시작 데이터(`*DataInit`: 기본 회원·관리자, 대회·정산 샘플)를 만들지 않습니다. 빈 DB로 띄우면 회원·대회가 하나도 없습니다.
