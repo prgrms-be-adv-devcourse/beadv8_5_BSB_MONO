@@ -87,4 +87,15 @@ class RedisPasswordResetStoreTest {
 		assertThat(redisTemplate.getExpire(RedisPasswordResetStore.dailyCountKey("email-1"))).isPositive();
 		assertThat(store.tryAcquireRequest("email-2", COOLDOWN, 2, WINDOW)).isTrue();
 	}
+
+	@Test
+	@DisplayName("같은 IP는 하루 횟수를 넘으면 막고, 키에 만료를 건다")
+	void limitsRequestsPerIp() {
+		assertThat(store.tryAcquireIpRequest("ip-1", 2, WINDOW)).isTrue();
+		assertThat(store.tryAcquireIpRequest("ip-1", 2, WINDOW)).isTrue();
+		assertThat(store.tryAcquireIpRequest("ip-1", 2, WINDOW)).isFalse();
+
+		assertThat(redisTemplate.getExpire(RedisPasswordResetStore.ipDailyCountKey("ip-1"))).isPositive();
+		assertThat(store.tryAcquireIpRequest("ip-2", 2, WINDOW)).isTrue();
+	}
 }

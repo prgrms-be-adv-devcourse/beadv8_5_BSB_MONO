@@ -29,7 +29,7 @@ class MailDispatcherTest {
 			task.run();
 		};
 		PasswordResetProperties properties = new PasswordResetProperties(
-			"http://localhost:3000", Duration.ofMinutes(30), Duration.ofMinutes(1), 5, Duration.ofHours(24),
+			"http://localhost:3000", Duration.ofMinutes(30), Duration.ofMinutes(1), 5, Duration.ofHours(24), 20,
 			DELAYS, "크루런");
 		dispatcher = new MailDispatcher(sender, recordingScheduler, properties);
 	}

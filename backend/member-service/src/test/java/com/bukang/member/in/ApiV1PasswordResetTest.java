@@ -2,6 +2,7 @@ package com.bukang.member.in;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -21,6 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -56,6 +58,9 @@ class ApiV1PasswordResetTest {
 	private static final String EMAIL = "runner1@crewrun.com";
 	private static final String PASSWORD = "password1234";
 	private static final String NEW_PASSWORD = "newpassword1234";
+	private static final int IP_DAILY_LIMIT = 20;
+	private static final String LOGGED_OUT_SENTENCE = "다른 기기의 로그인도 모두 풀렸어요";
+	private static final String LOG_OUT_YOURSELF_SENTENCE = "다른 기기에서 로그인되어 있다면 로그아웃해 주세요";
 	private static final Pattern TOKEN = Pattern.compile("/password-reset/new#token=([A-Za-z0-9_-]+)");
 
 	@Autowired
@@ -137,6 +142,68 @@ class ApiV1PasswordResetTest {
 		verify(refreshTokenRepository).deleteAll(memberId);
 		assertThat(mailSender.sent()).extracting(OutgoingMail::subject)
 			.containsExactly("[크루런] 비밀번호 재설정 링크", "[크루런] 비밀번호가 바뀌었어요");
+		assertThat(mailSender.sent().getLast().text()).contains(LOGGED_OUT_SENTENCE)
+			.doesNotContain(LOG_OUT_YOURSELF_SENTENCE);
+	}
+
+	@Test
+	@DisplayName("모든 기기 로그인 정리가 실패하면 알림 메일에 다 풀렸다고 쓰지 않고, 직접 로그아웃하라고 안내한다")
+	void changedMailWhenLogoutCleanupFails() throws Exception {
+		willThrow(new RedisConnectionFailureException("Redis 멈춤")).given(refreshTokenRepository).deleteAll(memberId);
+		requestReset(EMAIL);
+		String token = tokenOf(mailSender.sent().getFirst());
+
+		post(BASE + "confirm", Map.of("token", token, "password", NEW_PASSWORD)).andExpect(status().isOk());
+
+		OutgoingMail changed = mailSender.sent().getLast();
+		assertThat(changed.subject()).isEqualTo("[크루런] 비밀번호가 바뀌었어요");
+		assertThat(changed.text()).doesNotContain(LOGGED_OUT_SENTENCE).contains(LOG_OUT_YOURSELF_SENTENCE);
+		assertThat(changed.html()).doesNotContain(LOGGED_OUT_SENTENCE).contains(LOG_OUT_YOURSELF_SENTENCE);
+		login(NEW_PASSWORD).andExpect(status().isOk());
+	}
+
+	@Test
+	@DisplayName("같은 IP는 이메일을 바꿔도 하루 20번까지만 받고, 21번째는 429이며 메일을 보내지 않는다")
+	void dailyLimitPerIp() throws Exception {
+		for (int i = 0; i < IP_DAILY_LIMIT; i++) {
+			requestReset("user" + i + "@crewrun.com", "203.0.113.7").andExpect(status().isOk());
+		}
+
+		requestReset(EMAIL, "203.0.113.7")
+			.andExpect(status().isTooManyRequests())
+			.andExpect(jsonPath("$.code").value("AUTH_RESET_TOO_MANY"));
+		assertThat(mailSender.sent()).isEmpty();
+	}
+
+	@Test
+	@DisplayName("한 IP가 한도를 넘어도 다른 IP의 요청은 받는다")
+	void otherIpStillAllowed() throws Exception {
+		for (int i = 0; i <= IP_DAILY_LIMIT; i++) {
+			requestReset("user" + i + "@crewrun.com", "203.0.113.7");
+		}
+
+		requestReset(EMAIL, "198.51.100.9").andExpect(status().isOk());
+		assertThat(mailSender.sent()).extracting(OutgoingMail::to).containsExactly(EMAIL);
+	}
+
+	@Test
+	@DisplayName("X-Forwarded-For를 바꿔 보내도 Nginx가 넣은 X-Real-IP 기준으로 세어 한도를 피할 수 없다")
+	void forgedForwardedForCannotBypass() throws Exception {
+		for (int i = 0; i < IP_DAILY_LIMIT; i++) {
+			requestReset("user" + i + "@crewrun.com", "203.0.113.7", "10.0.0." + i).andExpect(status().isOk());
+		}
+
+		requestReset(EMAIL, "203.0.113.7", "10.0.0.99").andExpect(status().isTooManyRequests());
+	}
+
+	@Test
+	@DisplayName("X-Real-IP가 없으면(Nginx 없는 로컬) 접속 주소로 세어 한도를 건다")
+	void fallsBackToRemoteAddress() throws Exception {
+		for (int i = 0; i < IP_DAILY_LIMIT; i++) {
+			requestReset("user" + i + "@crewrun.com").andExpect(status().isOk());
+		}
+
+		requestReset(EMAIL).andExpect(status().isTooManyRequests());
 	}
 
 	@Test
@@ -263,6 +330,23 @@ class ApiV1PasswordResetTest {
 
 	private ResultActions requestReset(String email) throws Exception {
 		return post(BASE + "request", Map.of("email", email));
+	}
+
+	// Nginx가 접속자 IP로 덮어써 넣는 X-Real-IP를 흉내 낸다
+	private ResultActions requestReset(String email, String realIp) throws Exception {
+		return mockMvc.perform(MockMvcRequestBuilders.post(BASE + "request")
+			.header("X-Real-IP", realIp)
+			.contentType(MediaType.APPLICATION_JSON)
+			.content(jsonConverter.toJson(Map.of("email", email))));
+	}
+
+	// 클라이언트가 X-Forwarded-For를 위조해 보낸 경우
+	private ResultActions requestReset(String email, String realIp, String forwardedFor) throws Exception {
+		return mockMvc.perform(MockMvcRequestBuilders.post(BASE + "request")
+			.header("X-Real-IP", realIp)
+			.header("X-Forwarded-For", forwardedFor)
+			.contentType(MediaType.APPLICATION_JSON)
+			.content(jsonConverter.toJson(Map.of("email", email))));
 	}
 
 	private ResultActions login(String password) throws Exception {

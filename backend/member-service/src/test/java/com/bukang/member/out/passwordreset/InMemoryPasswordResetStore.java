@@ -19,6 +19,7 @@ public class InMemoryPasswordResetStore implements PasswordResetStore {
 	private final Map<Long, String> latestTokens = new ConcurrentHashMap<>();
 	private final Map<String, Integer> requestCounts = new ConcurrentHashMap<>();
 	private final Map<String, Boolean> cooldowns = new ConcurrentHashMap<>();
+	private final Map<String, Integer> ipRequestCounts = new ConcurrentHashMap<>();
 
 	@Override
 	public boolean tryAcquireRequest(String emailHash, Duration cooldown, int dailyLimit, Duration window) {
@@ -26,6 +27,11 @@ public class InMemoryPasswordResetStore implements PasswordResetStore {
 			return false;
 		}
 		return requestCounts.merge(emailHash, 1, Integer::sum) <= dailyLimit;
+	}
+
+	@Override
+	public boolean tryAcquireIpRequest(String ipHash, int dailyLimit, Duration window) {
+		return ipRequestCounts.merge(ipHash, 1, Integer::sum) <= dailyLimit;
 	}
 
 	@Override
@@ -67,6 +73,7 @@ public class InMemoryPasswordResetStore implements PasswordResetStore {
 		latestTokens.clear();
 		requestCounts.clear();
 		cooldowns.clear();
+		ipRequestCounts.clear();
 	}
 
 	@TestConfiguration
