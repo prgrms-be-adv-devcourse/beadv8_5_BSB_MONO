@@ -56,8 +56,10 @@ export function SignupIdentityPage() {
   const setVerification = useSignupStep((s) => s.setVerification)
   const restoreDraft = useSignupStep((s) => s.restoreDraft)
   const [termsOpen, setTermsOpen] = useState(!termsAgreed)
+  const [duplicate, setDuplicate] = useState(false)
 
   const { start, opening, mock, element } = useIdentityVerification({
+    onDuplicate: () => setDuplicate(true),
     onVerified: (identity) => {
       setVerification(identity)
       router.push('/signup/account')
@@ -104,6 +106,7 @@ export function SignupIdentityPage() {
       />
       {element}
       <SignupTermsSheet open={termsOpen} onOpenChange={setTermsOpen} />
+      <DuplicateIdentityDialog open={duplicate} onOpenChange={setDuplicate} />
     </>
   )
 }

@@ -127,13 +127,13 @@ describe('본인 확인 단계 (포트원)', () => {
     expect(push).not.toHaveBeenCalled()
   })
 
-  it('CI를 주지 않는 인증 방법(카카오)이면 다른 방법을 고르라고 안내한다', async () => {
+  it('이미 가입한 사람이면 인증 직후 「이미 가입한 사람이에요」 모달로 로그인을 안내한다', async () => {
     portOneSucceeds()
     server.use(
       http.post('*/api/v1/auth/identity-verifications/:id/complete', () =>
         HttpResponse.json(
-          { status: 400, code: 'AUTH_VERIFICATION_CI_MISSING', message: 'CI 없음', data: null },
-          { status: 400 },
+          { status: 409, code: 'MEMBER_DUPLICATE_IDENTITY', message: '이미 가입', data: null },
+          { status: 409 },
         ),
       ),
     )
@@ -142,8 +142,10 @@ describe('본인 확인 단계 (포트원)', () => {
 
     await user.click(screen.getByRole('button', { name: '휴대폰 본인인증' }))
 
-    expect(await screen.findByText(IDENTITY_MESSAGES.ciMissing)).toBeInTheDocument()
-    expect(push).not.toHaveBeenCalled()
+    const dialog = await screen.findByRole('alertdialog', { name: '이미 가입한 사람이에요' })
+    await user.click(within(dialog).getByRole('button', { name: '로그인하기' }))
+    expect(push).toHaveBeenCalledWith('/login')
+    expect(push).not.toHaveBeenCalledWith('/signup/account')
   })
 
   it('포트원 상점 아이디 · 채널 키가 없으면 창을 열지 않고 안내한다', async () => {

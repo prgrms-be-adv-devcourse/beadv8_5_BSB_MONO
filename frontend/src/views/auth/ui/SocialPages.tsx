@@ -198,6 +198,7 @@ function SocialSignupForm({
           <IdentityVerificationBand
             verification={verification}
             onVerified={setVerification}
+            onDuplicate={() => setDuplicate(true)}
             onBeforeOpen={() =>
               saveSignupDraft({
                 terms,
