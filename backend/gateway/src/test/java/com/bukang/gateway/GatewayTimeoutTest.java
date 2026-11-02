@@ -33,6 +33,7 @@ import com.sun.net.httpserver.HttpServer;
 
 // 서비스가 늦거나 꺼져 있을 때 게이트웨이가 504·503을 RsData JSON으로 응답하는지 확인한다
 // 10초를 기다리지 않도록 응답 시간 제한을 500ms로 줄인다. 주문 서비스는 늦게 답하고, 캐시 서비스는 꺼져 있다
+// 대기열 서비스는 컨테이너가 멈춰 이름을 찾지 못하는 경우다
 @SpringBootTest(
 	webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
 	properties = "spring.cloud.gateway.server.webflux.httpclient.response-timeout=500ms"
@@ -40,7 +41,7 @@ import com.sun.net.httpserver.HttpServer;
 @ActiveProfiles("test")
 class GatewayTimeoutTest {
 
-	private static final List<String> OTHER_SERVICES = List.of("member", "payout", "file", "product", "queue");
+	private static final List<String> OTHER_SERVICES = List.of("member", "payout", "file", "product");
 	// 응답 시간 제한(500ms)보다 충분히 길게 잡는다
 	private static final long SLOW_RESPONSE_MILLIS = 3000;
 	private static HttpServer slowStub;
@@ -80,6 +81,9 @@ class GatewayTimeoutTest {
 		}
 		registry.add("gateway.services.cash", () -> "http://localhost:" + closedPort);
 
+		// 멈춘 컨테이너: Docker 내부 DNS가 이름을 찾지 못한다. .invalid는 어디서도 풀리지 않는 이름이다 (RFC 2606)
+		registry.add("gateway.services.queue", () -> "http://bukang-stopped-service.invalid:8086");
+
 		okStub = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
 		okStub.createContext("/", GatewayTimeoutTest::respondOk);
 		okStub.start();
@@ -110,6 +114,18 @@ class GatewayTimeoutTest {
 	@DisplayName("서비스에 연결할 수 없으면 503과 SERVICE_UNAVAILABLE 코드를 JSON으로 응답한다")
 	void respondsServiceUnavailableWhenServiceIsDown() throws Exception {
 		HttpResponse<String> response = get("/api/v1/cash/wallets");
+
+		assertThat(response.statusCode()).isEqualTo(503);
+		assertThat(response.headers().firstValue("Content-Type")).hasValueSatisfying(
+			contentType -> assertThat(contentType).startsWith("application/json"));
+		assertThat(response.body()).isEqualTo("{\"status\":503,\"code\":\"SERVICE_UNAVAILABLE\","
+			+ "\"message\":\"서버에 연결할 수 없어요. 잠시 뒤 다시 시도해 주세요.\",\"data\":null}");
+	}
+
+	@Test
+	@DisplayName("서비스 이름을 찾지 못하면(멈춘 컨테이너) 503과 SERVICE_UNAVAILABLE 코드를 JSON으로 응답한다")
+	void respondsServiceUnavailableWhenServiceHostIsUnknown() throws Exception {
+		HttpResponse<String> response = get("/api/v1/queue/1");
 
 		assertThat(response.statusCode()).isEqualTo(503);
 		assertThat(response.headers().firstValue("Content-Type")).hasValueSatisfying(
