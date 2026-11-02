@@ -21,6 +21,9 @@ spring:
     listener:
       # 브로커 없이도 컨텍스트가 뜨도록 리스너 자동 시작을 끈다
       auto-startup: false
+    admin:
+      # @RetryableTopic의 재시도·DLT 토픽을 시작할 때 만들지 않는다 (브로커가 없으면 연결을 기다리느라 컨텍스트마다 15분 넘게 늦어진다)
+      auto-create: false
 
 logging:
   level:
