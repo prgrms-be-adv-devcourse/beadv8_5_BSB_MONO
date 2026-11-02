@@ -99,10 +99,8 @@ src/
 ## 인증
 
 - `src/proxy.ts`는 로그인 여부를 검사하지 않는다. Refresh Token 쿠키가 `Path=/api/v1/auth`라 `/seller`·`/admin` 요청에 실리지 않기 때문이다. 로그인 전 진입은 `AuthSessionRestorer`가 재발급 실패 시 `/login`으로 보낸다.
-
-## 미정 사항
-
-- 소셜 로그인은 아직 없다.
+- 소셜 로그인(카카오 · 구글)은 백엔드가 인가 요청부터 콜백까지 처리한다(BE-031). 프론트는 `features/auth`의 `SocialLoginButtons`로 시작 주소(`/api/v1/auth/oauth2/authorize/{provider}`)를 화면 이동으로 연다.
+  콜백 뒤 `/auth/social/complete`(재발급으로 Access Token을 받는다), `/signup/social`(소셜 가입), `/login?error=` 중 하나로 온다. 계정 연결은 `/me/accounts`에서 연결 표를 받은 뒤 같은 시작 주소로 연다.
 
 ## 커밋
 

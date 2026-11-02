@@ -3,17 +3,25 @@ package com.bukang.member.domain;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Period;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 
 import com.bukang.common.shared.member.event.MemberJoinedEvent;
 import com.bukang.common.shared.member.event.MemberModifiedEvent;
+import com.bukang.member.domain.exception.LastLoginMethodException;
+import com.bukang.member.domain.exception.SocialAccountNotFoundException;
+import com.bukang.member.domain.exception.SocialProviderAlreadyLinkedException;
 import com.bukang.member.dto.MemberDto;
 
 import jakarta.persistence.AttributeOverride;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.CheckConstraint;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
@@ -48,6 +56,10 @@ public class Member extends SourceMember {
 	@Enumerated(EnumType.STRING)
 	@Column(name = "role", nullable = false, columnDefinition = "varchar(10) default 'USER'")
 	private MemberRole role = MemberRole.USER;
+
+	// 소셜 연결 (BE-035). 연결·해제는 이 목록으로만 해서, 목록에서 빼면 행도 지워진다(orphanRemoval)
+	@OneToMany(mappedBy = "member", cascade = CascadeType.ALL, orphanRemoval = true)
+	private List<SocialAccount> socialAccounts = new ArrayList<>();
 
 	public Member(
 		String email,
@@ -92,12 +104,61 @@ public class Member extends SourceMember {
 		publishEvent(new MemberModifiedEvent(getId(), getCreateDate(), getWithdrawnAt(), WITHDRAWN_NICKNAME));
 	}
 
+	// 소셜로 가입한 회원은 비밀번호가 없다 (BE-035)
+	public boolean hasPassword() {
+		return getPassword() != null;
+	}
+
+	public boolean hasSocial(SocialProvider provider) {
+		return socialAccounts.stream().anyMatch(account -> account.getProvider() == provider);
+	}
+
+	// 연결된 제공자. 화면에 늘 같은 순서로 보이도록 enum 순서(카카오, 구글)로 정렬한다
+	public List<SocialProvider> socialProviders() {
+		return socialAccounts.stream()
+			.map(SocialAccount::getProvider)
+			.sorted(Comparator.naturalOrder())
+			.toList();
+	}
+
+	// 소셜 계정을 연결한다. 같은 제공자가 이미 있으면 막는다. 다른 회원에 연결된 계정인지는 DB 유니크 제약이 막는다
+	public SocialAccount linkSocial(SocialProvider provider, String providerUserId) {
+		if (hasSocial(provider)) {
+			throw new SocialProviderAlreadyLinkedException("이미 연결된 소셜 로그인입니다.");
+		}
+		SocialAccount account = new SocialAccount(this, provider, providerUserId);
+		socialAccounts.add(account);
+		return account;
+	}
+
+	// 연결을 해제한다. 해제한 뒤에도 로그인할 방법(비밀번호나 다른 소셜 연결)이 남을 때만 허용한다 (BE-032 결정 6)
+	public SocialAccount unlinkSocial(SocialProvider provider) {
+		SocialAccount account = socialAccounts.stream()
+			.filter(found -> found.getProvider() == provider)
+			.findFirst()
+			.orElseThrow(() -> new SocialAccountNotFoundException("연결되지 않은 소셜 로그인입니다."));
+		if (!hasPassword() && socialAccounts.size() == 1) {
+			throw new LastLoginMethodException("로그인할 방법이 하나는 남아 있어야 합니다.");
+		}
+		socialAccounts.remove(account);
+		return account;
+	}
+
+	// 탈퇴할 때 모든 연결을 지운다 (BE-034). 카카오 연결 끊기에 쓰도록 지운 연결을 돌려준다
+	// 연결 목록을 읽으므로 트랜잭션 안에서 부른다 (MemberWithdrawUseCase)
+	public List<SocialAccount> unlinkAllSocial() {
+		List<SocialAccount> removed = List.copyOf(socialAccounts);
+		socialAccounts.clear();
+		return removed;
+	}
+
 	public boolean isWithdrawn() {
 		return getStatus() == MemberStatus.WITHDRAWN;
 	}
 
 	// 탈퇴: 상태와 탈퇴 시각을 함께 바꾸고 개인정보 칸을 비운다 (BE-022 결정 5). 줄은 주문·결제 기록이 가리키므로 남긴다
 	// 비밀번호 해시는 개인정보 목록에 없어 그대로 두지만, 이메일이 비어 로그인에 쓰일 수 없다
+	// 소셜 연결 행도 제공자 회원번호(그 사람을 알아보는 값)가 있어 지운다. 지우는 일은 unlinkAllSocial이 한다
 	public void withdraw(LocalDateTime withdrawnAt) {
 		setStatus(MemberStatus.WITHDRAWN);
 		setWithdrawnAt(withdrawnAt);
@@ -149,7 +210,9 @@ public class Member extends SourceMember {
 			getEmail(),
 			getPhone(),
 			getName(),
-			getBirthDate()
+			getBirthDate(),
+			socialProviders(),
+			hasPassword()
 		);
 	}
 }

@@ -91,6 +91,30 @@
         }
       }
     },
+    "findSocialSignup": {
+      "200": {
+        "wrapper": "RsDataSocialSignupInfoDto",
+        "data": {
+          "$ref": "#/components/schemas/SocialSignupInfoDto"
+        }
+      }
+    },
+    "socialJoin": {
+      "201": {
+        "wrapper": "RsDataMemberLoginResponseDto",
+        "data": {
+          "$ref": "#/components/schemas/MemberLoginResponseDto"
+        }
+      }
+    },
+    "unlinkSocialAccount": {
+      "200": {
+        "wrapper": "RsDataMemberDto",
+        "data": {
+          "$ref": "#/components/schemas/MemberDto"
+        }
+      }
+    },
     "createCrew": {
       "201": {
         "wrapper": "RsDataCrewHomeDto",
@@ -193,6 +217,21 @@
         "birthDate": {
           "type": "string",
           "format": "date"
+        },
+        "socialProviders": {
+          "type": "array",
+          "description": "연결된 소셜 로그인 제공자",
+          "items": {
+            "type": "string",
+            "enum": [
+              "KAKAO",
+              "GOOGLE"
+            ]
+          }
+        },
+        "passwordSet": {
+          "type": "boolean",
+          "description": "비밀번호가 있으면 true. false면 소셜 로그인으로만 로그인한다"
         }
       }
     },
@@ -295,6 +334,41 @@
         "representativeName",
         "status",
         "requestedAt"
+      ]
+    },
+    "SocialSignupInfoDto": {
+      "type": "object",
+      "description": "소셜 가입 화면에 미리 채울 값",
+      "properties": {
+        "provider": {
+          "type": "string",
+          "enum": [
+            "KAKAO",
+            "GOOGLE"
+          ]
+        },
+        "email": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "제공자가 준 확인된 이메일. 없으면 null"
+        },
+        "emailLocked": {
+          "type": "boolean",
+          "description": "true면 이메일을 고칠 수 없다(제공자가 확인한 이메일)"
+        },
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "제공자가 준 이름. 없으면 null"
+        }
+      },
+      "required": [
+        "provider",
+        "emailLocked"
       ]
     },
     "CrewMemberDto": {

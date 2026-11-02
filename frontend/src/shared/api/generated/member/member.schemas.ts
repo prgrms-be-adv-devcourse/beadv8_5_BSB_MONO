@@ -167,6 +167,64 @@ export interface SellerRejectRequestDto {
 }
 
 /**
+ * 성별 (선택)
+ * @nullable
+ */
+export type SocialJoinRequestDtoGender = typeof SocialJoinRequestDtoGender[keyof typeof SocialJoinRequestDtoGender] | null;
+
+
+export const SocialJoinRequestDtoGender = {
+  MALE: 'MALE',
+  FEMALE: 'FEMALE',
+} as const;
+
+export type SocialJoinRequestDtoAgreedTermsItem = typeof SocialJoinRequestDtoAgreedTermsItem[keyof typeof SocialJoinRequestDtoAgreedTermsItem];
+
+
+export const SocialJoinRequestDtoAgreedTermsItem = {
+  SERVICE: 'SERVICE',
+  PRIVACY: 'PRIVACY',
+  MARKETING: 'MARKETING',
+} as const;
+
+/**
+ * 소셜 회원가입 요청
+ */
+export interface SocialJoinRequestDto {
+  /**
+     * 이메일. 제공자가 확인된 이메일을 줬으면 무시하고, 안 줬으면 필수
+     * @nullable
+     */
+  email?: string | null;
+  /**
+     * 실명
+     * @minLength 1
+     */
+  name: string;
+  /**
+     * 닉네임 (한글 2~8자, 영문 4~16자, 한글·영문·숫자만)
+     * @minLength 1
+     * @pattern ^[가-힣A-Za-z0-9]+$
+     */
+  nickname: string;
+  /**
+     * 휴대폰 번호 (하이픈 생략 가능)
+     * @minLength 1
+     * @pattern ^01[016789]-?\d{3,4}-?\d{4}$
+     */
+  phone: string;
+  /** 생년월일 */
+  birthDate: string;
+  /**
+     * 성별 (선택)
+     * @nullable
+     */
+  gender?: SocialJoinRequestDtoGender;
+  /** 동의한 약관 종류 (SERVICE, PRIVACY는 필수). 동의하지 않은 선택 약관은 빼고 보낸다 */
+  agreedTerms: SocialJoinRequestDtoAgreedTermsItem[];
+}
+
+/**
  * 크루 만들기 요청
  */
 export interface CrewCreateRequestDto {
@@ -186,6 +244,14 @@ export interface CrewLeaderTransferRequestDto {
   memberId: number;
 }
 
+export type MemberDtoSocialProvidersItem = typeof MemberDtoSocialProvidersItem[keyof typeof MemberDtoSocialProvidersItem];
+
+
+export const MemberDtoSocialProvidersItem = {
+  KAKAO: 'KAKAO',
+  GOOGLE: 'GOOGLE',
+} as const;
+
 export interface MemberDto {
   id?: number;
   createDate?: string;
@@ -195,6 +261,10 @@ export interface MemberDto {
   phone?: string;
   name?: string;
   birthDate?: string;
+  /** 연결된 소셜 로그인 제공자 */
+  socialProviders?: MemberDtoSocialProvidersItem[];
+  /** 비밀번호가 있으면 true. false면 소셜 로그인으로만 로그인한다 */
+  passwordSet?: boolean;
 }
 
 /**
@@ -260,6 +330,33 @@ export interface SellerDto {
      * @nullable
      */
   resultCheckedAt?: string | null;
+}
+
+export type SocialSignupInfoDtoProvider = typeof SocialSignupInfoDtoProvider[keyof typeof SocialSignupInfoDtoProvider];
+
+
+export const SocialSignupInfoDtoProvider = {
+  KAKAO: 'KAKAO',
+  GOOGLE: 'GOOGLE',
+} as const;
+
+/**
+ * 소셜 가입 화면에 미리 채울 값
+ */
+export interface SocialSignupInfoDto {
+  provider: SocialSignupInfoDtoProvider;
+  /**
+     * 제공자가 준 확인된 이메일. 없으면 null
+     * @nullable
+     */
+  email?: string | null;
+  /** true면 이메일을 고칠 수 없다(제공자가 확인한 이메일) */
+  emailLocked: boolean;
+  /**
+     * 제공자가 준 이름. 없으면 null
+     * @nullable
+     */
+  name?: string | null;
 }
 
 /**
@@ -428,6 +525,12 @@ export interface RsDataListSellerDto {
   data?: SellerDto[];
 }
 
+export interface RsDataSocialSignupInfoDto {
+  status?: number;
+  message?: string;
+  data?: SocialSignupInfoDto;
+}
+
 export interface RsDataCrewHomeDto {
   status?: number;
   message?: string;
@@ -488,4 +591,20 @@ export const FindAllStatus = {
   APPROVED: 'APPROVED',
   REJECTED: 'REJECTED',
 } as const;
+
+export type AuthorizeSocialParams = {
+/**
+ * 끝난 뒤 돌아갈 앱 내부 경로. 앱 내부 경로가 아니면 '/'(연결이면 '/me/accounts')로 바꾼다
+ */
+next?: string;
+};
+
+export type SocialCallbackParams = {
+code?: string;
+state?: string;
+/**
+ * 사용자가 동의를 취소하면 제공자가 넣는다
+ */
+error?: string;
+};
 

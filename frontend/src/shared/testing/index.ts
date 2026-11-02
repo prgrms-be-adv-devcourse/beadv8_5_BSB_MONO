@@ -11,3 +11,6 @@ export * as memberMock from '@/shared/api/generated/member/member.msw'
 export * as orderMock from '@/shared/api/generated/order/order.msw'
 export * as payoutMock from '@/shared/api/generated/payout/payout.msw'
 export * as productMock from '@/shared/api/generated/product/product.msw'
+
+// 공용 달력 칸에서 날짜 고르기: await pickDate(user, '생년월일', '1995-03-02')
+export { pickDate } from './pick-date'

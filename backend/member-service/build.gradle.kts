@@ -21,6 +21,9 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-validation") // @Valid 요청 검증
 	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.0") //swagger and openapi
 	implementation("org.springframework.boot:spring-boot-starter-data-redis") // redis
+	// 카카오·구글 소셜 로그인 (BE-031). 인가 요청·코드 교환·ID 토큰 검사 부품만 쓰고, 로그인 필터·자동 설정은 쓰지 않는다
+	implementation("org.springframework.security:spring-security-oauth2-client")
+	implementation("org.springframework.security:spring-security-oauth2-jose")
 
 	// JWT 발급·검증 (jjwt는 jwt 모듈이 가져온다)
 	implementation(project(":jwt"))

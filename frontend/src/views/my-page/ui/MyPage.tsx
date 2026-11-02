@@ -120,6 +120,12 @@ export function MyPage() {
             label="로그아웃"
           />
           <MenuRow
+            href="/me/accounts"
+            icon="User"
+            label="계정 연결"
+            description="카카오 · 구글로 로그인할 수 있게 연결해요"
+          />
+          <MenuRow
             href="/me/withdraw"
             icon="Settings"
             label="계정 설정"

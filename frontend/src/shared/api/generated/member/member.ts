@@ -25,6 +25,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AuthorizeSocialParams,
   CheckEmailAvailabilityParams,
   CrewCreateRequestDto,
   CrewLeaderTransferRequestDto,
@@ -44,9 +45,12 @@ import type {
   RsDataMemberDto,
   RsDataMemberLoginResponseDto,
   RsDataSellerDto,
+  RsDataSocialSignupInfoDto,
   RsDataTokenReissueResponseDto,
   SellerApplyRequestDto,
-  SellerRejectRequestDto
+  SellerRejectRequestDto,
+  SocialCallbackParams,
+  SocialJoinRequestDto
 } from './member.schemas';
 
 import { customFetch } from '../../fetcher';
@@ -1313,6 +1317,586 @@ export function useFindAll<TData = Awaited<ReturnType<typeof findAll>>, TError =
 
 
 
+
+export const getAuthorizeSocialUrl = (provider: 'kakao' | 'google',
+    params?: AuthorizeSocialParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/auth/oauth2/authorize/${provider}?${stringifiedParams}` : `/api/v1/auth/oauth2/authorize/${provider}`
+}
+
+/**
+ * state·PKCE를 만들어 Redis에 10분 저장하고, 그 요청 ID를 httpOnly 쿠키(oauth2Request)로 심은 뒤 제공자 로그인 화면으로 보낸다. fetch가 아니라 화면 이동으로 연다. 계정 연결 표 쿠키(oauth2Link)가 있으면 로그인한 회원의 계정 연결로 처리하고, 결과와 상관없이 그 쿠키를 지운다.
+ * @summary 소셜 로그인 시작
+ */
+export const authorizeSocial = async (provider: 'kakao' | 'google',
+    params?: AuthorizeSocialParams, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getAuthorizeSocialUrl(provider,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getAuthorizeSocialQueryKey = (provider: 'kakao' | 'google',
+    params?: AuthorizeSocialParams,) => {
+    return [
+    `/api/v1/auth/oauth2/authorize/${provider}`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getAuthorizeSocialQueryOptions = <TData = Awaited<ReturnType<typeof authorizeSocial>>, TError = void | RsData>(provider: 'kakao' | 'google',
+    params?: AuthorizeSocialParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof authorizeSocial>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getAuthorizeSocialQueryKey(provider,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof authorizeSocial>>> = ({ signal }) => authorizeSocial(provider,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: provider !== null && provider !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof authorizeSocial>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type AuthorizeSocialQueryResult = NonNullable<Awaited<ReturnType<typeof authorizeSocial>>>
+export type AuthorizeSocialQueryError = void | RsData
+
+
+export function useAuthorizeSocial<TData = Awaited<ReturnType<typeof authorizeSocial>>, TError = void | RsData>(
+ provider: 'kakao' | 'google',
+    params: undefined |  AuthorizeSocialParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof authorizeSocial>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof authorizeSocial>>,
+          TError,
+          Awaited<ReturnType<typeof authorizeSocial>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAuthorizeSocial<TData = Awaited<ReturnType<typeof authorizeSocial>>, TError = void | RsData>(
+ provider: 'kakao' | 'google',
+    params?: AuthorizeSocialParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof authorizeSocial>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof authorizeSocial>>,
+          TError,
+          Awaited<ReturnType<typeof authorizeSocial>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAuthorizeSocial<TData = Awaited<ReturnType<typeof authorizeSocial>>, TError = void | RsData>(
+ provider: 'kakao' | 'google',
+    params?: AuthorizeSocialParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof authorizeSocial>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 소셜 로그인 시작
+ */
+
+export function useAuthorizeSocial<TData = Awaited<ReturnType<typeof authorizeSocial>>, TError = void | RsData>(
+ provider: 'kakao' | 'google',
+    params?: AuthorizeSocialParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof authorizeSocial>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getAuthorizeSocialQueryOptions(provider,params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSocialCallbackUrl = (provider: 'kakao' | 'google',
+    params?: SocialCallbackParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/auth/oauth2/callback/${provider}?${stringifiedParams}` : `/api/v1/auth/oauth2/callback/${provider}`
+}
+
+/**
+ * 제공자가 브라우저를 보내는 주소다. 프론트가 직접 부르지 않는다. 쿠키의 요청 ID로 꺼낸 state가 맞을 때만 진행하고, 결과에 따라 프론트 화면으로 보낸다.
+ * - 연결된 회원이 있음: Refresh Token 쿠키를 심고 /auth/social/complete?next=
+ * - 처음 온 사람: 가입 대기 쿠키(oauth2Signup, 15분)를 심고 /signup/social?next=
+ * - 확인된 이메일이 다른 회원 것: /login?error=AUTH_SOCIAL_EMAIL_TAKEN&provider=kakao&joinedWith=email (joinedWith는 email, kakao, google 중 하나)
+ * - 취소·state 불일치·제공자 오류: /login?error=AUTH_SOCIAL_FAILED
+ * - 계정 연결: next?linked=kakao, 실패면 next?error=AUTH_SOCIAL_ALREADY_LINKED, MEMBER_SOCIAL_PROVIDER_ALREADY_LINKED, AUTH_SOCIAL_FAILED 중 하나
+ * @summary 소셜 로그인 콜백
+ */
+export const socialCallback = async (provider: 'kakao' | 'google',
+    params?: SocialCallbackParams, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getSocialCallbackUrl(provider,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getSocialCallbackQueryKey = (provider: 'kakao' | 'google',
+    params?: SocialCallbackParams,) => {
+    return [
+    `/api/v1/auth/oauth2/callback/${provider}`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getSocialCallbackQueryOptions = <TData = Awaited<ReturnType<typeof socialCallback>>, TError = void | RsData>(provider: 'kakao' | 'google',
+    params?: SocialCallbackParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof socialCallback>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getSocialCallbackQueryKey(provider,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof socialCallback>>> = ({ signal }) => socialCallback(provider,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: provider !== null && provider !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof socialCallback>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type SocialCallbackQueryResult = NonNullable<Awaited<ReturnType<typeof socialCallback>>>
+export type SocialCallbackQueryError = void | RsData
+
+
+export function useSocialCallback<TData = Awaited<ReturnType<typeof socialCallback>>, TError = void | RsData>(
+ provider: 'kakao' | 'google',
+    params: undefined |  SocialCallbackParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof socialCallback>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof socialCallback>>,
+          TError,
+          Awaited<ReturnType<typeof socialCallback>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useSocialCallback<TData = Awaited<ReturnType<typeof socialCallback>>, TError = void | RsData>(
+ provider: 'kakao' | 'google',
+    params?: SocialCallbackParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof socialCallback>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof socialCallback>>,
+          TError,
+          Awaited<ReturnType<typeof socialCallback>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useSocialCallback<TData = Awaited<ReturnType<typeof socialCallback>>, TError = void | RsData>(
+ provider: 'kakao' | 'google',
+    params?: SocialCallbackParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof socialCallback>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 소셜 로그인 콜백
+ */
+
+export function useSocialCallback<TData = Awaited<ReturnType<typeof socialCallback>>, TError = void | RsData>(
+ provider: 'kakao' | 'google',
+    params?: SocialCallbackParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof socialCallback>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getSocialCallbackQueryOptions(provider,params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getFindSocialSignupUrl = () => {
+
+
+
+
+  return `/api/v1/auth/oauth2/signup`
+}
+
+/**
+ * 가입 대기 쿠키(oauth2Signup)로 제공자가 준 이메일·이름을 돌려준다. emailLocked가 true면 이메일을 고칠 수 없게 보여 준다.
+ * @summary 소셜 가입 미리 채울 값 조회
+ */
+export const findSocialSignup = async ( options?: Parameters<typeof customFetch>[1]): Promise<RsDataSocialSignupInfoDto> => {
+
+  return customFetch<RsDataSocialSignupInfoDto>(getFindSocialSignupUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getFindSocialSignupQueryKey = () => {
+    return [
+    `/api/v1/auth/oauth2/signup`
+    ] as const;
+    }
+
+
+export const getFindSocialSignupQueryOptions = <TData = Awaited<ReturnType<typeof findSocialSignup>>, TError = RsData>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findSocialSignup>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getFindSocialSignupQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof findSocialSignup>>> = ({ signal }) => findSocialSignup({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof findSocialSignup>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type FindSocialSignupQueryResult = NonNullable<Awaited<ReturnType<typeof findSocialSignup>>>
+export type FindSocialSignupQueryError = RsData
+
+
+export function useFindSocialSignup<TData = Awaited<ReturnType<typeof findSocialSignup>>, TError = RsData>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof findSocialSignup>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findSocialSignup>>,
+          TError,
+          Awaited<ReturnType<typeof findSocialSignup>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindSocialSignup<TData = Awaited<ReturnType<typeof findSocialSignup>>, TError = RsData>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findSocialSignup>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findSocialSignup>>,
+          TError,
+          Awaited<ReturnType<typeof findSocialSignup>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindSocialSignup<TData = Awaited<ReturnType<typeof findSocialSignup>>, TError = RsData>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findSocialSignup>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 소셜 가입 미리 채울 값 조회
+ */
+
+export function useFindSocialSignup<TData = Awaited<ReturnType<typeof findSocialSignup>>, TError = RsData>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findSocialSignup>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getFindSocialSignupQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSocialJoinUrl = () => {
+
+
+
+
+  return `/api/v1/auth/oauth2/join`
+}
+
+/**
+ * 가입 대기 쿠키의 소셜 계정으로 회원을 만든다. 약관·입력 검사는 이메일 가입과 같다. 제공자가 확인된 이메일을 줬으면 그 값을 쓰고 본문 email은 무시한다. 성공하면 로그인과 같이 Access Token은 본문, Refresh Token은 쿠키로 내려주고 가입 대기 쿠키를 지운다.
+ * @summary 소셜 회원가입
+ */
+export const socialJoin = async (socialJoinRequestDto: SocialJoinRequestDto, options?: Parameters<typeof customFetch>[1]): Promise<RsDataMemberLoginResponseDto> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<RsDataMemberLoginResponseDto>(getSocialJoinUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(socialJoinRequestDto)
+  }
+);}
+
+
+
+
+
+export const getSocialJoinMutationKey = () => ['socialJoin'] as const;
+
+export const getSocialJoinMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof socialJoin>>, TError,SocialJoinMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof socialJoin>>, TError,SocialJoinMutationVariables, TContext> => {
+
+const mutationKey = getSocialJoinMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof socialJoin>>, SocialJoinMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  socialJoin(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SocialJoinMutationResult = NonNullable<Awaited<ReturnType<typeof socialJoin>>>
+    export type SocialJoinMutationBody = SocialJoinRequestDto
+    export type SocialJoinMutationError = RsData
+    export type SocialJoinMutationVariables = {data: SocialJoinRequestDto}
+
+    /**
+ * @summary 소셜 회원가입
+ */
+export const useSocialJoin = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof socialJoin>>, TError,SocialJoinMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof socialJoin>>,
+        TError,
+        SocialJoinMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSocialJoinMutationOptions(options), queryClient);
+    }
+
+export const getIssueSocialLinkTicketUrl = (provider: 'kakao' | 'google',) => {
+
+
+
+
+  return `/api/v1/member/members/me/social-accounts/${provider}/link-ticket`
+}
+
+/**
+ * 로그인한 회원이 소셜 계정을 연결할 때 먼저 부른다. 2분 동안 한 번만 쓸 수 있는 연결 표를 httpOnly 쿠키(oauth2Link, Path=/api/v1/auth/oauth2/authorize)로 심는다. 프론트는 이어서 /api/v1/auth/oauth2/authorize/{provider}?next=/me/accounts로 화면을 이동한다.
+ * @summary 계정 연결 표 발급
+ */
+export const issueSocialLinkTicket = async (provider: 'kakao' | 'google', options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getIssueSocialLinkTicketUrl(provider),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getIssueSocialLinkTicketMutationKey = () => ['issueSocialLinkTicket'] as const;
+
+export const getIssueSocialLinkTicketMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof issueSocialLinkTicket>>, TError,IssueSocialLinkTicketMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof issueSocialLinkTicket>>, TError,IssueSocialLinkTicketMutationVariables, TContext> => {
+
+const mutationKey = getIssueSocialLinkTicketMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof issueSocialLinkTicket>>, IssueSocialLinkTicketMutationVariables> = (props) => {
+          const {provider} = props ?? {};
+
+          return  issueSocialLinkTicket(provider,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type IssueSocialLinkTicketMutationResult = NonNullable<Awaited<ReturnType<typeof issueSocialLinkTicket>>>
+
+    export type IssueSocialLinkTicketMutationError = RsData
+    export type IssueSocialLinkTicketMutationVariables = {provider: 'kakao' | 'google'}
+
+    /**
+ * @summary 계정 연결 표 발급
+ */
+export const useIssueSocialLinkTicket = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof issueSocialLinkTicket>>, TError,IssueSocialLinkTicketMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof issueSocialLinkTicket>>,
+        TError,
+        IssueSocialLinkTicketMutationVariables,
+        TContext
+      > => {
+      return useMutation(getIssueSocialLinkTicketMutationOptions(options), queryClient);
+    }
+
+export const getUnlinkSocialAccountUrl = (provider: 'kakao' | 'google',) => {
+
+
+
+
+  return `/api/v1/member/members/me/social-accounts/${provider}`
+}
+
+/**
+ * 비밀번호나 다른 소셜 연결이 남을 때만 해제한다. 카카오면 커밋 뒤 카카오 연결 끊기도 부른다(실패해도 해제는 유지).
+ * @summary 소셜 계정 연결 해제
+ */
+export const unlinkSocialAccount = async (provider: 'kakao' | 'google', options?: Parameters<typeof customFetch>[1]): Promise<RsDataMemberDto> => {
+
+  return customFetch<RsDataMemberDto>(getUnlinkSocialAccountUrl(provider),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getUnlinkSocialAccountMutationKey = () => ['unlinkSocialAccount'] as const;
+
+export const getUnlinkSocialAccountMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unlinkSocialAccount>>, TError,UnlinkSocialAccountMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof unlinkSocialAccount>>, TError,UnlinkSocialAccountMutationVariables, TContext> => {
+
+const mutationKey = getUnlinkSocialAccountMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof unlinkSocialAccount>>, UnlinkSocialAccountMutationVariables> = (props) => {
+          const {provider} = props ?? {};
+
+          return  unlinkSocialAccount(provider,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UnlinkSocialAccountMutationResult = NonNullable<Awaited<ReturnType<typeof unlinkSocialAccount>>>
+
+    export type UnlinkSocialAccountMutationError = RsData
+    export type UnlinkSocialAccountMutationVariables = {provider: 'kakao' | 'google'}
+
+    /**
+ * @summary 소셜 계정 연결 해제
+ */
+export const useUnlinkSocialAccount = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unlinkSocialAccount>>, TError,UnlinkSocialAccountMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof unlinkSocialAccount>>,
+        TError,
+        UnlinkSocialAccountMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUnlinkSocialAccountMutationOptions(options), queryClient);
+    }
 
 export const getCreateCrewUrl = () => {
 

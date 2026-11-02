@@ -22,7 +22,9 @@ export const FindMeResponse = zod.object({
   "email": zod.string().optional(),
   "phone": zod.string().optional(),
   "name": zod.string().optional(),
-  "birthDate": zod.iso.date().optional()
+  "birthDate": zod.iso.date().optional(),
+  "socialProviders": zod.array(zod.enum(['KAKAO', 'GOOGLE'])).optional().describe('연결된 소셜 로그인 제공자'),
+  "passwordSet": zod.boolean().optional().describe('비밀번호가 있으면 true. false면 소셜 로그인으로만 로그인한다')
 }).optional()
 })
 
@@ -60,7 +62,9 @@ export const ModifyMeResponse = zod.object({
   "email": zod.string().optional(),
   "phone": zod.string().optional(),
   "name": zod.string().optional(),
-  "birthDate": zod.iso.date().optional()
+  "birthDate": zod.iso.date().optional(),
+  "socialProviders": zod.array(zod.enum(['KAKAO', 'GOOGLE'])).optional().describe('연결된 소셜 로그인 제공자'),
+  "passwordSet": zod.boolean().optional().describe('비밀번호가 있으면 true. false면 소셜 로그인으로만 로그인한다')
 }).optional()
 })
 
@@ -118,7 +122,9 @@ export const LoginResponse = zod.object({
   "email": zod.string().optional(),
   "phone": zod.string().optional(),
   "name": zod.string().optional(),
-  "birthDate": zod.iso.date().optional()
+  "birthDate": zod.iso.date().optional(),
+  "socialProviders": zod.array(zod.enum(['KAKAO', 'GOOGLE'])).optional().describe('연결된 소셜 로그인 제공자'),
+  "passwordSet": zod.boolean().optional().describe('비밀번호가 있으면 true. false면 소셜 로그인으로만 로그인한다')
 }).optional().describe('로그인한 회원')
 }).optional().describe('로그인 응답')
 })
@@ -348,6 +354,140 @@ export const FindAllResponse = zod.object({
   "rejectReason": zod.string().nullish(),
   "resultCheckedAt": zod.iso.datetime({"offset":true}).nullish().describe('신청자가 결과를 처음 본 시각. 아직 안 봤거나 심사 중이면 null')
 })).optional()
+})
+
+
+/**
+ * state·PKCE를 만들어 Redis에 10분 저장하고, 그 요청 ID를 httpOnly 쿠키(oauth2Request)로 심은 뒤 제공자 로그인 화면으로 보낸다. fetch가 아니라 화면 이동으로 연다. 계정 연결 표 쿠키(oauth2Link)가 있으면 로그인한 회원의 계정 연결로 처리하고, 결과와 상관없이 그 쿠키를 지운다.
+ * @summary 소셜 로그인 시작
+ */
+export const AuthorizeSocialParams = zod.object({
+  "provider": zod.enum(['kakao', 'google']).describe('소셜 로그인 제공자')
+})
+
+export const AuthorizeSocialQueryParams = zod.object({
+  "next": zod.string().optional().describe('끝난 뒤 돌아갈 앱 내부 경로. 앱 내부 경로가 아니면 \'/\'(연결이면 \'/me/accounts\')로 바꾼다')
+})
+
+export const AuthorizeSocialResponse = zod.void()
+
+
+/**
+ * 제공자가 브라우저를 보내는 주소다. 프론트가 직접 부르지 않는다. 쿠키의 요청 ID로 꺼낸 state가 맞을 때만 진행하고, 결과에 따라 프론트 화면으로 보낸다.
+ * - 연결된 회원이 있음: Refresh Token 쿠키를 심고 /auth/social/complete?next=
+ * - 처음 온 사람: 가입 대기 쿠키(oauth2Signup, 15분)를 심고 /signup/social?next=
+ * - 확인된 이메일이 다른 회원 것: /login?error=AUTH_SOCIAL_EMAIL_TAKEN&provider=kakao&joinedWith=email (joinedWith는 email, kakao, google 중 하나)
+ * - 취소·state 불일치·제공자 오류: /login?error=AUTH_SOCIAL_FAILED
+ * - 계정 연결: next?linked=kakao, 실패면 next?error=AUTH_SOCIAL_ALREADY_LINKED, MEMBER_SOCIAL_PROVIDER_ALREADY_LINKED, AUTH_SOCIAL_FAILED 중 하나
+ * @summary 소셜 로그인 콜백
+ */
+export const SocialCallbackParams = zod.object({
+  "provider": zod.enum(['kakao', 'google']).describe('소셜 로그인 제공자')
+})
+
+export const SocialCallbackQueryParams = zod.object({
+  "code": zod.string().optional(),
+  "state": zod.string().optional(),
+  "error": zod.string().optional().describe('사용자가 동의를 취소하면 제공자가 넣는다')
+})
+
+export const SocialCallbackResponse = zod.void()
+
+
+/**
+ * 가입 대기 쿠키(oauth2Signup)로 제공자가 준 이메일·이름을 돌려준다. emailLocked가 true면 이메일을 고칠 수 없게 보여 준다.
+ * @summary 소셜 가입 미리 채울 값 조회
+ */
+export const FindSocialSignupResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.object({
+  "provider": zod.enum(['KAKAO', 'GOOGLE']),
+  "email": zod.string().nullish().describe('제공자가 준 확인된 이메일. 없으면 null'),
+  "emailLocked": zod.boolean().describe('true면 이메일을 고칠 수 없다(제공자가 확인한 이메일)'),
+  "name": zod.string().nullish().describe('제공자가 준 이름. 없으면 null')
+}).optional().describe('소셜 가입 화면에 미리 채울 값')
+})
+
+
+/**
+ * 가입 대기 쿠키의 소셜 계정으로 회원을 만든다. 약관·입력 검사는 이메일 가입과 같다. 제공자가 확인된 이메일을 줬으면 그 값을 쓰고 본문 email은 무시한다. 성공하면 로그인과 같이 Access Token은 본문, Refresh Token은 쿠키로 내려주고 가입 대기 쿠키를 지운다.
+ * @summary 소셜 회원가입
+ */
+
+
+
+export const socialJoinBodyNicknameRegExp = new RegExp('^[가-힣A-Za-z0-9]+$');
+
+
+export const socialJoinBodyPhoneRegExp = new RegExp('^01[016789]-?\\d{3,4}-?\\d{4}$');
+
+
+export const SocialJoinBody = zod.object({
+  "email": zod.email().nullish().describe('이메일. 제공자가 확인된 이메일을 줬으면 무시하고, 안 줬으면 필수'),
+  "name": zod.string().min(1).describe('실명'),
+  "nickname": zod.string().min(1).regex(socialJoinBodyNicknameRegExp).describe('닉네임 (한글 2~8자, 영문 4~16자, 한글·영문·숫자만)'),
+  "phone": zod.string().min(1).regex(socialJoinBodyPhoneRegExp).describe('휴대폰 번호 (하이픈 생략 가능)'),
+  "birthDate": zod.iso.date().describe('생년월일'),
+  "gender": zod.union([zod.literal('MALE'),zod.literal('FEMALE'),zod.literal(null)]).nullish().describe('성별 (선택)'),
+  "agreedTerms": zod.array(zod.enum(['SERVICE', 'PRIVACY', 'MARKETING'])).describe('동의한 약관 종류 (SERVICE, PRIVACY는 필수). 동의하지 않은 선택 약관은 빼고 보낸다')
+}).describe('소셜 회원가입 요청')
+
+export const SocialJoinResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.object({
+  "accessToken": zod.string().optional().describe('Access Token. 인증이 필요한 요청에 Authorization: Bearer {accessToken} 헤더로 보낸다'),
+  "member": zod.object({
+  "id": zod.int().optional(),
+  "createDate": zod.iso.datetime({"offset":true}).optional(),
+  "modifyDate": zod.iso.datetime({"offset":true}).optional(),
+  "nickname": zod.string().optional(),
+  "email": zod.string().optional(),
+  "phone": zod.string().optional(),
+  "name": zod.string().optional(),
+  "birthDate": zod.iso.date().optional(),
+  "socialProviders": zod.array(zod.enum(['KAKAO', 'GOOGLE'])).optional().describe('연결된 소셜 로그인 제공자'),
+  "passwordSet": zod.boolean().optional().describe('비밀번호가 있으면 true. false면 소셜 로그인으로만 로그인한다')
+}).optional().describe('로그인한 회원')
+}).optional().describe('로그인 응답')
+})
+
+
+/**
+ * 로그인한 회원이 소셜 계정을 연결할 때 먼저 부른다. 2분 동안 한 번만 쓸 수 있는 연결 표를 httpOnly 쿠키(oauth2Link, Path=/api/v1/auth/oauth2/authorize)로 심는다. 프론트는 이어서 /api/v1/auth/oauth2/authorize/{provider}?next=/me/accounts로 화면을 이동한다.
+ * @summary 계정 연결 표 발급
+ */
+export const IssueSocialLinkTicketParams = zod.object({
+  "provider": zod.enum(['kakao', 'google']).describe('소셜 로그인 제공자')
+})
+
+export const IssueSocialLinkTicketResponse = zod.void()
+
+
+/**
+ * 비밀번호나 다른 소셜 연결이 남을 때만 해제한다. 카카오면 커밋 뒤 카카오 연결 끊기도 부른다(실패해도 해제는 유지).
+ * @summary 소셜 계정 연결 해제
+ */
+export const UnlinkSocialAccountParams = zod.object({
+  "provider": zod.enum(['kakao', 'google']).describe('소셜 로그인 제공자')
+})
+
+export const UnlinkSocialAccountResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.object({
+  "id": zod.int().optional(),
+  "createDate": zod.iso.datetime({"offset":true}).optional(),
+  "modifyDate": zod.iso.datetime({"offset":true}).optional(),
+  "nickname": zod.string().optional(),
+  "email": zod.string().optional(),
+  "phone": zod.string().optional(),
+  "name": zod.string().optional(),
+  "birthDate": zod.iso.date().optional(),
+  "socialProviders": zod.array(zod.enum(['KAKAO', 'GOOGLE'])).optional().describe('연결된 소셜 로그인 제공자'),
+  "passwordSet": zod.boolean().optional().describe('비밀번호가 있으면 true. false면 소셜 로그인으로만 로그인한다')
+}).optional()
 })
 
 
