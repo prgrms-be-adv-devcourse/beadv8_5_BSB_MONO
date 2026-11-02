@@ -60,11 +60,16 @@ function renderProfileStep() {
   )
 }
 
+// 휴대폰 번호를 넣고 인증번호(목업은 언제나 123456)로 인증까지 마친다. 인증해야 가입 버튼이 켜진다.
 async function fillProfile(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText('이름'), '김러너')
   await user.type(screen.getByLabelText('생년월일'), '1995-03-02')
   await user.type(screen.getByLabelText('휴대폰 번호'), '01012345678')
   await user.type(screen.getByLabelText('닉네임'), '달리는곰')
+  await user.click(screen.getByRole('button', { name: '인증번호 받기' }))
+  await user.type(await screen.findByLabelText('인증번호'), '123456')
+  await user.click(screen.getByRole('button', { name: '인증번호 확인하기' }))
+  await screen.findByText('휴대폰 인증을 마쳤어요')
 }
 
 async function agreeRequiredTerms(user: ReturnType<typeof userEvent.setup>) {
@@ -168,6 +173,7 @@ describe('회원가입 단계', () => {
       phone: '010-1234-5678',
       birthDate: '1995-03-02',
       agreedTerms: ['SERVICE', 'PRIVACY', 'MARKETING'],
+      verificationToken: expect.stringMatching(/^mock-verification\./),
     })
     expect(getAuthStatus()).toBe('authenticated')
   })

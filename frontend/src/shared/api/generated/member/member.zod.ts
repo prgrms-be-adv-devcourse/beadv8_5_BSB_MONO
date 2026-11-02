@@ -8,6 +8,83 @@
 import * as zod from 'zod';
 
 /**
+ * 휴대폰 번호로 6자리 인증번호를 보낸다. 사업자가 없어 실제 문자는 보내지 않는 목업이다. 인증번호는 언제나 123456이고 3분 동안 쓸 수 있다.
+ * @summary 휴대폰 인증번호 받기 (목업)
+ */
+export const requestPhoneVerificationBodyPhoneRegExp = new RegExp('^01[016789]-?\\d{3,4}-?\\d{4}$');
+
+
+export const RequestPhoneVerificationBody = zod.object({
+  "phone": zod.string().regex(requestPhoneVerificationBodyPhoneRegExp).describe('휴대폰 번호 (하이픈 생략 가능)')
+}).describe('휴대폰 인증번호 받기 요청')
+
+export const RequestPhoneVerificationResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.object({
+  "verificationId": zod.string().describe('인증번호를 확인할 때 쓰는 값'),
+  "expiresInSeconds": zod.int().describe('인증번호를 쓸 수 있는 남은 초')
+}).optional().describe('인증번호를 보낸 결과')
+})
+
+
+/**
+ * 받은 인증번호가 맞으면 가입 요청에 넣을 인증 토큰을 준다.
+ * @summary 휴대폰 인증번호 확인 (목업)
+ */
+export const ConfirmPhoneVerificationParams = zod.object({
+  "verificationId": zod.string()
+})
+
+export const confirmPhoneVerificationBodyCodeRegExp = new RegExp('^\\d{6}$');
+
+
+export const ConfirmPhoneVerificationBody = zod.object({
+  "code": zod.string().regex(confirmPhoneVerificationBodyCodeRegExp).describe('문자로 받은 6자리 숫자')
+}).describe('휴대폰 인증번호 확인 요청')
+
+export const ConfirmPhoneVerificationResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.object({
+  "verificationToken": zod.string().describe('가입 요청에 넣는 인증 토큰. 30분 동안 쓸 수 있다'),
+  "method": zod.enum(['PHONE', 'PASS']).describe('인증한 방법'),
+  "phone": zod.string().describe('인증한 휴대폰 번호'),
+  "name": zod.string().nullish().describe('PASS로 확인한 실명. 휴대폰 인증이면 null'),
+  "birthDate": zod.iso.date().nullish().describe('PASS로 확인한 생년월일. 휴대폰 인증이면 null')
+}).optional().describe('본인 확인 결과')
+})
+
+
+/**
+ * PASS 인증 결과로 이름 · 생년월일 · 휴대폰 번호와 가입 요청에 넣을 인증 토큰을 준다. 사업자가 없어 실제 PASS 연동 없이 입력값을 그대로 돌려주는 목업이다.
+ * @summary PASS 본인인증 (목업)
+ */
+
+export const verifyIdentityWithPassBodyPhoneRegExp = new RegExp('^01[016789]-?\\d{3,4}-?\\d{4}$');
+
+
+export const VerifyIdentityWithPassBody = zod.object({
+  "carrier": zod.enum(['SKT', 'KT', 'LGU', 'MVNO']).describe('통신사 (MVNO는 알뜰폰)'),
+  "name": zod.string().min(1).describe('실명'),
+  "birthDate": zod.iso.date().describe('생년월일'),
+  "phone": zod.string().regex(verifyIdentityWithPassBodyPhoneRegExp).describe('휴대폰 번호 (하이픈 생략 가능)')
+}).describe('PASS 본인인증 요청. 실제 연동에서는 PASS 창에 입력하는 값이다')
+
+export const VerifyIdentityWithPassResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.object({
+  "verificationToken": zod.string().describe('가입 요청에 넣는 인증 토큰. 30분 동안 쓸 수 있다'),
+  "method": zod.enum(['PHONE', 'PASS']).describe('인증한 방법'),
+  "phone": zod.string().describe('인증한 휴대폰 번호'),
+  "name": zod.string().nullish().describe('PASS로 확인한 실명. 휴대폰 인증이면 null'),
+  "birthDate": zod.iso.date().nullish().describe('PASS로 확인한 생년월일. 휴대폰 인증이면 null')
+}).optional().describe('본인 확인 결과')
+})
+
+
+/**
  * 게이트웨이가 Access Token에서 꺼내 넣은 회원 ID(X-Member-Id 헤더)로 로그인한 회원의 정보를 조회한다.
  * @summary 내 정보 조회
  */
@@ -148,6 +225,7 @@ export const joinBodyPhoneRegExp = new RegExp('^01[016789]-?\\d{3,4}-?\\d{4}$');
 
 
 export const JoinBody = zod.object({
+  "verificationToken": zod.string().nullish().describe('휴대폰 인증 · PASS 본인인증으로 받은 인증 토큰 (목업. 백엔드는 아직 확인하지 않는다)'),
   "email": zod.email().min(1).describe('이메일 (로그인 ID)'),
   "password": zod.string().min(joinBodyPasswordMin).max(joinBodyPasswordMax).describe('비밀번호 (10자 이상)'),
   "name": zod.string().min(1).describe('실명'),
@@ -425,6 +503,7 @@ export const socialJoinBodyPhoneRegExp = new RegExp('^01[016789]-?\\d{3,4}-?\\d{
 
 
 export const SocialJoinBody = zod.object({
+  "verificationToken": zod.string().nullish().describe('휴대폰 인증 · PASS 본인인증으로 받은 인증 토큰 (목업. 백엔드는 아직 확인하지 않는다)'),
   "email": zod.email().nullish().describe('이메일. 제공자가 확인된 이메일을 줬으면 무시하고, 안 줬으면 필수'),
   "name": zod.string().min(1).describe('실명'),
   "nickname": zod.string().min(1).regex(socialJoinBodyNicknameRegExp).describe('닉네임 (한글 2~8자, 영문 4~16자, 한글·영문·숫자만)'),

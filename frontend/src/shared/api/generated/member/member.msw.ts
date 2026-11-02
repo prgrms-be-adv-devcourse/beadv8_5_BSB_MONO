@@ -6,6 +6,10 @@
  * OpenAPI spec version: v1
  */
 import {
+  faker
+} from '@faker-js/faker';
+
+import {
   HttpResponse,
   http
 } from 'msw';
@@ -15,15 +19,23 @@ import type {
 
 import type {
   RsDataEmailAvailabilityResponseDto,
+  RsDataIdentityVerificationDto,
   RsDataListSellerDto,
   RsDataMemberDto,
   RsDataMemberLoginResponseDto,
+  RsDataPhoneVerificationDto,
   RsDataSellerDto,
   RsDataSocialLinkTicketDto,
   RsDataSocialSignupInfoDto,
   RsDataTokenReissueResponseDto
 } from './member.schemas';
 
+
+export const getRequestPhoneVerificationResponseMock = (overrideResponse: Partial<Extract<RsDataPhoneVerificationDto, object>> = {}): RsDataPhoneVerificationDto => ({status: 201, message: "인증번호를 보냈습니다.", data: faker.helpers.arrayElement([{verificationId: "pv-01012345678-1762060000000", expiresInSeconds: 180}, undefined]), ...overrideResponse})
+
+export const getConfirmPhoneVerificationResponseMock = (overrideResponse: Partial<Extract<RsDataIdentityVerificationDto, object>> = {}): RsDataIdentityVerificationDto => ({status: 200, message: "본인 확인을 마쳤습니다.", data: faker.helpers.arrayElement([{verificationToken: "mock-verification.eyJwaG9uZSI6IjAxMDEyMzQ1Njc4In0", method: "PHONE", phone: "010-1234-5678", name: null, birthDate: null}, undefined]), ...overrideResponse})
+
+export const getVerifyIdentityWithPassResponseMock = (overrideResponse: Partial<Extract<RsDataIdentityVerificationDto, object>> = {}): RsDataIdentityVerificationDto => ({status: 200, message: "본인 확인을 마쳤습니다.", data: faker.helpers.arrayElement([{verificationToken: "mock-verification.eyJwaG9uZSI6IjAxMDEyMzQ1Njc4In0", method: "PHONE", phone: "010-1234-5678", name: null, birthDate: null}, undefined]), ...overrideResponse})
 
 export const getFindMeResponseMock = (): RsDataMemberDto => ({"status":200,"message":"내 정보를 조회했습니다.","data":{"id":1,"createDate":"2026-10-05T21:25:35","modifyDate":"2026-10-05T21:25:35","nickname":"러너1","email":"runner1@crewrun.com","phone":"010-1234-5678","name":"김러너","birthDate":"1995-04-12"}})
 
@@ -55,6 +67,42 @@ export const getIssueSocialLinkTicketResponseMock = (): RsDataSocialLinkTicketDt
 
 export const getUnlinkSocialAccountResponseMock = (): RsDataMemberDto => ({"status":200,"message":"연결을 해제했습니다.","data":{"id":1,"createDate":"2026-10-05T21:25:35","modifyDate":"2026-10-05T21:25:35","nickname":"러너1","email":"runner1@crewrun.com","phone":"010-1234-5678","name":"김러너","birthDate":"1995-04-12","socialProviders":[],"passwordSet":true}})
 
+
+export const getRequestPhoneVerificationMockHandler = (overrideResponse?: RsDataPhoneVerificationDto | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<RsDataPhoneVerificationDto> | RsDataPhoneVerificationDto), options?: RequestHandlerOptions) => {
+  return http.post('*/api/v1/auth/phone-verifications', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getRequestPhoneVerificationResponseMock(),
+      { status: 201
+      })
+  }, options)
+}
+
+export const getConfirmPhoneVerificationMockHandler = (overrideResponse?: RsDataIdentityVerificationDto | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<RsDataIdentityVerificationDto> | RsDataIdentityVerificationDto), options?: RequestHandlerOptions) => {
+  return http.post('*/api/v1/auth/phone-verifications/:verificationId/confirm', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getConfirmPhoneVerificationResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
+export const getVerifyIdentityWithPassMockHandler = (overrideResponse?: RsDataIdentityVerificationDto | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<RsDataIdentityVerificationDto> | RsDataIdentityVerificationDto), options?: RequestHandlerOptions) => {
+  return http.post('*/api/v1/auth/identity-verifications/pass', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getVerifyIdentityWithPassResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
 
 export const getFindMeMockHandler = (overrideResponse?: RsDataMemberDto | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<RsDataMemberDto> | RsDataMemberDto), options?: RequestHandlerOptions) => {
   return http.get('*/api/v1/member/members/me', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
@@ -286,6 +334,9 @@ export const getUnlinkSocialAccountMockHandler = (overrideResponse?: RsDataMembe
   }, options)
 }
 export const getBukangMemberAPIMock = () => [
+  getRequestPhoneVerificationMockHandler(),
+  getConfirmPhoneVerificationMockHandler(),
+  getVerifyIdentityWithPassMockHandler(),
   getFindMeMockHandler(),
   getModifyMeMockHandler(),
   getWithdrawMeMockHandler(),

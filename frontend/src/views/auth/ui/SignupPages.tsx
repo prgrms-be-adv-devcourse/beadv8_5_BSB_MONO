@@ -4,12 +4,13 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState, type FormEvent } from 'react'
-import { useForm, type FieldErrors, type UseFormRegister } from 'react-hook-form'
+import { useForm, useWatch, type FieldErrors, type UseFormRegister } from 'react-hook-form'
 
 import { AppHeader } from '@/widgets/app-header'
 import { checkEmailAvailable, useLogin } from '@/features/auth'
+import { PassVerification, PhoneVerification } from '@/features/identity-verification'
 import { BirthDateField } from '@/entities/member'
-import { memberApi } from '@/shared/api'
+import { memberApi, type memberModel } from '@/shared/api'
 import { cn } from '@/shared/lib'
 import {
   BottomCta,
@@ -33,6 +34,7 @@ import {
 } from '../model/schemas'
 import { useSignupStep } from '../model/signup-store'
 import { requiredTermsChecked, SIGNUP_TERMS } from '../model/signup-terms'
+import { useSignupVerification } from '../model/use-signup-verification'
 import { CenterBody, StepIntro } from './parts'
 
 const STEPS = ['약관', '계정', '회원 정보']
@@ -196,12 +198,16 @@ function SignupProfileForm() {
     handleSubmit,
     subscribe,
     setError,
+    setValue,
+    control,
     formState: { errors, isValid, isSubmitting },
   } = useForm<SignupProfileValues>({
     resolver: zodResolver(signupProfileSchema),
     mode: 'onTouched',
     defaultValues: profile,
   })
+  const { verification, onVerified, reset } = useSignupVerification(setValue)
+  const phone = useWatch({ control, name: 'phone' })
   useEffect(
     () =>
       subscribe({
@@ -214,7 +220,9 @@ function SignupProfileForm() {
   // 가입 API는 토큰을 주지 않는다. 로그인만 실패하면 가입은 됐으므로 로그인 화면으로 보낸다.
   const onSubmit = handleSubmit((values) => {
     setFormError(undefined)
-    const body = toJoinRequest(account, values, terms)
+    // 가입 버튼은 본인 확인 뒤에만 켜지지만, Enter 제출도 같은 조건으로 막는다
+    if (!verification) return
+    const body = toJoinRequest(account, values, terms, verification.verificationToken)
     join.mutate(
       { data: body },
       {
@@ -228,7 +236,8 @@ function SignupProfileForm() {
           ),
         onError: (error) => {
           const { target, message } = joinErrorMessage(error)
-          if (target === 'form') setFormError(message)
+          if (target === 'verification') reset()
+          if (target === 'form' || target === 'verification') setFormError(message)
           else setError(target, { message }, { shouldFocus: true })
         },
       },
@@ -251,7 +260,14 @@ function SignupProfileForm() {
           title="회원 정보를 적어요"
           description="마지막 단계예요. 다음은 가입 완료예요."
         />
-        <SignupProfileFields register={register} errors={errors} />
+        <SignupProfileFields
+          register={register}
+          errors={errors}
+          phone={phone}
+          verification={verification}
+          onVerified={onVerified}
+          onResetVerification={reset}
+        />
         {formError && (
           <p role="alert" className="text-caption text-text-danger">
             {formError}
@@ -261,9 +277,17 @@ function SignupProfileForm() {
       <BottomCta
         className="sticky bottom-0 z-10"
         primary={
-          <Button type="submit" size="l" disabled={!isValid} loading={submitting}>
-            가입 완료
-          </Button>
+          <div className="flex flex-col gap-2">
+            <VerificationNeededHint show={!verification} />
+            <Button
+              type="submit"
+              size="l"
+              disabled={!isValid || !verification}
+              loading={submitting}
+            >
+              가입 완료
+            </Button>
+          </div>
         }
       />
     </form>
@@ -343,34 +367,64 @@ export function SignupTermsSheet({
   )
 }
 
-/** 회원 정보 칸(이름 · 생년월일 · 휴대폰 · 닉네임). 이메일 가입과 소셜 가입이 함께 쓴다. */
+/** 회원 정보 칸(이름 · 생년월일 · 휴대폰 · 닉네임)과 본인 확인. 이메일 가입과 소셜 가입이 함께 쓴다. */
 export function SignupProfileFields({
   register,
   errors,
+  phone,
+  verification,
+  onVerified,
+  onResetVerification,
 }: {
   register: UseFormRegister<SignupProfileValues>
   errors: FieldErrors<SignupProfileValues>
+  /** 휴대폰 번호 칸의 지금 값. 인증번호 받기 버튼을 켤지 정한다 */
+  phone: string
+  verification: memberModel.IdentityVerificationDto | null
+  onVerified: (result: memberModel.IdentityVerificationDto) => void
+  onResetVerification: () => void
 }) {
+  // PASS로 확인한 이름 · 생년월일 · 휴대폰 번호와, 휴대폰 인증을 마친 번호는 고칠 수 없다
+  const passVerified = verification?.method === 'PASS'
+  const phoneLocked = verification !== null
   return (
     <>
+      <PassVerification
+        verified={passVerified}
+        onVerified={onVerified}
+        onReset={onResetVerification}
+      />
       <TextField
         label="이름"
         autoComplete="name"
+        readOnly={passVerified}
         error={errors.name?.message}
         {...register('name')}
       />
       <BirthDateField
         label="생년월일"
         helper="만 14세 미만은 가입할 수 없어요"
+        readOnly={passVerified}
         error={errors.birth?.message}
         {...register('birth')}
       />
-      <PhoneField
-        label="휴대폰 번호"
-        placeholder="010-1234-5678"
-        error={errors.phone?.message}
-        {...register('phone')}
-      />
+      <div className="flex flex-col gap-2">
+        <PhoneField
+          label="휴대폰 번호"
+          placeholder="010-1234-5678"
+          readOnly={phoneLocked}
+          error={errors.phone?.message}
+          {...register('phone')}
+        />
+        {!passVerified && (
+          <PhoneVerification
+            phone={phone}
+            verified={phoneLocked}
+            onVerified={onVerified}
+            onReset={onResetVerification}
+          />
+        )}
+      </div>
       <TextField
         label="닉네임"
         helper="다른 사람에게는 실명 대신 닉네임이 보여요. 한글 2~8자, 영문 4~16자"
@@ -382,4 +436,10 @@ export function SignupProfileFields({
       </p>
     </>
   )
+}
+
+/** 가입 버튼 위 안내. 본인 확인을 마치기 전에는 가입 버튼이 왜 꺼져 있는지 알려 준다 */
+export function VerificationNeededHint({ show }: { show: boolean }) {
+  if (!show) return null
+  return <p className="text-caption text-text-secondary">{AUTH_ERRORS.verificationNeeded}</p>
 }

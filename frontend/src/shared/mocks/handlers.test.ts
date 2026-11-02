@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { customFetch } from '@/shared/api'
+import {
+  answerPhoneVerificationConfirm,
+  answerPhoneVerificationRequest,
+  customFetch,
+  MOCK_VERIFICATION_CODE,
+} from '@/shared/api'
 
 import { MOCK_LOGGED_IN_COOKIE } from './mock-session'
 
@@ -19,6 +24,15 @@ type RacePage = {
 const searchRaces = (query = '') =>
   customFetch<RacePage>(`http://localhost/api/v1/product/races${query}`)
 const idsOf = (body: RacePage) => body.data.races.map((race) => race.raceId)
+
+/** 그 번호로 휴대폰 인증을 마친 인증 토큰. 가입 목은 이 토큰이 있어야 가입시킨다 */
+function phoneVerificationToken(phone: string): string {
+  const sent = answerPhoneVerificationRequest({ phone }).body.data
+  const verified = answerPhoneVerificationConfirm(sent?.verificationId ?? '', {
+    code: MOCK_VERIFICATION_CODE,
+  }).body.data
+  return verified?.verificationToken ?? ''
+}
 
 // 생성된 목이 등록됐는지 확인한다 (API_MOCKING=on 개발 서버도 같은 handlers를 쓴다)
 describe('생성된 MSW 핸들러', () => {
@@ -291,6 +305,7 @@ describe('방금 가입한 회원과 시연용 기존 회원', () => {
     phone: '010-2222-3333',
     birthDate: '2000-01-02',
     agreedTerms: ['SERVICE', 'PRIVACY'],
+    verificationToken: phoneVerificationToken('010-2222-3333'),
   }
   const json = (path: string, body: unknown, cookie?: string) =>
     fetch(`http://localhost${path}`, {
@@ -436,6 +451,7 @@ describe('새 회원 쿠키 저장소가 둘일 때', () => {
     phone: '010-2222-3333',
     birthDate: '2000-01-02',
     agreedTerms: ['SERVICE', 'PRIVACY'],
+    verificationToken: phoneVerificationToken('010-2222-3333'),
   })
   async function signUp(b: ReturnType<typeof browser>, email: string, nickname: string) {
     await b.call('POST', '/api/v1/auth/join', join(email, nickname))
@@ -497,5 +513,80 @@ describe('새 회원 쿠키 저장소가 둘일 때', () => {
     })
     expect((login.member as { nickname: string }).nickname).toBe('edited')
     expect((await a.data('GET', '/api/v1/member/members/me')).nickname).toBe('edited')
+  })
+})
+
+describe('휴대폰 인증 · PASS 본인인증 목', () => {
+  const post = (path: string, body: unknown) =>
+    fetch(`http://localhost${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+
+  it('인증번호를 받고 맞게 넣으면 인증 토큰을 준다', async () => {
+    const sent = await post('/api/v1/auth/phone-verifications', { phone: '010-1234-5678' })
+    expect(sent.status).toBe(201)
+    const { data } = (await sent.json()) as {
+      data: { verificationId: string; expiresInSeconds: number }
+    }
+    expect(data.expiresInSeconds).toBe(180)
+
+    const wrong = await post(`/api/v1/auth/phone-verifications/${data.verificationId}/confirm`, {
+      code: '000000',
+    })
+    expect(wrong.status).toBe(400)
+    expect(((await wrong.json()) as { code: string }).code).toBe('AUTH_VERIFICATION_CODE_MISMATCH')
+
+    const right = await post(`/api/v1/auth/phone-verifications/${data.verificationId}/confirm`, {
+      code: MOCK_VERIFICATION_CODE,
+    })
+    expect(right.status).toBe(200)
+    const verified = (await right.json()) as { data: { method: string; phone: string } }
+    expect(verified.data).toMatchObject({ method: 'PHONE', phone: '010-1234-5678' })
+  })
+
+  it('PASS 본인인증은 입력한 이름 · 생년월일 · 휴대폰 번호를 확인된 정보로 돌려준다', async () => {
+    const res = await post('/api/v1/auth/identity-verifications/pass', {
+      carrier: 'KT',
+      name: '김러너',
+      birthDate: '1995-04-12',
+      phone: '010-1234-5678',
+    })
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { data: Record<string, unknown> }
+    expect(body.data).toMatchObject({
+      method: 'PASS',
+      name: '김러너',
+      birthDate: '1995-04-12',
+      phone: '010-1234-5678',
+    })
+  })
+
+  it('가입 요청에 인증 토큰이 없거나 다른 번호의 토큰이면 400 AUTH_VERIFICATION_REQUIRED다', async () => {
+    const join = {
+      email: 'verify@example.com',
+      password: 'password1234',
+      name: '박새내',
+      nickname: '새내기',
+      phone: '010-2222-3333',
+      birthDate: '2000-01-02',
+      agreedTerms: ['SERVICE', 'PRIVACY'],
+    }
+    const without = await post('/api/v1/auth/join', join)
+    expect(without.status).toBe(400)
+    expect(((await without.json()) as { code: string }).code).toBe('AUTH_VERIFICATION_REQUIRED')
+
+    const otherPhone = await post('/api/v1/auth/join', {
+      ...join,
+      verificationToken: phoneVerificationToken('010-9999-8888'),
+    })
+    expect(otherPhone.status).toBe(400)
+
+    const ok = await post('/api/v1/auth/join', {
+      ...join,
+      verificationToken: phoneVerificationToken('01022223333'),
+    })
+    expect(ok.status).toBe(201)
   })
 })

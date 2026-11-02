@@ -1,5 +1,12 @@
 import { http, HttpResponse, type RequestHandler } from 'msw'
 
+import {
+  answerPassVerification,
+  answerPhoneVerificationConfirm,
+  answerPhoneVerificationRequest,
+  readMockVerificationToken,
+  type MockAnswer,
+} from '@/shared/api'
 import { getBukangCashAPIMock } from '@/shared/api/generated/cash/cash.msw'
 import {
   getBukangFileAPIMock,
@@ -123,12 +130,14 @@ const authHandlers = [
   }),
   // 소셜 가입은 로그인과 같이 Refresh Token 쿠키를 심는다(재발급이 이어서 성공해야 로그인 상태가 유지된다).
   // 시작 · 콜백(제공자 화면을 다녀오는 302)은 목으로 흉내 내지 않는다.
-  http.post('*/api/v1/auth/oauth2/join', () =>
-    HttpResponse.json(getSocialJoinResponseMock(), {
+  http.post('*/api/v1/auth/oauth2/join', async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as Record<string, unknown>
+    if (!readMockVerificationToken(body.verificationToken, body)) return verificationRequired()
+    return HttpResponse.json(getSocialJoinResponseMock(), {
       status: 201,
       headers: withCookies(issueMockRefreshCookie(), issueMockLoginMarkCookie()),
-    }),
-  ),
+    })
+  }),
   http.post('*/api/v1/auth/reissue', ({ cookies }) => {
     if (!cookies[MOCK_REFRESH_COOKIE_NAME]) {
       return HttpResponse.json(
@@ -236,6 +245,7 @@ const signupHandlers = [
         { status: 400 },
       )
     }
+    if (!readMockVerificationToken(body.verificationToken, body)) return verificationRequired()
     // 가입한 프로필을 쿠키에 담아 두면 같은 이메일로 로그인할 때 그 정보로 시작한다 (mock-member.ts)
     const profile = profileFromJoinBody(body)
     return HttpResponse.json(
@@ -269,6 +279,48 @@ const signupHandlers = [
     })
   }),
 ]
+
+/**
+ * 휴대폰 인증 · PASS 본인인증 목. 규칙은 shared/api/identity-verification-mock.ts에 있고,
+ * 실제 백엔드 모드에서 브라우저가 쓰는 가짜 응답과 같은 규칙이다. 백엔드에는 아직 이 API가 없다.
+ */
+const toResponse = <T>({ status, body }: MockAnswer<T>) => HttpResponse.json(body, { status })
+
+/** 요청 본문. JSON이 아니면 빈 객체로 보고 규칙 함수가 400으로 답한다 */
+const jsonBody = async (request: Request) =>
+  (await request.json().catch(() => ({}))) as Record<string, unknown>
+
+const identityVerificationHandlers = [
+  http.post('*/api/v1/auth/phone-verifications', async ({ request }) =>
+    toResponse(answerPhoneVerificationRequest(await jsonBody(request))),
+  ),
+  http.post(
+    '*/api/v1/auth/phone-verifications/:verificationId/confirm',
+    async ({ request, params }) =>
+      toResponse(
+        answerPhoneVerificationConfirm(String(params.verificationId), await jsonBody(request)),
+      ),
+  ),
+  http.post('*/api/v1/auth/identity-verifications/pass', async ({ request }) =>
+    toResponse(answerPassVerification(await jsonBody(request))),
+  ),
+]
+
+/**
+ * 가입 요청에 휴대폰 인증 · PASS 본인인증 토큰이 없거나, 지났거나, 요청의 휴대폰 번호와 다를 때.
+ * 실제 백엔드는 아직 이 토큰을 확인하지 않는다(목업 전용).
+ */
+function verificationRequired() {
+  return HttpResponse.json(
+    {
+      status: 400,
+      code: 'AUTH_VERIFICATION_REQUIRED',
+      message: '본인 확인을 다시 해주세요.',
+      data: null,
+    },
+    { status: 400 },
+  )
+}
 
 /**
  * 내 참가권 목. 생성된 주문 목록 예시는 결제 대기 · 기한 만료 주문뿐이라 참가권이 하나도 안 보인다.
@@ -612,6 +664,7 @@ export const handlers = [
   ...meHandlers,
   ...notificationHandlers,
   ...withdrawHandlers,
+  ...identityVerificationHandlers,
   ...signupHandlers,
   ...fileUploadHandlers,
   myOrdersHandler,

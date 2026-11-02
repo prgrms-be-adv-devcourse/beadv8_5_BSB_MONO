@@ -321,6 +321,391 @@
       "required": [
         "linkTicket"
       ]
+    },
+    "RsDataVoid": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "data": {
+          "type": "null"
+        }
+      }
+    },
+    "PhoneVerificationRequestDto": {
+      "type": "object",
+      "description": "휴대폰 인증번호 받기 요청",
+      "properties": {
+        "phone": {
+          "type": "string",
+          "description": "휴대폰 번호 (하이픈 생략 가능)",
+          "example": "010-1234-5678",
+          "pattern": "^01[016789]-?\\d{3,4}-?\\d{4}$"
+        }
+      },
+      "required": [
+        "phone"
+      ]
+    },
+    "PhoneVerificationDto": {
+      "type": "object",
+      "description": "인증번호를 보낸 결과",
+      "properties": {
+        "verificationId": {
+          "type": "string",
+          "description": "인증번호를 확인할 때 쓰는 값",
+          "example": "pv-01012345678-1762060000000"
+        },
+        "expiresInSeconds": {
+          "type": "integer",
+          "format": "int32",
+          "description": "인증번호를 쓸 수 있는 남은 초",
+          "example": 180
+        }
+      },
+      "required": [
+        "verificationId",
+        "expiresInSeconds"
+      ]
+    },
+    "RsDataPhoneVerificationDto": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "integer",
+          "format": "int32",
+          "example": 201
+        },
+        "message": {
+          "type": "string",
+          "example": "인증번호를 보냈습니다."
+        },
+        "data": {
+          "$ref": "#/components/schemas/PhoneVerificationDto"
+        }
+      }
+    },
+    "PhoneVerificationConfirmRequestDto": {
+      "type": "object",
+      "description": "휴대폰 인증번호 확인 요청",
+      "properties": {
+        "code": {
+          "type": "string",
+          "description": "문자로 받은 6자리 숫자",
+          "example": "123456",
+          "pattern": "^\\d{6}$"
+        }
+      },
+      "required": [
+        "code"
+      ]
+    },
+    "PassVerificationRequestDto": {
+      "type": "object",
+      "description": "PASS 본인인증 요청. 실제 연동에서는 PASS 창에 입력하는 값이다",
+      "properties": {
+        "carrier": {
+          "type": "string",
+          "enum": [
+            "SKT",
+            "KT",
+            "LGU",
+            "MVNO"
+          ],
+          "description": "통신사 (MVNO는 알뜰폰)",
+          "example": "SKT"
+        },
+        "name": {
+          "type": "string",
+          "description": "실명",
+          "example": "김러너",
+          "minLength": 1
+        },
+        "birthDate": {
+          "type": "string",
+          "format": "date",
+          "description": "생년월일",
+          "example": "1995-04-12"
+        },
+        "phone": {
+          "type": "string",
+          "description": "휴대폰 번호 (하이픈 생략 가능)",
+          "example": "010-1234-5678",
+          "pattern": "^01[016789]-?\\d{3,4}-?\\d{4}$"
+        }
+      },
+      "required": [
+        "carrier",
+        "name",
+        "birthDate",
+        "phone"
+      ]
+    },
+    "IdentityVerificationDto": {
+      "type": "object",
+      "description": "본인 확인 결과",
+      "properties": {
+        "verificationToken": {
+          "type": "string",
+          "description": "가입 요청에 넣는 인증 토큰. 30분 동안 쓸 수 있다",
+          "example": "mock-verification.eyJwaG9uZSI6IjAxMDEyMzQ1Njc4In0"
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "PHONE",
+            "PASS"
+          ],
+          "description": "인증한 방법",
+          "example": "PHONE"
+        },
+        "phone": {
+          "type": "string",
+          "description": "인증한 휴대폰 번호",
+          "example": "010-1234-5678"
+        },
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "PASS로 확인한 실명. 휴대폰 인증이면 null",
+          "example": null
+        },
+        "birthDate": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date",
+          "description": "PASS로 확인한 생년월일. 휴대폰 인증이면 null",
+          "example": null
+        }
+      },
+      "required": [
+        "verificationToken",
+        "method",
+        "phone"
+      ]
+    },
+    "RsDataIdentityVerificationDto": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "integer",
+          "format": "int32",
+          "example": 200
+        },
+        "message": {
+          "type": "string",
+          "example": "본인 확인을 마쳤습니다."
+        },
+        "data": {
+          "$ref": "#/components/schemas/IdentityVerificationDto"
+        }
+      }
+    }
+  },
+  "paths": {
+    "/api/v1/auth/phone-verifications": {
+      "post": {
+        "tags": [
+          "본인 확인 (목업)"
+        ],
+        "operationId": "requestPhoneVerification",
+        "summary": "휴대폰 인증번호 받기 (목업)",
+        "description": "휴대폰 번호로 6자리 인증번호를 보낸다. 사업자가 없어 실제 문자는 보내지 않는 목업이다. 인증번호는 언제나 123456이고 3분 동안 쓸 수 있다.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhoneVerificationRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsDataPhoneVerificationDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "휴대폰 번호 형식이 틀림",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsDataVoid"
+                },
+                "example": {
+                  "status": 400,
+                  "code": "INVALID_REQUEST",
+                  "message": "휴대폰 번호 형식에 맞게 작성해주세요.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/phone-verifications/{verificationId}/confirm": {
+      "post": {
+        "tags": [
+          "본인 확인 (목업)"
+        ],
+        "operationId": "confirmPhoneVerification",
+        "summary": "휴대폰 인증번호 확인 (목업)",
+        "description": "받은 인증번호가 맞으면 가입 요청에 넣을 인증 토큰을 준다.",
+        "parameters": [
+          {
+            "name": "verificationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhoneVerificationConfirmRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsDataIdentityVerificationDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "인증번호가 틀림",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsDataVoid"
+                },
+                "example": {
+                  "status": 400,
+                  "code": "AUTH_VERIFICATION_CODE_MISMATCH",
+                  "message": "인증번호가 맞지 않습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "인증 시간이 지남",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsDataVoid"
+                },
+                "example": {
+                  "status": 410,
+                  "code": "AUTH_VERIFICATION_EXPIRED",
+                  "message": "인증 시간이 지났습니다. 인증번호를 다시 받아주세요.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/identity-verifications/pass": {
+      "post": {
+        "tags": [
+          "본인 확인 (목업)"
+        ],
+        "operationId": "verifyIdentityWithPass",
+        "summary": "PASS 본인인증 (목업)",
+        "description": "PASS 인증 결과로 이름 · 생년월일 · 휴대폰 번호와 가입 요청에 넣을 인증 토큰을 준다. 사업자가 없어 실제 PASS 연동 없이 입력값을 그대로 돌려주는 목업이다.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PassVerificationRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsDataIdentityVerificationDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "입력값이 틀림",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsDataVoid"
+                },
+                "example": {
+                  "status": 400,
+                  "code": "INVALID_REQUEST",
+                  "message": "본인인증 정보를 확인해주세요.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "extraProperties": {
+    "MemberJoinRequestDto": {
+      "verificationToken": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "휴대폰 인증 · PASS 본인인증으로 받은 인증 토큰 (목업. 백엔드는 아직 확인하지 않는다)",
+        "example": "mock-verification.eyJwaG9uZSI6IjAxMDEyMzQ1Njc4In0"
+      }
+    },
+    "SocialJoinRequestDto": {
+      "verificationToken": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "휴대폰 인증 · PASS 본인인증으로 받은 인증 토큰 (목업. 백엔드는 아직 확인하지 않는다)",
+        "example": "mock-verification.eyJwaG9uZSI6IjAxMDEyMzQ1Njc4In0"
+      }
     }
   }
 }

@@ -16,6 +16,7 @@ export function toJoinRequest(
   account: SignupAccountValues,
   profile: SignupProfileValues,
   terms: SignupTermChecks,
+  verificationToken: string,
 ): memberModel.MemberJoinRequestDto {
   const { email, password } = signupAccountSchema.parse(account)
   return {
@@ -27,11 +28,15 @@ export function toJoinRequest(
     // 날짜 선택기 값이 이미 API 형식(YYYY-MM-DD)이다
     birthDate: profile.birth.trim(),
     agreedTerms: agreedTermTypes(terms),
+    verificationToken,
   }
 }
 
-/** 가입 실패를 어느 칸에 보여 줄지. form은 칸이 아닌 화면 아래 문구 */
-export type JoinErrorTarget = keyof SignupProfileValues | 'form'
+/**
+ * 가입 실패를 어느 칸에 보여 줄지. form은 칸이 아닌 화면 아래 문구.
+ * verification은 본인 확인을 처음부터 다시 해야 한다는 뜻이다(화면 아래 문구 + 인증 결과 지우기).
+ */
+export type JoinErrorTarget = keyof SignupProfileValues | 'form' | 'verification'
 
 /**
  * 가입 실패 응답을 화면 문구로 바꾼다.
@@ -54,6 +59,8 @@ export function joinErrorMessage(error: unknown): { target: JoinErrorTarget; mes
     case 'INVALID_REQUEST':
     case 'INTERNAL_ERROR':
       return { target: 'form', message: AUTH_ERRORS.joinUnavailable }
+    case 'AUTH_VERIFICATION_REQUIRED':
+      return { target: 'verification', message: AUTH_ERRORS.verificationExpired }
     case 'MEMBER_UNDER_AGE':
       return { target: 'birth', message: AUTH_ERRORS.birthUnder14 }
     default:

@@ -31,15 +31,21 @@ import type {
   MemberJoinRequestDto,
   MemberLoginRequestDto,
   MemberModifyRequestDto,
+  PassVerificationRequestDto,
+  PhoneVerificationConfirmRequestDto,
+  PhoneVerificationRequestDto,
   RsData,
   RsDataEmailAvailabilityResponseDto,
+  RsDataIdentityVerificationDto,
   RsDataListSellerDto,
   RsDataMemberDto,
   RsDataMemberLoginResponseDto,
+  RsDataPhoneVerificationDto,
   RsDataSellerDto,
   RsDataSocialLinkTicketDto,
   RsDataSocialSignupInfoDto,
   RsDataTokenReissueResponseDto,
+  RsDataVoid,
   SellerApplyRequestDto,
   SellerRejectRequestDto,
   SocialCallbackParams,
@@ -67,6 +73,274 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getRequestPhoneVerificationUrl = () => {
+
+
+
+
+  return `/api/v1/auth/phone-verifications`
+}
+
+/**
+ * 휴대폰 번호로 6자리 인증번호를 보낸다. 사업자가 없어 실제 문자는 보내지 않는 목업이다. 인증번호는 언제나 123456이고 3분 동안 쓸 수 있다.
+ * @summary 휴대폰 인증번호 받기 (목업)
+ */
+export const requestPhoneVerification = async (phoneVerificationRequestDto: PhoneVerificationRequestDto, options?: Parameters<typeof customFetch>[1]): Promise<RsDataPhoneVerificationDto> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<RsDataPhoneVerificationDto>(getRequestPhoneVerificationUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(phoneVerificationRequestDto)
+  }
+);}
+
+
+
+
+
+export const getRequestPhoneVerificationMutationKey = () => ['requestPhoneVerification'] as const;
+
+export const getRequestPhoneVerificationMutationOptions = <TError = RsDataVoid,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestPhoneVerification>>, TError,RequestPhoneVerificationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof requestPhoneVerification>>, TError,RequestPhoneVerificationMutationVariables, TContext> => {
+
+const mutationKey = getRequestPhoneVerificationMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof requestPhoneVerification>>, RequestPhoneVerificationMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  requestPhoneVerification(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RequestPhoneVerificationMutationResult = NonNullable<Awaited<ReturnType<typeof requestPhoneVerification>>>
+    export type RequestPhoneVerificationMutationBody = PhoneVerificationRequestDto
+    export type RequestPhoneVerificationMutationError = RsDataVoid
+    export type RequestPhoneVerificationMutationVariables = {data: PhoneVerificationRequestDto}
+
+    /**
+ * @summary 휴대폰 인증번호 받기 (목업)
+ */
+export const useRequestPhoneVerification = <TError = RsDataVoid,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestPhoneVerification>>, TError,RequestPhoneVerificationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof requestPhoneVerification>>,
+        TError,
+        RequestPhoneVerificationMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRequestPhoneVerificationMutationOptions(options), queryClient);
+    }
+
+export const getConfirmPhoneVerificationUrl = (verificationId: string,) => {
+
+
+
+
+  return `/api/v1/auth/phone-verifications/${verificationId}/confirm`
+}
+
+/**
+ * 받은 인증번호가 맞으면 가입 요청에 넣을 인증 토큰을 준다.
+ * @summary 휴대폰 인증번호 확인 (목업)
+ */
+export const confirmPhoneVerification = async (verificationId: string,
+    phoneVerificationConfirmRequestDto: PhoneVerificationConfirmRequestDto, options?: Parameters<typeof customFetch>[1]): Promise<RsDataIdentityVerificationDto> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<RsDataIdentityVerificationDto>(getConfirmPhoneVerificationUrl(verificationId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(phoneVerificationConfirmRequestDto)
+  }
+);}
+
+
+
+
+
+export const getConfirmPhoneVerificationMutationKey = () => ['confirmPhoneVerification'] as const;
+
+export const getConfirmPhoneVerificationMutationOptions = <TError = RsDataVoid,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof confirmPhoneVerification>>, TError,ConfirmPhoneVerificationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof confirmPhoneVerification>>, TError,ConfirmPhoneVerificationMutationVariables, TContext> => {
+
+const mutationKey = getConfirmPhoneVerificationMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof confirmPhoneVerification>>, ConfirmPhoneVerificationMutationVariables> = (props) => {
+          const {verificationId,data} = props ?? {};
+
+          return  confirmPhoneVerification(verificationId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ConfirmPhoneVerificationMutationResult = NonNullable<Awaited<ReturnType<typeof confirmPhoneVerification>>>
+    export type ConfirmPhoneVerificationMutationBody = PhoneVerificationConfirmRequestDto
+    export type ConfirmPhoneVerificationMutationError = RsDataVoid
+    export type ConfirmPhoneVerificationMutationVariables = {verificationId: string;data: PhoneVerificationConfirmRequestDto}
+
+    /**
+ * @summary 휴대폰 인증번호 확인 (목업)
+ */
+export const useConfirmPhoneVerification = <TError = RsDataVoid,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof confirmPhoneVerification>>, TError,ConfirmPhoneVerificationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof confirmPhoneVerification>>,
+        TError,
+        ConfirmPhoneVerificationMutationVariables,
+        TContext
+      > => {
+      return useMutation(getConfirmPhoneVerificationMutationOptions(options), queryClient);
+    }
+
+export const getVerifyIdentityWithPassUrl = () => {
+
+
+
+
+  return `/api/v1/auth/identity-verifications/pass`
+}
+
+/**
+ * PASS 인증 결과로 이름 · 생년월일 · 휴대폰 번호와 가입 요청에 넣을 인증 토큰을 준다. 사업자가 없어 실제 PASS 연동 없이 입력값을 그대로 돌려주는 목업이다.
+ * @summary PASS 본인인증 (목업)
+ */
+export const verifyIdentityWithPass = async (passVerificationRequestDto: PassVerificationRequestDto, options?: Parameters<typeof customFetch>[1]): Promise<RsDataIdentityVerificationDto> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<RsDataIdentityVerificationDto>(getVerifyIdentityWithPassUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(passVerificationRequestDto)
+  }
+);}
+
+
+
+
+
+export const getVerifyIdentityWithPassMutationKey = () => ['verifyIdentityWithPass'] as const;
+
+export const getVerifyIdentityWithPassMutationOptions = <TError = RsDataVoid,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyIdentityWithPass>>, TError,VerifyIdentityWithPassMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof verifyIdentityWithPass>>, TError,VerifyIdentityWithPassMutationVariables, TContext> => {
+
+const mutationKey = getVerifyIdentityWithPassMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof verifyIdentityWithPass>>, VerifyIdentityWithPassMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  verifyIdentityWithPass(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type VerifyIdentityWithPassMutationResult = NonNullable<Awaited<ReturnType<typeof verifyIdentityWithPass>>>
+    export type VerifyIdentityWithPassMutationBody = PassVerificationRequestDto
+    export type VerifyIdentityWithPassMutationError = RsDataVoid
+    export type VerifyIdentityWithPassMutationVariables = {data: PassVerificationRequestDto}
+
+    /**
+ * @summary PASS 본인인증 (목업)
+ */
+export const useVerifyIdentityWithPass = <TError = RsDataVoid,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyIdentityWithPass>>, TError,VerifyIdentityWithPassMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof verifyIdentityWithPass>>,
+        TError,
+        VerifyIdentityWithPassMutationVariables,
+        TContext
+      > => {
+      return useMutation(getVerifyIdentityWithPassMutationOptions(options), queryClient);
+    }
 
 export const getFindMeUrl = () => {
 

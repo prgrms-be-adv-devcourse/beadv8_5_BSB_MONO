@@ -42,6 +42,13 @@ interface Spec {
 interface Supplement {
   responses: Record<string, Record<string, { wrapper: string; data: unknown }>>
   schemas: Record<string, unknown>
+  /**
+   * 백엔드 명세에 아직 없는 API. 프론트 목업으로만 쓰는 API(예: 휴대폰 인증)를 적는다.
+   * 백엔드 명세에 같은 경로가 생기면 백엔드 것을 쓰고 이 항목은 무시한다.
+   */
+  paths?: Record<string, Partial<Record<string, Operation>>>
+  /** 백엔드 스키마에 칸을 더한다 (스키마 이름 → 더할 properties). 백엔드가 그 칸을 내면 지운다. */
+  extraProperties?: Record<string, Record<string, unknown>>
 }
 
 function readSupplement(service: Service): Supplement | undefined {
@@ -61,6 +68,11 @@ function transform(service: Service, spec: Spec): Spec {
   const supplement = readSupplement(service)
   const schemas = { ...spec.components?.schemas, ...supplement?.schemas }
   spec.components = { ...spec.components, schemas }
+  spec.paths = { ...supplement?.paths, ...spec.paths }
+  for (const [name, properties] of Object.entries(supplement?.extraProperties ?? {})) {
+    const schema = schemas[name] as { properties?: Record<string, unknown> } | undefined
+    if (schema) schemas[name] = { ...schema, properties: { ...properties, ...schema.properties } }
+  }
 
   for (const pathItem of Object.values(spec.paths ?? {})) {
     for (const method of HTTP_METHODS) {

@@ -28,6 +28,10 @@ export const AUTH_ERRORS = {
   emailCheckFailed: '이메일을 확인하지 못했어요. 잠시 후 다시 시도해 주세요.',
   // 시안에 없는 문구. 가입 요청에서 필수 약관이 빠졌다는 서버 응답
   joinTermsRequired: '필수 약관에 동의해 주세요.',
+  // 시안에 없는 문구. 휴대폰 인증 · PASS 본인인증을 마치기 전 가입 버튼 위 안내
+  verificationNeeded: '휴대폰 인증이나 PASS 본인인증을 마치면 가입할 수 있어요.',
+  // 시안에 없는 문구. 가입 요청의 인증 토큰이 지났거나 번호와 맞지 않다는 서버 응답
+  verificationExpired: '본인 확인이 끝난 지 오래됐어요. 다시 인증해 주세요.',
   nameRequired: '이름을 입력해 주세요.',
   birthFormat: '생년월일을 골라 주세요.',
   birthUnder14: BIRTH_UNDER_14_MESSAGE,

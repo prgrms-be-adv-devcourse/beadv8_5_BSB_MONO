@@ -89,6 +89,15 @@ describe('SocialSignupPage', () => {
     await user.type(screen.getByLabelText('생년월일'), '1995-04-12')
     await user.type(screen.getByLabelText('휴대폰 번호'), '01098765432')
     await user.type(screen.getByLabelText('닉네임'), '소셜러너')
+    // 본인 확인 전에는 가입 버튼이 꺼져 있고, 왜 꺼졌는지 버튼 위에 알려 준다
+    expect(screen.getByRole('button', { name: '가입 완료' })).toBeDisabled()
+    expect(
+      screen.getByText('휴대폰 인증이나 PASS 본인인증을 마치면 가입할 수 있어요.'),
+    ).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '인증번호 받기' }))
+    await user.type(await screen.findByLabelText('인증번호'), '123456')
+    await user.click(screen.getByRole('button', { name: '인증번호 확인하기' }))
+    await screen.findByText('휴대폰 인증을 마쳤어요')
     await user.click(screen.getByRole('button', { name: '가입 완료' }))
 
     await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/races/12'))
@@ -96,6 +105,7 @@ describe('SocialSignupPage', () => {
       name: '김러너',
       nickname: '소셜러너',
       agreedTerms: ['SERVICE', 'PRIVACY', 'MARKETING'],
+      verificationToken: expect.stringMatching(/^mock-verification\./),
     })
     expect(body?.email).toBeUndefined()
     expect(getAuthStatus()).toBe('authenticated')

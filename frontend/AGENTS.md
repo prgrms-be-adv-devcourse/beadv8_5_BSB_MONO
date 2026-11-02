@@ -64,6 +64,10 @@ src/
 - API 타입·훅은 orval로 생성해 `shared/api/generated/<서비스>/`에 둔다. 생성 파일은 직접 고치지 않는다.
   - 명세는 서비스별로 `openapi/<서비스>.json`에 커밋해 둔다 (member, cash, payout, file, order, product).
   - 성공 응답 스키마가 명세에 없는 API는 `openapi/supplements/<서비스>.json`으로 보충한다. 백엔드가 스키마를 내면 지운다.
+  - 백엔드에 없는 목업 전용 API는 보충 파일의 `paths`에, 백엔드 요청에 더하는 칸은 `extraProperties`에 적는다.
+    지금은 휴대폰 인증 · PASS 본인인증(사업자가 없어 목업)이 그렇다. 규칙은 `shared/api/identity-verification-mock.ts` 한곳에 있고,
+    가짜 응답 모드에서는 MSW가, 실제 백엔드 모드에서는 브라우저(`features/identity-verification`)가 같은 규칙으로 답한다.
+    가입 요청의 `verificationToken`은 MSW 목만 확인하고 실제 백엔드는 아직 무시한다.
   - 게이트웨이가 넣는 `X-Member-Id` 헤더는 요청 함수 인자에서 뺀다 (`orval.config.ts`).
 - 가져올 때는 `@/shared/api`의 서비스별 묶음을 쓴다: `productApi`(요청 함수·훅), `productModel`(타입), `productZod`.
 - 응답은 `RsData{status, message, data, code?}`로 감싸여 온다. `customFetch`는 본문을 그대로 돌려주고, data는 `unwrapData`로 꺼낸다(`select: unwrapData`).

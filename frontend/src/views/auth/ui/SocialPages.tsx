@@ -3,7 +3,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { useForm, type UseFormRegister } from 'react-hook-form'
+import { useForm, useWatch, type UseFormRegister } from 'react-hook-form'
 import { z } from 'zod'
 
 import { AppHeader } from '@/widgets/app-header'
@@ -19,8 +19,9 @@ import {
 } from '../model/schemas'
 import { useSignupStep } from '../model/signup-store'
 import { agreedTermTypes } from '../model/signup-terms'
+import { useSignupVerification } from '../model/use-signup-verification'
 import { CenterBody, StepIntro } from './parts'
-import { SignupProfileFields, SignupTermsSheet } from './SignupPages'
+import { SignupProfileFields, SignupTermsSheet, VerificationNeededHint } from './SignupPages'
 
 const FAILED_LOGIN = '/login?error=AUTH_SOCIAL_FAILED'
 
@@ -109,6 +110,8 @@ function SocialSignupForm({
     register,
     handleSubmit,
     setError,
+    setValue,
+    control,
     formState: { errors, isValid, isSubmitting },
   } = useForm<SocialSignupValues>({
     resolver: zodResolver(schema),
@@ -122,7 +125,12 @@ function SocialSignupForm({
     },
   })
 
+  const { verification, onVerified, reset } = useSignupVerification(setValue)
+  const phone = useWatch({ control, name: 'phone' })
+
   const onSubmit = handleSubmit((values) => {
+    // 가입 버튼은 본인 확인 뒤에만 켜지지만, Enter 제출도 같은 조건으로 막는다
+    if (!verification) return
     setFormError(undefined)
     join.mutate(
       {
@@ -132,6 +140,7 @@ function SocialSignupForm({
         phone: values.phone.trim(),
         birthDate: values.birth.trim(),
         agreedTerms: agreedTermTypes(terms),
+        verificationToken: verification.verificationToken,
       },
       {
         onSuccess: () => router.replace(safeNextPath(next)),
@@ -149,7 +158,8 @@ function SocialSignupForm({
             return
           }
           const { target, message } = joinErrorMessage(error)
-          if (target === 'form') setFormError(message)
+          if (target === 'verification') reset()
+          if (target === 'form' || target === 'verification') setFormError(message)
           else setError(target, { message }, { shouldFocus: true })
         },
       },
@@ -196,6 +206,10 @@ function SocialSignupForm({
           <SignupProfileFields
             register={register as unknown as UseFormRegister<SignupProfileValues>}
             errors={errors}
+            phone={phone}
+            verification={verification}
+            onVerified={onVerified}
+            onResetVerification={reset}
           />
           {formError && (
             <p role="alert" className="text-caption text-text-danger">
@@ -206,9 +220,17 @@ function SocialSignupForm({
         <BottomCta
           className="sticky bottom-0 z-10"
           primary={
-            <Button type="submit" size="l" disabled={!isValid} loading={submitting}>
-              가입 완료
-            </Button>
+            <div className="flex flex-col gap-2">
+              <VerificationNeededHint show={!verification} />
+              <Button
+                type="submit"
+                size="l"
+                disabled={!isValid || !verification}
+                loading={submitting}
+              >
+                가입 완료
+              </Button>
+            </div>
           }
         />
       </form>
