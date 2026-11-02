@@ -6,7 +6,7 @@ import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { getAuthStatus } from '@/shared/api'
-import { memberMock, server } from '@/shared/testing'
+import { memberMock, pickDate, server } from '@/shared/testing'
 
 import { AUTH_ERRORS } from '../model/schemas'
 import { SignupStepProvider } from '../model/signup-store'
@@ -169,7 +169,7 @@ describe('SignupProfilePage', () => {
     )
 
     await user.type(screen.getByLabelText('이름'), '김러너')
-    await user.type(screen.getByLabelText('생년월일'), '1995-03-02')
+    await pickDate(user, '생년월일', '1995-03-02')
     await user.type(screen.getByLabelText('휴대폰 번호'), '010-1234-5678')
     await user.type(screen.getByLabelText('닉네임'), '곰')
     await user.tab()
