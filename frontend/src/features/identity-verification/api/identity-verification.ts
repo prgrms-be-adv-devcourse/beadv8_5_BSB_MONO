@@ -24,6 +24,7 @@ export const IDENTITY_MESSAGES = {
   ciMissing: '이 인증 방법으로는 가입할 수 없어요. 다른 인증 방법을 골라 주세요.',
   unavailable: '본인인증 결과를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.',
   notConfigured: '지금은 본인인증을 할 수 없어요. 잠시 후 다시 시도해 주세요.',
+  popupBlocked: '브라우저가 본인인증 창을 막았어요. 이 사이트의 팝업을 허용한 뒤 다시 눌러 주세요.',
 } as const
 
 /** 가짜 응답 모드인지. 이때는 포트원 창 대신 체험용 창을 쓴다 */
@@ -55,33 +56,53 @@ async function complete(identityVerificationId: string): Promise<IdentityVerific
 }
 
 /**
+ * 백엔드에서 포트원 창을 열 인증 ID를 받는다. 받지 못하면 undefined.
+ * 버튼을 누른 뒤에 받으면 창을 여는 시점이 늦어져 브라우저가 팝업으로 막으므로, 화면을 열 때 미리 받아 둔다.
+ */
+export async function prepareIdentityVerification(): Promise<string | undefined> {
+  return memberApi
+    .startIdentityVerification()
+    .then((response) => unwrapData(response).identityVerificationId)
+    .catch(() => undefined)
+}
+
+/**
  * 포트원 본인인증 창을 열고 결과를 받는다. 창을 여는 일과 결과를 받는 일은 모두 이 함수 하나에서 한다.
+ * PC는 팝업 창이라, 버튼을 누른 직후에 열어야 막히지 않는다. 그래서 미리 받아 둔 인증 ID를 넘기면 기다리지 않고 바로 연다.
  * redirectUrl은 모바일에서 인증을 마친 뒤 돌아올 가입 화면 주소다. PC는 창이 닫히면 이 함수가 결과를 돌려준다.
  */
 export async function requestIdentityVerification({
   redirectUrl,
+  identityVerificationId: preparedId,
 }: {
   redirectUrl: string
+  identityVerificationId?: string
 }): Promise<IdentityVerificationOutcome> {
   const storeId = clientEnv.NEXT_PUBLIC_PORTONE_STORE_ID
   const channelKey = clientEnv.NEXT_PUBLIC_PORTONE_IDENTITY_CHANNEL_KEY
   if (!storeId || !channelKey) return { status: 'failed', message: IDENTITY_MESSAGES.notConfigured }
 
-  const identityVerificationId = await memberApi
-    .startIdentityVerification()
-    .then((response) => unwrapData(response).identityVerificationId)
-    .catch(() => undefined)
+  const identityVerificationId = preparedId ?? (await prepareIdentityVerification())
   if (!identityVerificationId) return { status: 'failed', message: IDENTITY_MESSAGES.notConfigured }
 
+  let popupBlocked = false
   const response = await openPortOneWindow({
     storeId,
     channelKey,
     identityVerificationId,
     redirectUrl,
-  }).catch(() => null)
+  }).catch((error: unknown) => {
+    popupBlocked = error instanceof Error && error.message.includes('팝업')
+    return null
+  })
   // undefined는 페이지를 옮겨 가는 중이라는 뜻이다(리디렉션 방식)
   if (response === undefined) return { status: 'redirecting' }
-  if (response === null) return { status: 'failed', message: IDENTITY_MESSAGES.failed }
+  if (response === null) {
+    return {
+      status: 'failed',
+      message: popupBlocked ? IDENTITY_MESSAGES.popupBlocked : IDENTITY_MESSAGES.failed,
+    }
+  }
   if (response.code) {
     return isCancel(response.code, response.message)
       ? { status: 'cancelled' }

@@ -1,17 +1,23 @@
 'use client'
 
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 
 import { Dialog, useToast } from '@/shared/ui'
 
 import {
   isIdentityMock,
+  prepareIdentityVerification,
   requestIdentityVerification,
   type IdentityVerificationOutcome,
   type VerifiedIdentity,
 } from '../api/identity-verification'
 import { MockPassSheet } from '../ui/MockPassSheet'
 import { useIdentityRedirect } from './use-identity-redirect'
+
+/** 인증 ID를 새로 받는 간격. 서버에 15분 동안 남으므로 그보다 짧게 둔다 */
+const PREPARE_INTERVAL_MS = 10 * 60 * 1000
+/** 이보다 오래된 인증 ID는 쓰지 않고 새로 받는다 */
+const PREPARED_MAX_AGE_MS = 14 * 60 * 1000
 
 export type UseIdentityVerificationOptions = {
   onVerified: (identity: VerifiedIdentity) => void
@@ -44,6 +50,24 @@ export function useIdentityVerification({
   const [mockOpen, setMockOpen] = useState(false)
   const [opening, setOpening] = useState(false)
   const [failure, setFailure] = useState<string>()
+  // 미리 받아 둔 인증 ID. 버튼을 누른 직후 바로 창을 열어야 브라우저가 팝업으로 막지 않는다
+  const [prepared, setPrepared] = useState<{ id: string; at: number }>()
+
+  useEffect(() => {
+    if (mock) return
+    let alive = true
+    const prepare = () =>
+      void prepareIdentityVerification().then((id) => {
+        if (alive && id) setPrepared({ id, at: Date.now() })
+      })
+    prepare()
+    // 인증 ID는 서버에 15분 동안 남는다. 지나기 전에 새로 받아 둔다
+    const timer = setInterval(prepare, PREPARE_INTERVAL_MS)
+    return () => {
+      alive = false
+      clearInterval(timer)
+    }
+  }, [mock])
 
   const done = (identity: VerifiedIdentity) => {
     onVerified(identity)
@@ -65,13 +89,21 @@ export function useIdentityVerification({
     }
     onBeforeOpen?.()
     setOpening(true)
-    void requestIdentityVerification({ redirectUrl: redirectUrl ?? window.location.href }).then(
-      (outcome) => {
-        // 리디렉션이면 페이지가 바뀌므로 버튼을 계속 잠가 둔다
-        if (outcome.status !== 'redirecting') setOpening(false)
-        handleOutcome(outcome)
-      },
-    )
+    const fresh =
+      prepared && Date.now() - prepared.at < PREPARED_MAX_AGE_MS ? prepared.id : undefined
+    // 한 번 쓴 인증 ID는 다시 쓰지 않는다. 실패해 다시 누르면 새로 받는다
+    setPrepared(undefined)
+    void requestIdentityVerification({
+      redirectUrl: redirectUrl ?? window.location.href,
+      identityVerificationId: fresh,
+    }).then((outcome) => {
+      // 리디렉션이면 페이지가 바뀌므로 버튼을 계속 잠가 둔다
+      if (outcome.status !== 'redirecting') setOpening(false)
+      handleOutcome(outcome)
+      if (outcome.status !== 'verified' && outcome.status !== 'redirecting') {
+        void prepareIdentityVerification().then((id) => id && setPrepared({ id, at: Date.now() }))
+      }
+    })
   }
 
   const element = (
