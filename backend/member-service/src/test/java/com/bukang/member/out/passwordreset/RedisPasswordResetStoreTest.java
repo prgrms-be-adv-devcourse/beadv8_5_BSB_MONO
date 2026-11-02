@@ -98,4 +98,15 @@ class RedisPasswordResetStoreTest {
 		assertThat(redisTemplate.getExpire(RedisPasswordResetStore.ipDailyCountKey("ip-1"))).isPositive();
 		assertThat(store.tryAcquireIpRequest("ip-2", 2, WINDOW)).isTrue();
 	}
+
+	@Test
+	@DisplayName("만료 없이 남은 횟수 키는 다음 요청에서 만료를 다시 건다")
+	void restoresMissingExpiry() {
+		String key = RedisPasswordResetStore.ipDailyCountKey("ip-1");
+		redisTemplate.opsForValue().set(key, "3");
+
+		store.tryAcquireIpRequest("ip-1", 20, WINDOW);
+
+		assertThat(redisTemplate.getExpire(key)).isPositive();
+	}
 }
