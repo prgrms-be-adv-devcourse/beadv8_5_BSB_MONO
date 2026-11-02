@@ -148,6 +148,7 @@ describe('GET /admin/stats/data 일별 추이 · 입력 오류', () => {
 
     expect(usersByDate).toHaveBeenCalledWith({
       metric: 'activeUsers',
+      siteArea: 'shop',
       dateRanges: [
         { name: 'current', startDate: '2026-10-30', endDate: '2026-11-01' },
         { name: 'previous', startDate: '2026-10-27', endDate: '2026-10-29' },

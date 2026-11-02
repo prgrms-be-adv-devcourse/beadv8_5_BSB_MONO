@@ -152,7 +152,7 @@ async function formErrors(reporter: Ga4Reporter, period: StatsPeriod): Promise<F
 }
 
 /**
- * 일별 추이. 방문자는 그날 활성 사용자 수, 구매는 그날 purchase 이벤트를 보낸 사람 수.
+ * 일별 추이. 방문자는 그날 구매자 화면에 온 활성 사용자 수, 구매는 그날 purchase 이벤트를 보낸 사람 수.
  * 그래프는 이번 기간 날짜별 수, 큰 숫자와 배지는 두 기간의 날짜별 수 합계다.
  */
 async function trend(
@@ -161,8 +161,9 @@ async function trend(
   period: StatsPeriod,
 ): Promise<TrendStats> {
   const byDate = await reporter.usersByDate({
+    // 방문자는 구매자 화면 방문만 센다 (판매자 센터 방문은 빼요, 11/2 지훈 님 결정)
     ...(kind === 'visitors'
-      ? { metric: 'activeUsers' as const }
+      ? { metric: 'activeUsers' as const, siteArea: 'shop' }
       : { metric: 'totalUsers' as const, eventName: 'purchase' }),
     dateRanges: [
       { name: 'current', startDate: period.current.start, endDate: period.current.end },

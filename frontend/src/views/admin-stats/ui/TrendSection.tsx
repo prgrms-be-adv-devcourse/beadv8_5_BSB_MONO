@@ -117,6 +117,7 @@ export function TrendSection({ query }: { query: StatsPeriodQuery }) {
                   ))}
                 </tbody>
               </table>
+              <p className="sr-only">{totalSentence(data.total, data.previousTotal)}</p>
             </div>
           )
         }}
@@ -130,4 +131,14 @@ function periodName(query: StatsPeriodQuery) {
   if (query.period === '7d') return '지난 7일'
   if (query.period === '30d') return '지난 30일'
   return `${formatStatsDay(query.start)} ~ ${formatStatsDay(query.end)}`
+}
+
+/** 화면 낭독기용 표 아래 한 줄: 합계 1,782명, 지난 기간보다 244명 많아요 */
+function totalSentence(total: number, previousTotal: number) {
+  const delta = total - previousTotal
+  const compare =
+    delta === 0
+      ? '지난 기간과 같아요'
+      : `지난 기간보다 ${formatNumber(Math.abs(delta))}명 ${delta > 0 ? '많아요' : '적어요'}`
+  return `합계 ${formatNumber(total)}명, ${compare}`
 }

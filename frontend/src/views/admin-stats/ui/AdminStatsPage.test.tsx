@@ -105,6 +105,7 @@ describe('AdminStatsPage', () => {
     expect(
       within(trends).getByRole('heading', { name: '지난 7일 방문한 사람' }),
     ).toBeInTheDocument()
+    expect(within(trends).getByText('합계 1,180명, 지난 기간보다 11명 많아요')).toBeInTheDocument()
 
     const buyer = block('구매 단계')
     expect(await within(buyer).findByText('1,240명')).toBeInTheDocument()

@@ -103,8 +103,12 @@ describe('GA4 날짜별 · 매개변수별 보고서', () => {
     { name: 'previous', startDate: '2026-10-27', endDate: '2026-10-29' },
   ]
 
-  it('방문자는 활성 사용자 수를 거르지 않고, 구매는 purchase 이벤트로 거른다', () => {
-    const visitors = usersByDateRequest('properties/123', { metric: 'activeUsers', dateRanges })
+  it('방문자는 구매자 화면(site_area=shop) 활성 사용자 수, 구매는 purchase 이벤트로 거른다', () => {
+    const visitors = usersByDateRequest('properties/123', {
+      metric: 'activeUsers',
+      siteArea: 'shop',
+      dateRanges,
+    })
     const purchases = usersByDateRequest('properties/123', {
       metric: 'totalUsers',
       eventName: 'purchase',
@@ -115,11 +119,22 @@ describe('GA4 날짜별 · 매개변수별 보고서', () => {
       dimensions: [{ name: 'date' }],
       metrics: [{ name: 'activeUsers' }],
     })
-    expect(visitors).not.toHaveProperty('dimensionFilter')
-    expect(purchases.dimensionFilter?.filter).toEqual({
-      fieldName: 'eventName',
-      stringFilter: { matchType: 'EXACT', value: 'purchase' },
-    })
+    expect(visitors.dimensionFilter?.andGroup.expressions).toEqual([
+      {
+        filter: {
+          fieldName: 'customEvent:site_area',
+          stringFilter: { matchType: 'EXACT', value: 'shop' },
+        },
+      },
+    ])
+    expect(purchases.dimensionFilter?.andGroup.expressions).toEqual([
+      {
+        filter: { fieldName: 'eventName', stringFilter: { matchType: 'EXACT', value: 'purchase' } },
+      },
+    ])
+    expect(
+      usersByDateRequest('properties/123', { metric: 'activeUsers', dateRanges }),
+    ).not.toHaveProperty('dimensionFilter')
   })
 
   it('GA4 날짜(YYYYMMDD)를 YYYY-MM-DD로 바꿔 기간별로 모은다', () => {

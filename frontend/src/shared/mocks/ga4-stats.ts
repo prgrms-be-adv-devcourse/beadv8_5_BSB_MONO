@@ -39,10 +39,16 @@ export const MOCK_FORM_ERROR_ROWS = [
   { value: '키트 배송,종목 · 참가권', users: 1 },
 ]
 
-/** 날짜마다 조금씩 다른 예시 숫자. 같은 날짜면 늘 같은 값이라 화면이 새로 불러와도 흔들리지 않는다 */
-function dailyUsers(date: string, base: number, spread: number) {
-  const seed = [...date].reduce((sum, ch) => sum * 31 + ch.charCodeAt(0), 7)
-  return base + (Math.abs(seed) % spread)
+/** 요일마다 오르내리는 예시 숫자 (시안 v9 일별 추이 카드와 같은 모양). 같은 날짜면 늘 같은 값이다 */
+const DAILY_PATTERN = {
+  visitors: [182, 240, 196, 285, 230, 356, 293],
+  purchases: [12, 15, 14, 19, 27, 31, 24],
+}
+
+function dailyUsers(date: string, kind: keyof typeof DAILY_PATTERN, scale: number) {
+  const day = Math.floor(Date.parse(`${date}T00:00:00Z`) / 86_400_000)
+  const pattern = DAILY_PATTERN[kind]
+  return Math.round(pattern[(day + 3) % pattern.length] * scale)
 }
 
 export const mockGa4Reporter: Ga4Reporter = {
@@ -55,7 +61,7 @@ export const mockGa4Reporter: Ga4Reporter = {
     )
   },
   async usersByDate({ eventName, dateRanges }) {
-    const [base, spread] = eventName === 'purchase' ? [20, 18] : [150, 90]
+    const kind = eventName === 'purchase' ? 'purchases' : 'visitors'
     return Object.fromEntries(
       dateRanges.map((range, i) => {
         const days: Record<string, number> = {}
@@ -66,7 +72,7 @@ export const mockGa4Reporter: Ga4Reporter = {
         ) {
           const date = d.toISOString().slice(0, 10)
           // 비교 기간은 조금 적게 보여 늘어난 모양을 흉내 낸다
-          days[date] = dailyUsers(date, i === 0 ? base : Math.round(base * 0.85), spread)
+          days[date] = dailyUsers(date, kind, i === 0 ? 1 : 0.85)
         }
         return [range.name, days]
       }),

@@ -23,6 +23,8 @@ export type UsersByDateInput = {
   metric: 'activeUsers' | 'totalUsers'
   /** 주면 이 이벤트를 보낸 기록만 센다 */
   eventName?: string
+  /** 주면 맞춤 측정기준 site_area가 이 값인 기록만 센다 (shop: 구매자 화면) */
+  siteArea?: string
   dateRanges: Ga4DateRange[]
 }
 
@@ -131,20 +133,20 @@ export function parseRealtime(
 }
 
 export function usersByDateRequest(property: string, input: UsersByDateInput) {
+  const filters: ReturnType<typeof exactFilter>[] = []
+  if (input.eventName) filters.push(exactFilter('eventName', input.eventName))
+  if (input.siteArea) filters.push(exactFilter(SITE_AREA_DIMENSION, input.siteArea))
   return {
     property,
     dateRanges: input.dateRanges,
     dimensions: [{ name: 'date' }],
     metrics: [{ name: input.metric }],
-    ...(input.eventName && {
-      dimensionFilter: {
-        filter: {
-          fieldName: 'eventName',
-          stringFilter: { matchType: 'EXACT' as const, value: input.eventName },
-        },
-      },
-    }),
+    ...(filters.length > 0 && { dimensionFilter: { andGroup: { expressions: filters } } }),
   }
+}
+
+function exactFilter(fieldName: string, value: string) {
+  return { filter: { fieldName, stringFilter: { matchType: 'EXACT' as const, value } } }
 }
 
 /** GA4의 date 값(YYYYMMDD)을 'YYYY-MM-DD'로 바꿔 기간 이름별로 모은다 */
