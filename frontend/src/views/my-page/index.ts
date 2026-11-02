@@ -1,4 +1,5 @@
 export { AccountLinkPage } from './ui/AccountLinkPage'
+export { AccountSettingsPage } from './ui/AccountSettingsPage'
 export { MyPage } from './ui/MyPage'
 export { ProfileEditPage } from './ui/ProfileEditPage'
 export { WithdrawDonePage, WithdrawPage } from './ui/WithdrawPages'
