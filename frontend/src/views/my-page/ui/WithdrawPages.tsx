@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
@@ -33,7 +32,6 @@ const WITHDRAW_ERRORS: Record<WithdrawFailure, string> = {
 // TODO(api): 남은 예치금 · 끝나지 않은 참가권을 확인한다 (blocked)
 // 탈퇴 요청은 서버가 남은 예치금 · 참가권을 다시 확인한다. 막히면 code별 안내를 화면에 띄운다.
 export function WithdrawPage({ blocked = true }: { blocked?: boolean }) {
-  const router = useRouter()
   const [checked, setChecked] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const withdraw = useWithdraw()
@@ -42,8 +40,8 @@ export function WithdrawPage({ blocked = true }: { blocked?: boolean }) {
     // 요청 중 다시 누르면 DELETE가 두 번 가고, 두 번째의 404가 성공을 덮어쓴다
     if (withdraw.isPending) return
     setFailure(undefined)
+    // 성공하면 useWithdraw가 문서를 새로 불러 완료 화면으로 간다
     withdraw.mutate(undefined, {
-      onSuccess: () => router.push('/me/withdraw/done'),
       onError: (error) => {
         setConfirmOpen(false)
         setFailure(withdrawFailure(error))

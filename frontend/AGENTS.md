@@ -103,7 +103,9 @@ src/
 
 ## 인증
 
-- `src/proxy.ts`는 로그인 여부를 검사하지 않는다. Refresh Token 쿠키가 `Path=/api/v1/auth`라 `/seller`·`/admin` 요청에 실리지 않기 때문이다. 로그인 전 진입은 아래처럼 처리한다.
+- 실제 API 모드에서 `src/proxy.ts`는 로그인 여부를 검사하지 않는다. Refresh Token 쿠키가 `Path=/api/v1/auth`라 화면 요청에 실리지 않기 때문이다.
+  가짜 응답 모드에서는 가짜 로그인이 심는 표시 쿠키(`mockLoggedIn`, `Path=/`)로 회원 화면(`isProtectedPath`)을 서버에서 먼저 `/login?next=`로 보낸다.
+- 실제 API 모드에서 로그인 전 진입은 아래처럼 처리한다.
   - 회원 화면(`isProtectedPath`)은 `ProtectedScreenGuard`가 로그인 확인이 끝날 때까지 로딩만 그리고, 비로그인이면 `/login?next=`로 보낸다.
   - `AuthSessionRestorer`는 쓰는 중에 재발급이 실패해 로그인이 끊겼을 때만 `/login`으로 보낸다. 앱을 처음 열 때 재발급이 실패하면 보내지 않는다.
   - `/seller`·`/admin`은 로그인 화면으로 보내지 않는다. 화면마다 그 자리에서 로그인이 필요하다는 안내를 보여 준다.

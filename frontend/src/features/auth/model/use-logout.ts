@@ -1,9 +1,25 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 
 import { clearAccessToken, memberApi } from '@/shared/api'
 
 import { reloadToLogin } from '../lib/login-redirect'
+
+/**
+ * 문서를 새로 불러 떠나기 직전에 건다. 페이지를 떠날 때 토큰과 캐시를 지운다.
+ * 새로 불러와도 그 앞의 방문 기록은 이전 문서 것이라, 브라우저가 이전 문서를 메모리째 보관했다가
+ * 뒤로 가기로 되살리면 앞사람의 토큰과 데이터가 보인다. 떠난 뒤에 지우므로 화면에는 보이지 않는다.
+ */
+export function clearOnPageHide(queryClient: QueryClient) {
+  window.addEventListener(
+    'pagehide',
+    () => {
+      clearAccessToken()
+      queryClient.clear()
+    },
+    { once: true },
+  )
+}
 
 /**
  * 로그아웃한다 (POST /api/v1/auth/logout). 서버가 Refresh Token을 지우고 쿠키를 만료시킨다.
@@ -16,7 +32,10 @@ export function useLogout() {
   const router = useRouter()
   return useMutation({
     mutationFn: () => memberApi.logout(),
-    onSuccess: reloadToLogin,
+    onSuccess: () => {
+      clearOnPageHide(queryClient)
+      reloadToLogin()
+    },
     onError: () => {
       clearAccessToken()
       queryClient.removeQueries()
