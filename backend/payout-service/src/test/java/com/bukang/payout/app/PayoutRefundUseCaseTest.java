@@ -11,8 +11,11 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.test.context.ActiveProfiles;
 
 import com.bukang.common.shared.order.event.OrderItemRefundReason;
@@ -23,6 +26,7 @@ import com.bukang.payout.app.PayoutCreateStepUseCase.FirstPayoutSource;
 import com.bukang.payout.domain.BusinessDayCalendar;
 import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutStage;
+import com.bukang.payout.domain.exception.PayoutRecoveryConflictException;
 import com.bukang.payout.domain.PayoutRecovery;
 import com.bukang.payout.domain.PayoutRecoveryStatus;
 import com.bukang.payout.out.PayoutHoldRepository;
@@ -39,6 +43,7 @@ import jakarta.persistence.EntityManager;
  */
 @DataJpaTest
 @ActiveProfiles("test")
+@ExtendWith(OutputCaptureExtension.class)
 class PayoutRefundUseCaseTest {
 	private static final long SELLER_ID = 1;
 	private static final long RACE_ID = 7;
@@ -203,5 +208,25 @@ class PayoutRefundUseCaseTest {
 		assertThatThrownBy(() -> refundUseCase.recordRefund(refunded(108, PRICE, null), REFUNDED_AT))
 			.isInstanceOf(IllegalArgumentException.class);
 		assertThat(recoveries()).isEmpty();
+	}
+
+	@Test
+	@DisplayName("TC-REV3-1 최종 정산을 만든 뒤 일정 변경 환불 알림이 오면 409로 거절하고 회수는 0건, 이유를 담은 로그를 남긴다")
+	void refundAfterFinalIsRejectedWithLog(CapturedOutput output) {
+		createFirst();
+		first().pay(REFUNDED_AT.minusDays(20));
+		List<SoldEntry> all = List.of(101L, 102L, 103L, 104L, 105L, 106L, 107L, 108L, 109L, 110L).stream()
+			.map(orderItemId -> new SoldEntry(orderItemId, SELLER_ID, RACE_ID, RACE_ID, RACE_DATE, PRICE))
+			.toList();
+		creator.createFinal(new FinalPayoutSource(SELLER_ID, RACE_ID, "대회 A", true, all), RACE_DATE,
+			RACE_DATE.plusDays(1).atTime(3, 0));
+
+		assertThatThrownBy(() -> refundUseCase.recordRefund(
+			refunded(108, PRICE, OrderItemRefundReason.SCHEDULE_CHANGED), REFUNDED_AT))
+			.isInstanceOf(PayoutRecoveryConflictException.class);
+		assertThat(recoveries()).isEmpty();
+		assertThat(output.getAll())
+			.contains("최종 정산 뒤 환불")
+			.contains("sellerId=1", "raceId=7", "orderItemId=108", "price=50000");
 	}
 }

@@ -17,6 +17,7 @@ import com.bukang.common.shared.order.event.OrderItemRefundedEvent;
 import com.bukang.common.shared.race.event.RaceCancelEvent;
 import com.bukang.payout.app.PayoutRaceCancelUseCase;
 import com.bukang.payout.app.PayoutRefundUseCase;
+import com.bukang.payout.domain.exception.PayoutRecoveryConflictException;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -71,7 +72,9 @@ public class PayoutKafkaConsumer {
 	@RetryableTopic(
 		attempts = RETRY_ATTEMPTS,
 		backOff = @BackOff(delay = RETRY_DELAY_MILLIS, multiplier = RETRY_MULTIPLIER),
-		exclude = IllegalArgumentException.class,
+		// 다시 해도 결과가 같은 실패는 재시도 없이 바로 DLT로 보낸다
+		// 깨진 JSON · 사유 없는 알림(IllegalArgumentException), 최종 정산 뒤 환불(PayoutRecoveryConflictException)
+		exclude = {IllegalArgumentException.class, PayoutRecoveryConflictException.class},
 		numPartitions = PARTITIONS,
 		retryTopicSuffix = RETRY_TOPIC_SUFFIX,
 		dltTopicSuffix = DLT_TOPIC_SUFFIX
