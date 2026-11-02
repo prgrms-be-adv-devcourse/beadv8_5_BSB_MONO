@@ -40,9 +40,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/auth")
 public class ApiV1AuthController {
-	// Refresh Token 쿠키는 토큰 재발급 등 인증 API에만 실려 가도록 경로를 좁힌다
-	static final String REFRESH_TOKEN_COOKIE = "refreshToken";
-	static final String REFRESH_TOKEN_COOKIE_PATH = "/api/v1/auth";
+	static final String REFRESH_TOKEN_COOKIE = AuthCookies.REFRESH_TOKEN;
+	static final String REFRESH_TOKEN_COOKIE_PATH = AuthCookies.REFRESH_TOKEN_PATH;
 
 	private final MemberFacade memberFacade;
 
@@ -89,9 +88,11 @@ public class ApiV1AuthController {
 				@ExampleObject(name = "입력값 검증 실패", value = AuthApiExamples.LOGIN_INVALID_INPUT),
 				@ExampleObject(name = "요청 본문 형식 오류", value = AuthApiExamples.INVALID_BODY)
 			})),
-		@ApiResponse(responseCode = "401", description = "이메일 또는 비밀번호 불일치",
-			content = @Content(schema = @Schema(implementation = RsData.class),
-				examples = @ExampleObject(value = AuthApiExamples.LOGIN_FAILED)))
+		@ApiResponse(responseCode = "401", description = "이메일 또는 비밀번호 불일치, 비밀번호 없는 소셜 회원",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "이메일 또는 비밀번호 불일치", value = AuthApiExamples.LOGIN_FAILED),
+				@ExampleObject(name = "소셜 회원", value = AuthApiExamples.LOGIN_SOCIAL_ACCOUNT)
+			}))
 	})
 	public ResponseEntity<RsData<MemberLoginResponseDto>> login(
 		@Valid @RequestBody MemberLoginRequestDto memberLoginRequestDto
@@ -157,16 +158,8 @@ public class ApiV1AuthController {
 			.body(RsData.of(HttpStatus.OK, "로그아웃 성공", null));
 	}
 
-	// httpOnly: 자바스크립트에서 읽지 못하게 해 XSS로 토큰이 새는 것을 막는다
-	// SameSite=Lax: 다른 사이트에서 보낸 POST에는 쿠키가 실리지 않는다
-	// maxAge가 0이면 브라우저가 쿠키를 지운다 (로그아웃). 지우려면 이름·경로가 발급할 때와 같아야 한다
+	// 쿠키 속성(httpOnly, Secure, SameSite=Lax, 경로)은 소셜 로그인과 같다 (AuthCookies)
 	private ResponseCookie refreshTokenCookie(String value, Duration maxAge) {
-		return ResponseCookie.from(REFRESH_TOKEN_COOKIE, value)
-			.httpOnly(true)
-			.secure(true)
-			.sameSite("Lax")
-			.path(REFRESH_TOKEN_COOKIE_PATH)
-			.maxAge(maxAge)
-			.build();
+		return AuthCookies.refreshToken(value, maxAge);
 	}
 }

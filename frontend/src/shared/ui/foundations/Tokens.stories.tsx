@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 
-// globals.css의 디자인 토큰을 한눈에 본다. 툴바의 테마를 dark로 바꾸면 Dark 모드 값으로 바뀐다.
+// tokens.css(피그마 변수로 생성)의 디자인 토큰을 한눈에 본다. 툴바의 테마를 dark로 바꾸면 Dark 모드 값으로 바뀐다.
 // Tailwind는 파일에 적힌 클래스 이름만 만들기 때문에 클래스를 문자열 그대로 적었다.
 
 const BG = [

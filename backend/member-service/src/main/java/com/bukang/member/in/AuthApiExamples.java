@@ -35,7 +35,9 @@ final class AuthApiExamples {
 					"email": "runner1@crewrun.com",
 					"phone": "010-1234-5678",
 					"name": "김러너",
-					"birthDate": "1995-04-12"
+					"birthDate": "1995-04-12",
+					"socialProviders": [],
+					"passwordSet": true
 				}
 			}
 		}
@@ -94,6 +96,10 @@ final class AuthApiExamples {
 
 	static final String DUPLICATE_PHONE = """
 		{ "status": 409, "code": "MEMBER_DUPLICATE_PHONE", "message": "이미 사용 중인 전화번호입니다.", "data": null }
+		""";
+
+	static final String LOGIN_SOCIAL_ACCOUNT = """
+		{ "status": 401, "code": "AUTH_SOCIAL_ACCOUNT", "message": "카카오로 가입한 계정입니다. 카카오로 로그인해주세요.", "data": null }
 		""";
 
 	static final String LOGIN_FAILED = """

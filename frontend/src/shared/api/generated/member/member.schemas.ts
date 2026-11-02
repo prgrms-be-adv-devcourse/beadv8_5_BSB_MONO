@@ -166,6 +166,92 @@ export interface SellerRejectRequestDto {
   reason: string;
 }
 
+/**
+ * 성별 (선택)
+ * @nullable
+ */
+export type SocialJoinRequestDtoGender = typeof SocialJoinRequestDtoGender[keyof typeof SocialJoinRequestDtoGender] | null;
+
+
+export const SocialJoinRequestDtoGender = {
+  MALE: 'MALE',
+  FEMALE: 'FEMALE',
+} as const;
+
+export type SocialJoinRequestDtoAgreedTermsItem = typeof SocialJoinRequestDtoAgreedTermsItem[keyof typeof SocialJoinRequestDtoAgreedTermsItem];
+
+
+export const SocialJoinRequestDtoAgreedTermsItem = {
+  SERVICE: 'SERVICE',
+  PRIVACY: 'PRIVACY',
+  MARKETING: 'MARKETING',
+} as const;
+
+/**
+ * 소셜 회원가입 요청
+ */
+export interface SocialJoinRequestDto {
+  /**
+     * 이메일. 제공자가 확인된 이메일을 줬으면 무시하고, 안 줬으면 필수
+     * @nullable
+     */
+  email?: string | null;
+  /**
+     * 실명
+     * @minLength 1
+     */
+  name: string;
+  /**
+     * 닉네임 (한글 2~8자, 영문 4~16자, 한글·영문·숫자만)
+     * @minLength 1
+     * @pattern ^[가-힣A-Za-z0-9]+$
+     */
+  nickname: string;
+  /**
+     * 휴대폰 번호 (하이픈 생략 가능)
+     * @minLength 1
+     * @pattern ^01[016789]-?\d{3,4}-?\d{4}$
+     */
+  phone: string;
+  /** 생년월일 */
+  birthDate: string;
+  /**
+     * 성별 (선택)
+     * @nullable
+     */
+  gender?: SocialJoinRequestDtoGender;
+  /** 동의한 약관 종류 (SERVICE, PRIVACY는 필수). 동의하지 않은 선택 약관은 빼고 보낸다 */
+  agreedTerms: SocialJoinRequestDtoAgreedTermsItem[];
+}
+
+/**
+ * 크루 만들기 요청
+ */
+export interface CrewCreateRequestDto {
+  /**
+     * 크루 이름 (앞뒤 공백을 뺀 1~20자, 다른 크루와 겹쳐도 된다)
+     * @minLength 1
+     * @maxLength 20
+     */
+  name: string;
+}
+
+/**
+ * 크루장 넘기기 요청
+ */
+export interface CrewLeaderTransferRequestDto {
+  /** 크루장을 넘겨받을 크루원의 회원 ID */
+  memberId: number;
+}
+
+export type MemberDtoSocialProvidersItem = typeof MemberDtoSocialProvidersItem[keyof typeof MemberDtoSocialProvidersItem];
+
+
+export const MemberDtoSocialProvidersItem = {
+  KAKAO: 'KAKAO',
+  GOOGLE: 'GOOGLE',
+} as const;
+
 export interface MemberDto {
   id?: number;
   createDate?: string;
@@ -175,6 +261,10 @@ export interface MemberDto {
   phone?: string;
   name?: string;
   birthDate?: string;
+  /** 연결된 소셜 로그인 제공자 */
+  socialProviders?: MemberDtoSocialProvidersItem[];
+  /** 비밀번호가 있으면 true. false면 소셜 로그인으로만 로그인한다 */
+  passwordSet?: boolean;
 }
 
 /**
@@ -242,6 +332,163 @@ export interface SellerDto {
   resultCheckedAt?: string | null;
 }
 
+export type SocialSignupInfoDtoProvider = typeof SocialSignupInfoDtoProvider[keyof typeof SocialSignupInfoDtoProvider];
+
+
+export const SocialSignupInfoDtoProvider = {
+  KAKAO: 'KAKAO',
+  GOOGLE: 'GOOGLE',
+} as const;
+
+/**
+ * 소셜 가입 화면에 미리 채울 값
+ */
+export interface SocialSignupInfoDto {
+  provider: SocialSignupInfoDtoProvider;
+  /**
+     * 제공자가 준 확인된 이메일. 없으면 null
+     * @nullable
+     */
+  email?: string | null;
+  /** true면 이메일을 고칠 수 없다(제공자가 확인한 이메일) */
+  emailLocked: boolean;
+  /**
+     * 제공자가 준 이름. 없으면 null
+     * @nullable
+     */
+  name?: string | null;
+}
+
+/**
+ * 크루 역할 (LEADER: 크루장, MANAGER: 운영진, MEMBER: 크루원)
+ */
+export type CrewMemberDtoRole = typeof CrewMemberDtoRole[keyof typeof CrewMemberDtoRole];
+
+
+export const CrewMemberDtoRole = {
+  LEADER: 'LEADER',
+  MANAGER: 'MANAGER',
+  MEMBER: 'MEMBER',
+} as const;
+
+/**
+ * 크루원 (실명 없이 닉네임만)
+ */
+export interface CrewMemberDto {
+  memberId: number;
+  nickname: string;
+  /** 크루 역할 (LEADER: 크루장, MANAGER: 운영진, MEMBER: 크루원) */
+  role: CrewMemberDtoRole;
+}
+
+/**
+ * 요청한 회원의 역할. 크루 역할 (LEADER: 크루장, MANAGER: 운영진, MEMBER: 크루원)
+ */
+export type CrewHomeDtoMyRole = typeof CrewHomeDtoMyRole[keyof typeof CrewHomeDtoMyRole];
+
+
+export const CrewHomeDtoMyRole = {
+  LEADER: 'LEADER',
+  MANAGER: 'MANAGER',
+  MEMBER: 'MEMBER',
+} as const;
+
+/**
+ * 크루 홈
+ */
+export interface CrewHomeDto {
+  crewId: number;
+  name: string;
+  createdAt: string;
+  /** 요청한 회원의 역할. 크루 역할 (LEADER: 크루장, MANAGER: 운영진, MEMBER: 크루원) */
+  myRole: CrewHomeDtoMyRole;
+  memberCount: number;
+  members: CrewMemberDto[];
+}
+
+/**
+ * 크루 역할 (LEADER: 크루장, MANAGER: 운영진, MEMBER: 크루원)
+ */
+export type MyCrewDtoMyRole = typeof MyCrewDtoMyRole[keyof typeof MyCrewDtoMyRole];
+
+
+export const MyCrewDtoMyRole = {
+  LEADER: 'LEADER',
+  MANAGER: 'MANAGER',
+  MEMBER: 'MEMBER',
+} as const;
+
+/**
+ * 내 크루 목록의 크루 하나
+ */
+export interface MyCrewDto {
+  crewId: number;
+  name: string;
+  /** 크루 역할 (LEADER: 크루장, MANAGER: 운영진, MEMBER: 크루원) */
+  myRole: MyCrewDtoMyRole;
+  memberCount: number;
+}
+
+/**
+ * 만든 초대 링크. inviteToken은 이 응답에서만 받는다
+ */
+export interface CrewInviteCreatedDto {
+  inviteId: number;
+  inviteToken: string;
+  createdAt: string;
+  expiresAt: string;
+}
+
+export interface CrewInviteSenderDto {
+  memberId: number;
+  nickname: string;
+}
+
+/**
+ * 아직 쓸 수 있는 초대
+ */
+export interface CrewInviteDto {
+  inviteId: number;
+  createdBy: CrewInviteSenderDto;
+  createdAt: string;
+  expiresAt: string;
+}
+
+/**
+ * 초대 받기 화면 정보
+ */
+export interface CrewInvitePreviewDto {
+  crewId: number;
+  crewName: string;
+  memberCount: number;
+  expiresAt: string;
+  /** 요청한 회원이 이미 이 크루의 크루원인지 */
+  alreadyMember: boolean;
+}
+
+/**
+ * 크루 역할 (LEADER: 크루장, MANAGER: 운영진, MEMBER: 크루원)
+ */
+export type CrewJoinedDtoRole = typeof CrewJoinedDtoRole[keyof typeof CrewJoinedDtoRole];
+
+
+export const CrewJoinedDtoRole = {
+  LEADER: 'LEADER',
+  MANAGER: 'MANAGER',
+  MEMBER: 'MEMBER',
+} as const;
+
+/**
+ * 초대로 가입한 결과
+ */
+export interface CrewJoinedDto {
+  crewId: number;
+  crewName: string;
+  /** 크루 역할 (LEADER: 크루장, MANAGER: 운영진, MEMBER: 크루원) */
+  role: CrewJoinedDtoRole;
+  joinedAt: string;
+}
+
 export interface RsDataMemberDto {
   status?: number;
   message?: string;
@@ -278,6 +525,48 @@ export interface RsDataListSellerDto {
   data?: SellerDto[];
 }
 
+export interface RsDataSocialSignupInfoDto {
+  status?: number;
+  message?: string;
+  data?: SocialSignupInfoDto;
+}
+
+export interface RsDataCrewHomeDto {
+  status?: number;
+  message?: string;
+  data?: CrewHomeDto;
+}
+
+export interface RsDataListMyCrewDto {
+  status?: number;
+  message?: string;
+  data?: MyCrewDto[];
+}
+
+export interface RsDataListCrewInviteDto {
+  status?: number;
+  message?: string;
+  data?: CrewInviteDto[];
+}
+
+export interface RsDataCrewInviteCreatedDto {
+  status?: number;
+  message?: string;
+  data?: CrewInviteCreatedDto;
+}
+
+export interface RsDataCrewInvitePreviewDto {
+  status?: number;
+  message?: string;
+  data?: CrewInvitePreviewDto;
+}
+
+export interface RsDataCrewJoinedDto {
+  status?: number;
+  message?: string;
+  data?: CrewJoinedDto;
+}
+
 export type CheckEmailAvailabilityParams = {
 /**
  * 확인할 이메일
@@ -302,4 +591,20 @@ export const FindAllStatus = {
   APPROVED: 'APPROVED',
   REJECTED: 'REJECTED',
 } as const;
+
+export type AuthorizeSocialParams = {
+/**
+ * 끝난 뒤 돌아갈 앱 내부 경로. 앱 내부 경로가 아니면 '/'(연결이면 '/me/accounts')로 바꾼다
+ */
+next?: string;
+};
+
+export type SocialCallbackParams = {
+code?: string;
+state?: string;
+/**
+ * 사용자가 동의를 취소하면 제공자가 넣는다
+ */
+error?: string;
+};
 

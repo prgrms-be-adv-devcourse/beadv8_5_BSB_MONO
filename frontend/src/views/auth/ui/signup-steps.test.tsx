@@ -6,7 +6,7 @@ import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { getAuthStatus } from '@/shared/api'
-import { server } from '@/shared/testing'
+import { pickDate, server } from '@/shared/testing'
 
 import { AUTH_ERRORS } from '../model/schemas'
 import { SignupStepProvider, type SignupStepInitial } from '../model/signup-store'
@@ -62,7 +62,7 @@ function renderProfileStep() {
 
 async function fillProfile(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText('이름'), '김러너')
-  await user.type(screen.getByLabelText('생년월일'), '1995-03-02')
+  await pickDate(user, '생년월일', '1995-03-02')
   await user.type(screen.getByLabelText('휴대폰 번호'), '01012345678')
   await user.type(screen.getByLabelText('닉네임'), '달리는곰')
 }
@@ -314,7 +314,7 @@ describe('Enter로 제출 (QA 10/20)', () => {
     expect(push).not.toHaveBeenCalled()
   })
 
-  it('회원 정보 단계의 휴대폰 · 생년월일 칸에서 Enter를 누르면 가입한다', async () => {
+  it('회원 정보 단계의 휴대폰 칸에서 Enter를 누르면 가입한다', async () => {
     let joined = 0
     server.use(
       http.post('*/api/v1/auth/join', () => {
@@ -371,7 +371,7 @@ describe('Enter로 제출 (QA 10/20)', () => {
     renderProfileStep()
 
     await user.type(screen.getByLabelText('이름'), '김러너')
-    await user.type(screen.getByLabelText('생년월일'), '1995-03-02')
+    await pickDate(user, '생년월일', '1995-03-02')
     await user.type(screen.getByLabelText('휴대폰 번호'), '01012345678{Enter}')
 
     expect(screen.getByRole('button', { name: '가입 완료' })).toBeDisabled()

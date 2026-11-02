@@ -1,12 +1,16 @@
 package com.bukang.member.app;
 
+import java.util.stream.Collectors;
+
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.bukang.member.domain.Member;
+import com.bukang.member.domain.SocialProvider;
 import com.bukang.member.domain.exception.MemberNotFoundException;
+import com.bukang.member.domain.exception.SocialAccountLoginException;
 import com.bukang.member.dto.AuthTokens;
 import com.bukang.member.dto.EmailAvailabilityResponseDto;
 import com.bukang.member.dto.MemberAdminDto;
@@ -91,6 +95,14 @@ public class MemberFacade {
 	}
 
 	public MemberLoginResult login(MemberLoginRequestDto memberLoginRequestDto) {
+		// 비밀번호 없는 소셜 회원이면 가입한 제공자로 로그인하라고 알려 준다 (BE-035)
+		// 가입 여부는 이메일 중복 확인 API로도 알 수 있어(BE-023) 새로 드러나는 정보가 없다
+		memberRepository.findActiveByEmail(memberLoginRequestDto.getEmail())
+			.filter(member -> !member.hasPassword())
+			.ifPresent(member -> {
+				throw new SocialAccountLoginException(socialAccountMessage(member));
+			});
+
 		// 이메일·비밀번호 확인만 한다. 로그인 상태는 세션이 아니라 토큰으로 유지하므로 인증 결과를 저장하지 않는다
 		authenticationManager.authenticate(
 			new UsernamePasswordAuthenticationToken(
@@ -103,6 +115,17 @@ public class MemberFacade {
 			.orElseThrow(() -> new MemberNotFoundException("존재하지 않는 회원입니다."));
 
 		return new MemberLoginResult(member.toDto(), tokenIssueUseCase.issue(member.getId()));
+	}
+
+	// 예: "카카오로 가입한 계정입니다. 카카오로 로그인해주세요." 둘 다 연결돼 있으면 "카카오 또는 구글로"
+	private static String socialAccountMessage(Member member) {
+		String providers = member.socialProviders().stream()
+			.map(SocialProvider::getDisplayName)
+			.collect(Collectors.joining(" 또는 "));
+		if (providers.isEmpty()) {
+			return "소셜 로그인으로 가입한 계정입니다. 소셜 로그인으로 로그인해주세요.";
+		}
+		return providers + "로 가입한 계정입니다. " + providers + "로 로그인해주세요.";
 	}
 
 	// Refresh Token도 회전하므로 Access Token과 새 Refresh Token을 함께 돌려준다

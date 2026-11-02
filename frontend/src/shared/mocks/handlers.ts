@@ -10,6 +10,7 @@ import {
   getBukangMemberAPIMock,
   getLoginResponseMock,
   getReissueResponseMock,
+  getSocialJoinResponseMock,
 } from '@/shared/api/generated/member/member.msw'
 import {
   getBukangOrderAPIMock,
@@ -37,6 +38,7 @@ import {
 } from '@/shared/api/generated/product/product.msw'
 import type { SearchParams } from '@/shared/api/generated/product/product.schemas'
 
+import { crewHandlers } from './crews'
 import { fileUploadHandlers } from './file-upload'
 import {
   clearMockBalanceCookie,
@@ -120,6 +122,14 @@ const authHandlers = [
       },
     )
   }),
+  // 소셜 가입은 로그인과 같이 Refresh Token 쿠키를 심는다(재발급이 이어서 성공해야 로그인 상태가 유지된다).
+  // 시작 · 콜백(제공자 화면을 다녀오는 302)은 목으로 흉내 내지 않는다.
+  http.post('*/api/v1/auth/oauth2/join', () =>
+    HttpResponse.json(getSocialJoinResponseMock(), {
+      status: 201,
+      headers: withCookies(issueMockRefreshCookie(), issueMockLoginMarkCookie()),
+    }),
+  ),
   http.post('*/api/v1/auth/reissue', ({ cookies }) => {
     if (!cookies[MOCK_REFRESH_COOKIE_NAME]) {
       return HttpResponse.json(
@@ -601,6 +611,7 @@ export const handlers = [
   fileImageHandler,
   ...authHandlers,
   ...meHandlers,
+  ...crewHandlers,
   ...notificationHandlers,
   ...withdrawHandlers,
   ...signupHandlers,

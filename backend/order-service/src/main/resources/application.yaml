@@ -87,3 +87,11 @@ order:
     # 판매자 키트 API의 판매자 ID 조회 (PRO-197). 실제 연결 전이라 fake(회원 ID = 판매자 ID)만 있다. 운영은 disabled
     seller:
       mode: fake
+    # 관리자 API의 관리자 확인 (BUK-26). http면 회원 서비스 내부 API를 부른다. 로컬은 fake(누구나 관리자)
+    # member·nickname의 mode는 꼭 적는다. 빠지면 가짜로 열리지 않고 앱이 뜨지 않는다
+    member:
+      mode: fake
+      base-url: http://localhost:8080
+    # 관리자 주문 조회의 닉네임 → 회원 ID (BUK-26). 회원 서비스에 API가 없어 fake(시작 데이터 닉네임만)만 있다. 운영은 disabled
+    nickname:
+      mode: fake

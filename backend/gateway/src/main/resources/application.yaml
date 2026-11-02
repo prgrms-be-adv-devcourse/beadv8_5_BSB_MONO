@@ -94,6 +94,8 @@ gateway:
       - pattern: /api/v1/auth/login
       - pattern: /api/v1/auth/reissue
       - pattern: /api/v1/auth/logout
+      # 카카오·구글 소셜 로그인 시작·콜백·소셜 가입은 로그인 전에 쓴다 (BE-031). 계정 연결 표 발급은 회원 주소라 토큰이 필요하다
+      - pattern: /api/v1/auth/oauth2/**
       # 가입 화면이 로그인 전에 이메일 중복을 확인한다
       - pattern: /api/v1/member/members/email-availability
         methods: [ GET ]

@@ -54,7 +54,8 @@ public abstract class SourceMember extends BaseMember {
 	@Column // 로그인 아이디. unique 제약은 Member의 uk_member_email
 	private String email;
 
-	@Column(name = "password_hash", nullable = false)
+	// 소셜로 가입한 회원은 비밀번호가 없어 NULL이다 (BE-035)
+	@Column(name = "password_hash")
 	private String password;
 
 	@Column

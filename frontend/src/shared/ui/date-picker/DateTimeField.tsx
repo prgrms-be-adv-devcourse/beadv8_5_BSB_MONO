@@ -31,6 +31,8 @@ type CommonProps = {
   isDateDisabled?: (date: Date) => boolean
   startMonth?: Date
   endMonth?: Date
+  /** 값이 없을 때 달력이 처음 보여 줄 달. 없으면 오늘이 있는 달 (생년월일처럼 먼 과거를 고를 때 쓴다) */
+  defaultMonth?: Date
   /** false면 시간 칸 없이 날짜만 고르고 'yyyy-MM-dd'로 알린다 (기본 true) */
   withTime?: boolean
   className?: string
@@ -170,6 +172,7 @@ export function DateTimeField(props: DateTimeFieldProps) {
                     isDateDisabled={props.isDateDisabled}
                     startMonth={props.startMonth}
                     endMonth={props.endMonth}
+                    defaultMonth={props.defaultMonth}
                     footer={{ onConfirm: confirm }}
                   />
                 ) : (
@@ -180,6 +183,7 @@ export function DateTimeField(props: DateTimeFieldProps) {
                     isDateDisabled={props.isDateDisabled}
                     startMonth={props.startMonth}
                     endMonth={props.endMonth}
+                    defaultMonth={props.defaultMonth}
                     footer={{ onConfirm: confirm }}
                   />
                 )}
