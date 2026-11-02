@@ -75,7 +75,10 @@ export function SellerSalesPage() {
           title="등록한 대회가 없어요"
           description="대회를 등록하면 여기에서 판매 현황을 볼 수 있어요"
           action={
-            <Link href="/seller/races/new" className={buttonClassName({ variant: 'secondary' })}>
+            <Link
+              href="/seller/races/new?from=sales"
+              className={buttonClassName({ variant: 'secondary' })}
+            >
               대회 등록
             </Link>
           }

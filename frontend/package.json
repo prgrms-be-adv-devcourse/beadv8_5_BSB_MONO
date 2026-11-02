@@ -15,6 +15,7 @@
     "test:watch": "vitest",
     "api:generate": "node -e \"require('fs').rmSync('src/shared/api/generated',{recursive:true,force:true})\" && orval",
     "api:pull": "node scripts/pull-openapi.mjs",
+    "tokens": "node scripts/generate-tokens/index.mjs",
     "prepare": "cd .. && husky frontend/.husky",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build"
@@ -22,6 +23,7 @@
   "dependencies": {
     "@base-ui/react": "^1.8.0",
     "@hookform/resolvers": "^5.9.1",
+    "@next/third-parties": "16.3.8",
     "@portone/browser-sdk": "0.1.13",
     "@tanstack/react-query": "^5.104.1",
     "@tosspayments/tosspayments-sdk": "2.9.0",

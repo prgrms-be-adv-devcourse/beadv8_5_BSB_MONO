@@ -1,7 +1,9 @@
+import { GoogleTagManager } from '@next/third-parties/google'
 import type { Metadata, Viewport } from 'next'
 import { Barlow_Condensed, Noto_Sans_KR } from 'next/font/google'
 
 import { getServerEnv } from '@/shared/config'
+import { trackingGtmId } from '@/shared/lib'
 
 import { Providers } from './_providers'
 
@@ -55,11 +57,14 @@ export const viewport: Viewport = {
 }
 
 export default function RootLayout({ children }: LayoutProps<'/'>) {
+  // 구매자 · 판매자 센터 · 어드민이 모두 이 레이아웃을 지난다. 어드민은 GTM 실행 조건과 trackEvent에서 뺀다
+  const gtmId = trackingGtmId()
   return (
     <html
       lang="ko"
       className={`${notoSansKr.variable} ${barlowCondensed.variable} h-full antialiased`}
     >
+      {gtmId && <GoogleTagManager gtmId={gtmId} />}
       <body className="flex min-h-full flex-col">
         <Providers>{children}</Providers>
       </body>
