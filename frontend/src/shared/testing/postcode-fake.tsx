@@ -23,12 +23,16 @@ export const postcodeFake = {
   options: undefined as PostcodeOptions | undefined,
   /** 창을 붙인 칸 */
   embeddedIn: undefined as HTMLElement | undefined,
+  /** 창을 붙인 횟수 */
+  embedCount: 0,
 }
 
 export function installPostcodeFake() {
   postcodeFake.failLoad = false
   postcodeFake.options = undefined
   postcodeFake.embeddedIn = undefined
+  postcodeFake.embedCount = 0
+  scriptState = 'none'
   Object.assign(window, {
     kakao: {
       Postcode: class {
@@ -37,6 +41,7 @@ export function installPostcodeFake() {
         }
         embed(element: HTMLElement) {
           postcodeFake.embeddedIn = element
+          postcodeFake.embedCount += 1
         }
       },
     },
@@ -61,17 +66,33 @@ export function completePostcode(data: Partial<FakePostcodeData> = {}) {
   )
 }
 
-/** next/script 자리. 진짜처럼 붙을 때 한 번만 불러오기 성공(onReady)이나 실패(onError)를 알린다. */
+// 진짜 next/script는 같은 주소를 한 번만 불러오고 결과를 기억한다 (installPostcodeFake가 비운다)
+let scriptState: 'none' | 'loaded' | 'failed' = 'none'
+
+/**
+ * next/script 자리. 진짜와 같이 처음 붙을 때만 성공(onLoad·onReady)이나 실패(onError)를 알린다.
+ * 다시 붙으면 성공했던 주소는 onReady만, 실패했던 주소는 onLoad만 부른다(진짜가 실패를 삼키기 때문).
+ */
 export function FakeScript({
+  onLoad,
   onReady,
   onError,
 }: {
+  onLoad?: () => void
   onReady?: () => void
   onError?: (e: unknown) => void
 }) {
   useEffect(() => {
-    if (postcodeFake.failLoad) onError?.(new Event('error'))
-    else onReady?.()
+    if (scriptState === 'loaded') onReady?.()
+    else if (scriptState === 'failed') onLoad?.()
+    else if (postcodeFake.failLoad) {
+      scriptState = 'failed'
+      onError?.(new Event('error'))
+    } else {
+      scriptState = 'loaded'
+      onLoad?.()
+      onReady?.()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   return null

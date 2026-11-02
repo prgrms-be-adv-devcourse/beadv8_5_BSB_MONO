@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -106,5 +106,54 @@ describe('AddressSearch', () => {
 
     expect(await screen.findByText(ADDRESS_SEARCH_UNAVAILABLE)).toBeInTheDocument()
     expect(onUnavailable).toHaveBeenCalled()
+  })
+
+  // 진짜 next/script는 실패한 주소를 기억해, 다른 화면에서 다시 붙으면 onError 대신 onLoad만 부른다
+  it('실패한 뒤 다른 화면에서 다시 열어도 빈 창 대신 직접 입력 안내를 보여 준다', async () => {
+    postcodeFake.failLoad = true
+    const first = render(<AddressSearch onSelect={vi.fn()} />)
+    await userEvent.click(screen.getByRole('button', { name: '주소 검색' }))
+    expect(await screen.findByText(ADDRESS_SEARCH_UNAVAILABLE)).toBeInTheDocument()
+    first.unmount()
+    Reflect.deleteProperty(window, 'kakao')
+
+    const { onUnavailable } = renderSearch()
+    await userEvent.click(screen.getByRole('button', { name: '주소 검색' }))
+
+    expect(await screen.findByText(ADDRESS_SEARCH_UNAVAILABLE)).toBeInTheDocument()
+    expect(onUnavailable).toHaveBeenCalled()
+  })
+
+  it('처음 불러올 때 창을 한 번만 붙인다', async () => {
+    renderSearch()
+    await userEvent.click(screen.getByRole('button', { name: '주소 검색' }))
+
+    expect(postcodeFake.embedCount).toBe(1)
+  })
+
+  it('닫기를 누르면 초점이 주소 검색 버튼으로 돌아간다', async () => {
+    renderSearch()
+    await userEvent.click(screen.getByRole('button', { name: '주소 검색' }))
+    await userEvent.click(screen.getByRole('button', { name: '주소 검색 닫기' }))
+
+    expect(screen.getByRole('button', { name: '주소 검색' })).toHaveFocus()
+  })
+
+  it('주소를 고르면 창이 사라져도 초점이 주소 검색 버튼에 남는다', async () => {
+    renderSearch()
+    await userEvent.click(screen.getByRole('button', { name: '주소 검색' }))
+    // 고르는 동안 초점은 카카오 창(iframe) 안에 있다가 창과 함께 사라진다
+    act(() => (document.activeElement as HTMLElement).blur())
+    completePostcode()
+
+    expect(screen.getByRole('button', { name: '주소 검색' })).toHaveFocus()
+  })
+
+  it('불러오기에 실패해 버튼이 사라지면 초점이 안내 문구로 간다', async () => {
+    postcodeFake.failLoad = true
+    renderSearch()
+    await userEvent.click(screen.getByRole('button', { name: '주소 검색' }))
+
+    expect(await screen.findByText(ADDRESS_SEARCH_UNAVAILABLE)).toHaveFocus()
   })
 })
