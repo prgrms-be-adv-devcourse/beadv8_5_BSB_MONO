@@ -9,12 +9,14 @@ import java.time.LocalDateTime;
  * 발행 쪽 형식은 order 담당과 맞출 때까지 바뀔 수 있다.
  *
  * @param price 환불된 참가권 한 장의 가격 (주문 상품 가격)
+ * @param reason 환불 사유. 비어 있으면 정산은 잘못된 메시지로 보고 처리하지 않는다
  */
 public record OrderItemRefundedEvent(
 	long orderItemId,
 	long raceId,
 	long raceCourseId,
 	long price,
-	LocalDateTime refundedAt
+	LocalDateTime refundedAt,
+	OrderItemRefundReason reason
 ) {
 }

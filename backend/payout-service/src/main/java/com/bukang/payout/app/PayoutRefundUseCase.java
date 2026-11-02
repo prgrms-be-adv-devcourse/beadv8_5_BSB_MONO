@@ -6,6 +6,7 @@ import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.bukang.common.shared.order.event.OrderItemRefundReason;
 import com.bukang.common.shared.order.event.OrderItemRefundedEvent;
 import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutRecovery;
@@ -30,6 +31,18 @@ public class PayoutRefundUseCase {
 
 	@Transactional
 	public Optional<PayoutRecovery> recordRefund(OrderItemRefundedEvent event, LocalDateTime now) {
+		// 사유가 없으면 대회 취소 환불인지 알 수 없다. 회수를 두 번 남길 수 있어 처리하지 않는다
+		// IllegalArgumentException은 소비자가 재시도하지 않고 바로 DLT로 보낸다 (PayoutKafkaConsumer)
+		if (event.reason() == null) {
+			throw new IllegalArgumentException("환불 사유가 없는 알림입니다. orderItemId=%d, raceId=%d"
+				.formatted(event.orderItemId(), event.raceId()));
+		}
+		// 대회 취소 일괄 환불은 대회 취소 알림(order.race.cancel)으로 대회당 한 번 회수한다. 여기서도 남기면 두 번 청구된다
+		if (event.reason() == OrderItemRefundReason.RACE_CANCELED) {
+			log.info("대회 취소 환불이라 회수를 남기지 않습니다. raceId={}, orderItemId={}", event.raceId(),
+				event.orderItemId());
+			return Optional.empty();
+		}
 		Optional<Payout> first = payoutRepository.findByRaceId(event.raceId()).stream()
 			.filter(payout -> payout.getPayoutStage() == PayoutStage.FIRST)
 			.filter(payout -> payout.getStatus() != PayoutStatus.CANCELED)
