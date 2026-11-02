@@ -96,23 +96,43 @@ class ApiV1MemberModifyTest {
 	}
 
 	@Test
-	@DisplayName("4칸을 바꾸면 200과 바뀐 회원 정보를 받고 DB에도 반영된다")
+	@DisplayName("닉네임을 바꾸면 200과 바뀐 회원 정보를 받고 DB에도 반영된다")
 	void modifySucceeds() throws Exception {
-		modify(memberId, "박러너", "새닉네임", "01098765432", "1990-01-01")
+		modify(memberId, NAME, "새닉네임", PHONE, BIRTH_DATE)
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.message").value("내 정보를 수정했습니다."))
 			.andExpect(jsonPath("$.data.id").value(memberId))
-			.andExpect(jsonPath("$.data.name").value("박러너"))
 			.andExpect(jsonPath("$.data.nickname").value("새닉네임"))
-			.andExpect(jsonPath("$.data.phone").value("01098765432"))
-			.andExpect(jsonPath("$.data.birthDate").value("1990-01-01"))
 			.andExpect(jsonPath("$.data.email").value("runner1@crewrun.com"));
 
+		assertThat(memberRepository.findById(memberId).orElseThrow().getNickname()).isEqualTo("새닉네임");
+	}
+
+	@Test
+	@DisplayName("이름 · 생년월일 · 휴대폰 번호를 보내도 본인인증 값이라 바꾸지 않고 닉네임만 바꾼다")
+	void modifyIgnoresVerifiedFields() throws Exception {
+		modify(memberId, "박러너", "새닉네임", "01098765432", "1990-01-01")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.name").value(NAME))
+			.andExpect(jsonPath("$.data.nickname").value("새닉네임"))
+			.andExpect(jsonPath("$.data.phone").value(PHONE))
+			.andExpect(jsonPath("$.data.birthDate").value(BIRTH_DATE));
+
 		Member saved = memberRepository.findById(memberId).orElseThrow();
-		assertThat(saved.getName()).isEqualTo("박러너");
-		assertThat(saved.getNickname()).isEqualTo("새닉네임");
-		assertThat(saved.getPhone()).isEqualTo("01098765432");
-		assertThat(saved.getBirthDate()).isEqualTo(LocalDate.of(1990, 1, 1));
+		assertThat(saved.getName()).isEqualTo(NAME);
+		assertThat(saved.getPhone()).isEqualTo(PHONE);
+		assertThat(saved.getBirthDate()).isEqualTo(LocalDate.parse(BIRTH_DATE));
+	}
+
+	@Test
+	@DisplayName("닉네임은 그대로 두고 이름 · 휴대폰 번호만 다르게 보내면 아무것도 저장하지 않는다")
+	void modifyOnlyVerifiedFieldsDoesNotSave() throws Exception {
+		modify(memberId, "박러너", NICKNAME, "01098765432", "1990-01-01")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.name").value(NAME));
+
+		verify(memberRepository, never()).saveAndFlush(any(Member.class));
+		assertThat(modifiedEvents()).isEmpty();
 	}
 
 	@Test
@@ -135,25 +155,14 @@ class ApiV1MemberModifyTest {
 	}
 
 	@Test
-	@DisplayName("내 값을 그대로 보내면 내 행에 걸리지 않아 200이고 저장하지 않는다")
+	@DisplayName("내 닉네임을 그대로 보내면 내 행에 걸리지 않아 200이고 저장하지 않는다")
 	void modifyWithSameValuesDoesNotSave() throws Exception {
 		modify(memberId, NAME, NICKNAME, PHONE, BIRTH_DATE)
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.nickname").value(NICKNAME))
-			.andExpect(jsonPath("$.data.phone").value(PHONE));
+			.andExpect(jsonPath("$.data.nickname").value(NICKNAME));
 
 		verify(memberRepository, never()).saveAndFlush(any(Member.class));
 		assertThat(modifiedEvents()).isEmpty();
-	}
-
-	@Test
-	@DisplayName("내 휴대폰 번호를 하이픈만 빼고 보내면 같은 번호로 보고 저장하지 않는다")
-	void modifyWithSamePhoneWithoutHyphen() throws Exception {
-		modify(memberId, NAME, NICKNAME, "01012345678", BIRTH_DATE)
-			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.phone").value(PHONE));
-
-		verify(memberRepository, never()).saveAndFlush(any(Member.class));
 	}
 
 	@Test
@@ -164,18 +173,6 @@ class ApiV1MemberModifyTest {
 		modify(memberId, NAME, OTHER_NICKNAME, PHONE, BIRTH_DATE)
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.message").value("이미 사용 중인 닉네임입니다."));
-
-		assertThat(modifiedEvents()).isEmpty();
-	}
-
-	@Test
-	@DisplayName("다른 회원이 쓰는 휴대폰 번호로 바꾸면 하이픈 유무와 상관없이 409다")
-	void modifyFailsWithOthersPhone() throws Exception {
-		joinDirectly("runner2@crewrun.com", OTHER_NICKNAME, OTHER_PHONE);
-
-		modify(memberId, NAME, NICKNAME, "01099998888", BIRTH_DATE)
-			.andExpect(status().isConflict())
-			.andExpect(jsonPath("$.message").value("이미 사용 중인 전화번호입니다."));
 
 		assertThat(modifiedEvents()).isEmpty();
 	}
@@ -194,62 +191,11 @@ class ApiV1MemberModifyTest {
 	}
 
 	@Test
-	@DisplayName("동시 수정으로 중복 검사를 통과해도 DB 휴대폰 제약에 걸리면 409다")
-	void modifyRaceFailsOnPhoneConstraint() throws Exception {
-		joinDirectly("runner2@crewrun.com", OTHER_NICKNAME, OTHER_PHONE);
-		skipDuplicateChecks();
-
-		modify(memberId, NAME, NICKNAME, OTHER_PHONE, BIRTH_DATE)
-			.andExpect(status().isConflict())
-			.andExpect(jsonPath("$.message").value("이미 사용 중인 전화번호입니다."));
-
-		assertThat(modifiedEvents()).isEmpty();
-	}
-
-	@Test
-	@DisplayName("만 14세 미만이 되는 생년월일로 바꾸면 400이다")
-	void modifyFailsWhenUnderAge() throws Exception {
-		String underAge = LocalDate.now().minusYears(14).plusDays(1).toString();
-
-		modify(memberId, NAME, NICKNAME, PHONE, underAge)
-			.andExpect(status().isBadRequest())
-			.andExpect(jsonPath("$.code").value("MEMBER_UNDER_AGE"));
-	}
-
-	@Test
 	@DisplayName("닉네임 규칙에 맞지 않으면 400이다")
 	void modifyFailsWithInvalidNickname() throws Exception {
 		modify(memberId, NAME, "러너!", PHONE, BIRTH_DATE)
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.message").value("닉네임은 한글, 영문, 숫자만 쓸 수 있습니다."));
-	}
-
-	@Test
-	@DisplayName("휴대폰 번호 형식이 틀리면 400이다")
-	void modifyFailsWithInvalidPhone() throws Exception {
-		modify(memberId, NAME, NICKNAME, "02-123-4567", BIRTH_DATE)
-			.andExpect(status().isBadRequest())
-			.andExpect(jsonPath("$.message").value("휴대폰 번호 형식에 맞게 작성해주세요."));
-	}
-
-	@Test
-	@DisplayName("이름이 255자를 넘으면 400이다")
-	void modifyFailsWithTooLongName() throws Exception {
-		modify(memberId, "가".repeat(255), NICKNAME, PHONE, BIRTH_DATE)
-			.andExpect(status().isOk());
-
-		modify(memberId, "가".repeat(256), NICKNAME, PHONE, BIRTH_DATE)
-			.andExpect(status().isBadRequest())
-			.andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
-			.andExpect(jsonPath("$.message").value("이름은 255자 이하로 작성해주세요."));
-	}
-
-	@Test
-	@DisplayName("이름이 비어 있으면 400이다")
-	void modifyFailsWithBlankName() throws Exception {
-		modify(memberId, " ", NICKNAME, PHONE, BIRTH_DATE)
-			.andExpect(status().isBadRequest())
-			.andExpect(jsonPath("$.message").value("이름을 작성해주세요."));
 	}
 
 	@Test
@@ -294,7 +240,6 @@ class ApiV1MemberModifyTest {
 	// 다른 회원이 아직 없다고 답하게 해, 두 요청이 동시에 중복 검사를 통과한 상황을 만든다
 	private void skipDuplicateChecks() {
 		willReturn(false).given(memberRepository).existsByNicknameAndIdNot(anyString(), anyLong());
-		willReturn(false).given(memberRepository).existsByPhoneHashAndIdNot(anyString(), anyLong());
 	}
 
 	private long joinDirectly(String email, String nickname, String phone) {
@@ -304,6 +249,7 @@ class ApiV1MemberModifyTest {
 		)).getId();
 	}
 
+	// 예전 화면처럼 4칸을 모두 보낸다. 서버는 닉네임만 쓰고 나머지는 무시해야 한다
 	private ResultActions modify(long id, String name, String nickname, String phone, String birthDate)
 		throws Exception {
 		return mockMvc.perform(put(ME)

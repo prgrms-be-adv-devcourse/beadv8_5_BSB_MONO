@@ -80,17 +80,16 @@ public class ApiV1MemberController {
 	// 수정 화면은 저장할 때 항상 4칸을 다 보내므로 PUT으로 통째로 바꾼다. 대상은 X-Member-Id로만 정한다 (BE-012)
 	@PutMapping("/me")
 	@Operation(summary = "내 정보 수정",
-		description = "X-Member-Id 헤더의 회원의 이름, 생년월일, 휴대폰 번호, 닉네임을 바꾼다. "
-			+ "다른 회원이 쓰는 닉네임·휴대폰 번호인지 검사하고(내 행은 제외, 휴대폰은 하이픈 유무 무관), "
-			+ "4칸이 모두 그대로면 저장하지 않는다.")
+		description = "X-Member-Id 헤더의 회원의 닉네임을 바꾼다. 이름, 생년월일, 휴대폰 번호는 본인인증으로 받은 값이라 "
+			+ "바꿀 수 없고, 요청에 와도 무시한다. 다른 회원이 쓰는 닉네임인지 검사하고(내 행은 제외), "
+			+ "닉네임이 그대로면 저장하지 않는다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "수정 성공 (바뀐 게 없어도 200)",
 			content = @Content(examples = @ExampleObject(value = MemberApiExamples.MODIFY_ME_SUCCESS))),
-		@ApiResponse(responseCode = "400", description = "입력값 검증 실패, 요청 본문 형식 오류 또는 만 14세 미만",
+		@ApiResponse(responseCode = "400", description = "입력값 검증 실패 또는 요청 본문 형식 오류",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "입력값 검증 실패", value = MemberApiExamples.MODIFY_ME_INVALID_INPUT),
-				@ExampleObject(name = "요청 본문 형식 오류", value = MemberApiExamples.INVALID_BODY),
-				@ExampleObject(name = "만 14세 미만", value = MemberApiExamples.MODIFY_ME_UNDER_AGE)
+				@ExampleObject(name = "요청 본문 형식 오류", value = MemberApiExamples.INVALID_BODY)
 			})),
 		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음 (로그인하지 않은 요청)",
 			content = @Content(schema = @Schema(implementation = RsData.class),
@@ -98,11 +97,9 @@ public class ApiV1MemberController {
 		@ApiResponse(responseCode = "404", description = "헤더의 회원이 없음",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = MemberApiExamples.MEMBER_NOT_FOUND))),
-		@ApiResponse(responseCode = "409", description = "다른 회원이 쓰는 닉네임 또는 휴대폰 번호",
-			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
-				@ExampleObject(name = "닉네임 중복", value = MemberApiExamples.DUPLICATE_NICKNAME),
-				@ExampleObject(name = "휴대폰 번호 중복", value = MemberApiExamples.DUPLICATE_PHONE)
-			}))
+		@ApiResponse(responseCode = "409", description = "다른 회원이 쓰는 닉네임",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = MemberApiExamples.DUPLICATE_NICKNAME)))
 	})
 	public ResponseEntity<RsData<MemberDto>> modifyMe(
 		@LoginMemberId long memberId,
