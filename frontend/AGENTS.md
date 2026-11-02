@@ -103,7 +103,11 @@ src/
 
 ## 인증
 
-- `src/proxy.ts`는 로그인 여부를 검사하지 않는다. Refresh Token 쿠키가 `Path=/api/v1/auth`라 `/seller`·`/admin` 요청에 실리지 않기 때문이다. 로그인 전 진입은 `AuthSessionRestorer`가 재발급 실패 시 `/login`으로 보낸다.
+- `src/proxy.ts`는 로그인 여부를 검사하지 않는다. Refresh Token 쿠키가 `Path=/api/v1/auth`라 `/seller`·`/admin` 요청에 실리지 않기 때문이다. 로그인 전 진입은 아래처럼 처리한다.
+  - 회원 화면(`isProtectedPath`)은 `ProtectedScreenGuard`가 로그인 확인이 끝날 때까지 로딩만 그리고, 비로그인이면 `/login?next=`로 보낸다.
+  - `AuthSessionRestorer`는 쓰는 중에 재발급이 실패해 로그인이 끊겼을 때만 `/login`으로 보낸다. 앱을 처음 열 때 재발급이 실패하면 보내지 않는다.
+  - `/seller`·`/admin`은 로그인 화면으로 보내지 않는다. 화면마다 그 자리에서 로그인이 필요하다는 안내를 보여 준다.
+- 로그아웃이 성공하면 `useLogout`이 문서를 새로 불러 `/login`으로 간다. 토큰을 먼저 비우면 지금 화면이 로그아웃 상태로 잠깐 다시 그려지기 때문이다.
 - 소셜 로그인(카카오 · 구글)은 백엔드가 인가 요청부터 콜백까지 처리한다(BE-031). 프론트는 `features/auth`의 `SocialLoginButtons`로 시작 주소(`/api/v1/auth/oauth2/authorize/{provider}`)를 화면 이동으로 연다.
   콜백 뒤 `/auth/social/complete`(재발급으로 Access Token을 받는다), `/signup/social`(소셜 가입), `/login?error=` 중 하나로 온다. 계정 연결은 `/me/accounts`에서 연결 표를 받은 뒤 같은 시작 주소로 연다.
 
