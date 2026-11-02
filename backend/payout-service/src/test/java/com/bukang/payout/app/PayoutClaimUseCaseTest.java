@@ -13,8 +13,11 @@ import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.test.context.ActiveProfiles;
 
 import com.bukang.payout.app.PayoutClaimUseCase.ClaimRunResult;
@@ -47,6 +50,7 @@ import jakarta.persistence.EntityManager;
  */
 @DataJpaTest
 @ActiveProfiles("test")
+@ExtendWith(OutputCaptureExtension.class)
 class PayoutClaimUseCaseTest {
 	private static final long SELLER_ID = 1;
 	private static final long RACE_ID = 7;
@@ -346,13 +350,18 @@ class PayoutClaimUseCaseTest {
 	}
 
 	@Test
-	@DisplayName("TC-REV2-2 청구 105,500원 뒤 회수가 더 생겨 갚을 돈이 185,500원이면 확인을 409로 거부하고 아무것도 바꾸지 않는다")
-	void confirmRejectedWhenReceivableGrew() {
+	@DisplayName("TC-REV2-2 청구 105,500원 뒤 회수가 더 생겨 갚을 돈이 185,500원이면 확인을 409로 거부하고 아무것도 바꾸지 않으며 금액 차이를 ERROR 로그로 남긴다")
+	void confirmRejectedWhenReceivableGrew(CapturedOutput output) {
 		eightRefundsThenFinal();
 		run(FINAL_CREATED_DATE);
 		changeReceivableAfterClaim(80_000);
 
 		assertConfirmRejectedAndNothingChanged(185_500);
+		// 응답에는 "예상치 못한 일"만, 로그에는 청구 · 판매자 · 대회와 금액 차이를 자세히 남긴다
+		List<String> logs = output.getAll().lines().filter(line -> line.contains("회수 확인을 거부합니다")).toList();
+		assertThat(logs).hasSize(1);
+		assertThat(logs.getFirst()).contains("ERROR", "sellerId=1", "raceId=7", "청구 금액=105500", "지금 갚을 돈=185500",
+			"차이=80000");
 	}
 
 	@Test

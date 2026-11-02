@@ -159,6 +159,24 @@ class ApiV1PayoutClaimControllerTest {
 	}
 
 	@Test
+	@DisplayName("TC-REV2-2 청구 뒤 갚을 돈이 185,500원으로 늘었으면 409와 \"예상치 못한 일\" 메시지를 돌려주고, 청구와 원장은 그대로다")
+	void receivableChangedAfterClaim() throws Exception {
+		PayoutClaim claim = saveClaim();
+		PayoutRecovery more = payoutRecoveryRepository.save(
+			PayoutRecovery.scheduleChanged(1, 7, 109, 80_000, LocalDateTime.of(2026, 12, 15, 10, 0)));
+		payoutItemRepository.save(PayoutItem.ofRecovery(more, PayoutRecordType.RECEIVABLE_ADDED, 109L, 7L, 80_000));
+		long lines = payoutItemRepository.count();
+
+		confirm(claim.getId(), ADMIN_ID)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.message").value("예상치 못한 일이 발생해 회수를 확인할 수 없습니다. 관리자에게 문의해 주세요."))
+			.andDo(document("payout-claim-confirm-receivable-changed", ERROR_RESPONSE));
+		assertThat(payoutClaimRepository.findById(claim.getId()).orElseThrow().getStatus())
+			.isEqualTo(PayoutClaimStatus.OPEN);
+		assertThat(payoutItemRepository.count()).isEqualTo(lines);
+	}
+
+	@Test
 	@DisplayName("TC-CONFIRM-4-2 관리자가 아닌 회원이 청구 입금을 확인하면 403이고, 청구와 원장은 그대로다")
 	void nonAdminCannotConfirm() throws Exception {
 		PayoutClaim claim = saveClaim();

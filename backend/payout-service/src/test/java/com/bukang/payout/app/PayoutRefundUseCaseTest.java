@@ -26,6 +26,7 @@ import com.bukang.payout.app.PayoutCreateStepUseCase.FirstPayoutSource;
 import com.bukang.payout.domain.BusinessDayCalendar;
 import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutRecovery;
+import com.bukang.payout.domain.PayoutRecoveryReason;
 import com.bukang.payout.domain.PayoutRecoveryStatus;
 import com.bukang.payout.domain.PayoutStage;
 import com.bukang.payout.domain.exception.PayoutRecoveryConflictException;
@@ -69,6 +70,7 @@ class PayoutRefundUseCaseTest {
 
 	private PayoutCreateStepUseCase creator;
 	private PayoutRefundUseCase refundUseCase;
+	private PayoutRaceCancelUseCase raceCancelUseCase;
 
 	@BeforeEach
 	void setUp() {
@@ -78,6 +80,7 @@ class PayoutRefundUseCaseTest {
 		creator = new PayoutCreateStepUseCase(payoutRepository, calendar, ledgerUseCase,
 			new PayoutHoldUseCase(payoutRepository, payoutHoldRepository, calendar));
 		refundUseCase = new PayoutRefundUseCase(payoutRepository, ledgerUseCase);
+		raceCancelUseCase = new PayoutRaceCancelUseCase(payoutRepository, ledgerUseCase);
 	}
 
 	private void createFirst() {
@@ -161,16 +164,21 @@ class PayoutRefundUseCaseTest {
 	}
 
 	@Test
-	@DisplayName("TC-REV1-1 대회 취소로 101~110번이 일괄 환불돼 사유가 대회 취소인 알림 10개가 와도 회수는 생기지 않는다")
+	@DisplayName("TC-REV1-1 대회 취소로 101~110번이 일괄 환불돼 사유가 대회 취소인 알림 10개가 와도 회수는 대회 취소 회수 1건뿐이다")
 	void raceCancelRefundsAreIgnored() {
 		createFirst();
+		first().pay(REFUNDED_AT.minusDays(20));
 
+		raceCancelUseCase.cancelRace(RACE_ID, REFUNDED_AT);
 		for (long orderItemId = 101; orderItemId <= 110; orderItemId++) {
 			refundUseCase.recordRefund(refunded(orderItemId, PRICE, OrderItemRefundReason.RACE_CANCELED),
 				REFUNDED_AT);
 		}
 
-		assertThat(recoveries()).isEmpty();
+		// 환불 알림으로 생긴 회수 0건, 대회 취소 알림으로 생긴 회수 1건(남은 1차 정산금 200,000원)
+		assertThat(recoveries())
+			.extracting(PayoutRecovery::getReasonType, PayoutRecovery::getOrderItemId, PayoutRecovery::getAmount)
+			.containsExactly(tuple(PayoutRecoveryReason.RACE_CANCELED, null, 200_000L));
 	}
 
 	@Test
@@ -211,7 +219,7 @@ class PayoutRefundUseCaseTest {
 	}
 
 	@Test
-	@DisplayName("TC-REV3-1 최종 정산을 만든 뒤 일정 변경 환불 알림이 오면 409로 거절하고 회수는 0건, 이유를 담은 로그를 남긴다")
+	@DisplayName("TC-REV3-1 최종 정산을 만든 뒤 일정 변경 환불 알림이 오면 409로 거절하고 회수는 0건, 이유를 담은 ERROR 로그를 1건 남긴다")
 	void refundAfterFinalIsRejectedWithLog(CapturedOutput output) {
 		createFirst();
 		first().pay(REFUNDED_AT.minusDays(20));
@@ -225,8 +233,8 @@ class PayoutRefundUseCaseTest {
 			refunded(108, PRICE, OrderItemRefundReason.SCHEDULE_CHANGED), REFUNDED_AT))
 			.isInstanceOf(PayoutRecoveryConflictException.class);
 		assertThat(recoveries()).isEmpty();
-		assertThat(output.getAll())
-			.contains("최종 정산 뒤 환불")
-			.contains("sellerId=1", "raceId=7", "orderItemId=108", "price=50000");
+		List<String> logs = output.getAll().lines().filter(line -> line.contains("최종 정산 뒤 환불이라")).toList();
+		assertThat(logs).hasSize(1);
+		assertThat(logs.getFirst()).contains("ERROR", "sellerId=1", "raceId=7", "orderItemId=108", "price=50000");
 	}
 }
