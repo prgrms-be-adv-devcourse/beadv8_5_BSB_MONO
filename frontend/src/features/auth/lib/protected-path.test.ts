@@ -11,6 +11,9 @@ describe('isProtectedPath', () => {
     '/cart',
     '/checkout/complete',
     '/races/1/apply',
+    '/crews',
+    '/crews/1/invites',
+    '/invite/q7Xk2LmZ9vBn4RtW8yCp1A',
   ])('%s는 로그인이 필요하다', (path) => {
     expect(isProtectedPath(path)).toBe(true)
   })

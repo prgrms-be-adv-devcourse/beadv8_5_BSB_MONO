@@ -349,3 +349,235 @@ export const FindAllResponse = zod.object({
   "resultCheckedAt": zod.iso.datetime({"offset":true}).nullish().describe('신청자가 결과를 처음 본 시각. 아직 안 봤거나 심사 중이면 null')
 })).optional()
 })
+
+
+/**
+ * 로그인한 회원이 크루 이름을 입력해 크루를 만든다. 만든 회원이 크루장이 되고, 가입 시각은 만든 시각과 같다. 응답은 크루 홈과 같은 형식이라 바로 크루 홈을 그린다. 한 회원이 크루 여러 개에 가입할 수 있는지는 회의에서 정한다(정해지면 409 오류 코드를 더한다).
+ * @summary 크루 만들기
+ */
+export const createCrewBodyNameMax = 20;
+
+
+
+export const CreateCrewBody = zod.object({
+  "name": zod.string().min(1).max(createCrewBodyNameMax).describe('크루 이름 (앞뒤 공백을 뺀 1~20자, 다른 크루와 겹쳐도 된다)')
+}).describe('크루 만들기 요청')
+
+export const CreateCrewResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.object({
+  "crewId": zod.int(),
+  "name": zod.string(),
+  "createdAt": zod.iso.datetime({"offset":true}),
+  "myRole": zod.enum(['LEADER', 'MANAGER', 'MEMBER']).describe('요청한 회원의 역할. 크루 역할 (LEADER: 크루장, MANAGER: 운영진, MEMBER: 크루원)'),
+  "memberCount": zod.int(),
+  "members": zod.array(zod.object({
+  "memberId": zod.int(),
+  "nickname": zod.string(),
+  "role": zod.enum(['LEADER', 'MANAGER', 'MEMBER']).describe('크루 역할 (LEADER: 크루장, MANAGER: 운영진, MEMBER: 크루원)')
+}).describe('크루원 (실명 없이 닉네임만)'))
+}).optional().describe('크루 홈')
+})
+
+
+/**
+ * 로그인한 회원이 가입한 크루를 가입한 순서로 돌려준다. 가입한 크루가 없으면 빈 배열이다.
+ * @summary 내 크루 목록
+ */
+export const FindMyCrewsResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.array(zod.object({
+  "crewId": zod.int(),
+  "name": zod.string(),
+  "myRole": zod.enum(['LEADER', 'MANAGER', 'MEMBER']).describe('크루 역할 (LEADER: 크루장, MANAGER: 운영진, MEMBER: 크루원)'),
+  "memberCount": zod.int()
+}).describe('내 크루 목록의 크루 하나')).optional()
+})
+
+
+/**
+ * 크루 정보와 크루원 목록을 돌려준다. 크루원만 볼 수 있다. 크루원은 실명 없이 닉네임과 역할만 보이고, 크루장, 운영진, 크루원 순서이며 같은 역할 안에서는 먼저 가입한 순서다. myRole로 초대 링크 만들기 버튼(크루장·운영진)과 크루 관리 버튼(크루장)을 보일지 정한다. 진행 중인 파티는 파티 서비스 API에서 따로 가져온다.
+ * @summary 크루 홈
+ */
+export const FindCrewParams = zod.object({
+  "crewId": zod.int().describe('크루 ID')
+})
+
+export const FindCrewResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.object({
+  "crewId": zod.int(),
+  "name": zod.string(),
+  "createdAt": zod.iso.datetime({"offset":true}),
+  "myRole": zod.enum(['LEADER', 'MANAGER', 'MEMBER']).describe('요청한 회원의 역할. 크루 역할 (LEADER: 크루장, MANAGER: 운영진, MEMBER: 크루원)'),
+  "memberCount": zod.int(),
+  "members": zod.array(zod.object({
+  "memberId": zod.int(),
+  "nickname": zod.string(),
+  "role": zod.enum(['LEADER', 'MANAGER', 'MEMBER']).describe('크루 역할 (LEADER: 크루장, MANAGER: 운영진, MEMBER: 크루원)')
+}).describe('크루원 (실명 없이 닉네임만)'))
+}).optional().describe('크루 홈')
+})
+
+
+/**
+ * 크루장이 크루를 없앤다. 크루장 말고 다른 크루원이 없을 때만 없앨 수 있다. 없앤 크루는 목록과 크루 홈에서 사라지고, 남아 있던 초대 링크도 쓸 수 없다. 크루 기록은 지우지 않고 상태만 「없앰」으로 바꾼다. 크루원·초대 기록은 지운다.
+ * @summary 크루 없애기 (2그룹)
+ */
+export const DisbandCrewParams = zod.object({
+  "crewId": zod.int().describe('크루 ID')
+})
+
+export const DisbandCrewResponse = zod.unknown()
+
+
+/**
+ * 크루장과 운영진이 초대 링크를 만든다. 링크는 만든 때부터 24시간 동안 쓸 수 있다. 응답의 inviteToken으로 프론트가 초대 받기 화면 주소를 만든다. 토큰은 이 응답에서만 받을 수 있다. 초대 링크 하나로는 한 명만 가입한다.
+ * @summary 초대 링크 만들기
+ */
+export const CreateCrewInviteParams = zod.object({
+  "crewId": zod.int().describe('크루 ID')
+})
+
+export const CreateCrewInviteResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.object({
+  "inviteId": zod.int(),
+  "inviteToken": zod.string(),
+  "createdAt": zod.iso.datetime({"offset":true}),
+  "expiresAt": zod.iso.datetime({"offset":true})
+}).optional().describe('만든 초대 링크. inviteToken은 이 응답에서만 받는다')
+})
+
+
+/**
+ * 아직 쓸 수 있는 초대 링크(24시간 안, 취소·가입 전)를 돌려준다. 보낸 초대를 취소하는 화면에 쓴다. 크루장은 크루의 모든 초대를, 운영진은 자기가 보낸 초대만 받는다. 토큰은 돌려주지 않는다.
+ * @summary 보낸 초대 목록
+ */
+export const FindCrewInvitesParams = zod.object({
+  "crewId": zod.int().describe('크루 ID')
+})
+
+export const FindCrewInvitesResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.array(zod.object({
+  "inviteId": zod.int(),
+  "createdBy": zod.object({
+  "memberId": zod.int(),
+  "nickname": zod.string()
+}),
+  "createdAt": zod.iso.datetime({"offset":true}),
+  "expiresAt": zod.iso.datetime({"offset":true})
+}).describe('아직 쓸 수 있는 초대')).optional()
+})
+
+
+/**
+ * 잘못 보낸 초대를 상대가 가입하기 전에 취소한다. 초대를 보낸 사람이나 크루장만 취소한다.
+ * @summary 초대 취소
+ */
+export const CancelCrewInviteParams = zod.object({
+  "crewId": zod.int().describe('크루 ID'),
+  "inviteId": zod.int().describe('초대 ID')
+})
+
+export const CancelCrewInviteResponse = zod.unknown()
+
+
+/**
+ * 초대 받기 화면에 크루 이름, 크루원 수, 링크가 끝나는 시각을 보여 준다. alreadyMember가 true면 이미 그 크루의 크루원이므로 프론트가 크루 홈으로 보낸다. 로그인이 필요하다. 로그인하지 않았으면 프론트가 로그인·회원가입을 거친 뒤 같은 초대 화면으로 돌아온다.
+ * @summary 초대 링크 정보 조회
+ */
+export const FindCrewInviteParams = zod.object({
+  "inviteToken": zod.string().describe('초대 링크에 들어 있는 초대 토큰 (추측할 수 없는 임의 문자열)')
+})
+
+export const FindCrewInviteResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.object({
+  "crewId": zod.int(),
+  "crewName": zod.string(),
+  "memberCount": zod.int(),
+  "expiresAt": zod.iso.datetime({"offset":true}),
+  "alreadyMember": zod.boolean().describe('요청한 회원이 이미 이 크루의 크루원인지')
+}).optional().describe('초대 받기 화면 정보')
+})
+
+
+/**
+ * 초대 링크로 크루에 가입한다. 역할은 크루원이고, 가입 시각은 서버가 이 요청을 처리한 시각이다. 가입하면 가입 확정 알림을 보낸다. 같은 링크로 두 사람이 동시에 가입하면 한 사람만 성공한다.
+ * @summary 초대 링크로 가입하기
+ */
+export const JoinCrewParams = zod.object({
+  "inviteToken": zod.string().describe('초대 링크에 들어 있는 초대 토큰 (추측할 수 없는 임의 문자열)')
+})
+
+export const JoinCrewResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.object({
+  "crewId": zod.int(),
+  "crewName": zod.string(),
+  "role": zod.enum(['LEADER', 'MANAGER', 'MEMBER']).describe('크루 역할 (LEADER: 크루장, MANAGER: 운영진, MEMBER: 크루원)'),
+  "joinedAt": zod.iso.datetime({"offset":true})
+}).optional().describe('초대로 가입한 결과')
+})
+
+
+/**
+ * 크루원과 운영진이 스스로 크루를 떠난다. 크루장은 크루장을 넘긴 뒤에만 탈퇴한다. 이미 결제한 참가권은 남고, 결제하지 않고 임시로 잡아 둔 자리만 풀린다(파티 서비스가 처리).
+ * @summary 크루 탈퇴 (2그룹)
+ */
+export const LeaveCrewParams = zod.object({
+  "crewId": zod.int().describe('크루 ID')
+})
+
+export const LeaveCrewResponse = zod.unknown()
+
+
+/**
+ * 크루장이 크루원을 크루에서 내보낸다. 크루장 자신은 내보낼 수 없다. 운영진도 내보낼 수 있는지는 회의에서 정한다. 결제 기간 중인 파티장·파티원을 막을지도 회의에서 정한다(안건 14).
+ * @summary 크루원 내보내기 (2그룹)
+ */
+export const RemoveCrewMemberParams = zod.object({
+  "crewId": zod.int().describe('크루 ID'),
+  "memberId": zod.int().describe('내보낼 크루원의 회원 ID')
+})
+
+export const RemoveCrewMemberResponse = zod.unknown()
+
+
+/**
+ * 크루장이 다른 크루원에게 크루장을 넘긴다. 넘긴 사람은 크루원 역할이 된다. 넘겨받은 사람의 가입 시각은 바뀌지 않는다.
+ * @summary 크루장 넘기기 (2그룹)
+ */
+export const TransferCrewLeaderParams = zod.object({
+  "crewId": zod.int().describe('크루 ID')
+})
+
+export const TransferCrewLeaderBody = zod.object({
+  "memberId": zod.int().describe('크루장을 넘겨받을 크루원의 회원 ID')
+}).describe('크루장 넘기기 요청')
+
+export const TransferCrewLeaderResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.object({
+  "crewId": zod.int(),
+  "name": zod.string(),
+  "createdAt": zod.iso.datetime({"offset":true}),
+  "myRole": zod.enum(['LEADER', 'MANAGER', 'MEMBER']).describe('요청한 회원의 역할. 크루 역할 (LEADER: 크루장, MANAGER: 운영진, MEMBER: 크루원)'),
+  "memberCount": zod.int(),
+  "members": zod.array(zod.object({
+  "memberId": zod.int(),
+  "nickname": zod.string(),
+  "role": zod.enum(['LEADER', 'MANAGER', 'MEMBER']).describe('크루 역할 (LEADER: 크루장, MANAGER: 운영진, MEMBER: 크루원)')
+}).describe('크루원 (실명 없이 닉네임만)'))
+}).optional().describe('크루 홈')
+})

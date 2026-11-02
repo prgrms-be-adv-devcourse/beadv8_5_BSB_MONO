@@ -37,6 +37,7 @@ import {
 } from '@/shared/api/generated/product/product.msw'
 import type { SearchParams } from '@/shared/api/generated/product/product.schemas'
 
+import { crewHandlers } from './crews'
 import { fileUploadHandlers } from './file-upload'
 import {
   clearMockBalanceCookie,
@@ -601,6 +602,7 @@ export const handlers = [
   fileImageHandler,
   ...authHandlers,
   ...meHandlers,
+  ...crewHandlers,
   ...notificationHandlers,
   ...withdrawHandlers,
   ...signupHandlers,
