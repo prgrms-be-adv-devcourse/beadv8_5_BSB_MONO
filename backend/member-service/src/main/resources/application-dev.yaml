@@ -57,3 +57,8 @@ logging:
     org.hibernate.orm.jdbc.bind: trace
     # Elasticsearch 요청/응답 본문
     org.springframework.data.elasticsearch.client.WIRE: trace
+# 비밀번호 재설정 메일 링크는 로컬 프론트 개발 서버로 보낸다 (BUK-40)
+member:
+  auth:
+    password-reset:
+      front-base-url: ${FRONT_PUBLIC_BASE_URL:http://localhost:3000}
