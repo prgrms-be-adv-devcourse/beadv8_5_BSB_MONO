@@ -36,9 +36,11 @@ export function WithdrawPage({ blocked = true }: { blocked?: boolean }) {
   const [confirmOpen, setConfirmOpen] = useState(false)
   const withdraw = useWithdraw()
   const [failure, setFailure] = useState<WithdrawFailure>()
+  // 성공해도 완료 화면을 새로 불러오는 동안은 토큰이 남아 있어 요청 중과 같이 막는다
+  const busy = withdraw.isPending || withdraw.isSuccess
   const onWithdraw = () => {
     // 요청 중 다시 누르면 DELETE가 두 번 가고, 두 번째의 404가 성공을 덮어쓴다
-    if (withdraw.isPending) return
+    if (busy) return
     setFailure(undefined)
     // 성공하면 useWithdraw가 문서를 새로 불러 완료 화면으로 간다
     withdraw.mutate(undefined, {
@@ -112,7 +114,7 @@ export function WithdrawPage({ blocked = true }: { blocked?: boolean }) {
         primary={
           <Button
             size="l"
-            disabled={blocked || !checked || withdraw.isPending}
+            disabled={blocked || !checked || busy}
             onClick={() => setConfirmOpen(true)}
           >
             탈퇴하기
@@ -134,7 +136,7 @@ export function WithdrawPage({ blocked = true }: { blocked?: boolean }) {
         confirmLabel="탈퇴하기"
         cancelLabel="그대로 두기"
         onConfirm={onWithdraw}
-        confirming={withdraw.isPending}
+        confirming={busy}
       />
     </>
   )
