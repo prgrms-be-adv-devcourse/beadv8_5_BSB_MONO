@@ -7,22 +7,24 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
 import org.apache.kafka.clients.consumer.Consumer;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
-import org.springframework.kafka.test.EmbeddedKafkaBroker;
-import org.springframework.kafka.test.context.EmbeddedKafka;
 import org.springframework.kafka.test.utils.KafkaTestUtils;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
@@ -50,14 +52,12 @@ import com.bukang.member.dto.SellerDto;
 import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
 import com.bukang.member.out.identity.VerifiedIdentity;
 
-// 실제 임베디드 Kafka 브로커로 가입·수정 이벤트가 커밋 뒤에만 queuing.member.joined·modified에,
+// 실제 임베디드 Kafka 브로커(전역 브로커 하나, junit-platform.properties)로 가입·수정 이벤트가 커밋 뒤에만 queuing.member.joined·modified에,
 // 판매자 변경 이벤트가 커밋 뒤에만 queuing.seller.changed에 나가는지 확인한다.
 // - 다른 테스트의 공유 H2(bukang-test)와 분리된 전용 DB를 쓴다 (create-drop이 다른 테스트 데이터를 건드리지 않게)
-// - 테스트마다 새 컨슈머 그룹으로 두 토픽을 처음부터 읽으므로, 메시지는 토픽과 닉네임으로 골라낸다
+// - 테스트마다 토픽을 처음부터 읽고, 다른 테스트가 같은 브로커에 보낸 메시지도 섞여 있으므로 메시지는 토픽과 닉네임으로 골라낸다
 @SpringBootTest
 @ActiveProfiles("test")
-@EmbeddedKafka(partitions = 1,
-	topics = {KafkaTopics.MEMBER_MEMBER_JOINED, KafkaTopics.MEMBER_MODIFIED, KafkaTopics.SELLER_CHANGED})
 @TestPropertySource(properties =
 	"spring.datasource.url=jdbc:h2:mem:bukang-member-kafka-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1")
 @Import(InMemoryIdentityVerificationStore.Config.class)
@@ -67,8 +67,8 @@ class MemberKafkaPublisherTest {
 
 	private static final Duration POLL_TIMEOUT = Duration.ofSeconds(10);
 
-	@Autowired
-	private EmbeddedKafkaBroker embeddedKafka;
+	@Value("${spring.embedded.kafka.brokers}")
+	private String brokers;
 	@Autowired
 	private MemberFacade memberFacade;
 	@Autowired
@@ -97,18 +97,23 @@ class MemberKafkaPublisherTest {
 
 	@BeforeEach
 	void setUp() {
-		Map<String, Object> props = KafkaTestUtils.consumerProps(
-			embeddedKafka, "member-kafka-publisher-test-" + System.nanoTime(), false);
-		consumer = new DefaultKafkaConsumerFactory<>(props, new StringDeserializer(), new StringDeserializer())
-			.createConsumer();
-		embeddedKafka.consumeFromEmbeddedTopics(
-			consumer, KafkaTopics.MEMBER_MEMBER_JOINED, KafkaTopics.MEMBER_MODIFIED);
+		consumer = consumerFromBeginning("member-kafka-publisher-test-",
+			KafkaTopics.MEMBER_MEMBER_JOINED, KafkaTopics.MEMBER_MODIFIED);
+		sellerConsumer = consumerFromBeginning("member-kafka-publisher-seller-test-", KafkaTopics.SELLER_CHANGED);
+	}
 
-		Map<String, Object> sellerProps = KafkaTestUtils.consumerProps(
-			embeddedKafka, "member-kafka-publisher-seller-test-" + System.nanoTime(), false);
-		sellerConsumer = new DefaultKafkaConsumerFactory<>(sellerProps, new StringDeserializer(),
+	// 토픽마다 파티션 0번(파티션은 1개)을 직접 맡아 처음부터 읽는다. 그룹 참여를 기다리지 않아 바로 읽기 시작한다
+	private Consumer<String, String> consumerFromBeginning(String groupPrefix, String... topics) {
+		Map<String, Object> props = KafkaTestUtils.consumerProps(brokers, groupPrefix + System.nanoTime());
+		props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
+		Consumer<String, String> created = new DefaultKafkaConsumerFactory<>(props, new StringDeserializer(),
 			new StringDeserializer()).createConsumer();
-		embeddedKafka.consumeFromAnEmbeddedTopic(sellerConsumer, KafkaTopics.SELLER_CHANGED);
+		List<TopicPartition> partitions = Arrays.stream(topics)
+			.map(topic -> new TopicPartition(topic, 0))
+			.toList();
+		created.assign(partitions);
+		created.seekToBeginning(partitions);
+		return created;
 	}
 
 	@AfterEach
