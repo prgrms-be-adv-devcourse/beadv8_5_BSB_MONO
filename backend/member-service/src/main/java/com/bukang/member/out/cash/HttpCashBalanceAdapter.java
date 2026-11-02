@@ -28,7 +28,7 @@ public class HttpCashBalanceAdapter implements CashBalancePort {
 	private final RestClient restClient;
 
 	@Override
-	public int findBalance(long memberId) {
+	public long findBalance(long memberId) {
 		RsData<Balance> response;
 		try {
 			response = restClient.get()
@@ -48,6 +48,6 @@ public class HttpCashBalanceAdapter implements CashBalancePort {
 
 	// 예치금 서비스 응답의 data (cash CashBalanceDto). 판정에 쓰는 값만 받는다
 	@JsonIgnoreProperties(ignoreUnknown = true)
-	record Balance(Integer balance) {
+	record Balance(Long balance) {
 	}
 }

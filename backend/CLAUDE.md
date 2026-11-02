@@ -127,7 +127,7 @@ backend/
 - 파일은 브라우저가 presigned PUT으로 S3 `{환경}/uploads/`에 직접 올리고, 완료 API가 `{환경}/files/`로 옮긴 뒤 형식·크기를 확인한다 (README "파일 저장소" 참고).
   `{환경}`은 `file.storage.s3.key-prefix`로, 프로파일별 yaml에 적는다(dev=`dev`, prod=`prod`, 테스트=`test`). 로컬과 운영이 같은 버킷을 써도 경로가 나뉜다.
 - 다른 서비스는 파일을 파일 ID로만 참조한다. 대상(대회 등)을 저장할 때 `/internal/v1/file/refs/{refType}/{refId}/files`를 동기 호출해 연결하고, `/internal/**`은 게이트웨이에 노출하지 않는다.
-- 회원 ID는 `X-Member-Id` 헤더로 받는다. 컨트롤러는 헤더를 직접 읽지 않고 `@LoginMemberId int memberId`로 받는다. 헤더가 없으면 401 `LOGIN_REQUIRED`, 숫자가 아니거나 0 이하면 400 `INVALID_REQUEST`로 common이 응답한다(`shared/member/web`). 게이트웨이의 `auth/JwtAuthenticationFilter`가 클라이언트가 보낸 이 헤더를 지우고, Access Token을 검사해 토큰 속 회원 ID로 다시 넣는다.
+- 회원 ID는 `X-Member-Id` 헤더로 받는다. 컨트롤러는 헤더를 직접 읽지 않고 `@LoginMemberId long memberId`로 받는다(int·Integer로는 받지 않는다). 헤더가 없으면 401 `LOGIN_REQUIRED`, 숫자가 아니거나 0 이하면 400 `INVALID_REQUEST`로 common이 응답한다(`shared/member/web`). 게이트웨이의 `auth/JwtAuthenticationFilter`가 클라이언트가 보낸 이 헤더를 지우고, Access Token을 검사해 토큰 속 회원 ID로 다시 넣는다.
   토큰 없이 통과하는 주소는 `gateway`의 `application.yaml` `gateway.auth.public-paths`에 있다. 로그인 전에 쓰는 API를 추가하면 여기에도 추가한다(빠뜨리면 401로 막힌다).
   서비스는 이 헤더를 그대로 믿으므로, `compose.yml`은 서비스 포트를 호스트에 열지 않는다. 서비스를 직접 부르며 확인할 때는 `bootRun`(dev)으로 띄운 서비스 포트(예: 8084)로 부른다.
 - 두 번 처리하면 안 되는 요청(대회 등록, 주문 생성, 장바구니 결제, 예치금 환급 신청)은 중복 요청 방지 키를 `Idempotency-Key` 헤더로 받는다.

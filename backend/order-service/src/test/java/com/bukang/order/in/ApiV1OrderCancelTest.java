@@ -72,11 +72,11 @@ import com.jayway.jsonpath.JsonPath;
 	StubRefundEligibilityPortConfig.class})
 class ApiV1OrderCancelTest {
 	private static final String BASE_URL = "/api/v1/order/orders";
-	private static final int MEMBER_ID = 1;
-	private static final int OTHER_MEMBER_ID = 2;
-	private static final int COURSE_ID = 10;
-	private static final int RACE_ID = 100;
-	private static final int TICKET_PRICE = StubRaceCoursePort.PRICE;
+	private static final long MEMBER_ID = 1;
+	private static final long OTHER_MEMBER_ID = 2;
+	private static final long COURSE_ID = 10;
+	private static final long RACE_ID = 100;
+	private static final long TICKET_PRICE = StubRaceCoursePort.PRICE;
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -160,7 +160,7 @@ class ApiV1OrderCancelTest {
 		assertThat(orderRepository.findById(paid.orderId()).orElseThrow().getStatus()).isEqualTo(OrderStatus.CANCELED);
 
 		// 취소한 참가권은 정산용 판매 내역에서 빠지고, 같은 대회에 다시 신청할 수 있다
-		int raceId = raceCoursePort.findCourse(COURSE_ID).orElseThrow().raceId();
+		long raceId = raceCoursePort.findCourse(COURSE_ID).orElseThrow().raceId();
 		mockMvc.perform(get("/internal/v1/order/sold-entries").param("raceId", String.valueOf(raceId)))
 			.andExpect(jsonPath("$.data.length()").value(0));
 		applyAndGetId(MEMBER_ID);
@@ -328,8 +328,8 @@ class ApiV1OrderCancelTest {
 	@Test
 	@DisplayName("결제 전 주문의 상품은 취소할 수 없다")
 	void cancelUnpaid() throws Exception {
-		int orderId = createdOrder(MEMBER_ID);
-		int orderItemId = itemOf(orderId).getId();
+		long orderId = createdOrder(MEMBER_ID);
+		long orderItemId = itemOf(orderId).getId();
 
 		cancel(MEMBER_ID, orderId, orderItemId)
 			.andExpect(status().isConflict())
@@ -341,9 +341,9 @@ class ApiV1OrderCancelTest {
 	@DisplayName("취소와 참가자 정보 수정이 동시에 들어와도 CANCELED와 고친 정보가 서로 덮이지 않는다")
 	void cancelWhileChangingParticipant() throws Exception {
 		int rounds = 5;
-		for (int memberId = 1; memberId <= rounds; memberId++) {
+		for (long memberId = 1; memberId <= rounds; memberId++) {
 			Paid paid = paidOrder(memberId);
-			int finalMemberId = memberId;
+			long finalMemberId = memberId;
 
 			CountDownLatch start = new CountDownLatch(1);
 			List<Callable<Integer>> requests = List.of(
@@ -565,7 +565,7 @@ class ApiV1OrderCancelTest {
 		+ "연달아 3번 모르면 그 회차를 멈춘다")
 	void retryStopsAfterThreeUnavailable(CapturedOutput output) throws Exception {
 		List<Paid> paids = new ArrayList<>();
-		for (int memberId = 1; memberId <= 4; memberId++) {
+		for (long memberId = 1; memberId <= 4; memberId++) {
 			paids.add(paidOrder(memberId));
 		}
 		walletPort.setRefundFails(true);
@@ -606,7 +606,7 @@ class ApiV1OrderCancelTest {
 	@DisplayName("재처리 두 개(또는 사용자 취소의 마무리와 재처리)가 겹쳐도 취소·자리 복구는 한 번만 일어난다")
 	void concurrentCompleteOnce() throws Exception {
 		int rounds = 5;
-		for (int memberId = 1; memberId <= rounds; memberId++) {
+		for (long memberId = 1; memberId <= rounds; memberId++) {
 			Paid paid = paidOrder(memberId);
 			walletPort.setRefundTimesOut(true);
 			cancel(memberId, paid.orderId(), paid.orderItemId()).andExpect(status().isAccepted());
@@ -718,12 +718,12 @@ class ApiV1OrderCancelTest {
 			StubRaceCoursePort.openCourse(COURSE_ID, RACE_ID, 14, null, refundDeadline, scheduleChangedAt));
 	}
 
-	private ResultActions cancel(int memberId, int orderId, int orderItemId) throws Exception {
+	private ResultActions cancel(long memberId, long orderId, long orderItemId) throws Exception {
 		return mockMvc.perform(post(BASE_URL + "/" + orderId + "/items/" + orderItemId + "/cancel")
 			.header("X-Member-Id", memberId));
 	}
 
-	private ResultActions changeParticipantName(int memberId, int participationId, String name) throws Exception {
+	private ResultActions changeParticipantName(long memberId, long participationId, String name) throws Exception {
 		return mockMvc.perform(put("/api/v1/order/participations/" + participationId + "/participant")
 			.header("X-Member-Id", memberId)
 			.contentType(MediaType.APPLICATION_JSON)
@@ -735,27 +735,27 @@ class ApiV1OrderCancelTest {
 				""".formatted(name)));
 	}
 
-	private record Paid(int memberId, int orderId, int orderItemId, int participationId) {
+	private record Paid(long memberId, long orderId, long orderItemId, long participationId) {
 	}
 
 	// 신청서 → [결제하기] → 결제까지 마친 주문
-	private Paid paidOrder(int memberId) throws Exception {
-		int orderId = createdOrder(memberId);
+	private Paid paidOrder(long memberId) throws Exception {
+		long orderId = createdOrder(memberId);
 		mockMvc.perform(post(BASE_URL + "/" + orderId + "/payment").header("X-Member-Id", memberId))
 			.andExpect(status().isOk());
 		OrderItem item = itemOf(orderId);
 		return new Paid(memberId, orderId, item.getId(), item.getParticipationId());
 	}
 
-	private OrderItem itemOf(int orderId) {
+	private OrderItem itemOf(long orderId) {
 		return transactionTemplate.execute(status -> {
 			Order order = orderRepository.findById(orderId).orElseThrow();
 			return order.getItems().getFirst();
 		});
 	}
 
-	private int createdOrder(int memberId) throws Exception {
-		int participationId = applyAndGetId(memberId);
+	private long createdOrder(long memberId) throws Exception {
+		long participationId = applyAndGetId(memberId);
 		return read(mockMvc.perform(post(BASE_URL)
 			.header("X-Member-Id", memberId)
 			.header("Idempotency-Key", UUID.randomUUID().toString())
@@ -763,7 +763,7 @@ class ApiV1OrderCancelTest {
 			.content("{\"participationId\": %d}".formatted(participationId))));
 	}
 
-	private int applyAndGetId(int memberId) throws Exception {
+	private long applyAndGetId(long memberId) throws Exception {
 		QueueEntry.enter(mockMvc, memberId, COURSE_ID);
 		return read(mockMvc.perform(post("/api/v1/order/participations")
 			.header("X-Member-Id", memberId)
@@ -778,15 +778,16 @@ class ApiV1OrderCancelTest {
 				""".formatted(COURSE_ID))));
 	}
 
-	private int read(ResultActions result) throws Exception {
-		return JsonPath.read(result.andReturn().getResponse().getContentAsString(), "$.data.id");
+	private long read(ResultActions result) throws Exception {
+		String body = result.andReturn().getResponse().getContentAsString();
+		return JsonPath.<Number>read(body, "$.data.id").longValue();
 	}
 
-	private List<Integer> restoredSeats() {
+	private List<Long> restoredSeats() {
 		return SeatOutboxMessages.restored(orderOutboxKafkaEventRepository);
 	}
 
-	private List<Integer> releasedSeats() {
+	private List<Long> releasedSeats() {
 		return SeatOutboxMessages.released(orderOutboxKafkaEventRepository);
 	}
 }

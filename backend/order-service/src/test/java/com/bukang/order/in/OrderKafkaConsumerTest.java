@@ -28,18 +28,18 @@ class OrderKafkaConsumerTest {
 	@Test
 	@DisplayName("대회 취소 메시지(RaceCancelEvent)를 받으면 그 대회 ID로 일괄 환불한다")
 	void refundsByRaceId() {
-		given(useCase.refundAll(eq(300), any(LocalDateTime.class)))
+		given(useCase.refundAll(eq(300L), any(LocalDateTime.class)))
 			.willReturn(new RaceCancelRefundUseCase.RefundResult(3, 0));
 
 		consumer.handleRaceCancel(PAYLOAD);
 
-		verify(useCase).refundAll(eq(300), any(LocalDateTime.class));
+		verify(useCase).refundAll(eq(300L), any(LocalDateTime.class));
 	}
 
 	@Test
 	@DisplayName("환불하지 못한 주문이 있으면 예외로 끝내 메시지를 다시 처리하게 한다")
 	void throwsWhenSomeRefundsFailed() {
-		given(useCase.refundAll(eq(300), any(LocalDateTime.class)))
+		given(useCase.refundAll(eq(300L), any(LocalDateTime.class)))
 			.willReturn(new RaceCancelRefundUseCase.RefundResult(2, 1));
 
 		assertThatThrownBy(() -> consumer.handleRaceCancel(PAYLOAD)).isInstanceOf(IllegalStateException.class);

@@ -1,7 +1,7 @@
 package com.bukang.cash.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
@@ -39,13 +39,13 @@ import com.bukang.cash.out.WalletRepository;
 import com.bukang.cash.out.pg.PaymentApprovalResult;
 import com.bukang.cash.out.pg.PaymentClient;
 
-// PRO-215: Toss 승인을 기다리는 동안 다른 트랜잭션이 같은 지갑을 먼저 바꿔 커밋해도,
+// Toss 승인을 기다리는 동안 다른 트랜잭션이 같은 지갑을 먼저 바꿔 커밋해도,
 // Toss 호출이 트랜잭션 밖에 있고 지갑 반영은 비관적 락으로 보호되므로 버전 충돌 없이 충전이 끝까지 성공해야 한다.
 // (고치기 전에는 이 상황에서 ObjectOptimisticLockingFailureException으로 충전 전체가 롤백됐다 — money lost 재현)
 @SpringBootTest
 @ActiveProfiles("test")
 class ChargeConfirmMoneyLostConcurrencyTest {
-	private static final int CUSTOMER_ID = 3;
+	private static final long CUSTOMER_ID = 3;
 
 	@Autowired
 	private CashFacade cashFacade;
@@ -72,7 +72,7 @@ class ChargeConfirmMoneyLostConcurrencyTest {
 	}
 
 	@Test
-	@DisplayName("PRO-215: Toss 승인을 기다리는 동안 다른 트랜잭션이 지갑을 먼저 바꿔도, "
+	@DisplayName("Toss 승인을 기다리는 동안 다른 트랜잭션이 지갑을 먼저 바꿔도, "
 		+ "버전 충돌 없이 충전이 끝까지 성공하고 돈이 유실되지 않는다")
 	void tossApprovedAndConcurrentWalletChangeDoesNotLoseCharge() throws InterruptedException, ExecutionException,
 		TimeoutException {
@@ -84,7 +84,7 @@ class ChargeConfirmMoneyLostConcurrencyTest {
 			pgCalled.countDown();
 			otherTxCommitted.await(5, TimeUnit.SECONDS);
 			return new PaymentApprovalResult(10_000, "toss_key_1");
-		}).when(paymentClient).approve(anyString(), anyString(), anyInt());
+		}).when(paymentClient).approve(anyString(), anyString(), anyLong());
 
 		ExecutorService executor = Executors.newSingleThreadExecutor();
 		Callable<CashChargeResponseDto> chargeTask = () ->

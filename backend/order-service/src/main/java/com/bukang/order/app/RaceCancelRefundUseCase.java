@@ -58,16 +58,16 @@ public class RaceCancelRefundUseCase {
 	 * 이미 취소한 주문은 건너뛰므로, 같은 대회로 여러 번 불러도 주문마다 한 번만 환불한다
 	 * 바깥 트랜잭션 없이 부른다 (OrderKafkaConsumer)
 	 */
-	public RefundResult refundAll(int raceId, LocalDateTime now) {
+	public RefundResult refundAll(long raceId, LocalDateTime now) {
 		int refunded = 0;
 		int failed = 0;
 		int consecutiveFailures = 0;
-		int afterId = 0;
-		List<Integer> orderIds;
+		long afterId = 0;
+		List<Long> orderIds;
 		while (consecutiveFailures < MAX_CONSECUTIVE_FAILURES
 			&& !(orderIds = orderRepository.findRefundCandidateIds(raceId, afterId,
 			PageRequest.of(0, BATCH_SIZE))).isEmpty()) {
-			for (int orderId : orderIds) {
+			for (long orderId : orderIds) {
 				afterId = orderId;
 				try {
 					if (Boolean.TRUE.equals(transactionTemplate.execute(status -> refundLocked(orderId, now)))) {
@@ -98,7 +98,7 @@ public class RaceCancelRefundUseCase {
 	}
 
 	// 주문 → 참가 신청 순서로 잠근다 (결제·취소·만료 정리와 같은 순서). 결제 중인 주문이면 결제가 끝날 때까지 기다린다
-	private boolean refundLocked(int orderId, LocalDateTime now) {
+	private boolean refundLocked(long orderId, LocalDateTime now) {
 		Order order = orderRepository.findByIdForUpdate(orderId).orElse(null);
 		if (order == null) {
 			return false;

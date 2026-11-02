@@ -57,12 +57,12 @@ public class RaceDocumentSyncProcessUseCase {
 		List<RaceDocumentSyncEvent> events = raceDocumentSyncEventRepository
 			.findByStatusOrderByCreateDateAscIdAsc(SyncStatus.PENDING, Limit.of(BATCH_SIZE));
 		// 대회 ID → 그 대회의 행 (먼저 만든 대회부터)
-		Map<Integer, List<RaceDocumentSyncEvent>> eventsByRace = new LinkedHashMap<>();
+		Map<Long, List<RaceDocumentSyncEvent>> eventsByRace = new LinkedHashMap<>();
 		events.forEach(event ->
 			eventsByRace.computeIfAbsent(event.getRaceId(), raceId -> new ArrayList<>()).add(event));
 
 		int synced = 0;
-		for (Map.Entry<Integer, List<RaceDocumentSyncEvent>> entry : eventsByRace.entrySet()) {
+		for (Map.Entry<Long, List<RaceDocumentSyncEvent>> entry : eventsByRace.entrySet()) {
 			List<RaceDocumentSyncEvent> raceEvents = entry.getValue();
 			if (raceEvents.stream().noneMatch(event -> event.isProcessableAt(now))) {
 				continue;
@@ -86,7 +86,7 @@ public class RaceDocumentSyncProcessUseCase {
 
 	// 대회 1개의 검색 문서를 DB의 최신 대회·종목에 맞춘다. 성공하면 true
 	// 예외를 잡아 false로 돌려준다. 잡지 않으면 process의 트랜잭션이 롤백되어 실패 기록(재시도 횟수)도 저장되지 않는다
-	private boolean sync(int raceId) {
+	private boolean sync(long raceId) {
 		try {
 			// 대회가 없으면(지워진 대회) 종목도 없는 것으로 보고 남은 문서를 모두 지운다
 			List<RaceCourseDocument> documents = raceRepository.findWithCoursesById(raceId)

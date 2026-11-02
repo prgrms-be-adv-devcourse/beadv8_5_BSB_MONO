@@ -12,5 +12,5 @@ public interface SoldEntryPort {
 	 * 이 대회에서 결제되고 취소되지 않은 참가권을 돌려준다
 	 * 정산 대상일 전에 취소된 참가권은 넣지 않는다 (정산 전 취소, payout.md 1장 정산 대상일 5번)
 	 */
-	List<SoldEntry> findSoldEntries(int raceId);
+	List<SoldEntry> findSoldEntries(long raceId);
 }

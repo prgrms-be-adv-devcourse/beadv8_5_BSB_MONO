@@ -3,7 +3,7 @@ package com.bukang.member.in;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.willReturn;
 import static org.mockito.Mockito.clearInvocations;
@@ -288,8 +288,8 @@ class ApiV1MemberModifyTest {
 
 	// 다른 회원이 아직 없다고 답하게 해, 두 요청이 동시에 중복 검사를 통과한 상황을 만든다
 	private void skipDuplicateChecks() {
-		willReturn(false).given(memberRepository).existsByNicknameAndIdNot(anyString(), anyInt());
-		willReturn(false).given(memberRepository).existsByPhoneHashAndIdNot(anyString(), anyInt());
+		willReturn(false).given(memberRepository).existsByNicknameAndIdNot(anyString(), anyLong());
+		willReturn(false).given(memberRepository).existsByPhoneHashAndIdNot(anyString(), anyLong());
 	}
 
 	private long joinDirectly(String email, String nickname, String phone) {

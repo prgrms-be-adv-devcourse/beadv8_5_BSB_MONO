@@ -39,8 +39,8 @@ import com.bukang.cash.out.WalletRepository;
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class InternalV1CashControllerTest {
-	private static final int CUSTOMER_ID = 3;
-	private static final int ORDER_ID = 100;
+	private static final long CUSTOMER_ID = 3;
+	private static final long ORDER_ID = 100;
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -222,8 +222,8 @@ class InternalV1CashControllerTest {
 	@Test
 	@DisplayName("최종 정산 지급은 홀딩 지갑에서 판매자·시스템 지갑으로 대금·수수료를 옮긴다")
 	void payoutFinalStageTransfersSettlementAndFee() throws Exception {
-		int sellerApplicationId = 50;
-		int sellerMemberId = 10;
+		long sellerApplicationId = 50;
+		long sellerMemberId = 10;
 		createSellerWithMapping(sellerApplicationId, sellerMemberId, "판매자");
 
 		payout(900, sellerApplicationId, "FINAL", 90_000, 5_500)
@@ -240,8 +240,8 @@ class InternalV1CashControllerTest {
 	@Test
 	@DisplayName("1차 정산 지급은 수수료 없이 대금만 옮긴다")
 	void payoutFirstStageTransfersSettlementOnly() throws Exception {
-		int sellerApplicationId = 51;
-		int sellerMemberId = 11;
+		long sellerApplicationId = 51;
+		long sellerMemberId = 11;
 		createSellerWithMapping(sellerApplicationId, sellerMemberId, "판매자2");
 
 		payout(901, sellerApplicationId, "FIRST", 40_000, 0)
@@ -256,8 +256,8 @@ class InternalV1CashControllerTest {
 	@Test
 	@DisplayName("같은 정산 ID로 다시 지급 요청해도 중복 이동 없이 ALREADY_PAID만 돌아온다")
 	void payoutIsIdempotentByPayoutId() throws Exception {
-		int sellerApplicationId = 52;
-		int sellerMemberId = 12;
+		long sellerApplicationId = 52;
+		long sellerMemberId = 12;
 		createSellerWithMapping(sellerApplicationId, sellerMemberId, "판매자3");
 
 		payout(902, sellerApplicationId, "FINAL", 90_000, 5_500).andExpect(status().isOk());
@@ -273,8 +273,8 @@ class InternalV1CashControllerTest {
 	@Test
 	@DisplayName("같은 정산 ID로 다른 금액을 다시 요청하면 지갑을 건드리지 않고 저장된 값으로 409를 돌려준다")
 	void payoutWithDifferentAmountRejectsAndKeepsStoredValue() throws Exception {
-		int sellerApplicationId = 53;
-		int sellerMemberId = 14;
+		long sellerApplicationId = 53;
+		long sellerMemberId = 14;
 		createSellerWithMapping(sellerApplicationId, sellerMemberId, "판매자5");
 		payout(906, sellerApplicationId, "FINAL", 90_000, 5_500).andExpect(status().isOk());
 
@@ -337,27 +337,27 @@ class InternalV1CashControllerTest {
 			.andExpect(jsonPath("$.message").value("요청 값의 형식이 올바르지 않습니다."));
 	}
 
-	private ResultActions pay(int orderId, int memberId, int amount) throws Exception {
+	private ResultActions pay(long orderId, long memberId, long amount) throws Exception {
 		return mockMvc.perform(post("/internal/v1/cash/payments/" + orderId)
 			.contentType(MediaType.APPLICATION_JSON)
 			.content("{\"memberId\": %d, \"amount\": %d}".formatted(memberId, amount)));
 	}
 
 
-	private ResultActions cancelPayment(int orderId, int memberId) throws Exception {
+	private ResultActions cancelPayment(long orderId, long memberId) throws Exception {
 		return mockMvc.perform(post("/internal/v1/cash/payments/" + orderId + "/cancel")
 			.contentType(MediaType.APPLICATION_JSON)
 			.content("{\"memberId\": %d}".formatted(memberId)));
 	}
 
-	private ResultActions refund(int orderId, int memberId) throws Exception {
+	private ResultActions refund(long orderId, long memberId) throws Exception {
 		return mockMvc.perform(post("/internal/v1/cash/payments/" + orderId + "/refund")
 			.contentType(MediaType.APPLICATION_JSON)
 			.content("{\"memberId\": %d}".formatted(memberId)));
 	}
 
-	private ResultActions payout(int payoutId, int sellerId, String payoutStage, int settlementAmount, int feeAmount)
-		throws Exception {
+	private ResultActions payout(long payoutId, long sellerId, String payoutStage, long settlementAmount,
+		long feeAmount) throws Exception {
 		return mockMvc.perform(post("/internal/v1/cash/payouts/" + payoutId)
 			.contentType(MediaType.APPLICATION_JSON)
 			.content(("{\"sellerId\": %d, \"payoutStage\": \"%s\", \"settlementAmount\": %d, \"feeAmount\": %d}")
@@ -365,25 +365,25 @@ class InternalV1CashControllerTest {
 	}
 
 
-	private void assertBalance(int holderId, int expected) {
+	private void assertBalance(long holderId, int expected) {
 		assertThat(walletRepository.findById(holderId).orElseThrow().getBalance()).isEqualTo(expected);
 	}
 
 
-	private long countLedgersForOrder(int orderId) {
+	private long countLedgersForOrder(long orderId) {
 		return walletLedgerRepository.findAll().stream()
 			.filter(ledger -> ledger.getRefTypeCode() == LedgerRefType.Order && ledger.getRefId() == orderId)
 			.count();
 	}
 
-	private Wallet createWallet(int memberId, String nickname) {
+	private Wallet createWallet(long memberId, String nickname) {
 		LocalDateTime now = LocalDateTime.of(2026, 10, 12, 10, 0);
 		CashMember member = cashMemberRepository.save(new CashMember(memberId, now, now, nickname));
 		return walletRepository.save(new Wallet(member));
 	}
 
 	// 판매자 신청서 ID(sellerApplicationId) → 회원(memberId) 매핑까지 함께 만든다
-	private void createSellerWithMapping(int sellerApplicationId, int memberId, String nickname) {
+	private void createSellerWithMapping(long sellerApplicationId, long memberId, String nickname) {
 		transactionTemplate.executeWithoutResult(status -> {
 			LocalDateTime now = LocalDateTime.of(2026, 10, 12, 10, 0);
 			CashMember member = cashMemberRepository.save(new CashMember(memberId, now, now, nickname));

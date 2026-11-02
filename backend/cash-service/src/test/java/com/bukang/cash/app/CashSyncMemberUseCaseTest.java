@@ -18,7 +18,7 @@ import com.bukang.cash.out.WalletRepository;
 @SpringBootTest
 @ActiveProfiles("test")
 class CashSyncMemberUseCaseTest {
-	private static final int MEMBER_ID = 5;
+	private static final long MEMBER_ID = 5;
 
 	@Autowired
 	private CashFacade cashFacade;

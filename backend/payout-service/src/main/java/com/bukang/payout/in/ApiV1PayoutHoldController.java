@@ -85,9 +85,9 @@ public class ApiV1PayoutHoldController {
 				examples = @ExampleObject(value = PayoutApiExamples.MEMBER_UNAVAILABLE)))
 	})
 	public ResponseEntity<RsData<PayoutHoldDto>> hold(
-		@LoginMemberId int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "정산 내역 ID", example = "1")
-		@PathVariable int payoutId,
+		@PathVariable long payoutId,
 		@Valid @RequestBody PayoutHoldRequestDto request
 	) {
 		PayoutHoldDto hold = payoutAdminFacade.hold(
@@ -131,9 +131,9 @@ public class ApiV1PayoutHoldController {
 				examples = @ExampleObject(value = PayoutApiExamples.MEMBER_UNAVAILABLE)))
 	})
 	public ResponseEntity<RsData<PayoutHoldDto>> release(
-		@LoginMemberId int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "지급보류 ID (보류 걸기 응답의 id)", example = "1")
-		@PathVariable int holdId
+		@PathVariable long holdId
 	) {
 		PayoutHoldDto hold = payoutAdminFacade.release(memberId, holdId, LocalDateTime.now(ZONE));
 		return ResponseEntity.ok(RsData.of(HttpStatus.OK, "지급보류를 풀었습니다.", hold));

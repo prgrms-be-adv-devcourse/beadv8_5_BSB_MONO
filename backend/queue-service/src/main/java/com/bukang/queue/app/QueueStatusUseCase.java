@@ -18,7 +18,7 @@ public class QueueStatusUseCase {
 
 	// 대기 화면이 몇 초마다 부른다. 대회·종목 복제본(DB)은 읽지 않고 Redis만 읽는다
 	// 그래서 없는 대회·종목 ID로 부르면 줄에 없는 회원과 같이 404다
-	public QueueStatusDto getStatus(int memberId, int raceId, int raceCourseId, LocalDateTime now) {
+	public QueueStatusDto getStatus(long memberId, long raceId, long raceCourseId, LocalDateTime now) {
 		Position position = queueRedisRepository.findPosition(raceId, raceCourseId, memberId, now);
 		return switch (position.state()) {
 			case WAITING -> QueueStatusDto.waiting(position.rank(), position.total());

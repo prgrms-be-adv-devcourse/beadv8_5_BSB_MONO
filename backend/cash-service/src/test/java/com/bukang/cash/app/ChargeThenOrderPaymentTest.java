@@ -37,7 +37,7 @@ import com.bukang.cash.out.pg.PaymentClient;
 @SpringBootTest
 @ActiveProfiles("test")
 class ChargeThenOrderPaymentTest {
-	private static final int CUSTOMER_ID = 3;
+	private static final long CUSTOMER_ID = 3;
 
 	@Autowired
 	private CashFacade cashFacade;
@@ -96,9 +96,9 @@ class ChargeThenOrderPaymentTest {
 		assertBalance(CUSTOMER_ID, 10_000);
 
 		// 다른 회원 지갑으로 만들어진 결제 행에, 같은 orderId로 결제 시도 → 회원 불일치로 예외 거절
-		int otherMemberId = 4;
+		long otherMemberId = 4;
 		Wallet otherWallet = createWallet(otherMemberId, 0);
-		int orderId = 2_000;
+		long orderId = 2_000;
 		paymentRepository.save(new Payment(orderId, otherWallet, 5_000));
 
 		assertThatThrownBy(() -> cashFacade.completeOrderPayment(orderId, CUSTOMER_ID, 5_000))
@@ -111,8 +111,8 @@ class ChargeThenOrderPaymentTest {
 	@DisplayName("충전 후 같은 주문으로 재결제하면 충전금을 그대로 써서 결제가 성공한다")
 	void chargeSucceeds_thenRetryingSameOrderPaymentSucceeds() {
 		createCustomerWallet(0);
-		int orderId = 3_000;
-		int amount = 10_000;
+		long orderId = 3_000;
+		long amount = 10_000;
 
 		CashPaymentResponseDto first = cashFacade.completeOrderPayment(orderId, CUSTOMER_ID, amount);
 		assertThat(first.outcome()).isEqualTo(CashPaymentResponseDto.Outcome.INSUFFICIENT_BALANCE);
@@ -129,12 +129,12 @@ class ChargeThenOrderPaymentTest {
 		assertBalance(cashWalletProperties.holdingMemberId(), 10_000);
 	}
 
-	private void createCustomerWallet(int initialBalance) {
+	private void createCustomerWallet(long initialBalance) {
 		createWallet(CUSTOMER_ID, initialBalance);
 		createWallet(cashWalletProperties.holdingMemberId(), 0);
 	}
 
-	private Wallet createWallet(int memberId, int initialBalance) {
+	private Wallet createWallet(long memberId, long initialBalance) {
 		return transactionTemplate.execute(status -> {
 			LocalDateTime now = LocalDateTime.of(2026, 10, 16, 10, 0);
 			CashMember member = cashMemberRepository.save(new CashMember(memberId, now, now, "러너" + memberId));
@@ -146,7 +146,7 @@ class ChargeThenOrderPaymentTest {
 		});
 	}
 
-	private void assertBalance(int holderId, int expected) {
+	private void assertBalance(long holderId, int expected) {
 		assertThat(walletRepository.findById(holderId).orElseThrow().getBalance()).isEqualTo(expected);
 	}
 }

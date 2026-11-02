@@ -9,7 +9,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  */
 @ConfigurationProperties("cash.wallet")
 public record CashWalletProperties(
-	int systemMemberId,
-	int holdingMemberId
+	long systemMemberId,
+	long holdingMemberId
 ) {
 }

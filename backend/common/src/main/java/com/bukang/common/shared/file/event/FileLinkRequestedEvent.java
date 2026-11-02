@@ -12,13 +12,13 @@ import com.bukang.common.shared.file.domain.FileType;
  */
 public record FileLinkRequestedEvent(
 	// 대상을 저장한 회원 ID. 파일을 올린 회원과 같아야 연결된다
-	int ownerId,
+	long ownerId,
 	List<Ref> refs
 ) {
 	/**
 	 * 파일을 연결할 대상 하나. refType은 대상 엔티티의 클래스 이름이다 (예: Race, RaceCourse)
 	 */
-	public record Ref(String refType, int refId, List<Item> files) {
+	public record Ref(String refType, long refId, List<Item> files) {
 		// 문자열을 직접 적지 않도록 저장한 엔티티로 만든 FileRef로만 만든다
 		public static Ref of(FileRef ref, List<Item> files) {
 			return new Ref(ref.getType(), ref.getId(), files);
@@ -28,6 +28,6 @@ public record FileLinkRequestedEvent(
 	/**
 	 * 연결할 파일 하나. fileType은 업로드할 때 정한 용도와 같아야 한다
 	 */
-	public record Item(int fileId, FileType fileType, int sortNo) {
+	public record Item(long fileId, FileType fileType, int sortNo) {
 	}
 }

@@ -35,9 +35,9 @@ public class CartItem extends BaseIdAndTime {
 	private Cart cart;
 
 	@Column(name = "race_course_id", nullable = false)
-	private int raceCourseId;
+	private long raceCourseId;
 
-	CartItem(Cart cart, int raceCourseId) {
+	CartItem(Cart cart, long raceCourseId) {
 		this.cart = cart;
 		this.raceCourseId = raceCourseId;
 	}

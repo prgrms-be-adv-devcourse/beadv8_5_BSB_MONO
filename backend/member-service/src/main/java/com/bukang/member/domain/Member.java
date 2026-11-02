@@ -78,24 +78,18 @@ public class Member extends SourceMember {
 
 	// 가입 이벤트를 발행한다. ID는 저장할 때(IDENTITY) 정해지므로 save() 뒤에 부른다
 	public void publishJoinedEvent() {
-		publishEvent(new MemberJoinedEvent(eventId(), getCreateDate(), getModifyDate(), getNickname()));
+		publishEvent(new MemberJoinedEvent(getId(), getCreateDate(), getModifyDate(), getNickname()));
 	}
 
 	// 수정 이벤트를 발행한다. 수정 시각은 DB에 반영(flush)할 때 채워지므로 saveAndFlush() 뒤에 부른다 (BE-015)
 	public void publishModifiedEvent() {
-		publishEvent(new MemberModifiedEvent(eventId(), getCreateDate(), getModifyDate(), getNickname()));
+		publishEvent(new MemberModifiedEvent(getId(), getCreateDate(), getModifyDate(), getNickname()));
 	}
 
 	// 탈퇴한 회원은 다른 서비스 사본의 닉네임을 "탈퇴한 회원"으로 덮도록 같은 수정 이벤트를 보낸다 (BE-022 결정 7)
 	// 수정 시각에는 탈퇴 시각을 담는다
 	public void publishWithdrawnEvent() {
-		publishEvent(new MemberModifiedEvent(eventId(), getCreateDate(), getWithdrawnAt(), WITHDRAWN_NICKNAME));
-	}
-
-	// 회원 ID는 long이지만 다른 서비스가 받는 이벤트는 아직 int다. 받는 서비스가 long으로 바꿀 때 이 변환을 지운다
-	// int 범위를 넘는 ID는 다른 서비스 복제본에 넣을 수 없으므로 잘못 보내지 않도록 예외를 낸다
-	private int eventId() {
-		return Math.toIntExact(getId());
+		publishEvent(new MemberModifiedEvent(getId(), getCreateDate(), getWithdrawnAt(), WITHDRAWN_NICKNAME));
 	}
 
 	public boolean isWithdrawn() {

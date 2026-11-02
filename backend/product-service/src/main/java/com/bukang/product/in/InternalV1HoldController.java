@@ -89,7 +89,7 @@ public class InternalV1HoldController {
 	})
 	public ResponseEntity<RsData<HoldSellResultDto>> sell(
 		@Parameter(description = "자리를 확보할 때 보낸 참가 신청 ID", example = "1001")
-		@PathVariable int participationId
+		@PathVariable long participationId
 	) {
 		HoldSellResult result = productFacade.sellSeat(participationId);
 		String message = result == HoldSellResult.SOLD ? "자리를 판매했습니다." : "결제 기한이 지난 자리입니다.";
@@ -112,7 +112,7 @@ public class InternalV1HoldController {
 	})
 	public ResponseEntity<RsData<HoldRestoreResultDto>> restore(
 		@Parameter(description = "자리를 확보할 때 보낸 참가 신청 ID", example = "1001")
-		@PathVariable int participationId
+		@PathVariable long participationId
 	) {
 		boolean restored = productFacade.restoreSeat(participationId);
 		String message = restored ? "자리를 정원으로 되돌렸습니다." : "되돌릴 판매 자리가 없습니다.";

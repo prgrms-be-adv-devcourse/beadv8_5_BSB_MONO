@@ -22,7 +22,7 @@ import com.bukang.cash.out.WalletLedgerRepository;
 import lombok.RequiredArgsConstructor;
 
 /**
- * 정산 지급: 홀딩 지갑에서 판매자 지갑으로 대금을, 최종 정산이면 시스템 지갑으로 수수료도 함께 옮긴다 (PRO-256)
+ * 정산 지급: 홀딩 지갑에서 판매자 지갑으로 대금을, 최종 정산이면 시스템 지갑으로 수수료도 함께 옮긴다
  * 요청의 sellerId는 판매자 신청서 ID라 회원 ID(= 지갑 ID)와 다르다. CashSupport로 실제 회원 ID를 찾아 지갑을 잠근다.
  * 같은 payoutId로 다시 요청했는데 판매자·금액이 이전과 다르면 지갑을 건드리지 않고 저장된 값으로 409 거절한다 (리뷰 반영).
  * 최종 정산은 회수 상계로 대금이 0원이 될 수 있다. 이때도 수수료는 상계와 무관하게 그대로 옮기므로,
@@ -38,19 +38,19 @@ public class CashPayoutUseCase {
 	private final WalletLedgerRepository walletLedgerRepository;
 
 	public CashPayoutResponseDto payout(
-		int payoutId, int sellerId, PayoutStage payoutStage, int settlementAmount, int feeAmount
+		long payoutId, long sellerId, PayoutStage payoutStage, long settlementAmount, long feeAmount
 	) {
-		int holdingMemberId = cashWalletProperties.holdingMemberId();
-		int systemMemberId = cashWalletProperties.systemMemberId();
+		long holdingMemberId = cashWalletProperties.holdingMemberId();
+		long systemMemberId = cashWalletProperties.systemMemberId();
 		boolean withSettlement = settlementAmount > 0;
 		// 1차 정산은 수수료가 없다. 최종 정산도 상계로 대금만 0원이 되고 수수료는 남을 수 있다 (완료 기준)
 		boolean withFee = payoutStage == PayoutStage.FINAL && feeAmount > 0;
 
 		// 1.지갑 잠금 (홀딩은 항상, 판매자·시스템은 실제로 돈이 오갈 때만, ID 작은 쪽부터)
 		// 대금이 없으면(수수료만 있는 요청) 판매자 ID를 회원 ID로 바꿀 필요도 없다
-		List<Integer> holderIds = new ArrayList<>();
+		List<Long> holderIds = new ArrayList<>();
 		holderIds.add(holdingMemberId);
-		Integer sellerMemberId = null;
+		Long sellerMemberId = null;
 		if (withSettlement) {
 			sellerMemberId = cashSupport.resolveSellerMemberId(sellerId);
 			holderIds.add(sellerMemberId);
@@ -58,8 +58,8 @@ public class CashPayoutUseCase {
 		if (withFee) {
 			holderIds.add(systemMemberId);
 		}
-		int[] holderIdArray = holderIds.stream().mapToInt(Integer::intValue).toArray();
-		Map<Integer, Wallet> wallets = cashSupport.lockWallets(holderIdArray);
+		long[] holderIdArray = holderIds.stream().mapToLong(Long::longValue).toArray();
+		Map<Long, Wallet> wallets = cashSupport.lockWallets(holderIdArray);
 		Wallet holdingWallet = wallets.get(holdingMemberId);
 
 		// 2.같은 payoutId로 이미 처리된 이동이 있으면, 지갑을 잠근 뒤(동시 요청 직렬화) 이번 요청과 값이 같은지 먼저 확인한다
@@ -82,7 +82,7 @@ public class CashPayoutUseCase {
 				wallets.get(systemMemberId), LedgerType.정산지급__상품판매_수수료, LedgerType.정산수령__상품판매_수수료);
 		}
 
-		int paidFeeAmount = withFee ? feeAmount : 0;
+		long paidFeeAmount = withFee ? feeAmount : 0;
 		return settlementTransferred || feeTransferred
 			? CashPayoutResponseDto.paid(settlementAmount, paidFeeAmount)
 			: CashPayoutResponseDto.alreadyPaid(settlementAmount, paidFeeAmount);
@@ -90,7 +90,7 @@ public class CashPayoutUseCase {
 
 	// 저장된 이동 기록의 판매자·금액이 이번 요청과 다르면, 지갑을 건드리지 않고 저장된 값을 담아 409를 던진다 (리뷰 반영)
 	private void validateConsistentRetry(
-		int payoutId, int sellerId, int settlementAmount, int feeAmount,
+		long payoutId, long sellerId, long settlementAmount, long feeAmount,
 		Optional<PayoutTransfer> existingSettlement, Optional<PayoutTransfer> existingFee
 	) {
 		boolean settlementMismatch = existingSettlement
@@ -100,8 +100,8 @@ public class CashPayoutUseCase {
 			.map(stored -> stored.getSellerId() != sellerId || stored.getAmount() != feeAmount)
 			.orElse(false);
 		if (settlementMismatch || feeMismatch) {
-			int storedSettlementAmount = existingSettlement.map(PayoutTransfer::getAmount).orElse(0);
-			int storedFeeAmount = existingFee.map(PayoutTransfer::getAmount).orElse(0);
+			long storedSettlementAmount = existingSettlement.map(PayoutTransfer::getAmount).orElse(0L);
+			long storedFeeAmount = existingFee.map(PayoutTransfer::getAmount).orElse(0L);
 			throw new PayoutTransferMismatchException(
 				"같은 정산 ID로 이전과 다른 값이 요청됐습니다. payoutId=%d".formatted(payoutId),
 				storedSettlementAmount, storedFeeAmount);
@@ -109,7 +109,7 @@ public class CashPayoutUseCase {
 	}
 
 	private void transfer(
-		int payoutId, int sellerId, PayoutTransferType transferType, int amount,
+		long payoutId, long sellerId, PayoutTransferType transferType, long amount,
 		Wallet fromWallet, Wallet toWallet, LedgerType debitType, LedgerType creditType
 	) {
 		PayoutTransfer transferRecord = payoutTransferRepository.save(

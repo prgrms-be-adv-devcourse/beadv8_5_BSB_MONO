@@ -30,10 +30,10 @@ import lombok.NoArgsConstructor;
 @Table(name = "PAYOUT_PAYOUT_RECOVERY")
 public class PayoutRecovery extends BaseIdAndTime {
 	@Column(nullable = false)
-	private int sellerId;
+	private long sellerId;
 
 	@Column(nullable = false)
-	private int raceId;
+	private long raceId;
 
 	// 회수 중복 방지 키. 대회 취소는 대회당 1건(R{대회ID}:RACE_CANCELED), 일정 변경은 참가권당 1건(O{주문 상품ID}:SCHEDULE_CHANGED)
 	// 같은 메시지를 두 곳이 동시에 처리해 앱의 확인을 함께 통과해도 DB가 두 번째 저장을 막는다 (PRO-34 리뷰)
@@ -43,7 +43,7 @@ public class PayoutRecovery extends BaseIdAndTime {
 
 	// 일정 변경 회수의 환불된 참가권(주문 상품). 같은 참가권으로 회수가 두 번 생기지 않게 유일하다. 대회 취소는 NULL
 	@Column(unique = true)
-	private Integer orderItemId;
+	private Long orderItemId;
 
 	@Enumerated(STRING)
 	@Column(nullable = false, length = 30)
@@ -63,19 +63,19 @@ public class PayoutRecovery extends BaseIdAndTime {
 	private LocalDateTime completedAt;
 
 	// 입금을 확인한 회원 ID. 상계로 끝나면 시스템(0). 요청 중에는 NULL
-	private Integer completedBy;
+	private Long completedBy;
 
 	// 어떻게 끝났는지 (입금 / 상계). 요청 중에는 NULL
 	@Enumerated(STRING)
 	@Column(length = 20)
 	private PayoutRecoveryCompletion completion;
 
-	public PayoutRecovery(int sellerId, int raceId, PayoutRecoveryReason reasonType, long amount,
+	public PayoutRecovery(long sellerId, long raceId, PayoutRecoveryReason reasonType, long amount,
 		LocalDateTime requestedAt) {
 		this(sellerId, raceId, null, reasonType, amount, requestedAt);
 	}
 
-	private PayoutRecovery(int sellerId, int raceId, Integer orderItemId, PayoutRecoveryReason reasonType, long amount,
+	private PayoutRecovery(long sellerId, long raceId, Long orderItemId, PayoutRecoveryReason reasonType, long amount,
 		LocalDateTime requestedAt) {
 		if (amount <= 0) {
 			throw new IllegalArgumentException("회수액은 0보다 커야 합니다. amount=%d".formatted(amount));
@@ -91,13 +91,13 @@ public class PayoutRecovery extends BaseIdAndTime {
 	}
 
 	// 일정 변경으로 환불된 참가권 한 장의 회수
-	public static PayoutRecovery scheduleChanged(int sellerId, int raceId, int orderItemId, long amount,
+	public static PayoutRecovery scheduleChanged(long sellerId, long raceId, long orderItemId, long amount,
 		LocalDateTime requestedAt) {
 		return new PayoutRecovery(sellerId, raceId, orderItemId, PayoutRecoveryReason.SCHEDULE_CHANGED, amount,
 			requestedAt);
 	}
 
-	private static String recoveryKeyOf(int raceId, Integer orderItemId, PayoutRecoveryReason reasonType) {
+	private static String recoveryKeyOf(long raceId, Long orderItemId, PayoutRecoveryReason reasonType) {
 		return switch (reasonType) {
 			case RACE_CANCELED -> "R%d:%s".formatted(raceId, reasonType);
 			case SCHEDULE_CHANGED -> {
@@ -110,7 +110,7 @@ public class PayoutRecovery extends BaseIdAndTime {
 	}
 
 	// 판매자의 입금을 확인했다
-	public void complete(int completedBy, LocalDateTime completedAt) {
+	public void complete(long completedBy, LocalDateTime completedAt) {
 		finish(PayoutRecoveryCompletion.DEPOSIT, completedBy, completedAt);
 	}
 
@@ -119,7 +119,7 @@ public class PayoutRecovery extends BaseIdAndTime {
 		finish(PayoutRecoveryCompletion.OFFSET, PayoutHold.SYSTEM_MEMBER_ID, completedAt);
 	}
 
-	private void finish(PayoutRecoveryCompletion completion, int completedBy, LocalDateTime completedAt) {
+	private void finish(PayoutRecoveryCompletion completion, long completedBy, LocalDateTime completedAt) {
 		if (status == PayoutRecoveryStatus.COMPLETED) {
 			throw new PayoutRecoveryConflictException("이미 완료된 회수입니다.");
 		}

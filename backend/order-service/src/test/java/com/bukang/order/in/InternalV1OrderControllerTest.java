@@ -47,19 +47,19 @@ import com.jayway.jsonpath.JsonPath;
 class InternalV1OrderControllerTest {
 	private static final String URL = "/internal/v1/order/sold-entries";
 	// 11/15 대회 종목과 11/16 대회 종목
-	private static final int COURSE_1115 = 10;
-	private static final int COURSE_1116 = 11;
+	private static final long COURSE_1115 = 10;
+	private static final long COURSE_1116 = 11;
 	// 오늘 0시 대회 종목과 어제 23:59 대회 종목 (끝나지 않은 참가권 수 조회)
-	private static final int COURSE_TODAY = 12;
-	private static final int COURSE_YESTERDAY = 13;
-	private static final int COURSE_UNPAID = 14;
-	private static final int COURSE_OVERDUE = 15;
+	private static final long COURSE_TODAY = 12;
+	private static final long COURSE_YESTERDAY = 13;
+	private static final long COURSE_UNPAID = 14;
+	private static final long COURSE_OVERDUE = 15;
 	// 판매 집계: 11/15 대회(100)의 다른 코스와, 같은 대회에 다른 판매자가 판 코스
-	private static final int COURSE_1115_HALF = 16;
-	private static final int COURSE_1115_OTHER_SELLER = 17;
-	private static final int OTHER_SELLER_ID = 8;
+	private static final long COURSE_1115_HALF = 16;
+	private static final long COURSE_1115_OTHER_SELLER = 17;
+	private static final long OTHER_SELLER_ID = 8;
 	private static final String SUMMARY_URL = "/internal/v1/order/sold-summary";
-	private static final int TICKET_PRICE = StubRaceCoursePort.PRICE;
+	private static final long TICKET_PRICE = StubRaceCoursePort.PRICE;
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -107,9 +107,9 @@ class InternalV1OrderControllerTest {
 	@Test
 	@DisplayName("11/15 대회 참가권 3장 중 1장을 취소하면 그 대회 조회에 2장만 정산 필드로 나온다")
 	void soldEntriesExcludeCanceled() throws Exception {
-		int first = paidOrderItem(1, COURSE_1115);
-		int canceled = paidOrderItem(2, COURSE_1115);
-		int third = paidOrderItem(3, COURSE_1115);
+		long first = paidOrderItem(1, COURSE_1115);
+		long canceled = paidOrderItem(2, COURSE_1115);
+		long third = paidOrderItem(3, COURSE_1115);
 		// 취소 API는 다음 작업이라, 주문 상품을 직접 취소 상태로 만든다
 		markCanceled(canceled);
 
@@ -129,12 +129,12 @@ class InternalV1OrderControllerTest {
 	@Test
 	@DisplayName("결제 전(CREATED)·만료(EXPIRED) 주문 상품과 다른 대회의 참가권은 나오지 않는다")
 	void soldEntriesOnlyPaidOfThatRace() throws Exception {
-		int paid = paidOrderItem(1, COURSE_1115);
+		long paid = paidOrderItem(1, COURSE_1115);
 		createdOrder(2, COURSE_1115);
 		createdOrder(3, COURSE_1115);
 		orderExpiryUseCase.expireOverdue(LocalDateTime.now().plusHours(1));
 		createdOrder(4, COURSE_1115);
-		int otherRace = paidOrderItem(1, COURSE_1116);
+		long otherRace = paidOrderItem(1, COURSE_1116);
 
 		findSoldEntries(100)
 			.andExpect(jsonPath("$.data.length()").value(1))
@@ -151,7 +151,7 @@ class InternalV1OrderControllerTest {
 	@Test
 	@DisplayName("주문 상품에 복사된 대회일이 달라져도 대회 ID로 찾고, 그 대회일을 그대로 준다")
 	void soldEntriesByRaceIdRegardlessOfRaceDate() throws Exception {
-		int moved = paidOrderItem(1, COURSE_1115);
+		long moved = paidOrderItem(1, COURSE_1115);
 		changeRaceDate(moved, LocalDateTime.of(2026, 11, 22, 8, 0));
 
 		findSoldEntries(100)
@@ -269,7 +269,7 @@ class InternalV1OrderControllerTest {
 			.andExpect(jsonPath("$.message").value("요청 값의 형식이 올바르지 않습니다."));
 	}
 
-	private ResultActions summarizeSold(int raceId) throws Exception {
+	private ResultActions summarizeSold(long raceId) throws Exception {
 		return mockMvc.perform(get(SUMMARY_URL).param("raceId", String.valueOf(raceId)));
 	}
 
@@ -280,31 +280,31 @@ class InternalV1OrderControllerTest {
 		raceCoursePort.put(courseOf(COURSE_1115_OTHER_SELLER, 100, raceDate, OTHER_SELLER_ID));
 	}
 
-	private ResultActions countActiveTickets(int memberId) throws Exception {
+	private ResultActions countActiveTickets(long memberId) throws Exception {
 		return mockMvc.perform(get("/internal/v1/order/members/{memberId}/active-tickets/count", memberId));
 	}
 
-	private ResultActions findSoldEntries(int raceId) throws Exception {
+	private ResultActions findSoldEntries(long raceId) throws Exception {
 		return mockMvc.perform(get(URL).param("raceId", String.valueOf(raceId)));
 	}
 
-	private static RaceCourseInfo courseOn(int raceCourseId, int raceId, LocalDateTime raceDate) {
+	private static RaceCourseInfo courseOn(long raceCourseId, long raceId, LocalDateTime raceDate) {
 		return courseOf(raceCourseId, raceId, raceDate, StubRaceCoursePort.SELLER_ID);
 	}
 
-	private static RaceCourseInfo courseOf(int raceCourseId, int raceId, LocalDateTime raceDate, int sellerId) {
+	private static RaceCourseInfo courseOf(long raceCourseId, long raceId, LocalDateTime raceDate, long sellerId) {
 		LocalDateTime now = LocalDateTime.now();
 		return new RaceCourseInfo(raceCourseId, raceId, raceDate, now.minusDays(1), now.plusDays(30), 14, null,
 			sellerId, "테스트 대회 종목 " + raceCourseId, StubRaceCoursePort.PRICE,
 			true, raceDate.toLocalDate().minusDays(10), null);
 	}
 
-	private void changeRaceDate(int orderItemId, LocalDateTime raceDate) {
+	private void changeRaceDate(long orderItemId, LocalDateTime raceDate) {
 		transactionTemplate.executeWithoutResult(status -> ReflectionTestUtils.setField(
 			findOrderItem(orderItemId), "raceDate", raceDate));
 	}
 
-	private OrderItem findOrderItem(int orderItemId) {
+	private OrderItem findOrderItem(long orderItemId) {
 		return orderRepository.findAll().stream()
 			.flatMap(order -> order.getItems().stream())
 			.filter(candidate -> candidate.getId() == orderItemId)
@@ -312,12 +312,12 @@ class InternalV1OrderControllerTest {
 			.orElseThrow();
 	}
 
-	private void makeOverdue(int orderId) {
+	private void makeOverdue(long orderId) {
 		transactionTemplate.executeWithoutResult(status -> ReflectionTestUtils.setField(
 			orderRepository.findById(orderId).orElseThrow(), "paymentDueAt", LocalDateTime.now().minusMinutes(1)));
 	}
 
-	private void markCanceled(int orderItemId) {
+	private void markCanceled(long orderItemId) {
 		transactionTemplate.executeWithoutResult(status -> {
 			OrderItem item = orderRepository.findAll().stream()
 				.flatMap(order -> order.getItems().stream())
@@ -329,8 +329,8 @@ class InternalV1OrderControllerTest {
 	}
 
 	// 신청서 → [결제하기] → 결제까지 마친 주문의 주문 상품 ID
-	private int paidOrderItem(int memberId, int raceCourseId) throws Exception {
-		int orderId = createdOrder(memberId, raceCourseId);
+	private long paidOrderItem(long memberId, long raceCourseId) throws Exception {
+		long orderId = createdOrder(memberId, raceCourseId);
 		mockMvc.perform(post("/api/v1/order/orders/" + orderId + "/payment").header("X-Member-Id", memberId))
 			.andExpect(status().isOk());
 		return transactionTemplate.execute(status ->
@@ -338,9 +338,9 @@ class InternalV1OrderControllerTest {
 	}
 
 	// 신청서 → [결제하기]까지만 한 결제 대기 주문 ID
-	private int createdOrder(int memberId, int raceCourseId) throws Exception {
+	private long createdOrder(long memberId, long raceCourseId) throws Exception {
 		QueueEntry.enter(mockMvc, memberId, raceCourseId);
-		int participationId = read(mockMvc.perform(post("/api/v1/order/participations")
+		long participationId = read(mockMvc.perform(post("/api/v1/order/participations")
 			.header("X-Member-Id", memberId)
 			.contentType(MediaType.APPLICATION_JSON)
 			.content("""
@@ -358,7 +358,8 @@ class InternalV1OrderControllerTest {
 			.content("{\"participationId\": %d}".formatted(participationId))));
 	}
 
-	private int read(ResultActions result) throws Exception {
-		return JsonPath.read(result.andReturn().getResponse().getContentAsString(), "$.data.id");
+	private long read(ResultActions result) throws Exception {
+		String body = result.andReturn().getResponse().getContentAsString();
+		return JsonPath.<Number>read(body, "$.data.id").longValue();
 	}
 }

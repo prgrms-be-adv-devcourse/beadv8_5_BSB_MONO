@@ -110,7 +110,7 @@ class OrderCancelTest {
 		return order;
 	}
 
-	private static Participation participation(int memberId) {
+	private static Participation participation(long memberId) {
 		ParticipantInfo info = new ParticipantInfo("김러너", LocalDate.of(1994, 6, 25), Gender.MALE, "010-1234-5678",
 			"김가족", "010-9876-5432", "L",
 			new ShippingAddress("김러너", "010-1234-5678", "04700", "서울 성동구 왕십리로 00", null));

@@ -31,7 +31,7 @@ public class PayoutPayStepUseCase {
 	private final PayoutRepository payoutRepository;
 
 	@Transactional(readOnly = true)
-	public List<Integer> findTargetIds(LocalDate today) {
+	public List<Long> findTargetIds(LocalDate today) {
 		return payoutRepository.findPayTargetIds(today, PayoutStatus.CALCULATED, PayoutStatus.PAYING);
 	}
 
@@ -45,7 +45,7 @@ public class PayoutPayStepUseCase {
 	 * 다른 배치가 같은 정산 내역을 먼저 지급 중으로 커밋했으면, 커밋할 때 낙관적 락 예외가 난다. 부르는 쪽이 건너뛴다
 	 */
 	@Transactional
-	public Start start(int payoutId, LocalDate today, LocalDateTime now) {
+	public Start start(long payoutId, LocalDate today, LocalDateTime now) {
 		Payout payout = payoutRepository.findById(payoutId).orElseThrow(PayoutNotFoundException::new);
 		if (payout.getStatus() == PayoutStatus.PAYING) {
 			return Start.transfer(PayoutTransfer.from(payout));
@@ -88,7 +88,7 @@ public class PayoutPayStepUseCase {
 	// 캐시 서비스가 돈을 옮긴 뒤 지급 완료로 바꾼다
 	// 다른 배치가 같은 지급 중 건을 다시 요청해 먼저 지급 완료했으면 바꾸지 않는다 (캐시 서비스는 돈을 한 번만 옮겼다)
 	@Transactional
-	public boolean complete(int payoutId, LocalDateTime now) {
+	public boolean complete(long payoutId, LocalDateTime now) {
 		Payout payout = payoutRepository.findById(payoutId).orElseThrow(PayoutNotFoundException::new);
 		if (payout.getStatus() == PayoutStatus.PAID) {
 			return false;
@@ -99,7 +99,7 @@ public class PayoutPayStepUseCase {
 
 	// 캐시 서비스가 거절해 돈이 옮겨지지 않았으므로 정산 예정으로 되돌린다. 다음 실행에서 다시 지급한다
 	@Transactional
-	public void revert(int payoutId, LocalDateTime now, String reason) {
+	public void revert(long payoutId, LocalDateTime now, String reason) {
 		Payout payout = payoutRepository.findById(payoutId).orElseThrow(PayoutNotFoundException::new);
 		payout.revertPaying(now, reason);
 	}

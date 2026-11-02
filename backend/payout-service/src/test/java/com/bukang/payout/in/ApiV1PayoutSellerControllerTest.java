@@ -59,14 +59,14 @@ import jakarta.persistence.EntityManager;
 @Import(RestDocsConfig.class)
 @ActiveProfiles("test")
 class ApiV1PayoutSellerControllerTest {
-	private static final int SELLER_ID = 1;
-	private static final int OTHER_SELLER_ID = 2;
+	private static final long SELLER_ID = 1;
+	private static final long OTHER_SELLER_ID = 2;
 	// 정산 내역이 하나도 없는 판매자
-	private static final int NEW_SELLER_ID = 3;
+	private static final long NEW_SELLER_ID = 3;
 	// 판매자 1의 회원 ID. 판매자 ID와 다른 번호로 두어, 회원 ID를 그대로 판매자 ID로 쓰면 조회가 비게 한다
 	// 회원 2는 판매자 2와 같은 번호지만 판매자가 아니다 (회원 ID로 찾으면 남의 정산이 보이는 경우)
-	private static final int MEMBER_ID = 7;
-	private static final int NOT_SELLER_MEMBER_ID = 2;
+	private static final long MEMBER_ID = 7;
+	private static final long NOT_SELLER_MEMBER_ID = 2;
 	private static final BigDecimal FEE_RATE = new BigDecimal("0.0550");
 	private static final BusinessDayCalendar CALENDAR = new BusinessDayCalendar();
 	private static final String URL = "/api/v1/payout/seller";
@@ -136,7 +136,7 @@ class ApiV1PayoutSellerControllerTest {
 	}
 
 	// 최종 정산 대상일(targetDate)은 대회 다음 날이다
-	private Payout savePayout(int sellerId, int raceId, LocalDate targetDate) {
+	private Payout savePayout(long sellerId, long raceId, LocalDate targetDate) {
 		Payout payout = Payout.finalStage(sellerId, raceId, "대회 %d".formatted(raceId), targetDate.minusDays(1),
 			targetDate.atTime(3, 0),
 			CALENDAR);

@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
 @Profile("test")
 public class FakeMemberAdminAdapter implements MemberAdminPort {
 	@Override
-	public boolean isAdmin(int memberId) {
+	public boolean isAdmin(long memberId) {
 		return true;
 	}
 }

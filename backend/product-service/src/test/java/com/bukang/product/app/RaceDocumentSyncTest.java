@@ -27,9 +27,9 @@ import com.bukang.product.domain.RaceDocumentSyncEvent;
 import com.bukang.product.domain.SyncStatus;
 import com.bukang.product.domain.document.RaceCourseDocument;
 import com.bukang.product.out.RaceCourseDocumentRepository;
+import com.bukang.product.support.JsonIds;
 import com.bukang.product.support.ProductIntegrationTest;
 import com.bukang.product.support.RaceRequests.CourseBuilder;
-import com.jayway.jsonpath.JsonPath;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -83,7 +83,7 @@ class RaceDocumentSyncTest extends ProductIntegrationTest {
 		String body = postRace(SELLER_MEMBER_ID, race().individualOpenAt(now.plusDays(3)).build())
 			.andExpect(status().isCreated())
 			.andReturn().getResponse().getContentAsString();
-		int raceId = JsonPath.read(body, "$.data.raceId");
+		long raceId = JsonIds.readLong(body, "$.data.raceId");
 
 		assertThat(eventsOf(raceId))
 			.extracting(RaceDocumentSyncEvent::getStatus)
@@ -123,8 +123,8 @@ class RaceDocumentSyncTest extends ProductIntegrationTest {
 	void deleteOnlyStaleDocuments() throws Exception {
 		RegisteredRace registered = registerOnSale(race().course(course(), half()).build());
 		RegisteredRace other = registerOnSale(race().title("다른 대회").build());
-		int tenKmId = registered.courseIds().get(0);
-		int halfId = registered.courseIds().get(1);
+		long tenKmId = registered.courseIds().get(0);
+		long halfId = registered.courseIds().get(1);
 		// API를 거치지 않고 지워 ES에만 하프 문서가 남은 상태를 만든다 (예전에 지우지 못하고 남은 옛 문서)
 		transactionTemplate.executeWithoutResult(status -> entityManager
 			.createQuery("delete from RaceCourse c where c.id = :id")
@@ -180,7 +180,7 @@ class RaceDocumentSyncTest extends ProductIntegrationTest {
 		verify(documentRepositorySpy, never()).saveAll(documentsOf(registered.raceId()));
 	}
 
-	private void append(int raceId) {
+	private void append(long raceId) {
 		transactionTemplate.executeWithoutResult(status -> raceDocumentSyncAppendUseCase.append(raceId));
 	}
 
@@ -190,31 +190,31 @@ class RaceDocumentSyncTest extends ProductIntegrationTest {
 	}
 
 	// 이 대회의 문서를 저장하면 ES가 거절한 것처럼 예외를 낸다
-	private void failSyncOf(int raceId) {
+	private void failSyncOf(long raceId) {
 		doThrow(new IllegalStateException("ES 응답 없음")).when(documentRepositorySpy).saveAll(documentsOf(raceId));
 	}
 
 	// saveAll에 넘긴 문서가 이 대회의 문서인지
-	private static Iterable<RaceCourseDocument> documentsOf(int raceId) {
+	private static Iterable<RaceCourseDocument> documentsOf(long raceId) {
 		return argThat(documents -> documents != null && StreamSupport.stream(documents.spliterator(), false)
 			.allMatch(document -> document.getRaceId().equals(String.valueOf(raceId))));
 	}
 
-	private List<String> documentIdsOf(int raceId) {
+	private List<String> documentIdsOf(long raceId) {
 		return documentRepositorySpy.findByRaceId(String.valueOf(raceId)).stream()
 			.map(RaceCourseDocument::getId)
 			.toList();
 	}
 
 	// 이 대회의 동기화 이벤트 (만든 순서대로)
-	private List<RaceDocumentSyncEvent> eventsOf(int raceId) {
+	private List<RaceDocumentSyncEvent> eventsOf(long raceId) {
 		return raceDocumentSyncEventRepository.findAll().stream()
 			.filter(event -> event.getRaceId() == raceId)
-			.sorted((left, right) -> Integer.compare(left.getId(), right.getId()))
+			.sorted((left, right) -> Long.compare(left.getId(), right.getId()))
 			.toList();
 	}
 
-	private RaceDocumentSyncEvent lastEventOf(int raceId) {
+	private RaceDocumentSyncEvent lastEventOf(long raceId) {
 		return eventsOf(raceId).getLast();
 	}
 

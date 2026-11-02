@@ -15,19 +15,19 @@ import com.bukang.payout.domain.PayoutStatus;
 
 import jakarta.persistence.LockModeType;
 
-public interface PayoutRepository extends JpaRepository<Payout, Integer> {
+public interface PayoutRepository extends JpaRepository<Payout, Long> {
 	// 최종 정산 생성: 이미 만든 정산 내역인지 확인한다. 유일 조건 (seller_id, race_id, payout_month, payout_stage)과 같은 키다
-	boolean existsBySellerIdAndRaceIdAndPayoutMonthAndPayoutStage(int sellerId, int raceId, String payoutMonth,
+	boolean existsBySellerIdAndRaceIdAndPayoutMonthAndPayoutStage(long sellerId, long raceId, String payoutMonth,
 		PayoutStage payoutStage);
 
 	// 1차 정산 생성: 같은 판매자 × 대회의 1차 · 최종 정산이 이미 있는지 본다
 	// 1차는 정산 월과 상관없이 하나만 만든다 (환불 마감일이 다음 달로 늦춰지면 정산 월이 바뀐다, PRO-232)
 	// 최종이 먼저 생겼으면 1차를 만들지 않는다
-	boolean existsBySellerIdAndRaceIdAndPayoutStage(int sellerId, int raceId, PayoutStage payoutStage);
+	boolean existsBySellerIdAndRaceIdAndPayoutStage(long sellerId, long raceId, PayoutStage payoutStage);
 
 	// 최종 정산 생성: 같은 판매자 × 대회의 1차 정산 내역 (1차 정산금 차감과 보류 여부를 읽는다)
 	// 1차 정산은 정산 월과 상관없이 판매자 × 대회마다 하나만 만든다 (PRO-232)
-	Optional<Payout> findFirstBySellerIdAndRaceIdAndPayoutStageOrderByIdAsc(int sellerId, int raceId,
+	Optional<Payout> findFirstBySellerIdAndRaceIdAndPayoutStageOrderByIdAsc(long sellerId, long raceId,
 		PayoutStage payoutStage);
 
 	// 회수 상계: 같은 판매자 × 대회의 지급 전 정산 내역을 잠가서 읽는다 (만든 순서대로, 1차가 먼저)
@@ -38,10 +38,10 @@ public interface PayoutRepository extends JpaRepository<Payout, Integer> {
 		where p.sellerId = :sellerId and p.raceId = :raceId and p.status in :statuses
 		order by p.id
 		""")
-	List<Payout> findForUpdate(int sellerId, int raceId, Collection<PayoutStatus> statuses);
+	List<Payout> findForUpdate(long sellerId, long raceId, Collection<PayoutStatus> statuses);
 
 	// 대회 취소 처리: 그 대회의 정산 내역 전부 (지급 전은 취소로 닫고, 지급 완료는 회수액에 더한다)
-	List<Payout> findByRaceId(int raceId);
+	List<Payout> findByRaceId(long raceId);
 
 	// 지급 배치: 지급 예정일이 오늘이거나 지난 정산 내역 (지난 날을 놓쳐도 다음 실행에서 따라잡는다)
 	List<Payout> findByStatusAndScheduledPayDateLessThanEqual(PayoutStatus status, LocalDate date);
@@ -53,12 +53,12 @@ public interface PayoutRepository extends JpaRepository<Payout, Integer> {
 		where (p.status = :calculated and p.scheduledPayDate <= :today) or p.status = :paying
 		order by p.id
 		""")
-	List<Integer> findPayTargetIds(LocalDate today, PayoutStatus calculated, PayoutStatus paying);
+	List<Long> findPayTargetIds(LocalDate today, PayoutStatus calculated, PayoutStatus paying);
 
 	// 판매자 정산 내역 조회: 정산 월(YYYY-MM)은 문자열이어도 자릿수가 같아 사전순 비교가 달 순서와 같다
 	// 유일 조건 (seller_id, race_id, payout_month)의 인덱스는 seller_id로 시작하므로 판매자 범위를 이 인덱스로 찾는다
 	List<Payout> findBySellerIdAndPayoutMonthBetweenOrderByPayoutMonthDescIdDesc(
-		int sellerId, String fromMonth, String toMonth);
+		long sellerId, String fromMonth, String toMonth);
 
 	// 판매자 요약: 지급 배치가 지급할 정산 예정 내역 (지급 예정일 순). 보류(HELD)는 상태가 달라 빠진다
 	// 같은 판매자 × 대회의 살아 있는 1차가 아직 지급 완료가 아니면 그 최종은 지급 배치가 건너뛰므로 뺀다
@@ -72,9 +72,9 @@ public interface PayoutRepository extends JpaRepository<Payout, Integer> {
 			and f.status <> :paid and f.status <> :canceled))
 		order by p.scheduledPayDate, p.id
 		""")
-	List<Payout> findPayableForSummary(int sellerId, PayoutStatus calculated, PayoutStage finalStage,
+	List<Payout> findPayableForSummary(long sellerId, PayoutStatus calculated, PayoutStage finalStage,
 		PayoutStage firstStage, PayoutStatus paid, PayoutStatus canceled);
 
 	// 판매자 요약: 지급보류 중인 정산 내역 수. 한 정산 내역에는 활성 보류가 하나뿐이라 보류 건수와 같다
-	long countBySellerIdAndStatus(int sellerId, PayoutStatus status);
+	long countBySellerIdAndStatus(long sellerId, PayoutStatus status);
 }

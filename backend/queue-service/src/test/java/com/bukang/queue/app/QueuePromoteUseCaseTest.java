@@ -41,7 +41,7 @@ class QueuePromoteUseCaseTest extends QueueIntegrationTest {
 	void promoteOnlySizeFromFront() {
 		int size = queueProperties.schedule().size();
 		// 회원 n은 13:59:00에서 n초 뒤에 줄을 섰다 (회원 1이 가장 먼저)
-		for (int memberId = 1; memberId <= size + 1; memberId++) {
+		for (long memberId = 1; memberId <= size + 1; memberId++) {
 			addMember(WAITING_KEY, memberId, NOW.minusMinutes(1).plusSeconds(memberId));
 		}
 		registerQueue(QUEUE_ID);
@@ -130,7 +130,7 @@ class QueuePromoteUseCaseTest extends QueueIntegrationTest {
 	}
 
 	// waiting이면 score가 등록 시각, active면 끝 시각이다
-	private void addMember(String key, int memberId, LocalDateTime score) {
+	private void addMember(String key, long memberId, LocalDateTime score) {
 		redisTemplate.opsForZSet().add(key, String.valueOf(memberId), epochMillis(score));
 	}
 

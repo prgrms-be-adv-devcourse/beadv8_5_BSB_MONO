@@ -26,7 +26,7 @@ import lombok.Getter;
 public class RaceCourseSaveRequestDto {
 	// 수정할 때 이 값으로 기존 종목을 찾는다. 비어 있으면 새 종목이다
 	@Schema(description = "종목 ID (수정 때 기존 종목이면 넣고, 새 종목이면 비운다. 등록 때는 무시한다)", example = "1")
-	private final Integer courseId;
+	private final Long courseId;
 
 	@Schema(description = "종목명 (50자 이하)", example = "10K")
 	@NotBlank(message = "종목명을 작성해주세요.")
@@ -56,7 +56,7 @@ public class RaceCourseSaveRequestDto {
 	@Schema(description = "참가비 (원)", example = "45000")
 	@NotNull(message = "참가비를 작성해주세요.")
 	@Positive(message = "참가비는 0원보다 커야 합니다.")
-	private final Integer price;
+	private final Long price;
 
 	@Schema(description = "키트 포함 여부", example = "true")
 	@NotNull(message = "키트 포함 여부를 작성해주세요.")
@@ -65,7 +65,7 @@ public class RaceCourseSaveRequestDto {
 	@Schema(description = "참가비에 포함된 키트 금액 (원). 참가비보다 클 수 없다", example = "0")
 	@NotNull(message = "키트 금액을 작성해주세요.")
 	@PositiveOrZero(message = "키트 금액은 0원 이상이어야 합니다.")
-	private final Integer kitPrice;
+	private final Long kitPrice;
 
 	// 세미는 키트 중 티셔츠만 사이즈를 받는다. 참가 신청 화면은 이 목록 안에서 참가자에게 사이즈를 고르게 한다
 	// (주문 서비스가 고른 사이즈를 이 목록과 맞춰 보는 확인은 아직 없다)

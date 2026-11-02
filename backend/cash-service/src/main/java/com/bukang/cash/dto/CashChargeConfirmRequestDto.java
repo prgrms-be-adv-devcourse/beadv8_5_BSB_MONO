@@ -25,5 +25,5 @@ public class CashChargeConfirmRequestDto {
 	@Schema(description = "충전 요청 금액 (최소 10,000원)", example = "10000")
 	@NotNull(message = "금액을 작성해주세요.")
 	@Positive(message = "금액은 0보다 커야 합니다.")
-	private final Integer amount;
+	private final Long amount;
 }

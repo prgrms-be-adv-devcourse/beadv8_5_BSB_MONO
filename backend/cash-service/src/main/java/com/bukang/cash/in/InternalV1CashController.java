@@ -67,7 +67,7 @@ public class InternalV1CashController {
 			}))
 	})
 	public ResponseEntity<RsData<CashPaymentResponseDto>> pay(
-		@Parameter(description = "주문 ID", example = "100") @PathVariable int orderId,
+		@Parameter(description = "주문 ID", example = "100") @PathVariable long orderId,
 		@Valid @RequestBody CashPaymentRequestDto request
 	) {
 		CashPaymentResponseDto result = cashFacade.completeOrderPayment(
@@ -96,7 +96,7 @@ public class InternalV1CashController {
 				examples = @ExampleObject(value = CashInternalApiExamples.PAYMENT_MEMBER_MISMATCH)))
 	})
 	public ResponseEntity<RsData<Void>> cancelPayment(
-		@Parameter(description = "주문 ID", example = "100") @PathVariable int orderId,
+		@Parameter(description = "주문 ID", example = "100") @PathVariable long orderId,
 		@Valid @RequestBody CashCancelPaymentRequestDto request
 	) {
 		cashFacade.cancelPayment(orderId, request.getMemberId());
@@ -126,7 +126,7 @@ public class InternalV1CashController {
 			}))
 	})
 	public ResponseEntity<RsData<CashRefundResponseDto>> refund(
-		@Parameter(description = "주문 ID", example = "100") @PathVariable int orderId,
+		@Parameter(description = "주문 ID", example = "100") @PathVariable long orderId,
 		@Valid @RequestBody CashRefundRequestDto request
 	) {
 		CashRefundResponseDto result = cashFacade.refund(orderId, request.getMemberId());
@@ -148,7 +148,7 @@ public class InternalV1CashController {
 				examples = @ExampleObject(value = CashInternalApiExamples.INVALID_VALUE_TYPE)))
 	})
 	public ResponseEntity<RsData<CashBalanceResponseDto>> getBalance(
-		@Parameter(description = "회원 ID (= 지갑 ID)", example = "3") @PathVariable int memberId
+		@Parameter(description = "회원 ID (= 지갑 ID)", example = "3") @PathVariable long memberId
 	) {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "잔액을 조회했습니다.", cashFacade.getBalanceOrZero(memberId)));
@@ -179,7 +179,7 @@ public class InternalV1CashController {
 			content = @Content(examples = @ExampleObject(value = CashInternalApiExamples.PAYOUT_MISMATCH)))
 	})
 	public ResponseEntity<RsData<CashPayoutResponseDto>> payout(
-		@Parameter(description = "정산 ID", example = "500") @PathVariable int payoutId,
+		@Parameter(description = "정산 ID", example = "500") @PathVariable long payoutId,
 		@Valid @RequestBody CashPayoutRequestDto request
 	) {
 		CashPayoutResponseDto result = cashFacade.payout(payoutId, request.getSellerId(), request.getPayoutStage(),

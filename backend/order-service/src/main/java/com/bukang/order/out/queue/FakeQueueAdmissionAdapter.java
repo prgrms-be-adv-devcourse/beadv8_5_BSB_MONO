@@ -62,7 +62,7 @@ public class FakeQueueAdmissionAdapter implements QueueAdmissionPort {
 	}
 
 	@Override
-	public Optional<LocalDateTime> findAdmissionEndsAt(int memberId, int raceId, int raceCourseId,
+	public Optional<LocalDateTime> findAdmissionEndsAt(long memberId, long raceId, long raceCourseId,
 		LocalDateTime now) {
 		pruneIfLarge(now);
 		LocalDateTime endsAt = admissionEndsAt.computeIfAbsent(new Admission(memberId, raceCourseId),
@@ -72,7 +72,7 @@ public class FakeQueueAdmissionAdapter implements QueueAdmissionPort {
 
 	// 결제 페이지를 다시 열면, 끝난 입장은 대기열을 다시 통과한 것으로 보고 다시 입장시킨다
 	@Override
-	public Optional<LocalDateTime> findAdmissionEndsAtOnPageOpen(int memberId, int raceId, int raceCourseId,
+	public Optional<LocalDateTime> findAdmissionEndsAtOnPageOpen(long memberId, long raceId, long raceCourseId,
 		LocalDateTime now) {
 		pruneIfLarge(now);
 		LocalDateTime endsAt = admissionEndsAt.compute(new Admission(memberId, raceCourseId),
@@ -83,7 +83,7 @@ public class FakeQueueAdmissionAdapter implements QueueAdmissionPort {
 	}
 
 	// 대기열을 다시 통과한 것으로 친다 (dev 더미 API). 입장 끝 시각을 지금부터 다시 센다
-	public LocalDateTime enter(int memberId, int raceCourseId, LocalDateTime now) {
+	public LocalDateTime enter(long memberId, long raceCourseId, LocalDateTime now) {
 		pruneIfLarge(now);
 		LocalDateTime endsAt = now.plusMinutes(admissionMinutes);
 		admissionEndsAt.put(new Admission(memberId, raceCourseId), endsAt);
@@ -106,6 +106,6 @@ public class FakeQueueAdmissionAdapter implements QueueAdmissionPort {
 		return admissionEndsAt.size();
 	}
 
-	private record Admission(int memberId, int raceCourseId) {
+	private record Admission(long memberId, long raceCourseId) {
 	}
 }

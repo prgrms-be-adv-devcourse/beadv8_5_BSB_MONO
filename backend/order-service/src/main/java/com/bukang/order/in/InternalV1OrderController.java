@@ -66,7 +66,7 @@ public class InternalV1OrderController {
 			}))
 	})
 	public ResponseEntity<RsData<List<SoldEntryDto>>> findSoldEntries(
-		@Parameter(description = "대회 ID", example = "5") @RequestParam int raceId
+		@Parameter(description = "대회 ID", example = "5") @RequestParam long raceId
 	) {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "판매 내역을 조회했습니다.", soldEntryQueryUseCase.findSoldEntries(raceId)));
@@ -91,7 +91,7 @@ public class InternalV1OrderController {
 			}))
 	})
 	public ResponseEntity<RsData<List<SoldSummaryDto>>> summarizeSold(
-		@Parameter(description = "대회 ID", example = "5") @RequestParam int raceId
+		@Parameter(description = "대회 ID", example = "5") @RequestParam long raceId
 	) {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "판매 집계를 조회했습니다.", soldSummaryQueryUseCase.summarizeSold(raceId)));
@@ -111,7 +111,7 @@ public class InternalV1OrderController {
 			}))
 	})
 	public ResponseEntity<RsData<ActiveTicketCountDto>> countActiveTickets(
-		@Parameter(description = "회원 ID", example = "3") @PathVariable int memberId
+		@Parameter(description = "회원 ID", example = "3") @PathVariable long memberId
 	) {
 		return ResponseEntity.ok().body(RsData.of(HttpStatus.OK, "끝나지 않은 참가권 수를 조회했습니다.",
 			// 결제 기한은 주문을 만들 때 서버 시각(LocalDateTime.now())으로 정하므로 같은 시각으로 비교한다

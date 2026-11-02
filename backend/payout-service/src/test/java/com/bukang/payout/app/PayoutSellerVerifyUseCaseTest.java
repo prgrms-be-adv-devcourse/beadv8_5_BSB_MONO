@@ -16,8 +16,8 @@ import com.bukang.payout.out.SellerLookupPort.SellerOfMember;
 
 // 판매자 정산 조회의 회원 ID → 판매자 ID 변환. 회원 7의 판매자 ID를 3으로 두어 두 값이 다른 경우를 본다
 class PayoutSellerVerifyUseCaseTest {
-	private static final int MEMBER_ID = 7;
-	private static final int SELLER_ID = 3;
+	private static final long MEMBER_ID = 7;
+	private static final long SELLER_ID = 3;
 
 	@Test
 	@DisplayName("승인된 판매자면 회원 ID가 아니라 판매자 ID를 돌려준다")

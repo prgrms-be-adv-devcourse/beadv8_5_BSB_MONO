@@ -51,16 +51,16 @@ public class OrderItem extends BaseIdAndTime {
 	private Order order;
 
 	@Column(name = "participation_id", nullable = false)
-	private int participationId;
+	private long participationId;
 
 	@Column(name = "race_id", nullable = false)
-	private int raceId;
+	private long raceId;
 
 	@Column(name = "race_course_id", nullable = false)
-	private int raceCourseId;
+	private long raceCourseId;
 
 	@Column(name = "seller_id", nullable = false)
-	private int sellerId;
+	private long sellerId;
 
 	// 대회 일시 사본 (주문 당시 종목 정보). 정산 배치가 대회 날짜로 판매 내역을 찾는 조건이다
 	@Column(name = "race_date", nullable = false)
@@ -71,21 +71,21 @@ public class OrderItem extends BaseIdAndTime {
 	private String itemName;
 
 	@Column(name = "unit_price", nullable = false)
-	private int unitPrice;
+	private long unitPrice;
 
 	@Column(name = "quantity", nullable = false)
 	private int quantity;
 
 	// 정산 판매액 = 실제 결제 금액 (정책 6장 1-5)
 	@Column(name = "amount", nullable = false)
-	private int amount;
+	private long amount;
 
 	@Enumerated(STRING)
 	@Column(name = "status", nullable = false, columnDefinition = "varchar(20)")
 	private OrderItemStatus status;
 
 	@Column(name = "canceled_amount", nullable = false)
-	private int canceledAmount;
+	private long canceledAmount;
 
 	@Column(name = "canceled_at")
 	private LocalDateTime canceledAt;
@@ -160,7 +160,7 @@ public class OrderItem extends BaseIdAndTime {
 		this.cancelRequestedAt = null;
 	}
 
-	public boolean isSoldBy(int sellerId) {
+	public boolean isSoldBy(long sellerId) {
 		return this.sellerId == sellerId;
 	}
 

@@ -52,10 +52,10 @@ public class Payout extends BaseIdAndTime {
 	private String payoutCode;
 
 	@Column(nullable = false)
-	private int sellerId;
+	private long sellerId;
 
 	@Column(nullable = false)
-	private int raceId;
+	private long raceId;
 
 	// 정산 내역을 만들 때 상품 서비스에서 받은 대회 이름. 영수증처럼 정산한 때의 이름을 남긴다
 	// 판매자 조회 때 상품 서비스를 부르지 않으려고 저장한다 (정산은 대회 다음 날 만들어져 그 뒤 이름이 바뀔 일은 드물다)
@@ -117,7 +117,7 @@ public class Payout extends BaseIdAndTime {
 	@OneToMany(mappedBy = "payout", cascade = ALL)
 	private List<PayoutStatusHistory> statusHistories = new ArrayList<>();
 
-	private Payout(int sellerId, int raceId, String raceName, PayoutStage payoutStage, YearMonth payoutMonth,
+	private Payout(long sellerId, long raceId, String raceName, PayoutStage payoutStage, YearMonth payoutMonth,
 		LocalDateTime settledAt, LocalDate scheduledPayDate) {
 		this.sellerId = sellerId;
 		this.raceId = raceId;
@@ -132,7 +132,7 @@ public class Payout extends BaseIdAndTime {
 
 	// 1차 정산 내역: 정산 월은 환불 마감일의 달이고, 지급 예정일은 환불 마감일 + 2일이다 (예: 마감 10/11 일 → 10/13 화)
 	// calendar는 지금 쓰지 않는다. 영업일 보정을 다시 켤 때 호출부를 다시 고치지 않도록 인자로 남겨 둔다 (10/28 결정)
-	public static Payout first(int sellerId, int raceId, String raceName, LocalDate refundDeadline,
+	public static Payout first(long sellerId, long raceId, String raceName, LocalDate refundDeadline,
 		LocalDateTime settledAt, BusinessDayCalendar calendar) {
 		return new Payout(sellerId, raceId, raceName, PayoutStage.FIRST, YearMonth.from(refundDeadline), settledAt,
 			refundDeadline.plusDays(PAY_DAYS_AFTER_BASE_DATE));
@@ -140,7 +140,7 @@ public class Payout extends BaseIdAndTime {
 
 	// 최종 정산 내역: 정산 월은 대회일의 달이고, 지급 예정일은 대회일 + 2일이다 (예: 대회 10/17 토 → 10/19 월)
 	// 1차 정산금 차감은 만든 뒤 deductAdvance로 쓴다. calendar는 first와 같은 이유로 남겨 둔다
-	public static Payout finalStage(int sellerId, int raceId, String raceName, LocalDate raceDate,
+	public static Payout finalStage(long sellerId, long raceId, String raceName, LocalDate raceDate,
 		LocalDateTime settledAt, BusinessDayCalendar calendar) {
 		return new Payout(sellerId, raceId, raceName, PayoutStage.FINAL, YearMonth.from(raceDate), settledAt,
 			raceDate.plusDays(PAY_DAYS_AFTER_BASE_DATE));
@@ -161,7 +161,7 @@ public class Payout extends BaseIdAndTime {
 	 * 1차 정산금 = DOWN(1장 가격 × 40%) × 장수는 장마다 40%를 버려 더한 값(정책 Q7)과 같다. 회수 몫(1장 × 40%)과도 정확히 맞는다
 	 * 가격 합이 장수로 나누어떨어지지 않으면 가격이 섞인 것이므로 계산하지 않고 실패로 남긴다
 	 */
-	public PayoutItem recordAdvance(int raceCourseId, long priceSum, int ticketCount, LocalDate targetDate) {
+	public PayoutItem recordAdvance(long raceCourseId, long priceSum, int ticketCount, LocalDate targetDate) {
 		if (payoutStage != PayoutStage.FIRST) {
 			throw new IllegalStateException("선금은 1차 정산에만 씁니다. payoutStage=%s".formatted(payoutStage));
 		}
@@ -172,7 +172,7 @@ public class Payout extends BaseIdAndTime {
 		}
 		boolean alreadyRecorded = items.stream()
 			.anyMatch(item -> item.getRecordType() == PayoutRecordType.ADVANCE_PAID
-				&& Integer.valueOf(raceCourseId).equals(item.getRaceCourseId()));
+				&& Long.valueOf(raceCourseId).equals(item.getRaceCourseId()));
 		if (alreadyRecorded) {
 			throw new IllegalStateException(
 				"선금 줄은 코스마다 하나만 씁니다. raceId=%d, raceCourseId=%d".formatted(raceId, raceCourseId));
@@ -186,7 +186,7 @@ public class Payout extends BaseIdAndTime {
 	// 환불 마감일까지 환불된 참가권은 판매 내역에서 빠지므로 판매만 기록한다 (payout.md 2-3)
 	// 참가권마다 판매(+가격)와 수수료(−가격 × 5.5%, 원 미만 버림) 두 줄을 쓰고, 코스별로 볼 수 있게 코스를 적는다
 	// 지급액은 언제나 이 정산 내역 원장 줄의 합이다
-	public PayoutItem addItem(int orderItemId, Integer raceCourseId, long price, BigDecimal feeRate,
+	public PayoutItem addItem(long orderItemId, Long raceCourseId, long price, BigDecimal feeRate,
 		LocalDate targetDate) {
 		if (payoutStage != PayoutStage.FINAL) {
 			throw new IllegalStateException("1차 정산은 참가권 줄 없이 recordAdvance로 만듭니다. raceId=%d".formatted(raceId));
@@ -200,7 +200,7 @@ public class Payout extends BaseIdAndTime {
 	}
 
 	// 코스를 모를 때(테스트 · 샘플 데이터)
-	public PayoutItem addItem(int orderItemId, long price, BigDecimal feeRate, LocalDate targetDate) {
+	public PayoutItem addItem(long orderItemId, long price, BigDecimal feeRate, LocalDate targetDate) {
 		return addItem(orderItemId, null, price, feeRate, targetDate);
 	}
 
@@ -243,7 +243,7 @@ public class Payout extends BaseIdAndTime {
 		return offset;
 	}
 
-	private PayoutItem addLine(PayoutRecordType recordType, Integer orderItemId, Integer raceCourseId, long amount,
+	private PayoutItem addLine(PayoutRecordType recordType, Long orderItemId, Long raceCourseId, long amount,
 		BigDecimal feeRate, LocalDate targetDate) {
 		PayoutItem item = PayoutItem.ofPayout(this, recordType, orderItemId, raceCourseId, amount, feeRate,
 			targetDate);
@@ -302,7 +302,7 @@ public class Payout extends BaseIdAndTime {
 
 	// 지급보류 걸기: 정산 예정(CALCULATED)일 때만 건다. 세미는 활성 보류를 하나만 둔다 (PRO-26)
 	// 보류 기록(PayoutHold)은 여기서만 만든다. 저장은 호출한 쪽이 한다
-	public PayoutHold hold(PayoutHoldReason reasonType, String reason, int heldBy, LocalDateTime heldAt) {
+	public PayoutHold hold(PayoutHoldReason reasonType, String reason, long heldBy, LocalDateTime heldAt) {
 		if (status == PayoutStatus.HELD) {
 			throw new PayoutHoldConflictException("이미 지급보류 중인 정산 내역입니다.");
 		}
@@ -326,7 +326,7 @@ public class Payout extends BaseIdAndTime {
 	// 지금 값과 비교해도 원래 지급 예정일과 비교한 것과 같다. 그래서 원래 지급 예정일을 따로 저장하지 않는다
 	// calendar는 first와 같은 이유로 남겨 둔다
 	// 지급 배치는 상태와 지급 예정일만 보므로, 보류 기록을 보지 않아도 다음 지급일에 지급된다
-	public void release(PayoutHold hold, int releasedBy, LocalDateTime releasedAt, BusinessDayCalendar calendar) {
+	public void release(PayoutHold hold, long releasedBy, LocalDateTime releasedAt, BusinessDayCalendar calendar) {
 		// ==로 비교하지 않는다. LAZY로 읽은 hold.getPayout()은 Hibernate 프록시라 같은 행이어도 this와 다른 객체다
 		// 프록시의 getId()는 DB를 읽지 않고 들고 있는 ID를 돌려준다
 		if (hold.getPayout().getId() != getId()) {
@@ -350,7 +350,7 @@ public class Payout extends BaseIdAndTime {
 	// 보류 중이었으면 보류 기록은 HELD로 두고 상태만 최신으로 바꾼다. 무엇이었는지는 상태 이력에 남는다
 	// 이미 지급한 정산 내역은 닫지 않는다. 지급 뒤 대회 취소는 회수(PRO-33)가 맡는다
 	// 지급 중에도 돈이 이미 나갔을 수 있어 닫지 않는다. 대회 취소가 지급 중을 만났을 때의 처리는 PRO-253에서 정한다
-	public void cancel(int canceledBy, LocalDateTime canceledAt, String reason) {
+	public void cancel(long canceledBy, LocalDateTime canceledAt, String reason) {
 		if (!status.isBeforePayment()) {
 			throw new IllegalStateException("지급 전 정산 내역만 취소할 수 있습니다. payoutId=%d, status=%s"
 				.formatted(getId(), status));
@@ -361,7 +361,7 @@ public class Payout extends BaseIdAndTime {
 		changeStatus(PayoutStatus.CANCELED, canceledBy, canceledAt, reason);
 	}
 
-	private void changeStatus(PayoutStatus to, int changedBy, LocalDateTime changedAt, String reason) {
+	private void changeStatus(PayoutStatus to, long changedBy, LocalDateTime changedAt, String reason) {
 		statusHistories.add(new PayoutStatusHistory(this, status, to, changedBy, changedAt, reason));
 		this.status = to;
 	}

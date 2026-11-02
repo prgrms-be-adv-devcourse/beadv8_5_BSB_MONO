@@ -28,7 +28,7 @@ public class OrderQueryUseCase {
 	private final OrderQueryRepository orderQueryRepository;
 	private final ParticipationRepository participationRepository;
 
-	public OrderPageDto findMine(int memberId, LocalDate from, LocalDate to, int page, int size) {
+	public OrderPageDto findMine(long memberId, LocalDate from, LocalDate to, int page, int size) {
 		if (from != null && to != null && from.isAfter(to)) {
 			throw new OrderSearchPeriodException("조회 시작일이 종료일보다 늦습니다.");
 		}
@@ -36,7 +36,7 @@ public class OrderQueryUseCase {
 			.map(Order::toSummaryDto));
 	}
 
-	public OrderDto findOwned(int memberId, int orderId) {
+	public OrderDto findOwned(long memberId, long orderId) {
 		Order order = orderRepository.findById(orderId)
 			.orElseThrow(() -> new OrderNotFoundException("존재하지 않는 주문입니다."));
 		if (!order.isOwnedBy(memberId)) {

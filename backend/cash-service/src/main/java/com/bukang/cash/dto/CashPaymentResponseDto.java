@@ -1,6 +1,6 @@
 package com.bukang.cash.dto;
 
-public record CashPaymentResponseDto(Outcome outcome, int shortage) {
+public record CashPaymentResponseDto(Outcome outcome, long shortage) {
 	public enum Outcome {
 		PAID,
 		INSUFFICIENT_BALANCE
@@ -10,7 +10,7 @@ public record CashPaymentResponseDto(Outcome outcome, int shortage) {
 		return new CashPaymentResponseDto(Outcome.PAID, 0);
 	}
 
-	public static CashPaymentResponseDto insufficient(int shortage) {
+	public static CashPaymentResponseDto insufficient(long shortage) {
 		return new CashPaymentResponseDto(Outcome.INSUFFICIENT_BALANCE, shortage);
 	}
 

@@ -36,7 +36,7 @@ public class ShipmentItem extends BaseIdAndTime {
 
 	// 같은 주문의 주문 상품 ID. 주문 상품의 참가 신청 ID처럼 연관 없이 값만 둔다
 	@Column(name = "order_item_id", nullable = false)
-	private int orderItemId;
+	private long orderItemId;
 
 	@Column(name = "quantity", nullable = false)
 	private int quantity;

@@ -14,7 +14,7 @@ import com.bukang.order.dto.CancelingOrderItemDto;
 import com.bukang.order.dto.SoldEntryDto;
 import com.bukang.order.dto.SoldSummaryDto;
 
-public interface OrderItemRepository extends JpaRepository<OrderItem, Integer> {
+public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
 	/**
 	 * 대회의 주문 상품 중 결제 완료(PAID)·취소 중(CANCELING)인 것. 취소(CANCELED)·결제 전(ORDERED)은 빠진다
 	 * 정산 배치가 정산 대상일에 부르므로, 그 전에 취소된 참가권은 돌려주지 않는다 (정산 전 취소)
@@ -28,7 +28,7 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Integer> {
 				com.bukang.order.domain.OrderItemStatus.CANCELING)
 		order by i.id
 		""")
-	List<SoldEntryDto> findSoldEntries(@Param("raceId") int raceId);
+	List<SoldEntryDto> findSoldEntries(@Param("raceId") long raceId);
 
 	/**
 	 * 대회의 결제 완료(PAID)·취소 중(CANCELING) 주문 상품을 판매자 × 코스로 묶어 결제 금액 합과 장수를 센다
@@ -44,7 +44,7 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Integer> {
 		group by i.sellerId, i.raceId, i.raceCourseId
 		order by i.sellerId, i.raceCourseId
 		""")
-	List<SoldSummaryDto> summarizeSold(@Param("raceId") int raceId);
+	List<SoldSummaryDto> summarizeSold(@Param("raceId") long raceId);
 
 	/**
 	 * 회원의 끝나지 않은 참가권 수 (회원 탈퇴 확인용, BE-022)
@@ -65,7 +65,7 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Integer> {
 					and i.order.status = com.bukang.order.domain.OrderStatus.CREATED
 					and i.order.paymentDueAt > :now))
 		""")
-	long countActiveTickets(@Param("memberId") int memberId, @Param("from") LocalDateTime from,
+	long countActiveTickets(@Param("memberId") long memberId, @Param("from") LocalDateTime from,
 		@Param("now") LocalDateTime now);
 
 	/**
@@ -95,9 +95,9 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Integer> {
 
 	// 참가 신청으로 만든 주문의 ID. 참가 신청 하나에는 주문 상품이 하나뿐이다 (uk_order_item_participation)
 	@Query("select i.order.id from OrderItem i where i.participationId = :participationId")
-	Optional<Integer> findOrderIdByParticipationId(@Param("participationId") int participationId);
+	Optional<Long> findOrderIdByParticipationId(@Param("participationId") long participationId);
 
 	// 주문 상품이 속한 주문의 ID. 주문을 잠그고 바꾸기 전에 읽는다 (키트 발송, PRO-136)
 	@Query("select i.order.id from OrderItem i where i.id = :orderItemId")
-	Optional<Integer> findOrderIdByItemId(@Param("orderItemId") int orderItemId);
+	Optional<Long> findOrderIdByItemId(@Param("orderItemId") long orderItemId);
 }

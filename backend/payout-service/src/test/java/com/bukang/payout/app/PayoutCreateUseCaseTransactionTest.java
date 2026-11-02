@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.IntFunction;
+import java.util.function.LongFunction;
 import java.util.function.Predicate;
 
 import org.junit.jupiter.api.AfterEach;
@@ -57,7 +57,7 @@ class PayoutCreateUseCaseTransactionTest {
 	private static final LocalDateTime NOW = LocalDateTime.of(2026, 9, 26, 3, 0);
 
 	// 대회 30의 이름은 PAYOUT_PAYOUT.race_name(200자)보다 길어 정산 내역 저장이 DB에서 실패한다
-	private static final IntFunction<Optional<String>> RACE_NAMES = raceId -> raceId == 30
+	private static final LongFunction<Optional<String>> RACE_NAMES = raceId -> raceId == 30
 		? Optional.of("가".repeat(201))
 		: Optional.of("대회 " + raceId);
 
@@ -98,9 +98,9 @@ class PayoutCreateUseCaseTransactionTest {
 	@DisplayName("정산 내역 하나의 저장이 DB에서 실패해도 같은 날 다른 정산 내역은 저장된다")
 	void failedGroupDoesNotRollBackOthers() {
 		PayoutCreateUseCase useCase = useCaseSelling(List.of(
-			new SoldEntry(100, 1, 10, 10, RACE_DATE, 50_000L),
-			new SoldEntry(300, 3, 30, 30, RACE_DATE, 40_000L),
-			new SoldEntry(200, 2, 20, 20, RACE_DATE, 30_000L)
+			new SoldEntry(100, 1, 10, 10L, RACE_DATE, 50_000L),
+			new SoldEntry(300, 3, 30, 30L, RACE_DATE, 40_000L),
+			new SoldEntry(200, 2, 20, 20L, RACE_DATE, 30_000L)
 		), sellerId -> true);
 
 		PayoutCreateResultDto result = useCase.run(TARGET_DATE, NOW);
@@ -111,7 +111,7 @@ class PayoutCreateUseCaseTransactionTest {
 
 		assertThat(payoutRepository.findAll())
 			.extracting(Payout::getSellerId)
-			.containsExactlyInAnyOrder(1, 2);
+			.containsExactlyInAnyOrder(1L, 2L);
 		// 최종 정산 내역 2개 × (1차 정산금 차감 1줄 + 참가권 판매 · 수수료 2줄) (PRO-214)
 		assertThat(payoutItemRepository.count()).isEqualTo(6);
 	}
@@ -123,7 +123,7 @@ class PayoutCreateUseCaseTransactionTest {
 		payoutRepository.save(Payout.finalStage(1, 10, "대회 10", RACE_DATE, NOW, new BusinessDayCalendar()));
 		PayoutRepository racingRepository = notYetSavedOnFirstCheck(repository ->
 			repository.existsBySellerIdAndRaceIdAndPayoutMonthAndPayoutStage(1, 10, "2026-09", PayoutStage.FINAL));
-		SoldEntryPort soldEntryPort = raceId -> List.of(new SoldEntry(100, 1, 10, 10, RACE_DATE, 50_000L));
+		SoldEntryPort soldEntryPort = raceId -> List.of(new SoldEntry(100, 1, 10, 10L, RACE_DATE, 50_000L));
 		PayoutCreateUseCase useCase = new PayoutCreateUseCase(racingRepository, payoutCreateStepUseCase,
 			soldEntryPort, sellerId -> true,
 			new StubRacePort(RACE_NAMES, List.of(), soldEntryPort.findSoldEntries(10)), raceId -> List.of());
@@ -166,8 +166,8 @@ class PayoutCreateUseCaseTransactionTest {
 				throw new IllegalStateException("DB 연결 끊김");
 			});
 		SoldEntryPort soldEntryPort = raceId -> List.of(
-			new SoldEntry(100, 1, 10, 10, RACE_DATE, 50_000L),
-			new SoldEntry(200, 2, 10, 10, RACE_DATE, 30_000L));
+			new SoldEntry(100, 1, 10, 10L, RACE_DATE, 50_000L),
+			new SoldEntry(200, 2, 10, 10L, RACE_DATE, 30_000L));
 		PayoutCreateUseCase useCase = new PayoutCreateUseCase(racingRepository, payoutCreateStepUseCase,
 			soldEntryPort, sellerId -> true,
 			new StubRacePort(RACE_NAMES, List.of(), soldEntryPort.findSoldEntries(10)), raceId -> List.of());
@@ -178,7 +178,7 @@ class PayoutCreateUseCaseTransactionTest {
 		assertThat(result.created()).isEqualTo(1);
 		assertThat(payoutRepository.findAll())
 			.extracting(Payout::getSellerId)
-			.containsExactlyInAnyOrder(1, 2);
+			.containsExactlyInAnyOrder(1L, 2L);
 	}
 
 	// 실제 저장소에 그대로 넘기되, existsCheck가 고른 존재 확인만 처음 한 번은 '없음'으로 답하는 저장소
@@ -210,15 +210,15 @@ class PayoutCreateUseCaseTransactionTest {
 			return true;
 		};
 		PayoutCreateUseCase useCase = useCaseSelling(List.of(
-			new SoldEntry(100, 1, 10, 10, RACE_DATE, 50_000L),
-			new SoldEntry(200, 2, 20, 20, RACE_DATE, 30_000L)
+			new SoldEntry(100, 1, 10, 10L, RACE_DATE, 50_000L),
+			new SoldEntry(200, 2, 20, 20L, RACE_DATE, 30_000L)
 		), sellerAccountPort);
 
 		useCase.run(TARGET_DATE, NOW);
 
 		assertThat(payoutRepository.findAll())
 			.extracting(Payout::getSellerId)
-			.containsExactly(1);
+			.containsExactly(1L);
 		assertThat(payoutHoldRepository.count()).isZero();
 	}
 
@@ -234,8 +234,8 @@ class PayoutCreateUseCaseTransactionTest {
 			return true;
 		};
 		PayoutCreateUseCase useCase = useCaseSelling(List.of(
-			new SoldEntry(100, 1, 10, 10, RACE_DATE, 50_000L),
-			new SoldEntry(200, 2, 20, 20, RACE_DATE, 30_000L)
+			new SoldEntry(100, 1, 10, 10L, RACE_DATE, 50_000L),
+			new SoldEntry(200, 2, 20, 20L, RACE_DATE, 30_000L)
 		), sellerAccountPort);
 
 		useCase.run(TARGET_DATE, NOW);
@@ -245,11 +245,11 @@ class PayoutCreateUseCaseTransactionTest {
 		List<Payout> payouts = payoutRepository.findAll();
 		assertThat(payouts)
 			.extracting(Payout::getSellerId)
-			.containsExactlyInAnyOrder(1, 2);
+			.containsExactlyInAnyOrder(1L, 2L);
 		Payout retried = payouts.stream().filter(p -> p.getSellerId() == 2).findFirst().orElseThrow();
 		assertThat(retried.getPayoutMonth()).isEqualTo("2026-09");
 		assertThat(payoutItemRepository.findAll())
-			.filteredOn(item -> Integer.valueOf(200).equals(item.getOrderItemId()))
+			.filteredOn(item -> Long.valueOf(200L).equals(item.getOrderItemId()))
 			.extracting(PayoutItem::getTargetDate)
 			.containsOnly(TARGET_DATE);
 	}

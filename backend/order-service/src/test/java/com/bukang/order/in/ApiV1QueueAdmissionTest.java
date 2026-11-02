@@ -51,8 +51,8 @@ import com.jayway.jsonpath.JsonPath;
 @ActiveProfiles("test")
 @Import({StubRaceCoursePortConfig.class, StubSeatHoldPortConfig.class})
 class ApiV1QueueAdmissionTest {
-	private static final int RACE_ID = 300;
-	private static final int COURSE_ID = 30;
+	private static final long RACE_ID = 300;
+	private static final long COURSE_ID = 30;
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -84,7 +84,7 @@ class ApiV1QueueAdmissionTest {
 	@Test
 	@DisplayName("입장 중이면 끝 시각과 남은 초를 주고, 다시 물어도 끝 시각이 같으며, 그 시각이 [결제하기]의 결제 기한이 된다")
 	void admissionEndsAtIsPaymentDue() throws Exception {
-		int memberId = 101;
+		long memberId = 101;
 		raceCoursePort.put(StubRaceCoursePort.openCourse(COURSE_ID, RACE_ID, 14, null));
 		String first = admission(memberId)
 			.andExpect(status().isOk())
@@ -97,7 +97,7 @@ class ApiV1QueueAdmissionTest {
 
 		admission(memberId).andExpect(jsonPath("$.data.admissionEndsAt").value(endsAt));
 
-		int participationId = apply(memberId);
+		long participationId = apply(memberId);
 		mockMvc.perform(post("/api/v1/order/orders")
 				.header("X-Member-Id", memberId)
 				.header("Idempotency-Key", UUID.randomUUID().toString())
@@ -112,7 +112,7 @@ class ApiV1QueueAdmissionTest {
 	@Test
 	@DisplayName("더미로 다시 입장하면 끝 시각을 지금부터 다시 센다")
 	void dummyReenter() throws Exception {
-		int memberId = 102;
+		long memberId = 102;
 		String before = JsonPath.read(admission(memberId).andReturn().getResponse().getContentAsString(),
 			"$.data.admissionEndsAt");
 
@@ -135,8 +135,8 @@ class ApiV1QueueAdmissionTest {
 	void concurrentFirstEntry() throws Exception {
 		int callers = 8;
 		// 처음 넣는 줄이 겹치는 경우를 여러 번 만들려고 회원을 바꿔 가며 되풀이한다
-		for (int memberId = 200; memberId < 210; memberId++) {
-			int targetMemberId = memberId;
+		for (long memberId = 200; memberId < 210; memberId++) {
+			long targetMemberId = memberId;
 			CountDownLatch start = new CountDownLatch(1);
 			List<Future<Integer>> statuses = new ArrayList<>();
 			try (ExecutorService executor = Executors.newFixedThreadPool(callers)) {
@@ -176,14 +176,14 @@ class ApiV1QueueAdmissionTest {
 			.andExpect(status().isBadRequest());
 	}
 
-	private ResultActions admission(int memberId) throws Exception {
+	private ResultActions admission(long memberId) throws Exception {
 		return mockMvc.perform(get("/api/v1/order/queue/admission")
 			.header("X-Member-Id", memberId)
 			.param("raceId", String.valueOf(RACE_ID))
 			.param("raceCourseId", String.valueOf(COURSE_ID)));
 	}
 
-	private int apply(int memberId) throws Exception {
+	private long apply(long memberId) throws Exception {
 		String body = mockMvc.perform(post("/api/v1/order/participations")
 				.header("X-Member-Id", memberId)
 				.contentType(MediaType.APPLICATION_JSON)
@@ -197,6 +197,6 @@ class ApiV1QueueAdmissionTest {
 					""".formatted(COURSE_ID)))
 			.andExpect(status().isCreated())
 			.andReturn().getResponse().getContentAsString();
-		return JsonPath.read(body, "$.data.id");
+		return JsonPath.<Number>read(body, "$.data.id").longValue();
 	}
 }

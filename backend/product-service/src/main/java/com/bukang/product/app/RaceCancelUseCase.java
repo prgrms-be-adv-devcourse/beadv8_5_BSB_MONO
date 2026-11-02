@@ -35,7 +35,7 @@ public class RaceCancelUseCase {
 	private final RaceRepository raceRepository;
 	private final RaceHoldUseCase raceHoldUseCase;
 
-	public RaceCancelResult cancel(int memberId, int raceId, LocalDateTime now) {
+	public RaceCancelResult cancel(long memberId, long raceId, LocalDateTime now) {
 		ProductSeller seller = productSellerRepository.findByMemberIdAndStatus(memberId, SellerStatus.APPROVED)
 			.orElseThrow(SellerNotApprovedException::new);
 		// 잠그고 읽는다. 같은 대회의 수정·취소가 겹치면 차례로 처리된다

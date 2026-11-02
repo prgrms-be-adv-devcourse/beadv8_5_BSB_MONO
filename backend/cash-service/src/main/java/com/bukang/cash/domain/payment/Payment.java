@@ -27,12 +27,12 @@ import lombok.NoArgsConstructor;
 public class Payment extends BaseIdAndTime {
 	// 주문은 다른 서비스의 테이블이라 연관관계(FK) 없이 ID 값으로만 보관한다, 주문 id를 멱등 키로 사용
 	@Column(nullable = false, unique = true)
-	private int orderId;
+	private long orderId;
 
 	@ManyToOne(fetch = LAZY, optional = false)
 	private Wallet wallet;
 
-	private int amount;
+	private long amount;
 
 	@Enumerated(STRING)
 	@Column(nullable = false, length = 20)
@@ -43,7 +43,7 @@ public class Payment extends BaseIdAndTime {
 
 	private LocalDateTime completeDate;
 
-	public Payment(int orderId, Wallet wallet, int amount) {
+	public Payment(long orderId, Wallet wallet, long amount) {
 		this.orderId = orderId;
 		this.wallet = wallet;
 		this.amount = amount;

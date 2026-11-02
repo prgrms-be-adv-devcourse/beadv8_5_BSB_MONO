@@ -28,7 +28,7 @@ public class TossPaymentClient implements PaymentClient {
 	private final String secretKey;
 
 	@Override
-	public PaymentApprovalResult approve(String paymentKey, String orderId, int amount) {
+	public PaymentApprovalResult approve(String paymentKey, String orderId, long amount) {
 		PaymentResponse response;
 		try {
 			response = restClient.post()
@@ -87,12 +87,12 @@ public class TossPaymentClient implements PaymentClient {
 		}
 	}
 
-	private record ConfirmRequest(String paymentKey, String orderId, int amount) {
+	private record ConfirmRequest(String paymentKey, String orderId, long amount) {
 	}
 
 	// Toss 응답(Payment 객체)엔 필드가 훨씬 많지만, 지갑에 반영할 때 쓰는 값만 받는다. status는 조회 응답에서만 쓴다
 	@JsonIgnoreProperties(ignoreUnknown = true)
-	private record PaymentResponse(String paymentKey, int totalAmount, String status) {
+	private record PaymentResponse(String paymentKey, long totalAmount, String status) {
 	}
 
 	@JsonIgnoreProperties(ignoreUnknown = true)

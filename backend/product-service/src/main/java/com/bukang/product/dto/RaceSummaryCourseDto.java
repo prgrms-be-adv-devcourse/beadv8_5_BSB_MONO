@@ -13,11 +13,11 @@ import lombok.Getter;
 @AllArgsConstructor
 @Getter
 public class RaceSummaryCourseDto {
-	private final int raceCourseId;
+	private final long raceCourseId;
 	private final String name;
 	private final CourseType courseType;
 	private final BigDecimal distanceKm;
-	private final int price;
+	private final long price;
 	private final CourseStatus status;
 	// 남은 개인 자리 (세미는 개인 예매만 한다)
 	private final int individualRemaining;

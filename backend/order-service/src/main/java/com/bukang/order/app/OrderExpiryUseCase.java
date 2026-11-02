@@ -54,11 +54,11 @@ public class OrderExpiryUseCase {
 	 * 바깥 트랜잭션 없이 부른다 (OrderExpiryScheduler)
 	 */
 	public ExpiryResult expireOverdue(LocalDateTime now) {
-		List<Integer> overdueOrderIds = orderRepository.findOverdueIds(now, PageRequest.of(0, BATCH_SIZE));
+		List<Long> overdueOrderIds = orderRepository.findOverdueIds(now, PageRequest.of(0, BATCH_SIZE));
 		int expired = 0;
 		int released = 0;
 		int retry = 0;
-		for (int orderId : overdueOrderIds) {
+		for (long orderId : overdueOrderIds) {
 			try {
 				Expired result = transactionTemplate.execute(status -> expireLocked(orderId, now));
 				if (result.order()) {
@@ -87,7 +87,7 @@ public class OrderExpiryUseCase {
 	 * 결제 취소는 주문을 잠근 채 부른다. 결제가 차감을 마치고 자리를 파는 사이에 결제 취소가 끼어들면
 	 * 돈은 돌려줬는데 주문은 결제 완료로 남기 때문이다. 결제 중이면 잠금을 기다렸다가, 결제가 끝난 주문이면 건너뛴다
 	 */
-	private Expired expireLocked(int orderId, LocalDateTime now) {
+	private Expired expireLocked(long orderId, LocalDateTime now) {
 		Order order = orderRepository.findByIdForUpdate(orderId).orElse(null);
 		// 조회와 잠금 사이에 결제됐으면 건너뛴다
 		if (order == null || !order.isOverdue(now)) {

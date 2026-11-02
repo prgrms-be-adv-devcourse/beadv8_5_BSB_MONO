@@ -68,8 +68,8 @@ class ProductFacadeRaceCourseChangedTest extends ProductIntegrationTest {
 		+ "손대지 않은 하프는 보내지 않는다. 수정 일시는 DB에 저장된 10K의 새 수정 일시다")
 	void publishOnlyChangedCourseOnUpdate() throws Exception {
 		RegisteredRace registered = register(scheduledRace().course(tenK(), half()).build());
-		int tenKId = registered.courseIds().get(0);
-		int halfId = registered.courseIds().get(1);
+		long tenKId = registered.courseIds().get(0);
+		long halfId = registered.courseIds().get(1);
 		int sentOnRegister = raceCourseChanges().size();
 
 		productFacade.updateRace(SELLER_MEMBER_ID, registered.raceId(), scheduledRace()
@@ -95,7 +95,7 @@ class ProductFacadeRaceCourseChangedTest extends ProductIntegrationTest {
 			.build());
 
 		// 응답의 종목 ID는 요청 순서대로라 두 번째가 새로 만든 하프다
-		int halfId = updated.getCourseIds().get(1);
+		long halfId = updated.getCourseIds().get(1);
 		// 등록 때 1건, 수정 때 1건. 모두 key는 대회 ID다
 		String raceKey = String.valueOf(registered.raceId());
 		assertThat(raceCourseChangedKeys()).containsExactly(raceKey, raceKey);
@@ -108,8 +108,8 @@ class ProductFacadeRaceCourseChangedTest extends ProductIntegrationTest {
 		+ "수정 일시 칸에는 삭제 시각(수정을 시작한 시각)을 담는다")
 	void publishDeletedCourseOnUpdate() throws Exception {
 		RegisteredRace registered = register(scheduledRace().course(tenK(), half()).build());
-		int tenKId = registered.courseIds().get(0);
-		int halfId = registered.courseIds().get(1);
+		long tenKId = registered.courseIds().get(0);
+		long halfId = registered.courseIds().get(1);
 		RaceCourseChangedEvent halfRegistered = raceCourseChanges().get(1);
 		int sentOnRegister = raceCourseChanges().size();
 
@@ -167,7 +167,7 @@ class ProductFacadeRaceCourseChangedTest extends ProductIntegrationTest {
 		return course().name("하프").type(CourseType.HALF).distanceKm("21.1").timeLimitMinutes(180);
 	}
 
-	private RaceCourse findCourse(int raceCourseId) {
+	private RaceCourse findCourse(long raceCourseId) {
 		return raceCourseRepository.findById(raceCourseId).orElseThrow();
 	}
 

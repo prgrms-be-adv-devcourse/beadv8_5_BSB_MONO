@@ -24,8 +24,8 @@ import com.bukang.queue.support.QueueIntegrationTest;
  * 재시도·DLT 토픽으로 보내는 일은 Kafka가 하므로, 여기서는 어떤 예외가 나는지까지만 본다.
  */
 class QueueKafkaConsumerTest extends QueueIntegrationTest {
-	private static final int RACE_ID = 1;
-	private static final int RACE_COURSE_ID = 11;
+	private static final long RACE_ID = 1;
+	private static final long RACE_COURSE_ID = 11;
 	private static final LocalDateTime INDIVIDUAL_OPEN_AT = LocalDateTime.of(2026, 10, 20, 10, 0);
 	private static final LocalDateTime APPLICATION_CLOSE_AT = LocalDateTime.of(2026, 11, 1, 18, 0);
 

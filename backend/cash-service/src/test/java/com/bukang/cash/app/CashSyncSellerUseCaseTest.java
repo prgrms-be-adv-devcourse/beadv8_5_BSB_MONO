@@ -23,8 +23,8 @@ import com.bukang.common.shared.seller.event.SellerChangedEvent;
 @SpringBootTest
 @ActiveProfiles("test")
 class CashSyncSellerUseCaseTest {
-	private static final int SELLER_APPLICATION_ID = 50;
-	private static final int MEMBER_ID = 10;
+	private static final long SELLER_APPLICATION_ID = 50;
+	private static final long MEMBER_ID = 10;
 
 	@Autowired
 	private CashFacade cashFacade;

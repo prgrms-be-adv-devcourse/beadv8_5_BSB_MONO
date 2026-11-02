@@ -22,9 +22,9 @@ import lombok.extern.slf4j.Slf4j;
 public class FakeSeatHoldAdapter implements SeatHoldPort {
 	private static final int SEATS_PER_COURSE = 100;
 
-	private final Map<Integer, Integer> remainingSeats = new ConcurrentHashMap<>();
-	private final Map<Integer, Hold> holds = new ConcurrentHashMap<>();
-	private final Set<Integer> sold = ConcurrentHashMap.newKeySet();
+	private final Map<Long, Integer> remainingSeats = new ConcurrentHashMap<>();
+	private final Map<Long, Hold> holds = new ConcurrentHashMap<>();
+	private final Set<Long> sold = ConcurrentHashMap.newKeySet();
 
 	// 호출마다 경고를 남기면 로그가 묻히므로, 앱을 켤 때 한 번만 알린다
 	public FakeSeatHoldAdapter() {
@@ -32,7 +32,7 @@ public class FakeSeatHoldAdapter implements SeatHoldPort {
 	}
 
 	@Override
-	public SeatHoldResult hold(int raceCourseId, int participationId, LocalDateTime expiresAt) {
+	public SeatHoldResult hold(long raceCourseId, long participationId, LocalDateTime expiresAt) {
 		// "남은 자리가 1 이상일 때만 줄인다"를 종목별로 원자적으로 처리한다 (B의 조건부 UPDATE 흉내)
 		boolean[] held = {false};
 		remainingSeats.compute(raceCourseId, (id, remaining) -> {
@@ -52,7 +52,7 @@ public class FakeSeatHoldAdapter implements SeatHoldPort {
 	}
 
 	@Override
-	public SeatSellResult sell(int participationId) {
+	public SeatSellResult sell(long participationId) {
 		// 이미 판매한 자리는 기한과 상관없이 SOLD (같은 주문 재결제, SeatHoldPort.sell)
 		if (sold.contains(participationId)) {
 			return SeatSellResult.SOLD;
@@ -66,6 +66,6 @@ public class FakeSeatHoldAdapter implements SeatHoldPort {
 		return SeatSellResult.SOLD;
 	}
 
-	private record Hold(int raceCourseId, LocalDateTime expiresAt) {
+	private record Hold(long raceCourseId, LocalDateTime expiresAt) {
 	}
 }

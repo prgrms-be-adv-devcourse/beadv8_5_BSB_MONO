@@ -79,7 +79,7 @@ public class ApiV1PayoutSellerController {
 				examples = @ExampleObject(value = PayoutSellerApiExamples.SELLER_LOOKUP_UNAVAILABLE)))
 	})
 	public ResponseEntity<RsData<PayoutSummaryDto>> summary(
-		@LoginMemberId int memberId
+		@LoginMemberId long memberId
 	) {
 		PayoutSummaryDto summary = payoutSellerFacade.summary(memberId, LocalDate.now(ZONE));
 		return ResponseEntity.ok(RsData.of(HttpStatus.OK, "정산 요약을 조회했습니다.", summary));
@@ -115,7 +115,7 @@ public class ApiV1PayoutSellerController {
 				examples = @ExampleObject(value = PayoutSellerApiExamples.SELLER_LOOKUP_UNAVAILABLE)))
 	})
 	public ResponseEntity<RsData<List<PayoutDto>>> payouts(
-		@LoginMemberId int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "조회 시작 정산 월 (yyyy-MM)", example = "2025-11")
 		@RequestParam @DateTimeFormat(pattern = "yyyy-MM") YearMonth fromMonth,
 		@Parameter(description = "조회 끝 정산 월 (yyyy-MM, 포함)", example = "2026-10")
@@ -158,7 +158,7 @@ public class ApiV1PayoutSellerController {
 				examples = @ExampleObject(value = PayoutSellerApiExamples.SELLER_LOOKUP_UNAVAILABLE)))
 	})
 	public ResponseEntity<RsData<PageDto<PayoutItemDto>>> items(
-		@LoginMemberId int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "조회 시작 정산 대상일 (yyyy-MM-dd)", example = "2026-09-01")
 		@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
 		@Parameter(description = "조회 끝 정산 대상일 (yyyy-MM-dd, 포함)", example = "2026-09-30")
@@ -202,7 +202,7 @@ public class ApiV1PayoutSellerController {
 				examples = @ExampleObject(value = PayoutSellerApiExamples.SELLER_LOOKUP_UNAVAILABLE)))
 	})
 	public ResponseEntity<RsData<List<SellerPayoutHoldDto>>> holds(
-		@LoginMemberId int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "조회 시작 보류일 (yyyy-MM-dd)", example = "2026-09-15")
 		@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
 		@Parameter(description = "조회 끝 보류일 (yyyy-MM-dd, 포함)", example = "2026-10-14")

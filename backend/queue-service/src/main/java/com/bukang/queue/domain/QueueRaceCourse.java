@@ -24,11 +24,11 @@ import lombok.NoArgsConstructor;
 @Table(name = "QUEUE_RACE_COURSE")
 public class QueueRaceCourse extends BaseEntity {
 	@Id
-	private int id;
+	private long id;
 
 	// 종목이 속한 대회 ID. 종목 메시지가 대회 메시지보다 먼저 올 수 있어 대회 복제본(QUEUE_RACE)에 외래 키를 걸지 않는다
 	@Column(nullable = false)
-	private int raceId;
+	private long raceId;
 
 	// 원본 종목 행의 수정 일시(race_course.updated_at). 뺀 종목이면 삭제 시각이다. 늦게 온 옛 메시지를 가리는 비교 값이다
 	@Column(nullable = false)
@@ -38,7 +38,7 @@ public class QueueRaceCourse extends BaseEntity {
 	@Column(nullable = false)
 	private boolean deleted;
 
-	public QueueRaceCourse(int id, int raceId, LocalDateTime updatedAt, boolean deleted) {
+	public QueueRaceCourse(long id, long raceId, LocalDateTime updatedAt, boolean deleted) {
 		this.id = id;
 		this.raceId = raceId;
 		this.updatedAt = updatedAt;
@@ -46,7 +46,7 @@ public class QueueRaceCourse extends BaseEntity {
 	}
 
 	// 이 대회에 묶인 종목인지. 대회에서 뺀 종목(삭제 표시)은 묶이지 않은 것으로 본다
-	public boolean belongsTo(int raceId) {
+	public boolean belongsTo(long raceId) {
 		return !deleted && this.raceId == raceId;
 	}
 

@@ -84,7 +84,7 @@ public class ProductRaceAdapter implements RacePort {
 
 	// 상품 서비스 응답(RaceScheduleDto)의 모양. 포트의 RaceSchedule이 응답 형식에 묶이지 않도록 따로 둔다
 	// 상품 서비스는 대회 일시(LocalDateTime)를 주고, 정산은 날짜만 쓴다
-	private record RaceScheduleResponse(int raceId, String raceName, LocalDateTime raceDate,
+	private record RaceScheduleResponse(long raceId, String raceName, LocalDateTime raceDate,
 		LocalDate refundDeadline) {
 		RaceSchedule toRaceSchedule() {
 			return new RaceSchedule(raceId, raceName, raceDate.toLocalDate(), refundDeadline);

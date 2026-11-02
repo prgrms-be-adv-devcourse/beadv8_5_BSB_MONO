@@ -13,15 +13,15 @@ import lombok.Getter;
  */
 @Getter
 public class SoldEntryDto {
-	private final int orderItemId;
-	private final int sellerId;
-	private final int raceId;
-	private final int raceCourseId;
+	private final long orderItemId;
+	private final long sellerId;
+	private final long raceId;
+	private final long raceCourseId;
 	private final LocalDate raceDate;
 	private final long price;
 
 	// JPQL 생성자 조회용. 주문 상품의 대회 일시(LocalDateTime)를 날짜로 바꿔 내려준다
-	public SoldEntryDto(int orderItemId, int sellerId, int raceId, int raceCourseId, LocalDateTime raceDateTime,
+	public SoldEntryDto(long orderItemId, long sellerId, long raceId, long raceCourseId, LocalDateTime raceDateTime,
 		long price) {
 		this.orderItemId = orderItemId;
 		this.sellerId = sellerId;

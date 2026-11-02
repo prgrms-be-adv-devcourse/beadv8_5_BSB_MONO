@@ -17,7 +17,7 @@ public class DisabledSellerLookupAdapter implements SellerLookupPort {
 	static final String MESSAGE = "판매자 기능을 아직 쓸 수 없습니다. 잠시 뒤 다시 시도해주세요.";
 
 	@Override
-	public Optional<Integer> findApprovedSellerId(int memberId) {
+	public Optional<Long> findApprovedSellerId(long memberId) {
 		throw new ExternalServiceUnavailableException(MESSAGE);
 	}
 }

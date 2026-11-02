@@ -12,10 +12,10 @@ import java.time.LocalDateTime;
 public interface SeatHoldPort {
 	// 결제 기한(expiresAt)은 주문이 정해 보낸다 (10/14 김호빈님과 정함, 대기열이 생기면 활성 시간이 끝나는 시각)
 	// 멱등: 같은 참가 신청 ID로 다시 부르면 새 자리를 잡지 않고 처음 결과(처음 기한)를 돌려준다
-	SeatHoldResult hold(int raceCourseId, int participationId, LocalDateTime expiresAt);
+	SeatHoldResult hold(long raceCourseId, long participationId, LocalDateTime expiresAt);
 
 	// 결제 뒤 자리를 판매 완료로 바꾼다. 기한이 지났으면 B가 거절한다 (결제·만료 판정 원본은 B의 expires_at)
 	// 멱등: 이미 판매한 자리면 기한과 상관없이 SOLD다. 판매 뒤 주문 저장이 롤백되어 같은 주문으로 다시 결제할 때,
 	// 기한이 지났다고 EXPIRED를 받으면 예치금은 돌려주는데 자리는 팔린 채로 남는다
-	SeatSellResult sell(int participationId);
+	SeatSellResult sell(long participationId);
 }

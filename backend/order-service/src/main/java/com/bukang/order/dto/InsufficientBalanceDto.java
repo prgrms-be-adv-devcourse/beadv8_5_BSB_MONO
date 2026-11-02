@@ -9,6 +9,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
  */
 public record InsufficientBalanceDto(
 	@Schema(description = "부족 금액(원)", example = "30000")
-	int shortage
+	long shortage
 ) {
 }

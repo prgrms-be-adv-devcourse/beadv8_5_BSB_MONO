@@ -55,7 +55,6 @@ import com.bukang.product.out.RaceCourseDocumentRepository;
 import com.bukang.product.out.RaceCourseRepository;
 import com.bukang.product.out.RaceDocumentSyncEventRepository;
 import com.bukang.product.out.RaceRepository;
-import com.jayway.jsonpath.JsonPath;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -74,12 +73,12 @@ import jakarta.persistence.PersistenceContext;
 @Testcontainers(disabledWithoutDocker = true)
 @Import(TestcontainersConfiguration.class)
 public abstract class ProductIntegrationTest {
-	protected static final int SELLER_MEMBER_ID = 9001;
-	protected static final int SELLER_ID = 7001;
-	protected static final int OTHER_SELLER_MEMBER_ID = 9002;
-	protected static final int OTHER_SELLER_ID = 7002;
+	protected static final long SELLER_MEMBER_ID = 9001;
+	protected static final long SELLER_ID = 7001;
+	protected static final long OTHER_SELLER_MEMBER_ID = 9002;
+	protected static final long OTHER_SELLER_ID = 7002;
 	// 판매자가 아닌 회원 (복제본도 없다)
-	protected static final int NOT_SELLER_MEMBER_ID = 9999;
+	protected static final long NOT_SELLER_MEMBER_ID = 9999;
 
 	@Autowired
 	protected MockMvc mockMvc;
@@ -115,8 +114,8 @@ public abstract class ProductIntegrationTest {
 	private KafkaTemplate<?, ?> kafkaTemplate;
 
 	// 등록 결과: 대회 ID와 요청 순서대로의 종목 ID
-	protected record RegisteredRace(int raceId, List<Integer> courseIds) {
-		public int courseId() {
+	protected record RegisteredRace(long raceId, List<Long> courseIds) {
+		public long courseId() {
 			return courseIds.getFirst();
 		}
 	}
@@ -164,7 +163,7 @@ public abstract class ProductIntegrationTest {
 			.getResultList();
 	}
 
-	protected void seedSeller(int memberId, int sellerId) {
+	protected void seedSeller(long memberId, long sellerId) {
 		LocalDateTime now = LocalDateTime.now();
 		ProductMember member = productMemberRepository.save(new ProductMember(memberId, now, now, "러너" + memberId));
 		productSellerRepository.save(new ProductSeller(sellerId, member, SellerType.BUSINESS, "(주)러닝" + sellerId,
@@ -178,13 +177,13 @@ public abstract class ProductIntegrationTest {
 		return register(SELLER_MEMBER_ID, request);
 	}
 
-	protected RegisteredRace register(int memberId, RaceSaveRequestDto request) throws Exception {
+	protected RegisteredRace register(long memberId, RaceSaveRequestDto request) throws Exception {
 		MvcResult result = postRace(memberId, request)
 			.andExpect(status().isCreated())
 			.andReturn();
 		String body = result.getResponse().getContentAsString();
-		int raceId = JsonPath.read(body, "$.data.raceId");
-		List<Integer> courseIds = JsonPath.read(body, "$.data.courseIds");
+		long raceId = JsonIds.readLong(body, "$.data.raceId");
+		List<Long> courseIds = JsonIds.readLongs(body, "$.data.courseIds");
 		// 등록 API는 동기화 이벤트만 남긴다. 스케줄러가 검색 문서를 맞춘 뒤의 상태로 만든다
 		syncRaceDocuments();
 		return new RegisteredRace(raceId, courseIds);
@@ -197,7 +196,7 @@ public abstract class ProductIntegrationTest {
 	}
 
 	// API를 거치지 않고 대회 행을 직접 바꾼 뒤, 그 대회의 검색 문서를 DB에 맞춘다 (대회 저장처럼 이벤트를 남기고 처리한다)
-	protected void resyncRaceDocument(int raceId) {
+	protected void resyncRaceDocument(long raceId) {
 		transactionTemplate.executeWithoutResult(status -> raceDocumentSyncAppendUseCase.append(raceId));
 		syncRaceDocuments();
 	}
@@ -264,7 +263,7 @@ public abstract class ProductIntegrationTest {
 
 	// ---------- 자리 (주문 서비스가 부르는 내부 API) ----------
 
-	protected ResultActions hold(int raceCourseId, int participationId, LocalDateTime expiresAt) throws Exception {
+	protected ResultActions hold(long raceCourseId, long participationId, LocalDateTime expiresAt) throws Exception {
 		String body = "{\"raceCourseId\":%d,\"participationId\":%d,\"expiresAt\":\"%s\"}"
 			.formatted(raceCourseId, participationId, expiresAt.withNano(0));
 		return mockMvc.perform(post("/internal/v1/product/holds")
@@ -272,29 +271,29 @@ public abstract class ProductIntegrationTest {
 			.content(body));
 	}
 
-	protected ResultActions hold(int raceCourseId, int participationId) throws Exception {
+	protected ResultActions hold(long raceCourseId, long participationId) throws Exception {
 		return hold(raceCourseId, participationId, LocalDateTime.now().plusMinutes(10));
 	}
 
-	protected ResultActions sell(int participationId) throws Exception {
+	protected ResultActions sell(long participationId) throws Exception {
 		return mockMvc.perform(post("/internal/v1/product/holds/" + participationId + "/sell"));
 	}
 
-	protected ResultActions restore(int participationId) throws Exception {
+	protected ResultActions restore(long participationId) throws Exception {
 		return mockMvc.perform(post("/internal/v1/product/holds/" + participationId + "/restore"));
 	}
 
 	// ---------- 요청 ----------
 
 	// memberId가 null이면 X-Member-Id 헤더를 보내지 않는다
-	protected ResultActions postJson(String path, Integer memberId, Object body) throws Exception {
+	protected ResultActions postJson(String path, Long memberId, Object body) throws Exception {
 		return mockMvc.perform(withMember(post(path), memberId)
 			.contentType(MediaType.APPLICATION_JSON)
 			.content(jsonConverter.toJson(body)));
 	}
 
 	// 대회 등록 요청. 등록 중복 방지 키(Idempotency-Key)는 요청마다 새로 만든다
-	protected ResultActions postRace(Integer memberId, Object body) throws Exception {
+	protected ResultActions postRace(Long memberId, Object body) throws Exception {
 		return mockMvc.perform(withMember(post("/api/v1/product/races"), memberId)
 			.header("Idempotency-Key", newIdempotencyKey())
 			.contentType(MediaType.APPLICATION_JSON)
@@ -305,21 +304,21 @@ public abstract class ProductIntegrationTest {
 		return UUID.randomUUID().toString();
 	}
 
-	protected ResultActions putJson(String path, Integer memberId, Object body) throws Exception {
+	protected ResultActions putJson(String path, Long memberId, Object body) throws Exception {
 		return mockMvc.perform(withMember(put(path), memberId)
 			.contentType(MediaType.APPLICATION_JSON)
 			.content(jsonConverter.toJson(body)));
 	}
 
-	protected ResultActions postAs(String path, Integer memberId) throws Exception {
+	protected ResultActions postAs(String path, Long memberId) throws Exception {
 		return mockMvc.perform(withMember(post(path), memberId));
 	}
 
-	protected ResultActions getAs(String path, Integer memberId) throws Exception {
+	protected ResultActions getAs(String path, Long memberId) throws Exception {
 		return mockMvc.perform(withMember(get(path), memberId));
 	}
 
-	private MockHttpServletRequestBuilder withMember(MockHttpServletRequestBuilder request, Integer memberId) {
+	private MockHttpServletRequestBuilder withMember(MockHttpServletRequestBuilder request, Long memberId) {
 		return memberId == null ? request : request.header("X-Member-Id", memberId);
 	}
 

@@ -34,7 +34,7 @@ public class QueueAdmissionUseCase {
 		this.requiresNew.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
 	}
 
-	public QueueAdmissionDto find(int memberId, int raceId, int raceCourseId, LocalDateTime now) {
+	public QueueAdmissionDto find(long memberId, long raceId, long raceCourseId, LocalDateTime now) {
 		LocalDateTime endsAt = queueAdmissionPort.findAdmissionEndsAtOnPageOpen(memberId, raceId, raceCourseId, now)
 			.orElse(null);
 		QueueAdmissionDto admission = QueueAdmissionDto.of(endsAt, now);
@@ -45,7 +45,7 @@ public class QueueAdmissionUseCase {
 	}
 
 	// 입장 전이면 저장하지 않는다. 예전 끝 시각이 남아 있어도 이미 지났으므로 [결제하기]는 403이다
-	private void remember(int memberId, int raceCourseId, LocalDateTime endsAt) {
+	private void remember(long memberId, long raceCourseId, LocalDateTime endsAt) {
 		try {
 			requiresNew.executeWithoutResult(status -> save(memberId, raceCourseId, endsAt));
 		} catch (DataIntegrityViolationException exception) {
@@ -54,7 +54,7 @@ public class QueueAdmissionUseCase {
 		}
 	}
 
-	private void save(int memberId, int raceCourseId, LocalDateTime endsAt) {
+	private void save(long memberId, long raceCourseId, LocalDateTime endsAt) {
 		queueAdmissionRepository.findByMemberIdAndRaceCourseId(memberId, raceCourseId)
 			.ifPresentOrElse(saved -> saved.admitUntil(endsAt),
 				() -> queueAdmissionRepository.saveAndFlush(QueueAdmission.of(memberId, raceCourseId, endsAt)));

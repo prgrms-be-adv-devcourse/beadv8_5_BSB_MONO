@@ -45,7 +45,7 @@ public class FileUploadUseCase {
 		this.confirmedPrefix = s3Properties.keyPrefix() + "/" + CONFIRMED_DIR;
 	}
 
-	public StoredFile create(FileType fileType, String fileName, String contentType, long fileSize, int memberId) {
+	public StoredFile create(FileType fileType, String fileName, String contentType, long fileSize, long memberId) {
 		FileKind kind = fileType.getKind();
 
 		FileFormat format = FileFormat.fromContentType(contentType)
@@ -66,7 +66,7 @@ public class FileUploadUseCase {
 
 	// 형식·크기가 신고와 다르면 확정 경로의 객체를 지우고 파일을 삭제 상태로 바꾼 뒤 예외를 던진다
 	// (호출하는 트랜잭션은 이 예외에도 삭제 상태를 커밋해야 한다)
-	public StoredFile complete(int fileId, int memberId) {
+	public StoredFile complete(long fileId, long memberId) {
 		// 본인 파일인지 확인하고, 이미 확인을 마친 파일이면 그대로 돌려준다 (다시 불러도 같은 결과)
 		StoredFile file = findOwnedFile(fileId, memberId);
 		if (!file.isPending()) {
@@ -104,7 +104,7 @@ public class FileUploadUseCase {
 	}
 
 	// 없거나 삭제된 파일은 404, 다른 회원이 올린 파일은 403
-	private StoredFile findOwnedFile(int fileId, int memberId) {
+	private StoredFile findOwnedFile(long fileId, long memberId) {
 		StoredFile file = storedFileRepository.findById(fileId)
 			.filter(found -> !found.isDeleted())
 			.orElseThrow(() -> new StoredFileNotFoundException("존재하지 않는 파일입니다."));

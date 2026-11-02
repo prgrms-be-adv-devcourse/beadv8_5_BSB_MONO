@@ -21,7 +21,7 @@ public class RaceDocumentSyncAppendUseCase {
 	private final RaceDocumentSyncEventRepository raceDocumentSyncEventRepository;
 
 	// 대회 ID만 남긴다. 처리할 때 DB의 최신 대회·종목을 읽으므로 바뀐 내용은 담지 않는다
-	public void append(int raceId) {
+	public void append(long raceId) {
 		raceDocumentSyncEventRepository.save(RaceDocumentSyncEvent.pending(raceId));
 	}
 }

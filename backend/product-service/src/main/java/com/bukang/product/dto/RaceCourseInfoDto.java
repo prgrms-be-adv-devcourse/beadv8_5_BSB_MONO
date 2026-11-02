@@ -20,8 +20,8 @@ import lombok.Getter;
 @AllArgsConstructor
 @Getter
 public class RaceCourseInfoDto {
-	private final int raceCourseId;
-	private final int raceId;
+	private final long raceCourseId;
+	private final long raceId;
 	// 대회명 (race.title)
 	private final String title;
 	private final LocalDateTime raceDate;
@@ -30,15 +30,15 @@ public class RaceCourseInfoDto {
 	private final LocalDateTime applicationCloseAt;
 	private final int minAge;
 	private final Integer maxAge;
-	private final int sellerId;
+	private final long sellerId;
 	// 종목명 (race_course.name)
 	private final String course;
 	// 주문 상품명으로 남길 이름 ("대회명 종목명")
 	private final String courseName;
 	// 구매자가 내는 참가권 한 장 값. 키트 금액은 이 안에 들어 있다
-	private final int price;
+	private final long price;
 	// 참가비에 포함된 키트 금액 (따로 더하지 않는다)
-	private final int kitPrice;
+	private final long kitPrice;
 	private final LocalDate refundDeadline;
 	// 판매 시작 뒤 대회 일시·장소를 바꾼 일시. 이날부터 7일 동안 전액 환불
 	private final LocalDateTime scheduleChangedAt;

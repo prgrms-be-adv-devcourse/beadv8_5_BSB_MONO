@@ -11,12 +11,12 @@ import lombok.Getter;
 @AllArgsConstructor
 @Getter
 public class OrderSummaryDto {
-	private final int id;
+	private final long id;
 	// 주문 일시
 	private final LocalDateTime createDate;
 	private final String orderNo;
 	private final OrderStatus status;
-	private final int totalAmount;
+	private final long totalAmount;
 	private final LocalDateTime paymentDueAt;
 	// 첫 주문 상품의 주문 당시 상품명
 	private final String itemName;

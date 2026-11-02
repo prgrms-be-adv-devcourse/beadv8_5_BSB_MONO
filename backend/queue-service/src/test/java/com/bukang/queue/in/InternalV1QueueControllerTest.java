@@ -27,9 +27,9 @@ import com.jayway.jsonpath.JsonPath;
  * 남은 시간이 정확한지와 Redis 장애 때의 답은 고정 시각으로 QueueAdmissionUseCaseTest가 본다.
  */
 class InternalV1QueueControllerTest extends QueueIntegrationTest {
-	private static final int RACE_ID = 1;
-	private static final int RACE_COURSE_ID = 11;
-	private static final int MEMBER_ID = 7;
+	private static final long RACE_ID = 1;
+	private static final long RACE_COURSE_ID = 11;
+	private static final long MEMBER_ID = 7;
 	private static final String ACTIVE_KEY = "race:1:racecourse:11:active";
 	private static final String ADMISSION_URL = "/internal/v1/queue/races/{raceId}/racecourses/{raceCourseId}";
 	// 활성 시간 10분 (ms)
@@ -104,7 +104,7 @@ class InternalV1QueueControllerTest extends QueueIntegrationTest {
 	}
 
 	// 대회 1·종목 11의 입장 여부를 묻는다
-	private ResultActions getAdmission(int memberId) throws Exception {
+	private ResultActions getAdmission(long memberId) throws Exception {
 		return mockMvc.perform(get(ADMISSION_URL, RACE_ID, RACE_COURSE_ID)
 			.header(MemberIdHeader.NAME, memberId));
 	}

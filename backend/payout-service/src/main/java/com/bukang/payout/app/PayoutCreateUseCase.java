@@ -216,7 +216,7 @@ public class PayoutCreateUseCase {
 	}
 
 	// 정산 내역 하나로 묶이는 판매자 × 대회
-	private record SellerRace(int sellerId, int raceId) {
+	private record SellerRace(long sellerId, long raceId) {
 	}
 
 	// 단계 하나의 실행 결과
@@ -232,7 +232,7 @@ public class PayoutCreateUseCase {
 				stage, key.sellerId(), key.raceId());
 		}
 
-		private void failRace(PayoutStage stage, int raceId, RuntimeException exception) {
+		private void failRace(PayoutStage stage, long raceId, RuntimeException exception) {
 			failed++;
 			log.error("정산용 판매 값을 주문 서비스에서 받지 못했습니다. stage={}, raceId={}", stage, raceId, exception);
 		}

@@ -2,7 +2,7 @@ package com.bukang.queue.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -25,9 +25,9 @@ import com.bukang.queue.support.QueueIntegrationTest;
  */
 class QueueAdmissionUseCaseTest extends QueueIntegrationTest {
 	private static final LocalDateTime NOW = LocalDateTime.of(2026, 10, 16, 14, 1);
-	private static final int RACE_ID = 1;
-	private static final int RACE_COURSE_ID = 11;
-	private static final int MEMBER_ID = 7;
+	private static final long RACE_ID = 1;
+	private static final long RACE_COURSE_ID = 11;
+	private static final long MEMBER_ID = 7;
 	private static final String ACTIVE_KEY = "race:1:racecourse:11:active";
 	// QueueRedisRepository가 score(epoch ms)를 만들 때 쓰는 시간대
 	private static final ZoneId ZONE = ZoneId.of("Asia/Seoul");
@@ -52,7 +52,7 @@ class QueueAdmissionUseCaseTest extends QueueIntegrationTest {
 	@DisplayName("getAdmission: Redis에 연결하지 못하면(저장소가 QueueUnavailableException) 503이 아니라 입장 중이 아님으로 답한다")
 	void notAdmittedWhenRedisUnavailable() {
 		QueueRedisRepository brokenRepository = mock(QueueRedisRepository.class);
-		when(brokenRepository.findActiveUntil(anyInt(), anyInt(), anyInt(), any()))
+		when(brokenRepository.findActiveUntil(anyLong(), anyLong(), anyLong(), any()))
 			.thenThrow(new QueueUnavailableException());
 		QueueAdmissionUseCase useCase = new QueueAdmissionUseCase(brokenRepository);
 

@@ -48,17 +48,6 @@ class LoginMemberIdArgumentResolverTest {
 	}
 
 	@Test
-	@DisplayName("아직 int로 받는 인자는 int 범위를 넘는 값을 400으로 거절한다")
-	void intParameterOverflow() throws Exception {
-		mockMvc.perform(get("/test/int").header(MemberIdHeader.NAME, "5"))
-			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data").value(5));
-		mockMvc.perform(get("/test/int").header(MemberIdHeader.NAME, "3000000000"))
-			.andExpect(status().isBadRequest())
-			.andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
-	}
-
-	@Test
 	@DisplayName("헤더가 없으면 401과 LOGIN_REQUIRED로 거절한다")
 	void missingHeader() throws Exception {
 		mockMvc.perform(get("/test/member"))
@@ -112,11 +101,6 @@ class LoginMemberIdArgumentResolverTest {
 
 		@GetMapping("/test/optional")
 		RsData<Long> optional(@LoginMemberId(required = false) Long memberId) {
-			return RsData.of(HttpStatus.OK, "회원 ID를 받았습니다.", memberId);
-		}
-
-		@GetMapping("/test/int")
-		RsData<Integer> intMember(@LoginMemberId int memberId) {
 			return RsData.of(HttpStatus.OK, "회원 ID를 받았습니다.", memberId);
 		}
 	}

@@ -33,7 +33,7 @@ public class OrderPayUseCase {
 	private final WalletPort walletPort;
 	private final SeatHoldPort seatHoldPort;
 
-	public OrderPayResult pay(int memberId, int orderId, LocalDateTime now) {
+	public OrderPayResult pay(long memberId, long orderId, LocalDateTime now) {
 		// 주문을 먼저 잠근다. 같은 주문의 결제 요청과 만료 정리 배치가 주문 → 참가 신청 순서로 줄을 선다
 		Order order = orderRepository.findByIdForUpdate(orderId)
 			.orElseThrow(() -> new OrderNotFoundException("존재하지 않는 주문입니다."));

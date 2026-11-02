@@ -12,9 +12,9 @@ import lombok.Getter;
 public class InsufficientBalanceException extends BusinessException {
 	public static final String CODE = "ORDER_INSUFFICIENT_BALANCE";
 
-	private final int shortage;
+	private final long shortage;
 
-	public InsufficientBalanceException(int shortage) {
+	public InsufficientBalanceException(long shortage) {
 		super(HttpStatus.CONFLICT, CODE,
 			"예치금이 %,d원 부족합니다. 충전한 뒤 결제 기한 안에 다시 결제해주세요.".formatted(shortage));
 		this.shortage = shortage;

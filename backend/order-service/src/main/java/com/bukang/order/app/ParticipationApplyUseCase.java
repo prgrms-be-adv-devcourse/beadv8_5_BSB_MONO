@@ -45,7 +45,7 @@ public class ParticipationApplyUseCase {
 	private final OrderItemRepository orderItemRepository;
 	private final RaceCoursePort raceCoursePort;
 
-	public Participation apply(int memberId, int raceCourseId, ParticipantInfo participant, LocalDateTime now) {
+	public Participation apply(long memberId, long raceCourseId, ParticipantInfo participant, LocalDateTime now) {
 		RaceCourseInfo course = findCourse(raceCourseId);
 		checkNotCanceled(course);
 		if (!course.isAccepting(now)) {
@@ -74,8 +74,8 @@ public class ParticipationApplyUseCase {
 	 * 결제 없이 떠나면 결제 전 신청서는 기한이 없어 남는다. 프론트는 그 ID를 메모리에만 두므로, 막으면 그 대회에 다시 신청할 수 없다
 	 * 잠근 뒤 상태를 다시 본다. [결제하기]가 먼저 잠가 결제 대기로 바꿨으면 409, 그사이 끝난 신청이면 그대로 새로 받는다
 	 */
-	private void replacePendingParticipation(int raceId, int memberId, LocalDateTime now) {
-		Optional<Integer> activeId = participationRepository.findActiveIdByRaceIdAndMemberId(raceId, memberId);
+	private void replacePendingParticipation(long raceId, long memberId, LocalDateTime now) {
+		Optional<Long> activeId = participationRepository.findActiveIdByRaceIdAndMemberId(raceId, memberId);
 		if (activeId.isEmpty()) {
 			return;
 		}
@@ -104,10 +104,10 @@ public class ParticipationApplyUseCase {
 	}
 
 	// 참가자 정보는 접수 마감 전까지 고칠 수 있다 (정책 3장 1-5). 생년월일이 바뀔 수 있으니 나이 제한도 다시 본다
-	public Participation changeParticipant(int participationId, int memberId, ParticipantInfo participant,
+	public Participation changeParticipant(long participationId, long memberId, ParticipantInfo participant,
 		LocalDateTime now) {
 		// [결제하기]로 주문이 있으면 발송 대기 배송의 주소도 바꿔야 하므로 주문부터 잠근다 (잠금 순서: 주문 → 참가 신청)
-		Optional<Integer> orderId = orderItemRepository.findOrderIdByParticipationId(participationId);
+		Optional<Long> orderId = orderItemRepository.findOrderIdByParticipationId(participationId);
 		Optional<Order> order = orderId.flatMap(orderRepository::findByIdForUpdate);
 		// 잠가서 읽는다. 엔티티는 저장할 때 모든 컬럼을 다시 쓰므로, 잠그지 않으면 결제·취소가 바꾼 상태를
 		// 옛 값으로 덮을 수 있다. 결제·취소도 참가 신청을 잠그고 바꾼다
@@ -136,7 +136,7 @@ public class ParticipationApplyUseCase {
 	}
 
 	// [결제하기] 전 신청서를 버린다 (PRO-122). [결제하기]도 신청서를 잠그고 PENDING인지 보므로, 동시에 들어오면 한쪽만 반영된다
-	public Participation cancelBeforePayment(int participationId, int memberId, LocalDateTime now) {
+	public Participation cancelBeforePayment(long participationId, long memberId, LocalDateTime now) {
 		Participation participation = participationRepository.findByIdForUpdate(participationId)
 			.orElseThrow(() -> new ParticipationNotFoundException("존재하지 않는 참가 신청입니다."));
 		checkOwner(participation, memberId);
@@ -144,20 +144,20 @@ public class ParticipationApplyUseCase {
 		return participation;
 	}
 
-	public Participation findOwned(int participationId, int memberId) {
+	public Participation findOwned(long participationId, long memberId) {
 		Participation participation = participationRepository.findById(participationId)
 			.orElseThrow(() -> new ParticipationNotFoundException("존재하지 않는 참가 신청입니다."));
 		checkOwner(participation, memberId);
 		return participation;
 	}
 
-	private void checkOwner(Participation participation, int memberId) {
+	private void checkOwner(Participation participation, long memberId) {
 		if (!participation.isOwnedBy(memberId)) {
 			throw new ParticipationAccessDeniedException("본인의 참가 신청만 보거나 고칠 수 있습니다.");
 		}
 	}
 
-	private RaceCourseInfo findCourse(int raceCourseId) {
+	private RaceCourseInfo findCourse(long raceCourseId) {
 		return raceCoursePort.findCourse(raceCourseId)
 			.orElseThrow(() -> new RaceCourseNotFoundException("존재하지 않는 종목입니다."));
 	}

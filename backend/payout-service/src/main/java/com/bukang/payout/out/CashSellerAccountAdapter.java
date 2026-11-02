@@ -40,7 +40,7 @@ public class CashSellerAccountAdapter implements SellerAccountPort {
 	}
 
 	@Override
-	public boolean hasPayoutAccount(int sellerId) {
+	public boolean hasPayoutAccount(long sellerId) {
 		RsData<PayoutAccountResponse> body = restClient.get()
 			.uri(PATH, sellerId)
 			.retrieve()

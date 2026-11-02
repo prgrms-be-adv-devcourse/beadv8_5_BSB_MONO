@@ -16,7 +16,7 @@ import lombok.Getter;
 @AllArgsConstructor
 @Getter
 public class RaceScheduleDto {
-	private final int raceId;
+	private final long raceId;
 	// 대회명 (race.title)
 	private final String raceName;
 	private final LocalDateTime raceDate;

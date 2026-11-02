@@ -96,13 +96,13 @@ class OrderExceptionHandlerTest {
 	@Profile("order-exception-handler-test-only")
 	static class HeaderEchoController {
 		@GetMapping("/test/member")
-		RsData<Integer> member(@LoginMemberId int memberId) {
+		RsData<Long> member(@LoginMemberId long memberId) {
 			return RsData.of(HttpStatus.OK, "회원 ID를 받았습니다.", memberId);
 		}
 
 		@GetMapping("/test/idempotent")
 		RsData<String> idempotent(
-			@LoginMemberId int memberId,
+			@LoginMemberId long memberId,
 			@RequestHeader("Idempotency-Key") String idempotencyKey
 		) {
 			return RsData.of(HttpStatus.OK, "요청을 받았습니다.", idempotencyKey);
@@ -110,7 +110,7 @@ class OrderExceptionHandlerTest {
 
 		@GetMapping("/test/param")
 		RsData<String> param(
-			@LoginMemberId int memberId,
+			@LoginMemberId long memberId,
 			@RequestParam("keyword") String keyword
 		) {
 			return RsData.of(HttpStatus.OK, "요청을 받았습니다.", keyword);

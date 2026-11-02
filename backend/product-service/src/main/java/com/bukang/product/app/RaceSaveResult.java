@@ -40,7 +40,7 @@ public record RaceSaveResult(
 		);
 	}
 
-	public int raceId() {
+	public long raceId() {
 		return dto.getRaceId();
 	}
 }

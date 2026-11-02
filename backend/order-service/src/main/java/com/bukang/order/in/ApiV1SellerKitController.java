@@ -68,9 +68,9 @@ public class ApiV1SellerKitController {
 				examples = @ExampleObject(value = SellerKitApiExamples.SELLER_UNAVAILABLE)))
 	})
 	public ResponseEntity<RsData<SellerKitPageDto>> findKits(
-		@LoginMemberId int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "대회 ID (생략하면 모든 대회)", example = "1")
-		@RequestParam(required = false) Integer raceId,
+		@RequestParam(required = false) Long raceId,
 		@Parameter(description = "배송 상태 (PREPARING 배송 준비 / SHIPPING 배송 중 / DELIVERED 배송 완료, 생략 가능)")
 		@RequestParam(required = false) KitDeliveryStatus status,
 		@Parameter(description = "페이지 번호 (0부터)", example = "0")
@@ -104,9 +104,9 @@ public class ApiV1SellerKitController {
 				examples = @ExampleObject(value = SellerKitApiExamples.SELLER_UNAVAILABLE)))
 	})
 	public ResponseEntity<RsData<SellerKitSummaryDto>> summarize(
-		@LoginMemberId int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "대회 ID (생략하면 모든 대회)", example = "1")
-		@RequestParam(required = false) Integer raceId
+		@RequestParam(required = false) Long raceId
 	) {
 		return ResponseEntity.ok().body(RsData.of(HttpStatus.OK, "키트 배송 건수를 조회했습니다.",
 			sellerKitFacade.summarize(memberId, raceId)));
@@ -145,8 +145,8 @@ public class ApiV1SellerKitController {
 				examples = @ExampleObject(value = SellerKitApiExamples.SELLER_UNAVAILABLE)))
 	})
 	public ResponseEntity<RsData<OrderItemDto>> ship(
-		@LoginMemberId int memberId,
-		@Parameter(description = "주문 상품 ID", example = "12") @PathVariable int orderItemId,
+		@LoginMemberId long memberId,
+		@Parameter(description = "주문 상품 ID", example = "12") @PathVariable long orderItemId,
 		@Valid @RequestBody KitShipmentRequestDto request
 	) {
 		return ResponseEntity.ok().body(RsData.of(HttpStatus.OK, "키트를 발송 처리했습니다.",
@@ -181,8 +181,8 @@ public class ApiV1SellerKitController {
 				examples = @ExampleObject(value = SellerKitApiExamples.SELLER_UNAVAILABLE)))
 	})
 	public ResponseEntity<RsData<OrderItemDto>> completeDelivery(
-		@LoginMemberId int memberId,
-		@Parameter(description = "주문 상품 ID", example = "12") @PathVariable int orderItemId
+		@LoginMemberId long memberId,
+		@Parameter(description = "주문 상품 ID", example = "12") @PathVariable long orderItemId
 	) {
 		return ResponseEntity.ok().body(RsData.of(HttpStatus.OK, "키트를 배송 완료로 바꿨습니다.",
 			sellerKitFacade.completeDelivery(memberId, orderItemId)));

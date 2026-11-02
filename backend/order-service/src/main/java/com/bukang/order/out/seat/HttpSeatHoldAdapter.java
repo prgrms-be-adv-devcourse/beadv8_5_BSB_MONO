@@ -44,7 +44,7 @@ public class HttpSeatHoldAdapter implements SeatHoldPort {
 	private final RestClient restClient;
 
 	@Override
-	public SeatHoldResult hold(int raceCourseId, int participationId, LocalDateTime expiresAt) {
+	public SeatHoldResult hold(long raceCourseId, long participationId, LocalDateTime expiresAt) {
 		RsData<HoldBody> response;
 		try {
 			response = restClient.post()
@@ -75,7 +75,7 @@ public class HttpSeatHoldAdapter implements SeatHoldPort {
 	}
 
 	@Override
-	public SeatSellResult sell(int participationId) {
+	public SeatSellResult sell(long participationId) {
 		RsData<SellBody> response;
 		try {
 			response = restClient.post()
@@ -96,7 +96,7 @@ public class HttpSeatHoldAdapter implements SeatHoldPort {
 		return body.result();
 	}
 
-	private ExternalServiceUnavailableException unavailable(String action, int participationId,
+	private ExternalServiceUnavailableException unavailable(String action, long participationId,
 		RestClientException exception) {
 		log.warn("상품 서비스에 {}를 요청하지 못했습니다. participationId={}, cause={}",
 			action, participationId, exception.toString());
@@ -104,7 +104,7 @@ public class HttpSeatHoldAdapter implements SeatHoldPort {
 	}
 
 	// 4xx는 다시 시도해도 풀리지 않는다. 경로·요청 계약이 어긋났을 수 있어 장애와 구분해 남긴다
-	private ExternalServiceUnavailableException contractError(String action, int participationId,
+	private ExternalServiceUnavailableException contractError(String action, long participationId,
 		HttpClientErrorException exception) {
 		log.error("상품 서비스가 {} 요청을 거절했습니다. 계약(경로·요청)을 확인해야 합니다. status={}, participationId={}, body={}",
 			action, exception.getStatusCode(), participationId,
@@ -122,7 +122,7 @@ public class HttpSeatHoldAdapter implements SeatHoldPort {
 		}
 	}
 
-	record HoldRequest(int raceCourseId, int participationId, LocalDateTime expiresAt) {
+	record HoldRequest(long raceCourseId, long participationId, LocalDateTime expiresAt) {
 	}
 
 	@JsonIgnoreProperties(ignoreUnknown = true)

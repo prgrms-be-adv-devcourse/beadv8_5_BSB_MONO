@@ -31,7 +31,7 @@ import jakarta.persistence.EntityManager;
 @DataJpaTest
 @ActiveProfiles("test")
 class PayoutDataInitTest {
-	private static final int SELLER_ID = 7;
+	private static final long SELLER_ID = 7;
 	// 2026-10-28 수. 어느 날이어도 같은 상대 날짜가 나와야 하므로 특별한 날을 고르지 않았다
 	private static final LocalDate TODAY = LocalDate.of(2026, 10, 28);
 
@@ -48,7 +48,7 @@ class PayoutDataInitTest {
 		return new PayoutDataInit(null, payoutRepository, payoutHoldRepository, new BusinessDayCalendar());
 	}
 
-	private Payout payout(int raceId, PayoutStage stage) {
+	private Payout payout(long raceId, PayoutStage stage) {
 		return payoutRepository.findFirstBySellerIdAndRaceIdAndPayoutStageOrderByIdAsc(SELLER_ID, raceId, stage)
 			.orElseThrow();
 	}

@@ -71,9 +71,9 @@ public class ApiV1PayoutRecoveryController {
 				examples = @ExampleObject(value = PayoutApiExamples.MEMBER_UNAVAILABLE)))
 	})
 	public ResponseEntity<RsData<PayoutRecoveryDto>> complete(
-		@LoginMemberId int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "회수 ID", example = "1")
-		@PathVariable int recoveryId
+		@PathVariable long recoveryId
 	) {
 		PayoutRecoveryDto recovery = payoutAdminFacade.completeRecovery(memberId, recoveryId, LocalDateTime.now(ZONE));
 		return ResponseEntity.ok(RsData.of(HttpStatus.OK, "회수를 완료했습니다.", recovery));

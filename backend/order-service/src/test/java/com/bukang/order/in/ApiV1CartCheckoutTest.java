@@ -1,7 +1,7 @@
 package com.bukang.order.in;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -55,10 +55,10 @@ import com.jayway.jsonpath.JsonPath;
 @Import({StubRaceCoursePortConfig.class, StubSeatHoldPortConfig.class, StubQueueAdmissionPortConfig.class})
 class ApiV1CartCheckoutTest {
 	private static final String CHECKOUT_URL = "/api/v1/order/cart/checkout";
-	private static final int MEMBER_ID = 1;
-	private static final int OTHER_MEMBER_ID = 2;
-	private static final int COURSE_ID = 10;
-	private static final int OTHER_COURSE_ID = 11;
+	private static final long MEMBER_ID = 1;
+	private static final long OTHER_MEMBER_ID = 2;
+	private static final long COURSE_ID = 10;
+	private static final long OTHER_COURSE_ID = 11;
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -109,7 +109,7 @@ class ApiV1CartCheckoutTest {
 	@DisplayName("장바구니의 참가권을 결제하면 주문이 생기고, 주문한 종목은 장바구니에서 빠진다")
 	void checkout() throws Exception {
 		addToCart(MEMBER_ID, COURSE_ID);
-		int participationId = apply(MEMBER_ID, COURSE_ID);
+		long participationId = apply(MEMBER_ID, COURSE_ID);
 
 		checkout(MEMBER_ID, newKey(), participationId)
 			.andExpect(status().isOk())
@@ -128,7 +128,7 @@ class ApiV1CartCheckoutTest {
 	@Test
 	@DisplayName("새로고침·다른 기기에서도 장바구니 조회 응답에 담긴 신청서 ID만으로 결제할 수 있다")
 	void checkoutWithParticipationIdFromCart() throws Exception {
-		int participationId = apply(MEMBER_ID, COURSE_ID);
+		long participationId = apply(MEMBER_ID, COURSE_ID);
 		addToCart(MEMBER_ID, COURSE_ID);
 
 		// 프론트 메모리에 남은 값 없이, 서버 장바구니만 다시 불러온 상황
@@ -138,7 +138,7 @@ class ApiV1CartCheckoutTest {
 			.andExpect(jsonPath("$.data.items[0].raceId").value(100))
 			.andExpect(jsonPath("$.data.items[0].participantName").value("김러너"))
 			.andReturn().getResponse().getContentAsString();
-		int fromCart = JsonPath.read(cart, "$.data.items[0].participationId");
+		long fromCart = JsonPath.<Number>read(cart, "$.data.items[0].participationId").longValue();
 
 		checkout(MEMBER_ID, newKey(), fromCart)
 			.andExpect(status().isOk())
@@ -149,14 +149,14 @@ class ApiV1CartCheckoutTest {
 	@Test
 	@DisplayName("장바구니에서 빼도 결제 전 신청서는 남고, 같은 대회에 다시 신청하면 새 신청서로 바뀐다")
 	void removeKeepsPendingAndReapplyReplaces() throws Exception {
-		int participationId = apply(MEMBER_ID, COURSE_ID);
-		int itemId = addToCartAndGetId(MEMBER_ID, COURSE_ID);
+		long participationId = apply(MEMBER_ID, COURSE_ID);
+		long itemId = addToCartAndGetId(MEMBER_ID, COURSE_ID);
 
 		removeFromCart(MEMBER_ID, itemId).andExpect(status().isOk());
 		// 프론트 메모리에 남은 신청서 ID가 그대로 쓸 수 있는 ID여야 한다
 		assertThat(statusOf(participationId)).isEqualTo(ParticipationStatus.PENDING);
 
-		int reapplied = apply(MEMBER_ID, COURSE_ID);
+		long reapplied = apply(MEMBER_ID, COURSE_ID);
 		assertThat(statusOf(participationId)).isEqualTo(ParticipationStatus.CANCELED);
 		assertThat(statusOf(reapplied)).isEqualTo(ParticipationStatus.PENDING);
 	}
@@ -164,8 +164,8 @@ class ApiV1CartCheckoutTest {
 	@Test
 	@DisplayName("결제 전 신청서가 남은 채로 신청서를 다시 저장하면, 새 신청서로 결제까지 할 수 있다")
 	void applyAgainWithLeftoverPendingThenCheckout() throws Exception {
-		int leftover = apply(MEMBER_ID, COURSE_ID);
-		int again = apply(MEMBER_ID, COURSE_ID);
+		long leftover = apply(MEMBER_ID, COURSE_ID);
+		long again = apply(MEMBER_ID, COURSE_ID);
 		addToCart(MEMBER_ID, COURSE_ID);
 
 		checkout(MEMBER_ID, newKey(), again)
@@ -179,7 +179,7 @@ class ApiV1CartCheckoutTest {
 	@DisplayName("매진이면 SOLD_OUT으로 알려 주고, 참가 신청은 FAILED가 되며 그 종목은 장바구니에 남는다")
 	void checkoutPartlySoldOut() throws Exception {
 		addToCart(MEMBER_ID, OTHER_COURSE_ID);
-		int soldOut = apply(MEMBER_ID, OTHER_COURSE_ID);
+		long soldOut = apply(MEMBER_ID, OTHER_COURSE_ID);
 		seatHoldPort.setRemainingSeats(OTHER_COURSE_ID, 0);
 
 		checkout(MEMBER_ID, newKey(), soldOut)
@@ -199,7 +199,7 @@ class ApiV1CartCheckoutTest {
 	@DisplayName("결제할 수 없으면(접수 마감) FAILED로 알려 주고 그 종목은 장바구니에 남긴다")
 	void checkoutWithFailedItem() throws Exception {
 		addToCart(MEMBER_ID, COURSE_ID);
-		int closed = apply(MEMBER_ID, COURSE_ID);
+		long closed = apply(MEMBER_ID, COURSE_ID);
 		// 신청서를 쓴 뒤 접수가 마감됐다
 		raceCoursePort.put(StubRaceCoursePort.closedCourse(COURSE_ID, 100));
 
@@ -219,7 +219,7 @@ class ApiV1CartCheckoutTest {
 	void checkoutChecksQueuePerCourse() throws Exception {
 		addToCart(MEMBER_ID, COURSE_ID);
 		queueAdmissionPort.notAdmitted(COURSE_ID);
-		int notAdmitted = apply(MEMBER_ID, COURSE_ID);
+		long notAdmitted = apply(MEMBER_ID, COURSE_ID);
 
 		checkout(MEMBER_ID, newKey(), notAdmitted)
 			.andExpect(status().isOk())
@@ -237,7 +237,7 @@ class ApiV1CartCheckoutTest {
 	@DisplayName("예상하지 못한 오류가 나도 500이 아니라 FAILED로 알려 주고 그 종목은 장바구니에 남긴다")
 	void checkoutWithUnexpectedError() throws Exception {
 		addToCart(MEMBER_ID, OTHER_COURSE_ID);
-		int broken = apply(MEMBER_ID, OTHER_COURSE_ID);
+		long broken = apply(MEMBER_ID, OTHER_COURSE_ID);
 		seatHoldPort.failHold(OTHER_COURSE_ID);
 
 		checkout(MEMBER_ID, newKey(), broken)
@@ -255,9 +255,9 @@ class ApiV1CartCheckoutTest {
 	@DisplayName("주문한 종목을 장바구니에서 빼지 못해도 주문은 그대로 남고, 그 항목은 장바구니에 남는다")
 	void checkoutWhenCartRemovalFails() throws Exception {
 		addToCart(MEMBER_ID, COURSE_ID);
-		int participationId = apply(MEMBER_ID, COURSE_ID);
+		long participationId = apply(MEMBER_ID, COURSE_ID);
 		doThrow(new IllegalStateException("장바구니 잠금 대기 시간 초과 (테스트)"))
-			.when(cartItemRepository).deleteByCartIdAndRaceCourseId(anyInt(), anyInt());
+			.when(cartItemRepository).deleteByCartIdAndRaceCourseId(anyLong(), anyLong());
 
 		checkout(MEMBER_ID, newKey(), participationId)
 			.andExpect(status().isOk())
@@ -273,7 +273,7 @@ class ApiV1CartCheckoutTest {
 	@DisplayName("같은 Idempotency-Key로 동시에 두 번 보내도 주문은 1건이고 자리도 한 번만 잡는다")
 	void checkoutTwiceTogether() throws Exception {
 		addToCart(MEMBER_ID, COURSE_ID);
-		int participationId = apply(MEMBER_ID, COURSE_ID);
+		long participationId = apply(MEMBER_ID, COURSE_ID);
 		String key = newKey();
 
 		CountDownLatch start = new CountDownLatch(1);
@@ -303,7 +303,7 @@ class ApiV1CartCheckoutTest {
 	@DisplayName("같은 Idempotency-Key로 다시 보내면 새 주문·자리 확보 없이 처음 주문을 EXISTING으로 돌려준다")
 	void checkoutRetryWithSameKey() throws Exception {
 		addToCart(MEMBER_ID, COURSE_ID);
-		int participationId = apply(MEMBER_ID, COURSE_ID);
+		long participationId = apply(MEMBER_ID, COURSE_ID);
 		String key = newKey();
 		int firstOrderId = JsonPath.read(checkout(MEMBER_ID, key, participationId)
 			.andReturn().getResponse().getContentAsString(), "$.data.results[0].order.id");
@@ -323,7 +323,7 @@ class ApiV1CartCheckoutTest {
 	@DisplayName("다른 키로 이미 주문한 신청서를 다시 보내면 그 항목만 FAILED이고 자리는 다시 잡지 않는다")
 	void checkoutAlreadyOrderedWithOtherKey() throws Exception {
 		addToCart(MEMBER_ID, COURSE_ID);
-		int participationId = apply(MEMBER_ID, COURSE_ID);
+		long participationId = apply(MEMBER_ID, COURSE_ID);
 		checkout(MEMBER_ID, newKey(), participationId).andExpect(status().isOk());
 
 		checkout(MEMBER_ID, newKey(), participationId)
@@ -340,7 +340,7 @@ class ApiV1CartCheckoutTest {
 	@DisplayName("장바구니에서 이미 뺀 종목이어도 주문은 그대로 만들고, 다른 회원의 장바구니는 건드리지 않는다")
 	void checkoutItemNotInCart() throws Exception {
 		addToCart(OTHER_MEMBER_ID, COURSE_ID);
-		int participationId = apply(MEMBER_ID, COURSE_ID);
+		long participationId = apply(MEMBER_ID, COURSE_ID);
 
 		checkout(MEMBER_ID, newKey(), participationId)
 			.andExpect(status().isOk())
@@ -353,13 +353,13 @@ class ApiV1CartCheckoutTest {
 	@DisplayName("다른 회원의 참가 신청이면 403, 없는 참가 신청이면 404이고 자리를 잡지 않는다")
 	void checkoutNotOwnerOrMissing() throws Exception {
 		addToCart(MEMBER_ID, COURSE_ID);
-		int others = apply(OTHER_MEMBER_ID, OTHER_COURSE_ID);
+		long others = apply(OTHER_MEMBER_ID, OTHER_COURSE_ID);
 
 		checkout(MEMBER_ID, newKey(), others)
 			.andExpect(status().isForbidden())
 			.andExpect(jsonPath("$.message").value("본인의 참가 신청만 결제할 수 있습니다."))
 			.andExpect(jsonPath("$.code").value("ORDER_PARTICIPATION_FORBIDDEN"));
-		checkout(MEMBER_ID, newKey(), 999999)
+		checkout(MEMBER_ID, newKey(), 999999L)
 			.andExpect(status().isNotFound())
 			.andExpect(jsonPath("$.message").value("존재하지 않는 참가 신청입니다."))
 			.andExpect(jsonPath("$.code").value("ORDER_PARTICIPATION_NOT_FOUND"));
@@ -372,8 +372,8 @@ class ApiV1CartCheckoutTest {
 	@Test
 	@DisplayName("참가 신청이 없거나, 2건 이상이거나, ID가 0 이하면 400이고 자리를 잡지 않는다 (장바구니는 한 종목)")
 	void checkoutInvalidRequest() throws Exception {
-		int participationId = apply(MEMBER_ID, COURSE_ID);
-		int other = apply(MEMBER_ID, OTHER_COURSE_ID);
+		long participationId = apply(MEMBER_ID, COURSE_ID);
+		long other = apply(MEMBER_ID, OTHER_COURSE_ID);
 
 		checkout(MEMBER_ID, newKey())
 			.andExpect(status().isBadRequest())
@@ -383,7 +383,7 @@ class ApiV1CartCheckoutTest {
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.message").value("장바구니에는 한 종목만 담을 수 있어 참가 신청 1건만 결제할 수 있습니다."))
 			.andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
-		checkout(MEMBER_ID, newKey(), 0)
+		checkout(MEMBER_ID, newKey(), 0L)
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.message").value("참가 신청 ID가 올바르지 않습니다."))
 			.andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
@@ -394,7 +394,7 @@ class ApiV1CartCheckoutTest {
 	@Test
 	@DisplayName("Idempotency-Key가 없으면 400, 64자를 넘으면 400이다")
 	void checkoutInvalidIdempotencyKey() throws Exception {
-		int participationId = apply(MEMBER_ID, COURSE_ID);
+		long participationId = apply(MEMBER_ID, COURSE_ID);
 
 		mockMvc.perform(post(CHECKOUT_URL)
 				.header("X-Member-Id", MEMBER_ID)
@@ -411,7 +411,7 @@ class ApiV1CartCheckoutTest {
 		assertThat(seatHoldPort.holdCalls()).isZero();
 	}
 
-	private ResultActions checkout(int memberId, String key, Integer... participationIds) throws Exception {
+	private ResultActions checkout(long memberId, String key, Long... participationIds) throws Exception {
 		return mockMvc.perform(post(CHECKOUT_URL)
 			.header("X-Member-Id", memberId)
 			.header("Idempotency-Key", key)
@@ -419,12 +419,12 @@ class ApiV1CartCheckoutTest {
 			.content(body(participationIds)));
 	}
 
-	private String body(Integer... participationIds) {
+	private String body(Long... participationIds) {
 		String ids = List.of(participationIds).stream().map(String::valueOf).collect(Collectors.joining(", "));
 		return "{\"participationIds\": [%s]}".formatted(ids);
 	}
 
-	private void addToCart(int memberId, int raceCourseId) throws Exception {
+	private void addToCart(long memberId, long raceCourseId) throws Exception {
 		mockMvc.perform(post("/api/v1/order/cart/items")
 				.header("X-Member-Id", memberId)
 				.contentType(MediaType.APPLICATION_JSON)
@@ -432,21 +432,21 @@ class ApiV1CartCheckoutTest {
 			.andExpect(status().isCreated());
 	}
 
-	private int addToCartAndGetId(int memberId, int raceCourseId) throws Exception {
+	private long addToCartAndGetId(long memberId, long raceCourseId) throws Exception {
 		String body = mockMvc.perform(post("/api/v1/order/cart/items")
 				.header("X-Member-Id", memberId)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"raceCourseId\": %d}".formatted(raceCourseId)))
 			.andExpect(status().isCreated())
 			.andReturn().getResponse().getContentAsString();
-		return JsonPath.read(body, "$.data.id");
+		return JsonPath.<Number>read(body, "$.data.id").longValue();
 	}
 
-	private ResultActions removeFromCart(int memberId, int cartItemId) throws Exception {
+	private ResultActions removeFromCart(long memberId, long cartItemId) throws Exception {
 		return mockMvc.perform(delete("/api/v1/order/cart/items/" + cartItemId).header("X-Member-Id", memberId));
 	}
 
-	private int apply(int memberId, int raceCourseId) throws Exception {
+	private long apply(long memberId, long raceCourseId) throws Exception {
 		QueueEntry.enter(mockMvc, memberId, raceCourseId);
 		String body = mockMvc.perform(post("/api/v1/order/participations")
 				.header("X-Member-Id", memberId)
@@ -461,17 +461,20 @@ class ApiV1CartCheckoutTest {
 					""".formatted(raceCourseId)))
 			.andExpect(status().isCreated())
 			.andReturn().getResponse().getContentAsString();
-		return JsonPath.read(body, "$.data.id");
+		return JsonPath.<Number>read(body, "$.data.id").longValue();
 	}
 
-	private ParticipationStatus statusOf(int participationId) {
+	private ParticipationStatus statusOf(long participationId) {
 		return participationRepository.findById(participationId).orElseThrow().getStatus();
 	}
 
-	private List<Integer> cartCourseIds(int memberId) throws Exception {
+	private List<Long> cartCourseIds(long memberId) throws Exception {
 		String body = mockMvc.perform(get("/api/v1/order/cart").header("X-Member-Id", memberId))
 			.andReturn().getResponse().getContentAsString();
-		return JsonPath.read(body, "$.data.items[*].raceCourseId");
+		// JsonPath는 int 범위의 숫자를 Integer로 읽으므로 Number로 받아 long으로 바꾼다
+		return JsonPath.<List<Number>>read(body, "$.data.items[*].raceCourseId").stream()
+			.map(Number::longValue)
+			.toList();
 	}
 
 	private String newKey() {

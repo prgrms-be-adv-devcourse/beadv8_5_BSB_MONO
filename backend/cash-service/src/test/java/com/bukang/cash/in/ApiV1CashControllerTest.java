@@ -285,7 +285,7 @@ class ApiV1CashControllerTest {
 		assertThat(walletWithdrawalRepository.count()).isZero();
 	}
 
-	private Wallet createWalletWithBalance(int memberId, int balance) {
+	private Wallet createWalletWithBalance(long memberId, long balance) {
 		LocalDateTime now = LocalDateTime.of(2026, 10, 12, 10, 0);
 		CashMember member = cashMemberRepository.save(new CashMember(memberId, now, now, "러너" + memberId));
 		Wallet wallet = walletRepository.save(new Wallet(member));

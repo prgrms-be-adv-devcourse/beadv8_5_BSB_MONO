@@ -13,7 +13,7 @@ import com.bukang.order.domain.ShipmentStatus;
 import com.bukang.order.dto.SellerKitDto;
 
 // 배송 조회 (BUK-6). 배송 상태를 바꾸는 일은 주문을 잠근 뒤 Order가 한다
-public interface ShipmentRepository extends JpaRepository<Shipment, Integer> {
+public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
 	/**
 	 * 판매자의 키트 주문 목록 (PRO-136). 배송 상자에 든 주문 상품마다 한 줄이다. 대회·배송 상태로 거른다(null이면 거르지 않음)
 	 * 발송 전에 취소된 배송은 빠진다. 보낸 뒤 취소된 참가권(대회 취소 환불 등)도 키트는 가고 있으므로 남겨,
@@ -49,7 +49,7 @@ public interface ShipmentRepository extends JpaRepository<Shipment, Integer> {
 			and (:raceId is null or i.raceId = :raceId)
 			and (:status is null or s.status = :status)
 		""")
-	Page<SellerKitDto> findSellerKits(@Param("sellerId") int sellerId, @Param("raceId") Integer raceId,
+	Page<SellerKitDto> findSellerKits(@Param("sellerId") long sellerId, @Param("raceId") Long raceId,
 		@Param("status") ShipmentStatus status, Pageable pageable);
 
 	// 판매자의 키트 주문 배송 상태별 건수. [상태, 건수] 줄로 돌려준다 (findSellerKits와 같은 조건)
@@ -64,7 +64,7 @@ public interface ShipmentRepository extends JpaRepository<Shipment, Integer> {
 			and (:raceId is null or i.raceId = :raceId)
 		group by s.status
 		""")
-	List<Object[]> countSellerKitsByStatus(@Param("sellerId") int sellerId, @Param("raceId") Integer raceId);
+	List<Object[]> countSellerKitsByStatus(@Param("sellerId") long sellerId, @Param("raceId") Long raceId);
 
 	// 발송 대기인 키트 주문의 종목별 건수. [종목 ID, 건수] 줄로 돌려준다. 종목마다 환불 기한이 지났는지 따로 본다
 	@Query("""
@@ -78,5 +78,5 @@ public interface ShipmentRepository extends JpaRepository<Shipment, Integer> {
 			and (:raceId is null or i.raceId = :raceId)
 		group by i.raceCourseId
 		""")
-	List<Object[]> countReadyKitsByCourse(@Param("sellerId") int sellerId, @Param("raceId") Integer raceId);
+	List<Object[]> countReadyKitsByCourse(@Param("sellerId") long sellerId, @Param("raceId") Long raceId);
 }

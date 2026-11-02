@@ -32,16 +32,16 @@ public class OrderOutboxKafkaAppendUseCase {
 	private final JsonConverter jsonConverter;
 
 	// 판매한 자리를 정원으로 되돌려 달라고 남긴다 (product.hold.restore)
-	public void appendSeatRestore(int participationId) {
+	public void appendSeatRestore(long participationId) {
 		append(KafkaTopics.PRODUCT_HOLD_RESTORE, participationId, new HoldRestoreEvent(participationId));
 	}
 
 	// 결제하지 않은 자리를 풀어 달라고 남긴다 (product.hold.cancel)
-	public void appendSeatRelease(int participationId) {
+	public void appendSeatRelease(long participationId) {
 		append(KafkaTopics.PRODUCT_HOLD_CANCEL, participationId, new HoldCancelEvent(participationId));
 	}
 
-	private void append(String topic, int participationId, Object event) {
+	private void append(String topic, long participationId, Object event) {
 		String payload = jsonConverter.toJson(event);
 		orderOutboxKafkaEventRepository.save(
 			OrderOutboxKafkaEvent.pending(PARTICIPATION_REF_TYPE, participationId, topic, payload));

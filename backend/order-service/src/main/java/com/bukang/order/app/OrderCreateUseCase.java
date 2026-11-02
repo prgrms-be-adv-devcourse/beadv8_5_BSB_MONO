@@ -50,7 +50,7 @@ public class OrderCreateUseCase {
 	private final SeatHoldPort seatHoldPort;
 	private final QueueAdmissionRepository queueAdmissionRepository;
 
-	public OrderCreateResult create(int memberId, int participationId, String idempotencyKey, LocalDateTime now) {
+	public OrderCreateResult create(long memberId, long participationId, String idempotencyKey, LocalDateTime now) {
 		// 같은 신청서로 들어온 요청을 줄 세운다. 먼저 끝난 요청이 만든 주문을 뒤 요청이 아래에서 찾는다
 		Participation participation = participationRepository.findByIdForUpdate(participationId)
 			.orElseThrow(() -> new ParticipationNotFoundException("존재하지 않는 참가 신청입니다."));
@@ -113,8 +113,8 @@ public class OrderCreateUseCase {
 	}
 
 	// 대기열 데이터가 잘못돼 끝 시각이 너무 멀면, 매진 자리를 오래 묶지 않게 정책상 최대 입장 시간으로 자른다
-	private LocalDateTime capAdmissionEndsAt(LocalDateTime admissionEndsAt, LocalDateTime now, int memberId,
-		int raceCourseId) {
+	private LocalDateTime capAdmissionEndsAt(LocalDateTime admissionEndsAt, LocalDateTime now, long memberId,
+		long raceCourseId) {
 		LocalDateTime max = now.plusMinutes(MAX_ADMISSION_MINUTES);
 		if (admissionEndsAt.isAfter(max)) {
 			log.warn("대기열 입장 끝 시각이 정책상 최대 입장 시간보다 멀어 줄입니다. memberId={}, raceCourseId={}, admissionEndsAt={}",

@@ -74,7 +74,7 @@ class CashSpecialWalletCheckTest {
 		assertThat(logAppender.list).isEmpty();
 	}
 
-	private void saveWallet(int memberId, String nickname, LocalDateTime now) {
+	private void saveWallet(long memberId, String nickname, LocalDateTime now) {
 		CashMember member = cashMemberRepository.save(new CashMember(memberId, now, now, nickname));
 		walletRepository.save(new Wallet(member));
 	}

@@ -48,7 +48,7 @@ import com.bukang.cash.out.WalletRepository;
 @SpringBootTest
 @ActiveProfiles("test")
 class CashRefundPaymentUseCaseTest {
-	private static final int CUSTOMER_ID = 3;
+	private static final long CUSTOMER_ID = 3;
 
 	@Autowired
 	private CashFacade cashFacade;
@@ -77,8 +77,8 @@ class CashRefundPaymentUseCaseTest {
 	@Test
 	@DisplayName("FAILED 상태인 결제 행은 환불을 거절한다")
 	void refundRejectsFailedPayment() {
-		int orderId = 800;
-		int amount = 3_000;
+		long orderId = 800;
+		long amount = 3_000;
 		Wallet customerWallet = createCustomerWallet(10_000);
 		createHoldingWallet();
 		Payment payment = paymentRepository.save(new Payment(orderId, customerWallet, amount));
@@ -95,9 +95,9 @@ class CashRefundPaymentUseCaseTest {
 	@Test
 	@DisplayName("결제한 지갑과 다른 회원 ID로 환불을 요청하면 거절되고, 어느 지갑도 바뀌지 않는다")
 	void refundRejectsMemberMismatch() {
-		int orderId = 850;
-		int amount = 3_000;
-		int otherMemberId = 4;
+		long orderId = 850;
+		long amount = 3_000;
+		long otherMemberId = 4;
 		createCustomerWallet(10_000);
 		createHoldingWallet();
 		createWallet(otherMemberId, "다른고객", 10_000);
@@ -117,8 +117,8 @@ class CashRefundPaymentUseCaseTest {
 	@Test
 	@DisplayName("환불 중 두 번째 장부 저장이 실패하면 지갑·장부·상태가 모두 롤백된다")
 	void refundRollsBackOnFailure() {
-		int orderId = 900;
-		int amount = 3_000;
+		long orderId = 900;
+		long amount = 3_000;
 		createCustomerWallet(10_000);
 		createHoldingWallet();
 		cashFacade.completeOrderPayment(orderId, CUSTOMER_ID, amount);
@@ -143,8 +143,8 @@ class CashRefundPaymentUseCaseTest {
 	@Test
 	@DisplayName("환원(cancelPayment)된 결제를 환불하면 아무것도 바뀌지 않고 성공하며, 실제로 돌아간 금액을 그대로 돌려준다")
 	void refundCanceledPayment_noDoubleReturn() {
-		int orderId = 500;
-		int amount = 3_000;
+		long orderId = 500;
+		long amount = 3_000;
 		createCustomerWallet(10_000);
 		createHoldingWallet();
 		cashFacade.completeOrderPayment(orderId, CUSTOMER_ID, amount);
@@ -166,8 +166,8 @@ class CashRefundPaymentUseCaseTest {
 	@DisplayName("PRO-170: COMPLETED를 거친 적 없이(잔액 부족으로 FAILED → 취소) CANCELED된 결제는 "
 		+ "환불 요청해도 0원을 돌려준다 (돈이 움직인 적이 없으므로)")
 	void refundNeverCompletedCanceledPayment_returnsZero() {
-		int orderId = 1_000;
-		int amount = 3_000;
+		long orderId = 1_000;
+		long amount = 3_000;
 		createCustomerWallet(0);
 		createHoldingWallet();
 		CashPaymentResponseDto paymentResult = cashFacade.completeOrderPayment(orderId, CUSTOMER_ID, amount);
@@ -186,8 +186,8 @@ class CashRefundPaymentUseCaseTest {
 	@Test
 	@DisplayName("PRO-170: 이미 REFUNDED된 결제를 다시 환불 요청해도 실제 금액을 그대로 돌려준다 (회귀 없음)")
 	void refundAlreadyRefundedPayment_returnsCorrectAmountAgain() {
-		int orderId = 1_100;
-		int amount = 3_000;
+		long orderId = 1_100;
+		long amount = 3_000;
 		createCustomerWallet(10_000);
 		createHoldingWallet();
 		cashFacade.completeOrderPayment(orderId, CUSTOMER_ID, amount);
@@ -204,8 +204,8 @@ class CashRefundPaymentUseCaseTest {
 	@Test
 	@DisplayName("같은 주문으로 10개 스레드가 동시에 환불을 요청해도 반환은 한 번만 일어난다")
 	void concurrentRefundSameOrder_refundsOnlyOnce() throws InterruptedException {
-		int orderId = 600;
-		int amount = 3_000;
+		long orderId = 600;
+		long amount = 3_000;
 		createCustomerWallet(10_000);
 		createHoldingWallet();
 		cashFacade.completeOrderPayment(orderId, CUSTOMER_ID, amount);
@@ -223,8 +223,8 @@ class CashRefundPaymentUseCaseTest {
 	@Test
 	@DisplayName("같은 주문에 환원과 환불이 동시에 와도 한쪽만 반영된다")
 	void concurrentCancelAndRefund_onlyOneWins() throws InterruptedException {
-		int orderId = 700;
-		int amount = 3_000;
+		long orderId = 700;
+		long amount = 3_000;
 		createCustomerWallet(10_000);
 		createHoldingWallet();
 		cashFacade.completeOrderPayment(orderId, CUSTOMER_ID, amount);
@@ -298,28 +298,28 @@ class CashRefundPaymentUseCaseTest {
 		}
 	}
 
-	private void assertBalance(int holderId, int expected) {
+	private void assertBalance(long holderId, int expected) {
 		assertThat(walletRepository.findById(holderId).orElseThrow().getBalance()).isEqualTo(expected);
 	}
 
-	private long countLedgersForOrder(int orderId) {
+	private long countLedgersForOrder(long orderId) {
 		return walletLedgerRepository.findAll().stream()
 			.filter(ledger -> ledger.getRefTypeCode() == LedgerRefType.Order && ledger.getRefId() == orderId)
 			.count();
 	}
 
-	private void assertLedgerConsistency(int... holderIds) {
-		for (int holderId : holderIds) {
-			int walletBalance = walletRepository.findById(holderId).orElseThrow().getBalance();
-			int ledgerSum = walletLedgerRepository.findAll().stream()
+	private void assertLedgerConsistency(long... holderIds) {
+		for (long holderId : holderIds) {
+			long walletBalance = walletRepository.findById(holderId).orElseThrow().getBalance();
+			long ledgerSum = walletLedgerRepository.findAll().stream()
 				.filter(ledger -> ledger.getWallet().getId() == holderId)
-				.mapToInt(WalletLedger::getAmount)
+				.mapToLong(WalletLedger::getAmount)
 				.sum();
 			assertThat(walletBalance).as("지갑 %d 잔액은 그 지갑 장부 합과 같아야 한다", holderId).isEqualTo(ledgerSum);
 		}
 	}
 
-	private Wallet createCustomerWallet(int initialBalance) {
+	private Wallet createCustomerWallet(long initialBalance) {
 		return createWallet(CUSTOMER_ID, "러너3", initialBalance);
 	}
 
@@ -327,7 +327,7 @@ class CashRefundPaymentUseCaseTest {
 		createWallet(cashWalletProperties.holdingMemberId(), "홀딩", 0);
 	}
 
-	private Wallet createWallet(int memberId, String nickname, int initialBalance) {
+	private Wallet createWallet(long memberId, String nickname, long initialBalance) {
 		return transactionTemplate.execute(status -> {
 			LocalDateTime now = LocalDateTime.of(2026, 10, 12, 10, 0);
 			CashMember member = cashMemberRepository.save(new CashMember(memberId, now, now, nickname));

@@ -13,5 +13,5 @@ public interface SellerLookupPort {
 	/**
 	 * @return 승인된 판매자면 판매자 ID, 판매자가 아니거나 승인 전·반려면 빈 값
 	 */
-	Optional<Integer> findApprovedSellerId(int memberId);
+	Optional<Long> findApprovedSellerId(long memberId);
 }

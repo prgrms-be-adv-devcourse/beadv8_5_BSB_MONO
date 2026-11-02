@@ -22,7 +22,7 @@ import lombok.RequiredArgsConstructor;
 public class ActiveTicketQueryUseCase {
 	private final OrderItemRepository orderItemRepository;
 
-	public ActiveTicketCountDto countActiveTickets(int memberId, LocalDate today, LocalDateTime now) {
+	public ActiveTicketCountDto countActiveTickets(long memberId, LocalDate today, LocalDateTime now) {
 		long count = orderItemRepository.countActiveTickets(memberId, today.atStartOfDay(), now);
 		return new ActiveTicketCountDto(Math.toIntExact(count));
 	}

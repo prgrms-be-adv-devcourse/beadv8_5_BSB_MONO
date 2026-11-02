@@ -11,5 +11,5 @@ public interface RaceCoursePort {
 	/**
 	 * 종목 ID로 종목·대회 정보를 찾는다. 없거나 공개되지 않은 종목이면 빈 값을 돌려준다
 	 */
-	Optional<RaceCourseInfo> findCourse(int raceCourseId);
+	Optional<RaceCourseInfo> findCourse(long raceCourseId);
 }

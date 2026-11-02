@@ -24,7 +24,7 @@ import lombok.RequiredArgsConstructor;
 public class WalletLedgerQueryRepository {
 	private final JPAQueryFactory queryFactory;
 
-	public Page<WalletLedger> findByWallet(int walletId, LedgerCategory category, Pageable pageable) {
+	public Page<WalletLedger> findByWallet(long walletId, LedgerCategory category, Pageable pageable) {
 		BooleanExpression condition = walletLedger.wallet.id.eq(walletId)
 			.and(walletLedger.ledgerType.in(
 				category != null ? category.ledgerTypes() : LedgerCategory.allLedgerTypes()));

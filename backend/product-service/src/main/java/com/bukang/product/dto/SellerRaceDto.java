@@ -16,7 +16,7 @@ import lombok.Getter;
 @AllArgsConstructor
 @Getter
 public class SellerRaceDto {
-	private final int raceId;
+	private final long raceId;
 	private final String title;
 	private final LocalDateTime raceDate;
 	private final RaceSaleStatus saleStatus;
@@ -27,7 +27,7 @@ public class SellerRaceDto {
 
 	public static SellerRaceDto from(Race race) {
 		List<SellerRaceCourseDto> courses = race.getCourses().stream()
-			.sorted(Comparator.comparingInt(RaceCourse::getId))
+			.sorted(Comparator.comparingLong(RaceCourse::getId))
 			.map(SellerRaceCourseDto::from)
 			.toList();
 		return new SellerRaceDto(race.getId(), race.getTitle(), race.getRaceDate(), race.getSaleStatus(),

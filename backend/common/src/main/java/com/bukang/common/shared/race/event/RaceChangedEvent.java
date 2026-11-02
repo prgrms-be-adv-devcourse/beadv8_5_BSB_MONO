@@ -10,7 +10,7 @@ import com.bukang.common.shared.race.domain.RaceSaleStatus;
  * 수정은 대회 칸이 바뀌었을 때만 보낸다. 같은 대회의 메시지가 순서대로 처리되도록 대회 ID를 key로 보낸다.
  */
 public record RaceChangedEvent(
-	int raceId,
+	long raceId,
 	RaceSaleStatus saleStatus,
 	LocalDateTime individualOpenAt,
 	LocalDateTime applicationCloseAt,

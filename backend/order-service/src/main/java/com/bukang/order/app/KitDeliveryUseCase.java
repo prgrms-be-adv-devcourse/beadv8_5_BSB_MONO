@@ -49,7 +49,7 @@ public class KitDeliveryUseCase {
 	private final TransactionTemplate transactionTemplate;
 
 	// 발송 대기 → 배송 중. 택배사·송장 번호를 배송(ORDER_SHIPMENT)에 남긴다 (BUK-6)
-	public OrderItemDto ship(int sellerId, int orderItemId, String carrier, String trackingNumber,
+	public OrderItemDto ship(long sellerId, long orderItemId, String carrier, String trackingNumber,
 		LocalDateTime now) {
 		// 입력과 주문 상품만 보고 알 수 있는 이유는 모두 상품 서비스에 묻기 전에 알린다
 		Shipment.checkShippingInfo(carrier, trackingNumber);
@@ -75,7 +75,7 @@ public class KitDeliveryUseCase {
 	}
 
 	// 배송 중 → 배송 완료
-	public OrderItemDto completeDelivery(int sellerId, int orderItemId, LocalDateTime now) {
+	public OrderItemDto completeDelivery(long sellerId, long orderItemId, LocalDateTime now) {
 		return transactionTemplate.execute(status -> {
 			Order order = lockOrder(orderItemId);
 			OrderItem item = checkSeller(order.findItem(orderItemId), sellerId);
@@ -86,20 +86,20 @@ public class KitDeliveryUseCase {
 
 	// 판매자의 키트 주문 목록 한 페이지 (최근 주문 상품부터). raceId·status가 null이면 거르지 않는다
 	@Transactional(readOnly = true)
-	public SellerKitPageDto findKits(int sellerId, Integer raceId, KitDeliveryStatus status, int page, int size) {
+	public SellerKitPageDto findKits(long sellerId, Long raceId, KitDeliveryStatus status, int page, int size) {
 		return SellerKitPageDto.from(shipmentRepository.findSellerKits(sellerId, raceId,
 			status == null ? null : ShipmentStatus.from(status), PageRequest.of(page, size)));
 	}
 
 	// 배송 상태별 건수와, 배송 준비 중 환불 기한 전이라 아직 보낼 수 없는 건수
-	public SellerKitSummaryDto summarize(int sellerId, Integer raceId, LocalDateTime now) {
+	public SellerKitSummaryDto summarize(long sellerId, Long raceId, LocalDateTime now) {
 		Map<ShipmentStatus, Long> counts = new EnumMap<>(ShipmentStatus.class);
 		for (Object[] row : shipmentRepository.countSellerKitsByStatus(sellerId, raceId)) {
 			counts.put((ShipmentStatus)row[0], (Long)row[1]);
 		}
 		long beforeRefundDeadline = 0;
 		for (Object[] row : shipmentRepository.countReadyKitsByCourse(sellerId, raceId)) {
-			int raceCourseId = (Integer)row[0];
+			long raceCourseId = (Long)row[0];
 			// 상품 서비스에서 사라진 종목 하나 때문에 건수 전체를 못 보이지 않게, 그 종목만 빼고 센다
 			Optional<RaceCourseInfo> course = raceCoursePort.findCourse(raceCourseId);
 			if (course.isEmpty()) {
@@ -115,22 +115,22 @@ public class KitDeliveryUseCase {
 			beforeRefundDeadline);
 	}
 
-	private Order findOrder(int orderItemId) {
+	private Order findOrder(long orderItemId) {
 		return orderRepository.findById(findOrderId(orderItemId)).orElseThrow();
 	}
 
 	// 주문을 잠그고 읽는다. 배송 상태를 바꾸는 곳(결제·취소·대회 취소·주소 수정·발송·배송 완료)이 모두 주문을 먼저 잠그므로
 	// 같은 참가권의 취소와 겹쳐도 한 요청씩 처리되어, 취소된 참가권은 발송하지 않는다
-	private Order lockOrder(int orderItemId) {
+	private Order lockOrder(long orderItemId) {
 		return orderRepository.findByIdForUpdate(findOrderId(orderItemId)).orElseThrow();
 	}
 
-	private int findOrderId(int orderItemId) {
+	private long findOrderId(long orderItemId) {
 		return orderItemRepository.findOrderIdByItemId(orderItemId)
 			.orElseThrow(() -> new OrderItemNotFoundException("주문에 없는 상품입니다."));
 	}
 
-	private OrderItem checkSeller(OrderItem item, int sellerId) {
+	private OrderItem checkSeller(OrderItem item, long sellerId) {
 		if (!item.isSoldBy(sellerId)) {
 			throw new OrderAccessDeniedException("본인 대회의 참가권만 배송 처리할 수 있습니다.");
 		}

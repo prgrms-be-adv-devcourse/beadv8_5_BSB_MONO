@@ -61,15 +61,15 @@ import com.jayway.jsonpath.JsonPath;
 @ActiveProfiles("test")
 @Import({StubRaceCoursePortConfig.class, StubSeatHoldPortConfig.class, StubWalletPortConfig.class})
 class RaceCancelRefundTest {
-	private static final int COURSE_ID = 30;
-	private static final int RACE_ID = 300;
-	private static final int OTHER_COURSE_ID = 31;
-	private static final int OTHER_RACE_ID = 301;
+	private static final long COURSE_ID = 30;
+	private static final long RACE_ID = 300;
+	private static final long OTHER_COURSE_ID = 31;
+	private static final long OTHER_RACE_ID = 301;
 	private static final long WAIT_SECONDS = 30;
 	// 환불이 주문 잠금에서 기다리기 시작할 만큼의 시간. H2 조회는 이보다 훨씬 빨리 끝난다
 	private static final long LOCK_WAIT_MILLIS = 500;
 	// 테스트용 예치금은 모든 회원이 잔액 하나를 함께 쓴다. 주문을 많이 만들어도 모자라지 않게 넉넉히 둔다
-	private static final int BALANCE = 100_000_000;
+	private static final long BALANCE = 100_000_000;
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -132,10 +132,10 @@ class RaceCancelRefundTest {
 	@Test
 	@DisplayName("취소된 대회의 결제한 주문만 주문·주문 상품·참가 신청을 취소하고 구매자에게 주문 단위로 전액 환불한다")
 	void refundsPaidOrdersOfCanceledRace() throws Exception {
-		int first = paidOrder(1, COURSE_ID);
-		int second = paidOrder(2, COURSE_ID);
-		int waiting = createOrder(3, COURSE_ID);
-		int otherRace = paidOrder(4, OTHER_COURSE_ID);
+		long first = paidOrder(1, COURSE_ID);
+		long second = paidOrder(2, COURSE_ID);
+		long waiting = createOrder(3, COURSE_ID);
+		long otherRace = paidOrder(4, OTHER_COURSE_ID);
 		LocalDateTime now = LocalDateTime.now();
 
 		RaceCancelRefundUseCase.RefundResult result = raceCancelRefundUseCase.refundAll(RACE_ID, now);
@@ -163,7 +163,7 @@ class RaceCancelRefundTest {
 	@Test
 	@DisplayName("같은 대회 취소가 다시 와도 이미 환불한 주문은 건너뛰어 한 번만 환불한다")
 	void refundIsIdempotent() throws Exception {
-		int orderId = paidOrder(1, COURSE_ID);
+		long orderId = paidOrder(1, COURSE_ID);
 		raceCancelRefundUseCase.refundAll(RACE_ID, LocalDateTime.now());
 
 		RaceCancelRefundUseCase.RefundResult again = raceCancelRefundUseCase.refundAll(RACE_ID, LocalDateTime.now());
@@ -175,7 +175,7 @@ class RaceCancelRefundTest {
 	@Test
 	@DisplayName("환불이 실패한 주문만 결제 완료로 남고 나머지는 환불되며, 다시 처리하면 남은 주문만 환불한다")
 	void failedRefundIsRetried() throws Exception {
-		int first = paidOrder(1, COURSE_ID);
+		long first = paidOrder(1, COURSE_ID);
 		walletPort.setRefundFails(true);
 
 		RaceCancelRefundUseCase.RefundResult failed = raceCancelRefundUseCase.refundAll(RACE_ID, LocalDateTime.now());
@@ -187,7 +187,7 @@ class RaceCancelRefundTest {
 		verify(notificationListener, never()).notifyBuyer(any());
 
 		walletPort.setRefundFails(false);
-		int second = paidOrder(2, COURSE_ID);
+		long second = paidOrder(2, COURSE_ID);
 		RaceCancelRefundUseCase.RefundResult retried = raceCancelRefundUseCase.refundAll(RACE_ID, LocalDateTime.now());
 
 		assertThat(retried).isEqualTo(new RaceCancelRefundUseCase.RefundResult(2, 0));
@@ -200,7 +200,7 @@ class RaceCancelRefundTest {
 	@DisplayName("환불이 연달아 실패하면(예치금 서비스 장애) 남은 주문을 부르지 않고 멈춰, 재시도에 맡긴다")
 	void stopsAfterConsecutiveFailures() throws Exception {
 		int count = RaceCancelRefundUseCase.MAX_CONSECUTIVE_FAILURES + 2;
-		for (int memberId = 1; memberId <= count; memberId++) {
+		for (long memberId = 1; memberId <= count; memberId++) {
 			paidOrder(memberId, COURSE_ID);
 		}
 		walletPort.setRefundFails(true);
@@ -215,7 +215,7 @@ class RaceCancelRefundTest {
 	@Test
 	@DisplayName("결제 응답을 못 받아 결제 대기로 남은 주문은 결제를 취소해 돈을 돌려받고, 대회 취소 뒤 다시 결제해도 거절된다")
 	void blocksLatePaymentOfWaitingOrder() throws Exception {
-		int orderId = createOrder(1, COURSE_ID);
+		long orderId = createOrder(1, COURSE_ID);
 		walletPort.setPayTimesOut(true);
 		assertThatThrownBy(() -> pay(1, orderId)).isInstanceOf(ExternalServiceUnavailableException.class);
 		walletPort.setPayTimesOut(false);
@@ -233,7 +233,7 @@ class RaceCancelRefundTest {
 	@DisplayName("다시 해도 안 되는 실패(D 거절 등)는 그 주문만 실패로 세고, 연달아 나도 멈추지 않고 나머지를 환불한다")
 	void keepsGoingAfterRejectedRefunds() throws Exception {
 		int count = RaceCancelRefundUseCase.MAX_CONSECUTIVE_FAILURES + 2;
-		for (int memberId = 1; memberId <= count; memberId++) {
+		for (long memberId = 1; memberId <= count; memberId++) {
 			paidOrder(memberId, COURSE_ID);
 		}
 		walletPort.setRefundRejects(true);
@@ -248,7 +248,7 @@ class RaceCancelRefundTest {
 	@DisplayName("주문이 많아도 끝까지 읽어 모두 환불한다 (한 번에 읽는 수보다 많을 때)")
 	void refundsBeyondOneBatch() throws Exception {
 		int count = RaceCancelRefundUseCase.BATCH_SIZE + 1;
-		for (int memberId = 1; memberId <= count; memberId++) {
+		for (long memberId = 1; memberId <= count; memberId++) {
 			paidOrder(memberId, COURSE_ID);
 		}
 
@@ -261,7 +261,7 @@ class RaceCancelRefundTest {
 	@Test
 	@DisplayName("결제가 주문을 잠근 채 끝나 가는 중에 대회 취소가 오면, 결제가 끝나길 기다렸다가 그 주문도 환불한다")
 	void refundWaitsForPaymentInProgress() throws Exception {
-		int orderId = createOrder(1, COURSE_ID);
+		long orderId = createOrder(1, COURSE_ID);
 		CountDownLatch payEntered = walletPort.holdPay();
 		ExecutorService executor = Executors.newFixedThreadPool(2);
 		try {
@@ -285,7 +285,7 @@ class RaceCancelRefundTest {
 		assertThat(walletPort.balance()).isEqualTo(BALANCE);
 	}
 
-	private void assertCanceled(int orderId) {
+	private void assertCanceled(long orderId) {
 		Order order = orderOf(orderId);
 		assertThat(order.getStatus()).isEqualTo(OrderStatus.CANCELED);
 		assertThat(order.getCanceledAmount()).isEqualTo(StubRaceCoursePort.PRICE);
@@ -294,25 +294,25 @@ class RaceCancelRefundTest {
 		assertThat(participationStatusOf(orderId)).isEqualTo(ParticipationStatus.CANCELED);
 	}
 
-	private int paidOrder(int memberId, int courseId) throws Exception {
-		int orderId = createOrder(memberId, courseId);
+	private long paidOrder(long memberId, long courseId) throws Exception {
+		long orderId = createOrder(memberId, courseId);
 		pay(memberId, orderId);
 		assertThat(statusOf(orderId)).isEqualTo(OrderStatus.PAID);
 		return orderId;
 	}
 
-	private int createOrder(int memberId, int courseId) throws Exception {
-		int participationId = apply(memberId, courseId);
+	private long createOrder(long memberId, long courseId) throws Exception {
+		long participationId = apply(memberId, courseId);
 		OrderCreateResult result = transactionTemplate.execute(status -> orderCreateUseCase.create(memberId,
 			participationId, UUID.randomUUID().toString(), LocalDateTime.now()));
 		return result.order().getId();
 	}
 
-	private OrderPayResult pay(int memberId, int orderId) {
+	private OrderPayResult pay(long memberId, long orderId) {
 		return transactionTemplate.execute(status -> orderPayUseCase.pay(memberId, orderId, LocalDateTime.now()));
 	}
 
-	private int apply(int memberId, int courseId) throws Exception {
+	private long apply(long memberId, long courseId) throws Exception {
 		QueueEntry.enter(mockMvc, memberId, courseId);
 		String body = mockMvc.perform(post("/api/v1/order/participations")
 				.header("X-Member-Id", memberId)
@@ -326,10 +326,10 @@ class RaceCancelRefundTest {
 							"zipcode": "04700", "address": "서울 성동구 왕십리로 00", "addressDetail": "101동 1001호" } } }
 					""".formatted(courseId)))
 			.andReturn().getResponse().getContentAsString();
-		return JsonPath.read(body, "$.data.id");
+		return JsonPath.<Number>read(body, "$.data.id").longValue();
 	}
 
-	private Order orderOf(int orderId) {
+	private Order orderOf(long orderId) {
 		return transactionTemplate.execute(status -> {
 			Order order = orderRepository.findById(orderId).orElseThrow();
 			order.getItems().size();
@@ -337,20 +337,20 @@ class RaceCancelRefundTest {
 		});
 	}
 
-	private OrderStatus statusOf(int orderId) {
+	private OrderStatus statusOf(long orderId) {
 		return orderRepository.findById(orderId).orElseThrow().getStatus();
 	}
 
-	private ParticipationStatus participationStatusOf(int orderId) {
-		int participationId = orderOf(orderId).participationId();
+	private ParticipationStatus participationStatusOf(long orderId) {
+		long participationId = orderOf(orderId).participationId();
 		return participationRepository.findById(participationId).orElseThrow().getStatus();
 	}
 
-	private List<Integer> restoredSeats() {
+	private List<Long> restoredSeats() {
 		return SeatOutboxMessages.restored(orderOutboxKafkaEventRepository);
 	}
 
-	private List<Integer> releasedSeats() {
+	private List<Long> releasedSeats() {
 		return SeatOutboxMessages.released(orderOutboxKafkaEventRepository);
 	}
 }

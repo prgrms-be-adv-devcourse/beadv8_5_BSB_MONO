@@ -56,7 +56,7 @@ public class OrderCancelUseCase {
 	private final TransactionTemplate transactionTemplate;
 
 	// refundPending: 환불 결과를 몰라 취소 중으로 남았다 (컨트롤러가 202 "취소 처리 중"으로 답한다)
-	public record CancelResult(OrderDto order, int refundedAmount, boolean refundPending) {
+	public record CancelResult(OrderDto order, long refundedAmount, boolean refundPending) {
 	}
 
 	/**
@@ -64,7 +64,7 @@ public class OrderCancelUseCase {
 	 * 그다음 주문을 잠가 상태를 다시 확인한 뒤 취소 중으로 바꾼다. 정산 서비스가 느려도 주문 행 잠금이 그동안 붙잡히지 않는다
 	 * 판정과 잠금 사이에 같은 상품이 먼저 취소되면 잠근 뒤의 확인(checkCancelable)이 409로 막는다
 	 */
-	public CancelResult cancel(int memberId, int orderId, int orderItemId, LocalDateTime now) {
+	public CancelResult cancel(long memberId, long orderId, long orderItemId, LocalDateTime now) {
 		CancelTarget target = transactionTemplate.execute(status -> readTarget(memberId, orderId, orderItemId));
 		RaceCourseInfo course = raceCoursePort.findCourse(target.raceCourseId())
 			.orElseThrow(() -> new RaceCourseNotFoundException("존재하지 않는 종목입니다."));
@@ -97,14 +97,14 @@ public class OrderCancelUseCase {
 		}
 	}
 
-	private CancelResult pending(int orderId) {
+	private CancelResult pending(long orderId) {
 		OrderDto order = transactionTemplate.execute(status -> orderRepository.findById(orderId)
 			.orElseThrow(() -> new OrderNotFoundException("존재하지 않는 주문입니다.")).toDto());
 		return new CancelResult(order, 0, true);
 	}
 
 	// 판정에 필요한 값만 잠그지 않고 읽는다. 없는 주문·남의 주문·결제 전 상품은 다른 서비스를 부르기 전에 거른다
-	private CancelTarget readTarget(int memberId, int orderId, int orderItemId) {
+	private CancelTarget readTarget(long memberId, long orderId, long orderItemId) {
 		Order order = findOwnedOrder(orderRepository.findById(orderId), memberId);
 		OrderItem item = order.findItem(orderItemId);
 		item.checkCancelable();
@@ -112,7 +112,7 @@ public class OrderCancelUseCase {
 	}
 
 	// 주문을 잠가 다시 확인한다. 같은 상품 취소가 동시에 와도 한 요청만 취소 중으로 바꾸고, 나머지는 409로 막혀 환불을 부르지 않는다
-	private void startCancel(int memberId, int orderId, int orderItemId, LocalDateTime now) {
+	private void startCancel(long memberId, long orderId, long orderItemId, LocalDateTime now) {
 		Order order = findOwnedOrder(orderRepository.findByIdForUpdate(orderId), memberId);
 		OrderItem item = order.findItem(orderItemId);
 		order.startCancelItem(item, now);
@@ -123,7 +123,7 @@ public class OrderCancelUseCase {
 	 * 주문을 먼저 잠그고, 아직 취소 중일 때만 바꾼다. 둘이 겹쳐도 먼저 잠근 쪽만 취소하고 뒤쪽은 그대로 돌아간다
 	 * 참가 신청도 잠근다. 참가자 정보 수정과 겹쳐도 CANCELED가 옛 상태로 덮이지 않는다 (잠금 순서: 주문 → 참가 신청)
 	 */
-	public CancelResult completeCancel(int orderId, int orderItemId, LocalDateTime now) {
+	public CancelResult completeCancel(long orderId, long orderItemId, LocalDateTime now) {
 		return transactionTemplate.execute(status -> {
 			Order order = orderRepository.findByIdForUpdate(orderId)
 				.orElseThrow(() -> new OrderNotFoundException("존재하지 않는 주문입니다."));
@@ -142,7 +142,7 @@ public class OrderCancelUseCase {
 	}
 
 	// 예치금이 환불을 거절했다(4xx). 아직 취소 중일 때만 결제 완료로 되돌린다. 되돌렸으면 true
-	public boolean revertCancel(int orderId, int orderItemId) {
+	public boolean revertCancel(long orderId, long orderItemId) {
 		return Boolean.TRUE.equals(transactionTemplate.execute(status -> {
 			Order order = orderRepository.findByIdForUpdate(orderId)
 				.orElseThrow(() -> new OrderNotFoundException("존재하지 않는 주문입니다."));
@@ -155,7 +155,7 @@ public class OrderCancelUseCase {
 		}));
 	}
 
-	private Order findOwnedOrder(Optional<Order> found, int memberId) {
+	private Order findOwnedOrder(Optional<Order> found, long memberId) {
 		Order order = found.orElseThrow(() -> new OrderNotFoundException("존재하지 않는 주문입니다."));
 		if (!order.isOwnedBy(memberId)) {
 			throw new OrderAccessDeniedException("본인의 주문만 취소할 수 있습니다.");
@@ -164,7 +164,7 @@ public class OrderCancelUseCase {
 	}
 
 	// 잠그기 전에 읽어 둔 판정 재료. 주문 상품의 대회 날짜는 주문 때 복사한 값이라 잠근 뒤에도 바뀌지 않는다
-	private record CancelTarget(int raceCourseId, LocalDate copiedRaceDate) {
+	private record CancelTarget(long raceCourseId, LocalDate copiedRaceDate) {
 	}
 
 	/**

@@ -29,8 +29,8 @@ public class RaceSearchCondition {
 	// 거리(km)가 이 값과 같은 종목 (예: 10, 21.1)
 	private final BigDecimal distanceKm;
 	// 참가비 범위 (둘 다 포함)
-	private final Integer minPrice;
-	private final Integer maxPrice;
+	private final Long minPrice;
+	private final Long maxPrice;
 	// 대회 날짜 범위 (둘 다 포함)
 	private final LocalDate raceDateFrom;
 	private final LocalDate raceDateTo;

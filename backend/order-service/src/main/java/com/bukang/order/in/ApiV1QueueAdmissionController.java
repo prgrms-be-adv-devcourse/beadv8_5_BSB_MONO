@@ -56,11 +56,11 @@ public class ApiV1QueueAdmissionController {
 				examples = @ExampleObject(value = QueueApiExamples.LOGIN_REQUIRED)))
 	})
 	public ResponseEntity<RsData<QueueAdmissionDto>> findAdmission(
-		@LoginMemberId int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "대회 ID", example = "1")
-		@RequestParam @Positive(message = "대회 ID가 올바르지 않습니다.") int raceId,
+		@RequestParam @Positive(message = "대회 ID가 올바르지 않습니다.") long raceId,
 		@Parameter(description = "종목 ID", example = "1")
-		@RequestParam @Positive(message = "종목 ID가 올바르지 않습니다.") int raceCourseId
+		@RequestParam @Positive(message = "종목 ID가 올바르지 않습니다.") long raceCourseId
 	) {
 		QueueAdmissionDto admission = queueAdmissionUseCase.find(memberId, raceId, raceCourseId, LocalDateTime.now());
 		String message = admission.isAdmitted() ? "대기열에 입장 중입니다." : "대기열에 입장 중이 아닙니다.";

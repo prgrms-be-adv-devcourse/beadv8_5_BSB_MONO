@@ -44,7 +44,7 @@ public class HttpWalletAdapter implements WalletPort {
 	private final RestClient restClient;
 
 	@Override
-	public WalletPayResult pay(int orderId, int memberId, int amount) {
+	public WalletPayResult pay(long orderId, long memberId, long amount) {
 		RsData<PayBody> response;
 		try {
 			response = restClient.post()
@@ -80,18 +80,18 @@ public class HttpWalletAdapter implements WalletPort {
 
 	// 실패하면 예외를 던진다. 결제 쪽은 롤백되어 다시 시도하고, 만료 처리는 그 주문을 다음 실행에서 다시 부른다
 	@Override
-	public void cancelPayment(int orderId, int memberId) {
+	public void cancelPayment(long orderId, long memberId) {
 		postForSuccess(CANCEL_PATH, "결제 취소", orderId, memberId);
 	}
 
 	// D 환불 API(PRO-83, PR #77)는 10/14 김소희님이 정한 경로·요청이다. 이미 환불·결제 취소된 주문이면 D가 그대로 성공한다
 	// 응답의 환불 금액은 아직 쓰지 않는다
 	@Override
-	public void refund(int orderId, int memberId) {
+	public void refund(long orderId, long memberId) {
 		postForSuccess(REFUND_PATH, "환불", orderId, memberId);
 	}
 
-	private void postForSuccess(String path, String action, int orderId, int memberId) {
+	private void postForSuccess(String path, String action, long orderId, long memberId) {
 		try {
 			restClient.post()
 				.uri(path, orderId)
@@ -111,7 +111,7 @@ public class HttpWalletAdapter implements WalletPort {
 	// 4xx는 다시 시도해도 풀리지 않는다. 경로·요청 계약이 어긋났거나 지갑이 아직 없을 수 있어 장애와 구분해 남긴다
 	// D가 처리하지 않은 것은 확실하므로 결제도 "결과를 모름"이 아니라 "연결하지 못함"으로 알린다
 	// 다시 해도 같으므로 장애와 다른 예외로 던진다 (대회 취소 환불이 연속 장애로 세지 않게)
-	private ExternalServiceRejectedException contractError(String action, int orderId,
+	private ExternalServiceRejectedException contractError(String action, long orderId,
 		HttpClientErrorException exception) {
 		log.error("예치금 서비스가 {} 요청을 거절했습니다. 계약(경로·요청)이나 지갑을 확인해야 합니다. status={}, orderId={}, body={}",
 			action, exception.getStatusCode(), orderId, abbreviate(exception.getResponseBodyAsString()));
@@ -135,10 +135,10 @@ public class HttpWalletAdapter implements WalletPort {
 		}
 	}
 
-	record PayRequest(int memberId, int amount) {
+	record PayRequest(long memberId, long amount) {
 	}
 
-	record MemberRequest(int memberId) {
+	record MemberRequest(long memberId) {
 	}
 
 	@JsonIgnoreProperties(ignoreUnknown = true)
@@ -147,6 +147,6 @@ public class HttpWalletAdapter implements WalletPort {
 
 	// D 응답의 data (cash CashPaymentDto). 결제 판정에 쓰는 값만 받는다
 	@JsonIgnoreProperties(ignoreUnknown = true)
-	record PayBody(WalletPayResult.Outcome outcome, Integer shortage) {
+	record PayBody(WalletPayResult.Outcome outcome, Long shortage) {
 	}
 }

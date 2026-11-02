@@ -29,7 +29,7 @@ import lombok.NoArgsConstructor;
 public class WalletWithdrawal extends BaseIdAndTime {
 	@ManyToOne(fetch = LAZY, optional = false)
 	private Wallet wallet;
-	private int amount;
+	private long amount;
 
 	@Column(nullable = false, length = 10)
 	private String bankCode;
@@ -55,7 +55,7 @@ public class WalletWithdrawal extends BaseIdAndTime {
 
 	public WalletWithdrawal(
 		Wallet wallet,
-		int amount,
+		long amount,
 		String bankCode,
 		String accountNumber,
 		String accountHolder,

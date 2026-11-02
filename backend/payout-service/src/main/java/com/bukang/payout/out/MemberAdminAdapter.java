@@ -55,7 +55,7 @@ public class MemberAdminAdapter implements MemberAdminPort {
 	}
 
 	@Override
-	public boolean isAdmin(int memberId) {
+	public boolean isAdmin(long memberId) {
 		RsData<AdminResponse> body;
 		try {
 			body = restClient.get()
@@ -76,7 +76,7 @@ public class MemberAdminAdapter implements MemberAdminPort {
 	}
 
 	// 공통 예외 처리기는 BusinessException을 로그 없이 응답으로만 바꾸므로, 원인은 여기서 남긴다
-	private static PayoutMemberUnavailableException unavailable(int memberId, Exception cause) {
+	private static PayoutMemberUnavailableException unavailable(long memberId, Exception cause) {
 		log.warn("회원 서비스에서 관리자 여부를 확인하지 못했습니다. memberId={}, cause={}", memberId, cause.toString());
 		return new PayoutMemberUnavailableException(cause);
 	}

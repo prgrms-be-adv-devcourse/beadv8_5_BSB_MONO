@@ -33,10 +33,10 @@ import jakarta.persistence.EntityManager;
 @DataJpaTest
 @ActiveProfiles("test")
 class PayoutRaceCancelUseCaseTest {
-	private static final int SELLER_ID = 1;
-	private static final int RACE_ID = 10;
-	private static final int OTHER_RACE_ID = 20;
-	private static final int ADMIN_ID = 99;
+	private static final long SELLER_ID = 1;
+	private static final long RACE_ID = 10;
+	private static final long OTHER_RACE_ID = 20;
+	private static final long ADMIN_ID = 99;
 	private static final BigDecimal FEE_RATE = new BigDecimal("0.0550");
 	private static final LocalDateTime CANCELED_AT = LocalDateTime.of(2026, 10, 15, 14, 0);
 
@@ -69,7 +69,7 @@ class PayoutRaceCancelUseCaseTest {
 	// 참가권 줄은 (주문 상품, 줄 종류)가 유일하므로 정산 내역마다 다른 주문 상품 ID를 쓴다
 	private int nextOrderItemId = 1;
 
-	private Payout savePayout(int raceId, YearMonth month, long price) {
+	private Payout savePayout(long raceId, YearMonth month, long price) {
 		// 정산 대상일(대회 다음 날)이 그 달 말일이 되도록 대회일을 말일 전날로 둔다
 		Payout payout = Payout.finalStage(SELLER_ID, raceId, "테스트 대회", month.atEndOfMonth().minusDays(1),
 			month.atEndOfMonth().atTime(3, 0), new BusinessDayCalendar());

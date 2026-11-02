@@ -63,7 +63,7 @@ public class ApiV1CartController {
 				examples = @ExampleObject(value = CartApiExamples.LOGIN_REQUIRED)))
 	})
 	public ResponseEntity<RsData<CartDto>> findCart(
-		@LoginMemberId int memberId
+		@LoginMemberId long memberId
 	) {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "장바구니를 조회했습니다.", cartFacade.findCart(memberId)));
@@ -101,7 +101,7 @@ public class ApiV1CartController {
 			}))
 	})
 	public ResponseEntity<RsData<CartItemDto>> addItem(
-		@LoginMemberId int memberId,
+		@LoginMemberId long memberId,
 		@Valid @RequestBody CartItemAddRequestDto request
 	) {
 		CartAddResult result = cartFacade.addItem(request, memberId);
@@ -135,9 +135,9 @@ public class ApiV1CartController {
 				examples = @ExampleObject(value = CartApiExamples.ITEM_NOT_FOUND)))
 	})
 	public ResponseEntity<RsData<CartDto>> removeItem(
-		@LoginMemberId int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "장바구니 항목 ID", example = "1")
-		@PathVariable int cartItemId
+		@PathVariable long cartItemId
 	) {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "장바구니에서 뺐습니다.", cartFacade.removeItem(cartItemId, memberId)));
@@ -179,7 +179,7 @@ public class ApiV1CartController {
 				examples = @ExampleObject(value = CartApiExamples.PARTICIPATION_NOT_FOUND)))
 	})
 	public ResponseEntity<RsData<CartCheckoutDto>> checkout(
-		@LoginMemberId int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "중복 주문 방지 키. 같은 장바구니 결제 재시도에는 같은 값을 보낸다 (예: UUID)",
 			example = "6f1c2a7e-3b9d-4f0a-9c55-0d2e8b7a1f43")
 		@RequestHeader(IdempotencyKeyHeader.NAME)

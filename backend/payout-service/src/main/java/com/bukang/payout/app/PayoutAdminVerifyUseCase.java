@@ -19,7 +19,7 @@ import lombok.RequiredArgsConstructor;
 public class PayoutAdminVerifyUseCase {
 	private final MemberAdminPort memberAdminPort;
 
-	public void verify(int memberId) {
+	public void verify(long memberId) {
 		if (!memberAdminPort.isAdmin(memberId)) {
 			throw new PayoutNotAdminException();
 		}

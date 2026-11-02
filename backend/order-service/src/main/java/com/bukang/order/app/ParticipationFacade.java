@@ -23,7 +23,7 @@ public class ParticipationFacade {
 	private final ParticipationRepository participationRepository;
 
 	@Transactional
-	public ParticipationDto apply(ParticipationApplyRequestDto request, int memberId) {
+	public ParticipationDto apply(ParticipationApplyRequestDto request, long memberId) {
 		return participationApplyUseCase.apply(
 			memberId,
 			request.getRaceCourseId(),
@@ -33,7 +33,7 @@ public class ParticipationFacade {
 	}
 
 	@Transactional
-	public ParticipationDto changeParticipant(int participationId, ParticipantInfoRequestDto request, int memberId) {
+	public ParticipationDto changeParticipant(long participationId, ParticipantInfoRequestDto request, long memberId) {
 		return participationApplyUseCase.changeParticipant(
 			participationId,
 			memberId,
@@ -43,23 +43,23 @@ public class ParticipationFacade {
 	}
 
 	@Transactional
-	public ParticipationDto cancelBeforePayment(int participationId, int memberId) {
+	public ParticipationDto cancelBeforePayment(long participationId, long memberId) {
 		return participationApplyUseCase.cancelBeforePayment(participationId, memberId, LocalDateTime.now()).toDto();
 	}
 
-	public ParticipationDto findById(int participationId, int memberId) {
+	public ParticipationDto findById(long participationId, long memberId) {
 		return participationApplyUseCase.findOwned(participationId, memberId).toDto();
 	}
 
 	// 다음 신청서에 채울 참가자 정보. 신청한 적이 없으면 빈 값이다 (정책 3장 1-2)
 	// 마지막 신청이 키트·티셔츠 없는 종목이면 배송지·사이즈가 비어 있으므로, 각각 적은 최근 신청에서 채운다
-	public Optional<ParticipantInfoDto> findLatestParticipant(int memberId) {
+	public Optional<ParticipantInfoDto> findLatestParticipant(long memberId) {
 		return participationRepository.findFirstByMemberIdOrderByIdDesc(memberId)
 			.map(participation -> ParticipantInfoDto.from(withLatestTshirtSize(memberId,
 				withLatestShippingAddress(memberId, participation.getParticipant()))));
 	}
 
-	private ParticipantInfo withLatestTshirtSize(int memberId, ParticipantInfo participant) {
+	private ParticipantInfo withLatestTshirtSize(long memberId, ParticipantInfo participant) {
 		if (participant.getTshirtSize() != null) {
 			return participant;
 		}
@@ -68,7 +68,7 @@ public class ParticipationFacade {
 			.orElse(participant);
 	}
 
-	private ParticipantInfo withLatestShippingAddress(int memberId, ParticipantInfo participant) {
+	private ParticipantInfo withLatestShippingAddress(long memberId, ParticipantInfo participant) {
 		if (participant.getShippingAddress() != null) {
 			return participant;
 		}

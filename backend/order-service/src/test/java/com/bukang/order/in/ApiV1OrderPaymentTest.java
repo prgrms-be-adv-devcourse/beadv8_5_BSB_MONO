@@ -56,10 +56,10 @@ import com.jayway.jsonpath.JsonPath;
 @Import({StubRaceCoursePortConfig.class, StubSeatHoldPortConfig.class, StubWalletPortConfig.class})
 class ApiV1OrderPaymentTest {
 	private static final String BASE_URL = "/api/v1/order/orders";
-	private static final int MEMBER_ID = 1;
-	private static final int OTHER_MEMBER_ID = 2;
-	private static final int COURSE_ID = 10;
-	private static final int TICKET_PRICE = StubRaceCoursePort.PRICE;
+	private static final long MEMBER_ID = 1;
+	private static final long OTHER_MEMBER_ID = 2;
+	private static final long COURSE_ID = 10;
+	private static final long TICKET_PRICE = StubRaceCoursePort.PRICE;
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -109,7 +109,7 @@ class ApiV1OrderPaymentTest {
 	@Test
 	@DisplayName("결제하면 예치금이 차감되고 주문·주문 상품은 PAID, 참가 신청은 CONFIRMED가 된다")
 	void pay() throws Exception {
-		int orderId = orderAndGetId(MEMBER_ID);
+		long orderId = orderAndGetId(MEMBER_ID);
 
 		pay(MEMBER_ID, orderId)
 			.andExpect(status().isOk())
@@ -134,7 +134,7 @@ class ApiV1OrderPaymentTest {
 	@Test
 	@DisplayName("같은 주문에 결제를 두 번 보내면 두 번째는 차감 없이 200으로 결제한 주문을 돌려준다")
 	void payTwice() throws Exception {
-		int orderId = orderAndGetId(MEMBER_ID);
+		long orderId = orderAndGetId(MEMBER_ID);
 		pay(MEMBER_ID, orderId).andExpect(status().isOk());
 
 		pay(MEMBER_ID, orderId)
@@ -148,7 +148,7 @@ class ApiV1OrderPaymentTest {
 	@Test
 	@DisplayName("잔액이 부족하면 409로 부족액을 알려 주고 주문·자리는 그대로이며, 충전 뒤 같은 주문으로 결제된다")
 	void payWithInsufficientBalance() throws Exception {
-		int orderId = orderAndGetId(MEMBER_ID);
+		long orderId = orderAndGetId(MEMBER_ID);
 		walletPort.setBalance(TICKET_PRICE - 12_000);
 
 		pay(MEMBER_ID, orderId)
@@ -168,7 +168,7 @@ class ApiV1OrderPaymentTest {
 	@Test
 	@DisplayName("상품 서비스에서 기한이 지나 판매가 거절되면 예치금을 돌려주고 409이며, 주문은 PAID가 되지 않는다")
 	void paySellExpired() throws Exception {
-		int orderId = orderAndGetId(MEMBER_ID);
+		long orderId = orderAndGetId(MEMBER_ID);
 		seatHoldPort.expire(participationOf(orderId).getId());
 
 		pay(MEMBER_ID, orderId)
@@ -184,7 +184,7 @@ class ApiV1OrderPaymentTest {
 	@Test
 	@DisplayName("주문의 결제 기한이 지났으면 예치금을 건드리지 않고 409, 만료 처리된 주문도 같은 기한 지남 409다")
 	void payAfterDue() throws Exception {
-		int orderId = orderAndGetId(MEMBER_ID);
+		long orderId = orderAndGetId(MEMBER_ID);
 		Order order = orderRepository.findById(orderId).orElseThrow();
 		ReflectionTestUtils.setField(order, "paymentDueAt", LocalDateTime.now().minusSeconds(1));
 		orderRepository.save(order);
@@ -205,7 +205,7 @@ class ApiV1OrderPaymentTest {
 	@Test
 	@DisplayName("참가 신청이 결제 대기가 아니면 예치금을 차감하기 전에 409로 거절한다")
 	void payWhenParticipationNotApplied() throws Exception {
-		int orderId = orderAndGetId(MEMBER_ID);
+		long orderId = orderAndGetId(MEMBER_ID);
 		Participation participation = participationOf(orderId);
 		ReflectionTestUtils.setField(participation, "status", ParticipationStatus.RELEASED);
 		participationRepository.save(participation);
@@ -221,9 +221,9 @@ class ApiV1OrderPaymentTest {
 	@Test
 	@DisplayName("차감·판매 뒤 주문 저장이 롤백되면, 상품 서비스 기한이 지난 뒤 다시 결제해도 이미 판 자리라 결제되고 예치금은 한 번만 빠진다")
 	void payAgainAfterRollback() throws Exception {
-		int orderId = orderAndGetId(MEMBER_ID);
-		int participationId = participationOf(orderId).getId();
-		int balanceBefore = walletPort.balance();
+		long orderId = orderAndGetId(MEMBER_ID);
+		long participationId = participationOf(orderId).getId();
+		long balanceBefore = walletPort.balance();
 		// 예치금 차감(D)과 자리 판매(B)는 끝났는데 이쪽 트랜잭션만 롤백된 상황
 		transactionTemplate.executeWithoutResult(status -> {
 			orderPayUseCase.pay(MEMBER_ID, orderId, LocalDateTime.now());
@@ -245,10 +245,10 @@ class ApiV1OrderPaymentTest {
 	@DisplayName("결제와 참가자 정보 수정이 동시에 들어와도 참가 확정과 고친 정보가 모두 남는다")
 	void payWhileChangingParticipant() throws Exception {
 		int rounds = 5;
-		for (int memberId = 1; memberId <= rounds; memberId++) {
-			int orderId = orderAndGetId(memberId);
-			int participationId = participationOf(orderId).getId();
-			int finalMemberId = memberId;
+		for (long memberId = 1; memberId <= rounds; memberId++) {
+			long orderId = orderAndGetId(memberId);
+			long participationId = participationOf(orderId).getId();
+			long finalMemberId = memberId;
 
 			CountDownLatch start = new CountDownLatch(1);
 			List<Callable<Integer>> requests = List.of(
@@ -280,7 +280,7 @@ class ApiV1OrderPaymentTest {
 	@Test
 	@DisplayName("다른 회원의 주문은 403, 없는 주문은 404이고 예치금을 건드리지 않는다")
 	void payNotOwnerOrMissing() throws Exception {
-		int orderId = orderAndGetId(MEMBER_ID);
+		long orderId = orderAndGetId(MEMBER_ID);
 
 		pay(OTHER_MEMBER_ID, orderId)
 			.andExpect(status().isForbidden())
@@ -296,7 +296,7 @@ class ApiV1OrderPaymentTest {
 	@Test
 	@DisplayName("결제가 끝나면 만료 정리가 돌아도 주문·참가 신청이 그대로다")
 	void paidOrderIsNotExpired() throws Exception {
-		int orderId = orderAndGetId(MEMBER_ID);
+		long orderId = orderAndGetId(MEMBER_ID);
 		pay(MEMBER_ID, orderId).andExpect(status().isOk());
 
 		orderExpiryUseCase.expireOverdue(LocalDateTime.now().plusHours(1));
@@ -305,11 +305,11 @@ class ApiV1OrderPaymentTest {
 		assertThat(participationOf(orderId).getStatus()).isEqualTo(ParticipationStatus.CONFIRMED);
 	}
 
-	private ResultActions pay(int memberId, int orderId) throws Exception {
+	private ResultActions pay(long memberId, long orderId) throws Exception {
 		return mockMvc.perform(post(BASE_URL + "/" + orderId + "/payment").header("X-Member-Id", memberId));
 	}
 
-	private ResultActions changeParticipantName(int memberId, int participationId, String name) throws Exception {
+	private ResultActions changeParticipantName(long memberId, long participationId, String name) throws Exception {
 		return mockMvc.perform(put("/api/v1/order/participations/" + participationId + "/participant")
 			.header("X-Member-Id", memberId)
 			.contentType(MediaType.APPLICATION_JSON)
@@ -321,16 +321,16 @@ class ApiV1OrderPaymentTest {
 				""".formatted(name)));
 	}
 
-	private Participation participationOf(int orderId) {
-		Integer participationId = transactionTemplate.execute(status ->
+	private Participation participationOf(long orderId) {
+		Long participationId = transactionTemplate.execute(status ->
 			orderRepository.findById(orderId).orElseThrow().participationId());
 		return participationRepository.findById(participationId).orElseThrow();
 	}
 
 	// 신청서 작성 → [결제하기]로 결제 대기 주문을 만든다
-	private int orderAndGetId(int memberId) throws Exception {
+	private long orderAndGetId(long memberId) throws Exception {
 		QueueEntry.enter(mockMvc, memberId, COURSE_ID);
-		int participationId = read(mockMvc.perform(post("/api/v1/order/participations")
+		long participationId = read(mockMvc.perform(post("/api/v1/order/participations")
 			.header("X-Member-Id", memberId)
 			.contentType(MediaType.APPLICATION_JSON)
 			.content("""
@@ -348,7 +348,8 @@ class ApiV1OrderPaymentTest {
 			.content("{\"participationId\": %d}".formatted(participationId))));
 	}
 
-	private int read(ResultActions result) throws Exception {
-		return JsonPath.read(result.andReturn().getResponse().getContentAsString(), "$.data.id");
+	private long read(ResultActions result) throws Exception {
+		String body = result.andReturn().getResponse().getContentAsString();
+		return JsonPath.<Number>read(body, "$.data.id").longValue();
 	}
 }

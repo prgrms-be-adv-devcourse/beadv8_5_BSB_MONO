@@ -14,14 +14,14 @@ import com.bukang.order.domain.Order;
 
 import jakarta.persistence.LockModeType;
 
-public interface OrderRepository extends JpaRepository<Order, Integer> {
+public interface OrderRepository extends JpaRepository<Order, Long> {
 	// 같은 Idempotency-Key로 이미 만든 주문 (uk_order_idempotency와 같은 기준)
-	Optional<Order> findByBuyerIdAndIdempotencyKey(int buyerId, String idempotencyKey);
+	Optional<Order> findByBuyerIdAndIdempotencyKey(long buyerId, String idempotencyKey);
 
 	// 결제·취소·만료 정리가 같은 주문에 동시에 들어오면 한 요청씩 처리한다
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	@Query("select o from Order o where o.id = :id")
-	Optional<Order> findByIdForUpdate(@Param("id") int id);
+	Optional<Order> findByIdForUpdate(@Param("id") long id);
 
 	// 결제 기한이 지난 결제 대기 주문 ID (만료 정리 대상, PRO-42). 잠그지 않고 읽으므로, 만료 정리가 주문마다 잠근 뒤 다시 확인한다
 	// 한 번에 읽을 건수는 pageable로 정한다. 예치금 서비스가 느릴 때 한 번의 정리가 끝없이 길어지지 않게 한다
@@ -30,7 +30,7 @@ public interface OrderRepository extends JpaRepository<Order, Integer> {
 		where o.status = com.bukang.order.domain.OrderStatus.CREATED and o.paymentDueAt <= :now
 		order by o.id
 		""")
-	List<Integer> findOverdueIds(@Param("now") LocalDateTime now, Pageable pageable);
+	List<Long> findOverdueIds(@Param("now") LocalDateTime now, Pageable pageable);
 
 	// 취소된 대회의 환불 대상이 될 수 있는 주문 ID (PRO-135). afterId보다 큰 ID를 순서대로 읽어 끝까지 한 번씩 본다
 	// 결제 대기(CREATED)도 넣는다. 결제가 이 주문을 잠근 채 끝나 가는 중이면, 잠근 뒤에 결제 완료로 보고 환불하기 위해서다
@@ -41,5 +41,5 @@ public interface OrderRepository extends JpaRepository<Order, Integer> {
 				com.bukang.order.domain.OrderStatus.PARTIAL_CANCELED)
 		order by o.id
 		""")
-	List<Integer> findRefundCandidateIds(@Param("raceId") int raceId, @Param("afterId") int afterId, Pageable pageable);
+	List<Long> findRefundCandidateIds(@Param("raceId") long raceId, @Param("afterId") long afterId, Pageable pageable);
 }

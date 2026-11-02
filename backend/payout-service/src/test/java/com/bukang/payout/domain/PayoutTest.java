@@ -89,7 +89,7 @@ class PayoutTest {
 	void feeIsFlooredPerTicket() {
 		Payout payout = newPayout();
 
-		for (int orderItemId = 1; orderItemId <= 10; orderItemId++) {
+		for (long orderItemId = 1; orderItemId <= 10; orderItemId++) {
 			payout.addItem(orderItemId, 10_010L, FEE_RATE, TARGET_DATE);
 		}
 
@@ -130,7 +130,7 @@ class PayoutTest {
 			LocalDateTime.of(2026, 10, 18, 3, 0), CALENDAR);
 		last.deductAdvance(133_330L);
 
-		for (int orderItemId = 1; orderItemId <= 10; orderItemId++) {
+		for (long orderItemId = 1; orderItemId <= 10; orderItemId++) {
 			last.addItem(orderItemId, 33_333L, FEE_RATE, TARGET_DATE);
 		}
 

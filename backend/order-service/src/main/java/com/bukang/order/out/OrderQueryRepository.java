@@ -26,7 +26,7 @@ import lombok.RequiredArgsConstructor;
 public class OrderQueryRepository {
 	private final JPAQueryFactory queryFactory;
 
-	public Page<Order> findMine(int buyerId, LocalDate from, LocalDate to, Pageable pageable) {
+	public Page<Order> findMine(long buyerId, LocalDate from, LocalDate to, Pageable pageable) {
 		BooleanExpression condition = Expressions.allOf(
 			order.buyerId.eq(buyerId),
 			orderedFrom(from),

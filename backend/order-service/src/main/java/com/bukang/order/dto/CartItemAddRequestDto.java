@@ -13,5 +13,5 @@ public class CartItemAddRequestDto {
 	@Schema(description = "담을 종목(참가권) ID", example = "1")
 	@NotNull(message = "담을 종목을 선택해주세요.")
 	@Positive(message = "종목 ID가 올바르지 않습니다.")
-	private final Integer raceCourseId;
+	private final Long raceCourseId;
 }

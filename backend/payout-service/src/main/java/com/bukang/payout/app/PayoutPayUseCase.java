@@ -43,7 +43,7 @@ public class PayoutPayUseCase {
 		int paid = 0;
 		int failed = 0;
 		int unknown = 0;
-		for (int payoutId : payoutPayStepUseCase.findTargetIds(today)) {
+		for (long payoutId : payoutPayStepUseCase.findTargetIds(today)) {
 			switch (payOne(payoutId, today, now)) {
 				case PAID -> paid++;
 				case FAILED -> failed++;
@@ -60,7 +60,7 @@ public class PayoutPayUseCase {
 		return new PayoutPayResultDto(today, paid, failed, unknown);
 	}
 
-	private Result payOne(int payoutId, LocalDate today, LocalDateTime now) {
+	private Result payOne(long payoutId, LocalDate today, LocalDateTime now) {
 		Start start;
 		try {
 			start = payoutPayStepUseCase.start(payoutId, today, now);
@@ -82,7 +82,7 @@ public class PayoutPayUseCase {
 	}
 
 	private Result transfer(Start start, LocalDateTime now) {
-		int payoutId = start.transfer().payoutId();
+		long payoutId = start.transfer().payoutId();
 		try {
 			payoutTransferPort.transfer(start.transfer());
 		} catch (PayoutTransferRejectedException exception) {
@@ -109,7 +109,7 @@ public class PayoutPayUseCase {
 		}
 	}
 
-	private Result revert(int payoutId, LocalDateTime now) {
+	private Result revert(long payoutId, LocalDateTime now) {
 		try {
 			payoutPayStepUseCase.revert(payoutId, now, REJECTED_REASON);
 			return Result.FAILED;

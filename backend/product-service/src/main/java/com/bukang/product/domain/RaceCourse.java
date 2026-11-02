@@ -74,13 +74,13 @@ public class RaceCourse extends BaseIdAndTime {
 
 	// 참가비 (판매 시작 뒤에는 바꾸지 못한다)
 	@Column(nullable = false)
-	private int price;
+	private long price;
 
 	// 참가권에 포함된 키트 금액 (참가권과 함께 판매·취소하고 배송으로만 받는다)
 	// 참가비보다 클 수 없고, 판매 시작 뒤에는 바꾸지 못한다
 	@ColumnDefault("0")
 	@Column(nullable = false)
-	private int kitPrice;
+	private long kitPrice;
 
 	@Column(nullable = false)
 	private boolean kitIncluded;

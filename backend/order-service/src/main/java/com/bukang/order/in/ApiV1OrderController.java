@@ -94,7 +94,7 @@ public class ApiV1OrderController {
 			}))
 	})
 	public ResponseEntity<RsData<OrderDto>> create(
-		@LoginMemberId int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "중복 주문 방지 키. 같은 [결제하기] 재시도에는 같은 값을 보낸다 (예: UUID)",
 			example = "6f1c2a7e-3b9d-4f0a-9c55-0d2e8b7a1f43")
 		@RequestHeader(IdempotencyKeyHeader.NAME)
@@ -148,9 +148,9 @@ public class ApiV1OrderController {
 			}))
 	})
 	public ResponseEntity<RsData<OrderDto>> pay(
-		@LoginMemberId int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "주문 ID", example = "1")
-		@PathVariable int orderId
+		@PathVariable long orderId
 	) {
 		OrderPayResult result = orderFacade.pay(orderId, memberId);
 		String message = result.alreadyPaid() ? "이미 결제한 주문입니다." : "결제했습니다. 참가가 확정되었습니다.";
@@ -206,11 +206,11 @@ public class ApiV1OrderController {
 			}))
 	})
 	public ResponseEntity<RsData<OrderDto>> cancelItem(
-		@LoginMemberId int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "주문 ID", example = "1")
-		@PathVariable int orderId,
+		@PathVariable long orderId,
 		@Parameter(description = "취소할 주문 상품 ID", example = "1")
-		@PathVariable int orderItemId
+		@PathVariable long orderItemId
 	) {
 		OrderCancelUseCase.CancelResult result = orderFacade.cancelItem(orderId, orderItemId, memberId);
 		if (result.refundPending()) {
@@ -240,7 +240,7 @@ public class ApiV1OrderController {
 				examples = @ExampleObject(value = OrderApiExamples.LOGIN_REQUIRED)))
 	})
 	public ResponseEntity<RsData<OrderPageDto>> findMine(
-		@LoginMemberId int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "조회 시작일 (주문 일자, 생략 가능)", example = "2026-10-01")
 		@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
 		@Parameter(description = "조회 종료일 (이날 주문까지 포함, 생략 가능)", example = "2026-10-31")
@@ -276,9 +276,9 @@ public class ApiV1OrderController {
 				examples = @ExampleObject(value = OrderApiExamples.ORDER_NOT_FOUND)))
 	})
 	public ResponseEntity<RsData<OrderDto>> findById(
-		@LoginMemberId int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "주문 ID", example = "1")
-		@PathVariable int orderId
+		@PathVariable long orderId
 	) {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "주문을 조회했습니다.", orderFacade.findById(orderId, memberId)));

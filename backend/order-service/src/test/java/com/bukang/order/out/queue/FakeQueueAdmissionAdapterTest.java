@@ -9,9 +9,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class FakeQueueAdmissionAdapterTest {
-	private static final int MEMBER_ID = 1;
-	private static final int RACE_ID = 5;
-	private static final int COURSE_ID = 50;
+	private static final long MEMBER_ID = 1;
+	private static final long RACE_ID = 5;
+	private static final long COURSE_ID = 50;
 	private static final LocalDateTime NOW = LocalDateTime.of(2026, 10, 15, 11, 0);
 
 	private final FakeQueueAdmissionAdapter adapter = new FakeQueueAdmissionAdapter(10);

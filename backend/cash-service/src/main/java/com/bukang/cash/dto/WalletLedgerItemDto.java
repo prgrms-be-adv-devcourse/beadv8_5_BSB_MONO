@@ -12,10 +12,10 @@ import com.bukang.cash.domain.wallet.WalletLedger;
 public record WalletLedgerItemDto(
 	LedgerCategory category,
 	LedgerType ledgerType,
-	int amount,
-	int balanceAfter,
+	long amount,
+	long balanceAfter,
 	LocalDateTime createdAt,
-	int refId
+	long refId
 ) {
 	public static WalletLedgerItemDto from(WalletLedger walletLedger) {
 		return new WalletLedgerItemDto(

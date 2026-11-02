@@ -27,17 +27,17 @@ import com.bukang.order.out.wallet.WalletPort;
  * 결제를 차감 직전에 멈춰 둘 수 있다 (holdPay): 결제가 주문을 잠근 채 D를 기다리는 순간에 다른 작업을 끼워 넣을 때 쓴다
  */
 public class StubWalletPort implements WalletPort {
-	private static final int DEFAULT_BALANCE = 1_000_000;
+	private static final long DEFAULT_BALANCE = 1_000_000;
 	private static final String TIMEOUT_MESSAGE = "예치금 서비스에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요.";
 
-	private int balance = DEFAULT_BALANCE;
+	private long balance = DEFAULT_BALANCE;
 	// 차감한 채로 남아 있는 주문 ID → 차감 금액
-	private final Map<Integer, Integer> paidOrders = new HashMap<>();
-	private final List<Integer> payCalls = new CopyOnWriteArrayList<>();
-	private final List<Integer> canceledOrders = new CopyOnWriteArrayList<>();
+	private final Map<Long, Long> paidOrders = new HashMap<>();
+	private final List<Long> payCalls = new CopyOnWriteArrayList<>();
+	private final List<Long> canceledOrders = new CopyOnWriteArrayList<>();
 	private final List<Call> cancelCalls = new CopyOnWriteArrayList<>();
 	private final List<Call> refundCalls = new CopyOnWriteArrayList<>();
-	private final List<Integer> refundedAmounts = new CopyOnWriteArrayList<>();
+	private final List<Long> refundedAmounts = new CopyOnWriteArrayList<>();
 	private boolean payTimesOut;
 	private boolean cancelFails;
 	private boolean refundFails;
@@ -48,12 +48,12 @@ public class StubWalletPort implements WalletPort {
 	private volatile CountDownLatch payReleased;
 
 	// 예치금 호출 한 번: 어느 주문을 누구 지갑으로
-	public record Call(int orderId, int memberId) {
+	public record Call(long orderId, long memberId) {
 	}
 
 	// 멈춰 둔 결제는 모니터를 잡기 전에 기다린다. 그동안 결제 취소 같은 다른 호출이 막히지 않는다
 	@Override
-	public WalletPayResult pay(int orderId, int memberId, int amount) {
+	public WalletPayResult pay(long orderId, long memberId, long amount) {
 		CountDownLatch entered = payEntered;
 		CountDownLatch released = payReleased;
 		if (entered != null && released != null) {
@@ -63,7 +63,7 @@ public class StubWalletPort implements WalletPort {
 		return payNow(orderId, amount);
 	}
 
-	private synchronized WalletPayResult payNow(int orderId, int amount) {
+	private synchronized WalletPayResult payNow(long orderId, long amount) {
 		payCalls.add(amount);
 		if (canceledOrders.contains(orderId)) {
 			throw new OrderNotPayableException("이미 끝난 결제라 다시 결제할 수 없습니다.");
@@ -75,7 +75,7 @@ public class StubWalletPort implements WalletPort {
 		return result;
 	}
 
-	private WalletPayResult charge(int orderId, int amount) {
+	private WalletPayResult charge(long orderId, long amount) {
 		if (paidOrders.containsKey(orderId)) {
 			return WalletPayResult.paid();
 		}
@@ -88,20 +88,20 @@ public class StubWalletPort implements WalletPort {
 	}
 
 	@Override
-	public synchronized void cancelPayment(int orderId, int memberId) {
+	public synchronized void cancelPayment(long orderId, long memberId) {
 		cancelCalls.add(new Call(orderId, memberId));
 		if (cancelFails) {
 			throw new ExternalServiceUnavailableException(TIMEOUT_MESSAGE);
 		}
 		canceledOrders.add(orderId);
-		Integer amount = paidOrders.remove(orderId);
+		Long amount = paidOrders.remove(orderId);
 		if (amount != null) {
 			balance += amount;
 		}
 	}
 
 	@Override
-	public synchronized void refund(int orderId, int memberId) {
+	public synchronized void refund(long orderId, long memberId) {
 		refundCalls.add(new Call(orderId, memberId));
 		refundInTransaction.add(TransactionSynchronizationManager.isActualTransactionActive());
 		if (refundFails) {
@@ -111,7 +111,7 @@ public class StubWalletPort implements WalletPort {
 			// HttpWalletAdapter가 D의 4xx 거절을 던지는 예외와 같게 둔다
 			throw new ExternalServiceRejectedException("환불할 수 없는 결제입니다.");
 		}
-		Integer amount = paidOrders.remove(orderId);
+		Long amount = paidOrders.remove(orderId);
 		if (amount != null) {
 			refundedAmounts.add(amount);
 			balance += amount;
@@ -184,29 +184,29 @@ public class StubWalletPort implements WalletPort {
 		return refundCalls;
 	}
 
-	public List<Integer> refundedAmounts() {
+	public List<Long> refundedAmounts() {
 		return refundedAmounts;
 	}
 
-	public synchronized void setBalance(int balance) {
+	public synchronized void setBalance(long balance) {
 		this.balance = balance;
 	}
 
-	public synchronized int balance() {
+	public synchronized long balance() {
 		return balance;
 	}
 
-	public List<Integer> payCalls() {
+	public List<Long> payCalls() {
 		return payCalls;
 	}
 
 	// 차감한 채로 남아 있는 주문 (결제를 되돌리거나 환불한 주문은 빠진다)
-	public synchronized Set<Integer> chargedOrders() {
+	public synchronized Set<Long> chargedOrders() {
 		return Set.copyOf(paidOrders.keySet());
 	}
 
 	// 결제 취소가 성공한 주문
-	public List<Integer> canceledOrders() {
+	public List<Long> canceledOrders() {
 		return canceledOrders;
 	}
 
