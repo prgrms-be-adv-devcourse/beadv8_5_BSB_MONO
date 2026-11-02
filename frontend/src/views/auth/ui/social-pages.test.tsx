@@ -6,7 +6,7 @@ import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { getAuthStatus } from '@/shared/api'
-import { server } from '@/shared/testing'
+import { pickDate, server } from '@/shared/testing'
 
 import { SignupStepProvider } from '../model/signup-store'
 import { termChecks } from '../model/signup-terms'
@@ -86,7 +86,7 @@ describe('SocialSignupPage', () => {
     expect(email).toHaveAttribute('readonly')
     expect(screen.getByLabelText('이름')).toHaveValue('김러너')
 
-    await user.type(screen.getByLabelText('생년월일'), '1995-04-12')
+    await pickDate(user, '생년월일', '1995-04-12')
     await user.type(screen.getByLabelText('휴대폰 번호'), '01098765432')
     await user.type(screen.getByLabelText('닉네임'), '소셜러너')
     await user.click(screen.getByRole('button', { name: '가입 완료' }))
@@ -99,6 +99,45 @@ describe('SocialSignupPage', () => {
     })
     expect(body?.email).toBeUndefined()
     expect(getAuthStatus()).toBe('authenticated')
+  })
+
+  it('휴대폰 번호로 이미 가입한 사람이면 새로 가입하지 않고 계정 연결을 안내한다', async () => {
+    server.use(
+      http.get('*/api/v1/auth/oauth2/signup', () =>
+        HttpResponse.json({
+          status: 200,
+          message: '소셜 가입 정보 조회 성공',
+          data: {
+            provider: 'GOOGLE',
+            email: 'runner@gmail.com',
+            emailLocked: true,
+            name: '김러너',
+          },
+        }),
+      ),
+      http.post('*/api/v1/auth/oauth2/join', () =>
+        HttpResponse.json(
+          { status: 409, code: 'AUTH_SOCIAL_PHONE_TAKEN', message: '이미 가입', data: null },
+          { status: 409 },
+        ),
+      ),
+    )
+    const user = userEvent.setup()
+    render(withProviders(<SocialSignupPage />))
+
+    await screen.findByLabelText('이메일')
+    await pickDate(user, '생년월일', '1995-04-12')
+    await user.type(screen.getByLabelText('휴대폰 번호'), '01098765432')
+    await user.type(screen.getByLabelText('닉네임'), '소셜러너')
+    await user.click(screen.getByRole('button', { name: '가입 완료' }))
+
+    expect(await screen.findByText('이 번호로 가입한 계정이 있어요.')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        '원래 쓰던 방법으로 로그인한 뒤 마이 → 계정 연결에서 구글 계정을 연결해 주세요.',
+      ),
+    ).toBeInTheDocument()
+    expect(replace).not.toHaveBeenCalled()
   })
 
   it('가입 대기가 없거나 지났으면 로그인 화면으로 보낸다', async () => {

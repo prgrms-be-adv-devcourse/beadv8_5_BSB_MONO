@@ -16,15 +16,14 @@ export function socialProviderOf(id: string | null | undefined) {
 
 /**
  * 소셜 로그인 시작 주소. fetch가 아니라 화면 이동으로 연다(백엔드가 제공자 로그인 화면으로 302를 보낸다).
- * linkTicket이 있으면 로그인한 회원의 계정 연결이다.
+ * 계정 연결이면 먼저 연결 표 API를 부른다. 서버가 표를 쿠키로 심으므로 주소는 로그인과 같다.
  */
 export function socialAuthorizeHref(
   provider: SocialProviderId,
-  { next, linkTicket }: { next?: string; linkTicket?: string } = {},
+  { next }: { next?: string } = {},
 ): string {
   const params = new URLSearchParams()
-  if (next) params.set('next', linkTicket ? next : safeNextPath(next))
-  if (linkTicket) params.set('linkTicket', linkTicket)
+  if (next) params.set('next', safeNextPath(next))
   const query = params.toString()
   return `${AUTHORIZE_PATH}/${provider}${query ? `?${query}` : ''}`
 }

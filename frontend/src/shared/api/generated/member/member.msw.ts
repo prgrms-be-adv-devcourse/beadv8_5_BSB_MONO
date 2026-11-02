@@ -19,7 +19,6 @@ import type {
   RsDataMemberDto,
   RsDataMemberLoginResponseDto,
   RsDataSellerDto,
-  RsDataSocialLinkTicketDto,
   RsDataSocialSignupInfoDto,
   RsDataTokenReissueResponseDto
 } from './member.schemas';
@@ -50,8 +49,6 @@ export const getFindAllResponseMock = (): RsDataListSellerDto => ({"status":200,
 export const getFindSocialSignupResponseMock = (): RsDataSocialSignupInfoDto => ({"status":200,"message":"소셜 가입 정보 조회 성공","data":{"provider":"KAKAO","email":"runner1@kakao.com","emailLocked":true,"name":null}})
 
 export const getSocialJoinResponseMock = (): RsDataMemberLoginResponseDto => ({"status":201,"message":"소셜 가입 성공","data":{"accessToken":"eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIiwidHlwZSI6IkFDQ0VTUyJ9.signature","member":{"id":1,"createDate":"2026-10-05T21:25:35","modifyDate":"2026-10-05T21:25:35","nickname":"러너1","email":"runner1@crewrun.com","phone":"010-1234-5678","name":"김러너","birthDate":"1995-04-12","socialProviders":["KAKAO"],"passwordSet":false}}})
-
-export const getIssueSocialLinkTicketResponseMock = (): RsDataSocialLinkTicketDto => ({"status":201,"message":"연결 표 발급 성공","data":{"linkTicket":"8f1c2a9e4b7d4c3a9f0e6b5d2c1a7e3f"}})
 
 export const getUnlinkSocialAccountResponseMock = (): RsDataMemberDto => ({"status":200,"message":"연결을 해제했습니다.","data":{"id":1,"createDate":"2026-10-05T21:25:35","modifyDate":"2026-10-05T21:25:35","nickname":"러너1","email":"runner1@crewrun.com","phone":"010-1234-5678","name":"김러너","birthDate":"1995-04-12","socialProviders":[],"passwordSet":true}})
 
@@ -262,14 +259,12 @@ export const getSocialJoinMockHandler = (overrideResponse?: RsDataMemberLoginRes
   }, options)
 }
 
-export const getIssueSocialLinkTicketMockHandler = (overrideResponse?: RsDataSocialLinkTicketDto | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<RsDataSocialLinkTicketDto> | RsDataSocialLinkTicketDto), options?: RequestHandlerOptions) => {
+export const getIssueSocialLinkTicketMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
   return http.post('*/api/v1/member/members/me/social-accounts/:provider/link-ticket', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
 
-
-    return HttpResponse.json(overrideResponse !== undefined
-    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
-    : getIssueSocialLinkTicketResponseMock(),
-      { status: 201
+    return new HttpResponse(null,
+      { status: 200
       })
   }, options)
 }

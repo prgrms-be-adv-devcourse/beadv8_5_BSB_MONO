@@ -18,9 +18,9 @@ describe('socialAuthorizeHref', () => {
     expect(socialAuthorizeHref('google')).toBe('/api/v1/auth/oauth2/authorize/google')
   })
 
-  it('계정 연결은 연결 표와 돌아올 화면을 싣는다', () => {
-    expect(socialAuthorizeHref('kakao', { next: '/me/accounts', linkTicket: 'abc' })).toBe(
-      '/api/v1/auth/oauth2/authorize/kakao?next=%2Fme%2Faccounts&linkTicket=abc',
+  it('계정 연결도 연결 표 없이 돌아올 화면만 싣는다 (표는 쿠키로 간다)', () => {
+    expect(socialAuthorizeHref('kakao', { next: '/me/accounts' })).toBe(
+      '/api/v1/auth/oauth2/authorize/kakao?next=%2Fme%2Faccounts',
     )
   })
 })
