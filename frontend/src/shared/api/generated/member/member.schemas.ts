@@ -166,6 +166,26 @@ export interface SellerRejectRequestDto {
   reason: string;
 }
 
+/**
+ * 크루 만들기 요청
+ */
+export interface CrewCreateRequestDto {
+  /**
+     * 크루 이름 (앞뒤 공백을 뺀 1~20자, 다른 크루와 겹쳐도 된다)
+     * @minLength 1
+     * @maxLength 20
+     */
+  name: string;
+}
+
+/**
+ * 크루장 넘기기 요청
+ */
+export interface CrewLeaderTransferRequestDto {
+  /** 크루장을 넘겨받을 크루원의 회원 ID */
+  memberId: number;
+}
+
 export interface MemberDto {
   id?: number;
   createDate?: string;
@@ -242,6 +262,136 @@ export interface SellerDto {
   resultCheckedAt?: string | null;
 }
 
+/**
+ * 크루 역할 (LEADER: 크루장, MANAGER: 운영진, MEMBER: 크루원)
+ */
+export type CrewMemberDtoRole = typeof CrewMemberDtoRole[keyof typeof CrewMemberDtoRole];
+
+
+export const CrewMemberDtoRole = {
+  LEADER: 'LEADER',
+  MANAGER: 'MANAGER',
+  MEMBER: 'MEMBER',
+} as const;
+
+/**
+ * 크루원 (실명 없이 닉네임만)
+ */
+export interface CrewMemberDto {
+  memberId: number;
+  nickname: string;
+  /** 크루 역할 (LEADER: 크루장, MANAGER: 운영진, MEMBER: 크루원) */
+  role: CrewMemberDtoRole;
+}
+
+/**
+ * 요청한 회원의 역할. 크루 역할 (LEADER: 크루장, MANAGER: 운영진, MEMBER: 크루원)
+ */
+export type CrewHomeDtoMyRole = typeof CrewHomeDtoMyRole[keyof typeof CrewHomeDtoMyRole];
+
+
+export const CrewHomeDtoMyRole = {
+  LEADER: 'LEADER',
+  MANAGER: 'MANAGER',
+  MEMBER: 'MEMBER',
+} as const;
+
+/**
+ * 크루 홈
+ */
+export interface CrewHomeDto {
+  crewId: number;
+  name: string;
+  createdAt: string;
+  /** 요청한 회원의 역할. 크루 역할 (LEADER: 크루장, MANAGER: 운영진, MEMBER: 크루원) */
+  myRole: CrewHomeDtoMyRole;
+  memberCount: number;
+  members: CrewMemberDto[];
+}
+
+/**
+ * 크루 역할 (LEADER: 크루장, MANAGER: 운영진, MEMBER: 크루원)
+ */
+export type MyCrewDtoMyRole = typeof MyCrewDtoMyRole[keyof typeof MyCrewDtoMyRole];
+
+
+export const MyCrewDtoMyRole = {
+  LEADER: 'LEADER',
+  MANAGER: 'MANAGER',
+  MEMBER: 'MEMBER',
+} as const;
+
+/**
+ * 내 크루 목록의 크루 하나
+ */
+export interface MyCrewDto {
+  crewId: number;
+  name: string;
+  /** 크루 역할 (LEADER: 크루장, MANAGER: 운영진, MEMBER: 크루원) */
+  myRole: MyCrewDtoMyRole;
+  memberCount: number;
+}
+
+/**
+ * 만든 초대 링크. inviteToken은 이 응답에서만 받는다
+ */
+export interface CrewInviteCreatedDto {
+  inviteId: number;
+  inviteToken: string;
+  createdAt: string;
+  expiresAt: string;
+}
+
+export interface CrewInviteSenderDto {
+  memberId: number;
+  nickname: string;
+}
+
+/**
+ * 아직 쓸 수 있는 초대
+ */
+export interface CrewInviteDto {
+  inviteId: number;
+  createdBy: CrewInviteSenderDto;
+  createdAt: string;
+  expiresAt: string;
+}
+
+/**
+ * 초대 받기 화면 정보
+ */
+export interface CrewInvitePreviewDto {
+  crewId: number;
+  crewName: string;
+  memberCount: number;
+  expiresAt: string;
+  /** 요청한 회원이 이미 이 크루의 크루원인지 */
+  alreadyMember: boolean;
+}
+
+/**
+ * 크루 역할 (LEADER: 크루장, MANAGER: 운영진, MEMBER: 크루원)
+ */
+export type CrewJoinedDtoRole = typeof CrewJoinedDtoRole[keyof typeof CrewJoinedDtoRole];
+
+
+export const CrewJoinedDtoRole = {
+  LEADER: 'LEADER',
+  MANAGER: 'MANAGER',
+  MEMBER: 'MEMBER',
+} as const;
+
+/**
+ * 초대로 가입한 결과
+ */
+export interface CrewJoinedDto {
+  crewId: number;
+  crewName: string;
+  /** 크루 역할 (LEADER: 크루장, MANAGER: 운영진, MEMBER: 크루원) */
+  role: CrewJoinedDtoRole;
+  joinedAt: string;
+}
+
 export interface RsDataMemberDto {
   status?: number;
   message?: string;
@@ -276,6 +426,42 @@ export interface RsDataListSellerDto {
   status?: number;
   message?: string;
   data?: SellerDto[];
+}
+
+export interface RsDataCrewHomeDto {
+  status?: number;
+  message?: string;
+  data?: CrewHomeDto;
+}
+
+export interface RsDataListMyCrewDto {
+  status?: number;
+  message?: string;
+  data?: MyCrewDto[];
+}
+
+export interface RsDataListCrewInviteDto {
+  status?: number;
+  message?: string;
+  data?: CrewInviteDto[];
+}
+
+export interface RsDataCrewInviteCreatedDto {
+  status?: number;
+  message?: string;
+  data?: CrewInviteCreatedDto;
+}
+
+export interface RsDataCrewInvitePreviewDto {
+  status?: number;
+  message?: string;
+  data?: CrewInvitePreviewDto;
+}
+
+export interface RsDataCrewJoinedDto {
+  status?: number;
+  message?: string;
+  data?: CrewJoinedDto;
 }
 
 export type CheckEmailAvailabilityParams = {

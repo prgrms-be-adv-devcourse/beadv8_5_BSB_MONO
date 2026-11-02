@@ -22,7 +22,7 @@ import com.bukang.cash.out.WalletLedgerRepository;
 import lombok.RequiredArgsConstructor;
 
 /**
- * 정산 지급: 홀딩 지갑에서 판매자 지갑으로 대금을, 최종 정산이면 시스템 지갑으로 수수료도 함께 옮긴다 (PRO-256)
+ * 정산 지급: 홀딩 지갑에서 판매자 지갑으로 대금을, 최종 정산이면 시스템 지갑으로 수수료도 함께 옮긴다
  * 요청의 sellerId는 판매자 신청서 ID라 회원 ID(= 지갑 ID)와 다르다. CashSupport로 실제 회원 ID를 찾아 지갑을 잠근다.
  * 같은 payoutId로 다시 요청했는데 판매자·금액이 이전과 다르면 지갑을 건드리지 않고 저장된 값으로 409 거절한다 (리뷰 반영).
  * 최종 정산은 회수 상계로 대금이 0원이 될 수 있다. 이때도 수수료는 상계와 무관하게 그대로 옮기므로,
