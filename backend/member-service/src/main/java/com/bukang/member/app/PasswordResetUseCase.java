@@ -120,7 +120,6 @@ public class PasswordResetUseCase {
 		try {
 			refreshTokenRepository.deleteAll(memberId);
 			loggedOut = true;
-			store.deleteLatestToken(memberId);
 		} catch (RuntimeException e) {
 			log.warn("비밀번호를 바꾼 뒤 로그인 정리에 실패했습니다. memberId={}", memberId, e);
 		}

@@ -95,9 +95,4 @@ public class RedisPasswordResetStore implements PasswordResetStore {
 	public Optional<Long> takeMemberId(String tokenHash) {
 		return Optional.ofNullable(redisTemplate.opsForValue().getAndDelete(tokenKey(tokenHash))).map(Long::valueOf);
 	}
-
-	@Override
-	public void deleteLatestToken(long memberId) {
-		redisTemplate.delete(latestTokenKey(memberId));
-	}
 }

@@ -29,7 +29,4 @@ public interface PasswordResetStore {
 
 	// 꺼내면서 지운다. 같은 링크로 동시에 두 번 바꾸려 해도 하나만 회원 ID를 받는다
 	Optional<Long> takeMemberId(String tokenHash);
-
-	// 비밀번호를 바꾼 뒤 회원의 최신 링크 기록을 지운다
-	void deleteLatestToken(long memberId);
 }

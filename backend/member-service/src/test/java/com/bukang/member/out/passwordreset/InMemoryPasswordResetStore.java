@@ -58,11 +58,6 @@ public class InMemoryPasswordResetStore implements PasswordResetStore {
 		return Optional.ofNullable(tokens.remove(tokenHash));
 	}
 
-	@Override
-	public void deleteLatestToken(long memberId) {
-		latestTokens.remove(memberId);
-	}
-
 	// 1분이 지난 것처럼 다시 요청할 수 있게 한다
 	public void clearCooldowns() {
 		cooldowns.clear();
