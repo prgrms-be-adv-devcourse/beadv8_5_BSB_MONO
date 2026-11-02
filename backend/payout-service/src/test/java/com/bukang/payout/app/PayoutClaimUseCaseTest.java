@@ -24,8 +24,11 @@ import com.bukang.payout.app.PayoutCreateStepUseCase.FirstPayoutSource;
 import com.bukang.payout.domain.BusinessDayCalendar;
 import com.bukang.payout.domain.PayoutAccount;
 import com.bukang.payout.domain.PayoutClaim;
+import com.bukang.payout.domain.PayoutClaimStatus;
+import com.bukang.payout.domain.PayoutItem;
 import com.bukang.payout.domain.PayoutRecovery;
 import com.bukang.payout.domain.PayoutRecoveryCompletion;
+import com.bukang.payout.domain.PayoutRecordType;
 import com.bukang.payout.domain.PayoutRecoveryStatus;
 import com.bukang.payout.domain.exception.PayoutClaimConflictException;
 import com.bukang.payout.out.PayoutClaimRepository;
@@ -129,6 +132,36 @@ class PayoutClaimUseCaseTest {
 		entityManager.flush();
 		entityManager.clear();
 		return payoutClaimRepository.findAll();
+	}
+
+	// 청구를 만든 뒤 갚을 돈이 바뀐 상황을 만든다. 양수면 회수가 더 생긴 것, 음수면 예전 회수 완료 API로 일부를 받은 것
+	private void changeReceivableAfterClaim(long amount) {
+		if (amount > 0) {
+			PayoutRecovery more = payoutRecoveryRepository.save(PayoutRecovery.scheduleChanged(SELLER_ID, RACE_ID, 999,
+				amount, LocalDateTime.of(2026, 12, 15, 10, 0)));
+			payoutItemRepository.save(PayoutItem.ofRecovery(more, PayoutRecordType.RECEIVABLE_ADDED, 999L, RACE_ID,
+				amount));
+			return;
+		}
+		PayoutRecovery any = payoutRecoveryRepository.findAll().getFirst();
+		payoutItemRepository.save(PayoutItem.ofRecovery(any, PayoutRecordType.RECOVERY_RECEIVED, null, null, amount));
+	}
+
+	private void assertConfirmRejectedAndNothingChanged(long expectedReceivable) {
+		long claimId = claims().getFirst().getId();
+		long lines = payoutItemRepository.count();
+
+		assertThatThrownBy(() -> claimUseCase.confirm(claimId, ADMIN_ID, LocalDateTime.of(2026, 12, 20, 10, 0)))
+			.isInstanceOf(PayoutClaimConflictException.class)
+			.hasMessageContaining("예상치 못한");
+		entityManager.flush();
+		entityManager.clear();
+
+		assertThat(payoutItemRepository.count()).isEqualTo(lines);
+		assertThat(ledgerUseCase.balance(SELLER_ID, RACE_ID, PayoutAccount.RECEIVABLE)).isEqualTo(expectedReceivable);
+		assertThat(claims()).extracting(PayoutClaim::getStatus).containsExactly(PayoutClaimStatus.OPEN);
+		assertThat(payoutRecoveryRepository.findAll()).extracting(PayoutRecovery::getStatus)
+			.containsOnly(PayoutRecoveryStatus.REQUESTED);
 	}
 
 	private PayoutClaim openClaimStartingOn(LocalDate startDate) {
@@ -310,6 +343,36 @@ class PayoutClaimUseCaseTest {
 		assertThatThrownBy(() -> claimUseCase.confirm(claimId, ADMIN_ID, LocalDateTime.of(2026, 12, 21, 10, 0)))
 			.isInstanceOf(PayoutClaimConflictException.class);
 		assertThat(payoutItemRepository.count()).isEqualTo(lines);
+	}
+
+	@Test
+	@DisplayName("TC-REV2-2 청구 105,500원 뒤 회수가 더 생겨 갚을 돈이 185,500원이면 확인을 409로 거부하고 아무것도 바꾸지 않는다")
+	void confirmRejectedWhenReceivableGrew() {
+		eightRefundsThenFinal();
+		run(FINAL_CREATED_DATE);
+		changeReceivableAfterClaim(80_000);
+
+		assertConfirmRejectedAndNothingChanged(185_500);
+	}
+
+	@Test
+	@DisplayName("TC-REV2-3 갚을 돈이 청구액보다 1원 많으면(105,501원) 확인을 409로 거부한다")
+	void confirmRejectedWhenReceivableIsOneMore() {
+		eightRefundsThenFinal();
+		run(FINAL_CREATED_DATE);
+		changeReceivableAfterClaim(1);
+
+		assertConfirmRejectedAndNothingChanged(105_501);
+	}
+
+	@Test
+	@DisplayName("TC-REV2-4 갚을 돈이 청구액보다 1원 적으면(105,499원) 확인을 409로 거부한다")
+	void confirmRejectedWhenReceivableIsOneLess() {
+		eightRefundsThenFinal();
+		run(FINAL_CREATED_DATE);
+		changeReceivableAfterClaim(-1);
+
+		assertConfirmRejectedAndNothingChanged(105_499);
 	}
 
 	@Test

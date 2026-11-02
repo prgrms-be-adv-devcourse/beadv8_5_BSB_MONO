@@ -21,6 +21,7 @@ import com.bukang.payout.domain.PayoutRecoveryReason;
 import com.bukang.payout.domain.PayoutRecoveryStatus;
 import com.bukang.payout.domain.PayoutStage;
 import com.bukang.payout.domain.PayoutStatus;
+import com.bukang.payout.domain.exception.PayoutClaimConflictException;
 import com.bukang.payout.domain.exception.PayoutClaimNotFoundException;
 import com.bukang.payout.out.PayoutClaimRepository;
 import com.bukang.payout.out.PayoutItemRepository;
@@ -87,17 +88,37 @@ public class PayoutClaimUseCase {
 	/**
 	 * 관리자의 회수 확인: 판매자가 청구 금액을 보냈다고 확인한다 (R4 · R5)
 	 * 청구 금액만큼 회수 입금 줄을 남기고, 그 대회의 요청 중인 회수를 입금으로 끝낸다
+	 * 그 대회의 갚을 돈이 청구 금액과 다르면 확인하지 않는다 (PR #265 리뷰). 청구는 상계가 끝난 뒤 만들어 금액이
+	 * 바뀌지 않아야 하는데, 바뀌었다면 청구액만 받고 회수를 모두 끝내 갚을 돈이 남거나 두 번 받은 것으로 적힌다
+	 * 거부된 청구는 그대로 두고, 로그를 보고 사람이 맞춘다 (11/2 결정)
 	 */
 	@Transactional
 	public PayoutClaim confirm(long claimId, long confirmedBy, LocalDateTime now) {
 		PayoutClaim claim = payoutClaimRepository.findByIdForUpdate(claimId)
 			.orElseThrow(PayoutClaimNotFoundException::new);
+		// 이미 확인한 청구는 갚을 돈이 0이라 금액 비교보다 "이미 확인함"을 먼저 알린다 (claim.confirm)
+		if (claim.getStatus() == PayoutClaimStatus.OPEN) {
+			checkReceivableMatches(claim);
+		}
 		claim.confirm(confirmedBy, now);
 		payoutItemRepository.save(PayoutItem.ofClaim(claim, PayoutRecordType.RECOVERY_RECEIVED, -claim.getAmount()));
 		payoutRecoveryRepository.findBySellerIdAndRaceIdAndStatus(claim.getSellerId(), claim.getRaceId(),
 				PayoutRecoveryStatus.REQUESTED)
 			.forEach(recovery -> recovery.complete(confirmedBy, now));
 		return claim;
+	}
+
+	private void checkReceivableMatches(PayoutClaim claim) {
+		long receivable = payoutItemRepository.sumBalance(claim.getSellerId(), claim.getRaceId(),
+			PayoutAccount.RECEIVABLE);
+		if (receivable == claim.getAmount()) {
+			return;
+		}
+		log.error("청구 금액과 갚을 돈이 달라 회수 확인을 거부합니다. 청구 뒤 갚을 돈이 바뀌었습니다. "
+				+ "claimId={}, sellerId={}, raceId={}, 청구 금액={}, 지금 갚을 돈={}, 차이={}",
+			claim.getId(), claim.getSellerId(), claim.getRaceId(), claim.getAmount(), receivable,
+			receivable - claim.getAmount());
+		throw new PayoutClaimConflictException("예상치 못한 일이 발생해 회수를 확인할 수 없습니다. 관리자에게 문의해 주세요.");
 	}
 
 	// 요청 중인 회수가 있는 판매자 × 대회마다 청구를 만들 때가 됐는지 본다
