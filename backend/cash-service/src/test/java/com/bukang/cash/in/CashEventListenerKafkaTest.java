@@ -49,7 +49,7 @@ class CashEventListenerKafkaTest {
 	@Test
 	@DisplayName("queuing.member.joined 토픽에 메시지를 보내면 CashEventListener가 받아 CashMember를 저장한다")
 	void handleMemberJoined() {
-		int memberId = 1001;
+		long memberId = 1001;
 		String message = """
 			{"id":%d,"createDate":"2026-10-14T10:00:00","modifyDate":"2026-10-14T10:00:00","nickname":"테스터"}
 			""".formatted(memberId);

@@ -32,16 +32,16 @@ import java.util.Objects;
  *                           비어 있으면 티셔츠가 없다. 판매 시작 뒤에는 B가 바꾸지 못하게 막는다
  */
 public record RaceCourseInfo(
-	int raceCourseId,
-	int raceId,
+	long raceCourseId,
+	long raceId,
 	LocalDateTime raceDate,
 	LocalDateTime applicationOpenAt,
 	LocalDateTime applicationCloseAt,
 	int minAge,
 	Integer maxAge,
-	int sellerId,
+	long sellerId,
 	String courseName,
-	int price,
+	long price,
 	boolean kitIncluded,
 	LocalDate refundDeadline,
 	LocalDateTime scheduleChangedAt,
@@ -55,16 +55,16 @@ public record RaceCourseInfo(
 	}
 
 	// 티셔츠 사이즈를 따로 정하지 않을 때 (티셔츠 없음)
-	public RaceCourseInfo(int raceCourseId, int raceId, LocalDateTime raceDate, LocalDateTime applicationOpenAt,
-		LocalDateTime applicationCloseAt, int minAge, Integer maxAge, int sellerId, String courseName, int price,
+	public RaceCourseInfo(long raceCourseId, long raceId, LocalDateTime raceDate, LocalDateTime applicationOpenAt,
+		LocalDateTime applicationCloseAt, int minAge, Integer maxAge, long sellerId, String courseName, long price,
 		boolean kitIncluded, LocalDate refundDeadline, LocalDateTime scheduleChangedAt, boolean canceled) {
 		this(raceCourseId, raceId, raceDate, applicationOpenAt, applicationCloseAt, minAge, maxAge, sellerId,
 			courseName, price, kitIncluded, refundDeadline, scheduleChangedAt, canceled, List.of());
 	}
 
 	// 취소되지 않은 대회 (가짜 어댑터·테스트처럼 취소 여부를 따로 정하지 않을 때)
-	public RaceCourseInfo(int raceCourseId, int raceId, LocalDateTime raceDate, LocalDateTime applicationOpenAt,
-		LocalDateTime applicationCloseAt, int minAge, Integer maxAge, int sellerId, String courseName, int price,
+	public RaceCourseInfo(long raceCourseId, long raceId, LocalDateTime raceDate, LocalDateTime applicationOpenAt,
+		LocalDateTime applicationCloseAt, int minAge, Integer maxAge, long sellerId, String courseName, long price,
 		boolean kitIncluded, LocalDate refundDeadline, LocalDateTime scheduleChangedAt) {
 		this(raceCourseId, raceId, raceDate, applicationOpenAt, applicationCloseAt, minAge, maxAge, sellerId,
 			courseName, price, kitIncluded, refundDeadline, scheduleChangedAt, false);

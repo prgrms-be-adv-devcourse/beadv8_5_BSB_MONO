@@ -39,10 +39,10 @@ import com.jayway.jsonpath.JsonPath;
 @Import({StubRaceCoursePortConfig.class, StubSeatHoldPortConfig.class})
 class ApiV1OrderQueryTest {
 	private static final String BASE_URL = "/api/v1/order/orders";
-	private static final int MEMBER_ID = 1;
-	private static final int OTHER_MEMBER_ID = 2;
+	private static final long MEMBER_ID = 1;
+	private static final long OTHER_MEMBER_ID = 2;
 	// 종목 10·11·12는 대회 100·101·102 (한 사람 한 대회 1건이라 주문마다 다른 대회로 신청한다)
-	private static final int FIRST_COURSE_ID = 10;
+	private static final long FIRST_COURSE_ID = 10;
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -81,9 +81,9 @@ class ApiV1OrderQueryTest {
 	@Test
 	@DisplayName("10/10·10/11·10/12에 주문한 회원의 목록은 10/12 → 10/10 순서이고, 다른 회원 주문은 없다")
 	void findMineNewestFirst() throws Exception {
-		int first = orderAt(MEMBER_ID, FIRST_COURSE_ID, LocalDateTime.of(2026, 10, 10, 9, 0));
-		int second = orderAt(MEMBER_ID, FIRST_COURSE_ID + 1, LocalDateTime.of(2026, 10, 11, 9, 0));
-		int third = orderAt(MEMBER_ID, FIRST_COURSE_ID + 2, LocalDateTime.of(2026, 10, 12, 9, 0));
+		long first = orderAt(MEMBER_ID, FIRST_COURSE_ID, LocalDateTime.of(2026, 10, 10, 9, 0));
+		long second = orderAt(MEMBER_ID, FIRST_COURSE_ID + 1, LocalDateTime.of(2026, 10, 11, 9, 0));
+		long third = orderAt(MEMBER_ID, FIRST_COURSE_ID + 2, LocalDateTime.of(2026, 10, 12, 9, 0));
 		orderAt(OTHER_MEMBER_ID, FIRST_COURSE_ID, LocalDateTime.of(2026, 10, 12, 9, 0));
 
 		findMine(MEMBER_ID, "")
@@ -106,7 +106,7 @@ class ApiV1OrderQueryTest {
 	@DisplayName("조회 기간은 주문 일자 기준이고 종료일 23:59 주문까지 포함한다. 시작일·종료일은 각각 생략할 수 있다")
 	void findMineByPeriod() throws Exception {
 		orderAt(MEMBER_ID, FIRST_COURSE_ID, LocalDateTime.of(2026, 10, 10, 23, 59, 59));
-		int middle = orderAt(MEMBER_ID, FIRST_COURSE_ID + 1, LocalDateTime.of(2026, 10, 11, 23, 59, 59));
+		long middle = orderAt(MEMBER_ID, FIRST_COURSE_ID + 1, LocalDateTime.of(2026, 10, 11, 23, 59, 59));
 		orderAt(MEMBER_ID, FIRST_COURSE_ID + 2, LocalDateTime.of(2026, 10, 12, 0, 0));
 
 		findMine(MEMBER_ID, "?from=2026-10-11&to=2026-10-11")
@@ -156,7 +156,7 @@ class ApiV1OrderQueryTest {
 	@Test
 	@DisplayName("주문 상세에서 상품·상태·결제 기한을 보고, 다른 회원 주문은 403, 없는 주문은 404다")
 	void findById() throws Exception {
-		int orderId = orderAt(MEMBER_ID, FIRST_COURSE_ID, LocalDateTime.of(2026, 10, 12, 9, 0));
+		long orderId = orderAt(MEMBER_ID, FIRST_COURSE_ID, LocalDateTime.of(2026, 10, 12, 9, 0));
 
 		mockMvc.perform(get(BASE_URL + "/" + orderId).header("X-Member-Id", MEMBER_ID))
 			.andExpect(status().isOk())
@@ -180,14 +180,14 @@ class ApiV1OrderQueryTest {
 			.andExpect(jsonPath("$.code").value("ORDER_NOT_FOUND"));
 	}
 
-	private ResultActions findMine(int memberId, String query) throws Exception {
+	private ResultActions findMine(long memberId, String query) throws Exception {
 		return mockMvc.perform(get(BASE_URL + query).header("X-Member-Id", memberId));
 	}
 
 	// 신청서 작성 → [결제하기]로 주문을 만들고, 주문 일시를 정한 시각으로 바꾼다
-	private int orderAt(int memberId, int raceCourseId, LocalDateTime orderedAt) throws Exception {
+	private long orderAt(long memberId, long raceCourseId, LocalDateTime orderedAt) throws Exception {
 		QueueEntry.enter(mockMvc, memberId, raceCourseId);
-		int participationId = read(mockMvc.perform(post("/api/v1/order/participations")
+		long participationId = read(mockMvc.perform(post("/api/v1/order/participations")
 			.header("X-Member-Id", memberId)
 			.contentType(MediaType.APPLICATION_JSON)
 			.content("""
@@ -198,7 +198,7 @@ class ApiV1OrderQueryTest {
 						"shippingAddress": { "recipientName": "김러너", "recipientPhone": "010-1234-5678",
 							"zipcode": "04700", "address": "서울 성동구 왕십리로 00", "addressDetail": "101동 1001호" } } }
 				""".formatted(raceCourseId))));
-		int orderId = read(mockMvc.perform(post(BASE_URL)
+		long orderId = read(mockMvc.perform(post(BASE_URL)
 			.header("X-Member-Id", memberId)
 			.header("Idempotency-Key", UUID.randomUUID().toString())
 			.contentType(MediaType.APPLICATION_JSON)
@@ -209,7 +209,8 @@ class ApiV1OrderQueryTest {
 		return orderId;
 	}
 
-	private int read(ResultActions result) throws Exception {
-		return JsonPath.read(result.andReturn().getResponse().getContentAsString(), "$.data.id");
+	private long read(ResultActions result) throws Exception {
+		String body = result.andReturn().getResponse().getContentAsString();
+		return JsonPath.<Number>read(body, "$.data.id").longValue();
 	}
 }

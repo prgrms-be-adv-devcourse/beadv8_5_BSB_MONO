@@ -51,16 +51,16 @@ public class OrderItem extends BaseIdAndTime {
 	private Order order;
 
 	@Column(name = "participation_id", nullable = false)
-	private int participationId;
+	private long participationId;
 
 	@Column(name = "race_id", nullable = false)
-	private int raceId;
+	private long raceId;
 
 	@Column(name = "race_course_id", nullable = false)
-	private int raceCourseId;
+	private long raceCourseId;
 
 	@Column(name = "seller_id", nullable = false)
-	private int sellerId;
+	private long sellerId;
 
 	// 대회 일시 사본 (주문 당시 종목 정보). 정산 배치가 대회 날짜로 판매 내역을 찾는 조건이다
 	@Column(name = "race_date", nullable = false)
@@ -71,24 +71,28 @@ public class OrderItem extends BaseIdAndTime {
 	private String itemName;
 
 	@Column(name = "unit_price", nullable = false)
-	private int unitPrice;
+	private long unitPrice;
 
 	@Column(name = "quantity", nullable = false)
 	private int quantity;
 
 	// 정산 판매액 = 실제 결제 금액 (정책 6장 1-5)
 	@Column(name = "amount", nullable = false)
-	private int amount;
+	private long amount;
 
 	@Enumerated(STRING)
 	@Column(name = "status", nullable = false, columnDefinition = "varchar(20)")
 	private OrderItemStatus status;
 
 	@Column(name = "canceled_amount", nullable = false)
-	private int canceledAmount;
+	private long canceledAmount;
 
 	@Column(name = "canceled_at")
 	private LocalDateTime canceledAt;
+
+	// 취소를 시작한 시각 (BUK-9). 환불 결과를 모르는 취소 중을 재처리가 이 시각으로 고른다. 결제 완료로 되돌리면 지운다
+	@Column(name = "cancel_requested_at")
+	private LocalDateTime cancelRequestedAt;
 
 	static OrderItem ticket(Order order, Participation participation, RaceCourseInfo course) {
 		OrderItem item = new OrderItem();
@@ -111,9 +115,13 @@ public class OrderItem extends BaseIdAndTime {
 	}
 
 	// 결제한 상품만 취소할 수 있다. 같은 취소가 두 번 오면 두 번째는 여기서 막혀 환불도 한 번만 일어난다
+	// 취소 중이면 환불 결과를 기다리는 중이라 다시 시작하지 않는다. 재처리가 마무리한다 (BUK-9)
 	public void checkCancelable() {
 		if (status == OrderItemStatus.CANCELED) {
 			throw new OrderItemNotCancelableException("이미 취소한 상품입니다.");
+		}
+		if (status == OrderItemStatus.CANCELING) {
+			throw new OrderItemNotCancelableException("취소 처리 중인 상품입니다. 잠시 뒤 주문 내역에서 확인해주세요.");
 		}
 		if (status != OrderItemStatus.PAID) {
 			throw new OrderItemNotCancelableException(
@@ -121,14 +129,38 @@ public class OrderItem extends BaseIdAndTime {
 		}
 	}
 
-	void cancel(LocalDateTime canceledAt) {
+	// 사용자 취소의 첫 단계: 환불을 부르기 전에 취소 중과 시작 시각을 커밋한다 (결제 완료 → 취소 중)
+	void startCancel(LocalDateTime requestedAt) {
 		checkCancelable();
+		this.status = OrderItemStatus.CANCELING;
+		this.cancelRequestedAt = requestedAt;
+	}
+
+	public boolean isCanceling() {
+		return status == OrderItemStatus.CANCELING;
+	}
+
+	// 취소 중에서 마무리하거나(사용자 취소, BUK-9) 결제 완료에서 바로 취소한다(대회 취소 일괄 환불)
+	void cancel(LocalDateTime canceledAt) {
+		if (status != OrderItemStatus.CANCELING) {
+			checkCancelable();
+		}
 		this.status = OrderItemStatus.CANCELED;
 		this.canceledAmount = amount;
 		this.canceledAt = canceledAt;
 	}
 
-	public boolean isSoldBy(int sellerId) {
+	// 예치금이 환불을 거절했다(4xx). 돈이 움직이지 않았으므로 결제 완료로 되돌리고 시작 시각을 지운다 (취소 중 → 결제 완료)
+	void revertCancel() {
+		if (status != OrderItemStatus.CANCELING) {
+			throw new IllegalStateException(
+				"취소 중인 상품만 되돌릴 수 있습니다(현재 상태: %s).".formatted(status.getLabel()));
+		}
+		this.status = OrderItemStatus.PAID;
+		this.cancelRequestedAt = null;
+	}
+
+	public boolean isSoldBy(long sellerId) {
 		return this.sellerId == sellerId;
 	}
 

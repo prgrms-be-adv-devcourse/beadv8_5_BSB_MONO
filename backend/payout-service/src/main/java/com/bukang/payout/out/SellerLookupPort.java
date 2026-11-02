@@ -18,13 +18,13 @@ public interface SellerLookupPort {
 	 * @throws com.bukang.payout.domain.exception.PayoutSellerLookupUnavailableException 판매자 정보를 확인하지 못함 (503).
 	 *         빈 값이나 '신청 없음'으로 바꿔 돌려주지 않는다 (판매자가 "정산이 없다"로 잘못 읽는다)
 	 */
-	Optional<SellerOfMember> findSellerOf(int memberId);
+	Optional<SellerOfMember> findSellerOf(long memberId);
 
 	/**
 	 * @param sellerId 판매자 신청서 ID (MEMBER_SELLER.seller_id). 회원 ID와 다른 값이다
 	 * @param status   그 신청의 상태
 	 */
-	record SellerOfMember(Integer sellerId, SellerStatus status) {
+	record SellerOfMember(Long sellerId, SellerStatus status) {
 		public boolean isApproved() {
 			return status == SellerStatus.APPROVED && sellerId != null;
 		}

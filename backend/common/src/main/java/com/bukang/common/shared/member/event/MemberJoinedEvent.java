@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
  * 브로커에 평문 JSON으로 남으므로 BaseMember와 같은 공개 정보만 담는다. 이메일, 휴대폰 번호는 넣지 않는다.
  */
 public record MemberJoinedEvent(
-	int id,
+	long id,
 	LocalDateTime createDate,
 	LocalDateTime modifyDate,
 	String nickname

@@ -32,7 +32,7 @@ import com.bukang.payout.out.SellerLookupPort.SellerOfMember;
 class MemberSellerLookupAdapterTest {
 	private static final String BASE_URL = "http://member-service";
 	private static final String URL = BASE_URL + "/internal/v1/member/members/7/seller";
-	private static final int MEMBER_ID = 7;
+	private static final long MEMBER_ID = 7;
 
 	private MockRestServiceServer server;
 	private MemberSellerLookupAdapter adapter;
@@ -54,7 +54,7 @@ class MemberSellerLookupAdapterTest {
 					"data": { "sellerId": 3, "status": "APPROVED" } }
 				""", MediaType.APPLICATION_JSON));
 
-		assertThat(adapter.findSellerOf(MEMBER_ID)).contains(new SellerOfMember(3, SellerStatus.APPROVED));
+		assertThat(adapter.findSellerOf(MEMBER_ID)).contains(new SellerOfMember(3L, SellerStatus.APPROVED));
 		server.verify();
 	}
 

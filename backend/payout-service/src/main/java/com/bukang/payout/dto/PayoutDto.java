@@ -17,9 +17,9 @@ import lombok.Getter;
 @AllArgsConstructor
 @Getter
 public class PayoutDto {
-	private final int id;
+	private final long id;
 	private final String payoutCode;
-	private final int raceId;
+	private final long raceId;
 	private final String raceName;
 	// 정산 단계: FIRST(1차 정산금, 40%) / FINAL(최종). 같은 대회 · 같은 달에 두 줄이 생길 수 있다
 	private final PayoutStage payoutStage;

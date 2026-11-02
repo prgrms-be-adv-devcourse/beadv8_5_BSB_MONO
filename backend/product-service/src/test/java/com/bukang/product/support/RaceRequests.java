@@ -5,7 +5,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import com.bukang.common.shared.file.domain.FileType;
 import com.bukang.product.domain.CourseSurface;
@@ -21,7 +21,7 @@ import com.bukang.product.dto.RaceSaveRequestDto;
  */
 public final class RaceRequests {
 	// 요청 안에서 같은 파일을 두 번 넣으면 400이므로, 대표 이미지 fileId는 만들 때마다 다르게 준다
-	private static final AtomicInteger FILE_ID = new AtomicInteger(1);
+	private static final AtomicLong FILE_ID = new AtomicLong(1);
 
 	private RaceRequests() {
 	}
@@ -141,15 +141,15 @@ public final class RaceRequests {
 	}
 
 	public static final class CourseBuilder {
-		private Integer courseId;
+		private Long courseId;
 		private String name = "10K";
 		private CourseType courseType = CourseType.KM_10;
 		private CourseSurface surface = CourseSurface.ROAD;
 		private BigDecimal distanceKm = new BigDecimal("10");
 		private Integer timeLimitMinutes = 90;
-		private Integer price = 45_000;
+		private Long price = 45_000L;
 		private Boolean kitIncluded = false;
-		private Integer kitPrice = 0;
+		private Long kitPrice = 0L;
 		private List<TshirtSize> tshirtSizeOption;
 		private Integer minAge = 14;
 		private Integer maxAge;
@@ -158,7 +158,7 @@ public final class RaceRequests {
 		private List<RaceImageRequestDto> images;
 
 		// 수정 요청에서 기존 종목을 가리킬 때
-		public CourseBuilder courseId(Integer courseId) {
+		public CourseBuilder courseId(Long courseId) {
 			this.courseId = courseId;
 			return this;
 		}
@@ -188,13 +188,13 @@ public final class RaceRequests {
 			return this;
 		}
 
-		public CourseBuilder price(Integer price) {
+		public CourseBuilder price(long price) {
 			this.price = price;
 			return this;
 		}
 
 		// 키트 포함 + 티셔츠 사이즈 (비우면 티셔츠 없음)
-		public CourseBuilder kit(int kitPrice, TshirtSize... sizes) {
+		public CourseBuilder kit(long kitPrice, TshirtSize... sizes) {
 			this.kitIncluded = true;
 			this.kitPrice = kitPrice;
 			this.tshirtSizeOption = List.of(sizes);

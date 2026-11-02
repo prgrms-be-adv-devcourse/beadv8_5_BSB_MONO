@@ -16,7 +16,7 @@ import lombok.Getter;
 @AllArgsConstructor
 @Getter
 public class RaceSummaryDto {
-	private final int raceId;
+	private final long raceId;
 	private final String title;
 	private final String location;
 	private final String regionSido;
@@ -33,12 +33,12 @@ public class RaceSummaryDto {
 	private final LocalDateTime applicationCloseAt;
 	// 조건에 맞은 종목 중 가장 싼 참가비 ("₩45,000부터"). 조건이 없으면 대회에서 가장 싼 종목의 참가비
 	//   "하프"만 골랐으면 5K가 더 싸도 하프 종목의 참가비
-	private final int minPrice;
+	private final long minPrice;
 	private final List<RaceSummaryCourseDto> courses;
 
-	public static RaceSummaryDto from(Race race, int minPrice) {
+	public static RaceSummaryDto from(Race race, long minPrice) {
 		List<RaceSummaryCourseDto> courses = race.getCourses().stream()
-			.sorted(Comparator.comparingInt(RaceCourse::getId))
+			.sorted(Comparator.comparingLong(RaceCourse::getId))
 			.map(RaceSummaryCourseDto::from)
 			.toList();
 		return new RaceSummaryDto(race.getId(), race.getTitle(), race.getLocation(), race.getRegionSido(),

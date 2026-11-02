@@ -67,16 +67,16 @@ public class Order extends BaseIdAndTime {
 	private String orderNo;
 
 	@Column(name = "buyer_id", nullable = false)
-	private int buyerId;
+	private long buyerId;
 
 	@Column(name = "race_id", nullable = false)
-	private int raceId;
+	private long raceId;
 
 	@Column(name = "total_amount", nullable = false)
-	private int totalAmount;
+	private long totalAmount;
 
 	@Column(name = "canceled_amount", nullable = false)
-	private int canceledAmount;
+	private long canceledAmount;
 
 	@Enumerated(STRING)
 	@Column(name = "status", nullable = false, columnDefinition = "varchar(20)")
@@ -105,7 +105,7 @@ public class Order extends BaseIdAndTime {
 	@OrderBy("id")
 	private List<Shipment> shipments = new ArrayList<>();
 
-	private Order(int buyerId, int raceId, String idempotencyKey, LocalDateTime paymentDueAt) {
+	private Order(long buyerId, long raceId, String idempotencyKey, LocalDateTime paymentDueAt) {
 		this.buyerId = buyerId;
 		this.raceId = raceId;
 		this.idempotencyKey = idempotencyKey;
@@ -118,7 +118,7 @@ public class Order extends BaseIdAndTime {
 		LocalDateTime paymentDueAt) {
 		Order order = new Order(participation.getMemberId(), course.raceId(), idempotencyKey, paymentDueAt);
 		order.items.add(OrderItem.ticket(order, participation, course));
-		order.totalAmount = order.items.stream().mapToInt(OrderItem::getAmount).sum();
+		order.totalAmount = order.items.stream().mapToLong(OrderItem::getAmount).sum();
 		return order;
 	}
 
@@ -134,7 +134,7 @@ public class Order extends BaseIdAndTime {
 	}
 
 	// 이 주문이 해당 참가 신청으로 만든 주문인지 (같은 Idempotency-Key를 다른 신청서에 다시 쓴 요청 가려내기)
-	public boolean isFor(int participationId) {
+	public boolean isFor(long participationId) {
 		return items.stream().anyMatch(item -> item.getParticipationId() == participationId);
 	}
 
@@ -190,11 +190,27 @@ public class Order extends BaseIdAndTime {
 		}
 	}
 
-	public OrderItem findItem(int orderItemId) {
+	public OrderItem findItem(long orderItemId) {
 		return items.stream()
 			.filter(item -> item.getId() == orderItemId)
 			.findFirst()
 			.orElseThrow(() -> new OrderItemNotFoundException("주문에 없는 상품입니다."));
+	}
+
+	// 주문 상품 취소를 시작한다(결제 완료 → 취소 중). 주문 상태와 배송은 환불이 확인돼 마무리할 때(cancelItem) 바꾼다 (BUK-9)
+	public void startCancelItem(OrderItem item, LocalDateTime requestedAt) {
+		item.startCancel(requestedAt);
+	}
+
+	// 예치금이 환불을 거절해 취소 중을 결제 완료로 되돌린다. 주문 상태·배송은 시작 때 바꾸지 않았으므로 그대로다
+	public void revertCancelItem(OrderItem item) {
+		item.revertCancel();
+	}
+
+	// 참가 신청의 주문 상품이 취소 중인지. 환불 결과를 기다리는 동안 참가자 정보를 고치지 못하게 한다
+	public boolean isCanceling(long participationId) {
+		return items.stream()
+			.anyMatch(item -> item.getParticipationId() == participationId && item.isCanceling());
 	}
 
 	// 주문 상품 하나를 취소한다. 모두 취소되면 CANCELED, 일부만이면 PARTIAL_CANCELED (정책 5장, ERD D3)
@@ -211,6 +227,7 @@ public class Order extends BaseIdAndTime {
 
 	// 대회가 취소됐다. 결제한 주문 상품을 모두 취소하고 취소한 상품을 돌려준다 (키트 포함 전액, 정책 1차 5장 4번)
 	// 결제 전이거나 이미 취소한 상품은 그대로 둔다. 같은 취소가 다시 와도 빈 목록이라 환불이 한 번만 일어난다
+	// 취소 중인 상품도 건너뛴다. 사용자 취소의 재처리가 같은 주문 ID로 환불하고 마무리한다 (BUK-9)
 	// 취소한 상품이 있으면 구매자에게 알리도록 이벤트를 발행한다 (환불까지 커밋된 뒤에 알린다)
 	public List<OrderItem> cancelPaidItems(LocalDateTime canceledAt) {
 		List<OrderItem> paidItems = items.stream()
@@ -218,7 +235,7 @@ public class Order extends BaseIdAndTime {
 			.toList();
 		paidItems.forEach(item -> cancelItem(item, canceledAt));
 		if (!paidItems.isEmpty()) {
-			int refundedAmount = paidItems.stream().mapToInt(OrderItem::getAmount).sum();
+			long refundedAmount = paidItems.stream().mapToLong(OrderItem::getAmount).sum();
 			publishEvent(new OrderRaceCanceledEvent(getId(), buyerId, raceId, refundedAmount));
 		}
 		return paidItems;
@@ -265,11 +282,11 @@ public class Order extends BaseIdAndTime {
 	}
 
 	// 개인 예매 주문은 참가 신청 1건짜리다 (결제 1건 = 참가 신청 1건)
-	public int participationId() {
+	public long participationId() {
 		return items.getFirst().getParticipationId();
 	}
 
-	public boolean isOwnedBy(int memberId) {
+	public boolean isOwnedBy(long memberId) {
 		return buyerId == memberId;
 	}
 

@@ -14,7 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 @Component
 public class NoSellerAccountAdapter implements SellerAccountPort {
 	@Override
-	public boolean hasPayoutAccount(int sellerId) {
+	public boolean hasPayoutAccount(long sellerId) {
 		log.warn("판매자 계좌 정보 연결 전이라 계좌가 있다고 봅니다. sellerId={}", sellerId);
 		return true;
 	}

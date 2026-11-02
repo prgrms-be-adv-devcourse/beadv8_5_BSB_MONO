@@ -34,8 +34,8 @@ import com.bukang.file.support.FakeFileStorageConfig;
 @ActiveProfiles("test")
 @Import(FakeFileStorageConfig.class)
 class FileLinkAndQueryTest {
-	private static final int OWNER_ID = 1;
-	private static final int OTHER_MEMBER_ID = 2;
+	private static final long OWNER_ID = 1;
+	private static final long OTHER_MEMBER_ID = 2;
 	private static final String RACE = "Race";
 
 	@Autowired
@@ -268,7 +268,7 @@ class FileLinkAndQueryTest {
 			.andExpect(status().isNotFound());
 	}
 
-	private ResultActions link(String refType, int refId, int ownerId, String... items) throws Exception {
+	private ResultActions link(String refType, long refId, long ownerId, String... items) throws Exception {
 		String body = """
 			{"ownerId": %d, "files": [%s]}
 			""".formatted(ownerId, String.join(",", items));
@@ -287,13 +287,13 @@ class FileLinkAndQueryTest {
 		return storedFileRepository.findById(file.getId()).orElseThrow().getStatus();
 	}
 
-	private StoredFile pendingFile(int ownerId, FileType fileType) {
+	private StoredFile pendingFile(long ownerId, FileType fileType) {
 		return StoredFile.pending(
 			"uploads/" + UUID.randomUUID() + ".png", "race.png", fileType, FileFormat.PNG, 70, ownerId);
 	}
 
 	// 업로드 확인까지 마친 파일
-	private StoredFile uploadedFile(int ownerId, FileType fileType) {
+	private StoredFile uploadedFile(long ownerId, FileType fileType) {
 		StoredFile file = pendingFile(ownerId, fileType);
 		file.confirmUpload(file.getS3Key().replace("uploads/", "files/"));
 		return storedFileRepository.save(file);

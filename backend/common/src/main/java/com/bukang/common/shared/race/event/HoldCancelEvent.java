@@ -7,6 +7,6 @@ package com.bukang.common.shared.race.event;
  */
 public record HoldCancelEvent(
 	// 자리를 확보할 때 보낸 참가 신청 ID
-	int participationId
+	long participationId
 ) {
 }

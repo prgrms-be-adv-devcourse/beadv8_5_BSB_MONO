@@ -41,7 +41,7 @@ class FileRefTest {
 	// product-service의 대회 엔티티 대신 쓰는 테스트용 엔티티 (클래스 이름 Race가 대상 종류가 된다)
 	// ID는 저장할 때 JPA가 넣으므로, 테스트에서는 필드에 직접 넣는다
 	private static class Race extends BaseIdAndTime {
-		Race(int id) {
+		Race(long id) {
 			ReflectionTestUtils.setField(this, "id", id);
 		}
 	}

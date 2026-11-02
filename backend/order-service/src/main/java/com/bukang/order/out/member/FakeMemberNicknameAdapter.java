@@ -18,12 +18,12 @@ import lombok.extern.slf4j.Slf4j;
 @Component
 @ConditionalOnProperty(prefix = "order.clients.nickname", name = "mode", havingValue = "fake")
 public class FakeMemberNicknameAdapter implements MemberNicknamePort {
-	static final Map<String, Integer> SEED_MEMBER_IDS = Map.of(
-		"관리자", 3,
-		"사용자1", 4,
-		"사용자2", 5,
-		"사용자3", 6,
-		"판매자1", 7
+	static final Map<String, Long> SEED_MEMBER_IDS = Map.of(
+		"관리자", 3L,
+		"사용자1", 4L,
+		"사용자2", 5L,
+		"사용자3", 6L,
+		"판매자1", 7L
 	);
 
 	// 호출마다 경고를 남기면 로그가 묻히므로, 앱을 켤 때 한 번만 알린다
@@ -32,7 +32,7 @@ public class FakeMemberNicknameAdapter implements MemberNicknamePort {
 	}
 
 	@Override
-	public Optional<Integer> findMemberId(String nickname) {
+	public Optional<Long> findMemberId(String nickname) {
 		return Optional.ofNullable(SEED_MEMBER_IDS.get(nickname));
 	}
 }

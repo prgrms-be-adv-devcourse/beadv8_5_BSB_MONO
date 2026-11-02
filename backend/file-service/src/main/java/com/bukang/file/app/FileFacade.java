@@ -39,7 +39,7 @@ public class FileFacade {
 	private final TransactionTemplate transactionTemplate;
 
 	@Transactional
-	public FileUploadDto createUploadUrl(FileUploadRequestDto request, int memberId) {
+	public FileUploadDto createUploadUrl(FileUploadRequestDto request, long memberId) {
 		// 용도에 맞는 형식·크기인지 검사하고, 업로드 경로(uploads/) 키로 PENDING 파일을 저장한다
 		StoredFile file = fileUploadUseCase.create(
 			request.getFileType(),
@@ -55,12 +55,12 @@ public class FileFacade {
 
 	// 확인에 실패해도 삭제 상태는 남겨야 하므로 InvalidFileException에는 롤백하지 않는다
 	@Transactional(noRollbackFor = InvalidFileException.class)
-	public FileDto completeUpload(int fileId, int memberId) {
+	public FileDto completeUpload(long fileId, long memberId) {
 		return toDto(fileUploadUseCase.complete(fileId, memberId));
 	}
 
 	@Transactional
-	public List<FileDto> link(String refType, int refId, FileLinkRequestDto request) {
+	public List<FileDto> link(String refType, long refId, FileLinkRequestDto request) {
 		return fileLinkUseCase.link(refType, refId, request.getOwnerId(), request.getFiles()).stream()
 			.map(this::toDto)
 			.toList();
@@ -95,7 +95,7 @@ public class FileFacade {
 	}
 
 	// 대상에 연결된 파일만 돌려준다
-	public List<FileDto> findByRef(String refType, int refId) {
+	public List<FileDto> findByRef(String refType, long refId) {
 		return storedFileRepository.findAllByRefTypeAndRefIdAndStatus(refType, refId, FileStatus.ACTIVE).stream()
 			.sorted(StoredFile.DISPLAY_ORDER)
 			.map(this::toDto)
@@ -103,7 +103,7 @@ public class FileFacade {
 	}
 
 	// 대상에 연결된 파일은 누구나, 연결 전 파일은 올린 회원만 볼 수 있다
-	public FileDto findById(int fileId, Integer memberId) {
+	public FileDto findById(long fileId, Long memberId) {
 		StoredFile file = storedFileRepository.findById(fileId)
 			.filter(found -> !found.isDeleted())
 			.orElseThrow(() -> new StoredFileNotFoundException("존재하지 않는 파일입니다."));

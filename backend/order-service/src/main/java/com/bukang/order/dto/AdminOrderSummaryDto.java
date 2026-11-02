@@ -12,18 +12,18 @@ import lombok.Getter;
 @AllArgsConstructor
 @Getter
 public class AdminOrderSummaryDto {
-	private final int id;
+	private final long id;
 	private final String orderNo;
 	// 구매자 회원 ID. 주문번호로 찾았을 때 누구의 주문인지 알 수 있다
-	private final int buyerId;
+	private final long buyerId;
 	// 주문 일시
 	private final LocalDateTime createDate;
 	// 첫 주문 상품의 주문 당시 상품명
 	private final String itemName;
 	private final int itemCount;
-	private final int totalAmount;
+	private final long totalAmount;
 	// 취소해 돌려준 금액 (부분 취소·취소)
-	private final int canceledAmount;
+	private final long canceledAmount;
 	private final OrderStatus status;
 	private final String statusLabel;
 	// 결제 전이거나 결제하지 않고 끝난 주문은 null

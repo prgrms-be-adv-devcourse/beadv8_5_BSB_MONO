@@ -41,11 +41,11 @@ import jakarta.persistence.PersistenceContext;
  */
 class InternalV1HoldTest extends ProductIntegrationTest {
 	private static final String HOLDS_PATH = "/internal/v1/product/holds";
-	private static final int PARTICIPATION_ID = 1001;
-	private static final int OTHER_PARTICIPATION_ID = 1002;
+	private static final long PARTICIPATION_ID = 1001;
+	private static final long OTHER_PARTICIPATION_ID = 1002;
 	// 확보한 적 없는 참가 신청
-	private static final int UNKNOWN_PARTICIPATION_ID = 99_999;
-	private static final int UNKNOWN_COURSE_ID = 999_999;
+	private static final long UNKNOWN_PARTICIPATION_ID = 99_999;
+	private static final long UNKNOWN_COURSE_ID = 999_999;
 	// 기본 요청(race().build())의 개인 정원
 	private static final int DEFAULT_QUOTA = 100;
 	// 동시 판매·해제 테스트에서 해제 메시지를 보낸 쪽이 돌려주는 값
@@ -63,7 +63,7 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 	@DisplayName("판매 중인 종목(개인 정원 100석)에 10분 뒤 끝나는 자리를 확보하면 held=true와 요청한 끝 시각을 돌려주고, "
 		+ "남은 자리가 99석이 되며 자리 행은 결제 대기(HELD)다")
 	void holdSeat() throws Exception {
-		int courseId = registerOnSale(race().build()).courseId();
+		long courseId = registerOnSale(race().build()).courseId();
 		LocalDateTime expiresAt = tenMinutesLater();
 
 		ResultActions result = hold(courseId, PARTICIPATION_ID, expiresAt)
@@ -91,7 +91,7 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 	@DisplayName("같은 참가 신청(1001)으로 끝 시각을 20분 뒤로 바꿔 다시 확보해도 처음 결과(held=true, 10분 뒤)를 돌려주고 "
 		+ "자리는 1석만 줄어든다")
 	void holdAgainWithSameParticipation() throws Exception {
-		int courseId = registerOnSale(race().build()).courseId();
+		long courseId = registerOnSale(race().build()).courseId();
 		LocalDateTime firstExpiresAt = tenMinutesLater();
 		hold(courseId, PARTICIPATION_ID, firstExpiresAt).andExpect(status().isOk());
 
@@ -111,7 +111,7 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 	@Test
 	@DisplayName("판매까지 끝난 참가 신청(1001)으로 다시 확보해도 처음 결과(held=true)를 돌려주고 결제 대기 0·판매 1 그대로다")
 	void holdAgainAfterSold() throws Exception {
-		int courseId = registerOnSale(race().build()).courseId();
+		long courseId = registerOnSale(race().build()).courseId();
 		LocalDateTime expiresAt = tenMinutesLater();
 		hold(courseId, PARTICIPATION_ID, expiresAt).andExpect(status().isOk());
 		sell(PARTICIPATION_ID).andExpect(status().isOk());
@@ -130,7 +130,7 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 	@Test
 	@DisplayName("개인 정원 1석 종목에서 1001이 확보한 뒤 1002가 확보하면 200 held=false(매진)이고 종목 상태는 SOLD_OUT이다")
 	void holdSoldOut() throws Exception {
-		int courseId = registerOnSale(race().course(course().quota(0, 1)).build()).courseId();
+		long courseId = registerOnSale(race().course(course().quota(0, 1)).build()).courseId();
 		hold(courseId, PARTICIPATION_ID).andExpect(status().isOk());
 
 		hold(courseId, OTHER_PARTICIPATION_ID)
@@ -150,7 +150,7 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 	@Test
 	@DisplayName("끝 시각이 1분 지난 확보 요청은 400 '임시 확보 끝 시각이 이미 지났습니다.'이고 자리를 잡지 않는다")
 	void rejectPastExpiresAt() throws Exception {
-		int courseId = registerOnSale(race().build()).courseId();
+		long courseId = registerOnSale(race().build()).courseId();
 
 		hold(courseId, PARTICIPATION_ID, LocalDateTime.now().minusMinutes(1))
 			.andExpect(status().isBadRequest())
@@ -165,7 +165,7 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 	@DisplayName("확보 요청 값이 잘못되면(끝 시각·종목 ID·참가 신청 ID 누락, 종목 ID 0, 참가 신청 ID -1, 날짜가 아닌 끝 시각) "
 		+ "400이고 자리를 잡지 않는다")
 	void rejectInvalidHoldRequest() throws Exception {
-		int courseId = registerOnSale(race().build()).courseId();
+		long courseId = registerOnSale(race().build()).courseId();
 		String expiresAt = tenMinutesLater().toString();
 
 		holdWithBody("{\"raceCourseId\":%d,\"participationId\":%d}".formatted(courseId, PARTICIPATION_ID))
@@ -262,7 +262,7 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 	@Test
 	@DisplayName("해제된 참가 신청(1001)으로 다시 확보하면 409 '…(자리 상태: 해제)'이고 자리를 다시 잡지 않는다")
 	void rejectHoldAfterRelease() throws Exception {
-		int courseId = registerOnSale(race().build()).courseId();
+		long courseId = registerOnSale(race().build()).courseId();
 		hold(courseId, PARTICIPATION_ID).andExpect(status().isOk());
 		releaseByMessage(PARTICIPATION_ID);
 
@@ -279,7 +279,7 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 	@Test
 	@DisplayName("환불 복구된 참가 신청(1001)으로 다시 확보하면 409 '…(자리 상태: 환불 복구)'이고 자리를 다시 잡지 않는다")
 	void rejectHoldAfterRestore() throws Exception {
-		int courseId = registerOnSale(race().build()).courseId();
+		long courseId = registerOnSale(race().build()).courseId();
 		hold(courseId, PARTICIPATION_ID).andExpect(status().isOk());
 		sell(PARTICIPATION_ID).andExpect(status().isOk());
 		restore(PARTICIPATION_ID).andExpect(status().isOk());
@@ -299,7 +299,7 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 	@Test
 	@DisplayName("결제 대기 자리(1001)를 판매하면 200 result=SOLD이고, 결제 대기 1이 판매 1로 옮겨 가며 남은 자리는 99석 그대로다")
 	void sellSeat() throws Exception {
-		int courseId = registerOnSale(race().build()).courseId();
+		long courseId = registerOnSale(race().build()).courseId();
 		hold(courseId, PARTICIPATION_ID).andExpect(status().isOk());
 
 		sell(PARTICIPATION_ID)
@@ -320,7 +320,7 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 	@Test
 	@DisplayName("이미 판매한 자리(1001)는 끝 시각이 지난 뒤 다시 판매해도 SOLD이고 판매 수는 1 그대로다")
 	void sellAgainAfterSold() throws Exception {
-		int courseId = registerOnSale(race().build()).courseId();
+		long courseId = registerOnSale(race().build()).courseId();
 		hold(courseId, PARTICIPATION_ID).andExpect(status().isOk());
 		sell(PARTICIPATION_ID).andExpect(status().isOk());
 		LocalDateTime soldAt = holdOf(PARTICIPATION_ID).getSoldAt();
@@ -352,7 +352,7 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 	@Test
 	@DisplayName("해제 메시지로 해제된 자리(1001)를 판매하면 EXPIRED이고 판매 수는 0 그대로다")
 	void sellReleasedSeat() throws Exception {
-		int courseId = registerOnSale(race().build()).courseId();
+		long courseId = registerOnSale(race().build()).courseId();
 		hold(courseId, PARTICIPATION_ID).andExpect(status().isOk());
 		releaseByMessage(PARTICIPATION_ID);
 
@@ -373,7 +373,7 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 	@DisplayName("끝 시각이 1분 지난 결제 대기 자리(1001)를 판매하면 EXPIRED이고 결제 대기로 남았다가, "
 		+ "해제 메시지가 오면 정원으로 돌아간다")
 	void sellExpiredSeat() throws Exception {
-		int courseId = registerOnSale(race().build()).courseId();
+		long courseId = registerOnSale(race().build()).courseId();
 		hold(courseId, PARTICIPATION_ID).andExpect(status().isOk());
 		moveExpiresAtToPast(PARTICIPATION_ID);
 
@@ -401,7 +401,7 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 	@DisplayName("개인 정원 1석 종목에서 판매한 자리(1001)를 복구하면 restored=true이고, 판매 수가 0이 되며 "
 		+ "종목 상태가 SOLD_OUT에서 OPEN으로 돌아간다")
 	void restoreSoldSeat() throws Exception {
-		int courseId = registerOnSale(race().course(course().quota(0, 1)).build()).courseId();
+		long courseId = registerOnSale(race().course(course().quota(0, 1)).build()).courseId();
 		hold(courseId, PARTICIPATION_ID).andExpect(status().isOk());
 		sell(PARTICIPATION_ID).andExpect(status().isOk());
 		assertThat(courseOf(courseId).getStatus()).isEqualTo(CourseStatus.SOLD_OUT);
@@ -423,7 +423,7 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 	@Test
 	@DisplayName("복구한 자리(1001)를 다시 복구하면 restored=false '되돌릴 판매 자리가 없습니다.'이고 판매 수는 0 그대로다")
 	void restoreAgain() throws Exception {
-		int courseId = registerOnSale(race().build()).courseId();
+		long courseId = registerOnSale(race().build()).courseId();
 		hold(courseId, PARTICIPATION_ID).andExpect(status().isOk());
 		sell(PARTICIPATION_ID).andExpect(status().isOk());
 		restore(PARTICIPATION_ID).andExpect(status().isOk());
@@ -443,7 +443,7 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 	@DisplayName("판매한 자리(1001)의 복구 메시지(product.hold.restore)가 두 번 와도 판매 수는 한 번만 줄고(1 → 0), "
 		+ "남은 자리는 정원 그대로이며 자리는 RESTORED다")
 	void restoreMessageTwiceIsIdempotent() throws Exception {
-		int courseId = registerOnSale(race().build()).courseId();
+		long courseId = registerOnSale(race().build()).courseId();
 		hold(courseId, PARTICIPATION_ID).andExpect(status().isOk());
 		sell(PARTICIPATION_ID).andExpect(status().isOk());
 		assertThat(courseOf(courseId).getIndividualSold()).isEqualTo(1);
@@ -461,7 +461,7 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 	@Test
 	@DisplayName("판매하지 않은 결제 대기 자리(1001)에 복구 메시지가 와도 예외 없이 건너뛰고 결제 대기 1석 그대로다")
 	void restoreMessageIgnoresHeldSeat() throws Exception {
-		int courseId = registerOnSale(race().build()).courseId();
+		long courseId = registerOnSale(race().build()).courseId();
 		hold(courseId, PARTICIPATION_ID).andExpect(status().isOk());
 
 		restoreByMessage(PARTICIPATION_ID);
@@ -474,7 +474,7 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 	@Test
 	@DisplayName("판매하지 않은 결제 대기 자리(1001)와 확보한 적 없는 신청(99999)을 복구하면 restored=false이고 카운터는 그대로다")
 	void restoreNotSoldSeat() throws Exception {
-		int courseId = registerOnSale(race().build()).courseId();
+		long courseId = registerOnSale(race().build()).courseId();
 		hold(courseId, PARTICIPATION_ID).andExpect(status().isOk());
 
 		restore(PARTICIPATION_ID)
@@ -497,7 +497,7 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 	@DisplayName("개인 정원 1석 종목의 결제 대기 자리(1001)에 해제 메시지가 오면 결제 대기가 0이 되고, 자리 행은 RELEASED·"
 		+ "사유 EXPIRED·해제 일시가 남으며 종목은 다시 OPEN이다")
 	void releaseByHoldCancelMessage() throws Exception {
-		int courseId = registerOnSale(race().course(course().quota(0, 1)).build()).courseId();
+		long courseId = registerOnSale(race().course(course().quota(0, 1)).build()).courseId();
 		hold(courseId, PARTICIPATION_ID).andExpect(status().isOk());
 		assertThat(courseOf(courseId).getStatus()).isEqualTo(CourseStatus.SOLD_OUT);
 
@@ -518,7 +518,7 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 	@Test
 	@DisplayName("같은 해제 메시지(1001)가 두 번 와도 결제 대기는 한 번만 줄고(1 → 0), 해제 일시도 처음 그대로다")
 	void releaseTwiceIsIdempotent() throws Exception {
-		int courseId = registerOnSale(race().build()).courseId();
+		long courseId = registerOnSale(race().build()).courseId();
 		hold(courseId, PARTICIPATION_ID).andExpect(status().isOk());
 		releaseByMessage(PARTICIPATION_ID);
 		LocalDateTime firstReleasedAt = holdOf(PARTICIPATION_ID).getReleasedAt();
@@ -536,7 +536,7 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 	@Test
 	@DisplayName("판매한 자리(1001)에 해제 메시지가 늦게 와도 자리는 SOLD 그대로이고 판매 수 1이 유지된다")
 	void releaseIgnoresSoldSeat() throws Exception {
-		int courseId = registerOnSale(race().build()).courseId();
+		long courseId = registerOnSale(race().build()).courseId();
 		hold(courseId, PARTICIPATION_ID).andExpect(status().isOk());
 		sell(PARTICIPATION_ID).andExpect(status().isOk());
 
@@ -555,7 +555,7 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 	@Test
 	@DisplayName("확보한 적 없는 참가 신청(99999)의 해제 메시지는 예외 없이 건너뛰고, 다른 신청(1001)의 결제 대기 자리는 그대로다")
 	void releaseUnknownParticipation() throws Exception {
-		int courseId = registerOnSale(race().build()).courseId();
+		long courseId = registerOnSale(race().build()).courseId();
 		hold(courseId, PARTICIPATION_ID).andExpect(status().isOk());
 
 		assertThatCode(() -> releaseByMessage(UNKNOWN_PARTICIPATION_ID)).doesNotThrowAnyException();
@@ -570,7 +570,7 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 	@Test
 	@DisplayName("개인 정원 3석에 20명이 동시에 확보하면 3명만 확보되고, 결제 대기 카운터와 HELD 자리 행 수가 모두 3이다")
 	void holdConcurrentlyOverQuota() throws Exception {
-		int courseId = registerOnSale(race().course(course().quota(0, 3)).build()).courseId();
+		long courseId = registerOnSale(race().course(course().quota(0, 3)).build()).courseId();
 
 		List<Boolean> results = runConcurrently(20, index ->
 			heldOf(hold(courseId, 2000 + index).andExpect(status().isOk())));
@@ -587,7 +587,7 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 	@Test
 	@DisplayName("같은 참가 신청(3001)으로 10번 동시에 확보해도 모두 held=true이고, 자리는 1석만 줄며 자리 행도 1개다")
 	void holdSameParticipationConcurrently() throws Exception {
-		int courseId = registerOnSale(race().build()).courseId();
+		long courseId = registerOnSale(race().build()).courseId();
 		LocalDateTime expiresAt = tenMinutesLater();
 
 		List<Boolean> results = runConcurrently(10, index ->
@@ -605,7 +605,7 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 	@DisplayName("결제 대기 자리 10석마다 판매와 해제 메시지가 동시에 와도 한쪽만 반영되어, 결제 대기 + 판매 수가 "
 		+ "HELD·SOLD 자리 행 수와 같다")
 	void sellAndReleaseConcurrently() throws Exception {
-		int courseId = registerOnSale(race().build()).courseId();
+		long courseId = registerOnSale(race().build()).courseId();
 		int seatCount = 10;
 		int firstParticipationId = 4000;
 		for (int i = 0; i < seatCount; i++) {
@@ -614,7 +614,7 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 
 		// 짝수 번째는 판매, 홀수 번째는 같은 자리의 해제 메시지 (자리 i = 요청 2i, 2i + 1)
 		List<String> results = runConcurrently(seatCount * 2, index -> {
-			int participationId = firstParticipationId + index / 2;
+			long participationId = firstParticipationId + index / 2;
 			if (index % 2 == 0) {
 				return sellResultOf(sell(participationId).andExpect(status().isOk()));
 			}
@@ -643,7 +643,7 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 		return LocalDateTime.now().plusMinutes(10).withNano(0);
 	}
 
-	private String holdJson(int raceCourseId, int participationId, String expiresAt) {
+	private String holdJson(long raceCourseId, long participationId, String expiresAt) {
 		return "{\"raceCourseId\":%d,\"participationId\":%d,\"expiresAt\":\"%s\"}"
 			.formatted(raceCourseId, participationId, expiresAt);
 	}
@@ -656,17 +656,17 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 	}
 
 	// 주문 서비스가 product.hold.cancel로 보내는 본문 그대로 리스너 메서드에 넘긴다
-	private void releaseByMessage(int participationId) {
+	private void releaseByMessage(long participationId) {
 		productKafkaConsumer.handleHoldCancel("{\"participationId\": %d}".formatted(participationId));
 	}
 
 	// 주문 서비스가 product.hold.restore로 보내는 본문 그대로 리스너 메서드에 넘긴다
-	private void restoreByMessage(int participationId) {
+	private void restoreByMessage(long participationId) {
 		productKafkaConsumer.handleHoldRestore("{\"participationId\":%d}".formatted(participationId));
 	}
 
 	// 끝 시각이 지난 것처럼 자리 행의 끝 시각을 1분 전으로 옮긴다 (시간이 지나기를 기다리지 않으려고)
-	private void moveExpiresAtToPast(int participationId) {
+	private void moveExpiresAtToPast(long participationId) {
 		transactionTemplate.executeWithoutResult(transaction -> entityManager
 			.createQuery("update ParticipationHold h set h.expiresAt = :expiresAt "
 				+ "where h.participationId = :participationId")
@@ -693,11 +693,11 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 		return LocalDateTime.parse(expiresAt);
 	}
 
-	private RaceCourse courseOf(int raceCourseId) {
+	private RaceCourse courseOf(long raceCourseId) {
 		return raceCourseRepository.findById(raceCourseId).orElseThrow();
 	}
 
-	private ParticipationHold holdOf(int participationId) {
+	private ParticipationHold holdOf(long participationId) {
 		return participationHoldRepository.findByParticipationId(participationId).orElseThrow();
 	}
 
@@ -707,7 +707,7 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 			.count());
 	}
 
-	private void assertNothingHeld(int raceCourseId) {
+	private void assertNothingHeld(long raceCourseId) {
 		assertThat(courseOf(raceCourseId).getIndividualReserved()).isZero();
 		assertThat(participationHoldRepository.count()).isZero();
 	}

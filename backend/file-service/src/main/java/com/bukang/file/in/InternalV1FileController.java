@@ -74,7 +74,7 @@ public class InternalV1FileController {
 		@Parameter(description = "대상 종류 (대상 엔티티 클래스 이름)", example = "Race")
 		@PathVariable String refType,
 		@Parameter(description = "대상 ID", example = "1")
-		@PathVariable int refId,
+		@PathVariable long refId,
 		@Valid @RequestBody FileLinkRequestDto request
 	) {
 		return ResponseEntity.ok()

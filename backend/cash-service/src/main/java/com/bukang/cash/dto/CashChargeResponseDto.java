@@ -1,15 +1,15 @@
 package com.bukang.cash.dto;
 
-public record CashChargeResponseDto(Outcome outcome, int balance) {
+public record CashChargeResponseDto(Outcome outcome, long balance) {
 	public enum Outcome {
 		COMPLETED, FAILED
 	}
 
-	public static CashChargeResponseDto completed(int balance) {
+	public static CashChargeResponseDto completed(long balance) {
 		return new CashChargeResponseDto(Outcome.COMPLETED, balance);
 	}
 
-	public static CashChargeResponseDto failed(int balance) {
+	public static CashChargeResponseDto failed(long balance) {
 		return new CashChargeResponseDto(Outcome.FAILED, balance);
 	}
 

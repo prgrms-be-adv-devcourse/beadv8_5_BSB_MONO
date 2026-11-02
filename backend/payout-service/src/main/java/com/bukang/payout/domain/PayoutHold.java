@@ -28,7 +28,7 @@ import lombok.NoArgsConstructor;
 @Table(name = "PAYOUT_PAYOUT_HOLD")
 public class PayoutHold extends BaseIdAndTime {
 	// 배치가 자동으로 건 보류의 보류한 회원 ID. 회원 ID는 1부터 시작하므로 실제 회원과 겹치지 않는다
-	public static final int SYSTEM_MEMBER_ID = 0;
+	public static final long SYSTEM_MEMBER_ID = 0;
 
 	private static final DateTimeFormatter CODE_DATE = DateTimeFormatter.ofPattern("yyyyMMdd");
 
@@ -55,7 +55,7 @@ public class PayoutHold extends BaseIdAndTime {
 
 	// 보류한 회원 ID. 자동 보류는 SYSTEM_MEMBER_ID(0)를 넣는다
 	@Column(nullable = false)
-	private int heldBy;
+	private long heldBy;
 
 	@Column(nullable = false)
 	private LocalDateTime heldAt;
@@ -63,10 +63,10 @@ public class PayoutHold extends BaseIdAndTime {
 	private LocalDateTime releasedAt;
 
 	// 보류를 푼 회원 ID. 돈이 나가게 되는 처리라 누가 풀었는지 남긴다. 보류 중에는 NULL
-	private Integer releasedBy;
+	private Long releasedBy;
 
 	// 보류는 Payout을 통해서만 건다.
-	PayoutHold(Payout payout, PayoutHoldReason reasonType, String reason, int heldBy, LocalDateTime heldAt) {
+	PayoutHold(Payout payout, PayoutHoldReason reasonType, String reason, long heldBy, LocalDateTime heldAt) {
 		this.payout = payout;
 		this.reasonType = reasonType;
 		this.reason = reason;
@@ -81,7 +81,7 @@ public class PayoutHold extends BaseIdAndTime {
 	}
 
 	// 해제는 Payout.release를 통해서만 한다. 정산 내역 상태와 지급 예정일을 함께 바꿔야 하기 때문이다
-	void markReleased(int releasedBy, LocalDateTime releasedAt) {
+	void markReleased(long releasedBy, LocalDateTime releasedAt) {
 		if (status == PayoutHoldStatus.RELEASED) {
 			throw new PayoutHoldConflictException("이미 해제된 지급보류입니다.");
 		}

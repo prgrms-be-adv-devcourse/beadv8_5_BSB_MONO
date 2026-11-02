@@ -38,7 +38,7 @@ public class ApiV1QueueAdmissionController {
 			+ "입장 중이면 끝 시각을 저장하고, [결제하기]·장바구니 결제는 대기열에 다시 묻지 않고 이 끝 시각을 결제 기한으로 쓴다. "
 			+ "이 API를 부르지 않고(주소 직접 입력) [결제하기]하면 403이다. "
 			+ "타이머는 remainingSeconds로 센다(서버 시각 기준). 입장 중이 아니면 admitted=false이고 [결제하기]가 403이다. "
-			+ "대기열 API(PRO-182)가 나오기 전에는 가짜 대기열이 답한다: 결제 페이지를 처음 열 때 입장해 10분 뒤 끝나고, "
+			+ "대기열 API(PRO-182)가 나오기 전에는 가짜 대기열이 답한다: 결제 페이지를 처음 열 때 입장해 15분 뒤 끝나고, "
 			+ "끝난 뒤 이 API를 다시 부르면(페이지를 다시 열면) 다시 입장한다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "조회 성공",
@@ -56,11 +56,11 @@ public class ApiV1QueueAdmissionController {
 				examples = @ExampleObject(value = QueueApiExamples.LOGIN_REQUIRED)))
 	})
 	public ResponseEntity<RsData<QueueAdmissionDto>> findAdmission(
-		@LoginMemberId int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "대회 ID", example = "1")
-		@RequestParam @Positive(message = "대회 ID가 올바르지 않습니다.") int raceId,
+		@RequestParam @Positive(message = "대회 ID가 올바르지 않습니다.") long raceId,
 		@Parameter(description = "종목 ID", example = "1")
-		@RequestParam @Positive(message = "종목 ID가 올바르지 않습니다.") int raceCourseId
+		@RequestParam @Positive(message = "종목 ID가 올바르지 않습니다.") long raceCourseId
 	) {
 		QueueAdmissionDto admission = queueAdmissionUseCase.find(memberId, raceId, raceCourseId, LocalDateTime.now());
 		String message = admission.isAdmitted() ? "대기열에 입장 중입니다." : "대기열에 입장 중이 아닙니다.";

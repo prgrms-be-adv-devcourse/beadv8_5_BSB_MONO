@@ -10,5 +10,5 @@ public interface SellerAccountPort {
 	/**
 	 * 판매자가 정산 계좌를 등록했는지 돌려준다. 없으면 정산 내역을 만들 때 '정산 계좌 미등록'으로 보류한다
 	 */
-	boolean hasPayoutAccount(int sellerId);
+	boolean hasPayoutAccount(long sellerId);
 }

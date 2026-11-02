@@ -41,7 +41,7 @@ public class CashFacade {
 	private final CashWalletLedgerQueryUseCase cashWalletLedgerQueryUseCase;
 
 	@Transactional
-	public CashMember syncMember(int id, LocalDateTime createDate, LocalDateTime modifyDate,
+	public CashMember syncMember(long id, LocalDateTime createDate, LocalDateTime modifyDate,
 		String nickname) {
 		CashMember cashMember = cashSyncMemberUseCase.syncMember(id, createDate, modifyDate, nickname);
 		cashEnsureWalletUseCase.ensureWallet(cashMember.getId());
@@ -49,49 +49,49 @@ public class CashFacade {
 	}
 
 	@Transactional
-	public Wallet ensureWallet(int id) {
+	public Wallet ensureWallet(long id) {
 		return cashEnsureWalletUseCase.ensureWallet(id);
 	}
 
 	@Transactional(readOnly = true)
-	public WalletBalanceResponseDto getBalance(int holderId) {
+	public WalletBalanceResponseDto getBalance(long holderId) {
 		return WalletBalanceResponseDto.from(cashSupport.findWalletByHolderId(holderId));
 	}
 
 	@Transactional(readOnly = true)
-	public CashBalanceResponseDto getBalanceOrZero(int memberId) {
+	public CashBalanceResponseDto getBalanceOrZero(long memberId) {
 		return new CashBalanceResponseDto(cashSupport.findBalanceOrZero(memberId));
 	}
 
 	@Transactional(readOnly = true)
-	public PageDto<WalletLedgerItemDto> findLedgers(int memberId, LedgerCategory category, int page, int size) {
+	public PageDto<WalletLedgerItemDto> findLedgers(long memberId, LedgerCategory category, int page, int size) {
 		return cashWalletLedgerQueryUseCase.findLedgers(memberId, category, page, size);
 	}
 
 	@Transactional
-	public CashPaymentResponseDto completeOrderPayment(int orderId, int customerId, int salePrice) {
+	public CashPaymentResponseDto completeOrderPayment(long orderId, long customerId, long salePrice) {
 		return cashCompleteOrderPaymentUseCase.completeOrderPayment(orderId, customerId, salePrice);
 	}
 
 	@Transactional
-	public void cancelPayment(int orderId, int customerId) {
+	public void cancelPayment(long orderId, long customerId) {
 		cashCancelOrderPaymentUseCase.cancelPayment(orderId, customerId);
 	}
 
 	@Transactional
-	public CashRefundResponseDto refund(int orderId, int customerId) {
+	public CashRefundResponseDto refund(long orderId, long customerId) {
 		return cashRefundPaymentUseCase.refund(orderId, customerId);
 	}
 
 	// @Transactional을 일부러 안 붙인다 (PRO-215). Toss 호출이 트랜잭션 밖에서 일어나야 하는데,
 	// 여기에 걸면 CashChargeConfirmUseCase 안의 짧은 트랜잭션들이 이 트랜잭션에 합쳐져 버린다.
-	public CashChargeResponseDto confirmWalletCharge(int customerId, String paymentKey, String orderId, int amount) {
+	public CashChargeResponseDto confirmWalletCharge(long customerId, String paymentKey, String orderId, long amount) {
 		return cashChargeConfirmUseCase.confirmWalletCharge(customerId, paymentKey, orderId, amount);
 	}
 
 	@Transactional
 	public CashWithdrawalResponseDto requestWithdrawal(
-		int customerId, String bankCode, String accountNumber, String accountHolder, String idempotencyKey
+		long customerId, String bankCode, String accountNumber, String accountHolder, String idempotencyKey
 	) {
 		return cashWithdrawalUseCase.requestWithdrawal(
 			customerId, bankCode, accountNumber, accountHolder, idempotencyKey);
@@ -99,7 +99,7 @@ public class CashFacade {
 
 	@Transactional
 	public CashPayoutResponseDto payout(
-		int payoutId, int sellerId, PayoutStage payoutStage, int settlementAmount, int feeAmount
+		long payoutId, long sellerId, PayoutStage payoutStage, long settlementAmount, long feeAmount
 	) {
 		return cashPayoutUseCase.payout(payoutId, sellerId, payoutStage, settlementAmount, feeAmount);
 	}

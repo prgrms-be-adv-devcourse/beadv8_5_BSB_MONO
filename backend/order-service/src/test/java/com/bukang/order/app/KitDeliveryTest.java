@@ -80,14 +80,14 @@ import jakarta.persistence.Table;
 @Import({StubRaceCoursePortConfig.class, StubSeatHoldPortConfig.class, StubWalletPortConfig.class,
 	StubRefundEligibilityPortConfig.class})
 class KitDeliveryTest {
-	private static final int COURSE_ID = 40;
-	private static final int OPEN_COURSE_ID = 41;
+	private static final long COURSE_ID = 40;
+	private static final long OPEN_COURSE_ID = 41;
 	private static final String CARRIER = "CJ대한통운";
 	private static final String TRACKING_NUMBER = "684912345678";
-	private static final int RACE_ID = 400;
-	private static final int MEMBER_ID = 1;
-	private static final int SELLER_ID = StubRaceCoursePort.SELLER_ID;
-	private static final int OTHER_SELLER_ID = SELLER_ID + 1;
+	private static final long RACE_ID = 400;
+	private static final long MEMBER_ID = 1;
+	private static final long SELLER_ID = StubRaceCoursePort.SELLER_ID;
+	private static final long OTHER_SELLER_ID = SELLER_ID + 1;
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -142,8 +142,8 @@ class KitDeliveryTest {
 	@DisplayName("결제한 키트는 배송 준비 → 배송 중(송장) → 배송 완료로 바뀌고, 구매자 주문 조회에 그대로 보인다")
 	void shipAndDeliverAfterRefundDeadline() throws Exception {
 		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().minusDays(1)));
-		int orderId = paidOrder();
-		int itemId = itemIdOf(orderId);
+		long orderId = paidOrder();
+		long itemId = itemIdOf(orderId);
 		findOrder(orderId)
 			.andExpect(jsonPath("$.data.items[0].kitDeliveryStatus").value("PREPARING"))
 			.andExpect(jsonPath("$.data.items[0].kitTrackingNumber").isEmpty())
@@ -174,7 +174,7 @@ class KitDeliveryTest {
 	@DisplayName("배송 완료는 배송 중인 키트만, 한 번만 바꾼다")
 	void completeDeliveryRejected() throws Exception {
 		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().minusDays(1)));
-		int itemId = itemIdOf(paidOrder());
+		long itemId = itemIdOf(paidOrder());
 
 		assertThatThrownBy(() -> kitDeliveryUseCase.completeDelivery(SELLER_ID, itemId, LocalDateTime.now()))
 			.isInstanceOf(KitNotShippableException.class)
@@ -197,9 +197,9 @@ class KitDeliveryTest {
 		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().minusDays(1)));
 		raceCoursePort.put(StubRaceCoursePort.openCourse(OPEN_COURSE_ID, RACE_ID, 14, null,
 			LocalDate.now().plusDays(10)));
-		int shippingItemId = itemIdOf(paidOrder(MEMBER_ID));
-		int preparingOrderId = paidOrder(MEMBER_ID + 1);
-		int beforeDeadlineItemId = itemIdOf(paidOrder(MEMBER_ID + 2, OPEN_COURSE_ID));
+		long shippingItemId = itemIdOf(paidOrder(MEMBER_ID));
+		long preparingOrderId = paidOrder(MEMBER_ID + 1);
+		long beforeDeadlineItemId = itemIdOf(paidOrder(MEMBER_ID + 2, OPEN_COURSE_ID));
 		createOrder(MEMBER_ID + 3, COURSE_ID);
 		createOrder(MEMBER_ID + 4, OPEN_COURSE_ID);
 		ship(shippingItemId);
@@ -246,7 +246,7 @@ class KitDeliveryTest {
 	void shipWhileScheduleChangeRefund() throws Exception {
 		raceCoursePort.put(StubRaceCoursePort.openCourse(COURSE_ID, RACE_ID, 14, null, LocalDate.now().minusDays(1),
 			LocalDateTime.now().minusDays(1)));
-		int itemId = itemIdOf(paidOrder());
+		long itemId = itemIdOf(paidOrder());
 
 		assertThatThrownBy(() -> ship(itemId))
 			.isInstanceOf(KitNotShippableException.class)
@@ -257,8 +257,8 @@ class KitDeliveryTest {
 	@DisplayName("보낸 뒤 취소된 참가권도 판매자 목록에 취소 상태로 남고, 배송 완료로 바꿀 수 있다")
 	void canceledAfterShipping() throws Exception {
 		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().minusDays(1)));
-		int orderId = paidOrder();
-		int itemId = itemIdOf(orderId);
+		long orderId = paidOrder();
+		long itemId = itemIdOf(orderId);
 		ship(itemId);
 		// 일정이 바뀌어 7일 동안 다시 환불할 수 있게 되자 구매자가 취소했다
 		raceCoursePort.put(StubRaceCoursePort.openCourse(COURSE_ID, RACE_ID, 14, null, LocalDate.now().minusDays(1),
@@ -279,8 +279,8 @@ class KitDeliveryTest {
 	@DisplayName("택배사·송장 번호가 비었거나 너무 길면 400으로 막고 배송 준비로 남긴다")
 	void shipWithInvalidShippingInfo() throws Exception {
 		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().minusDays(1)));
-		int orderId = paidOrder();
-		int itemId = itemIdOf(orderId);
+		long orderId = paidOrder();
+		long itemId = itemIdOf(orderId);
 
 		assertThatThrownBy(() -> kitDeliveryUseCase.ship(SELLER_ID, itemId, " ", TRACKING_NUMBER, LocalDateTime.now()))
 			.isInstanceOf(KitShippingInfoInvalidException.class);
@@ -301,7 +301,7 @@ class KitDeliveryTest {
 	@DisplayName("택배사·송장 번호의 앞뒤 공백은 빼고 저장한다")
 	void shipStripsShippingInfo() throws Exception {
 		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().minusDays(1)));
-		int itemId = itemIdOf(paidOrder());
+		long itemId = itemIdOf(paidOrder());
 
 		OrderItemDto shipped = kitDeliveryUseCase.ship(SELLER_ID, itemId, " " + CARRIER + " ",
 			" " + TRACKING_NUMBER + " ", LocalDateTime.now());
@@ -315,7 +315,7 @@ class KitDeliveryTest {
 	void shipBeforeRefundDeadline() throws Exception {
 		LocalDate refundDeadline = LocalDate.now();
 		raceCoursePort.put(courseWithRefundDeadline(refundDeadline));
-		int orderId = paidOrder();
+		long orderId = paidOrder();
 
 		assertThatThrownBy(() -> ship(itemIdOf(orderId)))
 			.isInstanceOf(KitNotShippableException.class)
@@ -327,7 +327,7 @@ class KitDeliveryTest {
 	@DisplayName("다른 판매자의 참가권은 403, 없는 주문 상품은 404, 이미 발송한 키트는 409다")
 	void shipRejected() throws Exception {
 		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().minusDays(1)));
-		int itemId = itemIdOf(paidOrder());
+		long itemId = itemIdOf(paidOrder());
 
 		assertThatThrownBy(() -> kitDeliveryUseCase.ship(OTHER_SELLER_ID, itemId, CARRIER, TRACKING_NUMBER,
 			LocalDateTime.now()))
@@ -345,9 +345,9 @@ class KitDeliveryTest {
 	@DisplayName("결제 전이거나 취소한 참가권의 키트는 발송하지 않는다")
 	void shipUnpaidOrCanceled() throws Exception {
 		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().plusDays(10)));
-		int waitingOrderId = createOrder(MEMBER_ID);
-		int canceledOrderId = paidOrder(MEMBER_ID + 1);
-		int canceledItemId = itemIdOf(canceledOrderId);
+		long waitingOrderId = createOrder(MEMBER_ID);
+		long canceledOrderId = paidOrder(MEMBER_ID + 1);
+		long canceledItemId = itemIdOf(canceledOrderId);
 		mockMvc.perform(post("/api/v1/order/orders/" + canceledOrderId + "/items/" + canceledItemId + "/cancel")
 				.header("X-Member-Id", MEMBER_ID + 1))
 			.andExpect(status().isOk());
@@ -366,7 +366,7 @@ class KitDeliveryTest {
 	@DisplayName("키트가 없는 종목은 배송 상태가 없고 발송 처리할 수 없다")
 	void courseWithoutKit() throws Exception {
 		raceCoursePort.put(StubRaceCoursePort.courseWithoutKit(COURSE_ID, RACE_ID));
-		int orderId = paidOrder();
+		long orderId = paidOrder();
 
 		findOrder(orderId).andExpect(jsonPath("$.data.items[0].kitDeliveryStatus").isEmpty());
 		assertThatThrownBy(() -> ship(itemIdOf(orderId)))
@@ -378,8 +378,8 @@ class KitDeliveryTest {
 	@DisplayName("결제하면 키트 배송 1건이 발송 대기로 생기고, 받는 분·주소는 참가 신청의 값이 복사된다 (BUK-6)")
 	void payCreatesReadyShipment() throws Exception {
 		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().plusDays(10)));
-		int unpaidOrderId = createOrder(MEMBER_ID + 1);
-		int orderId = paidOrder();
+		long unpaidOrderId = createOrder(MEMBER_ID + 1);
+		long orderId = paidOrder();
 
 		Shipment shipment = shipmentOf(orderId);
 		assertThat(shipment.getStatus()).isEqualTo(ShipmentStatus.READY);
@@ -401,7 +401,7 @@ class KitDeliveryTest {
 	@DisplayName("같은 결제 요청이 두 번 와도 배송은 1건이다")
 	void payTwiceCreatesOneShipment() throws Exception {
 		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().plusDays(10)));
-		int orderId = paidOrder();
+		long orderId = paidOrder();
 
 		OrderPayResult again = transactionTemplate.execute(status ->
 			orderPayUseCase.pay(MEMBER_ID, orderId, LocalDateTime.now()));
@@ -423,8 +423,8 @@ class KitDeliveryTest {
 	@DisplayName("발송 전에 참가권을 취소하면 배송도 취소되어 판매자 목록·건수에서 빠지고, 구매자 응답은 그대로다")
 	void cancelBeforeShippingCancelsShipment() throws Exception {
 		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().plusDays(10)));
-		int orderId = paidOrder();
-		int itemId = itemIdOf(orderId);
+		long orderId = paidOrder();
+		long itemId = itemIdOf(orderId);
 
 		mockMvc.perform(post("/api/v1/order/orders/" + orderId + "/items/" + itemId + "/cancel")
 				.header("X-Member-Id", MEMBER_ID))
@@ -443,8 +443,8 @@ class KitDeliveryTest {
 	@DisplayName("대회가 취소되면 발송 전 배송만 취소되고, 이미 보낸 배송은 배송 중으로 남는다")
 	void raceCancelCancelsOnlyReadyShipments() throws Exception {
 		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().minusDays(1)));
-		int shippedOrderId = paidOrder(MEMBER_ID);
-		int readyOrderId = paidOrder(MEMBER_ID + 1);
+		long shippedOrderId = paidOrder(MEMBER_ID);
+		long readyOrderId = paidOrder(MEMBER_ID + 1);
 		ship(itemIdOf(shippedOrderId));
 
 		raceCancelRefundUseCase.refundAll(RACE_ID, LocalDateTime.now());
@@ -460,8 +460,8 @@ class KitDeliveryTest {
 	@DisplayName("참가자 정보에서 주소를 바꾸면 발송 대기 배송은 따라 바뀌고, 이미 보낸 배송의 주소는 그대로다")
 	void changeAddressAfterShipping() throws Exception {
 		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().minusDays(1)));
-		int readyOrderId = paidOrder(MEMBER_ID);
-		int shippedOrderId = paidOrder(MEMBER_ID + 1);
+		long readyOrderId = paidOrder(MEMBER_ID);
+		long shippedOrderId = paidOrder(MEMBER_ID + 1);
 		ship(itemIdOf(shippedOrderId));
 
 		changeAddress(MEMBER_ID, participationIdOf(readyOrderId)).andExpect(status().isOk());
@@ -480,14 +480,14 @@ class KitDeliveryTest {
 	@DisplayName("옛 키트 칸을 배송 표로 옮기는 SQL은 상태·송장과 참가 신청의 최신 주소를 옮기고, 다시 돌려도 두 번 만들지 않는다")
 	void migrationSql() throws Exception {
 		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().plusDays(10)));
-		int readyOrderId = paidOrder(MEMBER_ID);
-		int shippingOrderId = paidOrder(MEMBER_ID + 1);
-		int deliveredOrderId = paidOrder(MEMBER_ID + 2);
-		int canceledOrderId = paidOrder(MEMBER_ID + 3);
+		long readyOrderId = paidOrder(MEMBER_ID);
+		long shippingOrderId = paidOrder(MEMBER_ID + 1);
+		long deliveredOrderId = paidOrder(MEMBER_ID + 2);
+		long canceledOrderId = paidOrder(MEMBER_ID + 3);
 		mockMvc.perform(post("/api/v1/order/orders/" + canceledOrderId + "/items/" + itemIdOf(canceledOrderId)
 				+ "/cancel").header("X-Member-Id", MEMBER_ID + 3))
 			.andExpect(status().isOk());
-		int unpaidOrderId = createOrder(MEMBER_ID + 4);
+		long unpaidOrderId = createOrder(MEMBER_ID + 4);
 		// 배송 표 전처럼 만든다: 새 배송을 지우고, 옛 칸(엔티티에서 뺀 컬럼)을 다시 붙여 값을 넣는다
 		jdbcTemplate.update("delete from order_shipment_item");
 		jdbcTemplate.update("delete from order_shipment");
@@ -545,18 +545,18 @@ class KitDeliveryTest {
 		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().minusDays(1)));
 		raceCoursePort.put(StubRaceCoursePort.openCourse(OPEN_COURSE_ID, RACE_ID, 14, null,
 			LocalDate.now().plusDays(10)));
-		int shippedOrderId = paidOrder(MEMBER_ID);
+		long shippedOrderId = paidOrder(MEMBER_ID);
 		LocalDateTime shippedAt = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
 		kitDeliveryUseCase.ship(SELLER_ID, itemIdOf(shippedOrderId), CARRIER, TRACKING_NUMBER, shippedAt);
 		// 보낸 뒤 신청서 주소를 고쳤다. 주문 칸에는 신청서가 아니라 실제로 보낸 배송의 주소가 가야 한다
 		changeAddress(MEMBER_ID, participationIdOf(shippedOrderId)).andExpect(status().isOk());
-		int readyOrderId = paidOrder(MEMBER_ID + 1);
+		long readyOrderId = paidOrder(MEMBER_ID + 1);
 		changeAddress(MEMBER_ID + 1, participationIdOf(readyOrderId)).andExpect(status().isOk());
-		int canceledOrderId = paidOrder(MEMBER_ID + 2, OPEN_COURSE_ID);
+		long canceledOrderId = paidOrder(MEMBER_ID + 2, OPEN_COURSE_ID);
 		mockMvc.perform(post("/api/v1/order/orders/" + canceledOrderId + "/items/" + itemIdOf(canceledOrderId)
 				+ "/cancel").header("X-Member-Id", MEMBER_ID + 2))
 			.andExpect(status().isOk());
-		int unpaidOrderId = createOrder(MEMBER_ID + 3);
+		long unpaidOrderId = createOrder(MEMBER_ID + 3);
 		addLegacyColumns();
 
 		String rollback = rollbackSqlText();
@@ -628,12 +628,12 @@ class KitDeliveryTest {
 			.execute(jdbcTemplate.getDataSource());
 	}
 
-	private Map<String, Object> legacyKitOf(int orderId) {
+	private Map<String, Object> legacyKitOf(long orderId) {
 		return lowerKeys(jdbcTemplate.queryForMap("select kit_delivery_status, kit_carrier, kit_tracking_number,"
 			+ " kit_shipped_at from order_order_item where order_id = ?", orderId));
 	}
 
-	private Map<String, Object> legacyAddressOf(int orderId) {
+	private Map<String, Object> legacyAddressOf(long orderId) {
 		return lowerKeys(jdbcTemplate.queryForMap(
 			"select recipient_name, address, address_detail from order_order where id = ?", orderId));
 	}
@@ -644,7 +644,7 @@ class KitDeliveryTest {
 		return lowered;
 	}
 
-	private ResultActions changeAddress(int memberId, int participationId) throws Exception {
+	private ResultActions changeAddress(long memberId, long participationId) throws Exception {
 		return mockMvc.perform(put("/api/v1/order/participations/" + participationId + "/participant")
 			.header("X-Member-Id", memberId)
 			.contentType(MediaType.APPLICATION_JSON)
@@ -660,41 +660,41 @@ class KitDeliveryTest {
 		return StubRaceCoursePort.openCourse(COURSE_ID, RACE_ID, 14, null, refundDeadline);
 	}
 
-	private OrderItemDto ship(int orderItemId) {
+	private OrderItemDto ship(long orderItemId) {
 		return kitDeliveryUseCase.ship(SELLER_ID, orderItemId, CARRIER, TRACKING_NUMBER, LocalDateTime.now());
 	}
 
-	private ResultActions findOrder(int orderId) throws Exception {
+	private ResultActions findOrder(long orderId) throws Exception {
 		return mockMvc.perform(get("/api/v1/order/orders/" + orderId).header("X-Member-Id", MEMBER_ID))
 			.andExpect(status().isOk());
 	}
 
-	private int paidOrder() throws Exception {
+	private long paidOrder() throws Exception {
 		return paidOrder(MEMBER_ID);
 	}
 
-	private int paidOrder(int memberId) throws Exception {
+	private long paidOrder(long memberId) throws Exception {
 		return paidOrder(memberId, COURSE_ID);
 	}
 
-	private int paidOrder(int memberId, int courseId) throws Exception {
-		int orderId = createOrder(memberId, courseId);
+	private long paidOrder(long memberId, long courseId) throws Exception {
+		long orderId = createOrder(memberId, courseId);
 		transactionTemplate.execute(status -> orderPayUseCase.pay(memberId, orderId, LocalDateTime.now()));
 		return orderId;
 	}
 
-	private int createOrder(int memberId) throws Exception {
+	private long createOrder(long memberId) throws Exception {
 		return createOrder(memberId, COURSE_ID);
 	}
 
-	private int createOrder(int memberId, int courseId) throws Exception {
-		int participationId = apply(memberId, courseId);
+	private long createOrder(long memberId, long courseId) throws Exception {
+		long participationId = apply(memberId, courseId);
 		OrderCreateResult result = transactionTemplate.execute(status -> orderCreateUseCase.create(memberId,
 			participationId, UUID.randomUUID().toString(), LocalDateTime.now()));
 		return result.order().getId();
 	}
 
-	private int apply(int memberId, int courseId) throws Exception {
+	private long apply(long memberId, long courseId) throws Exception {
 		QueueEntry.enter(mockMvc, memberId, courseId);
 		String body = mockMvc.perform(post("/api/v1/order/participations")
 				.header("X-Member-Id", memberId)
@@ -708,22 +708,22 @@ class KitDeliveryTest {
 							"zipcode": "04700", "address": "서울 성동구 왕십리로 00", "addressDetail": "101동 1001호" } } }
 					""".formatted(courseId)))
 			.andReturn().getResponse().getContentAsString();
-		return JsonPath.read(body, "$.data.id");
+		return JsonPath.<Number>read(body, "$.data.id").longValue();
 	}
 
-	private OrderItem itemOf(int orderId) {
+	private OrderItem itemOf(long orderId) {
 		return transactionTemplate.execute(status -> {
 			Order order = orderRepository.findById(orderId).orElseThrow();
 			return order.getItems().getFirst();
 		});
 	}
 
-	private Shipment shipmentOf(int orderId) {
+	private Shipment shipmentOf(long orderId) {
 		return shipmentsOf(orderId).getFirst();
 	}
 
 	// 배송과 상자 속 주문 상품을 트랜잭션 안에서 읽어 둔다
-	private List<Shipment> shipmentsOf(int orderId) {
+	private List<Shipment> shipmentsOf(long orderId) {
 		return transactionTemplate.execute(status -> {
 			List<Shipment> shipments = orderRepository.findById(orderId).orElseThrow().getShipments();
 			shipments.forEach(shipment -> shipment.getItems().size());
@@ -731,11 +731,11 @@ class KitDeliveryTest {
 		});
 	}
 
-	private int participationIdOf(int orderId) {
+	private long participationIdOf(long orderId) {
 		return itemOf(orderId).getParticipationId();
 	}
 
-	private int itemIdOf(int orderId) {
+	private long itemIdOf(long orderId) {
 		return itemOf(orderId).getId();
 	}
 }

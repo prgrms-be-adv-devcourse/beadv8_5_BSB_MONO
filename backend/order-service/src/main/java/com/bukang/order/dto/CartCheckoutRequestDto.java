@@ -24,5 +24,5 @@ public class CartCheckoutRequestDto {
 	@Size(max = MAX_ITEMS, message = "장바구니에는 한 종목만 담을 수 있어 참가 신청 1건만 결제할 수 있습니다.")
 	private final List<
 		@NotNull(message = "참가 신청 ID가 올바르지 않습니다.")
-		@Positive(message = "참가 신청 ID가 올바르지 않습니다.") Integer> participationIds;
+		@Positive(message = "참가 신청 ID가 올바르지 않습니다.") Long> participationIds;
 }

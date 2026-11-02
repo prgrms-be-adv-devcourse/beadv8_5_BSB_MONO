@@ -20,7 +20,7 @@ import lombok.Getter;
 public abstract class BaseIdAndTime extends BaseEntity {
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
-	private int id;
+	private long id;
 	@CreatedDate
 	private LocalDateTime createDate;
 	@LastModifiedDate

@@ -10,7 +10,7 @@ import lombok.Getter;
 @AllArgsConstructor
 @Getter
 public class RaceSellerDto {
-	private final int sellerId;
+	private final long sellerId;
 	private final SellerType sellerType;
 	private final String businessName;
 	private final String businessNumber;

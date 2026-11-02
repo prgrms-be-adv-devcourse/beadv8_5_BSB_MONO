@@ -40,14 +40,14 @@ public class PayoutHoldUseCase {
 
 	// open-in-view가 꺼져 있어 트랜잭션 밖에서 hold.getPayout()을 읽지 않도록, 안에서 DTO로 바꿔 돌려준다
 	@Transactional
-	public PayoutHoldDto hold(int payoutId, PayoutHoldReason reasonType, String reason, int heldBy,
+	public PayoutHoldDto hold(long payoutId, PayoutHoldReason reasonType, String reason, long heldBy,
 		LocalDateTime now) {
 		Payout payout = payoutRepository.findById(payoutId).orElseThrow(PayoutNotFoundException::new);
 		return PayoutHoldDto.from(save(payout.hold(reasonType, reason, heldBy, now)));
 	}
 
 	@Transactional
-	public PayoutHoldDto release(int holdId, int releasedBy, LocalDateTime now) {
+	public PayoutHoldDto release(long holdId, long releasedBy, LocalDateTime now) {
 		PayoutHold hold = payoutHoldRepository.findById(holdId).orElseThrow(PayoutHoldNotFoundException::new);
 		hold.getPayout().release(hold, releasedBy, now, businessDayCalendar);
 		return PayoutHoldDto.from(hold);

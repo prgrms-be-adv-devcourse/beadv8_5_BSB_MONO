@@ -27,7 +27,7 @@ import lombok.NoArgsConstructor;
 @Table(name = "QUEUE_RACE")
 public class QueueRace extends BaseEntity {
 	@Id
-	private int id;
+	private long id;
 
 	@Enumerated(STRING)
 	@Column(name = "sale_status", nullable = false, columnDefinition = "varchar(20)")
@@ -44,7 +44,7 @@ public class QueueRace extends BaseEntity {
 	private LocalDateTime updatedAt;
 
 	public QueueRace(
-		int id,
+		long id,
 		RaceSaleStatus saleStatus,
 		LocalDateTime individualOpenAt,
 		LocalDateTime applicationCloseAt,

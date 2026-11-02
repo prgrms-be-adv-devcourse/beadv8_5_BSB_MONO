@@ -60,11 +60,11 @@ public class InternalV1QueueController {
 				examples = @ExampleObject(value = QueueApiExamples.LOGIN_REQUIRED)))
 	})
 	public ResponseEntity<RsData<QueueAdmissionDto>> getAdmission(
-		@LoginMemberId int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "대회 ID", example = "1")
-		@PathVariable @Positive(message = "대회 ID는 0보다 커야 합니다.") int raceId,
+		@PathVariable @Positive(message = "대회 ID는 0보다 커야 합니다.") long raceId,
 		@Parameter(description = "종목 ID", example = "1")
-		@PathVariable @Positive(message = "종목 ID는 0보다 커야 합니다.") int raceCourseId
+		@PathVariable @Positive(message = "종목 ID는 0보다 커야 합니다.") long raceCourseId
 	) {
 		QueueAdmissionDto admission = queueFacade.getAdmission(memberId, raceId, raceCourseId);
 		String message = admission.isAdmitted() ? "대기열에 입장 중입니다." : "대기열에 입장 중이 아닙니다.";

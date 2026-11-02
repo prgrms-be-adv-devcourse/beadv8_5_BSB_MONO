@@ -8,7 +8,7 @@ import java.util.Optional;
  * 실패하면 PaymentApprovalFailedException을 던진다.
  */
 public interface PaymentClient {
-	PaymentApprovalResult approve(String paymentKey, String orderId, int amount);
+	PaymentApprovalResult approve(String paymentKey, String orderId, long amount);
 
 	// orderId로 PG에 실제 결제 상태를 재조회한다 (PRO-200). 승인이 끝난 상태면 그 결과를, 아니면(진행 중·취소·
 	// 조회 실패 등) 빈 값을 돌려준다. 타임아웃 뒤 재시도가 "이미 처리된 결제" 거절을 받았을 때만 쓴다.

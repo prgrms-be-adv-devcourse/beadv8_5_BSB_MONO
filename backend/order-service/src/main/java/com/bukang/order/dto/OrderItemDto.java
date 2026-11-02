@@ -11,15 +11,15 @@ import lombok.Getter;
 @AllArgsConstructor
 @Getter
 public class OrderItemDto {
-	private final int id;
-	private final int participationId;
-	private final int raceCourseId;
-	private final int sellerId;
+	private final long id;
+	private final long participationId;
+	private final long raceCourseId;
+	private final long sellerId;
 	// 주문 당시 상품명·단가
 	private final String itemName;
-	private final int unitPrice;
+	private final long unitPrice;
 	private final int quantity;
-	private final int amount;
+	private final long amount;
 	private final OrderItemStatus status;
 	// 키트 배송 상태 (PREPARING 배송 준비 / SHIPPING 배송 중 / DELIVERED 배송 완료). 키트가 없는 참가권은 null
 	private final KitDeliveryStatus kitDeliveryStatus;

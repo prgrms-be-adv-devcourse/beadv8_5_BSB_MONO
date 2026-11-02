@@ -35,7 +35,7 @@ import com.bukang.cash.out.WalletWithdrawalRepository;
 @SpringBootTest
 @ActiveProfiles("test")
 class CashWithdrawalUseCaseTest {
-	private static final int CUSTOMER_ID = 3;
+	private static final long CUSTOMER_ID = 3;
 
 	@Autowired
 	private CashFacade cashFacade;
@@ -128,7 +128,7 @@ class CashWithdrawalUseCaseTest {
 	@Test
 	@DisplayName("다른 회원의 idempotencyKey로 요청하면 거절한다")
 	void rejectsWhenIdempotencyKeyBelongsToAnotherMember() {
-		int otherMemberId = 4;
+		long otherMemberId = 4;
 		Wallet otherWallet = createWallet(otherMemberId, 0);
 		WalletWithdrawal otherWithdrawal = walletWithdrawalRepository.save(
 			new WalletWithdrawal(otherWallet, 10_000, "004", "110123456789", "홍길동", "withdrawal_1"));
@@ -142,11 +142,11 @@ class CashWithdrawalUseCaseTest {
 			.isInstanceOf(WithdrawalMemberMismatchException.class);
 	}
 
-	private void createCustomerWallet(int initialBalance) {
+	private void createCustomerWallet(long initialBalance) {
 		createWallet(CUSTOMER_ID, initialBalance);
 	}
 
-	private Wallet createWallet(int memberId, int initialBalance) {
+	private Wallet createWallet(long memberId, long initialBalance) {
 		return transactionTemplate.execute(status -> {
 			LocalDateTime now = LocalDateTime.of(2026, 10, 15, 10, 0);
 			CashMember member = cashMemberRepository.save(new CashMember(memberId, now, now, "러너" + memberId));
@@ -156,7 +156,7 @@ class CashWithdrawalUseCaseTest {
 		});
 	}
 
-	private void assertBalance(int holderId, int expected) {
+	private void assertBalance(long holderId, int expected) {
 		assertThat(walletRepository.findById(holderId).orElseThrow().getBalance()).isEqualTo(expected);
 	}
 }

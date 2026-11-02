@@ -19,16 +19,16 @@ import lombok.Getter;
 @AllArgsConstructor
 @Getter
 public class PayoutItemDto {
-	private final int id;
-	private final Integer orderItemId;
+	private final long id;
+	private final Long orderItemId;
 	private final PayoutRecordType recordType;
 	private final long amount;
 	private final BigDecimal feeRate;
 	private final long feeAmount;
 	private final LocalDate targetDate;
-	private final int payoutId;
+	private final long payoutId;
 	private final String payoutCode;
-	private final int raceId;
+	private final long raceId;
 	private final String raceName;
 	private final PayoutStatus payoutStatus;
 	private final LocalDate scheduledPayDate;

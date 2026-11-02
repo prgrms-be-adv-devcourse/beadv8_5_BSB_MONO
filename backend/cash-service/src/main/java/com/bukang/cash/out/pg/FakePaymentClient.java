@@ -21,7 +21,7 @@ public class FakePaymentClient implements PaymentClient {
 	}
 
 	@Override
-	public PaymentApprovalResult approve(String paymentKey, String orderId, int amount) {
+	public PaymentApprovalResult approve(String paymentKey, String orderId, long amount) {
 		return new PaymentApprovalResult(amount, "fake-payment-key-" + paymentKey);
 	}
 

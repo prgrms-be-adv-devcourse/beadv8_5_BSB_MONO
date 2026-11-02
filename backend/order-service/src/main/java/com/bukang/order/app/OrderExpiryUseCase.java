@@ -16,7 +16,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * 결제 기한(10분)이 지난 결제 대기 건을 정리한다 (정책 4장 결제, ERD 추천안 v4 9쪽 6번)
+ * 결제 기한(15분)이 지난 결제 대기 건을 정리한다 (정책 4장 결제, ERD 추천안 v4 9쪽 6번)
  * 주문마다 예치금 결제 취소(D) → 주문 CREATED → EXPIRED, 참가 신청 APPLIED → RELEASED
  * 결제 취소를 부르는 이유: D 결제가 커밋된 뒤 주문 쪽이 롤백되면(판매 호출 오류, 커밋 실패, 서버 재시작, 응답 시간 초과)
  * 돈만 빠진 결제 대기 주문이 남는다. 그 주문은 결국 여기로 오므로, 결제하지 않은 주문까지 모두 불러 돌려받는다
@@ -54,11 +54,11 @@ public class OrderExpiryUseCase {
 	 * 바깥 트랜잭션 없이 부른다 (OrderExpiryScheduler)
 	 */
 	public ExpiryResult expireOverdue(LocalDateTime now) {
-		List<Integer> overdueOrderIds = orderRepository.findOverdueIds(now, PageRequest.of(0, BATCH_SIZE));
+		List<Long> overdueOrderIds = orderRepository.findOverdueIds(now, PageRequest.of(0, BATCH_SIZE));
 		int expired = 0;
 		int released = 0;
 		int retry = 0;
-		for (int orderId : overdueOrderIds) {
+		for (long orderId : overdueOrderIds) {
 			try {
 				Expired result = transactionTemplate.execute(status -> expireLocked(orderId, now));
 				if (result.order()) {
@@ -87,7 +87,7 @@ public class OrderExpiryUseCase {
 	 * 결제 취소는 주문을 잠근 채 부른다. 결제가 차감을 마치고 자리를 파는 사이에 결제 취소가 끼어들면
 	 * 돈은 돌려줬는데 주문은 결제 완료로 남기 때문이다. 결제 중이면 잠금을 기다렸다가, 결제가 끝난 주문이면 건너뛴다
 	 */
-	private Expired expireLocked(int orderId, LocalDateTime now) {
+	private Expired expireLocked(long orderId, LocalDateTime now) {
 		Order order = orderRepository.findByIdForUpdate(orderId).orElse(null);
 		// 조회와 잠금 사이에 결제됐으면 건너뛴다
 		if (order == null || !order.isOverdue(now)) {

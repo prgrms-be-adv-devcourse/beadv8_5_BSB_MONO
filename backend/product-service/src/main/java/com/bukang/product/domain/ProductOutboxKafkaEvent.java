@@ -36,7 +36,7 @@ public class ProductOutboxKafkaEvent extends BaseIdAndTime {
 
 	// 이벤트 대상의 ID. 메시지 key로 보내, 같은 대상의 메시지가 같은 파티션에서 순서대로 처리되게 한다
 	@Column(name = "ref_id", nullable = false)
-	private int refId;
+	private long refId;
 
 	// 이벤트 종류 = 보낼 토픽 이름 (KafkaTopics 상수)
 	@Column(name = "event_type", nullable = false, length = 100)
@@ -62,7 +62,7 @@ public class ProductOutboxKafkaEvent extends BaseIdAndTime {
 	@Column(name = "sent_date")
 	private LocalDateTime sentDate;
 
-	private ProductOutboxKafkaEvent(String refType, int refId, String eventType, String payload) {
+	private ProductOutboxKafkaEvent(String refType, long refId, String eventType, String payload) {
 		this.refType = refType;
 		this.refId = refId;
 		this.eventType = eventType;
@@ -70,7 +70,7 @@ public class ProductOutboxKafkaEvent extends BaseIdAndTime {
 		this.status = OutboxStatus.PENDING;
 	}
 
-	public static ProductOutboxKafkaEvent pending(String refType, int refId, String eventType, String payload) {
+	public static ProductOutboxKafkaEvent pending(String refType, long refId, String eventType, String payload) {
 		return new ProductOutboxKafkaEvent(refType, refId, eventType, payload);
 	}
 

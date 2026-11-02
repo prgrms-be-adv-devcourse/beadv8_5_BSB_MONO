@@ -10,14 +10,14 @@ import lombok.Getter;
  */
 @Getter
 public class SoldSummaryDto {
-	private final int sellerId;
-	private final int raceId;
-	private final int raceCourseId;
+	private final long sellerId;
+	private final long raceId;
+	private final long raceCourseId;
 	private final long priceSum;
 	private final int ticketCount;
 
 	// JPQL 생성자 조회용. sum · count는 Long으로 온다. 한 코스의 장수는 정원을 넘지 않아 int에 들어간다
-	public SoldSummaryDto(int sellerId, int raceId, int raceCourseId, Long priceSum, Long ticketCount) {
+	public SoldSummaryDto(long sellerId, long raceId, long raceCourseId, Long priceSum, Long ticketCount) {
 		this.sellerId = sellerId;
 		this.raceId = raceId;
 		this.raceCourseId = raceCourseId;

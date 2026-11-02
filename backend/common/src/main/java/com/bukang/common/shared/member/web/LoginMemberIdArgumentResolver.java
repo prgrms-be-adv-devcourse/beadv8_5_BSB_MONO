@@ -16,7 +16,7 @@ public class LoginMemberIdArgumentResolver implements HandlerMethodArgumentResol
 	public boolean supportsParameter(MethodParameter parameter) {
 		Class<?> type = parameter.getParameterType();
 		return parameter.hasParameterAnnotation(LoginMemberId.class)
-			&& (type == long.class || type == Long.class || type == int.class || type == Integer.class);
+			&& (type == long.class || type == Long.class);
 	}
 
 	@Override
@@ -35,20 +35,7 @@ public class LoginMemberIdArgumentResolver implements HandlerMethodArgumentResol
 			}
 			throw new LoginRequiredException();
 		}
-		long memberId = parse(header.trim());
-		if (isLong(parameter)) {
-			return memberId;
-		}
-		// 회원 ID는 long으로 옮기는 중이다. 아직 int로 받는 인자는 int 범위를 넘으면 잘못된 값으로 본다
-		if (memberId > Integer.MAX_VALUE) {
-			throw new InvalidMemberIdException();
-		}
-		return (int)memberId;
-	}
-
-	private static boolean isLong(MethodParameter parameter) {
-		Class<?> type = parameter.getParameterType();
-		return type == long.class || type == Long.class;
+		return parse(header.trim());
 	}
 
 	private static long parse(String header) {

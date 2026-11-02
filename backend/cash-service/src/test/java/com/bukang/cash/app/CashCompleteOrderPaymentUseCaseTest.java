@@ -48,7 +48,7 @@ import com.bukang.cash.out.WalletRepository;
 @SpringBootTest
 @ActiveProfiles("test")
 class CashCompleteOrderPaymentUseCaseTest {
-	private static final int CUSTOMER_ID = 3;
+	private static final long CUSTOMER_ID = 3;
 
 	@Autowired
 	private CashFacade cashFacade;
@@ -77,8 +77,8 @@ class CashCompleteOrderPaymentUseCaseTest {
 	@Test
 	@DisplayName("P1: 잔액이 충분하면 PAID, 고객 잔액 감소, 보관 잔액 증가, 장부 두 줄 합은 0, 결제는 COMPLETED")
 	void p1_sufficientBalance_debitsCustomerAndCreditsHolding() {
-		int orderId = 100;
-		int amount = 3_000;
+		long orderId = 100;
+		long amount = 3_000;
 		createCustomerWallet(10_000);
 		createHoldingWallet();
 
@@ -98,8 +98,8 @@ class CashCompleteOrderPaymentUseCaseTest {
 	@Test
 	@DisplayName("P2: 잔액이 부족하면 INSUFFICIENT_BALANCE와 정확한 부족 금액, 잔액·장부는 그대로, 결제는 FAILED로 저장")
 	void p2_insufficientBalance_noChangeAndSavedAsFailed() {
-		int orderId = 200;
-		int amount = 15_000;
+		long orderId = 200;
+		long amount = 15_000;
 		createCustomerWallet(10_000);
 		createHoldingWallet();
 
@@ -119,14 +119,14 @@ class CashCompleteOrderPaymentUseCaseTest {
 	@Test
 	@DisplayName("P3: 잔액 부족 뒤 충전하고 같은 주문으로 재결제하면 같은 결제 행이 FAILED에서 COMPLETED로 바뀐다 (행은 하나)")
 	void p3_retryAfterTopUp_reusesSamePaymentRowAndCompletes() {
-		int orderId = 300;
-		int amount = 15_000;
+		long orderId = 300;
+		long amount = 15_000;
 		createCustomerWallet(10_000);
 		createHoldingWallet();
 
 		CashPaymentResponseDto first = cashFacade.completeOrderPayment(orderId, CUSTOMER_ID, amount);
 		assertThat(first.outcome()).isEqualTo(CashPaymentResponseDto.Outcome.INSUFFICIENT_BALANCE);
-		int paymentIdAfterFailure = paymentRepository.findByOrderId(orderId).orElseThrow().getId();
+		long paymentIdAfterFailure = paymentRepository.findByOrderId(orderId).orElseThrow().getId();
 
 		// 충전 흐름(WalletCharge)은 범위 밖이라, 충전이 끝난 상태를 지갑에 직접 적립해 흉내낸다
 		transactionTemplate.executeWithoutResult(status -> {
@@ -150,8 +150,8 @@ class CashCompleteOrderPaymentUseCaseTest {
 	@Test
 	@DisplayName("P4: COMPLETED 상태인 주문에 다시 결제 요청하면 차감 없이 PAID만 돌아온다")
 	void p4_retryCompletedOrder_noDoubleDebit() {
-		int orderId = 400;
-		int amount = 3_000;
+		long orderId = 400;
+		long amount = 3_000;
 		createCustomerWallet(10_000);
 		createHoldingWallet();
 
@@ -181,9 +181,9 @@ class CashCompleteOrderPaymentUseCaseTest {
 	@Test
 	@DisplayName("P6: 다른 회원 ID로 기존 결제 행에 결제를 시도하면 예외가 나고 어느 지갑도 차감되지 않는다")
 	void p6_differentMemberIdOnExistingPayment_shouldBeRejected() {
-		int orderId = 600;
-		int amount = 3_000;
-		int otherMemberId = 4;
+		long orderId = 600;
+		long amount = 3_000;
+		long otherMemberId = 4;
 		Wallet customerWallet = createCustomerWallet(10_000);
 		createHoldingWallet();
 		createWallet(otherMemberId, "다른고객", 10_000);
@@ -195,8 +195,8 @@ class CashCompleteOrderPaymentUseCaseTest {
 		Throwable thrown = catchThrowable(() -> cashFacade.completeOrderPayment(orderId, otherMemberId, amount));
 
 		String thrownSummary = thrown == null ? "없음" : thrown.getClass().getName() + ": " + thrown.getMessage();
-		int customerBalanceAfter = walletRepository.findById(CUSTOMER_ID).orElseThrow().getBalance();
-		int otherBalanceAfter = walletRepository.findById(otherMemberId).orElseThrow().getBalance();
+		long customerBalanceAfter = walletRepository.findById(CUSTOMER_ID).orElseThrow().getBalance();
+		long otherBalanceAfter = walletRepository.findById(otherMemberId).orElseThrow().getBalance();
 		Payment reloaded = paymentRepository.findByOrderId(orderId).orElseThrow();
 		System.out.println("P6 예외: " + thrownSummary);
 		System.out.println("P6 회원" + CUSTOMER_ID + " 잔액: " + customerBalanceAfter);
@@ -218,8 +218,8 @@ class CashCompleteOrderPaymentUseCaseTest {
 	@Test
 	@DisplayName("P7: 같은 주문으로 10개 스레드가 동시에 결제해도 차감은 한 번만 일어난다")
 	void p7_concurrentSameOrderId_debitsOnlyOnce() throws InterruptedException {
-		int orderId = 700;
-		int amount = 3_000;
+		long orderId = 700;
+		long amount = 3_000;
 		createCustomerWallet(10_000);
 		createHoldingWallet();
 
@@ -244,8 +244,8 @@ class CashCompleteOrderPaymentUseCaseTest {
 	@Test
 	@DisplayName("P8: 같은 지갑에서 서로 다른 주문 10개를 동시에 결제하면 잔액 한도 안에서만 성공한다")
 	void p8_concurrentDifferentOrders_sameWallet_noOverdraft() throws InterruptedException {
-		int baseOrderId = 800;
-		int amount = 10_000;
+		long baseOrderId = 800;
+		long amount = 10_000;
 		createCustomerWallet(50_000);
 		createHoldingWallet();
 
@@ -257,7 +257,7 @@ class CashCompleteOrderPaymentUseCaseTest {
 		long insufficientCount = results.stream().filter(result -> result.dto() != null
 			&& result.dto().outcome() == CashPaymentResponseDto.Outcome.INSUFFICIENT_BALANCE).count();
 		long errorCount = results.stream().filter(result -> result.error() != null).count();
-		int finalBalance = walletRepository.findById(CUSTOMER_ID).orElseThrow().getBalance();
+		long finalBalance = walletRepository.findById(CUSTOMER_ID).orElseThrow().getBalance();
 
 		printAttemptSummary("P8", results);
 		System.out.println("P8 최종 고객 잔액: " + finalBalance);
@@ -274,8 +274,8 @@ class CashCompleteOrderPaymentUseCaseTest {
 	@Test
 	@DisplayName("P9: 고객 차감 직후 보관 지갑 적립 저장이 실패하면 고객 차감과 장부가 모두 롤백된다")
 	void p9_failureAfterCustomerDebit_rollsBackEverything() {
-		int orderId = 900;
-		int amount = 3_000;
+		long orderId = 900;
+		long amount = 3_000;
 		createCustomerWallet(10_000);
 		createHoldingWallet();
 
@@ -295,8 +295,8 @@ class CashCompleteOrderPaymentUseCaseTest {
 		assertTotalPreserved(10_000);
 	}
 
-	private void assertFinalizedPaymentRejectsRetry(PaymentStatus status, int orderId) {
-		int amount = 3_000;
+	private void assertFinalizedPaymentRejectsRetry(PaymentStatus status, long orderId) {
+		long amount = 3_000;
 		Wallet customerWallet = createCustomerWallet(10_000);
 		createHoldingWallet();
 		Payment payment = paymentRepository.save(new Payment(orderId, customerWallet, amount));
@@ -350,30 +350,30 @@ class CashCompleteOrderPaymentUseCaseTest {
 		}
 	}
 
-	private long countLedgersForOrder(int orderId) {
+	private long countLedgersForOrder(long orderId) {
 		return walletLedgerRepository.findAll().stream()
 			.filter(ledger -> ledger.getRefTypeCode() == LedgerRefType.Order && ledger.getRefId() == orderId)
 			.count();
 	}
 
-	private int ledgerAmountSumForOrder(int orderId) {
+	private long ledgerAmountSumForOrder(long orderId) {
 		return walletLedgerRepository.findAll().stream()
 			.filter(ledger -> ledger.getRefTypeCode() == LedgerRefType.Order && ledger.getRefId() == orderId)
-			.mapToInt(WalletLedger::getAmount)
+			.mapToLong(WalletLedger::getAmount)
 			.sum();
 	}
 
-	private void assertBalance(int holderId, int expected) {
+	private void assertBalance(long holderId, int expected) {
 		assertThat(walletRepository.findById(holderId).orElseThrow().getBalance()).isEqualTo(expected);
 	}
 
 	// 각 지갑의 잔액은 그 지갑 장부 금액의 합과 같아야 한다
-	private void assertLedgerConsistency(int... holderIds) {
-		for (int holderId : holderIds) {
-			int walletBalance = walletRepository.findById(holderId).orElseThrow().getBalance();
-			int ledgerSum = walletLedgerRepository.findAll().stream()
+	private void assertLedgerConsistency(long... holderIds) {
+		for (long holderId : holderIds) {
+			long walletBalance = walletRepository.findById(holderId).orElseThrow().getBalance();
+			long ledgerSum = walletLedgerRepository.findAll().stream()
 				.filter(ledger -> ledger.getWallet().getId() == holderId)
-				.mapToInt(WalletLedger::getAmount)
+				.mapToLong(WalletLedger::getAmount)
 				.sum();
 			assertThat(walletBalance).as("지갑 %d 잔액은 그 지갑 장부 합과 같아야 한다", holderId).isEqualTo(ledgerSum);
 		}
@@ -381,13 +381,13 @@ class CashCompleteOrderPaymentUseCaseTest {
 
 	// 고객 지갑 + 보관 지갑 잔액 합은 테스트 전(충전된 총액)과 같아야 한다
 	private void assertTotalPreserved(int expectedTotal) {
-		int customerBalance = walletRepository.findById(CUSTOMER_ID).orElseThrow().getBalance();
-		int holdingBalance = walletRepository.findById(cashWalletProperties.holdingMemberId())
+		long customerBalance = walletRepository.findById(CUSTOMER_ID).orElseThrow().getBalance();
+		long holdingBalance = walletRepository.findById(cashWalletProperties.holdingMemberId())
 			.orElseThrow().getBalance();
 		assertThat(customerBalance + holdingBalance).as("고객+보관 잔액 합이 보존되어야 한다").isEqualTo(expectedTotal);
 	}
 
-	private Wallet createCustomerWallet(int initialBalance) {
+	private Wallet createCustomerWallet(long initialBalance) {
 		return createWallet(CUSTOMER_ID, "러너3", initialBalance);
 	}
 
@@ -395,7 +395,7 @@ class CashCompleteOrderPaymentUseCaseTest {
 		createWallet(cashWalletProperties.holdingMemberId(), "홀딩", 0);
 	}
 
-	private Wallet createWallet(int memberId, String nickname, int initialBalance) {
+	private Wallet createWallet(long memberId, String nickname, long initialBalance) {
 		return transactionTemplate.execute(status -> {
 			LocalDateTime now = LocalDateTime.of(2026, 10, 12, 10, 0);
 			CashMember member = cashMemberRepository.save(new CashMember(memberId, now, now, nickname));

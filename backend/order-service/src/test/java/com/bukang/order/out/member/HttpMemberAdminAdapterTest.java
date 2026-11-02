@@ -27,7 +27,7 @@ import com.bukang.order.out.InternalHttpClients;
 
 class HttpMemberAdminAdapterTest {
 	private static final String BASE_URL = "http://member";
-	private static final int MEMBER_ID = 3;
+	private static final long MEMBER_ID = 3L;
 	private static final String URL = BASE_URL + "/internal/v1/member/members/3/admin";
 	private static final String NULL_DATA = "{ \"status\": 200, \"message\": \"조회\", \"data\": null }";
 	private static final String EMPTY_DATA = "{ \"status\": 200, \"message\": \"조회\", \"data\": {} }";

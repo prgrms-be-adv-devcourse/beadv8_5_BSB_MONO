@@ -271,7 +271,7 @@ public class Race extends BaseIdAndTime {
 
 	// 대회는 등록하면 누구나 볼 수 있다. 취소된 대회만 등록한 판매자(회원)만 볼 수 있다
 	// 취소된 대회는 자동 환불로 끝난 대회라 공개 화면에서 뺀다 (판매자는 내 대회에서 기록을 본다)
-	public boolean isVisibleTo(Integer memberId) {
+	public boolean isVisibleTo(Long memberId) {
 		return saleStatus != RaceSaleStatus.CANCELED || (memberId != null && seller.getMember().getId() == memberId);
 	}
 

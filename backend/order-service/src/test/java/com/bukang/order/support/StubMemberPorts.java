@@ -20,21 +20,21 @@ import com.bukang.order.out.member.MemberNicknamePort;
 public class StubMemberPorts implements MemberAdminPort, MemberNicknamePort {
 	static final String UNAVAILABLE_MESSAGE = "회원 서비스에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요.";
 
-	private final Set<Integer> adminIds = ConcurrentHashMap.newKeySet();
-	private final Map<String, Integer> memberIdByNickname = new ConcurrentHashMap<>();
+	private final Set<Long> adminIds = ConcurrentHashMap.newKeySet();
+	private final Map<String, Long> memberIdByNickname = new ConcurrentHashMap<>();
 	private volatile boolean unavailable;
 
 	// 물어볼 때 DB 트랜잭션 안이었는지 (회원 서비스를 기다리는 동안 DB 연결을 잡지 않는지 확인할 때 쓴다)
 	private final List<Boolean> askedInTransaction = new CopyOnWriteArrayList<>();
 
 	@Override
-	public boolean isAdmin(int memberId) {
+	public boolean isAdmin(long memberId) {
 		ask();
 		return adminIds.contains(memberId);
 	}
 
 	@Override
-	public Optional<Integer> findMemberId(String nickname) {
+	public Optional<Long> findMemberId(String nickname) {
 		ask();
 		return Optional.ofNullable(memberIdByNickname.get(nickname));
 	}
@@ -46,11 +46,11 @@ public class StubMemberPorts implements MemberAdminPort, MemberNicknamePort {
 		}
 	}
 
-	public void admin(int memberId) {
+	public void admin(long memberId) {
 		adminIds.add(memberId);
 	}
 
-	public void member(String nickname, int memberId) {
+	public void member(String nickname, long memberId) {
 		memberIdByNickname.put(nickname, memberId);
 	}
 

@@ -66,7 +66,7 @@ public class ApiV1CashController {
 				examples = @ExampleObject(value = CashApiExamples.WALLET_NOT_FOUND)))
 	})
 	public ResponseEntity<RsData<WalletBalanceResponseDto>> getBalance(
-		@LoginMemberId int memberId
+		@LoginMemberId long memberId
 	) {
 		WalletBalanceResponseDto walletBalanceResponseDto = cashFacade.getBalance(memberId);
 		return ResponseEntity.ok(RsData.of(HttpStatus.OK, "잔액 조회 성공", walletBalanceResponseDto));
@@ -94,7 +94,7 @@ public class ApiV1CashController {
 				examples = @ExampleObject(value = CashApiExamples.WALLET_NOT_FOUND)))
 	})
 	public ResponseEntity<RsData<PageDto<WalletLedgerItemDto>>> getLedgers(
-		@LoginMemberId int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "탭 필터. 생략하면 전체", example = "CHARGE")
 		@RequestParam(required = false) LedgerCategory category,
 		@Parameter(description = "페이지 번호 (0부터)", example = "0")
@@ -135,7 +135,7 @@ public class ApiV1CashController {
 				examples = @ExampleObject(value = CashApiExamples.WALLET_NOT_FOUND)))
 	})
 	public ResponseEntity<RsData<CashChargeResponseDto>> confirmWalletCharge(
-		@LoginMemberId int memberId,
+		@LoginMemberId long memberId,
 		@Valid @RequestBody CashChargeConfirmRequestDto request
 	) {
 		CashChargeResponseDto response = cashFacade.confirmWalletCharge(
@@ -173,7 +173,7 @@ public class ApiV1CashController {
 				examples = @ExampleObject(value = CashApiExamples.WITHDRAWAL_MEMBER_MISMATCH)))
 	})
 	public ResponseEntity<RsData<CashWithdrawalResponseDto>> requestWithdrawal(
-		@LoginMemberId int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "중복 환급 방지 키. 같은 [환급 신청] 재시도에는 같은 값을 보낸다 (예: UUID)",
 			example = "6f1c2a7e-3b9d-4f0a-9c55-0d2e8b7a1f43")
 		@RequestHeader(IdempotencyKeyHeader.NAME)

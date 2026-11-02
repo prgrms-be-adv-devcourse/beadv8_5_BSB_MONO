@@ -38,9 +38,9 @@ import com.bukang.cash.out.WalletRepository;
 @SpringBootTest
 @ActiveProfiles("test")
 class PayoutConcurrencyTest {
-	private static final int SELLER_APPLICATION_ID = 50;
-	private static final int SELLER_MEMBER_ID = 10;
-	private static final int PAYOUT_ID = 900;
+	private static final long SELLER_APPLICATION_ID = 50;
+	private static final long SELLER_MEMBER_ID = 10;
+	private static final long PAYOUT_ID = 900;
 
 	@Autowired
 	private CashFacade cashFacade;
@@ -135,11 +135,11 @@ class PayoutConcurrencyTest {
 		}
 	}
 
-	private void assertBalance(int holderId, int expected) {
+	private void assertBalance(long holderId, int expected) {
 		assertThat(walletRepository.findById(holderId).orElseThrow().getBalance()).isEqualTo(expected);
 	}
 
-	private void createWallet(int memberId, String nickname) {
+	private void createWallet(long memberId, String nickname) {
 		transactionTemplate.executeWithoutResult(status -> {
 			LocalDateTime now = LocalDateTime.of(2026, 10, 20, 10, 0);
 			CashMember member = cashMemberRepository.save(new CashMember(memberId, now, now, nickname));

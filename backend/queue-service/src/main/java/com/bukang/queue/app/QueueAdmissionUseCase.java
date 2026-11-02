@@ -18,7 +18,7 @@ public class QueueAdmissionUseCase {
 	// 주문 서비스가 결제 페이지를 열 때와 [결제하기] 때 부른다. 대회·종목 복제본(DB)은 읽지 않고 Redis만 읽는다
 	// 입장 중이 아니면(줄 서는 중, 입장 시간이 끝남, 대기열에 없음, 없는 대회·종목) admitted=false다
 	// Redis에 연결하지 못해도 503이 아니라 admitted=false로 답한다 (10/16 결정)
-	public QueueAdmissionDto getAdmission(int memberId, int raceId, int raceCourseId, LocalDateTime now) {
+	public QueueAdmissionDto getAdmission(long memberId, long raceId, long raceCourseId, LocalDateTime now) {
 		try {
 			return queueRedisRepository.findActiveUntil(raceId, raceCourseId, memberId, now)
 				.map(activeUntil -> QueueAdmissionDto.admitted(activeUntil, now))

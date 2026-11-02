@@ -44,8 +44,8 @@ public class DevQueueDummyController {
 
 	@PostMapping("/dev/queue-dummy/enter")
 	public ResponseEntity<RsData<QueueAdmissionDto>> enter(
-		@LoginMemberId int memberId,
-		@RequestParam int raceCourseId
+		@LoginMemberId long memberId,
+		@RequestParam long raceCourseId
 	) {
 		LocalDateTime now = LocalDateTime.now();
 		LocalDateTime endsAt = fakeQueueAdmissionAdapter.enter(memberId, raceCourseId, now);

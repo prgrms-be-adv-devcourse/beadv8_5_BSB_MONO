@@ -1,5 +1,8 @@
 package com.bukang.product.in;
 
+import static com.bukang.product.support.JsonIds.asLong;
+import static com.bukang.product.support.JsonIds.id;
+import static com.bukang.product.support.JsonIds.ids;
 import static com.bukang.product.support.RaceRequests.course;
 import static com.bukang.product.support.RaceRequests.race;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -23,6 +26,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
+import org.hamcrest.Matcher;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -34,6 +38,7 @@ import com.bukang.common.shared.race.domain.RaceSaleStatus;
 import com.bukang.product.domain.CourseSurface;
 import com.bukang.product.domain.CourseType;
 import com.bukang.product.dto.RaceSaveRequestDto;
+import com.bukang.product.support.JsonIds;
 import com.bukang.product.support.ProductIntegrationTest;
 import com.bukang.product.support.RaceRequests.CourseBuilder;
 import com.bukang.product.support.RaceRequests.RaceBuilder;
@@ -120,7 +125,7 @@ class ApiV1RaceSearchTest extends ProductIntegrationTest {
 			.andExpect(jsonPath("$.data.races[1].minPrice").value(30_000))
 			.andExpect(jsonPath("$.data.races[1].courses", hasSize(3)))
 			.andExpect(jsonPath("$.data.races[1].courses[*].raceCourseId",
-				contains(multi.courseIds().toArray(Integer[]::new))))
+				contains(ids(multi.courseIds()))))
 			.andExpect(jsonPath("$.data.races[1].courses[*].name", contains("10K", "하프", "5K")))
 			.andExpect(jsonPath("$.data.races[1].courses[*].courseType", contains("KM_10", "HALF", "KM_5")))
 			.andExpect(jsonPath("$.data.races[1].courses[*].price", contains(40_000, 55_000, 30_000)))
@@ -527,8 +532,8 @@ class ApiV1RaceSearchTest extends ProductIntegrationTest {
 		for (int number = 1; number <= 6; number++) {
 			races.add(registerOnSale(race().title("서울 러닝 시리즈 " + number).build()));
 		}
-		List<Integer> raceIds = races.stream().map(RegisteredRace::raceId).toList();
-		List<Integer> courseIds = races.stream().map(RegisteredRace::courseId).toList();
+		List<Long> raceIds = races.stream().map(RegisteredRace::raceId).toList();
+		List<Long> courseIds = races.stream().map(RegisteredRace::courseId).toList();
 
 		String body = bodyOf(suggest("서울")
 			.andExpect(status().isOk())
@@ -539,9 +544,9 @@ class ApiV1RaceSearchTest extends ProductIntegrationTest {
 			.andExpect(jsonPath("$.data.courses", hasSize(5)))
 			.andExpect(jsonPath("$.data.courses[*].label", everyItem(endsWith(" 10K")))));
 
-		List<Integer> suggestedRaceIds = JsonPath.read(body, "$.data.races[*].raceId");
+		List<Long> suggestedRaceIds = JsonIds.readLongs(body, "$.data.races[*].raceId");
 		assertThat(suggestedRaceIds).doesNotHaveDuplicates().isSubsetOf(raceIds);
-		List<Integer> suggestedCourseIds = JsonPath.read(body, "$.data.courses[*].raceCourseId");
+		List<Long> suggestedCourseIds = JsonIds.readLongs(body, "$.data.courses[*].raceCourseId");
 		assertThat(suggestedCourseIds).doesNotHaveDuplicates().isSubsetOf(courseIds);
 	}
 
@@ -554,14 +559,14 @@ class ApiV1RaceSearchTest extends ProductIntegrationTest {
 
 		String body = bodyOf(suggest("서울")
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.races[*].raceId", containsInAnyOrder(multi.raceId(), single.raceId())))
+			.andExpect(jsonPath("$.data.races[*].raceId", containsInAnyOrder(id(multi.raceId()), id(single.raceId()))))
 			.andExpect(jsonPath("$.data.races[*].title",
 				containsInAnyOrder("2026 서울 하프 마라톤", "서울 야간 레이스"))));
 
 		List<Map<String, Object>> courses = JsonPath.read(body, "$.data.courses");
 		assertThat(courses)
-			.extracting(suggestion -> suggestion.get("raceCourseId"), suggestion -> suggestion.get("raceId"),
-				suggestion -> suggestion.get("label"))
+			.extracting(suggestion -> asLong(suggestion.get("raceCourseId")),
+				suggestion -> asLong(suggestion.get("raceId")), suggestion -> suggestion.get("label"))
 			.containsExactlyInAnyOrder(
 				tuple(multi.courseIds().get(0), multi.raceId(), "2026 서울 하프 마라톤 10K"),
 				tuple(multi.courseIds().get(1), multi.raceId(), "2026 서울 하프 마라톤 하프"),
@@ -584,9 +589,10 @@ class ApiV1RaceSearchTest extends ProductIntegrationTest {
 
 		suggest("서울")
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.races[*].raceId", containsInAnyOrder(onSale.raceId(), scheduled.raceId())))
+			.andExpect(jsonPath("$.data.races[*].raceId",
+				containsInAnyOrder(id(onSale.raceId()), id(scheduled.raceId()))))
 			.andExpect(jsonPath("$.data.courses[*].raceId",
-				containsInAnyOrder(onSale.raceId(), scheduled.raceId())));
+				containsInAnyOrder(id(onSale.raceId()), id(scheduled.raceId()))));
 	}
 
 	@Test
@@ -704,8 +710,8 @@ class ApiV1RaceSearchTest extends ProductIntegrationTest {
 			.andExpect(jsonPath("$.data", nullValue()));
 	}
 
-	private static Integer[] idsOf(RegisteredRace... races) {
-		return Arrays.stream(races).map(RegisteredRace::raceId).toArray(Integer[]::new);
+	private static List<Matcher<? super Object>> idsOf(RegisteredRace... races) {
+		return ids(Arrays.stream(races).map(RegisteredRace::raceId).toList());
 	}
 
 	private static String bodyOf(ResultActions result) throws Exception {

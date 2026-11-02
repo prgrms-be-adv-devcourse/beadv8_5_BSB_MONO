@@ -35,7 +35,7 @@ public class MemberDataInit {
 
 	// product·payout 시작 데이터(ProductDataInit, PayoutDataInit)가 판매자1을 판매자 ID 7로 만들어 둔다
 	private static final String SEED_SELLER_EMAIL = "seller1@crewrun.com";
-	private static final int SEED_SELLER_ID = 7;
+	private static final long SEED_SELLER_ID = 7;
 
 	private final MemberDataInit self;
 	private final MemberFacade memberFacade;

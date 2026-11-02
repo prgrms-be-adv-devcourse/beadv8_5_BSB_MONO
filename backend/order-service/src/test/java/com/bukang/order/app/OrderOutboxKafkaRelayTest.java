@@ -49,8 +49,8 @@ import com.bukang.order.out.OrderOutboxKafkaEventRepository;
 @SpringBootTest
 @ActiveProfiles("test")
 class OrderOutboxKafkaRelayTest {
-	private static final int PARTICIPATION_ID = 1001;
-	private static final int OTHER_PARTICIPATION_ID = 1002;
+	private static final long PARTICIPATION_ID = 1001;
+	private static final long OTHER_PARTICIPATION_ID = 1002;
 
 	@Autowired
 	private OrderOutboxKafkaAppendUseCase orderOutboxKafkaAppendUseCase;
@@ -235,21 +235,21 @@ class OrderOutboxKafkaRelayTest {
 			.send(KafkaTopics.PRODUCT_HOLD_RESTORE, "1001", restorePayload(PARTICIPATION_ID));
 	}
 
-	private void restore(int participationId) {
+	private void restore(long participationId) {
 		transactionTemplate.executeWithoutResult(status ->
 			orderOutboxKafkaAppendUseCase.appendSeatRestore(participationId));
 	}
 
-	private void release(int participationId) {
+	private void release(long participationId) {
 		transactionTemplate.executeWithoutResult(status ->
 			orderOutboxKafkaAppendUseCase.appendSeatRelease(participationId));
 	}
 
-	private String restorePayload(int participationId) {
+	private String restorePayload(long participationId) {
 		return jsonConverter.toJson(new HoldRestoreEvent(participationId));
 	}
 
-	private String releasePayload(int participationId) {
+	private String releasePayload(long participationId) {
 		return jsonConverter.toJson(new HoldCancelEvent(participationId));
 	}
 
@@ -258,12 +258,12 @@ class OrderOutboxKafkaRelayTest {
 	}
 
 	// 이 토픽·신청(key)의 메시지를 보내면 브로커가 거절한 것처럼 실패한 결과를 돌려준다
-	private void failSendTo(String topic, int participationId) {
+	private void failSendTo(String topic, long participationId) {
 		doReturn(CompletableFuture.failedFuture(new IllegalStateException("브로커 응답 없음")))
 			.when(kafka()).send(eq(topic), eq(String.valueOf(participationId)), anyString());
 	}
 
-	private void succeedSendTo(String topic, int participationId) {
+	private void succeedSendTo(String topic, long participationId) {
 		doReturn(CompletableFuture.completedFuture(null))
 			.when(kafka()).send(eq(topic), eq(String.valueOf(participationId)), anyString());
 	}

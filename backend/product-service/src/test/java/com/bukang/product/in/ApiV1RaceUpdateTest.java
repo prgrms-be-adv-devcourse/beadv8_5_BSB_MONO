@@ -38,10 +38,10 @@ import com.bukang.product.domain.TshirtSize;
 import com.bukang.product.domain.document.RaceCourseDocument;
 import com.bukang.product.dto.RaceImageRequestDto;
 import com.bukang.product.dto.RaceSaveRequestDto;
+import com.bukang.product.support.JsonIds;
 import com.bukang.product.support.ProductIntegrationTest;
 import com.bukang.product.support.RaceRequests.CourseBuilder;
 import com.bukang.product.support.RaceRequests.RaceBuilder;
-import com.jayway.jsonpath.JsonPath;
 
 /**
  * 대회 수정(PUT /api/v1/product/races/{raceId})을 확인한다.
@@ -380,7 +380,7 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 	@DisplayName("판매 중 대회에서 10K·하프 중 하프 종목을 빼면 409이고 두 종목 모두 남는다")
 	void rejectCourseRemovalAfterSaleStarted() throws Exception {
 		RegisteredRace registered = registerOnSale(sameRace().course(course(), halfCourse()).build());
-		int halfCourseId = registered.courseIds().get(1);
+		long halfCourseId = registered.courseIds().get(1);
 
 		update(registered.raceId(), sameRace().course(sameCourse(registered.courseId())).build())
 			.andExpect(status().isConflict())
@@ -580,7 +580,7 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 			.andExpect(jsonPath("$.data.courseIds.length()").value(2))
 			.andExpect(jsonPath("$.data.courseIds[1]").value(registered.courseId()))
 			.andReturn();
-		int newCourseId = JsonPath.read(result.getResponse().getContentAsString(), "$.data.courseIds[0]");
+		long newCourseId = JsonIds.readLong(result.getResponse().getContentAsString(), "$.data.courseIds[0]");
 
 		assertThat(newCourseId).isNotEqualTo(registered.courseId());
 		RaceCourse added = findCourse(newCourseId);
@@ -596,7 +596,7 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 	@DisplayName("판매 예정 대회에서 하프 종목을 빼면 종목과 검색 문서가 지워지고, 파일 연결 메시지에 빈 목록을 보내 이미지를 뗀다")
 	void removeCourseBeforeSaleOpen() throws Exception {
 		RegisteredRace registered = register(scheduledRace().course(course(), halfCourse()).build());
-		int halfCourseId = registered.courseIds().get(1);
+		long halfCourseId = registered.courseIds().get(1);
 		assertThat(raceCourseDocumentRepository.existsById(String.valueOf(halfCourseId))).isTrue();
 
 		update(registered.raceId(), scheduledRace().course(sameCourse(registered.courseId())).build())
@@ -819,7 +819,7 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 	}
 
 	// 등록한 기본 종목(10K)을 가리키는 수정용 종목. 바꿀 값만 고친다 (대표 이미지는 새 파일 ID로 바뀐다)
-	private CourseBuilder sameCourse(int courseId) {
+	private CourseBuilder sameCourse(long courseId) {
 		return course().courseId(courseId);
 	}
 
@@ -831,19 +831,19 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 		return course().name("5K").type(CourseType.KM_5).distanceKm("5").timeLimitMinutes(60);
 	}
 
-	private ResultActions update(int raceId, RaceSaveRequestDto request) throws Exception {
+	private ResultActions update(long raceId, RaceSaveRequestDto request) throws Exception {
 		return putJson(RACES + raceId, SELLER_MEMBER_ID, request);
 	}
 
-	private Race findRace(int raceId) {
+	private Race findRace(long raceId) {
 		return raceRepository.findById(raceId).orElseThrow();
 	}
 
-	private RaceCourse findCourse(int courseId) {
+	private RaceCourse findCourse(long courseId) {
 		return raceCourseRepository.findById(courseId).orElseThrow();
 	}
 
-	private RaceCourseDocument findDocument(int courseId) {
+	private RaceCourseDocument findDocument(long courseId) {
 		return raceCourseDocumentRepository.findById(String.valueOf(courseId)).orElseThrow();
 	}
 
@@ -855,7 +855,7 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 		return jsonConverter.fromJson(fileLinkMessages().getLast(), FileLinkRequestedEvent.class);
 	}
 
-	private FileLinkRequestedEvent.Ref refOf(FileLinkRequestedEvent fileLink, int courseId) {
+	private FileLinkRequestedEvent.Ref refOf(FileLinkRequestedEvent fileLink, long courseId) {
 		return fileLink.refs().stream()
 			.filter(ref -> ref.refId() == courseId)
 			.findFirst()

@@ -21,7 +21,7 @@ import lombok.RequiredArgsConstructor;
 public class SoldEntryQueryUseCase {
 	private final OrderItemRepository orderItemRepository;
 
-	public List<SoldEntryDto> findSoldEntries(int raceId) {
+	public List<SoldEntryDto> findSoldEntries(long raceId) {
 		return orderItemRepository.findSoldEntries(raceId);
 	}
 }

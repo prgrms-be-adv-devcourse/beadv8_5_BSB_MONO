@@ -48,7 +48,7 @@ class MemberAdapterConfigTest {
 		nicknameRunner.withPropertyValues("order.clients.nickname.mode=fake").run(context -> {
 			MemberNicknamePort port = context.getBean(MemberNicknamePort.class);
 			assertThat(port).isInstanceOf(FakeMemberNicknameAdapter.class);
-			assertThat(port.findMemberId("사용자1")).contains(4);
+			assertThat(port.findMemberId("사용자1")).contains(4L);
 			assertThat(port.findMemberId("없는회원")).isEmpty();
 		});
 		nicknameRunner.withPropertyValues("order.clients.nickname.mode=disabled").run(context -> {

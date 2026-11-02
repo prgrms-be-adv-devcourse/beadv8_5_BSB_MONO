@@ -55,8 +55,8 @@ public class PayoutLedgerUseCase {
 	 * @return 만든 회수. 1차 정산이 없으면(1차 정산금을 준 적이 없으면) 돌려받을 것이 없어 빈 값
 	 */
 	@Transactional
-	public Optional<PayoutRecovery> recoverScheduleChange(int sellerId, int raceId, int raceCourseId,
-		int orderItemId, long price, LocalDateTime now) {
+	public Optional<PayoutRecovery> recoverScheduleChange(long sellerId, long raceId, long raceCourseId,
+		long orderItemId, long price, LocalDateTime now) {
 		if (payoutRecoveryRepository.existsByOrderItemId(orderItemId)) {
 			throw new PayoutRecoveryConflictException("이미 회수를 요청한 참가권입니다.");
 		}
@@ -83,7 +83,7 @@ public class PayoutLedgerUseCase {
 	 * @return 만든 회수. 이미 있거나 돌려받을 돈이 없으면 빈 값
 	 */
 	@Transactional
-	public Optional<PayoutRecovery> recoverRaceCancel(int sellerId, int raceId, LocalDateTime now) {
+	public Optional<PayoutRecovery> recoverRaceCancel(long sellerId, long raceId, LocalDateTime now) {
 		if (payoutRecoveryRepository.existsByRaceIdAndReasonType(raceId, PayoutRecoveryReason.RACE_CANCELED)) {
 			return Optional.empty();
 		}
@@ -116,7 +116,7 @@ public class PayoutLedgerUseCase {
 	 * (상계로 못 다 갚은 회수들을 묶어 두었다가 다 갚으면 한 번에 끝내는 규칙. 여러 회수를 한 번에 입금받는 요청은 별도 이슈에서 만든다)
 	 */
 	@Transactional
-	public PayoutRecovery confirmDeposit(int recoveryId, int completedBy, LocalDateTime now) {
+	public PayoutRecovery confirmDeposit(long recoveryId, long completedBy, LocalDateTime now) {
 		PayoutRecovery recovery = payoutRecoveryRepository.findByIdForUpdate(recoveryId)
 			.orElseThrow(PayoutRecoveryNotFoundException::new);
 		if (recovery.getStatus() == PayoutRecoveryStatus.COMPLETED) {
@@ -151,7 +151,7 @@ public class PayoutLedgerUseCase {
 
 	// JPQL 합계 쿼리 전에 Hibernate가 쌓인 원장 줄을 먼저 내보내므로(자동 flush) 같은 트랜잭션에서 쓴 줄도 더해진다
 	// 같은 패키지의 시나리오 테스트가 잔고를 확인하려고 부르므로 package-private으로 둔다
-	long balance(int sellerId, int raceId, PayoutAccount account) {
+	long balance(long sellerId, long raceId, PayoutAccount account) {
 		return payoutItemRepository.sumBalance(sellerId, raceId, account);
 	}
 
@@ -159,7 +159,7 @@ public class PayoutLedgerUseCase {
 	// 지급 전 정산 내역을 잠가서 읽으므로 지급 배치 · 다른 회수 요청과 정산 내역 금액을 동시에 바꾸지 않는다
 	// 다시 불러도 잔고로 다시 계산하므로 이미 뺀 금액을 또 빼지 않는다
 	// 부르는 쪽(회수 요청 · 최종 정산 차감)의 트랜잭션 안에서 돈다. 이번에 완료한 회수를 돌려준다
-	private List<PayoutRecovery> settle(int sellerId, int raceId, LocalDateTime now) {
+	private List<PayoutRecovery> settle(long sellerId, long raceId, LocalDateTime now) {
 		long receivable = balance(sellerId, raceId, PayoutAccount.RECEIVABLE);
 		if (receivable <= 0) {
 			return List.of();
@@ -176,7 +176,7 @@ public class PayoutLedgerUseCase {
 	// 그 대회의 갚을 돈이 0이면 요청 중인 회수는 상계로 갚은 몫이므로 상계로 완료한다 (상계 · 입금이 함께 쓰는 규칙)
 	// 남은 금액을 넘겨받지 않고 잔고를 다시 읽는다. 방금 쓴 상계 · 입금 줄도 자동 flush로 더해진다
 	// 상계와 입금이 같은 잔고를 동시에 읽어 갚을 돈이 0 아래가 됐어도, 더 받을 돈이 없으므로 완료한다
-	private List<PayoutRecovery> completeRequestedIfCleared(int sellerId, int raceId, LocalDateTime now) {
+	private List<PayoutRecovery> completeRequestedIfCleared(long sellerId, long raceId, LocalDateTime now) {
 		if (balance(sellerId, raceId, PayoutAccount.RECEIVABLE) > 0) {
 			return List.of();
 		}
@@ -187,7 +187,7 @@ public class PayoutLedgerUseCase {
 	}
 
 	// 회수를 저장하고, 1차 정산금에서 빼서 같은 금액을 갚을 돈으로 옮긴다
-	private PayoutRecovery openRecovery(PayoutRecovery recovery, Integer orderItemId, Integer raceCourseId) {
+	private PayoutRecovery openRecovery(PayoutRecovery recovery, Long orderItemId, Long raceCourseId) {
 		PayoutRecovery saved = payoutRecoveryRepository.save(recovery);
 		long amount = saved.getAmount();
 		payoutItemRepository.save(
@@ -198,7 +198,7 @@ public class PayoutLedgerUseCase {
 	}
 
 	// 대회 취소로 닫히지 않은 그 단계의 정산 내역
-	private Optional<Payout> findLive(int sellerId, int raceId, PayoutStage stage) {
+	private Optional<Payout> findLive(long sellerId, long raceId, PayoutStage stage) {
 		return payoutRepository.findFirstBySellerIdAndRaceIdAndPayoutStageOrderByIdAsc(sellerId, raceId, stage)
 			.filter(payout -> payout.getStatus() != PayoutStatus.CANCELED);
 	}

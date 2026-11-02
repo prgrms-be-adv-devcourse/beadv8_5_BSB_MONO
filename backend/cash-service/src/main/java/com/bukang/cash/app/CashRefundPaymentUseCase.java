@@ -23,7 +23,7 @@ public class CashRefundPaymentUseCase {
 
 	// 결제 완료된 주문만 환불한다. cancelPayment와 달리 결제 전 주문은 선점하지 않고 그냥 예외로 거절한다
 	// (환불은 고객이 끝난 결제를 취소할 때만 부르는 것이라, 결제된 적 없는 주문엔 돌려줄 게 없다)
-	public CashRefundResponseDto refund(int orderId, int customerId) {
+	public CashRefundResponseDto refund(long orderId, long customerId) {
 		LockedWallets lockedWallets = cashSupport.lockCustomerAndHoldingWallets(customerId);
 		Wallet customerWallet = lockedWallets.customerWallet();
 		Wallet holdingWallet = lockedWallets.holdingWallet();
@@ -40,7 +40,7 @@ public class CashRefundPaymentUseCase {
 		// 단, CANCELED는 COMPLETED를 거친 적 없이(잔액 부족 등으로 FAILED됐다가) 취소된 경우도
 		// 있어서, 그때는 실제로 돈이 움직인 적이 없으므로 0원을 돌려줘야 한다 (PRO-170)
 		if (payment.getStatus() == PaymentStatus.CANCELED || payment.getStatus() == PaymentStatus.REFUNDED) {
-			int actualAmount = payment.wasCompleted() ? payment.getAmount() : 0;
+			long actualAmount = payment.wasCompleted() ? payment.getAmount() : 0;
 			return new CashRefundResponseDto(actualAmount);
 		}
 
@@ -48,7 +48,7 @@ public class CashRefundPaymentUseCase {
 			throw new PaymentNotRefundableException("결제가 완료되지 않아 환불할 수 없습니다.");
 		}
 
-		int amount = payment.getAmount();
+		long amount = payment.getAmount();
 		walletLedgerRepository.save(
 			customerWallet.credit(amount, LedgerType.환불__주문취소, LedgerRefType.Order, orderId));
 		walletLedgerRepository.save(

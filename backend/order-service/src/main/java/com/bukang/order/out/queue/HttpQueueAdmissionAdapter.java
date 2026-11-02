@@ -36,7 +36,7 @@ public class HttpQueueAdmissionAdapter implements QueueAdmissionPort {
 	private final RestClient restClient;
 
 	@Override
-	public Optional<LocalDateTime> findAdmissionEndsAt(int memberId, int raceId, int raceCourseId,
+	public Optional<LocalDateTime> findAdmissionEndsAt(long memberId, long raceId, long raceCourseId,
 		LocalDateTime now) {
 		RsData<Admission> response;
 		try {

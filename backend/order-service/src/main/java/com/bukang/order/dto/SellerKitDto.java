@@ -16,12 +16,12 @@ import lombok.Getter;
  */
 @Getter
 public class SellerKitDto {
-	private final int orderItemId;
+	private final long orderItemId;
 	private final String orderNo;
 	// 참가권 상태. 보낸 뒤 취소된 참가권은 CANCELED로 보인다
 	private final OrderItemStatus orderItemStatus;
-	private final int raceId;
-	private final int raceCourseId;
+	private final long raceId;
+	private final long raceCourseId;
 	// 주문 당시 종목 이름
 	private final String courseName;
 	private final String participantName;
@@ -34,8 +34,9 @@ public class SellerKitDto {
 	private final LocalDateTime kitDeliveredAt;
 
 	// JPQL 생성자 조회용
-	public SellerKitDto(int orderItemId, String orderNo, OrderItemStatus orderItemStatus, int raceId,
-		int raceCourseId, String courseName, String participantName, String tshirtSize, ShippingAddress shippingAddress,
+	public SellerKitDto(long orderItemId, String orderNo, OrderItemStatus orderItemStatus, long raceId,
+		long raceCourseId, String courseName, String participantName, String tshirtSize,
+		ShippingAddress shippingAddress,
 		ShipmentStatus shipmentStatus, String kitCarrier, String kitTrackingNumber,
 		LocalDateTime kitShippedAt, LocalDateTime kitDeliveredAt) {
 		this.orderItemId = orderItemId;

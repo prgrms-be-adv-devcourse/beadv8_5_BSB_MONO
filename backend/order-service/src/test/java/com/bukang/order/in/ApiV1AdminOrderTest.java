@@ -54,13 +54,13 @@ import com.jayway.jsonpath.JsonPath;
 class ApiV1AdminOrderTest {
 	private static final String BASE_URL = "/api/v1/order/admin/orders";
 	// 한 대회에는 한 번만 신청할 수 있어, 한 회원의 주문 두 건은 다른 대회로 만든다
-	private static final int FIRST_RACE_ID = 800;
-	private static final int SECOND_RACE_ID = 810;
-	private static final int FIRST_COURSE_ID = 80;
-	private static final int SECOND_COURSE_ID = 81;
-	private static final int ADMIN_ID = 3;
-	private static final int BUYER_ID = 4;
-	private static final int OTHER_BUYER_ID = 5;
+	private static final long FIRST_RACE_ID = 800L;
+	private static final long SECOND_RACE_ID = 810L;
+	private static final long FIRST_COURSE_ID = 80L;
+	private static final long SECOND_COURSE_ID = 81L;
+	private static final long ADMIN_ID = 3L;
+	private static final long BUYER_ID = 4L;
+	private static final long OTHER_BUYER_ID = 5L;
 	private static final String BUYER_NICKNAME = "달리는곰";
 
 	@Autowired
@@ -118,8 +118,8 @@ class ApiV1AdminOrderTest {
 	@Test
 	@DisplayName("닉네임으로 찾으면 그 회원의 주문만 최신순으로 나오고, 결제 대기 주문도 결제일 없이 함께 나온다")
 	void byNickname() throws Exception {
-		int paidOrderId = createOrder(BUYER_ID, FIRST_COURSE_ID, true);
-		int unpaidOrderId = createOrder(BUYER_ID, SECOND_COURSE_ID, false);
+		long paidOrderId = createOrder(BUYER_ID, FIRST_COURSE_ID, true);
+		long unpaidOrderId = createOrder(BUYER_ID, SECOND_COURSE_ID, false);
 		createOrder(OTHER_BUYER_ID, FIRST_COURSE_ID, true);
 
 		search("nickname", " " + BUYER_NICKNAME + " ")
@@ -143,7 +143,7 @@ class ApiV1AdminOrderTest {
 	@Test
 	@DisplayName("결제하지 않고 기한이 지난 주문도 기한 만료로 함께 나온다 (문의 대응, 10/30 결정)")
 	void includesExpired() throws Exception {
-		int expiredOrderId = createOrder(BUYER_ID, FIRST_COURSE_ID, false);
+		long expiredOrderId = createOrder(BUYER_ID, FIRST_COURSE_ID, false);
 		transactionTemplate.executeWithoutResult(status -> {
 			Order order = orderRepository.findById(expiredOrderId).orElseThrow();
 			order.expire(order.getPaymentDueAt());
@@ -161,7 +161,7 @@ class ApiV1AdminOrderTest {
 	@Test
 	@DisplayName("주문번호로 찾으면 그 주문 한 줄만 나오고, 소문자로 넣어도 찾는다. 없는 주문번호는 빈 목록이다")
 	void byOrderNo() throws Exception {
-		int orderId = createOrder(BUYER_ID, FIRST_COURSE_ID, true);
+		long orderId = createOrder(BUYER_ID, FIRST_COURSE_ID, true);
 		createOrder(OTHER_BUYER_ID, FIRST_COURSE_ID, true);
 		String orderNo = orderRepository.findById(orderId).map(Order::getOrderNo).orElseThrow();
 
@@ -226,18 +226,18 @@ class ApiV1AdminOrderTest {
 		return mockMvc.perform(get(BASE_URL).header("X-Member-Id", ADMIN_ID).param(key, value).param("size", size));
 	}
 
-	private int createOrder(int buyerId, int courseId, boolean pay) throws Exception {
-		int participationId = apply(buyerId, courseId);
+	private long createOrder(long buyerId, long courseId, boolean pay) throws Exception {
+		long participationId = apply(buyerId, courseId);
 		OrderCreateResult result = transactionTemplate.execute(status -> orderCreateUseCase.create(buyerId,
 			participationId, UUID.randomUUID().toString(), LocalDateTime.now()));
-		int orderId = result.order().getId();
+		long orderId = result.order().getId();
 		if (pay) {
 			transactionTemplate.execute(status -> orderPayUseCase.pay(buyerId, orderId, LocalDateTime.now()));
 		}
 		return orderId;
 	}
 
-	private int apply(int buyerId, int courseId) throws Exception {
+	private long apply(long buyerId, long courseId) throws Exception {
 		QueueEntry.enter(mockMvc, buyerId, courseId);
 		String body = mockMvc.perform(post("/api/v1/order/participations")
 				.header("X-Member-Id", buyerId)
@@ -251,6 +251,6 @@ class ApiV1AdminOrderTest {
 							"zipcode": "04700", "address": "서울 성동구 왕십리로 00", "addressDetail": "101동 1001호" } } }
 					""".formatted(courseId)))
 			.andReturn().getResponse().getContentAsString();
-		return JsonPath.read(body, "$.data.id");
+		return ((Number)JsonPath.read(body, "$.data.id")).longValue();
 	}
 }

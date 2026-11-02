@@ -15,7 +15,7 @@ public class CashEnsureWalletUseCase {
 	private final WalletRepository walletRepository;
 	private final CashMemberRepository cashMemberRepository;
 
-	public Wallet ensureWallet(int cashMemberId) {
+	public Wallet ensureWallet(long cashMemberId) {
 		return walletRepository.findByHolderId(cashMemberId)
 			.orElseGet(() -> {
 				CashMember member = cashMemberRepository.getReferenceById(cashMemberId);

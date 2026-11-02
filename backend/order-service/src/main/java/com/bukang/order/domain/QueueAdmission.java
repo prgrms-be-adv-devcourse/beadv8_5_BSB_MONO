@@ -29,21 +29,21 @@ import lombok.NoArgsConstructor;
 )
 public class QueueAdmission extends BaseIdAndTime {
 	@Column(name = "member_id", nullable = false)
-	private int memberId;
+	private long memberId;
 
 	@Column(name = "race_course_id", nullable = false)
-	private int raceCourseId;
+	private long raceCourseId;
 
 	@Column(name = "admission_ends_at", nullable = false)
 	private LocalDateTime admissionEndsAt;
 
-	private QueueAdmission(int memberId, int raceCourseId, LocalDateTime admissionEndsAt) {
+	private QueueAdmission(long memberId, long raceCourseId, LocalDateTime admissionEndsAt) {
 		this.memberId = memberId;
 		this.raceCourseId = raceCourseId;
 		this.admissionEndsAt = admissionEndsAt;
 	}
 
-	public static QueueAdmission of(int memberId, int raceCourseId, LocalDateTime admissionEndsAt) {
+	public static QueueAdmission of(long memberId, long raceCourseId, LocalDateTime admissionEndsAt) {
 		return new QueueAdmission(memberId, raceCourseId, admissionEndsAt);
 	}
 

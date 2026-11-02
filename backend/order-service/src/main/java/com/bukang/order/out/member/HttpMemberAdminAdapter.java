@@ -34,7 +34,7 @@ public class HttpMemberAdminAdapter implements MemberAdminPort {
 	private final RestClient restClient;
 
 	@Override
-	public boolean isAdmin(int memberId) {
+	public boolean isAdmin(long memberId) {
 		RsData<AdminResponse> response;
 		try {
 			response = restClient.get()

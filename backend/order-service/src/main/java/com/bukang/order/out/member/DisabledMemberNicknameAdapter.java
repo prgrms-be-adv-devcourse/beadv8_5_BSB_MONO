@@ -18,7 +18,7 @@ public class DisabledMemberNicknameAdapter implements MemberNicknamePort {
 	static final String MESSAGE = "닉네임 검색은 아직 쓸 수 없습니다. 주문번호로 찾아 주세요.";
 
 	@Override
-	public Optional<Integer> findMemberId(String nickname) {
+	public Optional<Long> findMemberId(String nickname) {
 		throw new ExternalServiceUnavailableException(MESSAGE);
 	}
 }

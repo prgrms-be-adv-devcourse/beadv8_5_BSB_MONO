@@ -137,7 +137,7 @@ class ProductFacadeRaceChangedTest extends ProductIntegrationTest {
 			.applicationCloseAt(now.plusDays(10));
 	}
 
-	private Race findRace(int raceId) {
+	private Race findRace(long raceId) {
 		return raceRepository.findById(raceId).orElseThrow();
 	}
 
@@ -154,7 +154,7 @@ class ProductFacadeRaceChangedTest extends ProductIntegrationTest {
 	}
 
 	// API로는 만들 수 없는 판매 시작일(오늘)을 만들려고 대회 행을 직접 고친다 (메시지를 보내지 않는다)
-	private void updateSaleOpenDate(int raceId, LocalDate saleOpenDate) {
+	private void updateSaleOpenDate(long raceId, LocalDate saleOpenDate) {
 		transactionTemplate.executeWithoutResult(status -> entityManager
 			.createQuery("update Race r set r.saleOpenDate = :saleOpenDate where r.id = :id")
 			.setParameter("saleOpenDate", saleOpenDate)

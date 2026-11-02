@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.IntFunction;
+import java.util.function.LongFunction;
 import java.util.stream.Collectors;
 
 import com.bukang.payout.out.RacePort;
@@ -21,9 +21,9 @@ import com.bukang.payout.out.SoldEntry;
 public class StubRacePort implements RacePort {
 	private final List<RaceSchedule> schedules;
 
-	public StubRacePort(IntFunction<Optional<String>> raceNames, List<RaceSchedule> schedules,
+	public StubRacePort(LongFunction<Optional<String>> raceNames, List<RaceSchedule> schedules,
 		List<SoldEntry> soldEntries) {
-		Set<Integer> known = schedules.stream().map(RaceSchedule::raceId).collect(Collectors.toSet());
+		Set<Long> known = schedules.stream().map(RaceSchedule::raceId).collect(Collectors.toSet());
 		List<RaceSchedule> all = new ArrayList<>(schedules);
 		soldEntries.stream()
 			.filter(entry -> known.add(entry.raceId()))

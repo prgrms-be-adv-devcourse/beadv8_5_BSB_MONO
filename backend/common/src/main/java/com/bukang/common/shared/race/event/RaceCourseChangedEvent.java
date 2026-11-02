@@ -9,8 +9,8 @@ import java.time.LocalDateTime;
  * 같은 대회의 종목 메시지가 순서대로 처리되도록 대회 ID를 key로 보낸다.
  */
 public record RaceCourseChangedEvent(
-	int raceCourseId,
-	int raceId,
+	long raceCourseId,
+	long raceId,
 	// 종목 행의 수정 일시(race_course.updated_at). 받는 쪽은 저장된 값보다 늦은 메시지만 반영해 늦게 온 옛 메시지를 건너뛴다
 	// 뺀 종목은 지운 행에 남은 값이 없어 삭제 시각을 담는다
 	LocalDateTime updatedAt,

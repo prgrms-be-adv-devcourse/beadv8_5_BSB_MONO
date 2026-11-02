@@ -41,7 +41,7 @@ public class RaceHoldUseCase {
 	private final ParticipationHoldRepository participationHoldRepository;
 
 	// 대회 취소 때 해제할 자리와 그 종목 (UPDATE가 영속성 컨텍스트를 비우기 전에 ID만 꺼내 둔다)
-	private record HeldSeat(int holdId, int raceCourseId) {
+	private record HeldSeat(long holdId, long raceCourseId) {
 	}
 
 	// 개인 자리 1석을 확보한다. 남은 자리가 없으면 매진 결과(held = false)를 돌려준다
@@ -55,7 +55,7 @@ public class RaceHoldUseCase {
 		if (!request.getExpiresAt().isAfter(now)) {
 			throw new InvalidHoldException("임시 확보 끝 시각이 이미 지났습니다.");
 		}
-		int raceCourseId = request.getRaceCourseId();
+		long raceCourseId = request.getRaceCourseId();
 		// 대회 행을 공유 잠금으로 먼저 읽고, 종목 행은 그다음에 잠근다 (취소·수정과 같은 대회 → 종목 순서)
 		// 취소가 진행 중이면 커밋을 기다렸다가 취소된 상태를 보고 막힌다
 		// 이 트랜잭션에서 대회를 처음 읽는 조회여야 해서, 종목 엔티티가 아니라 대회 ID만 먼저 읽는다
@@ -78,7 +78,7 @@ public class RaceHoldUseCase {
 	}
 
 	// 같은 신청으로 동시에 확보를 요청해 한쪽이 유니크 제약에 걸렸을 때, 먼저 잡힌 자리의 결과를 돌려준다
-	public HoldResultDto findExisting(int participationId) {
+	public HoldResultDto findExisting(long participationId) {
 		return participationHoldRepository.findByParticipationId(participationId)
 			.map(this::existingResult)
 			.orElseThrow(() -> new IllegalStateException("확보한 자리를 찾지 못했습니다. participationId=" + participationId));
@@ -93,7 +93,7 @@ public class RaceHoldUseCase {
 	}
 
 	// 결제한 자리를 판매로 바꾼다. 끝 시각이 지났거나 이미 해제된 자리는 판매하지 않는다
-	public HoldSellResult sell(int participationId, LocalDateTime now) {
+	public HoldSellResult sell(long participationId, LocalDateTime now) {
 		Optional<ParticipationHold> found = participationHoldRepository.findForUpdate(participationId);
 		if (found.isEmpty()) {
 			return HoldSellResult.EXPIRED;
@@ -108,7 +108,7 @@ public class RaceHoldUseCase {
 		if (hold.getRaceCourse().getRace().getSaleStatus() == RaceSaleStatus.CANCELED) {
 			return HoldSellResult.EXPIRED;
 		}
-		int raceCourseId = hold.getRaceCourse().getId();
+		long raceCourseId = hold.getRaceCourse().getId();
 		if (participationHoldRepository.sell(hold.getId(), now) == 0) {
 			return HoldSellResult.EXPIRED;
 		}
@@ -117,7 +117,7 @@ public class RaceHoldUseCase {
 	}
 
 	// 결제 대기 자리를 해제해 정원으로 되돌린다. 판매·해제가 끝난 자리면 아무것도 하지 않는다 (같은 메시지가 두 번 와도 한 번만)
-	public boolean release(int participationId, HoldReleaseReason reason, LocalDateTime now) {
+	public boolean release(long participationId, HoldReleaseReason reason, LocalDateTime now) {
 		Optional<ParticipationHold> found = participationHoldRepository.findForUpdate(participationId);
 		if (found.isEmpty()) {
 			return false;
@@ -132,13 +132,13 @@ public class RaceHoldUseCase {
 	// 자리 행을 모두 먼저 해제하고, 종목 카운터는 마지막에 종목마다 한 번에 줄인다
 	//   판매·해제·복구는 자리 행 → 종목 행 순서로 잠근다. 자리 하나를 풀 때마다 종목 행까지 잠그면,
 	//   그다음 자리를 결제 중인 판매와 서로 상대의 잠금을 기다리다 멈춘다
-	public int releaseAllHeld(int raceId, LocalDateTime now) {
+	public int releaseAllHeld(long raceId, LocalDateTime now) {
 		List<HeldSeat> seats = participationHoldRepository.findHeldByRaceId(raceId).stream()
 			.map(hold -> new HeldSeat(hold.getId(), hold.getRaceCourse().getId()))
-			.sorted(Comparator.comparingInt(HeldSeat::holdId))
+			.sorted(Comparator.comparingLong(HeldSeat::holdId))
 			.toList();
 		// 종목 ID 순서로 카운터를 바꾸려고 정렬되는 TreeMap에 모은다
-		Map<Integer, Integer> releasedByCourse = new TreeMap<>();
+		Map<Long, Integer> releasedByCourse = new TreeMap<>();
 		for (HeldSeat seat : seats) {
 			// 그 사이 판매·해제된 자리는 0행이라 세지 않는다
 			if (participationHoldRepository.release(seat.holdId(), HoldReleaseReason.RACE_CANCELED, now) == 1) {
@@ -162,13 +162,13 @@ public class RaceHoldUseCase {
 	}
 
 	// 결제를 취소한 참가권의 자리를 판매 가능 정원으로 되돌린다. 여러 번 불러도 한 번만 되돌린다
-	public boolean restore(int participationId, LocalDateTime now) {
+	public boolean restore(long participationId, LocalDateTime now) {
 		Optional<ParticipationHold> found = participationHoldRepository.findForUpdate(participationId);
 		if (found.isEmpty()) {
 			return false;
 		}
 		ParticipationHold hold = found.get();
-		int raceCourseId = hold.getRaceCourse().getId();
+		long raceCourseId = hold.getRaceCourse().getId();
 		if (participationHoldRepository.restore(hold.getId(), now) == 0) {
 			return false;
 		}

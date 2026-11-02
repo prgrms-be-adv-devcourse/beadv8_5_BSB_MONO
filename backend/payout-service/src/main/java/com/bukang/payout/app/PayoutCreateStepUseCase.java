@@ -89,18 +89,18 @@ public class PayoutCreateStepUseCase {
 	 * 1차 정산 내역 하나(판매자 × 대회)를 만들 재료: 코스별 판매 집계와, 저장에 필요한 다른 서비스의 값
 	 * 정산 내역은 대회 단위이고, 1차 정산금 줄은 코스마다 하나씩 쓴다
 	 */
-	public record FirstPayoutSource(int sellerId, int raceId, String raceName, boolean hasPayoutAccount,
+	public record FirstPayoutSource(long sellerId, long raceId, String raceName, boolean hasPayoutAccount,
 		List<CourseSale> courses) {
 	}
 
 	// 코스 하나의 판매 집계 (가격 합 · 장수)
-	public record CourseSale(int raceCourseId, long priceSum, int ticketCount) {
+	public record CourseSale(long raceCourseId, long priceSum, int ticketCount) {
 	}
 
 	/**
 	 * 최종 정산 내역 하나(판매자 × 대회)를 만들 재료: 참가권과, 저장에 필요한 다른 서비스의 값
 	 */
-	public record FinalPayoutSource(int sellerId, int raceId, String raceName, boolean hasPayoutAccount,
+	public record FinalPayoutSource(long sellerId, long raceId, String raceName, boolean hasPayoutAccount,
 		List<SoldEntry> entries) {
 	}
 }

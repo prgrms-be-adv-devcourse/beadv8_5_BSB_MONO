@@ -17,16 +17,16 @@ public final class SeatOutboxMessages {
 	}
 
 	// 판매 자리 복구 메시지 (product.hold.restore)
-	public static List<Integer> restored(OrderOutboxKafkaEventRepository repository) {
+	public static List<Long> restored(OrderOutboxKafkaEventRepository repository) {
 		return participationIds(repository, KafkaTopics.PRODUCT_HOLD_RESTORE);
 	}
 
 	// 결제 안 한 자리 해제 메시지 (product.hold.cancel)
-	public static List<Integer> released(OrderOutboxKafkaEventRepository repository) {
+	public static List<Long> released(OrderOutboxKafkaEventRepository repository) {
 		return participationIds(repository, KafkaTopics.PRODUCT_HOLD_CANCEL);
 	}
 
-	private static List<Integer> participationIds(OrderOutboxKafkaEventRepository repository, String topic) {
+	private static List<Long> participationIds(OrderOutboxKafkaEventRepository repository, String topic) {
 		return repository.findAll().stream()
 			.filter(event -> topic.equals(event.getEventType()))
 			.sorted(Comparator.comparing(OrderOutboxKafkaEvent::getId))

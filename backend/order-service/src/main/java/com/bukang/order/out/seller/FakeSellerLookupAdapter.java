@@ -22,7 +22,7 @@ public class FakeSellerLookupAdapter implements SellerLookupPort {
 	}
 
 	@Override
-	public Optional<Integer> findApprovedSellerId(int memberId) {
+	public Optional<Long> findApprovedSellerId(long memberId) {
 		return Optional.of(memberId);
 	}
 }

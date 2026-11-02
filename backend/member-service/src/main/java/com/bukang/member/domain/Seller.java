@@ -160,10 +160,9 @@ public class Seller extends BaseEntity {
 
 	// 판매자 변경 이벤트를 발행한다. 신청은 ID가 저장할 때(IDENTITY) 정해지므로 save() 뒤에 부른다
 	public void publishChangedEvent() {
-		// 판매자·회원 ID는 long이지만 다른 서비스가 받는 이벤트는 아직 int다. 받는 서비스가 long으로 바꿀 때 이 변환을 지운다
 		publishEvent(new SellerChangedEvent(
-			Math.toIntExact(id),
-			Math.toIntExact(member.getId()),
+			id,
+			member.getId(),
 			sellerType,
 			businessName,
 			businessNumber,

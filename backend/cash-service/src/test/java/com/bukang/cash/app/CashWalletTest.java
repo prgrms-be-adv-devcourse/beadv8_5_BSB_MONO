@@ -31,7 +31,7 @@ import jakarta.persistence.EntityManager;
 @ActiveProfiles("test")
 @Transactional
 class CashWalletTest {
-	private static final int MEMBER_ID = 3;
+	private static final long MEMBER_ID = 3;
 
 	@Autowired
 	private CashFacade cashFacade;
@@ -103,7 +103,7 @@ class CashWalletTest {
 		walletLedgerRepository.save(
 			wallet.credit(10_000, LedgerType.충전__PG결제_토스페이먼츠, LedgerRefType.WalletCharge, 1)
 		);
-		int ledgerId = walletLedgerRepository.save(
+		long ledgerId = walletLedgerRepository.save(
 			wallet.debit(3_000, LedgerType.사용__주문결제, LedgerRefType.Order, 15)
 		).getId();
 		entityManager.flush();

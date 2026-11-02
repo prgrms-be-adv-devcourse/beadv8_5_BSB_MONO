@@ -48,10 +48,10 @@ import lombok.extern.slf4j.Slf4j;
 public class PayoutDataInit {
 	// 판매자1의 판매자 ID. member-service MemberDataInit이 SEED_SELLER_ID(7)로 직접 넣는다
 	// 신청으로 만든 판매자는 1000부터 시작하므로(V202610161110__add_member_role_and_seller.sql) 7과 겹치지 않는다
-	private static final int SELLER_ID = 7;
+	private static final long SELLER_ID = 7;
 	// 관리자의 회원 ID. MemberDataInit의 가입 순서(system 1, holding 2, 관리자 3)에 기댄다
 	// dev DB에 다른 회원이 먼저 있었다면 번호가 달라지므로 MEMBER_MEMBER에서 확인한다
-	private static final int ADMIN_MEMBER_ID = 3;
+	private static final long ADMIN_MEMBER_ID = 3;
 	private static final String ZONE = "Asia/Seoul";
 
 	private static final BigDecimal FEE_RATE = TwoStagePayoutCalculator.FEE_RATE;
@@ -124,7 +124,7 @@ public class PayoutDataInit {
 	}
 
 	// 1차 · 최종을 함께 만든다. 최종은 같은 대회 1차의 지급액을 1차 정산금 차감으로 뺀다
-	private StagePair createPayouts(int raceId, String raceName, LocalDate raceDate, int count, long price) {
+	private StagePair createPayouts(long raceId, String raceName, LocalDate raceDate, int count, long price) {
 		Payout first = createFirst(raceId, raceName, raceDate.minusDays(REFUND_DEADLINE_DAYS_BEFORE_RACE), count,
 			price);
 
@@ -139,7 +139,7 @@ public class PayoutDataInit {
 
 	// 정산 생성 배치(PayoutCreateUseCase)처럼 환불 마감일 다음 날 03:00에 만든다
 	// 대회 하나는 코스 하나라 참가권 가격이 하나다 (PRO-214). 1차는 판매 집계(가격 합 · 장수)로 1차 정산금 한 줄을 쓴다
-	private Payout createFirst(int raceId, String raceName, LocalDate refundDeadline, int count, long price) {
+	private Payout createFirst(long raceId, String raceName, LocalDate refundDeadline, int count, long price) {
 		LocalDate firstTargetDate = PayoutTargetDate.firstOf(refundDeadline);
 		Payout first = Payout.first(SELLER_ID, raceId, raceName, refundDeadline,
 			firstTargetDate.atTime(3, 0), calendar);
@@ -154,7 +154,7 @@ public class PayoutDataInit {
 		payout.pay(payout.getScheduledPayDate().atTime(4, 0));
 	}
 
-	private void addItems(Payout payout, int raceId, int count, long price, LocalDate targetDate) {
+	private void addItems(Payout payout, long raceId, int count, long price, LocalDate targetDate) {
 		for (int i = 1; i <= count; i++) {
 			// 주문 상품 ID는 대회마다 겹치지 않게 대회 번호 × 100,000부터 붙인다
 			payout.addItem(raceId * 100_000 + i, raceId, price, FEE_RATE, targetDate);
@@ -166,7 +166,7 @@ public class PayoutDataInit {
 		payout.assignPayoutCode();
 	}
 
-	private PayoutHold hold(Payout payout, PayoutHoldReason reasonType, String reason, int heldBy,
+	private PayoutHold hold(Payout payout, PayoutHoldReason reasonType, String reason, long heldBy,
 		LocalDateTime heldAt) {
 		PayoutHold hold = payout.hold(reasonType, reason, heldBy, heldAt);
 		payoutHoldRepository.save(hold);

@@ -13,5 +13,5 @@ public class CashCancelPaymentRequestDto {
 	@Schema(description = "결제를 취소할 회원 ID (지갑 주인)", example = "3")
 	@NotNull(message = "회원 ID를 작성해주세요.")
 	@Positive(message = "회원 ID는 0보다 커야 합니다.")
-	private final Integer memberId;
+	private final Long memberId;
 }

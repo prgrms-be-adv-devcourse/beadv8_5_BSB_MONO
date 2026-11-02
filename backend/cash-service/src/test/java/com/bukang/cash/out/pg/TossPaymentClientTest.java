@@ -184,13 +184,13 @@ class TossPaymentClientTest {
 	}
 
 	// Toss 결제 승인·조회 응답의 모양 (우리가 실제로 쓰는 필드만)
-	private String confirmResponse(String paymentKey, int totalAmount) {
+	private String confirmResponse(String paymentKey, long totalAmount) {
 		return """
 			{ "paymentKey": "%s", "totalAmount": %d }
 			""".formatted(paymentKey, totalAmount);
 	}
 
-	private String paymentResponse(String paymentKey, int totalAmount, String status) {
+	private String paymentResponse(String paymentKey, long totalAmount, String status) {
 		return """
 			{ "paymentKey": "%s", "totalAmount": %d, "status": "%s" }
 			""".formatted(paymentKey, totalAmount, status);

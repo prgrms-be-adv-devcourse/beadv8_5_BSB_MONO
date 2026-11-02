@@ -31,15 +31,15 @@ public class RaceSaleStatusUseCase {
 
 	// 상태가 바뀐 대회의 변경 메시지를 돌려준다 (ProductFacade가 같은 트랜잭션에서 메시지와 검색 문서 동기화 이벤트를 남긴다)
 	public RaceSaleStatusResult refresh(LocalDateTime now) {
-		List<Integer> changedIds = new ArrayList<>();
+		List<Long> changedIds = new ArrayList<>();
 
 		LocalDateTime today = now.toLocalDate().atStartOfDay();
-		List<Integer> toClose = raceRepository.findIdsToClose(OPEN_STATUSES, today);
+		List<Long> toClose = raceRepository.findIdsToClose(OPEN_STATUSES, today);
 		if (!toClose.isEmpty()) {
 			raceRepository.closeSale(toClose, OPEN_STATUSES, today, now);
 			changedIds.addAll(toClose);
 		}
-		List<Integer> toOpen = raceRepository.findIdsToOpen(RaceSaleStatus.SCHEDULED, now.toLocalDate());
+		List<Long> toOpen = raceRepository.findIdsToOpen(RaceSaleStatus.SCHEDULED, now.toLocalDate());
 		if (!toOpen.isEmpty()) {
 			raceRepository.openSale(toOpen, now.toLocalDate(), now);
 			changedIds.addAll(toOpen);

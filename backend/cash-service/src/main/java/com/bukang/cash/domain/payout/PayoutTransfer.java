@@ -27,21 +27,21 @@ import lombok.NoArgsConstructor;
 public class PayoutTransfer extends BaseIdAndTime {
 	// 정산 서비스(payout-service)의 정산 ID. 다른 서비스의 행이라 FK 없이 값으로만 보관한다
 	@Column(nullable = false)
-	private int payoutId;
+	private long payoutId;
 
 	// 판매자 신청서 ID(= SellerChangedEvent.id). 회원 ID가 아니라서 지갑 조회에는 못 쓴다 (PRO-256 리뷰 반영)
 	// 지갑은 CashSupport.resolveSellerMemberId로 바꾼 회원 ID로 찾고, 여기엔 payout-service가 보낸 원래 값을 추적용으로 남긴다
 	@Column(nullable = false)
-	private int sellerId;
+	private long sellerId;
 
 	@Enumerated(STRING)
 	@Column(nullable = false, length = 20)
 	private PayoutTransferType transferType;
 
 	@Column(nullable = false)
-	private int amount;
+	private long amount;
 
-	public PayoutTransfer(int payoutId, int sellerId, PayoutTransferType transferType, int amount) {
+	public PayoutTransfer(long payoutId, long sellerId, PayoutTransferType transferType, long amount) {
 		this.payoutId = payoutId;
 		this.sellerId = sellerId;
 		this.transferType = transferType;

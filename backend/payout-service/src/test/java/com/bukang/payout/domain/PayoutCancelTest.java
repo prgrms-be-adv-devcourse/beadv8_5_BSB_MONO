@@ -14,7 +14,7 @@ import com.bukang.payout.domain.exception.PayoutHoldConflictException;
 
 class PayoutCancelTest {
 	private static final BusinessDayCalendar CALENDAR = new BusinessDayCalendar();
-	private static final int ADMIN_ID = 99;
+	private static final long ADMIN_ID = 99;
 	private static final LocalDateTime SETTLED_AT = LocalDateTime.of(2026, 10, 18, 3, 0);
 	private static final LocalDateTime HELD_AT = LocalDateTime.of(2026, 10, 12, 10, 0);
 	private static final LocalDateTime CANCELED_AT = LocalDateTime.of(2026, 10, 15, 14, 0);

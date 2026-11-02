@@ -1,5 +1,6 @@
 package com.bukang.product.in;
 
+import static com.bukang.product.support.JsonIds.id;
 import static com.bukang.product.support.RaceRequests.course;
 import static com.bukang.product.support.RaceRequests.race;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -51,12 +52,12 @@ class ApiV1RaceQueryTest extends ProductIntegrationTest {
 	private static final String SELLER_NOT_APPROVED = "승인된 판매자만 대회를 등록·수정할 수 있습니다.";
 	private static final String INVALID_VALUE_TYPE = "요청 값의 형식이 올바르지 않습니다.";
 	// 자동 증가 ID가 닿지 않는 없는 대회·종목 ID
-	private static final int MISSING_ID = Integer.MAX_VALUE;
+	private static final long MISSING_ID = Integer.MAX_VALUE;
 	// 기본으로 들어가는 두 판매자 말고 이 테스트에서 따로 넣는 판매자
-	private static final int PENDING_SELLER_MEMBER_ID = 9003;
-	private static final int PENDING_SELLER_ID = 7003;
-	private static final int INDIVIDUAL_SELLER_MEMBER_ID = 9004;
-	private static final int INDIVIDUAL_SELLER_ID = 7004;
+	private static final long PENDING_SELLER_MEMBER_ID = 9003;
+	private static final long PENDING_SELLER_ID = 7003;
+	private static final long INDIVIDUAL_SELLER_MEMBER_ID = 9004;
+	private static final long INDIVIDUAL_SELLER_ID = 7004;
 
 	// ---------- 대회 상세 ----------
 
@@ -77,8 +78,8 @@ class ApiV1RaceQueryTest extends ProductIntegrationTest {
 					.kit(5_000, TshirtSize.XL, TshirtSize.S, TshirtSize.M).age(19, 70).quota(0, 50))
 			.build();
 		RegisteredRace registered = registerOnSale(request);
-		int tenKmId = registered.courseIds().get(0);
-		int halfId = registered.courseIds().get(1);
+		long tenKmId = registered.courseIds().get(0);
+		long halfId = registered.courseIds().get(1);
 
 		ResultActions result = getAs(RACES + registered.raceId(), null)
 			.andExpect(status().isOk())
@@ -168,7 +169,7 @@ class ApiV1RaceQueryTest extends ProductIntegrationTest {
 		+ "판매 1석 복구 뒤 다시 1석·접수 중이다")
 	void findDetailReflectsRemainingSeats() throws Exception {
 		RegisteredRace registered = registerOnSale(race().course(course().quota(0, 3)).build());
-		int courseId = registered.courseId();
+		long courseId = registered.courseId();
 		String path = RACES + registered.raceId();
 		holdSeat(courseId, 1001);
 		holdSeat(courseId, 1002);
@@ -193,7 +194,7 @@ class ApiV1RaceQueryTest extends ProductIntegrationTest {
 		RegisteredRace registered = register(builder.individualOpenAt(builder.now().plusDays(2)).build());
 		String path = RACES + registered.raceId();
 
-		for (Integer memberId : new Integer[] {null, SELLER_MEMBER_ID, OTHER_SELLER_MEMBER_ID, NOT_SELLER_MEMBER_ID}) {
+		for (Long memberId : new Long[] {null, SELLER_MEMBER_ID, OTHER_SELLER_MEMBER_ID, NOT_SELLER_MEMBER_ID}) {
 			getAs(path, memberId)
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.data.raceId").value(registered.raceId()))
@@ -271,7 +272,8 @@ class ApiV1RaceQueryTest extends ProductIntegrationTest {
 			.andExpect(jsonPath("$.status").value(200))
 			.andExpect(jsonPath("$.message").value("내 대회 목록을 조회했습니다."))
 			.andExpect(jsonPath("$.data", hasSize(3)))
-			.andExpect(jsonPath("$.data[*].raceId", contains(third.raceId(), second.raceId(), first.raceId())))
+			.andExpect(jsonPath("$.data[*].raceId",
+				contains(id(third.raceId()), id(second.raceId()), id(first.raceId()))))
 			.andExpect(jsonPath("$.data[*].title", contains("세 번째 대회", "두 번째 대회", "첫 번째 대회")))
 			.andExpect(jsonPath("$.data[*].saleStatus", contains("SCHEDULED", "ON_SALE", "SCHEDULED")))
 			.andExpect(jsonPath("$.data[0].courses", hasSize(1)))
@@ -292,7 +294,7 @@ class ApiV1RaceQueryTest extends ProductIntegrationTest {
 
 		getAs(MINE, OTHER_SELLER_MEMBER_ID)
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data[*].raceId", contains(others.raceId())));
+			.andExpect(jsonPath("$.data[*].raceId", contains(id(others.raceId()))));
 	}
 
 	@Test
@@ -308,7 +310,7 @@ class ApiV1RaceQueryTest extends ProductIntegrationTest {
 			.course(course().quota(10, 5))
 			.build();
 		RegisteredRace registered = registerOnSale(request);
-		int courseId = registered.courseId();
+		long courseId = registered.courseId();
 
 		expectMyCourseCounts(15, 0, 0);
 
@@ -498,30 +500,30 @@ class ApiV1RaceQueryTest extends ProductIntegrationTest {
 	// ---------- 도우미 ----------
 
 	// 기본 판매자 말고 다른 판매자를 넣을 때 쓰는 회원 복제본
-	private ProductMember saveMember(int memberId) {
+	private ProductMember saveMember(long memberId) {
 		LocalDateTime now = LocalDateTime.now();
 		return productMemberRepository.save(new ProductMember(memberId, now, now, "러너" + memberId));
 	}
 
-	private void holdSeat(int raceCourseId, int participationId) throws Exception {
+	private void holdSeat(long raceCourseId, long participationId) throws Exception {
 		hold(raceCourseId, participationId)
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.message").value("자리를 확보했습니다."));
 	}
 
-	private void sellSeat(int participationId) throws Exception {
+	private void sellSeat(long participationId) throws Exception {
 		sell(participationId)
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.message").value("자리를 판매했습니다."));
 	}
 
-	private void restoreSeat(int participationId) throws Exception {
+	private void restoreSeat(long participationId) throws Exception {
 		restore(participationId)
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.message").value("자리를 정원으로 되돌렸습니다."));
 	}
 
-	private void cancelRace(int raceId) throws Exception {
+	private void cancelRace(long raceId) throws Exception {
 		postAs(RACES + raceId + "/cancel", SELLER_MEMBER_ID)
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.message").value("대회를 취소했습니다."));

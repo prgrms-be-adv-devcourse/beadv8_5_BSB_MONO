@@ -8,5 +8,5 @@ package com.bukang.order.out.member;
  * (모르는 경우를 관리자로 보면 회원 서비스가 멈춘 동안 누구나 관리자 화면을 볼 수 있다)
  */
 public interface MemberAdminPort {
-	boolean isAdmin(int memberId);
+	boolean isAdmin(long memberId);
 }

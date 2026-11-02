@@ -30,11 +30,11 @@ import com.bukang.product.support.ProductIntegrationTest;
  * 기본으로 준비된 회원 9001·9002, 판매자 7001·7002와 겹치지 않게 회원 8001·8002, 판매자 8101·8102를 쓴다.
  */
 class ProductKafkaConsumerTest extends ProductIntegrationTest {
-	private static final int NEW_MEMBER_ID = 8001;
+	private static final long NEW_MEMBER_ID = 8001;
 	// 회원 메시지가 오지 않아 복제본이 없는 회원
-	private static final int NO_REPLICA_MEMBER_ID = 8002;
-	private static final int NEW_SELLER_ID = 8101;
-	private static final int SECOND_SELLER_ID = 8102;
+	private static final long NO_REPLICA_MEMBER_ID = 8002;
+	private static final long NEW_SELLER_ID = 8101;
+	private static final long SECOND_SELLER_ID = 8102;
 
 	private static final LocalDateTime JOINED_AT = LocalDateTime.of(2026, 10, 1, 9, 0);
 	private static final LocalDateTime RENAMED_AT = LocalDateTime.of(2026, 10, 5, 9, 0);
@@ -288,28 +288,28 @@ class ProductKafkaConsumerTest extends ProductIntegrationTest {
 	// ---------- 도우미 ----------
 
 	// 회원 서비스가 보내는 것처럼 회원 가입 메시지를 받아 회원 복제본을 만든다
-	private void joinMember(int memberId) {
+	private void joinMember(long memberId) {
 		productKafkaConsumer.handleMemberJoined(memberJoined(memberId, JOINED_AT, "러너" + memberId));
 	}
 
-	private String memberJoined(int memberId, LocalDateTime modifyDate, String nickname) {
+	private String memberJoined(long memberId, LocalDateTime modifyDate, String nickname) {
 		return jsonConverter.toJson(new MemberJoinedEvent(memberId, JOINED_AT, modifyDate, nickname));
 	}
 
-	private String memberModified(int memberId, LocalDateTime modifyDate, String nickname) {
+	private String memberModified(long memberId, LocalDateTime modifyDate, String nickname) {
 		return jsonConverter.toJson(new MemberModifiedEvent(memberId, JOINED_AT, modifyDate, nickname));
 	}
 
 	// 등록 신청 메시지: 심사 전이라 심사 일시가 없다
-	private String pendingSeller(int sellerId, int memberId) {
+	private String pendingSeller(long sellerId, long memberId) {
 		return sellerChanged(sellerId, memberId, PENDING, null);
 	}
 
-	private String approvedSeller(int sellerId, int memberId) {
+	private String approvedSeller(long sellerId, long memberId) {
 		return sellerChanged(sellerId, memberId, APPROVED, REVIEWED_AT);
 	}
 
-	private String sellerChanged(int sellerId, int memberId, SellerStatus status, LocalDateTime reviewedAt) {
+	private String sellerChanged(long sellerId, long memberId, SellerStatus status, LocalDateTime reviewedAt) {
 		return jsonConverter.toJson(new SellerChangedEvent(sellerId, memberId, SellerType.BUSINESS, BUSINESS_NAME,
 			BUSINESS_NUMBER, REPRESENTATIVE_NAME, status, REQUESTED_AT, reviewedAt));
 	}
@@ -322,11 +322,11 @@ class ProductKafkaConsumerTest extends ProductIntegrationTest {
 			+ "\"requestedAt\":\"2026-10-02T10:00:00\",\"reviewedAt\":\"2026-10-03T15:30:00\"}";
 	}
 
-	private ProductMember findMember(int memberId) {
+	private ProductMember findMember(long memberId) {
 		return productMemberRepository.findById(memberId).orElseThrow();
 	}
 
-	private ProductSeller findSeller(int sellerId) {
+	private ProductSeller findSeller(long sellerId) {
 		return productSellerRepository.findById(sellerId).orElseThrow();
 	}
 }

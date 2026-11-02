@@ -16,7 +16,7 @@ import lombok.Getter;
 @AllArgsConstructor
 @Getter
 public class RaceDetailCourseDto {
-	private final int raceCourseId;
+	private final long raceCourseId;
 	private final String name;
 	private final CourseType courseType;
 	private final CourseSurface surface;
@@ -25,10 +25,10 @@ public class RaceDetailCourseDto {
 	private final int minAge;
 	private final Integer maxAge;
 	// 구매자가 내는 참가비. 키트 금액은 이 안에 들어 있다
-	private final int price;
+	private final long price;
 	private final boolean kitIncluded;
 	// 참가비에 포함된 키트 금액
-	private final int kitPrice;
+	private final long kitPrice;
 	// 참가 신청 때 고를 수 있는 티셔츠 사이즈 (비어 있으면 티셔츠 없음)
 	private final List<TshirtSize> tshirtSizeOption;
 	private final CourseStatus status;

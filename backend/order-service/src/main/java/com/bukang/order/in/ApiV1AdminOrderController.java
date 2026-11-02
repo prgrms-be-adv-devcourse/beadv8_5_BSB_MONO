@@ -60,7 +60,7 @@ public class ApiV1AdminOrderController {
 			}))
 	})
 	public ResponseEntity<RsData<AdminOrderPageDto>> findOrders(
-		@LoginMemberId int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "회원 닉네임 (주문번호와 둘 중 하나)", example = "사용자1")
 		@RequestParam(required = false) String nickname,
 		@Parameter(description = "주문번호 (닉네임과 둘 중 하나, 대소문자 상관없음)", example = "OD-20261004-0012")

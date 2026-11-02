@@ -80,7 +80,7 @@ public class ApiV1ParticipationController {
 			}))
 	})
 	public ResponseEntity<RsData<ParticipationDto>> apply(
-		@LoginMemberId int memberId,
+		@LoginMemberId long memberId,
 		@Valid @RequestBody ParticipationApplyRequestDto request
 	) {
 		ParticipationDto participation = participationFacade.apply(request, memberId);
@@ -109,7 +109,7 @@ public class ApiV1ParticipationController {
 				examples = @ExampleObject(value = ParticipationApiExamples.LOGIN_REQUIRED)))
 	})
 	public ResponseEntity<RsData<ParticipantInfoDto>> findLatestParticipant(
-		@LoginMemberId int memberId
+		@LoginMemberId long memberId
 	) {
 		return participationFacade.findLatestParticipant(memberId)
 			.map(participant -> ResponseEntity.ok()
@@ -139,9 +139,9 @@ public class ApiV1ParticipationController {
 				examples = @ExampleObject(value = ParticipationApiExamples.PARTICIPATION_NOT_FOUND)))
 	})
 	public ResponseEntity<RsData<ParticipationDto>> findById(
-		@LoginMemberId int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "참가 신청 ID", example = "1")
-		@PathVariable int participationId
+		@PathVariable long participationId
 	) {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "참가 신청을 조회했습니다.",
@@ -177,9 +177,9 @@ public class ApiV1ParticipationController {
 			}))
 	})
 	public ResponseEntity<RsData<ParticipationDto>> cancelBeforePayment(
-		@LoginMemberId int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "참가 신청 ID", example = "1")
-		@PathVariable int participationId
+		@PathVariable long participationId
 	) {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "참가 신청서를 취소했습니다.",
@@ -227,9 +227,9 @@ public class ApiV1ParticipationController {
 			}))
 	})
 	public ResponseEntity<RsData<ParticipationDto>> changeParticipant(
-		@LoginMemberId int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "참가 신청 ID", example = "1")
-		@PathVariable int participationId,
+		@PathVariable long participationId,
 		@Valid @RequestBody ParticipantInfoRequestDto request
 	) {
 		return ResponseEntity.ok()

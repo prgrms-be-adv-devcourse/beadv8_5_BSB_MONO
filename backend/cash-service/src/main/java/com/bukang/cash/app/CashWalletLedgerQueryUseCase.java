@@ -21,8 +21,8 @@ public class CashWalletLedgerQueryUseCase {
 	private final WalletLedgerQueryRepository walletLedgerQueryRepository;
 
 	@Transactional(readOnly = true)
-	public PageDto<WalletLedgerItemDto> findLedgers(int memberId, LedgerCategory category, int page, int size) {
-		int walletId = cashSupport.findWalletByHolderId(memberId).getId();
+	public PageDto<WalletLedgerItemDto> findLedgers(long memberId, LedgerCategory category, int page, int size) {
+		long walletId = cashSupport.findWalletByHolderId(memberId).getId();
 		return PageDto.from(
 			walletLedgerQueryRepository.findByWallet(walletId, category, PageRequest.of(page, size)),
 			WalletLedgerItemDto::from);

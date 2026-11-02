@@ -7,7 +7,7 @@ import lombok.Getter;
 @AllArgsConstructor
 @Getter
 public class CourseLabelSuggestionDto {
-	private final int raceCourseId;
-	private final int raceId;
+	private final long raceCourseId;
+	private final long raceId;
 	private final String label;
 }

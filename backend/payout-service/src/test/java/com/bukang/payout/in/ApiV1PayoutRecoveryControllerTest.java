@@ -47,8 +47,8 @@ import com.bukang.payout.support.RestDocsConfig;
 @Import(RestDocsConfig.class)
 @ActiveProfiles("test")
 class ApiV1PayoutRecoveryControllerTest {
-	private static final int ADMIN_ID = 99;
-	private static final int MEMBER_ID = 8;
+	private static final long ADMIN_ID = 99;
+	private static final long MEMBER_ID = 8;
 
 	private static final Snippet ERROR_RESPONSE = responseFields(
 		fieldWithPath("status").description("HTTP 상태 코드"),
@@ -83,7 +83,7 @@ class ApiV1PayoutRecoveryControllerTest {
 			LocalDateTime.of(2026, 10, 15, 14, 0)));
 	}
 
-	private ResultActions complete(int recoveryId) throws Exception {
+	private ResultActions complete(long recoveryId) throws Exception {
 		return mockMvc.perform(post("/api/v1/payout/recoveries/{recoveryId}/complete", recoveryId)
 			.header("X-Member-Id", ADMIN_ID));
 	}

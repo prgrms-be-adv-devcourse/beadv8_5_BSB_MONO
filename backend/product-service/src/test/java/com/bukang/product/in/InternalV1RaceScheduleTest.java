@@ -39,8 +39,8 @@ class InternalV1RaceScheduleTest extends ProductIntegrationTest {
 	@DisplayName("환불 마감일 기간 [D, D+6]으로 물으면 마감일이 D · D+6인 대회만 마감일 순으로 오고, D-1 · D+7은 빠진다")
 	void findByRefundDeadlineWithinPeriod() throws Exception {
 		registerRace("마감 전날 대회", from.minusDays(1));
-		int first = registerRace("마감 첫날 대회", from);
-		int last = registerRace("마감 끝날 대회", to);
+		long first = registerRace("마감 첫날 대회", from);
+		long last = registerRace("마감 끝날 대회", to);
 		registerRace("마감 다음날 대회", to.plusDays(1));
 
 		findByRefundDeadline(from, to)
@@ -59,8 +59,8 @@ class InternalV1RaceScheduleTest extends ProductIntegrationTest {
 	@Test
 	@DisplayName("환불 마감일이 기간 안이어도 취소된 대회는 오지 않는다")
 	void findByRefundDeadlineExcludesCanceledRace() throws Exception {
-		int canceled = registerRace("취소된 대회", from);
-		int open = registerRace("판매 예정 대회", from);
+		long canceled = registerRace("취소된 대회", from);
+		long open = registerRace("판매 예정 대회", from);
 		postAs("/api/v1/product/races/" + canceled + "/cancel", SELLER_MEMBER_ID).andExpect(status().isOk());
 
 		findByRefundDeadline(from, to)
@@ -83,8 +83,8 @@ class InternalV1RaceScheduleTest extends ProductIntegrationTest {
 	@DisplayName("대회 날짜 기간 [D, D+6]으로 물으면 D 0시 · D+6 23:59 대회는 오고, D-1 23:59 · D+7 0시 대회는 빠진다")
 	void findByRaceDateWithinPeriod() throws Exception {
 		registerRaceOn("전날 밤 대회", from.minusDays(1).atTime(23, 59));
-		int first = registerRaceOn("첫날 0시 대회", from.atStartOfDay());
-		int last = registerRaceOn("끝날 밤 대회", to.atTime(23, 59));
+		long first = registerRaceOn("첫날 0시 대회", from.atStartOfDay());
+		long last = registerRaceOn("끝날 밤 대회", to.atTime(23, 59));
 		registerRaceOn("다음날 0시 대회", to.plusDays(1).atStartOfDay());
 
 		findByRaceDate(from, to)
@@ -101,8 +101,8 @@ class InternalV1RaceScheduleTest extends ProductIntegrationTest {
 	@Test
 	@DisplayName("대회 날짜가 기간 안이어도 취소된 대회는 오지 않는다")
 	void findByRaceDateExcludesCanceledRace() throws Exception {
-		int canceled = registerRaceOn("취소된 대회", from.atTime(8, 0));
-		int open = registerRaceOn("판매 예정 대회", from.atTime(8, 0));
+		long canceled = registerRaceOn("취소된 대회", from.atTime(8, 0));
+		long open = registerRaceOn("판매 예정 대회", from.atTime(8, 0));
 		postAs("/api/v1/product/races/" + canceled + "/cancel", SELLER_MEMBER_ID).andExpect(status().isOk());
 
 		findByRaceDate(from, to)
@@ -154,7 +154,7 @@ class InternalV1RaceScheduleTest extends ProductIntegrationTest {
 	// ---------- 도우미 ----------
 
 	// 환불 마감일이 refundDeadline이고, 대회는 그날 08:00인 대회를 등록한다
-	private int registerRace(String title, LocalDate refundDeadline) throws Exception {
+	private long registerRace(String title, LocalDate refundDeadline) throws Exception {
 		return register(scheduled(title)
 			.raceDate(raceDateOf(refundDeadline))
 			.refundDeadline(refundDeadline)
@@ -162,7 +162,7 @@ class InternalV1RaceScheduleTest extends ProductIntegrationTest {
 	}
 
 	// 대회 일시가 raceDate이고, 환불 마감일은 그 전날인 대회를 등록한다
-	private int registerRaceOn(String title, LocalDateTime raceDate) throws Exception {
+	private long registerRaceOn(String title, LocalDateTime raceDate) throws Exception {
 		return register(scheduled(title)
 			.raceDate(raceDate)
 			.refundDeadline(raceDate.toLocalDate().minusDays(1))

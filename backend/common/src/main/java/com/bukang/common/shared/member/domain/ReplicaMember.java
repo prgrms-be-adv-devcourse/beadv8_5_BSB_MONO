@@ -16,12 +16,12 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public abstract class ReplicaMember extends BaseMember {
 	@Id
-	private int id;
+	private long id;
 	private LocalDateTime createDate;
 	private LocalDateTime modifyDate;
 
 	public ReplicaMember(
-		int id,
+		long id,
 		LocalDateTime createDate,
 		LocalDateTime modifyDate,
 		String nickname

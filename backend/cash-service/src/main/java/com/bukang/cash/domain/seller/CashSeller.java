@@ -27,7 +27,7 @@ public class CashSeller extends BaseManualIdAndTime {
 	@JoinColumn(name = "member_id")
 	private CashMember member;
 
-	public CashSeller(int id, CashMember member) {
+	public CashSeller(long id, CashMember member) {
 		super(id);
 		this.member = member;
 	}

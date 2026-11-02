@@ -24,9 +24,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import com.bukang.common.shared.race.domain.RaceSaleStatus;
 import com.bukang.common.shared.race.event.RaceChangedEvent;
 import com.bukang.product.domain.CourseType;
+import com.bukang.product.support.JsonIds;
 import com.bukang.product.support.ProductIntegrationTest;
 import com.bukang.product.support.RaceRequests.CourseBuilder;
-import com.jayway.jsonpath.JsonPath;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -229,27 +229,27 @@ class RaceSaleStatusUseCaseTest extends ProductIntegrationTest {
 		return course().name("5K").type(CourseType.KM_5).distanceKm("5").timeLimitMinutes(60);
 	}
 
-	private RaceSaleStatus saleStatusOf(int raceId) {
+	private RaceSaleStatus saleStatusOf(long raceId) {
 		return raceRepository.findById(raceId).orElseThrow().getSaleStatus();
 	}
 
-	private RaceSaleStatus documentStatusOf(int courseId) {
+	private RaceSaleStatus documentStatusOf(long courseId) {
 		return raceCourseDocumentRepository.findById(String.valueOf(courseId)).orElseThrow().getSaleStatus();
 	}
 
 	// 공개 목록(로그인 없음, 기본 정렬) 첫 페이지의 대회 ID
-	private List<Integer> publicRaceIds() throws Exception {
+	private List<Long> publicRaceIds() throws Exception {
 		String body = getAs("/api/v1/product/races", null)
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.message").value("대회 목록을 조회했습니다."))
 			.andReturn()
 			.getResponse()
 			.getContentAsString(StandardCharsets.UTF_8);
-		return JsonPath.read(body, "$.data.races[*].raceId");
+		return JsonIds.readLongs(body, "$.data.races[*].raceId");
 	}
 
 	// API로는 만들 수 없는 상태·일시를 만들려고 대회 행의 칸 하나를 직접 바꾼다 (검색 문서는 다시 색인하지 않는다)
-	private void updateRace(int raceId, String field, Object value) {
+	private void updateRace(long raceId, String field, Object value) {
 		Integer updated = transactionTemplate.execute(tx -> entityManager
 			.createQuery("update Race r set r." + field + " = :value where r.id = :id")
 			.setParameter("value", value)

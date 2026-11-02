@@ -59,10 +59,10 @@ public class PayoutItem extends BaseIdAndTime {
 	private PayoutRecovery recovery;
 
 	@Column(nullable = false)
-	private int sellerId;
+	private long sellerId;
 
 	@Column(nullable = false)
-	private int raceId;
+	private long raceId;
 
 	@Enumerated(STRING)
 	@Column(nullable = false, columnDefinition = "varchar(20)")
@@ -73,11 +73,11 @@ public class PayoutItem extends BaseIdAndTime {
 	private PayoutRecordType recordType;
 
 	// 주문 도메인의 주문 상품 ID. 참가권 줄에만 있고, 참가권 없는 줄(1차 정산금 · 1차 정산금 차감 · 상계 · 대회 취소 회수)은 NULL
-	private Integer orderItemId;
+	private Long orderItemId;
 
 	// 상품 도메인의 코스 ID. 정산 내역은 대회 단위이고, 판매자가 코스별로 보도록 줄에 코스를 적는다 (PRO-214)
 	// 1차 정산금(코스마다 한 줄) · 판매 · 수수료 · 일정 변경 회수 줄에 있고, 1차 정산금 차감 · 상계 · 대회 취소 회수 줄은 NULL
-	private Integer raceCourseId;
+	private Long raceCourseId;
 
 	// 판매자 기준 부호: 판매자에게 가면 +, 판매자에게서 오면 −
 	@Column(nullable = false)
@@ -94,8 +94,8 @@ public class PayoutItem extends BaseIdAndTime {
 	@Column(length = 60, updatable = false)
 	private String bundleKey;
 
-	private PayoutItem(Payout payout, PayoutRecovery recovery, int sellerId, int raceId, PayoutRecordType recordType,
-		Integer orderItemId, Integer raceCourseId, long amount, BigDecimal feeRate, LocalDate targetDate) {
+	private PayoutItem(Payout payout, PayoutRecovery recovery, long sellerId, long raceId, PayoutRecordType recordType,
+		Long orderItemId, Long raceCourseId, long amount, BigDecimal feeRate, LocalDate targetDate) {
 		this.payout = payout;
 		this.recovery = recovery;
 		this.sellerId = sellerId;
@@ -110,15 +110,15 @@ public class PayoutItem extends BaseIdAndTime {
 	}
 
 	// 정산 내역에 붙는 줄. Payout 안에서만 만든다 (정산 내역 금액 캐시와 함께 바뀌어야 하므로)
-	static PayoutItem ofPayout(Payout payout, PayoutRecordType recordType, Integer orderItemId, Integer raceCourseId,
+	static PayoutItem ofPayout(Payout payout, PayoutRecordType recordType, Long orderItemId, Long raceCourseId,
 		long amount, BigDecimal feeRate, LocalDate targetDate) {
 		return new PayoutItem(payout, null, payout.getSellerId(), payout.getRaceId(), recordType, orderItemId,
 			raceCourseId, amount, feeRate, targetDate);
 	}
 
 	// 회수에 붙는 줄 (요청 · 입금)
-	public static PayoutItem ofRecovery(PayoutRecovery recovery, PayoutRecordType recordType, Integer orderItemId,
-		Integer raceCourseId, long amount) {
+	public static PayoutItem ofRecovery(PayoutRecovery recovery, PayoutRecordType recordType, Long orderItemId,
+		Long raceCourseId, long amount) {
 		return new PayoutItem(null, recovery, recovery.getSellerId(), recovery.getRaceId(), recordType, orderItemId,
 			raceCourseId, amount, null, null);
 	}

@@ -110,7 +110,7 @@ public class ApiV1RaceController {
 				examples = @ExampleObject(value = RaceApiExamples.SELLER_NOT_APPROVED)))
 	})
 	public ResponseEntity<RsData<RaceSaveDto>> register(
-		@LoginMemberId int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "중복 등록 방지 키. 같은 [등록하기] 재시도에는 같은 값을 보낸다 (예: UUID)",
 			example = "6f1c2a7e-3b9d-4f0a-9c55-0d2e8b7a1f43")
 		@RequestHeader(IdempotencyKeyHeader.NAME)
@@ -203,9 +203,9 @@ public class ApiV1RaceController {
 			}))
 	})
 	public ResponseEntity<RsData<RaceSaveDto>> update(
-		@LoginMemberId int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "대회 ID", example = "1")
-		@PathVariable int raceId,
+		@PathVariable long raceId,
 		@Valid @RequestBody RaceSaveRequestDto request
 	) {
 		return ResponseEntity.ok()
@@ -245,9 +245,9 @@ public class ApiV1RaceController {
 			}))
 	})
 	public ResponseEntity<RsData<RaceSaveDto>> cancel(
-		@LoginMemberId int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "대회 ID", example = "1")
-		@PathVariable int raceId
+		@PathVariable long raceId
 	) {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "대회를 취소했습니다.", productFacade.cancelRace(memberId, raceId)));
@@ -294,9 +294,9 @@ public class ApiV1RaceController {
 		@Parameter(description = "거리(km). 이 값과 똑같은 종목만 찾는다", example = "10")
 		@RequestParam(required = false) BigDecimal distanceKm,
 		@Parameter(description = "참가비 최소 (포함)", example = "30000")
-		@RequestParam(required = false) @Min(value = 0, message = "참가비 범위는 0원 이상이어야 합니다.") Integer minPrice,
+		@RequestParam(required = false) @Min(value = 0, message = "참가비 범위는 0원 이상이어야 합니다.") Long minPrice,
 		@Parameter(description = "참가비 최대 (포함)", example = "50000")
-		@RequestParam(required = false) @Min(value = 0, message = "참가비 범위는 0원 이상이어야 합니다.") Integer maxPrice,
+		@RequestParam(required = false) @Min(value = 0, message = "참가비 범위는 0원 이상이어야 합니다.") Long maxPrice,
 		@Parameter(description = "대회 날짜 시작 (포함)", example = "2026-11-01")
 		@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate raceDateFrom,
 		@Parameter(description = "대회 날짜 끝 (포함)", example = "2026-11-30")
@@ -369,7 +369,7 @@ public class ApiV1RaceController {
 				examples = @ExampleObject(value = RaceApiExamples.SELLER_NOT_APPROVED)))
 	})
 	public ResponseEntity<RsData<List<SellerRaceDto>>> findMine(
-		@LoginMemberId int memberId
+		@LoginMemberId long memberId
 	) {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "내 대회 목록을 조회했습니다.", productFacade.findMyRaces(memberId)));
@@ -398,9 +398,9 @@ public class ApiV1RaceController {
 		@Parameter(in = ParameterIn.HEADER, name = MemberIdHeader.NAME,
 			description = "요청한 회원 ID (로그인했을 때 게이트웨이가 넣어 준다. 취소된 대회는 등록한 판매자만 본다)",
 			example = "9001")
-		@LoginMemberId(required = false) @Nullable Integer memberId,
+		@LoginMemberId(required = false) @Nullable Long memberId,
 		@Parameter(description = "대회 ID", example = "1")
-		@PathVariable int raceId
+		@PathVariable long raceId
 	) {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "대회를 조회했습니다.", productFacade.findRace(raceId, memberId)));

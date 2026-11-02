@@ -37,8 +37,8 @@ import com.bukang.product.support.ProductIntegrationTest;
  * 재시도 시각을 확인하는 테스트는 릴레이에 시각을 직접 넘긴다 (DB가 소수 6자리로 저장하므로 초 단위로 맞춘 시각을 쓴다).
  */
 class ProductOutboxKafkaRelayTest extends ProductIntegrationTest {
-	private static final int RACE_ID = 101;
-	private static final int OTHER_RACE_ID = 102;
+	private static final long RACE_ID = 101;
+	private static final long OTHER_RACE_ID = 102;
 
 	@Autowired
 	private ProductOutboxKafkaAppendUseCase productOutboxKafkaAppendUseCase;
@@ -196,21 +196,21 @@ class ProductOutboxKafkaRelayTest extends ProductIntegrationTest {
 			.send(KafkaTopics.RACE_CHANGED, "101", jsonConverter.toJson(payload(RACE_ID, 1)));
 	}
 
-	private void append(String topic, int raceId) {
+	private void append(String topic, long raceId) {
 		append(topic, raceId, payload(raceId));
 	}
 
-	private void append(String topic, int raceId, Object payload) {
+	private void append(String topic, long raceId, Object payload) {
 		transactionTemplate.executeWithoutResult(status ->
 			productOutboxKafkaAppendUseCase.appendRaceEvent(topic, raceId, payload));
 	}
 
-	private static Map<String, Object> payload(int raceId) {
+	private static Map<String, Object> payload(long raceId) {
 		return Map.of("raceId", raceId);
 	}
 
 	// 같은 대회의 메시지끼리 본문으로 구분한다 (seq: 남긴 순서)
-	private static Map<String, Object> payload(int raceId, int seq) {
+	private static Map<String, Object> payload(long raceId, int seq) {
 		return Map.of("raceId", raceId, "seq", seq);
 	}
 
@@ -220,20 +220,20 @@ class ProductOutboxKafkaRelayTest extends ProductIntegrationTest {
 	}
 
 	// 이 토픽·대회(key)의 메시지를 보내면 브로커가 거절한 것처럼 실패한 결과를 돌려준다
-	private void failSendTo(String topic, int raceId) {
+	private void failSendTo(String topic, long raceId) {
 		doReturn(CompletableFuture.failedFuture(new IllegalStateException("브로커 응답 없음")))
 			.when(kafka()).send(eq(topic), eq(String.valueOf(raceId)), anyString());
 	}
 
 	// 이 토픽·대회(key)의 메시지를 다시 바로 성공으로 돌려준다
-	private void succeedSendTo(String topic, int raceId) {
+	private void succeedSendTo(String topic, long raceId) {
 		doReturn(CompletableFuture.completedFuture(null))
 			.when(kafka()).send(eq(topic), eq(String.valueOf(raceId)), anyString());
 	}
 
 	private List<ProductOutboxKafkaEvent> allEvents() {
 		return productOutboxKafkaEventRepository.findAll().stream()
-			.sorted((left, right) -> Integer.compare(left.getId(), right.getId()))
+			.sorted((left, right) -> Long.compare(left.getId(), right.getId()))
 			.toList();
 	}
 }

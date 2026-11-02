@@ -72,7 +72,7 @@ public class RaceSearchRepository {
 
 	// 찾은 대회 ID와, 조건에 맞은 종목 중 가장 싼 참가비
 	//   "하프"만 골랐으면 하프 종목들 중 가장 싼 값. 조건이 없으면 대회에서 가장 싼 종목의 값
-	public record MatchedRace(int raceId, int minPrice) {
+	public record MatchedRace(long raceId, long minPrice) {
 	}
 
 	public RaceSearchResult search(RaceSearchCondition condition, LocalDateTime now, int page, int size) {
@@ -87,7 +87,7 @@ public class RaceSearchRepository {
 			.build();
 		SearchHits<RaceCourseDocument> hits = elasticsearchOperations.search(query, RaceCourseDocument.class);
 		List<MatchedRace> races = hits.getSearchHits().stream()
-			.map(hit -> new MatchedRace(Integer.parseInt(hit.getContent().getRaceId()), cheapestPrice(hit)))
+			.map(hit -> new MatchedRace(Long.parseLong(hit.getContent().getRaceId()), cheapestPrice(hit)))
 			.toList();
 		return new RaceSearchResult(races, raceCount(hits));
 	}
@@ -191,7 +191,7 @@ public class RaceSearchRepository {
 	}
 
 	// 대회의 대표 문서와 함께 받은 '조건에 맞은 종목 중 가장 싼 종목'의 참가비
-	private int cheapestPrice(SearchHit<RaceCourseDocument> hit) {
+	private long cheapestPrice(SearchHit<RaceCourseDocument> hit) {
 		SearchHits<?> cheapest = hit.getInnerHits(CHEAPEST_COURSE);
 		if (cheapest == null || cheapest.isEmpty()) {
 			return hit.getContent().getPrice();

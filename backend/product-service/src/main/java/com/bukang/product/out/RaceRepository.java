@@ -20,7 +20,7 @@ import jakarta.persistence.LockModeType;
 
 // 잠그는 순서: 대회 행을 잡는 요청(수정·취소·자리 확보)은 모두 대회 행을 먼저, 종목 행을 나중에 잠근다
 // 순서가 엇갈리면 MySQL에서 두 트랜잭션이 서로 상대의 잠금을 기다리다 한쪽이 교착으로 롤백된다
-public interface RaceRepository extends JpaRepository<Race, Integer> {
+public interface RaceRepository extends JpaRepository<Race, Long> {
 	// 판매자의 대회 (최근 등록 순)
 	List<Race> findAllBySellerOrderByIdDesc(ProductSeller seller);
 
@@ -35,23 +35,23 @@ public interface RaceRepository extends JpaRepository<Race, Integer> {
 	// 잠그지 않고 읽으면 옛 상태로 판단해, 취소된 대회를 수정할 수 있다
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	@Query("select r from Race r where r.id = :id")
-	Optional<Race> findByIdForUpdate(@Param("id") int id);
+	Optional<Race> findByIdForUpdate(@Param("id") long id);
 
 	// 대회 행을 공유 잠금으로 읽는다 (MySQL SELECT … FOR SHARE). 자리 확보가 판매 상태를 볼 때 쓴다
 	// 확보끼리는 서로 막지 않고, 취소·수정이 대회 행을 잡고 있으면 커밋을 기다렸다가 최신 상태를 본다
 	@Lock(LockModeType.PESSIMISTIC_READ)
 	@Query("select r from Race r where r.id = :id")
-	Optional<Race> findByIdForShare(@Param("id") int id);
+	Optional<Race> findByIdForShare(@Param("id") long id);
 
 	// 상태 배치가 바꾼 대회를 다시 읽는다. 잠그고 읽어야 트랜잭션 처음의 스냅숏이 아닌 최신 상태를 본다
 	// (그 사이 다른 요청이 취소한 대회를 옛 상태로 대기열에 보내지 않게)
 	@Lock(LockModeType.PESSIMISTIC_READ)
 	@Query("select r from Race r where r.id in :ids")
-	List<Race> findAllByIdForShare(@Param("ids") Collection<Integer> ids);
+	List<Race> findAllByIdForShare(@Param("ids") Collection<Long> ids);
 
 	// 대회와 종목을 쿼리 한 번으로 읽는다 (검색 문서 동기화용, RaceDocumentSyncProcessUseCase)
 	@Query("select r from Race r left join fetch r.courses where r.id = :id")
-	Optional<Race> findWithCoursesById(@Param("id") int id);
+	Optional<Race> findWithCoursesById(@Param("id") long id);
 
 	// 정산 대상 대회 조회는 거르는 날짜 칸(환불 마감일 LocalDate / 대회 일시 LocalDateTime)과 경계 · 정렬이 달라 두 쿼리로 둔다
 	// QueryDSL로 날짜 조건만 바꿔 끼우면 쿼리 2개치고 코드(커스텀 리포지토리)가 늘고,
@@ -78,11 +78,11 @@ public interface RaceRepository extends JpaRepository<Race, Integer> {
 
 	// 판매 상태 배치가 바꿀 대회 (판매 예정인데 판매 시작일이 된 대회)
 	@Query("select r.id from Race r where r.saleStatus = :status and r.saleOpenDate <= :today")
-	List<Integer> findIdsToOpen(@Param("status") RaceSaleStatus status, @Param("today") LocalDate today);
+	List<Long> findIdsToOpen(@Param("status") RaceSaleStatus status, @Param("today") LocalDate today);
 
 	// 판매 상태 배치가 바꿀 대회 (대회일이 지난 판매 예정·판매 중 대회)
 	@Query("select r.id from Race r where r.saleStatus in :statuses and r.raceDate < :before")
-	List<Integer> findIdsToClose(@Param("statuses") Collection<RaceSaleStatus> statuses,
+	List<Long> findIdsToClose(@Param("statuses") Collection<RaceSaleStatus> statuses,
 		@Param("before") LocalDateTime before);
 
 	// 아래 두 UPDATE는 ID를 읽을 때의 조건을 UPDATE에서 한 번 더 확인한다 (조건부 UPDATE)
@@ -94,7 +94,7 @@ public interface RaceRepository extends JpaRepository<Race, Integer> {
 	@Query("update Race r set r.saleStatus = com.bukang.common.shared.race.domain.RaceSaleStatus.CLOSED, "
 		+ "r.modifyDate = :now "
 		+ "where r.id in :ids and r.saleStatus in :statuses and r.raceDate < :before")
-	int closeSale(@Param("ids") Collection<Integer> ids, @Param("statuses") Collection<RaceSaleStatus> statuses,
+	int closeSale(@Param("ids") Collection<Long> ids, @Param("statuses") Collection<RaceSaleStatus> statuses,
 		@Param("before") LocalDateTime before, @Param("now") LocalDateTime now);
 
 	// 판매자가 대회를 취소한다. 판매 종료 전 상태이고 대회일 다음 날 0시 전일 때만 바꾼다 (조건부 UPDATE)
@@ -104,7 +104,7 @@ public interface RaceRepository extends JpaRepository<Race, Integer> {
 	@Query("update Race r set r.saleStatus = com.bukang.common.shared.race.domain.RaceSaleStatus.CANCELED, "
 		+ "r.canceledAt = :now, r.modifyDate = :now "
 		+ "where r.id = :id and r.saleStatus in :statuses and r.raceDate >= :today")
-	int cancel(@Param("id") int id, @Param("statuses") Collection<RaceSaleStatus> statuses,
+	int cancel(@Param("id") long id, @Param("statuses") Collection<RaceSaleStatus> statuses,
 		@Param("today") LocalDateTime today, @Param("now") LocalDateTime now);
 
 	// 판매 시작일이 된 판매 예정 대회 → 판매 중
@@ -113,6 +113,6 @@ public interface RaceRepository extends JpaRepository<Race, Integer> {
 		+ "r.modifyDate = :now "
 		+ "where r.id in :ids and r.saleStatus = com.bukang.common.shared.race.domain.RaceSaleStatus.SCHEDULED "
 		+ "and r.saleOpenDate <= :today")
-	int openSale(@Param("ids") Collection<Integer> ids, @Param("today") LocalDate today,
+	int openSale(@Param("ids") Collection<Long> ids, @Param("today") LocalDate today,
 		@Param("now") LocalDateTime now);
 }

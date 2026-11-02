@@ -74,7 +74,7 @@ public class ApiV1QueueController {
 				examples = @ExampleObject(value = QueueApiExamples.QUEUE_UNAVAILABLE)))
 	})
 	public ResponseEntity<RsData<QueueStatusDto>> register(
-		@LoginMemberId int memberId,
+		@LoginMemberId long memberId,
 		@Valid @RequestBody QueueRegisterRequestDto request
 	) {
 		return ResponseEntity.ok()
@@ -112,11 +112,11 @@ public class ApiV1QueueController {
 				examples = @ExampleObject(value = QueueApiExamples.QUEUE_UNAVAILABLE)))
 	})
 	public ResponseEntity<RsData<QueueStatusDto>> getStatus(
-		@LoginMemberId int memberId,
+		@LoginMemberId long memberId,
 		@Parameter(description = "대회 ID", example = "1")
-		@PathVariable @Positive(message = "대회 ID는 0보다 커야 합니다.") int raceId,
+		@PathVariable @Positive(message = "대회 ID는 0보다 커야 합니다.") long raceId,
 		@Parameter(description = "종목 ID", example = "1")
-		@PathVariable @Positive(message = "종목 ID는 0보다 커야 합니다.") int raceCourseId
+		@PathVariable @Positive(message = "종목 ID는 0보다 커야 합니다.") long raceCourseId
 	) {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "대기열 상태를 조회했습니다.",

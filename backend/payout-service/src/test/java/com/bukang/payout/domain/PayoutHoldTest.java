@@ -15,7 +15,7 @@ import com.bukang.payout.domain.exception.PayoutHoldConflictException;
 
 class PayoutHoldTest {
 	private static final BusinessDayCalendar CALENDAR = new BusinessDayCalendar();
-	private static final int ADMIN_ID = 99;
+	private static final long ADMIN_ID = 99;
 	private static final LocalDateTime HELD_AT = LocalDateTime.of(2026, 10, 12, 10, 0);
 
 	// 대회일 10/17 토: 지급 예정일 10/19 월

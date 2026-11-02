@@ -32,7 +32,7 @@ public class AdminOrderFacade {
 	private final MemberNicknamePort memberNicknamePort;
 	private final OrderQueryUseCase orderQueryUseCase;
 
-	public AdminOrderPageDto findOrders(int adminId, String nickname, String orderNo, int page, int size) {
+	public AdminOrderPageDto findOrders(long adminId, String nickname, String orderNo, int page, int size) {
 		// 검색 조건 확인은 회원 서비스를 부르기 전에 끝낸다
 		String trimmedNickname = trimToNull(nickname);
 		String trimmedOrderNo = trimToNull(orderNo);
@@ -46,7 +46,7 @@ public class AdminOrderFacade {
 			// 주문번호는 대문자로 만든다 (OD-20261012-3F9A). 소문자로 넣어도 찾는다
 			return orderQueryUseCase.findForAdmin(null, trimmedOrderNo.toUpperCase(Locale.ROOT), page, size);
 		}
-		int buyerId = memberNicknamePort.findMemberId(trimmedNickname)
+		long buyerId = memberNicknamePort.findMemberId(trimmedNickname)
 			.orElseThrow(() -> new OrderMemberNotFoundException(MEMBER_NOT_FOUND_MESSAGE));
 		return orderQueryUseCase.findForAdmin(buyerId, null, page, size);
 	}

@@ -36,26 +36,26 @@ import lombok.NoArgsConstructor;
 )
 public class Cart extends BaseIdAndTime {
 	@Column(name = "member_id", nullable = false)
-	private int memberId;
+	private long memberId;
 
 	// 최근에 담은 항목이 먼저 보인다 (한 종목만 담으므로 지금은 하나뿐이다. 예전에 여러 개 담긴 장바구니를 위해 둔다)
 	@OneToMany(mappedBy = "cart", cascade = ALL, orphanRemoval = true)
 	@OrderBy("id DESC")
 	private List<CartItem> items = new ArrayList<>();
 
-	private Cart(int memberId) {
+	private Cart(long memberId) {
 		this.memberId = memberId;
 	}
 
-	public static Cart of(int memberId) {
+	public static Cart of(long memberId) {
 		return new Cart(memberId);
 	}
 
-	public boolean isOwnedBy(int targetMemberId) {
+	public boolean isOwnedBy(long targetMemberId) {
 		return memberId == targetMemberId;
 	}
 
-	public Optional<CartItem> findItem(int raceCourseId) {
+	public Optional<CartItem> findItem(long raceCourseId) {
 		return items.stream()
 			.filter(item -> item.getRaceCourseId() == raceCourseId)
 			.findFirst();
@@ -63,7 +63,7 @@ public class Cart extends BaseIdAndTime {
 
 	// 참가권은 수량 1로 고정이라, 이미 담긴 종목이면 새 항목을 만들지 않고 그 항목을 돌려준다 (정책 4장 1-1)
 	// 장바구니에는 한 종목만 담는다. 개인 예매는 모두 대기열을 거치는데, 여러 종목이면 여러 대기열에 동시에 입장해야 한다 (PRO-192)
-	public CartItem addItem(int raceCourseId) {
+	public CartItem addItem(long raceCourseId) {
 		return findItem(raceCourseId).orElseGet(() -> {
 			if (!items.isEmpty()) {
 				throw new CartCourseLimitException("장바구니에는 한 종목만 담을 수 있습니다. 담긴 종목을 뺀 뒤 담아주세요.");
@@ -79,7 +79,7 @@ public class Cart extends BaseIdAndTime {
 	}
 
 	// pendingByCourse는 종목 ID → 그 종목으로 저장한 결제 전 신청서
-	public CartDto toDto(Map<Integer, Participation> pendingByCourse) {
+	public CartDto toDto(Map<Long, Participation> pendingByCourse) {
 		return new CartDto(memberId,
 			items.stream().map(item -> item.toDto(pendingByCourse.get(item.getRaceCourseId()))).toList());
 	}

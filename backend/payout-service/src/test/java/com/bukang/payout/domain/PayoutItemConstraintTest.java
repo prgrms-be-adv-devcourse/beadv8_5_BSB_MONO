@@ -61,7 +61,7 @@ class PayoutItemConstraintTest {
 		entityManager.persist(first);
 		entityManager.flush();
 
-		PayoutItem again = PayoutItem.ofPayout(first, PayoutRecordType.ADVANCE_PAID, null, 7, 20_000L, null,
+		PayoutItem again = PayoutItem.ofPayout(first, PayoutRecordType.ADVANCE_PAID, null, 7L, 20_000L, null,
 			TARGET_DATE);
 
 		assertThatThrownBy(() -> {

@@ -47,7 +47,7 @@ public class CartCheckoutUseCase {
 	private final OrderCreateUseCase orderCreateUseCase;
 	private final TransactionTemplate transactionTemplate;
 
-	public CartCheckoutDto checkout(int memberId, List<Integer> participationIds, String idempotencyKey,
+	public CartCheckoutDto checkout(long memberId, List<Long> participationIds, String idempotencyKey,
 		LocalDateTime now) {
 		checkRequest(memberId, participationIds);
 		List<CartCheckoutItemDto> results = participationIds.stream()
@@ -64,13 +64,13 @@ public class CartCheckoutUseCase {
 	 * 자리를 하나라도 확보하기 전에, 요청 자체가 잘못된 경우를 한꺼번에 거른다 (일부만 처리된 채 4xx가 나가지 않게)
 	 * 접수 기간·결제 가능 상태·매진은 항목마다 결과로 돌려준다
 	 */
-	private void checkRequest(int memberId, List<Integer> participationIds) {
+	private void checkRequest(long memberId, List<Long> participationIds) {
 		if (new HashSet<>(participationIds).size() != participationIds.size()) {
 			throw new CartCheckoutInvalidException("같은 참가 신청을 두 번 보낼 수 없습니다.");
 		}
-		Map<Integer, Participation> participations = participationRepository.findAllById(participationIds).stream()
+		Map<Long, Participation> participations = participationRepository.findAllById(participationIds).stream()
 			.collect(Collectors.toMap(Participation::getId, Function.identity()));
-		for (int participationId : participationIds) {
+		for (long participationId : participationIds) {
 			Participation participation = participations.get(participationId);
 			if (participation == null) {
 				throw new ParticipationNotFoundException("존재하지 않는 참가 신청입니다.");
@@ -85,7 +85,7 @@ public class CartCheckoutUseCase {
 	 * 참가 신청 하나를 [결제하기]와 똑같이 처리하고, 주문했으면 커밋한 뒤 그 종목을 장바구니에서 뺀다
 	 * 장바구니 빼기를 주문과 같은 트랜잭션에 두면, 빼기가 실패할 때 상품 서비스에 자리는 잡혔는데 주문만 롤백된다
 	 */
-	private CartCheckoutItemDto checkoutOne(int memberId, int participationId, String key, LocalDateTime now) {
+	private CartCheckoutItemDto checkoutOne(long memberId, long participationId, String key, LocalDateTime now) {
 		CartCheckoutItemDto item = orderOne(memberId, participationId, key, now);
 		if (item.getOrder() != null) {
 			// 개인 예매 주문은 참가권 1장짜리라 주문 상품의 종목이 곧 장바구니에서 뺄 종목이다
@@ -94,7 +94,7 @@ public class CartCheckoutUseCase {
 		return item;
 	}
 
-	private CartCheckoutItemDto orderOne(int memberId, int participationId, String key, LocalDateTime now) {
+	private CartCheckoutItemDto orderOne(long memberId, long participationId, String key, LocalDateTime now) {
 		try {
 			return transactionTemplate.execute(status -> {
 				OrderCreateResult result = orderCreateUseCase.create(memberId, participationId, key, now);
@@ -121,7 +121,7 @@ public class CartCheckoutUseCase {
 	}
 
 	// 주문은 이미 커밋됐으므로 빼기에 실패해도 주문 결과는 그대로 둔다. 남은 항목은 회원이 직접 빼면 된다
-	private void removeFromCart(int memberId, int raceCourseId) {
+	private void removeFromCart(long memberId, long raceCourseId) {
 		try {
 			transactionTemplate.executeWithoutResult(status -> cartRepository.findByMemberId(memberId)
 				.ifPresent(cart -> cartItemRepository.deleteByCartIdAndRaceCourseId(cart.getId(), raceCourseId)));
@@ -135,7 +135,7 @@ public class CartCheckoutUseCase {
 	 * 항목마다 [결제하기]에 넘길 중복 방지 키. 같은 요청을 다시 보내면 같은 키가 나와 이미 만든 주문을 돌려받는다
 	 * 헤더 키(최대 64자)에 참가 신청 ID를 붙이면 컬럼 길이(64)를 넘을 수 있어, 이름 기반 UUID(36자)로 줄인다
 	 */
-	static String itemKey(String idempotencyKey, int participationId) {
+	static String itemKey(String idempotencyKey, long participationId) {
 		byte[] name = (idempotencyKey + ":" + participationId).getBytes(StandardCharsets.UTF_8);
 		return UUID.nameUUIDFromBytes(name).toString();
 	}

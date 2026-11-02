@@ -13,5 +13,5 @@ public interface MemberNicknamePort {
 	/**
 	 * @return 그 닉네임의 회원 ID. 없거나 탈퇴한 회원이면 빈 값
 	 */
-	Optional<Integer> findMemberId(String nickname);
+	Optional<Long> findMemberId(String nickname);
 }

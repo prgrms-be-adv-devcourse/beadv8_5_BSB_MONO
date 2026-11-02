@@ -13,5 +13,5 @@ public class OrderCreateRequestDto {
 	@Schema(description = "결제할 참가 신청 ID", example = "1")
 	@NotNull(message = "결제할 참가 신청을 선택해주세요.")
 	@Positive(message = "참가 신청 ID가 올바르지 않습니다.")
-	private final Integer participationId;
+	private final Long participationId;
 }
