@@ -51,6 +51,21 @@ describe('useLogout', () => {
     expect(replace).not.toHaveBeenCalled()
   })
 
+  // 새로 불러와도 그 앞의 방문 기록은 이전 문서 것이다. 브라우저가 이전 문서를 메모리째 보관했다가
+  // 뒤로 가기로 되살리면 앞사람의 토큰과 캐시가 보이므로, 페이지를 떠날 때 지운다.
+  it('로그아웃에 성공한 뒤 페이지를 떠나면 토큰과 캐시를 지운다', async () => {
+    const { result, client } = renderLogout()
+
+    await act(async () => {
+      result.current.mutate()
+    })
+    await waitFor(() => expect(reloadToLogin).toHaveBeenCalledTimes(1))
+    window.dispatchEvent(new Event('pagehide'))
+
+    expect(getAuthStatus()).toBe('anonymous')
+    expect(client.getQueryData(BALANCE_KEY)).toBeUndefined()
+  })
+
   it('로그아웃 요청이 실패하면 이 브라우저에서 로그아웃 상태로 바꾸고 캐시를 지운 뒤 로그인 화면으로 보낸다', async () => {
     server.use(http.post('*/api/v1/auth/logout', () => HttpResponse.error()))
     const { result, client } = renderLogout()
