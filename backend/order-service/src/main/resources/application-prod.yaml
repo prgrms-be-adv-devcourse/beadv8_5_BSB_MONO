@@ -38,6 +38,13 @@ order:
     # 판매자 ID 조회를 실제로 붙이기 전까지 운영에서는 판매자 키트 API를 막는다 (가짜는 누구나 판매자로 봄, PRO-197)
     seller:
       mode: disabled
+    # 관리자 확인은 실제 회원 서비스에 묻는다 (BUK-26)
+    member:
+      mode: http
+      base-url: http://bukang-member-service:8080
+    # 회원 서비스에 닉네임 조회 API가 생기기 전까지 운영에서는 닉네임 검색을 막는다 (주문번호 검색은 된다, BUK-26)
+    nickname:
+      mode: disabled
 
 # 운영에서는 API 구조가 외부에 노출되지 않도록 Swagger 비활성화
 springdoc:
