@@ -3,11 +3,13 @@ package com.bukang.member.app;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import java.sql.Connection;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Comparator;
@@ -22,7 +24,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.IntSupplier;
 
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.errors.InvalidTopicException;
 import org.apache.kafka.common.errors.RecordTooLargeException;
+import org.apache.kafka.common.errors.SerializationException;
 import org.apache.kafka.common.errors.TimeoutException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,9 +38,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.springframework.kafka.KafkaException;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.common.shared.kafka.KafkaTopics;
@@ -312,6 +318,59 @@ class MemberOutboxRelayTest {
 		MemberOutboxEvent row = allRows().get(0);
 		assertThat(row.getStatus()).isEqualTo(MemberOutboxStatus.PENDING);
 		assertThat(row.getRetryCount()).isEqualTo(5);
+	}
+
+	@Test
+	@DisplayName("발행 작업은 READ COMMITTED로 돈다. MySQL 기본(REPEATABLE READ)이면 FOR UPDATE가 인덱스 끝 빈 구간까지 락을 걸어, "
+		+ "보내는 동안 가입·정보 변경의 아웃박스 저장이 Kafka 응답을 함께 기다린다")
+	void relayRunsInReadCommitted() {
+		Integer[] isolation = new Integer[1];
+		doAnswer(invocation -> {
+			isolation[0] = TransactionSynchronizationManager.getCurrentTransactionIsolationLevel();
+			return CompletableFuture.completedFuture(null);
+		}).when(kafka()).send(any(ProducerRecord.class));
+		joined(MEMBER_ID);
+
+		relayAt(now);
+
+		assertThat(isolation[0]).isEqualTo(Connection.TRANSACTION_READ_COMMITTED);
+	}
+
+	@Test
+	@DisplayName("send가 그 자리에서 KafkaException(원인 크기 초과)을 던져도 메시지 문제로 보고 3번째 실패에 포기한다")
+	void syncRecordTooLargeGivesUpOnThirdTry() {
+		doThrow(new KafkaException("Send failed", new RecordTooLargeException("메시지가 너무 큽니다")))
+			.when(kafka()).send(keyIs(MEMBER_ID));
+
+		assertGivesUpOnThirdTry();
+	}
+
+	@Test
+	@DisplayName("직렬화 오류는 메시지 문제로 보고 3번째 실패에 포기한다")
+	void serializationFailureGivesUpOnThirdTry() {
+		doThrow(new SerializationException("직렬화 실패")).when(kafka()).send(keyIs(MEMBER_ID));
+
+		assertGivesUpOnThirdTry();
+	}
+
+	@Test
+	@DisplayName("메타데이터 대기 시간 초과의 원인이 잘못된 토픽이면 메시지 문제로 보고 3번째 실패에 포기한다")
+	void invalidTopicInsideTimeoutGivesUpOnThirdTry() {
+		failSendTo(MEMBER_ID, new TimeoutException("메타데이터 대기 시간 초과", new InvalidTopicException("잘못된 토픽")));
+
+		assertGivesUpOnThirdTry();
+	}
+
+	private void assertGivesUpOnThirdTry() {
+		joined(MEMBER_ID);
+
+		for (int i = 0; i < MemberOutboxRelayUseCase.MAX_MESSAGE_FAILURES; i++) {
+			relayAt(now.plusHours(i));
+		}
+
+		MemberOutboxEvent row = allRows().get(0);
+		assertThat(row.getStatus()).isEqualTo(MemberOutboxStatus.SEND_FAILED);
+		assertThat(row.getRetryCount()).isEqualTo(MemberOutboxRelayUseCase.MAX_MESSAGE_FAILURES);
 	}
 
 	// 다른 서버의 발행 작업이 첫 행에 락을 쥔 채 머무는 동안 relay를 돌린다
