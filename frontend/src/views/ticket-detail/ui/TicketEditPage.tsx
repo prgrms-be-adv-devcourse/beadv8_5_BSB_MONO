@@ -3,9 +3,11 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 
 import { AppHeader } from '@/widgets/app-header'
+import { AddressSearch, type AddressSearchResult } from '@/features/address-search'
 import { formatDDay, formatRaceDate, formatRaceDateTime } from '@/entities/race'
 import { ticketErrorMessage, useChangeParticipant } from '@/entities/ticket'
 import type { orderModel } from '@/shared/api'
@@ -90,12 +92,23 @@ function ParticipantForm({
     control,
     register,
     handleSubmit,
+    setValue,
+    setFocus,
     formState: { errors },
   } = useForm<ParticipantFormValues>({
     resolver: zodResolver(participantFormSchema),
     mode: 'onTouched',
     defaultValues: toFormValues(participant),
   })
+  // 주소 검색을 불러오지 못했을 때만 우편번호 · 주소를 직접 입력하게 연다
+  const [manualAddress, setManualAddress] = useState(false)
+  const pickAddress = ({ zipcode, address }: AddressSearchResult) => {
+    setValue('zipcode', zipcode, { shouldValidate: true, shouldDirty: true })
+    setValue('address', address, { shouldValidate: true, shouldDirty: true })
+    // 예전 주소의 동 · 호수가 새 주소에 붙어 잘못 배송되지 않게 비운다
+    setValue('addressDetail', '', { shouldDirty: true })
+    setFocus('addressDetail')
+  }
   const hasKit = participant.shippingAddress != null
 
   return (
@@ -206,7 +219,20 @@ function ParticipantForm({
                   환불 기한({formatRaceDate(refundDeadline)})이 지난 뒤 이 주소로 키트를 보내요.
                 </p>
               )}
-              <TextField label="주소" error={errors.address?.message} {...register('address')} />
+              <TextField
+                label="우편번호"
+                inputMode="numeric"
+                readOnly={!manualAddress}
+                error={errors.zipcode?.message}
+                {...register('zipcode')}
+              />
+              <TextField
+                label="주소"
+                readOnly={!manualAddress}
+                error={errors.address?.message}
+                {...register('address')}
+              />
+              <AddressSearch onSelect={pickAddress} onUnavailable={() => setManualAddress(true)} />
               <TextField
                 label="상세 주소"
                 error={errors.addressDetail?.message}

@@ -11,6 +11,7 @@ export const PARTICIPANT_ERRORS = {
   contactName: '비상 연락처 이름을 입력해 주세요.',
   phoneFormat: '휴대폰 번호를 010-1234-5678처럼 입력해 주세요.',
   address: '키트를 받을 주소를 입력해 주세요.',
+  zipcodeFormat: '우편번호 5자리를 입력해 주세요.',
 } as const
 
 export const participantFormSchema = z.object({
@@ -18,6 +19,11 @@ export const participantFormSchema = z.object({
   tshirtSize: z.string().max(10).optional(),
   emergencyContactName: z.string().trim().min(1, PARTICIPANT_ERRORS.contactName).max(50),
   emergencyContactPhone: z.string().trim().regex(PHONE, PARTICIPANT_ERRORS.phoneFormat),
+  // 키트가 없는 종목은 빈 칸이다
+  zipcode: z
+    .string()
+    .trim()
+    .regex(/^(\d{5})?$/, PARTICIPANT_ERRORS.zipcodeFormat),
   address: z.string().trim().max(255),
   addressDetail: z.string().trim().max(255),
 })
@@ -30,6 +36,7 @@ export function toFormValues(participant: orderModel.ParticipantInfoDto): Partic
     tshirtSize: participant.tshirtSize ?? undefined,
     emergencyContactName: participant.emergencyContactName ?? '',
     emergencyContactPhone: participant.emergencyContactPhone ?? '',
+    zipcode: participant.shippingAddress?.zipcode ?? '',
     address: participant.shippingAddress?.address ?? '',
     addressDetail: participant.shippingAddress?.addressDetail ?? '',
   }
@@ -54,7 +61,7 @@ export function toRequestBody(
       ? {
           recipientName: shipping.recipientName ?? '',
           recipientPhone: shipping.recipientPhone ?? '',
-          zipcode: shipping.zipcode ?? '',
+          zipcode: values.zipcode,
           address: values.address,
           addressDetail: values.addressDetail || undefined,
         }
