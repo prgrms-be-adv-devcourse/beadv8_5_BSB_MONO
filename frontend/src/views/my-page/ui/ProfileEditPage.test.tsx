@@ -45,7 +45,7 @@ function renderPage() {
 describe('ProfileEditPage', () => {
   beforeEach(() => server.use(memberMock.getFindMeMockHandler(ME)))
 
-  it('내 정보로 칸을 채우고, 저장하면 닉네임만 보내 캐시를 바꾼 뒤 마이로 간다', async () => {
+  it('닉네임 칸만 있고, 저장하면 닉네임만 보내 캐시를 바꾼 뒤 계정 설정으로 간다', async () => {
     let body: unknown
     const updated = { ...ME, data: { ...ME.data, nickname: '달리는곰' } }
     server.use(
@@ -59,13 +59,14 @@ describe('ProfileEditPage', () => {
 
     const nickname = await screen.findByLabelText('닉네임')
     expect(nickname).toHaveValue('러너1')
-    expect(screen.getByRole('button', { name: /생년월일 1995-04-12/ })).toBeInTheDocument()
+    expect(screen.queryByLabelText('이름')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('휴대폰 번호')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /생년월일/ })).not.toBeInTheDocument()
     await user.clear(nickname)
     await user.type(nickname, '달리는곰')
     await user.click(screen.getByRole('button', { name: '저장하기' }))
 
-    await vi.waitFor(() => expect(push).toHaveBeenCalledWith('/me'))
-    // 가입 뒤에는 닉네임만 바꿀 수 있다. 이름 · 생년월일 · 휴대폰 번호는 보내지 않는다
+    await vi.waitFor(() => expect(push).toHaveBeenCalledWith('/me/settings'))
     expect(body).toEqual({ nickname: '달리는곰' })
     expect(client.getQueryData(memberApi.getFindMeQueryKey())).toEqual(updated)
   })
