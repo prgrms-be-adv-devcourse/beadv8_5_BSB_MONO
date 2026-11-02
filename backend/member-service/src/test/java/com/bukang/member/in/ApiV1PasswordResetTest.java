@@ -178,22 +178,37 @@ class ApiV1PasswordResetTest {
 	@Test
 	@DisplayName("한 IP가 한도를 넘어도 다른 IP의 요청은 받는다")
 	void otherIpStillAllowed() throws Exception {
-		for (int i = 0; i <= IP_DAILY_LIMIT; i++) {
-			requestReset("user" + i + "@crewrun.com", "203.0.113.7");
+		for (int i = 0; i < IP_DAILY_LIMIT; i++) {
+			requestReset("user" + i + "@crewrun.com", "203.0.113.7").andExpect(status().isOk());
 		}
+		requestReset("over@crewrun.com", "203.0.113.7").andExpect(status().isTooManyRequests());
 
 		requestReset(EMAIL, "198.51.100.9").andExpect(status().isOk());
 		assertThat(mailSender.sent()).extracting(OutgoingMail::to).containsExactly(EMAIL);
 	}
 
 	@Test
-	@DisplayName("X-Forwarded-For를 바꿔 보내도 Nginx가 넣은 X-Real-IP 기준으로 세어 한도를 피할 수 없다")
+	@DisplayName("X-Forwarded-For는 무시하고 X-Real-IP로 세므로 X-Forwarded-For를 바꿔도 한도를 피할 수 없다")
 	void forgedForwardedForCannotBypass() throws Exception {
 		for (int i = 0; i < IP_DAILY_LIMIT; i++) {
 			requestReset("user" + i + "@crewrun.com", "203.0.113.7", "10.0.0." + i).andExpect(status().isOk());
 		}
 
 		requestReset(EMAIL, "203.0.113.7", "10.0.0.99").andExpect(status().isTooManyRequests());
+	}
+
+	@Test
+	@DisplayName("IP 한도에 걸린 요청은 그 이메일의 횟수를 쓰지 않아, 다른 IP에서 같은 이메일로 바로 요청할 수 있다")
+	void blockedIpDoesNotSpendEmailQuota() throws Exception {
+		for (int i = 0; i < IP_DAILY_LIMIT; i++) {
+			requestReset("user" + i + "@crewrun.com", "203.0.113.7").andExpect(status().isOk());
+		}
+		for (int i = 0; i < 5; i++) {
+			requestReset(EMAIL, "203.0.113.7").andExpect(status().isTooManyRequests());
+		}
+
+		requestReset(EMAIL, "198.51.100.9").andExpect(status().isOk());
+		assertThat(mailSender.sent()).extracting(OutgoingMail::to).containsExactly(EMAIL);
 	}
 
 	@Test
