@@ -47,9 +47,9 @@ public class PayoutClaim extends BaseIdAndTime {
 	@Column(nullable = false)
 	private LocalDate startDate;
 
-	// DB ENUM이 아니라 글자 칸으로 둔다. 상태가 늘어도 DB를 고치지 않게 한다 (PayoutRecovery.status와 같은 이유)
+	// DB는 ENUM 칸이다. 상태를 더하면 같은 PR에 ENUM 목록을 바꾸는 Flyway SQL을 넣는다 (PayoutEnumColumnTest가 확인)
 	@Enumerated(STRING)
-	@Column(nullable = false, columnDefinition = "varchar(20)")
+	@Column(nullable = false, length = 20)
 	private PayoutClaimStatus status;
 
 	// 마지막으로 판매자 청구 알림을 남긴 날. 같은 날 배치가 다시 돌아도 알림을 한 번만 남긴다

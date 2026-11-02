@@ -64,12 +64,13 @@ public class PayoutItem extends BaseIdAndTime {
 	@Column(nullable = false)
 	private long raceId;
 
+	// 계정 · 줄 종류는 DB ENUM 칸이다. 값을 더하면 같은 PR에 ENUM 목록을 바꾸는 Flyway SQL을 넣는다 (PayoutEnumColumnTest가 확인)
 	@Enumerated(STRING)
-	@Column(nullable = false, columnDefinition = "varchar(20)")
+	@Column(nullable = false, length = 20)
 	private PayoutAccount account;
 
 	@Enumerated(STRING)
-	@Column(nullable = false, columnDefinition = "varchar(30)")
+	@Column(nullable = false, length = 30)
 	private PayoutRecordType recordType;
 
 	// 주문 도메인의 주문 상품 ID. 참가권 줄에만 있고, 참가권 없는 줄(1차 정산금 · 1차 정산금 차감 · 상계 · 대회 취소 회수)은 NULL
