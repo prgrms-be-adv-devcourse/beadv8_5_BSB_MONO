@@ -137,15 +137,29 @@ describe('GET /admin/stats/data 숫자', () => {
 })
 
 describe('GET /admin/stats/data 일별 추이 · 입력 오류', () => {
-  it('일별 방문자 수는 기간의 날짜마다 이번 기간과 비교 기간 사람 수를 준다', async () => {
-    const usersByDate = vi.spyOn(mockGa4Reporter, 'usersByDate')
+  it('일별 방문자 수는 이번 기간 날짜별 수와 두 기간의 날짜별 합계를 준다', async () => {
+    const usersByDate = vi.spyOn(mockGa4Reporter, 'usersByDate').mockResolvedValueOnce({
+      current: { '2026-10-30': 10, '2026-11-01': 5 },
+      previous: { '2026-10-27': 4, '2026-10-28': 4, '2026-10-29': 4 },
+    })
     const body = await (
       await get('section=visitors&period=custom&start=2026-10-30&end=2026-11-01')
     ).json()
 
-    expect(usersByDate).toHaveBeenCalledWith(expect.objectContaining({ metric: 'activeUsers' }))
-    expect(body.data.points).toHaveLength(3)
-    expect(body.data.points[0]).toMatchObject({ date: '2026-10-30', previousDate: '2026-10-27' })
+    expect(usersByDate).toHaveBeenCalledWith({
+      metric: 'activeUsers',
+      dateRanges: [
+        { name: 'current', startDate: '2026-10-30', endDate: '2026-11-01' },
+        { name: 'previous', startDate: '2026-10-27', endDate: '2026-10-29' },
+      ],
+    })
+    // GA4가 빼고 준 10/31은 0명으로 채운다
+    expect(body.data.points).toEqual([
+      { date: '2026-10-30', value: 10 },
+      { date: '2026-10-31', value: 0 },
+      { date: '2026-11-01', value: 5 },
+    ])
+    expect(body.data).toMatchObject({ total: 15, previousTotal: 12 })
   })
 
   it('일별 구매 수는 purchase 이벤트를 보낸 사람 수로 센다', async () => {
@@ -155,18 +169,6 @@ describe('GET /admin/stats/data 일별 추이 · 입력 오류', () => {
     expect(usersByDate).toHaveBeenCalledWith(
       expect.objectContaining({ metric: 'totalUsers', eventName: 'purchase' }),
     )
-  })
-
-  it('GA4가 빈 날짜를 빼고 줘도 0명으로 채운다', async () => {
-    vi.spyOn(mockGa4Reporter, 'usersByDate').mockResolvedValueOnce({
-      current: { '2026-10-31': 4 },
-      previous: {},
-    })
-    const body = await (
-      await get('section=visitors&period=custom&start=2026-10-30&end=2026-11-01')
-    ).json()
-
-    expect(body.data.points.map((p: { value: number }) => p.value)).toEqual([0, 4, 0])
   })
 
   it('입력 오류 묶음은 상위 3개만 준다', async () => {

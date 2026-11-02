@@ -34,4 +34,11 @@ export {
   type FormErrorGroup,
   type FormErrorStats,
 } from './model/form-errors'
-export { toTrendPoints, type TrendKind, type TrendPoint, type TrendStats } from './model/trend'
+export {
+  toTrendPoints,
+  toTrendStats,
+  trendDeltaText,
+  type TrendKind,
+  type TrendPoint,
+  type TrendStats,
+} from './model/trend'

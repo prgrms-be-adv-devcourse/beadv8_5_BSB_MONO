@@ -5,7 +5,7 @@ import {
   seoulToday,
   statsPeriodQuerySchema,
   TOP_SCREEN_COUNT,
-  toTrendPoints,
+  toTrendStats,
   type FormErrorStats,
   type FunnelKind,
   type FunnelStats,
@@ -151,7 +151,10 @@ async function formErrors(reporter: Ga4Reporter, period: StatsPeriod): Promise<F
   return { period, groups: rankFormErrors(rows) }
 }
 
-/** 일별 추이. 방문자는 그날 활성 사용자 수, 구매는 그날 purchase 이벤트를 보낸 사람 수 */
+/**
+ * 일별 추이. 방문자는 그날 활성 사용자 수, 구매는 그날 purchase 이벤트를 보낸 사람 수.
+ * 그래프는 이번 기간 날짜별 수, 큰 숫자와 배지는 두 기간의 날짜별 수 합계다.
+ */
 async function trend(
   reporter: Ga4Reporter,
   kind: TrendKind,
@@ -166,7 +169,7 @@ async function trend(
       { name: 'previous', startDate: period.previous.start, endDate: period.previous.end },
     ],
   })
-  return { period, points: toTrendPoints(period, byDate) }
+  return toTrendStats(period, byDate)
 }
 
 function realtime(reporter: Ga4Reporter): Promise<RealtimeStats> {

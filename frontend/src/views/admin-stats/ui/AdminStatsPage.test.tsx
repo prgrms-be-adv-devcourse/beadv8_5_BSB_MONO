@@ -23,16 +23,18 @@ const funnel = (steps: { event: string; label: string; users: number }[]) => ({
   data: { period: PERIOD, steps: steps.map((s) => ({ ...s, previousUsers: 10 })) },
 })
 
-const trend = {
+const trend = (total: number, previousTotal: number) => ({
   status: 'ok',
   data: {
     period: PERIOD,
     points: [
-      { date: '2026-10-26', previousDate: '2026-10-19', value: 5, previousValue: 4 },
-      { date: '2026-10-27', previousDate: '2026-10-20', value: 6, previousValue: 3 },
+      { date: '2026-10-26', value: 5 },
+      { date: '2026-10-27', value: 6 },
     ],
+    total,
+    previousTotal,
   },
-}
+})
 
 const BODY = {
   realtime: {
@@ -53,8 +55,8 @@ const BODY = {
     status: 'ok',
     data: { period: PERIOD, groups: [{ name: '종목 · 참가권', users: 9 }] },
   },
-  visitors: trend,
-  purchases: trend,
+  visitors: trend(1180, 1169),
+  purchases: trend(142, 145),
 }
 
 type Section = keyof typeof BODY
@@ -96,7 +98,13 @@ describe('AdminStatsPage', () => {
     expect(await within(realtime).findByText('23')).toBeInTheDocument()
     expect(within(realtime).getByText('대회 목록 | 크루런')).toBeInTheDocument()
 
-    expect(await within(block('일별 추이')).findAllByText('그래프 점 2개')).toHaveLength(2)
+    const trends = block('일별 추이')
+    expect(await within(trends).findByText('그래프 점 2개')).toBeInTheDocument()
+    expect(within(trends).getByText('1,180')).toBeInTheDocument()
+    expect(within(trends).getByText('+11')).toBeInTheDocument()
+    expect(
+      within(trends).getByRole('heading', { name: '지난 7일 방문한 사람' }),
+    ).toBeInTheDocument()
 
     const buyer = block('구매 단계')
     expect(await within(buyer).findByText('1,240명')).toBeInTheDocument()
@@ -119,20 +127,36 @@ describe('AdminStatsPage', () => {
   })
 
   it('한 영역이 실패하면 그 영역만 「불러오지 못했어요」이고 나머지는 그대로다', async () => {
-    mockStats({ buyer: failed, purchases: failed })
+    mockStats({ buyer: failed, visitors: failed })
     renderPage()
 
     await screen.findByRole('region', { name: '구매 단계' })
     expect(
       await within(block('구매 단계')).findByText('구매 단계를 불러오지 못했어요', {}, SLOW),
     ).toBeInTheDocument()
-    const trends = block('일별 추이')
     expect(
-      await within(trends).findByText('일별 구매 수를 불러오지 못했어요', {}, SLOW),
+      await within(block('일별 추이')).findByText('일별 방문자 수를 불러오지 못했어요', {}, SLOW),
     ).toBeInTheDocument()
-    expect(within(trends).getByText('그래프 점 2개')).toBeInTheDocument()
     expect(within(block('판매자 단계')).getByText('48명')).toBeInTheDocument()
     expect(within(block('지금 접속 중')).getByText('23')).toBeInTheDocument()
+  })
+
+  it('알약 버튼으로 방문자와 구매를 바꿔 보고, 지난 기간보다 줄면 − 배지를 보여 준다', async () => {
+    mockStats()
+    const user = userEvent.setup()
+    renderPage()
+    const trends = await screen.findByRole('region', { name: '일별 추이' })
+    await within(trends).findByText('1,180')
+
+    await user.click(within(trends).getByRole('button', { name: '구매' }))
+
+    expect(await within(trends).findByText('142')).toBeInTheDocument()
+    expect(within(trends).getByText('\u22123')).toBeInTheDocument()
+    expect(within(trends).getByRole('button', { name: '구매' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    expect(requests).toContain('section=purchases&period=7d')
   })
 
   it('다시 시도는 실패한 영역만 다시 부른다', async () => {
@@ -182,6 +206,29 @@ describe('AdminStatsPage', () => {
     expect(await within(block('판매자 단계')).findByText('입력 오류가 없어요')).toBeInTheDocument()
   })
 
+  it('일별 추이에 기록이 없으면 큰 숫자 0과 안내만 보이고 배지는 없다', async () => {
+    mockStats({
+      visitors: () =>
+        HttpResponse.json({
+          status: 'ok',
+          data: {
+            period: PERIOD,
+            points: [{ date: '2026-10-26', value: 0 }],
+            total: 0,
+            previousTotal: 4,
+          },
+        }),
+    })
+    renderPage()
+
+    const trends = await screen.findByRole('region', { name: '일별 추이' })
+    expect(
+      await within(trends).findByText('이 기간에는 방문 기록이 없어요. 기간을 넓혀 보세요.'),
+    ).toBeInTheDocument()
+    expect(within(trends).getByText('0')).toBeInTheDocument()
+    expect(within(trends).queryByText('지난 기간보다')).not.toBeInTheDocument()
+  })
+
   it('관리자가 아니면 숫자 대신 안내를 보여 준다', async () => {
     const denied = () =>
       HttpResponse.json(
@@ -198,7 +245,8 @@ describe('AdminStatsPage', () => {
     })
     renderPage()
 
-    await waitFor(() => expect(screen.getAllByText('관리자만 이용할 수 있어요.')).toHaveLength(6))
+    // 방문자 · 구매 중 보이는 하나만 불러오므로 다섯 영역
+    await waitFor(() => expect(screen.getAllByText('관리자만 이용할 수 있어요.')).toHaveLength(5))
   })
 
   it('기간을 바꾸면 기간을 쓰는 영역을 그 기간으로 다시 묻는다', async () => {
@@ -216,7 +264,6 @@ describe('AdminStatsPage', () => {
           'section=seller&period=30d',
           'section=formErrors&period=30d',
           'section=visitors&period=30d',
-          'section=purchases&period=30d',
         ]),
       ),
     )

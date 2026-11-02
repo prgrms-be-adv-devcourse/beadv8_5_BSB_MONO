@@ -1,6 +1,5 @@
 'use client'
 
-import dynamic from 'next/dynamic'
 import { Fragment, useState } from 'react'
 
 import { ConsolePage } from '@/widgets/console-page'
@@ -12,23 +11,17 @@ import {
   type DateSpan,
   type StatsPeriodKind,
   type StatsPeriodQuery,
-  type TrendKind,
 } from '@/entities/usage-stats'
 import { formatNumber } from '@/shared/lib'
-import { Button, DataTable, Divider, EmptyState, Segmented, Skeleton, TextField } from '@/shared/ui'
+import { Button, DataTable, Divider, EmptyState, Segmented, TextField } from '@/shared/ui'
 
-import { usePeriodStats, useRealtimeStats } from '../model/use-usage-stats'
+import { useRealtimeStats } from '../model/use-usage-stats'
 import { FunnelSection } from './FunnelSection'
 import { SectionState, StatsBlock, SubHeading } from './StatsBlock'
+import { TrendSection } from './TrendSection'
 
 // 어드민 「이용 통계」 (admin-spec R-06 · F-13, 디자인 계약 A-STATS · 피그마 961:157).
 // GA4 숫자를 사람 수로만 보여 준다. 영역마다 따로 불러와 따로 실패한다.
-
-// Recharts는 이 화면에서만 쓰므로 필요할 때 따로 불러온다 (구매자 화면 번들에 들어가지 않게)
-const TrendChart = dynamic(() => import('./TrendChart'), {
-  ssr: false,
-  loading: () => <Skeleton shape="rect" className="h-40 w-full rounded-md" />,
-})
 
 export function AdminStatsPage() {
   const [query, setQuery] = useState<StatsPeriodQuery>({ period: '7d' })
@@ -177,68 +170,6 @@ function RealtimeSection({ result }: { result: ReturnType<typeof useRealtimeStat
         )}
       </SectionState>
     </StatsBlock>
-  )
-}
-
-const TREND_COPY: Record<TrendKind, { title: string; name: string }> = {
-  visitors: { title: '일별 방문자 수', name: '일별 방문자 수를' },
-  purchases: { title: '일별 구매 수', name: '일별 구매 수를' },
-}
-
-function TrendSection({ query }: { query: StatsPeriodQuery }) {
-  return (
-    <StatsBlock
-      title="일별 추이"
-      description="고른 기간의 날짜마다 방문한 사람 수와 구매한 사람 수예요. 회색 점선은 바로 앞 기간이에요."
-    >
-      <div className="grid grid-cols-2 gap-6">
-        <TrendPanel kind="visitors" query={query} />
-        <TrendPanel kind="purchases" query={query} />
-      </div>
-    </StatsBlock>
-  )
-}
-
-function TrendPanel({ kind, query }: { kind: TrendKind; query: StatsPeriodQuery }) {
-  const result = usePeriodStats(kind, query)
-  return (
-    <div className="flex min-w-0 flex-col gap-2">
-      <div className="flex items-center justify-between gap-2">
-        <SubHeading>{TREND_COPY[kind].title}</SubHeading>
-        <TrendLegend />
-      </div>
-      <SectionState result={result} name={TREND_COPY[kind].name}>
-        {(data) => (
-          <figure aria-label={`${TREND_COPY[kind].title} 그래프`}>
-            <TrendChart points={data.points} />
-            {/* 그래프를 보지 못하는 사용자를 위해 같은 숫자를 글로도 둔다 */}
-            <figcaption className="sr-only">
-              {data.points
-                .map(
-                  (p) =>
-                    `${p.date} ${formatNumber(p.value)}명, 지난 기간 ${p.previousDate} ${formatNumber(p.previousValue)}명`,
-                )
-                .join('. ')}
-            </figcaption>
-          </figure>
-        )}
-      </SectionState>
-    </div>
-  )
-}
-
-function TrendLegend() {
-  return (
-    <span aria-hidden className="flex items-center gap-3 text-caption text-text-tertiary">
-      <span className="flex items-center gap-1">
-        <span className="h-0.5 w-4 bg-bg-brand" />
-        이번 기간
-      </span>
-      <span className="flex items-center gap-1">
-        <span className="w-4 border-t-2 border-dashed border-border-strong" />
-        지난 기간
-      </span>
-    </span>
   )
 }
 

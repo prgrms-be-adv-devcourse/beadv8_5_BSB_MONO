@@ -90,7 +90,7 @@ function FunnelTable({ steps }: { steps: FunnelStepView[] }) {
                   <>
                     <div
                       className={cn(
-                        'rounded-r-xs h-5',
+                        'h-5 rounded-r-[4px]',
                         step.biggestDrop ? 'bg-bg-brand' : 'bg-border-strong',
                       )}
                       style={{ width: `${step.barRatio * 100}%` }}
