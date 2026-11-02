@@ -46,7 +46,7 @@ import jakarta.persistence.EntityManager;
 /**
  * 청구 만들기 · 알림 · 관리자 회수 확인 (선 환불 후 회수 AC-CLAIM · AC-CONFIRM)
  * 대회 7, 판매자 1, 5만 원 × 10장(101~110). 1장의 1차 몫 20,000, 수수료 2,750
- * 환불 기한 10/31 → 1차 생성 11/1, 지급 11/2. 대회일 12/13 → 최종 생성 12/14 03:00
+ * 환불 기한 10/31 → 1차 생성 11/1, 지급 11/20(정산 월 10월의 다음 달 20일). 대회일 12/13 → 최종 생성 12/14 03:00
  */
 @DataJpaTest
 @ActiveProfiles("test")
@@ -58,7 +58,7 @@ class PayoutClaimUseCaseTest {
 	private static final long PRICE = 50_000L;
 	private static final LocalDate REFUND_DEADLINE = LocalDate.of(2026, 10, 31);
 	private static final LocalDate RACE_DATE = LocalDate.of(2026, 12, 13);
-	private static final LocalDate FIRST_PAY_DATE = LocalDate.of(2026, 11, 2);
+	private static final LocalDate FIRST_PAY_DATE = LocalDate.of(2026, 11, 20);
 	private static final LocalDate FINAL_CREATED_DATE = RACE_DATE.plusDays(1);
 
 	@Autowired
