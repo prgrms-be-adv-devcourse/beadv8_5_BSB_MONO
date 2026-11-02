@@ -2,9 +2,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { server } from '@/shared/testing'
+import { completePostcode, installPostcodeFake, postcodeFake, server } from '@/shared/testing'
 import { ToastProvider } from '@/shared/ui'
 
 import { COURSE_FORM_ERRORS, RACE_FORM_ERRORS } from '../model/race-form'
@@ -20,6 +20,9 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), back: vi.fn(), replace: vi.fn() }),
   usePathname: () => '/seller/races/new',
 }))
+vi.mock('next/script', async () => ({ default: (await import('@/shared/testing')).FakeScript }))
+
+beforeEach(() => installPostcodeFake())
 
 function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -135,5 +138,53 @@ describe('SellerRaceNewPage', () => {
     await userEvent.click(screen.getByRole('button', { name: '5K 종목 삭제' }))
     await userEvent.click(screen.getByRole('button', { name: '등록하기' }))
     expect(await screen.findByText(RACE_FORM_ERRORS.coursesRequired)).toBeInTheDocument()
+  })
+})
+
+describe('SellerRaceNewPage · 지역 주소 검색', () => {
+  it('시·도 · 시·군·구는 손으로 쓰지 않고 주소 검색 결과의 이름으로 채운다', async () => {
+    renderPage()
+    const sido = screen.getByRole('textbox', { name: '시·도' })
+    const sigungu = screen.getByRole('textbox', { name: '시·군·구' })
+    expect(sido).toHaveAttribute('readonly')
+    expect(sigungu).toHaveAttribute('readonly')
+
+    await userEvent.click(screen.getByRole('button', { name: '등록하기' }))
+    expect(await screen.findByText(RACE_FORM_ERRORS.sidoRequired)).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: '주소 검색' }))
+    completePostcode()
+    // 검색 API가 「서울」이 아니라 「서울특별시」로 채워야 대회 찾기 필터와 글자가 같다
+    expect(sido).toHaveValue('서울특별시')
+    expect(sigungu).toHaveValue('성동구')
+    await waitFor(() =>
+      expect(screen.queryByText(RACE_FORM_ERRORS.sidoRequired)).not.toBeInTheDocument(),
+    )
+  })
+
+  it('시·군·구가 없는 곳(세종)을 고르면 시·군·구만 직접 입력할 수 있다', async () => {
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: '주소 검색' }))
+    completePostcode({
+      sido: '세종특별자치시',
+      sigungu: '',
+      roadAddress: '세종특별자치시 한누리대로 2130',
+    })
+
+    expect(screen.getByRole('textbox', { name: '시·도' })).toHaveValue('세종특별자치시')
+    expect(screen.getByRole('textbox', { name: '시·도' })).toHaveAttribute('readonly')
+    expect(screen.getByRole('textbox', { name: '시·군·구' })).not.toHaveAttribute('readonly')
+  })
+
+  it('주소 검색을 불러오지 못하면 시·도 · 시·군·구를 직접 입력할 수 있다', async () => {
+    postcodeFake.failLoad = true
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: '주소 검색' }))
+
+    const sido = screen.getByRole('textbox', { name: '시·도' })
+    await waitFor(() => expect(sido).not.toHaveAttribute('readonly'))
+    await userEvent.type(sido, '서울특별시')
+    await userEvent.type(screen.getByRole('textbox', { name: '시·군·구' }), '성동구')
+    expect(sido).toHaveValue('서울특별시')
   })
 })

@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { productMock, server } from '@/shared/testing'
+import { completePostcode, installPostcodeFake, productMock, server } from '@/shared/testing'
 
 import { RaceChangeNoticePage } from './RaceChangeNoticePage'
 import { TicketDetailPage } from './TicketDetailPage'
@@ -15,9 +15,11 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push, back: vi.fn(), replace: vi.fn() }),
   usePathname: () => '/tickets/1-1',
 }))
+vi.mock('next/script', async () => ({ default: (await import('@/shared/testing')).FakeScript }))
 
 beforeEach(() => {
   push.mockClear()
+  installPostcodeFake()
   vi.useFakeTimers({ toFake: ['Date'] })
   vi.setSystemTime(new Date('2026-10-15T12:00:00+09:00'))
 })
@@ -131,6 +133,46 @@ describe('TicketEditPage', () => {
       emergencyContactName: '김엄마',
       emergencyContactPhone: '010-9876-5432',
       shippingAddress: { zipcode: '04700', address: '서울 성동구 왕십리로 00' },
+    })
+  })
+
+  it('주소를 다시 검색하면 우편번호 · 주소를 바꾸고 상세 주소를 비운 뒤, 바뀐 값으로 보낸다', async () => {
+    let body: unknown
+    server.use(
+      http.put(
+        '*/api/v1/order/participations/:participationId/participant',
+        async ({ request }) => {
+          body = await request.json()
+          return undefined
+        },
+      ),
+    )
+    const user = userEvent.setup()
+    renderWithClient(<TicketEditPage ticketId="1-1" />)
+
+    const address = await screen.findByLabelText('주소')
+    expect(address).toHaveValue('서울 성동구 왕십리로 00')
+    expect(address).toHaveAttribute('readonly')
+    expect(screen.getByLabelText('우편번호')).toHaveValue('04700')
+
+    await user.click(screen.getByRole('button', { name: '주소 검색' }))
+    completePostcode()
+    expect(address).toHaveValue('서울특별시 성동구 뚝섬로 273')
+    expect(screen.getByLabelText('우편번호')).toHaveValue('04768')
+    // 예전 주소의 동 · 호수가 새 주소에 붙어 잘못 배송되지 않게 비운다
+    expect(screen.getByLabelText('상세 주소')).toHaveValue('')
+
+    await user.type(screen.getByLabelText('상세 주소'), '3층')
+    await user.click(screen.getByRole('button', { name: '저장하기' }))
+
+    await vi.waitFor(() => expect(push).toHaveBeenCalledWith('/tickets/1-1'))
+    expect(body).toMatchObject({
+      shippingAddress: {
+        recipientName: '김러너',
+        zipcode: '04768',
+        address: '서울특별시 성동구 뚝섬로 273',
+        addressDetail: '3층',
+      },
     })
   })
 

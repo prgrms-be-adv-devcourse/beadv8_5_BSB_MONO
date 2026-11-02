@@ -14,3 +14,12 @@ export * as productMock from '@/shared/api/generated/product/product.msw'
 
 // 공용 달력 칸에서 날짜 고르기: await pickDate(user, '생년월일', '1995-03-02')
 export { pickDate } from './pick-date'
+
+// 카카오 우편번호 창 가짜: installPostcodeFake() 뒤 completePostcode({ ... })로 주소를 고른다
+export {
+  completePostcode,
+  FakeScript,
+  installPostcodeFake,
+  postcodeFake,
+  type FakePostcodeData,
+} from './postcode-fake'
