@@ -5,9 +5,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.time.LocalDate;
-import java.util.List;
-
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -26,11 +23,11 @@ import com.bukang.member.crew.app.CrewFacade;
 import com.bukang.member.crew.out.CrewInviteRepository;
 import com.bukang.member.crew.out.CrewMemberRepository;
 import com.bukang.member.crew.out.CrewRepository;
-import com.bukang.member.domain.TermsType;
 import com.bukang.member.out.MemberKafkaPublisher;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.TermsAgreementRepository;
 import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
+import com.bukang.member.support.MemberFixture;
 
 // 파티 서비스가 부르는 크루 내부 API: 크루원 여부·가입 시각, 크루원 수
 @SpringBootTest
@@ -74,9 +71,9 @@ class InternalV1CrewTest {
 
 	@BeforeEach
 	void setUp() {
-		leaderId = join("leader@crewrun.com", "새벽러너", "010-1000-0001");
-		memberId = join("member@crewrun.com", "주말10K", "010-1000-0002");
-		outsiderId = join("outsider@crewrun.com", "구경꾼", "010-1000-0003");
+		leaderId = memberFacade.join(MemberFixture.joinRequest().build(identityStore)).getId();
+		memberId = memberFacade.join(MemberFixture.joinRequest().build(identityStore)).getId();
+		outsiderId = memberFacade.join(MemberFixture.joinRequest().build(identityStore)).getId();
 		crewId = crewFacade.createCrew(leaderId, "새벽한강크루").crewId();
 		String token = crewFacade.createInvite(leaderId, crewId).inviteToken();
 		crewFacade.join(memberId, token);
@@ -151,12 +148,5 @@ class InternalV1CrewTest {
 			.andExpect(jsonPath("$.message").value("크루원 수를 조회했습니다."))
 			.andExpect(jsonPath("$.data.crewId").value(crewId))
 			.andExpect(jsonPath("$.data.memberCount").value(2));
-	}
-
-	private long join(String email, String nickname, String phone) {
-		return memberFacade.join(identityStore.joinRequest(
-			email, "password1234", "김러너", nickname, phone, LocalDate.of(1995, 4, 12), null,
-			List.of(TermsType.SERVICE, TermsType.PRIVACY)
-		)).getId();
 	}
 }

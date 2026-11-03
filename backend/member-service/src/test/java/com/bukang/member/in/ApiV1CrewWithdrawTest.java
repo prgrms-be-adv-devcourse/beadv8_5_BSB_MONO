@@ -7,9 +7,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.time.LocalDate;
-import java.util.List;
-
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -29,7 +26,6 @@ import com.bukang.member.crew.out.CrewInviteRepository;
 import com.bukang.member.crew.out.CrewMemberRepository;
 import com.bukang.member.crew.out.CrewRepository;
 import com.bukang.member.domain.MemberStatus;
-import com.bukang.member.domain.TermsType;
 import com.bukang.member.out.MemberKafkaPublisher;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.RefreshTokenRepository;
@@ -37,6 +33,7 @@ import com.bukang.member.out.TermsAgreementRepository;
 import com.bukang.member.out.cash.CashBalancePort;
 import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
 import com.bukang.member.out.order.ActiveTicketPort;
+import com.bukang.member.support.MemberFixture;
 
 // 회원 탈퇴와 크루 (BE-029): 크루장이면 409, 아니면 같은 트랜잭션에서 모든 크루원 행을 지운다
 // 예치금·주문 서비스와 Redis는 띄우지 않으므로 포트와 Refresh Token 저장소를 목으로 바꾼다
@@ -83,8 +80,8 @@ class ApiV1CrewWithdrawTest {
 
 	@BeforeEach
 	void setUp() {
-		leaderId = join("leader@crewrun.com", "새벽러너", "010-1000-0001");
-		memberId = join("member@crewrun.com", "주말10K", "010-1000-0002");
+		leaderId = memberFacade.join(MemberFixture.joinRequest().build(identityStore)).getId();
+		memberId = memberFacade.join(MemberFixture.joinRequest().build(identityStore)).getId();
 		crewId = crewFacade.createCrew(leaderId, "새벽한강크루").crewId();
 		crewFacade.join(memberId, crewFacade.createInvite(leaderId, crewId).inviteToken());
 	}
@@ -125,12 +122,5 @@ class ApiV1CrewWithdrawTest {
 		assertThat(crewMemberRepository.countByCrewId(crewId)).isEqualTo(1);
 		// 크루와 크루장은 그대로다
 		assertThat(crewMemberRepository.existsByCrewIdAndMemberId(crewId, leaderId)).isTrue();
-	}
-
-	private long join(String email, String nickname, String phone) {
-		return memberFacade.join(identityStore.joinRequest(
-			email, "password1234", "김러너", nickname, phone, LocalDate.of(1995, 4, 12), null,
-			List.of(TermsType.SERVICE, TermsType.PRIVACY)
-		)).getId();
 	}
 }
