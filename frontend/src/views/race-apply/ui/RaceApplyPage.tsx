@@ -8,6 +8,7 @@ import { useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 
 import { AppHeader } from '@/widgets/app-header'
+import { AddressSearch, type AddressSearchResult } from '@/features/address-search'
 import { useBookingFlow, type BookingParticipant } from '@/features/booking'
 import {
   admissionExpiredHref,
@@ -153,11 +154,22 @@ function ParticipantForm({
     register,
     control,
     handleSubmit,
+    setValue,
+    setFocus,
     formState: { errors },
   } = useForm<ParticipantFormValues>({
     resolver: zodResolver(participantFormSchema(option)),
     defaultValues: defaults,
   })
+  // 주소 검색을 불러오지 못했을 때만 우편번호 · 주소를 직접 입력하게 연다
+  const [manualAddress, setManualAddress] = useState(false)
+  const pickAddress = ({ zipcode, address }: AddressSearchResult) => {
+    setValue('zipcode', zipcode, { shouldValidate: true, shouldDirty: true })
+    setValue('address', address, { shouldValidate: true, shouldDirty: true })
+    // 예전 주소의 동 · 호수가 새 주소에 붙어 잘못 배송되지 않게 비운다
+    setValue('addressDetail', '', { shouldDirty: true })
+    setFocus('addressDetail')
+  }
   // 필수 동의는 사용자가 직접 체크해야 버튼이 켜진다.
   const [agreed, setAgreed] = useState(false)
   const [replace, setReplace] = useState<ReplaceCart | null>(null)
@@ -389,15 +401,18 @@ function ParticipantForm({
               <TextField
                 label="키트 배송 우편번호"
                 inputMode="numeric"
+                readOnly={!manualAddress}
                 error={errors.zipcode?.message}
                 {...register('zipcode')}
               />
               <TextField
                 label="키트 배송 주소"
+                readOnly={!manualAddress}
                 helper={`환불 기한(${refundDeadline})이 지난 뒤 이 주소로 키트를 보내요.`}
                 error={errors.address?.message}
                 {...register('address')}
               />
+              <AddressSearch onSelect={pickAddress} onUnavailable={() => setManualAddress(true)} />
               <TextField
                 label="상세 주소"
                 error={errors.addressDetail?.message}
