@@ -5,7 +5,7 @@ import { useId, type ReactNode } from 'react'
 
 import type { StatsResponse } from '@/entities/usage-stats'
 import { cn } from '@/shared/lib'
-import { Alert, Button, Skeleton } from '@/shared/ui'
+import { Alert, Button, EmptyState, Skeleton } from '@/shared/ui'
 
 import { isLoginRequiredError, isNotAdminError } from '../model/use-usage-stats'
 
@@ -81,16 +81,16 @@ export function SectionState<T>({
       )
     }
     return (
-      <div className="flex items-center gap-3">
-        <Alert
-          tone="danger"
-          title={`${name} 불러오지 못했어요`}
-          description="잠시 뒤 다시 시도해 주세요. 다른 영역은 그대로 볼 수 있어요."
-        />
-        <Button variant="secondary" className="shrink-0" onClick={() => result.refetch()}>
-          다시 시도
-        </Button>
-      </div>
+      <EmptyState
+        role="alert"
+        title={`${name} 불러오지 못했어요`}
+        description="잠시 뒤 다시 시도해 주세요. 다른 영역은 그대로 볼 수 있어요."
+        action={
+          <Button variant="secondary" onClick={() => result.refetch()}>
+            다시 시도
+          </Button>
+        }
+      />
     )
   }
   if (result.data.status !== 'ok') return null

@@ -12,22 +12,30 @@ const LOGO = {
   navHome: { src: '/brand/nav-home.svg', width: 48, height: 48 },
   /** 접힌 사이드바용 정사각 로고 32 */
   symbol: { src: '/brand/symbol-on-hero.svg', width: 32, height: 32 },
+  /** 빈 화면·불러오기 실패 화면용 회색 로고 32. 글자는 뚫려 있어 바탕색이 보인다 */
+  symbolMuted: { src: '/brand/symbol-muted.svg', width: 32, height: 32 },
 } as const
 
 export type LogoVariant = keyof typeof LOGO
 
-export type LogoProps = { variant?: LogoVariant; className?: string }
+export type LogoProps = {
+  variant?: LogoVariant
+  /** 옆 글자가 뜻을 다 전하는 장식용이면 화면 낭독기가 읽지 않게 한다 */
+  decorative?: boolean
+  className?: string
+}
 
-export function Logo({ variant = 'wordmark', className }: LogoProps) {
+export function Logo({ variant = 'wordmark', decorative = false, className }: LogoProps) {
   const { src, width, height } = LOGO[variant]
   return (
     <Image
       src={src}
       width={width}
       height={height}
-      alt="크루런"
+      alt={decorative ? '' : '크루런'}
+      aria-hidden={decorative || undefined}
       unoptimized
-      priority
+      priority={!decorative}
       className={cn('shrink-0', className)}
     />
   )

@@ -144,7 +144,6 @@ export function MockPassSheet({ open, onOpenChange, onVerified }: MockPassSheetP
             </>
           ) : (
             <EmptyState
-              icon="Inbox"
               className="py-10"
               title={PROGRESS_TITLE[method]}
               description="체험용 화면이라 알림은 오지 않아요. 아래 「인증 완료」를 누르면 인증이 끝나요"

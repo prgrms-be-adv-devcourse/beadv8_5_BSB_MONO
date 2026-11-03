@@ -163,7 +163,6 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
         {!loading && list.isError && !empty && (
           <div className="flex flex-1 items-center justify-center">
             <EmptyState
-              icon="Search"
               title="대회를 불러오지 못했어요"
               description="잠시 뒤 다시 시도해 주세요."
               action={
@@ -177,7 +176,6 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
         {!loading && !list.isError && races.length === 0 && (
           <div className="flex flex-1 items-center justify-center">
             <EmptyState
-              icon="Search"
               title={`'${query}'에 맞는 대회가 없어요`}
               description="다른 지역이나 종목으로 찾아보세요."
               action={

@@ -33,7 +33,6 @@ export function AdminStatsPage() {
       <ConsolePage title="이용 통계">
         <div className="flex flex-1 items-center justify-center py-20">
           <EmptyState
-            icon="CircleAlert"
             title="GA4 연결 정보가 없어요"
             description="서버 환경 변수에 GA4 속성 ID와 서비스 계정 키를 넣으면 숫자가 보여요."
           />

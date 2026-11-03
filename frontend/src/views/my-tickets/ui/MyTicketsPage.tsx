@@ -114,7 +114,6 @@ export function MyTicketsPage({ state }: { state?: MyTicketsState }) {
           {!loading && !failed && tickets.length === 0 && (
             <div className="flex flex-1 items-center justify-center">
               <EmptyState
-                icon="Calendar"
                 title="아직 신청한 대회가 없어요"
                 description="대회를 찾아 첫 참가권을 받아 보세요."
                 action={

@@ -18,7 +18,6 @@ export function TicketStateView({ state }: { state: 'loading' | 'notFound' | 'er
   return (
     <div className="flex flex-1 items-center justify-center">
       <EmptyState
-        icon="Calendar"
         title="참가권을 찾을 수 없어요"
         action={
           <Link href="/tickets" className={buttonClassName({ variant: 'secondary' })}>
