@@ -115,7 +115,8 @@ public class PayoutPayStepUseCase {
 		}
 		log.info("지급 중에 대회가 취소돼, 거절된 정산 내역을 정산 예정으로 되돌리지 않고 취소로 닫습니다. payoutId={}", payoutId);
 		payout.cancelRejected(now, RACE_CANCELED_REASON);
-		payoutRaceCancelUseCase.recoverAfterPayResult(payout.getSellerId(), payout.getRaceId(), now);
+		// 1차가 거절로 닫히면 지급 전 취소와 같으므로 상계로 끝난 회수도 되돌린다 (R9, PR #284 리뷰)
+		payoutRaceCancelUseCase.recoverAfterRejectedCancel(payout, now);
 	}
 
 	/**

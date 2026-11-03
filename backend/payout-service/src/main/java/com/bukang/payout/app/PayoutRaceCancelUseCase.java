@@ -52,10 +52,8 @@ public class PayoutRaceCancelUseCase {
 				paying++;
 			}
 		}
-		boolean hasFinal = payouts.stream().anyMatch(payout -> payout.getPayoutStage() == PayoutStage.FINAL);
-		// 1차 지급 전 대회 취소: 그 1차 정산 내역에서 상계로 끝났던 회수도 되돌린다 (R9). 회수를 만들기 전에 한다
-		if (firstCanceled && !hasFinal) {
-			payoutLedgerUseCase.revertOffsetRecoveries(payouts.getFirst().getSellerId(), raceId);
+		if (firstCanceled) {
+			revertOffsetIfNoFinal(payouts, payouts.getFirst().getSellerId(), raceId);
 		}
 
 		boolean recoveryCreated = false;
@@ -86,6 +84,31 @@ public class PayoutRaceCancelUseCase {
 			return false;
 		}
 		return payoutLedgerUseCase.recoverRaceCancel(sellerId, raceId, now).isPresent();
+	}
+
+	/**
+	 * 대회 취소를 표시한 지급 중 정산 내역이 거절돼 취소로 닫힌 뒤 부른다 (PRO-253, PR #284 리뷰)
+	 * 1차가 거절로 닫히면 돈이 나가지 않았으므로 지급 전 대회 취소와 같다. 상계로 끝난 회수를 되돌린 뒤 회수를 만든다
+	 * 지급 단계(PayoutPayStepUseCase)의 트랜잭션 안에서 돈다
+	 *
+	 * @return 이번에 회수를 만들었는지
+	 */
+	@Transactional
+	public boolean recoverAfterRejectedCancel(Payout canceled, LocalDateTime now) {
+		if (canceled.getPayoutStage() == PayoutStage.FIRST) {
+			revertOffsetIfNoFinal(payoutRepository.findByRaceId(canceled.getRaceId()), canceled.getSellerId(),
+				canceled.getRaceId());
+		}
+		return recoverAfterPayResult(canceled.getSellerId(), canceled.getRaceId(), now);
+	}
+
+	// 1차를 돈이 나가기 전에 닫았을 때: 그 1차 정산 내역에서 상계로 끝났던 회수도 되돌린다 (R9). 회수를 만들기 전에 한다
+	// 최종이 있으면 상계는 최종 정산 내역에서 일어난 것이라 되돌리지 않는다
+	private void revertOffsetIfNoFinal(List<Payout> payouts, long sellerId, long raceId) {
+		boolean hasFinal = payouts.stream().anyMatch(payout -> payout.getPayoutStage() == PayoutStage.FINAL);
+		if (!hasFinal) {
+			payoutLedgerUseCase.revertOffsetRecoveries(sellerId, raceId);
+		}
 	}
 
 	/**
