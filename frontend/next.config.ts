@@ -10,6 +10,8 @@ const nextConfig: NextConfig = {
   // AWS(Docker)용. Vercel은 이 값을 무시하므로 그대로 둬도 된다.
   output: 'standalone',
   typedRoutes: true,
+  // GA4 Data API 패키지는 gRPC와 .proto 파일을 경로로 읽어서 번들하지 않고 node_modules에서 그대로 불러온다
+  serverExternalPackages: ['@google-analytics/data'],
 
   // 브라우저 코드는 API_MOCKING을 읽지 못한다. 충전이 가짜 응답 모드에서 토스 결제창을 건너뛰도록 같은 값을 내려 준다.
   env: { NEXT_PUBLIC_API_MOCKING: env.API_MOCKING },
