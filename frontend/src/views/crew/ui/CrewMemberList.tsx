@@ -16,10 +16,13 @@ type Member = memberModel.CrewMemberDto
 export function CrewMemberList({
   members,
   label = (member) => member.nickname,
+  labelId,
   action,
 }: {
   members: Member[]
   label?: (member: Member) => string
+  /** 이름 칸의 id. 줄 버튼이 aria-describedby로 이 이름을 가리킨다. */
+  labelId?: (member: Member) => string
   /** 줄 오른쪽 끝에 붙는 버튼 (크루 관리의 「관리」) */
   action?: (member: Member) => ReactNode
 }) {
@@ -33,7 +36,10 @@ export function CrewMemberList({
           <li key={member.memberId} className="flex items-center gap-3">
             <Avatar size="m" name={member.nickname} />
             {/* 관리 버튼이 있으면 시안 M28처럼 역할을 이름 바로 뒤에 붙여, 버튼이 없는 내 줄과 줄을 맞춘다 */}
-            <span className={cn('min-w-0 truncate text-body-m', !action && 'flex-1')}>
+            <span
+              id={labelId?.(member)}
+              className={cn('min-w-0 truncate text-body-m', !action && 'flex-1')}
+            >
               {label(member)}
             </span>
             <Badge tone={CREW_ROLE_TONE[member.role]}>{CREW_ROLE_LABEL[member.role]}</Badge>

@@ -118,6 +118,8 @@ function LeaveCrew({ crew, onStale }: { crew: memberModel.CrewHomeDto; onStale: 
           showToast({ tone: 'success', message: `${crew.name}에서 나왔어요` })
           void queryClient.invalidateQueries({ queryKey: memberApi.getFindMyCrewsQueryKey() })
           router.replace('/crews')
+          // 뒤로 가기로 돌아와도 나간 크루가 캐시에서 보이지 않게 지운다
+          queryClient.removeQueries({ queryKey: memberApi.getFindCrewQueryKey(crew.crewId) })
         },
         onError: (error) => {
           onStale()
@@ -143,7 +145,7 @@ function LeaveCrew({ crew, onStale }: { crew: memberModel.CrewHomeDto; onStale: 
       </Button>
       <Dialog
         open={step === 'confirm'}
-        onOpenChange={(open) => !open && setStep(null)}
+        onOpenChange={(open) => !open && !leave.isPending && setStep(null)}
         type="danger"
         title={`${crew.name}에서 나갈까요?`}
         body="나가도 이미 결제한 참가권은 그대로예요. 결제하지 않고 잡아 둔 자리만 풀려요."
