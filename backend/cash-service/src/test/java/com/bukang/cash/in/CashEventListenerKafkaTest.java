@@ -46,18 +46,28 @@ import com.bukang.common.shared.seller.event.SellerChangedEvent;
 	KafkaTopics.MEMBER_MEMBER_JOINED,
 	CashEventListenerKafkaTest.MEMBER_JOINED_FIRST_RETRY,
 	CashKafkaRetry.MEMBER_JOINED_DLT,
+	KafkaTopics.MEMBER_MODIFIED,
+	CashEventListenerKafkaTest.MEMBER_MODIFIED_FIRST_RETRY,
+	CashKafkaRetry.MEMBER_MODIFIED_DLT,
 	KafkaTopics.SELLER_CHANGED,
-	CashEventListenerKafkaTest.SELLER_CHANGED_FIRST_RETRY
+	CashEventListenerKafkaTest.SELLER_CHANGED_FIRST_RETRY,
+	CashEventListenerKafkaTest.SELLER_CHANGED_SECOND_RETRY,
+	CashKafkaRetry.SELLER_CHANGED_DLT
 })
 @TestPropertySource(properties =
 	"spring.datasource.url=jdbc:h2:mem:bukang-cash-kafka-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1")
 class CashEventListenerKafkaTest {
-	// 첫 번째 재시도 토픽 (접미사 뒤 순번 -0)
+	// 첫 번째 재시도 토픽은 접미사 뒤에 순번 -0, 두 번째는 -1이 붙는다
 	static final String MEMBER_JOINED_FIRST_RETRY = KafkaTopics.MEMBER_MEMBER_JOINED
+		+ CashKafkaRetry.RETRY_TOPIC_SUFFIX + "-0";
+	static final String MEMBER_MODIFIED_FIRST_RETRY = KafkaTopics.MEMBER_MODIFIED
 		+ CashKafkaRetry.RETRY_TOPIC_SUFFIX + "-0";
 	static final String SELLER_CHANGED_FIRST_RETRY = KafkaTopics.SELLER_CHANGED
 		+ CashKafkaRetry.RETRY_TOPIC_SUFFIX + "-0";
+	static final String SELLER_CHANGED_SECOND_RETRY = KafkaTopics.SELLER_CHANGED
+		+ CashKafkaRetry.RETRY_TOPIC_SUFFIX + "-1";
 	private static final String MEMBER_JOINED_GROUP_ID = "CashEventListener__handleMemberJoined__1";
+	private static final String MEMBER_MODIFIED_GROUP_ID = "CashEventListener__handleMemberModified__1";
 	private static final String SELLER_CHANGED_GROUP_ID = "CashEventListener__handleSellerChanged__1";
 
 	@Autowired
@@ -119,15 +129,13 @@ class CashEventListenerKafkaTest {
 		LocalDateTime now = LocalDateTime.of(2026, 10, 20, 10, 0);
 		startListeners(SELLER_CHANGED_GROUP_ID);
 
-		kafkaTemplate.send(KafkaTopics.SELLER_CHANGED, jsonConverter.toJson(new SellerChangedEvent(
-			sellerApplicationId, memberId, SellerType.INDIVIDUAL, null, null, "김판매", SellerStatus.PENDING, now, now)));
+		String sellerMessage = sellerMessage(sellerApplicationId, memberId, now);
+
+		kafkaTemplate.send(KafkaTopics.SELLER_CHANGED, sellerMessage);
 
 		// 첫 시도가 실패해 재시도 토픽에 들어간 것을 확인한 뒤에 가입 메시지를 보낸다
 		// (먼저 보내면 첫 시도에서 성공해 재시도를 거치지 않을 수 있다)
-		try (Consumer<String, String> retryConsumer = testConsumer("cash-seller-retry-test")) {
-			embeddedKafka.consumeFromAnEmbeddedTopic(retryConsumer, SELLER_CHANGED_FIRST_RETRY);
-			KafkaTestUtils.getSingleRecord(retryConsumer, SELLER_CHANGED_FIRST_RETRY, Duration.ofSeconds(10));
-		}
+		awaitValue(SELLER_CHANGED_FIRST_RETRY, "cash-seller-retry-test", sellerMessage, Duration.ofSeconds(10));
 		assertThat(cashSellerRepository.findById(sellerApplicationId)).isEmpty();
 
 		kafkaTemplate.send(KafkaTopics.MEMBER_MEMBER_JOINED,
@@ -137,6 +145,42 @@ class CashEventListenerKafkaTest {
 		await().atMost(Duration.ofSeconds(10))
 			.untilAsserted(() -> assertThat(cashSellerRepository.findById(sellerApplicationId))
 				.hasValueSatisfying(seller -> assertThat(seller.getMember().getId()).isEqualTo(memberId)));
+	}
+
+	@Test
+	@DisplayName("회원이 끝내 오지 않은 판매자 메시지는 재시도 토픽 두 곳을 모두 거친 뒤 queuing.seller.changed.cash.dlt로 간다")
+	void sellerWithoutMemberGoesToDltAfterRetries() {
+		long memberId = 1004;
+		long sellerApplicationId = 2004;
+		String sellerMessage = sellerMessage(sellerApplicationId, memberId, LocalDateTime.of(2026, 10, 20, 10, 0));
+		startListeners(SELLER_CHANGED_GROUP_ID);
+
+		kafkaTemplate.send(KafkaTopics.SELLER_CHANGED, sellerMessage);
+
+		// 처음 시도 → 1초 뒤 재시도 → 2초 뒤 재시도가 모두 실패하면 DLT로 간다
+		awaitValue(CashKafkaRetry.SELLER_CHANGED_DLT, "cash-seller-dlt-test", sellerMessage, Duration.ofSeconds(15));
+		// DLT보다 먼저 재시도 토픽 두 곳에 들어갔어야 한다
+		awaitValue(SELLER_CHANGED_FIRST_RETRY, "cash-seller-first-retry-test", sellerMessage, Duration.ofSeconds(5));
+		awaitValue(SELLER_CHANGED_SECOND_RETRY, "cash-seller-second-retry-test", sellerMessage, Duration.ofSeconds(5));
+		assertThat(cashSellerRepository.findById(sellerApplicationId)).isEmpty();
+	}
+
+	@Test
+	@DisplayName("깨진 JSON 수정 메시지는 재시도 토픽을 거치지 않고 queuing.member.modified.cash.dlt로 간다")
+	void brokenMemberModifiedGoesToDlt() {
+		String brokenMessage = "{\"id\":1005,\"nickname\":";
+		startListeners(MEMBER_MODIFIED_GROUP_ID);
+
+		kafkaTemplate.send(KafkaTopics.MEMBER_MODIFIED, brokenMessage);
+
+		awaitValue(CashKafkaRetry.MEMBER_MODIFIED_DLT, "cash-modified-dlt-test", brokenMessage, Duration.ofSeconds(10));
+		assertThat(readValues(MEMBER_MODIFIED_FIRST_RETRY, "cash-modified-retry-test", Duration.ofSeconds(2)))
+			.doesNotContain(brokenMessage);
+	}
+
+	private String sellerMessage(long sellerApplicationId, long memberId, LocalDateTime now) {
+		return jsonConverter.toJson(new SellerChangedEvent(
+			sellerApplicationId, memberId, SellerType.INDIVIDUAL, null, null, "김판매", SellerStatus.PENDING, now, now));
 	}
 
 	// 본 리스너와 재시도 토픽 리스너(그룹 이름이 본 그룹 + 재시도 접미사)를 켠다
@@ -160,6 +204,20 @@ class CashEventListenerKafkaTest {
 			}
 		}
 		return values;
+	}
+
+	// 토픽을 처음부터 읽어, 본문이 같은 메시지가 들어올 때까지 기다린다
+	// 같은 토픽에 다른 테스트의 메시지도 쌓이므로, 개수가 아니라 본문으로 찾는다
+	// (컨슈머는 여러 스레드에서 쓰면 안 되므로 pollInSameThread로 이 스레드에서만 읽는다)
+	private void awaitValue(String topic, String groupId, String value, Duration timeout) {
+		List<String> values = new ArrayList<>();
+		try (Consumer<String, String> consumer = testConsumer(groupId)) {
+			embeddedKafka.consumeFromAnEmbeddedTopic(consumer, topic);
+			await().atMost(timeout).pollInSameThread().until(() -> {
+				consumer.poll(Duration.ofMillis(200)).forEach(consumerRecord -> values.add(consumerRecord.value()));
+				return values.contains(value);
+			});
+		}
 	}
 
 	// 앱의 리스너와 오프셋이 섞이지 않게 테스트 전용 그룹으로 토픽을 처음부터 읽는다
