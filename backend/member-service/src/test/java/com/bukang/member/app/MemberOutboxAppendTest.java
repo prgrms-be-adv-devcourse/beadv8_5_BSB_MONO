@@ -319,7 +319,7 @@ class MemberOutboxAppendTest {
 		assertThat(KafkaTopics.MEMBER_MEMBER_JOINED).isEqualTo("queuing.member.joined");
 		assertThat(KafkaTopics.MEMBER_MODIFIED).isEqualTo("queuing.member.modified");
 		assertThat(KafkaTopics.MEMBER_WITHDRAWN).isEqualTo("queuing.member.withdrawn");
-		assertThat(KafkaTopics.MARKETING_CONSENT_CHANGED).isEqualTo("queuing.marketingconsent.changed");
+		assertThat(KafkaTopics.MARKETING_CONSENT_CHANGED).isEqualTo("queuing.member.consentchanged");
 		assertThat(KafkaTopics.SELLER_CHANGED).isEqualTo("queuing.seller.changed");
 		assertThat(KafkaEventHeaders.EVENT_ID).isEqualTo("eventId");
 		assertThat(KafkaEventHeaders.EVENT_TYPE).isEqualTo("eventType");
