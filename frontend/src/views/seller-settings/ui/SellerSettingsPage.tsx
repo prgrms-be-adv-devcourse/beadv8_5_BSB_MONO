@@ -84,7 +84,8 @@ function SellerInfoCard({ seller }: { seller: memberModel.SellerDto }) {
 
   return (
     <ConsoleCard title="판매자 정보" aside={<Badge tone={status.tone}>{status.label}</Badge>}>
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-4">
+      {/* 사업자등록번호 · 상호 · 대표자 이름은 Clarity 화면 녹화에서 가린다 */}
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-4" data-clarity-mask="true">
         {fields.map(([label, value]) => (
           <div key={label} className="flex flex-col gap-0.5">
             <dt className="text-caption text-text-secondary">{label}</dt>
