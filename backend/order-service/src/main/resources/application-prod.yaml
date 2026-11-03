@@ -53,6 +53,9 @@ order:
     member:
       mode: http
       base-url: http://bukang-member-service:8080
+    # 파티의 크루원 확인은 실제 회원 서비스에 묻는다 (BUK-35, 주소는 member.base-url)
+    crew:
+      mode: http
     # 회원 서비스에 닉네임 조회 API가 생기기 전까지 운영에서는 닉네임 검색을 막는다 (주문번호 검색은 된다, BUK-26)
     nickname:
       mode: disabled
