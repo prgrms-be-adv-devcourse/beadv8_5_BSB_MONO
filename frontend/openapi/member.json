@@ -817,7 +817,7 @@
           "Seller"
         ],
         "summary": "판매자 등록 신청",
-        "description": "X-Member-Id 헤더의 회원이 판매자 등록을 신청한다. 사업자는 상호·사업자등록번호가 필수이고, 비사업자가 보낸 상호·사업자등록번호는 버린다. 대기·승인 상태 신청이 있으면 막고, 반려만 있으면 새로 신청한다.",
+        "description": "X-Member-Id 헤더의 회원이 판매자 등록을 신청한다. 사업자는 상호·사업자등록번호가 필수이고, 비사업자가 보낸 상호·사업자등록번호는 버린다. 대기·승인 상태 신청이 있으면 막고, 반려만 있으면 새로 신청한다. 정산 계좌는 오픈뱅킹 계좌실명조회로 확인한다. 사업자 명의는 사업자등록번호로 조회해 은행이 맞다고 답하면, 본인 명의는 본인인증 생년월일로 조회해 예금주 이름이 본인인증 이름과 같으면(공백 무시) 통과한다. 계좌 확인은 회원 한 명당 하루 5번까지 할 수 있다.",
         "operationId": "apply",
         "parameters": [
           {
@@ -868,7 +868,7 @@
             }
           },
           "400": {
-            "description": "입력값 검증 실패 또는 요청 본문 형식 오류",
+            "description": "입력값 검증 실패, 요청 본문 형식 오류 또는 예금주 정보 불일치",
             "content": {
               "application/json": {
                 "schema": {
@@ -892,6 +892,15 @@
                       "message": "요청 본문 형식이 올바르지 않습니다.",
                       "data": null
                     }
+                  },
+                  "예금주 정보 불일치": {
+                    "description": "예금주 정보 불일치",
+                    "value": {
+                      "status": 400,
+                      "code": "SELLER_ACCOUNT_NOT_VERIFIED",
+                      "message": "예금주 정보가 맞지 않아요. 계좌번호와 계좌 명의를 확인해 주세요.",
+                      "data": null
+                    }
                   }
                 }
               }
@@ -906,6 +915,7 @@
                 },
                 "example": {
                   "status": 401,
+                  "code": "LOGIN_REQUIRED",
                   "message": "로그인이 필요합니다.",
                   "data": null
                 }
@@ -939,6 +949,38 @@
                   "status": 409,
                   "code": "SELLER_ALREADY_APPLIED",
                   "message": "이미 심사 중이거나 승인된 판매자 신청이 있습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "오늘 계좌 확인을 5번 넘게 함",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 429,
+                  "code": "SELLER_ACCOUNT_VERIFY_TOO_MANY_REQUESTS",
+                  "message": "계좌 확인은 하루 5번까지 할 수 있어요. 내일 다시 시도해 주세요.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "오픈뱅킹이 응답하지 않음 (시간 초과, 서버 오류, 운영 키 없음)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 503,
+                  "code": "SELLER_ACCOUNT_VERIFY_UNAVAILABLE",
+                  "message": "잠시 뒤 다시 시도해 주세요.",
                   "data": null
                 }
               }
@@ -4185,9 +4227,35 @@
             "example": "김러너",
             "maxLength": 50,
             "minLength": 0
+          },
+          "bankCode": {
+            "type": "string",
+            "description": "정산 계좌 은행 표준 코드 (숫자 3자리)",
+            "example": "004",
+            "minLength": 1,
+            "pattern": "^\\d{3}$"
+          },
+          "accountNumber": {
+            "type": "string",
+            "description": "정산 계좌번호 (하이픈 없이 숫자 6~16자리)",
+            "example": "1101230000678",
+            "minLength": 1,
+            "pattern": "^\\d{6,16}$"
+          },
+          "accountHolderType": {
+            "type": "string",
+            "description": "계좌 명의 (BUSINESS: 사업자 명의, 사업자만 / PERSONAL: 본인 명의)",
+            "enum": [
+              "BUSINESS",
+              "PERSONAL"
+            ],
+            "example": "PERSONAL"
           }
         },
         "required": [
+          "accountHolderType",
+          "accountNumber",
+          "bankCode",
           "representativeName",
           "sellerType"
         ]

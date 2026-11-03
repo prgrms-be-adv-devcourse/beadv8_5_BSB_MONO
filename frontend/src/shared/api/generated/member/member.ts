@@ -883,7 +883,7 @@ export const getApplyUrl = () => {
 }
 
 /**
- * X-Member-Id 헤더의 회원이 판매자 등록을 신청한다. 사업자는 상호·사업자등록번호가 필수이고, 비사업자가 보낸 상호·사업자등록번호는 버린다. 대기·승인 상태 신청이 있으면 막고, 반려만 있으면 새로 신청한다.
+ * X-Member-Id 헤더의 회원이 판매자 등록을 신청한다. 사업자는 상호·사업자등록번호가 필수이고, 비사업자가 보낸 상호·사업자등록번호는 버린다. 대기·승인 상태 신청이 있으면 막고, 반려만 있으면 새로 신청한다. 정산 계좌는 오픈뱅킹 계좌실명조회로 확인한다. 사업자 명의는 사업자등록번호로 조회해 은행이 맞다고 답하면, 본인 명의는 본인인증 생년월일로 조회해 예금주 이름이 본인인증 이름과 같으면(공백 무시) 통과한다. 계좌 확인은 회원 한 명당 하루 5번까지 할 수 있다.
  * @summary 판매자 등록 신청
  */
 export const apply = async (sellerApplyRequestDto: SellerApplyRequestDto, options?: Parameters<typeof customFetch>[1]): Promise<RsDataSellerDto> => {

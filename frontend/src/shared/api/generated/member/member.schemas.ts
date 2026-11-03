@@ -122,6 +122,17 @@ export const SellerApplyRequestDtoSellerType = {
 } as const;
 
 /**
+ * 계좌 명의 (BUSINESS: 사업자 명의, 사업자만 / PERSONAL: 본인 명의)
+ */
+export type SellerApplyRequestDtoAccountHolderType = typeof SellerApplyRequestDtoAccountHolderType[keyof typeof SellerApplyRequestDtoAccountHolderType];
+
+
+export const SellerApplyRequestDtoAccountHolderType = {
+  BUSINESS: 'BUSINESS',
+  PERSONAL: 'PERSONAL',
+} as const;
+
+/**
  * 판매자 등록 신청 요청
  */
 export interface SellerApplyRequestDto {
@@ -144,6 +155,20 @@ export interface SellerApplyRequestDto {
      * @maxLength 50
      */
   representativeName: string;
+  /**
+     * 정산 계좌 은행 표준 코드 (숫자 3자리)
+     * @minLength 1
+     * @pattern ^\d{3}$
+     */
+  bankCode: string;
+  /**
+     * 정산 계좌번호 (하이픈 없이 숫자 6~16자리)
+     * @minLength 1
+     * @pattern ^\d{6,16}$
+     */
+  accountNumber: string;
+  /** 계좌 명의 (BUSINESS: 사업자 명의, 사업자만 / PERSONAL: 본인 명의) */
+  accountHolderType: SellerApplyRequestDtoAccountHolderType;
 }
 
 /**
