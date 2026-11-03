@@ -32,6 +32,7 @@ import com.bukang.common.shared.seller.event.SellerChangedEvent;
 import com.bukang.member.app.MemberFacade;
 import com.bukang.member.app.SellerFacade;
 import com.bukang.member.domain.Member;
+import com.bukang.member.domain.PayoutAccountHolderType;
 import com.bukang.member.domain.Seller;
 import com.bukang.member.domain.TermsType;
 import com.bukang.member.dto.SellerApplyRequestDto;
@@ -39,13 +40,14 @@ import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.SellerRepository;
 import com.bukang.member.out.TermsAgreementRepository;
 import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
+import com.bukang.member.out.payoutaccount.InMemoryPayoutAccountVerifyLimiter;
 
 // 판매자 등록 신청과 내 신청 조회 (BE-020). X-Member-Id 헤더는 테스트에서 직접 넣는다
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @RecordApplicationEvents
-@Import(InMemoryIdentityVerificationStore.Config.class)
+@Import({InMemoryIdentityVerificationStore.Config.class, InMemoryPayoutAccountVerifyLimiter.Config.class})
 class ApiV1SellerTest {
 	@Autowired
 	private InMemoryIdentityVerificationStore identityStore;
@@ -364,7 +366,8 @@ class ApiV1SellerTest {
 
 	private long applyDirectly(long applicantId) {
 		return sellerFacade.apply(applicantId,
-			new SellerApplyRequestDto(SellerType.BUSINESS, "크루런 스포츠", "123-45-67890", "김러너")).getId();
+			new SellerApplyRequestDto(SellerType.BUSINESS, "크루런 스포츠", "123-45-67890", "김러너",
+				"004", "1101230000678", PayoutAccountHolderType.PERSONAL)).getId();
 	}
 
 	private ResultActions apply(long id, String sellerType, String businessName, String businessNumber,
@@ -381,7 +384,10 @@ class ApiV1SellerTest {
 				"sellerType": %s,
 				"businessName": %s,
 				"businessNumber": %s,
-				"representativeName": %s
+				"representativeName": %s,
+				"bankCode": "004",
+				"accountNumber": "1101230000678",
+				"accountHolderType": "PERSONAL"
 			}
 			""".formatted(json(sellerType), json(businessName), json(businessNumber), json(representativeName));
 	}

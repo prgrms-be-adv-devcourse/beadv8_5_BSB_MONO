@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
@@ -24,25 +25,28 @@ import com.bukang.common.shared.seller.domain.SellerType;
 import com.bukang.member.app.MemberFacade;
 import com.bukang.member.app.SellerFacade;
 import com.bukang.member.domain.Member;
+import com.bukang.member.domain.PayoutAccountHolderType;
 import com.bukang.member.domain.TermsType;
 import com.bukang.member.dto.SellerApplyRequestDto;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.SellerRepository;
 import com.bukang.member.out.TermsAgreementRepository;
 import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
+import com.bukang.member.out.payoutaccount.InMemoryPayoutAccountVerifyLimiter;
 
 // 정산 서비스가 부르는 회원 내부 API: 회원 ID로 판매자 ID 찾기, 관리자 여부 조회
 // 회원 ID와 판매자 ID가 같은 번호가 되지 않게, 판매자 신청을 한 번 더 만들어 번호를 어긋나게 둔다
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Import(InMemoryIdentityVerificationStore.Config.class)
+@Import({InMemoryIdentityVerificationStore.Config.class, InMemoryPayoutAccountVerifyLimiter.Config.class})
 class InternalV1MemberTest {
 	@Autowired
 	private InMemoryIdentityVerificationStore identityStore;
 
 	private static final String SELLER_OF_MEMBER = "/internal/v1/member/members/{memberId}/seller";
 	private static final String ADMIN_OF_MEMBER = "/internal/v1/member/members/{memberId}/admin";
+	private static final String PAYOUT_ACCOUNT = "/internal/v1/member/sellers/{sellerId}/payout-account";
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -56,6 +60,8 @@ class InternalV1MemberTest {
 	private SellerRepository sellerRepository;
 	@Autowired
 	private TermsAgreementRepository termsAgreementRepository;
+	@Autowired
+	private JdbcTemplate jdbcTemplate;
 
 	private long memberId;
 	private long adminId;
@@ -197,6 +203,38 @@ class InternalV1MemberTest {
 			.andExpect(jsonPath("$.code").value("MEMBER_NOT_FOUND"));
 	}
 
+	@Test
+	@DisplayName("계좌를 확인하고 신청한 판매자는 정산 계좌 등록 여부가 true다")
+	void payoutAccountRegistered() throws Exception {
+		long sellerId = apply(memberId);
+
+		mockMvc.perform(get(PAYOUT_ACCOUNT, sellerId))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.message").value("판매자 정산 계좌 등록 여부를 조회했습니다."))
+			.andExpect(jsonPath("$.data.registered").value(true));
+	}
+
+	@Test
+	@DisplayName("계좌 없이 신청된 판매자(이 기능 전에 신청한 판매자)는 정산 계좌 등록 여부가 false다")
+	void payoutAccountNotRegistered() throws Exception {
+		long sellerId = apply(memberId);
+		jdbcTemplate.update("update member_seller set payout_bank_code = null, payout_account_number = null, "
+			+ "payout_account_holder_name = null, payout_account_holder_type = null, payout_account_verified_at = null "
+			+ "where seller_id = ?", sellerId);
+
+		mockMvc.perform(get(PAYOUT_ACCOUNT, sellerId))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.registered").value(false));
+	}
+
+	@Test
+	@DisplayName("없는 판매자 신청서의 정산 계좌를 물으면 404 SELLER_NOT_FOUND다")
+	void payoutAccountOfUnknownSeller() throws Exception {
+		mockMvc.perform(get(PAYOUT_ACCOUNT, 99999L))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("SELLER_NOT_FOUND"));
+	}
+
 	private long join(String email, String nickname, String phone) {
 		return memberFacade.join(identityStore.joinRequest(
 			email, "password1234", "김러너", nickname, phone, LocalDate.of(1995, 4, 12), null,
@@ -206,7 +244,8 @@ class InternalV1MemberTest {
 
 	private long apply(long applicantId) {
 		return sellerFacade.apply(applicantId,
-			new SellerApplyRequestDto(SellerType.BUSINESS, "크루런 스포츠", "123-45-67890", "김러너")).getId();
+			new SellerApplyRequestDto(SellerType.BUSINESS, "크루런 스포츠", "123-45-67890", "김러너",
+				"004", "1101230000678", PayoutAccountHolderType.PERSONAL)).getId();
 	}
 
 	private ResultActions findSellerOf(long id) throws Exception {

@@ -42,7 +42,9 @@ import com.bukang.member.app.MemberJoinUseCase;
 import com.bukang.member.app.MemberModifyUseCase;
 import com.bukang.member.app.SellerApplyUseCase;
 import com.bukang.member.app.SellerFacade;
+import com.bukang.member.domain.PayoutAccountHolderType;
 import com.bukang.member.domain.TermsType;
+import com.bukang.member.domain.VerifiedPayoutAccount;
 import com.bukang.member.domain.exception.DuplicateEmailException;
 import com.bukang.member.domain.exception.DuplicateNicknameException;
 import com.bukang.member.dto.MemberDto;
@@ -51,6 +53,7 @@ import com.bukang.member.dto.SellerApplyRequestDto;
 import com.bukang.member.dto.SellerDto;
 import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
 import com.bukang.member.out.identity.VerifiedIdentity;
+import com.bukang.member.out.payoutaccount.InMemoryPayoutAccountVerifyLimiter;
 
 // 실제 임베디드 Kafka 브로커(전역 브로커 하나, junit-platform.properties)로 가입·수정 이벤트가 커밋 뒤에만 queuing.member.joined·modified에,
 // 판매자 변경 이벤트가 커밋 뒤에만 queuing.seller.changed에 나가는지 확인한다.
@@ -60,7 +63,7 @@ import com.bukang.member.out.identity.VerifiedIdentity;
 @ActiveProfiles("test")
 @TestPropertySource(properties =
 	"spring.datasource.url=jdbc:h2:mem:bukang-member-kafka-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1")
-@Import(InMemoryIdentityVerificationStore.Config.class)
+@Import({InMemoryIdentityVerificationStore.Config.class, InMemoryPayoutAccountVerifyLimiter.Config.class})
 class MemberKafkaPublisherTest {
 	@Autowired
 	private InMemoryIdentityVerificationStore identityStore;
@@ -247,6 +250,8 @@ class MemberKafkaPublisherTest {
 		MemberDto member = join("seller-rollback@crewrun.com", "롤백판매", "010-2000-0021");
 		transactionTemplate.executeWithoutResult(status -> {
 			sellerApplyUseCase.apply(member.getId(), SellerType.INDIVIDUAL, null, null, "롤백대표",
+				new VerifiedPayoutAccount("004", "1101230000678", "롤백대표", PayoutAccountHolderType.PERSONAL,
+					LocalDateTime.now()),
 				LocalDateTime.now());
 			status.setRollbackOnly();
 		});
@@ -263,7 +268,8 @@ class MemberKafkaPublisherTest {
 
 	private SellerDto applySeller(long memberId, String representativeName) {
 		return sellerFacade.apply(memberId,
-			new SellerApplyRequestDto(SellerType.BUSINESS, "크루런 스포츠", "1234567890", representativeName));
+			new SellerApplyRequestDto(SellerType.BUSINESS, "크루런 스포츠", "1234567890", representativeName,
+				"004", "1101230000678", PayoutAccountHolderType.PERSONAL));
 	}
 
 	private ConsumerRecord<String, String> pollUntilRepresentative(String representativeName, SellerStatus status) {

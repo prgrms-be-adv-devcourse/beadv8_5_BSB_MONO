@@ -48,6 +48,7 @@ import com.bukang.member.app.MemberFacade;
 import com.bukang.member.app.SellerFacade;
 import com.bukang.member.domain.Gender;
 import com.bukang.member.domain.Member;
+import com.bukang.member.domain.PayoutAccountHolderType;
 import com.bukang.member.domain.MemberStatus;
 import com.bukang.member.domain.Seller;
 import com.bukang.member.domain.TermsType;
@@ -60,6 +61,7 @@ import com.bukang.member.out.TermsAgreementRepository;
 import com.bukang.member.out.cash.CashBalancePort;
 import com.bukang.member.out.cash.HttpCashBalanceAdapter;
 import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
+import com.bukang.member.out.payoutaccount.InMemoryPayoutAccountVerifyLimiter;
 import com.bukang.member.out.order.ActiveTicketPort;
 import com.bukang.member.out.order.HttpActiveTicketAdapter;
 
@@ -69,7 +71,7 @@ import com.bukang.member.out.order.HttpActiveTicketAdapter;
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @RecordApplicationEvents
-@Import(InMemoryIdentityVerificationStore.Config.class)
+@Import({InMemoryIdentityVerificationStore.Config.class, InMemoryPayoutAccountVerifyLimiter.Config.class})
 class ApiV1MemberWithdrawTest {
 	@Autowired
 	private InMemoryIdentityVerificationStore identityStore;
@@ -301,7 +303,8 @@ class ApiV1MemberWithdrawTest {
 	@DisplayName("탈퇴하면 대기 중 판매자 신청을 \"회원 탈퇴\" 사유로 반려하고 반려 이벤트를 보낸다")
 	void withdrawRejectsPendingSellerApplication() throws Exception {
 		long sellerId = sellerFacade.apply(memberId,
-			new SellerApplyRequestDto(SellerType.BUSINESS, "크루런 스포츠", "123-45-67890", "김러너")).getId();
+			new SellerApplyRequestDto(SellerType.BUSINESS, "크루런 스포츠", "123-45-67890", "김러너",
+				"004", "1101230000678", PayoutAccountHolderType.PERSONAL)).getId();
 
 		withdraw(memberId).andExpect(status().isOk());
 

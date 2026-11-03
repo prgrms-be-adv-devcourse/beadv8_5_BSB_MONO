@@ -33,6 +33,7 @@ import com.bukang.common.shared.seller.event.SellerChangedEvent;
 import com.bukang.member.app.MemberFacade;
 import com.bukang.member.app.SellerFacade;
 import com.bukang.member.domain.Member;
+import com.bukang.member.domain.PayoutAccountHolderType;
 import com.bukang.member.domain.Seller;
 import com.bukang.member.domain.TermsType;
 import com.bukang.member.dto.SellerApplyRequestDto;
@@ -40,13 +41,14 @@ import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.SellerRepository;
 import com.bukang.member.out.TermsAgreementRepository;
 import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
+import com.bukang.member.out.payoutaccount.InMemoryPayoutAccountVerifyLimiter;
 
 // 관리자의 판매자 신청 목록·승인·반려 (BE-020). 관리자는 회원 역할 칸(ADMIN)으로 알아본다
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @RecordApplicationEvents
-@Import(InMemoryIdentityVerificationStore.Config.class)
+@Import({InMemoryIdentityVerificationStore.Config.class, InMemoryPayoutAccountVerifyLimiter.Config.class})
 class ApiV1AdminSellerTest {
 	@Autowired
 	private InMemoryIdentityVerificationStore identityStore;
@@ -234,7 +236,8 @@ class ApiV1AdminSellerTest {
 
 	private long applyDirectly(long memberId) {
 		return sellerFacade.apply(memberId,
-			new SellerApplyRequestDto(SellerType.BUSINESS, "크루런 스포츠", "123-45-67890", "김러너")).getId();
+			new SellerApplyRequestDto(SellerType.BUSINESS, "크루런 스포츠", "123-45-67890", "김러너",
+				"004", "1101230000678", PayoutAccountHolderType.PERSONAL)).getId();
 	}
 
 	// reason이 null이면 본문 없이 보낸다 (승인)
