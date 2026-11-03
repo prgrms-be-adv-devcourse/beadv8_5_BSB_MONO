@@ -3,6 +3,13 @@ package com.bukang.cash.app;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -59,5 +66,92 @@ class CashSyncMemberUseCaseTest {
 		assertThat(walletRepository.count()).isEqualTo(walletCountAfterFirstSync);
 		assertThat(cashMemberRepository.findById(MEMBER_ID).orElseThrow().getNickname())
 			.isEqualTo("러너5-수정");
+	}
+
+	@Test
+	@DisplayName("같은 가입 메시지가 두 번 와도 회원과 지갑은 하나씩이다 (멱등)")
+	void syncMember_sameMessageTwice_keepsOneMemberAndWallet() {
+		LocalDateTime joinedAt = LocalDateTime.of(2026, 10, 16, 10, 0);
+
+		cashFacade.syncMember(MEMBER_ID, joinedAt, joinedAt, "러너5");
+		cashFacade.syncMember(MEMBER_ID, joinedAt, joinedAt, "러너5");
+
+		assertThat(cashMemberRepository.count()).isEqualTo(1);
+		assertThat(walletRepository.count()).isEqualTo(1);
+	}
+
+	@Test
+	@DisplayName("닉네임 수정(10:05)을 반영한 뒤 재시도로 늦게 온 가입 메시지(10:00)는 건너뛰어 수정한 닉네임이 남는다")
+	void syncMember_olderJoinedAfterModified_keepsNewerNickname() {
+		LocalDateTime joinedAt = LocalDateTime.of(2026, 10, 16, 10, 0);
+		LocalDateTime modifiedAt = joinedAt.plusMinutes(5);
+		cashFacade.syncMember(MEMBER_ID, joinedAt, modifiedAt, "영희");
+
+		cashFacade.syncMember(MEMBER_ID, joinedAt, joinedAt, "철수");
+
+		CashMember member = cashMemberRepository.findById(MEMBER_ID).orElseThrow();
+		assertThat(member.getNickname()).isEqualTo("영희");
+		assertThat(member.getModifyDate()).isEqualTo(modifiedAt);
+	}
+
+	@Test
+	@DisplayName("탈퇴 메시지(수정 일시 = 탈퇴 시각)가 오면 닉네임이 \"탈퇴한 회원\"으로 바뀐다")
+	void syncMember_withdrawnMessage_overwritesNickname() {
+		LocalDateTime joinedAt = LocalDateTime.of(2026, 10, 16, 10, 0);
+		cashFacade.syncMember(MEMBER_ID, joinedAt, joinedAt, "러너5");
+
+		cashFacade.syncMember(MEMBER_ID, joinedAt, joinedAt.plusDays(3), "탈퇴한 회원");
+
+		assertThat(cashMemberRepository.findById(MEMBER_ID).orElseThrow().getNickname()).isEqualTo("탈퇴한 회원");
+	}
+
+	@Test
+	@DisplayName("가입(10:00)과 수정(10:05) 메시지를 동시에 처음 처리해도, 실패한 쪽을 다시 처리하면 수정한 닉네임 하나로 맞춰진다")
+	void syncMember_joinedAndModifiedAtSameTime_convergesAfterRetry() throws InterruptedException {
+		LocalDateTime joinedAt = LocalDateTime.of(2026, 10, 16, 10, 0);
+		LocalDateTime modifiedAt = joinedAt.plusMinutes(5);
+		// 스레드가 겹치는 순서는 매번 달라서 회원을 바꿔 가며 여러 번 돌린다
+		for (long memberId = 100; memberId < 120; memberId++) {
+			long id = memberId;
+			List<Runnable> messages = List.of(
+				() -> cashFacade.syncMember(id, joinedAt, joinedAt, "철수"),
+				() -> cashFacade.syncMember(id, joinedAt, modifiedAt, "영희"));
+
+			// 둘 다 "아직 없음"을 읽으면 둘 다 INSERT해 한쪽이 기본키 충돌로 실패한다
+			// 실제로는 실패한 메시지가 재시도 토픽에서 다시 처리되므로, 여기서도 실패한 쪽을 한 번 더 부른다
+			runConcurrently(messages).forEach(Runnable::run);
+
+			CashMember member = cashMemberRepository.findById(id).orElseThrow();
+			assertThat(member.getNickname()).as("memberId=%d", id).isEqualTo("영희");
+			assertThat(member.getModifyDate()).as("memberId=%d", id).isEqualTo(modifiedAt);
+		}
+		assertThat(cashMemberRepository.count()).isEqualTo(20);
+		assertThat(walletRepository.count()).as("회원마다 지갑은 하나다").isEqualTo(20);
+	}
+
+	// 메시지를 동시에 처리하고, 예외가 난 메시지를 돌려준다
+	private List<Runnable> runConcurrently(List<Runnable> messages) throws InterruptedException {
+		ExecutorService executor = Executors.newFixedThreadPool(messages.size());
+		CountDownLatch startSignal = new CountDownLatch(1);
+		List<Future<?>> futures = new ArrayList<>();
+		for (Runnable message : messages) {
+			futures.add(executor.submit(() -> {
+				startSignal.await();
+				message.run();
+				return null;
+			}));
+		}
+		startSignal.countDown();
+
+		List<Runnable> failed = new ArrayList<>();
+		for (int i = 0; i < messages.size(); i++) {
+			try {
+				futures.get(i).get();
+			} catch (ExecutionException exception) {
+				failed.add(messages.get(i));
+			}
+		}
+		executor.shutdown();
+		return failed;
 	}
 }
