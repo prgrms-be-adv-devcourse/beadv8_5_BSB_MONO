@@ -10,6 +10,7 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withException;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 import java.net.SocketTimeoutException;
@@ -27,6 +28,7 @@ import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
@@ -175,6 +177,24 @@ class OpenBankingAccountVerifierTest {
 
 		assertThatThrownBy(() -> verifier(builder).verify(PERSONAL))
 			.isInstanceOf(SellerAccountVerifyUnavailableException.class);
+	}
+
+	@Test
+	@DisplayName("계좌실명조회가 401이면 토큰을 버려, 다음 확인 때 토큰을 새로 받는다")
+	void unauthorizedDropsToken() {
+		RestClient.Builder builder = RestClient.builder().baseUrl(BASE_URL);
+		MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+		server.expect(requestTo(TOKEN_URL)).andRespond(withSuccess(TOKEN_RESPONSE, MediaType.APPLICATION_JSON));
+		server.expect(requestTo(REAL_NAME_URL)).andRespond(withStatus(HttpStatus.UNAUTHORIZED));
+		server.expect(requestTo(TOKEN_URL)).andRespond(withSuccess(TOKEN_RESPONSE, MediaType.APPLICATION_JSON));
+		server.expect(requestTo(REAL_NAME_URL))
+			.andRespond(withSuccess(realNameResponse("A0000", "000", "김러너"), MediaType.APPLICATION_JSON));
+		OpenBankingAccountVerifier verifier = verifier(builder);
+
+		assertThatThrownBy(() -> verifier.verify(PERSONAL))
+			.isInstanceOf(SellerAccountVerifyUnavailableException.class);
+		assertThat(verifier.verify(PERSONAL)).isEqualTo("김러너");
+		server.verify();
 	}
 
 	@Test

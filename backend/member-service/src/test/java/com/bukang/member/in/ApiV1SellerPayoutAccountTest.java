@@ -205,6 +205,22 @@ class ApiV1SellerPayoutAccountTest {
 	}
 
 	@Test
+	@DisplayName("오픈뱅킹이 응답하지 않은 확인은 하루 횟수에서 빼, 장애가 다섯 번 나도 다시 확인할 수 있다")
+	void unavailableDoesNotUseQuota() throws Exception {
+		verifier.answer(inquiry -> {
+			throw new SellerAccountVerifyUnavailableException();
+		});
+		for (int i = 0; i < 5; i++) {
+			apply("INDIVIDUAL", null, null, "004", ACCOUNT_NUMBER, "PERSONAL")
+				.andExpect(status().isServiceUnavailable());
+		}
+		verifier.answer(PayoutAccountInquiry::applicantName);
+
+		apply("INDIVIDUAL", null, null, "004", ACCOUNT_NUMBER, "PERSONAL")
+			.andExpect(status().isCreated());
+	}
+
+	@Test
 	@DisplayName("오픈뱅킹은 DB 트랜잭션 밖에서 부른다")
 	void verifiesOutsideTransaction() throws Exception {
 		apply("INDIVIDUAL", null, null, "004", ACCOUNT_NUMBER, "PERSONAL")

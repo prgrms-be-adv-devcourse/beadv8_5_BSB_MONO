@@ -60,4 +60,17 @@ class RedisPayoutAccountVerifyLimiterTest {
 			.isEqualTo("members:7:payoutAccountVerifyCount");
 		assertThat(redisTemplate.getExpire(RedisPayoutAccountVerifyLimiter.countKey(MEMBER_ID))).isPositive();
 	}
+
+	@Test
+	@DisplayName("돌려준 한 번은 다시 쓸 수 있다")
+	void releaseGivesBackOne() {
+		for (int i = 0; i < 5; i++) {
+			limiter.tryAcquire(MEMBER_ID);
+		}
+
+		limiter.release(MEMBER_ID);
+
+		assertThat(limiter.tryAcquire(MEMBER_ID)).isTrue();
+		assertThat(limiter.tryAcquire(MEMBER_ID)).isFalse();
+	}
 }

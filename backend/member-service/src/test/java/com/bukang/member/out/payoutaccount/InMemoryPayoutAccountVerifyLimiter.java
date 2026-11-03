@@ -21,6 +21,11 @@ public class InMemoryPayoutAccountVerifyLimiter implements PayoutAccountVerifyLi
 		return counts.merge(memberId, 1, Integer::sum) <= DAILY_LIMIT;
 	}
 
+	@Override
+	public void release(long memberId) {
+		counts.merge(memberId, -1, Integer::sum);
+	}
+
 	public void clear() {
 		counts.clear();
 	}
