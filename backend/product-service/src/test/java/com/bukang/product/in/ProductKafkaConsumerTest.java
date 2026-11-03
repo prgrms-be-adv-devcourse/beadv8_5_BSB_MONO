@@ -26,6 +26,7 @@ import com.bukang.product.support.ProductIntegrationTest;
  * 회원·판매자 메시지를 받아 복제본(ProductMember, ProductSeller)에 저장하는지 확인한다.
  * 테스트 프로파일은 Kafka 리스너가 꺼져 있으므로, 브로커 없이 리스너 메서드에 JSON 문자열을 직접 넘긴다.
  * 처음 저장, 같은 메시지 두 번(멱등), 회원 변경, 늦게 온 옛 회원 메시지(건너뜀)·옛 판매자 메시지(마지막에 받은 값으로 덮어씀),
+ * message-id 헤더가 있을 때 같은 메시지 ID의 재전달(인박스가 건너뜀),
  * 회원 복제본 없이 온 판매자 메시지(건너뜀), 깨진 JSON·모르는 Enum 값(IllegalArgumentException)을 본다.
  * 기본으로 준비된 회원 9001·9002, 판매자 7001·7002와 겹치지 않게 회원 8001·8002, 판매자 8101·8102를 쓴다.
  */
@@ -51,6 +52,8 @@ class ProductKafkaConsumerTest extends ProductIntegrationTest {
 
 	// JsonConverter.fromJson이 파싱 실패를 바꿔 던지는 예외 메시지
 	private static final String PARSE_FAILED_MESSAGE = "JSON 파싱에 실패했습니다.";
+	// message-id 헤더 없음 (회원 서비스가 아직 회원·판매자 메시지에 헤더를 붙이지 않는다). 인박스 없이 처리한다
+	private static final String NO_HEADER = null;
 
 	@Autowired
 	private ProductKafkaConsumer productKafkaConsumer;
@@ -64,7 +67,7 @@ class ProductKafkaConsumerTest extends ProductIntegrationTest {
 		String payload = "{\"id\":8001,\"createDate\":\"2026-10-01T09:00:00\","
 			+ "\"modifyDate\":\"2026-10-01T09:00:00\",\"nickname\":\"새러너\"}";
 
-		productKafkaConsumer.handleMemberJoined(payload);
+		productKafkaConsumer.handleMemberJoined(payload, NO_HEADER);
 
 		ProductMember member = findMember(NEW_MEMBER_ID);
 		assertThat(member.getNickname()).isEqualTo(NICKNAME);
@@ -73,14 +76,16 @@ class ProductKafkaConsumerTest extends ProductIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("같은 회원 8001 가입 메시지를 두 번 받아도 복제본은 1개이고 값이 그대로다")
-	void sameMemberMessageTwiceIsIdempotent() {
+	@DisplayName("회원 8001 가입 메시지가 같은 메시지 ID(member-outbox-10)로 두 번 오면 두 번째는 인박스가 건너뛰어 "
+		+ "복제본은 1개이고 값이 그대로이며 인박스 행은 1개다")
+	void sameMemberMessageTwiceIsSkippedByInbox() {
 		String payload = memberJoined(NEW_MEMBER_ID, JOINED_AT, NICKNAME);
-		productKafkaConsumer.handleMemberJoined(payload);
+		productKafkaConsumer.handleMemberJoined(payload, "member-outbox-10");
 		long countAfterFirst = productMemberRepository.count();
 
-		productKafkaConsumer.handleMemberJoined(payload);
+		productKafkaConsumer.handleMemberJoined(payload, "member-outbox-10");
 
+		assertThat(productInboxKafkaEventRepository.count()).isEqualTo(1);
 		assertThat(productMemberRepository.count()).isEqualTo(countAfterFirst);
 		ProductMember member = findMember(NEW_MEMBER_ID);
 		assertThat(member.getNickname()).isEqualTo(NICKNAME);
@@ -93,7 +98,8 @@ class ProductKafkaConsumerTest extends ProductIntegrationTest {
 	void memberModifiedOverwritesNickname() {
 		joinMember(NEW_MEMBER_ID);
 
-		productKafkaConsumer.handleMemberModified(memberModified(NEW_MEMBER_ID, RENAMED_AT, RENAMED_NICKNAME));
+		productKafkaConsumer.handleMemberModified(
+			memberModified(NEW_MEMBER_ID, RENAMED_AT, RENAMED_NICKNAME), NO_HEADER);
 
 		ProductMember member = findMember(NEW_MEMBER_ID);
 		assertThat(member.getNickname()).isEqualTo(RENAMED_NICKNAME);
@@ -104,9 +110,10 @@ class ProductKafkaConsumerTest extends ProductIntegrationTest {
 	@Test
 	@DisplayName("변경 메시지(10/05)가 가입 메시지(10/01)보다 먼저 처리되면 늦게 온 가입 메시지는 건너뛰어 바뀐 닉네임이 남는다")
 	void lateJoinedMessageAfterModifiedIsSkipped() {
-		productKafkaConsumer.handleMemberModified(memberModified(NEW_MEMBER_ID, RENAMED_AT, RENAMED_NICKNAME));
+		productKafkaConsumer.handleMemberModified(
+			memberModified(NEW_MEMBER_ID, RENAMED_AT, RENAMED_NICKNAME), NO_HEADER);
 
-		productKafkaConsumer.handleMemberJoined(memberJoined(NEW_MEMBER_ID, JOINED_AT, NICKNAME));
+		productKafkaConsumer.handleMemberJoined(memberJoined(NEW_MEMBER_ID, JOINED_AT, NICKNAME), NO_HEADER);
 
 		ProductMember member = findMember(NEW_MEMBER_ID);
 		assertThat(member.getNickname()).isEqualTo(RENAMED_NICKNAME);
@@ -117,10 +124,11 @@ class ProductKafkaConsumerTest extends ProductIntegrationTest {
 	@DisplayName("변경 메시지(10/05)를 받은 뒤 다음 변경 메시지(10/07)가 오면 그대로 반영한다")
 	void laterMemberModifiedIsApplied() {
 		joinMember(NEW_MEMBER_ID);
-		productKafkaConsumer.handleMemberModified(memberModified(NEW_MEMBER_ID, RENAMED_AT, RENAMED_NICKNAME));
+		productKafkaConsumer.handleMemberModified(
+			memberModified(NEW_MEMBER_ID, RENAMED_AT, RENAMED_NICKNAME), NO_HEADER);
 
 		productKafkaConsumer.handleMemberModified(
-			memberModified(NEW_MEMBER_ID, RENAMED_AGAIN_AT, RENAMED_AGAIN_NICKNAME));
+			memberModified(NEW_MEMBER_ID, RENAMED_AGAIN_AT, RENAMED_AGAIN_NICKNAME), NO_HEADER);
 
 		ProductMember member = findMember(NEW_MEMBER_ID);
 		assertThat(member.getNickname()).isEqualTo(RENAMED_AGAIN_NICKNAME);
@@ -132,9 +140,10 @@ class ProductKafkaConsumerTest extends ProductIntegrationTest {
 	void lateOlderMemberModifiedIsSkipped() {
 		joinMember(NEW_MEMBER_ID);
 		productKafkaConsumer.handleMemberModified(
-			memberModified(NEW_MEMBER_ID, RENAMED_AGAIN_AT, RENAMED_AGAIN_NICKNAME));
+			memberModified(NEW_MEMBER_ID, RENAMED_AGAIN_AT, RENAMED_AGAIN_NICKNAME), NO_HEADER);
 
-		productKafkaConsumer.handleMemberModified(memberModified(NEW_MEMBER_ID, RENAMED_AT, RENAMED_NICKNAME));
+		productKafkaConsumer.handleMemberModified(
+			memberModified(NEW_MEMBER_ID, RENAMED_AT, RENAMED_NICKNAME), NO_HEADER);
 
 		ProductMember member = findMember(NEW_MEMBER_ID);
 		assertThat(member.getNickname()).isEqualTo(RENAMED_AGAIN_NICKNAME);
@@ -146,7 +155,7 @@ class ProductKafkaConsumerTest extends ProductIntegrationTest {
 	void brokenMemberJsonThrowsIllegalArgument() {
 		String broken = "{\"id\":8001,\"nickname\":";
 
-		assertThatThrownBy(() -> productKafkaConsumer.handleMemberJoined(broken))
+		assertThatThrownBy(() -> productKafkaConsumer.handleMemberJoined(broken, NO_HEADER))
 			.isInstanceOf(IllegalArgumentException.class)
 			.hasMessage(PARSE_FAILED_MESSAGE);
 
@@ -160,7 +169,7 @@ class ProductKafkaConsumerTest extends ProductIntegrationTest {
 	void saveSellerOnFirstMessage() {
 		joinMember(NEW_MEMBER_ID);
 
-		productKafkaConsumer.handleSellerChanged(sellerJson("APPROVED"));
+		productKafkaConsumer.handleSellerChanged(sellerJson("APPROVED"), NO_HEADER);
 
 		ProductSeller seller = findSeller(NEW_SELLER_ID);
 		assertThat(seller.getSellerType()).isEqualTo(SellerType.BUSINESS);
@@ -179,11 +188,11 @@ class ProductKafkaConsumerTest extends ProductIntegrationTest {
 	@DisplayName("판매자 8101 등록 신청(PENDING) 뒤 승인(APPROVED) 메시지가 오면 같은 행을 승인 상태와 심사 일시(10/03 15:30)로 덮어쓴다")
 	void approvalOverwritesPendingSeller() {
 		joinMember(NEW_MEMBER_ID);
-		productKafkaConsumer.handleSellerChanged(pendingSeller(NEW_SELLER_ID, NEW_MEMBER_ID));
+		productKafkaConsumer.handleSellerChanged(pendingSeller(NEW_SELLER_ID, NEW_MEMBER_ID), NO_HEADER);
 		assertThat(findSeller(NEW_SELLER_ID).getStatus()).isEqualTo(PENDING);
 		long countAfterPending = productSellerRepository.count();
 
-		productKafkaConsumer.handleSellerChanged(approvedSeller(NEW_SELLER_ID, NEW_MEMBER_ID));
+		productKafkaConsumer.handleSellerChanged(approvedSeller(NEW_SELLER_ID, NEW_MEMBER_ID), NO_HEADER);
 
 		assertThat(productSellerRepository.count()).isEqualTo(countAfterPending);
 		ProductSeller seller = findSeller(NEW_SELLER_ID);
@@ -198,10 +207,10 @@ class ProductKafkaConsumerTest extends ProductIntegrationTest {
 	void sameSellerMessageTwiceIsIdempotent() {
 		joinMember(NEW_MEMBER_ID);
 		String payload = approvedSeller(NEW_SELLER_ID, NEW_MEMBER_ID);
-		productKafkaConsumer.handleSellerChanged(payload);
+		productKafkaConsumer.handleSellerChanged(payload, NO_HEADER);
 		long countAfterFirst = productSellerRepository.count();
 
-		productKafkaConsumer.handleSellerChanged(payload);
+		productKafkaConsumer.handleSellerChanged(payload, NO_HEADER);
 
 		assertThat(productSellerRepository.count()).isEqualTo(countAfterFirst);
 		ProductSeller seller = findSeller(NEW_SELLER_ID);
@@ -215,9 +224,9 @@ class ProductKafkaConsumerTest extends ProductIntegrationTest {
 	@DisplayName("승인(APPROVED) 메시지보다 늦게 온 옛 등록 신청(PENDING) 메시지도 그대로 덮어써 판매자 8101이 승인 대기로 돌아간다")
 	void lateOlderSellerMessageOverwrites() {
 		joinMember(NEW_MEMBER_ID);
-		productKafkaConsumer.handleSellerChanged(approvedSeller(NEW_SELLER_ID, NEW_MEMBER_ID));
+		productKafkaConsumer.handleSellerChanged(approvedSeller(NEW_SELLER_ID, NEW_MEMBER_ID), NO_HEADER);
 
-		productKafkaConsumer.handleSellerChanged(pendingSeller(NEW_SELLER_ID, NEW_MEMBER_ID));
+		productKafkaConsumer.handleSellerChanged(pendingSeller(NEW_SELLER_ID, NEW_MEMBER_ID), NO_HEADER);
 
 		ProductSeller seller = findSeller(NEW_SELLER_ID);
 		assertThat(seller.getStatus()).isEqualTo(PENDING);
@@ -226,12 +235,28 @@ class ProductKafkaConsumerTest extends ProductIntegrationTest {
 	}
 
 	@Test
+	@DisplayName("판매자 8101 신청(member-outbox-1) → 승인(member-outbox-2) 뒤 신청 메시지가 같은 메시지 ID로 다시 오면 "
+		+ "이미 처리한 메시지라 인박스가 건너뛰어 승인(APPROVED) 그대로다 (헤더가 없으면 재전달된 신청이 승인을 덮어쓴다)")
+	void redeliveredOldSellerMessageIsSkippedByInbox() {
+		joinMember(NEW_MEMBER_ID);
+		productKafkaConsumer.handleSellerChanged(pendingSeller(NEW_SELLER_ID, NEW_MEMBER_ID), "member-outbox-1");
+		productKafkaConsumer.handleSellerChanged(approvedSeller(NEW_SELLER_ID, NEW_MEMBER_ID), "member-outbox-2");
+
+		productKafkaConsumer.handleSellerChanged(pendingSeller(NEW_SELLER_ID, NEW_MEMBER_ID), "member-outbox-1");
+
+		ProductSeller seller = findSeller(NEW_SELLER_ID);
+		assertThat(seller.getStatus()).isEqualTo(APPROVED);
+		assertThat(seller.getReviewedAt()).isEqualTo(REVIEWED_AT);
+	}
+
+	@Test
 	@DisplayName("반려(REJECTED)된 판매자 8101 뒤 같은 회원 8001이 재신청한 판매자 8102 메시지가 오면 행이 따로 생겨 둘 다 남는다")
 	void reapplicationAfterRejectionAddsSellerRow() {
 		joinMember(NEW_MEMBER_ID);
-		productKafkaConsumer.handleSellerChanged(sellerChanged(NEW_SELLER_ID, NEW_MEMBER_ID, REJECTED, REVIEWED_AT));
+		productKafkaConsumer.handleSellerChanged(
+			sellerChanged(NEW_SELLER_ID, NEW_MEMBER_ID, REJECTED, REVIEWED_AT), NO_HEADER);
 
-		productKafkaConsumer.handleSellerChanged(pendingSeller(SECOND_SELLER_ID, NEW_MEMBER_ID));
+		productKafkaConsumer.handleSellerChanged(pendingSeller(SECOND_SELLER_ID, NEW_MEMBER_ID), NO_HEADER);
 
 		assertThat(findSeller(NEW_SELLER_ID).getStatus()).isEqualTo(REJECTED);
 		assertThat(productSellerRepository.findByMemberIdAndStatus(NEW_MEMBER_ID, PENDING))
@@ -243,7 +268,7 @@ class ProductKafkaConsumerTest extends ProductIntegrationTest {
 	void sellerMessageWithoutMemberReplicaIsSkipped() {
 		String payload = approvedSeller(SECOND_SELLER_ID, NO_REPLICA_MEMBER_ID);
 
-		assertThatCode(() -> productKafkaConsumer.handleSellerChanged(payload)).doesNotThrowAnyException();
+		assertThatCode(() -> productKafkaConsumer.handleSellerChanged(payload, NO_HEADER)).doesNotThrowAnyException();
 
 		assertThat(productSellerRepository.existsById(SECOND_SELLER_ID)).isFalse();
 		assertThat(productMemberRepository.existsById(NO_REPLICA_MEMBER_ID)).isFalse();
@@ -252,7 +277,7 @@ class ProductKafkaConsumerTest extends ProductIntegrationTest {
 	@Test
 	@DisplayName("회원 메시지보다 먼저 와서 건너뛴 판매자 8102 메시지는 뒤에 회원 8002 가입 메시지가 와도 다시 처리되지 않는다")
 	void skippedSellerMessageIsNotRetriedAfterMemberJoins() {
-		productKafkaConsumer.handleSellerChanged(approvedSeller(SECOND_SELLER_ID, NO_REPLICA_MEMBER_ID));
+		productKafkaConsumer.handleSellerChanged(approvedSeller(SECOND_SELLER_ID, NO_REPLICA_MEMBER_ID), NO_HEADER);
 
 		joinMember(NO_REPLICA_MEMBER_ID);
 
@@ -266,7 +291,7 @@ class ProductKafkaConsumerTest extends ProductIntegrationTest {
 		joinMember(NEW_MEMBER_ID);
 		String broken = "{\"id\":8101,\"memberId\":8001,\"status\":";
 
-		assertThatThrownBy(() -> productKafkaConsumer.handleSellerChanged(broken))
+		assertThatThrownBy(() -> productKafkaConsumer.handleSellerChanged(broken, NO_HEADER))
 			.isInstanceOf(IllegalArgumentException.class)
 			.hasMessage(PARSE_FAILED_MESSAGE);
 
@@ -278,7 +303,7 @@ class ProductKafkaConsumerTest extends ProductIntegrationTest {
 	void unknownSellerStatusThrowsIllegalArgument() {
 		joinMember(NEW_MEMBER_ID);
 
-		assertThatThrownBy(() -> productKafkaConsumer.handleSellerChanged(sellerJson("SUSPENDED")))
+		assertThatThrownBy(() -> productKafkaConsumer.handleSellerChanged(sellerJson("SUSPENDED"), NO_HEADER))
 			.isInstanceOf(IllegalArgumentException.class)
 			.hasMessage(PARSE_FAILED_MESSAGE);
 
@@ -289,7 +314,7 @@ class ProductKafkaConsumerTest extends ProductIntegrationTest {
 
 	// 회원 서비스가 보내는 것처럼 회원 가입 메시지를 받아 회원 복제본을 만든다
 	private void joinMember(long memberId) {
-		productKafkaConsumer.handleMemberJoined(memberJoined(memberId, JOINED_AT, "러너" + memberId));
+		productKafkaConsumer.handleMemberJoined(memberJoined(memberId, JOINED_AT, "러너" + memberId), NO_HEADER);
 	}
 
 	private String memberJoined(long memberId, LocalDateTime modifyDate, String nickname) {

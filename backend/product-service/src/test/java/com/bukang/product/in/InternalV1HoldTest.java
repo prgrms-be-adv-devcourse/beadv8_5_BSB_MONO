@@ -398,8 +398,8 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 	// ---------- 복구 ----------
 
 	@Test
-	@DisplayName("개인 정원 1석 종목에서 판매한 자리(1001)를 복구하면 restored=true이고, 판매 수가 0이 되며 "
-		+ "종목 상태가 SOLD_OUT에서 OPEN으로 돌아간다")
+	@DisplayName("개인 정원 1석 종목에서 판매한 자리(1001)를 HTTP로 복구하면 restored=true이고, 판매 수가 0이 되며 "
+		+ "종목 상태가 SOLD_OUT에서 OPEN으로 돌아간다. HTTP 요청은 Kafka 메시지가 아니라 인박스에 남기지 않는다")
 	void restoreSoldSeat() throws Exception {
 		long courseId = registerOnSale(race().course(course().quota(0, 1)).build()).courseId();
 		hold(courseId, PARTICIPATION_ID).andExpect(status().isOk());
@@ -418,6 +418,7 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 		assertThat(raceCourse.individualRemaining()).isEqualTo(1);
 		assertThat(raceCourse.getStatus()).isEqualTo(CourseStatus.OPEN);
 		assertThat(holdOf(PARTICIPATION_ID).getStatus()).isEqualTo(HoldStatus.RESTORED);
+		assertThat(productInboxKafkaEventRepository.count()).isZero();
 	}
 
 	@Test
@@ -440,17 +441,18 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("판매한 자리(1001)의 복구 메시지(product.hold.restore)가 두 번 와도 판매 수는 한 번만 줄고(1 → 0), "
-		+ "남은 자리는 정원 그대로이며 자리는 RESTORED다")
-	void restoreMessageTwiceIsIdempotent() throws Exception {
+	@DisplayName("판매한 자리(1001)의 복구 메시지(product.hold.restore)가 같은 메시지 ID(order-outbox-30)로 두 번 오면 "
+		+ "두 번째는 인박스가 건너뛰어 판매 수는 한 번만 줄고(1 → 0), 남은 자리는 정원 그대로이며 자리는 RESTORED다")
+	void sameRestoreMessageTwiceIsSkippedByInbox() throws Exception {
 		long courseId = registerOnSale(race().build()).courseId();
 		hold(courseId, PARTICIPATION_ID).andExpect(status().isOk());
 		sell(PARTICIPATION_ID).andExpect(status().isOk());
 		assertThat(courseOf(courseId).getIndividualSold()).isEqualTo(1);
 
-		restoreByMessage(PARTICIPATION_ID);
-		restoreByMessage(PARTICIPATION_ID);
+		restoreByMessage(PARTICIPATION_ID, "order-outbox-30");
+		restoreByMessage(PARTICIPATION_ID, "order-outbox-30");
 
+		assertThat(productInboxKafkaEventRepository.count()).isEqualTo(1);
 		RaceCourse raceCourse = courseOf(courseId);
 		assertThat(raceCourse.getIndividualSold()).isZero();
 		assertThat(raceCourse.getIndividualReserved()).isZero();
@@ -516,15 +518,17 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("같은 해제 메시지(1001)가 두 번 와도 결제 대기는 한 번만 줄고(1 → 0), 해제 일시도 처음 그대로다")
-	void releaseTwiceIsIdempotent() throws Exception {
+	@DisplayName("결제 대기 자리(1001)의 해제 메시지가 같은 메시지 ID(order-outbox-20)로 두 번 오면 두 번째는 인박스가 건너뛰어 "
+		+ "결제 대기는 한 번만 줄고(1 → 0), 해제 일시도 처음 그대로다")
+	void sameReleaseMessageTwiceIsSkippedByInbox() throws Exception {
 		long courseId = registerOnSale(race().build()).courseId();
 		hold(courseId, PARTICIPATION_ID).andExpect(status().isOk());
-		releaseByMessage(PARTICIPATION_ID);
+		releaseByMessage(PARTICIPATION_ID, "order-outbox-20");
 		LocalDateTime firstReleasedAt = holdOf(PARTICIPATION_ID).getReleasedAt();
 
-		releaseByMessage(PARTICIPATION_ID);
+		releaseByMessage(PARTICIPATION_ID, "order-outbox-20");
 
+		assertThat(productInboxKafkaEventRepository.count()).isEqualTo(1);
 		RaceCourse raceCourse = courseOf(courseId);
 		assertThat(raceCourse.getIndividualReserved()).isZero();
 		assertThat(raceCourse.individualRemaining()).isEqualTo(DEFAULT_QUOTA);
@@ -656,13 +660,24 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 	}
 
 	// 주문 서비스가 product.hold.cancel로 보내는 본문 그대로 리스너 메서드에 넘긴다
+	// 주문 서비스가 아직 message-id 헤더를 붙이지 않으므로 헤더 없이(null) 넘긴다
 	private void releaseByMessage(long participationId) {
-		productKafkaConsumer.handleHoldCancel("{\"participationId\": %d}".formatted(participationId));
+		releaseByMessage(participationId, null);
 	}
 
-	// 주문 서비스가 product.hold.restore로 보내는 본문 그대로 리스너 메서드에 넘긴다
+	// message-id 헤더(예: order-outbox-20)를 붙여 보낸 해제 메시지
+	private void releaseByMessage(long participationId, String messageId) {
+		productKafkaConsumer.handleHoldCancel("{\"participationId\": %d}".formatted(participationId), messageId);
+	}
+
+	// 주문 서비스가 product.hold.restore로 보내는 본문 그대로 리스너 메서드에 넘긴다 (헤더 없이)
 	private void restoreByMessage(long participationId) {
-		productKafkaConsumer.handleHoldRestore("{\"participationId\":%d}".formatted(participationId));
+		restoreByMessage(participationId, null);
+	}
+
+	// message-id 헤더(예: order-outbox-30)를 붙여 보낸 복구 메시지
+	private void restoreByMessage(long participationId, String messageId) {
+		productKafkaConsumer.handleHoldRestore("{\"participationId\":%d}".formatted(participationId), messageId);
 	}
 
 	// 끝 시각이 지난 것처럼 자리 행의 끝 시각을 1분 전으로 옮긴다 (시간이 지나기를 기다리지 않으려고)
