@@ -249,6 +249,21 @@ class ApiV1PartyTest {
 			.andExpect(jsonPath("$.code").value("ORDER_PARTY_NOT_RECRUITING"));
 	}
 
+	@Test
+	@DisplayName("파티원 신청서로는 개인 주문([결제하기])을 만들 수 없다 (크루 몫을 우회해 개인 자리를 잡지 않게)")
+	void partyParticipationIsNotOrderedIndividually() throws Exception {
+		create(LEADER, COURSE_10K).andExpect(status().isCreated());
+		long participationId = participationRepository.findAll().getFirst().getId();
+
+		mockMvc.perform(post("/api/v1/order/orders")
+				.header("X-Member-Id", LEADER)
+				.header("Idempotency-Key", "party-order-1")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{ \"participationId\": %d }".formatted(participationId)))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.message").value("파티원 신청은 파티장이 신청한 뒤 파티 결제로 결제해 주세요."));
+	}
+
 	private ResultActions create(long memberId, long raceCourseId) throws Exception {
 		return mockMvc.perform(post(BASE_URL)
 			.header("X-Member-Id", memberId)
