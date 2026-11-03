@@ -77,6 +77,11 @@ function capture(
   return requests
 }
 
+// 오류 토스트는 화면 낭독기가 바로 읽도록 같은 문구를 한 번 더 그린다(Toast priority high). 보이는 쪽을 고른다.
+async function findErrorToast(text: string) {
+  return (await screen.findAllByText(text))[0]
+}
+
 async function openMenu(user: ReturnType<typeof userEvent.setup>, nickname: string) {
   const row = (await screen.findByText(nickname)).closest('li')!
   await user.click(within(row).getByRole('button', { name: '관리' }))
@@ -166,7 +171,7 @@ describe('CrewHomePage 크루 탈퇴', () => {
     await user.click(
       within(await screen.findByRole('alertdialog')).getByRole('button', { name: '나가기' }),
     )
-    expect(await screen.findByText('잠시 후 다시 시도해 주세요.')).toBeInTheDocument()
+    expect(await findErrorToast('잠시 후 다시 시도해 주세요.')).toBeInTheDocument()
     expect(replace).not.toHaveBeenCalled()
   })
 })
@@ -271,7 +276,7 @@ describe('CrewManagePage 크루원 내보내기', () => {
       within(await screen.findByRole('alertdialog')).getByRole('button', { name: '내보내기' }),
     )
     expect(
-      await screen.findByText('크루장만 할 수 있어요. 바뀐 크루 정보를 다시 불러왔어요.'),
+      await findErrorToast('크루장만 할 수 있어요. 바뀐 크루 정보를 다시 불러왔어요.'),
     ).toBeInTheDocument()
     expect(screen.queryByText('주말10K 님을 크루에서 내보냈어요')).not.toBeInTheDocument()
     await vi.waitFor(() => expect(loads.count).toBeGreaterThan(1))
@@ -289,7 +294,7 @@ describe('CrewManagePage 크루원 내보내기', () => {
     await user.click(
       within(await screen.findByRole('alertdialog')).getByRole('button', { name: '내보내기' }),
     )
-    expect(await screen.findByText('이미 크루를 떠난 크루원이에요.')).toBeInTheDocument()
+    expect(await findErrorToast('이미 크루를 떠난 크루원이에요.')).toBeInTheDocument()
   })
 })
 
@@ -323,7 +328,7 @@ describe('CrewManagePage 크루장 넘기기', () => {
     await user.click(
       within(await screen.findByRole('alertdialog')).getByRole('button', { name: '크루장 넘기기' }),
     )
-    expect(await screen.findByText('이미 크루장이에요.')).toBeInTheDocument()
+    expect(await findErrorToast('이미 크루장이에요.')).toBeInTheDocument()
     expect(replace).not.toHaveBeenCalled()
   })
 
@@ -337,7 +342,7 @@ describe('CrewManagePage 크루장 넘기기', () => {
     await user.click(
       within(await screen.findByRole('alertdialog')).getByRole('button', { name: '크루장 넘기기' }),
     )
-    expect(await screen.findByText('잠시 후 다시 시도해 주세요.')).toBeInTheDocument()
+    expect(await findErrorToast('잠시 후 다시 시도해 주세요.')).toBeInTheDocument()
     expect(replace).not.toHaveBeenCalled()
   })
 })
@@ -382,7 +387,7 @@ describe('CrewManagePage 크루 없애기', () => {
       within(await screen.findByRole('alertdialog')).getByRole('button', { name: '없애기' }),
     )
     expect(
-      await screen.findByText(
+      await findErrorToast(
         '다른 크루원이 있어 크루를 없앨 수 없어요. 크루장을 넘긴 뒤 크루를 떠나 주세요.',
       ),
     ).toBeInTheDocument()
