@@ -77,17 +77,19 @@ class HttpCrewAdapterTest {
 	}
 
 	@Test
-	@DisplayName("크루 없음이 아닌 404, 5xx, 빈 응답은 크루원 아님으로 보지 않고 503 예외로 알린다")
+	@DisplayName("크루 없음이 아닌 404, 5xx, 빈 응답, 가입 시각 없는 크루원은 크루원 아님으로 보지 않고 503 예외로 알린다")
 	void unavailable() {
 		server.expect(requestTo(MEMBERSHIP_URL)).andRespond(notFound("{ \"status\": 404, \"error\": \"Not Found\" }"));
 		server.expect(requestTo(MEMBERSHIP_URL)).andRespond(withServerError());
 		server.expect(requestTo(MEMBERSHIP_URL))
 			.andRespond(withSuccess(data("{}"), MediaType.APPLICATION_JSON));
+		server.expect(requestTo(MEMBERSHIP_URL))
+			.andRespond(withSuccess(data("{ \"crewMember\": true, \"joinedAt\": null }"), MediaType.APPLICATION_JSON));
 		server.expect(requestTo(COUNT_URL))
 			.andRespond(withSuccess("{ \"status\": 200, \"message\": \"조회\", \"data\": null }",
 				MediaType.APPLICATION_JSON));
 
-		for (int i = 0; i < 3; i++) {
+		for (int i = 0; i < 4; i++) {
 			assertThatThrownBy(() -> adapter.findMembership(7L, 3L))
 				.isInstanceOf(ExternalServiceUnavailableException.class);
 		}

@@ -12,7 +12,6 @@ import com.bukang.common.global.jpa.entity.BaseIdAndTime;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import jakarta.persistence.Version;
@@ -32,10 +31,6 @@ import lombok.NoArgsConstructor;
 	uniqueConstraints = {
 		// 참가 링크로 파티를 찾는다
 		@UniqueConstraint(name = "uk_party_join_token", columnNames = "join_token")
-	},
-	indexes = {
-		// 크루 화면의 진행 중인 파티 목록
-		@Index(name = "idx_party_crew_race", columnList = "crew_id, race_id")
 	}
 )
 public class Party extends BaseIdAndTime {

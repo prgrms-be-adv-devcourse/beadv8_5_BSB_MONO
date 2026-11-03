@@ -18,8 +18,7 @@ create table if not exists order_party (
 	create_date datetime(6),
 	modify_date datetime(6),
 	primary key (id),
-	constraint uk_party_join_token unique (join_token),
-	index idx_party_crew_race (crew_id, race_id)
+	constraint uk_party_join_token unique (join_token)
 ) engine=InnoDB;
 
 create table if not exists order_party_member (

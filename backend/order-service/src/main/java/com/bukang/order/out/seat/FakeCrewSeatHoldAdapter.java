@@ -17,7 +17,7 @@ import lombok.extern.slf4j.Slf4j;
  * 가짜 어댑터: 상품 API가 생기기 전까지, 종목마다 크루 전용 자리 20석을 메모리에 두고 파티 단위로 한꺼번에 잡는다 (BUK-35)
  * 계약(전부 아니면 실패, 파티 ID 멱등)은 CrewSeatHoldPort 그대로 지킨다. 앱을 다시 켜면 처음으로 돌아간다
  * shortcut: 자리 기한은 "다음 날 06:00"으로 둔다. 상품이 미결제 크루 자리 해제 시각(질문 A)을 답하면 맞춘다
- * order.clients.product.mode=fake(기본값)일 때만 쓴다. http용 어댑터는 상품 API가 생기면 만든다
+ * order.clients.product.mode=fake(기본값)일 때만 쓴다. http면 상품 API가 생기기 전까지 DisabledCrewSeatHoldAdapter가 막는다
  */
 @Slf4j
 @Component

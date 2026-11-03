@@ -49,7 +49,8 @@ public class HttpCrewAdapter implements CrewPort {
 			.retrieve()
 			.body(MEMBERSHIP_TYPE), "crewId=" + crewId + ", memberId=" + memberId);
 		return data.map(body -> {
-			if (body.crewMember() == null) {
+			// 크루원인데 가입 시각이 없으면 "예매 시작 7일 전 가입" 판단을 할 수 없다
+			if (body.crewMember() == null || body.crewMember() && body.joinedAt() == null) {
 				log.error("회원 서비스의 크루원 여부 응답에 값이 없습니다. crewId={}, memberId={}", crewId, memberId);
 				throw new ExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
 			}
