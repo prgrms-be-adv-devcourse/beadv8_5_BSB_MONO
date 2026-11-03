@@ -11,7 +11,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -29,6 +28,7 @@ import com.bukang.cash.domain.exception.ChargeAmountTooSmallException;
 import com.bukang.cash.domain.exception.ChargeInProgressException;
 import com.bukang.cash.domain.exception.ChargeMemberMismatchException;
 import com.bukang.cash.domain.exception.PaymentApprovalFailedException;
+import com.bukang.cash.domain.exception.PgLookupFailedException;
 import com.bukang.cash.domain.exception.WalletNotFoundException;
 import com.bukang.cash.domain.member.CashMember;
 import com.bukang.cash.domain.wallet.LedgerRefType;
@@ -42,6 +42,7 @@ import com.bukang.cash.out.WalletLedgerRepository;
 import com.bukang.cash.out.WalletRepository;
 import com.bukang.cash.out.pg.PaymentApprovalResult;
 import com.bukang.cash.out.pg.PaymentClient;
+import com.bukang.cash.out.pg.PaymentLookupResult;
 
 // FakePaymentClient(mode=fake)는 항상 성공해서 실패·멱등 분기를 확인할 수 없으므로,
 // PaymentClient 빈을 Mockito 목으로 바꿔서 승인 성공/실패를 직접 제어한다
@@ -122,15 +123,16 @@ class CashChargeConfirmUseCaseTest {
 	}
 
 	@Test
-	@DisplayName("PG 승인이 거절되면 예외 대신 실패 행과 200 실패 응답을 남기고, 잔액·장부는 그대로다")
+	@DisplayName("PG 승인이 거절되면 예외 대신 실패 행과 200 실패 응답을 남기고, 거절 문구를 그대로 보여 주며, 잔액·장부는 그대로다")
 	void pgApprovalFailureMarksFailedAndReturnsFailedResponse() {
 		createCustomerWallet(0);
 		given(paymentClient.approve(anyString(), anyString(), anyLong()))
-			.willThrow(new PaymentApprovalFailedException("PG사가 결제 승인을 거절했습니다."));
+			.willThrow(new PaymentApprovalFailedException("카드사에서 승인을 거절했습니다.", "REJECT_CARD_COMPANY", false));
 
 		CashChargeResponseDto response = cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 10_000);
 
 		assertThat(response.outcome()).isEqualTo(CashChargeResponseDto.Outcome.FAILED);
+		assertThat(response.message()).isEqualTo("카드사에서 승인을 거절했습니다.");
 		assertThat(response.balance()).isEqualTo(0);
 		assertBalance(CUSTOMER_ID, 0);
 
@@ -144,9 +146,9 @@ class CashChargeConfirmUseCaseTest {
 	void recoversAsCompletedWhenAlreadyProcessedButActuallyDone() {
 		createCustomerWallet(0);
 		given(paymentClient.approve(anyString(), anyString(), anyLong()))
-			.willThrow(new PaymentApprovalFailedException("이미 처리가 끝난 결제 입니다.", "ALREADY_PROCESSED_PAYMENT"));
-		given(paymentClient.findCompletedByOrderId("order_1"))
-			.willReturn(Optional.of(new PaymentApprovalResult(10_000, "toss_key_1")));
+			.willThrow(alreadyProcessed());
+		given(paymentClient.lookupByOrderId("order_1"))
+			.willReturn(PaymentLookupResult.completed(new PaymentApprovalResult(10_000, "toss_key_1")));
 
 		CashChargeResponseDto response = cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 10_000);
 
@@ -158,12 +160,12 @@ class CashChargeConfirmUseCaseTest {
 	}
 
 	@Test
-	@DisplayName("ALREADY_PROCESSED_PAYMENT로 거절됐는데 재조회해도 승인된 게 아니면 기존처럼 FAILED로 남는다")
-	void staysFailedWhenAlreadyProcessedButRecheckStillNotDone() {
+	@DisplayName("ALREADY_PROCESSED_PAYMENT로 거절됐는데 재조회 결과 승인 안 됨으로 확정되면 FAILED로 남는다")
+	void staysFailedWhenAlreadyProcessedButRecheckSaysNotCompleted() {
 		createCustomerWallet(0);
 		given(paymentClient.approve(anyString(), anyString(), anyLong()))
-			.willThrow(new PaymentApprovalFailedException("이미 처리가 끝난 결제 입니다.", "ALREADY_PROCESSED_PAYMENT"));
-		given(paymentClient.findCompletedByOrderId("order_1")).willReturn(Optional.empty());
+			.willThrow(alreadyProcessed());
+		given(paymentClient.lookupByOrderId("order_1")).willReturn(PaymentLookupResult.notCompleted());
 
 		CashChargeResponseDto response = cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 10_000);
 
@@ -174,16 +176,83 @@ class CashChargeConfirmUseCaseTest {
 	}
 
 	@Test
-	@DisplayName("ALREADY_PROCESSED_PAYMENT가 아닌 다른 거절 코드는 재조회 없이 바로 FAILED로 남는다")
-	void doesNotRecheckForOtherRejectionCodes() {
+	@DisplayName("연결 실패로 승인됐는지 모르면 재조회하고, 바로 다시 조회해도 실패하면 FAILED로 단정하지 않고 UNCERTAIN으로 남긴다")
+	void unknownApprovalThenLookupFailureLeavesUncertain() {
 		createCustomerWallet(0);
 		given(paymentClient.approve(anyString(), anyString(), anyLong()))
-			.willThrow(new PaymentApprovalFailedException("카드 한도를 초과했습니다.", "EXCEED_MAX_DAILY_PAYMENT_COUNT"));
+			.willThrow(new PaymentApprovalFailedException("PG 서버에 연결하지 못했습니다. 잠시 후 다시 시도해주세요."));
+		willThrow(new PgLookupFailedException("조회 실패", new RuntimeException("timeout")))
+			.given(paymentClient).lookupByOrderId("order_1");
+
+		CashChargeResponseDto response = cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 10_000);
+
+		assertThat(response.outcome()).isEqualTo(CashChargeResponseDto.Outcome.UNCERTAIN);
+		assertBalance(CUSTOMER_ID, 0);
+		WalletCharge charge = walletChargeRepository.findByIdempotencyKey("order_1").orElseThrow();
+		assertThat(charge.getStatus()).isEqualTo(ChargeStatus.UNCERTAIN);
+		verify(paymentClient, times(2)).lookupByOrderId("order_1");
+	}
+
+	@Test
+	@DisplayName("ALREADY_PROCESSED_PAYMENT로 거절된 뒤 재조회마저 실패해도 FAILED로 단정하지 않고 UNCERTAIN으로 남긴다")
+	void alreadyProcessedThenLookupFailureLeavesUncertain() {
+		createCustomerWallet(0);
+		given(paymentClient.approve(anyString(), anyString(), anyLong()))
+			.willThrow(alreadyProcessed());
+		willThrow(new PgLookupFailedException("조회 실패", new RuntimeException("timeout")))
+			.given(paymentClient).lookupByOrderId("order_1");
+
+		CashChargeResponseDto response = cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 10_000);
+
+		assertThat(response.outcome()).isEqualTo(CashChargeResponseDto.Outcome.UNCERTAIN);
+		WalletCharge charge = walletChargeRepository.findByIdempotencyKey("order_1").orElseThrow();
+		assertThat(charge.getStatus()).isEqualTo(ChargeStatus.UNCERTAIN);
+	}
+
+	@Test
+	@DisplayName("재조회 결과 PG가 아직 처리 중이면 FAILED로 단정하지 않고, 다시 조회해도 그대로면 UNCERTAIN으로 남긴다")
+	void lookupStillPendingLeavesUncertain() {
+		createCustomerWallet(0);
+		given(paymentClient.approve(anyString(), anyString(), anyLong()))
+			.willThrow(new PaymentApprovalFailedException("PG 서버에 연결하지 못했습니다. 잠시 후 다시 시도해주세요."));
+		given(paymentClient.lookupByOrderId("order_1")).willReturn(PaymentLookupResult.pending());
+
+		CashChargeResponseDto response = cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 10_000);
+
+		assertThat(response.outcome()).isEqualTo(CashChargeResponseDto.Outcome.UNCERTAIN);
+		WalletCharge charge = walletChargeRepository.findByIdempotencyKey("order_1").orElseThrow();
+		assertThat(charge.getStatus()).isEqualTo(ChargeStatus.UNCERTAIN);
+	}
+
+	@Test
+	@DisplayName("ALREADY_PROCESSING_REQUEST(다른 요청이 처리 중)면 재조회하고, 처음엔 처리 중이어도 "
+		+ "바로 다시 조회해서 승인됐으면 COMPLETED로 반영한다")
+	void alreadyProcessingThenPendingThenCompletedOnImmediateRetry() {
+		createCustomerWallet(0);
+		given(paymentClient.approve(anyString(), anyString(), anyLong()))
+			.willThrow(new PaymentApprovalFailedException("이미 처리중인 요청입니다.", "ALREADY_PROCESSING_REQUEST", true));
+		given(paymentClient.lookupByOrderId("order_1")).willReturn(
+			PaymentLookupResult.pending(),
+			PaymentLookupResult.completed(new PaymentApprovalResult(10_000, "toss_key_1")));
+
+		CashChargeResponseDto response = cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 10_000);
+
+		assertThat(response.outcome()).isEqualTo(CashChargeResponseDto.Outcome.COMPLETED);
+		assertBalance(CUSTOMER_ID, 10_000);
+		verify(paymentClient, times(2)).lookupByOrderId("order_1");
+	}
+
+	@Test
+	@DisplayName("승인 결과가 분명한 거절은 재조회 없이 바로 FAILED로 남는다")
+	void doesNotRecheckForDefiniteRejection() {
+		createCustomerWallet(0);
+		given(paymentClient.approve(anyString(), anyString(), anyLong()))
+			.willThrow(new PaymentApprovalFailedException("카드 한도를 초과했습니다.", "EXCEED_MAX_DAILY_PAYMENT_COUNT", false));
 
 		CashChargeResponseDto response = cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 10_000);
 
 		assertThat(response.outcome()).isEqualTo(CashChargeResponseDto.Outcome.FAILED);
-		verify(paymentClient, never()).findCompletedByOrderId(anyString());
+		verify(paymentClient, never()).lookupByOrderId(anyString());
 	}
 
 	@Test
@@ -237,13 +306,14 @@ class CashChargeConfirmUseCaseTest {
 	}
 
 	@Test
-	@DisplayName("타임아웃(연결 실패)으로 FAILED 저장된 뒤 재시도하면 PG를 다시 불러, "
+	@DisplayName("타임아웃 뒤 조회에서 승인 안 됨으로 확인돼 FAILED 저장된 뒤 재시도하면 PG를 다시 불러, "
 		+ "ALREADY_PROCESSED_PAYMENT 거절과 재조회로 COMPLETED까지 복구된다")
 	void retryAfterTimeoutFailure_recoversToCompletedViaAlreadyProcessed() {
 		createCustomerWallet(0);
-		// 1차: 연결 실패(타임아웃) — pgCode 없음, ALREADY_PROCESSED_PAYMENT를 받을 기회 자체가 없었다
+		// 1차: 연결 실패(타임아웃) — 조회해 보니 Toss에 승인된 결제가 없어 FAILED로 남는다
 		given(paymentClient.approve("pay_1", "order_1", 10_000))
 			.willThrow(new PaymentApprovalFailedException("PG 서버에 연결하지 못했습니다. 잠시 후 다시 시도해주세요."));
+		given(paymentClient.lookupByOrderId("order_1")).willReturn(PaymentLookupResult.notCompleted());
 
 		CashChargeResponseDto first = cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 10_000);
 		assertThat(first.outcome()).isEqualTo(CashChargeResponseDto.Outcome.FAILED);
@@ -251,10 +321,10 @@ class CashChargeConfirmUseCaseTest {
 		// 2차(재시도): 이번엔 Toss가 "이미 처리된 결제"로 거절한다 — 사실 1차 요청이 실제로는 처리됐던 것
 		// given(mock.method())으로 재스터빙하면 이미 걸려 있는 예외 스텁이 그 자리에서 바로 실행돼
 		// 재스터빙 자체가 실패하므로, willThrow(...).given(...) 순서로 바꾼다
-		willThrow(new PaymentApprovalFailedException("이미 처리가 끝난 결제 입니다.", "ALREADY_PROCESSED_PAYMENT"))
+		willThrow(alreadyProcessed())
 			.given(paymentClient).approve("pay_1", "order_1", 10_000);
-		given(paymentClient.findCompletedByOrderId("order_1"))
-			.willReturn(Optional.of(new PaymentApprovalResult(10_000, "toss_key_1")));
+		given(paymentClient.lookupByOrderId("order_1"))
+			.willReturn(PaymentLookupResult.completed(new PaymentApprovalResult(10_000, "toss_key_1")));
 
 		CashChargeResponseDto second = cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 10_000);
 
@@ -292,6 +362,10 @@ class CashChargeConfirmUseCaseTest {
 	void walletNotFound() {
 		assertThatThrownBy(() -> cashFacade.confirmWalletCharge(999, "pay_1", "order_1", 10_000))
 			.isInstanceOf(WalletNotFoundException.class);
+	}
+
+	private PaymentApprovalFailedException alreadyProcessed() {
+		return new PaymentApprovalFailedException("이미 처리된 결제 입니다.", "ALREADY_PROCESSED_PAYMENT", true);
 	}
 
 	private Wallet createCustomerWallet(long initialBalance) {

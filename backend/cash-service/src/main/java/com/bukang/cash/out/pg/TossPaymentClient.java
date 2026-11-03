@@ -1,37 +1,51 @@
 package com.bukang.cash.out.pg;
 
-import java.util.Optional;
+import java.util.Set;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 import com.bukang.cash.domain.exception.PaymentApprovalFailedException;
+import com.bukang.cash.domain.exception.PgLookupFailedException;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Toss페이먼츠 결제 승인·조회 API를 부른다 (POST /v1/payments/confirm, GET /v1/payments/orders/{orderId}, PRO-81, PRO-200)
+ * Toss페이먼츠 결제 승인·조회 API를 부른다 (POST /v1/payments/confirm, GET /v1/payments/orders/{orderId}
  * 시크릿 키를 Basic 인증으로 보낸다. 등록은 PaymentClientConfig가 한다 (cash.clients.pg.mode=http)
+ * 승인과 조회는 응답 시간 제한이 달라 RestClient를 따로 받는다
  */
 @Slf4j
 @RequiredArgsConstructor
 public class TossPaymentClient implements PaymentClient {
 	static final String CONFIRM_PATH = "/v1/payments/confirm";
 	static final String ORDER_LOOKUP_PATH = "/v1/payments/orders/{orderId}";
+	static final String GENERIC_REJECTION_MESSAGE = "결제를 승인하지 못했습니다. 잠시 후 다시 시도해주세요.";
 	private static final String STATUS_DONE = "DONE";
+	// 승인 안 됨으로 확정된 상태. 부분 취소(PARTIAL_CANCELED)는 돈 일부가 빠진 채라 여기 넣지 않고, 확인 중으로 남겨 사람이 보게 한다
+	private static final Set<String> NOT_COMPLETED_STATUSES = Set.of("ABORTED", "EXPIRED", "CANCELED");
+	// 거절 응답이지만 승인됐는지 알 수 없는 코드: 이미 처리됨, 다른 요청이 처리 중
+	private static final Set<String> RESULT_UNKNOWN_CODES =
+		Set.of("ALREADY_PROCESSED_PAYMENT", "ALREADY_PROCESSING_REQUEST");
+	// 우리 쪽 키·연동 설정 문제라 사용자가 고칠 수 없고, Toss 문구를 보여 주면 내부 정보만 드러나는 코드
+	private static final Set<String> HIDDEN_MESSAGE_CODES = Set.of(
+		"UNAUTHORIZED_KEY", "INVALID_API_KEY", "INCORRECT_BASIC_AUTH_FORMAT", "INVALID_REQUEST", "FORBIDDEN_REQUEST",
+		"NOT_FOUND_TERMINAL_ID", "INVALID_UNREGISTERED_SUBMALL", "NOT_REGISTERED_BUSINESS");
 
-	private final RestClient restClient;
+	private final RestClient confirmRestClient;
+	private final RestClient lookupRestClient;
 	private final String secretKey;
 
 	@Override
 	public PaymentApprovalResult approve(String paymentKey, String orderId, long amount) {
 		PaymentResponse response;
 		try {
-			response = restClient.post()
+			response = confirmRestClient.post()
 				.uri(CONFIRM_PATH)
 				.contentType(MediaType.APPLICATION_JSON)
 				.accept(MediaType.APPLICATION_JSON)
@@ -41,10 +55,15 @@ public class TossPaymentClient implements PaymentClient {
 				.body(PaymentResponse.class);
 		} catch (RestClientResponseException exception) {
 			// Toss는 거절 시 {code, message} 형태로 응답한다
-			String pgCode = readErrorCode(exception);
+			ErrorResponse error = readError(exception);
+			String pgCode = error == null ? null : error.code();
 			log.error("Toss 결제 승인이 거절됐습니다. paymentKey={}, orderId={}, status={}, code={}, body={}",
 				paymentKey, orderId, exception.getStatusCode(), pgCode, exception.getResponseBodyAsString());
-			throw new PaymentApprovalFailedException("PG사가 결제 승인을 거절했습니다.", pgCode);
+			// 5xx는 Toss 내부 오류라, 코드를 못 읽은 응답은 무슨 뜻인지 몰라 승인 여부를 단정할 수 없다
+			boolean resultUnknown = exception.getStatusCode().is5xxServerError()
+				|| pgCode == null
+				|| RESULT_UNKNOWN_CODES.contains(pgCode);
+			throw new PaymentApprovalFailedException(userMessage(error), pgCode, resultUnknown);
 		} catch (RestClientException exception) {
 			log.error("Toss 결제 승인 서버에 연결하지 못했습니다. paymentKey={}, orderId={}", paymentKey, orderId, exception);
 			throw new PaymentApprovalFailedException("PG 서버에 연결하지 못했습니다. 잠시 후 다시 시도해주세요.");
@@ -57,30 +76,52 @@ public class TossPaymentClient implements PaymentClient {
 	}
 
 	@Override
-	public Optional<PaymentApprovalResult> findCompletedByOrderId(String orderId) {
+	public PaymentLookupResult lookupByOrderId(String orderId) {
 		PaymentResponse response;
 		try {
-			response = restClient.get()
+			response = lookupRestClient.get()
 				.uri(ORDER_LOOKUP_PATH, orderId)
 				.accept(MediaType.APPLICATION_JSON)
 				.headers(headers -> headers.setBasicAuth(secretKey, ""))
 				.retrieve()
 				.body(PaymentResponse.class);
+		} catch (RestClientResponseException exception) {
+			if (exception.getStatusCode().isSameCodeAs(HttpStatus.NOT_FOUND)) {
+				// Toss가 이 주문번호의 결제를 모른다 — 승인된 적이 없다
+				return PaymentLookupResult.notCompleted();
+			}
+			log.error("Toss 결제 조회가 거절됐습니다. orderId={}, status={}, body={}",
+				orderId, exception.getStatusCode(), exception.getResponseBodyAsString());
+			throw new PgLookupFailedException("Toss 결제 조회가 거절됐습니다. orderId=" + orderId, exception);
 		} catch (RestClientException exception) {
-			// 조회 자체가 실패하면 승인 여부를 확인할 수 없다는 뜻이므로, 안전하게 "아직 안 끝남"으로 본다
+			// 조회 자체가 실패하면 승인 여부를 확인할 수 없다 — "아직 안 끝남"으로 단정하지 않고 알린다
 			log.error("Toss 결제 조회에 실패했습니다. orderId={}", orderId, exception);
-			return Optional.empty();
+			throw new PgLookupFailedException("Toss 결제 조회에 실패했습니다. orderId=" + orderId, exception);
 		}
-		if (response == null || !STATUS_DONE.equals(response.status())) {
-			return Optional.empty();
+		if (response == null) {
+			throw new PgLookupFailedException("Toss 결제 조회 응답이 비어 있습니다. orderId=" + orderId, null);
 		}
-		return Optional.of(new PaymentApprovalResult(response.totalAmount(), response.paymentKey()));
+		if (STATUS_DONE.equals(response.status())) {
+			return PaymentLookupResult.completed(
+				new PaymentApprovalResult(response.totalAmount(), response.paymentKey()));
+		}
+		if (response.status() != null && NOT_COMPLETED_STATUSES.contains(response.status())) {
+			return PaymentLookupResult.notCompleted();
+		}
+		return PaymentLookupResult.pending();
 	}
 
-	private String readErrorCode(RestClientResponseException exception) {
+	private String userMessage(ErrorResponse error) {
+		if (error == null || error.message() == null || error.message().isBlank()
+			|| HIDDEN_MESSAGE_CODES.contains(error.code())) {
+			return GENERIC_REJECTION_MESSAGE;
+		}
+		return error.message();
+	}
+
+	private ErrorResponse readError(RestClientResponseException exception) {
 		try {
-			ErrorResponse error = exception.getResponseBodyAs(ErrorResponse.class);
-			return error == null ? null : error.code();
+			return exception.getResponseBodyAs(ErrorResponse.class);
 		} catch (RuntimeException parseException) {
 			log.warn("Toss 오류 응답 본문을 파싱하지 못했습니다. body={}", exception.getResponseBodyAsString());
 			return null;

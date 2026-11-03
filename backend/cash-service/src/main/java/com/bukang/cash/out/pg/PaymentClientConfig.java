@@ -21,8 +21,15 @@ public class PaymentClientConfig {
 	public TossPaymentClient tossPaymentClient(
 		@Value("${cash.clients.pg.base-url}") String baseUrl,
 		@Value("${cash.clients.pg.secret-key}") String secretKey,
-		@Value("${cash.clients.pg.timeout}") Duration timeout
+		@Value("${cash.clients.pg.confirm-timeout}") Duration confirmTimeout,
+		@Value("${cash.clients.pg.lookup-timeout}") Duration lookupTimeout
 	) {
+		return new TossPaymentClient(
+			restClient(baseUrl, confirmTimeout), restClient(baseUrl, lookupTimeout), secretKey);
+	}
+
+	// 연결과 응답에 각각 timeout을 걸어, 한 번 부를 때 최악 timeout x 2만큼 걸린다
+	private RestClient restClient(String baseUrl, Duration timeout) {
 		HttpClient httpClient = HttpClient.newBuilder()
 			.version(HttpClient.Version.HTTP_1_1)
 			.connectTimeout(timeout)
@@ -30,10 +37,9 @@ public class PaymentClientConfig {
 		JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
 		requestFactory.setReadTimeout(timeout);
 
-		RestClient restClient = RestClient.builder()
+		return RestClient.builder()
 			.baseUrl(baseUrl)
 			.requestFactory(requestFactory)
 			.build();
-		return new TossPaymentClient(restClient, secretKey);
 	}
 }
