@@ -35,4 +35,9 @@ public interface CrewMemberRepository extends JpaRepository<CrewMember, Long> {
 	@Modifying(flushAutomatically = true)
 	@Query("delete from CrewMember m where m.memberId = :memberId")
 	int deleteAllByMemberId(@Param("memberId") long memberId);
+
+	// 크루 없애기: 그 크루의 모든 크루원 행을 지운다
+	@Modifying(flushAutomatically = true, clearAutomatically = true)
+	@Query("delete from CrewMember m where m.crewId = :crewId")
+	int deleteAllByCrewId(@Param("crewId") long crewId);
 }
