@@ -1,7 +1,5 @@
 package com.bukang.cash.out.pg;
 
-import java.util.Set;
-
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.RestClient;
@@ -9,7 +7,7 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 import com.bukang.cash.domain.exception.PaymentApprovalFailedException;
-import com.bukang.cash.domain.exception.PgLookupFailedException;
+import com.bukang.cash.domain.exception.PaymentLookupFailedException;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import lombok.RequiredArgsConstructor;
@@ -26,16 +24,6 @@ public class TossPaymentClient implements PaymentClient {
 	static final String CONFIRM_PATH = "/v1/payments/confirm";
 	static final String ORDER_LOOKUP_PATH = "/v1/payments/orders/{orderId}";
 	static final String GENERIC_REJECTION_MESSAGE = "결제를 승인하지 못했습니다. 잠시 후 다시 시도해주세요.";
-	private static final String STATUS_DONE = "DONE";
-	// 승인 안 됨으로 확정된 상태. 부분 취소(PARTIAL_CANCELED)는 돈 일부가 빠진 채라 여기 넣지 않고, 확인 중으로 남겨 사람이 보게 한다
-	private static final Set<String> NOT_COMPLETED_STATUSES = Set.of("ABORTED", "EXPIRED", "CANCELED");
-	// 거절 응답이지만 승인됐는지 알 수 없는 코드: 이미 처리됨, 다른 요청이 처리 중
-	private static final Set<String> RESULT_UNKNOWN_CODES =
-		Set.of("ALREADY_PROCESSED_PAYMENT", "ALREADY_PROCESSING_REQUEST");
-	// 우리 쪽 키·연동 설정 문제라 사용자가 고칠 수 없고, Toss 문구를 보여 주면 내부 정보만 드러나는 코드
-	private static final Set<String> HIDDEN_MESSAGE_CODES = Set.of(
-		"UNAUTHORIZED_KEY", "INVALID_API_KEY", "INCORRECT_BASIC_AUTH_FORMAT", "INVALID_REQUEST", "FORBIDDEN_REQUEST",
-		"NOT_FOUND_TERMINAL_ID", "INVALID_UNREGISTERED_SUBMALL", "NOT_REGISTERED_BUSINESS");
 
 	private final RestClient confirmRestClient;
 	private final RestClient lookupRestClient;
@@ -62,7 +50,7 @@ public class TossPaymentClient implements PaymentClient {
 			// 5xx는 Toss 내부 오류라, 코드를 못 읽은 응답은 무슨 뜻인지 몰라 승인 여부를 단정할 수 없다
 			boolean resultUnknown = exception.getStatusCode().is5xxServerError()
 				|| pgCode == null
-				|| RESULT_UNKNOWN_CODES.contains(pgCode);
+				|| TossErrorCode.from(pgCode).isResultUnknown();
 			throw new PaymentApprovalFailedException(userMessage(error), pgCode, resultUnknown);
 		} catch (RestClientException exception) {
 			log.error("Toss 결제 승인 서버에 연결하지 못했습니다. paymentKey={}, orderId={}", paymentKey, orderId, exception);
@@ -92,28 +80,26 @@ public class TossPaymentClient implements PaymentClient {
 			}
 			log.error("Toss 결제 조회가 거절됐습니다. orderId={}, status={}, body={}",
 				orderId, exception.getStatusCode(), exception.getResponseBodyAsString());
-			throw new PgLookupFailedException("Toss 결제 조회가 거절됐습니다. orderId=" + orderId, exception);
+			throw new PaymentLookupFailedException("Toss 결제 조회가 거절됐습니다. orderId=" + orderId, exception);
 		} catch (RestClientException exception) {
 			// 조회 자체가 실패하면 승인 여부를 확인할 수 없다 — "아직 안 끝남"으로 단정하지 않고 알린다
 			log.error("Toss 결제 조회에 실패했습니다. orderId={}", orderId, exception);
-			throw new PgLookupFailedException("Toss 결제 조회에 실패했습니다. orderId=" + orderId, exception);
+			throw new PaymentLookupFailedException("Toss 결제 조회에 실패했습니다. orderId=" + orderId, exception);
 		}
 		if (response == null) {
-			throw new PgLookupFailedException("Toss 결제 조회 응답이 비어 있습니다. orderId=" + orderId, null);
+			throw new PaymentLookupFailedException("Toss 결제 조회 응답이 비어 있습니다. orderId=" + orderId, null);
 		}
-		if (STATUS_DONE.equals(response.status())) {
-			return PaymentLookupResult.completed(
+		return switch (TossPaymentStatus.from(response.status()).getLookupStatus()) {
+			case COMPLETED -> PaymentLookupResult.completed(
 				new PaymentApprovalResult(response.totalAmount(), response.paymentKey()));
-		}
-		if (response.status() != null && NOT_COMPLETED_STATUSES.contains(response.status())) {
-			return PaymentLookupResult.notCompleted();
-		}
-		return PaymentLookupResult.pending();
+			case NOT_COMPLETED -> PaymentLookupResult.notCompleted();
+			case PENDING -> PaymentLookupResult.pending();
+		};
 	}
 
 	private String userMessage(ErrorResponse error) {
 		if (error == null || error.message() == null || error.message().isBlank()
-			|| HIDDEN_MESSAGE_CODES.contains(error.code())) {
+			|| TossErrorCode.from(error.code()).isMessageHidden()) {
 			return GENERIC_REJECTION_MESSAGE;
 		}
 		return error.message();

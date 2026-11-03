@@ -24,7 +24,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.cash.domain.charge.ChargeStatus;
 import com.bukang.cash.domain.charge.WalletCharge;
-import com.bukang.cash.domain.exception.PgLookupFailedException;
+import com.bukang.cash.domain.exception.PaymentLookupFailedException;
 import com.bukang.cash.domain.member.CashMember;
 import com.bukang.cash.domain.wallet.LedgerRefType;
 import com.bukang.cash.domain.wallet.LedgerType;
@@ -121,7 +121,7 @@ class CashChargeReconcileUseCaseTest {
 	void uncertainChargeStaysUncertainWhenPgLookupFailsAgain() {
 		createCustomerWallet(0);
 		createCharge("order_1", ChargeStatus.UNCERTAIN, null);
-		willThrow(new PgLookupFailedException("조회 실패", new RuntimeException("timeout")))
+		willThrow(new PaymentLookupFailedException("조회 실패", new RuntimeException("timeout")))
 			.given(paymentClient).lookupByOrderId("order_1");
 
 		cashChargeReconcileUseCase.reconcile(LocalDateTime.now());
@@ -138,7 +138,7 @@ class CashChargeReconcileUseCaseTest {
 		for (int i = 1; i <= 5; i++) {
 			createCharge("order_" + i, ChargeStatus.UNCERTAIN, null);
 		}
-		willThrow(new PgLookupFailedException("조회 실패", new RuntimeException("timeout")))
+		willThrow(new PaymentLookupFailedException("조회 실패", new RuntimeException("timeout")))
 			.given(paymentClient).lookupByOrderId(anyString());
 
 		cashChargeReconcileUseCase.reconcile(LocalDateTime.now());

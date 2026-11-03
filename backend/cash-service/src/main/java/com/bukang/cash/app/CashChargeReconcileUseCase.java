@@ -11,7 +11,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import com.bukang.cash.config.ChargeReconcileProperties;
 import com.bukang.cash.domain.charge.ChargeStatus;
 import com.bukang.cash.domain.charge.WalletCharge;
-import com.bukang.cash.domain.exception.PgLookupFailedException;
+import com.bukang.cash.domain.exception.PaymentLookupFailedException;
 import com.bukang.cash.domain.wallet.LedgerType;
 import com.bukang.cash.domain.wallet.Wallet;
 import com.bukang.cash.out.WalletChargeRepository;
@@ -47,7 +47,9 @@ public class CashChargeReconcileUseCase {
 	public void reconcile(LocalDateTime now) {
 		LocalDateTime staleBefore = now.minusMinutes(chargeReconcileProperties.staleInProgressMinutes());
 		LocalDateTime alertBefore = now.minusMinutes(chargeReconcileProperties.alertAfterMinutes());
+
 		List<ChargeTarget> targets = transactionTemplate.execute(status -> collectTargets(staleBefore));
+
 		int consecutiveLookupFailures = 0;
 		for (int i = 0; i < targets.size(); i++) {
 			boolean pgAnswered = reconcileOne(targets.get(i), alertBefore);
@@ -64,6 +66,7 @@ public class CashChargeReconcileUseCase {
 	private List<ChargeTarget> collectTargets(LocalDateTime staleBefore) {
 		List<WalletCharge> charges = new ArrayList<>(walletChargeRepository.findByStatus(ChargeStatus.UNCERTAIN));
 		charges.addAll(walletChargeRepository.findByStatusAndModifyDateBefore(ChargeStatus.IN_PROGRESS, staleBefore));
+
 		return charges.stream()
 			.sorted(Comparator.comparing(WalletCharge::getModifyDate))
 			.map(charge -> new ChargeTarget(
@@ -76,7 +79,7 @@ public class CashChargeReconcileUseCase {
 		PaymentLookupResult lookup;
 		try {
 			lookup = paymentClient.lookupByOrderId(target.orderId());
-		} catch (PgLookupFailedException lookupFailure) {
+		} catch (PaymentLookupFailedException lookupFailure) {
 			logUnresolved(target, alertBefore, "PG 재조회에 실패했습니다");
 			return false;
 		}

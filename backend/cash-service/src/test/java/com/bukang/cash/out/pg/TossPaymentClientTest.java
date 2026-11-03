@@ -29,7 +29,7 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
 import com.bukang.cash.domain.exception.PaymentApprovalFailedException;
-import com.bukang.cash.domain.exception.PgLookupFailedException;
+import com.bukang.cash.domain.exception.PaymentLookupFailedException;
 
 class TossPaymentClientTest {
 	private static final String BASE_URL = "http://toss";
@@ -219,6 +219,15 @@ class TossPaymentClientTest {
 	}
 
 	@Test
+	@DisplayName("조회 결과가 우리가 모르는 상태값이면(Toss가 새로 추가한 값 등) 실패로 단정하지 않고 아직 정해지지 않았다고 돌려준다")
+	void lookupReturnsPendingWhenStatusIsUnknown() {
+		server.expect(requestTo(LOOKUP_URL))
+			.andRespond(withSuccess(paymentResponse("pay_123", 10_000, "SOMETHING_NEW"), MediaType.APPLICATION_JSON));
+
+		assertThat(client.lookupByOrderId("order_1").status()).isEqualTo(PaymentLookupResult.Status.PENDING);
+	}
+
+	@Test
 	@DisplayName("Toss가 이 주문번호의 결제를 모르면(404) 승인 안 됨으로 확정한다")
 	void lookupReturnsNotCompletedWhenPaymentNotFound() {
 		server.expect(requestTo(LOOKUP_URL))
@@ -230,12 +239,12 @@ class TossPaymentClientTest {
 	}
 
 	@Test
-	@DisplayName("조회 자체가 실패하면(타임아웃 등) 승인 여부를 확인할 수 없다는 뜻이라 PgLookupFailedException으로 알린다")
+	@DisplayName("조회 자체가 실패하면(타임아웃 등) 승인 여부를 확인할 수 없다는 뜻이라 PaymentLookupFailedException으로 알린다")
 	void lookupThrowsWhenLookupFails() {
 		server.expect(requestTo(LOOKUP_URL)).andRespond(withException(new SocketTimeoutException("read timed out")));
 
 		assertThatThrownBy(() -> client.lookupByOrderId("order_1"))
-			.isInstanceOf(PgLookupFailedException.class);
+			.isInstanceOf(PaymentLookupFailedException.class);
 	}
 
 	private PaymentApprovalFailedException approveFailure() {

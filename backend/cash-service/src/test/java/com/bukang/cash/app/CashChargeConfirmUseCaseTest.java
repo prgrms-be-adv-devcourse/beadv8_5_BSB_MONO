@@ -28,7 +28,7 @@ import com.bukang.cash.domain.exception.ChargeAmountTooSmallException;
 import com.bukang.cash.domain.exception.ChargeInProgressException;
 import com.bukang.cash.domain.exception.ChargeMemberMismatchException;
 import com.bukang.cash.domain.exception.PaymentApprovalFailedException;
-import com.bukang.cash.domain.exception.PgLookupFailedException;
+import com.bukang.cash.domain.exception.PaymentLookupFailedException;
 import com.bukang.cash.domain.exception.WalletNotFoundException;
 import com.bukang.cash.domain.member.CashMember;
 import com.bukang.cash.domain.wallet.LedgerRefType;
@@ -181,7 +181,7 @@ class CashChargeConfirmUseCaseTest {
 		createCustomerWallet(0);
 		given(paymentClient.approve(anyString(), anyString(), anyLong()))
 			.willThrow(new PaymentApprovalFailedException("PG 서버에 연결하지 못했습니다. 잠시 후 다시 시도해주세요."));
-		willThrow(new PgLookupFailedException("조회 실패", new RuntimeException("timeout")))
+		willThrow(new PaymentLookupFailedException("조회 실패", new RuntimeException("timeout")))
 			.given(paymentClient).lookupByOrderId("order_1");
 
 		CashChargeResponseDto response = cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 10_000);
@@ -199,7 +199,7 @@ class CashChargeConfirmUseCaseTest {
 		createCustomerWallet(0);
 		given(paymentClient.approve(anyString(), anyString(), anyLong()))
 			.willThrow(alreadyProcessed());
-		willThrow(new PgLookupFailedException("조회 실패", new RuntimeException("timeout")))
+		willThrow(new PaymentLookupFailedException("조회 실패", new RuntimeException("timeout")))
 			.given(paymentClient).lookupByOrderId("order_1");
 
 		CashChargeResponseDto response = cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 10_000);

@@ -6,7 +6,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import com.bukang.cash.config.ChargeProperties;
+import com.bukang.cash.config.ChargeConfirmProperties;
 import com.bukang.cash.domain.charge.CashChargePolicy;
 import com.bukang.cash.domain.charge.ChargeStatus;
 import com.bukang.cash.domain.charge.WalletCharge;
@@ -14,7 +14,7 @@ import com.bukang.cash.domain.exception.ChargeAmountTooSmallException;
 import com.bukang.cash.domain.exception.ChargeInProgressException;
 import com.bukang.cash.domain.exception.ChargeMemberMismatchException;
 import com.bukang.cash.domain.exception.PaymentApprovalFailedException;
-import com.bukang.cash.domain.exception.PgLookupFailedException;
+import com.bukang.cash.domain.exception.PaymentLookupFailedException;
 import com.bukang.cash.domain.wallet.LedgerType;
 import com.bukang.cash.domain.wallet.Wallet;
 import com.bukang.cash.dto.CashChargeResponseDto;
@@ -31,7 +31,7 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 @RequiredArgsConstructor
 public class CashChargeConfirmUseCase {
-	private final ChargeProperties chargeProperties;
+	private final ChargeConfirmProperties chargeConfirmProperties;
 	private final CashSupport cashSupport;
 	private final WalletChargeRepository walletChargeRepository;
 	private final WalletLedgerRepository walletLedgerRepository;
@@ -93,8 +93,8 @@ public class CashChargeConfirmUseCase {
 
 	// IN_PROGRESS일때 Toss호출하지 않고 기다림
 	private CashChargeResponseDto waitForResolution(long customerId, String orderId) {
-		for (int attempt = 0; attempt < chargeProperties.maxWaitAttempts(); attempt++) {
-			sleep(chargeProperties.waitIntervalMillis());
+		for (int attempt = 0; attempt < chargeConfirmProperties.maxWaitAttempts(); attempt++) {
+			sleep(chargeConfirmProperties.waitIntervalMillis());
 			CashChargeResponseDto resolved = transactionTemplate.execute(
 				status -> findResolvedLocked(customerId, orderId));
 			if (resolved != null) {
@@ -130,14 +130,14 @@ public class CashChargeConfirmUseCase {
 
 	// 처리 중이거나 조회가 실패하면 정해진 간격만큼 기다렸다가 다시 조회한다. 끝까지 모르면 PENDING을 돌려준다
 	private PaymentLookupResult lookupWithRetry(String orderId) {
-		List<Long> retryDelays = chargeProperties.lookupRetryDelaysMillis();
+		List<Long> retryDelays = chargeConfirmProperties.lookupRetryDelaysMillis();
 		for (int attempt = 0; ; attempt++) {
 			try {
 				PaymentLookupResult lookup = paymentClient.lookupByOrderId(orderId);
 				if (lookup.status() != PaymentLookupResult.Status.PENDING) {
 					return lookup;
 				}
-			} catch (PgLookupFailedException lookupFailure) {
+			} catch (PaymentLookupFailedException lookupFailure) {
 				log.warn("충전 확정: PG 결제 조회에 실패했습니다. attempt={}, orderId={}", attempt + 1, orderId);
 			}
 			if (attempt >= retryDelays.size()) {
