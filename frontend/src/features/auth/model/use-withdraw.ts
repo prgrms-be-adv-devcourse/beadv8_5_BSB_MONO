@@ -1,19 +1,23 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
-import { ApiError, clearAccessToken, memberApi } from '@/shared/api'
+import { ApiError, memberApi } from '@/shared/api'
+
+import { reloadTo } from '../lib/login-redirect'
+import { clearOnPageHide } from './use-logout'
 
 /**
- * 회원 탈퇴 (DELETE /api/v1/member/members/me).
- * 성공하면 이 브라우저를 로그아웃 상태로 바꾼다: 메모리의 Access Token을 지우고, 앞 사람의 서버 데이터 캐시도 비운다.
- * Refresh Token은 서버가 이미 지워 두었다. 화면 이동은 부르는 쪽이 정한다.
+ * 회원 탈퇴 (DELETE /api/v1/member/members/me). Refresh Token은 서버가 지운다.
+ * 성공하면 문서를 새로 불러 탈퇴 완료 화면으로 간다. 새로 불러오면 메모리의 토큰과 앞 사람의 캐시가 사라지고,
+ * 재발급이 실패해 로그아웃 상태가 된다. 여기서 토큰을 먼저 비우면 로그인 확인 장치가 탈퇴 화면을 내리고
+ * 로그인 화면으로 보내, 완료 화면으로 가지 못한다.
  */
 export function useWithdraw() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: () => memberApi.withdrawMe(),
     onSuccess: () => {
-      clearAccessToken()
-      queryClient.removeQueries()
+      clearOnPageHide(queryClient)
+      reloadTo('/me/withdraw/done')
     },
   })
 }

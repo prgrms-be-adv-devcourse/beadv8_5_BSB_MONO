@@ -41,6 +41,10 @@
     {
       "name": "CrewManage",
       "description": "크루 탈퇴, 크루원 내보내기, 크루장 넘기기, 크루 없애기 API (2그룹)"
+    },
+    {
+      "name": "PasswordReset",
+      "description": "비밀번호 재설정 메일 요청, 재설정 링크 확인, 새 비밀번호 저장 API"
     }
   ],
   "paths": {
@@ -3782,6 +3786,223 @@
           }
         }
       }
+    },
+    "/api/v1/auth/password-reset/verify": {
+      "post": {
+        "tags": [
+          "PasswordReset"
+        ],
+        "summary": "재설정 링크 확인",
+        "description": "새 비밀번호 화면을 열 때 링크가 아직 쓸 수 있는지 확인한다. 링크를 쓴 것으로 치지 않는다.",
+        "operationId": "verifyPasswordReset",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordResetTokenDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "쓸 수 있는 링크",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "쓸 수 있는 재설정 링크입니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "링크가 없거나 30분이 지났거나 이미 썼거나 더 새 링크가 나옴, 요청 본문 형식 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "쓸 수 없는 링크": {
+                    "description": "쓸 수 없는 링크",
+                    "value": {
+                      "status": 400,
+                      "code": "AUTH_RESET_TOKEN_INVALID",
+                      "message": "재설정 링크가 만료됐거나 이미 사용됐습니다. 다시 요청해주세요.",
+                      "data": null
+                    }
+                  },
+                  "요청 본문 형식 오류": {
+                    "description": "요청 본문 형식 오류",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "요청 본문 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/password-reset/request": {
+      "post": {
+        "tags": [
+          "PasswordReset"
+        ],
+        "summary": "비밀번호 재설정 메일 요청",
+        "description": "가입한 이메일이면 30분 동안 한 번 쓸 수 있는 재설정 링크를 메일로 보낸다. 가입하지 않은 이메일·탈퇴한 회원도 같은 200으로 응답하고 메일은 보내지 않는다. 비밀번호 없는 소셜 가입 회원에게는 링크 대신 소셜 로그인 안내 메일을 보낸다. 메일은 응답 뒤 따로 보내고, 실패하면 최대 3번 다시 보낸다. 같은 이메일은 1분에 1번, 하루 5번까지 받는다.",
+        "operationId": "requestPasswordReset",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordResetRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "요청 받음 (가입 여부와 상관없이 같은 응답)",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "가입된 이메일이면 재설정 메일을 보냈습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "입력값 검증 실패 또는 요청 본문 형식 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "입력값 검증 실패": {
+                    "description": "입력값 검증 실패",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "이메일 형식에 맞게 작성해주세요.",
+                      "data": null
+                    }
+                  },
+                  "요청 본문 형식 오류": {
+                    "description": "요청 본문 형식 오류",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "요청 본문 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "같은 이메일로 1분 안에 다시 요청했거나 하루 5번을 넘김",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 429,
+                  "code": "AUTH_RESET_TOO_MANY",
+                  "message": "재설정 메일을 너무 자주 요청했습니다. 잠시 뒤 다시 요청해주세요.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/password-reset/confirm": {
+      "post": {
+        "tags": [
+          "PasswordReset"
+        ],
+        "summary": "새 비밀번호 저장",
+        "description": "재설정 링크로 새 비밀번호를 저장하고 링크를 지운다. 저장한 뒤 모든 기기의 로그인(Refresh Token)을 풀고 변경 알림 메일을 보낸다. 이미 받은 Access Token은 만료(최대 30분)까지 쓸 수 있다.",
+        "operationId": "confirmPasswordReset",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordResetConfirmDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "비밀번호 변경 성공",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "비밀번호를 바꿨습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "입력값 검증 실패, 요청 본문 형식 오류 또는 쓸 수 없는 링크",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "입력값 검증 실패": {
+                    "description": "입력값 검증 실패",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "비밀번호는 10자 이상 작성해야합니다.",
+                      "data": null
+                    }
+                  },
+                  "요청 본문 형식 오류": {
+                    "description": "요청 본문 형식 오류",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "요청 본문 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  },
+                  "쓸 수 없는 링크": {
+                    "description": "쓸 수 없는 링크",
+                    "value": {
+                      "status": 400,
+                      "code": "AUTH_RESET_TOKEN_INVALID",
+                      "message": "재설정 링크가 만료됐거나 이미 사용됐습니다. 다시 요청해주세요.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4162,6 +4383,60 @@
             "$ref": "#/components/schemas/IdentityVerificationStartDto"
           }
         }
+      },
+      "PasswordResetRequestDto": {
+        "type": "object",
+        "description": "비밀번호 재설정 메일 요청",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "가입한 이메일",
+            "example": "runner1@crewrun.com",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "PasswordResetTokenDto": {
+        "type": "object",
+        "description": "비밀번호 재설정 링크 확인 요청",
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "메일 링크 주소의 #token= 뒤 값",
+            "example": "q3Jx2y9bQe0Kk1m3Zp7u8VhR5sTgW4nA6cLdE2fGiHo",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "token"
+        ]
+      },
+      "PasswordResetConfirmDto": {
+        "type": "object",
+        "description": "새 비밀번호 저장 요청",
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "메일 링크 주소의 #token= 뒤 값",
+            "example": "q3Jx2y9bQe0Kk1m3Zp7u8VhR5sTgW4nA6cLdE2fGiHo",
+            "minLength": 1
+          },
+          "password": {
+            "type": "string",
+            "description": "새 비밀번호 (10자 이상, UTF-8 72바이트 이하. 한글은 한 글자가 3바이트)",
+            "example": "newpassword1234",
+            "maxLength": 2147483647,
+            "minLength": 10
+          }
+        },
+        "required": [
+          "password",
+          "token"
+        ]
       }
     }
   }

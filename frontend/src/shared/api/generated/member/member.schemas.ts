@@ -264,6 +264,45 @@ export interface RsDataIdentityVerificationStartDto {
   data?: IdentityVerificationStartDto;
 }
 
+/**
+ * 비밀번호 재설정 메일 요청
+ */
+export interface PasswordResetRequestDto {
+  /**
+     * 가입한 이메일
+     * @minLength 1
+     */
+  email: string;
+}
+
+/**
+ * 비밀번호 재설정 링크 확인 요청
+ */
+export interface PasswordResetTokenDto {
+  /**
+     * 메일 링크 주소의 #token= 뒤 값
+     * @minLength 1
+     */
+  token: string;
+}
+
+/**
+ * 새 비밀번호 저장 요청
+ */
+export interface PasswordResetConfirmDto {
+  /**
+     * 메일 링크 주소의 #token= 뒤 값
+     * @minLength 1
+     */
+  token: string;
+  /**
+     * 새 비밀번호 (10자 이상, UTF-8 72바이트 이하. 한글은 한 글자가 3바이트)
+     * @minLength 10
+     * @maxLength 2147483647
+     */
+  password: string;
+}
+
 export type MemberDtoSocialProvidersItem = typeof MemberDtoSocialProvidersItem[keyof typeof MemberDtoSocialProvidersItem];
 
 

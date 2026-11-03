@@ -13,7 +13,6 @@ import java.security.MessageDigest;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
@@ -43,10 +42,10 @@ import com.bukang.member.app.MemberFacade;
 import com.bukang.member.crew.out.CrewInviteRepository;
 import com.bukang.member.crew.out.CrewMemberRepository;
 import com.bukang.member.crew.out.CrewRepository;
-import com.bukang.member.domain.TermsType;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.TermsAgreementRepository;
 import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
+import com.bukang.member.support.MemberFixture;
 import com.jayway.jsonpath.JsonPath;
 
 // 크루 만들기·조회, 초대 링크 만들기·취소·가입 (BE-027~030). X-Member-Id 헤더는 테스트에서 직접 넣는다
@@ -96,9 +95,9 @@ class ApiV1CrewTest {
 	void setUp() {
 		now = Instant.now();
 		given(clock.instant()).willAnswer(invocation -> now);
-		leaderId = join("leader@crewrun.com", "새벽러너", "010-1000-0001");
-		otherId = join("other@crewrun.com", "주말10K", "010-1000-0002");
-		outsiderId = join("outsider@crewrun.com", "구경꾼", "010-1000-0003");
+		leaderId = memberFacade.join(MemberFixture.joinRequest().nickname("새벽러너").build(identityStore)).getId();
+		otherId = memberFacade.join(MemberFixture.joinRequest().nickname("주말10K").build(identityStore)).getId();
+		outsiderId = memberFacade.join(MemberFixture.joinRequest().build(identityStore)).getId();
 	}
 
 	@AfterEach
@@ -252,7 +251,7 @@ class ApiV1CrewTest {
 	@DisplayName("크루원 순서는 크루장, 운영진, 크루원이고 같은 역할은 먼저 가입한 순서다")
 	void homeOrdersByRoleThenJoinedAt() throws Exception {
 		long crewId = createCrew(leaderId, "새벽한강크루");
-		long fourth = join("fourth@crewrun.com", "넷째러너", "010-1000-0004");
+		long fourth = memberFacade.join(MemberFixture.joinRequest().build(identityStore)).getId();
 		now = now.plusSeconds(10);
 		joinWithNewInvite(crewId, leaderId, otherId);
 		now = now.plusSeconds(10);
@@ -537,12 +536,5 @@ class ApiV1CrewTest {
 	private long onlyInviteId() {
 		Long id = jdbcTemplate.queryForObject("select max(invite_id) from member_crew_invite", Long.class);
 		return id;
-	}
-
-	private long join(String email, String nickname, String phone) {
-		return memberFacade.join(identityStore.joinRequest(
-			email, "password1234", "김러너", nickname, phone, LocalDate.of(1995, 4, 12), null,
-			List.of(TermsType.SERVICE, TermsType.PRIVACY)
-		)).getId();
 	}
 }

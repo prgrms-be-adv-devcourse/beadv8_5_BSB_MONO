@@ -11,7 +11,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -38,6 +37,7 @@ import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.TermsAgreementRepository;
 import com.bukang.member.out.TermsRepository;
 import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
+import com.bukang.member.support.MemberFixture;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -172,7 +172,9 @@ class ApiV1AuthJoinTest {
 	@Test
 	@DisplayName("이미 있는 닉네임으로 가입하면 409다")
 	void joinFailsWithExistingNickname() throws Exception {
-		joinDirectly(EMAIL, NICKNAME, PHONE);
+		memberFacade.join(MemberFixture.joinRequest()
+			.email(EMAIL).nickname(NICKNAME).phone(PHONE)
+			.build(identityStore));
 
 		join("runner2@crewrun.com", NICKNAME, "010-9999-8888")
 			.andExpect(status().isConflict())
@@ -182,7 +184,9 @@ class ApiV1AuthJoinTest {
 	@Test
 	@DisplayName("이미 있는 전화번호로 가입하면 409다")
 	void joinFailsWithExistingPhone() throws Exception {
-		joinDirectly(EMAIL, NICKNAME, PHONE);
+		memberFacade.join(MemberFixture.joinRequest()
+			.email(EMAIL).nickname(NICKNAME).phone(PHONE)
+			.build(identityStore));
 
 		join("runner2@crewrun.com", "러너2", PHONE)
 			.andExpect(status().isConflict())
@@ -192,7 +196,9 @@ class ApiV1AuthJoinTest {
 	@Test
 	@DisplayName("이미 있는 이메일로 가입하면 409다")
 	void joinFailsWithExistingEmail() throws Exception {
-		joinDirectly(EMAIL, NICKNAME, PHONE);
+		memberFacade.join(MemberFixture.joinRequest()
+			.email(EMAIL).nickname(NICKNAME).phone(PHONE)
+			.build(identityStore));
 
 		join(EMAIL, "러너2", "010-9999-8888")
 			.andExpect(status().isConflict())
@@ -202,7 +208,9 @@ class ApiV1AuthJoinTest {
 	@Test
 	@DisplayName("동시 가입으로 중복 검사를 통과해도 DB 닉네임 제약에 걸리면 409다")
 	void joinRaceFailsOnNicknameConstraint() throws Exception {
-		joinDirectly(EMAIL, NICKNAME, PHONE);
+		memberFacade.join(MemberFixture.joinRequest()
+			.email(EMAIL).nickname(NICKNAME).phone(PHONE)
+			.build(identityStore));
 		skipDuplicateChecks();
 
 		join("runner2@crewrun.com", NICKNAME, "010-9999-8888")
@@ -213,7 +221,9 @@ class ApiV1AuthJoinTest {
 	@Test
 	@DisplayName("동시 가입으로 중복 검사를 통과해도 DB 전화번호 제약에 걸리면 409다")
 	void joinRaceFailsOnPhoneConstraint() throws Exception {
-		joinDirectly(EMAIL, NICKNAME, PHONE);
+		memberFacade.join(MemberFixture.joinRequest()
+			.email(EMAIL).nickname(NICKNAME).phone(PHONE)
+			.build(identityStore));
 		skipDuplicateChecks();
 
 		join("runner2@crewrun.com", "러너2", PHONE)
@@ -224,7 +234,9 @@ class ApiV1AuthJoinTest {
 	@Test
 	@DisplayName("동시 가입으로 중복 검사를 통과해도 DB 이메일 제약에 걸리면 409다")
 	void joinRaceFailsOnEmailConstraint() throws Exception {
-		joinDirectly(EMAIL, NICKNAME, PHONE);
+		memberFacade.join(MemberFixture.joinRequest()
+			.email(EMAIL).nickname(NICKNAME).phone(PHONE)
+			.build(identityStore));
 		skipDuplicateChecks();
 
 		join(EMAIL, "러너2", "010-9999-8888")
@@ -378,13 +390,6 @@ class ApiV1AuthJoinTest {
 		willReturn(false).given(memberRepository).existsByEmail(anyString());
 		willReturn(false).given(memberRepository).existsByNickname(anyString());
 		willReturn(false).given(memberRepository).existsByPhoneHash(anyString());
-	}
-
-	private void joinDirectly(String email, String nickname, String phone) {
-		memberFacade.join(identityStore.joinRequest(
-			email, "password1234", "김러너", nickname, phone, LocalDate.of(1995, 4, 12), null,
-			List.of(TermsType.SERVICE, TermsType.PRIVACY)
-		));
 	}
 
 	private ResultActions join(String email, String nickname, String phone) throws Exception {

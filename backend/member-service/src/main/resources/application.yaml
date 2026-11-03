@@ -27,6 +27,26 @@ spring:
       timeout: 2s
       connect-timeout: 2s
 
+  # 비밀번호 재설정 메일 (BUK-40). 크루런 전용 Gmail 계정의 SMTP로 보낸다. 값은 .env에만 둔다
+  # host가 비면 메일을 보내지 않는다. dev·test는 로그에 링크를 찍고, prod는 경고만 남긴다 (MemberMailConfig)
+  # 로컬 가짜 메일 서버(Mailpit)는 MAIL_HOST=localhost, MAIL_PORT=1025, MAIL_SMTP_STARTTLS=false로 보낸다
+  mail:
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    # 비우면 SMTP 인증 없이 보낸다 (MemberMailConfig가 mail.smtp.auth를 끈다)
+    username: ${MAIL_USERNAME:}
+    # Gmail은 Google 계정 비밀번호가 아니라 앱 비밀번호(16자리)
+    password: ${MAIL_PASSWORD:}
+    properties:
+      "[mail.smtp.auth]": true
+      # Gmail(587)은 STARTTLS가 필요하다. 암호화를 지원하지 않는 로컬 메일 서버만 false로 끈다
+      "[mail.smtp.starttls.enable]": ${MAIL_SMTP_STARTTLS:true}
+      "[mail.smtp.starttls.required]": ${MAIL_SMTP_STARTTLS:true}
+      # 기본값은 무한 대기라 SMTP 서버가 응답하지 않으면 발송 스레드가 묶인다
+      "[mail.smtp.connectiontimeout]": 5000
+      "[mail.smtp.timeout]": 3000
+      "[mail.smtp.writetimeout]": 5000
+
 
   # Kafka
   ## JacksonJsonSerializer / JacksonJsonDeserializer 안쓴 이유
@@ -101,6 +121,18 @@ member:
       google:
         client-id: ${OAUTH2_GOOGLE_CLIENT_ID:}
         client-secret: ${OAUTH2_GOOGLE_CLIENT_SECRET:}
+    # 비밀번호 재설정 (PasswordResetProperties, BUK-40). 숫자는 정책 회의 전 초안 값이다
+    password-reset:
+      # 메일 링크 앞부분. 운영은 크루런 공개 주소를 넣는다. 요청 Host 헤더로 만들지 않는다
+      front-base-url: ${FRONT_PUBLIC_BASE_URL:}
+      token-ttl: 30m
+      request-cooldown: 1m
+      daily-limit: 5
+      daily-window: 24h
+      # 같은 IP의 하루 요청 수. 여러 이메일로 Gmail 하루 발송 한도(500통)를 다 쓰지 못하게 한다
+      ip-daily-limit: 20
+      # 발송이 실패하면 이 간격으로 최대 3번 다시 보낸다
+      retry-delays: 2s, 10s, 30s
   # 가입 본인인증 (IdentityVerificationProperties, BUK-33, 포트원 V2 + KG이니시스 통합인증). 키 값은 .env에만 둔다
   identity:
     # 같은 사람(CI 해시)이 두 번째 계정을 못 만들게 한다. 테스트 채널 CI가 모두 같은 값이면 false로 끈다

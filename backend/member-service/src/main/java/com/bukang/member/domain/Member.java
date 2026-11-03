@@ -125,6 +125,11 @@ public class Member extends SourceMember {
 		return getPassword() != null;
 	}
 
+	// 비밀번호 재설정 (BUK-40). 암호화(BCrypt)한 값을 받는다
+	public void changePassword(String encodedPassword) {
+		setPassword(encodedPassword);
+	}
+
 	public boolean hasSocial(SocialProvider provider) {
 		return socialAccounts.stream().anyMatch(account -> account.getProvider() == provider);
 	}
