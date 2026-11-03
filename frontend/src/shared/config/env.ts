@@ -49,6 +49,10 @@ const clientSchema = z.object({
   NEXT_PUBLIC_PORTONE_STORE_ID: optional(z.string()),
   /** 포트원 본인인증 채널 키(KG이니시스 통합인증). 상점 아이디와 같은 상점의 채널이어야 한다. */
   NEXT_PUBLIC_PORTONE_IDENTITY_CHANNEL_KEY: optional(z.string()),
+  /** 구글 Search Console 소유 확인 코드(HTML 태그 방식의 content 값). 비우면 확인 태그를 넣지 않는다. */
+  NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION: optional(z.string()),
+  /** 네이버 서치어드바이저 소유 확인 코드(HTML 태그 방식의 content 값). 비우면 확인 태그를 넣지 않는다. */
+  NEXT_PUBLIC_NAVER_SITE_VERIFICATION: optional(z.string()),
   /** next.config가 API_MOCKING 값을 그대로 넣는다. 브라우저가 가짜 응답 모드인지 알아야 토스 결제창을 건너뛸 수 있다. */
   NEXT_PUBLIC_API_MOCKING: z.enum(['on', 'off']).default('off'),
 })
@@ -73,5 +77,7 @@ export const clientEnv = clientSchema.parse({
   NEXT_PUBLIC_GTM_ID: process.env.NEXT_PUBLIC_GTM_ID,
   NEXT_PUBLIC_PORTONE_STORE_ID: process.env.NEXT_PUBLIC_PORTONE_STORE_ID,
   NEXT_PUBLIC_PORTONE_IDENTITY_CHANNEL_KEY: process.env.NEXT_PUBLIC_PORTONE_IDENTITY_CHANNEL_KEY,
+  NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
+  NEXT_PUBLIC_NAVER_SITE_VERIFICATION: process.env.NEXT_PUBLIC_NAVER_SITE_VERIFICATION,
   NEXT_PUBLIC_API_MOCKING: process.env.NEXT_PUBLIC_API_MOCKING,
 })

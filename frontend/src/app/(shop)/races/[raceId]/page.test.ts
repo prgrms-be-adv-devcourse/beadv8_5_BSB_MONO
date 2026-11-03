@@ -13,11 +13,10 @@ vi.hoisted(() => {
 const { generateMetadata } = await import('./page')
 
 function metadataFor(raceId: string) {
-  return generateMetadata(
-    { params: Promise.resolve({ raceId }), searchParams: Promise.resolve({}) },
-    // 부모 메타데이터는 쓰지 않는다
-    undefined as never,
-  )
+  return generateMetadata({
+    params: Promise.resolve({ raceId }),
+    searchParams: Promise.resolve({}),
+  })
 }
 
 describe('대회 상세 메타데이터', () => {
@@ -31,6 +30,24 @@ describe('대회 상세 메타데이터', () => {
     expect(metadata.description).toContain(race.startsAt)
     expect(metadata.description).toContain('러닝 대회 참가권')
     expect(metadata.openGraph?.title).toBe(race.title)
+    expect(metadata.openGraph).toMatchObject({ siteName: '크루런', locale: 'ko_KR' })
+  })
+
+  it('대표 이미지가 없는 대회는 기본 공유 이미지를 쓴다', async () => {
+    server.use(
+      http.get('*/api/v1/product/races/:raceId', () =>
+        HttpResponse.json({
+          status: 200,
+          message: 'ok',
+          data: { raceId: 1, title: '이미지 없는 대회', courses: [] },
+        }),
+      ),
+    )
+
+    const metadata = await metadataFor('1')
+
+    expect(metadata.openGraph?.images).toBe('/opengraph-image.png')
+    expect(metadata.openGraph).toMatchObject({ siteName: '크루런' })
   })
 
   it('대회를 불러오지 못하면 기본 메타데이터를 쓴다', async () => {
