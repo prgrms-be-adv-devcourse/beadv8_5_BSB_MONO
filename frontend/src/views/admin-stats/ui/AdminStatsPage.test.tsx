@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { server } from '@/shared/testing'
 
@@ -90,6 +90,15 @@ const block = (title: string) => screen.getByRole('region', { name: title })
 const SLOW = { timeout: 4000 }
 
 describe('AdminStatsPage', () => {
+  // 기간 문구는 오늘(서울) 기준이라, 응답 예시(PERIOD)와 맞는 날로 Date만 고정한다
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-11-02T03:00:00Z'))
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   it('지금 접속 중, 일별 추이, 구매·판매자 단계를 보여 준다', async () => {
     mockStats()
     renderPage()
