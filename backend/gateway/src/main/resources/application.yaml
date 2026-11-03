@@ -18,7 +18,7 @@ spring:
       server:
         webflux:
           # 서비스로 넘긴 요청의 시간 제한. 꺼진 서비스나 멈춘 서비스를 기다리느라 게이트웨이 연결이 쌓이지 않게 한다
-          # 연결 시간 초과·연결 거부는 503, 응답 시간 초과는 504로 응답한다 (GatewayErrorHandler)
+          # 연결 시간 초과·연결 거부·서비스 이름을 찾지 못함은 503, 응답 시간 초과는 504로 응답한다 (GatewayErrorHandler)
           httpclient:
             # 서비스와 연결을 맺기까지 기다리는 시간(ms 단위 숫자)
             connect-timeout: 2000
