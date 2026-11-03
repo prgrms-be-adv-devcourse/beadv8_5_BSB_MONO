@@ -3,9 +3,11 @@ package com.bukang.queue.in;
 import org.springframework.kafka.annotation.BackOff;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.annotation.RetryableTopic;
+import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
 
 import com.bukang.common.global.json.JsonConverter;
+import com.bukang.common.shared.kafka.KafkaMessageId;
 import com.bukang.common.shared.kafka.KafkaTopics;
 import com.bukang.common.shared.race.event.RaceChangedEvent;
 import com.bukang.common.shared.race.event.RaceCourseChangedEvent;
@@ -19,11 +21,13 @@ import lombok.RequiredArgsConstructor;
  * 메시지는 JSON 문자열로 받아 JsonConverter로 바꾼다.
  * 처리 중 예외가 나면 재시도 토픽으로 보내 간격을 늘려 가며 다시 시도하고, 그래도 실패하면 <토픽>.queue.dlt로 보낸다.
  * DLT 메시지는 QueueKafkaDltConsumer가 받는다.
+ * 상품이 붙인 message-id 헤더(product-outbox-{행 id})로 인박스가 같은 메시지를 두 번 처리하지 않는다
+ * (재시도·DLT 토픽으로 넘어가도 헤더는 그대로다).
  */
 @Component
 @RequiredArgsConstructor
 public class QueueKafkaConsumer {
-	// application.yaml에 group-id가 없으므로 리스너마다 적는다
+	// application.yaml에 group-id가 없으므로 리스너마다 적는다. 인박스에 남기는 그룹(QueueFacade.KAFKA_GROUP_ID)과 같은 값이다
 	private static final String GROUP_ID = "queue-service";
 	// 토픽 파티션 수. 대회·종목 토픽은 처음 보낼 때 자동으로 만들어져 브로커 기본값(1개)이므로 1로 맞춘다
 	// 재시도·DLT 토픽도 같은 수로 만든다
@@ -60,10 +64,11 @@ public class QueueKafkaConsumer {
 		dltTopicSuffix = DLT_TOPIC_SUFFIX,
 		autoStartDltHandler = AUTO_START_DEFAULT_DLT_HANDLER
 	)
-	public void handleRaceChanged(String payload) {
+	public void handleRaceChanged(String payload,
+		@Header(name = KafkaMessageId.HEADER, required = false) String messageId) {
 		RaceChangedEvent event = jsonConverter.fromJson(payload, RaceChangedEvent.class);
-		queueFacade.syncRace(event.raceId(), event.saleStatus(), event.individualOpenAt(), event.applicationCloseAt(),
-			event.updatedAt());
+		queueFacade.syncRace(messageId, KafkaTopics.RACE_CHANGED, event.raceId(), event.saleStatus(),
+			event.individualOpenAt(), event.applicationCloseAt(), event.updatedAt());
 	}
 
 	@KafkaListener(topics = KafkaTopics.RACE_COURSE_CHANGED, groupId = GROUP_ID, concurrency = CONCURRENCY)
@@ -77,8 +82,10 @@ public class QueueKafkaConsumer {
 		dltTopicSuffix = DLT_TOPIC_SUFFIX,
 		autoStartDltHandler = AUTO_START_DEFAULT_DLT_HANDLER
 	)
-	public void handleRaceCourseChanged(String payload) {
+	public void handleRaceCourseChanged(String payload,
+		@Header(name = KafkaMessageId.HEADER, required = false) String messageId) {
 		RaceCourseChangedEvent event = jsonConverter.fromJson(payload, RaceCourseChangedEvent.class);
-		queueFacade.syncRaceCourse(event.raceCourseId(), event.raceId(), event.updatedAt(), event.deleted());
+		queueFacade.syncRaceCourse(messageId, KafkaTopics.RACE_COURSE_CHANGED, event.raceCourseId(), event.raceId(),
+			event.updatedAt(), event.deleted());
 	}
 }
