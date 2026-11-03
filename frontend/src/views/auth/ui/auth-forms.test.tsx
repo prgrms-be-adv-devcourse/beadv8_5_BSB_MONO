@@ -191,25 +191,148 @@ describe('SignupProfilePage', () => {
 })
 
 describe('PasswordResetPage', () => {
-  it('이메일이 맞으면 다음 화면으로 간다', async () => {
+  it('재설정 API에 이메일을 보내고, 보냈다는 안내를 보여 준다', async () => {
     const user = userEvent.setup()
-    render(<PasswordResetPage />)
+    let sent: unknown
+    server.use(
+      http.post('*/api/v1/auth/password-reset/request', async ({ request }) => {
+        sent = await request.json()
+        return HttpResponse.json({ status: 200, message: 'ok', data: null })
+      }),
+    )
+    render(withQueryClient(<PasswordResetPage />))
 
     const button = screen.getByRole('button', { name: '재설정 링크 보내기' })
     expect(button).toBeDisabled()
 
     await user.type(screen.getByLabelText('이메일'), 'runner@crewrun.kr')
     await user.click(button)
-    expect(push).toHaveBeenCalledWith('/password-reset/new')
+
+    expect(await screen.findByText('메일을 보냈어요')).toBeInTheDocument()
+    expect(sent).toEqual({ email: 'runner@crewrun.kr' })
+    expect(push).not.toHaveBeenCalled()
+  })
+
+  it('1분 안에 다시 요청하면(429) 잠시 뒤 다시 요청하라고 알린다', async () => {
+    const user = userEvent.setup()
+    server.use(
+      http.post('*/api/v1/auth/password-reset/request', () =>
+        HttpResponse.json(
+          { status: 429, code: 'AUTH_RESET_TOO_MANY', message: '너무 자주 요청', data: null },
+          { status: 429 },
+        ),
+      ),
+    )
+    render(withQueryClient(<PasswordResetPage />))
+
+    await user.type(screen.getByLabelText('이메일'), 'runner@crewrun.kr')
+    await user.click(screen.getByRole('button', { name: '재설정 링크 보내기' }))
+
+    expect(await screen.findByText(/잠시 뒤 다시 요청해 주세요/)).toBeInTheDocument()
+    expect(screen.queryByText('메일을 보냈어요')).not.toBeInTheDocument()
+  })
+})
+
+// 메일 링크로 들어온 것처럼 주소에 토큰을 넣고 연다
+function openResetLink(token: string) {
+  window.history.replaceState(null, '', `/password-reset/new#token=${token}`)
+  return render(withQueryClient(<PasswordNewPage />))
+}
+
+describe('PasswordNewPage', () => {
+  it('링크의 토큰을 읽어 주소에서 지우고, 새 비밀번호와 함께 보낸 뒤 로그인 화면으로 간다', async () => {
+    const user = userEvent.setup()
+    let sent: unknown
+    server.use(
+      http.post('*/api/v1/auth/password-reset/confirm', async ({ request }) => {
+        sent = await request.json()
+        return HttpResponse.json({ status: 200, message: 'ok', data: null })
+      }),
+    )
+    openResetLink('link-token')
+
+    await user.type(await screen.findByLabelText('새 비밀번호'), 'newpassword1')
+    await user.type(screen.getByLabelText('새 비밀번호 확인'), 'newpassword1')
+    expect(window.location.hash).toBe('')
+    await user.click(screen.getByRole('button', { name: '비밀번호 바꾸기' }))
+
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/login'))
+    expect(sent).toEqual({ token: 'link-token', password: 'newpassword1' })
+    expect(getAuthStatus()).toBe('anonymous')
+  })
+
+  it('만료됐거나 이미 쓴 링크면 다시 받기 안내를 보여 준다', async () => {
+    openResetLink('expired')
+
+    expect(await screen.findByText('링크를 쓸 수 없어요')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '재설정 링크 다시 받기' })).toHaveAttribute(
+      'href',
+      '/password-reset',
+    )
+    expect(screen.queryByLabelText('새 비밀번호')).not.toBeInTheDocument()
+  })
+
+  it('링크 확인이 서버 오류로 실패하면 만료 안내 대신 다시 시도를 보여 주고, 같은 토큰으로 다시 확인한다', async () => {
+    const user = userEvent.setup()
+    const sent: unknown[] = []
+    let fail = true
+    server.use(
+      http.post('*/api/v1/auth/password-reset/verify', async ({ request }) => {
+        sent.push(await request.json())
+        if (fail) {
+          return HttpResponse.json(
+            { status: 500, code: 'INTERNAL_ERROR', message: '오류', data: null },
+            { status: 500 },
+          )
+        }
+        return HttpResponse.json({ status: 200, message: 'ok', data: null })
+      }),
+    )
+    openResetLink('link-token')
+
+    expect(await screen.findByText('링크를 확인하지 못했어요')).toBeInTheDocument()
+    expect(screen.queryByText('링크를 쓸 수 없어요')).not.toBeInTheDocument()
+    fail = false
+    await user.click(screen.getByRole('button', { name: '다시 시도' }))
+
+    expect(await screen.findByLabelText('새 비밀번호')).toBeInTheDocument()
+    expect(sent).toEqual([{ token: 'link-token' }, { token: 'link-token' }])
+  })
+
+  it('주소에 토큰이 없으면 다시 받기 안내를 보여 준다', async () => {
+    window.history.replaceState(null, '', '/password-reset/new')
+    render(withQueryClient(<PasswordNewPage />))
+
+    expect(await screen.findByText('링크를 쓸 수 없어요')).toBeInTheDocument()
+  })
+
+  it('입력하는 사이 링크가 무효가 되면 바꾸기를 눌렀을 때 다시 받기 안내로 바뀐다', async () => {
+    const user = userEvent.setup()
+    server.use(
+      http.post('*/api/v1/auth/password-reset/confirm', () =>
+        HttpResponse.json(
+          { status: 400, code: 'AUTH_RESET_TOKEN_INVALID', message: '만료', data: null },
+          { status: 400 },
+        ),
+      ),
+    )
+    openResetLink('link-token')
+
+    await user.type(await screen.findByLabelText('새 비밀번호'), 'newpassword1')
+    await user.type(screen.getByLabelText('새 비밀번호 확인'), 'newpassword1')
+    await user.click(screen.getByRole('button', { name: '비밀번호 바꾸기' }))
+
+    expect(await screen.findByText('링크를 쓸 수 없어요')).toBeInTheDocument()
+    expect(replace).not.toHaveBeenCalled()
   })
 })
 
 describe('비밀번호 확인 칸', () => {
   it('확인 칸을 채운 뒤 비밀번호를 고치면 확인 칸 오류가 바로 바뀐다', async () => {
     const user = userEvent.setup()
-    render(<PasswordNewPage />)
+    openResetLink('link-token')
 
-    await user.type(screen.getByLabelText('새 비밀번호'), 'password123')
+    await user.type(await screen.findByLabelText('새 비밀번호'), 'password123')
     await user.type(screen.getByLabelText('새 비밀번호 확인'), 'password123')
     await user.tab()
     expect(screen.queryByText(AUTH_ERRORS.passwordMismatch)).not.toBeInTheDocument()
