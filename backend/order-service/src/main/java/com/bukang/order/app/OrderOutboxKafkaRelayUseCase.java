@@ -14,6 +14,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.bukang.common.shared.kafka.KafkaMessageId;
 import com.bukang.order.domain.OrderOutboxKafkaEvent;
 import com.bukang.order.domain.OutboxStatus;
 import com.bukang.order.out.OrderOutboxKafkaEventRepository;
@@ -51,6 +52,8 @@ public class OrderOutboxKafkaRelayUseCase {
 	static final Duration MAX_RETRY_DELAY = Duration.ofMinutes(1);
 	// 브로커 응답을 기다리는 최대 시간
 	private static final long SEND_TIMEOUT_SECONDS = 5;
+	// 메시지 ID 앞에 붙는 서비스 이름 (예: order-outbox-42). 다른 서비스의 같은 행 번호와 겹치지 않게 한다
+	static final String MESSAGE_ID_SERVICE = "order";
 
 	private final OrderOutboxKafkaEventRepository orderOutboxKafkaEventRepository;
 	private final KafkaTemplate<String, String> kafkaTemplate;
@@ -97,7 +100,10 @@ public class OrderOutboxKafkaRelayUseCase {
 
 	private boolean send(OrderOutboxKafkaEvent event) {
 		try {
-			kafkaTemplate.send(event.getEventType(), event.getMessageKey(), event.getPayload())
+			// 받는 서비스가 같은 메시지를 두 번 처리하지 않게 아웃박스 행 ID로 메시지 ID 헤더를 붙인다 (#285 인박스, 11/03)
+			// 실패해도 같은 행을 다시 보내므로 재시도해도 ID가 같다
+			kafkaTemplate.send(KafkaMessageId.record(event.getEventType(), event.getMessageKey(), event.getPayload(),
+					KafkaMessageId.ofOutbox(MESSAGE_ID_SERVICE, event.getId())))
 				.get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS);
 			return true;
 		} catch (InterruptedException exception) {
