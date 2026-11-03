@@ -265,6 +265,20 @@ class ApiV1CrewManageTest {
 		assertThat(crewMemberRepository.countByCrewId(crewId)).isEqualTo(2);
 	}
 
+	@Test
+	@DisplayName("내보내기와 그 크루원의 회원 탈퇴가 동시에 와도 500이 아니고, 내보내기는 200이나 404이다")
+	void concurrentRemoveAndMemberWithdraw() throws Exception {
+		List<Integer> statuses = atOnce(
+			() -> statusOf(remove(leaderId, crewId, memberId)),
+			() -> mockMvc.perform(delete(ME).header(MemberIdHeader.NAME, memberId))
+				.andReturn().getResponse().getStatus());
+
+		// 회원 탈퇴는 크루 행을 잠그지 않아 같은 크루원 행을 먼저 지울 수 있다
+		assertThat(statuses.get(0)).isIn(200, 404);
+		assertThat(statuses.get(1)).isEqualTo(200);
+		assertThat(crewMemberRepository.existsByCrewIdAndMemberId(crewId, memberId)).isFalse();
+	}
+
 	// ---- 크루장 넘기기 ----
 
 	@Test

@@ -53,7 +53,9 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * 크루 만들기·조회, 초대 링크 만들기·취소·가입 (BE-027~030), 크루 관리 (BE-032)
- * 크루원 구성을 바꾸는 요청은 크루 행을 먼저 잠가(findActiveByIdForUpdate) 같은 크루의 요청을 차례로 처리한다
+ * 크루원 구성을 바꾸는 요청은 크루 행을 먼저 잠가(findActiveByIdForUpdate) 같은 크루의 요청을 차례로 처리한다.
+ * MySQL 기본 격리 수준(REPEATABLE READ)은 첫 일반 읽기 때 읽는 시점을 정하므로, 이 메서드들은 잠금보다 앞에 일반 읽기를 두지 않는다.
+ * 그래야 잠금 뒤의 일반 읽기가 앞 요청이 커밋한 값을 본다
  * 현재 시각은 Clock으로 읽어 테스트에서 시간을 바꿀 수 있게 한다
  */
 @Service
@@ -103,7 +105,8 @@ public class CrewFacade {
 
 	@Transactional
 	public CrewInviteCreatedDto createInvite(long memberId, long crewId) {
-		findActiveCrew(crewId);
+		// 크루 없애기와 겹치면 없앤 크루에 초대 행이 남을 수 있어 크루 행을 잠근다
+		lockActiveCrew(crewId);
 		requireInviter(findMembership(crewId, memberId));
 
 		LocalDateTime now = now();
@@ -221,7 +224,10 @@ public class CrewFacade {
 		if (membership.getRole() == CrewRole.LEADER) {
 			throw new CrewLeaderCannotLeaveException();
 		}
-		crewMemberRepository.delete(membership);
+		// 회원 탈퇴는 크루 행을 잠그지 않아 같은 행을 먼저 지울 수 있다. 지운 행 수로 확인한다
+		if (crewMemberRepository.deleteByCrewIdAndMemberId(crewId, memberId) == 0) {
+			throw new CrewNotMemberException();
+		}
 	}
 
 	@Transactional
@@ -232,7 +238,10 @@ public class CrewFacade {
 		if (targetMemberId == memberId) {
 			throw new CrewCannotRemoveLeaderException();
 		}
-		crewMemberRepository.delete(findTarget(crewId, targetMemberId));
+		// 회원 탈퇴가 같은 행을 먼저 지웠거나 다른 크루의 크루원이면 0이다
+		if (crewMemberRepository.deleteByCrewIdAndMemberId(crewId, targetMemberId) == 0) {
+			throw new CrewMemberNotFoundException();
+		}
 	}
 
 	@Transactional
