@@ -6,7 +6,8 @@ import {
   isNicknameWidthValid,
   parseBirth,
 } from '@/entities/member'
-import { ApiError, memberZod } from '@/shared/api'
+import { ApiError } from '@/shared/api'
+import { memberZod } from '@/shared/api-zod'
 
 // 내 정보 수정 입력 검사. 규칙은 orval이 만든 memberZod.ModifyMeBody(백엔드 MemberModifyRequestDto)를 따르고,
 // 문구만 화면 말투로 바꾼다. 닉네임 칸 수는 명세에 없는 백엔드 커스텀 검증(@NicknameWidth)이라 entities/member 규칙을 쓴다.

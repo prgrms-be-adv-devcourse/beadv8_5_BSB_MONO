@@ -70,7 +70,7 @@ src/
   가입 요청에는 이름 · 생년월일 · 휴대폰 번호 대신 `verificationToken`을 보내고, 백엔드가 포트원에서 확인한 값으로 회원을 만든다.
   가짜 응답 모드에서는 포트원 창 대신 체험용 창(`MockPassSheet`)이 열리고 MSW가 답한다(`shared/mocks/identity-verification.ts`).
   모바일은 포트원 창이 페이지를 옮겨 가므로, 창을 열기 전에 약관 동의와 이메일 · 닉네임을 sessionStorage에 남기고 돌아오면 되살린다(`views/auth/model/signup-draft.ts`).
-- 가져올 때는 `@/shared/api`의 서비스별 묶음을 쓴다: `productApi`(요청 함수·훅), `productModel`(타입), `productZod`.
+- 가져올 때는 `@/shared/api`의 서비스별 묶음을 쓴다: `productApi`(요청 함수·훅), `productModel`(타입). zod 스키마 `productZod`는 `@/shared/api-zod`에서 가져온다. `@/shared/api`는 모든 화면이 받으므로 zod를 넣지 않는다.
 - 응답은 `RsData{status, message, data, code?}`로 감싸여 온다. `customFetch`는 본문을 그대로 돌려주고, data는 `unwrapData`로 꺼낸다(`select: unwrapData`).
   2xx가 아니면 `ApiError`(`serverMessage`, `code`)를 던진다.
 - 인증: Access Token은 브라우저 메모리(`shared/api/access-token.ts`)에만 두고 `customFetch`가 `Authorization: Bearer`로 붙인다.
@@ -89,10 +89,12 @@ src/
 
 - Zustand는 UI 상태(모달, 단계별 입력)만. 모듈 전역 스토어 금지 — `shared/lib`의 `createStoreContext`로 요청별 스토어를 만든다.
 - 폼은 react-hook-form + zod. 가능하면 orval이 만든 zod 스키마를 쓴다.
+- 날짜 고르기(`DatePicker`, `DateTimeField`)는 `@/shared/ui`가 아니라 `@/shared/date-picker`에서 가져온다. 달력이 무거워서 모든 화면이 받는 `@/shared/ui` 묶음에서 뺐다.
 
 ## 환경변수
 
-`shared/config/env.ts`에서 zod로 검증한다. 새 변수는 여기와 `.env.example`에 같이 추가한다.
+서버 값은 `shared/config/env.ts`에서 zod로, 브라우저 값(`NEXT_PUBLIC_*`)은 `shared/config/client-env.ts`에서 zod 없이 검증한다. 새 변수는 둘 중 맞는 곳과 `.env.example`에 같이 추가한다.
+브라우저 값은 `@/shared/config`의 `clientEnv`, 서버 값은 `@/shared/server-env`의 `getServerEnv()`로 가져온다. 나눈 이유는 브라우저 묶음에 zod가 실리지 않게 하려는 것이다.
 `API_MOCKING`, `IMAGE_REMOTE_HOSTS`, `NEXT_PUBLIC_*`는 next.config에서 쓰여 **빌드 시점에 고정**된다. 바꾸면 다시 빌드해야 한다.
 
 ## 배포

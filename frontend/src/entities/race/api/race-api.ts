@@ -116,10 +116,11 @@ export function courseImageQueryOptions(raceCourseId: number) {
 /**
  * 대회 상세를 클라이언트에서 불러올 때 (장바구니 · 결제처럼 로그인한 뒤 그리는 화면).
  * 종목 이미지 URL이 30분 뒤 만료되므로 그보다 짧게 캐시한다.
+ * 키를 상품 API 대회 키 아래에 두어, 대회를 고치거나 취소할 때 그 키로 무효화하면 이 상세도 함께 새로 받는다.
  */
 export function raceDetailQueryOptions(raceId: string) {
   return queryOptions({
-    queryKey: ['race-detail', raceId],
+    queryKey: [...productApi.getFindRaceQueryKey(Number(raceId)), 'detail'],
     queryFn: () => fetchRaceDetail(raceId),
     staleTime: 5 * 60 * 1000,
   })

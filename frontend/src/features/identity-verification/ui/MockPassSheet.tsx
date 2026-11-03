@@ -3,7 +3,8 @@
 import { useState } from 'react'
 
 import { BirthDateField } from '@/entities/member'
-import { memberZod, type memberModel } from '@/shared/api'
+import { type memberModel } from '@/shared/api'
+import { memberZod } from '@/shared/api-zod'
 import {
   Alert,
   Badge,

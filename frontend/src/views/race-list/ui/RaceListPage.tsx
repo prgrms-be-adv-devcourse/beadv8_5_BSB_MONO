@@ -190,7 +190,7 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
         )}
         {!loading && races.length > 0 && (
           <ul className="flex flex-col gap-3">
-            {races.map((race) => (
+            {races.map((race, i) => (
               <li key={race.id} className="relative">
                 <Link
                   href={`/races/${race.id}`}
@@ -205,6 +205,9 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
                       alt=""
                       width={80}
                       height={80}
+                      // 첫 카드 썸네일이 목록 첫 화면에서 가장 큰 요소(LCP)라 먼저 받는다
+                      loading={i === 0 ? 'eager' : undefined}
+                      fetchPriority={i === 0 ? 'high' : undefined}
                       className="size-20 shrink-0 rounded-md object-cover"
                     />
                   ) : (
