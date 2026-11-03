@@ -26,6 +26,8 @@ import com.bukang.payout.domain.PayoutStatus;
 import com.bukang.payout.domain.exception.PayoutHoldConflictException;
 import com.bukang.payout.dto.PayoutPayResultDto;
 import com.bukang.payout.out.PayoutHoldRepository;
+import com.bukang.payout.out.PayoutItemRepository;
+import com.bukang.payout.out.PayoutRecoveryRepository;
 import com.bukang.payout.out.PayoutRepository;
 import com.bukang.payout.out.PayoutTransfer;
 import com.bukang.payout.out.PayoutTransferRejectedException;
@@ -46,7 +48,19 @@ class PayoutPayUseCaseTest {
 	private PayoutHoldRepository payoutHoldRepository;
 
 	@Autowired
+	private PayoutItemRepository payoutItemRepository;
+
+	@Autowired
+	private PayoutRecoveryRepository payoutRecoveryRepository;
+
+	@Autowired
 	private EntityManager entityManager;
+
+	// 대회 취소를 표시한 지급 중이 없으면 부르지 않는다. 지급 단계를 만들려고 실제 저장소로 묶어 둔다
+	private PayoutRaceCancelUseCase raceCancelUseCase() {
+		return new PayoutRaceCancelUseCase(payoutRepository,
+			new PayoutLedgerUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository));
+	}
 
 	// 캐시 서비스에 보낸 요청. 기본은 성공이고, 테스트마다 정산 ID별로 거절 · 결과 모름을 정한다
 	private final List<PayoutTransfer> transfers = new ArrayList<>();
@@ -60,7 +74,7 @@ class PayoutPayUseCaseTest {
 	}
 
 	private PayoutPayUseCase useCase() {
-		return new PayoutPayUseCase(new PayoutPayStepUseCase(payoutRepository), transfer -> {
+		return new PayoutPayUseCase(new PayoutPayStepUseCase(payoutRepository, raceCancelUseCase()), transfer -> {
 			transfers.add(transfer);
 			cashService.accept(transfer);
 		});
@@ -314,7 +328,7 @@ class PayoutPayUseCaseTest {
 	@DisplayName("다른 배치가 먼저 지급을 시작해 낙관적 락으로 부딪히면 그 건은 캐시 서비스를 부르지 않고 건너뛴다")
 	void skipsWhenAnotherRunStartedFirst() {
 		Payout payout = savePayoutWithSale(1);
-		PayoutPayStepUseCase conflicting = new PayoutPayStepUseCase(payoutRepository) {
+		PayoutPayStepUseCase conflicting = new PayoutPayStepUseCase(payoutRepository, raceCancelUseCase()) {
 			@Override
 			public Start start(long payoutId, LocalDate today, LocalDateTime now) {
 				throw new ObjectOptimisticLockingFailureException(Payout.class, payoutId);

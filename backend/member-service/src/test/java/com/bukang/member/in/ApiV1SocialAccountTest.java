@@ -56,6 +56,7 @@ import com.bukang.member.out.oauth2.SocialOAuth2Client.AuthorizationStart;
 import com.bukang.member.out.oauth2.SocialUnlinkPort;
 import com.bukang.member.out.oauth2.StoredAuthorization;
 import com.bukang.member.out.order.ActiveTicketPort;
+import com.bukang.member.support.MemberFixture;
 
 import jakarta.servlet.http.Cookie;
 
@@ -124,9 +125,7 @@ class ApiV1SocialAccountTest {
 				new StoredAuthorization(provider, STATE, "http://localhost/callback", Set.of("profile"), Map.of(),
 					null, null));
 		});
-		emailMemberId = memberFacade.join(identityStore.joinRequest("runner1@crewrun.com", "password1234", "김러너",
-			"러너1", "010-1234-5678", LocalDate.of(1995, 4, 12), null,
-			List.of(TermsType.SERVICE, TermsType.PRIVACY))).getId();
+		emailMemberId = memberFacade.join(MemberFixture.joinRequest().build(identityStore)).getId();
 	}
 
 	@AfterEach

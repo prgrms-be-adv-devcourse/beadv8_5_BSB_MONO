@@ -91,9 +91,9 @@ class PayoutClaimUseCaseTest {
 		ledgerUseCase = new PayoutLedgerUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository);
 		creator = new PayoutCreateStepUseCase(payoutRepository, calendar, ledgerUseCase,
 			new PayoutHoldUseCase(payoutRepository, payoutHoldRepository, calendar));
-		payUseCase = new PayoutPayUseCase(new PayoutPayStepUseCase(payoutRepository), transfer -> {
-		});
 		raceCancelUseCase = new PayoutRaceCancelUseCase(payoutRepository, ledgerUseCase);
+		payUseCase = new PayoutPayUseCase(new PayoutPayStepUseCase(payoutRepository, raceCancelUseCase), transfer -> {
+		});
 		claimUseCase = new PayoutClaimUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository,
 			payoutClaimRepository);
 	}

@@ -48,13 +48,13 @@ public class PayoutCreateStepUseCase {
 			payout.recordAdvance(course.raceCourseId(), course.priceSum(), course.ticketCount(), targetDate));
 
 		save(payout);
-		payoutHoldUseCase.holdNewFirst(payout, source.hasPayoutAccount(), now);
+		payoutHoldUseCase.holdNew(payout, source.hasPayoutAccount(), now);
 	}
 
 	/**
 	 * 최종 정산 내역을 만든다. 정산 월은 대회일의 달이고, 같은 판매자 × 대회의 남은 1차 정산금(ADVANCE 잔고)을 1차 정산금 차감으로 뺀다
 	 * 만든 뒤 아직 못 받은 갚을 돈(RECEIVABLE)이 있으면 이 정산 내역에서 바로 상계한다 (PRO-214)
-	 * 자동 보류(1차가 보류 중이면 같은 사유로, 아니면 계좌 미등록일 때)는 PayoutHoldUseCase가 정한다
+	 * 자동 보류(계좌 미등록)는 PayoutHoldUseCase가 정한다. 1차가 보류 중이어도 최종은 보류하지 않는다 (PRO-189)
 	 */
 	@Transactional
 	public void createFinal(FinalPayoutSource source, LocalDate raceDate, LocalDateTime now) {
@@ -76,7 +76,7 @@ public class PayoutCreateStepUseCase {
 
 		save(payout);
 		payoutLedgerUseCase.deductAdvanceAndSettle(payout, now);
-		payoutHoldUseCase.holdNewFinal(payout, first, source.hasPayoutAccount(), now);
+		payoutHoldUseCase.holdNew(payout, source.hasPayoutAccount(), now);
 	}
 
 	// 정산 ID의 끝 4자리는 PK에서 만들므로 저장해서 ID를 받은 뒤에 붙인다
