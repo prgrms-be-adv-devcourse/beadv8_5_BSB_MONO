@@ -28,6 +28,7 @@ import com.bukang.order.domain.exception.RaceCourseNotFoundException;
 import com.bukang.order.out.ParticipationRepository;
 import com.bukang.order.out.PartyMemberRepository;
 import com.bukang.order.out.PartyRepository;
+import com.bukang.order.out.PartyRepository.JoinTarget;
 import com.bukang.order.out.crew.CrewPort;
 import com.bukang.order.out.crew.CrewPort.CrewMembership;
 import com.bukang.order.out.race.RaceCourseInfo;
@@ -44,6 +45,9 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class PartyUseCase {
+	// PartyMember의 @UniqueConstraint 이름과 같아야 한다
+	private static final String PARTY_MEMBER_CONSTRAINT = "uk_party_member";
+
 	private final PartyRepository partyRepository;
 	private final PartyMemberRepository partyMemberRepository;
 	private final ParticipationRepository participationRepository;
@@ -77,13 +81,14 @@ public class PartyUseCase {
 		long partyId = partyRepository.findIdByJoinToken(joinToken)
 			.orElseThrow(PartyUseCase::joinLinkNotFound);
 		// 상품·회원 서비스를 부르는 확인은 파티를 잠그기 전에 한다. 잠근 채 기다리면 같은 파티의 다른 요청과 DB 연결이 묶인다
-		// 대회·크루는 파티를 만든 뒤 바뀌지 않으므로 잠그지 않고 읽어도 된다
-		Party unlocked = partyRepository.findById(partyId).orElseThrow(PartyUseCase::joinLinkNotFound);
+		// 대회·크루는 파티를 만든 뒤 바뀌지 않으므로 잠그지 않고 읽어도 된다. 엔티티가 아니라 값만 읽는다
+		// (엔티티를 먼저 읽으면 아래 잠금 조회가 같은 엔티티를 돌려줘 기다리는 사이 바뀐 토큰·상태를 못 본다)
+		JoinTarget target = partyRepository.findJoinTarget(partyId).orElseThrow(PartyUseCase::joinLinkNotFound);
 		RaceCourseInfo course = findOpenCourse(raceCourseId, now);
-		if (course.raceId() != unlocked.getRaceId()) {
+		if (course.raceId() != target.raceId()) {
 			throw PartyConflictException.raceMismatch();
 		}
-		checkCrewMember(unlocked.getCrewId(), memberId);
+		checkCrewMember(target.crewId(), memberId);
 		Party party = lockParty(partyId);
 		// 잠그기를 기다리는 사이 파티장이 링크를 다시 만들었으면 옛 링크다
 		if (!party.getJoinToken().equals(joinToken)) {
@@ -97,9 +102,7 @@ public class PartyUseCase {
 			throw PartyConflictException.alreadyJoined();
 		}
 		checkNoLiveParticipation(party.getRaceId(), memberId, partyId);
-		row.ifPresentOrElse(
-			left -> left.rejoin(now),
-			() -> partyMemberRepository.save(PartyMember.join(partyId, memberId, party.getCrewId(), now)));
+		row.ifPresentOrElse(left -> left.rejoin(now), () -> saveMember(partyId, memberId, party.getCrewId(), now));
 		return saveParticipation(party, memberId, course, checked, now);
 	}
 
@@ -172,6 +175,20 @@ public class PartyUseCase {
 			throw PartyConflictException.alreadyJoined();
 		}
 		throw new DuplicateParticipationException("다른 파티로 이 대회에 신청했습니다. 그 파티에서 나간 뒤 합류해 주세요.");
+	}
+
+	// 같은 사람이 합류를 두 번 빠르게 누르면, 뒤 요청은 잠금을 얻은 뒤에도 트랜잭션 처음 읽기 기준이라(MySQL REPEATABLE READ)
+	// 앞 요청이 만든 파티원 줄을 못 본다. 유니크 제약(uk_party_member)이 막은 것을 「이미 합류」로 바꾼다
+	private void saveMember(long partyId, long memberId, long crewId, LocalDateTime now) {
+		try {
+			partyMemberRepository.saveAndFlush(PartyMember.join(partyId, memberId, crewId, now));
+		} catch (DataIntegrityViolationException exception) {
+			String message = exception.getMostSpecificCause().getMessage();
+			if (message != null && message.toLowerCase().contains(PARTY_MEMBER_CONSTRAINT)) {
+				throw PartyConflictException.alreadyJoined();
+			}
+			throw exception;
+		}
 	}
 
 	private Participation saveParticipation(Party party, long memberId, RaceCourseInfo course,

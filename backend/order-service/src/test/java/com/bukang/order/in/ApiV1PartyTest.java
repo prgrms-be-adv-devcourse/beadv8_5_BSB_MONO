@@ -6,6 +6,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -276,6 +283,30 @@ class ApiV1PartyTest {
 			.andExpect(jsonPath("$.message").value("파티원 신청은 파티 나가기로 취소해 주세요."));
 		assertThat(participationRepository.findById(participationId).orElseThrow().getStatus())
 			.isEqualTo(ParticipationStatus.PENDING);
+	}
+
+	@Test
+	@DisplayName("같은 사람이 합류를 동시에 두 번 보내면 하나만 합류되고 나머지는 409다 (500이 아님)")
+	void concurrentDoubleJoin() throws Exception {
+		String token = token(create(LEADER, COURSE_10K));
+		ExecutorService pool = Executors.newFixedThreadPool(2);
+		CountDownLatch start = new CountDownLatch(1);
+		List<Future<Integer>> results = new ArrayList<>();
+		for (int i = 0; i < 2; i++) {
+			results.add(pool.submit(() -> {
+				start.await();
+				return join(MEMBER, token, COURSE_10K).andReturn().getResponse().getStatus();
+			}));
+		}
+		start.countDown();
+		List<Integer> statuses = new ArrayList<>();
+		for (Future<Integer> result : results) {
+			statuses.add(result.get(10, TimeUnit.SECONDS));
+		}
+		pool.shutdown();
+
+		assertThat(statuses).containsExactlyInAnyOrder(201, 409);
+		assertThat(partyMemberRepository.findAll()).filteredOn(row -> row.getMemberId() == MEMBER).hasSize(1);
 	}
 
 	private ResultActions create(long memberId, long raceCourseId) throws Exception {
