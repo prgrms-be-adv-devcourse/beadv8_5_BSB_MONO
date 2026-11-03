@@ -10,7 +10,9 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.kafka.clients.consumer.Consumer;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.header.Header;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.junit.jupiter.api.AfterEach;
@@ -18,11 +20,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
-import org.springframework.kafka.test.EmbeddedKafkaBroker;
-import org.springframework.kafka.test.context.EmbeddedKafka;
 import org.springframework.kafka.test.utils.KafkaTestUtils;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
@@ -38,12 +39,11 @@ import com.bukang.member.domain.TermsType;
 import com.bukang.member.dto.MemberDto;
 import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
 
-// 실제 임베디드 Kafka 브로커로 아웃박스 행이 헤더 다섯 개를 달고 나가는지 확인한다 (BUK-41)
+// 실제 임베디드 Kafka 브로커(전역 브로커 하나, junit-platform.properties)로 아웃박스 행이 헤더 다섯 개를 달고 나가는지 확인한다 (BUK-41)
 // - 다른 테스트의 공유 H2(bukang-test)와 분리된 전용 DB를 쓴다 (create-drop이 다른 테스트 데이터를 건드리지 않게)
 // - 스케줄러는 테스트에서 꺼져 있어 발행 작업을 직접 부른다
 @SpringBootTest
 @ActiveProfiles("test")
-@EmbeddedKafka(partitions = 1, topics = KafkaTopics.MEMBER_MEMBER_JOINED)
 @TestPropertySource(properties = "spring.datasource.url=jdbc:h2:mem:bukang-member-outbox-kafka-test;"
 	+ "MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1")
 @Import(InMemoryIdentityVerificationStore.Config.class)
@@ -52,8 +52,8 @@ class MemberOutboxKafkaTest {
 
 	@Autowired
 	private InMemoryIdentityVerificationStore identityStore;
-	@Autowired
-	private EmbeddedKafkaBroker embeddedKafka;
+	@Value("${spring.embedded.kafka.brokers}")
+	private String brokers;
 	@Autowired
 	private MemberFacade memberFacade;
 	@Autowired
@@ -71,11 +71,16 @@ class MemberOutboxKafkaTest {
 
 	@BeforeEach
 	void setUp() {
-		Map<String, Object> props = KafkaTestUtils.consumerProps(
-			embeddedKafka, "member-outbox-kafka-test-" + System.nanoTime(), false);
+		// 파티션 0번(파티션은 1개)을 직접 맡아 지금 끝부터 읽는다. 다른 테스트가 같은 브로커에 보낸 메시지는 읽지 않는다
+		Map<String, Object> props =
+			KafkaTestUtils.consumerProps(brokers, "member-outbox-kafka-test-" + System.nanoTime());
+		props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
 		consumer = new DefaultKafkaConsumerFactory<>(props, new StringDeserializer(), new StringDeserializer())
 			.createConsumer();
-		embeddedKafka.consumeFromAnEmbeddedTopic(consumer, KafkaTopics.MEMBER_MEMBER_JOINED);
+		List<TopicPartition> partitions = List.of(new TopicPartition(KafkaTopics.MEMBER_MEMBER_JOINED, 0));
+		consumer.assign(partitions);
+		consumer.seekToEnd(partitions);
+		consumer.position(partitions.get(0));
 	}
 
 	@AfterEach
