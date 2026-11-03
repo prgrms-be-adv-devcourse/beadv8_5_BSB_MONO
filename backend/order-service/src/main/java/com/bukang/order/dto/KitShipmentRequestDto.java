@@ -12,10 +12,10 @@ import lombok.Getter;
 @AllArgsConstructor
 @Getter
 public class KitShipmentRequestDto {
-	@Schema(description = "택배사 (30자 이하)", example = "CJ대한통운")
-	@NotBlank(message = "택배사를 입력해주세요.")
-	@Size(max = Shipment.MAX_CARRIER_LENGTH, message = "택배사는 30자 이하로 입력해주세요.")
-	private final String carrier;
+	@Schema(description = "택배사 ID. GET /api/v1/order/seller/kits/carriers 목록의 id만 받는다 (BUK-55)",
+		example = "kr.cjlogistics")
+	@NotBlank(message = "택배사를 골라주세요.")
+	private final String carrierId;
 
 	@Schema(description = "송장 번호 (50자 이하)", example = "684912345678")
 	@NotBlank(message = "송장 번호를 입력해주세요.")

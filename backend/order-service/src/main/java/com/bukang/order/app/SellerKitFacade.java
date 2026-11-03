@@ -1,6 +1,7 @@
 package com.bukang.order.app;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -8,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.bukang.order.domain.KitDeliveryStatus;
 import com.bukang.order.domain.exception.SellerAccessDeniedException;
+import com.bukang.order.dto.DeliveryCarrierDto;
 import com.bukang.order.dto.KitShipmentRequestDto;
 import com.bukang.order.dto.OrderItemDto;
 import com.bukang.order.dto.SellerKitPageDto;
@@ -39,8 +41,12 @@ public class SellerKitFacade {
 	}
 
 	public OrderItemDto ship(long memberId, long orderItemId, KitShipmentRequestDto request) {
-		return kitDeliveryUseCase.ship(sellerIdOf(memberId), orderItemId, request.getCarrier(),
+		return kitDeliveryUseCase.ship(sellerIdOf(memberId), orderItemId, request.getCarrierId(),
 			request.getTrackingNumber(), LocalDateTime.now());
+	}
+
+	public List<DeliveryCarrierDto> findCarriers() {
+		return kitDeliveryUseCase.findCarriers();
 	}
 
 	public OrderItemDto completeDelivery(long memberId, long orderItemId) {

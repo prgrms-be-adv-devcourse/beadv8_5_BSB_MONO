@@ -9,9 +9,13 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.hibernate.annotations.BatchSize;
+
 import com.bukang.common.global.jpa.entity.BaseIdAndTime;
 import com.bukang.order.domain.exception.KitNotShippableException;
 import com.bukang.order.domain.exception.KitShippingInfoInvalidException;
+import com.bukang.order.dto.KitTrackingDto;
+import com.bukang.order.out.delivery.DeliveryTrackingResult;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Embedded;
@@ -21,6 +25,7 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -38,12 +43,16 @@ import lombok.NoArgsConstructor;
 	name = "ORDER_SHIPMENT",
 	indexes = {
 		// 주문의 배송 찾기 (주문 조회·취소)
-		@Index(name = "idx_shipment_order", columnList = "order_id")
+		@Index(name = "idx_shipment_order", columnList = "order_id"),
+		// 조회 배치가 배송 중인 배송을 오래 조회하지 않은 것부터 고른다 (BUK-55)
+		@Index(name = "idx_shipment_tracking", columnList = "status, last_tracked_at")
 	}
 )
 public class Shipment extends BaseIdAndTime {
+	// 택배사 이름 칸 길이 (BUK-55 전에는 판매자가 직접 적었다)
 	public static final int MAX_CARRIER_LENGTH = 30;
 	public static final int MAX_TRACKING_NUMBER_LENGTH = 50;
+	private static final int MAX_TRACKING_STATUS_TEXT_LENGTH = 50;
 
 	@ManyToOne(fetch = LAZY, optional = false)
 	@JoinColumn(name = "order_id", nullable = false)
@@ -53,9 +62,13 @@ public class Shipment extends BaseIdAndTime {
 	@Column(name = "status", nullable = false, columnDefinition = "varchar(20)")
 	private ShipmentStatus status;
 
-	// 판매자가 발송할 때 넣은 택배사·송장 번호 (배송 중부터 있다)
+	// 판매자가 발송할 때 고른 택배사의 이름·송장 번호 (배송 중부터 있다)
 	@Column(name = "carrier", length = MAX_CARRIER_LENGTH)
 	private String carrier;
+
+	// 택배사의 Delivery Tracker ID (BUK-55). 이 변경 전에 보낸 배송은 비어 있어 자동 조회하지 않는다
+	@Column(name = "carrier_id", length = 50)
+	private String carrierId;
 
 	@Column(name = "tracking_number", length = MAX_TRACKING_NUMBER_LENGTH)
 	private String trackingNumber;
@@ -77,8 +90,30 @@ public class Shipment extends BaseIdAndTime {
 	@Column(name = "canceled_at")
 	private LocalDateTime canceledAt;
 
+	// 마지막으로 받아 온 배송 상태와 택배사가 붙인 상태 이름, 그 상태의 시각 (BUK-55). 발송하면 아직 조회되지 않음이다
+	// 화면은 이 값을 보여 주므로 Delivery Tracker가 멈춰도 주문 화면은 뜬다
+	@Enumerated(STRING)
+	@Column(name = "tracking_status", columnDefinition = "varchar(30)")
+	private DeliveryTrackingStatus trackingStatus;
+
+	@Column(name = "tracking_status_text", length = MAX_TRACKING_STATUS_TEXT_LENGTH)
+	private String trackingStatusText;
+
+	@Column(name = "last_event_at")
+	private LocalDateTime lastEventAt;
+
+	// 마지막으로 조회한 시각 (조회에 실패해도 바꿔, 한 배송이 계속 앞줄을 차지하지 않게 한다)
+	@Column(name = "last_tracked_at")
+	private LocalDateTime lastTrackedAt;
+
 	@OneToMany(mappedBy = "shipment", cascade = ALL)
 	private List<ShipmentItem> items = new ArrayList<>();
+
+	// 주문 목록에서 배송마다 기록을 따로 읽지 않도록 한 번에 읽는다 (Order.shipments와 같은 방식)
+	@BatchSize(size = 100)
+	@OneToMany(mappedBy = "shipment", cascade = ALL)
+	@OrderBy("eventAt asc, id asc")
+	private List<ShipmentTrackingEvent> trackingEvents = new ArrayList<>();
 
 	// 주문 상품들을 한 상자로 보낼 발송 대기 배송. 주소는 복사해 참가 신청과 같은 객체를 나눠 쓰지 않는다
 	static Shipment ready(Order order, List<OrderItem> orderItems, ShippingAddress shippingAddress) {
@@ -103,15 +138,45 @@ public class Shipment extends BaseIdAndTime {
 
 	// 판매자가 보냈다(발송 대기 → 배송 중). 한 번만 발송한다
 	// 참가권이 결제 완료인지는 주문이 먼저 본다 (Order.checkKitShippable)
-	void ship(String carrier, String trackingNumber, LocalDateTime shippedAt) {
+	// 상대(Delivery Tracker)는 부르지 않고 아직 조회되지 않음으로 둔다. 상태는 조회 배치가 받아 온다 (BUK-55)
+	void ship(DeliveryCarrier carrier, String trackingNumber, LocalDateTime shippedAt) {
 		if (status != ShipmentStatus.READY) {
 			throw new KitNotShippableException("이미 발송한 키트입니다.");
 		}
-		checkShippingInfo(carrier, trackingNumber);
+		checkTrackingNumber(trackingNumber);
 		this.status = ShipmentStatus.SHIPPING;
-		this.carrier = carrier.strip();
+		this.carrierId = carrier.getId();
+		this.carrier = carrier.getLabel();
 		this.trackingNumber = trackingNumber.strip();
 		this.shippedAt = shippedAt;
+		this.trackingStatus = DeliveryTrackingStatus.NOT_TRACKED;
+	}
+
+	// 조회 결과를 남긴다 (BUK-55). 아직 조회되지 않음이면 지난 상태를 그대로 두고 조회 시각만 바꾼다
+	// 이동 기록은 저장하지 않은 것만 더한다. 택배사가 배송 완료라고 하면 배송 중인 키트를 배송 완료로 바꾼다 (정책 5장 3, 회의 확인 전 기본값)
+	// 판매자가 먼저 배송 완료로 바꿨으면 상태·기록만 남긴다. 이번에 배송 완료로 바꿨으면 true
+	boolean applyTracking(DeliveryTrackingResult result, LocalDateTime trackedAt) {
+		this.lastTrackedAt = trackedAt;
+		if (!result.isTracked()) {
+			return false;
+		}
+		this.trackingStatus = result.status();
+		this.trackingStatusText = ShipmentTrackingEvent.cut(result.statusText(), MAX_TRACKING_STATUS_TEXT_LENGTH);
+		this.lastEventAt = result.lastEventAt();
+		result.events().stream()
+			.filter(event -> trackingEvents.stream().noneMatch(saved -> saved.isSameAs(event)))
+			.forEach(event -> trackingEvents.add(new ShipmentTrackingEvent(this, event)));
+		if (result.status() == DeliveryTrackingStatus.DELIVERED && status == ShipmentStatus.SHIPPING) {
+			completeDelivery(trackedAt);
+			return true;
+		}
+		return false;
+	}
+
+	// 구매자 주문 상세의 배송 조회 칸 (판매자 목록은 ShipmentRepository.findSellerKits가 같은 값을 채운다)
+	public KitTrackingDto toTrackingDto() {
+		return KitTrackingDto.of(carrierId, trackingStatus, trackingStatusText, lastEventAt, lastTrackedAt,
+			trackingEvents);
 	}
 
 	// 판매자가 보낸 배송인지 (배송 중·배송 완료)
@@ -148,15 +213,12 @@ public class Shipment extends BaseIdAndTime {
 		}
 	}
 
-	// 택배사·송장 번호가 있고 길이 안인지. 앞뒤 공백은 빼고 센다
-	public static void checkShippingInfo(String carrier, String trackingNumber) {
-		if (isInvalidText(carrier, MAX_CARRIER_LENGTH) || isInvalidText(trackingNumber, MAX_TRACKING_NUMBER_LENGTH)) {
-			throw new KitShippingInfoInvalidException("택배사(%d자 이하)와 송장 번호(%d자 이하)를 넣어 주세요."
-				.formatted(MAX_CARRIER_LENGTH, MAX_TRACKING_NUMBER_LENGTH));
+	// 송장 번호가 있고 길이 안인지. 앞뒤 공백은 빼고 센다
+	public static void checkTrackingNumber(String trackingNumber) {
+		if (trackingNumber == null || trackingNumber.isBlank()
+			|| trackingNumber.strip().length() > MAX_TRACKING_NUMBER_LENGTH) {
+			throw new KitShippingInfoInvalidException(
+				"송장 번호(%d자 이하)를 넣어 주세요.".formatted(MAX_TRACKING_NUMBER_LENGTH));
 		}
-	}
-
-	private static boolean isInvalidText(String value, int maxLength) {
-		return value == null || value.isBlank() || value.strip().length() > maxLength;
 	}
 }

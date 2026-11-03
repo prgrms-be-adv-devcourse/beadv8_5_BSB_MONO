@@ -40,6 +40,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.bukang.order.domain.DeliveryTrackingStatus;
 import com.bukang.order.domain.KitDeliveryStatus;
 import com.bukang.order.domain.Order;
 import com.bukang.order.domain.OrderItem;
@@ -51,14 +52,18 @@ import com.bukang.order.domain.exception.KitNotShippableException;
 import com.bukang.order.domain.exception.KitShippingInfoInvalidException;
 import com.bukang.order.domain.exception.OrderAccessDeniedException;
 import com.bukang.order.domain.exception.OrderItemNotFoundException;
+import com.bukang.order.dto.KitTrackingDto;
 import com.bukang.order.dto.OrderItemDto;
 import com.bukang.order.dto.SellerKitDto;
 import com.bukang.order.dto.SellerKitSummaryDto;
 import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationRepository;
 import com.bukang.order.out.QueueAdmissionRepository;
+import com.bukang.order.out.delivery.DeliveryTrackingResult;
 import com.bukang.order.out.race.RaceCourseInfo;
 import com.bukang.order.support.QueueEntry;
+import com.bukang.order.support.StubDeliveryTrackingPort;
+import com.bukang.order.support.StubDeliveryTrackingPortConfig;
 import com.bukang.order.support.StubRaceCoursePort;
 import com.bukang.order.support.StubRaceCoursePortConfig;
 import com.bukang.order.support.StubRefundEligibilityPortConfig;
@@ -73,15 +78,18 @@ import jakarta.persistence.Table;
 /**
  * 판매자가 키트를 발송 처리하고, 구매자 주문 조회에 배송 상태가 보이는지 본다 (PRO-136)
  * 결제·취소·대회 취소·주소 수정이 배송(ORDER_SHIPMENT)을 어떻게 바꾸는지도 본다 (BUK-6)
+ * 조회 배치가 Delivery Tracker의 상태·이동 기록을 남기고 배송 완료로 바꾸는지도 본다 (BUK-55, 요청 사이 쉬지 않게 0ms)
  */
-@SpringBootTest
+@SpringBootTest(properties = "order.kit-tracking.request-interval=0ms")
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Import({StubRaceCoursePortConfig.class, StubSeatHoldPortConfig.class, StubWalletPortConfig.class,
-	StubRefundEligibilityPortConfig.class})
+	StubRefundEligibilityPortConfig.class, StubDeliveryTrackingPortConfig.class})
 class KitDeliveryTest {
 	private static final long COURSE_ID = 40;
 	private static final long OPEN_COURSE_ID = 41;
+	// 발송할 때 고르는 택배사 ID와 저장되는 이름 (BUK-55). 옛 kit_* 칸을 옮기는 테스트는 이름을 쓴다
+	private static final String CARRIER_ID = "kr.cjlogistics";
 	private static final String CARRIER = "CJ대한통운";
 	private static final String TRACKING_NUMBER = "684912345678";
 	private static final long RACE_ID = 400;
@@ -128,6 +136,12 @@ class KitDeliveryTest {
 	@Autowired
 	private TransactionTemplate transactionTemplate;
 
+	@Autowired
+	private KitTrackingUseCase kitTrackingUseCase;
+
+	@Autowired
+	private StubDeliveryTrackingPort deliveryTrackingPort;
+
 	@AfterEach
 	void tearDown() {
 		orderRepository.deleteAll();
@@ -136,6 +150,103 @@ class KitDeliveryTest {
 		raceCoursePort.clear();
 		seatHoldPort.clear();
 		walletPort.clear();
+		deliveryTrackingPort.clear();
+	}
+
+	@Test
+	@DisplayName("조회 배치: 아직 조회되지 않음 → 이동 중(기록 1줄) → 배송 완료(같은 기록이 또 와도 2줄)로 남고, 배송 완료면 키트도 배송 완료가 되어 더 부르지 않는다")
+	void trackUntilDelivered() throws Exception {
+		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().minusDays(1)));
+		long orderId = paidOrder();
+		ship(itemIdOf(orderId));
+		LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
+
+		// 택배사가 아직 스캔하지 않음: 오류가 아니라 아직 조회되지 않음으로 두고 조회 시각만 남긴다
+		assertThat(kitTrackingUseCase.track(now)).isEqualTo(new KitTrackingUseCase.TrackResult(1, 0, 0));
+		Shipment shipment = shipmentOf(orderId);
+		assertThat(shipment.getTrackingStatus()).isEqualTo(DeliveryTrackingStatus.NOT_TRACKED);
+		assertThat(shipment.getLastTrackedAt()).isEqualTo(now);
+
+		DeliveryTrackingResult.Event moving = new DeliveryTrackingResult.Event(now.minusHours(5),
+			DeliveryTrackingStatus.IN_TRANSIT, "간선상차", "옥천HUB에서 출발했습니다.", "옥천HUB");
+		deliveryTrackingPort.put(TRACKING_NUMBER, new DeliveryTrackingResult(DeliveryTrackingStatus.IN_TRANSIT,
+			"간선상차", moving.time(), List.of(moving)));
+		kitTrackingUseCase.track(now.plusMinutes(30));
+		assertThat(shipmentOf(orderId).getStatus()).isEqualTo(ShipmentStatus.SHIPPING);
+		findOrder(orderId)
+			.andExpect(jsonPath("$.data.items[0].kitTracking.status").value("IN_TRANSIT"))
+			.andExpect(jsonPath("$.data.items[0].kitTracking.statusText").value("간선상차"))
+			.andExpect(jsonPath("$.data.items[0].kitTracking.events.length()").value(1));
+
+		DeliveryTrackingResult.Event done = new DeliveryTrackingResult.Event(now.minusHours(1),
+			DeliveryTrackingStatus.DELIVERED, "배달완료", "배달 완료되었습니다.", "서울성동");
+		deliveryTrackingPort.put(TRACKING_NUMBER, new DeliveryTrackingResult(DeliveryTrackingStatus.DELIVERED,
+			"배달완료", done.time(), List.of(moving, done, done)));
+		assertThat(kitTrackingUseCase.track(now.plusMinutes(60)))
+			.isEqualTo(new KitTrackingUseCase.TrackResult(1, 1, 0));
+
+		assertThat(shipmentOf(orderId).getStatus()).isEqualTo(ShipmentStatus.DELIVERED);
+		findOrder(orderId)
+			.andExpect(jsonPath("$.data.items[0].kitDeliveryStatus").value("DELIVERED"))
+			.andExpect(jsonPath("$.data.items[0].kitTracking.status").value("DELIVERED"))
+			.andExpect(jsonPath("$.data.items[0].kitTracking.events[0].location").value("옥천HUB"))
+			.andExpect(jsonPath("$.data.items[0].kitTracking.events[1].status").value("DELIVERED"))
+			.andExpect(jsonPath("$.data.items[0].kitTracking.events.length()").value(2));
+		SellerKitDto kit = kitDeliveryUseCase.findKits(SELLER_ID, null, null, 0, 20).getKits().getFirst();
+		assertThat(kit.getKitTracking().status()).isEqualTo(DeliveryTrackingStatus.DELIVERED);
+		assertThat(kit.getKitTracking().events()).extracting(KitTrackingDto.Event::statusText)
+			.containsExactly("간선상차", "배달완료");
+
+		// 배송 완료는 조회 대상에서 빠진다
+		int calls = deliveryTrackingPort.calls().size();
+		assertThat(kitTrackingUseCase.track(now.plusMinutes(90)))
+			.isEqualTo(new KitTrackingUseCase.TrackResult(0, 0, 0));
+		assertThat(deliveryTrackingPort.calls()).hasSize(calls);
+	}
+
+	@Test
+	@DisplayName("조회 배치: 한 운송장 조회가 실패해도 다음 배송을 조회하고, 실패한 배송은 조회 시각만 바꿔 다음 차례로 미룬다")
+	void trackContinuesAfterFailure() throws Exception {
+		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().minusDays(1)));
+		long failingOrderId = paidOrder(MEMBER_ID + 1);
+		long okOrderId = paidOrder(MEMBER_ID);
+		kitDeliveryUseCase.ship(SELLER_ID, itemIdOf(failingOrderId), CARRIER_ID, "111", LocalDateTime.now());
+		kitDeliveryUseCase.ship(SELLER_ID, itemIdOf(okOrderId), CARRIER_ID, "222", LocalDateTime.now());
+		deliveryTrackingPort.fail("111");
+		deliveryTrackingPort.put("222", new DeliveryTrackingResult(DeliveryTrackingStatus.IN_TRANSIT, "이동중",
+			null, List.of()));
+		LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
+
+		assertThat(kitTrackingUseCase.track(now)).isEqualTo(new KitTrackingUseCase.TrackResult(1, 0, 1));
+
+		assertThat(shipmentOf(failingOrderId).getLastTrackedAt()).isEqualTo(now);
+		assertThat(shipmentOf(failingOrderId).getTrackingStatus()).isEqualTo(DeliveryTrackingStatus.NOT_TRACKED);
+		assertThat(shipmentOf(okOrderId).getTrackingStatus()).isEqualTo(DeliveryTrackingStatus.IN_TRANSIT);
+		// 다음 차례에는 오래 조회하지 않은 것부터 부른다
+		kitTrackingUseCase.track(now.plusMinutes(30));
+		assertThat(deliveryTrackingPort.calls()).containsExactly("111", "222", "111", "222");
+		findOrder(okOrderId).andExpect(jsonPath("$.data.items[0].kitTracking.status").value("IN_TRANSIT"));
+	}
+
+	@Test
+	@DisplayName("판매자가 먼저 배송 완료로 바꾼 배송은 조회하지 않고, BUK-55 전에 보낸 배송(택배사 ID 없음)도 조회하지 않는다")
+	void trackSkipsDeliveredAndLegacy() throws Exception {
+		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().minusDays(1)));
+		long deliveredOrderId = paidOrder(MEMBER_ID + 1);
+		long legacyOrderId = paidOrder(MEMBER_ID);
+		long deliveredItemId = itemIdOf(deliveredOrderId);
+		ship(deliveredItemId);
+		kitDeliveryUseCase.completeDelivery(SELLER_ID, deliveredItemId, LocalDateTime.now());
+		ship(itemIdOf(legacyOrderId));
+		jdbcTemplate.update("update order_shipment set carrier_id = null, tracking_status = null where order_id = ?",
+			legacyOrderId);
+
+		assertThat(kitTrackingUseCase.track(LocalDateTime.now()))
+			.isEqualTo(new KitTrackingUseCase.TrackResult(0, 0, 0));
+		assertThat(deliveryTrackingPort.calls()).isEmpty();
+		findOrder(legacyOrderId)
+			.andExpect(jsonPath("$.data.items[0].kitCarrier").value(CARRIER))
+			.andExpect(jsonPath("$.data.items[0].kitTracking").isEmpty());
 	}
 
 	@Test
@@ -151,7 +262,7 @@ class KitDeliveryTest {
 
 		// DB는 마이크로초까지만 저장한다. 리눅스(CI)는 지금 시각을 나노초까지 줘 저장한 값과 비교하면 어긋난다
 		LocalDateTime shippedAt = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
-		OrderItemDto shipped = kitDeliveryUseCase.ship(SELLER_ID, itemId, CARRIER, TRACKING_NUMBER, shippedAt);
+		OrderItemDto shipped = kitDeliveryUseCase.ship(SELLER_ID, itemId, CARRIER_ID, TRACKING_NUMBER, shippedAt);
 
 		assertThat(shipped.getKitDeliveryStatus()).isEqualTo(KitDeliveryStatus.SHIPPING);
 		findOrder(orderId)
@@ -179,7 +290,7 @@ class KitDeliveryTest {
 		assertThatThrownBy(() -> kitDeliveryUseCase.completeDelivery(SELLER_ID, itemId, LocalDateTime.now()))
 			.isInstanceOf(KitNotShippableException.class)
 			.hasMessage("아직 발송하지 않은 키트입니다.");
-		kitDeliveryUseCase.ship(SELLER_ID, itemId, CARRIER, TRACKING_NUMBER, LocalDateTime.now());
+		kitDeliveryUseCase.ship(SELLER_ID, itemId, CARRIER_ID, TRACKING_NUMBER, LocalDateTime.now());
 		assertThatThrownBy(() -> kitDeliveryUseCase.completeDelivery(OTHER_SELLER_ID, itemId, LocalDateTime.now()))
 			.isInstanceOf(OrderAccessDeniedException.class);
 		kitDeliveryUseCase.completeDelivery(SELLER_ID, itemId, LocalDateTime.now());
@@ -276,7 +387,7 @@ class KitDeliveryTest {
 	}
 
 	@Test
-	@DisplayName("택배사·송장 번호가 비었거나 너무 길면 400으로 막고 배송 준비로 남긴다")
+	@DisplayName("택배사가 비었거나 목록에 없거나, 송장 번호가 비었거나 너무 길면 400으로 막고 배송 준비로 남긴다")
 	void shipWithInvalidShippingInfo() throws Exception {
 		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().minusDays(1)));
 		long orderId = paidOrder();
@@ -284,9 +395,14 @@ class KitDeliveryTest {
 
 		assertThatThrownBy(() -> kitDeliveryUseCase.ship(SELLER_ID, itemId, " ", TRACKING_NUMBER, LocalDateTime.now()))
 			.isInstanceOf(KitShippingInfoInvalidException.class);
-		assertThatThrownBy(() -> kitDeliveryUseCase.ship(SELLER_ID, itemId, CARRIER, null, LocalDateTime.now()))
+		// 목록의 ID가 아닌 택배사 이름(BUK-55 전 입력 방식)은 받지 않는다
+		assertThatThrownBy(() -> kitDeliveryUseCase.ship(SELLER_ID, itemId, CARRIER, TRACKING_NUMBER,
+			LocalDateTime.now()))
+			.isInstanceOf(KitShippingInfoInvalidException.class)
+			.hasMessage("목록에 없는 택배사입니다.");
+		assertThatThrownBy(() -> kitDeliveryUseCase.ship(SELLER_ID, itemId, CARRIER_ID, null, LocalDateTime.now()))
 			.isInstanceOf(KitShippingInfoInvalidException.class);
-		assertThatThrownBy(() -> kitDeliveryUseCase.ship(SELLER_ID, itemId, CARRIER,
+		assertThatThrownBy(() -> kitDeliveryUseCase.ship(SELLER_ID, itemId, CARRIER_ID,
 			"1".repeat(Shipment.MAX_TRACKING_NUMBER_LENGTH + 1), LocalDateTime.now()))
 			.isInstanceOf(KitShippingInfoInvalidException.class);
 		assertThat(shipmentOf(orderId).getStatus()).isEqualTo(ShipmentStatus.READY);
@@ -298,12 +414,12 @@ class KitDeliveryTest {
 	}
 
 	@Test
-	@DisplayName("택배사·송장 번호의 앞뒤 공백은 빼고 저장한다")
+	@DisplayName("송장 번호의 앞뒤 공백은 빼고, 택배사는 목록의 이름으로 저장한다")
 	void shipStripsShippingInfo() throws Exception {
 		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().minusDays(1)));
 		long itemId = itemIdOf(paidOrder());
 
-		OrderItemDto shipped = kitDeliveryUseCase.ship(SELLER_ID, itemId, " " + CARRIER + " ",
+		OrderItemDto shipped = kitDeliveryUseCase.ship(SELLER_ID, itemId, CARRIER_ID,
 			" " + TRACKING_NUMBER + " ", LocalDateTime.now());
 
 		assertThat(shipped.getKitCarrier()).isEqualTo(CARRIER);
@@ -329,7 +445,7 @@ class KitDeliveryTest {
 		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().minusDays(1)));
 		long itemId = itemIdOf(paidOrder());
 
-		assertThatThrownBy(() -> kitDeliveryUseCase.ship(OTHER_SELLER_ID, itemId, CARRIER, TRACKING_NUMBER,
+		assertThatThrownBy(() -> kitDeliveryUseCase.ship(OTHER_SELLER_ID, itemId, CARRIER_ID, TRACKING_NUMBER,
 			LocalDateTime.now()))
 			.isInstanceOf(OrderAccessDeniedException.class);
 		assertThatThrownBy(() -> ship(999_999))
@@ -547,7 +663,7 @@ class KitDeliveryTest {
 			LocalDate.now().plusDays(10)));
 		long shippedOrderId = paidOrder(MEMBER_ID);
 		LocalDateTime shippedAt = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
-		kitDeliveryUseCase.ship(SELLER_ID, itemIdOf(shippedOrderId), CARRIER, TRACKING_NUMBER, shippedAt);
+		kitDeliveryUseCase.ship(SELLER_ID, itemIdOf(shippedOrderId), CARRIER_ID, TRACKING_NUMBER, shippedAt);
 		// 보낸 뒤 신청서 주소를 고쳤다. 주문 칸에는 신청서가 아니라 실제로 보낸 배송의 주소가 가야 한다
 		changeAddress(MEMBER_ID, participationIdOf(shippedOrderId)).andExpect(status().isOk());
 		long readyOrderId = paidOrder(MEMBER_ID + 1);
@@ -661,7 +777,7 @@ class KitDeliveryTest {
 	}
 
 	private OrderItemDto ship(long orderItemId) {
-		return kitDeliveryUseCase.ship(SELLER_ID, orderItemId, CARRIER, TRACKING_NUMBER, LocalDateTime.now());
+		return kitDeliveryUseCase.ship(SELLER_ID, orderItemId, CARRIER_ID, TRACKING_NUMBER, LocalDateTime.now());
 	}
 
 	private ResultActions findOrder(long orderId) throws Exception {

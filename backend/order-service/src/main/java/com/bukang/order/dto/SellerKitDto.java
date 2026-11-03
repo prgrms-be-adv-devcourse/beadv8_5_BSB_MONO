@@ -1,11 +1,15 @@
 package com.bukang.order.dto;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
+import com.bukang.order.domain.DeliveryTrackingStatus;
 import com.bukang.order.domain.KitDeliveryStatus;
 import com.bukang.order.domain.OrderItemStatus;
 import com.bukang.order.domain.ShipmentStatus;
+import com.bukang.order.domain.ShipmentTrackingEvent;
 import com.bukang.order.domain.ShippingAddress;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import lombok.Getter;
 
@@ -32,13 +36,19 @@ public class SellerKitDto {
 	private final String kitTrackingNumber;
 	private final LocalDateTime kitShippedAt;
 	private final LocalDateTime kitDeliveredAt;
+	// Delivery Tracker에서 받아 온 배송 상태와 이동 기록 (BUK-55). 이동 기록은 목록을 읽은 뒤 한 번에 채운다 (attachTrackingEvents)
+	private KitTrackingDto kitTracking;
+	@JsonIgnore
+	private final long shipmentId;
 
 	// JPQL 생성자 조회용
 	public SellerKitDto(long orderItemId, String orderNo, OrderItemStatus orderItemStatus, long raceId,
 		long raceCourseId, String courseName, String participantName, String tshirtSize,
 		ShippingAddress shippingAddress,
 		ShipmentStatus shipmentStatus, String kitCarrier, String kitTrackingNumber,
-		LocalDateTime kitShippedAt, LocalDateTime kitDeliveredAt) {
+		LocalDateTime kitShippedAt, LocalDateTime kitDeliveredAt,
+		long shipmentId, String carrierId, DeliveryTrackingStatus trackingStatus, String trackingStatusText,
+		LocalDateTime lastEventAt, LocalDateTime lastTrackedAt) {
 		this.orderItemId = orderItemId;
 		this.orderNo = orderNo;
 		this.orderItemStatus = orderItemStatus;
@@ -53,5 +63,15 @@ public class SellerKitDto {
 		this.kitTrackingNumber = kitTrackingNumber;
 		this.kitShippedAt = kitShippedAt;
 		this.kitDeliveredAt = kitDeliveredAt;
+		this.shipmentId = shipmentId;
+		this.kitTracking = KitTrackingDto.of(carrierId, trackingStatus, trackingStatusText, lastEventAt, lastTrackedAt,
+			List.of());
+	}
+
+	// 이 줄 배송의 이동 기록(오래된 것부터)을 붙인다
+	public void attachTrackingEvents(List<ShipmentTrackingEvent> events) {
+		if (kitTracking != null) {
+			this.kitTracking = kitTracking.withEvents(events);
+		}
 	}
 }
