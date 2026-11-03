@@ -73,6 +73,7 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
   const [menuRace, setMenuRace] = useState<RaceListItem | 'preview' | null>(
     state === 'menu' ? 'preview' : null,
   )
+  const firstImageId = races.find((race) => race.image)?.id
   const menuTarget = menuRace === 'preview' ? (races[0] ?? null) : menuRace
   const suggestionItems = [
     ...(suggestions.data?.races ?? []).map((r) => ({
@@ -190,7 +191,7 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
         )}
         {!loading && races.length > 0 && (
           <ul className="flex flex-col gap-3">
-            {races.map((race, i) => (
+            {races.map((race) => (
               <li key={race.id} className="relative">
                 <Link
                   href={`/races/${race.id}`}
@@ -205,9 +206,9 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
                       alt=""
                       width={80}
                       height={80}
-                      // 첫 카드 썸네일이 목록 첫 화면에서 가장 큰 요소(LCP)라 먼저 받는다
-                      loading={i === 0 ? 'eager' : undefined}
-                      fetchPriority={i === 0 ? 'high' : undefined}
+                      // 사진이 있는 첫 카드의 썸네일이 목록 첫 화면에서 가장 큰 요소(LCP)라 먼저 받는다
+                      loading={race.id === firstImageId ? 'eager' : undefined}
+                      fetchPriority={race.id === firstImageId ? 'high' : undefined}
                       className="size-20 shrink-0 rounded-md object-cover"
                     />
                   ) : (
