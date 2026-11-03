@@ -6,7 +6,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -28,20 +27,18 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 
 import com.bukang.common.shared.member.web.MemberIdHeader;
 import com.bukang.common.shared.seller.domain.SellerStatus;
-import com.bukang.common.shared.seller.domain.SellerType;
 import com.bukang.common.shared.seller.event.SellerChangedEvent;
 import com.bukang.member.app.MemberFacade;
 import com.bukang.member.app.SellerFacade;
 import com.bukang.member.domain.Member;
 import com.bukang.member.domain.PayoutAccountHolderType;
 import com.bukang.member.domain.Seller;
-import com.bukang.member.domain.TermsType;
-import com.bukang.member.dto.SellerApplyRequestDto;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.SellerRepository;
 import com.bukang.member.out.TermsAgreementRepository;
 import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
 import com.bukang.member.out.payoutaccount.InMemoryPayoutAccountVerifyLimiter;
+import com.bukang.member.support.MemberFixture;
 
 // 관리자의 판매자 신청 목록·승인·반려 (BE-020). 관리자는 회원 역할 칸(ADMIN)으로 알아본다
 @SpringBootTest
@@ -77,10 +74,12 @@ class ApiV1AdminSellerTest {
 
 	@BeforeEach
 	void setUp() {
-		adminId = join("admin@crewrun.com", "관리자", "010-1234-5670");
+		adminId = memberFacade.join(MemberFixture.joinRequest()
+			.email("admin@crewrun.com")
+			.build(identityStore)).getId();
 		memberFacade.grantAdmin("admin@crewrun.com");
-		applicantId = join("runner1@crewrun.com", "러너1", "010-1234-5671");
-		sellerId = applyDirectly(applicantId);
+		applicantId = memberFacade.join(MemberFixture.joinRequest().build(identityStore)).getId();
+		sellerId = sellerFacade.apply(applicantId, MemberFixture.sellerApplyRequest()).getId();
 		// 신청 때 발행한 이벤트는 세지 않는다
 		applicationEvents.clear();
 	}
@@ -117,8 +116,8 @@ class ApiV1AdminSellerTest {
 	@Test
 	@DisplayName("상태로 거르면 그 상태 신청만, 비우면 전체를 최근 신청부터 돌려준다")
 	void findAllFiltersByStatus() throws Exception {
-		long otherApplicantId = join("runner2@crewrun.com", "러너2", "010-1234-5672");
-		long approvedId = applyDirectly(otherApplicantId);
+		long otherApplicantId = memberFacade.join(MemberFixture.joinRequest().build(identityStore)).getId();
+		long approvedId = sellerFacade.apply(otherApplicantId, MemberFixture.sellerApplyRequest()).getId();
 		sellerFacade.approve(adminId, approvedId);
 
 		mockMvc.perform(get(ADMIN_SELLERS).param("status", "PENDING").header(MemberIdHeader.NAME, adminId))
@@ -225,19 +224,6 @@ class ApiV1AdminSellerTest {
 		review(sellerId + 1000, "rejection", "서류 확인 불가")
 			.andExpect(status().isNotFound())
 			.andExpect(jsonPath("$.code").value("SELLER_NOT_FOUND"));
-	}
-
-	private long join(String email, String nickname, String phone) {
-		return memberFacade.join(identityStore.joinRequest(
-			email, "password1234", "김러너", nickname, phone, LocalDate.of(1995, 4, 12), null,
-			List.of(TermsType.SERVICE, TermsType.PRIVACY)
-		)).getId();
-	}
-
-	private long applyDirectly(long memberId) {
-		return sellerFacade.apply(memberId,
-			new SellerApplyRequestDto(SellerType.BUSINESS, "크루런 스포츠", "123-45-67890", "김러너",
-				"004", "1101230000678", PayoutAccountHolderType.PERSONAL)).getId();
 	}
 
 	// reason이 null이면 본문 없이 보낸다 (승인)

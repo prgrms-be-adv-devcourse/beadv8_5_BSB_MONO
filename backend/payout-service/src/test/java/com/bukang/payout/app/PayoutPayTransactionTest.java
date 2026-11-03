@@ -40,7 +40,8 @@ import com.bukang.payout.out.PayoutStatusHistoryRepository;
  */
 @DataJpaTest
 @ActiveProfiles("test")
-@Import({PayoutPayStepUseCase.class, PayoutHoldUseCase.class, BusinessDayCalendar.class})
+@Import({PayoutPayStepUseCase.class, PayoutRaceCancelUseCase.class, PayoutLedgerUseCase.class,
+	PayoutHoldUseCase.class, BusinessDayCalendar.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class PayoutPayTransactionTest {
 	private static final LocalDate PAY_DATE = LocalDate.of(2026, 11, 20);

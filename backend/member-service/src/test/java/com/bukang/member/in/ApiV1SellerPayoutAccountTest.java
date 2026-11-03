@@ -5,7 +5,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -38,7 +37,6 @@ import com.bukang.member.app.MemberFacade;
 import com.bukang.member.app.SellerFacade;
 import com.bukang.member.domain.PayoutAccountHolderType;
 import com.bukang.member.domain.Seller;
-import com.bukang.member.domain.TermsType;
 import com.bukang.member.domain.exception.SellerAccountNotVerifiedException;
 import com.bukang.member.domain.exception.SellerAccountVerifyUnavailableException;
 import com.bukang.member.domain.exception.SellerAlreadyAppliedException;
@@ -50,6 +48,7 @@ import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
 import com.bukang.member.out.payoutaccount.InMemoryPayoutAccountVerifyLimiter;
 import com.bukang.member.out.payoutaccount.PayoutAccountInquiry;
 import com.bukang.member.out.payoutaccount.StubPayoutAccountVerifier;
+import com.bukang.member.support.MemberFixture;
 
 // 판매자 신청 때 정산 계좌 확인 (BE-031). 오픈뱅킹 대신 StubPayoutAccountVerifier가 답한다
 // 가입한 회원의 본인인증 이름은 김러너, 생년월일은 1995-04-12다
@@ -90,10 +89,8 @@ class ApiV1SellerPayoutAccountTest {
 	void setUp() {
 		verifier.reset();
 		limiter.clear();
-		memberId = memberFacade.join(identityStore.joinRequest(
-			"runner1@crewrun.com", "password1234", "김러너", "러너1", "010-1234-5678", LocalDate.of(1995, 4, 12), null,
-			List.of(TermsType.SERVICE, TermsType.PRIVACY)
-		)).getId();
+		// 픽스처 기본값: 이름 김러너, 생년월일 1995-04-12
+		memberId = memberFacade.join(MemberFixture.joinRequest().build(identityStore)).getId();
 	}
 
 	@AfterEach

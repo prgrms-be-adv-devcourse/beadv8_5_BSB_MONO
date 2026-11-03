@@ -12,8 +12,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.Duration;
-import java.time.LocalDate;
-import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,12 +35,12 @@ import com.bukang.jwt.JwtClaims;
 import com.bukang.jwt.JwtProvider;
 import com.bukang.jwt.TokenType;
 import com.bukang.member.app.MemberFacade;
-import com.bukang.member.domain.TermsType;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.RefreshTokenRepository;
 import com.bukang.member.out.RefreshTokenRepository.NewFamily;
 import com.bukang.member.out.TermsAgreementRepository;
 import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
+import com.bukang.member.support.MemberFixture;
 import com.jayway.jsonpath.JsonPath;
 
 // 테스트에서는 Redis 서버를 띄우지 않으므로 RefreshTokenRepository는 목으로 바꿔 저장 호출만 확인한다
@@ -80,10 +78,9 @@ class ApiV1AuthLoginTest {
 
 	@BeforeEach
 	void setUp() {
-		memberId = memberFacade.join(identityStore.joinRequest(
-			EMAIL, PASSWORD, "김러너", "러너1", "010-1234-5678", LocalDate.of(1995, 4, 12), null,
-			List.of(TermsType.SERVICE, TermsType.PRIVACY)
-		)).getId();
+		memberId = memberFacade.join(MemberFixture.joinRequest()
+			.email(EMAIL).password(PASSWORD)
+			.build(identityStore)).getId();
 	}
 
 	@AfterEach

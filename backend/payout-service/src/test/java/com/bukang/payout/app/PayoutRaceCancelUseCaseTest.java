@@ -60,6 +60,10 @@ class PayoutRaceCancelUseCaseTest {
 			new PayoutLedgerUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository));
 	}
 
+	private PayoutPayStepUseCase payStepUseCase() {
+		return new PayoutPayStepUseCase(payoutRepository, useCase());
+	}
+
 	private PayoutHoldUseCase holdUseCase() {
 		return new PayoutHoldUseCase(payoutRepository, payoutHoldRepository, new BusinessDayCalendar());
 	}
@@ -178,6 +182,56 @@ class PayoutRaceCancelUseCaseTest {
 		assertThat(again).isEqualTo(new PayoutRaceCancelUseCase.CancelResult(2, 0, false));
 		assertThat(reload(calculated).getStatusHistories()).hasSize(2);
 		assertThat(payoutRecoveryRepository.count()).isEqualTo(1);
+	}
+
+	@Test
+	@DisplayName("지급 중 정산 내역은 닫지 않고, 지급 결과가 나올 때까지 회수를 만들지 않는다 (PRO-253)")
+	void payingPayoutWaitsForPayResult() {
+		Payout paying = savePayout(RACE_ID, YearMonth.of(2026, 9), 50_000);
+		paying.startPaying(CANCELED_AT.minusMinutes(1));
+
+		PayoutRaceCancelUseCase.CancelResult result = useCase().cancelRace(RACE_ID, CANCELED_AT);
+
+		assertThat(result).isEqualTo(new PayoutRaceCancelUseCase.CancelResult(1, 0, false));
+		assertThat(reload(paying).getStatus()).isEqualTo(PayoutStatus.PAYING);
+		assertThat(payoutRecoveryRepository.count()).isZero();
+	}
+
+	@Test
+	@DisplayName("대회 취소 뒤 지급 중 정산 내역의 지급이 성공하면 지급 완료로 바꾸고, 그때 지급한 돈만큼 회수를 만든다 (PRO-253)")
+	void payingPayoutSucceededAfterRaceCancelCreatesRecovery() {
+		Payout paid = savePayout(RACE_ID, YearMonth.of(2026, 8), 20_000);
+		paid.pay(CANCELED_AT.minusDays(10));
+		Payout paying = savePayout(RACE_ID, YearMonth.of(2026, 9), 50_000);
+		paying.startPaying(CANCELED_AT.minusMinutes(1));
+		useCase().cancelRace(RACE_ID, CANCELED_AT);
+		entityManager.flush();
+		entityManager.clear();
+
+		payStepUseCase().complete(paying.getId(), CANCELED_AT.plusMinutes(1));
+
+		assertThat(reload(paying).getStatus()).isEqualTo(PayoutStatus.PAID);
+		// 지급 완료 두 건의 지급액 합: (20,000 − 1,100) + (50,000 − 2,750) = 18,900 + 47,250 = 66,150
+		assertThat(payoutRecoveryRepository.findAll()).singleElement()
+			.extracting(PayoutRecovery::getAmount).isEqualTo(66_150L);
+	}
+
+	@Test
+	@DisplayName("대회 취소 뒤 지급 중 정산 내역의 지급이 거절되면 정산 예정으로 되돌리지 않고 취소로 닫는다 (PRO-253)")
+	void payingPayoutRejectedAfterRaceCancelIsCanceled() {
+		Payout paying = savePayout(RACE_ID, YearMonth.of(2026, 9), 50_000);
+		paying.startPaying(CANCELED_AT.minusMinutes(1));
+		useCase().cancelRace(RACE_ID, CANCELED_AT);
+		entityManager.flush();
+		entityManager.clear();
+
+		payStepUseCase().revert(paying.getId(), CANCELED_AT.plusMinutes(1), "캐시 서비스 거절");
+
+		Payout reloaded = reload(paying);
+		assertThat(reloaded.getStatus()).isEqualTo(PayoutStatus.CANCELED);
+		assertThat(reloaded.getPayoutAmount()).isZero();
+		// 돈이 나가지 않았으므로 돌려받을 것도 없다
+		assertThat(payoutRecoveryRepository.count()).isZero();
 	}
 
 	@Test
