@@ -184,6 +184,14 @@
           "$ref": "#/components/schemas/CrewHomeDto"
         }
       }
+    },
+    "updateCrew": {
+      "200": {
+        "wrapper": "RsDataCrewHomeDto",
+        "data": {
+          "$ref": "#/components/schemas/CrewHomeDto"
+        }
+      }
     }
   },
   "schemas": {
