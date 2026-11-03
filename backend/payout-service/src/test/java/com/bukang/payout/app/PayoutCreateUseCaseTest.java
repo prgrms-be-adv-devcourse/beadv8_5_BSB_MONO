@@ -36,6 +36,7 @@ import com.bukang.payout.out.SoldEntry;
 import com.bukang.payout.out.SoldEntryPort;
 import com.bukang.payout.out.SoldSummary;
 import com.bukang.payout.out.SoldSummaryPort;
+import com.bukang.payout.support.PayoutFixture;
 import com.bukang.payout.support.StubRacePort;
 
 @DataJpaTest
@@ -410,29 +411,27 @@ class PayoutCreateUseCaseTest {
 		assertThat(first.getPayoutAmount() + last.getPayoutAmount()).isEqualTo(94_500L);
 	}
 
+	// 1차가 보류 중이어도 최종은 1차가 지급된 뒤에만 나가므로(PRO-188) 따로 보류하지 않는다 (PRO-189, 11/3 결정)
+	// 최종이 기다리다 1차 지급 뒤 나가는 것은 PayoutPayUseCaseTest가 확인한다
 	@Test
-	@DisplayName("1차가 보류 중이면 최종을 만들고 같은 사유로 보류한다")
-	void holdsFinalWhenFirstIsHeld() {
+	@DisplayName("1차가 보류 중이어도 최종은 보류하지 않고 정산 예정으로 만든다")
+	void doesNotHoldFinalWhenFirstIsHeld() {
 		LocalDate raceDate = LocalDate.of(2026, 9, 30);
-		List<SoldEntry> entries = List.of(new SoldEntry(100, 1, 10, 10L, raceDate, 50_000L));
-		List<RaceSchedule> schedules =
-			List.of(new RaceSchedule(10, "2026 한강 나이트런", raceDate, LocalDate.of(2026, 9, 20)));
+		List<SoldEntry> entries = List.of(PayoutFixture.soldEntry(raceDate));
+		List<RaceSchedule> schedules = List.of(PayoutFixture.raceSchedule(raceDate, LocalDate.of(2026, 9, 20)));
 
 		// 1차를 만들 때는 계좌가 없어 자동 보류가 걸렸다
 		useCaseSelling(entries, sellerId -> false, schedules)
 			.run(LocalDate.of(2026, 9, 21), LocalDateTime.of(2026, 9, 21, 3, 0));
-		// 최종을 만들 때는 계좌가 있지만 1차가 아직 보류 중이다
+		// 최종을 만들 때는 계좌가 있고 1차는 아직 보류 중이다
 		useCaseSelling(entries, sellerId -> true, schedules)
 			.run(LocalDate.of(2026, 10, 1), LocalDateTime.of(2026, 10, 1, 3, 0));
 
-		Payout last = payoutOf(1, PayoutStage.FINAL);
-		assertThat(last.getStatus()).isEqualTo(PayoutStatus.HELD);
-		PayoutHold finalHold = payoutHoldRepository.findAll().stream()
-			.filter(hold -> hold.getPayout().getId() == last.getId())
-			.findFirst()
-			.orElseThrow();
-		assertThat(finalHold.getReasonType()).isEqualTo(PayoutHoldReason.ACCOUNT_NOT_REGISTERED);
-		assertThat(finalHold.getReason()).isEqualTo("1차 정산 보류 중이라 최종 정산도 자동 보류");
+		assertThat(payoutOf(PayoutFixture.SELLER_ID, PayoutStage.FINAL).getStatus())
+			.isEqualTo(PayoutStatus.CALCULATED);
+		assertThat(payoutHoldRepository.findAll())
+			.extracting(hold -> hold.getPayout().getPayoutStage())
+			.containsExactly(PayoutStage.FIRST);
 	}
 
 	@Test
