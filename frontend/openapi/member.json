@@ -40,7 +40,7 @@
     },
     {
       "name": "CrewManage",
-      "description": "크루 탈퇴, 크루원 내보내기, 크루장 넘기기, 크루 없애기 API (2그룹)"
+      "description": "크루 탈퇴, 크루원 내보내기, 크루장 넘기기, 크루 없애기, 크루 이름 바꾸기 API"
     },
     {
       "name": "PasswordReset",
@@ -3741,7 +3741,7 @@
                     "value": {
                       "status": 400,
                       "code": "INVALID_REQUEST",
-                      "message": "크루 이름은 1자 이상 20자 이하로 입력해주세요.",
+                      "message": "크루장을 넘겨받을 크루원을 선택해주세요.",
                       "data": null
                     }
                   },
