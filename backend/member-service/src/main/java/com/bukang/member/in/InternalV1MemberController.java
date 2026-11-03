@@ -12,6 +12,7 @@ import com.bukang.member.app.MemberFacade;
 import com.bukang.member.app.SellerFacade;
 import com.bukang.member.dto.MemberAdminDto;
 import com.bukang.member.dto.MemberSellerDto;
+import com.bukang.member.dto.SellerPayoutAccountDto;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -27,7 +28,8 @@ import lombok.RequiredArgsConstructor;
  * 다른 서비스가 동기 호출로 부르는 내부 API. /internal/** 은 게이트웨이에 노출하지 않는다 (order-service와 같은 방식)
  * 회원이 아니라 서비스가 부르므로 회원 ID 헤더를 받지 않는다
  */
-@Tag(name = "MemberInternal", description = "회원의 판매자 ID 조회, 관리자 여부 조회 API (서비스 간 내부 호출 전용)")
+@Tag(name = "MemberInternal",
+	description = "회원의 판매자 ID 조회, 관리자 여부 조회, 판매자 정산 계좌 등록 여부 조회 API (서비스 간 내부 호출 전용)")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/internal/v1/member")
@@ -79,5 +81,27 @@ public class InternalV1MemberController {
 	) {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "관리자 여부를 조회했습니다.", memberFacade.checkAdmin(memberId)));
+	}
+
+	@GetMapping("/sellers/{sellerId}/payout-account")
+	@Operation(summary = "판매자 정산 계좌 등록 여부 조회",
+		description = "정산 서비스가 계좌 미등록 판매자의 정산을 보류하려고 부른다. 판매자 신청 때 계좌실명조회를 통과한 "
+			+ "정산 계좌가 있으면 registered=true, 없으면(이 기능 전에 신청한 판매자) false를 돌려준다. 계좌번호는 돌려주지 않는다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "조회 성공 (계좌가 없어도 200)",
+			content = @Content(examples = {
+				@ExampleObject(name = "계좌 등록됨", value = MemberInternalApiExamples.PAYOUT_ACCOUNT_REGISTERED),
+				@ExampleObject(name = "계좌 없음", value = MemberInternalApiExamples.PAYOUT_ACCOUNT_NOT_REGISTERED)
+			})),
+		@ApiResponse(responseCode = "404", description = "존재하지 않는 판매자 신청",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = MemberInternalApiExamples.SELLER_NOT_FOUND)))
+	})
+	public ResponseEntity<RsData<SellerPayoutAccountDto>> findPayoutAccount(
+		@Parameter(description = "판매자 ID (판매자 신청서 ID)", example = "3") @PathVariable long sellerId
+	) {
+		return ResponseEntity.ok()
+			.body(RsData.of(HttpStatus.OK, "판매자 정산 계좌 등록 여부를 조회했습니다.",
+				sellerFacade.findPayoutAccount(sellerId)));
 	}
 }

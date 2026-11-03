@@ -4,11 +4,13 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.bukang.common.shared.seller.domain.SellerStatus;
 import com.bukang.common.shared.seller.domain.SellerType;
 import com.bukang.member.domain.Member;
 import com.bukang.member.domain.Seller;
+import com.bukang.member.domain.VerifiedPayoutAccount;
 import com.bukang.member.domain.exception.MemberNotFoundException;
 import com.bukang.member.domain.exception.SellerAlreadyAppliedException;
 import com.bukang.member.out.MemberRepository;
@@ -17,11 +19,13 @@ import com.bukang.member.out.SellerRepository;
 import lombok.RequiredArgsConstructor;
 
 // 판매자 등록 신청 (BE-020). 신청마다 새 행을 만들고, 대기·승인 상태 신청이 있으면 막는다
+// 정산 계좌는 트랜잭션 밖에서 미리 확인해 받는다 (BE-031, PayoutAccountVerifyUseCase)
 @Service
+@Transactional
 @RequiredArgsConstructor
 public class SellerApplyUseCase {
 	// 이 상태의 신청이 있으면 다시 신청할 수 없다. 반려(REJECTED)만 남아 있으면 새로 신청한다
-	private static final List<SellerStatus> ACTIVE_STATUSES = List.of(SellerStatus.PENDING, SellerStatus.APPROVED);
+	static final List<SellerStatus> ACTIVE_STATUSES = List.of(SellerStatus.PENDING, SellerStatus.APPROVED);
 
 	private final MemberRepository memberRepository;
 	private final SellerRepository sellerRepository;
@@ -32,10 +36,12 @@ public class SellerApplyUseCase {
 		String businessName,
 		String businessNumber,
 		String representativeName,
+		VerifiedPayoutAccount payoutAccount,
 		LocalDateTime now
 	) {
 		// 탈퇴한 회원은 남은 Access Token으로 불러도 없는 회원으로 본다 (PRO-217, BE-022 결정 6)
 		// 회원 줄을 잠가 탈퇴와 신청의 순서를 정한다. 탈퇴가 먼저 커밋되면 여기서 탈퇴한 회원을 보고 404가 된다
+		// 같은 회원이 동시에 두 번 신청해 둘 다 계좌 확인을 지나도, 여기서 줄을 차례로 잡아 두 번째는 409가 된다
 		Member member = memberRepository.findByIdForUpdate(memberId)
 			.filter(found -> !found.isWithdrawn())
 			.orElseThrow(() -> new MemberNotFoundException("존재하지 않는 회원입니다."));
@@ -45,7 +51,7 @@ public class SellerApplyUseCase {
 
 		// 저장해야 ID가 정해지므로(IDENTITY) 바로 반영한 뒤 이벤트를 발행한다 (가입 이벤트와 같은 이유)
 		Seller savedSeller = sellerRepository.saveAndFlush(
-			new Seller(member, sellerType, businessName, businessNumber, representativeName, now)
+			new Seller(member, sellerType, businessName, businessNumber, representativeName, payoutAccount, now)
 		);
 		savedSeller.publishChangedEvent();
 		return savedSeller;

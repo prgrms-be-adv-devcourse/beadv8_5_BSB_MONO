@@ -138,6 +138,19 @@ member:
     portone:
       api-secret: ${PORTONE_API_SECRET:}
       store-id: ${PORTONE_STORE_ID:}
+  # 판매자 정산 계좌 확인 (PayoutAccountProperties, BUK-50). 금융결제원 오픈뱅킹 계좌실명조회. 키 값은 .env에만 둔다
+  # 키가 없으면 운영은 판매자 신청을 받지 않고(503), 그 밖은 가짜 확인으로 통과시킨다 (PayoutAccountConfig)
+  payout-account:
+    daily-limit: 5
+    window: 24h
+    openbanking:
+      base-url: ${OPENBANKING_BASE_URL:https://testapi.openbanking.or.kr}
+      client-id: ${OPENBANKING_CLIENT_ID:}
+      client-secret: ${OPENBANKING_CLIENT_SECRET:}
+      # 공식 문서에서 확인하지 못한 값이라 기본값을 두지 않는다. 비면 계좌 확인이 503으로 실패한다
+      use-code: ${OPENBANKING_USE_CODE:}
+      birth-holder-type: ${OPENBANKING_HOLDER_TYPE_BIRTH:}
+      business-holder-type: ${OPENBANKING_HOLDER_TYPE_BUSINESS:}
   # 회원 탈퇴 전에 남은 예치금·참가권을 묻는 내부 API (BE-022). 로컬 개발은 bootRun으로 띄운 서비스 포트로 부른다
   clients:
     # 연결·응답 시간 제한. 넘으면 탈퇴하지 않고 503으로 다시 시도하게 한다

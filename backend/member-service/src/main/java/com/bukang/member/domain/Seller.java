@@ -7,6 +7,7 @@ import static lombok.AccessLevel.PROTECTED;
 
 import java.time.LocalDateTime;
 
+import com.bukang.common.global.crypto.EncryptedStringConverter;
 import com.bukang.common.global.jpa.entity.BaseEntity;
 import com.bukang.common.shared.seller.domain.SellerStatus;
 import com.bukang.common.shared.seller.domain.SellerType;
@@ -15,6 +16,7 @@ import com.bukang.member.domain.exception.SellerAlreadyReviewedException;
 import com.bukang.member.domain.exception.SellerNotReviewedException;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
@@ -89,6 +91,25 @@ public class Seller extends BaseEntity {
 	@Column(name = "result_checked_at")
 	private LocalDateTime resultCheckedAt;
 
+	// 정산 계좌 (BE-031). 계좌실명조회를 통과한 값만 저장한다. 이 기능 전에 신청한 행은 모두 null이다
+	@Column(name = "payout_bank_code", length = 3)
+	private String payoutBankCode;
+
+	@Convert(converter = EncryptedStringConverter.class) // DB 저장 시 AES 암호화, 조회 시 복호화
+	@Column(name = "payout_account_number", length = 255)
+	private String payoutAccountNumber;
+
+	// 은행이 돌려준 예금주 이름
+	@Column(name = "payout_account_holder_name", length = 50)
+	private String payoutAccountHolderName;
+
+	@Enumerated(STRING)
+	@Column(name = "payout_account_holder_type", columnDefinition = "varchar(20)")
+	private PayoutAccountHolderType payoutAccountHolderType;
+
+	@Column(name = "payout_account_verified_at")
+	private LocalDateTime payoutAccountVerifiedAt;
+
 	// 비사업자는 상호·사업자등록번호를 보내도 버린다 (BE-020 결정 4)
 	public Seller(
 		Member member,
@@ -96,6 +117,7 @@ public class Seller extends BaseEntity {
 		String businessName,
 		String businessNumber,
 		String representativeName,
+		VerifiedPayoutAccount payoutAccount,
 		LocalDateTime requestedAt
 	) {
 		boolean business = sellerType == SellerType.BUSINESS;
@@ -106,6 +128,16 @@ public class Seller extends BaseEntity {
 		this.representativeName = representativeName;
 		this.status = SellerStatus.PENDING;
 		this.requestedAt = requestedAt;
+		this.payoutBankCode = payoutAccount.bankCode();
+		this.payoutAccountNumber = payoutAccount.accountNumber();
+		this.payoutAccountHolderName = payoutAccount.holderName();
+		this.payoutAccountHolderType = payoutAccount.holderType();
+		this.payoutAccountVerifiedAt = payoutAccount.verifiedAt();
+	}
+
+	// 정산 서비스가 계좌 미등록 판매자의 정산을 보류할 때 쓴다
+	public boolean hasPayoutAccount() {
+		return payoutAccountVerifiedAt != null;
 	}
 
 	// 하이픈 유무와 상관없이 123-45-67890 모양으로 저장한다 (형식 검사는 요청 DTO에서 끝남)

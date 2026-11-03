@@ -48,8 +48,8 @@ import com.bukang.member.app.MemberFacade;
 import com.bukang.member.app.SellerFacade;
 import com.bukang.member.domain.Gender;
 import com.bukang.member.domain.Member;
-import com.bukang.member.domain.PayoutAccountHolderType;
 import com.bukang.member.domain.MemberStatus;
+import com.bukang.member.domain.PayoutAccountHolderType;
 import com.bukang.member.domain.Seller;
 import com.bukang.member.domain.TermsType;
 import com.bukang.member.domain.exception.WithdrawCheckFailedException;
@@ -61,9 +61,9 @@ import com.bukang.member.out.TermsAgreementRepository;
 import com.bukang.member.out.cash.CashBalancePort;
 import com.bukang.member.out.cash.HttpCashBalanceAdapter;
 import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
-import com.bukang.member.out.payoutaccount.InMemoryPayoutAccountVerifyLimiter;
 import com.bukang.member.out.order.ActiveTicketPort;
 import com.bukang.member.out.order.HttpActiveTicketAdapter;
+import com.bukang.member.out.payoutaccount.InMemoryPayoutAccountVerifyLimiter;
 
 // 예치금·주문 서비스와 Redis는 띄우지 않으므로 포트와 Refresh Token 저장소를 목으로 바꾼다
 // 수정 이벤트는 스프링 이벤트로 발행됐는지만 본다. Kafka로 나가는 건 MemberKafkaPublisherTest가 확인한다

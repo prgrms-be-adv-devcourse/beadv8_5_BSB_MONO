@@ -34,14 +34,18 @@ public class ApiV1SellerController {
 	@PostMapping
 	@Operation(summary = "판매자 등록 신청",
 		description = "X-Member-Id 헤더의 회원이 판매자 등록을 신청한다. 사업자는 상호·사업자등록번호가 필수이고, "
-			+ "비사업자가 보낸 상호·사업자등록번호는 버린다. 대기·승인 상태 신청이 있으면 막고, 반려만 있으면 새로 신청한다.")
+			+ "비사업자가 보낸 상호·사업자등록번호는 버린다. 대기·승인 상태 신청이 있으면 막고, 반려만 있으면 새로 신청한다. "
+			+ "정산 계좌는 오픈뱅킹 계좌실명조회로 확인한다. 사업자 명의는 사업자등록번호로 조회해 은행이 맞다고 답하면, "
+			+ "본인 명의는 본인인증 생년월일로 조회해 예금주 이름이 본인인증 이름과 같으면(공백 무시) 통과한다. "
+			+ "계좌 확인은 회원 한 명당 하루 5번까지 할 수 있다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "201", description = "신청 성공",
 			content = @Content(examples = @ExampleObject(value = SellerApiExamples.APPLY_SUCCESS))),
-		@ApiResponse(responseCode = "400", description = "입력값 검증 실패 또는 요청 본문 형식 오류",
+		@ApiResponse(responseCode = "400", description = "입력값 검증 실패, 요청 본문 형식 오류 또는 예금주 정보 불일치",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "입력값 검증 실패", value = SellerApiExamples.APPLY_INVALID_INPUT),
-				@ExampleObject(name = "요청 본문 형식 오류", value = SellerApiExamples.INVALID_BODY)
+				@ExampleObject(name = "요청 본문 형식 오류", value = SellerApiExamples.INVALID_BODY),
+				@ExampleObject(name = "예금주 정보 불일치", value = SellerApiExamples.ACCOUNT_NOT_VERIFIED)
 			})),
 		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음 (로그인하지 않은 요청)",
 			content = @Content(schema = @Schema(implementation = RsData.class),
@@ -51,7 +55,13 @@ public class ApiV1SellerController {
 				examples = @ExampleObject(value = SellerApiExamples.MEMBER_NOT_FOUND))),
 		@ApiResponse(responseCode = "409", description = "대기 또는 승인 상태 신청이 있음",
 			content = @Content(schema = @Schema(implementation = RsData.class),
-				examples = @ExampleObject(value = SellerApiExamples.ALREADY_APPLIED)))
+				examples = @ExampleObject(value = SellerApiExamples.ALREADY_APPLIED))),
+		@ApiResponse(responseCode = "429", description = "오늘 계좌 확인을 5번 넘게 함",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = SellerApiExamples.ACCOUNT_VERIFY_TOO_MANY_REQUESTS))),
+		@ApiResponse(responseCode = "503", description = "오픈뱅킹이 응답하지 않음 (시간 초과, 서버 오류, 운영 키 없음)",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = SellerApiExamples.ACCOUNT_VERIFY_UNAVAILABLE)))
 	})
 	public ResponseEntity<RsData<SellerDto>> apply(
 		@LoginMemberId long memberId,

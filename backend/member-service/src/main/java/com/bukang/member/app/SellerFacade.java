@@ -4,15 +4,18 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.bukang.common.shared.seller.domain.SellerStatus;
 import com.bukang.member.domain.Seller;
+import com.bukang.member.domain.VerifiedPayoutAccount;
 import com.bukang.member.domain.exception.MemberNotFoundException;
 import com.bukang.member.domain.exception.SellerNotFoundException;
 import com.bukang.member.dto.MemberSellerDto;
 import com.bukang.member.dto.SellerApplyRequestDto;
 import com.bukang.member.dto.SellerDto;
+import com.bukang.member.dto.SellerPayoutAccountDto;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.SellerRepository;
 
@@ -25,20 +28,24 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class SellerFacade {
 	private final SellerApplyUseCase sellerApplyUseCase;
+	private final PayoutAccountVerifyUseCase payoutAccountVerifyUseCase;
 	private final SellerReviewUseCase sellerReviewUseCase;
 	private final SellerResultCheckUseCase sellerResultCheckUseCase;
 	private final AdminVerifyUseCase adminVerifyUseCase;
 	private final SellerRepository sellerRepository;
 	private final MemberRepository memberRepository;
 
-	@Transactional
+	// 정산 계좌 확인(오픈뱅킹)은 트랜잭션 밖에서 하고, 저장만 SellerApplyUseCase의 트랜잭션에서 한다 (BE-031)
+	@Transactional(propagation = Propagation.NOT_SUPPORTED)
 	public SellerDto apply(long memberId, SellerApplyRequestDto request) {
+		VerifiedPayoutAccount payoutAccount = payoutAccountVerifyUseCase.verify(memberId, request, LocalDateTime.now());
 		return SellerDto.from(sellerApplyUseCase.apply(
 			memberId,
 			request.getSellerType(),
 			request.getBusinessName(),
 			request.getBusinessNumber(),
 			request.getRepresentativeName(),
+			payoutAccount,
 			LocalDateTime.now()
 		));
 	}
@@ -62,6 +69,13 @@ public class SellerFacade {
 		return sellerRepository.findFirstByMemberIdOrderByIdDesc(memberId)
 			.map(MemberSellerDto::from)
 			.orElse(MemberSellerDto.NONE);
+	}
+
+	// 정산 서비스가 계좌 미등록 판매자의 정산을 보류하려고 묻는다 (BE-031). 등록 여부만 돌려준다
+	public SellerPayoutAccountDto findPayoutAccount(long sellerId) {
+		return sellerRepository.findById(sellerId)
+			.map(seller -> new SellerPayoutAccountDto(seller.hasPayoutAccount()))
+			.orElseThrow(() -> new SellerNotFoundException("존재하지 않는 판매자 신청입니다."));
 	}
 
 	// status가 null이면 전체를 최근 신청부터 돌려준다
