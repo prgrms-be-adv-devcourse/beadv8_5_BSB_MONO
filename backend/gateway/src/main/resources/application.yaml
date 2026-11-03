@@ -96,6 +96,9 @@ gateway:
       - pattern: /api/v1/auth/logout
       # 카카오·구글 소셜 로그인 시작·콜백·소셜 가입은 로그인 전에 쓴다 (BE-031). 계정 연결 표 발급은 회원 주소라 토큰이 필요하다
       - pattern: /api/v1/auth/oauth2/**
+      # 비밀번호 재설정 메일 요청·링크 확인·새 비밀번호 저장은 로그인 전에 쓴다 (BUK-40)
+      - pattern: /api/v1/auth/password-reset/**
+        methods: [ POST ]
       # 가입 본인인증(포트원)은 로그인 전에 쓴다 (BUK-33)
       - pattern: /api/v1/auth/identity-verifications/**
         methods: [ POST ]
