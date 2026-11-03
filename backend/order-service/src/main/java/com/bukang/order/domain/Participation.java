@@ -24,7 +24,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * 참가 신청 (사람 단위). 참가하려는 사람 1명 = 1행이고, 개인 신청과 크루원 신청이 같은 테이블을 쓴다 (ERD 추천안 v4 7쪽)
+ * 참가 신청 (사람 단위). 참가하려는 사람 1명 = 1행이고, 개인 신청과 파티원 신청이 같은 테이블을 쓴다 (ERD 추천안 v4 7쪽)
  * 결제 전에 신청서를 먼저 받아 PENDING으로 저장하고, [결제하기]에서 자리를 확보하면 APPLIED가 된다 (PRO-41)
  */
 @Entity
