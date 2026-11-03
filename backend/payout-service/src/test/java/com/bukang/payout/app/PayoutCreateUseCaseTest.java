@@ -26,10 +26,12 @@ import com.bukang.payout.domain.PayoutItem;
 import com.bukang.payout.domain.PayoutRecordType;
 import com.bukang.payout.domain.PayoutStage;
 import com.bukang.payout.domain.PayoutStatus;
+import com.bukang.payout.dto.PayoutCreateResultDto;
 import com.bukang.payout.out.PayoutHoldRepository;
 import com.bukang.payout.out.PayoutItemRepository;
 import com.bukang.payout.out.PayoutRecoveryRepository;
 import com.bukang.payout.out.PayoutRepository;
+import com.bukang.payout.out.RacePort;
 import com.bukang.payout.out.RaceSchedule;
 import com.bukang.payout.out.SellerAccountPort;
 import com.bukang.payout.out.SoldEntry;
@@ -323,6 +325,39 @@ class PayoutCreateUseCaseTest {
 		assertThat(payoutRepository.findAll())
 			.extracting(Payout::getRaceId, Payout::getPayoutStage)
 			.containsExactly(tuple(10L, PayoutStage.FINAL));
+	}
+
+	@Test
+	@DisplayName("1차 대상 대회를 상품 서비스에서 받지 못해도 같은 실행의 최종 정산은 만들고, 실행 결과에 실패로 남긴다 (PRO-241)")
+	void firstRaceLookupFailureDoesNotStopFinal() {
+		List<SoldEntry> entries = List.of(new SoldEntry(100, 1, 10, 10L, RACE_DATE, 50_000L));
+		StubRacePort working = new StubRacePort(RACE_NAMES, List.of(), entries);
+		RacePort firstLookupDown = new RacePort() {
+			@Override
+			public List<RaceSchedule> findRacesByRefundDeadline(LocalDate fromRefundDeadline,
+				LocalDate toRefundDeadline) {
+				throw new IllegalStateException("상품 서비스 응답 없음");
+			}
+
+			@Override
+			public List<RaceSchedule> findRacesByRaceDate(LocalDate fromRaceDate, LocalDate toRaceDate) {
+				return working.findRacesByRaceDate(fromRaceDate, toRaceDate);
+			}
+		};
+		PayoutCreateStepUseCase payoutCreateStepUseCase =
+			new PayoutCreateStepUseCase(payoutRepository, new BusinessDayCalendar(),
+				new PayoutLedgerUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository),
+				new PayoutHoldUseCase(payoutRepository, payoutHoldRepository, new BusinessDayCalendar()));
+		PayoutCreateUseCase useCase = new PayoutCreateUseCase(payoutRepository, payoutCreateStepUseCase,
+			soldEntriesReturning(entries), sellerId -> true, firstLookupDown, summariesOf(entries));
+
+		PayoutCreateResultDto result = useCase.run(TARGET_DATE, NOW);
+
+		assertThat(payoutRepository.findAll())
+			.extracting(Payout::getRaceId, Payout::getPayoutStage)
+			.containsExactly(tuple(10L, PayoutStage.FINAL));
+		assertThat(result.created()).isEqualTo(1);
+		assertThat(result.failed()).isEqualTo(1);
 	}
 
 	@Test

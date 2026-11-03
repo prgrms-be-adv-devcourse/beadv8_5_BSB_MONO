@@ -103,6 +103,10 @@ public class Payout extends BaseIdAndTime {
 
 	private LocalDateTime paidAt;
 
+	// 지급 중(PAYING)에 대회가 취소된 시각 (PRO-253). 지급 중에는 돈이 이미 나갔을 수 있어 바로 닫지 못하므로 표시만 남긴다
+	// 지급 결과가 나오면 성공은 지급 완료로 바꾼 뒤 회수를 만들고, 거절은 정산 예정으로 되돌리지 않고 취소로 닫는다
+	private LocalDateTime raceCanceledAt;
+
 	// 낙관적 락: 지급 배치와 보류 API가 같은 정산 내역을 동시에 바꾸면 늦게 커밋한 쪽이 실패한다
 	// 없으면 배치가 읽은 CALCULATED를 근거로, 그 사이 걸린 HELD를 PAID로 덮어쓸 수 있다
 	@Version
@@ -352,12 +356,48 @@ public class Payout extends BaseIdAndTime {
 	// 지급액(줄의 합)은 0이 되고, 판매액 · 수수료 칸은 만들 때 그대로 둔다(얼마가 나갈 뻔했는지 남긴다)
 	// 보류 중이었으면 보류 기록은 HELD로 두고 상태만 최신으로 바꾼다. 무엇이었는지는 상태 이력에 남는다
 	// 이미 지급한 정산 내역은 닫지 않는다. 지급 뒤 대회 취소는 회수(PRO-33)가 맡는다
-	// 지급 중에도 돈이 이미 나갔을 수 있어 닫지 않는다. 대회 취소가 지급 중을 만났을 때의 처리는 PRO-253에서 정한다
+	// 지급 중에도 돈이 이미 나갔을 수 있어 닫지 않는다. 대신 markRaceCanceled로 표시하고 지급 결과를 기다린다 (PRO-253)
 	public void cancel(long canceledBy, LocalDateTime canceledAt, String reason) {
 		if (!status.isBeforePayment()) {
 			throw new IllegalStateException("지급 전 정산 내역만 취소할 수 있습니다. payoutId=%d, status=%s"
 				.formatted(getId(), status));
 		}
+		close(canceledBy, canceledAt, reason);
+	}
+
+	/**
+	 * 지급 중에 대회가 취소됐다고 표시한다 (PRO-253). 같은 대회 취소 메시지를 다시 받아도 처음 시각을 그대로 둔다
+	 *
+	 * @return 이번에 처음 표시했으면 true
+	 */
+	public boolean markRaceCanceled(LocalDateTime canceledAt) {
+		if (status != PayoutStatus.PAYING) {
+			throw new IllegalStateException("지급 중 정산 내역만 대회 취소를 표시합니다. payoutId=%d, status=%s"
+				.formatted(getId(), status));
+		}
+		if (raceCanceledAt != null) {
+			return false;
+		}
+		this.raceCanceledAt = canceledAt;
+		return true;
+	}
+
+	public boolean isRaceCanceled() {
+		return raceCanceledAt != null;
+	}
+
+	// 대회 취소를 표시한 지급 중 정산 내역의 지급이 거절됐다. 돈이 나가지 않았으므로 정산 예정으로 되돌리지 않고 취소로 닫는다
+	// (되돌리면 다음 지급 배치가 취소된 대회의 정산금을 내보낸다, PRO-253)
+	public void cancelRejected(LocalDateTime canceledAt, String reason) {
+		if (status != PayoutStatus.PAYING || raceCanceledAt == null) {
+			throw new IllegalStateException("대회 취소를 표시한 지급 중 정산 내역만 거절 뒤 취소합니다. payoutId=%d, status=%s"
+				.formatted(getId(), status));
+		}
+		close(PayoutHold.SYSTEM_MEMBER_ID, canceledAt, reason);
+	}
+
+	// 원장 줄을 반대 부호로 되돌리고 취소로 닫는다
+	private void close(long canceledBy, LocalDateTime canceledAt, String reason) {
 		List<PayoutItem> original = List.copyOf(items);
 		original.forEach(item -> addLine(item.getRecordType().canceled(), item.getOrderItemId(),
 			item.getRaceCourseId(), -item.getAmount(), item.getFeeRate(), item.getTargetDate()));

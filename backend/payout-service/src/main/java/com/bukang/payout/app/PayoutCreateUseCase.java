@@ -82,7 +82,15 @@ public class PayoutCreateUseCase {
 		LocalDate fromRefundDeadline = toRefundDeadline.minusDays(LOOKBACK_DAYS - 1);
 
 		Counts counts = new Counts();
-		for (RaceSchedule race : racePort.findRacesByRefundDeadline(fromRefundDeadline, toRefundDeadline)) {
+		List<RaceSchedule> races;
+		try {
+			races = racePort.findRacesByRefundDeadline(fromRefundDeadline, toRefundDeadline);
+		} catch (RuntimeException exception) {
+			// 예외를 run() 밖으로 던지면 같은 실행의 최종 정산도 만들지 못한다. 1차만 실패로 남기고 최종으로 넘어간다 (PRO-241)
+			counts.failRaceLookup(PayoutStage.FIRST, exception);
+			return counts;
+		}
+		for (RaceSchedule race : races) {
 			List<SoldSummary> summaries;
 			try {
 				summaries = soldSummaryPort.summarizeSold(race.raceId());
@@ -144,7 +152,15 @@ public class PayoutCreateUseCase {
 	// 기간을 물으면 상품의 대회일과 어긋난 참가권은 대상 대회에서 빠지거나 다른 기간에 잡힌다
 	private Counts createFinalPayoutsForRaces(LocalDate fromRaceDate, LocalDate toRaceDate, LocalDateTime now) {
 		Counts counts = new Counts();
-		for (RaceSchedule race : racePort.findRacesByRaceDate(fromRaceDate, toRaceDate)) {
+		List<RaceSchedule> races;
+		try {
+			races = racePort.findRacesByRaceDate(fromRaceDate, toRaceDate);
+		} catch (RuntimeException exception) {
+			// 1차와 같은 기준으로 실패를 세어 배치 결과에 남긴다 (PRO-241)
+			counts.failRaceLookup(PayoutStage.FINAL, exception);
+			return counts;
+		}
+		for (RaceSchedule race : races) {
 			List<SoldEntry> entries;
 			try {
 				entries = soldEntryPort.findSoldEntries(race.raceId());
@@ -230,6 +246,12 @@ public class PayoutCreateUseCase {
 			skipped++;
 			log.warn("다른 실행이 같은 정산 내역을 먼저 만들어 건너뜁니다. stage={}, sellerId={}, raceId={}",
 				stage, key.sellerId(), key.raceId());
+		}
+
+		// 대상 대회 목록을 못 받으면 몇 건이 빠졌는지 모르므로 한 건으로 센다. 되돌아보기로 다음 실행이 따라잡는다
+		private void failRaceLookup(PayoutStage stage, RuntimeException exception) {
+			failed++;
+			log.error("정산 대상 대회를 상품 서비스에서 받지 못했습니다. stage={}", stage, exception);
 		}
 
 		private void failRace(PayoutStage stage, long raceId, RuntimeException exception) {
