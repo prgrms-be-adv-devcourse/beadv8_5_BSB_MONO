@@ -89,8 +89,10 @@ public class ParticipationApplyUseCase {
 			return;
 		}
 		Participation participation = active.get();
-		if (participation.getStatus() != ParticipationStatus.PENDING
-			|| participation.getParticipationType() != ParticipationType.INDIVIDUAL) {
+		if (participation.getParticipationType() == ParticipationType.PARTY) {
+			throw new DuplicateParticipationException("파티로 신청한 대회예요. 개인으로 신청하려면 파티에서 나가 주세요.");
+		}
+		if (participation.getStatus() != ParticipationStatus.PENDING) {
 			throw new DuplicateParticipationException("이미 이 대회에 신청했습니다.");
 		}
 		participation.cancelBeforePayment(now);
@@ -98,7 +100,7 @@ public class ParticipationApplyUseCase {
 		participationRepository.flush();
 	}
 
-	private boolean isActiveParticipationConflict(DataIntegrityViolationException exception) {
+	static boolean isActiveParticipationConflict(DataIntegrityViolationException exception) {
 		String message = exception.getMostSpecificCause().getMessage();
 		return message != null && message.toLowerCase().contains(ACTIVE_PARTICIPATION_CONSTRAINT);
 	}
@@ -163,7 +165,7 @@ public class ParticipationApplyUseCase {
 	}
 
 	// 키트는 배송으로만 받으므로 키트가 있는 종목은 배송 주소가 있어야 한다 (정책 2장 1-3, 3장 1-2, 5장 3-2)
-	private ParticipantInfo checkShippingAddress(RaceCourseInfo course, ParticipantInfo participant) {
+	static ParticipantInfo checkShippingAddress(RaceCourseInfo course, ParticipantInfo participant) {
 		if (!course.kitIncluded()) {
 			return participant.withShippingAddress(null);
 		}
@@ -175,7 +177,7 @@ public class ParticipationApplyUseCase {
 
 	// 티셔츠를 주는 종목은 사이즈를 종목이 주는 사이즈 중에서 골라야 한다 (10/14 김호빈님과 정함)
 	// 티셔츠가 없는 종목은 보낸 사이즈를 남기지 않는다 (배송 주소와 같은 방식)
-	private ParticipantInfo checkTshirtSize(RaceCourseInfo course, ParticipantInfo participant) {
+	static ParticipantInfo checkTshirtSize(RaceCourseInfo course, ParticipantInfo participant) {
 		if (!course.offersTshirt()) {
 			return participant.withTshirtSize(null);
 		}
@@ -190,7 +192,7 @@ public class ParticipationApplyUseCase {
 		return participant;
 	}
 
-	private void checkAge(RaceCourseInfo course, ParticipantInfo participant) {
+	static void checkAge(RaceCourseInfo course, ParticipantInfo participant) {
 		if (!course.allowsAge(participant.getBirth())) {
 			throw new AgeRestrictionException("참가할 수 있는 나이가 아닙니다(대회 당일 %s, 신청자 만 %d세)."
 				.formatted(course.ageRangeLabel(), course.ageOnRaceDay(participant.getBirth())));

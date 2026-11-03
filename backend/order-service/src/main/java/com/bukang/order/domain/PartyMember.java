@@ -52,4 +52,18 @@ public class PartyMember extends BaseIdAndTime {
 	public static PartyMember join(long partyId, long memberId, long crewId, LocalDateTime joinedAt) {
 		return new PartyMember(partyId, memberId, crewId, joinedAt);
 	}
+
+	public boolean isActive() {
+		return leftAt == null;
+	}
+
+	public void leave(LocalDateTime now) {
+		this.leftAt = now;
+	}
+
+	// 나갔던 사람이 같은 파티에 다시 합류한다. 줄을 새로 만들지 않고 되살린다 (11/03)
+	public void rejoin(LocalDateTime now) {
+		this.joinedAt = now;
+		this.leftAt = null;
+	}
 }
