@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react'
 import { Controller, useFieldArray, useForm, useWatch, type Resolver } from 'react-hook-form'
 
 import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
+import { AddressSearch } from '@/features/address-search'
 import { parseRaceDateInput } from '@/entities/race'
 import { ApiError } from '@/shared/api'
 import { DateTimeField } from '@/shared/date-picker'
@@ -113,6 +114,8 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
   // 종목 표의 줄 키는 useFieldArray의 id다. 이름이 같은 종목도 따로 지울 수 있다
   const courseFields = useFieldArray({ control, name: 'courses' })
   const [courseOpen, setCourseOpen] = useState(false)
+  // 시·도 · 시·군·구는 주소 검색 결과로만 채운다. 검색을 못 불러오면 둘 다, 시·군·구가 없는 곳(세종)이면 시·군·구만 직접 쓴다
+  const [manualRegion, setManualRegion] = useState({ sido: false, sigungu: false })
   const schedule = useWatch({
     control,
     name: ['raceDate', 'individualOpenAt', 'applicationCloseAt', 'refundDeadline'],
@@ -251,6 +254,7 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
               label="시·도"
               placeholder="서울특별시"
               helper="대회 찾기의 지역 필터에 쓰여요"
+              readOnly={!manualRegion.sido}
               error={errors.regionSido?.message}
               className="flex-1"
               {...register('regionSido')}
@@ -258,11 +262,20 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
             <TextField
               label="시·군·구"
               placeholder="성동구"
+              readOnly={!manualRegion.sigungu}
               error={errors.regionSigungu?.message}
               className="flex-1"
               {...register('regionSigungu')}
             />
           </div>
+          <AddressSearch
+            onSelect={({ sido, sigungu }) => {
+              setValue('regionSido', sido, { shouldValidate: true, shouldDirty: true })
+              setValue('regionSigungu', sigungu, { shouldValidate: isSubmitted, shouldDirty: true })
+              setManualRegion((manual) => ({ ...manual, sigungu: manual.sido || !sigungu }))
+            }}
+            onUnavailable={() => setManualRegion({ sido: true, sigungu: true })}
+          />
           <div className="flex gap-4">
             {/* 시작은 개인 예매 오픈(그날 00:00), 끝은 접수 마감(그날 23:59:59)으로 보낸다 */}
             <DateTimeField

@@ -21,6 +21,13 @@ const serverSchema = z.object({
         .map((h) => h.trim())
         .filter(Boolean),
     ),
+  /**
+   * GA4 속성 ID(숫자). 측정 ID(G-로 시작)가 아니다. 어드민 이용 통계가 GA4 Data API를 부를 때 쓴다.
+   * 서버가 실행될 때 읽는다(빌드에 고정되지 않는다). 형식 검사는 shared/ga4가 한다 — 틀려도 앱 전체가 멈추지 않게.
+   */
+  GA4_PROPERTY_ID: optional(z.string()),
+  /** GA4 서비스 계정 키 JSON(base64 한 줄 권장). 절대 NEXT_PUBLIC_을 붙이지 않는다. 비우면 이용 통계가 「연결 정보 없음」 */
+  GA4_SERVICE_ACCOUNT_KEY: optional(z.string()),
 })
 
 export type ServerEnv = z.infer<typeof serverSchema>
