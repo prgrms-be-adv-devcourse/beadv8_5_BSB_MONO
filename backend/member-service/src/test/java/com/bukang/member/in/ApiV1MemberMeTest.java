@@ -5,7 +5,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.LocalDate;
-import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,10 +19,10 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.bukang.common.shared.member.web.MemberIdHeader;
 import com.bukang.member.app.MemberFacade;
-import com.bukang.member.domain.TermsType;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.TermsAgreementRepository;
 import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
+import com.bukang.member.support.MemberFixture;
 
 // 게이트웨이가 토큰을 검사하고 넣어 주는 X-Member-Id 헤더를 테스트에서는 직접 넣는다
 @SpringBootTest
@@ -52,10 +51,10 @@ class ApiV1MemberMeTest {
 
 	@BeforeEach
 	void setUp() {
-		memberId = memberFacade.join(identityStore.joinRequest(
-			"runner1@crewrun.com", "password1234", "김러너", "러너1", "010-1234-5678", LocalDate.of(1995, 4, 12), null,
-			List.of(TermsType.SERVICE, TermsType.PRIVACY)
-		)).getId();
+		memberId = memberFacade.join(MemberFixture.joinRequest()
+			.email("runner1@crewrun.com").name("김러너").nickname("러너1").phone("010-1234-5678")
+			.birthDate(LocalDate.of(1995, 4, 12))
+			.build(identityStore)).getId();
 	}
 
 	@AfterEach
