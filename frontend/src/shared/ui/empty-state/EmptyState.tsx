@@ -20,7 +20,8 @@ export function EmptyState({ title, description, action, role, className }: Empt
     <div
       className={cn('flex w-full flex-col items-center gap-5 px-6 py-16 text-center', className)}
     >
-      <Logo variant="symbolMuted" decorative className="size-26" />
+      {/* 그림 색이 밝은 회색으로 고정돼 있어 다크 바탕에서는 흐리게 낮춘다 */}
+      <Logo variant="symbolMuted" decorative className="size-26 dark:opacity-30" />
       <div role={role} className="flex flex-col gap-1.5">
         <p className="text-label-l text-text-tertiary">{title}</p>
         {description && <p className="text-body-s text-text-tertiary">{description}</p>}

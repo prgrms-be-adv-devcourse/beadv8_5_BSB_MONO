@@ -83,6 +83,7 @@ export function SectionState<T>({
     return (
       <EmptyState
         role="alert"
+        className="py-8"
         title={`${name} 불러오지 못했어요`}
         description="잠시 뒤 다시 시도해 주세요. 다른 영역은 그대로 볼 수 있어요."
         action={

@@ -13,9 +13,14 @@ describe('EmptyState', () => {
     expect(logo).toHaveAttribute('src', expect.stringContaining('/brand/symbol-muted.svg'))
     expect(logo).toHaveAttribute('alt', '')
     expect(logo).toHaveAttribute('aria-hidden', 'true')
-    expect(screen.queryByRole('img')).not.toBeInTheDocument()
     expect(screen.getByText('장바구니가 비어 있어요')).toBeInTheDocument()
     expect(screen.getByText('관심 있는 대회를 담아 보세요.')).toBeInTheDocument()
+  })
+
+  it('role을 넘기지 않으면 알림으로 읽지 않는다', () => {
+    render(<EmptyState title="아직 내역이 없어요" />)
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
   it('role을 넘기면 제목과 설명을 그 역할로 읽는다', () => {
