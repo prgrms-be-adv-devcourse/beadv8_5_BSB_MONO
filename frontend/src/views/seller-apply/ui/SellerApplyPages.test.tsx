@@ -429,7 +429,11 @@ describe('SellerApplyPage 정산 계좌', () => {
     expect(screen.getByRole('radio', { name: '사업자 명의' })).toBeChecked()
 
     await user.click(screen.getByRole('radio', { name: '사업자가 아니에요' }))
-    expect(screen.getByRole('radio', { name: '사업자 명의' })).toBeDisabled()
+    // Base UI 라디오는 disabled 속성 대신 aria-disabled로 잠근다
+    expect(screen.getByRole('radio', { name: '사업자 명의' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
     expect(screen.getByRole('radio', { name: '본인 명의' })).toBeChecked()
   })
 
