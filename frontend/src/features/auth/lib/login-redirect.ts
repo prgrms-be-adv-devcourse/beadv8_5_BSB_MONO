@@ -9,6 +9,16 @@ export function loginHref(next: string): Route {
   return `${LOGIN_PATH}?next=${encodeURIComponent(next)}` as Route
 }
 
+/** 문서를 새로 불러 로그인 화면으로 간다. 메모리의 토큰과 캐시가 함께 사라진다. 테스트에서 바꿔 끼울 수 있게 따로 둔다. */
+export function reloadToLogin() {
+  window.location.replace(LOGIN_PATH)
+}
+
+/** 문서를 새로 불러 path로 간다 (탈퇴 완료). 테스트에서 바꿔 끼울 수 있게 따로 둔다. */
+export function reloadTo(path: Route) {
+  window.location.replace(path)
+}
+
 /**
  * 로그인 뒤 보낼 경로. 앱 내부 경로만 그대로 쓰고, 아니면 '/'(홈)로 보낸다.
  * ?next=에 다른 사이트 주소를 넣어 로그인 직후 그쪽으로 보내는 공격(오픈 리다이렉트)을 막는다.

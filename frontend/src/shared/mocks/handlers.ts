@@ -202,10 +202,20 @@ const meHandlers = [
 /**
  * 탈퇴 목. 성공(200)이 기본이다. 실패(예치금·참가권이 남음, 확인 실패)는 테스트에서 server.use로 바꿔 끼운다.
  * 생성된 핸들러보다 앞에 둬서 먼저 걸리게 한다.
+ * 실제 서버처럼 로그인 쿠키를 지운다. 남기면 완료 화면을 새로 불러올 때 재발급이 성공해 다시 로그인된다.
  */
 const withdrawHandlers = [
   http.delete('*/api/v1/member/members/me', () =>
-    HttpResponse.json({ status: 200, message: '탈퇴했습니다.', data: null }),
+    HttpResponse.json(
+      { status: 200, message: '탈퇴했습니다.', data: null },
+      {
+        headers: withCookies(
+          clearMockRefreshCookie(),
+          clearMockLoginMarkCookie(),
+          clearMockMemberCookie(),
+        ),
+      },
+    ),
   ),
 ]
 
