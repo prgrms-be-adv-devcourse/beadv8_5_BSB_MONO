@@ -264,6 +264,20 @@ class ApiV1PartyTest {
 			.andExpect(jsonPath("$.message").value("파티원 신청은 파티장이 신청한 뒤 파티 결제로 결제해 주세요."));
 	}
 
+	@Test
+	@DisplayName("파티원 신청서는 개인 신청 취소로 취소할 수 없고 파티 나가기로만 끝난다 (파티원 줄만 남지 않게)")
+	void partyParticipationIsNotCanceledIndividually() throws Exception {
+		create(LEADER, COURSE_10K).andExpect(status().isCreated());
+		long participationId = participationRepository.findAll().getFirst().getId();
+
+		mockMvc.perform(post("/api/v1/order/participations/" + participationId + "/cancel")
+				.header("X-Member-Id", LEADER))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.message").value("파티원 신청은 파티 나가기로 취소해 주세요."));
+		assertThat(participationRepository.findById(participationId).orElseThrow().getStatus())
+			.isEqualTo(ParticipationStatus.PENDING);
+	}
+
 	private ResultActions create(long memberId, long raceCourseId) throws Exception {
 		return mockMvc.perform(post(BASE_URL)
 			.header("X-Member-Id", memberId)

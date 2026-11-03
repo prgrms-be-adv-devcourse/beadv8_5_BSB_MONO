@@ -75,15 +75,22 @@ public class PartyUseCase {
 	public Participation join(String joinToken, long memberId, long raceCourseId, ParticipantInfo participant,
 		LocalDateTime now) {
 		long partyId = partyRepository.findIdByJoinToken(joinToken)
-			.orElseThrow(() -> new PartyNotFoundException("참가 링크를 찾을 수 없습니다. 파티장에게 새 링크를 받아주세요."));
-		Party party = lockParty(partyId);
-		party.checkRecruiting();
-		party.checkJoinLinkAlive(now);
+			.orElseThrow(PartyUseCase::joinLinkNotFound);
+		// 상품·회원 서비스를 부르는 확인은 파티를 잠그기 전에 한다. 잠근 채 기다리면 같은 파티의 다른 요청과 DB 연결이 묶인다
+		// 대회·크루는 파티를 만든 뒤 바뀌지 않으므로 잠그지 않고 읽어도 된다
+		Party unlocked = partyRepository.findById(partyId).orElseThrow(PartyUseCase::joinLinkNotFound);
 		RaceCourseInfo course = findOpenCourse(raceCourseId, now);
-		if (course.raceId() != party.getRaceId()) {
+		if (course.raceId() != unlocked.getRaceId()) {
 			throw PartyConflictException.raceMismatch();
 		}
-		checkCrewMember(party.getCrewId(), memberId);
+		checkCrewMember(unlocked.getCrewId(), memberId);
+		Party party = lockParty(partyId);
+		// 잠그기를 기다리는 사이 파티장이 링크를 다시 만들었으면 옛 링크다
+		if (!party.getJoinToken().equals(joinToken)) {
+			throw joinLinkNotFound();
+		}
+		party.checkRecruiting();
+		party.checkJoinLinkAlive(now);
 		ParticipantInfo checked = checkParticipant(course, participant);
 		Optional<PartyMember> row = partyMemberRepository.findByPartyIdAndMemberId(partyId, memberId);
 		if (row.filter(PartyMember::isActive).isPresent()) {
@@ -116,6 +123,10 @@ public class PartyUseCase {
 				.ifPresentOrElse(next -> party.handOverLeader(next.getMemberId()), () -> party.close(now));
 		}
 		return participation;
+	}
+
+	private static PartyNotFoundException joinLinkNotFound() {
+		return new PartyNotFoundException("참가 링크를 찾을 수 없습니다. 파티장에게 새 링크를 받아주세요.");
 	}
 
 	private Party lockParty(long partyId) {

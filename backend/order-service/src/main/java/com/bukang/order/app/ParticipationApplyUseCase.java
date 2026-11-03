@@ -17,6 +17,7 @@ import com.bukang.order.domain.exception.ApplicationPeriodException;
 import com.bukang.order.domain.exception.DuplicateParticipationException;
 import com.bukang.order.domain.exception.ParticipationAccessDeniedException;
 import com.bukang.order.domain.exception.ParticipationChangeRetryException;
+import com.bukang.order.domain.exception.ParticipationNotCancelableException;
 import com.bukang.order.domain.exception.ParticipationNotEditableException;
 import com.bukang.order.domain.exception.ParticipationNotFoundException;
 import com.bukang.order.domain.exception.RaceCourseNotFoundException;
@@ -142,6 +143,10 @@ public class ParticipationApplyUseCase {
 		Participation participation = participationRepository.findByIdForUpdate(participationId)
 			.orElseThrow(() -> new ParticipationNotFoundException("존재하지 않는 참가 신청입니다."));
 		checkOwner(participation, memberId);
+		// 파티원 신청서만 취소하면 파티원 줄이 남아 나가기·다시 합류가 막힌다. 파티 나가기로 함께 끝낸다
+		if (participation.getParticipationType() == ParticipationType.PARTY) {
+			throw new ParticipationNotCancelableException("파티원 신청은 파티 나가기로 취소해 주세요.");
+		}
 		participation.cancelBeforePayment(now);
 		return participation;
 	}
