@@ -4,6 +4,7 @@ import { useState, type ReactNode } from 'react'
 
 import { CREW_ROLE_LABEL, CREW_ROLE_TONE } from '@/entities/crew'
 import type { memberModel } from '@/shared/api'
+import { cn } from '@/shared/lib'
 import { Avatar, Badge, Button } from '@/shared/ui'
 
 /** 크루원 목록에서 처음 보여 주는 수. 나머지는 「크루원 N명 더 보기」로 펼친다. */
@@ -31,9 +32,12 @@ export function CrewMemberList({
         {shown.map((member) => (
           <li key={member.memberId} className="flex items-center gap-3">
             <Avatar size="m" name={member.nickname} />
-            <span className="min-w-0 flex-1 truncate text-body-m">{label(member)}</span>
+            {/* 관리 버튼이 있으면 시안 M28처럼 역할을 이름 바로 뒤에 붙여, 버튼이 없는 내 줄과 줄을 맞춘다 */}
+            <span className={cn('min-w-0 truncate text-body-m', !action && 'flex-1')}>
+              {label(member)}
+            </span>
             <Badge tone={CREW_ROLE_TONE[member.role]}>{CREW_ROLE_LABEL[member.role]}</Badge>
-            {action?.(member)}
+            {action && <span className="ml-auto">{action(member)}</span>}
           </li>
         ))}
       </ul>
