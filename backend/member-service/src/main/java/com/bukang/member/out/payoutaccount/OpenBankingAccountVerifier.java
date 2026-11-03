@@ -8,6 +8,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -78,6 +79,11 @@ public class OpenBankingAccountVerifier implements PayoutAccountVerifier {
 				.retrieve()
 				.body(RealNameResponse.class);
 		} catch (RestClientException exception) {
+			// 토큰이 폐기됐거나 키가 바뀌었으면 만료 시각까지 기다리지 않고 다음 확인 때 새로 받는다
+			if (exception instanceof RestClientResponseException responseException
+				&& responseException.getStatusCode().isSameCodeAs(HttpStatus.UNAUTHORIZED)) {
+				dropToken();
+			}
 			throw unavailable("계좌실명조회", exception);
 		}
 		if (response == null) {
@@ -126,6 +132,10 @@ public class OpenBankingAccountVerifier implements PayoutAccountVerifier {
 		accessToken = response.accessToken();
 		tokenExpiresAt = now.plusSeconds(Math.max(0, response.expiresIn() - TOKEN_REFRESH_MARGIN_SECONDS));
 		return accessToken;
+	}
+
+	private synchronized void dropToken() {
+		accessToken = null;
 	}
 
 	// 은행거래고유번호: 이용기관 코드 10자리 + U + 9자리 (공식 문서 예시 F123456789U4BC34239Z와 같은 모양)

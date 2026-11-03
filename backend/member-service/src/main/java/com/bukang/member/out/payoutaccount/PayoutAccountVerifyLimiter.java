@@ -7,4 +7,7 @@ package com.bukang.member.out.payoutaccount;
 public interface PayoutAccountVerifyLimiter {
 	// 한 번을 센다. 기간 안에서 한도를 넘으면 거짓
 	boolean tryAcquire(long memberId);
+
+	// 센 한 번을 돌려준다. 오픈뱅킹이 응답하지 않은 확인은 횟수에서 뺀다
+	void release(long memberId);
 }

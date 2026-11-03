@@ -38,4 +38,9 @@ public class RedisPayoutAccountVerifyLimiter implements PayoutAccountVerifyLimit
 		}
 		return count != null && count <= dailyLimit;
 	}
+
+	@Override
+	public void release(long memberId) {
+		redisTemplate.opsForValue().decrement(countKey(memberId));
+	}
 }

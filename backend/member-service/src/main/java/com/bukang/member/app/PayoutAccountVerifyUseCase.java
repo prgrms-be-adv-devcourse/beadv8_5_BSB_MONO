@@ -11,6 +11,7 @@ import com.bukang.member.domain.VerifiedPayoutAccount;
 import com.bukang.member.domain.exception.MemberNotFoundException;
 import com.bukang.member.domain.exception.SellerAccountNotVerifiedException;
 import com.bukang.member.domain.exception.SellerAccountVerifyTooManyRequestsException;
+import com.bukang.member.domain.exception.SellerAccountVerifyUnavailableException;
 import com.bukang.member.domain.exception.SellerAlreadyAppliedException;
 import com.bukang.member.dto.SellerApplyRequestDto;
 import com.bukang.member.out.MemberRepository;
@@ -48,13 +49,20 @@ public class PayoutAccountVerifyUseCase {
 
 		// 사업자 명의는 신청서의 사업자등록번호로, 본인 명의는 본인인증 생년월일로 묻는다. 신청자가 남의 계좌를 넣지 못한다
 		boolean business = request.getAccountHolderType() == PayoutAccountHolderType.BUSINESS;
-		String holderName = verifier.verify(new PayoutAccountInquiry(
-			request.getBankCode(),
-			request.getAccountNumber(),
-			request.getAccountHolderType(),
-			business ? request.getBusinessNumber().replace("-", "") : member.getBirthDate().format(BIRTH_DATE),
-			business ? request.getBusinessName() : member.getName()
-		));
+		String holderName;
+		try {
+			holderName = verifier.verify(new PayoutAccountInquiry(
+				request.getBankCode(),
+				request.getAccountNumber(),
+				request.getAccountHolderType(),
+				business ? request.getBusinessNumber().replace("-", "") : member.getBirthDate().format(BIRTH_DATE),
+				business ? request.getBusinessName() : member.getName()
+			));
+		} catch (SellerAccountVerifyUnavailableException exception) {
+			// 은행 답을 받지 못했으니 예금주 정보도 새지 않았다. 장애로 하루 횟수를 다 쓰지 않게 돌려준다
+			limiter.release(memberId);
+			throw exception;
+		}
 		if (!business && !sameName(holderName, member.getName())) {
 			throw new SellerAccountNotVerifiedException();
 		}
