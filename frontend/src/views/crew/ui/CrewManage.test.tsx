@@ -395,3 +395,102 @@ describe('CrewManagePage 크루 없애기', () => {
     await vi.waitFor(() => expect(loads.count).toBeGreaterThan(1))
   })
 })
+
+describe('CrewManagePage 크루 이름 바꾸기', () => {
+  function capturePatch(handler: () => Response | Promise<Response> = renamed) {
+    const requests: unknown[] = []
+    server.use(
+      http.patch('*/api/v1/member/crews/:crewId', async ({ request }) => {
+        requests.push(await request.json())
+        return handler()
+      }),
+    )
+    return requests
+  }
+
+  function renamed() {
+    const example = memberMock.getFindCrewResponseMock()
+    return HttpResponse.json({ ...example, data: { ...example.data!, name: '성수런' } })
+  }
+
+  async function openRename(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(await screen.findByRole('button', { name: '이름 바꾸기' }))
+    return screen.findByLabelText('크루 이름')
+  }
+
+  it('지금 이름을 채워 보여 주고, 앞뒤 공백을 뺀 새 이름으로 바꾼다', async () => {
+    const loads = mockCrew()
+    const requests = capturePatch()
+    const user = userEvent.setup()
+    renderPage(<CrewManagePage crewId={1} />)
+    const field = await openRename(user)
+    expect(field).toHaveValue('새벽한강크루')
+    expect(field).toHaveAttribute('maxLength', '20')
+    await user.clear(field)
+    await user.type(field, '  성수런 ')
+    await user.click(screen.getByRole('button', { name: '저장하기' }))
+    expect(await screen.findByText('크루 이름을 바꿨어요')).toBeInTheDocument()
+    expect(requests).toEqual([{ name: '성수런' }])
+    await vi.waitFor(() => expect(loads.count).toBeGreaterThan(1))
+  })
+
+  it('이름이 비어 있으면 저장하기가 꺼져 있다', async () => {
+    mockCrew()
+    const user = userEvent.setup()
+    renderPage(<CrewManagePage crewId={1} />)
+    await user.clear(await openRename(user))
+    expect(screen.getByRole('button', { name: '저장하기' })).toBeDisabled()
+  })
+
+  it('저장을 두 번 눌러도 한 번만 보낸다', async () => {
+    mockCrew()
+    const requests = capturePatch(async () => {
+      await delay(100)
+      return renamed()
+    })
+    const user = userEvent.setup()
+    renderPage(<CrewManagePage crewId={1} />)
+    await openRename(user)
+    const save = screen.getByRole('button', { name: '저장하기' })
+    await user.click(save)
+    await user.click(save)
+    await screen.findByText('크루 이름을 바꿨어요')
+    expect(requests).toHaveLength(1)
+  })
+
+  it('서버가 이름을 받지 않으면(400) 입력칸 아래에 서버 문구를 보여 준다', async () => {
+    mockCrew()
+    capturePatch(() =>
+      failWith(400, 'INVALID_REQUEST', '크루 이름은 1자 이상 20자 이하로 입력해주세요.'),
+    )
+    const user = userEvent.setup()
+    renderPage(<CrewManagePage crewId={1} />)
+    await openRename(user)
+    await user.click(screen.getByRole('button', { name: '저장하기' }))
+    expect(
+      await screen.findByText('크루 이름은 1자 이상 20자 이하로 입력해주세요.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('크루 이름을 바꿨어요')).not.toBeInTheDocument()
+  })
+
+  it('그사이 크루장이 아니게 됐으면(403) 성공처럼 보이지 않고 다시 불러온다', async () => {
+    const loads = mockCrew()
+    capturePatch(() => failWith(403, 'CREW_LEADER_ONLY'))
+    const user = userEvent.setup()
+    renderPage(<CrewManagePage crewId={1} />)
+    await openRename(user)
+    await user.click(screen.getByRole('button', { name: '저장하기' }))
+    expect(
+      await findErrorToast('크루장만 할 수 있어요. 바뀐 크루 정보를 다시 불러왔어요.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('크루 이름을 바꿨어요')).not.toBeInTheDocument()
+    await vi.waitFor(() => expect(loads.count).toBeGreaterThan(1))
+  })
+
+  it('크루장이 아니면 이름 바꾸기를 보지 못한다', async () => {
+    mockCrew({ myRole: 'MANAGER' })
+    renderPage(<CrewManagePage crewId={1} />)
+    await screen.findByText('크루장만 크루를 관리할 수 있어요')
+    expect(screen.queryByRole('button', { name: '이름 바꾸기' })).not.toBeInTheDocument()
+  })
+})

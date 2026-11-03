@@ -8,7 +8,7 @@ import { CREW_ACTION_FAILURE, crewActionMessage } from './crew-action-failure'
 const error = (status: number, code?: string) =>
   new ApiError(status, { status, code, message: '서버 문구', data: null }, '/api/v1/member/crews/1')
 
-/** 계약에서 크루 관리 API(탈퇴 · 내보내기 · 크루장 넘기기 · 없애기)가 돌려주는 크루 오류 코드 */
+/** 계약에서 크루 관리 API(탈퇴 · 내보내기 · 크루장 넘기기 · 없애기 · 이름 바꾸기)가 돌려주는 크루 오류 코드 */
 function contractCodes(): string[] {
   const paths = spec.paths as Record<string, Record<string, { responses: object }>>
   const operations = [
@@ -16,6 +16,7 @@ function contractCodes(): string[] {
     paths['/api/v1/member/crews/{crewId}/members/{memberId}'].delete,
     paths['/api/v1/member/crews/{crewId}/leader'].put,
     paths['/api/v1/member/crews/{crewId}'].delete,
+    paths['/api/v1/member/crews/{crewId}'].patch,
   ]
   const codes = JSON.stringify(operations).match(/"CREW_[A-Z_]+"/g) ?? []
   return [...new Set(codes.map((code) => code.slice(1, -1)))]
