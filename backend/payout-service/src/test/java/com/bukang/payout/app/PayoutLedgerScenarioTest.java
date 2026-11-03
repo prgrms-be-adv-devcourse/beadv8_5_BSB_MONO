@@ -91,11 +91,12 @@ class PayoutLedgerScenarioTest {
 		ledgerUseCase = new PayoutLedgerUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository);
 		creator = new PayoutCreateStepUseCase(payoutRepository, calendar, ledgerUseCase,
 			new PayoutHoldUseCase(payoutRepository, payoutHoldRepository, calendar));
-		payUseCase = new PayoutPayUseCase(new PayoutPayStepUseCase(payoutRepository), transfer -> {
-		});
 		raceCancelUseCase = new PayoutRaceCancelUseCase(payoutRepository, ledgerUseCase);
 		claimUseCase = new PayoutClaimUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository,
 			payoutClaimRepository);
+		PayoutPayStepUseCase payStepUseCase = new PayoutPayStepUseCase(payoutRepository, raceCancelUseCase);
+		payUseCase = new PayoutPayUseCase(payStepUseCase, transfer -> {
+		});
 	}
 
 	private FinalPayoutSource finalSource(int... orderItemIds) {
@@ -453,6 +454,37 @@ class PayoutLedgerScenarioTest {
 		raceCancelUseCase.cancelRace(RACE_ID, LocalDateTime.of(2026, 11, 10, 10, 0));
 		entityManager.flush();
 		entityManager.clear();
+	}
+
+	// 108번 환불(상계로 완료) 뒤 1차를 지급하는 중에 대회가 취소되고, 캐시 서비스가 그 지급을 거절한다 (PR #284 리뷰)
+	// 거절로 1차를 취소로 닫으면 지급 전 취소와 같으므로, 상계로 끝난 회수도 되돌려야 한다 (R9)
+	private void refundThenFirstPayRejectedAfterRaceCancel() {
+		createFirst();
+		requestRecovery(108, LocalDateTime.of(2026, 11, 5, 10, 0));
+		Payout first = payout(PayoutStage.FIRST);
+		first.startPaying(FIRST_PAY_DATE.atTime(4, 0));
+		raceCancelUseCase.cancelRace(RACE_ID, FIRST_PAY_DATE.atTime(4, 1));
+		new PayoutPayStepUseCase(payoutRepository, raceCancelUseCase)
+			.revert(first.getId(), FIRST_PAY_DATE.atTime(4, 2), "캐시 서비스 거절");
+		entityManager.flush();
+		entityManager.clear();
+	}
+
+	@Test
+	@DisplayName("TC-CANCEL-6-1 1차 지급이 대회 취소 뒤 거절돼 취소로 닫히면, 상계로 끝난 회수를 되돌려 갚을 돈이 0원이다")
+	void rejectedFirstAfterRaceCancelRevertsOffsetRecovery() {
+		refundThenFirstPayRejectedAfterRaceCancel();
+
+		assertThat(payout(PayoutStage.FIRST).getStatus()).isEqualTo(PayoutStatus.CANCELED);
+		assertThat(balance(PayoutAccount.RECEIVABLE)).isZero();
+		assertThat(balance(PayoutAccount.ADVANCE)).isZero();
+		assertThat(payoutRecoveryRepository.findAll())
+			.filteredOn(recovery -> Long.valueOf(108L).equals(recovery.getOrderItemId()))
+			.extracting(PayoutRecovery::getStatus)
+			.containsExactly(PayoutRecoveryStatus.CANCELED);
+		assertThat(payoutRecoveryRepository.findAll())
+			.filteredOn(recovery -> recovery.getReasonType() == PayoutRecoveryReason.RACE_CANCELED)
+			.isEmpty();
 	}
 
 	@Test

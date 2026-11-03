@@ -24,6 +24,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -181,6 +182,61 @@ class GatewayAuthenticationTest {
 			.header("Authorization", "Bearer " + refreshToken(42L)));
 
 		assertUnauthorized(response, INVALID_TOKEN, "유효하지 않은 토큰입니다.");
+	}
+
+	@Test
+	@DisplayName("서명 없는 토큰(alg none)이면 401로 응답한다")
+	void rejectsUnsignedToken() throws Exception {
+		Instant now = Instant.now();
+		String unsigned = Jwts.builder()
+			.subject("42")
+			.claim("type", "ACCESS")
+			.issuedAt(Date.from(now))
+			.expiration(Date.from(now.plus(Duration.ofMinutes(30))))
+			.compact();
+
+		HttpResponse<String> response = send(request("/api/v1/order/orders")
+			.header("Authorization", "Bearer " + unsigned));
+
+		assertUnauthorized(response, INVALID_TOKEN, "유효하지 않은 토큰입니다.");
+	}
+
+	@Test
+	@DisplayName("CORS 사전 요청(OPTIONS)은 토큰 없이 통과하되, 클라이언트가 보낸 X-Member-Id는 지운다")
+	void passesPreflightWithoutTokenAndRemovesSpoofedMemberId() throws Exception {
+		HttpResponse<String> response = send(request("/api/v1/order/orders")
+			.header(MEMBER_ID_HEADER, "999")
+			.method("OPTIONS", HttpRequest.BodyPublishers.noBody()));
+
+		assertThat(response.statusCode()).isEqualTo(200);
+		assertThat(RECEIVED_MEMBER_IDS).containsExactly("없음");
+	}
+
+	@ParameterizedTest(name = "{0} {1}")
+	@DisplayName("소셜 로그인 시작·콜백·가입과 가입 본인인증은 토큰 없이 통과하고, 클라이언트가 보낸 X-Member-Id는 지운다")
+	@CsvSource({
+		"GET, /api/v1/auth/oauth2/authorize/kakao",
+		"GET, /api/v1/auth/oauth2/callback/google?code=abc&state=xyz",
+		"GET, /api/v1/auth/oauth2/signup",
+		"POST, /api/v1/auth/oauth2/join",
+		"POST, /api/v1/auth/identity-verifications",
+		"POST, /api/v1/auth/identity-verifications/abc/complete"
+	})
+	void passesSocialLoginAndIdentityVerificationWithoutToken(String method, String path) throws Exception {
+		HttpResponse<String> response = send(request(path)
+			.header(MEMBER_ID_HEADER, "999")
+			.method(method, HttpRequest.BodyPublishers.noBody()));
+
+		assertThat(response.statusCode()).isEqualTo(200);
+		assertThat(RECEIVED_MEMBER_IDS).containsExactly("없음");
+	}
+
+	@Test
+	@DisplayName("가입 본인인증 주소라도 POST가 아니면 토큰이 필요하다")
+	void requiresTokenForIdentityVerificationNonPost() throws Exception {
+		HttpResponse<String> response = send(request("/api/v1/auth/identity-verifications/abc"));
+
+		assertUnauthorized(response, LOGIN_REQUIRED, "로그인이 필요합니다.");
 	}
 
 	@ParameterizedTest(name = "{0}")

@@ -285,6 +285,17 @@ describe('가짜 로그인 표시 쿠키', () => {
     expect(cookies.some((c) => /^mockRefreshToken=; Max-Age=0/.test(c))).toBe(true)
     expect(cookies.some((c) => /^mockLoggedIn=; Max-Age=0/.test(c))).toBe(true)
   })
+
+  // 탈퇴하면 문서를 새로 불러 완료 화면으로 간다. 쿠키가 남으면 새로 불러올 때 다시 로그인된다.
+  it('탈퇴하면 로그아웃처럼 두 쿠키를 모두 지운다', async () => {
+    const response = await fetch('http://localhost/api/v1/member/members/me', {
+      method: 'DELETE',
+      headers: { cookie: MOCK_LOGGED_IN_COOKIE },
+    })
+    const cookies = cookiesOf(response)
+    expect(cookies.some((c) => /^mockRefreshToken=; Max-Age=0/.test(c))).toBe(true)
+    expect(cookies.some((c) => /^mockLoggedIn=; Max-Age=0/.test(c))).toBe(true)
+  })
 })
 
 // 방금 가입한 회원은 프로필만 있고 참가권 · 예치금 · 알림이 비어 있고, 시연용 기존 회원(runner1)은 예시 데이터를 보는지 확인한다.

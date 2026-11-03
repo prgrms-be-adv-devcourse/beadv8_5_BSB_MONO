@@ -34,6 +34,9 @@ import type {
   MemberLoginRequestDto,
   MemberModifyRequestDto,
   PassVerificationRequestDto,
+  PasswordResetConfirmDto,
+  PasswordResetRequestDto,
+  PasswordResetTokenDto,
   RsData,
   RsDataCrewHomeDto,
   RsDataCrewInviteCreatedDto,
@@ -3180,5 +3183,272 @@ export const useStartIdentityVerification = <TError = unknown,
         TContext
       > => {
       return useMutation(getStartIdentityVerificationMutationOptions(options), queryClient);
+    }
+
+export const getVerifyPasswordResetUrl = () => {
+
+
+
+
+  return `/api/v1/auth/password-reset/verify`
+}
+
+/**
+ * 새 비밀번호 화면을 열 때 링크가 아직 쓸 수 있는지 확인한다. 링크를 쓴 것으로 치지 않는다.
+ * @summary 재설정 링크 확인
+ */
+export const verifyPasswordReset = async (passwordResetTokenDto: PasswordResetTokenDto, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<unknown>(getVerifyPasswordResetUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(passwordResetTokenDto)
+  }
+);}
+
+
+
+
+
+export const getVerifyPasswordResetMutationKey = () => ['verifyPasswordReset'] as const;
+
+export const getVerifyPasswordResetMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyPasswordReset>>, TError,VerifyPasswordResetMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof verifyPasswordReset>>, TError,VerifyPasswordResetMutationVariables, TContext> => {
+
+const mutationKey = getVerifyPasswordResetMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof verifyPasswordReset>>, VerifyPasswordResetMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  verifyPasswordReset(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type VerifyPasswordResetMutationResult = NonNullable<Awaited<ReturnType<typeof verifyPasswordReset>>>
+    export type VerifyPasswordResetMutationBody = PasswordResetTokenDto
+    export type VerifyPasswordResetMutationError = RsData
+    export type VerifyPasswordResetMutationVariables = {data: PasswordResetTokenDto}
+
+    /**
+ * @summary 재설정 링크 확인
+ */
+export const useVerifyPasswordReset = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyPasswordReset>>, TError,VerifyPasswordResetMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof verifyPasswordReset>>,
+        TError,
+        VerifyPasswordResetMutationVariables,
+        TContext
+      > => {
+      return useMutation(getVerifyPasswordResetMutationOptions(options), queryClient);
+    }
+
+export const getRequestPasswordResetUrl = () => {
+
+
+
+
+  return `/api/v1/auth/password-reset/request`
+}
+
+/**
+ * 가입한 이메일이면 30분 동안 한 번 쓸 수 있는 재설정 링크를 메일로 보낸다. 가입하지 않은 이메일·탈퇴한 회원도 같은 200으로 응답하고 메일은 보내지 않는다. 비밀번호 없는 소셜 가입 회원에게는 링크 대신 소셜 로그인 안내 메일을 보낸다. 메일은 응답 뒤 따로 보내고, 실패하면 최대 3번 다시 보낸다. 같은 이메일은 1분에 1번, 하루 5번까지 받는다.
+ * @summary 비밀번호 재설정 메일 요청
+ */
+export const requestPasswordReset = async (passwordResetRequestDto: PasswordResetRequestDto, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<unknown>(getRequestPasswordResetUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(passwordResetRequestDto)
+  }
+);}
+
+
+
+
+
+export const getRequestPasswordResetMutationKey = () => ['requestPasswordReset'] as const;
+
+export const getRequestPasswordResetMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestPasswordReset>>, TError,RequestPasswordResetMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof requestPasswordReset>>, TError,RequestPasswordResetMutationVariables, TContext> => {
+
+const mutationKey = getRequestPasswordResetMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof requestPasswordReset>>, RequestPasswordResetMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  requestPasswordReset(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RequestPasswordResetMutationResult = NonNullable<Awaited<ReturnType<typeof requestPasswordReset>>>
+    export type RequestPasswordResetMutationBody = PasswordResetRequestDto
+    export type RequestPasswordResetMutationError = RsData
+    export type RequestPasswordResetMutationVariables = {data: PasswordResetRequestDto}
+
+    /**
+ * @summary 비밀번호 재설정 메일 요청
+ */
+export const useRequestPasswordReset = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestPasswordReset>>, TError,RequestPasswordResetMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof requestPasswordReset>>,
+        TError,
+        RequestPasswordResetMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRequestPasswordResetMutationOptions(options), queryClient);
+    }
+
+export const getConfirmPasswordResetUrl = () => {
+
+
+
+
+  return `/api/v1/auth/password-reset/confirm`
+}
+
+/**
+ * 재설정 링크로 새 비밀번호를 저장하고 링크를 지운다. 저장한 뒤 모든 기기의 로그인(Refresh Token)을 풀고 변경 알림 메일을 보낸다. 이미 받은 Access Token은 만료(최대 30분)까지 쓸 수 있다.
+ * @summary 새 비밀번호 저장
+ */
+export const confirmPasswordReset = async (passwordResetConfirmDto: PasswordResetConfirmDto, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<unknown>(getConfirmPasswordResetUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(passwordResetConfirmDto)
+  }
+);}
+
+
+
+
+
+export const getConfirmPasswordResetMutationKey = () => ['confirmPasswordReset'] as const;
+
+export const getConfirmPasswordResetMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof confirmPasswordReset>>, TError,ConfirmPasswordResetMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof confirmPasswordReset>>, TError,ConfirmPasswordResetMutationVariables, TContext> => {
+
+const mutationKey = getConfirmPasswordResetMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof confirmPasswordReset>>, ConfirmPasswordResetMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  confirmPasswordReset(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ConfirmPasswordResetMutationResult = NonNullable<Awaited<ReturnType<typeof confirmPasswordReset>>>
+    export type ConfirmPasswordResetMutationBody = PasswordResetConfirmDto
+    export type ConfirmPasswordResetMutationError = RsData
+    export type ConfirmPasswordResetMutationVariables = {data: PasswordResetConfirmDto}
+
+    /**
+ * @summary 새 비밀번호 저장
+ */
+export const useConfirmPasswordReset = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof confirmPasswordReset>>, TError,ConfirmPasswordResetMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof confirmPasswordReset>>,
+        TError,
+        ConfirmPasswordResetMutationVariables,
+        TContext
+      > => {
+      return useMutation(getConfirmPasswordResetMutationOptions(options), queryClient);
     }
 

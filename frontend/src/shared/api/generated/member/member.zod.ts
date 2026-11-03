@@ -765,3 +765,49 @@ export const StartIdentityVerificationResponse = zod.object({
   "identityVerificationId": zod.string().describe('포트원 SDK requestIdentityVerification()에 넘길 인증 ID. 15분 안에 인증을 마쳐야 한다')
 }).optional().describe('본인인증 시작 응답')
 })
+
+
+/**
+ * 새 비밀번호 화면을 열 때 링크가 아직 쓸 수 있는지 확인한다. 링크를 쓴 것으로 치지 않는다.
+ * @summary 재설정 링크 확인
+ */
+
+
+
+export const VerifyPasswordResetBody = zod.object({
+  "token": zod.string().min(1).describe('메일 링크 주소의 #token= 뒤 값')
+}).describe('비밀번호 재설정 링크 확인 요청')
+
+export const VerifyPasswordResetResponse = zod.unknown()
+
+
+/**
+ * 가입한 이메일이면 30분 동안 한 번 쓸 수 있는 재설정 링크를 메일로 보낸다. 가입하지 않은 이메일·탈퇴한 회원도 같은 200으로 응답하고 메일은 보내지 않는다. 비밀번호 없는 소셜 가입 회원에게는 링크 대신 소셜 로그인 안내 메일을 보낸다. 메일은 응답 뒤 따로 보내고, 실패하면 최대 3번 다시 보낸다. 같은 이메일은 1분에 1번, 하루 5번까지 받는다.
+ * @summary 비밀번호 재설정 메일 요청
+ */
+
+
+
+export const RequestPasswordResetBody = zod.object({
+  "email": zod.email().min(1).describe('가입한 이메일')
+}).describe('비밀번호 재설정 메일 요청')
+
+export const RequestPasswordResetResponse = zod.unknown()
+
+
+/**
+ * 재설정 링크로 새 비밀번호를 저장하고 링크를 지운다. 저장한 뒤 모든 기기의 로그인(Refresh Token)을 풀고 변경 알림 메일을 보낸다. 이미 받은 Access Token은 만료(최대 30분)까지 쓸 수 있다.
+ * @summary 새 비밀번호 저장
+ */
+
+export const confirmPasswordResetBodyPasswordMin = 10;
+export const confirmPasswordResetBodyPasswordMax = 2147483647;
+
+
+
+export const ConfirmPasswordResetBody = zod.object({
+  "token": zod.string().min(1).describe('메일 링크 주소의 #token= 뒤 값'),
+  "password": zod.string().min(confirmPasswordResetBodyPasswordMin).max(confirmPasswordResetBodyPasswordMax).describe('새 비밀번호 (10자 이상, UTF-8 72바이트 이하. 한글은 한 글자가 3바이트)')
+}).describe('새 비밀번호 저장 요청')
+
+export const ConfirmPasswordResetResponse = zod.unknown()

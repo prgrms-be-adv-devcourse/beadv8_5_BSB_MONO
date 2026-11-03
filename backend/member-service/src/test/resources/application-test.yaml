@@ -24,9 +24,11 @@ spring:
     enabled: false
 
   kafka:
-    bootstrap-servers: localhost:9092
+    # 전역 임베디드 Kafka 브로커 주소 (junit-platform.properties). 보내기가 바로 성공해 3초씩 기다리지 않는다
+    # 버전 차이, 브로커 설정, 장애 상황까지 실제와 똑같이 확인해야 할 때는 테스트 컨테이너(Testcontainers) 방식으로 띄운다
+    bootstrap-servers: ${spring.embedded.kafka.brokers}
     listener:
-      # 브로커 없이도 컨텍스트가 뜨도록 리스너 자동 시작을 끈다 (Kafka 통합 테스트에서는 Testcontainers로 따로 띄운다)
+      # 리스너는 테스트가 부르지 않으므로 자동 시작을 끈다
       auto-startup: false
 
   elasticsearch:
@@ -60,3 +62,8 @@ logging:
 member:
   identity:
     ci-hash-key: identity-ci-hash-test-key
+  auth:
+    # 비밀번호 재설정 (BUK-40). 다시 보내기 간격은 테스트가 기다리지 않도록 0으로 둔다
+    password-reset:
+      front-base-url: http://localhost:3000
+      retry-delays: 0s, 0s, 0s

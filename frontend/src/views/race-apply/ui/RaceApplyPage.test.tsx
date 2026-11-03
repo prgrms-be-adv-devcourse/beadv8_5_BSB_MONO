@@ -6,7 +6,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { BookingFlowProvider, useBookingFlow, type BookingFlowInitial } from '@/features/booking'
 import { RACE_DETAIL, type RaceOption } from '@/entities/race'
-import { orderMock, server } from '@/shared/testing'
+import {
+  completePostcode,
+  installPostcodeFake,
+  orderMock,
+  postcodeFake,
+  server,
+} from '@/shared/testing'
 
 import { RaceApplyPage } from './RaceApplyPage'
 
@@ -16,6 +22,7 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push, back: vi.fn(), replace }),
   usePathname: () => '/races/1/apply',
 }))
+vi.mock('next/script', async () => ({ default: (await import('@/shared/testing')).FakeScript }))
 
 // 키트 · 티셔츠가 있는 종목 (상품 API의 종목 ID는 숫자다)
 const COURSE: RaceOption = {
@@ -31,6 +38,7 @@ const RACE = { ...RACE_DETAIL, options: [COURSE, OTHER_COURSE] }
 beforeEach(() => {
   push.mockClear()
   replace.mockClear()
+  installPostcodeFake()
 })
 
 // 결제 · 장바구니 화면이 읽을 스토어 값을 그대로 꺼내 본다.
@@ -500,5 +508,84 @@ describe('RaceApplyPage 대기열 남은 시간 띠', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+describe('참가 신청 · 키트 배송 주소 검색', () => {
+  const noLatest = () =>
+    server.use(
+      orderMock.getFindLatestParticipantMockHandler({ status: 200, message: '', data: null }),
+    )
+
+  it('우편번호 · 주소는 주소 검색으로만 채우고, 상세 주소만 직접 입력해 보낸다', async () => {
+    const bodies = captureApply()
+    const user = userEvent.setup()
+    renderPage()
+
+    const zipcode = await screen.findByLabelText('키트 배송 우편번호')
+    expect(zipcode).toHaveAttribute('readonly')
+    expect(screen.getByLabelText('키트 배송 주소')).toHaveAttribute('readonly')
+
+    // 지난 신청 값(04700)이 있어도 다시 검색하면 바뀐다
+    await user.click(screen.getByRole('button', { name: '주소 검색' }))
+    completePostcode()
+    expect(zipcode).toHaveValue('04768')
+    expect(screen.getByLabelText('키트 배송 주소')).toHaveValue('서울특별시 성동구 뚝섬로 273')
+
+    const detail = screen.getByLabelText('상세 주소')
+    expect(detail).toHaveValue('')
+    await user.type(detail, '3층')
+    await agree(user)
+    await user.click(screen.getByRole('button', { name: '바로 결제' }))
+
+    await vi.waitFor(() => expect(bodies).toHaveLength(1))
+    expect(bodies[0]).toMatchObject({
+      participant: {
+        shippingAddress: {
+          zipcode: '04768',
+          address: '서울특별시 성동구 뚝섬로 273',
+          addressDetail: '3층',
+        },
+      },
+    })
+  })
+
+  it('주소가 비어 오류가 난 뒤 창을 닫기만 하면 오류가 남고, 주소를 고르면 사라진다', async () => {
+    noLatest()
+    const user = userEvent.setup()
+    renderPage()
+
+    await screen.findByLabelText('이름')
+    await agree(user)
+    await user.click(screen.getByRole('button', { name: '바로 결제' }))
+    expect(await screen.findByText('키트를 받을 주소를 입력해 주세요.')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '주소 검색' }))
+    await user.click(screen.getByRole('button', { name: '주소 검색 닫기' }))
+    expect(screen.getByText('키트를 받을 주소를 입력해 주세요.')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '주소 검색' }))
+    completePostcode()
+    await vi.waitFor(() =>
+      expect(screen.queryByText('키트를 받을 주소를 입력해 주세요.')).not.toBeInTheDocument(),
+    )
+    expect(screen.queryByText('우편번호 5자리를 입력해 주세요.')).not.toBeInTheDocument()
+  })
+
+  it('주소 검색을 불러오지 못하면 우편번호 · 주소를 직접 입력할 수 있다', async () => {
+    noLatest()
+    postcodeFake.failLoad = true
+    const user = userEvent.setup()
+    renderPage()
+
+    await screen.findByLabelText('이름')
+    await user.click(screen.getByRole('button', { name: '주소 검색' }))
+
+    const zipcode = screen.getByLabelText('키트 배송 우편번호')
+    await vi.waitFor(() => expect(zipcode).not.toHaveAttribute('readonly'))
+    await user.type(zipcode, '04768')
+    await user.type(screen.getByLabelText('키트 배송 주소'), '서울특별시 성동구 뚝섬로 273')
+    expect(zipcode).toHaveValue('04768')
+    expect(screen.getByLabelText('키트 배송 주소')).toHaveValue('서울특별시 성동구 뚝섬로 273')
   })
 })

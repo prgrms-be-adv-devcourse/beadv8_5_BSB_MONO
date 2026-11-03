@@ -7,22 +7,24 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
 import org.apache.kafka.clients.consumer.Consumer;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
-import org.springframework.kafka.test.EmbeddedKafkaBroker;
-import org.springframework.kafka.test.context.EmbeddedKafka;
 import org.springframework.kafka.test.utils.KafkaTestUtils;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
@@ -49,15 +51,14 @@ import com.bukang.member.dto.SellerApplyRequestDto;
 import com.bukang.member.dto.SellerDto;
 import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
 import com.bukang.member.out.identity.VerifiedIdentity;
+import com.bukang.member.support.MemberFixture;
 
-// 실제 임베디드 Kafka 브로커로 가입·수정 이벤트가 커밋 뒤에만 queuing.member.joined·modified에,
+// 실제 임베디드 Kafka 브로커(전역 브로커 하나, junit-platform.properties)로 가입·수정 이벤트가 커밋 뒤에만 queuing.member.joined·modified에,
 // 판매자 변경 이벤트가 커밋 뒤에만 queuing.seller.changed에 나가는지 확인한다.
 // - 다른 테스트의 공유 H2(bukang-test)와 분리된 전용 DB를 쓴다 (create-drop이 다른 테스트 데이터를 건드리지 않게)
-// - 테스트마다 새 컨슈머 그룹으로 두 토픽을 처음부터 읽으므로, 메시지는 토픽과 닉네임으로 골라낸다
+// - 테스트마다 토픽을 처음부터 읽고, 다른 테스트가 같은 브로커에 보낸 메시지도 섞여 있으므로 메시지는 토픽과 닉네임으로 골라낸다
 @SpringBootTest
 @ActiveProfiles("test")
-@EmbeddedKafka(partitions = 1,
-	topics = {KafkaTopics.MEMBER_MEMBER_JOINED, KafkaTopics.MEMBER_MODIFIED, KafkaTopics.SELLER_CHANGED})
 @TestPropertySource(properties =
 	"spring.datasource.url=jdbc:h2:mem:bukang-member-kafka-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1")
 @Import(InMemoryIdentityVerificationStore.Config.class)
@@ -67,8 +68,8 @@ class MemberKafkaPublisherTest {
 
 	private static final Duration POLL_TIMEOUT = Duration.ofSeconds(10);
 
-	@Autowired
-	private EmbeddedKafkaBroker embeddedKafka;
+	@Value("${spring.embedded.kafka.brokers}")
+	private String brokers;
 	@Autowired
 	private MemberFacade memberFacade;
 	@Autowired
@@ -97,18 +98,23 @@ class MemberKafkaPublisherTest {
 
 	@BeforeEach
 	void setUp() {
-		Map<String, Object> props = KafkaTestUtils.consumerProps(
-			embeddedKafka, "member-kafka-publisher-test-" + System.nanoTime(), false);
-		consumer = new DefaultKafkaConsumerFactory<>(props, new StringDeserializer(), new StringDeserializer())
-			.createConsumer();
-		embeddedKafka.consumeFromEmbeddedTopics(
-			consumer, KafkaTopics.MEMBER_MEMBER_JOINED, KafkaTopics.MEMBER_MODIFIED);
+		consumer = consumerFromBeginning("member-kafka-publisher-test-",
+			KafkaTopics.MEMBER_MEMBER_JOINED, KafkaTopics.MEMBER_MODIFIED);
+		sellerConsumer = consumerFromBeginning("member-kafka-publisher-seller-test-", KafkaTopics.SELLER_CHANGED);
+	}
 
-		Map<String, Object> sellerProps = KafkaTestUtils.consumerProps(
-			embeddedKafka, "member-kafka-publisher-seller-test-" + System.nanoTime(), false);
-		sellerConsumer = new DefaultKafkaConsumerFactory<>(sellerProps, new StringDeserializer(),
+	// 토픽마다 파티션 0번(파티션은 1개)을 직접 맡아 처음부터 읽는다. 그룹 참여를 기다리지 않아 바로 읽기 시작한다
+	private Consumer<String, String> consumerFromBeginning(String groupPrefix, String... topics) {
+		Map<String, Object> props = KafkaTestUtils.consumerProps(brokers, groupPrefix + System.nanoTime());
+		props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
+		Consumer<String, String> created = new DefaultKafkaConsumerFactory<>(props, new StringDeserializer(),
 			new StringDeserializer()).createConsumer();
-		embeddedKafka.consumeFromAnEmbeddedTopic(sellerConsumer, KafkaTopics.SELLER_CHANGED);
+		List<TopicPartition> partitions = Arrays.stream(topics)
+			.map(topic -> new TopicPartition(topic, 0))
+			.toList();
+		created.assign(partitions);
+		created.seekToBeginning(partitions);
+		return created;
 	}
 
 	@AfterEach
@@ -125,7 +131,7 @@ class MemberKafkaPublisherTest {
 	@Test
 	@DisplayName("가입하면 커밋 뒤 회원 ID를 키로, 가입 이벤트 JSON을 값으로 보낸다")
 	void sendJoinedEventAfterCommit() {
-		MemberDto member = join("joined@crewrun.com", "가입러너", "010-2000-0001");
+		MemberDto member = memberFacade.join(MemberFixture.joinRequest().nickname("가입러너").build(identityStore));
 
 		ConsumerRecord<String, String> record =
 			pollUntilNickname(KafkaTopics.MEMBER_MEMBER_JOINED, "가입러너", new ArrayList<>());
@@ -158,9 +164,11 @@ class MemberKafkaPublisherTest {
 	@Test
 	@DisplayName("중복 이메일로 가입에 실패하면 가입 이벤트를 보내지 않는다")
 	void notSendWhenJoinFails() {
-		join("duplicate@crewrun.com", "먼저러너", "010-2000-0003");
+		memberFacade.join(MemberFixture.joinRequest().email("duplicate@crewrun.com").build(identityStore));
 
-		assertThatThrownBy(() -> join("duplicate@crewrun.com", "중복러너", "010-2000-0004"))
+		assertThatThrownBy(() -> memberFacade.join(MemberFixture.joinRequest()
+			.email("duplicate@crewrun.com").nickname("중복러너")
+			.build(identityStore)))
 			.isInstanceOf(DuplicateEmailException.class);
 
 		assertNotSentBeforeMarker(KafkaTopics.MEMBER_MEMBER_JOINED, "중복러너");
@@ -169,7 +177,9 @@ class MemberKafkaPublisherTest {
 	@Test
 	@DisplayName("정보를 바꾸면 커밋 뒤 회원 ID를 키로, 수정 이벤트 JSON을 값으로 보낸다")
 	void sendModifiedEventAfterCommit() {
-		MemberDto joined = join("modified@crewrun.com", "수정전러너", "010-2000-0005");
+		MemberDto joined = memberFacade.join(MemberFixture.joinRequest()
+			.phone("010-2000-0005").name("김러너").birthDate(LocalDate.of(1995, 4, 12))
+			.build(identityStore));
 
 		MemberDto modified = modify(joined.getId(), "수정러너");
 
@@ -187,7 +197,9 @@ class MemberKafkaPublisherTest {
 	@Test
 	@DisplayName("수정 트랜잭션이 롤백되면 수정 이벤트를 보내지 않는다")
 	void notSendModifiedWhenRolledBack() {
-		MemberDto joined = join("rollbackmodify@crewrun.com", "롤백전러너", "010-2000-0006");
+		MemberDto joined = memberFacade.join(MemberFixture.joinRequest()
+			.nickname("롤백전러너").phone("010-2000-0006").name("김러너").birthDate(LocalDate.of(1995, 4, 12))
+			.build(identityStore));
 
 		transactionTemplate.executeWithoutResult(status -> {
 			memberModifyUseCase.modify(joined.getId(), "수정롤백러너");
@@ -201,8 +213,10 @@ class MemberKafkaPublisherTest {
 	@Test
 	@DisplayName("중복 닉네임으로 수정에 실패하면 수정 이벤트를 보내지 않는다")
 	void notSendModifiedWhenModifyFails() {
-		join("taken@crewrun.com", "선점러너", "010-2000-0007");
-		MemberDto joined = join("modifyfail@crewrun.com", "실패전러너", "010-2000-0008");
+		memberFacade.join(MemberFixture.joinRequest().nickname("선점러너").build(identityStore));
+		MemberDto joined = memberFacade.join(MemberFixture.joinRequest()
+			.phone("010-2000-0008").name("김러너").birthDate(LocalDate.of(1995, 4, 12))
+			.build(identityStore));
 
 		assertThatThrownBy(() -> modify(joined.getId(), "선점러너"))
 			.isInstanceOf(DuplicateNicknameException.class);
@@ -213,8 +227,10 @@ class MemberKafkaPublisherTest {
 	@Test
 	@DisplayName("판매자 신청·승인은 커밋 뒤 판매자 ID를 키로, 판매자 변경 이벤트 JSON을 값으로 보낸다")
 	void sendSellerChangedEventAfterCommit() {
-		MemberDto member = join("seller@crewrun.com", "판매러너", "010-2000-0011");
-		MemberDto admin = join("admin@crewrun.com", "관리러너", "010-2000-0012");
+		MemberDto member = memberFacade.join(MemberFixture.joinRequest().build(identityStore));
+		MemberDto admin = memberFacade.join(MemberFixture.joinRequest()
+			.email("admin@crewrun.com")
+			.build(identityStore));
 		memberFacade.grantAdmin("admin@crewrun.com");
 
 		SellerDto seller = applySeller(member.getId(), "신청대표");
@@ -238,7 +254,7 @@ class MemberKafkaPublisherTest {
 	@Test
 	@DisplayName("판매자 신청 트랜잭션이 롤백되면 판매자 변경 이벤트를 보내지 않는다")
 	void notSendSellerChangedWhenRolledBack() {
-		MemberDto member = join("seller-rollback@crewrun.com", "롤백판매", "010-2000-0021");
+		MemberDto member = memberFacade.join(MemberFixture.joinRequest().build(identityStore));
 		transactionTemplate.executeWithoutResult(status -> {
 			sellerApplyUseCase.apply(member.getId(), SellerType.INDIVIDUAL, null, null, "롤백대표",
 				LocalDateTime.now());
@@ -284,13 +300,6 @@ class MemberKafkaPublisherTest {
 		throw new AssertionError(representativeName + " 판매자의 " + status + " 이벤트를 받지 못했습니다.");
 	}
 
-	private MemberDto join(String email, String nickname, String phone) {
-		return memberFacade.join(identityStore.joinRequest(
-			email, "password1234", "김러너", nickname, phone, LocalDate.of(1995, 4, 12), null,
-			List.of(TermsType.SERVICE, TermsType.PRIVACY)
-		));
-	}
-
 	// 닉네임만 바꾼다. 이름 · 생년월일 · 휴대폰 번호는 본인인증 값이라 수정 요청에 없다
 	private MemberDto modify(long memberId, String nickname) {
 		return memberFacade.modifyMe(memberId, new MemberModifyRequestDto(nickname));
@@ -302,7 +311,9 @@ class MemberKafkaPublisherTest {
 	private void assertNotSentBeforeMarker(String topic, String nickname) {
 		String phone = "010-2999-000" + (++consumerCount);
 		String marker = "표시러너" + consumerCount;
-		MemberDto markerMember = join("marker" + consumerCount + "@crewrun.com", marker, phone);
+		MemberDto markerMember = memberFacade.join(MemberFixture.joinRequest()
+			.nickname(marker).phone(phone).name("김러너").birthDate(LocalDate.of(1995, 4, 12))
+			.build(identityStore));
 		if (KafkaTopics.MEMBER_MODIFIED.equals(topic)) {
 			marker = "표시수정" + consumerCount;
 			modify(markerMember.getId(), marker);
