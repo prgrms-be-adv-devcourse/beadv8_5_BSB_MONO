@@ -154,14 +154,7 @@ public class ProductFacade {
 		return raceHoldUseCase.sell(participationId, LocalDateTime.now());
 	}
 
-	// 주문 서비스가 HTTP로 부르는 판매 자리 복구 (InternalV1HoldController). 되돌렸으면 true
-	@Transactional
-	public boolean restoreSeat(long participationId) {
-		return raceHoldUseCase.restore(participationId, LocalDateTime.now());
-	}
-
 	// Kafka로 받은 판매 자리 복구 메시지 (product.hold.restore). 인박스에 남긴 뒤 되돌리고, 이미 처리한 메시지면 건너뛴다
-	// HTTP 복구와 같은 일을 하지만 HTTP에는 메시지 ID가 없어 인박스를 거치지 않으므로 나눠 둔다
 	@Transactional
 	public void restoreSeat(String messageId, String topic, long participationId) {
 		LocalDateTime now = LocalDateTime.now();

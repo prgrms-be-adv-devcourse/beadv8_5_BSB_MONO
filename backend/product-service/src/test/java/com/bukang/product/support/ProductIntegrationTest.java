@@ -48,6 +48,7 @@ import com.bukang.product.domain.ProductMember;
 import com.bukang.product.domain.ProductOutboxKafkaEvent;
 import com.bukang.product.domain.ProductSeller;
 import com.bukang.product.dto.RaceSaveRequestDto;
+import com.bukang.product.in.ProductKafkaConsumer;
 import com.bukang.product.out.ParticipationHoldRepository;
 import com.bukang.product.out.ProductInboxKafkaEventRepository;
 import com.bukang.product.out.ProductMemberRepository;
@@ -110,6 +111,8 @@ public abstract class ProductIntegrationTest {
 	protected RaceDocumentSyncEventRepository raceDocumentSyncEventRepository;
 	@Autowired
 	private RaceDocumentSyncAppendUseCase raceDocumentSyncAppendUseCase;
+	@Autowired
+	private ProductKafkaConsumer productKafkaConsumer;
 	@PersistenceContext
 	private EntityManager entityManager;
 
@@ -286,8 +289,15 @@ public abstract class ProductIntegrationTest {
 		return mockMvc.perform(post("/internal/v1/product/holds/" + participationId + "/sell"));
 	}
 
-	protected ResultActions restore(long participationId) throws Exception {
-		return mockMvc.perform(post("/internal/v1/product/holds/" + participationId + "/restore"));
+	// 판매 자리 복구는 API가 없고 주문 서비스가 Kafka(product.hold.restore)로 알린다
+	// 테스트 프로파일은 Kafka 리스너가 꺼져 있으므로, 주문 서비스가 보내는 본문 그대로 리스너 메서드에 넘긴다 (헤더 없이)
+	protected void restoreByMessage(long participationId) {
+		restoreByMessage(participationId, null);
+	}
+
+	// message-id 헤더(예: order-outbox-30)를 붙여 보낸 복구 메시지
+	protected void restoreByMessage(long participationId, String messageId) {
+		productKafkaConsumer.handleHoldRestore("{\"participationId\":%d}".formatted(participationId), messageId);
 	}
 
 	// ---------- 요청 ----------
