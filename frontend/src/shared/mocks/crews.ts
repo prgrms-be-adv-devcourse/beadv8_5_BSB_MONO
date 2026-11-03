@@ -7,6 +7,7 @@ import {
   getFindCrewResponseMock,
   getFindMyCrewsResponseMock,
   getJoinCrewResponseMock,
+  getUpdateCrewResponseMock,
 } from '@/shared/api/generated/member/member.msw'
 
 import { freshMemberOf } from './mock-member'
@@ -198,6 +199,17 @@ export const crewHandlers = [
       return crewError(409, 'CREW_ALREADY_LEADER', '이미 크루장입니다.')
     }
     return undefined
+  }),
+  // 이름 바꾸기는 보낸 이름을 담아 돌려준다. 다음에 다시 불러오면 예시 이름으로 돌아간다(상태를 두지 않음).
+  http.patch('*/api/v1/member/crews/:crewId', async ({ params, request }) => {
+    const failure = crewFailure(String(params.crewId))
+    if (failure) return failure
+    const { name } = (await request.json()) as { name: string }
+    const example = getUpdateCrewResponseMock()
+    return HttpResponse.json({
+      ...example,
+      data: { ...example.data, crewId: Number(params.crewId), name },
+    })
   }),
   http.delete('*/api/v1/member/crews/:crewId', ({ params }) => {
     const crewId = String(params.crewId)
