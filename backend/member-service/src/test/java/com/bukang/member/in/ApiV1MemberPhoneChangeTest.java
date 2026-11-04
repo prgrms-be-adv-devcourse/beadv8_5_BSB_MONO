@@ -327,8 +327,8 @@ class ApiV1MemberPhoneChangeTest {
 	private long join(String name, LocalDate birthDate, String phone, String ciHash) {
 		String token = identityStore.verify(name, birthDate, phone, ciHash);
 		MemberJoinRequestDto request = MemberFixture.joinRequest().build(identityStore);
-		return memberFacade.join(new MemberJoinRequestDto(request.getEmail(), request.getPassword(), request.getNickname(),
-			null, List.of(TermsType.SERVICE, TermsType.PRIVACY), token)).getId();
+		return memberFacade.join(new MemberJoinRequestDto(request.getEmail(), request.getPassword(),
+			request.getNickname(), null, List.of(TermsType.SERVICE, TermsType.PRIVACY), token)).getId();
 	}
 
 	private ResultActions change(long id, String token) throws Exception {
