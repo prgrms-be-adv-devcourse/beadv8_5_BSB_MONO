@@ -14,6 +14,7 @@ public interface TermsAgreementRepository extends JpaRepository<TermsAgreement, 
 	@EntityGraph(attributePaths = "terms")
 	List<TermsAgreement> findByMemberId(long memberId);
 
-	// 지금 동의 상태는 그 약관 종류의 마지막 기록이다 (BE-021). 결정 시각이 같으면 나중에 쌓인 줄이 이긴다
-	Optional<TermsAgreement> findFirstByMemberIdAndTermsTypeOrderByDecidedAtDescIdDesc(long memberId, TermsType type);
+	// 지금 동의 상태는 그 약관 종류의 마지막 기록이다 (BE-021). 변경은 회원 행 락으로 한 줄씩 쌓이므로 ID 순서가 기록 순서다
+	// 결정 시각으로 고르지 않는 이유: 서버 시계가 뒤로 가면 늦게 쌓인 줄의 시각이 더 이를 수 있다
+	Optional<TermsAgreement> findFirstByMemberIdAndTermsTypeOrderByIdDesc(long memberId, TermsType type);
 }

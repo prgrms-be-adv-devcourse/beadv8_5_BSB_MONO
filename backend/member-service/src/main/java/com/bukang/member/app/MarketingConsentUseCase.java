@@ -62,7 +62,7 @@ public class MarketingConsentUseCase {
 	}
 
 	private Optional<TermsAgreement> latest(long memberId) {
-		return termsAgreementRepository.findFirstByMemberIdAndTermsTypeOrderByDecidedAtDescIdDesc(memberId,
+		return termsAgreementRepository.findFirstByMemberIdAndTermsTypeOrderByIdDesc(memberId,
 			TermsType.MARKETING);
 	}
 

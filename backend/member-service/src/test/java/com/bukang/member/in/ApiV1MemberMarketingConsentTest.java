@@ -40,6 +40,7 @@ import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.TermsAgreementRepository;
 import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
 import com.bukang.member.support.MemberFixture;
+import com.jayway.jsonpath.JsonPath;
 
 /**
  * 마이페이지 마케팅 수신 동의 조회·변경 (BUK-70)
@@ -97,12 +98,12 @@ class ApiV1MemberMarketingConsentTest {
 	void findAgreed() throws Exception {
 		LocalDateTime joinedDecidedAt = latestMarketing(agreedMemberId).getDecidedAt();
 
-		find(agreedMemberId)
+		ResultActions result = find(agreedMemberId)
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.message").value("마케팅 수신 동의 상태를 조회했습니다."))
-			.andExpect(jsonPath("$.data.agreed").value(true))
-			.andExpect(jsonPath("$.data.decidedAt").isNotEmpty());
-		assertThat(joinedDecidedAt).isNotNull();
+			.andExpect(jsonPath("$.data.agreed").value(true));
+
+		assertThat(decidedAtOf(result)).isEqualTo(joinedDecidedAt);
 	}
 
 	@Test
@@ -154,9 +155,11 @@ class ApiV1MemberMarketingConsentTest {
 		TermsAgreement joined = latestMarketing(agreedMemberId);
 		long before = countMarketing(agreedMemberId);
 
-		change(agreedMemberId, "{\"agreed\": true}")
+		ResultActions result = change(agreedMemberId, "{\"agreed\": true}")
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.agreed").value(true));
+
+		assertThat(decidedAtOf(result)).isEqualTo(joined.getDecidedAt());
 
 		assertThat(countMarketing(agreedMemberId)).isEqualTo(before);
 		assertThat(latestMarketing(agreedMemberId).getId()).isEqualTo(joined.getId());
@@ -170,7 +173,11 @@ class ApiV1MemberMarketingConsentTest {
 		change(agreedMemberId, "{\"agreed\": true}").andExpect(status().isOk());
 
 		find(agreedMemberId).andExpect(jsonPath("$.data.agreed").value(true));
-		assertThat(memberOutboxEventRepository.count()).isEqualTo(2);
+		// 아웃박스는 쌓인 순서(ID)대로 보내므로, 끔 → 켬 순서로 남아야 받는 쪽도 마지막에 켬이 된다
+		assertThat(memberOutboxEventRepository.findAll().stream()
+			.sorted(Comparator.comparing(MemberOutboxEvent::getId))
+			.map(row -> jsonConverter.fromJson(row.getPayload(), MarketingConsentChangedEvent.class).agreed())
+			.toList()).containsExactly(false, true);
 	}
 
 	@Test
@@ -187,7 +194,7 @@ class ApiV1MemberMarketingConsentTest {
 	}
 
 	@Test
-	@DisplayName("agreed가 없거나 true/false가 아니면 400 INVALID_REQUEST이고 아무것도 바뀌지 않는다")
+	@DisplayName("agreed가 없거나 참·거짓으로 읽을 수 없는 값(\"yes\")이면 400 INVALID_REQUEST이고 아무것도 바뀌지 않는다")
 	void invalidBody() throws Exception {
 		long before = countMarketing(agreedMemberId);
 
@@ -245,6 +252,12 @@ class ApiV1MemberMarketingConsentTest {
 			.content(body));
 	}
 
+	// 응답 JSON은 소수점 자릿수를 줄여 쓸 수 있어 문자열이 아니라 시각으로 읽어 비교한다
+	private static LocalDateTime decidedAtOf(ResultActions result) throws Exception {
+		String body = result.andReturn().getResponse().getContentAsString();
+		return LocalDateTime.parse(JsonPath.read(body, "$.data.decidedAt"));
+	}
+
 	private List<TermsAgreement> marketingRows(long memberId) {
 		return termsAgreementRepository.findByMemberId(memberId).stream()
 			.filter(agreement -> agreement.getTerms().getType() == TermsType.MARKETING)
@@ -255,10 +268,10 @@ class ApiV1MemberMarketingConsentTest {
 		return marketingRows(memberId).size();
 	}
 
-	// 지금 상태는 마케팅 약관의 마지막 기록이다 (BE-021)
+	// 지금 상태는 마케팅 약관의 마지막 기록(가장 늦게 쌓인 줄)이다 (BE-021)
 	private TermsAgreement latestMarketing(long memberId) {
 		return marketingRows(memberId).stream()
-			.max(Comparator.comparing(TermsAgreement::getDecidedAt).thenComparing(TermsAgreement::getId))
+			.max(Comparator.comparing(TermsAgreement::getId))
 			.orElseThrow();
 	}
 }

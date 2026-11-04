@@ -101,9 +101,6 @@ final class MemberApiExamples {
 			"message": "예치금을 확인하지 못했습니다. 잠시 뒤 다시 시도해주세요.", "data": null }
 		""";
 
-	private MemberApiExamples() {
-	}
-
 	static final String FIND_MARKETING_CONSENT_SUCCESS = """
 		{
 			"status": 200,
@@ -123,4 +120,7 @@ final class MemberApiExamples {
 	static final String CHANGE_MARKETING_CONSENT_INVALID_INPUT = """
 		{ "status": 400, "code": "INVALID_REQUEST", "message": "동의 여부를 보내주세요.", "data": null }
 		""";
+
+	private MemberApiExamples() {
+	}
 }
