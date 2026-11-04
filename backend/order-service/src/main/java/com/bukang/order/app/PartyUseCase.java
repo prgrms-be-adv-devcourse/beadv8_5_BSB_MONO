@@ -110,10 +110,11 @@ public class PartyUseCase {
 	// 파티장이 나가면 가장 먼저 합류한 파티원에게 넘기고, 남은 사람이 없으면 파티를 끝낸다
 	public Participation leave(long partyId, long memberId, LocalDateTime now) {
 		Party party = lockParty(partyId);
-		party.checkRecruiting();
+		// 파티원인지 먼저 본다. 모집이 끝난 거절(409)은 파티 상태를 알려 주므로 파티원이 아닌 사람에게 주지 않는다
 		PartyMember member = partyMemberRepository.findByPartyIdAndMemberId(partyId, memberId)
 			.filter(PartyMember::isActive)
 			.orElseThrow(PartyAccessDeniedException::notMember);
+		party.checkRecruiting();
 		Participation participation = participationRepository.findActiveIdByPartyIdAndMemberId(partyId, memberId)
 			.flatMap(participationRepository::findByIdForUpdate)
 			.orElseThrow(() -> new IllegalStateException("파티원의 신청서가 없습니다. partyId=%d, memberId=%d"

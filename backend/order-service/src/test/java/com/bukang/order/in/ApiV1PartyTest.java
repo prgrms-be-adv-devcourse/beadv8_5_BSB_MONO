@@ -263,6 +263,10 @@ class ApiV1PartyTest {
 			.andExpect(jsonPath("$.code").value("ORDER_PARTY_NOT_RECRUITING"))
 			.andExpect(jsonPath("$.data.partyId").value(partyId))
 			.andExpect(jsonPath("$.data.partyStatus").value("CLOSED"));
+		// 파티원이 아니면 상태를 알려 주지 않고 403
+		leave(LEADER, partyId)
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.code").value("ORDER_PARTY_NOT_MEMBER"));
 	}
 
 	@Test
