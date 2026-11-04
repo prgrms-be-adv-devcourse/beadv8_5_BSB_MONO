@@ -8,6 +8,7 @@ import { Carousel, CarouselSlide } from './carousel/Carousel'
 import { PhoneField } from './field/PhoneField'
 import { Textarea } from './field/Textarea'
 import { TextField } from './field/TextField'
+import { Spinner } from './icon/icons'
 import { pageSlots } from './pagination/Pagination'
 import { ProgressBar } from './progress-bar/ProgressBar'
 import { QuantityStepper } from './quantity-stepper/QuantityStepper'
@@ -25,6 +26,58 @@ describe('Button', () => {
 
     expect(onClick).not.toHaveBeenCalled()
     expect(screen.getByRole('button')).toHaveAttribute('aria-busy', 'true')
+  })
+
+  it('loading 스피너는 버튼 이름에 끼어들지 않는다', () => {
+    render(<Button loading>결제하기</Button>)
+
+    expect(screen.getByRole('button', { name: '결제하기' })).toBeInTheDocument()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+})
+
+describe('Spinner', () => {
+  it('화면 낭독기에 불러오는 중이라고 알린다', () => {
+    render(<Spinner />)
+
+    expect(screen.getByRole('status')).toHaveTextContent('불러오는 중')
+  })
+
+  it('낭독 글자를 바꿀 수 있다', () => {
+    render(<Spinner label="로그인하고 있어요" />)
+
+    expect(screen.getByRole('status')).toHaveTextContent('로그인하고 있어요')
+  })
+
+  it('label이 null이면 장식으로만 그린다', () => {
+    const { container } = render(<Spinner label={null} />)
+
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(container.firstElementChild).toHaveAttribute('aria-hidden', 'true')
+  })
+
+  it('움직임 줄이기를 켠 사용자에게는 천천히 돈다', () => {
+    const { container } = render(<Spinner />)
+
+    expect(container.querySelector('svg')?.getAttribute('class')).toContain(
+      'motion-reduce:animate-[spin_3s_linear_infinite]',
+    )
+  })
+
+  it('한 화면에 여러 개를 그려도 그라데이션 id가 겹치지 않는다', () => {
+    const { container } = render(
+      <>
+        <Spinner />
+        <Spinner />
+      </>,
+    )
+    const ids = [...container.querySelectorAll('linearGradient')].map((g) => g.id)
+
+    expect(ids).toHaveLength(2)
+    expect(new Set(ids).size).toBe(2)
+    ids.forEach((id) => {
+      expect(container.querySelector(`path[stroke="url(#${id})"]`)).not.toBeNull()
+    })
   })
 })
 
