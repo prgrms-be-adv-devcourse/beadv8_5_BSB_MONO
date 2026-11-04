@@ -26,14 +26,14 @@ class TossPaymentConfirmClient {
 	static final String ORDER_LOOKUP_PATH = "/v1/payments/orders/{orderId}";
 	static final String GENERIC_REJECTION_MESSAGE = "결제를 승인하지 못했습니다. 잠시 후 다시 시도해주세요.";
 
-	private final RestClient confirmRestClient;
+	private final RestClient moneyMovingRestClient;
 	private final RestClient lookupRestClient;
 	private final String secretKey;
 
 	PaymentApprovalResult approve(String paymentKey, String orderId, long amount) {
 		PaymentResponse response;
 		try {
-			response = confirmRestClient.post()
+			response = moneyMovingRestClient.post()
 				.uri(CONFIRM_PATH)
 				.contentType(MediaType.APPLICATION_JSON)
 				.accept(MediaType.APPLICATION_JSON)
