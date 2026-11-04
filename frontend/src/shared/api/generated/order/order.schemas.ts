@@ -209,7 +209,7 @@ export type ParticipationDtoParticipationType = typeof ParticipationDtoParticipa
 
 export const ParticipationDtoParticipationType = {
   INDIVIDUAL: 'INDIVIDUAL',
-  CREW: 'CREW',
+  PARTY: 'PARTY',
 } as const;
 
 export type ParticipationDtoStatus = typeof ParticipationDtoStatus[keyof typeof ParticipationDtoStatus];

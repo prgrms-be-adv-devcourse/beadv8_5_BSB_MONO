@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutHold;
 import com.bukang.payout.domain.PayoutStage;
+import com.bukang.payout.domain.PayoutStatus;
 import com.bukang.payout.out.PayoutRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -19,6 +20,7 @@ import lombok.extern.slf4j.Slf4j;
  * - 지급 전(정산 예정 · 지급보류): 취소(CANCELED)로 닫고 원장 줄을 반대 부호로 되돌린다. 보류로 막아 두면
  *   일찍 풀었을 때 돈이 나가므로 닫는다
  * - 지급 완료: 판매자가 손에 든 돈만큼 회수를 대회당 1건 만들도록 원장(PayoutLedgerUseCase)에 부탁한다
+ * - 지급 중: 돈이 나갔는지 몰라 닫지 않고 대회 취소를 표시한다. 회수는 그 대회의 지급 중이 모두 끝난 뒤 만든다 (PRO-253)
  * 정책 원문대로 구매자 환불은 회수가 끝난 뒤에 나간다. 주문 서비스 연결은 order 담당과 맞춘다
  * 세미는 정산 대상일(대회 다음 날) 전에 대회가 취소되므로 처리할 정산 내역이 없는 게 보통이다 (payout.md 2-5)
  */
@@ -38,24 +40,75 @@ public class PayoutRaceCancelUseCase {
 		List<Payout> payouts = payoutRepository.findByRaceId(raceId);
 		int canceled = 0;
 		boolean firstCanceled = false;
+		int paying = 0;
 		for (Payout payout : payouts) {
 			if (payout.getStatus().isBeforePayment()) {
 				payout.cancel(PayoutHold.SYSTEM_MEMBER_ID, now, CANCEL_REASON);
 				canceled++;
 				firstCanceled |= payout.getPayoutStage() == PayoutStage.FIRST;
+			} else if (payout.getStatus() == PayoutStatus.PAYING) {
+				// 돈이 나갔는지 아직 모른다. 표시만 하고, 회수는 지급 결과가 나온 뒤 만든다 (PRO-253)
+				payout.markRaceCanceled(now);
+				paying++;
 			}
 		}
-		boolean hasFinal = payouts.stream().anyMatch(payout -> payout.getPayoutStage() == PayoutStage.FINAL);
-		// 1차 지급 전 대회 취소: 그 1차 정산 내역에서 상계로 끝났던 회수도 되돌린다 (R9). 회수를 만들기 전에 한다
-		if (firstCanceled && !hasFinal) {
-			payoutLedgerUseCase.revertOffsetRecoveries(payouts.getFirst().getSellerId(), raceId);
+		if (firstCanceled) {
+			revertOffsetIfNoFinal(payouts, payouts.getFirst().getSellerId(), raceId);
 		}
 
-		boolean recoveryCreated = !payouts.isEmpty()
-			&& payoutLedgerUseCase.recoverRaceCancel(payouts.getFirst().getSellerId(), raceId, now).isPresent();
+		boolean recoveryCreated = false;
+		if (paying > 0) {
+			// 지금 회수를 만들면 거절될 지급 중 금액까지 돌려받으려 한다. 회수는 대회당 1건이라 나중에 고치기도 어렵다
+			log.info("대회 취소 처리: raceId={}, 지급 중 {}건의 결과가 나온 뒤 회수를 만듭니다", raceId, paying);
+		} else if (!payouts.isEmpty()) {
+			recoveryCreated = payoutLedgerUseCase.recoverRaceCancel(payouts.getFirst().getSellerId(), raceId, now)
+				.isPresent();
+		}
 		log.info("대회 취소 처리: raceId={}, 정산 내역 {}건 중 {}건 취소, 회수 생성 {}",
 			raceId, payouts.size(), canceled, recoveryCreated);
 		return new CancelResult(payouts.size(), canceled, recoveryCreated);
+	}
+
+	/**
+	 * 대회 취소를 표시한 지급 중 정산 내역의 지급 결과(지급 완료 · 거절 뒤 취소)를 적은 뒤 부른다 (PRO-253)
+	 * 그 대회에 지급 중이 더 없으면, 그때의 원장 잔고로 대회 취소 회수를 만든다. 지급 완료는 회수에 들어가고, 취소는 빠진다
+	 * 지급 단계(PayoutPayStepUseCase)의 트랜잭션 안에서 돈다
+	 *
+	 * @return 이번에 회수를 만들었는지
+	 */
+	@Transactional
+	public boolean recoverAfterPayResult(long sellerId, long raceId, LocalDateTime now) {
+		boolean stillPaying = payoutRepository.findByRaceId(raceId).stream()
+			.anyMatch(payout -> payout.getStatus() == PayoutStatus.PAYING);
+		if (stillPaying) {
+			return false;
+		}
+		return payoutLedgerUseCase.recoverRaceCancel(sellerId, raceId, now).isPresent();
+	}
+
+	/**
+	 * 대회 취소를 표시한 지급 중 정산 내역이 거절돼 취소로 닫힌 뒤 부른다 (PRO-253, PR #284 리뷰)
+	 * 1차가 거절로 닫히면 돈이 나가지 않았으므로 지급 전 대회 취소와 같다. 상계로 끝난 회수를 되돌린 뒤 회수를 만든다
+	 * 지급 단계(PayoutPayStepUseCase)의 트랜잭션 안에서 돈다
+	 *
+	 * @return 이번에 회수를 만들었는지
+	 */
+	@Transactional
+	public boolean recoverAfterRejectedCancel(Payout canceled, LocalDateTime now) {
+		if (canceled.getPayoutStage() == PayoutStage.FIRST) {
+			revertOffsetIfNoFinal(payoutRepository.findByRaceId(canceled.getRaceId()), canceled.getSellerId(),
+				canceled.getRaceId());
+		}
+		return recoverAfterPayResult(canceled.getSellerId(), canceled.getRaceId(), now);
+	}
+
+	// 1차를 돈이 나가기 전에 닫았을 때: 그 1차 정산 내역에서 상계로 끝났던 회수도 되돌린다 (R9). 회수를 만들기 전에 한다
+	// 최종이 있으면 상계는 최종 정산 내역에서 일어난 것이라 되돌리지 않는다
+	private void revertOffsetIfNoFinal(List<Payout> payouts, long sellerId, long raceId) {
+		boolean hasFinal = payouts.stream().anyMatch(payout -> payout.getPayoutStage() == PayoutStage.FINAL);
+		if (!hasFinal) {
+			payoutLedgerUseCase.revertOffsetRecoveries(sellerId, raceId);
+		}
 	}
 
 	/**

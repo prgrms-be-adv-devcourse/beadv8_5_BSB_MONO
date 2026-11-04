@@ -2,11 +2,25 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { server } from '@/shared/testing'
 
 import { AdminStatsPage } from './AdminStatsPage'
+
+const clarity = vi.hoisted(() => ({ id: 'abc123' as string | undefined }))
+vi.mock('@/shared/config', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/shared/config')>()
+  return {
+    ...actual,
+    clientEnv: {
+      ...actual.clientEnv,
+      get NEXT_PUBLIC_CLARITY_ID() {
+        return clarity.id
+      },
+    },
+  }
+})
 
 // jsdom에는 그래프 크기를 잴 ResizeObserver가 없어 그래프 부품만 점 개수를 적는 대역으로 바꾼다
 vi.mock('./TrendChart', () => ({
@@ -90,6 +104,34 @@ const block = (title: string) => screen.getByRole('region', { name: title })
 const SLOW = { timeout: 4000 }
 
 describe('AdminStatsPage', () => {
+  // 기간 고르기의 날짜(지난 7일)는 오늘로 계산한다. 기대값이 고정 날짜라 오늘을 2026-11-02 정오(한국 시간)로 묶는다.
+  // Date만 바꿔서 MSW · react-query · userEvent의 타이머는 그대로 돈다
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-11-02T03:00:00Z'))
+  })
+  afterEach(() => vi.useRealTimers())
+
+  it('Clarity ID가 있으면 Clarity 대시보드 바로가기를 새 탭 링크로 보여 준다', () => {
+    clarity.id = 'abc123'
+    renderPage()
+
+    const link = screen.getByRole('link', { name: 'Clarity에서 녹화 보기' })
+    expect(link).toHaveAttribute(
+      'href',
+      'https://clarity.microsoft.com/projects/view/abc123/dashboard',
+    )
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+  })
+
+  it('Clarity ID가 없으면 바로가기를 보여 주지 않는다', () => {
+    clarity.id = undefined
+    renderPage()
+
+    expect(screen.queryByRole('link', { name: 'Clarity에서 녹화 보기' })).not.toBeInTheDocument()
+  })
+
   it('지금 접속 중, 일별 추이, 구매·판매자 단계를 보여 준다', async () => {
     mockStats()
     renderPage()

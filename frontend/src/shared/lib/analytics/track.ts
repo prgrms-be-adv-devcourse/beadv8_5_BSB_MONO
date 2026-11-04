@@ -79,7 +79,7 @@ export function siteArea(pathname: string): 'seller' | 'shop' {
 
 // 어드민은 크루런 직원이라 숫자에 섞으면 안 된다. GTM 실행 조건에도 같은 조건을 넣지만,
 // GTM 설정이 바뀌어도 어드민 기록이 나가지 않도록 여기서도 막는다.
-function isAdminPath(pathname: string) {
+export function isAdminPath(pathname: string) {
   return pathname === '/admin' || pathname.startsWith('/admin/')
 }
 

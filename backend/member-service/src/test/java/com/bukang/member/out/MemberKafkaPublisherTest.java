@@ -51,6 +51,7 @@ import com.bukang.member.dto.SellerApplyRequestDto;
 import com.bukang.member.dto.SellerDto;
 import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
 import com.bukang.member.out.identity.VerifiedIdentity;
+import com.bukang.member.support.MemberFixture;
 
 // 실제 임베디드 Kafka 브로커(전역 브로커 하나, junit-platform.properties)로 가입·수정 이벤트가 커밋 뒤에만 queuing.member.joined·modified에,
 // 판매자 변경 이벤트가 커밋 뒤에만 queuing.seller.changed에 나가는지 확인한다.
@@ -130,7 +131,7 @@ class MemberKafkaPublisherTest {
 	@Test
 	@DisplayName("가입하면 커밋 뒤 회원 ID를 키로, 가입 이벤트 JSON을 값으로 보낸다")
 	void sendJoinedEventAfterCommit() {
-		MemberDto member = join("joined@crewrun.com", "가입러너", "010-2000-0001");
+		MemberDto member = memberFacade.join(MemberFixture.joinRequest().nickname("가입러너").build(identityStore));
 
 		ConsumerRecord<String, String> record =
 			pollUntilNickname(KafkaTopics.MEMBER_MEMBER_JOINED, "가입러너", new ArrayList<>());
@@ -162,9 +163,11 @@ class MemberKafkaPublisherTest {
 	@Test
 	@DisplayName("중복 이메일로 가입에 실패하면 가입 이벤트를 보내지 않는다")
 	void notSendWhenJoinFails() {
-		join("duplicate@crewrun.com", "먼저러너", "010-2000-0003");
+		memberFacade.join(MemberFixture.joinRequest().email("duplicate@crewrun.com").build(identityStore));
 
-		assertThatThrownBy(() -> join("duplicate@crewrun.com", "중복러너", "010-2000-0004"))
+		assertThatThrownBy(() -> memberFacade.join(MemberFixture.joinRequest()
+			.email("duplicate@crewrun.com").nickname("중복러너")
+			.build(identityStore)))
 			.isInstanceOf(DuplicateEmailException.class);
 
 		assertNotSentBeforeMarker(KafkaTopics.MEMBER_MEMBER_JOINED, "중복러너");
@@ -173,7 +176,9 @@ class MemberKafkaPublisherTest {
 	@Test
 	@DisplayName("정보를 바꾸면 커밋 뒤 회원 ID를 키로, 수정 이벤트 JSON을 값으로 보낸다")
 	void sendModifiedEventAfterCommit() {
-		MemberDto joined = join("modified@crewrun.com", "수정전러너", "010-2000-0005");
+		MemberDto joined = memberFacade.join(MemberFixture.joinRequest()
+			.phone("010-2000-0005").name("김러너").birthDate(LocalDate.of(1995, 4, 12))
+			.build(identityStore));
 
 		MemberDto modified = modify(joined.getId(), "수정러너", "010-2000-0005");
 
@@ -191,7 +196,9 @@ class MemberKafkaPublisherTest {
 	@Test
 	@DisplayName("수정 트랜잭션이 롤백되면 수정 이벤트를 보내지 않는다")
 	void notSendModifiedWhenRolledBack() {
-		MemberDto joined = join("rollbackmodify@crewrun.com", "롤백전러너", "010-2000-0006");
+		MemberDto joined = memberFacade.join(MemberFixture.joinRequest()
+			.nickname("롤백전러너").phone("010-2000-0006").name("김러너").birthDate(LocalDate.of(1995, 4, 12))
+			.build(identityStore));
 
 		transactionTemplate.executeWithoutResult(status -> {
 			memberModifyUseCase.modify(
@@ -207,8 +214,10 @@ class MemberKafkaPublisherTest {
 	@Test
 	@DisplayName("중복 닉네임으로 수정에 실패하면 수정 이벤트를 보내지 않는다")
 	void notSendModifiedWhenModifyFails() {
-		join("taken@crewrun.com", "선점러너", "010-2000-0007");
-		MemberDto joined = join("modifyfail@crewrun.com", "실패전러너", "010-2000-0008");
+		memberFacade.join(MemberFixture.joinRequest().nickname("선점러너").build(identityStore));
+		MemberDto joined = memberFacade.join(MemberFixture.joinRequest()
+			.phone("010-2000-0008").name("김러너").birthDate(LocalDate.of(1995, 4, 12))
+			.build(identityStore));
 
 		assertThatThrownBy(() -> modify(joined.getId(), "선점러너", "010-2000-0008"))
 			.isInstanceOf(DuplicateNicknameException.class);
@@ -219,8 +228,10 @@ class MemberKafkaPublisherTest {
 	@Test
 	@DisplayName("판매자 신청·승인은 커밋 뒤 판매자 ID를 키로, 판매자 변경 이벤트 JSON을 값으로 보낸다")
 	void sendSellerChangedEventAfterCommit() {
-		MemberDto member = join("seller@crewrun.com", "판매러너", "010-2000-0011");
-		MemberDto admin = join("admin@crewrun.com", "관리러너", "010-2000-0012");
+		MemberDto member = memberFacade.join(MemberFixture.joinRequest().build(identityStore));
+		MemberDto admin = memberFacade.join(MemberFixture.joinRequest()
+			.email("admin@crewrun.com")
+			.build(identityStore));
 		memberFacade.grantAdmin("admin@crewrun.com");
 
 		SellerDto seller = applySeller(member.getId(), "신청대표");
@@ -244,7 +255,7 @@ class MemberKafkaPublisherTest {
 	@Test
 	@DisplayName("판매자 신청 트랜잭션이 롤백되면 판매자 변경 이벤트를 보내지 않는다")
 	void notSendSellerChangedWhenRolledBack() {
-		MemberDto member = join("seller-rollback@crewrun.com", "롤백판매", "010-2000-0021");
+		MemberDto member = memberFacade.join(MemberFixture.joinRequest().build(identityStore));
 		transactionTemplate.executeWithoutResult(status -> {
 			sellerApplyUseCase.apply(member.getId(), SellerType.INDIVIDUAL, null, null, "롤백대표",
 				LocalDateTime.now());
@@ -290,13 +301,6 @@ class MemberKafkaPublisherTest {
 		throw new AssertionError(representativeName + " 판매자의 " + status + " 이벤트를 받지 못했습니다.");
 	}
 
-	private MemberDto join(String email, String nickname, String phone) {
-		return memberFacade.join(identityStore.joinRequest(
-			email, "password1234", "김러너", nickname, phone, LocalDate.of(1995, 4, 12), null,
-			List.of(TermsType.SERVICE, TermsType.PRIVACY)
-		));
-	}
-
 	// 4칸 중 닉네임만 바꾼다 (이름·생년월일은 가입 때 값 그대로)
 	private MemberDto modify(long memberId, String nickname, String phone) {
 		return memberFacade.modifyMe(memberId, new MemberModifyRequestDto(
@@ -310,7 +314,9 @@ class MemberKafkaPublisherTest {
 	private void assertNotSentBeforeMarker(String topic, String nickname) {
 		String phone = "010-2999-000" + (++consumerCount);
 		String marker = "표시러너" + consumerCount;
-		MemberDto markerMember = join("marker" + consumerCount + "@crewrun.com", marker, phone);
+		MemberDto markerMember = memberFacade.join(MemberFixture.joinRequest()
+			.nickname(marker).phone(phone).name("김러너").birthDate(LocalDate.of(1995, 4, 12))
+			.build(identityStore));
 		if (KafkaTopics.MEMBER_MODIFIED.equals(topic)) {
 			marker = "표시수정" + consumerCount;
 			modify(markerMember.getId(), marker, phone);

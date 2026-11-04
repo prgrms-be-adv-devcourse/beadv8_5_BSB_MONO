@@ -10,9 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -35,7 +33,6 @@ import org.springframework.test.web.servlet.ResultActions;
 import com.bukang.jwt.JwtProvider;
 import com.bukang.jwt.TokenType;
 import com.bukang.member.app.MemberFacade;
-import com.bukang.member.domain.TermsType;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.RefreshTokenRepository;
 import com.bukang.member.out.RefreshTokenRepository.NewFamily;
@@ -44,6 +41,7 @@ import com.bukang.member.out.RotationOutcome;
 import com.bukang.member.out.RotationResult;
 import com.bukang.member.out.TermsAgreementRepository;
 import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
+import com.bukang.member.support.MemberFixture;
 import com.jayway.jsonpath.JsonPath;
 
 import jakarta.servlet.http.Cookie;
@@ -98,10 +96,9 @@ class ApiV1AuthReissueLogoutTest {
 		willAnswer(invocation -> deleteIfFamily(invocation.getArgument(0), invocation.getArgument(1)))
 			.given(refreshTokenRepository).deleteIfFamily(anyLong(), anyString());
 
-		memberId = memberFacade.join(identityStore.joinRequest(
-			EMAIL, PASSWORD, "김러너", "러너1", "010-1234-5678", LocalDate.of(1995, 4, 12), null,
-			List.of(TermsType.SERVICE, TermsType.PRIVACY)
-		)).getId();
+		memberId = memberFacade.join(MemberFixture.joinRequest()
+			.email(EMAIL).password(PASSWORD)
+			.build(identityStore)).getId();
 	}
 
 	@AfterEach

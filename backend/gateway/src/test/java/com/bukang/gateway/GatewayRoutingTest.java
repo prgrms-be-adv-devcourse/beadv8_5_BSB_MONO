@@ -99,21 +99,19 @@ class GatewayRoutingTest {
 	}
 
 	@Test
-	@DisplayName("내부 전용 주소(/internal/**)는 서비스로 넘기지 않고 404로 응답한다")
+	@DisplayName("내부 전용 주소(/internal/**)는 서비스로 넘기지 않고 404로 응답한다 (RsData 형식)")
 	void doesNotRouteInternalPath() throws Exception {
 		HttpResponse<String> response = get("/internal/v1/file/refs/RACE/1/files");
 
-		assertThat(response.statusCode()).isEqualTo(404);
-		assertThat(RECEIVED).isEmpty();
+		assertNotFound(response);
 	}
 
 	@Test
-	@DisplayName("라우팅 규칙에 없는 주소는 404로 응답한다")
+	@DisplayName("라우팅 규칙에 없는 주소는 404를 RsData 형식으로 응답한다")
 	void respondsNotFoundForUnknownPath() throws Exception {
 		HttpResponse<String> response = get("/api/v1/unknown/1");
 
-		assertThat(response.statusCode()).isEqualTo(404);
-		assertThat(RECEIVED).isEmpty();
+		assertNotFound(response);
 	}
 
 	@Test
@@ -123,6 +121,15 @@ class GatewayRoutingTest {
 
 		assertThat(response.statusCode()).isEqualTo(200);
 		assertThat(response.headers().firstValue("Strict-Transport-Security")).hasValue("max-age=31536000");
+	}
+
+	private void assertNotFound(HttpResponse<String> response) {
+		assertThat(response.statusCode()).isEqualTo(404);
+		assertThat(response.headers().firstValue("Content-Type")).hasValueSatisfying(
+			contentType -> assertThat(contentType).startsWith("application/json"));
+		assertThat(response.body()).isEqualTo("{\"status\":404,\"code\":\"NOT_FOUND\","
+			+ "\"message\":\"요청한 주소를 찾을 수 없어요.\",\"data\":null}");
+		assertThat(RECEIVED).isEmpty();
 	}
 
 	private HttpResponse<String> get(String path) throws IOException, InterruptedException {

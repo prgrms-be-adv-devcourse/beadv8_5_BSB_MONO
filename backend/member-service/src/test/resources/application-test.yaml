@@ -62,3 +62,8 @@ logging:
 member:
   identity:
     ci-hash-key: identity-ci-hash-test-key
+  auth:
+    # 비밀번호 재설정 (BUK-40). 다시 보내기 간격은 테스트가 기다리지 않도록 0으로 둔다
+    password-reset:
+      front-base-url: http://localhost:3000
+      retry-delays: 0s, 0s, 0s

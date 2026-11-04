@@ -17,7 +17,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.LocalDate;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -40,7 +39,6 @@ import org.springframework.test.web.servlet.ResultActions;
 import com.bukang.member.app.MemberFacade;
 import com.bukang.member.domain.Member;
 import com.bukang.member.domain.SocialProvider;
-import com.bukang.member.domain.TermsType;
 import com.bukang.member.domain.exception.SocialLoginFailedException;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.RefreshTokenRepository;
@@ -53,6 +51,7 @@ import com.bukang.member.out.oauth2.SocialIdentity;
 import com.bukang.member.out.oauth2.SocialOAuth2Client;
 import com.bukang.member.out.oauth2.SocialOAuth2Client.AuthorizationStart;
 import com.bukang.member.out.oauth2.StoredAuthorization;
+import com.bukang.member.support.MemberFixture;
 
 import jakarta.servlet.http.Cookie;
 
@@ -212,7 +211,7 @@ class ApiV1SocialAuthTest {
 	@Test
 	@DisplayName("확인된 이메일이 이메일 회원 것이면 자동으로 연결하지 않고, 로그인 방법을 담아 로그인 화면으로 보낸다")
 	void emailTakenIsRejected() throws Exception {
-		joinEmailMember("runner1@crewrun.com");
+		memberFacade.join(MemberFixture.joinRequest().email("runner1@crewrun.com").build(identityStore));
 		String requestId = authorize("google", "/");
 		identity(new SocialIdentity(SocialProvider.GOOGLE, "google-sub-1", "runner1@crewrun.com", "김러너"));
 
@@ -341,11 +340,6 @@ class ApiV1SocialAuthTest {
 			.getResponse().getCookie("oauth2Signup").getValue();
 		join(pendingId, null).andExpect(status().isCreated());
 		return memberRepository.findActiveByEmail("runner@kakao.com").orElseThrow().getId();
-	}
-
-	private void joinEmailMember(String email) {
-		memberFacade.join(identityStore.joinRequest(email, "password1234", "김러너", "러너1", "010-1234-5678",
-			LocalDate.of(1995, 4, 12), null, List.of(TermsType.SERVICE, TermsType.PRIVACY)));
 	}
 
 	private void identity(SocialIdentity identity) {

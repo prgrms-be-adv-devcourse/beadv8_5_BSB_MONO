@@ -1,7 +1,6 @@
 package com.bukang.payout.app;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -11,8 +10,6 @@ import com.bukang.payout.domain.BusinessDayCalendar;
 import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutHold;
 import com.bukang.payout.domain.PayoutHoldReason;
-import com.bukang.payout.domain.PayoutHoldStatus;
-import com.bukang.payout.domain.PayoutStatus;
 import com.bukang.payout.domain.exception.PayoutHoldNotFoundException;
 import com.bukang.payout.domain.exception.PayoutNotFoundException;
 import com.bukang.payout.dto.PayoutHoldDto;
@@ -32,7 +29,6 @@ import lombok.RequiredArgsConstructor;
 public class PayoutHoldUseCase {
 	// 자동 보류의 사유 상세. 관리자가 건 보류와 구분되도록 고정 문구를 남긴다
 	private static final String AUTO_HOLD_REASON = "정산 계좌 미등록으로 자동 보류";
-	private static final String FIRST_HELD_REASON = "1차 정산 보류 중이라 최종 정산도 자동 보류";
 
 	private final PayoutRepository payoutRepository;
 	private final PayoutHoldRepository payoutHoldRepository;
@@ -54,30 +50,15 @@ public class PayoutHoldUseCase {
 	}
 
 	/**
-	 * 방금 만든 1차 정산 내역의 자동 보류: 판매자가 정산 계좌를 등록하지 않았으면 건다 (PRO-27)
+	 * 방금 만든 정산 내역(1차 · 최종)의 자동 보류: 판매자가 정산 계좌를 등록하지 않았으면 건다 (PRO-27)
+	 * 1차가 보류 중이어도 최종은 따로 보류하지 않는다. 최종은 1차가 지급된 뒤에만 나가기 때문이다 (PRO-188 · PRO-189)
 	 * 정산 내역 · 항목과 함께 롤백되도록 정산 생성 트랜잭션 안에서만 부른다(MANDATORY). 이미 저장된 엔티티를 받으므로
 	 * 새 트랜잭션을 열면 정산 내역과 따로 커밋될 수 있다
 	 */
 	@Transactional(propagation = Propagation.MANDATORY)
-	public void holdNewFirst(Payout first, boolean hasPayoutAccount, LocalDateTime now) {
+	public void holdNew(Payout payout, boolean hasPayoutAccount, LocalDateTime now) {
 		if (!hasPayoutAccount) {
-			holdForMissingAccount(first, now);
-		}
-	}
-
-	/**
-	 * 방금 만든 최종 정산 내역의 자동 보류. 트랜잭션은 holdNewFirst와 같다
-	 * 1차가 보류 중이면 최종도 같은 사유로 보류하고(사유는 PRO-189에서 다시 정한다), 아니면 계좌 미등록일 때 건다
-	 */
-	@Transactional(propagation = Propagation.MANDATORY)
-	public void holdNewFinal(Payout last, Optional<Payout> first, boolean hasPayoutAccount, LocalDateTime now) {
-		Optional<PayoutHold> firstHold = first.filter(firstPayout -> firstPayout.getStatus() == PayoutStatus.HELD)
-			.flatMap(held -> payoutHoldRepository.findFirstByPayoutIdAndStatusOrderByIdDesc(
-				held.getId(), PayoutHoldStatus.HELD));
-		if (firstHold.isPresent()) {
-			holdBySystem(last, firstHold.get().getReasonType(), FIRST_HELD_REASON, now);
-		} else if (!hasPayoutAccount) {
-			holdForMissingAccount(last, now);
+			holdForMissingAccount(payout, now);
 		}
 	}
 

@@ -107,6 +107,12 @@ describe('결제 화면', () => {
     // 예치금 10만 원에서 45,000원을 내고 55,000원이 남는다
     expect(screen.getByText('₩55,000')).toBeInTheDocument()
     expect(timer()).toHaveTextContent(/10:00|09:5\d/)
+    // Clarity 화면 녹화에서 참가자 이름이 든 주문 요약을 가린다
+    expect(
+      screen
+        .getByText('2026 용감한 쿠키RUN in 서울 · 10K · 이달림')
+        .closest('[data-clarity-mask="true"]'),
+    ).not.toBeNull()
   })
 
   it('대기열에 입장 중이면 결제 기한 대신 대기열에서 받은 남은 시간을 센다', async () => {
