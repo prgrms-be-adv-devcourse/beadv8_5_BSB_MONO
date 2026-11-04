@@ -6,9 +6,12 @@ import java.time.Period;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.UUID;
 
+import com.bukang.common.shared.member.event.MarketingConsentChangedEvent;
 import com.bukang.common.shared.member.event.MemberJoinedEvent;
 import com.bukang.common.shared.member.event.MemberModifiedEvent;
+import com.bukang.common.shared.member.event.MemberWithdrawnEvent;
 import com.bukang.member.domain.exception.LastLoginMethodException;
 import com.bukang.member.domain.exception.SocialAccountNotFoundException;
 import com.bukang.member.domain.exception.SocialProviderAlreadyLinkedException;
@@ -96,19 +99,32 @@ public class Member extends SourceMember {
 	}
 
 	// 가입 이벤트를 발행한다. ID는 저장할 때(IDENTITY) 정해지므로 save() 뒤에 부른다
-	public void publishJoinedEvent() {
-		publishEvent(new MemberJoinedEvent(getId(), getCreateDate(), getModifyDate(), getNickname()));
+	// 이벤트마다 새 이벤트 ID(UUID)를 넣는다. 아웃박스 행과 Kafka 헤더에 같은 값이 들어간다 (BUK-41)
+	public void publishJoinedEvent(boolean marketingAgreed) {
+		publishEvent(new MemberJoinedEvent(getId(), getCreateDate(), getModifyDate(), getNickname(), marketingAgreed,
+			newEventId()));
 	}
 
 	// 수정 이벤트를 발행한다. 수정 시각은 DB에 반영(flush)할 때 채워지므로 saveAndFlush() 뒤에 부른다 (BE-015)
 	public void publishModifiedEvent() {
-		publishEvent(new MemberModifiedEvent(getId(), getCreateDate(), getModifyDate(), getNickname()));
+		publishEvent(new MemberModifiedEvent(getId(), getCreateDate(), getModifyDate(), getNickname(), newEventId()));
 	}
 
 	// 탈퇴한 회원은 다른 서비스 사본의 닉네임을 "탈퇴한 회원"으로 덮도록 같은 수정 이벤트를 보낸다 (BE-022 결정 7)
-	// 수정 시각에는 탈퇴 시각을 담는다
+	// 수정 시각에는 탈퇴 시각을 담는다. 그 뒤 탈퇴 전용 이벤트를 보내 받는 쪽이 닉네임을 비교하지 않고 탈퇴를 안다 (BUK-41)
 	public void publishWithdrawnEvent() {
-		publishEvent(new MemberModifiedEvent(getId(), getCreateDate(), getWithdrawnAt(), WITHDRAWN_NICKNAME));
+		publishEvent(new MemberModifiedEvent(getId(), getCreateDate(), getWithdrawnAt(), WITHDRAWN_NICKNAME,
+			newEventId()));
+		publishEvent(new MemberWithdrawnEvent(newEventId(), getId(), getWithdrawnAt()));
+	}
+
+	// 마케팅 수신 동의가 바뀌면 부른다. 동의를 바꾸는 API는 다음 작업에서 만든다 (BUK-41)
+	public void publishMarketingConsentChangedEvent(boolean agreed, LocalDateTime changedAt) {
+		publishEvent(new MarketingConsentChangedEvent(newEventId(), getId(), agreed, changedAt));
+	}
+
+	private static String newEventId() {
+		return UUID.randomUUID().toString();
 	}
 
 	// 소셜로 가입한 회원은 비밀번호가 없다 (BE-035)

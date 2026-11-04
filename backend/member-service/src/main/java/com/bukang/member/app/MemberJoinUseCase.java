@@ -136,7 +136,10 @@ public class MemberJoinUseCase {
 			.map(terms -> new TermsAgreement(savedMember, terms, agreedTerms.contains(terms.getType()), decidedAt))
 			.toList());
 
-		savedMember.publishJoinedEvent();
+		// 동의 기록과 같은 기준으로, 지금 버전의 마케팅 약관에 동의했는지 담는다
+		boolean marketingAgreed = currentTerms.stream()
+			.anyMatch(terms -> terms.getType() == TermsType.MARKETING && agreedTerms.contains(TermsType.MARKETING));
+		savedMember.publishJoinedEvent(marketingAgreed);
 		return savedMember;
 	}
 }
