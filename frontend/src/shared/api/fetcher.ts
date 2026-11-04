@@ -65,7 +65,7 @@ function isAuthPath(url: string): boolean {
 }
 
 async function serverFetch(url: string, init: RequestInit): Promise<Response> {
-  const { getServerEnv } = await import('@/shared/config')
+  const { getServerEnv } = await import('@/shared/server-env')
   const env = getServerEnv()
   const request = new Request(new URL(url, env.BACKEND_URL), init)
 

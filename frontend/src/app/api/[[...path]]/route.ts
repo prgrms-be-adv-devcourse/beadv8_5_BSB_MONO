@@ -1,4 +1,4 @@
-import { getServerEnv } from '@/shared/config'
+import { getServerEnv } from '@/shared/server-env'
 
 /**
  * API_MOCKING=on일 때 브라우저의 /api/... 요청에 MSW 핸들러로 응답한다.

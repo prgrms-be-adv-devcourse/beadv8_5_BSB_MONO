@@ -281,7 +281,7 @@
           "type": "string",
           "enum": [
             "INDIVIDUAL",
-            "CREW"
+            "PARTY"
           ]
         },
         "status": {
