@@ -201,7 +201,7 @@ module.exports = async ({ context, core }) => {
     const reviewRule =
       context.payload.action === 'edited' ? { ...RULES.review, from: RULES.progress.from } : RULES.review
     // Refs로만 적은 이슈는 링크만 붙이고, 브랜치·제목·닫는 키워드로 가리킨 이슈만 상태를 옮긴다
-    const owned = pr.draft ? mentioned : findToComplete(pr)
+    const owned = findToComplete(pr)
     for (const id of owned) {
       await run(id, () => (pr.draft ? moveState(apiKey, id, RULES.progress) : moveState(apiKey, id, reviewRule)))
     }

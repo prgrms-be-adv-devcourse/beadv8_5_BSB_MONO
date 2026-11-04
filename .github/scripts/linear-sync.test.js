@@ -109,6 +109,13 @@ test('핸들러: 본문에 Refs로만 적은 이슈는 옮기지 않는다', asy
   assert.deepStrictEqual(t.moves, [['BUK-1', 'r']])
 })
 
+test('핸들러: 초안 PR도 본문에 Refs로만 적은 이슈는 옮기지 않는다', async () => {
+  const t = setup({ draft: true, issues: { 'BUK-1': { state: todo, states: withReview }, 'BUK-9': { state: todo, states: withReview } } })
+  t.context.payload.pull_request.body = 'Refs BUK-9'
+  await sync({ context: t.context, core: t.core })
+  assert.deepStrictEqual(t.moves, [['BUK-1', 'p']])
+})
+
 test('핸들러: 본문 수정(edited)은 이미 진행 중인 이슈를 In Review로 되돌리지 않는다', async () => {
   const t = setup({ draft: false, issues: { 'BUK-1': { state: { type: 'started', name: 'In Progress' }, states: withReview } } })
   t.context.payload.action = 'edited'
