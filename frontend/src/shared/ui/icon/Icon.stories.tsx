@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 
+import { Button } from '../button/Button'
 import { Icon, Spinner, type IconName } from './icons'
 
 // icons.tsx의 PATHS 순서. 아이콘을 추가하면 여기에도 적는다.
@@ -62,6 +63,30 @@ export const Gallery: Story = {
         <Spinner className="text-text-brand" />
         <span className="text-caption text-text-tertiary">Spinner</span>
       </div>
+    </div>
+  ),
+}
+
+/** 쓰는 크기(버튼 s 16 · 버튼 m·l 20 · 화면 24 · 큰 화면 40)와 밝은 · 다크 · 버튼 위 모습을 한눈에 본다. */
+export const SpinnerSizes: Story = {
+  render: () => (
+    <div className="flex flex-col gap-4">
+      {['', 'dark'].map((theme) => (
+        <div key={theme} className={theme}>
+          <div className="flex flex-wrap items-center gap-6 rounded-md bg-bg-surface p-4">
+            {['size-4', 'size-5', 'size-6', 'size-10'].map((size) => (
+              <Spinner key={size} className={size} />
+            ))}
+            <Button size="s" loading>
+              결제 중
+            </Button>
+            <Button loading>결제 중</Button>
+            <Button variant="secondary" loading>
+              저장 중
+            </Button>
+          </div>
+        </div>
+      ))}
     </div>
   ),
 }
