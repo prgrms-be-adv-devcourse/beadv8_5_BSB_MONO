@@ -5,7 +5,7 @@ import org.springframework.http.HttpStatus;
 import com.bukang.common.global.exception.BusinessException;
 
 /**
- * 회원 한 명이 하루에 계좌 확인을 5번 넘게 했다. 남의 계좌번호로 예금주 이름을 알아내지 못하게 막는다 (BE-031 결정 5)
+ * 회원 한 명이 하루에 계좌 확인을 5번 넘게 했다. 남의 계좌번호로 예금주 이름을 알아내지 못하게 막는다 (BUK-50)
  */
 public class SellerAccountVerifyTooManyRequestsException extends BusinessException {
 	public static final String CODE = "SELLER_ACCOUNT_VERIFY_TOO_MANY_REQUESTS";

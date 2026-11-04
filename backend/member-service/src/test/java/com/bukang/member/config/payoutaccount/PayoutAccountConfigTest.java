@@ -16,7 +16,7 @@ import com.bukang.member.out.payoutaccount.OpenBankingAccountVerifier;
 import com.bukang.member.out.payoutaccount.PayoutAccountInquiry;
 import com.bukang.member.out.payoutaccount.PayoutAccountVerifier;
 
-// 키 유무와 운영 여부로 계좌 확인 구현을 고른다 (BE-031 결정 7)
+// 키 유무와 운영 여부로 계좌 확인 구현을 고른다 (BUK-50)
 class PayoutAccountConfigTest {
 	private static final PayoutAccountInquiry INQUIRY = new PayoutAccountInquiry(
 		"004", "1101230000678", PayoutAccountHolderType.PERSONAL, "950412", "김러너");

@@ -50,7 +50,7 @@ import com.bukang.member.out.payoutaccount.PayoutAccountInquiry;
 import com.bukang.member.out.payoutaccount.StubPayoutAccountVerifier;
 import com.bukang.member.support.MemberFixture;
 
-// 판매자 신청 때 정산 계좌 확인 (BE-031). 오픈뱅킹 대신 StubPayoutAccountVerifier가 답한다
+// 판매자 신청 때 정산 계좌 확인 (BUK-50). 오픈뱅킹 대신 StubPayoutAccountVerifier가 답한다
 // 가입한 회원의 본인인증 이름은 김러너, 생년월일은 1995-04-12다
 @SpringBootTest
 @AutoConfigureMockMvc

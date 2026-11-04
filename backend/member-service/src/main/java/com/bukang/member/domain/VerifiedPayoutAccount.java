@@ -3,7 +3,7 @@ package com.bukang.member.domain;
 import java.time.LocalDateTime;
 
 /**
- * 계좌실명조회를 통과한 정산 계좌 (BE-031 결정 6)
+ * 계좌실명조회를 통과한 정산 계좌 (BUK-50)
  *
  * @param bankCode      은행 표준 코드 3자리
  * @param accountNumber 계좌번호 (숫자만). 판매자 신청 행에 암호화해 저장한다

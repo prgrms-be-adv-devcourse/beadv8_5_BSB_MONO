@@ -91,7 +91,7 @@ public class Seller extends BaseEntity {
 	@Column(name = "result_checked_at")
 	private LocalDateTime resultCheckedAt;
 
-	// 정산 계좌 (BE-031). 계좌실명조회를 통과한 값만 저장한다. 이 기능 전에 신청한 행은 모두 null이다
+	// 정산 계좌 (BUK-50). 계좌실명조회를 통과한 값만 저장한다. 이 기능 전에 신청한 행은 모두 null이다
 	@Column(name = "payout_bank_code", length = 3)
 	private String payoutBankCode;
 

@@ -26,7 +26,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * 금융결제원 오픈뱅킹 계좌실명조회로 정산 계좌를 확인한다 (BE-031)
+ * 금융결제원 오픈뱅킹 계좌실명조회로 정산 계좌를 확인한다 (BUK-50)
  * 2자 인증(Client Credentials, scope=oob)으로 받은 토큰으로 POST /v2.0/inquiry/real_name을 부른다
  * 계좌번호·생년월일·사업자번호·예금주 이름·키·토큰은 로그에 남기지 않는다. 실패 로그에는 HTTP 상태와 응답 코드만 남긴다
  */

@@ -14,7 +14,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 // 상호·사업자등록번호는 사업자만 필수다. 비사업자가 보내면 저장할 때 버린다 (BE-020 결정 4)
-// 정산 계좌는 신청 때 함께 받아 계좌실명조회로 확인한다 (BE-031)
+// 정산 계좌는 신청 때 함께 받아 계좌실명조회로 확인한다 (BUK-50)
 @Schema(description = "판매자 등록 신청 요청")
 @AllArgsConstructor
 @Getter

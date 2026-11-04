@@ -35,7 +35,7 @@ public class SellerFacade {
 	private final SellerRepository sellerRepository;
 	private final MemberRepository memberRepository;
 
-	// 정산 계좌 확인(오픈뱅킹)은 트랜잭션 밖에서 하고, 저장만 SellerApplyUseCase의 트랜잭션에서 한다 (BE-031)
+	// 정산 계좌 확인(오픈뱅킹)은 트랜잭션 밖에서 하고, 저장만 SellerApplyUseCase의 트랜잭션에서 한다 (BUK-50)
 	@Transactional(propagation = Propagation.NOT_SUPPORTED)
 	public SellerDto apply(long memberId, SellerApplyRequestDto request) {
 		VerifiedPayoutAccount payoutAccount = payoutAccountVerifyUseCase.verify(memberId, request, LocalDateTime.now());
@@ -71,7 +71,7 @@ public class SellerFacade {
 			.orElse(MemberSellerDto.NONE);
 	}
 
-	// 정산 서비스가 계좌 미등록 판매자의 정산을 보류하려고 묻는다 (BE-031). 등록 여부만 돌려준다
+	// 정산 서비스가 계좌 미등록 판매자의 정산을 보류하려고 묻는다 (BUK-50). 등록 여부만 돌려준다
 	public SellerPayoutAccountDto findPayoutAccount(long sellerId) {
 		return sellerRepository.findById(sellerId)
 			.map(seller -> new SellerPayoutAccountDto(seller.hasPayoutAccount()))

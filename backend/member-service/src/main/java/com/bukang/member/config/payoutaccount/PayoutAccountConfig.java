@@ -19,7 +19,7 @@ import com.bukang.member.out.payoutaccount.RedisPayoutAccountVerifyLimiter;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * 판매자 정산 계좌 확인 (BE-031 결정 7)
+ * 판매자 정산 계좌 확인 (BUK-50)
  * 키가 있으면 오픈뱅킹으로 확인한다. 키가 없으면 운영은 확인을 실패로 처리하고(신청 불가), 그 밖은 가짜 확인으로 통과시킨다
  */
 @Slf4j

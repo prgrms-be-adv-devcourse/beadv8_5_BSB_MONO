@@ -23,7 +23,7 @@ import com.bukang.member.out.payoutaccount.PayoutAccountVerifyLimiter;
 import lombok.RequiredArgsConstructor;
 
 /**
- * 판매자 신청의 정산 계좌가 신청자의 것인지 확인한다 (BE-031 결정 3~5)
+ * 판매자 신청의 정산 계좌가 신청자의 것인지 확인한다 (BUK-50)
  * DB 트랜잭션 밖에서 부른다. 오픈뱅킹을 기다리는 동안 회원 행 락을 쥐지 않게 하려는 것이다
  * 신청할 수 없는 회원은 오픈뱅킹을 부르기 전에 막아, 조회 횟수를 쓰지 않게 한다. 저장할 때 락을 잡고 한 번 더 확인한다
  */

@@ -19,7 +19,7 @@ import com.bukang.member.out.SellerRepository;
 import lombok.RequiredArgsConstructor;
 
 // 판매자 등록 신청 (BE-020). 신청마다 새 행을 만들고, 대기·승인 상태 신청이 있으면 막는다
-// 정산 계좌는 트랜잭션 밖에서 미리 확인해 받는다 (BE-031, PayoutAccountVerifyUseCase)
+// 정산 계좌는 트랜잭션 밖에서 미리 확인해 받는다 (BUK-50, PayoutAccountVerifyUseCase)
 @Service
 @Transactional
 @RequiredArgsConstructor

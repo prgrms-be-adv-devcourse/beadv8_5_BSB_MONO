@@ -3,7 +3,7 @@ package com.bukang.member.out.payoutaccount;
 import com.bukang.member.domain.PayoutAccountHolderType;
 
 /**
- * 계좌실명조회 요청 (BE-031)
+ * 계좌실명조회 요청 (BUK-50)
  *
  * @param bankCode      은행 표준 코드 3자리
  * @param accountNumber 계좌번호 (숫자만)

@@ -6,7 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
 /**
- * 판매자 정산 계좌 확인 설정 (member.payout-account.*, BE-031). 키 값은 .env에만 두고 yaml은 환경 변수 이름만 적는다
+ * 판매자 정산 계좌 확인 설정 (member.payout-account.*, BUK-50). 키 값은 .env에만 두고 yaml은 환경 변수 이름만 적는다
  *
  * @param dailyLimit  회원 한 명이 기간 안에 할 수 있는 계좌 확인 횟수
  * @param window      횟수를 세는 기간. 첫 확인부터 센다

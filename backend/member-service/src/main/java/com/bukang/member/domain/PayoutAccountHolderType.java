@@ -1,6 +1,6 @@
 package com.bukang.member.domain;
 
-// 정산 계좌의 명의 (BE-031 결정 3). 사업자 명의는 사업자만 고를 수 있다
+// 정산 계좌의 명의 (BUK-50). 사업자 명의는 사업자만 고를 수 있다
 public enum PayoutAccountHolderType {
 	// 사업자등록번호로 조회해 은행이 맞다고 답하면 통과
 	BUSINESS,

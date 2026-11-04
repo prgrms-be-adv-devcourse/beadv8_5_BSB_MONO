@@ -5,7 +5,7 @@ import org.springframework.http.HttpStatus;
 import com.bukang.common.global.exception.BusinessException;
 
 /**
- * 은행이 계좌와 명의가 맞지 않다고 답했거나, 본인 명의 계좌의 예금주 이름이 본인인증 이름과 다르다 (BE-031)
+ * 은행이 계좌와 명의가 맞지 않다고 답했거나, 본인 명의 계좌의 예금주 이름이 본인인증 이름과 다르다 (BUK-50)
  */
 public class SellerAccountNotVerifiedException extends BusinessException {
 	public static final String CODE = "SELLER_ACCOUNT_NOT_VERIFIED";
