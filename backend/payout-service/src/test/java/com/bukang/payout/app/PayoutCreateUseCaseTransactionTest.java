@@ -44,7 +44,7 @@ import com.bukang.payout.out.SoldSummary;
 import com.bukang.payout.support.StubRacePort;
 
 /**
- * 정산 대상일 배치가 판매자 × 대회 정산 내역마다 트랜잭션을 나누는지 확인한다 (PRO-60)
+ * 정산 생성일 배치가 판매자 × 대회 정산 내역마다 트랜잭션을 나누는지 확인한다 (PRO-60)
  * 테스트 전체를 감싸는 트랜잭션이 있으면 정산 내역별 커밋 · 롤백이 보이지 않으므로 끄고, 진짜 프록시(PayoutCreateStepUseCase 빈)를 쓴다
  */
 @DataJpaTest
@@ -223,7 +223,7 @@ class PayoutCreateUseCaseTransactionTest {
 	}
 
 	@Test
-	@DisplayName("어제 실패한 정산 내역은 오늘 실행이 되돌아보기로 다시 만들고, 정산 대상일과 정산 월은 원래 날짜로 남긴다")
+	@DisplayName("어제 실패한 정산 내역은 오늘 실행이 되돌아보기로 다시 만들고, 정산 생성일과 정산 월은 원래 날짜로 남긴다")
 	void failedGroupIsCreatedOnNextRun() {
 		// 9/26에는 회원 서비스가 멈춰 판매자 2의 계좌 확인이 실패하고, 9/27에는 돌아온다
 		AtomicBoolean memberServiceDown = new AtomicBoolean(true);

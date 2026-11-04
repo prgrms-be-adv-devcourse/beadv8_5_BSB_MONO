@@ -1,0 +1,47 @@
+package com.bukang.payout.domain;
+
+import java.time.LocalDate;
+
+/**
+ * 정산 생성일: 배치가 정산 내역을 처음 만드는 날
+ * 1차: 환불 마감일 다음 날. 예: 마감 9/30 → 1차 정산 생성일 10/1, 정산 월 2026-09 → 지급 10/20
+ * 최종: 대회 다음 날. 예: 대회 9/25 → 최종 정산 생성일 9/26, 정산 월 2026-09 → 지급 10/20
+ * 정산 월은 정산 생성일이 아니라 환불 마감일 · 대회일의 달이다 (월말이면 정산 생성일은 다음 달이 된다)
+ */
+public final class PayoutCreateDate {
+	// 대회 다음 날
+	private static final int DAYS_AFTER_RACE = 1;
+	// 환불 마감일 다음 날
+	private static final int DAYS_AFTER_REFUND_DEADLINE = 1;
+
+	private PayoutCreateDate() {
+	}
+
+	public static LocalDate of(LocalDate raceDate) {
+		return raceDate.plusDays(DAYS_AFTER_RACE);
+	}
+
+	// 정산 생성일이 createDate인 대회의 대회일 (배치가 오늘 정산할 대회를 찾을 때 쓴다)
+	public static LocalDate raceDateFor(LocalDate createDate) {
+		return createDate.minusDays(DAYS_AFTER_RACE);
+	}
+
+	// 1차 정산 생성일: 환불 마감일 다음 날
+	public static LocalDate firstOf(LocalDate refundDeadline) {
+		return refundDeadline.plusDays(DAYS_AFTER_REFUND_DEADLINE);
+	}
+
+	// 1차 정산 생성일이 createDate인 대회의 환불 마감일 (1차 배치가 오늘 정산할 대회를 찾을 때 쓴다)
+	public static LocalDate refundDeadlineFor(LocalDate createDate) {
+		return createDate.minusDays(DAYS_AFTER_REFUND_DEADLINE);
+	}
+
+	// 정산 생성일 전날까지만 환불할 수 있다. 정산 생성일 당일부터는 대회 취소·일정 변경 환불도 막는다 (payout.md 2-2, PRO-28)
+	// 최종 정산 내역에 들어간 참가권이 환불되면 판매자에게 그대로 지급되기 때문이다 (최종 정산 뒤의 회수 규칙은 PRO-214에서 미뤘다)
+	// 1차 정산금이 이미 나갔으면(마감일 다음 달 20일) 그 뒤의 대회 취소·일정 변경 환불은 회수로 되돌린다 (PayoutLedgerUseCase)
+	// 개인 사정 환불은 그 전에 환불 기한(판매자 지정)에서 막히며, 그 판단은 주문 서비스가 한다
+	// 예: 대회 9/25 → 9/25까지 환불 가능, 9/26(정산 생성일)부터 불가
+	public static boolean isRefundable(LocalDate raceDate, LocalDate today) {
+		return today.isBefore(of(raceDate));
+	}
+}

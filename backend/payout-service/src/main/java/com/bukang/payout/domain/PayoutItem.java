@@ -88,7 +88,7 @@ public class PayoutItem extends BaseIdAndTime {
 	@Column(precision = 5, scale = 4)
 	private BigDecimal feeRate;
 
-	// 정산 대상일: 1차는 환불 기한 다음 날, 최종은 대회 다음 날. 회수 줄은 NULL
+	// 정산 생성일: 1차는 환불 기한 다음 날, 최종은 대회 다음 날. 회수 줄은 NULL
 	private LocalDate targetDate;
 
 	// 참가권 없는 줄의 중복 방지 키. 참가권 줄과 상계 줄은 NULL (저장 직전에 정한다)

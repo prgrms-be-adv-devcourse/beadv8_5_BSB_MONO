@@ -12,12 +12,12 @@ import com.bukang.payout.app.PayoutCreateUseCase;
 import lombok.RequiredArgsConstructor;
 
 /**
- * 매일 새벽 정산 대상일이 된 대회의 정산 내역을 만든다 (payout.md 2-6)
+ * 매일 새벽 정산 생성일이 된 대회의 정산 내역을 만든다 (payout.md 2-6)
  */
 @Component
 @RequiredArgsConstructor
 public class PayoutCreateScheduler {
-	// 서버 시간대와 상관없이 한국 날짜로 정산 대상일을 판단한다
+	// 서버 시간대와 상관없이 한국 날짜로 정산 생성일을 판단한다
 	private static final String ZONE = "Asia/Seoul";
 
 	private final PayoutCreateUseCase payoutCreateUseCase;

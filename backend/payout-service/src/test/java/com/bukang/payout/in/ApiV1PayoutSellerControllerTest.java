@@ -135,7 +135,7 @@ class ApiV1PayoutSellerControllerTest {
 		payoutRepository.deleteAll();
 	}
 
-	// 최종 정산 대상일(targetDate)은 대회 다음 날이다
+	// 최종 정산 생성일(targetDate)은 대회 다음 날이다
 	private Payout savePayout(long sellerId, long raceId, LocalDate targetDate) {
 		Payout payout = Payout.finalStage(sellerId, raceId, "대회 %d".formatted(raceId), targetDate.minusDays(1),
 			targetDate.atTime(3, 0),
@@ -277,7 +277,7 @@ class ApiV1PayoutSellerControllerTest {
 	}
 
 	@Test
-	@DisplayName("건별 정산: 정산 대상일이 기간 안인 내 정산 항목만 페이지로 돌려준다")
+	@DisplayName("건별 정산: 정산 생성일이 기간 안인 내 정산 항목만 페이지로 돌려준다")
 	void items() throws Exception {
 		request("/payout-items", "from", "2026-09-01", "to", "2026-09-30", "page", "0", "size", "50")
 			.andExpect(status().isOk())
@@ -291,8 +291,8 @@ class ApiV1PayoutSellerControllerTest {
 			.andDo(document("payout-seller-items",
 				requestHeaders(MEMBER_ID_HEADER),
 				queryParameters(
-					parameterWithName("from").description("조회 시작 정산 대상일 (yyyy-MM-dd)"),
-					parameterWithName("to").description("조회 끝 정산 대상일 (yyyy-MM-dd, 포함). 시작 날 + 1개월 전까지"),
+					parameterWithName("from").description("조회 시작 정산 생성일 (yyyy-MM-dd)"),
+					parameterWithName("to").description("조회 끝 정산 생성일 (yyyy-MM-dd, 포함). 시작 날 + 1개월 전까지"),
 					parameterWithName("page").description("페이지 번호 (0부터, 기본 0)").optional(),
 					parameterWithName("size").description("페이지 크기 (1 ~ 100, 기본 50)").optional()
 				),
@@ -305,7 +305,7 @@ class ApiV1PayoutSellerControllerTest {
 					fieldWithPath("data.content[].amount").description("금액"),
 					fieldWithPath("data.content[].feeRate").description("기록 시점의 수수료율"),
 					fieldWithPath("data.content[].feeAmount").description("수수료 (금액 × 수수료율, 원 미만 버림)"),
-					fieldWithPath("data.content[].targetDate").description("정산 대상일 (대회 다음 날)"),
+					fieldWithPath("data.content[].targetDate").description("정산 생성일 (대회 다음 날)"),
 					fieldWithPath("data.content[].payoutId").description("묶인 정산 내역 ID"),
 					fieldWithPath("data.content[].payoutCode").description("묶인 정산 내역의 정산 ID 표기"),
 					fieldWithPath("data.content[].raceId").description("대회 ID"),

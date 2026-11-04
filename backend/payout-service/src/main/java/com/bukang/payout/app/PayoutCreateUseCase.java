@@ -16,8 +16,8 @@ import org.springframework.stereotype.Service;
 import com.bukang.payout.app.PayoutCreateStepUseCase.CourseSale;
 import com.bukang.payout.app.PayoutCreateStepUseCase.FinalPayoutSource;
 import com.bukang.payout.app.PayoutCreateStepUseCase.FirstPayoutSource;
+import com.bukang.payout.domain.PayoutCreateDate;
 import com.bukang.payout.domain.PayoutStage;
-import com.bukang.payout.domain.PayoutTargetDate;
 import com.bukang.payout.dto.PayoutCreateResultDto;
 import com.bukang.payout.out.PayoutRepository;
 import com.bukang.payout.out.RacePort;
@@ -32,7 +32,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * 정산 생성 배치: 정산 대상일이 된 대회의 정산 내역(판매자 × 대회 × 월 × 단계)과 정산 항목을 만든다 (payout.md 4-3)
+ * 정산 생성 배치: 정산 생성일이 된 대회의 정산 내역(판매자 × 대회 × 월 × 단계)과 정산 항목을 만든다 (payout.md 4-3)
  * 한 실행에서 1차(환불 마감일 다음 날)를 먼저, 최종(대회 다음 날)을 나중에 만든다. 놓친 날을 따라잡을 때
  * 같은 대회의 1차와 최종이 한 실행에 함께 오면, 최종이 1차 지급액을 1차 정산금 차감으로 읽을 수 있어야 하기 때문이다
  * 판매자가 정산 계좌를 등록하지 않았으면 만들 때 '정산 계좌 미등록'으로 보류한다 (payout.md 1장 지급보류 2번, PRO-27)
@@ -47,7 +47,7 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 @RequiredArgsConstructor
 public class PayoutCreateUseCase {
-	// 되돌아보기 기간: 어제 대상일부터 7일치. 일주일 안의 장애는 저절로 따라잡는다 (PRO-61)
+	// 되돌아보기 기간: 어제 정산 생성일부터 7일치. 일주일 안의 장애는 저절로 따라잡는다 (PRO-61)
 	private static final int LOOKBACK_DAYS = 7;
 
 	private final PayoutRepository payoutRepository;
@@ -58,13 +58,13 @@ public class PayoutCreateUseCase {
 	private final SoldSummaryPort soldSummaryPort;
 
 	/**
-	 * today의 배치를 돌린다. 1차 · 최종 모두 어제까지 LOOKBACK_DAYS일 동안 대상일이 된 대회를 보고, 아직 없는 정산 내역만 만든다
+	 * today의 배치를 돌린다. 1차 · 최종 모두 어제까지 LOOKBACK_DAYS일 동안 정산 생성일이 된 대회를 보고, 아직 없는 정산 내역만 만든다
 	 * 03:00 실행을 놓쳐도(서버 중단, 배포, 실패한 정산 내역) 다음 실행들이 따라잡는다. @Scheduled는 놓친 실행을 다시 돌리지 않는다
 	 */
 	public PayoutCreateResultDto run(LocalDate today, LocalDateTime now) {
 		Counts first = createFirstPayoutsForRaces(today, now);
 
-		LocalDate toRaceDate = PayoutTargetDate.raceDateFor(today);
+		LocalDate toRaceDate = PayoutCreateDate.raceDateFor(today);
 		LocalDate fromRaceDate = toRaceDate.minusDays(LOOKBACK_DAYS - 1);
 		Counts last = createFinalPayoutsForRaces(fromRaceDate, toRaceDate, now);
 
@@ -78,7 +78,7 @@ public class PayoutCreateUseCase {
 	// 1차: 환불 마감일이 되돌아보기 기간 안인 대회마다 판매 집계(가격 합 · 장수)로 만든다. 정산 월은 환불 마감일의 달이다
 	// 참가권 목록은 받지 않는다. 대회 하나는 코스 하나라 가격이 하나여서 집계만으로 1차 정산금을 계산할 수 있다 (PRO-214)
 	private Counts createFirstPayoutsForRaces(LocalDate today, LocalDateTime now) {
-		LocalDate toRefundDeadline = PayoutTargetDate.refundDeadlineFor(today);
+		LocalDate toRefundDeadline = PayoutCreateDate.refundDeadlineFor(today);
 		LocalDate fromRefundDeadline = toRefundDeadline.minusDays(LOOKBACK_DAYS - 1);
 
 		Counts counts = new Counts();

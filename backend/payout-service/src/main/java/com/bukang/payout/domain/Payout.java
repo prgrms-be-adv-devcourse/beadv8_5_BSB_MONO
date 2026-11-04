@@ -46,7 +46,7 @@ public class Payout extends BaseIdAndTime {
 	private static final int PAY_DAYS_AFTER_RELEASE = 1;
 
 	// 정산 ID: ST-정산 내역을 만든 날-16진수 4자리 (예: ST-20261029-0A3F)
-	// 정산 대상일이 아니라 만든 날이다. 놓친 날을 따라잡아 만든 정산 내역은 만든 날이 정산 대상일보다 늦다 (PRO-120)
+	// 정산 생성일이 아니라 만든 날이다. 놓친 날을 따라잡아 만든 정산 내역은 만든 날이 정산 생성일보다 늦다 (PRO-120)
 	// 끝 4자리를 PK에서 만들어 저장 뒤에 채우므로 NULL을 허용한다
 	@Column(unique = true, length = 20)
 	private String payoutCode;
@@ -66,7 +66,7 @@ public class Payout extends BaseIdAndTime {
 	@Column(nullable = false, length = 10)
 	private PayoutStage payoutStage;
 
-	// YYYY-MM. 1차는 환불 마감일이 속한 달, 최종은 대회일이 속한 달 (실행일 · 정산 대상일이 아니다)
+	// YYYY-MM. 1차는 환불 마감일이 속한 달, 최종은 대회일이 속한 달 (실행일 · 정산 생성일이 아니다)
 	@Column(nullable = false, length = 7)
 	private String payoutMonth;
 

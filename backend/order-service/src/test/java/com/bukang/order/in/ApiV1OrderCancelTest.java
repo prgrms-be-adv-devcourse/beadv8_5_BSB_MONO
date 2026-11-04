@@ -312,8 +312,8 @@ class ApiV1OrderCancelTest {
 	}
 
 	@Test
-	@DisplayName("정산 서비스가 환불할 수 없다고 하면(정산 대상일 지남) 409로 거절된다")
-	void cancelAfterPayoutTargetDate() throws Exception {
+	@DisplayName("정산 서비스가 환불할 수 없다고 하면(정산 생성일 지남) 409로 거절된다")
+	void cancelAfterPayoutCreateDate() throws Exception {
 		Paid paid = paidOrder(MEMBER_ID);
 		refundEligibilityPort.setRefundable(false);
 

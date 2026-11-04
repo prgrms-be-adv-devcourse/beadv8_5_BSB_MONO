@@ -46,7 +46,7 @@ public class PayoutSellerQueryUseCase {
 			.toList();
 	}
 
-	// 정렬은 쿼리에 고정(정산 대상일 최근 순)했으므로 Pageable에는 정렬을 넣지 않는다
+	// 정렬은 쿼리에 고정(정산 생성일 최근 순)했으므로 Pageable에는 정렬을 넣지 않는다
 	public PageDto<PayoutItemDto> items(long sellerId, LocalDate from, LocalDate to, int page, int size) {
 		PayoutQueryPeriod.checkDetailDays(from, to);
 		PayoutItemPaging.check(page, size);
