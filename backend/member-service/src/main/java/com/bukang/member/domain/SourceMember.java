@@ -78,9 +78,25 @@ public abstract class SourceMember extends BaseMember {
 	@Column(length = 10)
 	private Gender gender;
 
-	// 본인인증은 최종 프로젝트에서 붙인다. 그 전까지는 비어 있다
+	// 본인인증 결과 (BUK-33). 본인인증 전에 가입한 회원은 비어 있다
+	// CI 해시: 인증사가 CI를 줄 때만 있다(카카오 인증은 주지 않는다). 같은 사람인지 애플리케이션에서 검사한다
 	@Column(name = "ci_hash", length = 64)
 	private String ciHash;
+
+	// 이름 + 생년월일 + 휴대폰 번호 해시. 모든 인증 방법에 있어 같은 사람이 두 번 가입하지 못하게 유니크 제약을 건다
+	@Column(name = "identity_hash", length = 64)
+	private String identityHash;
+
+	// 이름 + 생년월일 해시. 휴대폰만 다른 계정을 어드민이 확인할 때 쓴다 (유니크 아님, 인덱스만)
+	@Column(name = "name_birth_hash", length = 64)
+	private String nameBirthHash;
+
+	// 탈퇴 후 재가입 제한용으로 옮겨 둔 해시 (탈퇴 후 30일 재가입 제한). 30일이 지나면 정리 작업이 비운다
+	@Column(name = "withdrawn_identity_hash", length = 64)
+	private String withdrawnIdentityHash;
+
+	@Column(name = "withdrawn_ci_hash", length = 64)
+	private String withdrawnCiHash;
 
 	@Column(name = "verified_at")
 	private LocalDateTime verifiedAt;

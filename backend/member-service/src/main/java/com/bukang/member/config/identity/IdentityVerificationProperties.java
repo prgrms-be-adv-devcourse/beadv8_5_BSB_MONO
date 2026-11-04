@@ -9,12 +9,14 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * 가입 본인인증 설정 (member.identity.*, BUK-33). 키 값은 .env에만 두고 yaml은 환경 변수 이름만 적는다
  *
  * @param uniqueCiCheck 켜면 같은 사람(CI 해시)이 두 번째 계정을 만들 수 없다. 테스트 채널 CI가 모두 같은 값이면 끈다
+ * @param rejoinBlockDays 탈퇴하고 이 날수가 지나야 같은 사람이 다시 가입할 수 있다
  * @param ciHashKey CI를 해시할 때 섞는 비밀 키. 비어 있으면 본인인증 확인이 실패한다
  * @param portone 포트원 V2 본인인증 조회 설정
  */
 @ConfigurationProperties("member.identity")
 public record IdentityVerificationProperties(
 	@DefaultValue("true") boolean uniqueCiCheck,
+	@DefaultValue("30") int rejoinBlockDays,
 	@DefaultValue("") String ciHashKey,
 	@DefaultValue PortOne portone
 ) {

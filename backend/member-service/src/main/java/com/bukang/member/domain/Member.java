@@ -24,6 +24,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.Index;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
@@ -41,8 +42,14 @@ import lombok.NoArgsConstructor;
 @Table(name = "MEMBER_MEMBER", uniqueConstraints = {
 	@UniqueConstraint(name = "uk_member_email", columnNames = "email"),
 	@UniqueConstraint(name = "uk_member_nickname", columnNames = "nickname"),
-	@UniqueConstraint(name = "uk_member_phone_hash", columnNames = "phone_hash")
-}, check = @CheckConstraint(name = "ck_member_personal_info", constraint = Member.PERSONAL_INFO_CHECK))
+	@UniqueConstraint(name = "uk_member_phone_hash", columnNames = "phone_hash"),
+	@UniqueConstraint(name = "uk_member_identity_hash", columnNames = "identity_hash")
+}, indexes = {
+	@Index(name = "idx_member_name_birth_hash", columnList = "name_birth_hash"),
+	@Index(name = "idx_member_withdrawn_identity_hash", columnList = "withdrawn_identity_hash"),
+	@Index(name = "idx_member_withdrawn_ci_hash", columnList = "withdrawn_ci_hash")
+},
+	check = @CheckConstraint(name = "ck_member_personal_info", constraint = Member.PERSONAL_INFO_CHECK))
 @AttributeOverride(name = "nickname", column = @Column(name = "nickname", length = 16))
 public class Member extends SourceMember {
 	static final String PERSONAL_INFO_CHECK = "status = 'WITHDRAWN' OR (email IS NOT NULL AND name IS NOT NULL"
@@ -111,7 +118,7 @@ public class Member extends SourceMember {
 		publishEvent(new MemberWithdrawnEvent(newEventId(), getId(), getWithdrawnAt()));
 	}
 
-	// 마케팅 수신 동의가 바뀌면 부른다. 동의를 바꾸는 API는 다음 작업에서 만든다 (BUK-41)
+	// 마케팅 수신 동의가 바뀌면 부른다 (BUK-41). 동의 기록을 쌓는 트랜잭션 안에서 부른다 (MarketingConsentUseCase, BUK-70)
 	public void publishMarketingConsentChangedEvent(boolean agreed, LocalDateTime changedAt) {
 		publishEvent(new MarketingConsentChangedEvent(newEventId(), getId(), agreed, changedAt));
 	}
@@ -180,9 +187,12 @@ public class Member extends SourceMember {
 	// 탈퇴: 상태와 탈퇴 시각을 함께 바꾸고 개인정보 칸을 비운다 (BE-022 결정 5). 줄은 주문·결제 기록이 가리키므로 남긴다
 	// 비밀번호 해시는 개인정보 목록에 없어 그대로 두지만, 이메일이 비어 로그인에 쓰일 수 없다
 	// 소셜 연결 행도 제공자 회원번호(그 사람을 알아보는 값)가 있어 지운다. 지우는 일은 unlinkAllSocial이 한다
-	// 가입 때 본인인증 결과를 남긴다 (BUK-33). CI는 해시만 받는다
-	public void recordIdentityVerification(String ciHash, LocalDateTime verifiedAt) {
+	// 가입 때 본인인증 결과를 남긴다 (BUK-33). 원문 대신 해시만 받는다. CI 해시는 인증사가 CI를 줄 때만 있다
+	public void recordIdentityVerification(String ciHash, String identityHash, String nameBirthHash,
+		LocalDateTime verifiedAt) {
 		setCiHash(ciHash);
+		setIdentityHash(identityHash);
+		setNameBirthHash(nameBirthHash);
 		setVerifiedAt(verifiedAt);
 	}
 
@@ -196,6 +206,13 @@ public class Member extends SourceMember {
 		setPhoneHash(null);
 		setBirthDate(null);
 		setGender(null);
+		// 본인인증 해시는 재가입 제한용 칸으로 옮기고 비운다 (탈퇴 후 30일 재가입 제한)
+		// identity_hash에는 유니크 제약이 있어, 남겨 두면 30일이 지나도 같은 사람이 다시 가입할 수 없다
+		setWithdrawnIdentityHash(getIdentityHash());
+		setWithdrawnCiHash(getCiHash());
+		setIdentityHash(null);
+		setCiHash(null);
+		setNameBirthHash(null);
 	}
 
 	// 한글 완성형(가~힣)은 화면에서 영문보다 두 배쯤 넓어 2칸, 그 밖의 글자는 1칸으로 센다 ("러너abc" = 7칸)
@@ -207,24 +224,12 @@ public class Member extends SourceMember {
 		return width;
 	}
 
-	// 이름·닉네임·휴대폰·생년월일을 바꾸고, 하나라도 바뀌었으면 true를 돌려준다 (BE-012)
-	// 휴대폰은 해시로 비교해, 하이픈 유무만 다른 같은 번호면 저장된 값을 그대로 둔다
-	public boolean modify(String name, String nickname, String phone, String phoneHash, LocalDate birthDate) {
-		boolean phoneChanged = !getPhoneHash().equals(phoneHash);
-		boolean changed = phoneChanged
-			|| !getName().equals(name)
-			|| !getNickname().equals(nickname)
-			|| !getBirthDate().equals(birthDate);
-		if (!changed) {
+	// 닉네임을 바꾸고, 바뀌었으면 true를 돌려준다 (BE-012). 이름 · 생년월일 · 휴대폰 번호는 본인인증 값이라 바꾸지 않는다 (BUK-33)
+	public boolean changeNickname(String nickname) {
+		if (getNickname().equals(nickname)) {
 			return false;
 		}
-		setName(name);
 		setNickname(nickname);
-		if (phoneChanged) {
-			setPhone(phone);
-			setPhoneHash(phoneHash);
-		}
-		setBirthDate(birthDate);
 		return true;
 	}
 

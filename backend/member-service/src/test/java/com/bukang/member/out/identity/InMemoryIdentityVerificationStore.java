@@ -1,7 +1,11 @@
 package com.bukang.member.out.identity;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -57,10 +61,32 @@ public class InMemoryIdentityVerificationStore implements IdentityVerificationSt
 		return verify(name, birthDate, phone, "ci-hash-" + phone.replaceAll("[^0-9]", ""));
 	}
 
+	// ciHash가 null이면 CI를 주지 않는 인증 방법(카카오)으로 본다
+	// 이름 + 생년월일 + 휴대폰 번호 해시는 서버처럼 세 값이 같으면 같은 값이 되게 만든다 (테스트라 비밀 키 없이 SHA-256)
 	public String verify(String name, LocalDate birthDate, String phone, String ciHash) {
 		String token = "crewrun-iv-" + UUID.randomUUID();
-		saveVerified(token, new VerifiedIdentity(name, birthDate, phone, ciHash, LocalDateTime.now()));
+		String digits = phone.replaceAll("[^0-9]", "");
+		saveVerified(token, new VerifiedIdentity(name, birthDate, phone, ciHash,
+			sha256("identity:" + name.strip() + "|" + birthDate + "|" + digits),
+			sha256("name-birth:" + name.strip() + "|" + birthDate), LocalDateTime.now()));
 		return token;
+	}
+
+	// 이름 + 생년월일 + 휴대폰 번호 해시를 직접 정한다. 동시 가입을 흉내 내 DB 유니크 제약만 확인할 때 쓴다
+	public String verifyWithIdentityHash(String name, LocalDate birthDate, String phone, String identityHash) {
+		String token = "crewrun-iv-" + UUID.randomUUID();
+		saveVerified(token, new VerifiedIdentity(name, birthDate, phone, null, identityHash,
+			sha256("name-birth:" + name.strip() + "|" + birthDate), LocalDateTime.now()));
+		return token;
+	}
+
+	private static String sha256(String value) {
+		try {
+			return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+				.digest(value.getBytes(StandardCharsets.UTF_8)));
+		} catch (NoSuchAlgorithmException exception) {
+			throw new IllegalStateException(exception);
+		}
 	}
 
 	// 예전 가입 요청과 같은 순서로 받아, 이름 · 휴대폰 번호 · 생년월일은 본인인증 결과로 넣고 토큰을 담은 요청을 만든다

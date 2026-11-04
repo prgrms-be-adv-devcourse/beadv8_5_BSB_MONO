@@ -110,8 +110,8 @@ public class MemberDataInit {
 			return;
 		}
 
-		// 개발용 회원은 본인인증을 거치지 않는다. CI 해시 · 인증 시각이 비어 있어 1인 1계정 검사에 걸리지 않는다
-		VerifiedIdentity identity = new VerifiedIdentity(name, BASE_BIRTH_DATE, phone, null, null);
+		// 개발용 회원은 본인인증을 거치지 않는다. 해시 · 인증 시각이 비어 있어 1인 1계정 검사에 걸리지 않는다
+		VerifiedIdentity identity = new VerifiedIdentity(name, BASE_BIRTH_DATE, phone, null, null, null, null);
 		memberJoinUseCase.join(email, BASE_PASSWORD, nickname, null, List.of(TermsType.SERVICE, TermsType.PRIVACY),
 			identity);
 		log.info("기본 회원 생성: {}", email);

@@ -9,6 +9,7 @@ import {
   prepareIdentityVerification,
   requestIdentityVerification,
   type IdentityVerificationOutcome,
+  type RejoinInfo,
   type VerifiedIdentity,
 } from '../api/identity-verification'
 import { MockPassSheet } from '../ui/MockPassSheet'
@@ -27,6 +28,10 @@ export type UseIdentityVerificationOptions = {
   onBeforeOpen?: () => void
   /** 모바일 리디렉션으로 돌아와 결과를 받기 직전에 부른다. 남겨 둔 입력값을 되살릴 때 쓴다 */
   onReturn?: () => void
+  /** 이미 가입한 사람이면 부른다(시안 M04-P 3). 화면이 로그인을 안내하는 모달을 띄운다 */
+  onDuplicate?: () => void
+  /** 탈퇴하고 30일이 지나지 않은 사람이면 부른다. 화면이 다시 가입할 수 있는 날을 알려 준다 */
+  onRejoinTooSoon?: (rejoin: RejoinInfo) => void
 }
 
 /**
@@ -39,6 +44,8 @@ export function useIdentityVerification({
   redirectUrl,
   onBeforeOpen,
   onReturn,
+  onDuplicate,
+  onRejoinTooSoon,
 }: UseIdentityVerificationOptions): {
   start: () => void
   opening: boolean
@@ -76,6 +83,8 @@ export function useIdentityVerification({
   const handleOutcome = (outcome: IdentityVerificationOutcome) => {
     if (outcome.status === 'verified') done(outcome.identity)
     if (outcome.status === 'failed') setFailure(outcome.message)
+    if (outcome.status === 'duplicate') onDuplicate?.()
+    if (outcome.status === 'rejoinTooSoon') onRejoinTooSoon?.(outcome.rejoin)
   }
   useIdentityRedirect((outcome) => {
     onReturn?.()
@@ -100,7 +109,7 @@ export function useIdentityVerification({
       // 리디렉션이면 페이지가 바뀌므로 버튼을 계속 잠가 둔다
       if (outcome.status !== 'redirecting') setOpening(false)
       handleOutcome(outcome)
-      if (outcome.status !== 'verified' && outcome.status !== 'redirecting') {
+      if (outcome.status === 'failed' || outcome.status === 'cancelled') {
         void prepareIdentityVerification().then((id) => id && setPrepared({ id, at: Date.now() }))
       }
     })

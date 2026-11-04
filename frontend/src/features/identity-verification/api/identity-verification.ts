@@ -17,11 +17,31 @@ export type IdentityVerificationOutcome =
   | { status: 'redirecting' }
   /** 사용자가 포트원 창을 직접 닫았다. 실패가 아니므로 안내 없이 원래 화면으로 돌아온다 */
   | { status: 'cancelled' }
+  /** 이미 가입한 사람이다(CI 또는 이름 · 생년월일 · 휴대폰 번호가 같음). 화면은 로그인을 안내한다 */
+  | { status: 'duplicate' }
+  /** 탈퇴하고 정한 날수(기본 30일)가 지나지 않았다. 화면은 다시 가입할 수 있는 날을 알려 준다 */
+  | { status: 'rejoinTooSoon'; rejoin: RejoinInfo }
   | { status: 'failed'; message: string }
+
+/** 탈퇴 후 재가입 제한 정보. 백엔드 409 MEMBER_REJOIN_TOO_SOON 응답의 data다 */
+export type RejoinInfo = { rejoinableDate: string; blockDays: number }
+
+/** 가입 · 본인인증 실패가 탈퇴 후 재가입 제한이면 그 정보를, 아니면 null을 돌려준다 */
+export function rejoinInfoOf(error: unknown): RejoinInfo | null {
+  if (!(error instanceof ApiError) || error.code !== 'MEMBER_REJOIN_TOO_SOON') return null
+  const data = (error.body as { data?: Partial<RejoinInfo> } | null)?.data
+  if (!data?.rejoinableDate || !data.blockDays) return null
+  return { rejoinableDate: data.rejoinableDate, blockDays: data.blockDays }
+}
+
+/** 「탈퇴하고 30일이 지나야 다시 가입할 수 있어요. 12월 2일부터 가입할 수 있어요.」 */
+export function rejoinMessage({ rejoinableDate, blockDays }: RejoinInfo) {
+  const [, month, day] = rejoinableDate.split('-').map(Number)
+  return `탈퇴하고 ${blockDays}일이 지나야 다시 가입할 수 있어요. ${month}월 ${day}일부터 가입할 수 있어요.`
+}
 
 export const IDENTITY_MESSAGES = {
   failed: '본인인증을 마치지 못했어요. 다시 시도해 주세요.',
-  ciMissing: '이 인증 방법으로는 가입할 수 없어요. 다른 인증 방법을 골라 주세요.',
   unavailable: '본인인증 결과를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.',
   notConfigured: '지금은 본인인증을 할 수 없어요. 잠시 후 다시 시도해 주세요.',
   popupBlocked: '브라우저가 본인인증 창을 막았어요. 이 사이트의 팝업을 허용한 뒤 다시 눌러 주세요.',
@@ -34,7 +54,6 @@ export function isIdentityMock() {
 
 function failureMessage(error: unknown): string {
   if (!(error instanceof ApiError)) return IDENTITY_MESSAGES.failed
-  if (error.code === 'AUTH_VERIFICATION_CI_MISSING') return IDENTITY_MESSAGES.ciMissing
   if (error.code === 'AUTH_VERIFICATION_UNAVAILABLE') return IDENTITY_MESSAGES.unavailable
   return IDENTITY_MESSAGES.failed
 }
@@ -51,6 +70,11 @@ async function complete(identityVerificationId: string): Promise<IdentityVerific
     )
     return { status: 'verified', identity }
   } catch (error) {
+    if (error instanceof ApiError && error.code === 'MEMBER_DUPLICATE_IDENTITY') {
+      return { status: 'duplicate' }
+    }
+    const rejoin = rejoinInfoOf(error)
+    if (rejoin) return { status: 'rejoinTooSoon', rejoin }
     return { status: 'failed', message: failureMessage(error) }
   }
 }

@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.bukang.common.global.rsdata.RsData;
 import com.bukang.member.app.MemberFacade;
 import com.bukang.member.app.SellerFacade;
+import com.bukang.member.dto.MarketingUnsubscribeLinkDto;
 import com.bukang.member.dto.MemberAdminDto;
 import com.bukang.member.dto.MemberSellerDto;
 import com.bukang.member.dto.SellerPayoutAccountDto;
@@ -29,7 +30,8 @@ import lombok.RequiredArgsConstructor;
  * 회원이 아니라 서비스가 부르므로 회원 ID 헤더를 받지 않는다
  */
 @Tag(name = "MemberInternal",
-	description = "회원의 판매자 ID 조회, 관리자 여부 조회, 판매자 정산 계좌 등록 여부 조회 API (서비스 간 내부 호출 전용)")
+	description = "회원의 판매자 ID 조회, 관리자 여부 조회, 판매자 정산 계좌 등록 여부 조회, 광고 수신 거부 링크 발급 API "
+		+ "(서비스 간 내부 호출 전용)")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/internal/v1/member")
@@ -103,5 +105,24 @@ public class InternalV1MemberController {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "판매자 정산 계좌 등록 여부를 조회했습니다.",
 				sellerFacade.findPayoutAccount(sellerId)));
+	}
+
+	// CRM이 광고 메시지를 만들 때 회원마다 부른다. 토큰을 만드는 서명 키는 회원 서비스에만 있다 (BUK-75, BE-039)
+	@GetMapping("/members/{memberId}/marketing-unsubscribe-link")
+	@Operation(summary = "광고 수신 거부 링크 발급",
+		description = "CRM 서비스가 광고 메시지 끝에 붙일 수신 거부 링크를 받아 간다. 링크는 프론트 확인 화면(/unsubscribe?token=...)이고, "
+			+ "토큰은 발급 뒤 1년 동안 쓸 수 있다. 저장하지 않으므로 부를 때마다 새 토큰이 나온다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "발급 성공",
+			content = @Content(examples = @ExampleObject(value = MemberInternalApiExamples.UNSUBSCRIBE_LINK))),
+		@ApiResponse(responseCode = "404", description = "존재하지 않거나 탈퇴한 회원",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = MemberInternalApiExamples.MEMBER_NOT_FOUND)))
+	})
+	public ResponseEntity<RsData<MarketingUnsubscribeLinkDto>> issueUnsubscribeLink(
+		@Parameter(description = "광고를 받을 회원 ID", example = "7") @PathVariable long memberId
+	) {
+		return ResponseEntity.ok()
+			.body(RsData.of(HttpStatus.OK, "수신 거부 링크를 발급했습니다.", memberFacade.issueUnsubscribeLink(memberId)));
 	}
 }

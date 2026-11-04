@@ -10,25 +10,11 @@
  */
 export interface MemberModifyRequestDto {
   /**
-     * 실명
-     * @minLength 0
-     * @maxLength 255
-     */
-  name: string;
-  /**
      * 닉네임 (한글 2~8자, 영문 4~16자, 한글·영문·숫자만)
      * @minLength 1
      * @pattern ^[가-힣A-Za-z0-9]+$
      */
   nickname: string;
-  /**
-     * 휴대폰 번호 (하이픈 생략 가능)
-     * @minLength 1
-     * @pattern ^01[016789]-?\d{3,4}-?\d{4}$
-     */
-  phone: string;
-  /** 생년월일 */
-  birthDate: string;
 }
 
 export interface RsData {
