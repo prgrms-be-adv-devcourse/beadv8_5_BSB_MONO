@@ -16,6 +16,8 @@ dependencies {
 	// @LoginMemberId에 메타로 붙인 Swagger @Parameter. 실행 시에는 각 서비스의 springdoc이 같은 jar를 가져온다
 	// 버전은 서비스가 쓰는 springdoc 3.1.0이 쓰는 swagger 버전에 맞춘다
 	compileOnly("io.swagger.core.v3:swagger-annotations-jakarta:2.2.52")
+	// KafkaMessageId가 ProducerRecord를 쓴다. 실행 시에는 각 서비스의 spring-boot-starter-kafka가 같은 jar를 가져온다 (버전은 Boot BOM)
+	compileOnly("org.apache.kafka:kafka-clients")
 
 	// 서비스 엔티티(Member, CashMember)의 Q클래스가 부모 클래스의 Q클래스(QBaseMember, QReplicaMember 등)를 참조하므로
 	// @MappedSuperclass가 있는 common에서도 Q클래스를 만들어 jar에 함께 넣는다

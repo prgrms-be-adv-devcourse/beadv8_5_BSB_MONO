@@ -3,9 +3,11 @@ package com.bukang.product.in;
 import org.springframework.kafka.annotation.BackOff;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.annotation.RetryableTopic;
+import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
 
 import com.bukang.common.global.json.JsonConverter;
+import com.bukang.common.shared.kafka.KafkaMessageId;
 import com.bukang.common.shared.kafka.KafkaTopics;
 import com.bukang.common.shared.member.event.MemberJoinedEvent;
 import com.bukang.common.shared.member.event.MemberModifiedEvent;
@@ -21,11 +23,12 @@ import lombok.RequiredArgsConstructor;
  * 메시지는 JSON 문자열로 받아 JsonConverter로 바꾼다.
  * 처리 중 예외가 나면 재시도 토픽으로 보내 간격을 늘려 가며 다시 시도하고, 그래도 실패하면 <토픽>.product.dlt로 보낸다.
  * DLT 메시지는 ProductKafkaDltConsumer가 받는다.
+ * message-id 헤더가 있으면 인박스로 같은 메시지를 두 번 처리하지 않는다 (재시도·DLT 토픽으로 넘어가도 헤더는 그대로다).
  */
 @Component
 @RequiredArgsConstructor
 public class ProductKafkaConsumer {
-	// application.yaml에 group-id가 없으므로 리스너마다 적는다
+	// application.yaml에 group-id가 없으므로 리스너마다 적는다. 인박스에 남기는 그룹(ProductFacade.KAFKA_GROUP_ID)과 같은 값이다
 	private static final String GROUP_ID = "product";
 	// 토픽 파티션 수 (KafkaTopicConfig.PARTITIONS와 맞춘다). 재시도·DLT 토픽도 같은 수로 만든다 (기본값은 1개)
 	private static final String PARTITIONS = "1";
@@ -63,9 +66,11 @@ public class ProductKafkaConsumer {
 		dltTopicSuffix = DLT_TOPIC_SUFFIX,
 		autoStartDltHandler = AUTO_START_DEFAULT_DLT_HANDLER
 	)
-	public void handleMemberJoined(String payload) {
+	public void handleMemberJoined(String payload,
+		@Header(name = KafkaMessageId.HEADER, required = false) String messageId) {
 		MemberJoinedEvent event = jsonConverter.fromJson(payload, MemberJoinedEvent.class);
-		productFacade.syncMember(event.id(), event.createDate(), event.modifyDate(), event.nickname());
+		productFacade.syncMember(messageId, KafkaTopics.MEMBER_MEMBER_JOINED,
+			event.id(), event.createDate(), event.modifyDate(), event.nickname());
 	}
 
 	// 회원 서비스가 보내는 공용 토픽. 가입과 같은 방식으로 회원 복제본에 덮어쓴다
@@ -80,9 +85,11 @@ public class ProductKafkaConsumer {
 		dltTopicSuffix = DLT_TOPIC_SUFFIX,
 		autoStartDltHandler = AUTO_START_DEFAULT_DLT_HANDLER
 	)
-	public void handleMemberModified(String payload) {
+	public void handleMemberModified(String payload,
+		@Header(name = KafkaMessageId.HEADER, required = false) String messageId) {
 		MemberModifiedEvent event = jsonConverter.fromJson(payload, MemberModifiedEvent.class);
-		productFacade.syncMember(event.id(), event.createDate(), event.modifyDate(), event.nickname());
+		productFacade.syncMember(messageId, KafkaTopics.MEMBER_MODIFIED,
+			event.id(), event.createDate(), event.modifyDate(), event.nickname());
 	}
 
 	@KafkaListener(topics = KafkaTopics.SELLER_CHANGED, groupId = GROUP_ID, concurrency = CONCURRENCY)
@@ -97,8 +104,12 @@ public class ProductKafkaConsumer {
 		dltTopicSuffix = DLT_TOPIC_SUFFIX,
 		autoStartDltHandler = AUTO_START_DEFAULT_DLT_HANDLER
 	)
-	public void handleSellerChanged(String payload) {
-		productFacade.syncSeller(jsonConverter.fromJson(payload, SellerChangedEvent.class));
+	public void handleSellerChanged(String payload,
+		@Header(name = KafkaMessageId.HEADER, required = false) String messageId) {
+		SellerChangedEvent event = jsonConverter.fromJson(payload, SellerChangedEvent.class);
+		productFacade.syncSeller(messageId, KafkaTopics.SELLER_CHANGED, event.id(), event.memberId(),
+			event.sellerType(), event.businessName(), event.businessNumber(), event.representativeName(),
+			event.status(), event.requestedAt(), event.reviewedAt());
 	}
 
 	// 대기열 활성 시간이 끝나 결제하지 않은 자리를 해제한다 (주문 서비스가 보낸다)
@@ -113,9 +124,10 @@ public class ProductKafkaConsumer {
 		dltTopicSuffix = DLT_TOPIC_SUFFIX,
 		autoStartDltHandler = AUTO_START_DEFAULT_DLT_HANDLER
 	)
-	public void handleHoldCancel(String payload) {
+	public void handleHoldCancel(String payload,
+		@Header(name = KafkaMessageId.HEADER, required = false) String messageId) {
 		HoldCancelEvent event = jsonConverter.fromJson(payload, HoldCancelEvent.class);
-		productFacade.cancelHold(event.participationId());
+		productFacade.cancelHold(messageId, KafkaTopics.PRODUCT_HOLD_CANCEL, event.participationId());
 	}
 
 	// 결제한 참가권을 취소·만료해 판매한 자리를 정원으로 되돌린다 (주문 서비스가 커밋 뒤 아웃박스로 보낸다)
@@ -131,8 +143,9 @@ public class ProductKafkaConsumer {
 		dltTopicSuffix = DLT_TOPIC_SUFFIX,
 		autoStartDltHandler = AUTO_START_DEFAULT_DLT_HANDLER
 	)
-	public void handleHoldRestore(String payload) {
+	public void handleHoldRestore(String payload,
+		@Header(name = KafkaMessageId.HEADER, required = false) String messageId) {
 		HoldRestoreEvent event = jsonConverter.fromJson(payload, HoldRestoreEvent.class);
-		productFacade.restoreSeat(event.participationId());
+		productFacade.restoreSeat(messageId, KafkaTopics.PRODUCT_HOLD_RESTORE, event.participationId());
 	}
 }

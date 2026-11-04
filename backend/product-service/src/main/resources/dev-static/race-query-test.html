@@ -225,7 +225,7 @@
       <li>[확보] POST /internal/v1/product/holds {raceCourseId, participationId, expiresAt} → data {held, expiresAt}. held=false면 매진입니다(오류가 아니라 200).
         대회가 판매 예정·판매 중이고 지금이 개인 예매 오픈 ~ 접수 마감 사이일 때만 됩니다(아니면 409 '접수 기간이 아닙니다.').</li>
       <li>[판매] POST /internal/v1/product/holds/{participationId}/sell → data {result: SOLD | EXPIRED}. 끝 시각이 지났거나 이미 해제된 자리면 EXPIRED입니다.</li>
-      <li>[복구] POST /internal/v1/product/holds/{participationId}/restore → data {restored}. 판매한 자리를 결제 취소로 정원에 되돌립니다(여러 번 불러도 한 번만).</li>
+      <li>판매한 자리의 복구는 API가 없고, 주문 서비스가 Kafka(product.hold.restore)로 알립니다(해제 product.hold.cancel과 같음).</li>
       <li>남은 자리가 0이 되면(결제 대기 포함) 종목 상태가 SOLD_OUT, 다시 생기면 OPEN이 됩니다.</li>
     </ul>
     <div class="form">
@@ -249,7 +249,6 @@
     <div class="actions">
       <button type="button" id="holdSeat">확보</button>
       <button type="button" id="sellSeat">판매</button>
-      <button type="button" id="restoreSeat">복구</button>
       <button type="button" class="secondary" id="reloadDetail">대회 상세 다시 조회</button>
     </div>
     <p id="holdResult" class="result"></p>
@@ -308,8 +307,8 @@
         <p class="hint">[+1] → [지금+1분] → [확보] → 1분 넘게 기다린 뒤 [판매] → EXPIRED.</p></li>
       <li><label class="inline"><input type="checkbox"> 해제 메시지 → 남은 자리 복귀</label>
         <p class="hint">[+1] → [확보] → product.hold.cancel에 그 participationId를 보냄 → [대회 상세 다시 조회]로 남은 자리 +1, 결제 대기 −1.</p></li>
-      <li><label class="inline"><input type="checkbox"> 복구 → 판매 수 감소</label>
-        <p class="hint">판매한 participationId로 [복구] → restored=true, 판매(sold) −1, 남은 자리 +1. 한 번 더 누르면 restored=false.</p></li>
+      <li><label class="inline"><input type="checkbox"> 복구 메시지 → 판매 수 감소</label>
+        <p class="hint">판매한 participationId를 product.hold.restore로 보냄 → [대회 상세 다시 조회]로 판매(sold) −1, 남은 자리 +1. 같은 메시지를 다시 보내도 한 번만 줄어듭니다.</p></li>
       <li><label class="inline"><input type="checkbox"> 정원만큼 확보 뒤 매진(held=false)과 종목 상태 SOLD_OUT</label>
         <p class="hint">[+1] → [확보]를 남은 자리만큼 반복(등록 페이지 기본 개인 정원은 3). 그다음 확보는 held=false, 종목 상태 SOLD_OUT.</p></li>
       <li><label class="inline"><input type="checkbox"> 대회 취소 → 목록에서 빠짐 · 확보 409</label>
@@ -808,9 +807,6 @@
       if ('result' in data) {
         return data.result === 'SOLD' ? '판매함 (SOLD)' : '판매하지 않음 (EXPIRED: 끝 시각이 지났거나 해제된 자리)';
       }
-      if ('restored' in data) {
-        return data.restored ? '정원으로 되돌림 (restored=true)' : '되돌린 것 없음 (이미 되돌렸거나 판매한 자리가 없음, restored=false)';
-      }
       return JSON.stringify(data);
     }
 
@@ -845,18 +841,6 @@
       const result = await callApi('자리 판매', 'POST', `${HOLDS_PATH}/${participationId}/sell`);
       const ok = showResult($('holdResult'), result, describeHold(result.body?.data));
       if (ok && result.body.data?.result === 'EXPIRED') {
-        $('holdResult').className = 'result warn';
-      }
-    }
-
-    async function restoreSeat() {
-      const participationId = requireParticipationId();
-      if (!participationId) {
-        return;
-      }
-      const result = await callApi('자리 복구', 'POST', `${HOLDS_PATH}/${participationId}/restore`);
-      const ok = showResult($('holdResult'), result, describeHold(result.body?.data));
-      if (ok && result.body.data?.restored === false) {
         $('holdResult').className = 'result warn';
       }
     }
@@ -920,7 +904,6 @@
     bindAction('loadCourseInfo', loadCourseInfo);
     bindAction('holdSeat', holdSeat);
     bindAction('sellSeat', sellSeat);
-    bindAction('restoreSeat', restoreSeat);
     bindAction('reloadDetail', reloadDetail);
     bindAction('cancelRace', cancelRace);
     $('resetFilters').addEventListener('click', resetFilters);

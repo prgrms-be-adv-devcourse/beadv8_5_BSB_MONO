@@ -36,7 +36,8 @@ import jakarta.persistence.PersistenceContext;
  * 흐름: [결제하기] 때 끝 시각(expiresAt)을 담아 확보(결제 대기) → 결제하면 판매 → 결제를 취소하면 복구,
  * 결제하지 않고 끝 시각이 지나면 주문 서비스가 Kafka로 해제를 알린다. 결제 기한 연장은 없다.
  * 자리 행 상태와 종목 카운터(결제 대기·판매 수)가 함께 바뀌는지, 같은 요청이 다시 오거나 겹쳐도 한 번만 바뀌는지를 본다.
- * 테스트 프로파일은 Kafka 리스너가 꺼져 있으므로, 해제는 ProductKafkaConsumer.handleHoldCancel에 JSON 문자열을 직접 넘긴다.
+ * 테스트 프로파일은 Kafka 리스너가 꺼져 있으므로, 해제·복구는 ProductKafkaConsumer.handleHoldCancel·handleHoldRestore에
+ * JSON 문자열을 직접 넘긴다 (복구는 HTTP API가 없고 주문 서비스가 Kafka로 알린다).
  * 끝 시각이 지난 자리는 기다리지 않고 자리 행의 끝 시각을 1분 전으로 옮겨 만든다.
  */
 class InternalV1HoldTest extends ProductIntegrationTest {
@@ -191,12 +192,9 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("판매·복구 주소의 참가 신청 ID가 숫자가 아니면(abc) 400 '요청 값의 형식이 올바르지 않습니다.'")
+	@DisplayName("판매 주소의 참가 신청 ID가 숫자가 아니면(abc) 400 '요청 값의 형식이 올바르지 않습니다.'")
 	void rejectNonNumericParticipationId() throws Exception {
 		mockMvc.perform(post(HOLDS_PATH + "/abc/sell"))
-			.andExpect(status().isBadRequest())
-			.andExpect(jsonPath("$.message").value("요청 값의 형식이 올바르지 않습니다."));
-		mockMvc.perform(post(HOLDS_PATH + "/abc/restore"))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.message").value("요청 값의 형식이 올바르지 않습니다."));
 	}
@@ -282,7 +280,7 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 		long courseId = registerOnSale(race().build()).courseId();
 		hold(courseId, PARTICIPATION_ID).andExpect(status().isOk());
 		sell(PARTICIPATION_ID).andExpect(status().isOk());
-		restore(PARTICIPATION_ID).andExpect(status().isOk());
+		restoreByMessage(PARTICIPATION_ID);
 
 		hold(courseId, PARTICIPATION_ID)
 			.andExpect(status().isConflict())
@@ -398,19 +396,15 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 	// ---------- 복구 ----------
 
 	@Test
-	@DisplayName("개인 정원 1석 종목에서 판매한 자리(1001)를 복구하면 restored=true이고, 판매 수가 0이 되며 "
-		+ "종목 상태가 SOLD_OUT에서 OPEN으로 돌아간다")
-	void restoreSoldSeat() throws Exception {
+	@DisplayName("개인 정원 1석 종목에서 판매한 자리(1001)의 복구 메시지(product.hold.restore)가 오면 판매 수가 0이 되고 "
+		+ "종목 상태가 SOLD_OUT에서 OPEN으로 돌아가며 자리는 RESTORED다")
+	void restoreSoldSeatByMessage() throws Exception {
 		long courseId = registerOnSale(race().course(course().quota(0, 1)).build()).courseId();
 		hold(courseId, PARTICIPATION_ID).andExpect(status().isOk());
 		sell(PARTICIPATION_ID).andExpect(status().isOk());
 		assertThat(courseOf(courseId).getStatus()).isEqualTo(CourseStatus.SOLD_OUT);
 
-		restore(PARTICIPATION_ID)
-			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.status").value(200))
-			.andExpect(jsonPath("$.message").value("자리를 정원으로 되돌렸습니다."))
-			.andExpect(jsonPath("$.data.restored").value(true));
+		restoreByMessage(PARTICIPATION_ID, "order-outbox-30");
 
 		RaceCourse raceCourse = courseOf(courseId);
 		assertThat(raceCourse.getIndividualSold()).isZero();
@@ -421,18 +415,17 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("복구한 자리(1001)를 다시 복구하면 restored=false '되돌릴 판매 자리가 없습니다.'이고 판매 수는 0 그대로다")
-	void restoreAgain() throws Exception {
+	@DisplayName("판매한 자리(1001)의 복구 메시지가 다른 메시지 ID(order-outbox-30, order-outbox-31)로 두 번 오면, "
+		+ "인박스는 둘 다 통과시키지만(2행) 이미 환불 복구된 자리라 판매 수는 한 번만 준다(1 → 0)")
+	void restoreTwiceWithDifferentMessageIds() throws Exception {
 		long courseId = registerOnSale(race().build()).courseId();
 		hold(courseId, PARTICIPATION_ID).andExpect(status().isOk());
 		sell(PARTICIPATION_ID).andExpect(status().isOk());
-		restore(PARTICIPATION_ID).andExpect(status().isOk());
 
-		restore(PARTICIPATION_ID)
-			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.message").value("되돌릴 판매 자리가 없습니다."))
-			.andExpect(jsonPath("$.data.restored").value(false));
+		restoreByMessage(PARTICIPATION_ID, "order-outbox-30");
+		restoreByMessage(PARTICIPATION_ID, "order-outbox-31");
 
+		assertThat(productInboxKafkaEventRepository.count()).isEqualTo(2);
 		RaceCourse raceCourse = courseOf(courseId);
 		assertThat(raceCourse.getIndividualSold()).isZero();
 		assertThat(raceCourse.individualRemaining()).isEqualTo(DEFAULT_QUOTA);
@@ -440,17 +433,18 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("판매한 자리(1001)의 복구 메시지(product.hold.restore)가 두 번 와도 판매 수는 한 번만 줄고(1 → 0), "
-		+ "남은 자리는 정원 그대로이며 자리는 RESTORED다")
-	void restoreMessageTwiceIsIdempotent() throws Exception {
+	@DisplayName("판매한 자리(1001)의 복구 메시지(product.hold.restore)가 같은 메시지 ID(order-outbox-30)로 두 번 오면 "
+		+ "두 번째는 인박스가 건너뛰어 판매 수는 한 번만 줄고(1 → 0), 남은 자리는 정원 그대로이며 자리는 RESTORED다")
+	void sameRestoreMessageTwiceIsSkippedByInbox() throws Exception {
 		long courseId = registerOnSale(race().build()).courseId();
 		hold(courseId, PARTICIPATION_ID).andExpect(status().isOk());
 		sell(PARTICIPATION_ID).andExpect(status().isOk());
 		assertThat(courseOf(courseId).getIndividualSold()).isEqualTo(1);
 
-		restoreByMessage(PARTICIPATION_ID);
-		restoreByMessage(PARTICIPATION_ID);
+		restoreByMessage(PARTICIPATION_ID, "order-outbox-30");
+		restoreByMessage(PARTICIPATION_ID, "order-outbox-30");
 
+		assertThat(productInboxKafkaEventRepository.count()).isEqualTo(1);
 		RaceCourse raceCourse = courseOf(courseId);
 		assertThat(raceCourse.getIndividualSold()).isZero();
 		assertThat(raceCourse.getIndividualReserved()).isZero();
@@ -459,35 +453,17 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("판매하지 않은 결제 대기 자리(1001)에 복구 메시지가 와도 예외 없이 건너뛰고 결제 대기 1석 그대로다")
+	@DisplayName("판매하지 않은 결제 대기 자리(1001)와 확보한 적 없는 신청(99999)에 복구 메시지가 와도 예외 없이 건너뛰고 "
+		+ "결제 대기 1석 그대로다")
 	void restoreMessageIgnoresHeldSeat() throws Exception {
 		long courseId = registerOnSale(race().build()).courseId();
 		hold(courseId, PARTICIPATION_ID).andExpect(status().isOk());
 
 		restoreByMessage(PARTICIPATION_ID);
+		restoreByMessage(UNKNOWN_PARTICIPATION_ID);
 
 		assertThat(courseOf(courseId).getIndividualReserved()).isEqualTo(1);
 		assertThat(courseOf(courseId).getIndividualSold()).isZero();
-		assertThat(holdOf(PARTICIPATION_ID).getStatus()).isEqualTo(HoldStatus.HELD);
-	}
-
-	@Test
-	@DisplayName("판매하지 않은 결제 대기 자리(1001)와 확보한 적 없는 신청(99999)을 복구하면 restored=false이고 카운터는 그대로다")
-	void restoreNotSoldSeat() throws Exception {
-		long courseId = registerOnSale(race().build()).courseId();
-		hold(courseId, PARTICIPATION_ID).andExpect(status().isOk());
-
-		restore(PARTICIPATION_ID)
-			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.message").value("되돌릴 판매 자리가 없습니다."))
-			.andExpect(jsonPath("$.data.restored").value(false));
-		restore(UNKNOWN_PARTICIPATION_ID)
-			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.restored").value(false));
-
-		RaceCourse raceCourse = courseOf(courseId);
-		assertThat(raceCourse.getIndividualReserved()).isEqualTo(1);
-		assertThat(raceCourse.getIndividualSold()).isZero();
 		assertThat(holdOf(PARTICIPATION_ID).getStatus()).isEqualTo(HoldStatus.HELD);
 	}
 
@@ -516,15 +492,17 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("같은 해제 메시지(1001)가 두 번 와도 결제 대기는 한 번만 줄고(1 → 0), 해제 일시도 처음 그대로다")
-	void releaseTwiceIsIdempotent() throws Exception {
+	@DisplayName("결제 대기 자리(1001)의 해제 메시지가 같은 메시지 ID(order-outbox-20)로 두 번 오면 두 번째는 인박스가 건너뛰어 "
+		+ "결제 대기는 한 번만 줄고(1 → 0), 해제 일시도 처음 그대로다")
+	void sameReleaseMessageTwiceIsSkippedByInbox() throws Exception {
 		long courseId = registerOnSale(race().build()).courseId();
 		hold(courseId, PARTICIPATION_ID).andExpect(status().isOk());
-		releaseByMessage(PARTICIPATION_ID);
+		releaseByMessage(PARTICIPATION_ID, "order-outbox-20");
 		LocalDateTime firstReleasedAt = holdOf(PARTICIPATION_ID).getReleasedAt();
 
-		releaseByMessage(PARTICIPATION_ID);
+		releaseByMessage(PARTICIPATION_ID, "order-outbox-20");
 
+		assertThat(productInboxKafkaEventRepository.count()).isEqualTo(1);
 		RaceCourse raceCourse = courseOf(courseId);
 		assertThat(raceCourse.getIndividualReserved()).isZero();
 		assertThat(raceCourse.individualRemaining()).isEqualTo(DEFAULT_QUOTA);
@@ -656,13 +634,14 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 	}
 
 	// 주문 서비스가 product.hold.cancel로 보내는 본문 그대로 리스너 메서드에 넘긴다
+	// 주문 서비스가 아직 message-id 헤더를 붙이지 않으므로 헤더 없이(null) 넘긴다
 	private void releaseByMessage(long participationId) {
-		productKafkaConsumer.handleHoldCancel("{\"participationId\": %d}".formatted(participationId));
+		releaseByMessage(participationId, null);
 	}
 
-	// 주문 서비스가 product.hold.restore로 보내는 본문 그대로 리스너 메서드에 넘긴다
-	private void restoreByMessage(long participationId) {
-		productKafkaConsumer.handleHoldRestore("{\"participationId\":%d}".formatted(participationId));
+	// message-id 헤더(예: order-outbox-20)를 붙여 보낸 해제 메시지
+	private void releaseByMessage(long participationId, String messageId) {
+		productKafkaConsumer.handleHoldCancel("{\"participationId\": %d}".formatted(participationId), messageId);
 	}
 
 	// 끝 시각이 지난 것처럼 자리 행의 끝 시각을 1분 전으로 옮긴다 (시간이 지나기를 기다리지 않으려고)
