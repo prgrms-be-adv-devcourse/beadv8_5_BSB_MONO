@@ -17,7 +17,7 @@ import jakarta.persistence.EntityManager;
 @EnableJpaAuditing
 // @ConfigurationProperties 설정 클래스(config/auth/RefreshTokenProperties 등)를 빈으로 등록한다
 @ConfigurationPropertiesScan
-// 아웃박스 발행·정리 스케줄러(in/MemberOutboxScheduler)를 켠다
+// 아웃박스 발행·정리 스케줄러(in/MemberOutboxScheduler)와 탈퇴 후 재가입 제한 해시 정리(RejoinBlockCleanupScheduler)를 켠다
 @EnableScheduling
 public class MemberApplication {
 

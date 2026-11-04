@@ -517,10 +517,9 @@ class ApiV1RaceQueryTest extends ProductIntegrationTest {
 			.andExpect(jsonPath("$.message").value("자리를 판매했습니다."));
 	}
 
-	private void restoreSeat(long participationId) throws Exception {
-		restore(participationId)
-			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.message").value("자리를 정원으로 되돌렸습니다."));
+	// 주문 서비스가 결제 취소 뒤 Kafka(product.hold.restore)로 보내는 복구 메시지
+	private void restoreSeat(long participationId) {
+		restoreByMessage(participationId);
 	}
 
 	private void cancelRace(long raceId) throws Exception {

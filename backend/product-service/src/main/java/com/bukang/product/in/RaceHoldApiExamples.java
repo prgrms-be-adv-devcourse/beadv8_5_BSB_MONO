@@ -62,26 +62,6 @@ final class RaceHoldApiExamples {
 		}
 		""";
 
-	static final String RESTORE_SUCCESS = """
-		{
-			"status": 200,
-			"message": "자리를 정원으로 되돌렸습니다.",
-			"data": {
-				"restored": true
-			}
-		}
-		""";
-
-	static final String RESTORE_NOTHING = """
-		{
-			"status": 200,
-			"message": "되돌릴 판매 자리가 없습니다.",
-			"data": {
-				"restored": false
-			}
-		}
-		""";
-
 	private RaceHoldApiExamples() {
 	}
 }

@@ -283,7 +283,7 @@ export const getModifyMeUrl = () => {
 }
 
 /**
- * X-Member-Id 헤더의 회원의 이름, 생년월일, 휴대폰 번호, 닉네임을 바꾼다. 다른 회원이 쓰는 닉네임·휴대폰 번호인지 검사하고(내 행은 제외, 휴대폰은 하이픈 유무 무관), 4칸이 모두 그대로면 저장하지 않는다.
+ * X-Member-Id 헤더의 회원의 닉네임을 바꾼다. 이름, 생년월일, 휴대폰 번호는 본인인증으로 받은 값이라 바꿀 수 없고, 요청에 와도 무시한다. 다른 회원이 쓰는 닉네임인지 검사하고(내 행은 제외), 닉네임이 그대로면 저장하지 않는다.
  * @summary 내 정보 수정
  */
 export const modifyMe = async (memberModifyRequestDto: MemberModifyRequestDto, options?: Parameters<typeof customFetch>[1]): Promise<RsDataMemberDto> => {
@@ -3135,7 +3135,7 @@ export const getCompleteIdentityVerificationUrl = (identityVerificationId: strin
 }
 
 /**
- * 포트원 창이 끝나면 부른다. 서버가 포트원 조회 API로 결과를 직접 확인하고, 확인된 이름 · 생년월일 · 휴대폰 번호와 CI 해시를 15분 동안 저장한다. 화면이 보낸 인증 결과는 쓰지 않는다. 이미 확인한 ID를 다시 부르면 저장한 결과를 그대로 돌려준다.
+ * 포트원 창이 끝나면 부른다. 서버가 포트원 조회 API로 결과를 직접 확인하고, 확인된 이름 · 생년월일 · 휴대폰 번호와 해시를 15분 동안 저장한다. 화면이 보낸 인증 결과는 쓰지 않는다. 모든 인증 방법을 받고, CI는 인증사가 줄 때만 저장한다. 이미 가입한 사람이면 409로 알린다. 이미 확인한 ID를 다시 부르면 저장한 결과를 그대로 돌려준다.
  * @summary 본인인증 확인
  */
 export const completeIdentityVerification = async (identityVerificationId: string, options?: Parameters<typeof customFetch>[1]): Promise<RsDataVerifiedIdentityDto> => {

@@ -110,6 +110,24 @@ describe('MyPage 회원 정보', () => {
     }
   })
 
+  it('마이는 보기만 한다: 수정 버튼 없이 계정 설정으로 들어가고, 탈퇴로 바로 가지 않는다', async () => {
+    setAccessToken('access-token')
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MyPage />
+      </QueryClientProvider>,
+    )
+
+    expect(await screen.findByRole('link', { name: /계정 설정/ })).toHaveAttribute(
+      'href',
+      '/me/settings',
+    )
+    expect(screen.queryByRole('link', { name: /수정/ })).not.toBeInTheDocument()
+    expect(screen.queryByText(/직접 고칠 수 있어요/)).not.toBeInTheDocument()
+    expect(document.querySelector('a[href="/me/withdraw"]')).toBeNull()
+    expect(document.querySelector('a[href="/me/edit"]')).toBeNull()
+  })
+
   it('내 정보를 불러오지 못하면 안내 문구를 띄운다', async () => {
     server.use(
       http.get('*/api/v1/member/members/me', () =>

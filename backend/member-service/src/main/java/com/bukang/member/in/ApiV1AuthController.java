@@ -63,9 +63,11 @@ public class ApiV1AuthController {
 				@ExampleObject(name = "필수 약관 미동의", value = AuthApiExamples.JOIN_REQUIRED_TERMS_NOT_AGREED),
 				@ExampleObject(name = "본인인증 다시 하기", value = IdentityVerificationApiExamples.VERIFICATION_REQUIRED)
 			})),
-		@ApiResponse(responseCode = "409", description = "이미 가입한 사람, 이메일, 닉네임 또는 휴대폰 번호 중복",
+		@ApiResponse(responseCode = "409", description = "이미 가입한 사람, 탈퇴하고 30일이 지나지 않은 사람, "
+			+ "이메일, 닉네임 또는 휴대폰 번호 중복",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "이미 가입한 사람", value = IdentityVerificationApiExamples.DUPLICATE_IDENTITY),
+				@ExampleObject(name = "탈퇴 후 재가입 제한", value = IdentityVerificationApiExamples.REJOIN_TOO_SOON),
 				@ExampleObject(name = "이메일 중복", value = AuthApiExamples.DUPLICATE_EMAIL),
 				@ExampleObject(name = "닉네임 중복", value = AuthApiExamples.DUPLICATE_NICKNAME),
 				@ExampleObject(name = "휴대폰 번호 중복", value = AuthApiExamples.DUPLICATE_PHONE)

@@ -8,7 +8,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import com.bukang.member.domain.exception.IdentityCiMissingException;
 import com.bukang.member.domain.exception.IdentityVerificationFailedException;
 import com.bukang.member.domain.exception.IdentityVerificationRequiredException;
 import com.bukang.member.dto.VerifiedIdentityDto;
@@ -29,11 +28,11 @@ public class IdentityVerificationUseCase {
 	static final String ID_PREFIX = "crewrun-iv-";
 	static final String REQUIRED_MESSAGE = "본인인증을 다시 해주세요.";
 	static final String FAILED_MESSAGE = "본인인증을 마치지 못했습니다. 다시 시도해주세요.";
-	static final String CI_MISSING_MESSAGE = "이 인증 방법으로는 가입할 수 없습니다. 다른 인증 방법을 골라주세요.";
 
 	private final IdentityVerificationStore store;
 	private final PortOneIdentityClient portOneIdentityClient;
-	private final IdentityCiHasher ciHasher;
+	private final IdentityHasher hasher;
+	private final IdentityDuplicateChecker identityDuplicateChecker;
 
 	// 포트원 창을 열 인증 ID. 이 ID로 만든 결과만 가입에 쓸 수 있다
 	public String start() {
@@ -57,19 +56,25 @@ public class IdentityVerificationUseCase {
 		if (!result.isVerified() || !identityVerificationId.equals(result.id())) {
 			throw new IdentityVerificationFailedException(FAILED_MESSAGE);
 		}
-		if (result.ci() == null || result.ci().isBlank()) {
-			throw new IdentityCiMissingException(CI_MISSING_MESSAGE);
+		// 가입에 꼭 필요한 이름 · 생년월일 · 휴대폰 번호가 없으면 인증을 마치지 못한 것으로 본다
+		if (result.name() == null || result.birthDate() == null || result.phoneNumber() == null) {
+			throw new IdentityVerificationFailedException(FAILED_MESSAGE);
 		}
-
+		// 모든 인증 방법을 받는다. CI는 인증사가 줄 때만 있다(카카오 인증은 주지 않는다)
+		String phone = formatPhone(result.phoneNumber());
 		VerifiedIdentity identity = new VerifiedIdentity(
 			result.name(),
 			result.birthDate(),
-			formatPhone(result.phoneNumber()),
-			ciHasher.hash(result.ci()),
+			phone,
+			result.ci() == null || result.ci().isBlank() ? null : hasher.ci(result.ci()),
+			hasher.identity(result.name(), result.birthDate(), phone),
+			hasher.nameBirth(result.name(), result.birthDate()),
 			result.verifiedAt() == null
 				? LocalDateTime.now()
 				: LocalDateTime.ofInstant(result.verifiedAt(), ZoneId.systemDefault())
 		);
+		// 이미 가입한 사람이면 인증 직후 알려 준다(시안: 「이미 가입한 사람이에요」). 결과는 저장하지 않는다
+		identityDuplicateChecker.checkNotJoined(identity);
 		store.saveVerified(identityVerificationId, identity);
 		return toDto(identityVerificationId, identity);
 	}

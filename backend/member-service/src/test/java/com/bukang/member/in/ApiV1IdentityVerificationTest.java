@@ -10,6 +10,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -23,7 +25,13 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
-import com.bukang.member.app.IdentityCiHasher;
+import com.bukang.member.app.IdentityHasher;
+import com.bukang.member.app.MemberFacade;
+import com.bukang.member.domain.Member;
+import com.bukang.member.domain.TermsType;
+import com.bukang.member.dto.MemberJoinRequestDto;
+import com.bukang.member.out.MemberRepository;
+import com.bukang.member.out.TermsAgreementRepository;
 import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
 import com.bukang.member.out.identity.PortOneIdentityClient;
 import com.bukang.member.out.identity.PortOneIdentityVerification;
@@ -44,7 +52,16 @@ class ApiV1IdentityVerificationTest {
 	private InMemoryIdentityVerificationStore store;
 
 	@Autowired
-	private IdentityCiHasher ciHasher;
+	private IdentityHasher hasher;
+
+	@Autowired
+	private MemberFacade memberFacade;
+
+	@Autowired
+	private MemberRepository memberRepository;
+
+	@Autowired
+	private TermsAgreementRepository termsAgreementRepository;
 
 	// 테스트는 포트원을 부르지 않는다
 	@MockitoBean
@@ -53,6 +70,8 @@ class ApiV1IdentityVerificationTest {
 	@AfterEach
 	void tearDown() {
 		store.clear();
+		termsAgreementRepository.deleteAll();
+		memberRepository.deleteAll();
 	}
 
 	@Test
@@ -78,7 +97,11 @@ class ApiV1IdentityVerificationTest {
 			.andExpect(jsonPath("$.data.phone").value("010-1234-5678"));
 
 		VerifiedIdentity saved = store.findVerified(id).orElseThrow();
-		assertThat(saved.ciHash()).isEqualTo(ciHasher.hash("real-ci-value")).hasSize(64).doesNotContain("real-ci");
+		assertThat(saved.ciHash()).isEqualTo(hasher.ci("real-ci-value")).hasSize(64).doesNotContain("real-ci");
+		assertThat(saved.identityHash())
+			.isEqualTo(hasher.identity("김러너", LocalDate.of(1995, 4, 12), "010-1234-5678"))
+			.isNotEqualTo(saved.ciHash());
+		assertThat(saved.nameBirthHash()).isEqualTo(hasher.nameBirth("김러너", LocalDate.of(1995, 4, 12)));
 		assertThat(store.isPending(id)).isFalse();
 	}
 
@@ -118,15 +141,57 @@ class ApiV1IdentityVerificationTest {
 	}
 
 	@Test
-	@DisplayName("CI를 주지 않는 인증 방법이면 400 AUTH_VERIFICATION_CI_MISSING이다")
-	void completeFailsWithoutCi() throws Exception {
+	@DisplayName("CI를 주지 않는 인증 방법(카카오)도 받아 CI 해시 없이 저장한다")
+	void completeWithoutCi() throws Exception {
 		String id = start();
 		given(portOneIdentityClient.find(id)).willReturn(verified(id, null));
 
 		complete(id)
-			.andExpect(status().isBadRequest())
-			.andExpect(jsonPath("$.code").value("AUTH_VERIFICATION_CI_MISSING"));
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.name").value("김러너"));
+
+		VerifiedIdentity saved = store.findVerified(id).orElseThrow();
+		assertThat(saved.ciHash()).isNull();
+		assertThat(saved.identityHash()).hasSize(64);
+	}
+
+	@Test
+	@DisplayName("이름 · 생년월일 · 휴대폰 번호가 같은 사람이 이미 가입했으면 인증 직후 409 MEMBER_DUPLICATE_IDENTITY다")
+	void completeFailsWhenAlreadyJoined() throws Exception {
+		joinSamePerson();
+		String id = start();
+		given(portOneIdentityClient.find(id)).willReturn(verified(id, null));
+
+		complete(id)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("MEMBER_DUPLICATE_IDENTITY"));
 		assertThat(store.findVerified(id)).isEmpty();
+	}
+
+	@Test
+	@DisplayName("탈퇴하고 30일이 지나지 않은 사람이면 인증 직후 409 MEMBER_REJOIN_TOO_SOON이다")
+	void completeFailsWhenRejoinTooSoon() throws Exception {
+		joinSamePerson();
+		Member member = memberRepository.findByEmail("joined@crewrun.com").orElseThrow();
+		member.withdraw(LocalDateTime.now());
+		memberRepository.saveAndFlush(member);
+		String id = start();
+		given(portOneIdentityClient.find(id)).willReturn(verified(id, null));
+
+		complete(id)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("MEMBER_REJOIN_TOO_SOON"))
+			.andExpect(jsonPath("$.data.rejoinableDate").value(LocalDate.now().plusDays(30).toString()));
+	}
+
+	// 서버와 같은 해시로 「김러너 · 1995-04-12 · 010-1234-5678」을 가입시킨다
+	private void joinSamePerson() {
+		String token = "crewrun-iv-joined";
+		LocalDate birthDate = LocalDate.of(1995, 4, 12);
+		store.saveVerified(token, new VerifiedIdentity("김러너", birthDate, "010-1234-5678", null,
+			hasher.identity("김러너", birthDate, "010-1234-5678"), hasher.nameBirth("김러너", birthDate), null));
+		memberFacade.join(new MemberJoinRequestDto("joined@crewrun.com", "password1234", "먼저가입", null,
+			List.of(TermsType.SERVICE, TermsType.PRIVACY), token));
 	}
 
 	private String start() throws Exception {

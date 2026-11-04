@@ -1,6 +1,5 @@
 package com.bukang.product.support;
 
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -19,8 +18,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.mockito.ArgumentMatchers;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -47,7 +48,9 @@ import com.bukang.product.domain.ProductMember;
 import com.bukang.product.domain.ProductOutboxKafkaEvent;
 import com.bukang.product.domain.ProductSeller;
 import com.bukang.product.dto.RaceSaveRequestDto;
+import com.bukang.product.in.ProductKafkaConsumer;
 import com.bukang.product.out.ParticipationHoldRepository;
+import com.bukang.product.out.ProductInboxKafkaEventRepository;
 import com.bukang.product.out.ProductMemberRepository;
 import com.bukang.product.out.ProductOutboxKafkaEventRepository;
 import com.bukang.product.out.ProductSellerRepository;
@@ -103,9 +106,13 @@ public abstract class ProductIntegrationTest {
 	@Autowired
 	protected ProductOutboxKafkaEventRepository productOutboxKafkaEventRepository;
 	@Autowired
+	protected ProductInboxKafkaEventRepository productInboxKafkaEventRepository;
+	@Autowired
 	protected RaceDocumentSyncEventRepository raceDocumentSyncEventRepository;
 	@Autowired
 	private RaceDocumentSyncAppendUseCase raceDocumentSyncAppendUseCase;
+	@Autowired
+	private ProductKafkaConsumer productKafkaConsumer;
 	@PersistenceContext
 	private EntityManager entityManager;
 
@@ -123,12 +130,14 @@ public abstract class ProductIntegrationTest {
 	@BeforeEach
 	void setUpProductTest() {
 		// 브로커 없이 보낸 것으로 처리한다 (보내지 않으면 send()가 브로커를 기다리다 max.block.ms 뒤 실패한다)
-		doReturn(CompletableFuture.completedFuture(null)).when(kafka()).send(anyString(), anyString(), anyString());
+		// 릴레이는 메시지 ID 헤더를 붙인 ProducerRecord로 보낸다
+		doReturn(CompletableFuture.completedFuture(null)).when(kafka())
+			.send(ArgumentMatchers.<ProducerRecord<String, String>>any());
 		seedSeller(SELLER_MEMBER_ID, SELLER_ID);
 		seedSeller(OTHER_SELLER_MEMBER_ID, OTHER_SELLER_ID);
 	}
 
-	// FK 순서대로 지운다: 자리 → 대회(종목은 함께 지워진다) → 판매자 → 회원, 그리고 아웃박스·동기화 이벤트와 검색 문서
+	// FK 순서대로 지운다: 자리 → 대회(종목은 함께 지워진다) → 판매자 → 회원, 그리고 아웃박스·인박스·동기화 이벤트와 검색 문서
 	@AfterEach
 	void cleanUpProductTest() {
 		participationHoldRepository.deleteAll();
@@ -136,6 +145,7 @@ public abstract class ProductIntegrationTest {
 		productSellerRepository.deleteAll();
 		productMemberRepository.deleteAll();
 		productOutboxKafkaEventRepository.deleteAll();
+		productInboxKafkaEventRepository.deleteAll();
 		raceDocumentSyncEventRepository.deleteAll();
 		raceCourseDocumentRepository.deleteAll();
 	}
@@ -279,8 +289,15 @@ public abstract class ProductIntegrationTest {
 		return mockMvc.perform(post("/internal/v1/product/holds/" + participationId + "/sell"));
 	}
 
-	protected ResultActions restore(long participationId) throws Exception {
-		return mockMvc.perform(post("/internal/v1/product/holds/" + participationId + "/restore"));
+	// 판매 자리 복구는 API가 없고 주문 서비스가 Kafka(product.hold.restore)로 알린다
+	// 테스트 프로파일은 Kafka 리스너가 꺼져 있으므로, 주문 서비스가 보내는 본문 그대로 리스너 메서드에 넘긴다 (헤더 없이)
+	protected void restoreByMessage(long participationId) {
+		restoreByMessage(participationId, null);
+	}
+
+	// message-id 헤더(예: order-outbox-30)를 붙여 보낸 복구 메시지
+	protected void restoreByMessage(long participationId, String messageId) {
+		productKafkaConsumer.handleHoldRestore("{\"participationId\":%d}".formatted(participationId), messageId);
 	}
 
 	// ---------- 요청 ----------

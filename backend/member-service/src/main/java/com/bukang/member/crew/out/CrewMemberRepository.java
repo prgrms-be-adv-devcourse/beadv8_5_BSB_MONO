@@ -5,12 +5,15 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.bukang.member.crew.domain.CrewMember;
 import com.bukang.member.crew.domain.CrewRole;
+
+import jakarta.persistence.LockModeType;
 
 public interface CrewMemberRepository extends JpaRepository<CrewMember, Long> {
 	Optional<CrewMember> findByCrewIdAndMemberId(long crewId, long memberId);
@@ -31,10 +34,10 @@ public interface CrewMemberRepository extends JpaRepository<CrewMember, Long> {
 	@Query("select m.crewId, count(m) from CrewMember m where m.crewId in :crewIds group by m.crewId")
 	List<Object[]> countByCrewIds(@Param("crewIds") Collection<Long> crewIds);
 
-	// 회원 탈퇴: 그 회원의 모든 크루원 행을 지운다
-	@Modifying(flushAutomatically = true)
-	@Query("delete from CrewMember m where m.memberId = :memberId")
-	int deleteAllByMemberId(@Param("memberId") long memberId);
+	// 회원 탈퇴: 그 회원의 모든 크루원 행을 락을 걸고 읽는다. 최신 커밋 값을 읽고, 같은 행을 지우는 내보내기와 차례로 처리된다
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("select m from CrewMember m where m.memberId = :memberId")
+	List<CrewMember> findAllByMemberIdForUpdate(@Param("memberId") long memberId);
 
 	// 크루 없애기: 그 크루의 모든 크루원 행을 지운다
 	@Modifying(flushAutomatically = true, clearAutomatically = true)

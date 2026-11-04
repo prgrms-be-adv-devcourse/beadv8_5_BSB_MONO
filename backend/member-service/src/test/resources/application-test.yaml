@@ -62,6 +62,11 @@ logging:
 member:
   identity:
     ci-hash-key: identity-ci-hash-test-key
+  # CRM 광고 수신 거부 링크 (BUK-75). 테스트용 서명 키
+  marketing:
+    unsubscribe:
+      secret-key: marketing-unsubscribe-test-key-32-bytes-or-more
+      front-base-url: http://localhost:3000
   auth:
     # 비밀번호 재설정 (BUK-40). 다시 보내기 간격은 테스트가 기다리지 않도록 0으로 둔다
     password-reset:

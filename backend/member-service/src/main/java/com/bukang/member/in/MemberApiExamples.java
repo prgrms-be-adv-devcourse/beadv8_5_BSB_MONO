@@ -51,24 +51,17 @@ final class MemberApiExamples {
 		""";
 
 	static final String MODIFY_ME_INVALID_INPUT = """
-		{ "status": 400, "code": "INVALID_REQUEST", "message": "휴대폰 번호 형식에 맞게 작성해주세요.", "data": null }
+		{ "status": 400, "code": "INVALID_REQUEST", "message": "닉네임은 한글, 영문, 숫자만 쓸 수 있습니다.", "data": null }
 		""";
 
 	static final String INVALID_BODY = """
 		{ "status": 400, "code": "INVALID_REQUEST", "message": "요청 본문 형식이 올바르지 않습니다.", "data": null }
 		""";
 
-	static final String MODIFY_ME_UNDER_AGE = """
-		{ "status": 400, "code": "MEMBER_UNDER_AGE", "message": "만 14세 미만의 생년월일로는 수정할 수 없습니다.", "data": null }
-		""";
-
 	static final String DUPLICATE_NICKNAME = """
 		{ "status": 409, "code": "MEMBER_DUPLICATE_NICKNAME", "message": "이미 사용 중인 닉네임입니다.", "data": null }
 		""";
 
-	static final String DUPLICATE_PHONE = """
-		{ "status": 409, "code": "MEMBER_DUPLICATE_PHONE", "message": "이미 사용 중인 전화번호입니다.", "data": null }
-		""";
 
 	static final String LOGIN_REQUIRED = """
 		{ "status": 401, "code": "LOGIN_REQUIRED", "message": "로그인이 필요합니다.", "data": null }
@@ -99,6 +92,48 @@ final class MemberApiExamples {
 	static final String WITHDRAW_CHECK_FAILED = """
 		{ "status": 503, "code": "MEMBER_WITHDRAW_CHECK_FAILED",
 			"message": "예치금을 확인하지 못했습니다. 잠시 뒤 다시 시도해주세요.", "data": null }
+		""";
+
+	static final String FIND_MARKETING_CONSENT_SUCCESS = """
+		{
+			"status": 200,
+			"message": "마케팅 수신 동의 상태를 조회했습니다.",
+			"data": { "agreed": true, "decidedAt": "2026-10-05T21:25:35" }
+		}
+		""";
+
+	static final String CHANGE_MARKETING_CONSENT_SUCCESS = """
+		{
+			"status": 200,
+			"message": "마케팅 수신 동의를 변경했습니다.",
+			"data": { "agreed": false, "decidedAt": "2026-11-04T14:30:00" }
+		}
+		""";
+
+	static final String CHANGE_MARKETING_CONSENT_INVALID_INPUT = """
+		{ "status": 400, "code": "INVALID_REQUEST", "message": "동의 여부를 보내주세요.", "data": null }
+		""";
+
+	static final String UNSUBSCRIBE_SUCCESS = """
+		{ "status": 200, "message": "광고 수신을 거부했습니다.", "data": null }
+		""";
+
+	static final String UNSUBSCRIBE_TOKEN_MISSING = """
+		{ "status": 400, "code": "INVALID_REQUEST", "message": "수신 거부 토큰을 보내주세요.", "data": null }
+		""";
+
+	static final String UNSUBSCRIBE_TOKEN_MALFORMED = """
+		{ "status": 400, "code": "MEMBER_UNSUBSCRIBE_TOKEN_MALFORMED", "message": "수신 거부 링크의 형식이 올바르지 않습니다.",
+			"data": null }
+		""";
+
+	static final String UNSUBSCRIBE_TOKEN_INVALID = """
+		{ "status": 401, "code": "MEMBER_UNSUBSCRIBE_TOKEN_INVALID", "message": "수신 거부 링크가 올바르지 않습니다.", "data": null }
+		""";
+
+	static final String UNSUBSCRIBE_TOKEN_EXPIRED = """
+		{ "status": 410, "code": "MEMBER_UNSUBSCRIBE_TOKEN_EXPIRED",
+			"message": "수신 거부 링크의 사용 기간이 지났습니다. 마이페이지에서 수신 동의를 바꿔주세요.", "data": null }
 		""";
 
 	private MemberApiExamples() {

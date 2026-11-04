@@ -15,9 +15,9 @@ import org.springframework.core.annotation.Order;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.bukang.common.shared.file.domain.FileType;
+import com.bukang.common.shared.kafka.KafkaTopics;
 import com.bukang.common.shared.seller.domain.SellerStatus;
 import com.bukang.common.shared.seller.domain.SellerType;
-import com.bukang.common.shared.seller.event.SellerChangedEvent;
 import com.bukang.product.app.ProductFacade;
 import com.bukang.product.domain.CourseSurface;
 import com.bukang.product.domain.CourseType;
@@ -120,7 +120,8 @@ public class ProductDataInit {
 		}
 
 		LocalDateTime now = LocalDateTime.now();
-		productFacade.syncMember(id, now, now, nickname);
+		// 회원 가입 메시지를 받은 것처럼 같은 경로로 넣는다. 실제 메시지가 아니라 message-id가 없다 (인박스 없이 저장)
+		productFacade.syncMember(null, KafkaTopics.MEMBER_MEMBER_JOINED, id, now, now, nickname);
 		log.info("기본 회원 복제본 생성: id={}, nickname={}", id, nickname);
 	}
 
@@ -131,8 +132,9 @@ public class ProductDataInit {
 		}
 
 		LocalDateTime now = LocalDateTime.now();
-		productFacade.syncSeller(new SellerChangedEvent(id, memberId, SellerType.BUSINESS, businessName,
-			businessNumber, representativeName, SellerStatus.APPROVED, now, now));
+		// 판매자 변경 메시지를 받은 것처럼 같은 경로로 넣는다. 실제 메시지가 아니라 message-id가 없다 (인박스 없이 저장)
+		productFacade.syncSeller(null, KafkaTopics.SELLER_CHANGED, id, memberId, SellerType.BUSINESS,
+			businessName, businessNumber, representativeName, SellerStatus.APPROVED, now, now);
 		log.info("기본 판매자 복제본 생성: sellerId={}, memberId={}", id, memberId);
 	}
 
