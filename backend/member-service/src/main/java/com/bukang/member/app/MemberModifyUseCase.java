@@ -11,7 +11,7 @@ import com.bukang.member.out.MemberRepository;
 import lombok.RequiredArgsConstructor;
 
 // 내 정보 수정: 닉네임만 바꾼다 (BE-012, BUK-33)
-// 이름 · 생년월일 · 휴대폰 번호는 본인인증으로 받은 값이라 바꿀 수 없다. 휴대폰 번호 재인증은 따로 만든다
+// 이름 · 생년월일 · 휴대폰 번호는 본인인증으로 받은 값이라 바꿀 수 없다. 휴대폰 번호는 재인증으로 바꾼다 (BUK-71)
 // 닉네임이 바뀌어 저장했을 때만 수정 이벤트를 발행하고, 같은 트랜잭션에서 아웃박스에 남는다 (BE-015, BUK-41)
 @Service
 @RequiredArgsConstructor

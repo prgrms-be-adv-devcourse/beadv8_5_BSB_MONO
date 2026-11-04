@@ -196,6 +196,26 @@ public class Member extends SourceMember {
 		setVerifiedAt(verifiedAt);
 	}
 
+	// 본인인증한 사람이 이 회원인지 본다 (BE-037). 이름(앞뒤 공백 무시)과 생년월일이 같아야 한다
+	// 둘 다 CI 해시가 있으면 CI 해시도 같아야 한다. 이전 가입 회원은 해시 칸이 비어 있어 평문 칸과 비교한다
+	public boolean isSamePerson(String name, LocalDate birthDate, String ciHash) {
+		boolean ciMatches = getCiHash() == null || ciHash == null || getCiHash().equals(ciHash);
+		return getName().strip().equals(name.strip()) && getBirthDate().equals(birthDate) && ciMatches;
+	}
+
+	// 다시 본인인증한 결과로 휴대폰 번호와 본인인증 해시를 바꾼다 (BE-037). CI 해시는 비어 있을 때만 채운다
+	public void changePhone(String phone, String phoneHash, String ciHash, String identityHash,
+		String nameBirthHash, LocalDateTime verifiedAt) {
+		setPhone(phone);
+		setPhoneHash(phoneHash);
+		if (getCiHash() == null) {
+			setCiHash(ciHash);
+		}
+		setIdentityHash(identityHash);
+		setNameBirthHash(nameBirthHash);
+		setVerifiedAt(verifiedAt);
+	}
+
 	public void withdraw(LocalDateTime withdrawnAt) {
 		setStatus(MemberStatus.WITHDRAWN);
 		setWithdrawnAt(withdrawnAt);
