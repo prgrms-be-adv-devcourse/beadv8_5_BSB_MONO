@@ -23,6 +23,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.transaction.AfterTransaction;
@@ -170,6 +171,19 @@ class PayoutCreateUseCaseFailureRecordTest {
 		useCase(step, soldEntries(SELLER_1), sellerId -> true, racesOf(RACE_10)).run(TODAY, NOW);
 
 		assertThat(rows()).containsExactly(sellerRaceRow(PayoutCreateFailureType.정산_저장_실패));
+	}
+
+	@Test
+	@DisplayName("TC-60-1-5 이미 있는지 확인하는 조회가 DB 예외로 실패하면 저장 실패가 아니라 '정산_조회_실패'로 쌓인다")
+	void existenceCheckFailureIsRecordedAsLookup() {
+		PayoutRepository readDown = mock(PayoutRepository.class, delegatesTo(payoutRepository));
+		doThrow(new DataAccessResourceFailureException("DB 연결 끊김"))
+			.when(readDown).existsBySellerIdAndRaceIdAndPayoutMonthAndPayoutStage(1, 10, "2026-11", PayoutStage.FINAL);
+
+		useCase(readDown, realStep(), soldEntries(SELLER_1), sellerId -> true, racesOf(RACE_10),
+			payoutCreateFailureRepository).run(TODAY, NOW);
+
+		assertThat(rows()).containsExactly(sellerRaceRow(PayoutCreateFailureType.정산_조회_실패));
 	}
 
 	@Test

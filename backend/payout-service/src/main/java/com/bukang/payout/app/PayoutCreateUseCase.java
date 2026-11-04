@@ -125,16 +125,16 @@ public class PayoutCreateUseCase {
 			// 1차는 판매자 × 대회마다 한 번이라 정산 월은 보지 않는다. 판매 시작 뒤에도 환불 마감일을 늦출 수 있어
 			// (상품 Race.update) 마감일이 다음 달로 넘어가면 정산 월이 바뀌고, 월까지 보면 같은 대회의 1차가
 			// 한 번 더 만들어져 1차 정산금이 두 번 나간다 (PRO-232)
-			if (payoutRepository.existsBySellerIdAndRaceIdAndPayoutStage(key.sellerId(), key.raceId(),
-				PayoutStage.FIRST)) {
+			if (exists(() -> payoutRepository.existsBySellerIdAndRaceIdAndPayoutStage(key.sellerId(), key.raceId(),
+				PayoutStage.FIRST))) {
 				counts.skipped++;
 				return;
 			}
 			// 최종이 먼저 만들어졌으면 1차를 만들지 않는다. 환불 마감일과 대회일이 되돌아보기 기간(7일) 안에 있으면
 			// 1차가 실패한 실행에서 최종이 1차 정산금 차감 0원(판매자 정산액 전부)으로 만들어지고, 다음 실행에서 1차가
 			// 만들어져 1차 정산금이 한 번 더 나간다. 최종이 이미 전액을 계산했으므로 건너뛴다 (1차 없는 최종은 PRO-190)
-			if (payoutRepository.existsBySellerIdAndRaceIdAndPayoutStage(key.sellerId(), key.raceId(),
-				PayoutStage.FINAL)) {
+			if (exists(() -> payoutRepository.existsBySellerIdAndRaceIdAndPayoutStage(key.sellerId(), key.raceId(),
+				PayoutStage.FINAL))) {
 				log.warn("최종 정산이 이미 있어 1차 정산을 만들지 않습니다. sellerId={}, raceId={}", key.sellerId(),
 					key.raceId());
 				counts.skipped++;
@@ -204,8 +204,8 @@ public class PayoutCreateUseCase {
 			// 다시 볼 때 정산 월이 달라져 아래 중복 확인을 통과하고, 같은 참가권이 두 번 지급된다
 			// 이미 만든 정산 내역은 건너뛴다 (되돌아보기로 매일 같은 대회를 다시 보므로 대부분 여기서 걸린다)
 			// 확인과 저장 사이에 다른 인스턴스가 먼저 저장하면 DB 유일 제약이 막고, 이미 있음으로 센다 (PRO-120)
-			if (payoutRepository.existsBySellerIdAndRaceIdAndPayoutMonthAndPayoutStage(
-				key.sellerId(), key.raceId(), payoutMonth.toString(), PayoutStage.FINAL)) {
+			if (exists(() -> payoutRepository.existsBySellerIdAndRaceIdAndPayoutMonthAndPayoutStage(
+				key.sellerId(), key.raceId(), payoutMonth.toString(), PayoutStage.FINAL))) {
 				counts.skipped++;
 				return;
 			}
@@ -238,10 +238,28 @@ public class PayoutCreateUseCase {
 		if (exception instanceof PayoutSellerAccountLookupUnavailableException) {
 			return PayoutCreateFailureType.정산_계좌_조회_실패;
 		}
+		if (exception instanceof ExistenceCheckException) {
+			return PayoutCreateFailureType.정산_조회_실패;
+		}
 		if (exception instanceof DataAccessException) {
 			return PayoutCreateFailureType.정산_저장_실패;
 		}
 		return PayoutCreateFailureType.알_수_없는_실패;
+	}
+
+	// 이미 있는지 확인하는 조회의 DB 예외를 저장 예외와 나눠 '정산_조회_실패'로 남기려고 감싼다 (PR #307 리뷰)
+	private static boolean exists(BooleanSupplier existsQuery) {
+		try {
+			return existsQuery.getAsBoolean();
+		} catch (DataAccessException exception) {
+			throw new ExistenceCheckException(exception);
+		}
+	}
+
+	private static final class ExistenceCheckException extends RuntimeException {
+		private ExistenceCheckException(DataAccessException cause) {
+			super("정산 내역이 이미 있는지 확인하지 못했습니다.", cause);
+		}
 	}
 
 	// 존재 확인과 저장 사이에 다른 서버가 같은 정산 내역을 먼저 저장하면 DB 유일 제약에 걸린다 (PRO-120)
