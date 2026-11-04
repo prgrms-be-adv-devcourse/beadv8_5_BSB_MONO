@@ -15,7 +15,7 @@ import { trackEvent } from '@/shared/lib'
 import { BottomCta, buttonClassName, EmptyState, Skeleton } from '@/shared/ui'
 
 /**
- * 결과마다 갈 곳. 시안에 충전 결과 화면이 없어 새 문구 없이 기존 화면으로 보낸다.
+ * 이 화면에서 바로 보여 주지 않는 결과마다 갈 곳(확인 중과 사유가 있는 승인 거절은 ChargeResult가 보여 준다).
  * - 결제 중 충전: 성공하면 결제 화면이 같은 주문으로 다시 결제(charged=1), 실패하면 결제 실패(M07-3), 닫았으면 결제 화면 그대로
  * - 예치금에서 충전: 성공하면 예치금(M17)에서 늘어난 잔액을 보고, 실패·닫음이면 충전 화면(M21)으로
  */
@@ -33,7 +33,7 @@ type ShownResult =
   | { kind: 'rejected'; message: string; returnOrderId?: number }
   | { kind: 'uncertain'; returnOrderId?: number }
 
-// 토스 결제창이 successUrl·failUrl로 돌려보내는 화면. 충전을 확정하는 동안 로딩만 보여 준다.
+// 토스 결제창이 successUrl·failUrl로 돌려보내는 화면. 충전을 확정하는 동안 로딩을 보여 주고, 결과에 따라 옮기거나 결과를 보여 준다.
 export function DepositChargeReturnPage(params: ChargeReturn) {
   const router = useRouter()
   const [shown, setShown] = useState<ShownResult | null>(null)

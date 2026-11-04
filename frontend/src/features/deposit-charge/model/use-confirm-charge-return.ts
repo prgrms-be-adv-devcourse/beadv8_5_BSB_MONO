@@ -56,7 +56,9 @@ async function confirm({
   }
   // 이미 결과를 모르는 채로 끝난 충전이면(새로고침 · 뒤로 가기) 확정을 다시 부르지 않는다.
   // 다시 부르면 서버가 토스에 승인을 한 번 더 요청한다. 결과는 잔액 조회로 확인한다.
-  if (pending.uncertain) return { outcome: 'uncertain', returnOrderId }
+  if (pending.uncertainAt !== undefined) return { outcome: 'uncertain', returnOrderId }
+  // 보내기 전에 적는다. 응답을 기다리는 중에 새로고침해도 확정을 다시 부르지 않게 한다.
+  savePendingCharge({ ...pending, uncertainAt: Date.now() })
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), CONFIRM_TIMEOUT_MS)
   try {
@@ -76,8 +78,7 @@ async function confirm({
     clearTimeout(timer)
   }
   // 확인 중(UNCERTAIN) · 409 · 5xx · 네트워크 오류 · 응답 없음: 서버가 끝까지 처리했는지 모른다.
-  // 다시 결제하면 새 주문번호라 카드에서 두 번 빠질 수 있어 기다리라고만 안내한다.
-  savePendingCharge({ ...pending, uncertain: true })
+  // 다시 결제하면 새 주문번호라 카드에서 두 번 빠질 수 있어 기다리라고만 안내한다. 충전 기록은 남겨 둔다.
   return { outcome: 'uncertain', returnOrderId }
 }
 
@@ -100,7 +101,10 @@ export function useConfirmChargeReturn(
     started.current = true
     const { params: current } = latest.current
     void confirm(current).then((result) => {
-      if (result.outcome !== 'uncertain') clearPendingCharge()
+      // 결과를 아는 같은 충전만 지운다. 다른 충전의 주소를 열었을 때 결과를 모르는 충전 기록을 지우지 않는다.
+      if (result.outcome !== 'uncertain' && readPendingCharge()?.orderId === current.orderId) {
+        clearPendingCharge()
+      }
       latest.current.onDone(result)
     })
   }, [])
