@@ -2,12 +2,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { completePostcode, installPostcodeFake, postcodeFake, server } from '@/shared/testing'
 import { ToastProvider } from '@/shared/ui'
 
-import { COURSE_FORM_ERRORS, RACE_FORM_ERRORS } from '../model/race-form'
+import { COURSE_FORM_ERRORS, RACE_FORM_ERRORS, saleOpenTooEarlyMessage } from '../model/race-form'
 import { SellerRaceNewPage } from './SellerRaceNewPage'
 
 // 화면이 '오늘'을 불러올 때 읽으므로 가져오기 전에 날짜를 고정한다 (지난 날은 고를 수 없다)
@@ -138,6 +138,47 @@ describe('SellerRaceNewPage', () => {
     await userEvent.click(screen.getByRole('button', { name: '5K 종목 삭제' }))
     await userEvent.click(screen.getByRole('button', { name: '등록하기' }))
     expect(await screen.findByText(RACE_FORM_ERRORS.coursesRequired)).toBeInTheDocument()
+  })
+
+  describe('화면을 연 채 자정을 넘기면', () => {
+    afterEach(() => vi.setSystemTime(new Date(2026, 9, 1)))
+
+    it('어제는 대회 날짜로 고를 수 없다', async () => {
+      vi.setSystemTime(new Date(2026, 9, 1, 23, 50))
+      renderPage()
+      vi.setSystemTime(new Date(2026, 9, 2, 0, 10))
+
+      const group = screen.getByRole('group', { name: '대회 날짜' })
+      await userEvent.click(within(group).getAllByRole('button')[0])
+      expect(screen.getByRole('button', { name: /10월 1일/ })).toBeDisabled()
+      expect(screen.getByRole('button', { name: /10월 2일/ })).toBeEnabled()
+    })
+
+    it('접수 시작 하한도 새 날짜로 계산한다', async () => {
+      vi.setSystemTime(new Date(2026, 9, 1, 23, 50))
+      renderPage()
+      await pickDates('대회 날짜', [25])
+      vi.setSystemTime(new Date(2026, 9, 2, 0, 10))
+
+      // 10/2가 되면 이틀 뒤는 10/4라 10/3은 고를 수 없다
+      const group = screen.getByRole('group', { name: '접수 기간' })
+      await userEvent.click(within(group).getAllByRole('button')[0])
+      expect(screen.getByRole('button', { name: /10월 3일/ })).toBeDisabled()
+      expect(screen.getByRole('button', { name: /10월 4일/ })).toBeEnabled()
+    })
+
+    it('자정 전에 고른 접수 시작일도 등록할 때 새 날짜로 다시 검사한다', async () => {
+      vi.setSystemTime(new Date(2026, 9, 1, 23, 50))
+      renderPage()
+      await pickDates('대회 날짜', [25])
+      await pickDates('접수 기간', [3, 24])
+      vi.setSystemTime(new Date(2026, 9, 2, 0, 10))
+
+      await userEvent.click(screen.getByRole('button', { name: '등록하기' }))
+      expect(
+        await screen.findByText(saleOpenTooEarlyMessage(new Date(2026, 9, 4))),
+      ).toBeInTheDocument()
+    })
   })
 })
 

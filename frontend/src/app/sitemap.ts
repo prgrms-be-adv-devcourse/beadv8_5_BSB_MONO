@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next'
 
 import { fetchRacePage } from '@/entities/race'
-import { siteUrl } from '@/shared/config'
+import { siteUrl } from '@/shared/server-env'
 
 // 빌드할 때는 백엔드에 닿지 않으므로, 요청마다 대회 목록을 새로 받는다
 export const dynamic = 'force-dynamic'

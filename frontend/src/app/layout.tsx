@@ -2,8 +2,9 @@ import { GoogleTagManager } from '@next/third-parties/google'
 import type { Metadata, Viewport } from 'next'
 import { Barlow_Condensed, Noto_Sans_KR } from 'next/font/google'
 
-import { BASE_OPEN_GRAPH, siteUrl, siteVerification } from '@/shared/config'
+import { BASE_OPEN_GRAPH, siteVerification } from '@/shared/config'
 import { ClarityTag, trackingClarityId, trackingGtmId } from '@/shared/lib'
+import { siteUrl } from '@/shared/server-env'
 
 import { Providers } from './_providers'
 

@@ -30,40 +30,6 @@ const serverSchema = z.object({
   GA4_SERVICE_ACCOUNT_KEY: optional(z.string()),
 })
 
-const clientSchema = z.object({
-  /** 설정하면 next/image가 서버 최적화 대신 이 CDN 주소로 이미지를 요청한다. */
-  NEXT_PUBLIC_IMAGE_CDN_URL: optional(z.url()),
-  /**
-   * 토스페이먼츠 결제창(API 개별 연동) 클라이언트 키. 테스트 키(test_ck_)만 받는다 — 운영 키를 실수로 넣으면 빌드가 멈춘다.
-   * 백엔드 cash-service의 TOSS_SECRET_KEY(test_sk_)와 같은 상점의 짝이어야 승인된다. 비우면 충전 버튼이 실패 화면으로 간다.
-   */
-  NEXT_PUBLIC_TOSS_CLIENT_KEY: optional(
-    z.string().startsWith('test_ck_', '토스 클라이언트 키는 테스트 키(test_ck_)만 씁니다.'),
-  ),
-  /**
-   * Google 태그 관리자 컨테이너 ID(GTM-로 시작). 비우면 GTM을 넣지 않고 이벤트도 보내지 않는다.
-   * 가짜 응답 모드(API_MOCKING=on)에서도 넣지 않는다. 값은 레포에 쓰지 않고 .env.local · 저장소 Variables에 넣는다.
-   */
-  NEXT_PUBLIC_GTM_ID: optional(z.string().startsWith('GTM-', 'GTM ID는 GTM-으로 시작합니다.')),
-  /**
-   * Microsoft Clarity(화면 녹화 · 히트맵) 프로젝트 ID. Clarity 프로젝트 Settings → Setup에 있다.
-   * 비우거나 가짜 응답 모드(API_MOCKING=on)면 넣지 않는다. 스크립트 주소에 들어가므로 영문 · 숫자만 받는다.
-   */
-  NEXT_PUBLIC_CLARITY_ID: optional(
-    z.string().regex(/^[a-z0-9]+$/i, 'Clarity ID는 영문 · 숫자만 씁니다.'),
-  ),
-  /** 포트원 상점 아이디(store-로 시작). 가입 본인인증 창을 열 때 쓴다. 비우면 실제 백엔드 모드에서 본인인증 창이 열리지 않는다. */
-  NEXT_PUBLIC_PORTONE_STORE_ID: optional(z.string()),
-  /** 포트원 본인인증 채널 키(KG이니시스 통합인증). 상점 아이디와 같은 상점의 채널이어야 한다. */
-  NEXT_PUBLIC_PORTONE_IDENTITY_CHANNEL_KEY: optional(z.string()),
-  /** 구글 Search Console 소유 확인 코드(HTML 태그 방식의 content 값). 비우면 확인 태그를 넣지 않는다. */
-  NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION: optional(z.string()),
-  /** 네이버 서치어드바이저 소유 확인 코드(HTML 태그 방식의 content 값). 비우면 확인 태그를 넣지 않는다. */
-  NEXT_PUBLIC_NAVER_SITE_VERIFICATION: optional(z.string()),
-  /** next.config가 API_MOCKING 값을 그대로 넣는다. 브라우저가 가짜 응답 모드인지 알아야 토스 결제창을 건너뛸 수 있다. */
-  NEXT_PUBLIC_API_MOCKING: z.enum(['on', 'off']).default('off'),
-})
-
 export type ServerEnv = z.infer<typeof serverSchema>
 
 let serverEnv: ServerEnv | undefined
@@ -77,15 +43,5 @@ export function getServerEnv(): ServerEnv {
   return serverEnv
 }
 
-// NEXT_PUBLIC_* 값은 빌드 때 문자열로 치환되므로 하나씩 직접 참조해야 한다.
-export const clientEnv = clientSchema.parse({
-  NEXT_PUBLIC_IMAGE_CDN_URL: process.env.NEXT_PUBLIC_IMAGE_CDN_URL,
-  NEXT_PUBLIC_TOSS_CLIENT_KEY: process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY,
-  NEXT_PUBLIC_GTM_ID: process.env.NEXT_PUBLIC_GTM_ID,
-  NEXT_PUBLIC_CLARITY_ID: process.env.NEXT_PUBLIC_CLARITY_ID,
-  NEXT_PUBLIC_PORTONE_STORE_ID: process.env.NEXT_PUBLIC_PORTONE_STORE_ID,
-  NEXT_PUBLIC_PORTONE_IDENTITY_CHANNEL_KEY: process.env.NEXT_PUBLIC_PORTONE_IDENTITY_CHANNEL_KEY,
-  NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
-  NEXT_PUBLIC_NAVER_SITE_VERIFICATION: process.env.NEXT_PUBLIC_NAVER_SITE_VERIFICATION,
-  NEXT_PUBLIC_API_MOCKING: process.env.NEXT_PUBLIC_API_MOCKING,
-})
+// next.config가 이 파일에서 함께 가져간다
+export { clientEnv } from './client-env'

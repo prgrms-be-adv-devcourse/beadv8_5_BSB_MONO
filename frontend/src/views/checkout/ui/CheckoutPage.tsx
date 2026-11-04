@@ -26,7 +26,6 @@ import {
   Skeleton,
   Stepper,
   TimerBar,
-  type IconName,
 } from '@/shared/ui'
 
 import { useDepositBalance } from '../api/deposit-balance'
@@ -42,7 +41,6 @@ type ResultView = 'timeout' | 'soldout' | 'failed'
 const RESULT: Record<
   ResultView,
   {
-    icon: IconName
     title: string
     description: ReactNode
     action: string
@@ -51,7 +49,6 @@ const RESULT: Record<
   }
 > = {
   timeout: {
-    icon: 'CircleAlert',
     title: '결제 시간이 지났어요',
     description: (
       <>
@@ -64,7 +61,6 @@ const RESULT: Record<
     href: '/races',
   },
   soldout: {
-    icon: 'TriangleAlert',
     title: '남은 자리가 없어요',
     description: (
       <>
@@ -77,7 +73,6 @@ const RESULT: Record<
     href: '/races',
   },
   failed: {
-    icon: 'CircleAlert',
     title: '결제하지 못했어요',
     description: (
       <>
@@ -151,7 +146,7 @@ function CheckoutResult({
     <>
       <AppHeader type="sub" title="결제" close backHref="/" />
       <main className="flex flex-1 items-center justify-center px-4 py-6">
-        <EmptyState icon={result.icon} title={result.title} description={result.description} />
+        <EmptyState title={result.title} description={result.description} />
       </main>
       <BottomCta
         className="sticky bottom-0 z-10"

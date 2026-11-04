@@ -208,7 +208,10 @@ describe('AdminStatsPage', () => {
     const user = userEvent.setup()
     renderPage()
     const seller = await screen.findByRole('region', { name: '판매자 단계' })
-    await within(seller).findByText('판매자 단계를 불러오지 못했어요', {}, SLOW)
+    const alert = await within(seller).findByRole('alert', {}, SLOW)
+    expect(alert).toHaveTextContent('판매자 단계를 불러오지 못했어요')
+    expect(alert).toHaveTextContent('잠시 뒤 다시 시도해 주세요. 다른 영역은 그대로 볼 수 있어요.')
+    expect(seller.querySelector('img[src*="wordmark-muted"]')).toBeInTheDocument()
 
     fail = false
     requests.length = 0

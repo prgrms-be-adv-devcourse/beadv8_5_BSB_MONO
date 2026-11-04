@@ -69,4 +69,8 @@ public class WalletCharge extends BaseIdAndTime {
 	public void markFailed() {
 		this.status = ChargeStatus.FAILED;
 	}
+
+	public void markUncertain() {
+		this.status = ChargeStatus.UNCERTAIN;
+	}
 }

@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next'
 
-import { getServerEnv, siteUrl } from '@/shared/config'
+import { getServerEnv, siteUrl } from '@/shared/server-env'
 
 // 로그인해야 보이거나 개인 정보가 있는 주소. robots.txt는 앞부분이 같은 주소를 모두 막는다
 // (/seller는 /seller-apply도 막는다)

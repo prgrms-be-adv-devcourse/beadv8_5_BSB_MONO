@@ -1,2 +1,2 @@
-export { clientEnv, getServerEnv, type ServerEnv } from './env'
-export { BASE_OPEN_GRAPH, DEFAULT_OG_IMAGE, siteUrl, siteVerification } from './site'
+export { clientEnv } from './client-env'
+export { BASE_OPEN_GRAPH, DEFAULT_OG_IMAGE, siteVerification } from './site'

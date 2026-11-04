@@ -60,4 +60,9 @@ public interface CrewInviteRepository extends JpaRepository<CrewInvite, Long> {
 		""")
 	int markCanceled(
 		@Param("inviteId") long inviteId, @Param("memberId") long memberId, @Param("now") LocalDateTime now);
+
+	// 크루 없애기: 그 크루의 모든 초대 행을 지운다
+	@Modifying(flushAutomatically = true, clearAutomatically = true)
+	@Query("delete from CrewInvite i where i.crewId = :crewId")
+	int deleteAllByCrewId(@Param("crewId") long crewId);
 }

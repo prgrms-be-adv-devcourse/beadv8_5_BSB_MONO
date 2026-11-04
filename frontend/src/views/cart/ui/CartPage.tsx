@@ -53,7 +53,6 @@ function EmptyCart() {
   return (
     <main className="flex flex-1 items-center justify-center px-4 py-6">
       <EmptyState
-        icon="Cart"
         title="장바구니가 비어 있어요"
         description="마음에 드는 대회를 찾아 참가권을 담아 보세요."
         action={
