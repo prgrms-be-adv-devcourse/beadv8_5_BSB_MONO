@@ -55,13 +55,15 @@ import com.bukang.member.support.MemberFixture;
  * 크루원 행이 지워지는 네 경우(떠나기, 내보내기, 없애기, 회원 탈퇴)에 같은 트랜잭션에서 크루원 이탈 아웃박스 행이 남는지 확인한다 (BUK-73, BE-032)
  * - 크루원 행이 실제로 지워진 만큼만 남고, 요청이 실패하거나 롤백되면 남지 않는다
  * - 같은 크루원을 두 요청이 동시에 지워도 한 줄만 남는다
- * - 본문에는 이벤트 ID, 크루 ID, 회원 ID, 이유, 시각만 있다 (개인정보 없음)
+ * - 본문에는 이벤트 ID, 크루 ID, 회원 ID, 이유, 크루 가입 시각, 지운 시각만 있다 (개인정보 없음)
+ * - 크루 가입 시각은 지운 크루원 행의 값이다. 받는 쪽이 늦게 온 이벤트가 어느 가입에 대한 것인지 가린다
  * 예치금·주문 서비스와 Redis는 띄우지 않으므로 탈퇴 확인 포트와 Refresh Token 저장소를 목으로 바꾼다
  */
 @SpringBootTest
 @ActiveProfiles("test")
 @Import(InMemoryIdentityVerificationStore.Config.class)
 class CrewMemberLeftOutboxTest {
+	private static final Instant JOINED = Instant.parse("2026-11-01T03:00:00Z");
 	private static final Instant NOW = Instant.parse("2026-11-04T03:00:00Z");
 
 	@Autowired
@@ -98,16 +100,17 @@ class CrewMemberLeftOutboxTest {
 	private long memberId;
 	private long crewId;
 
-	// 크루장과 크루원이 있는 크루 하나
+	// 크루장과 크루원이 있는 크루 하나. 가입은 JOINED에 하고, 그 뒤 요청은 NOW에 한다
 	@BeforeEach
 	void setUp() {
-		given(clock.instant()).willReturn(NOW);
+		given(clock.instant()).willReturn(JOINED);
 		leaderId = joinMember();
 		memberId = joinMember();
 		crewId = crewFacade.createCrew(leaderId, "새벽한강크루").crewId();
 		joinCrew(crewId, leaderId, memberId);
 		// 가입 이벤트 행은 이 테스트가 보는 것이 아니므로 비우고 시작한다
 		memberOutboxEventRepository.deleteAll();
+		given(clock.instant()).willReturn(NOW);
 	}
 
 	@AfterEach
@@ -137,21 +140,22 @@ class CrewMemberLeftOutboxTest {
 		assertThat(body.crewId()).isEqualTo(crewId);
 		assertThat(body.memberId()).isEqualTo(memberId);
 		assertThat(body.reason()).isEqualTo(CrewMemberLeftReason.LEFT);
-		assertThat(body.leftAt()).isEqualTo(LocalDateTime.ofInstant(NOW, ZoneId.systemDefault()));
+		assertThat(body.joinedAt()).isEqualTo(at(JOINED));
+		assertThat(body.leftAt()).isEqualTo(at(NOW));
 	}
 
 	@Test
-	@DisplayName("본문에는 이벤트 ID, 크루 ID, 회원 ID, 이유, 시각만 있고 이메일·이름·휴대폰은 없다")
+	@DisplayName("본문에는 이벤트 ID, 크루 ID, 회원 ID, 이유, 가입 시각, 지운 시각만 있고 이메일·이름·휴대폰은 없다")
 	void bodyHasNoPersonalData() {
 		crewFacade.leave(memberId, crewId);
 
 		Map<?, ?> body = jsonConverter.fromJson(crewLeftRows().get(0).getPayload(), Map.class);
 		assertThat(body.keySet().stream().map(String::valueOf).toList())
-			.containsExactlyInAnyOrder("eventId", "crewId", "memberId", "reason", "leftAt");
+			.containsExactlyInAnyOrder("eventId", "crewId", "memberId", "reason", "joinedAt", "leftAt");
 	}
 
 	@Test
-	@DisplayName("크루장이 내보내면 내보낸 크루원의 행이 이유 REMOVED로 하나 남는다")
+	@DisplayName("크루장이 내보내면 내보낸 크루원의 행이 이유 REMOVED, 그 크루원의 가입 시각으로 하나 남는다")
 	void removeAppendsRow() {
 		crewFacade.removeMember(leaderId, crewId, memberId);
 
@@ -160,10 +164,11 @@ class CrewMemberLeftOutboxTest {
 		CrewMemberLeftEvent body = bodyOf(rows.get(0));
 		assertThat(body.memberId()).isEqualTo(memberId);
 		assertThat(body.reason()).isEqualTo(CrewMemberLeftReason.REMOVED);
+		assertThat(body.joinedAt()).isEqualTo(at(JOINED));
 	}
 
 	@Test
-	@DisplayName("크루장 혼자 남은 크루를 없애면 크루장의 행이 이유 DISBANDED로 하나 남는다")
+	@DisplayName("크루장 혼자 남은 크루를 없애면 크루장의 행이 이유 DISBANDED, 크루장의 가입 시각으로 하나 남는다")
 	void disbandAppendsLeaderRow() {
 		crewFacade.removeMember(leaderId, crewId, memberId);
 		memberOutboxEventRepository.deleteAll();
@@ -176,14 +181,18 @@ class CrewMemberLeftOutboxTest {
 		assertThat(body.crewId()).isEqualTo(crewId);
 		assertThat(body.memberId()).isEqualTo(leaderId);
 		assertThat(body.reason()).isEqualTo(CrewMemberLeftReason.DISBANDED);
+		assertThat(body.joinedAt()).isEqualTo(at(JOINED));
 	}
 
 	@Test
-	@DisplayName("두 크루의 크루원이 회원 탈퇴하면 크루마다 이유 MEMBER_WITHDRAWN 행이 하나씩 남는다")
+	@DisplayName("두 크루의 크루원이 회원 탈퇴하면 크루마다 이유 MEMBER_WITHDRAWN, 그 크루의 가입 시각으로 행이 하나씩 남는다")
 	void withdrawAppendsRowPerCrew() {
+		Instant otherJoined = Instant.parse("2026-11-02T03:00:00Z");
+		given(clock.instant()).willReturn(otherJoined);
 		long otherCrewId = crewFacade.createCrew(leaderId, "저녁한강크루").crewId();
 		joinCrew(otherCrewId, leaderId, memberId);
 		memberOutboxEventRepository.deleteAll();
+		given(clock.instant()).willReturn(NOW);
 
 		memberFacade.withdrawMe(memberId);
 
@@ -196,6 +205,10 @@ class CrewMemberLeftOutboxTest {
 			assertThat(body.reason()).isEqualTo(CrewMemberLeftReason.MEMBER_WITHDRAWN);
 			assertThat(body.leftAt()).isNotNull();
 		});
+		assertThat(bodies).filteredOn(body -> body.crewId() == crewId)
+			.extracting(CrewMemberLeftEvent::joinedAt).containsExactly(at(JOINED));
+		assertThat(bodies).filteredOn(body -> body.crewId() == otherCrewId)
+			.extracting(CrewMemberLeftEvent::joinedAt).containsExactly(at(otherJoined));
 	}
 
 	@Test
@@ -258,6 +271,10 @@ class CrewMemberLeftOutboxTest {
 			() -> crewFacade.removeMember(leaderId, crewId, memberId));
 
 		assertThat(crewLeftRows()).hasSize(1);
+	}
+
+	private LocalDateTime at(Instant instant) {
+		return LocalDateTime.ofInstant(instant, ZoneId.systemDefault());
 	}
 
 	private long joinMember() {
