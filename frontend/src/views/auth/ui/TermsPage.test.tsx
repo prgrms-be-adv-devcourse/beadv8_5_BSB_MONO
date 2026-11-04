@@ -28,6 +28,6 @@ describe('TermsPage (조회 전용)', () => {
       screen.getByText(/이메일, 비밀번호, 이름, 생년월일, 휴대폰 번호, 닉네임/),
     ).toBeInTheDocument()
     expect(screen.getByText(/Google 애널리틱스와 Google 태그 관리자로 보내요/)).toBeInTheDocument()
-    expect(screen.getByText(/시행일 2026\.10\.30 · 버전 1\.1/)).toBeInTheDocument()
+    expect(screen.getByText(/시행일 2026\.11\.03 · 버전 1\.2/)).toBeInTheDocument()
   })
 })

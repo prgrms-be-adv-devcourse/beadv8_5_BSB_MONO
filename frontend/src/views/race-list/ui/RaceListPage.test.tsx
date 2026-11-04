@@ -73,4 +73,58 @@ describe('RaceListPage', () => {
       within(list).getByRole('link', { name: /2026 용감한 쿠키RUN in 서울 10K/ }),
     ).toHaveAttribute('href', '/races/1?option=1')
   })
+
+  it('첫 카드 썸네일만 먼저 불러오고 나머지는 늦게 불러온다', async () => {
+    const races = [1, 2, 3].map((raceId) => ({
+      ...base,
+      raceId,
+      title: `${raceId}번 대회`,
+      imageUrl: `/mock/races/${raceId}.webp`,
+    }))
+    server.use(
+      http.get('*/api/v1/product/races', () =>
+        HttpResponse.json({
+          status: 200,
+          message: '대회 목록을 조회했습니다.',
+          data: { races, page: 0, size: 20, totalElements: 3, totalPages: 1 },
+        }),
+      ),
+    )
+    renderPage()
+
+    const items = await screen.findAllByRole('listitem')
+    const thumbs = items.map((li) => li.querySelector('img'))
+    expect(thumbs).toHaveLength(3)
+    // 목록 화면에서 가장 큰 요소(LCP)가 첫 카드 썸네일이다
+    expect(thumbs[0]).toHaveAttribute('loading', 'eager')
+    expect(thumbs[0]).toHaveAttribute('fetchpriority', 'high')
+    for (const thumb of thumbs.slice(1)) {
+      expect(thumb).toHaveAttribute('loading', 'lazy')
+      expect(thumb).not.toHaveAttribute('fetchpriority')
+    }
+  })
+
+  it('첫 카드에 사진이 없으면 사진이 있는 첫 카드 썸네일을 먼저 불러온다', async () => {
+    const races = [1, 2, 3].map((raceId) => ({
+      ...base,
+      raceId,
+      title: `${raceId}번 대회`,
+      imageUrl: raceId === 1 ? undefined : `/mock/races/${raceId}.webp`,
+    }))
+    server.use(
+      http.get('*/api/v1/product/races', () =>
+        HttpResponse.json({
+          status: 200,
+          message: '대회 목록을 조회했습니다.',
+          data: { races, page: 0, size: 20, totalElements: 3, totalPages: 1 },
+        }),
+      ),
+    )
+    renderPage()
+
+    const items = await screen.findAllByRole('listitem')
+    expect(items[0].querySelector('img')).toBeNull()
+    expect(items[1].querySelector('img')).toHaveAttribute('fetchpriority', 'high')
+    expect(items[2].querySelector('img')).toHaveAttribute('loading', 'lazy')
+  })
 })

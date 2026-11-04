@@ -38,7 +38,7 @@ spring:
               uri: ${gateway.services.member}
               predicates:
                 - Path=/api/v1/member/**,/api/v1/auth/**
-            # 예치금 충전 확정은 Toss 결제 승인을 기다린다 (cash.clients.pg.timeout 5s를 연결·응답에 각각 써서 최악 약 10초)
+            # 예치금 충전 확정은 Toss 결제 승인을 기다린다 (승인 + 결과를 모를 때 조회·재조회까지 최악 약 19초, cash-service의 cash.charge.confirm 참고)
             # 게이트웨이가 먼저 504로 끊으면 서비스는 승인·입금을 끝냈는데 화면은 실패로 보이므로, 이 주소만 30초로 늘린다
             # 아래 cash-service(/api/v1/cash/**)보다 먼저 맞아야 하므로 그 위에 둔다
             - id: cash-charge-confirm

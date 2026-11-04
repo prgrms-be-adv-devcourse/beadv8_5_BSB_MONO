@@ -52,7 +52,6 @@ export function PasswordResetPage() {
         <AppHeader type="sub" title="비밀번호 재설정" />
         <main className="flex flex-1 items-center justify-center px-4 py-6">
           <EmptyState
-            icon="CircleCheck"
             title="메일을 보냈어요"
             description="입력한 이메일이 가입된 이메일이면 재설정 링크를 보냈어요. 링크는 30분 동안 쓸 수 있어요. 메일이 보이지 않으면 스팸함도 확인해 주세요."
             action={
@@ -181,7 +180,6 @@ export function PasswordNewPage() {
         <AppHeader type="sub" title="비밀번호 재설정" />
         <main className="flex flex-1 items-center justify-center px-4 py-6">
           <EmptyState
-            icon="CircleAlert"
             title="링크를 쓸 수 없어요"
             description="재설정 링크는 30분 동안 한 번만 쓸 수 있어요. 새 링크를 받으면 이전 링크는 쓸 수 없어요. 다시 요청해 주세요."
           />
@@ -203,11 +201,7 @@ export function PasswordNewPage() {
       <>
         <AppHeader type="sub" title="비밀번호 재설정" />
         <main className="flex flex-1 items-center justify-center px-4 py-6">
-          <EmptyState
-            icon="CircleAlert"
-            title="링크를 확인하지 못했어요"
-            description="잠시 뒤 다시 시도해 주세요."
-          />
+          <EmptyState title="링크를 확인하지 못했어요" description="잠시 뒤 다시 시도해 주세요." />
         </main>
         <BottomCta
           className="sticky bottom-0 z-10"
@@ -331,7 +325,6 @@ export function FindEmailResultPage() {
       <AppHeader type="sub" title="이메일 찾기" />
       <main className="flex flex-1 items-center justify-center px-4 py-6">
         <EmptyState
-          icon="CircleCheck"
           title="가입한 이메일을 찾았어요"
           description="ru****@crewrun.kr · 2026.09.12 가입"
           action={

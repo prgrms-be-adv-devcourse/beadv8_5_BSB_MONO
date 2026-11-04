@@ -72,6 +72,8 @@ export const getFindMyCrewsResponseMock = (): RsDataListMyCrewDto => ({"status":
 
 export const getFindCrewResponseMock = (): RsDataCrewHomeDto => ({"status":200,"message":"크루를 조회했습니다.","data":{"crewId":1,"name":"새벽한강크루","createdAt":"2026-11-02T20:10:00","myRole":"LEADER","memberCount":3,"members":[{"memberId":1,"nickname":"새벽러너","role":"LEADER"},{"memberId":4,"nickname":"한강페이서","role":"MANAGER"},{"memberId":2,"nickname":"주말10K","role":"MEMBER"}]}})
 
+export const getUpdateCrewResponseMock = (): RsDataCrewHomeDto => ({"status":200,"message":"크루 이름을 바꿨습니다.","data":{"crewId":1,"name":"새벽한강러닝크루","createdAt":"2026-11-02T20:10:00","myRole":"LEADER","memberCount":3,"members":[{"memberId":1,"nickname":"새벽러너","role":"LEADER"},{"memberId":4,"nickname":"한강페이서","role":"MANAGER"},{"memberId":2,"nickname":"주말10K","role":"MEMBER"}]}})
+
 export const getCreateCrewInviteResponseMock = (): RsDataCrewInviteCreatedDto => ({"status":201,"message":"초대 링크를 만들었습니다.","data":{"inviteId":3,"inviteToken":"q7Xk2LmZ9vBn4RtW8yCp1A","createdAt":"2026-11-02T20:30:00","expiresAt":"2026-11-03T20:30:00"}})
 
 export const getFindCrewInvitesResponseMock = (): RsDataListCrewInviteDto => ({"status":200,"message":"초대 목록을 조회했습니다.","data":[{"inviteId":3,"createdBy":{"memberId":1,"nickname":"새벽러너"},"createdAt":"2026-11-02T20:30:00","expiresAt":"2026-11-03T20:30:00"}]})
@@ -373,6 +375,18 @@ export const getDisbandCrewMockHandler = (overrideResponse?: unknown | ((info: P
   }, options)
 }
 
+export const getUpdateCrewMockHandler = (overrideResponse?: RsDataCrewHomeDto | ((info: Parameters<Parameters<typeof http.patch>[1]>[0]) => Promise<RsDataCrewHomeDto> | RsDataCrewHomeDto), options?: RequestHandlerOptions) => {
+  return http.patch('*/api/v1/member/crews/:crewId', async (info: Parameters<Parameters<typeof http.patch>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getUpdateCrewResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
 export const getCreateCrewInviteMockHandler = (overrideResponse?: RsDataCrewInviteCreatedDto | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<RsDataCrewInviteCreatedDto> | RsDataCrewInviteCreatedDto), options?: RequestHandlerOptions) => {
   return http.post('*/api/v1/member/crews/:crewId/invites', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
 
@@ -542,6 +556,7 @@ export const getBukangMemberAPIMock = () => [
   getFindMyCrewsMockHandler(),
   getFindCrewMockHandler(),
   getDisbandCrewMockHandler(),
+  getUpdateCrewMockHandler(),
   getCreateCrewInviteMockHandler(),
   getFindCrewInvitesMockHandler(),
   getCancelCrewInviteMockHandler(),

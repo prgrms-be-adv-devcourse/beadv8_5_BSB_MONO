@@ -1,4 +1,4 @@
-import { getServerEnv } from '@/shared/config'
+import { getServerEnv } from '@/shared/server-env'
 
 import { createGa4Reporter } from './client'
 import { readGa4Config } from './config'

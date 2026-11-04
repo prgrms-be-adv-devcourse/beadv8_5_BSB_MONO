@@ -104,6 +104,10 @@ describe('MyPage 회원 정보', () => {
     expect(screen.getByText('김곰')).toBeInTheDocument()
     expect(screen.getByText('010-****-5432')).toBeInTheDocument()
     expect(screen.getByText('1990.01.31')).toBeInTheDocument()
+    // Clarity 화면 녹화에서 회원 정보 글자를 가린다
+    for (const text of ['달리는곰', 'bear@crewrun.kr', '김곰', '010-****-5432', '1990.01.31']) {
+      expect(screen.getByText(text).closest('[data-clarity-mask="true"]')).not.toBeNull()
+    }
   })
 
   it('마이는 보기만 한다: 수정 버튼 없이 계정 설정으로 들어가고, 탈퇴로 바로 가지 않는다', async () => {

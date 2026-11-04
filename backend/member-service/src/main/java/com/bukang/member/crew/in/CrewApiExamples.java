@@ -1,7 +1,7 @@
 package com.bukang.member.crew.in;
 
 /**
- * ApiV1CrewController의 Swagger 응답 예시 (실제 응답 메시지와 같게 유지한다)
+ * ApiV1CrewController·ApiV1CrewManageController의 Swagger 응답 예시 (실제 응답 메시지와 같게 유지한다)
  */
 final class CrewApiExamples {
 	static final String CREATE_SUCCESS = """
@@ -191,6 +191,94 @@ final class CrewApiExamples {
 			"status": 410,
 			"code": "CREW_INVITE_ALREADY_USED",
 			"message": "이미 가입에 쓰인 초대 링크입니다. 새 초대 링크를 받아주세요.",
+			"data": null
+		}
+		""";
+
+	static final String LEAVE_SUCCESS = """
+		{ "status": 200, "message": "크루를 탈퇴했습니다.", "data": null }
+		""";
+
+	static final String REMOVE_MEMBER_SUCCESS = """
+		{ "status": 200, "message": "크루원을 내보냈습니다.", "data": null }
+		""";
+
+	static final String TRANSFER_LEADER_SUCCESS = """
+		{
+			"status": 200,
+			"message": "크루장을 넘겼습니다.",
+			"data": {
+				"crewId": 1,
+				"name": "새벽한강크루",
+				"createdAt": "2026-11-02T20:10:00",
+				"myRole": "MEMBER",
+				"memberCount": 3,
+				"members": [
+					{ "memberId": 2, "nickname": "주말10K", "role": "LEADER" },
+					{ "memberId": 4, "nickname": "한강페이서", "role": "MANAGER" },
+					{ "memberId": 1, "nickname": "새벽러너", "role": "MEMBER" }
+				]
+			}
+		}
+		""";
+
+	static final String DISBAND_SUCCESS = """
+		{ "status": 200, "message": "크루를 없앴습니다.", "data": null }
+		""";
+
+	static final String RENAME_SUCCESS = """
+		{
+			"status": 200,
+			"message": "크루 이름을 바꿨습니다.",
+			"data": {
+				"crewId": 1,
+				"name": "새벽한강러닝크루",
+				"createdAt": "2026-11-02T20:10:00",
+				"myRole": "LEADER",
+				"memberCount": 3,
+				"members": [
+					{ "memberId": 1, "nickname": "새벽러너", "role": "LEADER" },
+					{ "memberId": 4, "nickname": "한강페이서", "role": "MANAGER" },
+					{ "memberId": 2, "nickname": "주말10K", "role": "MEMBER" }
+				]
+			}
+		}
+		""";
+
+	static final String TRANSFER_INVALID_INPUT = """
+		{ "status": 400, "code": "INVALID_REQUEST", "message": "크루장을 넘겨받을 크루원을 선택해주세요.", "data": null }
+		""";
+
+	static final String CREW_LEADER_ONLY = """
+		{ "status": 403, "code": "CREW_LEADER_ONLY", "message": "크루장만 할 수 있습니다.", "data": null }
+		""";
+
+	static final String CREW_MEMBER_NOT_FOUND = """
+		{ "status": 404, "code": "CREW_MEMBER_NOT_FOUND", "message": "이 크루의 크루원이 아닙니다.", "data": null }
+		""";
+
+	static final String CREW_LEADER_CANNOT_LEAVE = """
+		{
+			"status": 409,
+			"code": "CREW_LEADER_CANNOT_LEAVE",
+			"message": "크루장은 크루장을 넘긴 뒤 탈퇴할 수 있습니다. 다른 크루원이 없으면 크루를 없애주세요.",
+			"data": null
+		}
+		""";
+
+	static final String CREW_CANNOT_REMOVE_LEADER = """
+		{ "status": 409, "code": "CREW_CANNOT_REMOVE_LEADER", "message": "크루장은 내보낼 수 없습니다.", "data": null }
+		""";
+
+	static final String CREW_ALREADY_LEADER = """
+		{ "status": 409, "code": "CREW_ALREADY_LEADER", "message": "이미 크루장입니다.", "data": null }
+		""";
+
+	static final String CREW_HAS_OTHER_MEMBERS = """
+		{
+			"status": 409,
+			"code": "CREW_HAS_OTHER_MEMBERS",
+			"message": "다른 크루원이 있어 크루를 없앨 수 없습니다. 크루장을 넘긴 뒤 탈퇴해주세요.",
 			"data": null
 		}
 		""";

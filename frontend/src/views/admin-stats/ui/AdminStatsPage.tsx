@@ -12,8 +12,17 @@ import {
   type StatsPeriodKind,
   type StatsPeriodQuery,
 } from '@/entities/usage-stats'
+import { clientEnv } from '@/shared/config'
 import { formatNumber } from '@/shared/lib'
-import { Button, DataTable, Divider, EmptyState, Segmented, TextField } from '@/shared/ui'
+import {
+  Button,
+  buttonClassName,
+  DataTable,
+  Divider,
+  EmptyState,
+  Segmented,
+  TextField,
+} from '@/shared/ui'
 
 import { useRealtimeStats } from '../model/use-usage-stats'
 import { FunnelSection } from './FunnelSection'
@@ -30,10 +39,9 @@ export function AdminStatsPage() {
   // 키가 없으면 영역마다 같은 안내를 반복하지 않고 화면 전체에 한 번만 보여 준다
   if (realtime.data?.status === 'notConfigured') {
     return (
-      <ConsolePage title="이용 통계">
+      <ConsolePage title="이용 통계" actions={<ClarityLink />}>
         <div className="flex flex-1 items-center justify-center py-20">
           <EmptyState
-            icon="CircleAlert"
             title="GA4 연결 정보가 없어요"
             description="서버 환경 변수에 GA4 속성 ID와 서비스 계정 키를 넣으면 숫자가 보여요."
           />
@@ -46,7 +54,12 @@ export function AdminStatsPage() {
     <ConsolePage
       title="이용 통계"
       description="GA4 기준 어제까지의 기록이에요. 「지금 접속 중」만 몇 초 안에 반영돼요."
-      actions={<PeriodPicker query={query} onChange={setQuery} />}
+      actions={
+        <div className="flex flex-col items-end gap-2">
+          <ClarityLink />
+          <PeriodPicker query={query} onChange={setQuery} />
+        </div>
+      }
     >
       {[
         <RealtimeSection key="realtime" result={realtime} />,
@@ -60,6 +73,22 @@ export function AdminStatsPage() {
         </Fragment>
       ))}
     </ConsolePage>
+  )
+}
+
+/** 숫자가 왜 그런지 한 사람의 화면 녹화로 이어서 보도록 Clarity 대시보드를 새 탭으로 연다. ID가 없으면 숨긴다 */
+function ClarityLink() {
+  const id = clientEnv.NEXT_PUBLIC_CLARITY_ID
+  if (!id) return null
+  return (
+    <a
+      href={`https://clarity.microsoft.com/projects/view/${id}/dashboard`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={buttonClassName({ variant: 'secondary', size: 's' })}
+    >
+      Clarity에서 녹화 보기
+    </a>
   )
 }
 
