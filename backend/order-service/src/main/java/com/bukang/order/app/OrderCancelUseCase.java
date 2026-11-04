@@ -7,6 +7,9 @@ import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.bukang.common.global.eventpublisher.EventPublisher;
+import com.bukang.common.shared.notification.NotificationKind;
+import com.bukang.common.shared.notification.event.NotificationRequestedEvent;
 import com.bukang.order.domain.Order;
 import com.bukang.order.domain.OrderItem;
 import com.bukang.order.domain.Participation;
@@ -54,6 +57,7 @@ public class OrderCancelUseCase {
 	private final OrderOutboxKafkaAppendUseCase orderOutboxKafkaAppendUseCase;
 	private final WalletPort walletPort;
 	private final TransactionTemplate transactionTemplate;
+	private final EventPublisher eventPublisher;
 
 	// refundPending: 환불 결과를 몰라 취소 중으로 남았다 (컨트롤러가 202 "취소 처리 중"으로 답한다)
 	public record CancelResult(OrderDto order, long refundedAmount, boolean refundPending) {
@@ -137,6 +141,11 @@ public class OrderCancelUseCase {
 			participation.markCanceled(now);
 			// 이 트랜잭션이 커밋돼야 보내진다 (롤백되면 메시지도 없다)
 			orderOutboxKafkaAppendUseCase.appendSeatRestore(item.getParticipationId());
+			// 알림도 이 트랜잭션이 커밋된 뒤에 나간다 (BUK-69, 잃어도 되는 메시지라 아웃박스 없이 보낸다)
+			eventPublisher.publish(NotificationRequestedEvent.of(order.getBuyerId(), NotificationKind.REFUND_COMPLETED,
+				"환불이 끝났어요",
+				item.getItemName() + " ·\n" + String.format("₩%,d", item.getAmount()) + "이 예치금으로 들어왔어요.",
+				"/me/deposit"));
 			return new CancelResult(order.toDto(), item.getAmount(), false);
 		});
 	}

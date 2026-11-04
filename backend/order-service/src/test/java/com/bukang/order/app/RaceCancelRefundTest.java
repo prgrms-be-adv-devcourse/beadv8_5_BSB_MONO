@@ -2,7 +2,9 @@ package com.bukang.order.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -21,6 +23,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -31,14 +34,15 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.bukang.common.shared.notification.NotificationKafkaSender;
+import com.bukang.common.shared.notification.NotificationKind;
+import com.bukang.common.shared.notification.event.NotificationRequestedEvent;
 import com.bukang.order.domain.Order;
 import com.bukang.order.domain.OrderItemStatus;
 import com.bukang.order.domain.OrderStatus;
 import com.bukang.order.domain.ParticipationStatus;
-import com.bukang.order.domain.event.OrderRaceCanceledEvent;
 import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
 import com.bukang.order.domain.exception.OrderNotPayableException;
-import com.bukang.order.in.RaceCanceledNotificationListener;
 import com.bukang.order.out.OrderOutboxKafkaEventRepository;
 import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationRepository;
@@ -108,7 +112,7 @@ class RaceCancelRefundTest {
 	private TransactionTemplate transactionTemplate;
 
 	@MockitoSpyBean
-	private RaceCanceledNotificationListener notificationListener;
+	private NotificationKafkaSender notificationSender;
 
 	@BeforeEach
 	void setUp() {
@@ -116,6 +120,8 @@ class RaceCancelRefundTest {
 		raceCoursePort.put(StubRaceCoursePort.openCourse(COURSE_ID, RACE_ID, 14, null));
 		raceCoursePort.put(StubRaceCoursePort.openCourse(OTHER_COURSE_ID, OTHER_RACE_ID, 14, null));
 		walletPort.setBalance(BALANCE);
+		// Kafka로 보내지 않고 불렸는지만 본다 (알림은 커밋된 뒤에만 보낸다)
+		doNothing().when(notificationSender).send(any());
 	}
 
 	@AfterEach
@@ -153,11 +159,14 @@ class RaceCancelRefundTest {
 		// 자리는 되돌리지 않는다 (취소된 대회는 다시 팔지 않는다)
 		assertThat(restoredSeats()).isEmpty();
 		// 환불한 구매자에게만 알린다
-		verify(notificationListener)
-			.notifyBuyer(new OrderRaceCanceledEvent(first, 1, RACE_ID, StubRaceCoursePort.PRICE));
-		verify(notificationListener)
-			.notifyBuyer(new OrderRaceCanceledEvent(second, 2, RACE_ID, StubRaceCoursePort.PRICE));
-		verify(notificationListener, times(2)).notifyBuyer(any());
+		ArgumentCaptor<NotificationRequestedEvent> sent = ArgumentCaptor.forClass(NotificationRequestedEvent.class);
+		verify(notificationSender, times(2)).send(sent.capture());
+		assertThat(sent.getAllValues())
+			.extracting(NotificationRequestedEvent::memberId, NotificationRequestedEvent::kind)
+			.containsExactlyInAnyOrder(tuple(1L, NotificationKind.RACE_CANCELED),
+				tuple(2L, NotificationKind.RACE_CANCELED));
+		assertThat(sent.getAllValues().getFirst().body())
+			.contains(String.format("₩%,d", StubRaceCoursePort.PRICE));
 	}
 
 	@Test
@@ -184,7 +193,7 @@ class RaceCancelRefundTest {
 		assertThat(statusOf(first)).isEqualTo(OrderStatus.PAID);
 		assertThat(participationStatusOf(first)).isEqualTo(ParticipationStatus.CONFIRMED);
 		// 환불이 롤백된 주문은 알리지 않는다
-		verify(notificationListener, never()).notifyBuyer(any());
+		verify(notificationSender, never()).send(any());
 
 		walletPort.setRefundFails(false);
 		long second = paidOrder(2, COURSE_ID);
@@ -226,7 +235,7 @@ class RaceCancelRefundTest {
 		assertThat(walletPort.balance()).isEqualTo(BALANCE);
 		assertThatThrownBy(() -> pay(1, orderId)).isInstanceOf(OrderNotPayableException.class);
 		assertThat(statusOf(orderId)).isEqualTo(OrderStatus.CREATED);
-		verify(notificationListener, never()).notifyBuyer(any());
+		verify(notificationSender, never()).send(any());
 	}
 
 	@Test
