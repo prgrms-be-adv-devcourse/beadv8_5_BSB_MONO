@@ -7,9 +7,10 @@ import { useEffect, useState } from 'react'
 import { Controller, useFieldArray, useForm, useWatch } from 'react-hook-form'
 
 import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
+import { AddressSearch } from '@/features/address-search'
 import { parseRaceDateInput } from '@/entities/race'
 import { ApiError } from '@/shared/api'
-import { cn, formatNumber, formatWon } from '@/shared/lib'
+import { cn, formatNumber, formatWon, type SellerRaceFormEntry } from '@/shared/lib'
 import {
   Alert,
   Button,
@@ -36,6 +37,7 @@ import {
   type RaceCourseInput,
   type RaceFormValues,
 } from '../model/race-form'
+import { errorSections, useRaceFormTracking } from '../model/use-race-form-tracking'
 import { useRegisterRace } from '../model/use-register-race'
 import { CourseAddDialog } from './CourseAddDialog'
 
@@ -92,9 +94,10 @@ function courseRow(course: RaceCourseInput, id: string, index: number) {
 
 // 피그마 V2 · S02 대회 등록 (+ S02-1~3 이미지 올리기 · 자르기 창, S02-4 등록 완료)
 // 사진은 고를 때는 브라우저 안 주소로 미리 보여 주고, 등록하기를 누를 때 파일 서비스로 올린다.
-export function SellerRaceNewPage() {
+export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceFormEntry }) {
   const router = useRouter()
   const registerRace = useRegisterRace()
+  const tracking = useRaceFormTracking(entry)
   const {
     control,
     register,
@@ -110,6 +113,8 @@ export function SellerRaceNewPage() {
   // 종목 표의 줄 키는 useFieldArray의 id다. 이름이 같은 종목도 따로 지울 수 있다
   const courseFields = useFieldArray({ control, name: 'courses' })
   const [courseOpen, setCourseOpen] = useState(false)
+  // 시·도 · 시·군·구는 주소 검색 결과로만 채운다. 검색을 못 불러오면 둘 다, 시·군·구가 없는 곳(세종)이면 시·군·구만 직접 쓴다
+  const [manualRegion, setManualRegion] = useState({ sido: false, sigungu: false })
   const schedule = useWatch({
     control,
     name: ['raceDate', 'individualOpenAt', 'applicationCloseAt', 'refundDeadline'],
@@ -147,22 +152,29 @@ export function SellerRaceNewPage() {
 
   const submit = handleSubmit(
     (values) => {
-      if (!coverFile) {
-        setCoverError(RACE_FORM_ERRORS.coverRequired)
+      if (!coverFile || introError) {
+        if (!coverFile) setCoverError(RACE_FORM_ERRORS.coverRequired)
+        tracking.formError(errorSections({}, true))
         return
       }
-      if (introError) return
       const introList = intro.flatMap((v) => {
         const file = introFiles[v.url]
         return file ? [file] : []
       })
+      const registered = tracking.beforeRegister()
       registerRace.mutate(
         { values, images: { cover: coverFile, intro: introList } },
-        { onSuccess: (saved) => router.push(`/seller/races?registered=${saved.raceId}`) },
+        {
+          onSuccess: (saved) => {
+            registered(saved.raceId, values.courses.length)
+            router.push(`/seller/races?registered=${saved.raceId}`)
+          },
+        },
       )
     },
-    () => {
+    (invalid) => {
       if (!coverFile) setCoverError(RACE_FORM_ERRORS.coverRequired)
+      tracking.formError(errorSections(invalid, !coverFile || introError !== undefined))
     },
   )
 
@@ -241,6 +253,7 @@ export function SellerRaceNewPage() {
               label="시·도"
               placeholder="서울특별시"
               helper="대회 찾기의 지역 필터에 쓰여요"
+              readOnly={!manualRegion.sido}
               error={errors.regionSido?.message}
               className="flex-1"
               {...register('regionSido')}
@@ -248,11 +261,20 @@ export function SellerRaceNewPage() {
             <TextField
               label="시·군·구"
               placeholder="성동구"
+              readOnly={!manualRegion.sigungu}
               error={errors.regionSigungu?.message}
               className="flex-1"
               {...register('regionSigungu')}
             />
           </div>
+          <AddressSearch
+            onSelect={({ sido, sigungu }) => {
+              setValue('regionSido', sido, { shouldValidate: true, shouldDirty: true })
+              setValue('regionSigungu', sigungu, { shouldValidate: isSubmitted, shouldDirty: true })
+              setManualRegion((manual) => ({ ...manual, sigungu: manual.sido || !sigungu }))
+            }}
+            onUnavailable={() => setManualRegion({ sido: true, sigungu: true })}
+          />
           <div className="flex gap-4">
             {/* 시작은 개인 예매 오픈(그날 00:00), 끝은 접수 마감(그날 23:59:59)으로 보낸다 */}
             <DateTimeField

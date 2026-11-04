@@ -93,6 +93,8 @@ export function MyPage() {
             label="예치금"
             value={balance === undefined ? '-' : formatWon(balance)}
           />
+          {/* 크루는 하단 탭이 아니라 마이의 이 메뉴로 들어간다(시안v4 M09-0) */}
+          <MenuRow href="/crews" icon="Users" label="내 크루" />
         </MenuCard>
 
         <h2 className="pt-2 text-label-strong">알림 설정</h2>
@@ -116,6 +118,12 @@ export function MyPage() {
             disabled={logout.isPending}
             icon="LogOut"
             label="로그아웃"
+          />
+          <MenuRow
+            href="/me/accounts"
+            icon="User"
+            label="계정 연결"
+            description="카카오 · 구글로 로그인할 수 있게 연결해요"
           />
           <MenuRow
             href="/me/withdraw"

@@ -21,6 +21,30 @@
     {
       "name": "Seller",
       "description": "판매자 등록 신청, 내 신청 조회, 신청 결과 확인 API"
+    },
+    {
+      "name": "SocialAuth",
+      "description": "카카오·구글 소셜 로그인, 소셜 회원가입 API"
+    },
+    {
+      "name": "SocialAccount",
+      "description": "로그인한 회원의 소셜 계정 연결·해제 API"
+    },
+    {
+      "name": "Crew",
+      "description": "크루 만들기, 내 크루 목록, 크루 홈 API"
+    },
+    {
+      "name": "CrewInvite",
+      "description": "초대 링크 만들기·목록·취소, 초대 링크 조회, 초대로 가입 API"
+    },
+    {
+      "name": "CrewManage",
+      "description": "크루 탈퇴, 크루원 내보내기, 크루장 넘기기, 크루 없애기 API (2그룹)"
+    },
+    {
+      "name": "PasswordReset",
+      "description": "비밀번호 재설정 메일 요청, 재설정 링크 확인, 새 비밀번호 저장 API"
     }
   ],
   "paths": {
@@ -302,7 +326,7 @@
             }
           },
           "409": {
-            "description": "남은 예치금 또는 끝나지 않은 참가권이 있음",
+            "description": "남은 예치금, 끝나지 않은 참가권, 또는 크루장인 크루가 있음",
             "content": {
               "application/json": {
                 "schema": {
@@ -324,6 +348,15 @@
                       "status": 409,
                       "code": "MEMBER_WITHDRAW_TICKET_LEFT",
                       "message": "끝나지 않은 참가권이 있어 탈퇴할 수 없습니다. 대회가 끝나거나 참가권을 취소한 뒤 탈퇴해주세요.",
+                      "data": null
+                    }
+                  },
+                  "크루장인 크루": {
+                    "description": "크루장인 크루",
+                    "value": {
+                      "status": 409,
+                      "code": "MEMBER_WITHDRAW_CREW_LEADER",
+                      "message": "크루장인 크루가 있어 탈퇴할 수 없습니다. 크루장을 넘기거나 크루를 없앤 뒤 탈퇴해주세요.",
                       "data": null
                     }
                   }
@@ -559,17 +592,31 @@
             }
           },
           "401": {
-            "description": "이메일 또는 비밀번호 불일치",
+            "description": "이메일 또는 비밀번호 불일치, 비밀번호 없는 소셜 회원",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RsData"
                 },
-                "example": {
-                  "status": 401,
-                  "code": "MEMBER_LOGIN_FAILED",
-                  "message": "이메일 또는 비밀번호가 올바르지 않습니다.",
-                  "data": null
+                "examples": {
+                  "이메일 또는 비밀번호 불일치": {
+                    "description": "이메일 또는 비밀번호 불일치",
+                    "value": {
+                      "status": 401,
+                      "code": "MEMBER_LOGIN_FAILED",
+                      "message": "이메일 또는 비밀번호가 올바르지 않습니다.",
+                      "data": null
+                    }
+                  },
+                  "소셜 회원": {
+                    "description": "소셜 회원",
+                    "value": {
+                      "status": 401,
+                      "code": "AUTH_SOCIAL_ACCOUNT",
+                      "message": "카카오로 가입한 계정입니다. 카카오로 로그인해주세요.",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -1502,6 +1549,2460 @@
           }
         }
       }
+    },
+    "/api/v1/auth/oauth2/authorize/{provider}": {
+      "get": {
+        "tags": [
+          "SocialAuth"
+        ],
+        "summary": "소셜 로그인 시작",
+        "description": "state·PKCE를 만들어 Redis에 10분 저장하고, 그 요청 ID를 httpOnly 쿠키(oauth2Request)로 심은 뒤 제공자 로그인 화면으로 보낸다. fetch가 아니라 화면 이동으로 연다. 계정 연결 표 쿠키(oauth2Link)가 있으면 로그인한 회원의 계정 연결로 처리하고, 결과와 상관없이 그 쿠키를 지운다.",
+        "operationId": "authorizeSocial",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "description": "소셜 로그인 제공자",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "kakao",
+                "google"
+              ]
+            },
+            "example": "kakao"
+          },
+          {
+            "name": "next",
+            "in": "query",
+            "description": "끝난 뒤 돌아갈 앱 내부 경로. 앱 내부 경로가 아니면 '/'(연결이면 '/me/accounts')로 바꾼다",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "/races/12"
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "제공자 로그인 화면으로 이동. 키가 설정되지 않았거나 연결 표가 잘못됐으면 /login?error=AUTH_SOCIAL_FAILED (연결이면 next?error=AUTH_SOCIAL_FAILED)",
+            "headers": {
+              "Location": {
+                "description": "이동할 주소",
+                "style": "simple",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "지원하지 않는 제공자",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 404,
+                  "code": "AUTH_SOCIAL_PROVIDER_NOT_FOUND",
+                  "message": "지원하지 않는 소셜 로그인입니다.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/oauth2/callback/{provider}": {
+      "get": {
+        "tags": [
+          "SocialAuth"
+        ],
+        "summary": "소셜 로그인 콜백",
+        "description": "제공자가 브라우저를 보내는 주소다. 프론트가 직접 부르지 않는다. 쿠키의 요청 ID로 꺼낸 state가 맞을 때만 진행하고, 결과에 따라 프론트 화면으로 보낸다.\n- 연결된 회원이 있음: Refresh Token 쿠키를 심고 /auth/social/complete?next=\n- 처음 온 사람: 가입 대기 쿠키(oauth2Signup, 15분)를 심고 /signup/social?next=\n- 확인된 이메일이 다른 회원 것: /login?error=AUTH_SOCIAL_EMAIL_TAKEN&provider=kakao&joinedWith=email (joinedWith는 email, kakao, google 중 하나)\n- 취소·state 불일치·제공자 오류: /login?error=AUTH_SOCIAL_FAILED\n- 계정 연결: next?linked=kakao, 실패면 next?error=AUTH_SOCIAL_ALREADY_LINKED, MEMBER_SOCIAL_PROVIDER_ALREADY_LINKED, AUTH_SOCIAL_FAILED 중 하나",
+        "operationId": "socialCallback",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "description": "소셜 로그인 제공자",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "kakao",
+                "google"
+              ]
+            },
+            "example": "kakao"
+          },
+          {
+            "name": "code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "error",
+            "in": "query",
+            "description": "사용자가 동의를 취소하면 제공자가 넣는다",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "프론트 화면으로 이동 (설명 참고)",
+            "headers": {
+              "Location": {
+                "description": "이동할 주소",
+                "style": "simple",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Set-Cookie": {
+                "description": "refreshToken=...; Path=/api/v1/auth; Max-Age=1209600; Secure; HttpOnly; SameSite=Lax",
+                "style": "simple",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "지원하지 않는 제공자",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 404,
+                  "code": "AUTH_SOCIAL_PROVIDER_NOT_FOUND",
+                  "message": "지원하지 않는 소셜 로그인입니다.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/oauth2/signup": {
+      "get": {
+        "tags": [
+          "SocialAuth"
+        ],
+        "summary": "소셜 가입 미리 채울 값 조회",
+        "description": "가입 대기 쿠키(oauth2Signup)로 제공자가 준 이메일·이름을 돌려준다. emailLocked가 true면 이메일을 고칠 수 없게 보여 준다.",
+        "operationId": "findSocialSignup",
+        "responses": {
+          "200": {
+            "description": "조회 성공",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "소셜 가입 정보 조회 성공",
+                  "data": {
+                    "provider": "KAKAO",
+                    "email": "runner1@kakao.com",
+                    "emailLocked": true,
+                    "name": null
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "가입 대기가 없거나 15분이 지남",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "code": "AUTH_SOCIAL_SIGNUP_EXPIRED",
+                  "message": "소셜 가입 시간이 지났습니다. 소셜 로그인부터 다시 해주세요.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/oauth2/join": {
+      "post": {
+        "tags": [
+          "SocialAuth"
+        ],
+        "summary": "소셜 회원가입",
+        "description": "가입 대기 쿠키의 소셜 계정으로 회원을 만든다. 약관·입력 검사는 이메일 가입과 같다. 제공자가 확인된 이메일을 줬으면 그 값을 쓰고 본문 email은 무시한다. 성공하면 로그인과 같이 Access Token은 본문, Refresh Token은 쿠키로 내려주고 가입 대기 쿠키를 지운다.",
+        "operationId": "socialJoin",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SocialJoinRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "가입 성공",
+            "headers": {
+              "Set-Cookie": {
+                "description": "refreshToken=...; Path=/api/v1/auth; Max-Age=1209600; Secure; HttpOnly; SameSite=Lax",
+                "style": "simple",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 201,
+                  "message": "소셜 가입 성공",
+                  "data": {
+                    "accessToken": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIiwidHlwZSI6IkFDQ0VTUyJ9.signature",
+                    "member": {
+                      "id": 1,
+                      "createDate": "2026-10-05T21:25:35",
+                      "modifyDate": "2026-10-05T21:25:35",
+                      "nickname": "러너1",
+                      "email": "runner1@crewrun.com",
+                      "phone": "010-1234-5678",
+                      "name": "김러너",
+                      "birthDate": "1995-04-12",
+                      "socialProviders": [
+                        "KAKAO"
+                      ],
+                      "passwordSet": false
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "입력값 검증 실패, 만 14세 미만, 필수 약관 미동의, 이메일 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "입력값 검증 실패": {
+                    "description": "입력값 검증 실패",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "이름을 입력해주세요.",
+                      "data": null
+                    }
+                  },
+                  "만 14세 미만": {
+                    "description": "만 14세 미만",
+                    "value": {
+                      "status": 400,
+                      "code": "MEMBER_UNDER_AGE",
+                      "message": "만 14세 미만은 가입할 수 없습니다.",
+                      "data": null
+                    }
+                  },
+                  "필수 약관 미동의": {
+                    "description": "필수 약관 미동의",
+                    "value": {
+                      "status": 400,
+                      "code": "MEMBER_REQUIRED_TERMS_NOT_AGREED",
+                      "message": "필수 약관에 동의해야 가입할 수 있습니다.",
+                      "data": null
+                    }
+                  },
+                  "이메일 없음": {
+                    "description": "이메일 없음",
+                    "value": {
+                      "status": 400,
+                      "code": "AUTH_SOCIAL_EMAIL_REQUIRED",
+                      "message": "이메일을 입력해주세요.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "가입 대기가 없거나 15분이 지남",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "code": "AUTH_SOCIAL_SIGNUP_EXPIRED",
+                  "message": "소셜 가입 시간이 지났습니다. 소셜 로그인부터 다시 해주세요.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "이메일·닉네임 중복, 이미 가입한 휴대폰 번호(계정 연결 안내) 또는 이미 연결된 소셜 계정",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "이메일 중복": {
+                    "description": "이메일 중복",
+                    "value": {
+                      "status": 409,
+                      "code": "MEMBER_DUPLICATE_EMAIL",
+                      "message": "이미 사용 중인 이메일입니다.",
+                      "data": null
+                    }
+                  },
+                  "닉네임 중복": {
+                    "description": "닉네임 중복",
+                    "value": {
+                      "status": 409,
+                      "code": "MEMBER_DUPLICATE_NICKNAME",
+                      "message": "이미 사용 중인 닉네임입니다.",
+                      "data": null
+                    }
+                  },
+                  "이미 가입한 휴대폰 번호": {
+                    "description": "이미 가입한 휴대폰 번호",
+                    "value": {
+                      "status": 409,
+                      "code": "AUTH_SOCIAL_PHONE_TAKEN",
+                      "message": "이 휴대폰 번호로 가입한 계정이 있습니다. 원래 쓰던 방법으로 로그인한 뒤 계정 연결에서 연결해주세요.",
+                      "data": null
+                    }
+                  },
+                  "이미 연결된 소셜 계정": {
+                    "description": "이미 연결된 소셜 계정",
+                    "value": {
+                      "status": 409,
+                      "code": "AUTH_SOCIAL_ALREADY_LINKED",
+                      "message": "이미 다른 회원에 연결된 소셜 계정입니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/member/members/me/social-accounts/{provider}/link-ticket": {
+      "post": {
+        "tags": [
+          "SocialAccount"
+        ],
+        "summary": "계정 연결 표 발급",
+        "description": "로그인한 회원이 소셜 계정을 연결할 때 먼저 부른다. 2분 동안 한 번만 쓸 수 있는 연결 표를 httpOnly 쿠키(oauth2Link, Path=/api/v1/auth/oauth2/authorize)로 심는다. 프론트는 이어서 /api/v1/auth/oauth2/authorize/{provider}?next=/me/accounts로 화면을 이동한다.",
+        "operationId": "issueSocialLinkTicket",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "example": 1
+          },
+          {
+            "name": "provider",
+            "in": "path",
+            "description": "소셜 로그인 제공자",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "kakao",
+                "google"
+              ]
+            },
+            "example": "kakao"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "발급 성공",
+            "headers": {
+              "Set-Cookie": {
+                "description": "oauth2Link=...; Path=/api/v1/auth/oauth2/authorize; Max-Age=120; Secure; HttpOnly; SameSite=Lax",
+                "style": "simple",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 201,
+                  "message": "연결 표 발급 성공",
+                  "data": null
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "회원이 없거나 지원하지 않는 제공자",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "회원 없음": {
+                    "description": "회원 없음",
+                    "value": {
+                      "status": 404,
+                      "code": "MEMBER_NOT_FOUND",
+                      "message": "존재하지 않는 회원입니다.",
+                      "data": null
+                    }
+                  },
+                  "없는 제공자": {
+                    "description": "없는 제공자",
+                    "value": {
+                      "status": 404,
+                      "code": "AUTH_SOCIAL_PROVIDER_NOT_FOUND",
+                      "message": "지원하지 않는 소셜 로그인입니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "같은 제공자가 이미 연결됨",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 409,
+                  "code": "MEMBER_SOCIAL_PROVIDER_ALREADY_LINKED",
+                  "message": "이미 연결된 소셜 로그인입니다.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/member/members/me/social-accounts/{provider}": {
+      "delete": {
+        "tags": [
+          "SocialAccount"
+        ],
+        "summary": "소셜 계정 연결 해제",
+        "description": "비밀번호나 다른 소셜 연결이 남을 때만 해제한다. 카카오면 커밋 뒤 카카오 연결 끊기도 부른다(실패해도 해제는 유지).",
+        "operationId": "unlinkSocialAccount",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "example": 1
+          },
+          {
+            "name": "provider",
+            "in": "path",
+            "description": "소셜 로그인 제공자",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "kakao",
+                "google"
+              ]
+            },
+            "example": "kakao"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "해제 성공",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "연결을 해제했습니다.",
+                  "data": {
+                    "id": 1,
+                    "createDate": "2026-10-05T21:25:35",
+                    "modifyDate": "2026-10-05T21:25:35",
+                    "nickname": "러너1",
+                    "email": "runner1@crewrun.com",
+                    "phone": "010-1234-5678",
+                    "name": "김러너",
+                    "birthDate": "1995-04-12",
+                    "socialProviders": [],
+                    "passwordSet": true
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "회원이 없거나, 연결되지 않은 제공자이거나, 지원하지 않는 제공자",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "회원 없음": {
+                    "description": "회원 없음",
+                    "value": {
+                      "status": 404,
+                      "code": "MEMBER_NOT_FOUND",
+                      "message": "존재하지 않는 회원입니다.",
+                      "data": null
+                    }
+                  },
+                  "연결 없음": {
+                    "description": "연결 없음",
+                    "value": {
+                      "status": 404,
+                      "code": "MEMBER_SOCIAL_ACCOUNT_NOT_FOUND",
+                      "message": "연결되지 않은 소셜 로그인입니다.",
+                      "data": null
+                    }
+                  },
+                  "없는 제공자": {
+                    "description": "없는 제공자",
+                    "value": {
+                      "status": 404,
+                      "code": "AUTH_SOCIAL_PROVIDER_NOT_FOUND",
+                      "message": "지원하지 않는 소셜 로그인입니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "마지막 로그인 방법",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 409,
+                  "code": "MEMBER_SOCIAL_LAST_LOGIN_METHOD",
+                  "message": "로그인할 방법이 하나는 남아 있어야 합니다.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/member/crews": {
+      "post": {
+        "tags": [
+          "Crew"
+        ],
+        "summary": "크루 만들기",
+        "description": "로그인한 회원이 크루 이름을 입력해 크루를 만든다. 만든 회원이 크루장이 되고, 가입 시각은 만든 시각과 같다. 응답은 크루 홈과 같은 형식이라 바로 크루 홈을 그린다. 한 회원이 크루 여러 개에 가입할 수 있는지는 회의에서 정한다(정해지면 409 오류 코드를 더한다).",
+        "operationId": "createCrew",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrewCreateRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "만들기 성공",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 201,
+                  "message": "크루를 만들었습니다.",
+                  "data": {
+                    "crewId": 1,
+                    "name": "새벽한강크루",
+                    "createdAt": "2026-11-02T20:10:00",
+                    "myRole": "LEADER",
+                    "memberCount": 1,
+                    "members": [
+                      {
+                        "memberId": 1,
+                        "nickname": "새벽러너",
+                        "role": "LEADER"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "입력값 검증 실패 또는 요청 본문 형식 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "입력값 검증 실패": {
+                    "description": "입력값 검증 실패",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "크루 이름은 1자 이상 20자 이하로 입력해주세요.",
+                      "data": null
+                    }
+                  },
+                  "요청 본문 형식 오류": {
+                    "description": "요청 본문 형식 오류",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "요청 본문 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음 (로그인하지 않은 요청)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/member/crews/me": {
+      "get": {
+        "tags": [
+          "Crew"
+        ],
+        "summary": "내 크루 목록",
+        "description": "로그인한 회원이 가입한 크루를 가입한 순서로 돌려준다. 가입한 크루가 없으면 빈 배열이다.",
+        "operationId": "findMyCrews",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "조회 성공 (가입한 크루가 없으면 빈 배열)",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "내 크루 목록을 조회했습니다.",
+                  "data": [
+                    {
+                      "crewId": 1,
+                      "name": "새벽한강크루",
+                      "myRole": "LEADER",
+                      "memberCount": 3
+                    },
+                    {
+                      "crewId": 5,
+                      "name": "판교점심런",
+                      "myRole": "MEMBER",
+                      "memberCount": 12
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음 (로그인하지 않은 요청)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/member/crews/{crewId}": {
+      "get": {
+        "tags": [
+          "Crew"
+        ],
+        "summary": "크루 홈",
+        "description": "크루 정보와 크루원 목록을 돌려준다. 크루원만 볼 수 있다. 크루원은 실명 없이 닉네임과 역할만 보이고, 크루장, 운영진, 크루원 순서이며 같은 역할 안에서는 먼저 가입한 순서다. myRole로 초대 링크 만들기 버튼(크루장·운영진)과 크루 관리 버튼(크루장)을 보일지 정한다. 진행 중인 파티는 파티 서비스 API에서 따로 가져온다.",
+        "operationId": "findCrew",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          },
+          {
+            "name": "crewId",
+            "in": "path",
+            "description": "크루 ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "조회 성공",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "크루를 조회했습니다.",
+                  "data": {
+                    "crewId": 1,
+                    "name": "새벽한강크루",
+                    "createdAt": "2026-11-02T20:10:00",
+                    "myRole": "LEADER",
+                    "memberCount": 3,
+                    "members": [
+                      {
+                        "memberId": 1,
+                        "nickname": "새벽러너",
+                        "role": "LEADER"
+                      },
+                      {
+                        "memberId": 4,
+                        "nickname": "한강페이서",
+                        "role": "MANAGER"
+                      },
+                      {
+                        "memberId": 2,
+                        "nickname": "주말10K",
+                        "role": "MEMBER"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음 (로그인하지 않은 요청)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "크루원이 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 403,
+                  "code": "CREW_NOT_MEMBER",
+                  "message": "이 크루의 크루원만 이용할 수 있습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "크루가 없거나 없앤 크루",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 404,
+                  "code": "CREW_NOT_FOUND",
+                  "message": "존재하지 않는 크루입니다.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "CrewManage"
+        ],
+        "summary": "크루 없애기 (2그룹)",
+        "description": "크루장이 크루를 없앤다. 크루장 말고 다른 크루원이 없을 때만 없앨 수 있다. 없앤 크루는 목록과 크루 홈에서 사라지고, 남아 있던 초대 링크도 쓸 수 없다. 크루 기록은 지우지 않고 상태만 「없앰」으로 바꾼다. 크루원·초대 기록은 지운다.",
+        "operationId": "disbandCrew",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          },
+          {
+            "name": "crewId",
+            "in": "path",
+            "description": "크루 ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "없애기 성공",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "크루를 없앴습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음 (로그인하지 않은 요청)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "크루원이 아니거나 크루장이 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "크루원이 아님": {
+                    "description": "크루원이 아님",
+                    "value": {
+                      "status": 403,
+                      "code": "CREW_NOT_MEMBER",
+                      "message": "이 크루의 크루원만 이용할 수 있습니다.",
+                      "data": null
+                    }
+                  },
+                  "크루장이 아님": {
+                    "description": "크루장이 아님",
+                    "value": {
+                      "status": 403,
+                      "code": "CREW_LEADER_ONLY",
+                      "message": "크루장만 할 수 있습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "크루가 없거나 없앤 크루",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 404,
+                  "code": "CREW_NOT_FOUND",
+                  "message": "존재하지 않는 크루입니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "크루장 말고 다른 크루원이 있음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 409,
+                  "code": "CREW_HAS_OTHER_MEMBERS",
+                  "message": "다른 크루원이 있어 크루를 없앨 수 없습니다. 크루장을 넘긴 뒤 탈퇴해주세요.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/member/crews/{crewId}/invites": {
+      "post": {
+        "tags": [
+          "CrewInvite"
+        ],
+        "summary": "초대 링크 만들기",
+        "description": "크루장과 운영진이 초대 링크를 만든다. 링크는 만든 때부터 24시간 동안 쓸 수 있다. 응답의 inviteToken으로 프론트가 초대 받기 화면 주소를 만든다. 토큰은 이 응답에서만 받을 수 있다. 초대 링크 하나로는 한 명만 가입한다.",
+        "operationId": "createCrewInvite",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          },
+          {
+            "name": "crewId",
+            "in": "path",
+            "description": "크루 ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "만들기 성공",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 201,
+                  "message": "초대 링크를 만들었습니다.",
+                  "data": {
+                    "inviteId": 3,
+                    "inviteToken": "q7Xk2LmZ9vBn4RtW8yCp1A",
+                    "createdAt": "2026-11-02T20:30:00",
+                    "expiresAt": "2026-11-03T20:30:00"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음 (로그인하지 않은 요청)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "크루원이 아니거나 초대 권한이 없음 (크루원 역할)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "크루원이 아님": {
+                    "description": "크루원이 아님",
+                    "value": {
+                      "status": 403,
+                      "code": "CREW_NOT_MEMBER",
+                      "message": "이 크루의 크루원만 이용할 수 있습니다.",
+                      "data": null
+                    }
+                  },
+                  "초대 권한 없음": {
+                    "description": "초대 권한 없음",
+                    "value": {
+                      "status": 403,
+                      "code": "CREW_INVITE_FORBIDDEN",
+                      "message": "크루장과 운영진만 초대할 수 있습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "크루가 없거나 없앤 크루",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 404,
+                  "code": "CREW_NOT_FOUND",
+                  "message": "존재하지 않는 크루입니다.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "CrewInvite"
+        ],
+        "summary": "보낸 초대 목록",
+        "description": "아직 쓸 수 있는 초대 링크(24시간 안, 취소·가입 전)를 돌려준다. 보낸 초대를 취소하는 화면에 쓴다. 크루장은 크루의 모든 초대를, 운영진은 자기가 보낸 초대만 받는다. 토큰은 돌려주지 않는다.",
+        "operationId": "findCrewInvites",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          },
+          {
+            "name": "crewId",
+            "in": "path",
+            "description": "크루 ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "조회 성공 (없으면 빈 배열)",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "초대 목록을 조회했습니다.",
+                  "data": [
+                    {
+                      "inviteId": 3,
+                      "createdBy": {
+                        "memberId": 1,
+                        "nickname": "새벽러너"
+                      },
+                      "createdAt": "2026-11-02T20:30:00",
+                      "expiresAt": "2026-11-03T20:30:00"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음 (로그인하지 않은 요청)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "크루원이 아니거나 초대 권한이 없음 (크루원 역할)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "크루원이 아님": {
+                    "description": "크루원이 아님",
+                    "value": {
+                      "status": 403,
+                      "code": "CREW_NOT_MEMBER",
+                      "message": "이 크루의 크루원만 이용할 수 있습니다.",
+                      "data": null
+                    }
+                  },
+                  "초대 권한 없음": {
+                    "description": "초대 권한 없음",
+                    "value": {
+                      "status": 403,
+                      "code": "CREW_INVITE_FORBIDDEN",
+                      "message": "크루장과 운영진만 초대할 수 있습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "크루가 없거나 없앤 크루",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 404,
+                  "code": "CREW_NOT_FOUND",
+                  "message": "존재하지 않는 크루입니다.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/member/crews/{crewId}/invites/{inviteId}": {
+      "delete": {
+        "tags": [
+          "CrewInvite"
+        ],
+        "summary": "초대 취소",
+        "description": "잘못 보낸 초대를 상대가 가입하기 전에 취소한다. 초대를 보낸 사람이나 크루장만 취소한다.",
+        "operationId": "cancelCrewInvite",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          },
+          {
+            "name": "crewId",
+            "in": "path",
+            "description": "크루 ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          },
+          {
+            "name": "inviteId",
+            "in": "path",
+            "description": "초대 ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 3
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "취소 성공",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "초대를 취소했습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음 (로그인하지 않은 요청)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "크루원이 아니거나 취소 권한이 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "크루원이 아님": {
+                    "description": "크루원이 아님",
+                    "value": {
+                      "status": 403,
+                      "code": "CREW_NOT_MEMBER",
+                      "message": "이 크루의 크루원만 이용할 수 있습니다.",
+                      "data": null
+                    }
+                  },
+                  "취소 권한 없음": {
+                    "description": "취소 권한 없음",
+                    "value": {
+                      "status": 403,
+                      "code": "CREW_INVITE_CANCEL_FORBIDDEN",
+                      "message": "초대를 보낸 사람이나 크루장만 취소할 수 있습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "크루나 초대가 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "크루 없음": {
+                    "description": "크루 없음",
+                    "value": {
+                      "status": 404,
+                      "code": "CREW_NOT_FOUND",
+                      "message": "존재하지 않는 크루입니다.",
+                      "data": null
+                    }
+                  },
+                  "초대 없음": {
+                    "description": "초대 없음",
+                    "value": {
+                      "status": 404,
+                      "code": "CREW_INVITE_NOT_FOUND",
+                      "message": "존재하지 않는 초대 링크입니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "이미 가입에 쓰였거나 취소했거나 24시간이 지난 초대",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "이미 가입에 쓰임": {
+                    "description": "이미 가입에 쓰임",
+                    "value": {
+                      "status": 409,
+                      "code": "CREW_INVITE_ALREADY_USED",
+                      "message": "이미 가입에 쓰인 초대는 취소할 수 없습니다.",
+                      "data": null
+                    }
+                  },
+                  "이미 취소함": {
+                    "description": "이미 취소함",
+                    "value": {
+                      "status": 409,
+                      "code": "CREW_INVITE_CANCELED",
+                      "message": "이미 취소한 초대입니다.",
+                      "data": null
+                    }
+                  },
+                  "24시간 지남": {
+                    "description": "24시간 지남",
+                    "value": {
+                      "status": 409,
+                      "code": "CREW_INVITE_EXPIRED",
+                      "message": "유효 시간이 지난 초대입니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/member/crews/invites/{inviteToken}": {
+      "get": {
+        "tags": [
+          "CrewInvite"
+        ],
+        "summary": "초대 링크 정보 조회",
+        "description": "초대 받기 화면에 크루 이름, 크루원 수, 링크가 끝나는 시각을 보여 준다. alreadyMember가 true면 이미 그 크루의 크루원이므로 프론트가 크루 홈으로 보낸다. 로그인이 필요하다. 로그인하지 않았으면 프론트가 로그인·회원가입을 거친 뒤 같은 초대 화면으로 돌아온다.",
+        "operationId": "findCrewInvite",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          },
+          {
+            "name": "inviteToken",
+            "in": "path",
+            "description": "초대 링크에 들어 있는 초대 토큰 (추측할 수 없는 임의 문자열)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "q7Xk2LmZ9vBn4RtW8yCp1A"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "조회 성공",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "초대 링크를 조회했습니다.",
+                  "data": {
+                    "crewId": 1,
+                    "crewName": "새벽한강크루",
+                    "memberCount": 3,
+                    "expiresAt": "2026-11-03T20:30:00",
+                    "alreadyMember": false
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음 (로그인하지 않은 요청)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "초대 토큰이 없음 (잘못된 링크) 또는 크루를 없앰",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 404,
+                  "code": "CREW_INVITE_NOT_FOUND",
+                  "message": "존재하지 않는 초대 링크입니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "초대 링크를 더 쓸 수 없음 (24시간 지남, 취소됨, 이미 가입에 쓰임)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "24시간 지남": {
+                    "description": "24시간 지남",
+                    "value": {
+                      "status": 410,
+                      "code": "CREW_INVITE_EXPIRED",
+                      "message": "초대 링크의 유효 시간(24시간)이 지났습니다. 새 초대 링크를 받아주세요.",
+                      "data": null
+                    }
+                  },
+                  "취소됨": {
+                    "description": "취소됨",
+                    "value": {
+                      "status": 410,
+                      "code": "CREW_INVITE_CANCELED",
+                      "message": "취소된 초대 링크입니다. 새 초대 링크를 받아주세요.",
+                      "data": null
+                    }
+                  },
+                  "이미 가입에 쓰임": {
+                    "description": "이미 가입에 쓰임",
+                    "value": {
+                      "status": 410,
+                      "code": "CREW_INVITE_ALREADY_USED",
+                      "message": "이미 가입에 쓰인 초대 링크입니다. 새 초대 링크를 받아주세요.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/member/crews/invites/{inviteToken}/join": {
+      "post": {
+        "tags": [
+          "CrewInvite"
+        ],
+        "summary": "초대 링크로 가입하기",
+        "description": "초대 링크로 크루에 가입한다. 역할은 크루원이고, 가입 시각은 서버가 이 요청을 처리한 시각이다. 가입하면 가입 확정 알림을 보낸다. 같은 링크로 두 사람이 동시에 가입하면 한 사람만 성공한다.",
+        "operationId": "joinCrew",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          },
+          {
+            "name": "inviteToken",
+            "in": "path",
+            "description": "초대 링크에 들어 있는 초대 토큰 (추측할 수 없는 임의 문자열)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "q7Xk2LmZ9vBn4RtW8yCp1A"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "가입 성공",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 201,
+                  "message": "크루에 가입했습니다.",
+                  "data": {
+                    "crewId": 1,
+                    "crewName": "새벽한강크루",
+                    "role": "MEMBER",
+                    "joinedAt": "2026-11-02T21:05:12"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음 (로그인하지 않은 요청)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "초대 토큰이 없음 (잘못된 링크) 또는 크루를 없앰",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 404,
+                  "code": "CREW_INVITE_NOT_FOUND",
+                  "message": "존재하지 않는 초대 링크입니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "이미 그 크루의 크루원 (프론트는 크루 홈으로 보낸다)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 409,
+                  "code": "CREW_ALREADY_MEMBER",
+                  "message": "이미 가입한 크루입니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "초대 링크를 더 쓸 수 없음 (24시간 지남, 취소됨, 이미 가입에 쓰임)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "24시간 지남": {
+                    "description": "24시간 지남",
+                    "value": {
+                      "status": 410,
+                      "code": "CREW_INVITE_EXPIRED",
+                      "message": "초대 링크의 유효 시간(24시간)이 지났습니다. 새 초대 링크를 받아주세요.",
+                      "data": null
+                    }
+                  },
+                  "취소됨": {
+                    "description": "취소됨",
+                    "value": {
+                      "status": 410,
+                      "code": "CREW_INVITE_CANCELED",
+                      "message": "취소된 초대 링크입니다. 새 초대 링크를 받아주세요.",
+                      "data": null
+                    }
+                  },
+                  "이미 가입에 쓰임": {
+                    "description": "이미 가입에 쓰임",
+                    "value": {
+                      "status": 410,
+                      "code": "CREW_INVITE_ALREADY_USED",
+                      "message": "이미 가입에 쓰인 초대 링크입니다. 새 초대 링크를 받아주세요.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/member/crews/{crewId}/members/me": {
+      "delete": {
+        "tags": [
+          "CrewManage"
+        ],
+        "summary": "크루 탈퇴 (2그룹)",
+        "description": "크루원과 운영진이 스스로 크루를 떠난다. 크루장은 크루장을 넘긴 뒤에만 탈퇴한다. 이미 결제한 참가권은 남고, 결제하지 않고 임시로 잡아 둔 자리만 풀린다(파티 서비스가 처리).",
+        "operationId": "leaveCrew",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          },
+          {
+            "name": "crewId",
+            "in": "path",
+            "description": "크루 ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "탈퇴 성공",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "크루를 탈퇴했습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음 (로그인하지 않은 요청)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "크루원이 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 403,
+                  "code": "CREW_NOT_MEMBER",
+                  "message": "이 크루의 크루원만 이용할 수 있습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "크루가 없거나 없앤 크루",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 404,
+                  "code": "CREW_NOT_FOUND",
+                  "message": "존재하지 않는 크루입니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "크루장은 바로 탈퇴할 수 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 409,
+                  "code": "CREW_LEADER_CANNOT_LEAVE",
+                  "message": "크루장은 크루장을 넘긴 뒤 탈퇴할 수 있습니다. 다른 크루원이 없으면 크루를 없애주세요.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/member/crews/{crewId}/members/{memberId}": {
+      "delete": {
+        "tags": [
+          "CrewManage"
+        ],
+        "summary": "크루원 내보내기 (2그룹)",
+        "description": "크루장이 크루원을 크루에서 내보낸다. 크루장 자신은 내보낼 수 없다. 운영진도 내보낼 수 있는지는 회의에서 정한다. 결제 기간 중인 파티장·파티원을 막을지도 회의에서 정한다(안건 14).",
+        "operationId": "removeCrewMember",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          },
+          {
+            "name": "crewId",
+            "in": "path",
+            "description": "크루 ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          },
+          {
+            "name": "memberId",
+            "in": "path",
+            "description": "내보낼 크루원의 회원 ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 2
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "내보내기 성공",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "크루원을 내보냈습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음 (로그인하지 않은 요청)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "크루원이 아니거나 크루장이 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "크루원이 아님": {
+                    "description": "크루원이 아님",
+                    "value": {
+                      "status": 403,
+                      "code": "CREW_NOT_MEMBER",
+                      "message": "이 크루의 크루원만 이용할 수 있습니다.",
+                      "data": null
+                    }
+                  },
+                  "크루장이 아님": {
+                    "description": "크루장이 아님",
+                    "value": {
+                      "status": 403,
+                      "code": "CREW_LEADER_ONLY",
+                      "message": "크루장만 할 수 있습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "크루가 없거나 대상이 크루원이 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "크루 없음": {
+                    "description": "크루 없음",
+                    "value": {
+                      "status": 404,
+                      "code": "CREW_NOT_FOUND",
+                      "message": "존재하지 않는 크루입니다.",
+                      "data": null
+                    }
+                  },
+                  "대상이 크루원이 아님": {
+                    "description": "대상이 크루원이 아님",
+                    "value": {
+                      "status": 404,
+                      "code": "CREW_MEMBER_NOT_FOUND",
+                      "message": "이 크루의 크루원이 아닙니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "크루장 자신을 내보내려 함",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 409,
+                  "code": "CREW_CANNOT_REMOVE_LEADER",
+                  "message": "크루장은 내보낼 수 없습니다.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/member/crews/{crewId}/leader": {
+      "put": {
+        "tags": [
+          "CrewManage"
+        ],
+        "summary": "크루장 넘기기 (2그룹)",
+        "description": "크루장이 다른 크루원에게 크루장을 넘긴다. 넘긴 사람은 크루원 역할이 된다. 넘겨받은 사람의 가입 시각은 바뀌지 않는다.",
+        "operationId": "transferCrewLeader",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          },
+          {
+            "name": "crewId",
+            "in": "path",
+            "description": "크루 ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrewLeaderTransferRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "넘기기 성공",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "크루장을 넘겼습니다.",
+                  "data": {
+                    "crewId": 1,
+                    "name": "새벽한강크루",
+                    "createdAt": "2026-11-02T20:10:00",
+                    "myRole": "MEMBER",
+                    "memberCount": 3,
+                    "members": [
+                      {
+                        "memberId": 2,
+                        "nickname": "주말10K",
+                        "role": "LEADER"
+                      },
+                      {
+                        "memberId": 4,
+                        "nickname": "한강페이서",
+                        "role": "MANAGER"
+                      },
+                      {
+                        "memberId": 1,
+                        "nickname": "새벽러너",
+                        "role": "MEMBER"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "입력값 검증 실패 또는 요청 본문 형식 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "입력값 검증 실패": {
+                    "description": "입력값 검증 실패",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "크루 이름은 1자 이상 20자 이하로 입력해주세요.",
+                      "data": null
+                    }
+                  },
+                  "요청 본문 형식 오류": {
+                    "description": "요청 본문 형식 오류",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "요청 본문 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음 (로그인하지 않은 요청)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "크루원이 아니거나 크루장이 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "크루원이 아님": {
+                    "description": "크루원이 아님",
+                    "value": {
+                      "status": 403,
+                      "code": "CREW_NOT_MEMBER",
+                      "message": "이 크루의 크루원만 이용할 수 있습니다.",
+                      "data": null
+                    }
+                  },
+                  "크루장이 아님": {
+                    "description": "크루장이 아님",
+                    "value": {
+                      "status": 403,
+                      "code": "CREW_LEADER_ONLY",
+                      "message": "크루장만 할 수 있습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "크루가 없거나 대상이 크루원이 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "크루 없음": {
+                    "description": "크루 없음",
+                    "value": {
+                      "status": 404,
+                      "code": "CREW_NOT_FOUND",
+                      "message": "존재하지 않는 크루입니다.",
+                      "data": null
+                    }
+                  },
+                  "대상이 크루원이 아님": {
+                    "description": "대상이 크루원이 아님",
+                    "value": {
+                      "status": 404,
+                      "code": "CREW_MEMBER_NOT_FOUND",
+                      "message": "이 크루의 크루원이 아닙니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "자기 자신에게 넘기려 함",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 409,
+                  "code": "CREW_ALREADY_LEADER",
+                  "message": "이미 크루장입니다.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/identity-verifications/{identityVerificationId}/complete": {
+      "post": {
+        "tags": [
+          "IdentityVerification"
+        ],
+        "summary": "본인인증 확인",
+        "description": "포트원 창이 끝나면 부른다. 서버가 포트원 조회 API로 결과를 직접 확인하고, 확인된 이름 · 생년월일 · 휴대폰 번호와 CI 해시를 15분 동안 저장한다. 화면이 보낸 인증 결과는 쓰지 않는다. 이미 확인한 ID를 다시 부르면 저장한 결과를 그대로 돌려준다.",
+        "operationId": "completeIdentityVerification",
+        "parameters": [
+          {
+            "name": "identityVerificationId",
+            "in": "path",
+            "description": "본인인증 시작에서 받은 인증 ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "crewrun-iv-6f1c2b9e-3a5d-4c7e-9b1a-2d8f0e4c6a71"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "본인인증 확인",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsDataVerifiedIdentityDto"
+                },
+                "example": {
+                  "status": 200,
+                  "message": "본인인증을 확인했습니다.",
+                  "data": {
+                    "verificationToken": "crewrun-iv-6f1c2b9e-3a5d-4c7e-9b1a-2d8f0e4c6a71",
+                    "name": "김러너",
+                    "birthDate": "1995-04-12",
+                    "phone": "010-1234-5678"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "서버가 만들지 않았거나 15분이 지난 인증 ID, 인증 실패, CI를 주지 않는 인증 방법",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 400,
+                  "code": "AUTH_VERIFICATION_FAILED",
+                  "message": "본인인증을 마치지 못했습니다. 다시 시도해주세요.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "포트원 조회 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 503,
+                  "code": "AUTH_VERIFICATION_UNAVAILABLE",
+                  "message": "본인인증 결과를 확인하지 못했습니다. 잠시 후 다시 시도해주세요.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/identity-verifications": {
+      "post": {
+        "tags": [
+          "IdentityVerification"
+        ],
+        "summary": "본인인증 시작",
+        "description": "포트원 창을 열 인증 ID를 만들어 15분 동안 저장한다. 화면은 이 ID로 PortOne.requestIdentityVerification()을 부른다. 서버가 만든 ID의 결과만 가입에 쓸 수 있다.",
+        "operationId": "startIdentityVerification",
+        "responses": {
+          "201": {
+            "description": "인증 ID 발급",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsDataIdentityVerificationStartDto"
+                },
+                "example": {
+                  "status": 201,
+                  "message": "본인인증을 시작했습니다.",
+                  "data": {
+                    "identityVerificationId": "crewrun-iv-6f1c2b9e-3a5d-4c7e-9b1a-2d8f0e4c6a71"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/password-reset/verify": {
+      "post": {
+        "tags": [
+          "PasswordReset"
+        ],
+        "summary": "재설정 링크 확인",
+        "description": "새 비밀번호 화면을 열 때 링크가 아직 쓸 수 있는지 확인한다. 링크를 쓴 것으로 치지 않는다.",
+        "operationId": "verifyPasswordReset",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordResetTokenDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "쓸 수 있는 링크",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "쓸 수 있는 재설정 링크입니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "링크가 없거나 30분이 지났거나 이미 썼거나 더 새 링크가 나옴, 요청 본문 형식 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "쓸 수 없는 링크": {
+                    "description": "쓸 수 없는 링크",
+                    "value": {
+                      "status": 400,
+                      "code": "AUTH_RESET_TOKEN_INVALID",
+                      "message": "재설정 링크가 만료됐거나 이미 사용됐습니다. 다시 요청해주세요.",
+                      "data": null
+                    }
+                  },
+                  "요청 본문 형식 오류": {
+                    "description": "요청 본문 형식 오류",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "요청 본문 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/password-reset/request": {
+      "post": {
+        "tags": [
+          "PasswordReset"
+        ],
+        "summary": "비밀번호 재설정 메일 요청",
+        "description": "가입한 이메일이면 30분 동안 한 번 쓸 수 있는 재설정 링크를 메일로 보낸다. 가입하지 않은 이메일·탈퇴한 회원도 같은 200으로 응답하고 메일은 보내지 않는다. 비밀번호 없는 소셜 가입 회원에게는 링크 대신 소셜 로그인 안내 메일을 보낸다. 메일은 응답 뒤 따로 보내고, 실패하면 최대 3번 다시 보낸다. 같은 이메일은 1분에 1번, 하루 5번까지 받는다.",
+        "operationId": "requestPasswordReset",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordResetRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "요청 받음 (가입 여부와 상관없이 같은 응답)",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "가입된 이메일이면 재설정 메일을 보냈습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "입력값 검증 실패 또는 요청 본문 형식 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "입력값 검증 실패": {
+                    "description": "입력값 검증 실패",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "이메일 형식에 맞게 작성해주세요.",
+                      "data": null
+                    }
+                  },
+                  "요청 본문 형식 오류": {
+                    "description": "요청 본문 형식 오류",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "요청 본문 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "같은 이메일로 1분 안에 다시 요청했거나 하루 5번을 넘김",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 429,
+                  "code": "AUTH_RESET_TOO_MANY",
+                  "message": "재설정 메일을 너무 자주 요청했습니다. 잠시 뒤 다시 요청해주세요.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/password-reset/confirm": {
+      "post": {
+        "tags": [
+          "PasswordReset"
+        ],
+        "summary": "새 비밀번호 저장",
+        "description": "재설정 링크로 새 비밀번호를 저장하고 링크를 지운다. 저장한 뒤 모든 기기의 로그인(Refresh Token)을 풀고 변경 알림 메일을 보낸다. 이미 받은 Access Token은 만료(최대 30분)까지 쓸 수 있다.",
+        "operationId": "confirmPasswordReset",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordResetConfirmDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "비밀번호 변경 성공",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "비밀번호를 바꿨습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "입력값 검증 실패, 요청 본문 형식 오류 또는 쓸 수 없는 링크",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "입력값 검증 실패": {
+                    "description": "입력값 검증 실패",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "비밀번호는 10자 이상 작성해야합니다.",
+                      "data": null
+                    }
+                  },
+                  "요청 본문 형식 오류": {
+                    "description": "요청 본문 형식 오류",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "요청 본문 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  },
+                  "쓸 수 없는 링크": {
+                    "description": "쓸 수 없는 링크",
+                    "value": {
+                      "status": 400,
+                      "code": "AUTH_RESET_TOKEN_INVALID",
+                      "message": "재설정 링크가 만료됐거나 이미 사용됐습니다. 다시 요청해주세요.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1601,31 +4102,12 @@
             "maxLength": 2147483647,
             "minLength": 10
           },
-          "name": {
-            "type": "string",
-            "description": "실명",
-            "example": "김러너",
-            "minLength": 1
-          },
           "nickname": {
             "type": "string",
             "description": "닉네임 (한글 2~8자, 영문 4~16자, 한글·영문·숫자만)",
             "example": "러너1",
             "minLength": 1,
             "pattern": "^[가-힣A-Za-z0-9]+$"
-          },
-          "phone": {
-            "type": "string",
-            "description": "휴대폰 번호 (하이픈 생략 가능)",
-            "example": "010-1234-5678",
-            "minLength": 1,
-            "pattern": "^01[016789]-?\\d{3,4}-?\\d{4}$"
-          },
-          "birthDate": {
-            "type": "string",
-            "format": "date",
-            "description": "생년월일",
-            "example": "1995-04-12"
           },
           "gender": {
             "type": [
@@ -1655,16 +4137,20 @@
                 "MARKETING"
               ]
             }
+          },
+          "verificationToken": {
+            "type": "string",
+            "description": "본인인증 결과의 인증 토큰. 이름 · 생년월일 · 휴대폰 번호는 이 인증으로 확인한 값으로 가입한다",
+            "example": "crewrun-iv-6f1c2b9e-3a5d-4c7e-9b1a-2d8f0e4c6a71",
+            "minLength": 1
           }
         },
         "required": [
           "agreedTerms",
-          "birthDate",
           "email",
-          "name",
           "nickname",
           "password",
-          "phone"
+          "verificationToken"
         ]
       },
       "SellerApplyRequestDto": {
@@ -1720,6 +4206,236 @@
         },
         "required": [
           "reason"
+        ]
+      },
+      "SocialJoinRequestDto": {
+        "type": "object",
+        "description": "소셜 회원가입 요청",
+        "properties": {
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "email",
+            "description": "이메일. 제공자가 확인된 이메일을 줬으면 무시하고, 안 줬으면 필수",
+            "example": "runner1@crewrun.com"
+          },
+          "nickname": {
+            "type": "string",
+            "description": "닉네임 (한글 2~8자, 영문 4~16자, 한글·영문·숫자만)",
+            "example": "러너1",
+            "minLength": 1,
+            "pattern": "^[가-힣A-Za-z0-9]+$"
+          },
+          "gender": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "성별 (선택)",
+            "enum": [
+              "MALE",
+              "FEMALE"
+            ],
+            "example": "FEMALE"
+          },
+          "agreedTerms": {
+            "type": "array",
+            "description": "동의한 약관 종류 (SERVICE, PRIVACY는 필수). 동의하지 않은 선택 약관은 빼고 보낸다",
+            "example": [
+              "SERVICE",
+              "PRIVACY",
+              "MARKETING"
+            ],
+            "items": {
+              "type": "string",
+              "enum": [
+                "SERVICE",
+                "PRIVACY",
+                "MARKETING"
+              ]
+            }
+          },
+          "verificationToken": {
+            "type": "string",
+            "description": "본인인증 결과의 인증 토큰. 이름 · 생년월일 · 휴대폰 번호는 이 인증으로 확인한 값으로 가입한다",
+            "example": "crewrun-iv-6f1c2b9e-3a5d-4c7e-9b1a-2d8f0e4c6a71",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "agreedTerms",
+          "nickname",
+          "verificationToken"
+        ]
+      },
+      "CrewCreateRequestDto": {
+        "type": "object",
+        "description": "크루 만들기 요청",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "크루 이름 (앞뒤 공백을 뺀 1~20자, 다른 크루와 겹쳐도 된다)",
+            "example": "새벽한강크루",
+            "minLength": 1,
+            "maxLength": 20
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "CrewLeaderTransferRequestDto": {
+        "type": "object",
+        "description": "크루장 넘기기 요청",
+        "properties": {
+          "memberId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "크루장을 넘겨받을 크루원의 회원 ID",
+            "example": 2
+          }
+        },
+        "required": [
+          "memberId"
+        ]
+      },
+      "VerifiedIdentityDto": {
+        "type": "object",
+        "description": "본인인증 결과. 가입 화면은 이 값으로 이름 · 생년월일 · 휴대폰 번호를 채우고 잠근다",
+        "properties": {
+          "verificationToken": {
+            "type": "string",
+            "description": "가입 요청에 넣는 인증 토큰(인증 ID와 같다). 15분 동안 쓸 수 있다",
+            "example": "crewrun-iv-6f1c2b9e-3a5d-4c7e-9b1a-2d8f0e4c6a71"
+          },
+          "name": {
+            "type": "string",
+            "description": "인증된 실명",
+            "example": "김러너"
+          },
+          "birthDate": {
+            "type": "string",
+            "format": "date",
+            "description": "인증된 생년월일",
+            "example": "1995-04-12"
+          },
+          "phone": {
+            "type": "string",
+            "description": "인증된 휴대폰 번호",
+            "example": "010-1234-5678"
+          }
+        },
+        "required": [
+          "birthDate",
+          "name",
+          "phone",
+          "verificationToken"
+        ]
+      },
+      "IdentityVerificationStartDto": {
+        "type": "object",
+        "description": "본인인증 시작 응답",
+        "properties": {
+          "identityVerificationId": {
+            "type": "string",
+            "description": "포트원 SDK requestIdentityVerification()에 넘길 인증 ID. 15분 안에 인증을 마쳐야 한다",
+            "example": "crewrun-iv-6f1c2b9e-3a5d-4c7e-9b1a-2d8f0e4c6a71"
+          }
+        },
+        "required": [
+          "identityVerificationId"
+        ]
+      },
+      "RsDataVerifiedIdentityDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/VerifiedIdentityDto"
+          }
+        }
+      },
+      "RsDataIdentityVerificationStartDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/IdentityVerificationStartDto"
+          }
+        }
+      },
+      "PasswordResetRequestDto": {
+        "type": "object",
+        "description": "비밀번호 재설정 메일 요청",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "가입한 이메일",
+            "example": "runner1@crewrun.com",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "PasswordResetTokenDto": {
+        "type": "object",
+        "description": "비밀번호 재설정 링크 확인 요청",
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "메일 링크 주소의 #token= 뒤 값",
+            "example": "q3Jx2y9bQe0Kk1m3Zp7u8VhR5sTgW4nA6cLdE2fGiHo",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "token"
+        ]
+      },
+      "PasswordResetConfirmDto": {
+        "type": "object",
+        "description": "새 비밀번호 저장 요청",
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "메일 링크 주소의 #token= 뒤 값",
+            "example": "q3Jx2y9bQe0Kk1m3Zp7u8VhR5sTgW4nA6cLdE2fGiHo",
+            "minLength": 1
+          },
+          "password": {
+            "type": "string",
+            "description": "새 비밀번호 (10자 이상, UTF-8 72바이트 이하. 한글은 한 글자가 3바이트)",
+            "example": "newpassword1234",
+            "maxLength": 2147483647,
+            "minLength": 10
+          }
+        },
+        "required": [
+          "password",
+          "token"
         ]
       }
     }

@@ -59,7 +59,7 @@ describe('ProfileEditPage', () => {
 
     const nickname = await screen.findByLabelText('닉네임')
     expect(nickname).toHaveValue('러너1')
-    expect(screen.getByLabelText('생년월일')).toHaveValue('1995-04-12')
+    expect(screen.getByRole('button', { name: /생년월일 1995-04-12/ })).toBeInTheDocument()
     await user.clear(nickname)
     await user.type(nickname, '달리는곰')
     await user.click(screen.getByRole('button', { name: '저장하기' }))

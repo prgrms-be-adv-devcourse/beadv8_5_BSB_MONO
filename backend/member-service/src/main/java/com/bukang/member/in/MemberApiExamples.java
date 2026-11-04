@@ -24,7 +24,9 @@ final class MemberApiExamples {
 				"email": "runner1@crewrun.com",
 				"phone": "010-1234-5678",
 				"name": "김러너",
-				"birthDate": "1995-04-12"
+				"birthDate": "1995-04-12",
+				"socialProviders": ["KAKAO"],
+				"passwordSet": true
 			}
 		}
 		""";
@@ -41,7 +43,9 @@ final class MemberApiExamples {
 				"email": "runner1@crewrun.com",
 				"phone": "010-9876-5432",
 				"name": "김러너",
-				"birthDate": "1995-04-12"
+				"birthDate": "1995-04-12",
+				"socialProviders": ["KAKAO"],
+				"passwordSet": true
 			}
 		}
 		""";

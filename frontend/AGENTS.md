@@ -64,7 +64,12 @@ src/
 - API 타입·훅은 orval로 생성해 `shared/api/generated/<서비스>/`에 둔다. 생성 파일은 직접 고치지 않는다.
   - 명세는 서비스별로 `openapi/<서비스>.json`에 커밋해 둔다 (member, cash, payout, file, order, product).
   - 성공 응답 스키마가 명세에 없는 API는 `openapi/supplements/<서비스>.json`으로 보충한다. 백엔드가 스키마를 내면 지운다.
+  - 백엔드에 없는 가짜 응답 모드 전용 API는 보충 파일의 `paths`에 적는다. 지금은 체험용 PASS 본인인증(`/api/v1/auth/identity-verifications/pass`) 하나다.
   - 게이트웨이가 넣는 `X-Member-Id` 헤더는 요청 함수 인자에서 뺀다 (`orval.config.ts`).
+- 가입 본인인증은 포트원 V2 + KG이니시스 통합인증이다. `features/identity-verification`의 `requestIdentityVerification()` 하나가 백엔드에서 인증 ID 받기 → 포트원 창 열기 → 백엔드 확인을 한다.
+  가입 요청에는 이름 · 생년월일 · 휴대폰 번호 대신 `verificationToken`을 보내고, 백엔드가 포트원에서 확인한 값으로 회원을 만든다.
+  가짜 응답 모드에서는 포트원 창 대신 체험용 창(`MockPassSheet`)이 열리고 MSW가 답한다(`shared/mocks/identity-verification.ts`).
+  모바일은 포트원 창이 페이지를 옮겨 가므로, 창을 열기 전에 약관 동의와 이메일 · 닉네임을 sessionStorage에 남기고 돌아오면 되살린다(`views/auth/model/signup-draft.ts`).
 - 가져올 때는 `@/shared/api`의 서비스별 묶음을 쓴다: `productApi`(요청 함수·훅), `productModel`(타입), `productZod`.
 - 응답은 `RsData{status, message, data, code?}`로 감싸여 온다. `customFetch`는 본문을 그대로 돌려주고, data는 `unwrapData`로 꺼낸다(`select: unwrapData`).
   2xx가 아니면 `ApiError`(`serverMessage`, `code`)를 던진다.
@@ -98,11 +103,15 @@ src/
 
 ## 인증
 
-- `src/proxy.ts`는 로그인 여부를 검사하지 않는다. Refresh Token 쿠키가 `Path=/api/v1/auth`라 `/seller`·`/admin` 요청에 실리지 않기 때문이다. 로그인 전 진입은 `AuthSessionRestorer`가 재발급 실패 시 `/login`으로 보낸다.
-
-## 미정 사항
-
-- 소셜 로그인은 아직 없다.
+- 실제 API 모드에서 `src/proxy.ts`는 로그인 여부를 검사하지 않는다. Refresh Token 쿠키가 `Path=/api/v1/auth`라 화면 요청에 실리지 않기 때문이다.
+  가짜 응답 모드에서는 가짜 로그인이 심는 표시 쿠키(`mockLoggedIn`, `Path=/`)로 회원 화면(`isProtectedPath`)을 서버에서 먼저 `/login?next=`로 보낸다.
+- 실제 API 모드에서 로그인 전 진입은 아래처럼 처리한다.
+  - 회원 화면(`isProtectedPath`)은 `ProtectedScreenGuard`가 로그인 확인이 끝날 때까지 로딩만 그리고, 비로그인이면 `/login?next=`로 보낸다.
+  - `AuthSessionRestorer`는 쓰는 중에 재발급이 실패해 로그인이 끊겼을 때만 `/login`으로 보낸다. 앱을 처음 열 때 재발급이 실패하면 보내지 않는다.
+  - `/seller`·`/admin`은 로그인 화면으로 보내지 않는다. 화면마다 그 자리에서 로그인이 필요하다는 안내를 보여 준다.
+- 로그아웃이 성공하면 `useLogout`이 문서를 새로 불러 `/login`으로 간다. 토큰을 먼저 비우면 지금 화면이 로그아웃 상태로 잠깐 다시 그려지기 때문이다.
+- 소셜 로그인(카카오 · 구글)은 백엔드가 인가 요청부터 콜백까지 처리한다(BE-031). 프론트는 `features/auth`의 `SocialLoginButtons`로 시작 주소(`/api/v1/auth/oauth2/authorize/{provider}`)를 화면 이동으로 연다.
+  콜백 뒤 `/auth/social/complete`(재발급으로 Access Token을 받는다), `/signup/social`(소셜 가입), `/login?error=` 중 하나로 온다. 계정 연결은 `/me/accounts`에서 연결 표를 받은 뒤 같은 시작 주소로 연다.
 
 ## 커밋
 

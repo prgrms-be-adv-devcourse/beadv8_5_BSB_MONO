@@ -10,6 +10,7 @@ import {
   getBukangMemberAPIMock,
   getLoginResponseMock,
   getReissueResponseMock,
+  getSocialJoinResponseMock,
 } from '@/shared/api/generated/member/member.msw'
 import {
   getBukangOrderAPIMock,
@@ -37,7 +38,9 @@ import {
 } from '@/shared/api/generated/product/product.msw'
 import type { SearchParams } from '@/shared/api/generated/product/product.schemas'
 
+import { crewHandlers } from './crews'
 import { fileUploadHandlers } from './file-upload'
+import { answerMockPass, readMockVerificationToken, type MockAnswer } from './identity-verification'
 import {
   clearMockBalanceCookie,
   clearMockMemberCookie,
@@ -100,6 +103,21 @@ function withCookies(...values: string[]) {
   return headers
 }
 
+const isUsableResetToken = (token: unknown) =>
+  typeof token === 'string' && token !== '' && token !== 'expired'
+
+function resetTokenInvalid() {
+  return HttpResponse.json(
+    {
+      status: 400,
+      code: 'AUTH_RESET_TOKEN_INVALID',
+      message: '재설정 링크가 만료됐거나 이미 사용됐습니다. 다시 요청해주세요.',
+      data: null,
+    },
+    { status: 400 },
+  )
+}
+
 const authHandlers = [
   // 가입 때 심은 프로필과 같은 이메일로 로그인하면 방금 가입한 회원이다(내 정보는 그 프로필, 참가권 · 예치금 · 알림은 비어 있음).
   // 그 밖에는(runner1 · 이메일 없음 · 모르는 이메일) 시연용 기존 회원이다.
@@ -119,6 +137,34 @@ const authHandlers = [
         ),
       },
     )
+  }),
+  // 소셜 가입은 로그인과 같이 Refresh Token 쿠키를 심는다(재발급이 이어서 성공해야 로그인 상태가 유지된다).
+  // 시작 · 콜백(제공자 화면을 다녀오는 302)은 목으로 흉내 내지 않는다.
+  http.post('*/api/v1/auth/oauth2/join', async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as Record<string, unknown>
+    if (!readMockVerificationToken(body.verificationToken)) return verificationRequired()
+    return HttpResponse.json(getSocialJoinResponseMock(), {
+      status: 201,
+      headers: withCookies(issueMockRefreshCookie(), issueMockLoginMarkCookie()),
+    })
+  }),
+  // 비밀번호 재설정. 메일은 보내지 않는다. 토큰이 비었거나 'expired'면 쓸 수 없는 링크(400)로 답한다.
+  http.post('*/api/v1/auth/password-reset/request', () =>
+    HttpResponse.json({
+      status: 200,
+      message: '가입된 이메일이면 재설정 메일을 보냈습니다.',
+      data: null,
+    }),
+  ),
+  http.post('*/api/v1/auth/password-reset/verify', async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as { token?: unknown }
+    if (!isUsableResetToken(body.token)) return resetTokenInvalid()
+    return HttpResponse.json({ status: 200, message: '쓸 수 있는 재설정 링크입니다.', data: null })
+  }),
+  http.post('*/api/v1/auth/password-reset/confirm', async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as { token?: unknown }
+    if (!isUsableResetToken(body.token)) return resetTokenInvalid()
+    return HttpResponse.json({ status: 200, message: '비밀번호를 바꿨습니다.', data: null })
   }),
   http.post('*/api/v1/auth/reissue', ({ cookies }) => {
     if (!cookies[MOCK_REFRESH_COOKIE_NAME]) {
@@ -189,10 +235,20 @@ const meHandlers = [
 /**
  * 탈퇴 목. 성공(200)이 기본이다. 실패(예치금·참가권이 남음, 확인 실패)는 테스트에서 server.use로 바꿔 끼운다.
  * 생성된 핸들러보다 앞에 둬서 먼저 걸리게 한다.
+ * 실제 서버처럼 로그인 쿠키를 지운다. 남기면 완료 화면을 새로 불러올 때 재발급이 성공해 다시 로그인된다.
  */
 const withdrawHandlers = [
   http.delete('*/api/v1/member/members/me', () =>
-    HttpResponse.json({ status: 200, message: '탈퇴했습니다.', data: null }),
+    HttpResponse.json(
+      { status: 200, message: '탈퇴했습니다.', data: null },
+      {
+        headers: withCookies(
+          clearMockRefreshCookie(),
+          clearMockLoginMarkCookie(),
+          clearMockMemberCookie(),
+        ),
+      },
+    ),
   ),
 ]
 
@@ -227,8 +283,16 @@ const signupHandlers = [
         { status: 400 },
       )
     }
+    // 이름 · 휴대폰 번호 · 생년월일은 본인인증 토큰에 담긴 값을 쓴다 (백엔드와 같다)
+    const identity = readMockVerificationToken(body.verificationToken)
+    if (!identity) return verificationRequired()
     // 가입한 프로필을 쿠키에 담아 두면 같은 이메일로 로그인할 때 그 정보로 시작한다 (mock-member.ts)
-    const profile = profileFromJoinBody(body)
+    const profile = profileFromJoinBody({
+      ...body,
+      name: identity.name,
+      phone: identity.phone,
+      birthDate: identity.birthDate,
+    })
     return HttpResponse.json(
       { status: 201, message: 'Member Joined Successfully', data: null },
       {
@@ -260,6 +324,31 @@ const signupHandlers = [
     })
   }),
 ]
+
+/**
+ * 체험용 PASS 본인인증 목. 가짜 응답 모드의 체험용 인증 창이 부른다. 규칙은 identity-verification.ts에 있다.
+ * 실제 백엔드 모드는 포트원 창을 열고 백엔드의 본인인증 시작 · 확인 API를 쓴다.
+ */
+const toResponse = <T>({ status, body }: MockAnswer<T>) => HttpResponse.json(body, { status })
+
+const identityVerificationHandlers = [
+  http.post('*/api/v1/auth/identity-verifications/pass', async ({ request }) =>
+    toResponse(answerMockPass((await request.json().catch(() => ({}))) as Record<string, unknown>)),
+  ),
+]
+
+/** 가입 요청에 본인인증 토큰이 없거나 15분이 지났을 때. 백엔드와 같은 400 AUTH_VERIFICATION_REQUIRED다 */
+function verificationRequired() {
+  return HttpResponse.json(
+    {
+      status: 400,
+      code: 'AUTH_VERIFICATION_REQUIRED',
+      message: '본인인증을 다시 해주세요.',
+      data: null,
+    },
+    { status: 400 },
+  )
+}
 
 /**
  * 내 참가권 목. 생성된 주문 목록 예시는 결제 대기 · 기한 만료 주문뿐이라 참가권이 하나도 안 보인다.
@@ -601,8 +690,10 @@ export const handlers = [
   fileImageHandler,
   ...authHandlers,
   ...meHandlers,
+  ...crewHandlers,
   ...notificationHandlers,
   ...withdrawHandlers,
+  ...identityVerificationHandlers,
   ...signupHandlers,
   ...fileUploadHandlers,
   myOrdersHandler,

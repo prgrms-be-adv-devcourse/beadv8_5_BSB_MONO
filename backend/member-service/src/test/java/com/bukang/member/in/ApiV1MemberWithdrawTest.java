@@ -17,7 +17,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 
@@ -28,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -41,7 +41,6 @@ import org.springframework.test.web.servlet.ResultActions;
 import com.bukang.common.shared.member.event.MemberModifiedEvent;
 import com.bukang.common.shared.member.web.MemberIdHeader;
 import com.bukang.common.shared.seller.domain.SellerStatus;
-import com.bukang.common.shared.seller.domain.SellerType;
 import com.bukang.common.shared.seller.event.SellerChangedEvent;
 import com.bukang.member.app.MemberFacade;
 import com.bukang.member.app.SellerFacade;
@@ -49,18 +48,17 @@ import com.bukang.member.domain.Gender;
 import com.bukang.member.domain.Member;
 import com.bukang.member.domain.MemberStatus;
 import com.bukang.member.domain.Seller;
-import com.bukang.member.domain.TermsType;
 import com.bukang.member.domain.exception.WithdrawCheckFailedException;
-import com.bukang.member.dto.MemberJoinRequestDto;
-import com.bukang.member.dto.SellerApplyRequestDto;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.RefreshTokenRepository;
 import com.bukang.member.out.SellerRepository;
 import com.bukang.member.out.TermsAgreementRepository;
 import com.bukang.member.out.cash.CashBalancePort;
 import com.bukang.member.out.cash.HttpCashBalanceAdapter;
+import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
 import com.bukang.member.out.order.ActiveTicketPort;
 import com.bukang.member.out.order.HttpActiveTicketAdapter;
+import com.bukang.member.support.MemberFixture;
 
 // 예치금·주문 서비스와 Redis는 띄우지 않으므로 포트와 Refresh Token 저장소를 목으로 바꾼다
 // 수정 이벤트는 스프링 이벤트로 발행됐는지만 본다. Kafka로 나가는 건 MemberKafkaPublisherTest가 확인한다
@@ -68,7 +66,11 @@ import com.bukang.member.out.order.HttpActiveTicketAdapter;
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @RecordApplicationEvents
+@Import(InMemoryIdentityVerificationStore.Config.class)
 class ApiV1MemberWithdrawTest {
+	@Autowired
+	private InMemoryIdentityVerificationStore identityStore;
+
 	private static final String ME = "/api/v1/member/members/me";
 	private static final String EMAIL = "runner1@crewrun.com";
 	private static final String PASSWORD = "password1234";
@@ -112,7 +114,9 @@ class ApiV1MemberWithdrawTest {
 
 	@BeforeEach
 	void setUp() {
-		memberId = join(EMAIL, NICKNAME, PHONE);
+		memberId = memberFacade.join(MemberFixture.joinRequest()
+			.email(EMAIL).password(PASSWORD).nickname(NICKNAME).phone(PHONE).gender(Gender.FEMALE)
+			.build(identityStore)).getId();
 		// 목의 기본값(0)이라 따로 정하지 않으면 남은 예치금·참가권이 없다
 	}
 
@@ -260,7 +264,9 @@ class ApiV1MemberWithdrawTest {
 	void rejoinAfterWithdraw() throws Exception {
 		withdraw(memberId).andExpect(status().isOk());
 
-		long rejoinedId = join(EMAIL, NICKNAME, PHONE);
+		long rejoinedId = memberFacade.join(MemberFixture.joinRequest()
+			.email(EMAIL).password(PASSWORD).nickname(NICKNAME).phone(PHONE).gender(Gender.FEMALE)
+			.build(identityStore)).getId();
 		assertThat(rejoinedId).isNotEqualTo(memberId);
 		assertThat(memberRepository.findActiveByEmail(EMAIL)).hasValueSatisfying(member ->
 			assertThat(member.getId()).isEqualTo(rejoinedId));
@@ -295,8 +301,7 @@ class ApiV1MemberWithdrawTest {
 	@Test
 	@DisplayName("탈퇴하면 대기 중 판매자 신청을 \"회원 탈퇴\" 사유로 반려하고 반려 이벤트를 보낸다")
 	void withdrawRejectsPendingSellerApplication() throws Exception {
-		long sellerId = sellerFacade.apply(memberId,
-			new SellerApplyRequestDto(SellerType.BUSINESS, "크루런 스포츠", "123-45-67890", "김러너")).getId();
+		long sellerId = sellerFacade.apply(memberId, MemberFixture.sellerApplyRequest()).getId();
 
 		withdraw(memberId).andExpect(status().isOk());
 
@@ -312,13 +317,6 @@ class ApiV1MemberWithdrawTest {
 
 	private List<MemberModifiedEvent> modifiedEvents() {
 		return applicationEvents.stream(MemberModifiedEvent.class).toList();
-	}
-
-	private long join(String email, String nickname, String phone) {
-		return memberFacade.join(new MemberJoinRequestDto(
-			email, PASSWORD, "김러너", nickname, phone, LocalDate.of(1995, 4, 12), Gender.FEMALE,
-			List.of(TermsType.SERVICE, TermsType.PRIVACY)
-		)).getId();
 	}
 
 	private ResultActions withdraw(long id) throws Exception {

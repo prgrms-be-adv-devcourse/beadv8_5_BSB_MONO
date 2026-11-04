@@ -15,13 +15,17 @@
     "test:watch": "vitest",
     "api:generate": "node -e \"require('fs').rmSync('src/shared/api/generated',{recursive:true,force:true})\" && orval",
     "api:pull": "node scripts/pull-openapi.mjs",
+    "tokens": "node scripts/generate-tokens/index.mjs",
     "prepare": "cd .. && husky frontend/.husky",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
+    "@google-analytics/data": "^7.3.0",
     "@hookform/resolvers": "^5.9.1",
+    "@next/third-parties": "16.3.8",
+    "@portone/browser-sdk": "0.1.13",
     "@tanstack/react-query": "^5.104.1",
     "@tosspayments/tosspayments-sdk": "2.9.0",
     "clsx": "^2.1.1",
@@ -31,6 +35,8 @@
     "react-day-picker": "^10.0.2",
     "react-dom": "19.2.8",
     "react-hook-form": "^7.89.0",
+    "recharts": "^3.10.1",
+    "server-only": "^0.0.1",
     "tailwind-merge": "^3.7.0",
     "zod": "^4.6.5",
     "zustand": "^5.0.15"

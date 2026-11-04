@@ -15,7 +15,16 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/me/withdraw',
 }))
 
-beforeEach(() => push.mockClear())
+const reloadTo = vi.hoisted(() => vi.fn())
+vi.mock('@/features/auth/lib/login-redirect', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  reloadTo,
+}))
+
+beforeEach(() => {
+  push.mockClear()
+  reloadTo.mockClear()
+})
 
 // 남은 일을 모두 마친 상태(시안 M31-C)에서 안내를 확인하고 탈퇴하기를 누른다.
 async function openConfirm() {
@@ -54,20 +63,21 @@ describe('WithdrawPage 최종 확인 창', () => {
     expect(push).not.toHaveBeenCalled()
   })
 
-  it('창에서 탈퇴하기를 누르면 완료 화면으로 간다', async () => {
+  it('창에서 탈퇴하기를 누르면 문서를 새로 불러 완료 화면으로 간다', async () => {
     const user = await openConfirm()
     const dialog = await screen.findByRole('alertdialog')
     await user.click(within(dialog).getByRole('button', { name: '탈퇴하기' }))
-    await vi.waitFor(() => expect(push).toHaveBeenCalledWith('/me/withdraw/done'))
+    await vi.waitFor(() => expect(reloadTo).toHaveBeenCalledWith('/me/withdraw/done'))
   })
 
-  it('탈퇴하면 이 브라우저는 로그아웃 상태가 된다', async () => {
+  it('탈퇴하면 완료 화면으로 떠날 때 이 브라우저가 로그아웃 상태가 된다', async () => {
     setAccessToken('token')
     expect(getAuthStatus()).toBe('authenticated')
     const user = await openConfirm()
     const dialog = await screen.findByRole('alertdialog')
     await user.click(within(dialog).getByRole('button', { name: '탈퇴하기' }))
-    await vi.waitFor(() => expect(push).toHaveBeenCalled())
+    await vi.waitFor(() => expect(reloadTo).toHaveBeenCalled())
+    window.dispatchEvent(new Event('pagehide'))
     expect(getAuthStatus()).not.toBe('authenticated')
   })
 })
@@ -115,7 +125,28 @@ describe('WithdrawPage 중복 요청', () => {
     const button = within(dialog).getByRole('button', { name: '탈퇴하기' })
     await user.dblClick(button)
 
-    await vi.waitFor(() => expect(push).toHaveBeenCalledWith('/me/withdraw/done'))
+    await vi.waitFor(() => expect(reloadTo).toHaveBeenCalledWith('/me/withdraw/done'))
     expect(calls).toBe(1)
+  })
+
+  // 성공한 뒤 완료 화면이 뜨기까지 문서를 새로 불러오는 동안 토큰이 남아 있다
+  it('성공한 뒤 완료 화면이 뜨기 전에 다시 눌러도 요청은 한 번만 간다', async () => {
+    let calls = 0
+    server.use(
+      http.delete('*/api/v1/member/members/me', () => {
+        calls += 1
+        return HttpResponse.json({ status: 200, message: '탈퇴했습니다.', data: null })
+      }),
+    )
+    const user = await openConfirm()
+    const dialog = await screen.findByRole('alertdialog')
+    const button = within(dialog).getByRole('button', { name: '탈퇴하기' })
+    await user.click(button)
+    await vi.waitFor(() => expect(reloadTo).toHaveBeenCalledWith('/me/withdraw/done'))
+
+    await user.click(button)
+
+    expect(calls).toBe(1)
+    expect(screen.queryByRole('alert', { hidden: true })).not.toBeInTheDocument()
   })
 })

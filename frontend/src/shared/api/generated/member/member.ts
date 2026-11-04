@@ -25,20 +25,39 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AuthorizeSocialParams,
   CheckEmailAvailabilityParams,
+  CrewCreateRequestDto,
+  CrewLeaderTransferRequestDto,
   FindAllParams,
   MemberJoinRequestDto,
   MemberLoginRequestDto,
   MemberModifyRequestDto,
+  PassVerificationRequestDto,
+  PasswordResetConfirmDto,
+  PasswordResetRequestDto,
+  PasswordResetTokenDto,
   RsData,
+  RsDataCrewHomeDto,
+  RsDataCrewInviteCreatedDto,
+  RsDataCrewInvitePreviewDto,
+  RsDataCrewJoinedDto,
   RsDataEmailAvailabilityResponseDto,
+  RsDataIdentityVerificationStartDto,
+  RsDataListCrewInviteDto,
+  RsDataListMyCrewDto,
   RsDataListSellerDto,
   RsDataMemberDto,
   RsDataMemberLoginResponseDto,
   RsDataSellerDto,
+  RsDataSocialSignupInfoDto,
   RsDataTokenReissueResponseDto,
+  RsDataVerifiedIdentityDto,
+  RsDataVoid,
   SellerApplyRequestDto,
-  SellerRejectRequestDto
+  SellerRejectRequestDto,
+  SocialCallbackParams,
+  SocialJoinRequestDto
 } from './member.schemas';
 
 import { customFetch } from '../../fetcher';
@@ -62,6 +81,95 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getVerifyIdentityWithMockPassUrl = () => {
+
+
+
+
+  return `/api/v1/auth/identity-verifications/pass`
+}
+
+/**
+ * 가짜 응답 모드(API_MOCKING=on)의 체험용 인증 화면에서만 부른다. 백엔드에는 없는 API다. 입력한 이름 · 생년월일 · 휴대폰 번호를 인증된 정보로 돌려준다.
+ * @summary 체험용 PASS 본인인증 (가짜 응답 모드 전용)
+ */
+export const verifyIdentityWithMockPass = async (passVerificationRequestDto: PassVerificationRequestDto, options?: Parameters<typeof customFetch>[1]): Promise<RsDataVerifiedIdentityDto> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<RsDataVerifiedIdentityDto>(getVerifyIdentityWithMockPassUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(passVerificationRequestDto)
+  }
+);}
+
+
+
+
+
+export const getVerifyIdentityWithMockPassMutationKey = () => ['verifyIdentityWithMockPass'] as const;
+
+export const getVerifyIdentityWithMockPassMutationOptions = <TError = RsDataVoid,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyIdentityWithMockPass>>, TError,VerifyIdentityWithMockPassMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof verifyIdentityWithMockPass>>, TError,VerifyIdentityWithMockPassMutationVariables, TContext> => {
+
+const mutationKey = getVerifyIdentityWithMockPassMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof verifyIdentityWithMockPass>>, VerifyIdentityWithMockPassMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  verifyIdentityWithMockPass(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type VerifyIdentityWithMockPassMutationResult = NonNullable<Awaited<ReturnType<typeof verifyIdentityWithMockPass>>>
+    export type VerifyIdentityWithMockPassMutationBody = PassVerificationRequestDto
+    export type VerifyIdentityWithMockPassMutationError = RsDataVoid
+    export type VerifyIdentityWithMockPassMutationVariables = {data: PassVerificationRequestDto}
+
+    /**
+ * @summary 체험용 PASS 본인인증 (가짜 응답 모드 전용)
+ */
+export const useVerifyIdentityWithMockPass = <TError = RsDataVoid,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyIdentityWithMockPass>>, TError,VerifyIdentityWithMockPassMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof verifyIdentityWithMockPass>>,
+        TError,
+        VerifyIdentityWithMockPassMutationVariables,
+        TContext
+      > => {
+      return useMutation(getVerifyIdentityWithMockPassMutationOptions(options), queryClient);
+    }
 
 export const getFindMeUrl = () => {
 
@@ -1305,4 +1413,2042 @@ export function useFindAll<TData = Awaited<ReturnType<typeof findAll>>, TError =
 
 
 
+
+export const getAuthorizeSocialUrl = (provider: 'kakao' | 'google',
+    params?: AuthorizeSocialParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/auth/oauth2/authorize/${provider}?${stringifiedParams}` : `/api/v1/auth/oauth2/authorize/${provider}`
+}
+
+/**
+ * state·PKCE를 만들어 Redis에 10분 저장하고, 그 요청 ID를 httpOnly 쿠키(oauth2Request)로 심은 뒤 제공자 로그인 화면으로 보낸다. fetch가 아니라 화면 이동으로 연다. 계정 연결 표 쿠키(oauth2Link)가 있으면 로그인한 회원의 계정 연결로 처리하고, 결과와 상관없이 그 쿠키를 지운다.
+ * @summary 소셜 로그인 시작
+ */
+export const authorizeSocial = async (provider: 'kakao' | 'google',
+    params?: AuthorizeSocialParams, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getAuthorizeSocialUrl(provider,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getAuthorizeSocialQueryKey = (provider: 'kakao' | 'google',
+    params?: AuthorizeSocialParams,) => {
+    return [
+    `/api/v1/auth/oauth2/authorize/${provider}`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getAuthorizeSocialQueryOptions = <TData = Awaited<ReturnType<typeof authorizeSocial>>, TError = void | RsData>(provider: 'kakao' | 'google',
+    params?: AuthorizeSocialParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof authorizeSocial>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getAuthorizeSocialQueryKey(provider,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof authorizeSocial>>> = ({ signal }) => authorizeSocial(provider,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: provider !== null && provider !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof authorizeSocial>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type AuthorizeSocialQueryResult = NonNullable<Awaited<ReturnType<typeof authorizeSocial>>>
+export type AuthorizeSocialQueryError = void | RsData
+
+
+export function useAuthorizeSocial<TData = Awaited<ReturnType<typeof authorizeSocial>>, TError = void | RsData>(
+ provider: 'kakao' | 'google',
+    params: undefined |  AuthorizeSocialParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof authorizeSocial>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof authorizeSocial>>,
+          TError,
+          Awaited<ReturnType<typeof authorizeSocial>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAuthorizeSocial<TData = Awaited<ReturnType<typeof authorizeSocial>>, TError = void | RsData>(
+ provider: 'kakao' | 'google',
+    params?: AuthorizeSocialParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof authorizeSocial>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof authorizeSocial>>,
+          TError,
+          Awaited<ReturnType<typeof authorizeSocial>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAuthorizeSocial<TData = Awaited<ReturnType<typeof authorizeSocial>>, TError = void | RsData>(
+ provider: 'kakao' | 'google',
+    params?: AuthorizeSocialParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof authorizeSocial>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 소셜 로그인 시작
+ */
+
+export function useAuthorizeSocial<TData = Awaited<ReturnType<typeof authorizeSocial>>, TError = void | RsData>(
+ provider: 'kakao' | 'google',
+    params?: AuthorizeSocialParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof authorizeSocial>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getAuthorizeSocialQueryOptions(provider,params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSocialCallbackUrl = (provider: 'kakao' | 'google',
+    params?: SocialCallbackParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/auth/oauth2/callback/${provider}?${stringifiedParams}` : `/api/v1/auth/oauth2/callback/${provider}`
+}
+
+/**
+ * 제공자가 브라우저를 보내는 주소다. 프론트가 직접 부르지 않는다. 쿠키의 요청 ID로 꺼낸 state가 맞을 때만 진행하고, 결과에 따라 프론트 화면으로 보낸다.
+ * - 연결된 회원이 있음: Refresh Token 쿠키를 심고 /auth/social/complete?next=
+ * - 처음 온 사람: 가입 대기 쿠키(oauth2Signup, 15분)를 심고 /signup/social?next=
+ * - 확인된 이메일이 다른 회원 것: /login?error=AUTH_SOCIAL_EMAIL_TAKEN&provider=kakao&joinedWith=email (joinedWith는 email, kakao, google 중 하나)
+ * - 취소·state 불일치·제공자 오류: /login?error=AUTH_SOCIAL_FAILED
+ * - 계정 연결: next?linked=kakao, 실패면 next?error=AUTH_SOCIAL_ALREADY_LINKED, MEMBER_SOCIAL_PROVIDER_ALREADY_LINKED, AUTH_SOCIAL_FAILED 중 하나
+ * @summary 소셜 로그인 콜백
+ */
+export const socialCallback = async (provider: 'kakao' | 'google',
+    params?: SocialCallbackParams, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getSocialCallbackUrl(provider,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getSocialCallbackQueryKey = (provider: 'kakao' | 'google',
+    params?: SocialCallbackParams,) => {
+    return [
+    `/api/v1/auth/oauth2/callback/${provider}`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getSocialCallbackQueryOptions = <TData = Awaited<ReturnType<typeof socialCallback>>, TError = void | RsData>(provider: 'kakao' | 'google',
+    params?: SocialCallbackParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof socialCallback>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getSocialCallbackQueryKey(provider,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof socialCallback>>> = ({ signal }) => socialCallback(provider,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: provider !== null && provider !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof socialCallback>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type SocialCallbackQueryResult = NonNullable<Awaited<ReturnType<typeof socialCallback>>>
+export type SocialCallbackQueryError = void | RsData
+
+
+export function useSocialCallback<TData = Awaited<ReturnType<typeof socialCallback>>, TError = void | RsData>(
+ provider: 'kakao' | 'google',
+    params: undefined |  SocialCallbackParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof socialCallback>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof socialCallback>>,
+          TError,
+          Awaited<ReturnType<typeof socialCallback>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useSocialCallback<TData = Awaited<ReturnType<typeof socialCallback>>, TError = void | RsData>(
+ provider: 'kakao' | 'google',
+    params?: SocialCallbackParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof socialCallback>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof socialCallback>>,
+          TError,
+          Awaited<ReturnType<typeof socialCallback>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useSocialCallback<TData = Awaited<ReturnType<typeof socialCallback>>, TError = void | RsData>(
+ provider: 'kakao' | 'google',
+    params?: SocialCallbackParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof socialCallback>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 소셜 로그인 콜백
+ */
+
+export function useSocialCallback<TData = Awaited<ReturnType<typeof socialCallback>>, TError = void | RsData>(
+ provider: 'kakao' | 'google',
+    params?: SocialCallbackParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof socialCallback>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getSocialCallbackQueryOptions(provider,params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getFindSocialSignupUrl = () => {
+
+
+
+
+  return `/api/v1/auth/oauth2/signup`
+}
+
+/**
+ * 가입 대기 쿠키(oauth2Signup)로 제공자가 준 이메일·이름을 돌려준다. emailLocked가 true면 이메일을 고칠 수 없게 보여 준다.
+ * @summary 소셜 가입 미리 채울 값 조회
+ */
+export const findSocialSignup = async ( options?: Parameters<typeof customFetch>[1]): Promise<RsDataSocialSignupInfoDto> => {
+
+  return customFetch<RsDataSocialSignupInfoDto>(getFindSocialSignupUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getFindSocialSignupQueryKey = () => {
+    return [
+    `/api/v1/auth/oauth2/signup`
+    ] as const;
+    }
+
+
+export const getFindSocialSignupQueryOptions = <TData = Awaited<ReturnType<typeof findSocialSignup>>, TError = RsData>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findSocialSignup>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getFindSocialSignupQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof findSocialSignup>>> = ({ signal }) => findSocialSignup({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof findSocialSignup>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type FindSocialSignupQueryResult = NonNullable<Awaited<ReturnType<typeof findSocialSignup>>>
+export type FindSocialSignupQueryError = RsData
+
+
+export function useFindSocialSignup<TData = Awaited<ReturnType<typeof findSocialSignup>>, TError = RsData>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof findSocialSignup>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findSocialSignup>>,
+          TError,
+          Awaited<ReturnType<typeof findSocialSignup>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindSocialSignup<TData = Awaited<ReturnType<typeof findSocialSignup>>, TError = RsData>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findSocialSignup>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findSocialSignup>>,
+          TError,
+          Awaited<ReturnType<typeof findSocialSignup>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindSocialSignup<TData = Awaited<ReturnType<typeof findSocialSignup>>, TError = RsData>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findSocialSignup>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 소셜 가입 미리 채울 값 조회
+ */
+
+export function useFindSocialSignup<TData = Awaited<ReturnType<typeof findSocialSignup>>, TError = RsData>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findSocialSignup>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getFindSocialSignupQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSocialJoinUrl = () => {
+
+
+
+
+  return `/api/v1/auth/oauth2/join`
+}
+
+/**
+ * 가입 대기 쿠키의 소셜 계정으로 회원을 만든다. 약관·입력 검사는 이메일 가입과 같다. 제공자가 확인된 이메일을 줬으면 그 값을 쓰고 본문 email은 무시한다. 성공하면 로그인과 같이 Access Token은 본문, Refresh Token은 쿠키로 내려주고 가입 대기 쿠키를 지운다.
+ * @summary 소셜 회원가입
+ */
+export const socialJoin = async (socialJoinRequestDto: SocialJoinRequestDto, options?: Parameters<typeof customFetch>[1]): Promise<RsDataMemberLoginResponseDto> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<RsDataMemberLoginResponseDto>(getSocialJoinUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(socialJoinRequestDto)
+  }
+);}
+
+
+
+
+
+export const getSocialJoinMutationKey = () => ['socialJoin'] as const;
+
+export const getSocialJoinMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof socialJoin>>, TError,SocialJoinMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof socialJoin>>, TError,SocialJoinMutationVariables, TContext> => {
+
+const mutationKey = getSocialJoinMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof socialJoin>>, SocialJoinMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  socialJoin(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SocialJoinMutationResult = NonNullable<Awaited<ReturnType<typeof socialJoin>>>
+    export type SocialJoinMutationBody = SocialJoinRequestDto
+    export type SocialJoinMutationError = RsData
+    export type SocialJoinMutationVariables = {data: SocialJoinRequestDto}
+
+    /**
+ * @summary 소셜 회원가입
+ */
+export const useSocialJoin = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof socialJoin>>, TError,SocialJoinMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof socialJoin>>,
+        TError,
+        SocialJoinMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSocialJoinMutationOptions(options), queryClient);
+    }
+
+export const getIssueSocialLinkTicketUrl = (provider: 'kakao' | 'google',) => {
+
+
+
+
+  return `/api/v1/member/members/me/social-accounts/${provider}/link-ticket`
+}
+
+/**
+ * 로그인한 회원이 소셜 계정을 연결할 때 먼저 부른다. 2분 동안 한 번만 쓸 수 있는 연결 표를 httpOnly 쿠키(oauth2Link, Path=/api/v1/auth/oauth2/authorize)로 심는다. 프론트는 이어서 /api/v1/auth/oauth2/authorize/{provider}?next=/me/accounts로 화면을 이동한다.
+ * @summary 계정 연결 표 발급
+ */
+export const issueSocialLinkTicket = async (provider: 'kakao' | 'google', options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getIssueSocialLinkTicketUrl(provider),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getIssueSocialLinkTicketMutationKey = () => ['issueSocialLinkTicket'] as const;
+
+export const getIssueSocialLinkTicketMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof issueSocialLinkTicket>>, TError,IssueSocialLinkTicketMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof issueSocialLinkTicket>>, TError,IssueSocialLinkTicketMutationVariables, TContext> => {
+
+const mutationKey = getIssueSocialLinkTicketMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof issueSocialLinkTicket>>, IssueSocialLinkTicketMutationVariables> = (props) => {
+          const {provider} = props ?? {};
+
+          return  issueSocialLinkTicket(provider,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type IssueSocialLinkTicketMutationResult = NonNullable<Awaited<ReturnType<typeof issueSocialLinkTicket>>>
+
+    export type IssueSocialLinkTicketMutationError = RsData
+    export type IssueSocialLinkTicketMutationVariables = {provider: 'kakao' | 'google'}
+
+    /**
+ * @summary 계정 연결 표 발급
+ */
+export const useIssueSocialLinkTicket = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof issueSocialLinkTicket>>, TError,IssueSocialLinkTicketMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof issueSocialLinkTicket>>,
+        TError,
+        IssueSocialLinkTicketMutationVariables,
+        TContext
+      > => {
+      return useMutation(getIssueSocialLinkTicketMutationOptions(options), queryClient);
+    }
+
+export const getUnlinkSocialAccountUrl = (provider: 'kakao' | 'google',) => {
+
+
+
+
+  return `/api/v1/member/members/me/social-accounts/${provider}`
+}
+
+/**
+ * 비밀번호나 다른 소셜 연결이 남을 때만 해제한다. 카카오면 커밋 뒤 카카오 연결 끊기도 부른다(실패해도 해제는 유지).
+ * @summary 소셜 계정 연결 해제
+ */
+export const unlinkSocialAccount = async (provider: 'kakao' | 'google', options?: Parameters<typeof customFetch>[1]): Promise<RsDataMemberDto> => {
+
+  return customFetch<RsDataMemberDto>(getUnlinkSocialAccountUrl(provider),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getUnlinkSocialAccountMutationKey = () => ['unlinkSocialAccount'] as const;
+
+export const getUnlinkSocialAccountMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unlinkSocialAccount>>, TError,UnlinkSocialAccountMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof unlinkSocialAccount>>, TError,UnlinkSocialAccountMutationVariables, TContext> => {
+
+const mutationKey = getUnlinkSocialAccountMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof unlinkSocialAccount>>, UnlinkSocialAccountMutationVariables> = (props) => {
+          const {provider} = props ?? {};
+
+          return  unlinkSocialAccount(provider,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UnlinkSocialAccountMutationResult = NonNullable<Awaited<ReturnType<typeof unlinkSocialAccount>>>
+
+    export type UnlinkSocialAccountMutationError = RsData
+    export type UnlinkSocialAccountMutationVariables = {provider: 'kakao' | 'google'}
+
+    /**
+ * @summary 소셜 계정 연결 해제
+ */
+export const useUnlinkSocialAccount = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unlinkSocialAccount>>, TError,UnlinkSocialAccountMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof unlinkSocialAccount>>,
+        TError,
+        UnlinkSocialAccountMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUnlinkSocialAccountMutationOptions(options), queryClient);
+    }
+
+export const getCreateCrewUrl = () => {
+
+
+
+
+  return `/api/v1/member/crews`
+}
+
+/**
+ * 로그인한 회원이 크루 이름을 입력해 크루를 만든다. 만든 회원이 크루장이 되고, 가입 시각은 만든 시각과 같다. 응답은 크루 홈과 같은 형식이라 바로 크루 홈을 그린다. 한 회원이 크루 여러 개에 가입할 수 있는지는 회의에서 정한다(정해지면 409 오류 코드를 더한다).
+ * @summary 크루 만들기
+ */
+export const createCrew = async (crewCreateRequestDto: CrewCreateRequestDto, options?: Parameters<typeof customFetch>[1]): Promise<RsDataCrewHomeDto> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<RsDataCrewHomeDto>(getCreateCrewUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(crewCreateRequestDto)
+  }
+);}
+
+
+
+
+
+export const getCreateCrewMutationKey = () => ['createCrew'] as const;
+
+export const getCreateCrewMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCrew>>, TError,CreateCrewMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCrew>>, TError,CreateCrewMutationVariables, TContext> => {
+
+const mutationKey = getCreateCrewMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCrew>>, CreateCrewMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createCrew(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCrewMutationResult = NonNullable<Awaited<ReturnType<typeof createCrew>>>
+    export type CreateCrewMutationBody = CrewCreateRequestDto
+    export type CreateCrewMutationError = RsData
+    export type CreateCrewMutationVariables = {data: CrewCreateRequestDto}
+
+    /**
+ * @summary 크루 만들기
+ */
+export const useCreateCrew = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCrew>>, TError,CreateCrewMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createCrew>>,
+        TError,
+        CreateCrewMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateCrewMutationOptions(options), queryClient);
+    }
+
+export const getFindMyCrewsUrl = () => {
+
+
+
+
+  return `/api/v1/member/crews/me`
+}
+
+/**
+ * 로그인한 회원이 가입한 크루를 가입한 순서로 돌려준다. 가입한 크루가 없으면 빈 배열이다.
+ * @summary 내 크루 목록
+ */
+export const findMyCrews = async ( options?: Parameters<typeof customFetch>[1]): Promise<RsDataListMyCrewDto> => {
+
+  return customFetch<RsDataListMyCrewDto>(getFindMyCrewsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getFindMyCrewsQueryKey = () => {
+    return [
+    `/api/v1/member/crews/me`
+    ] as const;
+    }
+
+
+export const getFindMyCrewsQueryOptions = <TData = Awaited<ReturnType<typeof findMyCrews>>, TError = RsData>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findMyCrews>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getFindMyCrewsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof findMyCrews>>> = ({ signal }) => findMyCrews({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof findMyCrews>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type FindMyCrewsQueryResult = NonNullable<Awaited<ReturnType<typeof findMyCrews>>>
+export type FindMyCrewsQueryError = RsData
+
+
+export function useFindMyCrews<TData = Awaited<ReturnType<typeof findMyCrews>>, TError = RsData>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof findMyCrews>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findMyCrews>>,
+          TError,
+          Awaited<ReturnType<typeof findMyCrews>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindMyCrews<TData = Awaited<ReturnType<typeof findMyCrews>>, TError = RsData>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findMyCrews>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findMyCrews>>,
+          TError,
+          Awaited<ReturnType<typeof findMyCrews>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindMyCrews<TData = Awaited<ReturnType<typeof findMyCrews>>, TError = RsData>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findMyCrews>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 내 크루 목록
+ */
+
+export function useFindMyCrews<TData = Awaited<ReturnType<typeof findMyCrews>>, TError = RsData>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findMyCrews>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getFindMyCrewsQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getFindCrewUrl = (crewId: number,) => {
+
+
+
+
+  return `/api/v1/member/crews/${crewId}`
+}
+
+/**
+ * 크루 정보와 크루원 목록을 돌려준다. 크루원만 볼 수 있다. 크루원은 실명 없이 닉네임과 역할만 보이고, 크루장, 운영진, 크루원 순서이며 같은 역할 안에서는 먼저 가입한 순서다. myRole로 초대 링크 만들기 버튼(크루장·운영진)과 크루 관리 버튼(크루장)을 보일지 정한다. 진행 중인 파티는 파티 서비스 API에서 따로 가져온다.
+ * @summary 크루 홈
+ */
+export const findCrew = async (crewId: number, options?: Parameters<typeof customFetch>[1]): Promise<RsDataCrewHomeDto> => {
+
+  return customFetch<RsDataCrewHomeDto>(getFindCrewUrl(crewId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getFindCrewQueryKey = (crewId: number,) => {
+    return [
+    `/api/v1/member/crews/${crewId}`
+    ] as const;
+    }
+
+
+export const getFindCrewQueryOptions = <TData = Awaited<ReturnType<typeof findCrew>>, TError = RsData>(crewId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findCrew>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getFindCrewQueryKey(crewId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof findCrew>>> = ({ signal }) => findCrew(crewId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: crewId !== null && crewId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof findCrew>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type FindCrewQueryResult = NonNullable<Awaited<ReturnType<typeof findCrew>>>
+export type FindCrewQueryError = RsData
+
+
+export function useFindCrew<TData = Awaited<ReturnType<typeof findCrew>>, TError = RsData>(
+ crewId: number, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof findCrew>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findCrew>>,
+          TError,
+          Awaited<ReturnType<typeof findCrew>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindCrew<TData = Awaited<ReturnType<typeof findCrew>>, TError = RsData>(
+ crewId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findCrew>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findCrew>>,
+          TError,
+          Awaited<ReturnType<typeof findCrew>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindCrew<TData = Awaited<ReturnType<typeof findCrew>>, TError = RsData>(
+ crewId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findCrew>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 크루 홈
+ */
+
+export function useFindCrew<TData = Awaited<ReturnType<typeof findCrew>>, TError = RsData>(
+ crewId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findCrew>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getFindCrewQueryOptions(crewId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDisbandCrewUrl = (crewId: number,) => {
+
+
+
+
+  return `/api/v1/member/crews/${crewId}`
+}
+
+/**
+ * 크루장이 크루를 없앤다. 크루장 말고 다른 크루원이 없을 때만 없앨 수 있다. 없앤 크루는 목록과 크루 홈에서 사라지고, 남아 있던 초대 링크도 쓸 수 없다. 크루 기록은 지우지 않고 상태만 「없앰」으로 바꾼다. 크루원·초대 기록은 지운다.
+ * @summary 크루 없애기 (2그룹)
+ */
+export const disbandCrew = async (crewId: number, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getDisbandCrewUrl(crewId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDisbandCrewMutationKey = () => ['disbandCrew'] as const;
+
+export const getDisbandCrewMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof disbandCrew>>, TError,DisbandCrewMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof disbandCrew>>, TError,DisbandCrewMutationVariables, TContext> => {
+
+const mutationKey = getDisbandCrewMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof disbandCrew>>, DisbandCrewMutationVariables> = (props) => {
+          const {crewId} = props ?? {};
+
+          return  disbandCrew(crewId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DisbandCrewMutationResult = NonNullable<Awaited<ReturnType<typeof disbandCrew>>>
+
+    export type DisbandCrewMutationError = RsData
+    export type DisbandCrewMutationVariables = {crewId: number}
+
+    /**
+ * @summary 크루 없애기 (2그룹)
+ */
+export const useDisbandCrew = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof disbandCrew>>, TError,DisbandCrewMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof disbandCrew>>,
+        TError,
+        DisbandCrewMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDisbandCrewMutationOptions(options), queryClient);
+    }
+
+export const getCreateCrewInviteUrl = (crewId: number,) => {
+
+
+
+
+  return `/api/v1/member/crews/${crewId}/invites`
+}
+
+/**
+ * 크루장과 운영진이 초대 링크를 만든다. 링크는 만든 때부터 24시간 동안 쓸 수 있다. 응답의 inviteToken으로 프론트가 초대 받기 화면 주소를 만든다. 토큰은 이 응답에서만 받을 수 있다. 초대 링크 하나로는 한 명만 가입한다.
+ * @summary 초대 링크 만들기
+ */
+export const createCrewInvite = async (crewId: number, options?: Parameters<typeof customFetch>[1]): Promise<RsDataCrewInviteCreatedDto> => {
+
+  return customFetch<RsDataCrewInviteCreatedDto>(getCreateCrewInviteUrl(crewId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getCreateCrewInviteMutationKey = () => ['createCrewInvite'] as const;
+
+export const getCreateCrewInviteMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCrewInvite>>, TError,CreateCrewInviteMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCrewInvite>>, TError,CreateCrewInviteMutationVariables, TContext> => {
+
+const mutationKey = getCreateCrewInviteMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCrewInvite>>, CreateCrewInviteMutationVariables> = (props) => {
+          const {crewId} = props ?? {};
+
+          return  createCrewInvite(crewId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCrewInviteMutationResult = NonNullable<Awaited<ReturnType<typeof createCrewInvite>>>
+
+    export type CreateCrewInviteMutationError = RsData
+    export type CreateCrewInviteMutationVariables = {crewId: number}
+
+    /**
+ * @summary 초대 링크 만들기
+ */
+export const useCreateCrewInvite = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCrewInvite>>, TError,CreateCrewInviteMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createCrewInvite>>,
+        TError,
+        CreateCrewInviteMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateCrewInviteMutationOptions(options), queryClient);
+    }
+
+export const getFindCrewInvitesUrl = (crewId: number,) => {
+
+
+
+
+  return `/api/v1/member/crews/${crewId}/invites`
+}
+
+/**
+ * 아직 쓸 수 있는 초대 링크(24시간 안, 취소·가입 전)를 돌려준다. 보낸 초대를 취소하는 화면에 쓴다. 크루장은 크루의 모든 초대를, 운영진은 자기가 보낸 초대만 받는다. 토큰은 돌려주지 않는다.
+ * @summary 보낸 초대 목록
+ */
+export const findCrewInvites = async (crewId: number, options?: Parameters<typeof customFetch>[1]): Promise<RsDataListCrewInviteDto> => {
+
+  return customFetch<RsDataListCrewInviteDto>(getFindCrewInvitesUrl(crewId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getFindCrewInvitesQueryKey = (crewId: number,) => {
+    return [
+    `/api/v1/member/crews/${crewId}/invites`
+    ] as const;
+    }
+
+
+export const getFindCrewInvitesQueryOptions = <TData = Awaited<ReturnType<typeof findCrewInvites>>, TError = RsData>(crewId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findCrewInvites>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getFindCrewInvitesQueryKey(crewId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof findCrewInvites>>> = ({ signal }) => findCrewInvites(crewId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: crewId !== null && crewId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof findCrewInvites>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type FindCrewInvitesQueryResult = NonNullable<Awaited<ReturnType<typeof findCrewInvites>>>
+export type FindCrewInvitesQueryError = RsData
+
+
+export function useFindCrewInvites<TData = Awaited<ReturnType<typeof findCrewInvites>>, TError = RsData>(
+ crewId: number, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof findCrewInvites>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findCrewInvites>>,
+          TError,
+          Awaited<ReturnType<typeof findCrewInvites>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindCrewInvites<TData = Awaited<ReturnType<typeof findCrewInvites>>, TError = RsData>(
+ crewId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findCrewInvites>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findCrewInvites>>,
+          TError,
+          Awaited<ReturnType<typeof findCrewInvites>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindCrewInvites<TData = Awaited<ReturnType<typeof findCrewInvites>>, TError = RsData>(
+ crewId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findCrewInvites>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 보낸 초대 목록
+ */
+
+export function useFindCrewInvites<TData = Awaited<ReturnType<typeof findCrewInvites>>, TError = RsData>(
+ crewId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findCrewInvites>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getFindCrewInvitesQueryOptions(crewId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCancelCrewInviteUrl = (crewId: number,
+    inviteId: number,) => {
+
+
+
+
+  return `/api/v1/member/crews/${crewId}/invites/${inviteId}`
+}
+
+/**
+ * 잘못 보낸 초대를 상대가 가입하기 전에 취소한다. 초대를 보낸 사람이나 크루장만 취소한다.
+ * @summary 초대 취소
+ */
+export const cancelCrewInvite = async (crewId: number,
+    inviteId: number, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getCancelCrewInviteUrl(crewId,inviteId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getCancelCrewInviteMutationKey = () => ['cancelCrewInvite'] as const;
+
+export const getCancelCrewInviteMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelCrewInvite>>, TError,CancelCrewInviteMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof cancelCrewInvite>>, TError,CancelCrewInviteMutationVariables, TContext> => {
+
+const mutationKey = getCancelCrewInviteMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof cancelCrewInvite>>, CancelCrewInviteMutationVariables> = (props) => {
+          const {crewId,inviteId} = props ?? {};
+
+          return  cancelCrewInvite(crewId,inviteId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CancelCrewInviteMutationResult = NonNullable<Awaited<ReturnType<typeof cancelCrewInvite>>>
+
+    export type CancelCrewInviteMutationError = RsData
+    export type CancelCrewInviteMutationVariables = {crewId: number;inviteId: number}
+
+    /**
+ * @summary 초대 취소
+ */
+export const useCancelCrewInvite = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelCrewInvite>>, TError,CancelCrewInviteMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof cancelCrewInvite>>,
+        TError,
+        CancelCrewInviteMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCancelCrewInviteMutationOptions(options), queryClient);
+    }
+
+export const getFindCrewInviteUrl = (inviteToken: string,) => {
+
+
+
+
+  return `/api/v1/member/crews/invites/${inviteToken}`
+}
+
+/**
+ * 초대 받기 화면에 크루 이름, 크루원 수, 링크가 끝나는 시각을 보여 준다. alreadyMember가 true면 이미 그 크루의 크루원이므로 프론트가 크루 홈으로 보낸다. 로그인이 필요하다. 로그인하지 않았으면 프론트가 로그인·회원가입을 거친 뒤 같은 초대 화면으로 돌아온다.
+ * @summary 초대 링크 정보 조회
+ */
+export const findCrewInvite = async (inviteToken: string, options?: Parameters<typeof customFetch>[1]): Promise<RsDataCrewInvitePreviewDto> => {
+
+  return customFetch<RsDataCrewInvitePreviewDto>(getFindCrewInviteUrl(inviteToken),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getFindCrewInviteQueryKey = (inviteToken: string,) => {
+    return [
+    `/api/v1/member/crews/invites/${inviteToken}`
+    ] as const;
+    }
+
+
+export const getFindCrewInviteQueryOptions = <TData = Awaited<ReturnType<typeof findCrewInvite>>, TError = RsData>(inviteToken: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findCrewInvite>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getFindCrewInviteQueryKey(inviteToken);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof findCrewInvite>>> = ({ signal }) => findCrewInvite(inviteToken, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: inviteToken !== null && inviteToken !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof findCrewInvite>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type FindCrewInviteQueryResult = NonNullable<Awaited<ReturnType<typeof findCrewInvite>>>
+export type FindCrewInviteQueryError = RsData
+
+
+export function useFindCrewInvite<TData = Awaited<ReturnType<typeof findCrewInvite>>, TError = RsData>(
+ inviteToken: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof findCrewInvite>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findCrewInvite>>,
+          TError,
+          Awaited<ReturnType<typeof findCrewInvite>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindCrewInvite<TData = Awaited<ReturnType<typeof findCrewInvite>>, TError = RsData>(
+ inviteToken: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findCrewInvite>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findCrewInvite>>,
+          TError,
+          Awaited<ReturnType<typeof findCrewInvite>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindCrewInvite<TData = Awaited<ReturnType<typeof findCrewInvite>>, TError = RsData>(
+ inviteToken: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findCrewInvite>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 초대 링크 정보 조회
+ */
+
+export function useFindCrewInvite<TData = Awaited<ReturnType<typeof findCrewInvite>>, TError = RsData>(
+ inviteToken: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findCrewInvite>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getFindCrewInviteQueryOptions(inviteToken,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getJoinCrewUrl = (inviteToken: string,) => {
+
+
+
+
+  return `/api/v1/member/crews/invites/${inviteToken}/join`
+}
+
+/**
+ * 초대 링크로 크루에 가입한다. 역할은 크루원이고, 가입 시각은 서버가 이 요청을 처리한 시각이다. 가입하면 가입 확정 알림을 보낸다. 같은 링크로 두 사람이 동시에 가입하면 한 사람만 성공한다.
+ * @summary 초대 링크로 가입하기
+ */
+export const joinCrew = async (inviteToken: string, options?: Parameters<typeof customFetch>[1]): Promise<RsDataCrewJoinedDto> => {
+
+  return customFetch<RsDataCrewJoinedDto>(getJoinCrewUrl(inviteToken),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getJoinCrewMutationKey = () => ['joinCrew'] as const;
+
+export const getJoinCrewMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof joinCrew>>, TError,JoinCrewMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof joinCrew>>, TError,JoinCrewMutationVariables, TContext> => {
+
+const mutationKey = getJoinCrewMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof joinCrew>>, JoinCrewMutationVariables> = (props) => {
+          const {inviteToken} = props ?? {};
+
+          return  joinCrew(inviteToken,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type JoinCrewMutationResult = NonNullable<Awaited<ReturnType<typeof joinCrew>>>
+
+    export type JoinCrewMutationError = RsData
+    export type JoinCrewMutationVariables = {inviteToken: string}
+
+    /**
+ * @summary 초대 링크로 가입하기
+ */
+export const useJoinCrew = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof joinCrew>>, TError,JoinCrewMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof joinCrew>>,
+        TError,
+        JoinCrewMutationVariables,
+        TContext
+      > => {
+      return useMutation(getJoinCrewMutationOptions(options), queryClient);
+    }
+
+export const getLeaveCrewUrl = (crewId: number,) => {
+
+
+
+
+  return `/api/v1/member/crews/${crewId}/members/me`
+}
+
+/**
+ * 크루원과 운영진이 스스로 크루를 떠난다. 크루장은 크루장을 넘긴 뒤에만 탈퇴한다. 이미 결제한 참가권은 남고, 결제하지 않고 임시로 잡아 둔 자리만 풀린다(파티 서비스가 처리).
+ * @summary 크루 탈퇴 (2그룹)
+ */
+export const leaveCrew = async (crewId: number, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getLeaveCrewUrl(crewId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getLeaveCrewMutationKey = () => ['leaveCrew'] as const;
+
+export const getLeaveCrewMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof leaveCrew>>, TError,LeaveCrewMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof leaveCrew>>, TError,LeaveCrewMutationVariables, TContext> => {
+
+const mutationKey = getLeaveCrewMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof leaveCrew>>, LeaveCrewMutationVariables> = (props) => {
+          const {crewId} = props ?? {};
+
+          return  leaveCrew(crewId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LeaveCrewMutationResult = NonNullable<Awaited<ReturnType<typeof leaveCrew>>>
+
+    export type LeaveCrewMutationError = RsData
+    export type LeaveCrewMutationVariables = {crewId: number}
+
+    /**
+ * @summary 크루 탈퇴 (2그룹)
+ */
+export const useLeaveCrew = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof leaveCrew>>, TError,LeaveCrewMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof leaveCrew>>,
+        TError,
+        LeaveCrewMutationVariables,
+        TContext
+      > => {
+      return useMutation(getLeaveCrewMutationOptions(options), queryClient);
+    }
+
+export const getRemoveCrewMemberUrl = (crewId: number,
+    memberId: number,) => {
+
+
+
+
+  return `/api/v1/member/crews/${crewId}/members/${memberId}`
+}
+
+/**
+ * 크루장이 크루원을 크루에서 내보낸다. 크루장 자신은 내보낼 수 없다. 운영진도 내보낼 수 있는지는 회의에서 정한다. 결제 기간 중인 파티장·파티원을 막을지도 회의에서 정한다(안건 14).
+ * @summary 크루원 내보내기 (2그룹)
+ */
+export const removeCrewMember = async (crewId: number,
+    memberId: number, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getRemoveCrewMemberUrl(crewId,memberId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getRemoveCrewMemberMutationKey = () => ['removeCrewMember'] as const;
+
+export const getRemoveCrewMemberMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeCrewMember>>, TError,RemoveCrewMemberMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof removeCrewMember>>, TError,RemoveCrewMemberMutationVariables, TContext> => {
+
+const mutationKey = getRemoveCrewMemberMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof removeCrewMember>>, RemoveCrewMemberMutationVariables> = (props) => {
+          const {crewId,memberId} = props ?? {};
+
+          return  removeCrewMember(crewId,memberId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RemoveCrewMemberMutationResult = NonNullable<Awaited<ReturnType<typeof removeCrewMember>>>
+
+    export type RemoveCrewMemberMutationError = RsData
+    export type RemoveCrewMemberMutationVariables = {crewId: number;memberId: number}
+
+    /**
+ * @summary 크루원 내보내기 (2그룹)
+ */
+export const useRemoveCrewMember = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeCrewMember>>, TError,RemoveCrewMemberMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof removeCrewMember>>,
+        TError,
+        RemoveCrewMemberMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRemoveCrewMemberMutationOptions(options), queryClient);
+    }
+
+export const getTransferCrewLeaderUrl = (crewId: number,) => {
+
+
+
+
+  return `/api/v1/member/crews/${crewId}/leader`
+}
+
+/**
+ * 크루장이 다른 크루원에게 크루장을 넘긴다. 넘긴 사람은 크루원 역할이 된다. 넘겨받은 사람의 가입 시각은 바뀌지 않는다.
+ * @summary 크루장 넘기기 (2그룹)
+ */
+export const transferCrewLeader = async (crewId: number,
+    crewLeaderTransferRequestDto: CrewLeaderTransferRequestDto, options?: Parameters<typeof customFetch>[1]): Promise<RsDataCrewHomeDto> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<RsDataCrewHomeDto>(getTransferCrewLeaderUrl(crewId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(crewLeaderTransferRequestDto)
+  }
+);}
+
+
+
+
+
+export const getTransferCrewLeaderMutationKey = () => ['transferCrewLeader'] as const;
+
+export const getTransferCrewLeaderMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof transferCrewLeader>>, TError,TransferCrewLeaderMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof transferCrewLeader>>, TError,TransferCrewLeaderMutationVariables, TContext> => {
+
+const mutationKey = getTransferCrewLeaderMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof transferCrewLeader>>, TransferCrewLeaderMutationVariables> = (props) => {
+          const {crewId,data} = props ?? {};
+
+          return  transferCrewLeader(crewId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TransferCrewLeaderMutationResult = NonNullable<Awaited<ReturnType<typeof transferCrewLeader>>>
+    export type TransferCrewLeaderMutationBody = CrewLeaderTransferRequestDto
+    export type TransferCrewLeaderMutationError = RsData
+    export type TransferCrewLeaderMutationVariables = {crewId: number;data: CrewLeaderTransferRequestDto}
+
+    /**
+ * @summary 크루장 넘기기 (2그룹)
+ */
+export const useTransferCrewLeader = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof transferCrewLeader>>, TError,TransferCrewLeaderMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof transferCrewLeader>>,
+        TError,
+        TransferCrewLeaderMutationVariables,
+        TContext
+      > => {
+      return useMutation(getTransferCrewLeaderMutationOptions(options), queryClient);
+    }
+
+export const getCompleteIdentityVerificationUrl = (identityVerificationId: string,) => {
+
+
+
+
+  return `/api/v1/auth/identity-verifications/${identityVerificationId}/complete`
+}
+
+/**
+ * 포트원 창이 끝나면 부른다. 서버가 포트원 조회 API로 결과를 직접 확인하고, 확인된 이름 · 생년월일 · 휴대폰 번호와 CI 해시를 15분 동안 저장한다. 화면이 보낸 인증 결과는 쓰지 않는다. 이미 확인한 ID를 다시 부르면 저장한 결과를 그대로 돌려준다.
+ * @summary 본인인증 확인
+ */
+export const completeIdentityVerification = async (identityVerificationId: string, options?: Parameters<typeof customFetch>[1]): Promise<RsDataVerifiedIdentityDto> => {
+
+  return customFetch<RsDataVerifiedIdentityDto>(getCompleteIdentityVerificationUrl(identityVerificationId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getCompleteIdentityVerificationMutationKey = () => ['completeIdentityVerification'] as const;
+
+export const getCompleteIdentityVerificationMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeIdentityVerification>>, TError,CompleteIdentityVerificationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof completeIdentityVerification>>, TError,CompleteIdentityVerificationMutationVariables, TContext> => {
+
+const mutationKey = getCompleteIdentityVerificationMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof completeIdentityVerification>>, CompleteIdentityVerificationMutationVariables> = (props) => {
+          const {identityVerificationId} = props ?? {};
+
+          return  completeIdentityVerification(identityVerificationId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CompleteIdentityVerificationMutationResult = NonNullable<Awaited<ReturnType<typeof completeIdentityVerification>>>
+
+    export type CompleteIdentityVerificationMutationError = RsData
+    export type CompleteIdentityVerificationMutationVariables = {identityVerificationId: string}
+
+    /**
+ * @summary 본인인증 확인
+ */
+export const useCompleteIdentityVerification = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeIdentityVerification>>, TError,CompleteIdentityVerificationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof completeIdentityVerification>>,
+        TError,
+        CompleteIdentityVerificationMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCompleteIdentityVerificationMutationOptions(options), queryClient);
+    }
+
+export const getStartIdentityVerificationUrl = () => {
+
+
+
+
+  return `/api/v1/auth/identity-verifications`
+}
+
+/**
+ * 포트원 창을 열 인증 ID를 만들어 15분 동안 저장한다. 화면은 이 ID로 PortOne.requestIdentityVerification()을 부른다. 서버가 만든 ID의 결과만 가입에 쓸 수 있다.
+ * @summary 본인인증 시작
+ */
+export const startIdentityVerification = async ( options?: Parameters<typeof customFetch>[1]): Promise<RsDataIdentityVerificationStartDto> => {
+
+  return customFetch<RsDataIdentityVerificationStartDto>(getStartIdentityVerificationUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getStartIdentityVerificationMutationKey = () => ['startIdentityVerification'] as const;
+
+export const getStartIdentityVerificationMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startIdentityVerification>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof startIdentityVerification>>, TError,void, TContext> => {
+
+const mutationKey = getStartIdentityVerificationMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof startIdentityVerification>>, void> = () => {
+
+
+          return  startIdentityVerification(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type StartIdentityVerificationMutationResult = NonNullable<Awaited<ReturnType<typeof startIdentityVerification>>>
+
+    export type StartIdentityVerificationMutationError = unknown
+
+
+    /**
+ * @summary 본인인증 시작
+ */
+export const useStartIdentityVerification = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startIdentityVerification>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof startIdentityVerification>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getStartIdentityVerificationMutationOptions(options), queryClient);
+    }
+
+export const getVerifyPasswordResetUrl = () => {
+
+
+
+
+  return `/api/v1/auth/password-reset/verify`
+}
+
+/**
+ * 새 비밀번호 화면을 열 때 링크가 아직 쓸 수 있는지 확인한다. 링크를 쓴 것으로 치지 않는다.
+ * @summary 재설정 링크 확인
+ */
+export const verifyPasswordReset = async (passwordResetTokenDto: PasswordResetTokenDto, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<unknown>(getVerifyPasswordResetUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(passwordResetTokenDto)
+  }
+);}
+
+
+
+
+
+export const getVerifyPasswordResetMutationKey = () => ['verifyPasswordReset'] as const;
+
+export const getVerifyPasswordResetMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyPasswordReset>>, TError,VerifyPasswordResetMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof verifyPasswordReset>>, TError,VerifyPasswordResetMutationVariables, TContext> => {
+
+const mutationKey = getVerifyPasswordResetMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof verifyPasswordReset>>, VerifyPasswordResetMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  verifyPasswordReset(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type VerifyPasswordResetMutationResult = NonNullable<Awaited<ReturnType<typeof verifyPasswordReset>>>
+    export type VerifyPasswordResetMutationBody = PasswordResetTokenDto
+    export type VerifyPasswordResetMutationError = RsData
+    export type VerifyPasswordResetMutationVariables = {data: PasswordResetTokenDto}
+
+    /**
+ * @summary 재설정 링크 확인
+ */
+export const useVerifyPasswordReset = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyPasswordReset>>, TError,VerifyPasswordResetMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof verifyPasswordReset>>,
+        TError,
+        VerifyPasswordResetMutationVariables,
+        TContext
+      > => {
+      return useMutation(getVerifyPasswordResetMutationOptions(options), queryClient);
+    }
+
+export const getRequestPasswordResetUrl = () => {
+
+
+
+
+  return `/api/v1/auth/password-reset/request`
+}
+
+/**
+ * 가입한 이메일이면 30분 동안 한 번 쓸 수 있는 재설정 링크를 메일로 보낸다. 가입하지 않은 이메일·탈퇴한 회원도 같은 200으로 응답하고 메일은 보내지 않는다. 비밀번호 없는 소셜 가입 회원에게는 링크 대신 소셜 로그인 안내 메일을 보낸다. 메일은 응답 뒤 따로 보내고, 실패하면 최대 3번 다시 보낸다. 같은 이메일은 1분에 1번, 하루 5번까지 받는다.
+ * @summary 비밀번호 재설정 메일 요청
+ */
+export const requestPasswordReset = async (passwordResetRequestDto: PasswordResetRequestDto, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<unknown>(getRequestPasswordResetUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(passwordResetRequestDto)
+  }
+);}
+
+
+
+
+
+export const getRequestPasswordResetMutationKey = () => ['requestPasswordReset'] as const;
+
+export const getRequestPasswordResetMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestPasswordReset>>, TError,RequestPasswordResetMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof requestPasswordReset>>, TError,RequestPasswordResetMutationVariables, TContext> => {
+
+const mutationKey = getRequestPasswordResetMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof requestPasswordReset>>, RequestPasswordResetMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  requestPasswordReset(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RequestPasswordResetMutationResult = NonNullable<Awaited<ReturnType<typeof requestPasswordReset>>>
+    export type RequestPasswordResetMutationBody = PasswordResetRequestDto
+    export type RequestPasswordResetMutationError = RsData
+    export type RequestPasswordResetMutationVariables = {data: PasswordResetRequestDto}
+
+    /**
+ * @summary 비밀번호 재설정 메일 요청
+ */
+export const useRequestPasswordReset = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestPasswordReset>>, TError,RequestPasswordResetMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof requestPasswordReset>>,
+        TError,
+        RequestPasswordResetMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRequestPasswordResetMutationOptions(options), queryClient);
+    }
+
+export const getConfirmPasswordResetUrl = () => {
+
+
+
+
+  return `/api/v1/auth/password-reset/confirm`
+}
+
+/**
+ * 재설정 링크로 새 비밀번호를 저장하고 링크를 지운다. 저장한 뒤 모든 기기의 로그인(Refresh Token)을 풀고 변경 알림 메일을 보낸다. 이미 받은 Access Token은 만료(최대 30분)까지 쓸 수 있다.
+ * @summary 새 비밀번호 저장
+ */
+export const confirmPasswordReset = async (passwordResetConfirmDto: PasswordResetConfirmDto, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<unknown>(getConfirmPasswordResetUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(passwordResetConfirmDto)
+  }
+);}
+
+
+
+
+
+export const getConfirmPasswordResetMutationKey = () => ['confirmPasswordReset'] as const;
+
+export const getConfirmPasswordResetMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof confirmPasswordReset>>, TError,ConfirmPasswordResetMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof confirmPasswordReset>>, TError,ConfirmPasswordResetMutationVariables, TContext> => {
+
+const mutationKey = getConfirmPasswordResetMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof confirmPasswordReset>>, ConfirmPasswordResetMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  confirmPasswordReset(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ConfirmPasswordResetMutationResult = NonNullable<Awaited<ReturnType<typeof confirmPasswordReset>>>
+    export type ConfirmPasswordResetMutationBody = PasswordResetConfirmDto
+    export type ConfirmPasswordResetMutationError = RsData
+    export type ConfirmPasswordResetMutationVariables = {data: PasswordResetConfirmDto}
+
+    /**
+ * @summary 새 비밀번호 저장
+ */
+export const useConfirmPasswordReset = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof confirmPasswordReset>>, TError,ConfirmPasswordResetMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof confirmPasswordReset>>,
+        TError,
+        ConfirmPasswordResetMutationVariables,
+        TContext
+      > => {
+      return useMutation(getConfirmPasswordResetMutationOptions(options), queryClient);
+    }
 

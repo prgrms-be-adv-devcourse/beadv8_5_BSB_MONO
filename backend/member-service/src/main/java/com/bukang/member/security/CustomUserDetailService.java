@@ -20,7 +20,9 @@ public class CustomUserDetailService implements UserDetailsService {
 	@Override
 	public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
 		// 탈퇴한 회원은 이메일이 비어 찾히지 않지만, 상태로도 한 번 더 막는다 (BE-022)
+		// 비밀번호 없는 소셜 회원은 이메일 로그인을 할 수 없다 (BE-035). MemberFacade.login이 먼저 걸러 안내한다
 		Member member = memberRepository.findActiveByEmail(email)
+			.filter(Member::hasPassword)
 			.orElseThrow(() -> new UsernameNotFoundException("존재하지 않는 회원입니다."));
 
 		return new CustomUserDetails(member);

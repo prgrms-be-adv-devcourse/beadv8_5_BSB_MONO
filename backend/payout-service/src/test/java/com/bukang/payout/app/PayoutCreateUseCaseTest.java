@@ -26,16 +26,19 @@ import com.bukang.payout.domain.PayoutItem;
 import com.bukang.payout.domain.PayoutRecordType;
 import com.bukang.payout.domain.PayoutStage;
 import com.bukang.payout.domain.PayoutStatus;
+import com.bukang.payout.dto.PayoutCreateResultDto;
 import com.bukang.payout.out.PayoutHoldRepository;
 import com.bukang.payout.out.PayoutItemRepository;
 import com.bukang.payout.out.PayoutRecoveryRepository;
 import com.bukang.payout.out.PayoutRepository;
+import com.bukang.payout.out.RacePort;
 import com.bukang.payout.out.RaceSchedule;
 import com.bukang.payout.out.SellerAccountPort;
 import com.bukang.payout.out.SoldEntry;
 import com.bukang.payout.out.SoldEntryPort;
 import com.bukang.payout.out.SoldSummary;
 import com.bukang.payout.out.SoldSummaryPort;
+import com.bukang.payout.support.PayoutFixture;
 import com.bukang.payout.support.StubRacePort;
 
 @DataJpaTest
@@ -153,7 +156,7 @@ class PayoutCreateUseCaseTest {
 		assertThat(seller1.getRaceId()).isEqualTo(10);
 		assertThat(seller1.getPayoutMonth()).isEqualTo("2026-09");
 		assertThat(seller1.getStatus()).isEqualTo(PayoutStatus.CALCULATED);
-		assertThat(seller1.getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 9, 27)); // 대회 9/25 금 + 2일 = 9/27 일
+		assertThat(seller1.getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 10, 20)); // 정산 월 9월 → 10/20 화
 		assertThat(seller1.getPayoutAmount()).isEqualTo(94_500L);
 		// 최종은 참가권마다 판매 · 수수료 두 줄과 참가권 없는 1차 정산금 차감 한 줄 (PRO-214)
 		assertThat(seller1.getItems())
@@ -231,7 +234,7 @@ class PayoutCreateUseCaseTest {
 
 		Payout payout = payoutOf(1);
 		assertThat(payout.getPayoutMonth()).isEqualTo("2026-09");
-		assertThat(payout.getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 9, 30)); // 대회 9/28 월 + 2일 = 9/30 수
+		assertThat(payout.getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 10, 20)); // 정산 월 9월 → 10/20 화
 		assertThat(payout.getItems())
 			.filteredOn(item -> item.getOrderItemId() != null)
 			.extracting(PayoutItem::getTargetDate)
@@ -252,11 +255,11 @@ class PayoutCreateUseCaseTest {
 		assertThat(payoutRepository.findAll()).hasSize(2);
 		// 대회 9/29 → 정산 대상일 9/30
 		assertThat(payoutOf(1).getPayoutMonth()).isEqualTo("2026-09");
-		assertThat(payoutOf(1).getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 10, 1)); // 대회 9/29 화 + 2일 = 10/1 목
+		assertThat(payoutOf(1).getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 10, 20)); // 정산 월 9월 → 10/20 화
 		// 대회 9/30 → 정산 대상일은 10/1이지만 정산 월은 대회일의 달 9월이다 (PRO-32에서 대상일의 달에서 바꿈)
 		assertThat(payoutOf(2).getPayoutMonth()).isEqualTo("2026-09");
-		// 대회 9/30 수 + 2일 = 10/2 금
-		assertThat(payoutOf(2).getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 10, 2));
+		// 대상일의 달(10월)이 아니라 정산 월(9월)의 다음 달 20일이다
+		assertThat(payoutOf(2).getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 10, 20));
 	}
 
 	@Test
@@ -325,6 +328,39 @@ class PayoutCreateUseCaseTest {
 	}
 
 	@Test
+	@DisplayName("1차 대상 대회를 상품 서비스에서 받지 못해도 같은 실행의 최종 정산은 만들고, 실행 결과에 실패로 남긴다 (PRO-241)")
+	void firstRaceLookupFailureDoesNotStopFinal() {
+		List<SoldEntry> entries = List.of(new SoldEntry(100, 1, 10, 10L, RACE_DATE, 50_000L));
+		StubRacePort working = new StubRacePort(RACE_NAMES, List.of(), entries);
+		RacePort firstLookupDown = new RacePort() {
+			@Override
+			public List<RaceSchedule> findRacesByRefundDeadline(LocalDate fromRefundDeadline,
+				LocalDate toRefundDeadline) {
+				throw new IllegalStateException("상품 서비스 응답 없음");
+			}
+
+			@Override
+			public List<RaceSchedule> findRacesByRaceDate(LocalDate fromRaceDate, LocalDate toRaceDate) {
+				return working.findRacesByRaceDate(fromRaceDate, toRaceDate);
+			}
+		};
+		PayoutCreateStepUseCase payoutCreateStepUseCase =
+			new PayoutCreateStepUseCase(payoutRepository, new BusinessDayCalendar(),
+				new PayoutLedgerUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository),
+				new PayoutHoldUseCase(payoutRepository, payoutHoldRepository, new BusinessDayCalendar()));
+		PayoutCreateUseCase useCase = new PayoutCreateUseCase(payoutRepository, payoutCreateStepUseCase,
+			soldEntriesReturning(entries), sellerId -> true, firstLookupDown, summariesOf(entries));
+
+		PayoutCreateResultDto result = useCase.run(TARGET_DATE, NOW);
+
+		assertThat(payoutRepository.findAll())
+			.extracting(Payout::getRaceId, Payout::getPayoutStage)
+			.containsExactly(tuple(10L, PayoutStage.FINAL));
+		assertThat(result.created()).isEqualTo(1);
+		assertThat(result.failed()).isEqualTo(1);
+	}
+
+	@Test
 	@DisplayName("1차: 환불 마감 9/30이면 10/1 실행이 1차 정산을 만든다. 정산 월 2026-09, 장마다 40%, 수수료 없음, 10/2 지급 예정")
 	void createsFirstPayoutDayAfterRefundDeadline() {
 		LocalDate refundDeadline = LocalDate.of(2026, 9, 30);
@@ -342,7 +378,7 @@ class PayoutCreateUseCaseTest {
 
 		Payout first = payoutOf(1, PayoutStage.FIRST);
 		assertThat(first.getPayoutMonth()).isEqualTo("2026-09");
-		assertThat(first.getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 10, 2)); // 마감 9/30 수 + 2일 = 10/2 금
+		assertThat(first.getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 10, 20)); // 정산 월 9월 → 10/20 화
 		assertThat(first.getSettledAt()).isEqualTo(LocalDateTime.of(2026, 10, 1, 3, 0));
 		assertThat(first.getSalesAmount()).isEqualTo(100_000L);
 		assertThat(first.getFeeAmount()).isZero();
@@ -402,7 +438,7 @@ class PayoutCreateUseCaseTest {
 		Payout last = payoutOf(1, PayoutStage.FINAL);
 		assertThat(first.getPayoutMonth()).isEqualTo("2026-09");
 		assertThat(last.getPayoutMonth()).isEqualTo("2026-09");
-		assertThat(last.getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 10, 2)); // 대회 9/30 수 + 2일 = 10/2 금
+		assertThat(last.getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 10, 20)); // 1차와 같은 날 지급
 		assertThat(last.getSalesAmount()).isEqualTo(100_000L);
 		assertThat(last.getFeeAmount()).isEqualTo(5_500L);
 		assertThat(last.getAdvanceDeductionAmount()).isEqualTo(40_000L);
@@ -410,29 +446,27 @@ class PayoutCreateUseCaseTest {
 		assertThat(first.getPayoutAmount() + last.getPayoutAmount()).isEqualTo(94_500L);
 	}
 
+	// 1차가 보류 중이어도 최종은 1차가 지급된 뒤에만 나가므로(PRO-188) 따로 보류하지 않는다 (PRO-189, 11/3 결정)
+	// 최종이 기다리다 1차 지급 뒤 나가는 것은 PayoutPayUseCaseTest가 확인한다
 	@Test
-	@DisplayName("1차가 보류 중이면 최종을 만들고 같은 사유로 보류한다")
-	void holdsFinalWhenFirstIsHeld() {
+	@DisplayName("1차가 보류 중이어도 최종은 보류하지 않고 정산 예정으로 만든다")
+	void doesNotHoldFinalWhenFirstIsHeld() {
 		LocalDate raceDate = LocalDate.of(2026, 9, 30);
-		List<SoldEntry> entries = List.of(new SoldEntry(100, 1, 10, 10L, raceDate, 50_000L));
-		List<RaceSchedule> schedules =
-			List.of(new RaceSchedule(10, "2026 한강 나이트런", raceDate, LocalDate.of(2026, 9, 20)));
+		List<SoldEntry> entries = List.of(PayoutFixture.soldEntry(raceDate));
+		List<RaceSchedule> schedules = List.of(PayoutFixture.raceSchedule(raceDate, LocalDate.of(2026, 9, 20)));
 
 		// 1차를 만들 때는 계좌가 없어 자동 보류가 걸렸다
 		useCaseSelling(entries, sellerId -> false, schedules)
 			.run(LocalDate.of(2026, 9, 21), LocalDateTime.of(2026, 9, 21, 3, 0));
-		// 최종을 만들 때는 계좌가 있지만 1차가 아직 보류 중이다
+		// 최종을 만들 때는 계좌가 있고 1차는 아직 보류 중이다
 		useCaseSelling(entries, sellerId -> true, schedules)
 			.run(LocalDate.of(2026, 10, 1), LocalDateTime.of(2026, 10, 1, 3, 0));
 
-		Payout last = payoutOf(1, PayoutStage.FINAL);
-		assertThat(last.getStatus()).isEqualTo(PayoutStatus.HELD);
-		PayoutHold finalHold = payoutHoldRepository.findAll().stream()
-			.filter(hold -> hold.getPayout().getId() == last.getId())
-			.findFirst()
-			.orElseThrow();
-		assertThat(finalHold.getReasonType()).isEqualTo(PayoutHoldReason.ACCOUNT_NOT_REGISTERED);
-		assertThat(finalHold.getReason()).isEqualTo("1차 정산 보류 중이라 최종 정산도 자동 보류");
+		assertThat(payoutOf(PayoutFixture.SELLER_ID, PayoutStage.FINAL).getStatus())
+			.isEqualTo(PayoutStatus.CALCULATED);
+		assertThat(payoutHoldRepository.findAll())
+			.extracting(hold -> hold.getPayout().getPayoutStage())
+			.containsExactly(PayoutStage.FIRST);
 	}
 
 	@Test

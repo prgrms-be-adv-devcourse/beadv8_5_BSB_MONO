@@ -3,6 +3,7 @@ package com.bukang.payout.in;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.List;
 
@@ -30,11 +31,13 @@ import lombok.extern.slf4j.Slf4j;
  * 개발용 판매자 정산 샘플 데이터 (판매자 화면 https://crewrun-alpha.vercel.app/seller 기준)
  * 대회 이름 · 참가비 · 판매 수는 화면에서 가져오고, 금액 · 지급일 · 정산 ID는 도메인 메서드가 2단계 정산 규칙으로 계산한다.
  * 1차는 환불 마감일 다음 날, 최종은 대회 다음 날 03:00에 만들고(정산 생성 배치와 같다), 지급 예정일은
- * 1차 환불 마감일 + 2일 · 최종 대회일 + 2일, 보류를 풀면 max(원래 지급 예정일, 해제일 + 1일)이다 (10/28 결정).
+ * 정산 월(1차 환불 마감일의 달 · 최종 대회일의 달)의 다음 달 20일(주말이어도 그날),
+ * 보류를 풀면 max(원래 지급 예정일, 해제일 + 1일)이다 (10/29 결정).
  * 환불 마감일은 상품 서비스를 부르지 않고 대회일 10일 전으로 둔다.
  * 날짜는 처음 만든 날(오늘) 기준의 상대 날짜라, 누가 언제 dev로 띄워도 아래 상태가 모두 보인다 (ProductDataInit과 같은 방식).
- *   지급 완료 1대회(1), 보류를 풀어 지급 완료 1대회(6, 해제된 보류 2건), 1차 지급 완료 · 최종 내일 지급 예정(7),
- *   1차 지급 완료 · 최종 지급보류(8, 지급보류 1건), 1차만 내일 지급 예정(9, 대회 전)
+ * 지급일이 20일로 모이므로 대회일은 오늘의 달과 "오늘이 지났거나 오늘인 가장 최근 지급일"(최근 지급일)의 달을 기준으로 정한다.
+ *   지급 완료 1대회(1), 보류를 풀어 지급 완료 1대회(6, 해제된 보류 2건), 1차 지급 완료 · 최종 지급 예정(7),
+ *   1차 지급 완료 · 최종 지급보류(8, 지급보류 1건), 1차만 지급 예정(9, 대회 전)
  * 처음 만든 날의 상대 날짜로 정해지므로, 시간이 지나면 지급 예정이 그날 04:00 지급 배치에서 지급 완료로 바뀐다.
  * 처음 상태를 다시 보려면 dev DB에서 판매자 7의 정산 데이터를 지운다.
  * 대회 이름은 화면의 이름을 직접 넣고, 대회 ID는 아래 번호를 쓴다 (상품 서비스 ProductDataInit의 더미 대회와는 연결되지 않는다)
@@ -91,33 +94,38 @@ public class PayoutDataInit {
 			return;
 		}
 
-		// 봄 한강 10K (화면 '종료', 2,000 / 2,000): 대회 60일 전 → 1차 · 최종 모두 지급 예정일 04:00에 지급 완료
-		StagePair spring = createPayouts(1, "2026 봄 한강 10K", today.minusDays(60), 2_000, PRICE_10K);
+		YearMonth thisMonth = YearMonth.from(today);
+		// 최근 지급일의 달: 이번 달 지급일이 오늘이거나 지났으면 이번 달, 아니면 지난달 (예: 10/28 → 10월, 10/15 → 9월)
+		YearMonth lastPayMonth = Payout.payDayOf(thisMonth, calendar).isAfter(today)
+			? thisMonth.minusMonths(1) : thisMonth;
+
+		// 봄 한강 10K (화면 '종료', 2,000 / 2,000): 석 달 전 12일 대회(마감 2일) → 1차 · 최종 모두 두 달 전 20일 04:00에 지급 완료
+		StagePair spring = createPayouts(1, "2026 봄 한강 10K", thisMonth.minusMonths(3).atDay(12), 2_000, PRICE_10K);
 		payOnScheduledDate(spring.first());
 		payOnScheduledDate(spring.last());
 
-		// 여름 야간 레이스: 판매자가 계좌를 늦게 등록한 경우. 1차 · 최종 모두 대상일에 자동 보류 → 30일 전 관리자 해제
-		// → 원래 지급 예정일이 지났으므로 해제일 + 1일에 지급 완료
-		StagePair summer = createPayouts(6, "2026 여름 야간 레이스", today.minusDays(45), 800, PRICE_5K);
+		// 여름 야간 레이스: 판매자가 계좌를 늦게 등록한 경우. 두 달 전 18일 대회(마감 8일) → 1차 · 최종 모두 대상일에 자동 보류
+		// → 지난달 24일 관리자 해제. 원래 지급 예정일(지난달 20일)이 지났으므로 해제일 + 1일(25일)에 지급 완료
+		StagePair summer = createPayouts(6, "2026 여름 야간 레이스", thisMonth.minusMonths(2).atDay(18), 800, PRICE_5K);
 		for (Payout payout : List.of(summer.first(), summer.last())) {
 			PayoutHold accountHold = hold(payout, PayoutHoldReason.ACCOUNT_NOT_REGISTERED, null,
 				PayoutHold.SYSTEM_MEMBER_ID, payout.getSettledAt());
-			payout.release(accountHold, ADMIN_MEMBER_ID, today.minusDays(30).atTime(10, 30), calendar);
+			payout.release(accountHold, ADMIN_MEMBER_ID, thisMonth.minusMonths(1).atDay(24).atTime(10, 30), calendar);
 			payOnScheduledDate(payout);
 		}
 
-		// 한강 나이트런 (화면 정산 탭): 어제 대회 → 1차는 이미 지급 완료, 최종은 오늘 03:00에 만들어져 내일 지급 예정
-		// 요약의 다음 정산일 · 정산 예정액이 된다
-		StagePair nightRun = createPayouts(7, "2026 한강 나이트런", today.minusDays(1), 1_200, PRICE_10K);
+		// 한강 나이트런 (화면 정산 탭): 최근 지급일의 달 5일 대회(마감은 그 전달) → 1차는 최근 지급일에 지급 완료,
+		// 최종은 그다음 달 20일 지급 예정 (오늘보다 뒤). 요약의 다음 정산일 · 정산 예정액이 된다
+		StagePair nightRun = createPayouts(7, "2026 한강 나이트런", lastPayMonth.atDay(5), 1_200, PRICE_10K);
 		payOnScheduledDate(nightRun.first());
 
-		// 가을 하프마라톤: 사흘 전 대회 → 1차는 지급 완료, 최종은 어제 지급 예정이었으나 그 전날 관리자가 보류 (지급보류 1건)
-		StagePair half = createPayouts(8, "2026 가을 하프마라톤", today.minusDays(3), 1_500, PRICE_HALF);
+		// 가을 하프마라톤: 최근 지급일의 달 8일 대회 → 1차는 지급 완료, 최종은 지급 예정이었으나 관리자가 보류 (지급보류 1건)
+		StagePair half = createPayouts(8, "2026 가을 하프마라톤", lastPayMonth.atDay(8), 1_500, PRICE_HALF);
 		payOnScheduledDate(half.first());
 		hold(half.last(), PayoutHoldReason.RACE_CANCELED, "기상 악화로 하프 종목 중단, 환불 범위 확인 중", ADMIN_MEMBER_ID,
 			half.last().getSettledAt().plusHours(11));
 
-		// 서울숲 가을 10K: 어제 환불 마감 → 1차가 오늘 03:00에 만들어져 내일 지급 예정. 대회(9일 뒤) 전이라 최종은 없다
+		// 서울숲 가을 10K: 어제 환불 마감 → 1차가 오늘 03:00에 만들어져 마감일 다음 달 20일 지급 예정. 대회(9일 뒤) 전이라 최종은 없다
 		createFirst(9, "2026 서울숲 가을 10K", today.minusDays(1), 600, PRICE_10K);
 
 		log.info("정산 샘플 데이터 생성: sellerId={}, today={}", SELLER_ID, today);

@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
@@ -38,10 +39,10 @@ import com.bukang.common.shared.member.event.MemberModifiedEvent;
 import com.bukang.common.shared.member.web.MemberIdHeader;
 import com.bukang.member.app.MemberFacade;
 import com.bukang.member.domain.Member;
-import com.bukang.member.domain.TermsType;
-import com.bukang.member.dto.MemberJoinRequestDto;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.TermsAgreementRepository;
+import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
+import com.bukang.member.support.MemberFixture;
 
 // 게이트웨이가 토큰을 검사하고 넣어 주는 X-Member-Id 헤더를 테스트에서는 직접 넣는다
 // 수정 이벤트는 스프링 이벤트로 발행됐는지만 본다. Kafka로 나가는 건 MemberKafkaPublisherTest가 확인한다
@@ -49,7 +50,11 @@ import com.bukang.member.out.TermsAgreementRepository;
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @RecordApplicationEvents
+@Import(InMemoryIdentityVerificationStore.Config.class)
 class ApiV1MemberModifyTest {
+	@Autowired
+	private InMemoryIdentityVerificationStore identityStore;
+
 	private static final String ME = "/api/v1/member/members/me";
 	private static final String NAME = "김러너";
 	private static final String NICKNAME = "러너1";
@@ -79,7 +84,10 @@ class ApiV1MemberModifyTest {
 
 	@BeforeEach
 	void setUp() {
-		memberId = joinDirectly("runner1@crewrun.com", NICKNAME, PHONE);
+		memberId = memberFacade.join(MemberFixture.joinRequest()
+			.email("runner1@crewrun.com").name(NAME).nickname(NICKNAME).phone(PHONE)
+			.birthDate(LocalDate.of(1995, 4, 12))
+			.build(identityStore)).getId();
 		// 가입할 때 부른 중복 검사·저장은 세지 않도록 지운다
 		clearInvocations(memberRepository);
 	}
@@ -154,7 +162,7 @@ class ApiV1MemberModifyTest {
 	@Test
 	@DisplayName("다른 회원이 쓰는 닉네임으로 바꾸면 409다")
 	void modifyFailsWithOthersNickname() throws Exception {
-		joinDirectly("runner2@crewrun.com", OTHER_NICKNAME, OTHER_PHONE);
+		memberFacade.join(MemberFixture.joinRequest().nickname(OTHER_NICKNAME).phone(OTHER_PHONE).build(identityStore));
 
 		modify(memberId, NAME, OTHER_NICKNAME, PHONE, BIRTH_DATE)
 			.andExpect(status().isConflict())
@@ -166,7 +174,7 @@ class ApiV1MemberModifyTest {
 	@Test
 	@DisplayName("다른 회원이 쓰는 휴대폰 번호로 바꾸면 하이픈 유무와 상관없이 409다")
 	void modifyFailsWithOthersPhone() throws Exception {
-		joinDirectly("runner2@crewrun.com", OTHER_NICKNAME, OTHER_PHONE);
+		memberFacade.join(MemberFixture.joinRequest().nickname(OTHER_NICKNAME).phone(OTHER_PHONE).build(identityStore));
 
 		modify(memberId, NAME, NICKNAME, "01099998888", BIRTH_DATE)
 			.andExpect(status().isConflict())
@@ -178,7 +186,7 @@ class ApiV1MemberModifyTest {
 	@Test
 	@DisplayName("동시 수정으로 중복 검사를 통과해도 DB 닉네임 제약에 걸리면 409다")
 	void modifyRaceFailsOnNicknameConstraint() throws Exception {
-		joinDirectly("runner2@crewrun.com", OTHER_NICKNAME, OTHER_PHONE);
+		memberFacade.join(MemberFixture.joinRequest().nickname(OTHER_NICKNAME).phone(OTHER_PHONE).build(identityStore));
 		skipDuplicateChecks();
 
 		modify(memberId, NAME, OTHER_NICKNAME, PHONE, BIRTH_DATE)
@@ -191,7 +199,7 @@ class ApiV1MemberModifyTest {
 	@Test
 	@DisplayName("동시 수정으로 중복 검사를 통과해도 DB 휴대폰 제약에 걸리면 409다")
 	void modifyRaceFailsOnPhoneConstraint() throws Exception {
-		joinDirectly("runner2@crewrun.com", OTHER_NICKNAME, OTHER_PHONE);
+		memberFacade.join(MemberFixture.joinRequest().nickname(OTHER_NICKNAME).phone(OTHER_PHONE).build(identityStore));
 		skipDuplicateChecks();
 
 		modify(memberId, NAME, NICKNAME, OTHER_PHONE, BIRTH_DATE)
@@ -274,7 +282,9 @@ class ApiV1MemberModifyTest {
 		@Test
 		@DisplayName("내 닉네임의 대소문자만 바꾸면 200과 바뀐 닉네임을 받는다")
 		void modifyNicknameLetterCaseOnly() throws Exception {
-			long caseMemberId = joinDirectly("runner2@crewrun.com", "Runner1", OTHER_PHONE);
+			long caseMemberId = memberFacade.join(MemberFixture.joinRequest()
+				.name(NAME).nickname("Runner1").phone(OTHER_PHONE).birthDate(LocalDate.of(1995, 4, 12))
+				.build(identityStore)).getId();
 
 			modify(caseMemberId, NAME, "runner1", OTHER_PHONE, BIRTH_DATE)
 				.andExpect(status().isOk())
@@ -290,13 +300,6 @@ class ApiV1MemberModifyTest {
 	private void skipDuplicateChecks() {
 		willReturn(false).given(memberRepository).existsByNicknameAndIdNot(anyString(), anyLong());
 		willReturn(false).given(memberRepository).existsByPhoneHashAndIdNot(anyString(), anyLong());
-	}
-
-	private long joinDirectly(String email, String nickname, String phone) {
-		return memberFacade.join(new MemberJoinRequestDto(
-			email, "password1234", NAME, nickname, phone, LocalDate.of(1995, 4, 12), null,
-			List.of(TermsType.SERVICE, TermsType.PRIVACY)
-		)).getId();
 	}
 
 	private ResultActions modify(long id, String name, String nickname, String phone, String birthDate)

@@ -7,6 +7,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.LocalDate;
+import java.util.UUID;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -26,6 +29,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.bukang.common.global.exception.BusinessException;
+import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
 
 /**
  * 오류 응답의 오류 코드(code)를 앱 전체를 띄워 확인한다.
@@ -36,22 +40,23 @@ import com.bukang.common.global.exception.BusinessException;
 @AutoConfigureMockMvc
 @Transactional
 @ActiveProfiles({"test", "member-error-response-test-only"})
-@Import(MemberErrorResponseTest.ErrorThrowingController.class)
+@Import({MemberErrorResponseTest.ErrorThrowingController.class, InMemoryIdentityVerificationStore.Config.class})
 class MemberErrorResponseTest {
 	private static final String JOIN_BODY = """
 		{
 			"email": "%s",
 			"password": "password1234",
-			"name": "김러너",
 			"nickname": "%s",
-			"phone": "%s",
-			"birthDate": "%s",
-			"agreedTerms": ["SERVICE", "PRIVACY"]
+			"agreedTerms": ["SERVICE", "PRIVACY"],
+			"verificationToken": "%s"
 		}
 		""";
 
 	@Autowired
 	private MockMvc mockMvc;
+
+	@Autowired
+	private InMemoryIdentityVerificationStore identityStore;
 
 	@BeforeEach
 	void joinBaseMember() throws Exception {
@@ -73,6 +78,32 @@ class MemberErrorResponseTest {
 		mockMvc.perform(join("runner2@crewrun.com", "러너2", "01012345678", "1995-04-12"))
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("MEMBER_DUPLICATE_PHONE"));
+	}
+
+	@Test
+	@DisplayName("같은 사람(CI 해시)이 다시 가입하면 MEMBER_DUPLICATE_IDENTITY로 응답한다")
+	void duplicateIdentity() throws Exception {
+		String token = identityStore.verify("김러너", LocalDate.of(1995, 4, 12), "010-3333-4444", "same-ci");
+		mockMvc.perform(post("/api/v1/auth/join")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(JOIN_BODY.formatted("first@crewrun.com", "첫계정", token)))
+			.andExpect(status().isCreated());
+		String again = identityStore.verify("김러너", LocalDate.of(1995, 4, 12), "010-3333-5555", "same-ci");
+		mockMvc.perform(post("/api/v1/auth/join")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(JOIN_BODY.formatted("second@crewrun.com", "둘째계정", again)))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("MEMBER_DUPLICATE_IDENTITY"));
+	}
+
+	@Test
+	@DisplayName("본인인증 토큰이 저장소에 없으면 AUTH_VERIFICATION_REQUIRED로 응답한다")
+	void verificationRequired() throws Exception {
+		mockMvc.perform(post("/api/v1/auth/join")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(JOIN_BODY.formatted("nobody@crewrun.com", "토큰없음", "crewrun-iv-unknown")))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("AUTH_VERIFICATION_REQUIRED"));
 	}
 
 	@Test
@@ -143,15 +174,17 @@ class MemberErrorResponseTest {
 			.andExpect(jsonPath("$", hasKey("data")));
 	}
 
-	private static RequestBuilder join(
+	// 이름 · 휴대폰 번호 · 생년월일은 본인인증 결과로 넣는다. CI 해시는 매번 달라 같은 사람 검사에는 걸리지 않는다
+	private RequestBuilder join(
 		String email,
 		String nickname,
 		String phone,
 		String birthDate
 	) {
+		String token = identityStore.verify("김러너", LocalDate.parse(birthDate), phone, "ci-" + UUID.randomUUID());
 		return post("/api/v1/auth/join")
 			.contentType(MediaType.APPLICATION_JSON)
-			.content(JOIN_BODY.formatted(email, nickname, phone, birthDate));
+			.content(JOIN_BODY.formatted(email, nickname, token));
 	}
 
 	@Profile("member-error-response-test-only")

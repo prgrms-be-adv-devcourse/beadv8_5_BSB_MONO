@@ -101,7 +101,7 @@ class ApiV1PayoutSellerControllerTest {
 	@Autowired
 	private EntityManager entityManager;
 
-	// 판매자 1: 2026-09 정산 예정(9/25 대회 → 9/28 지급, 참가권 2장), 2026-08 지급보류(9/20 보류), 2025-08 지급 완료
+	// 판매자 1: 2026-09 정산 예정(9/25 대회 → 10/20 지급, 참가권 2장), 2026-08 지급보류(9/21 지급 예정, 9/20 보류), 2025-08 지급 완료
 	// 판매자 2: 2026-09 정산 예정 (판매자 1의 조회에 나오면 안 된다)
 	@BeforeEach
 	void setUp() {
@@ -160,7 +160,7 @@ class ApiV1PayoutSellerControllerTest {
 		request("/summary")
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.message").value("정산 요약을 조회했습니다."))
-			.andExpect(jsonPath("$.data.nextPayDate").value("2026-09-27"))
+			.andExpect(jsonPath("$.data.nextPayDate").value("2026-10-20"))
 			.andExpect(jsonPath("$.data.scheduledPayoutAmount").value(94_500))
 			.andExpect(jsonPath("$.data.heldCount").value(1))
 			.andDo(document("payout-seller-summary",
@@ -183,33 +183,33 @@ class ApiV1PayoutSellerControllerTest {
 		given(sellerLookupPort.findSellerOf(MEMBER_ID))
 			.willReturn(Optional.of(new SellerOfMember(NEW_SELLER_ID, SellerStatus.APPROVED)));
 		transactionTemplate.executeWithoutResult(status -> {
-			// 대회 20: 1차(마감 9/10 → 9/12)는 보류, 최종(대회 9/15 → 9/17)은 정산 예정이지만 1차를 기다린다
-			Payout first = Payout.first(NEW_SELLER_ID, 20, "대회 20", LocalDate.of(2026, 9, 10),
-				LocalDateTime.of(2026, 9, 11, 3, 0), CALENDAR);
+			// 대회 20: 1차(마감 8/10 → 9/21)는 보류, 최종(대회 8/15 → 9/21)은 정산 예정이지만 1차를 기다린다
+			Payout first = Payout.first(NEW_SELLER_ID, 20, "대회 20", LocalDate.of(2026, 8, 10),
+				LocalDateTime.of(2026, 8, 11, 3, 0), CALENDAR);
 			entityManager.persist(first);
 			entityManager.flush();
 			PayoutHold hold = first.hold(PayoutHoldReason.ACCOUNT_NOT_REGISTERED, "정산 계좌 등록 요청 중",
-				PayoutHold.SYSTEM_MEMBER_ID, LocalDateTime.of(2026, 9, 11, 3, 0));
+				PayoutHold.SYSTEM_MEMBER_ID, LocalDateTime.of(2026, 8, 11, 3, 0));
 			entityManager.persist(hold);
 			entityManager.flush();
 			hold.assignHoldCode();
-			Payout waiting = savePayout(NEW_SELLER_ID, 20, LocalDate.of(2026, 9, 16));
-			waiting.addItem(400, 50_000L, FEE_RATE, LocalDate.of(2026, 9, 16));
+			Payout waiting = savePayout(NEW_SELLER_ID, 20, LocalDate.of(2026, 8, 16));
+			waiting.addItem(400, 50_000L, FEE_RATE, LocalDate.of(2026, 8, 16));
 
-			// 대회 21: 1차 없이 만든 최종(대회 9/20 → 9/22)은 기다리지 않는다
+			// 대회 21: 1차 없이 만든 최종(대회 9/20 → 10/20)은 기다리지 않는다. 대회 20의 최종(9/21)보다 늦어도 다음 정산일이 된다
 			Payout ready = savePayout(NEW_SELLER_ID, 21, LocalDate.of(2026, 9, 21));
 			ready.addItem(500, 30_000L, FEE_RATE, LocalDate.of(2026, 9, 21));
 		});
 
 		request("/summary")
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.nextPayDate").value("2026-09-22"))
+			.andExpect(jsonPath("$.data.nextPayDate").value("2026-10-20"))
 			.andExpect(jsonPath("$.data.scheduledPayoutAmount").value(28_350))
 			.andExpect(jsonPath("$.data.heldCount").value(1));
 	}
 
 	@Test
-	@DisplayName("요약: 지급 예정 정산 내역이 없으면 다음 정산일은 null, 정산 예정액은 0이다 (정기 지급일이 없어 대신 채울 날이 없다)")
+	@DisplayName("요약: 지급 예정 정산 내역이 없으면 다음 정산일은 null, 정산 예정액은 0이다 (다음 20일을 대신 채우지 않는다)")
 	void summaryWithoutScheduledPayout() throws Exception {
 		given(sellerLookupPort.findSellerOf(MEMBER_ID))
 			.willReturn(Optional.of(new SellerOfMember(NEW_SELLER_ID, SellerStatus.APPROVED)));
@@ -242,7 +242,7 @@ class ApiV1PayoutSellerControllerTest {
 			.andExpect(jsonPath("$.data[0].salesAmount").value(100_000))
 			.andExpect(jsonPath("$.data[0].feeAmount").value(5_500))
 			.andExpect(jsonPath("$.data[0].payoutAmount").value(94_500))
-			.andExpect(jsonPath("$.data[0].scheduledPayDate").value("2026-09-27"))
+			.andExpect(jsonPath("$.data[0].scheduledPayDate").value("2026-10-20"))
 			.andExpect(jsonPath("$.data[0].raceName").value("대회 10"))
 			.andExpect(jsonPath("$.data[1].status").value("HELD"))
 			.andDo(document("payout-seller-payouts",
@@ -270,7 +270,7 @@ class ApiV1PayoutSellerControllerTest {
 						+ "CANCELED: 대회 취소로 닫힘)"),
 					fieldWithPath("data[].settledAt").description("정산 내역을 만든 일시"),
 					fieldWithPath("data[].scheduledPayDate").description(
-						"지급 예정일. 1차는 환불 마감일 + 2일, 최종은 대회일 + 2일 (보류를 풀면 원래 지급 예정일과 해제일 + 1일 중 늦은 날로 다시 정한다)"),
+						"지급 예정일. 1차 · 최종 모두 정산 월의 다음 달 20일, 주말이어도 그날 (보류를 풀면 원래 지급 예정일과 해제일 + 1일 중 늦은 날로 다시 정한다)"),
 					fieldWithPath("data[].paidAt").description("지급 완료 일시 (지급 전에는 null)")
 						.optional().type(JsonFieldType.STRING)
 				)));

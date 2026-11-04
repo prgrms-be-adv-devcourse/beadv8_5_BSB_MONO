@@ -24,7 +24,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * 참가 신청 (사람 단위). 참가하려는 사람 1명 = 1행이고, 개인 신청과 크루원 신청이 같은 테이블을 쓴다 (ERD 추천안 v4 7쪽)
+ * 참가 신청 (사람 단위). 참가하려는 사람 1명 = 1행이고, 개인 신청과 파티원 신청이 같은 테이블을 쓴다 (ERD 추천안 v4 7쪽)
  * 결제 전에 신청서를 먼저 받아 PENDING으로 저장하고, [결제하기]에서 자리를 확보하면 APPLIED가 된다 (PRO-41)
  */
 @Entity
@@ -53,9 +53,9 @@ public class Participation extends BaseIdAndTime {
 	@Column(name = "member_id", nullable = false)
 	private long memberId;
 
-	// 크루원 신청만 채운다. 세미는 늘 NULL (최종 프로젝트)
-	@Column(name = "crew_application_id")
-	private Long crewApplicationId;
+	// 파티원 신청만 채운다(order_party.id). 개인 신청은 NULL
+	@Column(name = "party_id")
+	private Long partyId;
 
 	@Enumerated(STRING)
 	@Column(name = "participation_type", nullable = false, columnDefinition = "varchar(20)")

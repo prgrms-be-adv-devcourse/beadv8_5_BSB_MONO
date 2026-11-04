@@ -262,9 +262,9 @@ class PayoutCreateUseCaseTransactionTest {
 		Payout last = payoutRepository.save(Payout.finalStage(1, 10, "대회 10", RACE_DATE, NOW,
 			new BusinessDayCalendar()));
 
-		assertThatThrownBy(() -> payoutHoldUseCase.holdNewFirst(first, false, NOW))
+		assertThatThrownBy(() -> payoutHoldUseCase.holdNew(first, false, NOW))
 			.isInstanceOf(IllegalTransactionStateException.class);
-		assertThatThrownBy(() -> payoutHoldUseCase.holdNewFinal(last, Optional.empty(), false, NOW))
+		assertThatThrownBy(() -> payoutHoldUseCase.holdNew(last, false, NOW))
 			.isInstanceOf(IllegalTransactionStateException.class);
 		assertThat(payoutHoldRepository.count()).isZero();
 	}

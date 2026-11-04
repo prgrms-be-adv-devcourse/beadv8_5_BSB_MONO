@@ -8,10 +8,13 @@ x-app-healthcheck: &app-healthcheck
   retries: 12
   start_period: 300s
 
-# 표를 만드는 방법 (cash·payout·file·order·product). 이 다섯 서비스는 아직 Flyway가 없어서,
+# 표를 만드는 방법 (cash·file·order·product). 이 네 서비스는 아직 Flyway가 없어서,
 # application-prod.yaml의 validate 그대로면 빈 DB에서 "missing table"로 뜨지 않는다. 그래서 compose 실행에서만 update로 덮어
 # dev와 같은 방식(Hibernate가 없는 표·칼럼을 만듦)으로 표를 만든다. 서비스에 Flyway가 생기면 그 서비스의 줄을 지운다
-# member-service는 Flyway가 표를 만들고 validate로 확인하므로 넣지 않는다. 표만 확인하려면 .env에 JPA_DDL_AUTO=validate
+# member-service·payout-service는 Flyway가 표를 만들고 validate로 확인하므로 넣지 않는다. 표만 확인하려면 .env에 JPA_DDL_AUTO=validate
+# order-service는 Flyway가 있지만 전환 중이라 한 번 더 update로 둔다 (BUK-29). V1은 표가 이미 있으면 건너뛰어,
+# 지난 배포 뒤 엔티티에 더한 칸이 서버 표에 없으면 validate로는 뜨지 않기 때문이다. Flyway가 먼저 돌고 Hibernate가 빠진 칸을 채운다.
+# 이 설정으로 서버에 한 번 배포한 뒤 order-service의 줄을 지운다
 x-jpa-ddl-auto: &jpa-ddl-auto ${JPA_DDL_AUTO:-update}
 
 services:
@@ -58,6 +61,9 @@ services:
         SITE_URL: ${SITE_URL:-http://localhost}
         # 토스 결제창 클라이언트 키(test_ck_만). 비우면 API_MOCKING=off에서는 충전 버튼이 실패 화면으로 간다
         NEXT_PUBLIC_TOSS_CLIENT_KEY: ${NEXT_PUBLIC_TOSS_CLIENT_KEY:-}
+        # 포트원 본인인증 상점 아이디·채널 키. 비우면 API_MOCKING=off에서는 가입 본인인증 창이 열리지 않는다
+        NEXT_PUBLIC_PORTONE_STORE_ID: ${NEXT_PUBLIC_PORTONE_STORE_ID:-}
+        NEXT_PUBLIC_PORTONE_IDENTITY_CHANNEL_KEY: ${NEXT_PUBLIC_PORTONE_IDENTITY_CHANNEL_KEY:-}
     image: bukang-web:latest
     container_name: bukang-web
     profiles: [ app ]
@@ -65,6 +71,9 @@ services:
       BACKEND_URL: http://bukang-gateway:8000
       # 실행 중에 새로 그리는 페이지도 같은 값을 쓰게 한다 (위 build.args와 같은 값)
       SITE_URL: ${SITE_URL:-http://localhost}
+      # 어드민 이용 통계의 GA4 연결 정보. 빌드가 아니라 실행할 때 읽으므로 build.args에는 넣지 않는다 (frontend/.env.example 참고)
+      GA4_PROPERTY_ID: ${GA4_PROPERTY_ID:-}
+      GA4_SERVICE_ACCOUNT_KEY: ${GA4_SERVICE_ACCOUNT_KEY:-}
     depends_on:
       gateway:
         condition: service_healthy
@@ -172,7 +181,6 @@ services:
         required: false
     environment:
       SPRING_PROFILES_ACTIVE: prod
-      SPRING_JPA_HIBERNATE_DDL_AUTO: *jpa-ddl-auto
     healthcheck:
       <<: *app-healthcheck
       test: [ "CMD", "bash", "-c", "</dev/tcp/127.0.0.1/8082" ]
@@ -229,6 +237,7 @@ services:
         required: false
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      # 전환 중 (BUK-29, 위 x-jpa-ddl-auto 주석). 서버에 한 번 배포한 뒤 지운다
       SPRING_JPA_HIBERNATE_DDL_AUTO: *jpa-ddl-auto
     healthcheck:
       <<: *app-healthcheck

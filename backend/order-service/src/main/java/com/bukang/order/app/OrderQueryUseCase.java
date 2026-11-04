@@ -4,12 +4,14 @@ import java.time.LocalDate;
 
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.bukang.order.domain.Order;
 import com.bukang.order.domain.ShippingAddress;
 import com.bukang.order.domain.exception.OrderAccessDeniedException;
 import com.bukang.order.domain.exception.OrderNotFoundException;
 import com.bukang.order.domain.exception.OrderSearchPeriodException;
+import com.bukang.order.dto.AdminOrderPageDto;
 import com.bukang.order.dto.OrderDto;
 import com.bukang.order.dto.OrderPageDto;
 import com.bukang.order.out.OrderQueryRepository;
@@ -34,6 +36,14 @@ public class OrderQueryUseCase {
 		}
 		return OrderPageDto.from(orderQueryRepository.findMine(memberId, from, to, PageRequest.of(page, size))
 			.map(Order::toSummaryDto));
+	}
+
+	// 관리자 회원·주문 조회 (BUK-26). 관리자 확인과 닉네임 → 회원 ID는 AdminOrderFacade가 트랜잭션 밖에서 먼저 끝낸다
+	// 조건은 buyerId와 orderNo 중 하나만 온다
+	@Transactional(readOnly = true)
+	public AdminOrderPageDto findForAdmin(Long buyerId, String orderNo, int page, int size) {
+		return AdminOrderPageDto.from(orderQueryRepository.findForAdmin(buyerId, orderNo, PageRequest.of(page, size))
+			.map(Order::toAdminSummaryDto));
 	}
 
 	public OrderDto findOwned(long memberId, long orderId) {

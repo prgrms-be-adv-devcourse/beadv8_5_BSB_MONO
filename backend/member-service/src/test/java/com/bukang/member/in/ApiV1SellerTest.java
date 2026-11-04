@@ -6,7 +6,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -17,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.event.ApplicationEvents;
@@ -26,25 +26,27 @@ import org.springframework.test.web.servlet.ResultActions;
 
 import com.bukang.common.shared.member.web.MemberIdHeader;
 import com.bukang.common.shared.seller.domain.SellerStatus;
-import com.bukang.common.shared.seller.domain.SellerType;
 import com.bukang.common.shared.seller.event.SellerChangedEvent;
 import com.bukang.member.app.MemberFacade;
 import com.bukang.member.app.SellerFacade;
 import com.bukang.member.domain.Member;
 import com.bukang.member.domain.Seller;
-import com.bukang.member.domain.TermsType;
-import com.bukang.member.dto.MemberJoinRequestDto;
-import com.bukang.member.dto.SellerApplyRequestDto;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.SellerRepository;
 import com.bukang.member.out.TermsAgreementRepository;
+import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
+import com.bukang.member.support.MemberFixture;
 
 // 판매자 등록 신청과 내 신청 조회 (BE-020). X-Member-Id 헤더는 테스트에서 직접 넣는다
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @RecordApplicationEvents
+@Import(InMemoryIdentityVerificationStore.Config.class)
 class ApiV1SellerTest {
+	@Autowired
+	private InMemoryIdentityVerificationStore identityStore;
+
 	private static final String SELLERS = "/api/v1/member/sellers";
 	private static final String MY_SELLER = "/api/v1/member/sellers/me";
 	private static final String RESULT_CHECK = "/api/v1/member/sellers/me/result-check";
@@ -70,8 +72,10 @@ class ApiV1SellerTest {
 
 	@BeforeEach
 	void setUp() {
-		memberId = join("runner1@crewrun.com", "러너1", "010-1234-5678");
-		adminId = join("admin@crewrun.com", "관리자", "010-1234-5679");
+		memberId = memberFacade.join(MemberFixture.joinRequest().build(identityStore)).getId();
+		adminId = memberFacade.join(MemberFixture.joinRequest()
+			.email("admin@crewrun.com")
+			.build(identityStore)).getId();
 		memberFacade.grantAdmin("admin@crewrun.com");
 	}
 
@@ -183,7 +187,7 @@ class ApiV1SellerTest {
 	@Test
 	@DisplayName("대기 중인 신청이 있는데 또 신청하면 409다")
 	void applyFailsWhilePending() throws Exception {
-		applyDirectly(memberId);
+		sellerFacade.apply(memberId, MemberFixture.sellerApplyRequest());
 
 		apply(memberId, "INDIVIDUAL", null, null, "김러너")
 			.andExpect(status().isConflict())
@@ -193,7 +197,7 @@ class ApiV1SellerTest {
 	@Test
 	@DisplayName("승인된 신청이 있는데 또 신청하면 409다")
 	void applyFailsWhenApproved() throws Exception {
-		long sellerId = applyDirectly(memberId);
+		long sellerId = sellerFacade.apply(memberId, MemberFixture.sellerApplyRequest()).getId();
 		sellerFacade.approve(adminId, sellerId);
 
 		apply(memberId, "INDIVIDUAL", null, null, "김러너")
@@ -204,7 +208,7 @@ class ApiV1SellerTest {
 	@Test
 	@DisplayName("반려된 뒤 다시 신청하면 201이고 새 행이 생긴다")
 	void applyAgainAfterRejected() throws Exception {
-		long rejectedId = applyDirectly(memberId);
+		long rejectedId = sellerFacade.apply(memberId, MemberFixture.sellerApplyRequest()).getId();
 		sellerFacade.reject(adminId, rejectedId, "서류 확인 불가");
 
 		apply(memberId, "INDIVIDUAL", null, null, "김러너")
@@ -227,9 +231,9 @@ class ApiV1SellerTest {
 	@Test
 	@DisplayName("내 신청 조회는 가장 최근 신청을 반려 사유와 함께 돌려준다")
 	void findMineReturnsLatestWithRejectReason() throws Exception {
-		long firstId = applyDirectly(memberId);
+		long firstId = sellerFacade.apply(memberId, MemberFixture.sellerApplyRequest()).getId();
 		sellerFacade.reject(adminId, firstId, "서류 확인 불가");
-		long secondId = applyDirectly(memberId);
+		long secondId = sellerFacade.apply(memberId, MemberFixture.sellerApplyRequest()).getId();
 		sellerFacade.reject(adminId, secondId, "대표자 이름 불일치");
 
 		mockMvc.perform(get(MY_SELLER).header(MemberIdHeader.NAME, memberId))
@@ -252,7 +256,7 @@ class ApiV1SellerTest {
 	@Test
 	@DisplayName("승인된 신청의 결과를 확인하면 200과 확인 시각을 받고, 내 신청 조회에도 나온다")
 	void checkResultRecordsTime() throws Exception {
-		long sellerId = applyDirectly(memberId);
+		long sellerId = sellerFacade.apply(memberId, MemberFixture.sellerApplyRequest()).getId();
 		sellerFacade.approve(adminId, sellerId);
 
 		mockMvc.perform(get(MY_SELLER).header(MemberIdHeader.NAME, memberId))
@@ -275,7 +279,7 @@ class ApiV1SellerTest {
 	@Test
 	@DisplayName("결과 확인을 다시 보내도 200이고 처음 시각을 그대로 둔다")
 	void checkResultTwiceKeepsFirstTime() throws Exception {
-		long sellerId = applyDirectly(memberId);
+		long sellerId = sellerFacade.apply(memberId, MemberFixture.sellerApplyRequest()).getId();
 		sellerFacade.reject(adminId, sellerId, "서류 확인 불가");
 		mockMvc.perform(post(RESULT_CHECK).header(MemberIdHeader.NAME, memberId))
 			.andExpect(status().isOk());
@@ -291,7 +295,7 @@ class ApiV1SellerTest {
 	@Test
 	@DisplayName("심사 중인 신청의 결과 확인은 409 SELLER_NOT_REVIEWED이고 기록하지 않는다")
 	void checkResultFailsWhilePending() throws Exception {
-		long sellerId = applyDirectly(memberId);
+		long sellerId = sellerFacade.apply(memberId, MemberFixture.sellerApplyRequest()).getId();
 
 		mockMvc.perform(post(RESULT_CHECK).header(MemberIdHeader.NAME, memberId))
 			.andExpect(status().isConflict())
@@ -304,11 +308,11 @@ class ApiV1SellerTest {
 	@Test
 	@DisplayName("반려 뒤 다시 신청하면 결과 확인은 새 신청서 기준이라 다시 비어 있다")
 	void reapplyStartsWithEmptyResultCheck() throws Exception {
-		long rejectedId = applyDirectly(memberId);
+		long rejectedId = sellerFacade.apply(memberId, MemberFixture.sellerApplyRequest()).getId();
 		sellerFacade.reject(adminId, rejectedId, "서류 확인 불가");
 		mockMvc.perform(post(RESULT_CHECK).header(MemberIdHeader.NAME, memberId))
 			.andExpect(status().isOk());
-		long secondId = applyDirectly(memberId);
+		long secondId = sellerFacade.apply(memberId, MemberFixture.sellerApplyRequest()).getId();
 
 		mockMvc.perform(get(MY_SELLER).header(MemberIdHeader.NAME, memberId))
 			.andExpect(jsonPath("$.data.id").value(secondId))
@@ -348,18 +352,6 @@ class ApiV1SellerTest {
 		Member member = memberRepository.findById(id).orElseThrow();
 		member.withdraw(LocalDateTime.now());
 		memberRepository.saveAndFlush(member);
-	}
-
-	private long join(String email, String nickname, String phone) {
-		return memberFacade.join(new MemberJoinRequestDto(
-			email, "password1234", "김러너", nickname, phone, LocalDate.of(1995, 4, 12), null,
-			List.of(TermsType.SERVICE, TermsType.PRIVACY)
-		)).getId();
-	}
-
-	private long applyDirectly(long applicantId) {
-		return sellerFacade.apply(applicantId,
-			new SellerApplyRequestDto(SellerType.BUSINESS, "크루런 스포츠", "123-45-67890", "김러너")).getId();
 	}
 
 	private ResultActions apply(long id, String sellerType, String businessName, String businessNumber,

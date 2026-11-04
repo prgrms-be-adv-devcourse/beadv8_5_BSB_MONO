@@ -1,6 +1,7 @@
 package com.bukang.cash.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDateTime;
 
@@ -15,6 +16,7 @@ import com.bukang.cash.domain.member.CashMember;
 import com.bukang.cash.domain.seller.CashSeller;
 import com.bukang.cash.out.CashMemberRepository;
 import com.bukang.cash.out.CashSellerRepository;
+import com.bukang.cash.out.WalletRepository;
 import com.bukang.common.shared.seller.domain.SellerStatus;
 import com.bukang.common.shared.seller.domain.SellerType;
 import com.bukang.common.shared.seller.event.SellerChangedEvent;
@@ -32,10 +34,14 @@ class CashSyncSellerUseCaseTest {
 	private CashMemberRepository cashMemberRepository;
 	@Autowired
 	private CashSellerRepository cashSellerRepository;
+	@Autowired
+	private WalletRepository walletRepository;
 
 	@AfterEach
 	void tearDown() {
 		cashSellerRepository.deleteAll();
+		// syncMember로 저장한 회원은 지갑도 함께 만들어지므로, 회원보다 먼저 지운다
+		walletRepository.deleteAll();
 		cashMemberRepository.deleteAll();
 	}
 
@@ -64,13 +70,28 @@ class CashSyncSellerUseCaseTest {
 	}
 
 	@Test
-	@DisplayName("회원 복제본이 없으면 CashSeller를 만들지 않고 건너뛴다")
-	void syncSeller_withoutMember_skips() {
+	@DisplayName("회원 복제본이 없으면 IllegalStateException이 나고 CashSeller를 만들지 않는다 "
+		+ "(재시도 없이 DLT로 가는 IllegalArgumentException이 아니라 재시도 토픽으로 가는 예외)")
+	void syncSeller_withoutMember_throwsForRetry() {
 		LocalDateTime now = LocalDateTime.of(2026, 10, 20, 10, 0);
 
-		cashFacade.syncSeller(sellerChangedEvent(SellerStatus.PENDING, now));
-
+		assertThatThrownBy(() -> cashFacade.syncSeller(sellerChangedEvent(SellerStatus.PENDING, now)))
+			.isExactlyInstanceOf(IllegalStateException.class);
 		assertThat(cashSellerRepository.findById(SELLER_APPLICATION_ID)).isEmpty();
+	}
+
+	@Test
+	@DisplayName("회원보다 먼저 와서 실패한 판매자 메시지는, 가입 메시지로 회원이 저장된 뒤 다시 처리하면 저장된다")
+	void syncSeller_retriedAfterMemberJoined_createsMapping() {
+		LocalDateTime now = LocalDateTime.of(2026, 10, 20, 10, 0);
+		SellerChangedEvent event = sellerChangedEvent(SellerStatus.PENDING, now);
+		assertThatThrownBy(() -> cashFacade.syncSeller(event)).isInstanceOf(IllegalStateException.class);
+
+		cashFacade.syncMember(MEMBER_ID, now, now, "판매자");
+		cashFacade.syncSeller(event);
+
+		assertThat(cashSellerRepository.findById(SELLER_APPLICATION_ID).orElseThrow().getMember().getId())
+			.isEqualTo(MEMBER_ID);
 	}
 
 	private SellerChangedEvent sellerChangedEvent(SellerStatus status, LocalDateTime now) {

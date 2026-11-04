@@ -1,6 +1,7 @@
 package com.bukang.payout.out;
 
 import java.time.LocalDate;
+import java.util.List;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -18,6 +19,15 @@ public interface PayoutItemRepository extends JpaRepository<PayoutItem, Long> {
 		where i.sellerId = :sellerId and i.raceId = :raceId and i.account = :account
 		""")
 	long sumBalance(long sellerId, long raceId, PayoutAccount account);
+
+	// 판매자가 갚을 돈이 남은 대회 (탈퇴 제한, R11). 대회마다 따로 더한다. 입금이 겹쳐 0 아래가 된 대회가 다른 대회의 빚을 가리지 않게 한다
+	@Query("""
+		select i.raceId from PayoutItem i
+		where i.sellerId = :sellerId and i.account = com.bukang.payout.domain.PayoutAccount.RECEIVABLE
+		group by i.raceId
+		having sum(i.amount) > 0
+		""")
+	List<Long> findRaceIdsWithReceivable(long sellerId);
 
 	// 판매자 건별 정산 조회: 응답에 정산 ID · 상태를 함께 내려주므로 정산 내역을 한 번에 읽는다 (N+1 방지)
 	// 원장 방식(PRO-214)에서는 참가권마다 판매 줄 하나만 보여 준다(같은 참가권이 두 번 보이지 않게). 응답 구조는 PRO-218에서 다시 정한다

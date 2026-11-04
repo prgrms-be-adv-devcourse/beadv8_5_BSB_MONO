@@ -10,6 +10,8 @@ import { loginHref } from '@/features/auth'
 import { skippedNotice, useAdmissionTimer, useQueuePosition } from '@/features/queue-admission'
 import { BottomCta, buttonClassName, Dialog, formatTimer, Icon, ProgressBar } from '@/shared/ui'
 
+import { useQueueTracking } from '../model/use-queue-tracking'
+
 // 피그마 V2 · M05-Q1 대기열 · 차례 기다리기 / M05-Q2 대기열 · 내 차례
 // 같은 주소에서 입장 여부에 따라 두 화면을 바꿔 그린다.
 // 들어오면 대기열에 등록하고(useQueuePosition) 차례가 올 때까지 순번을 짧은 간격마다 다시 묻는다.
@@ -59,6 +61,7 @@ export function RaceQueuePage({
 
   // 차례가 오면 신청서로 자동으로 넘어간다 (시안 미리보기는 머문다)
   const admitted = remaining !== null
+  useQueueTracking(raceId, admitted, !preview)
   useEffect(() => {
     if (admitted && !preview) router.replace(applyHref)
   }, [admitted, preview, applyHref, router])

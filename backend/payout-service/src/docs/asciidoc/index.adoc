@@ -14,7 +14,7 @@
 :operation-response-headers-title: 응답 헤더
 :operation-response-fields-title: 응답 본문
 
-이 문서는 컨트롤러 테스트(`ApiV1PayoutHoldControllerTest`, `ApiV1PayoutRecoveryControllerTest`, `ApiV1PayoutSellerControllerTest`, `InternalV1PayoutRefundControllerTest`)가 통과할 때 만들어진 요청·응답으로 채운다.
+이 문서는 컨트롤러 테스트(`ApiV1PayoutHoldControllerTest`, `ApiV1PayoutSellerControllerTest`, `InternalV1PayoutRefundControllerTest`)가 통과할 때 만들어진 요청·응답으로 채운다.
 테스트가 실패하면 문서도 만들어지지 않으므로, 여기 있는 예시는 실제 응답과 같다.
 
 [[overview]]
@@ -58,7 +58,7 @@ include::{snippets}/payout-hold-create-conflict/http-response.adoc[]
 === 지급보류 풀기
 
 지급보류를 해제하고 정산 내역을 정산 예정(`CALCULATED`)으로 돌린다.
-지급 예정일은 다시 정한다. 1차 · 최종 모두 해제일 다음 날(주말에도 지급)이며, 원래 지급 예정일(1차는 환불 마감일 + 2일, 최종은 대회일 + 2일)보다 앞당기지 않는다.
+지급 예정일은 다시 정한다. 1차 · 최종 모두 해제일 다음 날(주말에도 지급)이며, 원래 지급 예정일(정산 월의 다음 달 20일, 주말에도 지급)보다 앞당기지 않는다.
 
 operation::payout-hold-release[snippets='http-request,request-headers,path-parameters,http-response,response-fields']
 
@@ -72,27 +72,6 @@ include::{snippets}/payout-hold-release-not-found/http-response.adoc[]
 
 .이미 해제됨 (409)
 include::{snippets}/payout-hold-release-conflict/http-response.adoc[]
-
-[[payout-recovery]]
-== 회수 (관리자)
-
-대회가 취소됐을 때 이미 지급한 정산금이 있으면, 정산 서비스가 대회 취소 이벤트를 받아 그 대회의 지급액 합만큼 회수를 대회당 1건 만든다.
-판매자가 직접 입금하고, 관리자가 입금을 확인해 회수를 끝낸다. 지급 전 정산 내역은 회수 대신 취소(`CANCELED`)로 닫힌다.
-
-[[payout-recovery-complete]]
-=== 회수 완료
-
-판매자의 입금을 확인한 회수를 회수 완료(`COMPLETED`)로 바꾸고 확인한 관리자와 일시를 남긴다.
-
-operation::payout-recovery-complete[snippets='http-request,request-headers,path-parameters,http-response,response-fields']
-
-==== 실패 예시
-
-.없는 회수 (404)
-include::{snippets}/payout-recovery-complete-not-found/http-response.adoc[]
-
-.이미 완료됨 (409)
-include::{snippets}/payout-recovery-complete-conflict/http-response.adoc[]
 
 [[payout-seller]]
 == 정산 조회 (판매자)

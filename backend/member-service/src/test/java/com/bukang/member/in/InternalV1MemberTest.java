@@ -4,9 +4,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -15,27 +13,30 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
-import com.bukang.common.shared.seller.domain.SellerType;
 import com.bukang.member.app.MemberFacade;
 import com.bukang.member.app.SellerFacade;
 import com.bukang.member.domain.Member;
-import com.bukang.member.domain.TermsType;
-import com.bukang.member.dto.MemberJoinRequestDto;
-import com.bukang.member.dto.SellerApplyRequestDto;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.SellerRepository;
 import com.bukang.member.out.TermsAgreementRepository;
+import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
+import com.bukang.member.support.MemberFixture;
 
 // 정산 서비스가 부르는 회원 내부 API: 회원 ID로 판매자 ID 찾기, 관리자 여부 조회
 // 회원 ID와 판매자 ID가 같은 번호가 되지 않게, 판매자 신청을 한 번 더 만들어 번호를 어긋나게 둔다
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@Import(InMemoryIdentityVerificationStore.Config.class)
 class InternalV1MemberTest {
+	@Autowired
+	private InMemoryIdentityVerificationStore identityStore;
+
 	private static final String SELLER_OF_MEMBER = "/internal/v1/member/members/{memberId}/seller";
 	private static final String ADMIN_OF_MEMBER = "/internal/v1/member/members/{memberId}/admin";
 
@@ -57,8 +58,10 @@ class InternalV1MemberTest {
 
 	@BeforeEach
 	void setUp() {
-		memberId = join("runner1@crewrun.com", "러너1", "010-1234-5678");
-		adminId = join("admin@crewrun.com", "관리자", "010-1234-5679");
+		memberId = memberFacade.join(MemberFixture.joinRequest().build(identityStore)).getId();
+		adminId = memberFacade.join(MemberFixture.joinRequest()
+			.email("admin@crewrun.com")
+			.build(identityStore)).getId();
 		memberFacade.grantAdmin("admin@crewrun.com");
 	}
 
@@ -74,8 +77,8 @@ class InternalV1MemberTest {
 	@DisplayName("승인된 판매자면 회원 ID가 아니라 판매자 신청서 ID와 APPROVED를 돌려준다")
 	void approvedSeller() throws Exception {
 		// 다른 회원의 신청을 먼저 만들어, 이 회원의 판매자 ID가 회원 ID와 다른 번호가 되게 한다
-		apply(adminId);
-		long sellerId = apply(memberId);
+		sellerFacade.apply(adminId, MemberFixture.sellerApplyRequest()).getId();
+		long sellerId = sellerFacade.apply(memberId, MemberFixture.sellerApplyRequest()).getId();
 		sellerFacade.approve(adminId, sellerId);
 
 		findSellerOf(memberId)
@@ -88,7 +91,7 @@ class InternalV1MemberTest {
 	@Test
 	@DisplayName("대기 중인 신청이면 그 신청의 ID와 PENDING을 돌려준다")
 	void pendingSeller() throws Exception {
-		long sellerId = apply(memberId);
+		long sellerId = sellerFacade.apply(memberId, MemberFixture.sellerApplyRequest()).getId();
 
 		findSellerOf(memberId)
 			.andExpect(status().isOk())
@@ -99,7 +102,7 @@ class InternalV1MemberTest {
 	@Test
 	@DisplayName("반려 뒤 다시 신청하지 않았으면 반려된 신청과 REJECTED를 돌려준다")
 	void rejectedSeller() throws Exception {
-		long sellerId = apply(memberId);
+		long sellerId = sellerFacade.apply(memberId, MemberFixture.sellerApplyRequest()).getId();
 		sellerFacade.reject(adminId, sellerId, "사업자등록번호 확인 불가");
 
 		findSellerOf(memberId)
@@ -111,9 +114,9 @@ class InternalV1MemberTest {
 	@Test
 	@DisplayName("반려 뒤 다시 신청해 승인되면 가장 최근(승인된) 신청을 돌려준다")
 	void approvedAfterRejected() throws Exception {
-		long rejectedId = apply(memberId);
+		long rejectedId = sellerFacade.apply(memberId, MemberFixture.sellerApplyRequest()).getId();
 		sellerFacade.reject(adminId, rejectedId, "사업자등록번호 확인 불가");
-		long approvedId = apply(memberId);
+		long approvedId = sellerFacade.apply(memberId, MemberFixture.sellerApplyRequest()).getId();
 		sellerFacade.approve(adminId, approvedId);
 
 		findSellerOf(memberId)
@@ -134,7 +137,7 @@ class InternalV1MemberTest {
 	@Test
 	@DisplayName("탈퇴한 회원은 승인된 판매자였어도 404다")
 	void withdrawnMember() throws Exception {
-		long sellerId = apply(memberId);
+		long sellerId = sellerFacade.apply(memberId, MemberFixture.sellerApplyRequest()).getId();
 		sellerFacade.approve(adminId, sellerId);
 		Member member = memberRepository.findById(memberId).orElseThrow();
 		member.withdraw(LocalDateTime.now());
@@ -190,18 +193,6 @@ class InternalV1MemberTest {
 		mockMvc.perform(get(ADMIN_OF_MEMBER, memberId + 1000))
 			.andExpect(status().isNotFound())
 			.andExpect(jsonPath("$.code").value("MEMBER_NOT_FOUND"));
-	}
-
-	private long join(String email, String nickname, String phone) {
-		return memberFacade.join(new MemberJoinRequestDto(
-			email, "password1234", "김러너", nickname, phone, LocalDate.of(1995, 4, 12), null,
-			List.of(TermsType.SERVICE, TermsType.PRIVACY)
-		)).getId();
-	}
-
-	private long apply(long applicantId) {
-		return sellerFacade.apply(applicantId,
-			new SellerApplyRequestDto(SellerType.BUSINESS, "크루런 스포츠", "123-45-67890", "김러너")).getId();
 	}
 
 	private ResultActions findSellerOf(long id) throws Exception {

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { customFetch } from '@/shared/api'
 
+import { answerMockPass } from './identity-verification'
 import { MOCK_LOGGED_IN_COOKIE } from './mock-session'
 
 type RaceRow = {
@@ -19,6 +20,12 @@ type RacePage = {
 const searchRaces = (query = '') =>
   customFetch<RacePage>(`http://localhost/api/v1/product/races${query}`)
 const idsOf = (body: RacePage) => body.data.races.map((race) => race.raceId)
+
+/** 체험용 PASS 본인인증을 마친 인증 토큰. 가입 목은 이 토큰에 담긴 이름 · 번호 · 생년월일로 가입시킨다 */
+function mockPassToken(name: string, phone: string, birthDate: string): string {
+  const verified = answerMockPass({ carrier: 'SKT', name, phone, birthDate }).body.data
+  return verified?.verificationToken ?? ''
+}
 
 // 생성된 목이 등록됐는지 확인한다 (API_MOCKING=on 개발 서버도 같은 handlers를 쓴다)
 describe('생성된 MSW 핸들러', () => {
@@ -278,6 +285,17 @@ describe('가짜 로그인 표시 쿠키', () => {
     expect(cookies.some((c) => /^mockRefreshToken=; Max-Age=0/.test(c))).toBe(true)
     expect(cookies.some((c) => /^mockLoggedIn=; Max-Age=0/.test(c))).toBe(true)
   })
+
+  // 탈퇴하면 문서를 새로 불러 완료 화면으로 간다. 쿠키가 남으면 새로 불러올 때 다시 로그인된다.
+  it('탈퇴하면 로그아웃처럼 두 쿠키를 모두 지운다', async () => {
+    const response = await fetch('http://localhost/api/v1/member/members/me', {
+      method: 'DELETE',
+      headers: { cookie: MOCK_LOGGED_IN_COOKIE },
+    })
+    const cookies = cookiesOf(response)
+    expect(cookies.some((c) => /^mockRefreshToken=; Max-Age=0/.test(c))).toBe(true)
+    expect(cookies.some((c) => /^mockLoggedIn=; Max-Age=0/.test(c))).toBe(true)
+  })
 })
 
 // 방금 가입한 회원은 프로필만 있고 참가권 · 예치금 · 알림이 비어 있고, 시연용 기존 회원(runner1)은 예시 데이터를 보는지 확인한다.
@@ -291,6 +309,7 @@ describe('방금 가입한 회원과 시연용 기존 회원', () => {
     phone: '010-2222-3333',
     birthDate: '2000-01-02',
     agreedTerms: ['SERVICE', 'PRIVACY'],
+    verificationToken: mockPassToken('박새내', '010-2222-3333', '2000-01-02'),
   }
   const json = (path: string, body: unknown, cookie?: string) =>
     fetch(`http://localhost${path}`, {
@@ -436,6 +455,7 @@ describe('새 회원 쿠키 저장소가 둘일 때', () => {
     phone: '010-2222-3333',
     birthDate: '2000-01-02',
     agreedTerms: ['SERVICE', 'PRIVACY'],
+    verificationToken: mockPassToken('박새내', '010-2222-3333', '2000-01-02'),
   })
   async function signUp(b: ReturnType<typeof browser>, email: string, nickname: string) {
     await b.call('POST', '/api/v1/auth/join', join(email, nickname))
@@ -497,5 +517,58 @@ describe('새 회원 쿠키 저장소가 둘일 때', () => {
     })
     expect((login.member as { nickname: string }).nickname).toBe('edited')
     expect((await a.data('GET', '/api/v1/member/members/me')).nickname).toBe('edited')
+  })
+})
+
+describe('체험용 PASS 본인인증 목', () => {
+  const post = (path: string, body: unknown) =>
+    fetch(`http://localhost${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+
+  it('입력한 이름 · 생년월일 · 휴대폰 번호를 확인된 정보로 돌려준다', async () => {
+    const res = await post('/api/v1/auth/identity-verifications/pass', {
+      carrier: 'KT',
+      name: '김러너',
+      birthDate: '1995-04-12',
+      phone: '010-1234-5678',
+    })
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { data: Record<string, unknown> }
+    expect(body.data).toMatchObject({
+      name: '김러너',
+      birthDate: '1995-04-12',
+      phone: '010-1234-5678',
+      verificationToken: expect.stringMatching(/^mock-verification\./),
+    })
+  })
+
+  it('통신사를 고르지 않았으면 400이다', async () => {
+    const res = await post('/api/v1/auth/identity-verifications/pass', {
+      name: '김러너',
+      birthDate: '1995-04-12',
+      phone: '010-1234-5678',
+    })
+    expect(res.status).toBe(400)
+  })
+
+  it('가입 요청에 인증 토큰이 없으면 400 AUTH_VERIFICATION_REQUIRED, 있으면 그 정보로 가입한다', async () => {
+    const join = {
+      email: 'verify@example.com',
+      password: 'password1234',
+      nickname: '새내기',
+      agreedTerms: ['SERVICE', 'PRIVACY'],
+    }
+    const without = await post('/api/v1/auth/join', join)
+    expect(without.status).toBe(400)
+    expect(((await without.json()) as { code: string }).code).toBe('AUTH_VERIFICATION_REQUIRED')
+
+    const ok = await post('/api/v1/auth/join', {
+      ...join,
+      verificationToken: mockPassToken('박새내', '010-2222-3333', '2000-01-02'),
+    })
+    expect(ok.status).toBe(201)
   })
 })

@@ -26,6 +26,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import com.bukang.cash.domain.charge.ChargeStatus;
 import com.bukang.cash.domain.charge.WalletCharge;
 import com.bukang.cash.domain.exception.ChargeAmountTooSmallException;
+import com.bukang.cash.domain.exception.ChargeInProgressException;
 import com.bukang.cash.domain.exception.ChargeMemberMismatchException;
 import com.bukang.cash.domain.exception.PaymentApprovalFailedException;
 import com.bukang.cash.domain.exception.WalletNotFoundException;
@@ -139,7 +140,7 @@ class CashChargeConfirmUseCaseTest {
 	}
 
 	@Test
-	@DisplayName("PRO-200: ALREADY_PROCESSED_PAYMENT로 거절돼도 재조회해서 실제로 승인된 거래면 COMPLETED로 반영한다")
+	@DisplayName("ALREADY_PROCESSED_PAYMENT로 거절돼도 재조회해서 실제로 승인된 거래면 COMPLETED로 반영한다")
 	void recoversAsCompletedWhenAlreadyProcessedButActuallyDone() {
 		createCustomerWallet(0);
 		given(paymentClient.approve(anyString(), anyString(), anyLong()))
@@ -157,7 +158,7 @@ class CashChargeConfirmUseCaseTest {
 	}
 
 	@Test
-	@DisplayName("PRO-200: ALREADY_PROCESSED_PAYMENT로 거절됐는데 재조회해도 승인된 게 아니면 기존처럼 FAILED로 남는다")
+	@DisplayName("ALREADY_PROCESSED_PAYMENT로 거절됐는데 재조회해도 승인된 게 아니면 기존처럼 FAILED로 남는다")
 	void staysFailedWhenAlreadyProcessedButRecheckStillNotDone() {
 		createCustomerWallet(0);
 		given(paymentClient.approve(anyString(), anyString(), anyLong()))
@@ -173,7 +174,7 @@ class CashChargeConfirmUseCaseTest {
 	}
 
 	@Test
-	@DisplayName("PRO-200: ALREADY_PROCESSED_PAYMENT가 아닌 다른 거절 코드는 재조회 없이 바로 FAILED로 남는다")
+	@DisplayName("ALREADY_PROCESSED_PAYMENT가 아닌 다른 거절 코드는 재조회 없이 바로 FAILED로 남는다")
 	void doesNotRecheckForOtherRejectionCodes() {
 		createCustomerWallet(0);
 		given(paymentClient.approve(anyString(), anyString(), anyLong()))
@@ -202,6 +203,22 @@ class CashChargeConfirmUseCaseTest {
 	}
 
 	@Test
+	@DisplayName("IN_PROGRESS인 채로 멈춰 있으면(선점한 쪽이 응답 없음) 계속 기다리지 않고 "
+		+ "예외로 알리며, Toss를 새로 부르지도 않는다")
+	void stuckInProgressEventuallyThrows() {
+		Wallet wallet = createCustomerWallet(0);
+		WalletCharge charge = walletChargeRepository.save(new WalletCharge(wallet, 10_000, "TOSS", "order_1"));
+		ReflectionTestUtils.setField(charge, "status", ChargeStatus.IN_PROGRESS);
+		walletChargeRepository.saveAndFlush(charge);
+
+		assertThatThrownBy(() -> cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 10_000))
+			.isInstanceOf(ChargeInProgressException.class);
+
+		assertBalance(CUSTOMER_ID, 0);
+		verify(paymentClient, never()).approve(anyString(), anyString(), anyLong());
+	}
+
+	@Test
 	@DisplayName("이미 FAILED인 orderId로 다시 요청하면 조기 반환하지 않고 PG를 다시 불러 최신 결과를 반영한다")
 	void alreadyFailedRetriesPgInsteadOfShortCircuiting() {
 		Wallet wallet = createCustomerWallet(0);
@@ -220,7 +237,7 @@ class CashChargeConfirmUseCaseTest {
 	}
 
 	@Test
-	@DisplayName("PRO-200: 타임아웃(연결 실패)으로 FAILED 저장된 뒤 재시도하면 PG를 다시 불러, "
+	@DisplayName("타임아웃(연결 실패)으로 FAILED 저장된 뒤 재시도하면 PG를 다시 불러, "
 		+ "ALREADY_PROCESSED_PAYMENT 거절과 재조회로 COMPLETED까지 복구된다")
 	void retryAfterTimeoutFailure_recoversToCompletedViaAlreadyProcessed() {
 		createCustomerWallet(0);

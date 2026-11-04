@@ -1,7 +1,6 @@
 package com.bukang.cash.app;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,8 +18,8 @@ import com.bukang.cash.dto.CashRefundResponseDto;
 import com.bukang.cash.dto.CashWithdrawalResponseDto;
 import com.bukang.cash.dto.PageDto;
 import com.bukang.cash.dto.WalletBalanceResponseDto;
-import com.bukang.common.shared.seller.event.SellerChangedEvent;
 import com.bukang.cash.dto.WalletLedgerItemDto;
+import com.bukang.common.shared.seller.event.SellerChangedEvent;
 
 
 import lombok.RequiredArgsConstructor;
@@ -105,7 +104,7 @@ public class CashFacade {
 	}
 
 	@Transactional
-	public Optional<CashSeller> syncSeller(SellerChangedEvent event) {
+	public CashSeller syncSeller(SellerChangedEvent event) {
 		return cashSyncSellerUseCase.syncSeller(event);
 	}
 }

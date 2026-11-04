@@ -15,33 +15,48 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/me',
 }))
 
-beforeEach(() => replace.mockClear())
+const reloadToLogin = vi.hoisted(() => vi.fn())
+vi.mock('@/features/auth/lib/login-redirect', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  reloadToLogin,
+}))
+
+beforeEach(() => {
+  replace.mockClear()
+  reloadToLogin.mockClear()
+})
 
 describe('MyPage 로그아웃', () => {
-  it('로그아웃을 누르면 로그아웃 API를 부르고, 토큰·캐시를 비운 뒤 로그인 화면으로 보낸다', async () => {
+  it('로그아웃을 누르면 로그아웃 API를 부르고, 응답이 온 뒤 문서를 새로 불러 로그인 화면으로 간다', async () => {
     let authorization: string | null = null
+    // 응답을 붙잡아 두고, 응답 전에는 이동하지 않는지 본다
+    let release = () => {}
+    const held = new Promise<void>((resolve) => (release = resolve))
     server.use(
-      http.post('*/api/v1/auth/logout', ({ request }) => {
+      http.post('*/api/v1/auth/logout', async ({ request }) => {
         authorization = request.headers.get('Authorization')
+        await held
         return HttpResponse.json({ status: 200, message: '로그아웃 성공', data: null })
       }),
     )
     setAccessToken('access-token')
-    const client = new QueryClient()
-    client.setQueryData(['/api/v1/member/members/me'], { data: { nickname: '러너1' } })
     const user = userEvent.setup()
     render(
-      <QueryClientProvider client={client}>
+      <QueryClientProvider client={new QueryClient()}>
         <MyPage />
       </QueryClientProvider>,
     )
 
     await user.click(screen.getByRole('button', { name: '로그아웃' }))
 
-    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/login'))
+    await vi.waitFor(() => expect(authorization).toBe('Bearer access-token'))
+    expect(reloadToLogin).not.toHaveBeenCalled()
+    release()
+    await vi.waitFor(() => expect(reloadToLogin).toHaveBeenCalledTimes(1))
     expect(authorization).toBe('Bearer access-token')
-    expect(getAuthStatus()).toBe('anonymous')
-    expect(client.getQueryData(['/api/v1/member/members/me'])).toBeUndefined()
+    expect(replace).not.toHaveBeenCalled()
+    // 새로 불러오기 전까지 토큰을 그대로 두어 화면이 로그아웃 상태로 다시 그려지지 않는다
+    expect(getAuthStatus()).toBe('authenticated')
   })
 
   it('로그아웃 요청이 실패해도 이 브라우저에서는 로그아웃 상태로 바꾼다', async () => {

@@ -40,29 +40,32 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/auth")
 public class ApiV1AuthController {
-	// Refresh Token 쿠키는 토큰 재발급 등 인증 API에만 실려 가도록 경로를 좁힌다
-	static final String REFRESH_TOKEN_COOKIE = "refreshToken";
-	static final String REFRESH_TOKEN_COOKIE_PATH = "/api/v1/auth";
+	static final String REFRESH_TOKEN_COOKIE = AuthCookies.REFRESH_TOKEN;
+	static final String REFRESH_TOKEN_COOKIE_PATH = AuthCookies.REFRESH_TOKEN_PATH;
 
 	private final MemberFacade memberFacade;
 
 	// ResponseEntity.created()의 201은 springdoc이 추론하지 못하므로 응답 코드를 직접 명시한다
 	// 에러 응답은 GlobalExceptionHandler가 RsData(code: 오류 코드, data: null) 형식으로 반환한다
 	@PostMapping("/join")
-	@Operation(summary = "회원가입", description = "필수 약관 동의를 확인하고 이메일, 닉네임, 휴대폰 번호 중복을 검사한 뒤 회원을 생성한다. "
+	@Operation(summary = "회원가입", description = "본인인증 토큰으로 서버가 확인한 이름 · 생년월일 · 휴대폰 번호로 회원을 만든다. "
+		+ "필수 약관 동의를 확인하고, 같은 사람(CI 해시) · 이메일 · 닉네임 · 휴대폰 번호 중복을 검사한다. "
 		+ "지금 버전의 약관마다 동의 여부를 기록한다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "201", description = "가입 성공",
 			content = @Content(examples = @ExampleObject(value = AuthApiExamples.JOIN_SUCCESS))),
-		@ApiResponse(responseCode = "400", description = "입력값 검증 실패, 요청 본문 형식 오류(모르는 약관 종류 포함), 만 14세 미만 또는 필수 약관 미동의",
+		@ApiResponse(responseCode = "400", description = "입력값 검증 실패, 요청 본문 형식 오류(모르는 약관 종류 포함), 만 14세 미만, "
+			+ "필수 약관 미동의 또는 본인인증 결과가 없거나 15분이 지남",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "입력값 검증 실패", value = AuthApiExamples.JOIN_INVALID_INPUT),
 				@ExampleObject(name = "요청 본문 형식 오류", value = AuthApiExamples.INVALID_BODY),
 				@ExampleObject(name = "만 14세 미만", value = AuthApiExamples.JOIN_UNDER_AGE),
-				@ExampleObject(name = "필수 약관 미동의", value = AuthApiExamples.JOIN_REQUIRED_TERMS_NOT_AGREED)
+				@ExampleObject(name = "필수 약관 미동의", value = AuthApiExamples.JOIN_REQUIRED_TERMS_NOT_AGREED),
+				@ExampleObject(name = "본인인증 다시 하기", value = IdentityVerificationApiExamples.VERIFICATION_REQUIRED)
 			})),
-		@ApiResponse(responseCode = "409", description = "이메일, 닉네임 또는 휴대폰 번호 중복",
+		@ApiResponse(responseCode = "409", description = "이미 가입한 사람, 이메일, 닉네임 또는 휴대폰 번호 중복",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "이미 가입한 사람", value = IdentityVerificationApiExamples.DUPLICATE_IDENTITY),
 				@ExampleObject(name = "이메일 중복", value = AuthApiExamples.DUPLICATE_EMAIL),
 				@ExampleObject(name = "닉네임 중복", value = AuthApiExamples.DUPLICATE_NICKNAME),
 				@ExampleObject(name = "휴대폰 번호 중복", value = AuthApiExamples.DUPLICATE_PHONE)
@@ -89,9 +92,11 @@ public class ApiV1AuthController {
 				@ExampleObject(name = "입력값 검증 실패", value = AuthApiExamples.LOGIN_INVALID_INPUT),
 				@ExampleObject(name = "요청 본문 형식 오류", value = AuthApiExamples.INVALID_BODY)
 			})),
-		@ApiResponse(responseCode = "401", description = "이메일 또는 비밀번호 불일치",
-			content = @Content(schema = @Schema(implementation = RsData.class),
-				examples = @ExampleObject(value = AuthApiExamples.LOGIN_FAILED)))
+		@ApiResponse(responseCode = "401", description = "이메일 또는 비밀번호 불일치, 비밀번호 없는 소셜 회원",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "이메일 또는 비밀번호 불일치", value = AuthApiExamples.LOGIN_FAILED),
+				@ExampleObject(name = "소셜 회원", value = AuthApiExamples.LOGIN_SOCIAL_ACCOUNT)
+			}))
 	})
 	public ResponseEntity<RsData<MemberLoginResponseDto>> login(
 		@Valid @RequestBody MemberLoginRequestDto memberLoginRequestDto
@@ -157,16 +162,8 @@ public class ApiV1AuthController {
 			.body(RsData.of(HttpStatus.OK, "로그아웃 성공", null));
 	}
 
-	// httpOnly: 자바스크립트에서 읽지 못하게 해 XSS로 토큰이 새는 것을 막는다
-	// SameSite=Lax: 다른 사이트에서 보낸 POST에는 쿠키가 실리지 않는다
-	// maxAge가 0이면 브라우저가 쿠키를 지운다 (로그아웃). 지우려면 이름·경로가 발급할 때와 같아야 한다
+	// 쿠키 속성(httpOnly, Secure, SameSite=Lax, 경로)은 소셜 로그인과 같다 (AuthCookies)
 	private ResponseCookie refreshTokenCookie(String value, Duration maxAge) {
-		return ResponseCookie.from(REFRESH_TOKEN_COOKIE, value)
-			.httpOnly(true)
-			.secure(true)
-			.sameSite("Lax")
-			.path(REFRESH_TOKEN_COOKIE_PATH)
-			.maxAge(maxAge)
-			.build();
+		return AuthCookies.refreshToken(value, maxAge);
 	}
 }

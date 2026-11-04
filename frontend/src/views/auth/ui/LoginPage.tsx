@@ -8,10 +8,16 @@ import { useForm } from 'react-hook-form'
 
 import { AppHeader } from '@/widgets/app-header'
 import { BottomNav } from '@/widgets/bottom-nav'
-import { safeNextPath, useLogin } from '@/features/auth'
+import {
+  safeNextPath,
+  SocialLoginButtons,
+  socialLoginErrorMessage,
+  socialProviderOf,
+  useLogin,
+} from '@/features/auth'
 import { ApiError } from '@/shared/api'
 import { cn } from '@/shared/lib'
-import { Button, FOCUS_RING, Logo, TextField } from '@/shared/ui'
+import { Alert, Button, FOCUS_RING, Logo, TextField } from '@/shared/ui'
 
 import { AUTH_ERRORS, loginSchema, type LoginValues } from '../model/schemas'
 
@@ -20,7 +26,16 @@ const LINK = cn('rounded-sm', FOCUS_RING)
 // 피그마 V2 · M03 로그인 (+ M03-E 로그인 실패)
 // failed는 시안 미리보기(?preview=error)용. 실패 문구를 띄운 채로 보여 준다.
 // next는 로그인 뒤 돌아갈 경로(?next=). 앱 내부 경로가 아니면 홈으로 간다.
-export function LoginPage({ failed = false, next }: { failed?: boolean; next?: string }) {
+// social은 소셜 로그인 콜백이 붙여 보낸 결과(?error=&provider=&joinedWith=). 같은 이메일이면 연결 방법을 안내한다.
+export function LoginPage({
+  failed = false,
+  next,
+  social,
+}: {
+  failed?: boolean
+  next?: string
+  social?: { error?: string; provider?: string; joinedWith?: string }
+}) {
   const router = useRouter()
   const login = useLogin()
   const {
@@ -39,6 +54,12 @@ export function LoginPage({ failed = false, next }: { failed?: boolean; next?: s
   const clearLoginError = () => {
     if (login.isError) login.reset()
   }
+  const socialError = socialLoginErrorMessage(social?.error, social?.provider, social?.joinedWith)
+  // 비밀번호 없는 소셜 회원이 이메일로 로그인하면 서버가 가입한 제공자를 알려 준다. 그 버튼을 강조한다.
+  const socialAccount =
+    login.error instanceof ApiError && login.error.code === 'AUTH_SOCIAL_ACCOUNT'
+      ? socialProviderOf(login.error.serverMessage?.startsWith('구글') ? 'google' : 'kakao')
+      : undefined
   return (
     <>
       <AppHeader type="sub" title="로그인" />
@@ -53,6 +74,7 @@ export function LoginPage({ failed = false, next }: { failed?: boolean; next?: s
         >
           <Logo className="h-11 w-[150px]" />
           <p className="mt-3 text-center text-heading-s">러닝 대회, 여기서 바로 신청해요</p>
+          {socialError && <Alert tone="danger" title={socialError} className="mt-6 w-full" />}
           <div className="mt-9 flex w-full flex-col gap-3">
             <TextField
               aria-label="이메일"
@@ -81,6 +103,12 @@ export function LoginPage({ failed = false, next }: { failed?: boolean; next?: s
             >
               로그인
             </Button>
+            <div className="flex items-center gap-3 py-1 text-caption text-text-tertiary">
+              <span className="h-px flex-1 bg-border-default" aria-hidden />
+              또는
+              <span className="h-px flex-1 bg-border-default" aria-hidden />
+            </div>
+            <SocialLoginButtons next={next} highlight={socialAccount?.id} />
             <LinkRow
               className="text-label-s text-text-secondary"
               links={[
@@ -111,9 +139,15 @@ export function LoginPage({ failed = false, next }: { failed?: boolean; next?: s
   )
 }
 
-/** 로그인 실패 문구. 401(이메일·비밀번호 불일치)은 시안(M03-E) 문구, 그 밖에는 서버 문구를 보여 준다. */
+/**
+ * 로그인 실패 문구. 401(이메일·비밀번호 불일치)은 시안(M03-E) 문구, 그 밖에는 서버 문구를 보여 준다.
+ * 비밀번호 없는 소셜 회원(AUTH_SOCIAL_ACCOUNT)은 서버 문구가 가입한 제공자를 알려 주므로 그대로 보여 준다.
+ */
 function loginErrorMessage(error: Error | null): string | undefined {
   if (!error) return undefined
+  if (error instanceof ApiError && error.code === 'AUTH_SOCIAL_ACCOUNT' && error.serverMessage) {
+    return error.serverMessage
+  }
   if (error instanceof ApiError && error.status === 401) return AUTH_ERRORS.loginFailed
   return (error instanceof ApiError && error.serverMessage) || AUTH_ERRORS.loginUnavailable
 }
