@@ -186,6 +186,8 @@ class KitDeliveryTest {
 			.isEqualTo(new KitTrackingUseCase.TrackResult(1, 1, 0));
 
 		assertThat(shipmentOf(orderId).getStatus()).isEqualTo(ShipmentStatus.DELIVERED);
+		// 배송 완료 시각은 조회한 시각이 아니라 택배사의 배달 시각이다
+		assertThat(shipmentOf(orderId).getDeliveredAt()).isEqualTo(done.time());
 		findOrder(orderId)
 			.andExpect(jsonPath("$.data.items[0].kitDeliveryStatus").value("DELIVERED"))
 			.andExpect(jsonPath("$.data.items[0].kitTracking.status").value("DELIVERED"))
@@ -202,6 +204,36 @@ class KitDeliveryTest {
 		assertThat(kitTrackingUseCase.track(now.plusMinutes(90)))
 			.isEqualTo(new KitTrackingUseCase.TrackResult(0, 0, 0));
 		assertThat(deliveryTrackingPort.calls()).hasSize(calls);
+	}
+
+	@Test
+	@DisplayName("조회 배치: 발송보다 한참 앞선 배송 완료(잘못 넣은·다시 쓴 송장)는 상태만 남기고 키트를 배송 완료로 바꾸지 않는다. "
+		+ "저장한 것보다 오래된 결과로 상태를 되돌리지 않는다")
+	void trackIgnoresStaleResults() throws Exception {
+		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().minusDays(1)));
+		long orderId = paidOrder();
+		ship(itemIdOf(orderId));
+		LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
+
+		LocalDateTime longAgo = now.minusDays(90);
+		deliveryTrackingPort.put(TRACKING_NUMBER, new DeliveryTrackingResult(DeliveryTrackingStatus.DELIVERED,
+			"배달완료", longAgo, List.of(new DeliveryTrackingResult.Event(longAgo, DeliveryTrackingStatus.DELIVERED,
+				"배달완료", "배달 완료되었습니다.", "서울성동"))));
+		assertThat(kitTrackingUseCase.track(now)).isEqualTo(new KitTrackingUseCase.TrackResult(1, 0, 0));
+		assertThat(shipmentOf(orderId).getStatus()).isEqualTo(ShipmentStatus.SHIPPING);
+		assertThat(shipmentOf(orderId).getTrackingStatus()).isEqualTo(DeliveryTrackingStatus.DELIVERED);
+
+		LocalDateTime moved = now.minusHours(1);
+		deliveryTrackingPort.put(TRACKING_NUMBER, new DeliveryTrackingResult(DeliveryTrackingStatus.IN_TRANSIT,
+			"간선상차", moved, List.of()));
+		kitTrackingUseCase.track(now.plusMinutes(30));
+		assertThat(shipmentOf(orderId).getTrackingStatus()).isEqualTo(DeliveryTrackingStatus.IN_TRANSIT);
+
+		deliveryTrackingPort.put(TRACKING_NUMBER, new DeliveryTrackingResult(DeliveryTrackingStatus.AT_PICKUP,
+			"집화처리", moved.minusHours(3), List.of()));
+		kitTrackingUseCase.track(now.plusMinutes(60));
+		assertThat(shipmentOf(orderId).getTrackingStatus()).isEqualTo(DeliveryTrackingStatus.IN_TRANSIT);
+		assertThat(shipmentOf(orderId).getLastEventAt()).isEqualTo(moved);
 	}
 
 	@Test

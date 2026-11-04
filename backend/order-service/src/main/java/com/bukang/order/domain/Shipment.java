@@ -160,17 +160,27 @@ public class Shipment extends BaseIdAndTime {
 		if (!result.isTracked()) {
 			return false;
 		}
-		this.trackingStatus = result.status();
-		this.trackingStatusText = ShipmentTrackingEvent.cut(result.statusText(), MAX_TRACKING_STATUS_TEXT_LENGTH);
-		this.lastEventAt = result.lastEventAt();
 		result.events().stream()
 			.filter(event -> trackingEvents.stream().noneMatch(saved -> saved.isSameAs(event)))
 			.forEach(event -> trackingEvents.add(new ShipmentTrackingEvent(this, event)));
-		if (result.status() == DeliveryTrackingStatus.DELIVERED && status == ShipmentStatus.SHIPPING) {
-			completeDelivery(trackedAt);
-			return true;
+		// 저장한 상태보다 오래된 결과(앱 두 대가 차례가 엇갈려 늦게 남김)로 상태를 되돌리지 않는다
+		if (lastEventAt != null && result.lastEventAt() != null && result.lastEventAt().isBefore(lastEventAt)) {
+			return false;
 		}
-		return false;
+		this.trackingStatus = result.status();
+		this.trackingStatusText = ShipmentTrackingEvent.cut(result.statusText(), MAX_TRACKING_STATUS_TEXT_LENGTH);
+		this.lastEventAt = result.lastEventAt();
+		if (result.status() != DeliveryTrackingStatus.DELIVERED || status != ShipmentStatus.SHIPPING) {
+			return false;
+		}
+		// 발송 하루 전보다 앞선 배송 완료는 이 키트가 아니다(송장 번호를 잘못 넣었거나 택배사가 번호를 다시 씀). 상태만 보이고 판매자가 확인한다
+		// 하루는 판매자가 택배를 맡긴 뒤 늦게 발송 처리하는 몫이다
+		if (result.lastEventAt() != null && result.lastEventAt().isBefore(shippedAt.minusDays(1))) {
+			return false;
+		}
+		// 배송 완료 시각은 택배사가 남긴 배달 시각이다. 조회가 늦어져도(30분 주기, 상대 장애) 실제 시각이 남는다
+		completeDelivery(result.lastEventAt() != null ? result.lastEventAt() : trackedAt);
+		return true;
 	}
 
 	// 구매자 주문 상세의 배송 조회 칸 (판매자 목록은 ShipmentRepository.findSellerKits가 같은 값을 채운다)

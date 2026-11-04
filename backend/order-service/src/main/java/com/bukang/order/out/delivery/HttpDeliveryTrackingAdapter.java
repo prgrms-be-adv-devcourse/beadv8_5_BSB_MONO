@@ -10,6 +10,7 @@ import java.util.Map;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
 import com.bukang.order.domain.DeliveryTrackingStatus;
 import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
@@ -71,7 +72,10 @@ public class HttpDeliveryTrackingAdapter implements DeliveryTrackingPort {
 				.retrieve()
 				.body(GraphQlResponse.class);
 		} catch (RestClientException exception) {
-			log.error("Delivery Tracker에 배송을 묻지 못했습니다. carrierId={}", carrierId, exception);
+			// 예외 메시지에는 상대 응답 본문(입력한 운송장 번호가 되돌아올 수 있음)이 들어 있어 종류와 상태 코드만 남긴다
+			log.error("Delivery Tracker에 배송을 묻지 못했습니다. carrierId={}, cause={}", carrierId,
+				exception instanceof RestClientResponseException responseException
+					? responseException.getStatusCode() : exception.getClass().getSimpleName());
 			throw new ExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
 		}
 		if (response == null) {
@@ -82,9 +86,9 @@ public class HttpDeliveryTrackingAdapter implements DeliveryTrackingPort {
 			if (response.errors().stream().allMatch(error -> NOT_FOUND_CODE.equals(error.code()))) {
 				return DeliveryTrackingResult.notTracked();
 			}
-			// 운송장 번호는 개인 정보와 이어질 수 있어 남기지 않는다
-			log.error("Delivery Tracker가 오류로 답했습니다. carrierId={}, errors={}", carrierId,
-				InternalHttpClients.abbreviate(response.errors().toString()));
+			// 운송장 번호는 개인 정보와 이어질 수 있어 남기지 않는다. 오류 message가 입력값을 되돌려 줄 수 있어 코드만 남긴다
+			log.error("Delivery Tracker가 오류로 답했습니다. carrierId={}, codes={}", carrierId,
+				response.errors().stream().map(GraphQlError::code).toList());
 			throw new ExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
 		}
 		if (response.data() == null || response.data().track() == null
