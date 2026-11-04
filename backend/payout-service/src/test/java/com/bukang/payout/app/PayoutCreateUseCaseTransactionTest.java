@@ -31,6 +31,7 @@ import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutItem;
 import com.bukang.payout.domain.PayoutStage;
 import com.bukang.payout.dto.PayoutCreateResultDto;
+import com.bukang.payout.out.PayoutCreateFailureRepository;
 import com.bukang.payout.out.PayoutHoldRepository;
 import com.bukang.payout.out.PayoutItemRepository;
 import com.bukang.payout.out.PayoutRepository;
@@ -65,6 +66,9 @@ class PayoutCreateUseCaseTransactionTest {
 	private PayoutRepository payoutRepository;
 
 	@Autowired
+	private PayoutCreateFailureRepository payoutCreateFailureRepository;
+
+	@Autowired
 	private PayoutItemRepository payoutItemRepository;
 
 	@Autowired
@@ -82,6 +86,7 @@ class PayoutCreateUseCaseTransactionTest {
 	// deleteAllInBatch는 SQL을 바로 보내 cascade가 돌지 않으므로, 정산 내역을 가리키는 자식 테이블부터 지운다
 	@AfterEach
 	void cleanUp() {
+		payoutCreateFailureRepository.deleteAllInBatch();
 		payoutHoldRepository.deleteAllInBatch();
 		payoutItemRepository.deleteAllInBatch();
 		payoutStatusHistoryRepository.deleteAllInBatch();
@@ -91,7 +96,8 @@ class PayoutCreateUseCaseTransactionTest {
 	private PayoutCreateUseCase useCaseSelling(List<SoldEntry> entries, SellerAccountPort sellerAccountPort) {
 		SoldEntryPort soldEntryPort = raceId -> entries.stream().filter(entry -> entry.raceId() == raceId).toList();
 		return new PayoutCreateUseCase(payoutRepository, payoutCreateStepUseCase, soldEntryPort, sellerAccountPort,
-			new StubRacePort(RACE_NAMES, List.of(), entries), raceId -> List.of());
+			new StubRacePort(RACE_NAMES, List.of(), entries), raceId -> List.of(),
+			new PayoutCreateFailureUseCase(payoutCreateFailureRepository));
 	}
 
 	@Test
@@ -126,7 +132,8 @@ class PayoutCreateUseCaseTransactionTest {
 		SoldEntryPort soldEntryPort = raceId -> List.of(new SoldEntry(100, 1, 10, 10L, RACE_DATE, 50_000L));
 		PayoutCreateUseCase useCase = new PayoutCreateUseCase(racingRepository, payoutCreateStepUseCase,
 			soldEntryPort, sellerId -> true,
-			new StubRacePort(RACE_NAMES, List.of(), soldEntryPort.findSoldEntries(10)), raceId -> List.of());
+			new StubRacePort(RACE_NAMES, List.of(), soldEntryPort.findSoldEntries(10)), raceId -> List.of(),
+			new PayoutCreateFailureUseCase(payoutCreateFailureRepository));
 
 		PayoutCreateResultDto result = useCase.run(TARGET_DATE, NOW);
 
@@ -146,7 +153,8 @@ class PayoutCreateUseCaseTransactionTest {
 		RaceSchedule race = new RaceSchedule(10, "대회 10", TARGET_DATE.plusDays(30), refundDeadline);
 		PayoutCreateUseCase useCase = new PayoutCreateUseCase(racingRepository, payoutCreateStepUseCase,
 			raceId -> List.of(), sellerId -> true, new StubRacePort(RACE_NAMES, List.of(race), List.of()),
-			raceId -> List.of(new SoldSummary(1, 10, 10, 50_000L, 1)));
+			raceId -> List.of(new SoldSummary(1, 10, 10, 50_000L, 1)),
+			new PayoutCreateFailureUseCase(payoutCreateFailureRepository));
 
 		PayoutCreateResultDto result = useCase.run(TARGET_DATE, NOW);
 
@@ -170,7 +178,8 @@ class PayoutCreateUseCaseTransactionTest {
 			new SoldEntry(200, 2, 10, 10L, RACE_DATE, 30_000L));
 		PayoutCreateUseCase useCase = new PayoutCreateUseCase(racingRepository, payoutCreateStepUseCase,
 			soldEntryPort, sellerId -> true,
-			new StubRacePort(RACE_NAMES, List.of(), soldEntryPort.findSoldEntries(10)), raceId -> List.of());
+			new StubRacePort(RACE_NAMES, List.of(), soldEntryPort.findSoldEntries(10)), raceId -> List.of(),
+			new PayoutCreateFailureUseCase(payoutCreateFailureRepository));
 
 		PayoutCreateResultDto result = useCase.run(TARGET_DATE, NOW);
 

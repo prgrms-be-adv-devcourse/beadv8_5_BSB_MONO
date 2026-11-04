@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.BooleanSupplier;
 
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
@@ -17,7 +18,11 @@ import com.bukang.payout.app.PayoutCreateStepUseCase.CourseSale;
 import com.bukang.payout.app.PayoutCreateStepUseCase.FinalPayoutSource;
 import com.bukang.payout.app.PayoutCreateStepUseCase.FirstPayoutSource;
 import com.bukang.payout.domain.PayoutCreateDate;
+import com.bukang.payout.domain.PayoutCreateFailure;
+import com.bukang.payout.domain.PayoutCreateFailureType;
 import com.bukang.payout.domain.PayoutStage;
+import com.bukang.payout.domain.exception.PayoutRaceDateMismatchException;
+import com.bukang.payout.domain.exception.PayoutSellerAccountLookupUnavailableException;
 import com.bukang.payout.dto.PayoutCreateResultDto;
 import com.bukang.payout.out.PayoutRepository;
 import com.bukang.payout.out.RacePort;
@@ -42,6 +47,7 @@ import lombok.extern.slf4j.Slf4j;
  * 정산 내역(판매자 × 대회)마다 트랜잭션을 따로 연다 (PRO-60). 하루치를 트랜잭션 하나로 만들면 정산 내역 하나의 실패로
  * 그날 모든 판매자의 정산 내역이 롤백되고, 배치는 지난 날을 다시 보지 않아 다시 만들어지지 않는다
  * 그래서 이 클래스에는 트랜잭션을 걸지 않고, 실패한 정산 내역은 로그를 남기고 다음 정산 내역을 처리한다
+ * 실패는 세 곳(대회 목록 조회 · 대회 판매 값 조회 · 판매자 × 대회)에서 실패 기록표에도 한 줄씩 쌓는다 (BUK-60)
  */
 @Slf4j
 @Service
@@ -56,6 +62,7 @@ public class PayoutCreateUseCase {
 	private final SellerAccountPort sellerAccountPort;
 	private final RacePort racePort;
 	private final SoldSummaryPort soldSummaryPort;
+	private final PayoutCreateFailureUseCase payoutCreateFailureUseCase;
 
 	/**
 	 * today의 배치를 돌린다. 1차 · 최종 모두 어제까지 LOOKBACK_DAYS일 동안 정산 생성일이 된 대회를 보고, 아직 없는 정산 내역만 만든다
@@ -66,7 +73,7 @@ public class PayoutCreateUseCase {
 
 		LocalDate toRaceDate = PayoutCreateDate.raceDateFor(today);
 		LocalDate fromRaceDate = toRaceDate.minusDays(LOOKBACK_DAYS - 1);
-		Counts last = createFinalPayoutsForRaces(fromRaceDate, toRaceDate, now);
+		Counts last = createFinalPayoutsForRaces(fromRaceDate, toRaceDate, today, now);
 
 		log.info("정산 생성 배치 완료. 1차 생성 {} · 이미 있음 {} · 실패 {}, 최종(대회일 {} ~ {}) 생성 {} · 이미 있음 {} · 실패 {}",
 			first.created, first.skipped, first.failed, fromRaceDate, toRaceDate, last.created, last.skipped,
@@ -88,6 +95,8 @@ public class PayoutCreateUseCase {
 		} catch (RuntimeException exception) {
 			// 예외를 run() 밖으로 던지면 같은 실행의 최종 정산도 만들지 못한다. 1차만 실패로 남기고 최종으로 넘어간다 (PRO-241)
 			counts.failRaceLookup(PayoutStage.FIRST, exception);
+			payoutCreateFailureUseCase.record(PayoutCreateFailure.raceLookup(PayoutStage.FIRST, fromRefundDeadline,
+				toRefundDeadline, today));
 			return counts;
 		}
 		for (RaceSchedule race : races) {
@@ -96,20 +105,22 @@ public class PayoutCreateUseCase {
 				summaries = soldSummaryPort.summarizeSold(race.raceId());
 			} catch (RuntimeException exception) {
 				counts.failRace(PayoutStage.FIRST, race.raceId(), exception);
+				payoutCreateFailureUseCase.record(PayoutCreateFailure.orderLookup(PayoutStage.FIRST, race.raceId(),
+					race.refundDeadline(), today));
 				continue;
 			}
 			// 정산 내역은 판매자 × 대회 단위이고, 코스별 집계는 그 안의 1차 정산금 줄이 된다
 			summaries.stream()
 				.collect(groupingBy(SoldSummary::sellerId))
 				.forEach((sellerId, courses) -> createFirstPayout(new SellerRace(sellerId, race.raceId()), courses,
-					race.raceName(), race.refundDeadline(), counts, now));
+					race.raceName(), race.refundDeadline(), counts, today, now));
 		}
 		return counts;
 	}
 
 	// 1차 정산 내역 하나를 만든다. 이미 만든 정산 내역은 건너뛰고, 실패하면 이 정산 내역만 실패로 남긴다
 	private void createFirstPayout(SellerRace key, List<SoldSummary> courses, String raceName,
-		LocalDate refundDeadline, Counts counts, LocalDateTime now) {
+		LocalDate refundDeadline, Counts counts, LocalDate today, LocalDateTime now) {
 		try {
 			// 1차는 판매자 × 대회마다 한 번이라 정산 월은 보지 않는다. 판매 시작 뒤에도 환불 마감일을 늦출 수 있어
 			// (상품 Race.update) 마감일이 다음 달로 넘어가면 정산 월이 바뀌고, 월까지 보면 같은 대회의 1차가
@@ -144,13 +155,15 @@ public class PayoutCreateUseCase {
 			counts.failed++;
 			log.error("1차 정산 내역을 만들지 못했습니다. sellerId={}, raceId={}, 코스 {}개",
 				key.sellerId(), key.raceId(), courses.size(), exception);
+			recordSellerRaceFailure(PayoutStage.FIRST, key, refundDeadline, exception, today);
 		}
 	}
 
 	// 최종: 대회일이 되돌아보기 기간 안인 대회마다 판매 내역(참가권 목록)으로 만든다. 정산 월은 대회일의 달이다
 	// 대상 대회는 1차처럼 상품 서비스가 정하고, 판매 내역은 그 대회의 ID로 묻는다. 주문 상품에 복사된 대회일로
 	// 기간을 물으면 상품의 대회일과 어긋난 참가권은 대상 대회에서 빠지거나 다른 기간에 잡힌다
-	private Counts createFinalPayoutsForRaces(LocalDate fromRaceDate, LocalDate toRaceDate, LocalDateTime now) {
+	private Counts createFinalPayoutsForRaces(LocalDate fromRaceDate, LocalDate toRaceDate, LocalDate today,
+		LocalDateTime now) {
 		Counts counts = new Counts();
 		List<RaceSchedule> races;
 		try {
@@ -158,6 +171,8 @@ public class PayoutCreateUseCase {
 		} catch (RuntimeException exception) {
 			// 1차와 같은 기준으로 실패를 세어 배치 결과에 남긴다 (PRO-241)
 			counts.failRaceLookup(PayoutStage.FINAL, exception);
+			payoutCreateFailureUseCase.record(PayoutCreateFailure.raceLookup(PayoutStage.FINAL, fromRaceDate,
+				toRaceDate, today));
 			return counts;
 		}
 		for (RaceSchedule race : races) {
@@ -166,13 +181,15 @@ public class PayoutCreateUseCase {
 				entries = soldEntryPort.findSoldEntries(race.raceId());
 			} catch (RuntimeException exception) {
 				counts.failRace(PayoutStage.FINAL, race.raceId(), exception);
+				payoutCreateFailureUseCase.record(PayoutCreateFailure.orderLookup(PayoutStage.FINAL, race.raceId(),
+					race.raceDate(), today));
 				continue;
 			}
 			YearMonth payoutMonth = YearMonth.from(race.raceDate());
 			entries.stream()
 				.collect(groupingBy(SoldEntry::sellerId))
 				.forEach((sellerId, sellerEntries) -> createFinalPayout(new SellerRace(sellerId, race.raceId()),
-					sellerEntries, race, payoutMonth, counts, now));
+					sellerEntries, race, payoutMonth, counts, today, now));
 		}
 		return counts;
 	}
@@ -180,7 +197,7 @@ public class PayoutCreateUseCase {
 	// 최종 정산 내역 하나를 만든다. 이 정산 내역만 실패로 남기고 다음 정산 내역을 계속 만든다
 	// 참가권의 대회일이 상품의 대회일과 다르면 만들지 않는다. 실패한 정산 내역과 그 항목 · 보류는 함께 롤백된다
 	private void createFinalPayout(SellerRace key, List<SoldEntry> entries, RaceSchedule race, YearMonth payoutMonth,
-		Counts counts, LocalDateTime now) {
+		Counts counts, LocalDate today, LocalDateTime now) {
 		try {
 			checkRaceDate(key, entries, race);
 			// 정산 월은 실행일이 아니라 대회일로 정한다. 실행일로 정하면 월말 대회를 다음 달 실행이
@@ -202,7 +219,29 @@ public class PayoutCreateUseCase {
 				return;
 			}
 			counts.fail(key, entries, exception);
+			recordSellerRaceFailure(PayoutStage.FINAL, key, race.raceDate(), exception, today);
 		}
+	}
+
+	// 다른 서버가 먼저 저장한 건은 위에서 return하므로 여기까지 오지 않는다 (AC-60-6)
+	private void recordSellerRaceFailure(PayoutStage stage, SellerRace key, LocalDate payoutTargetDate,
+		RuntimeException exception, LocalDate today) {
+		payoutCreateFailureUseCase.record(PayoutCreateFailure.sellerRace(stage, key.sellerId(), key.raceId(),
+			payoutTargetDate, failureTypeOf(exception), today));
+	}
+
+	// 판매자 × 대회 실패 종류는 예외 타입으로 나눈다. 다른 서비스 조회 예외는 어댑터가 전용 예외로 감싸 던진다
+	private static PayoutCreateFailureType failureTypeOf(RuntimeException exception) {
+		if (exception instanceof PayoutRaceDateMismatchException) {
+			return PayoutCreateFailureType.주문_정산_대회일_불일치;
+		}
+		if (exception instanceof PayoutSellerAccountLookupUnavailableException) {
+			return PayoutCreateFailureType.정산_계좌_조회_실패;
+		}
+		if (exception instanceof DataAccessException) {
+			return PayoutCreateFailureType.정산_저장_실패;
+		}
+		return PayoutCreateFailureType.알_수_없는_실패;
 	}
 
 	// 존재 확인과 저장 사이에 다른 서버가 같은 정산 내역을 먼저 저장하면 DB 유일 제약에 걸린다 (PRO-120)
@@ -226,8 +265,7 @@ public class PayoutCreateUseCase {
 	private void checkRaceDate(SellerRace key, List<SoldEntry> entries, RaceSchedule race) {
 		Set<LocalDate> raceDates = entries.stream().map(SoldEntry::raceDate).collect(toSet());
 		if (!raceDates.equals(Set.of(race.raceDate()))) {
-			throw new IllegalStateException("참가권의 대회일이 상품의 대회일과 다릅니다. raceId=%d, 상품=%s, 참가권=%s"
-				.formatted(key.raceId(), race.raceDate(), raceDates));
+			throw new PayoutRaceDateMismatchException(key.raceId(), race.raceDate(), raceDates);
 		}
 	}
 

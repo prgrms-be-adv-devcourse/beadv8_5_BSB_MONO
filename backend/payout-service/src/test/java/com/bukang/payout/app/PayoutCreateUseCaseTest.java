@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.transaction.AfterTransaction;
 
 import com.bukang.payout.domain.BusinessDayCalendar;
 import com.bukang.payout.domain.Payout;
@@ -27,6 +28,7 @@ import com.bukang.payout.domain.PayoutRecordType;
 import com.bukang.payout.domain.PayoutStage;
 import com.bukang.payout.domain.PayoutStatus;
 import com.bukang.payout.dto.PayoutCreateResultDto;
+import com.bukang.payout.out.PayoutCreateFailureRepository;
 import com.bukang.payout.out.PayoutHoldRepository;
 import com.bukang.payout.out.PayoutItemRepository;
 import com.bukang.payout.out.PayoutRecoveryRepository;
@@ -62,6 +64,15 @@ class PayoutCreateUseCaseTest {
 	private PayoutRepository payoutRepository;
 
 	@Autowired
+	private PayoutCreateFailureRepository payoutCreateFailureRepository;
+
+	// 기록 저장은 새 트랜잭션으로 커밋돼 테스트 롤백으로 지워지지 않는다. 다른 테스트에 남지 않게 지운다
+	@AfterTransaction
+	void deleteFailures() {
+		payoutCreateFailureRepository.deleteAllInBatch();
+	}
+
+	@Autowired
 	private PayoutHoldRepository payoutHoldRepository;
 
 	@Autowired
@@ -95,7 +106,8 @@ class PayoutCreateUseCaseTest {
 				new PayoutLedgerUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository),
 				new PayoutHoldUseCase(payoutRepository, payoutHoldRepository, new BusinessDayCalendar()));
 		return new PayoutCreateUseCase(payoutRepository, payoutCreateStepUseCase, soldEntriesReturning(entries),
-			sellerAccountPort, new StubRacePort(RACE_NAMES, schedules, entries), summariesOf(entries));
+			sellerAccountPort, new StubRacePort(RACE_NAMES, schedules, entries), summariesOf(entries),
+			new PayoutCreateFailureUseCase(payoutCreateFailureRepository));
 	}
 
 	// 주문 서비스처럼, 대회의 참가권을 판매자별로 묶어 가격 합과 장수를 돌려주는 가짜 포트 (1차 정산용)
@@ -317,7 +329,8 @@ class PayoutCreateUseCaseTest {
 				new PayoutLedgerUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository),
 				new PayoutHoldUseCase(payoutRepository, payoutHoldRepository, new BusinessDayCalendar()));
 		PayoutCreateUseCase useCase = new PayoutCreateUseCase(payoutRepository, payoutCreateStepUseCase, race20Down,
-			sellerId -> true, new StubRacePort(RACE_NAMES, List.of(), entries), summariesOf(entries));
+			sellerId -> true, new StubRacePort(RACE_NAMES, List.of(), entries), summariesOf(entries),
+			new PayoutCreateFailureUseCase(payoutCreateFailureRepository));
 
 		useCase.run(TARGET_DATE, NOW);
 
@@ -349,7 +362,8 @@ class PayoutCreateUseCaseTest {
 				new PayoutLedgerUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository),
 				new PayoutHoldUseCase(payoutRepository, payoutHoldRepository, new BusinessDayCalendar()));
 		PayoutCreateUseCase useCase = new PayoutCreateUseCase(payoutRepository, payoutCreateStepUseCase,
-			soldEntriesReturning(entries), sellerId -> true, firstLookupDown, summariesOf(entries));
+			soldEntriesReturning(entries), sellerId -> true, firstLookupDown, summariesOf(entries),
+			new PayoutCreateFailureUseCase(payoutCreateFailureRepository));
 
 		PayoutCreateResultDto result = useCase.run(TARGET_DATE, NOW);
 
@@ -490,7 +504,8 @@ class PayoutCreateUseCaseTest {
 				new PayoutLedgerUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository),
 				new PayoutHoldUseCase(payoutRepository, payoutHoldRepository, new BusinessDayCalendar()));
 		PayoutCreateUseCase useCase = new PayoutCreateUseCase(payoutRepository, payoutCreateStepUseCase,
-			soldEntriesReturning(entries), sellerId -> true, new StubRacePort(RACE_NAMES, schedules, entries), flaky);
+			soldEntriesReturning(entries), sellerId -> true, new StubRacePort(RACE_NAMES, schedules, entries), flaky,
+			new PayoutCreateFailureUseCase(payoutCreateFailureRepository));
 
 		// 10/2: 1차는 판매 집계를 못 받아 실패, 최종은 1차 정산금 차감 없이 판매자 정산액 전부로 만들어진다
 		useCase.run(LocalDate.of(2026, 10, 2), LocalDateTime.of(2026, 10, 2, 3, 0));
