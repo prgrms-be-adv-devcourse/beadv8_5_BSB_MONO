@@ -18,7 +18,7 @@ import lombok.NoArgsConstructor;
 /**
  * 참가 신청서에 적는 참가자 정보 (정책 3장 1-2)
  * 접수 마감 전까지 통째로 바꿀 수 있고, 다음 신청 때 그대로 채워 준다
- * 컬럼은 크루원 행 때문에 NULL을 허용하고(ERD v4), 개인 신청의 필수 여부는 요청 DTO에서 검사한다
+ * 컬럼은 파티원 행 때문에 NULL을 허용하고(ERD v4), 개인 신청의 필수 여부는 요청 DTO에서 검사한다
  */
 @Embeddable
 @NoArgsConstructor(access = PROTECTED)

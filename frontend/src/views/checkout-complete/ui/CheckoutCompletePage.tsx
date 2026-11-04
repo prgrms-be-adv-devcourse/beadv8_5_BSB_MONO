@@ -53,19 +53,26 @@ export function CheckoutCompletePage({ orderId }: { orderId: number }) {
                   : (item?.itemName ?? '')}
               </p>
             </div>
-            <BibCard
-              image={race.data?.images[0]}
-              imagePosition="50% 12%"
-              eyebrow={race.data?.title ?? ''}
-              status={<Badge tone="live">참가 확정</Badge>}
-              unit="No."
-              number="-"
-              title={[participant, option?.name].filter(Boolean).join(' · ')}
-              meta={race.data ? `${race.data.startsAt} · ${race.data.place}` : undefined}
-            />
+            {/* 참가자 이름은 Clarity 화면 녹화에서 가린다 */}
+            <div className="contents" data-clarity-mask="true">
+              <BibCard
+                image={race.data?.images[0]}
+                imagePosition="50% 12%"
+                eyebrow={race.data?.title ?? ''}
+                status={<Badge tone="live">참가 확정</Badge>}
+                unit="No."
+                number="-"
+                title={[participant, option?.name].filter(Boolean).join(' · ')}
+                meta={race.data ? `${race.data.startsAt} · ${race.data.place}` : undefined}
+              />
+            </div>
             <div className="flex flex-col gap-3 rounded-lg bg-bg-surface p-5 shadow-sm inset-ring inset-ring-border-default">
               <KeyValue label="주문번호" value={order.data.orderNo ?? '-'} />
-              {participant && <KeyValue label="참가자" value={participant} />}
+              {participant && (
+                <div data-clarity-mask="true">
+                  <KeyValue label="참가자" value={participant} />
+                </div>
+              )}
               <KeyValue
                 label="결제"
                 value={`₩${formatNumber(order.data.totalAmount ?? 0)} (예치금)`}

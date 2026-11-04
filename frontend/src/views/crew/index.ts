@@ -1,5 +1,6 @@
 export { CrewHomePage } from './ui/CrewHomePage'
 export { CrewInvitePage } from './ui/CrewInvitePage'
 export { CrewInvitesPage } from './ui/CrewInvitesPage'
+export { CrewManagePage } from './ui/CrewManagePage'
 export { CrewNewPage } from './ui/CrewNewPage'
 export { MyCrewsPage } from './ui/MyCrewsPage'

@@ -4,18 +4,18 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { isAfter, isBefore, parseISO, startOfToday } from 'date-fns'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { Controller, useFieldArray, useForm, useWatch } from 'react-hook-form'
+import { Controller, useFieldArray, useForm, useWatch, type Resolver } from 'react-hook-form'
 
 import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
 import { AddressSearch } from '@/features/address-search'
 import { parseRaceDateInput } from '@/entities/race'
 import { ApiError } from '@/shared/api'
+import { DateTimeField } from '@/shared/date-picker'
 import { cn, formatNumber, formatWon, type SellerRaceFormEntry } from '@/shared/lib'
 import {
   Alert,
   Button,
   DataTable,
-  DateTimeField,
   FOCUS_RING,
   ImageCropDialog,
   ImageListDialog,
@@ -43,12 +43,13 @@ import { CourseAddDialog } from './CourseAddDialog'
 
 const FORM_ID = 'seller-race-new'
 
+// 오늘은 쓸 때마다 계산한다. 화면을 연 채 자정을 넘겨도 어제를 오늘로 쓰지 않는다
 // 지난 날은 대회 날짜·접수 기간·환불 기한으로 고를 수 없다
-const today = startOfToday()
-const isPast = (date: Date) => isBefore(date, today)
+const isPast = (date: Date) => isBefore(date, startOfToday())
 // 접수 시작(판매 시작일)은 오늘로부터 이틀 뒤부터
-const saleOpenEarliest = earliestSaleOpenDate(today)
-const raceFormSchema = createRaceFormSchema({ today })
+const isBeforeSaleOpen = (date: Date) => isBefore(date, earliestSaleOpenDate(startOfToday()))
+const raceFormResolver: Resolver<RaceFormValues> = (...args) =>
+  zodResolver(createRaceFormSchema({ today: startOfToday() }))(...args)
 
 // 대회 날짜와 순서를 비교하는 칸들. 한 칸이 바뀌면 다 쓴 나머지 칸도 다시 검사한다
 const ORDERED_FIELDS = ['individualOpenAt', 'applicationCloseAt', 'refundDeadline'] as const
@@ -106,7 +107,7 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
     trigger,
     formState: { errors, isSubmitted },
   } = useForm<RaceFormValues>({
-    resolver: zodResolver(raceFormSchema),
+    resolver: raceFormResolver,
     mode: 'onTouched',
     defaultValues: RACE_FORM_DEFAULTS,
   })
@@ -234,7 +235,7 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
                   label="대회 날짜"
                   error={errors.raceDate?.message}
                   isDateDisabled={isPast}
-                  startMonth={today}
+                  startMonth={startOfToday()}
                   onValueChange={field.onChange}
                   className="flex-1"
                 />
@@ -284,10 +285,9 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
               helper="마감일 23:59까지 받아요 · 오늘로부터 이틀 뒤부터 · 대회 전날까지"
               error={errors.individualOpenAt?.message ?? errors.applicationCloseAt?.message}
               isDateDisabled={(date) =>
-                isBefore(date, saleOpenEarliest) ||
-                (raceDay !== undefined && !isBefore(date, raceDay))
+                isBeforeSaleOpen(date) || (raceDay !== undefined && !isBefore(date, raceDay))
               }
-              startMonth={today}
+              startMonth={startOfToday()}
               onValueChange={(range) => {
                 setValue('individualOpenAt', range.from, {
                   shouldValidate: isSubmitted,
@@ -402,7 +402,7 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
                 isDateDisabled={(date) =>
                   isPast(date) || (raceDay !== undefined && isAfter(date, raceDay))
                 }
-                startMonth={today}
+                startMonth={startOfToday()}
                 onValueChange={field.onChange}
               />
             )}

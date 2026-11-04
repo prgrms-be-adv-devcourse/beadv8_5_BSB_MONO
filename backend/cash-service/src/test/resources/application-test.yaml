@@ -42,3 +42,7 @@ cash:
       # (10회 x 50ms = 500ms)
       max-wait-attempts: 10
       wait-interval-millis: 50
+      lookup-retry-delays-millis: [10]
+    reconcile:
+      stale-in-progress-minutes: 5
+      alert-after-minutes: 30
