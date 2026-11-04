@@ -136,11 +136,11 @@ public class PayoutDataInit {
 		Payout first = createFirst(raceId, raceName, raceDate.minusDays(REFUND_DEADLINE_DAYS_BEFORE_RACE), count,
 			price);
 
-		LocalDate finalTargetDate = PayoutCreateDate.of(raceDate);
+		LocalDate finalCreateDate = PayoutCreateDate.of(raceDate);
 		Payout last = Payout.finalStage(SELLER_ID, raceId, raceName, raceDate,
-			finalTargetDate.atTime(3, 0), calendar);
+			finalCreateDate.atTime(3, 0), calendar);
 		last.deductAdvance(first.getPayoutAmount());
-		addItems(last, raceId, count, price, finalTargetDate);
+		addItems(last, raceId, count, price, finalCreateDate);
 		save(last);
 		return new StagePair(first, last);
 	}
@@ -148,11 +148,11 @@ public class PayoutDataInit {
 	// 정산 생성 배치(PayoutCreateUseCase)처럼 환불 마감일 다음 날 03:00에 만든다
 	// 대회 하나는 코스 하나라 참가권 가격이 하나다 (PRO-214). 1차는 판매 집계(가격 합 · 장수)로 1차 정산금 한 줄을 쓴다
 	private Payout createFirst(long raceId, String raceName, LocalDate refundDeadline, int count, long price) {
-		LocalDate firstTargetDate = PayoutCreateDate.firstOf(refundDeadline);
+		LocalDate firstCreateDate = PayoutCreateDate.firstOf(refundDeadline);
 		Payout first = Payout.first(SELLER_ID, raceId, raceName, refundDeadline,
-			firstTargetDate.atTime(3, 0), calendar);
+			firstCreateDate.atTime(3, 0), calendar);
 		// 샘플은 대회마다 코스가 하나라고 보고 코스 ID를 대회 ID와 같게 둔다
-		first.recordAdvance(raceId, price * count, count, firstTargetDate);
+		first.recordAdvance(raceId, price * count, count, firstCreateDate);
 		save(first);
 		return first;
 	}
@@ -162,10 +162,10 @@ public class PayoutDataInit {
 		payout.pay(payout.getScheduledPayDate().atTime(4, 0));
 	}
 
-	private void addItems(Payout payout, long raceId, int count, long price, LocalDate targetDate) {
+	private void addItems(Payout payout, long raceId, int count, long price, LocalDate payoutCreateDate) {
 		for (int i = 1; i <= count; i++) {
 			// 주문 상품 ID는 대회마다 겹치지 않게 대회 번호 × 100,000부터 붙인다
-			payout.addItem(raceId * 100_000 + i, raceId, price, FEE_RATE, targetDate);
+			payout.addItem(raceId * 100_000 + i, raceId, price, FEE_RATE, payoutCreateDate);
 		}
 	}
 

@@ -177,7 +177,7 @@ class PayoutCreateUseCaseTest {
 			.containsExactlyInAnyOrder(100L, 101L);
 		assertThat(seller1.getItems())
 			.filteredOn(item -> item.getOrderItemId() != null)
-			.extracting(PayoutItem::getTargetDate)
+			.extracting(PayoutItem::getPayoutCreateDate)
 			.containsOnly(TARGET_DATE);
 	}
 
@@ -249,7 +249,7 @@ class PayoutCreateUseCaseTest {
 		assertThat(payout.getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 10, 20)); // 정산 월 9월 → 10/20 화
 		assertThat(payout.getItems())
 			.filteredOn(item -> item.getOrderItemId() != null)
-			.extracting(PayoutItem::getTargetDate)
+			.extracting(PayoutItem::getPayoutCreateDate)
 			.containsOnly(LocalDate.of(2026, 9, 29));
 	}
 
@@ -400,7 +400,7 @@ class PayoutCreateUseCaseTest {
 		assertThat(first.getPayoutAmount()).isEqualTo(40_000L);
 		assertThat(first.getStatus()).isEqualTo(PayoutStatus.CALCULATED);
 		assertThat(first.getItems())
-			.extracting(PayoutItem::getTargetDate)
+			.extracting(PayoutItem::getPayoutCreateDate)
 			.containsOnly(LocalDate.of(2026, 10, 1));
 		// 대회(10/10)가 아직 끝나지 않아 최종은 없다
 		assertThat(payoutRepository.findAll()).hasSize(1);
@@ -535,7 +535,7 @@ class PayoutCreateUseCaseTest {
 		Payout first = payoutOf(1, PayoutStage.FIRST);
 		assertThat(first.getPayoutMonth()).isEqualTo("2026-09");
 		assertThat(first.getItems())
-			.extracting(PayoutItem::getTargetDate)
+			.extracting(PayoutItem::getPayoutCreateDate)
 			.containsOnly(LocalDate.of(2026, 9, 29));
 	}
 

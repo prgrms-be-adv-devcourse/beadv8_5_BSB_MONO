@@ -259,7 +259,7 @@ class PayoutCreateUseCaseTransactionTest {
 		assertThat(retried.getPayoutMonth()).isEqualTo("2026-09");
 		assertThat(payoutItemRepository.findAll())
 			.filteredOn(item -> Long.valueOf(200L).equals(item.getOrderItemId()))
-			.extracting(PayoutItem::getTargetDate)
+			.extracting(PayoutItem::getPayoutCreateDate)
 			.containsOnly(TARGET_DATE);
 	}
 
