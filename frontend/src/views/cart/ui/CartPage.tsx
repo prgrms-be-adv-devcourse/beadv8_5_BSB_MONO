@@ -53,7 +53,6 @@ function EmptyCart() {
   return (
     <main className="flex flex-1 items-center justify-center px-4 py-6">
       <EmptyState
-        icon="Cart"
         title="장바구니가 비어 있어요"
         description="마음에 드는 대회를 찾아 참가권을 담아 보세요."
         action={
@@ -255,7 +254,8 @@ function CartLineCard({
           )}
         </div>
         {application ? (
-          <p className="text-body-s text-text-secondary">
+          // 참가자 이름이 들어 있어 Clarity 화면 녹화에서 가린다
+          <p className="text-body-s text-text-secondary" data-clarity-mask="true">
             {application.participantName ? `참가자 ${application.participantName} · ` : ''}수량 1
             (고정)
             {race ? ` · 접수 마감 ${race.dDay}` : ''}

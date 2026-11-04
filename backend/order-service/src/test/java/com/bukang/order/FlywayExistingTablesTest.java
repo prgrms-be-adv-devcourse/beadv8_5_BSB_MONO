@@ -36,6 +36,9 @@ class FlywayExistingTablesTest {
 		jdbcTemplate.update("insert into order_cart (member_id) values (1)");
 		// 서버 표는 칸 이름을 바꾸기 전(crew_application_id) 상태다. Hibernate는 지금 엔티티(party_id)로 만들므로 되돌려 둔다
 		jdbcTemplate.execute("alter table order_participation alter column party_id rename to crew_application_id");
+		// 서버에는 파티 표가 아직 없다(BUK-35 SQL이 만든다)
+		jdbcTemplate.execute("drop table order_party_member");
+		jdbcTemplate.execute("drop table order_party");
 
 		// dev·운영과 같은 Flyway 설정 (BUK-29)
 		MigrateResult result = Flyway.configure()
@@ -53,6 +56,10 @@ class FlywayExistingTablesTest {
 		assertThat(jdbcTemplate.queryForObject(
 			"select count(*) from information_schema.columns"
 				+ " where table_name = 'order_participation' and column_name = 'party_id'",
+			Integer.class)).isEqualTo(1);
+		assertThat(jdbcTemplate.queryForObject(
+			"select count(*) from information_schema.table_constraints"
+				+ " where table_name = 'order_participation' and constraint_name = 'fk_participation_party'",
 			Integer.class)).isEqualTo(1);
 	}
 }

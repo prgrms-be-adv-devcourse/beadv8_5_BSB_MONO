@@ -8,7 +8,6 @@ export function ForbiddenPage() {
   return (
     <main className="flex flex-1 items-center justify-center py-20">
       <EmptyState
-        icon="Info"
         title="판매자만 쓸 수 있는 화면이에요"
         description="판매자 등록을 신청하고 관리자 승인을 받으면 열려요."
         className="max-w-90"

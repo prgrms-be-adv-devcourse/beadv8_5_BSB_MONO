@@ -12,6 +12,9 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.core.env.PropertySource;
 import org.springframework.core.io.ClassPathResource;
 
+import com.bukang.order.out.seat.CrewSeatHoldPort;
+import com.bukang.order.out.seat.DisabledCrewSeatHoldAdapter;
+import com.bukang.order.out.seat.FakeCrewSeatHoldAdapter;
 import com.bukang.order.out.seat.FakeSeatHoldAdapter;
 import com.bukang.order.out.seat.HttpSeatHoldAdapter;
 import com.bukang.order.out.seat.SeatHoldPort;
@@ -21,15 +24,18 @@ class ProductClientConfigTest {
 	private final ApplicationContextRunner runner = new ApplicationContextRunner()
 		.withInitializer(context -> context.getBeanFactory()
 			.setConversionService(ApplicationConversionService.getSharedInstance()))
-		.withUserConfiguration(ProductClientConfig.class, FakeRaceCourseAdapter.class, FakeSeatHoldAdapter.class)
+		.withUserConfiguration(ProductClientConfig.class, FakeRaceCourseAdapter.class, FakeSeatHoldAdapter.class,
+			FakeCrewSeatHoldAdapter.class, DisabledCrewSeatHoldAdapter.class)
 		.withPropertyValues("order.clients.timeout=2s", "order.clients.product.base-url=http://localhost:8085");
 
 	@Test
-	@DisplayName("mode가 http면 종목 정보·자리 확보 모두 실제 상품 서비스를 부르는 어댑터만 등록된다")
+	@DisplayName("mode가 http면 종목 정보·자리 확보는 실제 상품 서비스 어댑터, 크루 자리 확보는 막는 어댑터만 등록된다")
 	void http() {
 		runner.withPropertyValues("order.clients.product.mode=http").run(context -> {
 			assertThat(context).getBean(RaceCoursePort.class).isInstanceOf(HttpRaceCourseAdapter.class);
 			assertThat(context).getBean(SeatHoldPort.class).isInstanceOf(HttpSeatHoldAdapter.class);
+			// 상품의 크루 자리 API가 생기기 전까지 운영은 파티 신청을 막는다(빈이 없어 앱이 안 뜨는 일도 없게)
+			assertThat(context).getBean(CrewSeatHoldPort.class).isInstanceOf(DisabledCrewSeatHoldAdapter.class);
 		});
 	}
 
@@ -52,6 +58,7 @@ class ProductClientConfigTest {
 		runner.withPropertyValues("order.clients.product.mode=fake").run(context -> {
 			assertThat(context).getBean(RaceCoursePort.class).isInstanceOf(FakeRaceCourseAdapter.class);
 			assertThat(context).getBean(SeatHoldPort.class).isInstanceOf(FakeSeatHoldAdapter.class);
+			assertThat(context).getBean(CrewSeatHoldPort.class).isInstanceOf(FakeCrewSeatHoldAdapter.class);
 		});
 		runner.run(context -> {
 			assertThat(context).getBean(RaceCoursePort.class).isInstanceOf(FakeRaceCourseAdapter.class);

@@ -18,6 +18,14 @@ public record SellerChangedEvent(
 	String representativeName,
 	SellerStatus status,
 	LocalDateTime requestedAt,
-	LocalDateTime reviewedAt
+	LocalDateTime reviewedAt,
+	String eventId
 ) {
+	// 받는 쪽 초기 데이터·테스트 전용. 회원 서비스는 쓰지 않는다 (eventId가 비어 아웃박스 저장에서 예외가 난다)
+	public SellerChangedEvent(long id, long memberId, SellerType sellerType, String businessName,
+		String businessNumber, String representativeName, SellerStatus status, LocalDateTime requestedAt,
+		LocalDateTime reviewedAt) {
+		this(id, memberId, sellerType, businessName, businessNumber, representativeName, status, requestedAt,
+			reviewedAt, null);
+	}
 }

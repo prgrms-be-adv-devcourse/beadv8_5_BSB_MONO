@@ -73,6 +73,7 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
   const [menuRace, setMenuRace] = useState<RaceListItem | 'preview' | null>(
     state === 'menu' ? 'preview' : null,
   )
+  const firstImageId = races.find((race) => race.image)?.id
   const menuTarget = menuRace === 'preview' ? (races[0] ?? null) : menuRace
   const suggestionItems = [
     ...(suggestions.data?.races ?? []).map((r) => ({
@@ -163,7 +164,6 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
         {!loading && list.isError && !empty && (
           <div className="flex flex-1 items-center justify-center">
             <EmptyState
-              icon="Search"
               title="대회를 불러오지 못했어요"
               description="잠시 뒤 다시 시도해 주세요."
               action={
@@ -177,7 +177,6 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
         {!loading && !list.isError && races.length === 0 && (
           <div className="flex flex-1 items-center justify-center">
             <EmptyState
-              icon="Search"
               title={`'${query}'에 맞는 대회가 없어요`}
               description="다른 지역이나 종목으로 찾아보세요."
               action={
@@ -205,6 +204,9 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
                       alt=""
                       width={80}
                       height={80}
+                      // 사진이 있는 첫 카드의 썸네일이 목록 첫 화면에서 가장 큰 요소(LCP)라 먼저 받는다
+                      loading={race.id === firstImageId ? 'eager' : undefined}
+                      fetchPriority={race.id === firstImageId ? 'high' : undefined}
                       className="size-20 shrink-0 rounded-md object-cover"
                     />
                   ) : (

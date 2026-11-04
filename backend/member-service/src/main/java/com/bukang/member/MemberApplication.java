@@ -15,9 +15,10 @@ import jakarta.persistence.EntityManager;
 // 엔티티와 Repository는 이 클래스의 패키지(com.bukang.member) 기준으로 스캔된다
 @SpringBootApplication(scanBasePackages = {"com.bukang.member", "com.bukang.common"})
 @EnableJpaAuditing
-@EnableScheduling // 탈퇴 후 재가입 제한 해시 정리(RejoinBlockCleanupScheduler, test 프로파일 제외)
 // @ConfigurationProperties 설정 클래스(config/auth/RefreshTokenProperties 등)를 빈으로 등록한다
 @ConfigurationPropertiesScan
+// 아웃박스 발행·정리 스케줄러(in/MemberOutboxScheduler)와 탈퇴 후 재가입 제한 해시 정리(RejoinBlockCleanupScheduler)를 켠다
+@EnableScheduling
 public class MemberApplication {
 
 	public static void main(String[] args) {

@@ -20,7 +20,8 @@ class PaymentClientConfigTest {
 		.withPropertyValues(
 			"cash.clients.pg.base-url=http://localhost",
 			"cash.clients.pg.secret-key=test_sk_dummy",
-			"cash.clients.pg.timeout=2s"
+			"cash.clients.pg.confirm-timeout=5s",
+			"cash.clients.pg.lookup-timeout=2s"
 		);
 
 	@Test

@@ -41,7 +41,7 @@ export function HomePage({ state, closingSoon, openRaces }: HomePageProps) {
       <main className="flex-1">
         <section className="pt-4 pb-2">
           <Carousel label="접수 중인 대회">
-            {RACE_BANNERS.map((banner) => (
+            {RACE_BANNERS.map((banner, i) => (
               <CarouselSlide
                 key={banner.id}
                 image={
@@ -50,6 +50,9 @@ export function HomePage({ state, closingSoon, openRaces }: HomePageProps) {
                     alt={banner.title ?? ''}
                     fill
                     sizes="420px"
+                    // 첫 장이 첫 화면에서 가장 큰 요소(LCP)라 먼저 받는다. 나머지는 지연 로딩
+                    loading={i === 0 ? 'eager' : undefined}
+                    fetchPriority={i === 0 ? 'high' : undefined}
                     className="object-cover"
                   />
                 }
