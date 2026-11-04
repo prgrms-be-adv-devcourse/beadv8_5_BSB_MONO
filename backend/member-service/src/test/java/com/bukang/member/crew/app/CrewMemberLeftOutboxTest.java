@@ -41,6 +41,7 @@ import com.bukang.member.crew.out.CrewMemberRepository;
 import com.bukang.member.crew.out.CrewRepository;
 import com.bukang.member.domain.MemberOutboxEvent;
 import com.bukang.member.domain.MemberOutboxStatus;
+import com.bukang.member.domain.exception.WithdrawCrewLeaderException;
 import com.bukang.member.out.MemberOutboxEventRepository;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.RefreshTokenRepository;
@@ -145,7 +146,8 @@ class CrewMemberLeftOutboxTest {
 		crewFacade.leave(memberId, crewId);
 
 		Map<?, ?> body = jsonConverter.fromJson(crewLeftRows().get(0).getPayload(), Map.class);
-		assertThat(body.keySet()).containsExactlyInAnyOrder("eventId", "crewId", "memberId", "reason", "leftAt");
+		assertThat(body.keySet().stream().map(String::valueOf).toList())
+			.containsExactlyInAnyOrder("eventId", "crewId", "memberId", "reason", "leftAt");
 	}
 
 	@Test
@@ -185,6 +187,8 @@ class CrewMemberLeftOutboxTest {
 
 		memberFacade.withdrawMe(memberId);
 
+		assertThat(crewMemberRepository.existsByCrewIdAndMemberId(crewId, memberId)).isFalse();
+		assertThat(crewMemberRepository.existsByCrewIdAndMemberId(otherCrewId, memberId)).isFalse();
 		List<CrewMemberLeftEvent> bodies = crewLeftRows().stream().map(this::bodyOf).toList();
 		assertThat(bodies).extracting(CrewMemberLeftEvent::crewId).containsExactlyInAnyOrder(crewId, otherCrewId);
 		assertThat(bodies).allSatisfy(body -> {
@@ -192,6 +196,14 @@ class CrewMemberLeftOutboxTest {
 			assertThat(body.reason()).isEqualTo(CrewMemberLeftReason.MEMBER_WITHDRAWN);
 			assertThat(body.leftAt()).isNotNull();
 		});
+	}
+
+	@Test
+	@DisplayName("크루장인 회원이 탈퇴하려 하면 409로 막히고 크루원 이탈 행이 남지 않는다")
+	void leaderWithdrawRejectedAppendsNothing() {
+		assertThatThrownBy(() -> memberFacade.withdrawMe(leaderId)).isInstanceOf(WithdrawCrewLeaderException.class);
+
+		assertThat(crewLeftRows()).isEmpty();
 	}
 
 	@Test
