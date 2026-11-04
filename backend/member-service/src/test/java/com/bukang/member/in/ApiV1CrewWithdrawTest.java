@@ -26,7 +26,6 @@ import com.bukang.member.crew.out.CrewInviteRepository;
 import com.bukang.member.crew.out.CrewMemberRepository;
 import com.bukang.member.crew.out.CrewRepository;
 import com.bukang.member.domain.MemberStatus;
-import com.bukang.member.out.MemberKafkaPublisher;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.RefreshTokenRepository;
 import com.bukang.member.out.TermsAgreementRepository;
@@ -64,9 +63,6 @@ class ApiV1CrewWithdrawTest {
 	@Autowired
 	private CrewInviteRepository crewInviteRepository;
 
-	// 브로커가 없어 가입·수정 이벤트를 보낼 때마다 기다리지 않도록 발행기를 목으로 바꾼다
-	@MockitoBean
-	private MemberKafkaPublisher memberKafkaPublisher;
 	@MockitoBean
 	private CashBalancePort cashBalancePort;
 	@MockitoBean

@@ -5,6 +5,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 import com.querydsl.jpa.impl.JPAQueryFactory;
 
@@ -16,6 +17,8 @@ import jakarta.persistence.EntityManager;
 @EnableJpaAuditing
 // @ConfigurationProperties 설정 클래스(config/auth/RefreshTokenProperties 등)를 빈으로 등록한다
 @ConfigurationPropertiesScan
+// 아웃박스 발행·정리 스케줄러(in/MemberOutboxScheduler)를 켠다
+@EnableScheduling
 public class MemberApplication {
 
 	public static void main(String[] args) {

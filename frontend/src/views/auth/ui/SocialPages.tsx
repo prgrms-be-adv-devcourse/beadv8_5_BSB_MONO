@@ -40,8 +40,10 @@ export function SocialCompletePage({ next }: { next?: string }) {
   }, [status, next, router])
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-3 bg-bg-surface">
-      <Spinner />
-      <p className="text-body-m text-text-secondary">로그인하고 있어요</p>
+      <Spinner label="로그인하고 있어요" />
+      <p aria-hidden className="text-body-m text-text-secondary">
+        로그인하고 있어요
+      </p>
     </main>
   )
 }
