@@ -1,5 +1,9 @@
 package com.bukang.member.app;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.stream.Collectors;
 
 import org.springframework.security.authentication.AuthenticationManager;
@@ -7,6 +11,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.bukang.member.config.MarketingUnsubscribeProperties;
 import com.bukang.member.domain.Member;
 import com.bukang.member.domain.SocialProvider;
 import com.bukang.member.domain.exception.MemberNotFoundException;
@@ -14,6 +19,7 @@ import com.bukang.member.domain.exception.SocialAccountLoginException;
 import com.bukang.member.dto.AuthTokens;
 import com.bukang.member.dto.EmailAvailabilityResponseDto;
 import com.bukang.member.dto.MarketingConsentDto;
+import com.bukang.member.dto.MarketingUnsubscribeLinkDto;
 import com.bukang.member.dto.MemberAdminDto;
 import com.bukang.member.dto.MemberDto;
 import com.bukang.member.dto.MemberJoinRequestDto;
@@ -40,6 +46,9 @@ public class MemberFacade {
 	private final LogoutUseCase logoutUseCase;
 	private final AdminVerifyUseCase adminVerifyUseCase;
 	private final MarketingConsentUseCase marketingConsentUseCase;
+	private final MarketingUnsubscribeTokens marketingUnsubscribeTokens;
+	private final MarketingUnsubscribeProperties marketingUnsubscribeProperties;
+	private final Clock clock;
 
 	@Transactional
 	public MemberDto join(MemberJoinRequestDto memberJoinDto) {
@@ -83,6 +92,22 @@ public class MemberFacade {
 	@Transactional
 	public MarketingConsentDto changeMarketingConsent(long memberId, boolean agreed) {
 		return marketingConsentUseCase.change(memberId, agreed);
+	}
+
+	// CRM이 광고를 보낼 때 메시지 끝에 붙일 링크를 받아 간다. 서명 키는 회원 서비스 밖으로 나가지 않는다 (BE-039)
+	public MarketingUnsubscribeLinkDto issueUnsubscribeLink(long memberId) {
+		memberRepository.findActiveById(memberId)
+			.orElseThrow(() -> new MemberNotFoundException("존재하지 않는 회원입니다."));
+		Instant expiresAt = Instant.now(clock).plus(marketingUnsubscribeProperties.tokenTtl());
+		String token = marketingUnsubscribeTokens.issue(memberId, expiresAt);
+		return new MarketingUnsubscribeLinkDto(marketingUnsubscribeProperties.link(token),
+			LocalDateTime.ofInstant(expiresAt, ZoneId.systemDefault()));
+	}
+
+	// 수신 거부는 마케팅 동의 철회로 남긴다. 이미 거부했으면 동의 변경이 아무것도 남기지 않아 두 번 눌러도 같다 (BE-039)
+	@Transactional
+	public void unsubscribeMarketing(String token) {
+		marketingConsentUseCase.change(marketingUnsubscribeTokens.verify(token, Instant.now(clock)), false);
 	}
 
 	@Transactional

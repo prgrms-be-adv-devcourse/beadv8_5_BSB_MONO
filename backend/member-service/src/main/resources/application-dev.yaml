@@ -62,3 +62,6 @@ member:
   auth:
     password-reset:
       front-base-url: ${FRONT_PUBLIC_BASE_URL:http://localhost:3000}
+  marketing:
+    unsubscribe:
+      front-base-url: ${FRONT_PUBLIC_BASE_URL:http://localhost:3000}

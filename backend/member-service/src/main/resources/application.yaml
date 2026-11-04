@@ -142,6 +142,14 @@ member:
     portone:
       api-secret: ${PORTONE_API_SECRET:}
       store-id: ${PORTONE_STORE_ID:}
+  # CRM 광고 수신 거부 링크 (MarketingUnsubscribeProperties, BUK-75, BE-039). 서명 키는 .env에만 둔다
+  marketing:
+    unsubscribe:
+      # 토큰 서명 키. 비우면 링크 발급과 수신 거부가 500으로 실패한다
+      secret-key: ${MARKETING_UNSUBSCRIBE_KEY:}
+      # 링크 앞부분 (프론트 확인 화면 /unsubscribe). 요청 Host 헤더로 만들지 않는다
+      front-base-url: ${FRONT_PUBLIC_BASE_URL:}
+      token-ttl: 365d
   # 회원 탈퇴 전에 남은 예치금·참가권을 묻는 내부 API (BE-022). 로컬 개발은 bootRun으로 띄운 서비스 포트로 부른다
   clients:
     # 연결·응답 시간 제한. 넘으면 탈퇴하지 않고 503으로 다시 시도하게 한다
