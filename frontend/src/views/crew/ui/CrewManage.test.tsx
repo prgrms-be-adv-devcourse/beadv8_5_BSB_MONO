@@ -503,7 +503,7 @@ describe('크루원 목록 줄 맞춤', () => {
   function mockLongNames() {
     const example = memberMock.getFindCrewResponseMock()
     const members = [
-      { memberId: 1, nickname: '곰', role: 'LEADER' as const },
+      { memberId: 1, nickname: '곰돌', role: 'LEADER' as const },
       { memberId: 2, nickname: LONGEST[0], role: 'MANAGER' as const },
       { memberId: 3, nickname: LONGEST[1], role: 'MEMBER' as const },
     ]
@@ -530,8 +530,8 @@ describe('크루원 목록 줄 맞춤', () => {
     mockLongNames()
     renderPage(<CrewManagePage crewId={1} />)
     await screen.findByText(LONGEST[1])
-    expectAlignedRows(['곰', ...LONGEST])
-    const me = screen.getByText('곰').closest('li')!
+    expectAlignedRows(['곰돌', ...LONGEST])
+    const me = screen.getByText('곰돌').closest('li')!
     expect(within(me).getByText('나')).toBeInTheDocument()
   })
 
@@ -539,6 +539,6 @@ describe('크루원 목록 줄 맞춤', () => {
     mockLongNames()
     renderPage(<CrewHomePage crewId={1} />)
     await screen.findByText(LONGEST[1])
-    expectAlignedRows(['곰', ...LONGEST])
+    expectAlignedRows(['곰돌', ...LONGEST])
   })
 })
