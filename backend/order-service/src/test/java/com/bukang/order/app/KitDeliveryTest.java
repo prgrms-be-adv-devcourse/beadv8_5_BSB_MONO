@@ -242,21 +242,26 @@ class KitDeliveryTest {
 		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().minusDays(1)));
 		long failingOrderId = paidOrder(MEMBER_ID + 1);
 		long okOrderId = paidOrder(MEMBER_ID);
+		long brokenOrderId = paidOrder(MEMBER_ID + 2);
 		kitDeliveryUseCase.ship(SELLER_ID, itemIdOf(failingOrderId), CARRIER_ID, "111", LocalDateTime.now());
 		kitDeliveryUseCase.ship(SELLER_ID, itemIdOf(okOrderId), CARRIER_ID, "222", LocalDateTime.now());
+		kitDeliveryUseCase.ship(SELLER_ID, itemIdOf(brokenOrderId), CARRIER_ID, "333", LocalDateTime.now());
 		deliveryTrackingPort.fail("111");
+		// 상대를 부르지 못함이 아닌 예외(어댑터 버그 등)도 그 배송만 미룬다
+		deliveryTrackingPort.failWith("333", new IllegalStateException("어댑터 버그"));
 		deliveryTrackingPort.put("222", new DeliveryTrackingResult(DeliveryTrackingStatus.IN_TRANSIT, "이동중",
 			null, List.of()));
 		LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
 
-		assertThat(kitTrackingUseCase.track(now)).isEqualTo(new KitTrackingUseCase.TrackResult(1, 0, 1));
+		assertThat(kitTrackingUseCase.track(now)).isEqualTo(new KitTrackingUseCase.TrackResult(1, 0, 2));
 
 		assertThat(shipmentOf(failingOrderId).getLastTrackedAt()).isEqualTo(now);
+		assertThat(shipmentOf(brokenOrderId).getLastTrackedAt()).isEqualTo(now);
 		assertThat(shipmentOf(failingOrderId).getTrackingStatus()).isEqualTo(DeliveryTrackingStatus.NOT_TRACKED);
 		assertThat(shipmentOf(okOrderId).getTrackingStatus()).isEqualTo(DeliveryTrackingStatus.IN_TRANSIT);
 		// 다음 차례에는 오래 조회하지 않은 것부터 부른다
 		kitTrackingUseCase.track(now.plusMinutes(30));
-		assertThat(deliveryTrackingPort.calls()).containsExactly("111", "222", "111", "222");
+		assertThat(deliveryTrackingPort.calls()).containsExactly("111", "222", "333", "111", "222", "333");
 		findOrder(okOrderId).andExpect(jsonPath("$.data.items[0].kitTracking.status").value("IN_TRANSIT"));
 	}
 

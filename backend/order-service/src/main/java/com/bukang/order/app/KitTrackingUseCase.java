@@ -58,7 +58,11 @@ public class KitTrackingUseCase {
 			DeliveryTrackingResult result;
 			try {
 				result = deliveryTrackingPort.track(target.carrierId(), target.trackingNumber());
-			} catch (ExternalServiceUnavailableException exception) {
+			} catch (RuntimeException exception) {
+				// 상대를 부르지 못함은 어댑터가 이미 남겼다. 그 밖의 예외(어댑터 버그 등)도 이 배송만 미루고 다음 배송을 조회한다
+				if (!(exception instanceof ExternalServiceUnavailableException)) {
+					log.error("키트 배송을 조회하다 예상하지 못한 오류가 났습니다. shipmentId={}", target.shipmentId(), exception);
+				}
 				failed++;
 				markTracked(target.shipmentId(), now);
 				continue;

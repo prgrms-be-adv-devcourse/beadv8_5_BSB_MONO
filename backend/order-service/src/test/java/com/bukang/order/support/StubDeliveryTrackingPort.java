@@ -15,14 +15,14 @@ import com.bukang.order.out.delivery.DeliveryTrackingResult;
  */
 public class StubDeliveryTrackingPort implements DeliveryTrackingPort {
 	private final Map<String, DeliveryTrackingResult> results = new ConcurrentHashMap<>();
-	private final Map<String, Boolean> failures = new ConcurrentHashMap<>();
+	private final Map<String, RuntimeException> failures = new ConcurrentHashMap<>();
 	private final List<String> calls = new ArrayList<>();
 
 	@Override
 	public synchronized DeliveryTrackingResult track(String carrierId, String trackingNumber) {
 		calls.add(trackingNumber);
 		if (failures.containsKey(trackingNumber)) {
-			throw new ExternalServiceUnavailableException("배송 조회 서비스에 연결하지 못했습니다.");
+			throw failures.get(trackingNumber);
 		}
 		return results.getOrDefault(trackingNumber, DeliveryTrackingResult.notTracked());
 	}
@@ -32,7 +32,12 @@ public class StubDeliveryTrackingPort implements DeliveryTrackingPort {
 	}
 
 	public void fail(String trackingNumber) {
-		failures.put(trackingNumber, true);
+		failWith(trackingNumber, new ExternalServiceUnavailableException("배송 조회 서비스에 연결하지 못했습니다."));
+	}
+
+	// 상대를 부르지 못함이 아닌 예외 (어댑터 버그 등)
+	public void failWith(String trackingNumber, RuntimeException exception) {
+		failures.put(trackingNumber, exception);
 	}
 
 	// 부른 운송장 번호 (부른 순서)

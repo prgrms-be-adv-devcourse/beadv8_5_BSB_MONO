@@ -1,5 +1,6 @@
 package com.bukang.order.in;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -16,6 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -30,6 +32,8 @@ import com.bukang.order.domain.Order;
 import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationRepository;
 import com.bukang.order.out.QueueAdmissionRepository;
+import com.bukang.order.out.ShipmentRepository;
+import com.bukang.order.out.ShipmentTrackingTarget;
 import com.bukang.order.out.race.RaceCourseInfo;
 import com.bukang.order.support.QueueEntry;
 import com.bukang.order.support.StubRaceCoursePort;
@@ -99,6 +103,9 @@ class ApiV1SellerKitTest {
 
 	@Autowired
 	private TransactionTemplate transactionTemplate;
+
+	@Autowired
+	private ShipmentRepository shipmentRepository;
 
 	@AfterEach
 	void tearDown() {
@@ -209,6 +216,29 @@ class ApiV1SellerKitTest {
 	}
 
 	@Test
+	@DisplayName("옛 프론트처럼 택배사 이름(carrier)만 보내도 목록의 이름이면 그 택배사로 발송되고 자동 조회 대상이 된다. "
+		+ "모르는 이름은 400이다")
+	void shipWithLegacyCarrierName() throws Exception {
+		approveSellers();
+		raceCoursePort.put(StubRaceCoursePort.openCourse(COURSE_ID, RACE_ID, 14, null, LocalDate.now().minusDays(1)));
+		long itemId = itemIdOf(paidOrder());
+
+		shipWithBody(itemId, "{\"carrier\": \"대한택배\", \"trackingNumber\": \"684912345678\"}")
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message").value("목록에 없는 택배사입니다."));
+		shipWithBody(itemId, "{\"carrier\": \" \", \"trackingNumber\": \"684912345678\"}")
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message").value("택배사를 골라주세요."));
+		shipWithBody(itemId, "{\"carrier\": \"CJ대한통운\", \"trackingNumber\": \"684912345678\"}")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.kitCarrier").value("CJ대한통운"))
+			.andExpect(jsonPath("$.data.kitTracking.carrierId").value("kr.cjlogistics"));
+		assertThat(shipmentRepository.findTrackingTargets(PageRequest.of(0, 10)))
+			.extracting(ShipmentTrackingTarget::carrierId)
+			.containsExactly("kr.cjlogistics");
+	}
+
+	@Test
 	@DisplayName("택배사가 목록에 없거나 송장 번호가 비었거나 너무 길면 400, 환불 기한 전 발송·발송 전 배송 완료는 409, 없는 상품은 404다")
 	void invalidRequests() throws Exception {
 		approveSellers();
@@ -311,6 +341,13 @@ class ApiV1SellerKitTest {
 			.header("X-Member-Id", memberId)
 			.contentType(MediaType.APPLICATION_JSON)
 			.content("{\"carrierId\": \"%s\", \"trackingNumber\": \"%s\"}".formatted(carrier, trackingNumber)));
+	}
+
+	private ResultActions shipWithBody(long orderItemId, String body) throws Exception {
+		return mockMvc.perform(post(BASE_URL + "/" + orderItemId + "/shipment")
+			.header("X-Member-Id", SELLER_MEMBER_ID)
+			.contentType(MediaType.APPLICATION_JSON)
+			.content(body));
 	}
 
 	private long paidOrder() throws Exception {

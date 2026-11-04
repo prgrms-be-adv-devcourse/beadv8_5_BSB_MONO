@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.bukang.order.domain.DeliveryCarrier;
 import com.bukang.order.domain.KitDeliveryStatus;
 import com.bukang.order.domain.exception.SellerAccessDeniedException;
 import com.bukang.order.dto.DeliveryCarrierDto;
@@ -41,8 +42,18 @@ public class SellerKitFacade {
 	}
 
 	public OrderItemDto ship(long memberId, long orderItemId, KitShipmentRequestDto request) {
-		return kitDeliveryUseCase.ship(sellerIdOf(memberId), orderItemId, request.getCarrierId(),
+		return kitDeliveryUseCase.ship(sellerIdOf(memberId), orderItemId, carrierIdOf(request),
 			request.getTrackingNumber(), LocalDateTime.now());
+	}
+
+	// carrierId가 없으면 옛 칸(택배사 이름)으로 찾는다. 목록에 없는 이름은 그대로 넘겨 400(목록에 없는 택배사)이 된다
+	private static String carrierIdOf(KitShipmentRequestDto request) {
+		if (request.getCarrierId() != null && !request.getCarrierId().isBlank()) {
+			return request.getCarrierId();
+		}
+		return DeliveryCarrier.findByLabel(request.getCarrier())
+			.map(DeliveryCarrier::getId)
+			.orElse(request.getCarrier());
 	}
 
 	public List<DeliveryCarrierDto> findCarriers() {

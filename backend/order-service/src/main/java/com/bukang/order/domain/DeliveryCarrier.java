@@ -37,4 +37,11 @@ public enum DeliveryCarrier {
 			.filter(carrier -> !carrier.devOnly || devCarrierEnabled)
 			.findFirst();
 	}
+
+	// 택배사 이름으로 찾는다 (옛 발송 요청의 carrier 칸, KitShipmentRequestDto). 개발용인지는 find가 다시 본다
+	public static Optional<DeliveryCarrier> findByLabel(String label) {
+		return Arrays.stream(values())
+			.filter(carrier -> carrier.label.equals(label == null ? null : label.strip()))
+			.findFirst();
+	}
 }
