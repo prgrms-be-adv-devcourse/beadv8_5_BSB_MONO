@@ -12,6 +12,7 @@ import com.bukang.common.shared.file.event.FileLinkRequestedEvent;
 import com.bukang.common.shared.kafka.KafkaMessageId;
 import com.bukang.common.shared.kafka.KafkaTopics;
 import com.bukang.file.app.FileFacade;
+import com.bukang.file.app.FileKafkaRetry;
 
 import lombok.RequiredArgsConstructor;
 
@@ -34,11 +35,13 @@ public class FileKafkaConsumer {
 	private static final String CONCURRENCY = "1";
 	// 처음 시도를 포함한 시도 횟수. 실패하면 1초 → 2초 간격(2배수)으로 2번 다시 시도한다
 	private static final String RETRY_ATTEMPTS = "3";
-	private static final long RETRY_DELAY_MILLIS = 1000L;
+	// 첫 재시도 지연과 재시도·DLT 토픽 접미사는 FileKafkaRetry에 있다. 다시 보내기(FileDltUseCase)가 같은 값으로
+	// 첫 재시도 토픽 이름(예: race.filelink.requested-retry-1000)을 만든다
+	// 재시도 토픽 접미사는 적지 않아 Spring Kafka 기본값(-retry, FileKafkaRetry.RETRY_TOPIC_SUFFIX와 같은 값)을 쓴다
+	private static final long RETRY_DELAY_MILLIS = FileKafkaRetry.FIRST_RETRY_DELAY_MILLIS;
 	private static final double RETRY_MULTIPLIER = 2.0;
-	// 마지막까지 실패한 메시지를 보낼 토픽 접미사 (예: race.filelink.requested.dlt, 기본값은 -dlt)
 	// FileKafkaDltConsumer가 DLT 토픽 이름을 만들 때 같은 값을 쓴다
-	static final String DLT_TOPIC_SUFFIX = ".dlt";
+	static final String DLT_TOPIC_SUFFIX = FileKafkaRetry.DLT_TOPIC_SUFFIX;
 	// DLT는 FileKafkaDltConsumer가 받으므로, @RetryableTopic이 기본으로 띄우는 DLT 리스너는 시작하지 않는다
 	private static final String AUTO_START_DEFAULT_DLT_HANDLER = "false";
 
@@ -58,7 +61,8 @@ public class FileKafkaConsumer {
 		autoStartDltHandler = AUTO_START_DEFAULT_DLT_HANDLER
 	)
 	public void handleFileLinkRequested(String payload,
-		@Header(name = KafkaMessageId.HEADER, required = false) String messageId) {
+		@Header(name = KafkaMessageId.HEADER, required = false) String messageId
+	) {
 		FileLinkRequestedEvent event = jsonConverter.fromJson(payload, FileLinkRequestedEvent.class);
 		fileFacade.linkAll(messageId, KafkaTopics.RACE_FILE_LINK_REQUESTED, event.ownerId(), event.refs());
 	}
