@@ -16,6 +16,8 @@ import com.bukang.common.shared.member.web.LoginMemberId;
 import com.bukang.member.app.MemberFacade;
 import com.bukang.member.dto.EmailAvailabilityRequestDto;
 import com.bukang.member.dto.EmailAvailabilityResponseDto;
+import com.bukang.member.dto.MarketingConsentDto;
+import com.bukang.member.dto.MarketingConsentRequestDto;
 import com.bukang.member.dto.MemberDto;
 import com.bukang.member.dto.MemberModifyRequestDto;
 
@@ -29,7 +31,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
-@Tag(name = "Member", description = "이메일 중복 확인, 내 정보 조회, 내 정보 수정, 회원 탈퇴 API")
+@Tag(name = "Member", description = "이메일 중복 확인, 내 정보 조회, 내 정보 수정, 마케팅 수신 동의, 회원 탈퇴 API")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/member/members")
@@ -108,6 +110,59 @@ public class ApiV1MemberController {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "내 정보를 수정했습니다.",
 				memberFacade.modifyMe(memberId, memberModifyRequestDto)));
+	}
+
+	// 마이페이지 「마케팅 정보 받기」 토글이 지금 상태와 마지막으로 정한 날짜를 보여 주는 용도 (BUK-70)
+	@GetMapping("/me/marketing-consent")
+	@Operation(summary = "마케팅 수신 동의 조회",
+		description = "X-Member-Id 헤더의 회원이 마케팅 정보 수신에 동의했는지와 마지막으로 정한 시각을 돌려준다. "
+			+ "마케팅 약관 동의 기록 중 마지막 줄이 지금 상태다. 기록이 없으면 agreed=false, decidedAt=null이다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "조회 성공",
+			content = @Content(examples = @ExampleObject(value = MemberApiExamples.FIND_MARKETING_CONSENT_SUCCESS))),
+		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음 (로그인하지 않은 요청)",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = MemberApiExamples.LOGIN_REQUIRED))),
+		@ApiResponse(responseCode = "404", description = "헤더의 회원이 없거나 탈퇴함",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = MemberApiExamples.MEMBER_NOT_FOUND)))
+	})
+	public ResponseEntity<RsData<MarketingConsentDto>> findMarketingConsent(
+		@LoginMemberId long memberId
+	) {
+		return ResponseEntity.ok()
+			.body(RsData.of(HttpStatus.OK, "마케팅 수신 동의 상태를 조회했습니다.",
+				memberFacade.findMarketingConsent(memberId)));
+	}
+
+	// 토글은 바뀐 뒤의 값을 보내므로 PUT으로 통째로 정한다. 기록은 새 줄로 쌓고 동의 변경 이벤트를 보낸다 (BUK-70)
+	@PutMapping("/me/marketing-consent")
+	@Operation(summary = "마케팅 수신 동의 변경",
+		description = "X-Member-Id 헤더의 회원의 마케팅 정보 수신 동의를 켜거나 끈다. 바뀌면 동의 기록을 새 줄로 남기고 "
+			+ "동의 변경 이벤트(queuing.member.consentchanged)를 보낸다. 지금과 같은 값이면 아무것도 남기지 않고 "
+			+ "지금 상태를 그대로 돌려준다(마지막으로 정한 시각도 그대로).")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "변경 성공 (같은 값이어도 200)",
+			content = @Content(examples = @ExampleObject(value = MemberApiExamples.CHANGE_MARKETING_CONSENT_SUCCESS))),
+		@ApiResponse(responseCode = "400", description = "agreed 누락 또는 요청 본문 형식 오류",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "agreed 누락", value = MemberApiExamples.CHANGE_MARKETING_CONSENT_INVALID_INPUT),
+				@ExampleObject(name = "요청 본문 형식 오류", value = MemberApiExamples.INVALID_BODY)
+			})),
+		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음 (로그인하지 않은 요청)",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = MemberApiExamples.LOGIN_REQUIRED))),
+		@ApiResponse(responseCode = "404", description = "헤더의 회원이 없거나 탈퇴함",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = MemberApiExamples.MEMBER_NOT_FOUND)))
+	})
+	public ResponseEntity<RsData<MarketingConsentDto>> changeMarketingConsent(
+		@LoginMemberId long memberId,
+		@Valid @RequestBody MarketingConsentRequestDto marketingConsentRequestDto
+	) {
+		return ResponseEntity.ok()
+			.body(RsData.of(HttpStatus.OK, "마케팅 수신 동의를 변경했습니다.",
+				memberFacade.changeMarketingConsent(memberId, marketingConsentRequestDto.agreed())));
 	}
 
 	// 탈퇴는 남은 예치금·끝나지 않은 참가권이 없을 때만 바로 끝내고, 줄은 남긴 채 개인정보 칸을 비운다 (BE-022)

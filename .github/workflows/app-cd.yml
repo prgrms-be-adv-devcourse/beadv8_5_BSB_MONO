@@ -40,7 +40,7 @@ jobs:
           - { name: order-service, context: backend, module: order-service }
           - { name: product-service, context: backend, module: product-service }
           - { name: queue-service, context: backend, module: queue-service }
-          # web은 SITE_URL·NEXT_PUBLIC_TOSS_CLIENT_KEY·NEXT_PUBLIC_GTM_ID·NEXT_PUBLIC_CLARITY_ID·IMAGE_REMOTE_HOSTS·NEXT_PUBLIC_PORTONE_*를 빌드할 때 이미지에 고정한다 (저장소 Variables에서 읽음)
+          # web은 SITE_URL·NEXT_PUBLIC_TOSS_CLIENT_KEY·NEXT_PUBLIC_GTM_ID·NEXT_PUBLIC_CLARITY_ID·IMAGE_REMOTE_HOSTS·NEXT_PUBLIC_PORTONE_*·NEXT_PUBLIC_*_SITE_VERIFICATION을 빌드할 때 이미지에 고정한다 (저장소 Variables에서 읽음)
           - { name: web, context: frontend, module: '' }
     steps:
       - uses: actions/checkout@v4
@@ -67,6 +67,8 @@ jobs:
             ${{ matrix.name == 'web' && format('IMAGE_REMOTE_HOSTS={0}', vars.IMAGE_REMOTE_HOSTS) || '' }}
             ${{ matrix.name == 'web' && format('NEXT_PUBLIC_PORTONE_STORE_ID={0}', vars.NEXT_PUBLIC_PORTONE_STORE_ID) || '' }}
             ${{ matrix.name == 'web' && format('NEXT_PUBLIC_PORTONE_IDENTITY_CHANNEL_KEY={0}', vars.NEXT_PUBLIC_PORTONE_IDENTITY_CHANNEL_KEY) || '' }}
+            ${{ matrix.name == 'web' && format('NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION={0}', vars.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION) || '' }}
+            ${{ matrix.name == 'web' && format('NEXT_PUBLIC_NAVER_SITE_VERIFICATION={0}', vars.NEXT_PUBLIC_NAVER_SITE_VERIFICATION) || '' }}
           push: true
           tags: |
             ${{ env.REGISTRY }}/bukang-${{ matrix.name }}:${{ github.sha }}

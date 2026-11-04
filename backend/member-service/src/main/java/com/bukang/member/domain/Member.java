@@ -118,7 +118,7 @@ public class Member extends SourceMember {
 		publishEvent(new MemberWithdrawnEvent(newEventId(), getId(), getWithdrawnAt()));
 	}
 
-	// 마케팅 수신 동의가 바뀌면 부른다. 동의를 바꾸는 API는 다음 작업에서 만든다 (BUK-41)
+	// 마케팅 수신 동의가 바뀌면 부른다 (BUK-41). 동의 기록을 쌓는 트랜잭션 안에서 부른다 (MarketingConsentUseCase, BUK-70)
 	public void publishMarketingConsentChangedEvent(boolean agreed, LocalDateTime changedAt) {
 		publishEvent(new MarketingConsentChangedEvent(newEventId(), getId(), agreed, changedAt));
 	}

@@ -13,6 +13,7 @@ import com.bukang.member.domain.exception.MemberNotFoundException;
 import com.bukang.member.domain.exception.SocialAccountLoginException;
 import com.bukang.member.dto.AuthTokens;
 import com.bukang.member.dto.EmailAvailabilityResponseDto;
+import com.bukang.member.dto.MarketingConsentDto;
 import com.bukang.member.dto.MemberAdminDto;
 import com.bukang.member.dto.MemberDto;
 import com.bukang.member.dto.MemberJoinRequestDto;
@@ -38,6 +39,7 @@ public class MemberFacade {
 	private final TokenReissueUseCase tokenReissueUseCase;
 	private final LogoutUseCase logoutUseCase;
 	private final AdminVerifyUseCase adminVerifyUseCase;
+	private final MarketingConsentUseCase marketingConsentUseCase;
 
 	@Transactional
 	public MemberDto join(MemberJoinRequestDto memberJoinDto) {
@@ -66,6 +68,15 @@ public class MemberFacade {
 	@Transactional
 	public MemberDto modifyMe(long memberId, MemberModifyRequestDto memberModifyRequestDto) {
 		return memberModifyUseCase.modify(memberId, memberModifyRequestDto.getNickname()).toDto();
+	}
+
+	public MarketingConsentDto findMarketingConsent(long memberId) {
+		return marketingConsentUseCase.find(memberId);
+	}
+
+	@Transactional
+	public MarketingConsentDto changeMarketingConsent(long memberId, boolean agreed) {
+		return marketingConsentUseCase.change(memberId, agreed);
 	}
 
 	@Transactional

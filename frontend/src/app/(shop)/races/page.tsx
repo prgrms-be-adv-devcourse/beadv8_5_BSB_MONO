@@ -1,8 +1,25 @@
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query'
+import type { Metadata } from 'next'
 
 import { RaceListPage, type RaceListState } from '@/views/race-list'
 import { DEFAULT_RACE_SORT, raceListQueryOptions } from '@/entities/race'
 import { getQueryClient } from '@/shared/api'
+import { BASE_OPEN_GRAPH, DEFAULT_OG_IMAGE } from '@/shared/config'
+
+const TITLE = '대회 찾기'
+const DESCRIPTION = '접수 중인 마라톤 · 10K · 5K · 트레일 러닝 대회 참가권을 찾아보세요.'
+
+export const metadata: Metadata = {
+  title: TITLE,
+  description: DESCRIPTION,
+  openGraph: {
+    ...BASE_OPEN_GRAPH,
+    title: TITLE,
+    description: DESCRIPTION,
+    url: '/races',
+    images: DEFAULT_OG_IMAGE,
+  },
+}
 
 const STATES: RaceListState[] = ['loading', 'empty', 'menu', 'sort']
 
