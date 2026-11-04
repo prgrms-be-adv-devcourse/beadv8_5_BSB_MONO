@@ -98,7 +98,10 @@ export function RaceChangeNoticePage({ ticketId }: { ticketId: string }) {
         <section className="flex flex-col gap-3 rounded-lg bg-bg-surface p-5 shadow-sm inset-ring inset-ring-border-default">
           <h3 className="text-heading-s">내 참가권</h3>
           <KeyValue label="종목" value={course?.name ?? ticket.itemName} />
-          <KeyValue label="참가자" value={participation?.participant?.name ?? '-'} />
+          {/* 참가자 이름은 Clarity 화면 녹화에서 가린다 */}
+          <div data-clarity-mask="true">
+            <KeyValue label="참가자" value={participation?.participant?.name ?? '-'} />
+          </div>
           <KeyValue label="결제 금액" value={amount} />
           {refundable && <KeyValue label="환불받을 금액" value={`${amount} (예치금)`} />}
         </section>

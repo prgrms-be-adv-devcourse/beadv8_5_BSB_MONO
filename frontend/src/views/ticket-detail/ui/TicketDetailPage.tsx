@@ -71,23 +71,29 @@ export function TicketDetailPage({
     <>
       <AppHeader type="sub" title="참가권" backHref="/tickets" />
       <main className="flex flex-1 flex-col gap-4 px-4 py-6">
-        <BibCard
-          image={data.image}
-          imagePosition="50% 12%"
-          eyebrow={race.title ?? ticket.itemName}
-          status={<Badge tone={TICKET_STATUS[status].tone}>{TICKET_STATUS[status].label}</Badge>}
-          unit="No."
-          number={ticketNumber(ticket.orderNo)}
-          title={[participant?.name, course?.name ?? ticket.itemName].filter(Boolean).join(' · ')}
-          meta={[
-            `주문번호 ${ticket.orderNo}`,
-            race.raceDate ? formatRaceDateTime(race.raceDate) : undefined,
-          ]
-            .filter(Boolean)
-            .join(' · ')}
-        />
+        {/* 참가자 이름 · 연락처는 Clarity 화면 녹화에서 가린다 */}
+        <div className="contents" data-clarity-mask="true">
+          <BibCard
+            image={data.image}
+            imagePosition="50% 12%"
+            eyebrow={race.title ?? ticket.itemName}
+            status={<Badge tone={TICKET_STATUS[status].tone}>{TICKET_STATUS[status].label}</Badge>}
+            unit="No."
+            number={ticketNumber(ticket.orderNo)}
+            title={[participant?.name, course?.name ?? ticket.itemName].filter(Boolean).join(' · ')}
+            meta={[
+              `주문번호 ${ticket.orderNo}`,
+              race.raceDate ? formatRaceDateTime(race.raceDate) : undefined,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          />
+        </div>
 
-        <section className="flex flex-col gap-3 rounded-lg bg-bg-surface p-5 shadow-sm inset-ring inset-ring-border-default">
+        <section
+          className="flex flex-col gap-3 rounded-lg bg-bg-surface p-5 shadow-sm inset-ring inset-ring-border-default"
+          data-clarity-mask="true"
+        >
           <div className="flex items-center justify-between">
             <h2 className="text-[18px] leading-6.5 font-bold tracking-[-0.015em]">참가자 정보</h2>
             {editable && (

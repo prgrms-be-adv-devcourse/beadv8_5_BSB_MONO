@@ -255,7 +255,8 @@ function CartLineCard({
           )}
         </div>
         {application ? (
-          <p className="text-body-s text-text-secondary">
+          // 참가자 이름이 들어 있어 Clarity 화면 녹화에서 가린다
+          <p className="text-body-s text-text-secondary" data-clarity-mask="true">
             {application.participantName ? `참가자 ${application.participantName} · ` : ''}수량 1
             (고정)
             {race ? ` · 접수 마감 ${race.dDay}` : ''}
