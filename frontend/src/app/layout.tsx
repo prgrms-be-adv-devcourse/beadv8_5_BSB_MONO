@@ -2,8 +2,8 @@ import { GoogleTagManager } from '@next/third-parties/google'
 import type { Metadata, Viewport } from 'next'
 import { Barlow_Condensed, Noto_Sans_KR } from 'next/font/google'
 
-import { getServerEnv } from '@/shared/config'
 import { ClarityTag, trackingClarityId, trackingGtmId } from '@/shared/lib'
+import { getServerEnv } from '@/shared/server-env'
 
 import { Providers } from './_providers'
 

@@ -2,7 +2,8 @@ import { addDays, format } from 'date-fns'
 import { z } from 'zod'
 
 import { parseRaceDateInput } from '@/entities/race'
-import { productModel, productZod } from '@/shared/api'
+import { productModel } from '@/shared/api'
+import { productZod } from '@/shared/api-zod'
 
 export const RACE_FORM_ERRORS = {
   titleRequired: '대회 이름을 입력해 주세요.',
