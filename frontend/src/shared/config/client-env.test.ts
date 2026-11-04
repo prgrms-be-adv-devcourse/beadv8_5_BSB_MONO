@@ -15,6 +15,7 @@ describe('parseClientEnv', () => {
       NEXT_PUBLIC_IMAGE_CDN_URL: undefined,
       NEXT_PUBLIC_TOSS_CLIENT_KEY: undefined,
       NEXT_PUBLIC_GTM_ID: undefined,
+      NEXT_PUBLIC_CLARITY_ID: undefined,
       NEXT_PUBLIC_PORTONE_STORE_ID: undefined,
       NEXT_PUBLIC_PORTONE_IDENTITY_CHANNEL_KEY: undefined,
       NEXT_PUBLIC_API_MOCKING: 'off',
@@ -27,6 +28,7 @@ describe('parseClientEnv', () => {
         NEXT_PUBLIC_IMAGE_CDN_URL: 'https://cdn.example.com',
         NEXT_PUBLIC_TOSS_CLIENT_KEY: 'test_ck_abc',
         NEXT_PUBLIC_GTM_ID: 'GTM-ABC123',
+        NEXT_PUBLIC_CLARITY_ID: 'abc123',
         NEXT_PUBLIC_PORTONE_STORE_ID: 'store-1',
         NEXT_PUBLIC_PORTONE_IDENTITY_CHANNEL_KEY: 'channel-key',
         NEXT_PUBLIC_API_MOCKING: 'on',
@@ -35,6 +37,7 @@ describe('parseClientEnv', () => {
       NEXT_PUBLIC_IMAGE_CDN_URL: 'https://cdn.example.com',
       NEXT_PUBLIC_TOSS_CLIENT_KEY: 'test_ck_abc',
       NEXT_PUBLIC_GTM_ID: 'GTM-ABC123',
+      NEXT_PUBLIC_CLARITY_ID: 'abc123',
       NEXT_PUBLIC_PORTONE_STORE_ID: 'store-1',
       NEXT_PUBLIC_PORTONE_IDENTITY_CHANNEL_KEY: 'channel-key',
       NEXT_PUBLIC_API_MOCKING: 'on',
@@ -50,6 +53,12 @@ describe('parseClientEnv', () => {
   it('GTM ID가 GTM-으로 시작하지 않으면 멈춘다', () => {
     expect(() => parseClientEnv({ NEXT_PUBLIC_GTM_ID: 'G-123' })).toThrow(
       'GTM ID는 GTM-으로 시작합니다.',
+    )
+  })
+
+  it('Clarity ID에 영문 · 숫자가 아닌 글자가 있으면 멈춘다', () => {
+    expect(() => parseClientEnv({ NEXT_PUBLIC_CLARITY_ID: 'abc"/><script>' })).toThrow(
+      'Clarity ID는 영문 · 숫자만 씁니다.',
     )
   })
 

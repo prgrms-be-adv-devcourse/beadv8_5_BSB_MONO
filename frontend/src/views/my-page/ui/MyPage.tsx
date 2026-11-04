@@ -36,7 +36,8 @@ export function MyPage() {
     <>
       <AppHeader />
       <main className="flex flex-1 flex-col gap-4 px-4 pt-(--layout-content-start) pb-6">
-        <div className="flex items-center gap-3">
+        {/* 회원 정보 글자는 Clarity 화면 녹화에서 가린다 */}
+        <div className="flex items-center gap-3" data-clarity-mask="true">
           <span
             aria-hidden
             className="flex size-10 items-center justify-center rounded-full bg-bg-brand-subtle text-label-m text-text-brand"
@@ -52,7 +53,10 @@ export function MyPage() {
           </Link>
         </div>
 
-        <section className="flex flex-col gap-2 rounded-lg bg-bg-subtle p-4">
+        <section
+          className="flex flex-col gap-2 rounded-lg bg-bg-subtle p-4"
+          data-clarity-mask="true"
+        >
           <KeyValue label="이름" value={member?.name ?? EMPTY} />
           <KeyValue label="휴대폰" value={member?.phone ? maskPhone(member.phone) : EMPTY} />
           <KeyValue

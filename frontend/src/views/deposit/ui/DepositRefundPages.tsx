@@ -260,11 +260,14 @@ export function DepositRefundDonePage() {
         </section>
         <section className="flex flex-col gap-3 rounded-lg bg-bg-surface p-5 shadow-sm inset-ring inset-ring-border-default">
           <KeyValue label="환급 금액" value={won(withdrawal.amount)} />
-          <KeyValue
-            label="받을 계좌"
-            value={`${withdrawal.bankName} ${withdrawal.maskedAccount}`}
-          />
-          <KeyValue label="예금주" value={withdrawal.accountHolder} />
+          {/* 계좌 · 예금주 이름은 Clarity 화면 녹화에서 가린다 */}
+          <div className="contents" data-clarity-mask="true">
+            <KeyValue
+              label="받을 계좌"
+              value={`${withdrawal.bankName} ${withdrawal.maskedAccount}`}
+            />
+            <KeyValue label="예금주" value={withdrawal.accountHolder} />
+          </div>
           <KeyValue label="지금 예치금" value={won(withdrawal.balance)} />
           <KeyValue label="환급 일시" value={formatKstShort(withdrawal.at)} />
         </section>

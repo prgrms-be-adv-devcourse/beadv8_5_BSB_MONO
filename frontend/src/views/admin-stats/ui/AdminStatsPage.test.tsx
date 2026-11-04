@@ -8,6 +8,20 @@ import { server } from '@/shared/testing'
 
 import { AdminStatsPage } from './AdminStatsPage'
 
+const clarity = vi.hoisted(() => ({ id: 'abc123' as string | undefined }))
+vi.mock('@/shared/config', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/shared/config')>()
+  return {
+    ...actual,
+    clientEnv: {
+      ...actual.clientEnv,
+      get NEXT_PUBLIC_CLARITY_ID() {
+        return clarity.id
+      },
+    },
+  }
+})
+
 // jsdom에는 그래프 크기를 잴 ResizeObserver가 없어 그래프 부품만 점 개수를 적는 대역으로 바꾼다
 vi.mock('./TrendChart', () => ({
   default: ({ points }: { points: unknown[] }) => <div>그래프 점 {points.length}개</div>,
@@ -97,6 +111,26 @@ describe('AdminStatsPage', () => {
     vi.setSystemTime(new Date('2026-11-02T03:00:00Z'))
   })
   afterEach(() => vi.useRealTimers())
+
+  it('Clarity ID가 있으면 Clarity 대시보드 바로가기를 새 탭 링크로 보여 준다', () => {
+    clarity.id = 'abc123'
+    renderPage()
+
+    const link = screen.getByRole('link', { name: 'Clarity에서 녹화 보기' })
+    expect(link).toHaveAttribute(
+      'href',
+      'https://clarity.microsoft.com/projects/view/abc123/dashboard',
+    )
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+  })
+
+  it('Clarity ID가 없으면 바로가기를 보여 주지 않는다', () => {
+    clarity.id = undefined
+    renderPage()
+
+    expect(screen.queryByRole('link', { name: 'Clarity에서 녹화 보기' })).not.toBeInTheDocument()
+  })
 
   it('지금 접속 중, 일별 추이, 구매·판매자 단계를 보여 준다', async () => {
     mockStats()

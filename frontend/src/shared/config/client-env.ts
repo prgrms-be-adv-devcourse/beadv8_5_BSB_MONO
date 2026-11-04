@@ -31,6 +31,11 @@ export function parseClientEnv(raw: Raw) {
    * 가짜 응답 모드(API_MOCKING=on)에서도 넣지 않는다. 값은 레포에 쓰지 않고 .env.local · 저장소 Variables에 넣는다.
    */
   const NEXT_PUBLIC_GTM_ID = value(raw, 'NEXT_PUBLIC_GTM_ID')
+  /**
+   * Microsoft Clarity(화면 녹화 · 히트맵) 프로젝트 ID. Clarity 프로젝트 Settings → Setup에 있다.
+   * 비우거나 가짜 응답 모드(API_MOCKING=on)면 넣지 않는다. 스크립트 주소에 들어가므로 영문 · 숫자만 받는다.
+   */
+  const NEXT_PUBLIC_CLARITY_ID = value(raw, 'NEXT_PUBLIC_CLARITY_ID')
   /** next.config가 API_MOCKING 값을 그대로 넣는다. 브라우저가 가짜 응답 모드인지 알아야 토스 결제창을 건너뛸 수 있다. */
   const NEXT_PUBLIC_API_MOCKING = value(raw, 'NEXT_PUBLIC_API_MOCKING') ?? 'off'
 
@@ -51,6 +56,13 @@ export function parseClientEnv(raw: Raw) {
       'GTM ID는 GTM-으로 시작합니다.',
     )
   }
+  if (NEXT_PUBLIC_CLARITY_ID !== undefined) {
+    check(
+      /^[a-z0-9]+$/i.test(NEXT_PUBLIC_CLARITY_ID),
+      'NEXT_PUBLIC_CLARITY_ID',
+      'Clarity ID는 영문 · 숫자만 씁니다.',
+    )
+  }
   check(
     NEXT_PUBLIC_API_MOCKING === 'on' || NEXT_PUBLIC_API_MOCKING === 'off',
     'NEXT_PUBLIC_API_MOCKING',
@@ -61,6 +73,7 @@ export function parseClientEnv(raw: Raw) {
     NEXT_PUBLIC_IMAGE_CDN_URL,
     NEXT_PUBLIC_TOSS_CLIENT_KEY,
     NEXT_PUBLIC_GTM_ID,
+    NEXT_PUBLIC_CLARITY_ID,
     /** 포트원 상점 아이디(store-로 시작). 가입 본인인증 창을 열 때 쓴다. 비우면 실제 백엔드 모드에서 본인인증 창이 열리지 않는다. */
     NEXT_PUBLIC_PORTONE_STORE_ID: value(raw, 'NEXT_PUBLIC_PORTONE_STORE_ID'),
     /** 포트원 본인인증 채널 키(KG이니시스 통합인증). 상점 아이디와 같은 상점의 채널이어야 한다. */
@@ -77,6 +90,7 @@ export const clientEnv = parseClientEnv({
   NEXT_PUBLIC_IMAGE_CDN_URL: process.env.NEXT_PUBLIC_IMAGE_CDN_URL,
   NEXT_PUBLIC_TOSS_CLIENT_KEY: process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY,
   NEXT_PUBLIC_GTM_ID: process.env.NEXT_PUBLIC_GTM_ID,
+  NEXT_PUBLIC_CLARITY_ID: process.env.NEXT_PUBLIC_CLARITY_ID,
   NEXT_PUBLIC_PORTONE_STORE_ID: process.env.NEXT_PUBLIC_PORTONE_STORE_ID,
   NEXT_PUBLIC_PORTONE_IDENTITY_CHANNEL_KEY: process.env.NEXT_PUBLIC_PORTONE_IDENTITY_CHANNEL_KEY,
   NEXT_PUBLIC_API_MOCKING: process.env.NEXT_PUBLIC_API_MOCKING,

@@ -435,7 +435,10 @@ function CheckoutForm({
           )}
 
           <div className="flex flex-col gap-1">
-            <p className="text-body-s text-text-secondary">{summary}</p>
+            {/* 참가자 이름이 들어 있어 Clarity 화면 녹화에서 가린다 */}
+            <p className="text-body-s text-text-secondary" data-clarity-mask="true">
+              {summary}
+            </p>
             <p className="text-[32px] leading-11 font-bold tracking-[-0.015em]">{won(amount)}</p>
           </div>
 

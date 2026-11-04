@@ -9,6 +9,8 @@ export {
   type TrackItem,
 } from './analytics/track'
 export { useTrackOnce } from './analytics/use-track-once'
+export { trackingClarityId } from './analytics/clarity'
+export { ClarityTag } from './analytics/clarity-tag'
 export { cn } from './cn/cn'
 export { fromIsoDate, toIsoDate } from './date/iso-date'
 export { createStoreContext } from './zustand/create-store-context'
