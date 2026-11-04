@@ -13,7 +13,9 @@ import org.springframework.web.method.annotation.HandlerMethodValidationExceptio
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import com.bukang.common.global.rsdata.RsData;
+import com.bukang.order.domain.exception.IndividualParticipationExistsException;
 import com.bukang.order.domain.exception.InsufficientBalanceException;
+import com.bukang.order.dto.IndividualParticipationExistsDto;
 import com.bukang.order.dto.InsufficientBalanceDto;
 
 /**
@@ -38,6 +40,17 @@ public class OrderExceptionHandler {
 			.status(exception.getStatus())
 			.body(RsData.of(exception.getStatus(), exception.getCode(), exception.getMessage(),
 				new InsufficientBalanceDto(exception.getShortage())));
+	}
+
+	// 개인 신청이 있어 파티를 만들거나 합류할 수 없음: 남은 개인 신청서 ID(data.participationId)를 더한다 (BUK-36)
+	@ExceptionHandler(IndividualParticipationExistsException.class)
+	public ResponseEntity<RsData<IndividualParticipationExistsDto>> individualParticipationExistsException(
+		IndividualParticipationExistsException exception
+	) {
+		return ResponseEntity
+			.status(exception.getStatus())
+			.body(RsData.of(exception.getStatus(), exception.getCode(), exception.getMessage(),
+				new IndividualParticipationExistsDto(exception.getParticipationId())));
 	}
 
 	// 필수 요청 헤더(예: 중복 요청 방지 키)가 없으면 잘못된 요청이다. 회원 ID 헤더는 common의 @LoginMemberId가 처리한다
