@@ -45,7 +45,7 @@ import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
 import com.bukang.member.support.MemberFixture;
 
 // 게이트웨이가 토큰을 검사하고 넣어 주는 X-Member-Id 헤더를 테스트에서는 직접 넣는다
-// 수정 이벤트는 스프링 이벤트로 발행됐는지만 본다. Kafka로 나가는 건 MemberKafkaPublisherTest가 확인한다
+// 수정 이벤트는 스프링 이벤트로 발행됐는지만 본다. 아웃박스 행은 MemberOutboxAppendTest가 확인한다
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")

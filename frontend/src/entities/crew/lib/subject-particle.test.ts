@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { withSubjectParticle } from './subject-particle'
+import { withObjectParticle, withSubjectParticle } from './subject-particle'
 
 describe('withSubjectParticle', () => {
   it.each([
@@ -11,5 +11,16 @@ describe('withSubjectParticle', () => {
     ['Run', 'Run이'],
   ])('%s → %s', (word, expected) => {
     expect(withSubjectParticle(word)).toBe(expected)
+  })
+})
+
+describe('withObjectParticle', () => {
+  it.each([
+    ['성수런', '성수런을'],
+    ['새벽한강크루', '새벽한강크루를'],
+    ['러너1', '러너1을'],
+    ['10K', '10K를'],
+  ])('%s → %s', (word, expected) => {
+    expect(withObjectParticle(word)).toBe(expected)
   })
 })

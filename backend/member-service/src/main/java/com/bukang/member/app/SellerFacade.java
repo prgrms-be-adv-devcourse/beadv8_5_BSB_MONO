@@ -22,7 +22,7 @@ import com.bukang.member.out.SellerRepository;
 import lombok.RequiredArgsConstructor;
 
 // 판매자 등록 신청과 관리자 심사 (BE-020)
-// 신청·승인·반려는 트랜잭션 안에서 이벤트를 발행해야 커밋 뒤 Kafka로 나간다 (MemberKafkaPublisher)
+// 신청·승인·반려는 트랜잭션 안에서 이벤트를 발행해야 아웃박스에 남는다 (MemberOutboxAppendUseCase, MANDATORY)
 @Service
 @Transactional(readOnly = true)
 @RequiredArgsConstructor

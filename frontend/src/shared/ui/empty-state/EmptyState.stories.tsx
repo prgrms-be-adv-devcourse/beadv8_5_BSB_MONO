@@ -8,7 +8,7 @@ const meta = {
   component: EmptyState,
   args: {
     title: '장바구니가 비어 있어요',
-    description: '관심 있는 대회와 굿즈를 담아 보세요.',
+    description: '관심 있는 대회와 키트를 담아 보세요.',
     action: <Button variant="secondary">대회 둘러보기</Button>,
   },
   decorators: [

@@ -9,7 +9,6 @@ import static org.mockito.Mockito.mockingDetails;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -39,6 +38,7 @@ import com.bukang.cash.out.WalletLedgerRepository;
 import com.bukang.cash.out.WalletRepository;
 import com.bukang.cash.out.pg.PaymentApprovalResult;
 import com.bukang.cash.out.pg.PaymentClient;
+import com.bukang.cash.out.pg.PaymentLookupResult;
 
 // 같은 orderId로 충전 confirm이 동시에 여러 번 와도 중복 적립 없이 하나의 결과로 수렴하는지,
 // 그리고 PaymentClient.approve가 실제로 몇 번 불리는지 확인한다 (완료 기준: "한 번만 불리고"를 전제함)
@@ -110,12 +110,12 @@ class ChargeConfirmConcurrencyTest {
 			if (alreadyApproved.compareAndSet(false, true)) {
 				return new PaymentApprovalResult(10_000, "toss_key_1");
 			}
-			throw new PaymentApprovalFailedException("이미 처리가 끝난 결제 입니다.", "ALREADY_PROCESSED_PAYMENT");
+			throw new PaymentApprovalFailedException("이미 처리된 결제 입니다.", "ALREADY_PROCESSED_PAYMENT", true);
 		});
-		given(paymentClient.findCompletedByOrderId("order_1")).willAnswer(invocation ->
+		given(paymentClient.lookupByOrderId("order_1")).willAnswer(invocation ->
 			alreadyApproved.get()
-				? Optional.of(new PaymentApprovalResult(10_000, "toss_key_1"))
-				: Optional.empty());
+				? PaymentLookupResult.completed(new PaymentApprovalResult(10_000, "toss_key_1"))
+				: PaymentLookupResult.notCompleted());
 
 		List<AttemptResult> results = runConcurrently(10, i ->
 			() -> cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 10_000));
@@ -148,7 +148,7 @@ class ChargeConfirmConcurrencyTest {
 		createCustomerWallet();
 		given(paymentClient.approve(anyString(), anyString(), anyLong())).willAnswer(invocation -> {
 			Thread.sleep(300);
-			throw new PaymentApprovalFailedException("카드 한도를 초과했습니다.", "EXCEED_MAX_DAILY_PAYMENT_COUNT");
+			throw new PaymentApprovalFailedException("카드 한도를 초과했습니다.", "EXCEED_MAX_DAILY_PAYMENT_COUNT", false);
 		});
 
 		List<AttemptResult> results = runConcurrently(10, i ->

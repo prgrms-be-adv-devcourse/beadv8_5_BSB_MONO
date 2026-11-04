@@ -328,6 +328,18 @@ export interface PasswordResetConfirmDto {
   password: string;
 }
 
+/**
+ * 크루 이름 바꾸기 요청
+ */
+export interface CrewUpdateRequestDto {
+  /**
+     * 새 크루 이름 (앞뒤 공백을 뺀 1~20자, 다른 크루와 겹쳐도 된다)
+     * @minLength 1
+     * @maxLength 20
+     */
+  name: string;
+}
+
 export type MemberDtoSocialProvidersItem = typeof MemberDtoSocialProvidersItem[keyof typeof MemberDtoSocialProvidersItem];
 
 
