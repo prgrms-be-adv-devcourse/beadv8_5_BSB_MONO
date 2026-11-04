@@ -257,7 +257,8 @@ export function SellerKitsPage() {
                   key: 'buyer',
                   header: '구매자',
                   width: 'w-22.5',
-                  render: (k) => k.participantName,
+                  // 구매자 이름 · 배송지는 Clarity 화면 녹화에서 가린다
+                  render: (k) => <span data-clarity-mask="true">{k.participantName}</span>,
                 },
                 { key: 'option', header: '키트 옵션', render: kitOption },
                 {
@@ -273,7 +274,9 @@ export function SellerKitsPage() {
                   key: 'address',
                   header: '배송지',
                   width: 'w-27.5',
-                  render: (k) => shortAddress(k.shippingAddress?.address),
+                  render: (k) => (
+                    <span data-clarity-mask="true">{shortAddress(k.shippingAddress?.address)}</span>
+                  ),
                 },
               ]}
             />

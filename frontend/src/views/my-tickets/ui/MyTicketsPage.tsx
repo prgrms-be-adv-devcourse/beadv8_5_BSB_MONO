@@ -58,7 +58,10 @@ export function MyTicketsPage({ state }: { state?: MyTicketsState }) {
             ) : (
               <>
                 <p className="text-heading-m">{member?.nickname ?? '-'}</p>
-                <p className="text-body-s text-text-secondary">{member?.name ?? '-'}</p>
+                {/* 실명은 Clarity 화면 녹화에서 가린다 */}
+                <p className="text-body-s text-text-secondary" data-clarity-mask="true">
+                  {member?.name ?? '-'}
+                </p>
               </>
             )}
           </div>
@@ -131,6 +134,8 @@ export function MyTicketsPage({ state }: { state?: MyTicketsState }) {
                 key={ticket.id}
                 href={`/tickets/${ticket.id}`}
                 className={cn('rounded-lg', FOCUS_RING)}
+                // 카드 제목에 참가자 이름이 있어 Clarity 화면 녹화에서 가린다
+                data-clarity-mask="true"
               >
                 <BibCard
                   image={ticket.image}

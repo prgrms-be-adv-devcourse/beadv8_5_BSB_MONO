@@ -3,7 +3,7 @@ import type { Metadata, Viewport } from 'next'
 import { Barlow_Condensed, Noto_Sans_KR } from 'next/font/google'
 
 import { BASE_OPEN_GRAPH, siteUrl, siteVerification } from '@/shared/config'
-import { trackingGtmId } from '@/shared/lib'
+import { ClarityTag, trackingClarityId, trackingGtmId } from '@/shared/lib'
 
 import { Providers } from './_providers'
 
@@ -44,6 +44,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: LayoutProps<'/'>) {
   // 구매자 · 판매자 센터 · 어드민이 모두 이 레이아웃을 지난다. 어드민은 GTM 실행 조건과 trackEvent에서 뺀다
   const gtmId = trackingGtmId()
+  const clarityId = trackingClarityId()
   return (
     <html
       lang="ko"
@@ -52,6 +53,7 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
       {gtmId && <GoogleTagManager gtmId={gtmId} />}
       <body className="flex min-h-full flex-col">
         <Providers>{children}</Providers>
+        {clarityId && <ClarityTag id={clarityId} />}
       </body>
     </html>
   )
