@@ -2,6 +2,7 @@ package com.bukang.cash.out.pg;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowableOfType;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath;
@@ -15,7 +16,6 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
-import java.util.Optional;
 
 import org.assertj.core.api.InstanceOfAssertFactories;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,11 +29,13 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
 import com.bukang.cash.domain.exception.PaymentApprovalFailedException;
+import com.bukang.cash.domain.exception.PaymentLookupFailedException;
 
 class TossPaymentClientTest {
 	private static final String BASE_URL = "http://toss";
 	private static final String SECRET_KEY = "test_sk_dummy";
 	private static final String URL = BASE_URL + TossPaymentClient.CONFIRM_PATH;
+	private static final String LOOKUP_URL = BASE_URL + "/v1/payments/orders/order_1";
 	private static final String BASIC_AUTH =
 		"Basic " + Base64.getEncoder().encodeToString((SECRET_KEY + ":").getBytes(StandardCharsets.UTF_8));
 
@@ -44,7 +46,8 @@ class TossPaymentClientTest {
 	void setUp() {
 		RestClient.Builder builder = RestClient.builder().baseUrl(BASE_URL);
 		server = MockRestServiceServer.bindTo(builder).build();
-		client = new TossPaymentClient(builder.build(), SECRET_KEY);
+		RestClient restClient = builder.build();
+		client = new TossPaymentClient(restClient, restClient, SECRET_KEY);
 	}
 
 	@Test
@@ -118,12 +121,50 @@ class TossPaymentClientTest {
 	}
 
 	@Test
-	@DisplayName("Toss가 5xx로 답하면 결제 승인 실패 예외로 알린다")
+	@DisplayName("사용자 사유 거절(카드 한도 초과 등)은 결과가 분명하고, Toss 문구를 그대로 사용자 문구로 담는다")
+	void userReasonRejectionKeepsTossMessage() {
+		server.expect(requestTo(URL))
+			.andRespond(withStatus(HttpStatus.FORBIDDEN)
+				.body(errorResponse("REJECT_CARD_PAYMENT", "한도초과 혹은 잔액부족으로 결제에 실패했습니다."))
+				.contentType(MediaType.APPLICATION_JSON));
+
+		PaymentApprovalFailedException failure = approveFailure();
+
+		assertThat(failure.isResultUnknown()).isFalse();
+		assertThat(failure.getMessage()).isEqualTo("한도초과 혹은 잔액부족으로 결제에 실패했습니다.");
+	}
+
+	@Test
+	@DisplayName("우리 쪽 키·연동 설정 문제로 거절되면 Toss 문구 대신 고정 문구를 담는다")
+	void configRejectionHidesTossMessage() {
+		server.expect(requestTo(URL))
+			.andRespond(withStatus(HttpStatus.BAD_REQUEST)
+				.body(errorResponse("INVALID_API_KEY", "잘못된 시크릿키 연동 정보 입니다."))
+				.contentType(MediaType.APPLICATION_JSON));
+
+		PaymentApprovalFailedException failure = approveFailure();
+
+		assertThat(failure.isResultUnknown()).isFalse();
+		assertThat(failure.getMessage()).isEqualTo(TossPaymentClient.GENERIC_REJECTION_MESSAGE);
+	}
+
+	@Test
+	@DisplayName("이미 처리됨·처리 중 응답은 승인됐는지 알 수 없다고 알린다")
+	void alreadyProcessedOrProcessingIsResultUnknown() {
+		server.expect(requestTo(URL))
+			.andRespond(withStatus(HttpStatus.BAD_REQUEST)
+				.body(errorResponse("ALREADY_PROCESSING_REQUEST", "이미 처리중인 요청입니다."))
+				.contentType(MediaType.APPLICATION_JSON));
+
+		assertThat(approveFailure().isResultUnknown()).isTrue();
+	}
+
+	@Test
+	@DisplayName("Toss가 5xx로 답하면 승인됐는지 알 수 없다고 알린다")
 	void serverError() {
 		server.expect(requestTo(URL)).andRespond(withServerError());
 
-		assertThatThrownBy(() -> client.approve("pay_123", "order_1", 10_000))
-			.isInstanceOf(PaymentApprovalFailedException.class);
+		assertThat(approveFailure().isResultUnknown()).isTrue();
 	}
 
 	@Test
@@ -145,42 +186,70 @@ class TossPaymentClientTest {
 	}
 
 	@Test
-	@DisplayName("조회 결과가 DONE이면 승인 결과를 돌려준다 (PRO-200)")
-	void findCompletedByOrderIdReturnsResultWhenDone() {
-		String url = BASE_URL + "/v1/payments/orders/order_1";
-		server.expect(requestTo(url))
+	@DisplayName("조회 결과가 DONE이면 승인 완료와 승인 결과를 돌려준다")
+	void lookupReturnsCompletedWhenDone() {
+		server.expect(requestTo(LOOKUP_URL))
 			.andExpect(method(HttpMethod.GET))
 			.andExpect(header(HttpHeaders.AUTHORIZATION, BASIC_AUTH))
 			.andRespond(withSuccess(paymentResponse("pay_123", 10_000, "DONE"), MediaType.APPLICATION_JSON));
 
-		Optional<PaymentApprovalResult> result = client.findCompletedByOrderId("order_1");
+		PaymentLookupResult result = client.lookupByOrderId("order_1");
 
-		assertThat(result).isPresent();
-		assertThat(result.get().approvedAmount()).isEqualTo(10_000);
-		assertThat(result.get().pgPaymentKey()).isEqualTo("pay_123");
+		assertThat(result.status()).isEqualTo(PaymentLookupResult.Status.COMPLETED);
+		assertThat(result.approval().approvedAmount()).isEqualTo(10_000);
+		assertThat(result.approval().pgPaymentKey()).isEqualTo("pay_123");
 	}
 
 	@Test
-	@DisplayName("조회 결과가 DONE이 아니면(진행 중·취소 등) 빈 값을 돌려준다")
-	void findCompletedByOrderIdReturnsEmptyWhenNotDone() {
-		String url = BASE_URL + "/v1/payments/orders/order_1";
-		server.expect(requestTo(url))
+	@DisplayName("조회 결과가 승인 실패·만료·전액 취소면 승인 안 됨으로 확정한다")
+	void lookupReturnsNotCompletedWhenAbortedOrCanceled() {
+		server.expect(requestTo(LOOKUP_URL))
 			.andRespond(withSuccess(paymentResponse("pay_123", 10_000, "CANCELED"), MediaType.APPLICATION_JSON));
 
-		Optional<PaymentApprovalResult> result = client.findCompletedByOrderId("order_1");
-
-		assertThat(result).isEmpty();
+		assertThat(client.lookupByOrderId("order_1").status()).isEqualTo(PaymentLookupResult.Status.NOT_COMPLETED);
 	}
 
 	@Test
-	@DisplayName("조회 자체가 실패하면(타임아웃 등) 승인 여부를 알 수 없으니 빈 값을 돌려준다")
-	void findCompletedByOrderIdReturnsEmptyWhenLookupFails() {
-		String url = BASE_URL + "/v1/payments/orders/order_1";
-		server.expect(requestTo(url)).andRespond(withException(new SocketTimeoutException("read timed out")));
+	@DisplayName("조회 결과가 IN_PROGRESS(인증만 끝났거나 승인 처리 중)면 승인 안 됨으로 단정하지 않고 아직 정해지지 않았다고 돌려준다")
+	void lookupReturnsPendingWhenInProgress() {
+		server.expect(requestTo(LOOKUP_URL))
+			.andRespond(withSuccess(paymentResponse("pay_123", 10_000, "IN_PROGRESS"), MediaType.APPLICATION_JSON));
 
-		Optional<PaymentApprovalResult> result = client.findCompletedByOrderId("order_1");
+		assertThat(client.lookupByOrderId("order_1").status()).isEqualTo(PaymentLookupResult.Status.PENDING);
+	}
 
-		assertThat(result).isEmpty();
+	@Test
+	@DisplayName("조회 결과가 우리가 모르는 상태값이면(Toss가 새로 추가한 값 등) 실패로 단정하지 않고 아직 정해지지 않았다고 돌려준다")
+	void lookupReturnsPendingWhenStatusIsUnknown() {
+		server.expect(requestTo(LOOKUP_URL))
+			.andRespond(withSuccess(paymentResponse("pay_123", 10_000, "SOMETHING_NEW"), MediaType.APPLICATION_JSON));
+
+		assertThat(client.lookupByOrderId("order_1").status()).isEqualTo(PaymentLookupResult.Status.PENDING);
+	}
+
+	@Test
+	@DisplayName("Toss가 이 주문번호의 결제를 모르면(404) 승인 안 됨으로 확정한다")
+	void lookupReturnsNotCompletedWhenPaymentNotFound() {
+		server.expect(requestTo(LOOKUP_URL))
+			.andRespond(withStatus(HttpStatus.NOT_FOUND)
+				.body(errorResponse("NOT_FOUND_PAYMENT", "존재하지 않는 결제 정보 입니다."))
+				.contentType(MediaType.APPLICATION_JSON));
+
+		assertThat(client.lookupByOrderId("order_1").status()).isEqualTo(PaymentLookupResult.Status.NOT_COMPLETED);
+	}
+
+	@Test
+	@DisplayName("조회 자체가 실패하면(타임아웃 등) 승인 여부를 확인할 수 없다는 뜻이라 PaymentLookupFailedException으로 알린다")
+	void lookupThrowsWhenLookupFails() {
+		server.expect(requestTo(LOOKUP_URL)).andRespond(withException(new SocketTimeoutException("read timed out")));
+
+		assertThatThrownBy(() -> client.lookupByOrderId("order_1"))
+			.isInstanceOf(PaymentLookupFailedException.class);
+	}
+
+	private PaymentApprovalFailedException approveFailure() {
+		return catchThrowableOfType(PaymentApprovalFailedException.class,
+			() -> client.approve("pay_123", "order_1", 10_000));
 	}
 
 	// Toss 결제 승인·조회 응답의 모양 (우리가 실제로 쓰는 필드만)

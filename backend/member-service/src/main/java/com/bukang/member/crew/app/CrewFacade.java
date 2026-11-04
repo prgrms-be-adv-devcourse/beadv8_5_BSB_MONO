@@ -19,13 +19,19 @@ import com.bukang.member.crew.domain.CrewInvite;
 import com.bukang.member.crew.domain.CrewMember;
 import com.bukang.member.crew.domain.CrewRole;
 import com.bukang.member.crew.domain.CrewStatus;
+import com.bukang.member.crew.domain.exception.CrewAlreadyLeaderException;
 import com.bukang.member.crew.domain.exception.CrewAlreadyMemberException;
+import com.bukang.member.crew.domain.exception.CrewCannotRemoveLeaderException;
+import com.bukang.member.crew.domain.exception.CrewHasOtherMembersException;
 import com.bukang.member.crew.domain.exception.CrewInviteAlreadyUsedException;
 import com.bukang.member.crew.domain.exception.CrewInviteCancelForbiddenException;
 import com.bukang.member.crew.domain.exception.CrewInviteCanceledException;
 import com.bukang.member.crew.domain.exception.CrewInviteExpiredException;
 import com.bukang.member.crew.domain.exception.CrewInviteForbiddenException;
 import com.bukang.member.crew.domain.exception.CrewInviteNotFoundException;
+import com.bukang.member.crew.domain.exception.CrewLeaderCannotLeaveException;
+import com.bukang.member.crew.domain.exception.CrewLeaderOnlyException;
+import com.bukang.member.crew.domain.exception.CrewMemberNotFoundException;
 import com.bukang.member.crew.domain.exception.CrewNotFoundException;
 import com.bukang.member.crew.domain.exception.CrewNotMemberException;
 import com.bukang.member.crew.dto.CrewHomeDto;
@@ -46,7 +52,10 @@ import com.bukang.member.crew.out.CrewRepository;
 import lombok.RequiredArgsConstructor;
 
 /**
- * 크루 만들기·조회, 초대 링크 만들기·취소·가입 (BE-027~030)
+ * 크루 만들기·조회, 초대 링크 만들기·취소·가입 (BE-027~030), 크루 관리 (BE-032)
+ * 크루원 구성을 바꾸는 요청은 크루 행을 먼저 잠가(findActiveByIdForUpdate) 같은 크루의 요청을 차례로 처리한다.
+ * MySQL 기본 격리 수준(REPEATABLE READ)은 첫 일반 읽기 때 읽는 시점을 정하므로, 이 메서드들은 잠금보다 앞에 일반 읽기를 두지 않는다.
+ * 그래야 잠금 뒤의 일반 읽기가 앞 요청이 커밋한 값을 본다
  * 현재 시각은 Clock으로 읽어 테스트에서 시간을 바꿀 수 있게 한다
  */
 @Service
@@ -96,7 +105,8 @@ public class CrewFacade {
 
 	@Transactional
 	public CrewInviteCreatedDto createInvite(long memberId, long crewId) {
-		findActiveCrew(crewId);
+		// 크루 없애기와 겹치면 없앤 크루에 초대 행이 남을 수 있어 크루 행을 잠근다
+		lockActiveCrew(crewId);
 		requireInviter(findMembership(crewId, memberId));
 
 		LocalDateTime now = now();
@@ -172,7 +182,9 @@ public class CrewFacade {
 			throw new LoginRequiredException();
 		}
 		CrewInvite invite = findInviteByToken(inviteToken);
-		Crew crew = crewRepository.findActiveById(invite.getCrewId())
+		// 크루 없애기와 겹치면 없앤 크루에 크루원이 남을 수 있어 크루 행을 잠근다.
+		// 없애기가 먼저 끝났으면 링크가 사라진 것으로 보고, 가입이 먼저면 없애기가 「다른 크루원 있음」으로 막힌다
+		Crew crew = crewRepository.findActiveByIdForUpdate(invite.getCrewId())
 			.orElseThrow(CrewInviteNotFoundException::new);
 		// 이미 크루원이면 초대를 소모하지 않는다
 		if (crewMemberRepository.existsByCrewIdAndMemberId(crew.getId(), memberId)) {
@@ -203,6 +215,77 @@ public class CrewFacade {
 			// (같은 링크로 동시에 가입하는 경우는 위의 회원 행 잠금과 usedBy 확인이 「이미 크루원」으로 답한다)
 			throw new CrewAlreadyMemberException();
 		}
+	}
+
+	@Transactional
+	public void leave(long memberId, long crewId) {
+		lockActiveCrew(crewId);
+		CrewMember membership = findMembership(crewId, memberId);
+		if (membership.getRole() == CrewRole.LEADER) {
+			throw new CrewLeaderCannotLeaveException();
+		}
+		// 회원 탈퇴는 크루 행을 잠그지 않아 같은 행을 먼저 지울 수 있다. 지운 행 수로 확인한다
+		if (crewMemberRepository.deleteByCrewIdAndMemberId(crewId, memberId) == 0) {
+			throw new CrewNotMemberException();
+		}
+	}
+
+	@Transactional
+	public void removeMember(long memberId, long crewId, long targetMemberId) {
+		lockActiveCrew(crewId);
+		requireLeader(findMembership(crewId, memberId));
+		// 크루장은 요청한 사람 한 명뿐이다
+		if (targetMemberId == memberId) {
+			throw new CrewCannotRemoveLeaderException();
+		}
+		// 회원 탈퇴가 같은 행을 먼저 지웠거나 다른 크루의 크루원이면 0이다
+		if (crewMemberRepository.deleteByCrewIdAndMemberId(crewId, targetMemberId) == 0) {
+			throw new CrewMemberNotFoundException();
+		}
+	}
+
+	@Transactional
+	public CrewHomeDto transferLeader(long memberId, long crewId, long targetMemberId) {
+		// 넘겨받을 사람의 회원 탈퇴와 겹치면 크루장이 없는 크루가 생길 수 있어 그 회원 행을 먼저 잠근다.
+		// 회원 탈퇴도 같은 행을 잠근 뒤 「크루장인 크루가 있는지」 보므로 둘 중 하나가 커밋된 뒤에 다른 하나가 진행된다.
+		// 순서는 가입과 같다 (회원 행 → 크루 행)
+		boolean targetActive = profilePort.lockActiveMember(targetMemberId);
+		Crew crew = lockActiveCrew(crewId);
+		CrewMember leader = findMembership(crewId, memberId);
+		requireLeader(leader);
+		if (targetMemberId == memberId) {
+			throw new CrewAlreadyLeaderException();
+		}
+		if (!targetActive) {
+			throw new CrewMemberNotFoundException();
+		}
+		CrewMember target = findTarget(crewId, targetMemberId);
+
+		LocalDateTime now = now();
+		leader.changeRole(CrewRole.MEMBER, now);
+		target.changeRole(CrewRole.LEADER, now);
+		return home(crew, memberId);
+	}
+
+	@Transactional
+	public void disband(long memberId, long crewId) {
+		Crew crew = lockActiveCrew(crewId);
+		requireLeader(findMembership(crewId, memberId));
+		if (crewMemberRepository.countByCrewId(crewId) > 1) {
+			throw new CrewHasOtherMembersException();
+		}
+		// 상태를 먼저 바꾼다. 아래 일괄 삭제가 바뀐 내용을 반영(flush)한 뒤 영속성 컨텍스트를 비운다
+		crew.disband(now());
+		crewInviteRepository.deleteAllByCrewId(crewId);
+		crewMemberRepository.deleteAllByCrewId(crewId);
+	}
+
+	@Transactional
+	public CrewHomeDto rename(long memberId, long crewId, String name) {
+		Crew crew = lockActiveCrew(crewId);
+		requireLeader(findMembership(crewId, memberId));
+		crew.rename(name, now());
+		return home(crew, memberId);
 	}
 
 	// 내부 API: 크루원이 아니어도 200이다. 크루가 없거나 없앤 크루면 404
@@ -254,6 +337,22 @@ public class CrewFacade {
 
 	private Crew findActiveCrew(long crewId) {
 		return crewRepository.findActiveById(crewId).orElseThrow(CrewNotFoundException::new);
+	}
+
+	private Crew lockActiveCrew(long crewId) {
+		return crewRepository.findActiveByIdForUpdate(crewId).orElseThrow(CrewNotFoundException::new);
+	}
+
+	// 내보내거나 크루장을 넘길 대상. 크루 ID로 범위를 묶어 다른 크루의 크루원은 찾지 않는다
+	private CrewMember findTarget(long crewId, long targetMemberId) {
+		return crewMemberRepository.findByCrewIdAndMemberId(crewId, targetMemberId)
+			.orElseThrow(CrewMemberNotFoundException::new);
+	}
+
+	private void requireLeader(CrewMember membership) {
+		if (membership.getRole() != CrewRole.LEADER) {
+			throw new CrewLeaderOnlyException();
+		}
 	}
 
 	private CrewMember findMembership(long crewId, long memberId) {

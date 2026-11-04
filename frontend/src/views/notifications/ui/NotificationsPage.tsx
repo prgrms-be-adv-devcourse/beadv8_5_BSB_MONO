@@ -37,7 +37,6 @@ export function NotificationsPage({ empty = false }: { empty?: boolean }) {
         ) : none ? (
           <div className="flex flex-1 items-center justify-center">
             <EmptyState
-              icon="Bell"
               title="아직 알림이 없어요"
               description="대회 일정이 바뀌거나 환불이 끝나면 여기로 알려 드려요."
               className="max-w-80"

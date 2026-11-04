@@ -29,6 +29,7 @@ import type {
   CheckEmailAvailabilityParams,
   CrewCreateRequestDto,
   CrewLeaderTransferRequestDto,
+  CrewUpdateRequestDto,
   FindAllParams,
   MemberJoinRequestDto,
   MemberLoginRequestDto,
@@ -2362,6 +2363,96 @@ export const useDisbandCrew = <TError = RsData,
       return useMutation(getDisbandCrewMutationOptions(options), queryClient);
     }
 
+export const getUpdateCrewUrl = (crewId: number,) => {
+
+
+
+
+  return `/api/v1/member/crews/${crewId}`
+}
+
+/**
+ * 크루장이 크루 이름을 바꾼다. 이름 규칙은 크루 만들기와 같다(앞뒤 공백을 뺀 1~20자, 다른 크루와 겹쳐도 된다). 응답은 크루 홈과 같은 형식이라 바로 크루 홈을 다시 그린다.
+ * @summary 크루 이름 바꾸기 (2그룹)
+ */
+export const updateCrew = async (crewId: number,
+    crewUpdateRequestDto: CrewUpdateRequestDto, options?: Parameters<typeof customFetch>[1]): Promise<RsDataCrewHomeDto> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<RsDataCrewHomeDto>(getUpdateCrewUrl(crewId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(crewUpdateRequestDto)
+  }
+);}
+
+
+
+
+
+export const getUpdateCrewMutationKey = () => ['updateCrew'] as const;
+
+export const getUpdateCrewMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCrew>>, TError,UpdateCrewMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCrew>>, TError,UpdateCrewMutationVariables, TContext> => {
+
+const mutationKey = getUpdateCrewMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCrew>>, UpdateCrewMutationVariables> = (props) => {
+          const {crewId,data} = props ?? {};
+
+          return  updateCrew(crewId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCrewMutationResult = NonNullable<Awaited<ReturnType<typeof updateCrew>>>
+    export type UpdateCrewMutationBody = CrewUpdateRequestDto
+    export type UpdateCrewMutationError = RsData
+    export type UpdateCrewMutationVariables = {crewId: number;data: CrewUpdateRequestDto}
+
+    /**
+ * @summary 크루 이름 바꾸기 (2그룹)
+ */
+export const useUpdateCrew = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCrew>>, TError,UpdateCrewMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof updateCrew>>,
+        TError,
+        UpdateCrewMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateCrewMutationOptions(options), queryClient);
+    }
+
 export const getCreateCrewInviteUrl = (crewId: number,) => {
 
 
@@ -2878,7 +2969,7 @@ export const getRemoveCrewMemberUrl = (crewId: number,
 }
 
 /**
- * 크루장이 크루원을 크루에서 내보낸다. 크루장 자신은 내보낼 수 없다. 운영진도 내보낼 수 있는지는 회의에서 정한다. 결제 기간 중인 파티장·파티원을 막을지도 회의에서 정한다(안건 14).
+ * 크루장이 크루원이나 운영진을 크루에서 내보낸다. 운영진은 내보낼 수 없다(크루장만 한다). 크루장 자신은 내보낼 수 없다. 결제 기간 중인 파티장·파티원을 막을지는 회의에서 정한다(안건 14).
  * @summary 크루원 내보내기 (2그룹)
  */
 export const removeCrewMember = async (crewId: number,

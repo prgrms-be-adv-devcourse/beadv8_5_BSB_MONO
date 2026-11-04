@@ -21,7 +21,7 @@ const SIZE = {
   m: { button: 'size-11 [&_svg]:size-5', value: 'w-13 text-label-l' },
 }
 
-// − 숫자 + 로 굿즈 수량을 조절한다. S 32 / M 44(기본).
+// − 숫자 + 로 키트 수량을 조절한다. S 32 / M 44(기본).
 export function QuantityStepper({
   value,
   onValueChange,

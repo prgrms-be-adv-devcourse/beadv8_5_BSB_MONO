@@ -25,6 +25,9 @@ describe('결제 완료', () => {
     expect(screen.getByText('₩50,000 (예치금)')).toBeInTheDocument()
     expect(await screen.findByText('2026 용감한 쿠키RUN in 서울 · 10K')).toBeInTheDocument()
     expect(screen.getByText('김러너 · 10K')).toBeInTheDocument()
+    // Clarity 화면 녹화에서 참가자 이름을 가린다
+    expect(screen.getByText('김러너 · 10K').closest('[data-clarity-mask="true"]')).not.toBeNull()
+    expect(screen.getByText('김러너').closest('[data-clarity-mask="true"]')).not.toBeNull()
   })
 
   it('참가자 이름은 배송지 받는 사람이 아니라 참가 신청에서 가져온다 (새로고침해도 같다)', async () => {
