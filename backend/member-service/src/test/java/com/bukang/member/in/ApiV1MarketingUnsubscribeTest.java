@@ -201,9 +201,13 @@ class ApiV1MarketingUnsubscribeTest {
 	}
 
 	@Test
-	@DisplayName("모양이 틀린 토큰(칸 수, 숫자 아님)은 400 MEMBER_UNSUBSCRIBE_TOKEN_MALFORMED, 빈 토큰은 400 INVALID_REQUEST")
+	@DisplayName("모양이 틀린 토큰(칸 수, 숫자 아님, 빈 서명, 다른 표기의 서명)은 400 TOKEN_MALFORMED, 빈 토큰은 400 INVALID_REQUEST")
 	void malformedToken() throws Exception {
-		for (String malformed : List.of("abc", "1.2", "x.123.sig", memberId + ".soon.sig", "1.2.3.4")) {
+		String issued = issuedToken(memberId);
+		// 서명 자리가 비었거나, 같은 서명을 패딩(=)을 붙인 다른 표기로 쓴 것도 모양 오류다
+		List<String> malformedTokens = List.of("abc", "1.2", "x.123.sig", memberId + ".soon.sig", "1.2.3.4",
+			memberId + ".1.", issued + "=");
+		for (String malformed : malformedTokens) {
 			unsubscribe(malformed)
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.code").value("MEMBER_UNSUBSCRIBE_TOKEN_MALFORMED"));
