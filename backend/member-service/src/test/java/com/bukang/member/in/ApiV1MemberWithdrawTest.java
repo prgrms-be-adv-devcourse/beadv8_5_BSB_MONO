@@ -61,7 +61,7 @@ import com.bukang.member.out.order.HttpActiveTicketAdapter;
 import com.bukang.member.support.MemberFixture;
 
 // 예치금·주문 서비스와 Redis는 띄우지 않으므로 포트와 Refresh Token 저장소를 목으로 바꾼다
-// 수정 이벤트는 스프링 이벤트로 발행됐는지만 본다. Kafka로 나가는 건 MemberKafkaPublisherTest가 확인한다
+// 수정 이벤트는 스프링 이벤트로 발행됐는지만 본다. 아웃박스 행은 MemberOutboxAppendTest가 확인한다
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
