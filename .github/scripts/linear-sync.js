@@ -1,5 +1,7 @@
 // PR과 Linear 이슈를 잇는다. 공식 GitHub 연동이 동작하지 않아 대신 쓴다 (docs/LINEAR.md).
-// - PR이 열리거나 바뀌면: 언급된 이슈에 PR 링크를 붙이고, 시작 전 이슈는 In Progress로 옮긴다
+// - PR이 열리거나 바뀌면: 언급된 이슈에 PR 링크를 붙이고, 초안이 아닌 PR이면 Backlog·Todo·In Progress 이슈를 In Review로 옮긴다
+//   (이미 In Review·Done인 이슈는 그대로. 팀에 In Review 상태가 없으면 Backlog·Todo 이슈만 In Progress로 옮긴다)
+//   초안 PR은 Backlog·Todo 이슈를 In Progress까지만 옮긴다
 // - PR이 머지되면: 브랜치 이름·제목에 있거나 닫는 키워드(Closes 등)로 적은 이슈를 Done으로 옮긴다
 //   본문에 Refs BUK-12로만 적은 이슈는 링크만 붙고 Done이 되지 않는다
 // - Linear에 바꾼 사람이 제대로 남도록, 이벤트를 일으킨 사람(머지한 사람 등)의 개인 키를 쓴다.
@@ -88,8 +90,27 @@ function isNotFound(error) {
   return /not found/i.test(error.message)
 }
 
-// fromTypes 상태인 이슈만 toType 상태(이름이 toName이면 그것, 없으면 첫 번째)로 옮긴다
-async function moveState(apiKey, issueId, fromTypes, toType, toName) {
+// 이슈를 어느 상태에서 어느 상태로 옮길지. In Review와 In Progress는 둘 다 started 종류라 이름으로 구분한다.
+// fallback이 false이면 이름이 같은 상태가 없을 때 다른 상태로 대신 옮기지 않는다
+const RULES = {
+  progress: { from: ['backlog', 'unstarted'], type: 'started', name: 'In Progress', fallback: true },
+  review: { from: ['backlog', 'unstarted', 'started'], type: 'started', name: 'In Review', fallback: false },
+  done: { from: ['backlog', 'unstarted', 'started'], type: 'completed', name: 'Done', fallback: true },
+}
+const NO_STATE = 'no-state'
+
+// { skip } 또는 { target }
+function decideMove(issue, rule) {
+  if (!rule.from.includes(issue.state.type) || issue.state.name === rule.name) {
+    return { skip: `skipped (${issue.state.name})` }
+  }
+  const states = issue.team.states.nodes
+  const target = states.find((s) => s.name === rule.name) ?? (rule.fallback ? states[0] : undefined)
+  return target ? { target } : { skip: NO_STATE }
+}
+
+// rule에 맞는 이슈만 옮기고, 옮긴 상태 이름이나 건너뛴 이유를 돌려준다
+async function moveState(apiKey, issueId, rule) {
   let data
   try {
     data = await linear(
@@ -97,11 +118,11 @@ async function moveState(apiKey, issueId, fromTypes, toType, toName) {
       `query($id: String!, $type: String!) {
         issue(id: $id) {
           id
-          state { type }
+          state { type name }
           team { states(filter: { type: { eq: $type } }) { nodes { id name } } }
         }
       }`,
-      { id: issueId, type: toType },
+      { id: issueId, type: rule.type },
     )
   } catch (e) {
     // 없는 이슈 번호는 attachPr처럼 실패로 세지 않고 건너뛴다
@@ -114,11 +135,10 @@ async function moveState(apiKey, issueId, fromTypes, toType, toName) {
   if (!issue) {
     return 'not found, skipped'
   }
-  if (!fromTypes.includes(issue.state.type)) {
-    return `skipped (${issue.state.type})`
+  const { skip, target } = decideMove(issue, rule)
+  if (skip) {
+    return skip
   }
-  const states = issue.team.states.nodes
-  const target = states.find((s) => s.name === toName) ?? states[0]
   await linear(
     apiKey,
     `mutation($id: String!, $stateId: String!) {
@@ -127,6 +147,12 @@ async function moveState(apiKey, issueId, fromTypes, toType, toName) {
     { id: issue.id, stateId: target.id },
   )
   return target.name
+}
+
+// 팀에 In Review 상태가 없으면 In Progress로라도 옮긴다
+async function moveToReview(apiKey, issueId) {
+  const result = await moveState(apiKey, issueId, RULES.review)
+  return result === NO_STATE ? moveState(apiKey, issueId, RULES.progress) : result
 }
 
 module.exports = async ({ context, core }) => {
@@ -152,7 +178,13 @@ module.exports = async ({ context, core }) => {
   let failed = 0
   const run = async (id, fn) => {
     try {
-      core.info(`${id}: ${(await fn()) ?? 'ok'}`)
+      const result = (await fn()) ?? 'ok'
+      // 오타가 아니라 키가 BUK 워크스페이스 이슈를 못 보는 경우도 같은 응답이라, 실행 요약에 보이게 경고로 남긴다
+      if (result.startsWith('not found')) {
+        core.warning(`${id}: ${result}. 번호가 맞다면 ${picked.name} 키가 BUK 워크스페이스 것인지 확인하세요.`)
+      } else {
+        core.info(`${id}: ${result}`)
+      }
     } catch (e) {
       failed += 1
       core.warning(`${id}: ${e.message}`)
@@ -165,12 +197,12 @@ module.exports = async ({ context, core }) => {
   if (context.payload.action === 'closed') {
     if (pr.merged) {
       for (const id of findToComplete(pr)) {
-        await run(id, () => moveState(apiKey, id, ['backlog', 'unstarted', 'started'], 'completed', 'Done'))
+        await run(id, () => moveState(apiKey, id, RULES.done))
       }
     }
-  } else if (!pr.draft) {
+  } else {
     for (const id of mentioned) {
-      await run(id, () => moveState(apiKey, id, ['backlog', 'unstarted'], 'started', 'In Progress'))
+      await run(id, () => (pr.draft ? moveState(apiKey, id, RULES.progress) : moveToReview(apiKey, id)))
     }
   }
   if (failed > 0) {
@@ -178,6 +210,8 @@ module.exports = async ({ context, core }) => {
   }
 }
 
+module.exports.decideMove = decideMove
+module.exports.RULES = RULES
 module.exports.findMentioned = findMentioned
 module.exports.findClosing = findClosing
 module.exports.findToComplete = findToComplete
