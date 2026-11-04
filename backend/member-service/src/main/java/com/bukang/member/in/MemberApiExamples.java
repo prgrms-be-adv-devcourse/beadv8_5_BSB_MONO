@@ -114,6 +114,28 @@ final class MemberApiExamples {
 		{ "status": 400, "code": "INVALID_REQUEST", "message": "동의 여부를 보내주세요.", "data": null }
 		""";
 
+	static final String UNSUBSCRIBE_SUCCESS = """
+		{ "status": 200, "message": "광고 수신을 거부했습니다.", "data": null }
+		""";
+
+	static final String UNSUBSCRIBE_TOKEN_MISSING = """
+		{ "status": 400, "code": "INVALID_REQUEST", "message": "수신 거부 토큰을 보내주세요.", "data": null }
+		""";
+
+	static final String UNSUBSCRIBE_TOKEN_MALFORMED = """
+		{ "status": 400, "code": "MEMBER_UNSUBSCRIBE_TOKEN_MALFORMED", "message": "수신 거부 링크의 형식이 올바르지 않습니다.",
+			"data": null }
+		""";
+
+	static final String UNSUBSCRIBE_TOKEN_INVALID = """
+		{ "status": 401, "code": "MEMBER_UNSUBSCRIBE_TOKEN_INVALID", "message": "수신 거부 링크가 올바르지 않습니다.", "data": null }
+		""";
+
+	static final String UNSUBSCRIBE_TOKEN_EXPIRED = """
+		{ "status": 410, "code": "MEMBER_UNSUBSCRIBE_TOKEN_EXPIRED",
+			"message": "수신 거부 링크의 사용 기간이 지났습니다. 마이페이지에서 수신 동의를 바꿔주세요.", "data": null }
+		""";
+
 	private MemberApiExamples() {
 	}
 }

@@ -271,6 +271,25 @@ class GatewayAuthenticationTest {
 	}
 
 	@Test
+	@DisplayName("광고 수신 거부 POST는 메시지 링크로 로그인 없이 부르므로 통과하고, 클라이언트가 보낸 X-Member-Id는 지운다")
+	void passesMarketingUnsubscribeWithoutToken() throws Exception {
+		HttpResponse<String> response = send(request("/api/v1/member/marketing-consent/unsubscribe")
+			.header(MEMBER_ID_HEADER, "999")
+			.POST(HttpRequest.BodyPublishers.ofString("{\"token\": \"t\"}")));
+
+		assertThat(response.statusCode()).isEqualTo(200);
+		assertThat(RECEIVED_MEMBER_IDS).containsExactly("없음");
+	}
+
+	@Test
+	@DisplayName("광고 수신 거부 주소라도 POST가 아니면 토큰이 필요하다")
+	void requiresTokenForMarketingUnsubscribeNonPost() throws Exception {
+		HttpResponse<String> response = send(request("/api/v1/member/marketing-consent/unsubscribe"));
+
+		assertUnauthorized(response, "AUTH_LOGIN_REQUIRED", "로그인이 필요합니다.");
+	}
+
+	@Test
 	@DisplayName("공개 주소와 앞부분만 같은 주소는 토큰이 필요하다")
 	void requiresTokenForPathOnlyStartingWithPublicPath() throws Exception {
 		HttpResponse<String> response = send(request("/api/v1/auth/login-history")

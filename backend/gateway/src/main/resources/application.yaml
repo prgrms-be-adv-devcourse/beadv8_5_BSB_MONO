@@ -105,6 +105,9 @@ gateway:
       # 가입 화면이 로그인 전에 이메일 중복을 확인한다
       - pattern: /api/v1/member/members/email-availability
         methods: [ GET ]
+      # 광고 메시지의 수신 거부 확인 화면이 로그인 없이 부른다. 본인 확인은 서명한 토큰으로 한다 (BUK-75)
+      - pattern: /api/v1/member/marketing-consent/unsubscribe
+        methods: [ POST ]
       # 로그인 없이 대회 목록·상세를 볼 수 있게 한다. 등록·수정(POST 등)은 토큰이 필요하다
       - pattern: /api/v1/product/**
         methods: [ GET ]
