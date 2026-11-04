@@ -168,10 +168,11 @@ public class ApiV1SocialAuthController {
 		@ApiResponse(responseCode = "401", description = "가입 대기가 없거나 15분이 지남",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = SocialAuthApiExamples.SIGNUP_EXPIRED))),
-		@ApiResponse(responseCode = "409", description = "이메일·닉네임 중복, 이미 가입한 휴대폰 번호(계정 연결 안내), 이미 가입한 사람 "
-			+ "또는 이미 연결된 소셜 계정",
+		@ApiResponse(responseCode = "409", description = "이메일·닉네임 중복, 이미 가입한 휴대폰 번호(계정 연결 안내), 이미 가입한 사람, "
+			+ "탈퇴하고 30일이 지나지 않은 사람 또는 이미 연결된 소셜 계정",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "이미 가입한 사람", value = IdentityVerificationApiExamples.DUPLICATE_IDENTITY),
+				@ExampleObject(name = "탈퇴 후 재가입 제한", value = IdentityVerificationApiExamples.REJOIN_TOO_SOON),
 				@ExampleObject(name = "이메일 중복", value = AuthApiExamples.DUPLICATE_EMAIL),
 				@ExampleObject(name = "닉네임 중복", value = AuthApiExamples.DUPLICATE_NICKNAME),
 				@ExampleObject(name = "이미 가입한 휴대폰 번호", value = SocialAuthApiExamples.PHONE_TAKEN),

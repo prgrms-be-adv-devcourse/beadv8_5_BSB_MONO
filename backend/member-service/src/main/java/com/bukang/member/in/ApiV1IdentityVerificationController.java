@@ -49,17 +49,23 @@ public class ApiV1IdentityVerificationController {
 
 	@PostMapping("/{identityVerificationId}/complete")
 	@Operation(summary = "본인인증 확인", description = "포트원 창이 끝나면 부른다. 서버가 포트원 조회 API로 결과를 직접 확인하고, "
-		+ "확인된 이름 · 생년월일 · 휴대폰 번호와 CI 해시를 15분 동안 저장한다. 화면이 보낸 인증 결과는 쓰지 않는다. "
+		+ "확인된 이름 · 생년월일 · 휴대폰 번호와 해시를 15분 동안 저장한다. 화면이 보낸 인증 결과는 쓰지 않는다. "
+		+ "모든 인증 방법을 받고, CI는 인증사가 줄 때만 저장한다. 이미 가입한 사람이면 409로 알린다. "
 		+ "이미 확인한 ID를 다시 부르면 저장한 결과를 그대로 돌려준다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "본인인증 확인",
 			useReturnTypeSchema = true,
 			content = @Content(examples = @ExampleObject(value = IdentityVerificationApiExamples.COMPLETE_SUCCESS))),
-		@ApiResponse(responseCode = "400", description = "서버가 만들지 않았거나 15분이 지난 인증 ID, 인증 실패, CI를 주지 않는 인증 방법",
+		@ApiResponse(responseCode = "400", description = "서버가 만들지 않았거나 15분이 지난 인증 ID 또는 인증 실패",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "인증 ID가 없거나 지남", value = IdentityVerificationApiExamples.VERIFICATION_REQUIRED),
-				@ExampleObject(name = "인증 실패", value = IdentityVerificationApiExamples.VERIFICATION_FAILED),
-				@ExampleObject(name = "CI를 주지 않는 인증 방법", value = IdentityVerificationApiExamples.CI_MISSING)
+				@ExampleObject(name = "인증 실패", value = IdentityVerificationApiExamples.VERIFICATION_FAILED)
+			})),
+		@ApiResponse(responseCode = "409", description = "이미 가입한 사람 (CI 또는 이름 · 생년월일 · 휴대폰 번호가 같음) "
+			+ "또는 탈퇴하고 30일이 지나지 않은 사람",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "이미 가입한 사람", value = IdentityVerificationApiExamples.DUPLICATE_IDENTITY),
+				@ExampleObject(name = "탈퇴 후 재가입 제한", value = IdentityVerificationApiExamples.REJOIN_TOO_SOON)
 			})),
 		@ApiResponse(responseCode = "503", description = "포트원 조회 실패 (연결 실패, 응답 지연, 인증 키 오류)",
 			content = @Content(schema = @Schema(implementation = RsData.class),

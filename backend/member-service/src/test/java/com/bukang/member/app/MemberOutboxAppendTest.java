@@ -149,7 +149,8 @@ class MemberOutboxAppendTest {
 		transactionTemplate.executeWithoutResult(status -> {
 			memberJoinUseCase.join("outbox-rollback@crewrun.com", "password1234", "롤백가입", null,
 				List.of(TermsType.SERVICE, TermsType.PRIVACY),
-				new VerifiedIdentity("김롤백", BIRTH_DATE, "010-3000-0003", "ci-outbox-rollback", null));
+				new VerifiedIdentity("김롤백", BIRTH_DATE, "010-3000-0003", "ci-outbox-rollback",
+					"identity-outbox-rollback", "name-birth-outbox-rollback", null));
 			status.setRollbackOnly();
 		});
 
@@ -176,7 +177,7 @@ class MemberOutboxAppendTest {
 			List.of(TermsType.SERVICE, TermsType.PRIVACY));
 
 		MemberDto modified = memberFacade.modifyMe(joined.getId(),
-			new MemberModifyRequestDto("김러너", "수정후회원", "010-3000-0006", BIRTH_DATE));
+			new MemberModifyRequestDto("수정후회원"));
 
 		MemberOutboxEvent row = allRows().get(1);
 		MemberModifiedEvent body = jsonConverter.fromJson(row.getPayload(), MemberModifiedEvent.class);

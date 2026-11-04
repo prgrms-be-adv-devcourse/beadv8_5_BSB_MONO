@@ -67,13 +67,7 @@ public class MemberFacade {
 
 	@Transactional
 	public MemberDto modifyMe(long memberId, MemberModifyRequestDto memberModifyRequestDto) {
-		return memberModifyUseCase.modify(
-			memberId,
-			memberModifyRequestDto.getName(),
-			memberModifyRequestDto.getNickname(),
-			memberModifyRequestDto.getPhone(),
-			memberModifyRequestDto.getBirthDate()
-		).toDto();
+		return memberModifyUseCase.modify(memberId, memberModifyRequestDto.getNickname()).toDto();
 	}
 
 	public MarketingConsentDto findMarketingConsent(long memberId) {

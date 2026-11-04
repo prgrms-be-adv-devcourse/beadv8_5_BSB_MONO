@@ -137,6 +137,8 @@ member:
   identity:
     # 같은 사람(CI 해시)이 두 번째 계정을 못 만들게 한다. 테스트 채널 CI가 모두 같은 값이면 false로 끈다
     unique-ci-check: true
+    # 탈퇴하고 이 날수가 지나야 같은 사람(CI · 이름 + 생년월일 + 휴대폰 번호)이 다시 가입할 수 있다
+    rejoin-block-days: 30
     # CI를 해시할 때 섞는 비밀 키. 비우면 본인인증 확인이 실패한다
     ci-hash-key: ${IDENTITY_CI_HASH_KEY:}
     portone:

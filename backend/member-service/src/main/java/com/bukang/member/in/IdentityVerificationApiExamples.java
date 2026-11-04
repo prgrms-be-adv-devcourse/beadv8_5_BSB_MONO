@@ -45,15 +45,6 @@ final class IdentityVerificationApiExamples {
 		}
 		""";
 
-	static final String CI_MISSING = """
-		{
-			"status": 400,
-			"code": "AUTH_VERIFICATION_CI_MISSING",
-			"message": "이 인증 방법으로는 가입할 수 없습니다. 다른 인증 방법을 골라주세요.",
-			"data": null
-		}
-		""";
-
 	static final String UNAVAILABLE = """
 		{
 			"status": 503,
@@ -69,6 +60,18 @@ final class IdentityVerificationApiExamples {
 			"code": "MEMBER_DUPLICATE_IDENTITY",
 			"message": "이미 가입한 사람입니다. 로그인하거나 계정 연결에서 연결해주세요.",
 			"data": null
+		}
+		""";
+
+	static final String REJOIN_TOO_SOON = """
+		{
+			"status": 409,
+			"code": "MEMBER_REJOIN_TOO_SOON",
+			"message": "탈퇴하고 30일이 지나야 다시 가입할 수 있습니다. 12월 2일부터 가입할 수 있습니다.",
+			"data": {
+				"rejoinableDate": "2026-12-02",
+				"blockDays": 30
+			}
 		}
 		""";
 

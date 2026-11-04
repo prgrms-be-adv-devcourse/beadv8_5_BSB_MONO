@@ -235,6 +235,34 @@ describe('회원가입 단계', () => {
     },
   )
 
+  it('탈퇴하고 30일이 지나지 않았으면(MEMBER_REJOIN_TOO_SOON) 다시 가입할 수 있는 날을 알려 준다', async () => {
+    server.use(
+      http.post('*/api/v1/auth/join', () =>
+        HttpResponse.json(
+          {
+            status: 409,
+            code: 'MEMBER_REJOIN_TOO_SOON',
+            message: '재가입 제한',
+            data: { rejoinableDate: '2026-12-02', blockDays: 30 },
+          },
+          { status: 409 },
+        ),
+      ),
+    )
+    const user = userEvent.setup()
+    renderProfileStep()
+
+    await fillProfile(user)
+    await user.click(screen.getByRole('button', { name: '가입 완료' }))
+
+    expect(
+      await screen.findByText(
+        '탈퇴하고 30일이 지나야 다시 가입할 수 있어요. 12월 2일부터 가입할 수 있어요.',
+      ),
+    ).toBeInTheDocument()
+    expect(replace).not.toHaveBeenCalled()
+  })
+
   it('본인인증 결과가 지났으면(AUTH_VERIFICATION_REQUIRED) 안내를 띄우고 본인 확인 단계로 돌아간다', async () => {
     server.use(
       http.post('*/api/v1/auth/join', () =>

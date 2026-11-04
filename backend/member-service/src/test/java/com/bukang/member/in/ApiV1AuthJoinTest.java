@@ -9,7 +9,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -30,6 +29,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
 import com.bukang.member.app.MemberFacade;
+import com.bukang.member.app.RejoinBlockCleanupUseCase;
 import com.bukang.member.domain.Member;
 import com.bukang.member.domain.TermsAgreement;
 import com.bukang.member.domain.TermsType;
@@ -71,6 +71,9 @@ class ApiV1AuthJoinTest {
 
 	@Autowired
 	private TermsDataInit termsDataInit;
+
+	@Autowired
+	private RejoinBlockCleanupUseCase rejoinBlockCleanupUseCase;
 
 	@AfterEach
 	void tearDown() {
@@ -294,18 +297,114 @@ class ApiV1AuthJoinTest {
 	}
 
 	@Test
-	@DisplayName("탈퇴한 회원과 같은 사람(CI 해시)은 다시 가입할 수 있다")
-	void joinAllowedAfterWithdrawal() throws Exception {
-		String first = identityStore.verify("김러너", LocalDate.of(1995, 4, 12), PHONE, "same-ci");
+	@DisplayName("CI를 주지 않는 인증 방법(카카오)으로도 가입하고, 세 값 해시와 이름 + 생년월일 해시를 남긴다")
+	void joinWithoutCi() throws Exception {
+		String token = identityStore.verify("김카카오", LocalDate.of(1995, 4, 12), PHONE, null);
+
+		joinWithToken(EMAIL, PASSWORD, NICKNAME, token, DEFAULT_AGREED_TERMS)
+			.andExpect(status().isCreated());
+
+		Member member = memberRepository.findByEmail(EMAIL).orElseThrow();
+		assertThat(member.getCiHash()).isNull();
+		assertThat(member.getIdentityHash()).hasSize(64);
+		assertThat(member.getNameBirthHash()).hasSize(64);
+	}
+
+	@Test
+	@DisplayName("CI가 없어도 이름 · 생년월일 · 휴대폰 번호가 같으면 두 번째 가입은 409 MEMBER_DUPLICATE_IDENTITY다")
+	void joinFailsWithSameNameBirthPhone() throws Exception {
+		String first = identityStore.verify("김카카오", LocalDate.of(1995, 4, 12), PHONE, null);
 		joinWithToken(EMAIL, PASSWORD, NICKNAME, first, DEFAULT_AGREED_TERMS)
 			.andExpect(status().isCreated());
-		Member withdrawn = memberRepository.findByEmail(EMAIL).orElseThrow();
-		withdrawn.withdraw(LocalDateTime.now());
-		memberRepository.saveAndFlush(withdrawn);
+
+		// 하이픈만 다른 같은 번호다
+		String second = identityStore.verify("김카카오", LocalDate.of(1995, 4, 12), "01012345678", null);
+		joinWithToken("runner2@crewrun.com", PASSWORD, "러너2", second, DEFAULT_AGREED_TERMS)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("MEMBER_DUPLICATE_IDENTITY"));
+	}
+
+	@Test
+	@DisplayName("동시 가입으로 1인 1계정 검사를 통과해도 DB 유니크 제약에 걸려 하나만 가입하고 409 MEMBER_DUPLICATE_IDENTITY다")
+	void joinRaceFailsOnIdentityConstraint() throws Exception {
+		String first = identityStore.verifyWithIdentityHash("김러너", LocalDate.of(1995, 4, 12), PHONE, "same-identity");
+		joinWithToken(EMAIL, PASSWORD, NICKNAME, first, DEFAULT_AGREED_TERMS)
+			.andExpect(status().isCreated());
+		// 먼저 가입한 사람이 아직 없다고 답하게 해, 두 요청이 동시에 검사를 통과한 상황을 만든다
+		willReturn(false).given(memberRepository).existsByIdentityHash(anyString());
+
+		String second = identityStore.verifyWithIdentityHash("김러너", LocalDate.of(1995, 4, 12), "010-9999-8888",
+			"same-identity");
+		joinWithToken("runner2@crewrun.com", PASSWORD, "러너2", second, DEFAULT_AGREED_TERMS)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("MEMBER_DUPLICATE_IDENTITY"));
+		assertThat(memberRepository.count()).isOne();
+	}
+
+	@Test
+	@DisplayName("탈퇴 직후 같은 사람(CI 해시)이 다시 가입하면 409 MEMBER_REJOIN_TOO_SOON이고 다시 가입할 수 있는 날을 알려 준다")
+	void rejoinBlockedRightAfterWithdrawal() throws Exception {
+		joinAndWithdraw("same-ci", 0);
+
+		String again = identityStore.verify("김러너", LocalDate.of(1995, 4, 12), PHONE, "same-ci");
+		joinWithToken(EMAIL, PASSWORD, NICKNAME, again, DEFAULT_AGREED_TERMS)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("MEMBER_REJOIN_TOO_SOON"))
+			.andExpect(jsonPath("$.data.rejoinableDate").value(LocalDate.now().plusDays(30).toString()))
+			.andExpect(jsonPath("$.data.blockDays").value(30));
+	}
+
+	@Test
+	@DisplayName("탈퇴하고 29일째(30일 하루 전)에는 아직 다시 가입할 수 없다")
+	void rejoinBlockedOneDayBefore() throws Exception {
+		joinAndWithdraw("same-ci", 29);
+
+		String again = identityStore.verify("김러너", LocalDate.of(1995, 4, 12), PHONE, "same-ci");
+		joinWithToken(EMAIL, PASSWORD, NICKNAME, again, DEFAULT_AGREED_TERMS)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("MEMBER_REJOIN_TOO_SOON"))
+			.andExpect(jsonPath("$.data.rejoinableDate").value(LocalDate.now().plusDays(1).toString()));
+	}
+
+	@Test
+	@DisplayName("탈퇴하고 30일이 지나면 같은 사람이 다시 가입하고, 세 값 해시 유니크 제약에도 걸리지 않는다")
+	void rejoinAllowedAfterBlockDays() throws Exception {
+		joinAndWithdraw("same-ci", 30);
 
 		String again = identityStore.verify("김러너", LocalDate.of(1995, 4, 12), PHONE, "same-ci");
 		joinWithToken(EMAIL, PASSWORD, NICKNAME, again, DEFAULT_AGREED_TERMS)
 			.andExpect(status().isCreated());
+		assertThat(memberRepository.findActiveByEmail(EMAIL)).isPresent();
+	}
+
+	@Test
+	@DisplayName("CI를 주지 않는 인증 방법(카카오)도 같은 규칙으로 탈퇴 직후 재가입을 막는다")
+	void rejoinBlockedWithoutCi() throws Exception {
+		joinAndWithdraw(null, 0);
+
+		String again = identityStore.verify("김러너", LocalDate.of(1995, 4, 12), PHONE, null);
+		joinWithToken(EMAIL, PASSWORD, NICKNAME, again, DEFAULT_AGREED_TERMS)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("MEMBER_REJOIN_TOO_SOON"));
+	}
+
+	@Test
+	@DisplayName("탈퇴하면 본인인증 해시를 재가입 제한 칸으로 옮기고, 30일이 지나면 정리 작업이 비운다")
+	void withdrawMovesHashesAndCleanupClearsThem() throws Exception {
+		long recent = joinAndWithdraw("recent-ci", 29);
+		long old = joinAndWithdraw("old-ci", 30, "runner2@crewrun.com", "러너2", "010-2222-3333");
+
+		Member withdrawn = memberRepository.findById(recent).orElseThrow();
+		assertThat(withdrawn.getIdentityHash()).isNull();
+		assertThat(withdrawn.getCiHash()).isNull();
+		assertThat(withdrawn.getWithdrawnIdentityHash()).hasSize(64);
+		assertThat(withdrawn.getWithdrawnCiHash()).isEqualTo("recent-ci");
+
+		assertThat(rejoinBlockCleanupUseCase.clearExpired(LocalDate.now())).isOne();
+		assertThat(memberRepository.findById(recent).orElseThrow().getWithdrawnIdentityHash()).isNotNull();
+		Member cleared = memberRepository.findById(old).orElseThrow();
+		assertThat(cleared.getWithdrawnIdentityHash()).isNull();
+		assertThat(cleared.getWithdrawnCiHash()).isNull();
 	}
 
 	@Test
@@ -393,13 +492,13 @@ class ApiV1AuthJoinTest {
 	}
 
 	private ResultActions join(String email, String nickname, String phone) throws Exception {
-		return joinWith(email, PASSWORD, "김러너", nickname, phone);
+		return joinWith(email, PASSWORD, "박러너", nickname, phone);
 	}
 
 	// agreedTermsField는 JSON 칸 하나(예: "agreedTerms": [...])이고, 빈 문자열이면 칸을 아예 보내지 않는다
 	private ResultActions join(String email, String nickname, String phone, String agreedTermsField)
 		throws Exception {
-		return joinWith(email, PASSWORD, "김러너", nickname, phone, agreedTermsField);
+		return joinWith(email, PASSWORD, "박러너", nickname, phone, agreedTermsField);
 	}
 
 	// 총 길이가 length인 이메일 (로컬 파트 64자, 도메인 라벨 63자 이하라 형식 검사를 통과한다)
@@ -411,6 +510,21 @@ class ApiV1AuthJoinTest {
 	private ResultActions joinWith(String email, String password, String name, String nickname, String phone)
 		throws Exception {
 		return joinWith(email, password, name, nickname, phone, DEFAULT_AGREED_TERMS);
+	}
+
+	// 김러너로 가입하고 탈퇴시킨 뒤, 탈퇴 시각을 daysAgo일 전 정오로 옮긴다. 회원 ID를 돌려준다
+	private long joinAndWithdraw(String ciHash, int daysAgo) throws Exception {
+		return joinAndWithdraw(ciHash, daysAgo, EMAIL, NICKNAME, PHONE);
+	}
+
+	private long joinAndWithdraw(String ciHash, int daysAgo, String email, String nickname, String phone)
+		throws Exception {
+		String token = identityStore.verify("김러너", LocalDate.of(1995, 4, 12), phone, ciHash);
+		joinWithToken(email, PASSWORD, nickname, token, DEFAULT_AGREED_TERMS).andExpect(status().isCreated());
+		Member member = memberRepository.findByEmail(email).orElseThrow();
+		member.withdraw(LocalDate.now().minusDays(daysAgo).atTime(12, 0));
+		memberRepository.saveAndFlush(member);
+		return member.getId();
 	}
 
 	// 이름 · 휴대폰 번호 · 생년월일은 본인인증 결과로 넣는다. CI 해시는 매번 달라 같은 사람 검사에는 걸리지 않는다
