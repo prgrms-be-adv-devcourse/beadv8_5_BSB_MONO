@@ -39,11 +39,13 @@ public class IdentityReviewQueryUseCase {
 		Map<String, List<Member>> membersByHash = memberRepository
 			.findByNameBirthHashInAndStatusNot(hashes.getContent(), MemberStatus.WITHDRAWN).stream()
 			.collect(Collectors.groupingBy(Member::getNameBirthHash));
+		// 두 쿼리 사이에 누가 탈퇴하면 한 명만 남은 묶음이 생길 수 있어 뺀다. 이때 전체 묶음 수는 잠깐 1 많을 수 있다
 		List<IdentityReviewGroupDto> groups = hashes.getContent().stream()
 			.map(hash -> new IdentityReviewGroupDto(membersByHash.getOrDefault(hash, List.of()).stream()
-				.sorted(Comparator.comparing(Member::getCreateDate).reversed())
+				.sorted(Comparator.comparing(Member::getCreateDate).thenComparing(Member::getId).reversed())
 				.map(IdentityReviewMemberDto::from)
 				.toList()))
+			.filter(group -> group.members().size() > 1)
 			.toList();
 
 		return new IdentityReviewPageDto(groups, hashes.getNumber(), hashes.getSize(), hashes.getTotalElements(),

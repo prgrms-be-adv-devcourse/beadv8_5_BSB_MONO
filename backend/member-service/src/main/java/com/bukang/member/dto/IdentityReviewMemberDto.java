@@ -36,8 +36,12 @@ public record IdentityReviewMemberDto(
 		);
 	}
 
+	// 형식이 이상한 값 하나 때문에 목록 전체가 500이 되지 않게, 가릴 수 없으면 전부 가린다
 	static String maskName(String name) {
 		String stripped = name.strip();
+		if (stripped.isEmpty()) {
+			return "*";
+		}
 		if (stripped.length() <= 2) {
 			return stripped.substring(0, stripped.length() - 1) + "*";
 		}
@@ -46,11 +50,17 @@ public record IdentityReviewMemberDto(
 
 	static String maskPhone(String phone) {
 		String digits = phone.replaceAll("[^0-9]", "");
+		if (digits.length() < 7) {
+			return "***";
+		}
 		return digits.substring(0, 3) + "-****-" + digits.substring(digits.length() - 4);
 	}
 
 	static String maskEmail(String email) {
 		int at = email.indexOf('@');
+		if (at <= 0) {
+			return "***";
+		}
 		return email.substring(0, Math.min(2, at)) + "***" + email.substring(at);
 	}
 }

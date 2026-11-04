@@ -132,7 +132,7 @@ class ApiV1AdminIdentityReviewTest {
 	@Test
 	@DisplayName("탈퇴한 회원은 빼고, 남은 회원이 한 명이면 묶음도 보여 주지 않는다")
 	void excludesWithdrawnMembers() throws Exception {
-		long first = join("홍길동", BIRTH, "010-1111-1111", "hong1@crewrun.com");
+		join("홍길동", BIRTH, "010-1111-1111", "hong1@crewrun.com");
 		long second = join("홍길동", BIRTH, "010-1111-2222", "hong2@crewrun.com");
 		long third = join("홍길동", BIRTH, "010-1111-3333", "hong3@crewrun.com");
 		markWithdrawn(third);
@@ -145,7 +145,6 @@ class ApiV1AdminIdentityReviewTest {
 
 		find(adminId, 0, 20)
 			.andExpect(jsonPath("$.data.totalElements").value(0));
-		assertThat(first).isPositive();
 	}
 
 	@Test
@@ -184,6 +183,25 @@ class ApiV1AdminIdentityReviewTest {
 			.andExpect(jsonPath("$.data.groups.length()").value(1))
 			.andExpect(jsonPath("$.data.groups[0].members[0].id").value(oldB))
 			.andExpect(jsonPath("$.data.groups[0].members[1].id").value(oldA));
+
+		// 범위 밖 페이지는 빈 목록이고 전체 묶음 수는 그대로다
+		find(adminId, 5, 1)
+			.andExpect(jsonPath("$.data.groups.length()").value(0))
+			.andExpect(jsonPath("$.data.totalElements").value(2));
+	}
+
+	@Test
+	@DisplayName("같은 묶음 안에서 가입 시각이 같으면 회원 ID가 큰 회원부터 보여 준다")
+	void sameJoinedAtOrdersByIdDesc() throws Exception {
+		long first = join("홍길동", BIRTH, "010-1111-1111", "hong1@crewrun.com");
+		long second = join("홍길동", BIRTH, "010-1111-2222", "hong2@crewrun.com");
+		LocalDateTime sameTime = LocalDateTime.of(2026, 11, 1, 9, 0);
+		setJoinedAt(first, sameTime);
+		setJoinedAt(second, sameTime);
+
+		find(adminId, 0, 20)
+			.andExpect(jsonPath("$.data.groups[0].members[0].id").value(second))
+			.andExpect(jsonPath("$.data.groups[0].members[1].id").value(first));
 	}
 
 	@Test

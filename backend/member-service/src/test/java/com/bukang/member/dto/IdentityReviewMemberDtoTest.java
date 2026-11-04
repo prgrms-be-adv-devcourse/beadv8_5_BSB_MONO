@@ -30,4 +30,13 @@ class IdentityReviewMemberDtoTest {
 		assertThat(IdentityReviewMemberDto.maskEmail("runner@crewrun.com")).isEqualTo("ru***@crewrun.com");
 		assertThat(IdentityReviewMemberDto.maskEmail("a@crewrun.com")).isEqualTo("a***@crewrun.com");
 	}
+
+	@Test
+	@DisplayName("형식이 이상해 가릴 수 없는 값은 전부 가린다")
+	void masksMalformedValues() {
+		assertThat(IdentityReviewMemberDto.maskName("   ")).isEqualTo("*");
+		assertThat(IdentityReviewMemberDto.maskPhone("12-34")).isEqualTo("***");
+		assertThat(IdentityReviewMemberDto.maskEmail("crewrun.com")).isEqualTo("***");
+		assertThat(IdentityReviewMemberDto.maskEmail("@crewrun.com")).isEqualTo("***");
+	}
 }
