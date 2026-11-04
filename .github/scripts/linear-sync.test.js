@@ -90,10 +90,12 @@ test('핸들러: 초안 PR은 In Progress까지만 옮긴다', async () => {
   assert.deepStrictEqual(t.moves, [['BUK-1', 'p']])
 })
 
-test('핸들러: In Review 상태가 없는 팀이면 In Progress로 옮긴다', async () => {
+test('핸들러: In Review 상태가 없는 팀이면 옮기지 않고 경고만 남긴다', async () => {
   const t = setup({ draft: false, issues: { 'BUK-1': { state: todo, states: withoutReview } } })
   await sync({ context: t.context, core: t.core })
-  assert.deepStrictEqual(t.moves, [['BUK-1', 'p']])
+  assert.deepStrictEqual(t.moves, [])
+  assert.ok(t.warnings.some((w) => w.includes('In Review')))
+  assert.ok(!t.warnings.some((w) => w.startsWith('FAILED')))
 })
 
 test('핸들러: 다른 팀 키(PRO-1)는 이슈로 보지 않는다', async () => {

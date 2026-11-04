@@ -1,6 +1,6 @@
 // PR과 Linear 이슈를 잇는다. 공식 GitHub 연동이 동작하지 않아 대신 쓴다 (docs/LINEAR.md).
 // - PR이 열리거나 바뀌면: 언급된 이슈에 PR 링크를 붙이고, 초안이 아닌 PR이면 브랜치·제목·닫는 키워드의 이슈를 In Review로 옮긴다
-//   (Backlog·Todo·In Progress 이슈만. 본문 수정 때는 Backlog·Todo만. 이미 In Review·Done인 이슈와 Refs로만 적은 이슈는 그대로. 팀에 In Review 상태가 없으면 Backlog·Todo 이슈만 In Progress로 옮긴다)
+//   (Backlog·Todo·In Progress 이슈만. 본문 수정 때는 Backlog·Todo만. 이미 In Review·Done인 이슈와 Refs로만 적은 이슈는 그대로. 팀에 In Review 상태가 없으면 경고만 남기고 옮기지 않는다)
 //   초안 PR은 Backlog·Todo 이슈를 In Progress까지만 옮긴다
 // - PR이 머지되면: 브랜치 이름·제목에 있거나 닫는 키워드(Closes 등)로 적은 이슈를 Done으로 옮긴다
 //   본문에 Refs BUK-12로만 적은 이슈는 링크만 붙고 Done이 되지 않는다
@@ -149,12 +149,6 @@ async function moveState(apiKey, issueId, rule) {
   return target.name
 }
 
-// 팀에 In Review 상태가 없으면 In Progress로라도 옮긴다
-async function moveToReview(apiKey, issueId, rule) {
-  const result = await moveState(apiKey, issueId, rule)
-  return result === NO_STATE ? moveState(apiKey, issueId, RULES.progress) : result
-}
-
 module.exports = async ({ context, core }) => {
   const pr = context.payload.pull_request
   const logins = [...new Set([context.payload.sender.login, pr.user.login])]
@@ -180,7 +174,9 @@ module.exports = async ({ context, core }) => {
     try {
       const result = (await fn()) ?? 'ok'
       // 오타가 아니라 키가 BUK 워크스페이스 이슈를 못 보는 경우도 같은 응답이라, 실행 요약에 보이게 경고로 남긴다
-      if (result.startsWith('not found')) {
+      if (result === NO_STATE) {
+        core.warning(`${id}: 팀에 ${RULES.review.name} 상태가 없어 옮기지 않았습니다. Linear 팀 설정에서 추가하세요.`)
+      } else if (result.startsWith('not found')) {
         core.warning(`${id}: ${result}. 번호가 맞다면 ${picked.name} 키가 ${TEAM_KEY} 워크스페이스 것인지 확인하세요.`)
       } else {
         core.info(`${id}: ${result}`)
@@ -207,7 +203,7 @@ module.exports = async ({ context, core }) => {
     // Refs로만 적은 이슈는 링크만 붙이고, 브랜치·제목·닫는 키워드로 가리킨 이슈만 상태를 옮긴다
     const owned = pr.draft ? mentioned : findToComplete(pr)
     for (const id of owned) {
-      await run(id, () => (pr.draft ? moveState(apiKey, id, RULES.progress) : moveToReview(apiKey, id, reviewRule)))
+      await run(id, () => (pr.draft ? moveState(apiKey, id, RULES.progress) : moveState(apiKey, id, reviewRule)))
     }
   }
   if (failed > 0) {

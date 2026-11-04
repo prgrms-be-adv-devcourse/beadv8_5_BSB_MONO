@@ -82,7 +82,7 @@ Claude는 Linear 이슈를 만들거나 고칠 때, 이슈 작업을 시작할 �
 Linear 공식 GitHub 연동이 동작하지 않아, `linear-sync.yml`이 Linear API로 이슈를 직접 갱신한다.
 브랜치 이름, PR 제목·본문에 있는 `BUK-<번호>`로 이미 있는 이슈를 찾는다. 이슈를 새로 만들지는 않는다. `PRO-<번호>`는 이전 워크스페이스의 이슈라 찾지 못하므로 연결하지 않는다.
 찾지 못한 번호는 건너뛰고 체크는 실패로 만들지 않는다. 대신 실행 기록에 경고로 남는다.
-Linear 팀에 In Review 상태가 없으면 In Review로 옮기지 못하므로, Backlog·Todo 이슈만 In Progress로 옮긴다. In Review 상태를 만들어 두어야 한다.
+Linear 팀에 In Review 상태가 없으면 옮기지 않고 실행 기록에 경고만 남긴다. In Review 상태(In Progress와 같은 started 종류, 이름은 `In Review` 그대로)를 팀 설정에서 만들어 두어야 한다.
 
 | PR 상황 | 하는 일 |
 | --- | --- |
