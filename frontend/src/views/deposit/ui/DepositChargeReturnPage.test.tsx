@@ -19,7 +19,12 @@ vi.mock('next/navigation', () => ({
 const PENDING_KEY = 'crewrun:pending-charge'
 const ORDER_ID = 'charge-11111111-2222-3333-4444-555555555555'
 
-function savePending(pending: { orderId: string; amount: number; returnOrderId?: number }) {
+function savePending(pending: {
+  orderId: string
+  amount: number
+  returnOrderId?: number
+  uncertainAt?: number
+}) {
   sessionStorage.setItem(PENDING_KEY, JSON.stringify(pending))
 }
 
@@ -210,6 +215,40 @@ describe('충전 결과 화면 (토스 결제창에서 돌아옴)', () => {
     expect(await screen.findByText(UNCERTAIN_TITLE)).toBeInTheDocument()
     // 확정을 다시 부르면 서버가 토스에 승인을 한 번 더 요청한다
     expect(bodies).toHaveLength(1)
+  })
+
+  it('확정 응답을 기다리는 동안 새로고침해도 확정을 다시 부르지 않는다', async () => {
+    savePending({ orderId: ORDER_ID, amount: 12_000 })
+    const bodies: unknown[] = []
+    server.use(
+      http.post('*/api/v1/cash/charges/confirm', async ({ request }) => {
+        bodies.push(await request.json())
+        await delay('infinite')
+        return HttpResponse.json({})
+      }),
+    )
+
+    const { unmount } = renderPage(success())
+    await vi.waitFor(() => expect(bodies).toHaveLength(1))
+    unmount()
+
+    renderPage(success())
+    expect(await screen.findByText(UNCERTAIN_TITLE)).toBeInTheDocument()
+    expect(bodies).toHaveLength(1)
+  })
+
+  it('다른 충전의 돌아온 주소를 열어도 결과를 모르는 충전 기록은 남는다', async () => {
+    savePending({ orderId: ORDER_ID, amount: 12_000, uncertainAt: Date.now() })
+    const bodies: unknown[] = []
+    server.use(confirmHandler('COMPLETED', bodies))
+
+    const { unmount } = renderPage(success({ orderId: 'charge-other' }))
+    await vi.waitFor(() => expect(replace).toHaveBeenCalled())
+    unmount()
+
+    renderPage(success())
+    expect(await screen.findByText(UNCERTAIN_TITLE)).toBeInTheDocument()
+    expect(bodies).toEqual([])
   })
 
   it('요청이 잘못됨(400)이면 지금처럼 결제 실패 화면으로 보낸다', async () => {
