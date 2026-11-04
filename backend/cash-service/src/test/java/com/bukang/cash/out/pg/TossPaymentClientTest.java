@@ -34,7 +34,7 @@ import com.bukang.cash.domain.exception.PaymentLookupFailedException;
 class TossPaymentClientTest {
 	private static final String BASE_URL = "http://toss";
 	private static final String SECRET_KEY = "test_sk_dummy";
-	private static final String URL = BASE_URL + TossPaymentClient.CONFIRM_PATH;
+	private static final String URL = BASE_URL + TossPaymentConfirmClient.CONFIRM_PATH;
 	private static final String LOOKUP_URL = BASE_URL + "/v1/payments/orders/order_1";
 	private static final String BASIC_AUTH =
 		"Basic " + Base64.getEncoder().encodeToString((SECRET_KEY + ":").getBytes(StandardCharsets.UTF_8));
@@ -145,7 +145,7 @@ class TossPaymentClientTest {
 		PaymentApprovalFailedException failure = approveFailure();
 
 		assertThat(failure.isResultUnknown()).isFalse();
-		assertThat(failure.getMessage()).isEqualTo(TossPaymentClient.GENERIC_REJECTION_MESSAGE);
+		assertThat(failure.getMessage()).isEqualTo(TossPaymentConfirmClient.GENERIC_REJECTION_MESSAGE);
 	}
 
 	@Test
