@@ -165,9 +165,7 @@ export function CrewManagePage({ crewId }: { crewId: number }) {
               <CrewMemberList
                 members={crew.data.members}
                 // 이 화면은 크루장만 보므로 크루장 줄이 나다
-                label={(member) =>
-                  member.role === 'LEADER' ? `${member.nickname} (나)` : member.nickname
-                }
+                isMe={(member) => member.role === 'LEADER'}
                 labelId={memberLabelId}
                 action={(member) =>
                   member.role !== 'LEADER' && (
