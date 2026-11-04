@@ -23,7 +23,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * 주문 상품. 참가권 1장(키트 포함) = 1행이고 수량은 늘 1이다 (09 ERD order_item, 굿즈 삭제)
+ * 주문 상품. 참가권 1장(키트 포함) = 1행이고 수량은 늘 1이다 (09 ERD order_item, 별도 키트 삭제)
  * 정산(E)은 이 행의 판매자·대회·대회 날짜·금액을 읽는다 (정산 SoldEntryPort → /internal/v1/order/sold-entries?raceId=)
  * 키트 배송은 배송(Shipment)으로 옮겼다 (BUK-6). DB의 옛 kit_* 컬럼은 값을 옮긴 뒤 다음 배포에서 지운다
  */
