@@ -116,6 +116,8 @@ services:
         condition: service_healthy
       queue-service:
         condition: service_healthy
+      notification-service:
+        condition: service_healthy
 
   member-service:
     build:
@@ -295,6 +297,28 @@ services:
       bukang-kafka:
         condition: service_healthy
       bukang-redis:
+        condition: service_healthy
+
+  notification-service:
+    build:
+      context: .
+      args:
+        MODULE: notification-service
+    image: bukang-notification-service:latest
+    container_name: bukang-notification-service
+    profiles: [ app ]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+    healthcheck:
+      <<: *app-healthcheck
+      test: [ "CMD", "bash", "-c", "</dev/tcp/127.0.0.1/8087" ]
+    depends_on:
+      bukang-db:
+        condition: service_healthy
+      bukang-kafka:
         condition: service_healthy
 
   bukang-db:
