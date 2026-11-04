@@ -97,10 +97,36 @@ test('핸들러: In Review 상태가 없는 팀이면 In Progress로 옮긴다',
 })
 
 test('핸들러: 다른 팀 키(PRO-1)는 이슈로 보지 않는다', async () => {
-  const t = setup({ draft: false, issues: {} })
-  t.context.payload.pull_request.head.ref = 'feat/PRO-1-a'
+  assert.deepStrictEqual(sync.findMentioned('feat/PRO-1-a'), [])
+})
+
+test('핸들러: 본문에 Refs로만 적은 이슈는 옮기지 않는다', async () => {
+  const t = setup({ draft: false, issues: { 'BUK-1': { state: todo, states: withReview }, 'BUK-9': { state: todo, states: withReview } } })
+  t.context.payload.pull_request.body = 'Refs BUK-9'
+  await sync({ context: t.context, core: t.core })
+  assert.deepStrictEqual(t.moves, [['BUK-1', 'r']])
+})
+
+test('핸들러: 본문 수정(edited)은 이미 진행 중인 이슈를 In Review로 되돌리지 않는다', async () => {
+  const t = setup({ draft: false, issues: { 'BUK-1': { state: { type: 'started', name: 'In Progress' }, states: withReview } } })
+  t.context.payload.action = 'edited'
   await sync({ context: t.context, core: t.core })
   assert.deepStrictEqual(t.moves, [])
+})
+
+test('핸들러: 머지되면 Done으로 옮기고, 머지 없이 닫으면 옮기지 않는다', async () => {
+  const done = { id: 'd', name: 'Done', type: 'completed' }
+  const issues = { 'BUK-1': { state: { type: 'started', name: 'In Review' }, states: [done] } }
+  const merged = setup({ draft: false, issues })
+  merged.context.payload.action = 'closed'
+  merged.context.payload.pull_request.merged = true
+  await sync({ context: merged.context, core: merged.core })
+  assert.deepStrictEqual(merged.moves, [['BUK-1', 'd']])
+
+  const closed = setup({ draft: false, issues })
+  closed.context.payload.action = 'closed'
+  await sync({ context: closed.context, core: closed.core })
+  assert.deepStrictEqual(closed.moves, [])
 })
 
 test('핸들러: 한 이슈가 실패해도 나머지는 옮기고 마지막에 실패로 알린다', async () => {

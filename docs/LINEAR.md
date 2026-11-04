@@ -86,11 +86,12 @@ Linear 팀에 In Review 상태가 없으면 In Review로 옮기지 못하므로,
 
 | PR 상황 | 하는 일 |
 | --- | --- |
-| PR 열림, 본문 수정, 초안 해제 | 이슈에 PR 링크를 붙이고, Backlog·Todo·In Progress 이슈를 In Review로 옮긴다. 이미 In Review·Done인 이슈는 그대로 둔다 |
+| PR 열림, 본문 수정, 초안 해제 | 이슈에 PR 링크를 붙이고, 브랜치 이름·제목의 이슈와 `Closes BUK-12`로 적은 이슈 중 Backlog·Todo·In Progress를 In Review로 옮긴다. 이미 In Review·Done인 이슈는 그대로 둔다. 본문만 수정했을 때는 Backlog·Todo만 옮긴다 |
 | 초안 PR | 이슈에 PR 링크를 붙이고, Backlog·Todo 이슈를 In Progress까지만 옮긴다 |
 | 머지됨 | 브랜치 이름·제목에 있는 이슈와 본문에 `Closes BUK-12`로 적은 이슈를 Done으로 옮긴다 |
 | 머지 없이 닫힘 | 아무것도 바꾸지 않는다 |
 
+- `Refs BUK-12`로만 적은 이슈는 링크만 붙고 상태는 바뀌지 않는다.
 - Done으로 옮기지 않고 연결만 하려면 브랜치·제목에서 번호를 빼고 본문에 `Refs BUK-12`로 쓴다.
 - 팀원마다 자기 Linear 개인 API 키를 저장소 시크릿 `LINEAR_API_KEY_<GitHub 아이디>`로 등록한다. 방법은 [LINEAR-API-KEY.md](LINEAR-API-KEY.md).
   이벤트를 일으킨 사람(머지한 사람 등)의 키를 쓰고, 없으면 PR 작성자 키를 쓴다. 둘 다 없으면 아무것도 하지 않고 넘어간다.
