@@ -593,6 +593,40 @@ export const DisbandCrewResponse = zod.unknown()
 
 
 /**
+ * 크루장이 크루 이름을 바꾼다. 이름 규칙은 크루 만들기와 같다(앞뒤 공백을 뺀 1~20자, 다른 크루와 겹쳐도 된다). 응답은 크루 홈과 같은 형식이라 바로 크루 홈을 다시 그린다.
+ * @summary 크루 이름 바꾸기 (2그룹)
+ */
+export const UpdateCrewParams = zod.object({
+  "crewId": zod.int().describe('크루 ID')
+})
+
+export const updateCrewBodyNameMax = 20;
+
+
+
+export const UpdateCrewBody = zod.object({
+  "name": zod.string().min(1).max(updateCrewBodyNameMax).describe('새 크루 이름 (앞뒤 공백을 뺀 1~20자, 다른 크루와 겹쳐도 된다)')
+}).describe('크루 이름 바꾸기 요청')
+
+export const UpdateCrewResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.object({
+  "crewId": zod.int(),
+  "name": zod.string(),
+  "createdAt": zod.iso.datetime({"offset":true}),
+  "myRole": zod.enum(['LEADER', 'MANAGER', 'MEMBER']).describe('요청한 회원의 역할. 크루 역할 (LEADER: 크루장, MANAGER: 운영진, MEMBER: 크루원)'),
+  "memberCount": zod.int(),
+  "members": zod.array(zod.object({
+  "memberId": zod.int(),
+  "nickname": zod.string(),
+  "role": zod.enum(['LEADER', 'MANAGER', 'MEMBER']).describe('크루 역할 (LEADER: 크루장, MANAGER: 운영진, MEMBER: 크루원)')
+}).describe('크루원 (실명 없이 닉네임만)'))
+}).optional().describe('크루 홈')
+})
+
+
+/**
  * 크루장과 운영진이 초대 링크를 만든다. 링크는 만든 때부터 24시간 동안 쓸 수 있다. 응답의 inviteToken으로 프론트가 초대 받기 화면 주소를 만든다. 토큰은 이 응답에서만 받을 수 있다. 초대 링크 하나로는 한 명만 가입한다.
  * @summary 초대 링크 만들기
  */
@@ -700,7 +734,7 @@ export const LeaveCrewResponse = zod.unknown()
 
 
 /**
- * 크루장이 크루원을 크루에서 내보낸다. 크루장 자신은 내보낼 수 없다. 운영진도 내보낼 수 있는지는 회의에서 정한다. 결제 기간 중인 파티장·파티원을 막을지도 회의에서 정한다(안건 14).
+ * 크루장이 크루원이나 운영진을 크루에서 내보낸다. 운영진은 내보낼 수 없다(크루장만 한다). 크루장 자신은 내보낼 수 없다. 결제 기간 중인 파티장·파티원을 막을지는 회의에서 정한다(안건 14).
  * @summary 크루원 내보내기 (2그룹)
  */
 export const RemoveCrewMemberParams = zod.object({
