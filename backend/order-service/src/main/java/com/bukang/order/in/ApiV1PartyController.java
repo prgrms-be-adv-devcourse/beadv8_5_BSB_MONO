@@ -44,7 +44,8 @@ public class ApiV1PartyController {
 		@ApiResponse(responseCode = "400", description = "입력값 검증 실패, 나이 제한 밖, 키트 종목의 배송 주소 없음, 티셔츠 사이즈 오류"),
 		@ApiResponse(responseCode = "403", description = "이 크루의 크루원이 아님 (ORDER_CREW_MEMBER_REQUIRED)"),
 		@ApiResponse(responseCode = "404", description = "없는 종목 또는 없는 크루"),
-		@ApiResponse(responseCode = "409", description = "같은 대회에 개인 신청·다른 파티 신청이 있음, 취소된 대회, 접수 마감"),
+		@ApiResponse(responseCode = "409", description = "같은 대회에 개인 신청·다른 파티 신청"
+			+ "(ORDER_PARTY_OTHER_PARTY_JOINED, data.partyId)이 있음, 취소된 대회, 접수 마감"),
 		@ApiResponse(responseCode = "503", description = "회원·상품 서비스에 연결하지 못함")
 	})
 	public ResponseEntity<RsData<PartyCreatedDto>> create(
@@ -63,7 +64,8 @@ public class ApiV1PartyController {
 		@ApiResponse(responseCode = "200", description = "다시 만들기 성공"),
 		@ApiResponse(responseCode = "403", description = "파티장이 아님 (ORDER_PARTY_LEADER_ONLY)"),
 		@ApiResponse(responseCode = "404", description = "없는 파티"),
-		@ApiResponse(responseCode = "409", description = "모집 중이 아님 (ORDER_PARTY_NOT_RECRUITING)")
+		@ApiResponse(responseCode = "409",
+			description = "모집 중이 아님 (ORDER_PARTY_NOT_RECRUITING, data.partyId·data.partyStatus)")
 	})
 	public ResponseEntity<RsData<PartyDto>> regenerateJoinLink(
 		@LoginMemberId long memberId,
@@ -84,9 +86,11 @@ public class ApiV1PartyController {
 		@ApiResponse(responseCode = "400", description = "입력값 검증 실패, 나이 제한 밖, 키트 종목의 배송 주소 없음, 티셔츠 사이즈 오류"),
 		@ApiResponse(responseCode = "403", description = "이 크루의 크루원이 아님 (ORDER_CREW_MEMBER_REQUIRED)"),
 		@ApiResponse(responseCode = "404", description = "참가 링크가 없음(다시 만든 옛 링크 포함), 없는 종목 또는 크루"),
-		@ApiResponse(responseCode = "409", description = "링크 만료(ORDER_PARTY_LINK_EXPIRED), 모집 중이 아님, "
-			+ "다른 대회의 종목(ORDER_PARTY_RACE_MISMATCH), 이미 합류함(ORDER_PARTY_ALREADY_JOINED), "
-			+ "개인 신청·다른 파티 신청이 있음, 취소된 대회, 접수 마감"),
+		@ApiResponse(responseCode = "409", description = "링크 만료(ORDER_PARTY_LINK_EXPIRED), "
+			+ "모집 중이 아님(ORDER_PARTY_NOT_RECRUITING, data.partyId·data.partyStatus), "
+			+ "다른 대회의 종목(ORDER_PARTY_RACE_MISMATCH), 이미 합류함(ORDER_PARTY_ALREADY_JOINED, data.partyId), "
+			+ "다른 파티로 신청함(ORDER_PARTY_OTHER_PARTY_JOINED, data.partyId = 그 파티), "
+			+ "개인 신청이 있음(ORDER_INDIVIDUAL_PARTICIPATION_EXISTS, data.participationId), 취소된 대회, 접수 마감"),
 		@ApiResponse(responseCode = "503", description = "회원·상품 서비스에 연결하지 못함")
 	})
 	public ResponseEntity<RsData<ParticipationDto>> join(
@@ -106,7 +110,8 @@ public class ApiV1PartyController {
 		@ApiResponse(responseCode = "200", description = "나가기 성공 (취소된 내 신청서)"),
 		@ApiResponse(responseCode = "403", description = "이 파티의 파티원이 아님 (ORDER_PARTY_NOT_MEMBER)"),
 		@ApiResponse(responseCode = "404", description = "없는 파티"),
-		@ApiResponse(responseCode = "409", description = "모집 중이 아님 (ORDER_PARTY_NOT_RECRUITING)")
+		@ApiResponse(responseCode = "409",
+			description = "모집 중이 아님 (ORDER_PARTY_NOT_RECRUITING, data.partyId·data.partyStatus)")
 	})
 	public ResponseEntity<RsData<ParticipationDto>> leave(
 		@LoginMemberId long memberId,

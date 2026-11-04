@@ -135,6 +135,7 @@ class ApiV1PartyTest {
 	@DisplayName("파티원은 같은 대회의 다른 종목을 골라 합류한다. 다른 대회 종목은 고를 수 없다")
 	void join() throws Exception {
 		String token = token(create(LEADER, COURSE_10K));
+		long partyId = partyRepository.findAll().getFirst().getId();
 
 		join(MEMBER, token, COURSE_HALF)
 			.andExpect(status().isCreated())
@@ -145,7 +146,8 @@ class ApiV1PartyTest {
 			.andExpect(jsonPath("$.code").value("ORDER_PARTY_RACE_MISMATCH"));
 		join(MEMBER, token, COURSE_HALF)
 			.andExpect(status().isConflict())
-			.andExpect(jsonPath("$.code").value("ORDER_PARTY_ALREADY_JOINED"));
+			.andExpect(jsonPath("$.code").value("ORDER_PARTY_ALREADY_JOINED"))
+			.andExpect(jsonPath("$.data.partyId").value(partyId));
 	}
 
 	@Test
@@ -174,11 +176,15 @@ class ApiV1PartyTest {
 	void onePartyPerRace() throws Exception {
 		String first = token(create(LEADER, COURSE_10K));
 		String second = token(create(OTHER, COURSE_10K));
+		long firstPartyId = partyRepository.findAll().stream()
+			.filter(party -> party.getLeaderMemberId() == LEADER).findFirst().orElseThrow().getId();
 		join(MEMBER, first, COURSE_10K).andExpect(status().isCreated());
 
+		// 개인 신청 중복(ORDER_DUPLICATE_PARTICIPATION)과 다른 코드로, 이미 신청한 파티 번호를 준다
 		join(MEMBER, second, COURSE_10K)
 			.andExpect(status().isConflict())
-			.andExpect(jsonPath("$.code").value("ORDER_DUPLICATE_PARTICIPATION"));
+			.andExpect(jsonPath("$.code").value("ORDER_PARTY_OTHER_PARTY_JOINED"))
+			.andExpect(jsonPath("$.data.partyId").value(firstPartyId));
 		mockMvc.perform(post("/api/v1/order/participations")
 				.header("X-Member-Id", MEMBER)
 				.contentType(MediaType.APPLICATION_JSON)
@@ -209,7 +215,8 @@ class ApiV1PartyTest {
 			LocalDateTime.now().minusHours(24).minusMinutes(1), partyId);
 		join(MEMBER, newToken, COURSE_10K)
 			.andExpect(status().isConflict())
-			.andExpect(jsonPath("$.code").value("ORDER_PARTY_LINK_EXPIRED"));
+			.andExpect(jsonPath("$.code").value("ORDER_PARTY_LINK_EXPIRED"))
+			.andExpect(jsonPath("$.data").doesNotExist());
 	}
 
 	@Test
@@ -253,7 +260,9 @@ class ApiV1PartyTest {
 
 		join(LEADER, token, COURSE_10K)
 			.andExpect(status().isConflict())
-			.andExpect(jsonPath("$.code").value("ORDER_PARTY_NOT_RECRUITING"));
+			.andExpect(jsonPath("$.code").value("ORDER_PARTY_NOT_RECRUITING"))
+			.andExpect(jsonPath("$.data.partyId").value(partyId))
+			.andExpect(jsonPath("$.data.partyStatus").value("CLOSED"));
 	}
 
 	@Test

@@ -15,8 +15,10 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import com.bukang.common.global.rsdata.RsData;
 import com.bukang.order.domain.exception.IndividualParticipationExistsException;
 import com.bukang.order.domain.exception.InsufficientBalanceException;
+import com.bukang.order.domain.exception.PartyConflictException;
 import com.bukang.order.dto.IndividualParticipationExistsDto;
 import com.bukang.order.dto.InsufficientBalanceDto;
+import com.bukang.order.dto.PartyConflictDto;
 
 /**
  * 주문 서비스 전용 요청 예외 처리
@@ -51,6 +53,17 @@ public class OrderExceptionHandler {
 			.status(exception.getStatus())
 			.body(RsData.of(exception.getStatus(), exception.getCode(), exception.getMessage(),
 				new IndividualParticipationExistsDto(exception.getParticipationId())));
+	}
+
+	// 파티 거절: 파티 번호·상태(data.partyId, data.partyStatus)를 더한다. 담을 값이 없으면 data는 null (BUK-36)
+	@ExceptionHandler(PartyConflictException.class)
+	public ResponseEntity<RsData<PartyConflictDto>> partyConflictException(PartyConflictException exception) {
+		PartyConflictDto data = exception.hasData()
+			? new PartyConflictDto(exception.getPartyId(), exception.getPartyStatus())
+			: null;
+		return ResponseEntity
+			.status(exception.getStatus())
+			.body(RsData.of(exception.getStatus(), exception.getCode(), exception.getMessage(), data));
 	}
 
 	// 필수 요청 헤더(예: 중복 요청 방지 키)가 없으면 잘못된 요청이다. 회원 ID 헤더는 common의 @LoginMemberId가 처리한다

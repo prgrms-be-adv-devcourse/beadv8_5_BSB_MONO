@@ -99,7 +99,7 @@ public class PartyUseCase {
 		ParticipantInfo checked = checkParticipant(course, participant);
 		Optional<PartyMember> row = partyMemberRepository.findByPartyIdAndMemberId(partyId, memberId);
 		if (row.filter(PartyMember::isActive).isPresent()) {
-			throw PartyConflictException.alreadyJoined();
+			throw PartyConflictException.alreadyJoined(partyId);
 		}
 		checkNoLiveParticipation(party.getRaceId(), memberId, partyId);
 		row.ifPresentOrElse(left -> left.rejoin(now), () -> saveMember(partyId, memberId, party.getCrewId(), now));
@@ -172,9 +172,9 @@ public class PartyUseCase {
 			throw new IndividualParticipationExistsException(participation.getId());
 		}
 		if (partyId != null && partyId.equals(participation.getPartyId())) {
-			throw PartyConflictException.alreadyJoined();
+			throw PartyConflictException.alreadyJoined(partyId);
 		}
-		throw new DuplicateParticipationException("다른 파티로 이 대회에 신청했습니다. 그 파티에서 나간 뒤 합류해 주세요.");
+		throw PartyConflictException.otherPartyJoined(participation.getPartyId());
 	}
 
 	// 같은 사람이 합류를 두 번 빠르게 누르면, 뒤 요청은 잠금을 얻은 뒤에도 트랜잭션 처음 읽기 기준이라(MySQL REPEATABLE READ)
@@ -185,7 +185,7 @@ public class PartyUseCase {
 		} catch (DataIntegrityViolationException exception) {
 			String message = exception.getMostSpecificCause().getMessage();
 			if (message != null && message.toLowerCase().contains(PARTY_MEMBER_CONSTRAINT)) {
-				throw PartyConflictException.alreadyJoined();
+				throw PartyConflictException.alreadyJoined(partyId);
 			}
 			throw exception;
 		}

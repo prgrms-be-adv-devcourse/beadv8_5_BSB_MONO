@@ -104,7 +104,7 @@ public class Party extends BaseIdAndTime {
 	// 합류·나가기·링크 다시 만들기는 신청 전(모집 중)에만 된다. 결제 진행 중에는 파티원을 바꿀 수 없다 (정책 6장)
 	public void checkRecruiting() {
 		if (status != PartyStatus.RECRUITING) {
-			throw PartyConflictException.notRecruiting(status);
+			throw PartyConflictException.notRecruiting(getId(), status);
 		}
 	}
 
