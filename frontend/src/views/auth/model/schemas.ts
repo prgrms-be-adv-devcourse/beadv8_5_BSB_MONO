@@ -6,7 +6,7 @@ import {
   NICKNAME_PATTERN,
   parseBirth,
 } from '@/entities/member'
-import { memberZod } from '@/shared/api'
+import { memberZod } from '@/shared/api-zod'
 
 // 인증 화면 입력 검사. 백엔드 API가 생기면 orval이 만든 zod 스키마로 바꾼다.
 // 오류 문구는 피그마 시안(M03-E 로그인 실패, M04-1E 가입 입력 오류)과 helper 문구를 따른다.

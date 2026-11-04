@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode, type Ref } from 'react'
 
-import { DateTimeField } from '@/shared/ui'
+import { DateTimeField } from '@/shared/date-picker'
 
 import { BIRTH_MIN, isJoinableAge, latestJoinableBirth, parseBirth } from '../model/birth'
 

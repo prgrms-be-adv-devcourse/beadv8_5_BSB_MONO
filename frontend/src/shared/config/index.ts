@@ -1,1 +1,1 @@
-export { clientEnv, getServerEnv, type ServerEnv } from './env'
+export { clientEnv } from './client-env'

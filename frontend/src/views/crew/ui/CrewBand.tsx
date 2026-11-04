@@ -16,7 +16,6 @@ export function CrewBand({ children, className }: { children: ReactNode; classNa
 export function CrewLoadError({ onRetry }: { onRetry: () => void }) {
   return (
     <EmptyState
-      icon="CircleAlert"
       title="크루 정보를 불러오지 못했어요"
       description="잠시 후 다시 시도해 주세요."
       action={

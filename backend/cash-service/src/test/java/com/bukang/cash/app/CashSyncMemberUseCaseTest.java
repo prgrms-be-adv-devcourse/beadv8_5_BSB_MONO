@@ -129,6 +129,28 @@ class CashSyncMemberUseCaseTest {
 		assertThat(walletRepository.count()).as("회원마다 지갑은 하나다").isEqualTo(20);
 	}
 
+	@Test
+	@DisplayName("이미 있는 회원에게 수정(10:05)과 수정(10:06)이 동시에 처리돼도, 수정 시각이 더 늦은 닉네임이 남는다")
+	void syncMember_twoModifiedAtSameTime_keepsLatestNickname() throws InterruptedException {
+		LocalDateTime joinedAt = LocalDateTime.of(2026, 10, 16, 10, 0);
+		LocalDateTime olderModifiedAt = joinedAt.plusMinutes(5);
+		LocalDateTime newerModifiedAt = joinedAt.plusMinutes(6);
+		// 재시도 토픽에서 다시 처리되는 옛 수정 메시지와 메인 토픽의 새 수정 메시지가 겹치는 경우다
+		for (long memberId = 200; memberId < 220; memberId++) {
+			long id = memberId;
+			cashFacade.syncMember(id, joinedAt, joinedAt, "러너");
+			List<Runnable> messages = List.of(
+				() -> cashFacade.syncMember(id, joinedAt, olderModifiedAt, "옛 닉네임"),
+				() -> cashFacade.syncMember(id, joinedAt, newerModifiedAt, "새 닉네임"));
+
+			runConcurrently(messages).forEach(Runnable::run);
+
+			CashMember member = cashMemberRepository.findById(id).orElseThrow();
+			assertThat(member.getNickname()).as("memberId=%d", id).isEqualTo("새 닉네임");
+			assertThat(member.getModifyDate()).as("memberId=%d", id).isEqualTo(newerModifiedAt);
+		}
+	}
+
 	// 메시지를 동시에 처리하고, 예외가 난 메시지를 돌려준다
 	private List<Runnable> runConcurrently(List<Runnable> messages) throws InterruptedException {
 		ExecutorService executor = Executors.newFixedThreadPool(messages.size());

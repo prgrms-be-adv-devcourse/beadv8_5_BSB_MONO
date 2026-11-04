@@ -10,7 +10,8 @@ import { z } from 'zod'
 
 import { AppHeader } from '@/widgets/app-header'
 import { useMyBalance } from '@/entities/wallet'
-import { ApiError, cashApi, cashZod, createIdempotencyKey, unwrapData } from '@/shared/api'
+import { ApiError, cashApi, createIdempotencyKey, unwrapData } from '@/shared/api'
+import { cashZod } from '@/shared/api-zod'
 import {
   Alert,
   BottomCta,

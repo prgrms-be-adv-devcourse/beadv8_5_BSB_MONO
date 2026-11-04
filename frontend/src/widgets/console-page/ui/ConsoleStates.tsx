@@ -27,7 +27,6 @@ export function ConsoleOffline() {
   return (
     <div className="flex flex-1 items-center justify-center py-20">
       <EmptyState
-        icon="CircleAlert"
         title="인터넷에 연결되어 있지 않아요"
         description="연결을 확인한 뒤 다시 시도해 주세요"
         action={
