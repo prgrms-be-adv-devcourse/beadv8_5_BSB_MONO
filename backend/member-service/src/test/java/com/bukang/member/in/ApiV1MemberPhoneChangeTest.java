@@ -283,7 +283,7 @@ class ApiV1MemberPhoneChangeTest {
 	}
 
 	@Test
-	@DisplayName("없거나 탈퇴한 회원이면 404다")
+	@DisplayName("없는 회원이면 404다")
 	void memberNotFound() throws Exception {
 		change(999_999L, identityStore.verify(NAME, BIRTH_DATE, NEW_PHONE, hasher.ci(CI)))
 			.andExpect(status().isNotFound());
@@ -315,6 +315,17 @@ class ApiV1MemberPhoneChangeTest {
 			.andExpect(jsonPath("$.code").value("MEMBER_IDENTITY_MISMATCH"));
 
 		assertThat(identityStore.findVerified(id)).isEmpty();
+	}
+
+	@Test
+	@DisplayName("회원 전용 확인: 다른 사람이 이미 확인한 결과의 ID로 불러도 403이고 그 사람의 정보를 돌려주지 않는다")
+	void completeWithOthersSavedResultFails() throws Exception {
+		String othersToken = identityStore.verify("박러너", LocalDate.of(1990, 1, 1), NEW_PHONE, null);
+
+		complete(memberId, othersToken)
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.code").value("MEMBER_IDENTITY_MISMATCH"))
+			.andExpect(jsonPath("$.data").doesNotExist());
 	}
 
 	@Test

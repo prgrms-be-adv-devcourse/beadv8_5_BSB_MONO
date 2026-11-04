@@ -52,8 +52,10 @@ public class IdentityVerificationUseCase {
 	 */
 	VerifiedIdentityDto complete(String identityVerificationId, Consumer<VerifiedIdentity> check) {
 		// 새로고침 · 다시 누르기로 같은 ID를 또 확인하면 저장한 결과를 그대로 돌려준다
+		// 검사는 다시 한다. 가입용으로 확인한 결과를 회원 전용 확인으로 받아 남의 정보를 보는 일을 막는다
 		VerifiedIdentity saved = store.findVerified(identityVerificationId).orElse(null);
 		if (saved != null) {
+			check.accept(saved);
 			return toDto(identityVerificationId, saved);
 		}
 		if (!store.isPending(identityVerificationId)) {
