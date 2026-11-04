@@ -34,6 +34,9 @@ public final class KafkaTopics {
 	// 참가권을 환불했다. 정산 서비스가 판매자에게서 돌려받을 회수를 남긴다 (order → payout, 발행은 order 담당과 맞춘다)
 	public static final String ORDER_ITEM_REFUNDED = "queuing.orderitem.refunded";
 
+	// 회원 한 명에게 알림을 띄워 달라는 요청 (모든 서비스 → notification). 문구는 보내는 쪽이 만든다 (BUK-69)
+	public static final String NOTIFICATION_REQUESTED = "push.notification.requested";
+
 	private KafkaTopics() {
 	}
 }

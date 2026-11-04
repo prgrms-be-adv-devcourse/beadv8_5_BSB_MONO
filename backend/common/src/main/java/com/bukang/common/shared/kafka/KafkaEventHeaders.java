@@ -1,7 +1,7 @@
 package com.bukang.common.shared.kafka;
 
 /**
- * 아웃박스로 보내는 Kafka 메시지에 붙이는 헤더 이름 (받는 쪽이 같은 상수로 읽는다)
+ * 서비스 사이 Kafka 메시지(아웃박스, 알림)에 붙이는 헤더 이름 (받는 쪽이 같은 상수로 읽는다)
  * 값은 모두 UTF-8 문자열이다. common에는 Kafka 라이브러리가 없어 이름만 둔다
  */
 public final class KafkaEventHeaders {
