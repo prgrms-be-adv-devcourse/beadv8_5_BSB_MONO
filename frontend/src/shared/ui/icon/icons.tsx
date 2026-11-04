@@ -171,6 +171,7 @@ export type SpinnerProps = {
 }
 
 // HeroUI Spinner 생김새: 굵기 1/8, 둥근 끝, 끝으로 갈수록 옅어지는 호가 0.75초에 한 바퀴. 색은 currentColor.
+// 다크 모드는 brand-500이 어두운 바탕에서 3:1에 못 미쳐 밝은 브랜드 글자색을 쓴다.
 export function Spinner({
   className,
   trackClassName = 'stroke-border-default',
@@ -181,7 +182,10 @@ export function Spinner({
     <span
       role={label === null ? undefined : 'status'}
       aria-hidden={label === null || undefined}
-      className={cn('inline-flex size-6 shrink-0 text-border-brand', className)}
+      className={cn(
+        'inline-flex size-6 shrink-0 text-border-brand dark:text-text-brand',
+        className,
+      )}
     >
       <svg
         viewBox="0 0 24 24"

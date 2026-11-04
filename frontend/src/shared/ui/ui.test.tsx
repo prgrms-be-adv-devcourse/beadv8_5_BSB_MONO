@@ -59,7 +59,9 @@ describe('Spinner', () => {
   it('움직임 줄이기를 켠 사용자에게는 천천히 돈다', () => {
     const { container } = render(<Spinner />)
 
-    expect(container.querySelector('svg')?.getAttribute('class')).toMatch(/motion-reduce:/)
+    expect(container.querySelector('svg')?.getAttribute('class')).toContain(
+      'motion-reduce:animate-[spin_3s_linear_infinite]',
+    )
   })
 
   it('한 화면에 여러 개를 그려도 그라데이션 id가 겹치지 않는다', () => {
@@ -73,6 +75,9 @@ describe('Spinner', () => {
 
     expect(ids).toHaveLength(2)
     expect(new Set(ids).size).toBe(2)
+    ids.forEach((id) => {
+      expect(container.querySelector(`path[stroke="url(#${id})"]`)).not.toBeNull()
+    })
   })
 })
 
