@@ -14,13 +14,10 @@ type Member = memberModel.CrewMemberDto
 // 크루 홈(M09)과 크루 관리(M28)의 크루원 목록. 크루에서는 닉네임만 보여 준다(정책 1장 「회원가입」 3번).
 export function CrewMemberList({
   members,
-  isMe,
   labelId,
   action,
 }: {
   members: Member[]
-  /** 내 줄이면 닉네임 아래에 「나」를 작게 붙인다 */
-  isMe?: (member: Member) => boolean
   /** 닉네임의 id. 줄 버튼이 aria-describedby로 이 이름을 가리킨다. */
   labelId?: (member: Member) => string
   /** 줄 오른쪽 끝에 붙는 버튼 (크루 관리의 「관리」) */
@@ -40,12 +37,13 @@ export function CrewMemberList({
             className="grid grid-cols-[auto_9rem_auto_1fr] items-center gap-3"
           >
             <Avatar size="m" name={member.nickname} />
-            <div className="flex min-w-0 flex-col">
-              <span id={labelId?.(member)} title={member.nickname} className="truncate text-body-m">
-                {member.nickname}
-              </span>
-              {isMe?.(member) && <span className="text-caption text-text-secondary">나</span>}
-            </div>
+            <span
+              id={labelId?.(member)}
+              title={member.nickname}
+              className="min-w-0 truncate text-body-m"
+            >
+              {member.nickname}
+            </span>
             <Badge tone={CREW_ROLE_TONE[member.role]}>{CREW_ROLE_LABEL[member.role]}</Badge>
             <div className="justify-self-end">{action?.(member)}</div>
           </li>

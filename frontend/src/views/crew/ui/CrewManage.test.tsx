@@ -212,7 +212,6 @@ describe('CrewManagePage (M28) 권한', () => {
     renderPage(<CrewManagePage crewId={1} />)
     expect(await screen.findByText('새벽한강크루 크루원 3명')).toBeInTheDocument()
     const me = screen.getByText('새벽러너').closest('li')!
-    expect(within(me).getByText('나')).toBeInTheDocument()
     expect(within(me).queryByRole('button', { name: '관리' })).not.toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: '관리' })).toHaveLength(2)
   })
@@ -526,13 +525,12 @@ describe('크루원 목록 줄 맞춤', () => {
     }
   }
 
-  it('크루 관리: 가장 긴 닉네임과 내 줄도 뱃지가 같은 칸에 있고, 「나」는 닉네임 글자에 붙지 않는다', async () => {
+  it('크루 관리: 가장 긴 닉네임과 내 줄도 뱃지가 같은 칸에 있고, 내 표시는 없다', async () => {
     mockLongNames()
     renderPage(<CrewManagePage crewId={1} />)
     await screen.findByText(LONGEST[1])
     expectAlignedRows(['곰돌', ...LONGEST])
-    const me = screen.getByText('곰돌').closest('li')!
-    expect(within(me).getByText('나')).toBeInTheDocument()
+    expect(screen.queryByText(/^나$|\(나\)/)).not.toBeInTheDocument()
   })
 
   it('크루 홈: 가장 긴 닉네임도 뱃지가 같은 칸에 있다', async () => {
