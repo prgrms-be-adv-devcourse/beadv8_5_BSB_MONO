@@ -40,7 +40,11 @@ public class MemberPhoneChangeUseCase {
 
 	@Transactional
 	public MemberDto change(long memberId, String verificationToken) {
-		Member member = findMember(memberId);
+		// 회원 행을 잠가 같은 회원의 닉네임 수정·탈퇴와 겹쳐도 늦은 쪽이 먼저 바뀐 값을 옛 값으로 덮지 않게 한다
+		// 잠금이 트랜잭션의 첫 쿼리여야 MySQL 기본 격리 수준에서 앞 요청이 바꾼 값을 본다
+		Member member = memberRepository.findByIdForUpdate(memberId)
+			.filter(found -> !found.isWithdrawn())
+			.orElseThrow(() -> new MemberNotFoundException("존재하지 않는 회원입니다."));
 		// 쓴 인증 결과는 커밋 뒤 지워진다. 실패하면 남아 있어 같은 인증으로 다시 시도할 수 있다
 		VerifiedIdentity identity = identityVerificationUseCase.takeForJoin(verificationToken);
 		checkSamePerson(member, identity);

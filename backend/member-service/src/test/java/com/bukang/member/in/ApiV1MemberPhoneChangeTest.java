@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
@@ -286,6 +287,17 @@ class ApiV1MemberPhoneChangeTest {
 	@DisplayName("없는 회원이면 404다")
 	void memberNotFound() throws Exception {
 		change(999_999L, identityStore.verify(NAME, BIRTH_DATE, NEW_PHONE, hasher.ci(CI)))
+			.andExpect(status().isNotFound());
+	}
+
+	@Test
+	@DisplayName("탈퇴한 회원이면 404다")
+	void withdrawnMember() throws Exception {
+		Member member = memberRepository.findById(memberId).orElseThrow();
+		member.withdraw(LocalDateTime.now());
+		memberRepository.saveAndFlush(member);
+
+		change(memberId, identityStore.verify(NAME, BIRTH_DATE, NEW_PHONE, hasher.ci(CI)))
 			.andExpect(status().isNotFound());
 	}
 
