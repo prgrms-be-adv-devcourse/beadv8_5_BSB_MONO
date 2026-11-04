@@ -87,7 +87,7 @@ public class ApiV1PayoutSellerController {
 
 	@GetMapping("/payouts")
 	@Operation(summary = "정산 내역 조회",
-		description = "정산 월(정산 생성일이 속한 달)이 기간 안인 정산 내역을 최근 달부터 돌려준다. "
+		description = "정산 월(대회일이 속한 달, 1차는 환불 마감일이 속한 달)이 기간 안인 정산 내역을 최근 달부터 돌려준다. "
 			+ "시작 달을 포함해 최대 12개월까지 한 번에 조회한다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "조회 성공",
