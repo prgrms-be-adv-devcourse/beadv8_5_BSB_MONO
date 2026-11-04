@@ -12,8 +12,8 @@ const LOGO = {
   navHome: { src: '/brand/nav-home.svg', width: 48, height: 48 },
   /** 접힌 사이드바용 정사각 로고 32 */
   symbol: { src: '/brand/symbol-on-hero.svg', width: 32, height: 32 },
-  /** 빈 화면·불러오기 실패 화면용 회색 로고 32. 글자는 뚫려 있어 바탕색이 보인다 */
-  symbolMuted: { src: '/brand/symbol-muted.svg', width: 32, height: 32 },
+  /** 빈 화면·불러오기 실패 화면용 회색 글자 로고. 판매자 센터 글자 로고와 모양이 같다 */
+  wordmarkMuted: { src: '/brand/wordmark-muted.svg', width: 95.6073, height: 28 },
 } as const
 
 export type LogoVariant = keyof typeof LOGO

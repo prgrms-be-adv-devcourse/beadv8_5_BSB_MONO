@@ -10,7 +10,7 @@ describe('EmptyState', () => {
     )
 
     const logo = container.querySelector('img')
-    expect(logo).toHaveAttribute('src', expect.stringContaining('/brand/symbol-muted.svg'))
+    expect(logo).toHaveAttribute('src', expect.stringContaining('/brand/wordmark-muted.svg'))
     expect(logo).toHaveAttribute('alt', '')
     expect(logo).toHaveAttribute('aria-hidden', 'true')
     expect(screen.getByText('장바구니가 비어 있어요')).toBeInTheDocument()
