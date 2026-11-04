@@ -74,7 +74,7 @@ export const ChangeParticipantResponse = zod.object({
   "raceId": zod.int().optional(),
   "raceCourseId": zod.int().optional(),
   "memberId": zod.int().optional(),
-  "participationType": zod.enum(['INDIVIDUAL', 'CREW']).optional(),
+  "participationType": zod.enum(['INDIVIDUAL', 'PARTY']).optional(),
   "status": zod.enum(['PENDING', 'APPLIED', 'CONFIRMED', 'RELEASED', 'FAILED', 'CANCELED']).optional(),
   "participant": zod.object({
   "name": zod.string().optional(),
@@ -168,7 +168,7 @@ export const ApplyResponse = zod.object({
   "raceId": zod.int().optional(),
   "raceCourseId": zod.int().optional(),
   "memberId": zod.int().optional(),
-  "participationType": zod.enum(['INDIVIDUAL', 'CREW']).optional(),
+  "participationType": zod.enum(['INDIVIDUAL', 'PARTY']).optional(),
   "status": zod.enum(['PENDING', 'APPLIED', 'CONFIRMED', 'RELEASED', 'FAILED', 'CANCELED']).optional(),
   "participant": zod.object({
   "name": zod.string().optional(),
@@ -211,7 +211,7 @@ export const CancelBeforePaymentResponse = zod.object({
   "raceId": zod.int().optional(),
   "raceCourseId": zod.int().optional(),
   "memberId": zod.int().optional(),
-  "participationType": zod.enum(['INDIVIDUAL', 'CREW']).optional(),
+  "participationType": zod.enum(['INDIVIDUAL', 'PARTY']).optional(),
   "status": zod.enum(['PENDING', 'APPLIED', 'CONFIRMED', 'RELEASED', 'FAILED', 'CANCELED']).optional(),
   "participant": zod.object({
   "name": zod.string().optional(),
@@ -580,7 +580,7 @@ export const FindByIdResponse = zod.object({
   "raceId": zod.int().optional(),
   "raceCourseId": zod.int().optional(),
   "memberId": zod.int().optional(),
-  "participationType": zod.enum(['INDIVIDUAL', 'CREW']).optional(),
+  "participationType": zod.enum(['INDIVIDUAL', 'PARTY']).optional(),
   "status": zod.enum(['PENDING', 'APPLIED', 'CONFIRMED', 'RELEASED', 'FAILED', 'CANCELED']).optional(),
   "participant": zod.object({
   "name": zod.string().optional(),
