@@ -1,4 +1,4 @@
-import type { SVGProps } from 'react'
+import { useId, type SVGProps } from 'react'
 
 import { cn } from '@/shared/lib'
 
@@ -162,20 +162,46 @@ export function Icon({ name, className, ...props }: IconProps) {
   )
 }
 
-export function Spinner({ className, ...props }: SVGProps<SVGSVGElement>) {
+export type SpinnerProps = {
+  className?: string
+  /** 바탕 원 색. 코발트 버튼처럼 회색이 묻히는 곳에서 바꾼다. */
+  trackClassName?: string
+  /** 화면 낭독 글자. 버튼처럼 이미 바쁨을 알리는 곳에서는 null로 장식만 그린다. */
+  label?: string | null
+}
+
+// HeroUI Spinner 생김새: 굵기 1/8, 둥근 끝, 끝으로 갈수록 옅어지는 호가 0.75초에 한 바퀴. 색은 currentColor.
+export function Spinner({
+  className,
+  trackClassName = 'stroke-border-default',
+  label = '불러오는 중',
+}: SpinnerProps) {
+  const gradientId = useId()
   return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      aria-hidden
-      className={cn('size-6 shrink-0 animate-spin', className)}
-      {...props}
+    <span
+      role={label === null ? undefined : 'status'}
+      aria-hidden={label === null || undefined}
+      className={cn('inline-flex size-6 shrink-0 text-border-brand', className)}
     >
-      <path
-        opacity="0.25"
-        d="M22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12ZM4 12C4 16.4183 7.58172 20 12 20C16.4183 20 20 16.4183 20 12C20 7.58172 16.4183 4 12 4C7.58172 4 4 7.58172 4 12Z"
-      />
-      <path d="M12 2C14.1118 2 16.1694 2.66855 17.8779 3.90983C19.5863 5.15111 20.858 6.9014 21.5106 8.90983C22.1631 10.9183 22.1631 13.0817 21.5106 15.0902C20.858 17.0986 19.5863 18.8489 17.8779 20.0902L16.7023 18.4721C18.0691 17.4791 19.0864 16.0789 19.6085 14.4721C20.1305 12.8654 20.1305 11.1346 19.6085 9.52786C19.0864 7.92112 18.0691 6.52089 16.7023 5.52786C15.3355 4.53484 13.6894 4 12 4V2Z" />
-    </svg>
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        strokeWidth={3}
+        strokeLinecap="round"
+        aria-hidden
+        className="size-full animate-[spin_0.75s_linear_infinite] motion-reduce:animate-[spin_3s_linear_infinite]"
+      >
+        <defs>
+          <linearGradient id={gradientId} x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0" stopColor="currentColor" />
+            <stop offset="1" stopColor="currentColor" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <circle cx="12" cy="12" r="9" className={trackClassName} />
+        <path d="M6.84 4.63A9 9 0 0 0 12 21" stroke="currentColor" />
+        <path d="M12 21A9 9 0 0 0 17.16 4.63" stroke={`url(#${gradientId})`} />
+      </svg>
+      {label && <span className="sr-only">{label}</span>}
+    </span>
   )
 }
