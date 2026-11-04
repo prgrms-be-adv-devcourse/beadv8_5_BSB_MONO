@@ -46,6 +46,10 @@ describe('SellerSettingsPage', () => {
     expect(screen.getByText('승인')).toBeInTheDocument()
     expect(screen.getByText('2026. 10. 6.')).toBeInTheDocument()
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    // Clarity 화면 녹화에서 사업자등록번호 · 상호 · 대표자 이름을 가린다
+    for (const text of ['123-45-67890', '크루런 스포츠', '김러너']) {
+      expect(screen.getByText(text).closest('[data-clarity-mask="true"]')).not.toBeNull()
+    }
   })
 
   it('비사업자는 판매자 유형과 성명만 보여 준다', async () => {

@@ -11,7 +11,7 @@ product-service를 만드는 순서와 결정을 적습니다. 2026-10-12 사용
 
 - 대회(`race`) · 종목(`race_course`)과 정원, 주문에 주는 조회 · 정원 API, 대회 이미지 연결, 등록 · 조회 API
 - 빼는 것
-  - 굿즈(`goods`): 피그잼에서 정책 삭제 (ERDCloud에만 남아 있음)
+  - 키트(`goods`): 피그잼에서 정책 삭제 (ERDCloud에만 남아 있음)
   - 대기열 · 추첨: 최종 (`docs/policy/party-lottery.md`, PRO-41)
   - `race_faq` · `race_question` · `race_terms`: 최종 (PRO-39)
   - 크루 몫 묶음 확보: 세미 포함 여부를 팀에 확인 (PRO-39는 개인 신청만, party-lottery는 세미에 넣음)

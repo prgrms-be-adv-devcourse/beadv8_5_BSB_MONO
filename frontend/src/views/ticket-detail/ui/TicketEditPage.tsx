@@ -153,7 +153,8 @@ function ParticipantForm({
               </Link>
             }
           >
-            <div className="flex flex-col gap-2">
+            {/* 이름 · 생년월일은 Clarity 화면 녹화에서 가린다 */}
+            <div className="flex flex-col gap-2" data-clarity-mask="true">
               <KeyValue label="이름" value={participant.name ?? '-'} />
               <KeyValue
                 label="생년월일"

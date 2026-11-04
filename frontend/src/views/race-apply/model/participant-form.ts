@@ -2,7 +2,8 @@ import { z } from 'zod'
 
 import type { BookingParticipant } from '@/features/booking'
 import type { RaceOption } from '@/entities/race'
-import { orderModel, orderZod } from '@/shared/api'
+import { orderModel } from '@/shared/api'
+import { orderZod } from '@/shared/api-zod'
 
 // 참가자 정보 입력(M05). 입력 규칙은 orval이 만든 주문 API zod 스키마의 값(정규식·길이)을 그대로 쓰고,
 // 화면에 보일 문구만 붙인다. 나이 제한·접수 기간처럼 서버만 아는 규칙은 서버 오류 문구로 보여 준다.
