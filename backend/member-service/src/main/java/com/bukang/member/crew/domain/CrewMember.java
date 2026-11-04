@@ -83,10 +83,9 @@ public class CrewMember {
 		return new CrewMember(crewId, memberId, CrewRole.MEMBER, inviteId, now);
 	}
 
-	// 크루원 행을 지운 뒤 보낼 이벤트 (BE-032). 이벤트마다 새 이벤트 ID(UUID)를 넣는다
-	public static CrewMemberLeftEvent leftEvent(long crewId, long memberId, CrewMemberLeftReason reason,
-		LocalDateTime now) {
-		return new CrewMemberLeftEvent(UUID.randomUUID().toString(), crewId, memberId, reason, now);
+	// 이 크루원 행을 지운 뒤 보낼 이벤트 (BE-032). 이벤트마다 새 이벤트 ID(UUID)를 넣고, 이 행의 가입 시각을 싣는다
+	public CrewMemberLeftEvent leftEvent(CrewMemberLeftReason reason, LocalDateTime now) {
+		return new CrewMemberLeftEvent(UUID.randomUUID().toString(), crewId, memberId, reason, joinedAt, now);
 	}
 
 	// 크루장 넘기기. 가입 시각은 바꾸지 않는다

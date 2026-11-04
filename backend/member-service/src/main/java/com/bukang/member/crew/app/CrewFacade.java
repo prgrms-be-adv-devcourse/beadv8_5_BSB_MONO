@@ -231,7 +231,7 @@ public class CrewFacade {
 		if (crewMemberRepository.deleteByCrewIdAndMemberId(crewId, memberId) == 0) {
 			throw new CrewNotMemberException();
 		}
-		publishLeft(crewId, memberId, CrewMemberLeftReason.LEFT);
+		publishLeft(membership, CrewMemberLeftReason.LEFT);
 	}
 
 	@Transactional
@@ -242,11 +242,13 @@ public class CrewFacade {
 		if (targetMemberId == memberId) {
 			throw new CrewCannotRemoveLeaderException();
 		}
-		// 회원 탈퇴가 같은 행을 먼저 지웠거나 다른 크루의 크루원이면 0이다
+		// 이벤트에 실을 가입 시각을 지우기 전에 읽는다. 다른 크루의 크루원이면 여기서 404다
+		CrewMember target = findTarget(crewId, targetMemberId);
+		// 회원 탈퇴가 같은 행을 읽은 뒤 먼저 지웠으면 0이다
 		if (crewMemberRepository.deleteByCrewIdAndMemberId(crewId, targetMemberId) == 0) {
 			throw new CrewMemberNotFoundException();
 		}
-		publishLeft(crewId, targetMemberId, CrewMemberLeftReason.REMOVED);
+		publishLeft(target, CrewMemberLeftReason.REMOVED);
 	}
 
 	@Transactional
@@ -275,7 +277,8 @@ public class CrewFacade {
 	@Transactional
 	public void disband(long memberId, long crewId) {
 		Crew crew = lockActiveCrew(crewId);
-		requireLeader(findMembership(crewId, memberId));
+		CrewMember leader = findMembership(crewId, memberId);
+		requireLeader(leader);
 		if (crewMemberRepository.countByCrewId(crewId) > 1) {
 			throw new CrewHasOtherMembersException();
 		}
@@ -286,7 +289,7 @@ public class CrewFacade {
 		if (crewMemberRepository.deleteAllByCrewId(crewId) != 1) {
 			throw new IllegalStateException("크루를 없앨 때 크루장 말고 다른 크루원 행이 있습니다. crewId=" + crewId);
 		}
-		publishLeft(crewId, memberId, CrewMemberLeftReason.DISBANDED);
+		publishLeft(leader, CrewMemberLeftReason.DISBANDED);
 	}
 
 	@Transactional
@@ -404,8 +407,8 @@ public class CrewFacade {
 	}
 
 	// 크루원 행을 지운 같은 트랜잭션에서 아웃박스에 남긴다 (MemberOutboxAppendUseCase, BE-032)
-	private void publishLeft(long crewId, long memberId, CrewMemberLeftReason reason) {
-		eventPublisher.publishEvent(CrewMember.leftEvent(crewId, memberId, reason, now()));
+	private void publishLeft(CrewMember membership, CrewMemberLeftReason reason) {
+		eventPublisher.publishEvent(membership.leftEvent(reason, now()));
 	}
 
 	private LocalDateTime now() {

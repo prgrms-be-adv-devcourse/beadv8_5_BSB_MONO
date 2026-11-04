@@ -36,6 +36,6 @@ public class CrewMembershipService {
 		List<CrewMember> memberships = crewMemberRepository.findAllByMemberIdForUpdate(memberId);
 		crewMemberRepository.deleteAll(memberships);
 		memberships.forEach(membership -> eventPublisher.publishEvent(
-			CrewMember.leftEvent(membership.getCrewId(), memberId, CrewMemberLeftReason.MEMBER_WITHDRAWN, now)));
+			membership.leftEvent(CrewMemberLeftReason.MEMBER_WITHDRAWN, now)));
 	}
 }
