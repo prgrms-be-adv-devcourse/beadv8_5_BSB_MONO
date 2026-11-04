@@ -87,7 +87,11 @@ export function Button({
       {...props}
     >
       {loading && (
-        <Spinner className={cn(size === 's' ? 'size-4' : 'size-5', SPINNER_COLOR[variant])} />
+        <Spinner
+          label={null}
+          className={cn(size === 's' ? 'size-4' : 'size-5', SPINNER_COLOR[variant])}
+          trackClassName="stroke-current/25"
+        />
       )}
       {children}
     </button>
