@@ -9,10 +9,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.bukang.common.shared.crew.event.CrewMemberLeftReason;
 import com.bukang.common.shared.member.web.LoginRequiredException;
 import com.bukang.member.crew.domain.Crew;
 import com.bukang.member.crew.domain.CrewInvite;
@@ -67,6 +69,7 @@ public class CrewFacade {
 	private final CrewInviteRepository crewInviteRepository;
 	private final CrewMemberProfilePort profilePort;
 	private final Clock clock;
+	private final ApplicationEventPublisher eventPublisher;
 
 	@Transactional
 	public CrewHomeDto createCrew(long memberId, String name) {
@@ -228,6 +231,7 @@ public class CrewFacade {
 		if (crewMemberRepository.deleteByCrewIdAndMemberId(crewId, memberId) == 0) {
 			throw new CrewNotMemberException();
 		}
+		publishLeft(crewId, memberId, CrewMemberLeftReason.LEFT);
 	}
 
 	@Transactional
@@ -242,6 +246,7 @@ public class CrewFacade {
 		if (crewMemberRepository.deleteByCrewIdAndMemberId(crewId, targetMemberId) == 0) {
 			throw new CrewMemberNotFoundException();
 		}
+		publishLeft(crewId, targetMemberId, CrewMemberLeftReason.REMOVED);
 	}
 
 	@Transactional
@@ -277,7 +282,11 @@ public class CrewFacade {
 		// 상태를 먼저 바꾼다. 아래 일괄 삭제가 바뀐 내용을 반영(flush)한 뒤 영속성 컨텍스트를 비운다
 		crew.disband(now());
 		crewInviteRepository.deleteAllByCrewId(crewId);
-		crewMemberRepository.deleteAllByCrewId(crewId);
+		// 위에서 크루장 혼자인 것을 확인했으므로 빠진 사람은 크루장 한 명이다. 아니면 이벤트가 모자라므로 롤백한다
+		if (crewMemberRepository.deleteAllByCrewId(crewId) != 1) {
+			throw new IllegalStateException("크루를 없앨 때 크루장 말고 다른 크루원 행이 있습니다. crewId=" + crewId);
+		}
+		publishLeft(crewId, memberId, CrewMemberLeftReason.DISBANDED);
 	}
 
 	@Transactional
@@ -392,6 +401,11 @@ public class CrewFacade {
 			return CrewInviteCanceledException.whenCanceling();
 		}
 		return CrewInviteExpiredException.whenCanceling();
+	}
+
+	// 크루원 행을 지운 같은 트랜잭션에서 아웃박스에 남긴다 (MemberOutboxAppendUseCase, BE-032)
+	private void publishLeft(long crewId, long memberId, CrewMemberLeftReason reason) {
+		eventPublisher.publishEvent(CrewMember.leftEvent(crewId, memberId, reason, now()));
 	}
 
 	private LocalDateTime now() {

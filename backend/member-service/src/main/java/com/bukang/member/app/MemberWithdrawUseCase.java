@@ -75,7 +75,7 @@ public class MemberWithdrawUseCase {
 		sellerRepository.findAllByMemberIdAndStatusForUpdate(memberId, SellerStatus.PENDING)
 			.forEach(seller -> seller.rejectByWithdrawal(now));
 		// 탈퇴한 회원이 크루원 수에 섞이지 않게 모든 크루에서 뺀다
-		crewMembershipService.leaveAllCrews(memberId);
+		crewMembershipService.leaveAllCrews(memberId, now);
 		// 그 회원의 모든 기기 재발급을 막는다. Redis 오류면 예외가 나가 탈퇴도 롤백된다
 		refreshTokenRepository.deleteAll(memberId);
 		// 같은 트랜잭션에서 아웃박스에 정보 변경 → 탈퇴 두 줄을 남긴다 (MemberOutboxAppendUseCase)

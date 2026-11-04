@@ -1,8 +1,14 @@
 package com.bukang.member.crew.app;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.bukang.common.shared.crew.event.CrewMemberLeftReason;
+import com.bukang.member.crew.domain.CrewMember;
 import com.bukang.member.crew.domain.CrewRole;
 import com.bukang.member.crew.out.CrewMemberRepository;
 
@@ -16,15 +22,20 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class CrewMembershipService {
 	private final CrewMemberRepository crewMemberRepository;
+	private final ApplicationEventPublisher eventPublisher;
 
 	@Transactional(readOnly = true)
 	public boolean isLeaderOfAnyCrew(long memberId) {
 		return crewMemberRepository.existsByMemberIdAndRole(memberId, CrewRole.LEADER);
 	}
 
-	// 호출한 쪽(회원 탈퇴)의 트랜잭션 안에서 같이 처리한다
+	// 호출한 쪽(회원 탈퇴)의 트랜잭션 안에서 같이 처리한다.
+	// 지운 크루원 행마다 크루원 이탈 이벤트를 같은 트랜잭션에서 아웃박스에 남긴다 (BE-032)
 	@Transactional
-	public void leaveAllCrews(long memberId) {
-		crewMemberRepository.deleteAllByMemberId(memberId);
+	public void leaveAllCrews(long memberId, LocalDateTime now) {
+		List<CrewMember> memberships = crewMemberRepository.findAllByMemberIdForUpdate(memberId);
+		crewMemberRepository.deleteAll(memberships);
+		memberships.forEach(membership -> eventPublisher.publishEvent(
+			CrewMember.leftEvent(membership.getCrewId(), memberId, CrewMemberLeftReason.MEMBER_WITHDRAWN, now)));
 	}
 }
