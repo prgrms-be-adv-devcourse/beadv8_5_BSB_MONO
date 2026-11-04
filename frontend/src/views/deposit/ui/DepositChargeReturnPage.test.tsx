@@ -1,10 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render } from '@testing-library/react'
-import { http, HttpResponse } from 'msw'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { render, screen } from '@testing-library/react'
+import { delay, http, HttpResponse } from 'msw'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { requestCharge } from '@/features/deposit-charge'
 import { ApiError, orderApi } from '@/shared/api'
+import { cashZod } from '@/shared/api-zod'
 import { server } from '@/shared/testing'
 
 import { DepositChargeReturnPage } from './DepositChargeReturnPage'
@@ -32,12 +33,26 @@ function renderPage(props: Parameters<typeof DepositChargeReturnPage>[0]) {
 }
 
 /** 충전 확정 요청 본문을 모으고 outcome으로 답한다 */
-function confirmHandler(outcome: 'COMPLETED' | 'FAILED', bodies: unknown[] = []) {
+function confirmHandler(
+  outcome: 'COMPLETED' | 'FAILED' | 'UNCERTAIN',
+  bodies: unknown[] = [],
+  message = '아무 문구',
+) {
   return http.post('*/api/v1/cash/charges/confirm', async ({ request }) => {
     bodies.push(await request.json())
-    return HttpResponse.json({ status: 200, message: '아무 문구', data: { outcome, balance: 0 } })
+    // 확인 중일 때 balance는 이 충전이 들어가기 전 잔액이다
+    return HttpResponse.json({ status: 200, message, data: { outcome, balance: 50_000 } })
   })
 }
+
+/** 충전 확정이 HTTP 오류로 끝난다 */
+function confirmErrorHandler(status: number, message: string) {
+  return http.post('*/api/v1/cash/charges/confirm', () =>
+    HttpResponse.json({ status, message, data: null }, { status }),
+  )
+}
+
+const UNCERTAIN_TITLE = '충전 결과를 확인하고 있어요'
 
 const success = (patch: Partial<Parameters<typeof DepositChargeReturnPage>[0]> = {}) => ({
   result: 'success',
@@ -51,6 +66,9 @@ describe('충전 결과 화면 (토스 결제창에서 돌아옴)', () => {
   beforeEach(() => {
     replace.mockClear()
     sessionStorage.clear()
+  })
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('충전 성공: 돌아온 값으로 충전을 확정하고 같은 주문의 결제 화면으로 돌아가 다시 결제하게 한다', async () => {
@@ -66,20 +84,137 @@ describe('충전 결과 화면 (토스 결제창에서 돌아옴)', () => {
     expect(sessionStorage.getItem(PENDING_KEY)).toBeNull()
   })
 
-  it('충전 실패(PG 승인 거절, 200 · FAILED): 결제 화면으로 돌아가 결제 실패(M07-3)를 보여 주게 한다', async () => {
+  it('충전 실패(200 · FAILED): 서버가 알려 준 거절 사유를 보여 주고, 결제 화면으로 돌아가는 길을 준다', async () => {
     savePending({ orderId: ORDER_ID, amount: 12_000, returnOrderId: 1 })
-    server.use(confirmHandler('FAILED'))
+    server.use(confirmHandler('FAILED', [], '카드 한도가 초과되었습니다.'))
 
     renderPage(success())
 
-    await vi.waitFor(() =>
-      expect(replace).toHaveBeenCalledWith('/checkout?orderId=1&charge=failed'),
+    expect(await screen.findByText('충전하지 못했어요')).toBeInTheDocument()
+    expect(screen.getByText(/카드 한도가 초과되었습니다\./)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '결제 화면으로 돌아가기' })).toHaveAttribute(
+      'href',
+      '/checkout?orderId=1',
+    )
+    expect(replace).not.toHaveBeenCalled()
+    // 돈이 빠지지 않았으니 다 쓴 충전 기록은 지운다
+    expect(sessionStorage.getItem(PENDING_KEY)).toBeNull()
+  })
+
+  it('예치금 화면에서 한 충전이 FAILED면 거절 사유와 다시 충전하기를 보여 준다', async () => {
+    savePending({ orderId: ORDER_ID, amount: 12_000 })
+    server.use(confirmHandler('FAILED', [], '카드 한도가 초과되었습니다.'))
+
+    renderPage(success())
+
+    expect(await screen.findByText(/카드 한도가 초과되었습니다\./)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '다시 충전하기' })).toHaveAttribute(
+      'href',
+      '/me/deposit/charge',
     )
   })
 
-  it('충전 확정이 네트워크 오류로 끝나도 실패로 보낸다', async () => {
+  it('확인 중(200 · UNCERTAIN): 기다리라고 안내하고, 다시 결제하게 하거나 충전 전 잔액을 보여 주지 않는다', async () => {
+    savePending({ orderId: ORDER_ID, amount: 12_000 })
+    const bodies: unknown[] = []
+    server.use(
+      confirmHandler(
+        'UNCERTAIN',
+        bodies,
+        '충전 결과를 확인하지 못했습니다. 잠시 후 다시 확인해주세요.',
+      ),
+    )
+
+    renderPage(success())
+
+    expect(await screen.findByText(UNCERTAIN_TITLE)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '예치금 보기' })).toHaveAttribute('href', '/me/deposit')
+    expect(screen.queryByRole('link', { name: /충전|결제/ })).toBeNull()
+    expect(screen.queryByText(/50,000/)).toBeNull()
+    expect(replace).not.toHaveBeenCalled()
+    expect(bodies).toHaveLength(1)
+  })
+
+  it('주문 결제 중 충전이 확인 중이면 결제 화면으로 돌아가도 저절로 다시 결제하지 않는다', async () => {
+    savePending({ orderId: ORDER_ID, amount: 12_000, returnOrderId: 1 })
+    server.use(confirmHandler('UNCERTAIN'))
+
+    renderPage(success())
+
+    expect(await screen.findByText(UNCERTAIN_TITLE)).toBeInTheDocument()
+    // charged=1을 붙이지 않아야 결제 화면이 같은 주문을 바로 다시 결제하지 않는다
+    expect(screen.getByRole('link', { name: '결제 화면으로 돌아가기' })).toHaveAttribute(
+      'href',
+      '/checkout?orderId=1',
+    )
+    expect(replace).not.toHaveBeenCalled()
+  })
+
+  it('먼저 보낸 확정이 아직 처리 중(409)이면 확인 중으로 안내한다', async () => {
+    savePending({ orderId: ORDER_ID, amount: 12_000 })
+    server.use(
+      confirmErrorHandler(409, '이미 처리 중인 충전 요청입니다. 잠시 후 다시 확인해 주세요.'),
+    )
+
+    renderPage(success())
+
+    expect(await screen.findByText(UNCERTAIN_TITLE)).toBeInTheDocument()
+  })
+
+  it('서버 오류(5xx)면 끝까지 처리했는지 몰라 확인 중으로 안내한다', async () => {
+    savePending({ orderId: ORDER_ID, amount: 12_000, returnOrderId: 1 })
+    server.use(confirmErrorHandler(502, 'Bad Gateway'))
+
+    renderPage(success())
+
+    expect(await screen.findByText(UNCERTAIN_TITLE)).toBeInTheDocument()
+    expect(replace).not.toHaveBeenCalled()
+  })
+
+  it('네트워크 오류로 응답을 못 받으면 실패가 아니라 확인 중으로 안내한다', async () => {
     savePending({ orderId: ORDER_ID, amount: 12_000, returnOrderId: 1 })
     server.use(http.post('*/api/v1/cash/charges/confirm', () => HttpResponse.error()))
+
+    renderPage(success())
+
+    expect(await screen.findByText(UNCERTAIN_TITLE)).toBeInTheDocument()
+    expect(replace).not.toHaveBeenCalled()
+  })
+
+  it('응답이 30초 넘게 오지 않으면 기다리지 않고 확인 중으로 안내한다', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    savePending({ orderId: ORDER_ID, amount: 12_000 })
+    server.use(
+      http.post('*/api/v1/cash/charges/confirm', async () => {
+        await delay('infinite')
+        return HttpResponse.json({})
+      }),
+    )
+
+    renderPage(success())
+    await vi.advanceTimersByTimeAsync(30_000)
+
+    expect(await screen.findByText(UNCERTAIN_TITLE)).toBeInTheDocument()
+  })
+
+  it('확인 중 화면을 새로고침해도 충전 확정을 다시 부르지 않고 확인 중을 그대로 보여 준다', async () => {
+    savePending({ orderId: ORDER_ID, amount: 12_000 })
+    const bodies: unknown[] = []
+    server.use(confirmHandler('UNCERTAIN', bodies))
+
+    const { unmount } = renderPage(success())
+    expect(await screen.findByText(UNCERTAIN_TITLE)).toBeInTheDocument()
+    unmount()
+
+    renderPage(success())
+    expect(await screen.findByText(UNCERTAIN_TITLE)).toBeInTheDocument()
+    // 확정을 다시 부르면 서버가 토스에 승인을 한 번 더 요청한다
+    expect(bodies).toHaveLength(1)
+  })
+
+  it('요청이 잘못됨(400)이면 지금처럼 결제 실패 화면으로 보낸다', async () => {
+    savePending({ orderId: ORDER_ID, amount: 12_000, returnOrderId: 1 })
+    server.use(confirmErrorHandler(400, '최소 충전 금액은 10,000원입니다.'))
 
     renderPage(success())
 
@@ -161,5 +296,14 @@ describe('충전 결과 화면 (토스 결제창에서 돌아옴)', () => {
 
     const secondPay = await orderApi.pay(1)
     expect(secondPay.data?.status).toBe('PAID')
+  })
+
+  it('계약: 충전 확정 응답의 결과에 확인 중(UNCERTAIN)이 있다', () => {
+    const parsed = cashZod.ConfirmWalletChargeResponse.safeParse({
+      status: 200,
+      message: '충전 결과를 확인하지 못했습니다. 잠시 후 다시 확인해주세요.',
+      data: { outcome: 'UNCERTAIN', balance: 50_000 },
+    })
+    expect(parsed.success).toBe(true)
   })
 })
