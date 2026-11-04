@@ -81,6 +81,10 @@ export function parseClientEnv(raw: Raw) {
       raw,
       'NEXT_PUBLIC_PORTONE_IDENTITY_CHANNEL_KEY',
     ),
+    /** 구글 Search Console 소유 확인 코드(HTML 태그 방식의 content 값). 비우면 확인 태그를 넣지 않는다. */
+    NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION: value(raw, 'NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION'),
+    /** 네이버 서치어드바이저 소유 확인 코드(HTML 태그 방식의 content 값). 비우면 확인 태그를 넣지 않는다. */
+    NEXT_PUBLIC_NAVER_SITE_VERIFICATION: value(raw, 'NEXT_PUBLIC_NAVER_SITE_VERIFICATION'),
     NEXT_PUBLIC_API_MOCKING: NEXT_PUBLIC_API_MOCKING as 'on' | 'off',
   }
 }
@@ -93,5 +97,7 @@ export const clientEnv = parseClientEnv({
   NEXT_PUBLIC_CLARITY_ID: process.env.NEXT_PUBLIC_CLARITY_ID,
   NEXT_PUBLIC_PORTONE_STORE_ID: process.env.NEXT_PUBLIC_PORTONE_STORE_ID,
   NEXT_PUBLIC_PORTONE_IDENTITY_CHANNEL_KEY: process.env.NEXT_PUBLIC_PORTONE_IDENTITY_CHANNEL_KEY,
+  NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
+  NEXT_PUBLIC_NAVER_SITE_VERIFICATION: process.env.NEXT_PUBLIC_NAVER_SITE_VERIFICATION,
   NEXT_PUBLIC_API_MOCKING: process.env.NEXT_PUBLIC_API_MOCKING,
 })

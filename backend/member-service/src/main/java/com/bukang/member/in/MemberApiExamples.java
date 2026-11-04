@@ -94,6 +94,26 @@ final class MemberApiExamples {
 			"message": "예치금을 확인하지 못했습니다. 잠시 뒤 다시 시도해주세요.", "data": null }
 		""";
 
+	static final String FIND_MARKETING_CONSENT_SUCCESS = """
+		{
+			"status": 200,
+			"message": "마케팅 수신 동의 상태를 조회했습니다.",
+			"data": { "agreed": true, "decidedAt": "2026-10-05T21:25:35" }
+		}
+		""";
+
+	static final String CHANGE_MARKETING_CONSENT_SUCCESS = """
+		{
+			"status": 200,
+			"message": "마케팅 수신 동의를 변경했습니다.",
+			"data": { "agreed": false, "decidedAt": "2026-11-04T14:30:00" }
+		}
+		""";
+
+	static final String CHANGE_MARKETING_CONSENT_INVALID_INPUT = """
+		{ "status": 400, "code": "INVALID_REQUEST", "message": "동의 여부를 보내주세요.", "data": null }
+		""";
+
 	private MemberApiExamples() {
 	}
 }
