@@ -78,4 +78,10 @@ public class CrewMember {
 	public static CrewMember invited(long crewId, long memberId, long inviteId, LocalDateTime now) {
 		return new CrewMember(crewId, memberId, CrewRole.MEMBER, inviteId, now);
 	}
+
+	// 크루장 넘기기. 가입 시각은 바꾸지 않는다
+	public void changeRole(CrewRole role, LocalDateTime now) {
+		this.role = role;
+		this.updatedAt = now;
+	}
 }

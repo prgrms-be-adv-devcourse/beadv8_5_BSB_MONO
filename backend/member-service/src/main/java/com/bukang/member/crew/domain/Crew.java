@@ -57,11 +57,28 @@ public class Crew {
 
 	// 이름은 앞뒤 공백을 뺀 1~20자이고 다른 크루와 겹쳐도 된다 (BE-030)
 	public static Crew create(String name, LocalDateTime now) {
+		return new Crew(normalizeName(name), now);
+	}
+
+	// 이름 규칙은 만들기와 같다 (BE-032)
+	public void rename(String name, LocalDateTime now) {
+		this.name = normalizeName(name);
+		this.updatedAt = now;
+	}
+
+	// 행은 남기고 상태만 바꾼다. 파티 기록이 크루 ID를 가리킬 수 있다 (BE-029)
+	public void disband(LocalDateTime now) {
+		this.status = CrewStatus.DISBANDED;
+		this.disbandedAt = now;
+		this.updatedAt = now;
+	}
+
+	private static String normalizeName(String name) {
 		String normalized = name == null ? "" : name.strip();
 		if (normalized.isEmpty() || normalized.length() > NAME_MAX_LENGTH) {
 			throw new InvalidCrewNameException();
 		}
-		return new Crew(normalized, now);
+		return normalized;
 	}
 
 	public boolean isActive() {
