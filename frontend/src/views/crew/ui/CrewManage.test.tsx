@@ -211,7 +211,8 @@ describe('CrewManagePage (M28) 권한', () => {
     mockCrew()
     renderPage(<CrewManagePage crewId={1} />)
     expect(await screen.findByText('새벽한강크루 크루원 3명')).toBeInTheDocument()
-    const me = screen.getByText('새벽러너 (나)').closest('li')!
+    const me = screen.getByText('새벽러너').closest('li')!
+    expect(within(me).getByText('나')).toBeInTheDocument()
     expect(within(me).queryByRole('button', { name: '관리' })).not.toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: '관리' })).toHaveLength(2)
   })
@@ -492,5 +493,52 @@ describe('CrewManagePage 크루 이름 바꾸기', () => {
     renderPage(<CrewManagePage crewId={1} />)
     await screen.findByText('크루장만 크루를 관리할 수 있어요')
     expect(screen.queryByRole('button', { name: '이름 바꾸기' })).not.toBeInTheDocument()
+  })
+})
+
+describe('크루원 목록 줄 맞춤', () => {
+  // 닉네임 최대 길이: 한글 8자 · 영문 16자(가입 규칙)
+  const LONGEST = ['가나다라마바사아', 'WWWWWWWWWWWWWWWW']
+
+  function mockLongNames() {
+    const example = memberMock.getFindCrewResponseMock()
+    const members = [
+      { memberId: 1, nickname: '곰', role: 'LEADER' as const },
+      { memberId: 2, nickname: LONGEST[0], role: 'MANAGER' as const },
+      { memberId: 3, nickname: LONGEST[1], role: 'MEMBER' as const },
+    ]
+    server.use(
+      memberMock.getFindCrewMockHandler({
+        ...example,
+        data: { ...example.data!, memberCount: members.length, members },
+      }),
+    )
+  }
+
+  /** 줄마다 닉네임 칸에는 닉네임만 있고(말줄임 · 전체 이름 툴팁), 뱃지는 늘 세 번째 칸에 있다 */
+  function expectAlignedRows(nicknames: string[]) {
+    for (const nickname of nicknames) {
+      const name = screen.getByText(nickname)
+      expect(name).toHaveClass('truncate')
+      expect(name).toHaveAttribute('title', nickname)
+      const row = name.closest('li')!
+      expect(row.children[2]).toHaveTextContent(/^(크루장|운영진|크루원)$/)
+    }
+  }
+
+  it('크루 관리: 가장 긴 닉네임과 내 줄도 뱃지가 같은 칸에 있고, 「나」는 닉네임 글자에 붙지 않는다', async () => {
+    mockLongNames()
+    renderPage(<CrewManagePage crewId={1} />)
+    await screen.findByText(LONGEST[1])
+    expectAlignedRows(['곰', ...LONGEST])
+    const me = screen.getByText('곰').closest('li')!
+    expect(within(me).getByText('나')).toBeInTheDocument()
+  })
+
+  it('크루 홈: 가장 긴 닉네임도 뱃지가 같은 칸에 있다', async () => {
+    mockLongNames()
+    renderPage(<CrewHomePage crewId={1} />)
+    await screen.findByText(LONGEST[1])
+    expectAlignedRows(['곰', ...LONGEST])
   })
 })
