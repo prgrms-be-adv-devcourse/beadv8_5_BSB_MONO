@@ -69,7 +69,7 @@ export const getHoldUrl = (payoutId: number,) => {
 }
 
 /**
- * 정산 예정(CALCULATED)인 정산 내역에 지급보류를 걸어 지급 배치에서 지급되지 않게 한다. 한 정산 내역에는 보류를 하나만 걸 수 있고, 지급보류 ID(HD-)를 붙인다.
+ * 정산 예정인 정산 내역에 지급보류를 걸어 지급 배치에서 지급되지 않게 한다. 한 정산 내역에는 보류를 하나만 걸 수 있고, 지급보류 ID(HD-)를 붙인다.
  * @summary 지급보류 걸기
  */
 export const hold = async (payoutId: number,
@@ -159,7 +159,7 @@ export const getReleaseUrl = (holdId: number,) => {
 }
 
 /**
- * 지급보류를 해제하고 정산 내역을 정산 예정(CALCULATED)으로 돌린다. 지급 예정일은 다시 정한다. 1차 · 최종 모두 해제일 다음 날(주말에도 지급)이며, 원래 지급 예정일(정산 월의 다음 달 20일, 주말에도 지급)보다 앞당기지 않는다.
+ * 지급보류를 해제하고 정산 내역을 정산 예정으로 돌린다. 지급 예정일은 다시 정한다. 1차 · 최종 모두 해제일 다음 날(주말에도 지급)이며, 원래 지급 예정일(정산 월의 다음 달 20일, 주말에도 지급)보다 앞당기지 않는다.
  * @summary 지급보류 풀기
  */
 export const release = async (holdId: number, options?: Parameters<typeof customFetch>[1]): Promise<RsDataPayoutHoldDto> => {
