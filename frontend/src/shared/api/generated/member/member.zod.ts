@@ -845,3 +845,59 @@ export const ConfirmPasswordResetBody = zod.object({
 }).describe('새 비밀번호 저장 요청')
 
 export const ConfirmPasswordResetResponse = zod.unknown()
+
+
+/**
+ * 친구 조회·보내기가 403 KAKAO_MESSAGE_CONSENT_REQUIRED면 부른다. 2분 동안 한 번만 쓸 수 있는 표를 httpOnly 쿠키(oauth2Link, Path=/api/v1/auth/oauth2/authorize)로 심는다. 프론트는 이어서 /api/v1/auth/oauth2/authorize/kakao?next=/crews/{crewId}/invites로 화면을 이동한다. 동의를 마치면 next?kakaoConsent=granted, 취소·범위 부족이면 next?error=KAKAO_CONSENT_DENIED, 연결된 카카오 계정과 다른 계정이면 next?error=KAKAO_ACCOUNT_MISMATCH로 돌아온다.
+ * @summary 카카오 메시지 동의 표 발급
+ */
+export const IssueKakaoMessageConsentTicketResponse = zod.void()
+
+
+/**
+ * 크루장과 운영진만 부른다. 카카오 친구 중 크루런 회원이고 아직 이 크루원이 아닌 사람을 카카오톡 프로필로 돌려준다. 친구도 카카오 메시지 동의를 마쳐야 목록에 나온다. 친구 정보는 저장하지 않는다.
+ * @summary 카카오톡으로 초대할 수 있는 친구 조회
+ */
+export const FindKakaoInviteFriendsParams = zod.object({
+  "crewId": zod.int().describe('크루 ID')
+})
+
+export const FindKakaoInviteFriendsResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.array(zod.object({
+  "uuid": zod.string(),
+  "nickname": zod.string().nullable(),
+  "profileImageUrl": zod.string().nullable()
+})).optional()
+})
+
+
+/**
+ * 크루장과 운영진만 부른다. 받는 사람마다 새 초대 링크(24시간, 한 명만 가입)를 만들어 카카오톡 메시지 버튼에 담아 한 명씩 보낸다. 보내지 못한 몫의 링크는 취소한다. 한 명이라도 보냈으면 200이고 실패는 failures로 알린다. 초대 토큰은 응답에 싣지 않는다.
+ * @summary 크루 초대 카카오톡 보내기
+ */
+export const SendKakaoCrewInvitesParams = zod.object({
+  "crewId": zod.int().describe('크루 ID')
+})
+
+export const sendKakaoCrewInvitesBodyReceiverUuidsItemRegExp = new RegExp('[A-Za-z0-9_\\-+/=]{1,100}');
+export const sendKakaoCrewInvitesBodyReceiverUuidsMax = 5;
+
+
+
+export const SendKakaoCrewInvitesBody = zod.object({
+  "receiverUuids": zod.array(zod.string().regex(sendKakaoCrewInvitesBodyReceiverUuidsItemRegExp)).min(1).max(sendKakaoCrewInvitesBodyReceiverUuidsMax).describe('받는 사람의 카카오 uuid (친구 조회 응답의 uuid). 1~5명, 중복 없이')
+}).describe('크루 초대 카카오톡 보내기 요청')
+
+export const SendKakaoCrewInvitesResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.object({
+  "sentUuids": zod.array(zod.string()),
+  "failures": zod.array(zod.object({
+  "uuid": zod.string(),
+  "reason": zod.enum(['DAILY_LIMIT', 'KAKAO_ERROR'])
+}))
+}).optional()
+})

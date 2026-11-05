@@ -98,7 +98,11 @@ describe('CrewInvitesPage 카카오톡으로 보내기', () => {
       await user.click(await within(sheet).findByRole('checkbox', { name: `친구${n}` }))
     }
 
-    expect(within(sheet).getByRole('checkbox', { name: '친구6' })).toBeDisabled()
+    // 체크박스는 disabled 속성 대신 aria-disabled로 막힌다
+    expect(within(sheet).getByRole('checkbox', { name: '친구6' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
     expect(within(sheet).getByText('5명까지 고를 수 있어요')).toBeInTheDocument()
   })
 
@@ -243,7 +247,8 @@ describe('CrewInvitesPage 카카오톡으로 보내기', () => {
   ])('동의 결과가 %s면 알린다', async (error, message) => {
     renderPage(<CrewInvitesPage crewId={1} kakaoError={error} />)
 
-    expect(await screen.findByText(message)).toBeInTheDocument()
+    // 오류 알림은 화면 읽기용 안내 영역에도 한 번 더 그려진다
+    expect((await screen.findAllByText(message)).length).toBeGreaterThan(0)
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 })
