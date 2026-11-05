@@ -6,12 +6,14 @@ import static lombok.AccessLevel.PROTECTED;
 import java.time.LocalDateTime;
 
 import com.bukang.common.global.jpa.entity.BaseIdAndTime;
+import com.bukang.common.shared.kafka.KafkaMessageId;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -27,9 +29,18 @@ import lombok.NoArgsConstructor;
 @Table(
 	name = "ORDER_OUTBOX_KAFKA_EVENT",
 	// 미발행(PENDING) 행을 만든 순서대로 빠르게 찾는다 (릴레이가 쓴다)
-	indexes = @Index(name = "idx_order_outbox_kafka_status_create", columnList = "status, create_date")
+	indexes = @Index(name = "idx_order_outbox_kafka_status_create", columnList = "status, create_date"),
+	uniqueConstraints = @UniqueConstraint(name = "uk_order_outbox_kafka_message_id", columnNames = "message_id")
 )
 public class OrderOutboxKafkaEvent extends BaseIdAndTime {
+	// 메시지 ID에 붙일 서비스 이름 (order-outbox-{UUID})
+	private static final String SERVICE = "order";
+
+	// message-id 헤더로 보낼 값 (order-outbox-{UUID}). 행을 만들 때 한 번 정해 다시 보내도 같은 값이 나간다
+	// 이 칸을 더하기 전에 만든 행은 Flyway(V202611051500)가 채운다
+	@Column(name = "message_id", nullable = false, length = 100)
+	private String messageId;
+
 	// 이벤트 대상의 종류 (대상 엔티티의 클래스 이름, 예: Participation)
 	@Column(name = "ref_type", nullable = false, length = 50)
 	private String refType;
@@ -68,6 +79,7 @@ public class OrderOutboxKafkaEvent extends BaseIdAndTime {
 		this.eventType = eventType;
 		this.payload = payload;
 		this.status = OutboxStatus.PENDING;
+		this.messageId = KafkaMessageId.ofOutbox(SERVICE);
 	}
 
 	public static OrderOutboxKafkaEvent pending(String refType, long refId, String eventType, String payload) {
