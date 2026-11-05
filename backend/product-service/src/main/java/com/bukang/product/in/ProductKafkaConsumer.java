@@ -15,6 +15,7 @@ import com.bukang.common.shared.race.event.HoldCancelEvent;
 import com.bukang.common.shared.race.event.HoldRestoreEvent;
 import com.bukang.common.shared.seller.event.SellerChangedEvent;
 import com.bukang.product.app.ProductFacade;
+import com.bukang.product.app.ProductKafkaRetry;
 
 import lombok.RequiredArgsConstructor;
 
@@ -37,15 +38,13 @@ public class ProductKafkaConsumer {
 	private static final String CONCURRENCY = "1";
 	// 처음 시도를 포함한 시도 횟수. 실패하면 1초 → 2초 간격(2배수)으로 2번 다시 시도한다
 	private static final String RETRY_ATTEMPTS = "3";
-	private static final long RETRY_DELAY_MILLIS = 1000L;
+	// 첫 재시도 지연과 재시도·DLT 토픽 접미사는 ProductKafkaRetry에 있다. 다시 보내기(ProductDltUseCase)가 같은 값으로
+	// 첫 재시도 토픽 이름(예: queuing.member.joined.product.retry-1000)을 만든다
+	private static final long RETRY_DELAY_MILLIS = ProductKafkaRetry.FIRST_RETRY_DELAY_MILLIS;
 	private static final double RETRY_MULTIPLIER = 2.0;
-	// 재시도·DLT 토픽 접미사에 서비스 이름을 넣는다. 회원 토픽은 다른 서비스도 같이 받는 공용 토픽이라,
-	// 기본 접미사(-retry, -dlt)를 쓰면 같은 토픽을 @RetryableTopic으로 받는 서비스끼리 재시도·DLT 토픽이 겹쳐 서로의 실패 메시지를 받는다
-	// 재시도 토픽 이름은 접미사 뒤에 지연 시간이 붙는다 (예: queuing.member.joined.product.retry-1000)
-	private static final String RETRY_TOPIC_SUFFIX = ".product.retry";
-	// 마지막까지 실패한 메시지를 보낼 토픽 접미사 (예: queuing.member.joined.product.dlt)
+	private static final String RETRY_TOPIC_SUFFIX = ProductKafkaRetry.RETRY_TOPIC_SUFFIX;
 	// ProductKafkaDltConsumer가 DLT 토픽 이름을 만들 때 같은 값을 쓴다
-	static final String DLT_TOPIC_SUFFIX = ".product.dlt";
+	static final String DLT_TOPIC_SUFFIX = ProductKafkaRetry.DLT_TOPIC_SUFFIX;
 	// DLT는 ProductKafkaDltConsumer가 받으므로, @RetryableTopic이 기본으로 띄우는 DLT 리스너는 시작하지 않는다
 	// (켜 두면 같은 DLT 메시지를 두 곳에서 받는다)
 	private static final String AUTO_START_DEFAULT_DLT_HANDLER = "false";
