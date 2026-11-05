@@ -10,6 +10,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import com.bukang.common.global.eventpublisher.EventPublisher;
 import com.bukang.common.shared.notification.NotificationKind;
 import com.bukang.common.shared.notification.event.NotificationRequestedEvent;
+import com.bukang.common.shared.order.event.OrderItemRefundReason;
 import com.bukang.order.domain.Order;
 import com.bukang.order.domain.OrderItem;
 import com.bukang.order.domain.Participation;
@@ -37,7 +38,7 @@ import lombok.extern.slf4j.Slf4j;
  * 판정 뒤 세 단계로 나눈다 (BUK-9). 예치금 환불 HTTP를 기다리는 동안 주문 잠금과 DB 커넥션을 쥐지 않는다
  * 1. 트랜잭션 1: 주문을 잠가 다시 확인하고 주문 상품을 취소 중(CANCELING) + 시작 시각으로 커밋한다
  * 2. 트랜잭션 밖: 예치금 환불(D). 주문 ID로 멱등이라 몇 번 불러도 돈은 한 번만 움직인다
- * 3. 트랜잭션 2 (completeCancel): 주문 상품·주문 취소, 참가 신청 취소, 자리 복구 메시지를 아웃박스에 저장
+ * 3. 트랜잭션 2 (completeCancel): 주문 상품·주문 취소, 참가 신청 취소, 자리 복구 메시지와 정산 환불 알림(BUK-74)을 아웃박스에 저장
  *    (B에는 커밋 뒤 Kafka product.hold.restore로 간다, PRO-270). 환불이 확인된 취소만 자리를 되돌려 정원보다 더 팔리지 않는다
  * 환불 결과에 따라
  * - 성공: 트랜잭션 2로 마무리한다
@@ -78,7 +79,9 @@ public class OrderCancelUseCase {
 		if (!isBeforePayout(target.copiedRaceDate(), course.raceDate().toLocalDate())) {
 			throw RefundNotAllowedException.payoutStarted("정산이 시작된 참가권이라 취소할 수 없습니다.");
 		}
-		transactionTemplate.executeWithoutResult(status -> startCancel(memberId, orderId, orderItemId, now));
+		OrderItemRefundReason reason = course.refundReasonOn(now.toLocalDate());
+		transactionTemplate.executeWithoutResult(
+			status -> startCancel(memberId, orderId, orderItemId, now, reason));
 
 		try {
 			// 주문 하나 = 참가권 하나라, 주문 단위 전액 환불이 이 상품의 환불이다. 금액은 D가 결제 기록으로 정한다
@@ -116,10 +119,11 @@ public class OrderCancelUseCase {
 	}
 
 	// 주문을 잠가 다시 확인한다. 같은 상품 취소가 동시에 와도 한 요청만 취소 중으로 바꾸고, 나머지는 409로 막혀 환불을 부르지 않는다
-	private void startCancel(long memberId, long orderId, long orderItemId, LocalDateTime now) {
+	private void startCancel(long memberId, long orderId, long orderItemId, LocalDateTime now,
+		OrderItemRefundReason reason) {
 		Order order = findOwnedOrder(orderRepository.findByIdForUpdate(orderId), memberId);
 		OrderItem item = order.findItem(orderItemId);
-		order.startCancelItem(item, now);
+		order.startCancelItem(item, now, reason);
 	}
 
 	/**
@@ -141,6 +145,7 @@ public class OrderCancelUseCase {
 			participation.markCanceled(now);
 			// 이 트랜잭션이 커밋돼야 보내진다 (롤백되면 메시지도 없다)
 			orderOutboxKafkaAppendUseCase.appendSeatRestore(item.getParticipationId());
+			orderOutboxKafkaAppendUseCase.appendItemRefunded(item, order.getBuyerId(), now, refundReason(item));
 			// 알림도 이 트랜잭션이 커밋된 뒤에 나간다 (BUK-69, 잃어도 되는 메시지라 아웃박스 없이 보낸다)
 			eventPublisher.publish(NotificationRequestedEvent.of(order.getBuyerId(), NotificationKind.REFUND_COMPLETED,
 				"환불이 끝났어요",
@@ -148,6 +153,11 @@ public class OrderCancelUseCase {
 				"/me/deposit"));
 			return new CancelResult(order.toDto(), item.getAmount(), false);
 		});
+	}
+
+	// shortcut: 사유 칸(BUK-74) 배포 전에 시작한 취소 중은 사유가 비어 구매자 취소로 알린다. 정산은 일정 변경과 똑같이 회수한다
+	private OrderItemRefundReason refundReason(OrderItem item) {
+		return item.getCancelReason() == null ? OrderItemRefundReason.BUYER_CANCELED : item.getCancelReason();
 	}
 
 	// 예치금이 환불을 거절했다(4xx). 아직 취소 중일 때만 결제 완료로 되돌린다. 되돌렸으면 true

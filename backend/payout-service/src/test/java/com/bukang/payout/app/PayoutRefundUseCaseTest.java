@@ -52,6 +52,7 @@ class PayoutRefundUseCaseTest {
 	private static final LocalDate REFUND_DEADLINE = LocalDate.of(2026, 10, 31);
 	private static final LocalDateTime REFUNDED_AT = LocalDateTime.of(2026, 11, 26, 10, 0);
 	private static final LocalDate RACE_DATE = LocalDate.of(2026, 11, 28);
+	private static final long BUYER_ID = 3;
 
 	@Autowired
 	private PayoutRepository payoutRepository;
@@ -94,7 +95,7 @@ class PayoutRefundUseCaseTest {
 	}
 
 	private OrderItemRefundedEvent refunded(long orderItemId, long price, OrderItemRefundReason reason) {
-		return new OrderItemRefundedEvent(orderItemId, RACE_ID, RACE_ID, price, REFUNDED_AT, reason);
+		return new OrderItemRefundedEvent(orderItemId, RACE_ID, RACE_ID, price, REFUNDED_AT, reason, BUYER_ID);
 	}
 
 	private Payout first() {
