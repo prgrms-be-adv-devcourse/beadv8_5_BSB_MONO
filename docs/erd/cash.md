@@ -32,7 +32,8 @@
 ### 예치금 환급 (현금 환불)
 
 1. 회원은 남은 예치금 전부의 환급을 언제든 신청할 수 있다.
-2. 1차(세미)는 직접 송금 방식으로 처리한다. 관리자가 회원 계좌로 돌려주고 '환급 완료'로 바꾸며, 1차에서는 실제 송금 없이 상태만 바꾸는 모의 처리로 구현한다.
+2. 2차부터는 충전 건별로 PG 결제취소 기한(승인일 + 1년 − 1일) 안의 몫은 카드로 결제취소하고, 기한이 지난 몫과 충전으로 들어오지 않은 잔액(판매자 정산 대금)은 계좌로 송금한다.
+   계좌 송금은 실제 송금 연동 없이 신청 즉시 완료로 처리한다. 자세한 규칙은 `docs/policy/05-취소환불.md` 「2차 · 1. 예치금 환급 › PG 결제취소와 기한」이 원본이다.
 
 ---
 
@@ -40,10 +41,10 @@
 
 엔티티(`backend/cash-service`의 `com.bukang.cash.domain`) 기준이다. 실제 테이블 이름은 `CASH_` 접두사를 붙인다(예: `CASH_WALLET`).
 
-- **공통 컬럼:** 모든 테이블은 `BaseIdAndTime`을 상속해 `id`(INT, AUTO_INCREMENT, PK), `create_date`, `modify_date`(DATETIME(6))를 가진다.
-  ERD 초안의 `*_id` PK와 `created_at`/`updated_at`, 요청·시도·신청 일시(`requested_at`)는 이 컬럼으로 대신한다. `wallet`만 예외다(아래 참고).
+- **공통 컬럼:** 모든 테이블은 `BaseIdAndTime`을 상속해 `id`(BIGINT, AUTO_INCREMENT, PK), `create_date`, `modify_date`(DATETIME(6))를 가진다.
+  ERD 초안의 `*_id` PK와 `created_at`/`updated_at`, 요청·시도·신청 일시(`requested_at`)는 이 컬럼으로 대신한다. `wallet`·`cash_member`·`cash_seller`는 ID를 직접 넣는다(아래 참고).
 - **금액:** 금액 컬럼은 모두 BIGINT(`long`)다.
-- **ID:** 다른 행을 가리키는 ID 컬럼(FK, `order_id`, `ref_id`)은 모두 INT(`int`)로, 엔티티 `id` 타입과 맞춘다.
+- **ID:** 다른 행을 가리키는 ID 컬럼(FK, `order_id`, `ref_id`, `payout_id`)은 모두 BIGINT(`long`)로, 엔티티 `id` 타입과 맞춘다.
 - **ENUM:** 상태·사유·유형처럼 정해진 값만 들어가는 컬럼은 MySQL `ENUM` 타입이다(JPA `@Enumerated(STRING)`).
   값을 추가하면 `ddl-auto: update`가 컬럼을 고치지 않으므로 `ALTER TABLE`로 직접 바꾼다.
 - **FK:** cash-service 안의 테이블(`cash_member`, `cash_wallet`)에만 건다. 다른 서비스의 테이블(주문 등)은 FK 없이 ID 값으로만 보관한다.
@@ -52,8 +53,8 @@
 
 | 키 | 컬럼 | 타입 | 제약 | 설명·값 |
 | --- | --- | --- | --- | --- |
-| PK | id | INT | | 지갑 ID = 지갑 주인의 회원 ID (`BaseManualIdAndTime`, 자동 생성 안 함). PK라서 회원당 지갑 하나가 보장된다 |
-| FK | holder_id | INT | NOT NULL | → cash_member. 지갑 주인 |
+| PK | id | BIGINT | | 지갑 ID = 지갑 주인의 회원 ID (`BaseManualIdAndTime`, 자동 생성 안 함). PK라서 회원당 지갑 하나가 보장된다 |
+| FK | holder_id | BIGINT | NOT NULL | → cash_member. 지갑 주인 |
 | | balance | BIGINT | NOT NULL | 잔액 (생성 시 0) |
 | | version | BIGINT | NOT NULL | 낙관적 락 (`@Version`) |
 | | create_date / modify_date | DATETIME(6) | | 생성·수정 일시 |
@@ -78,42 +79,43 @@
 
 | 키 | 컬럼 | 타입 | 제약 | 설명·값 |
 | --- | --- | --- | --- | --- |
-| PK | id | INT | | 충전 ID |
-| FK | wallet_id | INT | NOT NULL | → cash_wallet |
+| PK | id | BIGINT | | 충전 ID |
+| FK | wallet_id | BIGINT | NOT NULL | → cash_wallet |
 | | amount | BIGINT | NOT NULL | 충전 금액 (≥ 10,000) |
 | | pg_provider | VARCHAR(30) | NOT NULL | PG사 (예: TOSS). enum이 아니라 문자열로 저장한다 |
-| | pg_payment_key | VARCHAR(255) | NULL | PG 결제 키 (암호문). PG 승인 전에는 비어 있다 |
+| | pg_payment_key | VARCHAR(512) | NULL | PG 결제 키 (AES 암호문이라 평문보다 길다). PG 승인 전에는 비어 있다 |
 | | idempotency_key | VARCHAR(64) | NOT NULL, UNIQUE | 중복 충전 방지 |
-| | status | ENUM | NOT NULL | REQUESTED / COMPLETED / FAILED / CANCELED (생성 시 REQUESTED) |
-| | charged_at | DATETIME(6) | NULL | 충전 완료 일시 |
+| | status | ENUM | NOT NULL | REQUESTED / IN_PROGRESS / COMPLETED / FAILED / CANCELED / UNCERTAIN (생성 시 REQUESTED). IN_PROGRESS는 PG 승인 요청 중, UNCERTAIN은 승인 결과를 끝내 확인하지 못해 재확인 배치가 맞추는 중 |
+| | charge_date | DATETIME(6) | NULL | 충전 완료를 서버에 기록한 일시 |
+| | approved_at | DATETIME(6) | NULL | PG가 승인한 일시(한국 시간). PG 결제취소 기한의 기준. 없으면 charge_date로 대신한다 |
+| | canceled_amount | BIGINT | NOT NULL | PG 결제취소로 이미 돌려준 금액 (기본 0). 부분 취소를 여러 번 하면 더해진다 |
 | | create_date / modify_date | DATETIME(6) | | 요청 일시 / 수정 일시 |
 
 ### payment 결제 (`CASH_PAYMENT`)
 
 | 키 | 컬럼 | 타입 | 제약 | 설명·값 |
 | --- | --- | --- | --- | --- |
-| PK | id | INT | | 결제 ID |
-| | order_id | INT | NOT NULL | 주문 ID. 다른 서비스의 테이블이라 FK 없이 값으로만 보관한다 |
-| FK | wallet_id | INT | NOT NULL | → cash_wallet |
+| PK | id | BIGINT | | 결제 ID |
+| | order_id | BIGINT | NOT NULL, UNIQUE | 주문 ID. 다른 서비스의 테이블이라 FK 없이 값으로만 보관한다. 한 주문에 결제 하나라 중복 결제 방지 키를 겸한다 |
+| FK | wallet_id | BIGINT | NOT NULL | → cash_wallet |
 | | amount | BIGINT | NOT NULL | 결제 금액 |
-| | status | ENUM | NOT NULL | PENDING / COMPLETED / FAILED / TIMED_OUT (생성 시 PENDING) |
+| | status | ENUM | NOT NULL | PENDING / COMPLETED / FAILED / TIMED_OUT / REFUNDED / CANCELED (생성 시 PENDING). CANCELED는 고객 취소가 아니라 시스템 환원 |
 | | fail_reason | ENUM | NULL | INSUFFICIENT_BALANCE / PRICE_CHANGED / OUT_OF_STOCK / NOT_ON_SALE / DEADLINE_PASSED. FAILED일 때만 채움 |
-| | idempotency_key | VARCHAR(64) | NOT NULL, UNIQUE | 중복 결제 방지 |
-| | completed_at | DATETIME(6) | NULL | 완료 일시 |
+| | complete_date | DATETIME(6) | NULL | 완료 일시 |
 | | create_date / modify_date | DATETIME(6) | | 시도 일시 / 수정 일시 |
 
 ### wallet_ledger 예치금 장부 (`CASH_WALLET_LEDGER`)
 
 | 키 | 컬럼 | 타입 | 제약 | 설명·값 |
 | --- | --- | --- | --- | --- |
-| PK | id | INT | | 장부 ID |
-| FK | wallet_id | INT | NOT NULL | → cash_wallet |
-| FK | holder_id | INT | NOT NULL | → cash_member. 지갑 주인 |
+| PK | id | BIGINT | | 장부 ID |
+| FK | wallet_id | BIGINT | NOT NULL | → cash_wallet |
+| FK | holder_id | BIGINT | NOT NULL | → cash_member. 지갑 주인 |
 | | ledger_type | ENUM | NOT NULL | 아래 "ledger_type 값" 참고 |
 | | amount | BIGINT | NOT NULL | 변동 금액 (+/−) |
 | | balance_after | BIGINT | NOT NULL | 변동 후 잔액 |
 | | ref_type_code | ENUM | NOT NULL | WalletCharge / Order / Withdrawal / Payout. 돈의 이동을 일으킨 원인 객체. 한 이동의 두 줄(고객·홀딩)은 같은 ref를 가리킴. 충전은 CashMember 대신 WalletCharge(PG 거래 추적) |
-| | ref_id | INT | NOT NULL | 근거 ID (WalletCharge·WalletWithdrawal의 id, 주문 id) |
+| | ref_id | BIGINT | NOT NULL | 근거 ID (WalletCharge·WalletWithdrawal의 id, 주문 id) |
 | | create_date / modify_date | DATETIME(6) | | 기록 일시 / 수정 일시 |
 
 ref_type_code는 DTO에서 문자열로 받더라도 `LedgerRefType.valueOf(...)`로 바꿔 저장한다. 목록에 없는 값이면 예외가 나서 저장되지 않는다.
@@ -155,16 +157,52 @@ ref_type_code는 DTO에서 문자열로 받더라도 `LedgerRefType.valueOf(...)
 
 | 키 | 컬럼 | 타입 | 제약 | 설명·값 |
 | --- | --- | --- | --- | --- |
-| PK | id | INT | | 환급 ID (10/8: cash_out → wallet_withdrawal) |
-| FK | wallet_id | INT | NOT NULL | → cash_wallet |
+| PK | id | BIGINT | | 환급 ID (10/8: cash_out → wallet_withdrawal) |
+| FK | wallet_id | BIGINT | NOT NULL | → cash_wallet |
 | | amount | BIGINT | NOT NULL | 환급 금액 (신청 시점 잔액 전부) |
-| | bank_code | VARCHAR(10) | NOT NULL | 은행 코드 |
-| | account_number | VARCHAR(255) | NOT NULL | 계좌번호 (암호문) |
-| | account_holder | VARCHAR(50) | NOT NULL | 예금주 |
-| | status | ENUM | NOT NULL | REQUESTED / COMPLETED / FAILED (생성 시 REQUESTED, 1차 모의 처리라 PROCESSING 없음) |
+| | bank_code | VARCHAR(10) | NULL | 은행 코드. 계좌로 보낼 몫이 있을 때만 받는다 (카드로만 돌려주면 비어 있다) |
+| | account_number | VARCHAR(512) | NULL | 계좌번호 (AES 암호문) |
+| | account_holder | VARCHAR(50) | NULL | 예금주 |
+| | status | ENUM | NOT NULL | REQUESTED / IN_PROGRESS / COMPLETED / FAILED (생성 시 REQUESTED). IN_PROGRESS는 PG 결제취소 결과를 기다리는 몫이 남아 있음 |
 | | fail_reason | ENUM | NULL | INVALID_ACCOUNT. FAILED일 때만 채움 (사유가 정해지면 추가) |
 | | idempotency_key | VARCHAR(64) | NOT NULL, UNIQUE | 중복 신청 방지 |
-| | completed_at | DATETIME(6) | NULL | 완료 일시 |
+| | complete_date | DATETIME(6) | NULL | 완료 일시 |
 | | create_date / modify_date | DATETIME(6) | | 신청 일시 / 수정 일시 |
 
-신청 시 잔액을 바로 차감하고 wallet_ledger에 기록하며, FAILED가 되면 잔액을 되돌리는 장부 기록을 남긴다. 한 지갑에 REQUESTED 상태 신청은 하나만 허용한다.
+신청 시 잔액을 바로 차감하고 wallet_ledger에 몫마다 기록하며(카드 몫은 충전 건마다, 계좌 몫은 한 줄), 실패한 몫은 잔액을 되돌리는 장부 기록을 남긴다.
+한 지갑에 IN_PROGRESS인 환급이 있으면 새 신청을 막는다(409 WITHDRAWAL_IN_PROGRESS).
+
+### cash_member 회원 복제본 (`CASH_MEMBER`)
+
+member-service의 회원을 Kafka 이벤트(`MemberJoinedEvent`)로 복제해 둔다(`ReplicaMember`). 공개 정보만 갖는다.
+
+| 키 | 컬럼 | 타입 | 제약 | 설명·값 |
+| --- | --- | --- | --- | --- |
+| PK | id | BIGINT | | 회원 ID (member-service의 ID 그대로, 자동 생성 안 함) |
+| | nickname | VARCHAR(255) | | 닉네임 |
+| | create_date / modify_date | DATETIME(6) | | 원본 회원의 생성·수정 일시 |
+
+### cash_seller 판매자 (`CASH_SELLER`)
+
+판매자 신청서 ID로 정산 지갑(회원 지갑)을 찾기 위해 둔다.
+
+| 키 | 컬럼 | 타입 | 제약 | 설명·값 |
+| --- | --- | --- | --- | --- |
+| PK | id | BIGINT | | 판매자 신청서 ID (자동 생성 안 함) |
+| FK | member_id | BIGINT | NOT NULL | → cash_member. 판매자 회원. 정산 대금은 이 회원의 지갑으로 들어간다 |
+| | create_date / modify_date | DATETIME(6) | | 생성·수정 일시 |
+
+### payout_transfer 정산 지급 (`CASH_PAYOUT_TRANSFER`)
+
+정산 한 건의 돈 이동(대금 또는 수수료)을 기록하고, 그 id를 wallet_ledger의 ref_id(Payout)로 쓴다.
+
+| 키 | 컬럼 | 타입 | 제약 | 설명·값 |
+| --- | --- | --- | --- | --- |
+| PK | id | BIGINT | | 지급 ID |
+| | payout_id | BIGINT | NOT NULL | payout-service의 정산 ID. 다른 서비스의 행이라 FK 없이 값으로만 보관한다 |
+| | seller_id | BIGINT | NOT NULL | 판매자 신청서 ID (추적용) |
+| | transfer_type | ENUM | NOT NULL | SETTLEMENT(대금) / FEE(수수료) |
+| | amount | BIGINT | NOT NULL | 지급 금액 |
+| | create_date / modify_date | DATETIME(6) | | 생성·수정 일시 |
+
+(payout_id, transfer_type)에 UNIQUE를 걸어 같은 정산의 같은 이동이 두 번 기록되지 않게 한다.
