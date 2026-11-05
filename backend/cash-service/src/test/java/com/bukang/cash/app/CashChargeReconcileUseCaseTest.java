@@ -77,7 +77,7 @@ class CashChargeReconcileUseCaseTest {
 		createCustomerWallet(0);
 		createCharge("order_1", ChargeStatus.UNCERTAIN, null);
 		given(paymentClient.lookupByOrderId("order_1"))
-			.willReturn(PaymentLookupResult.completed(new PaymentApprovalResult(10_000, "toss_key_1")));
+			.willReturn(PaymentLookupResult.completed(new PaymentApprovalResult(10_000, "toss_key_1", null)));
 
 		cashChargeReconcileUseCase.reconcile(LocalDateTime.now());
 
@@ -157,7 +157,7 @@ class CashChargeReconcileUseCaseTest {
 		createCharge("order_4", ChargeStatus.UNCERTAIN, now.minusMinutes(1));
 		given(paymentClient.lookupByOrderId(anyString())).willReturn(PaymentLookupResult.pending());
 		given(paymentClient.lookupByOrderId("order_4"))
-			.willReturn(PaymentLookupResult.completed(new PaymentApprovalResult(10_000, "toss_key_4")));
+			.willReturn(PaymentLookupResult.completed(new PaymentApprovalResult(10_000, "toss_key_4", null)));
 
 		cashChargeReconcileUseCase.reconcile(now);
 
@@ -172,7 +172,7 @@ class CashChargeReconcileUseCaseTest {
 		createCustomerWallet(0);
 		createCharge("order_1", ChargeStatus.IN_PROGRESS, LocalDateTime.now().minusMinutes(STALE_MINUTES + 5));
 		given(paymentClient.lookupByOrderId("order_1"))
-			.willReturn(PaymentLookupResult.completed(new PaymentApprovalResult(10_000, "toss_key_1")));
+			.willReturn(PaymentLookupResult.completed(new PaymentApprovalResult(10_000, "toss_key_1", null)));
 
 		cashChargeReconcileUseCase.reconcile(LocalDateTime.now());
 
