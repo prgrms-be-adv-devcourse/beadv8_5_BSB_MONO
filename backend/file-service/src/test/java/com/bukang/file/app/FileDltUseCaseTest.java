@@ -39,7 +39,7 @@ import com.bukang.file.out.FileDltKafkaEventRepository;
 class FileDltUseCaseTest {
 	private static final String TOPIC = KafkaTopics.RACE_FILE_LINK_REQUESTED;
 	private static final String DLT_TOPIC = TOPIC + FileKafkaRetry.DLT_TOPIC_SUFFIX;
-	private static final String MESSAGE_ID = "product-outbox-43";
+	private static final String MESSAGE_ID = "product-outbox-3b241101-e2bb-4255-8caf-4136c566aa43";
 	private static final String MESSAGE_KEY = "301";
 	private static final String PAYLOAD = "{\"refType\":\"RACE\",\"refId\":301,\"fileIds\":[11,12]}";
 	private static final String EXCEPTION_CLASS = "java.lang.IllegalStateException";

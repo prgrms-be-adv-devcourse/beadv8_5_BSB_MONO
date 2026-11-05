@@ -70,7 +70,7 @@ public abstract class BaseDltKafkaEvent extends BaseIdAndTime {
 	@Column(name = "payload", nullable = false, columnDefinition = "TEXT")
 	private String payload;
 
-	// message-id 헤더 값 (예: member-outbox-42 = 회원 서비스 아웃박스 42번 행). 서비스 엔티티가 유니크 제약을 건다
+	// message-id 헤더 값 (예: member-outbox-{UUID}, 보낸 서비스가 아웃박스 행을 만들 때 정한 값). 서비스 엔티티가 유니크 제약을 건다
 	// 다시 보낼 때 그대로 붙여 이미 처리한 메시지면 인박스가 건너뛴다. 헤더 없이 온 메시지는 null
 	// (MySQL 유니크 제약은 null끼리 겹치는 것으로 보지 않아 null 행은 여러 개 생길 수 있다)
 	@Column(name = "message_id", length = 100)

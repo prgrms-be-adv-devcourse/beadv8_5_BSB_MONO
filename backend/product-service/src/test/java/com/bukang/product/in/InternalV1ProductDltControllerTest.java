@@ -36,7 +36,7 @@ class InternalV1ProductDltControllerTest extends ProductIntegrationTest {
 	private static final String TOPIC = KafkaTopics.MEMBER_MEMBER_JOINED;
 	private static final String DLT_TOPIC = TOPIC + ProductKafkaRetry.DLT_TOPIC_SUFFIX;
 	private static final String FIRST_RETRY_TOPIC = "queuing.member.joined.product.retry-1000";
-	private static final String MESSAGE_ID = "member-outbox-42";
+	private static final String MESSAGE_ID = "member-outbox-5d8a3f2e-1b4c-4e7a-9f0d-2c6b8e1a7d42";
 	private static final String MESSAGE_KEY = "8001";
 	private static final String PAYLOAD = "{\"id\":8001,\"nickname\":\"새러너\"}";
 

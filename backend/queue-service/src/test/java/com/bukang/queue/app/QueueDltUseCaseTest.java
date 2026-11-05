@@ -39,7 +39,7 @@ import com.bukang.queue.out.QueueDltKafkaEventRepository;
 class QueueDltUseCaseTest {
 	private static final String TOPIC = KafkaTopics.RACE_CHANGED;
 	private static final String DLT_TOPIC = TOPIC + QueueKafkaRetry.DLT_TOPIC_SUFFIX;
-	private static final String MESSAGE_ID = "product-outbox-42";
+	private static final String MESSAGE_ID = "product-outbox-7c9e6679-7425-40de-944b-e07fc1f90a42";
 	private static final String MESSAGE_KEY = "301";
 	private static final String PAYLOAD = "{\"id\":301,\"name\":\"춘천 마라톤\"}";
 	private static final String EXCEPTION_CLASS = "java.lang.IllegalStateException";
