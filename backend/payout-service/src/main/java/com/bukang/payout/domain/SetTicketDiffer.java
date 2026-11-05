@@ -5,9 +5,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.springframework.stereotype.Component;
+
 /**
  * 집합 방식: 양쪽을 HashSet으로 만들어 차집합을 구한다. ID가 흩어져 있어도 메모리는 장수에만 비례한다
+ * 운영 배치의 기본값이라 빈으로 둔다. 비트맵은 실험용 dev API를 만들 때 빈으로 올린다
  */
+@Component
 public class SetTicketDiffer implements TicketDiffer {
 	@Override
 	public TicketDiff diff(Collection<Long> soldIds, Collection<Long> payoutIds) {

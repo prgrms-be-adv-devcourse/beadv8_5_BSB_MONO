@@ -324,7 +324,7 @@ public class Payout extends BaseIdAndTime {
 		if (status == PayoutStatus.CANCELED) {
 			throw new PayoutHoldConflictException("취소된 정산 내역입니다.");
 		}
-		if (activeHolds().anyMatch(active -> active.getReasonType() == reasonType)) {
+		if (isHeldFor(reasonType)) {
 			throw new PayoutHoldConflictException("이미 같은 사유로 지급보류 중인 정산 내역입니다.");
 		}
 		// 이미 보류 중이면 상태는 그대로다. 더 건 사유는 보류 기록에 남는다
@@ -334,6 +334,11 @@ public class Payout extends BaseIdAndTime {
 		PayoutHold hold = new PayoutHold(this, reasonType, reason, heldBy, heldAt);
 		holds.add(hold);
 		return hold;
+	}
+
+	// 이 사유의 보류가 걸려 있는지 (같은 사유는 두 번 걸 수 없다)
+	public boolean isHeldFor(PayoutHoldReason reasonType) {
+		return activeHolds().anyMatch(active -> active.getReasonType() == reasonType);
 	}
 
 	private Stream<PayoutHold> activeHolds() {

@@ -38,7 +38,7 @@ public class PayoutCreateFailure extends BaseIdAndTime {
 	// 대회 목록 조회 실패는 대회를 모른다
 	private Long raceId;
 
-	// 코스 단위 실패가 생기면 채운다. 지금은 늘 NULL
+	// 대사 불일치에서 어긋난 참가권의 코스가 하나일 때만 채운다 (BUK-67). 다른 실패는 NULL
 	private Long raceCourseId;
 
 	// 정산 대상일: 최종은 대회일, 1차는 환불 마감일. 대회 목록 조회 실패는 NULL
@@ -57,9 +57,15 @@ public class PayoutCreateFailure extends BaseIdAndTime {
 
 	private PayoutCreateFailure(PayoutStage payoutStage, Long sellerId, Long raceId, LocalDate payoutTargetDate,
 		PayoutCreateFailureType failureType, String note, LocalDate runDate) {
+		this(payoutStage, sellerId, raceId, null, payoutTargetDate, failureType, note, runDate);
+	}
+
+	private PayoutCreateFailure(PayoutStage payoutStage, Long sellerId, Long raceId, Long raceCourseId,
+		LocalDate payoutTargetDate, PayoutCreateFailureType failureType, String note, LocalDate runDate) {
 		this.payoutStage = payoutStage;
 		this.sellerId = sellerId;
 		this.raceId = raceId;
+		this.raceCourseId = raceCourseId;
 		this.payoutTargetDate = payoutTargetDate;
 		this.failureType = failureType;
 		this.note = note;
@@ -83,5 +89,12 @@ public class PayoutCreateFailure extends BaseIdAndTime {
 	public static PayoutCreateFailure sellerRace(PayoutStage stage, long sellerId, long raceId,
 		LocalDate payoutTargetDate, PayoutCreateFailureType failureType, String note, LocalDate runDate) {
 		return new PayoutCreateFailure(stage, sellerId, raceId, payoutTargetDate, failureType, note, runDate);
+	}
+
+	// 정산 대사가 판매자 × 대회의 어긋남을 찾았다 (BUK-67). 비고에는 장수 · 금액만 쓰고 참가권 ID는 로그에 남긴다
+	public static PayoutCreateFailure reconcileMismatch(PayoutStage stage, long sellerId, long raceId,
+		Long raceCourseId, LocalDate payoutTargetDate, String note, LocalDate runDate) {
+		return new PayoutCreateFailure(stage, sellerId, raceId, raceCourseId, payoutTargetDate,
+			PayoutCreateFailureType.대사_불일치, note, runDate);
 	}
 }
