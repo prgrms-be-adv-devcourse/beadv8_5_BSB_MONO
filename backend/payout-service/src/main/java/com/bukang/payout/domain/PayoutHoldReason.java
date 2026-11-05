@@ -11,7 +11,9 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum PayoutHoldReason {
 	ACCOUNT_NOT_REGISTERED("정산 계좌 미등록"),
-	RACE_CANCELED("대회 취소 처리");
+	RACE_CANCELED("대회 취소 처리"),
+	// 정산 대사가 정산 쪽이 판매보다 많은 어긋남을 찾았다 (BUK-67). BUK-68 방식대로 한글 상수
+	대사_불일치("대사 불일치");
 
 	private final String korean;
 }

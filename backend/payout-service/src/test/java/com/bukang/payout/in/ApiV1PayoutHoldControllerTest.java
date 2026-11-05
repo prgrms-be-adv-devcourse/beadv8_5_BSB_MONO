@@ -197,14 +197,14 @@ class ApiV1PayoutHoldControllerTest {
 	}
 
 	@Test
-	@DisplayName("이미 보류 중인 정산 내역에 다시 걸면 409")
+	@DisplayName("같은 사유로 이미 보류 중인 정산 내역에 다시 걸면 409")
 	void holdTwice() throws Exception {
 		Payout payout = savePayout();
 		holdAccount(payout.getId());
 
 		holdAccount(payout.getId())
 			.andExpect(status().isConflict())
-			.andExpect(jsonPath("$.message").value("이미 지급보류 중인 정산 내역입니다."))
+			.andExpect(jsonPath("$.message").value("이미 같은 사유로 지급보류 중인 정산 내역입니다."))
 			.andDo(document("payout-hold-create-conflict", ERROR_RESPONSE));
 	}
 

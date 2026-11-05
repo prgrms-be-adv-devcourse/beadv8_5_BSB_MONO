@@ -56,14 +56,45 @@ class PayoutHoldTest {
 	}
 
 	@Test
-	@DisplayName("이미 보류 중인 정산 내역에는 보류를 또 걸 수 없다 (활성 보류는 하나)")
-	void cannotHoldTwice() {
+	@DisplayName("같은 사유의 보류가 걸려 있으면 또 걸 수 없다 (BUK-67 H1)")
+	void cannotHoldSameReasonTwice() {
 		Payout payout = newPayout();
 		hold(payout);
 
 		assertThatThrownBy(() -> hold(payout))
 			.isInstanceOf(PayoutHoldConflictException.class)
-			.hasMessage("이미 지급보류 중인 정산 내역입니다.");
+			.hasMessage("이미 같은 사유로 지급보류 중인 정산 내역입니다.");
+	}
+
+	@Test
+	@DisplayName("보류 중이어도 다른 사유의 보류는 더 걸 수 있다 (BUK-67 H1)")
+	void holdAnotherReason() {
+		Payout payout = newPayout();
+		PayoutHold accountHold = hold(payout);
+
+		PayoutHold mismatchHold = payout.hold(PayoutHoldReason.대사_불일치, null, PayoutHold.SYSTEM_MEMBER_ID, HELD_AT);
+
+		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.HELD);
+		assertThat(accountHold.getStatus()).isEqualTo(PayoutHoldStatus.HELD);
+		assertThat(mismatchHold.getStatus()).isEqualTo(PayoutHoldStatus.HELD);
+	}
+
+	@Test
+	@DisplayName("보류가 남아 있으면 하나를 풀어도 지급보류 그대로이고, 마지막 보류를 풀 때 정산 예정으로 돌아간다 (BUK-67 H2)")
+	void releaseLastHoldOnly() {
+		Payout payout = newPayout();
+		PayoutHold accountHold = hold(payout);
+		PayoutHold mismatchHold = payout.hold(PayoutHoldReason.대사_불일치, null, PayoutHold.SYSTEM_MEMBER_ID, HELD_AT);
+
+		payout.release(accountHold, ADMIN_ID, LocalDateTime.of(2026, 11, 25, 9, 0), CALENDAR);
+
+		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.HELD);
+		assertThat(payout.getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 11, 20));
+
+		payout.release(mismatchHold, ADMIN_ID, LocalDateTime.of(2026, 11, 27, 9, 0), CALENDAR);
+
+		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.CALCULATED);
+		assertThat(payout.getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 11, 28));
 	}
 
 	@Test

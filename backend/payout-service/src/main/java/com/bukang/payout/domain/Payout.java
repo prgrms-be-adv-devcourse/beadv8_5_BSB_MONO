@@ -12,6 +12,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Stream;
 
 import com.bukang.common.global.jpa.entity.BaseIdAndTime;
 import com.bukang.payout.domain.exception.PayoutHoldConflictException;
@@ -121,6 +122,10 @@ public class Payout extends BaseIdAndTime {
 	@OneToMany(mappedBy = "payout", cascade = ALL)
 	private List<PayoutStatusHistory> statusHistories = new ArrayList<>();
 
+	// 지급보류는 사유가 다르면 여러 개 걸 수 있다 (BUK-67). 마지막 보류가 풀릴 때만 정산 예정으로 돌리려고 들고 있는다
+	// 저장은 PayoutHoldUseCase가 저장소로 하므로 cascade를 걸지 않는다
+	@OneToMany(mappedBy = "payout")
+	private List<PayoutHold> holds = new ArrayList<>();
 	private Payout(long sellerId, long raceId, String raceName, PayoutStage payoutStage, YearMonth payoutMonth,
 		LocalDateTime settledAt, LocalDate scheduledPayDate) {
 		this.sellerId = sellerId;
@@ -306,12 +311,9 @@ public class Payout extends BaseIdAndTime {
 		return payoutAmount > 0 || feeAmount > 0;
 	}
 
-	// 지급보류 걸기: 정산 예정(CALCULATED)일 때만 건다. 세미는 활성 보류를 하나만 둔다 (PRO-26)
-	// 보류 기록(PayoutHold)은 여기서만 만든다. 저장은 호출한 쪽이 한다
+	// 지급보류 걸기: 정산 예정(CALCULATED) · 지급보류(HELD)일 때 건다. 사유가 다르면 여러 개 걸 수 있다 (BUK-67 H1)
+	// 같은 사유가 이미 걸려 있으면 막는다. 보류 기록(PayoutHold)은 여기서만 만든다. 저장은 호출한 쪽이 한다
 	public PayoutHold hold(PayoutHoldReason reasonType, String reason, long heldBy, LocalDateTime heldAt) {
-		if (status == PayoutStatus.HELD) {
-			throw new PayoutHoldConflictException("이미 지급보류 중인 정산 내역입니다.");
-		}
 		// 캐시 서비스에 돈을 옮겨 달라고 요청한 뒤라 돈이 이미 나갔을 수 있다 (PRO-252)
 		if (status == PayoutStatus.PAYING) {
 			throw new PayoutHoldConflictException("지급 중인 정산 내역입니다.");
@@ -322,8 +324,20 @@ public class Payout extends BaseIdAndTime {
 		if (status == PayoutStatus.CANCELED) {
 			throw new PayoutHoldConflictException("취소된 정산 내역입니다.");
 		}
-		changeStatus(PayoutStatus.HELD, heldBy, heldAt, reasonType.getKorean());
-		return new PayoutHold(this, reasonType, reason, heldBy, heldAt);
+		if (activeHolds().anyMatch(active -> active.getReasonType() == reasonType)) {
+			throw new PayoutHoldConflictException("이미 같은 사유로 지급보류 중인 정산 내역입니다.");
+		}
+		// 이미 보류 중이면 상태는 그대로다. 더 건 사유는 보류 기록에 남는다
+		if (status != PayoutStatus.HELD) {
+			changeStatus(PayoutStatus.HELD, heldBy, heldAt, reasonType.getKorean());
+		}
+		PayoutHold hold = new PayoutHold(this, reasonType, reason, heldBy, heldAt);
+		holds.add(hold);
+		return hold;
+	}
+
+	private Stream<PayoutHold> activeHolds() {
+		return holds.stream().filter(hold -> hold.getStatus() == PayoutHoldStatus.HELD);
 	}
 
 	// 지급보류 풀기: 정산 예정으로 돌리고 지급 예정일을 max(원래 지급 예정일, 해제일 + 1일)로 다시 정한다
@@ -344,6 +358,10 @@ public class Payout extends BaseIdAndTime {
 			throw new PayoutHoldConflictException("취소된 정산 내역의 지급보류는 풀 수 없습니다.");
 		}
 		hold.markReleased(releasedBy, releasedAt);
+		// 다른 사유의 보류가 남아 있으면 지급보류 그대로 둔다. 지급 예정일은 마지막 보류를 풀 때 정한다 (BUK-67 H2)
+		if (activeHolds().findAny().isPresent()) {
+			return;
+		}
 		changeStatus(PayoutStatus.CALCULATED, releasedBy, releasedAt, null);
 		LocalDate payDateAfterRelease = releasedAt.toLocalDate().plusDays(PAY_DAYS_AFTER_RELEASE);
 		if (payDateAfterRelease.isAfter(scheduledPayDate)) {

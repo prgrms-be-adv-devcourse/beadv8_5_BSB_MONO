@@ -75,6 +75,6 @@ public interface PayoutRepository extends JpaRepository<Payout, Long> {
 	List<Payout> findPayableForSummary(long sellerId, PayoutStatus calculated, PayoutStage finalStage,
 		PayoutStage firstStage, PayoutStatus paid, PayoutStatus canceled);
 
-	// 판매자 요약: 지급보류 중인 정산 내역 수. 한 정산 내역에는 활성 보류가 하나뿐이라 보류 건수와 같다
+	// 판매자 요약: 지급보류 중인 정산 내역 수. 보류가 여러 개 걸린 정산 내역도 한 건으로 센다 (BUK-67 H3)
 	long countBySellerIdAndStatus(long sellerId, PayoutStatus status);
 }

@@ -89,7 +89,7 @@ final class PayoutApiExamples {
 		""";
 
 	static final String ALREADY_HELD = """
-		{ "status": 409, "message": "이미 지급보류 중인 정산 내역입니다.", "data": null }
+		{ "status": 409, "message": "이미 같은 사유로 지급보류 중인 정산 내역입니다.", "data": null }
 		""";
 
 	static final String ALREADY_PAID = """
