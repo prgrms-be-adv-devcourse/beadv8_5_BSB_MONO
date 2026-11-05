@@ -7,6 +7,7 @@ import static com.bukang.order.app.ParticipationApplyUseCase.checkTshirtSize;
 import static com.bukang.order.app.ParticipationApplyUseCase.isActiveParticipationConflict;
 
 import java.time.LocalDateTime;
+import java.util.EnumSet;
 import java.util.Optional;
 
 import org.springframework.dao.DataIntegrityViolationException;
@@ -48,6 +49,10 @@ import lombok.RequiredArgsConstructor;
 public class PartyUseCase {
 	// PartyMember의 @UniqueConstraint 이름과 같아야 한다
 	private static final String PARTY_MEMBER_CONSTRAINT = "uk_party_member";
+
+	// 파티장 확인에서 보는 상태. 종료(와 앞으로 생길 끝난 상태)는 빼고, 이미 신청한 파티도 알려 주려고 결제 중·끝을 넣는다
+	private static final EnumSet<PartyStatus> LIVE_STATUSES =
+		EnumSet.of(PartyStatus.RECRUITING, PartyStatus.PAYING, PartyStatus.PAID);
 
 	private final PartyRepository partyRepository;
 	private final PartyMemberRepository partyMemberRepository;
@@ -130,9 +135,11 @@ public class PartyUseCase {
 
 	// [대회 참가 신청] 전에 프론트가 묻는다. 파티 대기열은 파티장 회원 ID로만 줄을 세우므로 파티장인지는 주문이 답한다 (BUK-91)
 	// 「참가하려는 파티」는 그 대회에서 이 회원이 파티장인, 종료되지 않은 파티로 본다. 읽기만 해서 잠그지 않는다
+	// 안내용이다. 확인과 신청 사이에 파티장이 바뀔 수 있으니, 파티 신청(BUK-37)은 파티 줄을 잠근 뒤
+	// 파티장·모집 중을 다시 확인해야 한다
 	public Optional<Party> findLedParty(long raceId, long memberId) {
-		return partyRepository.findFirstByRaceIdAndLeaderMemberIdAndStatusNotOrderByIdDesc(
-			raceId, memberId, PartyStatus.CLOSED);
+		return partyRepository.findFirstByRaceIdAndLeaderMemberIdAndStatusInOrderByIdDesc(
+			raceId, memberId, LIVE_STATUSES);
 	}
 
 	private static PartyNotFoundException joinLinkNotFound() {

@@ -372,6 +372,11 @@ class ApiV1PartyTest {
 			.andExpect(jsonPath("$.data.leader").value(true))
 			.andExpect(jsonPath("$.data.canApply").value(false))
 			.andExpect(jsonPath("$.data.partyStatus").value("PAYING"));
+		jdbcTemplate.update("update order_party set status = 'PAID' where id = ?", partyId);
+		checkLeader(LEADER, RACE_ID)
+			.andExpect(jsonPath("$.data.leader").value(true))
+			.andExpect(jsonPath("$.data.canApply").value(false))
+			.andExpect(jsonPath("$.data.partyStatus").value("PAID"));
 
 		// 파티장이 나가 넘겨받으면 새 파티장이 파티장이다. 종료된 파티는 보지 않는다
 		jdbcTemplate.update("update order_party set status = 'RECRUITING' where id = ?", partyId);

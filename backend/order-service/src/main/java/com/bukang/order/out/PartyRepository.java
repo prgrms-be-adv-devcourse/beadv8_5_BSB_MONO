@@ -1,5 +1,6 @@
 package com.bukang.order.out;
 
+import java.util.Collection;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -25,9 +26,9 @@ public interface PartyRepository extends JpaRepository<Party, Long> {
 	record JoinTarget(long raceCourseId, long crewId) {
 	}
 
-	// 이 대회에서 그 회원이 파티장인 끝나지 않은 파티 (BUK-91). 한 대회 한 신청이라 보통 하나지만, 혹시 여럿이면 가장 최근 것
-	Optional<Party> findFirstByRaceIdAndLeaderMemberIdAndStatusNotOrderByIdDesc(long raceId, long leaderMemberId,
-		PartyStatus status);
+	// 이 대회에서 그 회원이 파티장인 살아 있는 파티 (BUK-91). 한 대회 한 신청이라 보통 하나지만, 혹시 여럿이면 가장 최근 것
+	Optional<Party> findFirstByRaceIdAndLeaderMemberIdAndStatusInOrderByIdDesc(long raceId, long leaderMemberId,
+		Collection<PartyStatus> statuses);
 
 	// 합류·나가기·링크 다시 만들기·(다음 이슈) 신청은 파티 줄을 먼저 잠근다 (잠금 순서: 파티 → 참가 신청)
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
