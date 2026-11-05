@@ -17,7 +17,7 @@ import com.bukang.order.dto.SoldSummaryDto;
 public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
 	/**
 	 * 대회의 주문 상품 중 결제 완료(PAID)·취소 중(CANCELING)인 것. 취소(CANCELED)·결제 전(ORDERED)은 빠진다
-	 * 정산 배치가 정산 대상일에 부르므로, 그 전에 취소된 참가권은 돌려주지 않는다 (정산 전 취소)
+	 * 정산 배치가 정산 생성일에 부르므로, 그 전에 취소된 참가권은 돌려주지 않는다 (정산 전 취소)
 	 * 취소 중은 환불 결과를 아직 모르는 판매라 판매로 센다. 환불이 거절되면 결제 완료로 돌아가기 때문이다 (BUK-9)
 	 */
 	@Query("""

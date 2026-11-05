@@ -9,8 +9,10 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
 import com.bukang.common.global.rsdata.RsData;
+import com.bukang.payout.domain.exception.PayoutOrderLookupUnavailableException;
 
 /**
  * 주문 서비스의 1차 정산용 판매 집계 내부 API를 HTTP로 부르는 어댑터 (PRO-214)
@@ -42,14 +44,20 @@ public class OrderSoldSummaryAdapter implements SoldSummaryPort {
 
 	@Override
 	public List<SoldSummary> summarizeSold(long raceId) {
-		RsData<List<SoldSummaryResponse>> body = restClient.get()
-			.uri(PATH, raceId)
-			.retrieve()
-			.body(new ParameterizedTypeReference<>() {
-			});
+		RsData<List<SoldSummaryResponse>> body;
+		try {
+			body = restClient.get()
+				.uri(PATH, raceId)
+				.retrieve()
+				.body(new ParameterizedTypeReference<>() {
+				});
+		} catch (RestClientException exception) {
+			throw new PayoutOrderLookupUnavailableException(raceId, exception);
+		}
 
 		if (body == null || body.data() == null) {
-			throw new IllegalStateException("주문 서비스의 판매 집계 응답이 비어 있습니다. raceId=%d".formatted(raceId));
+			throw new PayoutOrderLookupUnavailableException(raceId,
+				new IllegalStateException("주문 서비스의 판매 집계 응답이 비어 있습니다."));
 		}
 		return body.data().stream()
 			.map(SoldSummaryResponse::toSoldSummary)

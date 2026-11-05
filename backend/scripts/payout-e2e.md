@@ -26,7 +26,7 @@ node scripts/payout-e2e.mjs         # backend/에서 실행. Node 18 이상 (fet
 
 예: 2026-10-13에 실행
 
-| 대회 | 대회일 | 정산 대상일 | 정산 월 | 지급 예정일 | 넣는 데이터 |
+| 대회 | 대회일 | 정산 생성일 | 정산 월 | 지급 예정일 | 넣는 데이터 |
 |---|---|---|---|---|---|
 | A | 10/12 (어제) | 10/13 (오늘) | 2026-10 | 11/20 | 결제 2장, 결제 전 1장, 결제 후 취소 1장 |
 | C | 10/06 (범위 첫날) | 10/07 | 2026-10 | 11/20 | 결제 1장 |
@@ -52,7 +52,7 @@ node scripts/payout-e2e.mjs         # backend/에서 실행. Node 18 이상 (fet
 | 2-1 | 판매 내역 입력 검증 | 대회 ID 없음 | 400 |
 | 3 | 정산 생성 배치 | 정산 `POST /api/v1/payout/dev/batches/create?today=오늘` | 범위 오늘-7 ~ 오늘-1, A · C 생성, 실패 0. 다시 돌리면 생성 0 (중복 정산 없음) |
 | 4 | 판매자 정산 내역 | 정산 `GET /api/v1/payout/seller/payouts` (`X-Member-Id: 1`) | A: 매출 120,000 / 수수료 6,600 / 지급액 113,400, C: 60,000 / 3,300 / 56,700. 둘 다 CALCULATED, B는 없음 |
-| 4-1 | 정산 항목 | `GET /seller/payout-items` | 참가권 1장 = 1행. 정산 대상일은 A 오늘, C 대회 다음 날. 결제 전 · 취소분은 없음 |
+| 4-1 | 정산 항목 | `GET /seller/payout-items` | 참가권 1장 = 1행. 정산 생성일은 A 오늘, C 대회 다음 날. 결제 전 · 취소분은 없음 |
 | 5 | 환불 막기 | 정산 `GET /internal/v1/payout/refund-eligibility`, 주문 취소 | 오늘 대회는 true, 어제 대회는 false. 정산된 참가권 취소는 409 |
 | 6 | 지급보류 · 해제 | 정산 `POST /payouts/{id}/holds`, `/holds/{id}/release` (`X-Member-Id: 3`) | 보류 201, 다시 보류 409, 상태 HELD → 해제 200, CALCULATED. 해제 뒤 지급 예정일 = max(원래 지급 예정일, 해제일 + 1일) |
 | 7 | 지급 배치 | 정산 `POST /api/v1/payout/dev/batches/pay?today=` | 해제 뒤 · 생성 때 받은 지급 예정일 기준으로, 전날은 그대로 당일에 PAID |

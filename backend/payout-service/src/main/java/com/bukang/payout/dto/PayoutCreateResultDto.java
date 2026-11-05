@@ -3,7 +3,7 @@ package com.bukang.payout.dto;
 import java.time.LocalDate;
 
 /**
- * 정산 대상일 배치 한 번의 결과. 실행 로그와 dev 배치 실행 API 응답에 쓴다
+ * 정산 생성일 배치 한 번의 결과. 실행 로그와 dev 배치 실행 API 응답에 쓴다
  *
  * @param fromRaceDate 이번 실행이 본 대회일 시작 (되돌아보기, 양 끝 포함)
  * @param toRaceDate   이번 실행이 본 대회일 끝 (어제)
