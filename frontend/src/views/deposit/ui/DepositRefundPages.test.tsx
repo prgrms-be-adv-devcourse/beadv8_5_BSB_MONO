@@ -20,7 +20,7 @@ vi.mock('next/navigation', () => ({
 
 function renderWithClient(ui: React.ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
+  return { client, ...render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>) }
 }
 
 type Plan = Record<string, unknown>
@@ -195,6 +195,7 @@ describe('예치금 돌려받기 (M22, 환급 변경안 11/5)', () => {
     expect(bodies[0]).not.toHaveProperty('accountHolder')
     const saved = JSON.parse(sessionStorage.getItem('crewrun:last-withdrawal') ?? '{}') as object
     expect(saved).not.toHaveProperty('maskedAccount')
+    expect(saved).toMatchObject({ cardRefundAmount: 65000 })
   })
 
   it('계좌만: 임시 문장을 보여 주고 계좌를 받는다', async () => {
@@ -243,6 +244,45 @@ describe('예치금 돌려받기 (M22, 환급 변경안 11/5)', () => {
     expect(await screen.findByText('돌려받을 금액을 불러오지 못했어요.')).toBeInTheDocument()
     expect(screen.queryByText('65,000원')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /돌려받기 신청/ })).toBeDisabled()
+  })
+
+  it.each([
+    ['계좌 몫이 있는데 계좌 입력이 필요 없다고 옴', { ...MIXED, accountRequired: false }],
+    ['계좌 몫이 없는데 계좌 입력이 필요하다고 옴', { ...CARD_ONLY, accountRequired: true }],
+    ['두 몫의 합이 돌려받을 금액과 다름', { ...MIXED, balance: 70000 }],
+  ])('%s: 계약과 다른 응답으로 보고 신청을 막는다', async (_, data) => {
+    server.use(planHandler(data))
+    renderWithClient(<DepositRefundPage />)
+
+    expect(await screen.findByText('돌려받을 금액을 불러오지 못했어요.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /돌려받기 신청/ })).toBeDisabled()
+  })
+
+  it('응답 모양 검사 실패는 다시 받아도 같으니 다시 요청하지 않는다', async () => {
+    let calls = 0
+    server.use(
+      http.get('*/api/v1/cash/withdrawals/preview', () => {
+        calls += 1
+        return HttpResponse.json({ status: 200, message: '아무 문구', data: { balance: 'x' } })
+      }),
+    )
+    const client = new QueryClient()
+    render(
+      <QueryClientProvider client={client}>
+        <DepositRefundPage />
+      </QueryClientProvider>,
+    )
+
+    expect(await screen.findByText('돌려받을 금액을 불러오지 못했어요.')).toBeInTheDocument()
+    expect(calls).toBe(1)
+  })
+
+  it('펼치기 버튼이 가리키는 목록은 접혀 있어도 화면에 있다(숨김)', async () => {
+    renderWithClient(<DepositRefundPage />)
+
+    const toggle = await screen.findByRole('button', { name: '충전별 내역 상세보기' })
+    const id = toggle.getAttribute('aria-controls') ?? ''
+    expect(document.getElementById(id)).toHaveAttribute('hidden')
   })
 
   it('돌려받을 금액이 0원이면 신청 버튼을 막는다', async () => {
@@ -338,6 +378,43 @@ describe('예치금 돌려받기 (M22, 환급 변경안 11/5)', () => {
       maskedAccount: '123456-**-***567',
       accountHolder: '김러너',
     })
+  })
+
+  it('결과를 모르는 실패 뒤 다시 불러온 금액이 0원이어도 같은 키로 다시 보낼 수 있다', async () => {
+    const keys: string[] = []
+    server.use(
+      http.post('*/api/v1/cash/withdrawals', ({ request }) => {
+        keys.push(request.headers.get('Idempotency-Key') ?? '')
+        if (keys.length === 1) return HttpResponse.error()
+        return okWithdrawal()
+      }),
+    )
+    const user = userEvent.setup()
+    const { client } = renderWithClient(<DepositRefundPage />)
+
+    const button = await submit()
+    await fillAccount(user)
+    await user.click(button)
+    await screen.findByText('잠시 뒤 다시 시도해 주세요.')
+
+    // 서버는 처음 요청을 처리해 잔액이 0원이 됐다
+    server.use(
+      planHandler({
+        balance: 0,
+        cardRefundAmount: 0,
+        accountRefundAmount: 0,
+        accountRequired: false,
+        earliestCardCancelDate: null,
+        charges: [],
+      }),
+    )
+    await client.invalidateQueries()
+    const again = await submit('0원')
+    expect(again).toBeEnabled()
+    await user.click(again)
+
+    await vi.waitFor(() => expect(push).toHaveBeenCalledWith('/me/deposit/refund/done'))
+    expect(keys[1]).toBe(keys[0])
   })
 
   it('서버가 거절(4xx)하면 입력 잠금을 풀어 고칠 수 있다', async () => {
@@ -462,6 +539,26 @@ describe('예치금 돌려받기 · 환급 완료 (M22-1)', () => {
     expect(screen.getByText('₩0')).toBeInTheDocument()
     expect(screen.getByText('10/6 (화) 14:20')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '예치금 보기' })).toHaveAttribute('href', '/me/deposit')
+  })
+
+  it('카드와 계좌로 나눠 돌려받았으면 전부 계좌로 보냈다고 쓰지 않는다', () => {
+    sessionStorage.setItem(
+      'crewrun:last-withdrawal',
+      JSON.stringify({
+        amount: 65000,
+        balance: 0,
+        cardRefundAmount: 60000,
+        bankName: '국민은행',
+        maskedAccount: '123456-**-***567',
+        accountHolder: '김러너',
+        at: Date.now(),
+      }),
+    )
+    renderWithClient(<DepositRefundDonePage />)
+
+    expect(screen.getByRole('heading', { name: '예치금을 돌려받았어요' })).toBeInTheDocument()
+    expect(screen.queryByText('남은 예치금 전부를 아래 계좌로 보냈어요.')).not.toBeInTheDocument()
+    expect(screen.getByText('국민은행 123456-**-***567')).toBeInTheDocument()
   })
 
   it('카드로만 돌려받아 계좌가 없으면 계좌 · 예금주 줄을 보여 주지 않는다', () => {
