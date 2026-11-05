@@ -50,8 +50,9 @@ public class RestKakaoTalkClient implements KakaoTalkClient {
 				.retrieve()
 				.body(Map.class);
 		} catch (RestClientResponseException exception) {
-			if (exception.getStatusCode().is4xxClientError()) {
-				// invalid_grant: 리프레시 토큰이 지났거나 폐기됨. 다시 동의해야 한다
+			// invalid_grant만 리프레시 토큰 문제(지났거나 폐기됨)라서 다시 동의하게 한다
+			// 앱 키 오류·요청 과다 같은 다른 거절은 회원 토큰을 지우지 않도록 카카오 장애로 본다
+			if (exception.getStatusCode().is4xxClientError() && "invalid_grant".equals(errorField(exception))) {
 				log.info("카카오 토큰 갱신이 거절됐습니다. status={}", exception.getStatusCode().value());
 				throw new KakaoApiException(KakaoApiException.INVALID_TOKEN);
 			}
@@ -92,12 +93,34 @@ public class RestKakaoTalkClient implements KakaoTalkClient {
 		// uuid는 요청 DTO가 영문·숫자·기호 일부만 받으므로 따옴표를 붙여도 JSON이 깨지지 않는다
 		form.add("receiver_uuids", "[\"" + receiverUuid + "\"]");
 		form.add("template_object", templateObjectJson);
-		call(() -> kapi.post().uri(SEND_PATH)
+		Map<?, ?> body = call(() -> kapi.post().uri(SEND_PATH)
 			.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
 			.contentType(MediaType.APPLICATION_FORM_URLENCODED)
 			.body(form)
 			.retrieve()
-			.toBodilessEntity());
+			.body(Map.class));
+		// 200이어도 받는 사람이 성공 목록에 없으면 실패다. failure_info의 오류 코드로 알린다
+		if (body == null || !(body.get("successful_receiver_uuids") instanceof List<?> succeeded)
+			|| !succeeded.contains(receiverUuid)) {
+			throw new KakaoApiException(failureCode(body));
+		}
+	}
+
+	private static int failureCode(Map<?, ?> body) {
+		if (body != null && body.get("failure_info") instanceof List<?> failures && !failures.isEmpty()
+			&& failures.get(0) instanceof Map<?, ?> failure && failure.get("code") instanceof Number code) {
+			return code.intValue();
+		}
+		return KakaoApiException.UNKNOWN;
+	}
+
+	private static String errorField(RestClientResponseException exception) {
+		try {
+			Map<?, ?> body = exception.getResponseBodyAs(Map.class);
+			return body != null && body.get("error") instanceof String error ? error : null;
+		} catch (RuntimeException notJson) {
+			return null;
+		}
 	}
 
 	// 받는 사람이 한 명이면 카카오는 실패를 failure_info 없이 오류 코드로 답한다

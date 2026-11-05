@@ -53,7 +53,7 @@ public class ApiV1KakaoCrewInviteController {
 		@ApiResponse(responseCode = "201", description = "발급 성공",
 			headers = @Header(name = HttpHeaders.SET_COOKIE,
 				description = "oauth2Link=...; Path=/api/v1/auth/oauth2/authorize; Max-Age=120; "
-					+ "Secure; HttpOnly; SameSite=Lax"),
+					+ "Secure; HttpOnly; SameSite=Lax", schema = @Schema(type = "string")),
 			content = @Content(examples = @ExampleObject(value = KakaoInviteApiExamples.CONSENT_TICKET_SUCCESS))),
 		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음 (로그인하지 않은 요청)",
 			content = @Content(schema = @Schema(implementation = RsData.class),

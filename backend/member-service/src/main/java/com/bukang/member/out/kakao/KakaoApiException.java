@@ -12,6 +12,8 @@ public class KakaoApiException extends RuntimeException {
 	public static final int INSUFFICIENT_SCOPES = -402;
 	public static final int APP_LIMIT_EXCEEDED = -10;
 	public static final int SENDER_DAILY_LIMIT_EXCEEDED = -532;
+	// 200 응답에 실패 정보가 없거나 읽을 수 없음
+	public static final int UNKNOWN = 0;
 
 	private final int code;
 

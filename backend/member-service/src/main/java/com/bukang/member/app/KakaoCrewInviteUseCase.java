@@ -87,7 +87,8 @@ public class KakaoCrewInviteUseCase {
 
 		List<String> sent = new ArrayList<>();
 		List<Failure> failures = new ArrayList<>();
-		for (String uuid : receiverUuids) {
+		for (int i = 0; i < receiverUuids.size(); i++) {
+			String uuid = receiverUuids.get(i);
 			CrewInviteCreatedDto invite = crewFacade.createInvite(memberId, crewId);
 			try {
 				// 초대 토큰 원문은 메시지 안에만 싣고 응답·로그에는 남기지 않는다
@@ -96,8 +97,14 @@ public class KakaoCrewInviteUseCase {
 			} catch (KakaoApiException exception) {
 				crewFacade.cancelInvite(memberId, crewId, invite.inviteId());
 				if (exception.isTokenProblem()) {
+					// 토큰을 지우고 멈춘다. 이미 보낸 사람이 있으면 200으로 알려, 다시 동의한 뒤 같은 사람에게 또 보내지 않게 한다
 					kakaoMessageTokens.discard(memberId);
-					throw new KakaoMessageConsentRequiredException();
+					if (sent.isEmpty()) {
+						throw new KakaoMessageConsentRequiredException();
+					}
+					receiverUuids.subList(i, receiverUuids.size())
+						.forEach(rest -> failures.add(new Failure(rest, Reason.KAKAO_ERROR)));
+					break;
 				}
 				failures.add(new Failure(uuid, exception.isDailyLimit() ? Reason.DAILY_LIMIT : Reason.KAKAO_ERROR));
 			} catch (KakaoUnavailableException exception) {
