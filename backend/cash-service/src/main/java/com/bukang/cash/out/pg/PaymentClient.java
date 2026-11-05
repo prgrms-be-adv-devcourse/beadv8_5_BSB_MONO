@@ -12,6 +12,7 @@ public interface PaymentClient {
 	PaymentLookupResult lookupByOrderId(String orderId);
 
 	// paymentKey로 결제 중 cancelAmount만큼 취소한다. 남은 결제 금액과 같으면 전액 취소가 된다.
+	// idempotencyKey가 같은 요청은 PG가 한 번만 처리하므로, 결과를 모를 때 같은 키로 다시 불러 확인한다.
 	// 실패하면 PaymentCancelFailedException을 던진다.
-	PaymentCancelResult cancel(String paymentKey, String cancelReason, long cancelAmount);
+	PaymentCancelResult cancel(String paymentKey, String cancelReason, long cancelAmount, String idempotencyKey);
 }

@@ -28,7 +28,9 @@ public class TossPaymentClient implements PaymentClient {
 	}
 
 	@Override
-	public PaymentCancelResult cancel(String paymentKey, String cancelReason, long cancelAmount) {
-		return cancelClient.cancel(paymentKey, cancelReason, cancelAmount);
+	public PaymentCancelResult cancel(
+		String paymentKey, String cancelReason, long cancelAmount, String idempotencyKey
+	) {
+		return cancelClient.cancel(paymentKey, cancelReason, cancelAmount, idempotencyKey);
 	}
 }
