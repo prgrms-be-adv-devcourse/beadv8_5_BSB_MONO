@@ -22,6 +22,7 @@ import com.bukang.order.dto.OrderDto;
 import com.bukang.order.dto.OrderItemDto;
 import com.bukang.order.dto.OrderSummaryDto;
 import com.bukang.order.dto.ShippingAddressDto;
+import com.bukang.order.out.delivery.DeliveryTrackingResult;
 import com.bukang.order.out.race.RaceCourseInfo;
 
 import jakarta.persistence.Column;
@@ -243,7 +244,7 @@ public class Order extends BaseIdAndTime {
 
 	// 판매자가 키트를 보냈다(발송 대기 → 배송 중). 결제한 참가권의 키트만, 한 번만 발송한다
 	// 환불 기한이 지났는지는 종목 정보를 알아야 해서 부르는 쪽(KitDeliveryUseCase)이 확인한다
-	public void shipKit(OrderItem item, String carrier, String trackingNumber, LocalDateTime shippedAt) {
+	public void shipKit(OrderItem item, DeliveryCarrier carrier, String trackingNumber, LocalDateTime shippedAt) {
 		checkKitShippable(item);
 		findKitShipment(item).ship(carrier, trackingNumber, shippedAt);
 	}
@@ -271,6 +272,16 @@ public class Order extends BaseIdAndTime {
 				? "키트가 없는 참가권입니다." : "아직 발송하지 않은 키트입니다.");
 		}
 		shipment.completeDelivery(deliveredAt);
+	}
+
+	// 조회 배치가 받아 온 배송 상태를 남긴다 (BUK-55). 배송 완료면 키트도 배송 완료가 된다(Shipment.applyTracking)
+	// 이번에 배송 완료로 바꿨으면 true
+	public boolean applyKitTracking(long shipmentId, DeliveryTrackingResult result, LocalDateTime trackedAt) {
+		return shipments.stream()
+			.filter(shipment -> shipment.getId() == shipmentId)
+			.findFirst()
+			.orElseThrow()
+			.applyTracking(result, trackedAt);
 	}
 
 	// 주문 상품이 든 배송. 재발송이 생기면 여러 건일 수 있어 가장 나중 것을 쓴다. 키트가 없거나 결제 전이면 null

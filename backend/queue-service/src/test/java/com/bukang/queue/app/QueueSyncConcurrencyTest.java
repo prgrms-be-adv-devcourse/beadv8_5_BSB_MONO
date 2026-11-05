@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.bukang.common.shared.kafka.KafkaTopics;
 import com.bukang.common.shared.race.domain.RaceSaleStatus;
 import com.bukang.queue.domain.QueueRace;
 import com.bukang.queue.support.QueueIntegrationTest;
@@ -48,9 +49,10 @@ class QueueSyncConcurrencyTest extends QueueIntegrationTest {
 		try {
 			CountDownLatch rowLocked = new CountDownLatch(1);
 			// 본 리스너: 새 메시지 (상태 배치가 판매 중으로 바꿈). 옛 메시지가 대회 행을 잠근 뒤에 출발한다
-			Future<QueueRace> newer = pool.submit(() -> {
+			Future<?> newer = pool.submit(() -> {
 				rowLocked.await();
-				return syncRace(RaceSaleStatus.ON_SALE, at(11));
+				syncRace(RaceSaleStatus.ON_SALE, at(11));
+				return null;
 			});
 
 			// 재시도 리스너: 늦게 온 옛 메시지. 대회 행을 잠그고 반영한 뒤 아직 커밋하지 않은 채로 둔다
@@ -84,9 +86,10 @@ class QueueSyncConcurrencyTest extends QueueIntegrationTest {
 		try {
 			CountDownLatch rowLocked = new CountDownLatch(1);
 			// 재시도 리스너: 늦게 온 옛 메시지. 새 메시지가 대회 행을 잠근 뒤에 출발한다
-			Future<QueueRace> older = pool.submit(() -> {
+			Future<?> older = pool.submit(() -> {
 				rowLocked.await();
-				return syncRace(RaceSaleStatus.SCHEDULED, at(10));
+				syncRace(RaceSaleStatus.SCHEDULED, at(10));
+				return null;
 			});
 
 			// 본 리스너: 새 메시지 (상태 배치가 판매 중으로 바꿈). 대회 행을 잠그고 반영한 뒤 아직 커밋하지 않은 채로 둔다
@@ -110,8 +113,11 @@ class QueueSyncConcurrencyTest extends QueueIntegrationTest {
 			new QueueRace(RACE_ID, RaceSaleStatus.ON_SALE, INDIVIDUAL_OPEN_AT, APPLICATION_CLOSE_AT, at(11)));
 	}
 
-	private QueueRace syncRace(RaceSaleStatus saleStatus, LocalDateTime updatedAt) {
-		return queueFacade.syncRace(RACE_ID, saleStatus, INDIVIDUAL_OPEN_AT, APPLICATION_CLOSE_AT, updatedAt);
+	// 대회 변경 메시지를 받은 것처럼 Facade를 부른다
+	// 이 테스트는 서로 다른 메시지가 겹칠 때의 잠금을 보므로 메시지 ID 없이(인박스를 거치지 않고) 부른다
+	private void syncRace(RaceSaleStatus saleStatus, LocalDateTime updatedAt) {
+		queueFacade.syncRace(null, KafkaTopics.RACE_CHANGED, RACE_ID, saleStatus, INDIVIDUAL_OPEN_AT,
+			APPLICATION_CLOSE_AT, updatedAt);
 	}
 
 	// millis 동안 future가 끝나기를 기다린다. 그 안에 끝나지 않아도 넘어간다

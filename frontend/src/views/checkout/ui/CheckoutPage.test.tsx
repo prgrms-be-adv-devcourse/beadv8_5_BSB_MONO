@@ -328,6 +328,20 @@ describe('결제 화면', () => {
     expect(screen.queryByText('결제하지 못했어요')).not.toBeInTheDocument()
   })
 
+  it('앞선 충전 결과를 아직 모르면 결제창을 띄우지 않고 기다리라고 안내한다', async () => {
+    requestCharge.mockResolvedValue('held')
+    server.use(payHandler(() => conflict('ORDER_INSUFFICIENT_BALANCE', { shortage: 12_000 })))
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    renderCheckout()
+
+    const pay = await screen.findByRole('button', { name: '₩45,000 결제' })
+    await agree(user)
+    await user.click(pay)
+
+    expect(await screen.findByText('앞선 충전 결과를 확인하고 있어요')).toBeInTheDocument()
+    await vi.waitFor(() => expect(pay).toBeEnabled())
+  })
+
   it('토스 결제창을 띄우지 못하면 결제 실패 화면(M07-3)을 보여 준다', async () => {
     requestCharge.mockRejectedValue(new Error('no client key'))
     server.use(payHandler(() => conflict('ORDER_INSUFFICIENT_BALANCE', { shortage: 12_000 })))

@@ -93,7 +93,7 @@ async function buy(courseId, { pay = true, cancel = false } = {}) {
 
 // ── 1. 데이터 만들기 ─────────────────────────────────────────────
 // 배치는 오늘 실행하면 어제부터 7일치(오늘-7 ~ 오늘-1) 대회를 본다
-const raceDateA = addDays(today, -1);   // 어제: 오늘이 정산 대상일
+const raceDateA = addDays(today, -1);   // 어제: 오늘이 정산 생성일
 const raceDateC = addDays(today, -7);   // 되돌아보기 첫날 (포함)
 const raceDateB = addDays(today, -8);   // 되돌아보기 밖 (제외)
 const base = 800000 + Math.floor(Math.random() * 90000) * 10;
@@ -158,7 +158,7 @@ check('B는 정산 내역 없음', !payouts.some(p => p.raceId === B));
 const expectPayout = (name, p, target, itemIds) => {
 	const sales = itemIds.reduce((sum, id) => sum + priceOf(id), 0);
 	const fees = itemIds.reduce((sum, id) => sum + fee(priceOf(id)), 0);
-	check(`${name}: 정산 월 = 정산 대상일(${target})의 달`, p?.payoutMonth === monthOf(target), p?.payoutMonth);
+	check(`${name}: 정산 월 = 정산 생성일(${target})의 달`, p?.payoutMonth === monthOf(target), p?.payoutMonth);
 	// 정산 월은 1차면 환불 마감일, 최종이면 대회일의 달이다. 어느 단계든 지급 예정일은 정산 월의 다음 달 20일이다
 	// 정산 월이 없으면(정산 내역 없음 · 필드 이름 바뀜) 날짜 계산이 예외를 던져 뒤 검증이 모두 건너뛰어지므로 계산하지 않고 FAIL로 남긴다
 	const expectedPayDate = p?.payoutMonth ? payDayOf(nextMonthOf(p.payoutMonth)) : undefined;
@@ -175,16 +175,16 @@ const items = (await call('GET', `${PAYOUT}/api/v1/payout/seller/payout-items?fr
 	{ member: SELLER })).json.data.content;
 const itemOf = itemId => items.find(r => r.orderItemId === itemId);
 check('정산 항목: 참가권 1장 = 1행 (A 2행, C 1행)', itemOf(a1.itemId) && itemOf(a2.itemId) && itemOf(c1.itemId));
-check('정산 항목의 정산 대상일 (A 오늘, C 대회 다음 날)', itemOf(a1.itemId)?.targetDate === targetA
+check('정산 항목의 정산 생성일 (A 오늘, C 대회 다음 날)', itemOf(a1.itemId)?.targetDate === targetA
 	&& itemOf(c1.itemId)?.targetDate === targetC);
 check('결제 전 · 취소 참가권은 정산 항목 없음', !itemOf(aUnpaid.itemId) && !itemOf(aCanceled.itemId));
 note('요약', JSON.stringify((await call('GET', `${PAYOUT}/api/v1/payout/seller/summary`, { member: SELLER })).json.data));
 
-// ── 5. 정산 대상일부터 환불 막기 ──────────────────────────────────
+// ── 5. 정산 생성일부터 환불 막기 ──────────────────────────────────
 const eligible = (await call('GET', `${PAYOUT}/internal/v1/payout/refund-eligibility?raceDate=${today}`)).json.data;
 check('환불 가능 여부: 오늘 대회는 true', eligible.refundable === true, JSON.stringify(eligible));
 const blocked = (await call('GET', `${PAYOUT}/internal/v1/payout/refund-eligibility?raceDate=${raceDateA}`)).json.data;
-check('환불 가능 여부: 어제 대회(오늘이 정산 대상일)는 false', blocked.refundable === false, JSON.stringify(blocked));
+check('환불 가능 여부: 어제 대회(오늘이 정산 생성일)는 false', blocked.refundable === false, JSON.stringify(blocked));
 const lateCancel = await call('POST', `${ORDER}/api/v1/order/orders/${a1.orderId}/items/${a1.itemId}/cancel`,
 	{ member: a1.member });
 check('정산된 참가권 취소는 409', lateCancel.http === 409, `HTTP ${lateCancel.http} ${lateCancel.json?.message ?? ''}`);

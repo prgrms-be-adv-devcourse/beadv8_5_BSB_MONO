@@ -7,7 +7,7 @@ import com.bukang.payout.domain.exception.PayoutQueryException;
 
 /**
  * 판매자 정산 조회의 기간 한도 (payout.md 1장 조회 · 보관 2번)
- * 정산 내역은 정산 월로 최대 12개월, 건별 정산은 정산 대상일 · 지급보류는 보류한 날로 최대 1개월까지 한 번에 조회한다
+ * 정산 내역은 정산 월로 최대 12개월, 건별 정산은 정산 생성일 · 지급보류는 보류한 날로 최대 1개월까지 한 번에 조회한다
  * 기준 날짜는 나중에 바뀌지 않는 값만 쓴다. 지급 예정일은 보류를 풀면 바뀌어 같은 조건의 조회 결과가 달라지므로 쓰지 않는다
  */
 public final class PayoutQueryPeriod {

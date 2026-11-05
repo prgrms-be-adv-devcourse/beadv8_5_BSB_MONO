@@ -30,10 +30,13 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class FileFacade {
 	private static final String UPLOAD_METHOD = "PUT";
+	// 인박스에 남길 컨슈머 그룹. FileKafkaConsumer의 groupId와 같은 값이다
+	private static final String KAFKA_GROUP_ID = "file";
 
 	private final FileUploadUseCase fileUploadUseCase;
 	private final FileLinkUseCase fileLinkUseCase;
 	private final FileCleanupUseCase fileCleanupUseCase;
+	private final FileInboxUseCase fileInboxUseCase;
 	private final StoredFileRepository storedFileRepository;
 	private final FileStorage fileStorage;
 	private final TransactionTemplate transactionTemplate;
@@ -68,10 +71,13 @@ public class FileFacade {
 
 	// 대상 서비스가 Kafka로 보낸 연결 요청 (FileKafkaConsumer). 여러 대상을 한 트랜잭션으로 연결하므로
 	// 하나라도 실패하면 모두 되돌린다 (대회는 연결되고 종목만 빠지는 일이 없다)
+	// 인박스에 남긴 뒤 연결하고, 이미 처리한 메시지면 건너뛴다. 연결이 실패해 롤백되면 인박스 행도 없어져 다시 받은 메시지를 처리한다
 	@Transactional
-	public void linkAll(FileLinkRequestedEvent event) {
-		event.refs().forEach(ref ->
-			fileLinkUseCase.link(ref.refType(), ref.refId(), event.ownerId(), toLinkItems(ref.files())));
+	public void linkAll(String messageId, String topic, long ownerId, List<FileLinkRequestedEvent.Ref> refs) {
+		if (fileInboxUseCase.tryRecord(messageId, KAFKA_GROUP_ID, topic, LocalDateTime.now())) {
+			refs.forEach(ref ->
+				fileLinkUseCase.link(ref.refType(), ref.refId(), ownerId, toLinkItems(ref.files())));
+		}
 	}
 
 	private List<FileLinkItemDto> toLinkItems(List<FileLinkRequestedEvent.Item> files) {

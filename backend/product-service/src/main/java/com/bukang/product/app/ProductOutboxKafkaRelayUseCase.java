@@ -9,10 +9,12 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.springframework.data.domain.Limit;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
+import com.bukang.common.shared.kafka.KafkaMessageId;
 import com.bukang.product.domain.OutboxStatus;
 import com.bukang.product.domain.ProductOutboxKafkaEvent;
 import com.bukang.product.out.ProductOutboxKafkaEventRepository;
@@ -31,6 +33,7 @@ import lombok.extern.slf4j.Slf4j;
  * SEND_FAILED가 되면 그 토픽·대회의 뒤 메시지는 다음 실행부터 다시 나간다. 이때 순서가 깨지므로 SEND_FAILED는 사람이 확인한다.
  * 한 번에 BATCH_SIZE건만 읽으므로, 막힌 메시지가 그만큼 쌓이면 뒤의 다른 메시지는 막힘이 풀릴 때까지 늦어진다.
  * 브로커가 받은 뒤 SENT로 커밋하기 전에 앱이 죽으면 다음 실행에 한 번 더 보낸다 (최소 한 번 전달). 받는 쪽은 같은 메시지를 두 번 받아도 되게 처리한다.
+ * 그래서 메시지마다 message-id 헤더에 아웃박스 행 ID로 만든 값(product-outbox-{행 id})을 붙인다. 다시 보내도 같은 값이라 받는 쪽 인박스가 거른다.
  * 앱을 여러 대 띄우면 같은 행을 함께 보낼 수 있다. 지금은 한 대만 띄우므로 행을 잠그지 않는다.
  */
 @Slf4j
@@ -47,6 +50,8 @@ public class ProductOutboxKafkaRelayUseCase {
 	static final Duration MAX_RETRY_DELAY = Duration.ofMinutes(1);
 	// 브로커 응답을 기다리는 최대 시간
 	private static final long SEND_TIMEOUT_SECONDS = 5;
+	// 메시지 ID에 붙일 서비스 이름 (product-outbox-{행 id})
+	private static final String SERVICE = "product";
 
 	private final ProductOutboxKafkaEventRepository productOutboxKafkaEventRepository;
 	private final KafkaTemplate<String, String> kafkaTemplate;
@@ -92,9 +97,11 @@ public class ProductOutboxKafkaRelayUseCase {
 	}
 
 	private boolean send(ProductOutboxKafkaEvent event) {
+		// 메시지 ID는 아웃박스 행 ID로 만든다. 메시지 key(대회 ID)는 같은 대회의 다른 메시지와 겹치므로 쓰지 않는다
+		ProducerRecord<String, String> message = KafkaMessageId.record(event.getEventType(), event.getMessageKey(),
+			event.getPayload(), KafkaMessageId.ofOutbox(SERVICE, event.getId()));
 		try {
-			kafkaTemplate.send(event.getEventType(), event.getMessageKey(), event.getPayload())
-				.get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+			kafkaTemplate.send(message).get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS);
 			return true;
 		} catch (InterruptedException exception) {
 			Thread.currentThread().interrupt();

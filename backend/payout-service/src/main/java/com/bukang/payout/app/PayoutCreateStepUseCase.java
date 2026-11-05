@@ -10,8 +10,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.bukang.payout.domain.BusinessDayCalendar;
 import com.bukang.payout.domain.Payout;
+import com.bukang.payout.domain.PayoutCreateDate;
 import com.bukang.payout.domain.PayoutStage;
-import com.bukang.payout.domain.PayoutTargetDate;
 import com.bukang.payout.domain.TwoStagePayoutCalculator;
 import com.bukang.payout.out.PayoutRepository;
 import com.bukang.payout.out.SoldEntry;
@@ -41,11 +41,11 @@ public class PayoutCreateStepUseCase {
 	 */
 	@Transactional
 	public void createFirst(FirstPayoutSource source, LocalDate refundDeadline, LocalDateTime now) {
-		LocalDate targetDate = PayoutTargetDate.firstOf(refundDeadline);
+		LocalDate createDate = PayoutCreateDate.firstOf(refundDeadline);
 		Payout payout = Payout.first(source.sellerId(), source.raceId(), source.raceName(),
 			refundDeadline, now, businessDayCalendar);
 		source.courses().forEach(course ->
-			payout.recordAdvance(course.raceCourseId(), course.priceSum(), course.ticketCount(), targetDate));
+			payout.recordAdvance(course.raceCourseId(), course.priceSum(), course.ticketCount(), createDate));
 
 		save(payout);
 		payoutHoldUseCase.holdNew(payout, source.hasPayoutAccount(), now);
@@ -58,7 +58,7 @@ public class PayoutCreateStepUseCase {
 	 */
 	@Transactional
 	public void createFinal(FinalPayoutSource source, LocalDate raceDate, LocalDateTime now) {
-		LocalDate targetDate = PayoutTargetDate.of(raceDate);
+		LocalDate createDate = PayoutCreateDate.of(raceDate);
 		Optional<Payout> first = payoutRepository.findFirstBySellerIdAndRaceIdAndPayoutStageOrderByIdAsc(
 			source.sellerId(), source.raceId(), PayoutStage.FIRST);
 		if (first.isEmpty()) {
@@ -72,7 +72,7 @@ public class PayoutCreateStepUseCase {
 
 		source.entries().forEach(entry ->
 			payout.addItem(entry.orderItemId(), entry.raceCourseId(), entry.price(), TwoStagePayoutCalculator.FEE_RATE,
-				targetDate));
+				createDate));
 
 		save(payout);
 		payoutLedgerUseCase.deductAdvanceAndSettle(payout, now);

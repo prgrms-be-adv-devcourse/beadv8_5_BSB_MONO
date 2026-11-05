@@ -7,7 +7,7 @@ final class DevPayoutBatchApiExamples {
 	static final String CREATE_SUCCESS = """
 		{
 			"status": 200,
-			"message": "정산 대상일 배치를 실행했습니다.",
+			"message": "정산 생성일 배치를 실행했습니다.",
 			"data": {
 				"fromRaceDate": "2026-10-06", "toRaceDate": "2026-10-12", "created": 2, "skipped": 0, "failed": 0
 			}

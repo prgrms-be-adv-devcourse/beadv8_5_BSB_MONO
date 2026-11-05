@@ -5,8 +5,10 @@ import java.time.Duration;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
 import com.bukang.common.global.rsdata.RsData;
+import com.bukang.payout.domain.exception.PayoutSellerAccountLookupUnavailableException;
 
 /**
  * 캐시 서비스에 판매자 정산 계좌 등록 여부를 묻는 어댑터 (PRO-224)
@@ -41,14 +43,20 @@ public class CashSellerAccountAdapter implements SellerAccountPort {
 
 	@Override
 	public boolean hasPayoutAccount(long sellerId) {
-		RsData<PayoutAccountResponse> body = restClient.get()
-			.uri(PATH, sellerId)
-			.retrieve()
-			.body(new ParameterizedTypeReference<>() {
-			});
+		RsData<PayoutAccountResponse> body;
+		try {
+			body = restClient.get()
+				.uri(PATH, sellerId)
+				.retrieve()
+				.body(new ParameterizedTypeReference<>() {
+				});
+		} catch (RestClientException exception) {
+			throw new PayoutSellerAccountLookupUnavailableException(sellerId, exception);
+		}
 
 		if (body == null || body.data() == null || body.data().registered() == null) {
-			throw new IllegalStateException("캐시 서비스의 정산 계좌 응답이 비어 있습니다. sellerId=%d".formatted(sellerId));
+			throw new PayoutSellerAccountLookupUnavailableException(sellerId,
+				new IllegalStateException("캐시 서비스의 정산 계좌 응답이 비어 있습니다."));
 		}
 		return body.data().registered();
 	}
