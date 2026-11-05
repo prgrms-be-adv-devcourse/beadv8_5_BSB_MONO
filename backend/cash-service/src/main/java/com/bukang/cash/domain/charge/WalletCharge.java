@@ -49,6 +49,8 @@ public class WalletCharge extends BaseIdAndTime {
 	private LocalDateTime chargeDate;
 	// PG가 승인한 시각(한국 시간). PG 결제취소 기한의 기준이다. 이 칸을 더하기 전에 완료된 충전은 null이다
 	private LocalDateTime approvedAt;
+	// 이 충전에서 PG 결제취소로 이미 돌려준 금액. 부분 취소를 여러 번 하면 더해진다
+	private long canceledAmount;
 
 	public WalletCharge(Wallet wallet, long amount, String pgProvider, String idempotencyKey) {
 		this.wallet = wallet;
@@ -72,6 +74,16 @@ public class WalletCharge extends BaseIdAndTime {
 	// PG 결제취소 기한의 기준 시각. 승인 시각이 없는 예전 충전은 서버가 저장한 충전 시각으로 대신한다
 	public LocalDateTime approvedAtOrChargeDate() {
 		return approvedAt != null ? approvedAt : chargeDate;
+	}
+
+	// 충전 금액보다 많이 돌려주면 같은 돈을 두 번 돌려주는 것이라, 호출하는 쪽 버그로 보고 막는다
+	public void recordCancel(long amount) {
+		if (canceledAmount + amount > this.amount) {
+			throw new IllegalArgumentException(
+				"충전 금액보다 많이 취소할 수 없습니다. chargeId=" + getId() + ", 남은 금액=" + (this.amount - canceledAmount)
+					+ ", 요청 금액=" + amount);
+		}
+		this.canceledAmount += amount;
 	}
 
 	public void markFailed() {
