@@ -17,6 +17,7 @@ import com.bukang.order.domain.Participation;
 import com.bukang.order.domain.ParticipationType;
 import com.bukang.order.domain.Party;
 import com.bukang.order.domain.PartyMember;
+import com.bukang.order.domain.PartyStatus;
 import com.bukang.order.domain.exception.ApplicationPeriodException;
 import com.bukang.order.domain.exception.CrewNotFoundException;
 import com.bukang.order.domain.exception.DuplicateParticipationException;
@@ -125,6 +126,13 @@ public class PartyUseCase {
 				.ifPresentOrElse(next -> party.handOverLeader(next.getMemberId()), () -> party.close(now));
 		}
 		return participation;
+	}
+
+	// [대회 참가 신청] 전에 프론트가 묻는다. 파티 대기열은 파티장 회원 ID로만 줄을 세우므로 파티장인지는 주문이 답한다 (BUK-91)
+	// 「참가하려는 파티」는 그 대회에서 이 회원이 파티장인, 종료되지 않은 파티로 본다. 읽기만 해서 잠그지 않는다
+	public Optional<Party> findLedParty(long raceId, long memberId) {
+		return partyRepository.findFirstByRaceIdAndLeaderMemberIdAndStatusNotOrderByIdDesc(
+			raceId, memberId, PartyStatus.CLOSED);
 	}
 
 	private static PartyNotFoundException joinLinkNotFound() {

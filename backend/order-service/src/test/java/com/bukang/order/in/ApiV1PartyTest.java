@@ -1,6 +1,7 @@
 package com.bukang.order.in;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -337,6 +338,67 @@ class ApiV1PartyTest {
 
 		assertThat(statuses).containsExactlyInAnyOrder(201, 409);
 		assertThat(partyMemberRepository.findAll()).filteredOn(row -> row.getMemberId() == MEMBER).hasSize(1);
+	}
+
+	@Test
+	@DisplayName("파티장 확인: 모집 중 파티장만 신청할 수 있고, 파티원·파티 없는 사람은 200 leader=false, 결제 진행 중이면 상태로 알려 준다")
+	void checkLeader() throws Exception {
+		checkLeader(LEADER, RACE_ID)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.leader").value(false))
+			.andExpect(jsonPath("$.data.canApply").value(false))
+			.andExpect(jsonPath("$.data.partyId").doesNotExist());
+
+		String token = token(create(LEADER, COURSE_HALF));
+		long partyId = partyRepository.findAll().getFirst().getId();
+		join(MEMBER, token).andExpect(status().isCreated());
+
+		checkLeader(LEADER, RACE_ID)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.message").value("이 대회 파티의 파티장입니다."))
+			.andExpect(jsonPath("$.data.leader").value(true))
+			.andExpect(jsonPath("$.data.canApply").value(true))
+			.andExpect(jsonPath("$.data.partyId").value(partyId))
+			.andExpect(jsonPath("$.data.raceCourseId").value(COURSE_HALF))
+			.andExpect(jsonPath("$.data.partyStatus").value("RECRUITING"));
+		checkLeader(MEMBER, RACE_ID)
+			.andExpect(jsonPath("$.data.leader").value(false));
+		checkLeader(LEADER, RACE_ID + 1)
+			.andExpect(jsonPath("$.data.leader").value(false));
+
+		// 파티 신청(BUK-37) 전이라 상태를 직접 바꾼다
+		jdbcTemplate.update("update order_party set status = 'PAYING' where id = ?", partyId);
+		checkLeader(LEADER, RACE_ID)
+			.andExpect(jsonPath("$.data.leader").value(true))
+			.andExpect(jsonPath("$.data.canApply").value(false))
+			.andExpect(jsonPath("$.data.partyStatus").value("PAYING"));
+
+		// 파티장이 나가 넘겨받으면 새 파티장이 파티장이다. 종료된 파티는 보지 않는다
+		jdbcTemplate.update("update order_party set status = 'RECRUITING' where id = ?", partyId);
+		leave(LEADER, partyId).andExpect(status().isOk());
+		checkLeader(LEADER, RACE_ID).andExpect(jsonPath("$.data.leader").value(false));
+		checkLeader(MEMBER, RACE_ID).andExpect(jsonPath("$.data.leader").value(true));
+		leave(MEMBER, partyId).andExpect(status().isOk());
+		checkLeader(MEMBER, RACE_ID).andExpect(jsonPath("$.data.leader").value(false));
+	}
+
+	@Test
+	@DisplayName("파티장 확인: 대회 ID가 없거나 0 이하면 400, 회원 ID 헤더가 없으면 401")
+	void checkLeaderInvalid() throws Exception {
+		mockMvc.perform(get(BASE_URL + "/leader").header("X-Member-Id", LEADER))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message").value("필수 요청 값(raceId)이 없습니다."));
+		checkLeader(LEADER, 0)
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message").value("대회 ID가 올바르지 않습니다."));
+		mockMvc.perform(get(BASE_URL + "/leader").param("raceId", String.valueOf(RACE_ID)))
+			.andExpect(status().isUnauthorized());
+	}
+
+	private ResultActions checkLeader(long memberId, long raceId) throws Exception {
+		return mockMvc.perform(get(BASE_URL + "/leader")
+			.header("X-Member-Id", memberId)
+			.param("raceId", String.valueOf(raceId)));
 	}
 
 	private ResultActions create(long memberId, long raceCourseId) throws Exception {

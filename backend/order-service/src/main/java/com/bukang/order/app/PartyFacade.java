@@ -10,6 +10,7 @@ import com.bukang.order.dto.PartyCreateRequestDto;
 import com.bukang.order.dto.PartyCreatedDto;
 import com.bukang.order.dto.PartyDto;
 import com.bukang.order.dto.PartyJoinRequestDto;
+import com.bukang.order.dto.PartyLeaderDto;
 
 import lombok.RequiredArgsConstructor;
 
@@ -36,5 +37,10 @@ public class PartyFacade {
 
 	public ParticipationDto leave(long partyId, long memberId) {
 		return partyUseCase.leave(partyId, memberId, LocalDateTime.now()).toDto();
+	}
+
+	@Transactional(readOnly = true)
+	public PartyLeaderDto findLeader(long raceId, long memberId) {
+		return partyUseCase.findLedParty(raceId, memberId).map(PartyLeaderDto::of).orElseGet(PartyLeaderDto::notLeader);
 	}
 }

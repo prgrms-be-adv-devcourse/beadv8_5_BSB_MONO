@@ -126,6 +126,53 @@ final class PartyApiExamples {
 		}
 		""";
 
+	static final String LEADER_RECRUITING = """
+		{
+			"status": 200,
+			"message": "이 대회 파티의 파티장입니다.",
+			"data": {
+				"leader": true,
+				"canApply": true,
+				"partyId": 1,
+				"raceCourseId": 2,
+				"partyStatus": "RECRUITING"
+			}
+		}
+		""";
+
+	static final String LEADER_PAYING = """
+		{
+			"status": 200,
+			"message": "이 대회 파티의 파티장입니다.",
+			"data": {
+				"leader": true,
+				"canApply": false,
+				"partyId": 1,
+				"raceCourseId": 2,
+				"partyStatus": "PAYING"
+			}
+		}
+		""";
+
+	static final String NOT_LEADER = """
+		{
+			"status": 200,
+			"message": "이 대회 파티의 파티장이 아닙니다.",
+			"data": {
+				"leader": false,
+				"canApply": false
+			}
+		}
+		""";
+
+	static final String RACE_ID_REQUIRED = """
+		{ "status": 400, "code": "INVALID_REQUEST", "message": "필수 요청 값(raceId)이 없습니다.", "data": null }
+		""";
+
+	static final String INVALID_RACE_ID = """
+		{ "status": 400, "code": "INVALID_REQUEST", "message": "대회 ID가 올바르지 않습니다.", "data": null }
+		""";
+
 	static final String INVALID_INPUT = """
 		{ "status": 400, "code": "INVALID_REQUEST", "message": "참가자 정보를 작성해주세요.", "data": null }
 		""";
