@@ -28,4 +28,10 @@ public class FakePaymentClient implements PaymentClient {
 		// approve가 항상 성공하는 가짜 클라이언트라, 재조회가 실제로 불릴 일이 없다
 		return PaymentLookupResult.notCompleted();
 	}
+
+	@Override
+	public PaymentCancelResult cancel(String paymentKey, String cancelReason) {
+		// 원래 결제 금액을 모르는 가짜 클라이언트라 취소 금액은 항상 0으로 답한다
+		return new PaymentCancelResult(0, "fake-cancel-" + paymentKey);
+	}
 }
