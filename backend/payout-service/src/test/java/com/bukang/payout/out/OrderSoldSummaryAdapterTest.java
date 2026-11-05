@@ -16,6 +16,8 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
+import com.bukang.payout.domain.exception.PayoutOrderLookupUnavailableException;
+
 /**
  * 주문 서비스의 1차 정산용 판매 집계 내부 API(GET /internal/v1/order/sold-summary)를 부르는 어댑터 (PRO-224, 주문 API는 PRO-231)
  * 실제 주문 서비스 대신 MockRestServiceServer로 응답을 흉내 낸다
@@ -77,7 +79,7 @@ class OrderSoldSummaryAdapterTest {
 				""", MediaType.APPLICATION_JSON));
 
 		assertThatThrownBy(() -> adapter.summarizeSold(5))
-			.isInstanceOf(IllegalStateException.class)
+			.isInstanceOf(PayoutOrderLookupUnavailableException.class)
 			.hasMessageContaining("raceId=5");
 	}
 
@@ -86,6 +88,8 @@ class OrderSoldSummaryAdapterTest {
 	void throwsOnServerError() {
 		server.expect(requestTo(URL)).andRespond(withServerError());
 
-		assertThatThrownBy(() -> adapter.summarizeSold(5)).isInstanceOf(RestClientException.class);
+		assertThatThrownBy(() -> adapter.summarizeSold(5))
+			.isInstanceOf(PayoutOrderLookupUnavailableException.class)
+			.hasCauseInstanceOf(RestClientException.class);
 	}
 }

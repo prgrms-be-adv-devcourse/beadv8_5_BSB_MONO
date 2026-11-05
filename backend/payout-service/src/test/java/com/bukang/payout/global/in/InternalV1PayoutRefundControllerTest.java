@@ -40,8 +40,8 @@ class InternalV1PayoutRefundControllerTest {
 		fieldWithPath("status").description("HTTP 상태 코드"),
 		fieldWithPath("message").description("결과 메시지"),
 		fieldWithPath("data.raceDate").description("물어본 대회일"),
-		fieldWithPath("data.payoutTargetDate").description("정산 대상일 (대회 다음 날). 이날부터 환불할 수 없다"),
-		fieldWithPath("data.refundable").description("환불 가능 여부 (오늘이 정산 대상일 전이면 true)")
+		fieldWithPath("data.payoutTargetDate").description("정산 생성일 (대회 다음 날). 이날부터 환불할 수 없다"),
+		fieldWithPath("data.refundable").description("환불 가능 여부 (오늘이 정산 생성일 전이면 true)")
 	);
 
 	private static final Snippet ERROR_RESPONSE = responseFields(
@@ -62,7 +62,7 @@ class InternalV1PayoutRefundControllerTest {
 	}
 
 	@Test
-	@DisplayName("대회 당일이면 정산 대상일(내일) 전이라 환불할 수 있다")
+	@DisplayName("대회 당일이면 정산 생성일(내일) 전이라 환불할 수 있다")
 	void refundableOnRaceDay() throws Exception {
 		LocalDate raceDate = today();
 
@@ -78,7 +78,7 @@ class InternalV1PayoutRefundControllerTest {
 	}
 
 	@Test
-	@DisplayName("어제 열린 대회면 오늘이 정산 대상일이라 환불할 수 없다")
+	@DisplayName("어제 열린 대회면 오늘이 정산 생성일이라 환불할 수 없다")
 	void notRefundableOnTargetDate() throws Exception {
 		LocalDate raceDate = today().minusDays(1);
 

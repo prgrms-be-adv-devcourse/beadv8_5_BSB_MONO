@@ -30,7 +30,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
 /**
- * 개발용: 새벽 스케줄러(03:00 정산 대상일 배치, 04:00 지급 배치)를 기다리지 않고 바로 돌려 확인한다 (MVP 확인용)
+ * 개발용: 새벽 스케줄러(03:00 정산 생성일 배치, 04:00 지급 배치)를 기다리지 않고 바로 돌려 확인한다 (MVP 확인용)
  * dev 프로파일에서만 빈이 만들어져, prod에는 이 경로가 없다
  * today를 넘기면 그날 실행한 것처럼 돈다 (예: 지급 배치를 다음 달 20일로 돌려 지급 완료까지 확인)
  */
@@ -47,7 +47,7 @@ public class DevV1PayoutBatchController {
 	private final PayoutPayUseCase payoutPayUseCase;
 
 	@PostMapping("/create")
-	@Operation(summary = "정산 대상일 배치 실행",
+	@Operation(summary = "정산 생성일 배치 실행",
 		description = "today 기준으로 어제부터 7일치 대회의 판매 내역을 주문 서비스에서 받아, 아직 없는 판매자 × 대회 정산 내역을 만든다. "
 			+ "today를 비우면 오늘(한국 시간)로 돈다.")
 	@ApiResponses({
@@ -63,7 +63,7 @@ public class DevV1PayoutBatchController {
 	) {
 		LocalDateTime now = LocalDateTime.now(ZONE);
 		PayoutCreateResultDto result = payoutCreateUseCase.run(today == null ? now.toLocalDate() : today, now);
-		return ResponseEntity.ok().body(RsData.of(HttpStatus.OK, "정산 대상일 배치를 실행했습니다.", result));
+		return ResponseEntity.ok().body(RsData.of(HttpStatus.OK, "정산 생성일 배치를 실행했습니다.", result));
 	}
 
 	@PostMapping("/pay")

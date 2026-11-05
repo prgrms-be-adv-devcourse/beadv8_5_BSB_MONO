@@ -74,7 +74,7 @@ class PayoutRaceCancelUseCaseTest {
 	private int nextOrderItemId = 1;
 
 	private Payout savePayout(long raceId, YearMonth month, long price) {
-		// 정산 대상일(대회 다음 날)이 그 달 말일이 되도록 대회일을 말일 전날로 둔다
+		// 정산 생성일(대회 다음 날)이 그 달 말일이 되도록 대회일을 말일 전날로 둔다
 		Payout payout = Payout.finalStage(SELLER_ID, raceId, "테스트 대회", month.atEndOfMonth().minusDays(1),
 			month.atEndOfMonth().atTime(3, 0), new BusinessDayCalendar());
 		if (price > 0) {
@@ -235,7 +235,7 @@ class PayoutRaceCancelUseCaseTest {
 	}
 
 	@Test
-	@DisplayName("정산 내역이 없는 대회는 아무것도 하지 않는다 (세미는 정산 대상일 전에 취소돼 보통 이 경우다)")
+	@DisplayName("정산 내역이 없는 대회는 아무것도 하지 않는다 (세미는 정산 생성일 전에 취소돼 보통 이 경우다)")
 	void noPayouts() {
 		PayoutRaceCancelUseCase.CancelResult result = useCase().cancelRace(RACE_ID, CANCELED_AT);
 
