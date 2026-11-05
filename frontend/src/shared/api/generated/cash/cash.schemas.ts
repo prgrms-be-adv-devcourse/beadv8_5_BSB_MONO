@@ -71,10 +71,11 @@ export type CashChargeDtoOutcome = typeof CashChargeDtoOutcome[keyof typeof Cash
 export const CashChargeDtoOutcome = {
   COMPLETED: 'COMPLETED',
   FAILED: 'FAILED',
+  UNCERTAIN: 'UNCERTAIN',
 } as const;
 
 /**
- * 충전 승인 확정 결과. PG 승인이 거절돼도 200이고 outcome이 FAILED
+ * 충전 승인 확정 결과. PG 승인이 거절돼도 200이고 outcome이 FAILED, 승인 결과를 아직 모르면 200이고 outcome이 UNCERTAIN(balance는 이 충전이 들어가기 전 잔액)
  */
 export interface CashChargeDto {
   outcome: CashChargeDtoOutcome;

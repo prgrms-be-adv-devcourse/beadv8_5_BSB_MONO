@@ -66,9 +66,9 @@ export const ConfirmWalletChargeResponse = zod.object({
   "status": zod.int().optional(),
   "message": zod.string().optional(),
   "data": zod.object({
-  "outcome": zod.enum(['COMPLETED', 'FAILED']),
+  "outcome": zod.enum(['COMPLETED', 'FAILED', 'UNCERTAIN']),
   "balance": zod.int()
-}).optional().describe('충전 승인 확정 결과. PG 승인이 거절돼도 200이고 outcome이 FAILED')
+}).optional().describe('충전 승인 확정 결과. PG 승인이 거절돼도 200이고 outcome이 FAILED, 승인 결과를 아직 모르면 200이고 outcome이 UNCERTAIN(balance는 이 충전이 들어가기 전 잔액)')
 })
 
 
