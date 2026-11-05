@@ -159,7 +159,7 @@ class MemberOutboxRelayTest {
 
 		relayAt(now.plusSeconds(1));
 
-		assertThat(assigned).matches("member-outbox-[0-9a-f-]{36}");
+		assertThat(assigned).matches("member-outbox-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
 		assertThat(sentRecords(2)).extracting(MemberOutboxRelayTest::messageIdHeader)
 			.containsExactly(assigned, assigned);
 	}
