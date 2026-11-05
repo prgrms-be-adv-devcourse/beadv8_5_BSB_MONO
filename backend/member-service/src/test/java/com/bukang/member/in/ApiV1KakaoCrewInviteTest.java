@@ -379,7 +379,7 @@ class ApiV1KakaoCrewInviteTest {
 	}
 
 	@Test
-	@DisplayName("카카오가 응답하지 않으면 502 KAKAO_UNAVAILABLE이고 만든 초대 링크를 취소한다")
+	@DisplayName("카카오가 응답하지 않으면 502 KAKAO_UNAVAILABLE이고, 메시지가 갔을 수 있어 초대 링크는 취소하지 않는다")
 	void kakaoUnavailable() throws Exception {
 		consent(leaderId, "k-leader", tokens("access-1", "refresh-1", MESSAGE_SCOPES, 6));
 		willThrow(new KakaoUnavailableException()).given(kakaoTalkClient).send(anyString(), anyString(), anyString());
@@ -388,7 +388,23 @@ class ApiV1KakaoCrewInviteTest {
 			.andExpect(status().isBadGateway())
 			.andExpect(jsonPath("$.code").value("KAKAO_UNAVAILABLE"));
 
-		assertThat(canceledInvites()).isEqualTo(1);
+		assertThat(canceledInvites()).isZero();
+	}
+
+	@Test
+	@DisplayName("일부가 시간 초과·서버 오류로 실패하면 보냈는지 모른다(UNCONFIRMED)고 알리고 그 몫의 링크는 남긴다")
+	void partialUnconfirmed() throws Exception {
+		consent(leaderId, "k-leader", tokens("access-1", "refresh-1", MESSAGE_SCOPES, 6));
+		willThrow(new KakaoUnavailableException())
+			.given(kakaoTalkClient).send(eq("access-1"), eq("uuid-other"), anyString());
+
+		send(leaderId, "[\"uuid-friend\",\"uuid-other\"]")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.sentUuids[0]").value("uuid-friend"))
+			.andExpect(jsonPath("$.data.failures[0].uuid").value("uuid-other"))
+			.andExpect(jsonPath("$.data.failures[0].reason").value("UNCONFIRMED"));
+
+		assertThat(canceledInvites()).isZero();
 	}
 
 	@Test
