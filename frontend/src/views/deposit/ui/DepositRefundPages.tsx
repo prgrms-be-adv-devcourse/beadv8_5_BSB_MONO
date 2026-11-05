@@ -9,13 +9,8 @@ import { Controller, useForm } from 'react-hook-form'
 import { z } from 'zod'
 
 import { AppHeader } from '@/widgets/app-header'
-import {
-  ApiError,
-  createIdempotencyKey,
-  getAuthStatus,
-  subscribeAuthStatus,
-  unwrapData,
-} from '@/shared/api'
+import { useAuthStatus } from '@/features/auth'
+import { ApiError, createIdempotencyKey, unwrapData } from '@/shared/api'
 import { cashZod } from '@/shared/api-zod'
 import {
   Alert,
@@ -102,8 +97,10 @@ function usePendingWithdrawal() {
 export function DepositRefundPage() {
   const router = useRouter()
   const queryClient = useQueryClient()
-  const authStatus = useSyncExternalStore(subscribeAuthStatus, getAuthStatus, () => 'pending')
-  const plan = useQuery({ ...refundPlanQueryOptions(), enabled: authStatus === 'authenticated' })
+  const plan = useQuery({
+    ...refundPlanQueryOptions(),
+    enabled: useAuthStatus() === 'authenticated',
+  })
   const [detailOpen, setDetailOpen] = useState(false)
   const pending = usePendingWithdrawal()
   const [failed, setFailed] = useState(false)
@@ -128,12 +125,13 @@ export function DepositRefundPage() {
         accountHolder: values.accountHolder.trim(),
       }
       const result = unwrapData(await requestRefund(account, key))
-      return { result, values }
+      return { result, values, cardRefundAmount: plan.data?.cardRefundAmount }
     },
-    onSuccess: ({ result, values }) => {
+    onSuccess: ({ result, values, cardRefundAmount }) => {
       saveLastWithdrawal({
         amount: result.withdrawnAmount,
         balance: result.balance,
+        cardRefundAmount,
         ...(values && {
           bankName: bankName(values.bankCode),
           maskedAccount: maskAccount(values.accountNumber.trim()),
@@ -171,7 +169,10 @@ export function DepositRefundPage() {
 
   const data = plan.data
   const accountRequired = data?.accountRequired ?? false
-  const disabled = !data || data.balance <= 0 || (accountRequired && !isValid) || withdraw.isPending
+  // 결과를 모르는 요청이 남아 있으면(locked) 다시 불러온 금액이 0원이어도 같은 키로 다시 보낼 수 있게 둔다
+  const disabled =
+    withdraw.isPending ||
+    (!pending.locked && (!data || data.balance <= 0 || (accountRequired && !isValid)))
   const sentence = data && refundSentence(data)
 
   return (
@@ -181,7 +182,8 @@ export function DepositRefundPage() {
         className="flex flex-1 flex-col"
         onSubmit={(event) => {
           // 계좌로 보낼 몫이 없으면 숨긴 계좌 입력을 검사하지 않고 계좌 없이 보낸다
-          if (accountRequired) return void handleSubmit(submit)(event)
+          // 결과를 모르는 요청이 남아 있으면 그때의 값을 다시 보내므로 입력을 다시 검사하지 않는다
+          if (accountRequired && !pending.locked) return void handleSubmit(submit)(event)
           event.preventDefault()
           submit(null)
         }}
@@ -213,9 +215,10 @@ export function DepositRefundPage() {
                 충전별 내역 상세보기
                 <Icon name={detailOpen ? 'ChevronUp' : 'ChevronDown'} className="size-5" />
               </button>
-              {detailOpen && (
-                <ul id="refund-charges" className="mt-3 flex flex-col">
-                  {data.charges.map((charge) => (
+              {/* 버튼이 가리키는 목록은 늘 두고, 접혀 있을 때는 줄을 그리지 않는다 */}
+              <ul id="refund-charges" hidden={!detailOpen} className="mt-3 flex flex-col">
+                {detailOpen &&
+                  data.charges.map((charge) => (
                     <li
                       key={charge.chargeId}
                       className="flex items-center justify-between gap-2 border-b border-border-default py-3 last:border-b-0"
@@ -235,8 +238,7 @@ export function DepositRefundPage() {
                       </p>
                     </li>
                   ))}
-                </ul>
-              )}
+              </ul>
             </section>
           )}
           {accountRequired && (
@@ -317,7 +319,7 @@ export function DepositRefundDonePage() {
         <div className="flex flex-col gap-2">
           <h2 className="text-heading-l">예치금을 돌려받았어요</h2>
           {/* 카드로 돌려받은 몫의 완료 문구는 정해지지 않아, 계좌로 보낸 경우에만 쓴다 */}
-          {withdrawal.maskedAccount && (
+          {withdrawal.maskedAccount && !withdrawal.cardRefundAmount && (
             <p className="text-body-m text-text-secondary">
               남은 예치금 전부를 아래 계좌로 보냈어요.
             </p>
