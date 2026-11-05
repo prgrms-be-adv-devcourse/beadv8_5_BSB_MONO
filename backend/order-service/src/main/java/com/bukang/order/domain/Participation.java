@@ -225,6 +225,7 @@ public class Participation extends BaseIdAndTime {
 			raceCourseId,
 			memberId,
 			participationType,
+			partyId,
 			status,
 			ParticipantInfoDto.from(participant),
 			thirdPartyConsent,

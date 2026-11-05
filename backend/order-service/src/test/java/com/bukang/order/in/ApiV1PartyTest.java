@@ -140,6 +140,7 @@ class ApiV1PartyTest {
 		join(MEMBER, token, COURSE_HALF)
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.data.participationType").value("PARTY"))
+			.andExpect(jsonPath("$.data.partyId").value(partyId))
 			.andExpect(jsonPath("$.data.raceCourseId").value(COURSE_HALF));
 		join(OTHER, token, OTHER_RACE_COURSE)
 			.andExpect(status().isConflict())
