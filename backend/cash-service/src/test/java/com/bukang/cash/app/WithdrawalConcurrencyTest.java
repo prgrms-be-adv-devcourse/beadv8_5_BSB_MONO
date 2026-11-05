@@ -67,7 +67,8 @@ class WithdrawalConcurrencyTest {
 		createCustomerWallet(10_000);
 
 		List<AttemptResult> results = runConcurrently(10, i ->
-			() -> cashFacade.requestWithdrawal(CUSTOMER_ID, "004", "110123456789", "홍길동", "idem-" + i));
+			() -> cashFacade.requestWithdrawal(
+				CUSTOMER_ID, "004", "110123456789", "홍길동", "idem-" + i, LocalDateTime.now()));
 
 		long successCount = results.stream().filter(r -> r.error() == null).count();
 		long balanceEmptyCount = results.stream()

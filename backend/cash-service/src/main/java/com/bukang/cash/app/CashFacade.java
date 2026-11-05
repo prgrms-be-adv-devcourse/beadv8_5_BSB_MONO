@@ -99,10 +99,11 @@ public class CashFacade {
 
 	@Transactional
 	public CashWithdrawalResponseDto requestWithdrawal(
-		long customerId, String bankCode, String accountNumber, String accountHolder, String idempotencyKey
+		long customerId, String bankCode, String accountNumber, String accountHolder, String idempotencyKey,
+		LocalDateTime now
 	) {
 		return cashWithdrawalUseCase.requestWithdrawal(
-			customerId, bankCode, accountNumber, accountHolder, idempotencyKey);
+			customerId, bankCode, accountNumber, accountHolder, idempotencyKey, now);
 	}
 
 	@Transactional

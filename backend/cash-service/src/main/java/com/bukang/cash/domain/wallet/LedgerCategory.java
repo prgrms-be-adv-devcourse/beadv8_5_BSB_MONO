@@ -12,7 +12,8 @@ public enum LedgerCategory {
 	CHARGE(EnumSet.of(LedgerType.충전__PG결제_토스페이먼츠)),
 	PAYMENT(EnumSet.of(LedgerType.사용__주문결제)),
 	REFUND(EnumSet.of(LedgerType.환불__주문취소)),
-	WITHDRAWAL(EnumSet.of(LedgerType.출금__통장입금, LedgerType.출금취소__통장입금)),
+	WITHDRAWAL(EnumSet.of(
+		LedgerType.출금__통장입금, LedgerType.출금취소__통장입금, LedgerType.출금__PG결제취소_토스페이먼츠)),
 	PAYOUT(EnumSet.of(LedgerType.정산수령__상품판매_대금));
 
 	private final Set<LedgerType> ledgerTypes;

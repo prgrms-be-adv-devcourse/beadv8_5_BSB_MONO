@@ -216,7 +216,8 @@ public class ApiV1CashController {
 		@Valid @RequestBody CashWithdrawalRequestDto request
 	) {
 		CashWithdrawalResponseDto response = cashFacade.requestWithdrawal(
-			memberId, request.getBankCode(), request.getAccountNumber(), request.getAccountHolder(), idempotencyKey);
+			memberId, request.getBankCode(), request.getAccountNumber(), request.getAccountHolder(), idempotencyKey,
+			LocalDateTime.now(KOREA));
 		return ResponseEntity.ok(RsData.of(HttpStatus.OK, response.message(), response));
 	}
 }
