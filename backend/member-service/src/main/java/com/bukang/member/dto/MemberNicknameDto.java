@@ -1,6 +1,7 @@
 package com.bukang.member.dto;
 
 import com.bukang.member.domain.Member;
+import com.bukang.member.domain.MemberStatus;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -15,9 +16,9 @@ public record MemberNicknameDto(
 	@Schema(description = "닉네임. 탈퇴한 회원이면 「탈퇴한 회원」", example = "러너A")
 	String nickname
 ) {
+	// 조회 쿼리(MemberRepository.findNicknamesByIdIn)가 부른다
 	// 탈퇴하면 닉네임이 지워지므로, 다른 서비스 사본과 같은 이름으로 보여 준다
-	public static MemberNicknameDto from(Member member) {
-		return new MemberNicknameDto(member.getId(),
-			member.isWithdrawn() ? Member.WITHDRAWN_NICKNAME : member.getNickname());
+	public MemberNicknameDto(Long memberId, String nickname, MemberStatus status) {
+		this(memberId, status == MemberStatus.WITHDRAWN ? Member.WITHDRAWN_NICKNAME : nickname);
 	}
 }

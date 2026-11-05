@@ -35,8 +35,8 @@ import com.bukang.member.support.MemberFixture;
 import jakarta.persistence.EntityManagerFactory;
 
 // 주문 서비스가 파티원 이름을 띄우려고 부르는 내부 API: 회원 ID 여러 개 → 닉네임 (BUK-39)
-// 쿼리 수를 세려고 Hibernate 통계를 켠다
-@SpringBootTest(properties = "spring.jpa.properties.hibernate.generate_statistics=true")
+// 쿼리 수는 Hibernate 통계로 센다 (application-test.yaml의 generate_statistics)
+@SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Import(InMemoryIdentityVerificationStore.Config.class)
@@ -121,6 +121,29 @@ class InternalV1MemberNicknamesTest {
 		findNicknames(firstId + "," + firstId + "," + firstId)
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data", hasSize(1)));
+	}
+
+	@Test
+	@DisplayName("같은 회원 ID를 101번 보내도 서로 다른 ID는 하나라 100개 제한에 걸리지 않는다")
+	void duplicatesCountOnce() throws Exception {
+		String ids = LongStream.range(0, 101)
+			.mapToObj(index -> String.valueOf(firstId))
+			.collect(Collectors.joining(","));
+
+		findNicknames(ids)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data", hasSize(1)));
+	}
+
+	@Test
+	@DisplayName("빈 항목과 공백이 섞여도 숫자인 회원 ID만 조회한다")
+	void blankItemsAndSpaces() throws Exception {
+		findNicknames(firstId + ",," + secondId)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data", hasSize(2)));
+		findNicknames(" " + firstId + " , " + secondId + " ")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data", hasSize(2)));
 	}
 
 	@Test

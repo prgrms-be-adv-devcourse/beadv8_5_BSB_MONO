@@ -129,9 +129,10 @@ public class MemberFacade {
 		if (distinctIds.size() > MAX_NICKNAME_LOOKUP) {
 			throw new MemberNicknameLookupTooManyException(MAX_NICKNAME_LOOKUP);
 		}
-		return memberRepository.findAllById(distinctIds).stream()
-			.map(MemberNicknameDto::from)
-			.toList();
+		if (distinctIds.isEmpty()) {
+			return List.of();
+		}
+		return memberRepository.findNicknamesByIdIn(distinctIds);
 	}
 
 	public MemberAdminDto checkAdmin(long memberId) {
