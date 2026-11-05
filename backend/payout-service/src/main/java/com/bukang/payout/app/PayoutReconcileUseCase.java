@@ -76,7 +76,8 @@ public class PayoutReconcileUseCase {
 		List<RaceSchedule> races;
 		try {
 			races = stage == PayoutStage.FIRST
-				? racePort.findRacesByRefundDeadline(from, newTargetDate) : racePort.findRacesByRaceDate(from, newTargetDate);
+				? racePort.findRacesByRefundDeadline(from, newTargetDate)
+				: racePort.findRacesByRaceDate(from, newTargetDate);
 		} catch (RuntimeException exception) {
 			log.error("대사 대상 대회를 상품 서비스에서 받지 못했습니다. stage={}", stage, exception);
 			payoutCreateFailureUseCase.record(PayoutCreateFailure.raceLookup(stage, from, newTargetDate, today));
