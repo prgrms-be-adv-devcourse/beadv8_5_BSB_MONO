@@ -42,6 +42,43 @@ final class CashApiExamples {
 		}
 		""";
 
+	static final String REFUNDABLE_CHARGES_SUCCESS = """
+		{
+			"status": 200,
+			"message": "환급 화면용 충전 내역을 조회했습니다.",
+			"data": {
+				"balance": 25000,
+				"earliestLastCancelableDate": "2027-10-12",
+				"charges": [
+					{
+						"chargeId": 3,
+						"chargedAt": "2026-10-13T09:00:00",
+						"amount": 20000,
+						"remainingAmount": 20000,
+						"lastCancelableDate": "2027-10-12",
+						"expired": false
+					},
+					{
+						"chargeId": 2,
+						"chargedAt": "2026-10-10T09:00:00",
+						"amount": 10000,
+						"remainingAmount": 5000,
+						"lastCancelableDate": "2027-10-09",
+						"expired": true
+					},
+					{
+						"chargeId": 1,
+						"chargedAt": "2026-01-13T09:00:00",
+						"amount": 15000,
+						"remainingAmount": 0,
+						"lastCancelableDate": "2027-01-12",
+						"expired": true
+					}
+				]
+			}
+		}
+		""";
+
 	static final String INVALID_PAGE = """
 		{ "status": 400, "code": "INVALID_REQUEST", "message": "한 번에 100개까지 조회할 수 있습니다.", "data": null }
 		""";

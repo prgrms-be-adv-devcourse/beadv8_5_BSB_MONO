@@ -46,9 +46,14 @@ public class CashRefundableChargeQueryUseCase {
 		for (WalletCharge charge : latestFirst) {
 			long remaining = Math.min(charge.getAmount(), unfilled);
 			unfilled -= remaining;
-			charges.add(new RefundableChargeDto(charge.getAmount(), remaining,
-				CashChargePolicy.lastCancelableDate(charge.approvedAtOrChargeDate()),
-				!CashChargePolicy.isCancelable(charge.approvedAtOrChargeDate(), now)));
+			LocalDateTime approvedAt = charge.approvedAtOrChargeDate();
+			charges.add(new RefundableChargeDto(
+				charge.getId(),
+				approvedAt,
+				charge.getAmount(),
+				remaining,
+				CashChargePolicy.lastCancelableDate(approvedAt),
+				!CashChargePolicy.isCancelable(approvedAt, now)));
 		}
 
 		LocalDate earliest = charges.stream()
