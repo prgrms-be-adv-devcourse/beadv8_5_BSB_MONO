@@ -5,10 +5,16 @@ import Link from 'next/link'
 import { useState } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
-import { LedgerCategory, useMyBalance, walletLedgersQueryOptions } from '@/entities/wallet'
+import {
+  LedgerCategory,
+  useMyBalance,
+  walletLedgersQueryOptions,
+  type WalletLedger,
+} from '@/entities/wallet'
 import { formatWon } from '@/shared/lib'
-import { Alert, Button, buttonClassName, Chip, EmptyState, KeyValue, Skeleton } from '@/shared/ui'
+import { Alert, Button, buttonClassName, Chip, EmptyState, Skeleton } from '@/shared/ui'
 
+import { chargeRemaining } from '../api/refund-contract'
 import {
   formatLedgerAmount,
   formatLedgerTime,
@@ -130,6 +136,7 @@ export function DepositPage({ refunding = false }: { refunding?: boolean }) {
                     <p className="text-caption text-text-tertiary">
                       {formatLedgerTime(row.createdAt)}
                     </p>
+                    <ChargeRemainingLine row={row} />
                   </div>
                   <p className="text-label-strong tabular-nums">{formatLedgerAmount(row.amount)}</p>
                 </li>
@@ -149,14 +156,22 @@ export function DepositPage({ refunding = false }: { refunding?: boolean }) {
 
         <section className="flex flex-col gap-3 rounded-lg bg-bg-subtle p-5">
           <h2 className="text-heading-s">돌려받는 방법</h2>
-          <div className="flex flex-col gap-2">
-            <KeyValue label="계좌로 돌려받기" value="남은 예치금 전부" />
-            <p className="text-caption text-text-tertiary">
-              관리자가 확인한 뒤 계좌로 보내 드려요.
-            </p>
-          </div>
+          <p className="text-body-s text-text-secondary">
+            결제한 카드로 먼저 돌려드리고, 카드 취소 기한이 지난 몫만 계좌로 보내 드려요.
+          </p>
         </section>
       </main>
     </>
+  )
+}
+
+/** 남은 금액이 있는 충전 줄에만 붙는 한 줄. 금액과 기한은 서버 값 그대로 쓴다 */
+function ChargeRemainingLine({ row }: { row: WalletLedger }) {
+  const left = chargeRemaining(row)
+  if (!left) return null
+  return (
+    <p className="text-caption text-text-tertiary">
+      {`남은 금액 ${left.remainingAmount.toLocaleString('ko-KR')}원 · 카드 취소 ${left.cardCancelDate}까지`}
+    </p>
   )
 }

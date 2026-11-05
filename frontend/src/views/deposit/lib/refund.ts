@@ -51,9 +51,10 @@ export function formatKstShort(ms: number) {
 const LastWithdrawal = z.object({
   amount: z.number(),
   balance: z.number(),
-  bankName: z.string(),
-  maskedAccount: z.string(),
-  accountHolder: z.string(),
+  /** 계좌로 보낼 몫이 없어 계좌 없이 신청했으면 세 값 모두 없다 */
+  bankName: z.string().optional(),
+  maskedAccount: z.string().optional(),
+  accountHolder: z.string().optional(),
   /** 신청한 시각(ms). 서버 응답에 시각이 없어 브라우저 시각을 쓴다 */
   at: z.number(),
 })

@@ -52,13 +52,18 @@ export function payFromMockWallet(
   return { shortage: 0, next }
 }
 
-type MockLedger = Omit<WalletLedgerItemDto, 'balanceAfter'>
+// shortcut: BUK-21 응답 확정 전 가정, 백엔드 계약이 생기면 openapi로 교체 (충전 줄의 남은 금액 · 카드 취소 기한)
+type LedgerRow = WalletLedgerItemDto & {
+  remainingAmount?: number | null
+  cardCancelDate?: string | null
+}
+type MockLedger = Omit<LedgerRow, 'balanceAfter'>
 
 /**
  * 예치금 내역 목. 시안(M17)의 예시를 장부 모양으로 옮기고, 더 보기를 볼 수 있게 지난 충전을 더 붙였다.
  * 최신순이다. 잔액(balanceAfter)은 가장 오래된 줄부터 더해 만든다. 충전·결제를 해도 내역은 늘지 않는다(목 단순화).
  */
-const MOCK_LEDGERS: WalletLedgerItemDto[] = withBalanceAfter([
+const MOCK_LEDGERS: LedgerRow[] = withBalanceAfter([
   {
     category: 'PAYMENT',
     ledgerType: '사용__주문결제',
@@ -72,6 +77,9 @@ const MOCK_LEDGERS: WalletLedgerItemDto[] = withBalanceAfter([
     amount: 10_000,
     createdAt: '2026-10-05T14:21:00',
     refId: 31,
+    // 오래된 충전부터 썼다고 보아 이 충전만 남은 금액이 있다 (시안 M17 환급 변경안)
+    remainingAmount: 5_000,
+    cardCancelDate: '2027-10-04',
   },
   {
     category: 'PAYOUT',
@@ -117,7 +125,7 @@ const MOCK_LEDGERS: WalletLedgerItemDto[] = withBalanceAfter([
   })),
 ])
 
-function withBalanceAfter(rows: MockLedger[]): WalletLedgerItemDto[] {
+function withBalanceAfter(rows: MockLedger[]): LedgerRow[] {
   let balanceAfter = 0
   return rows
     .toReversed()
@@ -125,10 +133,105 @@ function withBalanceAfter(rows: MockLedger[]): WalletLedgerItemDto[] {
     .toReversed()
 }
 
+// shortcut: BUK-21 응답 확정 전 가정, 백엔드 계약이 생기면 openapi로 교체
+// 돌려받기 화면 조회 목. 응답은 전달문의 응답 제안 예시(카드 + 계좌, 카드만)와 계좌만 경우다.
+// 화면 주소에 ?case=card(카드만) 또는 ?case=account(계좌만)를 붙이면 그 경우로 답한다(기본은 카드 + 계좌).
+// 금액은 시안 예시라 지갑 잔액과 맞추지 않는다.
+const REFUND_PREVIEW_CASES = {
+  mixed: {
+    balance: 65_000,
+    cardRefundAmount: 60_000,
+    accountRefundAmount: 5_000,
+    accountRequired: true,
+    earliestCardCancelDate: '2027-10-12',
+    charges: [
+      {
+        chargeId: 101,
+        approvedAt: '2025-09-01T18:40:00',
+        chargedAmount: 85_000,
+        remainingAmount: 5_000,
+        cardCancelDate: '2026-08-31',
+        refundTo: 'ACCOUNT',
+        paymentMethodName: '신한카드',
+      },
+      {
+        chargeId: 214,
+        approvedAt: '2026-10-13T14:21:00',
+        chargedAmount: 60_000,
+        remainingAmount: 60_000,
+        cardCancelDate: '2027-10-12',
+        refundTo: 'CARD',
+        paymentMethodName: '신한카드',
+      },
+    ],
+  },
+  card: {
+    balance: 65_000,
+    cardRefundAmount: 65_000,
+    accountRefundAmount: 0,
+    accountRequired: false,
+    earliestCardCancelDate: '2027-10-09',
+    charges: [
+      {
+        chargeId: 210,
+        approvedAt: '2026-10-10T09:00:00',
+        chargedAmount: 10_000,
+        remainingAmount: 5_000,
+        cardCancelDate: '2027-10-09',
+        refundTo: 'CARD',
+        paymentMethodName: '카카오페이',
+      },
+      {
+        chargeId: 214,
+        approvedAt: '2026-10-13T14:21:00',
+        chargedAmount: 60_000,
+        remainingAmount: 60_000,
+        cardCancelDate: '2027-10-12',
+        refundTo: 'CARD',
+        paymentMethodName: '신한카드',
+      },
+    ],
+  },
+  account: {
+    balance: 65_000,
+    cardRefundAmount: 0,
+    accountRefundAmount: 65_000,
+    accountRequired: true,
+    earliestCardCancelDate: null,
+    charges: [
+      {
+        chargeId: 101,
+        approvedAt: '2025-09-01T18:40:00',
+        chargedAmount: 85_000,
+        remainingAmount: 65_000,
+        cardCancelDate: '2026-08-31',
+        refundTo: 'ACCOUNT',
+        paymentMethodName: '신한카드',
+      },
+    ],
+  },
+}
+
+function refundPreviewCase(referer: string | null) {
+  try {
+    const value = new URL(referer ?? '').searchParams.get('case')
+    return value === 'card' || value === 'account' ? value : 'mixed'
+  } catch {
+    return 'mixed'
+  }
+}
+
 /** 환급 결과(Idempotency-Key 헤더 = 멱등키). 같은 키로 다시 오면 처음 결과를 돌려준다 */
 const withdrawals = new Map<string, number>()
 
 export const walletHandlers = [
+  http.get('*/api/v1/cash/withdrawals/preview', ({ request }) =>
+    HttpResponse.json({
+      status: 200,
+      message: '환급 정보를 조회했습니다.',
+      data: REFUND_PREVIEW_CASES[refundPreviewCase(request.headers.get('referer'))],
+    }),
+  ),
   /**
    * 예치금 전액 환급 목. 진짜 서버처럼 신청하면 바로 완료되고, 잔액이 0원이면 400(code 없음)이다.
    */
