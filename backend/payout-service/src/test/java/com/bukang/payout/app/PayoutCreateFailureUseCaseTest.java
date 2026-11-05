@@ -54,7 +54,7 @@ class PayoutCreateFailureUseCaseTest {
 
 	private static PayoutCreateFailure mismatch() {
 		return PayoutCreateFailure.sellerRace(PayoutStage.FINAL, 1, 10, LocalDate.of(2026, 11, 5),
-			PayoutCreateFailureType.주문_정산_대회일_불일치, RUN_DATE);
+			PayoutCreateFailureType.주문_정산_대회일_불일치, null, RUN_DATE);
 	}
 
 	@Test

@@ -81,7 +81,7 @@ public class PayoutCreateFailure extends BaseIdAndTime {
 
 	// 판매자 × 대회 정산 내역 하나를 만들지 못했다
 	public static PayoutCreateFailure sellerRace(PayoutStage stage, long sellerId, long raceId,
-		LocalDate payoutTargetDate, PayoutCreateFailureType failureType, LocalDate runDate) {
-		return new PayoutCreateFailure(stage, sellerId, raceId, payoutTargetDate, failureType, null, runDate);
+		LocalDate payoutTargetDate, PayoutCreateFailureType failureType, String note, LocalDate runDate) {
+		return new PayoutCreateFailure(stage, sellerId, raceId, payoutTargetDate, failureType, note, runDate);
 	}
 }

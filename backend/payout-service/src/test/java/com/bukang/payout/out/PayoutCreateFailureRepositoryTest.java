@@ -37,7 +37,7 @@ class PayoutCreateFailureRepositoryTest {
 	@DisplayName("판매자 × 대회 실패 한 줄을 저장하면 한글 실패 종류와 칸이 그대로 다시 읽힌다")
 	void saveSellerRaceFailure() {
 		PayoutCreateFailure saved = payoutCreateFailureRepository.save(PayoutCreateFailure.sellerRace(PayoutStage.FINAL,
-			1, 10, LocalDate.of(2026, 11, 5), PayoutCreateFailureType.주문_정산_대회일_불일치, LocalDate.of(2026, 11, 10)));
+			1, 10, LocalDate.of(2026, 11, 5), PayoutCreateFailureType.주문_정산_대회일_불일치, null, LocalDate.of(2026, 11, 10)));
 		entityManager.flush();
 		entityManager.clear();
 

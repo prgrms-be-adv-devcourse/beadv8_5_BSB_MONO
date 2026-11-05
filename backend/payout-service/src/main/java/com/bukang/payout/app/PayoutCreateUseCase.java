@@ -55,6 +55,8 @@ import lombok.extern.slf4j.Slf4j;
 public class PayoutCreateUseCase {
 	// 되돌아보기 기간: 어제 정산 생성일부터 7일치. 일주일 안의 장애는 저절로 따라잡는다 (PRO-61)
 	private static final int LOOKBACK_DAYS = 7;
+	// 실패 기록표 비고 칸 길이 (payout_payout_create_failure.note varchar(255))
+	private static final int NOTE_MAX_LENGTH = 255;
 
 	private final PayoutRepository payoutRepository;
 	private final PayoutCreateStepUseCase payoutCreateStepUseCase;
@@ -226,8 +228,19 @@ public class PayoutCreateUseCase {
 	// 다른 서버가 먼저 저장한 건은 위에서 return하므로 여기까지 오지 않는다 (AC-60-6)
 	private void recordSellerRaceFailure(PayoutStage stage, SellerRace key, LocalDate payoutTargetDate,
 		RuntimeException exception, LocalDate today) {
+		PayoutCreateFailureType type = failureTypeOf(exception);
 		payoutCreateFailureUseCase.record(PayoutCreateFailure.sellerRace(stage, key.sellerId(), key.raceId(),
-			payoutTargetDate, failureTypeOf(exception), today));
+			payoutTargetDate, type, unknownFailureNote(type, exception), today));
+	}
+
+	// 알 수 없는 실패만 비고에 예외 이름을 남겨, 관리자가 로그를 열기 전에 원인을 짐작하게 한다 (PR #307 리뷰)
+	// 다른 종류는 종류 이름이 곧 원인이라 비고를 비운다. 비고 칸(255자)을 넘지 않게 자른다
+	private static String unknownFailureNote(PayoutCreateFailureType type, RuntimeException exception) {
+		if (type != PayoutCreateFailureType.알_수_없는_실패) {
+			return null;
+		}
+		String name = exception.getClass().getSimpleName();
+		return name.substring(0, Math.min(name.length(), NOTE_MAX_LENGTH));
 	}
 
 	// 판매자 × 대회 실패 종류는 예외 타입으로 나눈다. 다른 서비스 조회 예외는 어댑터가 전용 예외로 감싸 던진다

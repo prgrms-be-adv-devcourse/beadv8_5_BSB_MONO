@@ -187,13 +187,14 @@ class PayoutCreateUseCaseFailureRecordTest {
 	}
 
 	@Test
-	@DisplayName("TC-60-1-4 그 밖의 예외로 실패하면 '알_수_없는_실패'로 쌓인다")
+	@DisplayName("TC-60-1-4 그 밖의 예외로 실패하면 '알_수_없는_실패'로 쌓이고, 비고에 예외 이름이 남는다")
 	void unknownFailureIsRecorded() {
 		PayoutCreateStepUseCase step = stepThrowing(new IllegalArgumentException("예상 못한 값"));
 
 		useCase(step, soldEntries(SELLER_1), sellerId -> true, racesOf(RACE_10)).run(TODAY, NOW);
 
-		assertThat(rows()).containsExactly(sellerRaceRow(PayoutCreateFailureType.알_수_없는_실패));
+		assertThat(rows()).containsExactly(tuple(PayoutStage.FINAL, 1L, 10L, null, RACE_DATE,
+			PayoutCreateFailureType.알_수_없는_실패, "IllegalArgumentException", TODAY));
 	}
 
 	@Test
