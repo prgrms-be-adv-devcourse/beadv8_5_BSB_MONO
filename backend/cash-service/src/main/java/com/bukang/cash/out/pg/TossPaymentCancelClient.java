@@ -25,7 +25,7 @@ class TossPaymentCancelClient {
 	private final RestClient restClient;
 	private final String secretKey;
 
-	PaymentCancelResult cancel(String paymentKey, String cancelReason) {
+	PaymentCancelResult cancel(String paymentKey, String cancelReason, long cancelAmount) {
 		CancelResponse response;
 
 		try {
@@ -34,7 +34,7 @@ class TossPaymentCancelClient {
 				.contentType(MediaType.APPLICATION_JSON)
 				.accept(MediaType.APPLICATION_JSON)
 				.headers(headers -> headers.setBasicAuth(secretKey, ""))
-				.body(new CancelRequest(cancelReason))
+				.body(new CancelRequest(cancelReason, cancelAmount))
 				.retrieve()
 				.body(CancelResponse.class);
 		} catch (RestClientResponseException exception) {
@@ -62,8 +62,8 @@ class TossPaymentCancelClient {
 		return new PaymentCancelResult(lastCancel.cancelAmount(), lastCancel.transactionKey());
 	}
 
-	// cancelAmount를 안 보내면 Toss가 전액 취소한다
-	private record CancelRequest(String cancelReason) {
+	// cancelAmount가 남은 결제 금액보다 작으면 Toss가 부분 취소한다
+	private record CancelRequest(String cancelReason, long cancelAmount) {
 	}
 
 	// 취소 응답의 cancels 배열만 쓴다. 요청 금액이 아니라 이 배열의 값을 믿는다(위변조 방지)
