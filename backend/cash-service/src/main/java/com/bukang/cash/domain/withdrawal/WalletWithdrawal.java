@@ -71,6 +71,10 @@ public class WalletWithdrawal extends BaseIdAndTime {
 		this.status = WithdrawalStatus.REQUESTED;
 	}
 
+	public void markInProgress() {
+		this.status = WithdrawalStatus.IN_PROGRESS;
+	}
+
 	public void markCompleted(LocalDateTime completeDate) {
 		this.status = WithdrawalStatus.COMPLETED;
 		this.completeDate = completeDate;

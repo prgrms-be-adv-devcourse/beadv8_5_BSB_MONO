@@ -23,6 +23,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.cash.domain.charge.WalletCharge;
+import com.bukang.cash.domain.exception.PaymentCancelFailedException;
 import com.bukang.cash.domain.exception.WithdrawalAccountRequiredException;
 import com.bukang.cash.domain.exception.WithdrawalInProgressException;
 import com.bukang.cash.domain.member.CashMember;
@@ -179,6 +180,49 @@ class CashWithdrawalByChargeTest {
 		assertThat(response.accountAmount()).isEqualTo(100_000);
 		assertThat(response.processingAmount()).isZero();
 		assertThat(response.revertedAmount()).isZero();
+	}
+
+	@Test
+	@DisplayName("토스가 4xx로 확실히 거절한 카드 몫은 예치금에 되돌리고 출금취소__PG결제취소_토스페이먼츠 줄을 남기며, 응답의 되돌림 금액에 담는다")
+	void rejectedCardPartIsRevertedToBalance() {
+		Wallet wallet = createWallet(30_000);
+		completedCharge(wallet, 30_000, "charge_1", LocalDateTime.of(2026, 10, 10, 9, 0));
+		given(paymentClient.cancel(anyString(), anyString(), anyLong(), anyString()))
+			.willThrow(new PaymentCancelFailedException("PG사가 결제 취소를 거절했습니다.", "NOT_CANCELABLE_AMOUNT", false));
+
+		CashWithdrawalResponseDto response =
+			cashFacade.requestWithdrawal(CUSTOMER_ID, null, null, null, "withdrawal_1", NOW);
+
+		assertThat(walletRepository.findById(CUSTOMER_ID).orElseThrow().getBalance()).isEqualTo(30_000);
+		assertThat(walletLedgerRepository.findAll())
+			.extracting(WalletLedger::getLedgerType, WalletLedger::getAmount)
+			.containsExactlyInAnyOrder(
+				tuple(LedgerType.출금__PG결제취소_토스페이먼츠, -30_000L),
+				tuple(LedgerType.출금취소__PG결제취소_토스페이먼츠, 30_000L));
+		assertThat(response.cardAmount()).isZero();
+		assertThat(response.revertedAmount()).isEqualTo(30_000);
+	}
+
+	@Test
+	@DisplayName("토스 결과를 모르는 카드 몫은 예치금에 되돌리지 않고 처리 중으로 남긴다 (환급 IN_PROGRESS, 응답 처리 중 금액)")
+	void unknownCardPartStaysProcessing() {
+		Wallet wallet = createWallet(30_000);
+		completedCharge(wallet, 30_000, "charge_1", LocalDateTime.of(2026, 10, 10, 9, 0));
+		given(paymentClient.cancel(anyString(), anyString(), anyLong(), anyString()))
+			.willThrow(new PaymentCancelFailedException("PG 서버에 연결하지 못했습니다.", null, true));
+
+		CashWithdrawalResponseDto response =
+			cashFacade.requestWithdrawal(CUSTOMER_ID, null, null, null, "withdrawal_1", NOW);
+
+		assertThat(walletRepository.findById(CUSTOMER_ID).orElseThrow().getBalance()).isZero();
+		assertThat(walletLedgerRepository.findAll())
+			.extracting(WalletLedger::getLedgerType, WalletLedger::getAmount)
+			.containsExactly(tuple(LedgerType.출금__PG결제취소_토스페이먼츠, -30_000L));
+		assertThat(walletWithdrawalRepository.findByIdempotencyKey("withdrawal_1").orElseThrow().getStatus())
+			.isEqualTo(WithdrawalStatus.IN_PROGRESS);
+		assertThat(response.processingAmount()).isEqualTo(30_000);
+		assertThat(response.revertedAmount()).isZero();
+		assertThat(response.cardAmount()).isZero();
 	}
 
 	private Wallet createWallet(long balance) {

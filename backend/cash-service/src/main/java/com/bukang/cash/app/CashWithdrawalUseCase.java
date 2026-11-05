@@ -6,11 +6,13 @@ import java.util.Optional;
 import org.springframework.stereotype.Service;
 
 import com.bukang.cash.domain.charge.WalletCharge;
+import com.bukang.cash.domain.exception.PaymentCancelFailedException;
 import com.bukang.cash.domain.exception.WalletBalanceEmptyException;
 import com.bukang.cash.domain.exception.WalletNotFoundException;
 import com.bukang.cash.domain.exception.WithdrawalAccountRequiredException;
 import com.bukang.cash.domain.exception.WithdrawalInProgressException;
 import com.bukang.cash.domain.exception.WithdrawalMemberMismatchException;
+import com.bukang.cash.domain.wallet.LedgerRefType;
 import com.bukang.cash.domain.wallet.LedgerType;
 import com.bukang.cash.domain.wallet.Wallet;
 import com.bukang.cash.domain.withdrawal.WalletWithdrawal;
@@ -81,13 +83,32 @@ public class CashWithdrawalUseCase {
 			walletLedgerRepository.save(customerWallet.debit(accountAmount, LedgerType.출금__통장입금, withdrawal));
 		}
 
+		long revertedAmount = 0;
+		long processingAmount = 0;
 		for (WithdrawalPlan.CardPart part : plan.cardParts()) {
 			WalletCharge charge = walletChargeRepository.findById(part.chargeId()).orElseThrow();
-			paymentClient.cancel(charge.getPgPaymentKey(), CANCEL_REASON, part.amount(),
-				idempotencyKey + ":" + part.chargeId());
+			try {
+				paymentClient.cancel(charge.getPgPaymentKey(), CANCEL_REASON, part.amount(),
+					idempotencyKey + ":" + part.chargeId());
+			} catch (PaymentCancelFailedException rejected) {
+				if (rejected.isResultUnknown()) {
+					// PG가 이미 취소했을 수도 있어 되돌리면 돈이 두 번 나간다. 처리 중으로 두고 재확인으로 맞춘다
+					processingAmount += part.amount();
+					continue;
+				}
+				// PG가 확실히 거절했으니 이 몫은 돌려주지 못했다. 예치금에 되돌리고 회원이 다시 신청하게 한다
+				walletLedgerRepository.save(customerWallet.credit(part.amount(),
+					LedgerType.출금취소__PG결제취소_토스페이먼츠, LedgerRefType.Withdrawal, withdrawal.getId()));
+				revertedAmount += part.amount();
+			}
 		}
-		withdrawal.markCompleted(LocalDateTime.now());
+		if (processingAmount > 0) {
+			withdrawal.markInProgress();
+		} else {
+			withdrawal.markCompleted(LocalDateTime.now());
+		}
 
-		return new CashWithdrawalResponseDto(amount, customerWallet.getBalance(), cardAmount, accountAmount, 0, 0);
+		return new CashWithdrawalResponseDto(amount, customerWallet.getBalance(),
+			cardAmount - revertedAmount - processingAmount, accountAmount, processingAmount, revertedAmount);
 	}
 }
