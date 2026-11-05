@@ -135,6 +135,11 @@ final class OrderApiExamples {
 			"message": "결제를 시작할 수 없는 신청입니다(현재 상태: 결제 대기).", "data": null }
 		""";
 
+	static final String PARTY_NOT_PAYABLE = """
+		{ "status": 409, "code": "ORDER_PARTICIPATION_NOT_PAYABLE",
+			"message": "파티원 신청은 파티장이 신청한 뒤 파티 결제로 결제해 주세요.", "data": null }
+		""";
+
 	static final String NOT_ACCEPTING = """
 		{ "status": 409, "code": "ORDER_APPLICATION_CLOSED", "message": "접수 기간이 아닙니다.", "data": null }
 		""";

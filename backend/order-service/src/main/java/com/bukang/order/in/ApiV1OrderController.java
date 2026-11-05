@@ -84,10 +84,11 @@ public class ApiV1OrderController {
 				@ExampleObject(name = "없는 참가 신청", value = OrderApiExamples.PARTICIPATION_NOT_FOUND),
 				@ExampleObject(name = "없는 종목", value = OrderApiExamples.COURSE_NOT_FOUND)
 			})),
-		@ApiResponse(responseCode = "409", description = "매진, 결제할 수 없는 상태, 접수 기간 아님, 요청 겹침, 키 재사용",
+		@ApiResponse(responseCode = "409", description = "매진, 결제할 수 없는 상태, 파티원 신청서, 접수 기간 아님, 요청 겹침, 키 재사용",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "매진", value = OrderApiExamples.SOLD_OUT),
 				@ExampleObject(name = "결제할 수 없는 상태", value = OrderApiExamples.NOT_PAYABLE),
+				@ExampleObject(name = "파티원 신청서", value = OrderApiExamples.PARTY_NOT_PAYABLE),
 				@ExampleObject(name = "접수 기간 아님", value = OrderApiExamples.NOT_ACCEPTING),
 				@ExampleObject(name = "요청 겹침", value = OrderApiExamples.CONFLICT),
 				@ExampleObject(name = "다른 신청서에 쓴 키", value = OrderApiExamples.KEY_REUSED)
