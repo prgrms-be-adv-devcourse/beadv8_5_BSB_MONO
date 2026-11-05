@@ -141,7 +141,7 @@ public class ApiV1PartyController {
 		@ApiResponse(responseCode = "403", description = "이 크루의 크루원이 아님",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = PartyApiExamples.CREW_MEMBER_REQUIRED))),
-		@ApiResponse(responseCode = "404", description = "참가 링크가 없음(다시 만든 옛 링크 포함) 또는 없는 종목",
+		@ApiResponse(responseCode = "404", description = "참가 링크가 없음(다시 만든 옛 링크 포함) 또는 상품에서 파티 종목이 없어짐",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "링크 없음", value = PartyApiExamples.JOIN_LINK_NOT_FOUND),
 				@ExampleObject(name = "없는 종목", value = PartyApiExamples.COURSE_NOT_FOUND)
