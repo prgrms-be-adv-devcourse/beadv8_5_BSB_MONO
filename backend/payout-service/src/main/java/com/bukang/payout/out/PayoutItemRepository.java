@@ -36,13 +36,13 @@ public interface PayoutItemRepository extends JpaRepository<PayoutItem, Long> {
 	@Query(value = """
 		select i from PayoutItem i join fetch i.payout p
 		where p.sellerId = :sellerId and i.recordType = com.bukang.payout.domain.PayoutRecordType.SALE
-			and i.targetDate between :from and :to
-		order by i.targetDate desc, i.id desc
+			and i.payoutCreateDate between :from and :to
+		order by i.payoutCreateDate desc, i.id desc
 		""",
 		countQuery = """
 			select count(i) from PayoutItem i join i.payout p
 			where p.sellerId = :sellerId and i.recordType = com.bukang.payout.domain.PayoutRecordType.SALE
-				and i.targetDate between :from and :to
+				and i.payoutCreateDate between :from and :to
 			""")
 	Page<PayoutItem> findSellerItems(long sellerId, LocalDate from, LocalDate to, Pageable pageable);
 }

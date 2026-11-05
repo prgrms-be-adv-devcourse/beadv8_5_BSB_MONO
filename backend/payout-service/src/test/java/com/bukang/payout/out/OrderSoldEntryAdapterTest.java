@@ -19,6 +19,8 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
+import com.bukang.payout.domain.exception.PayoutOrderLookupUnavailableException;
+
 /**
  * 주문 서비스의 판매 내역 내부 API(GET /internal/v1/order/sold-entries)를 부르는 어댑터 (PRO-62)
  * 실제 주문 서비스 대신 MockRestServiceServer로 응답을 흉내 낸다
@@ -98,6 +100,7 @@ class OrderSoldEntryAdapterTest {
 		server.expect(requestTo(URL)).andRespond(withServerError());
 
 		assertThatThrownBy(() -> adapter.findSoldEntries(5))
-			.isInstanceOf(RestClientException.class);
+			.isInstanceOf(PayoutOrderLookupUnavailableException.class)
+			.hasCauseInstanceOf(RestClientException.class);
 	}
 }

@@ -17,10 +17,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.bukang.payout.domain.BusinessDayCalendar;
 import com.bukang.payout.domain.Payout;
+import com.bukang.payout.domain.PayoutCreateDate;
 import com.bukang.payout.domain.PayoutHold;
 import com.bukang.payout.domain.PayoutHoldReason;
 import com.bukang.payout.domain.PayoutStage;
-import com.bukang.payout.domain.PayoutTargetDate;
 import com.bukang.payout.domain.TwoStagePayoutCalculator;
 import com.bukang.payout.out.PayoutHoldRepository;
 import com.bukang.payout.out.PayoutRepository;
@@ -43,7 +43,7 @@ import lombok.extern.slf4j.Slf4j;
  * 대회 이름은 화면의 이름을 직접 넣고, 대회 ID는 아래 번호를 쓴다 (상품 서비스 ProductDataInit의 더미 대회와는 연결되지 않는다)
  *   1 2026 봄 한강 10K / 2 2026 용감한 쿠키RUN in 서울 / 3 2026 춘천 나이트런 / 4 2027 부산 바다 10K / 5 2026 가을 트레일런
  *   6 2026 여름 야간 레이스 / 7 2026 한강 나이트런 / 8 2026 가을 하프마라톤 / 9 2026 서울숲 가을 10K
- *   (2 ~ 5는 대회 전이라 정산 대상일이 오지 않아 정산 데이터가 없다)
+ *   (2 ~ 5는 대회 전이라 정산 생성일이 오지 않아 정산 데이터가 없다)
  */
 @Profile("dev")
 @Configuration
@@ -104,7 +104,7 @@ public class PayoutDataInit {
 		payOnScheduledDate(spring.first());
 		payOnScheduledDate(spring.last());
 
-		// 여름 야간 레이스: 판매자가 계좌를 늦게 등록한 경우. 두 달 전 18일 대회(마감 8일) → 1차 · 최종 모두 대상일에 자동 보류
+		// 여름 야간 레이스: 판매자가 계좌를 늦게 등록한 경우. 두 달 전 18일 대회(마감 8일) → 1차 · 최종 모두 정산 생성일에 자동 보류
 		// → 지난달 24일 관리자 해제. 원래 지급 예정일(지난달 20일)이 지났으므로 해제일 + 1일(25일)에 지급 완료
 		StagePair summer = createPayouts(6, "2026 여름 야간 레이스", thisMonth.minusMonths(2).atDay(18), 800, PRICE_5K);
 		for (Payout payout : List.of(summer.first(), summer.last())) {
@@ -136,11 +136,11 @@ public class PayoutDataInit {
 		Payout first = createFirst(raceId, raceName, raceDate.minusDays(REFUND_DEADLINE_DAYS_BEFORE_RACE), count,
 			price);
 
-		LocalDate finalTargetDate = PayoutTargetDate.of(raceDate);
+		LocalDate finalCreateDate = PayoutCreateDate.of(raceDate);
 		Payout last = Payout.finalStage(SELLER_ID, raceId, raceName, raceDate,
-			finalTargetDate.atTime(3, 0), calendar);
+			finalCreateDate.atTime(3, 0), calendar);
 		last.deductAdvance(first.getPayoutAmount());
-		addItems(last, raceId, count, price, finalTargetDate);
+		addItems(last, raceId, count, price, finalCreateDate);
 		save(last);
 		return new StagePair(first, last);
 	}
@@ -148,11 +148,11 @@ public class PayoutDataInit {
 	// 정산 생성 배치(PayoutCreateUseCase)처럼 환불 마감일 다음 날 03:00에 만든다
 	// 대회 하나는 코스 하나라 참가권 가격이 하나다 (PRO-214). 1차는 판매 집계(가격 합 · 장수)로 1차 정산금 한 줄을 쓴다
 	private Payout createFirst(long raceId, String raceName, LocalDate refundDeadline, int count, long price) {
-		LocalDate firstTargetDate = PayoutTargetDate.firstOf(refundDeadline);
+		LocalDate firstCreateDate = PayoutCreateDate.firstOf(refundDeadline);
 		Payout first = Payout.first(SELLER_ID, raceId, raceName, refundDeadline,
-			firstTargetDate.atTime(3, 0), calendar);
+			firstCreateDate.atTime(3, 0), calendar);
 		// 샘플은 대회마다 코스가 하나라고 보고 코스 ID를 대회 ID와 같게 둔다
-		first.recordAdvance(raceId, price * count, count, firstTargetDate);
+		first.recordAdvance(raceId, price * count, count, firstCreateDate);
 		save(first);
 		return first;
 	}
@@ -162,10 +162,10 @@ public class PayoutDataInit {
 		payout.pay(payout.getScheduledPayDate().atTime(4, 0));
 	}
 
-	private void addItems(Payout payout, long raceId, int count, long price, LocalDate targetDate) {
+	private void addItems(Payout payout, long raceId, int count, long price, LocalDate payoutCreateDate) {
 		for (int i = 1; i <= count; i++) {
 			// 주문 상품 ID는 대회마다 겹치지 않게 대회 번호 × 100,000부터 붙인다
-			payout.addItem(raceId * 100_000 + i, raceId, price, FEE_RATE, targetDate);
+			payout.addItem(raceId * 100_000 + i, raceId, price, FEE_RATE, payoutCreateDate);
 		}
 	}
 

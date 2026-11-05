@@ -15,7 +15,7 @@ import com.bukang.order.out.payout.RefundEligibilityPort;
  */
 public class StubRefundEligibilityPort implements RefundEligibilityPort {
 	private volatile boolean refundable = true;
-	// 정산 대상일이 이미 지나 정산이 시작된 대회 날짜들
+	// 정산 생성일이 이미 지나 정산이 시작된 대회 날짜들
 	private final Set<LocalDate> settledRaceDates = ConcurrentHashMap.newKeySet();
 	private final List<LocalDate> askedRaceDates = new CopyOnWriteArrayList<>();
 
@@ -29,7 +29,7 @@ public class StubRefundEligibilityPort implements RefundEligibilityPort {
 		return refundable && !settledRaceDates.contains(raceDate);
 	}
 
-	// 이 대회 날짜는 정산이 시작된 것으로 답한다 (정산 서비스의 "정산 대상일 지남")
+	// 이 대회 날짜는 정산이 시작된 것으로 답한다 (정산 서비스의 "정산 생성일 지남")
 	public void settle(LocalDate raceDate) {
 		settledRaceDates.add(raceDate);
 	}
@@ -38,7 +38,7 @@ public class StubRefundEligibilityPort implements RefundEligibilityPort {
 		return askedInTransaction;
 	}
 
-	// 물어본 대회 날짜들 (어느 날짜로 정산 대상일을 따졌는지 확인할 때 쓴다)
+	// 물어본 대회 날짜들 (어느 날짜로 정산 생성일을 따졌는지 확인할 때 쓴다)
 	public List<LocalDate> askedRaceDates() {
 		return askedRaceDates;
 	}

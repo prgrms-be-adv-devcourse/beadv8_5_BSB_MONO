@@ -43,7 +43,7 @@ public class PayoutItemDto {
 			item.getAmount(),
 			item.getFeeRate(),
 			TwoStagePayoutCalculator.rate(item.getAmount(), item.getFeeRate()),
-			item.getTargetDate(),
+			item.getPayoutCreateDate(),
 			payout.getId(),
 			payout.getPayoutCode(),
 			payout.getRaceId(),
