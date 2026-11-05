@@ -41,11 +41,13 @@ public class ApiV1SellerController {
 	@ApiResponses({
 		@ApiResponse(responseCode = "201", description = "신청 성공",
 			content = @Content(examples = @ExampleObject(value = SellerApiExamples.APPLY_SUCCESS))),
-		@ApiResponse(responseCode = "400", description = "입력값 검증 실패, 요청 본문 형식 오류 또는 예금주 정보 불일치",
+		@ApiResponse(responseCode = "400", description = "입력값 검증 실패, 요청 본문 형식 오류, 예금주 정보 불일치 또는 본인인증 다시 필요",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "입력값 검증 실패", value = SellerApiExamples.APPLY_INVALID_INPUT),
 				@ExampleObject(name = "요청 본문 형식 오류", value = SellerApiExamples.INVALID_BODY),
-				@ExampleObject(name = "예금주 정보 불일치", value = SellerApiExamples.ACCOUNT_NOT_VERIFIED)
+				@ExampleObject(name = "예금주 정보 불일치", value = SellerApiExamples.ACCOUNT_NOT_VERIFIED),
+				@ExampleObject(name = "본인인증 다시 필요 (본인 명의, 본인인증 해시 없음)",
+					value = SellerApiExamples.IDENTITY_REVERIFY_REQUIRED)
 			})),
 		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음 (로그인하지 않은 요청)",
 			content = @Content(schema = @Schema(implementation = RsData.class),

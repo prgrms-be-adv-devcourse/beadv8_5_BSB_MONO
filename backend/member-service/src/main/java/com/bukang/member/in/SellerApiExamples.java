@@ -143,6 +143,15 @@ final class SellerApiExamples {
 		}
 		""";
 
+	static final String IDENTITY_REVERIFY_REQUIRED = """
+		{
+			"status": 400,
+			"code": "SELLER_IDENTITY_REVERIFY_REQUIRED",
+			"message": "본인 명의 계좌는 휴대폰 번호를 다시 인증한 뒤 신청해 주세요.",
+			"data": null
+		}
+		""";
+
 	static final String ACCOUNT_VERIFY_TOO_MANY_REQUESTS = """
 		{
 			"status": 429,

@@ -13,6 +13,7 @@ import com.bukang.member.domain.exception.SellerAccountNotVerifiedException;
 import com.bukang.member.domain.exception.SellerAccountVerifyTooManyRequestsException;
 import com.bukang.member.domain.exception.SellerAccountVerifyUnavailableException;
 import com.bukang.member.domain.exception.SellerAlreadyAppliedException;
+import com.bukang.member.domain.exception.SellerIdentityReverifyRequiredException;
 import com.bukang.member.dto.SellerApplyRequestDto;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.SellerRepository;
@@ -43,12 +44,16 @@ public class PayoutAccountVerifyUseCase {
 		if (sellerRepository.existsByMemberIdAndStatusIn(memberId, SellerApplyUseCase.ACTIVE_STATUSES)) {
 			throw new SellerAlreadyAppliedException("이미 심사 중이거나 승인된 판매자 신청이 있습니다.");
 		}
+		boolean business = request.getAccountHolderType() == PayoutAccountHolderType.BUSINESS;
+		// 해시가 없으면 이름·생년월일을 본인인증 없이 바꿀 수 있던 때의 값일 수 있다. 은행에 묻기 전에 막아 횟수도 쓰지 않는다
+		if (!business && member.getNameBirthHash() == null) {
+			throw new SellerIdentityReverifyRequiredException();
+		}
 		if (!limiter.tryAcquire(memberId)) {
 			throw new SellerAccountVerifyTooManyRequestsException();
 		}
 
 		// 사업자 명의는 신청서의 사업자등록번호로, 본인 명의는 본인인증 생년월일로 묻는다. 신청자가 남의 계좌를 넣지 못한다
-		boolean business = request.getAccountHolderType() == PayoutAccountHolderType.BUSINESS;
 		String holderName;
 		try {
 			holderName = verifier.verify(new PayoutAccountInquiry(
