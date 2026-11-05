@@ -233,10 +233,18 @@ class ApiV1PartyTest {
 		leave(MEMBER, partyId)
 			.andExpect(status().isForbidden())
 			.andExpect(jsonPath("$.code").value("ORDER_PARTY_NOT_MEMBER"));
+		// 그 사이 크루를 나갔다 다시 가입했으면, 되살린 줄의 크루 가입 시각도 새 값이 된다 (크루 탈퇴 이벤트와 비교할 값)
+		LocalDateTime rejoinedCrewAt = StubCrewPort.JOINED_AT.plusDays(30);
+		crewPort.rejoinedCrewAt(MEMBER, rejoinedCrewAt);
 		join(MEMBER, token, COURSE_HALF).andExpect(status().isCreated());
 
 		assertThat(partyMemberRepository.findAll()).filteredOn(row -> row.getMemberId() == MEMBER)
-			.singleElement().satisfies(row -> assertThat(row.isActive()).isTrue());
+			.singleElement().satisfies(row -> {
+				assertThat(row.isActive()).isTrue();
+				assertThat(row.getCrewJoinedAt()).isEqualTo(rejoinedCrewAt);
+			});
+		assertThat(partyMemberRepository.findAll()).filteredOn(row -> row.getMemberId() == LEADER)
+			.singleElement().satisfies(row -> assertThat(row.getCrewJoinedAt()).isEqualTo(StubCrewPort.JOINED_AT));
 		assertThat(participationRepository.findAll()).filteredOn(p -> p.getMemberId() == MEMBER)
 			.extracting(p -> p.getStatus())
 			.containsExactlyInAnyOrder(ParticipationStatus.CANCELED, ParticipationStatus.PENDING);

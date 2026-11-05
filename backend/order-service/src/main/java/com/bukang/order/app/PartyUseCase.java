@@ -61,11 +61,11 @@ public class PartyUseCase {
 	public Created create(long memberId, long crewId, long raceCourseId, ParticipantInfo participant,
 		LocalDateTime now) {
 		RaceCourseInfo course = findOpenCourse(raceCourseId, now);
-		checkCrewMember(crewId, memberId);
+		LocalDateTime crewJoinedAt = checkCrewMember(crewId, memberId);
 		ParticipantInfo checked = checkParticipant(course, participant);
 		checkNoLiveParticipation(course.raceId(), memberId, null);
 		Party party = partyRepository.save(Party.create(crewId, memberId, course.raceId(), now));
-		partyMemberRepository.save(PartyMember.join(party.getId(), memberId, crewId, now));
+		partyMemberRepository.save(PartyMember.join(party.getId(), memberId, crewId, crewJoinedAt, now));
 		return new Created(party, saveParticipation(party, memberId, course, checked, now));
 	}
 
@@ -88,7 +88,7 @@ public class PartyUseCase {
 		if (course.raceId() != target.raceId()) {
 			throw PartyConflictException.raceMismatch();
 		}
-		checkCrewMember(target.crewId(), memberId);
+		LocalDateTime crewJoinedAt = checkCrewMember(target.crewId(), memberId);
 		Party party = lockParty(partyId);
 		// 잠그기를 기다리는 사이 파티장이 링크를 다시 만들었으면 옛 링크다
 		if (!party.getJoinToken().equals(joinToken)) {
@@ -102,7 +102,8 @@ public class PartyUseCase {
 			throw PartyConflictException.alreadyJoined(partyId);
 		}
 		checkNoLiveParticipation(party.getRaceId(), memberId, partyId);
-		row.ifPresentOrElse(left -> left.rejoin(now), () -> saveMember(partyId, memberId, party.getCrewId(), now));
+		row.ifPresentOrElse(left -> left.rejoin(crewJoinedAt, now),
+			() -> saveMember(partyId, memberId, party.getCrewId(), crewJoinedAt, now));
 		return saveParticipation(party, memberId, course, checked, now);
 	}
 
@@ -148,12 +149,14 @@ public class PartyUseCase {
 		return course;
 	}
 
-	private void checkCrewMember(long crewId, long memberId) {
+	// 크루 가입 시각을 돌려준다. 파티원 줄에 남겨 크루 탈퇴 이벤트와 비교한다
+	private LocalDateTime checkCrewMember(long crewId, long memberId) {
 		CrewMembership membership = crewPort.findMembership(crewId, memberId)
 			.orElseThrow(() -> new CrewNotFoundException("존재하지 않는 크루입니다."));
 		if (!membership.crewMember()) {
 			throw PartyAccessDeniedException.crewMemberRequired();
 		}
+		return membership.joinedAt();
 	}
 
 	private static ParticipantInfo checkParticipant(RaceCourseInfo course, ParticipantInfo participant) {
@@ -180,9 +183,9 @@ public class PartyUseCase {
 
 	// 같은 사람이 합류를 두 번 빠르게 누르면, 뒤 요청은 잠금을 얻은 뒤에도 트랜잭션 처음 읽기 기준이라(MySQL REPEATABLE READ)
 	// 앞 요청이 만든 파티원 줄을 못 본다. 유니크 제약(uk_party_member)이 막은 것을 「이미 합류」로 바꾼다
-	private void saveMember(long partyId, long memberId, long crewId, LocalDateTime now) {
+	private void saveMember(long partyId, long memberId, long crewId, LocalDateTime crewJoinedAt, LocalDateTime now) {
 		try {
-			partyMemberRepository.saveAndFlush(PartyMember.join(partyId, memberId, crewId, now));
+			partyMemberRepository.saveAndFlush(PartyMember.join(partyId, memberId, crewId, crewJoinedAt, now));
 		} catch (DataIntegrityViolationException exception) {
 			String message = exception.getMostSpecificCause().getMessage();
 			if (message != null && message.toLowerCase().contains(PARTY_MEMBER_CONSTRAINT)) {
