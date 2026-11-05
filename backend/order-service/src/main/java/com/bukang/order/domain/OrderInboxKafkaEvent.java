@@ -26,7 +26,7 @@ import lombok.NoArgsConstructor;
 		name = "uk_order_inbox_group_message", columnNames = {"consumer_group", "message_id"})
 )
 public class OrderInboxKafkaEvent extends BaseIdAndTime {
-	// 보낸 쪽이 붙인 message-id 헤더 값 (예: product-outbox-42)
+	// 보낸 쪽이 붙인 message-id 헤더 값 (예: product-outbox-{UUID})
 	@Column(name = "message_id", nullable = false, length = 100)
 	private String messageId;
 

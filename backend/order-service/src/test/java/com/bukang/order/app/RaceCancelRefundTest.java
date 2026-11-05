@@ -73,7 +73,7 @@ class RaceCancelRefundTest {
 	private static final long LOCK_WAIT_MILLIS = 500;
 	// 테스트용 예치금은 모든 회원이 잔액 하나를 함께 쓴다. 주문을 많이 만들어도 모자라지 않게 넉넉히 둔다
 	private static final long BALANCE = 100_000_000;
-	private static final String MESSAGE_ID = "product-outbox-1";
+	private static final String MESSAGE_ID = "product-outbox-3c7e1a9b-2f4d-4b8e-a6c1-9d0e5f7a2b01";
 	private static final String RACE_CANCEL_PAYLOAD =
 		"{\"raceId\":" + RACE_ID + ",\"sellerId\":7,\"canceledAt\":\"2026-10-14T18:00:00\"}";
 

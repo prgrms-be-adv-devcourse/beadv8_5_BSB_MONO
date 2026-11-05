@@ -52,8 +52,6 @@ public class OrderOutboxKafkaRelayUseCase {
 	static final Duration MAX_RETRY_DELAY = Duration.ofMinutes(1);
 	// 브로커 응답을 기다리는 최대 시간
 	private static final long SEND_TIMEOUT_SECONDS = 5;
-	// 메시지 ID 앞에 붙는 서비스 이름 (예: order-outbox-42). 다른 서비스의 같은 행 번호와 겹치지 않게 한다
-	static final String MESSAGE_ID_SERVICE = "order";
 
 	private final OrderOutboxKafkaEventRepository orderOutboxKafkaEventRepository;
 	private final KafkaTemplate<String, String> kafkaTemplate;
@@ -100,10 +98,10 @@ public class OrderOutboxKafkaRelayUseCase {
 
 	private boolean send(OrderOutboxKafkaEvent event) {
 		try {
-			// 받는 서비스가 같은 메시지를 두 번 처리하지 않게 아웃박스 행 ID로 메시지 ID 헤더를 붙인다 (#285 인박스, 11/03)
-			// 실패해도 같은 행을 다시 보내므로 재시도해도 ID가 같다
+			// 받는 서비스가 같은 메시지를 두 번 처리하지 않게 행에 저장한 메시지 ID를 헤더로 붙인다 (#285 인박스, BUK-81)
+			// 여기서 새로 만들면 다시 보낼 때마다 값이 달라지므로 저장한 값을 그대로 보낸다
 			kafkaTemplate.send(KafkaMessageId.record(event.getEventType(), event.getMessageKey(), event.getPayload(),
-					KafkaMessageId.ofOutbox(MESSAGE_ID_SERVICE, event.getId())))
+					event.getMessageId()))
 				.get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS);
 			return true;
 		} catch (InterruptedException exception) {

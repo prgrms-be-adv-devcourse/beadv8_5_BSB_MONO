@@ -16,6 +16,9 @@ import com.bukang.order.out.OrderInboxKafkaEventRepository;
 @SpringBootTest
 @ActiveProfiles("test")
 class OrderInboxUseCaseTest {
+	// 상품 아웃박스가 붙일 message-id (product-outbox-{UUID})
+	private static final String MESSAGE_ID = "product-outbox-3c7e1a9b-2f4d-4b8e-a6c1-9d0e5f7a2b01";
+
 	@Autowired
 	private OrderInboxUseCase orderInboxUseCase;
 
@@ -30,13 +33,13 @@ class OrderInboxUseCaseTest {
 	@Test
 	@DisplayName("남긴 메시지는 처리한 것으로 보고, 같은 메시지를 다시 남겨도 한 줄이다. 그룹이 다르면 따로 본다")
 	void record() {
-		assertThat(orderInboxUseCase.alreadyProcessed("product-outbox-1", "order", "order.race.cancel")).isFalse();
+		assertThat(orderInboxUseCase.alreadyProcessed(MESSAGE_ID, "order", "order.race.cancel")).isFalse();
 
-		orderInboxUseCase.record("product-outbox-1", "order", "order.race.cancel", LocalDateTime.now());
-		orderInboxUseCase.record("product-outbox-1", "order", "order.race.cancel", LocalDateTime.now());
+		orderInboxUseCase.record(MESSAGE_ID, "order", "order.race.cancel", LocalDateTime.now());
+		orderInboxUseCase.record(MESSAGE_ID, "order", "order.race.cancel", LocalDateTime.now());
 
-		assertThat(orderInboxUseCase.alreadyProcessed("product-outbox-1", "order", "order.race.cancel")).isTrue();
-		assertThat(orderInboxUseCase.alreadyProcessed("product-outbox-1", "other", "order.race.cancel")).isFalse();
+		assertThat(orderInboxUseCase.alreadyProcessed(MESSAGE_ID, "order", "order.race.cancel")).isTrue();
+		assertThat(orderInboxUseCase.alreadyProcessed(MESSAGE_ID, "other", "order.race.cancel")).isFalse();
 		assertThat(repository.count()).isEqualTo(1);
 	}
 

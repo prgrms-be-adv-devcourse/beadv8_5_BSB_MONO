@@ -53,6 +53,9 @@ import com.bukang.order.out.OrderOutboxKafkaEventRepository;
 class OrderOutboxKafkaRelayTest {
 	private static final long PARTICIPATION_ID = 1001;
 	private static final long OTHER_PARTICIPATION_ID = 1002;
+	// 주문 아웃박스 message-id 형식: order-outbox-{UUID}
+	private static final String OUTBOX_MESSAGE_ID_FORMAT =
+		"order-outbox-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 
 	@Autowired
 	private OrderOutboxKafkaAppendUseCase orderOutboxKafkaAppendUseCase;
@@ -241,7 +244,7 @@ class OrderOutboxKafkaRelayTest {
 	}
 
 	@Test
-	@DisplayName("보낼 때 아웃박스 행 ID로 message-id 헤더(order-outbox-행 ID)를 붙이고, 실패한 뒤 다시 보내도 같은 값이다")
+	@DisplayName("보낼 때 행에 저장한 message-id(order-outbox-{UUID})를 헤더로 붙이고, 실패한 뒤 다시 보내도 같은 값이다")
 	void messageIdHeader() {
 		restore(PARTICIPATION_ID);
 		failSendTo(KafkaTopics.PRODUCT_HOLD_RESTORE, PARTICIPATION_ID);
@@ -249,8 +252,21 @@ class OrderOutboxKafkaRelayTest {
 		succeedSendTo(KafkaTopics.PRODUCT_HOLD_RESTORE, PARTICIPATION_ID);
 		relayAt(now.plus(OrderOutboxKafkaRelayUseCase.FIRST_RETRY_DELAY));
 
-		String messageId = KafkaMessageId.ofOutbox("order", allEvents().getFirst().getId());
+		String messageId = allEvents().getFirst().getMessageId();
+		assertThat(messageId).matches(OUTBOX_MESSAGE_ID_FORMAT);
 		verify(kafka(), times(2)).send(withMessageId(messageId));
+	}
+
+	@Test
+	@DisplayName("아웃박스 행마다 message-id가 다르다")
+	void messageIdPerRow() {
+		restore(PARTICIPATION_ID);
+		release(PARTICIPATION_ID);
+
+		assertThat(allEvents()).extracting(OrderOutboxKafkaEvent::getMessageId)
+			.hasSize(2)
+			.doesNotHaveDuplicates()
+			.allMatch(messageId -> messageId.matches(OUTBOX_MESSAGE_ID_FORMAT));
 	}
 
 	private void restore(long participationId) {

@@ -24,7 +24,7 @@ import tools.jackson.databind.json.JsonMapper;
 class OrderKafkaConsumerTest {
 	private static final String PAYLOAD = "{\"raceId\":300,\"sellerId\":7,\"canceledAt\":\"2026-10-14T18:00:00\"}";
 
-	private static final String MESSAGE_ID = "product-outbox-42";
+	private static final String MESSAGE_ID = "product-outbox-3c7e1a9b-2f4d-4b8e-a6c1-9d0e5f7a2b42";
 
 	private final RaceCancelRefundUseCase useCase = mock();
 	private final OrderInboxUseCase inbox = mock();
