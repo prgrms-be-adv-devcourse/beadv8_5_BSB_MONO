@@ -145,7 +145,7 @@ member:
       api-secret: ${PORTONE_API_SECRET:}
       store-id: ${PORTONE_STORE_ID:}
   # 판매자 정산 계좌 확인 (PayoutAccountProperties, BUK-50). 금융결제원 오픈뱅킹 계좌실명조회. 키 값은 .env에만 둔다
-  # 키가 없으면 운영은 판매자 신청을 받지 않고(503), 그 밖은 가짜 확인으로 통과시킨다 (PayoutAccountConfig)
+  # 키가 없으면 운영을 포함해 가짜 확인(목업)으로 통과시킨다. 오픈뱅킹 이용 승인이 거절되어 운영도 목업이다 (PayoutAccountConfig)
   payout-account:
     daily-limit: 5
     window: 24h

@@ -61,7 +61,7 @@ public class ApiV1SellerController {
 		@ApiResponse(responseCode = "429", description = "오늘 계좌 확인을 5번 넘게 함",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = SellerApiExamples.ACCOUNT_VERIFY_TOO_MANY_REQUESTS))),
-		@ApiResponse(responseCode = "503", description = "오픈뱅킹이 응답하지 않음 (시간 초과, 서버 오류, 운영 키 없음)",
+		@ApiResponse(responseCode = "503", description = "오픈뱅킹이 응답하지 않음 (시간 초과, 서버 오류, 설정 누락)",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = SellerApiExamples.ACCOUNT_VERIFY_UNAVAILABLE)))
 	})
