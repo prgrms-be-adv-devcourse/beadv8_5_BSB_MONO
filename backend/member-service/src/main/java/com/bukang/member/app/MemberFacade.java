@@ -4,6 +4,8 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import org.springframework.security.authentication.AuthenticationManager;
@@ -14,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.bukang.member.config.MarketingUnsubscribeProperties;
 import com.bukang.member.domain.Member;
 import com.bukang.member.domain.SocialProvider;
+import com.bukang.member.domain.exception.MemberNicknameLookupTooManyException;
 import com.bukang.member.domain.exception.MemberNotFoundException;
 import com.bukang.member.domain.exception.SocialAccountLoginException;
 import com.bukang.member.dto.AuthTokens;
@@ -26,6 +29,7 @@ import com.bukang.member.dto.MemberJoinRequestDto;
 import com.bukang.member.dto.MemberLoginRequestDto;
 import com.bukang.member.dto.MemberLoginResult;
 import com.bukang.member.dto.MemberModifyRequestDto;
+import com.bukang.member.dto.MemberNicknameDto;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.identity.VerifiedIdentity;
 
@@ -35,6 +39,8 @@ import lombok.RequiredArgsConstructor;
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
 public class MemberFacade {
+	public static final int MAX_NICKNAME_LOOKUP = 100;
+
 	private final MemberJoinUseCase memberJoinUseCase;
 	private final IdentityVerificationUseCase identityVerificationUseCase;
 	private final MemberModifyUseCase memberModifyUseCase;
@@ -115,6 +121,17 @@ public class MemberFacade {
 		memberRepository.findByEmail(email)
 			.orElseThrow(() -> new MemberNotFoundException("존재하지 않는 회원입니다."))
 			.grantAdmin();
+	}
+
+	// 다른 서비스가 회원 ID 목록으로 닉네임을 받아 간다 (BUK-39). IN 쿼리 한 번으로 읽고, 없는 회원 ID는 결과에서 빠진다
+	public List<MemberNicknameDto> findNicknames(List<Long> memberIds) {
+		List<Long> distinctIds = memberIds.stream().filter(Objects::nonNull).distinct().toList();
+		if (distinctIds.size() > MAX_NICKNAME_LOOKUP) {
+			throw new MemberNicknameLookupTooManyException(MAX_NICKNAME_LOOKUP);
+		}
+		return memberRepository.findAllById(distinctIds).stream()
+			.map(MemberNicknameDto::from)
+			.toList();
 	}
 
 	public MemberAdminDto checkAdmin(long memberId) {
