@@ -1,7 +1,7 @@
 import { clientEnv } from '@/shared/config'
 import { trackEvent } from '@/shared/lib'
 
-import { savePendingCharge } from '../lib/pending-charge'
+import { readPendingCharge, savePendingCharge } from '../lib/pending-charge'
 
 /** 정책 4장 예치금-1: 충전 최소 금액 */
 export const MIN_CHARGE = 10_000
@@ -13,6 +13,9 @@ export function chargeAmountFor(shortage: number) {
 
 /** 토스 결제창이 성공·실패 뒤 돌아오는 화면 */
 export const CHARGE_RETURN_PATH = '/me/deposit/charge/return'
+
+/** 결과를 모르는 충전이 있으면 이만큼 새 충전을 막는다. 서버가 1분마다 토스에 다시 물어 맞춘다 */
+const UNCERTAIN_HOLD_MS = 10 * 60_000
 
 /** 결제창 이름에 보이는 주문명 */
 const ORDER_NAME = '크루런 예치금 충전'
@@ -54,11 +57,14 @@ function returnUrl(origin: string, result: 'success' | 'fail') {
  * 충전 orderId(= 충전 확정 API 멱등키)는 여기서 한 번만 만들고, 돌아온 화면이 그 값으로 확정한다.
  * 결제창이 페이지를 떠나므로 성공하면 돌아오지 않는다. 사용자가 결제창을 닫으면 'canceled'.
  * 가짜 응답 모드에서는 결제창을 띄울 수 없어, 결제창이 성공했을 때와 같은 주소로 바로 보낸다.
+ * 결과를 모르는 충전이 10분 안에 있으면 'held'. 새 충전은 새 주문번호라 카드에서 두 번 빠질 수 있다.
  */
 export async function requestCharge(
   { amount, returnOrderId }: ChargeRequest,
   env: Env = browserEnv(),
-): Promise<'redirecting' | 'canceled'> {
+): Promise<'redirecting' | 'canceled' | 'held'> {
+  const uncertainAt = readPendingCharge()?.uncertainAt
+  if (uncertainAt !== undefined && Date.now() - uncertainAt < UNCERTAIN_HOLD_MS) return 'held'
   trackEvent('deposit_charge_start', { amount, duringCheckout: returnOrderId !== undefined })
   const orderId = `charge-${crypto.randomUUID()}`
   savePendingCharge({ orderId, amount, returnOrderId })
