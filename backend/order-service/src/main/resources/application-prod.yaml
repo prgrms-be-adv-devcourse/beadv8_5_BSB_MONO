@@ -59,6 +59,10 @@ order:
     # 회원 서비스에 닉네임 조회 API가 생기기 전까지 운영에서는 닉네임 검색을 막는다 (주문번호 검색은 된다, BUK-26)
     nickname:
       mode: disabled
+    # 키트 배송 조회는 실제 Delivery Tracker를 부른다 (BUK-55). 키(.env)가 비어 있으면 조회만 실패하고 앱은 뜬다
+    delivery-tracker:
+      mode: http
+      dummy-carrier-enabled: false
 
 # 운영에서는 API 구조가 외부에 노출되지 않도록 Swagger 비활성화
 springdoc:

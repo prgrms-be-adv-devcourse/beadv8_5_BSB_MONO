@@ -168,10 +168,10 @@ public class OrderItem extends BaseIdAndTime {
 	OrderItemDto toDto(KitDeliveryStatus kitDeliveryStatus, Shipment shipment) {
 		if (shipment == null) {
 			return new OrderItemDto(getId(), participationId, raceCourseId, sellerId, itemName, unitPrice, quantity,
-				amount, status, kitDeliveryStatus, null, null, null, null);
+				amount, status, kitDeliveryStatus, null, null, null, null, null);
 		}
 		return new OrderItemDto(getId(), participationId, raceCourseId, sellerId, itemName, unitPrice, quantity,
 			amount, status, shipment.getStatus().getKitDeliveryStatus(), shipment.getCarrier(),
-			shipment.getTrackingNumber(), shipment.getShippedAt(), shipment.getDeliveredAt());
+			shipment.getTrackingNumber(), shipment.getShippedAt(), shipment.getDeliveredAt(), shipment.toTrackingDto());
 	}
 }

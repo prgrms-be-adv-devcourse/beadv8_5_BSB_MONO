@@ -50,6 +50,13 @@ class FlywayExistingTablesTest {
 			jdbcTemplate.update("insert into order_outbox_kafka_event (ref_type, ref_id, event_type, payload, status,"
 				+ " retry_count) values ('Participation', 1, 'topic', '{}', ?, 0)", status);
 		}
+		// 서버 표에는 아직 배송 조회 칸·이동 기록 표가 없다 (BUK-55)
+		jdbcTemplate.execute("drop table order_shipment_tracking_event");
+		jdbcTemplate.execute("drop index idx_shipment_tracking");
+		for (String column : List.of("carrier_id", "tracking_status", "tracking_status_text", "last_event_at",
+			"last_tracked_at")) {
+			jdbcTemplate.execute("alter table order_shipment drop column " + column);
+		}
 
 		// dev·운영과 같은 Flyway 설정 (BUK-29)
 		MigrateResult result = Flyway.configure()

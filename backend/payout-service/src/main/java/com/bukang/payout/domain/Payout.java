@@ -46,7 +46,7 @@ public class Payout extends BaseIdAndTime {
 	private static final int PAY_DAYS_AFTER_RELEASE = 1;
 
 	// 정산 ID: ST-정산 내역을 만든 날-16진수 4자리 (예: ST-20261029-0A3F)
-	// 정산 대상일이 아니라 만든 날이다. 놓친 날을 따라잡아 만든 정산 내역은 만든 날이 정산 대상일보다 늦다 (PRO-120)
+	// 정산 생성일이 아니라 만든 날이다. 놓친 날을 따라잡아 만든 정산 내역은 만든 날이 정산 생성일보다 늦다 (PRO-120)
 	// 끝 4자리를 PK에서 만들어 저장 뒤에 채우므로 NULL을 허용한다
 	@Column(unique = true, length = 20)
 	private String payoutCode;
@@ -66,7 +66,7 @@ public class Payout extends BaseIdAndTime {
 	@Column(nullable = false, length = 10)
 	private PayoutStage payoutStage;
 
-	// YYYY-MM. 1차는 환불 마감일이 속한 달, 최종은 대회일이 속한 달 (실행일 · 정산 대상일이 아니다)
+	// YYYY-MM. 1차는 환불 마감일이 속한 달, 최종은 대회일이 속한 달 (실행일 · 정산 생성일이 아니다)
 	@Column(nullable = false, length = 7)
 	private String payoutMonth;
 
@@ -167,7 +167,7 @@ public class Payout extends BaseIdAndTime {
 	 * 1차 정산금 = DOWN(1장 가격 × 40%) × 장수는 장마다 40%를 버려 더한 값(정책 Q7)과 같다. 회수 몫(1장 × 40%)과도 정확히 맞는다
 	 * 가격 합이 장수로 나누어떨어지지 않으면 가격이 섞인 것이므로 계산하지 않고 실패로 남긴다
 	 */
-	public PayoutItem recordAdvance(long raceCourseId, long priceSum, int ticketCount, LocalDate targetDate) {
+	public PayoutItem recordAdvance(long raceCourseId, long priceSum, int ticketCount, LocalDate payoutCreateDate) {
 		if (payoutStage != PayoutStage.FIRST) {
 			throw new IllegalStateException("선금은 1차 정산에만 씁니다. payoutStage=%s".formatted(payoutStage));
 		}
@@ -185,7 +185,7 @@ public class Payout extends BaseIdAndTime {
 		}
 		salesAmount += priceSum;
 		long share = TwoStagePayoutCalculator.firstShare(priceSum / ticketCount) * ticketCount;
-		return addLine(PayoutRecordType.ADVANCE_PAID, null, raceCourseId, share, null, targetDate);
+		return addLine(PayoutRecordType.ADVANCE_PAID, null, raceCourseId, share, null, payoutCreateDate);
 	}
 
 	// 최종 정산에 참가권 1장을 넣는다. 원장 줄은 정산 내역(Payout)을 통해서만 만든다 (금액 캐시와 함께 바뀌어야 하므로)
@@ -193,21 +193,21 @@ public class Payout extends BaseIdAndTime {
 	// 참가권마다 판매(+가격)와 수수료(−가격 × 5.5%, 원 미만 버림) 두 줄을 쓰고, 코스별로 볼 수 있게 코스를 적는다
 	// 지급액은 언제나 이 정산 내역 원장 줄의 합이다
 	public PayoutItem addItem(long orderItemId, Long raceCourseId, long price, BigDecimal feeRate,
-		LocalDate targetDate) {
+		LocalDate payoutCreateDate) {
 		if (payoutStage != PayoutStage.FINAL) {
 			throw new IllegalStateException("1차 정산은 참가권 줄 없이 recordAdvance로 만듭니다. raceId=%d".formatted(raceId));
 		}
 		salesAmount += price;
 		long fee = TwoStagePayoutCalculator.rate(price, feeRate);
 		feeAmount += fee;
-		PayoutItem sale = addLine(PayoutRecordType.SALE, orderItemId, raceCourseId, price, feeRate, targetDate);
-		addLine(PayoutRecordType.FEE, orderItemId, raceCourseId, -fee, feeRate, targetDate);
+		PayoutItem sale = addLine(PayoutRecordType.SALE, orderItemId, raceCourseId, price, feeRate, payoutCreateDate);
+		addLine(PayoutRecordType.FEE, orderItemId, raceCourseId, -fee, feeRate, payoutCreateDate);
 		return sale;
 	}
 
 	// 코스를 모를 때(테스트 · 샘플 데이터)
-	public PayoutItem addItem(long orderItemId, long price, BigDecimal feeRate, LocalDate targetDate) {
-		return addItem(orderItemId, null, price, feeRate, targetDate);
+	public PayoutItem addItem(long orderItemId, long price, BigDecimal feeRate, LocalDate payoutCreateDate) {
+		return addItem(orderItemId, null, price, feeRate, payoutCreateDate);
 	}
 
 	/**
@@ -250,9 +250,9 @@ public class Payout extends BaseIdAndTime {
 	}
 
 	private PayoutItem addLine(PayoutRecordType recordType, Long orderItemId, Long raceCourseId, long amount,
-		BigDecimal feeRate, LocalDate targetDate) {
+		BigDecimal feeRate, LocalDate payoutCreateDate) {
 		PayoutItem item = PayoutItem.ofPayout(this, recordType, orderItemId, raceCourseId, amount, feeRate,
-			targetDate);
+			payoutCreateDate);
 		items.add(item);
 		payoutAmount += amount;
 		return item;
@@ -400,7 +400,7 @@ public class Payout extends BaseIdAndTime {
 	private void close(long canceledBy, LocalDateTime canceledAt, String reason) {
 		List<PayoutItem> original = List.copyOf(items);
 		original.forEach(item -> addLine(item.getRecordType().canceled(), item.getOrderItemId(),
-			item.getRaceCourseId(), -item.getAmount(), item.getFeeRate(), item.getTargetDate()));
+			item.getRaceCourseId(), -item.getAmount(), item.getFeeRate(), item.getPayoutCreateDate()));
 		changeStatus(PayoutStatus.CANCELED, canceledBy, canceledAt, reason);
 	}
 

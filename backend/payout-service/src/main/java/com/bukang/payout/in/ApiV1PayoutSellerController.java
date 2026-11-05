@@ -87,7 +87,7 @@ public class ApiV1PayoutSellerController {
 
 	@GetMapping("/payouts")
 	@Operation(summary = "정산 내역 조회",
-		description = "정산 월(정산 대상일이 속한 달)이 기간 안인 정산 내역을 최근 달부터 돌려준다. "
+		description = "정산 월(대회일이 속한 달, 1차는 환불 마감일이 속한 달)이 기간 안인 정산 내역을 최근 달부터 돌려준다. "
 			+ "시작 달을 포함해 최대 12개월까지 한 번에 조회한다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "조회 성공",
@@ -127,7 +127,7 @@ public class ApiV1PayoutSellerController {
 
 	@GetMapping("/payout-items")
 	@Operation(summary = "건별 정산 조회",
-		description = "정산 대상일이 기간 안인 정산 항목(참가권 1장)을 최근 날부터 페이지로 나눠 돌려준다. "
+		description = "정산 생성일이 기간 안인 정산 항목(참가권 1장)을 최근 날부터 페이지로 나눠 돌려준다. "
 			+ "끝 날이 시작 날 + 1개월 전이어야 한다(최대 1개월). 페이지는 0부터, 크기는 기본 50 · 최대 100이다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "조회 성공",
@@ -159,9 +159,9 @@ public class ApiV1PayoutSellerController {
 	})
 	public ResponseEntity<RsData<PageDto<PayoutItemDto>>> items(
 		@LoginMemberId long memberId,
-		@Parameter(description = "조회 시작 정산 대상일 (yyyy-MM-dd)", example = "2026-09-01")
+		@Parameter(description = "조회 시작 정산 생성일 (yyyy-MM-dd)", example = "2026-09-01")
 		@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-		@Parameter(description = "조회 끝 정산 대상일 (yyyy-MM-dd, 포함)", example = "2026-09-30")
+		@Parameter(description = "조회 끝 정산 생성일 (yyyy-MM-dd, 포함)", example = "2026-09-30")
 		@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
 		@Parameter(description = "페이지 번호 (0부터)", example = "0")
 		@RequestParam(defaultValue = "0") int page,
