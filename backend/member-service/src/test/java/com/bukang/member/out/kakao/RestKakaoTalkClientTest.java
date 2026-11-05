@@ -94,11 +94,14 @@ class RestKakaoTalkClientTest {
 				.body("{\"code\":-402,\"msg\":\"insufficient scopes.\"}"));
 
 		assertThatThrownBy(() -> client.send("access-1", "abcdefg0001", "{}"))
-			.isInstanceOfSatisfying(KakaoApiException.class, exception -> assertThat(exception.getCode()).isEqualTo(-532));
+			.isInstanceOfSatisfying(KakaoApiException.class,
+				exception -> assertThat(exception.getCode()).isEqualTo(-532));
 		assertThatThrownBy(() -> client.friends("access-1"))
-			.isInstanceOfSatisfying(KakaoApiException.class, exception -> assertThat(exception.getCode()).isEqualTo(-401));
+			.isInstanceOfSatisfying(KakaoApiException.class,
+				exception -> assertThat(exception.getCode()).isEqualTo(-401));
 		assertThatThrownBy(() -> client.friends("access-1"))
-			.isInstanceOfSatisfying(KakaoApiException.class, exception -> assertThat(exception.getCode()).isEqualTo(-402));
+			.isInstanceOfSatisfying(KakaoApiException.class,
+				exception -> assertThat(exception.getCode()).isEqualTo(-402));
 	}
 
 	@Test
@@ -143,7 +146,8 @@ class RestKakaoTalkClientTest {
 				.body("{\"error\":\"invalid_grant\",\"error_code\":\"KOE322\"}"));
 
 		assertThatThrownBy(() -> client.refresh("refresh-1"))
-			.isInstanceOfSatisfying(KakaoApiException.class, exception -> assertThat(exception.getCode()).isEqualTo(-401));
+			.isInstanceOfSatisfying(KakaoApiException.class,
+				exception -> assertThat(exception.getCode()).isEqualTo(-401));
 	}
 
 	@Test

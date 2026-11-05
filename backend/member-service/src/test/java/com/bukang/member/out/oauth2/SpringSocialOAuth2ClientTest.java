@@ -53,6 +53,7 @@ class SpringSocialOAuth2ClientTest {
 		assertThat(client.begin(SocialProvider.KAKAO, new MockHttpServletRequest()).authorization().state())
 			.isNotEqualTo(start.authorization().state());
 	}
+
 	@Test
 	@DisplayName("메시지 추가 동의는 카카오 인가 주소에 친구 목록·메시지 범위만 요청하고, 콜백 주소는 로그인과 같다")
 	void beginMessageConsentRequestsMessageScopes() {

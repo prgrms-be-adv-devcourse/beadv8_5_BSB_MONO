@@ -294,7 +294,8 @@ class ApiV1KakaoCrewInviteTest {
 		assertThat(tokenRow(leaderId).get("access_token")).isNull();
 
 		consent(leaderId, "k-leader", tokens("access-1", "refresh-1", MESSAGE_SCOPES, 6));
-		willThrow(new KakaoApiException(-401)).given(kakaoTalkClient).send(eq("access-1"), anyString(), anyString());
+		willThrow(new KakaoApiException(-401))
+			.given(kakaoTalkClient).send(eq("access-1"), anyString(), anyString());
 		send(leaderId, "[\"uuid-friend\"]")
 			.andExpect(status().isForbidden())
 			.andExpect(jsonPath("$.code").value("KAKAO_MESSAGE_CONSENT_REQUIRED"));
@@ -330,7 +331,8 @@ class ApiV1KakaoCrewInviteTest {
 	@DisplayName("일부만 하루 한도에 걸리면 200으로 보낸 사람과 실패 사유를 알리고, 보내지 못한 몫의 초대 링크는 취소한다")
 	void partialDailyLimit() throws Exception {
 		consent(leaderId, "k-leader", tokens("access-1", "refresh-1", MESSAGE_SCOPES, 6));
-		willThrow(new KakaoApiException(-532)).given(kakaoTalkClient).send(eq("access-1"), eq("uuid-other"), anyString());
+		willThrow(new KakaoApiException(-532))
+			.given(kakaoTalkClient).send(eq("access-1"), eq("uuid-other"), anyString());
 
 		send(leaderId, "[\"uuid-friend\",\"uuid-other\"]")
 			.andExpect(status().isOk())
@@ -345,8 +347,10 @@ class ApiV1KakaoCrewInviteTest {
 	@DisplayName("모두 하루 한도(-532·앱 한도 -10)에 걸리면 429 KAKAO_MESSAGE_DAILY_LIMIT이고 만든 초대 링크를 모두 취소한다")
 	void allDailyLimit() throws Exception {
 		consent(leaderId, "k-leader", tokens("access-1", "refresh-1", MESSAGE_SCOPES, 6));
-		willThrow(new KakaoApiException(-532)).given(kakaoTalkClient).send(eq("access-1"), eq("uuid-friend"), anyString());
-		willThrow(new KakaoApiException(-10)).given(kakaoTalkClient).send(eq("access-1"), eq("uuid-other"), anyString());
+		willThrow(new KakaoApiException(-532))
+			.given(kakaoTalkClient).send(eq("access-1"), eq("uuid-friend"), anyString());
+		willThrow(new KakaoApiException(-10))
+			.given(kakaoTalkClient).send(eq("access-1"), eq("uuid-other"), anyString());
 
 		send(leaderId, "[\"uuid-friend\",\"uuid-other\"]")
 			.andExpect(status().isTooManyRequests())
@@ -371,6 +375,7 @@ class ApiV1KakaoCrewInviteTest {
 	@Test
 	@DisplayName("크루원이 아니면(남의 크루 포함) 403 CREW_NOT_MEMBER, 초대할 수 없는 크루원이면 403 CREW_INVITE_FORBIDDEN이다")
 	void onlyInvitersOfThisCrew() throws Exception {
+		long invitesBefore = crewInviteRepository.count();
 		consent(friendId, "k-friend", tokens("access-f", "refresh-f", MESSAGE_SCOPES, 6));
 		friends(friendId).andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("CREW_NOT_MEMBER"));
 		send(friendId, "[\"uuid-leader\"]")
@@ -383,7 +388,7 @@ class ApiV1KakaoCrewInviteTest {
 			.andExpect(jsonPath("$.code").value("CREW_INVITE_FORBIDDEN"));
 
 		verifyNoInteractions(kakaoTalkClient);
-		assertThat(crewInviteRepository.count()).isZero();
+		assertThat(crewInviteRepository.count()).isEqualTo(invitesBefore);
 	}
 
 	@Test
