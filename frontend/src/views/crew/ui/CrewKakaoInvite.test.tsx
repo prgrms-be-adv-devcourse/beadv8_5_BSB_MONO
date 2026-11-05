@@ -229,6 +229,100 @@ describe('CrewInvitesPage 카카오톡으로 보내기', () => {
     expect(within(sheet).getByText('보내지 못한 사람: 친구2')).toBeInTheDocument()
   })
 
+  it('보내기가 카카오 장애로 실패해도 고른 친구와 보내기 버튼이 남아 다시 보낼 수 있다', async () => {
+    mockFriends(1)
+    let calls = 0
+    server.use(
+      http.post('*/api/v1/member/crews/:crewId/kakao-invites', () => {
+        calls += 1
+        if (calls === 1) return failWith(502, 'KAKAO_UNAVAILABLE')
+        return HttpResponse.json({
+          status: 200,
+          message: '보냄',
+          data: { sentUuids: ['uuid-1'], failures: [] },
+        })
+      }),
+    )
+    const user = userEvent.setup()
+    renderPage(<CrewInvitesPage crewId={1} />)
+    const sheet = await openSheet(user)
+    await user.click(await within(sheet).findByRole('checkbox', { name: '친구1' }))
+    await user.click(within(sheet).getByRole('button', { name: '1명에게 보내기' }))
+
+    expect(
+      await within(sheet).findByText(
+        '카카오톡이 응답하지 않아요. 잠시 뒤 다시 보내거나 초대 링크를 복사해 보내 주세요.',
+      ),
+    ).toBeInTheDocument()
+    await user.click(within(sheet).getByRole('button', { name: '1명에게 보내기' }))
+
+    expect(await screen.findByText('1명에게 초대를 보냈어요')).toBeInTheDocument()
+    expect(calls).toBe(2)
+  })
+
+  it('보내기가 동의 필요로 거절되면 동의 안내로 바뀐다', async () => {
+    mockFriends(1)
+    server.use(
+      http.post('*/api/v1/member/crews/:crewId/kakao-invites', () =>
+        failWith(403, 'KAKAO_MESSAGE_CONSENT_REQUIRED'),
+      ),
+    )
+    const user = userEvent.setup()
+    renderPage(<CrewInvitesPage crewId={1} />)
+    const sheet = await openSheet(user)
+    await user.click(await within(sheet).findByRole('checkbox', { name: '친구1' }))
+    await user.click(within(sheet).getByRole('button', { name: '1명에게 보내기' }))
+
+    expect(await within(sheet).findByRole('button', { name: '동의하러 가기' })).toBeInTheDocument()
+  })
+
+  it('카카오와 관계없는 거절(초대 권한 없음 등)은 서버 문구로 알린다', async () => {
+    server.use(
+      http.get('*/api/v1/member/crews/:crewId/kakao-invites/friends', () =>
+        failWith(403, 'CREW_INVITE_FORBIDDEN', '크루장과 운영진만 초대할 수 있습니다.'),
+      ),
+    )
+    const user = userEvent.setup()
+    renderPage(<CrewInvitesPage crewId={1} />)
+    const sheet = await openSheet(user)
+
+    expect(
+      await within(sheet).findByText('크루장과 운영진만 초대할 수 있습니다.'),
+    ).toBeInTheDocument()
+    expect(within(sheet).queryByText(/카카오톡이 응답하지 않아요/)).not.toBeInTheDocument()
+  })
+
+  it('일부만 보내지면 보낸 친구는 목록에서 빠지고, 카카오 오류로 못 보낸 친구는 고른 채로 남는다', async () => {
+    mockFriends(3)
+    server.use(
+      http.post('*/api/v1/member/crews/:crewId/kakao-invites', () =>
+        HttpResponse.json({
+          status: 200,
+          message: '보냄',
+          data: {
+            sentUuids: ['uuid-1'],
+            failures: [
+              { uuid: 'uuid-2', reason: 'KAKAO_ERROR' },
+              { uuid: 'uuid-3', reason: 'DAILY_LIMIT' },
+            ],
+          },
+        }),
+      ),
+    )
+    const user = userEvent.setup()
+    renderPage(<CrewInvitesPage crewId={1} />)
+    const sheet = await openSheet(user)
+    for (const n of [1, 2, 3]) {
+      await user.click(await within(sheet).findByRole('checkbox', { name: `친구${n}` }))
+    }
+    await user.click(within(sheet).getByRole('button', { name: '3명에게 보내기' }))
+
+    await within(sheet).findByText('1명에게 보냈어요. 2명에게는 보내지 못했어요.')
+    expect(within(sheet).queryByRole('checkbox', { name: '친구1' })).not.toBeInTheDocument()
+    expect(within(sheet).getByRole('checkbox', { name: '친구2' })).toBeChecked()
+    expect(within(sheet).getByRole('checkbox', { name: '친구3' })).not.toBeChecked()
+  })
+
   it('동의를 마치고 돌아오면 친구 고르기를 바로 다시 열고 주소의 결과 값을 지운다', async () => {
     mockFriends(1)
     renderPage(<CrewInvitesPage crewId={1} kakaoConsent="granted" />)
