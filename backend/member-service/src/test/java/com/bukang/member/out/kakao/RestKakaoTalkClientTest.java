@@ -156,4 +156,28 @@ class RestKakaoTalkClientTest {
 		assertThat(new KakaoRefreshedToken("access-secret", 10, "refresh-secret").toString())
 			.doesNotContain("access-secret", "refresh-secret");
 	}
+
+	@Test
+	@DisplayName("200으로 답해도 받는 사람이 성공 목록에 없으면 실패 정보의 오류 코드로 던진다")
+	void sendFailureInsideOkResponse() {
+		kapiServer.expect(requestTo(KAPI + "/v1/api/talk/friends/message/default/send"))
+			.andRespond(withSuccess("""
+				{"successful_receiver_uuids":[],"failure_info":[{"code":-532,"msg":"daily limit",
+				"receiver_uuids":["abcdefg0001"]}]}
+				""", MediaType.APPLICATION_JSON));
+
+		assertThatThrownBy(() -> client.send("access-1", "abcdefg0001", "{}"))
+			.isInstanceOfSatisfying(KakaoApiException.class,
+				exception -> assertThat(exception.getCode()).isEqualTo(-532));
+	}
+
+	@Test
+	@DisplayName("갱신이 리프레시 토큰 문제가 아닌 이유(앱 키 오류 등)로 거절되면 토큰 오류가 아니라 카카오 장애로 던진다")
+	void refreshRejectedForOtherReason() {
+		kauthServer.expect(requestTo(KAUTH + "/oauth/token"))
+			.andRespond(withStatus(HttpStatus.UNAUTHORIZED).contentType(MediaType.APPLICATION_JSON)
+				.body("{\"error\":\"invalid_client\",\"error_code\":\"KOE010\"}"));
+
+		assertThatThrownBy(() -> client.refresh("refresh-1")).isInstanceOf(KakaoUnavailableException.class);
+	}
 }

@@ -328,6 +328,25 @@ class ApiV1KakaoCrewInviteTest {
 	}
 
 	@Test
+	@DisplayName("보내는 도중 카카오가 토큰 오류로 답하면 멈추고, 이미 보낸 사람은 200으로 알리며 남은 사람은 실패로 돌려준다")
+	void tokenErrorMidway() throws Exception {
+		consent(leaderId, "k-leader", tokens("access-1", "refresh-1", MESSAGE_SCOPES, 6));
+		willThrow(new KakaoApiException(-401))
+			.given(kakaoTalkClient).send(eq("access-1"), eq("uuid-other"), anyString());
+
+		send(leaderId, "[\"uuid-friend\",\"uuid-other\",\"uuid-third\"]")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.sentUuids.length()").value(1))
+			.andExpect(jsonPath("$.data.sentUuids[0]").value("uuid-friend"))
+			.andExpect(jsonPath("$.data.failures.length()").value(2))
+			.andExpect(jsonPath("$.data.failures[0].reason").value("KAKAO_ERROR"));
+
+		verify(kakaoTalkClient, never()).send(anyString(), eq("uuid-third"), anyString());
+		assertThat(tokenRow(leaderId).get("access_token")).isNull();
+		assertThat(canceledInvites()).isEqualTo(1);
+	}
+
+	@Test
 	@DisplayName("일부만 하루 한도에 걸리면 200으로 보낸 사람과 실패 사유를 알리고, 보내지 못한 몫의 초대 링크는 취소한다")
 	void partialDailyLimit() throws Exception {
 		consent(leaderId, "k-leader", tokens("access-1", "refresh-1", MESSAGE_SCOPES, 6));
