@@ -235,7 +235,10 @@ public class Order extends BaseIdAndTime {
 		List<OrderItem> paidItems = items.stream()
 			.filter(item -> item.getStatus() == OrderItemStatus.PAID)
 			.toList();
-		paidItems.forEach(item -> cancelItem(item, canceledAt));
+		paidItems.forEach(item -> {
+			cancelItem(item, canceledAt);
+			item.markRaceCanceled();
+		});
 		if (!paidItems.isEmpty()) {
 			long refundedAmount = paidItems.stream().mapToLong(OrderItem::getAmount).sum();
 			publishEvent(new OrderRaceCanceledEvent(getId(), buyerId, raceId, refundedAmount));

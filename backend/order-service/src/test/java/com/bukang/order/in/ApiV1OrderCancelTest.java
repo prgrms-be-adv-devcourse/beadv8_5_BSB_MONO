@@ -41,6 +41,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 import com.bukang.common.global.json.JsonConverter;
 import com.bukang.common.shared.order.event.OrderItemRefundReason;
 import com.bukang.common.shared.order.event.OrderItemRefundedEvent;
+import com.bukang.common.shared.order.event.RaceRefundEvent;
+import com.bukang.common.shared.order.event.RaceRefundKind;
 import com.bukang.order.app.OrderCancelRetryUseCase;
 import com.bukang.order.app.OrderCancelUseCase;
 import com.bukang.order.app.RaceCancelRefundUseCase;
@@ -594,6 +596,9 @@ class ApiV1OrderCancelTest {
 		assertThat(raceResult.refundedOrders()).isZero();
 		assertThat(walletPort.refundCalls()).hasSize(1);
 		assertThat(itemOf(paid.orderId()).getStatus()).isEqualTo(OrderItemStatus.CANCELING);
+		// 개인 취소의 환불 결과를 기다리는 중이라 정산에 대회 환불 완료를 보내지 않는다 (보류만, 회의 R2에서 다시 판단할지 정함)
+		assertThat(SeatOutboxMessages.raceRefunds(orderOutboxKafkaEventRepository, jsonConverter))
+			.extracting(RaceRefundEvent::kind).containsExactly(RaceRefundKind.HELD);
 
 		OrderCancelRetryUseCase.RetryResult result = orderCancelRetryUseCase.retry(LocalDateTime.now().plusMinutes(2));
 

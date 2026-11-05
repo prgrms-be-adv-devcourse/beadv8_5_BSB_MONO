@@ -33,6 +33,9 @@ public final class KafkaTopics {
 	public static final String ORDER_RACE_CANCEL = "order.race.cancel";
 	// 참가권을 환불했다. 정산 서비스가 판매자에게서 돌려받을 회수를 남긴다 (order → payout, 발행은 order 담당과 맞춘다)
 	public static final String ORDER_ITEM_REFUNDED = "queuing.orderitem.refunded";
+	// 대회 취소 환불의 보류(HELD)·완료(REFUNDED). 정산이 보류에 지급을 막고 완료에 닫기·회수를 한다 (order → payout, key 대회 ID)
+	// 이름은 정산 담당과 확인 중이다 (11/05 회의 R1)
+	public static final String ORDER_RACE_REFUND = "queuing.order.racerefund";
 
 	private KafkaTopics() {
 	}

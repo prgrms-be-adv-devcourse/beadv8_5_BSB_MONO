@@ -6,6 +6,7 @@ import java.util.List;
 import com.bukang.common.global.json.JsonConverter;
 import com.bukang.common.shared.kafka.KafkaTopics;
 import com.bukang.common.shared.order.event.OrderItemRefundedEvent;
+import com.bukang.common.shared.order.event.RaceRefundEvent;
 import com.bukang.order.domain.OrderOutboxKafkaEvent;
 import com.bukang.order.out.OrderOutboxKafkaEventRepository;
 
@@ -35,6 +36,16 @@ public final class SeatOutboxMessages {
 			.filter(event -> KafkaTopics.ORDER_ITEM_REFUNDED.equals(event.getEventType()))
 			.sorted(Comparator.comparing(OrderOutboxKafkaEvent::getId))
 			.map(event -> jsonConverter.fromJson(event.getPayload(), OrderItemRefundedEvent.class))
+			.toList();
+	}
+
+	// 정산에 보낼 대회 취소 환불 보류·완료 (queuing.order.racerefund, 11/05 회의 R1). 남긴 순서대로 읽는다
+	public static List<RaceRefundEvent> raceRefunds(OrderOutboxKafkaEventRepository repository,
+		JsonConverter jsonConverter) {
+		return repository.findAll().stream()
+			.filter(event -> KafkaTopics.ORDER_RACE_REFUND.equals(event.getEventType()))
+			.sorted(Comparator.comparing(OrderOutboxKafkaEvent::getId))
+			.map(event -> jsonConverter.fromJson(event.getPayload(), RaceRefundEvent.class))
 			.toList();
 	}
 
