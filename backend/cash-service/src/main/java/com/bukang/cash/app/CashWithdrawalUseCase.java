@@ -17,11 +17,14 @@ import com.bukang.cash.domain.wallet.LedgerRefType;
 import com.bukang.cash.domain.wallet.LedgerType;
 import com.bukang.cash.domain.wallet.Wallet;
 import com.bukang.cash.domain.withdrawal.WalletWithdrawal;
+import com.bukang.cash.domain.withdrawal.WalletWithdrawalItem;
+import com.bukang.cash.domain.withdrawal.WithdrawalItemStatus;
 import com.bukang.cash.domain.withdrawal.WithdrawalStatus;
 import com.bukang.cash.dto.CashWithdrawalResponseDto;
 import com.bukang.cash.out.WalletChargeRepository;
 import com.bukang.cash.out.WalletLedgerRepository;
 import com.bukang.cash.out.WalletRepository;
+import com.bukang.cash.out.WalletWithdrawalItemRepository;
 import com.bukang.cash.out.WalletWithdrawalRepository;
 import com.bukang.cash.out.pg.PaymentCancelResult;
 import com.bukang.cash.out.pg.PaymentClient;
@@ -31,13 +34,14 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class CashWithdrawalUseCase {
-	private static final String CANCEL_REASON = "예치금 환급";
+	static final String CANCEL_REASON = "예치금 환급";
 	// 카드로는 돌려줄 수 없다는 토스 거절 코드 (docs.tosspayments.com/reference/error-codes).
 	// 환불 가능 기간이 지남, 부분 취소를 허용하지 않는 결제(일부 체크카드·에스크로). 이 몫은 계좌로 보낸다
 	private static final Set<String> CARD_REFUND_IMPOSSIBLE =
 		Set.of("EXCEED_MAX_REFUND_DUE", "NOT_ALLOWED_PARTIAL_REFUND");
 
 	private final WalletWithdrawalRepository walletWithdrawalRepository;
+	private final WalletWithdrawalItemRepository walletWithdrawalItemRepository;
 	private final WalletRepository walletRepository;
 	private final WalletLedgerRepository walletLedgerRepository;
 	private final WalletChargeRepository walletChargeRepository;
@@ -96,14 +100,17 @@ public class CashWithdrawalUseCase {
 		boolean accountRequired = false;
 		for (WithdrawalPlan.CardPart part : plan.cardParts()) {
 			WalletCharge charge = walletChargeRepository.findById(part.chargeId()).orElseThrow();
+			String pgIdempotencyKey = idempotencyKey + ":" + part.chargeId();
 			try {
 				PaymentCancelResult result = paymentClient.cancel(charge.getPgPaymentKey(), CANCEL_REASON,
-					part.amount(), idempotencyKey + ":" + part.chargeId());
+					part.amount(), pgIdempotencyKey);
 				// 요청 금액이 아니라 PG가 알려 준 취소 금액을 기록한다 (승인 때와 같은 원칙)
 				charge.recordCancel(result.canceledAmount());
 			} catch (PaymentCancelFailedException rejected) {
 				if (rejected.isResultUnknown()) {
 					// PG가 이미 취소했을 수도 있어 되돌리면 돈이 두 번 나간다. 처리 중으로 두고 재확인으로 맞춘다
+					walletWithdrawalItemRepository.save(new WalletWithdrawalItem(withdrawal, charge, part.amount(),
+						WithdrawalItemStatus.UNKNOWN, pgIdempotencyKey));
 					processingAmount += part.amount();
 					continue;
 				}
