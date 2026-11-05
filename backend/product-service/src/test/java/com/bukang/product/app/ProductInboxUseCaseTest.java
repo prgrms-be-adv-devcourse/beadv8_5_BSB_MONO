@@ -18,7 +18,7 @@ import com.bukang.product.support.ProductIntegrationTest;
 class ProductInboxUseCaseTest extends ProductIntegrationTest {
 	private static final String GROUP = "product";
 	private static final String TOPIC = KafkaTopics.PRODUCT_HOLD_CANCEL;
-	private static final String MESSAGE_ID = "order-outbox-42";
+	private static final String MESSAGE_ID = "order-outbox-9f1c2b7a-4d3e-4a5b-8c6d-7e8f9a0b1c42";
 
 	@Autowired
 	private ProductInboxUseCase productInboxUseCase;
@@ -26,7 +26,7 @@ class ProductInboxUseCaseTest extends ProductIntegrationTest {
 	private final LocalDateTime now = LocalDateTime.now();
 
 	@Test
-	@DisplayName("처음 받은 메시지(order-outbox-42)는 처리하고, 같은 메시지가 다시 오면 건너뛴다")
+	@DisplayName("처음 받은 메시지(order-outbox-{UUID})는 처리하고, 같은 메시지가 다시 오면 건너뛴다")
 	void recordOnlyFirstTime() {
 		boolean first = tryRecord(MESSAGE_ID);
 		boolean again = tryRecord(MESSAGE_ID);

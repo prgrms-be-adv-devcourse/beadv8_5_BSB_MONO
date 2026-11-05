@@ -40,6 +40,9 @@ import com.bukang.product.support.ProductIntegrationTest;
 class ProductOutboxKafkaRelayTest extends ProductIntegrationTest {
 	private static final long RACE_ID = 101;
 	private static final long OTHER_RACE_ID = 102;
+	// 상품 아웃박스 message-id 형식: product-outbox-{UUID}
+	private static final String OUTBOX_MESSAGE_ID_FORMAT =
+		"product-outbox-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 
 	@Autowired
 	private ProductOutboxKafkaAppendUseCase productOutboxKafkaAppendUseCase;
@@ -67,6 +70,19 @@ class ProductOutboxKafkaRelayTest extends ProductIntegrationTest {
 			.isInstanceOf(IllegalTransactionStateException.class);
 
 		assertThat(productOutboxKafkaEventRepository.count()).isZero();
+	}
+
+	@Test
+	@DisplayName("아웃박스 행을 만들면 message-id가 product-outbox-{UUID} 형식으로 함께 저장된다")
+	void saveMessageIdOnAppend() {
+		// when
+		append(KafkaTopics.RACE_CHANGED, RACE_ID);
+
+		// then
+		assertThat(allEvents()).singleElement()
+			.extracting(ProductOutboxKafkaEvent::getMessageId)
+			.asString()
+			.matches(OUTBOX_MESSAGE_ID_FORMAT);
 	}
 
 	@Test
