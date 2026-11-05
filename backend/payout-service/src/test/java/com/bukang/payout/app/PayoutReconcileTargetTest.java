@@ -94,7 +94,9 @@ class PayoutReconcileTargetTest {
 		new PayoutCreateUseCase(payoutRepository, stepUseCase, soldEntryPort, sellerId -> true, racePort, noFirst,
 			failureUseCase).run(today, now);
 		new PayoutReconcileUseCase(payoutRepository, racePort, noFirst, soldEntryPort,
-			new PayoutReconcileStepUseCase(payoutRepository, payoutHoldUseCase, new SetTicketDiffer()),
+			new PayoutReconcileStepUseCase(payoutRepository, payoutHoldUseCase,
+				new PayoutLedgerUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository),
+				new SetTicketDiffer()),
 			failureUseCase).run(today, now);
 	}
 
@@ -132,6 +134,7 @@ class PayoutReconcileTargetTest {
 			raceId -> orderEntries,
 			new PayoutReconcileStepUseCase(payoutRepository,
 				new PayoutHoldUseCase(payoutRepository, payoutHoldRepository, new BusinessDayCalendar()),
+				new PayoutLedgerUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository),
 				new SetTicketDiffer()),
 			new PayoutCreateFailureUseCase(payoutCreateFailureRepository)).run(DAY2, NOW2);
 

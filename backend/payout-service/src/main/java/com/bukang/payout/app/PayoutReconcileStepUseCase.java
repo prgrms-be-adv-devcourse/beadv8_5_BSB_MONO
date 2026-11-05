@@ -58,6 +58,7 @@ public class PayoutReconcileStepUseCase {
 
 	private final PayoutRepository payoutRepository;
 	private final PayoutHoldUseCase payoutHoldUseCase;
+	private final PayoutLedgerUseCase payoutLedgerUseCase;
 	private final TicketDiffer ticketDiffer;
 
 	/**
@@ -70,11 +71,16 @@ public class PayoutReconcileStepUseCase {
 		Map<Long, Long> soldBySeller = summaries.stream()
 			.collect(groupingBy(SoldSummary::sellerId, summingLong(SoldSummary::priceSum)));
 		Map<Long, List<Payout>> payoutsBySeller = livePayouts(race.raceId(), PayoutStage.FIRST);
+		Set<Long> sellersWithFinal = livePayouts(race.raceId(), PayoutStage.FINAL).keySet();
 
 		List<PayoutCreateFailure> mismatches = new ArrayList<>();
 		for (long sellerId : sellers(soldBySeller.keySet(), payoutsBySeller.keySet())) {
 			long sold = soldBySeller.getOrDefault(sellerId, 0L);
 			List<Payout> payouts = payoutsBySeller.getOrDefault(sellerId, List.of());
+			// 최종이 먼저 만들어졌으면 생성 배치가 1차를 일부러 만들지 않는다. 최종이 전액을 계산했으므로 빠짐이 아니다 (PRO-190)
+			if (payouts.isEmpty() && sellersWithFinal.contains(sellerId)) {
+				continue;
+			}
 			long settled = payouts.stream().mapToLong(Payout::getSalesAmount).sum();
 			if (sold == settled) {
 				continue;
@@ -132,6 +138,9 @@ public class PayoutReconcileStepUseCase {
 					target.addItem(id, entry.raceCourseId(), entry.price(), TwoStagePayoutCalculator.FEE_RATE,
 						PayoutCreateDate.of(race.raceDate()));
 				});
+			}
+			if (added) {
+				payoutLedgerUseCase.settleReceivable(target, now);
 			}
 			diff.extra().stream()
 				.map(id -> saleById.get(id).getPayout())

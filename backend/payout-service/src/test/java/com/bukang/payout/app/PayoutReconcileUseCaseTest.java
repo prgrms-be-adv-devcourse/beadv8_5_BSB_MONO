@@ -32,6 +32,8 @@ import com.bukang.payout.domain.SetTicketDiffer;
 import com.bukang.payout.domain.TwoStagePayoutCalculator;
 import com.bukang.payout.out.PayoutCreateFailureRepository;
 import com.bukang.payout.out.PayoutHoldRepository;
+import com.bukang.payout.out.PayoutItemRepository;
+import com.bukang.payout.out.PayoutRecoveryRepository;
 import com.bukang.payout.out.PayoutRepository;
 import com.bukang.payout.out.RaceSchedule;
 import com.bukang.payout.out.SoldEntry;
@@ -70,6 +72,16 @@ class PayoutReconcileUseCaseTest {
 	@Autowired
 	private PayoutCreateFailureRepository payoutCreateFailureRepository;
 
+	@Autowired
+	private PayoutItemRepository payoutItemRepository;
+
+	@Autowired
+	private PayoutRecoveryRepository payoutRecoveryRepository;
+
+	private PayoutLedgerUseCase ledgerUseCase() {
+		return new PayoutLedgerUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository);
+	}
+
 	// 기록 저장은 새 트랜잭션으로 커밋돼 테스트 롤백으로 지워지지 않는다. 다른 테스트에 남지 않게 지운다
 	@AfterTransaction
 	void deleteFailures() {
@@ -86,7 +98,7 @@ class PayoutReconcileUseCaseTest {
 		return new PayoutReconcileUseCase(payoutRepository,
 			new StubRacePort(raceId -> Optional.empty(), List.of(FIRST_RACE, FINAL_RACE), List.of()),
 			soldSummaryPort, soldEntryPort,
-			new PayoutReconcileStepUseCase(payoutRepository, payoutHoldUseCase, new SetTicketDiffer()),
+			new PayoutReconcileStepUseCase(payoutRepository, payoutHoldUseCase, ledgerUseCase(), new SetTicketDiffer()),
 			new PayoutCreateFailureUseCase(payoutCreateFailureRepository));
 	}
 
@@ -345,5 +357,34 @@ class PayoutReconcileUseCaseTest {
 
 		assertThat(mismatches()).extracting(PayoutCreateFailure::getNote)
 			.containsExactly("빠진 500장 (코스 3: 500장)");
+	}
+
+	@Test
+	@DisplayName("빠진 참가권을 추가해 금액이 늘면, 남은 갚을 돈을 그 정산 내역에서 상계한다 (생성 때와 같은 규칙)")
+	void settlesReceivableAfterAdding() {
+		// 1차(대회 20)를 지급한 뒤 일정 변경 환불로 갚을 돈 4,000원이 생겼고, 그때는 뺄 지급 전 정산 내역이 없었다
+		Payout first = Payout.first(2, FINAL_RACE.raceId(), FINAL_RACE.raceName(), FINAL_RACE.refundDeadline(), NOW,
+			CALENDAR);
+		first.recordAdvance(COURSE_A, 50_000, 5, TODAY);
+		payoutRepository.save(first).pay(NOW);
+		ledgerUseCase().recoverScheduleChange(2, FINAL_RACE.raceId(), COURSE_A, 999, 10_000, NOW);
+		Payout payout = saveFinal(2, ticket(101, COURSE_A, 10_000), ticket(102, COURSE_A, 10_000),
+			ticket(104, COURSE_A, 10_000), ticket(105, COURSE_A, 10_000));
+
+		useCase(List.of(), soldFiveOfSeller2()).run(TODAY, NOW);
+
+		assertThat(payout.getItems()).extracting(PayoutItem::getRecordType, PayoutItem::getAmount)
+			.contains(tuple(PayoutRecordType.RECOVERY_OFFSET, -4_000L));
+	}
+
+	@Test
+	@DisplayName("최종이 먼저 만들어져 1차를 건너뛴 판매자는 1차 빠짐으로 기록하지 않는다 (PRO-190, 생성 배치와 같은 기준)")
+	void skipsFirstWhenFinalExists() {
+		payoutRepository.save(Payout.finalStage(1, FIRST_RACE.raceId(), FIRST_RACE.raceName(), FIRST_RACE.raceDate(),
+			NOW, CALENDAR));
+
+		useCase(List.of(new SoldSummary(1, 10, COURSE_A, 70_000, 7)), List.of()).run(TODAY, NOW);
+
+		assertThat(mismatches()).isEmpty();
 	}
 }
