@@ -20,7 +20,7 @@ import lombok.RequiredArgsConstructor;
  * 메시지는 JSON 문자열로 받아 JsonConverter로 바꾼다. 연결 규칙은 동기 연결 API(InternalV1FileController)와 같다.
  * 처리 중 예외가 나면 재시도 토픽으로 보내 간격을 늘려 가며 다시 시도하고, 그래도 실패하면 <토픽>.dlt로 보낸다.
  * DLT 메시지는 FileKafkaDltConsumer가 받는다.
- * 상품이 붙인 message-id 헤더(product-outbox-{행 id})로 인박스가 같은 메시지를 두 번 처리하지 않는다
+ * 상품이 붙인 message-id 헤더(product-outbox-{UUID})로 인박스가 같은 메시지를 두 번 처리하지 않는다
  * (재시도·DLT 토픽으로 넘어가도 헤더는 그대로다).
  */
 @Component
