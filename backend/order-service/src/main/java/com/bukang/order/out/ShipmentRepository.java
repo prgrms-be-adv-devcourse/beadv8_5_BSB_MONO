@@ -1,10 +1,12 @@
 package com.bukang.order.out;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -25,7 +27,8 @@ public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
 	@Query(value = """
 		select new com.bukang.order.dto.SellerKitDto(i.id, o.orderNo, i.status, i.raceId, i.raceCourseId, i.itemName,
 			p.participant.name, p.participant.tshirtSize, s.shippingAddress,
-			s.status, s.carrier, s.trackingNumber, s.shippedAt, s.deliveredAt)
+			s.status, s.carrier, s.trackingNumber, s.shippedAt, s.deliveredAt,
+			s.id, s.carrierId, s.trackingStatus, s.trackingStatusText, s.lastEventAt, s.lastTrackedAt)
 		from ShipmentItem si
 			join si.shipment s
 			join OrderItem i on i.id = si.orderItemId
@@ -79,4 +82,19 @@ public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
 		group by i.raceCourseId
 		""")
 	List<Object[]> countReadyKitsByCourse(@Param("sellerId") long sellerId, @Param("raceId") Long raceId);
+
+	// 조회 배치가 부를 배송 (BUK-55). 배송 중이고 택배사 ID가 있는 것을 오래 조회하지 않은 것부터(한 번도 안 한 것 먼저)
+	@Query("""
+		select new com.bukang.order.out.ShipmentTrackingTarget(s.id, s.order.id, s.carrierId, s.trackingNumber)
+		from Shipment s
+		where s.status = com.bukang.order.domain.ShipmentStatus.SHIPPING
+			and s.carrierId is not null
+		order by s.lastTrackedAt asc nulls first, s.id
+		""")
+	List<ShipmentTrackingTarget> findTrackingTargets(Pageable pageable);
+
+	// 조회에 실패한 배송의 조회 시각만 바꾼다. 이 칸만 고치므로 주문을 잠그지 않아도 다른 변경을 덮지 않는다
+	@Modifying(clearAutomatically = true)
+	@Query("update Shipment s set s.lastTrackedAt = :trackedAt where s.id = :shipmentId")
+	int markTracked(@Param("shipmentId") long shipmentId, @Param("trackedAt") LocalDateTime trackedAt);
 }
