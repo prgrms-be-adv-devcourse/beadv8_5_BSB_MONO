@@ -218,6 +218,31 @@ class ApiV1SellerPayoutAccountTest {
 	}
 
 	@Test
+	@DisplayName("본인인증 해시가 없는 회원의 본인 명의 신청은 은행에 묻지 않고 400으로 다시 인증하라고 안내하며, 횟수도 쓰지 않는다")
+	void personalWithoutNameBirthHashNeedsReverify() throws Exception {
+		jdbcTemplate.update("update member_member set name_birth_hash = null where member_id = ?", memberId);
+
+		for (int i = 0; i < 6; i++) {
+			apply("INDIVIDUAL", null, null, "004", ACCOUNT_NUMBER, "PERSONAL")
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("SELLER_IDENTITY_REVERIFY_REQUIRED"))
+				.andExpect(jsonPath("$.message").value("본인 명의 계좌는 휴대폰 번호를 다시 인증한 뒤 신청해 주세요."));
+		}
+
+		assertThat(verifier.inquiries()).isEmpty();
+		assertThat(sellerRepository.count()).isZero();
+	}
+
+	@Test
+	@DisplayName("본인인증 해시가 없어도 사업자 명의는 사업자등록번호로 확인하므로 받는다")
+	void businessWithoutNameBirthHashAllowed() throws Exception {
+		jdbcTemplate.update("update member_member set name_birth_hash = null where member_id = ?", memberId);
+
+		apply("BUSINESS", "크루런 스포츠", "123-45-67890", "004", ACCOUNT_NUMBER, "BUSINESS")
+			.andExpect(status().isCreated());
+	}
+
+	@Test
 	@DisplayName("오픈뱅킹은 DB 트랜잭션 밖에서 부른다")
 	void verifiesOutsideTransaction() throws Exception {
 		apply("INDIVIDUAL", null, null, "004", ACCOUNT_NUMBER, "PERSONAL")

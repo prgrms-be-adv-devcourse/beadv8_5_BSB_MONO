@@ -467,6 +467,11 @@ describe('SellerApplyPage 정산 계좌', () => {
       '계좌 확인은 하루 5번까지 할 수 있어요. 내일 다시 시도해 주세요.',
     ],
     [503, 'SELLER_ACCOUNT_VERIFY_UNAVAILABLE', '잠시 뒤 다시 시도해 주세요.'],
+    [
+      400,
+      'SELLER_IDENTITY_REVERIFY_REQUIRED',
+      '본인 명의 계좌는 휴대폰 번호를 다시 인증한 뒤 신청해 주세요.',
+    ],
   ])('%i %s는 서버 문구를 그대로 보여 주고 이동하지 않는다', async (status, code, message) => {
     server.use(http.post('*/api/v1/member/sellers', () => errorResponse(status, code, message)))
     const user = userEvent.setup()
