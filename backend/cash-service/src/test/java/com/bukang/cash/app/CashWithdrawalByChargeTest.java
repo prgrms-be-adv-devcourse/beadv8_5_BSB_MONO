@@ -17,9 +17,12 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -49,6 +52,7 @@ import com.bukang.cash.out.pg.PaymentClient;
 // 토스는 Mockito 목으로 바꿔 결과를 직접 정한다. 지갑 잔액은 ReflectionTestUtils로 넣는다
 @SpringBootTest
 @ActiveProfiles("test")
+@ExtendWith(OutputCaptureExtension.class)
 class CashWithdrawalByChargeTest {
 	private static final long CUSTOMER_ID = 3;
 	private static final LocalDateTime NOW = LocalDateTime.of(2026, 11, 5, 10, 0);
@@ -377,6 +381,43 @@ class CashWithdrawalByChargeTest {
 		assertThat(walletChargeRepository.findById(chargeC.getId()).orElseThrow().getCanceledAmount()).isZero();
 		assertThat(walletWithdrawalRepository.findByIdempotencyKey("withdrawal_1").orElseThrow().getStatus())
 			.isEqualTo(WithdrawalStatus.IN_PROGRESS);
+	}
+
+	@Test
+	@DisplayName("재확인에서 토스가 환불 기간 초과로 거절하면, 신청 때 받은 은행 정보로 그 몫을 계좌 송금으로 바꾸고 환급을 마무리한다")
+	void reconcileRefundPeriodRejectionSwitchesToAccount() {
+		Wallet wallet = createWallet(30_000);
+		completedCharge(wallet, 30_000, "charge_1", LocalDateTime.of(2026, 10, 10, 9, 0));
+		given(paymentClient.cancel(anyString(), anyString(), anyLong(), anyString()))
+			.willThrow(new PaymentCancelFailedException("PG 서버에 연결하지 못했습니다.", null, true))
+			.willThrow(new PaymentCancelFailedException("PG사가 결제 취소를 거절했습니다.", "EXCEED_MAX_REFUND_DUE", false));
+		cashFacade.requestWithdrawal(CUSTOMER_ID, "004", "110123456789", "김러너", "withdrawal_1", NOW);
+
+		cashWithdrawalReconcileUseCase.reconcile(NOW.plusMinutes(5));
+
+		assertThat(walletRepository.findById(CUSTOMER_ID).orElseThrow().getBalance()).isZero();
+		assertThat(walletLedgerRepository.findAll())
+			.extracting(WalletLedger::getLedgerType, WalletLedger::getAmount)
+			.containsExactlyInAnyOrder(
+				tuple(LedgerType.출금__PG결제취소_토스페이먼츠, -30_000L),
+				tuple(LedgerType.출금취소__PG결제취소_토스페이먼츠, 30_000L),
+				tuple(LedgerType.출금__통장입금, -30_000L));
+		assertThat(walletWithdrawalRepository.findByIdempotencyKey("withdrawal_1").orElseThrow().getStatus())
+			.isEqualTo(WithdrawalStatus.COMPLETED);
+	}
+
+	@Test
+	@DisplayName("결과 모름이 된 지 기준 시간(30분)이 넘었는데 재확인에서도 모르면 사람이 확인하도록 오류 로그를 남긴다")
+	void reconcileLogsErrorWhenUnknownTooLong(CapturedOutput output) {
+		Wallet wallet = createWallet(30_000);
+		completedCharge(wallet, 30_000, "charge_1", LocalDateTime.of(2026, 10, 10, 9, 0));
+		given(paymentClient.cancel(anyString(), anyString(), anyLong(), anyString()))
+			.willThrow(new PaymentCancelFailedException("PG 서버에 연결하지 못했습니다.", null, true));
+		cashFacade.requestWithdrawal(CUSTOMER_ID, null, null, null, "withdrawal_1", NOW);
+
+		cashWithdrawalReconcileUseCase.reconcile(LocalDateTime.now().plusMinutes(31));
+
+		assertThat(output).contains("환급 재확인", "수동 확인 필요");
 	}
 
 	private Wallet createWallet(long balance) {

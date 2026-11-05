@@ -71,6 +71,10 @@ public class WalletWithdrawal extends BaseIdAndTime {
 		this.status = WithdrawalStatus.REQUESTED;
 	}
 
+	public boolean hasBankAccount() {
+		return bankCode != null && accountNumber != null && accountHolder != null;
+	}
+
 	public void markInProgress() {
 		this.status = WithdrawalStatus.IN_PROGRESS;
 	}

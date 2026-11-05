@@ -7,5 +7,7 @@ public enum WithdrawalItemStatus {
 	// PG 결제취소가 받아들여짐
 	COMPLETED,
 	// PG가 확실히 거절해 예치금에 되돌림
-	REVERTED
+	REVERTED,
+	// 카드로 돌려줄 수 없다는 거절(기간 초과·부분 취소 불가)이라 신청 때 받은 계좌로 보냄
+	TRANSFERRED_TO_ACCOUNT
 }

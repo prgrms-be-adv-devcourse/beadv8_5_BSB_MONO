@@ -37,7 +37,7 @@ public class CashWithdrawalUseCase {
 	static final String CANCEL_REASON = "예치금 환급";
 	// 카드로는 돌려줄 수 없다는 토스 거절 코드 (docs.tosspayments.com/reference/error-codes).
 	// 환불 가능 기간이 지남, 부분 취소를 허용하지 않는 결제(일부 체크카드·에스크로). 이 몫은 계좌로 보낸다
-	private static final Set<String> CARD_REFUND_IMPOSSIBLE =
+	static final Set<String> CARD_REFUND_IMPOSSIBLE =
 		Set.of("EXCEED_MAX_REFUND_DUE", "NOT_ALLOWED_PARTIAL_REFUND");
 
 	private final WalletWithdrawalRepository walletWithdrawalRepository;
