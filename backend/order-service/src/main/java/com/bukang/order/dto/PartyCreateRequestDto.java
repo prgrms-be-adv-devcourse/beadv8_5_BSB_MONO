@@ -8,7 +8,7 @@ import jakarta.validation.constraints.Positive;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
-@Schema(description = "파티 만들기 요청. 파티장도 참가자라 자기 종목과 참가자 정보를 함께 보낸다")
+@Schema(description = "파티 만들기 요청. 파티장도 참가자라 파티 종목과 자기 참가자 정보를 함께 보낸다")
 @AllArgsConstructor
 @Getter
 public class PartyCreateRequestDto {
@@ -17,7 +17,7 @@ public class PartyCreateRequestDto {
 	@Positive(message = "크루 ID는 0보다 커야 합니다.")
 	private final Long crewId;
 
-	@Schema(description = "파티장이 뛸 종목 ID. 파티는 이 종목의 대회 단위다", example = "1")
+	@Schema(description = "파티 종목 ID. 파티원 모두 이 종목으로 신청하고, 만든 뒤에는 바꿀 수 없다", example = "1")
 	@NotNull(message = "종목을 선택해주세요.")
 	@Positive(message = "종목 ID는 0보다 커야 합니다.")
 	private final Long raceCourseId;

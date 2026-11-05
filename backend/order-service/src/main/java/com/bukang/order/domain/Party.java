@@ -23,7 +23,7 @@ import lombok.NoArgsConstructor;
 
 /**
  * 파티 (BUK-35). 같은 크루의 크루원 여럿이 한 대회에 함께 신청하는 묶음이고, 결제는 파티원이 각자 한다
- * 파티는 대회 단위다. 종목은 파티원마다 고르므로 참가 신청(Participation.raceCourseId)에 둔다 (11/02 결정 ①)
+ * 파티원은 모두 파티장이 만들 때 고른 종목으로 신청하고, 만든 뒤에는 종목을 바꿀 수 없다 (11/05 결정, 11/02 결정 ①을 바꿈)
  * 파티원 신청서는 Participation.partyId로 이 파티를 가리킨다. 신청·결제 인원은 저장하지 않고 신청서에서 센다 (⑨)
  */
 @Entity
@@ -51,6 +51,10 @@ public class Party extends BaseIdAndTime {
 
 	@Column(name = "race_id", nullable = false)
 	private long raceId;
+
+	// 만든 뒤 바꾸지 않는다. 다른 종목으로 가려면 파티를 새로 만든다
+	@Column(name = "race_course_id", nullable = false)
+	private long raceCourseId;
 
 	// 참가 링크 토큰. 파티장이 링크를 다시 볼 수 있게 원문으로 둔다(11/03). 로그에 남기지 않는다
 	@Column(name = "join_token", nullable = false, length = 64)
@@ -80,17 +84,19 @@ public class Party extends BaseIdAndTime {
 	@Column(name = "version", nullable = false)
 	private long version;
 
-	private Party(long crewId, long leaderMemberId, long raceId, LocalDateTime now) {
+	private Party(long crewId, long leaderMemberId, long raceId, long raceCourseId, LocalDateTime now) {
 		this.crewId = crewId;
 		this.leaderMemberId = leaderMemberId;
 		this.raceId = raceId;
+		this.raceCourseId = raceCourseId;
 		this.status = PartyStatus.RECRUITING;
 		issueJoinToken(now);
 	}
 
 	// 크루원인지는 호출하는 쪽이 회원 서비스로 확인한다
-	public static Party create(long crewId, long leaderMemberId, long raceId, LocalDateTime now) {
-		return new Party(crewId, leaderMemberId, raceId, now);
+	public static Party create(long crewId, long leaderMemberId, long raceId, long raceCourseId,
+		LocalDateTime now) {
+		return new Party(crewId, leaderMemberId, raceId, raceCourseId, now);
 	}
 
 	public LocalDateTime getJoinTokenExpiresAt() {

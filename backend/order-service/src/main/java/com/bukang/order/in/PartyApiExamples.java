@@ -13,6 +13,7 @@ final class PartyApiExamples {
 					"id": 1,
 					"crewId": 7,
 					"raceId": 100,
+					"raceCourseId": 2,
 					"leaderMemberId": 3,
 					"status": "RECRUITING",
 					"joinToken": "k3Jx9dQ2mV7pL0sA8fB1nC4eR6tY5uI2oP9wZ3xH7gK",
@@ -54,6 +55,7 @@ final class PartyApiExamples {
 				"id": 1,
 				"crewId": 7,
 				"raceId": 100,
+				"raceCourseId": 2,
 				"leaderMemberId": 3,
 				"status": "RECRUITING",
 				"joinToken": "Zq8Wm1Xc5Vb2Nn7Ll4Kk9Jj3Hh6Gg0Ff2Dd5Ss8Aa1Q",
@@ -71,7 +73,7 @@ final class PartyApiExamples {
 				"createDate": "2026-11-05T11:00:00",
 				"modifyDate": "2026-11-05T11:00:00",
 				"raceId": 100,
-				"raceCourseId": 3,
+				"raceCourseId": 2,
 				"memberId": 5,
 				"participationType": "PARTY",
 				"partyId": 1,
@@ -102,7 +104,7 @@ final class PartyApiExamples {
 				"createDate": "2026-11-05T11:00:00",
 				"modifyDate": "2026-11-05T12:30:00",
 				"raceId": 100,
-				"raceCourseId": 3,
+				"raceCourseId": 2,
 				"memberId": 5,
 				"participationType": "PARTY",
 				"partyId": 1,
@@ -125,7 +127,7 @@ final class PartyApiExamples {
 		""";
 
 	static final String INVALID_INPUT = """
-		{ "status": 400, "code": "INVALID_REQUEST", "message": "종목을 선택해주세요.", "data": null }
+		{ "status": 400, "code": "INVALID_REQUEST", "message": "참가자 정보를 작성해주세요.", "data": null }
 		""";
 
 	static final String CONSENT_REQUIRED = """
@@ -188,10 +190,6 @@ final class PartyApiExamples {
 	static final String LINK_EXPIRED = """
 		{ "status": 409, "code": "ORDER_PARTY_LINK_EXPIRED",
 			"message": "참가 링크가 만료됐습니다. 파티장에게 새 링크를 받아주세요.", "data": null }
-		""";
-
-	static final String RACE_MISMATCH = """
-		{ "status": 409, "code": "ORDER_PARTY_RACE_MISMATCH", "message": "이 파티의 대회 종목만 고를 수 있습니다.", "data": null }
 		""";
 
 	static final String ALREADY_JOINED = """

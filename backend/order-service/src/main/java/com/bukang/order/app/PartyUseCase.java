@@ -57,14 +57,14 @@ public class PartyUseCase {
 	public record Created(Party party, Participation participation) {
 	}
 
-	// 파티장도 참가자다. 만들 때 자기 종목·참가자 정보를 넣어 자기 신청서를 가진다
+	// 파티장도 참가자다. 만들 때 고른 종목이 파티 종목이 되고, 파티장 참가자 정보로 자기 신청서를 가진다
 	public Created create(long memberId, long crewId, long raceCourseId, ParticipantInfo participant,
 		LocalDateTime now) {
 		RaceCourseInfo course = findOpenCourse(raceCourseId, now);
 		LocalDateTime crewJoinedAt = checkCrewMember(crewId, memberId);
 		ParticipantInfo checked = checkParticipant(course, participant);
 		checkNoLiveParticipation(course.raceId(), memberId, null);
-		Party party = partyRepository.save(Party.create(crewId, memberId, course.raceId(), now));
+		Party party = partyRepository.save(Party.create(crewId, memberId, course.raceId(), course.raceCourseId(), now));
 		partyMemberRepository.save(PartyMember.join(party.getId(), memberId, crewId, crewJoinedAt, now));
 		return new Created(party, saveParticipation(party, memberId, course, checked, now));
 	}
@@ -76,18 +76,15 @@ public class PartyUseCase {
 	}
 
 	// shortcut: 최대 인원(crewMaxCount)은 상품 종목 응답에 아직 없어 확인하지 않는다. 그 칸이 오면(파티 신청 이슈) 여기서 막는다
-	public Participation join(String joinToken, long memberId, long raceCourseId, ParticipantInfo participant,
-		LocalDateTime now) {
+	// 종목은 고르지 않는다. 파티 종목으로 신청서를 만들고 나이·티셔츠 확인도 그 종목 기준이다 (11/05)
+	public Participation join(String joinToken, long memberId, ParticipantInfo participant, LocalDateTime now) {
 		long partyId = partyRepository.findIdByJoinToken(joinToken)
 			.orElseThrow(PartyUseCase::joinLinkNotFound);
 		// 상품·회원 서비스를 부르는 확인은 파티를 잠그기 전에 한다. 잠근 채 기다리면 같은 파티의 다른 요청과 DB 연결이 묶인다
-		// 대회·크루는 파티를 만든 뒤 바뀌지 않으므로 잠그지 않고 읽어도 된다. 엔티티가 아니라 값만 읽는다
+		// 종목·크루는 파티를 만든 뒤 바뀌지 않으므로 잠그지 않고 읽어도 된다. 엔티티가 아니라 값만 읽는다
 		// (엔티티를 먼저 읽으면 아래 잠금 조회가 같은 엔티티를 돌려줘 기다리는 사이 바뀐 토큰·상태를 못 본다)
 		JoinTarget target = partyRepository.findJoinTarget(partyId).orElseThrow(PartyUseCase::joinLinkNotFound);
-		RaceCourseInfo course = findOpenCourse(raceCourseId, now);
-		if (course.raceId() != target.raceId()) {
-			throw PartyConflictException.raceMismatch();
-		}
+		RaceCourseInfo course = findOpenCourse(target.raceCourseId(), now);
 		LocalDateTime crewJoinedAt = checkCrewMember(target.crewId(), memberId);
 		Party party = lockParty(partyId);
 		// 잠그기를 기다리는 사이 파티장이 링크를 다시 만들었으면 옛 링크다

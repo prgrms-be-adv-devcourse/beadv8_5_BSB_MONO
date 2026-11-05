@@ -30,7 +30,7 @@ public class PartyFacade {
 	}
 
 	public ParticipationDto join(PartyJoinRequestDto request, long memberId) {
-		return partyUseCase.join(request.getJoinToken(), memberId, request.getRaceCourseId(),
+		return partyUseCase.join(request.getJoinToken(), memberId,
 			request.getParticipant().toParticipantInfo(), LocalDateTime.now()).toDto();
 	}
 

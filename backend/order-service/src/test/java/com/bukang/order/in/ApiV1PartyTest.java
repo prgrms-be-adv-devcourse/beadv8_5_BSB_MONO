@@ -53,7 +53,6 @@ class ApiV1PartyTest {
 	private static final long CREW_ID = 7;
 	private static final long COURSE_10K = 10;
 	private static final long COURSE_HALF = 11;
-	private static final long OTHER_RACE_COURSE = 20;
 	private static final long RACE_ID = 100;
 
 	@Autowired
@@ -84,7 +83,6 @@ class ApiV1PartyTest {
 	void setUp() {
 		raceCoursePort.put(StubRaceCoursePort.openCourse(COURSE_10K, RACE_ID, 14, null));
 		raceCoursePort.put(StubRaceCoursePort.openCourse(COURSE_HALF, RACE_ID, 14, null));
-		raceCoursePort.put(StubRaceCoursePort.openCourse(OTHER_RACE_COURSE, 200, 14, null));
 	}
 
 	@AfterEach
@@ -104,6 +102,7 @@ class ApiV1PartyTest {
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.data.party.status").value("RECRUITING"))
 			.andExpect(jsonPath("$.data.party.raceId").value(RACE_ID))
+			.andExpect(jsonPath("$.data.party.raceCourseId").value(COURSE_10K))
 			.andExpect(jsonPath("$.data.party.leaderMemberId").value(LEADER))
 			.andExpect(jsonPath("$.data.party.joinToken").isNotEmpty())
 			.andExpect(jsonPath("$.data.participation.participationType").value("PARTY"))
@@ -126,29 +125,38 @@ class ApiV1PartyTest {
 		assertThat(partyRepository.count()).isZero();
 
 		String token = token(create(LEADER, COURSE_10K));
-		join(OTHER, token, COURSE_10K)
+		join(OTHER, token)
 			.andExpect(status().isForbidden())
 			.andExpect(jsonPath("$.code").value("ORDER_CREW_MEMBER_REQUIRED"));
 	}
 
 	@Test
-	@DisplayName("파티원은 같은 대회의 다른 종목을 골라 합류한다. 다른 대회 종목은 고를 수 없다")
+	@DisplayName("파티원은 종목을 고르지 않고 파티 종목으로 합류한다. 이미 합류했으면 409")
 	void join() throws Exception {
-		String token = token(create(LEADER, COURSE_10K));
+		String token = token(create(LEADER, COURSE_HALF));
 		long partyId = partyRepository.findAll().getFirst().getId();
 
-		join(MEMBER, token, COURSE_HALF)
+		join(MEMBER, token)
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.data.participationType").value("PARTY"))
 			.andExpect(jsonPath("$.data.partyId").value(partyId))
 			.andExpect(jsonPath("$.data.raceCourseId").value(COURSE_HALF));
-		join(OTHER, token, OTHER_RACE_COURSE)
-			.andExpect(status().isConflict())
-			.andExpect(jsonPath("$.code").value("ORDER_PARTY_RACE_MISMATCH"));
-		join(MEMBER, token, COURSE_HALF)
+		join(MEMBER, token)
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("ORDER_PARTY_ALREADY_JOINED"))
 			.andExpect(jsonPath("$.data.partyId").value(partyId));
+	}
+
+	@Test
+	@DisplayName("합류할 때 나이 확인은 파티 종목 기준이다")
+	void joinChecksPartyCourse() throws Exception {
+		String token = token(create(LEADER, COURSE_HALF));
+		// 만든 뒤 파티 종목의 나이 제한이 올라간 경우. 다른 종목(10K)은 그대로 열려 있다
+		raceCoursePort.put(StubRaceCoursePort.openCourse(COURSE_HALF, RACE_ID, 60, null));
+
+		join(MEMBER, token)
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("ORDER_AGE_RESTRICTED"));
 	}
 
 	@Test
@@ -162,14 +170,14 @@ class ApiV1PartyTest {
 			.andExpect(status().isCreated())
 			.andReturn().getResponse().getContentAsString(), "$.data.id")).longValue();
 
-		join(MEMBER, token, COURSE_10K)
+		join(MEMBER, token)
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("ORDER_INDIVIDUAL_PARTICIPATION_EXISTS"))
 			.andExpect(jsonPath("$.data.participationId").value(individualId));
 
 		mockMvc.perform(post("/api/v1/order/participations/" + individualId + "/cancel").header("X-Member-Id", MEMBER))
 			.andExpect(status().isOk());
-		join(MEMBER, token, COURSE_10K).andExpect(status().isCreated());
+		join(MEMBER, token).andExpect(status().isCreated());
 	}
 
 	@Test
@@ -179,10 +187,10 @@ class ApiV1PartyTest {
 		String second = token(create(OTHER, COURSE_10K));
 		long firstPartyId = partyRepository.findAll().stream()
 			.filter(party -> party.getLeaderMemberId() == LEADER).findFirst().orElseThrow().getId();
-		join(MEMBER, first, COURSE_10K).andExpect(status().isCreated());
+		join(MEMBER, first).andExpect(status().isCreated());
 
 		// 개인 신청 중복(ORDER_DUPLICATE_PARTICIPATION)과 다른 코드로, 이미 신청한 파티 번호를 준다
-		join(MEMBER, second, COURSE_10K)
+		join(MEMBER, second)
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("ORDER_PARTY_OTHER_PARTY_JOINED"))
 			.andExpect(jsonPath("$.data.partyId").value(firstPartyId));
@@ -208,13 +216,13 @@ class ApiV1PartyTest {
 			.andReturn().getResponse().getContentAsString(), "$.data.joinToken");
 
 		assertThat(newToken).isNotEqualTo(oldToken);
-		join(MEMBER, oldToken, COURSE_10K)
+		join(MEMBER, oldToken)
 			.andExpect(status().isNotFound())
 			.andExpect(jsonPath("$.code").value("ORDER_PARTY_NOT_FOUND"));
 
 		jdbcTemplate.update("update order_party set join_token_issued_at = ? where id = ?",
 			LocalDateTime.now().minusHours(24).minusMinutes(1), partyId);
-		join(MEMBER, newToken, COURSE_10K)
+		join(MEMBER, newToken)
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("ORDER_PARTY_LINK_EXPIRED"))
 			.andExpect(jsonPath("$.data").doesNotExist());
@@ -225,7 +233,7 @@ class ApiV1PartyTest {
 	void leaveAndRejoin() throws Exception {
 		String token = token(create(LEADER, COURSE_10K));
 		long partyId = partyRepository.findAll().getFirst().getId();
-		join(MEMBER, token, COURSE_10K).andExpect(status().isCreated());
+		join(MEMBER, token).andExpect(status().isCreated());
 
 		leave(MEMBER, partyId)
 			.andExpect(status().isOk())
@@ -236,7 +244,7 @@ class ApiV1PartyTest {
 		// 그 사이 크루를 나갔다 다시 가입했으면, 되살린 줄의 크루 가입 시각도 새 값이 된다 (크루 탈퇴 이벤트와 비교할 값)
 		LocalDateTime rejoinedCrewAt = StubCrewPort.JOINED_AT.plusDays(30);
 		crewPort.rejoinedCrewAt(MEMBER, rejoinedCrewAt);
-		join(MEMBER, token, COURSE_HALF).andExpect(status().isCreated());
+		join(MEMBER, token).andExpect(status().isCreated());
 
 		assertThat(partyMemberRepository.findAll()).filteredOn(row -> row.getMemberId() == MEMBER)
 			.singleElement().satisfies(row -> {
@@ -255,8 +263,8 @@ class ApiV1PartyTest {
 	void leaderLeaves() throws Exception {
 		String token = token(create(LEADER, COURSE_10K));
 		long partyId = partyRepository.findAll().getFirst().getId();
-		join(MEMBER, token, COURSE_10K).andExpect(status().isCreated());
-		join(OTHER, token, COURSE_10K).andExpect(status().isCreated());
+		join(MEMBER, token).andExpect(status().isCreated());
+		join(OTHER, token).andExpect(status().isCreated());
 
 		leave(LEADER, partyId).andExpect(status().isOk());
 		assertThat(partyRepository.findById(partyId).orElseThrow().getLeaderMemberId()).isEqualTo(MEMBER);
@@ -267,7 +275,7 @@ class ApiV1PartyTest {
 		assertThat(closed.getStatus()).isEqualTo(PartyStatus.CLOSED);
 		assertThat(closed.getClosedAt()).isNotNull();
 
-		join(LEADER, token, COURSE_10K)
+		join(LEADER, token)
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("ORDER_PARTY_NOT_RECRUITING"))
 			.andExpect(jsonPath("$.data.partyId").value(partyId))
@@ -317,7 +325,7 @@ class ApiV1PartyTest {
 		for (int i = 0; i < 2; i++) {
 			results.add(pool.submit(() -> {
 				start.await();
-				return join(MEMBER, token, COURSE_10K).andReturn().getResponse().getStatus();
+				return join(MEMBER, token).andReturn().getResponse().getStatus();
 			}));
 		}
 		start.countDown();
@@ -340,13 +348,13 @@ class ApiV1PartyTest {
 				""".formatted(CREW_ID, raceCourseId, participant())));
 	}
 
-	private ResultActions join(long memberId, String token, long raceCourseId) throws Exception {
+	private ResultActions join(long memberId, String token) throws Exception {
 		return mockMvc.perform(post(BASE_URL + "/join")
 			.header("X-Member-Id", memberId)
 			.contentType(MediaType.APPLICATION_JSON)
 			.content("""
-				{ "joinToken": "%s", "raceCourseId": %d, "participant": %s, "thirdPartyConsent": true }
-				""".formatted(token, raceCourseId, participant())));
+				{ "joinToken": "%s", "participant": %s, "thirdPartyConsent": true }
+				""".formatted(token, participant())));
 	}
 
 	private ResultActions regenerate(long memberId, long partyId) throws Exception {

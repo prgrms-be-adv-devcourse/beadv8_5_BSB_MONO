@@ -16,12 +16,12 @@ public interface PartyRepository extends JpaRepository<Party, Long> {
 	@Query("select p.id from Party p where p.joinToken = :joinToken")
 	Optional<Long> findIdByJoinToken(@Param("joinToken") String joinToken);
 
-	// 합류 때 잠그기 전에 확인할 대회·크루. 엔티티를 읽으면 뒤에서 잠가 읽을 때 옛 상태가 그대로 돌아오므로 값만 읽는다
-	@Query("select new com.bukang.order.out.PartyRepository$JoinTarget(p.raceId, p.crewId) from Party p "
+	// 합류 때 잠그기 전에 확인할 종목·크루. 엔티티를 읽으면 뒤에서 잠가 읽을 때 옛 상태가 그대로 돌아오므로 값만 읽는다
+	@Query("select new com.bukang.order.out.PartyRepository$JoinTarget(p.raceCourseId, p.crewId) from Party p "
 		+ "where p.id = :id")
 	Optional<JoinTarget> findJoinTarget(@Param("id") long id);
 
-	record JoinTarget(long raceId, long crewId) {
+	record JoinTarget(long raceCourseId, long crewId) {
 	}
 
 	// 합류·나가기·링크 다시 만들기·(다음 이슈) 신청은 파티 줄을 먼저 잠근다 (잠금 순서: 파티 → 참가 신청)

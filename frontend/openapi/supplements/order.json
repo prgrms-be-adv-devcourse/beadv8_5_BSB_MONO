@@ -875,6 +875,11 @@
           "type": "integer",
           "format": "int64"
         },
+        "raceCourseId": {
+          "type": "integer",
+          "format": "int64",
+          "description": "파티 종목 ID. 파티원 모두 이 종목으로 신청한다"
+        },
         "leaderMemberId": {
           "type": "integer",
           "format": "int64"

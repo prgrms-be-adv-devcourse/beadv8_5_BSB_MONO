@@ -40,8 +40,8 @@ public class ApiV1PartyController {
 
 	@PostMapping
 	@Operation(operationId = "createParty", summary = "파티 만들기",
-		description = "크루원이 파티를 만든다. 파티장도 참가자라 자기 종목·참가자 정보로 파티원 신청서(결제 전)를 함께 만든다. "
-			+ "파티는 고른 종목의 대회 단위이고, 참가 링크(24시간)가 함께 만들어진다. "
+		description = "크루원이 파티를 만든다. 파티장이 고른 종목이 파티 종목이 되어 파티원 모두 그 종목으로 신청하고, 만든 뒤에는 바꿀 수 없다. "
+			+ "파티장도 참가자라 파티원 신청서(결제 전)를 함께 만들고, 참가 링크(24시간)가 함께 만들어진다. "
 			+ "같은 대회에 개인 신청이 남아 있으면 409 ORDER_INDIVIDUAL_PARTICIPATION_EXISTS와 data.participationId를 준다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "201", description = "만들기 성공",
@@ -121,7 +121,8 @@ public class ApiV1PartyController {
 
 	@PostMapping("/join")
 	@Operation(operationId = "joinParty", summary = "참가 링크로 합류",
-		description = "그 크루의 크루원이 참가 링크로 들어와 종목·참가자 정보를 넣고 합류를 확정한다. 파티원 신청서(결제 전)가 만들어진다. "
+		description = "그 크루의 크루원이 참가 링크로 들어와 참가자 정보를 넣고 합류를 확정한다. 종목은 고르지 않고 파티 종목으로 "
+			+ "파티원 신청서(결제 전)가 만들어진다(나이·티셔츠 확인도 파티 종목 기준). "
 			+ "나갔던 사람도 다시 합류할 수 있다. 같은 대회에 개인 신청이 남아 있으면 409 "
 			+ "ORDER_INDIVIDUAL_PARTICIPATION_EXISTS와 data.participationId를 준다(개인 신청을 먼저 취소).")
 	@ApiResponses({
@@ -145,12 +146,11 @@ public class ApiV1PartyController {
 				@ExampleObject(name = "링크 없음", value = PartyApiExamples.JOIN_LINK_NOT_FOUND),
 				@ExampleObject(name = "없는 종목", value = PartyApiExamples.COURSE_NOT_FOUND)
 			})),
-		@ApiResponse(responseCode = "409", description = "링크 만료, 모집 중이 아님, 다른 대회의 종목, 이미 합류함, "
+		@ApiResponse(responseCode = "409", description = "링크 만료, 모집 중이 아님, 이미 합류함, "
 			+ "다른 파티로 신청함, 개인 신청 있음, 취소된 대회, 접수 마감",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "링크 만료", value = PartyApiExamples.LINK_EXPIRED),
 				@ExampleObject(name = "모집 중이 아님", value = PartyApiExamples.NOT_RECRUITING),
-				@ExampleObject(name = "다른 대회의 종목", value = PartyApiExamples.RACE_MISMATCH),
 				@ExampleObject(name = "이미 합류함", value = PartyApiExamples.ALREADY_JOINED),
 				@ExampleObject(name = "다른 파티로 신청함", value = PartyApiExamples.OTHER_PARTY_JOINED),
 				@ExampleObject(name = "개인 신청 있음", value = PartyApiExamples.INDIVIDUAL_PARTICIPATION_EXISTS),

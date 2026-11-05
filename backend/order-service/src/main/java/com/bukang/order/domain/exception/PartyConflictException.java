@@ -13,7 +13,6 @@ import lombok.Getter;
 public class PartyConflictException extends BusinessException {
 	public static final String NOT_RECRUITING = "ORDER_PARTY_NOT_RECRUITING";
 	public static final String LINK_EXPIRED = "ORDER_PARTY_LINK_EXPIRED";
-	public static final String RACE_MISMATCH = "ORDER_PARTY_RACE_MISMATCH";
 	public static final String ALREADY_JOINED = "ORDER_PARTY_ALREADY_JOINED";
 	public static final String OTHER_PARTY_JOINED = "ORDER_PARTY_OTHER_PARTY_JOINED";
 
@@ -35,10 +34,6 @@ public class PartyConflictException extends BusinessException {
 
 	public static PartyConflictException linkExpired() {
 		return new PartyConflictException(LINK_EXPIRED, "참가 링크가 만료됐습니다. 파티장에게 새 링크를 받아주세요.", null, null);
-	}
-
-	public static PartyConflictException raceMismatch() {
-		return new PartyConflictException(RACE_MISMATCH, "이 파티의 대회 종목만 고를 수 있습니다.", null, null);
 	}
 
 	public static PartyConflictException alreadyJoined(long partyId) {
