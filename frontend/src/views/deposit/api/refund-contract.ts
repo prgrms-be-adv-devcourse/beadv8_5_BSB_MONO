@@ -34,14 +34,14 @@ export const refundPlanSchema = z
     ),
   })
   // 화면이 금액을 다시 계산하지 않으므로, 서로 어긋난 값이 오면 신청을 막는다
-  .refine(
-    (plan) =>
-      // 카드 몫이 있으면 맨 위 문장에 기한이 꼭 들어가야 한다
-      (plan.cardRefundAmount === 0 || plan.earliestCardCancelDate !== null) &&
-      // 계좌 몫이 있는데 계좌를 받지 않으면 서버가 보낼 곳이 없다
-      plan.accountRequired === plan.accountRefundAmount > 0 &&
-      plan.balance === plan.cardRefundAmount + plan.accountRefundAmount,
-  )
+  .refine((plan) => {
+    // 카드 몫이 있으면 맨 위 문장에 기한이 꼭 들어가야 한다
+    const hasCardDate = plan.cardRefundAmount === 0 || plan.earliestCardCancelDate !== null
+    // 계좌 몫이 있는데 계좌를 받지 않으면 서버가 보낼 곳이 없다
+    const hasAccountShare = plan.accountRefundAmount > 0
+    const sumMatches = plan.balance === plan.cardRefundAmount + plan.accountRefundAmount
+    return hasCardDate && plan.accountRequired === hasAccountShare && sumMatches
+  })
 
 export type RefundPlan = z.infer<typeof refundPlanSchema>
 

@@ -170,6 +170,7 @@ export function DepositRefundPage() {
   const data = plan.data
   const accountRequired = data?.accountRequired ?? false
   // 결과를 모르는 요청이 남아 있으면(locked) 다시 불러온 금액이 0원이어도 같은 키로 다시 보낼 수 있게 둔다
+  // accountRequired가 거짓일 때 계좌 검사를 건너뛰어도 되는 것은 refundPlanSchema가 계좌 몫이 있는 응답을 거부하기 때문이다
   const disabled =
     withdraw.isPending ||
     (!pending.locked && (!data || data.balance <= 0 || (accountRequired && !isValid)))
