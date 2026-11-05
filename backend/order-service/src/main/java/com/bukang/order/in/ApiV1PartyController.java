@@ -30,6 +30,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
+// operationId를 직접 정한다. 메서드 이름(create)이 주문 만들기와 겹치면 프론트 생성 함수 이름이 바뀐다
 @Tag(name = "Party", description = "파티 만들기, 참가 링크 다시 만들기, 합류, 나가기 API (BUK-36)")
 @RestController
 @RequiredArgsConstructor
@@ -38,7 +39,7 @@ public class ApiV1PartyController {
 	private final PartyFacade partyFacade;
 
 	@PostMapping
-	@Operation(summary = "파티 만들기",
+	@Operation(operationId = "createParty", summary = "파티 만들기",
 		description = "크루원이 파티를 만든다. 파티장도 참가자라 자기 종목·참가자 정보로 파티원 신청서(결제 전)를 함께 만든다. "
 			+ "파티는 고른 종목의 대회 단위이고, 참가 링크(24시간)가 함께 만들어진다. "
 			+ "같은 대회에 개인 신청이 남아 있으면 409 ORDER_INDIVIDUAL_PARTICIPATION_EXISTS와 data.participationId를 준다.")
@@ -88,7 +89,7 @@ public class ApiV1PartyController {
 	}
 
 	@PostMapping("/{partyId}/join-link")
-	@Operation(summary = "참가 링크 다시 만들기",
+	@Operation(operationId = "regeneratePartyJoinLink", summary = "참가 링크 다시 만들기",
 		description = "파티장만, 모집 중일 때 언제든 다시 만든다. 새로 만들면 옛 링크로는 합류할 수 없다(404).")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "다시 만들기 성공",
@@ -119,7 +120,7 @@ public class ApiV1PartyController {
 	}
 
 	@PostMapping("/join")
-	@Operation(summary = "참가 링크로 합류",
+	@Operation(operationId = "joinParty", summary = "참가 링크로 합류",
 		description = "그 크루의 크루원이 참가 링크로 들어와 종목·참가자 정보를 넣고 합류를 확정한다. 파티원 신청서(결제 전)가 만들어진다. "
 			+ "나갔던 사람도 다시 합류할 수 있다. 같은 대회에 개인 신청이 남아 있으면 409 "
 			+ "ORDER_INDIVIDUAL_PARTICIPATION_EXISTS와 data.participationId를 준다(개인 신청을 먼저 취소).")
@@ -173,7 +174,7 @@ public class ApiV1PartyController {
 	}
 
 	@PostMapping("/{partyId}/leave")
-	@Operation(summary = "파티 나가기",
+	@Operation(operationId = "leaveParty", summary = "파티 나가기",
 		description = "신청 전(모집 중)에만 나갈 수 있다. 내 파티원 신청서는 취소되어 그 대회에 다시 신청할 수 있다. "
 			+ "파티장이 나가면 가장 먼저 합류한 파티원이 파티장이 되고, 남은 사람이 없으면 파티가 종료된다.")
 	@ApiResponses({
