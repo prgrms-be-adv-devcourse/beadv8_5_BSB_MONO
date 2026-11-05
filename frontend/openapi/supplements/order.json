@@ -170,6 +170,38 @@
           "$ref": "#/components/schemas/OrderItemDto"
         }
       }
+    },
+    "createParty": {
+      "201": {
+        "wrapper": "RsDataPartyCreatedDto",
+        "data": {
+          "$ref": "#/components/schemas/PartyCreatedDto"
+        }
+      }
+    },
+    "regeneratePartyJoinLink": {
+      "200": {
+        "wrapper": "RsDataPartyDto",
+        "data": {
+          "$ref": "#/components/schemas/PartyDto"
+        }
+      }
+    },
+    "joinParty": {
+      "201": {
+        "wrapper": "RsDataParticipationDto",
+        "data": {
+          "$ref": "#/components/schemas/ParticipationDto"
+        }
+      }
+    },
+    "leaveParty": {
+      "200": {
+        "wrapper": "RsDataParticipationDto",
+        "data": {
+          "$ref": "#/components/schemas/ParticipationDto"
+        }
+      }
     }
   },
   "schemas": {
@@ -283,6 +315,14 @@
             "INDIVIDUAL",
             "PARTY"
           ]
+        },
+        "partyId": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64",
+          "description": "파티원 신청서면 그 파티 ID, 개인 신청이면 null"
         },
         "status": {
           "type": "string",
@@ -816,6 +856,57 @@
         "beforeRefundDeadline": {
           "type": "integer",
           "format": "int64"
+        }
+      }
+    },
+    "PartyDto": {
+      "type": "object",
+      "description": "파티 (파티장에게 주는 정보)",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "crewId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "raceId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "leaderMemberId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "RECRUITING",
+            "PAYING",
+            "PAID",
+            "CLOSED"
+          ]
+        },
+        "joinToken": {
+          "type": "string",
+          "description": "참가 링크 토큰"
+        },
+        "joinTokenExpiresAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "PartyCreatedDto": {
+      "type": "object",
+      "description": "파티 만들기 응답: 파티와 파티장의 신청서",
+      "properties": {
+        "party": {
+          "$ref": "#/components/schemas/PartyDto"
+        },
+        "participation": {
+          "$ref": "#/components/schemas/ParticipationDto"
         }
       }
     }
