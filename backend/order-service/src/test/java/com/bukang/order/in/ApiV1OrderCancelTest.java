@@ -38,6 +38,11 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.bukang.common.global.json.JsonConverter;
+import com.bukang.common.shared.order.event.OrderItemRefundReason;
+import com.bukang.common.shared.order.event.OrderItemRefundedEvent;
+import com.bukang.common.shared.order.event.RaceRefundEvent;
+import com.bukang.common.shared.order.event.RaceRefundKind;
 import com.bukang.order.app.OrderCancelRetryUseCase;
 import com.bukang.order.app.OrderCancelUseCase;
 import com.bukang.order.app.RaceCancelRefundUseCase;
@@ -100,6 +105,9 @@ class ApiV1OrderCancelTest {
 	private OrderOutboxKafkaEventRepository orderOutboxKafkaEventRepository;
 
 	@Autowired
+	private JsonConverter jsonConverter;
+
+	@Autowired
 	private StubWalletPort walletPort;
 
 	@Autowired
@@ -153,6 +161,16 @@ class ApiV1OrderCancelTest {
 		assertThat(restoredSeats()).containsExactly(paid.participationId());
 		assertThat(walletPort.refundCalls()).containsExactly(new StubWalletPort.Call(paid.orderId(), MEMBER_ID));
 		assertThat(walletPort.refundedAmounts()).containsExactly(TICKET_PRICE);
+		// 정산에 환불한 참가권을 구매자 취소 사유로 한 번 알린다 (BUK-74)
+		assertThat(refunded()).singleElement().satisfies(event -> {
+			assertThat(event.orderItemId()).isEqualTo(paid.orderItemId());
+			assertThat(event.raceId()).isEqualTo(RACE_ID);
+			assertThat(event.raceCourseId()).isEqualTo(COURSE_ID);
+			assertThat(event.price()).isEqualTo(TICKET_PRICE);
+			assertThat(event.buyerId()).isEqualTo(MEMBER_ID);
+			assertThat(event.refundedAt()).isNotNull();
+			assertThat(event.reason()).isEqualTo(OrderItemRefundReason.BUYER_CANCELED);
+		});
 		Participation participation = participationRepository.findById(paid.participationId()).orElseThrow();
 		assertThat(participation.getStatus()).isEqualTo(ParticipationStatus.CANCELED);
 		assertThat(participation.getActiveFlag()).isNull();
@@ -192,6 +210,8 @@ class ApiV1OrderCancelTest {
 			.andExpect(jsonPath("$.data.canceledAmount").value(TICKET_PRICE));
 
 		assertThat(walletPort.refundedAmounts()).containsExactly(TICKET_PRICE);
+		assertThat(refunded()).extracting(OrderItemRefundedEvent::reason)
+			.containsExactly(OrderItemRefundReason.RACE_CANCELED);
 	}
 
 	@Test
@@ -208,6 +228,8 @@ class ApiV1OrderCancelTest {
 
 		assertThat(restoredSeats()).containsExactly(paid.participationId());
 		assertThat(walletPort.refundedAmounts()).containsExactly(TICKET_PRICE);
+		assertThat(refunded()).extracting(OrderItemRefundedEvent::reason)
+			.containsExactly(OrderItemRefundReason.SCHEDULE_CHANGED);
 	}
 
 	@Test
@@ -309,6 +331,7 @@ class ApiV1OrderCancelTest {
 
 		assertThat(walletPort.refundCalls()).hasSize(1);
 		assertThat(restoredSeats()).hasSize(1);
+		assertThat(refunded()).hasSize(1);
 	}
 
 	@Test
@@ -391,9 +414,11 @@ class ApiV1OrderCancelTest {
 			.andExpect(jsonPath("$.code").value("ORDER_EXTERNAL_SERVICE_UNAVAILABLE"));
 
 		assertThat(restoredSeats()).isEmpty();
+		assertThat(refunded()).isEmpty();
 		OrderItem item = itemOf(paid.orderId());
 		assertThat(item.getStatus()).isEqualTo(OrderItemStatus.PAID);
 		assertThat(item.getCancelRequestedAt()).isNull();
+		assertThat(item.getCancelReason()).isNull();
 		assertThat(orderRepository.findById(paid.orderId()).orElseThrow().getStatus()).isEqualTo(OrderStatus.PAID);
 		assertThat(participationRepository.findById(paid.participationId()).orElseThrow().getStatus())
 			.isEqualTo(ParticipationStatus.CONFIRMED);
@@ -435,6 +460,9 @@ class ApiV1OrderCancelTest {
 		assertThat(itemOf(paid.orderId()).getCancelRequestedAt()).isAfterOrEqualTo(requestedAt);
 		walletPort.setRefundTimesOut(false);
 
+		// 환불이 확인되기 전이라 정산에도 아직 알리지 않는다
+		assertThat(refunded()).isEmpty();
+
 		// 1분이 지나기 전에는 사용자 취소가 아직 기다리는 중일 수 있어 부르지 않는다
 		assertThat(orderCancelRetryUseCase.retry(LocalDateTime.now()).completed()).isZero();
 		assertThat(walletPort.refundCalls()).hasSize(1);
@@ -453,9 +481,27 @@ class ApiV1OrderCancelTest {
 		assertThat(participationRepository.findById(paid.participationId()).orElseThrow().getStatus())
 			.isEqualTo(ParticipationStatus.CANCELED);
 
+		assertThat(refunded()).extracting(OrderItemRefundedEvent::orderItemId).containsExactly(paid.orderItemId());
+
 		// 다시 돌려도 더 할 일이 없다
 		assertThat(orderCancelRetryUseCase.retry(LocalDateTime.now().plusMinutes(3)).completed()).isZero();
 		assertThat(walletPort.refundCalls()).hasSize(2);
+		assertThat(refunded()).hasSize(1);
+	}
+
+	@Test
+	@DisplayName("일정 변경 뒤 취소가 환불 시간 초과로 취소 중에 남아도, 재처리가 마무리할 때 정산에 일정 변경 사유로 알린다 (BUK-74)")
+	void retryKeepsScheduleChangedReason() throws Exception {
+		Paid paid = paidOrder(MEMBER_ID);
+		setRefundDeadline(LocalDate.now().minusDays(10), LocalDateTime.now().minusDays(1));
+		walletPort.setRefundTimesOut(true);
+		cancel(MEMBER_ID, paid.orderId(), paid.orderItemId()).andExpect(status().isAccepted());
+		walletPort.setRefundTimesOut(false);
+
+		assertThat(orderCancelRetryUseCase.retry(LocalDateTime.now().plusMinutes(2)).completed()).isEqualTo(1);
+
+		assertThat(refunded()).extracting(OrderItemRefundedEvent::reason)
+			.containsExactly(OrderItemRefundReason.SCHEDULE_CHANGED);
 	}
 
 	@Test
@@ -550,6 +596,9 @@ class ApiV1OrderCancelTest {
 		assertThat(raceResult.refundedOrders()).isZero();
 		assertThat(walletPort.refundCalls()).hasSize(1);
 		assertThat(itemOf(paid.orderId()).getStatus()).isEqualTo(OrderItemStatus.CANCELING);
+		// 개인 취소의 환불 결과를 기다리는 중이라 정산에 대회 환불 완료를 보내지 않는다 (보류만, 회의 R2에서 다시 판단할지 정함)
+		assertThat(SeatOutboxMessages.raceRefunds(orderOutboxKafkaEventRepository, jsonConverter))
+			.extracting(RaceRefundEvent::kind).containsExactly(RaceRefundKind.HELD);
 
 		OrderCancelRetryUseCase.RetryResult result = orderCancelRetryUseCase.retry(LocalDateTime.now().plusMinutes(2));
 
@@ -635,6 +684,7 @@ class ApiV1OrderCancelTest {
 			Order order = orderRepository.findById(paid.orderId()).orElseThrow();
 			assertThat(order.getStatus()).isEqualTo(OrderStatus.CANCELED);
 			assertThat(order.getCanceledAmount()).isEqualTo(TICKET_PRICE);
+			assertThat(refunded()).extracting(OrderItemRefundedEvent::orderItemId).containsExactly(paid.orderItemId());
 			orderOutboxKafkaEventRepository.deleteAll();
 		}
 		assertThat(walletPort.refundedAmounts()).hasSize(rounds).containsOnly(TICKET_PRICE);
@@ -781,6 +831,10 @@ class ApiV1OrderCancelTest {
 	private long read(ResultActions result) throws Exception {
 		String body = result.andReturn().getResponse().getContentAsString();
 		return JsonPath.<Number>read(body, "$.data.id").longValue();
+	}
+
+	private List<OrderItemRefundedEvent> refunded() {
+		return SeatOutboxMessages.refunded(orderOutboxKafkaEventRepository, jsonConverter);
 	}
 
 	private List<Long> restoredSeats() {

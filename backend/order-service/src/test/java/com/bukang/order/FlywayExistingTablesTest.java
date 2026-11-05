@@ -57,6 +57,8 @@ class FlywayExistingTablesTest {
 			"last_tracked_at")) {
 			jdbcTemplate.execute("alter table order_shipment drop column " + column);
 		}
+		// 서버 표에는 아직 취소 사유 칸이 없다 (BUK-74)
+		jdbcTemplate.execute("alter table order_order_item drop column cancel_reason");
 
 		// dev·운영과 같은 Flyway 설정 (BUK-29)
 		MigrateResult result = Flyway.configure()
