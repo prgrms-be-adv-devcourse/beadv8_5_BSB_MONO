@@ -9,15 +9,12 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.bukang.common.global.crypto.BlindIndexGenerator;
-import com.bukang.member.config.identity.IdentityVerificationProperties;
 import com.bukang.member.domain.Gender;
 import com.bukang.member.domain.Member;
-import com.bukang.member.domain.MemberStatus;
 import com.bukang.member.domain.Terms;
 import com.bukang.member.domain.TermsAgreement;
 import com.bukang.member.domain.TermsType;
 import com.bukang.member.domain.exception.DuplicateEmailException;
-import com.bukang.member.domain.exception.DuplicateIdentityException;
 import com.bukang.member.domain.exception.DuplicateNicknameException;
 import com.bukang.member.domain.exception.DuplicatePhoneException;
 import com.bukang.member.domain.exception.RequiredTermsNotAgreedException;
@@ -32,14 +29,12 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class MemberJoinUseCase {
-	static final String DUPLICATE_IDENTITY_MESSAGE = "이미 가입한 사람입니다. 로그인하거나 계정 연결에서 연결해주세요.";
-
 	private final MemberRepository memberRepository;
 	private final TermsRepository termsRepository;
 	private final TermsAgreementRepository termsAgreementRepository;
 	private final PasswordEncoder passwordEncoder;
 	private final BlindIndexGenerator blindIndexGenerator;
-	private final IdentityVerificationProperties identityProperties;
+	private final IdentityDuplicateChecker identityDuplicateChecker;
 
 	// 예외 메시지에는 입력값(개인정보)을 넣지 않는다 (응답과 로그에 평문이 남지 않도록)
 	// 이름 · 휴대폰 번호 · 생년월일은 본인인증으로 확인한 값만 쓴다 (BUK-33)
@@ -98,12 +93,8 @@ public class MemberJoinUseCase {
 			throw new RequiredTermsNotAgreedException("필수 약관에 동의해야 가입할 수 있습니다.");
 		}
 
-		// 같은 사람은 계정 하나만 만든다 (1인 1계정). 탈퇴한 회원은 이메일 · 번호처럼 다시 가입할 수 있게 뺀다
-		// 테스트 채널 CI가 모두 같은 값이면 설정(member.identity.unique-ci-check)으로 끈다
-		if (identityProperties.uniqueCiCheck() && identity.ciHash() != null
-			&& memberRepository.existsByCiHashAndStatusNot(identity.ciHash(), MemberStatus.WITHDRAWN)) {
-			throw new DuplicateIdentityException(DUPLICATE_IDENTITY_MESSAGE);
-		}
+		// 같은 사람은 계정 하나만 만든다 (1인 1계정). 본인인증 확인 때도 보지만, 그 뒤 다른 가입이 먼저 끝났을 수 있다
+		identityDuplicateChecker.checkNotJoined(identity);
 
 		if (memberRepository.existsByEmail(email)) {
 			throw new DuplicateEmailException(MemberDuplicateExceptions.DUPLICATE_EMAIL_MESSAGE);
@@ -127,7 +118,8 @@ public class MemberJoinUseCase {
 			birthDate,
 			gender
 		);
-		newMember.recordIdentityVerification(identity.ciHash(), identity.verifiedAt());
+		newMember.recordIdentityVerification(identity.ciHash(), identity.identityHash(), identity.nameBirthHash(),
+			identity.verifiedAt());
 		Member savedMember;
 		try {
 			// 유니크 제약 위반을 여기서 잡으려고 바로 반영한다.
@@ -144,7 +136,10 @@ public class MemberJoinUseCase {
 			.map(terms -> new TermsAgreement(savedMember, terms, agreedTerms.contains(terms.getType()), decidedAt))
 			.toList());
 
-		savedMember.publishJoinedEvent();
+		// 동의 기록과 같은 기준으로, 지금 버전의 마케팅 약관에 동의했는지 담는다
+		boolean marketingAgreed = currentTerms.stream()
+			.anyMatch(terms -> terms.getType() == TermsType.MARKETING && agreedTerms.contains(TermsType.MARKETING));
+		savedMember.publishJoinedEvent(marketingAgreed);
 		return savedMember;
 	}
 }

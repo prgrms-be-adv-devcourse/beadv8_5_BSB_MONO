@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.bukang.common.global.rsdata.RsData;
+import com.bukang.member.domain.exception.RejoinTooSoonException;
+import com.bukang.member.dto.RejoinTooSoonDto;
 
 /**
  * 회원 서비스 전용 요청 예외 처리
@@ -24,5 +26,14 @@ public class MemberExceptionHandler {
 		return ResponseEntity
 			.status(HttpStatus.BAD_REQUEST)
 			.body(RsData.of(HttpStatus.BAD_REQUEST, "필수 요청 헤더(%s)가 없습니다.".formatted(exception.getHeaderName()), null));
+	}
+
+	// 탈퇴 후 재가입 제한은 화면이 날짜를 보여 주도록 다시 가입할 수 있는 날을 data에 담는다 (BUK-33)
+	@ExceptionHandler(RejoinTooSoonException.class)
+	public ResponseEntity<RsData<RejoinTooSoonDto>> rejoinTooSoon(RejoinTooSoonException exception) {
+		return ResponseEntity
+			.status(exception.getStatus())
+			.body(RsData.of(exception.getStatus(), exception.getCode(), exception.getMessage(),
+				new RejoinTooSoonDto(exception.getRejoinableDate(), exception.getBlockDays())));
 	}
 }

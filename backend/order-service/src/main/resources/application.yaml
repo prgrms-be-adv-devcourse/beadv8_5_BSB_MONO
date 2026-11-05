@@ -20,13 +20,13 @@ spring:
       # 여러 서비스가 같은 인프라를 함께 쓰므로, 한 서비스를 종료해도 컨테이너는 멈추지 않는다
       lifecycle-management: start-only
 
-  # @Scheduled 작업(결제 기한 만료 1분, 아웃박스 릴레이 1초, 취소 재처리 1분)이 쓰레드를 나눠 쓴다 (기본값은 1개)
+  # @Scheduled 작업(결제 기한 만료 1분, 아웃박스 릴레이 1초, 취소 재처리 1분, 키트 배송 조회 30분)이 쓰레드를 나눠 쓴다 (기본값은 1개)
   # 작업마다 한 쓰레드를 둔다. 모자라면 Kafka가 멈춰 릴레이가 브로커를 기다리거나, 예치금이 느려 만료·취소 재처리가
   # HTTP를 기다리는 동안 다른 작업도 함께 멈춘다
   task:
     scheduling:
       pool:
-        size: 3
+        size: 4
 
   # Kafka 메시지는 JSON 문자열로 주고받는다 (이유는 member-service의 application.yaml과 README 참고)
   kafka:
@@ -99,3 +99,19 @@ order:
     # 관리자 주문 조회의 닉네임 → 회원 ID (BUK-26). 회원 서비스에 API가 없어 fake(시작 데이터 닉네임만)만 있다. 운영은 disabled
     nickname:
       mode: fake
+    # 키트 배송 조회 (BUK-55). http면 Delivery Tracker(GraphQL)를 부른다. 로컬은 fake(가짜 택배사 운송장만 답함)
+    # 키는 https://console.tracker.delivery 에서 받아 backend/.env의 DELIVERY_TRACKER_CLIENT_ID·SECRET에만 넣는다
+    delivery-tracker:
+      mode: fake
+      base-url: https://apis.tracker.delivery
+      client-id: ${DELIVERY_TRACKER_CLIENT_ID:}
+      client-secret: ${DELIVERY_TRACKER_CLIENT_SECRET:}
+      # Delivery Tracker 권장 시간 제한은 15초까지다
+      timeout: 10s
+      # 개발용 가짜 택배사(dev.track.dummy)를 발송 목록에 보인다. 운영(prod)은 false
+      dummy-carrier-enabled: true
+  # 배송 중 키트 조회 배치 (BUK-55). 한 번에 batch-size건, 요청 사이 request-interval (Delivery Tracker는 초당 10번까지)
+  kit-tracking:
+    interval: PT30M
+    batch-size: 100
+    request-interval: 200ms

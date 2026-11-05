@@ -62,8 +62,12 @@ spring:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
       properties:
-        # 브로커 연결 대기 3초 (Kafka가 죽어 있으면 커밋 뒤 보내기가 가입 응답을 기본 60초 붙잡는다, BE-011)
+        # 브로커 연결 대기 3초. 기다리는 쪽은 아웃박스 발행 작업 스레드뿐이고 사용자 요청은 기다리지 않는다 (BE-011, BUK-41)
         "[max.block.ms]": 3000
+        # 브로커 응답을 아웃박스 발행 작업의 대기(5초)보다 먼저 포기한다. 길면 실패로 기록한 메시지가 버퍼에 남아
+        # 다시 보낸 사본과 함께 늦게 나간다 (delivery.timeout.ms는 linger.ms + request.timeout.ms 이상이어야 한다)
+        "[request.timeout.ms]": 3000
+        "[delivery.timeout.ms]": 4000
 
     consumer:
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
@@ -133,11 +137,21 @@ member:
   identity:
     # 같은 사람(CI 해시)이 두 번째 계정을 못 만들게 한다. 테스트 채널 CI가 모두 같은 값이면 false로 끈다
     unique-ci-check: true
+    # 탈퇴하고 이 날수가 지나야 같은 사람(CI · 이름 + 생년월일 + 휴대폰 번호)이 다시 가입할 수 있다
+    rejoin-block-days: 30
     # CI를 해시할 때 섞는 비밀 키. 비우면 본인인증 확인이 실패한다
     ci-hash-key: ${IDENTITY_CI_HASH_KEY:}
     portone:
       api-secret: ${PORTONE_API_SECRET:}
       store-id: ${PORTONE_STORE_ID:}
+  # CRM 광고 수신 거부 링크 (MarketingUnsubscribeProperties, BUK-75, BE-039). 서명 키는 .env에만 둔다
+  marketing:
+    unsubscribe:
+      # 토큰 서명 키. 비우면 링크 발급과 수신 거부가 500으로 실패한다
+      secret-key: ${MARKETING_UNSUBSCRIBE_KEY:}
+      # 링크 앞부분 (프론트 확인 화면 /unsubscribe). 요청 Host 헤더로 만들지 않는다
+      front-base-url: ${FRONT_PUBLIC_BASE_URL:}
+      token-ttl: 365d
   # 회원 탈퇴 전에 남은 예치금·참가권을 묻는 내부 API (BE-022). 로컬 개발은 bootRun으로 띄운 서비스 포트로 부른다
   clients:
     # 연결·응답 시간 제한. 넘으면 탈퇴하지 않고 503으로 다시 시도하게 한다

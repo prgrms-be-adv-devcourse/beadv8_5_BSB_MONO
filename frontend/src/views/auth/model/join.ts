@@ -34,8 +34,9 @@ export function toJoinRequest(
  * 가입 실패를 어디에 보여 줄지. nickname은 닉네임 칸, form은 칸이 아닌 화면 아래 문구.
  * verification은 본인인증을 처음부터 다시 해야 한다는 뜻이다(화면 아래 문구 + 인증 결과 지우기).
  * duplicate는 이미 가입한 사람이라는 뜻이다(모달로 로그인 안내, 시안 M04-P 3).
+ * rejoinTooSoon은 탈퇴하고 30일이 지나지 않았다는 뜻이다(모달로 다시 가입할 수 있는 날 안내).
  */
-export type JoinErrorTarget = 'nickname' | 'form' | 'verification' | 'duplicate'
+export type JoinErrorTarget = 'nickname' | 'form' | 'verification' | 'duplicate' | 'rejoinTooSoon'
 
 /**
  * 가입 실패 응답을 화면 문구로 바꾼다.
@@ -62,6 +63,8 @@ export function joinErrorMessage(error: unknown): { target: JoinErrorTarget; mes
       return { target: 'form', message: AUTH_ERRORS.joinUnavailable }
     case 'AUTH_VERIFICATION_REQUIRED':
       return { target: 'verification', message: AUTH_ERRORS.verificationExpired }
+    case 'MEMBER_REJOIN_TOO_SOON':
+      return { target: 'rejoinTooSoon', message }
     case 'MEMBER_UNDER_AGE':
       return { target: 'form', message: AUTH_ERRORS.birthUnder14 }
     default:

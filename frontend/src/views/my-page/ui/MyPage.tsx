@@ -1,9 +1,6 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import type { Route } from 'next'
-import Link from 'next/link'
-import type { ReactNode } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
 import { BottomNav } from '@/widgets/bottom-nav'
@@ -12,16 +9,18 @@ import { isNoApplication } from '@/entities/member'
 import { myTicketCountQueryOptions } from '@/entities/ticket'
 import { useMyBalance } from '@/entities/wallet'
 import { memberApi, unwrapData } from '@/shared/api'
-import { cn, formatWon } from '@/shared/lib'
-import { buttonClassName, FOCUS_RING, Icon, KeyValue, Switch, type IconName } from '@/shared/ui'
+import { formatWon } from '@/shared/lib'
+import { KeyValue, Switch } from '@/shared/ui'
 
 import { maskPhone, toDotDate } from '../model/member-format'
+import { EMPTY, MenuCard, MenuRow } from './MenuRow'
 
 // 피그마 V2 · M30 마이 · 설정 (+ M30-2 판매자 승인 후)
 // 회원 정보는 내 정보 조회(GET /api/v1/member/members/me)로 불러온다.
 // 예치금은 지갑 잔액 API(useMyBalance)로 불러온다.
 // 참가 대회 수는 내 참가권 화면과 같은 목록(주문 API)에서 취소한 참가권만 빼고 센다.
 // 판매자 메뉴는 내 판매자 신청 조회(GET /api/v1/member/sellers/me) 상태로 갈 곳을 정한다(SellerMenuRow).
+// 마이는 보기만 한다. 회원 정보 수정 · 계정 연결 · 탈퇴는 계정 설정(/me/settings) 안에서 한다.
 // TODO(api): 알림 설정 API가 아직 없다. 지금은 시안 값을 보여 준다.
 export function MyPage() {
   const logout = useLogout()
@@ -36,7 +35,8 @@ export function MyPage() {
     <>
       <AppHeader />
       <main className="flex flex-1 flex-col gap-4 px-4 pt-(--layout-content-start) pb-6">
-        <div className="flex items-center gap-3">
+        {/* 회원 정보 글자는 Clarity 화면 녹화에서 가린다 */}
+        <div className="flex items-center gap-3" data-clarity-mask="true">
           <span
             aria-hidden
             className="flex size-10 items-center justify-center rounded-full bg-bg-brand-subtle text-label-m text-text-brand"
@@ -47,37 +47,23 @@ export function MyPage() {
             <p className="text-heading-m">{member?.nickname ?? EMPTY}</p>
             <p className="text-body-s text-text-secondary">{member?.email ?? EMPTY}</p>
           </div>
-          <Link href="/me/edit" className={buttonClassName({ variant: 'secondary', size: 's' })}>
-            닉네임 수정
-          </Link>
         </div>
 
-        <section className="flex flex-col gap-2 rounded-lg bg-bg-subtle p-4">
+        <section
+          className="flex flex-col gap-2 rounded-lg bg-bg-subtle p-4"
+          data-clarity-mask="true"
+        >
           <KeyValue label="이름" value={member?.name ?? EMPTY} />
           <KeyValue label="휴대폰" value={member?.phone ? maskPhone(member.phone) : EMPTY} />
           <KeyValue
             label="생년월일"
             value={member?.birthDate ? toDotDate(member.birthDate) : EMPTY}
           />
-          {me.isError ? (
+          {me.isError && (
             <p role="alert" className="text-caption text-text-danger">
               회원 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.
             </p>
-          ) : (
-            <p className="text-caption text-text-secondary">
-              가입할 때 직접 입력한 정보예요. 바뀌면 직접 고칠 수 있어요.
-            </p>
           )}
-          <Link
-            href="/me/edit"
-            className={buttonClassName({
-              variant: 'secondary',
-              size: 's',
-              className: 'self-start',
-            })}
-          >
-            정보 수정
-          </Link>
         </section>
 
         <MenuCard>
@@ -120,13 +106,7 @@ export function MyPage() {
             label="로그아웃"
           />
           <MenuRow
-            href="/me/accounts"
-            icon="User"
-            label="계정 연결"
-            description="카카오 · 구글로 로그인할 수 있게 연결해요"
-          />
-          <MenuRow
-            href="/me/withdraw"
+            href="/me/settings"
             icon="Settings"
             label="계정 설정"
             description="계정과 개인정보 설정을 관리할 수 있어요"
@@ -135,17 +115,6 @@ export function MyPage() {
       </main>
       <BottomNav />
     </>
-  )
-}
-
-/** 아직 불러오지 못한 값 자리 */
-const EMPTY = '-'
-
-function MenuCard({ children }: { children: ReactNode }) {
-  return (
-    <section className="flex flex-col rounded-lg bg-bg-surface px-4 py-2 shadow-sm inset-ring inset-ring-border-default">
-      {children}
-    </section>
   )
 }
 
@@ -176,46 +145,6 @@ function SellerMenuRow() {
       label="판매자 등록 신청"
       description="대회를 열고 참가권을 팔 수 있어요"
     />
-  )
-}
-
-type MenuRowProps = {
-  icon: IconName
-  label: string
-  value?: string
-  description?: string
-} & ({ href: Route } | { onClick: () => void; disabled?: boolean })
-
-// 다른 화면으로 가는 줄은 링크, 그 자리에서 실행하는 줄(로그아웃)은 같은 모양의 버튼
-function MenuRow({ icon, label, value, description, ...action }: MenuRowProps) {
-  const content = (
-    <>
-      <Icon name={icon} className="size-5" />
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="text-label-m">{label}</span>
-        {description && <span className="text-caption text-text-secondary">{description}</span>}
-      </span>
-      {value && <span className="text-label-m">{value}</span>}
-      <Icon name="ChevronRight" className="size-5" />
-    </>
-  )
-  const className = cn('flex items-center gap-3 rounded-md py-3', FOCUS_RING)
-  if ('href' in action) {
-    return (
-      <Link href={action.href} className={className}>
-        {content}
-      </Link>
-    )
-  }
-  return (
-    <button
-      type="button"
-      onClick={action.onClick}
-      disabled={action.disabled}
-      className={cn(className, 'w-full text-left')}
-    >
-      {content}
-    </button>
   )
 }
 

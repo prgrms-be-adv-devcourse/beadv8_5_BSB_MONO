@@ -10,25 +10,11 @@
  */
 export interface MemberModifyRequestDto {
   /**
-     * 실명
-     * @minLength 0
-     * @maxLength 255
-     */
-  name: string;
-  /**
      * 닉네임 (한글 2~8자, 영문 4~16자, 한글·영문·숫자만)
      * @minLength 1
      * @pattern ^[가-힣A-Za-z0-9]+$
      */
   nickname: string;
-  /**
-     * 휴대폰 번호 (하이픈 생략 가능)
-     * @minLength 1
-     * @pattern ^01[016789]-?\d{3,4}-?\d{4}$
-     */
-  phone: string;
-  /** 생년월일 */
-  birthDate: string;
 }
 
 export interface RsData {
@@ -301,6 +287,18 @@ export interface PasswordResetConfirmDto {
      * @maxLength 2147483647
      */
   password: string;
+}
+
+/**
+ * 크루 이름 바꾸기 요청
+ */
+export interface CrewUpdateRequestDto {
+  /**
+     * 새 크루 이름 (앞뒤 공백을 뺀 1~20자, 다른 크루와 겹쳐도 된다)
+     * @minLength 1
+     * @maxLength 20
+     */
+  name: string;
 }
 
 export type MemberDtoSocialProvidersItem = typeof MemberDtoSocialProvidersItem[keyof typeof MemberDtoSocialProvidersItem];

@@ -1,8 +1,11 @@
 export {
   IDENTITY_MESSAGES,
   isIdentityMock,
+  rejoinInfoOf,
+  rejoinMessage,
   requestIdentityVerification,
   type IdentityVerificationOutcome,
+  type RejoinInfo,
   type VerifiedIdentity,
 } from './api/identity-verification'
 export {

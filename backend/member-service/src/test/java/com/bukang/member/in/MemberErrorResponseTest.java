@@ -174,14 +174,16 @@ class MemberErrorResponseTest {
 			.andExpect(jsonPath("$", hasKey("data")));
 	}
 
-	// 이름 · 휴대폰 번호 · 생년월일은 본인인증 결과로 넣는다. CI 해시는 매번 달라 같은 사람 검사에는 걸리지 않는다
+	// 이름 · 휴대폰 번호 · 생년월일은 본인인증 결과로 넣는다. CI 해시는 매번 다르다
+	// 이름은 닉네임마다 달리 해, 이메일 · 닉네임 · 번호 중복이 1인 1계정 검사보다 먼저 걸리지 않게 한다
 	private RequestBuilder join(
 		String email,
 		String nickname,
 		String phone,
 		String birthDate
 	) {
-		String token = identityStore.verify("김러너", LocalDate.parse(birthDate), phone, "ci-" + UUID.randomUUID());
+		String token = identityStore.verify("김" + nickname, LocalDate.parse(birthDate), phone,
+			"ci-" + UUID.randomUUID());
 		return post("/api/v1/auth/join")
 			.contentType(MediaType.APPLICATION_JSON)
 			.content(JOIN_BODY.formatted(email, nickname, token));

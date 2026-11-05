@@ -1,5 +1,7 @@
 package com.bukang.order.in;
 
+import java.util.List;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,6 +16,7 @@ import com.bukang.common.global.rsdata.RsData;
 import com.bukang.common.shared.member.web.LoginMemberId;
 import com.bukang.order.app.SellerKitFacade;
 import com.bukang.order.domain.KitDeliveryStatus;
+import com.bukang.order.dto.DeliveryCarrierDto;
 import com.bukang.order.dto.KitShipmentRequestDto;
 import com.bukang.order.dto.OrderItemDto;
 import com.bukang.order.dto.SellerKitPageDto;
@@ -34,7 +37,7 @@ import lombok.RequiredArgsConstructor;
 
 // 판매자 키트 배송 관리 (시안 S08, PRO-197). 로그인한 회원이 승인된 판매자일 때만 쓴다
 // 에러 응답은 GlobalExceptionHandler, OrderExceptionHandler가 RsData(data: null) 형식으로 반환한다
-@Tag(name = "SellerKit", description = "판매자 키트 배송 관리 API (키트 주문 목록, 배송 건수, 발송, 배송 완료)")
+@Tag(name = "SellerKit", description = "판매자 키트 배송 관리 API (키트 주문 목록, 배송 건수, 택배사 목록, 발송, 배송 완료)")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/order/seller/kits")
@@ -112,9 +115,26 @@ public class ApiV1SellerKitController {
 			sellerKitFacade.summarize(memberId, raceId)));
 	}
 
+	@GetMapping("/carriers")
+	@Operation(summary = "택배사 목록",
+		description = "발송할 때 고를 수 있는 택배사. 발송 요청의 carrierId에는 이 목록의 id만 넣는다. "
+			+ "개발 설정에서는 가짜 택배사(dev.track.dummy, 운송장 번호는 2026-11-03T12:00:00Z 같은 시각)도 나온다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "조회 성공",
+			content = @Content(examples = @ExampleObject(value = SellerKitApiExamples.CARRIERS_SUCCESS))),
+		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = SellerKitApiExamples.LOGIN_REQUIRED)))
+	})
+	public ResponseEntity<RsData<List<DeliveryCarrierDto>>> findCarriers(@LoginMemberId long memberId) {
+		return ResponseEntity.ok().body(RsData.of(HttpStatus.OK, "택배사 목록을 조회했습니다.",
+			sellerKitFacade.findCarriers()));
+	}
+
 	@PostMapping("/{orderItemId}/shipment")
 	@Operation(summary = "키트 발송 (배송 준비 → 배송 중)",
-		description = "택배사와 송장 번호를 넣어 배송 중으로 바꾼다. 결제한 참가권의 키트만, 한 번만 보낸다. "
+		description = "택배사(목록의 ID)와 송장 번호를 넣어 배송 중으로 바꾼다. 결제한 참가권의 키트만, 한 번만 보낸다. "
+			+ "배송 상태는 30분마다 Delivery Tracker에서 받아 와 kitTracking에 남기고, 택배사가 배송 완료라고 하면 배송 완료로 바꾼다. "
 			+ "정책상 키트는 환불 기한이 지난 뒤 보내므로, 아직 환불할 수 있는 동안(환불 기한 날까지, 일정 변경 뒤 7일, 취소된 대회)은 409다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "발송 처리함",
@@ -122,6 +142,7 @@ public class ApiV1SellerKitController {
 		@ApiResponse(responseCode = "400", description = "택배사·송장 번호·회원 ID 오류",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "송장 번호 없음", value = SellerKitApiExamples.INVALID_SHIPMENT),
+				@ExampleObject(name = "목록에 없는 택배사", value = SellerKitApiExamples.UNKNOWN_CARRIER),
 				@ExampleObject(name = "회원 ID가 0 이하", value = SellerKitApiExamples.INVALID_MEMBER_ID)
 			})),
 		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",

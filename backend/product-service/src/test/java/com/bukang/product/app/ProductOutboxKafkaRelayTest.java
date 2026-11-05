@@ -2,8 +2,7 @@ package com.bukang.product.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
@@ -16,8 +15,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatcher;
 import org.mockito.InOrder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.IllegalTransactionStateException;
@@ -78,8 +79,8 @@ class ProductOutboxKafkaRelayTest extends ProductIntegrationTest {
 
 		assertThat(sent).isEqualTo(2);
 		InOrder order = inOrder(kafka());
-		order.verify(kafka()).send(KafkaTopics.RACE_CHANGED, "101", jsonConverter.toJson(payload(RACE_ID)));
-		order.verify(kafka()).send(KafkaTopics.ORDER_RACE_CANCEL, "102", jsonConverter.toJson(payload(OTHER_RACE_ID)));
+		order.verify(kafka()).send(sentRecord(KafkaTopics.RACE_CHANGED, RACE_ID, payload(RACE_ID)));
+		order.verify(kafka()).send(sentRecord(KafkaTopics.ORDER_RACE_CANCEL, OTHER_RACE_ID, payload(OTHER_RACE_ID)));
 		assertThat(allEvents()).allSatisfy(event -> {
 			assertThat(event.getStatus()).isEqualTo(OutboxStatus.SENT);
 			assertThat(event.getSentDate()).isNotNull();
@@ -96,7 +97,7 @@ class ProductOutboxKafkaRelayTest extends ProductIntegrationTest {
 		int sentAgain = productFacade.relayKafkaOutbox();
 
 		assertThat(sentAgain).isZero();
-		verify(kafka(), times(1)).send(eq(KafkaTopics.RACE_CHANGED), anyString(), anyString());
+		verify(kafka(), times(1)).send(sentRecord(KafkaTopics.RACE_CHANGED, RACE_ID));
 	}
 
 	@Test
@@ -118,7 +119,7 @@ class ProductOutboxKafkaRelayTest extends ProductIntegrationTest {
 		assertThat(events.get(1).getStatus()).isEqualTo(OutboxStatus.PENDING);
 		assertThat(events.get(1).getRetryCount()).isZero();
 		assertThat(events.get(2).getStatus()).isEqualTo(OutboxStatus.SENT);
-		verify(kafka(), never()).send(KafkaTopics.RACE_CHANGED, "101", jsonConverter.toJson(payload(RACE_ID, 2)));
+		verify(kafka(), never()).send(sentRecord(KafkaTopics.RACE_CHANGED, RACE_ID, payload(RACE_ID, 2)));
 	}
 
 	@Test
@@ -156,9 +157,8 @@ class ProductOutboxKafkaRelayTest extends ProductIntegrationTest {
 		assertThat(sentBeforeRetryDate).isZero();
 		assertThat(sentAtRetryDate).isEqualTo(2);
 		InOrder order = inOrder(kafka());
-		order.verify(kafka(), times(2))
-			.send(KafkaTopics.RACE_CHANGED, "101", jsonConverter.toJson(payload(RACE_ID, 1)));
-		order.verify(kafka()).send(KafkaTopics.RACE_CHANGED, "101", jsonConverter.toJson(payload(RACE_ID, 2)));
+		order.verify(kafka(), times(2)).send(sentRecord(KafkaTopics.RACE_CHANGED, RACE_ID, payload(RACE_ID, 1)));
+		order.verify(kafka()).send(sentRecord(KafkaTopics.RACE_CHANGED, RACE_ID, payload(RACE_ID, 2)));
 		assertThat(allEvents()).allSatisfy(event -> assertThat(event.getStatus()).isEqualTo(OutboxStatus.SENT));
 	}
 
@@ -193,7 +193,7 @@ class ProductOutboxKafkaRelayTest extends ProductIntegrationTest {
 		assertThat(events.get(0).getRetryCount()).isEqualTo(ProductOutboxKafkaRelayUseCase.MAX_RETRY);
 		assertThat(events.get(1).getStatus()).isEqualTo(OutboxStatus.SENT);
 		verify(kafka(), times(ProductOutboxKafkaRelayUseCase.MAX_RETRY))
-			.send(KafkaTopics.RACE_CHANGED, "101", jsonConverter.toJson(payload(RACE_ID, 1)));
+			.send(sentRecord(KafkaTopics.RACE_CHANGED, RACE_ID, payload(RACE_ID, 1)));
 	}
 
 	private void append(String topic, long raceId) {
@@ -222,13 +222,29 @@ class ProductOutboxKafkaRelayTest extends ProductIntegrationTest {
 	// 이 토픽·대회(key)의 메시지를 보내면 브로커가 거절한 것처럼 실패한 결과를 돌려준다
 	private void failSendTo(String topic, long raceId) {
 		doReturn(CompletableFuture.failedFuture(new IllegalStateException("브로커 응답 없음")))
-			.when(kafka()).send(eq(topic), eq(String.valueOf(raceId)), anyString());
+			.when(kafka()).send(sentRecord(topic, raceId));
 	}
 
 	// 이 토픽·대회(key)의 메시지를 다시 바로 성공으로 돌려준다
 	private void succeedSendTo(String topic, long raceId) {
 		doReturn(CompletableFuture.completedFuture(null))
-			.when(kafka()).send(eq(topic), eq(String.valueOf(raceId)), anyString());
+			.when(kafka()).send(sentRecord(topic, raceId));
+	}
+
+	// 이 토픽·key(대회 ID)로 보낸 레코드 (본문은 보지 않는다)
+	private static ProducerRecord<String, String> sentRecord(String topic, long raceId) {
+		ArgumentMatcher<ProducerRecord<String, String>> matcher = record -> record != null
+			&& topic.equals(record.topic()) && String.valueOf(raceId).equals(record.key());
+		return argThat(matcher);
+	}
+
+	// 이 토픽·key(대회 ID)·본문으로 보낸 레코드
+	private ProducerRecord<String, String> sentRecord(String topic, long raceId, Object payload) {
+		String json = jsonConverter.toJson(payload);
+		ArgumentMatcher<ProducerRecord<String, String>> matcher = record -> record != null
+			&& topic.equals(record.topic()) && String.valueOf(raceId).equals(record.key())
+			&& json.equals(record.value());
+		return argThat(matcher);
 	}
 
 	private List<ProductOutboxKafkaEvent> allEvents() {

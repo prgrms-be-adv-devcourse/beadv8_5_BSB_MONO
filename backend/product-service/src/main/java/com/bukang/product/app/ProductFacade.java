@@ -12,10 +12,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.common.shared.kafka.KafkaTopics;
-import com.bukang.common.shared.seller.event.SellerChangedEvent;
+import com.bukang.common.shared.seller.domain.SellerStatus;
+import com.bukang.common.shared.seller.domain.SellerType;
 import com.bukang.product.domain.HoldReleaseReason;
-import com.bukang.product.domain.ProductMember;
-import com.bukang.product.domain.ProductSeller;
 import com.bukang.product.dto.HoldRequestDto;
 import com.bukang.product.dto.HoldResultDto;
 import com.bukang.product.dto.HoldSellResult;
@@ -35,6 +34,9 @@ import lombok.RequiredArgsConstructor;
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
 public class ProductFacade {
+	// 인박스에 남길 컨슈머 그룹. ProductKafkaConsumer의 groupId와 같은 값이다
+	private static final String KAFKA_GROUP_ID = "product";
+
 	private final ProductSyncMemberUseCase productSyncMemberUseCase;
 	private final ProductSyncSellerUseCase productSyncSellerUseCase;
 	private final RaceRegisterUseCase raceRegisterUseCase;
@@ -50,15 +52,28 @@ public class ProductFacade {
 	private final ProductOutboxKafkaRelayUseCase productOutboxKafkaRelayUseCase;
 	private final RaceDocumentSyncAppendUseCase raceDocumentSyncAppendUseCase;
 	private final RaceDocumentSyncProcessUseCase raceDocumentSyncProcessUseCase;
+	private final ProductInboxUseCase productInboxUseCase;
 
+	// Kafka로 받은 회원 가입·수정 메시지. 인박스에 남긴 뒤 회원 복제본에 덮어쓰고, 이미 처리한 메시지면 건너뛴다
+	// 인박스 행과 복제본 저장이 한 트랜잭션이라, 저장이 실패해 롤백되면 다시 받은 메시지를 처리한다
 	@Transactional
-	public ProductMember syncMember(long id, LocalDateTime createDate, LocalDateTime modifyDate, String nickname) {
-		return productSyncMemberUseCase.syncMember(id, createDate, modifyDate, nickname);
+	public void syncMember(String messageId, String topic, long id, LocalDateTime createDate,
+		LocalDateTime modifyDate, String nickname) {
+		if (productInboxUseCase.tryRecord(messageId, KAFKA_GROUP_ID, topic, LocalDateTime.now())) {
+			productSyncMemberUseCase.syncMember(id, createDate, modifyDate, nickname);
+		}
 	}
 
+	// Kafka로 받은 판매자 변경 메시지. 인박스에 남긴 뒤 판매자 복제본에 덮어쓰고, 이미 처리한 메시지면 건너뛴다
+	// 회원 복제본이 없는 판매자 메시지는 예외 없이 건너뛰므로 인박스에는 남는다 (다시 받아도 건너뛴다)
 	@Transactional
-	public Optional<ProductSeller> syncSeller(SellerChangedEvent event) {
-		return productSyncSellerUseCase.syncSeller(event);
+	public void syncSeller(String messageId, String topic, long id, long memberId, SellerType sellerType,
+		String businessName, String businessNumber, String representativeName, SellerStatus status,
+		LocalDateTime requestedAt, LocalDateTime reviewedAt) {
+		if (productInboxUseCase.tryRecord(messageId, KAFKA_GROUP_ID, topic, LocalDateTime.now())) {
+			productSyncSellerUseCase.syncSeller(id, memberId, sellerType, businessName, businessNumber,
+				representativeName, status, requestedAt, reviewedAt);
+		}
 	}
 
 	// 대회 저장(등록·수정)은 파일 연결·대회 변경·종목 변경 메시지(Kafka 아웃박스)와 검색 문서 동기화 이벤트를 같은 트랜잭션에서 남긴다
@@ -139,15 +154,23 @@ public class ProductFacade {
 		return raceHoldUseCase.sell(participationId, LocalDateTime.now());
 	}
 
+	// Kafka로 받은 판매 자리 복구 메시지 (product.hold.restore). 인박스에 남긴 뒤 되돌리고, 이미 처리한 메시지면 건너뛴다
 	@Transactional
-	public boolean restoreSeat(long participationId) {
-		return raceHoldUseCase.restore(participationId, LocalDateTime.now());
+	public void restoreSeat(String messageId, String topic, long participationId) {
+		LocalDateTime now = LocalDateTime.now();
+		if (productInboxUseCase.tryRecord(messageId, KAFKA_GROUP_ID, topic, now)) {
+			raceHoldUseCase.restore(participationId, now);
+		}
 	}
 
 	// 대기열 활성 시간이 끝나 주문 서비스가 보낸 해제 요청 (Kafka product.hold.cancel)
+	// 인박스에 남긴 뒤 해제하고, 이미 처리한 메시지면 건너뛴다
 	@Transactional
-	public boolean cancelHold(long participationId) {
-		return raceHoldUseCase.release(participationId, HoldReleaseReason.EXPIRED, LocalDateTime.now());
+	public void cancelHold(String messageId, String topic, long participationId) {
+		LocalDateTime now = LocalDateTime.now();
+		if (productInboxUseCase.tryRecord(messageId, KAFKA_GROUP_ID, topic, now)) {
+			raceHoldUseCase.release(participationId, HoldReleaseReason.EXPIRED, now);
+		}
 	}
 
 	public RacePageDto searchRaces(RaceSearchCondition condition, int page, int size) {

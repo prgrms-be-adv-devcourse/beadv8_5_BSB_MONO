@@ -17,6 +17,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 
@@ -61,7 +62,7 @@ import com.bukang.member.out.order.HttpActiveTicketAdapter;
 import com.bukang.member.support.MemberFixture;
 
 // 예치금·주문 서비스와 Redis는 띄우지 않으므로 포트와 Refresh Token 저장소를 목으로 바꾼다
-// 수정 이벤트는 스프링 이벤트로 발행됐는지만 본다. Kafka로 나가는 건 MemberKafkaPublisherTest가 확인한다
+// 수정 이벤트는 스프링 이벤트로 발행됐는지만 본다. 아웃박스 행은 MemberOutboxAppendTest가 확인한다
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
@@ -260,9 +261,12 @@ class ApiV1MemberWithdrawTest {
 	}
 
 	@Test
-	@DisplayName("탈퇴 뒤 같은 이메일·닉네임·휴대폰 번호로 다시 가입할 수 있고, 탈퇴한 줄이 여럿이어도 unique에 걸리지 않는다")
+	@DisplayName("탈퇴하고 30일이 지나면 같은 이메일·닉네임·휴대폰 번호로 다시 가입할 수 있고, 탈퇴한 줄이 여럿이어도 unique에 걸리지 않는다")
 	void rejoinAfterWithdraw() throws Exception {
 		withdraw(memberId).andExpect(status().isOk());
+		// 같은 사람은 탈퇴하고 30일이 지나야 다시 가입할 수 있다(BUK-33). 탈퇴 시각을 30일 전으로 옮긴다
+		jdbcTemplate.update("update member_member set withdrawn_at = ? where member_id = ?",
+			LocalDateTime.now().minusDays(30), memberId);
 
 		long rejoinedId = memberFacade.join(MemberFixture.joinRequest()
 			.email(EMAIL).password(PASSWORD).nickname(NICKNAME).phone(PHONE).gender(Gender.FEMALE)

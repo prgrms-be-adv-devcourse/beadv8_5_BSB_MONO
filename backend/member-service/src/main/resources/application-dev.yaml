@@ -62,3 +62,8 @@ member:
   auth:
     password-reset:
       front-base-url: ${FRONT_PUBLIC_BASE_URL:http://localhost:3000}
+  marketing:
+    unsubscribe:
+      # 개발용 서명 키. 운영 키는 .env의 MARKETING_UNSUBSCRIBE_KEY에만 두고 이 값과 다르게 쓴다
+      secret-key: ${MARKETING_UNSUBSCRIBE_KEY:Qm9vS3VuWkRldk1hcmtldGluZ1Vuc3Vic2NyaWJlS2V5}
+      front-base-url: ${FRONT_PUBLIC_BASE_URL:http://localhost:3000}

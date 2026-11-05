@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.RestController;
 import com.bukang.common.global.rsdata.RsData;
 import com.bukang.product.app.ProductFacade;
 import com.bukang.product.dto.HoldRequestDto;
-import com.bukang.product.dto.HoldRestoreResultDto;
 import com.bukang.product.dto.HoldResultDto;
 import com.bukang.product.dto.HoldSellResult;
 import com.bukang.product.dto.HoldSellResultDto;
@@ -29,10 +28,10 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * 서비스끼리 부르는 내부 API. 게이트웨이에 라우팅하지 않는다(/internal/** 경로)
- * 주문 서비스의 SeatHoldPort(자리 확보·판매·복구)가 부른다. 해제는 API가 없고 주문 서비스가 Kafka(product.hold.cancel)로 알린다.
+ * 주문 서비스의 SeatHoldPort(자리 확보·판매)가 부른다. 해제·복구는 API가 없고 주문 서비스가 Kafka(product.hold.cancel, product.hold.restore)로 알린다.
  * 매진·기한 지남 같은 결과도 오류가 아니라 200과 결과 칸으로 돌려준다 (주문 서비스 SeatHoldResult·SeatSellResult와 같은 모양).
  */
-@Tag(name = "RaceHold", description = "주문 서비스용 자리 확보, 판매, 복구 API (서비스 간 내부 호출 전용)")
+@Tag(name = "RaceHold", description = "주문 서비스용 자리 확보, 판매 API (서비스 간 내부 호출 전용)")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/internal/v1/product/holds")
@@ -94,28 +93,5 @@ public class InternalV1HoldController {
 		HoldSellResult result = productFacade.sellSeat(participationId);
 		String message = result == HoldSellResult.SOLD ? "자리를 판매했습니다." : "결제 기한이 지난 자리입니다.";
 		return ResponseEntity.ok().body(RsData.of(HttpStatus.OK, message, new HoldSellResultDto(result)));
-	}
-
-	@PostMapping("/{participationId}/restore")
-	@Operation(summary = "판매한 자리 복구",
-		description = "결제한 참가권을 취소하면 판매한 자리를 판매 가능 정원으로 되돌린다. "
-			+ "여러 번 불러도 한 번만 되돌리고, 되돌릴 판매 자리가 없으면 restored=false로 응답한다.")
-	@ApiResponses({
-		@ApiResponse(responseCode = "200", description = "복구했거나 되돌릴 자리가 없음",
-			content = @Content(examples = {
-				@ExampleObject(name = "복구", value = RaceHoldApiExamples.RESTORE_SUCCESS),
-				@ExampleObject(name = "되돌릴 자리 없음", value = RaceHoldApiExamples.RESTORE_NOTHING)
-			})),
-		@ApiResponse(responseCode = "400", description = "참가 신청 ID 형식 오류",
-			content = @Content(schema = @Schema(implementation = RsData.class),
-				examples = @ExampleObject(value = RaceApiExamples.INVALID_VALUE_TYPE)))
-	})
-	public ResponseEntity<RsData<HoldRestoreResultDto>> restore(
-		@Parameter(description = "자리를 확보할 때 보낸 참가 신청 ID", example = "1001")
-		@PathVariable long participationId
-	) {
-		boolean restored = productFacade.restoreSeat(participationId);
-		String message = restored ? "자리를 정원으로 되돌렸습니다." : "되돌릴 판매 자리가 없습니다.";
-		return ResponseEntity.ok().body(RsData.of(HttpStatus.OK, message, new HoldRestoreResultDto(restored)));
 	}
 }

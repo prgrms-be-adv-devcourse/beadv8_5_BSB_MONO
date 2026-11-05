@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.transaction.AfterTransaction;
 
 import com.bukang.payout.domain.BusinessDayCalendar;
 import com.bukang.payout.domain.Payout;
@@ -27,6 +28,7 @@ import com.bukang.payout.domain.PayoutRecordType;
 import com.bukang.payout.domain.PayoutStage;
 import com.bukang.payout.domain.PayoutStatus;
 import com.bukang.payout.dto.PayoutCreateResultDto;
+import com.bukang.payout.out.PayoutCreateFailureRepository;
 import com.bukang.payout.out.PayoutHoldRepository;
 import com.bukang.payout.out.PayoutItemRepository;
 import com.bukang.payout.out.PayoutRecoveryRepository;
@@ -62,6 +64,15 @@ class PayoutCreateUseCaseTest {
 	private PayoutRepository payoutRepository;
 
 	@Autowired
+	private PayoutCreateFailureRepository payoutCreateFailureRepository;
+
+	// 기록 저장은 새 트랜잭션으로 커밋돼 테스트 롤백으로 지워지지 않는다. 다른 테스트에 남지 않게 지운다
+	@AfterTransaction
+	void deleteFailures() {
+		payoutCreateFailureRepository.deleteAllInBatch();
+	}
+
+	@Autowired
 	private PayoutHoldRepository payoutHoldRepository;
 
 	@Autowired
@@ -95,7 +106,8 @@ class PayoutCreateUseCaseTest {
 				new PayoutLedgerUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository),
 				new PayoutHoldUseCase(payoutRepository, payoutHoldRepository, new BusinessDayCalendar()));
 		return new PayoutCreateUseCase(payoutRepository, payoutCreateStepUseCase, soldEntriesReturning(entries),
-			sellerAccountPort, new StubRacePort(RACE_NAMES, schedules, entries), summariesOf(entries));
+			sellerAccountPort, new StubRacePort(RACE_NAMES, schedules, entries), summariesOf(entries),
+			new PayoutCreateFailureUseCase(payoutCreateFailureRepository));
 	}
 
 	// 주문 서비스처럼, 대회의 참가권을 판매자별로 묶어 가격 합과 장수를 돌려주는 가짜 포트 (1차 정산용)
@@ -139,7 +151,7 @@ class PayoutCreateUseCaseTest {
 	}
 
 	@Test
-	@DisplayName("정산 대상일에 판매자 × 대회별로 정산 내역을 만들고, 참가권마다 정산 항목을 만든다")
+	@DisplayName("정산 생성일에 판매자 × 대회별로 정산 내역을 만들고, 참가권마다 정산 항목을 만든다")
 	void createsPayoutPerSellerAndRace() {
 		PayoutCreateUseCase useCase = useCaseSelling(List.of(
 			new SoldEntry(100, 1, 10, 10L, RACE_DATE, 50_000L),
@@ -165,7 +177,7 @@ class PayoutCreateUseCaseTest {
 			.containsExactlyInAnyOrder(100L, 101L);
 		assertThat(seller1.getItems())
 			.filteredOn(item -> item.getOrderItemId() != null)
-			.extracting(PayoutItem::getTargetDate)
+			.extracting(PayoutItem::getPayoutCreateDate)
 			.containsOnly(TARGET_DATE);
 	}
 
@@ -222,7 +234,7 @@ class PayoutCreateUseCaseTest {
 	}
 
 	@Test
-	@DisplayName("9/29 실행을 놓쳐도 9/30 실행에서 9/28 대회의 정산 내역을 만들고, 정산 대상일은 9/29로 남긴다")
+	@DisplayName("9/29 실행을 놓쳐도 9/30 실행에서 9/28 대회의 정산 내역을 만들고, 정산 생성일은 9/29로 남긴다")
 	void catchesUpMissedDay() {
 		LocalDate raceDate = LocalDate.of(2026, 9, 28);
 		PayoutCreateUseCase useCase = useCaseSelling(List.of(
@@ -237,12 +249,12 @@ class PayoutCreateUseCaseTest {
 		assertThat(payout.getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 10, 20)); // 정산 월 9월 → 10/20 화
 		assertThat(payout.getItems())
 			.filteredOn(item -> item.getOrderItemId() != null)
-			.extracting(PayoutItem::getTargetDate)
+			.extracting(PayoutItem::getPayoutCreateDate)
 			.containsOnly(LocalDate.of(2026, 9, 29));
 	}
 
 	@Test
-	@DisplayName("월 경계: 9/29 대회는 9/30 · 10/1 실행이 모두 봐도 9월 정산 내역 하나만 만든다 (정산 월은 실행일 · 대상일이 아니라 대회일로 정한다)")
+	@DisplayName("월 경계: 9/29 대회는 9/30 · 10/1 실행이 모두 봐도 9월 정산 내역 하나만 만든다 (정산 월은 실행일 · 정산 생성일이 아니라 대회일로 정한다)")
 	void monthBoundaryDoesNotDuplicate() {
 		PayoutCreateUseCase useCase = useCaseSelling(List.of(
 			new SoldEntry(100, 1, 10, 10L, LocalDate.of(2026, 9, 29), 50_000L),
@@ -253,12 +265,12 @@ class PayoutCreateUseCaseTest {
 		useCase.run(LocalDate.of(2026, 10, 1), LocalDateTime.of(2026, 10, 1, 3, 0));
 
 		assertThat(payoutRepository.findAll()).hasSize(2);
-		// 대회 9/29 → 정산 대상일 9/30
+		// 대회 9/29 → 정산 생성일 9/30
 		assertThat(payoutOf(1).getPayoutMonth()).isEqualTo("2026-09");
 		assertThat(payoutOf(1).getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 10, 20)); // 정산 월 9월 → 10/20 화
-		// 대회 9/30 → 정산 대상일은 10/1이지만 정산 월은 대회일의 달 9월이다 (PRO-32에서 대상일의 달에서 바꿈)
+		// 대회 9/30 → 정산 생성일은 10/1이지만 정산 월은 대회일의 달 9월이다 (PRO-32에서 정산 생성일의 달에서 바꿈)
 		assertThat(payoutOf(2).getPayoutMonth()).isEqualTo("2026-09");
-		// 대상일의 달(10월)이 아니라 정산 월(9월)의 다음 달 20일이다
+		// 정산 생성일의 달(10월)이 아니라 정산 월(9월)의 다음 달 20일이다
 		assertThat(payoutOf(2).getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 10, 20));
 	}
 
@@ -317,7 +329,8 @@ class PayoutCreateUseCaseTest {
 				new PayoutLedgerUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository),
 				new PayoutHoldUseCase(payoutRepository, payoutHoldRepository, new BusinessDayCalendar()));
 		PayoutCreateUseCase useCase = new PayoutCreateUseCase(payoutRepository, payoutCreateStepUseCase, race20Down,
-			sellerId -> true, new StubRacePort(RACE_NAMES, List.of(), entries), summariesOf(entries));
+			sellerId -> true, new StubRacePort(RACE_NAMES, List.of(), entries), summariesOf(entries),
+			new PayoutCreateFailureUseCase(payoutCreateFailureRepository));
 
 		useCase.run(TARGET_DATE, NOW);
 
@@ -349,7 +362,8 @@ class PayoutCreateUseCaseTest {
 				new PayoutLedgerUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository),
 				new PayoutHoldUseCase(payoutRepository, payoutHoldRepository, new BusinessDayCalendar()));
 		PayoutCreateUseCase useCase = new PayoutCreateUseCase(payoutRepository, payoutCreateStepUseCase,
-			soldEntriesReturning(entries), sellerId -> true, firstLookupDown, summariesOf(entries));
+			soldEntriesReturning(entries), sellerId -> true, firstLookupDown, summariesOf(entries),
+			new PayoutCreateFailureUseCase(payoutCreateFailureRepository));
 
 		PayoutCreateResultDto result = useCase.run(TARGET_DATE, NOW);
 
@@ -386,7 +400,7 @@ class PayoutCreateUseCaseTest {
 		assertThat(first.getPayoutAmount()).isEqualTo(40_000L);
 		assertThat(first.getStatus()).isEqualTo(PayoutStatus.CALCULATED);
 		assertThat(first.getItems())
-			.extracting(PayoutItem::getTargetDate)
+			.extracting(PayoutItem::getPayoutCreateDate)
 			.containsOnly(LocalDate.of(2026, 10, 1));
 		// 대회(10/10)가 아직 끝나지 않아 최종은 없다
 		assertThat(payoutRepository.findAll()).hasSize(1);
@@ -490,7 +504,8 @@ class PayoutCreateUseCaseTest {
 				new PayoutLedgerUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository),
 				new PayoutHoldUseCase(payoutRepository, payoutHoldRepository, new BusinessDayCalendar()));
 		PayoutCreateUseCase useCase = new PayoutCreateUseCase(payoutRepository, payoutCreateStepUseCase,
-			soldEntriesReturning(entries), sellerId -> true, new StubRacePort(RACE_NAMES, schedules, entries), flaky);
+			soldEntriesReturning(entries), sellerId -> true, new StubRacePort(RACE_NAMES, schedules, entries), flaky,
+			new PayoutCreateFailureUseCase(payoutCreateFailureRepository));
 
 		// 10/2: 1차는 판매 집계를 못 받아 실패, 최종은 1차 정산금 차감 없이 판매자 정산액 전부로 만들어진다
 		useCase.run(LocalDate.of(2026, 10, 2), LocalDateTime.of(2026, 10, 2, 3, 0));
@@ -520,7 +535,7 @@ class PayoutCreateUseCaseTest {
 		Payout first = payoutOf(1, PayoutStage.FIRST);
 		assertThat(first.getPayoutMonth()).isEqualTo("2026-09");
 		assertThat(first.getItems())
-			.extracting(PayoutItem::getTargetDate)
+			.extracting(PayoutItem::getPayoutCreateDate)
 			.containsOnly(LocalDate.of(2026, 9, 29));
 	}
 

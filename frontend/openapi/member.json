@@ -40,7 +40,7 @@
     },
     {
       "name": "CrewManage",
-      "description": "크루 탈퇴, 크루원 내보내기, 크루장 넘기기, 크루 없애기 API (2그룹)"
+      "description": "크루 탈퇴, 크루원 내보내기, 크루장 넘기기, 크루 없애기, 크루 이름 바꾸기 API"
     },
     {
       "name": "PasswordReset",
@@ -128,7 +128,7 @@
           "Member"
         ],
         "summary": "내 정보 수정",
-        "description": "X-Member-Id 헤더의 회원의 이름, 생년월일, 휴대폰 번호, 닉네임을 바꾼다. 다른 회원이 쓰는 닉네임·휴대폰 번호인지 검사하고(내 행은 제외, 휴대폰은 하이픈 유무 무관), 4칸이 모두 그대로면 저장하지 않는다.",
+        "description": "X-Member-Id 헤더의 회원의 닉네임을 바꾼다. 이름, 생년월일, 휴대폰 번호는 본인인증으로 받은 값이라 바꿀 수 없고, 요청에 와도 무시한다. 다른 회원이 쓰는 닉네임인지 검사하고(내 행은 제외), 닉네임이 그대로면 저장하지 않는다.",
         "operationId": "modifyMe",
         "parameters": [
           {
@@ -176,7 +176,7 @@
             }
           },
           "400": {
-            "description": "입력값 검증 실패, 요청 본문 형식 오류 또는 만 14세 미만",
+            "description": "입력값 검증 실패 또는 요청 본문 형식 오류",
             "content": {
               "application/json": {
                 "schema": {
@@ -188,7 +188,7 @@
                     "value": {
                       "status": 400,
                       "code": "INVALID_REQUEST",
-                      "message": "휴대폰 번호 형식에 맞게 작성해주세요.",
+                      "message": "닉네임은 한글, 영문, 숫자만 쓸 수 있습니다.",
                       "data": null
                     }
                   },
@@ -198,15 +198,6 @@
                       "status": 400,
                       "code": "INVALID_REQUEST",
                       "message": "요청 본문 형식이 올바르지 않습니다.",
-                      "data": null
-                    }
-                  },
-                  "만 14세 미만": {
-                    "description": "만 14세 미만",
-                    "value": {
-                      "status": 400,
-                      "code": "MEMBER_UNDER_AGE",
-                      "message": "만 14세 미만의 생년월일로는 수정할 수 없습니다.",
                       "data": null
                     }
                   }
@@ -245,7 +236,7 @@
             }
           },
           "409": {
-            "description": "다른 회원이 쓰는 닉네임 또는 휴대폰 번호",
+            "description": "다른 회원이 쓰는 닉네임",
             "content": {
               "application/json": {
                 "schema": {
@@ -258,15 +249,6 @@
                       "status": 409,
                       "code": "MEMBER_DUPLICATE_NICKNAME",
                       "message": "이미 사용 중인 닉네임입니다.",
-                      "data": null
-                    }
-                  },
-                  "휴대폰 번호 중복": {
-                    "description": "휴대폰 번호 중복",
-                    "value": {
-                      "status": 409,
-                      "code": "MEMBER_DUPLICATE_PHONE",
-                      "message": "이미 사용 중인 전화번호입니다.",
                       "data": null
                     }
                   }
@@ -745,6 +727,18 @@
                       "code": "MEMBER_DUPLICATE_PHONE",
                       "message": "이미 사용 중인 전화번호입니다.",
                       "data": null
+                    }
+                  },
+                  "탈퇴 후 재가입 제한": {
+                    "description": "탈퇴 후 재가입 제한",
+                    "value": {
+                      "status": 409,
+                      "code": "MEMBER_REJOIN_TOO_SOON",
+                      "message": "탈퇴하고 30일이 지나야 다시 가입할 수 있습니다. 12월 2일부터 가입할 수 있습니다.",
+                      "data": {
+                        "rejoinableDate": "2026-12-02",
+                        "blockDays": 30
+                      }
                     }
                   }
                 }
@@ -1912,6 +1906,18 @@
                       "message": "이미 다른 회원에 연결된 소셜 계정입니다.",
                       "data": null
                     }
+                  },
+                  "탈퇴 후 재가입 제한": {
+                    "description": "탈퇴 후 재가입 제한",
+                    "value": {
+                      "status": 409,
+                      "code": "MEMBER_REJOIN_TOO_SOON",
+                      "message": "탈퇴하고 30일이 지나야 다시 가입할 수 있습니다. 12월 2일부터 가입할 수 있습니다.",
+                      "data": {
+                        "rejoinableDate": "2026-12-02",
+                        "blockDays": 30
+                      }
+                    }
                   }
                 }
               }
@@ -2546,6 +2552,176 @@
                   "status": 409,
                   "code": "CREW_HAS_OTHER_MEMBERS",
                   "message": "다른 크루원이 있어 크루를 없앨 수 없습니다. 크루장을 넘긴 뒤 탈퇴해주세요.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "CrewManage"
+        ],
+        "summary": "크루 이름 바꾸기 (2그룹)",
+        "description": "크루장이 크루 이름을 바꾼다. 이름 규칙은 크루 만들기와 같다(앞뒤 공백을 뺀 1~20자, 다른 크루와 겹쳐도 된다). 응답은 크루 홈과 같은 형식이라 바로 크루 홈을 다시 그린다.",
+        "operationId": "updateCrew",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          },
+          {
+            "name": "crewId",
+            "in": "path",
+            "description": "크루 ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrewUpdateRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "바꾸기 성공",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "크루 이름을 바꿨습니다.",
+                  "data": {
+                    "crewId": 1,
+                    "name": "새벽한강러닝크루",
+                    "createdAt": "2026-11-02T20:10:00",
+                    "myRole": "LEADER",
+                    "memberCount": 3,
+                    "members": [
+                      {
+                        "memberId": 1,
+                        "nickname": "새벽러너",
+                        "role": "LEADER"
+                      },
+                      {
+                        "memberId": 4,
+                        "nickname": "한강페이서",
+                        "role": "MANAGER"
+                      },
+                      {
+                        "memberId": 2,
+                        "nickname": "주말10K",
+                        "role": "MEMBER"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "입력값 검증 실패 또는 요청 본문 형식 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "입력값 검증 실패": {
+                    "description": "입력값 검증 실패",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "크루 이름은 1자 이상 20자 이하로 입력해주세요.",
+                      "data": null
+                    }
+                  },
+                  "요청 본문 형식 오류": {
+                    "description": "요청 본문 형식 오류",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "요청 본문 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음 (로그인하지 않은 요청)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "크루원이 아니거나 크루장이 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "크루원이 아님": {
+                    "description": "크루원이 아님",
+                    "value": {
+                      "status": 403,
+                      "code": "CREW_NOT_MEMBER",
+                      "message": "이 크루의 크루원만 이용할 수 있습니다.",
+                      "data": null
+                    }
+                  },
+                  "크루장이 아님": {
+                    "description": "크루장이 아님",
+                    "value": {
+                      "status": 403,
+                      "code": "CREW_LEADER_ONLY",
+                      "message": "크루장만 할 수 있습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "크루가 없거나 없앤 크루",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 404,
+                  "code": "CREW_NOT_FOUND",
+                  "message": "존재하지 않는 크루입니다.",
                   "data": null
                 }
               }
@@ -3336,7 +3512,7 @@
           "CrewManage"
         ],
         "summary": "크루원 내보내기 (2그룹)",
-        "description": "크루장이 크루원을 크루에서 내보낸다. 크루장 자신은 내보낼 수 없다. 운영진도 내보낼 수 있는지는 회의에서 정한다. 결제 기간 중인 파티장·파티원을 막을지도 회의에서 정한다(안건 14).",
+        "description": "크루장이 크루원이나 운영진을 크루에서 내보낸다. 운영진은 내보낼 수 없다(크루장만 한다). 크루장 자신은 내보낼 수 없다. 결제 기간 중인 파티장·파티원을 막을지는 회의에서 정한다(안건 14).",
         "operationId": "removeCrewMember",
         "parameters": [
           {
@@ -3571,7 +3747,7 @@
                     "value": {
                       "status": 400,
                       "code": "INVALID_REQUEST",
-                      "message": "크루 이름은 1자 이상 20자 이하로 입력해주세요.",
+                      "message": "크루장을 넘겨받을 크루원을 선택해주세요.",
                       "data": null
                     }
                   },
@@ -3688,7 +3864,7 @@
           "IdentityVerification"
         ],
         "summary": "본인인증 확인",
-        "description": "포트원 창이 끝나면 부른다. 서버가 포트원 조회 API로 결과를 직접 확인하고, 확인된 이름 · 생년월일 · 휴대폰 번호와 CI 해시를 15분 동안 저장한다. 화면이 보낸 인증 결과는 쓰지 않는다. 이미 확인한 ID를 다시 부르면 저장한 결과를 그대로 돌려준다.",
+        "description": "포트원 창이 끝나면 부른다. 서버가 포트원 조회 API로 결과를 직접 확인하고, 확인된 이름 · 생년월일 · 휴대폰 번호와 해시를 15분 동안 저장한다. 화면이 보낸 인증 결과는 쓰지 않는다. 모든 인증 방법을 받고, CI는 인증사가 줄 때만 저장한다. 이미 가입한 사람이면 409로 알린다. 이미 확인한 ID를 다시 부르면 저장한 결과를 그대로 돌려준다.",
         "operationId": "completeIdentityVerification",
         "parameters": [
           {
@@ -3724,7 +3900,7 @@
             }
           },
           "400": {
-            "description": "서버가 만들지 않았거나 15분이 지난 인증 ID, 인증 실패, CI를 주지 않는 인증 방법",
+            "description": "서버가 만들지 않았거나 15분이 지난 인증 ID 또는 인증 실패",
             "content": {
               "application/json": {
                 "schema": {
@@ -3751,6 +3927,39 @@
                   "code": "AUTH_VERIFICATION_UNAVAILABLE",
                   "message": "본인인증 결과를 확인하지 못했습니다. 잠시 후 다시 시도해주세요.",
                   "data": null
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "이미 가입한 사람 (CI 또는 이름 · 생년월일 · 휴대폰 번호가 같음) 또는 탈퇴하고 30일이 지나지 않은 사람",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "이미 가입한 사람": {
+                    "description": "이미 가입한 사람",
+                    "value": {
+                      "status": 409,
+                      "code": "MEMBER_DUPLICATE_IDENTITY",
+                      "message": "이미 가입한 사람입니다. 로그인하거나 계정 연결에서 연결해주세요.",
+                      "data": null
+                    }
+                  },
+                  "탈퇴 후 재가입 제한": {
+                    "description": "탈퇴 후 재가입 제한",
+                    "value": {
+                      "status": 409,
+                      "code": "MEMBER_REJOIN_TOO_SOON",
+                      "message": "탈퇴하고 30일이 지나야 다시 가입할 수 있습니다. 12월 2일부터 가입할 수 있습니다.",
+                      "data": {
+                        "rejoinableDate": "2026-12-02",
+                        "blockDays": 30
+                      }
+                    }
+                  }
                 }
               }
             }
@@ -4011,39 +4220,16 @@
         "type": "object",
         "description": "내 정보 수정 요청",
         "properties": {
-          "name": {
-            "type": "string",
-            "description": "실명",
-            "example": "김러너",
-            "maxLength": 255,
-            "minLength": 0
-          },
           "nickname": {
             "type": "string",
             "description": "닉네임 (한글 2~8자, 영문 4~16자, 한글·영문·숫자만)",
             "example": "러너1",
             "minLength": 1,
             "pattern": "^[가-힣A-Za-z0-9]+$"
-          },
-          "phone": {
-            "type": "string",
-            "description": "휴대폰 번호 (하이픈 생략 가능)",
-            "example": "010-1234-5678",
-            "minLength": 1,
-            "pattern": "^01[016789]-?\\d{3,4}-?\\d{4}$"
-          },
-          "birthDate": {
-            "type": "string",
-            "format": "date",
-            "description": "생년월일",
-            "example": "1995-04-12"
           }
         },
         "required": [
-          "birthDate",
-          "name",
-          "nickname",
-          "phone"
+          "nickname"
         ]
       },
       "RsData": {
@@ -4436,6 +4622,22 @@
         "required": [
           "password",
           "token"
+        ]
+      },
+      "CrewUpdateRequestDto": {
+        "type": "object",
+        "description": "크루 이름 바꾸기 요청",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "새 크루 이름 (앞뒤 공백을 뺀 1~20자, 다른 크루와 겹쳐도 된다)",
+            "example": "새벽한강러닝크루",
+            "minLength": 1,
+            "maxLength": 20
+          }
+        },
+        "required": [
+          "name"
         ]
       }
     }

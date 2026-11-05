@@ -1,7 +1,5 @@
 package com.bukang.cash.out.pg;
 
-import java.util.Optional;
-
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
@@ -26,8 +24,8 @@ public class FakePaymentClient implements PaymentClient {
 	}
 
 	@Override
-	public Optional<PaymentApprovalResult> findCompletedByOrderId(String orderId) {
+	public PaymentLookupResult lookupByOrderId(String orderId) {
 		// approve가 항상 성공하는 가짜 클라이언트라, 재조회가 실제로 불릴 일이 없다
-		return Optional.empty();
+		return PaymentLookupResult.notCompleted();
 	}
 }

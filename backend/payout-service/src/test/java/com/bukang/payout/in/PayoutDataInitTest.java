@@ -124,7 +124,7 @@ class PayoutDataInitTest {
 		Payout forestFirst = payout(9, PayoutStage.FIRST);
 		assertThat(forestFirst.getStatus()).isEqualTo(PayoutStatus.CALCULATED);
 		assertThat(forestFirst.getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 11, 20));
-		// 대회 전이라 최종 정산 대상일이 오지 않았다
+		// 대회 전이라 최종 정산 생성일이 오지 않았다
 		assertThat(payoutRepository.existsBySellerIdAndRaceIdAndPayoutStage(SELLER_ID, 9, PayoutStage.FINAL))
 			.isFalse();
 	}

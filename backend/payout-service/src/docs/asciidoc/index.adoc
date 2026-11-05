@@ -78,7 +78,7 @@ include::{snippets}/payout-hold-release-conflict/http-response.adoc[]
 
 `X-Member-Id`(회원 ID)를 회원 서비스에 물어 판매자 ID(판매자 신청서 ID)로 바꾸고, 그 판매자의 기록만 돌려준다.
 승인된 판매자가 아니면(신청 없음 · 대기 · 반려) 403, 존재하지 않거나 탈퇴한 회원은 404, 회원 서비스에 묻지 못하면 503이다.
-조회 기간은 나중에 바뀌지 않는 날짜로 자른다: 정산 내역은 정산 월, 건별 정산은 정산 대상일, 지급보류는 보류한 날.
+조회 기간은 나중에 바뀌지 않는 날짜로 자른다: 정산 내역은 정산 월, 건별 정산은 정산 생성일, 지급보류는 보류한 날.
 지급 예정일은 보류를 풀면 바뀌므로 기간 기준으로 쓰지 않는다.
 
 [[payout-seller-summary]]
@@ -103,7 +103,7 @@ operation::payout-seller-payouts[snippets='http-request,request-headers,query-pa
 [[payout-seller-items]]
 === 건별 정산
 
-정산 대상일이 기간 안인 정산 항목(참가권 1장)을 돌려준다. 끝 날이 시작 날 + 1개월 전이어야 한다 (9/15 ~ 10/14는 되고 9/15 ~ 10/15는 안 된다).
+정산 생성일이 기간 안인 정산 항목(참가권 1장)을 돌려준다. 끝 날이 시작 날 + 1개월 전이어야 한다 (9/15 ~ 10/14는 되고 9/15 ~ 10/15는 안 된다).
 참가권 1장이 한 줄이라 큰 대회는 한 달에 수천 줄이 되므로, 이 API만 페이지로 나눈다 (0부터, 크기 기본 50 · 최대 100).
 
 operation::payout-seller-items[snippets='http-request,request-headers,query-parameters,http-response,response-fields']
@@ -152,14 +152,14 @@ include::{snippets}/payout-seller-lookup-unavailable/http-response.adoc[]
 [[payout-refund-eligibility]]
 === 참가권 환불 가능 여부 조회
 
-대회일로 정산 대상일(대회 다음 날)을 구해, 오늘(한국 날짜)이 정산 대상일 전이면 환불 가능으로 돌려준다.
-정산 대상일 당일부터는 사유와 상관없이(대회 취소·일정 변경 포함) 환불할 수 없다 (예: 대회 9/25 → 9/26부터 환불 불가).
+대회일로 정산 생성일(대회 다음 날)을 구해, 오늘(한국 날짜)이 정산 생성일 전이면 환불 가능으로 돌려준다.
+정산 생성일 당일부터는 사유와 상관없이(대회 취소·일정 변경 포함) 환불할 수 없다 (예: 대회 9/25 → 9/26부터 환불 불가).
 환불 기한(판매자 지정) 판단은 주문 서비스가 하고, 이 API는 그 위의 상한선만 알려 준다.
 주문 서비스가 환불 요청을 받을 때 동기 호출로 부르고, `data.refundable`이 `false`면 환불을 거절한다.
 
 operation::payout-refund-eligibility[snippets='http-request,query-parameters,http-response,response-fields']
 
-.환불 불가 (정산 대상일 지남)
+.환불 불가 (정산 생성일 지남)
 include::{snippets}/payout-refund-eligibility-not-refundable/http-response.adoc[]
 
 ==== 실패 예시

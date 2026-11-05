@@ -6,9 +6,12 @@ import java.time.Period;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.UUID;
 
+import com.bukang.common.shared.member.event.MarketingConsentChangedEvent;
 import com.bukang.common.shared.member.event.MemberJoinedEvent;
 import com.bukang.common.shared.member.event.MemberModifiedEvent;
+import com.bukang.common.shared.member.event.MemberWithdrawnEvent;
 import com.bukang.member.domain.exception.LastLoginMethodException;
 import com.bukang.member.domain.exception.SocialAccountNotFoundException;
 import com.bukang.member.domain.exception.SocialProviderAlreadyLinkedException;
@@ -21,6 +24,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.Index;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
@@ -38,8 +42,14 @@ import lombok.NoArgsConstructor;
 @Table(name = "MEMBER_MEMBER", uniqueConstraints = {
 	@UniqueConstraint(name = "uk_member_email", columnNames = "email"),
 	@UniqueConstraint(name = "uk_member_nickname", columnNames = "nickname"),
-	@UniqueConstraint(name = "uk_member_phone_hash", columnNames = "phone_hash")
-}, check = @CheckConstraint(name = "ck_member_personal_info", constraint = Member.PERSONAL_INFO_CHECK))
+	@UniqueConstraint(name = "uk_member_phone_hash", columnNames = "phone_hash"),
+	@UniqueConstraint(name = "uk_member_identity_hash", columnNames = "identity_hash")
+}, indexes = {
+	@Index(name = "idx_member_name_birth_hash", columnList = "name_birth_hash"),
+	@Index(name = "idx_member_withdrawn_identity_hash", columnList = "withdrawn_identity_hash"),
+	@Index(name = "idx_member_withdrawn_ci_hash", columnList = "withdrawn_ci_hash")
+},
+	check = @CheckConstraint(name = "ck_member_personal_info", constraint = Member.PERSONAL_INFO_CHECK))
 @AttributeOverride(name = "nickname", column = @Column(name = "nickname", length = 16))
 public class Member extends SourceMember {
 	static final String PERSONAL_INFO_CHECK = "status = 'WITHDRAWN' OR (email IS NOT NULL AND name IS NOT NULL"
@@ -89,19 +99,32 @@ public class Member extends SourceMember {
 	}
 
 	// 가입 이벤트를 발행한다. ID는 저장할 때(IDENTITY) 정해지므로 save() 뒤에 부른다
-	public void publishJoinedEvent() {
-		publishEvent(new MemberJoinedEvent(getId(), getCreateDate(), getModifyDate(), getNickname()));
+	// 이벤트마다 새 이벤트 ID(UUID)를 넣는다. 아웃박스 행과 Kafka 헤더에 같은 값이 들어간다 (BUK-41)
+	public void publishJoinedEvent(boolean marketingAgreed) {
+		publishEvent(new MemberJoinedEvent(getId(), getCreateDate(), getModifyDate(), getNickname(), marketingAgreed,
+			newEventId()));
 	}
 
 	// 수정 이벤트를 발행한다. 수정 시각은 DB에 반영(flush)할 때 채워지므로 saveAndFlush() 뒤에 부른다 (BE-015)
 	public void publishModifiedEvent() {
-		publishEvent(new MemberModifiedEvent(getId(), getCreateDate(), getModifyDate(), getNickname()));
+		publishEvent(new MemberModifiedEvent(getId(), getCreateDate(), getModifyDate(), getNickname(), newEventId()));
 	}
 
 	// 탈퇴한 회원은 다른 서비스 사본의 닉네임을 "탈퇴한 회원"으로 덮도록 같은 수정 이벤트를 보낸다 (BE-022 결정 7)
-	// 수정 시각에는 탈퇴 시각을 담는다
+	// 수정 시각에는 탈퇴 시각을 담는다. 그 뒤 탈퇴 전용 이벤트를 보내 받는 쪽이 닉네임을 비교하지 않고 탈퇴를 안다 (BUK-41)
 	public void publishWithdrawnEvent() {
-		publishEvent(new MemberModifiedEvent(getId(), getCreateDate(), getWithdrawnAt(), WITHDRAWN_NICKNAME));
+		publishEvent(new MemberModifiedEvent(getId(), getCreateDate(), getWithdrawnAt(), WITHDRAWN_NICKNAME,
+			newEventId()));
+		publishEvent(new MemberWithdrawnEvent(newEventId(), getId(), getWithdrawnAt()));
+	}
+
+	// 마케팅 수신 동의가 바뀌면 부른다 (BUK-41). 동의 기록을 쌓는 트랜잭션 안에서 부른다 (MarketingConsentUseCase, BUK-70)
+	public void publishMarketingConsentChangedEvent(boolean agreed, LocalDateTime changedAt) {
+		publishEvent(new MarketingConsentChangedEvent(newEventId(), getId(), agreed, changedAt));
+	}
+
+	private static String newEventId() {
+		return UUID.randomUUID().toString();
 	}
 
 	// 소셜로 가입한 회원은 비밀번호가 없다 (BE-035)
@@ -164,9 +187,32 @@ public class Member extends SourceMember {
 	// 탈퇴: 상태와 탈퇴 시각을 함께 바꾸고 개인정보 칸을 비운다 (BE-022 결정 5). 줄은 주문·결제 기록이 가리키므로 남긴다
 	// 비밀번호 해시는 개인정보 목록에 없어 그대로 두지만, 이메일이 비어 로그인에 쓰일 수 없다
 	// 소셜 연결 행도 제공자 회원번호(그 사람을 알아보는 값)가 있어 지운다. 지우는 일은 unlinkAllSocial이 한다
-	// 가입 때 본인인증 결과를 남긴다 (BUK-33). CI는 해시만 받는다
-	public void recordIdentityVerification(String ciHash, LocalDateTime verifiedAt) {
+	// 가입 때 본인인증 결과를 남긴다 (BUK-33). 원문 대신 해시만 받는다. CI 해시는 인증사가 CI를 줄 때만 있다
+	public void recordIdentityVerification(String ciHash, String identityHash, String nameBirthHash,
+		LocalDateTime verifiedAt) {
 		setCiHash(ciHash);
+		setIdentityHash(identityHash);
+		setNameBirthHash(nameBirthHash);
+		setVerifiedAt(verifiedAt);
+	}
+
+	// 본인인증한 사람이 이 회원인지 본다 (BE-037). 이름(앞뒤 공백 무시)과 생년월일이 같아야 한다
+	// 둘 다 CI 해시가 있으면 CI 해시도 같아야 한다. 이전 가입 회원은 해시 칸이 비어 있어 평문 칸과 비교한다
+	public boolean isSamePerson(String name, LocalDate birthDate, String ciHash) {
+		boolean ciMatches = getCiHash() == null || ciHash == null || getCiHash().equals(ciHash);
+		return getName().strip().equals(name.strip()) && getBirthDate().equals(birthDate) && ciMatches;
+	}
+
+	// 다시 본인인증한 결과로 휴대폰 번호와 본인인증 해시를 바꾼다 (BE-037). CI 해시는 비어 있을 때만 채운다
+	public void changePhone(String phone, String phoneHash, String ciHash, String identityHash,
+		String nameBirthHash, LocalDateTime verifiedAt) {
+		setPhone(phone);
+		setPhoneHash(phoneHash);
+		if (getCiHash() == null) {
+			setCiHash(ciHash);
+		}
+		setIdentityHash(identityHash);
+		setNameBirthHash(nameBirthHash);
 		setVerifiedAt(verifiedAt);
 	}
 
@@ -180,6 +226,13 @@ public class Member extends SourceMember {
 		setPhoneHash(null);
 		setBirthDate(null);
 		setGender(null);
+		// 본인인증 해시는 재가입 제한용 칸으로 옮기고 비운다 (탈퇴 후 30일 재가입 제한)
+		// identity_hash에는 유니크 제약이 있어, 남겨 두면 30일이 지나도 같은 사람이 다시 가입할 수 없다
+		setWithdrawnIdentityHash(getIdentityHash());
+		setWithdrawnCiHash(getCiHash());
+		setIdentityHash(null);
+		setCiHash(null);
+		setNameBirthHash(null);
 	}
 
 	// 한글 완성형(가~힣)은 화면에서 영문보다 두 배쯤 넓어 2칸, 그 밖의 글자는 1칸으로 센다 ("러너abc" = 7칸)
@@ -191,24 +244,12 @@ public class Member extends SourceMember {
 		return width;
 	}
 
-	// 이름·닉네임·휴대폰·생년월일을 바꾸고, 하나라도 바뀌었으면 true를 돌려준다 (BE-012)
-	// 휴대폰은 해시로 비교해, 하이픈 유무만 다른 같은 번호면 저장된 값을 그대로 둔다
-	public boolean modify(String name, String nickname, String phone, String phoneHash, LocalDate birthDate) {
-		boolean phoneChanged = !getPhoneHash().equals(phoneHash);
-		boolean changed = phoneChanged
-			|| !getName().equals(name)
-			|| !getNickname().equals(nickname)
-			|| !getBirthDate().equals(birthDate);
-		if (!changed) {
+	// 닉네임을 바꾸고, 바뀌었으면 true를 돌려준다 (BE-012). 이름 · 생년월일 · 휴대폰 번호는 본인인증 값이라 바꾸지 않는다 (BUK-33)
+	public boolean changeNickname(String nickname) {
+		if (getNickname().equals(nickname)) {
 			return false;
 		}
-		setName(name);
 		setNickname(nickname);
-		if (phoneChanged) {
-			setPhone(phone);
-			setPhoneHash(phoneHash);
-		}
-		setBirthDate(birthDate);
 		return true;
 	}
 

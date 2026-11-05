@@ -40,6 +40,17 @@ final class MemberInternalApiExamples {
 		{ "status": 404, "code": "MEMBER_NOT_FOUND", "message": "존재하지 않는 회원입니다.", "data": null }
 		""";
 
+	static final String UNSUBSCRIBE_LINK = """
+		{
+			"status": 200,
+			"message": "수신 거부 링크를 발급했습니다.",
+			"data": {
+				"url": "https://crewrun.example/unsubscribe?token=7.1793750400.q1b2c3",
+				"expiresAt": "2027-11-04T14:30:00"
+			}
+		}
+		""";
+
 	private MemberInternalApiExamples() {
 	}
 }

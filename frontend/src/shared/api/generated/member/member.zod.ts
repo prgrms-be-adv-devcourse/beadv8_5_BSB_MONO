@@ -58,25 +58,16 @@ export const FindMeResponse = zod.object({
 
 
 /**
- * X-Member-Id 헤더의 회원의 이름, 생년월일, 휴대폰 번호, 닉네임을 바꾼다. 다른 회원이 쓰는 닉네임·휴대폰 번호인지 검사하고(내 행은 제외, 휴대폰은 하이픈 유무 무관), 4칸이 모두 그대로면 저장하지 않는다.
+ * X-Member-Id 헤더의 회원의 닉네임을 바꾼다. 이름, 생년월일, 휴대폰 번호는 본인인증으로 받은 값이라 바꿀 수 없고, 요청에 와도 무시한다. 다른 회원이 쓰는 닉네임인지 검사하고(내 행은 제외), 닉네임이 그대로면 저장하지 않는다.
  * @summary 내 정보 수정
  */
-export const modifyMeBodyNameMin = 0;
-export const modifyMeBodyNameMax = 255;
-
 
 
 export const modifyMeBodyNicknameRegExp = new RegExp('^[가-힣A-Za-z0-9]+$');
 
 
-export const modifyMeBodyPhoneRegExp = new RegExp('^01[016789]-?\\d{3,4}-?\\d{4}$');
-
-
 export const ModifyMeBody = zod.object({
-  "name": zod.string().min(modifyMeBodyNameMin).max(modifyMeBodyNameMax).describe('실명'),
-  "nickname": zod.string().min(1).regex(modifyMeBodyNicknameRegExp).describe('닉네임 (한글 2~8자, 영문 4~16자, 한글·영문·숫자만)'),
-  "phone": zod.string().min(1).regex(modifyMeBodyPhoneRegExp).describe('휴대폰 번호 (하이픈 생략 가능)'),
-  "birthDate": zod.iso.date().describe('생년월일')
+  "nickname": zod.string().min(1).regex(modifyMeBodyNicknameRegExp).describe('닉네임 (한글 2~8자, 영문 4~16자, 한글·영문·숫자만)')
 }).describe('내 정보 수정 요청')
 
 export const ModifyMeResponse = zod.object({
@@ -593,6 +584,40 @@ export const DisbandCrewResponse = zod.unknown()
 
 
 /**
+ * 크루장이 크루 이름을 바꾼다. 이름 규칙은 크루 만들기와 같다(앞뒤 공백을 뺀 1~20자, 다른 크루와 겹쳐도 된다). 응답은 크루 홈과 같은 형식이라 바로 크루 홈을 다시 그린다.
+ * @summary 크루 이름 바꾸기 (2그룹)
+ */
+export const UpdateCrewParams = zod.object({
+  "crewId": zod.int().describe('크루 ID')
+})
+
+export const updateCrewBodyNameMax = 20;
+
+
+
+export const UpdateCrewBody = zod.object({
+  "name": zod.string().min(1).max(updateCrewBodyNameMax).describe('새 크루 이름 (앞뒤 공백을 뺀 1~20자, 다른 크루와 겹쳐도 된다)')
+}).describe('크루 이름 바꾸기 요청')
+
+export const UpdateCrewResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.object({
+  "crewId": zod.int(),
+  "name": zod.string(),
+  "createdAt": zod.iso.datetime({"offset":true}),
+  "myRole": zod.enum(['LEADER', 'MANAGER', 'MEMBER']).describe('요청한 회원의 역할. 크루 역할 (LEADER: 크루장, MANAGER: 운영진, MEMBER: 크루원)'),
+  "memberCount": zod.int(),
+  "members": zod.array(zod.object({
+  "memberId": zod.int(),
+  "nickname": zod.string(),
+  "role": zod.enum(['LEADER', 'MANAGER', 'MEMBER']).describe('크루 역할 (LEADER: 크루장, MANAGER: 운영진, MEMBER: 크루원)')
+}).describe('크루원 (실명 없이 닉네임만)'))
+}).optional().describe('크루 홈')
+})
+
+
+/**
  * 크루장과 운영진이 초대 링크를 만든다. 링크는 만든 때부터 24시간 동안 쓸 수 있다. 응답의 inviteToken으로 프론트가 초대 받기 화면 주소를 만든다. 토큰은 이 응답에서만 받을 수 있다. 초대 링크 하나로는 한 명만 가입한다.
  * @summary 초대 링크 만들기
  */
@@ -700,7 +725,7 @@ export const LeaveCrewResponse = zod.unknown()
 
 
 /**
- * 크루장이 크루원을 크루에서 내보낸다. 크루장 자신은 내보낼 수 없다. 운영진도 내보낼 수 있는지는 회의에서 정한다. 결제 기간 중인 파티장·파티원을 막을지도 회의에서 정한다(안건 14).
+ * 크루장이 크루원이나 운영진을 크루에서 내보낸다. 운영진은 내보낼 수 없다(크루장만 한다). 크루장 자신은 내보낼 수 없다. 결제 기간 중인 파티장·파티원을 막을지는 회의에서 정한다(안건 14).
  * @summary 크루원 내보내기 (2그룹)
  */
 export const RemoveCrewMemberParams = zod.object({
@@ -742,7 +767,7 @@ export const TransferCrewLeaderResponse = zod.object({
 
 
 /**
- * 포트원 창이 끝나면 부른다. 서버가 포트원 조회 API로 결과를 직접 확인하고, 확인된 이름 · 생년월일 · 휴대폰 번호와 CI 해시를 15분 동안 저장한다. 화면이 보낸 인증 결과는 쓰지 않는다. 이미 확인한 ID를 다시 부르면 저장한 결과를 그대로 돌려준다.
+ * 포트원 창이 끝나면 부른다. 서버가 포트원 조회 API로 결과를 직접 확인하고, 확인된 이름 · 생년월일 · 휴대폰 번호와 해시를 15분 동안 저장한다. 화면이 보낸 인증 결과는 쓰지 않는다. 모든 인증 방법을 받고, CI는 인증사가 줄 때만 저장한다. 이미 가입한 사람이면 409로 알린다. 이미 확인한 ID를 다시 부르면 저장한 결과를 그대로 돌려준다.
  * @summary 본인인증 확인
  */
 export const CompleteIdentityVerificationParams = zod.object({

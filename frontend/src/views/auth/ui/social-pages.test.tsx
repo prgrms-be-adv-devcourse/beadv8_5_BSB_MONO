@@ -162,6 +162,36 @@ describe('SocialSignupPage', () => {
     expect(replace).not.toHaveBeenCalled()
   })
 
+  it('탈퇴하고 30일이 지나지 않았으면 다시 가입할 수 있는 날을 알려 준다', async () => {
+    server.use(
+      signupInfo('KAKAO', 'runner@kakao.com'),
+      http.post('*/api/v1/auth/oauth2/join', () =>
+        HttpResponse.json(
+          {
+            status: 409,
+            code: 'MEMBER_REJOIN_TOO_SOON',
+            message: '재가입 제한',
+            data: { rejoinableDate: '2026-12-02', blockDays: 30 },
+          },
+          { status: 409 },
+        ),
+      ),
+    )
+    const user = userEvent.setup()
+    render(withProviders(<SocialSignupPage />, { verified: true }))
+
+    await screen.findByLabelText('이메일')
+    await user.type(screen.getByLabelText('닉네임'), '소셜러너')
+    await user.click(screen.getByRole('button', { name: '가입 완료' }))
+
+    expect(
+      await screen.findByText(
+        '탈퇴하고 30일이 지나야 다시 가입할 수 있어요. 12월 2일부터 가입할 수 있어요.',
+      ),
+    ).toBeInTheDocument()
+    expect(replace).not.toHaveBeenCalled()
+  })
+
   it('가입 대기가 없거나 지났으면 로그인 화면으로 보낸다', async () => {
     server.use(
       http.get('*/api/v1/auth/oauth2/signup', () =>

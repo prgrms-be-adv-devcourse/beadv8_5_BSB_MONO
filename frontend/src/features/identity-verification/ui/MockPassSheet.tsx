@@ -3,7 +3,8 @@
 import { useState } from 'react'
 
 import { BirthDateField } from '@/entities/member'
-import { memberZod, type memberModel } from '@/shared/api'
+import { type memberModel } from '@/shared/api'
+import { memberZod } from '@/shared/api-zod'
 import {
   Alert,
   Badge,
@@ -144,7 +145,6 @@ export function MockPassSheet({ open, onOpenChange, onVerified }: MockPassSheetP
             </>
           ) : (
             <EmptyState
-              icon="Inbox"
               className="py-10"
               title={PROGRESS_TITLE[method]}
               description="체험용 화면이라 알림은 오지 않아요. 아래 「인증 완료」를 누르면 인증이 끝나요"

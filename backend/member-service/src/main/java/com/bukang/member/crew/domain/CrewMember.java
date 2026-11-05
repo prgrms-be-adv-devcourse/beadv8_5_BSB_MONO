@@ -5,6 +5,10 @@ import static jakarta.persistence.GenerationType.IDENTITY;
 import static lombok.AccessLevel.PROTECTED;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
+
+import com.bukang.common.shared.crew.event.CrewMemberLeftEvent;
+import com.bukang.common.shared.crew.event.CrewMemberLeftReason;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -77,5 +81,16 @@ public class CrewMember {
 	// 초대 링크로 가입하면 크루원 역할이다
 	public static CrewMember invited(long crewId, long memberId, long inviteId, LocalDateTime now) {
 		return new CrewMember(crewId, memberId, CrewRole.MEMBER, inviteId, now);
+	}
+
+	// 이 크루원 행을 지운 뒤 보낼 이벤트 (BE-032). 이벤트마다 새 이벤트 ID(UUID)를 넣고, 이 행의 가입 시각을 싣는다
+	public CrewMemberLeftEvent leftEvent(CrewMemberLeftReason reason, LocalDateTime now) {
+		return new CrewMemberLeftEvent(UUID.randomUUID().toString(), crewId, memberId, reason, joinedAt, now);
+	}
+
+	// 크루장 넘기기. 가입 시각은 바꾸지 않는다
+	public void changeRole(CrewRole role, LocalDateTime now) {
+		this.role = role;
+		this.updatedAt = now;
 	}
 }

@@ -16,6 +16,8 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
+import com.bukang.payout.domain.exception.PayoutSellerAccountLookupUnavailableException;
+
 /**
  * 캐시 서비스에 판매자 정산 계좌 등록 여부를 묻는 어댑터 (PRO-224)
  * 캐시 서비스에 아직 API가 없어 가정한 계약(GET /internal/v1/cash/sellers/{sellerId}/payout-account)으로 확인한다
@@ -68,7 +70,7 @@ class CashSellerAccountAdapterTest {
 				""", MediaType.APPLICATION_JSON));
 
 		assertThatThrownBy(() -> adapter.hasPayoutAccount(7001))
-			.isInstanceOf(IllegalStateException.class)
+			.isInstanceOf(PayoutSellerAccountLookupUnavailableException.class)
 			.hasMessageContaining("sellerId=7001");
 	}
 
@@ -77,6 +79,8 @@ class CashSellerAccountAdapterTest {
 	void throwsOnServerError() {
 		server.expect(requestTo(URL)).andRespond(withServerError());
 
-		assertThatThrownBy(() -> adapter.hasPayoutAccount(7001)).isInstanceOf(RestClientException.class);
+		assertThatThrownBy(() -> adapter.hasPayoutAccount(7001))
+			.isInstanceOf(PayoutSellerAccountLookupUnavailableException.class)
+			.hasCauseInstanceOf(RestClientException.class);
 	}
 }

@@ -88,15 +88,16 @@ public class PayoutItem extends BaseIdAndTime {
 	@Column(precision = 5, scale = 4)
 	private BigDecimal feeRate;
 
-	// 정산 대상일: 1차는 환불 기한 다음 날, 최종은 대회 다음 날. 회수 줄은 NULL
-	private LocalDate targetDate;
+	// 정산 생성일: 1차는 환불 기한 다음 날, 최종은 대회 다음 날. 회수 줄은 NULL
+	// 칸 이름은 payout_create_date (create_date는 BaseIdAndTime의 만든 시각). API 응답 이름은 targetDate 그대로다
+	private LocalDate payoutCreateDate;
 
 	// 참가권 없는 줄의 중복 방지 키. 참가권 줄과 상계 줄은 NULL (저장 직전에 정한다)
 	@Column(length = 60, updatable = false)
 	private String bundleKey;
 
 	private PayoutItem(Payout payout, PayoutRecovery recovery, long sellerId, long raceId, PayoutRecordType recordType,
-		Long orderItemId, Long raceCourseId, long amount, BigDecimal feeRate, LocalDate targetDate) {
+		Long orderItemId, Long raceCourseId, long amount, BigDecimal feeRate, LocalDate payoutCreateDate) {
 		this.payout = payout;
 		this.recovery = recovery;
 		this.sellerId = sellerId;
@@ -107,14 +108,14 @@ public class PayoutItem extends BaseIdAndTime {
 		this.raceCourseId = raceCourseId;
 		this.amount = amount;
 		this.feeRate = feeRate;
-		this.targetDate = targetDate;
+		this.payoutCreateDate = payoutCreateDate;
 	}
 
 	// 정산 내역에 붙는 줄. Payout 안에서만 만든다 (정산 내역 금액 캐시와 함께 바뀌어야 하므로)
 	static PayoutItem ofPayout(Payout payout, PayoutRecordType recordType, Long orderItemId, Long raceCourseId,
-		long amount, BigDecimal feeRate, LocalDate targetDate) {
+		long amount, BigDecimal feeRate, LocalDate payoutCreateDate) {
 		return new PayoutItem(payout, null, payout.getSellerId(), payout.getRaceId(), recordType, orderItemId,
-			raceCourseId, amount, feeRate, targetDate);
+			raceCourseId, amount, feeRate, payoutCreateDate);
 	}
 
 	// 회수에 붙는 줄 (요청 · 입금)
