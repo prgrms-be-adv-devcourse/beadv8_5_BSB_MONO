@@ -2,20 +2,21 @@ package com.bukang.order.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -30,6 +31,7 @@ import org.springframework.transaction.IllegalTransactionStateException;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.common.global.json.JsonConverter;
+import com.bukang.common.shared.kafka.KafkaMessageId;
 import com.bukang.common.shared.kafka.KafkaTopics;
 import com.bukang.common.shared.race.event.HoldCancelEvent;
 import com.bukang.common.shared.race.event.HoldRestoreEvent;
@@ -51,6 +53,9 @@ import com.bukang.order.out.OrderOutboxKafkaEventRepository;
 class OrderOutboxKafkaRelayTest {
 	private static final long PARTICIPATION_ID = 1001;
 	private static final long OTHER_PARTICIPATION_ID = 1002;
+	// 주문 아웃박스 message-id 형식: order-outbox-{UUID}
+	private static final String OUTBOX_MESSAGE_ID_FORMAT =
+		"order-outbox-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 
 	@Autowired
 	private OrderOutboxKafkaAppendUseCase orderOutboxKafkaAppendUseCase;
@@ -71,7 +76,7 @@ class OrderOutboxKafkaRelayTest {
 
 	@BeforeEach
 	void setUp() {
-		doReturn(CompletableFuture.completedFuture(null)).when(kafka()).send(anyString(), anyString(), anyString());
+		doReturn(CompletableFuture.completedFuture(null)).when(kafka()).send(record(null, null, null));
 	}
 
 	@AfterEach
@@ -111,8 +116,9 @@ class OrderOutboxKafkaRelayTest {
 		// 상품 서비스가 받는 본문 형식 ({participationId}) 그대로인지 글자로 확인한다
 		assertThat(restorePayload(PARTICIPATION_ID)).isEqualTo("{\"participationId\":1001}");
 		InOrder order = inOrder(kafka());
-		order.verify(kafka()).send(KafkaTopics.PRODUCT_HOLD_RESTORE, "1001", restorePayload(PARTICIPATION_ID));
-		order.verify(kafka()).send(KafkaTopics.PRODUCT_HOLD_CANCEL, "1002", releasePayload(OTHER_PARTICIPATION_ID));
+		order.verify(kafka()).send(record(KafkaTopics.PRODUCT_HOLD_RESTORE, "1001", restorePayload(PARTICIPATION_ID)));
+		order.verify(kafka())
+			.send(record(KafkaTopics.PRODUCT_HOLD_CANCEL, "1002", releasePayload(OTHER_PARTICIPATION_ID)));
 		assertThat(allEvents()).allSatisfy(event -> {
 			assertThat(event.getStatus()).isEqualTo(OutboxStatus.SENT);
 			assertThat(event.getSentDate()).isEqualTo(now);
@@ -130,7 +136,7 @@ class OrderOutboxKafkaRelayTest {
 		int sentAgain = relayAt(now.plusSeconds(1));
 
 		assertThat(sentAgain).isZero();
-		verify(kafka(), times(1)).send(eq(KafkaTopics.PRODUCT_HOLD_RESTORE), anyString(), anyString());
+		verify(kafka(), times(1)).send(record(KafkaTopics.PRODUCT_HOLD_RESTORE, null, null));
 	}
 
 	@Test
@@ -151,7 +157,7 @@ class OrderOutboxKafkaRelayTest {
 		assertThat(events.get(0).getNextRetryDate()).isEqualTo(now.plusSeconds(1));
 		assertThat(events.get(1).getRetryCount()).isZero();
 		assertThat(events.get(2).getRetryCount()).isZero();
-		verify(kafka(), times(1)).send(anyString(), anyString(), anyString());
+		verify(kafka(), times(1)).send(record(null, null, null));
 	}
 
 	@Test
@@ -173,7 +179,8 @@ class OrderOutboxKafkaRelayTest {
 		assertThat(events.get(1).getStatus()).isEqualTo(OutboxStatus.PENDING);
 		assertThat(events.get(2).getStatus()).isEqualTo(OutboxStatus.SENT);
 		assertThat(events.get(3).getStatus()).isEqualTo(OutboxStatus.SENT);
-		verify(kafka(), times(1)).send(KafkaTopics.PRODUCT_HOLD_RESTORE, "1001", restorePayload(PARTICIPATION_ID));
+		verify(kafka(), times(1))
+			.send(record(KafkaTopics.PRODUCT_HOLD_RESTORE, "1001", restorePayload(PARTICIPATION_ID)));
 	}
 
 	@Test
@@ -190,7 +197,8 @@ class OrderOutboxKafkaRelayTest {
 
 		assertThat(sentBeforeRetryDate).isZero();
 		assertThat(sentAtRetryDate).isEqualTo(2);
-		verify(kafka(), times(3)).send(KafkaTopics.PRODUCT_HOLD_RESTORE, "1001", restorePayload(PARTICIPATION_ID));
+		verify(kafka(), times(3))
+			.send(record(KafkaTopics.PRODUCT_HOLD_RESTORE, "1001", restorePayload(PARTICIPATION_ID)));
 		assertThat(allEvents()).allSatisfy(event -> assertThat(event.getStatus()).isEqualTo(OutboxStatus.SENT));
 	}
 
@@ -232,7 +240,33 @@ class OrderOutboxKafkaRelayTest {
 		assertThat(events.get(2).getStatus()).isEqualTo(OutboxStatus.SENT);
 		// 첫 행 MAX_RETRY번 + 셋째 행 1번
 		verify(kafka(), times(OrderOutboxKafkaRelayUseCase.MAX_RETRY + 1))
-			.send(KafkaTopics.PRODUCT_HOLD_RESTORE, "1001", restorePayload(PARTICIPATION_ID));
+			.send(record(KafkaTopics.PRODUCT_HOLD_RESTORE, "1001", restorePayload(PARTICIPATION_ID)));
+	}
+
+	@Test
+	@DisplayName("보낼 때 행에 저장한 message-id(order-outbox-{UUID})를 헤더로 붙이고, 실패한 뒤 다시 보내도 같은 값이다")
+	void messageIdHeader() {
+		restore(PARTICIPATION_ID);
+		failSendTo(KafkaTopics.PRODUCT_HOLD_RESTORE, PARTICIPATION_ID);
+		relayAt(now);
+		succeedSendTo(KafkaTopics.PRODUCT_HOLD_RESTORE, PARTICIPATION_ID);
+		relayAt(now.plus(OrderOutboxKafkaRelayUseCase.FIRST_RETRY_DELAY));
+
+		String messageId = allEvents().getFirst().getMessageId();
+		assertThat(messageId).matches(OUTBOX_MESSAGE_ID_FORMAT);
+		verify(kafka(), times(2)).send(withMessageId(messageId));
+	}
+
+	@Test
+	@DisplayName("아웃박스 행마다 message-id가 다르다")
+	void messageIdPerRow() {
+		restore(PARTICIPATION_ID);
+		release(PARTICIPATION_ID);
+
+		assertThat(allEvents()).extracting(OrderOutboxKafkaEvent::getMessageId)
+			.hasSize(2)
+			.doesNotHaveDuplicates()
+			.allMatch(messageId -> messageId.matches(OUTBOX_MESSAGE_ID_FORMAT));
 	}
 
 	private void restore(long participationId) {
@@ -260,12 +294,26 @@ class OrderOutboxKafkaRelayTest {
 	// 이 토픽·신청(key)의 메시지를 보내면 브로커가 거절한 것처럼 실패한 결과를 돌려준다
 	private void failSendTo(String topic, long participationId) {
 		doReturn(CompletableFuture.failedFuture(new IllegalStateException("브로커 응답 없음")))
-			.when(kafka()).send(eq(topic), eq(String.valueOf(participationId)), anyString());
+			.when(kafka()).send(record(topic, String.valueOf(participationId), null));
 	}
 
 	private void succeedSendTo(String topic, long participationId) {
 		doReturn(CompletableFuture.completedFuture(null))
-			.when(kafka()).send(eq(topic), eq(String.valueOf(participationId)), anyString());
+			.when(kafka()).send(record(topic, String.valueOf(participationId), null));
+	}
+
+	// 보낸 레코드의 토픽·key·본문을 본다. null이면 그 값은 보지 않는다
+	private static ProducerRecord<String, String> record(String topic, String key, String payload) {
+		return argThat(record -> record != null
+			&& (topic == null || topic.equals(record.topic()))
+			&& (key == null || key.equals(record.key()))
+			&& (payload == null || payload.equals(record.value())));
+	}
+
+	private static ProducerRecord<String, String> withMessageId(String messageId) {
+		return argThat(record -> record != null && record.headers().lastHeader(KafkaMessageId.HEADER) != null
+			&& messageId.equals(new String(record.headers().lastHeader(KafkaMessageId.HEADER).value(),
+			StandardCharsets.UTF_8)));
 	}
 
 	@SuppressWarnings("unchecked")

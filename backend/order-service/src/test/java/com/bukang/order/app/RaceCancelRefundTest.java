@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -43,6 +44,8 @@ import com.bukang.order.domain.OrderStatus;
 import com.bukang.order.domain.ParticipationStatus;
 import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
 import com.bukang.order.domain.exception.OrderNotPayableException;
+import com.bukang.order.in.OrderKafkaConsumer;
+import com.bukang.order.out.OrderInboxKafkaEventRepository;
 import com.bukang.order.out.OrderOutboxKafkaEventRepository;
 import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationRepository;
@@ -74,6 +77,9 @@ class RaceCancelRefundTest {
 	private static final long LOCK_WAIT_MILLIS = 500;
 	// 테스트용 예치금은 모든 회원이 잔액 하나를 함께 쓴다. 주문을 많이 만들어도 모자라지 않게 넉넉히 둔다
 	private static final long BALANCE = 100_000_000;
+	private static final String MESSAGE_ID = "product-outbox-3c7e1a9b-2f4d-4b8e-a6c1-9d0e5f7a2b01";
+	private static final String RACE_CANCEL_PAYLOAD =
+		"{\"raceId\":" + RACE_ID + ",\"sellerId\":7,\"canceledAt\":\"2026-10-14T18:00:00\"}";
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -93,8 +99,15 @@ class RaceCancelRefundTest {
 	@Autowired
 	private OrderPayUseCase orderPayUseCase;
 
-	@Autowired
+	// 대회 취소 메시지를 받을 때 환불 흐름을 몇 번 도는지 세려고 감싼다 (BUK-53 인박스)
+	@MockitoSpyBean
 	private RaceCancelRefundUseCase raceCancelRefundUseCase;
+
+	@Autowired
+	private OrderKafkaConsumer orderKafkaConsumer;
+
+	@Autowired
+	private OrderInboxKafkaEventRepository orderInboxKafkaEventRepository;
 
 	@Autowired
 	private StubRaceCoursePort raceCoursePort;
@@ -132,6 +145,7 @@ class RaceCancelRefundTest {
 		raceCoursePort.clear();
 		seatHoldPort.clear();
 		orderOutboxKafkaEventRepository.deleteAll();
+		orderInboxKafkaEventRepository.deleteAll();
 		walletPort.clear();
 	}
 
@@ -179,6 +193,36 @@ class RaceCancelRefundTest {
 
 		assertThat(again).isEqualTo(new RaceCancelRefundUseCase.RefundResult(0, 0));
 		assertThat(walletPort.refundCalls()).containsExactly(new StubWalletPort.Call(orderId, 1));
+	}
+
+	@Test
+	@DisplayName("같은 대회 취소 메시지(같은 message-id)를 두 번 받으면 두 번째는 환불 흐름을 돌지 않는다 (BUK-53)")
+	void duplicateMessageIsSkipped() throws Exception {
+		long orderId = paidOrder(1, COURSE_ID);
+
+		orderKafkaConsumer.handleRaceCancel(RACE_CANCEL_PAYLOAD, MESSAGE_ID);
+		orderKafkaConsumer.handleRaceCancel(RACE_CANCEL_PAYLOAD, MESSAGE_ID);
+
+		verify(raceCancelRefundUseCase, times(1)).refundAll(eq(RACE_ID), any(LocalDateTime.class));
+		assertThat(walletPort.refundCalls()).containsExactly(new StubWalletPort.Call(orderId, 1));
+		assertThat(orderInboxKafkaEventRepository.count()).isEqualTo(1);
+	}
+
+	@Test
+	@DisplayName("환불이 실패한 메시지는 인박스에 남지 않아, 다시 받으면 실패한 주문을 환불한다 (BUK-53)")
+	void failedMessageIsNotRecorded() throws Exception {
+		long orderId = paidOrder(1, COURSE_ID);
+		walletPort.setRefundFails(true);
+
+		assertThatThrownBy(() -> orderKafkaConsumer.handleRaceCancel(RACE_CANCEL_PAYLOAD, MESSAGE_ID))
+			.isInstanceOf(IllegalStateException.class);
+		assertThat(orderInboxKafkaEventRepository.count()).isZero();
+
+		walletPort.setRefundFails(false);
+		orderKafkaConsumer.handleRaceCancel(RACE_CANCEL_PAYLOAD, MESSAGE_ID);
+
+		assertCanceled(orderId);
+		assertThat(orderInboxKafkaEventRepository.count()).isEqualTo(1);
 	}
 
 	@Test

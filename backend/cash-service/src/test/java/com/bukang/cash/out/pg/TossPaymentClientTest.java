@@ -29,12 +29,13 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
 import com.bukang.cash.domain.exception.PaymentApprovalFailedException;
+import com.bukang.cash.domain.exception.PaymentCancelFailedException;
 import com.bukang.cash.domain.exception.PaymentLookupFailedException;
 
 class TossPaymentClientTest {
 	private static final String BASE_URL = "http://toss";
 	private static final String SECRET_KEY = "test_sk_dummy";
-	private static final String URL = BASE_URL + TossPaymentClient.CONFIRM_PATH;
+	private static final String URL = BASE_URL + TossPaymentConfirmClient.CONFIRM_PATH;
 	private static final String LOOKUP_URL = BASE_URL + "/v1/payments/orders/order_1";
 	private static final String BASIC_AUTH =
 		"Basic " + Base64.getEncoder().encodeToString((SECRET_KEY + ":").getBytes(StandardCharsets.UTF_8));
@@ -145,7 +146,7 @@ class TossPaymentClientTest {
 		PaymentApprovalFailedException failure = approveFailure();
 
 		assertThat(failure.isResultUnknown()).isFalse();
-		assertThat(failure.getMessage()).isEqualTo(TossPaymentClient.GENERIC_REJECTION_MESSAGE);
+		assertThat(failure.getMessage()).isEqualTo(TossPaymentConfirmClient.GENERIC_REJECTION_MESSAGE);
 	}
 
 	@Test
@@ -247,9 +248,89 @@ class TossPaymentClientTest {
 			.isInstanceOf(PaymentLookupFailedException.class);
 	}
 
+	@Test
+	@DisplayName("취소 사유를 요청 바디에 담아 결제 키로 전액 취소를 요청한다")
+	void sendsCancelReasonInBody() {
+		String url = BASE_URL + "/v1/payments/pay_123/cancel";
+		server.expect(requestTo(url))
+			.andExpect(method(HttpMethod.POST))
+			.andExpect(header(HttpHeaders.AUTHORIZATION, BASIC_AUTH))
+			.andExpect(jsonPath("$.cancelReason").value("고객 요청 환급"))
+			.andRespond(withSuccess(cancelResponse(10_000, "txn_1"), MediaType.APPLICATION_JSON));
+
+		client.cancel("pay_123", "고객 요청 환급");
+
+		server.verify();
+	}
+
+	@Test
+	@DisplayName("취소 성공 시 cancels 배열의 마지막 항목(이번 취소 건)의 금액·거래 키를 돌려준다")
+	void cancelSuccess() {
+		String url = BASE_URL + "/v1/payments/pay_123/cancel";
+		server.expect(requestTo(url))
+			.andRespond(withSuccess(cancelResponse(10_000, "txn_1"), MediaType.APPLICATION_JSON));
+
+		PaymentCancelResult result = client.cancel("pay_123", "고객 요청 환급");
+
+		assertThat(result.canceledAmount()).isEqualTo(10_000);
+		assertThat(result.transactionKey()).isEqualTo("txn_1");
+	}
+
+	@Test
+	@DisplayName("Toss가 4xx로 취소를 거절하면(예: 이미 취소된 결제) 결제 취소 실패 예외로 알리고 code를 담아 둔다")
+	void cancelRejectedWithClientError() {
+		String url = BASE_URL + "/v1/payments/pay_123/cancel";
+		server.expect(requestTo(url))
+			.andRespond(withStatus(HttpStatus.BAD_REQUEST)
+				.body(errorResponse("ALREADY_CANCELED_PAYMENT", "이미 취소된 결제 입니다."))
+				.contentType(MediaType.APPLICATION_JSON));
+
+		assertThatThrownBy(() -> client.cancel("pay_123", "고객 요청 환급"))
+			.asInstanceOf(InstanceOfAssertFactories.type(PaymentCancelFailedException.class))
+			.extracting(PaymentCancelFailedException::getPgCode)
+			.isEqualTo("ALREADY_CANCELED_PAYMENT");
+	}
+
+	@Test
+	@DisplayName("Toss가 5xx로 답하면 결제 취소 실패 예외로 알린다")
+	void cancelServerError() {
+		String url = BASE_URL + "/v1/payments/pay_123/cancel";
+		server.expect(requestTo(url)).andRespond(withServerError());
+
+		assertThatThrownBy(() -> client.cancel("pay_123", "고객 요청 환급"))
+			.isInstanceOf(PaymentCancelFailedException.class);
+	}
+
+	@Test
+	@DisplayName("Toss 서버에 연결하지 못하면(타임아웃 등) 결제 취소 실패 예외로 알린다")
+	void cancelConnectionFailure() {
+		String url = BASE_URL + "/v1/payments/pay_123/cancel";
+		server.expect(requestTo(url)).andRespond(withException(new SocketTimeoutException("read timed out")));
+
+		assertThatThrownBy(() -> client.cancel("pay_123", "고객 요청 환급"))
+			.isInstanceOf(PaymentCancelFailedException.class);
+	}
+
+	@Test
+	@DisplayName("취소 응답에 cancels 배열이 비어 있으면 결제 취소 실패 예외로 알린다")
+	void cancelResponseWithoutCancelsIsFailure() {
+		String url = BASE_URL + "/v1/payments/pay_123/cancel";
+		server.expect(requestTo(url)).andRespond(withSuccess("{ \"cancels\": [] }", MediaType.APPLICATION_JSON));
+
+		assertThatThrownBy(() -> client.cancel("pay_123", "고객 요청 환급"))
+			.isInstanceOf(PaymentCancelFailedException.class);
+	}
+
 	private PaymentApprovalFailedException approveFailure() {
 		return catchThrowableOfType(PaymentApprovalFailedException.class,
 			() -> client.approve("pay_123", "order_1", 10_000));
+	}
+
+	// Toss 취소 응답의 모양 (우리가 실제로 쓰는 필드만, cancels 배열 마지막 항목이 이번 취소 건)
+	private String cancelResponse(long cancelAmount, String transactionKey) {
+		return """
+			{ "cancels": [ { "cancelAmount": %d, "transactionKey": "%s" } ] }
+			""".formatted(cancelAmount, transactionKey);
 	}
 
 	// Toss 결제 승인·조회 응답의 모양 (우리가 실제로 쓰는 필드만)

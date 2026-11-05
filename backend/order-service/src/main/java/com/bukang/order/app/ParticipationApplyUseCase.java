@@ -17,6 +17,7 @@ import com.bukang.order.domain.exception.ApplicationPeriodException;
 import com.bukang.order.domain.exception.DuplicateParticipationException;
 import com.bukang.order.domain.exception.ParticipationAccessDeniedException;
 import com.bukang.order.domain.exception.ParticipationChangeRetryException;
+import com.bukang.order.domain.exception.ParticipationNotCancelableException;
 import com.bukang.order.domain.exception.ParticipationNotEditableException;
 import com.bukang.order.domain.exception.ParticipationNotFoundException;
 import com.bukang.order.domain.exception.RaceCourseNotFoundException;
@@ -89,8 +90,10 @@ public class ParticipationApplyUseCase {
 			return;
 		}
 		Participation participation = active.get();
-		if (participation.getStatus() != ParticipationStatus.PENDING
-			|| participation.getParticipationType() != ParticipationType.INDIVIDUAL) {
+		if (participation.getParticipationType() == ParticipationType.PARTY) {
+			throw new DuplicateParticipationException("파티로 신청한 대회예요. 개인으로 신청하려면 파티에서 나가 주세요.");
+		}
+		if (participation.getStatus() != ParticipationStatus.PENDING) {
 			throw new DuplicateParticipationException("이미 이 대회에 신청했습니다.");
 		}
 		participation.cancelBeforePayment(now);
@@ -98,7 +101,7 @@ public class ParticipationApplyUseCase {
 		participationRepository.flush();
 	}
 
-	private boolean isActiveParticipationConflict(DataIntegrityViolationException exception) {
+	static boolean isActiveParticipationConflict(DataIntegrityViolationException exception) {
 		String message = exception.getMostSpecificCause().getMessage();
 		return message != null && message.toLowerCase().contains(ACTIVE_PARTICIPATION_CONSTRAINT);
 	}
@@ -140,6 +143,10 @@ public class ParticipationApplyUseCase {
 		Participation participation = participationRepository.findByIdForUpdate(participationId)
 			.orElseThrow(() -> new ParticipationNotFoundException("존재하지 않는 참가 신청입니다."));
 		checkOwner(participation, memberId);
+		// 파티원 신청서만 취소하면 파티원 줄이 남아 나가기·다시 합류가 막힌다. 파티 나가기로 함께 끝낸다
+		if (participation.getParticipationType() == ParticipationType.PARTY) {
+			throw new ParticipationNotCancelableException("파티원 신청은 파티 나가기로 취소해 주세요.");
+		}
 		participation.cancelBeforePayment(now);
 		return participation;
 	}
@@ -163,7 +170,7 @@ public class ParticipationApplyUseCase {
 	}
 
 	// 키트는 배송으로만 받으므로 키트가 있는 종목은 배송 주소가 있어야 한다 (정책 2장 1-3, 3장 1-2, 5장 3-2)
-	private ParticipantInfo checkShippingAddress(RaceCourseInfo course, ParticipantInfo participant) {
+	static ParticipantInfo checkShippingAddress(RaceCourseInfo course, ParticipantInfo participant) {
 		if (!course.kitIncluded()) {
 			return participant.withShippingAddress(null);
 		}
@@ -175,7 +182,7 @@ public class ParticipationApplyUseCase {
 
 	// 티셔츠를 주는 종목은 사이즈를 종목이 주는 사이즈 중에서 골라야 한다 (10/14 김호빈님과 정함)
 	// 티셔츠가 없는 종목은 보낸 사이즈를 남기지 않는다 (배송 주소와 같은 방식)
-	private ParticipantInfo checkTshirtSize(RaceCourseInfo course, ParticipantInfo participant) {
+	static ParticipantInfo checkTshirtSize(RaceCourseInfo course, ParticipantInfo participant) {
 		if (!course.offersTshirt()) {
 			return participant.withTshirtSize(null);
 		}
@@ -190,7 +197,7 @@ public class ParticipationApplyUseCase {
 		return participant;
 	}
 
-	private void checkAge(RaceCourseInfo course, ParticipantInfo participant) {
+	static void checkAge(RaceCourseInfo course, ParticipantInfo participant) {
 		if (!course.allowsAge(participant.getBirth())) {
 			throw new AgeRestrictionException("참가할 수 있는 나이가 아닙니다(대회 당일 %s, 신청자 만 %d세)."
 				.formatted(course.ageRangeLabel(), course.ageOnRaceDay(participant.getBirth())));
