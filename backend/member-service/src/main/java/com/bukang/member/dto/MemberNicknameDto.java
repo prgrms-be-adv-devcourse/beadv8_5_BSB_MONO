@@ -18,6 +18,7 @@ public record MemberNicknameDto(
 ) {
 	// 조회 쿼리(MemberRepository.findNicknamesByIdIn)가 부른다
 	// 탈퇴하면 닉네임이 지워지므로, 다른 서비스 사본과 같은 이름으로 보여 준다
+	// WITHDRAWING(환급 대기)은 아직 쓰지 않아 닉네임을 그대로 준다. 그 상태를 쓰게 되면 여기도 같이 정한다
 	public MemberNicknameDto(Long memberId, String nickname, MemberStatus status) {
 		this(memberId, status == MemberStatus.WITHDRAWN ? Member.WITHDRAWN_NICKNAME : nickname);
 	}
