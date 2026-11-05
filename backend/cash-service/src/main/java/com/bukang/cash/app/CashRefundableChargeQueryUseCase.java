@@ -35,7 +35,9 @@ public class CashRefundableChargeQueryUseCase {
 
 		List<WalletCharge> latestFirst = walletChargeRepository.findByWalletAndStatus(wallet, ChargeStatus.COMPLETED)
 			.stream()
-			.sorted(Comparator.comparing(WalletCharge::getChargeDate).thenComparing(WalletCharge::getId).reversed())
+			.sorted(Comparator.comparing(WalletCharge::approvedAtOrChargeDate)
+				.thenComparing(WalletCharge::getId)
+				.reversed())
 			.toList();
 
 		long unfilled = wallet.getBalance();
@@ -45,8 +47,8 @@ public class CashRefundableChargeQueryUseCase {
 			long remaining = Math.min(charge.getAmount(), unfilled);
 			unfilled -= remaining;
 			charges.add(new RefundableChargeDto(charge.getAmount(), remaining,
-				CashChargePolicy.lastCancelableDate(charge.getChargeDate()),
-				!CashChargePolicy.isCancelable(charge.getChargeDate(), now)));
+				CashChargePolicy.lastCancelableDate(charge.approvedAtOrChargeDate()),
+				!CashChargePolicy.isCancelable(charge.approvedAtOrChargeDate(), now)));
 		}
 
 		LocalDate earliest = charges.stream()

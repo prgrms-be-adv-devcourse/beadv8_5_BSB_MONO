@@ -89,6 +89,20 @@ class CashChargeReconcileUseCaseTest {
 	}
 
 	@Test
+	@DisplayName("재조회로 COMPLETED로 맞출 때 PG가 준 승인 시각을 충전 건에 남긴다 (재조회한 시각이 아니다)")
+	void reconciledChargeKeepsApprovedAtFromPg() {
+		createCustomerWallet(0);
+		createCharge("order_1", ChargeStatus.UNCERTAIN, null);
+		given(paymentClient.lookupByOrderId("order_1")).willReturn(PaymentLookupResult.completed(
+			new PaymentApprovalResult(10_000, "toss_key_1", LocalDateTime.of(2026, 10, 15, 23, 59))));
+
+		cashChargeReconcileUseCase.reconcile(LocalDateTime.now());
+
+		WalletCharge charge = walletChargeRepository.findByIdempotencyKey("order_1").orElseThrow();
+		assertThat(charge.getApprovedAt()).isEqualTo(LocalDateTime.of(2026, 10, 15, 23, 59));
+	}
+
+	@Test
 	@DisplayName("UNCERTAIN 건을 재조회해서 PG가 승인 안 됐다고 확인되면 FAILED로 맞춘다")
 	void uncertainChargeResolvedToFailedWhenPgConfirmsNotCompleted() {
 		createCustomerWallet(0);

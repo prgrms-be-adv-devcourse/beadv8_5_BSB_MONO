@@ -134,6 +134,22 @@ class CashRefundableChargeQueryTest {
 		assertThat(response.charges()).extracting(RefundableChargeDto::amount).containsExactly(10_000L);
 	}
 
+	@Test
+	@DisplayName("PG 승인 시각이 있으면 그 시각으로 기한을 계산한다 (재확인이 늦어 충전 시각이 다음 날 00:10이어도 2027-10-14)")
+	void lastCancelableDateUsesPgApprovedAtOverChargeDate() {
+		Wallet wallet = createWallet(CUSTOMER_ID, 10_000);
+		WalletCharge charge = new WalletCharge(wallet, 10_000, "TOSS", "charge_late");
+		LocalDateTime lateChargeDate = LocalDateTime.of(2026, 10, 16, 0, 10);
+		LocalDateTime pgApprovedAt = LocalDateTime.of(2026, 10, 15, 23, 59);
+		charge.markCompleted("toss_key_late", lateChargeDate, pgApprovedAt);
+		walletChargeRepository.save(charge);
+
+		RefundableChargesResponseDto response = cashFacade.findRefundableCharges(CUSTOMER_ID, NOW);
+
+		assertThat(response.charges()).extracting(RefundableChargeDto::lastCancelableDate)
+			.containsExactly(LocalDate.of(2027, 10, 14));
+	}
+
 	private Wallet createWallet(long memberId, long balance) {
 		return transactionTemplate.execute(status -> {
 			CashMember member = cashMemberRepository.save(new CashMember(memberId, NOW, NOW, "러너" + memberId));
@@ -145,7 +161,7 @@ class CashRefundableChargeQueryTest {
 
 	private WalletCharge completedCharge(Wallet wallet, long amount, String orderId, LocalDateTime chargeDate) {
 		WalletCharge charge = new WalletCharge(wallet, amount, "TOSS", orderId);
-		charge.markCompleted("toss_key_" + orderId, chargeDate);
+		charge.markCompleted("toss_key_" + orderId, chargeDate, null);
 		return walletChargeRepository.save(charge);
 	}
 }
