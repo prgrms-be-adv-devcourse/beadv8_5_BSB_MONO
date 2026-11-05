@@ -81,7 +81,8 @@ public class ApiV1CashController {
 	// PRO-258: 프론트 "내역" 화면이 쓰던 목업 데이터를 실제 WalletLedger 조회로 대체한다
 	@GetMapping("/wallets/ledgers")
 	@Operation(summary = "예치금 내역 조회", description = "요청자 본인 지갑의 내역을 최신순으로 조회한다. "
-		+ "category로 탭(CHARGE/PAYMENT/REFUND/WITHDRAWAL/PAYOUT)을 필터링할 수 있고, 생략하면 전체를 돌려준다.")
+		+ "category로 탭(CHARGE/PAYMENT/REFUND/WITHDRAWAL/PAYOUT)을 필터링할 수 있고, 생략하면 전체를 돌려준다. "
+		+ "충전 줄의 charge에는 환급 화면용 충전 내역 조회와 같은 남은 금액·카드 취소 마지막 날이 있고, 다른 줄은 null이다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "조회 성공 (내역이 없으면 빈 목록)",
 			content = @Content(examples = @ExampleObject(value = CashApiExamples.LEDGER_LIST_SUCCESS))),
@@ -109,7 +110,7 @@ public class ApiV1CashController {
 		@Max(value = MAX_PAGE_SIZE, message = "한 번에 100개까지 조회할 수 있습니다.") int size
 	) {
 		return ResponseEntity.ok(RsData.of(HttpStatus.OK, "예치금 내역을 조회했습니다.",
-			cashFacade.findLedgers(memberId, category, page, size)));
+			cashFacade.findLedgers(memberId, category, page, size, LocalDateTime.now(KOREA))));
 	}
 
 	// 정책 5장 2차 1 「PG 결제취소와 기한」: 기한은 한국 시간으로 판단하므로 서버 시간대와 상관없이 한국 시각을 넘긴다

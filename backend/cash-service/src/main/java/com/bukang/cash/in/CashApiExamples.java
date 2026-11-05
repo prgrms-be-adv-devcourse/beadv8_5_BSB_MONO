@@ -26,17 +26,34 @@ final class CashApiExamples {
 			"data": {
 				"content": [
 					{
+						"category": "PAYMENT",
+						"ledgerType": "사용__주문결제",
+						"amount": -5000,
+						"balanceAfter": 5000,
+						"createdAt": "2026-10-21T11:30:00.102938",
+						"refId": 100,
+						"charge": null
+					},
+					{
 						"category": "CHARGE",
 						"ledgerType": "충전__PG결제_토스페이먼츠",
 						"amount": 10000,
-						"balanceAfter": 60000,
+						"balanceAfter": 10000,
 						"createdAt": "2026-10-20T09:03:03.319058",
-						"refId": 1
+						"refId": 1,
+						"charge": {
+							"chargeId": 1,
+							"chargedAt": "2026-10-20T09:03:01",
+							"amount": 10000,
+							"remainingAmount": 5000,
+							"lastCancelableDate": "2027-10-19",
+							"expired": false
+						}
 					}
 				],
 				"page": 0,
 				"size": 20,
-				"totalElements": 1,
+				"totalElements": 2,
 				"totalPages": 1
 			}
 		}

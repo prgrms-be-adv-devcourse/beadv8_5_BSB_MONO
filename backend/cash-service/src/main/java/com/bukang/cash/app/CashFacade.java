@@ -65,8 +65,10 @@ public class CashFacade {
 	}
 
 	@Transactional(readOnly = true)
-	public PageDto<WalletLedgerItemDto> findLedgers(long memberId, LedgerCategory category, int page, int size) {
-		return cashWalletLedgerQueryUseCase.findLedgers(memberId, category, page, size);
+	public PageDto<WalletLedgerItemDto> findLedgers(
+		long memberId, LedgerCategory category, int page, int size, LocalDateTime now
+	) {
+		return cashWalletLedgerQueryUseCase.findLedgers(memberId, category, page, size, now);
 	}
 
 	@Transactional(readOnly = true)

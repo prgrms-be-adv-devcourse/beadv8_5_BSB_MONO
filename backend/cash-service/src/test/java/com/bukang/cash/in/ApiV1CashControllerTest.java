@@ -339,4 +339,29 @@ class ApiV1CashControllerTest {
 			.andExpect(jsonPath("$.data.charges[0].chargeId").value(chargeId))
 			.andExpect(jsonPath("$.data.charges[0].chargedAt").value("2099-01-01T10:00:00"));
 	}
+
+	@Test
+	@DisplayName("내역 조회: 충전 줄에는 충전 일시·남은 금액·카드 취소 마지막 날·기한 지남 여부를 붙이고, 결제 줄에는 붙이지 않는다")
+	void getLedgersAttachesChargeDeadlineToChargeRows() throws Exception {
+		LocalDateTime now = LocalDateTime.of(2026, 10, 12, 10, 0);
+		CashMember member = cashMemberRepository.save(new CashMember(3, now, now, "러너3"));
+		Wallet wallet = walletRepository.save(new Wallet(member));
+		WalletCharge charge = new WalletCharge(wallet, 10_000, "TOSS", "order_1");
+		LocalDateTime approvedAt = LocalDateTime.of(2099, 1, 1, 10, 0);
+		charge.markCompleted("toss_key_1", approvedAt, approvedAt);
+		walletChargeRepository.save(charge);
+		walletLedgerRepository.save(wallet.credit(10_000, LedgerType.충전__PG결제_토스페이먼츠, charge));
+		walletLedgerRepository.save(wallet.debit(5_000, LedgerType.사용__주문결제, LedgerRefType.Order, 100));
+
+		mockMvc.perform(get("/api/v1/cash/wallets/ledgers")
+				.header(MemberIdHeader.NAME, "3"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.content[0].category").value("PAYMENT"))
+			.andExpect(jsonPath("$.data.content[0].charge").doesNotExist())
+			.andExpect(jsonPath("$.data.content[1].category").value("CHARGE"))
+			.andExpect(jsonPath("$.data.content[1].charge.chargedAt").value("2099-01-01T10:00:00"))
+			.andExpect(jsonPath("$.data.content[1].charge.remainingAmount").value(5_000))
+			.andExpect(jsonPath("$.data.content[1].charge.lastCancelableDate").value("2099-12-31"))
+			.andExpect(jsonPath("$.data.content[1].charge.expired").value(false));
+	}
 }
