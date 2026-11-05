@@ -7,6 +7,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.bukang.common.shared.order.event.OrderItemRefundReason;
 import com.bukang.order.domain.Order;
 import com.bukang.order.domain.OrderItem;
 import com.bukang.order.domain.OrderStatus;
@@ -42,6 +43,7 @@ public class RaceCancelRefundUseCase {
 	private final OrderRepository orderRepository;
 	private final ParticipationRepository participationRepository;
 	private final WalletPort walletPort;
+	private final OrderOutboxKafkaAppendUseCase orderOutboxKafkaAppendUseCase;
 	private final TransactionTemplate transactionTemplate;
 
 	/**
@@ -116,6 +118,11 @@ public class RaceCancelRefundUseCase {
 			Participation participation = participationRepository.findByIdForUpdate(item.getParticipationId())
 				.orElseThrow(() -> new ParticipationNotFoundException("존재하지 않는 참가 신청입니다."));
 			participation.markCanceled(now);
+		}
+		// 환불이 실패해 롤백되면 알림도 함께 사라지고, 다시 처리해 환불이 성공할 때 남는다 (BUK-74)
+		for (OrderItem item : canceledItems) {
+			orderOutboxKafkaAppendUseCase.appendItemRefunded(item, order.getBuyerId(), now,
+				OrderItemRefundReason.RACE_CANCELED);
 		}
 		// 주문 하나 = 참가권 하나라 주문 단위 전액 환불이 그 참가권의 환불이다. 실패하면 예외로 이 주문만 롤백된다
 		walletPort.refund(order.getId(), order.getBuyerId());

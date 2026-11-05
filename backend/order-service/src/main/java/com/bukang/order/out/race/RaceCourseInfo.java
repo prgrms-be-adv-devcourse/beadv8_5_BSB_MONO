@@ -6,6 +6,8 @@ import java.time.Period;
 import java.util.List;
 import java.util.Objects;
 
+import com.bukang.common.shared.order.event.OrderItemRefundReason;
+
 /**
  * 참가 신청에 필요한 종목(참가권) 정보. B(상품)의 race · race_course에서 필요한 값만 옮긴 것이다
  * (ERD 추천안 v4 RACE_RACE · RACE_COURSE)
@@ -84,6 +86,16 @@ public record RaceCourseInfo(
 	 */
 	public boolean isRefundableOn(LocalDate today) {
 		return canceled || !today.isAfter(refundDeadline) || isWithinScheduleChangeRefund(today);
+	}
+
+	// 오늘 취소하면 정산에 알릴 환불 사유 (BUK-74). isRefundableOn이 true일 때만 부른다
+	// 환불 기한 안이면 일정이 바뀌었어도 구매자 취소로 본다 (정산은 두 사유를 똑같이 회수한다)
+	public OrderItemRefundReason refundReasonOn(LocalDate today) {
+		if (canceled) {
+			return OrderItemRefundReason.RACE_CANCELED;
+		}
+		return today.isAfter(refundDeadline) ? OrderItemRefundReason.SCHEDULE_CHANGED
+			: OrderItemRefundReason.BUYER_CANCELED;
 	}
 
 	/**

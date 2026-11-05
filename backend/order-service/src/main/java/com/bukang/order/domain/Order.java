@@ -12,6 +12,7 @@ import java.util.List;
 import org.hibernate.annotations.BatchSize;
 
 import com.bukang.common.global.jpa.entity.BaseIdAndTime;
+import com.bukang.common.shared.order.event.OrderItemRefundReason;
 import com.bukang.order.domain.event.OrderExpiredEvent;
 import com.bukang.order.domain.event.OrderRaceCanceledEvent;
 import com.bukang.order.domain.exception.KitNotShippableException;
@@ -199,8 +200,8 @@ public class Order extends BaseIdAndTime {
 	}
 
 	// 주문 상품 취소를 시작한다(결제 완료 → 취소 중). 주문 상태와 배송은 환불이 확인돼 마무리할 때(cancelItem) 바꾼다 (BUK-9)
-	public void startCancelItem(OrderItem item, LocalDateTime requestedAt) {
-		item.startCancel(requestedAt);
+	public void startCancelItem(OrderItem item, LocalDateTime requestedAt, OrderItemRefundReason reason) {
+		item.startCancel(requestedAt, reason);
 	}
 
 	// 예치금이 환불을 거절해 취소 중을 결제 완료로 되돌린다. 주문 상태·배송은 시작 때 바꾸지 않았으므로 그대로다

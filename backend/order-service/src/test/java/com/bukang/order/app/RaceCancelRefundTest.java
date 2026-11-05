@@ -31,6 +31,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.bukang.common.global.json.JsonConverter;
+import com.bukang.common.shared.order.event.OrderItemRefundReason;
+import com.bukang.common.shared.order.event.OrderItemRefundedEvent;
 import com.bukang.order.domain.Order;
 import com.bukang.order.domain.OrderItemStatus;
 import com.bukang.order.domain.OrderStatus;
@@ -107,6 +110,9 @@ class RaceCancelRefundTest {
 	@Autowired
 	private TransactionTemplate transactionTemplate;
 
+	@Autowired
+	private JsonConverter jsonConverter;
+
 	@MockitoSpyBean
 	private RaceCanceledNotificationListener notificationListener;
 
@@ -152,6 +158,17 @@ class RaceCancelRefundTest {
 		assertThat(statusOf(otherRace)).isEqualTo(OrderStatus.PAID);
 		// 자리는 되돌리지 않는다 (취소된 대회는 다시 팔지 않는다)
 		assertThat(restoredSeats()).isEmpty();
+		// 정산에는 환불한 참가권마다 대회 취소 사유로 한 번씩 알린다 (BUK-74). 결제 대기·다른 대회 주문은 알리지 않는다
+		assertThat(refunded()).hasSize(2).allSatisfy(event -> {
+			assertThat(event.reason()).isEqualTo(OrderItemRefundReason.RACE_CANCELED);
+			assertThat(event.raceId()).isEqualTo(RACE_ID);
+			assertThat(event.raceCourseId()).isEqualTo(COURSE_ID);
+			assertThat(event.price()).isEqualTo(StubRaceCoursePort.PRICE);
+			assertThat(event.refundedAt()).isEqualTo(now);
+		});
+		assertThat(refunded()).extracting(OrderItemRefundedEvent::buyerId).containsExactlyInAnyOrder(1L, 2L);
+		assertThat(refunded()).extracting(OrderItemRefundedEvent::orderItemId)
+			.containsExactlyInAnyOrder(itemIdOf(first), itemIdOf(second));
 		// 환불한 구매자에게만 알린다
 		verify(notificationListener)
 			.notifyBuyer(new OrderRaceCanceledEvent(first, 1, RACE_ID, StubRaceCoursePort.PRICE));
@@ -170,6 +187,7 @@ class RaceCancelRefundTest {
 
 		assertThat(again).isEqualTo(new RaceCancelRefundUseCase.RefundResult(0, 0));
 		assertThat(walletPort.refundCalls()).containsExactly(new StubWalletPort.Call(orderId, 1));
+		assertThat(refunded()).extracting(OrderItemRefundedEvent::orderItemId).containsExactly(itemIdOf(orderId));
 	}
 
 	@Test
@@ -183,8 +201,9 @@ class RaceCancelRefundTest {
 		assertThat(failed).isEqualTo(new RaceCancelRefundUseCase.RefundResult(0, 1));
 		assertThat(statusOf(first)).isEqualTo(OrderStatus.PAID);
 		assertThat(participationStatusOf(first)).isEqualTo(ParticipationStatus.CONFIRMED);
-		// 환불이 롤백된 주문은 알리지 않는다
+		// 환불이 롤백된 주문은 알리지 않는다 (정산 환불 알림도 함께 롤백된다)
 		verify(notificationListener, never()).notifyBuyer(any());
+		assertThat(refunded()).isEmpty();
 
 		walletPort.setRefundFails(false);
 		long second = paidOrder(2, COURSE_ID);
@@ -194,6 +213,8 @@ class RaceCancelRefundTest {
 		assertCanceled(first);
 		assertCanceled(second);
 		assertThat(walletPort.refundedAmounts()).hasSize(2);
+		assertThat(refunded()).extracting(OrderItemRefundedEvent::orderItemId)
+			.containsExactlyInAnyOrder(itemIdOf(first), itemIdOf(second));
 	}
 
 	@Test
@@ -344,6 +365,15 @@ class RaceCancelRefundTest {
 	private ParticipationStatus participationStatusOf(long orderId) {
 		long participationId = orderOf(orderId).participationId();
 		return participationRepository.findById(participationId).orElseThrow().getStatus();
+	}
+
+	private List<OrderItemRefundedEvent> refunded() {
+		return SeatOutboxMessages.refunded(orderOutboxKafkaEventRepository, jsonConverter);
+	}
+
+	private long itemIdOf(long orderId) {
+		return transactionTemplate.execute(status ->
+			orderRepository.findById(orderId).orElseThrow().getItems().getFirst().getId());
 	}
 
 	private List<Long> restoredSeats() {
