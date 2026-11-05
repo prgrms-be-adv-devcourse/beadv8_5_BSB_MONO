@@ -65,7 +65,7 @@ public interface PayoutRepository extends JpaRepository<Payout, Long> {
 	List<Long> findPayTargetIds(LocalDate today, PayoutStatus calculated, PayoutStatus paying);
 
 	// 판매자 정산 내역 조회: 정산 월(YYYY-MM)은 문자열이어도 자릿수가 같아 사전순 비교가 달 순서와 같다
-	// 유일 조건 (seller_id, race_id, payout_month)의 인덱스는 seller_id로 시작하므로 판매자 범위를 이 인덱스로 찾는다
+	// 유일 조건 (seller_id, race_id, payout_month, payout_stage)의 인덱스는 seller_id로 시작하므로 판매자 범위를 이 인덱스로 찾는다
 	List<Payout> findBySellerIdAndPayoutMonthBetweenOrderByPayoutMonthDescIdDesc(
 		long sellerId, String fromMonth, String toMonth);
 
