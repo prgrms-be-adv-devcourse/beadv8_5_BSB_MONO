@@ -13,6 +13,7 @@ import static org.mockito.Mockito.verify;
 import java.time.LocalDateTime;
 
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -66,6 +67,13 @@ class CashWithdrawalByChargeTest {
 
 	@MockitoBean
 	private PaymentClient paymentClient;
+
+	// 기본값: 토스는 요청한 금액 그대로 취소에 성공한다. 거절·결과 모름은 각 테스트가 따로 정한다
+	@BeforeEach
+	void pgCancelSucceedsByDefault() {
+		given(paymentClient.cancel(anyString(), anyString(), anyLong(), anyString()))
+			.willAnswer(invocation -> new PaymentCancelResult(invocation.getArgument(2), "txn_default"));
+	}
 
 	@AfterEach
 	void tearDown() {
@@ -223,6 +231,76 @@ class CashWithdrawalByChargeTest {
 		assertThat(response.processingAmount()).isEqualTo(30_000);
 		assertThat(response.revertedAmount()).isZero();
 		assertThat(response.cardAmount()).isZero();
+	}
+
+	@Test
+	@DisplayName("결제취소가 성공하면 그 충전 건에 PG가 알려 준 취소 금액이 기록된다 (다음 환급 때 같은 몫을 다시 취소하지 않게)")
+	void successfulCancelIsRecordedOnCharge() {
+		Wallet wallet = createWallet(30_000);
+		WalletCharge charge = completedCharge(wallet, 30_000, "charge_1", LocalDateTime.of(2026, 10, 10, 9, 0));
+		given(paymentClient.cancel(anyString(), anyString(), anyLong(), anyString()))
+			.willReturn(new PaymentCancelResult(30_000, "txn_1"));
+
+		cashFacade.requestWithdrawal(CUSTOMER_ID, null, null, null, "withdrawal_1", NOW);
+
+		assertThat(walletChargeRepository.findById(charge.getId()).orElseThrow().getCanceledAmount()).isEqualTo(30_000);
+	}
+
+	@Test
+	@DisplayName("기한 안이었지만 토스가 환불 기간 초과(EXCEED_MAX_REFUND_DUE)로 거절한 카드 몫은 은행 정보가 있으면 계좌 송금으로 바꾼다")
+	void refundPeriodRejectionSwitchesToAccount() {
+		Wallet wallet = createWallet(30_000);
+		completedCharge(wallet, 30_000, "charge_1", LocalDateTime.of(2026, 10, 10, 9, 0));
+		given(paymentClient.cancel(anyString(), anyString(), anyLong(), anyString()))
+			.willThrow(new PaymentCancelFailedException("PG사가 결제 취소를 거절했습니다.", "EXCEED_MAX_REFUND_DUE", false));
+
+		CashWithdrawalResponseDto response = cashFacade.requestWithdrawal(
+			CUSTOMER_ID, "004", "110123456789", "김러너", "withdrawal_1", NOW);
+
+		assertThat(walletRepository.findById(CUSTOMER_ID).orElseThrow().getBalance()).isZero();
+		assertThat(response.cardAmount()).isZero();
+		assertThat(response.accountAmount()).isEqualTo(30_000);
+		assertThat(response.revertedAmount()).isZero();
+		assertThat(walletLedgerRepository.findAll())
+			.extracting(WalletLedger::getLedgerType, WalletLedger::getAmount)
+			.containsExactlyInAnyOrder(
+				tuple(LedgerType.출금__PG결제취소_토스페이먼츠, -30_000L),
+				tuple(LedgerType.출금취소__PG결제취소_토스페이먼츠, 30_000L),
+				tuple(LedgerType.출금__통장입금, -30_000L));
+	}
+
+	@Test
+	@DisplayName("환불 기간 초과로 거절된 카드 몫인데 은행 정보가 없으면 그 몫만 예치금에 되돌리고 응답에 계좌 정보가 필요하다고 표시한다")
+	void refundPeriodRejectionWithoutBankAccountRevertsAndFlags() {
+		Wallet wallet = createWallet(30_000);
+		completedCharge(wallet, 30_000, "charge_1", LocalDateTime.of(2026, 10, 10, 9, 0));
+		given(paymentClient.cancel(anyString(), anyString(), anyLong(), anyString()))
+			.willThrow(new PaymentCancelFailedException("PG사가 결제 취소를 거절했습니다.", "EXCEED_MAX_REFUND_DUE", false));
+
+		CashWithdrawalResponseDto response =
+			cashFacade.requestWithdrawal(CUSTOMER_ID, null, null, null, "withdrawal_1", NOW);
+
+		assertThat(walletRepository.findById(CUSTOMER_ID).orElseThrow().getBalance()).isEqualTo(30_000);
+		assertThat(response.revertedAmount()).isEqualTo(30_000);
+		assertThat(response.accountRequired()).isTrue();
+	}
+
+	@Test
+	@DisplayName("토스가 부분 취소 불가(NOT_ALLOWED_PARTIAL_REFUND)로 거절한 카드 몫도 은행 정보가 있으면 계좌 송금으로 바꾼다")
+	void partialRefundNotAllowedSwitchesToAccount() {
+		Wallet wallet = createWallet(5_000);
+		completedCharge(wallet, 10_000, "charge_1", LocalDateTime.of(2026, 10, 10, 9, 0));
+		given(paymentClient.cancel(anyString(), anyString(), anyLong(), anyString()))
+			.willThrow(new PaymentCancelFailedException(
+				"PG사가 결제 취소를 거절했습니다.", "NOT_ALLOWED_PARTIAL_REFUND", false));
+
+		CashWithdrawalResponseDto response = cashFacade.requestWithdrawal(
+			CUSTOMER_ID, "004", "110123456789", "김러너", "withdrawal_1", NOW);
+
+		assertThat(walletRepository.findById(CUSTOMER_ID).orElseThrow().getBalance()).isZero();
+		assertThat(response.cardAmount()).isZero();
+		assertThat(response.accountAmount()).isEqualTo(5_000);
+		assertThat(response.revertedAmount()).isZero();
 	}
 
 	private Wallet createWallet(long balance) {
