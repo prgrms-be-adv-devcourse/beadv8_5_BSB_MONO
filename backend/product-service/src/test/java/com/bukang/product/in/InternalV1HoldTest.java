@@ -82,7 +82,8 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 		ParticipationHold seat = holdOf(PARTICIPATION_ID);
 		assertThat(seat.getStatus()).isEqualTo(HoldStatus.HELD);
 		assertThat(seat.getExpiresAt()).isEqualTo(expiresAt);
-		assertThat(seat.getCrewApplicationId()).isNull();
+		assertThat(seat.getPartyId()).isNull();
+		assertThat(seat.getCrewId()).isNull();
 		assertThat(seat.getSoldAt()).isNull();
 		assertThat(seat.getReleasedAt()).isNull();
 		assertThat(seat.getReleaseReason()).isNull();
