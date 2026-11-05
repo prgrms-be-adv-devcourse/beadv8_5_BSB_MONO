@@ -24,7 +24,7 @@ class PayoutCancelTest {
 	}
 
 	private PayoutHold hold(Payout payout) {
-		return payout.hold(PayoutHoldReason.ACCOUNT_NOT_REGISTERED, null, ADMIN_ID, HELD_AT);
+		return payout.hold(PayoutHoldReason.정산_계좌_미등록, null, ADMIN_ID, HELD_AT);
 	}
 
 	@Test
@@ -34,7 +34,7 @@ class PayoutCancelTest {
 
 		assertThat(payout.getStatusHistories()).singleElement().satisfies(history -> {
 			assertThat(history.getFromStatus()).isNull();
-			assertThat(history.getToStatus()).isEqualTo(PayoutStatus.CALCULATED);
+			assertThat(history.getToStatus()).isEqualTo(PayoutStatus.정산_예정);
 			assertThat(history.getChangedBy()).isEqualTo(PayoutHold.SYSTEM_MEMBER_ID);
 			assertThat(history.getChangedAt()).isEqualTo(SETTLED_AT);
 		});
@@ -52,36 +52,36 @@ class PayoutCancelTest {
 			.extracting(PayoutStatusHistory::getFromStatus, PayoutStatusHistory::getToStatus,
 				PayoutStatusHistory::getChangedBy)
 			.containsExactly(
-				tuple(null, PayoutStatus.CALCULATED, PayoutHold.SYSTEM_MEMBER_ID),
-				tuple(PayoutStatus.CALCULATED, PayoutStatus.HELD, ADMIN_ID),
-				tuple(PayoutStatus.HELD, PayoutStatus.CALCULATED, ADMIN_ID),
-				tuple(PayoutStatus.CALCULATED, PayoutStatus.PAID,
+				tuple(null, PayoutStatus.정산_예정, PayoutHold.SYSTEM_MEMBER_ID),
+				tuple(PayoutStatus.정산_예정, PayoutStatus.지급보류, ADMIN_ID),
+				tuple(PayoutStatus.지급보류, PayoutStatus.정산_예정, ADMIN_ID),
+				tuple(PayoutStatus.정산_예정, PayoutStatus.지급_완료,
 					PayoutHold.SYSTEM_MEMBER_ID));
 		assertThat(payout.getStatusHistories().get(1).getReason()).isEqualTo("정산 계좌 미등록");
 	}
 
 	@Test
-	@DisplayName("정산 예정인 정산 내역을 취소하면 CANCELED가 되고 이유가 이력에 남는다")
+	@DisplayName("정산 예정인 정산 내역을 취소하면 취소가 되고 이유가 이력에 남는다")
 	void cancelCalculated() {
 		Payout payout = newPayout();
 
 		payout.cancel(PayoutHold.SYSTEM_MEMBER_ID, CANCELED_AT, "대회 취소");
 
-		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.CANCELED);
+		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.취소);
 		assertThat(payout.getStatusHistories().getLast().getReason()).isEqualTo("대회 취소");
 	}
 
 	@Test
-	@DisplayName("보류 중인 정산 내역을 취소하면 상태는 CANCELED, 보류 기록은 HELD로 남는다")
+	@DisplayName("보류 중인 정산 내역을 취소하면 상태는 취소, 보류 기록은 지급보류로 남는다")
 	void cancelHeld() {
 		Payout payout = newPayout();
 		PayoutHold hold = hold(payout);
 
 		payout.cancel(PayoutHold.SYSTEM_MEMBER_ID, CANCELED_AT, "대회 취소");
 
-		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.CANCELED);
-		assertThat(hold.getStatus()).isEqualTo(PayoutHoldStatus.HELD);
-		assertThat(payout.getStatusHistories().getLast().getFromStatus()).isEqualTo(PayoutStatus.HELD);
+		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.취소);
+		assertThat(hold.getStatus()).isEqualTo(PayoutHoldStatus.지급보류);
+		assertThat(payout.getStatusHistories().getLast().getFromStatus()).isEqualTo(PayoutStatus.지급보류);
 	}
 
 	@Test
@@ -104,8 +104,8 @@ class PayoutCancelTest {
 		assertThatThrownBy(() -> payout.release(hold, ADMIN_ID, CANCELED_AT.plusDays(1), CALENDAR))
 			.isInstanceOf(PayoutHoldConflictException.class)
 			.hasMessage("취소된 정산 내역의 지급보류는 풀 수 없습니다.");
-		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.CANCELED);
-		assertThat(hold.getStatus()).isEqualTo(PayoutHoldStatus.HELD);
+		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.취소);
+		assertThat(hold.getStatus()).isEqualTo(PayoutHoldStatus.지급보류);
 	}
 
 	@Test

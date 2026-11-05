@@ -79,8 +79,8 @@ public class Payout extends BaseIdAndTime {
 	@Column(nullable = false)
 	private long feeAmount;
 
-	// 1차 정산금 차감: 최종에서 빼는 ADVANCE 잔고 (1차 정산금 − 회수 요청액, 손에 남은 1차 정산금). 1차는 0이다 (payout.md 4-4)
-	// 만들 때의 값이고, 같은 금액의 ADVANCE_OFFSET 원장 줄이 함께 생긴다
+	// 1차 정산금 차감: 최종에서 빼는 선금 잔고 (1차 정산금 − 회수 요청액, 손에 남은 1차 정산금). 1차는 0이다 (payout.md 4-4)
+	// 만들 때의 값이고, 같은 금액의 선지급_차감 원장 줄이 함께 생긴다
 	@Column(nullable = false)
 	private long advanceDeductionAmount;
 
@@ -95,7 +95,7 @@ public class Payout extends BaseIdAndTime {
 	@Column(nullable = false)
 	private LocalDateTime settledAt;
 
-	// 지급 예정일. 지급 배치는 이 날이 지난 CALCULATED만 지급한다
+	// 지급 예정일. 지급 배치는 이 날이 지난 정산_예정만 지급한다
 	// 보류를 풀 때(PRO-26) 다시 정하므로(1차 · 최종 모두 max(원래 지급 예정일, 해제일 + 1일))
 	// 배치는 보류 기록을 보지 않아도 된다
 	@Column(nullable = false)
@@ -103,12 +103,12 @@ public class Payout extends BaseIdAndTime {
 
 	private LocalDateTime paidAt;
 
-	// 지급 중(PAYING)에 대회가 취소된 시각 (PRO-253). 지급 중에는 돈이 이미 나갔을 수 있어 바로 닫지 못하므로 표시만 남긴다
+	// 지급 중에 대회가 취소된 시각 (PRO-253). 지급 중에는 돈이 이미 나갔을 수 있어 바로 닫지 못하므로 표시만 남긴다
 	// 지급 결과가 나오면 성공은 지급 완료로 바꾼 뒤 회수를 만들고, 거절은 정산 예정으로 되돌리지 않고 취소로 닫는다
 	private LocalDateTime raceCanceledAt;
 
 	// 낙관적 락: 지급 배치와 보류 API가 같은 정산 내역을 동시에 바꾸면 늦게 커밋한 쪽이 실패한다
-	// 없으면 배치가 읽은 CALCULATED를 근거로, 그 사이 걸린 HELD를 PAID로 덮어쓸 수 있다
+	// 없으면 배치가 읽은 정산_예정을 근거로, 그 사이 걸린 지급보류를 지급_완료로 덮어쓸 수 있다
 	@Version
 	private long version;
 
@@ -131,14 +131,14 @@ public class Payout extends BaseIdAndTime {
 		this.settledAt = settledAt;
 		this.scheduledPayDate = scheduledPayDate;
 		// 정산 내역은 배치가 만든다
-		changeStatus(PayoutStatus.CALCULATED, PayoutHold.SYSTEM_MEMBER_ID, settledAt, null);
+		changeStatus(PayoutStatus.정산_예정, PayoutHold.SYSTEM_MEMBER_ID, settledAt, null);
 	}
 
 	// 1차 정산 내역: 정산 월은 환불 마감일의 달이고, 지급 예정일은 정산 월의 다음 달 20일이다 (예: 마감 10/11 → 11/20)
 	public static Payout first(long sellerId, long raceId, String raceName, LocalDate refundDeadline,
 		LocalDateTime settledAt, BusinessDayCalendar calendar) {
 		YearMonth payoutMonth = YearMonth.from(refundDeadline);
-		return new Payout(sellerId, raceId, raceName, PayoutStage.FIRST, payoutMonth, settledAt,
+		return new Payout(sellerId, raceId, raceName, PayoutStage.일차_정산, payoutMonth, settledAt,
 			payDayOf(payoutMonth.plusMonths(1), calendar));
 	}
 
@@ -148,7 +148,7 @@ public class Payout extends BaseIdAndTime {
 	public static Payout finalStage(long sellerId, long raceId, String raceName, LocalDate raceDate,
 		LocalDateTime settledAt, BusinessDayCalendar calendar) {
 		YearMonth payoutMonth = YearMonth.from(raceDate);
-		return new Payout(sellerId, raceId, raceName, PayoutStage.FINAL, payoutMonth, settledAt,
+		return new Payout(sellerId, raceId, raceName, PayoutStage.최종_정산, payoutMonth, settledAt,
 			payDayOf(payoutMonth.plusMonths(1), calendar));
 	}
 
@@ -162,13 +162,13 @@ public class Payout extends BaseIdAndTime {
 	}
 
 	/**
-	 * 1차 정산금 줄(ADVANCE_PAID)을 코스마다 한 줄씩 쓴다. 참가권 목록 없이 판매 집계(가격 합 · 장수)만으로 계산한다 (PRO-214)
+	 * 1차 정산금 줄을 코스마다 한 줄씩 쓴다. 참가권 목록 없이 판매 집계(가격 합 · 장수)만으로 계산한다 (PRO-214)
 	 * 코스 하나는 참가권 가격이 하나다. 그래서 가격 합 ÷ 장수가 1장 가격이고,
 	 * 1차 정산금 = DOWN(1장 가격 × 40%) × 장수는 장마다 40%를 버려 더한 값(정책 Q7)과 같다. 회수 몫(1장 × 40%)과도 정확히 맞는다
 	 * 가격 합이 장수로 나누어떨어지지 않으면 가격이 섞인 것이므로 계산하지 않고 실패로 남긴다
 	 */
 	public PayoutItem recordAdvance(long raceCourseId, long priceSum, int ticketCount, LocalDate payoutCreateDate) {
-		if (payoutStage != PayoutStage.FIRST) {
+		if (payoutStage != PayoutStage.일차_정산) {
 			throw new IllegalStateException("선금은 1차 정산에만 씁니다. payoutStage=%s".formatted(payoutStage));
 		}
 		if (ticketCount <= 0 || priceSum % ticketCount != 0) {
@@ -177,7 +177,7 @@ public class Payout extends BaseIdAndTime {
 					.formatted(raceId, raceCourseId, priceSum, ticketCount));
 		}
 		boolean alreadyRecorded = items.stream()
-			.anyMatch(item -> item.getRecordType() == PayoutRecordType.ADVANCE_PAID
+			.anyMatch(item -> item.getRecordType() == PayoutRecordType.선금
 				&& Long.valueOf(raceCourseId).equals(item.getRaceCourseId()));
 		if (alreadyRecorded) {
 			throw new IllegalStateException(
@@ -185,7 +185,7 @@ public class Payout extends BaseIdAndTime {
 		}
 		salesAmount += priceSum;
 		long share = TwoStagePayoutCalculator.firstShare(priceSum / ticketCount) * ticketCount;
-		return addLine(PayoutRecordType.ADVANCE_PAID, null, raceCourseId, share, null, payoutCreateDate);
+		return addLine(PayoutRecordType.선금, null, raceCourseId, share, null, payoutCreateDate);
 	}
 
 	// 최종 정산에 참가권 1장을 넣는다. 원장 줄은 정산 내역(Payout)을 통해서만 만든다 (금액 캐시와 함께 바뀌어야 하므로)
@@ -194,14 +194,14 @@ public class Payout extends BaseIdAndTime {
 	// 지급액은 언제나 이 정산 내역 원장 줄의 합이다
 	public PayoutItem addItem(long orderItemId, Long raceCourseId, long price, BigDecimal feeRate,
 		LocalDate payoutCreateDate) {
-		if (payoutStage != PayoutStage.FINAL) {
+		if (payoutStage != PayoutStage.최종_정산) {
 			throw new IllegalStateException("1차 정산은 참가권 줄 없이 recordAdvance로 만듭니다. raceId=%d".formatted(raceId));
 		}
 		salesAmount += price;
 		long fee = TwoStagePayoutCalculator.rate(price, feeRate);
 		feeAmount += fee;
-		PayoutItem sale = addLine(PayoutRecordType.SALE, orderItemId, raceCourseId, price, feeRate, payoutCreateDate);
-		addLine(PayoutRecordType.FEE, orderItemId, raceCourseId, -fee, feeRate, payoutCreateDate);
+		PayoutItem sale = addLine(PayoutRecordType.판매, orderItemId, raceCourseId, price, feeRate, payoutCreateDate);
+		addLine(PayoutRecordType.수수료, orderItemId, raceCourseId, -fee, feeRate, payoutCreateDate);
 		return sale;
 	}
 
@@ -211,29 +211,29 @@ public class Payout extends BaseIdAndTime {
 	}
 
 	/**
-	 * 최종은 그때 남은 1차 정산금(ADVANCE 잔고)을 한 줄로 뺀다. 0원이어도 남겨 "뺄 1차 정산금이 없었다"를 기록한다 (PRO-214)
-	 * 1차 정산금 차감은 만들 때의 ADVANCE 잔고(1차 정산금 − 회수 요청액)다. 최종 정산 내역마다 한 번만 쓴다
+	 * 최종은 그때 남은 1차 정산금(선금 잔고)을 한 줄로 뺀다. 0원이어도 남겨 "뺄 1차 정산금이 없었다"를 기록한다 (PRO-214)
+	 * 1차 정산금 차감은 만들 때의 선금 잔고(1차 정산금 − 회수 요청액)다. 최종 정산 내역마다 한 번만 쓴다
 	 *
-	 * @param amount 남은 1차 정산금 (ADVANCE 잔고)
+	 * @param amount 남은 1차 정산금 (선금 잔고)
 	 */
 	public void deductAdvance(long amount) {
-		if (payoutStage != PayoutStage.FINAL) {
+		if (payoutStage != PayoutStage.최종_정산) {
 			throw new IllegalStateException("1차 정산금 차감은 최종 정산에만 씁니다. payoutStage=%s".formatted(payoutStage));
 		}
 		boolean alreadyDeducted = items.stream()
-			.anyMatch(item -> item.getRecordType() == PayoutRecordType.ADVANCE_OFFSET);
+			.anyMatch(item -> item.getRecordType() == PayoutRecordType.선지급_차감);
 		if (alreadyDeducted) {
 			throw new IllegalStateException("1차 정산금 차감 줄은 하나만 씁니다. raceId=%d".formatted(raceId));
 		}
 		this.advanceDeductionAmount = amount;
-		addLine(PayoutRecordType.ADVANCE_OFFSET, null, null, -amount, null, null);
+		addLine(PayoutRecordType.선지급_차감, null, null, -amount, null, null);
 	}
 
 	/**
 	 * 지급 전 정산 내역에서 판매자가 갚을 돈을 뺀다 (회수 상계, PRO-214)
-	 * 정산 내역 금액까지만 뺀다. 정산 내역은 0 아래로 내려가지 않고, 남은 갚을 돈은 RECEIVABLE에 남아 입금으로 받는다
+	 * 정산 내역 금액까지만 뺀다. 정산 내역은 0 아래로 내려가지 않고, 남은 갚을 돈은 갚을_돈에 남아 입금으로 받는다
 	 *
-	 * @param receivable 같은 판매자 × 대회의 갚을 돈(RECEIVABLE 잔고)
+	 * @param receivable 같은 판매자 × 대회의 갚을 돈(갚을_돈 잔고)
 	 * @return 이번에 뺀 금액. 뺄 게 없으면 0이고 줄을 쓰지 않는다
 	 */
 	public long offsetReceivable(long receivable) {
@@ -245,7 +245,7 @@ public class Payout extends BaseIdAndTime {
 		if (offset <= 0) {
 			return 0;
 		}
-		addLine(PayoutRecordType.RECOVERY_OFFSET, null, null, -offset, null, null);
+		addLine(PayoutRecordType.회수_상계, null, null, -offset, null, null);
 		return offset;
 	}
 
@@ -264,40 +264,40 @@ public class Payout extends BaseIdAndTime {
 	}
 
 	/**
-	 * 캐시 서비스에 정산금 이동을 요청하기 전에 지급 중(PAYING)으로 바꾼다 (PRO-252)
+	 * 캐시 서비스에 정산금 이동을 요청하기 전에 지급 중으로 바꾼다 (PRO-252)
 	 * 이 상태를 먼저 커밋해 두면, 요청 결과를 모르는 동안에도 보류 · 상계 · 취소가 이 정산 내역을 바꾸지 못한다
 	 * 배치 두 개가 같은 정산 내역을 동시에 고르면 낙관적 락(@Version) 때문에 늦게 커밋한 쪽이 실패해 한쪽만 요청한다
 	 */
 	public void startPaying(LocalDateTime startedAt) {
-		if (status != PayoutStatus.CALCULATED) {
+		if (status != PayoutStatus.정산_예정) {
 			throw new IllegalStateException("정산 예정 상태가 아니라 지급을 시작할 수 없습니다. payoutId=%d, status=%s"
 				.formatted(getId(), status));
 		}
-		changeStatus(PayoutStatus.PAYING, PayoutHold.SYSTEM_MEMBER_ID, startedAt, null);
+		changeStatus(PayoutStatus.지급_중, PayoutHold.SYSTEM_MEMBER_ID, startedAt, null);
 	}
 
 	/**
 	 * 캐시 서비스가 요청을 거절해(4xx) 돈이 옮겨지지 않은 것이 확실할 때 정산 예정으로 되돌린다 (PRO-252)
-	 * 지급 예정일은 그대로 두므로 다음 실행에서 다시 지급한다. 결과를 모를 때(타임아웃 · 5xx)는 되돌리지 않고 PAYING으로 둔다
+	 * 지급 예정일은 그대로 두므로 다음 실행에서 다시 지급한다. 결과를 모를 때(타임아웃 · 5xx)는 되돌리지 않고 지급_중으로 둔다
 	 */
 	public void revertPaying(LocalDateTime revertedAt, String reason) {
-		if (status != PayoutStatus.PAYING) {
+		if (status != PayoutStatus.지급_중) {
 			throw new IllegalStateException("지급 중 상태가 아니라 되돌릴 수 없습니다. payoutId=%d, status=%s"
 				.formatted(getId(), status));
 		}
-		changeStatus(PayoutStatus.CALCULATED, PayoutHold.SYSTEM_MEMBER_ID, revertedAt, reason);
+		changeStatus(PayoutStatus.정산_예정, PayoutHold.SYSTEM_MEMBER_ID, revertedAt, reason);
 	}
 
-	// 지급 완료: 캐시 서비스가 정산금을 판매자 · 시스템 지갑으로 옮긴 뒤(PAYING) 바꾼다 (PRO-252)
-	// 옮길 돈이 0원인 정산 내역은 캐시 서비스를 부르지 않으므로 정산 예정(CALCULATED)에서 바로 바꾼다
-	// 보류된 정산 내역은 지급 완료로 바꿀 수 없다. 배치가 HELD를 고르지 않지만, 잘못 불려도 여기서 막는다
+	// 지급 완료: 캐시 서비스가 정산금을 판매자 · 시스템 지갑으로 옮긴 뒤 바꾼다 (PRO-252)
+	// 옮길 돈이 0원인 정산 내역은 캐시 서비스를 부르지 않으므로 정산 예정에서 바로 바꾼다
+	// 보류된 정산 내역은 지급 완료로 바꿀 수 없다. 배치가 지급보류를 고르지 않지만, 잘못 불려도 여기서 막는다
 	public void pay(LocalDateTime paidAt) {
-		if (status != PayoutStatus.CALCULATED && status != PayoutStatus.PAYING) {
+		if (status != PayoutStatus.정산_예정 && status != PayoutStatus.지급_중) {
 			throw new IllegalStateException("정산 예정 · 지급 중 상태가 아니라 지급할 수 없습니다. payoutId=%d, status=%s"
 				.formatted(getId(), status));
 		}
 		// 지급은 지급 배치가 한다
-		changeStatus(PayoutStatus.PAID, PayoutHold.SYSTEM_MEMBER_ID, paidAt, null);
+		changeStatus(PayoutStatus.지급_완료, PayoutHold.SYSTEM_MEMBER_ID, paidAt, null);
 		this.paidAt = paidAt;
 	}
 
@@ -306,23 +306,23 @@ public class Payout extends BaseIdAndTime {
 		return payoutAmount > 0 || feeAmount > 0;
 	}
 
-	// 지급보류 걸기: 정산 예정(CALCULATED)일 때만 건다. 세미는 활성 보류를 하나만 둔다 (PRO-26)
+	// 지급보류 걸기: 정산 예정일 때만 건다. 세미는 활성 보류를 하나만 둔다 (PRO-26)
 	// 보류 기록(PayoutHold)은 여기서만 만든다. 저장은 호출한 쪽이 한다
 	public PayoutHold hold(PayoutHoldReason reasonType, String reason, long heldBy, LocalDateTime heldAt) {
-		if (status == PayoutStatus.HELD) {
+		if (status == PayoutStatus.지급보류) {
 			throw new PayoutHoldConflictException("이미 지급보류 중인 정산 내역입니다.");
 		}
 		// 캐시 서비스에 돈을 옮겨 달라고 요청한 뒤라 돈이 이미 나갔을 수 있다 (PRO-252)
-		if (status == PayoutStatus.PAYING) {
+		if (status == PayoutStatus.지급_중) {
 			throw new PayoutHoldConflictException("지급 중인 정산 내역입니다.");
 		}
-		if (status == PayoutStatus.PAID) {
+		if (status == PayoutStatus.지급_완료) {
 			throw new PayoutHoldConflictException("이미 지급 완료된 정산 내역입니다.");
 		}
-		if (status == PayoutStatus.CANCELED) {
+		if (status == PayoutStatus.취소) {
 			throw new PayoutHoldConflictException("취소된 정산 내역입니다.");
 		}
-		changeStatus(PayoutStatus.HELD, heldBy, heldAt, reasonType.getKorean());
+		changeStatus(PayoutStatus.지급보류, heldBy, heldAt, reasonType.name().replace('_', ' '));
 		return new PayoutHold(this, reasonType, reason, heldBy, heldAt);
 	}
 
@@ -339,22 +339,22 @@ public class Payout extends BaseIdAndTime {
 		if (hold.getPayout().getId() != getId()) {
 			throw new IllegalArgumentException("이 정산 내역의 지급보류가 아닙니다. payoutId=%d".formatted(getId()));
 		}
-		// 대회 취소로 닫힌 정산 내역에는 보류 기록이 HELD로 남아 있을 수 있다. 풀어도 지급 예정으로 돌리지 않는다
-		if (status == PayoutStatus.CANCELED) {
+		// 대회 취소로 닫힌 정산 내역에는 보류 기록이 지급보류로 남아 있을 수 있다. 풀어도 지급 예정으로 돌리지 않는다
+		if (status == PayoutStatus.취소) {
 			throw new PayoutHoldConflictException("취소된 정산 내역의 지급보류는 풀 수 없습니다.");
 		}
 		hold.markReleased(releasedBy, releasedAt);
-		changeStatus(PayoutStatus.CALCULATED, releasedBy, releasedAt, null);
+		changeStatus(PayoutStatus.정산_예정, releasedBy, releasedAt, null);
 		LocalDate payDateAfterRelease = releasedAt.toLocalDate().plusDays(PAY_DAYS_AFTER_RELEASE);
 		if (payDateAfterRelease.isAfter(scheduledPayDate)) {
 			this.scheduledPayDate = payDateAfterRelease;
 		}
 	}
 
-	// 대회 취소로 닫기: 지급 전(CALCULATED · HELD) 정산 내역을 CANCELED로 바꿔 다시는 지급되지 않게 한다 (PRO-34)
+	// 대회 취소로 닫기: 지급 전(정산_예정 · 지급보류) 정산 내역을 취소로 바꿔 다시는 지급되지 않게 한다 (PRO-34)
 	// 원장 줄은 지우지 않고 반대 부호 줄을 더해 되돌린다(PRO-214). 그래서 조건 없이 더해도 1차 정산금 · 갚을 돈 잔고가 맞는다
 	// 지급액(줄의 합)은 0이 되고, 판매액 · 수수료 칸은 만들 때 그대로 둔다(얼마가 나갈 뻔했는지 남긴다)
-	// 보류 중이었으면 보류 기록은 HELD로 두고 상태만 최신으로 바꾼다. 무엇이었는지는 상태 이력에 남는다
+	// 보류 중이었으면 보류 기록은 지급보류로 두고 상태만 최신으로 바꾼다. 무엇이었는지는 상태 이력에 남는다
 	// 이미 지급한 정산 내역은 닫지 않는다. 지급 뒤 대회 취소는 회수(PRO-33)가 맡는다
 	// 지급 중에도 돈이 이미 나갔을 수 있어 닫지 않는다. 대신 markRaceCanceled로 표시하고 지급 결과를 기다린다 (PRO-253)
 	public void cancel(long canceledBy, LocalDateTime canceledAt, String reason) {
@@ -371,7 +371,7 @@ public class Payout extends BaseIdAndTime {
 	 * @return 이번에 처음 표시했으면 true
 	 */
 	public boolean markRaceCanceled(LocalDateTime canceledAt) {
-		if (status != PayoutStatus.PAYING) {
+		if (status != PayoutStatus.지급_중) {
 			throw new IllegalStateException("지급 중 정산 내역만 대회 취소를 표시합니다. payoutId=%d, status=%s"
 				.formatted(getId(), status));
 		}
@@ -389,7 +389,7 @@ public class Payout extends BaseIdAndTime {
 	// 대회 취소를 표시한 지급 중 정산 내역의 지급이 거절됐다. 돈이 나가지 않았으므로 정산 예정으로 되돌리지 않고 취소로 닫는다
 	// (되돌리면 다음 지급 배치가 취소된 대회의 정산금을 내보낸다, PRO-253)
 	public void cancelRejected(LocalDateTime canceledAt, String reason) {
-		if (status != PayoutStatus.PAYING || raceCanceledAt == null) {
+		if (status != PayoutStatus.지급_중 || raceCanceledAt == null) {
 			throw new IllegalStateException("대회 취소를 표시한 지급 중 정산 내역만 거절 뒤 취소합니다. payoutId=%d, status=%s"
 				.formatted(getId(), status));
 		}
@@ -401,7 +401,7 @@ public class Payout extends BaseIdAndTime {
 		List<PayoutItem> original = List.copyOf(items);
 		original.forEach(item -> addLine(item.getRecordType().canceled(), item.getOrderItemId(),
 			item.getRaceCourseId(), -item.getAmount(), item.getFeeRate(), item.getPayoutCreateDate()));
-		changeStatus(PayoutStatus.CANCELED, canceledBy, canceledAt, reason);
+		changeStatus(PayoutStatus.취소, canceledBy, canceledAt, reason);
 	}
 
 	private void changeStatus(PayoutStatus to, long changedBy, LocalDateTime changedAt, String reason) {

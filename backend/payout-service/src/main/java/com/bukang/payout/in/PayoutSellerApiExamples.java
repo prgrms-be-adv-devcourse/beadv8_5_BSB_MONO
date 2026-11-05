@@ -39,14 +39,14 @@ final class PayoutSellerApiExamples {
 					"payoutCode": "ST-20260926-0002",
 					"raceId": 10,
 					"raceName": "2026 한강 나이트런",
-					"payoutStage": "FINAL",
+					"payoutStage": "최종_정산",
 					"payoutMonth": "2026-09",
 					"salesAmount": 100000,
 					"refundAmount": 0,
 					"feeAmount": 5500,
 					"advanceDeductionAmount": 40000,
 					"payoutAmount": 54500,
-					"status": "CALCULATED",
+					"status": "정산_예정",
 					"settledAt": "2026-09-26T03:00:00",
 					"scheduledPayDate": "2026-10-20",
 					"paidAt": null
@@ -56,14 +56,14 @@ final class PayoutSellerApiExamples {
 					"payoutCode": "ST-20260916-0001",
 					"raceId": 10,
 					"raceName": "2026 한강 나이트런",
-					"payoutStage": "FIRST",
+					"payoutStage": "일차_정산",
 					"payoutMonth": "2026-09",
 					"salesAmount": 100000,
 					"refundAmount": 0,
 					"feeAmount": 0,
 					"advanceDeductionAmount": 0,
 					"payoutAmount": 40000,
-					"status": "CALCULATED",
+					"status": "정산_예정",
 					"settledAt": "2026-09-16T03:00:00",
 					"scheduledPayDate": "2026-10-20",
 					"paidAt": null
@@ -81,7 +81,7 @@ final class PayoutSellerApiExamples {
 					{
 						"id": 1,
 						"orderItemId": 100,
-						"recordType": "SALE",
+						"recordType": "판매",
 						"amount": 50000,
 						"feeRate": 0.0550,
 						"feeAmount": 2750,
@@ -90,7 +90,7 @@ final class PayoutSellerApiExamples {
 						"payoutCode": "ST-20260926-0001",
 						"raceId": 10,
 						"raceName": "2026 한강 나이트런",
-						"payoutStatus": "CALCULATED",
+						"payoutStatus": "정산_예정",
 						"scheduledPayDate": "2026-10-20"
 					}
 				],
@@ -123,9 +123,9 @@ final class PayoutSellerApiExamples {
 					"raceId": 10,
 					"raceName": "2026 한강 나이트런",
 					"payoutAmount": 94500,
-					"reasonType": "ACCOUNT_NOT_REGISTERED",
+					"reasonType": "정산_계좌_미등록",
 					"reason": "정산 계좌 등록 요청 중",
-					"status": "HELD",
+					"status": "지급보류",
 					"heldAt": "2026-10-12T10:00:00",
 					"releasedAt": null
 				}

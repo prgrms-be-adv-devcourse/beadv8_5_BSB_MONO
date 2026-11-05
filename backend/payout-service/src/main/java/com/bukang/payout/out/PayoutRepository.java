@@ -60,7 +60,7 @@ public interface PayoutRepository extends JpaRepository<Payout, Long> {
 	List<Payout> findBySellerIdAndPayoutMonthBetweenOrderByPayoutMonthDescIdDesc(
 		long sellerId, String fromMonth, String toMonth);
 
-	// 판매자 요약: 지급 배치가 지급할 정산 예정 내역 (지급 예정일 순). 보류(HELD)는 상태가 달라 빠진다
+	// 판매자 요약: 지급 배치가 지급할 정산 예정 내역 (지급 예정일 순). 보류는 상태가 달라 빠진다
 	// 같은 판매자 × 대회의 살아 있는 1차가 아직 지급 완료가 아니면 그 최종은 지급 배치가 건너뛰므로 뺀다
 	// (PRO-188, PayoutPayStepUseCase.findWaitingFirst와 같은 기준. 1차가 없거나 취소됐으면 기다리지 않는다)
 	@Query("""

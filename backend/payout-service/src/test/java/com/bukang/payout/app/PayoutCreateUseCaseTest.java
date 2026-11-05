@@ -167,12 +167,12 @@ class PayoutCreateUseCaseTest {
 		Payout seller1 = payouts.stream().filter(p -> p.getSellerId() == 1).findFirst().orElseThrow();
 		assertThat(seller1.getRaceId()).isEqualTo(10);
 		assertThat(seller1.getPayoutMonth()).isEqualTo("2026-09");
-		assertThat(seller1.getStatus()).isEqualTo(PayoutStatus.CALCULATED);
+		assertThat(seller1.getStatus()).isEqualTo(PayoutStatus.정산_예정);
 		assertThat(seller1.getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 10, 20)); // 정산 월 9월 → 10/20 화
 		assertThat(seller1.getPayoutAmount()).isEqualTo(94_500L);
 		// 최종은 참가권마다 판매 · 수수료 두 줄과 참가권 없는 1차 정산금 차감 한 줄 (PRO-214)
 		assertThat(seller1.getItems())
-			.filteredOn(item -> item.getRecordType() == PayoutRecordType.SALE)
+			.filteredOn(item -> item.getRecordType() == PayoutRecordType.판매)
 			.extracting(PayoutItem::getOrderItemId)
 			.containsExactlyInAnyOrder(100L, 101L);
 		assertThat(seller1.getItems())
@@ -208,7 +208,7 @@ class PayoutCreateUseCaseTest {
 	}
 
 	@Test
-	@DisplayName("정산 계좌가 없는 판매자의 정산 내역은 만들어질 때 HELD이고, '정산 계좌 미등록' 자동 보류가 걸린다")
+	@DisplayName("정산 계좌가 없는 판매자의 정산 내역은 만들어질 때 지급보류이고, '정산 계좌 미등록' 자동 보류가 걸린다")
 	void holdsPayoutOfSellerWithoutAccount() {
 		// 판매자 2만 계좌가 없다
 		PayoutCreateUseCase useCase = useCaseSelling(List.of(
@@ -218,16 +218,16 @@ class PayoutCreateUseCaseTest {
 
 		useCase.run(TARGET_DATE, NOW);
 
-		assertThat(payoutOf(1).getStatus()).isEqualTo(PayoutStatus.CALCULATED);
-		assertThat(payoutOf(2).getStatus()).isEqualTo(PayoutStatus.HELD);
+		assertThat(payoutOf(1).getStatus()).isEqualTo(PayoutStatus.정산_예정);
+		assertThat(payoutOf(2).getStatus()).isEqualTo(PayoutStatus.지급보류);
 
 		List<PayoutHold> holds = payoutHoldRepository.findAll();
 		assertThat(holds).hasSize(1);
 		PayoutHold hold = holds.getFirst();
 		assertThat(hold.getPayout().getId()).isEqualTo(payoutOf(2).getId());
-		assertThat(hold.getReasonType()).isEqualTo(PayoutHoldReason.ACCOUNT_NOT_REGISTERED);
+		assertThat(hold.getReasonType()).isEqualTo(PayoutHoldReason.정산_계좌_미등록);
 		assertThat(hold.getReason()).isEqualTo("정산 계좌 미등록으로 자동 보류");
-		assertThat(hold.getStatus()).isEqualTo(PayoutHoldStatus.HELD);
+		assertThat(hold.getStatus()).isEqualTo(PayoutHoldStatus.지급보류);
 		assertThat(hold.getHeldBy()).isEqualTo(PayoutHold.SYSTEM_MEMBER_ID);
 		assertThat(hold.getHeldAt()).isEqualTo(NOW);
 		assertThat(hold.getHoldCode()).matches("HD-20260926-[0-9A-F]{4}");
@@ -337,7 +337,7 @@ class PayoutCreateUseCaseTest {
 		assertThat(askedRaceIds).containsExactlyInAnyOrder(10L, 20L);
 		assertThat(payoutRepository.findAll())
 			.extracting(Payout::getRaceId, Payout::getPayoutStage)
-			.containsExactly(tuple(10L, PayoutStage.FINAL));
+			.containsExactly(tuple(10L, PayoutStage.최종_정산));
 	}
 
 	@Test
@@ -369,7 +369,7 @@ class PayoutCreateUseCaseTest {
 
 		assertThat(payoutRepository.findAll())
 			.extracting(Payout::getRaceId, Payout::getPayoutStage)
-			.containsExactly(tuple(10L, PayoutStage.FINAL));
+			.containsExactly(tuple(10L, PayoutStage.최종_정산));
 		assertThat(result.created()).isEqualTo(1);
 		assertThat(result.failed()).isEqualTo(1);
 	}
@@ -390,7 +390,7 @@ class PayoutCreateUseCaseTest {
 
 		useCase.run(LocalDate.of(2026, 10, 1), LocalDateTime.of(2026, 10, 1, 3, 0));
 
-		Payout first = payoutOf(1, PayoutStage.FIRST);
+		Payout first = payoutOf(1, PayoutStage.일차_정산);
 		assertThat(first.getPayoutMonth()).isEqualTo("2026-09");
 		assertThat(first.getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 10, 20)); // 정산 월 9월 → 10/20 화
 		assertThat(first.getSettledAt()).isEqualTo(LocalDateTime.of(2026, 10, 1, 3, 0));
@@ -398,7 +398,7 @@ class PayoutCreateUseCaseTest {
 		assertThat(first.getFeeAmount()).isZero();
 		assertThat(first.getAdvanceDeductionAmount()).isZero();
 		assertThat(first.getPayoutAmount()).isEqualTo(40_000L);
-		assertThat(first.getStatus()).isEqualTo(PayoutStatus.CALCULATED);
+		assertThat(first.getStatus()).isEqualTo(PayoutStatus.정산_예정);
 		assertThat(first.getItems())
 			.extracting(PayoutItem::getPayoutCreateDate)
 			.containsOnly(LocalDate.of(2026, 10, 1));
@@ -417,7 +417,7 @@ class PayoutCreateUseCaseTest {
 
 		useCase.run(LocalDate.of(2026, 10, 1), LocalDateTime.of(2026, 10, 1, 3, 0));
 
-		assertThat(payoutOf(1, PayoutStage.FIRST).getPayoutAmount()).isEqualTo(20_000L);
+		assertThat(payoutOf(1, PayoutStage.일차_정산).getPayoutAmount()).isEqualTo(20_000L);
 	}
 
 	@Test
@@ -433,7 +433,7 @@ class PayoutCreateUseCaseTest {
 
 		assertThat(payoutRepository.findAll())
 			.extracting(Payout::getRaceId, Payout::getPayoutStage)
-			.containsExactly(tuple(10L, PayoutStage.FIRST));
+			.containsExactly(tuple(10L, PayoutStage.일차_정산));
 	}
 
 	@Test
@@ -448,8 +448,8 @@ class PayoutCreateUseCaseTest {
 		// 마감일과 대회일이 같아 한 실행에서 1차를 먼저, 최종을 나중에 만든다
 		useCase.run(LocalDate.of(2026, 10, 1), LocalDateTime.of(2026, 10, 1, 3, 0));
 
-		Payout first = payoutOf(1, PayoutStage.FIRST);
-		Payout last = payoutOf(1, PayoutStage.FINAL);
+		Payout first = payoutOf(1, PayoutStage.일차_정산);
+		Payout last = payoutOf(1, PayoutStage.최종_정산);
 		assertThat(first.getPayoutMonth()).isEqualTo("2026-09");
 		assertThat(last.getPayoutMonth()).isEqualTo("2026-09");
 		assertThat(last.getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 10, 20)); // 1차와 같은 날 지급
@@ -476,11 +476,11 @@ class PayoutCreateUseCaseTest {
 		useCaseSelling(entries, sellerId -> true, schedules)
 			.run(LocalDate.of(2026, 10, 1), LocalDateTime.of(2026, 10, 1, 3, 0));
 
-		assertThat(payoutOf(PayoutFixture.SELLER_ID, PayoutStage.FINAL).getStatus())
-			.isEqualTo(PayoutStatus.CALCULATED);
+		assertThat(payoutOf(PayoutFixture.SELLER_ID, PayoutStage.최종_정산).getStatus())
+			.isEqualTo(PayoutStatus.정산_예정);
 		assertThat(payoutHoldRepository.findAll())
 			.extracting(hold -> hold.getPayout().getPayoutStage())
-			.containsExactly(PayoutStage.FIRST);
+			.containsExactly(PayoutStage.일차_정산);
 	}
 
 	@Test
@@ -509,7 +509,7 @@ class PayoutCreateUseCaseTest {
 
 		// 10/2: 1차는 판매 집계를 못 받아 실패, 최종은 1차 정산금 차감 없이 판매자 정산액 전부로 만들어진다
 		useCase.run(LocalDate.of(2026, 10, 2), LocalDateTime.of(2026, 10, 2, 3, 0));
-		assertThat(payoutOf(1, PayoutStage.FINAL).getPayoutAmount()).isEqualTo(47_250L);
+		assertThat(payoutOf(1, PayoutStage.최종_정산).getPayoutAmount()).isEqualTo(47_250L);
 
 		// 10/3: 판매 집계가 돌아와도 최종이 이미 있으므로 1차를 만들지 않는다
 		summaryDown[0] = false;
@@ -517,7 +517,7 @@ class PayoutCreateUseCaseTest {
 
 		assertThat(payoutRepository.findAll())
 			.extracting(Payout::getPayoutStage)
-			.containsExactly(PayoutStage.FINAL);
+			.containsExactly(PayoutStage.최종_정산);
 	}
 
 	@Test
@@ -532,7 +532,7 @@ class PayoutCreateUseCaseTest {
 		useCase.run(LocalDate.of(2026, 10, 1), LocalDateTime.of(2026, 10, 1, 3, 0));
 
 		assertThat(payoutRepository.findAll()).hasSize(1);
-		Payout first = payoutOf(1, PayoutStage.FIRST);
+		Payout first = payoutOf(1, PayoutStage.일차_정산);
 		assertThat(first.getPayoutMonth()).isEqualTo("2026-09");
 		assertThat(first.getItems())
 			.extracting(PayoutItem::getPayoutCreateDate)
@@ -558,7 +558,7 @@ class PayoutCreateUseCaseTest {
 			.run(LocalDate.of(2026, 10, 6), LocalDateTime.of(2026, 10, 6, 3, 0));
 
 		assertThat(payoutRepository.findAll())
-			.filteredOn(payout -> payout.getPayoutStage() == PayoutStage.FIRST)
+			.filteredOn(payout -> payout.getPayoutStage() == PayoutStage.일차_정산)
 			.extracting(Payout::getPayoutMonth, Payout::getPayoutAmount)
 			.containsExactly(tuple("2026-09", 40_000L));
 	}

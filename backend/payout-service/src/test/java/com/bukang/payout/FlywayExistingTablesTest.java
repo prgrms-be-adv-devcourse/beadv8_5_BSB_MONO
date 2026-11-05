@@ -43,8 +43,20 @@ class FlywayExistingTablesTest {
 			values (16, 0, 0, 200000, '2026-11', 'FIRST', 7, '대회 A', 0, 500000, '2026-11-20', 1,
 				'2026-11-01 03:00:00', 'PAID', 0)""");
 		jdbcTemplate.update("""
-			insert into payout_payout_item (account, amount, race_id, record_type, seller_id, payout_id)
-			values ('ADVANCE', 200000, 7, 'ADVANCE_PAID', 1, 16)""");
+			insert into payout_payout_item (account, amount, race_id, record_type, seller_id, payout_id,
+				race_course_id, bundle_key)
+			values ('ADVANCE', 200000, 7, 'ADVANCE_PAID', 1, 16, 3, 'P16:ADVANCE_PAID:C3')""");
+		// 영어 값이 든 회수 · 보류 · 상태 이력 (BUK-68에서 한글로 옮긴다)
+		jdbcTemplate.update("""
+			insert into payout_payout_recovery (id, amount, race_id, reason_type, recovery_key, requested_at, seller_id,
+				status)
+			values (4, 200000, 7, 'RACE_CANCELED', 'R7:RACE_CANCELED', '2026-11-02 03:00:00', 1, 'REQUESTED')""");
+		jdbcTemplate.update("""
+			insert into payout_payout_hold (held_at, held_by, reason_type, status, payout_id)
+			values ('2026-11-01 04:00:00', 0, 'ACCOUNT_NOT_REGISTERED', 'RELEASED', 16)""");
+		jdbcTemplate.update("""
+			insert into payout_payout_status_history (changed_at, changed_by, from_status, to_status, payout_id)
+			values ('2026-11-01 04:00:00', 0, 'CALCULATED', 'HELD', 16)""");
 
 		// dev · 운영과 같은 Flyway 설정 (PR #265)
 		MigrateResult result = Flyway.configure()
@@ -58,9 +70,21 @@ class FlywayExistingTablesTest {
 
 		assertThat(result.success).isTrue();
 		assertThat(jdbcTemplate.queryForObject("""
-			select concat(p.id, ':', i.account, ':', i.record_type, ':', i.amount)
+			select concat(p.id, ':', p.payout_stage, ':', p.status, ':', i.account, ':', i.record_type, ':', i.amount)
 			from payout_payout p join payout_payout_item i on i.payout_id = p.id""", String.class))
-			.isEqualTo("16:ADVANCE:ADVANCE_PAID:200000");
+			.isEqualTo("16:일차_정산:지급_완료:선금:선금:200000");
+		// 중복 방지 키도 새 코드가 만드는 한글 키와 같아야 같은 줄 · 회수가 두 번 저장되지 않는다
+		assertThat(jdbcTemplate.queryForObject("select bundle_key from payout_payout_item", String.class))
+			.isEqualTo("P16:선금:C3");
+		assertThat(jdbcTemplate.queryForObject("""
+			select concat(reason_type, '|', recovery_key, '|', status) from payout_payout_recovery""", String.class))
+			.isEqualTo("대회_취소|R7:대회_취소|회수_요청");
+		assertThat(jdbcTemplate.queryForObject("""
+			select concat(reason_type, ':', status) from payout_payout_hold""", String.class))
+			.isEqualTo("정산_계좌_미등록:해제");
+		assertThat(jdbcTemplate.queryForObject("""
+			select concat(from_status, ':', to_status) from payout_payout_status_history""", String.class))
+			.isEqualTo("정산_예정:지급보류");
 		assertThat(jdbcTemplate.queryForObject("select count(*) from payout_payout_claim", Integer.class)).isZero();
 	}
 }

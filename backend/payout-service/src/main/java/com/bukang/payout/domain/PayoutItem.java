@@ -30,9 +30,9 @@ import lombok.NoArgsConstructor;
  * 중복 방지 (같은 줄이 두 번 들어가지 않게)
  * - 참가권 줄: (order_item_id, record_type) 유일. 늦게 들어온 참가권이 다른 정산 내역에 또 들어가는 것까지 막는다 (PRO-118)
  * - 참가권 없는 줄(order_item_id NULL): MySQL 유일 인덱스는 NULL끼리 막지 않으므로, NULL일 때만 값을 갖는 칼럼
- *   bundle_key(예: P1:ADVANCE_PAID:C3, R4:RECOVERY_REQUESTED)에 유일 제약을 건다. 코스가 있으면 키에 코스를 넣는다
+ *   bundle_key(예: P1:선금:C3, R4:회수_요청)에 유일 제약을 건다. 코스가 있으면 키에 코스를 넣는다
  *   DB 생성 칼럼으로 두면 테스트 DB(H2)에서 INSERT 때 DB가 닫혀, 저장 직전에 Java에서 계산해 넣는다 (PRO-214, 원인 미확인)
- * - 상계 줄(RECOVERY_OFFSET)은 한 정산 내역에 여러 번 생길 수 있어 bundle_key를 두지 않는다.
+ * - 상계 줄은 한 정산 내역에 여러 번 생길 수 있어 bundle_key를 두지 않는다.
  *   상계액을 잔고로 다시 계산하고 정산 내역 행을 잠그므로, 다시 실행해도 0원이라 줄이 생기지 않는다
  */
 @Entity
@@ -137,11 +137,11 @@ public class PayoutItem extends BaseIdAndTime {
 	// 정산 내역(payout)은 먼저 저장돼 ID가 있으므로 줄을 저장하기 직전에 키를 만든다
 	@PrePersist
 	void assignBundleKey() {
-		if (orderItemId != null || recordType == PayoutRecordType.RECOVERY_OFFSET
-			|| recordType == PayoutRecordType.RECOVERY_OFFSET_CANCELED) {
+		if (orderItemId != null || recordType == PayoutRecordType.회수_상계
+			|| recordType == PayoutRecordType.회수_상계_취소) {
 			return;
 		}
-		// 1차 정산금은 코스마다 한 줄이라 코스가 있으면 키에 넣는다 (예: P1:ADVANCE_PAID:C3)
+		// 1차 정산금은 코스마다 한 줄이라 코스가 있으면 키에 넣는다 (예: P1:선금:C3)
 		String course = raceCourseId == null ? "" : ":C" + raceCourseId;
 		if (payout != null) {
 			this.bundleKey = "P%d:%s%s".formatted(payout.getId(), recordType, course);

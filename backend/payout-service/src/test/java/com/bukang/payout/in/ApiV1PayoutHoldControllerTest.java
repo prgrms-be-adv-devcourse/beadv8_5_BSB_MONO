@@ -71,9 +71,9 @@ class ApiV1PayoutHoldControllerTest {
 		fieldWithPath("data.id").description("지급보류 ID (풀기 API 경로에 쓴다)"),
 		fieldWithPath("data.holdCode").description("지급보류 ID 표기 (HD-보류한 날-16진수 4자리)"),
 		fieldWithPath("data.payoutId").description("보류된 정산 내역 ID"),
-		fieldWithPath("data.reasonType").description("보류 사유 (ACCOUNT_NOT_REGISTERED, RACE_CANCELED)"),
+		fieldWithPath("data.reasonType").description("보류 사유 (정산_계좌_미등록, 대회_취소_처리)"),
 		fieldWithPath("data.reason").description("사유 상세").optional().type(JsonFieldType.STRING),
-		fieldWithPath("data.status").description("보류 상태 (HELD: 지급보류, RELEASED: 해제)"),
+		fieldWithPath("data.status").description("보류 상태 (지급보류: 지급보류, 해제: 해제)"),
 		fieldWithPath("data.heldBy").description("보류한 관리자 회원 ID"),
 		fieldWithPath("data.heldAt").description("보류 일시"),
 		fieldWithPath("data.releasedBy").description("푼 관리자 회원 ID (보류 중에는 null)")
@@ -128,7 +128,7 @@ class ApiV1PayoutHoldControllerTest {
 
 	private ResultActions holdAccount(long payoutId) throws Exception {
 		return hold(payoutId, """
-			{"reasonType": "ACCOUNT_NOT_REGISTERED", "reason": "계좌 확인 중"}
+			{"reasonType": "정산_계좌_미등록", "reason": "계좌 확인 중"}
 			""");
 	}
 
@@ -148,7 +148,7 @@ class ApiV1PayoutHoldControllerTest {
 	}
 
 	@Test
-	@DisplayName("보류를 걸면 201과 지급보류 ID를 돌려주고, 정산 내역은 HELD가 된다")
+	@DisplayName("보류를 걸면 201과 지급보류 ID를 돌려주고, 정산 내역은 지급보류가 된다")
 	void holdPayout() throws Exception {
 		Payout payout = savePayout();
 
@@ -158,26 +158,26 @@ class ApiV1PayoutHoldControllerTest {
 			.andExpect(jsonPath("$.message").value("지급보류를 걸었습니다."))
 			.andExpect(jsonPath("$.data.holdCode").value(startsWith("HD-")))
 			.andExpect(jsonPath("$.data.payoutId").value(payout.getId()))
-			.andExpect(jsonPath("$.data.reasonType").value("ACCOUNT_NOT_REGISTERED"))
-			.andExpect(jsonPath("$.data.status").value("HELD"))
+			.andExpect(jsonPath("$.data.reasonType").value("정산_계좌_미등록"))
+			.andExpect(jsonPath("$.data.status").value("지급보류"))
 			.andExpect(jsonPath("$.data.heldBy").value(ADMIN_ID))
 			.andDo(document("payout-hold-create",
 				requestHeaders(MEMBER_ID_HEADER),
 				pathParameters(parameterWithName("payoutId").description("보류를 걸 정산 내역 ID")),
 				requestFields(
-					fieldWithPath("reasonType").description("보류 사유 (ACCOUNT_NOT_REGISTERED: 정산 계좌 미등록, "
-						+ "RACE_CANCELED: 대회 취소 처리)"),
+					fieldWithPath("reasonType").description("보류 사유 (정산_계좌_미등록: 정산 계좌 미등록, "
+						+ "대회_취소_처리: 대회 취소 처리)"),
 					fieldWithPath("reason").description("사유 상세 (선택, 500자 이하)").optional()
 				),
 				responseHeaders(headerWithName("Location").description("만든 지급보류의 경로")),
 				responseFields(HOLD_RESPONSE)));
 
 		result.andExpect(header().string("Location", "/api/v1/payout/holds/" + holdIdOf(result)));
-		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.HELD);
+		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.지급보류);
 	}
 
 	@Test
-	@DisplayName("보류를 풀면 200을 돌려주고, 정산 내역은 CALCULATED로 돌아간다")
+	@DisplayName("보류를 풀면 200을 돌려주고, 정산 내역은 정산_예정으로 돌아간다")
 	void releaseHold() throws Exception {
 		Payout payout = savePayout();
 		long holdId = holdIdOf(holdAccount(payout.getId()));
@@ -185,7 +185,7 @@ class ApiV1PayoutHoldControllerTest {
 		release(holdId)
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.message").value("지급보류를 풀었습니다."))
-			.andExpect(jsonPath("$.data.status").value("RELEASED"))
+			.andExpect(jsonPath("$.data.status").value("해제"))
 			.andExpect(jsonPath("$.data.releasedBy").value(ADMIN_ID))
 			.andExpect(jsonPath("$.data.releasedAt").isNotEmpty())
 			.andDo(document("payout-hold-release",
@@ -193,7 +193,7 @@ class ApiV1PayoutHoldControllerTest {
 				pathParameters(parameterWithName("holdId").description("풀 지급보류 ID (보류 걸기 응답의 data.id)")),
 				responseFields(HOLD_RESPONSE)));
 
-		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.CALCULATED);
+		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.정산_예정);
 	}
 
 	@Test
@@ -259,7 +259,7 @@ class ApiV1PayoutHoldControllerTest {
 			""")
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.message").value("요청 본문 형식이 올바르지 않습니다."));
-		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.CALCULATED);
+		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.정산_예정);
 	}
 
 	@Test
@@ -271,7 +271,7 @@ class ApiV1PayoutHoldControllerTest {
 				.header("X-Member-Id", 0)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
-					{"reasonType": "ACCOUNT_NOT_REGISTERED"}
+					{"reasonType": "정산_계좌_미등록"}
 					"""))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
@@ -280,7 +280,7 @@ class ApiV1PayoutHoldControllerTest {
 				.header("X-Member-Id", -1))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.message").value("회원 ID가 올바르지 않습니다."));
-		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.CALCULATED);
+		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.정산_예정);
 	}
 
 	@Test
@@ -292,13 +292,13 @@ class ApiV1PayoutHoldControllerTest {
 				.header("X-Member-Id", MEMBER_ID)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
-					{"reasonType": "ACCOUNT_NOT_REGISTERED"}
+					{"reasonType": "정산_계좌_미등록"}
 					"""))
 			.andExpect(status().isForbidden())
 			.andExpect(jsonPath("$.code").value("PAYOUT_NOT_ADMIN"))
 			.andExpect(jsonPath("$.message").value("관리자만 이용할 수 있습니다."))
 			.andDo(document("payout-hold-create-forbidden", ERROR_RESPONSE));
-		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.CALCULATED);
+		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.정산_예정);
 		assertThat(payoutHoldRepository.count()).isZero();
 	}
 
@@ -313,8 +313,8 @@ class ApiV1PayoutHoldControllerTest {
 			.andExpect(status().isForbidden())
 			.andExpect(jsonPath("$.code").value("PAYOUT_NOT_ADMIN"))
 			.andDo(document("payout-hold-release-forbidden", ERROR_RESPONSE));
-		assertThat(payoutHoldRepository.findById(holdId).orElseThrow().getStatus()).isEqualTo(PayoutHoldStatus.HELD);
-		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.HELD);
+		assertThat(payoutHoldRepository.findById(holdId).orElseThrow().getStatus()).isEqualTo(PayoutHoldStatus.지급보류);
+		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.지급보류);
 	}
 
 	@Test
@@ -324,7 +324,7 @@ class ApiV1PayoutHoldControllerTest {
 				.header("X-Member-Id", MEMBER_ID)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
-					{"reasonType": "ACCOUNT_NOT_REGISTERED"}
+					{"reasonType": "정산_계좌_미등록"}
 					"""))
 			.andExpect(status().isForbidden());
 	}
@@ -339,7 +339,7 @@ class ApiV1PayoutHoldControllerTest {
 				.header("X-Member-Id", MEMBER_ID)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
-					{"reasonType": "ACCOUNT_NOT_REGISTERED"}
+					{"reasonType": "정산_계좌_미등록"}
 					"""))
 			.andExpect(status().isNotFound())
 			.andExpect(jsonPath("$.code").value("PAYOUT_MEMBER_NOT_FOUND"));
@@ -357,7 +357,7 @@ class ApiV1PayoutHoldControllerTest {
 			.andExpect(status().isServiceUnavailable())
 			.andExpect(jsonPath("$.code").value("PAYOUT_MEMBER_UNAVAILABLE"))
 			.andDo(document("payout-hold-create-member-unavailable", ERROR_RESPONSE));
-		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.CALCULATED);
+		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.정산_예정);
 		assertThat(payoutHoldRepository.count()).isZero();
 	}
 

@@ -143,12 +143,12 @@ class PayoutClaimUseCaseTest {
 		if (amount > 0) {
 			PayoutRecovery more = payoutRecoveryRepository.save(PayoutRecovery.scheduleChanged(SELLER_ID, RACE_ID, 999,
 				amount, LocalDateTime.of(2026, 12, 15, 10, 0)));
-			payoutItemRepository.save(PayoutItem.ofRecovery(more, PayoutRecordType.RECEIVABLE_ADDED, 999L, RACE_ID,
+			payoutItemRepository.save(PayoutItem.ofRecovery(more, PayoutRecordType.갚을_돈_추가, 999L, RACE_ID,
 				amount));
 			return;
 		}
 		PayoutRecovery any = payoutRecoveryRepository.findAll().getFirst();
-		payoutItemRepository.save(PayoutItem.ofRecovery(any, PayoutRecordType.RECOVERY_RECEIVED, null, null, amount));
+		payoutItemRepository.save(PayoutItem.ofRecovery(any, PayoutRecordType.회수_입금, null, null, amount));
 	}
 
 	private void assertConfirmRejectedAndNothingChanged(long expectedReceivable) {
@@ -162,10 +162,10 @@ class PayoutClaimUseCaseTest {
 		entityManager.clear();
 
 		assertThat(payoutItemRepository.count()).isEqualTo(lines);
-		assertThat(ledgerUseCase.balance(SELLER_ID, RACE_ID, PayoutAccount.RECEIVABLE)).isEqualTo(expectedReceivable);
-		assertThat(claims()).extracting(PayoutClaim::getStatus).containsExactly(PayoutClaimStatus.OPEN);
+		assertThat(ledgerUseCase.balance(SELLER_ID, RACE_ID, PayoutAccount.갚을_돈)).isEqualTo(expectedReceivable);
+		assertThat(claims()).extracting(PayoutClaim::getStatus).containsExactly(PayoutClaimStatus.청구_중);
 		assertThat(payoutRecoveryRepository.findAll()).extracting(PayoutRecovery::getStatus)
-			.containsOnly(PayoutRecoveryStatus.REQUESTED);
+			.containsOnly(PayoutRecoveryStatus.회수_요청);
 	}
 
 	private PayoutClaim openClaimStartingOn(LocalDate startDate) {
@@ -306,7 +306,7 @@ class PayoutClaimUseCaseTest {
 		claimUseCase.confirm(claims().getFirst().getId(), ADMIN_ID, LocalDateTime.of(2026, 12, 20, 10, 0));
 		entityManager.flush();
 
-		assertThat(ledgerUseCase.balance(SELLER_ID, RACE_ID, PayoutAccount.RECEIVABLE)).isZero();
+		assertThat(ledgerUseCase.balance(SELLER_ID, RACE_ID, PayoutAccount.갚을_돈)).isZero();
 	}
 
 	@Test
@@ -321,7 +321,7 @@ class PayoutClaimUseCaseTest {
 
 		assertThat(payoutRecoveryRepository.findAll())
 			.extracting(PayoutRecovery::getStatus, PayoutRecovery::getCompletion)
-			.containsOnly(tuple(PayoutRecoveryStatus.COMPLETED, PayoutRecoveryCompletion.DEPOSIT));
+			.containsOnly(tuple(PayoutRecoveryStatus.회수_완료, PayoutRecoveryCompletion.입금));
 	}
 
 	@Test

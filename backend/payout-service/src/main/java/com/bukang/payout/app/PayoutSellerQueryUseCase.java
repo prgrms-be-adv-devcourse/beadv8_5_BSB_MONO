@@ -65,10 +65,10 @@ public class PayoutSellerQueryUseCase {
 
 	public PayoutSummaryDto summary(long sellerId, LocalDate today) {
 		// 지급 배치가 실제로 지급할 정산 예정 내역만 본다. 1차를 기다리는 최종은 지급되지 않으므로 뺀다 (PRO-188)
-		// 지급 예정일이 지났는데 아직 CALCULATED라면(배치 실행을 놓침) 그 날짜를 그대로 보여 준다. 다음 배치에서 지급된다
+		// 지급 예정일이 지났는데 아직 정산_예정라면(배치 실행을 놓침) 그 날짜를 그대로 보여 준다. 다음 배치에서 지급된다
 		// 지급 예정 정산 내역이 없으면 null이다 (화면은 「-」). 다음 20일을 대신 채우지 않는다 (10/28 결정, 10/29 유지)
-		List<Payout> payable = payoutRepository.findPayableForSummary(sellerId, PayoutStatus.CALCULATED,
-			PayoutStage.FINAL, PayoutStage.FIRST, PayoutStatus.PAID, PayoutStatus.CANCELED);
+		List<Payout> payable = payoutRepository.findPayableForSummary(sellerId, PayoutStatus.정산_예정,
+			PayoutStage.최종_정산, PayoutStage.일차_정산, PayoutStatus.지급_완료, PayoutStatus.취소);
 		LocalDate nextPayDate = payable.isEmpty() ? null : payable.getFirst().getScheduledPayDate();
 
 		// 정산 예정액: 다음 정산일에 나갈 지급액 합계
@@ -76,7 +76,7 @@ public class PayoutSellerQueryUseCase {
 			.filter(payout -> payout.getScheduledPayDate().equals(nextPayDate))
 			.mapToLong(Payout::getPayoutAmount)
 			.sum();
-		long heldCount = payoutRepository.countBySellerIdAndStatus(sellerId, PayoutStatus.HELD);
+		long heldCount = payoutRepository.countBySellerIdAndStatus(sellerId, PayoutStatus.지급보류);
 		return new PayoutSummaryDto(nextPayDate, scheduledPayoutAmount, heldCount);
 	}
 }
