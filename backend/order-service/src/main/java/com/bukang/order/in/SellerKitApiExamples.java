@@ -28,7 +28,8 @@ final class SellerKitApiExamples {
 						"kitCarrier": null,
 						"kitTrackingNumber": null,
 						"kitShippedAt": null,
-						"kitDeliveredAt": null
+						"kitDeliveredAt": null,
+						"kitTracking": null
 					}
 				],
 				"page": 0,
@@ -65,7 +66,16 @@ final class SellerKitApiExamples {
 				"kitCarrier": "CJ대한통운",
 				"kitTrackingNumber": "684912345678",
 				"kitShippedAt": "2026-12-11T10:00:00",
-				"kitDeliveredAt": null
+				"kitDeliveredAt": null,
+				"kitTracking": {
+					"carrierId": "kr.cjlogistics",
+					"status": "NOT_TRACKED",
+					"statusLabel": "아직 조회되지 않음",
+					"statusText": null,
+					"lastEventAt": null,
+					"lastTrackedAt": null,
+					"events": []
+				}
 			}
 		}
 		""";
@@ -88,9 +98,48 @@ final class SellerKitApiExamples {
 				"kitCarrier": "CJ대한통운",
 				"kitTrackingNumber": "684912345678",
 				"kitShippedAt": "2026-12-11T10:00:00",
-				"kitDeliveredAt": "2026-12-13T15:00:00"
+				"kitDeliveredAt": "2026-12-13T15:00:00",
+				"kitTracking": {
+					"carrierId": "kr.cjlogistics",
+					"status": "DELIVERED",
+					"statusLabel": "배달 완료",
+					"statusText": "배달완료",
+					"lastEventAt": "2026-12-13T14:50:00",
+					"lastTrackedAt": "2026-12-13T15:00:00",
+					"events": [
+						{
+							"time": "2026-12-12T09:10:00",
+							"status": "IN_TRANSIT",
+							"statusText": "간선상차",
+							"description": "옥천HUB에서 출발했습니다.",
+							"location": "옥천HUB"
+						},
+						{
+							"time": "2026-12-13T14:50:00",
+							"status": "DELIVERED",
+							"statusText": "배달완료",
+							"description": "고객님의 상품이 배달 완료되었습니다.",
+							"location": "서울성동"
+						}
+					]
+				}
 			}
 		}
+		""";
+
+	static final String CARRIERS_SUCCESS = """
+		{
+			"status": 200,
+			"message": "택배사 목록을 조회했습니다.",
+			"data": [
+				{ "id": "kr.cjlogistics", "name": "CJ대한통운" },
+				{ "id": "kr.epost", "name": "우체국택배" }
+			]
+		}
+		""";
+
+	static final String UNKNOWN_CARRIER = """
+		{ "status": 400, "code": "ORDER_INVALID_KIT_SHIPPING_INFO", "message": "목록에 없는 택배사입니다.", "data": null }
 		""";
 
 	static final String INVALID_SHIPMENT = """

@@ -3,6 +3,7 @@ package com.bukang.member.app;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -42,9 +43,19 @@ public class IdentityVerificationUseCase {
 	}
 
 	public VerifiedIdentityDto complete(String identityVerificationId) {
+		return complete(identityVerificationId, identityDuplicateChecker::checkNotJoined);
+	}
+
+	/**
+	 * 포트원 결과를 확인하고, check를 통과하면 저장한다. check가 예외를 던지면 저장하지 않는다
+	 * 가입은 「이미 가입한 사람인지」, 휴대폰 변경은 「로그인한 회원 본인인지」를 본다 (BE-037)
+	 */
+	VerifiedIdentityDto complete(String identityVerificationId, Consumer<VerifiedIdentity> check) {
 		// 새로고침 · 다시 누르기로 같은 ID를 또 확인하면 저장한 결과를 그대로 돌려준다
+		// 검사는 다시 한다. 가입용으로 확인한 결과를 회원 전용 확인으로 받아 남의 정보를 보는 일을 막는다
 		VerifiedIdentity saved = store.findVerified(identityVerificationId).orElse(null);
 		if (saved != null) {
+			check.accept(saved);
 			return toDto(identityVerificationId, saved);
 		}
 		if (!store.isPending(identityVerificationId)) {
@@ -73,14 +84,14 @@ public class IdentityVerificationUseCase {
 				? LocalDateTime.now()
 				: LocalDateTime.ofInstant(result.verifiedAt(), ZoneId.systemDefault())
 		);
-		// 이미 가입한 사람이면 인증 직후 알려 준다(시안: 「이미 가입한 사람이에요」). 결과는 저장하지 않는다
-		identityDuplicateChecker.checkNotJoined(identity);
+		// 가입이면 이미 가입한 사람일 때 인증 직후 알려 준다(시안: 「이미 가입한 사람이에요」). 결과는 저장하지 않는다
+		check.accept(identity);
 		store.saveVerified(identityVerificationId, identity);
 		return toDto(identityVerificationId, identity);
 	}
 
 	/**
-	 * 가입에 쓸 본인 정보를 꺼낸다. 가입이 커밋되면 지운다(실패하면 남아 있어 같은 인증으로 다시 시도할 수 있다)
+	 * 가입 · 휴대폰 변경에 쓸 본인 정보를 꺼낸다. 가입이 커밋되면 지운다(실패하면 남아 있어 같은 인증으로 다시 시도할 수 있다)
 	 * 트랜잭션 안에서 불러야 한다
 	 */
 	public VerifiedIdentity takeForJoin(String verificationToken) {
