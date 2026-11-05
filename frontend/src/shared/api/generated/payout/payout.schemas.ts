@@ -59,13 +59,13 @@ export const PayoutStage = {
 } as const;
 
 /**
- * 정산 상태 (정산_예정: 정산 예정, 지급보류: 지급보류, 지급_중: 지급 중, 지급_완료: 지급 완료, 취소: 취소)
+ * 정산 상태 (지급_예정: 지급 예정, 지급보류: 지급보류, 지급_중: 지급 중, 지급_완료: 지급 완료, 취소: 취소)
  */
 export type PayoutStatus = typeof PayoutStatus[keyof typeof PayoutStatus];
 
 
 export const PayoutStatus = {
-  정산_예정: '정산_예정',
+  지급_예정: '지급_예정',
   지급보류: '지급보류',
   지급_중: '지급_중',
   지급_완료: '지급_완료',

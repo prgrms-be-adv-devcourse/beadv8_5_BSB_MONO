@@ -11,12 +11,12 @@
 
 -- 1. 한글 값 더하기
 alter table payout_payout modify payout_stage enum('FINAL','FIRST','일차_정산','최종_정산') not null;
-alter table payout_payout modify status enum('CALCULATED','CANCELED','HELD','PAID','PAYING','정산_예정','지급보류',
+alter table payout_payout modify status enum('CALCULATED','CANCELED','HELD','PAID','PAYING','지급_예정','지급보류',
 	'지급_중','지급_완료','취소') not null;
 alter table payout_payout_status_history modify from_status enum('CALCULATED','CANCELED','HELD','PAID',
-	'PAYING','정산_예정','지급보류','지급_중','지급_완료','취소');
+	'PAYING','지급_예정','지급보류','지급_중','지급_완료','취소');
 alter table payout_payout_status_history modify to_status enum('CALCULATED','CANCELED','HELD','PAID','PAYING',
-	'정산_예정','지급보류','지급_중','지급_완료','취소') not null;
+	'지급_예정','지급보류','지급_중','지급_완료','취소') not null;
 alter table payout_payout_item modify account enum('ADVANCE','EARNING','RECEIVABLE','번_돈','선금','갚을_돈') not null;
 alter table payout_payout_item modify record_type enum('ADVANCE_OFFSET','ADVANCE_OFFSET_CANCELED',
 	'ADVANCE_PAID','ADVANCE_PAID_CANCELED','FEE','FEE_CANCELED','RECEIVABLE_ADDED','RECEIVABLE_ADDED_CANCELED',
@@ -36,17 +36,17 @@ alter table payout_payout_create_failure modify payout_stage enum('FINAL','FIRST
 -- 2. 영어 값을 한글로 바꾸기
 update payout_payout set payout_stage = '일차_정산' where payout_stage = 'FIRST';
 update payout_payout set payout_stage = '최종_정산' where payout_stage = 'FINAL';
-update payout_payout set status = '정산_예정' where status = 'CALCULATED';
+update payout_payout set status = '지급_예정' where status = 'CALCULATED';
 update payout_payout set status = '지급보류' where status = 'HELD';
 update payout_payout set status = '지급_중' where status = 'PAYING';
 update payout_payout set status = '지급_완료' where status = 'PAID';
 update payout_payout set status = '취소' where status = 'CANCELED';
-update payout_payout_status_history set from_status = '정산_예정' where from_status = 'CALCULATED';
+update payout_payout_status_history set from_status = '지급_예정' where from_status = 'CALCULATED';
 update payout_payout_status_history set from_status = '지급보류' where from_status = 'HELD';
 update payout_payout_status_history set from_status = '지급_중' where from_status = 'PAYING';
 update payout_payout_status_history set from_status = '지급_완료' where from_status = 'PAID';
 update payout_payout_status_history set from_status = '취소' where from_status = 'CANCELED';
-update payout_payout_status_history set to_status = '정산_예정' where to_status = 'CALCULATED';
+update payout_payout_status_history set to_status = '지급_예정' where to_status = 'CALCULATED';
 update payout_payout_status_history set to_status = '지급보류' where to_status = 'HELD';
 update payout_payout_status_history set to_status = '지급_중' where to_status = 'PAYING';
 update payout_payout_status_history set to_status = '지급_완료' where to_status = 'PAID';
@@ -104,9 +104,9 @@ update payout_payout_create_failure set payout_stage = '최종_정산' where pay
 
 -- 3. 영어 값 빼기
 alter table payout_payout modify payout_stage enum('일차_정산','최종_정산') not null;
-alter table payout_payout modify status enum('정산_예정','지급_완료','지급_중','지급보류','취소') not null;
-alter table payout_payout_status_history modify from_status enum('정산_예정','지급_완료','지급_중','지급보류','취소');
-alter table payout_payout_status_history modify to_status enum('정산_예정','지급_완료','지급_중','지급보류','취소') not null;
+alter table payout_payout modify status enum('지급_예정','지급_완료','지급_중','지급보류','취소') not null;
+alter table payout_payout_status_history modify from_status enum('지급_예정','지급_완료','지급_중','지급보류','취소');
+alter table payout_payout_status_history modify to_status enum('지급_예정','지급_완료','지급_중','지급보류','취소') not null;
 alter table payout_payout_item modify account enum('갚을_돈','번_돈','선금') not null;
 alter table payout_payout_item modify record_type enum('갚을_돈_추가','갚을_돈_추가_취소','선금','선금_취소','선지급_차감',
 	'선지급_차감_취소','수수료','수수료_취소','판매','판매_취소','회수_상계','회수_상계_취소','회수_요청','회수_요청_취소','회수_입금') not null;

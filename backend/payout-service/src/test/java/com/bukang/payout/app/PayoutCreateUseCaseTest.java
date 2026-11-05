@@ -167,7 +167,7 @@ class PayoutCreateUseCaseTest {
 		Payout seller1 = payouts.stream().filter(p -> p.getSellerId() == 1).findFirst().orElseThrow();
 		assertThat(seller1.getRaceId()).isEqualTo(10);
 		assertThat(seller1.getPayoutMonth()).isEqualTo("2026-09");
-		assertThat(seller1.getStatus()).isEqualTo(PayoutStatus.정산_예정);
+		assertThat(seller1.getStatus()).isEqualTo(PayoutStatus.지급_예정);
 		assertThat(seller1.getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 10, 20)); // 정산 월 9월 → 10/20 화
 		assertThat(seller1.getPayoutAmount()).isEqualTo(94_500L);
 		// 최종은 참가권마다 판매 · 수수료 두 줄과 참가권 없는 1차 정산금 차감 한 줄 (PRO-214)
@@ -218,7 +218,7 @@ class PayoutCreateUseCaseTest {
 
 		useCase.run(TARGET_DATE, NOW);
 
-		assertThat(payoutOf(1).getStatus()).isEqualTo(PayoutStatus.정산_예정);
+		assertThat(payoutOf(1).getStatus()).isEqualTo(PayoutStatus.지급_예정);
 		assertThat(payoutOf(2).getStatus()).isEqualTo(PayoutStatus.지급보류);
 
 		List<PayoutHold> holds = payoutHoldRepository.findAll();
@@ -398,7 +398,7 @@ class PayoutCreateUseCaseTest {
 		assertThat(first.getFeeAmount()).isZero();
 		assertThat(first.getAdvanceDeductionAmount()).isZero();
 		assertThat(first.getPayoutAmount()).isEqualTo(40_000L);
-		assertThat(first.getStatus()).isEqualTo(PayoutStatus.정산_예정);
+		assertThat(first.getStatus()).isEqualTo(PayoutStatus.지급_예정);
 		assertThat(first.getItems())
 			.extracting(PayoutItem::getPayoutCreateDate)
 			.containsOnly(LocalDate.of(2026, 10, 1));
@@ -477,7 +477,7 @@ class PayoutCreateUseCaseTest {
 			.run(LocalDate.of(2026, 10, 1), LocalDateTime.of(2026, 10, 1, 3, 0));
 
 		assertThat(payoutOf(PayoutFixture.SELLER_ID, PayoutStage.최종_정산).getStatus())
-			.isEqualTo(PayoutStatus.정산_예정);
+			.isEqualTo(PayoutStatus.지급_예정);
 		assertThat(payoutHoldRepository.findAll())
 			.extracting(hold -> hold.getPayout().getPayoutStage())
 			.containsExactly(PayoutStage.일차_정산);

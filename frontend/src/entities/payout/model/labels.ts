@@ -6,7 +6,7 @@ import type { BadgeTone } from '@/shared/ui'
 type Label = { label: string; tone: BadgeTone }
 
 export const PAYOUT_STATUS: Record<payoutModel.PayoutStatus, Label> = {
-  정산_예정: { label: '지급 예정', tone: 'neutral' },
+  지급_예정: { label: '지급 예정', tone: 'neutral' },
   지급보류: { label: '지급보류', tone: 'warning' },
   지급_중: { label: '지급 중', tone: 'neutral' },
   지급_완료: { label: '지급 완료', tone: 'success' },

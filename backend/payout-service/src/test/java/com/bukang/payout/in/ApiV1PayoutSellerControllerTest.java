@@ -266,7 +266,7 @@ class ApiV1PayoutSellerControllerTest {
 					fieldWithPath("data[].advanceDeductionAmount").description("선지급 차감 (최종만. 1차 지급액 − 회수액)"),
 					fieldWithPath("data[].payoutAmount").description(
 						"지급액 (1차: 참가권마다 가격 × 40% 버림의 합, 최종: 판매액 − 환불액 − 수수료 − 선지급 차감)"),
-					fieldWithPath("data[].status").description("상태 (정산_예정: 정산 예정, 지급보류: 지급보류, 지급_완료: 지급 완료, "
+					fieldWithPath("data[].status").description("상태 (지급_예정: 지급 예정, 지급보류: 지급보류, 지급_완료: 지급 완료, "
 						+ "취소: 대회 취소로 닫힘)"),
 					fieldWithPath("data[].settledAt").description("정산 내역을 만든 일시"),
 					fieldWithPath("data[].scheduledPayDate").description(
@@ -285,7 +285,7 @@ class ApiV1PayoutSellerControllerTest {
 			.andExpect(jsonPath("$.data.content", hasSize(2)))
 			.andExpect(jsonPath("$.data.content[*].orderItemId", contains(101, 100)))
 			.andExpect(jsonPath("$.data.content[0].feeAmount").value(2_750))
-			.andExpect(jsonPath("$.data.content[0].payoutStatus").value("정산_예정"))
+			.andExpect(jsonPath("$.data.content[0].payoutStatus").value("지급_예정"))
 			.andExpect(jsonPath("$.data.content[0].raceName").value("대회 10"))
 			.andExpect(jsonPath("$.data.totalElements").value(2))
 			.andDo(document("payout-seller-items",

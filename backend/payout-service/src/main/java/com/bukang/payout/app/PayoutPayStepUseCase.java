@@ -35,7 +35,7 @@ public class PayoutPayStepUseCase {
 
 	@Transactional(readOnly = true)
 	public List<Long> findTargetIds(LocalDate today) {
-		return payoutRepository.findPayTargetIds(today, PayoutStatus.정산_예정, PayoutStatus.지급_중);
+		return payoutRepository.findPayTargetIds(today, PayoutStatus.지급_예정, PayoutStatus.지급_중);
 	}
 
 	/**
@@ -53,7 +53,7 @@ public class PayoutPayStepUseCase {
 		if (payout.getStatus() == PayoutStatus.지급_중) {
 			return Start.transfer(PayoutTransfer.from(payout));
 		}
-		if (payout.getStatus() != PayoutStatus.정산_예정 || payout.getScheduledPayDate().isAfter(today)) {
+		if (payout.getStatus() != PayoutStatus.지급_예정 || payout.getScheduledPayDate().isAfter(today)) {
 			return Start.skipped();
 		}
 		Optional<Payout> waitingFirst = findWaitingFirst(payout);

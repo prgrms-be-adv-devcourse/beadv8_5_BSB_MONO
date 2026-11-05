@@ -113,7 +113,7 @@ class PayoutHoldUseCaseTest {
 		assertThat(reload(payout).getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 11, 24));
 
 		payUseCase().run(LocalDate.of(2026, 11, 23), LocalDateTime.of(2026, 11, 23, 4, 0));
-		assertThat(reload(payout).getStatus()).isEqualTo(PayoutStatus.정산_예정);
+		assertThat(reload(payout).getStatus()).isEqualTo(PayoutStatus.지급_예정);
 
 		payUseCase().run(LocalDate.of(2026, 11, 24), LocalDateTime.of(2026, 11, 24, 4, 0));
 		assertThat(reload(payout).getStatus()).isEqualTo(PayoutStatus.지급_완료);
@@ -131,7 +131,7 @@ class PayoutHoldUseCaseTest {
 		PayoutHoldDto released = useCase().release(hold.getId(), ADMIN_ID, LocalDateTime.of(2026, 10, 15, 9, 0));
 
 		assertThat(released.getStatus()).isEqualTo(PayoutHoldStatus.해제);
-		assertThat(reload(payout).getStatus()).isEqualTo(PayoutStatus.정산_예정);
+		assertThat(reload(payout).getStatus()).isEqualTo(PayoutStatus.지급_예정);
 	}
 
 	@Test

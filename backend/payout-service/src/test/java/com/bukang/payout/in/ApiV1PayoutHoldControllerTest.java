@@ -177,7 +177,7 @@ class ApiV1PayoutHoldControllerTest {
 	}
 
 	@Test
-	@DisplayName("보류를 풀면 200을 돌려주고, 정산 내역은 정산_예정으로 돌아간다")
+	@DisplayName("보류를 풀면 200을 돌려주고, 정산 내역은 지급_예정으로 돌아간다")
 	void releaseHold() throws Exception {
 		Payout payout = savePayout();
 		long holdId = holdIdOf(holdAccount(payout.getId()));
@@ -193,7 +193,7 @@ class ApiV1PayoutHoldControllerTest {
 				pathParameters(parameterWithName("holdId").description("풀 지급보류 ID (보류 걸기 응답의 data.id)")),
 				responseFields(HOLD_RESPONSE)));
 
-		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.정산_예정);
+		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.지급_예정);
 	}
 
 	@Test
@@ -259,7 +259,7 @@ class ApiV1PayoutHoldControllerTest {
 			""")
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.message").value("요청 본문 형식이 올바르지 않습니다."));
-		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.정산_예정);
+		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.지급_예정);
 	}
 
 	@Test
@@ -280,7 +280,7 @@ class ApiV1PayoutHoldControllerTest {
 				.header("X-Member-Id", -1))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.message").value("회원 ID가 올바르지 않습니다."));
-		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.정산_예정);
+		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.지급_예정);
 	}
 
 	@Test
@@ -298,7 +298,7 @@ class ApiV1PayoutHoldControllerTest {
 			.andExpect(jsonPath("$.code").value("PAYOUT_NOT_ADMIN"))
 			.andExpect(jsonPath("$.message").value("관리자만 이용할 수 있습니다."))
 			.andDo(document("payout-hold-create-forbidden", ERROR_RESPONSE));
-		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.정산_예정);
+		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.지급_예정);
 		assertThat(payoutHoldRepository.count()).isZero();
 	}
 
@@ -357,7 +357,7 @@ class ApiV1PayoutHoldControllerTest {
 			.andExpect(status().isServiceUnavailable())
 			.andExpect(jsonPath("$.code").value("PAYOUT_MEMBER_UNAVAILABLE"))
 			.andDo(document("payout-hold-create-member-unavailable", ERROR_RESPONSE));
-		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.정산_예정);
+		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.지급_예정);
 		assertThat(payoutHoldRepository.count()).isZero();
 	}
 

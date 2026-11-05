@@ -106,7 +106,7 @@ class PayoutPayUseCaseTest {
 
 		useCase().run(PAY_DATE, NOW);
 
-		assertThat(statusOf(dueDec21)).isEqualTo(PayoutStatus.정산_예정);
+		assertThat(statusOf(dueDec21)).isEqualTo(PayoutStatus.지급_예정);
 	}
 
 	@Test
@@ -116,7 +116,7 @@ class PayoutPayUseCaseTest {
 
 		useCase().run(PAY_DATE.minusDays(1), NOW.minusDays(1));
 
-		assertThat(statusOf(dueNov20)).isEqualTo(PayoutStatus.정산_예정);
+		assertThat(statusOf(dueNov20)).isEqualTo(PayoutStatus.지급_예정);
 	}
 
 	@Test
@@ -240,7 +240,7 @@ class PayoutPayUseCaseTest {
 
 		PayoutPayResultDto rejected = useCase().run(PAY_DATE, NOW);
 
-		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.정산_예정);
+		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.지급_예정);
 		assertThat(rejected.paid()).isZero();
 		assertThat(rejected.failed()).isEqualTo(1);
 
@@ -305,7 +305,7 @@ class PayoutPayUseCaseTest {
 
 		PayoutPayResultDto result = useCase().run(PAY_DATE, NOW);
 
-		assertThat(statusOf(rejected)).isEqualTo(PayoutStatus.정산_예정);
+		assertThat(statusOf(rejected)).isEqualTo(PayoutStatus.지급_예정);
 		assertThat(statusOf(unknown)).isEqualTo(PayoutStatus.지급_중);
 		assertThat(statusOf(ok)).isEqualTo(PayoutStatus.지급_완료);
 		assertThat(result).isEqualTo(new PayoutPayResultDto(PAY_DATE, 1, 1, 1));
@@ -338,7 +338,7 @@ class PayoutPayUseCaseTest {
 		PayoutPayResultDto result = new PayoutPayUseCase(conflicting, transfers::add).run(PAY_DATE, NOW);
 
 		assertThat(transfers).isEmpty();
-		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.정산_예정);
+		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.지급_예정);
 		assertThat(result).isEqualTo(new PayoutPayResultDto(PAY_DATE, 0, 0, 0));
 	}
 
@@ -387,7 +387,7 @@ class PayoutPayUseCaseTest {
 		useCase().run(PAY_DATE, NOW);
 
 		assertThat(statusOf(first)).isEqualTo(PayoutStatus.지급_중);
-		assertThat(statusOf(last)).isEqualTo(PayoutStatus.정산_예정);
+		assertThat(statusOf(last)).isEqualTo(PayoutStatus.지급_예정);
 		assertThat(transfers).extracting(PayoutTransfer::payoutId).containsExactly(first.getId());
 	}
 
@@ -403,7 +403,7 @@ class PayoutPayUseCaseTest {
 
 		useCase().run(PAY_DATE, NOW);
 		assertThat(statusOf(first)).isEqualTo(PayoutStatus.지급보류);
-		assertThat(statusOf(last)).isEqualTo(PayoutStatus.정산_예정);
+		assertThat(statusOf(last)).isEqualTo(PayoutStatus.지급_예정);
 
 		// 11/20 해제 → 1차는 11/21 지급 예정
 		Payout heldFirst = payoutRepository.findById(first.getId()).orElseThrow();

@@ -103,7 +103,7 @@ class PayoutRaceCancelUseCaseTest {
 		assertThat(reloaded.getPayoutAmount()).isZero();
 		assertThat(reloaded.getSalesAmount()).isEqualTo(50_000);
 		PayoutStatusHistory last = reloaded.getStatusHistories().getLast();
-		assertThat(last.getFromStatus()).isEqualTo(PayoutStatus.정산_예정);
+		assertThat(last.getFromStatus()).isEqualTo(PayoutStatus.지급_예정);
 		assertThat(last.getToStatus()).isEqualTo(PayoutStatus.취소);
 		assertThat(last.getChangedBy()).isEqualTo(PayoutHold.SYSTEM_MEMBER_ID);
 		assertThat(last.getChangedAt()).isEqualTo(CANCELED_AT);
@@ -124,7 +124,7 @@ class PayoutRaceCancelUseCaseTest {
 		assertThat(reloaded.getStatus()).isEqualTo(PayoutStatus.취소);
 		assertThat(reloaded.getStatusHistories())
 			.extracting(PayoutStatusHistory::getToStatus)
-			.containsExactly(PayoutStatus.정산_예정, PayoutStatus.지급보류, PayoutStatus.취소);
+			.containsExactly(PayoutStatus.지급_예정, PayoutStatus.지급보류, PayoutStatus.취소);
 		assertThat(payoutHoldRepository.findAll()).singleElement()
 			.extracting(PayoutHold::getStatus).isEqualTo(PayoutHoldStatus.지급보류);
 	}
@@ -142,7 +142,7 @@ class PayoutRaceCancelUseCaseTest {
 
 		assertThat(result).isEqualTo(new PayoutRaceCancelUseCase.CancelResult(2, 0, true));
 		assertThat(reload(paid).getStatus()).isEqualTo(PayoutStatus.지급_완료);
-		assertThat(reload(otherRace).getStatus()).isEqualTo(PayoutStatus.정산_예정);
+		assertThat(reload(otherRace).getStatus()).isEqualTo(PayoutStatus.지급_예정);
 		List<PayoutRecovery> recoveries = payoutRecoveryRepository.findAll();
 		assertThat(recoveries).hasSize(1);
 		PayoutRecovery recovery = recoveries.getFirst();

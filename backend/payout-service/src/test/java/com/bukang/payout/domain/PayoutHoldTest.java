@@ -86,7 +86,7 @@ class PayoutHoldTest {
 
 		payout.release(hold, 77, releasedAt, CALENDAR);
 
-		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.정산_예정);
+		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.지급_예정);
 		assertThat(hold.getStatus()).isEqualTo(PayoutHoldStatus.해제);
 		assertThat(hold.getReleasedAt()).isEqualTo(releasedAt);
 		assertThat(hold.getReleasedBy()).isEqualTo(77);

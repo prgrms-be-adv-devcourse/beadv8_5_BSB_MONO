@@ -95,7 +95,7 @@ public class Payout extends BaseIdAndTime {
 	@Column(nullable = false)
 	private LocalDateTime settledAt;
 
-	// 지급 예정일. 지급 배치는 이 날이 지난 정산_예정만 지급한다
+	// 지급 예정일. 지급 배치는 이 날이 지난 지급_예정만 지급한다
 	// 보류를 풀 때(PRO-26) 다시 정하므로(1차 · 최종 모두 max(원래 지급 예정일, 해제일 + 1일))
 	// 배치는 보류 기록을 보지 않아도 된다
 	@Column(nullable = false)
@@ -108,7 +108,7 @@ public class Payout extends BaseIdAndTime {
 	private LocalDateTime raceCanceledAt;
 
 	// 낙관적 락: 지급 배치와 보류 API가 같은 정산 내역을 동시에 바꾸면 늦게 커밋한 쪽이 실패한다
-	// 없으면 배치가 읽은 정산_예정을 근거로, 그 사이 걸린 지급보류를 지급_완료로 덮어쓸 수 있다
+	// 없으면 배치가 읽은 지급_예정을 근거로, 그 사이 걸린 지급보류를 지급_완료로 덮어쓸 수 있다
 	@Version
 	private long version;
 
@@ -131,7 +131,7 @@ public class Payout extends BaseIdAndTime {
 		this.settledAt = settledAt;
 		this.scheduledPayDate = scheduledPayDate;
 		// 정산 내역은 배치가 만든다
-		changeStatus(PayoutStatus.정산_예정, PayoutHold.SYSTEM_MEMBER_ID, settledAt, null);
+		changeStatus(PayoutStatus.지급_예정, PayoutHold.SYSTEM_MEMBER_ID, settledAt, null);
 	}
 
 	// 1차 정산 내역: 정산 월은 환불 마감일의 달이고, 지급 예정일은 정산 월의 다음 달 20일이다 (예: 마감 10/11 → 11/20)
@@ -269,7 +269,7 @@ public class Payout extends BaseIdAndTime {
 	 * 배치 두 개가 같은 정산 내역을 동시에 고르면 낙관적 락(@Version) 때문에 늦게 커밋한 쪽이 실패해 한쪽만 요청한다
 	 */
 	public void startPaying(LocalDateTime startedAt) {
-		if (status != PayoutStatus.정산_예정) {
+		if (status != PayoutStatus.지급_예정) {
 			throw new IllegalStateException("정산 예정 상태가 아니라 지급을 시작할 수 없습니다. payoutId=%d, status=%s"
 				.formatted(getId(), status));
 		}
@@ -285,14 +285,14 @@ public class Payout extends BaseIdAndTime {
 			throw new IllegalStateException("지급 중 상태가 아니라 되돌릴 수 없습니다. payoutId=%d, status=%s"
 				.formatted(getId(), status));
 		}
-		changeStatus(PayoutStatus.정산_예정, PayoutHold.SYSTEM_MEMBER_ID, revertedAt, reason);
+		changeStatus(PayoutStatus.지급_예정, PayoutHold.SYSTEM_MEMBER_ID, revertedAt, reason);
 	}
 
 	// 지급 완료: 캐시 서비스가 정산금을 판매자 · 시스템 지갑으로 옮긴 뒤 바꾼다 (PRO-252)
 	// 옮길 돈이 0원인 정산 내역은 캐시 서비스를 부르지 않으므로 정산 예정에서 바로 바꾼다
 	// 보류된 정산 내역은 지급 완료로 바꿀 수 없다. 배치가 지급보류를 고르지 않지만, 잘못 불려도 여기서 막는다
 	public void pay(LocalDateTime paidAt) {
-		if (status != PayoutStatus.정산_예정 && status != PayoutStatus.지급_중) {
+		if (status != PayoutStatus.지급_예정 && status != PayoutStatus.지급_중) {
 			throw new IllegalStateException("정산 예정 · 지급 중 상태가 아니라 지급할 수 없습니다. payoutId=%d, status=%s"
 				.formatted(getId(), status));
 		}
@@ -344,14 +344,14 @@ public class Payout extends BaseIdAndTime {
 			throw new PayoutHoldConflictException("취소된 정산 내역의 지급보류는 풀 수 없습니다.");
 		}
 		hold.markReleased(releasedBy, releasedAt);
-		changeStatus(PayoutStatus.정산_예정, releasedBy, releasedAt, null);
+		changeStatus(PayoutStatus.지급_예정, releasedBy, releasedAt, null);
 		LocalDate payDateAfterRelease = releasedAt.toLocalDate().plusDays(PAY_DAYS_AFTER_RELEASE);
 		if (payDateAfterRelease.isAfter(scheduledPayDate)) {
 			this.scheduledPayDate = payDateAfterRelease;
 		}
 	}
 
-	// 대회 취소로 닫기: 지급 전(정산_예정 · 지급보류) 정산 내역을 취소로 바꿔 다시는 지급되지 않게 한다 (PRO-34)
+	// 대회 취소로 닫기: 지급 전(지급_예정 · 지급보류) 정산 내역을 취소로 바꿔 다시는 지급되지 않게 한다 (PRO-34)
 	// 원장 줄은 지우지 않고 반대 부호 줄을 더해 되돌린다(PRO-214). 그래서 조건 없이 더해도 1차 정산금 · 갚을 돈 잔고가 맞는다
 	// 지급액(줄의 합)은 0이 되고, 판매액 · 수수료 칸은 만들 때 그대로 둔다(얼마가 나갈 뻔했는지 남긴다)
 	// 보류 중이었으면 보류 기록은 지급보류로 두고 상태만 최신으로 바꾼다. 무엇이었는지는 상태 이력에 남는다

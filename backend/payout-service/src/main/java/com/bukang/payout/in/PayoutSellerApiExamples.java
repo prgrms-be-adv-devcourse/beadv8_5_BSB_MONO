@@ -46,7 +46,7 @@ final class PayoutSellerApiExamples {
 					"feeAmount": 5500,
 					"advanceDeductionAmount": 40000,
 					"payoutAmount": 54500,
-					"status": "정산_예정",
+					"status": "지급_예정",
 					"settledAt": "2026-09-26T03:00:00",
 					"scheduledPayDate": "2026-10-20",
 					"paidAt": null
@@ -63,7 +63,7 @@ final class PayoutSellerApiExamples {
 					"feeAmount": 0,
 					"advanceDeductionAmount": 0,
 					"payoutAmount": 40000,
-					"status": "정산_예정",
+					"status": "지급_예정",
 					"settledAt": "2026-09-16T03:00:00",
 					"scheduledPayDate": "2026-10-20",
 					"paidAt": null
@@ -90,7 +90,7 @@ final class PayoutSellerApiExamples {
 						"payoutCode": "ST-20260926-0001",
 						"raceId": 10,
 						"raceName": "2026 한강 나이트런",
-						"payoutStatus": "정산_예정",
+						"payoutStatus": "지급_예정",
 						"scheduledPayDate": "2026-10-20"
 					}
 				],

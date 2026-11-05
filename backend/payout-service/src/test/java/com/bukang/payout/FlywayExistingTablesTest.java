@@ -84,7 +84,7 @@ class FlywayExistingTablesTest {
 			.isEqualTo("정산_계좌_미등록:해제");
 		assertThat(jdbcTemplate.queryForObject("""
 			select concat(from_status, ':', to_status) from payout_payout_status_history""", String.class))
-			.isEqualTo("정산_예정:지급보류");
+			.isEqualTo("지급_예정:지급보류");
 		assertThat(jdbcTemplate.queryForObject("select count(*) from payout_payout_claim", Integer.class)).isZero();
 	}
 }

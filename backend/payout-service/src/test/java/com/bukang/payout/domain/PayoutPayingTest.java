@@ -33,7 +33,7 @@ class PayoutPayingTest {
 
 		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.지급_중);
 		PayoutStatusHistory last = payout.getStatusHistories().getLast();
-		assertThat(last.getFromStatus()).isEqualTo(PayoutStatus.정산_예정);
+		assertThat(last.getFromStatus()).isEqualTo(PayoutStatus.지급_예정);
 		assertThat(last.getToStatus()).isEqualTo(PayoutStatus.지급_중);
 	}
 
@@ -58,7 +58,7 @@ class PayoutPayingTest {
 
 		payout.revertPaying(NOW, "캐시 서비스 거절");
 
-		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.정산_예정);
+		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.지급_예정);
 		assertThat(payout.getScheduledPayDate()).isEqualTo(scheduledPayDate);
 		assertThat(payout.getStatusHistories().getLast().getReason()).isEqualTo("캐시 서비스 거절");
 	}

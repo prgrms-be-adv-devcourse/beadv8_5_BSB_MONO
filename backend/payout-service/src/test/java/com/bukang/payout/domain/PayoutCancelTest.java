@@ -34,7 +34,7 @@ class PayoutCancelTest {
 
 		assertThat(payout.getStatusHistories()).singleElement().satisfies(history -> {
 			assertThat(history.getFromStatus()).isNull();
-			assertThat(history.getToStatus()).isEqualTo(PayoutStatus.정산_예정);
+			assertThat(history.getToStatus()).isEqualTo(PayoutStatus.지급_예정);
 			assertThat(history.getChangedBy()).isEqualTo(PayoutHold.SYSTEM_MEMBER_ID);
 			assertThat(history.getChangedAt()).isEqualTo(SETTLED_AT);
 		});
@@ -52,10 +52,10 @@ class PayoutCancelTest {
 			.extracting(PayoutStatusHistory::getFromStatus, PayoutStatusHistory::getToStatus,
 				PayoutStatusHistory::getChangedBy)
 			.containsExactly(
-				tuple(null, PayoutStatus.정산_예정, PayoutHold.SYSTEM_MEMBER_ID),
-				tuple(PayoutStatus.정산_예정, PayoutStatus.지급보류, ADMIN_ID),
-				tuple(PayoutStatus.지급보류, PayoutStatus.정산_예정, ADMIN_ID),
-				tuple(PayoutStatus.정산_예정, PayoutStatus.지급_완료,
+				tuple(null, PayoutStatus.지급_예정, PayoutHold.SYSTEM_MEMBER_ID),
+				tuple(PayoutStatus.지급_예정, PayoutStatus.지급보류, ADMIN_ID),
+				tuple(PayoutStatus.지급보류, PayoutStatus.지급_예정, ADMIN_ID),
+				tuple(PayoutStatus.지급_예정, PayoutStatus.지급_완료,
 					PayoutHold.SYSTEM_MEMBER_ID));
 		assertThat(payout.getStatusHistories().get(1).getReason()).isEqualTo("정산 계좌 미등록");
 	}

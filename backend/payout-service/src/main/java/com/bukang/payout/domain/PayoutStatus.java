@@ -12,7 +12,7 @@ import java.util.Set;
  * 요청 전에 커밋해 두므로, 응답을 못 받아 돈이 옮겨졌는지 모를 때도 보류 · 상계 · 취소가 이 정산 내역을 바꾸지 못한다
  */
 public enum PayoutStatus {
-	정산_예정,
+	지급_예정,
 	지급보류,
 	지급_중,
 	지급_완료,
@@ -20,7 +20,7 @@ public enum PayoutStatus {
 
 	// 지급 전: 캐시 서비스로 아직 보내지 않은 상태. 상계 · 대회 취소는 이 상태에서만 정산 내역을 바꾼다
 	// 상태를 새로 만들면 여기 넣을지 정한다 (PayoutStatusTest가 분류를 고정한다)
-	public static final Set<PayoutStatus> BEFORE_PAYMENT = Collections.unmodifiableSet(EnumSet.of(정산_예정, 지급보류));
+	public static final Set<PayoutStatus> BEFORE_PAYMENT = Collections.unmodifiableSet(EnumSet.of(지급_예정, 지급보류));
 
 	public boolean isBeforePayment() {
 		return BEFORE_PAYMENT.contains(this);
