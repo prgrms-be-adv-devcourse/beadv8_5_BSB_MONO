@@ -174,7 +174,7 @@ describe('CrewInvitesPage 카카오톡으로 공유하기', () => {
   it('sendDefault가 예외를 던지면 링크 복사를 안내하고, 복사는 그대로 된다', async () => {
     const kakao = fakeKakao(true)
     kakao.Share.sendDefault.mockImplementation(() => {
-      throw new Error('도메인 미등록')
+      throw new Error('템플릿 인자 오류')
     })
     const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue()
     const user = userEvent.setup()

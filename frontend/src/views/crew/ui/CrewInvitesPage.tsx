@@ -153,7 +153,8 @@ export function CrewInvitesPage({
   }
 
   // 받는 사람이 크루런 회원이 아니어도 되도록, 크루장이 카카오톡 화면에서 직접 친구·채팅방을 고르게 한다.
-  // SDK를 불러오지 못했거나(광고 차단 등) 카카오가 예외를 던지면 링크 복사로 안내한다.
+  // SDK를 불러오지 못했거나(광고 차단 등) 템플릿 인자가 틀려 예외가 나면 링크 복사로 안내한다.
+  // 도메인 미등록·키 오류는 예외 없이 카카오 공유 창 안에 오류가 뜨므로 여기서 잡지 못한다.
   const kakaoKey = clientEnv.NEXT_PUBLIC_KAKAO_JS_KEY
   const myNickname = me.data?.nickname
   const shareToKakao = (crewName: string, nickname: string, url: string) => {
