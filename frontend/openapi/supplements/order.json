@@ -163,6 +163,14 @@
         }
       }
     },
+    "changeTracking": {
+      "200": {
+        "wrapper": "RsDataOrderItemDto",
+        "data": {
+          "$ref": "#/components/schemas/OrderItemDto"
+        }
+      }
+    },
     "completeDelivery": {
       "200": {
         "wrapper": "RsDataOrderItemDto",

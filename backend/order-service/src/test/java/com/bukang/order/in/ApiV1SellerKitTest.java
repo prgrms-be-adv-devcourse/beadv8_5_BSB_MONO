@@ -234,7 +234,7 @@ class ApiV1SellerKitTest {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.kitCarrier").value("CJ대한통운"))
 			.andExpect(jsonPath("$.data.kitTracking.carrierId").value("kr.cjlogistics"));
-		assertThat(shipmentRepository.findTrackingTargets(PageRequest.of(0, 10)))
+		assertThat(shipmentRepository.findTrackingTargets(LocalDateTime.now(), PageRequest.of(0, 10)))
 			.extracting(ShipmentTrackingTarget::carrierId)
 			.containsExactly("kr.cjlogistics");
 	}

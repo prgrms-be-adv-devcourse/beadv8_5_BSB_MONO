@@ -1,5 +1,6 @@
 package com.bukang.order.out.delivery;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -7,7 +8,9 @@ import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
@@ -24,6 +27,7 @@ import lombok.extern.slf4j.Slf4j;
  * - 인증: Authorization: TRACKQL-API-KEY <Client ID>:<Client Secret> (키는 환경 변수, 비어 있으면 부르지 않고 503)
  * - 오류는 HTTP 200이어도 본문 errors로 온다. NOT_FOUND(택배사가 아직 스캔 전)는 오류가 아니라 아직 조회되지 않음이다
  * - 그 밖의 errors(인증·BAD_REQUEST·INTERNAL), 시간 초과·연결 실패·4xx·5xx, 빈 응답: ExternalServiceUnavailableException
+ * - 연결 실패·시간 초과·5xx·429만 2초·4초·8초 쉬고 3번 다시 부른다(BUK-90, 11/05 R4). 4xx·errors는 다시 불러도 같아 바로 실패한다
  * 이동 기록은 최근 50건만 받는다(오래된 것부터 온다). 시각은 한국 시각으로 바꿔 저장한다
  * 등록은 DeliveryTrackerClientConfig가 한다 (order.clients.delivery-tracker.mode=http)
  */
@@ -41,13 +45,19 @@ public class HttpDeliveryTrackingAdapter implements DeliveryTrackingPort {
 			}
 		}
 		""".formatted(EVENT_COUNT);
+	static final List<Duration> RETRY_DELAYS = List.of(Duration.ofSeconds(2), Duration.ofSeconds(4),
+		Duration.ofSeconds(8));
 	private static final ZoneId ZONE = ZoneId.of("Asia/Seoul");
 
 	private final RestClient restClient;
 	private final String authorization;
+	private final List<Duration> retryDelays;
 
-	public HttpDeliveryTrackingAdapter(RestClient restClient, String clientId, String clientSecret) {
+	// retryDelays: 다시 부르기 전에 쉴 시간들 (운영은 RETRY_DELAYS, 테스트는 0초로 넣어 기다리지 않는다)
+	public HttpDeliveryTrackingAdapter(RestClient restClient, String clientId, String clientSecret,
+		List<Duration> retryDelays) {
 		this.restClient = restClient;
+		this.retryDelays = retryDelays;
 		this.authorization = clientId == null || clientId.isBlank() || clientSecret == null || clientSecret.isBlank()
 			? null : "TRACKQL-API-KEY %s:%s".formatted(clientId, clientSecret);
 		if (authorization == null) {
@@ -62,21 +72,25 @@ public class HttpDeliveryTrackingAdapter implements DeliveryTrackingPort {
 			throw new ExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
 		}
 		GraphQlResponse response;
-		try {
-			response = restClient.post()
-				.uri(PATH)
-				.header("Authorization", authorization)
-				.contentType(MediaType.APPLICATION_JSON)
-				.body(Map.of("query", QUERY,
-					"variables", Map.of("carrierId", carrierId, "trackingNumber", trackingNumber)))
-				.retrieve()
-				.body(GraphQlResponse.class);
-		} catch (RestClientException exception) {
-			// 예외 메시지에는 상대 응답 본문(입력한 운송장 번호가 되돌아올 수 있음)이 들어 있어 종류와 상태 코드만 남긴다
-			log.error("Delivery Tracker에 배송을 묻지 못했습니다. carrierId={}, cause={}", carrierId,
-				exception instanceof RestClientResponseException responseException
-					? responseException.getStatusCode() : exception.getClass().getSimpleName());
-			throw new ExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
+		for (int attempt = 0; ; attempt++) {
+			try {
+				response = call(carrierId, trackingNumber);
+				break;
+			} catch (RestClientException exception) {
+				// 예외 메시지에는 상대 응답 본문(입력한 운송장 번호가 되돌아올 수 있음)이 들어 있어 종류와 상태 코드만 남긴다
+				Object cause = exception instanceof RestClientResponseException responseException
+					? responseException.getStatusCode() : exception.getClass().getSimpleName();
+				if (!isRetryable(exception) || attempt >= retryDelays.size()) {
+					log.error("Delivery Tracker에 배송을 묻지 못했습니다. carrierId={}, cause={}, attempts={}", carrierId,
+						cause, attempt + 1);
+					throw new ExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
+				}
+				log.warn("Delivery Tracker 조회를 {} 뒤 다시 시도합니다. carrierId={}, cause={}", retryDelays.get(attempt),
+					carrierId, cause);
+				if (!pause(retryDelays.get(attempt))) {
+					throw new ExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
+				}
+			}
 		}
 		if (response == null) {
 			log.error("Delivery Tracker 응답이 비어 있습니다. carrierId={}", carrierId);
@@ -96,6 +110,37 @@ public class HttpDeliveryTrackingAdapter implements DeliveryTrackingPort {
 			return DeliveryTrackingResult.notTracked();
 		}
 		return toResult(response.data().track());
+	}
+
+	private GraphQlResponse call(String carrierId, String trackingNumber) {
+		return restClient.post()
+			.uri(PATH)
+			.header("Authorization", authorization)
+			.contentType(MediaType.APPLICATION_JSON)
+			.body(Map.of("query", QUERY, "variables", Map.of("carrierId", carrierId, "trackingNumber", trackingNumber)))
+			.retrieve()
+			.body(GraphQlResponse.class);
+	}
+
+	// 잠깐의 장애일 수 있는 것만 다시 부른다: 연결 실패·시간 초과, 상대 서버 오류(5xx), 요청이 너무 많음(429)
+	private static boolean isRetryable(RestClientException exception) {
+		if (exception instanceof ResourceAccessException) {
+			return true;
+		}
+		return exception instanceof RestClientResponseException responseException
+			&& (responseException.getStatusCode().is5xxServerError()
+			|| responseException.getStatusCode().value() == HttpStatus.TOO_MANY_REQUESTS.value());
+	}
+
+	// 앱이 꺼지며 끊기면 다시 부르지 않고 이번 조회를 끝낸다
+	private static boolean pause(Duration delay) {
+		try {
+			Thread.sleep(delay);
+			return true;
+		} catch (InterruptedException exception) {
+			Thread.currentThread().interrupt();
+			return false;
+		}
 	}
 
 	private static DeliveryTrackingResult toResult(Track track) {
