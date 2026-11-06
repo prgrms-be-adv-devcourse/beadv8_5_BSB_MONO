@@ -155,7 +155,7 @@ public class CashChargeConfirmUseCase {
 		if (existing.getStatus() == ChargeStatus.COMPLETED) {
 			return toDto(existing, customerWallet.getBalance());
 		}
-		existing.markCompleted(result.pgPaymentKey(), LocalDateTime.now());
+		existing.markCompleted(result.pgPaymentKey(), LocalDateTime.now(), result.approvedAt());
 		walletLedgerRepository.save(customerWallet.credit(
 			result.approvedAmount(), LedgerType.충전__PG결제_토스페이먼츠, existing));
 		return CashChargeResponseDto.completed(customerWallet.getBalance());

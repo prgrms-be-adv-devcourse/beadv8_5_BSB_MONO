@@ -1,5 +1,8 @@
 package com.bukang.cash.in;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,6 +20,7 @@ import com.bukang.cash.dto.CashChargeResponseDto;
 import com.bukang.cash.dto.CashWithdrawalRequestDto;
 import com.bukang.cash.dto.CashWithdrawalResponseDto;
 import com.bukang.cash.dto.PageDto;
+import com.bukang.cash.dto.RefundableChargesResponseDto;
 import com.bukang.cash.dto.WalletBalanceResponseDto;
 import com.bukang.cash.dto.WalletLedgerItemDto;
 import com.bukang.common.global.rsdata.RsData;
@@ -43,6 +47,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ApiV1CashController {
 	private static final int MAX_PAGE_SIZE = 100;
+	private static final ZoneId KOREA = ZoneId.of("Asia/Seoul");
 
 	private final CashFacade cashFacade;
 
@@ -76,7 +81,8 @@ public class ApiV1CashController {
 	// PRO-258: 프론트 "내역" 화면이 쓰던 목업 데이터를 실제 WalletLedger 조회로 대체한다
 	@GetMapping("/wallets/ledgers")
 	@Operation(summary = "예치금 내역 조회", description = "요청자 본인 지갑의 내역을 최신순으로 조회한다. "
-		+ "category로 탭(CHARGE/PAYMENT/REFUND/WITHDRAWAL/PAYOUT)을 필터링할 수 있고, 생략하면 전체를 돌려준다.")
+		+ "category로 탭(CHARGE/PAYMENT/REFUND/WITHDRAWAL/PAYOUT)을 필터링할 수 있고, 생략하면 전체를 돌려준다. "
+		+ "충전 줄의 charge에는 환급 화면용 충전 내역 조회와 같은 남은 금액·카드 취소 마지막 날이 있고, 다른 줄은 null이다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "조회 성공 (내역이 없으면 빈 목록)",
 			content = @Content(examples = @ExampleObject(value = CashApiExamples.LEDGER_LIST_SUCCESS))),
@@ -104,7 +110,35 @@ public class ApiV1CashController {
 		@Max(value = MAX_PAGE_SIZE, message = "한 번에 100개까지 조회할 수 있습니다.") int size
 	) {
 		return ResponseEntity.ok(RsData.of(HttpStatus.OK, "예치금 내역을 조회했습니다.",
-			cashFacade.findLedgers(memberId, category, page, size)));
+			cashFacade.findLedgers(memberId, category, page, size, LocalDateTime.now(KOREA))));
+	}
+
+	// 정책 5장 2차 1 「PG 결제취소와 기한」: 기한은 한국 시간으로 판단하므로 서버 시간대와 상관없이 한국 시각을 넘긴다
+	@GetMapping("/wallets/refundable-charges")
+	@Operation(summary = "환급 화면용 충전 내역 조회", description = "요청자 본인의 완료된 충전을 최근 순으로 조회한다. "
+		+ "남은 예치금을 최근 충전부터 채워 충전 건별 남은 금액을 계산하고, 건마다 카드 취소 마지막 날(승인일 + 1년 − 1일, "
+		+ "이날 24:00까지 한국 시간)과 기한 지남 여부를 붙인다. earliestLastCancelableDate는 남은 금액이 있고 "
+		+ "기한이 지나지 않은 충전 중 가장 빠른 마지막 날이며, 없으면 null이다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "조회 성공 (충전이 없으면 빈 목록)",
+			content = @Content(examples = @ExampleObject(value = CashApiExamples.REFUNDABLE_CHARGES_SUCCESS))),
+		@ApiResponse(responseCode = "400", description = "회원 ID 형식 오류 또는 0 이하",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "회원 ID 형식 오류", value = CashApiExamples.INVALID_VALUE_TYPE),
+				@ExampleObject(name = "회원 ID가 0 이하", value = CashApiExamples.INVALID_MEMBER_ID)
+			})),
+		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = CashApiExamples.LOGIN_REQUIRED))),
+		@ApiResponse(responseCode = "404", description = "지갑 없음 (회원 가입 이벤트가 아직 처리되지 않았거나 없는 회원)",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = CashApiExamples.WALLET_NOT_FOUND)))
+	})
+	public ResponseEntity<RsData<RefundableChargesResponseDto>> getRefundableCharges(
+		@LoginMemberId long memberId
+	) {
+		return ResponseEntity.ok(RsData.of(HttpStatus.OK, "환급 화면용 충전 내역을 조회했습니다.",
+			cashFacade.findRefundableCharges(memberId, LocalDateTime.now(KOREA))));
 	}
 
 	// 에러 응답은 GlobalExceptionHandler, CashExceptionHandler가 RsData(data: null) 형식으로 반환한다

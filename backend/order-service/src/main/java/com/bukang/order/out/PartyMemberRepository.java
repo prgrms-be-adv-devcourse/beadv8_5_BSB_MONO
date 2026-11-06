@@ -37,4 +37,7 @@ public interface PartyMemberRepository extends JpaRepository<PartyMember, Long> 
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	@Query("select m from PartyMember m where m.partyId = :partyId and m.leftAt is null")
 	List<PartyMember> findActiveByPartyIdForUpdate(@Param("partyId") long partyId);
+
+	// 지금 파티원 수 (파티장 포함)
+	long countByPartyIdAndLeftAtIsNull(long partyId);
 }

@@ -37,6 +37,12 @@ public interface PartyRepository extends JpaRepository<Party, Long> {
 	record ApplyTarget(long raceCourseId, long crewId, long leaderMemberId, PartyStatus status) {
 	}
 
+	// 이 대회에서 그 회원이 나가지 않은 살아 있는 파티 (BUK-91). 한 대회 한 신청이라 보통 하나지만, 혹시 여럿이면 최근 것부터
+	@Query("select p from Party p join PartyMember m on m.partyId = p.id where p.raceId = :raceId "
+		+ "and m.memberId = :memberId and m.leftAt is null and p.status in :statuses order by p.id desc")
+	List<Party> findJoinedByRaceIdAndMemberId(@Param("raceId") long raceId, @Param("memberId") long memberId,
+		@Param("statuses") Collection<PartyStatus> statuses);
+
 	// 합류·나가기·링크 다시 만들기·(다음 이슈) 신청은 파티 줄을 먼저 잠근다 (잠금 순서: 파티 → 참가 신청)
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	@Query("select p from Party p where p.id = :id")

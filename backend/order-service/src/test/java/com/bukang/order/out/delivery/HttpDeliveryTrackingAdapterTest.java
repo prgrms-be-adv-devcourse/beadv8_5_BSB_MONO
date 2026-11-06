@@ -2,19 +2,27 @@ package com.bukang.order.out.delivery;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.springframework.test.web.client.ExpectedCount.once;
+import static org.springframework.test.web.client.ExpectedCount.times;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withException;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
+import java.net.ConnectException;
+import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
@@ -27,6 +35,8 @@ class HttpDeliveryTrackingAdapterTest {
 	private static final String URL = BASE_URL + "/graphql";
 	private static final String CARRIER_ID = "kr.cjlogistics";
 	private static final String TRACKING_NUMBER = "684912345678";
+	// 2·4·8초 대신 기다리지 않는다
+	private static final List<Duration> NO_WAIT = List.of(Duration.ZERO, Duration.ZERO, Duration.ZERO);
 
 	private MockRestServiceServer server;
 	private HttpDeliveryTrackingAdapter adapter;
@@ -36,7 +46,7 @@ class HttpDeliveryTrackingAdapterTest {
 	void setUp() {
 		builder = RestClient.builder().baseUrl(BASE_URL);
 		server = MockRestServiceServer.bindTo(builder).build();
-		adapter = new HttpDeliveryTrackingAdapter(builder.build(), "test-id", "test-secret");
+		adapter = new HttpDeliveryTrackingAdapter(builder.build(), "test-id", "test-secret", NO_WAIT);
 	}
 
 	@Test
@@ -118,21 +128,46 @@ class HttpDeliveryTrackingAdapterTest {
 	}
 
 	@Test
-	@DisplayName("5xx·빈 본문은 503 예외다")
+	@DisplayName("5xx가 계속되면 3번 다시 불러 모두 4번 부른 뒤 503 예외다. 빈 본문은 다시 부르지 않는다")
 	void serverError() {
-		server.expect(requestTo(URL)).andRespond(withServerError());
-		server.expect(requestTo(URL)).andRespond(withSuccess("", MediaType.APPLICATION_JSON));
+		server.expect(times(4), requestTo(URL)).andRespond(withServerError());
+		server.expect(once(), requestTo(URL)).andRespond(withSuccess("", MediaType.APPLICATION_JSON));
 
 		assertThatThrownBy(() -> adapter.track(CARRIER_ID, TRACKING_NUMBER))
 			.isInstanceOf(ExternalServiceUnavailableException.class);
 		assertThatThrownBy(() -> adapter.track(CARRIER_ID, TRACKING_NUMBER))
 			.isInstanceOf(ExternalServiceUnavailableException.class);
+		server.verify();
+	}
+
+	@Test
+	@DisplayName("연결 실패·429·5xx 뒤에 성공하면 다시 불러 결과를 돌려준다 (BUK-90)")
+	void retryThenSuccess() {
+		server.expect(once(), requestTo(URL)).andRespond(withException(new ConnectException("refused")));
+		server.expect(once(), requestTo(URL)).andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS));
+		server.expect(once(), requestTo(URL)).andRespond(withStatus(HttpStatus.BAD_GATEWAY));
+		server.expect(once(), requestTo(URL)).andRespond(withSuccess("""
+			{ "errors": [ { "message": "Not Found", "extensions": { "code": "NOT_FOUND" } } ] }
+			""", MediaType.APPLICATION_JSON));
+
+		assertThat(adapter.track(CARRIER_ID, TRACKING_NUMBER)).isEqualTo(DeliveryTrackingResult.notTracked());
+		server.verify();
+	}
+
+	@Test
+	@DisplayName("4xx(429 말고)는 다시 불러도 같아 한 번만 부르고 503 예외다 (BUK-90)")
+	void clientErrorNotRetried() {
+		server.expect(once(), requestTo(URL)).andRespond(withStatus(HttpStatus.BAD_REQUEST));
+
+		assertThatThrownBy(() -> adapter.track(CARRIER_ID, TRACKING_NUMBER))
+			.isInstanceOf(ExternalServiceUnavailableException.class);
+		server.verify();
 	}
 
 	@Test
 	@DisplayName("키가 없으면 부르지 않고 503 예외다")
 	void noKey() {
-		HttpDeliveryTrackingAdapter withoutKey = new HttpDeliveryTrackingAdapter(builder.build(), "", null);
+		HttpDeliveryTrackingAdapter withoutKey = new HttpDeliveryTrackingAdapter(builder.build(), "", null, NO_WAIT);
 
 		assertThatThrownBy(() -> withoutKey.track(CARRIER_ID, TRACKING_NUMBER))
 			.isInstanceOf(ExternalServiceUnavailableException.class);

@@ -33,6 +33,11 @@ spring:
     bootstrap-servers:
       - localhost:9092
 
+crypto:
+  enabled: true # common global/crypto의 암호화 빈(TextEncryptor, EncryptedStringConverter)을 켠다 (참가자 휴대폰 번호, BUK-92)
+  password: brH8W0e5axggiZDMxLeEcRiYSf5qght3KtDgWC+dT48=
+  salt: d4cc93043cca7c91
+
 logging:
   level:
     com.bukang: debug

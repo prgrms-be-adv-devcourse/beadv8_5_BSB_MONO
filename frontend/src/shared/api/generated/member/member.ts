@@ -31,6 +31,7 @@ import type {
   CrewLeaderTransferRequestDto,
   CrewUpdateRequestDto,
   FindAllParams,
+  KakaoInviteSendRequestDto,
   MemberJoinRequestDto,
   MemberLoginRequestDto,
   MemberModifyRequestDto,
@@ -45,7 +46,9 @@ import type {
   RsDataCrewJoinedDto,
   RsDataEmailAvailabilityResponseDto,
   RsDataIdentityVerificationStartDto,
+  RsDataKakaoInviteSendResultDto,
   RsDataListCrewInviteDto,
+  RsDataListKakaoFriendDto,
   RsDataListMyCrewDto,
   RsDataListSellerDto,
   RsDataMemberDto,
@@ -3541,5 +3544,272 @@ export const useConfirmPasswordReset = <TError = RsData,
         TContext
       > => {
       return useMutation(getConfirmPasswordResetMutationOptions(options), queryClient);
+    }
+
+export const getIssueKakaoMessageConsentTicketUrl = () => {
+
+
+
+
+  return `/api/v1/member/members/me/kakao-message/consent-ticket`
+}
+
+/**
+ * 친구 조회·보내기가 403 KAKAO_MESSAGE_CONSENT_REQUIRED면 부른다. 2분 동안 한 번만 쓸 수 있는 표를 httpOnly 쿠키(oauth2Link, Path=/api/v1/auth/oauth2/authorize)로 심는다. 프론트는 이어서 /api/v1/auth/oauth2/authorize/kakao?next=/crews/{crewId}/invites로 화면을 이동한다. 동의를 마치면 next?kakaoConsent=granted, 취소·범위 부족이면 next?error=KAKAO_CONSENT_DENIED, 연결된 카카오 계정과 다른 계정이면 next?error=KAKAO_ACCOUNT_MISMATCH로 돌아온다.
+ * @summary 카카오 메시지 동의 표 발급
+ */
+export const issueKakaoMessageConsentTicket = async ( options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getIssueKakaoMessageConsentTicketUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getIssueKakaoMessageConsentTicketMutationKey = () => ['issueKakaoMessageConsentTicket'] as const;
+
+export const getIssueKakaoMessageConsentTicketMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof issueKakaoMessageConsentTicket>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof issueKakaoMessageConsentTicket>>, TError,void, TContext> => {
+
+const mutationKey = getIssueKakaoMessageConsentTicketMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof issueKakaoMessageConsentTicket>>, void> = () => {
+
+
+          return  issueKakaoMessageConsentTicket(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type IssueKakaoMessageConsentTicketMutationResult = NonNullable<Awaited<ReturnType<typeof issueKakaoMessageConsentTicket>>>
+
+    export type IssueKakaoMessageConsentTicketMutationError = RsData
+
+
+    /**
+ * @summary 카카오 메시지 동의 표 발급
+ */
+export const useIssueKakaoMessageConsentTicket = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof issueKakaoMessageConsentTicket>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof issueKakaoMessageConsentTicket>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getIssueKakaoMessageConsentTicketMutationOptions(options), queryClient);
+    }
+
+export const getFindKakaoInviteFriendsUrl = (crewId: number,) => {
+
+
+
+
+  return `/api/v1/member/crews/${crewId}/kakao-invites/friends`
+}
+
+/**
+ * 크루장과 운영진만 부른다. 카카오 친구 중 크루런 회원이고 아직 이 크루원이 아닌 사람을 카카오톡 프로필로 돌려준다. 친구도 카카오 메시지 동의를 마쳐야 목록에 나온다. 친구 정보는 저장하지 않는다.
+ * @summary 카카오톡으로 초대할 수 있는 친구 조회
+ */
+export const findKakaoInviteFriends = async (crewId: number, options?: Parameters<typeof customFetch>[1]): Promise<RsDataListKakaoFriendDto> => {
+
+  return customFetch<RsDataListKakaoFriendDto>(getFindKakaoInviteFriendsUrl(crewId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getFindKakaoInviteFriendsQueryKey = (crewId: number,) => {
+    return [
+    `/api/v1/member/crews/${crewId}/kakao-invites/friends`
+    ] as const;
+    }
+
+
+export const getFindKakaoInviteFriendsQueryOptions = <TData = Awaited<ReturnType<typeof findKakaoInviteFriends>>, TError = RsData>(crewId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findKakaoInviteFriends>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getFindKakaoInviteFriendsQueryKey(crewId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof findKakaoInviteFriends>>> = ({ signal }) => findKakaoInviteFriends(crewId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: crewId !== null && crewId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof findKakaoInviteFriends>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type FindKakaoInviteFriendsQueryResult = NonNullable<Awaited<ReturnType<typeof findKakaoInviteFriends>>>
+export type FindKakaoInviteFriendsQueryError = RsData
+
+
+export function useFindKakaoInviteFriends<TData = Awaited<ReturnType<typeof findKakaoInviteFriends>>, TError = RsData>(
+ crewId: number, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof findKakaoInviteFriends>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findKakaoInviteFriends>>,
+          TError,
+          Awaited<ReturnType<typeof findKakaoInviteFriends>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindKakaoInviteFriends<TData = Awaited<ReturnType<typeof findKakaoInviteFriends>>, TError = RsData>(
+ crewId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findKakaoInviteFriends>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findKakaoInviteFriends>>,
+          TError,
+          Awaited<ReturnType<typeof findKakaoInviteFriends>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindKakaoInviteFriends<TData = Awaited<ReturnType<typeof findKakaoInviteFriends>>, TError = RsData>(
+ crewId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findKakaoInviteFriends>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 카카오톡으로 초대할 수 있는 친구 조회
+ */
+
+export function useFindKakaoInviteFriends<TData = Awaited<ReturnType<typeof findKakaoInviteFriends>>, TError = RsData>(
+ crewId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findKakaoInviteFriends>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getFindKakaoInviteFriendsQueryOptions(crewId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSendKakaoCrewInvitesUrl = (crewId: number,) => {
+
+
+
+
+  return `/api/v1/member/crews/${crewId}/kakao-invites`
+}
+
+/**
+ * 크루장과 운영진만 부른다. 받는 사람마다 새 초대 링크(24시간, 한 명만 가입)를 만들어 카카오톡 메시지 버튼에 담아 한 명씩 보낸다. 보내지 못한 몫의 링크는 취소한다. 한 명이라도 보냈으면 200이고 실패는 failures로 알린다. 초대 토큰은 응답에 싣지 않는다.
+ * @summary 크루 초대 카카오톡 보내기
+ */
+export const sendKakaoCrewInvites = async (crewId: number,
+    kakaoInviteSendRequestDto: KakaoInviteSendRequestDto, options?: Parameters<typeof customFetch>[1]): Promise<RsDataKakaoInviteSendResultDto> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<RsDataKakaoInviteSendResultDto>(getSendKakaoCrewInvitesUrl(crewId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(kakaoInviteSendRequestDto)
+  }
+);}
+
+
+
+
+
+export const getSendKakaoCrewInvitesMutationKey = () => ['sendKakaoCrewInvites'] as const;
+
+export const getSendKakaoCrewInvitesMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendKakaoCrewInvites>>, TError,SendKakaoCrewInvitesMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendKakaoCrewInvites>>, TError,SendKakaoCrewInvitesMutationVariables, TContext> => {
+
+const mutationKey = getSendKakaoCrewInvitesMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendKakaoCrewInvites>>, SendKakaoCrewInvitesMutationVariables> = (props) => {
+          const {crewId,data} = props ?? {};
+
+          return  sendKakaoCrewInvites(crewId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendKakaoCrewInvitesMutationResult = NonNullable<Awaited<ReturnType<typeof sendKakaoCrewInvites>>>
+    export type SendKakaoCrewInvitesMutationBody = KakaoInviteSendRequestDto
+    export type SendKakaoCrewInvitesMutationError = RsData
+    export type SendKakaoCrewInvitesMutationVariables = {crewId: number;data: KakaoInviteSendRequestDto}
+
+    /**
+ * @summary 크루 초대 카카오톡 보내기
+ */
+export const useSendKakaoCrewInvites = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendKakaoCrewInvites>>, TError,SendKakaoCrewInvitesMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof sendKakaoCrewInvites>>,
+        TError,
+        SendKakaoCrewInvitesMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSendKakaoCrewInvitesMutationOptions(options), queryClient);
     }
 
