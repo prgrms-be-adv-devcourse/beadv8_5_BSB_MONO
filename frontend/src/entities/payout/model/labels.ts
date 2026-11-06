@@ -35,6 +35,7 @@ export const HOLD_STATUS: Record<payoutModel.PayoutHoldStatus, Label> = {
 export const HOLD_REASON: Record<payoutModel.PayoutHoldReason, string> = {
   정산_계좌_미등록: '정산 계좌 미등록',
   대회_취소_처리: '대회 취소 처리',
+  대사_불일치: '대사 불일치',
 }
 
 export const RECORD_TYPE: Record<payoutModel.PayoutRecordType, string> = {

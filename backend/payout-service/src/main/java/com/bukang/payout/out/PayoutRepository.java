@@ -1,6 +1,7 @@
 package com.bukang.payout.out;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -40,7 +41,15 @@ public interface PayoutRepository extends JpaRepository<Payout, Long> {
 		""")
 	List<Payout> findForUpdate(long sellerId, long raceId, Collection<PayoutStatus> statuses);
 
-	// 대회 취소 처리: 그 대회의 정산 내역 전부 (지급 전은 취소로 닫고, 지급 완료는 회수액에 더한다)
+	// 정산 대사 대상 ②: 이번 실행에서 만든 정산 내역의 대회 (BUK-67)
+	// 정산 시각은 생성 배치의 실행 시작 시각(now)을 그대로 저장하므로, create_date(실제 시계)와 달리 dev 배치로 지난 날을 돌려도 맞다
+	@Query("""
+		select distinct p.raceId from Payout p
+		where p.payoutStage = :stage and p.settledAt >= :settledAt
+		""")
+	List<Long> findRaceIdsSettledSince(PayoutStage stage, LocalDateTime settledAt);
+
+	// 대회 취소 처리 · 정산 대사: 그 대회의 정산 내역 전부 (지급 전은 취소로 닫고, 지급 완료는 회수액에 더한다)
 	List<Payout> findByRaceId(long raceId);
 
 	// 지급 배치: 지급 예정일이 오늘이거나 지난 정산 내역 (지난 날을 놓쳐도 다음 실행에서 따라잡는다)
@@ -56,7 +65,7 @@ public interface PayoutRepository extends JpaRepository<Payout, Long> {
 	List<Long> findPayTargetIds(LocalDate today, PayoutStatus calculated, PayoutStatus paying);
 
 	// 판매자 정산 내역 조회: 정산 월(YYYY-MM)은 문자열이어도 자릿수가 같아 사전순 비교가 달 순서와 같다
-	// 유일 조건 (seller_id, race_id, payout_month)의 인덱스는 seller_id로 시작하므로 판매자 범위를 이 인덱스로 찾는다
+	// 유일 조건 (seller_id, race_id, payout_month, payout_stage)의 인덱스는 seller_id로 시작하므로 판매자 범위를 이 인덱스로 찾는다
 	List<Payout> findBySellerIdAndPayoutMonthBetweenOrderByPayoutMonthDescIdDesc(
 		long sellerId, String fromMonth, String toMonth);
 
@@ -75,6 +84,6 @@ public interface PayoutRepository extends JpaRepository<Payout, Long> {
 	List<Payout> findPayableForSummary(long sellerId, PayoutStatus calculated, PayoutStage finalStage,
 		PayoutStage firstStage, PayoutStatus paid, PayoutStatus canceled);
 
-	// 판매자 요약: 지급보류 중인 정산 내역 수. 한 정산 내역에는 활성 보류가 하나뿐이라 보류 건수와 같다
+	// 판매자 요약: 지급보류 중인 정산 내역 수. 보류가 여러 개 걸린 정산 내역도 한 건으로 센다 (BUK-67 H3)
 	long countBySellerIdAndStatus(long sellerId, PayoutStatus status);
 }

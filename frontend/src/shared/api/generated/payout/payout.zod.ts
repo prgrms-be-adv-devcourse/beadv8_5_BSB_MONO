@@ -21,7 +21,7 @@ export const holdBodyReasonMax = 500;
 
 
 export const HoldBody = zod.object({
-  "reasonType": zod.enum(['정산_계좌_미등록', '대회_취소_처리']).describe('보류 사유 (정산_계좌_미등록: 정산 계좌 미등록, 대회_취소_처리: 대회 취소 처리)'),
+  "reasonType": zod.enum(['정산_계좌_미등록', '대회_취소_처리', '대사_불일치']).describe('보류 사유 (정산_계좌_미등록: 정산 계좌 미등록, 대회_취소_처리: 대회 취소 처리, 대사_불일치: 대사 불일치)'),
   "reason": zod.string().min(holdBodyReasonMin).max(holdBodyReasonMax).optional().describe('사유 상세 (선택, 500자 이하)')
 }).describe('지급보류 걸기 요청')
 
@@ -32,7 +32,7 @@ export const HoldResponse = zod.object({
   "id": zod.int(),
   "holdCode": zod.string(),
   "payoutId": zod.int(),
-  "reasonType": zod.enum(['정산_계좌_미등록', '대회_취소_처리']).describe('보류 사유 (정산_계좌_미등록: 정산 계좌 미등록, 대회_취소_처리: 대회 취소 처리)'),
+  "reasonType": zod.enum(['정산_계좌_미등록', '대회_취소_처리', '대사_불일치']).describe('보류 사유 (정산_계좌_미등록: 정산 계좌 미등록, 대회_취소_처리: 대회 취소 처리, 대사_불일치: 대사 불일치)'),
   "reason": zod.string().nullish(),
   "status": zod.enum(['지급보류', '해제']).describe('지급보류 상태 (지급보류: 지급보류, 해제: 해제)'),
   "heldBy": zod.int(),
@@ -58,7 +58,7 @@ export const ReleaseResponse = zod.object({
   "id": zod.int(),
   "holdCode": zod.string(),
   "payoutId": zod.int(),
-  "reasonType": zod.enum(['정산_계좌_미등록', '대회_취소_처리']).describe('보류 사유 (정산_계좌_미등록: 정산 계좌 미등록, 대회_취소_처리: 대회 취소 처리)'),
+  "reasonType": zod.enum(['정산_계좌_미등록', '대회_취소_처리', '대사_불일치']).describe('보류 사유 (정산_계좌_미등록: 정산 계좌 미등록, 대회_취소_처리: 대회 취소 처리, 대사_불일치: 대사 불일치)'),
   "reason": zod.string().nullish(),
   "status": zod.enum(['지급보류', '해제']).describe('지급보류 상태 (지급보류: 지급보류, 해제: 해제)'),
   "heldBy": zod.int(),
@@ -188,7 +188,7 @@ export const HoldsResponse = zod.object({
   "raceId": zod.int(),
   "raceName": zod.string(),
   "payoutAmount": zod.int(),
-  "reasonType": zod.enum(['정산_계좌_미등록', '대회_취소_처리']).describe('보류 사유 (정산_계좌_미등록: 정산 계좌 미등록, 대회_취소_처리: 대회 취소 처리)'),
+  "reasonType": zod.enum(['정산_계좌_미등록', '대회_취소_처리', '대사_불일치']).describe('보류 사유 (정산_계좌_미등록: 정산 계좌 미등록, 대회_취소_처리: 대회 취소 처리, 대사_불일치: 대사 불일치)'),
   "reason": zod.string().nullish(),
   "status": zod.enum(['지급보류', '해제']).describe('지급보류 상태 (지급보류: 지급보류, 해제: 해제)'),
   "heldAt": zod.iso.datetime({"offset":true}),

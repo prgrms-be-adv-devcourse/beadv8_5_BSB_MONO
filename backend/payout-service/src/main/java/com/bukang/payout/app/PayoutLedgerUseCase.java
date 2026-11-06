@@ -155,6 +155,15 @@ public class PayoutLedgerUseCase {
 		settle(payout.getSellerId(), payout.getRaceId(), now);
 	}
 
+	/**
+	 * 정산 대사가 지급 전 최종 정산 내역에 빠진 참가권을 더한 뒤 부른다 (BUK-67). 늘어난 금액에서 남은 갚을 돈을 뺀다
+	 * 최종 정산을 만들 때(deductAdvanceAndSettle)와 같은 상계다. 1차 정산금 차감은 만들 때 그때 잔고 전부를 뺐으므로 다시 하지 않는다
+	 */
+	@Transactional(propagation = Propagation.MANDATORY)
+	public void settleReceivable(Payout payout, LocalDateTime now) {
+		settle(payout.getSellerId(), payout.getRaceId(), now);
+	}
+
 	// JPQL 합계 쿼리 전에 Hibernate가 쌓인 원장 줄을 먼저 내보내므로(자동 flush) 같은 트랜잭션에서 쓴 줄도 더해진다
 	// 같은 패키지의 시나리오 테스트가 잔고를 확인하려고 부르므로 package-private으로 둔다
 	long balance(long sellerId, long raceId, PayoutAccount account) {

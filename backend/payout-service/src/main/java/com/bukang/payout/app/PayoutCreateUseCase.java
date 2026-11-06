@@ -54,7 +54,8 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class PayoutCreateUseCase {
 	// 되돌아보기 기간: 어제 정산 생성일부터 7일치. 일주일 안의 장애는 저절로 따라잡는다 (PRO-61)
-	private static final int LOOKBACK_DAYS = 7;
+	// 정산 대사(PayoutReconcileUseCase)도 같은 기간에서 대상 대회를 고른다
+	static final int LOOKBACK_DAYS = 7;
 	// 실패 기록표 비고 칸 길이 (payout_payout_create_failure.note varchar(255))
 	private static final int NOTE_MAX_LENGTH = 255;
 

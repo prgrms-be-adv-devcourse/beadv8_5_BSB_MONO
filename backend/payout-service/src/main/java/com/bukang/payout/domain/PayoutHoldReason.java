@@ -6,5 +6,7 @@ package com.bukang.payout.domain;
  */
 public enum PayoutHoldReason {
 	정산_계좌_미등록,
-	대회_취소_처리;
+	대회_취소_처리,
+	// 정산 대사가 정산 쪽이 판매보다 많은 어긋남을 찾았다 (BUK-67)
+	대사_불일치;
 }
