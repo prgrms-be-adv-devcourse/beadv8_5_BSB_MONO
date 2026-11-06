@@ -20,6 +20,7 @@ public interface PartyMemberRepository extends JpaRepository<PartyMember, Long> 
 		long memberId);
 
 	// 이 크루에서 이 회원이 아직 들어 있는(나가지 않은) 파티 중 상태가 statuses인 것 (크루 나가기·내보내기 확인, BUK-78)
+	// shortcut: member_id로 시작하는 인덱스가 없어 파티원 줄을 다 훑는다. 파티원 줄이 많아지면 (member_id) 인덱스를 더한다
 	@Query("select new com.bukang.order.out.PartyMemberRepository$JoinedParty(p.id, p.status) "
 		+ "from PartyMember m join Party p on p.id = m.partyId "
 		+ "where p.crewId = :crewId and m.memberId = :memberId and m.leftAt is null and p.status in :statuses "

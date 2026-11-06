@@ -23,7 +23,7 @@ import lombok.RequiredArgsConstructor;
 /**
  * 회원 서비스가 부르는 파티 내부 API. /internal/** 은 게이트웨이에 노출하지 않는다 (InternalV1OrderController와 같은 방식)
  */
-@Tag(name = "OrderInternalParty", description = "크루 나가기·내보내기 확인용 파티 상태 조회 API (서비스 간 내부 호출 전용)")
+@Tag(name = "PartyInternal", description = "크루 나가기·내보내기 확인용 파티 상태 조회 API (서비스 간 내부 호출 전용)")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/internal/v1/order")
