@@ -65,6 +65,7 @@ import com.bukang.order.dto.KitTrackingDto;
 import com.bukang.order.dto.OrderItemDto;
 import com.bukang.order.dto.SellerKitDto;
 import com.bukang.order.dto.SellerKitSummaryDto;
+import com.bukang.order.out.KitShipNoticeRepository;
 import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationRepository;
 import com.bukang.order.out.QueueAdmissionRepository;
@@ -158,9 +159,16 @@ class KitDeliveryTest {
 	@MockitoSpyBean
 	private NotificationKafkaSender notificationSender;
 
+	@Autowired
+	private KitShipNoticeUseCase kitShipNoticeUseCase;
+
+	@Autowired
+	private KitShipNoticeRepository kitShipNoticeRepository;
+
 	@AfterEach
 	void tearDown() {
 		orderRepository.deleteAll();
+		kitShipNoticeRepository.deleteAll();
 		participationRepository.deleteAll();
 		queueAdmissionRepository.deleteAll();
 		raceCoursePort.clear();
@@ -948,6 +956,43 @@ class KitDeliveryTest {
 					"shippingAddress": { "recipientName": "김가족", "recipientPhone": "010-9876-5432",
 						"zipcode": "48094", "address": "부산 해운대구 해운대로 00" } }
 				"""));
+	}
+
+	@Test
+	@DisplayName("키트 발송 알림: 환불 기한 안에는 알리지 않고, 기한이 지나면 판매자에게 대회마다 한 번만 알린다")
+	void notifySellerOnceWhenKitsBecomeShippable() throws Exception {
+		// 자정 직전에 돌아도 날짜가 어긋나지 않게 시각을 오늘 낮으로 고정한다
+		LocalDate today = LocalDate.now();
+		raceCoursePort.put(courseWithRefundDeadline(today));
+		paidOrder(MEMBER_ID);
+		paidOrder(MEMBER_ID + 1);
+		LocalDateTime now = today.atTime(12, 0);
+
+		// 환불 기한 날까지는 보낼 수 없으므로 알리지 않는다
+		assertThat(kitShipNoticeUseCase.notifyShippable(now)).isZero();
+		verify(notificationSender, never()).send(any());
+
+		// 기한 다음 날: 발송 대기 키트가 둘이어도 알림은 하나
+		assertThat(kitShipNoticeUseCase.notifyShippable(now.plusDays(1))).isEqualTo(1);
+		ArgumentCaptor<NotificationRequestedEvent> sent = ArgumentCaptor.forClass(NotificationRequestedEvent.class);
+		verify(notificationSender, times(1)).send(sent.capture());
+		assertThat(sent.getValue().memberId()).isEqualTo(SELLER_ID);
+		assertThat(sent.getValue().kind()).isEqualTo(NotificationKind.KIT_SHIPMENT_REQUIRED);
+		assertThat(sent.getValue().href()).isEqualTo("/seller/kits");
+
+		// 다시 돌려도 같은 대회는 알리지 않는다
+		assertThat(kitShipNoticeUseCase.notifyShippable(now.plusDays(2))).isZero();
+		verify(notificationSender, times(1)).send(any());
+	}
+
+	@Test
+	@DisplayName("키트 발송 알림: 발송 대기 키트가 없으면(모두 보냄) 알리지 않는다")
+	void notNotifyWhenNoReadyKit() throws Exception {
+		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().minusDays(1)));
+		ship(itemIdOf(paidOrder()));
+
+		assertThat(kitShipNoticeUseCase.notifyShippable(LocalDateTime.now())).isZero();
+		verify(notificationSender, never()).send(any());
 	}
 
 	private RaceCourseInfo courseWithRefundDeadline(LocalDate refundDeadline) {
