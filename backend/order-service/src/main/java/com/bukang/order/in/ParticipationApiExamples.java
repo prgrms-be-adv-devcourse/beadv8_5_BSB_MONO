@@ -16,6 +16,7 @@ final class ParticipationApiExamples {
 				"raceCourseId": 1,
 				"memberId": 1,
 				"participationType": "INDIVIDUAL",
+				"partyId": null,
 				"status": "PENDING",
 				"participant": {
 					"name": "김러너",
@@ -52,6 +53,7 @@ final class ParticipationApiExamples {
 				"raceCourseId": 1,
 				"memberId": 1,
 				"participationType": "INDIVIDUAL",
+				"partyId": null,
 				"status": "PENDING",
 				"participant": {
 					"name": "김러너",
@@ -88,6 +90,7 @@ final class ParticipationApiExamples {
 				"raceCourseId": 1,
 				"memberId": 1,
 				"participationType": "INDIVIDUAL",
+				"partyId": null,
 				"status": "PENDING",
 				"participant": {
 					"name": "김러너",
@@ -184,6 +187,11 @@ final class ParticipationApiExamples {
 		{ "status": 409, "code": "ORDER_DUPLICATE_PARTICIPATION", "message": "이미 이 대회에 신청했습니다.", "data": null }
 		""";
 
+	static final String PARTY_PARTICIPATION_EXISTS = """
+		{ "status": 409, "code": "ORDER_DUPLICATE_PARTICIPATION",
+			"message": "파티로 신청한 대회예요. 개인으로 신청하려면 파티에서 나가 주세요.", "data": null }
+		""";
+
 	static final String NOT_ACCEPTING = """
 		{ "status": 409, "code": "ORDER_APPLICATION_CLOSED", "message": "접수 기간이 아닙니다.", "data": null }
 		""";
@@ -209,6 +217,7 @@ final class ParticipationApiExamples {
 				"raceCourseId": 1,
 				"memberId": 1,
 				"participationType": "INDIVIDUAL",
+				"partyId": null,
 				"status": "CANCELED",
 				"participant": {
 					"name": "김러너",
@@ -249,6 +258,11 @@ final class ParticipationApiExamples {
 	static final String NOT_CANCELABLE_FINISHED = """
 		{ "status": 409, "code": "ORDER_PARTICIPATION_NOT_CANCELABLE",
 			"message": "이미 끝난 신청입니다(현재 상태: 취소).", "data": null }
+		""";
+
+	static final String NOT_CANCELABLE_PARTY = """
+		{ "status": 409, "code": "ORDER_PARTICIPATION_NOT_CANCELABLE",
+			"message": "파티원 신청은 파티 나가기로 취소해 주세요.", "data": null }
 		""";
 
 	static final String SHIPPING_ADDRESS_REQUIRED = """

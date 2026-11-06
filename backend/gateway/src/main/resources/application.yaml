@@ -1,5 +1,5 @@
 server:
-  # 서비스 포트(8080~8086)와 겹치지 않게 둔다. Nginx는 /api를 이 포트로 넘긴다
+  # 서비스 포트(8080~8087)와 겹치지 않게 둔다. Nginx는 /api를 이 포트로 넘긴다
   port: 8000
 
 spring:
@@ -81,6 +81,10 @@ spring:
               uri: ${gateway.services.queue}
               predicates:
                 - Path=/api/v1/queue/**
+            - id: notification-service
+              uri: ${gateway.services.notification}
+              predicates:
+                - Path=/api/v1/notification/**
 
 gateway:
   auth:

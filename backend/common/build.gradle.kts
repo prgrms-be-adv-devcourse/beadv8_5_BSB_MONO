@@ -18,6 +18,8 @@ dependencies {
 	compileOnly("io.swagger.core.v3:swagger-annotations-jakarta:2.2.52")
 	// KafkaMessageId가 ProducerRecord를 쓴다. 실행 시에는 각 서비스의 spring-boot-starter-kafka가 같은 jar를 가져온다 (버전은 Boot BOM)
 	compileOnly("org.apache.kafka:kafka-clients")
+	// 알림 보내기(NotificationKafkaSender). 서비스마다 spring-boot-starter-kafka가 있어 실행 때는 서비스의 jar를 쓴다
+	compileOnly("org.springframework.kafka:spring-kafka")
 
 	// 서비스 엔티티(Member, CashMember)의 Q클래스가 부모 클래스의 Q클래스(QBaseMember, QReplicaMember 등)를 참조하므로
 	// @MappedSuperclass가 있는 common에서도 Q클래스를 만들어 jar에 함께 넣는다
@@ -33,6 +35,7 @@ dependencies {
 	// LoginMemberIdArgumentResolver 단위 테스트 (standalone MockMvc)
 	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
 	testCompileOnly("io.swagger.core.v3:swagger-annotations-jakarta:2.2.52")
+	testImplementation("org.springframework.kafka:spring-kafka") // NotificationKafkaSender 단위 테스트
 }
 
 // QueryDSL Q클래스 생성 위치 (서비스 모듈과 같은 방식)

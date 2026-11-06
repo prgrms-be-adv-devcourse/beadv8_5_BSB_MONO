@@ -21,6 +21,11 @@ public interface ParticipationRepository extends JpaRepository<Participation, Lo
 		+ "and p.activeFlag = true")
 	Optional<Long> findActiveIdByRaceIdAndMemberId(@Param("raceId") long raceId, @Param("memberId") long memberId);
 
+	// 파티에서 나갈 때 끝낼 그 사람의 파티원 신청서
+	@Query("select p.id from Participation p where p.partyId = :partyId and p.memberId = :memberId "
+		+ "and p.activeFlag = true")
+	Optional<Long> findActiveIdByPartyIdAndMemberId(@Param("partyId") long partyId, @Param("memberId") long memberId);
+
 	// 다음 신청 때 채울 최근 신청 (idx_participation_member 인덱스). 상태와 상관없이 마지막으로 쓴 정보를 쓴다
 	Optional<Participation> findFirstByMemberIdOrderByIdDesc(long memberId);
 

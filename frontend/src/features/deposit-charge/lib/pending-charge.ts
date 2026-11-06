@@ -11,6 +11,11 @@ const PendingCharge = z.object({
   amount: z.number().int().positive(),
   /** 결제 중 충전이면 돌아가 다시 결제할 주문 */
   returnOrderId: z.number().int().positive().optional(),
+  /**
+   * 충전 확정을 보낸 시각(ms). 확정 결과(충전됨·거절)를 받으면 기록째 지우므로, 남아 있으면 승인 결과를 모르는 충전이다.
+   * 이 값이 있으면 돌아온 화면을 다시 열어도 확정을 다시 부르지 않고, 잠시 새 충전도 막는다.
+   */
+  uncertainAt: z.number().optional(),
 })
 
 export type PendingCharge = z.infer<typeof PendingCharge>

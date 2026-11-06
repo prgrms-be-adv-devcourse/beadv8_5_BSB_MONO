@@ -25,6 +25,8 @@ import org.springframework.test.context.ActiveProfiles;
 })
 @ActiveProfiles("test")
 class FlywayExistingTablesTest {
+	private static final String OUTBOX_MESSAGE_ID_FORMAT =
+		"order-outbox-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 
 	@Autowired
 	private DataSource dataSource;
@@ -41,6 +43,13 @@ class FlywayExistingTablesTest {
 		// 서버에는 파티 표가 아직 없다(BUK-35 SQL이 만든다)
 		jdbcTemplate.execute("drop table order_party_member");
 		jdbcTemplate.execute("drop table order_party");
+		// 서버 아웃박스 표에는 message_id 칸이 아직 없고(BUK-81 SQL이 더한다), 보내지 않은 행이 남아 있을 수 있다
+		jdbcTemplate.execute("alter table order_outbox_kafka_event drop constraint uk_order_outbox_kafka_message_id");
+		jdbcTemplate.execute("alter table order_outbox_kafka_event drop column message_id");
+		for (String status : List.of("PENDING", "SEND_FAILED")) {
+			jdbcTemplate.update("insert into order_outbox_kafka_event (ref_type, ref_id, event_type, payload, status,"
+				+ " retry_count) values ('Participation', 1, 'topic', '{}', ?, 0)", status);
+		}
 		// 서버 표에는 아직 배송 조회 칸·이동 기록 표가 없다 (BUK-55)
 		jdbcTemplate.execute("drop table order_shipment_tracking_event");
 		jdbcTemplate.execute("drop index idx_shipment_tracking");
@@ -48,6 +57,8 @@ class FlywayExistingTablesTest {
 			"last_tracked_at")) {
 			jdbcTemplate.execute("alter table order_shipment drop column " + column);
 		}
+		// 서버 표에는 아직 취소 사유 칸이 없다 (BUK-74)
+		jdbcTemplate.execute("alter table order_order_item drop column cancel_reason");
 
 		// dev·운영과 같은 Flyway 설정 (BUK-29)
 		MigrateResult result = Flyway.configure()
@@ -70,5 +81,10 @@ class FlywayExistingTablesTest {
 			"select count(*) from information_schema.table_constraints"
 				+ " where table_name = 'order_participation' and constraint_name = 'fk_participation_party'",
 			Integer.class)).isEqualTo(1);
+		// 이미 있던 아웃박스 행은 행마다 다른 order-outbox-{UUID}로 채워진다
+		assertThat(jdbcTemplate.queryForList("select message_id from order_outbox_kafka_event", String.class))
+			.hasSize(2)
+			.doesNotHaveDuplicates()
+			.allMatch(messageId -> messageId.matches(OUTBOX_MESSAGE_ID_FORMAT));
 	}
 }

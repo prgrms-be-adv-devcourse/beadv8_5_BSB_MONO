@@ -2,7 +2,10 @@ package com.bukang.order.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -21,6 +24,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -31,14 +35,21 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.bukang.common.global.json.JsonConverter;
+import com.bukang.common.shared.notification.NotificationKafkaSender;
+import com.bukang.common.shared.notification.NotificationKind;
+import com.bukang.common.shared.notification.event.NotificationRequestedEvent;
+import com.bukang.common.shared.order.event.OrderItemRefundedEvent;
+import com.bukang.common.shared.order.event.RaceRefundEvent;
+import com.bukang.common.shared.order.event.RaceRefundKind;
 import com.bukang.order.domain.Order;
 import com.bukang.order.domain.OrderItemStatus;
 import com.bukang.order.domain.OrderStatus;
 import com.bukang.order.domain.ParticipationStatus;
-import com.bukang.order.domain.event.OrderRaceCanceledEvent;
 import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
 import com.bukang.order.domain.exception.OrderNotPayableException;
-import com.bukang.order.in.RaceCanceledNotificationListener;
+import com.bukang.order.in.OrderKafkaConsumer;
+import com.bukang.order.out.OrderInboxKafkaEventRepository;
 import com.bukang.order.out.OrderOutboxKafkaEventRepository;
 import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationRepository;
@@ -70,6 +81,9 @@ class RaceCancelRefundTest {
 	private static final long LOCK_WAIT_MILLIS = 500;
 	// 테스트용 예치금은 모든 회원이 잔액 하나를 함께 쓴다. 주문을 많이 만들어도 모자라지 않게 넉넉히 둔다
 	private static final long BALANCE = 100_000_000;
+	private static final String MESSAGE_ID = "product-outbox-3c7e1a9b-2f4d-4b8e-a6c1-9d0e5f7a2b01";
+	private static final String RACE_CANCEL_PAYLOAD =
+		"{\"raceId\":" + RACE_ID + ",\"sellerId\":7,\"canceledAt\":\"2026-10-14T18:00:00\"}";
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -89,8 +103,15 @@ class RaceCancelRefundTest {
 	@Autowired
 	private OrderPayUseCase orderPayUseCase;
 
-	@Autowired
+	// 대회 취소 메시지를 받을 때 환불 흐름을 몇 번 도는지 세려고 감싼다 (BUK-53 인박스)
+	@MockitoSpyBean
 	private RaceCancelRefundUseCase raceCancelRefundUseCase;
+
+	@Autowired
+	private OrderKafkaConsumer orderKafkaConsumer;
+
+	@Autowired
+	private OrderInboxKafkaEventRepository orderInboxKafkaEventRepository;
 
 	@Autowired
 	private StubRaceCoursePort raceCoursePort;
@@ -107,8 +128,11 @@ class RaceCancelRefundTest {
 	@Autowired
 	private TransactionTemplate transactionTemplate;
 
+	@Autowired
+	private JsonConverter jsonConverter;
+
 	@MockitoSpyBean
-	private RaceCanceledNotificationListener notificationListener;
+	private NotificationKafkaSender notificationSender;
 
 	@BeforeEach
 	void setUp() {
@@ -116,6 +140,8 @@ class RaceCancelRefundTest {
 		raceCoursePort.put(StubRaceCoursePort.openCourse(COURSE_ID, RACE_ID, 14, null));
 		raceCoursePort.put(StubRaceCoursePort.openCourse(OTHER_COURSE_ID, OTHER_RACE_ID, 14, null));
 		walletPort.setBalance(BALANCE);
+		// Kafka로 보내지 않고 불렸는지만 본다 (알림은 커밋된 뒤에만 보낸다)
+		doNothing().when(notificationSender).send(any());
 	}
 
 	@AfterEach
@@ -126,6 +152,7 @@ class RaceCancelRefundTest {
 		raceCoursePort.clear();
 		seatHoldPort.clear();
 		orderOutboxKafkaEventRepository.deleteAll();
+		orderInboxKafkaEventRepository.deleteAll();
 		walletPort.clear();
 	}
 
@@ -152,12 +179,20 @@ class RaceCancelRefundTest {
 		assertThat(statusOf(otherRace)).isEqualTo(OrderStatus.PAID);
 		// 자리는 되돌리지 않는다 (취소된 대회는 다시 팔지 않는다)
 		assertThat(restoredSeats()).isEmpty();
+		// 정산에는 참가권마다 보내지 않고, 환불 전 보류 한 건과 다 끝난 뒤 완료 한 건(환불한 참가권 수, 결제 대기·다른 대회 제외)을 보낸다
+		assertThat(refunded()).isEmpty();
+		assertThat(raceRefunds()).containsExactly(
+			new RaceRefundEvent(RaceRefundKind.HELD, RACE_ID, 0, now),
+			new RaceRefundEvent(RaceRefundKind.REFUNDED, RACE_ID, 2, now));
 		// 환불한 구매자에게만 알린다
-		verify(notificationListener)
-			.notifyBuyer(new OrderRaceCanceledEvent(first, 1, RACE_ID, StubRaceCoursePort.PRICE));
-		verify(notificationListener)
-			.notifyBuyer(new OrderRaceCanceledEvent(second, 2, RACE_ID, StubRaceCoursePort.PRICE));
-		verify(notificationListener, times(2)).notifyBuyer(any());
+		ArgumentCaptor<NotificationRequestedEvent> sent = ArgumentCaptor.forClass(NotificationRequestedEvent.class);
+		verify(notificationSender, times(2)).send(sent.capture());
+		assertThat(sent.getAllValues())
+			.extracting(NotificationRequestedEvent::memberId, NotificationRequestedEvent::kind)
+			.containsExactlyInAnyOrder(tuple(1L, NotificationKind.RACE_CANCELED),
+				tuple(2L, NotificationKind.RACE_CANCELED));
+		assertThat(sent.getAllValues().getFirst().body())
+			.contains(String.format("₩%,d", StubRaceCoursePort.PRICE));
 	}
 
 	@Test
@@ -170,6 +205,40 @@ class RaceCancelRefundTest {
 
 		assertThat(again).isEqualTo(new RaceCancelRefundUseCase.RefundResult(0, 0));
 		assertThat(walletPort.refundCalls()).containsExactly(new StubWalletPort.Call(orderId, 1));
+		// 다시 처리해도 건수는 DB에서 세므로 1건 그대로다. 같은 완료가 다시 나가므로 정산은 대회별로 한 번만 처리한다
+		assertThat(raceRefunds()).extracting(RaceRefundEvent::kind, RaceRefundEvent::refundedCount)
+			.containsExactly(tuple(RaceRefundKind.HELD, 0L), tuple(RaceRefundKind.REFUNDED, 1L),
+				tuple(RaceRefundKind.HELD, 0L), tuple(RaceRefundKind.REFUNDED, 1L));
+	}
+
+	@Test
+	@DisplayName("같은 대회 취소 메시지(같은 message-id)를 두 번 받으면 두 번째는 환불 흐름을 돌지 않는다 (BUK-53)")
+	void duplicateMessageIsSkipped() throws Exception {
+		long orderId = paidOrder(1, COURSE_ID);
+
+		orderKafkaConsumer.handleRaceCancel(RACE_CANCEL_PAYLOAD, MESSAGE_ID);
+		orderKafkaConsumer.handleRaceCancel(RACE_CANCEL_PAYLOAD, MESSAGE_ID);
+
+		verify(raceCancelRefundUseCase, times(1)).refundAll(eq(RACE_ID), any(LocalDateTime.class));
+		assertThat(walletPort.refundCalls()).containsExactly(new StubWalletPort.Call(orderId, 1));
+		assertThat(orderInboxKafkaEventRepository.count()).isEqualTo(1);
+	}
+
+	@Test
+	@DisplayName("환불이 실패한 메시지는 인박스에 남지 않아, 다시 받으면 실패한 주문을 환불한다 (BUK-53)")
+	void failedMessageIsNotRecorded() throws Exception {
+		long orderId = paidOrder(1, COURSE_ID);
+		walletPort.setRefundFails(true);
+
+		assertThatThrownBy(() -> orderKafkaConsumer.handleRaceCancel(RACE_CANCEL_PAYLOAD, MESSAGE_ID))
+			.isInstanceOf(IllegalStateException.class);
+		assertThat(orderInboxKafkaEventRepository.count()).isZero();
+
+		walletPort.setRefundFails(false);
+		orderKafkaConsumer.handleRaceCancel(RACE_CANCEL_PAYLOAD, MESSAGE_ID);
+
+		assertCanceled(orderId);
+		assertThat(orderInboxKafkaEventRepository.count()).isEqualTo(1);
 	}
 
 	@Test
@@ -183,8 +252,9 @@ class RaceCancelRefundTest {
 		assertThat(failed).isEqualTo(new RaceCancelRefundUseCase.RefundResult(0, 1));
 		assertThat(statusOf(first)).isEqualTo(OrderStatus.PAID);
 		assertThat(participationStatusOf(first)).isEqualTo(ParticipationStatus.CONFIRMED);
-		// 환불이 롤백된 주문은 알리지 않는다
-		verify(notificationListener, never()).notifyBuyer(any());
+		// 환불이 롤백된 주문은 알리지 않는다. 정산에는 보류만 가고 완료는 가지 않아 보류가 유지된다
+		verify(notificationSender, never()).send(any());
+		assertThat(raceRefunds()).extracting(RaceRefundEvent::kind).containsExactly(RaceRefundKind.HELD);
 
 		walletPort.setRefundFails(false);
 		long second = paidOrder(2, COURSE_ID);
@@ -194,6 +264,10 @@ class RaceCancelRefundTest {
 		assertCanceled(first);
 		assertCanceled(second);
 		assertThat(walletPort.refundedAmounts()).hasSize(2);
+		// 나눠 환불해도 완료의 건수는 그 대회에서 대회 취소로 환불한 참가권 전체다
+		assertThat(raceRefunds()).extracting(RaceRefundEvent::kind, RaceRefundEvent::refundedCount)
+			.containsExactly(tuple(RaceRefundKind.HELD, 0L), tuple(RaceRefundKind.HELD, 0L),
+				tuple(RaceRefundKind.REFUNDED, 2L));
 	}
 
 	@Test
@@ -210,6 +284,7 @@ class RaceCancelRefundTest {
 		assertThat(result).isEqualTo(
 			new RaceCancelRefundUseCase.RefundResult(0, RaceCancelRefundUseCase.MAX_CONSECUTIVE_FAILURES));
 		assertThat(walletPort.refundCalls()).hasSize(RaceCancelRefundUseCase.MAX_CONSECUTIVE_FAILURES);
+		assertThat(raceRefunds()).extracting(RaceRefundEvent::kind).containsExactly(RaceRefundKind.HELD);
 	}
 
 	@Test
@@ -226,7 +301,7 @@ class RaceCancelRefundTest {
 		assertThat(walletPort.balance()).isEqualTo(BALANCE);
 		assertThatThrownBy(() -> pay(1, orderId)).isInstanceOf(OrderNotPayableException.class);
 		assertThat(statusOf(orderId)).isEqualTo(OrderStatus.CREATED);
-		verify(notificationListener, never()).notifyBuyer(any());
+		verify(notificationSender, never()).send(any());
 	}
 
 	@Test
@@ -344,6 +419,14 @@ class RaceCancelRefundTest {
 	private ParticipationStatus participationStatusOf(long orderId) {
 		long participationId = orderOf(orderId).participationId();
 		return participationRepository.findById(participationId).orElseThrow().getStatus();
+	}
+
+	private List<OrderItemRefundedEvent> refunded() {
+		return SeatOutboxMessages.refunded(orderOutboxKafkaEventRepository, jsonConverter);
+	}
+
+	private List<RaceRefundEvent> raceRefunds() {
+		return SeatOutboxMessages.raceRefunds(orderOutboxKafkaEventRepository, jsonConverter);
 	}
 
 	private List<Long> restoredSeats() {

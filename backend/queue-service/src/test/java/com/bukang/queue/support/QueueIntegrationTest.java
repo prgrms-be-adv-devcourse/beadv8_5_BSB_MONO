@@ -9,7 +9,9 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import com.bukang.common.global.json.JsonConverter;
 import com.bukang.queue.TestcontainersConfiguration;
@@ -41,6 +43,11 @@ public abstract class QueueIntegrationTest {
 	@Autowired
 	protected StringRedisTemplate redisTemplate;
 
+	// 실제 KafkaTemplate을 감싼다 (DLT 다시 보내기 테스트가 send를 가짜로 바꾼다). 자동 설정 빈의 타입이 KafkaTemplate<?, ?>라 같은 타입으로 받는다
+	// 하위 클래스마다 두면 Spring 컨텍스트와 Redis 컨테이너가 클래스마다 새로 뜨므로 공통 클래스에 둔다
+	@MockitoSpyBean
+	private KafkaTemplate<?, ?> kafkaTemplate;
+
 	@AfterEach
 	void cleanUpQueueTest() {
 		queueRaceRepository.deleteAll();
@@ -50,6 +57,11 @@ public abstract class QueueIntegrationTest {
 			connection.serverCommands().flushDb();
 			return null;
 		});
+	}
+
+	@SuppressWarnings("unchecked")
+	protected KafkaTemplate<String, String> kafka() {
+		return (KafkaTemplate<String, String>)kafkaTemplate;
 	}
 
 	// 메시지의 수정 일시. 같은 날(2026-10-15)의 시각만 바꿔 어느 메시지가 먼저인지 나타낸다

@@ -9,12 +9,14 @@ import org.springframework.stereotype.Service;
 
 import com.bukang.order.domain.Order;
 import com.bukang.order.domain.Participation;
+import com.bukang.order.domain.ParticipationType;
 import com.bukang.order.domain.QueueAdmission;
 import com.bukang.order.domain.ShippingAddress;
 import com.bukang.order.domain.exception.ApplicationPeriodException;
 import com.bukang.order.domain.exception.OrderConflictException;
 import com.bukang.order.domain.exception.ParticipationAccessDeniedException;
 import com.bukang.order.domain.exception.ParticipationNotFoundException;
+import com.bukang.order.domain.exception.ParticipationNotPayableException;
 import com.bukang.order.domain.exception.QueueNotAdmittedException;
 import com.bukang.order.domain.exception.RaceCourseNotFoundException;
 import com.bukang.order.out.OrderRepository;
@@ -71,6 +73,10 @@ public class OrderCreateUseCase {
 			return OrderCreateResult.soldOut();
 		}
 		participation.checkPayable();
+		// 파티원 신청서는 파티장이 신청할 때 크루 자리를 한꺼번에 잡는다. 여기로 오면 개인 자리를 잡아 크루 몫을 우회한다
+		if (participation.getParticipationType() == ParticipationType.PARTY) {
+			throw new ParticipationNotPayableException("파티원 신청은 파티장이 신청한 뒤 파티 결제로 결제해 주세요.");
+		}
 		RaceCourseInfo course = raceCoursePort.findCourse(participation.getRaceCourseId())
 			.orElseThrow(() -> new RaceCourseNotFoundException("존재하지 않는 종목입니다."));
 		ParticipationApplyUseCase.checkNotCanceled(course);

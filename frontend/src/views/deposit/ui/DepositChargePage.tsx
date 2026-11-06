@@ -3,7 +3,7 @@
 import { useState } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
-import { MIN_CHARGE, requestCharge } from '@/features/deposit-charge'
+import { ChargeHeldAlert, MIN_CHARGE, requestCharge } from '@/features/deposit-charge'
 import { useMyBalance } from '@/entities/wallet'
 import { Alert, BottomCta, Button, KeyValue } from '@/shared/ui'
 
@@ -18,13 +18,15 @@ export function DepositChargePage() {
   const [amount, setAmount] = useState(MIN_CHARGE)
   const [charging, setCharging] = useState(false)
   const [failed, setFailed] = useState(false)
+  const [held, setHeld] = useState(false)
 
   const charge = () => {
     setCharging(true)
     setFailed(false)
     requestCharge({ amount })
       .then((result) => {
-        if (result === 'canceled') setCharging(false)
+        if (result !== 'redirecting') setCharging(false)
+        setHeld(result === 'held')
       })
       .catch(() => {
         setCharging(false)
@@ -44,6 +46,7 @@ export function DepositChargePage() {
             description="잠시 뒤 다시 시도해 주세요."
           />
         )}
+        {held && <ChargeHeldAlert />}
         <section className="flex flex-col gap-4 rounded-lg bg-bg-surface p-5 shadow-sm inset-ring inset-ring-border-default">
           <label htmlFor="charge-amount" className="text-label-m">
             충전할 금액

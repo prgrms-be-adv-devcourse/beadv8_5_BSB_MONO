@@ -60,4 +60,24 @@ describe('requestCharge', () => {
     )
     expect(real.navigate).not.toHaveBeenCalled()
   })
+
+  it('결과를 모르는 충전이 10분 안에 있으면 결제창을 띄우지 않고, 그 충전 기록도 덮어쓰지 않는다', async () => {
+    const prior = { orderId: 'charge-prior', amount: 12_000, uncertainAt: Date.now() - 60_000 }
+    sessionStorage.setItem('crewrun:pending-charge', JSON.stringify(prior))
+    const mock = env({ mocking: true })
+
+    await expect(requestCharge({ amount: 10_000 }, mock)).resolves.toBe('held')
+
+    expect(mock.navigate).not.toHaveBeenCalled()
+    expect(readPendingCharge()).toEqual(prior)
+  })
+
+  it('결과를 모르는 충전이 10분보다 오래됐으면 새로 충전한다', async () => {
+    const prior = { orderId: 'charge-prior', amount: 12_000, uncertainAt: Date.now() - 11 * 60_000 }
+    sessionStorage.setItem('crewrun:pending-charge', JSON.stringify(prior))
+    const mock = env({ mocking: true })
+
+    await expect(requestCharge({ amount: 10_000 }, mock)).resolves.toBe('redirecting')
+    expect(readPendingCharge()?.orderId).not.toBe('charge-prior')
+  })
 })

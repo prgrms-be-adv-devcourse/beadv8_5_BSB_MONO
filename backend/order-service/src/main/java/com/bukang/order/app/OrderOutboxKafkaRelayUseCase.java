@@ -14,6 +14,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.bukang.common.shared.kafka.KafkaMessageId;
 import com.bukang.order.domain.OrderOutboxKafkaEvent;
 import com.bukang.order.domain.OutboxStatus;
 import com.bukang.order.out.OrderOutboxKafkaEventRepository;
@@ -97,7 +98,10 @@ public class OrderOutboxKafkaRelayUseCase {
 
 	private boolean send(OrderOutboxKafkaEvent event) {
 		try {
-			kafkaTemplate.send(event.getEventType(), event.getMessageKey(), event.getPayload())
+			// 받는 서비스가 같은 메시지를 두 번 처리하지 않게 행에 저장한 메시지 ID를 헤더로 붙인다 (#285 인박스, BUK-81)
+			// 여기서 새로 만들면 다시 보낼 때마다 값이 달라지므로 저장한 값을 그대로 보낸다
+			kafkaTemplate.send(KafkaMessageId.record(event.getEventType(), event.getMessageKey(), event.getPayload(),
+					event.getMessageId()))
 				.get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS);
 			return true;
 		} catch (InterruptedException exception) {

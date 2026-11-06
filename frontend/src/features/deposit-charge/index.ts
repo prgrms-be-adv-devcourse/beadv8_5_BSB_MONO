@@ -5,6 +5,7 @@ export {
   requestCharge,
   type ChargeRequest,
 } from './model/request-charge'
+export { ChargeHeldAlert } from './ui/ChargeHeldAlert'
 export {
   useConfirmChargeReturn,
   type ChargeOutcome,
