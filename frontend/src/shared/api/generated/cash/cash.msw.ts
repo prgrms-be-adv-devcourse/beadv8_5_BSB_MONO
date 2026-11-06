@@ -21,13 +21,13 @@ import type {
 } from './cash.schemas';
 
 
-export const getRequestWithdrawalResponseMock = (): RsDataCashWithdrawalDto => ({"status":200,"message":"환급 신청이 완료되었습니다.","data":{"withdrawnAmount":50000,"balance":0}})
+export const getRequestWithdrawalResponseMock = (): RsDataCashWithdrawalDto => ({"status":200,"message":"환급 신청이 완료되었습니다.","data":{"withdrawnAmount":130000,"balance":0,"cardAmount":30000,"accountAmount":100000,"processingAmount":0,"revertedAmount":0,"accountRequired":false}})
 
 export const getConfirmWalletChargeResponseMock = (): RsDataCashChargeDto => ({"status":200,"message":"충전했습니다.","data":{"outcome":"COMPLETED","balance":60000}})
 
-export const getGetBalanceResponseMock = (): RsDataWalletBalanceDto => ({"status":200,"message":"잔액 조회 성공","data":{"holderId":3,"balance":50000}})
+export const getGetLedgersResponseMock = (): RsDataPageDtoWalletLedgerItemDto => ({"status":200,"message":"예치금 내역을 조회했습니다.","data":{"content":[{"category":"PAYMENT","ledgerType":"사용__주문결제","amount":-5000,"balanceAfter":5000,"createdAt":"2026-10-21T11:30:00.102938","refId":100,"charge":null},{"category":"CHARGE","ledgerType":"충전__PG결제_토스페이먼츠","amount":10000,"balanceAfter":10000,"createdAt":"2026-10-20T09:03:03.319058","refId":1,"charge":{"chargeId":1,"chargedAt":"2026-10-20T09:03:01","amount":10000,"remainingAmount":5000,"lastCancelableDate":"2027-10-19","expired":false}}],"page":0,"size":20,"totalElements":2,"totalPages":1}})
 
-export const getGetLedgersResponseMock = (): RsDataPageDtoWalletLedgerItemDto => ({"status":200,"message":"예치금 내역을 조회했습니다.","data":{"content":[{"category":"CHARGE","ledgerType":"충전__PG결제_토스페이먼츠","amount":10000,"balanceAfter":60000,"createdAt":"2026-10-20T09:03:03.319058","refId":1}],"page":0,"size":20,"totalElements":1,"totalPages":1}})
+export const getGetBalanceResponseMock = (): RsDataWalletBalanceDto => ({"status":200,"message":"잔액 조회 성공","data":{"holderId":3,"balance":50000}})
 
 
 export const getRequestWithdrawalMockHandler = (overrideResponse?: RsDataCashWithdrawalDto | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<RsDataCashWithdrawalDto> | RsDataCashWithdrawalDto), options?: RequestHandlerOptions) => {
@@ -54,13 +54,11 @@ export const getConfirmWalletChargeMockHandler = (overrideResponse?: RsDataCashC
   }, options)
 }
 
-export const getGetBalanceMockHandler = (overrideResponse?: RsDataWalletBalanceDto | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<RsDataWalletBalanceDto> | RsDataWalletBalanceDto), options?: RequestHandlerOptions) => {
-  return http.get('*/api/v1/cash/wallets/balance', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+export const getGetRefundableChargesMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
+  return http.get('*/api/v1/cash/wallets/refundable-charges', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
 
-
-    return HttpResponse.json(overrideResponse !== undefined
-    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
-    : getGetBalanceResponseMock(),
+    return new HttpResponse(null,
       { status: 200
       })
   }, options)
@@ -77,9 +75,22 @@ export const getGetLedgersMockHandler = (overrideResponse?: RsDataPageDtoWalletL
       })
   }, options)
 }
+
+export const getGetBalanceMockHandler = (overrideResponse?: RsDataWalletBalanceDto | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<RsDataWalletBalanceDto> | RsDataWalletBalanceDto), options?: RequestHandlerOptions) => {
+  return http.get('*/api/v1/cash/wallets/balance', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getGetBalanceResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
 export const getBukangCashAPIMock = () => [
   getRequestWithdrawalMockHandler(),
   getConfirmWalletChargeMockHandler(),
-  getGetBalanceMockHandler(),
-  getGetLedgersMockHandler()
+  getGetRefundableChargesMockHandler(),
+  getGetLedgersMockHandler(),
+  getGetBalanceMockHandler()
 ]
