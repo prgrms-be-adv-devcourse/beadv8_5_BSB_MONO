@@ -473,14 +473,15 @@ describe('예치금 돌려받기 (M22, 환급 변경안 11/5)', () => {
   it('카드로 돌려줄 수 없는 몫이 계좌 정보가 없어 되돌아오면(accountRequired) 계좌를 받고 다시 신청하게 한다', async () => {
     let planCalls = 0
     const bodies: WithdrawalBody[] = []
+    const keys: (string | null)[] = []
     server.use(
+      // 카드사가 부분 취소를 거절한 충전 건은 기한 안이라 다시 불러와도 카드로 나올 수 있다
       http.get('*/api/v1/cash/wallets/refundable-charges', () => {
         planCalls += 1
-        // 첫 조회는 카드만, 신청 뒤에는 계좌로 보낼 몫만 남았다
-        const data = planCalls === 1 ? CARD_ONLY : ACCOUNT_ONLY
-        return HttpResponse.json({ status: 200, message: '아무 문구', data })
+        return HttpResponse.json({ status: 200, message: '아무 문구', data: CARD_ONLY })
       }),
       http.post('*/api/v1/cash/withdrawals', async ({ request }) => {
+        keys.push(request.headers.get('Idempotency-Key'))
         bodies.push((await request.json()) as WithdrawalBody)
         return bodies.length === 1
           ? okWithdrawal({
@@ -505,6 +506,8 @@ describe('예치금 돌려받기 (M22, 환급 변경안 11/5)', () => {
     expect(screen.getByLabelText('계좌번호')).toBeInTheDocument()
     expect(push).not.toHaveBeenCalled()
     await vi.waitFor(() => expect(planCalls).toBe(2))
+    // 알림과 어긋나게 「전부 결제한 카드로 돌아가요」를 보여 주지 않는다
+    expect(screen.queryByText('결제한 카드로 돌아가요', { exact: false })).not.toBeInTheDocument()
     await fillAccount(user)
     await user.click(await submit())
 
@@ -514,6 +517,34 @@ describe('예치금 돌려받기 (M22, 환급 변경안 11/5)', () => {
       accountNumber: '12345601234567',
       accountHolder: '김러너',
     })
+    // 첫 신청은 끝난 요청이라 다시 신청은 새 키로 보낸다
+    expect(keys[1]).not.toBe(keys[0])
+  })
+
+  it('accountRequired와 함께 확인 중인 금액이 있으면 그 금액이 정해진 뒤 다시 신청하라고 알린다', async () => {
+    server.use(
+      planHandler(CARD_ONLY),
+      http.post('*/api/v1/cash/withdrawals', () =>
+        okWithdrawal({
+          balance: 5000,
+          cardAmount: 40000,
+          accountAmount: 0,
+          processingAmount: 20000,
+          revertedAmount: 5000,
+          accountRequired: true,
+        }),
+      ),
+    )
+    const user = userEvent.setup()
+    renderWithClient(<DepositRefundPage />)
+
+    await user.click(await submit())
+
+    expect(
+      await screen.findByText('확인 중인 20,000원이 정해진 뒤 다시 신청할 수 있어요.', {
+        exact: false,
+      }),
+    ).toBeInTheDocument()
   })
 
   it('400 WITHDRAWAL_ACCOUNT_REQUIRED면 충전 내역을 다시 불러오고 계좌 입력을 보여 준다', async () => {
@@ -551,14 +582,16 @@ describe('예치금 돌려받기 (M22, 환급 변경안 11/5)', () => {
   })
 
   it('409 WITHDRAWAL_IN_PROGRESS면 처리 중인 환급이 끝난 뒤 다시 신청하라고 안내한다', async () => {
+    const keys: (string | null)[] = []
     server.use(
       planHandler(CARD_ONLY),
-      http.post('*/api/v1/cash/withdrawals', () =>
-        HttpResponse.json(
+      http.post('*/api/v1/cash/withdrawals', ({ request }) => {
+        keys.push(request.headers.get('Idempotency-Key'))
+        return HttpResponse.json(
           { status: 409, code: 'WITHDRAWAL_IN_PROGRESS', message: '아무 문구', data: null },
           { status: 409 },
-        ),
-      ),
+        )
+      }),
     )
     const user = userEvent.setup()
     renderWithClient(<DepositRefundPage />)
@@ -570,6 +603,22 @@ describe('예치금 돌려받기 (M22, 환급 변경안 11/5)', () => {
     ).toBeInTheDocument()
     expect(screen.queryByText('잠시 뒤 다시 시도해 주세요.')).not.toBeInTheDocument()
     expect(push).not.toHaveBeenCalled()
+    // 거절된 요청이라 나중에 다시 신청하면 새 키로 보낸다
+    await user.click(await submit())
+    await vi.waitFor(() => expect(keys).toHaveLength(2))
+    expect(keys[1]).not.toBe(keys[0])
+  })
+
+  it('가짜 응답 모드에서 계좌 없이 신청하면 카드 결제취소로 답한다', async () => {
+    const res = await fetch('http://localhost/api/v1/cash/withdrawals', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Idempotency-Key': 'card-key' },
+      body: JSON.stringify({}),
+    }).then((r) => r.json() as Promise<{ data: WithdrawalResult }>)
+
+    expect(res.data).toEqual(
+      withdrawalResult({ withdrawnAmount: 5000, cardAmount: 5000, accountAmount: 0 }),
+    )
   })
 
   it('가짜 응답 모드에서는 같은 키로 두 번 보내도 한 번만 빠지고 같은 결과를 받는다', async () => {
@@ -705,6 +754,32 @@ describe('예치금 돌려받기 · 환급 완료 (M22-1)', () => {
     expect(screen.queryByText('예치금으로 되돌린 금액')).not.toBeInTheDocument()
     expect(screen.queryByText('받을 계좌')).not.toBeInTheDocument()
     expect(screen.queryByText('예금주')).not.toBeInTheDocument()
+  })
+
+  it('카드 결제취소가 전부 거절돼 예치금으로 되돌아왔으면 돌려받았다고 쓰지 않는다', () => {
+    save({
+      amount: 65000,
+      balance: 65000,
+      accountAmount: 0,
+      revertedAmount: 65000,
+      bankName: undefined,
+      maskedAccount: undefined,
+      accountHolder: undefined,
+    })
+    renderWithClient(<DepositRefundDonePage />)
+
+    expect(screen.getByRole('heading', { name: '예치금으로 되돌아왔어요' })).toBeInTheDocument()
+    expect(screen.queryByText('진행 단계')).not.toBeInTheDocument()
+    expect(
+      screen.getByText('카드 결제취소가 거절돼 예치금으로 되돌렸어요. 다시 신청할 수 있어요.'),
+    ).toBeInTheDocument()
+  })
+
+  it('일부라도 예치금으로 되돌아왔으면 환급 완료로 보이지 않는다', () => {
+    save({ amount: 65000, balance: 5000, accountAmount: 60000, revertedAmount: 5000 })
+    renderWithClient(<DepositRefundDonePage />)
+
+    expect(screen.getByRole('heading', { name: '환급을 신청했어요' })).toBeInTheDocument()
   })
 
   it('넘겨받은 값이 없으면(주소로 바로 들어옴) 예치금 화면으로 보낸다', async () => {
