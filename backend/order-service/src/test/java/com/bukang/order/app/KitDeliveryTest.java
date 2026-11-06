@@ -351,6 +351,11 @@ class KitDeliveryTest {
 		assertThat(shipmentOf(orderId).getTrackingStatus()).isEqualTo(DeliveryTrackingStatus.IN_TRANSIT);
 		assertThat(shipmentOf(orderId).getShippedAt()).isEqualTo(shippedAt);
 
+		// 같은 송장으로 다시 저장하면(두 번 누름) 받은 상태와 7일 기준을 그대로 둔다
+		kitDeliveryUseCase.changeTracking(SELLER_ID, itemId, CARRIER_ID, " 999 ", changedAt.plusMinutes(10));
+		assertThat(shipmentOf(orderId).getTrackingStatus()).isEqualTo(DeliveryTrackingStatus.IN_TRANSIT);
+		assertThat(shipmentOf(orderId).getTrackingStartedAt()).isEqualTo(changedAt);
+
 		// 다시 고치면 옛 송장의 상태·이동 기록을 지운다. 판매자 직접 배송 완료는 그대로 되고, 배송 완료 뒤에는 고칠 수 없다
 		kitDeliveryUseCase.changeTracking(SELLER_ID, itemId, CARRIER_ID, "998", changedAt.plusHours(1));
 		assertThat(shipmentOf(orderId).getTrackingStatus()).isEqualTo(DeliveryTrackingStatus.NOT_TRACKED);

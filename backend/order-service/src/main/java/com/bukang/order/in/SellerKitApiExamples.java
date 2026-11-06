@@ -223,6 +223,10 @@ final class SellerKitApiExamples {
 		{ "status": 409, "code": "ORDER_KIT_NOT_SHIPPABLE", "message": "배송 중인 키트만 송장을 고칠 수 있습니다.", "data": null }
 		""";
 
+	static final String NO_KIT = """
+		{ "status": 409, "code": "ORDER_KIT_NOT_SHIPPABLE", "message": "키트가 없는 참가권입니다.", "data": null }
+		""";
+
 	static final String SELLER_UNAVAILABLE = """
 		{ "status": 503, "code": "ORDER_EXTERNAL_SERVICE_UNAVAILABLE",
 			"message": "판매자 기능을 아직 쓸 수 없습니다. 잠시 뒤 다시 시도해주세요.", "data": null }

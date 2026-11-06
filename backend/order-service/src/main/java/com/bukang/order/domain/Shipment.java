@@ -176,6 +176,10 @@ public class Shipment extends BaseIdAndTime {
 			throw new KitNotShippableException("배송 중인 키트만 송장을 고칠 수 있습니다.");
 		}
 		checkTrackingNumber(trackingNumber);
+		// 같은 송장으로 다시 저장하면(두 번 누름) 받은 기록과 7일 기준을 그대로 둔다
+		if (carrier.getId().equals(carrierId) && trackingNumber.strip().equals(this.trackingNumber)) {
+			return;
+		}
 		this.carrierId = carrier.getId();
 		this.carrier = carrier.getLabel();
 		this.trackingNumber = trackingNumber.strip();

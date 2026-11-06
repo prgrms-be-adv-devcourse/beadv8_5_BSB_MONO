@@ -202,7 +202,10 @@ public class ApiV1SellerKitController {
 				examples = @ExampleObject(value = SellerKitApiExamples.ITEM_NOT_FOUND))),
 		@ApiResponse(responseCode = "409", description = "배송 중이 아님(발송 전·배송 완료), 키트 없음",
 			content = @Content(schema = @Schema(implementation = RsData.class),
-				examples = @ExampleObject(value = SellerKitApiExamples.NOT_SHIPPING))),
+				examples = {
+					@ExampleObject(name = "배송 중이 아님", value = SellerKitApiExamples.NOT_SHIPPING),
+					@ExampleObject(name = "키트 없음", value = SellerKitApiExamples.NO_KIT)
+				})),
 		@ApiResponse(responseCode = "503", description = "판매자 확인을 아직 쓸 수 없음",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = SellerKitApiExamples.SELLER_UNAVAILABLE)))

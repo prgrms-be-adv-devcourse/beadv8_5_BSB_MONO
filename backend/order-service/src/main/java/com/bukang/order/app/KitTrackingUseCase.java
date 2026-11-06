@@ -84,7 +84,9 @@ public class KitTrackingUseCase {
 					Order order = orderRepository.findByIdForUpdate(target.orderId()).orElseThrow();
 					Shipment.TrackingOutcome outcome = order.applyKitTracking(target.shipmentId(), target.carrierId(),
 						target.trackingNumber(), result, now);
-					return new Applied(outcome, order.kitSellerId(target.shipmentId()));
+					// 판매자 ID는 알릴 때(조회 중단)만 쓴다
+					return new Applied(outcome,
+						outcome == Shipment.TrackingOutcome.STOPPED ? order.kitSellerId(target.shipmentId()) : 0);
 				});
 			} catch (RuntimeException exception) {
 				// 한 배송을 남기지 못해도 나머지는 계속한다. 조회 시각을 바꿔 계속 실패하는 배송이 앞줄을 막지 않게 한다
