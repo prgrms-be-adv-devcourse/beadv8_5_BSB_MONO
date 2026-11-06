@@ -30,7 +30,7 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * 원장 잔고와 회수 상계 (PRO-214)
  * 잔고는 판매자 × 대회 × 계정의 원장 줄을 더해 계산한다. 따로 저장하지 않는다
- * 상계는 갚을 돈(RECEIVABLE)을 같은 판매자 × 대회의 지급 전 정산 내역에서 바로 뺀다. 정산 내역 금액까지만 뺀다
+ * 상계는 갚을 돈을 같은 판매자 × 대회의 지급 전 정산 내역에서 바로 뺀다. 정산 내역 금액까지만 뺀다
  * 회수 요청 · 최종 생성 · 대회 취소가 같은 규칙을 쓰도록 한곳에 둔다
  * 일정 변경 환불 · 대회 취소의 회수 요청과 관리자의 입금 확인도 여기서 받는다 (payout.md 4-2 · 4-3, PRO-33 · PRO-34)
  */
@@ -63,15 +63,15 @@ public class PayoutLedgerUseCase {
 		if (existing.isPresent()) {
 			return existing;
 		}
-		if (findLive(sellerId, raceId, PayoutStage.FINAL).isPresent()) {
-			// 최종 정산을 만든 뒤의 환불은 번 돈(EARNING)까지 되돌려야 해서 아직 정하지 않았다 (PRO-214 미룸)
+		if (findLive(sellerId, raceId, PayoutStage.최종_정산).isPresent()) {
+			// 최종 정산을 만든 뒤의 환불은 번 돈까지 되돌려야 해서 아직 정하지 않았다 (PRO-214 미룸)
 			// 주문이 정산 생성일부터 환불을 막으므로 생기면 안 되는 경우다. 구매자 환불은 이미 끝났으니
 			// 사람이 판매자에게서 돌려받을 수 있게 처리하는 자리에서 자세히 남긴다 (PR #265 리뷰)
 			log.error("최종 정산 뒤 환불이라 회수를 남기지 못했습니다. 사람이 확인해야 합니다. "
 				+ "sellerId={}, raceId={}, orderItemId={}, price={}", sellerId, raceId, orderItemId, price);
 			throw new PayoutRecoveryConflictException("최종 정산을 만든 뒤의 환불은 아직 회수할 수 없습니다.");
 		}
-		if (findLive(sellerId, raceId, PayoutStage.FIRST).isEmpty()) {
+		if (findLive(sellerId, raceId, PayoutStage.일차_정산).isEmpty()) {
 			return Optional.empty();
 		}
 
@@ -85,17 +85,17 @@ public class PayoutLedgerUseCase {
 	/**
 	 * 대회 취소의 회수 요청 (payout.md 4-3, PRO-34 · PRO-214). 대회당 1건만 만든다
 	 * 판매자가 손에 든 돈 = 남은 1차 정산금 + 번 돈. 지급 전 정산 내역은 먼저 되돌렸으므로 지급한 정산 내역의 몫만 남는다
-	 * 이미 요청 중인 갚을 돈(RECEIVABLE)은 따로 받으므로 더하지 않는다
+	 * 이미 요청 중인 갚을 돈은 따로 받으므로 더하지 않는다
 	 *
 	 * @return 만든 회수. 이미 있거나 돌려받을 돈이 없으면 빈 값
 	 */
 	@Transactional
 	public Optional<PayoutRecovery> recoverRaceCancel(long sellerId, long raceId, LocalDateTime now) {
-		if (payoutRecoveryRepository.existsByRaceIdAndReasonType(raceId, PayoutRecoveryReason.RACE_CANCELED)) {
+		if (payoutRecoveryRepository.existsByRaceIdAndReasonType(raceId, PayoutRecoveryReason.대회_취소)) {
 			return Optional.empty();
 		}
-		long advance = balance(sellerId, raceId, PayoutAccount.ADVANCE);
-		long earning = balance(sellerId, raceId, PayoutAccount.EARNING);
+		long advance = balance(sellerId, raceId, PayoutAccount.선금);
+		long earning = balance(sellerId, raceId, PayoutAccount.번_돈);
 		if (earning != 0) {
 			// 최종 지급 뒤의 대회 취소는 번 돈까지 되돌려야 하는데 아직 정하지 않았다 (PRO-214 미룸). 금액만 맞춰 1차 정산금 줄로 남긴다
 			log.warn("최종 지급 뒤 대회 취소: 번 돈까지 회수합니다. sellerId={}, raceId={}, earning={}",
@@ -111,7 +111,7 @@ public class PayoutLedgerUseCase {
 			return Optional.empty();
 		}
 		return Optional.of(openRecovery(
-			new PayoutRecovery(sellerId, raceId, PayoutRecoveryReason.RACE_CANCELED, amount, now), null, null));
+			new PayoutRecovery(sellerId, raceId, PayoutRecoveryReason.대회_취소, amount, now), null, null));
 	}
 
 	/**
@@ -124,16 +124,16 @@ public class PayoutLedgerUseCase {
 	@Transactional(propagation = Propagation.MANDATORY)
 	public List<PayoutRecovery> revertOffsetRecoveries(long sellerId, long raceId) {
 		List<PayoutRecovery> offset = payoutRecoveryRepository.findBySellerIdAndRaceIdAndStatus(
-				sellerId, raceId, PayoutRecoveryStatus.COMPLETED).stream()
-			.filter(recovery -> recovery.getReasonType() == PayoutRecoveryReason.SCHEDULE_CHANGED)
-			.filter(recovery -> recovery.getCompletion() == PayoutRecoveryCompletion.OFFSET)
+				sellerId, raceId, PayoutRecoveryStatus.회수_완료).stream()
+			.filter(recovery -> recovery.getReasonType() == PayoutRecoveryReason.일정_변경)
+			.filter(recovery -> recovery.getCompletion() == PayoutRecoveryCompletion.상계)
 			.toList();
 		for (PayoutRecovery recovery : offset) {
 			long amount = recovery.getAmount();
 			Long orderItemId = recovery.getOrderItemId();
-			payoutItemRepository.save(PayoutItem.ofRecovery(recovery, PayoutRecordType.RECOVERY_REQUESTED_CANCELED,
+			payoutItemRepository.save(PayoutItem.ofRecovery(recovery, PayoutRecordType.회수_요청_취소,
 				orderItemId, null, amount));
-			payoutItemRepository.save(PayoutItem.ofRecovery(recovery, PayoutRecordType.RECEIVABLE_ADDED_CANCELED,
+			payoutItemRepository.save(PayoutItem.ofRecovery(recovery, PayoutRecordType.갚을_돈_추가_취소,
 				orderItemId, null, -amount));
 			recovery.cancelByRaceCancel();
 		}
@@ -141,7 +141,7 @@ public class PayoutLedgerUseCase {
 	}
 
 	/**
-	 * 최종 정산 내역에서 남은 1차 정산금을 빼고, 아직 못 받은 갚을 돈(RECEIVABLE)이 있으면 바로 상계한다 (PRO-214)
+	 * 최종 정산 내역에서 남은 1차 정산금을 빼고, 아직 못 받은 갚을 돈이 있으면 바로 상계한다 (PRO-214)
 	 * 정산 내역을 저장한 뒤에 부른다. 상계가 이 정산 내역을 잠가서 읽기 때문이다
 	 * 저장한 정산 내역 엔티티를 받으므로 부른 쪽 트랜잭션 안에서만 돈다(MANDATORY).
 	 * 새 트랜잭션을 열면 받은 엔티티가 영속성 컨텍스트 밖이라 차감 줄이 소리 없이 빠질 수 있다
@@ -150,7 +150,7 @@ public class PayoutLedgerUseCase {
 	public void deductAdvanceAndSettle(Payout payout, LocalDateTime now) {
 		// 남은 1차 정산금 = 1차 정산금 − 회수 요청액. 회수 요청 때 이미 1차 정산금에서 뺐으므로 진행 중인 회수액을 또 빼지 않는다
 		// 차감 줄을 쓰기 전에 읽는다. 쓴 뒤에 읽으면 자동 flush로 그 줄이 더해져 0이 된다
-		long advance = balance(payout.getSellerId(), payout.getRaceId(), PayoutAccount.ADVANCE);
+		long advance = balance(payout.getSellerId(), payout.getRaceId(), PayoutAccount.선금);
 		payout.deductAdvance(advance);
 		settle(payout.getSellerId(), payout.getRaceId(), now);
 	}
@@ -175,7 +175,7 @@ public class PayoutLedgerUseCase {
 	// 다시 불러도 잔고로 다시 계산하므로 이미 뺀 금액을 또 빼지 않는다
 	// 부르는 쪽(회수 요청 · 최종 정산 차감)의 트랜잭션 안에서 돈다. 이번에 완료한 회수를 돌려준다
 	private List<PayoutRecovery> settle(long sellerId, long raceId, LocalDateTime now) {
-		long receivable = balance(sellerId, raceId, PayoutAccount.RECEIVABLE);
+		long receivable = balance(sellerId, raceId, PayoutAccount.갚을_돈);
 		if (receivable <= 0) {
 			return List.of();
 		}
@@ -192,11 +192,11 @@ public class PayoutLedgerUseCase {
 	// 남은 금액을 넘겨받지 않고 잔고를 다시 읽는다. 방금 쓴 상계 · 입금 줄도 자동 flush로 더해진다
 	// 상계와 입금이 같은 잔고를 동시에 읽어 갚을 돈이 0 아래가 됐어도, 더 받을 돈이 없으므로 완료한다
 	private List<PayoutRecovery> completeRequestedIfCleared(long sellerId, long raceId, LocalDateTime now) {
-		if (balance(sellerId, raceId, PayoutAccount.RECEIVABLE) > 0) {
+		if (balance(sellerId, raceId, PayoutAccount.갚을_돈) > 0) {
 			return List.of();
 		}
 		List<PayoutRecovery> requested = payoutRecoveryRepository.findBySellerIdAndRaceIdAndStatus(
-			sellerId, raceId, PayoutRecoveryStatus.REQUESTED);
+			sellerId, raceId, PayoutRecoveryStatus.회수_요청);
 		requested.forEach(recovery -> recovery.completeByOffset(now));
 		return requested;
 	}
@@ -206,15 +206,15 @@ public class PayoutLedgerUseCase {
 		PayoutRecovery saved = payoutRecoveryRepository.save(recovery);
 		long amount = saved.getAmount();
 		payoutItemRepository.save(
-			PayoutItem.ofRecovery(saved, PayoutRecordType.RECOVERY_REQUESTED, orderItemId, raceCourseId, -amount));
+			PayoutItem.ofRecovery(saved, PayoutRecordType.회수_요청, orderItemId, raceCourseId, -amount));
 		payoutItemRepository.save(
-			PayoutItem.ofRecovery(saved, PayoutRecordType.RECEIVABLE_ADDED, orderItemId, raceCourseId, amount));
+			PayoutItem.ofRecovery(saved, PayoutRecordType.갚을_돈_추가, orderItemId, raceCourseId, amount));
 		return saved;
 	}
 
 	// 대회 취소로 닫히지 않은 그 단계의 정산 내역
 	private Optional<Payout> findLive(long sellerId, long raceId, PayoutStage stage) {
 		return payoutRepository.findFirstBySellerIdAndRaceIdAndPayoutStageOrderByIdAsc(sellerId, raceId, stage)
-			.filter(payout -> payout.getStatus() != PayoutStatus.CANCELED);
+			.filter(payout -> payout.getStatus() != PayoutStatus.취소);
 	}
 }

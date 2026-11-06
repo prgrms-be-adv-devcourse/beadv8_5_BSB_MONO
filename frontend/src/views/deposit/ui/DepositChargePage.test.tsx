@@ -64,4 +64,15 @@ describe('예치금 충전 (M21)', () => {
     expect(await screen.findByText('결제하지 못했어요')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '₩10,000 충전하기' })).toBeEnabled()
   })
+
+  it('앞선 충전 결과를 아직 모르면 결제창을 띄우지 않고 기다리라고 안내한다', async () => {
+    requestCharge.mockResolvedValue('held')
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(screen.getByRole('button', { name: '₩10,000 충전하기' }))
+
+    expect(await screen.findByText('앞선 충전 결과를 확인하고 있어요')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '₩10,000 충전하기' })).toBeEnabled()
+  })
 })

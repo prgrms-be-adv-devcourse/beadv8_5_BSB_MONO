@@ -35,10 +35,10 @@ class PayoutRecoveryConstraintTest {
 	@Test
 	@DisplayName("같은 대회의 대회 취소 회수를 두 번 저장하면 실패한다")
 	void raceCanceledTwice() {
-		save(new PayoutRecovery(1, 10, PayoutRecoveryReason.RACE_CANCELED, 40_000, REQUESTED_AT));
+		save(new PayoutRecovery(1, 10, PayoutRecoveryReason.대회_취소, 40_000, REQUESTED_AT));
 
 		assertThatThrownBy(() -> save(
-			new PayoutRecovery(1, 10, PayoutRecoveryReason.RACE_CANCELED, 40_000, REQUESTED_AT)))
+			new PayoutRecovery(1, 10, PayoutRecoveryReason.대회_취소, 40_000, REQUESTED_AT)))
 			.isInstanceOf(PersistenceException.class);
 	}
 

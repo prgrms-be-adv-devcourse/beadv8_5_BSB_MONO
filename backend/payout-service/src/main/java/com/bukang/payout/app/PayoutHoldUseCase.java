@@ -77,9 +77,9 @@ public class PayoutHoldUseCase {
 		return true;
 	}
 
-	// 계좌가 없으면 지급 배치가 고르지 않도록 HELD로 둔다. 판매자가 계좌를 등록하면 관리자가 보류를 푼다
+	// 계좌가 없으면 지급 배치가 고르지 않도록 지급보류로 둔다. 판매자가 계좌를 등록하면 관리자가 보류를 푼다
 	private void holdForMissingAccount(Payout payout, LocalDateTime now) {
-		holdBySystem(payout, PayoutHoldReason.ACCOUNT_NOT_REGISTERED, AUTO_HOLD_REASON, now);
+		holdBySystem(payout, PayoutHoldReason.정산_계좌_미등록, AUTO_HOLD_REASON, now);
 	}
 
 	// 보류는 정산 내역의 PK를 참조하므로 정산 내역을 저장한 뒤에 건다

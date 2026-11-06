@@ -166,9 +166,9 @@ class PayoutReconcileUseCaseTest {
 				PayoutCreateFailure::getRaceId, PayoutCreateFailure::getRaceCourseId,
 				PayoutCreateFailure::getPayoutTargetDate, PayoutCreateFailure::getFailureType,
 				PayoutCreateFailure::getNote, PayoutCreateFailure::getRunDate)
-			.containsExactly(tuple(PayoutStage.FIRST, 1L, 10L, null, YESTERDAY, PayoutCreateFailureType.대사_불일치,
+			.containsExactly(tuple(PayoutStage.일차_정산, 1L, 10L, null, YESTERDAY, PayoutCreateFailureType.대사_불일치,
 				"판매 합 = 70,000, 정산 합 = 50,000", TODAY));
-		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.CALCULATED);
+		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.지급_예정);
 	}
 
 	@Test
@@ -189,7 +189,7 @@ class PayoutReconcileUseCaseTest {
 
 		assertThat(mismatches()).extracting(PayoutCreateFailure::getNote)
 			.containsExactly("판매 합 = 70,000, 정산 합 = 90,000");
-		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.HELD);
+		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.지급보류);
 		assertThat(reconcileHoldsOf(payout)).hasSize(1);
 	}
 
@@ -216,13 +216,13 @@ class PayoutReconcileUseCaseTest {
 			.extracting(PayoutCreateFailure::getPayoutStage, PayoutCreateFailure::getSellerId,
 				PayoutCreateFailure::getRaceId, PayoutCreateFailure::getRaceCourseId,
 				PayoutCreateFailure::getPayoutTargetDate, PayoutCreateFailure::getNote)
-			.containsExactly(tuple(PayoutStage.FINAL, 2L, 20L, COURSE_A, YESTERDAY, "빠진 1장 추가 (코스 3: 1장)"));
+			.containsExactly(tuple(PayoutStage.최종_정산, 2L, 20L, COURSE_A, YESTERDAY, "빠진 1장 추가 (코스 3: 1장)"));
 		assertThat(payout.getItems())
 			.filteredOn(item -> Long.valueOf(103).equals(item.getOrderItemId()))
 			.extracting(PayoutItem::getRecordType, PayoutItem::getAmount)
-			.containsExactlyInAnyOrder(tuple(PayoutRecordType.SALE, 10_000L), tuple(PayoutRecordType.FEE, -550L));
+			.containsExactlyInAnyOrder(tuple(PayoutRecordType.판매, 10_000L), tuple(PayoutRecordType.수수료, -550L));
 		assertThat(payout.getSalesAmount()).isEqualTo(50_000);
-		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.CALCULATED);
+		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.지급_예정);
 	}
 
 	@Test
@@ -245,7 +245,7 @@ class PayoutReconcileUseCaseTest {
 
 		assertThat(mismatches()).extracting(PayoutCreateFailure::getNote)
 			.containsExactly("더 들어감 1장 (코스 3: 1장)");
-		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.HELD);
+		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.지급보류);
 		assertThat(reconcileHoldsOf(payout)).hasSize(1);
 	}
 
@@ -260,7 +260,7 @@ class PayoutReconcileUseCaseTest {
 		assertThat(mismatches()).extracting(PayoutCreateFailure::getRaceCourseId, PayoutCreateFailure::getNote)
 			.containsExactly(tuple(null, "빠진 1장 추가 (코스 3: 1장), 더 들어감 1장 (코스 4: 1장)"));
 		assertThat(payout.getItems()).anyMatch(item -> Long.valueOf(103).equals(item.getOrderItemId()));
-		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.HELD);
+		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.지급보류);
 	}
 
 	@Test
@@ -273,7 +273,7 @@ class PayoutReconcileUseCaseTest {
 
 		assertThat(mismatches()).extracting(PayoutCreateFailure::getNote)
 			.containsExactly("가격 다름 1장 (코스 3: 1장)");
-		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.CALCULATED);
+		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.지급_예정);
 	}
 
 	@Test
@@ -287,7 +287,7 @@ class PayoutReconcileUseCaseTest {
 
 		assertThat(mismatches()).extracting(PayoutCreateFailure::getSellerId, PayoutCreateFailure::getNote)
 			.containsExactly(tuple(9L, "더 들어감 2장 (코스 3: 2장)"));
-		assertThat(stray.getStatus()).isEqualTo(PayoutStatus.HELD);
+		assertThat(stray.getStatus()).isEqualTo(PayoutStatus.지급보류);
 	}
 
 	@Test
@@ -295,14 +295,14 @@ class PayoutReconcileUseCaseTest {
 	void holdsAlongsideAccountHold() {
 		Payout payout = saveFinal(2, LongStream.rangeClosed(101, 106).mapToObj(id -> ticket(id, COURSE_A, 10_000))
 			.toArray(long[][]::new));
-		payoutHoldRepository.save(payout.hold(PayoutHoldReason.ACCOUNT_NOT_REGISTERED, null,
+		payoutHoldRepository.save(payout.hold(PayoutHoldReason.정산_계좌_미등록, null,
 			PayoutHold.SYSTEM_MEMBER_ID, NOW));
 
 		useCase(List.of(), soldFiveOfSeller2()).run(TODAY, NOW);
 
 		assertThat(payoutHoldRepository.findAll()).extracting(PayoutHold::getReasonType, PayoutHold::getStatus)
-			.containsExactlyInAnyOrder(tuple(PayoutHoldReason.ACCOUNT_NOT_REGISTERED, PayoutHoldStatus.HELD),
-				tuple(PayoutHoldReason.대사_불일치, PayoutHoldStatus.HELD));
+			.containsExactlyInAnyOrder(tuple(PayoutHoldReason.정산_계좌_미등록, PayoutHoldStatus.지급보류),
+				tuple(PayoutHoldReason.대사_불일치, PayoutHoldStatus.지급보류));
 	}
 
 	@Test
@@ -315,7 +315,7 @@ class PayoutReconcileUseCaseTest {
 		useCase(List.of(), soldFiveOfSeller2()).run(TODAY, NOW);
 
 		assertThat(mismatches()).hasSize(1);
-		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.PAID);
+		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.지급_완료);
 		assertThat(reconcileHoldsOf(payout)).isEmpty();
 	}
 
@@ -342,9 +342,9 @@ class PayoutReconcileUseCaseTest {
 		assertThat(mismatches())
 			.extracting(PayoutCreateFailure::getPayoutStage, PayoutCreateFailure::getRaceId,
 				PayoutCreateFailure::getFailureType)
-			.containsExactlyInAnyOrder(tuple(PayoutStage.FIRST, 10L, PayoutCreateFailureType.대사_불일치),
-				tuple(PayoutStage.FINAL, 20L, PayoutCreateFailureType.주문_조회_실패));
-		assertThat(first.getStatus()).isEqualTo(PayoutStatus.HELD);
+			.containsExactlyInAnyOrder(tuple(PayoutStage.일차_정산, 10L, PayoutCreateFailureType.대사_불일치),
+				tuple(PayoutStage.최종_정산, 20L, PayoutCreateFailureType.주문_조회_실패));
+		assertThat(first.getStatus()).isEqualTo(PayoutStatus.지급보류);
 	}
 
 	@Test
@@ -374,7 +374,7 @@ class PayoutReconcileUseCaseTest {
 		useCase(List.of(), soldFiveOfSeller2()).run(TODAY, NOW);
 
 		assertThat(payout.getItems()).extracting(PayoutItem::getRecordType, PayoutItem::getAmount)
-			.contains(tuple(PayoutRecordType.RECOVERY_OFFSET, -4_000L));
+			.contains(tuple(PayoutRecordType.회수_상계, -4_000L));
 	}
 
 	@Test
@@ -402,10 +402,10 @@ class PayoutReconcileUseCaseTest {
 				PayoutCreateFailure::getRaceId, PayoutCreateFailure::getPayoutTargetDate,
 				PayoutCreateFailure::getFailureType, PayoutCreateFailure::getNote)
 			.containsExactlyInAnyOrder(
-				tuple(PayoutStage.FIRST, 1L, 10L, YESTERDAY, PayoutCreateFailureType.대사_불일치,
+				tuple(PayoutStage.일차_정산, 1L, 10L, YESTERDAY, PayoutCreateFailureType.대사_불일치,
 					"판매 합 = 70,000, 정산 합 = 90,000"),
-				tuple(PayoutStage.FINAL, null, 20L, YESTERDAY, PayoutCreateFailureType.알_수_없는_실패,
+				tuple(PayoutStage.최종_정산, null, 20L, YESTERDAY, PayoutCreateFailureType.알_수_없는_실패,
 					"IllegalStateException"));
-		assertThat(first.getStatus()).isEqualTo(PayoutStatus.HELD);
+		assertThat(first.getStatus()).isEqualTo(PayoutStatus.지급보류);
 	}
 }

@@ -70,8 +70,8 @@ public class PayoutReconcileStepUseCase {
 		LocalDateTime now) {
 		Map<Long, Long> soldBySeller = summaries.stream()
 			.collect(groupingBy(SoldSummary::sellerId, summingLong(SoldSummary::priceSum)));
-		Map<Long, List<Payout>> payoutsBySeller = livePayouts(race.raceId(), PayoutStage.FIRST);
-		Set<Long> sellersWithFinal = livePayouts(race.raceId(), PayoutStage.FINAL).keySet();
+		Map<Long, List<Payout>> payoutsBySeller = livePayouts(race.raceId(), PayoutStage.일차_정산);
+		Set<Long> sellersWithFinal = livePayouts(race.raceId(), PayoutStage.최종_정산).keySet();
 
 		List<PayoutCreateFailure> mismatches = new ArrayList<>();
 		for (long sellerId : sellers(soldBySeller.keySet(), payoutsBySeller.keySet())) {
@@ -89,8 +89,8 @@ public class PayoutReconcileStepUseCase {
 				payouts.forEach(payout -> payoutHoldUseCase.holdForReconcileMismatch(payout, now));
 			}
 			String note = "판매 합 = %,d, 정산 합 = %,d".formatted(sold, settled);
-			log.warn("대사_불일치 stage=FIRST, sellerId={}, raceId={}, {}", sellerId, race.raceId(), note);
-			mismatches.add(PayoutCreateFailure.reconcileMismatch(PayoutStage.FIRST, sellerId, race.raceId(), null,
+			log.warn("대사_불일치 stage=일차_정산, sellerId={}, raceId={}, {}", sellerId, race.raceId(), note);
+			mismatches.add(PayoutCreateFailure.reconcileMismatch(PayoutStage.일차_정산, sellerId, race.raceId(), null,
 				race.refundDeadline(), note, today));
 		}
 		return mismatches;
@@ -107,7 +107,7 @@ public class PayoutReconcileStepUseCase {
 	public List<PayoutCreateFailure> reconcileFinal(RaceSchedule race, List<SoldEntry> entries, LocalDate today,
 		LocalDateTime now) {
 		Map<Long, List<SoldEntry>> soldBySeller = entries.stream().collect(groupingBy(SoldEntry::sellerId));
-		Map<Long, List<Payout>> payoutsBySeller = livePayouts(race.raceId(), PayoutStage.FINAL);
+		Map<Long, List<Payout>> payoutsBySeller = livePayouts(race.raceId(), PayoutStage.최종_정산);
 
 		List<PayoutCreateFailure> mismatches = new ArrayList<>();
 		for (long sellerId : sellers(soldBySeller.keySet(), payoutsBySeller.keySet())) {
@@ -117,7 +117,7 @@ public class PayoutReconcileStepUseCase {
 			// 같은 참가권의 판매 줄은 DB 유일 제약으로 하나뿐이다
 			Map<Long, PayoutItem> saleById = payouts.stream()
 				.flatMap(payout -> payout.getItems().stream())
-				.filter(item -> item.getRecordType() == PayoutRecordType.SALE)
+				.filter(item -> item.getRecordType() == PayoutRecordType.판매)
 				.collect(toMap(PayoutItem::getOrderItemId, Function.identity()));
 
 			TicketDiff diff = ticketDiffer.diff(soldById.keySet(), saleById.keySet());
@@ -162,9 +162,9 @@ public class PayoutReconcileStepUseCase {
 				.flatMap(Function.identity())
 				.collect(Collectors.toCollection(HashSet::new)); // 코스가 NULL인 참가권도 센다
 			// 참가권 ID는 비고 길이를 넘을 수 있어 로그에만 남긴다 (AC-67-12)
-			log.warn("대사_불일치 stage=FINAL, sellerId={}, raceId={}, 빠짐 orderItemId={}, 더 들어감 orderItemId={}, "
+			log.warn("대사_불일치 stage=최종_정산, sellerId={}, raceId={}, 빠짐 orderItemId={}, 더 들어감 orderItemId={}, "
 				+ "가격 다름 orderItemId={}", sellerId, race.raceId(), diff.missing(), diff.extra(), priceDiffers);
-			mismatches.add(PayoutCreateFailure.reconcileMismatch(PayoutStage.FINAL, sellerId, race.raceId(),
+			mismatches.add(PayoutCreateFailure.reconcileMismatch(PayoutStage.최종_정산, sellerId, race.raceId(),
 				courses.size() == 1 ? courses.iterator().next() : null, race.raceDate(), truncate(note), today));
 		}
 		return mismatches;
@@ -173,7 +173,7 @@ public class PayoutReconcileStepUseCase {
 	// 취소된 정산 내역은 비교하지 않는다. 지급보류 · 지급 완료는 비교한다 (5장 실패 시나리오)
 	private Map<Long, List<Payout>> livePayouts(long raceId, PayoutStage stage) {
 		return payoutRepository.findByRaceId(raceId).stream()
-			.filter(payout -> payout.getPayoutStage() == stage && payout.getStatus() != PayoutStatus.CANCELED)
+			.filter(payout -> payout.getPayoutStage() == stage && payout.getStatus() != PayoutStatus.취소)
 			.collect(groupingBy(Payout::getSellerId));
 	}
 

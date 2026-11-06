@@ -34,20 +34,20 @@ class PayoutHoldTest {
 	}
 
 	private PayoutHold hold(Payout payout) {
-		return payout.hold(PayoutHoldReason.ACCOUNT_NOT_REGISTERED, "계좌 확인 중", ADMIN_ID, HELD_AT);
+		return payout.hold(PayoutHoldReason.정산_계좌_미등록, "계좌 확인 중", ADMIN_ID, HELD_AT);
 	}
 
 	@Test
-	@DisplayName("정산 예정 상태에 보류를 걸면 정산 내역은 HELD, 보류는 지급보류 상태로 만들어진다")
+	@DisplayName("정산 예정 상태에 보류를 걸면 정산 내역은 지급보류, 보류는 지급보류 상태로 만들어진다")
 	void holdCalculated() {
 		Payout payout = newPayout();
 
 		PayoutHold hold = hold(payout);
 
-		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.HELD);
+		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.지급보류);
 		assertThat(hold.getPayout()).isSameAs(payout);
-		assertThat(hold.getStatus()).isEqualTo(PayoutHoldStatus.HELD);
-		assertThat(hold.getReasonType()).isEqualTo(PayoutHoldReason.ACCOUNT_NOT_REGISTERED);
+		assertThat(hold.getStatus()).isEqualTo(PayoutHoldStatus.지급보류);
+		assertThat(hold.getReasonType()).isEqualTo(PayoutHoldReason.정산_계좌_미등록);
 		assertThat(hold.getReason()).isEqualTo("계좌 확인 중");
 		assertThat(hold.getHeldBy()).isEqualTo(ADMIN_ID);
 		assertThat(hold.getHeldAt()).isEqualTo(HELD_AT);
@@ -74,9 +74,9 @@ class PayoutHoldTest {
 
 		PayoutHold mismatchHold = payout.hold(PayoutHoldReason.대사_불일치, null, PayoutHold.SYSTEM_MEMBER_ID, HELD_AT);
 
-		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.HELD);
-		assertThat(accountHold.getStatus()).isEqualTo(PayoutHoldStatus.HELD);
-		assertThat(mismatchHold.getStatus()).isEqualTo(PayoutHoldStatus.HELD);
+		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.지급보류);
+		assertThat(accountHold.getStatus()).isEqualTo(PayoutHoldStatus.지급보류);
+		assertThat(mismatchHold.getStatus()).isEqualTo(PayoutHoldStatus.지급보류);
 	}
 
 	@Test
@@ -88,12 +88,12 @@ class PayoutHoldTest {
 
 		payout.release(accountHold, ADMIN_ID, LocalDateTime.of(2026, 11, 25, 9, 0), CALENDAR);
 
-		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.HELD);
+		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.지급보류);
 		assertThat(payout.getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 11, 20));
 
 		payout.release(mismatchHold, ADMIN_ID, LocalDateTime.of(2026, 11, 27, 9, 0), CALENDAR);
 
-		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.CALCULATED);
+		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.지급_예정);
 		assertThat(payout.getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 11, 28));
 	}
 
@@ -117,8 +117,8 @@ class PayoutHoldTest {
 
 		payout.release(hold, 77, releasedAt, CALENDAR);
 
-		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.CALCULATED);
-		assertThat(hold.getStatus()).isEqualTo(PayoutHoldStatus.RELEASED);
+		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.지급_예정);
+		assertThat(hold.getStatus()).isEqualTo(PayoutHoldStatus.해제);
 		assertThat(hold.getReleasedAt()).isEqualTo(releasedAt);
 		assertThat(hold.getReleasedBy()).isEqualTo(77);
 	}

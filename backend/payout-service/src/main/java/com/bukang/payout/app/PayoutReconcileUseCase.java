@@ -44,38 +44,38 @@ public class PayoutReconcileUseCase {
 	private final PayoutCreateFailureUseCase payoutCreateFailureUseCase;
 
 	public void run(LocalDate today, LocalDateTime now) {
-		for (RaceSchedule race : targetRaces(PayoutStage.FIRST, today, now)) {
+		for (RaceSchedule race : targetRaces(PayoutStage.일차_정산, today, now)) {
 			List<SoldSummary> summaries;
 			try {
 				summaries = soldSummaryPort.summarizeSold(race.raceId());
 			} catch (RuntimeException exception) {
-				failOrderLookup(PayoutStage.FIRST, race.raceId(), race.refundDeadline(), today, exception);
+				failOrderLookup(PayoutStage.일차_정산, race.raceId(), race.refundDeadline(), today, exception);
 				continue;
 			}
-			recordMismatches(PayoutStage.FIRST, race, race.refundDeadline(), today,
+			recordMismatches(PayoutStage.일차_정산, race, race.refundDeadline(), today,
 				() -> payoutReconcileStepUseCase.reconcileFirst(race, summaries, today, now));
 		}
-		for (RaceSchedule race : targetRaces(PayoutStage.FINAL, today, now)) {
+		for (RaceSchedule race : targetRaces(PayoutStage.최종_정산, today, now)) {
 			List<SoldEntry> entries;
 			try {
 				entries = soldEntryPort.findSoldEntries(race.raceId());
 			} catch (RuntimeException exception) {
-				failOrderLookup(PayoutStage.FINAL, race.raceId(), race.raceDate(), today, exception);
+				failOrderLookup(PayoutStage.최종_정산, race.raceId(), race.raceDate(), today, exception);
 				continue;
 			}
-			recordMismatches(PayoutStage.FINAL, race, race.raceDate(), today,
+			recordMismatches(PayoutStage.최종_정산, race, race.raceDate(), today,
 				() -> payoutReconcileStepUseCase.reconcileFinal(race, entries, today, now));
 		}
 	}
 
 	// ②의 대회는 생성 배치의 되돌아보기 기간 안에서만 만들어지므로, 그 기간의 대회 목록에서 ① · ②를 함께 고른다
 	private List<RaceSchedule> targetRaces(PayoutStage stage, LocalDate today, LocalDateTime now) {
-		LocalDate newTargetDate = stage == PayoutStage.FIRST
+		LocalDate newTargetDate = stage == PayoutStage.일차_정산
 			? PayoutCreateDate.refundDeadlineFor(today) : PayoutCreateDate.raceDateFor(today);
 		LocalDate from = newTargetDate.minusDays(PayoutCreateUseCase.LOOKBACK_DAYS - 1);
 		List<RaceSchedule> races;
 		try {
-			races = stage == PayoutStage.FIRST
+			races = stage == PayoutStage.일차_정산
 				? racePort.findRacesByRefundDeadline(from, newTargetDate)
 				: racePort.findRacesByRaceDate(from, newTargetDate);
 		} catch (RuntimeException exception) {
@@ -90,7 +90,7 @@ public class PayoutReconcileUseCase {
 	}
 
 	private static LocalDate targetDateOf(PayoutStage stage, RaceSchedule race) {
-		return stage == PayoutStage.FIRST ? race.refundDeadline() : race.raceDate();
+		return stage == PayoutStage.일차_정산 ? race.refundDeadline() : race.raceDate();
 	}
 
 	// 대사 중 주문 조회만 실패한 대회는 다시 비교하지 않는다 (11/5 결정, AC-67-11)

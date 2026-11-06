@@ -130,7 +130,7 @@ class PayoutCreateUseCaseFailureRecordTest {
 
 	// 판매자 1 × 대회 10 최종 실패 한 줄의 칸 (실패 종류만 다르다). 코스 · 비고는 빈칸
 	private static Tuple sellerRaceRow(PayoutCreateFailureType type) {
-		return tuple(PayoutStage.FINAL, 1L, 10L, null, RACE_DATE, type, null, TODAY);
+		return tuple(PayoutStage.최종_정산, 1L, 10L, null, RACE_DATE, type, null, TODAY);
 	}
 
 	private List<Tuple> rows() {
@@ -178,7 +178,7 @@ class PayoutCreateUseCaseFailureRecordTest {
 	void existenceCheckFailureIsRecordedAsLookup() {
 		PayoutRepository readDown = mock(PayoutRepository.class, delegatesTo(payoutRepository));
 		doThrow(new DataAccessResourceFailureException("DB 연결 끊김"))
-			.when(readDown).existsBySellerIdAndRaceIdAndPayoutMonthAndPayoutStage(1, 10, "2026-11", PayoutStage.FINAL);
+			.when(readDown).existsBySellerIdAndRaceIdAndPayoutMonthAndPayoutStage(1, 10, "2026-11", PayoutStage.최종_정산);
 
 		useCase(readDown, realStep(), soldEntries(SELLER_1), sellerId -> true, racesOf(RACE_10),
 			payoutCreateFailureRepository).run(TODAY, NOW);
@@ -193,7 +193,7 @@ class PayoutCreateUseCaseFailureRecordTest {
 
 		useCase(step, soldEntries(SELLER_1), sellerId -> true, racesOf(RACE_10)).run(TODAY, NOW);
 
-		assertThat(rows()).containsExactly(tuple(PayoutStage.FINAL, 1L, 10L, null, RACE_DATE,
+		assertThat(rows()).containsExactly(tuple(PayoutStage.최종_정산, 1L, 10L, null, RACE_DATE,
 			PayoutCreateFailureType.알_수_없는_실패, "IllegalArgumentException", TODAY));
 	}
 
@@ -207,7 +207,7 @@ class PayoutCreateUseCaseFailureRecordTest {
 		useCase(realStep(), orderDown, sellerId -> true, racesOf(RACE_10)).run(TODAY, NOW);
 
 		assertThat(rows()).containsExactly(
-			tuple(PayoutStage.FINAL, null, 10L, null, RACE_DATE, PayoutCreateFailureType.주문_조회_실패, null, TODAY));
+			tuple(PayoutStage.최종_정산, null, 10L, null, RACE_DATE, PayoutCreateFailureType.주문_조회_실패, null, TODAY));
 	}
 
 	@Test
@@ -228,7 +228,7 @@ class PayoutCreateUseCaseFailureRecordTest {
 
 		useCase(realStep(), soldEntries(), sellerId -> true, finalLookupDown).run(TODAY, NOW);
 
-		assertThat(rows()).containsExactly(tuple(PayoutStage.FINAL, null, null, null, null,
+		assertThat(rows()).containsExactly(tuple(PayoutStage.최종_정산, null, null, null, null,
 			PayoutCreateFailureType.대회_조회_실패, "from~to: 2026/11/3~2026/11/9", TODAY));
 	}
 
@@ -243,7 +243,7 @@ class PayoutCreateUseCaseFailureRecordTest {
 
 		assertThat(rows()).containsExactlyInAnyOrder(
 			sellerRaceRow(PayoutCreateFailureType.주문_정산_대회일_불일치),
-			tuple(PayoutStage.FINAL, 1L, 10L, null, RACE_DATE, PayoutCreateFailureType.주문_정산_대회일_불일치, null,
+			tuple(PayoutStage.최종_정산, 1L, 10L, null, RACE_DATE, PayoutCreateFailureType.주문_정산_대회일_불일치, null,
 				TODAY.plusDays(1)));
 	}
 
@@ -281,7 +281,7 @@ class PayoutCreateUseCaseFailureRecordTest {
 		PayoutRepository racing = mock(PayoutRepository.class, delegatesTo(payoutRepository));
 		AtomicBoolean checked = new AtomicBoolean(false);
 		doAnswer(invocation -> checked.getAndSet(true))
-			.when(racing).existsBySellerIdAndRaceIdAndPayoutMonthAndPayoutStage(1, 10, "2026-11", PayoutStage.FINAL);
+			.when(racing).existsBySellerIdAndRaceIdAndPayoutMonthAndPayoutStage(1, 10, "2026-11", PayoutStage.최종_정산);
 		PayoutCreateStepUseCase step = stepThrowing(new DataIntegrityViolationException("유일 제약 위반"));
 
 		PayoutCreateResultDto result = useCase(racing, step, soldEntries(SELLER_1), sellerId -> true,
