@@ -241,7 +241,8 @@ public class Order extends BaseIdAndTime {
 		});
 		if (!paidItems.isEmpty()) {
 			long refundedAmount = paidItems.stream().mapToLong(OrderItem::getAmount).sum();
-			publishEvent(new OrderRaceCanceledEvent(getId(), buyerId, raceId, refundedAmount));
+			publishEvent(new OrderRaceCanceledEvent(getId(), buyerId, raceId, refundedAmount,
+				paidItems.getFirst().getItemName()));
 		}
 		return paidItems;
 	}
