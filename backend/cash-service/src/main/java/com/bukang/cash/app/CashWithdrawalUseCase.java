@@ -152,6 +152,16 @@ public class CashWithdrawalUseCase {
 			CardCall call = outcome.call();
 			WalletCharge charge = walletChargeRepository.findById(call.chargeId()).orElseThrow();
 			WalletWithdrawalItem item = walletWithdrawalItemRepository.findById(call.itemId()).orElseThrow();
+			if (item.getStatus() != WithdrawalItemStatus.PENDING) {
+				// 토스를 기다리는 사이 재확인이 먼저 반영했다. 다시 반영하면 돈이 두 번 움직여 결과를 응답에만 담는다
+				switch (item.getStatus()) {
+					case REVERTED -> revertedAmount += call.amount();
+					case TRANSFERRED_TO_ACCOUNT -> switchedToAccountAmount += call.amount();
+					default -> {
+					}
+				}
+				continue;
+			}
 			if (outcome.failure() == null) {
 				// 요청 금액이 아니라 PG가 알려 준 취소 금액을 기록한다 (승인 때와 같은 원칙)
 				charge.recordCancel(outcome.result().canceledAmount());

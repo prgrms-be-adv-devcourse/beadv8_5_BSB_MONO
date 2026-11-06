@@ -13,6 +13,7 @@ import static org.mockito.Mockito.verify;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.junit.jupiter.api.AfterEach;
@@ -545,6 +546,65 @@ class CashWithdrawalByChargeTest {
 
 		// 신청 때 4번 + 재확인 때 4번
 		verify(paymentClient, times(8)).cancel(anyString(), anyString(), anyLong(), anyString());
+	}
+
+	@Test
+	@DisplayName("신청이 토스 답을 기다리는 사이 재확인이 같은 몫의 거절을 먼저 반영했으면, 신청은 그 몫을 다시 되돌리지 않는다")
+	void requestDoesNotApplyPartAlreadyAppliedByReconcile() {
+		Wallet wallet = createWallet(30_000);
+		completedCharge(wallet, 30_000, "charge_1", LocalDateTime.of(2026, 10, 10, 9, 0));
+		AtomicInteger calls = new AtomicInteger();
+		PaymentCancelFailedException rejected =
+			new PaymentCancelFailedException("PG사가 결제 취소를 거절했습니다.", "NOT_CANCELABLE_AMOUNT", false);
+		given(paymentClient.cancel(anyString(), anyString(), anyLong(), anyString())).willAnswer(invocation -> {
+			if (calls.incrementAndGet() == 1) {
+				// 신청의 토스 호출이 오래 걸려 그사이 재확인이 대기 몫을 집어 먼저 끝낸다
+				cashWithdrawalReconcileUseCase.reconcile(LocalDateTime.now().plusMinutes(60));
+			}
+			throw rejected;
+		});
+
+		cashFacade.requestWithdrawal(CUSTOMER_ID, null, null, null, "withdrawal_1", NOW);
+
+		assertRevertedOnce();
+	}
+
+	@Test
+	@DisplayName("재확인 두 개가 같은 몫을 함께 집어도(서버 여러 대), 먼저 반영한 쪽만 되돌리고 나중 쪽은 아무것도 하지 않는다")
+	void reconcileDoesNotApplyPartAlreadyAppliedByAnotherReconcile() {
+		Wallet wallet = createWallet(30_000);
+		completedCharge(wallet, 30_000, "charge_1", LocalDateTime.of(2026, 10, 10, 9, 0));
+		AtomicInteger calls = new AtomicInteger();
+		PaymentCancelFailedException rejected =
+			new PaymentCancelFailedException("PG사가 결제 취소를 거절했습니다.", "NOT_CANCELABLE_AMOUNT", false);
+		given(paymentClient.cancel(anyString(), anyString(), anyLong(), anyString())).willAnswer(invocation -> {
+			int call = calls.incrementAndGet();
+			if (call == 1) {
+				// 신청 중 서버가 멈춰 몫이 대기로 남는다
+				throw new IllegalStateException("서버가 멈춤");
+			}
+			if (call == 2) {
+				// 바깥 재확인이 토스 답을 기다리는 사이 다른 서버의 재확인이 같은 몫을 먼저 끝낸다
+				cashWithdrawalReconcileUseCase.reconcile(LocalDateTime.now().plusMinutes(60));
+			}
+			throw rejected;
+		});
+		assertThatThrownBy(() -> cashFacade.requestWithdrawal(CUSTOMER_ID, null, null, null, "withdrawal_1", NOW))
+			.isInstanceOf(IllegalStateException.class);
+
+		cashWithdrawalReconcileUseCase.reconcile(LocalDateTime.now().plusMinutes(60));
+
+		assertRevertedOnce();
+	}
+
+	// 거절된 30,000원 몫이 예치금에 한 번만 돌아왔는지 본다
+	private void assertRevertedOnce() {
+		assertThat(walletRepository.findById(CUSTOMER_ID).orElseThrow().getBalance()).isEqualTo(30_000);
+		assertThat(walletLedgerRepository.findAll())
+			.extracting(WalletLedger::getLedgerType, WalletLedger::getAmount)
+			.containsExactlyInAnyOrder(
+				tuple(LedgerType.출금__PG결제취소_토스페이먼츠, -30_000L),
+				tuple(LedgerType.출금취소__PG결제취소_토스페이먼츠, 30_000L));
 	}
 
 	// 기한 안 충전 4건을 환급 신청하고, 신청 때와 재확인 때 토스가 모두 failure로 답하게 한다

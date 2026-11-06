@@ -48,8 +48,8 @@ public class CashWithdrawalReconcileUseCase {
 	// → 몫마다 결과 반영(잠금 트랜잭션). 한 몫의 결과는 바로 커밋되고 다음 몫으로 넘어간다
 	public void reconcile(LocalDateTime now) {
 		List<Target> targets = transactionTemplate.execute(status -> findTargets(now).stream()
-			.map(item -> new Target(item.getId(), item.getCharge().getId(), item.getCharge().getPgPaymentKey(),
-				item.getAmount(), item.getPgIdempotencyKey(), item.getCreateDate()))
+			.map(item -> new Target(item.getId(), item.getWithdrawal().getWallet().getId(), item.getCharge().getId(),
+				item.getCharge().getPgPaymentKey(), item.getAmount(), item.getPgIdempotencyKey(), item.getCreateDate()))
 			.toList());
 		int consecutiveNoAnswers = 0;
 		for (int i = 0; i < targets.size(); i++) {
@@ -72,7 +72,7 @@ public class CashWithdrawalReconcileUseCase {
 				}
 				continue;
 			}
-			transactionTemplate.executeWithoutResult(status -> applyLocked(target.itemId(), outcome, now));
+			transactionTemplate.executeWithoutResult(status -> applyLocked(target, outcome, now));
 		}
 	}
 
@@ -85,15 +85,20 @@ public class CashWithdrawalReconcileUseCase {
 		}
 	}
 
-	private void applyLocked(long itemId, Outcome outcome, LocalDateTime now) {
-		WalletWithdrawalItem item = walletWithdrawalItemRepository.findById(itemId).orElseThrow();
+	private void applyLocked(Target target, Outcome outcome, LocalDateTime now) {
+		// 신청이나 다른 재확인도 지갑 잠금 안에서 반영하므로, 잠근 뒤 아직 미확정인지 다시 본다.
+		// 이미 반영된 몫을 또 반영하면 돈이 두 번 움직인다
+		Wallet wallet = cashSupport.lockWallet(target.walletId());
+		WalletWithdrawalItem item = walletWithdrawalItemRepository.findById(target.itemId()).orElseThrow();
+		if (!UNFINISHED.contains(item.getStatus())) {
+			return;
+		}
 		if (outcome.failure() == null) {
 			item.getCharge().recordCancel(outcome.result().canceledAmount());
 			item.markCompleted();
 		} else {
 			PaymentCancelFailedException rejected = outcome.failure();
 			// PG가 확실히 거절했으니 카드로 돌려주지 못했다. 신청 때 뺀 몫을 예치금에 되돌린다
-			Wallet wallet = cashSupport.lockWallet(item.getWithdrawal().getWallet().getId());
 			walletLedgerRepository.save(wallet.credit(item.getAmount(),
 				LedgerType.출금취소__PG결제취소_토스페이먼츠, LedgerRefType.Withdrawal, item.getWithdrawal().getId()));
 			if (CashWithdrawalUseCase.CARD_REFUND_IMPOSSIBLE.contains(rejected.getPgCode())
@@ -125,7 +130,8 @@ public class CashWithdrawalReconcileUseCase {
 	}
 
 	private record Target(
-		long itemId, long chargeId, String pgPaymentKey, long amount, String pgIdempotencyKey, LocalDateTime createDate
+		long itemId, long walletId, long chargeId, String pgPaymentKey, long amount, String pgIdempotencyKey,
+		LocalDateTime createDate
 	) {
 	}
 
