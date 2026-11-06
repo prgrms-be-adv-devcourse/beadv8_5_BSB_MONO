@@ -82,10 +82,7 @@ public class CashWithdrawalUseCase {
 			if (existing.get().getWallet().getId() != customerWallet.getId()) {
 				throw new WithdrawalMemberMismatchException("이 Idempotency-Key로 환급한 회원과 요청한 회원이 다릅니다.");
 			}
-			// shortcut: 같은 키 재요청은 몫별 금액을 아직 저장하지 않아 신청 금액과 잔액만 돌려준다, 몫 표가 생기면 몫에서 계산
-			WalletWithdrawal replayed = existing.get();
-			return Requested.replayOf(new CashWithdrawalResponseDto(
-				replayed.getAmount(), customerWallet.getBalance(), 0, 0, 0, 0, false));
+			return Requested.replayOf(replayOf(existing.get(), customerWallet.getBalance()));
 		}
 		if (walletWithdrawalRepository.existsByWalletAndStatus(customerWallet, WithdrawalStatus.IN_PROGRESS)) {
 			throw new WithdrawalInProgressException("처리 중인 환급이 있어 끝난 뒤에 다시 신청할 수 있습니다.");
@@ -128,6 +125,27 @@ public class CashWithdrawalUseCase {
 			walletLedgerRepository.save(customerWallet.debit(accountAmount, LedgerType.출금__통장입금, withdrawal));
 		}
 		return new Requested(null, withdrawal.getId(), amount, cardAmount, accountAmount, hasBankAccount, calls);
+	}
+
+	// 정책: 같은 키 재요청은 다시 처리하지 않고 지금 처리 상태를 돌려준다. 몫별 상태에서 네 금액을 다시 계산한다.
+	// shortcut: 계좌 정보가 없어 되돌린 몫인지는 저장하지 않아 accountRequired는 늘 false, 필요해지면 몫에 사유를 남긴다
+	private CashWithdrawalResponseDto replayOf(WalletWithdrawal withdrawal, long balance) {
+		long cardAmount = 0;
+		long processingAmount = 0;
+		long revertedAmount = 0;
+		for (WalletWithdrawalItem item : walletWithdrawalItemRepository.findByWithdrawal(withdrawal)) {
+			switch (item.getStatus()) {
+				case COMPLETED -> cardAmount += item.getAmount();
+				case PENDING, UNKNOWN -> processingAmount += item.getAmount();
+				case REVERTED -> revertedAmount += item.getAmount();
+				default -> {
+				}
+			}
+		}
+		// 나머지는 계좌 몫: 처음부터 계좌로 보낸 몫 + 카드에서 계좌로 바꾼 몫(TRANSFERRED_TO_ACCOUNT)
+		long accountAmount = withdrawal.getAmount() - cardAmount - processingAmount - revertedAmount;
+		return new CashWithdrawalResponseDto(withdrawal.getAmount(), balance, cardAmount, accountAmount,
+			processingAmount, revertedAmount, false);
 	}
 
 	private CardOutcome callPg(CardCall call) {

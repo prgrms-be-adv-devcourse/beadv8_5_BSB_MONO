@@ -597,6 +597,30 @@ class CashWithdrawalByChargeTest {
 		assertRevertedOnce();
 	}
 
+	@Test
+	@DisplayName("같은 중복 방지 키로 다시 신청하면 새로 처리하지 않고, 몫별 결과로 계산한 처음과 같은 네 금액을 돌려준다")
+	void replayReturnsAmountsFromParts() {
+		Wallet wallet = createWallet(130_000);
+		WalletCharge chargeC = completedCharge(wallet, 10_000, "charge_c", LocalDateTime.of(2026, 10, 10, 9, 0));
+		WalletCharge chargeD = completedCharge(wallet, 20_000, "charge_d", LocalDateTime.of(2026, 10, 13, 9, 0));
+		completedCharge(wallet, 30_000, "charge_e", LocalDateTime.of(2026, 10, 14, 9, 0));
+		// C는 거절(되돌림), D는 결과 모름(처리 중), E는 성공(카드), 충전이 아닌 70,000원은 계좌
+		given(paymentClient.cancel(anyString(), anyString(), anyLong(), eq("withdrawal_1:" + chargeC.getId())))
+			.willThrow(new PaymentCancelFailedException("PG사가 결제 취소를 거절했습니다.", "NOT_CANCELABLE_AMOUNT", false));
+		given(paymentClient.cancel(anyString(), anyString(), anyLong(), eq("withdrawal_1:" + chargeD.getId())))
+			.willThrow(new PaymentCancelFailedException("PG 서버에 연결하지 못했습니다.", null, true));
+		CashWithdrawalResponseDto first =
+			cashFacade.requestWithdrawal(CUSTOMER_ID, "004", "110123456789", "김러너", "withdrawal_1", NOW);
+
+		CashWithdrawalResponseDto replayed =
+			cashFacade.requestWithdrawal(CUSTOMER_ID, "004", "110123456789", "김러너", "withdrawal_1", NOW);
+
+		assertThat(first).isEqualTo(new CashWithdrawalResponseDto(
+			130_000, 10_000, 30_000, 70_000, 20_000, 10_000, false));
+		assertThat(replayed).isEqualTo(first);
+		verify(paymentClient, times(3)).cancel(anyString(), anyString(), anyLong(), anyString());
+	}
+
 	// 거절된 30,000원 몫이 예치금에 한 번만 돌아왔는지 본다
 	private void assertRevertedOnce() {
 		assertThat(walletRepository.findById(CUSTOMER_ID).orElseThrow().getBalance()).isEqualTo(30_000);
