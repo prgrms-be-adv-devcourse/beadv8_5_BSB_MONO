@@ -32,6 +32,7 @@ import com.bukang.common.shared.order.event.OrderItemRefundReason;
  *                           (ERD v4 race.schedule_changed_at)
  * @param tshirtSizeOption   이 종목이 주는 기념 티셔츠 사이즈 (B race_course.tshirt_size_option, XS~XXXL 중 판매자가 고름).
  *                           비어 있으면 티셔츠가 없다. 판매 시작 뒤에는 B가 바꾸지 못하게 막는다
+ * @param crewSale           파티(크루) 예매 정보. 상품이 아직 주지 않으면 null
  */
 public record RaceCourseInfo(
 	long raceCourseId,
@@ -48,12 +49,46 @@ public record RaceCourseInfo(
 	LocalDate refundDeadline,
 	LocalDateTime scheduleChangedAt,
 	boolean canceled,
-	List<String> tshirtSizeOption
+	List<String> tshirtSizeOption,
+	CrewSale crewSale
 ) {
+	/**
+	 * 파티(크루) 예매 정보 (B race.crew_sale_start_at·crew_sale_end_at·crew_min_count·crew_max_count). 파티 신청·합류에 쓴다
+	 * shortcut: 상품 종목 조회에 아직 이 네 칸이 없어 HTTP 어댑터는 null을 준다(파티 신청은 503). 호빈님이 칸을 더하면 그대로 채워진다
+	 *
+	 * @param startAt  파티 예매 시작. 파티원은 이 시각 7일 전까지 크루에 가입했어야 한다 (11/05 회의 P4)
+	 * @param endAt    파티 예매 마감 (크루 마감)
+	 * @param minCount 파티 최소 인원 (판매자가 정함, 11/05 회의 P3: 4명 아래로는 못 내림)
+	 * @param maxCount 파티 최대 인원 (판매자가 정함, 상한 10명)
+	 */
+	public record CrewSale(LocalDateTime startAt, LocalDateTime endAt, int minCount, int maxCount) {
+		// 파티 예매 시작 이상, 마감 전
+		public boolean isOpen(LocalDateTime now) {
+			return !now.isBefore(startAt) && now.isBefore(endAt);
+		}
+
+		// 이 시각까지 크루에 가입한 사람만 파티로 신청할 수 있다
+		public LocalDateTime joinDeadline() {
+			return startAt.minusDays(CREW_JOIN_DAYS_BEFORE_SALE);
+		}
+	}
+
+	// 파티 예매 시작 며칠 전까지 크루에 가입해야 하는지 (11/05 회의 P4)
+	public static final int CREW_JOIN_DAYS_BEFORE_SALE = 7;
+
 	public RaceCourseInfo {
 		// 상품이 빈 값을 섞어 보내도 종목 조회가 실패하지 않게 거른다
 		tshirtSizeOption = tshirtSizeOption == null ? List.of()
 			: tshirtSizeOption.stream().filter(Objects::nonNull).toList();
+	}
+
+	// 파티 예매 정보를 따로 정하지 않을 때 (개인 신청만 쓰는 곳·테스트)
+	public RaceCourseInfo(long raceCourseId, long raceId, LocalDateTime raceDate, LocalDateTime applicationOpenAt,
+		LocalDateTime applicationCloseAt, int minAge, Integer maxAge, long sellerId, String courseName, long price,
+		boolean kitIncluded, LocalDate refundDeadline, LocalDateTime scheduleChangedAt, boolean canceled,
+		List<String> tshirtSizeOption) {
+		this(raceCourseId, raceId, raceDate, applicationOpenAt, applicationCloseAt, minAge, maxAge, sellerId,
+			courseName, price, kitIncluded, refundDeadline, scheduleChangedAt, canceled, tshirtSizeOption, null);
 	}
 
 	// 티셔츠 사이즈를 따로 정하지 않을 때 (티셔츠 없음)

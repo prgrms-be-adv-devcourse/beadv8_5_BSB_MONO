@@ -27,6 +27,14 @@ public interface PartyRepository extends JpaRepository<Party, Long> {
 	record JoinTarget(long raceCourseId, long crewId) {
 	}
 
+	// 파티 신청 때 잠그기 전에 파티장·상태로 먼저 거른다. 상품·회원을 부르기 전에 빨리 거절하려는 것이고, 잠근 뒤 다시 본다
+	@Query("select new com.bukang.order.out.PartyRepository$ApplyTarget(p.raceCourseId, p.crewId, p.leaderMemberId, "
+		+ "p.status) from Party p where p.id = :id")
+	Optional<ApplyTarget> findApplyTarget(@Param("id") long id);
+
+	record ApplyTarget(long raceCourseId, long crewId, long leaderMemberId, PartyStatus status) {
+	}
+
 	// 이 대회에서 그 회원이 나가지 않은 살아 있는 파티 (BUK-91). 한 대회 한 신청이라 보통 하나지만, 혹시 여럿이면 최근 것부터
 	@Query("select p from Party p join PartyMember m on m.partyId = p.id where p.raceId = :raceId "
 		+ "and m.memberId = :memberId and m.leftAt is null and p.status in :statuses order by p.id desc")
@@ -37,4 +45,11 @@ public interface PartyRepository extends JpaRepository<Party, Long> {
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	@Query("select p from Party p where p.id = :id")
 	Optional<Party> findByIdForUpdate(@Param("id") long id);
+
+	// 링크 미리 보기 (BUK-39). 다시 만든 옛 토큰은 찾지 못한다
+	Optional<Party> findByJoinToken(String joinToken);
+
+	// 크루 홈 「진행 중인 파티」 (BUK-39)
+	// shortcut: crew_id·status 인덱스가 없다. 크루당 파티가 많아지면 (crew_id, status) 인덱스를 Flyway로 더한다
+	List<Party> findByCrewIdAndStatusInOrderByIdDesc(long crewId, Collection<PartyStatus> statuses);
 }

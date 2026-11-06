@@ -85,4 +85,14 @@ public class StubRaceCoursePort implements RaceCoursePort {
 			course.price(), course.kitIncluded(), course.refundDeadline(), course.scheduleChangedAt(), true,
 			course.tshirtSizeOption());
 	}
+
+	// 파티 예매 정보를 붙인다 (파티 신청·합류 최대 인원 테스트)
+	public static RaceCourseInfo withCrewSale(RaceCourseInfo course, LocalDateTime startAt, LocalDateTime endAt,
+		int minCount, int maxCount) {
+		return new RaceCourseInfo(course.raceCourseId(), course.raceId(), course.raceDate(), course.applicationOpenAt(),
+			course.applicationCloseAt(), course.minAge(), course.maxAge(), course.sellerId(), course.courseName(),
+			course.price(), course.kitIncluded(), course.refundDeadline(), course.scheduleChangedAt(),
+			course.canceled(), course.tshirtSizeOption(),
+			new RaceCourseInfo.CrewSale(startAt, endAt, minCount, maxCount));
+	}
 }
