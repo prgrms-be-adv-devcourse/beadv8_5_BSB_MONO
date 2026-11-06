@@ -51,8 +51,11 @@ export function formatKstShort(ms: number) {
 const LastWithdrawal = z.object({
   amount: z.number(),
   balance: z.number(),
-  /** 카드로 돌려받은 몫. 0이면 전부 계좌로 보냈다 */
-  cardRefundAmount: z.number().optional(),
+  /** 서버가 나눈 몫: 카드 결제취소 요청 · 계좌로 보냄 · 결과 확인 중 · 카드 결제취소가 거절돼 예치금에 되돌림 */
+  cardAmount: z.number(),
+  accountAmount: z.number(),
+  processingAmount: z.number(),
+  revertedAmount: z.number(),
   /** 계좌로 보낼 몫이 없어 계좌 없이 신청했으면 세 값 모두 없다 */
   bankName: z.string().optional(),
   maskedAccount: z.string().optional(),

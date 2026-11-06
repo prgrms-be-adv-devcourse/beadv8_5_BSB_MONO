@@ -81,24 +81,13 @@ export const refundPlanQueryOptions = () =>
 
 export type RefundAccount = { bankCode: string; accountNumber: string; accountHolder: string }
 
-/**
- * 환급 신청. 계좌로 보낼 몫이 없으면(accountRequired=false) 계좌 정보를 빼고 보낸다.
- * 지금 생성된 요청 타입은 계좌 정보가 필수라 그 경우만 타입을 맞춘다(백엔드가 선택으로 바꾸면 지운다).
- */
+/** 환급 신청. 계좌로 보낼 몫이 없으면(accountRequired=false) 계좌 정보를 빼고 보낸다 */
 export const requestRefund = (account: RefundAccount | null, idempotencyKey: string) =>
-  cashApi.requestWithdrawal(account ?? ({} as RefundAccount), { idempotencyKey })
-
-/**
- * 예치금 내역 충전 줄의 charge (환급 화면용 충전 내역 조회의 충전 건 한 줄과 같은 값). 다른 줄은 null.
- * openapi/cash.json에 아직 없는 필드라 타입을 덧붙여 읽는다. 내역을 zod로 걸러 모르는 값을 버리게 되면 여기도 바꾼다.
- */
-type LedgerCharge = {
-  charge?: { remainingAmount: number; lastCancelableDate: string; expired: boolean } | null
-}
+  cashApi.requestWithdrawal(account ?? {}, { idempotencyKey })
 
 /** 남은 금액이 있는 충전 줄이면 남은 금액 · 카드 취소 마지막 날 · 기한 지남 여부, 아니면 null */
 export function chargeRemaining(row: WalletLedger) {
-  const charge = (row as WalletLedger & LedgerCharge).charge
+  const charge = row.charge
   if (row.category !== 'CHARGE' || !charge || charge.remainingAmount <= 0) return null
   return {
     remainingAmount: charge.remainingAmount,

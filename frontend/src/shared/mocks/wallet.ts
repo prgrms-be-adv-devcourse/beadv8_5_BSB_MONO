@@ -205,6 +205,17 @@ function refundPreviewCase(referer: string | null) {
 /** 환급 결과(Idempotency-Key 헤더 = 멱등키). 같은 키로 다시 오면 처음 결과를 돌려준다 */
 const withdrawals = new Map<string, number>()
 
+/** 가짜 응답은 나누지 않고 전부 계좌로 보낸 것으로 답한다 */
+const withdrawalResult = (amount: number, balance: number) => ({
+  withdrawnAmount: amount,
+  balance,
+  cardAmount: 0,
+  accountAmount: amount,
+  processingAmount: 0,
+  revertedAmount: 0,
+  accountRequired: false,
+})
+
 export const walletHandlers = [
   http.get('*/api/v1/cash/wallets/refundable-charges', ({ request }) =>
     HttpResponse.json({
@@ -223,7 +234,7 @@ export const walletHandlers = [
       return HttpResponse.json({
         status: 200,
         message: '환급 신청이 완료되었습니다.',
-        data: { withdrawnAmount: done, balance: currentBalance(cookies) },
+        data: withdrawalResult(done, currentBalance(cookies)),
       })
     }
     if (currentBalance(cookies) <= 0) {
@@ -239,7 +250,7 @@ export const walletHandlers = [
       {
         status: 200,
         message: '환급 신청이 완료되었습니다.',
-        data: { withdrawnAmount: amount, balance: 0 },
+        data: withdrawalResult(amount, 0),
       },
       { headers: balanceCookieHeaders(cookies, 0) },
     )
