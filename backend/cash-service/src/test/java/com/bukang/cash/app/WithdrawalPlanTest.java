@@ -20,8 +20,8 @@ class WithdrawalPlanTest {
 	}
 
 	@Test
-	@DisplayName("기한 안인 충전은 건별 카드 몫, 기한 지난 몫은 계좌 몫 하나로 나누고, 남은 금액이 0원인 충전은 뺀다")
-	void splitsIntoCardPartsAndOneAccountPart() {
+	@DisplayName("기한 안인 충전은 건별 카드 몫으로 나누고, 기한 지난 충전과 남은 금액이 0원인 충전은 카드 몫에서 뺀다")
+	void makesCardPartsFromChargesWithinDeadline() {
 		List<RefundableChargeDto> charges = List.of(
 			charge(4, 40_000, 40_000, false),
 			charge(3, 20_000, 20_000, false),
@@ -33,18 +33,5 @@ class WithdrawalPlanTest {
 		assertThat(plan.cardParts())
 			.extracting(WithdrawalPlan.CardPart::chargeId, WithdrawalPlan.CardPart::amount)
 			.containsExactly(tuple(4L, 40_000L), tuple(3L, 20_000L));
-		assertThat(plan.accountAmount()).isEqualTo(5_000);
-	}
-
-	@Test
-	@DisplayName("계좌로 보낼 몫이 있을 때만 계좌 정보가 필요하다 (기한 안 충전만 있으면 필요 없다)")
-	void accountRequiredOnlyWhenAccountPartExists() {
-		WithdrawalPlan cardOnly = WithdrawalPlan.from(List.of(charge(3, 20_000, 20_000, false)));
-		WithdrawalPlan withAccount = WithdrawalPlan.from(List.of(
-			charge(3, 20_000, 20_000, false),
-			charge(2, 10_000, 5_000, true)));
-
-		assertThat(cardOnly.accountRequired()).isFalse();
-		assertThat(withAccount.accountRequired()).isTrue();
 	}
 }
