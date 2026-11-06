@@ -9,6 +9,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -28,6 +29,7 @@ import org.apache.kafka.common.errors.InvalidTopicException;
 import org.apache.kafka.common.errors.RecordTooLargeException;
 import org.apache.kafka.common.errors.SerializationException;
 import org.apache.kafka.common.errors.TimeoutException;
+import org.apache.kafka.common.header.Header;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -45,6 +47,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.bukang.common.shared.kafka.KafkaMessageId;
 import com.bukang.common.shared.kafka.KafkaTopics;
 import com.bukang.common.shared.member.event.MemberJoinedEvent;
 import com.bukang.common.shared.member.event.MemberModifiedEvent;
@@ -124,6 +127,41 @@ class MemberOutboxRelayTest {
 			assertThat(row.getSentDate()).isEqualTo(now);
 			assertThat(row.getRetryCount()).isZero();
 		});
+	}
+
+	@Test
+	@DisplayName("message-id 헤더에 행에 저장한 값을 그대로 보내고, 보내지 못해 다시 보낼 때도 같은 값이 나간다")
+	void resendKeepsStoredMessageId() {
+		failSendTo(MEMBER_ID, new TimeoutException("브로커 응답 없음"));
+		joined(MEMBER_ID);
+		relayAt(now);
+		succeedSendTo(MEMBER_ID);
+
+		int sent = relayAt(now.plusSeconds(1));
+
+		assertThat(sent).isEqualTo(1);
+		String stored = allRows().get(0).getMessageId();
+		assertThat(sentRecords(2)).extracting(MemberOutboxRelayTest::messageIdHeader)
+			.containsExactly(stored, stored);
+	}
+
+	@Test
+	@DisplayName("message_id 컬럼을 더하기 전에 만든 행(값 없음)은 보낼 때 member-outbox-{UUID}를 한 번 채워 저장하고, "
+		+ "보내지 못해 다시 보낼 때도 그 값이 나간다")
+	void legacyRowGetsMessageIdOnceOnRelay() {
+		failSendTo(MEMBER_ID, new TimeoutException("브로커 응답 없음"));
+		joined(MEMBER_ID);
+		transactionTemplate.executeWithoutResult(status ->
+			entityManager.createNativeQuery("update member_outbox_event set message_id = null").executeUpdate());
+		relayAt(now);
+		String assigned = allRows().get(0).getMessageId();
+		succeedSendTo(MEMBER_ID);
+
+		relayAt(now.plusSeconds(1));
+
+		assertThat(assigned).matches("member-outbox-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
+		assertThat(sentRecords(2)).extracting(MemberOutboxRelayTest::messageIdHeader)
+			.containsExactly(assigned, assigned);
 	}
 
 	@Test
@@ -426,6 +464,11 @@ class MemberOutboxRelayTest {
 
 	private void succeedSendTo(long refId) {
 		doReturn(CompletableFuture.completedFuture(null)).when(kafka()).send(keyIs(refId));
+	}
+
+	private static String messageIdHeader(ProducerRecord<String, String> record) {
+		Header header = record.headers().lastHeader(KafkaMessageId.HEADER);
+		return header == null ? null : new String(header.value(), StandardCharsets.UTF_8);
 	}
 
 	private static ProducerRecord<String, String> keyIs(long refId) {

@@ -27,6 +27,8 @@ public class QueueSyncRaceUseCase {
 		RaceSaleStatus saleStatus,
 		LocalDateTime individualOpenAt,
 		LocalDateTime applicationCloseAt,
+		LocalDateTime crewSaleStartAt,
+		LocalDateTime crewSaleEndAt,
 		LocalDateTime updatedAt
 	) {
 		Optional<QueueRace> stored = queueRaceRepository.findByIdForUpdate(raceId);
@@ -36,7 +38,7 @@ public class QueueSyncRaceUseCase {
 			return stored.get();
 		}
 
-		return queueRaceRepository.save(
-			new QueueRace(raceId, saleStatus, individualOpenAt, applicationCloseAt, updatedAt));
+		return queueRaceRepository.save(new QueueRace(raceId, saleStatus, individualOpenAt, applicationCloseAt,
+			crewSaleStartAt, crewSaleEndAt, updatedAt));
 	}
 }

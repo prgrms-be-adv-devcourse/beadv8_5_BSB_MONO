@@ -13,21 +13,22 @@ export interface RsData {
 }
 
 /**
- * 보류 사유 (ACCOUNT_NOT_REGISTERED: 정산 계좌 미등록, RACE_CANCELED: 대회 취소 처리)
+ * 보류 사유 (정산_계좌_미등록: 정산 계좌 미등록, 대회_취소_처리: 대회 취소 처리, 대사_불일치: 대사 불일치)
  */
 export type PayoutHoldRequestDtoReasonType = typeof PayoutHoldRequestDtoReasonType[keyof typeof PayoutHoldRequestDtoReasonType];
 
 
 export const PayoutHoldRequestDtoReasonType = {
-  ACCOUNT_NOT_REGISTERED: 'ACCOUNT_NOT_REGISTERED',
-  RACE_CANCELED: 'RACE_CANCELED',
+  정산_계좌_미등록: '정산_계좌_미등록',
+  대회_취소_처리: '대회_취소_처리',
+  대사_불일치: '대사_불일치',
 } as const;
 
 /**
  * 지급보류 걸기 요청
  */
 export interface PayoutHoldRequestDto {
-  /** 보류 사유 (ACCOUNT_NOT_REGISTERED: 정산 계좌 미등록, RACE_CANCELED: 대회 취소 처리) */
+  /** 보류 사유 (정산_계좌_미등록: 정산 계좌 미등록, 대회_취소_처리: 대회 취소 처리, 대사_불일치: 대사 불일치) */
   reasonType: PayoutHoldRequestDtoReasonType;
   /**
      * 사유 상세 (선택, 500자 이하)
@@ -48,28 +49,28 @@ export interface PayoutSummaryDto {
 }
 
 /**
- * 정산 단계 (FIRST: 1차 정산, FINAL: 최종 정산)
+ * 정산 단계 (일차_정산: 1차 정산, 최종_정산: 최종 정산)
  */
 export type PayoutStage = typeof PayoutStage[keyof typeof PayoutStage];
 
 
 export const PayoutStage = {
-  FIRST: 'FIRST',
-  FINAL: 'FINAL',
+  일차_정산: '일차_정산',
+  최종_정산: '최종_정산',
 } as const;
 
 /**
- * 정산 상태 (CALCULATED: 정산 예정, HELD: 지급보류, PAYING: 지급 중, PAID: 지급 완료, CANCELED: 취소)
+ * 정산 상태 (지급_예정: 지급 예정, 지급보류: 지급보류, 지급_중: 지급 중, 지급_완료: 지급 완료, 취소: 취소)
  */
 export type PayoutStatus = typeof PayoutStatus[keyof typeof PayoutStatus];
 
 
 export const PayoutStatus = {
-  CALCULATED: 'CALCULATED',
-  HELD: 'HELD',
-  PAYING: 'PAYING',
-  PAID: 'PAID',
-  CANCELED: 'CANCELED',
+  지급_예정: '지급_예정',
+  지급보류: '지급보류',
+  지급_중: '지급_중',
+  지급_완료: '지급_완료',
+  취소: '취소',
 } as const;
 
 export interface PayoutDto {
@@ -93,25 +94,25 @@ export interface PayoutDto {
 }
 
 /**
- * 원장 줄 종류 (ADVANCE_PAID: 선금, SALE: 판매, FEE: 수수료, ADVANCE_OFFSET: 선지급 차감, RECOVERY_REQUESTED: 회수 요청, RECEIVABLE_ADDED: 갚을 돈 추가, RECOVERY_OFFSET: 회수 상계, RECOVERY_RECEIVED: 회수 입금, ADVANCE_PAID_CANCELED: 선금 취소, SALE_CANCELED: 판매 취소, FEE_CANCELED: 수수료 취소, ADVANCE_OFFSET_CANCELED: 선지급 차감 취소, RECOVERY_OFFSET_CANCELED: 회수 상계 취소)
+ * 원장 줄 종류 (선금: 선금, 판매: 판매, 수수료: 수수료, 선지급_차감: 선지급 차감, 회수_요청: 회수 요청, 갚을_돈_추가: 갚을 돈 추가, 회수_상계: 회수 상계, 회수_입금: 회수 입금, 선금_취소: 선금 취소, 판매_취소: 판매 취소, 수수료_취소: 수수료 취소, 선지급_차감_취소: 선지급 차감 취소, 회수_상계_취소: 회수 상계 취소)
  */
 export type PayoutRecordType = typeof PayoutRecordType[keyof typeof PayoutRecordType];
 
 
 export const PayoutRecordType = {
-  ADVANCE_PAID: 'ADVANCE_PAID',
-  SALE: 'SALE',
-  FEE: 'FEE',
-  ADVANCE_OFFSET: 'ADVANCE_OFFSET',
-  RECOVERY_REQUESTED: 'RECOVERY_REQUESTED',
-  RECEIVABLE_ADDED: 'RECEIVABLE_ADDED',
-  RECOVERY_OFFSET: 'RECOVERY_OFFSET',
-  RECOVERY_RECEIVED: 'RECOVERY_RECEIVED',
-  ADVANCE_PAID_CANCELED: 'ADVANCE_PAID_CANCELED',
-  SALE_CANCELED: 'SALE_CANCELED',
-  FEE_CANCELED: 'FEE_CANCELED',
-  ADVANCE_OFFSET_CANCELED: 'ADVANCE_OFFSET_CANCELED',
-  RECOVERY_OFFSET_CANCELED: 'RECOVERY_OFFSET_CANCELED',
+  선금: '선금',
+  판매: '판매',
+  수수료: '수수료',
+  선지급_차감: '선지급_차감',
+  회수_요청: '회수_요청',
+  갚을_돈_추가: '갚을_돈_추가',
+  회수_상계: '회수_상계',
+  회수_입금: '회수_입금',
+  선금_취소: '선금_취소',
+  판매_취소: '판매_취소',
+  수수료_취소: '수수료_취소',
+  선지급_차감_취소: '선지급_차감_취소',
+  회수_상계_취소: '회수_상계_취소',
 } as const;
 
 export interface PayoutItemDto {
@@ -140,25 +141,26 @@ export interface PayoutItemPageDto {
 }
 
 /**
- * 보류 사유 (ACCOUNT_NOT_REGISTERED: 정산 계좌 미등록, RACE_CANCELED: 대회 취소 처리)
+ * 보류 사유 (정산_계좌_미등록: 정산 계좌 미등록, 대회_취소_처리: 대회 취소 처리, 대사_불일치: 대사 불일치)
  */
 export type PayoutHoldReason = typeof PayoutHoldReason[keyof typeof PayoutHoldReason];
 
 
 export const PayoutHoldReason = {
-  ACCOUNT_NOT_REGISTERED: 'ACCOUNT_NOT_REGISTERED',
-  RACE_CANCELED: 'RACE_CANCELED',
+  정산_계좌_미등록: '정산_계좌_미등록',
+  대회_취소_처리: '대회_취소_처리',
+  대사_불일치: '대사_불일치',
 } as const;
 
 /**
- * 지급보류 상태 (HELD: 지급보류, RELEASED: 해제)
+ * 지급보류 상태 (지급보류: 지급보류, 해제: 해제)
  */
 export type PayoutHoldStatus = typeof PayoutHoldStatus[keyof typeof PayoutHoldStatus];
 
 
 export const PayoutHoldStatus = {
-  HELD: 'HELD',
-  RELEASED: 'RELEASED',
+  지급보류: '지급보류',
+  해제: '해제',
 } as const;
 
 export interface SellerPayoutHoldDto {

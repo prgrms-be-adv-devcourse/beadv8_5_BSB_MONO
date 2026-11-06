@@ -88,14 +88,14 @@ class PayoutPayUseCaseTest {
 	}
 
 	@Test
-	@DisplayName("11/20에 지급 예정일이 된 정산 내역(10/17 대회분)이 지급 완료(PAID)로 바뀌고 지급 시각이 남는다")
+	@DisplayName("11/20에 지급 예정일이 된 정산 내역(10/17 대회분)이 지급 완료로 바뀌고 지급 시각이 남는다")
 	void paysPreviousMonthOnPayDate() {
 		Payout dueNov20 = savePayout(1, LocalDate.of(2026, 10, 17));
 
 		useCase().run(PAY_DATE, NOW);
 
 		Payout paid = payoutRepository.findById(dueNov20.getId()).orElseThrow();
-		assertThat(paid.getStatus()).isEqualTo(PayoutStatus.PAID);
+		assertThat(paid.getStatus()).isEqualTo(PayoutStatus.지급_완료);
 		assertThat(paid.getPaidAt()).isEqualTo(NOW);
 	}
 
@@ -106,7 +106,7 @@ class PayoutPayUseCaseTest {
 
 		useCase().run(PAY_DATE, NOW);
 
-		assertThat(statusOf(dueDec21)).isEqualTo(PayoutStatus.CALCULATED);
+		assertThat(statusOf(dueDec21)).isEqualTo(PayoutStatus.지급_예정);
 	}
 
 	@Test
@@ -116,20 +116,20 @@ class PayoutPayUseCaseTest {
 
 		useCase().run(PAY_DATE.minusDays(1), NOW.minusDays(1));
 
-		assertThat(statusOf(dueNov20)).isEqualTo(PayoutStatus.CALCULATED);
+		assertThat(statusOf(dueNov20)).isEqualTo(PayoutStatus.지급_예정);
 	}
 
 	@Test
-	@DisplayName("지급보류(HELD)인 정산 내역은 지급 예정일이 지나도 PAID로 바뀌지 않는다")
+	@DisplayName("지급보류인 정산 내역은 지급 예정일이 지나도 지급_완료로 바뀌지 않는다")
 	void doesNotPayHeld() {
 		Payout held = savePayout(1, LocalDate.of(2026, 10, 17));
-		payoutHoldRepository.save(held.hold(PayoutHoldReason.ACCOUNT_NOT_REGISTERED, null, 99, NOW.minusDays(5)));
+		payoutHoldRepository.save(held.hold(PayoutHoldReason.정산_계좌_미등록, null, 99, NOW.minusDays(5)));
 		entityManager.flush();
 		entityManager.clear();
 
 		useCase().run(PAY_DATE, NOW);
 
-		assertThat(statusOf(held)).isEqualTo(PayoutStatus.HELD);
+		assertThat(statusOf(held)).isEqualTo(PayoutStatus.지급보류);
 	}
 
 	@Test
@@ -150,7 +150,7 @@ class PayoutPayUseCaseTest {
 
 		useCase().run(PAY_DATE.plusDays(1), NOW.plusDays(1));
 
-		assertThat(statusOf(dueNov20)).isEqualTo(PayoutStatus.PAID);
+		assertThat(statusOf(dueNov20)).isEqualTo(PayoutStatus.지급_완료);
 	}
 
 	private PayoutStatus statusOf(Payout payout) {
@@ -173,10 +173,10 @@ class PayoutPayUseCaseTest {
 		useCase().run(PAY_DATE, NOW);
 
 		Payout paidTwo = payoutRepository.findById(twoTickets.getId()).orElseThrow();
-		assertThat(paidTwo.getStatus()).isEqualTo(PayoutStatus.PAID);
+		assertThat(paidTwo.getStatus()).isEqualTo(PayoutStatus.지급_완료);
 		assertThat(paidTwo.getPayoutAmount()).isEqualTo(40_000L);
 		Payout paidOne = payoutRepository.findById(oneTicket.getId()).orElseThrow();
-		assertThat(paidOne.getStatus()).isEqualTo(PayoutStatus.PAID);
+		assertThat(paidOne.getStatus()).isEqualTo(PayoutStatus.지급_완료);
 		assertThat(paidOne.getPayoutAmount()).isEqualTo(20_000L);
 	}
 
@@ -193,8 +193,8 @@ class PayoutPayUseCaseTest {
 		useCase().run(PAY_DATE, NOW);
 
 		assertThat(transfers).containsExactlyInAnyOrder(
-			new PayoutTransfer(finalPayout.getId(), 7, 47_250L, 2_750L, PayoutStage.FINAL),
-			new PayoutTransfer(first.getId(), 8, 40_000L, 0L, PayoutStage.FIRST));
+			new PayoutTransfer(finalPayout.getId(), 7, 47_250L, 2_750L, PayoutStage.최종_정산),
+			new PayoutTransfer(first.getId(), 8, 40_000L, 0L, PayoutStage.일차_정산));
 	}
 
 	@Test
@@ -210,12 +210,12 @@ class PayoutPayUseCaseTest {
 		useCase().run(PAY_DATE, NOW);
 
 		assertThat(transfers).containsExactly(
-			new PayoutTransfer(feeOnly.getId(), 1, 0L, 2_750L, PayoutStage.FINAL));
-		assertThat(statusOf(feeOnly)).isEqualTo(PayoutStatus.PAID);
+			new PayoutTransfer(feeOnly.getId(), 1, 0L, 2_750L, PayoutStage.최종_정산));
+		assertThat(statusOf(feeOnly)).isEqualTo(PayoutStatus.지급_완료);
 	}
 
 	@Test
-	@DisplayName("대금 · 수수료가 둘 다 0원이면 캐시 서비스를 부르지 않고 0원으로 지급 완료(PAID)한다")
+	@DisplayName("대금 · 수수료가 둘 다 0원이면 캐시 서비스를 부르지 않고 0원으로 지급 완료한다")
 	void paysZeroAmountPayoutWithoutTransfer() {
 		Payout zero = savePayout(1, LocalDate.of(2026, 10, 17));
 		assertThat(zero.getPayoutAmount()).isZero();
@@ -225,7 +225,7 @@ class PayoutPayUseCaseTest {
 
 		assertThat(transfers).isEmpty();
 		Payout paid = payoutRepository.findById(zero.getId()).orElseThrow();
-		assertThat(paid.getStatus()).isEqualTo(PayoutStatus.PAID);
+		assertThat(paid.getStatus()).isEqualTo(PayoutStatus.지급_완료);
 		assertThat(paid.getPaidAt()).isEqualTo(NOW);
 		assertThat(result.paid()).isEqualTo(1);
 	}
@@ -240,7 +240,7 @@ class PayoutPayUseCaseTest {
 
 		PayoutPayResultDto rejected = useCase().run(PAY_DATE, NOW);
 
-		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.CALCULATED);
+		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.지급_예정);
 		assertThat(rejected.paid()).isZero();
 		assertThat(rejected.failed()).isEqualTo(1);
 
@@ -248,7 +248,7 @@ class PayoutPayUseCaseTest {
 		};
 		useCase().run(PAY_DATE.plusDays(1), NOW.plusDays(1));
 
-		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.PAID);
+		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.지급_완료);
 		assertThat(transfers).hasSize(2);
 	}
 
@@ -262,14 +262,14 @@ class PayoutPayUseCaseTest {
 
 		PayoutPayResultDto unknown = useCase().run(PAY_DATE, NOW);
 
-		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.PAYING);
+		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.지급_중);
 		assertThat(unknown.unknown()).isEqualTo(1);
 
 		cashService = transfer -> {
 		};
 		useCase().run(PAY_DATE.plusDays(1), NOW.plusDays(1));
 
-		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.PAID);
+		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.지급_완료);
 		assertThat(transfers).hasSize(2);
 		assertThat(transfers.get(1)).isEqualTo(transfers.get(0));
 	}
@@ -284,7 +284,7 @@ class PayoutPayUseCaseTest {
 		useCase().run(PAY_DATE, NOW);
 
 		Payout paying = payoutRepository.findById(payout.getId()).orElseThrow();
-		assertThatThrownBy(() -> paying.hold(PayoutHoldReason.ACCOUNT_NOT_REGISTERED, null, 99, NOW))
+		assertThatThrownBy(() -> paying.hold(PayoutHoldReason.정산_계좌_미등록, null, 99, NOW))
 			.isInstanceOf(PayoutHoldConflictException.class);
 	}
 
@@ -305,9 +305,9 @@ class PayoutPayUseCaseTest {
 
 		PayoutPayResultDto result = useCase().run(PAY_DATE, NOW);
 
-		assertThat(statusOf(rejected)).isEqualTo(PayoutStatus.CALCULATED);
-		assertThat(statusOf(unknown)).isEqualTo(PayoutStatus.PAYING);
-		assertThat(statusOf(ok)).isEqualTo(PayoutStatus.PAID);
+		assertThat(statusOf(rejected)).isEqualTo(PayoutStatus.지급_예정);
+		assertThat(statusOf(unknown)).isEqualTo(PayoutStatus.지급_중);
+		assertThat(statusOf(ok)).isEqualTo(PayoutStatus.지급_완료);
 		assertThat(result).isEqualTo(new PayoutPayResultDto(PAY_DATE, 1, 1, 1));
 	}
 
@@ -321,7 +321,7 @@ class PayoutPayUseCaseTest {
 
 		useCase().run(PAY_DATE, NOW);
 
-		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.PAYING);
+		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.지급_중);
 	}
 
 	@Test
@@ -338,7 +338,7 @@ class PayoutPayUseCaseTest {
 		PayoutPayResultDto result = new PayoutPayUseCase(conflicting, transfers::add).run(PAY_DATE, NOW);
 
 		assertThat(transfers).isEmpty();
-		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.CALCULATED);
+		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.지급_예정);
 		assertThat(result).isEqualTo(new PayoutPayResultDto(PAY_DATE, 0, 0, 0));
 	}
 
@@ -368,8 +368,8 @@ class PayoutPayUseCaseTest {
 
 		useCase().run(PAY_DATE, NOW);
 
-		assertThat(statusOf(first)).isEqualTo(PayoutStatus.PAID);
-		assertThat(statusOf(last)).isEqualTo(PayoutStatus.PAID);
+		assertThat(statusOf(first)).isEqualTo(PayoutStatus.지급_완료);
+		assertThat(statusOf(last)).isEqualTo(PayoutStatus.지급_완료);
 		assertThat(transfers).extracting(PayoutTransfer::payoutId).containsExactly(first.getId(), last.getId());
 	}
 
@@ -386,8 +386,8 @@ class PayoutPayUseCaseTest {
 
 		useCase().run(PAY_DATE, NOW);
 
-		assertThat(statusOf(first)).isEqualTo(PayoutStatus.PAYING);
-		assertThat(statusOf(last)).isEqualTo(PayoutStatus.CALCULATED);
+		assertThat(statusOf(first)).isEqualTo(PayoutStatus.지급_중);
+		assertThat(statusOf(last)).isEqualTo(PayoutStatus.지급_예정);
 		assertThat(transfers).extracting(PayoutTransfer::payoutId).containsExactly(first.getId());
 	}
 
@@ -397,13 +397,13 @@ class PayoutPayUseCaseTest {
 		Payout first = saveFirstWithAdvance(1, 50_000L);
 		Payout last = savePayoutWithSale(1);
 		var hold = payoutHoldRepository.save(
-			first.hold(PayoutHoldReason.ACCOUNT_NOT_REGISTERED, null, 99, NOW.minusHours(1)));
+			first.hold(PayoutHoldReason.정산_계좌_미등록, null, 99, NOW.minusHours(1)));
 		entityManager.flush();
 		entityManager.clear();
 
 		useCase().run(PAY_DATE, NOW);
-		assertThat(statusOf(first)).isEqualTo(PayoutStatus.HELD);
-		assertThat(statusOf(last)).isEqualTo(PayoutStatus.CALCULATED);
+		assertThat(statusOf(first)).isEqualTo(PayoutStatus.지급보류);
+		assertThat(statusOf(last)).isEqualTo(PayoutStatus.지급_예정);
 
 		// 11/20 해제 → 1차는 11/21 지급 예정
 		Payout heldFirst = payoutRepository.findById(first.getId()).orElseThrow();
@@ -415,8 +415,8 @@ class PayoutPayUseCaseTest {
 		useCase().run(PAY_DATE.plusDays(1), NOW.plusDays(1));
 		useCase().run(PAY_DATE.plusDays(2), NOW.plusDays(2));
 
-		assertThat(statusOf(first)).isEqualTo(PayoutStatus.PAID);
-		assertThat(statusOf(last)).isEqualTo(PayoutStatus.PAID);
+		assertThat(statusOf(first)).isEqualTo(PayoutStatus.지급_완료);
+		assertThat(statusOf(last)).isEqualTo(PayoutStatus.지급_완료);
 		assertThat(transfers).extracting(PayoutTransfer::payoutId).containsExactly(first.getId(), last.getId());
 	}
 
@@ -427,7 +427,7 @@ class PayoutPayUseCaseTest {
 
 		useCase().run(PAY_DATE, NOW);
 
-		assertThat(statusOf(last)).isEqualTo(PayoutStatus.PAID);
+		assertThat(statusOf(last)).isEqualTo(PayoutStatus.지급_완료);
 	}
 
 	@Test
@@ -435,11 +435,11 @@ class PayoutPayUseCaseTest {
 	void otherFirstDoesNotBlockFinal() {
 		Payout otherSellerFirst = saveFirstWithAdvance(2, 50_000L);
 		payoutHoldRepository.save(
-			otherSellerFirst.hold(PayoutHoldReason.ACCOUNT_NOT_REGISTERED, null, 99, NOW.minusHours(1)));
+			otherSellerFirst.hold(PayoutHoldReason.정산_계좌_미등록, null, 99, NOW.minusHours(1)));
 		Payout last = savePayoutWithSale(1);
 
 		useCase().run(PAY_DATE, NOW);
 
-		assertThat(statusOf(last)).isEqualTo(PayoutStatus.PAID);
+		assertThat(statusOf(last)).isEqualTo(PayoutStatus.지급_완료);
 	}
 }

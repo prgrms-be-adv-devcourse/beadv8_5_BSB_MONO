@@ -74,7 +74,8 @@ class QueueSyncConcurrencyTest extends QueueIntegrationTest {
 		QueueRace race = findRace(RACE_ID);
 		System.out.println("최종 대회 수정 일시: " + race.getUpdatedAt());
 		assertThat(race).usingRecursiveComparison().isEqualTo(
-			new QueueRace(RACE_ID, RaceSaleStatus.ON_SALE, INDIVIDUAL_OPEN_AT, APPLICATION_CLOSE_AT, at(11)));
+			new QueueRace(RACE_ID, RaceSaleStatus.ON_SALE, INDIVIDUAL_OPEN_AT, APPLICATION_CLOSE_AT,
+				null, null, at(11)));
 	}
 
 	@Test
@@ -110,14 +111,15 @@ class QueueSyncConcurrencyTest extends QueueIntegrationTest {
 		QueueRace race = findRace(RACE_ID);
 		System.out.println("최종 대회 수정 일시: " + race.getUpdatedAt());
 		assertThat(race).usingRecursiveComparison().isEqualTo(
-			new QueueRace(RACE_ID, RaceSaleStatus.ON_SALE, INDIVIDUAL_OPEN_AT, APPLICATION_CLOSE_AT, at(11)));
+			new QueueRace(RACE_ID, RaceSaleStatus.ON_SALE, INDIVIDUAL_OPEN_AT, APPLICATION_CLOSE_AT,
+				null, null, at(11)));
 	}
 
 	// 대회 변경 메시지를 받은 것처럼 Facade를 부른다
 	// 이 테스트는 서로 다른 메시지가 겹칠 때의 잠금을 보므로 메시지 ID 없이(인박스를 거치지 않고) 부른다
 	private void syncRace(RaceSaleStatus saleStatus, LocalDateTime updatedAt) {
 		queueFacade.syncRace(null, KafkaTopics.RACE_CHANGED, RACE_ID, saleStatus, INDIVIDUAL_OPEN_AT,
-			APPLICATION_CLOSE_AT, updatedAt);
+			APPLICATION_CLOSE_AT, null, null, updatedAt);
 	}
 
 	// millis 동안 future가 끝나기를 기다린다. 그 안에 끝나지 않아도 넘어간다

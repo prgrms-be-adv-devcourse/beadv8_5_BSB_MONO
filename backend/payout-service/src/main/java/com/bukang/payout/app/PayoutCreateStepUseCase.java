@@ -52,15 +52,15 @@ public class PayoutCreateStepUseCase {
 	}
 
 	/**
-	 * 최종 정산 내역을 만든다. 정산 월은 대회일의 달이고, 같은 판매자 × 대회의 남은 1차 정산금(ADVANCE 잔고)을 1차 정산금 차감으로 뺀다
-	 * 만든 뒤 아직 못 받은 갚을 돈(RECEIVABLE)이 있으면 이 정산 내역에서 바로 상계한다 (PRO-214)
+	 * 최종 정산 내역을 만든다. 정산 월은 대회일의 달이고, 같은 판매자 × 대회의 남은 1차 정산금(선금 잔고)을 1차 정산금 차감으로 뺀다
+	 * 만든 뒤 아직 못 받은 갚을 돈이 있으면 이 정산 내역에서 바로 상계한다 (PRO-214)
 	 * 자동 보류(계좌 미등록)는 PayoutHoldUseCase가 정한다. 1차가 보류 중이어도 최종은 보류하지 않는다 (PRO-189)
 	 */
 	@Transactional
 	public void createFinal(FinalPayoutSource source, LocalDate raceDate, LocalDateTime now) {
 		LocalDate createDate = PayoutCreateDate.of(raceDate);
 		Optional<Payout> first = payoutRepository.findFirstBySellerIdAndRaceIdAndPayoutStageOrderByIdAsc(
-			source.sellerId(), source.raceId(), PayoutStage.FIRST);
+			source.sellerId(), source.raceId(), PayoutStage.일차_정산);
 		if (first.isEmpty()) {
 			// 1차 없이 최종 대상이 된 경우의 처리는 PRO-190에서 정한다. 그때까지는 1차 정산금 차감 없이 만들고 드러낸다
 			log.warn("1차 정산 내역 없이 최종 정산을 만듭니다. 선지급 차감은 0입니다. sellerId={}, raceId={}",

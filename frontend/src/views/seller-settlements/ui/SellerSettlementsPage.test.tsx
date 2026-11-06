@@ -90,7 +90,7 @@ describe('SellerSettlementsPage', () => {
     const mock = payoutMock.getPayoutsResponseMock()
     server.use(
       http.get('*/api/v1/payout/seller/payouts', () =>
-        HttpResponse.json({ ...mock, data: [{ ...mock.data![0], status: 'CANCELED' }] }),
+        HttpResponse.json({ ...mock, data: [{ ...mock.data![0], status: '취소' }] }),
       ),
     )
     renderPage()
@@ -108,7 +108,7 @@ describe('SellerSettlementsPage', () => {
         HttpResponse.json({
           ...mock,
           data: [
-            { ...base, id: 1, payoutCode: 'ST-1', status: 'PAYING' },
+            { ...base, id: 1, payoutCode: 'ST-1', status: '지급_중' },
             { ...base, id: 2, payoutCode: 'ST-2', status: 'SOMETHING_NEW' },
           ],
         }),
@@ -130,7 +130,7 @@ describe('SellerSettlementsPage', () => {
           ...mock,
           data: {
             ...page,
-            content: page.content.map((item) => ({ ...item, payoutStatus: 'PAYING' })),
+            content: page.content.map((item) => ({ ...item, payoutStatus: '지급_중' })),
           },
         }),
       ),

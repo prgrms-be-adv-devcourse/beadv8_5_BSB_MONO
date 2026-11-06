@@ -16,6 +16,7 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -32,7 +33,12 @@ import lombok.NoArgsConstructor;
 @Getter
 @Table(
 	name = "participation_hold",
-	indexes = @Index(name = "idx_participation_hold_status_expires", columnList = "status, expires_at")
+	indexes = @Index(name = "idx_participation_hold_status_expires", columnList = "status, expires_at"),
+	// 같은 신청으로 두 번 확보해도 자리는 한 번만 잡히게 하는 멱등 키
+	uniqueConstraints = @UniqueConstraint(
+		name = "uk_participation_hold_participation",
+		columnNames = "participation_id"
+	)
 )
 @AttributeOverride(name = "id", column = @Column(name = "participation_hold_id"))
 // 확보 일시(held_at)가 행을 만든 일시다
@@ -43,14 +49,19 @@ public class ParticipationHold extends BaseIdAndTime {
 	@JoinColumn(name = "race_course_id", nullable = false)
 	private RaceCourse raceCourse;
 
-	// 주문 서비스의 참가 신청 ID (ERD 이름은 application_id, 주문 서비스는 참가 신청을 participation으로 부른다)
-	// 같은 신청으로 두 번 확보해도 자리는 한 번만 잡히게 하는 멱등 키다 (UK)
-	@Column(name = "application_id", nullable = false, unique = true)
+	// 주문 서비스의 참가 신청 ID (order_participation.id). 자리 1석 = 참가 신청 1건
+	@Column(name = "participation_id", nullable = false)
 	private long participationId;
 
-	// 크루 참가 신청 ID. 크루 자리만 있다 (null = 개인 자리). 세미는 개인 예매만 해서 늘 null이다
-	@Column(name = "crew_application_id")
-	private Long crewApplicationId;
+	// 파티 ID (order_party.id). 이 자리가 크루 몫에서 나왔는지 나타내고, 확보 때 정하면 바뀌지 않는다 (null = 개인 자리)
+	// 파티원이 결제한 뒤 파티를 나가도 그대로 둔다. 환불 때 크루 몫 카운터를 되돌리고, 파티별 결제율을 셀 때 쓴다
+	@Column(name = "party_id")
+	private Long partyId;
+
+	// 크루 ID. 파티 자리만 있다 (null = 개인 자리). 파티의 크루는 바뀌지 않아 확보 때 복사해 둔다
+	// 크루 참가 제한(한 달 결제율 미달 횟수)을 셀 때 쓴다. party_id와 함께 있거나 함께 비어 있다
+	@Column(name = "crew_id")
+	private Long crewId;
 
 	@Enumerated(STRING)
 	@Column(name = "status", nullable = false, columnDefinition = "varchar(20)")

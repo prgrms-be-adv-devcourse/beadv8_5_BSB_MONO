@@ -21,7 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * 지급 배치의 정산 내역 한 건 단계마다 짧은 트랜잭션을 연다 (PRO-252)
  * 캐시 서비스 호출(HTTP)은 이 트랜잭션들 밖에서 한다. 호출하는 동안 정산 DB 연결과 행 잠금을 잡지 않기 위해서다
- * 지급 중(PAYING)을 호출 전에 커밋해 두므로, 트랜잭션 밖에 있어도 그동안 보류 · 상계 · 취소가 끼어들지 못한다
+ * 지급 중을 호출 전에 커밋해 두므로, 트랜잭션 밖에 있어도 그동안 보류 · 상계 · 취소가 끼어들지 못한다
  * PayoutPayUseCase가 부른다. 같은 클래스 안에서 부르면 @Transactional 프록시를 거치지 않으므로 빈을 나눈다
  */
 @Slf4j
@@ -35,7 +35,7 @@ public class PayoutPayStepUseCase {
 
 	@Transactional(readOnly = true)
 	public List<Long> findTargetIds(LocalDate today) {
-		return payoutRepository.findPayTargetIds(today, PayoutStatus.CALCULATED, PayoutStatus.PAYING);
+		return payoutRepository.findPayTargetIds(today, PayoutStatus.지급_예정, PayoutStatus.지급_중);
 	}
 
 	/**
@@ -50,10 +50,10 @@ public class PayoutPayStepUseCase {
 	@Transactional
 	public Start start(long payoutId, LocalDate today, LocalDateTime now) {
 		Payout payout = payoutRepository.findById(payoutId).orElseThrow(PayoutNotFoundException::new);
-		if (payout.getStatus() == PayoutStatus.PAYING) {
+		if (payout.getStatus() == PayoutStatus.지급_중) {
 			return Start.transfer(PayoutTransfer.from(payout));
 		}
-		if (payout.getStatus() != PayoutStatus.CALCULATED || payout.getScheduledPayDate().isAfter(today)) {
+		if (payout.getStatus() != PayoutStatus.지급_예정 || payout.getScheduledPayDate().isAfter(today)) {
 			return Start.skipped();
 		}
 		Optional<Payout> waitingFirst = findWaitingFirst(payout);
@@ -74,18 +74,18 @@ public class PayoutPayStepUseCase {
 	// 최종은 1차가 지급 완료된 뒤에만 지급한다 (PRO-188, 10/28 결정). 1차가 보류 · 지급 중이면 최종도 기다린다
 	// 살아 있는 1차(대회 취소로 닫히지 않은 1차, PayoutLedgerUseCase.findLive와 같은 기준)가 없으면 기다리지 않는다.
 	// 1차를 만들지 못한 채 최종이 만들어진 경우이고, 그 뒤 1차는 만들어지지 않는다 (PRO-190)
-	// 지급 중(PAYING)인 최종의 재시도에는 걸지 않는다. 이미 돈이 나갔을 수 있어 결과를 확인해야 한다
+	// 지급 중인 최종의 재시도에는 걸지 않는다. 이미 돈이 나갔을 수 있어 결과를 확인해야 한다
 	// 같은 날 1차 · 최종이 함께 대상이면 같은 실행에서 1차 → 최종 순서로 지급한다(같은 날 두 번 이체해도 된다, 10/28 결정).
 	// 지급 배치가 ID 순서로 처리하고 1차가 최종보다 먼저 저장되기 때문이다 (PayoutRepository.findPayTargetIds)
 	// 최종이 기다려야 하는 1차를 돌려준다. 기다리지 않아도 되면 빈 값
 	private Optional<Payout> findWaitingFirst(Payout payout) {
-		if (payout.getPayoutStage() != PayoutStage.FINAL) {
+		if (payout.getPayoutStage() != PayoutStage.최종_정산) {
 			return Optional.empty();
 		}
 		return payoutRepository.findFirstBySellerIdAndRaceIdAndPayoutStageOrderByIdAsc(
-				payout.getSellerId(), payout.getRaceId(), PayoutStage.FIRST)
-			.filter(first -> first.getStatus() != PayoutStatus.CANCELED)
-			.filter(first -> first.getStatus() != PayoutStatus.PAID);
+				payout.getSellerId(), payout.getRaceId(), PayoutStage.일차_정산)
+			.filter(first -> first.getStatus() != PayoutStatus.취소)
+			.filter(first -> first.getStatus() != PayoutStatus.지급_완료);
 	}
 
 	// 캐시 서비스가 돈을 옮긴 뒤 지급 완료로 바꾼다
@@ -94,7 +94,7 @@ public class PayoutPayStepUseCase {
 	@Transactional
 	public boolean complete(long payoutId, LocalDateTime now) {
 		Payout payout = payoutRepository.findById(payoutId).orElseThrow(PayoutNotFoundException::new);
-		if (payout.getStatus() == PayoutStatus.PAID) {
+		if (payout.getStatus() == PayoutStatus.지급_완료) {
 			return false;
 		}
 		payout.pay(now);
