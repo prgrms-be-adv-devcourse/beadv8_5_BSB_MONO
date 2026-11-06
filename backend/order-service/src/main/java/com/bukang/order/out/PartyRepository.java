@@ -1,5 +1,7 @@
 package com.bukang.order.out;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -8,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.bukang.order.domain.Party;
+import com.bukang.order.domain.PartyStatus;
 
 import jakarta.persistence.LockModeType;
 
@@ -28,4 +31,11 @@ public interface PartyRepository extends JpaRepository<Party, Long> {
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	@Query("select p from Party p where p.id = :id")
 	Optional<Party> findByIdForUpdate(@Param("id") long id);
+
+	// 링크 미리 보기 (BUK-39). 다시 만든 옛 토큰은 찾지 못한다
+	Optional<Party> findByJoinToken(String joinToken);
+
+	// 크루 홈 「진행 중인 파티」 (BUK-39)
+	// shortcut: crew_id·status 인덱스가 없다. 크루당 파티가 많아지면 (crew_id, status) 인덱스를 Flyway로 더한다
+	List<Party> findByCrewIdAndStatusInOrderByIdDesc(long crewId, Collection<PartyStatus> statuses);
 }

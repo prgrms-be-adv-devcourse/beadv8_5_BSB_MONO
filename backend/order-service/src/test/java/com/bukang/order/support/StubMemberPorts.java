@@ -1,5 +1,7 @@
 package com.bukang.order.support;
 
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -12,12 +14,13 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
 import com.bukang.order.out.member.MemberAdminPort;
 import com.bukang.order.out.member.MemberNicknamePort;
+import com.bukang.order.out.member.MemberNicknamesPort;
 
 /**
  * 테스트용 회원 서비스. 테스트가 정한 회원만 관리자이고(가짜 어댑터처럼 누구나 관리자가 되지 않는다),
- * 테스트가 정한 닉네임만 찾는다. 회원 서비스가 멈춘 상황도 만들 수 있다
+ * 테스트가 정한 닉네임만 찾는다(정하지 않은 회원은 응답에서 빠진다 = 탈퇴·없는 회원). 회원 서비스가 멈춘 상황도 만들 수 있다
  */
-public class StubMemberPorts implements MemberAdminPort, MemberNicknamePort {
+public class StubMemberPorts implements MemberAdminPort, MemberNicknamePort, MemberNicknamesPort {
 	static final String UNAVAILABLE_MESSAGE = "회원 서비스에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요.";
 
 	private final Set<Long> adminIds = ConcurrentHashMap.newKeySet();
@@ -37,6 +40,18 @@ public class StubMemberPorts implements MemberAdminPort, MemberNicknamePort {
 	public Optional<Long> findMemberId(String nickname) {
 		ask();
 		return Optional.ofNullable(memberIdByNickname.get(nickname));
+	}
+
+	@Override
+	public Map<Long, String> findNicknames(Collection<Long> memberIds) {
+		ask();
+		Map<Long, String> found = new HashMap<>();
+		memberIdByNickname.forEach((nickname, memberId) -> {
+			if (memberIds.contains(memberId)) {
+				found.put(memberId, nickname);
+			}
+		});
+		return found;
 	}
 
 	private void ask() {
