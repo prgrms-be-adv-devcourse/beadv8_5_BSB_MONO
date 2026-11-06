@@ -15,6 +15,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 import java.util.Base64;
 
 import org.assertj.core.api.InstanceOfAssertFactories;
@@ -78,6 +79,19 @@ class TossPaymentClientTest {
 
 		assertThat(result.approvedAmount()).isEqualTo(10_000);
 		assertThat(result.pgPaymentKey()).isEqualTo("pay_123");
+	}
+
+	@Test
+	@DisplayName("승인 성공 시 응답의 승인 시각(approvedAt)을 한국 시간으로 돌려준다")
+	void approveReturnsApprovedAt() {
+		String response = """
+			{ "paymentKey": "pay_123", "totalAmount": 10000, "approvedAt": "2026-10-15T10:00:00+09:00" }
+			""";
+		server.expect(requestTo(URL)).andRespond(withSuccess(response, MediaType.APPLICATION_JSON));
+
+		PaymentApprovalResult result = client.approve("pay_123", "order_1", 10_000);
+
+		assertThat(result.approvedAt()).isEqualTo(LocalDateTime.of(2026, 10, 15, 10, 0));
 	}
 
 	@Test
@@ -199,6 +213,20 @@ class TossPaymentClientTest {
 		assertThat(result.status()).isEqualTo(PaymentLookupResult.Status.COMPLETED);
 		assertThat(result.approval().approvedAmount()).isEqualTo(10_000);
 		assertThat(result.approval().pgPaymentKey()).isEqualTo("pay_123");
+	}
+
+	@Test
+	@DisplayName("재확인 조회 결과가 DONE이면 승인 시각(approvedAt)도 한국 시간으로 돌려준다")
+	void lookupReturnsApprovedAtWhenDone() {
+		String response = """
+			{ "paymentKey": "pay_123", "totalAmount": 10000, "status": "DONE",
+				"approvedAt": "2026-10-15T10:00:00+09:00" }
+			""";
+		server.expect(requestTo(LOOKUP_URL)).andRespond(withSuccess(response, MediaType.APPLICATION_JSON));
+
+		PaymentLookupResult result = client.lookupByOrderId("order_1");
+
+		assertThat(result.approval().approvedAt()).isEqualTo(LocalDateTime.of(2026, 10, 15, 10, 0));
 	}
 
 	@Test

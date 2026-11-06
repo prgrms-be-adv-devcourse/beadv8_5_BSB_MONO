@@ -1,5 +1,7 @@
 package com.bukang.cash.out.pg;
 
+import java.time.LocalDateTime;
+
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
@@ -20,7 +22,7 @@ public class FakePaymentClient implements PaymentClient {
 
 	@Override
 	public PaymentApprovalResult approve(String paymentKey, String orderId, long amount) {
-		return new PaymentApprovalResult(amount, "fake-payment-key-" + paymentKey);
+		return new PaymentApprovalResult(amount, "fake-payment-key-" + paymentKey, LocalDateTime.now());
 	}
 
 	@Override

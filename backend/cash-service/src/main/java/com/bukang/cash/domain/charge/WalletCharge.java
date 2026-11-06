@@ -47,6 +47,8 @@ public class WalletCharge extends BaseIdAndTime {
 	@Column(nullable = false, length = 20)
 	private ChargeStatus status;
 	private LocalDateTime chargeDate;
+	// PG가 승인한 시각(한국 시간). PG 결제취소 기한의 기준이다. 이 칸을 더하기 전에 완료된 충전은 null이다
+	private LocalDateTime approvedAt;
 
 	public WalletCharge(Wallet wallet, long amount, String pgProvider, String idempotencyKey) {
 		this.wallet = wallet;
@@ -60,10 +62,16 @@ public class WalletCharge extends BaseIdAndTime {
 		this.status = ChargeStatus.IN_PROGRESS;
 	}
 
-	public void markCompleted(String pgPaymentKey, LocalDateTime chargeDate) {
+	public void markCompleted(String pgPaymentKey, LocalDateTime chargeDate, LocalDateTime approvedAt) {
 		this.pgPaymentKey = pgPaymentKey;
 		this.status = ChargeStatus.COMPLETED;
 		this.chargeDate = chargeDate;
+		this.approvedAt = approvedAt;
+	}
+
+	// PG 결제취소 기한의 기준 시각. 승인 시각이 없는 예전 충전은 서버가 저장한 충전 시각으로 대신한다
+	public LocalDateTime approvedAtOrChargeDate() {
+		return approvedAt != null ? approvedAt : chargeDate;
 	}
 
 	public void markFailed() {
