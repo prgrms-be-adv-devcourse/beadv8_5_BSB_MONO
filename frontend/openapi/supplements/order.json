@@ -241,6 +241,14 @@
         }
       }
     },
+    "applyParty": {
+      "200": {
+        "wrapper": "RsDataPartyDto",
+        "data": {
+          "$ref": "#/components/schemas/PartyDto"
+        }
+      }
+    },
     "leaveParty": {
       "200": {
         "wrapper": "RsDataParticipationDto",
@@ -946,6 +954,14 @@
             "PAID",
             "CLOSED"
           ]
+        },
+        "paymentDueAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time",
+          "description": "파티원 결제 기한. 신청 전이면 null"
         },
         "joinToken": {
           "type": "string",

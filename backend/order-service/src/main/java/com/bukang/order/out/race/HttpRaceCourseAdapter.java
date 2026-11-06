@@ -86,7 +86,11 @@ public class HttpRaceCourseAdapter implements RaceCoursePort {
 		LocalDate refundDeadline,
 		LocalDateTime scheduleChangedAt,
 		String saleStatus,
-		List<String> tshirtSizeOption
+		List<String> tshirtSizeOption,
+		LocalDateTime crewSaleStartAt,
+		LocalDateTime crewSaleEndAt,
+		Integer crewMinCount,
+		Integer crewMaxCount
 	) {
 		// maxAge·scheduleChangedAt은 없을 수 있다(제한 없음, 바뀐 적 없음). 나머지가 비면 판정할 수 없다
 		boolean isComplete() {
@@ -98,7 +102,15 @@ public class HttpRaceCourseAdapter implements RaceCoursePort {
 		RaceCourseInfo toInfo() {
 			return new RaceCourseInfo(raceCourseId, raceId, raceDate, applicationOpenAt, applicationCloseAt, minAge,
 				maxAge, sellerId, courseName, price, kitIncluded, refundDeadline, scheduleChangedAt,
-				CANCELED.equals(saleStatus), tshirtSizeOption);
+				CANCELED.equals(saleStatus), tshirtSizeOption, crewSale());
+		}
+
+		// 파티 예매 네 칸은 상품이 아직 주지 않는다(호빈님 요청 중). 하나라도 없으면 모르는 것으로 둔다
+		private RaceCourseInfo.CrewSale crewSale() {
+			if (crewSaleStartAt == null || crewSaleEndAt == null || crewMinCount == null || crewMaxCount == null) {
+				return null;
+			}
+			return new RaceCourseInfo.CrewSale(crewSaleStartAt, crewSaleEndAt, crewMinCount, crewMaxCount);
 		}
 	}
 }

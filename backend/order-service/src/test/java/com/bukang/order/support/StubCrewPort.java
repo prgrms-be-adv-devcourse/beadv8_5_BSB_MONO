@@ -6,6 +6,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 
 import com.bukang.order.out.crew.CrewPort;
 
@@ -18,9 +19,15 @@ public class StubCrewPort implements CrewPort {
 	private final Set<Long> notCrewMembers = ConcurrentHashMap.newKeySet();
 	private final Map<Long, LocalDateTime> joinedAts = new ConcurrentHashMap<>();
 	private final Set<Long> missingCrews = ConcurrentHashMap.newKeySet();
+	// 다음 크루 조회 직전에 한 번 돌릴 일 (조회와 잠금 사이에 다른 요청이 끼어드는 상황을 만든다)
+	private final AtomicReference<Runnable> beforeNextLookup = new AtomicReference<>();
 
 	@Override
 	public Optional<CrewMembership> findMembership(long crewId, long memberId) {
+		Runnable hook = beforeNextLookup.getAndSet(null);
+		if (hook != null) {
+			hook.run();
+		}
 		if (missingCrews.contains(crewId)) {
 			return Optional.empty();
 		}
@@ -47,7 +54,12 @@ public class StubCrewPort implements CrewPort {
 		missingCrews.add(crewId);
 	}
 
+	public void beforeNextLookup(Runnable hook) {
+		beforeNextLookup.set(hook);
+	}
+
 	public void clear() {
+		beforeNextLookup.set(null);
 		missingCrews.clear();
 		notCrewMembers.clear();
 		joinedAts.clear();

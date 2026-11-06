@@ -48,6 +48,11 @@ public interface ParticipationRepository extends JpaRepository<Participation, Lo
 	// 파티 조회 (BUK-39): 파티원 신청서. 나갔다 다시 합류하면 한 사람에 여러 장이라 부르는 쪽이 가장 최근 것을 고른다
 	List<Participation> findByPartyIdIn(Collection<Long> partyIds);
 
+	// 파티 신청 (BUK-37): 파티원 신청서를 모두 잠가 읽는다. 파티 → 파티원 → 참가 신청 순으로 잠근다
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("select p from Participation p where p.partyId = :partyId and p.activeFlag = true")
+	List<Participation> findActiveByPartyIdForUpdate(@Param("partyId") long partyId);
+
 	// [결제하기]가 같은 신청서로 동시에 들어오면 한 요청씩 처리해, 상품 서비스에 자리를 두 번 잡지 않게 한다
 	// 결제·참가자 정보 수정도 이걸로 읽어, 서로 겹쳐도 한쪽이 바꾼 상태를 다른 쪽이 옛 값으로 덮지 않게 한다
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
