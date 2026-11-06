@@ -51,6 +51,21 @@ public class QueueFacade {
 		return queueAdmissionUseCase.getAdmission(memberId, raceId, raceCourseId, LocalDateTime.now());
 	}
 
+	// 파티 줄 등록. 트랜잭션을 걸지 않는 이유는 개인 등록(register)과 같다
+	public QueueStatusDto registerParty(long leaderMemberId, long raceId, long raceCourseId) {
+		return queueRegisterUseCase.registerParty(leaderMemberId, raceId, raceCourseId, LocalDateTime.now());
+	}
+
+	// 파티 줄 순번 조회. Redis만 읽어 트랜잭션을 걸지 않는다
+	public QueueStatusDto getPartyStatus(long leaderMemberId, long raceId, long raceCourseId) {
+		return queueStatusUseCase.getPartyStatus(leaderMemberId, raceId, raceCourseId, LocalDateTime.now());
+	}
+
+	// 주문 서비스가 파티 [대회 참가] 때 내부 API로 부른다. Redis만 읽어 트랜잭션을 걸지 않는다
+	public QueueAdmissionDto getPartyAdmission(long leaderMemberId, long raceId, long raceCourseId) {
+		return queueAdmissionUseCase.getPartyAdmission(leaderMemberId, raceId, raceCourseId, LocalDateTime.now());
+	}
+
 	// 승격 스케줄러가 부른다. 트랜잭션을 걸지 않는다. Redis만 다루므로 DB 커넥션을 잡을 일이 없다
 	public void promote() {
 		queuePromoteUseCase.promote(LocalDateTime.now());
@@ -67,11 +82,14 @@ public class QueueFacade {
 		RaceSaleStatus saleStatus,
 		LocalDateTime individualOpenAt,
 		LocalDateTime applicationCloseAt,
+		LocalDateTime crewSaleStartAt,
+		LocalDateTime crewSaleEndAt,
 		LocalDateTime updatedAt
 	) {
 		LocalDateTime now = LocalDateTime.now();
 		if (queueInboxUseCase.tryRecord(messageId, KAFKA_GROUP_ID, topic, now)) {
-			queueSyncRaceUseCase.syncRace(raceId, saleStatus, individualOpenAt, applicationCloseAt, updatedAt);
+			queueSyncRaceUseCase.syncRace(raceId, saleStatus, individualOpenAt, applicationCloseAt,
+				crewSaleStartAt, crewSaleEndAt, updatedAt);
 		}
 		queueDltUseCase.completeByResend(messageId, now);
 	}

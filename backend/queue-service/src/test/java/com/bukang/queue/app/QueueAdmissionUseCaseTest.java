@@ -52,7 +52,7 @@ class QueueAdmissionUseCaseTest extends QueueIntegrationTest {
 	@DisplayName("getAdmission: Redis에 연결하지 못하면(저장소가 QueueUnavailableException) 503이 아니라 입장 중이 아님으로 답한다")
 	void notAdmittedWhenRedisUnavailable() {
 		QueueRedisRepository brokenRepository = mock(QueueRedisRepository.class);
-		when(brokenRepository.findActiveUntil(anyLong(), anyLong(), anyLong(), any()))
+		when(brokenRepository.findActiveUntil(any(), anyLong(), anyLong(), anyLong(), any()))
 			.thenThrow(new QueueUnavailableException());
 		QueueAdmissionUseCase useCase = new QueueAdmissionUseCase(brokenRepository);
 

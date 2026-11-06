@@ -397,7 +397,8 @@ class ApiV1QueueControllerTest extends QueueIntegrationTest {
 		LocalDateTime individualOpenAt,
 		LocalDateTime applicationCloseAt
 	) {
-		queueRaceRepository.save(new QueueRace(raceId, saleStatus, individualOpenAt, applicationCloseAt, at(10)));
+		queueRaceRepository.save(new QueueRace(raceId, saleStatus, individualOpenAt, applicationCloseAt,
+			null, null, at(10)));
 	}
 
 	// 종목 11을 raceId 대회의 종목으로 넣는다
