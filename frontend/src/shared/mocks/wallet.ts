@@ -52,10 +52,16 @@ export function payFromMockWallet(
   return { shortage: 0, next }
 }
 
-// shortcut: BUK-21 응답 확정 전 가정, 백엔드 계약이 생기면 openapi로 교체 (충전 줄의 남은 금액 · 카드 취소 기한)
+// shortcut: 충전 줄의 charge가 openapi/cash.json에 아직 없어 덧붙인 타입, 명세를 다시 받으면 지운다
 type LedgerRow = WalletLedgerItemDto & {
-  remainingAmount?: number | null
-  cardCancelDate?: string | null
+  charge?: {
+    chargeId: number
+    chargedAt: string
+    amount: number
+    remainingAmount: number
+    lastCancelableDate: string
+    expired: boolean
+  } | null
 }
 type MockLedger = Omit<LedgerRow, 'balanceAfter'>
 
@@ -78,8 +84,14 @@ const MOCK_LEDGERS: LedgerRow[] = withBalanceAfter([
     createdAt: '2026-10-05T14:21:00',
     refId: 31,
     // 오래된 충전부터 썼다고 보아 이 충전만 남은 금액이 있다 (시안 M17 환급 변경안)
-    remainingAmount: 5_000,
-    cardCancelDate: '2027-10-04',
+    charge: {
+      chargeId: 31,
+      chargedAt: '2026-10-05T14:20:58',
+      amount: 10_000,
+      remainingAmount: 5_000,
+      lastCancelableDate: '2027-10-04',
+      expired: false,
+    },
   },
   {
     category: 'PAYOUT',

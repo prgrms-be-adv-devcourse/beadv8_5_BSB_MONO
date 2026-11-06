@@ -171,7 +171,11 @@ function ChargeRemainingLine({ row }: { row: WalletLedger }) {
   if (!left) return null
   return (
     <p className="text-caption text-text-tertiary">
-      {`남은 금액 ${left.remainingAmount.toLocaleString('ko-KR')}원 · 카드 취소 ${left.cardCancelDate}까지`}
+      {`남은 금액 ${left.remainingAmount.toLocaleString('ko-KR')}원 · `}
+      {/* 기한이 지난 몫은 계좌로 가므로 「까지」라고 쓰면 아직 카드로 받을 수 있는 것처럼 읽힌다 */}
+      {left.expired
+        ? `카드 취소 기한(${left.cardCancelDate})이 지났어요`
+        : `카드 취소 ${left.cardCancelDate}까지`}
     </p>
   )
 }

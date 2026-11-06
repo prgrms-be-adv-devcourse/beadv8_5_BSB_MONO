@@ -89,14 +89,20 @@ export const requestRefund = (account: RefundAccount | null, idempotencyKey: str
   cashApi.requestWithdrawal(account ?? ({} as RefundAccount), { idempotencyKey })
 
 /**
- * 예치금 내역 충전 줄에 더해 달라고 한 두 값. 모두 쓴 충전은 둘 다 null.
- * 내역 응답을 그대로 쓰므로 읽을 수 있다. 내역을 zod로 걸러 모르는 값을 버리게 되면 여기도 바꾼다.
+ * 예치금 내역 충전 줄의 charge (환급 화면용 충전 내역 조회의 충전 건 한 줄과 같은 값). 다른 줄은 null.
+ * openapi/cash.json에 아직 없는 필드라 타입을 덧붙여 읽는다. 내역을 zod로 걸러 모르는 값을 버리게 되면 여기도 바꾼다.
  */
-type ChargeRemaining = { remainingAmount?: number | null; cardCancelDate?: string | null }
+type LedgerCharge = {
+  charge?: { remainingAmount: number; lastCancelableDate: string; expired: boolean } | null
+}
 
-/** 남은 금액이 있는 충전 줄이면 남은 금액과 카드 취소 기한, 아니면 null */
+/** 남은 금액이 있는 충전 줄이면 남은 금액 · 카드 취소 마지막 날 · 기한 지남 여부, 아니면 null */
 export function chargeRemaining(row: WalletLedger) {
-  const { remainingAmount, cardCancelDate } = row as WalletLedger & ChargeRemaining
-  if (row.category !== 'CHARGE' || !remainingAmount || !cardCancelDate) return null
-  return { remainingAmount, cardCancelDate }
+  const charge = (row as WalletLedger & LedgerCharge).charge
+  if (row.category !== 'CHARGE' || !charge || charge.remainingAmount <= 0) return null
+  return {
+    remainingAmount: charge.remainingAmount,
+    cardCancelDate: charge.lastCancelableDate,
+    expired: charge.expired,
+  }
 }
