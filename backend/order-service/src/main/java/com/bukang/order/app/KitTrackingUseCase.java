@@ -134,6 +134,10 @@ public class KitTrackingUseCase {
 				"키트를 보낸 지 %d일이 지나도 택배사에서 조회되지 않아 배송 조회를 멈췄어요.\n송장 번호를 고치면 다시 조회해요."
 					.formatted(Shipment.NOT_TRACKED_LIMIT.toDays()),
 				"/seller/kits"));
+		} catch (ExternalServiceUnavailableException exception) {
+			// 판매자 조회가 꺼졌거나(운영 disabled) 내려갔다. 예상한 실패라 스택 없이 남긴다
+			log.warn("조회를 멈춘 키트를 판매자에게 알리지 못했습니다. shipmentId={}, cause={}", shipmentId,
+				exception.getMessage());
 		} catch (RuntimeException exception) {
 			log.error("조회를 멈춘 키트를 판매자에게 알리지 못했습니다. shipmentId={}", shipmentId, exception);
 		}

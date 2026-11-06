@@ -12,6 +12,7 @@ import com.bukang.common.global.eventpublisher.EventPublisher;
 import com.bukang.common.shared.notification.NotificationKind;
 import com.bukang.common.shared.notification.event.NotificationRequestedEvent;
 import com.bukang.order.domain.KitShipNotice;
+import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
 import com.bukang.order.out.KitShipNoticeRepository;
 import com.bukang.order.out.race.RaceCourseInfo;
 import com.bukang.order.out.race.RaceCoursePort;
@@ -55,6 +56,10 @@ public class KitShipNoticeUseCase {
 			} catch (DataIntegrityViolationException exception) {
 				// 다른 서버가 같은 대회를 먼저 알렸다
 				log.info("이미 키트 발송을 알린 대회입니다. raceCourseId={}", courseId);
+			} catch (ExternalServiceUnavailableException exception) {
+				// 판매자 조회가 꺼졌거나(운영 disabled) 상품·회원이 내려갔다. 남은 대회도 같으니 한 줄만 남기고 다음 배치에서 다시 본다
+				log.warn("키트 발송 알림을 이번에는 건너뜁니다. raceCourseId={}, cause={}", courseId, exception.getMessage());
+				break;
 			} catch (RuntimeException exception) {
 				log.error("키트 발송 알림을 보내지 못했습니다. raceCourseId={}", courseId, exception);
 			}
