@@ -52,6 +52,7 @@ public class PartyUseCase {
 	private static final String PARTY_MEMBER_CONSTRAINT = "uk_party_member";
 
 	// 내 파티 상태에서 보는 상태. 종료(와 앞으로 생길 끝난 상태)는 빼고, 이미 신청한 파티도 알려 주려고 결제 중·끝을 넣는다
+	// BUK-38에서 파티 상태가 새로 생기면 여기에 넣을지 같이 본다 (안 넣으면 그 파티는 「파티 없음」으로 보임)
 	private static final EnumSet<PartyStatus> LIVE_STATUSES =
 		EnumSet.of(PartyStatus.RECRUITING, PartyStatus.PAYING, PartyStatus.PAID);
 	// shortcut: 판매자가 정하는 파티 최소·최대 인원(crewMinCount·crewMaxCount)이 상품 종목 응답에 아직 없어 정책 기본값을 둔다.

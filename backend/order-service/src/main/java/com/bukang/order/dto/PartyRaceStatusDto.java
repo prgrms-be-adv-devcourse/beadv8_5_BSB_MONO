@@ -18,7 +18,8 @@ public record PartyRaceStatusDto(
 	@Schema(description = "이 대회 파티에서 내 역할 LEADER(파티장) / MEMBER(파티원) / NONE(파티 없음)", example = "LEADER")
 	Role role,
 	@Schema(description = "지금 파티로 신청할 수 있는지. 파티장, 모집 중, 접수 중인 대회, 인원이 최소~최대일 때만 true. "
-		+ "이때만 파티 대기열에 넣는다. 안내용이라 최종 판정은 파티 신청 API가 한다(그 사이 바뀌면 409)", example = "true")
+		+ "이때만 파티 대기열에 넣는다. 안내용이라 대기열 입장·크루 예매 기간·크루원 자격은 신청 때 다시 확인한다(어긋나면 409)",
+		example = "true")
 	boolean canApply,
 	@Schema(description = "신청할 수 없는 이유 (canApply=false일 때만) NO_PARTY(파티 없음) / NOT_LEADER(파티원이라 못 함) / "
 		+ "NOT_RECRUITING(이미 신청함) / RACE_CLOSED(취소·접수 마감된 대회) / "
@@ -39,7 +40,8 @@ public record PartyRaceStatusDto(
 	Integer maxCount,
 	@Schema(description = "결제를 마친(참가 확정) 파티원 수", example = "0")
 	Integer paidCount,
-	@Schema(description = "파티원 결제 마감 (파티 신청 뒤에만)", example = "2026-11-07T10:00:00")
+	@Schema(description = "파티원 결제 마감 (파티 신청 뒤에만). "
+		+ "해제 배치 전에는 지나도 PAYING이니 만료는 이 값과 지금 시각으로 판단", example = "2026-11-07T10:00:00")
 	LocalDateTime paymentDueAt,
 	@Schema(description = "내가 결제했는지 (내 신청서가 참가 확정)", example = "false")
 	Boolean myPaid,

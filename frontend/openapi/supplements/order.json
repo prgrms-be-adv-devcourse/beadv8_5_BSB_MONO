@@ -942,7 +942,7 @@
         },
         "canApply": {
           "type": "boolean",
-          "description": "파티장, 모집 중, 접수 중인 대회, 인원이 최소~최대일 때만 true. 이때만 파티 대기열에 넣는다. 안내용이라 최종 판정은 파티 신청 API가 한다"
+          "description": "파티장, 모집 중, 접수 중인 대회, 인원이 최소~최대일 때만 true. 이때만 파티 대기열에 넣는다. 안내용이라 대기열 입장·크루 예매 기간·크루원 자격은 신청 때 다시 확인한다(어긋나면 409)"
         },
         "reason": {
           "type": "string",
@@ -998,7 +998,7 @@
         "paymentDueAt": {
           "type": "string",
           "format": "date-time",
-          "description": "파티원 결제 마감 (파티 신청 뒤에만)"
+          "description": "파티원 결제 마감 (파티 신청 뒤에만). 해제 배치 전에는 지나도 PAYING이니 만료는 이 값과 지금 시각으로 판단"
         },
         "myPaid": {
           "type": "boolean",
