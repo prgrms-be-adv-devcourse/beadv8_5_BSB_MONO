@@ -114,6 +114,22 @@ public class Party extends BaseIdAndTime {
 		}
 	}
 
+	// 파티장 [신청] 전 확인 (BUK-37). 이미 신청한 파티는 모집 중이 아니라 409다 (11/02 결정 ⑩: 같은 파티 재신청 막음)
+	public void checkApplicable(long memberId) {
+		checkLeader(memberId);
+		if (status != PartyStatus.RECRUITING) {
+			throw PartyConflictException.alreadyApplied(getId(), status);
+		}
+	}
+
+	// 크루 자리를 모두 잡아 파티원 결제 기간을 연다
+	public void startPayment(LocalDateTime paymentDueAt, LocalDateTime now) {
+		checkRecruiting();
+		this.status = PartyStatus.PAYING;
+		this.paymentDueAt = paymentDueAt;
+		this.appliedAt = now;
+	}
+
 	// 다시 만들면 옛 링크는 더 이상 찾을 수 없다 (토큰이 바뀜)
 	public void regenerateJoinToken(long memberId, LocalDateTime now) {
 		checkLeader(memberId);

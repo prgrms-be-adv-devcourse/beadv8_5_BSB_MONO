@@ -18,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class PartyFacade {
 	private final PartyUseCase partyUseCase;
+	private final PartyApplyUseCase partyApplyUseCase;
 
 	public PartyCreatedDto create(PartyCreateRequestDto request, long memberId) {
 		PartyUseCase.Created created = partyUseCase.create(memberId, request.getCrewId(), request.getRaceCourseId(),
@@ -32,6 +33,10 @@ public class PartyFacade {
 	public ParticipationDto join(PartyJoinRequestDto request, long memberId) {
 		return partyUseCase.join(request.getJoinToken(), memberId,
 			request.getParticipant().toParticipantInfo(), LocalDateTime.now()).toDto();
+	}
+
+	public PartyDto apply(long partyId, long memberId) {
+		return PartyDto.of(partyApplyUseCase.apply(partyId, memberId, LocalDateTime.now()));
 	}
 
 	public ParticipationDto leave(long partyId, long memberId) {

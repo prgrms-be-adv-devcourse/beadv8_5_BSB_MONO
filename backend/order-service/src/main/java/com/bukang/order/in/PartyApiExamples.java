@@ -16,6 +16,7 @@ final class PartyApiExamples {
 					"raceCourseId": 2,
 					"leaderMemberId": 3,
 					"status": "RECRUITING",
+					"paymentDueAt": null,
 					"joinToken": "k3Jx9dQ2mV7pL0sA8fB1nC4eR6tY5uI2oP9wZ3xH7gK",
 					"joinTokenExpiresAt": "2026-11-06T10:15:30"
 				},
@@ -58,6 +59,7 @@ final class PartyApiExamples {
 				"raceCourseId": 2,
 				"leaderMemberId": 3,
 				"status": "RECRUITING",
+				"paymentDueAt": null,
 				"joinToken": "Zq8Wm1Xc5Vb2Nn7Ll4Kk9Jj3Hh6Gg0Ff2Dd5Ss8Aa1Q",
 				"joinTokenExpiresAt": "2026-11-06T12:00:00"
 			}
@@ -229,6 +231,76 @@ final class PartyApiExamples {
 	static final String PRODUCT_SERVICE_UNAVAILABLE = """
 		{ "status": 503, "code": "ORDER_EXTERNAL_SERVICE_UNAVAILABLE",
 			"message": "상품 서비스에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요.", "data": null }
+		""";
+
+	static final String APPLY_SUCCESS = """
+		{
+			"status": 200,
+			"message": "파티를 신청했습니다. 파티원에게 결제 알림을 보냈습니다.",
+			"data": {
+				"id": 1,
+				"crewId": 7,
+				"raceId": 100,
+				"raceCourseId": 2,
+				"leaderMemberId": 3,
+				"status": "PAYING",
+				"paymentDueAt": "2026-11-07T10:15:30",
+				"joinToken": "k3Jx9dQ2mV7pL0sA8fB1nC4eR6tY5uI2oP9wZ3xH7gK",
+				"joinTokenExpiresAt": "2026-11-06T10:15:30"
+			}
+		}
+		""";
+
+	static final String QUEUE_NOT_ADMITTED = """
+		{ "status": 403, "code": "ORDER_QUEUE_NOT_ADMITTED", "message": "대기열에서 입장한 뒤 파티를 신청할 수 있습니다.",
+			"data": null }
+		""";
+
+	static final String FULL = """
+		{ "status": 409, "code": "ORDER_PARTY_FULL", "message": "파티 인원이 다 찼습니다(최대 10명).",
+			"data": { "partyId": 1 } }
+		""";
+
+	static final String APPLY_NOT_RECRUITING = """
+		{ "status": 409, "code": "ORDER_PARTY_NOT_RECRUITING",
+			"message": "이미 신청했거나 끝난 파티입니다(현재 상태: 결제 진행 중).",
+			"data": { "partyId": 1, "partyStatus": "PAYING" } }
+		""";
+
+	static final String SALE_CLOSED = """
+		{ "status": 409, "code": "ORDER_PARTY_SALE_CLOSED", "message": "파티 예매 기간이 아닙니다.",
+			"data": { "partyId": 1 } }
+		""";
+
+	static final String SIZE_OUT_OF_RANGE = """
+		{ "status": 409, "code": "ORDER_PARTY_SIZE_OUT_OF_RANGE",
+			"message": "파티 인원이 4~10명이어야 신청할 수 있습니다(지금 3명).", "data": { "partyId": 1 } }
+		""";
+
+	static final String MEMBER_NOT_CREW = """
+		{ "status": 409, "code": "ORDER_PARTY_MEMBER_NOT_CREW",
+			"message": "크루를 떠난 파티원이 있어 신청할 수 없습니다.", "data": { "partyId": 1 } }
+		""";
+
+	static final String MEMBER_JOINED_LATE = """
+		{ "status": 409, "code": "ORDER_PARTY_MEMBER_JOINED_LATE",
+			"message": "파티 예매 시작 7일 전보다 늦게 크루에 가입한 파티원이 있어 신청할 수 없습니다.", "data": { "partyId": 1 } }
+		""";
+
+	static final String MEMBERS_CHANGED = """
+		{ "status": 409, "code": "ORDER_PARTY_MEMBERS_CHANGED",
+			"message": "신청하는 사이 파티원이 바뀌었습니다. 다시 신청해 주세요.", "data": { "partyId": 1 } }
+		""";
+
+	static final String CREW_SEAT_SHORTAGE = """
+		{ "status": 409, "code": "ORDER_PARTY_CREW_SEAT_SHORTAGE",
+			"message": "남은 크루 자리가 3석 모자랍니다(필요 4석, 남은 1석).",
+			"data": { "partyId": 1, "raceCourseId": 2, "needed": 4, "remaining": 1 } }
+		""";
+
+	static final String PARTY_APPLY_UNAVAILABLE = """
+		{ "status": 503, "code": "ORDER_EXTERNAL_SERVICE_UNAVAILABLE",
+			"message": "파티 신청을 아직 쓸 수 없습니다. 잠시 뒤 다시 시도해주세요.", "data": null }
 		""";
 
 	private PartyApiExamples() {

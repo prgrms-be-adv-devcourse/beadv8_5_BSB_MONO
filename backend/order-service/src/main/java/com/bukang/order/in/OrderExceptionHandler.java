@@ -16,9 +16,11 @@ import com.bukang.common.global.rsdata.RsData;
 import com.bukang.order.domain.exception.IndividualParticipationExistsException;
 import com.bukang.order.domain.exception.InsufficientBalanceException;
 import com.bukang.order.domain.exception.PartyConflictException;
+import com.bukang.order.domain.exception.PartyCrewSeatShortageException;
 import com.bukang.order.dto.IndividualParticipationExistsDto;
 import com.bukang.order.dto.InsufficientBalanceDto;
 import com.bukang.order.dto.PartyConflictDto;
+import com.bukang.order.dto.PartyCrewSeatShortageDto;
 
 /**
  * 주문 서비스 전용 요청 예외 처리
@@ -64,6 +66,18 @@ public class OrderExceptionHandler {
 		return ResponseEntity
 			.status(exception.getStatus())
 			.body(RsData.of(exception.getStatus(), exception.getCode(), exception.getMessage(), data));
+	}
+
+	// 파티 신청 때 크루 자리가 모자람: 모자란 종목·필요한 수·남은 수를 더한다 (BUK-37)
+	@ExceptionHandler(PartyCrewSeatShortageException.class)
+	public ResponseEntity<RsData<PartyCrewSeatShortageDto>> partyCrewSeatShortageException(
+		PartyCrewSeatShortageException exception
+	) {
+		return ResponseEntity
+			.status(exception.getStatus())
+			.body(RsData.of(exception.getStatus(), exception.getCode(), exception.getMessage(),
+				new PartyCrewSeatShortageDto(exception.getPartyId(), exception.getRaceCourseId(),
+					exception.getNeeded(), exception.getRemaining())));
 	}
 
 	// 필수 요청 헤더(예: 중복 요청 방지 키)가 없으면 잘못된 요청이다. 회원 ID 헤더는 common의 @LoginMemberId가 처리한다

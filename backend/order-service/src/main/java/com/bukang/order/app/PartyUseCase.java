@@ -75,7 +75,6 @@ public class PartyUseCase {
 		return party;
 	}
 
-	// shortcut: 최대 인원(crewMaxCount)은 상품 종목 응답에 아직 없어 확인하지 않는다. 그 칸이 오면(파티 신청 이슈) 여기서 막는다
 	// 종목은 고르지 않는다. 파티 종목으로 신청서를 만들고 나이·티셔츠 확인도 그 종목 기준이다 (11/05)
 	public Participation join(String joinToken, long memberId, ParticipantInfo participant, LocalDateTime now) {
 		long partyId = partyRepository.findIdByJoinToken(joinToken)
@@ -98,6 +97,7 @@ public class PartyUseCase {
 		if (row.filter(PartyMember::isActive).isPresent()) {
 			throw PartyConflictException.alreadyJoined(partyId);
 		}
+		checkNotFull(party, course);
 		checkNoLiveParticipation(party.getRaceId(), memberId, partyId);
 		row.ifPresentOrElse(left -> left.rejoin(crewJoinedAt, now),
 			() -> saveMember(partyId, memberId, party.getCrewId(), crewJoinedAt, now));
@@ -125,6 +125,18 @@ public class PartyUseCase {
 				.ifPresentOrElse(next -> party.handOverLeader(next.getMemberId()), () -> party.close(now));
 		}
 		return participation;
+	}
+
+	// 판매자가 정한 최대 인원(crewMaxCount)이 찼으면 막는다. 동시에 들어온 합류도 세도록 파티원을 잠가 읽는다
+	// shortcut: 상품 종목 조회가 아직 파티 예매 칸을 주지 않으면(crewSale null) 막지 않는다. 신청 때 다시 확인한다
+	private void checkNotFull(Party party, RaceCourseInfo course) {
+		if (course.crewSale() == null) {
+			return;
+		}
+		int maxCount = course.crewSale().maxCount();
+		if (partyMemberRepository.findActiveByPartyIdForUpdate(party.getId()).size() >= maxCount) {
+			throw PartyConflictException.full(party.getId(), maxCount);
+		}
 	}
 
 	private static PartyNotFoundException joinLinkNotFound() {

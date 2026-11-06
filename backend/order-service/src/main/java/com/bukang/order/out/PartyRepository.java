@@ -27,6 +27,14 @@ public interface PartyRepository extends JpaRepository<Party, Long> {
 	record JoinTarget(long raceCourseId, long crewId) {
 	}
 
+	// 파티 신청 때 잠그기 전에 파티장·상태로 먼저 거른다. 상품·회원을 부르기 전에 빨리 거절하려는 것이고, 잠근 뒤 다시 본다
+	@Query("select new com.bukang.order.out.PartyRepository$ApplyTarget(p.raceCourseId, p.crewId, p.leaderMemberId, "
+		+ "p.status) from Party p where p.id = :id")
+	Optional<ApplyTarget> findApplyTarget(@Param("id") long id);
+
+	record ApplyTarget(long raceCourseId, long crewId, long leaderMemberId, PartyStatus status) {
+	}
+
 	// 합류·나가기·링크 다시 만들기·(다음 이슈) 신청은 파티 줄을 먼저 잠근다 (잠금 순서: 파티 → 참가 신청)
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	@Query("select p from Party p where p.id = :id")
