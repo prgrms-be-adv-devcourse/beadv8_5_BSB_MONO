@@ -50,16 +50,20 @@ public class KitShipNoticeUseCase {
 					|| course.isRefundableOn(now.toLocalDate())) {
 					continue;
 				}
-				if (notifySeller(course, now)) {
+				Long memberId;
+				try {
+					memberId = sellerLookupPort.findSellerMemberId(course.sellerId()).orElse(null);
+				} catch (ExternalServiceUnavailableException exception) {
+					// 판매자 조회가 꺼졌거나(운영 disabled) 내려갔다. 남은 대회도 같으니 한 줄만 남기고 다음 배치에서 다시 본다
+					log.warn("판매자 조회를 쓸 수 없어 이번 키트 발송 알림을 멈춥니다. cause={}", exception.getMessage());
+					break;
+				}
+				if (notifySeller(course, memberId, now)) {
 					noticedRaceIds.add(course.raceId());
 				}
 			} catch (DataIntegrityViolationException exception) {
 				// 다른 서버가 같은 대회를 먼저 알렸다
 				log.info("이미 키트 발송을 알린 대회입니다. raceCourseId={}", courseId);
-			} catch (ExternalServiceUnavailableException exception) {
-				// 판매자 조회가 꺼졌거나(운영 disabled) 상품·회원이 내려갔다. 남은 대회도 같으니 한 줄만 남기고 다음 배치에서 다시 본다
-				log.warn("키트 발송 알림을 이번에는 건너뜁니다. raceCourseId={}, cause={}", courseId, exception.getMessage());
-				break;
 			} catch (RuntimeException exception) {
 				log.error("키트 발송 알림을 보내지 못했습니다. raceCourseId={}", courseId, exception);
 			}
@@ -67,8 +71,7 @@ public class KitShipNoticeUseCase {
 		return noticedRaceIds.size();
 	}
 
-	private boolean notifySeller(RaceCourseInfo course, LocalDateTime now) {
-		Long memberId = sellerLookupPort.findSellerMemberId(course.sellerId()).orElse(null);
+	private boolean notifySeller(RaceCourseInfo course, Long memberId, LocalDateTime now) {
 		if (memberId == null) {
 			log.warn("판매자를 찾지 못해 키트 발송을 알리지 못했습니다. raceId={}, sellerId={}", course.raceId(),
 				course.sellerId());

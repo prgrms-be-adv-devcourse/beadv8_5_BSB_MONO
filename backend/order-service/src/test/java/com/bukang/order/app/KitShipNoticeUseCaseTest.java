@@ -46,4 +46,19 @@ class KitShipNoticeUseCaseTest {
 
 		verify(sellerLookupPort, times(1)).findSellerMemberId(anyLong());
 	}
+
+	@Test
+	@DisplayName("키트 발송 알림: 종목 하나의 상품 조회가 실패해도 배치를 멈추지 않고 다음 대회를 본다")
+	void continueWhenOneCourseLookupUnavailable() {
+		when(kitShipNoticeRepository.findReadyKitCourseIdsNotNoticed()).thenReturn(List.of(1L, 2L));
+		when(raceCoursePort.findCourse(1L))
+			.thenThrow(new ExternalServiceUnavailableException("상품 응답 형식이 다릅니다."));
+		when(raceCoursePort.findCourse(2L)).thenReturn(Optional.of(
+			StubRaceCoursePort.openCourse(2L, 20L, 14, null, LocalDate.now().minusDays(1))));
+		when(sellerLookupPort.findSellerMemberId(anyLong())).thenReturn(Optional.empty());
+
+		useCase.notifyShippable(LocalDateTime.now());
+
+		verify(sellerLookupPort, times(1)).findSellerMemberId(anyLong());
+	}
 }
