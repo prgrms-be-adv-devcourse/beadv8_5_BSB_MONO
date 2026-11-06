@@ -1,10 +1,12 @@
 'use client'
 
+import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
-import { MIN_CHARGE, requestCharge } from '@/features/deposit-charge'
+import { ChargeHeldAlert, MIN_CHARGE, requestCharge } from '@/features/deposit-charge'
 import { useMyBalance } from '@/entities/wallet'
+import { cashApi } from '@/shared/api'
 import { Alert, BottomCta, Button, KeyValue } from '@/shared/ui'
 
 const STEPS = [10_000, 50_000, 100_000]
@@ -15,16 +17,23 @@ const won = (n: number) => n.toLocaleString('ko-KR')
 // 그래서 시안 위쪽의 "결제에 ₩N이 부족해요" 안내는 두지 않는다.
 export function DepositChargePage() {
   const { balance } = useMyBalance()
+  const queryClient = useQueryClient()
   const [amount, setAmount] = useState(MIN_CHARGE)
   const [charging, setCharging] = useState(false)
   const [failed, setFailed] = useState(false)
+  const [held, setHeld] = useState(false)
 
   const charge = () => {
     setCharging(true)
     setFailed(false)
     requestCharge({ amount })
       .then((result) => {
-        if (result === 'canceled') setCharging(false)
+        if (result !== 'redirecting') setCharging(false)
+        setHeld(result === 'held')
+        // 앞선 충전을 서버가 이미 맞췄을 수 있어 잔액을 다시 불러 보여 준다
+        if (result === 'held') {
+          void queryClient.invalidateQueries({ queryKey: cashApi.getGetBalanceQueryKey() })
+        }
       })
       .catch(() => {
         setCharging(false)
@@ -44,6 +53,7 @@ export function DepositChargePage() {
             description="잠시 뒤 다시 시도해 주세요."
           />
         )}
+        {held && <ChargeHeldAlert />}
         <section className="flex flex-col gap-4 rounded-lg bg-bg-surface p-5 shadow-sm inset-ring inset-ring-border-default">
           <label htmlFor="charge-amount" className="text-label-m">
             충전할 금액

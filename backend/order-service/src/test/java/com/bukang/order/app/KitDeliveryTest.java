@@ -3,6 +3,10 @@ package com.bukang.order.app;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -27,6 +31,7 @@ import java.util.stream.Collectors;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -36,10 +41,14 @@ import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.bukang.common.shared.notification.NotificationKafkaSender;
+import com.bukang.common.shared.notification.NotificationKind;
+import com.bukang.common.shared.notification.event.NotificationRequestedEvent;
 import com.bukang.order.domain.DeliveryTrackingStatus;
 import com.bukang.order.domain.KitDeliveryStatus;
 import com.bukang.order.domain.Order;
@@ -56,9 +65,11 @@ import com.bukang.order.dto.KitTrackingDto;
 import com.bukang.order.dto.OrderItemDto;
 import com.bukang.order.dto.SellerKitDto;
 import com.bukang.order.dto.SellerKitSummaryDto;
+import com.bukang.order.out.KitShipNoticeRepository;
 import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationRepository;
 import com.bukang.order.out.QueueAdmissionRepository;
+import com.bukang.order.out.ShipmentRepository;
 import com.bukang.order.out.delivery.DeliveryTrackingResult;
 import com.bukang.order.out.race.RaceCourseInfo;
 import com.bukang.order.support.QueueEntry;
@@ -104,6 +115,9 @@ class KitDeliveryTest {
 	private OrderRepository orderRepository;
 
 	@Autowired
+	private ShipmentRepository shipmentRepository;
+
+	@Autowired
 	private ParticipationRepository participationRepository;
 
 	@Autowired
@@ -142,9 +156,19 @@ class KitDeliveryTest {
 	@Autowired
 	private StubDeliveryTrackingPort deliveryTrackingPort;
 
+	@MockitoSpyBean
+	private NotificationKafkaSender notificationSender;
+
+	@Autowired
+	private KitShipNoticeUseCase kitShipNoticeUseCase;
+
+	@Autowired
+	private KitShipNoticeRepository kitShipNoticeRepository;
+
 	@AfterEach
 	void tearDown() {
 		orderRepository.deleteAll();
+		kitShipNoticeRepository.deleteAll();
 		participationRepository.deleteAll();
 		queueAdmissionRepository.deleteAll();
 		raceCoursePort.clear();
@@ -159,7 +183,8 @@ class KitDeliveryTest {
 		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().minusDays(1)));
 		long orderId = paidOrder();
 		ship(itemIdOf(orderId));
-		LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
+		// 발송 시각(나노초)이 DB에 반올림돼도 다음 조회 시각보다 뒤가 되게 1초 뒤로 조회한다
+		LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS).plusSeconds(1);
 
 		// 택배사가 아직 스캔하지 않음: 오류가 아니라 아직 조회되지 않음으로 두고 조회 시각만 남긴다
 		assertThat(kitTrackingUseCase.track(now)).isEqualTo(new KitTrackingUseCase.TrackResult(1, 0, 0));
@@ -171,7 +196,7 @@ class KitDeliveryTest {
 			DeliveryTrackingStatus.IN_TRANSIT, "간선상차", "옥천HUB에서 출발했습니다.", "옥천HUB");
 		deliveryTrackingPort.put(TRACKING_NUMBER, new DeliveryTrackingResult(DeliveryTrackingStatus.IN_TRANSIT,
 			"간선상차", moving.time(), List.of(moving)));
-		kitTrackingUseCase.track(now.plusMinutes(30));
+		kitTrackingUseCase.track(now.plusHours(3));
 		assertThat(shipmentOf(orderId).getStatus()).isEqualTo(ShipmentStatus.SHIPPING);
 		findOrder(orderId)
 			.andExpect(jsonPath("$.data.items[0].kitTracking.status").value("IN_TRANSIT"))
@@ -182,7 +207,7 @@ class KitDeliveryTest {
 			DeliveryTrackingStatus.DELIVERED, "배달완료", "배달 완료되었습니다.", "서울성동");
 		deliveryTrackingPort.put(TRACKING_NUMBER, new DeliveryTrackingResult(DeliveryTrackingStatus.DELIVERED,
 			"배달완료", done.time(), List.of(moving, done, done)));
-		assertThat(kitTrackingUseCase.track(now.plusMinutes(60)))
+		assertThat(kitTrackingUseCase.track(now.plusHours(6)))
 			.isEqualTo(new KitTrackingUseCase.TrackResult(1, 1, 0));
 
 		assertThat(shipmentOf(orderId).getStatus()).isEqualTo(ShipmentStatus.DELIVERED);
@@ -201,7 +226,7 @@ class KitDeliveryTest {
 
 		// 배송 완료는 조회 대상에서 빠진다
 		int calls = deliveryTrackingPort.calls().size();
-		assertThat(kitTrackingUseCase.track(now.plusMinutes(90)))
+		assertThat(kitTrackingUseCase.track(now.plusHours(9)))
 			.isEqualTo(new KitTrackingUseCase.TrackResult(0, 0, 0));
 		assertThat(deliveryTrackingPort.calls()).hasSize(calls);
 	}
@@ -213,7 +238,8 @@ class KitDeliveryTest {
 		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().minusDays(1)));
 		long orderId = paidOrder();
 		ship(itemIdOf(orderId));
-		LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
+		// 발송 시각(나노초)이 DB에 반올림돼도 다음 조회 시각보다 뒤가 되게 1초 뒤로 조회한다
+		LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS).plusSeconds(1);
 
 		LocalDateTime longAgo = now.minusDays(90);
 		deliveryTrackingPort.put(TRACKING_NUMBER, new DeliveryTrackingResult(DeliveryTrackingStatus.DELIVERED,
@@ -226,12 +252,12 @@ class KitDeliveryTest {
 		LocalDateTime moved = now.minusHours(1);
 		deliveryTrackingPort.put(TRACKING_NUMBER, new DeliveryTrackingResult(DeliveryTrackingStatus.IN_TRANSIT,
 			"간선상차", moved, List.of()));
-		kitTrackingUseCase.track(now.plusMinutes(30));
+		kitTrackingUseCase.track(now.plusHours(3));
 		assertThat(shipmentOf(orderId).getTrackingStatus()).isEqualTo(DeliveryTrackingStatus.IN_TRANSIT);
 
 		deliveryTrackingPort.put(TRACKING_NUMBER, new DeliveryTrackingResult(DeliveryTrackingStatus.AT_PICKUP,
 			"집화처리", moved.minusHours(3), List.of()));
-		kitTrackingUseCase.track(now.plusMinutes(60));
+		kitTrackingUseCase.track(now.plusHours(6));
 		assertThat(shipmentOf(orderId).getTrackingStatus()).isEqualTo(DeliveryTrackingStatus.IN_TRANSIT);
 		assertThat(shipmentOf(orderId).getLastEventAt()).isEqualTo(moved);
 	}
@@ -251,7 +277,8 @@ class KitDeliveryTest {
 		deliveryTrackingPort.failWith("333", new IllegalStateException("어댑터 버그"));
 		deliveryTrackingPort.put("222", new DeliveryTrackingResult(DeliveryTrackingStatus.IN_TRANSIT, "이동중",
 			null, List.of()));
-		LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
+		// 발송 시각(나노초)이 DB에 반올림돼도 다음 조회 시각보다 뒤가 되게 1초 뒤로 조회한다
+		LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS).plusSeconds(1);
 
 		assertThat(kitTrackingUseCase.track(now)).isEqualTo(new KitTrackingUseCase.TrackResult(1, 0, 2));
 
@@ -259,10 +286,132 @@ class KitDeliveryTest {
 		assertThat(shipmentOf(brokenOrderId).getLastTrackedAt()).isEqualTo(now);
 		assertThat(shipmentOf(failingOrderId).getTrackingStatus()).isEqualTo(DeliveryTrackingStatus.NOT_TRACKED);
 		assertThat(shipmentOf(okOrderId).getTrackingStatus()).isEqualTo(DeliveryTrackingStatus.IN_TRANSIT);
-		// 다음 차례에는 오래 조회하지 않은 것부터 부른다
-		kitTrackingUseCase.track(now.plusMinutes(30));
+		// 실패한 배송도 지난 상태(아직 조회되지 않음)의 간격인 3시간 뒤에 다시 부른다 (BUK-90)
+		kitTrackingUseCase.track(now.plusHours(3));
 		assertThat(deliveryTrackingPort.calls()).containsExactly("111", "222", "333", "111", "222", "333");
 		findOrder(okOrderId).andExpect(jsonPath("$.data.items[0].kitTracking.status").value("IN_TRANSIT"));
+	}
+
+	@Test
+	@DisplayName("조회 배치: 다음 조회 시각이 된 배송만 부른다. 배달 출발 전은 3시간, 배달 출발·배달 실패·수령 대기는 30분 뒤다 (BUK-90)")
+	void trackByInterval() throws Exception {
+		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().minusDays(1)));
+		long orderId = paidOrder();
+		ship(itemIdOf(orderId));
+		LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS).plusSeconds(1);
+
+		kitTrackingUseCase.track(now);
+		assertThat(shipmentOf(orderId).getNextTrackingAt()).isEqualTo(now.plusHours(3));
+		deliveryTrackingPort.put(TRACKING_NUMBER, new DeliveryTrackingResult(DeliveryTrackingStatus.IN_TRANSIT,
+			"간선상차", now, List.of()));
+		assertThat(kitTrackingUseCase.track(now.plusHours(3).minusSeconds(1)))
+			.isEqualTo(new KitTrackingUseCase.TrackResult(0, 0, 0));
+		kitTrackingUseCase.track(now.plusHours(3));
+		assertThat(shipmentOf(orderId).getNextTrackingAt()).isEqualTo(now.plusHours(6));
+
+		deliveryTrackingPort.put(TRACKING_NUMBER, new DeliveryTrackingResult(DeliveryTrackingStatus.OUT_FOR_DELIVERY,
+			"배달출발", now.plusHours(5), List.of()));
+		kitTrackingUseCase.track(now.plusHours(6));
+		assertThat(shipmentOf(orderId).getNextTrackingAt()).isEqualTo(now.plusHours(6).plusMinutes(30));
+		kitTrackingUseCase.track(now.plusHours(6).plusMinutes(29));
+		kitTrackingUseCase.track(now.plusHours(6).plusMinutes(30));
+		assertThat(deliveryTrackingPort.calls()).hasSize(4);
+	}
+
+	@Test
+	@DisplayName("조회 배치: 발송 7일 뒤에도 아직 조회되지 않으면 조회를 멈추고 판매자에게 한 번 알린다. 송장을 고치면 다시 조회한다 (BUK-90)")
+	void stopTrackingAfterSevenDaysAndRestartOnChange() throws Exception {
+		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().minusDays(1)));
+		long orderId = paidOrder();
+		long itemId = itemIdOf(orderId);
+		ship(itemId);
+		LocalDateTime shippedAt = shipmentOf(orderId).getShippedAt();
+		LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS).plusSeconds(1);
+
+		kitTrackingUseCase.track(now);
+		kitTrackingUseCase.track(shippedAt.plusDays(7).minusMinutes(1));
+		assertThat(shipmentOf(orderId).getNextTrackingAt()).isNotNull();
+		verify(notificationSender, never()).send(any());
+
+		// 7일 직전 조회의 3시간 뒤 다음 조회에서 멈춘다
+		kitTrackingUseCase.track(shippedAt.plusDays(7).plusHours(3));
+		assertThat(shipmentOf(orderId).getNextTrackingAt()).isNull();
+		ArgumentCaptor<NotificationRequestedEvent> sent = ArgumentCaptor.forClass(NotificationRequestedEvent.class);
+		verify(notificationSender, times(1)).send(sent.capture());
+		assertThat(sent.getValue().memberId()).isEqualTo(SELLER_ID);
+		assertThat(sent.getValue().kind()).isEqualTo(NotificationKind.KIT_TRACKING_STOPPED);
+
+		// 멈춘 뒤에는 부르지 않고 다시 알리지도 않는다
+		int calls = deliveryTrackingPort.calls().size();
+		assertThat(kitTrackingUseCase.track(shippedAt.plusDays(30)))
+			.isEqualTo(new KitTrackingUseCase.TrackResult(0, 0, 0));
+		assertThat(deliveryTrackingPort.calls()).hasSize(calls);
+		verify(notificationSender, times(1)).send(any());
+
+		// 판매자가 송장을 고치면 고친 송장으로 바로 다시 조회한다
+		LocalDateTime changedAt = shippedAt.plusDays(8).truncatedTo(ChronoUnit.MICROS);
+		kitDeliveryUseCase.changeTracking(SELLER_ID, itemId, CARRIER_ID, "999", changedAt);
+		deliveryTrackingPort.put("999", new DeliveryTrackingResult(DeliveryTrackingStatus.IN_TRANSIT, "간선상차",
+			changedAt, List.of(new DeliveryTrackingResult.Event(changedAt, DeliveryTrackingStatus.IN_TRANSIT,
+				"간선상차", null, null))));
+		kitTrackingUseCase.track(changedAt);
+		assertThat(deliveryTrackingPort.calls().getLast()).isEqualTo("999");
+		assertThat(shipmentOf(orderId).getTrackingStatus()).isEqualTo(DeliveryTrackingStatus.IN_TRANSIT);
+		assertThat(shipmentOf(orderId).getShippedAt()).isEqualTo(shippedAt);
+
+		// 같은 송장으로 다시 저장하면(두 번 누름) 받은 상태와 7일 기준을 그대로 둔다
+		kitDeliveryUseCase.changeTracking(SELLER_ID, itemId, CARRIER_ID, " 999 ", changedAt.plusMinutes(10));
+		assertThat(shipmentOf(orderId).getTrackingStatus()).isEqualTo(DeliveryTrackingStatus.IN_TRANSIT);
+		assertThat(shipmentOf(orderId).getTrackingStartedAt()).isEqualTo(changedAt);
+
+		// 다시 고치면 옛 송장의 상태·이동 기록을 지운다. 판매자 직접 배송 완료는 그대로 되고, 배송 완료 뒤에는 고칠 수 없다
+		kitDeliveryUseCase.changeTracking(SELLER_ID, itemId, CARRIER_ID, "998", changedAt.plusHours(1));
+		assertThat(shipmentOf(orderId).getTrackingStatus()).isEqualTo(DeliveryTrackingStatus.NOT_TRACKED);
+		findOrder(orderId)
+			.andExpect(jsonPath("$.data.items[0].kitTrackingNumber").value("998"))
+			.andExpect(jsonPath("$.data.items[0].kitTracking.events.length()").value(0));
+		kitDeliveryUseCase.completeDelivery(SELLER_ID, itemId, LocalDateTime.now());
+		assertThat(shipmentOf(orderId).getNextTrackingAt()).isNull();
+		assertThatThrownBy(() -> kitDeliveryUseCase.changeTracking(SELLER_ID, itemId, CARRIER_ID, "997",
+			LocalDateTime.now()))
+			.isInstanceOf(KitNotShippableException.class)
+			.hasMessage("배송 중인 키트만 송장을 고칠 수 있습니다.");
+	}
+
+	@Test
+	@DisplayName("조회 배치: 부르는 사이 판매자가 송장을 고쳤거나 배송 완료로 바꿨으면 옛 결과를 남기지 않고 알리지도 않는다 (BUK-90)")
+	void ignoreResultAfterSellerChange() throws Exception {
+		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().minusDays(1)));
+		long orderId = paidOrder();
+		long itemId = itemIdOf(orderId);
+		ship(itemId);
+		long shipmentId = shipmentOf(orderId).getId();
+		LocalDateTime later = shipmentOf(orderId).getShippedAt().plusDays(8);
+		kitDeliveryUseCase.changeTracking(SELLER_ID, itemId, CARRIER_ID, "999", later.minusHours(1));
+
+		// 옛 송장으로 받은 배송 완료는 남기지 않고, 옛 송장의 실패는 다음 조회 시각을 미루지 않는다
+		DeliveryTrackingResult delivered = new DeliveryTrackingResult(DeliveryTrackingStatus.DELIVERED, "배달완료",
+			later, List.of());
+		assertThat(applyKitTracking(orderId, shipmentId, TRACKING_NUMBER, delivered, later))
+			.isEqualTo(Shipment.TrackingOutcome.TRACKED);
+		Integer staleMarked = transactionTemplate.execute(status -> shipmentRepository.markTracked(shipmentId,
+			CARRIER_ID, TRACKING_NUMBER, later, later.plusHours(3)));
+		assertThat(staleMarked).isZero();
+		assertThat(shipmentOf(orderId).getStatus()).isEqualTo(ShipmentStatus.SHIPPING);
+		assertThat(shipmentOf(orderId).getTrackingStatus()).isEqualTo(DeliveryTrackingStatus.NOT_TRACKED);
+		assertThat(shipmentOf(orderId).getNextTrackingAt()).isEqualTo(later.minusHours(1));
+
+		// 배송 완료로 바꾼 뒤 7일이 지난 아직 조회되지 않음이 와도 조회 중단(알림)이 아니다
+		kitDeliveryUseCase.completeDelivery(SELLER_ID, itemId, later);
+		assertThat(applyKitTracking(orderId, shipmentId, "999", DeliveryTrackingResult.notTracked(),
+			later.plusDays(8))).isEqualTo(Shipment.TrackingOutcome.TRACKED);
+		assertThat(shipmentOf(orderId).getNextTrackingAt()).isNull();
+	}
+
+	private Shipment.TrackingOutcome applyKitTracking(long orderId, long shipmentId, String trackingNumber,
+		DeliveryTrackingResult result, LocalDateTime trackedAt) {
+		return transactionTemplate.execute(status -> orderRepository.findByIdForUpdate(orderId).orElseThrow()
+			.applyKitTracking(shipmentId, CARRIER_ID, trackingNumber, result, trackedAt));
 	}
 
 	@Test
@@ -807,6 +956,43 @@ class KitDeliveryTest {
 					"shippingAddress": { "recipientName": "김가족", "recipientPhone": "010-9876-5432",
 						"zipcode": "48094", "address": "부산 해운대구 해운대로 00" } }
 				"""));
+	}
+
+	@Test
+	@DisplayName("키트 발송 알림: 환불 기한 안에는 알리지 않고, 기한이 지나면 판매자에게 대회마다 한 번만 알린다")
+	void notifySellerOnceWhenKitsBecomeShippable() throws Exception {
+		// 자정 직전에 돌아도 날짜가 어긋나지 않게 시각을 오늘 낮으로 고정한다
+		LocalDate today = LocalDate.now();
+		raceCoursePort.put(courseWithRefundDeadline(today));
+		paidOrder(MEMBER_ID);
+		paidOrder(MEMBER_ID + 1);
+		LocalDateTime now = today.atTime(12, 0);
+
+		// 환불 기한 날까지는 보낼 수 없으므로 알리지 않는다
+		assertThat(kitShipNoticeUseCase.notifyShippable(now)).isZero();
+		verify(notificationSender, never()).send(any());
+
+		// 기한 다음 날: 발송 대기 키트가 둘이어도 알림은 하나
+		assertThat(kitShipNoticeUseCase.notifyShippable(now.plusDays(1))).isEqualTo(1);
+		ArgumentCaptor<NotificationRequestedEvent> sent = ArgumentCaptor.forClass(NotificationRequestedEvent.class);
+		verify(notificationSender, times(1)).send(sent.capture());
+		assertThat(sent.getValue().memberId()).isEqualTo(SELLER_ID);
+		assertThat(sent.getValue().kind()).isEqualTo(NotificationKind.KIT_SHIPMENT_REQUIRED);
+		assertThat(sent.getValue().href()).isEqualTo("/seller/kits");
+
+		// 다시 돌려도 같은 대회는 알리지 않는다
+		assertThat(kitShipNoticeUseCase.notifyShippable(now.plusDays(2))).isZero();
+		verify(notificationSender, times(1)).send(any());
+	}
+
+	@Test
+	@DisplayName("키트 발송 알림: 발송 대기 키트가 없으면(모두 보냄) 알리지 않는다")
+	void notNotifyWhenNoReadyKit() throws Exception {
+		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().minusDays(1)));
+		ship(itemIdOf(paidOrder()));
+
+		assertThat(kitShipNoticeUseCase.notifyShippable(LocalDateTime.now())).isZero();
+		verify(notificationSender, never()).send(any());
 	}
 
 	private RaceCourseInfo courseWithRefundDeadline(LocalDate refundDeadline) {

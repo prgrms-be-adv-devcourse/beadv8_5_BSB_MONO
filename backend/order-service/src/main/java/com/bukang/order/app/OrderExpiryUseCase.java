@@ -16,7 +16,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * 결제 기한(15분)이 지난 결제 대기 건을 정리한다 (정책 4장 결제, ERD 추천안 v4 9쪽 6번)
+ * 결제 기한(개인 15분, 파티원은 파티 결제 기한)이 지난 결제 대기 건을 정리한다 (정책 4장 결제, ERD 추천안 v4 9쪽 6번)
+ * 파티 결제 마감(PartyPaymentDeadlineUseCase)은 주문을 만든 파티원 신청서를 여기서 끝낼 때까지 기다린다
  * 주문마다 예치금 결제 취소(D) → 주문 CREATED → EXPIRED, 참가 신청 APPLIED → RELEASED
  * 결제 취소를 부르는 이유: D 결제가 커밋된 뒤 주문 쪽이 롤백되면(판매 호출 오류, 커밋 실패, 서버 재시작, 응답 시간 초과)
  * 돈만 빠진 결제 대기 주문이 남는다. 그 주문은 결국 여기로 오므로, 결제하지 않은 주문까지 모두 불러 돌려받는다

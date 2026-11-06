@@ -14,4 +14,10 @@ public interface SellerLookupPort {
 	 * @return 승인된 판매자면 판매자 ID, 판매자가 아니거나 승인 전·반려면 빈 값
 	 */
 	Optional<Long> findApprovedSellerId(long memberId);
+
+	/**
+	 * 판매자 ID로 그 판매자의 회원 ID를 찾는다. 판매자에게 알림을 보낼 때 쓴다 (BUK-90)
+	 * @return 판매자의 회원 ID, 없는 판매자면 빈 값
+	 */
+	Optional<Long> findSellerMemberId(long sellerId);
 }

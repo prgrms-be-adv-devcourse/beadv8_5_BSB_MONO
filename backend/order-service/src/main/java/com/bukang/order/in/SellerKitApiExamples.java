@@ -80,6 +80,38 @@ final class SellerKitApiExamples {
 		}
 		""";
 
+	static final String CHANGE_TRACKING_SUCCESS = """
+		{
+			"status": 200,
+			"message": "송장 번호를 고쳤습니다.",
+			"data": {
+				"id": 12,
+				"participationId": 30,
+				"raceCourseId": 1,
+				"sellerId": 7,
+				"itemName": "10K",
+				"unitPrice": 50000,
+				"quantity": 1,
+				"amount": 50000,
+				"status": "PAID",
+				"kitDeliveryStatus": "SHIPPING",
+				"kitCarrier": "CJ대한통운",
+				"kitTrackingNumber": "684912345679",
+				"kitShippedAt": "2026-12-11T10:00:00",
+				"kitDeliveredAt": null,
+				"kitTracking": {
+					"carrierId": "kr.cjlogistics",
+					"status": "NOT_TRACKED",
+					"statusLabel": "아직 조회되지 않음",
+					"statusText": null,
+					"lastEventAt": null,
+					"lastTrackedAt": null,
+					"events": []
+				}
+			}
+		}
+		""";
+
 	static final String DELIVER_SUCCESS = """
 		{
 			"status": 200,
@@ -185,6 +217,14 @@ final class SellerKitApiExamples {
 
 	static final String NOT_SHIPPED_YET = """
 		{ "status": 409, "code": "ORDER_KIT_NOT_SHIPPABLE", "message": "아직 발송하지 않은 키트입니다.", "data": null }
+		""";
+
+	static final String NOT_SHIPPING = """
+		{ "status": 409, "code": "ORDER_KIT_NOT_SHIPPABLE", "message": "배송 중인 키트만 송장을 고칠 수 있습니다.", "data": null }
+		""";
+
+	static final String NO_KIT = """
+		{ "status": 409, "code": "ORDER_KIT_NOT_SHIPPABLE", "message": "키트가 없는 참가권입니다.", "data": null }
 		""";
 
 	static final String SELLER_UNAVAILABLE = """

@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -134,7 +135,7 @@ public class ApiV1SellerKitController {
 	@PostMapping("/{orderItemId}/shipment")
 	@Operation(summary = "키트 발송 (배송 준비 → 배송 중)",
 		description = "택배사(목록의 ID)와 송장 번호를 넣어 배송 중으로 바꾼다. 결제한 참가권의 키트만, 한 번만 보낸다. "
-			+ "배송 상태는 30분마다 Delivery Tracker에서 받아 와 kitTracking에 남기고, 택배사가 배송 완료라고 하면 배송 완료로 바꾼다. "
+			+ "배송 상태는 Delivery Tracker에서 배송 단계에 따라 30분~3시간마다 받아 와 kitTracking에 남기고, 택배사가 배송 완료라고 하면 배송 완료로 바꾼다. "
 			+ "정책상 키트는 환불 기한이 지난 뒤 보내므로, 아직 환불할 수 있는 동안(환불 기한 날까지, 일정 변경 뒤 7일, 취소된 대회)은 409다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "발송 처리함",
@@ -172,6 +173,50 @@ public class ApiV1SellerKitController {
 	) {
 		return ResponseEntity.ok().body(RsData.of(HttpStatus.OK, "키트를 발송 처리했습니다.",
 			sellerKitFacade.ship(memberId, orderItemId, request)));
+	}
+
+	@PutMapping("/{orderItemId}/shipment")
+	@Operation(summary = "키트 송장 고치기 (배송 중)",
+		description = "보낸 키트의 택배사(목록의 ID)·송장 번호를 고친다. 배송 중일 때만 고친다. "
+			+ "고치면 옛 송장의 배송 상태·이동 기록을 지우고 아직 조회되지 않음부터 다시 조회한다. "
+			+ "보낸 뒤 7일 동안 택배사에서 조회되지 않으면 조회를 멈추고 판매자에게 알리는데, 이때 송장을 고치면 다시 조회한다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "송장을 고침",
+			content = @Content(examples = @ExampleObject(value = SellerKitApiExamples.CHANGE_TRACKING_SUCCESS))),
+		@ApiResponse(responseCode = "400", description = "택배사·송장 번호·회원 ID 오류",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "송장 번호 없음", value = SellerKitApiExamples.INVALID_SHIPMENT),
+				@ExampleObject(name = "목록에 없는 택배사", value = SellerKitApiExamples.UNKNOWN_CARRIER),
+				@ExampleObject(name = "회원 ID가 0 이하", value = SellerKitApiExamples.INVALID_MEMBER_ID)
+			})),
+		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = SellerKitApiExamples.LOGIN_REQUIRED))),
+		@ApiResponse(responseCode = "403", description = "판매자가 아니거나 다른 판매자의 참가권",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "판매자가 아님", value = SellerKitApiExamples.NOT_SELLER),
+				@ExampleObject(name = "다른 판매자의 참가권", value = SellerKitApiExamples.NOT_MY_RACE)
+			})),
+		@ApiResponse(responseCode = "404", description = "없는 주문 상품",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = SellerKitApiExamples.ITEM_NOT_FOUND))),
+		@ApiResponse(responseCode = "409", description = "배송 중이 아님(발송 전·배송 완료), 키트 없음",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = {
+					@ExampleObject(name = "배송 중이 아님", value = SellerKitApiExamples.NOT_SHIPPING),
+					@ExampleObject(name = "키트 없음", value = SellerKitApiExamples.NO_KIT)
+				})),
+		@ApiResponse(responseCode = "503", description = "판매자 확인을 아직 쓸 수 없음",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = SellerKitApiExamples.SELLER_UNAVAILABLE)))
+	})
+	public ResponseEntity<RsData<OrderItemDto>> changeTracking(
+		@LoginMemberId long memberId,
+		@Parameter(description = "주문 상품 ID", example = "12") @PathVariable long orderItemId,
+		@Valid @RequestBody KitShipmentRequestDto request
+	) {
+		return ResponseEntity.ok().body(RsData.of(HttpStatus.OK, "송장 번호를 고쳤습니다.",
+			sellerKitFacade.changeTracking(memberId, orderItemId, request)));
 	}
 
 	@PostMapping("/{orderItemId}/delivery")

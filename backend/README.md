@@ -185,7 +185,7 @@ presigned URL은 만료 전까지 여러 번 쓸 수 있어서, 확인을 마친
 
 모든 서비스가 common을 스캔하므로, yaml에 `crypto.enabled: true`를 넣은 서비스에서만 `TextEncryptor`·`EncryptedStringConverter`가,
 `crypto.hmac-secret`을 설정한 서비스에서만 `BlindIndexGenerator`가 빈으로 등록됩니다.
-지금은 member-service(휴대폰 번호)와 cash-service(계좌번호, PG 결제 키. 블라인드 인덱스는 쓰지 않음)가 켜 두었습니다.
+지금은 member-service(휴대폰 번호), cash-service(계좌번호, PG 결제 키. 블라인드 인덱스는 쓰지 않음), order-service(참가자·비상 연락처 휴대폰 번호)가 켜 두었습니다.
 
 - `crypto.password` 유무로 켜지 않는 이유: compose는 모든 앱 컨테이너에 같은 `.env`를 넣고, Spring은 환경 변수 `CRYPTO_PASSWORD`를
   `crypto.password`로 읽습니다. 그래서 키 유무로 정하면 켜지 않은 서비스에서도 빈이 만들어집니다.

@@ -13,6 +13,7 @@ import com.bukang.order.domain.OrderStatus;
 import com.bukang.order.domain.Participation;
 import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
 import com.bukang.order.domain.exception.ParticipationNotFoundException;
+import com.bukang.order.out.OrderItemRepository;
 import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationRepository;
 import com.bukang.order.out.wallet.WalletPort;
@@ -22,6 +23,7 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * 판매자가 대회를 취소하면 그 대회의 결제한 참가권을 모두 취소하고 전액 환불한다 (PRO-135, 정책 1차 5장 4번)
+ * 정산에는 환불 전에 대회 보류를, 실패 없이 모두 환불하면 환불 완료(환불한 참가권 수)를 아웃박스로 보낸다 (11/05 회의 R1)
  * 주문마다: 주문 잠금 → 결제한 주문 상품 CANCELED, 주문 CANCELED → 참가 신청 CANCELED → 예치금 환불(D, 주문 ID 멱등)
  * 환불 기한·정산 생성일은 보지 않는다. 대회 취소는 기한과 상관없이 전액 환불이고, 정산은 대회 취소로 보류된다 (PRO-34)
  * 자리는 되돌리지 않는다. 취소된 대회는 다시 팔지 않고, 결제 대기 자리는 상품 서비스가 취소할 때 함께 푼다
@@ -40,8 +42,10 @@ public class RaceCancelRefundUseCase {
 	static final int MAX_CONSECUTIVE_FAILURES = 5;
 
 	private final OrderRepository orderRepository;
+	private final OrderItemRepository orderItemRepository;
 	private final ParticipationRepository participationRepository;
 	private final WalletPort walletPort;
+	private final OrderOutboxKafkaAppendUseCase orderOutboxKafkaAppendUseCase;
 	private final TransactionTemplate transactionTemplate;
 
 	/**
@@ -59,6 +63,8 @@ public class RaceCancelRefundUseCase {
 	 * 바깥 트랜잭션 없이 부른다 (OrderKafkaConsumer)
 	 */
 	public RefundResult refundAll(long raceId, LocalDateTime now) {
+		// 환불을 시작하기 전에 정산이 그 대회 지급을 막게 한다 (11/05 회의 R1). 다시 처리할 때도 보내 완료보다 늘 앞선다
+		transactionTemplate.executeWithoutResult(status -> orderOutboxKafkaAppendUseCase.appendRaceHeld(raceId, now));
 		int refunded = 0;
 		int failed = 0;
 		int consecutiveFailures = 0;
@@ -94,7 +100,23 @@ public class RaceCancelRefundUseCase {
 			}
 		}
 		log.info("취소된 대회의 참가권을 환불했습니다. raceId={}, 환불 {}건, 실패 {}건", raceId, refunded, failed);
+		if (failed == 0) {
+			transactionTemplate.executeWithoutResult(status -> appendRefundedIfDone(raceId, now));
+		}
 		return new RefundResult(refunded, failed);
+	}
+
+	/**
+	 * 대회에 환불이 끝나지 않은 참가권(결제 완료·취소 중)이 없을 때만 정산에 환불 완료를 보낸다. 실패가 남으면 보내지 않아 보류가 유지된다
+	 * 개인 취소의 환불 결과를 기다리는 취소 중이 있으면 보내지 않는다. 그 취소가 끝난 뒤 다시 판단할지는 정하지 않았다 (회의 R2)
+	 */
+	private void appendRefundedIfDone(long raceId, LocalDateTime now) {
+		long notRefunded = orderItemRepository.countNotRefunded(raceId);
+		if (notRefunded > 0) {
+			log.warn("취소된 대회에 환불이 끝나지 않은 참가권이 {}건 남아 환불 완료를 보내지 않습니다. raceId={}", notRefunded, raceId);
+			return;
+		}
+		orderOutboxKafkaAppendUseCase.appendRaceRefunded(raceId, orderItemRepository.countRaceCanceled(raceId), now);
 	}
 
 	// 주문 → 참가 신청 순서로 잠근다 (결제·취소·만료 정리와 같은 순서). 결제 중인 주문이면 결제가 끝날 때까지 기다린다

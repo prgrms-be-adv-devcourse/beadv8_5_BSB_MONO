@@ -83,7 +83,7 @@ class ChargeConfirmMoneyLostConcurrencyTest {
 		doAnswer(invocation -> {
 			pgCalled.countDown();
 			otherTxCommitted.await(5, TimeUnit.SECONDS);
-			return new PaymentApprovalResult(10_000, "toss_key_1");
+			return new PaymentApprovalResult(10_000, "toss_key_1", null);
 		}).when(paymentClient).approve(anyString(), anyString(), anyLong());
 
 		ExecutorService executor = Executors.newSingleThreadExecutor();

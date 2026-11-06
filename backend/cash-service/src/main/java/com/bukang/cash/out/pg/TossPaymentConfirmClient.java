@@ -1,5 +1,9 @@
 package com.bukang.cash.out.pg;
 
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.RestClient;
@@ -24,6 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 class TossPaymentConfirmClient {
 	static final String CONFIRM_PATH = "/v1/payments/confirm";
 	static final String ORDER_LOOKUP_PATH = "/v1/payments/orders/{orderId}";
+	private static final ZoneId KOREA = ZoneId.of("Asia/Seoul");
 	static final String GENERIC_REJECTION_MESSAGE = "결제를 승인하지 못했습니다. 잠시 후 다시 시도해주세요.";
 
 	private final RestClient moneyMovingRestClient;
@@ -63,7 +68,7 @@ class TossPaymentConfirmClient {
 			log.error("Toss 결제 승인 응답이 비어 있습니다. paymentKey={}, orderId={}", paymentKey, orderId);
 			throw new PaymentApprovalFailedException("PG 서버 응답이 올바르지 않습니다.");
 		}
-		return new PaymentApprovalResult(response.totalAmount(), response.paymentKey());
+		return new PaymentApprovalResult(response.totalAmount(), response.paymentKey(), response.approvedAtInKorea());
 	}
 
 	PaymentLookupResult lookupByOrderId(String orderId) {
@@ -94,7 +99,7 @@ class TossPaymentConfirmClient {
 		}
 		return switch (TossPaymentStatus.from(response.status()).getLookupStatus()) {
 			case COMPLETED -> PaymentLookupResult.completed(
-				new PaymentApprovalResult(response.totalAmount(), response.paymentKey()));
+				new PaymentApprovalResult(response.totalAmount(), response.paymentKey(), response.approvedAtInKorea()));
 			case NOT_COMPLETED -> PaymentLookupResult.notCompleted();
 			case PENDING -> PaymentLookupResult.pending();
 		};
@@ -112,7 +117,11 @@ class TossPaymentConfirmClient {
 	}
 
 	// Toss 응답(Payment 객체)엔 필드가 훨씬 많지만, 지갑에 반영할 때 쓰는 값만 받는다. status는 조회 응답에서만 쓴다
+	// approvedAt은 PG 결제취소 기한의 기준이라 받는다 (Toss는 "2026-10-15T10:00:00+09:00" 형식으로 준다)
 	@JsonIgnoreProperties(ignoreUnknown = true)
-	private record PaymentResponse(String paymentKey, long totalAmount, String status) {
+	private record PaymentResponse(String paymentKey, long totalAmount, String status, OffsetDateTime approvedAt) {
+		LocalDateTime approvedAtInKorea() {
+			return approvedAt == null ? null : approvedAt.atZoneSameInstant(KOREA).toLocalDateTime();
+		}
 	}
 }

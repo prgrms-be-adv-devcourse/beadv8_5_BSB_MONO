@@ -1,0 +1,18 @@
+# 테스트 전용 설정 (@ActiveProfiles("test")로 활성화)
+spring:
+  datasource:
+    # MySQL 대신 H2 인메모리 DB, Flyway SQL로 표를 만들어 운영과 같은 표·제약으로 확인한다
+    url: jdbc:h2:mem:bukang-notification-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+
+  kafka:
+    bootstrap-servers: localhost:9092
+    listener:
+      # 브로커 없이도 컨텍스트가 뜨도록 리스너 자동 시작을 끈다
+      auto-startup: false
+
+logging:
+  level:
+    com.bukang: debug

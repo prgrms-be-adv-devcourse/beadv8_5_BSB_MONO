@@ -31,14 +31,15 @@ public class WalletWithdrawal extends BaseIdAndTime {
 	private Wallet wallet;
 	private long amount;
 
-	@Column(nullable = false, length = 10)
+	// 은행 정보는 계좌로 보낼 몫이 있을 때만 받는다. 카드(PG 결제취소)로만 돌려주면 비어 있다
+	@Column(length = 10)
 	private String bankCode;
 	// AES-GCM 암호화(IV 16바이트+태그 16바이트) 후 Base64로 저장하면 평문보다 약 4/3배 길어진다.
 	// 실제 계좌번호는 짧지만, 요청 DTO가 최대 255자까지 받으므로 그 길이가 들어와도 되게 넉넉히 둔다
 	@Convert(converter = EncryptedStringConverter.class) // DB 저장 시 AES 암호화, 조회 시 복호화
-	@Column(nullable = false, length = 512)
+	@Column(length = 512)
 	private String accountNumber;
-	@Column(nullable = false, length = 50)
+	@Column(length = 50)
 	private String accountHolder;
 
 	@Enumerated(STRING)
@@ -68,6 +69,14 @@ public class WalletWithdrawal extends BaseIdAndTime {
 		this.accountHolder = accountHolder;
 		this.idempotencyKey = idempotencyKey;
 		this.status = WithdrawalStatus.REQUESTED;
+	}
+
+	public boolean hasBankAccount() {
+		return bankCode != null && accountNumber != null && accountHolder != null;
+	}
+
+	public void markInProgress() {
+		this.status = WithdrawalStatus.IN_PROGRESS;
 	}
 
 	public void markCompleted(LocalDateTime completeDate) {

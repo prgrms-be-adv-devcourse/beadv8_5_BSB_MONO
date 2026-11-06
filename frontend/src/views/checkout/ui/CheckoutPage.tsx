@@ -7,7 +7,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
 import { SAMPLE_PARTICIPANT } from '@/features/booking'
-import { chargeAmountFor, requestCharge } from '@/features/deposit-charge'
+import { chargeAmountFor, ChargeHeldAlert, requestCharge } from '@/features/deposit-charge'
 import { useQueueAdmission } from '@/features/queue-admission'
 import { parseKstDateTime, RACE_DETAIL, raceDetailQueryOptions } from '@/entities/race'
 import { invalidateTicketQueries } from '@/entities/ticket'
@@ -224,6 +224,8 @@ function OrderCheckout({
   )
   // 토스 결제창을 띄우는 중(페이지를 떠나기 전까지)
   const [charging, setCharging] = useState(false)
+  // 결과를 모르는 충전이 있어 결제창을 띄우지 않았음
+  const [chargeHeld, setChargeHeld] = useState(false)
 
   // 남은 시간은 대기열 입장 끝 시각과 주문의 결제 기한 중 이른 쪽까지 센다.
   // 결제 API는 입장을 다시 확인하지 않고 결제 기한만 보므로, 기한이 지난 주문을 새로고침해 입장 확인이 새 시간을 잡아도 기한을 넘기지 않는다.
@@ -242,7 +244,8 @@ function OrderCheckout({
     setCharging(true)
     requestCharge({ amount: chargeAmountFor(shortage), returnOrderId: orderId })
       .then((result) => {
-        if (result === 'canceled') setCharging(false)
+        if (result !== 'redirecting') setCharging(false)
+        setChargeHeld(result === 'held')
       })
       .catch(() => {
         setCharging(false)
@@ -347,6 +350,7 @@ function OrderCheckout({
       refund={race.data?.refund}
       agreed={agreed || charged}
       onAgreedChange={setAgreed}
+      notice={chargeHeld && <ChargeHeldAlert />}
       action={
         <Button size="l" disabled={!ready} onClick={() => pay.mutate({ auto: false })}>
           {payment && payment.charge > 0
@@ -391,6 +395,7 @@ function CheckoutForm({
   refund,
   agreed,
   onAgreedChange,
+  notice,
   action,
 }: {
   offline?: boolean
@@ -402,6 +407,8 @@ function CheckoutForm({
   refund?: { label: string; value: string }[]
   agreed: boolean
   onAgreedChange: (agreed: boolean) => void
+  /** 결제창 위에 보여 줄 안내 */
+  notice?: ReactNode
   action: ReactNode
 }) {
   const payment = balance === undefined ? undefined : splitPayment(amount, balance)
@@ -428,6 +435,7 @@ function CheckoutForm({
               description="결제는 한 번만 처리돼요. 다시 연결되면 결제가 됐는지 확인해 드려요."
             />
           )}
+          {notice}
 
           <div className="flex flex-col gap-1">
             {/* 참가자 이름이 들어 있어 Clarity 화면 녹화에서 가린다 */}

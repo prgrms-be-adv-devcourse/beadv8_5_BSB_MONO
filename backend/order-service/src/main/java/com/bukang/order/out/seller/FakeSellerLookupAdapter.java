@@ -25,4 +25,9 @@ public class FakeSellerLookupAdapter implements SellerLookupPort {
 	public Optional<Long> findApprovedSellerId(long memberId) {
 		return Optional.of(memberId);
 	}
+
+	@Override
+	public Optional<Long> findSellerMemberId(long sellerId) {
+		return Optional.of(sellerId);
+	}
 }

@@ -36,4 +36,13 @@ class OrderSwaggerMemberIdHeaderTest {
 			.andExpect(jsonPath(ORDERS + ".post.parameters" + MEMBER_ID_HEADER + ".required").value(hasItem(true)))
 			.andExpect(jsonPath(ORDERS + ".post.parameters[?(@.name == 'memberId')]").isEmpty());
 	}
+
+	@Test
+	@DisplayName("파티 API가 생겨도 주문 만들기의 operationId는 create로 남는다 (프론트 생성 함수 이름)")
+	void orderCreateOperationId() throws Exception {
+		mockMvc.perform(get("/v3/api-docs"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath(ORDERS + ".post.operationId").value("create"))
+			.andExpect(jsonPath("$.paths['/api/v1/order/parties'].post.operationId").value("createParty"));
+	}
 }

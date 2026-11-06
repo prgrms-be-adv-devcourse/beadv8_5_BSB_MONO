@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import com.bukang.common.shared.order.event.OrderItemRefundReason;
 import com.bukang.order.support.StubRaceCoursePort;
 
 class RaceCourseInfoTest {
@@ -107,6 +108,20 @@ class RaceCourseInfoTest {
 		assertThat(course.isBeforeClose(OPEN_AT.plusDays(1))).isFalse();
 		assertThat(course.isRefundableOn(REFUND_DEADLINE.plusDays(30))).isTrue();
 		assertThat(course(14, null).canceled()).isFalse();
+	}
+
+	@Test
+	@DisplayName("환불 사유: 환불 기한 날까지는 일정이 바뀌었어도 구매자 취소, 그 뒤는 일정 변경, 취소된 대회는 늘 대회 취소 (BUK-74)")
+	void refundReason() {
+		RaceCourseInfo changed = courseChangedAt(REFUND_DEADLINE.minusDays(1).atTime(9, 0));
+
+		assertThat(changed.refundReasonOn(REFUND_DEADLINE)).isEqualTo(OrderItemRefundReason.BUYER_CANCELED);
+		assertThat(changed.refundReasonOn(REFUND_DEADLINE.plusDays(1)))
+			.isEqualTo(OrderItemRefundReason.SCHEDULE_CHANGED);
+		assertThat(StubRaceCoursePort.canceled(changed).refundReasonOn(REFUND_DEADLINE.plusDays(30)))
+			.isEqualTo(OrderItemRefundReason.RACE_CANCELED);
+		assertThat(StubRaceCoursePort.canceled(changed).refundReasonOn(REFUND_DEADLINE))
+			.isEqualTo(OrderItemRefundReason.RACE_CANCELED);
 	}
 
 	private RaceCourseInfo course(int minAge, Integer maxAge) {

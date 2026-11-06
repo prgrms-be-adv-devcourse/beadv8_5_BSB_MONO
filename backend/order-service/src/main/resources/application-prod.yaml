@@ -64,6 +64,11 @@ order:
       mode: http
       dummy-carrier-enabled: false
 
+crypto:
+  enabled: true # common global/crypto의 암호화 빈(TextEncryptor, EncryptedStringConverter)을 켠다 (참가자 휴대폰 번호, BUK-92)
+  password: ${CRYPTO_PASSWORD}
+  salt: ${CRYPTO_SALT}
+
 # 운영에서는 API 구조가 외부에 노출되지 않도록 Swagger 비활성화
 springdoc:
   api-docs:

@@ -54,6 +54,9 @@ class ProductKafkaConsumerTest extends ProductIntegrationTest {
 	private static final String PARSE_FAILED_MESSAGE = "JSON 파싱에 실패했습니다.";
 	// message-id 헤더 없음 (회원 서비스가 아직 회원·판매자 메시지에 헤더를 붙이지 않는다). 인박스 없이 처리한다
 	private static final String NO_HEADER = null;
+	// 회원 아웃박스가 붙일 message-id ({서비스}-outbox-{UUID}). 서로 다른 메시지 A·B
+	private static final String MESSAGE_ID_A = "member-outbox-5d8a3f2e-1b4c-4e7a-9f0d-2c6b8e1a7d01";
+	private static final String MESSAGE_ID_B = "member-outbox-5d8a3f2e-1b4c-4e7a-9f0d-2c6b8e1a7d02";
 
 	@Autowired
 	private ProductKafkaConsumer productKafkaConsumer;
@@ -76,14 +79,14 @@ class ProductKafkaConsumerTest extends ProductIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("회원 8001 가입 메시지가 같은 메시지 ID(member-outbox-10)로 두 번 오면 두 번째는 인박스가 건너뛰어 "
+	@DisplayName("회원 8001 가입 메시지가 같은 메시지 ID(A)로 두 번 오면 두 번째는 인박스가 건너뛰어 "
 		+ "복제본은 1개이고 값이 그대로이며 인박스 행은 1개다")
 	void sameMemberMessageTwiceIsSkippedByInbox() {
 		String payload = memberJoined(NEW_MEMBER_ID, JOINED_AT, NICKNAME);
-		productKafkaConsumer.handleMemberJoined(payload, "member-outbox-10");
+		productKafkaConsumer.handleMemberJoined(payload, MESSAGE_ID_A);
 		long countAfterFirst = productMemberRepository.count();
 
-		productKafkaConsumer.handleMemberJoined(payload, "member-outbox-10");
+		productKafkaConsumer.handleMemberJoined(payload, MESSAGE_ID_A);
 
 		assertThat(productInboxKafkaEventRepository.count()).isEqualTo(1);
 		assertThat(productMemberRepository.count()).isEqualTo(countAfterFirst);
@@ -235,14 +238,14 @@ class ProductKafkaConsumerTest extends ProductIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("판매자 8101 신청(member-outbox-1) → 승인(member-outbox-2) 뒤 신청 메시지가 같은 메시지 ID로 다시 오면 "
+	@DisplayName("판매자 8101 신청(A) → 승인(B) 뒤 신청 메시지가 같은 메시지 ID로 다시 오면 "
 		+ "이미 처리한 메시지라 인박스가 건너뛰어 승인(APPROVED) 그대로다 (헤더가 없으면 재전달된 신청이 승인을 덮어쓴다)")
 	void redeliveredOldSellerMessageIsSkippedByInbox() {
 		joinMember(NEW_MEMBER_ID);
-		productKafkaConsumer.handleSellerChanged(pendingSeller(NEW_SELLER_ID, NEW_MEMBER_ID), "member-outbox-1");
-		productKafkaConsumer.handleSellerChanged(approvedSeller(NEW_SELLER_ID, NEW_MEMBER_ID), "member-outbox-2");
+		productKafkaConsumer.handleSellerChanged(pendingSeller(NEW_SELLER_ID, NEW_MEMBER_ID), MESSAGE_ID_A);
+		productKafkaConsumer.handleSellerChanged(approvedSeller(NEW_SELLER_ID, NEW_MEMBER_ID), MESSAGE_ID_B);
 
-		productKafkaConsumer.handleSellerChanged(pendingSeller(NEW_SELLER_ID, NEW_MEMBER_ID), "member-outbox-1");
+		productKafkaConsumer.handleSellerChanged(pendingSeller(NEW_SELLER_ID, NEW_MEMBER_ID), MESSAGE_ID_A);
 
 		ProductSeller seller = findSeller(NEW_SELLER_ID);
 		assertThat(seller.getStatus()).isEqualTo(APPROVED);

@@ -40,6 +40,7 @@ jobs:
           - { name: order-service, context: backend, module: order-service }
           - { name: product-service, context: backend, module: product-service }
           - { name: queue-service, context: backend, module: queue-service }
+          - { name: notification-service, context: backend, module: notification-service }
           # web은 SITE_URL·NEXT_PUBLIC_TOSS_CLIENT_KEY·NEXT_PUBLIC_GTM_ID·NEXT_PUBLIC_CLARITY_ID·IMAGE_REMOTE_HOSTS·NEXT_PUBLIC_PORTONE_*·NEXT_PUBLIC_*_SITE_VERIFICATION을 빌드할 때 이미지에 고정한다 (저장소 Variables에서 읽음)
           - { name: web, context: frontend, module: '' }
     steps:
@@ -97,12 +98,17 @@ jobs:
         working-directory: ${{ env.DEPLOY_DIR }}/backend
         run: |
           docker compose pull gateway member-service cash-service payout-service file-service \
-            order-service product-service queue-service web
+            order-service product-service queue-service notification-service web
 
       # --wait: 모든 컨테이너가 healthy(healthcheck 없는 것은 running)가 될 때까지 기다리고, 실패하면 이 단계를 실패로 끝낸다
       - name: 띄우기
         working-directory: ${{ env.DEPLOY_DIR }}/backend
         run: docker compose up -d --no-build --wait --wait-timeout 600
+
+      # Nginx는 시작할 때 한 번만 컨테이너 이름으로 주소를 찾는다. 새로 뜬 컨테이너는 주소가 바뀔 수 있어서
+      # 다시 읽지 않으면 옛 주소로 보내 502가 난다(11/6 장애). 설정 검사를 통과하면 끊김 없이 다시 읽는다
+      - name: Nginx가 바뀐 주소 다시 찾기
+        run: docker exec bukang-nginx nginx -t && docker exec bukang-nginx nginx -s reload
 
       # 배포할 때마다 이미지 9개가 새로 쌓인다. 쓰지 않는 이미지 중 3일 넘은 것만 지운다 (그 안의 이미지로는 되돌릴 수 있다)
       - name: 오래된 이미지 정리

@@ -7,6 +7,7 @@ import static lombok.AccessLevel.PROTECTED;
 import java.time.LocalDateTime;
 
 import com.bukang.common.global.jpa.entity.BaseIdAndTime;
+import com.bukang.common.shared.order.event.OrderItemRefundReason;
 import com.bukang.order.domain.exception.OrderItemNotCancelableException;
 import com.bukang.order.dto.OrderItemDto;
 import com.bukang.order.out.race.RaceCourseInfo;
@@ -94,6 +95,12 @@ public class OrderItem extends BaseIdAndTime {
 	@Column(name = "cancel_requested_at")
 	private LocalDateTime cancelRequestedAt;
 
+	// 환불 사유 (BUK-74). 사용자 취소는 시작할 때 정해 두어, 재처리가 마무리해도 정산에 같은 사유로 알린다
+	// 대회 취소 일괄 환불은 대회 취소로 적어, 대회 환불 완료에 담을 건수를 센다. 결제 완료로 되돌리면 지운다
+	@Enumerated(STRING)
+	@Column(name = "cancel_reason", columnDefinition = "varchar(20)")
+	private OrderItemRefundReason cancelReason;
+
 	static OrderItem ticket(Order order, Participation participation, RaceCourseInfo course) {
 		OrderItem item = new OrderItem();
 		item.order = order;
@@ -130,10 +137,11 @@ public class OrderItem extends BaseIdAndTime {
 	}
 
 	// 사용자 취소의 첫 단계: 환불을 부르기 전에 취소 중과 시작 시각을 커밋한다 (결제 완료 → 취소 중)
-	void startCancel(LocalDateTime requestedAt) {
+	void startCancel(LocalDateTime requestedAt, OrderItemRefundReason reason) {
 		checkCancelable();
 		this.status = OrderItemStatus.CANCELING;
 		this.cancelRequestedAt = requestedAt;
+		this.cancelReason = reason;
 	}
 
 	public boolean isCanceling() {
@@ -150,6 +158,11 @@ public class OrderItem extends BaseIdAndTime {
 		this.canceledAt = canceledAt;
 	}
 
+	// 대회 취소 일괄 환불로 취소했다고 적는다 (Order.cancelPaidItems)
+	void markRaceCanceled() {
+		this.cancelReason = OrderItemRefundReason.RACE_CANCELED;
+	}
+
 	// 예치금이 환불을 거절했다(4xx). 돈이 움직이지 않았으므로 결제 완료로 되돌리고 시작 시각을 지운다 (취소 중 → 결제 완료)
 	void revertCancel() {
 		if (status != OrderItemStatus.CANCELING) {
@@ -158,6 +171,7 @@ public class OrderItem extends BaseIdAndTime {
 		}
 		this.status = OrderItemStatus.PAID;
 		this.cancelRequestedAt = null;
+		this.cancelReason = null;
 	}
 
 	public boolean isSoldBy(long sellerId) {

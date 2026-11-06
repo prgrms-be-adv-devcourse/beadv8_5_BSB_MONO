@@ -56,7 +56,9 @@ public class ApiV1OrderController {
 		description = "대기열에 입장 중인지 확인하고, 자리 확보 전(PENDING) 참가 신청으로 상품 서비스에 자리 1석을 확보받아 "
 			+ "입장 끝 시각을 결제 기한으로 하는 주문(CREATED)을 만든다. 입장 중이 아니면 403(ORDER_QUEUE_NOT_ADMITTED). "
 			+ "같은 Idempotency-Key로 다시 보내면 새 주문 없이 처음 주문을 돌려준다. "
-			+ "남은 자리가 없으면 참가 신청이 확보 실패(FAILED)가 되고 주문은 만들지 않는다.")
+			+ "남은 자리가 없으면 참가 신청이 확보 실패(FAILED)가 되고 주문은 만들지 않는다. "
+			+ "파티원 신청서는 파티장이 신청해 크루 자리를 이미 잡았으므로(결제 대기) 대기열·자리 확보 없이 "
+			+ "파티 결제 기한을 결제 기한으로 하는 주문을 만든다. 파티장이 신청하기 전이거나 결제 기간이 끝났으면 409다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "201", description = "자리 확보, 주문 생성",
 			content = @Content(examples = @ExampleObject(value = OrderApiExamples.CREATE_SUCCESS))),
@@ -84,10 +86,12 @@ public class ApiV1OrderController {
 				@ExampleObject(name = "없는 참가 신청", value = OrderApiExamples.PARTICIPATION_NOT_FOUND),
 				@ExampleObject(name = "없는 종목", value = OrderApiExamples.COURSE_NOT_FOUND)
 			})),
-		@ApiResponse(responseCode = "409", description = "매진, 결제할 수 없는 상태, 접수 기간 아님, 요청 겹침, 키 재사용",
+		@ApiResponse(responseCode = "409", description = "매진, 결제할 수 없는 상태, 파티원 신청서, 접수 기간 아님, 요청 겹침, 키 재사용",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "매진", value = OrderApiExamples.SOLD_OUT),
 				@ExampleObject(name = "결제할 수 없는 상태", value = OrderApiExamples.NOT_PAYABLE),
+				@ExampleObject(name = "파티장 신청 전 파티원 신청서", value = OrderApiExamples.PARTY_NOT_PAYABLE),
+				@ExampleObject(name = "파티 결제 기한 지남", value = OrderApiExamples.PARTY_DEADLINE_PASSED),
 				@ExampleObject(name = "접수 기간 아님", value = OrderApiExamples.NOT_ACCEPTING),
 				@ExampleObject(name = "요청 겹침", value = OrderApiExamples.CONFLICT),
 				@ExampleObject(name = "다른 신청서에 쓴 키", value = OrderApiExamples.KEY_REUSED)
@@ -118,7 +122,8 @@ public class ApiV1OrderController {
 	@Operation(summary = "예치금 결제",
 		description = "결제 대기(CREATED) 주문을 예치금으로 결제하고 참가를 확정한다. 순서: 예치금 차감 → 자리 판매 → 주문 PAID·참가 신청 CONFIRMED. "
 			+ "잔액이 부족하면 주문과 자리를 그대로 두므로, 충전한 뒤 같은 주문으로 다시 결제한다. "
-			+ "기한이 지나 자리 판매가 거절되면 차감한 예치금을 돌려주고 409를 돌려준다. 이미 결제한 주문은 다시 차감하지 않고 200으로 돌려준다.")
+			+ "기한이 지나 자리 판매가 거절되면 차감한 예치금을 돌려주고 409를 돌려준다. 이미 결제한 주문은 다시 차감하지 않고 200으로 돌려준다. "
+			+ "파티원 주문은 예치금을 빼기 전에 대회 취소와 크루원인지를 다시 본다(크루를 떠났으면 409 ORDER_PARTY_MEMBER_NOT_CREW).")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "결제 완료 또는 이미 결제한 주문",
 			content = @Content(examples = {
@@ -139,12 +144,15 @@ public class ApiV1OrderController {
 		@ApiResponse(responseCode = "404", description = "없는 주문",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = OrderApiExamples.ORDER_NOT_FOUND))),
-		@ApiResponse(responseCode = "409", description = "잔액 부족, 기한 지남, 자리 판매 거절(예치금 환원), 결제 대기가 아닌 주문",
+		@ApiResponse(responseCode = "409",
+			description = "잔액 부족, 기한 지남, 자리 판매 거절(예치금 환원), 결제 대기가 아닌 주문, 파티원이 크루를 떠남, 대회 취소",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "잔액 부족", value = OrderApiExamples.INSUFFICIENT_BALANCE),
 				@ExampleObject(name = "기한 지남", value = OrderApiExamples.PAY_DEADLINE_PASSED),
 				@ExampleObject(name = "자리 판매 거절", value = OrderApiExamples.SELL_EXPIRED),
-				@ExampleObject(name = "결제 대기가 아님", value = OrderApiExamples.NOT_PAYABLE_ORDER)
+				@ExampleObject(name = "결제 대기가 아님", value = OrderApiExamples.NOT_PAYABLE_ORDER),
+				@ExampleObject(name = "파티원이 크루를 떠남", value = OrderApiExamples.PARTY_PAYER_NOT_CREW),
+				@ExampleObject(name = "대회 취소", value = OrderApiExamples.PAY_RACE_CANCELED)
 			}))
 	})
 	public ResponseEntity<RsData<OrderDto>> pay(
