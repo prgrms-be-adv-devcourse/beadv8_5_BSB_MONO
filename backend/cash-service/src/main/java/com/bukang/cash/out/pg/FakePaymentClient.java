@@ -32,7 +32,9 @@ public class FakePaymentClient implements PaymentClient {
 	}
 
 	@Override
-	public PaymentCancelResult cancel(String paymentKey, String cancelReason, long cancelAmount) {
+	public PaymentCancelResult cancel(
+		String paymentKey, String cancelReason, long cancelAmount, String idempotencyKey
+	) {
 		return new PaymentCancelResult(cancelAmount, "fake-cancel-" + paymentKey);
 	}
 }

@@ -287,7 +287,7 @@ class TossPaymentClientTest {
 			.andExpect(jsonPath("$.cancelAmount").value(10_000))
 			.andRespond(withSuccess(cancelResponse(10_000, "txn_1"), MediaType.APPLICATION_JSON));
 
-		client.cancel("pay_123", "고객 요청 환급", 10_000);
+		client.cancel("pay_123", "고객 요청 환급", 10_000, "withdrawal-item-1");
 
 		server.verify();
 	}
@@ -300,10 +300,23 @@ class TossPaymentClientTest {
 			.andExpect(jsonPath("$.cancelAmount").value(5_000))
 			.andRespond(withSuccess(cancelResponse(5_000, "txn_partial"), MediaType.APPLICATION_JSON));
 
-		PaymentCancelResult result = client.cancel("pay_123", "고객 요청 환급", 5_000);
+		PaymentCancelResult result = client.cancel("pay_123", "고객 요청 환급", 5_000, "withdrawal-item-1");
 
 		server.verify();
 		assertThat(result.canceledAmount()).isEqualTo(5_000);
+	}
+
+	@Test
+	@DisplayName("결제취소 요청 헤더에 몫별 중복 방지 키(Idempotency-Key)를 담아, 같은 키로 다시 보내도 토스가 한 번만 취소하게 한다")
+	void cancelSendsIdempotencyKeyHeader() {
+		String url = BASE_URL + "/v1/payments/pay_123/cancel";
+		server.expect(requestTo(url))
+			.andExpect(header("Idempotency-Key", "withdrawal-item-7"))
+			.andRespond(withSuccess(cancelResponse(5_000, "txn_7"), MediaType.APPLICATION_JSON));
+
+		client.cancel("pay_123", "고객 요청 환급", 5_000, "withdrawal-item-7");
+
+		server.verify();
 	}
 
 	@Test
@@ -313,7 +326,7 @@ class TossPaymentClientTest {
 		server.expect(requestTo(url))
 			.andRespond(withSuccess(cancelResponse(10_000, "txn_1"), MediaType.APPLICATION_JSON));
 
-		PaymentCancelResult result = client.cancel("pay_123", "고객 요청 환급", 10_000);
+		PaymentCancelResult result = client.cancel("pay_123", "고객 요청 환급", 10_000, "withdrawal-item-1");
 
 		assertThat(result.canceledAmount()).isEqualTo(10_000);
 		assertThat(result.transactionKey()).isEqualTo("txn_1");
@@ -328,40 +341,61 @@ class TossPaymentClientTest {
 				.body(errorResponse("ALREADY_CANCELED_PAYMENT", "이미 취소된 결제 입니다."))
 				.contentType(MediaType.APPLICATION_JSON));
 
-		assertThatThrownBy(() -> client.cancel("pay_123", "고객 요청 환급", 10_000))
+		assertThatThrownBy(() -> client.cancel("pay_123", "고객 요청 환급", 10_000, "withdrawal-item-1"))
 			.asInstanceOf(InstanceOfAssertFactories.type(PaymentCancelFailedException.class))
 			.extracting(PaymentCancelFailedException::getPgCode)
 			.isEqualTo("ALREADY_CANCELED_PAYMENT");
 	}
 
 	@Test
-	@DisplayName("Toss가 5xx로 답하면 결제 취소 실패 예외로 알린다")
-	void cancelServerError() {
+	@DisplayName("같은 키의 취소가 아직 처리 중이라 Toss가 409(IDEMPOTENT_REQUEST_PROCESSING)를 주면 실패가 아니라 결과 모름으로 알린다")
+	void cancelIdempotentRequestProcessingIsResultUnknown() {
+		String url = BASE_URL + "/v1/payments/pay_123/cancel";
+		server.expect(requestTo(url))
+			.andRespond(withStatus(HttpStatus.CONFLICT)
+				.body(errorResponse("IDEMPOTENT_REQUEST_PROCESSING", "이전 멱등 요청이 처리중입니다."))
+				.contentType(MediaType.APPLICATION_JSON));
+
+		assertThatThrownBy(() -> client.cancel("pay_123", "고객 요청 환급", 10_000, "withdrawal-item-1"))
+			.asInstanceOf(InstanceOfAssertFactories.type(PaymentCancelFailedException.class))
+			.extracting(PaymentCancelFailedException::isResultUnknown)
+			.isEqualTo(true);
+	}
+
+	@Test
+	@DisplayName("Toss가 5xx로 답하면 취소를 처리했는지 알 수 없으므로 결과 모름으로 알린다")
+	void cancelServerErrorIsResultUnknown() {
 		String url = BASE_URL + "/v1/payments/pay_123/cancel";
 		server.expect(requestTo(url)).andRespond(withServerError());
 
-		assertThatThrownBy(() -> client.cancel("pay_123", "고객 요청 환급", 10_000))
-			.isInstanceOf(PaymentCancelFailedException.class);
+		assertThatThrownBy(() -> client.cancel("pay_123", "고객 요청 환급", 10_000, "withdrawal-item-1"))
+			.asInstanceOf(InstanceOfAssertFactories.type(PaymentCancelFailedException.class))
+			.extracting(PaymentCancelFailedException::isResultUnknown)
+			.isEqualTo(true);
 	}
 
 	@Test
-	@DisplayName("Toss 서버에 연결하지 못하면(타임아웃 등) 결제 취소 실패 예외로 알린다")
-	void cancelConnectionFailure() {
+	@DisplayName("응답 전에 연결이 끊기면(타임아웃 등) Toss가 취소했을 수도 있으므로 결과 모름으로 알린다")
+	void cancelConnectionFailureIsResultUnknown() {
 		String url = BASE_URL + "/v1/payments/pay_123/cancel";
 		server.expect(requestTo(url)).andRespond(withException(new SocketTimeoutException("read timed out")));
 
-		assertThatThrownBy(() -> client.cancel("pay_123", "고객 요청 환급", 10_000))
-			.isInstanceOf(PaymentCancelFailedException.class);
+		assertThatThrownBy(() -> client.cancel("pay_123", "고객 요청 환급", 10_000, "withdrawal-item-1"))
+			.asInstanceOf(InstanceOfAssertFactories.type(PaymentCancelFailedException.class))
+			.extracting(PaymentCancelFailedException::isResultUnknown)
+			.isEqualTo(true);
 	}
 
 	@Test
-	@DisplayName("취소 응답에 cancels 배열이 비어 있으면 결제 취소 실패 예외로 알린다")
-	void cancelResponseWithoutCancelsIsFailure() {
+	@DisplayName("200인데 cancels 배열이 비어 있으면 Toss는 취소를 받아 준 것이라 실패가 아니라 결과 모름으로 알린다")
+	void cancelResponseWithoutCancelsIsResultUnknown() {
 		String url = BASE_URL + "/v1/payments/pay_123/cancel";
 		server.expect(requestTo(url)).andRespond(withSuccess("{ \"cancels\": [] }", MediaType.APPLICATION_JSON));
 
-		assertThatThrownBy(() -> client.cancel("pay_123", "고객 요청 환급", 10_000))
-			.isInstanceOf(PaymentCancelFailedException.class);
+		assertThatThrownBy(() -> client.cancel("pay_123", "고객 요청 환급", 10_000, "withdrawal-item-1"))
+			.asInstanceOf(InstanceOfAssertFactories.type(PaymentCancelFailedException.class))
+			.extracting(PaymentCancelFailedException::isResultUnknown)
+			.isEqualTo(true);
 	}
 
 	private PaymentApprovalFailedException approveFailure() {
