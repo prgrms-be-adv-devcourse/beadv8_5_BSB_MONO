@@ -11,7 +11,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
  * 프론트는 status·joinLinkAlive로 10 「링크 끝남」·12 「모집 끝남」을 고른다
  */
 public record PartyPreviewDto(
-	@Schema(description = "파티 ID", example = "1") long partyId,
+	@Schema(description = "파티 ID", example = "1") long id,
 	@Schema(description = "크루 ID", example = "7") long crewId,
 	@Schema(description = "대회 ID", example = "100") long raceId,
 	@Schema(description = "파티 종목 ID. 합류하면 이 종목으로 신청한다", example = "2") long raceCourseId,

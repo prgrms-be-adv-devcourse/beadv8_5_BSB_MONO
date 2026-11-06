@@ -21,7 +21,8 @@ import lombok.extern.slf4j.Slf4j;
  * 회원 서비스의 닉네임 여러 명 조회 내부 API를 부른다 (GET /internal/v1/member/members/nicknames?ids=, #319)
  * - 200: data의 [{memberId, nickname}]. 없는 회원은 빠져서 오고, 탈퇴 회원은 「탈퇴한 회원」으로 온다
  * - 한 번에 100명까지라 나눠 부른다
- * - 그 밖(시간 초과 · 연결 실패 · 4xx · 5xx · 빈 응답): 503으로 다시 시도하게 한다
+ * - 닉네임이 빈 줄은 건너뛴다 (그 회원은 「탈퇴한 회원」으로 보인다)
+ * - 그 밖(시간 초과 · 연결 실패 · 4xx · 5xx · data 없음): 503으로 다시 시도하게 한다
  * 등록은 MemberClientConfig가 한다 (order.clients.member.mode=http)
  */
 @Slf4j
@@ -58,12 +59,18 @@ public class HttpMemberNicknamesAdapter implements MemberNicknamesPort {
 			log.error("회원 서비스에 닉네임을 묻지 못했습니다. ids={}", joined, exception);
 			throw new ExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
 		}
-		if (response == null || response.data() == null
-			|| response.data().stream().anyMatch(row -> row.memberId() == null || row.nickname() == null)) {
-			log.error("회원 서비스의 닉네임 응답에 값이 없습니다. ids={}, response={}", joined, response);
+		if (response == null || response.data() == null) {
+			log.error("회원 서비스의 닉네임 응답이 비어 있습니다. ids={}, response={}", joined, response);
 			throw new ExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
 		}
-		return response.data();
+		// 한 사람 값이 비었다고 파티 화면 전체를 막지 않는다. 그 사람은 결과에서 빠져 「탈퇴한 회원」으로 보인다
+		List<NicknameResponse> rows = response.data().stream()
+			.filter(row -> row.memberId() != null && row.nickname() != null)
+			.toList();
+		if (rows.size() < response.data().size()) {
+			log.warn("회원 서비스의 닉네임 응답에 빈 줄이 있어 건너뜁니다. ids={}, response={}", joined, response);
+		}
+		return rows;
 	}
 
 	// member MemberNicknameDto. 빈 값을 구분하려고 Long으로 받는다

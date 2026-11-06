@@ -61,7 +61,7 @@ final class PartyQueryApiExamples {
 			"status": 200,
 			"message": "참가 링크의 파티를 조회했습니다.",
 			"data": {
-				"partyId": 1,
+				"id": 1,
 				"crewId": 7,
 				"raceId": 100,
 				"raceCourseId": 2,

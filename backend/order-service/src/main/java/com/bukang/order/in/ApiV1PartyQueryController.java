@@ -34,7 +34,8 @@ import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 
 // 파티 조회 (BUK-39). 만들기·합류 컨트롤러(ApiV1PartyController)와 나눠, 그쪽을 고치는 작업과 겹치지 않게 한다
-@Tag(name = "Party", description = "파티 만들기, 참가 링크 다시 만들기, 합류, 나가기 API (BUK-36), 파티 조회 (BUK-39)")
+// 태그 설명은 ApiV1PartyController 한 곳에만 둔다 (같은 이름에 설명이 둘이면 어느 쪽이 보일지 정해지지 않는다)
+@Tag(name = "Party")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/order/parties")

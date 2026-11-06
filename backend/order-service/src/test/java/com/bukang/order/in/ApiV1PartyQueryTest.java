@@ -183,7 +183,7 @@ class ApiV1PartyQueryTest {
 
 		preview(OTHER, token)
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.partyId").value(partyId))
+			.andExpect(jsonPath("$.data.id").value(partyId))
 			.andExpect(jsonPath("$.data.status").value("RECRUITING"))
 			.andExpect(jsonPath("$.data.leaderNickname").value("파티장"))
 			.andExpect(jsonPath("$.data.memberCount").value(1))
@@ -217,7 +217,7 @@ class ApiV1PartyQueryTest {
 	}
 
 	@Test
-	@DisplayName("크루 홈: 크루원에게 모집 중·결제 진행 중 파티를 모두 준다. 크루원이 아니면 403")
+	@DisplayName("크루 홈: 크루원에게 모집 중·결제 진행 중 파티를 모두 준다. 크루원이 아니면 403, 없는 크루는 404")
 	void crewActive() throws Exception {
 		create(LEADER, COURSE);
 		long recruiting = partyId();
@@ -234,6 +234,11 @@ class ApiV1PartyQueryTest {
 			.andExpect(jsonPath("$.data[0].myParty").value(false))
 			.andExpect(jsonPath("$.data[0].joinToken").doesNotExist());
 		crewActive(LEADER).andExpect(jsonPath("$.data[0].myParty").value(true));
+
+		crewPort.missingCrew(CREW_ID + 1);
+		mockMvc.perform(get(BASE_URL + "/crews/" + (CREW_ID + 1) + "/active").header("X-Member-Id", MEMBER))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("ORDER_CREW_NOT_FOUND"));
 
 		crewPort.notCrewMember(MEMBER);
 		crewActive(MEMBER)

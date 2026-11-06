@@ -1142,7 +1142,7 @@
       "type": "object",
       "description": "참가 링크로 본 파티 (합류 확인 화면). 명단·참가자 정보·토큰은 없음",
       "required": [
-        "partyId",
+        "id",
         "crewId",
         "raceId",
         "raceCourseId",
@@ -1153,7 +1153,7 @@
         "joinLinkAlive"
       ],
       "properties": {
-        "partyId": {
+        "id": {
           "type": "integer",
           "format": "int64"
         },

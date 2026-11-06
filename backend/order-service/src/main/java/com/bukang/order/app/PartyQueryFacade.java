@@ -86,11 +86,12 @@ public class PartyQueryFacade {
 	public PartyPreviewDto preview(String joinToken, LocalDateTime now) {
 		Party party = partyRepository.findByJoinToken(joinToken)
 			.orElseThrow(() -> new PartyNotFoundException("참가 링크를 찾을 수 없습니다. 파티장에게 새 링크를 받아주세요."));
-		Rows rows = load(List.of(party));
+		int memberCount = partyMemberRepository.findByPartyIdInAndLeftAtIsNullOrderByJoinedAtAscIdAsc(
+			List.of(party.getId())).size();
 		String leaderNickname = nickname(memberNicknamesPort.findNicknames(List.of(party.getLeaderMemberId())),
 			party.getLeaderMemberId());
 		return new PartyPreviewDto(party.getId(), party.getCrewId(), party.getRaceId(), party.getRaceCourseId(),
-			party.getStatus(), leaderNickname, rows.members(party.getId()).size(), party.getJoinTokenExpiresAt(),
+			party.getStatus(), leaderNickname, memberCount, party.getJoinTokenExpiresAt(),
 			now.isBefore(party.getJoinTokenExpiresAt()));
 	}
 
