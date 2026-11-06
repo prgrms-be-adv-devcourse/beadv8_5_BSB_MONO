@@ -134,6 +134,32 @@ class PayoutHoldUseCaseTest {
 		assertThat(reload(payout).getStatus()).isEqualTo(PayoutStatus.CALCULATED);
 	}
 
+	// 풀기 API는 보류를 읽고 hold.getPayout().release를 부른다. 이때 정산 내역의 보류 목록이 처음 지연 로딩되므로
+	// 방금 푼 보류가 목록에서도 풀린 객체로 보여야 남은 보류를 바르게 센다 (PR #330 리뷰)
+	@Test
+	@DisplayName("보류 두 개 중 하나를 풀기 API로 풀면 지급보류 그대로이고, 나머지를 풀면 지급 예정으로 돌아간다 (BUK-67)")
+	void releaseOneOfTwoHolds() {
+		Payout payout = saveFinalPayout();
+		PayoutHoldDto accountHold = holdOf(payout);
+		PayoutHoldDto mismatchHold = useCase().hold(payout.getId(), PayoutHoldReason.대사_불일치, null,
+			PayoutHold.SYSTEM_MEMBER_ID, HELD_AT);
+		entityManager.flush();
+		entityManager.clear();
+
+		useCase().release(accountHold.getId(), ADMIN_ID, LocalDateTime.of(2026, 11, 23, 9, 0));
+
+		Payout stillHeld = reload(payout);
+		assertThat(stillHeld.getStatus()).isEqualTo(PayoutStatus.HELD);
+		assertThat(stillHeld.getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 11, 20));
+		entityManager.clear();
+
+		useCase().release(mismatchHold.getId(), ADMIN_ID, LocalDateTime.of(2026, 11, 25, 9, 0));
+
+		Payout released = reload(payout);
+		assertThat(released.getStatus()).isEqualTo(PayoutStatus.CALCULATED);
+		assertThat(released.getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 11, 26));
+	}
+
 	@Test
 	@DisplayName("다른 정산 내역의 보류로는 풀 수 없다 (ID로 비교)")
 	void cannotReleaseWithOtherPayoutsHold() {
