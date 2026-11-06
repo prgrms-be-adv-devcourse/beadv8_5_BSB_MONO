@@ -36,13 +36,13 @@ class PayoutCreateFailureRepositoryTest {
 	@Test
 	@DisplayName("판매자 × 대회 실패 한 줄을 저장하면 한글 실패 종류와 칸이 그대로 다시 읽힌다")
 	void saveSellerRaceFailure() {
-		PayoutCreateFailure saved = payoutCreateFailureRepository.save(PayoutCreateFailure.sellerRace(PayoutStage.FINAL,
+		PayoutCreateFailure saved = payoutCreateFailureRepository.save(PayoutCreateFailure.sellerRace(PayoutStage.최종_정산,
 			1, 10, LocalDate.of(2026, 11, 5), PayoutCreateFailureType.주문_정산_대회일_불일치, null, LocalDate.of(2026, 11, 10)));
 		entityManager.flush();
 		entityManager.clear();
 
 		PayoutCreateFailure found = payoutCreateFailureRepository.findById(saved.getId()).orElseThrow();
-		assertThat(found.getPayoutStage()).isEqualTo(PayoutStage.FINAL);
+		assertThat(found.getPayoutStage()).isEqualTo(PayoutStage.최종_정산);
 		assertThat(found.getSellerId()).isEqualTo(1L);
 		assertThat(found.getRaceId()).isEqualTo(10L);
 		assertThat(found.getRaceCourseId()).isNull();
@@ -56,7 +56,7 @@ class PayoutCreateFailureRepositoryTest {
 	@Test
 	@DisplayName("대회 목록 조회 실패는 판매자 · 대회 · 정산 대상일 칸이 비고, 비고에 본 기간이 남는다")
 	void saveRaceLookupFailure() {
-		PayoutCreateFailure saved = payoutCreateFailureRepository.save(PayoutCreateFailure.raceLookup(PayoutStage.FINAL,
+		PayoutCreateFailure saved = payoutCreateFailureRepository.save(PayoutCreateFailure.raceLookup(PayoutStage.최종_정산,
 			LocalDate.of(2026, 11, 3), LocalDate.of(2026, 11, 9), LocalDate.of(2026, 11, 10)));
 		entityManager.flush();
 		entityManager.clear();

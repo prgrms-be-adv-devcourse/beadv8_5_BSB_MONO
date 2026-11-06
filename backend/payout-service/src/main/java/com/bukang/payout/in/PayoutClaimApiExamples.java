@@ -16,7 +16,7 @@ final class PayoutClaimApiExamples {
 				"amount": 105500,
 				"startDate": "2026-12-14",
 				"dueDate": "2027-01-13",
-				"status": "CONFIRMED",
+				"status": "입금_확인",
 				"confirmedBy": 99,
 				"confirmedAt": "2026-12-20T10:00:00"
 			}

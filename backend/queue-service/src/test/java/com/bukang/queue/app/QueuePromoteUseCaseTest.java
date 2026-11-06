@@ -55,14 +55,15 @@ class QueuePromoteUseCaseTest extends QueueIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("promote: 승격한 회원의 active score는 끝 시각인 승격 시각 + 10분(14:00 → 14:10)이다")
+	@DisplayName("promote: 승격한 회원의 active score는 끝 시각인 승격 시각 + 활성 시간(queue.active.time)이다")
 	void setActiveUntil() {
 		addMember(WAITING_KEY, 7, NOW.minusMinutes(1));
 		registerQueue(QUEUE_ID);
 
 		queuePromoteUseCase.promote(NOW);
 
-		assertThat(redisTemplate.opsForZSet().score(ACTIVE_KEY, "7")).isEqualTo(epochMillis(NOW.plusMinutes(10)));
+		assertThat(redisTemplate.opsForZSet().score(ACTIVE_KEY, "7"))
+			.isEqualTo(epochMillis(NOW.plus(queueProperties.active().time())));
 	}
 
 	@Test

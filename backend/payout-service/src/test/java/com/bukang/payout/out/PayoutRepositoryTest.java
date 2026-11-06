@@ -49,7 +49,7 @@ class PayoutRepositoryTest {
 		Payout found = payoutRepository.findById(payout.getId()).orElseThrow();
 		assertThat(found.getPayoutMonth()).isEqualTo("2026-09");
 		assertThat(found.getItems())
-			.filteredOn(item -> item.getRecordType() == PayoutRecordType.SALE)
+			.filteredOn(item -> item.getRecordType() == PayoutRecordType.판매)
 			.extracting(PayoutItem::getOrderItemId)
 			.containsExactlyInAnyOrder(100L, 101L);
 	}
