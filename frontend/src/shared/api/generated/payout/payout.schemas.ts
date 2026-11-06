@@ -13,7 +13,7 @@ export interface RsData {
 }
 
 /**
- * 보류 사유 (정산_계좌_미등록: 정산 계좌 미등록, 대회_취소_처리: 대회 취소 처리)
+ * 보류 사유 (정산_계좌_미등록: 정산 계좌 미등록, 대회_취소_처리: 대회 취소 처리, 대사_불일치: 대사 불일치)
  */
 export type PayoutHoldRequestDtoReasonType = typeof PayoutHoldRequestDtoReasonType[keyof typeof PayoutHoldRequestDtoReasonType];
 
@@ -21,13 +21,14 @@ export type PayoutHoldRequestDtoReasonType = typeof PayoutHoldRequestDtoReasonTy
 export const PayoutHoldRequestDtoReasonType = {
   정산_계좌_미등록: '정산_계좌_미등록',
   대회_취소_처리: '대회_취소_처리',
+  대사_불일치: '대사_불일치',
 } as const;
 
 /**
  * 지급보류 걸기 요청
  */
 export interface PayoutHoldRequestDto {
-  /** 보류 사유 (정산_계좌_미등록: 정산 계좌 미등록, 대회_취소_처리: 대회 취소 처리) */
+  /** 보류 사유 (정산_계좌_미등록: 정산 계좌 미등록, 대회_취소_처리: 대회 취소 처리, 대사_불일치: 대사 불일치) */
   reasonType: PayoutHoldRequestDtoReasonType;
   /**
      * 사유 상세 (선택, 500자 이하)
@@ -140,7 +141,7 @@ export interface PayoutItemPageDto {
 }
 
 /**
- * 보류 사유 (정산_계좌_미등록: 정산 계좌 미등록, 대회_취소_처리: 대회 취소 처리)
+ * 보류 사유 (정산_계좌_미등록: 정산 계좌 미등록, 대회_취소_처리: 대회 취소 처리, 대사_불일치: 대사 불일치)
  */
 export type PayoutHoldReason = typeof PayoutHoldReason[keyof typeof PayoutHoldReason];
 
@@ -148,6 +149,7 @@ export type PayoutHoldReason = typeof PayoutHoldReason[keyof typeof PayoutHoldRe
 export const PayoutHoldReason = {
   정산_계좌_미등록: '정산_계좌_미등록',
   대회_취소_처리: '대회_취소_처리',
+  대사_불일치: '대사_불일치',
 } as const;
 
 /**
