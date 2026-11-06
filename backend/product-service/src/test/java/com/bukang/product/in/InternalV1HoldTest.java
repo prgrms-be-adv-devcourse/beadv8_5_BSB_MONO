@@ -51,6 +51,9 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 	private static final int DEFAULT_QUOTA = 100;
 	// 동시 판매·해제 테스트에서 해제 메시지를 보낸 쪽이 돌려주는 값
 	private static final String RELEASE_SENT = "RELEASE_SENT";
+	// 주문 아웃박스가 붙일 message-id ({서비스}-outbox-{UUID}). 서로 다른 메시지 A·B
+	private static final String MESSAGE_ID_A = "order-outbox-c4a7e2d1-8b3f-4f6e-a5d9-1e2f3a4b5c01";
+	private static final String MESSAGE_ID_B = "order-outbox-c4a7e2d1-8b3f-4f6e-a5d9-1e2f3a4b5c02";
 
 	@Autowired
 	private ProductKafkaConsumer productKafkaConsumer;
@@ -82,7 +85,8 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 		ParticipationHold seat = holdOf(PARTICIPATION_ID);
 		assertThat(seat.getStatus()).isEqualTo(HoldStatus.HELD);
 		assertThat(seat.getExpiresAt()).isEqualTo(expiresAt);
-		assertThat(seat.getCrewApplicationId()).isNull();
+		assertThat(seat.getPartyId()).isNull();
+		assertThat(seat.getCrewId()).isNull();
 		assertThat(seat.getSoldAt()).isNull();
 		assertThat(seat.getReleasedAt()).isNull();
 		assertThat(seat.getReleaseReason()).isNull();
@@ -404,7 +408,7 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 		sell(PARTICIPATION_ID).andExpect(status().isOk());
 		assertThat(courseOf(courseId).getStatus()).isEqualTo(CourseStatus.SOLD_OUT);
 
-		restoreByMessage(PARTICIPATION_ID, "order-outbox-30");
+		restoreByMessage(PARTICIPATION_ID, MESSAGE_ID_A);
 
 		RaceCourse raceCourse = courseOf(courseId);
 		assertThat(raceCourse.getIndividualSold()).isZero();
@@ -415,15 +419,15 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("판매한 자리(1001)의 복구 메시지가 다른 메시지 ID(order-outbox-30, order-outbox-31)로 두 번 오면, "
+	@DisplayName("판매한 자리(1001)의 복구 메시지가 다른 메시지 ID(A, B)로 두 번 오면, "
 		+ "인박스는 둘 다 통과시키지만(2행) 이미 환불 복구된 자리라 판매 수는 한 번만 준다(1 → 0)")
 	void restoreTwiceWithDifferentMessageIds() throws Exception {
 		long courseId = registerOnSale(race().build()).courseId();
 		hold(courseId, PARTICIPATION_ID).andExpect(status().isOk());
 		sell(PARTICIPATION_ID).andExpect(status().isOk());
 
-		restoreByMessage(PARTICIPATION_ID, "order-outbox-30");
-		restoreByMessage(PARTICIPATION_ID, "order-outbox-31");
+		restoreByMessage(PARTICIPATION_ID, MESSAGE_ID_A);
+		restoreByMessage(PARTICIPATION_ID, MESSAGE_ID_B);
 
 		assertThat(productInboxKafkaEventRepository.count()).isEqualTo(2);
 		RaceCourse raceCourse = courseOf(courseId);
@@ -433,7 +437,7 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("판매한 자리(1001)의 복구 메시지(product.hold.restore)가 같은 메시지 ID(order-outbox-30)로 두 번 오면 "
+	@DisplayName("판매한 자리(1001)의 복구 메시지(product.hold.restore)가 같은 메시지 ID(A)로 두 번 오면 "
 		+ "두 번째는 인박스가 건너뛰어 판매 수는 한 번만 줄고(1 → 0), 남은 자리는 정원 그대로이며 자리는 RESTORED다")
 	void sameRestoreMessageTwiceIsSkippedByInbox() throws Exception {
 		long courseId = registerOnSale(race().build()).courseId();
@@ -441,8 +445,8 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 		sell(PARTICIPATION_ID).andExpect(status().isOk());
 		assertThat(courseOf(courseId).getIndividualSold()).isEqualTo(1);
 
-		restoreByMessage(PARTICIPATION_ID, "order-outbox-30");
-		restoreByMessage(PARTICIPATION_ID, "order-outbox-30");
+		restoreByMessage(PARTICIPATION_ID, MESSAGE_ID_A);
+		restoreByMessage(PARTICIPATION_ID, MESSAGE_ID_A);
 
 		assertThat(productInboxKafkaEventRepository.count()).isEqualTo(1);
 		RaceCourse raceCourse = courseOf(courseId);
@@ -492,15 +496,15 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("결제 대기 자리(1001)의 해제 메시지가 같은 메시지 ID(order-outbox-20)로 두 번 오면 두 번째는 인박스가 건너뛰어 "
+	@DisplayName("결제 대기 자리(1001)의 해제 메시지가 같은 메시지 ID(A)로 두 번 오면 두 번째는 인박스가 건너뛰어 "
 		+ "결제 대기는 한 번만 줄고(1 → 0), 해제 일시도 처음 그대로다")
 	void sameReleaseMessageTwiceIsSkippedByInbox() throws Exception {
 		long courseId = registerOnSale(race().build()).courseId();
 		hold(courseId, PARTICIPATION_ID).andExpect(status().isOk());
-		releaseByMessage(PARTICIPATION_ID, "order-outbox-20");
+		releaseByMessage(PARTICIPATION_ID, MESSAGE_ID_A);
 		LocalDateTime firstReleasedAt = holdOf(PARTICIPATION_ID).getReleasedAt();
 
-		releaseByMessage(PARTICIPATION_ID, "order-outbox-20");
+		releaseByMessage(PARTICIPATION_ID, MESSAGE_ID_A);
 
 		assertThat(productInboxKafkaEventRepository.count()).isEqualTo(1);
 		RaceCourse raceCourse = courseOf(courseId);
@@ -639,7 +643,7 @@ class InternalV1HoldTest extends ProductIntegrationTest {
 		releaseByMessage(participationId, null);
 	}
 
-	// message-id 헤더(예: order-outbox-20)를 붙여 보낸 해제 메시지
+	// message-id 헤더(예: order-outbox-{UUID})를 붙여 보낸 해제 메시지
 	private void releaseByMessage(long participationId, String messageId) {
 		productKafkaConsumer.handleHoldCancel("{\"participationId\": %d}".formatted(participationId), messageId);
 	}

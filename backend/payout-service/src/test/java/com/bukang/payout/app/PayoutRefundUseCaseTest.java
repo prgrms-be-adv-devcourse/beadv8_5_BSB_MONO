@@ -52,6 +52,7 @@ class PayoutRefundUseCaseTest {
 	private static final LocalDate REFUND_DEADLINE = LocalDate.of(2026, 10, 31);
 	private static final LocalDateTime REFUNDED_AT = LocalDateTime.of(2026, 11, 26, 10, 0);
 	private static final LocalDate RACE_DATE = LocalDate.of(2026, 11, 28);
+	private static final long BUYER_ID = 3;
 
 	@Autowired
 	private PayoutRepository payoutRepository;
@@ -94,12 +95,12 @@ class PayoutRefundUseCaseTest {
 	}
 
 	private OrderItemRefundedEvent refunded(long orderItemId, long price, OrderItemRefundReason reason) {
-		return new OrderItemRefundedEvent(orderItemId, RACE_ID, RACE_ID, price, REFUNDED_AT, reason);
+		return new OrderItemRefundedEvent(orderItemId, RACE_ID, RACE_ID, price, REFUNDED_AT, reason, BUYER_ID);
 	}
 
 	private Payout first() {
 		return payoutRepository.findFirstBySellerIdAndRaceIdAndPayoutStageOrderByIdAsc(SELLER_ID, RACE_ID,
-			PayoutStage.FIRST).orElseThrow();
+			PayoutStage.일차_정산).orElseThrow();
 	}
 
 	private List<PayoutRecovery> recoveries() {
@@ -151,7 +152,7 @@ class PayoutRefundUseCaseTest {
 		refundUseCase.recordRefund(refunded(108, PRICE), REFUNDED_AT.plusMinutes(1));
 
 		assertThat(recoveries()).hasSize(1)
-			.extracting(PayoutRecovery::getStatus).containsExactly(PayoutRecoveryStatus.COMPLETED);
+			.extracting(PayoutRecovery::getStatus).containsExactly(PayoutRecoveryStatus.회수_완료);
 	}
 
 	@Test
@@ -178,7 +179,7 @@ class PayoutRefundUseCaseTest {
 		// 환불 알림으로 생긴 회수 0건, 대회 취소 알림으로 생긴 회수 1건(남은 1차 정산금 200,000원)
 		assertThat(recoveries())
 			.extracting(PayoutRecovery::getReasonType, PayoutRecovery::getOrderItemId, PayoutRecovery::getAmount)
-			.containsExactly(tuple(PayoutRecoveryReason.RACE_CANCELED, null, 200_000L));
+			.containsExactly(tuple(PayoutRecoveryReason.대회_취소, null, 200_000L));
 	}
 
 	@Test
@@ -202,10 +203,10 @@ class PayoutRefundUseCaseTest {
 		entityManager.clear();
 
 		Payout finalPayout = payoutRepository.findFirstBySellerIdAndRaceIdAndPayoutStageOrderByIdAsc(SELLER_ID,
-			RACE_ID, PayoutStage.FINAL).orElseThrow();
+			RACE_ID, PayoutStage.최종_정산).orElseThrow();
 		// 250,000(남은 5장) − 13,750(수수료) − 100,000(남은 1차 정산금) − 100,000(상계) = 36,250
 		assertThat(finalPayout.getPayoutAmount()).isEqualTo(36_250L);
-		assertThat(recoveries()).extracting(PayoutRecovery::getStatus).containsOnly(PayoutRecoveryStatus.COMPLETED);
+		assertThat(recoveries()).extracting(PayoutRecovery::getStatus).containsOnly(PayoutRecoveryStatus.회수_완료);
 	}
 
 	@Test

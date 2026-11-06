@@ -128,7 +128,7 @@ class PayoutCreateUseCaseTransactionTest {
 		// 다른 서버가 이 실행의 존재 확인과 저장 사이에 판매자 1의 최종 정산 내역을 먼저 저장했다
 		payoutRepository.save(Payout.finalStage(1, 10, "대회 10", RACE_DATE, NOW, new BusinessDayCalendar()));
 		PayoutRepository racingRepository = notYetSavedOnFirstCheck(repository ->
-			repository.existsBySellerIdAndRaceIdAndPayoutMonthAndPayoutStage(1, 10, "2026-09", PayoutStage.FINAL));
+			repository.existsBySellerIdAndRaceIdAndPayoutMonthAndPayoutStage(1, 10, "2026-09", PayoutStage.최종_정산));
 		SoldEntryPort soldEntryPort = raceId -> List.of(new SoldEntry(100, 1, 10, 10L, RACE_DATE, 50_000L));
 		PayoutCreateUseCase useCase = new PayoutCreateUseCase(racingRepository, payoutCreateStepUseCase,
 			soldEntryPort, sellerId -> true,
@@ -148,7 +148,7 @@ class PayoutCreateUseCaseTransactionTest {
 		LocalDate refundDeadline = TARGET_DATE.minusDays(1);
 		payoutRepository.save(Payout.first(1, 10, "대회 10", refundDeadline, NOW, new BusinessDayCalendar()));
 		PayoutRepository racingRepository = notYetSavedOnFirstCheck(repository ->
-			repository.existsBySellerIdAndRaceIdAndPayoutStage(1, 10, PayoutStage.FIRST));
+			repository.existsBySellerIdAndRaceIdAndPayoutStage(1, 10, PayoutStage.일차_정산));
 		// 대회일은 되돌아보기 기간 밖이라 최종은 만들지 않고 1차만 만든다
 		RaceSchedule race = new RaceSchedule(10, "대회 10", TARGET_DATE.plusDays(30), refundDeadline);
 		PayoutCreateUseCase useCase = new PayoutCreateUseCase(racingRepository, payoutCreateStepUseCase,
@@ -169,7 +169,7 @@ class PayoutCreateUseCaseTransactionTest {
 		// 판매자 1의 최종 정산 내역은 다른 서버가 먼저 저장했고, 제약 위반 직후 다시 확인하는 조회에서 DB 연결이 끊긴다
 		payoutRepository.save(Payout.finalStage(1, 10, "대회 10", RACE_DATE, NOW, new BusinessDayCalendar()));
 		PayoutRepository racingRepository = racingRepository(repository ->
-				repository.existsBySellerIdAndRaceIdAndPayoutMonthAndPayoutStage(1, 10, "2026-09", PayoutStage.FINAL),
+				repository.existsBySellerIdAndRaceIdAndPayoutMonthAndPayoutStage(1, 10, "2026-09", PayoutStage.최종_정산),
 			invocation -> {
 				throw new IllegalStateException("DB 연결 끊김");
 			});

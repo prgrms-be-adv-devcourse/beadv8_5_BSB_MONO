@@ -54,6 +54,9 @@ class QueueKafkaInboxTest {
 	private static final LocalDateTime INDIVIDUAL_OPEN_AT = LocalDateTime.of(2026, 10, 20, 10, 0);
 	private static final LocalDateTime APPLICATION_CLOSE_AT = LocalDateTime.of(2026, 11, 1, 18, 0);
 	private static final Duration WAIT = Duration.ofSeconds(10);
+	// 상품 아웃박스가 붙이는 message-id ({서비스}-outbox-{UUID}). 서로 다른 메시지 A·B
+	private static final String MESSAGE_ID_A = "product-outbox-7c9e6679-7425-40de-944b-e07fc1f90a01";
+	private static final String MESSAGE_ID_B = "product-outbox-7c9e6679-7425-40de-944b-e07fc1f90b02";
 
 	@Autowired
 	private KafkaListenerEndpointRegistry registry;
@@ -84,35 +87,36 @@ class QueueKafkaInboxTest {
 	}
 
 	@Test
-	@DisplayName("대회: 판매 예정(10시) 메시지를 같은 message-id(product-outbox-10)로 두 번 보낸 뒤 판매 중(11시) 메시지를 보내면, "
-		+ "대회는 판매 중·11시가 되고 인박스에는 product-outbox-10, product-outbox-11 두 행만 남는다")
+	@DisplayName("대회: 판매 예정(10시) 메시지를 같은 message-id(A)로 두 번 보낸 뒤 판매 중(11시) 메시지를 B로 보내면, "
+		+ "대회는 판매 중·11시가 되고 인박스에는 A, B 두 행만 남는다")
 	void raceMessageWithSameIdIsRecordedOnce() {
 		String scheduled = raceMessage(RaceSaleStatus.SCHEDULED, at(10));
 		String onSale = raceMessage(RaceSaleStatus.ON_SALE, at(11));
 
-		send(KafkaTopics.RACE_CHANGED, scheduled, "product-outbox-10");
-		send(KafkaTopics.RACE_CHANGED, scheduled, "product-outbox-10");   // 재전달 (인박스가 건너뛴다)
-		send(KafkaTopics.RACE_CHANGED, onSale, "product-outbox-11");
+		send(KafkaTopics.RACE_CHANGED, scheduled, MESSAGE_ID_A);
+		send(KafkaTopics.RACE_CHANGED, scheduled, MESSAGE_ID_A);   // 재전달 (인박스가 건너뛴다)
+		send(KafkaTopics.RACE_CHANGED, onSale, MESSAGE_ID_B);
 
 		// 마지막 메시지(11시)가 반영될 때까지 기다린다
 		await().atMost(WAIT).untilAsserted(() ->
 			assertThat(queueRaceRepository.findById(RACE_ID)).get().usingRecursiveComparison().isEqualTo(
-				new QueueRace(RACE_ID, RaceSaleStatus.ON_SALE, INDIVIDUAL_OPEN_AT, APPLICATION_CLOSE_AT, at(11))));
+				new QueueRace(RACE_ID, RaceSaleStatus.ON_SALE, INDIVIDUAL_OPEN_AT, APPLICATION_CLOSE_AT,
+					null, null, at(11))));
 		assertThat(queueInboxKafkaEventRepository.findAll())
 			.extracting(QueueInboxKafkaEvent::getMessageId)
-			.containsExactlyInAnyOrder("product-outbox-10", "product-outbox-11");
+			.containsExactlyInAnyOrder(MESSAGE_ID_A, MESSAGE_ID_B);
 	}
 
 	@Test
-	@DisplayName("종목: 등록(10시) 메시지를 같은 message-id(product-outbox-20)로 두 번 보낸 뒤 삭제(12시) 메시지를 보내면, "
-		+ "종목은 deleted=true·12시가 되고 인박스에는 product-outbox-20, product-outbox-21 두 행만 남는다")
+	@DisplayName("종목: 등록(10시) 메시지를 같은 message-id(A)로 두 번 보낸 뒤 삭제(12시) 메시지를 B로 보내면, "
+		+ "종목은 deleted=true·12시가 되고 인박스에는 A, B 두 행만 남는다")
 	void raceCourseMessageWithSameIdIsRecordedOnce() {
 		String registered = raceCourseMessage(at(10), false);
 		String deleted = raceCourseMessage(at(12), true);
 
-		send(KafkaTopics.RACE_COURSE_CHANGED, registered, "product-outbox-20");
-		send(KafkaTopics.RACE_COURSE_CHANGED, registered, "product-outbox-20");   // 재전달 (인박스가 건너뛴다)
-		send(KafkaTopics.RACE_COURSE_CHANGED, deleted, "product-outbox-21");
+		send(KafkaTopics.RACE_COURSE_CHANGED, registered, MESSAGE_ID_A);
+		send(KafkaTopics.RACE_COURSE_CHANGED, registered, MESSAGE_ID_A);   // 재전달 (인박스가 건너뛴다)
+		send(KafkaTopics.RACE_COURSE_CHANGED, deleted, MESSAGE_ID_B);
 
 		// 마지막 메시지(12시 삭제)가 반영될 때까지 기다린다
 		await().atMost(WAIT).untilAsserted(() ->
@@ -120,7 +124,7 @@ class QueueKafkaInboxTest {
 				new QueueRaceCourse(RACE_COURSE_ID, RACE_ID, at(12), true)));
 		assertThat(queueInboxKafkaEventRepository.findAll())
 			.extracting(QueueInboxKafkaEvent::getMessageId)
-			.containsExactlyInAnyOrder("product-outbox-20", "product-outbox-21");
+			.containsExactlyInAnyOrder(MESSAGE_ID_A, MESSAGE_ID_B);
 	}
 
 	// 상품 릴레이처럼 message-id 헤더를 붙여 보낸다 (key는 대회 ID)
@@ -130,7 +134,7 @@ class QueueKafkaInboxTest {
 
 	private String raceMessage(RaceSaleStatus saleStatus, LocalDateTime updatedAt) {
 		return jsonConverter.toJson(
-			new RaceChangedEvent(RACE_ID, saleStatus, INDIVIDUAL_OPEN_AT, APPLICATION_CLOSE_AT, updatedAt));
+			new RaceChangedEvent(RACE_ID, saleStatus, INDIVIDUAL_OPEN_AT, APPLICATION_CLOSE_AT, null, null, updatedAt));
 	}
 
 	private String raceCourseMessage(LocalDateTime updatedAt, boolean deleted) {

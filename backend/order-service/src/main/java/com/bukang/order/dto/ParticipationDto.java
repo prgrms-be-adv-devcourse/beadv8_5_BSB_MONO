@@ -19,6 +19,8 @@ public class ParticipationDto {
 	// 신청한 회원 ID
 	private final long memberId;
 	private final ParticipationType participationType;
+	// 파티원 신청서면 그 파티 ID, 개인 신청이면 null. 합류 직후 「내 파티로 가기」에 쓴다 (BUK-36)
+	private final Long partyId;
 	private final ParticipationStatus status;
 	private final ParticipantInfoDto participant;
 	private final Boolean thirdPartyConsent;

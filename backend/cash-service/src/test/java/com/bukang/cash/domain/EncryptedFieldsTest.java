@@ -56,7 +56,7 @@ class EncryptedFieldsTest {
 		transactionTemplate.executeWithoutResult(status -> {
 			Wallet wallet = createWallet();
 			WalletCharge charge = walletChargeRepository.save(new WalletCharge(wallet, 10_000, "TOSS", "order_1"));
-			charge.markCompleted("toss_key_plain", LocalDateTime.now());
+			charge.markCompleted("toss_key_plain", LocalDateTime.now(), null);
 			entityManager.flush();
 
 			String raw = (String) entityManager.createNativeQuery(

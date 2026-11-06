@@ -163,11 +163,105 @@
         }
       }
     },
+    "changeTracking": {
+      "200": {
+        "wrapper": "RsDataOrderItemDto",
+        "data": {
+          "$ref": "#/components/schemas/OrderItemDto"
+        }
+      }
+    },
     "completeDelivery": {
       "200": {
         "wrapper": "RsDataOrderItemDto",
         "data": {
           "$ref": "#/components/schemas/OrderItemDto"
+        }
+      }
+    },
+    "createParty": {
+      "201": {
+        "wrapper": "RsDataPartyCreatedDto",
+        "data": {
+          "$ref": "#/components/schemas/PartyCreatedDto"
+        }
+      }
+    },
+    "regeneratePartyJoinLink": {
+      "200": {
+        "wrapper": "RsDataPartyDto",
+        "data": {
+          "$ref": "#/components/schemas/PartyDto"
+        }
+      }
+    },
+    "getParty": {
+      "200": {
+        "wrapper": "RsDataPartyDetailDto",
+        "data": {
+          "$ref": "#/components/schemas/PartyDetailDto"
+        }
+      }
+    },
+    "getMyParties": {
+      "200": {
+        "wrapper": "RsDataListPartySummaryDto",
+        "data": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/PartySummaryDto"
+          }
+        }
+      }
+    },
+    "previewParty": {
+      "200": {
+        "wrapper": "RsDataPartyPreviewDto",
+        "data": {
+          "$ref": "#/components/schemas/PartyPreviewDto"
+        }
+      }
+    },
+    "getCrewActiveParties": {
+      "200": {
+        "wrapper": "RsDataListPartySummaryDto",
+        "data": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/PartySummaryDto"
+          }
+        }
+      }
+    },
+    "joinParty": {
+      "201": {
+        "wrapper": "RsDataParticipationDto",
+        "data": {
+          "$ref": "#/components/schemas/ParticipationDto"
+        }
+      }
+    },
+    "applyParty": {
+      "200": {
+        "wrapper": "RsDataPartyDto",
+        "data": {
+          "$ref": "#/components/schemas/PartyDto"
+        }
+      }
+    },
+    "leaveParty": {
+      "200": {
+        "wrapper": "RsDataParticipationDto",
+        "data": {
+          "$ref": "#/components/schemas/ParticipationDto"
+        }
+      }
+    },
+    "getMyRacePartyStatus": {
+      "200": {
+        "wrapper": "RsDataPartyRaceStatusDto",
+        "data": {
+          "$ref": "#/components/schemas/PartyRaceStatusDto"
         }
       }
     }
@@ -283,6 +377,14 @@
             "INDIVIDUAL",
             "PARTY"
           ]
+        },
+        "partyId": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64",
+          "description": "파티원 신청서면 그 파티 ID, 개인 신청이면 null"
         },
         "status": {
           "type": "string",
@@ -816,6 +918,417 @@
         "beforeRefundDeadline": {
           "type": "integer",
           "format": "int64"
+        }
+      }
+    },
+    "PartyDto": {
+      "type": "object",
+      "description": "파티 (파티장에게 주는 정보)",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "crewId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "raceId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "raceCourseId": {
+          "type": "integer",
+          "format": "int64",
+          "description": "파티 종목 ID. 파티원 모두 이 종목으로 신청한다"
+        },
+        "leaderMemberId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "RECRUITING",
+            "PAYING",
+            "PAID",
+            "CLOSED"
+          ]
+        },
+        "paymentDueAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time",
+          "description": "파티원 결제 기한. 신청 전이면 null"
+        },
+        "joinToken": {
+          "type": "string",
+          "description": "참가 링크 토큰"
+        },
+        "joinTokenExpiresAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "PartyDetailDto": {
+      "type": "object",
+      "description": "파티 상세 (파티원만 봄). 참가자 정보는 없음",
+      "required": [
+        "id",
+        "crewId",
+        "raceId",
+        "raceCourseId",
+        "leaderMemberId",
+        "status",
+        "joinTokenExpiresAt",
+        "memberCount",
+        "paidCount",
+        "members"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "crewId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "raceId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "raceCourseId": {
+          "type": "integer",
+          "format": "int64",
+          "description": "파티 종목 ID"
+        },
+        "leaderMemberId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "RECRUITING",
+            "PAYING",
+            "PAID",
+            "CLOSED"
+          ],
+          "description": "RECRUITING(모집 중) / PAYING(결제 진행 중) / PAID(결제 끝) / CLOSED(종료)"
+        },
+        "paymentDueAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "파티원 결제 기한. 신청 전이면 null"
+        },
+        "joinToken": {
+          "type": "string",
+          "description": "참가 링크 토큰. 파티장에게만 주고 파티원에게는 null"
+        },
+        "joinTokenExpiresAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "참가 링크 만료 시각"
+        },
+        "memberCount": {
+          "type": "integer",
+          "format": "int32",
+          "description": "파티원 수 (파티장 포함)"
+        },
+        "paidCount": {
+          "type": "integer",
+          "format": "int32",
+          "description": "결제를 마친(참가 확정) 파티원 수"
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/PartyDetailMemberDto"
+          },
+          "description": "파티원, 합류 순"
+        }
+      }
+    },
+    "PartyDetailMemberDto": {
+      "type": "object",
+      "description": "파티 상세의 파티원 한 명",
+      "required": [
+        "memberId",
+        "nickname",
+        "leader",
+        "joinedAt",
+        "paid"
+      ],
+      "properties": {
+        "memberId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "nickname": {
+          "type": "string",
+          "description": "닉네임. 회원 서비스에 없으면 「탈퇴한 회원」"
+        },
+        "leader": {
+          "type": "boolean"
+        },
+        "joinedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "합류 시각"
+        },
+        "participationStatus": {
+          "type": "string",
+          "enum": [
+            "PENDING",
+            "APPLIED",
+            "CONFIRMED",
+            "RELEASED",
+            "FAILED",
+            "CANCELED"
+          ],
+          "description": "신청서 상태"
+        },
+        "paid": {
+          "type": "boolean",
+          "description": "결제했는지 (신청서가 참가 확정)"
+        }
+      }
+    },
+    "PartySummaryDto": {
+      "type": "object",
+      "description": "파티 카드 (내 파티, 크루 홈 진행 중인 파티). 토큰·명단은 없음",
+      "required": [
+        "id",
+        "crewId",
+        "raceId",
+        "raceCourseId",
+        "status",
+        "leaderMemberId",
+        "leaderNickname",
+        "memberCount",
+        "paidCount",
+        "myParty"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "crewId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "raceId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "raceCourseId": {
+          "type": "integer",
+          "format": "int64",
+          "description": "파티 종목 ID"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "RECRUITING",
+            "PAYING",
+            "PAID",
+            "CLOSED"
+          ],
+          "description": "RECRUITING(모집 중) / PAYING(결제 진행 중) / PAID(결제 끝) / CLOSED(종료)"
+        },
+        "leaderMemberId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "leaderNickname": {
+          "type": "string",
+          "description": "파티장 닉네임. 회원 서비스에 없으면 「탈퇴한 회원」"
+        },
+        "memberCount": {
+          "type": "integer",
+          "format": "int32",
+          "description": "파티원 수 (파티장 포함)"
+        },
+        "paidCount": {
+          "type": "integer",
+          "format": "int32",
+          "description": "결제를 마친 파티원 수"
+        },
+        "paymentDueAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "파티원 결제 기한. 신청 전이면 null"
+        },
+        "myParty": {
+          "type": "boolean",
+          "description": "내가 들어 있는 파티인지. 이 카드만 상세로 보냄"
+        }
+      }
+    },
+    "PartyPreviewDto": {
+      "type": "object",
+      "description": "참가 링크로 본 파티 (합류 확인 화면). 명단·참가자 정보·토큰은 없음",
+      "required": [
+        "id",
+        "crewId",
+        "raceId",
+        "raceCourseId",
+        "status",
+        "leaderNickname",
+        "memberCount",
+        "joinTokenExpiresAt",
+        "joinLinkAlive"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "crewId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "raceId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "raceCourseId": {
+          "type": "integer",
+          "format": "int64",
+          "description": "파티 종목 ID. 합류하면 이 종목으로 신청"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "RECRUITING",
+            "PAYING",
+            "PAID",
+            "CLOSED"
+          ],
+          "description": "RECRUITING(모집 중) / PAYING(결제 진행 중) / PAID(결제 끝) / CLOSED(종료)"
+        },
+        "leaderNickname": {
+          "type": "string",
+          "description": "파티장 닉네임. 회원 서비스에 없으면 「탈퇴한 회원」"
+        },
+        "memberCount": {
+          "type": "integer",
+          "format": "int32",
+          "description": "파티원 수 (파티장 포함)"
+        },
+        "joinTokenExpiresAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "참가 링크 만료 시각"
+        },
+        "joinLinkAlive": {
+          "type": "boolean",
+          "description": "참가 링크가 아직 살아 있는지 (만료 시각 전)"
+        }
+      }
+    },
+    "PartyCreatedDto": {
+      "type": "object",
+      "description": "파티 만들기 응답: 파티와 파티장의 신청서",
+      "properties": {
+        "party": {
+          "$ref": "#/components/schemas/PartyDto"
+        },
+        "participation": {
+          "$ref": "#/components/schemas/ParticipationDto"
+        }
+      }
+    },
+    "PartyRaceStatusDto": {
+      "type": "object",
+      "description": "이 대회에서 내 파티 상태. 파티가 없으면 role=NONE, canApply=false, reason=NO_PARTY만 온다",
+      "required": [
+        "role",
+        "canApply"
+      ],
+      "properties": {
+        "role": {
+          "type": "string",
+          "enum": [
+            "LEADER",
+            "MEMBER",
+            "NONE"
+          ],
+          "description": "LEADER(파티장) / MEMBER(파티원) / NONE(파티 없음)"
+        },
+        "canApply": {
+          "type": "boolean",
+          "description": "파티장, 모집 중, 접수 중인 대회, 인원이 최소~최대일 때만 true. 이때만 파티 대기열에 넣는다. 안내용이라 대기열 입장·크루 예매 기간·크루원 자격은 신청 때 다시 확인한다(어긋나면 409)"
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "NO_PARTY",
+            "NOT_LEADER",
+            "NOT_RECRUITING",
+            "RACE_CLOSED",
+            "TOO_FEW_MEMBERS",
+            "TOO_MANY_MEMBERS"
+          ],
+          "description": "신청할 수 없는 이유 (canApply=false일 때만)"
+        },
+        "partyId": {
+          "type": "integer",
+          "format": "int64",
+          "description": "파티 ID"
+        },
+        "raceCourseId": {
+          "type": "integer",
+          "format": "int64",
+          "description": "파티 종목 ID"
+        },
+        "partyStatus": {
+          "type": "string",
+          "enum": [
+            "RECRUITING",
+            "PAYING",
+            "PAID"
+          ],
+          "description": "파티 상태"
+        },
+        "memberCount": {
+          "type": "integer",
+          "format": "int32",
+          "description": "파티원 수 (파티장 포함)"
+        },
+        "minCount": {
+          "type": "integer",
+          "format": "int32",
+          "description": "신청할 수 있는 최소 인원"
+        },
+        "maxCount": {
+          "type": "integer",
+          "format": "int32",
+          "description": "파티 최대 인원"
+        },
+        "paidCount": {
+          "type": "integer",
+          "format": "int32",
+          "description": "결제를 마친(참가 확정) 파티원 수"
+        },
+        "paymentDueAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "파티원 결제 마감 (파티 신청 뒤에만). 해제 배치 전에는 지나도 PAYING이니 만료는 이 값과 지금 시각으로 판단"
+        },
+        "myPaid": {
+          "type": "boolean",
+          "description": "내가 결제했는지"
+        },
+        "participationId": {
+          "type": "integer",
+          "format": "int64",
+          "description": "내 신청서 ID. [결제하기]에 쓴다"
         }
       }
     }

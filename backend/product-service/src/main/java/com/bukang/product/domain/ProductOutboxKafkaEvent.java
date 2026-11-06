@@ -6,12 +6,14 @@ import static lombok.AccessLevel.PROTECTED;
 import java.time.LocalDateTime;
 
 import com.bukang.common.global.jpa.entity.BaseIdAndTime;
+import com.bukang.common.shared.kafka.KafkaMessageId;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -27,9 +29,18 @@ import lombok.NoArgsConstructor;
 @Table(
 	name = "PRODUCT_OUTBOX_KAFKA_EVENT",
 	// 미발행(PENDING) 행을 만든 순서대로 빠르게 찾는다 (릴레이가 쓴다)
-	indexes = @Index(name = "idx_outbox_kafka_status_create", columnList = "status, create_date")
+	indexes = @Index(name = "idx_outbox_kafka_status_create", columnList = "status, create_date"),
+	uniqueConstraints = @UniqueConstraint(name = "uk_outbox_kafka_message_id", columnNames = "message_id")
 )
 public class ProductOutboxKafkaEvent extends BaseIdAndTime {
+	// 메시지 ID에 붙일 서비스 이름 (product-outbox-{UUID})
+	private static final String SERVICE = "product";
+
+	// message-id 헤더로 보낼 값 (product-outbox-{UUID}). 행을 만들 때 한 번 정해 다시 보내도 같은 값이 나간다
+	// 이 칸을 더하기 전에 만든 행은 비어 있어(null) 릴레이가 보내기 전에 채운다
+	@Column(name = "message_id", length = 100)
+	private String messageId;
+
 	// 이벤트 대상의 종류 (대상 엔티티의 클래스 이름, 예: Race)
 	@Column(name = "ref_type", nullable = false, length = 50)
 	private String refType;
@@ -68,6 +79,7 @@ public class ProductOutboxKafkaEvent extends BaseIdAndTime {
 		this.eventType = eventType;
 		this.payload = payload;
 		this.status = OutboxStatus.PENDING;
+		this.messageId = KafkaMessageId.ofOutbox(SERVICE);
 	}
 
 	public static ProductOutboxKafkaEvent pending(String refType, long refId, String eventType, String payload) {
@@ -77,6 +89,14 @@ public class ProductOutboxKafkaEvent extends BaseIdAndTime {
 	// 메시지 key (대상 ID)
 	public String getMessageKey() {
 		return String.valueOf(refId);
+	}
+
+	// message_id 칸을 더하기 전에 만든 행(값 없음)에 메시지 ID를 한 번 채운다. 이미 있으면 그대로 둔다
+	// 릴레이 트랜잭션에서 함께 저장되므로, 보내지 못해 다시 보낼 때도 같은 값이 나간다
+	public void assignMessageIdIfAbsent() {
+		if (messageId == null) {
+			this.messageId = KafkaMessageId.ofOutbox(SERVICE);
+		}
 	}
 
 	public void markSent(LocalDateTime now) {

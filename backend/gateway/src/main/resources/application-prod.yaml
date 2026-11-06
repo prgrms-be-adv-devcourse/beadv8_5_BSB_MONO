@@ -8,6 +8,7 @@ gateway:
     order: http://bukang-order-service:8084
     product: http://bukang-product-service:8085
     queue: http://bukang-queue-service:8086
+    notification: http://bukang-notification-service:8087
 
 # Access Token 검사용 서명 키. member-service와 같은 .env의 JWT_SECRET을 쓴다
 jwt:

@@ -73,7 +73,7 @@ class ChargeThenOrderPaymentTest {
 	void chargeSucceeds_thenOrderPaymentFailsWithInsufficientBalance_chargedAmountStays() {
 		createCustomerWallet(0);
 		given(paymentClient.approve("pay_1", "order_charge_1", 10_000))
-			.willReturn(new PaymentApprovalResult(10_000, "toss_key_1"));
+			.willReturn(new PaymentApprovalResult(10_000, "toss_key_1", null));
 
 		cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_charge_1", 10_000);
 		assertBalance(CUSTOMER_ID, 10_000);
@@ -91,7 +91,7 @@ class ChargeThenOrderPaymentTest {
 	void chargeSucceeds_thenOrderPaymentRejectedByMemberMismatch_chargedAmountStays() {
 		createCustomerWallet(0);
 		given(paymentClient.approve("pay_1", "order_charge_2", 10_000))
-			.willReturn(new PaymentApprovalResult(10_000, "toss_key_1"));
+			.willReturn(new PaymentApprovalResult(10_000, "toss_key_1", null));
 		cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_charge_2", 10_000);
 		assertBalance(CUSTOMER_ID, 10_000);
 
@@ -119,7 +119,7 @@ class ChargeThenOrderPaymentTest {
 		assertThat(first.shortage()).isEqualTo(10_000);
 
 		given(paymentClient.approve("pay_1", "order_charge_3", 10_000))
-			.willReturn(new PaymentApprovalResult(10_000, "toss_key_1"));
+			.willReturn(new PaymentApprovalResult(10_000, "toss_key_1", null));
 		cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_charge_3", 10_000);
 
 		CashPaymentResponseDto second = cashFacade.completeOrderPayment(orderId, CUSTOMER_ID, amount);

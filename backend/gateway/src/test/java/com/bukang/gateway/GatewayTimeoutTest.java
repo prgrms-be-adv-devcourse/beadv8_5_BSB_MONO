@@ -40,7 +40,8 @@ import com.sun.net.httpserver.HttpServer;
 @ActiveProfiles("test")
 class GatewayTimeoutTest {
 
-	private static final List<String> OTHER_SERVICES = List.of("member", "payout", "file", "product", "queue");
+	private static final List<String> OTHER_SERVICES = List.of("member", "payout", "file", "product", "queue",
+		"notification");
 	// 응답 시간 제한(500ms)보다 충분히 길게 잡는다
 	private static final long SLOW_RESPONSE_MILLIS = 3000;
 	private static HttpServer slowStub;
@@ -146,6 +147,23 @@ class GatewayTimeoutTest {
 		assertThat(chargeConfirm).isNotNull();
 		Object timeout = chargeConfirm.getMetadata().get(RouteMetadataUtils.RESPONSE_TIMEOUT_ATTR);
 		assertThat(Long.parseLong(String.valueOf(timeout))).isEqualTo(30000L);
+	}
+
+	@Test
+	@DisplayName("환급 신청 라우트는 30초로 늘어나 있고, 같은 서비스의 다른 캐시 API는 기본 제한을 쓴다")
+	void withdrawalRouteHasLongerResponseTimeout() {
+		Route withdrawal = routeLocator.getRoutes()
+			.filter(route -> route.getId().equals("cash-withdrawal"))
+			.blockFirst();
+		Route cash = routeLocator.getRoutes()
+			.filter(route -> route.getId().equals("cash-service"))
+			.blockFirst();
+
+		assertThat(withdrawal).isNotNull();
+		Object timeout = withdrawal.getMetadata().get(RouteMetadataUtils.RESPONSE_TIMEOUT_ATTR);
+		assertThat(Long.parseLong(String.valueOf(timeout))).isEqualTo(30000L);
+		assertThat(cash).isNotNull();
+		assertThat(cash.getMetadata()).doesNotContainKey(RouteMetadataUtils.RESPONSE_TIMEOUT_ATTR);
 	}
 
 	private static void respondOk(HttpExchange exchange) throws IOException {

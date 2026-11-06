@@ -157,11 +157,11 @@ class PayoutLedgerScenarioTest {
 	private long sellerReceived() {
 		entityManager.flush();
 		long paid = payoutRepository.findByRaceId(RACE_ID).stream()
-			.filter(payout -> payout.getStatus() == PayoutStatus.PAID)
+			.filter(payout -> payout.getStatus() == PayoutStatus.지급_완료)
 			.mapToLong(Payout::getPayoutAmount)
 			.sum();
 		long deposited = payoutItemRepository.findAll().stream()
-			.filter(item -> item.getRecordType() == PayoutRecordType.RECOVERY_RECEIVED)
+			.filter(item -> item.getRecordType() == PayoutRecordType.회수_입금)
 			.mapToLong(PayoutItem::getAmount)
 			.sum();
 		return paid + deposited;
@@ -175,11 +175,11 @@ class PayoutLedgerScenarioTest {
 			.containsExactlyInAnyOrder(expected);
 	}
 
-	// 최종 정산 내역에는 1차 정산금 차감 줄이 하나만 있고, 금액은 만들 때 남은 1차 정산금(ADVANCE 잔고)을 뺀 값이다
+	// 최종 정산 내역에는 1차 정산금 차감 줄이 하나만 있고, 금액은 만들 때 남은 1차 정산금(선금 잔고)을 뺀 값이다
 	// 줄 순서는 보지 않는다
 	private void assertAdvanceOffset(Payout last, long expected) {
 		assertThat(last.getItems())
-			.filteredOn(item -> item.getRecordType() == PayoutRecordType.ADVANCE_OFFSET)
+			.filteredOn(item -> item.getRecordType() == PayoutRecordType.선지급_차감)
 			.extracting(PayoutItem::getAmount)
 			.containsExactly(expected);
 	}
@@ -199,14 +199,14 @@ class PayoutLedgerScenarioTest {
 		createFinal(range(101, 110));
 		pay(FINAL_PAY_DATE);
 
-		assertThat(lineSum(payout(PayoutStage.FIRST))).isEqualTo(200_000L);
-		Payout last = payout(PayoutStage.FINAL);
+		assertThat(lineSum(payout(PayoutStage.일차_정산))).isEqualTo(200_000L);
+		Payout last = payout(PayoutStage.최종_정산);
 		assertThat(lineSum(last)).isEqualTo(272_500L);
 		assertThat(last.getAdvanceDeductionAmount()).isEqualTo(200_000L);
 		assertAdvanceOffset(last, -200_000L);
 		assertThat(sellerReceived()).isEqualTo(472_500L);
-		assertThat(balance(PayoutAccount.ADVANCE)).isZero();
-		assertThat(balance(PayoutAccount.EARNING)).isEqualTo(472_500L);
+		assertThat(balance(PayoutAccount.선금)).isZero();
+		assertThat(balance(PayoutAccount.번_돈)).isEqualTo(472_500L);
 		assertEveryPayoutLineSumMatches();
 	}
 
@@ -215,7 +215,7 @@ class PayoutLedgerScenarioTest {
 	void finalWithoutFirst() {
 		createFinal(range(101, 110));
 
-		Payout last = payout(PayoutStage.FINAL);
+		Payout last = payout(PayoutStage.최종_정산);
 		assertThat(last.getAdvanceDeductionAmount()).isZero();
 		assertAdvanceOffset(last, 0L);
 		assertThat(lineSum(last)).isEqualTo(472_500L);
@@ -242,11 +242,11 @@ class PayoutLedgerScenarioTest {
 			RACE_DATE.plusDays(1).atTime(3, 0));
 
 		// 10K 6장 × 20,000 + 5K 4장 × 12,000
-		assertThat(payout(PayoutStage.FIRST).getItems())
+		assertThat(payout(PayoutStage.일차_정산).getItems())
 			.extracting(PayoutItem::getRaceCourseId, PayoutItem::getAmount)
 			.containsExactlyInAnyOrder(tuple(course10k, 120_000L), tuple(course5k, 48_000L));
 		// 10K 6장 × (50,000 − 2,750) = 283,500, 5K 4장 × (30,000 − 1,650) = 113,400
-		Payout last = payout(PayoutStage.FINAL);
+		Payout last = payout(PayoutStage.최종_정산);
 		assertThat(courseSum(last, course10k)).isEqualTo(283_500L);
 		assertThat(courseSum(last, course5k)).isEqualTo(113_400L);
 		assertThat(lineSum(last)).isEqualTo(283_500L + 113_400L - 168_000L);
@@ -268,22 +268,22 @@ class PayoutLedgerScenarioTest {
 		requestRecovery(108, LocalDateTime.of(2026, 11, 26, 10, 0));
 		requestRecovery(109, LocalDateTime.of(2026, 11, 27, 10, 0));
 		requestRecovery(110, LocalDateTime.of(2026, 11, 28, 10, 0));
-		assertThat(balance(PayoutAccount.RECEIVABLE)).isEqualTo(60_000L);
+		assertThat(balance(PayoutAccount.갚을_돈)).isEqualTo(60_000L);
 
 		createFinal(range(101, 107));
 
-		Payout last = payout(PayoutStage.FINAL);
+		Payout last = payout(PayoutStage.최종_정산);
 		// 7장 × 47,250 = 330,750 − 남은 1차 정산금 140,000 − 상계 60,000 = 130,750
 		assertThat(lineSum(last)).isEqualTo(130_750L);
 		// 남은 1차 정산금 = 200,000 − 회수 요청 3건 × 20,000 = 140,000
 		assertThat(last.getAdvanceDeductionAmount()).isEqualTo(140_000L);
 		assertAdvanceOffset(last, -140_000L);
-		assertThat(balance(PayoutAccount.RECEIVABLE)).isZero();
+		assertThat(balance(PayoutAccount.갚을_돈)).isZero();
 		// 최종 전 입금 경로(예전 회수 한 건 완료 API)는 없앴다. 세 건 모두 최종 정산 내역에서 빼서 상계로 완료
 		assertCompletions(
-			tuple(108L, PayoutRecoveryCompletion.OFFSET, PayoutHold.SYSTEM_MEMBER_ID),
-			tuple(109L, PayoutRecoveryCompletion.OFFSET, PayoutHold.SYSTEM_MEMBER_ID),
-			tuple(110L, PayoutRecoveryCompletion.OFFSET, PayoutHold.SYSTEM_MEMBER_ID));
+			tuple(108L, PayoutRecoveryCompletion.상계, PayoutHold.SYSTEM_MEMBER_ID),
+			tuple(109L, PayoutRecoveryCompletion.상계, PayoutHold.SYSTEM_MEMBER_ID),
+			tuple(110L, PayoutRecoveryCompletion.상계, PayoutHold.SYSTEM_MEMBER_ID));
 		pay(FINAL_PAY_DATE);
 		assertThat(sellerReceived()).isEqualTo(330_750L);
 		assertEveryPayoutLineSumMatches();
@@ -295,17 +295,17 @@ class PayoutLedgerScenarioTest {
 		createFirst();
 		PayoutRecovery r108 = requestRecovery(108, LocalDateTime.of(2026, 11, 1, 10, 0));
 
-		assertThat(r108.getStatus()).isEqualTo(PayoutRecoveryStatus.COMPLETED);
-		assertThat(r108.getCompletion()).isEqualTo(PayoutRecoveryCompletion.OFFSET);
+		assertThat(r108.getStatus()).isEqualTo(PayoutRecoveryStatus.회수_완료);
+		assertThat(r108.getCompletion()).isEqualTo(PayoutRecoveryCompletion.상계);
 		assertThat(r108.getCompletedBy()).isEqualTo(PayoutHold.SYSTEM_MEMBER_ID);
-		assertThat(lineSum(payout(PayoutStage.FIRST))).isEqualTo(180_000L);
-		assertThat(balance(PayoutAccount.RECEIVABLE)).isZero();
+		assertThat(lineSum(payout(PayoutStage.일차_정산))).isEqualTo(180_000L);
+		assertThat(balance(PayoutAccount.갚을_돈)).isZero();
 
 		pay(FIRST_PAY_DATE);
 		assertThat(sellerReceived()).isEqualTo(180_000L);
 		// 최종: 9장 × 47,250 − 남은 1차 정산금 180,000 = 245,250
 		createFinal(101, 102, 103, 104, 105, 106, 107, 109, 110);
-		assertThat(lineSum(payout(PayoutStage.FINAL))).isEqualTo(245_250L);
+		assertThat(lineSum(payout(PayoutStage.최종_정산))).isEqualTo(245_250L);
 		pay(FINAL_PAY_DATE);
 		assertThat(sellerReceived()).isEqualTo(425_250L);
 		assertEveryPayoutLineSumMatches();
@@ -319,26 +319,26 @@ class PayoutLedgerScenarioTest {
 		List<PayoutRecovery> recoveries = Arrays.stream(range(103, 110))
 			.mapToObj(id -> requestRecovery(id, LocalDateTime.of(2026, 11, 26, 10, 0)))
 			.toList();
-		assertThat(balance(PayoutAccount.RECEIVABLE)).isEqualTo(160_000L);
+		assertThat(balance(PayoutAccount.갚을_돈)).isEqualTo(160_000L);
 
 		createFinal(101, 102);
-		assertThat(lineSum(payout(PayoutStage.FINAL))).isZero();
-		assertThat(balance(PayoutAccount.RECEIVABLE)).isEqualTo(105_500L);
+		assertThat(lineSum(payout(PayoutStage.최종_정산))).isZero();
+		assertThat(balance(PayoutAccount.갚을_돈)).isEqualTo(105_500L);
 		assertThat(payoutRecoveryRepository.findAll())
-			.allSatisfy(recovery -> assertThat(recovery.getStatus()).isEqualTo(PayoutRecoveryStatus.REQUESTED));
+			.allSatisfy(recovery -> assertThat(recovery.getStatus()).isEqualTo(PayoutRecoveryStatus.회수_요청));
 
 		pay(FINAL_PAY_DATE);
 		claimAndConfirm(FINAL_PAY_DATE, LocalDateTime.of(2027, 1, 25, 10, 0));
 
-		assertThat(balance(PayoutAccount.RECEIVABLE)).isZero();
+		assertThat(balance(PayoutAccount.갚을_돈)).isZero();
 		// 청구 하나(105,500)를 확인하면 그 대회의 요청 중인 회수 8건이 모두 입금으로 끝난다
 		assertThat(payoutRecoveryRepository.findAll())
 			.extracting(PayoutRecovery::getStatus, PayoutRecovery::getCompletion, PayoutRecovery::getCompletedBy)
 			.hasSize(recoveries.size())
-			.containsOnly(tuple(PayoutRecoveryStatus.COMPLETED, PayoutRecoveryCompletion.DEPOSIT, ADMIN_ID));
+			.containsOnly(tuple(PayoutRecoveryStatus.회수_완료, PayoutRecoveryCompletion.입금, ADMIN_ID));
 		// 회수 입금 줄은 청구 하나에 한 줄이고, 회수가 아니라 판매자 × 대회에 붙는다
 		assertThat(payoutItemRepository.findAll())
-			.filteredOn(item -> item.getRecordType() == PayoutRecordType.RECOVERY_RECEIVED)
+			.filteredOn(item -> item.getRecordType() == PayoutRecordType.회수_입금)
 			.extracting(PayoutItem::getAmount)
 			.containsExactly(-105_500L);
 		assertThat(sellerReceived()).isEqualTo(94_500L);
@@ -346,24 +346,24 @@ class PayoutLedgerScenarioTest {
 	}
 
 	@Test
-	@DisplayName("대회 취소 (1차 지급 뒤): 회수 200,000, 요청 뒤 ADVANCE 0 · RECEIVABLE 200,000, 청구 입금 확인 뒤 0, 최종 없음")
+	@DisplayName("대회 취소 (1차 지급 뒤): 회수 200,000, 요청 뒤 선금 0 · 갚을_돈 200,000, 청구 입금 확인 뒤 0, 최종 없음")
 	void raceCanceledAfterFirstPay() {
 		createFirst();
 		pay(FIRST_PAY_DATE);
 		raceCancelUseCase.cancelRace(RACE_ID, LocalDateTime.of(2026, 12, 1, 10, 0));
 
-		assertThat(balance(PayoutAccount.ADVANCE)).isZero();
-		assertThat(balance(PayoutAccount.RECEIVABLE)).isEqualTo(200_000L);
+		assertThat(balance(PayoutAccount.선금)).isZero();
+		assertThat(balance(PayoutAccount.갚을_돈)).isEqualTo(200_000L);
 		PayoutRecovery recovery = payoutRecoveryRepository.findAll().getFirst();
 		assertThat(recovery.getAmount()).isEqualTo(200_000L);
 
 		// 대회 취소 회수의 청구는 취소 다음 날 배치에서 만든다
 		claimAndConfirm(LocalDate.of(2026, 12, 2), LocalDateTime.of(2026, 12, 5, 10, 0));
-		assertThat(balance(PayoutAccount.RECEIVABLE)).isZero();
-		assertCompletions(tuple(null, PayoutRecoveryCompletion.DEPOSIT, ADMIN_ID));
+		assertThat(balance(PayoutAccount.갚을_돈)).isZero();
+		assertCompletions(tuple(null, PayoutRecoveryCompletion.입금, ADMIN_ID));
 		assertThat(sellerReceived()).isZero();
 		assertThat(payoutRepository.findFirstBySellerIdAndRaceIdAndPayoutStageOrderByIdAsc(SELLER_ID, RACE_ID,
-			PayoutStage.FINAL)).isEmpty();
+			PayoutStage.최종_정산)).isEmpty();
 		assertEveryPayoutLineSumMatches();
 	}
 
@@ -376,34 +376,34 @@ class PayoutLedgerScenarioTest {
 		pay(FINAL_PAY_DATE);
 		raceCancelUseCase.cancelRace(RACE_ID, LocalDateTime.of(2027, 1, 25, 10, 0));
 
-		// ADVANCE: 1차 +200,000, 최종 차감 −200,000 → 0
-		// EARNING: 판매 10장 × 50,000 − 수수료 10장 × 2,750 = 472,500 (판매자가 받은 돈 200,000 + 272,500과 같다)
+		// 선금: 1차 +200,000, 최종 차감 −200,000 → 0
+		// 번_돈: 판매 10장 × 50,000 − 수수료 10장 × 2,750 = 472,500 (판매자가 받은 돈 200,000 + 272,500과 같다)
 		PayoutRecovery recovery = payoutRecoveryRepository.findAll().getFirst();
 		assertThat(payoutRecoveryRepository.findAll()).hasSize(1);
-		assertThat(recovery.getReasonType()).isEqualTo(PayoutRecoveryReason.RACE_CANCELED);
+		assertThat(recovery.getReasonType()).isEqualTo(PayoutRecoveryReason.대회_취소);
 		assertThat(recovery.getAmount()).isEqualTo(472_500L);
 		assertThat(payoutItemRepository.findAll())
-			.filteredOn(item -> item.getRecordType() == PayoutRecordType.RECOVERY_REQUESTED
-				|| item.getRecordType() == PayoutRecordType.RECEIVABLE_ADDED)
+			.filteredOn(item -> item.getRecordType() == PayoutRecordType.회수_요청
+				|| item.getRecordType() == PayoutRecordType.갚을_돈_추가)
 			.extracting(PayoutItem::getRecordType, PayoutItem::getAmount)
 			.containsExactlyInAnyOrder(
-				tuple(PayoutRecordType.RECOVERY_REQUESTED, -472_500L),
-				tuple(PayoutRecordType.RECEIVABLE_ADDED, 472_500L));
-		assertThat(balance(PayoutAccount.RECEIVABLE)).isEqualTo(472_500L);
+				tuple(PayoutRecordType.회수_요청, -472_500L),
+				tuple(PayoutRecordType.갚을_돈_추가, 472_500L));
+		assertThat(balance(PayoutAccount.갚을_돈)).isEqualTo(472_500L);
 	}
 
 	@Test
-	@DisplayName("1차 지급 전 대회 취소: 반대 줄로 되돌려 ADVANCE 0, 1차 정산 내역 줄 합 0, 회수 없음")
+	@DisplayName("1차 지급 전 대회 취소: 반대 줄로 되돌려 선금 0, 1차 정산 내역 줄 합 0, 회수 없음")
 	void raceCanceledBeforeFirstPay() {
 		createFirst();
 		raceCancelUseCase.cancelRace(RACE_ID, LocalDateTime.of(2026, 11, 1, 10, 0));
 
-		Payout first = payout(PayoutStage.FIRST);
-		assertThat(first.getStatus()).isEqualTo(PayoutStatus.CANCELED);
+		Payout first = payout(PayoutStage.일차_정산);
+		assertThat(first.getStatus()).isEqualTo(PayoutStatus.취소);
 		assertThat(lineSum(first)).isZero();
 		assertThat(first.getItems()).extracting(PayoutItem::getRecordType)
-			.containsExactlyInAnyOrder(PayoutRecordType.ADVANCE_PAID, PayoutRecordType.ADVANCE_PAID_CANCELED);
-		assertThat(balance(PayoutAccount.ADVANCE)).isZero();
+			.containsExactlyInAnyOrder(PayoutRecordType.선금, PayoutRecordType.선금_취소);
+		assertThat(balance(PayoutAccount.선금)).isZero();
 		assertThat(payoutRecoveryRepository.findAll()).isEmpty();
 		assertEveryPayoutLineSumMatches();
 	}
@@ -422,7 +422,7 @@ class PayoutLedgerScenarioTest {
 		assertThat(payoutItemRepository.findAll())
 			.filteredOn(item -> Long.valueOf(108L).equals(item.getOrderItemId()))
 			.extracting(PayoutItem::getRecordType)
-			.containsExactlyInAnyOrder(PayoutRecordType.RECOVERY_REQUESTED, PayoutRecordType.RECEIVABLE_ADDED);
+			.containsExactlyInAnyOrder(PayoutRecordType.회수_요청, PayoutRecordType.갚을_돈_추가);
 	}
 
 	@Test
@@ -461,7 +461,7 @@ class PayoutLedgerScenarioTest {
 	private void refundThenFirstPayRejectedAfterRaceCancel() {
 		createFirst();
 		requestRecovery(108, LocalDateTime.of(2026, 11, 5, 10, 0));
-		Payout first = payout(PayoutStage.FIRST);
+		Payout first = payout(PayoutStage.일차_정산);
 		first.startPaying(FIRST_PAY_DATE.atTime(4, 0));
 		raceCancelUseCase.cancelRace(RACE_ID, FIRST_PAY_DATE.atTime(4, 1));
 		new PayoutPayStepUseCase(payoutRepository, raceCancelUseCase)
@@ -475,15 +475,15 @@ class PayoutLedgerScenarioTest {
 	void rejectedFirstAfterRaceCancelRevertsOffsetRecovery() {
 		refundThenFirstPayRejectedAfterRaceCancel();
 
-		assertThat(payout(PayoutStage.FIRST).getStatus()).isEqualTo(PayoutStatus.CANCELED);
-		assertThat(balance(PayoutAccount.RECEIVABLE)).isZero();
-		assertThat(balance(PayoutAccount.ADVANCE)).isZero();
+		assertThat(payout(PayoutStage.일차_정산).getStatus()).isEqualTo(PayoutStatus.취소);
+		assertThat(balance(PayoutAccount.갚을_돈)).isZero();
+		assertThat(balance(PayoutAccount.선금)).isZero();
 		assertThat(payoutRecoveryRepository.findAll())
 			.filteredOn(recovery -> Long.valueOf(108L).equals(recovery.getOrderItemId()))
 			.extracting(PayoutRecovery::getStatus)
-			.containsExactly(PayoutRecoveryStatus.CANCELED);
+			.containsExactly(PayoutRecoveryStatus.회수_취소);
 		assertThat(payoutRecoveryRepository.findAll())
-			.filteredOn(recovery -> recovery.getReasonType() == PayoutRecoveryReason.RACE_CANCELED)
+			.filteredOn(recovery -> recovery.getReasonType() == PayoutRecoveryReason.대회_취소)
 			.isEmpty();
 	}
 
@@ -492,7 +492,7 @@ class PayoutLedgerScenarioTest {
 	void raceCanceledAfterOffsetRefundLeavesNoReceivable() {
 		refundBeforeFirstPayThenCancelRace();
 
-		assertThat(balance(PayoutAccount.RECEIVABLE)).isZero();
+		assertThat(balance(PayoutAccount.갚을_돈)).isZero();
 	}
 
 	@Test
@@ -500,7 +500,7 @@ class PayoutLedgerScenarioTest {
 	void raceCanceledAfterOffsetRefundLeavesNoAdvance() {
 		refundBeforeFirstPayThenCancelRace();
 
-		assertThat(balance(PayoutAccount.ADVANCE)).isZero();
+		assertThat(balance(PayoutAccount.선금)).isZero();
 	}
 
 	@Test
@@ -511,7 +511,7 @@ class PayoutLedgerScenarioTest {
 		assertThat(payoutRecoveryRepository.findAll())
 			.filteredOn(recovery -> Long.valueOf(108L).equals(recovery.getOrderItemId()))
 			.extracting(PayoutRecovery::getStatus)
-			.containsExactly(PayoutRecoveryStatus.CANCELED);
+			.containsExactly(PayoutRecoveryStatus.회수_취소);
 	}
 
 	@Test
@@ -520,7 +520,7 @@ class PayoutLedgerScenarioTest {
 		refundBeforeFirstPayThenCancelRace();
 
 		assertThat(payoutRecoveryRepository.findAll())
-			.filteredOn(recovery -> recovery.getReasonType() == PayoutRecoveryReason.RACE_CANCELED)
+			.filteredOn(recovery -> recovery.getReasonType() == PayoutRecoveryReason.대회_취소)
 			.isEmpty();
 	}
 
@@ -537,6 +537,6 @@ class PayoutLedgerScenarioTest {
 		assertThat(payoutRecoveryRepository.findAll())
 			.filteredOn(recovery -> Long.valueOf(108L).equals(recovery.getOrderItemId()))
 			.extracting(PayoutRecovery::getStatus)
-			.containsExactly(PayoutRecoveryStatus.REQUESTED);
+			.containsExactly(PayoutRecoveryStatus.회수_요청);
 	}
 }

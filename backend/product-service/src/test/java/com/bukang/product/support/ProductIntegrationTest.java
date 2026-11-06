@@ -295,7 +295,7 @@ public abstract class ProductIntegrationTest {
 		restoreByMessage(participationId, null);
 	}
 
-	// message-id 헤더(예: order-outbox-30)를 붙여 보낸 복구 메시지
+	// message-id 헤더(예: order-outbox-{UUID})를 붙여 보낸 복구 메시지
 	protected void restoreByMessage(long participationId, String messageId) {
 		productKafkaConsumer.handleHoldRestore("{\"participationId\":%d}".formatted(participationId), messageId);
 	}

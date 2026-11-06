@@ -6,6 +6,7 @@ import static lombok.AccessLevel.PROTECTED;
 import java.time.LocalDateTime;
 
 import com.bukang.common.global.jpa.entity.BaseIdAndTime;
+import com.bukang.common.shared.kafka.KafkaMessageId;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -26,7 +27,10 @@ import lombok.NoArgsConstructor;
 @Getter
 @Table(
 	name = "MEMBER_OUTBOX_EVENT",
-	uniqueConstraints = @UniqueConstraint(name = "uk_member_outbox_event_event_id", columnNames = "event_id"),
+	uniqueConstraints = {
+		@UniqueConstraint(name = "uk_member_outbox_event_event_id", columnNames = "event_id"),
+		@UniqueConstraint(name = "uk_member_outbox_event_message_id", columnNames = "message_id")
+	},
 	indexes = {
 		// 보낼 차례 행을 저장 순서(id)대로 찾는다 (발행 작업)
 		@Index(name = "idx_member_outbox_event_status_id", columnList = "status, id"),
@@ -35,9 +39,17 @@ import lombok.NoArgsConstructor;
 	}
 )
 public class MemberOutboxEvent extends BaseIdAndTime {
+	// 메시지 ID에 붙일 서비스 이름 (member-outbox-{UUID})
+	private static final String SERVICE = "member";
+
 	// 이벤트 ID (UUID). Kafka 헤더 eventId와 본문 eventId에 같은 값이 들어간다
 	@Column(name = "event_id", nullable = false, columnDefinition = "char(36)")
 	private String eventId;
+
+	// message-id 헤더로 보낼 값 (member-outbox-{UUID}). 행을 만들 때 한 번 정해 다시 보내도 같은 값이 나간다
+	// 이 컬럼을 더하기 전에 만든 행은 비어 있어(null) 발행 작업이 보내기 전에 채운다
+	@Column(name = "message_id", length = 100)
+	private String messageId;
 
 	// 보낼 토픽 (KafkaTopics 상수). 헤더 eventType 값으로도 쓴다
 	@Column(name = "topic", nullable = false, length = 100)
@@ -82,11 +94,20 @@ public class MemberOutboxEvent extends BaseIdAndTime {
 		this.payload = payload;
 		this.occurredAt = occurredAt;
 		this.status = MemberOutboxStatus.PENDING;
+		this.messageId = KafkaMessageId.ofOutbox(SERVICE);
 	}
 
 	public static MemberOutboxEvent pending(String eventId, String topic, String refType, long refId, String payload,
 		LocalDateTime occurredAt) {
 		return new MemberOutboxEvent(eventId, topic, refType, refId, payload, occurredAt);
+	}
+
+	// message_id 컬럼을 더하기 전에 만든 행(값 없음)에 메시지 ID를 한 번 채운다. 이미 있으면 그대로 둔다
+	// 발행 작업 트랜잭션에서 함께 저장되므로, 보내지 못해 다시 보낼 때도 같은 값이 나간다
+	public void assignMessageIdIfAbsent() {
+		if (messageId == null) {
+			this.messageId = KafkaMessageId.ofOutbox(SERVICE);
+		}
 	}
 
 	public void markSent(LocalDateTime now) {

@@ -35,7 +35,7 @@ import com.bukang.payout.out.PayoutStatusHistoryRepository;
 
 /**
  * 지급 배치가 정산 내역 한 건마다 트랜잭션을 나누는지 확인한다 (PRO-252)
- * 테스트 전체를 감싸는 트랜잭션이 있으면 지급 중(PAYING)의 커밋이 보이지 않으므로 끄고,
+ * 테스트 전체를 감싸는 트랜잭션이 있으면 지급 중의 커밋이 보이지 않으므로 끄고,
  * 진짜 프록시(PayoutPayStepUseCase 빈)를 쓴다
  */
 @DataJpaTest
@@ -99,7 +99,7 @@ class PayoutPayTransactionTest {
 			// 배치 트랜잭션 밖이라, 여기서 읽는 값은 다른 요청(관리자 보류 API)이 보는 커밋된 값이다
 			statusDuringTransfer.add(statusOf(payout));
 			try {
-				payoutHoldUseCase.hold(payout.getId(), PayoutHoldReason.ACCOUNT_NOT_REGISTERED, null, 99, NOW);
+				payoutHoldUseCase.hold(payout.getId(), PayoutHoldReason.정산_계좌_미등록, null, 99, NOW);
 			} catch (RuntimeException exception) {
 				holdErrors.add(exception);
 			}
@@ -107,9 +107,9 @@ class PayoutPayTransactionTest {
 
 		useCase.run(PAY_DATE, NOW);
 
-		assertThat(statusDuringTransfer).containsExactly(PayoutStatus.PAYING);
+		assertThat(statusDuringTransfer).containsExactly(PayoutStatus.지급_중);
 		assertThat(holdErrors).singleElement().isInstanceOf(PayoutHoldConflictException.class);
-		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.PAID);
+		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.지급_완료);
 		assertThat(payoutHoldRepository.count()).isZero();
 	}
 
@@ -129,7 +129,7 @@ class PayoutPayTransactionTest {
 			stale.startPaying(NOW);
 		})).isInstanceOf(ObjectOptimisticLockingFailureException.class);
 
-		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.PAYING);
+		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.지급_중);
 	}
 
 	@Test

@@ -326,6 +326,19 @@ export interface CrewUpdateRequestDto {
   name: string;
 }
 
+/**
+ * 크루 초대 카카오톡 보내기 요청
+ */
+export interface KakaoInviteSendRequestDto {
+  /**
+     * 받는 사람의 카카오 uuid (친구 조회 응답의 uuid). 1~5명, 중복 없이
+     * @minItems 1
+     * @maxItems 5
+     * @items.pattern [A-Za-z0-9_\-+/=]{1,100}
+     */
+  receiverUuids: string[];
+}
+
 export type MemberDtoSocialProvidersItem = typeof MemberDtoSocialProvidersItem[keyof typeof MemberDtoSocialProvidersItem];
 
 
@@ -612,6 +625,33 @@ export interface PassVerificationRequestDto {
   phone: string;
 }
 
+export interface KakaoFriendDto {
+  uuid: string;
+  /** @nullable */
+  nickname: string | null;
+  /** @nullable */
+  profileImageUrl: string | null;
+}
+
+export type KakaoInviteSendFailureReason = typeof KakaoInviteSendFailureReason[keyof typeof KakaoInviteSendFailureReason];
+
+
+export const KakaoInviteSendFailureReason = {
+  DAILY_LIMIT: 'DAILY_LIMIT',
+  KAKAO_ERROR: 'KAKAO_ERROR',
+  UNCONFIRMED: 'UNCONFIRMED',
+} as const;
+
+export interface KakaoInviteSendFailure {
+  uuid: string;
+  reason: KakaoInviteSendFailureReason;
+}
+
+export interface KakaoInviteSendResultDto {
+  sentUuids: string[];
+  failures: KakaoInviteSendFailure[];
+}
+
 export interface RsDataMemberDto {
   status?: number;
   message?: string;
@@ -688,6 +728,18 @@ export interface RsDataCrewJoinedDto {
   status?: number;
   message?: string;
   data?: CrewJoinedDto;
+}
+
+export interface RsDataListKakaoFriendDto {
+  status?: number;
+  message?: string;
+  data?: KakaoFriendDto[];
+}
+
+export interface RsDataKakaoInviteSendResultDto {
+  status?: number;
+  message?: string;
+  data?: KakaoInviteSendResultDto;
 }
 
 export type CheckEmailAvailabilityParams = {

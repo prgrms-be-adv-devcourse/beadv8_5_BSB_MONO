@@ -63,6 +63,25 @@ final class MemberInternalApiExamples {
 		}
 		""";
 
+	static final String NICKNAMES = """
+		{
+			"status": 200,
+			"message": "회원 닉네임을 조회했습니다.",
+			"data": [
+				{ "memberId": 1, "nickname": "러너A" },
+				{ "memberId": 2, "nickname": "탈퇴한 회원" }
+			]
+		}
+		""";
+
+	static final String NICKNAMES_TOO_MANY = """
+		{ "status": 400, "code": "INVALID_REQUEST", "message": "회원 ID는 한 번에 100개까지 조회할 수 있습니다.", "data": null }
+		""";
+
+	static final String INVALID_ID_FORMAT = """
+		{ "status": 400, "code": "INVALID_REQUEST", "message": "요청 값의 형식이 올바르지 않습니다.", "data": null }
+		""";
+
 	private MemberInternalApiExamples() {
 	}
 }

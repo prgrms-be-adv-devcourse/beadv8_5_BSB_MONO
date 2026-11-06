@@ -9,6 +9,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.common.shared.file.event.FileLinkRequestedEvent;
+import com.bukang.common.shared.kafka.dlt.DltKafkaEventDto;
+import com.bukang.common.shared.kafka.dlt.DltKafkaEventStatus;
+import com.bukang.common.shared.kafka.dlt.DltKafkaResendException;
+import com.bukang.common.shared.kafka.dlt.KafkaDltMessage;
+import com.bukang.file.domain.FileDltKafkaEvent;
 import com.bukang.file.domain.FileStatus;
 import com.bukang.file.domain.StoredFile;
 import com.bukang.file.domain.exception.FileAccessDeniedException;
@@ -37,6 +42,7 @@ public class FileFacade {
 	private final FileLinkUseCase fileLinkUseCase;
 	private final FileCleanupUseCase fileCleanupUseCase;
 	private final FileInboxUseCase fileInboxUseCase;
+	private final FileDltUseCase fileDltUseCase;
 	private final StoredFileRepository storedFileRepository;
 	private final FileStorage fileStorage;
 	private final TransactionTemplate transactionTemplate;
@@ -72,12 +78,15 @@ public class FileFacade {
 	// 대상 서비스가 Kafka로 보낸 연결 요청 (FileKafkaConsumer). 여러 대상을 한 트랜잭션으로 연결하므로
 	// 하나라도 실패하면 모두 되돌린다 (대회는 연결되고 종목만 빠지는 일이 없다)
 	// 인박스에 남긴 뒤 연결하고, 이미 처리한 메시지면 건너뛴다. 연결이 실패해 롤백되면 인박스 행도 없어져 다시 받은 메시지를 처리한다
+	// DLT에서 다시 보낸 메시지였으면 같은 트랜잭션에서 실패 행을 처리 완료로 바꾼다 (인박스가 건너뛴 메시지도 같다)
 	@Transactional
 	public void linkAll(String messageId, String topic, long ownerId, List<FileLinkRequestedEvent.Ref> refs) {
-		if (fileInboxUseCase.tryRecord(messageId, KAFKA_GROUP_ID, topic, LocalDateTime.now())) {
+		LocalDateTime now = LocalDateTime.now();
+		if (fileInboxUseCase.tryRecord(messageId, KAFKA_GROUP_ID, topic, now)) {
 			refs.forEach(ref ->
 				fileLinkUseCase.link(ref.refType(), ref.refId(), ownerId, toLinkItems(ref.files())));
 		}
+		fileDltUseCase.completeByResend(messageId, now);
 	}
 
 	private List<FileLinkItemDto> toLinkItems(List<FileLinkRequestedEvent.Item> files) {
@@ -98,6 +107,41 @@ public class FileFacade {
 			fileCleanupUseCase.deleteOldRows(limit, cutoff));
 		fileCleanupUseCase.deleteObjects(deletedKeys);
 		return deletedKeys.size();
+	}
+
+	// 재시도를 모두 실패해 DLT로 온 메시지를 실패 테이블에 남기고, 커밋 뒤 Slack으로 알린다 (FileKafkaDltConsumer가 부른다)
+	// 같은 메시지는 행 하나로 상태만 바꾼다. 저장이 롤백되면 알림도 보내지 않는다
+	@Transactional
+	public void recordDlt(KafkaDltMessage message) {
+		fileDltUseCase.record(message);
+	}
+
+	// DLT 실패 행 목록 (내부 API). 최근 것부터 size건
+	public List<DltKafkaEventDto> findDlts(DltKafkaEventStatus status, int size) {
+		return fileDltUseCase.findByStatus(status, size).stream().map(DltKafkaEventDto::from).toList();
+	}
+
+	// 사람이 원인을 고친 뒤 DLT 메시지를 첫 재시도 토픽으로 다시 보낸다 (내부 API)
+	// ① 처리 실패 → 다시 보냄을 먼저 커밋한다. 보낸 메시지를 본 리스너가 곧바로 처리해도 이 행을 처리 완료로 바꿀 수 있게 하기 위해서다
+	// ② 트랜잭션 밖에서 Kafka로 보낸다
+	// ③ 보내지 못하면 처리 실패로 되돌려 커밋하고 예외(503)를 그대로 던진다. 브로커가 돌아오면 다시 부르면 된다
+	@Transactional(propagation = Propagation.NOT_SUPPORTED)
+	public DltKafkaEventDto resendDlt(long id) {
+		FileDltKafkaEvent event = transactionTemplate.execute(status ->
+			fileDltUseCase.markResent(id, LocalDateTime.now()));
+		try {
+			fileDltUseCase.send(event);
+		} catch (DltKafkaResendException exception) {
+			transactionTemplate.executeWithoutResult(status -> fileDltUseCase.cancelResent(id));
+			throw exception;
+		}
+		return DltKafkaEventDto.from(event);
+	}
+
+	// 사람이 원인을 고친 뒤 메모와 함께 처리 완료로 닫는다 (내부 API)
+	@Transactional
+	public DltKafkaEventDto completeDlt(long id, String memo) {
+		return DltKafkaEventDto.from(fileDltUseCase.completeManually(id, memo, LocalDateTime.now()));
 	}
 
 	// 대상에 연결된 파일만 돌려준다

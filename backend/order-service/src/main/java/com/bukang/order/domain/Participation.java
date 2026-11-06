@@ -92,12 +92,13 @@ public class Participation extends BaseIdAndTime {
 	@Column(name = "canceled_at")
 	private LocalDateTime canceledAt;
 
-	private Participation(long memberId, long raceId, long raceCourseId, ParticipantInfo participant,
+	private Participation(long memberId, long raceId, long raceCourseId, Long partyId, ParticipantInfo participant,
 		LocalDateTime consentedAt) {
 		this.memberId = memberId;
 		this.raceId = raceId;
 		this.raceCourseId = raceCourseId;
-		this.participationType = ParticipationType.INDIVIDUAL;
+		this.partyId = partyId;
+		this.participationType = partyId == null ? ParticipationType.INDIVIDUAL : ParticipationType.PARTY;
 		changeStatus(ParticipationStatus.PENDING);
 		this.participant = participant;
 		this.thirdPartyConsent = Boolean.TRUE;
@@ -107,7 +108,13 @@ public class Participation extends BaseIdAndTime {
 	// 개인 신청서. 제3자 제공 동의를 받은 뒤에만 만든다 (요청 DTO가 검사)
 	public static Participation individual(long memberId, long raceId, long raceCourseId, ParticipantInfo participant,
 		LocalDateTime consentedAt) {
-		return new Participation(memberId, raceId, raceCourseId, participant, consentedAt);
+		return new Participation(memberId, raceId, raceCourseId, null, participant, consentedAt);
+	}
+
+	// 파티원 신청서. 합류를 확정할 때 결제 전(PENDING)으로 만든다 (11/02 결정 ②). 자리는 파티장이 신청할 때 한꺼번에 잡는다
+	public static Participation partyMember(long memberId, long raceId, long raceCourseId, long partyId,
+		ParticipantInfo participant, LocalDateTime consentedAt) {
+		return new Participation(memberId, raceId, raceCourseId, partyId, participant, consentedAt);
 	}
 
 	public boolean isOwnedBy(long targetMemberId) {
@@ -218,6 +225,7 @@ public class Participation extends BaseIdAndTime {
 			raceCourseId,
 			memberId,
 			participationType,
+			partyId,
 			status,
 			ParticipantInfoDto.from(participant),
 			thirdPartyConsent,

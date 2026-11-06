@@ -120,6 +120,13 @@ public class CrewFacade {
 		return new CrewInviteCreatedDto(invite.getId(), token, invite.getCreatedAt(), invite.getExpiresAt());
 	}
 
+	// 카카오톡 초대 (kakao-crew-invite): 초대 링크 만들기와 같은 검사(크루 있음 → 크루원 → 초대 권한)를 하고 크루 이름을 돌려준다
+	public String findInvitableCrewName(long memberId, long crewId) {
+		Crew crew = findActiveCrew(crewId);
+		requireInviter(findMembership(crewId, memberId));
+		return crew.getName();
+	}
+
 	public List<CrewInviteDto> findInvites(long memberId, long crewId) {
 		findActiveCrew(crewId);
 		CrewMember membership = findMembership(crewId, memberId);

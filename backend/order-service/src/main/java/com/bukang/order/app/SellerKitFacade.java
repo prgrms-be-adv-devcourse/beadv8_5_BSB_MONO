@@ -60,6 +60,11 @@ public class SellerKitFacade {
 		return kitDeliveryUseCase.findCarriers();
 	}
 
+	public OrderItemDto changeTracking(long memberId, long orderItemId, KitShipmentRequestDto request) {
+		return kitDeliveryUseCase.changeTracking(sellerIdOf(memberId), orderItemId, carrierIdOf(request),
+			request.getTrackingNumber(), LocalDateTime.now());
+	}
+
 	public OrderItemDto completeDelivery(long memberId, long orderItemId) {
 		return kitDeliveryUseCase.completeDelivery(sellerIdOf(memberId), orderItemId, LocalDateTime.now());
 	}

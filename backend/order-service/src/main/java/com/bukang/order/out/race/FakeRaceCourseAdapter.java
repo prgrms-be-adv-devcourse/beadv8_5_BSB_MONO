@@ -14,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
  * - 대회 ID는 종목 ID와 같게 둔다 (종목 하나 = 대회 하나)
  * - 대회는 60일 뒤, 접수는 하루 전에 열려 30일 뒤에 마감, 만 14세 이상
  * - 판매자 ID 1, 참가비 50,000원(키트 포함), 환불 기한은 40일 뒤, 티셔츠는 XS~XXXL 모두
+ * - 파티 예매는 하루 전에 열려 20일 뒤에 마감, 4~10명
  * order.clients.product.mode=fake(기본값)일 때만 쓰고, http면 HttpRaceCourseAdapter가 부른다
  */
 @Slf4j
@@ -50,7 +51,8 @@ public class FakeRaceCourseAdapter implements RaceCoursePort {
 			now.plusDays(40).toLocalDate(),
 			null,
 			false,
-			TSHIRT_SIZES
+			TSHIRT_SIZES,
+			new RaceCourseInfo.CrewSale(now.minusDays(1), now.plusDays(20), 4, 10)
 		));
 	}
 }

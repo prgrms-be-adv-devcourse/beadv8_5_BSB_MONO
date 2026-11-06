@@ -36,6 +36,7 @@ import com.bukang.cash.out.WalletWithdrawalRepository;
 @ActiveProfiles("test")
 class CashWithdrawalUseCaseTest {
 	private static final long CUSTOMER_ID = 3;
+	private static final LocalDateTime NOW = LocalDateTime.of(2026, 11, 5, 10, 0);
 
 	@Autowired
 	private CashFacade cashFacade;
@@ -64,7 +65,7 @@ class CashWithdrawalUseCaseTest {
 		createCustomerWallet(50_000);
 
 		CashWithdrawalResponseDto response = cashFacade.requestWithdrawal(
-			CUSTOMER_ID, "004", "110123456789", "홍길동", "withdrawal_1");
+			CUSTOMER_ID, "004", "110123456789", "홍길동", "withdrawal_1", NOW);
 
 		assertThat(response.withdrawnAmount()).isEqualTo(50_000);
 		assertThat(response.balance()).isEqualTo(0);
@@ -80,7 +81,7 @@ class CashWithdrawalUseCaseTest {
 	void withdrawalLeavesOneLedgerEntry() {
 		createCustomerWallet(30_000);
 
-		cashFacade.requestWithdrawal(CUSTOMER_ID, "004", "110123456789", "홍길동", "withdrawal_1");
+		cashFacade.requestWithdrawal(CUSTOMER_ID, "004", "110123456789", "홍길동", "withdrawal_1", NOW);
 
 		assertThat(walletLedgerRepository.findAll()).hasSize(1);
 		WalletLedger ledger = walletLedgerRepository.findAll().get(0);
@@ -95,9 +96,9 @@ class CashWithdrawalUseCaseTest {
 		createCustomerWallet(20_000);
 
 		CashWithdrawalResponseDto first = cashFacade.requestWithdrawal(
-			CUSTOMER_ID, "004", "110123456789", "홍길동", "withdrawal_1");
+			CUSTOMER_ID, "004", "110123456789", "홍길동", "withdrawal_1", NOW);
 		CashWithdrawalResponseDto second = cashFacade.requestWithdrawal(
-			CUSTOMER_ID, "004", "110123456789", "홍길동", "withdrawal_1");
+			CUSTOMER_ID, "004", "110123456789", "홍길동", "withdrawal_1", NOW);
 
 		assertThat(second.withdrawnAmount()).isEqualTo(first.withdrawnAmount());
 		assertThat(second.balance()).isEqualTo(first.balance());
@@ -111,7 +112,7 @@ class CashWithdrawalUseCaseTest {
 		createCustomerWallet(0);
 
 		assertThatThrownBy(() ->
-			cashFacade.requestWithdrawal(CUSTOMER_ID, "004", "110123456789", "홍길동", "withdrawal_1"))
+			cashFacade.requestWithdrawal(CUSTOMER_ID, "004", "110123456789", "홍길동", "withdrawal_1", NOW))
 			.isInstanceOf(WalletBalanceEmptyException.class);
 
 		assertThat(walletWithdrawalRepository.findByIdempotencyKey("withdrawal_1")).isEmpty();
@@ -121,7 +122,7 @@ class CashWithdrawalUseCaseTest {
 	@Test
 	@DisplayName("지갑이 없으면 404 예외로 알린다")
 	void walletNotFound() {
-		assertThatThrownBy(() -> cashFacade.requestWithdrawal(999, "004", "110123456789", "홍길동", "withdrawal_1"))
+		assertThatThrownBy(() -> cashFacade.requestWithdrawal(999, "004", "110123456789", "홍길동", "withdrawal_1", NOW))
 			.isInstanceOf(WalletNotFoundException.class);
 	}
 
@@ -138,7 +139,7 @@ class CashWithdrawalUseCaseTest {
 		createCustomerWallet(0);
 
 		assertThatThrownBy(() ->
-			cashFacade.requestWithdrawal(CUSTOMER_ID, "004", "110123456789", "홍길동", "withdrawal_1"))
+			cashFacade.requestWithdrawal(CUSTOMER_ID, "004", "110123456789", "홍길동", "withdrawal_1", NOW))
 			.isInstanceOf(WithdrawalMemberMismatchException.class);
 	}
 

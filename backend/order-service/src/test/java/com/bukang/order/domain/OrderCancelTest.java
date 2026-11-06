@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import com.bukang.common.shared.order.event.OrderItemRefundReason;
 import com.bukang.order.domain.exception.OrderItemNotCancelableException;
 import com.bukang.order.out.race.RaceCourseInfo;
 
@@ -61,12 +62,12 @@ class OrderCancelTest {
 		Order order = paidOrderWithTwoItems();
 		OrderItem first = order.getItems().get(0);
 
-		order.startCancelItem(first, NOW);
+		order.startCancelItem(first, NOW, OrderItemRefundReason.BUYER_CANCELED);
 		assertThat(first.getStatus()).isEqualTo(OrderItemStatus.CANCELING);
 		assertThat(first.getCancelRequestedAt()).isEqualTo(NOW);
 		assertThat(order.getStatus()).isEqualTo(OrderStatus.PAID);
 		assertThat(order.getCanceledAmount()).isZero();
-		assertThatThrownBy(() -> order.startCancelItem(first, NOW))
+		assertThatThrownBy(() -> order.startCancelItem(first, NOW, OrderItemRefundReason.BUYER_CANCELED))
 			.isInstanceOf(OrderItemNotCancelableException.class)
 			.hasMessage("취소 처리 중인 상품입니다. 잠시 뒤 주문 내역에서 확인해주세요.");
 
@@ -81,7 +82,7 @@ class OrderCancelTest {
 	void revertCancel() {
 		Order order = paidOrderWithTwoItems();
 		OrderItem first = order.getItems().get(0);
-		order.startCancelItem(first, NOW);
+		order.startCancelItem(first, NOW, OrderItemRefundReason.BUYER_CANCELED);
 
 		order.revertCancelItem(first);
 		assertThat(first.getStatus()).isEqualTo(OrderItemStatus.PAID);
@@ -95,7 +96,7 @@ class OrderCancelTest {
 		Order order = paidOrderWithTwoItems();
 		OrderItem first = order.getItems().get(0);
 		OrderItem second = order.getItems().get(1);
-		order.startCancelItem(first, NOW);
+		order.startCancelItem(first, NOW, OrderItemRefundReason.BUYER_CANCELED);
 
 		assertThat(order.cancelPaidItems(NOW.plusMinutes(1))).containsExactly(second);
 		assertThat(first.getStatus()).isEqualTo(OrderItemStatus.CANCELING);

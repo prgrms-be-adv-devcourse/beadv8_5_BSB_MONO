@@ -43,6 +43,9 @@ class FileKafkaConsumerTest {
 	private static final long OTHER_MEMBER_ID = 2;
 	private static final String RACE = "Race";
 	private static final long RACE_ID = 1;
+	// 상품 아웃박스가 붙이는 message-id ({서비스}-outbox-{UUID}). 서로 다른 메시지 A·B
+	private static final String MESSAGE_ID_A = "product-outbox-3b241101-e2bb-4255-8caf-4136c566aa01";
+	private static final String MESSAGE_ID_B = "product-outbox-3b241101-e2bb-4255-8caf-4136c566ab02";
 
 	@Autowired
 	private FileKafkaConsumer fileKafkaConsumer;
@@ -60,21 +63,21 @@ class FileKafkaConsumerTest {
 	}
 
 	@Test
-	@DisplayName("handleFileLinkRequested: 같은 message-id(product-outbox-1)의 연결 요청이 다시 오면 인박스가 건너뛰어, "
+	@DisplayName("handleFileLinkRequested: 같은 message-id(A)의 연결 요청이 다시 오면 인박스가 건너뛰어, "
 		+ "썸네일은 ACTIVE 그대로이고 인박스는 1행이다")
 	void sameLinkMessageTwiceIsSkippedByInbox() {
 		StoredFile thumbnail = uploadedFile(OWNER_ID, THUMBNAIL);
 		String message = linkMessage(OWNER_ID, item(thumbnail, 0));
 
-		fileKafkaConsumer.handleFileLinkRequested(message, "product-outbox-1");
-		fileKafkaConsumer.handleFileLinkRequested(message, "product-outbox-1");   // 재전달 (인박스가 건너뛴다)
+		fileKafkaConsumer.handleFileLinkRequested(message, MESSAGE_ID_A);
+		fileKafkaConsumer.handleFileLinkRequested(message, MESSAGE_ID_A);   // 재전달 (인박스가 건너뛴다)
 
 		assertThat(statusOf(thumbnail)).isEqualTo(FileStatus.ACTIVE);
 		assertThat(fileInboxKafkaEventRepository.count()).isEqualTo(1);
 	}
 
 	@Test
-	@DisplayName("handleFileLinkRequested: 상세 이미지를 [가, 나] 순서로 연결(product-outbox-1)하고 [나, 가]로 바꾼(product-outbox-2) 뒤 "
+	@DisplayName("handleFileLinkRequested: 상세 이미지를 [가, 나] 순서로 연결(A)하고 [나, 가]로 바꾼(B) 뒤 "
 		+ "첫 메시지가 다시 오면, 이미 처리한 메시지라 인박스가 건너뛰어 [나, 가] 그대로다 "
 		+ "(헤더가 없으면 재전달된 첫 메시지가 [가, 나]로 되돌린다)")
 	void redeliveredOldLinkMessageIsSkippedByInbox() {
@@ -83,9 +86,9 @@ class FileKafkaConsumerTest {
 		String firstOrder = linkMessage(OWNER_ID, item(first, 0), item(second, 1));
 		String changedOrder = linkMessage(OWNER_ID, item(second, 0), item(first, 1));
 
-		fileKafkaConsumer.handleFileLinkRequested(firstOrder, "product-outbox-1");
-		fileKafkaConsumer.handleFileLinkRequested(changedOrder, "product-outbox-2");
-		fileKafkaConsumer.handleFileLinkRequested(firstOrder, "product-outbox-1");   // 재전달 (인박스가 건너뛴다)
+		fileKafkaConsumer.handleFileLinkRequested(firstOrder, MESSAGE_ID_A);
+		fileKafkaConsumer.handleFileLinkRequested(changedOrder, MESSAGE_ID_B);
+		fileKafkaConsumer.handleFileLinkRequested(firstOrder, MESSAGE_ID_A);   // 재전달 (인박스가 건너뛴다)
 
 		assertThat(sortNoOf(second)).isZero();
 		assertThat(sortNoOf(first)).isEqualTo(1);
@@ -99,7 +102,7 @@ class FileKafkaConsumerTest {
 		StoredFile others = uploadedFile(OTHER_MEMBER_ID, THUMBNAIL);
 		String message = linkMessage(OWNER_ID, item(others, 0));
 
-		assertThatThrownBy(() -> fileKafkaConsumer.handleFileLinkRequested(message, "product-outbox-1"))
+		assertThatThrownBy(() -> fileKafkaConsumer.handleFileLinkRequested(message, MESSAGE_ID_A))
 			.isInstanceOf(BusinessException.class);
 
 		assertThat(statusOf(others)).isEqualTo(FileStatus.UPLOADED);

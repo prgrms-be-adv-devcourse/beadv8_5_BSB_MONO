@@ -24,6 +24,7 @@ public class DeliveryTrackerClientConfig {
 		@Value("${order.clients.delivery-tracker.client-id:}") String clientId,
 		@Value("${order.clients.delivery-tracker.client-secret:}") String clientSecret
 	) {
-		return new HttpDeliveryTrackingAdapter(InternalHttpClients.create(baseUrl, timeout), clientId, clientSecret);
+		return new HttpDeliveryTrackingAdapter(InternalHttpClients.create(baseUrl, timeout), clientId, clientSecret,
+			HttpDeliveryTrackingAdapter.RETRY_DELAYS);
 	}
 }

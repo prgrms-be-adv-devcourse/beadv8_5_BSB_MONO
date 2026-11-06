@@ -39,17 +39,40 @@ public class PartyMember extends BaseIdAndTime {
 	@Column(name = "joined_at", nullable = false)
 	private LocalDateTime joinedAt;
 
+	// 크루에 가입한 시각 (회원 서비스 값). 크루 탈퇴 이벤트의 joinedAt이 이 값과 같거나 늦을 때만 파티에서 뺀다
+	// 늦게 도착한 탈퇴 이벤트가 다시 가입한 사람을 빼지 않게 한다 (CrewMemberLeftEvent, BUK-77)
+	@Column(name = "crew_joined_at", nullable = false)
+	private LocalDateTime crewJoinedAt;
+
 	@Column(name = "left_at")
 	private LocalDateTime leftAt;
 
-	private PartyMember(long partyId, long memberId, long crewId, LocalDateTime joinedAt) {
+	private PartyMember(long partyId, long memberId, long crewId, LocalDateTime crewJoinedAt, LocalDateTime joinedAt) {
 		this.partyId = partyId;
 		this.memberId = memberId;
 		this.crewId = crewId;
+		this.crewJoinedAt = crewJoinedAt;
 		this.joinedAt = joinedAt;
 	}
 
-	public static PartyMember join(long partyId, long memberId, long crewId, LocalDateTime joinedAt) {
-		return new PartyMember(partyId, memberId, crewId, joinedAt);
+	public static PartyMember join(long partyId, long memberId, long crewId, LocalDateTime crewJoinedAt,
+		LocalDateTime joinedAt) {
+		return new PartyMember(partyId, memberId, crewId, crewJoinedAt, joinedAt);
+	}
+
+	public boolean isActive() {
+		return leftAt == null;
+	}
+
+	public void leave(LocalDateTime now) {
+		this.leftAt = now;
+	}
+
+	// 나갔던 사람이 같은 파티에 다시 합류한다. 줄을 새로 만들지 않고 되살린다 (11/03)
+	// 그 사이 크루를 나갔다 다시 가입했을 수 있으므로 크루 가입 시각도 새로 받는다
+	public void rejoin(LocalDateTime crewJoinedAt, LocalDateTime now) {
+		this.crewJoinedAt = crewJoinedAt;
+		this.joinedAt = now;
+		this.leftAt = null;
 	}
 }

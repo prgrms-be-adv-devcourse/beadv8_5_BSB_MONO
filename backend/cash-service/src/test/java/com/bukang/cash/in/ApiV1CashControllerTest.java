@@ -15,14 +15,17 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.bukang.cash.domain.charge.WalletCharge;
 import com.bukang.cash.domain.member.CashMember;
 import com.bukang.cash.domain.wallet.LedgerRefType;
 import com.bukang.cash.domain.wallet.LedgerType;
 import com.bukang.cash.domain.wallet.Wallet;
 import com.bukang.cash.out.CashMemberRepository;
+import com.bukang.cash.out.WalletChargeRepository;
 import com.bukang.cash.out.WalletLedgerRepository;
 import com.bukang.cash.out.WalletRepository;
 import com.bukang.cash.out.WalletWithdrawalRepository;
@@ -52,6 +55,8 @@ class ApiV1CashControllerTest {
 	private WalletLedgerRepository walletLedgerRepository;
 	@Autowired
 	private WalletWithdrawalRepository walletWithdrawalRepository;
+	@Autowired
+	private WalletChargeRepository walletChargeRepository;
 
 	@Test
 	@DisplayName("잔액 조회: 지갑이 있으면 200과 RsData 형식으로 요청자 본인의 잔액을 돌려준다")
@@ -285,11 +290,115 @@ class ApiV1CashControllerTest {
 		assertThat(walletWithdrawalRepository.count()).isZero();
 	}
 
+	@Test
+	@DisplayName("환급 신청: 남은 예치금이 모두 카드로 돌아가면 은행 정보 없이(빈 본문) 신청해도 200으로 받아 준다")
+	void requestWithdrawalWithoutBankAccountWhenAllCard() throws Exception {
+		Wallet wallet = createWalletWithBalance(3, 30_000);
+		LocalDateTime approvedAt = LocalDateTime.now().minusDays(1);
+		WalletCharge charge = new WalletCharge(wallet, 30_000, "TOSS", "order_1");
+		charge.markCompleted("toss_key_1", approvedAt, approvedAt);
+		walletChargeRepository.save(charge);
+
+		mockMvc.perform(post("/api/v1/cash/withdrawals")
+				.header(MemberIdHeader.NAME, "3")
+				.header(IdempotencyKeyHeader.NAME, "withdrawal-key-1")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{}"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.cardAmount").value(30_000))
+			.andExpect(jsonPath("$.data.accountAmount").value(0));
+	}
+
+	@Test
+	@DisplayName("환급 신청: 계좌로 보낼 몫이 있는데 은행 정보가 빈 문자열이면 없는 것으로 보고 400 WITHDRAWAL_ACCOUNT_REQUIRED로 응답한다")
+	void requestWithdrawalWithBlankBankAccountWhenAccountPartExists() throws Exception {
+		// 충전 건이 없는 잔액(정산 대금과 같은 경우)이라 전부 계좌로 보내야 한다
+		createWalletWithBalance(3, 30_000);
+
+		mockMvc.perform(post("/api/v1/cash/withdrawals")
+				.header(MemberIdHeader.NAME, "3")
+				.header(IdempotencyKeyHeader.NAME, "withdrawal-key-1")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{ "bankCode": "", "accountNumber": " ", "accountHolder": "" }
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("WITHDRAWAL_ACCOUNT_REQUIRED"));
+		assertThat(walletWithdrawalRepository.count()).isZero();
+	}
+
 	private Wallet createWalletWithBalance(long memberId, long balance) {
 		LocalDateTime now = LocalDateTime.of(2026, 10, 12, 10, 0);
 		CashMember member = cashMemberRepository.save(new CashMember(memberId, now, now, "러너" + memberId));
 		Wallet wallet = walletRepository.save(new Wallet(member));
 		walletLedgerRepository.save(wallet.credit(balance, LedgerType.충전__PG결제_토스페이먼츠, LedgerRefType.WalletCharge, 1));
 		return wallet;
+	}
+
+	// 컨트롤러는 실제 현재 시각으로 기한을 판단하므로, 테스트가 시간이 지나도 깨지지 않게 먼 미래에 승인된 충전을 쓴다
+	@Test
+	@DisplayName("환급 화면용 충전 내역 조회: 200과 RsData 형식으로 잔액, 가장 빠른 기한, 충전 건별 남은 금액·마지막 날을 돌려준다")
+	void getRefundableCharges() throws Exception {
+		LocalDateTime now = LocalDateTime.of(2026, 10, 12, 10, 0);
+		CashMember member = cashMemberRepository.save(new CashMember(3, now, now, "러너3"));
+		Wallet wallet = new Wallet(member);
+		ReflectionTestUtils.setField(wallet, "balance", 5_000L);
+		walletRepository.save(wallet);
+		WalletCharge charge = new WalletCharge(wallet, 10_000, "TOSS", "order_1");
+		charge.markCompleted("toss_key_1", LocalDateTime.of(2099, 1, 1, 10, 0), LocalDateTime.of(2099, 1, 1, 10, 0));
+		walletChargeRepository.save(charge);
+
+		mockMvc.perform(get("/api/v1/cash/wallets/refundable-charges")
+				.header(MemberIdHeader.NAME, "3"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.status").value(200))
+			.andExpect(jsonPath("$.data.balance").value(5_000))
+			.andExpect(jsonPath("$.data.earliestLastCancelableDate").value("2099-12-31"))
+			.andExpect(jsonPath("$.data.charges[0].amount").value(10_000))
+			.andExpect(jsonPath("$.data.charges[0].remainingAmount").value(5_000))
+			.andExpect(jsonPath("$.data.charges[0].lastCancelableDate").value("2099-12-31"))
+			.andExpect(jsonPath("$.data.charges[0].expired").value(false));
+	}
+
+	@Test
+	@DisplayName("환급 화면용 충전 내역 조회: 충전 건마다 충전 건 번호(내역 refId와 짝)와 충전 일시(PG 승인 시각)를 돌려준다")
+	void getRefundableChargesWithChargeIdAndChargedAt() throws Exception {
+		LocalDateTime now = LocalDateTime.of(2026, 10, 12, 10, 0);
+		CashMember member = cashMemberRepository.save(new CashMember(3, now, now, "러너3"));
+		Wallet wallet = walletRepository.save(new Wallet(member));
+		WalletCharge charge = new WalletCharge(wallet, 10_000, "TOSS", "order_1");
+		charge.markCompleted("toss_key_1", LocalDateTime.of(2099, 1, 1, 10, 5), LocalDateTime.of(2099, 1, 1, 10, 0));
+		long chargeId = walletChargeRepository.save(charge).getId();
+
+		mockMvc.perform(get("/api/v1/cash/wallets/refundable-charges")
+				.header(MemberIdHeader.NAME, "3"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.charges[0].chargeId").value(chargeId))
+			.andExpect(jsonPath("$.data.charges[0].chargedAt").value("2099-01-01T10:00:00"));
+	}
+
+	@Test
+	@DisplayName("내역 조회: 충전 줄에는 충전 일시·남은 금액·카드 취소 마지막 날·기한 지남 여부를 붙이고, 결제 줄에는 붙이지 않는다")
+	void getLedgersAttachesChargeDeadlineToChargeRows() throws Exception {
+		LocalDateTime now = LocalDateTime.of(2026, 10, 12, 10, 0);
+		CashMember member = cashMemberRepository.save(new CashMember(3, now, now, "러너3"));
+		Wallet wallet = walletRepository.save(new Wallet(member));
+		WalletCharge charge = new WalletCharge(wallet, 10_000, "TOSS", "order_1");
+		LocalDateTime approvedAt = LocalDateTime.of(2099, 1, 1, 10, 0);
+		charge.markCompleted("toss_key_1", approvedAt, approvedAt);
+		walletChargeRepository.save(charge);
+		walletLedgerRepository.save(wallet.credit(10_000, LedgerType.충전__PG결제_토스페이먼츠, charge));
+		walletLedgerRepository.save(wallet.debit(5_000, LedgerType.사용__주문결제, LedgerRefType.Order, 100));
+
+		mockMvc.perform(get("/api/v1/cash/wallets/ledgers")
+				.header(MemberIdHeader.NAME, "3"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.content[0].category").value("PAYMENT"))
+			.andExpect(jsonPath("$.data.content[0].charge").doesNotExist())
+			.andExpect(jsonPath("$.data.content[1].category").value("CHARGE"))
+			.andExpect(jsonPath("$.data.content[1].charge.chargedAt").value("2099-01-01T10:00:00"))
+			.andExpect(jsonPath("$.data.content[1].charge.remainingAmount").value(5_000))
+			.andExpect(jsonPath("$.data.content[1].charge.lastCancelableDate").value("2099-12-31"))
+			.andExpect(jsonPath("$.data.content[1].charge.expired").value(false));
 	}
 }

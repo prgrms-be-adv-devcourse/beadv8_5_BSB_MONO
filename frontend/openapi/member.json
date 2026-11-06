@@ -4254,6 +4254,459 @@
           }
         }
       }
+    },
+    "/api/v1/member/members/me/kakao-message/consent-ticket": {
+      "post": {
+        "tags": [
+          "KakaoCrewInvite"
+        ],
+        "summary": "카카오 메시지 동의 표 발급",
+        "description": "친구 조회·보내기가 403 KAKAO_MESSAGE_CONSENT_REQUIRED면 부른다. 2분 동안 한 번만 쓸 수 있는 표를 httpOnly 쿠키(oauth2Link, Path=/api/v1/auth/oauth2/authorize)로 심는다. 프론트는 이어서 /api/v1/auth/oauth2/authorize/kakao?next=/crews/{crewId}/invites로 화면을 이동한다. 동의를 마치면 next?kakaoConsent=granted, 취소·범위 부족이면 next?error=KAKAO_CONSENT_DENIED, 연결된 카카오 계정과 다른 계정이면 next?error=KAKAO_ACCOUNT_MISMATCH로 돌아온다.",
+        "operationId": "issueKakaoMessageConsentTicket",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "게이트웨이가 Access Token에서 꺼내 넣는 회원 ID입니다. 게이트웨이를 거치면 클라이언트는 보내지 않고 Authorization: Bearer 토큰만 보냅니다. 서비스를 직접 띄운 이 Swagger에서만 직접 입력합니다.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "발급 성공",
+            "headers": {
+              "Set-Cookie": {
+                "description": "oauth2Link=...; Path=/api/v1/auth/oauth2/authorize; Max-Age=120; Secure; HttpOnly; SameSite=Lax",
+                "style": "simple",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 201,
+                  "message": "동의 표 발급 성공",
+                  "data": null
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음 (로그인하지 않은 요청)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "code": "LOGIN_REQUIRED",
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "카카오 계정이 연결되지 않음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 409,
+                  "code": "KAKAO_NOT_LINKED",
+                  "message": "카카오 계정을 먼저 연결해 주세요.",
+                  "data": null
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/member/crews/{crewId}/kakao-invites/friends": {
+      "get": {
+        "tags": [
+          "KakaoCrewInvite"
+        ],
+        "summary": "카카오톡으로 초대할 수 있는 친구 조회",
+        "description": "크루장과 운영진만 부른다. 카카오 친구 중 크루런 회원이고 아직 이 크루원이 아닌 사람을 카카오톡 프로필로 돌려준다. 친구도 카카오 메시지 동의를 마쳐야 목록에 나온다. 친구 정보는 저장하지 않는다.",
+        "operationId": "findKakaoInviteFriends",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "게이트웨이가 Access Token에서 꺼내 넣는 회원 ID입니다. 게이트웨이를 거치면 클라이언트는 보내지 않고 Authorization: Bearer 토큰만 보냅니다. 서비스를 직접 띄운 이 Swagger에서만 직접 입력합니다.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          },
+          {
+            "name": "crewId",
+            "in": "path",
+            "description": "크루 ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "조회 성공 (친구가 없으면 빈 배열)",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "카카오 친구를 조회했습니다.",
+                  "data": [
+                    {
+                      "uuid": "abcdefg0001",
+                      "nickname": "이수민",
+                      "profileImageUrl": "https://k.kakaocdn.net/dn/a.jpg"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음 (로그인하지 않은 요청)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "code": "LOGIN_REQUIRED",
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "크루원이 아님, 초대 권한 없음, 카카오 메시지 동의 필요",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "크루원이 아님": {
+                    "description": "크루원이 아님",
+                    "value": {
+                      "status": 403,
+                      "code": "CREW_NOT_MEMBER",
+                      "message": "이 크루의 크루원만 이용할 수 있습니다.",
+                      "data": null
+                    }
+                  },
+                  "초대 권한 없음": {
+                    "description": "초대 권한 없음",
+                    "value": {
+                      "status": 403,
+                      "code": "CREW_INVITE_FORBIDDEN",
+                      "message": "크루장과 운영진만 초대할 수 있습니다.",
+                      "data": null
+                    }
+                  },
+                  "동의 필요": {
+                    "description": "동의 필요",
+                    "value": {
+                      "status": 403,
+                      "code": "KAKAO_MESSAGE_CONSENT_REQUIRED",
+                      "message": "카카오톡으로 보내려면 친구 목록과 메시지 보내기 동의가 필요합니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "크루가 없거나 없앤 크루",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 404,
+                  "code": "CREW_NOT_FOUND",
+                  "message": "존재하지 않는 크루입니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "카카오 계정이 연결되지 않음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 409,
+                  "code": "KAKAO_NOT_LINKED",
+                  "message": "카카오 계정을 먼저 연결해 주세요.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "카카오가 응답하지 않음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 502,
+                  "code": "KAKAO_UNAVAILABLE",
+                  "message": "카카오톡이 응답하지 않습니다. 잠시 뒤 다시 시도해 주세요.",
+                  "data": null
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/member/crews/{crewId}/kakao-invites": {
+      "post": {
+        "tags": [
+          "KakaoCrewInvite"
+        ],
+        "summary": "크루 초대 카카오톡 보내기",
+        "description": "크루장과 운영진만 부른다. 받는 사람마다 새 초대 링크(24시간, 한 명만 가입)를 만들어 카카오톡 메시지 버튼에 담아 한 명씩 보낸다. 보내지 못한 몫의 링크는 취소한다. 한 명이라도 보냈으면 200이고 실패는 failures로 알린다. 초대 토큰은 응답에 싣지 않는다.",
+        "operationId": "sendKakaoCrewInvites",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "게이트웨이가 Access Token에서 꺼내 넣는 회원 ID입니다. 게이트웨이를 거치면 클라이언트는 보내지 않고 Authorization: Bearer 토큰만 보냅니다. 서비스를 직접 띄운 이 Swagger에서만 직접 입력합니다.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          },
+          {
+            "name": "crewId",
+            "in": "path",
+            "description": "크루 ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KakaoInviteSendRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "한 명 이상 보냄",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "카카오톡으로 초대를 보냈습니다.",
+                  "data": {
+                    "sentUuids": [
+                      "abcdefg0001"
+                    ],
+                    "failures": [
+                      {
+                        "uuid": "abcdefg0002",
+                        "reason": "DAILY_LIMIT"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "받는 사람이 없거나 6명 이상이거나 중복",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 400,
+                  "code": "INVALID_REQUEST",
+                  "message": "받는 사람이 중복되었습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음 (로그인하지 않은 요청)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "code": "LOGIN_REQUIRED",
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "크루원이 아님, 초대 권한 없음, 카카오 메시지 동의 필요",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "크루원이 아님": {
+                    "description": "크루원이 아님",
+                    "value": {
+                      "status": 403,
+                      "code": "CREW_NOT_MEMBER",
+                      "message": "이 크루의 크루원만 이용할 수 있습니다.",
+                      "data": null
+                    }
+                  },
+                  "초대 권한 없음": {
+                    "description": "초대 권한 없음",
+                    "value": {
+                      "status": 403,
+                      "code": "CREW_INVITE_FORBIDDEN",
+                      "message": "크루장과 운영진만 초대할 수 있습니다.",
+                      "data": null
+                    }
+                  },
+                  "동의 필요": {
+                    "description": "동의 필요",
+                    "value": {
+                      "status": 403,
+                      "code": "KAKAO_MESSAGE_CONSENT_REQUIRED",
+                      "message": "카카오톡으로 보내려면 친구 목록과 메시지 보내기 동의가 필요합니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "크루가 없거나 없앤 크루",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 404,
+                  "code": "CREW_NOT_FOUND",
+                  "message": "존재하지 않는 크루입니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "카카오 계정이 연결되지 않음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 409,
+                  "code": "KAKAO_NOT_LINKED",
+                  "message": "카카오 계정을 먼저 연결해 주세요.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "모든 받는 사람이 카카오 하루 한도에 걸림",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 429,
+                  "code": "KAKAO_MESSAGE_DAILY_LIMIT",
+                  "message": "오늘은 카카오톡으로 더 보낼 수 없습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "카카오가 응답하지 않아 한 명도 보내지 못함",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 502,
+                  "code": "KAKAO_UNAVAILABLE",
+                  "message": "카카오톡이 응답하지 않습니다. 잠시 뒤 다시 시도해 주세요.",
+                  "data": null
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -4706,6 +5159,29 @@
         },
         "required": [
           "name"
+        ]
+      },
+      "KakaoInviteSendRequestDto": {
+        "type": "object",
+        "description": "크루 초대 카카오톡 보내기 요청",
+        "properties": {
+          "receiverUuids": {
+            "type": "array",
+            "description": "받는 사람의 카카오 uuid (친구 조회 응답의 uuid). 1~5명, 중복 없이",
+            "example": [
+              "abcdefg0001",
+              "abcdefg0002"
+            ],
+            "items": {
+              "type": "string",
+              "pattern": "[A-Za-z0-9_\\-+/=]{1,100}"
+            },
+            "maxItems": 5,
+            "minItems": 1
+          }
+        },
+        "required": [
+          "receiverUuids"
         ]
       }
     }

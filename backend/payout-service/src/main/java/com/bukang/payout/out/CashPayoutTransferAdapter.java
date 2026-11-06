@@ -91,10 +91,18 @@ public class CashPayoutTransferAdapter implements PayoutTransferPort {
 	// 캐시 서비스 요청 본문 (cash CashPayoutRequestDto). sellerId는 판매자 ID(판매자 신청서 ID)이고 회원 ID가 아니다
 	// 금액은 정산 쪽 타입(long) 그대로 보낸다. JSON 숫자라 캐시 서비스의 Integer로 읽히고,
 	// int 범위를 넘으면 캐시 서비스가 400으로 거절해 정산 예정으로 남는다 (금액 타입 맞추기는 PRO-253)
-	record TransferRequest(long sellerId, PayoutStage payoutStage, long settlementAmount, long feeAmount) {
+	// 정산 단계는 캐시 서비스의 enum(FIRST · FINAL)에 맞춰 영어로 보낸다. 정산 안에서만 한글이다 (BUK-68)
+	record TransferRequest(long sellerId, String payoutStage, long settlementAmount, long feeAmount) {
 		static TransferRequest from(PayoutTransfer transfer) {
-			return new TransferRequest(transfer.sellerId(), transfer.stage(), transfer.payoutAmount(),
+			return new TransferRequest(transfer.sellerId(), cashStage(transfer.stage()), transfer.payoutAmount(),
 				transfer.feeAmount());
+		}
+
+		private static String cashStage(PayoutStage stage) {
+			return switch (stage) {
+				case 일차_정산 -> "FIRST";
+				case 최종_정산 -> "FINAL";
+			};
 		}
 	}
 }

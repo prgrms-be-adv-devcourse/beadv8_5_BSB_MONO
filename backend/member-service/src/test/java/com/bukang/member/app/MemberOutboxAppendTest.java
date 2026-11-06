@@ -23,12 +23,16 @@ import org.springframework.transaction.IllegalTransactionStateException;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.common.global.json.JsonConverter;
+import com.bukang.common.shared.crew.event.CrewMemberLeftEvent;
+import com.bukang.common.shared.crew.event.CrewMemberLeftReason;
 import com.bukang.common.shared.kafka.KafkaEventHeaders;
+import com.bukang.common.shared.kafka.KafkaMessageId;
 import com.bukang.common.shared.kafka.KafkaTopics;
 import com.bukang.common.shared.member.event.MarketingConsentChangedEvent;
 import com.bukang.common.shared.member.event.MemberJoinedEvent;
 import com.bukang.common.shared.member.event.MemberModifiedEvent;
 import com.bukang.common.shared.member.event.MemberWithdrawnEvent;
+import com.bukang.common.shared.seller.domain.SellerStatus;
 import com.bukang.common.shared.seller.domain.SellerType;
 import com.bukang.common.shared.seller.event.SellerChangedEvent;
 import com.bukang.member.domain.Member;
@@ -64,6 +68,9 @@ import com.bukang.member.out.payoutaccount.InMemoryPayoutAccountVerifyLimiter;
 @Import({InMemoryIdentityVerificationStore.Config.class, InMemoryPayoutAccountVerifyLimiter.Config.class})
 class MemberOutboxAppendTest {
 	private static final LocalDate BIRTH_DATE = LocalDate.of(1995, 4, 12);
+	// 회원 아웃박스 message-id 형식: member-outbox-{UUID}
+	private static final String MESSAGE_ID_FORMAT =
+		"member-outbox-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 
 	@Autowired
 	private InMemoryIdentityVerificationStore identityStore;
@@ -264,6 +271,34 @@ class MemberOutboxAppendTest {
 	}
 
 	@Test
+	@DisplayName("가입·정보 변경·탈퇴·마케팅 동의 변경·판매자·크루원 이탈 행 모두 message-id를 member-outbox-{UUID} 형식으로 "
+		+ "함께 저장하고, 행마다 값이 다르다")
+	void everyEventRowStoresMessageId() {
+		LocalDateTime time = LocalDateTime.of(2026, 11, 5, 10, 0);
+
+		transactionTemplate.executeWithoutResult(status -> {
+			memberOutboxAppendUseCase.appendMemberJoined(
+				new MemberJoinedEvent(1L, time, time, "가입", false, newEventId()));
+			memberOutboxAppendUseCase.appendMemberModified(new MemberModifiedEvent(1L, time, time, "수정", newEventId()));
+			memberOutboxAppendUseCase.appendMemberWithdrawn(new MemberWithdrawnEvent(newEventId(), 1L, time));
+			memberOutboxAppendUseCase.appendMarketingConsentChanged(
+				new MarketingConsentChangedEvent(newEventId(), 1L, false, time));
+			memberOutboxAppendUseCase.appendSellerChanged(new SellerChangedEvent(2L, 1L, SellerType.INDIVIDUAL, null,
+				null, "대표", SellerStatus.PENDING, time, null, newEventId()));
+			memberOutboxAppendUseCase.appendCrewMemberLeft(
+				new CrewMemberLeftEvent(newEventId(), 3L, 1L, CrewMemberLeftReason.LEFT, time, time));
+		});
+
+		List<MemberOutboxEvent> rows = allRows();
+		assertThat(rows).extracting(MemberOutboxEvent::getTopic).containsExactly(
+			KafkaTopics.MEMBER_MEMBER_JOINED, KafkaTopics.MEMBER_MODIFIED, KafkaTopics.MEMBER_WITHDRAWN,
+			KafkaTopics.MARKETING_CONSENT_CHANGED, KafkaTopics.SELLER_CHANGED, KafkaTopics.CREW_MEMBER_LEFT);
+		assertThat(rows).extracting(MemberOutboxEvent::getMessageId)
+			.allSatisfy(messageId -> assertThat(messageId).matches(MESSAGE_ID_FORMAT))
+			.doesNotHaveDuplicates();
+	}
+
+	@Test
 	@DisplayName("트랜잭션 밖에서 아웃박스에 저장하면 조용히 버리지 않고 예외가 나며 행이 남지 않는다 (MANDATORY)")
 	void appendOutsideTransactionFails() {
 		MemberJoinedEvent event = new MemberJoinedEvent(1L, LocalDateTime.now(), LocalDateTime.now(), "밖에서",
@@ -330,6 +365,12 @@ class MemberOutboxAppendTest {
 		assertThat(KafkaEventHeaders.OCCURRED_AT).isEqualTo("occurredAt");
 		assertThat(KafkaEventHeaders.AGGREGATE_TYPE).isEqualTo("aggregateType");
 		assertThat(KafkaEventHeaders.AGGREGATE_ID).isEqualTo("aggregateId");
+		// 받는 쪽(상품·대기열·파일)이 @Header(KafkaMessageId.HEADER)로 읽는 이름
+		assertThat(KafkaMessageId.HEADER).isEqualTo("message-id");
+	}
+
+	private static String newEventId() {
+		return UUID.randomUUID().toString();
 	}
 
 	// 이번 변경 전 가입 이벤트 모양 (예치금·상품 서비스의 옛 버전이 읽는 필드)

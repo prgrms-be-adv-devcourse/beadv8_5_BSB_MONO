@@ -32,7 +32,7 @@ import com.bukang.payout.domain.PayoutStage;
 class CashPayoutTransferAdapterTest {
 	private static final String BASE_URL = "http://cash-service";
 	private static final String URL = BASE_URL + "/internal/v1/cash/payouts/31";
-	private static final PayoutTransfer TRANSFER = new PayoutTransfer(31, 7, 47_250L, 2_750L, PayoutStage.FINAL);
+	private static final PayoutTransfer TRANSFER = new PayoutTransfer(31, 7, 47_250L, 2_750L, PayoutStage.최종_정산);
 
 	private MockRestServiceServer server;
 	private CashPayoutTransferAdapter adapter;

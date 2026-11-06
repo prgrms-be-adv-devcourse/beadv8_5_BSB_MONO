@@ -71,10 +71,11 @@ public class ApiV1ParticipationController {
 		@ApiResponse(responseCode = "404", description = "없는 종목",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = ParticipationApiExamples.COURSE_NOT_FOUND))),
-		@ApiResponse(responseCode = "409", description = "같은 대회에 결제 대기·결제 완료 신청이 있음, 접수 기간이 아님, "
+		@ApiResponse(responseCode = "409", description = "같은 대회에 결제 대기·결제 완료 신청 또는 파티원 신청이 있음, 접수 기간이 아님, "
 			+ "남은 결제 전 신청서를 [결제하기]가 처리 중이라 잠시 뒤 다시 시도",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "이미 신청함", value = ParticipationApiExamples.DUPLICATE_PARTICIPATION),
+				@ExampleObject(name = "파티로 신청한 대회", value = ParticipationApiExamples.PARTY_PARTICIPATION_EXISTS),
 				@ExampleObject(name = "접수 기간 아님", value = ParticipationApiExamples.NOT_ACCEPTING),
 				@ExampleObject(name = "잠시 뒤 다시 시도", value = ParticipationApiExamples.APPLY_RETRY)
 			}))
@@ -169,11 +170,12 @@ public class ApiV1ParticipationController {
 		@ApiResponse(responseCode = "404", description = "없는 참가 신청",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = ParticipationApiExamples.PARTICIPATION_NOT_FOUND))),
-		@ApiResponse(responseCode = "409", description = "결제 대기 중, 결제 완료 또는 이미 끝난 신청",
+		@ApiResponse(responseCode = "409", description = "결제 대기 중, 결제 완료, 이미 끝난 신청 또는 파티원 신청서(파티 나가기로 취소)",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "결제 대기 중", value = ParticipationApiExamples.NOT_CANCELABLE_APPLIED),
 				@ExampleObject(name = "결제 완료", value = ParticipationApiExamples.NOT_CANCELABLE_CONFIRMED),
-				@ExampleObject(name = "이미 끝난 신청", value = ParticipationApiExamples.NOT_CANCELABLE_FINISHED)
+				@ExampleObject(name = "이미 끝난 신청", value = ParticipationApiExamples.NOT_CANCELABLE_FINISHED),
+				@ExampleObject(name = "파티원 신청서", value = ParticipationApiExamples.NOT_CANCELABLE_PARTY)
 			}))
 	})
 	public ResponseEntity<RsData<ParticipationDto>> cancelBeforePayment(

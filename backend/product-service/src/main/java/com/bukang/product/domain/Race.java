@@ -305,8 +305,9 @@ public class Race extends BaseIdAndTime {
 			&& !now.isBefore(individualOpenAt) && now.isBefore(applicationCloseAt);
 	}
 
-	// 대기열에 보낼 대회 변경 메시지 (진입 판정에 쓰는 칸과 수정 일시)
+	// 대기열에 보낼 대회 변경 메시지 (개인·파티 대기열 진입 판정에 쓰는 칸과 수정 일시)
 	public RaceChangedEvent toChangedEvent() {
-		return new RaceChangedEvent(getId(), saleStatus, individualOpenAt, applicationCloseAt, getModifyDate());
+		return new RaceChangedEvent(getId(), saleStatus, individualOpenAt, applicationCloseAt,
+			crewSaleStartAt, crewSaleEndAt, getModifyDate());
 	}
 }

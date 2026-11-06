@@ -26,18 +26,72 @@ final class CashApiExamples {
 			"data": {
 				"content": [
 					{
+						"category": "PAYMENT",
+						"ledgerType": "사용__주문결제",
+						"amount": -5000,
+						"balanceAfter": 5000,
+						"createdAt": "2026-10-21T11:30:00.102938",
+						"refId": 100,
+						"charge": null
+					},
+					{
 						"category": "CHARGE",
 						"ledgerType": "충전__PG결제_토스페이먼츠",
 						"amount": 10000,
-						"balanceAfter": 60000,
+						"balanceAfter": 10000,
 						"createdAt": "2026-10-20T09:03:03.319058",
-						"refId": 1
+						"refId": 1,
+						"charge": {
+							"chargeId": 1,
+							"chargedAt": "2026-10-20T09:03:01",
+							"amount": 10000,
+							"remainingAmount": 5000,
+							"lastCancelableDate": "2027-10-19",
+							"expired": false
+						}
 					}
 				],
 				"page": 0,
 				"size": 20,
-				"totalElements": 1,
+				"totalElements": 2,
 				"totalPages": 1
+			}
+		}
+		""";
+
+	static final String REFUNDABLE_CHARGES_SUCCESS = """
+		{
+			"status": 200,
+			"message": "환급 화면용 충전 내역을 조회했습니다.",
+			"data": {
+				"balance": 25000,
+				"earliestLastCancelableDate": "2027-10-12",
+				"charges": [
+					{
+						"chargeId": 3,
+						"chargedAt": "2026-10-13T09:00:00",
+						"amount": 20000,
+						"remainingAmount": 20000,
+						"lastCancelableDate": "2027-10-12",
+						"expired": false
+					},
+					{
+						"chargeId": 2,
+						"chargedAt": "2026-10-10T09:00:00",
+						"amount": 10000,
+						"remainingAmount": 5000,
+						"lastCancelableDate": "2027-10-09",
+						"expired": true
+					},
+					{
+						"chargeId": 1,
+						"chargedAt": "2026-01-13T09:00:00",
+						"amount": 15000,
+						"remainingAmount": 0,
+						"lastCancelableDate": "2027-01-12",
+						"expired": true
+					}
+				]
 			}
 		}
 		""";
@@ -97,8 +151,45 @@ final class CashApiExamples {
 			"status": 200,
 			"message": "환급 신청이 완료되었습니다.",
 			"data": {
-				"withdrawnAmount": 50000,
-				"balance": 0
+				"withdrawnAmount": 130000,
+				"balance": 0,
+				"cardAmount": 30000,
+				"accountAmount": 100000,
+				"processingAmount": 0,
+				"revertedAmount": 0,
+				"accountRequired": false
+			}
+		}
+		""";
+
+	static final String WITHDRAWAL_PARTIAL = """
+		{
+			"status": 200,
+			"message": "환급 신청이 완료되었습니다.",
+			"data": {
+				"withdrawnAmount": 130000,
+				"balance": 10000,
+				"cardAmount": 30000,
+				"accountAmount": 70000,
+				"processingAmount": 20000,
+				"revertedAmount": 10000,
+				"accountRequired": false
+			}
+		}
+		""";
+
+	static final String WITHDRAWAL_ACCOUNT_NEEDED_AFTER_REJECT = """
+		{
+			"status": 200,
+			"message": "환급 신청이 완료되었습니다.",
+			"data": {
+				"withdrawnAmount": 30000,
+				"balance": 30000,
+				"cardAmount": 0,
+				"accountAmount": 0,
+				"processingAmount": 0,
+				"revertedAmount": 30000,
+				"accountRequired": true
 			}
 		}
 		""";
@@ -108,7 +199,7 @@ final class CashApiExamples {
 		""";
 
 	static final String WITHDRAWAL_INVALID_INPUT = """
-		{ "status": 400, "code": "INVALID_REQUEST", "message": "은행 코드를 작성해주세요.", "data": null }
+		{ "status": 400, "code": "INVALID_REQUEST", "message": "은행 코드는 10자 이하여야 합니다.", "data": null }
 		""";
 
 	static final String MISSING_IDEMPOTENCY_KEY = """
@@ -117,6 +208,16 @@ final class CashApiExamples {
 
 	static final String INVALID_IDEMPOTENCY_KEY = """
 		{ "status": 400, "code": "INVALID_REQUEST", "message": "Idempotency-Key는 1~64자로 보내주세요.", "data": null }
+		""";
+
+	static final String WITHDRAWAL_ACCOUNT_REQUIRED = """
+		{ "status": 400, "code": "WITHDRAWAL_ACCOUNT_REQUIRED",
+			"message": "계좌로 돌려드릴 금액이 있어 계좌 정보가 필요합니다.", "data": null }
+		""";
+
+	static final String WITHDRAWAL_IN_PROGRESS = """
+		{ "status": 409, "code": "WITHDRAWAL_IN_PROGRESS",
+			"message": "처리 중인 환급이 있어 끝난 뒤에 다시 신청할 수 있습니다.", "data": null }
 		""";
 
 	static final String WITHDRAWAL_MEMBER_MISMATCH = """

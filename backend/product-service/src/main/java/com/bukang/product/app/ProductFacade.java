@@ -12,9 +12,14 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.common.shared.kafka.KafkaTopics;
+import com.bukang.common.shared.kafka.dlt.DltKafkaEventDto;
+import com.bukang.common.shared.kafka.dlt.DltKafkaEventStatus;
+import com.bukang.common.shared.kafka.dlt.DltKafkaResendException;
+import com.bukang.common.shared.kafka.dlt.KafkaDltMessage;
 import com.bukang.common.shared.seller.domain.SellerStatus;
 import com.bukang.common.shared.seller.domain.SellerType;
 import com.bukang.product.domain.HoldReleaseReason;
+import com.bukang.product.domain.ProductDltKafkaEvent;
 import com.bukang.product.dto.HoldRequestDto;
 import com.bukang.product.dto.HoldResultDto;
 import com.bukang.product.dto.HoldSellResult;
@@ -53,15 +58,19 @@ public class ProductFacade {
 	private final RaceDocumentSyncAppendUseCase raceDocumentSyncAppendUseCase;
 	private final RaceDocumentSyncProcessUseCase raceDocumentSyncProcessUseCase;
 	private final ProductInboxUseCase productInboxUseCase;
+	private final ProductDltUseCase productDltUseCase;
 
 	// Kafka로 받은 회원 가입·수정 메시지. 인박스에 남긴 뒤 회원 복제본에 덮어쓰고, 이미 처리한 메시지면 건너뛴다
 	// 인박스 행과 복제본 저장이 한 트랜잭션이라, 저장이 실패해 롤백되면 다시 받은 메시지를 처리한다
+	// DLT에서 다시 보낸 메시지였으면 같은 트랜잭션에서 실패 행을 처리 완료로 바꾼다 (Kafka 메시지 4개 메서드 모두 같다)
 	@Transactional
 	public void syncMember(String messageId, String topic, long id, LocalDateTime createDate,
 		LocalDateTime modifyDate, String nickname) {
-		if (productInboxUseCase.tryRecord(messageId, KAFKA_GROUP_ID, topic, LocalDateTime.now())) {
+		LocalDateTime now = LocalDateTime.now();
+		if (productInboxUseCase.tryRecord(messageId, KAFKA_GROUP_ID, topic, now)) {
 			productSyncMemberUseCase.syncMember(id, createDate, modifyDate, nickname);
 		}
+		productDltUseCase.completeByResend(messageId, now);
 	}
 
 	// Kafka로 받은 판매자 변경 메시지. 인박스에 남긴 뒤 판매자 복제본에 덮어쓰고, 이미 처리한 메시지면 건너뛴다
@@ -70,10 +79,12 @@ public class ProductFacade {
 	public void syncSeller(String messageId, String topic, long id, long memberId, SellerType sellerType,
 		String businessName, String businessNumber, String representativeName, SellerStatus status,
 		LocalDateTime requestedAt, LocalDateTime reviewedAt) {
-		if (productInboxUseCase.tryRecord(messageId, KAFKA_GROUP_ID, topic, LocalDateTime.now())) {
+		LocalDateTime now = LocalDateTime.now();
+		if (productInboxUseCase.tryRecord(messageId, KAFKA_GROUP_ID, topic, now)) {
 			productSyncSellerUseCase.syncSeller(id, memberId, sellerType, businessName, businessNumber,
 				representativeName, status, requestedAt, reviewedAt);
 		}
+		productDltUseCase.completeByResend(messageId, now);
 	}
 
 	// 대회 저장(등록·수정)은 파일 연결·대회 변경·종목 변경 메시지(Kafka 아웃박스)와 검색 문서 동기화 이벤트를 같은 트랜잭션에서 남긴다
@@ -142,7 +153,7 @@ public class ProductFacade {
 		try {
 			return transactionTemplate.execute(status -> raceHoldUseCase.hold(request, LocalDateTime.now()));
 		} catch (DataIntegrityViolationException exception) {
-			// 같은 신청으로 동시에 확보를 요청해 늦은 쪽이 유니크 제약(application_id)에 걸렸다
+			// 같은 신청으로 동시에 확보를 요청해 늦은 쪽이 유니크 제약(participation_id)에 걸렸다
 			// 늦은 쪽 트랜잭션은 카운터를 올린 것까지 롤백되었으므로, 먼저 잡힌 자리의 결과를 돌려준다
 			return transactionTemplate.execute(status ->
 				raceHoldUseCase.findExisting(request.getParticipationId()));
@@ -161,6 +172,7 @@ public class ProductFacade {
 		if (productInboxUseCase.tryRecord(messageId, KAFKA_GROUP_ID, topic, now)) {
 			raceHoldUseCase.restore(participationId, now);
 		}
+		productDltUseCase.completeByResend(messageId, now);
 	}
 
 	// 대기열 활성 시간이 끝나 주문 서비스가 보낸 해제 요청 (Kafka product.hold.cancel)
@@ -171,6 +183,7 @@ public class ProductFacade {
 		if (productInboxUseCase.tryRecord(messageId, KAFKA_GROUP_ID, topic, now)) {
 			raceHoldUseCase.release(participationId, HoldReleaseReason.EXPIRED, now);
 		}
+		productDltUseCase.completeByResend(messageId, now);
 	}
 
 	public RacePageDto searchRaces(RaceSearchCondition condition, int page, int size) {
@@ -219,6 +232,41 @@ public class ProductFacade {
 	@Transactional
 	public int relayKafkaOutbox() {
 		return productOutboxKafkaRelayUseCase.relay(LocalDateTime.now());
+	}
+
+	// 재시도를 모두 실패해 DLT로 온 메시지를 실패 테이블에 남기고, 커밋 뒤 Slack으로 알린다 (ProductKafkaDltConsumer가 부른다)
+	// 같은 메시지는 행 하나로 상태만 바꾼다. 저장이 롤백되면 알림도 보내지 않는다
+	@Transactional
+	public void recordDlt(KafkaDltMessage message) {
+		productDltUseCase.record(message);
+	}
+
+	// DLT 실패 행 목록 (내부 API). 최근 것부터 size건
+	public List<DltKafkaEventDto> findDlts(DltKafkaEventStatus status, int size) {
+		return productDltUseCase.findByStatus(status, size).stream().map(DltKafkaEventDto::from).toList();
+	}
+
+	// 사람이 원인을 고친 뒤 DLT 메시지를 첫 재시도 토픽으로 다시 보낸다 (내부 API)
+	// ① 처리 실패 → 다시 보냄을 먼저 커밋한다. 보낸 메시지를 본 리스너가 곧바로 처리해도 이 행을 처리 완료로 바꿀 수 있게 하기 위해서다
+	// ② 트랜잭션 밖에서 Kafka로 보낸다
+	// ③ 보내지 못하면 처리 실패로 되돌려 커밋하고 예외(503)를 그대로 던진다. 브로커가 돌아오면 다시 부르면 된다
+	@Transactional(propagation = Propagation.NOT_SUPPORTED)
+	public DltKafkaEventDto resendDlt(long id) {
+		ProductDltKafkaEvent event = transactionTemplate.execute(status ->
+			productDltUseCase.markResent(id, LocalDateTime.now()));
+		try {
+			productDltUseCase.send(event);
+		} catch (DltKafkaResendException exception) {
+			transactionTemplate.executeWithoutResult(status -> productDltUseCase.cancelResent(id));
+			throw exception;
+		}
+		return DltKafkaEventDto.from(event);
+	}
+
+	// 사람이 원인을 고친 뒤 메모와 함께 처리 완료로 닫는다 (내부 API)
+	@Transactional
+	public DltKafkaEventDto completeDlt(long id, String memo) {
+		return DltKafkaEventDto.from(productDltUseCase.completeManually(id, memo, LocalDateTime.now()));
 	}
 
 	// 미처리 동기화 이벤트를 처리해 대회 검색 문서를 DB에 맞춘다 (RaceDocumentSyncScheduler가 1초마다 부른다)
