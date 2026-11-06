@@ -251,7 +251,7 @@ describe('CrewInvitesPage 카카오톡으로 보내기', () => {
 
     expect(
       await within(sheet).findByText(
-        '카카오톡이 응답하지 않아요. 잠시 뒤 다시 보내거나 초대 링크를 복사해 보내 주세요.',
+        '카카오톡이 응답하지 않아 보냈는지 확인하지 못했어요. 받았는지 확인한 뒤 다시 보내거나 초대 링크를 복사해 보내 주세요.',
       ),
     ).toBeInTheDocument()
     await user.click(within(sheet).getByRole('button', { name: '1명에게 보내기' }))
@@ -321,6 +321,32 @@ describe('CrewInvitesPage 카카오톡으로 보내기', () => {
     expect(within(sheet).queryByRole('checkbox', { name: '친구1' })).not.toBeInTheDocument()
     expect(within(sheet).getByRole('checkbox', { name: '친구2' })).toBeChecked()
     expect(within(sheet).getByRole('checkbox', { name: '친구3' })).not.toBeChecked()
+  })
+
+  it('카카오가 응답하지 않아 보냈는지 모르는 친구는 고르지 않은 채로 두고 받았는지 확인하라고 안내한다', async () => {
+    mockFriends(2)
+    server.use(
+      http.post('*/api/v1/member/crews/:crewId/kakao-invites', () =>
+        HttpResponse.json({
+          status: 200,
+          message: '보냄',
+          data: { sentUuids: ['uuid-1'], failures: [{ uuid: 'uuid-2', reason: 'UNCONFIRMED' }] },
+        }),
+      ),
+    )
+    const user = userEvent.setup()
+    renderPage(<CrewInvitesPage crewId={1} />)
+    const sheet = await openSheet(user)
+    await user.click(await within(sheet).findByRole('checkbox', { name: '친구1' }))
+    await user.click(within(sheet).getByRole('checkbox', { name: '친구2' }))
+    await user.click(within(sheet).getByRole('button', { name: '2명에게 보내기' }))
+
+    expect(
+      await within(sheet).findByText(
+        '카카오톡이 응답하지 않아 보냈는지 확인하지 못한 사람이 있어요. 받았는지 확인한 뒤 다시 보내 주세요.',
+      ),
+    ).toBeInTheDocument()
+    expect(within(sheet).getByRole('checkbox', { name: '친구2' })).not.toBeChecked()
   })
 
   it('동의를 마치고 돌아오면 친구 고르기를 바로 다시 열고 주소의 결과 값을 지운다', async () => {
