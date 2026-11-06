@@ -50,6 +50,10 @@ public class WalletWithdrawalItem extends BaseIdAndTime {
 		this.pgIdempotencyKey = pgIdempotencyKey;
 	}
 
+	public void markUnknown() {
+		this.status = WithdrawalItemStatus.UNKNOWN;
+	}
+
 	public void markCompleted() {
 		this.status = WithdrawalItemStatus.COMPLETED;
 	}

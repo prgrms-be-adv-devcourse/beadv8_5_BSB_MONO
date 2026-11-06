@@ -12,6 +12,8 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,9 +25,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.cash.domain.charge.WalletCharge;
@@ -37,6 +42,8 @@ import com.bukang.cash.domain.wallet.LedgerType;
 import com.bukang.cash.domain.wallet.Wallet;
 import com.bukang.cash.domain.wallet.WalletLedger;
 import com.bukang.cash.domain.withdrawal.WalletWithdrawal;
+import com.bukang.cash.domain.withdrawal.WalletWithdrawalItem;
+import com.bukang.cash.domain.withdrawal.WithdrawalItemStatus;
 import com.bukang.cash.domain.withdrawal.WithdrawalStatus;
 import com.bukang.cash.dto.CashWithdrawalResponseDto;
 import com.bukang.cash.out.CashMemberRepository;
@@ -71,6 +78,8 @@ class CashWithdrawalByChargeTest {
 	private WalletWithdrawalRepository walletWithdrawalRepository;
 	@Autowired
 	private TransactionTemplate transactionTemplate;
+	@Autowired
+	private PlatformTransactionManager transactionManager;
 	@Autowired
 	private CashWithdrawalReconcileUseCase cashWithdrawalReconcileUseCase;
 	@Autowired
@@ -418,6 +427,100 @@ class CashWithdrawalByChargeTest {
 		cashWithdrawalReconcileUseCase.reconcile(LocalDateTime.now().plusMinutes(31));
 
 		assertThat(output).contains("환급 재확인", "수동 확인 필요");
+	}
+
+	@Test
+	@DisplayName("토스를 부를 때는 예치금 차감이 이미 커밋돼 있다 (지갑 잠금을 잡은 채 토스를 기다리지 않는다)")
+	void debitIsCommittedBeforeCallingToss() {
+		Wallet wallet = createWallet(30_000);
+		completedCharge(wallet, 30_000, "charge_1", LocalDateTime.of(2026, 10, 10, 9, 0));
+		AtomicLong balanceSeenByOtherTransaction = new AtomicLong(-1);
+		TransactionTemplate otherTransaction = new TransactionTemplate(transactionManager);
+		otherTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+		given(paymentClient.cancel(anyString(), anyString(), anyLong(), anyString())).willAnswer(invocation -> {
+			balanceSeenByOtherTransaction.set(otherTransaction.execute(
+				status -> walletRepository.findById(CUSTOMER_ID).orElseThrow().getBalance()));
+			return new PaymentCancelResult(30_000, "txn_1");
+		});
+
+		cashFacade.requestWithdrawal(CUSTOMER_ID, null, null, null, "withdrawal_1", NOW);
+
+		assertThat(balanceSeenByOtherTransaction.get()).isZero();
+	}
+
+	@Test
+	@DisplayName("차감이 커밋된 뒤 결과를 반영하기 전에 서버가 멈춰도, 재확인이 남은 카드 몫을 같은 키로 이어서 마무리한다")
+	void reconcileResumesPartLeftByCrash() {
+		Wallet wallet = createWallet(30_000);
+		WalletCharge charge = completedCharge(wallet, 30_000, "charge_1", LocalDateTime.of(2026, 10, 10, 9, 0));
+		// 토스를 부르는 중에 서버가 멈춘 상황을 예상 못 한 예외로 흉내 낸다 (1단계는 이미 커밋됨)
+		given(paymentClient.cancel(anyString(), anyString(), anyLong(), anyString()))
+			.willThrow(new IllegalStateException("서버가 멈춤"))
+			.willReturn(new PaymentCancelResult(30_000, "txn_1"));
+		assertThatThrownBy(() -> cashFacade.requestWithdrawal(CUSTOMER_ID, null, null, null, "withdrawal_1", NOW))
+			.isInstanceOf(IllegalStateException.class);
+
+		cashWithdrawalReconcileUseCase.reconcile(LocalDateTime.now().plusMinutes(60));
+
+		assertThat(walletRepository.findById(CUSTOMER_ID).orElseThrow().getBalance()).isZero();
+		assertThat(walletChargeRepository.findById(charge.getId()).orElseThrow().getCanceledAmount()).isEqualTo(30_000);
+		assertThat(walletWithdrawalRepository.findByIdempotencyKey("withdrawal_1").orElseThrow().getStatus())
+			.isEqualTo(WithdrawalStatus.COMPLETED);
+	}
+
+	@Test
+	@DisplayName("재확인은 몫마다 결과를 바로 커밋해, 다음 몫의 토스를 부를 때는 앞 몫의 되돌림이 이미 반영돼 있다")
+	void reconcileCommitsEachPartBeforeNextTossCall() {
+		Wallet wallet = createWallet(30_000);
+		WalletCharge chargeC = completedCharge(wallet, 10_000, "charge_c", LocalDateTime.of(2026, 10, 10, 9, 0));
+		WalletCharge chargeD = completedCharge(wallet, 20_000, "charge_d", LocalDateTime.of(2026, 10, 13, 9, 0));
+		given(paymentClient.cancel(anyString(), anyString(), anyLong(), anyString()))
+			.willThrow(new PaymentCancelFailedException("PG 서버에 연결하지 못했습니다.", null, true));
+		cashFacade.requestWithdrawal(CUSTOMER_ID, null, null, null, "withdrawal_1", NOW);
+		AtomicLong balanceSeenByOtherTransaction = new AtomicLong(-1);
+		TransactionTemplate otherTransaction = new TransactionTemplate(transactionManager);
+		otherTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+		given(paymentClient.cancel(anyString(), anyString(), anyLong(), eq("withdrawal_1:" + chargeD.getId())))
+			.willThrow(new PaymentCancelFailedException("PG사가 결제 취소를 거절했습니다.", "NOT_CANCELABLE_AMOUNT", false));
+		given(paymentClient.cancel(anyString(), anyString(), anyLong(), eq("withdrawal_1:" + chargeC.getId())))
+			.willAnswer(invocation -> {
+				balanceSeenByOtherTransaction.set(otherTransaction.execute(
+					status -> walletRepository.findById(CUSTOMER_ID).orElseThrow().getBalance()));
+				return new PaymentCancelResult(10_000, "txn_c");
+			});
+
+		cashWithdrawalReconcileUseCase.reconcile(NOW.plusMinutes(5));
+
+		assertThat(balanceSeenByOtherTransaction.get()).isEqualTo(20_000);
+	}
+
+	@Test
+	@DisplayName("재확인은 결과 모름과 오래 남은 대기 몫을 섞어 몫이 생긴 시각이 오래된 것부터 처리한다")
+	void reconcileProcessesOldestPartFirst() {
+		Wallet wallet = createWallet(30_000);
+		completedCharge(wallet, 10_000, "charge_c", LocalDateTime.of(2026, 10, 10, 9, 0));
+		completedCharge(wallet, 20_000, "charge_d", LocalDateTime.of(2026, 10, 13, 9, 0));
+		PaymentCancelFailedException unknown =
+			new PaymentCancelFailedException("PG 서버에 연결하지 못했습니다.", null, true);
+		// 신청 때 두 몫은 결과 모름, 재확인 때는 성공
+		given(paymentClient.cancel(anyString(), anyString(), anyLong(), anyString()))
+			.willThrow(unknown, unknown)
+			.willAnswer(invocation -> new PaymentCancelResult(invocation.getArgument(2), "txn_default"));
+		cashFacade.requestWithdrawal(CUSTOMER_ID, null, null, null, "withdrawal_1", NOW);
+		// 먼저 저장된 몫은 결과 모름(최근), 나중에 저장된 몫은 서버가 멈춰 남은 대기(더 오래됨)로 만든다
+		String olderKey = transactionTemplate.execute(status -> {
+			List<WalletWithdrawalItem> items = walletWithdrawalItemRepository.findAll(Sort.by("id"));
+			WalletWithdrawalItem older = items.get(1);
+			ReflectionTestUtils.setField(older, "status", WithdrawalItemStatus.PENDING);
+			ReflectionTestUtils.setField(older, "createDate", items.get(0).getCreateDate().minusMinutes(10));
+			return older.getPgIdempotencyKey();
+		});
+
+		cashWithdrawalReconcileUseCase.reconcile(LocalDateTime.now().plusMinutes(60));
+
+		ArgumentCaptor<String> keys = ArgumentCaptor.forClass(String.class);
+		verify(paymentClient, times(4)).cancel(anyString(), anyString(), anyLong(), keys.capture());
+		assertThat(keys.getAllValues().get(2)).isEqualTo(olderKey);
 	}
 
 	private Wallet createWallet(long balance) {

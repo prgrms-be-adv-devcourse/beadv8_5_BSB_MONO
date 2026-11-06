@@ -2,6 +2,8 @@ package com.bukang.cash.domain.withdrawal;
 
 // 환급 한 번 안의 카드 몫 하나의 상태
 public enum WithdrawalItemStatus {
+	// 예치금은 뺐고 토스는 아직 부르지 않음(또는 부르는 중). 서버가 멈춰도 재확인이 이어받는다
+	PENDING,
 	// PG 결제취소 결과를 모름. 재확인이 같은 중복 방지 키로 다시 요청해 맞춘다
 	UNKNOWN,
 	// PG 결제취소가 받아들여짐

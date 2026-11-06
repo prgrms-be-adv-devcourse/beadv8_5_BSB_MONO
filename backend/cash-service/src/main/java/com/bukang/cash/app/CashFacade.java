@@ -97,7 +97,7 @@ public class CashFacade {
 		return cashChargeConfirmUseCase.confirmWalletCharge(customerId, paymentKey, orderId, amount);
 	}
 
-	@Transactional
+	// @Transactional을 일부러 안 붙인다. 충전 확정과 같은 이유로, 토스 결제취소를 트랜잭션 밖에서 부른다
 	public CashWithdrawalResponseDto requestWithdrawal(
 		long customerId, String bankCode, String accountNumber, String accountHolder, String idempotencyKey,
 		LocalDateTime now
