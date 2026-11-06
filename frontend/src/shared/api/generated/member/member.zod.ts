@@ -897,7 +897,7 @@ export const SendKakaoCrewInvitesResponse = zod.object({
   "sentUuids": zod.array(zod.string()),
   "failures": zod.array(zod.object({
   "uuid": zod.string(),
-  "reason": zod.enum(['DAILY_LIMIT', 'KAKAO_ERROR'])
+  "reason": zod.enum(['DAILY_LIMIT', 'KAKAO_ERROR', 'UNCONFIRMED'])
 }))
 }).optional()
 })

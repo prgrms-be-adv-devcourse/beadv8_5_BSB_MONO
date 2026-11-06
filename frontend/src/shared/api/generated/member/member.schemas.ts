@@ -614,6 +614,7 @@ export type KakaoInviteSendFailureReason = typeof KakaoInviteSendFailureReason[k
 export const KakaoInviteSendFailureReason = {
   DAILY_LIMIT: 'DAILY_LIMIT',
   KAKAO_ERROR: 'KAKAO_ERROR',
+  UNCONFIRMED: 'UNCONFIRMED',
 } as const;
 
 export interface KakaoInviteSendFailure {

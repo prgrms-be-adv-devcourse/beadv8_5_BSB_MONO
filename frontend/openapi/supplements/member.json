@@ -729,7 +729,8 @@
           "type": "string",
           "enum": [
             "DAILY_LIMIT",
-            "KAKAO_ERROR"
+            "KAKAO_ERROR",
+            "UNCONFIRMED"
           ]
         }
       },

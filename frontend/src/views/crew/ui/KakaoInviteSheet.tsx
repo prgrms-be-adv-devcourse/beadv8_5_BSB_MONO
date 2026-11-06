@@ -23,6 +23,10 @@ const MAX_RECEIVERS = 5
 const COPY_LINK_HINT = '초대 링크를 복사해 보내 주세요.'
 const DAILY_LIMIT = `오늘은 카카오톡으로 더 보낼 수 없어요. ${COPY_LINK_HINT}`
 const KAKAO_DOWN = `카카오톡이 응답하지 않아요. 잠시 뒤 다시 보내거나 ${COPY_LINK_HINT}`
+// 보내기가 시간 초과로 끝나면 메시지가 이미 갔을 수 있다 (백엔드는 링크를 취소하지 않는다)
+const SEND_UNCONFIRMED = `카카오톡이 응답하지 않아 보냈는지 확인하지 못했어요. 받았는지 확인한 뒤 다시 보내거나 ${COPY_LINK_HINT}`
+const PARTIAL_UNCONFIRMED =
+  '카카오톡이 응답하지 않아 보냈는지 확인하지 못한 사람이 있어요. 받았는지 확인한 뒤 다시 보내 주세요.'
 
 // 크루 초대 카카오톡 보내기 (결정 kakao-crew-invite 4). 크루런을 쓰는 카카오 친구를 5명까지 골라 보낸다.
 // 메시지 동의가 없으면 동의 표를 받은 뒤 카카오 추가 동의 화면으로 옮기고, 끝나면 이 화면으로 돌아온다.
@@ -100,7 +104,7 @@ export function KakaoInviteSheet({
             return
           }
           setSentUuids((current) => [...current, ...result.sentUuids])
-          // 하루 한도로 못 보낸 친구는 오늘 다시 보내도 실패하므로 고른 상태로 남기지 않는다
+          // 하루 한도로 못 보낸 친구는 오늘 다시 보내도 실패하고, 보냈는지 모르는 친구는 두 번 받을 수 있어 고른 상태로 남기지 않는다
           setSelected(
             result.failures
               .filter((failure) => failure.reason === 'KAKAO_ERROR')
@@ -110,6 +114,7 @@ export function KakaoInviteSheet({
             sent: result.sentUuids.length,
             failedNames: result.failures.map((failure) => nameOf(failure.uuid)),
             dailyLimit: result.failures.some((failure) => failure.reason === 'DAILY_LIMIT'),
+            unconfirmed: result.failures.some((failure) => failure.reason === 'UNCONFIRMED'),
           })
         },
         onError: (error) => {
@@ -117,7 +122,7 @@ export function KakaoInviteSheet({
           if (code === 'KAKAO_MESSAGE_CONSENT_REQUIRED' || code === 'KAKAO_NOT_LINKED') {
             setBlockingCode(code)
           } else {
-            setSendError(problemMessage(error))
+            setSendError(code === 'KAKAO_UNAVAILABLE' ? SEND_UNCONFIRMED : problemMessage(error))
           }
         },
       },
@@ -186,6 +191,7 @@ export function KakaoInviteSheet({
               />
             )}
             {partial?.dailyLimit && <Alert tone="warning" title={DAILY_LIMIT} />}
+            {partial?.unconfirmed && <Alert tone="warning" title={PARTIAL_UNCONFIRMED} />}
             {list.length === 0 ? (
               <p className="text-body-m text-text-secondary">
                 {partial
@@ -218,7 +224,12 @@ export function KakaoInviteSheet({
   )
 }
 
-type PartialResult = { sent: number; failedNames: string[]; dailyLimit: boolean }
+type PartialResult = {
+  sent: number
+  failedNames: string[]
+  dailyLimit: boolean
+  unconfirmed: boolean
+}
 
 function FriendCheckbox({
   friend,
