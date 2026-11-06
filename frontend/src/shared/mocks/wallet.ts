@@ -203,14 +203,14 @@ function refundPreviewCase(referer: string | null) {
 }
 
 /** 환급 결과(Idempotency-Key 헤더 = 멱등키). 같은 키로 다시 오면 처음 결과를 돌려준다 */
-const withdrawals = new Map<string, number>()
+const withdrawals = new Map<string, { amount: number; toAccount: boolean }>()
 
-/** 가짜 응답은 나누지 않고 전부 계좌로 보낸 것으로 답한다 */
-const withdrawalResult = (amount: number, balance: number) => ({
+/** 가짜 응답은 나누지 않는다. 계좌를 보냈으면 전부 계좌로, 아니면 전부 카드 결제취소로 답한다 */
+const withdrawalResult = (amount: number, balance: number, toAccount: boolean) => ({
   withdrawnAmount: amount,
   balance,
-  cardAmount: 0,
-  accountAmount: amount,
+  cardAmount: toAccount ? 0 : amount,
+  accountAmount: toAccount ? amount : 0,
   processingAmount: 0,
   revertedAmount: 0,
   accountRequired: false,
@@ -234,7 +234,7 @@ export const walletHandlers = [
       return HttpResponse.json({
         status: 200,
         message: '환급 신청이 완료되었습니다.',
-        data: withdrawalResult(done, currentBalance(cookies)),
+        data: withdrawalResult(done.amount, currentBalance(cookies), done.toAccount),
       })
     }
     if (currentBalance(cookies) <= 0) {
@@ -245,12 +245,14 @@ export const walletHandlers = [
     }
     const amount = currentBalance(cookies)
     if (!freshMemberOf(cookies)) balance = 0
-    withdrawals.set(key, amount)
+    const body = (await request.json().catch(() => ({}))) as { accountNumber?: string }
+    const toAccount = Boolean(body.accountNumber?.trim())
+    withdrawals.set(key, { amount, toAccount })
     return HttpResponse.json(
       {
         status: 200,
         message: '환급 신청이 완료되었습니다.',
-        data: withdrawalResult(amount, 0),
+        data: withdrawalResult(amount, 0, toAccount),
       },
       { headers: balanceCookieHeaders(cookies, 0) },
     )

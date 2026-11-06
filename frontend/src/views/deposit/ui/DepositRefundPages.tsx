@@ -136,10 +136,14 @@ export function DepositRefundPage() {
       // 카드로 돌려줄 수 없는 몫이 계좌 정보가 없어 예치금에 되돌아왔다. 계좌를 받아 다시 신청하게 한다
       if (result.accountRequired) {
         setNeedAccount(true)
-        setNotice(
-          `${result.cardAmount > 0 ? `카드 결제취소 ${wonText(result.cardAmount)}은 요청했어요. ` : ''}` +
-            '남은 금액은 계좌로 보내야 해요. 계좌를 입력하고 다시 신청해 주세요.',
-        )
+        const card =
+          result.cardAmount > 0 ? `카드 결제취소 ${wonText(result.cardAmount)}은 요청했어요. ` : ''
+        // 확인 중인 몫이 있으면 서버가 이 환급을 처리 중으로 두어, 바로 다시 신청하면 409가 난다
+        const retry =
+          result.processingAmount > 0
+            ? `확인 중인 ${wonText(result.processingAmount)}이 정해진 뒤 다시 신청할 수 있어요.`
+            : '계좌를 입력하고 다시 신청해 주세요.'
+        setNotice(`${card}남은 금액은 계좌로 보내야 해요. ${retry}`)
         return
       }
       saveLastWithdrawal({
@@ -197,7 +201,8 @@ export function DepositRefundPage() {
   const disabled =
     withdraw.isPending ||
     (!pending.locked && (!data || data.balance <= 0 || (accountRequired && !isValid)))
-  const sentence = data && refundSentence(data)
+  // 서버가 계좌를 요구했으면 다시 불러온 내역이 카드로 나와도 카드로 돌아간다고 쓰지 않는다
+  const sentence = data && !needAccount && refundSentence(data)
 
   return (
     <>
@@ -335,25 +340,38 @@ export function DepositRefundDonePage() {
     )
   }
 
-  // 카드 결제취소 결과나 확인 중인 몫이 남아 있으면 아직 끝나지 않았다
-  const done = withdrawal.cardAmount === 0 && withdrawal.processingAmount === 0
+  // 카드 결제취소 결과나 확인 중인 몫이 남았거나, 예치금으로 되돌아온 몫이 있으면 끝난 것으로 보지 않는다
+  const done =
+    withdrawal.cardAmount === 0 &&
+    withdrawal.processingAmount === 0 &&
+    withdrawal.revertedAmount === 0
+  const allReverted =
+    withdrawal.revertedAmount > 0 && withdrawal.revertedAmount === withdrawal.amount
 
   return (
     <>
       <AppHeader type="sub" title="환급 완료" close backHref="/me/deposit" />
       <main className="flex flex-1 flex-col justify-center-safe gap-6 px-4 pt-6 pb-8">
         <div className="flex flex-col gap-2">
-          <h2 className="text-heading-l">{done ? '예치금을 돌려받았어요' : '환급을 신청했어요'}</h2>
+          <h2 className="text-heading-l">
+            {done
+              ? '예치금을 돌려받았어요'
+              : allReverted
+                ? '예치금으로 되돌아왔어요'
+                : '환급을 신청했어요'}
+          </h2>
           {withdrawal.accountAmount > 0 && withdrawal.accountAmount === withdrawal.amount && (
             <p className="text-body-m text-text-secondary">
               남은 예치금 전부를 아래 계좌로 보냈어요.
             </p>
           )}
         </div>
-        <section className="flex flex-col gap-4 rounded-lg bg-bg-surface p-5 shadow-sm inset-ring inset-ring-border-default">
-          <h3 className="text-heading-s">진행 단계</h3>
-          <Stepper steps={['신청', '처리 중', '환급 완료']} current={done ? 2 : 1} />
-        </section>
+        {!allReverted && (
+          <section className="flex flex-col gap-4 rounded-lg bg-bg-surface p-5 shadow-sm inset-ring inset-ring-border-default">
+            <h3 className="text-heading-s">진행 단계</h3>
+            <Stepper steps={['신청', '처리 중', '환급 완료']} current={done ? 2 : 1} />
+          </section>
+        )}
         <section className="flex flex-col gap-3 rounded-lg bg-bg-surface p-5 shadow-sm inset-ring inset-ring-border-default">
           {withdrawal.cardAmount > 0 && (
             <>
@@ -370,7 +388,12 @@ export function DepositRefundDonePage() {
             <KeyValue label="확인 중인 금액" value={won(withdrawal.processingAmount)} />
           )}
           {withdrawal.revertedAmount > 0 && (
-            <KeyValue label="예치금으로 되돌린 금액" value={won(withdrawal.revertedAmount)} />
+            <>
+              <KeyValue label="예치금으로 되돌린 금액" value={won(withdrawal.revertedAmount)} />
+              <p className="text-caption text-text-tertiary">
+                카드 결제취소가 거절돼 예치금으로 되돌렸어요. 다시 신청할 수 있어요.
+              </p>
+            </>
           )}
           {/* 계좌 · 예금주 이름은 Clarity 화면 녹화에서 가린다 */}
           {withdrawal.accountAmount > 0 && withdrawal.maskedAccount && (
