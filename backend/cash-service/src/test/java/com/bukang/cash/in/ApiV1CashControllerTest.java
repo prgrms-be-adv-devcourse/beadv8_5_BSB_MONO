@@ -290,6 +290,43 @@ class ApiV1CashControllerTest {
 		assertThat(walletWithdrawalRepository.count()).isZero();
 	}
 
+	@Test
+	@DisplayName("환급 신청: 남은 예치금이 모두 카드로 돌아가면 은행 정보 없이(빈 본문) 신청해도 200으로 받아 준다")
+	void requestWithdrawalWithoutBankAccountWhenAllCard() throws Exception {
+		Wallet wallet = createWalletWithBalance(3, 30_000);
+		LocalDateTime approvedAt = LocalDateTime.now().minusDays(1);
+		WalletCharge charge = new WalletCharge(wallet, 30_000, "TOSS", "order_1");
+		charge.markCompleted("toss_key_1", approvedAt, approvedAt);
+		walletChargeRepository.save(charge);
+
+		mockMvc.perform(post("/api/v1/cash/withdrawals")
+				.header(MemberIdHeader.NAME, "3")
+				.header(IdempotencyKeyHeader.NAME, "withdrawal-key-1")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{}"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.cardAmount").value(30_000))
+			.andExpect(jsonPath("$.data.accountAmount").value(0));
+	}
+
+	@Test
+	@DisplayName("환급 신청: 계좌로 보낼 몫이 있는데 은행 정보가 빈 문자열이면 없는 것으로 보고 400 WITHDRAWAL_ACCOUNT_REQUIRED로 응답한다")
+	void requestWithdrawalWithBlankBankAccountWhenAccountPartExists() throws Exception {
+		// 충전 건이 없는 잔액(정산 대금과 같은 경우)이라 전부 계좌로 보내야 한다
+		createWalletWithBalance(3, 30_000);
+
+		mockMvc.perform(post("/api/v1/cash/withdrawals")
+				.header(MemberIdHeader.NAME, "3")
+				.header(IdempotencyKeyHeader.NAME, "withdrawal-key-1")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{ "bankCode": "", "accountNumber": " ", "accountHolder": "" }
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("WITHDRAWAL_ACCOUNT_REQUIRED"));
+		assertThat(walletWithdrawalRepository.count()).isZero();
+	}
+
 	private Wallet createWalletWithBalance(long memberId, long balance) {
 		LocalDateTime now = LocalDateTime.of(2026, 10, 12, 10, 0);
 		CashMember member = cashMemberRepository.save(new CashMember(memberId, now, now, "러너" + memberId));
