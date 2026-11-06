@@ -8,7 +8,7 @@
 import * as zod from 'zod';
 
 /**
- * 정산 예정(CALCULATED)인 정산 내역에 지급보류를 걸어 지급 배치에서 지급되지 않게 한다. 한 정산 내역에는 보류를 하나만 걸 수 있고, 지급보류 ID(HD-)를 붙인다.
+ * 정산 예정인 정산 내역에 지급보류를 걸어 지급 배치에서 지급되지 않게 한다. 한 정산 내역에는 보류를 하나만 걸 수 있고, 지급보류 ID(HD-)를 붙인다.
  * @summary 지급보류 걸기
  */
 export const HoldParams = zod.object({
@@ -21,7 +21,7 @@ export const holdBodyReasonMax = 500;
 
 
 export const HoldBody = zod.object({
-  "reasonType": zod.enum(['ACCOUNT_NOT_REGISTERED', 'RACE_CANCELED']).describe('보류 사유 (ACCOUNT_NOT_REGISTERED: 정산 계좌 미등록, RACE_CANCELED: 대회 취소 처리)'),
+  "reasonType": zod.enum(['정산_계좌_미등록', '대회_취소_처리']).describe('보류 사유 (정산_계좌_미등록: 정산 계좌 미등록, 대회_취소_처리: 대회 취소 처리)'),
   "reason": zod.string().min(holdBodyReasonMin).max(holdBodyReasonMax).optional().describe('사유 상세 (선택, 500자 이하)')
 }).describe('지급보류 걸기 요청')
 
@@ -32,9 +32,9 @@ export const HoldResponse = zod.object({
   "id": zod.int(),
   "holdCode": zod.string(),
   "payoutId": zod.int(),
-  "reasonType": zod.enum(['ACCOUNT_NOT_REGISTERED', 'RACE_CANCELED']).describe('보류 사유 (ACCOUNT_NOT_REGISTERED: 정산 계좌 미등록, RACE_CANCELED: 대회 취소 처리)'),
+  "reasonType": zod.enum(['정산_계좌_미등록', '대회_취소_처리']).describe('보류 사유 (정산_계좌_미등록: 정산 계좌 미등록, 대회_취소_처리: 대회 취소 처리)'),
   "reason": zod.string().nullish(),
-  "status": zod.enum(['HELD', 'RELEASED']).describe('지급보류 상태 (HELD: 지급보류, RELEASED: 해제)'),
+  "status": zod.enum(['지급보류', '해제']).describe('지급보류 상태 (지급보류: 지급보류, 해제: 해제)'),
   "heldBy": zod.int(),
   "heldAt": zod.iso.datetime({"offset":true}),
   "releasedBy": zod.int().nullish(),
@@ -44,7 +44,7 @@ export const HoldResponse = zod.object({
 
 
 /**
- * 지급보류를 해제하고 정산 내역을 정산 예정(CALCULATED)으로 돌린다. 지급 예정일은 다시 정한다. 1차 · 최종 모두 해제일 다음 날(주말에도 지급)이며, 원래 지급 예정일(정산 월의 다음 달 20일, 주말에도 지급)보다 앞당기지 않는다.
+ * 지급보류를 해제하고 정산 내역을 정산 예정으로 돌린다. 지급 예정일은 다시 정한다. 1차 · 최종 모두 해제일 다음 날(주말에도 지급)이며, 원래 지급 예정일(정산 월의 다음 달 20일, 주말에도 지급)보다 앞당기지 않는다.
  * @summary 지급보류 풀기
  */
 export const ReleaseParams = zod.object({
@@ -58,9 +58,9 @@ export const ReleaseResponse = zod.object({
   "id": zod.int(),
   "holdCode": zod.string(),
   "payoutId": zod.int(),
-  "reasonType": zod.enum(['ACCOUNT_NOT_REGISTERED', 'RACE_CANCELED']).describe('보류 사유 (ACCOUNT_NOT_REGISTERED: 정산 계좌 미등록, RACE_CANCELED: 대회 취소 처리)'),
+  "reasonType": zod.enum(['정산_계좌_미등록', '대회_취소_처리']).describe('보류 사유 (정산_계좌_미등록: 정산 계좌 미등록, 대회_취소_처리: 대회 취소 처리)'),
   "reason": zod.string().nullish(),
-  "status": zod.enum(['HELD', 'RELEASED']).describe('지급보류 상태 (HELD: 지급보류, RELEASED: 해제)'),
+  "status": zod.enum(['지급보류', '해제']).describe('지급보류 상태 (지급보류: 지급보류, 해제: 해제)'),
   "heldBy": zod.int(),
   "heldAt": zod.iso.datetime({"offset":true}),
   "releasedBy": zod.int().nullish(),
@@ -112,14 +112,14 @@ export const PayoutsResponse = zod.object({
   "payoutCode": zod.string(),
   "raceId": zod.int(),
   "raceName": zod.string(),
-  "payoutStage": zod.enum(['FIRST', 'FINAL']).describe('정산 단계 (FIRST: 1차 정산, FINAL: 최종 정산)'),
+  "payoutStage": zod.enum(['일차_정산', '최종_정산']).describe('정산 단계 (일차_정산: 1차 정산, 최종_정산: 최종 정산)'),
   "payoutMonth": zod.string(),
   "salesAmount": zod.int(),
   "refundAmount": zod.int(),
   "feeAmount": zod.int(),
   "advanceDeductionAmount": zod.int().describe('1차 정산금 차감 (최종에서 뺀 1차 지급액 − 회수액, 1차는 0)'),
   "payoutAmount": zod.int(),
-  "status": zod.enum(['CALCULATED', 'HELD', 'PAYING', 'PAID', 'CANCELED']).describe('정산 상태 (CALCULATED: 정산 예정, HELD: 지급보류, PAYING: 지급 중, PAID: 지급 완료, CANCELED: 취소)'),
+  "status": zod.enum(['지급_예정', '지급보류', '지급_중', '지급_완료', '취소']).describe('정산 상태 (지급_예정: 지급 예정, 지급보류: 지급보류, 지급_중: 지급 중, 지급_완료: 지급 완료, 취소: 취소)'),
   "settledAt": zod.iso.datetime({"offset":true}),
   "scheduledPayDate": zod.iso.date(),
   "paidAt": zod.iso.datetime({"offset":true}).nullish()
@@ -148,7 +148,7 @@ export const ItemsResponse = zod.object({
   "content": zod.array(zod.object({
   "id": zod.int(),
   "orderItemId": zod.int().nullish(),
-  "recordType": zod.enum(['ADVANCE_PAID', 'SALE', 'FEE', 'ADVANCE_OFFSET', 'RECOVERY_REQUESTED', 'RECEIVABLE_ADDED', 'RECOVERY_OFFSET', 'RECOVERY_RECEIVED', 'ADVANCE_PAID_CANCELED', 'SALE_CANCELED', 'FEE_CANCELED', 'ADVANCE_OFFSET_CANCELED', 'RECOVERY_OFFSET_CANCELED']).describe('원장 줄 종류 (ADVANCE_PAID: 선금, SALE: 판매, FEE: 수수료, ADVANCE_OFFSET: 선지급 차감, RECOVERY_REQUESTED: 회수 요청, RECEIVABLE_ADDED: 갚을 돈 추가, RECOVERY_OFFSET: 회수 상계, RECOVERY_RECEIVED: 회수 입금, ADVANCE_PAID_CANCELED: 선금 취소, SALE_CANCELED: 판매 취소, FEE_CANCELED: 수수료 취소, ADVANCE_OFFSET_CANCELED: 선지급 차감 취소, RECOVERY_OFFSET_CANCELED: 회수 상계 취소)'),
+  "recordType": zod.enum(['선금', '판매', '수수료', '선지급_차감', '회수_요청', '갚을_돈_추가', '회수_상계', '회수_입금', '선금_취소', '판매_취소', '수수료_취소', '선지급_차감_취소', '회수_상계_취소']).describe('원장 줄 종류 (선금: 선금, 판매: 판매, 수수료: 수수료, 선지급_차감: 선지급 차감, 회수_요청: 회수 요청, 갚을_돈_추가: 갚을 돈 추가, 회수_상계: 회수 상계, 회수_입금: 회수 입금, 선금_취소: 선금 취소, 판매_취소: 판매 취소, 수수료_취소: 수수료 취소, 선지급_차감_취소: 선지급 차감 취소, 회수_상계_취소: 회수 상계 취소)'),
   "amount": zod.int(),
   "feeRate": zod.number(),
   "feeAmount": zod.int(),
@@ -157,7 +157,7 @@ export const ItemsResponse = zod.object({
   "payoutCode": zod.string(),
   "raceId": zod.int(),
   "raceName": zod.string(),
-  "payoutStatus": zod.enum(['CALCULATED', 'HELD', 'PAYING', 'PAID', 'CANCELED']).describe('정산 상태 (CALCULATED: 정산 예정, HELD: 지급보류, PAYING: 지급 중, PAID: 지급 완료, CANCELED: 취소)'),
+  "payoutStatus": zod.enum(['지급_예정', '지급보류', '지급_중', '지급_완료', '취소']).describe('정산 상태 (지급_예정: 지급 예정, 지급보류: 지급보류, 지급_중: 지급 중, 지급_완료: 지급 완료, 취소: 취소)'),
   "scheduledPayDate": zod.iso.date()
 })),
   "page": zod.int(),
@@ -188,9 +188,9 @@ export const HoldsResponse = zod.object({
   "raceId": zod.int(),
   "raceName": zod.string(),
   "payoutAmount": zod.int(),
-  "reasonType": zod.enum(['ACCOUNT_NOT_REGISTERED', 'RACE_CANCELED']).describe('보류 사유 (ACCOUNT_NOT_REGISTERED: 정산 계좌 미등록, RACE_CANCELED: 대회 취소 처리)'),
+  "reasonType": zod.enum(['정산_계좌_미등록', '대회_취소_처리']).describe('보류 사유 (정산_계좌_미등록: 정산 계좌 미등록, 대회_취소_처리: 대회 취소 처리)'),
   "reason": zod.string().nullish(),
-  "status": zod.enum(['HELD', 'RELEASED']).describe('지급보류 상태 (HELD: 지급보류, RELEASED: 해제)'),
+  "status": zod.enum(['지급보류', '해제']).describe('지급보류 상태 (지급보류: 지급보류, 해제: 해제)'),
   "heldAt": zod.iso.datetime({"offset":true}),
   "releasedAt": zod.iso.datetime({"offset":true}).nullish()
 })).optional()

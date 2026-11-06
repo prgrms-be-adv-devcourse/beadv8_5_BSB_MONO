@@ -78,7 +78,7 @@ export function AdminHoldsPage() {
   const hold = HOLDS.find((h) => h.id === selectedId) ?? HOLDS[1]
   const placeHold = usePlaceHold()
   const [payoutIdText, setPayoutIdText] = useState('')
-  const [reasonType, setReasonType] = useState<payoutModel.PayoutHoldReason>('RACE_CANCELED')
+  const [reasonType, setReasonType] = useState<payoutModel.PayoutHoldReason>('대회_취소_처리')
   const [payoutIdError, setPayoutIdError] = useState<string>()
 
   const submitHold = () => {

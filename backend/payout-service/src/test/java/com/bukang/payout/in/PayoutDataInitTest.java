@@ -83,9 +83,9 @@ class PayoutDataInitTest {
 		dataInit().makeSamplePayouts(TODAY);
 		flushAndClear();
 
-		for (PayoutStage stage : List.of(PayoutStage.FIRST, PayoutStage.FINAL)) {
+		for (PayoutStage stage : List.of(PayoutStage.일차_정산, PayoutStage.최종_정산)) {
 			Payout payout = payout(1, stage);
-			assertThat(payout.getStatus()).isEqualTo(PayoutStatus.PAID);
+			assertThat(payout.getStatus()).isEqualTo(PayoutStatus.지급_완료);
 			assertThat(payout.getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 8, 20));
 			assertThat(payout.getPaidAt()).isEqualTo(LocalDate.of(2026, 8, 20).atTime(4, 0));
 		}
@@ -97,14 +97,14 @@ class PayoutDataInitTest {
 		dataInit().makeSamplePayouts(TODAY);
 		flushAndClear();
 
-		for (PayoutStage stage : List.of(PayoutStage.FIRST, PayoutStage.FINAL)) {
+		for (PayoutStage stage : List.of(PayoutStage.일차_정산, PayoutStage.최종_정산)) {
 			Payout payout = payout(6, stage);
-			assertThat(payout.getStatus()).isEqualTo(PayoutStatus.PAID);
+			assertThat(payout.getStatus()).isEqualTo(PayoutStatus.지급_완료);
 			assertThat(payout.getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 9, 25));
 			assertThat(payout.getPaidAt()).isEqualTo(LocalDate.of(2026, 9, 25).atTime(4, 0));
 		}
 		assertThat(payoutHoldRepository.findAll())
-			.filteredOn(hold -> hold.getStatus() == PayoutHoldStatus.RELEASED)
+			.filteredOn(hold -> hold.getStatus() == PayoutHoldStatus.해제)
 			.hasSize(2);
 	}
 
@@ -114,32 +114,32 @@ class PayoutDataInitTest {
 		dataInit().makeSamplePayouts(TODAY);
 		flushAndClear();
 
-		Payout nightRunFirst = payout(7, PayoutStage.FIRST);
-		assertThat(nightRunFirst.getStatus()).isEqualTo(PayoutStatus.PAID);
+		Payout nightRunFirst = payout(7, PayoutStage.일차_정산);
+		assertThat(nightRunFirst.getStatus()).isEqualTo(PayoutStatus.지급_완료);
 		assertThat(nightRunFirst.getPaidAt()).isEqualTo(LocalDate.of(2026, 10, 20).atTime(4, 0));
-		Payout nightRunFinal = payout(7, PayoutStage.FINAL);
-		assertThat(nightRunFinal.getStatus()).isEqualTo(PayoutStatus.CALCULATED);
+		Payout nightRunFinal = payout(7, PayoutStage.최종_정산);
+		assertThat(nightRunFinal.getStatus()).isEqualTo(PayoutStatus.지급_예정);
 		assertThat(nightRunFinal.getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 11, 20));
 
-		Payout forestFirst = payout(9, PayoutStage.FIRST);
-		assertThat(forestFirst.getStatus()).isEqualTo(PayoutStatus.CALCULATED);
+		Payout forestFirst = payout(9, PayoutStage.일차_정산);
+		assertThat(forestFirst.getStatus()).isEqualTo(PayoutStatus.지급_예정);
 		assertThat(forestFirst.getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 11, 20));
 		// 대회 전이라 최종 정산 생성일이 오지 않았다
-		assertThat(payoutRepository.existsBySellerIdAndRaceIdAndPayoutStage(SELLER_ID, 9, PayoutStage.FINAL))
+		assertThat(payoutRepository.existsBySellerIdAndRaceIdAndPayoutStage(SELLER_ID, 9, PayoutStage.최종_정산))
 			.isFalse();
 	}
 
 	@Test
-	@DisplayName("지급보류: 관리자가 지급 예정일 전에 최종을 보류해 HELD로 남는다")
+	@DisplayName("지급보류: 관리자가 지급 예정일 전에 최종을 보류해 지급보류로 남는다")
 	void heldPayout() {
 		dataInit().makeSamplePayouts(TODAY);
 		flushAndClear();
 
-		assertThat(payout(8, PayoutStage.FIRST).getStatus()).isEqualTo(PayoutStatus.PAID);
-		Payout held = payout(8, PayoutStage.FINAL);
-		assertThat(held.getStatus()).isEqualTo(PayoutStatus.HELD);
+		assertThat(payout(8, PayoutStage.일차_정산).getStatus()).isEqualTo(PayoutStatus.지급_완료);
+		Payout held = payout(8, PayoutStage.최종_정산);
+		assertThat(held.getStatus()).isEqualTo(PayoutStatus.지급보류);
 		assertThat(payoutHoldRepository.findAll())
-			.filteredOn(hold -> hold.getStatus() == PayoutHoldStatus.HELD)
+			.filteredOn(hold -> hold.getStatus() == PayoutHoldStatus.지급보류)
 			.singleElement()
 			.satisfies(hold -> assertThat(hold.getHeldAt()).isBefore(held.getScheduledPayDate().atStartOfDay()));
 	}
@@ -157,11 +157,11 @@ class PayoutDataInitTest {
 		}).run(today, today.atTime(4, 0));
 		flushAndClear();
 
-		assertThat(payout(7, PayoutStage.FINAL).getStatus()).isEqualTo(PayoutStatus.CALCULATED);
-		assertThat(payout(9, PayoutStage.FIRST).getStatus()).isEqualTo(PayoutStatus.CALCULATED);
-		assertThat(payout(8, PayoutStage.FINAL).getStatus()).isEqualTo(PayoutStatus.HELD);
+		assertThat(payout(7, PayoutStage.최종_정산).getStatus()).isEqualTo(PayoutStatus.지급_예정);
+		assertThat(payout(9, PayoutStage.일차_정산).getStatus()).isEqualTo(PayoutStatus.지급_예정);
+		assertThat(payout(8, PayoutStage.최종_정산).getStatus()).isEqualTo(PayoutStatus.지급보류);
 		assertThat(payoutRepository.findAll())
-			.filteredOn(payout -> payout.getStatus() == PayoutStatus.PAID)
+			.filteredOn(payout -> payout.getStatus() == PayoutStatus.지급_완료)
 			.hasSize(6)
 			.allSatisfy(payout -> assertThat(payout.getPaidAt()).isBeforeOrEqualTo(today.atTime(4, 0)));
 	}
