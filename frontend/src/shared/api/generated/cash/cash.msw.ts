@@ -17,6 +17,7 @@ import type {
   RsDataCashChargeDto,
   RsDataCashWithdrawalDto,
   RsDataPageDtoWalletLedgerItemDto,
+  RsDataRefundableChargesDto,
   RsDataWalletBalanceDto
 } from './cash.schemas';
 
@@ -24,6 +25,8 @@ import type {
 export const getRequestWithdrawalResponseMock = (): RsDataCashWithdrawalDto => ({"status":200,"message":"환급 신청이 완료되었습니다.","data":{"withdrawnAmount":130000,"balance":0,"cardAmount":30000,"accountAmount":100000,"processingAmount":0,"revertedAmount":0,"accountRequired":false}})
 
 export const getConfirmWalletChargeResponseMock = (): RsDataCashChargeDto => ({"status":200,"message":"충전했습니다.","data":{"outcome":"COMPLETED","balance":60000}})
+
+export const getGetRefundableChargesResponseMock = (): RsDataRefundableChargesDto => ({"status":200,"message":"환급 화면용 충전 내역을 조회했습니다.","data":{"balance":25000,"earliestLastCancelableDate":"2027-10-12","charges":[{"chargeId":3,"chargedAt":"2026-10-13T09:00:00","amount":20000,"remainingAmount":20000,"lastCancelableDate":"2027-10-12","expired":false},{"chargeId":2,"chargedAt":"2026-10-10T09:00:00","amount":10000,"remainingAmount":5000,"lastCancelableDate":"2027-10-09","expired":true},{"chargeId":1,"chargedAt":"2026-01-13T09:00:00","amount":15000,"remainingAmount":0,"lastCancelableDate":"2027-01-12","expired":true}]}})
 
 export const getGetLedgersResponseMock = (): RsDataPageDtoWalletLedgerItemDto => ({"status":200,"message":"예치금 내역을 조회했습니다.","data":{"content":[{"category":"PAYMENT","ledgerType":"사용__주문결제","amount":-5000,"balanceAfter":5000,"createdAt":"2026-10-21T11:30:00.102938","refId":100,"charge":null},{"category":"CHARGE","ledgerType":"충전__PG결제_토스페이먼츠","amount":10000,"balanceAfter":10000,"createdAt":"2026-10-20T09:03:03.319058","refId":1,"charge":{"chargeId":1,"chargedAt":"2026-10-20T09:03:01","amount":10000,"remainingAmount":5000,"lastCancelableDate":"2027-10-19","expired":false}}],"page":0,"size":20,"totalElements":2,"totalPages":1}})
 
@@ -54,11 +57,13 @@ export const getConfirmWalletChargeMockHandler = (overrideResponse?: RsDataCashC
   }, options)
 }
 
-export const getGetRefundableChargesMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
+export const getGetRefundableChargesMockHandler = (overrideResponse?: RsDataRefundableChargesDto | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<RsDataRefundableChargesDto> | RsDataRefundableChargesDto), options?: RequestHandlerOptions) => {
   return http.get('*/api/v1/cash/wallets/refundable-charges', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
-  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
 
-    return new HttpResponse(null,
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getGetRefundableChargesResponseMock(),
       { status: 200
       })
   }, options)

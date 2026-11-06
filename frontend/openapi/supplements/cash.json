@@ -31,6 +31,14 @@
           "$ref": "#/components/schemas/PageDtoWalletLedgerItemDto"
         }
       }
+    },
+    "getRefundableCharges": {
+      "200": {
+        "wrapper": "RsDataRefundableChargesDto",
+        "data": {
+          "$ref": "#/components/schemas/RefundableChargesDto"
+        }
+      }
     }
   },
   "schemas": {
@@ -239,6 +247,68 @@
             },
             "expired": {
               "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "RefundableChargesDto": {
+      "type": "object",
+      "description": "환급 화면용 충전 내역. charges는 최근 충전부터",
+      "required": [
+        "balance",
+        "earliestLastCancelableDate",
+        "charges"
+      ],
+      "properties": {
+        "balance": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "earliestLastCancelableDate": {
+          "type": "string",
+          "format": "date",
+          "nullable": true,
+          "description": "남은 금액이 있고 기한이 지나지 않은 충전 중 가장 빠른 마지막 날. 없으면 null"
+        },
+        "charges": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "description": "환급 화면의 충전 건 한 줄. chargeId는 예치금 내역 충전 줄의 refId와 같다. remainingAmount는 남은 예치금을 최근 충전부터 채운 몫이다",
+            "required": [
+              "chargeId",
+              "chargedAt",
+              "amount",
+              "remainingAmount",
+              "lastCancelableDate",
+              "expired"
+            ],
+            "properties": {
+              "chargeId": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "chargedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "amount": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "remainingAmount": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "lastCancelableDate": {
+                "type": "string",
+                "format": "date",
+                "description": "PG 결제취소를 할 수 있는 마지막 날(이날 24:00까지, 한국 시간)"
+              },
+              "expired": {
+                "type": "boolean"
+              }
             }
           }
         }

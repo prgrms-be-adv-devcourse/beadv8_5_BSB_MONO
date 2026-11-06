@@ -32,6 +32,7 @@ import type {
   RsDataCashChargeDto,
   RsDataCashWithdrawalDto,
   RsDataPageDtoWalletLedgerItemDto,
+  RsDataRefundableChargesDto,
   RsDataWalletBalanceDto
 } from './cash.schemas';
 
@@ -247,9 +248,9 @@ export const getGetRefundableChargesUrl = () => {
  * 요청자 본인의 완료된 충전을 최근 순으로 조회한다. 남은 예치금을 최근 충전부터 채워 충전 건별 남은 금액을 계산하고, 건마다 카드 취소 마지막 날(승인일 + 1년 − 1일, 이날 24:00까지 한국 시간)과 기한 지남 여부를 붙인다. earliestLastCancelableDate는 남은 금액이 있고 기한이 지나지 않은 충전 중 가장 빠른 마지막 날이며, 없으면 null이다.
  * @summary 환급 화면용 충전 내역 조회
  */
-export const getRefundableCharges = async ( options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+export const getRefundableCharges = async ( options?: Parameters<typeof customFetch>[1]): Promise<RsDataRefundableChargesDto> => {
 
-  return customFetch<unknown>(getGetRefundableChargesUrl(),
+  return customFetch<RsDataRefundableChargesDto>(getGetRefundableChargesUrl(),
   {
     ...options,
     method: 'GET'

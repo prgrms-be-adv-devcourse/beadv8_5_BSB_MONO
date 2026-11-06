@@ -85,7 +85,22 @@ export const ConfirmWalletChargeResponse = zod.object({
  * 요청자 본인의 완료된 충전을 최근 순으로 조회한다. 남은 예치금을 최근 충전부터 채워 충전 건별 남은 금액을 계산하고, 건마다 카드 취소 마지막 날(승인일 + 1년 − 1일, 이날 24:00까지 한국 시간)과 기한 지남 여부를 붙인다. earliestLastCancelableDate는 남은 금액이 있고 기한이 지나지 않은 충전 중 가장 빠른 마지막 날이며, 없으면 null이다.
  * @summary 환급 화면용 충전 내역 조회
  */
-export const GetRefundableChargesResponse = zod.unknown()
+export const GetRefundableChargesResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.object({
+  "balance": zod.int(),
+  "earliestLastCancelableDate": zod.iso.date().nullable().describe('남은 금액이 있고 기한이 지나지 않은 충전 중 가장 빠른 마지막 날. 없으면 null'),
+  "charges": zod.array(zod.object({
+  "chargeId": zod.int(),
+  "chargedAt": zod.iso.datetime({"offset":true}),
+  "amount": zod.int(),
+  "remainingAmount": zod.int(),
+  "lastCancelableDate": zod.iso.date().describe('PG 결제취소를 할 수 있는 마지막 날(이날 24:00까지, 한국 시간)'),
+  "expired": zod.boolean()
+}).describe('환급 화면의 충전 건 한 줄. chargeId는 예치금 내역 충전 줄의 refId와 같다. remainingAmount는 남은 예치금을 최근 충전부터 채운 몫이다'))
+}).optional().describe('환급 화면용 충전 내역. charges는 최근 충전부터')
+})
 
 
 /**
