@@ -52,7 +52,7 @@ public class PayoutReconcileUseCase {
 				failOrderLookup(PayoutStage.FIRST, race.raceId(), race.refundDeadline(), today, exception);
 				continue;
 			}
-			recordMismatches(PayoutStage.FIRST, race,
+			recordMismatches(PayoutStage.FIRST, race, race.refundDeadline(), today,
 				() -> payoutReconcileStepUseCase.reconcileFirst(race, summaries, today, now));
 		}
 		for (RaceSchedule race : targetRaces(PayoutStage.FINAL, today, now)) {
@@ -63,7 +63,7 @@ public class PayoutReconcileUseCase {
 				failOrderLookup(PayoutStage.FINAL, race.raceId(), race.raceDate(), today, exception);
 				continue;
 			}
-			recordMismatches(PayoutStage.FINAL, race,
+			recordMismatches(PayoutStage.FINAL, race, race.raceDate(), today,
 				() -> payoutReconcileStepUseCase.reconcileFinal(race, entries, today, now));
 		}
 	}
@@ -101,11 +101,19 @@ public class PayoutReconcileUseCase {
 	}
 
 	// 기록 저장이 실패해도 PayoutCreateFailureUseCase가 ERROR 로그만 남기고 넘어간다 (TC-67-10-1)
-	private void recordMismatches(PayoutStage stage, RaceSchedule race, Supplier<List<PayoutCreateFailure>> step) {
+	// 대사 자체가 예외로 멈추면(주문 응답의 같은 참가권 두 줄, 관리자 보류와 겹친 낙관적 락 실패 등) 그 대회를 기록표에도 남긴다.
+	// 로그만 남기면 이 기능이 드러내려던 조용한 빠짐이 바로 여기서 샌다 (PR #330 리뷰)
+	private void recordMismatches(PayoutStage stage, RaceSchedule race, LocalDate payoutTargetDate, LocalDate today,
+		Supplier<List<PayoutCreateFailure>> step) {
+		List<PayoutCreateFailure> mismatches;
 		try {
-			step.get().forEach(payoutCreateFailureUseCase::record);
+			mismatches = step.get();
 		} catch (RuntimeException exception) {
 			log.error("정산 대사를 하지 못했습니다. stage={}, raceId={}", stage, race.raceId(), exception);
+			payoutCreateFailureUseCase.record(PayoutCreateFailure.reconcileError(stage, race.raceId(), payoutTargetDate,
+				exception.getClass().getSimpleName(), today));
+			return;
 		}
+		mismatches.forEach(payoutCreateFailureUseCase::record);
 	}
 }

@@ -91,6 +91,14 @@ public class PayoutCreateFailure extends BaseIdAndTime {
 		return new PayoutCreateFailure(stage, sellerId, raceId, payoutTargetDate, failureType, note, runDate);
 	}
 
+	// 정산 대사가 대회 하나를 비교하다 예외로 멈췄다 (PR #330 리뷰). 어느 판매자에서 멈췄는지 모르므로 판매자 칸은 비우고
+	// 비고에 예외 이름을 남긴다. 대사가 조용히 빠지지 않게 한다
+	public static PayoutCreateFailure reconcileError(PayoutStage stage, long raceId, LocalDate payoutTargetDate,
+		String exceptionName, LocalDate runDate) {
+		return new PayoutCreateFailure(stage, null, raceId, payoutTargetDate, PayoutCreateFailureType.알_수_없는_실패,
+			exceptionName, runDate);
+	}
+
 	// 정산 대사가 판매자 × 대회의 어긋남을 찾았다 (BUK-67). 비고에는 장수 · 금액만 쓰고 참가권 ID는 로그에 남긴다
 	public static PayoutCreateFailure reconcileMismatch(PayoutStage stage, long sellerId, long raceId,
 		Long raceCourseId, LocalDate payoutTargetDate, String note, LocalDate runDate) {

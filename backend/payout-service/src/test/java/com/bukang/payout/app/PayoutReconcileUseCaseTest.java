@@ -387,4 +387,25 @@ class PayoutReconcileUseCaseTest {
 
 		assertThat(mismatches()).isEmpty();
 	}
+
+	@Test
+	@DisplayName("대사 중 예외가 나면 그 대회를 알_수_없는_실패로 기록하고 다음 대회를 본다 (PR #330 리뷰)")
+	void stepFailureIsRecorded() {
+		Payout first = saveFirst(1, 90_000, 9);
+		// 주문이 같은 참가권을 두 줄 주면 참가권 ID로 묶을 수 없어 대회 20의 대사가 통째로 실패한다
+		List<SoldEntry> duplicated = List.of(sold(101, 2, COURSE_A, 10_000), sold(101, 2, COURSE_A, 10_000));
+
+		useCase(List.of(new SoldSummary(1, 10, COURSE_A, 70_000, 7)), duplicated).run(TODAY, NOW);
+
+		assertThat(mismatches())
+			.extracting(PayoutCreateFailure::getPayoutStage, PayoutCreateFailure::getSellerId,
+				PayoutCreateFailure::getRaceId, PayoutCreateFailure::getPayoutTargetDate,
+				PayoutCreateFailure::getFailureType, PayoutCreateFailure::getNote)
+			.containsExactlyInAnyOrder(
+				tuple(PayoutStage.FIRST, 1L, 10L, YESTERDAY, PayoutCreateFailureType.대사_불일치,
+					"판매 합 = 70,000, 정산 합 = 90,000"),
+				tuple(PayoutStage.FINAL, null, 20L, YESTERDAY, PayoutCreateFailureType.알_수_없는_실패,
+					"IllegalStateException"));
+		assertThat(first.getStatus()).isEqualTo(PayoutStatus.HELD);
+	}
 }
