@@ -24,7 +24,9 @@ import type {
   RsDataCrewJoinedDto,
   RsDataEmailAvailabilityResponseDto,
   RsDataIdentityVerificationStartDto,
+  RsDataKakaoInviteSendResultDto,
   RsDataListCrewInviteDto,
+  RsDataListKakaoFriendDto,
   RsDataListMyCrewDto,
   RsDataListSellerDto,
   RsDataMemberDto,
@@ -87,6 +89,10 @@ export const getTransferCrewLeaderResponseMock = (): RsDataCrewHomeDto => ({"sta
 export const getCompleteIdentityVerificationResponseMock = (): RsDataVerifiedIdentityDto => ({"status":200,"message":"본인인증을 확인했습니다.","data":{"verificationToken":"crewrun-iv-6f1c2b9e-3a5d-4c7e-9b1a-2d8f0e4c6a71","name":"김러너","birthDate":"1995-04-12","phone":"010-1234-5678"}})
 
 export const getStartIdentityVerificationResponseMock = (): RsDataIdentityVerificationStartDto => ({"status":201,"message":"본인인증을 시작했습니다.","data":{"identityVerificationId":"crewrun-iv-6f1c2b9e-3a5d-4c7e-9b1a-2d8f0e4c6a71"}})
+
+export const getFindKakaoInviteFriendsResponseMock = (): RsDataListKakaoFriendDto => ({"status":200,"message":"카카오 친구를 조회했습니다.","data":[{"uuid":"abcdefg0001","nickname":"이수민","profileImageUrl":"https://k.kakaocdn.net/dn/a.jpg"}]})
+
+export const getSendKakaoCrewInvitesResponseMock = (): RsDataKakaoInviteSendResultDto => ({"status":200,"message":"카카오톡으로 초대를 보냈습니다.","data":{"sentUuids":["abcdefg0001"],"failures":[{"uuid":"abcdefg0002","reason":"DAILY_LIMIT"}]}})
 
 
 export const getVerifyIdentityWithMockPassMockHandler = (overrideResponse?: RsDataVerifiedIdentityDto | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<RsDataVerifiedIdentityDto> | RsDataVerifiedIdentityDto), options?: RequestHandlerOptions) => {
@@ -530,6 +536,40 @@ export const getConfirmPasswordResetMockHandler = (overrideResponse?: unknown | 
       })
   }, options)
 }
+
+export const getIssueKakaoMessageConsentTicketMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
+  return http.post('*/api/v1/member/members/me/kakao-message/consent-ticket', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+
+    return new HttpResponse(null,
+      { status: 200
+      })
+  }, options)
+}
+
+export const getFindKakaoInviteFriendsMockHandler = (overrideResponse?: RsDataListKakaoFriendDto | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<RsDataListKakaoFriendDto> | RsDataListKakaoFriendDto), options?: RequestHandlerOptions) => {
+  return http.get('*/api/v1/member/crews/:crewId/kakao-invites/friends', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getFindKakaoInviteFriendsResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
+export const getSendKakaoCrewInvitesMockHandler = (overrideResponse?: RsDataKakaoInviteSendResultDto | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<RsDataKakaoInviteSendResultDto> | RsDataKakaoInviteSendResultDto), options?: RequestHandlerOptions) => {
+  return http.post('*/api/v1/member/crews/:crewId/kakao-invites', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getSendKakaoCrewInvitesResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
 export const getBukangMemberAPIMock = () => [
   getVerifyIdentityWithMockPassMockHandler(),
   getFindMeMockHandler(),
@@ -569,5 +609,8 @@ export const getBukangMemberAPIMock = () => [
   getStartIdentityVerificationMockHandler(),
   getVerifyPasswordResetMockHandler(),
   getRequestPasswordResetMockHandler(),
-  getConfirmPasswordResetMockHandler()
+  getConfirmPasswordResetMockHandler(),
+  getIssueKakaoMessageConsentTicketMockHandler(),
+  getFindKakaoInviteFriendsMockHandler(),
+  getSendKakaoCrewInvitesMockHandler()
 ]
