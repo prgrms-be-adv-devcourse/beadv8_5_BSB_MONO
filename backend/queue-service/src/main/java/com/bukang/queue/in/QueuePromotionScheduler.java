@@ -10,7 +10,8 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * 대기열(대회·종목)마다 끝 시각이 지난 active를 지우고, waiting 앞에서부터 정해진 인원을 active로 승격한다
- * 주기·인원·활성 시간은 application.yaml의 queue.*에 있다
+ * 한 주기에 개인 줄과 파티 줄을 모두 승격한다 (QueuePromoteUseCase)
+ * 주기는 queue.schedule.time 하나이고, 인원·활성 시간은 개인 줄이 queue.*, 파티 줄이 queue.party.*에 있다
  * 테스트에서는 등록하지 않는다. 테스트는 QueuePromoteUseCase에 시각을 넣어 직접 부른다
  */
 @Profile("!test")

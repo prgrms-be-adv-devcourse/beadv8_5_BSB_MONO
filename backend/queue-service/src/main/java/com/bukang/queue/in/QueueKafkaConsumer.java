@@ -67,7 +67,8 @@ public class QueueKafkaConsumer {
 		@Header(name = KafkaMessageId.HEADER, required = false) String messageId) {
 		RaceChangedEvent event = jsonConverter.fromJson(payload, RaceChangedEvent.class);
 		queueFacade.syncRace(messageId, KafkaTopics.RACE_CHANGED, event.raceId(), event.saleStatus(),
-			event.individualOpenAt(), event.applicationCloseAt(), event.updatedAt());
+			event.individualOpenAt(), event.applicationCloseAt(), event.crewSaleStartAt(), event.crewSaleEndAt(),
+			event.updatedAt());
 	}
 
 	@KafkaListener(topics = KafkaTopics.RACE_COURSE_CHANGED, groupId = GROUP_ID, concurrency = CONCURRENCY)
