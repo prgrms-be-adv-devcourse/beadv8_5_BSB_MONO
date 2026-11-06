@@ -133,89 +133,58 @@ function withBalanceAfter(rows: MockLedger[]): LedgerRow[] {
     .toReversed()
 }
 
-// shortcut: BUK-21 응답 확정 전 가정, 백엔드 계약이 생기면 openapi로 교체
-// 돌려받기 화면 조회 목. 응답은 전달문의 응답 제안 예시(카드 + 계좌, 카드만)와 계좌만 경우다.
+// 돌려받기 화면 조회 목 (GET /wallets/refundable-charges, 백엔드 BUK-21 응답 모양).
 // 화면 주소에 ?case=card(카드만) 또는 ?case=account(계좌만)를 붙이면 그 경우로 답한다(기본은 카드 + 계좌).
-// 금액은 시안 예시라 지갑 잔액과 맞추지 않는다.
+// ?case=seller는 충전 건 없이 정산 대금만 남은 판매자 회원이다(전부 계좌).
+// 금액은 시안 예시라 지갑 잔액과 맞추지 않는다. 충전 건은 최근 충전부터 온다.
+const OLD_CHARGE = {
+  chargeId: 101,
+  chargedAt: '2025-09-01T18:40:00',
+  amount: 85_000,
+  lastCancelableDate: '2026-08-31',
+  expired: true,
+}
+const NEW_CHARGE = {
+  chargeId: 214,
+  chargedAt: '2026-10-13T14:21:00',
+  amount: 60_000,
+  remainingAmount: 60_000,
+  lastCancelableDate: '2027-10-12',
+  expired: false,
+}
 const REFUND_PREVIEW_CASES = {
   mixed: {
     balance: 65_000,
-    cardRefundAmount: 60_000,
-    accountRefundAmount: 5_000,
-    accountRequired: true,
-    earliestCardCancelDate: '2027-10-12',
-    charges: [
-      {
-        chargeId: 101,
-        approvedAt: '2025-09-01T18:40:00',
-        chargedAmount: 85_000,
-        remainingAmount: 5_000,
-        cardCancelDate: '2026-08-31',
-        refundTo: 'ACCOUNT',
-        paymentMethodName: '신한카드',
-      },
-      {
-        chargeId: 214,
-        approvedAt: '2026-10-13T14:21:00',
-        chargedAmount: 60_000,
-        remainingAmount: 60_000,
-        cardCancelDate: '2027-10-12',
-        refundTo: 'CARD',
-        paymentMethodName: '신한카드',
-      },
-    ],
+    earliestLastCancelableDate: '2027-10-12',
+    charges: [NEW_CHARGE, { ...OLD_CHARGE, remainingAmount: 5_000 }],
   },
   card: {
     balance: 65_000,
-    cardRefundAmount: 65_000,
-    accountRefundAmount: 0,
-    accountRequired: false,
-    earliestCardCancelDate: '2027-10-09',
+    earliestLastCancelableDate: '2027-10-09',
     charges: [
+      NEW_CHARGE,
       {
         chargeId: 210,
-        approvedAt: '2026-10-10T09:00:00',
-        chargedAmount: 10_000,
+        chargedAt: '2026-10-10T09:00:00',
+        amount: 10_000,
         remainingAmount: 5_000,
-        cardCancelDate: '2027-10-09',
-        refundTo: 'CARD',
-        paymentMethodName: '카카오페이',
-      },
-      {
-        chargeId: 214,
-        approvedAt: '2026-10-13T14:21:00',
-        chargedAmount: 60_000,
-        remainingAmount: 60_000,
-        cardCancelDate: '2027-10-12',
-        refundTo: 'CARD',
-        paymentMethodName: '신한카드',
+        lastCancelableDate: '2027-10-09',
+        expired: false,
       },
     ],
   },
   account: {
     balance: 65_000,
-    cardRefundAmount: 0,
-    accountRefundAmount: 65_000,
-    accountRequired: true,
-    earliestCardCancelDate: null,
-    charges: [
-      {
-        chargeId: 101,
-        approvedAt: '2025-09-01T18:40:00',
-        chargedAmount: 85_000,
-        remainingAmount: 65_000,
-        cardCancelDate: '2026-08-31',
-        refundTo: 'ACCOUNT',
-        paymentMethodName: '신한카드',
-      },
-    ],
+    earliestLastCancelableDate: null,
+    charges: [{ ...OLD_CHARGE, remainingAmount: 65_000 }],
   },
+  seller: { balance: 30_000, earliestLastCancelableDate: null, charges: [] },
 }
 
 function refundPreviewCase(referer: string | null) {
   try {
     const value = new URL(referer ?? '').searchParams.get('case')
-    return value === 'card' || value === 'account' ? value : 'mixed'
+    return value === 'card' || value === 'account' || value === 'seller' ? value : 'mixed'
   } catch {
     return 'mixed'
   }
@@ -225,10 +194,10 @@ function refundPreviewCase(referer: string | null) {
 const withdrawals = new Map<string, number>()
 
 export const walletHandlers = [
-  http.get('*/api/v1/cash/withdrawals/preview', ({ request }) =>
+  http.get('*/api/v1/cash/wallets/refundable-charges', ({ request }) =>
     HttpResponse.json({
       status: 200,
-      message: '환급 정보를 조회했습니다.',
+      message: '환급 화면용 충전 내역을 조회했습니다.',
       data: REFUND_PREVIEW_CASES[refundPreviewCase(request.headers.get('referer'))],
     }),
   ),

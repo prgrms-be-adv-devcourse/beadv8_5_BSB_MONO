@@ -1,49 +1,71 @@
-// shortcut: BUK-21 응답 확정 전 가정, 백엔드 계약이 생기면 openapi로 교체
-// 이 파일이 아직 백엔드에 없는 계약을 가정하는 유일한 곳이다. 가짜 응답은 shared/mocks/wallet.ts.
-// 응답 모양은 2026-11-05 「예치금 환급 시안 의견」 전달문의 응답 제안을 따른다.
-// 명세가 생기면 openapi/cash.json을 받아 orval로 만든 cashApi · cashZod로 바꾸고 이 파일을 지운다.
+// shortcut: 환급 화면용 충전 내역 조회(GET /wallets/refundable-charges)가 openapi/cash.json에 아직 없어 손으로 쓴 스키마다.
+// 명세를 다시 받으면 orval로 만든 cashApi · cashZod로 바꾸고 이 파일을 지운다. 가짜 응답은 shared/mocks/wallet.ts.
 import { queryOptions } from '@tanstack/react-query'
 import { z, ZodError } from 'zod'
 
 import type { WalletLedger } from '@/entities/wallet'
 import { cashApi, customFetch, unwrapData, type RsData } from '@/shared/api'
 
-/** 돌려받기 화면 조회 주소. 백엔드가 주소를 정하면 바꾼다 */
-export const REFUND_PREVIEW_URL = '/api/v1/cash/withdrawals/preview'
+/** 돌려받기 화면 조회 주소 (백엔드 BUK-21) */
+export const REFUND_PREVIEW_URL = '/api/v1/cash/wallets/refundable-charges'
 
-/** 「2027-10-12」처럼 한국 시간 날짜. 그날 24:00까지. 일시(approvedAt)도 한국 시간이라 글자를 그대로 쓴다 */
+/** 「2027-10-12」처럼 한국 시간 날짜. 그날 24:00까지. 일시(chargedAt)도 한국 시간이라 글자를 그대로 쓴다 */
 const kstDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 
+/**
+ * 조회 응답을 화면이 쓰는 환급 계획으로 바꾼다.
+ * 카드 몫 = 기한이 지나지 않은(expired=false) 충전 건의 남은 금액 합, 계좌 몫 = 잔액 − 카드 몫.
+ * 계좌 몫을 expired=true 건의 합으로 구하면 안 된다. 판매자 회원의 정산 대금처럼 충전 건이 없는 잔액은
+ * charges에 나오지 않지만 계좌로 보내야 하기 때문이다(백엔드 환급 신청도 같은 식으로 나눈다).
+ */
 export const refundPlanSchema = z
   .object({
     balance: z.number().int().nonnegative(),
-    cardRefundAmount: z.number().int().nonnegative(),
-    accountRefundAmount: z.number().int().nonnegative(),
-    accountRequired: z.boolean(),
-    earliestCardCancelDate: kstDate.nullable(),
+    earliestLastCancelableDate: kstDate.nullable(),
     charges: z.array(
       z.object({
         chargeId: z.number().int(),
-        approvedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}T/),
-        chargedAmount: z.number().int().nonnegative(),
+        chargedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}T/),
+        amount: z.number().int().nonnegative(),
         remainingAmount: z.number().int().nonnegative(),
-        cardCancelDate: kstDate,
-        refundTo: z.enum(['CARD', 'ACCOUNT']),
-        paymentMethodName: z.string(),
+        lastCancelableDate: kstDate,
+        expired: z.boolean(),
       }),
     ),
   })
-  // 화면이 금액을 다시 계산하지 않으므로, 서로 어긋난 값이 오면 신청을 막는다
+  .transform((res) => {
+    const charges = res.charges
+      .filter((charge) => charge.remainingAmount > 0)
+      .map((charge) => ({
+        chargeId: charge.chargeId,
+        approvedAt: charge.chargedAt,
+        chargedAmount: charge.amount,
+        remainingAmount: charge.remainingAmount,
+        cardCancelDate: charge.lastCancelableDate,
+        refundTo: charge.expired ? ('ACCOUNT' as const) : ('CARD' as const),
+      }))
+    const cardRefundAmount = charges
+      .filter((charge) => charge.refundTo === 'CARD')
+      .reduce((sum, charge) => sum + charge.remainingAmount, 0)
+    const accountRefundAmount = res.balance - cardRefundAmount
+    return {
+      balance: res.balance,
+      cardRefundAmount,
+      accountRefundAmount,
+      accountRequired: accountRefundAmount > 0,
+      earliestCardCancelDate: res.earliestLastCancelableDate,
+      charges,
+    }
+  })
+  // 서로 어긋난 값이 오면 금액을 잘못 안내하게 되므로 신청을 막는다
   .refine((plan) => {
     // 카드 몫이 있으면 맨 위 문장에 기한이 꼭 들어가야 한다
     const hasCardDate = plan.cardRefundAmount === 0 || plan.earliestCardCancelDate !== null
-    // 계좌 몫이 있는데 계좌를 받지 않으면 서버가 보낼 곳이 없다
-    const hasAccountShare = plan.accountRefundAmount > 0
-    const sumMatches = plan.balance === plan.cardRefundAmount + plan.accountRefundAmount
-    return hasCardDate && plan.accountRequired === hasAccountShare && sumMatches
+    // 카드 몫이 잔액보다 크면 계좌 몫이 음수가 된다
+    return hasCardDate && plan.accountRefundAmount >= 0
   })
 
-export type RefundPlan = z.infer<typeof refundPlanSchema>
+export type RefundPlan = z.output<typeof refundPlanSchema>
 
 /** 돌려받기 화면 조회. 응답이 계약과 다르면 ZodError로 실패해 화면이 신청을 막는다 */
 export const refundPlanQueryOptions = () =>

@@ -41,7 +41,7 @@ const won = (n: number) => `₩${n.toLocaleString('ko-KR')}`
 // 환급 변경안 시안은 정책 문장대로 「65,000원」으로 쓴다. 앱 전체 표기(₩)와 맞출지는 정해지지 않았다
 const wonText = (n: number) => `${n.toLocaleString('ko-KR')}원`
 
-/** 맨 위 문장. 금액과 기한은 서버가 계산한 값을 그대로 넣는다 */
+/** 맨 위 문장. 기한은 서버 값 그대로, 금액은 refundPlanSchema가 나눈 값을 넣는다 */
 function refundSentence(plan: RefundPlan) {
   if (plan.balance <= 0) return null
   // 계좌로만 돌려받을 때 문장은 정책에 없어 임시 문장을 쓴다(정해지면 바꾼다)
@@ -170,7 +170,7 @@ export function DepositRefundPage() {
   const data = plan.data
   const accountRequired = data?.accountRequired ?? false
   // 결과를 모르는 요청이 남아 있으면(locked) 다시 불러온 금액이 0원이어도 같은 키로 다시 보낼 수 있게 둔다
-  // accountRequired가 거짓일 때 계좌 검사를 건너뛰어도 되는 것은 refundPlanSchema가 계좌 몫이 있는 응답을 거부하기 때문이다
+  // accountRequired는 refundPlanSchema가 계좌 몫이 있을 때만 참으로 정하므로, 거짓이면 계좌 검사를 건너뛰어도 된다
   const disabled =
     withdraw.isPending ||
     (!pending.locked && (!data || data.balance <= 0 || (accountRequired && !isValid)))
@@ -230,7 +230,7 @@ export function DepositRefundPage() {
                         </p>
                         <p className="text-caption text-text-tertiary">
                           {charge.refundTo === 'CARD'
-                            ? `${charge.paymentMethodName}로 · 카드 취소 ${charge.cardCancelDate}까지`
+                            ? `결제한 카드로 · 카드 취소 ${charge.cardCancelDate}까지`
                             : `계좌로 · 카드 취소 기한(${charge.cardCancelDate})이 지났어요`}
                         </p>
                       </div>

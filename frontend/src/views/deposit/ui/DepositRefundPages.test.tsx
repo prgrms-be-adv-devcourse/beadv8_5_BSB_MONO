@@ -26,85 +26,56 @@ function renderWithClient(ui: React.ReactNode) {
 type Plan = Record<string, unknown>
 
 const planHandler = (data: Plan) =>
-  http.get('*/api/v1/cash/withdrawals/preview', () =>
+  http.get('*/api/v1/cash/wallets/refundable-charges', () =>
     HttpResponse.json({ status: 200, message: '아무 문구', data }),
   )
 
-// 응답 예시는 BUK-21 응답 제안(카드 + 계좌, 카드만)을 그대로 옮겼다
+// 응답 모양은 백엔드 BUK-21 환급 화면용 충전 내역 조회(Swagger 예시)와 같다. 충전 건은 최근 충전부터 온다
+const OLD_CHARGE = {
+  chargeId: 101,
+  chargedAt: '2025-09-01T18:40:00',
+  amount: 85000,
+  lastCancelableDate: '2026-08-31',
+  expired: true,
+}
+const NEW_CHARGE = {
+  chargeId: 214,
+  chargedAt: '2026-10-13T14:21:00',
+  amount: 60000,
+  remainingAmount: 60000,
+  lastCancelableDate: '2027-10-12',
+  expired: false,
+}
+
 const MIXED: Plan = {
   balance: 65000,
-  cardRefundAmount: 60000,
-  accountRefundAmount: 5000,
-  accountRequired: true,
-  earliestCardCancelDate: '2027-10-12',
-  charges: [
-    {
-      chargeId: 101,
-      approvedAt: '2025-09-01T18:40:00',
-      chargedAmount: 85000,
-      remainingAmount: 5000,
-      cardCancelDate: '2026-08-31',
-      refundTo: 'ACCOUNT',
-      paymentMethodName: '신한카드',
-    },
-    {
-      chargeId: 214,
-      approvedAt: '2026-10-13T14:21:00',
-      chargedAmount: 60000,
-      remainingAmount: 60000,
-      cardCancelDate: '2027-10-12',
-      refundTo: 'CARD',
-      paymentMethodName: '신한카드',
-    },
-  ],
+  earliestLastCancelableDate: '2027-10-12',
+  charges: [NEW_CHARGE, { ...OLD_CHARGE, remainingAmount: 5000 }],
 }
 
 const CARD_ONLY: Plan = {
   balance: 65000,
-  cardRefundAmount: 65000,
-  accountRefundAmount: 0,
-  accountRequired: false,
-  earliestCardCancelDate: '2027-10-09',
+  earliestLastCancelableDate: '2027-10-09',
   charges: [
+    NEW_CHARGE,
     {
       chargeId: 210,
-      approvedAt: '2026-10-10T09:00:00',
-      chargedAmount: 10000,
+      chargedAt: '2026-10-10T09:00:00',
+      amount: 10000,
       remainingAmount: 5000,
-      cardCancelDate: '2027-10-09',
-      refundTo: 'CARD',
-      paymentMethodName: '카카오페이',
-    },
-    {
-      chargeId: 214,
-      approvedAt: '2026-10-13T14:21:00',
-      chargedAmount: 60000,
-      remainingAmount: 60000,
-      cardCancelDate: '2027-10-12',
-      refundTo: 'CARD',
-      paymentMethodName: '신한카드',
+      lastCancelableDate: '2027-10-09',
+      expired: false,
     },
   ],
 }
 
 const ACCOUNT_ONLY: Plan = {
   balance: 65000,
-  cardRefundAmount: 0,
-  accountRefundAmount: 65000,
-  accountRequired: true,
-  earliestCardCancelDate: null,
-  charges: [
-    {
-      chargeId: 101,
-      approvedAt: '2025-09-01T18:40:00',
-      chargedAmount: 85000,
-      remainingAmount: 65000,
-      cardCancelDate: '2026-08-31',
-      refundTo: 'ACCOUNT',
-      paymentMethodName: '신한카드',
-    },
-  ],
+  earliestLastCancelableDate: null,
+  charges: [{ ...OLD_CHARGE, remainingAmount: 65000 }],
 }
+
+const EMPTY: Plan = { balance: 0, earliestLastCancelableDate: null, charges: [] }
 
 type WithdrawalBody = {
   bankCode?: string
@@ -222,7 +193,7 @@ describe('예치금 돌려받기 (M22, 환급 변경안 11/5)', () => {
     expect(screen.getByText('계좌로 · 카드 취소 기한(2026-08-31)이 지났어요')).toBeInTheDocument()
     expect(screen.getByText('5,000원')).toBeInTheDocument()
     expect(screen.getByText('2026-10-13 충전 · 60,000원')).toBeInTheDocument()
-    expect(screen.getByText('신한카드로 · 카드 취소 2027-10-12까지')).toBeInTheDocument()
+    expect(screen.getByText('결제한 카드로 · 카드 취소 2027-10-12까지')).toBeInTheDocument()
     expect(screen.getByText('60,000원')).toBeInTheDocument()
 
     await user.click(toggle)
@@ -230,7 +201,7 @@ describe('예치금 돌려받기 (M22, 환급 변경안 11/5)', () => {
   })
 
   it('카드 몫이 있는데 기한이 비어 오면 계약과 다른 응답으로 보고 신청을 막는다', async () => {
-    server.use(planHandler({ ...CARD_ONLY, earliestCardCancelDate: null }))
+    server.use(planHandler({ ...CARD_ONLY, earliestLastCancelableDate: null }))
     renderWithClient(<DepositRefundPage />)
 
     expect(await screen.findByText('돌려받을 금액을 불러오지 못했어요.')).toBeInTheDocument()
@@ -246,22 +217,57 @@ describe('예치금 돌려받기 (M22, 환급 변경안 11/5)', () => {
     expect(screen.getByRole('button', { name: /돌려받기 신청/ })).toBeDisabled()
   })
 
-  it.each([
-    ['계좌 몫이 있는데 계좌 입력이 필요 없다고 옴', { ...MIXED, accountRequired: false }],
-    ['계좌 몫이 없는데 계좌 입력이 필요하다고 옴', { ...CARD_ONLY, accountRequired: true }],
-    ['두 몫의 합이 돌려받을 금액과 다름', { ...MIXED, balance: 70000 }],
-  ])('%s: 계약과 다른 응답으로 보고 신청을 막는다', async (_, data) => {
-    server.use(planHandler(data))
+  it('카드 몫이 잔액보다 크게 오면 계약과 다른 응답으로 보고 신청을 막는다', async () => {
+    server.use(planHandler({ ...MIXED, balance: 50000 }))
     renderWithClient(<DepositRefundPage />)
 
     expect(await screen.findByText('돌려받을 금액을 불러오지 못했어요.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /돌려받기 신청/ })).toBeDisabled()
   })
 
+  it('충전 건에 없는 잔액(판매자 정산 대금)도 계좌 몫에 넣는다: 계좌 몫 = 잔액 − 기한 안 충전의 남은 금액', async () => {
+    // 기한 지난 충전 5,000원 + 충전 건이 없는 정산 대금 20,000원이 계좌로 간다
+    server.use(planHandler({ ...MIXED, balance: 85000 }))
+    renderWithClient(<DepositRefundPage />)
+
+    expect(
+      await screen.findByText(
+        '2027-10-12까지 신청하면 60,000원은 카드로, 25,000원은 계좌로 돌아가요.',
+      ),
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText('계좌번호')).toBeInTheDocument()
+  })
+
+  it('충전 건이 하나도 없는 판매자 회원은 잔액 전부를 계좌로 받는다', async () => {
+    server.use(planHandler({ balance: 30000, earliestLastCancelableDate: null, charges: [] }))
+    renderWithClient(<DepositRefundPage />)
+
+    expect(await screen.findByText('30,000원 전부 계좌로 돌아가요.')).toBeInTheDocument()
+    expect(screen.getByLabelText('계좌번호')).toBeInTheDocument()
+  })
+
+  it('남은 금액이 0원인 충전 건은 상세 내역에 보여 주지 않는다', async () => {
+    server.use(
+      planHandler({
+        ...MIXED,
+        charges: [
+          ...(MIXED.charges as object[]),
+          { ...OLD_CHARGE, chargeId: 1, remainingAmount: 0, chargedAt: '2025-01-13T09:00:00' },
+        ],
+      }),
+    )
+    const user = userEvent.setup()
+    renderWithClient(<DepositRefundPage />)
+
+    await user.click(await screen.findByRole('button', { name: '충전별 내역 상세보기' }))
+    expect(screen.queryByText(/^2025-01-13 충전/)).not.toBeInTheDocument()
+    expect(screen.getAllByRole('listitem')).toHaveLength(2)
+  })
+
   it('응답 모양 검사 실패는 다시 받아도 같으니 다시 요청하지 않는다', async () => {
     let calls = 0
     server.use(
-      http.get('*/api/v1/cash/withdrawals/preview', () => {
+      http.get('*/api/v1/cash/wallets/refundable-charges', () => {
         calls += 1
         return HttpResponse.json({ status: 200, message: '아무 문구', data: { balance: 'x' } })
       }),
@@ -286,16 +292,7 @@ describe('예치금 돌려받기 (M22, 환급 변경안 11/5)', () => {
   })
 
   it('돌려받을 금액이 0원이면 신청 버튼을 막는다', async () => {
-    server.use(
-      planHandler({
-        balance: 0,
-        cardRefundAmount: 0,
-        accountRefundAmount: 0,
-        accountRequired: false,
-        earliestCardCancelDate: null,
-        charges: [],
-      }),
-    )
+    server.use(planHandler(EMPTY))
     renderWithClient(<DepositRefundPage />)
 
     expect(await submit('0원')).toBeDisabled()
@@ -398,16 +395,7 @@ describe('예치금 돌려받기 (M22, 환급 변경안 11/5)', () => {
     await screen.findByText('잠시 뒤 다시 시도해 주세요.')
 
     // 서버는 처음 요청을 처리해 잔액이 0원이 됐다
-    server.use(
-      planHandler({
-        balance: 0,
-        cardRefundAmount: 0,
-        accountRefundAmount: 0,
-        accountRequired: false,
-        earliestCardCancelDate: null,
-        charges: [],
-      }),
-    )
+    server.use(planHandler(EMPTY))
     await client.invalidateQueries()
     const again = await submit('0원')
     expect(again).toBeEnabled()
@@ -496,20 +484,22 @@ describe('예치금 돌려받기 (M22, 환급 변경안 11/5)', () => {
 
 describe('가짜 응답 모드의 돌려받기 조회', () => {
   const preview = (referer?: string) =>
-    fetch('http://localhost/api/v1/cash/withdrawals/preview', {
+    fetch('http://localhost/api/v1/cash/wallets/refundable-charges', {
       headers: referer ? { referer } : {},
     })
       .then((r) => r.json() as Promise<{ data: unknown }>)
       .then((body) => refundPlanSchema.parse(body.data))
 
-  it('화면 주소의 case로 카드만 · 카드 + 계좌 · 계좌만을 고를 수 있고, 모두 계약 모양이다', async () => {
+  it('화면 주소의 case로 카드만 · 카드 + 계좌 · 계좌만 · 판매자를 고를 수 있고, 모두 계약 모양이다', async () => {
     const mixed = await preview()
     const card = await preview('http://localhost/me/deposit/refund?case=card')
     const account = await preview('http://localhost/me/deposit/refund?case=account')
+    const seller = await preview('http://localhost/me/deposit/refund?case=seller')
 
     expect(mixed).toMatchObject({ accountRequired: true, cardRefundAmount: 60000 })
     expect(card).toMatchObject({ accountRequired: false, accountRefundAmount: 0 })
     expect(account).toMatchObject({ accountRequired: true, earliestCardCancelDate: null })
+    expect(seller).toMatchObject({ cardRefundAmount: 0, accountRefundAmount: 30000 })
   })
 })
 
