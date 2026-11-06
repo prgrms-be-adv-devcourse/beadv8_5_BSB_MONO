@@ -13,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * 배송 중인 키트의 배송 상태를 주기적으로 받아 온다 (BUK-55). 기본 30분(order.kit-tracking.interval)
+ * 30분마다 깨어 다음 조회 시각이 된 배송만 조회한다. 배송마다 간격은 상태로 정한다 (BUK-90, DeliveryTrackingStatus)
  * Webhook 대신 주기적 조회를 쓴다: 알림에 상태가 없어 어차피 다시 조회해야 하고, 보낸 쪽을 확인할 수단이 없다 (11/03)
  * fixedDelay라 Delivery Tracker가 느려 한 번이 길어져도 실행이 겹치지 않는다
  * 테스트에서는 등록하지 않는다. 테스트는 KitTrackingUseCase에 시각을 넣어 직접 부른다

@@ -22,4 +22,7 @@ public interface PartyMemberRepository extends JpaRepository<PartyMember, Long> 
 	// 내 파티 목록 (BUK-39)
 	// shortcut: member_id로 시작하는 인덱스가 없다(uk_party_member는 party_id 먼저). 파티원 줄이 많아지면 인덱스를 더한다
 	List<PartyMember> findByMemberIdAndLeftAtIsNull(long memberId);
+
+	// 지금 파티원 수 (파티장 포함)
+	long countByPartyIdAndLeftAtIsNull(long partyId);
 }

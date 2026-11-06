@@ -77,7 +77,7 @@ class CashChargeReconcileUseCaseTest {
 		createCustomerWallet(0);
 		createCharge("order_1", ChargeStatus.UNCERTAIN, null);
 		given(paymentClient.lookupByOrderId("order_1"))
-			.willReturn(PaymentLookupResult.completed(new PaymentApprovalResult(10_000, "toss_key_1")));
+			.willReturn(PaymentLookupResult.completed(new PaymentApprovalResult(10_000, "toss_key_1", null)));
 
 		cashChargeReconcileUseCase.reconcile(LocalDateTime.now());
 
@@ -86,6 +86,20 @@ class CashChargeReconcileUseCaseTest {
 		assertThat(charge.getPgPaymentKey()).isEqualTo("toss_key_1");
 		assertBalance(CUSTOMER_ID, 10_000);
 		assertThat(walletLedgerRepository.findAll()).hasSize(1);
+	}
+
+	@Test
+	@DisplayName("재조회로 COMPLETED로 맞출 때 PG가 준 승인 시각을 충전 건에 남긴다 (재조회한 시각이 아니다)")
+	void reconciledChargeKeepsApprovedAtFromPg() {
+		createCustomerWallet(0);
+		createCharge("order_1", ChargeStatus.UNCERTAIN, null);
+		given(paymentClient.lookupByOrderId("order_1")).willReturn(PaymentLookupResult.completed(
+			new PaymentApprovalResult(10_000, "toss_key_1", LocalDateTime.of(2026, 10, 15, 23, 59))));
+
+		cashChargeReconcileUseCase.reconcile(LocalDateTime.now());
+
+		WalletCharge charge = walletChargeRepository.findByIdempotencyKey("order_1").orElseThrow();
+		assertThat(charge.getApprovedAt()).isEqualTo(LocalDateTime.of(2026, 10, 15, 23, 59));
 	}
 
 	@Test
@@ -157,7 +171,7 @@ class CashChargeReconcileUseCaseTest {
 		createCharge("order_4", ChargeStatus.UNCERTAIN, now.minusMinutes(1));
 		given(paymentClient.lookupByOrderId(anyString())).willReturn(PaymentLookupResult.pending());
 		given(paymentClient.lookupByOrderId("order_4"))
-			.willReturn(PaymentLookupResult.completed(new PaymentApprovalResult(10_000, "toss_key_4")));
+			.willReturn(PaymentLookupResult.completed(new PaymentApprovalResult(10_000, "toss_key_4", null)));
 
 		cashChargeReconcileUseCase.reconcile(now);
 
@@ -172,7 +186,7 @@ class CashChargeReconcileUseCaseTest {
 		createCustomerWallet(0);
 		createCharge("order_1", ChargeStatus.IN_PROGRESS, LocalDateTime.now().minusMinutes(STALE_MINUTES + 5));
 		given(paymentClient.lookupByOrderId("order_1"))
-			.willReturn(PaymentLookupResult.completed(new PaymentApprovalResult(10_000, "toss_key_1")));
+			.willReturn(PaymentLookupResult.completed(new PaymentApprovalResult(10_000, "toss_key_1", null)));
 
 		cashChargeReconcileUseCase.reconcile(LocalDateTime.now());
 

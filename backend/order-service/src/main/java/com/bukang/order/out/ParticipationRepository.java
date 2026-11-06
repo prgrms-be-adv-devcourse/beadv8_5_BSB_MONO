@@ -26,6 +26,11 @@ public interface ParticipationRepository extends JpaRepository<Participation, Lo
 		+ "and p.activeFlag = true")
 	Optional<Long> findActiveIdByPartyIdAndMemberId(@Param("partyId") long partyId, @Param("memberId") long memberId);
 
+	// 파티에서 결제를 마친(참가 확정) 신청서 수와 내가 결제했는지 (내 파티 상태, BUK-91)
+	long countByPartyIdAndStatus(long partyId, ParticipationStatus status);
+
+	boolean existsByPartyIdAndMemberIdAndStatus(long partyId, long memberId, ParticipationStatus status);
+
 	// 다음 신청 때 채울 최근 신청 (idx_participation_member 인덱스). 상태와 상관없이 마지막으로 쓴 정보를 쓴다
 	Optional<Participation> findFirstByMemberIdOrderByIdDesc(long memberId);
 
