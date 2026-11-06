@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 
 import com.bukang.order.domain.ParticipantInfo;
 import com.bukang.order.domain.Participation;
+import com.bukang.order.domain.ParticipationStatus;
 import com.bukang.order.domain.ParticipationType;
 import com.bukang.order.domain.Party;
 import com.bukang.order.domain.PartyMember;
@@ -50,9 +51,13 @@ public class PartyUseCase {
 	// PartyMember의 @UniqueConstraint 이름과 같아야 한다
 	private static final String PARTY_MEMBER_CONSTRAINT = "uk_party_member";
 
-	// 파티장 확인에서 보는 상태. 종료(와 앞으로 생길 끝난 상태)는 빼고, 이미 신청한 파티도 알려 주려고 결제 중·끝을 넣는다
+	// 내 파티 상태에서 보는 상태. 종료(와 앞으로 생길 끝난 상태)는 빼고, 이미 신청한 파티도 알려 주려고 결제 중·끝을 넣는다
 	private static final EnumSet<PartyStatus> LIVE_STATUSES =
 		EnumSet.of(PartyStatus.RECRUITING, PartyStatus.PAYING, PartyStatus.PAID);
+	// shortcut: 판매자가 정하는 파티 최소·최대 인원(crewMinCount·crewMaxCount)이 상품 종목 응답에 아직 없어 정책 기본값을 둔다.
+	// 파티 신청(BUK-37, #337)이 RaceCourseInfo.crewSale을 들여오면 그 값으로 바꾼다 (최소는 4명 아래로 못 내림, 11/05 P3)
+	public static final int MIN_PARTY_SIZE = 4;
+	public static final int MAX_PARTY_SIZE = 10;
 
 	private final PartyRepository partyRepository;
 	private final PartyMemberRepository partyMemberRepository;
@@ -133,13 +138,20 @@ public class PartyUseCase {
 		return participation;
 	}
 
-	// [대회 참가 신청] 전에 프론트가 묻는다. 파티 대기열은 파티장 회원 ID로만 줄을 세우므로 파티장인지는 주문이 답한다 (BUK-91)
-	// 「참가하려는 파티」는 그 대회에서 이 회원이 파티장인, 종료되지 않은 파티로 본다. 읽기만 해서 잠그지 않는다
-	// 안내용이다. 확인과 신청 사이에 파티장이 바뀔 수 있으니, 파티 신청(BUK-37)은 파티 줄을 잠근 뒤
-	// 파티장·모집 중을 다시 확인해야 한다
-	public Optional<Party> findLedParty(long raceId, long memberId) {
-		return partyRepository.findFirstByRaceIdAndLeaderMemberIdAndStatusInOrderByIdDesc(
-			raceId, memberId, LIVE_STATUSES);
+	public record MyRaceParty(Party party, int memberCount, int paidCount, boolean myPaid) {
+	}
+
+	// 대회 상세 화면이 [파티로 신청] 버튼을 그릴 때 묻는다. 파티 대기열은 파티장 회원 ID로만 줄을 세우므로 파티장인지는 주문이 답한다 (BUK-91)
+	// 이 대회에서 내가 지금 들어가 있는(나가지 않은) 종료 안 된 파티를 찾는다. 파티장도 파티원 줄이 있다. 읽기만 해서 잠그지 않는다
+	// 안내용이다. 확인과 신청 사이에 파티장·인원이 바뀔 수 있으니, 파티 신청(BUK-37)은 파티 줄을 잠근 뒤 다시 확인해야 한다
+	public Optional<MyRaceParty> findMyRaceParty(long raceId, long memberId) {
+		return partyRepository.findJoinedByRaceIdAndMemberId(raceId, memberId, LIVE_STATUSES).stream()
+			.findFirst()
+			.map(party -> new MyRaceParty(party,
+				(int)partyMemberRepository.countByPartyIdAndLeftAtIsNull(party.getId()),
+				(int)participationRepository.countByPartyIdAndStatus(party.getId(), ParticipationStatus.CONFIRMED),
+				participationRepository.existsByPartyIdAndMemberIdAndStatus(party.getId(), memberId,
+					ParticipationStatus.CONFIRMED)));
 	}
 
 	private static PartyNotFoundException joinLinkNotFound() {

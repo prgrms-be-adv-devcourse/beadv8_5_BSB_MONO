@@ -20,7 +20,7 @@ import com.bukang.order.dto.PartyCreateRequestDto;
 import com.bukang.order.dto.PartyCreatedDto;
 import com.bukang.order.dto.PartyDto;
 import com.bukang.order.dto.PartyJoinRequestDto;
-import com.bukang.order.dto.PartyLeaderDto;
+import com.bukang.order.dto.PartyRaceStatusDto;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -35,7 +35,7 @@ import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 
 // operationId를 직접 정한다. 메서드 이름(create)이 주문 만들기와 겹치면 프론트 생성 함수 이름이 바뀐다
-@Tag(name = "Party", description = "파티 만들기, 참가 링크 다시 만들기, 합류, 나가기 API (BUK-36), 파티장 확인 (BUK-91)")
+@Tag(name = "Party", description = "파티 만들기, 참가 링크 다시 만들기, 합류, 나가기 API (BUK-36), 이 대회 내 파티 상태 (BUK-91)")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/order/parties")
@@ -208,19 +208,22 @@ public class ApiV1PartyController {
 			.body(RsData.of(HttpStatus.OK, "파티에서 나갔습니다.", partyFacade.leave(partyId, memberId)));
 	}
 
-	@GetMapping("/leader")
-	@Operation(operationId = "checkPartyLeader", summary = "이 대회 파티의 파티장인지 확인",
-		description = "[대회 참가 신청]을 누를 때, 파티 대기열에 넣기 전에 부른다. 파티 대기열은 파티장 회원 ID로만 줄을 세우므로 "
-			+ "파티장인지는 이 API로 확인한다. 이 대회에서 로그인한 회원이 파티장인 파티(종료된 파티 제외)를 찾는다. "
-			+ "파티장이 아니어도 오류가 아니라 200에 leader=false를 준다(프론트가 Alert로 막는다). "
-			+ "canApply=true(파티장이고 모집 중)일 때만 대기열에 넣는다. "
-			+ "partyStatus가 PAYING(결제 진행 중)·PAID(결제 끝)이면 이미 신청한 파티라 다른 문구를 띄운다.")
+	@GetMapping("/me/race-status")
+	@Operation(operationId = "getMyRacePartyStatus", summary = "이 대회 내 파티 상태",
+		description = "대회 상세 화면이 [파티로 신청] 버튼 문구를 고를 때 부른다. 이 대회에서 로그인한 회원이 들어가 있는 파티"
+			+ "(종료된 파티·나간 파티 제외)를 찾아 역할·인원·결제 현황을 준다. 파티가 없어도 오류가 아니라 200에 role=NONE을 준다. "
+			+ "파티 대기열은 파티장 회원 ID로만 줄을 세우므로 canApply=true(파티장, 모집 중, 인원이 최소~최대)일 때만 대기열에 넣는다. "
+			+ "canApply=false면 reason으로 문구를 고른다. 화면 상태는 role·partyStatus·myPaid로 고른다: "
+			+ "LEADER+RECRUITING(모집 중, 인원 모자라면 TOO_FEW_MEMBERS) / MEMBER+RECRUITING(파티원) / "
+			+ "LEADER+PAYING(결제 진행 중) / PAYING·PAID에서 myPaid=false(결제할 차례)·true(결제 완료) / NONE(파티 없음).")
 	@ApiResponses({
-		@ApiResponse(responseCode = "200", description = "확인 성공 (파티장이 아니어도 200)",
+		@ApiResponse(responseCode = "200", description = "조회 성공 (파티가 없어도 200)",
 			content = @Content(examples = {
-				@ExampleObject(name = "모집 중 파티의 파티장", value = PartyApiExamples.LEADER_RECRUITING),
-				@ExampleObject(name = "이미 신청한 파티의 파티장 (결제 진행 중)", value = PartyApiExamples.LEADER_PAYING),
-				@ExampleObject(name = "파티장 아님", value = PartyApiExamples.NOT_LEADER)
+				@ExampleObject(name = "파티장·신청 가능", value = PartyApiExamples.LEADER_RECRUITING),
+				@ExampleObject(name = "파티장·인원 모자람", value = PartyApiExamples.LEADER_TOO_FEW),
+				@ExampleObject(name = "파티원·모집 중", value = PartyApiExamples.MEMBER_RECRUITING),
+				@ExampleObject(name = "파티원·결제할 차례", value = PartyApiExamples.MEMBER_PAYING),
+				@ExampleObject(name = "파티 없음", value = PartyApiExamples.NO_PARTY)
 			})),
 		@ApiResponse(responseCode = "400", description = "대회 ID 없음·형식 오류·0 이하",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
@@ -232,13 +235,12 @@ public class ApiV1PartyController {
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = PartyApiExamples.LOGIN_REQUIRED)))
 	})
-	public ResponseEntity<RsData<PartyLeaderDto>> checkLeader(
+	public ResponseEntity<RsData<PartyRaceStatusDto>> getMyRaceStatus(
 		@LoginMemberId long memberId,
 		@Parameter(description = "대회 ID", example = "100")
 		@RequestParam @Positive(message = "대회 ID가 올바르지 않습니다.") long raceId
 	) {
-		PartyLeaderDto leader = partyFacade.findLeader(raceId, memberId);
-		String message = leader.leader() ? "이 대회 파티의 파티장입니다." : "이 대회 파티의 파티장이 아닙니다.";
-		return ResponseEntity.ok().body(RsData.of(HttpStatus.OK, message, leader));
+		return ResponseEntity.ok().body(RsData.of(HttpStatus.OK, "이 대회 내 파티 상태를 조회했습니다.",
+			partyFacade.findMyRaceStatus(raceId, memberId)));
 	}
 }

@@ -10,7 +10,7 @@ import com.bukang.order.dto.PartyCreateRequestDto;
 import com.bukang.order.dto.PartyCreatedDto;
 import com.bukang.order.dto.PartyDto;
 import com.bukang.order.dto.PartyJoinRequestDto;
-import com.bukang.order.dto.PartyLeaderDto;
+import com.bukang.order.dto.PartyRaceStatusDto;
 
 import lombok.RequiredArgsConstructor;
 
@@ -40,7 +40,10 @@ public class PartyFacade {
 	}
 
 	@Transactional(readOnly = true)
-	public PartyLeaderDto findLeader(long raceId, long memberId) {
-		return partyUseCase.findLedParty(raceId, memberId).map(PartyLeaderDto::of).orElseGet(PartyLeaderDto::notLeader);
+	public PartyRaceStatusDto findMyRaceStatus(long raceId, long memberId) {
+		return partyUseCase.findMyRaceParty(raceId, memberId)
+			.map(mine -> PartyRaceStatusDto.of(mine, memberId, PartyUseCase.MIN_PARTY_SIZE,
+				PartyUseCase.MAX_PARTY_SIZE))
+			.orElseGet(PartyRaceStatusDto::none);
 	}
 }

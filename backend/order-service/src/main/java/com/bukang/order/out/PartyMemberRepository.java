@@ -13,4 +13,7 @@ public interface PartyMemberRepository extends JpaRepository<PartyMember, Long> 
 	// 파티장이 떠날 때 넘겨받을 사람: 남은 파티원 중 가장 먼저 합류한 사람
 	Optional<PartyMember> findFirstByPartyIdAndLeftAtIsNullAndMemberIdNotOrderByJoinedAtAscIdAsc(long partyId,
 		long memberId);
+
+	// 지금 파티원 수 (파티장 포함)
+	long countByPartyIdAndLeftAtIsNull(long partyId);
 }

@@ -129,39 +129,47 @@ final class PartyApiExamples {
 	static final String LEADER_RECRUITING = """
 		{
 			"status": 200,
-			"message": "이 대회 파티의 파티장입니다.",
-			"data": {
-				"leader": true,
-				"canApply": true,
-				"partyId": 1,
-				"raceCourseId": 2,
-				"partyStatus": "RECRUITING"
-			}
+			"message": "이 대회 내 파티 상태를 조회했습니다.",
+			"data": { "role": "LEADER", "canApply": true, "partyId": 1, "raceCourseId": 2, "partyStatus": "RECRUITING",
+				"memberCount": 4, "minCount": 4, "maxCount": 10, "paidCount": 0, "myPaid": false }
 		}
 		""";
 
-	static final String LEADER_PAYING = """
+	static final String LEADER_TOO_FEW = """
 		{
 			"status": 200,
-			"message": "이 대회 파티의 파티장입니다.",
-			"data": {
-				"leader": true,
-				"canApply": false,
-				"partyId": 1,
-				"raceCourseId": 2,
-				"partyStatus": "PAYING"
-			}
+			"message": "이 대회 내 파티 상태를 조회했습니다.",
+			"data": { "role": "LEADER", "canApply": false, "reason": "TOO_FEW_MEMBERS", "partyId": 1, "raceCourseId": 2,
+				"partyStatus": "RECRUITING", "memberCount": 2, "minCount": 4, "maxCount": 10, "paidCount": 0,
+				"myPaid": false }
 		}
 		""";
 
-	static final String NOT_LEADER = """
+	static final String MEMBER_RECRUITING = """
 		{
 			"status": 200,
-			"message": "이 대회 파티의 파티장이 아닙니다.",
-			"data": {
-				"leader": false,
-				"canApply": false
-			}
+			"message": "이 대회 내 파티 상태를 조회했습니다.",
+			"data": { "role": "MEMBER", "canApply": false, "reason": "NOT_LEADER", "partyId": 1, "raceCourseId": 2,
+				"partyStatus": "RECRUITING", "memberCount": 3, "minCount": 4, "maxCount": 10, "paidCount": 0,
+				"myPaid": false }
+		}
+		""";
+
+	static final String MEMBER_PAYING = """
+		{
+			"status": 200,
+			"message": "이 대회 내 파티 상태를 조회했습니다.",
+			"data": { "role": "MEMBER", "canApply": false, "reason": "NOT_LEADER", "partyId": 1, "raceCourseId": 2,
+				"partyStatus": "PAYING", "memberCount": 4, "minCount": 4, "maxCount": 10, "paidCount": 1,
+				"paymentDueAt": "2026-11-07T10:00:00", "myPaid": false }
+		}
+		""";
+
+	static final String NO_PARTY = """
+		{
+			"status": 200,
+			"message": "이 대회 내 파티 상태를 조회했습니다.",
+			"data": { "role": "NONE", "canApply": false, "reason": "NO_PARTY" }
 		}
 		""";
 

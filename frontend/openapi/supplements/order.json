@@ -203,11 +203,11 @@
         }
       }
     },
-    "checkPartyLeader": {
+    "getMyRacePartyStatus": {
       "200": {
-        "wrapper": "RsDataPartyLeaderDto",
+        "wrapper": "RsDataPartyRaceStatusDto",
         "data": {
-          "$ref": "#/components/schemas/PartyLeaderDto"
+          "$ref": "#/components/schemas/PartyRaceStatusDto"
         }
       }
     }
@@ -923,31 +923,47 @@
         }
       }
     },
-    "PartyLeaderDto": {
+    "PartyRaceStatusDto": {
       "type": "object",
-      "description": "이 대회에서 내가 파티장인 파티. 파티장이 아니면 leader·canApply만 온다",
+      "description": "이 대회에서 내 파티 상태. 파티가 없으면 role=NONE, canApply=false, reason=NO_PARTY만 온다",
       "required": [
-        "leader",
+        "role",
         "canApply"
       ],
       "properties": {
-        "leader": {
-          "type": "boolean",
-          "description": "이 대회에서 종료되지 않은 파티의 파티장인지"
+        "role": {
+          "type": "string",
+          "enum": [
+            "LEADER",
+            "MEMBER",
+            "NONE"
+          ],
+          "description": "LEADER(파티장) / MEMBER(파티원) / NONE(파티 없음)"
         },
         "canApply": {
           "type": "boolean",
-          "description": "파티장이고 모집 중일 때만 true. 이때만 파티 대기열에 넣는다"
+          "description": "파티장이고, 모집 중이고, 인원이 최소~최대일 때만 true. 이때만 파티 대기열에 넣는다"
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "NO_PARTY",
+            "NOT_LEADER",
+            "NOT_RECRUITING",
+            "TOO_FEW_MEMBERS",
+            "TOO_MANY_MEMBERS"
+          ],
+          "description": "신청할 수 없는 이유 (canApply=false일 때만)"
         },
         "partyId": {
           "type": "integer",
           "format": "int64",
-          "description": "파티 ID (파티장일 때만)"
+          "description": "파티 ID"
         },
         "raceCourseId": {
           "type": "integer",
           "format": "int64",
-          "description": "파티 종목 ID (파티장일 때만)"
+          "description": "파티 종목 ID"
         },
         "partyStatus": {
           "type": "string",
@@ -956,7 +972,36 @@
             "PAYING",
             "PAID"
           ],
-          "description": "파티 상태 (파티장일 때만)"
+          "description": "파티 상태"
+        },
+        "memberCount": {
+          "type": "integer",
+          "format": "int32",
+          "description": "파티원 수 (파티장 포함)"
+        },
+        "minCount": {
+          "type": "integer",
+          "format": "int32",
+          "description": "신청할 수 있는 최소 인원"
+        },
+        "maxCount": {
+          "type": "integer",
+          "format": "int32",
+          "description": "파티 최대 인원"
+        },
+        "paidCount": {
+          "type": "integer",
+          "format": "int32",
+          "description": "결제를 마친(참가 확정) 파티원 수"
+        },
+        "paymentDueAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "파티원 결제 마감 (파티 신청 뒤에만)"
+        },
+        "myPaid": {
+          "type": "boolean",
+          "description": "내가 결제했는지"
         }
       }
     }
