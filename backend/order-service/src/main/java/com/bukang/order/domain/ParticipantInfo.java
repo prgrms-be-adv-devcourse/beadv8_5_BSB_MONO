@@ -5,9 +5,12 @@ import static lombok.AccessLevel.PROTECTED;
 
 import java.time.LocalDate;
 
+import com.bukang.common.global.crypto.EncryptedStringConverter;
+
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.AttributeOverrides;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Embeddable;
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Enumerated;
@@ -35,13 +38,16 @@ public class ParticipantInfo {
 	@Column(name = "participant_gender", columnDefinition = "varchar(10)")
 	private Gender gender;
 
-	@Column(name = "participant_phone", length = 20)
+	// 휴대폰 번호는 암호화해 저장한다 (11/05 회의 G3, BUK-92). 암호문이 길어 칸을 255로 둔다
+	@Convert(converter = EncryptedStringConverter.class)
+	@Column(name = "participant_phone", length = 255)
 	private String phone;
 
 	@Column(name = "emergency_contact_name", length = 50)
 	private String emergencyContactName;
 
-	@Column(name = "emergency_contact_phone", length = 20)
+	@Convert(converter = EncryptedStringConverter.class)
+	@Column(name = "emergency_contact_phone", length = 255)
 	private String emergencyContactPhone;
 
 	// 기념 티셔츠(키트) 사이즈. 종목마다 고를 수 있는 값이 달라 문자열로 둔다 (ERD v4 tshirt_size)
