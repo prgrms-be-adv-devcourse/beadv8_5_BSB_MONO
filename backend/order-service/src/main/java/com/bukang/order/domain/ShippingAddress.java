@@ -2,7 +2,10 @@ package com.bukang.order.domain;
 
 import static lombok.AccessLevel.PROTECTED;
 
+import com.bukang.common.global.crypto.EncryptedStringConverter;
+
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Embeddable;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -21,7 +24,9 @@ public class ShippingAddress {
 	@Column(name = "recipient_name", length = 50)
 	private String recipientName;
 
-	@Column(name = "recipient_phone", length = 20)
+	// 받는 사람 연락처는 암호화해 저장한다 (11/05 회의 G3, BUK-94). 암호문이 길어 칸을 255로 둔다
+	@Convert(converter = EncryptedStringConverter.class)
+	@Column(name = "recipient_phone", length = 255)
 	private String recipientPhone;
 
 	@Column(name = "zipcode", length = 10)
