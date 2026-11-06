@@ -181,6 +181,10 @@ class PayoutClaimUseCaseTest {
 
 		assertThat(claims()).extracting(PayoutClaim::getAmount, PayoutClaim::getStartDate)
 			.containsExactly(tuple(105_500L, FINAL_CREATED_DATE));
+		PayoutClaim claim = claims().getFirst();
+		assertThat(claim.getClaimCode())
+			.isEqualTo("RC-%s-%04X".formatted(FINAL_CREATED_DATE.toString().replace("-", ""), claim.getId() & 0xFFFF));
+		assertThat(claim.getDueDate()).isEqualTo(FINAL_CREATED_DATE.plusDays(30));
 	}
 
 	@Test

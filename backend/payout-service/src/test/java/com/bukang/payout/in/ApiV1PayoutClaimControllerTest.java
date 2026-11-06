@@ -95,7 +95,9 @@ class ApiV1PayoutClaimControllerTest {
 			PayoutRecovery.scheduleChanged(1, 7, 108, 105_500, LocalDateTime.of(2026, 11, 26, 10, 0)));
 		payoutItemRepository.save(
 			PayoutItem.ofRecovery(recovery, PayoutRecordType.RECEIVABLE_ADDED, 108L, 7L, 105_500));
-		return payoutClaimRepository.save(new PayoutClaim(1, 7, 105_500, LocalDate.of(2026, 12, 14)));
+		PayoutClaim claim = payoutClaimRepository.save(new PayoutClaim(1, 7, 105_500, LocalDate.of(2026, 12, 14)));
+		claim.assignClaimCode(LocalDate.of(2026, 12, 15));
+		return payoutClaimRepository.save(claim);
 	}
 
 	private ResultActions confirm(long claimId, long memberId) throws Exception {
@@ -112,7 +114,9 @@ class ApiV1PayoutClaimControllerTest {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.message").value("청구 입금을 확인했습니다."))
 			.andExpect(jsonPath("$.data.id").value(claim.getId()))
+			.andExpect(jsonPath("$.data.claimCode").value(claim.getClaimCode()))
 			.andExpect(jsonPath("$.data.amount").value(105_500))
+			.andExpect(jsonPath("$.data.dueDate").value("2027-01-13"))
 			.andExpect(jsonPath("$.data.status").value("CONFIRMED"))
 			.andExpect(jsonPath("$.data.confirmedBy").value(ADMIN_ID))
 			.andDo(document("payout-claim-confirm",
@@ -122,10 +126,12 @@ class ApiV1PayoutClaimControllerTest {
 					fieldWithPath("status").description("HTTP 상태 코드"),
 					fieldWithPath("message").description("결과 메시지"),
 					fieldWithPath("data.id").description("청구 ID"),
+					fieldWithPath("data.claimCode").description("청구 ID 표기 (RC-만든 날-16진수 4자리)"),
 					fieldWithPath("data.sellerId").description("돈을 돌려줄 판매자 ID"),
 					fieldWithPath("data.raceId").description("대회 ID"),
 					fieldWithPath("data.amount").description("청구 금액 (최종 정산 상계 뒤 남은 갚을 돈)"),
 					fieldWithPath("data.startDate").description("상계 실패일 (최종 정산을 만든 날, 대회 취소는 취소일)"),
+					fieldWithPath("data.dueDate").description("판매자 입금 기한 (상계 실패일 + 30일)"),
 					fieldWithPath("data.status").description("청구 상태 (OPEN: 청구 중, CONFIRMED: 입금 확인)"),
 					fieldWithPath("data.confirmedBy").description("입금을 확인한 관리자 회원 ID (확인 전에는 null)")
 						.optional().type(JsonFieldType.NUMBER),

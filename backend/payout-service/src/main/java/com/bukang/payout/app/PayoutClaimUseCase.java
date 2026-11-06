@@ -138,7 +138,7 @@ public class PayoutClaimUseCase {
 				continue;
 			}
 			payoutClaimRepository.save(new PayoutClaim(target.sellerId(), target.raceId(), receivable,
-				startDate.get()));
+				startDate.get())).assignClaimCode(today);
 			created++;
 		}
 		return created;
