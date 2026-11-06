@@ -11,7 +11,7 @@ public interface PaymentClient {
 
 	PaymentLookupResult lookupByOrderId(String orderId);
 
-	// paymentKey로 결제 전액을 취소한다. 부분 취소는 지금 범위에 없다.
+	// paymentKey로 결제 중 cancelAmount만큼 취소한다. 남은 결제 금액과 같으면 전액 취소가 된다.
 	// 실패하면 PaymentCancelFailedException을 던진다.
-	PaymentCancelResult cancel(String paymentKey, String cancelReason);
+	PaymentCancelResult cancel(String paymentKey, String cancelReason, long cancelAmount);
 }

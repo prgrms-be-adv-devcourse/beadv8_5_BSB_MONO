@@ -76,7 +76,7 @@ class ChargeConfirmConcurrencyTest {
 	void concurrentSameOrderIdChargeConfirm_convergesToSingleResult() throws InterruptedException {
 		createCustomerWallet();
 		given(paymentClient.approve(anyString(), anyString(), anyLong()))
-			.willReturn(new PaymentApprovalResult(10_000, "toss_key_1"));
+			.willReturn(new PaymentApprovalResult(10_000, "toss_key_1", null));
 
 		List<AttemptResult> results = runConcurrently(10, i ->
 			() -> cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 10_000));
@@ -108,13 +108,13 @@ class ChargeConfirmConcurrencyTest {
 		AtomicBoolean alreadyApproved = new AtomicBoolean(false);
 		given(paymentClient.approve(anyString(), anyString(), anyLong())).willAnswer(invocation -> {
 			if (alreadyApproved.compareAndSet(false, true)) {
-				return new PaymentApprovalResult(10_000, "toss_key_1");
+				return new PaymentApprovalResult(10_000, "toss_key_1", null);
 			}
 			throw new PaymentApprovalFailedException("이미 처리된 결제 입니다.", "ALREADY_PROCESSED_PAYMENT", true);
 		});
 		given(paymentClient.lookupByOrderId("order_1")).willAnswer(invocation ->
 			alreadyApproved.get()
-				? PaymentLookupResult.completed(new PaymentApprovalResult(10_000, "toss_key_1"))
+				? PaymentLookupResult.completed(new PaymentApprovalResult(10_000, "toss_key_1", null))
 				: PaymentLookupResult.notCompleted());
 
 		List<AttemptResult> results = runConcurrently(10, i ->

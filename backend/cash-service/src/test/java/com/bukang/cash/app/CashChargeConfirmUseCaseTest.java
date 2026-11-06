@@ -93,7 +93,7 @@ class CashChargeConfirmUseCaseTest {
 	void approvedAmountFromPgIsUsedNotRequestedAmount() {
 		createCustomerWallet(0);
 		given(paymentClient.approve("pay_1", "order_1", 10_000))
-			.willReturn(new PaymentApprovalResult(15_000, "toss_key_1"));
+			.willReturn(new PaymentApprovalResult(15_000, "toss_key_1", null));
 
 		CashChargeResponseDto response = cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 10_000);
 
@@ -107,11 +107,24 @@ class CashChargeConfirmUseCaseTest {
 	}
 
 	@Test
+	@DisplayName("승인 성공 시 PG가 준 승인 시각을 충전 건에 남긴다 (PG 결제취소 기한의 기준)")
+	void approvedAtFromPgIsSavedOnCharge() {
+		createCustomerWallet(0);
+		given(paymentClient.approve(anyString(), anyString(), anyLong()))
+			.willReturn(new PaymentApprovalResult(10_000, "toss_key_1", LocalDateTime.of(2026, 10, 15, 10, 0)));
+
+		cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 10_000);
+
+		WalletCharge charge = walletChargeRepository.findByIdempotencyKey("order_1").orElseThrow();
+		assertThat(charge.getApprovedAt()).isEqualTo(LocalDateTime.of(2026, 10, 15, 10, 0));
+	}
+
+	@Test
 	@DisplayName("승인 성공 시 장부 1줄(충전__PG결제_토스페이먼츠)이 남는다")
 	void approvedChargeLeavesOneLedgerEntry() {
 		createCustomerWallet(0);
 		given(paymentClient.approve(anyString(), anyString(), anyLong()))
-			.willReturn(new PaymentApprovalResult(10_000, "toss_key_1"));
+			.willReturn(new PaymentApprovalResult(10_000, "toss_key_1", null));
 
 		cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 10_000);
 
@@ -148,7 +161,7 @@ class CashChargeConfirmUseCaseTest {
 		given(paymentClient.approve(anyString(), anyString(), anyLong()))
 			.willThrow(alreadyProcessed());
 		given(paymentClient.lookupByOrderId("order_1"))
-			.willReturn(PaymentLookupResult.completed(new PaymentApprovalResult(10_000, "toss_key_1")));
+			.willReturn(PaymentLookupResult.completed(new PaymentApprovalResult(10_000, "toss_key_1", null)));
 
 		CashChargeResponseDto response = cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 10_000);
 
@@ -233,7 +246,7 @@ class CashChargeConfirmUseCaseTest {
 			.willThrow(new PaymentApprovalFailedException("이미 처리중인 요청입니다.", "ALREADY_PROCESSING_REQUEST", true));
 		given(paymentClient.lookupByOrderId("order_1")).willReturn(
 			PaymentLookupResult.pending(),
-			PaymentLookupResult.completed(new PaymentApprovalResult(10_000, "toss_key_1")));
+			PaymentLookupResult.completed(new PaymentApprovalResult(10_000, "toss_key_1", null)));
 
 		CashChargeResponseDto response = cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 10_000);
 
@@ -295,7 +308,7 @@ class CashChargeConfirmUseCaseTest {
 		ReflectionTestUtils.setField(charge, "status", ChargeStatus.FAILED);
 		walletChargeRepository.saveAndFlush(charge);
 		given(paymentClient.approve("pay_1", "order_1", 10_000))
-			.willReturn(new PaymentApprovalResult(10_000, "toss_key_1"));
+			.willReturn(new PaymentApprovalResult(10_000, "toss_key_1", null));
 
 		CashChargeResponseDto response = cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 10_000);
 
@@ -324,7 +337,7 @@ class CashChargeConfirmUseCaseTest {
 		willThrow(alreadyProcessed())
 			.given(paymentClient).approve("pay_1", "order_1", 10_000);
 		given(paymentClient.lookupByOrderId("order_1"))
-			.willReturn(PaymentLookupResult.completed(new PaymentApprovalResult(10_000, "toss_key_1")));
+			.willReturn(PaymentLookupResult.completed(new PaymentApprovalResult(10_000, "toss_key_1", null)));
 
 		CashChargeResponseDto second = cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 10_000);
 

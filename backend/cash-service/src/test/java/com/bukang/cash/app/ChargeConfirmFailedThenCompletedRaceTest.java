@@ -86,7 +86,7 @@ class ChargeConfirmFailedThenCompletedRaceTest {
 		given(paymentClient.approve(eq("pay_a"), eq("order_1"), anyLong())).willAnswer(invocation -> {
 			aReachedToss.countDown();
 			bSubmitted.await(5, TimeUnit.SECONDS);
-			return new PaymentApprovalResult(10_000, "toss_key_a");
+			return new PaymentApprovalResult(10_000, "toss_key_a", null);
 		});
 
 		ExecutorService executor = Executors.newFixedThreadPool(2);

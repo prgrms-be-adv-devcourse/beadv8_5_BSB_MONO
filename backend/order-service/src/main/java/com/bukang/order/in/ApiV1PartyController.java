@@ -4,10 +4,12 @@ import java.net.URI;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.bukang.common.global.rsdata.RsData;
@@ -18,6 +20,7 @@ import com.bukang.order.dto.PartyCreateRequestDto;
 import com.bukang.order.dto.PartyCreatedDto;
 import com.bukang.order.dto.PartyDto;
 import com.bukang.order.dto.PartyJoinRequestDto;
+import com.bukang.order.dto.PartyRaceStatusDto;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -28,10 +31,11 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 
 // operationId를 직접 정한다. 메서드 이름(create)이 주문 만들기와 겹치면 프론트 생성 함수 이름이 바뀐다
-@Tag(name = "Party", description = "파티 만들기, 참가 링크 다시 만들기, 합류, 나가기(BUK-36), 신청(BUK-37) API")
+@Tag(name = "Party", description = "파티 만들기, 참가 링크 다시 만들기, 합류, 나가기(BUK-36), 신청(BUK-37), 이 대회 내 파티 상태(BUK-91) API")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/order/parties")
@@ -260,5 +264,44 @@ public class ApiV1PartyController {
 	) {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "파티에서 나갔습니다.", partyFacade.leave(partyId, memberId)));
+	}
+
+	@GetMapping("/me/race-status")
+	@Operation(operationId = "getMyRacePartyStatus", summary = "이 대회 내 파티 상태",
+		description = "대회 상세 화면이 [파티로 신청] 버튼 문구를 고를 때 부른다. 이 대회에서 로그인한 회원이 들어가 있는 파티"
+			+ "(종료된 파티·나간 파티 제외)를 찾아 역할·인원·결제 현황을 준다. 파티가 없어도 오류가 아니라 200에 role=NONE을 준다. "
+			+ "파티 대기열은 파티장 회원 ID로만 줄을 세우므로 canApply=true(파티장, 모집 중, 접수 중인 대회, 인원이 최소~최대)일 때만 "
+			+ "대기열에 넣는다. 안내용이라 대기열 입장·크루 예매 기간·크루원 자격은 신청 때 다시 확인한다(어긋나면 409). "
+			+ "결제 마감은 해제 배치 전에는 지나도 PAYING이니 paymentDueAt과 지금 시각으로 판단한다. "
+			+ "canApply=false면 reason으로 문구를 고른다. 화면 상태는 role·partyStatus·myPaid로 고른다: "
+			+ "LEADER+RECRUITING(모집 중, 인원 모자라면 TOO_FEW_MEMBERS) / MEMBER+RECRUITING(파티원) / "
+			+ "LEADER+PAYING(결제 진행 중) / PAYING·PAID에서 myPaid=false(결제할 차례, participationId로 결제)·true(결제 완료) / "
+			+ "NONE(파티 없음).")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "조회 성공 (파티가 없어도 200)",
+			content = @Content(examples = {
+				@ExampleObject(name = "파티장·신청 가능", value = PartyApiExamples.LEADER_RECRUITING),
+				@ExampleObject(name = "파티장·인원 모자람", value = PartyApiExamples.LEADER_TOO_FEW),
+				@ExampleObject(name = "파티원·모집 중", value = PartyApiExamples.MEMBER_RECRUITING),
+				@ExampleObject(name = "파티원·결제할 차례", value = PartyApiExamples.MEMBER_PAYING),
+				@ExampleObject(name = "파티 없음", value = PartyApiExamples.NO_PARTY)
+			})),
+		@ApiResponse(responseCode = "400", description = "대회 ID 없음·형식 오류·0 이하",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "대회 ID 없음", value = PartyApiExamples.RACE_ID_REQUIRED),
+				@ExampleObject(name = "대회 ID 형식 오류", value = PartyApiExamples.INVALID_VALUE_TYPE),
+				@ExampleObject(name = "대회 ID가 0 이하", value = PartyApiExamples.INVALID_RACE_ID)
+			})),
+		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = PartyApiExamples.LOGIN_REQUIRED)))
+	})
+	public ResponseEntity<RsData<PartyRaceStatusDto>> getMyRaceStatus(
+		@LoginMemberId long memberId,
+		@Parameter(description = "대회 ID", example = "100")
+		@RequestParam @Positive(message = "대회 ID가 올바르지 않습니다.") long raceId
+	) {
+		return ResponseEntity.ok().body(RsData.of(HttpStatus.OK, "이 대회 내 파티 상태를 조회했습니다.",
+			partyFacade.findMyRaceStatus(raceId, memberId)));
 	}
 }

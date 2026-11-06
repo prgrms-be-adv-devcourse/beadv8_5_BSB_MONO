@@ -54,7 +54,7 @@ class FlywayExistingTablesTest {
 		jdbcTemplate.execute("drop table order_shipment_tracking_event");
 		jdbcTemplate.execute("drop index idx_shipment_tracking");
 		for (String column : List.of("carrier_id", "tracking_status", "tracking_status_text", "last_event_at",
-			"last_tracked_at")) {
+			"last_tracked_at", "next_tracking_at", "tracking_started_at")) {
 			jdbcTemplate.execute("alter table order_shipment drop column " + column);
 		}
 		// 서버 표에는 아직 취소 사유 칸이 없다 (BUK-74)
