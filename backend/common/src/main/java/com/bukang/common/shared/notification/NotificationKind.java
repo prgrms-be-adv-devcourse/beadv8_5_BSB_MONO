@@ -18,5 +18,7 @@ public enum NotificationKind {
 	// 파티 신청 뒤 파티원에게 결제를 요청한다 (주문, BUK-37)
 	PARTY_PAYMENT_REQUESTED,
 	// 파티 결제 마감이 다가온다 (주문, BUK-38)
-	PARTY_PAYMENT_DEADLINE
+	PARTY_PAYMENT_DEADLINE,
+	// 보낸 키트가 7일 동안 택배사에서 조회되지 않아 조회를 멈췄다. 판매자에게 송장 번호를 확인해 달라고 한다 (주문, BUK-90)
+	KIT_TRACKING_STOPPED
 }

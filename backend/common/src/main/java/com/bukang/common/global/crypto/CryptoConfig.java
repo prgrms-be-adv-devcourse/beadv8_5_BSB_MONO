@@ -9,7 +9,7 @@ import org.springframework.security.crypto.encrypt.TextEncryptor;
 
 /**
  * 민감정보 암호화(AES-256-GCM)에 쓰는 TextEncryptor 빈 설정.
- * 모든 서비스가 common을 스캔하므로, crypto.enabled: true로 켠 서비스(member, cash)에서만 만든다.
+ * 모든 서비스가 common을 스캔하므로, crypto.enabled: true로 켠 서비스(member, cash, order)에서만 만든다.
  * crypto.password 유무로 정하지 않는 이유: compose는 모든 컨테이너에 .env를 넣고, 환경 변수 CRYPTO_PASSWORD가
  * crypto.password로 읽혀 켜지 않은 서비스에서도 조건이 맞아 버린다
  */

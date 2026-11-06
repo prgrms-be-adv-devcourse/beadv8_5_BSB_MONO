@@ -108,7 +108,7 @@ public class CashChargeReconcileUseCase {
 		if (existing == null || existing.getStatus() == ChargeStatus.COMPLETED) {
 			return;
 		}
-		existing.markCompleted(result.pgPaymentKey(), LocalDateTime.now());
+		existing.markCompleted(result.pgPaymentKey(), LocalDateTime.now(), result.approvedAt());
 		walletLedgerRepository.save(customerWallet.credit(
 			result.approvedAmount(), LedgerType.충전__PG결제_토스페이먼츠, existing));
 		log.info("충전 대사: 확인 못 했던 충전을 완료로 맞췄습니다. orderId={}", orderId);

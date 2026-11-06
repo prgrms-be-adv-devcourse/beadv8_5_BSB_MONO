@@ -102,6 +102,20 @@ public class KitDeliveryUseCase {
 		});
 	}
 
+	// 보낸 키트의 택배사·송장 번호를 고친다 (BUK-90). 배송 중일 때만이고, 고치면 처음부터 다시 조회한다
+	// 이미 보낸 키트라 환불 기한·참가권 상태는 보지 않는다
+	public OrderItemDto changeTracking(long sellerId, long orderItemId, String carrierId, String trackingNumber,
+		LocalDateTime now) {
+		DeliveryCarrier carrier = DeliveryCarrier.find(carrierId, dummyCarrierEnabled)
+			.orElseThrow(() -> new KitShippingInfoInvalidException("목록에 없는 택배사입니다."));
+		return transactionTemplate.execute(status -> {
+			Order order = lockOrder(orderItemId);
+			OrderItem item = checkSeller(order.findItem(orderItemId), sellerId);
+			order.changeKitTracking(item, carrier, trackingNumber, now);
+			return order.toItemDto(item);
+		});
+	}
+
 	// 배송 중 → 배송 완료
 	public OrderItemDto completeDelivery(long sellerId, long orderItemId, LocalDateTime now) {
 		return transactionTemplate.execute(status -> {

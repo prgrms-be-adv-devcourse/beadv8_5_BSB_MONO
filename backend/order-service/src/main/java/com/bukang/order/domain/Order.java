@@ -279,14 +279,33 @@ public class Order extends BaseIdAndTime {
 		shipment.completeDelivery(deliveredAt);
 	}
 
+	// 판매자가 보낸 키트의 택배사·송장 번호를 고친다 (BUK-90). 참가권 상태는 보지 않는다(보낸 뒤 취소돼도 키트는 가고 있다)
+	public void changeKitTracking(OrderItem item, DeliveryCarrier carrier, String trackingNumber,
+		LocalDateTime changedAt) {
+		Shipment shipment = findKitShipment(item);
+		if (shipment == null) {
+			throw new KitNotShippableException("키트가 없는 참가권입니다.");
+		}
+		shipment.changeTracking(carrier, trackingNumber, changedAt);
+	}
+
 	// 조회 배치가 받아 온 배송 상태를 남긴다 (BUK-55). 배송 완료면 키트도 배송 완료가 된다(Shipment.applyTracking)
-	// 이번에 배송 완료로 바꿨으면 true
-	public boolean applyKitTracking(long shipmentId, DeliveryTrackingResult result, LocalDateTime trackedAt) {
+	public Shipment.TrackingOutcome applyKitTracking(long shipmentId, String carrierId, String trackingNumber,
+		DeliveryTrackingResult result, LocalDateTime trackedAt) {
+		return findShipment(shipmentId).applyTracking(carrierId, trackingNumber, result, trackedAt);
+	}
+
+	// 배송 상자에 든 참가권을 판 판매자 ID (한 상자는 한 판매자의 것이다). 조회를 멈췄다고 알릴 때 쓴다 (BUK-90)
+	public long kitSellerId(long shipmentId) {
+		Shipment shipment = findShipment(shipmentId);
+		return items.stream().filter(shipment::contains).findFirst().orElseThrow().getSellerId();
+	}
+
+	private Shipment findShipment(long shipmentId) {
 		return shipments.stream()
 			.filter(shipment -> shipment.getId() == shipmentId)
 			.findFirst()
-			.orElseThrow()
-			.applyTracking(result, trackedAt);
+			.orElseThrow();
 	}
 
 	// 주문 상품이 든 배송. 재발송이 생기면 여러 건일 수 있어 가장 나중 것을 쓴다. 키트가 없거나 결제 전이면 null

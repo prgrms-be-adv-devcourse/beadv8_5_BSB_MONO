@@ -17,6 +17,7 @@ import com.bukang.cash.dto.CashPayoutResponseDto;
 import com.bukang.cash.dto.CashRefundResponseDto;
 import com.bukang.cash.dto.CashWithdrawalResponseDto;
 import com.bukang.cash.dto.PageDto;
+import com.bukang.cash.dto.RefundableChargesResponseDto;
 import com.bukang.cash.dto.WalletBalanceResponseDto;
 import com.bukang.cash.dto.WalletLedgerItemDto;
 import com.bukang.common.shared.seller.event.SellerChangedEvent;
@@ -38,6 +39,7 @@ public class CashFacade {
 	private final CashPayoutUseCase cashPayoutUseCase;
 	private final CashSyncSellerUseCase cashSyncSellerUseCase;
 	private final CashWalletLedgerQueryUseCase cashWalletLedgerQueryUseCase;
+	private final CashRefundableChargeQueryUseCase cashRefundableChargeQueryUseCase;
 
 	@Transactional
 	public CashMember syncMember(long id, LocalDateTime createDate, LocalDateTime modifyDate,
@@ -63,8 +65,15 @@ public class CashFacade {
 	}
 
 	@Transactional(readOnly = true)
-	public PageDto<WalletLedgerItemDto> findLedgers(long memberId, LedgerCategory category, int page, int size) {
-		return cashWalletLedgerQueryUseCase.findLedgers(memberId, category, page, size);
+	public PageDto<WalletLedgerItemDto> findLedgers(
+		long memberId, LedgerCategory category, int page, int size, LocalDateTime now
+	) {
+		return cashWalletLedgerQueryUseCase.findLedgers(memberId, category, page, size, now);
+	}
+
+	@Transactional(readOnly = true)
+	public RefundableChargesResponseDto findRefundableCharges(long memberId, LocalDateTime now) {
+		return cashRefundableChargeQueryUseCase.findRefundableCharges(memberId, now);
 	}
 
 	@Transactional

@@ -192,6 +192,25 @@
           "$ref": "#/components/schemas/CrewHomeDto"
         }
       }
+    },
+    "findKakaoInviteFriends": {
+      "200": {
+        "wrapper": "RsDataListKakaoFriendDto",
+        "data": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/KakaoFriendDto"
+          }
+        }
+      }
+    },
+    "sendKakaoCrewInvites": {
+      "200": {
+        "wrapper": "RsDataKakaoInviteSendResultDto",
+        "data": {
+          "$ref": "#/components/schemas/KakaoInviteSendResultDto"
+        }
+      }
     }
   },
   "schemas": {
@@ -673,6 +692,72 @@
         "name",
         "birthDate",
         "phone"
+      ]
+    },
+    "KakaoFriendDto": {
+      "type": "object",
+      "properties": {
+        "uuid": {
+          "type": "string"
+        },
+        "nickname": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "profileImageUrl": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "uuid",
+        "nickname",
+        "profileImageUrl"
+      ]
+    },
+    "KakaoInviteSendFailure": {
+      "type": "object",
+      "properties": {
+        "uuid": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "DAILY_LIMIT",
+            "KAKAO_ERROR",
+            "UNCONFIRMED"
+          ]
+        }
+      },
+      "required": [
+        "uuid",
+        "reason"
+      ]
+    },
+    "KakaoInviteSendResultDto": {
+      "type": "object",
+      "properties": {
+        "sentUuids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "failures": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/KakaoInviteSendFailure"
+          }
+        }
+      },
+      "required": [
+        "sentUuids",
+        "failures"
       ]
     }
   },
