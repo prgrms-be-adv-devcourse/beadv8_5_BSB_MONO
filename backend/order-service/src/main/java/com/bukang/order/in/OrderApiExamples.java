@@ -137,7 +137,20 @@ final class OrderApiExamples {
 
 	static final String PARTY_NOT_PAYABLE = """
 		{ "status": 409, "code": "ORDER_PARTICIPATION_NOT_PAYABLE",
-			"message": "파티원 신청은 파티장이 신청한 뒤 파티 결제로 결제해 주세요.", "data": null }
+			"message": "파티장이 신청한 뒤 결제 기간에만 결제할 수 있습니다(현재 상태: 확보 전).", "data": null }
+		""";
+
+	static final String PARTY_DEADLINE_PASSED = """
+		{ "status": 409, "code": "ORDER_PAYMENT_DEADLINE_PASSED", "message": "파티 결제 기한이 지났습니다.", "data": null }
+		""";
+
+	static final String PARTY_PAYER_NOT_CREW = """
+		{ "status": 409, "code": "ORDER_PARTY_MEMBER_NOT_CREW", "message": "크루를 떠나 파티 결제를 할 수 없습니다.",
+			"data": { "partyId": 31 } }
+		""";
+
+	static final String PAY_RACE_CANCELED = """
+		{ "status": 409, "code": "ORDER_RACE_CANCELED", "message": "취소된 대회입니다.", "data": null }
 		""";
 
 	static final String NOT_ACCEPTING = """

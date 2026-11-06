@@ -17,14 +17,15 @@ import java.util.Map;
  * - 자리 1석 = 참가 신청 1건(application_id). 잡은 뒤 판매는 SeatHoldPort.sell, 복구는 Kafka product.hold.restore로 지금과 같다
  */
 public interface CrewSeatHoldPort {
-	CrewSeatHoldResult holdAll(long partyId, List<Seat> seats);
+	// expiresAt: 자리를 잡아 둘 끝 시각 = 파티원 결제 기한. 개인 자리처럼 주문이 정해 보낸다 (호빈님 요청서 1번)
+	CrewSeatHoldResult holdAll(long partyId, LocalDateTime expiresAt, List<Seat> seats);
 
 	record Seat(long participationId, long raceCourseId) {
 	}
 
 	/**
 	 * @param held      모두 잡았는지
-	 * @param expiresAt 자리 기한 (B가 정함, 미결제 크루 자리 해제 시각은 상품 답(질문 A) 대기). 못 잡았으면 null
+	 * @param expiresAt 자리 기한 (보낸 결제 기한). 못 잡았으면 null
 	 * @param shortages 못 잡았을 때 모자란 종목: 종목 ID → [필요한 수, 남은 수]. 잡았으면 비어 있다
 	 */
 	record CrewSeatHoldResult(boolean held, LocalDateTime expiresAt, Map<Long, Shortage> shortages) {

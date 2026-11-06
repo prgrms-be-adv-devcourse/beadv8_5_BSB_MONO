@@ -79,6 +79,11 @@ public class PartyConflictException extends BusinessException {
 			"크루를 떠난 파티원이 있어 신청할 수 없습니다.", partyId, null);
 	}
 
+	// 파티원 결제 (BUK-38): 결제하는 사람이 크루를 떠났다 (정책 6장)
+	public static PartyConflictException payerNotCrew(long partyId) {
+		return new PartyConflictException(MEMBER_NOT_CREW, "크루를 떠나 파티 결제를 할 수 없습니다.", partyId, null);
+	}
+
 	// 11/05 회의 P4: 파티 예매 시작 7일 전까지 가입한 크루원만 크루 몫으로 신청할 수 있다
 	public static PartyConflictException memberJoinedLate(long partyId) {
 		return new PartyConflictException(MEMBER_JOINED_LATE,
