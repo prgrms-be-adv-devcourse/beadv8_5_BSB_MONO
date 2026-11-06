@@ -159,7 +159,7 @@ class ApiV1PartyApplyTest {
 		apply(LEADER, partyId)
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("ORDER_PARTY_NOT_RECRUITING"));
-		verify(crewSeatHoldPort, times(1)).holdAll(anyLong(), any());
+		verify(crewSeatHoldPort, times(1)).holdAll(anyLong(), any(), any());
 		// 결제 진행 중에는 합류·나가기도 막힌다
 		post(MEMBERS.getFirst(), partyId, "/leave").andExpect(status().isConflict());
 	}
@@ -170,7 +170,7 @@ class ApiV1PartyApplyTest {
 		long partyId = partyWith(MEMBERS);
 		QueueEntry.enter(mockMvc, LEADER, COURSE_ID);
 		doReturn(CrewSeatHoldResult.shortOf(Map.of(COURSE_ID, new Shortage(4, 1))))
-			.when(crewSeatHoldPort).holdAll(anyLong(), any());
+			.when(crewSeatHoldPort).holdAll(anyLong(), any(), any());
 
 		apply(LEADER, partyId)
 			.andExpect(status().isConflict())
@@ -199,7 +199,7 @@ class ApiV1PartyApplyTest {
 		apply(LEADER, partyId)
 			.andExpect(status().isForbidden())
 			.andExpect(jsonPath("$.code").value("ORDER_QUEUE_NOT_ADMITTED"));
-		verify(crewSeatHoldPort, never()).holdAll(anyLong(), any());
+		verify(crewSeatHoldPort, never()).holdAll(anyLong(), any(), any());
 	}
 
 	@Test
@@ -218,7 +218,7 @@ class ApiV1PartyApplyTest {
 		apply(LEADER, partyId)
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("ORDER_PARTY_SIZE_OUT_OF_RANGE"));
-		verify(crewSeatHoldPort, never()).holdAll(anyLong(), any());
+		verify(crewSeatHoldPort, never()).holdAll(anyLong(), any(), any());
 	}
 
 	@Test
@@ -238,7 +238,7 @@ class ApiV1PartyApplyTest {
 		apply(LEADER, partyId)
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("ORDER_PARTY_MEMBER_NOT_CREW"));
-		verify(crewSeatHoldPort, never()).holdAll(anyLong(), any());
+		verify(crewSeatHoldPort, never()).holdAll(anyLong(), any(), any());
 
 		crewPort.clear();
 		crewPort.rejoinedCrewAt(MEMBERS.getLast(), crewSaleStartAt.minusDays(7));
@@ -260,7 +260,7 @@ class ApiV1PartyApplyTest {
 		apply(LEADER, partyId)
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("ORDER_PARTY_SALE_CLOSED"));
-		verify(crewSeatHoldPort, never()).holdAll(anyLong(), any());
+		verify(crewSeatHoldPort, never()).holdAll(anyLong(), any(), any());
 	}
 
 	@Test
@@ -281,7 +281,7 @@ class ApiV1PartyApplyTest {
 		apply(LEADER, partyId)
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("ORDER_PARTY_MEMBERS_CHANGED"));
-		verify(crewSeatHoldPort, never()).holdAll(anyLong(), any());
+		verify(crewSeatHoldPort, never()).holdAll(anyLong(), any(), any());
 
 		// 다시 누르면 새 파티원까지 확인해 신청된다
 		apply(LEADER, partyId).andExpect(status().isOk());
@@ -297,7 +297,7 @@ class ApiV1PartyApplyTest {
 		apply(LEADER, partyId)
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("ORDER_RACE_CANCELED"));
-		verify(crewSeatHoldPort, never()).holdAll(anyLong(), any());
+		verify(crewSeatHoldPort, never()).holdAll(anyLong(), any(), any());
 	}
 
 	@Test

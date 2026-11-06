@@ -66,6 +66,11 @@ public class FakeSeatHoldAdapter implements SeatHoldPort {
 		return SeatSellResult.SOLD;
 	}
 
+	// 크루 자리는 크루 몫에서 잡았으므로 개인 남은 자리를 줄이지 않고 판매할 수 있게만 남긴다 (FakeCrewSeatHoldAdapter)
+	void holdCrewSeat(long participationId, long raceCourseId, LocalDateTime expiresAt) {
+		holds.put(participationId, new Hold(raceCourseId, expiresAt));
+	}
+
 	private record Hold(long raceCourseId, LocalDateTime expiresAt) {
 	}
 }
