@@ -942,7 +942,7 @@
         },
         "canApply": {
           "type": "boolean",
-          "description": "파티장이고, 모집 중이고, 인원이 최소~최대일 때만 true. 이때만 파티 대기열에 넣는다"
+          "description": "파티장, 모집 중, 접수 중인 대회, 인원이 최소~최대일 때만 true. 이때만 파티 대기열에 넣는다. 안내용이라 최종 판정은 파티 신청 API가 한다"
         },
         "reason": {
           "type": "string",
@@ -950,6 +950,7 @@
             "NO_PARTY",
             "NOT_LEADER",
             "NOT_RECRUITING",
+            "RACE_CLOSED",
             "TOO_FEW_MEMBERS",
             "TOO_MANY_MEMBERS"
           ],
@@ -1002,6 +1003,11 @@
         "myPaid": {
           "type": "boolean",
           "description": "내가 결제했는지"
+        },
+        "participationId": {
+          "type": "integer",
+          "format": "int64",
+          "description": "내 신청서 ID. [결제하기]에 쓴다"
         }
       }
     }

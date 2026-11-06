@@ -138,20 +138,33 @@ public class PartyUseCase {
 		return participation;
 	}
 
-	public record MyRaceParty(Party party, int memberCount, int paidCount, boolean myPaid) {
+	// raceOpen: 대회가 취소되지 않았고 접수 마감 전인지. 파티장·모집 중일 때만 상품에 묻고, 그 밖에는 쓰지 않아 true로 둔다
+	public record MyRaceParty(Party party, int memberCount, int paidCount, boolean myPaid, Long participationId,
+		boolean raceOpen) {
 	}
 
 	// 대회 상세 화면이 [파티로 신청] 버튼을 그릴 때 묻는다. 파티 대기열은 파티장 회원 ID로만 줄을 세우므로 파티장인지는 주문이 답한다 (BUK-91)
 	// 이 대회에서 내가 지금 들어가 있는(나가지 않은) 종료 안 된 파티를 찾는다. 파티장도 파티원 줄이 있다. 읽기만 해서 잠그지 않는다
 	// 안내용이다. 확인과 신청 사이에 파티장·인원이 바뀔 수 있으니, 파티 신청(BUK-37)은 파티 줄을 잠근 뒤 다시 확인해야 한다
-	public Optional<MyRaceParty> findMyRaceParty(long raceId, long memberId) {
+	public Optional<MyRaceParty> findMyRaceParty(long raceId, long memberId, LocalDateTime now) {
 		return partyRepository.findJoinedByRaceIdAndMemberId(raceId, memberId, LIVE_STATUSES).stream()
 			.findFirst()
 			.map(party -> new MyRaceParty(party,
 				(int)partyMemberRepository.countByPartyIdAndLeftAtIsNull(party.getId()),
 				(int)participationRepository.countByPartyIdAndStatus(party.getId(), ParticipationStatus.CONFIRMED),
 				participationRepository.existsByPartyIdAndMemberIdAndStatus(party.getId(), memberId,
-					ParticipationStatus.CONFIRMED)));
+					ParticipationStatus.CONFIRMED),
+				participationRepository.findActiveIdByPartyIdAndMemberId(party.getId(), memberId).orElse(null),
+				!canApplyNow(party, memberId) || isRaceOpen(party.getRaceCourseId(), now)));
+	}
+
+	private static boolean canApplyNow(Party party, long memberId) {
+		return party.isLeader(memberId) && party.getStatus() == PartyStatus.RECRUITING;
+	}
+
+	// shortcut: 크루 예매 기간·판매자 최소·최대 인원·대기열 입장·파티원 7일 가입은 아직 보지 않는다 (#337이 들여옴, pending 56)
+	private boolean isRaceOpen(long raceCourseId, LocalDateTime now) {
+		return raceCoursePort.findCourse(raceCourseId).filter(course -> course.isBeforeClose(now)).isPresent();
 	}
 
 	private static PartyNotFoundException joinLinkNotFound() {

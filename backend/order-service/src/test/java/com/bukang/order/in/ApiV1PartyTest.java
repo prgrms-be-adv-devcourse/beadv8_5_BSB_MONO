@@ -383,7 +383,17 @@ class ApiV1PartyTest {
 		raceStatus(LEADER, RACE_ID)
 			.andExpect(jsonPath("$.data.canApply").value(true))
 			.andExpect(jsonPath("$.data.reason").doesNotExist())
-			.andExpect(jsonPath("$.data.memberCount").value(4));
+			.andExpect(jsonPath("$.data.memberCount").value(4))
+			.andExpect(jsonPath("$.data.participationId").value(participationId(LEADER)));
+
+		// 접수가 마감되거나 취소된 대회면 신청 버튼을 열지 않는다
+		raceCoursePort.put(StubRaceCoursePort.closedCourse(COURSE_HALF, RACE_ID));
+		raceStatus(LEADER, RACE_ID)
+			.andExpect(jsonPath("$.data.canApply").value(false))
+			.andExpect(jsonPath("$.data.reason").value("RACE_CLOSED"));
+		raceCoursePort.put(StubRaceCoursePort.canceled(StubRaceCoursePort.openCourse(COURSE_HALF, RACE_ID, 14, null)));
+		raceStatus(LEADER, RACE_ID).andExpect(jsonPath("$.data.reason").value("RACE_CLOSED"));
+		raceCoursePort.put(StubRaceCoursePort.openCourse(COURSE_HALF, RACE_ID, 14, null));
 
 		// 파티 신청(BUK-37) 전이라 상태를 직접 바꾼다. 파티원 하나가 결제를 마쳤다
 		jdbcTemplate.update("update order_party set status = 'PAYING', payment_due_at = ? where id = ?",
@@ -397,7 +407,9 @@ class ApiV1PartyTest {
 			.andExpect(jsonPath("$.data.paidCount").value(1))
 			.andExpect(jsonPath("$.data.paymentDueAt").value("2026-11-07T10:00:00"))
 			.andExpect(jsonPath("$.data.myPaid").value(false));
-		raceStatus(MEMBER, RACE_ID).andExpect(jsonPath("$.data.myPaid").value(true));
+		raceStatus(MEMBER, RACE_ID)
+			.andExpect(jsonPath("$.data.myPaid").value(true))
+			.andExpect(jsonPath("$.data.participationId").value(participationId(MEMBER)));
 		jdbcTemplate.update("update order_party set status = 'PAID' where id = ?", partyId);
 		raceStatus(OTHER, RACE_ID).andExpect(jsonPath("$.data.partyStatus").value("PAID"));
 
@@ -422,6 +434,12 @@ class ApiV1PartyTest {
 			.andExpect(jsonPath("$.message").value("대회 ID가 올바르지 않습니다."));
 		mockMvc.perform(get(RACE_STATUS_URL).param("raceId", String.valueOf(RACE_ID)))
 			.andExpect(status().isUnauthorized());
+	}
+
+	private long participationId(long memberId) {
+		return participationRepository.findAll().stream()
+			.filter(row -> row.getMemberId() == memberId && row.getStatus().isActive())
+			.findFirst().orElseThrow().getId();
 	}
 
 	private ResultActions raceStatus(long memberId, long raceId) throws Exception {

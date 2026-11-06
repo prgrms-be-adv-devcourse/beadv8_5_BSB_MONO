@@ -212,10 +212,12 @@ public class ApiV1PartyController {
 	@Operation(operationId = "getMyRacePartyStatus", summary = "이 대회 내 파티 상태",
 		description = "대회 상세 화면이 [파티로 신청] 버튼 문구를 고를 때 부른다. 이 대회에서 로그인한 회원이 들어가 있는 파티"
 			+ "(종료된 파티·나간 파티 제외)를 찾아 역할·인원·결제 현황을 준다. 파티가 없어도 오류가 아니라 200에 role=NONE을 준다. "
-			+ "파티 대기열은 파티장 회원 ID로만 줄을 세우므로 canApply=true(파티장, 모집 중, 인원이 최소~최대)일 때만 대기열에 넣는다. "
+			+ "파티 대기열은 파티장 회원 ID로만 줄을 세우므로 canApply=true(파티장, 모집 중, 접수 중인 대회, 인원이 최소~최대)일 때만 "
+			+ "대기열에 넣는다. 안내용이라 최종 판정은 파티 신청 API가 한다(그 사이 바뀌면 409). "
 			+ "canApply=false면 reason으로 문구를 고른다. 화면 상태는 role·partyStatus·myPaid로 고른다: "
 			+ "LEADER+RECRUITING(모집 중, 인원 모자라면 TOO_FEW_MEMBERS) / MEMBER+RECRUITING(파티원) / "
-			+ "LEADER+PAYING(결제 진행 중) / PAYING·PAID에서 myPaid=false(결제할 차례)·true(결제 완료) / NONE(파티 없음).")
+			+ "LEADER+PAYING(결제 진행 중) / PAYING·PAID에서 myPaid=false(결제할 차례, participationId로 결제)·true(결제 완료) / "
+			+ "NONE(파티 없음).")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "조회 성공 (파티가 없어도 200)",
 			content = @Content(examples = {

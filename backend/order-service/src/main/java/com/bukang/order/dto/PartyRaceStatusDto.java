@@ -17,11 +17,12 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public record PartyRaceStatusDto(
 	@Schema(description = "이 대회 파티에서 내 역할 LEADER(파티장) / MEMBER(파티원) / NONE(파티 없음)", example = "LEADER")
 	Role role,
-	@Schema(description = "지금 파티로 신청할 수 있는지. 파티장이고, 모집 중이고, 인원이 최소~최대일 때만 true. 이때만 파티 대기열에 넣는다",
-		example = "true")
+	@Schema(description = "지금 파티로 신청할 수 있는지. 파티장, 모집 중, 접수 중인 대회, 인원이 최소~최대일 때만 true. "
+		+ "이때만 파티 대기열에 넣는다. 안내용이라 최종 판정은 파티 신청 API가 한다(그 사이 바뀌면 409)", example = "true")
 	boolean canApply,
 	@Schema(description = "신청할 수 없는 이유 (canApply=false일 때만) NO_PARTY(파티 없음) / NOT_LEADER(파티원이라 못 함) / "
-		+ "NOT_RECRUITING(이미 신청함) / TOO_FEW_MEMBERS(최소 인원 모자람) / TOO_MANY_MEMBERS(최대 인원 넘음)",
+		+ "NOT_RECRUITING(이미 신청함) / RACE_CLOSED(취소·접수 마감된 대회) / "
+		+ "TOO_FEW_MEMBERS(최소 인원 모자람) / TOO_MANY_MEMBERS(최대 인원 넘음)",
 		example = "TOO_FEW_MEMBERS")
 	Reason reason,
 	@Schema(description = "파티 ID", example = "1")
@@ -41,36 +42,42 @@ public record PartyRaceStatusDto(
 	@Schema(description = "파티원 결제 마감 (파티 신청 뒤에만)", example = "2026-11-07T10:00:00")
 	LocalDateTime paymentDueAt,
 	@Schema(description = "내가 결제했는지 (내 신청서가 참가 확정)", example = "false")
-	Boolean myPaid
+	Boolean myPaid,
+	@Schema(description = "내 신청서 ID. [결제하기]에 쓴다", example = "10")
+	Long participationId
 ) {
 	public enum Role {
 		LEADER, MEMBER, NONE
 	}
 
 	public enum Reason {
-		NO_PARTY, NOT_LEADER, NOT_RECRUITING, TOO_FEW_MEMBERS, TOO_MANY_MEMBERS
+		NO_PARTY, NOT_LEADER, NOT_RECRUITING, RACE_CLOSED, TOO_FEW_MEMBERS, TOO_MANY_MEMBERS
 	}
 
 	public static PartyRaceStatusDto none() {
 		return new PartyRaceStatusDto(Role.NONE, false, Reason.NO_PARTY, null, null, null, null, null, null, null,
-			null, null);
+			null, null, null);
 	}
 
 	public static PartyRaceStatusDto of(MyRaceParty mine, long memberId, int minCount, int maxCount) {
 		Party party = mine.party();
 		boolean leader = party.isLeader(memberId);
-		Reason reason = reason(leader, party.getStatus(), mine.memberCount(), minCount, maxCount);
+		Reason reason = reason(leader, party.getStatus(), mine.raceOpen(), mine.memberCount(), minCount, maxCount);
 		return new PartyRaceStatusDto(leader ? Role.LEADER : Role.MEMBER, reason == null, reason, party.getId(),
 			party.getRaceCourseId(), party.getStatus(), mine.memberCount(), minCount, maxCount, mine.paidCount(),
-			party.getPaymentDueAt(), mine.myPaid());
+			party.getPaymentDueAt(), mine.myPaid(), mine.participationId());
 	}
 
-	private static Reason reason(boolean leader, PartyStatus status, int memberCount, int minCount, int maxCount) {
+	private static Reason reason(boolean leader, PartyStatus status, boolean raceOpen, int memberCount, int minCount,
+		int maxCount) {
 		if (!leader) {
 			return Reason.NOT_LEADER;
 		}
 		if (status != PartyStatus.RECRUITING) {
 			return Reason.NOT_RECRUITING;
+		}
+		if (!raceOpen) {
+			return Reason.RACE_CLOSED;
 		}
 		if (memberCount < minCount) {
 			return Reason.TOO_FEW_MEMBERS;
