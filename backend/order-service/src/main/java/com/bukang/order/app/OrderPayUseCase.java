@@ -6,13 +6,22 @@ import org.springframework.stereotype.Service;
 
 import com.bukang.order.domain.Order;
 import com.bukang.order.domain.Participation;
+import com.bukang.order.domain.Party;
 import com.bukang.order.domain.exception.InsufficientBalanceException;
 import com.bukang.order.domain.exception.OrderAccessDeniedException;
 import com.bukang.order.domain.exception.OrderNotFoundException;
 import com.bukang.order.domain.exception.OrderNotPayableException;
 import com.bukang.order.domain.exception.ParticipationNotFoundException;
+import com.bukang.order.domain.exception.PartyConflictException;
+import com.bukang.order.domain.exception.PartyNotFoundException;
+import com.bukang.order.domain.exception.RaceCourseNotFoundException;
 import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationRepository;
+import com.bukang.order.out.PartyRepository;
+import com.bukang.order.out.crew.CrewPort;
+import com.bukang.order.out.crew.CrewPort.CrewMembership;
+import com.bukang.order.out.race.RaceCourseInfo;
+import com.bukang.order.out.race.RaceCoursePort;
 import com.bukang.order.out.seat.SeatHoldPort;
 import com.bukang.order.out.seat.SeatSellResult;
 import com.bukang.order.out.wallet.WalletPayResult;
@@ -32,6 +41,9 @@ public class OrderPayUseCase {
 	private final ParticipationRepository participationRepository;
 	private final WalletPort walletPort;
 	private final SeatHoldPort seatHoldPort;
+	private final RaceCoursePort raceCoursePort;
+	private final PartyRepository partyRepository;
+	private final CrewPort crewPort;
 
 	public OrderPayResult pay(long memberId, long orderId, LocalDateTime now) {
 		// 주문을 먼저 잠근다. 같은 주문의 결제 요청과 만료 정리 배치가 주문 → 참가 신청 순서로 줄을 선다
@@ -50,6 +62,9 @@ public class OrderPayUseCase {
 		Participation participation = participationRepository.findByIdForUpdate(order.participationId())
 			.orElseThrow(() -> new ParticipationNotFoundException("존재하지 않는 참가 신청입니다."));
 		participation.checkConfirmable();
+		if (participation.getPartyId() != null) {
+			checkPartyPayable(participation, memberId);
+		}
 
 		WalletPayResult payment = walletPort.pay(order.getId(), memberId, order.getTotalAmount());
 		if (payment.outcome() == WalletPayResult.Outcome.INSUFFICIENT_BALANCE) {
@@ -67,5 +82,25 @@ public class OrderPayUseCase {
 		order.markPaid(now, participation.getParticipant().getShippingAddress());
 		participation.markConfirmed(now);
 		return new OrderPayResult(order.toDto(), false);
+	}
+
+	/**
+	 * 파티원 결제 전 확인 (BUK-38, 11/02 결정 ⑥). 예치금을 빼기 전에 끝낸다
+	 * 결제 기한은 위 order.checkPayable이 본다(주문 기한 = 파티 결제 기한). 결제 진행 중 대회가 취소되면 결제할 수 없고,
+	 * 크루를 떠난 파티원은 결제할 수 없다 (정책 6장: 탈퇴하면 미결제 자리는 풀림). 파티 상태는 마감 배치가 신청서를 세어 바꾼다
+	 * shortcut: 회원·상품 HTTP를 주문·신청서 잠금을 쥔 채 부른다(예치금 호출과 같음, pending 48). 결제가 몰리면 잠그기 전으로 옮긴다
+	 */
+	private void checkPartyPayable(Participation participation, long memberId) {
+		RaceCourseInfo course = raceCoursePort.findCourse(participation.getRaceCourseId())
+			.orElseThrow(() -> new RaceCourseNotFoundException("존재하지 않는 종목입니다."));
+		ParticipationApplyUseCase.checkNotCanceled(course);
+		Party party = partyRepository.findById(participation.getPartyId())
+			.orElseThrow(() -> new PartyNotFoundException("존재하지 않는 파티입니다."));
+		boolean crewMember = crewPort.findMembership(party.getCrewId(), memberId)
+			.map(CrewMembership::crewMember)
+			.orElse(false);
+		if (!crewMember) {
+			throw PartyConflictException.payerNotCrew(party.getId());
+		}
 	}
 }

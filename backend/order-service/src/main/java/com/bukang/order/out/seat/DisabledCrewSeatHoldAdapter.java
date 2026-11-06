@@ -1,5 +1,6 @@
 package com.bukang.order.out.seat;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -17,7 +18,7 @@ public class DisabledCrewSeatHoldAdapter implements CrewSeatHoldPort {
 	static final String MESSAGE = "파티 신청을 아직 쓸 수 없습니다. 잠시 뒤 다시 시도해주세요.";
 
 	@Override
-	public CrewSeatHoldResult holdAll(long partyId, List<Seat> seats) {
+	public CrewSeatHoldResult holdAll(long partyId, LocalDateTime expiresAt, List<Seat> seats) {
 		throw new ExternalServiceUnavailableException(MESSAGE);
 	}
 }

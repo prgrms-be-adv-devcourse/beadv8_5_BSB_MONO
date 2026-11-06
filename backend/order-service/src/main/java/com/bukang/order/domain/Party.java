@@ -42,6 +42,8 @@ public class Party extends BaseIdAndTime {
 	private static final SecureRandom RANDOM = new SecureRandom();
 	// 참가 링크는 만든 뒤 24시간만 쓸 수 있다 (정책 3장 「파티 만들기와 합류」)
 	static final Duration JOIN_LINK_VALIDITY = Duration.ofHours(24);
+	// 추천값(미확정, BUK-38): 결제 기한 3시간 전에 결제하지 않은 파티원에게 마감 알림을 한 번 보낸다
+	public static final Duration PAYMENT_REMIND_BEFORE = Duration.ofHours(3);
 
 	@Column(name = "crew_id", nullable = false)
 	private long crewId;
@@ -70,6 +72,10 @@ public class Party extends BaseIdAndTime {
 	// 파티원 결제 기한 = min(신청 + 24시간, 크루 예매 마감, 접수 마감). 신청 때 정한다
 	@Column(name = "payment_due_at")
 	private LocalDateTime paymentDueAt;
+
+	// 결제 마감 알림을 보낸 시각. 한 번만 보낸다 (BUK-38)
+	@Column(name = "payment_reminded_at")
+	private LocalDateTime paymentRemindedAt;
 
 	@Column(name = "applied_at")
 	private LocalDateTime appliedAt;
@@ -111,6 +117,49 @@ public class Party extends BaseIdAndTime {
 	public void checkRecruiting() {
 		if (status != PartyStatus.RECRUITING) {
 			throw PartyConflictException.notRecruiting(getId(), status);
+		}
+	}
+
+	// 파티장 [신청] 전 확인 (BUK-37). 이미 신청한 파티는 모집 중이 아니라 409다 (11/02 결정 ⑩: 같은 파티 재신청 막음)
+	public void checkApplicable(long memberId) {
+		checkLeader(memberId);
+		if (status != PartyStatus.RECRUITING) {
+			throw PartyConflictException.alreadyApplied(getId(), status);
+		}
+	}
+
+	// 크루 자리를 모두 잡아 파티원 결제 기간을 연다
+	public void startPayment(LocalDateTime paymentDueAt, LocalDateTime now) {
+		checkRecruiting();
+		this.status = PartyStatus.PAYING;
+		this.paymentDueAt = paymentDueAt;
+		this.appliedAt = now;
+		// 신청 때 결제 알림을 막 보냈는데 기한이 3시간 안이면 마감 알림을 또 보내지 않는다
+		if (!now.isBefore(paymentDueAt.minus(PAYMENT_REMIND_BEFORE))) {
+			this.paymentRemindedAt = now;
+		}
+	}
+
+	// 마감 알림을 보낼 때인지: 결제 진행 중, 아직 안 보냄, 기한 3시간 전 ~ 기한 전
+	public boolean needsPaymentReminder(LocalDateTime now) {
+		return status == PartyStatus.PAYING && paymentRemindedAt == null
+			&& !now.isBefore(paymentDueAt.minus(PAYMENT_REMIND_BEFORE)) && now.isBefore(paymentDueAt);
+	}
+
+	public void markPaymentReminded(LocalDateTime now) {
+		this.paymentRemindedAt = now;
+	}
+
+	// 결제 기간을 끝낸다: 모두 결제했거나 기한이 지났다 (BUK-38). 결제한 사람이 있으면 결제 끝, 없으면 참가할 사람이 없어 종료
+	public void finishPayment(boolean anyPaid, LocalDateTime now) {
+		if (status != PartyStatus.PAYING) {
+			throw new IllegalStateException("결제 진행 중인 파티만 결제를 끝낼 수 있습니다. partyId=%d, status=%s"
+				.formatted(getId(), status));
+		}
+		if (anyPaid) {
+			this.status = PartyStatus.PAID;
+		} else {
+			close(now);
 		}
 	}
 
