@@ -150,6 +150,20 @@ class CashRefundableChargeQueryTest {
 			.containsExactly(LocalDate.of(2027, 10, 14));
 	}
 
+	@Test
+	@DisplayName("10,000원 충전 중 5,000원을 이미 PG 결제취소했으면 잔액이 10,000원이어도 그 충전에는 5,000원까지만 남은 금액으로 채운다")
+	void remainingAmountExcludesAlreadyCanceledAmount() {
+		Wallet wallet = createWallet(CUSTOMER_ID, 10_000);
+		WalletCharge charge = new WalletCharge(wallet, 10_000, "TOSS", "charge_partly_canceled");
+		charge.markCompleted("toss_key_partly_canceled", LocalDateTime.of(2026, 10, 10, 9, 0), null);
+		charge.recordCancel(5_000);
+		walletChargeRepository.save(charge);
+
+		RefundableChargesResponseDto response = cashFacade.findRefundableCharges(CUSTOMER_ID, NOW);
+
+		assertThat(response.charges()).extracting(RefundableChargeDto::remainingAmount).containsExactly(5_000L);
+	}
+
 	private Wallet createWallet(long memberId, long balance) {
 		return transactionTemplate.execute(status -> {
 			CashMember member = cashMemberRepository.save(new CashMember(memberId, NOW, NOW, "러너" + memberId));

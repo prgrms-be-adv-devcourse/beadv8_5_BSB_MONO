@@ -44,7 +44,8 @@ public class CashRefundableChargeQueryUseCase {
 		List<RefundableChargeDto> charges = new ArrayList<>();
 
 		for (WalletCharge charge : latestFirst) {
-			long remaining = Math.min(charge.getAmount(), unfilled);
+			// 이미 PG 결제취소로 돌려준 몫은 다시 돌려줄 수 없어서 채울 수 있는 한도에서 뺀다
+			long remaining = Math.min(charge.getAmount() - charge.getCanceledAmount(), unfilled);
 			unfilled -= remaining;
 			LocalDateTime approvedAt = charge.approvedAtOrChargeDate();
 			charges.add(new RefundableChargeDto(

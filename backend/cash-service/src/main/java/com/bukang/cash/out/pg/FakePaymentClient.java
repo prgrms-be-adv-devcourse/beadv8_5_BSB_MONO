@@ -32,8 +32,7 @@ public class FakePaymentClient implements PaymentClient {
 	}
 
 	@Override
-	public PaymentCancelResult cancel(String paymentKey, String cancelReason) {
-		// 원래 결제 금액을 모르는 가짜 클라이언트라 취소 금액은 항상 0으로 답한다
-		return new PaymentCancelResult(0, "fake-cancel-" + paymentKey);
+	public PaymentCancelResult cancel(String paymentKey, String cancelReason, long cancelAmount) {
+		return new PaymentCancelResult(cancelAmount, "fake-cancel-" + paymentKey);
 	}
 }
