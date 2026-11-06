@@ -11,8 +11,10 @@ import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
 
 import com.bukang.common.global.json.JsonConverter;
+import com.bukang.common.shared.kafka.KafkaMessageId;
 import com.bukang.common.shared.kafka.KafkaTopics;
 import com.bukang.common.shared.race.event.RaceCancelEvent;
+import com.bukang.order.app.OrderInboxUseCase;
 import com.bukang.order.app.RaceCancelRefundUseCase;
 
 import lombok.RequiredArgsConstructor;
@@ -39,6 +41,7 @@ public class OrderKafkaConsumer {
 	private static final String DLT_TOPIC_SUFFIX = ".order.dlt";
 
 	private final RaceCancelRefundUseCase raceCancelRefundUseCase;
+	private final OrderInboxUseCase orderInboxUseCase;
 	private final JsonConverter jsonConverter;
 
 	// 판매자가 대회를 취소했다 (상품 서비스가 발행, key는 대회 ID). 결제한 참가권을 모두 환불한다
@@ -53,7 +56,14 @@ public class OrderKafkaConsumer {
 		retryTopicSuffix = RETRY_TOPIC_SUFFIX,
 		dltTopicSuffix = DLT_TOPIC_SUFFIX
 	)
-	public void handleRaceCancel(String payload) {
+	public void handleRaceCancel(
+		String payload,
+		@Header(name = KafkaMessageId.HEADER, required = false) String messageId
+	) {
+		// 같은 메시지를 다시 받으면(재전달) 대회의 주문을 다시 훑고 예치금 서비스를 다시 부르지 않게 건너뛴다 (BUK-53)
+		if (orderInboxUseCase.alreadyProcessed(messageId, GROUP_ID, KafkaTopics.ORDER_RACE_CANCEL)) {
+			return;
+		}
 		RaceCancelEvent event = jsonConverter.fromJson(payload, RaceCancelEvent.class);
 		RaceCancelRefundUseCase.RefundResult result =
 			raceCancelRefundUseCase.refundAll(event.raceId(), LocalDateTime.now());
@@ -61,6 +71,8 @@ public class OrderKafkaConsumer {
 			throw new IllegalStateException("취소된 대회의 주문 %d건을 환불하지 못해 다시 처리합니다. raceId=%d"
 				.formatted(result.failedOrders(), event.raceId()));
 		}
+		// 모두 환불한 뒤에만 남긴다. 일부가 실패해 다시 받으면 실패한 주문을 다시 환불해야 한다
+		orderInboxUseCase.record(messageId, GROUP_ID, KafkaTopics.ORDER_RACE_CANCEL, LocalDateTime.now());
 	}
 
 	// 끝까지 실패한 메시지. 환불하지 못한 참가권이 남았으므로 운영자가 확인해 다시 보내야 한다

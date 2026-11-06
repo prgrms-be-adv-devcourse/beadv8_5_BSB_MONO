@@ -84,6 +84,27 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
 	List<CancelingOrderItemDto> findCancelingBetween(@Param("startedBefore") LocalDateTime startedBefore,
 		@Param("startedAfter") LocalDateTime startedAfter, Pageable pageable);
 
+	// 대회에 환불이 끝나지 않은 참가권 수: 결제 완료(PAID)와 취소 중(CANCELING). 0이어야 대회 환불 완료를 보낸다 (11/05 회의 R1)
+	// 취소 중은 개인 취소의 환불 결과를 기다리는 중이라 아직 끝나지 않은 것으로 센다
+	@Query("""
+		select count(i)
+		from OrderItem i
+		where i.raceId = :raceId
+			and i.status in (com.bukang.order.domain.OrderItemStatus.PAID,
+				com.bukang.order.domain.OrderItemStatus.CANCELING)
+		""")
+	long countNotRefunded(@Param("raceId") long raceId);
+
+	// 대회 취소로 환불한 참가권 수 (대회 환불 완료의 대조용 건수). 여러 번 나눠 환불해도 DB에서 세므로 합이 맞다
+	@Query("""
+		select count(i)
+		from OrderItem i
+		where i.raceId = :raceId
+			and i.status = com.bukang.order.domain.OrderItemStatus.CANCELED
+			and i.cancelReason = com.bukang.common.shared.order.event.OrderItemRefundReason.RACE_CANCELED
+		""")
+	long countRaceCanceled(@Param("raceId") long raceId);
+
 	// 취소를 시작한 지 오래돼(before 이전) 재처리가 더 부르지 않는 취소 중 건수. 사람이 예치금 기록과 맞춰 본다
 	@Query("""
 		select count(i)

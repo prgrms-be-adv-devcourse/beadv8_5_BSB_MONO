@@ -24,6 +24,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.bukang.common.shared.order.event.OrderItemRefundReason;
 import com.bukang.order.app.OrderCancelUseCase;
 import com.bukang.order.app.OrderCreateResult;
 import com.bukang.order.app.OrderCreateUseCase;
@@ -168,7 +169,7 @@ class ApiV1SellerKitTest {
 		long itemId = itemIdOf(orderId);
 		transactionTemplate.executeWithoutResult(status -> {
 			Order order = orderRepository.findByIdForUpdate(orderId).orElseThrow();
-			order.startCancelItem(order.findItem(itemId), LocalDateTime.now());
+			order.startCancelItem(order.findItem(itemId), LocalDateTime.now(), OrderItemRefundReason.BUYER_CANCELED);
 		});
 
 		mockMvc.perform(get(BASE_URL).header("X-Member-Id", SELLER_MEMBER_ID))

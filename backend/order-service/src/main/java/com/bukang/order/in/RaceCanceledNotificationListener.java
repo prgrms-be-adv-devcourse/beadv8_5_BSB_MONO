@@ -1,24 +1,31 @@
 package com.bukang.order.in;
 
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.event.TransactionPhase;
-import org.springframework.transaction.event.TransactionalEventListener;
 
+import com.bukang.common.global.eventpublisher.EventPublisher;
+import com.bukang.common.shared.notification.NotificationKind;
+import com.bukang.common.shared.notification.event.NotificationRequestedEvent;
 import com.bukang.order.domain.event.OrderRaceCanceledEvent;
 
-import lombok.extern.slf4j.Slf4j;
+import lombok.RequiredArgsConstructor;
 
 /**
- * 대회 취소로 환불한 구매자에게 알린다 (PRO-135). 환불이 커밋된 뒤에만 받아, 롤백된 환불을 알리지 않는다
- * 아직 알림 기능(이메일·푸시·알림함)이 없어 로그만 남긴다. 알림 기능이 생기면 여기서 보낸다
+ * 대회 취소로 환불한 구매자에게 알린다 (PRO-135, BUK-69)
+ * 환불 트랜잭션 안에서 알림 요청을 발행하고, common의 NotificationKafkaSender가 커밋된 뒤에만 보낸다 (롤백된 환불은 알리지 않는다)
+ * AFTER_COMMIT 리스너로 두면 그 안에서 발행한 알림이 이미 커밋 단계라 보내지지 않으므로 트랜잭션 안에서 받는다
  */
-@Slf4j
 @Component
+@RequiredArgsConstructor
 public class RaceCanceledNotificationListener {
-	@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+	private final EventPublisher eventPublisher;
+
+	@EventListener
 	public void notifyBuyer(OrderRaceCanceledEvent event) {
-		log.info("대회 취소로 참가권을 환불해 구매자에게 알립니다 (알림 기능 전이라 로그만). "
-				+ "buyerId={}, orderId={}, raceId={}, refundedAmount={}",
-			event.buyerId(), event.orderId(), event.raceId(), event.refundedAmount());
+		eventPublisher.publish(NotificationRequestedEvent.of(event.buyerId(), NotificationKind.RACE_CANCELED,
+			"대회가 취소됐어요",
+			event.itemName() + " · 참가비 전액\n" + String.format("₩%,d", event.refundedAmount())
+				+ "을 예치금으로 돌려드렸어요.",
+			"/tickets"));
 	}
 }
