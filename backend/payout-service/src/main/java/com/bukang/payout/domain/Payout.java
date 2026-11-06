@@ -288,6 +288,16 @@ public class Payout extends BaseIdAndTime {
 		changeStatus(PayoutStatus.CALCULATED, PayoutHold.SYSTEM_MEMBER_ID, revertedAt, reason);
 	}
 
+	// 지급 불일치: 캐시 서비스가 같은 정산 ID를 이미 다른 판매자 · 금액으로 처리했다고 답했다(409, BUK-62)
+	// 돈은 캐시 서비스에 저장된 금액으로 나갔다. 정산 예정으로 되돌리면 매일 다시 요청하므로 따로 멈춘다
+	public void markPayMismatch(LocalDateTime markedAt, String reason) {
+		if (status != PayoutStatus.PAYING) {
+			throw new IllegalStateException("지급 중 상태가 아니라 지급 불일치로 바꿀 수 없습니다. payoutId=%d, status=%s"
+				.formatted(getId(), status));
+		}
+		changeStatus(PayoutStatus.PAY_MISMATCH, PayoutHold.SYSTEM_MEMBER_ID, markedAt, reason);
+	}
+
 	// 지급 완료: 캐시 서비스가 정산금을 판매자 · 시스템 지갑으로 옮긴 뒤(PAYING) 바꾼다 (PRO-252)
 	// 옮길 돈이 0원인 정산 내역은 캐시 서비스를 부르지 않으므로 정산 예정(CALCULATED)에서 바로 바꾼다
 	// 보류된 정산 내역은 지급 완료로 바꿀 수 없다. 배치가 HELD를 고르지 않지만, 잘못 불려도 여기서 막는다
@@ -318,6 +328,10 @@ public class Payout extends BaseIdAndTime {
 		}
 		if (status == PayoutStatus.PAID) {
 			throw new PayoutHoldConflictException("이미 지급 완료된 정산 내역입니다.");
+		}
+		// 돈은 이미 나갔다. 보류했다가 풀면 정산 예정으로 돌아가 다시 지급 요청을 하게 된다 (BUK-62)
+		if (status == PayoutStatus.PAY_MISMATCH) {
+			throw new PayoutHoldConflictException("지급 금액이 맞지 않아 확인 중인 정산 내역입니다.");
 		}
 		if (status == PayoutStatus.CANCELED) {
 			throw new PayoutHoldConflictException("취소된 정산 내역입니다.");

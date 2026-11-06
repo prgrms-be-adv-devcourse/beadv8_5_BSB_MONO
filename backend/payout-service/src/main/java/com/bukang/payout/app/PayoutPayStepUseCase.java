@@ -119,6 +119,18 @@ public class PayoutPayStepUseCase {
 		payoutRaceCancelUseCase.recoverAfterRejectedCancel(payout, now);
 	}
 
+	// 캐시 서비스가 같은 정산 ID를 이미 다른 금액으로 지급했다고 답했다(409). 다시 요청해도 같으므로 지급 불일치로 멈춘다 (BUK-62)
+	// 지급 대상(정산 예정 · 지급 중)이 아니게 되므로 다음 지급 배치가 고르지 않는다
+	// 지급 중에 대회가 취소됐어도 회수를 만들지 않는다. 실제로 나간 금액을 사람이 확인한 뒤 정한다
+	@Transactional
+	public void markMismatch(long payoutId, LocalDateTime now, String reason) {
+		Payout payout = payoutRepository.findById(payoutId).orElseThrow(PayoutNotFoundException::new);
+		if (payout.isRaceCanceled()) {
+			log.warn("지급 중에 대회가 취소된 정산 내역이 지급 불일치가 됐습니다. 회수는 확인 뒤 정합니다. payoutId={}", payoutId);
+		}
+		payout.markPayMismatch(now, reason);
+	}
+
 	/**
 	 * 지급 시작 결과
 	 *

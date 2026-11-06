@@ -30,6 +30,7 @@ import com.bukang.payout.out.PayoutItemRepository;
 import com.bukang.payout.out.PayoutRecoveryRepository;
 import com.bukang.payout.out.PayoutRepository;
 import com.bukang.payout.out.PayoutTransfer;
+import com.bukang.payout.out.PayoutTransferMismatchException;
 import com.bukang.payout.out.PayoutTransferRejectedException;
 import com.bukang.payout.out.PayoutTransferUnknownException;
 
@@ -253,6 +254,35 @@ class PayoutPayUseCaseTest {
 	}
 
 	@Test
+	@DisplayName("BUK-62: 캐시 서비스가 이미 다른 금액으로 지급했다고 답하면(409) 정산 예정으로 되돌리지 않고 지급 불일치로 둔다")
+	void mismatchIsNotRevertedToCalculated() {
+		Payout payout = savePayoutWithSale(1);
+		cashService = transfer -> {
+			throw new PayoutTransferMismatchException("저장된 금액 40000", null);
+		};
+
+		PayoutPayResultDto result = useCase().run(PAY_DATE, NOW);
+
+		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.PAY_MISMATCH);
+		assertThat(result).isEqualTo(new PayoutPayResultDto(PAY_DATE, 0, 0, 0, 1));
+	}
+
+	@Test
+	@DisplayName("BUK-62: 지급 불일치가 된 정산 내역은 다음 지급 배치가 다시 요청하지 않는다")
+	void mismatchIsNotRequestedAgain() {
+		Payout payout = savePayoutWithSale(1);
+		cashService = transfer -> {
+			throw new PayoutTransferMismatchException("저장된 금액 40000", null);
+		};
+		useCase().run(PAY_DATE, NOW);
+
+		useCase().run(PAY_DATE.plusDays(1), NOW.plusDays(1));
+
+		assertThat(transfers).hasSize(1);
+		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.PAY_MISMATCH);
+	}
+
+	@Test
 	@DisplayName("결과를 모르면(타임아웃 · 5xx) 지급 중으로 두고, 다음 실행에서 같은 금액으로 다시 요청해 지급 완료한다")
 	void unknownStaysPayingAndRetriesWithSameAmount() {
 		Payout payout = savePayoutWithSale(1);
@@ -289,6 +319,20 @@ class PayoutPayUseCaseTest {
 	}
 
 	@Test
+	@DisplayName("BUK-62: 지급 불일치 정산 내역에는 보류를 걸 수 없다. 풀면 정산 예정으로 돌아가 다시 요청하기 때문이다")
+	void cannotHoldMismatch() {
+		Payout payout = savePayoutWithSale(1);
+		cashService = transfer -> {
+			throw new PayoutTransferMismatchException("저장된 금액 40000", null);
+		};
+		useCase().run(PAY_DATE, NOW);
+
+		Payout mismatch = payoutRepository.findById(payout.getId()).orElseThrow();
+		assertThatThrownBy(() -> mismatch.hold(PayoutHoldReason.ACCOUNT_NOT_REGISTERED, null, 99, NOW))
+			.isInstanceOf(PayoutHoldConflictException.class);
+	}
+
+	@Test
 	@DisplayName("한 건이 실패해도 나머지 정산 내역은 지급한다")
 	void otherPayoutsArePaidWhenOneFails() {
 		Payout rejected = savePayoutWithSale(1);
@@ -308,7 +352,7 @@ class PayoutPayUseCaseTest {
 		assertThat(statusOf(rejected)).isEqualTo(PayoutStatus.CALCULATED);
 		assertThat(statusOf(unknown)).isEqualTo(PayoutStatus.PAYING);
 		assertThat(statusOf(ok)).isEqualTo(PayoutStatus.PAID);
-		assertThat(result).isEqualTo(new PayoutPayResultDto(PAY_DATE, 1, 1, 1));
+		assertThat(result).isEqualTo(new PayoutPayResultDto(PAY_DATE, 1, 1, 1, 0));
 	}
 
 	@Test
@@ -339,7 +383,7 @@ class PayoutPayUseCaseTest {
 
 		assertThat(transfers).isEmpty();
 		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.CALCULATED);
-		assertThat(result).isEqualTo(new PayoutPayResultDto(PAY_DATE, 0, 0, 0));
+		assertThat(result).isEqualTo(new PayoutPayResultDto(PAY_DATE, 0, 0, 0, 0));
 	}
 
 	// 10/17 대회분(11/20 지급), 판매 50,000 → 지급액 47,250 · 수수료 2,750

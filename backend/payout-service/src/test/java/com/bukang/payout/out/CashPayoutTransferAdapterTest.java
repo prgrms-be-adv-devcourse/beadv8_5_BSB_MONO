@@ -75,11 +75,26 @@ class CashPayoutTransferAdapterTest {
 	}
 
 	@Test
-	@DisplayName("409처럼 다른 4xx도 거절로 본다")
-	void conflictIsRejected() {
-		server.expect(requestTo(URL)).andRespond(withStatus(HttpStatus.CONFLICT));
+	@DisplayName("400처럼 다른 4xx도 거절로 본다")
+	void badRequestIsRejected() {
+		server.expect(requestTo(URL)).andRespond(withStatus(HttpStatus.BAD_REQUEST));
 
 		assertThatThrownBy(() -> adapter.transfer(TRANSFER)).isInstanceOf(PayoutTransferRejectedException.class);
+	}
+
+	@Test
+	@DisplayName("BUK-62: 409는 같은 정산 ID가 이미 다른 금액으로 지급됐다는 뜻이라 거절이 아닌 불일치로 보고, 저장된 금액을 메시지에 남긴다")
+	void conflictIsMismatch() {
+		server.expect(requestTo(URL))
+			.andRespond(withStatus(HttpStatus.CONFLICT).contentType(MediaType.APPLICATION_JSON).body("""
+				{ "status": 409, "message": "같은 정산 ID로 이전과 다른 값이 요청됐습니다. payoutId=31",
+				  "data": { "outcome": "ALREADY_PAID", "settlementAmount": 40000, "feeAmount": 2750 } }
+				"""));
+
+		assertThatThrownBy(() -> adapter.transfer(TRANSFER))
+			.isInstanceOf(PayoutTransferMismatchException.class)
+			.hasMessageContaining("payoutId=31")
+			.hasMessageContaining("\"settlementAmount\": 40000");
 	}
 
 	@Test
