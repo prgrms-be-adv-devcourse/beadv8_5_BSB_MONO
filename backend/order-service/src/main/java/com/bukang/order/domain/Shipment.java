@@ -5,6 +5,7 @@ import static jakarta.persistence.EnumType.STRING;
 import static jakarta.persistence.FetchType.LAZY;
 import static lombok.AccessLevel.PROTECTED;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -44,7 +45,7 @@ import lombok.NoArgsConstructor;
 	indexes = {
 		// 주문의 배송 찾기 (주문 조회·취소)
 		@Index(name = "idx_shipment_order", columnList = "order_id"),
-		// 조회 배치가 배송 중인 배송을 오래 조회하지 않은 것부터 고른다 (BUK-55)
+		// 조회 배치가 배송 중인 배송을 고른다 (BUK-55). BUK-90부터는 status로 거른 뒤 next_tracking_at으로 고른다
 		@Index(name = "idx_shipment_tracking", columnList = "status, last_tracked_at")
 	}
 )
@@ -53,6 +54,13 @@ public class Shipment extends BaseIdAndTime {
 	public static final int MAX_CARRIER_LENGTH = 30;
 	public static final int MAX_TRACKING_NUMBER_LENGTH = 50;
 	private static final int MAX_TRACKING_STATUS_TEXT_LENGTH = 50;
+	// 발송(또는 송장 수정) 뒤 이만큼 지나도 택배사가 스캔하지 않으면 조회를 멈춘다 (BUK-90, 11/05 R4)
+	public static final Duration NOT_TRACKED_LIMIT = Duration.ofDays(7);
+
+	// 조회 결과를 남긴 뒤의 상태. STOPPED는 이번에 조회를 멈췄다는 뜻이라 판매자에게 한 번 알린다
+	public enum TrackingOutcome {
+		TRACKED, DELIVERED, STOPPED
+	}
 
 	@ManyToOne(fetch = LAZY, optional = false)
 	@JoinColumn(name = "order_id", nullable = false)
@@ -106,12 +114,21 @@ public class Shipment extends BaseIdAndTime {
 	@Column(name = "last_tracked_at")
 	private LocalDateTime lastTrackedAt;
 
+	// 다음에 조회할 시각 (BUK-90). 마지막 상태로 정한다(DeliveryTrackingStatus.trackingInterval). 비어 있으면 조회하지 않는다
+	// (발송 전, 배송 완료, 7일 동안 조회되지 않아 멈춤)
+	@Column(name = "next_tracking_at")
+	private LocalDateTime nextTrackingAt;
+
+	// 조회를 시작한 시각 (BUK-90). 발송 시각이고, 판매자가 송장을 고치면 고친 시각이다. 7일 조회 중단을 이 시각부터 센다
+	@Column(name = "tracking_started_at")
+	private LocalDateTime trackingStartedAt;
+
 	@OneToMany(mappedBy = "shipment", cascade = ALL)
 	private List<ShipmentItem> items = new ArrayList<>();
 
 	// 주문 목록에서 배송마다 기록을 따로 읽지 않도록 한 번에 읽는다 (Order.shipments와 같은 방식)
 	@BatchSize(size = 100)
-	@OneToMany(mappedBy = "shipment", cascade = ALL)
+	@OneToMany(mappedBy = "shipment", cascade = ALL, orphanRemoval = true)
 	@OrderBy("eventAt asc, id asc")
 	private List<ShipmentTrackingEvent> trackingEvents = new ArrayList<>();
 
@@ -149,14 +166,59 @@ public class Shipment extends BaseIdAndTime {
 		this.carrier = carrier.getLabel();
 		this.trackingNumber = trackingNumber.strip();
 		this.shippedAt = shippedAt;
+		startTracking(shippedAt);
+	}
+
+	// 판매자가 택배사·송장 번호를 고쳤다 (BUK-90). 배송 중일 때만 고친다. 옛 송장의 상태·이동 기록은 지우고 처음부터 다시 조회한다
+	// 7일 조회 중단도 고친 때부터 다시 센다. 발송 시각(shippedAt)은 그대로 둔다
+	void changeTracking(DeliveryCarrier carrier, String trackingNumber, LocalDateTime changedAt) {
+		if (status != ShipmentStatus.SHIPPING) {
+			throw new KitNotShippableException("배송 중인 키트만 송장을 고칠 수 있습니다.");
+		}
+		checkTrackingNumber(trackingNumber);
+		this.carrierId = carrier.getId();
+		this.carrier = carrier.getLabel();
+		this.trackingNumber = trackingNumber.strip();
+		this.trackingStatusText = null;
+		this.lastEventAt = null;
+		this.trackingEvents.clear();
+		startTracking(changedAt);
+	}
+
+	// 아직 조회되지 않음으로 두고 다음 조회 차례에 바로 조회한다
+	private void startTracking(LocalDateTime startedAt) {
 		this.trackingStatus = DeliveryTrackingStatus.NOT_TRACKED;
+		this.trackingStartedAt = startedAt;
+		this.nextTrackingAt = startedAt;
 	}
 
 	// 조회 결과를 남긴다 (BUK-55). 아직 조회되지 않음이면 지난 상태를 그대로 두고 조회 시각만 바꾼다
 	// 이동 기록은 저장하지 않은 것만 더한다. 택배사가 배송 완료라고 하면 배송 중인 키트를 배송 완료로 바꾼다 (정책 5장 3, 회의 확인 전 기본값)
-	// 판매자가 먼저 배송 완료로 바꿨으면 상태·기록만 남긴다. 이번에 배송 완료로 바꿨으면 true
-	boolean applyTracking(DeliveryTrackingResult result, LocalDateTime trackedAt) {
+	// 판매자가 먼저 배송 완료로 바꿨으면 상태·기록만 남긴다
+	// 다음 조회 시각은 남긴 상태로 정하고, 7일 동안 아직 조회되지 않음이면 조회를 멈춘다 (BUK-90)
+	// carrierId·trackingNumber는 조회한 송장이다. 그 사이 판매자가 송장을 고쳤거나 배송 완료로 바꿨으면 남기지 않는다
+	// (배송 완료된 키트에 조회 중단 알림이 가지 않게 한다)
+	TrackingOutcome applyTracking(String carrierId, String trackingNumber, DeliveryTrackingResult result,
+		LocalDateTime trackedAt) {
+		if (status != ShipmentStatus.SHIPPING
+			|| !carrierId.equals(this.carrierId) || !trackingNumber.equals(this.trackingNumber)) {
+			return TrackingOutcome.TRACKED;
+		}
 		this.lastTrackedAt = trackedAt;
+		if (applyResult(result, trackedAt)) {
+			return TrackingOutcome.DELIVERED;
+		}
+		if (trackingStatus == DeliveryTrackingStatus.NOT_TRACKED
+			&& !trackedAt.isBefore(trackingStartedAt.plus(NOT_TRACKED_LIMIT))) {
+			this.nextTrackingAt = null;
+			return TrackingOutcome.STOPPED;
+		}
+		this.nextTrackingAt = trackedAt.plus(trackingStatus.trackingInterval());
+		return TrackingOutcome.TRACKED;
+	}
+
+	// 이번에 배송 완료로 바꿨으면 true
+	private boolean applyResult(DeliveryTrackingResult result, LocalDateTime trackedAt) {
 		if (!result.isTracked()) {
 			return false;
 		}
@@ -178,7 +240,7 @@ public class Shipment extends BaseIdAndTime {
 		if (result.lastEventAt() != null && result.lastEventAt().isBefore(shippedAt.minusDays(1))) {
 			return false;
 		}
-		// 배송 완료 시각은 택배사가 남긴 배달 시각이다. 조회가 늦어져도(30분 주기, 상대 장애) 실제 시각이 남는다
+		// 배송 완료 시각은 택배사가 남긴 배달 시각이다. 조회가 늦어져도(조회 간격, 상대 장애) 실제 시각이 남는다
 		completeDelivery(result.lastEventAt() != null ? result.lastEventAt() : trackedAt);
 		return true;
 	}
@@ -200,6 +262,7 @@ public class Shipment extends BaseIdAndTime {
 		checkDeliverable();
 		this.status = ShipmentStatus.DELIVERED;
 		this.deliveredAt = deliveredAt;
+		this.nextTrackingAt = null;
 	}
 
 	void checkDeliverable() {

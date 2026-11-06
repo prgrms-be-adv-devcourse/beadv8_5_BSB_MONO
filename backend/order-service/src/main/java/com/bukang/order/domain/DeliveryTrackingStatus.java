@@ -1,5 +1,6 @@
 package com.bukang.order.domain;
 
+import java.time.Duration;
 import java.util.Arrays;
 
 import lombok.Getter;
@@ -22,7 +23,20 @@ public enum DeliveryTrackingStatus {
 	EXCEPTION("배송 문제"),
 	UNKNOWN("알 수 없음");
 
+	// 배달이 곧 끝나는 상태는 30분, 그 밖은 3시간 뒤에 다시 조회한다 (BUK-90, 11/05 R4. 간격 값은 리뷰 때 확정)
+	// 30분 고정이면 3일 배송 1건에 144번이라 Delivery Tracker 무료 한도(월 1만 건)로 약 70건만 버틴다
+	private static final Duration NEAR_DELIVERY_INTERVAL = Duration.ofMinutes(30);
+	private static final Duration DEFAULT_INTERVAL = Duration.ofHours(3);
+
 	private final String label;
+
+	// 이 상태를 받은 뒤 다음 조회까지 둘 시간
+	public Duration trackingInterval() {
+		return switch (this) {
+			case OUT_FOR_DELIVERY, ATTEMPT_FAIL, AVAILABLE_FOR_PICKUP -> NEAR_DELIVERY_INTERVAL;
+			default -> DEFAULT_INTERVAL;
+		};
+	}
 
 	// Delivery Tracker 상태 코드. 모르는 코드(새로 생긴 값)는 UNKNOWN으로 본다
 	public static DeliveryTrackingStatus fromCode(String code) {
