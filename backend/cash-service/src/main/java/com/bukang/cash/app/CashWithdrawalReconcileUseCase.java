@@ -33,6 +33,9 @@ import lombok.extern.slf4j.Slf4j;
 public class CashWithdrawalReconcileUseCase {
 	private static final List<WithdrawalItemStatus> UNFINISHED =
 		List.of(WithdrawalItemStatus.PENDING, WithdrawalItemStatus.UNKNOWN);
+	private static final int MAX_CONSECUTIVE_NO_ANSWERS = 3;
+	// 같은 키가 아직 처리 중이라는 토스 응답(409). 결과는 모르지만 토스가 답했다
+	private static final String IDEMPOTENT_REQUEST_PROCESSING = "IDEMPOTENT_REQUEST_PROCESSING";
 
 	private final WalletWithdrawalItemRepository walletWithdrawalItemRepository;
 	private final PaymentClient paymentClient;
@@ -48,8 +51,17 @@ public class CashWithdrawalReconcileUseCase {
 			.map(item -> new Target(item.getId(), item.getCharge().getId(), item.getCharge().getPgPaymentKey(),
 				item.getAmount(), item.getPgIdempotencyKey(), item.getCreateDate()))
 			.toList());
-		for (Target target : targets) {
+		int consecutiveNoAnswers = 0;
+		for (int i = 0; i < targets.size(); i++) {
+			Target target = targets.get(i);
 			Outcome outcome = callPg(target);
+			// 충전 재확인처럼 토스가 계속 답하지 않으면(장애) 남은 몫까지 부르지 않고 다음 회차로 미룬다
+			consecutiveNoAnswers = outcome.pgAnswered() ? 0 : consecutiveNoAnswers + 1;
+			if (consecutiveNoAnswers >= MAX_CONSECUTIVE_NO_ANSWERS) {
+				log.warn("환급 재확인: 토스가 {}번 연달아 응답하지 않아 이번 실행을 멈춥니다. 남은 몫={}",
+					consecutiveNoAnswers, targets.size() - i - 1);
+				return;
+			}
 			if (outcome.failure() != null && outcome.failure().isResultUnknown()) {
 				// 이번에도 모르면 되돌리지 않는다(돈이 두 번 나갈 수 있다). 다음 재확인에 같은 키로 다시 묻는다.
 				// 토스 중복 방지 키는 15일만 유효해서, 그보다 훨씬 전에 사람이 보게 한다
@@ -119,5 +131,10 @@ public class CashWithdrawalReconcileUseCase {
 
 	// result와 failure 중 하나만 있다
 	private record Outcome(PaymentCancelResult result, PaymentCancelFailedException failure) {
+		// 연결 실패·타임아웃·5xx·빈 응답만 토스가 답하지 않은 것으로 본다
+		boolean pgAnswered() {
+			return failure == null || !failure.isResultUnknown()
+				|| IDEMPOTENT_REQUEST_PROCESSING.equals(failure.getPgCode());
+		}
 	}
 }

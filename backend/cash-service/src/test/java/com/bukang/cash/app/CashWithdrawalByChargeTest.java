@@ -523,6 +523,40 @@ class CashWithdrawalByChargeTest {
 		assertThat(keys.getAllValues().get(2)).isEqualTo(olderKey);
 	}
 
+	@Test
+	@DisplayName("재확인에서 토스가 3번 연달아 응답하지 않으면(연결 실패·타임아웃·5xx) 그 회차를 멈추고 남은 몫은 부르지 않는다")
+	void reconcileStopsAfterThreeConsecutiveNoAnswers(CapturedOutput output) {
+		createFourUnknownParts(new PaymentCancelFailedException("PG 서버에 연결하지 못했습니다.", null, true));
+
+		cashWithdrawalReconcileUseCase.reconcile(NOW.plusMinutes(5));
+
+		// 신청 때 4번 + 재확인 때 3번
+		verify(paymentClient, times(7)).cancel(anyString(), anyString(), anyLong(), anyString());
+		assertThat(output).contains("환급 재확인", "연달아", "멈춥니다");
+	}
+
+	@Test
+	@DisplayName("같은 키가 아직 처리 중이라는 토스 응답(409)은 토스가 답한 것이라 연달아 실패로 세지 않고 다음 몫을 계속 부른다")
+	void reconcileDoesNotCountIdempotentProcessingAsNoAnswer() {
+		createFourUnknownParts(new PaymentCancelFailedException(
+			"PG사가 결제 취소를 거절했습니다.", "IDEMPOTENT_REQUEST_PROCESSING", true));
+
+		cashWithdrawalReconcileUseCase.reconcile(NOW.plusMinutes(5));
+
+		// 신청 때 4번 + 재확인 때 4번
+		verify(paymentClient, times(8)).cancel(anyString(), anyString(), anyLong(), anyString());
+	}
+
+	// 기한 안 충전 4건을 환급 신청하고, 신청 때와 재확인 때 토스가 모두 failure로 답하게 한다
+	private void createFourUnknownParts(PaymentCancelFailedException failure) {
+		Wallet wallet = createWallet(40_000);
+		for (int day = 10; day <= 13; day++) {
+			completedCharge(wallet, 10_000, "charge_" + day, LocalDateTime.of(2026, 10, day, 9, 0));
+		}
+		given(paymentClient.cancel(anyString(), anyString(), anyLong(), anyString())).willThrow(failure);
+		cashFacade.requestWithdrawal(CUSTOMER_ID, null, null, null, "withdrawal_1", NOW);
+	}
+
 	private Wallet createWallet(long balance) {
 		return transactionTemplate.execute(status -> {
 			CashMember member = cashMemberRepository.save(new CashMember(CUSTOMER_ID, NOW, NOW, "러너3"));
