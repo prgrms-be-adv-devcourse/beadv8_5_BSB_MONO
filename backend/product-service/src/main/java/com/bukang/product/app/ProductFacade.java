@@ -20,6 +20,8 @@ import com.bukang.common.shared.seller.domain.SellerStatus;
 import com.bukang.common.shared.seller.domain.SellerType;
 import com.bukang.product.domain.HoldReleaseReason;
 import com.bukang.product.domain.ProductDltKafkaEvent;
+import com.bukang.product.dto.CrewHoldRequestDto;
+import com.bukang.product.dto.CrewHoldResultDto;
 import com.bukang.product.dto.HoldRequestDto;
 import com.bukang.product.dto.HoldResultDto;
 import com.bukang.product.dto.HoldSellResult;
@@ -157,6 +159,24 @@ public class ProductFacade {
 			// 늦은 쪽 트랜잭션은 카운터를 올린 것까지 롤백되었으므로, 먼저 잡힌 자리의 결과를 돌려준다
 			return transactionTemplate.execute(status ->
 				raceHoldUseCase.findExisting(request.getParticipationId()));
+		}
+	}
+
+	// 주문 서비스의 파티 [대회 참가] 크루 자리 확보 (내부 API). 파티원 수만큼 한꺼번에, 모자라면 한 석도 잡지 않는다
+	@Transactional(propagation = Propagation.NOT_SUPPORTED)
+	public CrewHoldResultDto holdCrewSeats(CrewHoldRequestDto request) {
+		// 요청 DTO를 UseCase 안쪽으로 넘기지 않고 값만 풀어 넘긴다
+		List<RaceHoldUseCase.CrewSeat> seats = request.getSeats().stream()
+			.map(seat -> new RaceHoldUseCase.CrewSeat(seat.getParticipationId(), seat.getRaceCourseId()))
+			.toList();
+		try {
+			return transactionTemplate.execute(status -> raceHoldUseCase.holdCrew(request.getPartyId(),
+				request.getCrewId(), request.getRaceId(), request.getExpiresAt(), seats, LocalDateTime.now()));
+		} catch (DataIntegrityViolationException exception) {
+			// 같은 파티로 동시에 확보를 요청해 늦은 쪽이 유니크 제약(participation_id)에 걸렸다
+			// 늦은 쪽 트랜잭션은 카운터를 올린 것까지 롤백되었으므로, 먼저 잡힌 자리의 결과를 돌려준다
+			return transactionTemplate.execute(status ->
+				raceHoldUseCase.findExistingCrew(request.getPartyId(), seats));
 		}
 	}
 

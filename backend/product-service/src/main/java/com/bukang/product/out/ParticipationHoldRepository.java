@@ -1,6 +1,7 @@
 package com.bukang.product.out;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -21,6 +22,12 @@ import jakarta.persistence.LockModeType;
  */
 public interface ParticipationHoldRepository extends JpaRepository<ParticipationHold, Long> {
 	Optional<ParticipationHold> findByParticipationId(long participationId);
+
+	// 파티가 잡은 크루 자리 (같은 파티로 다시 확보를 부르면 처음 결과를 돌려주려고 찾는다)
+	List<ParticipationHold> findByPartyIdOrderByParticipationId(long partyId);
+
+	// 이 참가 신청들 중 이미 자리를 잡은 것이 있는지 (크루 자리를 잡기 전에, 다른 파티·개인 자리와 겹치는지 본다)
+	boolean existsByParticipationIdIn(Collection<Long> participationIds);
 
 	// 행을 잠그고 읽는다 (SELECT … FOR UPDATE). 같은 자리를 판매·해제·복구가 함께 처리하지 못하게 차례를 세운다
 	// 잠그지 않고 읽으면, 다른 요청이 바꾸기 전의 상태를 보고 잘못 판단할 수 있다

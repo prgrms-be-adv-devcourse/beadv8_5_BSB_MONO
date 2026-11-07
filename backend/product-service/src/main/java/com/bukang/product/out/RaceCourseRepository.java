@@ -4,17 +4,29 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.bukang.product.domain.RaceCourse;
 
+import jakarta.persistence.LockModeType;
+
 /**
  * 종목의 확보·판매 카운터는 아래 조건부 UPDATE로만 바꾼다 (엔티티 저장에서는 빠진다, RaceCourse 카운터 주석)
- * 세미는 개인 예매만 해서 개인 몫 카운터만 바꾼다. 엔티티를 거치지 않으므로 수정 일시(updated_at)도 직접 채운다.
+ * 개인 자리는 개인 몫 카운터를, 크루 자리(파티 신청)는 크루 몫 카운터를 바꾼다.
+ * 엔티티를 거치지 않으므로 수정 일시(updated_at)도 직접 채운다.
  */
 public interface RaceCourseRepository extends JpaRepository<RaceCourse, Long> {
+	// 종목 행을 잠그고 읽는다 (SELECT … FOR UPDATE). 크루 자리는 파티원 수만큼 한꺼번에 잡으므로,
+	// 여러 종목의 남은 자리를 모두 확인한 뒤에 카운터를 바꿔야 한다 (하나라도 모자라면 한 석도 잡지 않는다)
+	// 잠그지 않고 읽으면 확인과 UPDATE 사이에 다른 파티가 자리를 가져가 일부 종목만 잡힐 수 있다
+	// 여러 종목을 잠글 때는 종목 ID 순서로 부른다. 순서가 다르면 두 파티가 서로 상대가 잠근 종목을 기다리다 멈춘다
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("select c from RaceCourse c where c.id = :id")
+	Optional<RaceCourse> findByIdForUpdate(@Param("id") long id);
+
 	// 종목의 대회 ID만 읽는다 (대회 엔티티를 불러오지 않는다)
 	// 자리 확보가 대회 행을 잠그고 읽기 전에 대회를 먼저 불러 두면, 잠금 조회도 먼저 불러 둔 옛 상태를 돌려준다
 	@Query("select c.race.id from RaceCourse c where c.id = :id")
@@ -50,9 +62,47 @@ public interface RaceCourseRepository extends JpaRepository<RaceCourse, Long> {
 	@Query("update RaceCourse c set c.individualSold = c.individualSold - 1, c.modifyDate = :now where c.id = :id")
 	int restoreIndividual(@Param("id") long id, @Param("now") LocalDateTime now);
 
+	// 남은 크루 자리가 count개 이상일 때만 크루 결제 대기를 count 늘린다 (파티원 수만큼 한꺼번에)
+	// 크루 몫을 개인 몫으로 옮기기 전(crewClosedAt이 빔)이고, 대회가 판매 예정·판매 중일 때만 늘린다
+	// 확보는 종목 행을 먼저 잠그고 남은 자리를 확인한 뒤 부르므로 보통 1행이다. 0행이면 확인과 어긋난 것이다
+	@Modifying(clearAutomatically = true)
+	@Query("update RaceCourse c set c.crewReserved = c.crewReserved + :count, c.modifyDate = :now "
+		+ "where c.id = :id and c.crewQuota - c.movedQuota - c.crewReserved - c.crewSold >= :count "
+		+ "and c.crewClosedAt is null "
+		+ "and c.race.id in (select r.id from Race r where r.saleStatus in ("
+		+ "com.bukang.common.shared.race.domain.RaceSaleStatus.SCHEDULED, "
+		+ "com.bukang.common.shared.race.domain.RaceSaleStatus.ON_SALE))")
+	int reserveCrew(@Param("id") long id, @Param("count") int count, @Param("now") LocalDateTime now);
+
+	// 크루 결제 대기 1 → 크루 판매 1 (남은 자리는 그대로)
+	@Modifying(clearAutomatically = true)
+	@Query("update RaceCourse c set c.crewReserved = c.crewReserved - 1, "
+		+ "c.crewSold = c.crewSold + 1, c.modifyDate = :now where c.id = :id")
+	int sellCrew(@Param("id") long id, @Param("now") LocalDateTime now);
+
+	// 크루 결제 대기 count개를 되돌린다 (해제. 대회 취소는 한 종목의 여러 자리를 한 번에 되돌린다)
+	// 크루 몫을 이미 개인 몫으로 옮긴 뒤(crewClosedAt이 있음)라면 되돌린 자리도 개인 몫으로 넘긴다 (movedQuota + count)
+	//   크루 예매가 끝나 크루 몫에 남겨 두면 아무도 살 수 없는 자리가 된다
+	//   남은 크루 자리 식(crewQuota − movedQuota − crewReserved − crewSold)은 그대로 0, 남은 개인 자리는 count 늘어난다
+	// 보통은 이 경우가 생기지 않는다. 크루 마감일이 지난 자정 배치가 결제 대기 크루 자리를 먼저 모두 반환한 뒤(이때는 옮기기 전)
+	// 남은 크루 자리를 한 번에 개인 몫으로 옮기기 때문이다. 배치와 늦게 온 해제가 겹칠 때를 위한 안전장치다
+	@Modifying(clearAutomatically = true)
+	@Query("update RaceCourse c set c.crewReserved = c.crewReserved - :count, "
+		+ "c.movedQuota = c.movedQuota + case when c.crewClosedAt is null then 0 else :count end, "
+		+ "c.modifyDate = :now where c.id = :id")
+	int releaseCrew(@Param("id") long id, @Param("count") int count, @Param("now") LocalDateTime now);
+
+	// 크루 판매 1을 되돌린다 (결제 취소). 크루 몫을 이미 개인 몫으로 옮긴 뒤라면 그 자리도 개인 몫으로 넘긴다 (releaseCrew와 같은 이유)
+	// 파티원이 결제한 뒤 크루 마감이 지나 환불하면 생긴다. 자정 배치는 판매한 자리를 옮기지 않으므로, 환불된 자리는 여기서 넘긴다
+	@Modifying(clearAutomatically = true)
+	@Query("update RaceCourse c set c.crewSold = c.crewSold - 1, "
+		+ "c.movedQuota = c.movedQuota + case when c.crewClosedAt is null then 0 else 1 end, "
+		+ "c.modifyDate = :now where c.id = :id")
+	int restoreCrew(@Param("id") long id, @Param("now") LocalDateTime now);
+
 	// 남은 개인 자리로 종목 상태를 맞춘다: 0이면 정원 마감, 남았으면 접수 중
 	// 카운터를 바꾼 같은 트랜잭션에서 부른다 (행이 이미 잠겨 있어 그 사이 다른 요청이 끼어들지 못한다)
-	// 세미는 개인 예매만 해서 개인 자리로만 판단한다
+	// 개인 자리로만 판단한다 (크루 자리를 해제·복구해 개인 몫으로 넘긴 뒤에도 부른다)
 	@Modifying(clearAutomatically = true)
 	@Query("update RaceCourse c set c.status = case "
 		+ "when c.individualQuota + c.movedQuota - c.individualReserved - c.individualSold > 0 "

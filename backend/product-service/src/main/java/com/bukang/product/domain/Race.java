@@ -305,6 +305,17 @@ public class Race extends BaseIdAndTime {
 			&& !now.isBefore(individualOpenAt) && now.isBefore(applicationCloseAt);
 	}
 
+	// 파티 신청으로 크루 자리를 확보할 수 있는지: 판매 예정·판매 중이고, 크루 예매 시작부터 크루 예매 마감 전까지, 접수 마감 전
+	// 판매 예정도 넣는 이유는 개인 예매와 같다 (크루 예매가 판매 시작일 0시에 열리면 상태 배치가 판매 중으로 바꾸기까지 최대 5분)
+	// 크루 예매가 없는 대회(크루 일정이 비어 있음)는 늘 확보할 수 없다
+	public boolean isAcceptingCrew(LocalDateTime now) {
+		if (crewSaleStartAt == null || crewSaleEndAt == null) {
+			return false;
+		}
+		return (saleStatus == RaceSaleStatus.SCHEDULED || saleStatus == RaceSaleStatus.ON_SALE)
+			&& !now.isBefore(crewSaleStartAt) && now.isBefore(crewSaleEndAt) && now.isBefore(applicationCloseAt);
+	}
+
 	// 대기열에 보낼 대회 변경 메시지 (개인·파티 대기열 진입 판정에 쓰는 칸과 수정 일시)
 	public RaceChangedEvent toChangedEvent() {
 		return new RaceChangedEvent(getId(), saleStatus, individualOpenAt, applicationCloseAt,

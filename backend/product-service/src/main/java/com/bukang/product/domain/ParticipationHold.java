@@ -33,7 +33,11 @@ import lombok.NoArgsConstructor;
 @Getter
 @Table(
 	name = "participation_hold",
-	indexes = @Index(name = "idx_participation_hold_status_expires", columnList = "status, expires_at"),
+	indexes = {
+		@Index(name = "idx_participation_hold_status_expires", columnList = "status, expires_at"),
+		// 같은 파티로 다시 확보를 부르면 그 파티가 잡은 자리를 찾는다 (크루 자리 멱등 확인)
+		@Index(name = "idx_participation_hold_party", columnList = "party_id")
+	},
 	// 같은 신청으로 두 번 확보해도 자리는 한 번만 잡히게 하는 멱등 키
 	uniqueConstraints = @UniqueConstraint(
 		name = "uk_participation_hold_participation",
@@ -80,15 +84,29 @@ public class ParticipationHold extends BaseIdAndTime {
 	@Column(name = "release_reason", columnDefinition = "varchar(20)")
 	private HoldReleaseReason releaseReason;
 
-	private ParticipationHold(RaceCourse raceCourse, long participationId, LocalDateTime expiresAt) {
+	private ParticipationHold(RaceCourse raceCourse, long participationId, Long partyId, Long crewId,
+		LocalDateTime expiresAt) {
 		this.raceCourse = raceCourse;
 		this.participationId = participationId;
+		this.partyId = partyId;
+		this.crewId = crewId;
 		this.expiresAt = expiresAt;
 		this.status = HoldStatus.HELD;
 	}
 
 	// 개인 자리 1석. 종목 카운터를 올린 뒤에만 만든다
 	public static ParticipationHold individual(RaceCourse raceCourse, long participationId, LocalDateTime expiresAt) {
-		return new ParticipationHold(raceCourse, participationId, expiresAt);
+		return new ParticipationHold(raceCourse, participationId, null, null, expiresAt);
+	}
+
+	// 파티원 1명의 크루 자리 1석. 파티의 크루 몫 카운터를 올린 뒤에만 만든다
+	public static ParticipationHold crew(RaceCourse raceCourse, long participationId, long partyId, long crewId,
+		LocalDateTime expiresAt) {
+		return new ParticipationHold(raceCourse, participationId, partyId, crewId, expiresAt);
+	}
+
+	// 크루 몫에서 나온 자리인지 (판매·해제·복구 때 크루 몫과 개인 몫 중 어느 카운터를 바꿀지 정한다)
+	public boolean isCrew() {
+		return partyId != null;
 	}
 }
