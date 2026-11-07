@@ -366,6 +366,7 @@ class ApiV1RaceQueryTest extends ProductIntegrationTest {
 		LocalDate refundDeadline = now.plusDays(15).toLocalDate();
 		RaceSaveRequestDto request = builder
 			.crewSale(crewSaleStartAt, now.minusDays(2))
+			.crewCount(5, 10)
 			.individualOpenAt(individualOpenAt)
 			.raceDate(now.plusDays(20))
 			.applicationCloseAt(now.plusDays(18))
@@ -399,14 +400,19 @@ class ApiV1RaceQueryTest extends ProductIntegrationTest {
 			.andExpect(jsonPath("$.data.individualRemaining").value(89))
 			.andExpect(jsonPath("$.data.crewRemaining").value(10))
 			.andExpect(jsonPath("$.data.kitIncluded").value(true))
-			.andExpect(jsonPath("$.data.tshirtSizeOption", contains("S", "M", "L")));
+			.andExpect(jsonPath("$.data.tshirtSizeOption", contains("S", "M", "L")))
+			// 주문이 파티 신청·합류 판정에 쓰는 크루 예매 네 칸
+			.andExpect(jsonPath("$.data.crewMinCount").value(5))
+			.andExpect(jsonPath("$.data.crewMaxCount").value(10));
 
 		String body = bodyOf(result);
 		Map<String, Object> data = JsonPath.read(body, "$.data");
 		assertThat(data).containsOnlyKeys("raceCourseId", "raceId", "title", "raceDate", "applicationOpenAt",
 			"applicationCloseAt", "minAge", "maxAge", "sellerId", "course", "courseName", "price", "kitPrice",
 			"refundDeadline", "scheduleChangedAt", "saleStatus", "courseStatus", "individualRemaining", "crewRemaining",
-			"kitIncluded", "tshirtSizeOption");
+			"kitIncluded", "tshirtSizeOption", "crewSaleStartAt", "crewSaleEndAt", "crewMinCount", "crewMaxCount");
+		assertThat(dateTimeAt(body, "$.data.crewSaleStartAt")).isEqualTo(crewSaleStartAt);
+		assertThat(dateTimeAt(body, "$.data.crewSaleEndAt")).isEqualTo(now.minusDays(2));
 		assertThat(dateTimeAt(body, "$.data.raceDate")).isEqualTo(now.plusDays(20));
 		assertThat(dateTimeAt(body, "$.data.applicationOpenAt"))
 			.isEqualTo(individualOpenAt)
