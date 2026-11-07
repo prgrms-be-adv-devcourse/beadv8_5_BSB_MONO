@@ -5,6 +5,40 @@
  * 크루 중심 마라톤 대회 예매·커머스 플랫폼 캐시 API
  * OpenAPI spec version: v1
  */
+/**
+ * 정산 단계 (FIRST: 1차, FINAL: 최종)
+ */
+export type CashPayoutRequestDtoPayoutStage = typeof CashPayoutRequestDtoPayoutStage[keyof typeof CashPayoutRequestDtoPayoutStage];
+
+
+export const CashPayoutRequestDtoPayoutStage = {
+  FIRST: 'FIRST',
+  FINAL: 'FINAL',
+} as const;
+
+/**
+ * 정산 지급 요청
+ */
+export interface CashPayoutRequestDto {
+  /**
+     * 정산액을 받을 판매자 ID (판매자 신청서 ID, 회원 ID 아님)
+     * @minimum 0
+     */
+  sellerId: number;
+  /** 정산 단계 (FIRST: 1차, FINAL: 최종) */
+  payoutStage: CashPayoutRequestDtoPayoutStage;
+  /**
+     * 판매자에게 지급할 정산 대금 (최종 정산은 회수 상계로 0원이 될 수 있음)
+     * @minimum 0
+     */
+  settlementAmount: number;
+  /**
+     * 시스템 지갑으로 보낼 수수료 (1차 정산은 0)
+     * @minimum 0
+     */
+  feeAmount: number;
+}
+
 export interface RsData {
   status?: number;
   code?: string;
@@ -13,27 +47,65 @@ export interface RsData {
 }
 
 /**
- * 예치금 전액 환급 신청
+ * 주문 결제 요청
+ */
+export interface CashPaymentRequestDto {
+  /**
+     * 결제할 회원 ID (지갑 주인)
+     * @minimum 0
+     */
+  memberId: number;
+  /**
+     * 결제 금액
+     * @minimum 0
+     */
+  amount: number;
+}
+
+/**
+ * 참가권 취소에 따른 예치금 환불 요청
+ */
+export interface CashRefundRequestDto {
+  /**
+     * 환불받을 회원 ID (지갑 주인)
+     * @minimum 0
+     */
+  memberId: number;
+}
+
+/**
+ * 결제 취소(환원) 요청
+ */
+export interface CashCancelPaymentRequestDto {
+  /**
+     * 결제를 취소할 회원 ID (지갑 주인)
+     * @minimum 0
+     */
+  memberId: number;
+}
+
+/**
+ * 예치금 전액 환급 신청. 은행 정보는 계좌로 보낼 몫이 있을 때만 필요하다
  */
 export interface CashWithdrawalRequestDto {
   /**
-     * 은행 코드
+     * 은행 코드 (계좌로 보낼 몫이 있을 때만)
      * @minLength 0
      * @maxLength 10
      */
-  bankCode: string;
+  bankCode?: string;
   /**
-     * 계좌번호
+     * 계좌번호 (계좌로 보낼 몫이 있을 때만)
      * @minLength 0
      * @maxLength 255
      */
-  accountNumber: string;
+  accountNumber?: string;
   /**
-     * 예금주명
+     * 예금주명 (계좌로 보낼 몫이 있을 때만)
      * @minLength 0
      * @maxLength 50
      */
-  accountHolder: string;
+  accountHolder?: string;
 }
 
 /**
@@ -42,12 +114,14 @@ export interface CashWithdrawalRequestDto {
 export interface CashChargeConfirmRequestDto {
   /**
      * Toss 결제 키
-     * @minLength 1
+     * @minLength 0
+     * @maxLength 200
      */
   paymentKey: string;
   /**
      * 충전 요청 고유 ID (멱등키)
-     * @minLength 1
+     * @minLength 0
+     * @maxLength 64
      */
   orderId: string;
   /**
@@ -83,11 +157,16 @@ export interface CashChargeDto {
 }
 
 /**
- * 예치금 전액 환급 결과
+ * 예치금 전액 환급 결과. 금액은 카드 결제취소 요청·계좌 송금·처리 중·예치금에 되돌림으로 나뉜다. accountRequired가 true면 카드로 돌려줄 수 없는 몫이 계좌 정보가 없어 예치금에 되돌아갔다
  */
 export interface CashWithdrawalDto {
   withdrawnAmount: number;
   balance: number;
+  cardAmount: number;
+  accountAmount: number;
+  processingAmount: number;
+  revertedAmount: number;
+  accountRequired: boolean;
 }
 
 export type WalletLedgerItemDtoCategory = typeof WalletLedgerItemDtoCategory[keyof typeof WalletLedgerItemDtoCategory];
@@ -116,7 +195,22 @@ export const WalletLedgerItemDtoLedgerType = {
   환불__주문취소: '환불__주문취소',
   임시보관반환__주문취소: '임시보관반환__주문취소',
   출금취소__통장입금: '출금취소__통장입금',
+  출금__PG결제취소_토스페이먼츠: '출금__PG결제취소_토스페이먼츠',
+  출금취소__PG결제취소_토스페이먼츠: '출금취소__PG결제취소_토스페이먼츠',
 } as const;
+
+/**
+ * 충전 줄에만 있다(남은 금액·카드 취소 마지막 날). 다른 줄은 null
+ * @nullable
+ */
+export type WalletLedgerItemDtoCharge = {
+  chargeId: number;
+  chargedAt: string;
+  amount: number;
+  remainingAmount: number;
+  lastCancelableDate: string;
+  expired: boolean;
+} | null;
 
 /**
  * 예치금 내역 한 줄. amount는 부호가 있다(출금·결제는 음수)
@@ -128,6 +222,11 @@ export interface WalletLedgerItemDto {
   balanceAfter: number;
   createdAt: string;
   refId: number;
+  /**
+     * 충전 줄에만 있다(남은 금액·카드 취소 마지막 날). 다른 줄은 null
+     * @nullable
+     */
+  charge?: WalletLedgerItemDtoCharge;
 }
 
 /**
@@ -142,6 +241,32 @@ export interface PageDtoWalletLedgerItemDto {
   totalPages: number;
 }
 
+/**
+ * 환급 화면의 충전 건 한 줄. chargeId는 예치금 내역 충전 줄의 refId와 같다. remainingAmount는 남은 예치금을 최근 충전부터 채운 몫이다
+ */
+export type RefundableChargesDtoChargesItem = {
+  chargeId: number;
+  chargedAt: string;
+  amount: number;
+  remainingAmount: number;
+  /** PG 결제취소를 할 수 있는 마지막 날(이날 24:00까지, 한국 시간) */
+  lastCancelableDate: string;
+  expired: boolean;
+};
+
+/**
+ * 환급 화면용 충전 내역. charges는 최근 충전부터
+ */
+export interface RefundableChargesDto {
+  balance: number;
+  /**
+     * 남은 금액이 있고 기한이 지나지 않은 충전 중 가장 빠른 마지막 날. 없으면 null
+     * @nullable
+     */
+  earliestLastCancelableDate: string | null;
+  charges: RefundableChargesDtoChargesItem[];
+}
+
 export interface RsDataCashWithdrawalDto {
   status?: number;
   message?: string;
@@ -154,16 +279,22 @@ export interface RsDataCashChargeDto {
   data?: CashChargeDto;
 }
 
-export interface RsDataWalletBalanceDto {
+export interface RsDataRefundableChargesDto {
   status?: number;
   message?: string;
-  data?: WalletBalanceDto;
+  data?: RefundableChargesDto;
 }
 
 export interface RsDataPageDtoWalletLedgerItemDto {
   status?: number;
   message?: string;
   data?: PageDtoWalletLedgerItemDto;
+}
+
+export interface RsDataWalletBalanceDto {
+  status?: number;
+  message?: string;
+  data?: WalletBalanceDto;
 }
 
 export type GetLedgersParams = {

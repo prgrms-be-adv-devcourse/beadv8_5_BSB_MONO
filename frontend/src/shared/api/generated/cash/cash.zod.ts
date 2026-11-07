@@ -8,7 +8,7 @@
 import * as zod from 'zod';
 
 /**
- * 회원이 남은 예치금 전액을 환급 신청하면 한 트랜잭션에서 바로 완료 처리한다. Idempotency-Key 헤더를 멱등키로 써서 같은 요청이 여러 번 와도 한 번만 처리한다.
+ * 회원이 남은 예치금 전액을 환급 신청한다. PG 결제취소 기한 안인 충전 건은 결제한 카드로 결제취소하고, 나머지(기한이 지난 몫, 충전이 아닌 정산 대금)는 계좌로 보낸다. 은행 정보는 계좌로 보낼 몫이 있을 때만 필요하다. 결제취소 결과를 모르는 몫은 처리 중으로 두고 재확인이 맞추며, 거절된 몫은 예치금에 되돌린다. Idempotency-Key 헤더로 같은 요청은 한 번만 처리하고, 같은 키로 다시 오면 지금 처리 상태를 돌려준다.
  * @summary 예치금 전액 환급 신청
  */
 export const requestWithdrawalHeaderIdempotencyKeyMax = 64;
@@ -31,18 +31,23 @@ export const requestWithdrawalBodyAccountHolderMax = 50;
 
 
 export const RequestWithdrawalBody = zod.object({
-  "bankCode": zod.string().min(requestWithdrawalBodyBankCodeMin).max(requestWithdrawalBodyBankCodeMax).describe('은행 코드'),
-  "accountNumber": zod.string().min(requestWithdrawalBodyAccountNumberMin).max(requestWithdrawalBodyAccountNumberMax).describe('계좌번호'),
-  "accountHolder": zod.string().min(requestWithdrawalBodyAccountHolderMin).max(requestWithdrawalBodyAccountHolderMax).describe('예금주명')
-}).describe('예치금 전액 환급 신청')
+  "bankCode": zod.string().min(requestWithdrawalBodyBankCodeMin).max(requestWithdrawalBodyBankCodeMax).optional().describe('은행 코드 (계좌로 보낼 몫이 있을 때만)'),
+  "accountNumber": zod.string().min(requestWithdrawalBodyAccountNumberMin).max(requestWithdrawalBodyAccountNumberMax).optional().describe('계좌번호 (계좌로 보낼 몫이 있을 때만)'),
+  "accountHolder": zod.string().min(requestWithdrawalBodyAccountHolderMin).max(requestWithdrawalBodyAccountHolderMax).optional().describe('예금주명 (계좌로 보낼 몫이 있을 때만)')
+}).describe('예치금 전액 환급 신청. 은행 정보는 계좌로 보낼 몫이 있을 때만 필요하다')
 
 export const RequestWithdrawalResponse = zod.object({
   "status": zod.int().optional(),
   "message": zod.string().optional(),
   "data": zod.object({
   "withdrawnAmount": zod.int(),
-  "balance": zod.int()
-}).optional().describe('예치금 전액 환급 결과')
+  "balance": zod.int(),
+  "cardAmount": zod.int(),
+  "accountAmount": zod.int(),
+  "processingAmount": zod.int(),
+  "revertedAmount": zod.int(),
+  "accountRequired": zod.boolean()
+}).optional().describe('예치금 전액 환급 결과. 금액은 카드 결제취소 요청·계좌 송금·처리 중·예치금에 되돌림으로 나뉜다. accountRequired가 true면 카드로 돌려줄 수 없는 몫이 계좌 정보가 없어 예치금에 되돌아갔다')
 })
 
 
@@ -50,15 +55,19 @@ export const RequestWithdrawalResponse = zod.object({
  * 프론트가 Toss 결제위젯 콜백으로 받은 paymentKey·orderId·amount로 PG 승인을 확정하고, 성공하면 예치금 지갑에 반영한다. orderId를 멱등키로 써서 같은 요청이 여러 번 와도 한 번만 처리한다.
  * @summary 충전 승인 확정
  */
+export const confirmWalletChargeBodyPaymentKeyMin = 0;
+export const confirmWalletChargeBodyPaymentKeyMax = 200;
 
+export const confirmWalletChargeBodyOrderIdMin = 0;
+export const confirmWalletChargeBodyOrderIdMax = 64;
 
 export const confirmWalletChargeBodyAmountMin = 0;
 
 
 
 export const ConfirmWalletChargeBody = zod.object({
-  "paymentKey": zod.string().min(1).describe('Toss 결제 키'),
-  "orderId": zod.string().min(1).describe('충전 요청 고유 ID (멱등키)'),
+  "paymentKey": zod.string().min(confirmWalletChargeBodyPaymentKeyMin).max(confirmWalletChargeBodyPaymentKeyMax).describe('Toss 결제 키'),
+  "orderId": zod.string().min(confirmWalletChargeBodyOrderIdMin).max(confirmWalletChargeBodyOrderIdMax).describe('충전 요청 고유 ID (멱등키)'),
   "amount": zod.int().min(confirmWalletChargeBodyAmountMin).describe('충전 요청 금액 (최소 10,000원)')
 }).describe('충전 승인 확정 요청')
 
@@ -73,21 +82,29 @@ export const ConfirmWalletChargeResponse = zod.object({
 
 
 /**
- * 요청자 본인의 지갑 잔액을 조회한다.
- * @summary 지갑 잔액 조회
+ * 요청자 본인의 완료된 충전을 최근 순으로 조회한다. 남은 예치금을 최근 충전부터 채워 충전 건별 남은 금액을 계산하고, 건마다 카드 취소 마지막 날(승인일 + 1년 − 1일, 이날 24:00까지 한국 시간)과 기한 지남 여부를 붙인다. earliestLastCancelableDate는 남은 금액이 있고 기한이 지나지 않은 충전 중 가장 빠른 마지막 날이며, 없으면 null이다.
+ * @summary 환급 화면용 충전 내역 조회
  */
-export const GetBalanceResponse = zod.object({
+export const GetRefundableChargesResponse = zod.object({
   "status": zod.int().optional(),
   "message": zod.string().optional(),
   "data": zod.object({
-  "holderId": zod.int().optional(),
-  "balance": zod.int().optional()
-}).optional().describe('지갑 잔액 조회 응답')
+  "balance": zod.int(),
+  "earliestLastCancelableDate": zod.iso.date().nullable().describe('남은 금액이 있고 기한이 지나지 않은 충전 중 가장 빠른 마지막 날. 없으면 null'),
+  "charges": zod.array(zod.object({
+  "chargeId": zod.int(),
+  "chargedAt": zod.iso.datetime({"offset":true}),
+  "amount": zod.int(),
+  "remainingAmount": zod.int(),
+  "lastCancelableDate": zod.iso.date().describe('PG 결제취소를 할 수 있는 마지막 날(이날 24:00까지, 한국 시간)'),
+  "expired": zod.boolean()
+}).describe('환급 화면의 충전 건 한 줄. chargeId는 예치금 내역 충전 줄의 refId와 같다. remainingAmount는 남은 예치금을 최근 충전부터 채운 몫이다'))
+}).optional().describe('환급 화면용 충전 내역. charges는 최근 충전부터')
 })
 
 
 /**
- * 요청자 본인 지갑의 내역을 최신순으로 조회한다. category로 탭(CHARGE/PAYMENT/REFUND/WITHDRAWAL/PAYOUT)을 필터링할 수 있고, 생략하면 전체를 돌려준다.
+ * 요청자 본인 지갑의 내역을 최신순으로 조회한다. category로 탭(CHARGE/PAYMENT/REFUND/WITHDRAWAL/PAYOUT)을 필터링할 수 있고, 생략하면 전체를 돌려준다. 충전 줄의 charge에는 환급 화면용 충전 내역 조회와 같은 남은 금액·카드 취소 마지막 날이 있고, 다른 줄은 null이다.
  * @summary 예치금 내역 조회
  */
 export const getLedgersQueryPageDefault = 0;
@@ -110,15 +127,37 @@ export const GetLedgersResponse = zod.object({
   "data": zod.object({
   "content": zod.array(zod.object({
   "category": zod.enum(['CHARGE', 'PAYMENT', 'REFUND', 'WITHDRAWAL', 'PAYOUT']),
-  "ledgerType": zod.enum(['충전__PG결제_토스페이먼츠', '출금__통장입금', '사용__주문결제', '임시보관__주문결제', '정산지급__상품판매_수수료', '정산수령__상품판매_수수료', '정산지급__상품판매_대금', '정산수령__상품판매_대금', '환불__주문취소', '임시보관반환__주문취소', '출금취소__통장입금']),
+  "ledgerType": zod.enum(['충전__PG결제_토스페이먼츠', '출금__통장입금', '사용__주문결제', '임시보관__주문결제', '정산지급__상품판매_수수료', '정산수령__상품판매_수수료', '정산지급__상품판매_대금', '정산수령__상품판매_대금', '환불__주문취소', '임시보관반환__주문취소', '출금취소__통장입금', '출금__PG결제취소_토스페이먼츠', '출금취소__PG결제취소_토스페이먼츠']),
   "amount": zod.int(),
   "balanceAfter": zod.int(),
   "createdAt": zod.iso.datetime({"offset":true}),
-  "refId": zod.int()
+  "refId": zod.int(),
+  "charge": zod.object({
+  "chargeId": zod.int(),
+  "chargedAt": zod.iso.datetime({"offset":true}),
+  "amount": zod.int(),
+  "remainingAmount": zod.int(),
+  "lastCancelableDate": zod.iso.date(),
+  "expired": zod.boolean()
+}).nullish().describe('충전 줄에만 있다(남은 금액·카드 취소 마지막 날). 다른 줄은 null')
 }).describe('예치금 내역 한 줄. amount는 부호가 있다(출금·결제는 음수)')),
   "page": zod.int().describe('0부터 센다'),
   "size": zod.int(),
   "totalElements": zod.int(),
   "totalPages": zod.int()
 }).optional().describe('예치금 내역 한 페이지. 최신순')
+})
+
+
+/**
+ * 요청자 본인의 지갑 잔액을 조회한다.
+ * @summary 지갑 잔액 조회
+ */
+export const GetBalanceResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.object({
+  "holderId": zod.int().optional(),
+  "balance": zod.int().optional()
+}).optional().describe('지갑 잔액 조회 응답')
 })
