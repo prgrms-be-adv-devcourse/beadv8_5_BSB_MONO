@@ -24,6 +24,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.cash.domain.charge.ChargeStatus;
 import com.bukang.cash.domain.charge.WalletCharge;
+import com.bukang.cash.domain.exception.ChargeAmountTooLargeException;
 import com.bukang.cash.domain.exception.ChargeAmountTooSmallException;
 import com.bukang.cash.domain.exception.ChargeInProgressException;
 import com.bukang.cash.domain.exception.ChargeMemberMismatchException;
@@ -86,6 +87,84 @@ class CashChargeConfirmUseCaseTest {
 		assertThat(walletChargeRepository.findByIdempotencyKey("order_1")).isEmpty();
 		assertBalance(CUSTOMER_ID, 0);
 		verify(paymentClient, never()).approve(anyString(), anyString(), anyLong());
+	}
+
+	@Test
+	@DisplayName("1회 10만 원을 넘으면 PG 호출 없이 거절하고, 충전 행도 만들지 않는다")
+	void rejectsAboveMaxPerCharge() {
+		createCustomerWallet(0);
+
+		assertThatThrownBy(() -> cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 100_001))
+			.isInstanceOf(ChargeAmountTooLargeException.class);
+
+		assertThat(walletChargeRepository.findByIdempotencyKey("order_1")).isEmpty();
+		assertBalance(CUSTOMER_ID, 0);
+		verify(paymentClient, never()).approve(anyString(), anyString(), anyLong());
+	}
+
+	@Test
+	@DisplayName("오늘 이미 충전한 금액과 합쳐 하루 100만 원을 넘으면 PG 호출 없이 거절한다")
+	void rejectsWhenDailyTotalExceedsLimit() {
+		createCustomerWalletWithTodayCharge(950_000);
+
+		assertThatThrownBy(() -> cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 60_000))
+			.isInstanceOf(ChargeAmountTooLargeException.class);
+
+		assertThat(walletChargeRepository.findByIdempotencyKey("order_1")).isEmpty();
+		assertBalance(CUSTOMER_ID, 950_000);
+		verify(paymentClient, never()).approve(anyString(), anyString(), anyLong());
+	}
+
+	@Test
+	@DisplayName("지갑 잔액에 더하면 보유 한도 1000만 원을 넘으면 PG 호출 없이 거절한다")
+	void rejectsWhenBalanceCapExceeded() {
+		createCustomerWalletWithBalance(9_990_000);
+
+		assertThatThrownBy(() -> cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 20_000))
+			.isInstanceOf(ChargeAmountTooLargeException.class);
+
+		assertThat(walletChargeRepository.findByIdempotencyKey("order_1")).isEmpty();
+		assertBalance(CUSTOMER_ID, 9_990_000);
+		verify(paymentClient, never()).approve(anyString(), anyString(), anyLong());
+	}
+
+	@Test
+	@DisplayName("1회 정확히 10만 원은 한도 초과가 아니라서 그대로 승인까지 진행된다")
+	void acceptsExactlyMaxPerCharge() {
+		createCustomerWallet(0);
+		given(paymentClient.approve(anyString(), anyString(), anyLong()))
+			.willReturn(new PaymentApprovalResult(100_000, "toss_key_1", null));
+
+		CashChargeResponseDto response = cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 100_000);
+
+		assertThat(response.outcome()).isEqualTo(CashChargeResponseDto.Outcome.COMPLETED);
+		assertBalance(CUSTOMER_ID, 100_000);
+	}
+
+	@Test
+	@DisplayName("오늘 충전 합계가 정확히 100만 원이 되는 요청은 한도 초과가 아니라서 그대로 승인까지 진행된다")
+	void acceptsExactlyMaxPerDay() {
+		createCustomerWalletWithTodayCharge(900_000);
+		given(paymentClient.approve(anyString(), anyString(), anyLong()))
+			.willReturn(new PaymentApprovalResult(100_000, "toss_key_1", null));
+
+		CashChargeResponseDto response = cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 100_000);
+
+		assertThat(response.outcome()).isEqualTo(CashChargeResponseDto.Outcome.COMPLETED);
+		assertBalance(CUSTOMER_ID, 1_000_000);
+	}
+
+	@Test
+	@DisplayName("잔액이 정확히 1000만 원이 되는 요청은 보유 한도 초과가 아니라서 그대로 승인까지 진행된다")
+	void acceptsExactlyMaxBalance() {
+		createCustomerWalletWithBalance(9_990_000);
+		given(paymentClient.approve(anyString(), anyString(), anyLong()))
+			.willReturn(new PaymentApprovalResult(10_000, "toss_key_1", null));
+
+		CashChargeResponseDto response = cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 10_000);
+
+		assertThat(response.outcome()).isEqualTo(CashChargeResponseDto.Outcome.COMPLETED);
+		assertBalance(CUSTOMER_ID, 10_000_000);
 	}
 
 	@Test
@@ -383,6 +462,28 @@ class CashChargeConfirmUseCaseTest {
 
 	private Wallet createCustomerWallet(long initialBalance) {
 		return createWallet(CUSTOMER_ID, initialBalance);
+	}
+
+	// 오늘 충전한 걸로(일일 한도) 안 잡히게, 장부 없이 잔액만 과거부터 쌓여 있던 것처럼 바로 지정한다
+	private Wallet createCustomerWalletWithBalance(long balance) {
+		return transactionTemplate.execute(status -> {
+			LocalDateTime now = LocalDateTime.of(2026, 10, 15, 10, 0);
+			CashMember member = cashMemberRepository.save(new CashMember(CUSTOMER_ID, now, now, "러너" + CUSTOMER_ID));
+			Wallet wallet = walletRepository.save(new Wallet(member));
+			ReflectionTestUtils.setField(wallet, "balance", balance);
+			return walletRepository.saveAndFlush(wallet);
+		});
+	}
+
+	private Wallet createCustomerWalletWithTodayCharge(long todayChargedAmount) {
+		return transactionTemplate.execute(status -> {
+			LocalDateTime now = LocalDateTime.of(2026, 10, 15, 10, 0);
+			CashMember member = cashMemberRepository.save(new CashMember(CUSTOMER_ID, now, now, "러너" + CUSTOMER_ID));
+			Wallet wallet = walletRepository.save(new Wallet(member));
+			walletLedgerRepository.save(wallet.credit(
+				todayChargedAmount, LedgerType.충전__PG결제_토스페이먼츠, LedgerRefType.WalletCharge, CUSTOMER_ID));
+			return wallet;
+		});
 	}
 
 	private Wallet createWallet(long memberId, long initialBalance) {

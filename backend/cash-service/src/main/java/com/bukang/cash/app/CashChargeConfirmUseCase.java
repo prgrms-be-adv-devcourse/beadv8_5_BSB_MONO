@@ -1,6 +1,8 @@
 package com.bukang.cash.app;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -10,6 +12,7 @@ import com.bukang.cash.config.ChargeConfirmProperties;
 import com.bukang.cash.domain.charge.CashChargePolicy;
 import com.bukang.cash.domain.charge.ChargeStatus;
 import com.bukang.cash.domain.charge.WalletCharge;
+import com.bukang.cash.domain.exception.ChargeAmountTooLargeException;
 import com.bukang.cash.domain.exception.ChargeAmountTooSmallException;
 import com.bukang.cash.domain.exception.ChargeInProgressException;
 import com.bukang.cash.domain.exception.ChargeMemberMismatchException;
@@ -31,6 +34,8 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 @RequiredArgsConstructor
 public class CashChargeConfirmUseCase {
+	private static final ZoneId KOREA = ZoneId.of("Asia/Seoul");
+
 	private final ChargeConfirmProperties chargeConfirmProperties;
 	private final CashSupport cashSupport;
 	private final WalletChargeRepository walletChargeRepository;
@@ -41,6 +46,9 @@ public class CashChargeConfirmUseCase {
 	public CashChargeResponseDto confirmWalletCharge(long customerId, String paymentKey, String orderId, long amount) {
 		if (amount < CashChargePolicy.MINIMUM_AMOUNT) {
 			throw new ChargeAmountTooSmallException("최소 충전 금액은 10,000원입니다.");
+		}
+		if (amount > CashChargePolicy.MAX_PER_CHARGE) {
+			throw new ChargeAmountTooLargeException("1회 충전 한도는 100,000원입니다.");
 		}
 
 		ChargeClaim claim = transactionTemplate.execute(status -> claimChargeLocked(customerId, orderId, amount));
@@ -77,6 +85,8 @@ public class CashChargeConfirmUseCase {
 	//지갑 잠금
 	private ChargeClaim claimChargeLocked(long customerId, String orderId, long amount) {
 		Wallet customerWallet = cashSupport.lockWallet(customerId);
+		assertWithinDailyLimit(customerWallet, amount);
+		assertWithinBalanceCap(customerWallet, amount);
 		WalletCharge existing = findMatchingCharge(customerWallet, orderId);
 		if (existing != null && existing.getStatus() == ChargeStatus.COMPLETED) {
 			return ChargeClaim.resolved(toDto(existing, customerWallet.getBalance()));
@@ -180,6 +190,23 @@ public class CashChargeConfirmUseCase {
 		}
 		existing.markUncertain();
 		return CashChargeResponseDto.uncertain(customerWallet.getBalance());
+	}
+
+	// 자정(KST) 기준 오늘 이미 끝난 충전 합계 + 이번 요청액이 일일 한도를 넘으면 거절한다
+	private void assertWithinDailyLimit(Wallet customerWallet, long amount) {
+		LocalDateTime startOfToday = LocalDate.now(KOREA).atStartOfDay();
+		long todayTotal = walletLedgerRepository.sumAmountSince(
+			customerWallet, LedgerType.충전__PG결제_토스페이먼츠, startOfToday);
+		if (todayTotal + amount > CashChargePolicy.MAX_PER_DAY) {
+			throw new ChargeAmountTooLargeException("일일 충전 한도는 1,000,000원입니다.");
+		}
+	}
+
+	// 지갑에 평생 쌓인 금액이 아니라 지금 잔액(이번 충전액 더한 값) 기준이라, 환급하면 다시 여유가 생긴다
+	private void assertWithinBalanceCap(Wallet customerWallet, long amount) {
+		if (customerWallet.getBalance() + amount > CashChargePolicy.MAX_BALANCE) {
+			throw new ChargeAmountTooLargeException("보유 한도는 10,000,000원입니다.");
+		}
 	}
 
 	private WalletCharge findMatchingCharge(Wallet customerWallet, String orderId) {
