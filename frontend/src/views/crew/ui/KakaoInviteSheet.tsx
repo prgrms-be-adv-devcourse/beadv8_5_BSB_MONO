@@ -142,7 +142,7 @@ export function KakaoInviteSheet({
     <BottomSheet
       open={open}
       onOpenChange={close}
-      title="카카오톡으로 보내기"
+      title="카카오톡 친구에게 보내기"
       footer={
         blocking === null && list && list.length > 0 ? (
           <Button size="l" disabled={count === 0} loading={send.isPending} onClick={submit}>
