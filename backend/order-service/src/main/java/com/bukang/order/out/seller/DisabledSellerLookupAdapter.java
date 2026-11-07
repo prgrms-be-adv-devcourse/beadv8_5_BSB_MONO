@@ -20,4 +20,9 @@ public class DisabledSellerLookupAdapter implements SellerLookupPort {
 	public Optional<Long> findApprovedSellerId(long memberId) {
 		throw new ExternalServiceUnavailableException(MESSAGE);
 	}
+
+	@Override
+	public Optional<Long> findSellerMemberId(long sellerId) {
+		throw new ExternalServiceUnavailableException(MESSAGE);
+	}
 }

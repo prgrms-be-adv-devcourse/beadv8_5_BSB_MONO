@@ -104,12 +104,12 @@ class PayoutTest {
 
 		first.recordAdvance(10, 333_330L, 10, LocalDate.of(2026, 10, 1));
 
-		assertThat(first.getPayoutStage()).isEqualTo(PayoutStage.FIRST);
+		assertThat(first.getPayoutStage()).isEqualTo(PayoutStage.일차_정산);
 		assertThat(first.getSalesAmount()).isEqualTo(333_330L);
 		assertThat(first.getFeeAmount()).isZero();
 		assertThat(first.getPayoutAmount()).isEqualTo(133_330L);
 		assertThat(first.getItems()).singleElement()
-			.satisfies(item -> assertThat(item.getRecordType()).isEqualTo(PayoutRecordType.ADVANCE_PAID));
+			.satisfies(item -> assertThat(item.getRecordType()).isEqualTo(PayoutRecordType.선금));
 	}
 
 	@Test
@@ -133,7 +133,7 @@ class PayoutTest {
 			last.addItem(orderItemId, 33_333L, FEE_RATE, TARGET_DATE);
 		}
 
-		assertThat(last.getPayoutStage()).isEqualTo(PayoutStage.FINAL);
+		assertThat(last.getPayoutStage()).isEqualTo(PayoutStage.최종_정산);
 		assertThat(last.getFeeAmount()).isEqualTo(18_330L);
 		assertThat(last.getAdvanceDeductionAmount()).isEqualTo(133_330L);
 		assertThat(last.getPayoutAmount()).isEqualTo(181_670L);

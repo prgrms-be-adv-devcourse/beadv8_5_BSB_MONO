@@ -196,14 +196,14 @@ function MonthlyPayouts({ today }: { today: Date }) {
                 key: 'fee',
                 header: '수수료',
                 align: 'right',
-                render: (r) => (r.payoutStage === 'FINAL' ? formatWon(r.feeAmount) : DASH),
+                render: (r) => (r.payoutStage === '최종_정산' ? formatWon(r.feeAmount) : DASH),
               },
               {
                 key: 'advanceDeduction',
                 header: '1차 정산금 차감',
                 align: 'right',
                 render: (r) =>
-                  r.payoutStage === 'FINAL' ? formatWon(r.advanceDeductionAmount) : DASH,
+                  r.payoutStage === '최종_정산' ? formatWon(r.advanceDeductionAmount) : DASH,
               },
               {
                 key: 'payout',
@@ -362,7 +362,7 @@ function HoldList({ period }: { period: DetailPeriod }) {
 /** '지급보류' 또는 '해제 · 10/2' */
 function holdStatusText(hold: payoutModel.SellerPayoutHoldDto) {
   const { label } = HOLD_STATUS[hold.status]
-  return hold.status === 'RELEASED' && hold.releasedAt
+  return hold.status === '해제' && hold.releasedAt
     ? `${label} · ${formatMonthDay(hold.releasedAt)}`
     : label
 }

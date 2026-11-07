@@ -46,7 +46,8 @@ final class NotificationView {
 			case RACE_SCHEDULE_CHANGED -> "Calendar";
 			case CREW_JOINED -> "Users";
 			case PARTY_PAYMENT_REQUESTED -> "Bell";
-			case PARTY_PAYMENT_DEADLINE -> "TriangleAlert";
+			case PARTY_PAYMENT_DEADLINE, KIT_TRACKING_STOPPED, PAYOUT_HELD -> "TriangleAlert";
+			case KIT_SHIPMENT_REQUIRED -> "Package";
 		};
 	}
 }

@@ -14,6 +14,7 @@ import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Repository;
 
+import com.bukang.queue.domain.QueueLine;
 import com.bukang.queue.domain.exception.QueueUnavailableException;
 
 import lombok.RequiredArgsConstructor;
@@ -22,7 +23,10 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * 대기열 줄 저장소 (Redis).
  * 대회·종목마다 줄 두 개를 둔다: waiting(ZSet, score는 등록 시각)과 active(ZSet, score는 활성 시간 끝 시각).
- * 스케줄러가 승격할 대기열은 queue:waiting(Set)에 {raceId}:{raceCourseId}로 모은다.
+ * 줄 종류(QueueLine)마다 키가 따로다. 개인 줄은 race:{raceId}:racecourse:{raceCourseId}:waiting·active,
+ * 파티 줄은 그 뒤에 :party를 끼운 race:{raceId}:racecourse:{raceCourseId}:party:waiting·active다.
+ * 스케줄러가 승격할 대기열은 줄 종류별 목록(개인 queue:waiting, 파티 queue:party:waiting, Set)에 {raceId}:{raceCourseId}로 모은다.
+ * 두 줄은 같은 Lua 스크립트를 키만 바꿔 쓰므로 등록·승격 규칙이 같다.
  * 확인하고 넣는 일은 src/main/resources/redis/의 Lua 스크립트가 Redis 안에서 한 번에 한다.
  * 순번 조회와 입장 확인은 읽기만 하므로 Lua 없이 명령을 하나씩 보낸다.
  * Redis에 연결하지 못하면 대기열 없이 통과시키지 않고 503으로 막는다. 승격(스케줄러)은 그 대기열만 건너뛰고,
@@ -37,22 +41,35 @@ public class QueueRedisRepository {
 	@SuppressWarnings("rawtypes")
 	private static final RedisScript<List> PROMOTE = script("queue-promote.lua", List.class);
 
-	// 스케줄러가 승격할 대기열 목록 (값: {raceId}:{raceCourseId})
+	// 스케줄러가 승격할 대기열 목록 (값: {raceId}:{raceCourseId}). 개인 줄과 파티 줄을 따로 모은다
 	static final String QUEUES_KEY = "queue:waiting";
+	static final String PARTY_QUEUES_KEY = "queue:party:waiting";
 	// score(epoch ms)와 LocalDateTime을 바꿀 때 쓰는 시간대. 복제본의 접수 일정(상품 JVM 시각)과 같은 시간대다
 	private static final ZoneId ZONE = ZoneId.of("Asia/Seoul");
 	private static final String ACTIVE = "ACTIVE";
 
 	private final StringRedisTemplate redisTemplate;
 
-	// 키 형식: race:{raceId}:racecourse:{raceCourseId}:waiting (.claude/rules/redis-key-convention.md)
-	static String waitingKey(long raceId, long raceCourseId) {
-		return queueKey(raceId, raceCourseId) + ":waiting";
+	// 키 형식 (.claude/rules/redis-key-convention.md)
+	//   개인: race:{raceId}:racecourse:{raceCourseId}:waiting
+	//   파티: race:{raceId}:racecourse:{raceCourseId}:party:waiting
+	static String waitingKey(QueueLine line, long raceId, long raceCourseId) {
+		return queueKey(line, raceId, raceCourseId) + ":waiting";
 	}
 
-	// 키 형식: race:{raceId}:racecourse:{raceCourseId}:active
-	static String activeKey(long raceId, long raceCourseId) {
-		return queueKey(raceId, raceCourseId) + ":active";
+	// 키 형식
+	//   개인: race:{raceId}:racecourse:{raceCourseId}:active
+	//   파티: race:{raceId}:racecourse:{raceCourseId}:party:active
+	static String activeKey(QueueLine line, long raceId, long raceCourseId) {
+		return queueKey(line, raceId, raceCourseId) + ":active";
+	}
+
+	// 스케줄러가 승격할 대기열 목록의 키 (개인 queue:waiting, 파티 queue:party:waiting)
+	static String queuesKey(QueueLine line) {
+		return switch (line) {
+			case INDIVIDUAL -> QUEUES_KEY;
+			case PARTY -> PARTY_QUEUES_KEY;
+		};
 	}
 
 	// queue:waiting에 넣는 대기열 값
@@ -62,18 +79,19 @@ public class QueueRedisRepository {
 
 	/**
 	 * 회원을 대회·종목의 waiting에 넣는다. 이미 줄에 있으면 처음 순번을 유지하고, 이미 입장(active)했으면 넣지 않는다.
+	 * 파티 줄(PARTY)에는 파티장 회원 ID를 넣는다.
 	 */
-	public Registration register(long raceId, long raceCourseId, long memberId, LocalDateTime now) {
+	public Registration register(QueueLine line, long raceId, long raceCourseId, long memberId, LocalDateTime now) {
 		List<?> result;
 		try {
 			result = redisTemplate.execute(REGISTER,
-				List.of(waitingKey(raceId, raceCourseId), activeKey(raceId, raceCourseId), QUEUES_KEY),
+				List.of(waitingKey(line, raceId, raceCourseId), activeKey(line, raceId, raceCourseId), queuesKey(line)),
 				String.valueOf(memberId),
 				String.valueOf(epochMillis(now)),
 				queueId(raceId, raceCourseId));
 		} catch (DataAccessException exception) {
-			log.error("대기열 등록을 Redis에서 처리하지 못했습니다. raceId={}, raceCourseId={}, memberId={}",
-				raceId, raceCourseId, memberId, exception);
+			log.error("대기열 등록을 Redis에서 처리하지 못했습니다. line={}, raceId={}, raceCourseId={}, memberId={}",
+				line, raceId, raceCourseId, memberId, exception);
 			throw new QueueUnavailableException();
 		}
 		if (ACTIVE.equals(result.get(0))) {
@@ -87,24 +105,25 @@ public class QueueRedisRepository {
 	 * 명령 사이에 승격이 끼어들어도 다음 조회에서 바로잡힌다.
 	 * waiting을 먼저 읽어야 방금 승격된 회원을 어디에도 없는 회원으로 잘못 보지 않는다.
 	 */
-	public Position findPosition(long raceId, long raceCourseId, long memberId, LocalDateTime now) {
+	public Position findPosition(QueueLine line, long raceId, long raceCourseId, long memberId, LocalDateTime now) {
 		String member = String.valueOf(memberId);
+		String waitingKey = waitingKey(line, raceId, raceCourseId);
 		try {
 			// 전체 인원을 순번보다 먼저 읽는다. 그 사이의 승격은 내 순번을 줄이기만 해서 순번이 전체보다 커지지 않는다
-			Long total = redisTemplate.opsForZSet().size(waitingKey(raceId, raceCourseId));
-			Long rank = redisTemplate.opsForZSet().rank(waitingKey(raceId, raceCourseId), member);
+			Long total = redisTemplate.opsForZSet().size(waitingKey);
+			Long rank = redisTemplate.opsForZSet().rank(waitingKey, member);
 			if (rank != null) {
 				return Position.waiting(rank, total);
 			}
 			// active 끝 시각이 지났으면 스케줄러가 지우기 전이라도 입장한 것으로 보지 않는다
-			Double activeUntil = redisTemplate.opsForZSet().score(activeKey(raceId, raceCourseId), member);
+			Double activeUntil = redisTemplate.opsForZSet().score(activeKey(line, raceId, raceCourseId), member);
 			if (activeUntil != null && activeUntil > epochMillis(now)) {
 				return Position.active();
 			}
 			return Position.none();
 		} catch (DataAccessException exception) {
-			log.error("대기열 순번을 Redis에서 읽지 못했습니다. raceId={}, raceCourseId={}, memberId={}",
-				raceId, raceCourseId, memberId, exception);
+			log.error("대기열 순번을 Redis에서 읽지 못했습니다. line={}, raceId={}, raceCourseId={}, memberId={}",
+				line, raceId, raceCourseId, memberId, exception);
 			throw new QueueUnavailableException();
 		}
 	}
@@ -114,13 +133,15 @@ public class QueueRedisRepository {
 	 * 끝 시각이 지났으면 스케줄러가 지우기 전이라도 입장 중으로 보지 않는다 (순번 조회와 같은 기준).
 	 * 줄(waiting)에서 기다리는 회원은 active에 없으므로 빈 값이다.
 	 */
-	public Optional<LocalDateTime> findActiveUntil(long raceId, long raceCourseId, long memberId, LocalDateTime now) {
+	public Optional<LocalDateTime> findActiveUntil(QueueLine line, long raceId, long raceCourseId, long memberId,
+		LocalDateTime now) {
 		Double activeUntil;
 		try {
-			activeUntil = redisTemplate.opsForZSet().score(activeKey(raceId, raceCourseId), String.valueOf(memberId));
+			activeUntil = redisTemplate.opsForZSet()
+				.score(activeKey(line, raceId, raceCourseId), String.valueOf(memberId));
 		} catch (DataAccessException exception) {
-			log.error("대기열 입장 여부를 Redis에서 읽지 못했습니다. raceId={}, raceCourseId={}, memberId={}",
-				raceId, raceCourseId, memberId, exception);
+			log.error("대기열 입장 여부를 Redis에서 읽지 못했습니다. line={}, raceId={}, raceCourseId={}, memberId={}",
+				line, raceId, raceCourseId, memberId, exception);
 			throw new QueueUnavailableException();
 		}
 		if (activeUntil == null || activeUntil <= epochMillis(now)) {
@@ -130,14 +151,14 @@ public class QueueRedisRepository {
 	}
 
 	/**
-	 * 스케줄러가 승격할 대기열 목록(queue:waiting)을 읽는다. 값은 {raceId}:{raceCourseId}이다.
+	 * 스케줄러가 승격할 대기열 목록(개인 queue:waiting, 파티 queue:party:waiting)을 읽는다. 값은 {raceId}:{raceCourseId}이다.
 	 */
-	public Set<String> findQueueIds() {
+	public Set<String> findQueueIds(QueueLine line) {
 		Set<String> queueIds;
 		try {
-			queueIds = redisTemplate.opsForSet().members(QUEUES_KEY);
+			queueIds = redisTemplate.opsForSet().members(queuesKey(line));
 		} catch (DataAccessException exception) {
-			log.error("승격할 대기열 목록을 Redis에서 읽지 못했습니다.", exception);
+			log.error("승격할 대기열 목록을 Redis에서 읽지 못했습니다. line={}", line, exception);
 			throw new QueueUnavailableException();
 		}
 		return queueIds == null ? Set.of() : queueIds;
@@ -145,29 +166,34 @@ public class QueueRedisRepository {
 
 	/**
 	 * 대기열 하나를 승격한다. 끝 시각이 지난 active를 지우고, waiting 앞에서부터 size명을 active로 옮긴다.
-	 * 옮긴 회원의 active 끝 시각은 activeUntil이다. waiting과 active가 모두 비면 스케줄러 목록(queue:waiting)에서 뺀다.
+	 * 옮긴 회원의 active 끝 시각은 activeUntil이다. waiting과 active가 모두 비면 그 줄 종류의 스케줄러 목록에서 뺀다.
 	 */
-	public Promotion promote(QueueId queue, LocalDateTime now, LocalDateTime activeUntil, int size) {
+	public Promotion promote(QueueLine line, QueueId queue, LocalDateTime now, LocalDateTime activeUntil, int size) {
 		long raceId = queue.raceId();
 		long raceCourseId = queue.raceCourseId();
 		List<?> result;
 		try {
 			result = redisTemplate.execute(PROMOTE,
-				List.of(waitingKey(raceId, raceCourseId), activeKey(raceId, raceCourseId), QUEUES_KEY),
+				List.of(waitingKey(line, raceId, raceCourseId), activeKey(line, raceId, raceCourseId), queuesKey(line)),
 				String.valueOf(epochMillis(now)),
 				String.valueOf(size),
 				String.valueOf(epochMillis(activeUntil)),
 				queueId(raceId, raceCourseId));
 		} catch (DataAccessException exception) {
-			log.error("대기열 승격을 Redis에서 처리하지 못했습니다. raceId={}, raceCourseId={}",
-				raceId, raceCourseId, exception);
+			log.error("대기열 승격을 Redis에서 처리하지 못했습니다. line={}, raceId={}, raceCourseId={}",
+				line, raceId, raceCourseId, exception);
 			throw new QueueUnavailableException();
 		}
 		return new Promotion((Long)result.get(0), (Long)result.get(1));
 	}
 
-	private static String queueKey(long raceId, long raceCourseId) {
-		return "race:" + raceId + ":racecourse:" + raceCourseId;
+	// 개인 줄: race:{raceId}:racecourse:{raceCourseId}, 파티 줄: race:{raceId}:racecourse:{raceCourseId}:party
+	private static String queueKey(QueueLine line, long raceId, long raceCourseId) {
+		String raceCourseKey = "race:" + raceId + ":racecourse:" + raceCourseId;
+		return switch (line) {
+			case INDIVIDUAL -> raceCourseKey;
+			case PARTY -> raceCourseKey + ":party";
+		};
 	}
 
 	// 등록 시각·active 끝 시각을 score로 쓰는 epoch ms로 바꾼다
@@ -230,7 +256,7 @@ public class QueueRedisRepository {
 	}
 
 	/**
-	 * 스케줄러 목록(queue:waiting)에 든 대기열 하나 (대회·종목).
+	 * 스케줄러 목록(개인 queue:waiting, 파티 queue:party:waiting)에 든 대기열 하나 (대회·종목).
 	 */
 	public record QueueId(long raceId, long raceCourseId) {
 		// queueId()가 만든 값({raceId}:{raceCourseId})을 나눈다

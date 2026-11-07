@@ -30,6 +30,7 @@ import org.springframework.test.context.TestPropertySource;
 
 import com.bukang.common.global.json.JsonConverter;
 import com.bukang.common.shared.kafka.KafkaEventHeaders;
+import com.bukang.common.shared.kafka.KafkaMessageId;
 import com.bukang.common.shared.kafka.KafkaTopics;
 import com.bukang.common.shared.member.event.MemberJoinedEvent;
 import com.bukang.member.app.MemberFacade;
@@ -92,7 +93,8 @@ class MemberOutboxKafkaTest {
 	}
 
 	@Test
-	@DisplayName("가입 행을 보내면 브로커를 거친 메시지의 key·헤더 다섯 개가 행과 같고, 본문 eventId가 헤더 eventId와 같다")
+	@DisplayName("가입 행을 보내면 브로커를 거친 메시지의 key·헤더 다섯 개와 message-id 헤더가 행과 같고, "
+		+ "본문 eventId가 헤더 eventId와 같다")
 	void headersAndBodyEventIdArriveThroughBroker() {
 		MemberDto member = memberFacade.join(identityStore.joinRequest(
 			"outbox-kafka@crewrun.com", "password1234", "김러너", "헤더러너", "010-4000-0001",
@@ -110,6 +112,7 @@ class MemberOutboxKafkaTest {
 		assertThat(LocalDateTime.parse(header(record, KafkaEventHeaders.OCCURRED_AT))).isEqualTo(row.getOccurredAt());
 		assertThat(header(record, KafkaEventHeaders.AGGREGATE_TYPE)).isEqualTo("Member");
 		assertThat(header(record, KafkaEventHeaders.AGGREGATE_ID)).isEqualTo(String.valueOf(member.getId()));
+		assertThat(header(record, KafkaMessageId.HEADER)).isEqualTo(row.getMessageId()).isNotBlank();
 		assertThat(body.eventId()).isEqualTo(header(record, KafkaEventHeaders.EVENT_ID));
 		assertThat(body.id()).isEqualTo(member.getId());
 	}

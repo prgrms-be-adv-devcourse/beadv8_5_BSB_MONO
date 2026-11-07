@@ -49,8 +49,16 @@ queue:
     # 대기열(대회·종목)마다 한 번에 승격할 인원. 한 종목의 동시 active는 많아야 size × (활성 시간 ÷ 주기)명이다
     size: 20
   active:
-    # 활성 시간 (ms, 10분). 승격 시각 + 이 시간이 active 끝 시각이다
-    time: 600000
+    # 활성 시간 (ms, 15분). 승격 시각 + 이 시간이 active 끝 시각이다
+    time: 900000
+  # 파티 줄 (크루 예매 기간에 파티장이 선다). 승격 주기는 위 schedule.time과 같다
+  party:
+    schedule:
+      # 파티 줄(대회·종목)마다 한 번에 승격할 파티 수. 파티 하나가 파티 인원만큼 자리를 확보하므로 개인(20)보다 작게 둔다
+      size: 5
+    active:
+      # 파티장 활성 시간 (ms, 15분). 승격 시각 + 이 시간이 파티장 active 끝 시각이다
+      time: 900000
 
 # Swagger / OpenAPI V3 설정 (prod에서는 비활성화)
 springdoc:

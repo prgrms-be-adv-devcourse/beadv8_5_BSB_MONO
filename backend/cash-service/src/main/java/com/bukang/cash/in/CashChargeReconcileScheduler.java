@@ -7,6 +7,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import com.bukang.cash.app.CashChargeReconcileUseCase;
+import com.bukang.cash.app.CashWithdrawalReconcileUseCase;
 
 import lombok.RequiredArgsConstructor;
 
@@ -20,11 +21,14 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class CashChargeReconcileScheduler {
 	private final CashChargeReconcileUseCase cashChargeReconcileUseCase;
+	private final CashWithdrawalReconcileUseCase cashWithdrawalReconcileUseCase;
 
 	@Scheduled(
 		fixedDelayString = "${cash.charge.reconcile.interval-millis}",
 		initialDelayString = "${cash.charge.reconcile.interval-millis}")
 	public void reconcile() {
 		cashChargeReconcileUseCase.reconcile(LocalDateTime.now());
+		// 정책: 환급 결제취소 결과를 모르는 몫도 충전 재확인과 같은 주기로 맞춘다
+		cashWithdrawalReconcileUseCase.reconcile(LocalDateTime.now());
 	}
 }

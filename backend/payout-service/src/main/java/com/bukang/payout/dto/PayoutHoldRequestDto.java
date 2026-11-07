@@ -12,8 +12,8 @@ import lombok.Getter;
 @AllArgsConstructor
 @Getter
 public class PayoutHoldRequestDto {
-	@Schema(description = "보류 사유 (ACCOUNT_NOT_REGISTERED: 정산 계좌 미등록, RACE_CANCELED: 대회 취소 처리)",
-		example = "ACCOUNT_NOT_REGISTERED")
+	@Schema(description = "보류 사유 (정산_계좌_미등록: 정산 계좌 미등록, 대회_취소_처리: 대회 취소 처리)",
+		example = "정산_계좌_미등록")
 	@NotNull(message = "보류 사유를 선택해주세요.")
 	private final PayoutHoldReason reasonType;
 

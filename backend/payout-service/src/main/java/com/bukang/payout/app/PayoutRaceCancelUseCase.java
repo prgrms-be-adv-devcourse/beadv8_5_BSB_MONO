@@ -17,7 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * 대회 취소 처리: 그 대회의 정산 내역을 지급 전후로 나눠 처리한다 (payout.md 4-2 · 4-3, PRO-34 · PRO-214)
- * - 지급 전(정산 예정 · 지급보류): 취소(CANCELED)로 닫고 원장 줄을 반대 부호로 되돌린다. 보류로 막아 두면
+ * - 지급 전(정산 예정 · 지급보류): 취소로 닫고 원장 줄을 반대 부호로 되돌린다. 보류로 막아 두면
  *   일찍 풀었을 때 돈이 나가므로 닫는다
  * - 지급 완료: 판매자가 손에 든 돈만큼 회수를 대회당 1건 만들도록 원장(PayoutLedgerUseCase)에 부탁한다
  * - 지급 중: 돈이 나갔는지 몰라 닫지 않고 대회 취소를 표시한다. 회수는 그 대회의 지급 중이 모두 끝난 뒤 만든다 (PRO-253)
@@ -34,7 +34,7 @@ public class PayoutRaceCancelUseCase {
 	private final PayoutLedgerUseCase payoutLedgerUseCase;
 
 	// 한 트랜잭션으로 묶는다. 지급 배치와 부딪혀 낙관적 락으로 실패하면 모두 되돌리고, 메시지를 다시 처리한다
-	// 다시 처리해도 이미 닫은 정산 내역은 CANCELED라 건너뛰고, 회수는 이미 있으면 만들지 않는다
+	// 다시 처리해도 이미 닫은 정산 내역은 취소라 건너뛰고, 회수는 이미 있으면 만들지 않는다
 	@Transactional
 	public CancelResult cancelRace(long raceId, LocalDateTime now) {
 		List<Payout> payouts = payoutRepository.findByRaceId(raceId);
@@ -45,8 +45,8 @@ public class PayoutRaceCancelUseCase {
 			if (payout.getStatus().isBeforePayment()) {
 				payout.cancel(PayoutHold.SYSTEM_MEMBER_ID, now, CANCEL_REASON);
 				canceled++;
-				firstCanceled |= payout.getPayoutStage() == PayoutStage.FIRST;
-			} else if (payout.getStatus() == PayoutStatus.PAYING) {
+				firstCanceled |= payout.getPayoutStage() == PayoutStage.일차_정산;
+			} else if (payout.getStatus() == PayoutStatus.지급_중) {
 				// 돈이 나갔는지 아직 모른다. 표시만 하고, 회수는 지급 결과가 나온 뒤 만든다 (PRO-253)
 				payout.markRaceCanceled(now);
 				paying++;
@@ -79,7 +79,7 @@ public class PayoutRaceCancelUseCase {
 	@Transactional
 	public boolean recoverAfterPayResult(long sellerId, long raceId, LocalDateTime now) {
 		boolean stillPaying = payoutRepository.findByRaceId(raceId).stream()
-			.anyMatch(payout -> payout.getStatus() == PayoutStatus.PAYING);
+			.anyMatch(payout -> payout.getStatus() == PayoutStatus.지급_중);
 		if (stillPaying) {
 			return false;
 		}
@@ -95,7 +95,7 @@ public class PayoutRaceCancelUseCase {
 	 */
 	@Transactional
 	public boolean recoverAfterRejectedCancel(Payout canceled, LocalDateTime now) {
-		if (canceled.getPayoutStage() == PayoutStage.FIRST) {
+		if (canceled.getPayoutStage() == PayoutStage.일차_정산) {
 			revertOffsetIfNoFinal(payoutRepository.findByRaceId(canceled.getRaceId()), canceled.getSellerId(),
 				canceled.getRaceId());
 		}
@@ -105,7 +105,7 @@ public class PayoutRaceCancelUseCase {
 	// 1차를 돈이 나가기 전에 닫았을 때: 그 1차 정산 내역에서 상계로 끝났던 회수도 되돌린다 (R9). 회수를 만들기 전에 한다
 	// 최종이 있으면 상계는 최종 정산 내역에서 일어난 것이라 되돌리지 않는다
 	private void revertOffsetIfNoFinal(List<Payout> payouts, long sellerId, long raceId) {
-		boolean hasFinal = payouts.stream().anyMatch(payout -> payout.getPayoutStage() == PayoutStage.FINAL);
+		boolean hasFinal = payouts.stream().anyMatch(payout -> payout.getPayoutStage() == PayoutStage.최종_정산);
 		if (!hasFinal) {
 			payoutLedgerUseCase.revertOffsetRecoveries(sellerId, raceId);
 		}

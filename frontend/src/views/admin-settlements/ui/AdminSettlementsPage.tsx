@@ -68,7 +68,7 @@ export function AdminSettlementsPage({ confirmOpen = false }: { confirmOpen?: bo
   const [allOpen, setAllOpen] = useState(confirmOpen)
   const [selectedId, setSelectedId] = useState(SETTLEMENTS[0].id)
   const target = SETTLEMENTS.find((r) => r.id === selectedId) ?? SETTLEMENTS[0]
-  const [reasonType, setReasonType] = useState<payoutModel.PayoutHoldReason>('RACE_CANCELED')
+  const [reasonType, setReasonType] = useState<payoutModel.PayoutHoldReason>('대회_취소_처리')
 
   return (
     <ConsolePage

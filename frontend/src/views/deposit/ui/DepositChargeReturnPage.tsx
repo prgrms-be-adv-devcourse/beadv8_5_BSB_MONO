@@ -83,9 +83,9 @@ function ChargeResult({ result }: { result: ShownResult }) {
             title="충전 결과를 확인하고 있어요"
             description={
               <>
-                결제가 됐다면 예치금에 자동으로 들어가요.
+                카드 결제가 됐다면 예치금에 자동으로 들어가요.
                 <br />
-                다시 결제하지 말고 잠시 후 잔액을 확인해 주세요.
+                다시 충전하지 말고 잠시 후 잔액을 확인해 주세요.
               </>
             }
           />

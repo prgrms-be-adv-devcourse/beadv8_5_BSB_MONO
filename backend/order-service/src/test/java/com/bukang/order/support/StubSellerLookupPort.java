@@ -17,6 +17,14 @@ public class StubSellerLookupPort implements SellerLookupPort {
 		return Optional.ofNullable(sellerIdByMemberId.get(memberId));
 	}
 
+	@Override
+	public Optional<Long> findSellerMemberId(long sellerId) {
+		return sellerIdByMemberId.entrySet().stream()
+			.filter(entry -> entry.getValue() == sellerId)
+			.map(Map.Entry::getKey)
+			.findFirst();
+	}
+
 	public void approve(long memberId, long sellerId) {
 		sellerIdByMemberId.put(memberId, sellerId);
 	}

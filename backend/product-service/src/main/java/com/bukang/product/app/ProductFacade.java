@@ -153,7 +153,7 @@ public class ProductFacade {
 		try {
 			return transactionTemplate.execute(status -> raceHoldUseCase.hold(request, LocalDateTime.now()));
 		} catch (DataIntegrityViolationException exception) {
-			// 같은 신청으로 동시에 확보를 요청해 늦은 쪽이 유니크 제약(application_id)에 걸렸다
+			// 같은 신청으로 동시에 확보를 요청해 늦은 쪽이 유니크 제약(participation_id)에 걸렸다
 			// 늦은 쪽 트랜잭션은 카운터를 올린 것까지 롤백되었으므로, 먼저 잡힌 자리의 결과를 돌려준다
 			return transactionTemplate.execute(status ->
 				raceHoldUseCase.findExisting(request.getParticipationId()));

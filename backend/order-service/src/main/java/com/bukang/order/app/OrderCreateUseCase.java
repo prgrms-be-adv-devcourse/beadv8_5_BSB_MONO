@@ -9,11 +9,13 @@ import org.springframework.stereotype.Service;
 
 import com.bukang.order.domain.Order;
 import com.bukang.order.domain.Participation;
+import com.bukang.order.domain.ParticipationStatus;
 import com.bukang.order.domain.ParticipationType;
 import com.bukang.order.domain.QueueAdmission;
 import com.bukang.order.domain.ShippingAddress;
 import com.bukang.order.domain.exception.ApplicationPeriodException;
 import com.bukang.order.domain.exception.OrderConflictException;
+import com.bukang.order.domain.exception.OrderNotPayableException;
 import com.bukang.order.domain.exception.ParticipationAccessDeniedException;
 import com.bukang.order.domain.exception.ParticipationNotFoundException;
 import com.bukang.order.domain.exception.ParticipationNotPayableException;
@@ -72,11 +74,11 @@ public class OrderCreateUseCase {
 		if (participation.isHoldFailed()) {
 			return OrderCreateResult.soldOut();
 		}
-		participation.checkPayable();
-		// 파티원 신청서는 파티장이 신청할 때 크루 자리를 한꺼번에 잡는다. 여기로 오면 개인 자리를 잡아 크루 몫을 우회한다
+		// 파티원 신청서는 파티장이 신청할 때 크루 자리를 이미 잡았다. 자리 확보·대기열을 건너뛰고 주문만 만든다 (BUK-38)
 		if (participation.getParticipationType() == ParticipationType.PARTY) {
-			throw new ParticipationNotPayableException("파티원 신청은 파티장이 신청한 뒤 파티 결제로 결제해 주세요.");
+			return createPartyOrder(participation, idempotencyKey, now);
 		}
+		participation.checkPayable();
 		RaceCourseInfo course = raceCoursePort.findCourse(participation.getRaceCourseId())
 			.orElseThrow(() -> new RaceCourseNotFoundException("존재하지 않는 종목입니다."));
 		ParticipationApplyUseCase.checkNotCanceled(course);
@@ -106,6 +108,37 @@ public class OrderCreateUseCase {
 			// 줄 세우기를 거쳐도 남는 경합(다른 신청서에 같은 키 등)은 유니크 제약이 막는다
 			if (isOrderConflict(exception)) {
 				throw new OrderConflictException("같은 주문 요청을 처리하고 있습니다. 잠시 뒤 주문 내역을 확인해주세요.");
+			}
+			throw exception;
+		}
+		order.assignOrderNo();
+		return OrderCreateResult.created(order.toDto(applicationShippingAddress(participation)));
+	}
+
+	/**
+	 * 파티원 결제의 주문 만들기 (BUK-38, 11/02 결정 ⑥). 결제 기한은 파티 결제 기한(신청서에 저장)이다
+	 * 크루원인지·대회 취소는 결제(OrderPayUseCase)에서 예치금을 빼기 전에 다시 본다
+	 */
+	private OrderCreateResult createPartyOrder(Participation participation, String idempotencyKey, LocalDateTime now) {
+		// 파티장이 아직 신청하지 않았으면(확보 전) 결제할 자리가 없다. 기한이 지나 끝난 신청서도 여기서 막힌다
+		if (participation.getStatus() != ParticipationStatus.APPLIED) {
+			throw new ParticipationNotPayableException(
+				"파티장이 신청한 뒤 결제 기간에만 결제할 수 있습니다(현재 상태: %s)."
+					.formatted(participation.getStatus().getLabel()));
+		}
+		if (!now.isBefore(participation.getPaymentDueAt())) {
+			throw OrderNotPayableException.deadlinePassed("파티 결제 기한이 지났습니다.");
+		}
+		RaceCourseInfo course = raceCoursePort.findCourse(participation.getRaceCourseId())
+			.orElseThrow(() -> new RaceCourseNotFoundException("존재하지 않는 종목입니다."));
+		ParticipationApplyUseCase.checkNotCanceled(course);
+		Order order = Order.forParticipation(participation, course, idempotencyKey, participation.getPaymentDueAt());
+		try {
+			orderRepository.saveAndFlush(order);
+		} catch (DataIntegrityViolationException exception) {
+			// 같은 신청서로 다른 키를 써서 다시 만들면 주문 상품 유니크 제약이 막는다
+			if (isOrderConflict(exception)) {
+				throw new OrderConflictException("이미 이 신청서로 만든 주문이 있습니다. 주문 내역에서 결제해주세요.");
 			}
 			throw exception;
 		}
