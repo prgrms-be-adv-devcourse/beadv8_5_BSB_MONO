@@ -3,7 +3,8 @@
 import { useQueryClient } from '@tanstack/react-query'
 import type { Route } from 'next'
 import Link from 'next/link'
-import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useEffect, useRef, useState } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
 import { useAuthStatus } from '@/features/auth'
@@ -27,15 +28,51 @@ import {
 
 import { inviteUrl } from '../model/invite-url'
 import { CrewBand, CrewLoadError } from './CrewBand'
+import { KakaoInviteSheet } from './KakaoInviteSheet'
+
+/** 카카오 메시지 동의 화면에서 돌아올 때 주소에 붙는 오류(?error=) 안내 */
+const KAKAO_CONSENT_ERRORS: Record<string, string> = {
+  KAKAO_CONSENT_DENIED: '동의하지 않아 카카오톡으로 보낼 수 없어요.',
+  KAKAO_ACCOUNT_MISMATCH:
+    '연결된 카카오 계정과 다른 계정으로 동의했어요. 카카오에서 로그아웃한 뒤 다시 시도해 주세요.',
+}
 
 // 피그마 시안v4 · M27 초대 링크 만들기 (만듦 · 취소 확인).
 // 토큰은 만들 때 응답에만 온다(백엔드 결정 BE-028). 그래서 만든 링크는 이 화면에서 바로 복사하게 하고,
 // 보낸 초대 목록에는 링크 대신 만든 시각과 남은 시간만 보여 준다.
 // 보낸 초대 목록 API는 아직 쓸 수 있는 초대만 돌려준다. 가입 완료 · 취소함 · 기간 끝남 줄은 API가 생기면 더한다.
-export function CrewInvitesPage({ crewId }: { crewId: number }) {
+export function CrewInvitesPage({
+  crewId,
+  kakaoConsent,
+  kakaoError,
+}: {
+  crewId: number
+  /** 카카오 메시지 동의를 마치고 돌아오면 granted */
+  kakaoConsent?: string
+  /** 카카오 메시지 동의가 실패해 돌아오면 오류 코드 */
+  kakaoError?: string
+}) {
   const authenticated = useAuthStatus() === 'authenticated'
   const queryClient = useQueryClient()
   const showToast = useToast()
+  const router = useRouter()
+  // 동의를 마치고 돌아오면 친구 고르기를 바로 다시 연다
+  const [kakaoOpen, setKakaoOpen] = useState(kakaoConsent === 'granted')
+
+  // 동의 결과는 한 번만 알리고 주소에서 지워, 새로고침해도 다시 뜨지 않게 한다
+  const consentHandled = useRef(false)
+  useEffect(() => {
+    if (consentHandled.current || (!kakaoConsent && !kakaoError)) return
+    consentHandled.current = true
+    if (kakaoError) {
+      showToast({
+        tone: 'error',
+        message:
+          KAKAO_CONSENT_ERRORS[kakaoError] ?? '카카오 동의를 끝내지 못했어요. 다시 시도해 주세요.',
+      })
+    }
+    router.replace(`/crews/${crewId}/invites` as Route)
+  }, [crewId, kakaoConsent, kakaoError, router, showToast])
   // 내 역할로 초대 권한(크루장 · 운영진)과 취소 권한(크루장이거나 보낸 사람)을 정한다(정책 7장 「역할과 초대」 1·3번)
   const crew = memberApi.useFindCrew(crewId, {
     query: { select: unwrapData, enabled: authenticated },
@@ -152,6 +189,9 @@ export function CrewInvitesPage({ crewId }: { crewId: number }) {
                 </Button>
               </>
             )}
+            <Button variant="secondary" size="l" onClick={() => setKakaoOpen(true)}>
+              카카오톡으로 보내기
+            </Button>
           </CrewBand>
           <Divider type="section" />
           <CrewBand>
@@ -193,6 +233,7 @@ export function CrewInvitesPage({ crewId }: { crewId: number }) {
           </CrewBand>
         </main>
       )}
+      {allowed && <KakaoInviteSheet crewId={crewId} open={kakaoOpen} onOpenChange={setKakaoOpen} />}
       <Dialog
         open={cancelTarget !== null}
         onOpenChange={(open) => !open && setCancelTarget(null)}

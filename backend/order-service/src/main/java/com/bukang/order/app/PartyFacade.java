@@ -10,6 +10,7 @@ import com.bukang.order.dto.PartyCreateRequestDto;
 import com.bukang.order.dto.PartyCreatedDto;
 import com.bukang.order.dto.PartyDto;
 import com.bukang.order.dto.PartyJoinRequestDto;
+import com.bukang.order.dto.PartyRaceStatusDto;
 
 import lombok.RequiredArgsConstructor;
 
@@ -18,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class PartyFacade {
 	private final PartyUseCase partyUseCase;
+	private final PartyApplyUseCase partyApplyUseCase;
 
 	public PartyCreatedDto create(PartyCreateRequestDto request, long memberId) {
 		PartyUseCase.Created created = partyUseCase.create(memberId, request.getCrewId(), request.getRaceCourseId(),
@@ -34,7 +36,19 @@ public class PartyFacade {
 			request.getParticipant().toParticipantInfo(), LocalDateTime.now()).toDto();
 	}
 
+	public PartyDto apply(long partyId, long memberId) {
+		return PartyDto.of(partyApplyUseCase.apply(partyId, memberId, LocalDateTime.now()));
+	}
+
 	public ParticipationDto leave(long partyId, long memberId) {
 		return partyUseCase.leave(partyId, memberId, LocalDateTime.now()).toDto();
+	}
+
+	@Transactional(readOnly = true)
+	public PartyRaceStatusDto findMyRaceStatus(long raceId, long memberId) {
+		return partyUseCase.findMyRaceParty(raceId, memberId, LocalDateTime.now())
+			.map(mine -> PartyRaceStatusDto.of(mine, memberId, PartyUseCase.MIN_PARTY_SIZE,
+				PartyUseCase.MAX_PARTY_SIZE))
+			.orElseGet(PartyRaceStatusDto::none);
 	}
 }

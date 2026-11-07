@@ -1,10 +1,13 @@
 package com.bukang.member.in;
 
+import java.util.List;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.bukang.common.global.rsdata.RsData;
@@ -12,6 +15,7 @@ import com.bukang.member.app.MemberFacade;
 import com.bukang.member.app.SellerFacade;
 import com.bukang.member.dto.MarketingUnsubscribeLinkDto;
 import com.bukang.member.dto.MemberAdminDto;
+import com.bukang.member.dto.MemberNicknameDto;
 import com.bukang.member.dto.MemberSellerDto;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -28,7 +32,8 @@ import lombok.RequiredArgsConstructor;
  * 다른 서비스가 동기 호출로 부르는 내부 API. /internal/** 은 게이트웨이에 노출하지 않는다 (order-service와 같은 방식)
  * 회원이 아니라 서비스가 부르므로 회원 ID 헤더를 받지 않는다
  */
-@Tag(name = "MemberInternal", description = "회원의 판매자 ID 조회, 관리자 여부 조회, 광고 수신 거부 링크 발급 API (서비스 간 내부 호출 전용)")
+@Tag(name = "MemberInternal",
+	description = "회원의 판매자 ID 조회, 관리자 여부 조회, 광고 수신 거부 링크 발급, 닉네임 여러 명 조회 API (서비스 간 내부 호출 전용)")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/internal/v1/member")
@@ -99,5 +104,28 @@ public class InternalV1MemberController {
 	) {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "수신 거부 링크를 발급했습니다.", memberFacade.issueUnsubscribeLink(memberId)));
+	}
+
+	// 주문 서비스가 파티원 목록에 이름을 띄울 때 부른다 (BUK-39). 닉네임 말고 다른 개인정보는 내보내지 않는다
+	@GetMapping("/members/nicknames")
+	@Operation(summary = "회원 닉네임 여러 명 조회",
+		description = "회원 ID 목록(쉼표로 구분)을 받아 회원마다 memberId와 nickname을 돌려준다. "
+			+ "같은 ID는 한 번만 돌려주고, 없는 회원 ID는 결과에서 뺀다. 탈퇴한 회원은 닉네임을 「탈퇴한 회원」으로 돌려준다. "
+			+ "ids가 비어 있으면 빈 목록이다. 돌려주는 순서는 정해져 있지 않다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "조회 성공 (없는 회원 ID는 빠짐)",
+			content = @Content(examples = @ExampleObject(value = MemberInternalApiExamples.NICKNAMES))),
+		@ApiResponse(responseCode = "400", description = "서로 다른 회원 ID가 100개를 넘음 또는 회원 ID가 숫자가 아님",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "100개 초과", value = MemberInternalApiExamples.NICKNAMES_TOO_MANY),
+				@ExampleObject(name = "숫자가 아님", value = MemberInternalApiExamples.INVALID_ID_FORMAT)
+			}))
+	})
+	public ResponseEntity<RsData<List<MemberNicknameDto>>> findNicknames(
+		@Parameter(description = "회원 ID 목록 (쉼표로 구분, 서로 다른 ID 최대 100개)", example = "1,2,3")
+		@RequestParam(defaultValue = "") List<Long> ids
+	) {
+		return ResponseEntity.ok()
+			.body(RsData.of(HttpStatus.OK, "회원 닉네임을 조회했습니다.", memberFacade.findNicknames(ids)));
 	}
 }

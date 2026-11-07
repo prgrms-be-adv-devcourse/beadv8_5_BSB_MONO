@@ -68,7 +68,7 @@ backend/
 ├── common/      com.bukang.common
 │   ├── global/                기술 공통 (도메인 지식 없음)
 │   │   ├── config/            LocalDevEnvironmentPostProcessor (compose.yml, .env 위치 탐색)
-│   │   ├── crypto/            민감정보 암호화 (AES, 블라인드 인덱스). crypto.enabled: true인 서비스(member, cash)에서만 빈 등록
+│   │   ├── crypto/            민감정보 암호화 (AES, 블라인드 인덱스). crypto.enabled: true인 서비스(member, cash, order)에서만 빈 등록
 │   │   ├── exception/         BusinessException, GlobalExceptionHandler
 │   │   ├── jpa/entity/        BaseEntity, BaseIdAndTime, BaseManualIdAndTime
 │   │   ├── json/              JsonConverter

@@ -83,18 +83,28 @@ public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
 		""")
 	List<Object[]> countReadyKitsByCourse(@Param("sellerId") long sellerId, @Param("raceId") Long raceId);
 
-	// 조회 배치가 부를 배송 (BUK-55). 배송 중이고 택배사 ID가 있는 것을 오래 조회하지 않은 것부터(한 번도 안 한 것 먼저)
+	// 조회 배치가 부를 배송 (BUK-55). 배송 중이고 택배사 ID가 있고 다음 조회 시각이 된 것을 오래 기다린 것부터 (BUK-90)
+	// 다음 조회 시각이 비어 있으면(7일 동안 조회되지 않아 멈춤) 고르지 않는다
 	@Query("""
-		select new com.bukang.order.out.ShipmentTrackingTarget(s.id, s.order.id, s.carrierId, s.trackingNumber)
+		select new com.bukang.order.out.ShipmentTrackingTarget(s.id, s.order.id, s.carrierId, s.trackingNumber,
+			s.trackingStatus)
 		from Shipment s
 		where s.status = com.bukang.order.domain.ShipmentStatus.SHIPPING
 			and s.carrierId is not null
-		order by s.lastTrackedAt asc nulls first, s.id
+			and s.nextTrackingAt <= :now
+		order by s.nextTrackingAt, s.id
 		""")
-	List<ShipmentTrackingTarget> findTrackingTargets(Pageable pageable);
+	List<ShipmentTrackingTarget> findTrackingTargets(@Param("now") LocalDateTime now, Pageable pageable);
 
-	// 조회에 실패한 배송의 조회 시각만 바꾼다. 이 칸만 고치므로 주문을 잠그지 않아도 다른 변경을 덮지 않는다
+	// 조회에 실패한 배송의 조회 시각·다음 조회 시각만 바꾼다. 이 칸만 고치므로 주문을 잠그지 않아도 다른 변경을 덮지 않는다
+	// 조회하는 사이 판매자가 송장을 고쳤으면(번호가 다름) 고친 송장은 바로 조회해야 하므로 바꾸지 않는다 (BUK-90)
 	@Modifying(clearAutomatically = true)
-	@Query("update Shipment s set s.lastTrackedAt = :trackedAt where s.id = :shipmentId")
-	int markTracked(@Param("shipmentId") long shipmentId, @Param("trackedAt") LocalDateTime trackedAt);
+	@Query("""
+		update Shipment s set s.lastTrackedAt = :trackedAt, s.nextTrackingAt = :nextTrackingAt
+		where s.id = :shipmentId and s.carrierId = :carrierId and s.trackingNumber = :trackingNumber
+			and s.nextTrackingAt is not null
+		""")
+	int markTracked(@Param("shipmentId") long shipmentId, @Param("carrierId") String carrierId,
+		@Param("trackingNumber") String trackingNumber, @Param("trackedAt") LocalDateTime trackedAt,
+		@Param("nextTrackingAt") LocalDateTime nextTrackingAt);
 }

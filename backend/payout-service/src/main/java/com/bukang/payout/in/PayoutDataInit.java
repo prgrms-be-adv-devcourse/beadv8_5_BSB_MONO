@@ -90,7 +90,7 @@ public class PayoutDataInit {
 	public void makeSamplePayouts(LocalDate today) {
 		// dev DB는 재시작해도 데이터가 남으므로(ddl-auto: update) 이미 만들었으면 건너뛴다
 		// 날짜가 오늘 기준이라 정산 월은 띄운 날마다 달라진다. 그래서 판매자 · 대회 · 단계로만 확인한다
-		if (payoutRepository.existsBySellerIdAndRaceIdAndPayoutStage(SELLER_ID, 1, PayoutStage.FINAL)) {
+		if (payoutRepository.existsBySellerIdAndRaceIdAndPayoutStage(SELLER_ID, 1, PayoutStage.최종_정산)) {
 			return;
 		}
 
@@ -108,7 +108,7 @@ public class PayoutDataInit {
 		// → 지난달 24일 관리자 해제. 원래 지급 예정일(지난달 20일)이 지났으므로 해제일 + 1일(25일)에 지급 완료
 		StagePair summer = createPayouts(6, "2026 여름 야간 레이스", thisMonth.minusMonths(2).atDay(18), 800, PRICE_5K);
 		for (Payout payout : List.of(summer.first(), summer.last())) {
-			PayoutHold accountHold = hold(payout, PayoutHoldReason.ACCOUNT_NOT_REGISTERED, null,
+			PayoutHold accountHold = hold(payout, PayoutHoldReason.정산_계좌_미등록, null,
 				PayoutHold.SYSTEM_MEMBER_ID, payout.getSettledAt());
 			payout.release(accountHold, ADMIN_MEMBER_ID, thisMonth.minusMonths(1).atDay(24).atTime(10, 30), calendar);
 			payOnScheduledDate(payout);
@@ -122,7 +122,7 @@ public class PayoutDataInit {
 		// 가을 하프마라톤: 최근 지급일의 달 8일 대회 → 1차는 지급 완료, 최종은 지급 예정이었으나 관리자가 보류 (지급보류 1건)
 		StagePair half = createPayouts(8, "2026 가을 하프마라톤", lastPayMonth.atDay(8), 1_500, PRICE_HALF);
 		payOnScheduledDate(half.first());
-		hold(half.last(), PayoutHoldReason.RACE_CANCELED, "기상 악화로 하프 종목 중단, 환불 범위 확인 중", ADMIN_MEMBER_ID,
+		hold(half.last(), PayoutHoldReason.대회_취소_처리, "기상 악화로 하프 종목 중단, 환불 범위 확인 중", ADMIN_MEMBER_ID,
 			half.last().getSettledAt().plusHours(11));
 
 		// 서울숲 가을 10K: 어제 환불 마감 → 1차가 오늘 03:00에 만들어져 마감일 다음 달 20일 지급 예정. 대회(9일 뒤) 전이라 최종은 없다

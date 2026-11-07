@@ -18,9 +18,9 @@ import lombok.NoArgsConstructor;
 /**
  * 회수: 판매자에게 주었거나 주기로 한 1차 정산금 중 환불된 참가권 몫을 돌려받는 절차 (payout.md 4-2, PRO-33)
  * 돈의 기록은 원장 줄(요청 · 상계 · 입금)이 맡고, 이 엔티티는 절차(요청 · 완료 상태, 완료 방식)만 맡는다 (PRO-214)
- * - 대회 취소: 대회당 1건, 금액은 그때 남은 1차 정산금(ADVANCE 잔고)
+ * - 대회 취소: 대회당 1건, 금액은 그때 남은 1차 정산금(선금 잔고)
  * - 일정 변경: 환불된 참가권마다 1건, 금액은 그 참가권의 1차 몫(가격 × 40%, 원 미만 버림)
- * 같은 판매자 × 대회의 갚을 돈(RECEIVABLE)이 0이 될 때(상계 또는 입금) 그 대회의 요청 중인 회수를 함께 완료한다
+ * 같은 판매자 × 대회의 갚을 돈이 0이 될 때(상계 또는 입금) 그 대회의 요청 중인 회수를 함께 완료한다
  * 회수가 끝나야 구매자 환불이 나간다 (정책 원문)
  * 판매자, 대회, 주문 상품은 다른 도메인이라 연관관계 없이 ID만 둔다
  */
@@ -35,7 +35,7 @@ public class PayoutRecovery extends BaseIdAndTime {
 	@Column(nullable = false)
 	private long raceId;
 
-	// 회수 중복 방지 키. 대회 취소는 대회당 1건(R{대회ID}:RACE_CANCELED), 일정 변경은 참가권당 1건(O{주문 상품ID}:SCHEDULE_CHANGED)
+	// 회수 중복 방지 키. 대회 취소는 대회당 1건(R{대회ID}:대회_취소), 일정 변경은 참가권당 1건(O{주문 상품ID}:일정_변경)
 	// 같은 메시지를 두 곳이 동시에 처리해 앱의 확인을 함께 통과해도 DB가 두 번째 저장을 막는다 (PRO-34 리뷰)
 	// (race_id, reason_type) 유일 조건은 일정 변경 회수를 대회당 1건으로 막아 이 키로 바꿨다 (PRO-214)
 	@Column(nullable = false, unique = true, length = 50, updatable = false)
@@ -88,20 +88,20 @@ public class PayoutRecovery extends BaseIdAndTime {
 		this.recoveryKey = recoveryKeyOf(raceId, orderItemId, reasonType);
 		this.amount = amount;
 		this.requestedAt = requestedAt;
-		this.status = PayoutRecoveryStatus.REQUESTED;
+		this.status = PayoutRecoveryStatus.회수_요청;
 	}
 
 	// 일정 변경으로 환불된 참가권 한 장의 회수
 	public static PayoutRecovery scheduleChanged(long sellerId, long raceId, long orderItemId, long amount,
 		LocalDateTime requestedAt) {
-		return new PayoutRecovery(sellerId, raceId, orderItemId, PayoutRecoveryReason.SCHEDULE_CHANGED, amount,
+		return new PayoutRecovery(sellerId, raceId, orderItemId, PayoutRecoveryReason.일정_변경, amount,
 			requestedAt);
 	}
 
 	private static String recoveryKeyOf(long raceId, Long orderItemId, PayoutRecoveryReason reasonType) {
 		return switch (reasonType) {
-			case RACE_CANCELED -> "R%d:%s".formatted(raceId, reasonType);
-			case SCHEDULE_CHANGED -> {
+			case 대회_취소 -> "R%d:%s".formatted(raceId, reasonType);
+			case 일정_변경 -> {
 				if (orderItemId == null) {
 					throw new IllegalArgumentException("일정 변경 회수에는 참가권(주문 상품) ID가 있어야 합니다.");
 				}
@@ -112,29 +112,29 @@ public class PayoutRecovery extends BaseIdAndTime {
 
 	// 판매자의 입금을 확인했다
 	public void complete(long completedBy, LocalDateTime completedAt) {
-		finish(PayoutRecoveryCompletion.DEPOSIT, completedBy, completedAt);
+		finish(PayoutRecoveryCompletion.입금, completedBy, completedAt);
 	}
 
 	// 지급 전 정산 내역에서 빼서 갚을 돈이 0이 됐다
 	public void completeByOffset(LocalDateTime completedAt) {
-		finish(PayoutRecoveryCompletion.OFFSET, PayoutHold.SYSTEM_MEMBER_ID, completedAt);
+		finish(PayoutRecoveryCompletion.상계, PayoutHold.SYSTEM_MEMBER_ID, completedAt);
 	}
 
 	// 대회 취소로 되돌렸다. 1차 지급 전에 상계로 끝나 판매자가 그 몫을 받은 적이 없는 회수만 되돌린다 (R9)
 	// 완료 방식 · 완료 시각은 상계로 끝났던 기록으로 그대로 둔다
 	public void cancelByRaceCancel() {
-		if (status != PayoutRecoveryStatus.COMPLETED || completion != PayoutRecoveryCompletion.OFFSET) {
+		if (status != PayoutRecoveryStatus.회수_완료 || completion != PayoutRecoveryCompletion.상계) {
 			throw new IllegalStateException("상계로 끝난 회수만 대회 취소로 되돌릴 수 있습니다. recoveryId=%d, status=%s"
 				.formatted(getId(), status));
 		}
-		this.status = PayoutRecoveryStatus.CANCELED;
+		this.status = PayoutRecoveryStatus.회수_취소;
 	}
 
 	private void finish(PayoutRecoveryCompletion completion, long completedBy, LocalDateTime completedAt) {
-		if (status != PayoutRecoveryStatus.REQUESTED) {
+		if (status != PayoutRecoveryStatus.회수_요청) {
 			throw new PayoutRecoveryConflictException("이미 완료된 회수입니다.");
 		}
-		this.status = PayoutRecoveryStatus.COMPLETED;
+		this.status = PayoutRecoveryStatus.회수_완료;
 		this.completion = completion;
 		this.completedBy = completedBy;
 		this.completedAt = completedAt;

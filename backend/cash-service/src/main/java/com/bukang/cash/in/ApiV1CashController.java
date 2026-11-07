@@ -1,5 +1,8 @@
 package com.bukang.cash.in;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,6 +20,7 @@ import com.bukang.cash.dto.CashChargeResponseDto;
 import com.bukang.cash.dto.CashWithdrawalRequestDto;
 import com.bukang.cash.dto.CashWithdrawalResponseDto;
 import com.bukang.cash.dto.PageDto;
+import com.bukang.cash.dto.RefundableChargesResponseDto;
 import com.bukang.cash.dto.WalletBalanceResponseDto;
 import com.bukang.cash.dto.WalletLedgerItemDto;
 import com.bukang.common.global.rsdata.RsData;
@@ -43,6 +47,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ApiV1CashController {
 	private static final int MAX_PAGE_SIZE = 100;
+	private static final ZoneId KOREA = ZoneId.of("Asia/Seoul");
 
 	private final CashFacade cashFacade;
 
@@ -76,7 +81,8 @@ public class ApiV1CashController {
 	// PRO-258: 프론트 "내역" 화면이 쓰던 목업 데이터를 실제 WalletLedger 조회로 대체한다
 	@GetMapping("/wallets/ledgers")
 	@Operation(summary = "예치금 내역 조회", description = "요청자 본인 지갑의 내역을 최신순으로 조회한다. "
-		+ "category로 탭(CHARGE/PAYMENT/REFUND/WITHDRAWAL/PAYOUT)을 필터링할 수 있고, 생략하면 전체를 돌려준다.")
+		+ "category로 탭(CHARGE/PAYMENT/REFUND/WITHDRAWAL/PAYOUT)을 필터링할 수 있고, 생략하면 전체를 돌려준다. "
+		+ "충전 줄의 charge에는 환급 화면용 충전 내역 조회와 같은 남은 금액·카드 취소 마지막 날이 있고, 다른 줄은 null이다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "조회 성공 (내역이 없으면 빈 목록)",
 			content = @Content(examples = @ExampleObject(value = CashApiExamples.LEDGER_LIST_SUCCESS))),
@@ -104,7 +110,35 @@ public class ApiV1CashController {
 		@Max(value = MAX_PAGE_SIZE, message = "한 번에 100개까지 조회할 수 있습니다.") int size
 	) {
 		return ResponseEntity.ok(RsData.of(HttpStatus.OK, "예치금 내역을 조회했습니다.",
-			cashFacade.findLedgers(memberId, category, page, size)));
+			cashFacade.findLedgers(memberId, category, page, size, LocalDateTime.now(KOREA))));
+	}
+
+	// 정책 5장 2차 1 「PG 결제취소와 기한」: 기한은 한국 시간으로 판단하므로 서버 시간대와 상관없이 한국 시각을 넘긴다
+	@GetMapping("/wallets/refundable-charges")
+	@Operation(summary = "환급 화면용 충전 내역 조회", description = "요청자 본인의 완료된 충전을 최근 순으로 조회한다. "
+		+ "남은 예치금을 최근 충전부터 채워 충전 건별 남은 금액을 계산하고, 건마다 카드 취소 마지막 날(승인일 + 1년 − 1일, "
+		+ "이날 24:00까지 한국 시간)과 기한 지남 여부를 붙인다. earliestLastCancelableDate는 남은 금액이 있고 "
+		+ "기한이 지나지 않은 충전 중 가장 빠른 마지막 날이며, 없으면 null이다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "조회 성공 (충전이 없으면 빈 목록)",
+			content = @Content(examples = @ExampleObject(value = CashApiExamples.REFUNDABLE_CHARGES_SUCCESS))),
+		@ApiResponse(responseCode = "400", description = "회원 ID 형식 오류 또는 0 이하",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "회원 ID 형식 오류", value = CashApiExamples.INVALID_VALUE_TYPE),
+				@ExampleObject(name = "회원 ID가 0 이하", value = CashApiExamples.INVALID_MEMBER_ID)
+			})),
+		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = CashApiExamples.LOGIN_REQUIRED))),
+		@ApiResponse(responseCode = "404", description = "지갑 없음 (회원 가입 이벤트가 아직 처리되지 않았거나 없는 회원)",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = CashApiExamples.WALLET_NOT_FOUND)))
+	})
+	public ResponseEntity<RsData<RefundableChargesResponseDto>> getRefundableCharges(
+		@LoginMemberId long memberId
+	) {
+		return ResponseEntity.ok(RsData.of(HttpStatus.OK, "환급 화면용 충전 내역을 조회했습니다.",
+			cashFacade.findRefundableCharges(memberId, LocalDateTime.now(KOREA))));
 	}
 
 	// 에러 응답은 GlobalExceptionHandler, CashExceptionHandler가 RsData(data: null) 형식으로 반환한다
@@ -145,16 +179,26 @@ public class ApiV1CashController {
 
 	// 에러 응답은 GlobalExceptionHandler, CashExceptionHandler가 RsData(data: null) 형식으로 반환한다
 	@PostMapping("/withdrawals")
-	@Operation(summary = "예치금 전액 환급 신청", description = "회원이 남은 예치금 전액을 환급 신청하면 한 트랜잭션에서 바로 완료 처리한다. "
-		+ "Idempotency-Key 헤더를 멱등키로 써서 같은 요청이 여러 번 와도 한 번만 처리한다.")
+	@Operation(summary = "예치금 전액 환급 신청", description = "회원이 남은 예치금 전액을 환급 신청한다. "
+		+ "PG 결제취소 기한 안인 충전 건은 결제한 카드로 결제취소하고, 나머지(기한이 지난 몫, 충전이 아닌 정산 대금)는 "
+		+ "계좌로 보낸다. 은행 정보는 계좌로 보낼 몫이 있을 때만 필요하다. 결제취소 결과를 모르는 몫은 처리 중으로 두고 "
+		+ "재확인이 맞추며, 거절된 몫은 예치금에 되돌린다. Idempotency-Key 헤더로 같은 요청은 한 번만 처리하고, "
+		+ "같은 키로 다시 오면 지금 처리 상태를 돌려준다.")
 	@ApiResponses({
-		@ApiResponse(responseCode = "200", description = "환급 신청 완료",
-			content = @Content(examples = @ExampleObject(value = CashApiExamples.WITHDRAWAL_SUCCESS))),
+		@ApiResponse(responseCode = "200", description = "환급 신청 완료. 금액은 카드 결제취소 요청·계좌 송금·처리 중·"
+			+ "예치금에 되돌림으로 나뉜다. accountRequired가 true면 카드로 돌려줄 수 없는 몫이 계좌 정보가 없어 되돌아갔다",
+			content = @Content(examples = {
+				@ExampleObject(name = "카드와 계좌로 나눠 환급", value = CashApiExamples.WITHDRAWAL_SUCCESS),
+				@ExampleObject(name = "일부 처리 중·되돌림", value = CashApiExamples.WITHDRAWAL_PARTIAL),
+				@ExampleObject(name = "계좌 정보가 없어 되돌림",
+					value = CashApiExamples.WITHDRAWAL_ACCOUNT_NEEDED_AFTER_REJECT)
+			})),
 		@ApiResponse(responseCode = "400",
-			description = "환급할 잔액 없음, 입력값 검증 실패, 요청 본문 형식 오류, 회원 ID 형식 오류·0 이하 "
-				+ "또는 Idempotency-Key 헤더 없음·길이 오류",
+			description = "환급할 잔액 없음, 계좌로 보낼 몫이 있는데 계좌 정보 없음, 입력값 검증 실패, 요청 본문 형식 오류, "
+				+ "회원 ID 형식 오류·0 이하 또는 Idempotency-Key 헤더 없음·길이 오류",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "환급할 잔액 없음", value = CashApiExamples.WALLET_BALANCE_EMPTY),
+				@ExampleObject(name = "계좌 정보 필요", value = CashApiExamples.WITHDRAWAL_ACCOUNT_REQUIRED),
 				@ExampleObject(name = "입력값 검증 실패", value = CashApiExamples.WITHDRAWAL_INVALID_INPUT),
 				@ExampleObject(name = "요청 본문 형식 오류", value = CashApiExamples.INVALID_BODY),
 				@ExampleObject(name = "회원 ID 형식 오류", value = CashApiExamples.INVALID_VALUE_TYPE),
@@ -168,9 +212,11 @@ public class ApiV1CashController {
 		@ApiResponse(responseCode = "404", description = "지갑 없음 (회원 가입 이벤트가 아직 처리되지 않았거나 없는 회원)",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = CashApiExamples.WALLET_NOT_FOUND))),
-		@ApiResponse(responseCode = "409", description = "다른 회원이 환급 신청에 쓴 Idempotency-Key",
-			content = @Content(schema = @Schema(implementation = RsData.class),
-				examples = @ExampleObject(value = CashApiExamples.WITHDRAWAL_MEMBER_MISMATCH)))
+		@ApiResponse(responseCode = "409", description = "처리 중인 환급 있음 또는 다른 회원이 환급 신청에 쓴 Idempotency-Key",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "처리 중인 환급 있음", value = CashApiExamples.WITHDRAWAL_IN_PROGRESS),
+				@ExampleObject(name = "다른 회원의 Idempotency-Key", value = CashApiExamples.WITHDRAWAL_MEMBER_MISMATCH)
+			}))
 	})
 	public ResponseEntity<RsData<CashWithdrawalResponseDto>> requestWithdrawal(
 		@LoginMemberId long memberId,
@@ -182,7 +228,8 @@ public class ApiV1CashController {
 		@Valid @RequestBody CashWithdrawalRequestDto request
 	) {
 		CashWithdrawalResponseDto response = cashFacade.requestWithdrawal(
-			memberId, request.getBankCode(), request.getAccountNumber(), request.getAccountHolder(), idempotencyKey);
+			memberId, request.getBankCode(), request.getAccountNumber(), request.getAccountHolder(), idempotencyKey,
+			LocalDateTime.now(KOREA));
 		return ResponseEntity.ok(RsData.of(HttpStatus.OK, response.message(), response));
 	}
 }

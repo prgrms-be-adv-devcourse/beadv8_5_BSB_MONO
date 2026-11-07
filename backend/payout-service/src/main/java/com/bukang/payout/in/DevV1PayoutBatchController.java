@@ -68,8 +68,8 @@ public class DevV1PayoutBatchController {
 
 	@PostMapping("/pay")
 	@Operation(summary = "지급 배치 실행",
-		description = "지급 예정일이 today 이전인 정산 예정(CALCULATED) 정산 내역의 정산금을 캐시 서비스에 옮기고 지급 완료(PAID)로 "
-			+ "바꾼다. 지난 실행에서 결과를 모른 지급 중(PAYING) 정산 내역도 다시 요청한다. 보류(HELD)는 고르지 않는다. "
+		description = "지급 예정일이 today 이전인 정산 예정 정산 내역의 정산금을 캐시 서비스에 옮기고 지급 완료로 "
+			+ "바꾼다. 지난 실행에서 결과를 모른 지급 중 정산 내역도 다시 요청한다. 보류는 고르지 않는다. "
 			+ "today를 비우면 오늘(한국 시간)로 돈다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "실행 완료 (지급 완료 · 실패 · 결과 모름 수)",

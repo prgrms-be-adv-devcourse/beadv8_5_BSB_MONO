@@ -133,6 +133,9 @@ describe('충전 결과 화면 (토스 결제창에서 돌아옴)', () => {
     renderPage(success())
 
     expect(await screen.findByText(UNCERTAIN_TITLE)).toBeInTheDocument()
+    // 결제하지 말라고 하면 결제 중 충전한 사용자가 결제를 미루다 결제 기한을 넘길 수 있다
+    expect(screen.getByText(/카드 결제가 됐다면/)).toBeInTheDocument()
+    expect(screen.getByText(/다시 충전하지 말고/)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '예치금 보기' })).toHaveAttribute('href', '/me/deposit')
     expect(screen.queryByRole('link', { name: /충전|결제/ })).toBeNull()
     expect(screen.queryByText(/50,000/)).toBeNull()
