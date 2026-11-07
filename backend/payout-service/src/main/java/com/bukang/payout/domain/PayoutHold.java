@@ -72,7 +72,7 @@ public class PayoutHold extends BaseIdAndTime {
 		this.reason = reason;
 		this.heldBy = heldBy;
 		this.heldAt = heldAt;
-		this.status = PayoutHoldStatus.HELD;
+		this.status = PayoutHoldStatus.지급보류;
 	}
 
 	// 저장해서 ID를 받은 뒤 부른다. 하루 65,536건을 넘지 않는 한 같은 날 같은 코드가 나오지 않는다
@@ -82,10 +82,10 @@ public class PayoutHold extends BaseIdAndTime {
 
 	// 해제는 Payout.release를 통해서만 한다. 정산 내역 상태와 지급 예정일을 함께 바꿔야 하기 때문이다
 	void markReleased(long releasedBy, LocalDateTime releasedAt) {
-		if (status == PayoutHoldStatus.RELEASED) {
+		if (status == PayoutHoldStatus.해제) {
 			throw new PayoutHoldConflictException("이미 해제된 지급보류입니다.");
 		}
-		this.status = PayoutHoldStatus.RELEASED;
+		this.status = PayoutHoldStatus.해제;
 		this.releasedBy = releasedBy;
 		this.releasedAt = releasedAt;
 	}

@@ -281,7 +281,7 @@ function HoldRow({ heldCount, failed }: { heldCount: number | undefined; failed:
     { from: period.from, to: period.to },
     { query: { select: unwrapData, enabled: (heldCount ?? 0) > 0 } },
   )
-  const latest = holds.data?.find((hold) => hold.status === 'HELD')
+  const latest = holds.data?.find((hold) => hold.status === '지급보류')
   const description =
     heldCount === undefined
       ? failed

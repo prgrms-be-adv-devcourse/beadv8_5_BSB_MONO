@@ -54,7 +54,8 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class PayoutCreateUseCase {
 	// 되돌아보기 기간: 어제 정산 생성일부터 7일치. 일주일 안의 장애는 저절로 따라잡는다 (PRO-61)
-	private static final int LOOKBACK_DAYS = 7;
+	// 정산 대사(PayoutReconcileUseCase)도 같은 기간에서 대상 대회를 고른다
+	static final int LOOKBACK_DAYS = 7;
 	// 실패 기록표 비고 칸 길이 (payout_payout_create_failure.note varchar(255))
 	private static final int NOTE_MAX_LENGTH = 255;
 
@@ -96,8 +97,8 @@ public class PayoutCreateUseCase {
 			races = racePort.findRacesByRefundDeadline(fromRefundDeadline, toRefundDeadline);
 		} catch (RuntimeException exception) {
 			// 예외를 run() 밖으로 던지면 같은 실행의 최종 정산도 만들지 못한다. 1차만 실패로 남기고 최종으로 넘어간다 (PRO-241)
-			counts.failRaceLookup(PayoutStage.FIRST, exception);
-			payoutCreateFailureUseCase.record(PayoutCreateFailure.raceLookup(PayoutStage.FIRST, fromRefundDeadline,
+			counts.failRaceLookup(PayoutStage.일차_정산, exception);
+			payoutCreateFailureUseCase.record(PayoutCreateFailure.raceLookup(PayoutStage.일차_정산, fromRefundDeadline,
 				toRefundDeadline, today));
 			return counts;
 		}
@@ -106,8 +107,8 @@ public class PayoutCreateUseCase {
 			try {
 				summaries = soldSummaryPort.summarizeSold(race.raceId());
 			} catch (RuntimeException exception) {
-				counts.failRace(PayoutStage.FIRST, race.raceId(), exception);
-				payoutCreateFailureUseCase.record(PayoutCreateFailure.orderLookup(PayoutStage.FIRST, race.raceId(),
+				counts.failRace(PayoutStage.일차_정산, race.raceId(), exception);
+				payoutCreateFailureUseCase.record(PayoutCreateFailure.orderLookup(PayoutStage.일차_정산, race.raceId(),
 					race.refundDeadline(), today));
 				continue;
 			}
@@ -128,7 +129,7 @@ public class PayoutCreateUseCase {
 			// (상품 Race.update) 마감일이 다음 달로 넘어가면 정산 월이 바뀌고, 월까지 보면 같은 대회의 1차가
 			// 한 번 더 만들어져 1차 정산금이 두 번 나간다 (PRO-232)
 			if (exists(() -> payoutRepository.existsBySellerIdAndRaceIdAndPayoutStage(key.sellerId(), key.raceId(),
-				PayoutStage.FIRST))) {
+				PayoutStage.일차_정산))) {
 				counts.skipped++;
 				return;
 			}
@@ -136,7 +137,7 @@ public class PayoutCreateUseCase {
 			// 1차가 실패한 실행에서 최종이 1차 정산금 차감 0원(판매자 정산액 전부)으로 만들어지고, 다음 실행에서 1차가
 			// 만들어져 1차 정산금이 한 번 더 나간다. 최종이 이미 전액을 계산했으므로 건너뛴다 (1차 없는 최종은 PRO-190)
 			if (exists(() -> payoutRepository.existsBySellerIdAndRaceIdAndPayoutStage(key.sellerId(), key.raceId(),
-				PayoutStage.FINAL))) {
+				PayoutStage.최종_정산))) {
 				log.warn("최종 정산이 이미 있어 1차 정산을 만들지 않습니다. sellerId={}, raceId={}", key.sellerId(),
 					key.raceId());
 				counts.skipped++;
@@ -150,14 +151,14 @@ public class PayoutCreateUseCase {
 			counts.created++;
 		} catch (RuntimeException exception) {
 			if (isSavedByOther(exception, () -> payoutRepository.existsBySellerIdAndRaceIdAndPayoutStage(
-				key.sellerId(), key.raceId(), PayoutStage.FIRST))) {
-				counts.skipSavedByOther(key, PayoutStage.FIRST);
+				key.sellerId(), key.raceId(), PayoutStage.일차_정산))) {
+				counts.skipSavedByOther(key, PayoutStage.일차_정산);
 				return;
 			}
 			counts.failed++;
 			log.error("1차 정산 내역을 만들지 못했습니다. sellerId={}, raceId={}, 코스 {}개",
 				key.sellerId(), key.raceId(), courses.size(), exception);
-			recordSellerRaceFailure(PayoutStage.FIRST, key, refundDeadline, exception, today);
+			recordSellerRaceFailure(PayoutStage.일차_정산, key, refundDeadline, exception, today);
 		}
 	}
 
@@ -172,8 +173,8 @@ public class PayoutCreateUseCase {
 			races = racePort.findRacesByRaceDate(fromRaceDate, toRaceDate);
 		} catch (RuntimeException exception) {
 			// 1차와 같은 기준으로 실패를 세어 배치 결과에 남긴다 (PRO-241)
-			counts.failRaceLookup(PayoutStage.FINAL, exception);
-			payoutCreateFailureUseCase.record(PayoutCreateFailure.raceLookup(PayoutStage.FINAL, fromRaceDate,
+			counts.failRaceLookup(PayoutStage.최종_정산, exception);
+			payoutCreateFailureUseCase.record(PayoutCreateFailure.raceLookup(PayoutStage.최종_정산, fromRaceDate,
 				toRaceDate, today));
 			return counts;
 		}
@@ -182,8 +183,8 @@ public class PayoutCreateUseCase {
 			try {
 				entries = soldEntryPort.findSoldEntries(race.raceId());
 			} catch (RuntimeException exception) {
-				counts.failRace(PayoutStage.FINAL, race.raceId(), exception);
-				payoutCreateFailureUseCase.record(PayoutCreateFailure.orderLookup(PayoutStage.FINAL, race.raceId(),
+				counts.failRace(PayoutStage.최종_정산, race.raceId(), exception);
+				payoutCreateFailureUseCase.record(PayoutCreateFailure.orderLookup(PayoutStage.최종_정산, race.raceId(),
 					race.raceDate(), today));
 				continue;
 			}
@@ -207,7 +208,7 @@ public class PayoutCreateUseCase {
 			// 이미 만든 정산 내역은 건너뛴다 (되돌아보기로 매일 같은 대회를 다시 보므로 대부분 여기서 걸린다)
 			// 확인과 저장 사이에 다른 인스턴스가 먼저 저장하면 DB 유일 제약이 막고, 이미 있음으로 센다 (PRO-120)
 			if (exists(() -> payoutRepository.existsBySellerIdAndRaceIdAndPayoutMonthAndPayoutStage(
-				key.sellerId(), key.raceId(), payoutMonth.toString(), PayoutStage.FINAL))) {
+				key.sellerId(), key.raceId(), payoutMonth.toString(), PayoutStage.최종_정산))) {
 				counts.skipped++;
 				return;
 			}
@@ -216,12 +217,12 @@ public class PayoutCreateUseCase {
 			counts.created++;
 		} catch (RuntimeException exception) {
 			if (isSavedByOther(exception, () -> payoutRepository.existsBySellerIdAndRaceIdAndPayoutMonthAndPayoutStage(
-				key.sellerId(), key.raceId(), payoutMonth.toString(), PayoutStage.FINAL))) {
-				counts.skipSavedByOther(key, PayoutStage.FINAL);
+				key.sellerId(), key.raceId(), payoutMonth.toString(), PayoutStage.최종_정산))) {
+				counts.skipSavedByOther(key, PayoutStage.최종_정산);
 				return;
 			}
 			counts.fail(key, entries, exception);
-			recordSellerRaceFailure(PayoutStage.FINAL, key, race.raceDate(), exception, today);
+			recordSellerRaceFailure(PayoutStage.최종_정산, key, race.raceDate(), exception, today);
 		}
 	}
 

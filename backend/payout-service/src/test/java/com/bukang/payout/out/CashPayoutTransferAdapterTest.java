@@ -32,7 +32,7 @@ import com.bukang.payout.domain.PayoutStage;
 class CashPayoutTransferAdapterTest {
 	private static final String BASE_URL = "http://cash-service";
 	private static final String URL = BASE_URL + "/internal/v1/cash/payouts/31";
-	private static final PayoutTransfer TRANSFER = new PayoutTransfer(31, 7, 47_250L, 2_750L, PayoutStage.FINAL);
+	private static final PayoutTransfer TRANSFER = new PayoutTransfer(31, 7, 47_250L, 2_750L, PayoutStage.최종_정산);
 
 	private MockRestServiceServer server;
 	private CashPayoutTransferAdapter adapter;
@@ -88,7 +88,7 @@ class CashPayoutTransferAdapterTest {
 		server.expect(requestTo(URL))
 			.andRespond(withStatus(HttpStatus.CONFLICT).contentType(MediaType.APPLICATION_JSON).body("""
 				{ "status": 409, "message": "같은 정산 ID로 이전과 다른 값이 요청됐습니다. payoutId=31",
-				  "data": { "outcome": "ALREADY_PAID", "settlementAmount": 40000, "feeAmount": 2750 } }
+				"data": { "outcome": "ALREADY_PAID", "settlementAmount": 40000, "feeAmount": 2750 } }
 				"""));
 
 		assertThatThrownBy(() -> adapter.transfer(TRANSFER))

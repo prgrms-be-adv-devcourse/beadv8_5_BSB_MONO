@@ -71,12 +71,12 @@ public class PayoutClaim extends BaseIdAndTime {
 		this.raceId = raceId;
 		this.amount = amount;
 		this.startDate = startDate;
-		this.status = PayoutClaimStatus.OPEN;
+		this.status = PayoutClaimStatus.청구_중;
 	}
 
 	// 오늘 판매자 청구 알림을 남겨야 하는지. 남긴다고 보고 날짜를 적는다
 	public boolean markSellerNotice(LocalDate today) {
-		if (status != PayoutClaimStatus.OPEN || today.equals(sellerNotifiedDate)) {
+		if (status != PayoutClaimStatus.청구_중 || today.equals(sellerNotifiedDate)) {
 			return false;
 		}
 		this.sellerNotifiedDate = today;
@@ -85,7 +85,7 @@ public class PayoutClaim extends BaseIdAndTime {
 
 	// 오늘 관리자 알림을 남겨야 하는지. 30일째부터 한 번만 남긴다
 	public boolean markAdminNotice(LocalDate today, LocalDateTime now) {
-		if (status != PayoutClaimStatus.OPEN || adminNotifiedAt != null) {
+		if (status != PayoutClaimStatus.청구_중 || adminNotifiedAt != null) {
 			return false;
 		}
 		if (today.isBefore(startDate.plusDays(ADMIN_NOTICE_DAY - 1))) {
@@ -97,10 +97,10 @@ public class PayoutClaim extends BaseIdAndTime {
 
 	// 관리자가 판매자 입금을 확인했다
 	public void confirm(long confirmedBy, LocalDateTime confirmedAt) {
-		if (status != PayoutClaimStatus.OPEN) {
+		if (status != PayoutClaimStatus.청구_중) {
 			throw new PayoutClaimConflictException("이미 입금을 확인한 청구입니다.");
 		}
-		this.status = PayoutClaimStatus.CONFIRMED;
+		this.status = PayoutClaimStatus.입금_확인;
 		this.confirmedBy = confirmedBy;
 		this.confirmedAt = confirmedAt;
 	}
