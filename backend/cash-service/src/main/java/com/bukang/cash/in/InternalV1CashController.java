@@ -10,14 +10,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.bukang.cash.app.CashFacade;
-import com.bukang.cash.dto.CashBalanceResponseDto;
-import com.bukang.cash.dto.CashCancelPaymentRequestDto;
-import com.bukang.cash.dto.CashPaymentRequestDto;
-import com.bukang.cash.dto.CashPaymentResponseDto;
-import com.bukang.cash.dto.CashPayoutRequestDto;
-import com.bukang.cash.dto.CashPayoutResponseDto;
-import com.bukang.cash.dto.CashRefundRequestDto;
-import com.bukang.cash.dto.CashRefundResponseDto;
+import com.bukang.cash.dto.payment.CashCancelPaymentRequestDto;
+import com.bukang.cash.dto.payment.CashPaymentRequestDto;
+import com.bukang.cash.dto.payment.CashPaymentResponseDto;
+import com.bukang.cash.dto.payment.CashRefundRequestDto;
+import com.bukang.cash.dto.payment.CashRefundResponseDto;
+import com.bukang.cash.dto.payout.CashPayoutRequestDto;
+import com.bukang.cash.dto.payout.CashPayoutResponseDto;
+import com.bukang.cash.dto.wallet.CashBalanceResponseDto;
 import com.bukang.common.global.rsdata.RsData;
 
 import io.swagger.v3.oas.annotations.Operation;

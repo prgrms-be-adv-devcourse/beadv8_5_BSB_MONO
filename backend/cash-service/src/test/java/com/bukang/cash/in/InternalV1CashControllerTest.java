@@ -28,12 +28,12 @@ import com.bukang.cash.domain.seller.CashSeller;
 import com.bukang.cash.domain.wallet.LedgerRefType;
 import com.bukang.cash.domain.wallet.LedgerType;
 import com.bukang.cash.domain.wallet.Wallet;
-import com.bukang.cash.out.CashMemberRepository;
-import com.bukang.cash.out.CashSellerRepository;
-import com.bukang.cash.out.PaymentRepository;
-import com.bukang.cash.out.PayoutTransferRepository;
-import com.bukang.cash.out.WalletLedgerRepository;
-import com.bukang.cash.out.WalletRepository;
+import com.bukang.cash.out.member.CashMemberRepository;
+import com.bukang.cash.out.payment.PaymentRepository;
+import com.bukang.cash.out.payout.PayoutTransferRepository;
+import com.bukang.cash.out.seller.CashSellerRepository;
+import com.bukang.cash.out.wallet.WalletLedgerRepository;
+import com.bukang.cash.out.wallet.WalletRepository;
 
 @SpringBootTest
 @AutoConfigureMockMvc

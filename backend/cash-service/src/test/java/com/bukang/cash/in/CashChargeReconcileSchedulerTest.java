@@ -7,8 +7,8 @@ import static org.mockito.Mockito.verify;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import com.bukang.cash.app.CashChargeReconcileUseCase;
-import com.bukang.cash.app.CashWithdrawalReconcileUseCase;
+import com.bukang.cash.app.charge.CashChargeReconcileUseCase;
+import com.bukang.cash.app.withdrawal.CashWithdrawalReconcileUseCase;
 
 // 스케줄러는 test 프로필에서 꺼져 있어 Spring 없이 직접 부른다
 class CashChargeReconcileSchedulerTest {
