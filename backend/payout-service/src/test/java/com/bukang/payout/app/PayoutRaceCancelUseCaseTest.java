@@ -217,6 +217,25 @@ class PayoutRaceCancelUseCaseTest {
 	}
 
 	@Test
+	@DisplayName("BUK-62: 대회 취소 뒤 지급 중 정산 내역이 409로 지급 불일치가 되면, 돈은 나갔으므로 지급 완료처럼 회수를 만든다")
+	void payingPayoutMismatchAfterRaceCancelCreatesRecovery() {
+		Payout paid = savePayout(RACE_ID, YearMonth.of(2026, 8), 20_000);
+		paid.pay(CANCELED_AT.minusDays(10));
+		Payout paying = savePayout(RACE_ID, YearMonth.of(2026, 9), 50_000);
+		paying.startPaying(CANCELED_AT.minusMinutes(1));
+		useCase().cancelRace(RACE_ID, CANCELED_AT);
+		entityManager.flush();
+		entityManager.clear();
+
+		payStepUseCase().markMismatch(paying.getId(), CANCELED_AT.plusMinutes(1), "캐시 서비스 금액 불일치 (409)");
+
+		assertThat(reload(paying).getStatus()).isEqualTo(PayoutStatus.지급_불일치);
+		// 지급 완료 + 지급 불일치의 원장 지급액 합: 18,900 + 47,250 = 66,150
+		assertThat(payoutRecoveryRepository.findAll()).singleElement()
+			.extracting(PayoutRecovery::getAmount).isEqualTo(66_150L);
+	}
+
+	@Test
 	@DisplayName("대회 취소 뒤 지급 중 정산 내역의 지급이 거절되면 정산 예정으로 되돌리지 않고 취소로 닫는다 (PRO-253)")
 	void payingPayoutRejectedAfterRaceCancelIsCanceled() {
 		Payout paying = savePayout(RACE_ID, YearMonth.of(2026, 9), 50_000);

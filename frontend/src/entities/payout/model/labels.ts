@@ -11,6 +11,7 @@ export const PAYOUT_STATUS: Record<payoutModel.PayoutStatus, Label> = {
   지급_중: { label: '지급 중', tone: 'neutral' },
   지급_완료: { label: '지급 완료', tone: 'success' },
   취소: { label: '취소', tone: 'neutral' },
+  지급_불일치: { label: '지급 불일치', tone: 'warning' },
 }
 
 /**
