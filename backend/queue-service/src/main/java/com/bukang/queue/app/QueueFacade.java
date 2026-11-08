@@ -1,6 +1,8 @@
 package com.bukang.queue.app;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -15,6 +17,7 @@ import com.bukang.common.shared.kafka.dlt.KafkaDltMessage;
 import com.bukang.common.shared.race.domain.RaceSaleStatus;
 import com.bukang.queue.domain.QueueDltKafkaEvent;
 import com.bukang.queue.dto.QueueAdmissionDto;
+import com.bukang.queue.dto.QueueEntryResponseDto;
 import com.bukang.queue.dto.QueueStatusDto;
 
 import lombok.RequiredArgsConstructor;
@@ -24,6 +27,7 @@ import lombok.RequiredArgsConstructor;
 public class QueueFacade {
 	// 인박스에 남길 컨슈머 그룹. QueueKafkaConsumer의 groupId와 같은 값이다
 	private static final String KAFKA_GROUP_ID = "queue-service";
+	private static final ZoneId KOREA = ZoneId.of("Asia/Seoul");
 
 	private final QueueSyncRaceUseCase queueSyncRaceUseCase;
 	private final QueueSyncRaceCourseUseCase queueSyncRaceCourseUseCase;
@@ -31,6 +35,7 @@ public class QueueFacade {
 	private final QueueStatusUseCase queueStatusUseCase;
 	private final QueuePromoteUseCase queuePromoteUseCase;
 	private final QueueAdmissionUseCase queueAdmissionUseCase;
+	private final QueueEntryUseCase queueEntryUseCase;
 	private final TransactionTemplate transactionTemplate;
 	private final QueueInboxUseCase queueInboxUseCase;
 	private final QueueDltUseCase queueDltUseCase;
@@ -39,6 +44,12 @@ public class QueueFacade {
 	// Redis를 기다리는 동안(장애 때는 최대 2초) DB 커넥션을 잡고 있지 않게 한다
 	public QueueStatusDto register(long memberId, long raceId, long raceCourseId) {
 		return queueRegisterUseCase.register(memberId, raceId, raceCourseId, LocalDateTime.now());
+	}
+
+	// 대회 상세의 [예매하기] 버튼이 어느 대기열로 갈지 정할 때 부른다. 복제본 조회 한 번이라 트랜잭션을 걸지 않는다
+	// 날짜는 한국 날짜로 본다. 대회 일정이 모두 한국 시간이고, 서버 시간대 설정과 상관없이 같은 날짜로 판정한다
+	public QueueEntryResponseDto findEntry(long raceId) {
+		return queueEntryUseCase.findEntry(raceId, LocalDate.now(KOREA));
 	}
 
 	// 트랜잭션을 걸지 않는다. Redis만 읽으므로 기다리는 회원 모두가 폴링할 때마다 DB 커넥션을 잡을 일이 없다

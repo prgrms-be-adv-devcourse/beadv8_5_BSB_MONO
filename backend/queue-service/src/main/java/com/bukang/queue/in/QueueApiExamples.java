@@ -48,6 +48,34 @@ final class QueueApiExamples {
 		{ "status": 400, "message": "대회 ID를 작성해주세요.", "data": null }
 		""";
 
+	static final String ENTRY_PARTY = """
+		{
+			"status": 200,
+			"message": "들어갈 대기열을 조회했습니다.",
+			"data": {
+				"raceId": 1,
+				"entryType": "PARTY",
+				"openDate": "2026-11-10",
+				"closeDate": "2026-11-12",
+				"url": "/api/v1/queue/parties"
+			}
+		}
+		""";
+
+	static final String ENTRY_INDIVIDUAL = """
+		{
+			"status": 200,
+			"message": "들어갈 대기열을 조회했습니다.",
+			"data": {
+				"raceId": 1,
+				"entryType": "INDIVIDUAL",
+				"openDate": "2026-11-13",
+				"closeDate": "2026-11-20",
+				"url": "/api/v1/queue"
+			}
+		}
+		""";
+
 	static final String INVALID_BODY = """
 		{ "status": 400, "message": "요청 본문 형식이 올바르지 않습니다.", "data": null }
 		""";
