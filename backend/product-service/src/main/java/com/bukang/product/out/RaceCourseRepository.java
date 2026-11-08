@@ -37,7 +37,7 @@ public interface RaceCourseRepository extends JpaRepository<RaceCourse, Long> {
 	//   남은 자리를 먼저 읽고 늘리면, 마지막 1자리를 두 요청이 함께 '남았다'고 읽고 둘 다 늘린다
 	//   이 UPDATE는 행을 잠근 뒤 조건을 다시 보므로, 두 번째 요청은 0행이 되어 매진으로 끝난다
 	// 대회가 판매 예정·판매 중일 때만 늘린다. 판매자가 같은 순간 대회를 취소해도 취소된 대회에 자리가 잡히지 않게 한다
-	//   (판매 예정도 넣는 이유: 판매 시작일 0시가 지나도 상태 배치가 판매 중으로 바꾸기까지 최대 5분 걸린다)
+	//   (판매 예정도 넣는 이유: 0시 정각 상태 배치가 늦거나 실패하면 다음 5분 정각까지 판매 예정으로 남을 수 있다)
 	@Modifying(clearAutomatically = true)
 	@Query("update RaceCourse c set c.individualReserved = c.individualReserved + 1, c.modifyDate = :now "
 		+ "where c.id = :id and c.individualQuota + c.movedQuota - c.individualReserved - c.individualSold > 0 "

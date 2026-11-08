@@ -13,7 +13,7 @@ import com.bukang.product.out.RaceRepository;
 import lombok.RequiredArgsConstructor;
 
 /**
- * 판매 시작일이 되거나 대회일이 지난 대회의 판매 상태를 바꾼다 (RaceSaleStatusScheduler가 5분마다 부른다)
+ * 판매 시작일이 되거나 대회일이 지난 대회의 판매 상태를 바꾼다 (RaceSaleStatusScheduler가 시계 기준 5분 정각마다, 0시 정각에도 부른다)
  * - 판매 예정·판매 중 → 판매 종료: 대회일이 지난 대회 (대회 날짜 다음 날 0시부터)
  * - 판매 예정 → 판매 중: 판매 시작일이 된 대회 (판매 시작일 0시부터)
  *   판매 중은 판매자 화면용 표시다. 구매자가 예매할 수 있는지는 크루 예매 시작·개인 예매 오픈 시각으로 따로 본다
