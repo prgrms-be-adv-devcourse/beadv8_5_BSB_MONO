@@ -17,7 +17,7 @@ const URL = '*/api/v1/notification/notifications'
 
 afterEach(() => clearAccessToken())
 
-function renderPage(category: string) {
+function renderPage(category: 'race' | 'payment' | 'crew') {
   setAccessToken('test-token')
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
@@ -54,6 +54,30 @@ describe('NotificationDetailPage', () => {
           message: '알림을 조회했습니다.',
           data: [
             {
+              id: 'x0',
+              category: 'race',
+              body: '탭 끼운 주소',
+              sentAt: '2026-11-02T09:00:00+09:00',
+              link: { label: '탭 끼움', href: '/\t/evil.example' },
+              unread: true,
+            },
+            {
+              id: 'x4',
+              category: 'race',
+              body: '줄바꿈 끼운 주소',
+              sentAt: '2026-11-02T09:10:00+09:00',
+              link: { label: '줄바꿈 끼움', href: '/\n/evil.example' },
+              unread: true,
+            },
+            {
+              id: 'x5',
+              category: 'race',
+              body: 'API 주소',
+              sentAt: '2026-11-02T09:20:00+09:00',
+              link: { label: 'API', href: '/api/v1/member/members/me' },
+              unread: true,
+            },
+            {
               id: 'x1',
               category: 'race',
               body: '바깥 주소',
@@ -87,11 +111,19 @@ describe('NotificationDetailPage', () => {
     expect(screen.queryByRole('link', { name: '바깥으로' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: '두 빗금' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: '스크립트' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: '탭 끼움' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: '줄바꿈 끼움' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'API' })).not.toBeInTheDocument()
   })
 
-  it('없는 알림 종류면 찾을 수 없음 화면을 보여 준다', () => {
-    renderPage('abc')
+  it('그 종류의 알림이 없으면 빈 화면을 보여 준다', async () => {
+    server.use(
+      http.get(URL, () =>
+        HttpResponse.json({ status: 200, message: '알림을 조회했습니다.', data: [] }),
+      ),
+    )
+    renderPage('crew')
 
-    expect(screen.getByText('찾을 수 없는 페이지예요')).toBeInTheDocument()
+    expect(await screen.findByText('아직 알림이 없어요')).toBeInTheDocument()
   })
 })

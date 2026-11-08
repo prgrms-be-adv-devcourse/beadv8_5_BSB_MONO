@@ -25,6 +25,12 @@ describe('상태 화면', () => {
     expect(onRetry).toHaveBeenCalledTimes(1)
   })
 
+  it('연결 끊김: 다시 그리는 동안에는 다시 시도하기를 누를 수 없다', () => {
+    render(<OfflineBody onRetry={vi.fn()} retrying />)
+
+    expect(screen.getByRole('button', { name: '다시 시도하기' })).toBeDisabled()
+  })
+
   it('불러오지 못함: 문구와 다시 시도하기를 보여 주고, 다시 불러오는 동안에는 누를 수 없다', async () => {
     const onRetry = vi.fn()
     const { rerender } = render(<LoadErrorBody onRetry={onRetry} />)

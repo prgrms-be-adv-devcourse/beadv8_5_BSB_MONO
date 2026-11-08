@@ -35,17 +35,17 @@ describe('NotificationsPage', () => {
     const race = await screen.findByRole('link', { name: /대회 소식/ })
     expect(race).toHaveAttribute('href', '/notifications/race')
     expect(within(race).getByText('11.2')).toBeInTheDocument()
-    expect(within(race).getByLabelText('안 읽은 알림 2개')).toBeInTheDocument()
+    expect(race).toHaveAccessibleName(/안 읽은 알림 2개/)
 
     const payment = screen.getByRole('link', { name: /결제 · 예치금/ })
     expect(payment).toHaveAttribute('href', '/notifications/payment')
     expect(within(payment).getByText('환급 5,000원을 계좌로 보냈어요.')).toBeInTheDocument()
     expect(within(payment).getByText('11.1')).toBeInTheDocument()
-    expect(within(payment).getByLabelText('안 읽은 알림 1개')).toBeInTheDocument()
+    expect(payment).toHaveAccessibleName(/안 읽은 알림 1개/)
 
     const crew = screen.getByRole('link', { name: /크루 소식/ })
     expect(within(crew).getByText('10.30')).toBeInTheDocument()
-    expect(within(crew).queryByLabelText(/안 읽은 알림/)).not.toBeInTheDocument()
+    expect(crew).not.toHaveAccessibleName(/안 읽은 알림/)
 
     // 전체 탭에는 안 읽은 알림을 모두 더한 수가 붙는다
     expect(screen.getByRole('tab', { name: /전체/ })).toHaveTextContent('3')
@@ -59,6 +59,57 @@ describe('NotificationsPage', () => {
 
     expect(screen.getByRole('link', { name: /결제 · 예치금/ })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /대회 소식/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /크루 소식/ })).not.toBeInTheDocument()
+  })
+
+  it('고른 탭에 알림이 없으면 빈 화면을 보여 준다', async () => {
+    server.use(
+      http.get(URL, () =>
+        HttpResponse.json({
+          status: 200,
+          message: '알림을 조회했습니다.',
+          data: [
+            {
+              id: 'a',
+              category: 'race',
+              body: '대회 알림',
+              sentAt: '2026-11-02T10:00:00+09:00',
+              unread: false,
+            },
+          ],
+        }),
+      ),
+    )
+    renderPage()
+    await screen.findByRole('link', { name: /대회 소식/ })
+
+    await userEvent.click(screen.getByRole('tab', { name: '크루' }))
+
+    expect(screen.getByText('아직 알림이 없어요')).toBeInTheDocument()
+  })
+
+  it('날짜를 읽을 수 없는 알림은 빼고 보여 준다', async () => {
+    server.use(
+      http.get(URL, () =>
+        HttpResponse.json({
+          status: 200,
+          message: '알림을 조회했습니다.',
+          data: [
+            { id: 'bad', category: 'crew', body: '날짜 없음', sentAt: '', unread: true },
+            {
+              id: 'ok',
+              category: 'race',
+              body: '정상 알림',
+              sentAt: '2026-11-02T10:00:00+09:00',
+              unread: false,
+            },
+          ],
+        }),
+      ),
+    )
+    renderPage()
+
+    expect(await screen.findByRole('link', { name: /대회 소식/ })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /크루 소식/ })).not.toBeInTheDocument()
   })
 
