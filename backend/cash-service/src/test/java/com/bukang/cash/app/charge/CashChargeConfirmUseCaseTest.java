@@ -366,6 +366,36 @@ class CashChargeConfirmUseCaseTest {
 	}
 
 	@Test
+	@DisplayName("일일 한도를 이미 다 채운 orderId라도 COMPLETED면 재요청 시 한도 초과로 거절하지 않고 같은 결과를 돌려준다")
+	void alreadyCompletedIgnoresDailyLimitOnRetry() {
+		Wallet wallet = createCustomerWalletWithTodayCharge(900_000);
+		WalletCharge charge = walletChargeRepository.save(new WalletCharge(wallet, 100_000, "TOSS", "order_1"));
+		ReflectionTestUtils.setField(charge, "status", ChargeStatus.COMPLETED);
+		walletChargeRepository.saveAndFlush(charge);
+		walletLedgerRepository.save(wallet.credit(100_000, LedgerType.충전__PG결제_토스페이먼츠, charge));
+		walletRepository.saveAndFlush(wallet);
+
+		CashChargeResponseDto response = cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 100_000);
+
+		assertThat(response.outcome()).isEqualTo(CashChargeResponseDto.Outcome.COMPLETED);
+		verify(paymentClient, never()).approve(anyString(), anyString(), anyLong());
+	}
+
+	@Test
+	@DisplayName("보유 한도를 이미 넘긴 orderId라도 COMPLETED면 재요청 시 한도 초과로 거절하지 않고 같은 결과를 돌려준다")
+	void alreadyCompletedIgnoresBalanceCapOnRetry() {
+		Wallet wallet = createCustomerWalletWithBalance(10_000_000);
+		WalletCharge charge = walletChargeRepository.save(new WalletCharge(wallet, 10_000, "TOSS", "order_1"));
+		ReflectionTestUtils.setField(charge, "status", ChargeStatus.COMPLETED);
+		walletChargeRepository.saveAndFlush(charge);
+
+		CashChargeResponseDto response = cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 10_000);
+
+		assertThat(response.outcome()).isEqualTo(CashChargeResponseDto.Outcome.COMPLETED);
+		verify(paymentClient, never()).approve(anyString(), anyString(), anyLong());
+	}
+
+	@Test
 	@DisplayName("IN_PROGRESS인 채로 멈춰 있으면(선점한 쪽이 응답 없음) 계속 기다리지 않고 "
 		+ "예외로 알리며, Toss를 새로 부르지도 않는다")
 	void stuckInProgressEventuallyThrows() {

@@ -86,8 +86,6 @@ public class CashChargeConfirmUseCase {
 	//지갑 잠금
 	private ChargeClaim claimChargeLocked(long customerId, String orderId, long amount) {
 		Wallet customerWallet = cashSupport.lockWallet(customerId);
-		assertWithinDailyLimit(customerWallet, amount);
-		assertWithinBalanceCap(customerWallet, amount);
 		WalletCharge existing = findMatchingCharge(customerWallet, orderId);
 		if (existing != null && existing.getStatus() == ChargeStatus.COMPLETED) {
 			return ChargeClaim.resolved(toDto(existing, customerWallet.getBalance()));
@@ -95,6 +93,8 @@ public class CashChargeConfirmUseCase {
 		if (existing != null && existing.getStatus() == ChargeStatus.IN_PROGRESS) {
 			return ChargeClaim.waiting();
 		}
+		assertWithinDailyLimit(customerWallet, amount);
+		assertWithinBalanceCap(customerWallet, amount);
 		WalletCharge charge = existing != null
 			? existing
 			: walletChargeRepository.save(new WalletCharge(customerWallet, amount, "TOSS", orderId));
