@@ -209,7 +209,7 @@ class InternalV1CrewHoldTest extends ProductIntegrationTest {
 	}
 
 	// 지금 크루 예매 기간(1시간 전 ~ 내일)인 판매 중 대회를 등록한다
-	// 개인 예매는 크루 마감 다음 날 06:00에 열린다 (등록 검사: 크루 마감일 다음 날 06:00 이후)
+	// 개인 예매는 크루 예매 마감일의 자정 뒤 06:00에 열린다 (등록 검사: 크루 예매 마감일의 자정 이후)
 	private CrewCourse crewCourseWithQuota(int crewQuota) throws Exception {
 		RaceBuilder builder = race();
 		LocalDateTime now = builder.now();

@@ -451,17 +451,19 @@ class ApiV1RaceRegisterTest extends ProductIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("개인 예매 오픈이 크루 예매 마감일 다음 날 05:59면 400이고, 06:00 정각이면 등록된다")
-	void rejectIndividualOpenBeforeCrewNextDay() throws Exception {
+	@DisplayName("크루 예매가 19:00에 마감되면 개인 예매 오픈이 그날 23:59면 400이고, 크루 예매 마감일의 자정(다음 날 00:00)이면 "
+		+ "등록된다")
+	void rejectIndividualOpenBeforeCrewCloseMidnight() throws Exception {
 		RaceBuilder builder = upcomingRace();
-		LocalDateTime crewSaleEndAt = builder.now().plusDays(3);
-		LocalDateTime earliestOpenAt = crewSaleEndAt.toLocalDate().plusDays(1).atTime(6, 0);
+		LocalDateTime crewSaleEndAt = builder.now().plusDays(3).toLocalDate().atTime(19, 0);
+		// 크루 예매 마감일의 자정: 결제 대기 크루 자리를 반환하고 크루 몫을 개인 몫으로 옮기는 시각
+		LocalDateTime crewCloseAt = crewSaleEndAt.toLocalDate().plusDays(1).atStartOfDay();
 		builder.crewSale(builder.now().plusDays(2), crewSaleEndAt);
 
-		assertRejected(builder.individualOpenAt(earliestOpenAt.minusMinutes(1)).build(),
-			"개인 예매 오픈 일시는 크루 예매 마감일 다음 날 06:00 이후여야 합니다.");
+		assertRejected(builder.individualOpenAt(crewCloseAt.minusMinutes(1)).build(),
+			"개인 예매 오픈 일시는 크루 예매 마감일의 자정 이후여야 합니다.");
 
-		register(builder.individualOpenAt(earliestOpenAt).build());
+		register(builder.individualOpenAt(crewCloseAt).build());
 	}
 
 	@Test

@@ -303,7 +303,7 @@ class ApiV1RaceQueryTest extends ProductIntegrationTest {
 	void findMineReflectsReservedAndSold() throws Exception {
 		RaceBuilder builder = race();
 		LocalDateTime now = builder.now();
-		// 크루 예매(3일 전~2일 전)가 끝났고 개인 예매가 크루 마감 다음 날 06:00에 열려, 지금 개인 자리를 확보할 수 있다
+		// 크루 예매(3일 전~2일 전)가 끝났고 개인 예매가 크루 예매 마감일의 자정 뒤인 06:00에 열려, 지금 개인 자리를 확보할 수 있다
 		RaceSaveRequestDto request = builder
 			.crewSale(now.minusDays(3), now.minusDays(2))
 			.individualOpenAt(now.minusDays(1).toLocalDate().atTime(6, 0))
@@ -361,7 +361,7 @@ class ApiV1RaceQueryTest extends ProductIntegrationTest {
 		RaceBuilder builder = race().title("2026 춘천 가을 마라톤");
 		LocalDateTime now = builder.now();
 		LocalDateTime crewSaleStartAt = now.minusDays(3);
-		// 크루 마감 다음 날 06:00. 크루 예매 시작과 달라야 applicationOpenAt이 개인 예매 오픈인지 알 수 있다
+		// 크루 예매 마감일의 자정 뒤 06:00. 크루 예매 시작과 달라야 applicationOpenAt이 개인 예매 오픈인지 알 수 있다
 		LocalDateTime individualOpenAt = now.minusDays(1).toLocalDate().atTime(6, 0);
 		LocalDate refundDeadline = now.plusDays(15).toLocalDate();
 		RaceSaveRequestDto request = builder

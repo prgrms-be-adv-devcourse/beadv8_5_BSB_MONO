@@ -8,6 +8,7 @@ import static lombok.AccessLevel.PROTECTED;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -159,7 +160,7 @@ public class Race extends BaseIdAndTime {
 		if (saleStarted && request.getRefundDeadline().isBefore(refundDeadline)) {
 			throw new RaceChangeNotAllowedException("판매가 시작된 대회는 환불 기준일을 앞당길 수 없습니다.");
 		}
-		// 판매 일정은 마음대로 바꾸지 못한다 (대기열, 크루 마감 다음 날 06:00 배치, 확보 기한이 이 일정을 따른다)
+		// 판매 일정은 마음대로 바꾸지 못한다 (대기열, 크루 예매 마감일 자정의 크루 배치, 확보 기한이 이 일정을 따른다)
 		// 판매 시작일 전에는 일정이 모두 아직 오지 않았으므로, 지난 시각으로 옮기는 것만 막힌다
 		checkScheduleChange("크루 예매 시작", crewSaleStartAt, request.getCrewSaleStartAt(), now);
 		checkScheduleChange("크루 예매 마감", crewSaleEndAt, request.getCrewSaleEndAt(), now);
@@ -314,6 +315,18 @@ public class Race extends BaseIdAndTime {
 		}
 		return (saleStatus == RaceSaleStatus.SCHEDULED || saleStatus == RaceSaleStatus.ON_SALE)
 			&& !now.isBefore(crewSaleStartAt) && now.isBefore(crewSaleEndAt) && now.isBefore(applicationCloseAt);
+	}
+
+	// 크루 예매 마감일의 자정: 결제 대기 크루 자리를 반환하고 크루 몫을 개인 몫으로 옮기는 시각 (개인 예매는 이때부터 열 수 있다)
+	// 크루 예매 마감 일시는 파티 참여 확정만 막고, 그 전에 잡은 결제 대기는 이 시각까지 결제할 수 있다
+	// 마감이 00:00 정각이면 마지막 날은 그 전날이라 그 시각, 아니면 마감일 다음 날 00:00
+	//   예: 11/12 19:00 → 11/13 00:00, 11/13 00:00 → 11/13 00:00
+	// 크루 배치가 옮길 종목을 고르는 조건(RaceCourseRepository.findCrewClosableIds: 마감 일시 ≤ 오늘 0시)과 같은 기준이다
+	public static LocalDateTime crewCloseAt(LocalDateTime crewSaleEndAt) {
+		if (crewSaleEndAt.toLocalTime().equals(LocalTime.MIDNIGHT)) {
+			return crewSaleEndAt;
+		}
+		return crewSaleEndAt.toLocalDate().plusDays(1).atStartOfDay();
 	}
 
 	// 대기열에 보낼 대회 변경 메시지 (개인·파티 대기열 진입 판정에 쓰는 칸과 수정 일시)
