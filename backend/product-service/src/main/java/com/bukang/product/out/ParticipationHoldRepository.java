@@ -40,6 +40,21 @@ public interface ParticipationHoldRepository extends JpaRepository<Participation
 		+ "and h.status = com.bukang.product.domain.HoldStatus.HELD")
 	List<ParticipationHold> findHeldByRaceId(@Param("raceId") long raceId);
 
+	// 결제 기한이 지난 결제 대기 크루 자리 (매시간 배치가 반환한다)
+	// 결제 기한 = min(파티 참여 확정 + 24시간, 크루 예매 마감일의 자정). 주문이 확보할 때 보낸다
+	//   예: 16:30 확정 → 다음 날 16:30 기한 → 17:00 실행에서 반환
+	//   크루 예매 마감이 11/12 18:00이면 11/12 15:00에 확정한 파티는 11/13 00:00이 기한이다 (그때 크루 몫을 개인 몫으로 옮긴다)
+	// 판매(sell)는 expiresAt > now일 때만 되므로, expiresAt ≤ now인 자리는 더 팔 수 없는 자리다
+	// 상태·기한 인덱스(idx_participation_hold_status_expires)로 찾는다
+	@Query("select h from ParticipationHold h where h.status = com.bukang.product.domain.HoldStatus.HELD "
+		+ "and h.expiresAt <= :now and h.partyId is not null")
+	List<ParticipationHold> findExpiredHeldCrew(@Param("now") LocalDateTime now);
+
+	// 한 종목의 결제 대기 크루 자리 (크루 마감일이 끝난 자정에 결제 기한과 상관없이 모두 반환한다)
+	@Query("select h from ParticipationHold h where h.raceCourse.id = :raceCourseId "
+		+ "and h.status = com.bukang.product.domain.HoldStatus.HELD and h.partyId is not null")
+	List<ParticipationHold> findHeldCrewByRaceCourseId(@Param("raceCourseId") long raceCourseId);
+
 	// 결제 대기 → 판매. 결제 기한(expires_at) 안일 때만 바꾼다
 	@Modifying(clearAutomatically = true)
 	@Query("update ParticipationHold h set h.status = com.bukang.product.domain.HoldStatus.SOLD, "
