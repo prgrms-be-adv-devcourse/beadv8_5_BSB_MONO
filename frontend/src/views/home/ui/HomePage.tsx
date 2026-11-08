@@ -125,32 +125,65 @@ function SectionHead({ title }: { title: string }) {
   )
 }
 
-// 피그마 V2 · M01 홈 · 로딩: 배너 · 가로 카드 2장 · 2열 카드 4장 자리
+// 피그마 시나리오 38 · 01 홈 로딩: 배너 · 곧 마감(가로 카드) · 지금 접수 중(2열 4장 + 더 보기) 자리.
+// 0.3초 안에 끝나면 보이지 않는다(animate-delayed-show).
 function HomeSkeleton() {
   return (
-    <main role="status" aria-label="불러오는 중" className="flex flex-1 flex-col">
-      <div className="flex gap-2.5 overflow-hidden pt-4 pb-2 pl-4">
-        <Skeleton shape="rect" className="h-73.5 w-105 shrink-0 rounded-lg" />
-        <Skeleton shape="rect" className="h-73.5 w-105 shrink-0 rounded-lg" />
+    <main
+      role="status"
+      aria-label="불러오는 중"
+      className="flex flex-1 animate-delayed-show flex-col"
+    >
+      <div className="flex gap-3 overflow-hidden pt-4 pb-2 pl-4">
+        {[0, 1].map((i) => (
+          <Skeleton key={i} shape="rect" className="h-73.5 w-105 shrink-0 rounded-lg" />
+        ))}
       </div>
-      {[2, 4].map((count) => (
-        <div key={count} className="flex flex-col gap-4 px-4 pt-8 pb-2">
-          <div className="flex items-center justify-between">
-            <Skeleton className="h-4 w-36" />
-            <Skeleton className="w-12" />
-          </div>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-6">
-            {Array.from({ length: count }, (_, i) => (
-              <div key={i} className="flex flex-col gap-2">
-                <Skeleton shape="rect" className="aspect-square w-full rounded-md" />
-                <Skeleton className="w-11/12" />
-                <Skeleton className="w-2/3" />
-                <Skeleton className="w-1/2" />
-              </div>
-            ))}
-          </div>
+      <div className="flex flex-col gap-3 pt-8 pb-2">
+        <SkeletonHead />
+        <div className="flex gap-3 overflow-hidden pl-4">
+          {[0, 1].map((i) => (
+            <SkeletonCard key={i} className="w-44 shrink-0" lines={['w-full', 'w-3/5']} />
+          ))}
         </div>
-      ))}
+      </div>
+      <div className="flex flex-col gap-2 pt-8 pb-8">
+        <SkeletonHead />
+        <div className="grid grid-cols-2 gap-x-4 gap-y-6 px-4">
+          {[0, 1, 2, 3].map((i) => (
+            <SkeletonCard key={i} lines={['w-5/6']} />
+          ))}
+        </div>
+        <div className="px-4">
+          <Skeleton shape="rect" className="h-11 w-full" />
+        </div>
+      </div>
     </main>
+  )
+}
+
+function SkeletonHead() {
+  return (
+    <div className="flex h-7.5 items-center justify-between px-4">
+      <Skeleton className="h-3.75 w-40" />
+      <Skeleton className="h-2.5 w-12" />
+    </div>
+  )
+}
+
+function SkeletonCard({ lines, className }: { lines: string[]; className?: string }) {
+  return (
+    <div className={cn('flex flex-col', className)}>
+      <Skeleton shape="rect" className="aspect-square w-full" />
+      <div className="flex h-12 flex-col gap-2 pt-2">
+        {lines.map((width) => (
+          <Skeleton key={width} className={cn('h-2.75', width)} />
+        ))}
+      </div>
+      <div className="flex flex-col gap-3 pt-2">
+        <Skeleton className="h-2.5 w-21" />
+        <Skeleton className="h-2.5 w-16" />
+      </div>
+    </div>
   )
 }
