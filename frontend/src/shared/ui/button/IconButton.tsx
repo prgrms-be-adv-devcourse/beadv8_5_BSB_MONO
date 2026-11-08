@@ -9,7 +9,7 @@ export type IconButtonSize = 's' | 'm'
 
 const VARIANT: Record<IconButtonVariant, string> = {
   primary: 'bg-bg-brand text-text-on-brand enabled:hover:bg-bg-brand-hover',
-  secondary: 'bg-bg-subtle text-text-primary enabled:hover:bg-bg-subtle',
+  secondary: 'bg-bg-subtle text-text-primary',
   ghost: 'text-text-primary enabled:hover:bg-bg-subtle',
 }
 

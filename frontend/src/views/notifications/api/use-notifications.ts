@@ -30,7 +30,11 @@ export function useNotifications() {
     queryKey: ['notifications'],
     queryFn: async () => {
       try {
-        return unwrapData(await customFetch<RsData<Notice[]>>('/api/v1/notification/notifications'))
+        const notices = unwrapData(
+          await customFetch<RsData<Notice[]>>('/api/v1/notification/notifications'),
+        )
+        // 날짜를 읽을 수 없는 알림은 시각을 보여 줄 수 없고 순서도 정할 수 없어 뺀다
+        return notices.filter((n) => !Number.isNaN(Date.parse(n.sentAt)))
       } catch (error) {
         if (error instanceof ApiError && error.status === 404) return []
         throw error

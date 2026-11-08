@@ -6,10 +6,11 @@ import { useState } from 'react'
 import { AppHeader } from '@/widgets/app-header'
 import { LoadErrorBody } from '@/widgets/status-screens'
 import { cn } from '@/shared/lib'
-import { EmptyState, FOCUS_RING, Icon, Skeleton, Tab, TabBar, Tabs } from '@/shared/ui'
+import { FOCUS_RING, Icon, Skeleton, Tab, TabBar, Tabs } from '@/shared/ui'
 
 import { useNotifications, type Notice, type NoticeCategory } from '../api/use-notifications'
 import { byOldest, formatShortDate, NOTICE_CATEGORIES } from '../lib/notice'
+import { NoNotice } from './NoNotice'
 import { UnreadCount } from './UnreadCount'
 
 type Filter = 'all' | NoticeCategory
@@ -28,6 +29,7 @@ export function NotificationsPage({ empty = false }: { empty?: boolean }) {
     return { ...category, latest: items.at(-1), unread: items.filter((n) => n.unread).length }
   }).filter((group): group is typeof group & { latest: Notice } => group.latest !== undefined)
   const totalUnread = groups.reduce((sum, group) => sum + group.unread, 0)
+  const visible = groups.filter((group) => filter === 'all' || group.value === filter)
 
   return (
     <>
@@ -47,13 +49,8 @@ export function NotificationsPage({ empty = false }: { empty?: boolean }) {
           retrying={notifications.isFetching}
         />
       ) : groups.length === 0 ? (
-        <main className="flex flex-1 items-center justify-center px-4 py-8">
-          <EmptyState
-            icon="Bell"
-            title="아직 알림이 없어요"
-            description="대회 일정이 바뀌거나 환불이 끝나면 여기로 알려 드려요."
-            className="max-w-86"
-          />
+        <main className="flex flex-1 flex-col">
+          <NoNotice />
         </main>
       ) : (
         <main className="flex flex-1 flex-col">
@@ -72,10 +69,11 @@ export function NotificationsPage({ empty = false }: { empty?: boolean }) {
               ))}
             </TabBar>
           </Tabs>
-          <ul>
-            {groups
-              .filter((group) => filter === 'all' || group.value === filter)
-              .map((group) => (
+          {visible.length === 0 ? (
+            <NoNotice />
+          ) : (
+            <ul>
+              {visible.map((group) => (
                 <li key={group.value}>
                   <Link
                     href={`/notifications/${group.value}`}
@@ -99,7 +97,8 @@ export function NotificationsPage({ empty = false }: { empty?: boolean }) {
                   </Link>
                 </li>
               ))}
-          </ul>
+            </ul>
+          )}
         </main>
       )}
     </>

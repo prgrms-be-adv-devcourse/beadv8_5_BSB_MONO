@@ -4,17 +4,24 @@ import Link from 'next/link'
 import { Fragment } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
-import { LoadErrorBody, NotFoundBody } from '@/widgets/status-screens'
+import { LoadErrorBody } from '@/widgets/status-screens'
 import { buttonClassName, Icon, Skeleton } from '@/shared/ui'
 
-import { useNotifications } from '../api/use-notifications'
-import { byOldest, findCategory, formatDayChip, formatTime, safeInternalHref } from '../lib/notice'
+import { useNotifications, type NoticeCategory } from '../api/use-notifications'
+import {
+  byOldest,
+  formatDayChip,
+  formatTime,
+  NOTICE_CATEGORIES,
+  safeInternalHref,
+} from '../lib/notice'
+import { NoNotice } from './NoNotice'
 
 // 피그마 시나리오 37 · 03 알림 상세: 한 종류의 알림을 날짜 칩 아래 대화처럼 오래된 것부터 보여 준다.
-export function NotificationDetailPage({ category }: { category: string }) {
-  const meta = findCategory(category)
+// 없는 종류는 라우트(page.tsx)에서 404로 보낸다.
+export function NotificationDetailPage({ category }: { category: NoticeCategory }) {
+  const meta = NOTICE_CATEGORIES.find((c) => c.value === category) ?? NOTICE_CATEGORIES[0]
   const notifications = useNotifications()
-  if (!meta) return <NotFoundBody />
 
   const items = (notifications.data ?? []).filter((n) => n.category === meta.value).sort(byOldest)
 
@@ -38,6 +45,10 @@ export function NotificationDetailPage({ category }: { category: string }) {
           onRetry={() => void notifications.refetch()}
           retrying={notifications.isFetching}
         />
+      ) : items.length === 0 ? (
+        <main className="flex flex-1 flex-col">
+          <NoNotice />
+        </main>
       ) : (
         <main className="flex flex-1 flex-col gap-3.5 px-4 pt-4 pb-8">
           {items.map((notice, i) => {

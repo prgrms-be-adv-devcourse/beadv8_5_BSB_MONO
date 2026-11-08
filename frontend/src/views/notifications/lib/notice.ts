@@ -16,8 +16,8 @@ export const NOTICE_CATEGORIES: {
   { value: 'crew', title: '크루 소식', tab: '크루', icon: 'Users' },
 ]
 
-export function findCategory(value: string) {
-  return NOTICE_CATEGORIES.find((category) => category.value === value)
+export function isNoticeCategory(value: string): value is NoticeCategory {
+  return NOTICE_CATEGORIES.some((category) => category.value === value)
 }
 
 // 알림 시각은 회원이 있는 곳과 상관없이 서울 시각으로 보여 준다
@@ -54,11 +54,18 @@ export function formatTime(iso: string) {
   return `${h < 12 ? '오전' : '오후'} ${h % 12 || 12}:${minute}`
 }
 
-/** 서버가 준 이동 주소는 앱 안 주소(/로 시작, //는 아님)일 때만 쓴다. 바깥·스크립트 주소로 보내지 않기 위해서다. */
+const BASE = 'http://app.invalid'
+
+/**
+ * 서버가 준 이동 주소는 앱 안 화면 주소일 때만 쓴다. 바깥·스크립트 주소로 보내지 않기 위해서다.
+ * 앞 글자만 보지 않고 브라우저처럼 해석해 본다(탭·줄바꿈을 지우면 //가 되는 주소를 막는다).
+ * /api/는 화면이 아니라 미리 불러오기 요청이 나가므로 막는다.
+ */
 export function safeInternalHref(href: string | undefined): Route | undefined {
-  if (!href || !href.startsWith('/') || href.startsWith('//') || href.startsWith('/\\'))
-    return undefined
-  return href as Route
+  if (!href?.startsWith('/')) return undefined
+  const url = new URL(href, BASE)
+  if (url.origin !== BASE || url.pathname.startsWith('/api/')) return undefined
+  return `${url.pathname}${url.search}${url.hash}` as Route
 }
 
 export const byOldest = (a: Notice, b: Notice) => Date.parse(a.sentAt) - Date.parse(b.sentAt)

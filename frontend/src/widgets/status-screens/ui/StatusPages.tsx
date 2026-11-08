@@ -25,7 +25,14 @@ export function NotFoundBody() {
 
 // 피그마 시나리오 38 · 01-A 연결 끊김 (처음 불러올 때 실패, 회원 화면 본문 자리)
 // onRetry가 없으면 서버 컴포넌트를 다시 불러온다.
-export function OfflineBody({ onRetry }: { onRetry?: () => void }) {
+export function OfflineBody({
+  onRetry,
+  retrying = false,
+}: {
+  onRetry?: () => void
+  /** 다시 그리는 중이면 버튼을 막는다 */
+  retrying?: boolean
+}) {
   const router = useRouter()
   return (
     <main className="flex flex-1 items-center justify-center px-4 py-8">
@@ -34,7 +41,12 @@ export function OfflineBody({ onRetry }: { onRetry?: () => void }) {
         title="인터넷에 연결되어 있지 않아요"
         description="연결을 확인한 뒤 다시 시도해 주세요"
         action={
-          <Button variant="secondary" onClick={onRetry ?? (() => router.refresh())}>
+          <Button
+            variant="secondary"
+            onClick={onRetry ?? (() => router.refresh())}
+            disabled={retrying}
+            loading={retrying}
+          >
             다시 시도하기
           </Button>
         }
