@@ -407,7 +407,7 @@ class ApiV1RaceRegisterTest extends ProductIntegrationTest {
 			// 빌더는 환불 기준일이 없으면 대회 날짜로 채우므로, 대회 일시를 비울 때는 환불 기준일을 직접 넣는다
 			Arguments.of("대회 일시 없음", upcomingRace().raceDate(null).refundDeadline(LocalDate.now().plusDays(15)).build(),
 				"대회 일시를 작성해주세요."),
-			Arguments.of("크루 최소 인원 4명", upcomingRace().crewCount(4, null).build(), "크루 최소 인원은 5명 이상이어야 합니다."),
+			Arguments.of("크루 최소 인원 3명", upcomingRace().crewCount(3, null).build(), "크루 최소 인원은 4명 이상이어야 합니다."),
 			Arguments.of("종목 0개", withCourses(upcomingRace().build(), List.of()), "종목을 1개 이상 작성해주세요."),
 			Arguments.of("참가비 0원", upcomingRace().course(course().price(0)).build(), "참가비는 0원보다 커야 합니다."),
 			Arguments.of("거리 10.555km", upcomingRace().course(course().distanceKm("10.555")).build(),
