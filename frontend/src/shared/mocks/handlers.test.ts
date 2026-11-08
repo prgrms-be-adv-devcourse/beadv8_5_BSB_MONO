@@ -375,6 +375,10 @@ describe('방금 가입한 회원과 시연용 기존 회원', () => {
     expect(balance.data.balance).toBe(5000)
     const notices = await get('/api/v1/notification/notifications')
     expect(notices.data).toHaveLength(4)
+    for (const notice of notices.data as { category: string; sentAt: string }[]) {
+      expect(['race', 'payment', 'crew']).toContain(notice.category)
+      expect(Number.isNaN(Date.parse(notice.sentAt))).toBe(false)
+    }
 
     // 방금 가입한 회원의 쿠키가 남아 있어도 runner1로 로그인하면 지운다
     const { joined } = await signUpAndLogin()

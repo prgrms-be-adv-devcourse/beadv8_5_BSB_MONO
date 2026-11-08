@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -9,9 +10,11 @@ import { server } from '@/shared/testing'
 import { NotificationsPage } from './NotificationsPage'
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn(), back: vi.fn(), replace: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), back: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
   usePathname: () => '/notifications',
 }))
+
+const URL = '*/api/v1/notification/notifications'
 
 afterEach(() => clearAccessToken())
 
@@ -26,37 +29,85 @@ function renderPage() {
 }
 
 describe('NotificationsPage', () => {
-  it('알림 API의 알림을 오늘 · 이전으로 나눠 보여 준다', async () => {
+  it('알림을 종류별 묶음으로 보여 주고, 묶음마다 마지막 날짜와 안 읽은 수를 단다', async () => {
     renderPage()
 
-    expect(await screen.findByText('예치금을 돌려받았어요')).toBeInTheDocument()
-    expect(screen.getByText('환불이 끝났어요')).toBeInTheDocument()
-    expect(screen.getByText('읽지 않은 알림 2개')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: '오늘' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: '이전' })).toBeInTheDocument()
+    const race = await screen.findByRole('link', { name: /대회 소식/ })
+    expect(race).toHaveAttribute('href', '/notifications/race')
+    expect(within(race).getByText('11.2')).toBeInTheDocument()
+    expect(within(race).getByLabelText('안 읽은 알림 2개')).toBeInTheDocument()
+
+    const payment = screen.getByRole('link', { name: /결제 · 예치금/ })
+    expect(payment).toHaveAttribute('href', '/notifications/payment')
+    expect(within(payment).getByText('환급 5,000원을 계좌로 보냈어요.')).toBeInTheDocument()
+    expect(within(payment).getByText('11.1')).toBeInTheDocument()
+    expect(within(payment).getByLabelText('안 읽은 알림 1개')).toBeInTheDocument()
+
+    const crew = screen.getByRole('link', { name: /크루 소식/ })
+    expect(within(crew).getByText('10.30')).toBeInTheDocument()
+    expect(within(crew).queryByLabelText(/안 읽은 알림/)).not.toBeInTheDocument()
+
+    // 전체 탭에는 안 읽은 알림을 모두 더한 수가 붙는다
+    expect(screen.getByRole('tab', { name: /전체/ })).toHaveTextContent('3')
   })
 
-  it('알림이 없으면(방금 가입한 회원) 빈 화면을 보여 주고 읽지 않음 표시가 없다', async () => {
+  it('탭을 고르면 그 종류의 묶음만 보인다', async () => {
+    renderPage()
+    await screen.findByRole('link', { name: /대회 소식/ })
+
+    await userEvent.click(screen.getByRole('tab', { name: '결제' }))
+
+    expect(screen.getByRole('link', { name: /결제 · 예치금/ })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /대회 소식/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /크루 소식/ })).not.toBeInTheDocument()
+  })
+
+  it('알림이 없으면(방금 가입한 회원) 빈 화면만 보여 주고 탭과 버튼이 없다', async () => {
     server.use(
-      http.get('*/api/v1/notification/notifications', () =>
+      http.get(URL, () =>
         HttpResponse.json({ status: 200, message: '알림을 조회했습니다.', data: [] }),
       ),
     )
     renderPage()
 
     expect(await screen.findByText('아직 알림이 없어요')).toBeInTheDocument()
-    expect(screen.queryByLabelText('읽지 않음')).not.toBeInTheDocument()
-    expect(screen.queryByText(/읽지 않은 알림/)).not.toBeInTheDocument()
+    expect(
+      screen.getByText('대회 일정이 바뀌거나 환불이 끝나면 여기로 알려 드려요.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /다시 시도/ })).not.toBeInTheDocument()
   })
 
   it('알림 API가 없으면(404) 알림이 없는 것으로 보여 준다', async () => {
     server.use(
-      http.get('*/api/v1/notification/notifications', () =>
+      http.get(URL, () =>
         HttpResponse.json({ status: 404, message: '없음', data: null }, { status: 404 }),
       ),
     )
     renderPage()
 
     expect(await screen.findByText('아직 알림이 없어요')).toBeInTheDocument()
+  })
+
+  it('그 밖의 오류면 불러오지 못함 화면을 보여 주고, 다시 시도하기로 다시 불러온다', async () => {
+    let calls = 0
+    server.use(
+      http.get(URL, () => {
+        calls += 1
+        return calls === 1
+          ? HttpResponse.json({ status: 500, message: '오류', data: null }, { status: 500 })
+          : HttpResponse.json({ status: 200, message: '알림을 조회했습니다.', data: [] })
+      }),
+    )
+    renderPage()
+
+    expect(await screen.findByText('정보를 불러오지 못했어요')).toBeInTheDocument()
+    // 머리말은 그대로 남는다
+    expect(screen.getByRole('heading', { name: '알림' })).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: '다시 시도하기' }))
+
+    expect(await screen.findByText('아직 알림이 없어요')).toBeInTheDocument()
+    expect(calls).toBe(2)
   })
 })
