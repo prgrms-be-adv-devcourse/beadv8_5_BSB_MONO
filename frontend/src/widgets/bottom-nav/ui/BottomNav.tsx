@@ -9,14 +9,14 @@ import { FOCUS_RING, Icon, Logo, type IconName } from '@/shared/ui'
 
 type Item = { href: Route; label: string; icon: IconName }
 
-// 피그마 BottomNav · 세미: 대회 · 내 참가권 | 로고(홈) | 알림 · 마이.
-// 장바구니는 헤더 아이콘에만 둔다. 크루 탭이 있는 BottomNav는 최종 프로젝트용.
+// 피그마 v2/BottomNav · 세미: 대회 · 내 참가권 | 로고(홈) | 장바구니 · 마이.
+// 알림은 헤더 오른쪽 위 아이콘으로 들어간다(시나리오 37).
 const LEFT: Item[] = [
   { href: '/races', label: '대회', icon: 'Calendar' },
   { href: '/tickets', label: '내 참가권', icon: 'Orders' },
 ]
 const RIGHT: Item[] = [
-  { href: '/notifications', label: '알림', icon: 'Bell' },
+  { href: '/cart', label: '장바구니', icon: 'Cart' },
   { href: '/me', label: '마이', icon: 'User' },
 ]
 

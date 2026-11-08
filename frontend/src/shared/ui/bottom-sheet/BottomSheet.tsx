@@ -25,7 +25,7 @@ export function BottomSheet({ open, onOpenChange, title, children, footer }: Bot
   return (
     <Drawer.Root open={open} onOpenChange={onOpenChange} swipeDirection="down">
       <Drawer.Portal>
-        <Drawer.Backdrop className="fixed inset-0 z-50 bg-bg-overlay/45 transition-opacity duration-300 data-ending-style:opacity-0 data-starting-style:opacity-0" />
+        <Drawer.Backdrop className="fixed inset-0 z-50 bg-bg-overlay/40 transition-opacity duration-300 data-ending-style:opacity-0 data-starting-style:opacity-0" />
         <Drawer.Viewport className="fixed inset-x-0 bottom-0 z-50 flex justify-center">
           <Drawer.Popup
             className={cn(

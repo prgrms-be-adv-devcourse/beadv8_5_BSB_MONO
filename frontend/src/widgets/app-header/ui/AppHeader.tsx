@@ -10,7 +10,7 @@ import { FOCUS_RING, Icon, IconButton, Logo } from '@/shared/ui'
 
 // IconButton(M 44, ghost)과 같은 모양의 링크
 const ICON_LINK = cn(
-  'inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-primary hover:bg-bg-subtle [&_svg]:size-5',
+  'inline-flex size-11 shrink-0 items-center justify-center rounded-full text-text-primary hover:bg-bg-subtle [&_svg]:size-5',
   FOCUS_RING,
 )
 
@@ -46,7 +46,7 @@ export function AppHeader(props: AppHeaderProps) {
   }
 
   return (
-    <header className={cn(base, 'px-(--layout-page-margin)')}>
+    <header className={cn(base, 'pr-1 pl-(--layout-page-margin)')}>
       <Link href="/" aria-label="홈" className={cn('rounded-sm', FOCUS_RING)}>
         <Logo />
       </Link>
@@ -55,8 +55,8 @@ export function AppHeader(props: AppHeaderProps) {
         <Link href="/races" aria-label="대회 찾기" className={ICON_LINK}>
           <Icon name="Search" />
         </Link>
-        <Link href="/cart" aria-label="장바구니" className={ICON_LINK}>
-          <Icon name="Cart" />
+        <Link href="/notifications" aria-label="알림" className={ICON_LINK}>
+          <Icon name="Bell" />
         </Link>
       </div>
     </header>

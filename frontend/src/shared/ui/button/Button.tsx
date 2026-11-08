@@ -23,9 +23,9 @@ const VARIANT: Record<ButtonVariant, string> = {
 }
 
 const SIZE: Record<ButtonSize, string> = {
-  s: 'gap-1 px-3 py-2 text-label-s',
+  s: 'gap-1 px-3 py-2 text-label-m',
   m: 'gap-2 px-4 py-3 text-label-m',
-  l: 'gap-2 px-5 py-4 text-label-l',
+  l: 'h-13 gap-2 px-5 text-label-l',
 }
 
 // 피그마 Loading 상태의 Spinner 색. Accent는 라임 위에서 보이도록 네이비(on-accent)다.

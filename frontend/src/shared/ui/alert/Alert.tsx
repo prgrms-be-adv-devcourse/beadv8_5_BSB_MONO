@@ -31,10 +31,7 @@ export function Alert({ tone = 'info', title, description, onClose, className }:
   return (
     <div
       role={tone === 'danger' ? 'alert' : 'status'}
-      className={cn(
-        'flex w-full items-start gap-2.5 rounded-md bg-bg-subtle px-4 py-3.5',
-        className,
-      )}
+      className={cn('flex w-full items-start gap-3 rounded-md bg-bg-subtle p-4', className)}
     >
       <Icon name={ICON[tone].name} className={cn('size-5', ICON[tone].color)} />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
