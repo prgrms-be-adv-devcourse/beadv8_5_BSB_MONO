@@ -4,96 +4,104 @@ import Link from 'next/link'
 import { useState } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
-import { BottomNav } from '@/widgets/bottom-nav'
+import { LoadErrorBody } from '@/widgets/status-screens'
 import { cn } from '@/shared/lib'
-import { EmptyState, FOCUS_RING, Icon, Skeleton } from '@/shared/ui'
+import { EmptyState, FOCUS_RING, Icon, Skeleton, Tab, TabBar, Tabs } from '@/shared/ui'
 
-import { useNotifications, type Notice } from '../api/use-notifications'
+import { useNotifications, type Notice, type NoticeCategory } from '../api/use-notifications'
+import { byOldest, formatShortDate, NOTICE_CATEGORIES } from '../lib/notice'
+import { UnreadCount } from './UnreadCount'
 
-// 피그마 V2 · M25 알림 (+ 없음)
-// empty는 시안 미리보기(?preview=empty)용. 없으면 알림 API로 불러온다. 불러오지 못하면 알림이 없는 것으로 본다.
+type Filter = 'all' | NoticeCategory
+
+// 피그마 시나리오 37 · 02 알림 목록 (+ 01-A 알림 없음)
+// empty는 시안 미리보기(?preview=empty)용. 없으면 알림 API로 불러온다.
 export function NotificationsPage({ empty = false }: { empty?: boolean }) {
-  const [read, setRead] = useState(false)
+  const [filter, setFilter] = useState<Filter>('all')
   const notifications = useNotifications()
-  const loading = !empty && notifications.isPending
   const all = empty ? [] : (notifications.data ?? [])
-  const today = all
-    .filter((n) => n.group === 'today')
-    .map((n) => ({ ...n, unread: n.unread && !read }))
-  const earlier = all.filter((n) => n.group === 'earlier')
-  const unreadCount = today.filter((n) => n.unread).length
-  const none = !loading && all.length === 0
+  const loading = !empty && notifications.isPending
+  const failed = !empty && notifications.isError
+
+  const groups = NOTICE_CATEGORIES.map((category) => {
+    const items = all.filter((n) => n.category === category.value).sort(byOldest)
+    return { ...category, latest: items.at(-1), unread: items.filter((n) => n.unread).length }
+  }).filter((group): group is typeof group & { latest: Notice } => group.latest !== undefined)
+  const totalUnread = groups.reduce((sum, group) => sum + group.unread, 0)
 
   return (
     <>
-      <AppHeader />
-      <main className="flex flex-1 flex-col gap-4 px-4 pt-(--layout-content-start) pb-8">
-        <h1 className="text-heading-l">알림</h1>
-        {loading ? (
-          <div role="status" aria-label="알림 불러오는 중" className="flex flex-col gap-3">
-            <Skeleton className="h-16 w-full" />
-            <Skeleton className="h-16 w-full" />
-          </div>
-        ) : none ? (
-          <div className="flex flex-1 items-center justify-center">
-            <EmptyState
-              title="아직 알림이 없어요"
-              description="대회 일정이 바뀌거나 환불이 끝나면 여기로 알려 드려요."
-              className="max-w-80"
-            />
-          </div>
-        ) : (
-          <>
-            <div className="flex items-center justify-between py-1">
-              <p className="text-body-s text-text-secondary">읽지 않은 알림 {unreadCount}개</p>
-              <button
-                type="button"
-                onClick={() => setRead(true)}
-                className={cn('rounded-sm text-label-m text-text-brand', FOCUS_RING)}
-              >
-                모두 읽음
-              </button>
+      <AppHeader type="sub" title="알림" />
+      {loading ? (
+        <main role="status" aria-label="알림 불러오는 중" className="flex flex-col">
+          {NOTICE_CATEGORIES.map((category) => (
+            <div key={category.value} className="flex items-center gap-3 px-4 py-3.5">
+              <Skeleton shape="circle" className="size-12" />
+              <Skeleton className="w-32" />
             </div>
-            {today.length > 0 && <NoticeGroup title="오늘" items={today} />}
-            {earlier.length > 0 && <NoticeGroup title="이전" items={earlier} />}
-          </>
-        )}
-      </main>
-      <BottomNav />
+          ))}
+        </main>
+      ) : failed ? (
+        <LoadErrorBody
+          onRetry={() => void notifications.refetch()}
+          retrying={notifications.isFetching}
+        />
+      ) : groups.length === 0 ? (
+        <main className="flex flex-1 items-center justify-center px-4 py-8">
+          <EmptyState
+            icon="Bell"
+            title="아직 알림이 없어요"
+            description="대회 일정이 바뀌거나 환불이 끝나면 여기로 알려 드려요."
+            className="max-w-86"
+          />
+        </main>
+      ) : (
+        <main className="flex flex-1 flex-col">
+          <Tabs value={filter} onValueChange={(value) => setFilter(value as Filter)}>
+            <TabBar variant="underline">
+              <Tab
+                value="all"
+                count={totalUnread > 0 ? <UnreadCount count={totalUnread} /> : undefined}
+              >
+                전체
+              </Tab>
+              {NOTICE_CATEGORIES.map((category) => (
+                <Tab key={category.value} value={category.value}>
+                  {category.tab}
+                </Tab>
+              ))}
+            </TabBar>
+          </Tabs>
+          <ul>
+            {groups
+              .filter((group) => filter === 'all' || group.value === filter)
+              .map((group) => (
+                <li key={group.value}>
+                  <Link
+                    href={`/notifications/${group.value}`}
+                    className={cn('flex items-center gap-3 px-4 py-3.5', FOCUS_RING)}
+                  >
+                    <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-bg-brand-subtle text-text-brand">
+                      <Icon name={group.icon} />
+                    </span>
+                    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                      <span className="text-heading-s">{group.title}</span>
+                      <span className="truncate text-body-m text-text-secondary">
+                        {group.latest.body}
+                      </span>
+                    </span>
+                    <span className="flex shrink-0 flex-col items-end gap-1.5">
+                      <span className="text-caption text-text-tertiary">
+                        {formatShortDate(group.latest.sentAt)}
+                      </span>
+                      {group.unread > 0 && <UnreadCount count={group.unread} />}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+          </ul>
+        </main>
+      )}
     </>
-  )
-}
-
-function NoticeGroup({ title, items }: { title: string; items: Notice[] }) {
-  return (
-    <section className="flex flex-col gap-2">
-      <h2 className="pt-2 text-label-strong">{title}</h2>
-      <ul className="overflow-hidden rounded-lg bg-bg-surface inset-ring inset-ring-border-default">
-        {items.map((n) => (
-          <li key={n.id} className="border-b border-border-default last:border-b-0">
-            <Link
-              href={n.href}
-              className={cn('flex gap-3 px-4 py-4', n.unread && 'bg-bg-brand-subtle', FOCUS_RING)}
-            >
-              <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-bg-surface shadow-sm">
-                <Icon name={n.icon} className="size-4" />
-              </span>
-              <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-label-m">{n.title}</p>
-                  <span className="flex items-center gap-2 text-caption text-text-secondary">
-                    {n.at}
-                    {n.unread && (
-                      <span aria-label="읽지 않음" className="size-1.5 rounded-full bg-bg-brand" />
-                    )}
-                  </span>
-                </div>
-                <p className="text-body-s whitespace-pre-line text-text-secondary">{n.body}</p>
-              </div>
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </section>
   )
 }
