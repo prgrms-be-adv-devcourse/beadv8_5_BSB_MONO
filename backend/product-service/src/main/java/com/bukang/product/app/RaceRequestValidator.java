@@ -3,8 +3,10 @@ package com.bukang.product.app;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -12,9 +14,11 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 
 import com.bukang.common.shared.file.domain.FileType;
+import com.bukang.product.domain.KitOption;
 import com.bukang.product.domain.Race;
 import com.bukang.product.domain.TshirtSize;
 import com.bukang.product.domain.exception.InvalidRaceException;
+import com.bukang.product.dto.KitOptionSaveRequestDto;
 import com.bukang.product.dto.RaceCourseSaveRequestDto;
 import com.bukang.product.dto.RaceImageRequestDto;
 import com.bukang.product.dto.RaceSaveRequestDto;
@@ -37,6 +41,26 @@ public class RaceRequestValidator {
 		boolean hasCrewSale = request.getCrewSaleStartAt() != null;
 		request.getCourses().forEach(course -> validateCourse(course, hasCrewSale));
 		validateImages(request);
+		validateKitOptions(request.getKitOptions());
+	}
+
+	// 같은 (이름, 값)은 한 번만 쓴다. 대소문자만 다른 것도 같은 옵션으로 본다 (KitOption.Key)
+	// 같은 이름은 대소문자까지 똑같이 쓴다. 다르면 목록 조회에서 이름이 둘로 묶여 선택 상자가 둘 생긴다
+	private void validateKitOptions(List<KitOptionSaveRequestDto> kitOptions) {
+		Set<KitOption.Key> seenKeys = new HashSet<>();
+		Map<String, String> nameByLowerName = new HashMap<>();
+		for (KitOptionSaveRequestDto option : kitOptions) {
+			String label = "%s %s".formatted(option.getName().strip(), option.getValue().strip());
+			if (!seenKeys.add(KitOption.Key.of(option.getName(), option.getValue()))) {
+				throw new InvalidRaceException("같은 키트 옵션을 두 번 작성할 수 없습니다. (옵션: %s)".formatted(label));
+			}
+			String name = option.getName().strip();
+			String firstName = nameByLowerName.putIfAbsent(name.toLowerCase(Locale.ROOT), name);
+			if (firstName != null && !firstName.equals(name)) {
+				throw new InvalidRaceException("같은 키트 옵션 이름은 대소문자까지 똑같이 작성해주세요. (%s, %s)"
+					.formatted(firstName, name));
+			}
+		}
 	}
 
 	private void validateSchedule(RaceSaveRequestDto request) {

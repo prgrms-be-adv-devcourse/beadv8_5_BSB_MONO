@@ -668,7 +668,7 @@ class ApiV1RaceRegisterTest extends ProductIntegrationTest {
 			request.getRegionSido(), request.getRegionSigungu(), request.getRaceDate(), request.getCrewSaleStartAt(),
 			request.getCrewSaleEndAt(), request.getIndividualOpenAt(), request.getApplicationCloseAt(),
 			request.getRefundDeadline(), request.getRefundPolicy(), request.getCrewMinCount(),
-			request.getCrewMaxCount(), courses);
+			request.getCrewMaxCount(), courses, request.getKitOptions());
 	}
 
 	private ResultActions postRaw(String content) throws Exception {
