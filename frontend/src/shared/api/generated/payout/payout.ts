@@ -25,6 +25,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  ClaimsParams,
   HoldsParams,
   ItemsParams,
   PayoutHoldRequestDto,
@@ -33,6 +34,8 @@ import type {
   RsData,
   RsDataListPayoutDto,
   RsDataListSellerPayoutHoldDto,
+  RsDataPayoutAdminClaimsDto,
+  RsDataPayoutClaimDto,
   RsDataPayoutHoldDto,
   RsDataPayoutItemPageDto,
   RsDataPayoutSummaryDto
@@ -225,6 +228,183 @@ export const useRelease = <TError = RsData,
       return useMutation(getReleaseMutationOptions(options), queryClient);
     }
 
+export const getConfirmUrl = (claimId: number,) => {
+
+
+
+
+  return `/api/v1/payout/claims/${claimId}/confirm`
+}
+
+/**
+ * 판매자가 청구 금액을 보낸 것을 확인한다. 청구 금액만큼 회수 입금을 원장에 남기고, 그 대회의 요청 중인 회수를 입금으로 끝내고, 청구를 입금 확인으로 바꾼다.
+ * @summary 청구 입금 확인
+ */
+export const confirm = async (claimId: number, options?: Parameters<typeof customFetch>[1]): Promise<RsDataPayoutClaimDto> => {
+
+  return customFetch<RsDataPayoutClaimDto>(getConfirmUrl(claimId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getConfirmMutationKey = () => ['confirm'] as const;
+
+export const getConfirmMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof confirm>>, TError,ConfirmMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof confirm>>, TError,ConfirmMutationVariables, TContext> => {
+
+const mutationKey = getConfirmMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof confirm>>, ConfirmMutationVariables> = (props) => {
+          const {claimId} = props ?? {};
+
+          return  confirm(claimId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ConfirmMutationResult = NonNullable<Awaited<ReturnType<typeof confirm>>>
+
+    export type ConfirmMutationError = RsData
+    export type ConfirmMutationVariables = {claimId: number}
+
+    /**
+ * @summary 청구 입금 확인
+ */
+export const useConfirm = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof confirm>>, TError,ConfirmMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof confirm>>,
+        TError,
+        ConfirmMutationVariables,
+        TContext
+      > => {
+      return useMutation(getConfirmMutationOptions(options), queryClient);
+    }
+
+export const getReceivableUrl = (sellerId: number,) => {
+
+
+
+
+  return `/internal/v1/payout/sellers/${sellerId}/receivable`
+}
+
+/**
+ * 판매자가 대회 취소 · 일정 변경 환불로 플랫폼에 돌려줄 정산금(갚을 돈)이 남은 대회가 있는지 돌려준다. 대회마다 원장 잔고를 따로 더해 0원보다 큰 대회만 센다.
+ * @summary 판매자 갚을 돈 조회
+ */
+export const receivable = async (sellerId: number, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getReceivableUrl(sellerId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getReceivableQueryKey = (sellerId: number,) => {
+    return [
+    `/internal/v1/payout/sellers/${sellerId}/receivable`
+    ] as const;
+    }
+
+
+export const getReceivableQueryOptions = <TData = Awaited<ReturnType<typeof receivable>>, TError = unknown>(sellerId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof receivable>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getReceivableQueryKey(sellerId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof receivable>>> = ({ signal }) => receivable(sellerId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: sellerId !== null && sellerId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof receivable>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ReceivableQueryResult = NonNullable<Awaited<ReturnType<typeof receivable>>>
+export type ReceivableQueryError = unknown
+
+
+export function useReceivable<TData = Awaited<ReturnType<typeof receivable>>, TError = unknown>(
+ sellerId: number, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof receivable>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof receivable>>,
+          TError,
+          Awaited<ReturnType<typeof receivable>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useReceivable<TData = Awaited<ReturnType<typeof receivable>>, TError = unknown>(
+ sellerId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof receivable>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof receivable>>,
+          TError,
+          Awaited<ReturnType<typeof receivable>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useReceivable<TData = Awaited<ReturnType<typeof receivable>>, TError = unknown>(
+ sellerId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof receivable>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 판매자 갚을 돈 조회
+ */
+
+export function useReceivable<TData = Awaited<ReturnType<typeof receivable>>, TError = unknown>(
+ sellerId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof receivable>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getReceivableQueryOptions(sellerId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getRefundEligibilityUrl = (params: RefundEligibilityParams,) => {
   const normalizedParams = new URLSearchParams();
 
@@ -241,7 +421,7 @@ export const getRefundEligibilityUrl = (params: RefundEligibilityParams,) => {
 }
 
 /**
- * 대회일로 정산 대상일(대회 다음 날)을 구해, 오늘(한국 날짜)이 정산 대상일 전이면 환불 가능으로 돌려준다. 정산 대상일 당일부터는 사유와 상관없이(대회 취소·일정 변경 포함) 환불할 수 없다. 환불 기한 판단은 주문 서비스가 하고, 환불 요청을 받을 때 이 API를 동기 호출로 부른다.
+ * 대회일로 정산 생성일(대회 다음 날)을 구해, 오늘(한국 날짜)이 정산 생성일 전이면 환불 가능으로 돌려준다. 정산 생성일 당일부터는 사유와 상관없이(대회 취소·일정 변경 포함) 환불할 수 없다. 환불 기한 판단은 주문 서비스가 하고, 환불 요청을 받을 때 이 API를 동기 호출로 부른다.
  * @summary 참가권 환불 가능 여부 조회
  */
 export const refundEligibility = async (params: RefundEligibilityParams, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
@@ -343,7 +523,7 @@ export const getSummaryUrl = () => {
 }
 
 /**
- * 다음 정산일, 정산 예정액(다음 정산일에 나갈 지급액 합계, 보류 제외), 지급보류 중인 정산 내역 수를 돌려준다. 조회 기간과 상관없이 판매자의 지금 상태로 계산한다.
+ * 다음 정산일, 정산 예정액(다음 정산일에 나갈 지급액 합계, 보류 제외), 지급보류 중인 정산 내역 수를 돌려준다. 1차가 아직 지급되지 않아 기다리는 최종 정산은 다음 정산일 · 정산 예정액에서 뺀다. 조회 기간과 상관없이 판매자의 지금 상태로 계산한다. 지급 예정 정산 내역이 없으면 다음 정산일은 null, 정산 예정액은 0이다.
  * @summary 정산 요약 조회
  */
 export const summary = async ( options?: Parameters<typeof customFetch>[1]): Promise<RsDataPayoutSummaryDto> => {
@@ -452,7 +632,7 @@ export const getPayoutsUrl = (params: PayoutsParams,) => {
 }
 
 /**
- * 정산 월(정산 대상일이 속한 달)이 기간 안인 정산 내역을 최근 달부터 돌려준다. 시작 달을 포함해 최대 12개월까지 한 번에 조회한다.
+ * 정산 월(대회일이 속한 달, 1차는 환불 마감일이 속한 달)이 기간 안인 정산 내역을 최근 달부터 돌려준다. 시작 달을 포함해 최대 12개월까지 한 번에 조회한다.
  * @summary 정산 내역 조회
  */
 export const payouts = async (params: PayoutsParams, options?: Parameters<typeof customFetch>[1]): Promise<RsDataListPayoutDto> => {
@@ -561,7 +741,7 @@ export const getItemsUrl = (params: ItemsParams,) => {
 }
 
 /**
- * 정산 대상일이 기간 안인 정산 항목(참가권 1장)을 최근 날부터 페이지로 나눠 돌려준다. 끝 날이 시작 날 + 1개월 전이어야 한다(최대 1개월). 페이지는 0부터, 크기는 기본 50 · 최대 100이다.
+ * 정산 생성일이 기간 안인 정산 항목(참가권 1장)을 최근 날부터 페이지로 나눠 돌려준다. 끝 날이 시작 날 + 1개월 전이어야 한다(최대 1개월). 페이지는 0부터, 크기는 기본 50 · 최대 100이다.
  * @summary 건별 정산 조회
  */
 export const items = async (params: ItemsParams, options?: Parameters<typeof customFetch>[1]): Promise<RsDataPayoutItemPageDto> => {
@@ -751,6 +931,115 @@ export function useHolds<TData = Awaited<ReturnType<typeof holds>>, TError = RsD
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getHoldsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getClaimsUrl = (params?: ClaimsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/payout/admin/claims?${stringifiedParams}` : `/api/v1/payout/admin/claims`
+}
+
+/**
+ * 관리자 회수 관리 화면의 카드 숫자(청구 중 건수, 회수할 금액 합계, 이번 달 입금 확인 건수)와 청구 목록을 최근 청구부터 돌려준다. code(RC-)를 주면 그 한 건만 찾고 status는 보지 않는다. 카드 숫자는 필터와 상관없이 전체 기준이다. 판매자 이름은 넣지 않는다.
+ * @summary 회수 관리 청구 목록
+ */
+export const claims = async (params?: ClaimsParams, options?: Parameters<typeof customFetch>[1]): Promise<RsDataPayoutAdminClaimsDto> => {
+
+  return customFetch<RsDataPayoutAdminClaimsDto>(getClaimsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getClaimsQueryKey = (params?: ClaimsParams,) => {
+    return [
+    `/api/v1/payout/admin/claims`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getClaimsQueryOptions = <TData = Awaited<ReturnType<typeof claims>>, TError = RsData>(params?: ClaimsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof claims>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getClaimsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof claims>>> = ({ signal }) => claims(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof claims>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ClaimsQueryResult = NonNullable<Awaited<ReturnType<typeof claims>>>
+export type ClaimsQueryError = RsData
+
+
+export function useClaims<TData = Awaited<ReturnType<typeof claims>>, TError = RsData>(
+ params: undefined |  ClaimsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof claims>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof claims>>,
+          TError,
+          Awaited<ReturnType<typeof claims>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useClaims<TData = Awaited<ReturnType<typeof claims>>, TError = RsData>(
+ params?: ClaimsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof claims>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof claims>>,
+          TError,
+          Awaited<ReturnType<typeof claims>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useClaims<TData = Awaited<ReturnType<typeof claims>>, TError = RsData>(
+ params?: ClaimsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof claims>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 회수 관리 청구 목록
+ */
+
+export function useClaims<TData = Awaited<ReturnType<typeof claims>>, TError = RsData>(
+ params?: ClaimsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof claims>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getClaimsQueryOptions(params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

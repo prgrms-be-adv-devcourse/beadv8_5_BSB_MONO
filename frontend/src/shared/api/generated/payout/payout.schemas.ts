@@ -5,15 +5,8 @@
  * 크루 중심 마라톤 대회 예매·커머스 플랫폼 정산 API
  * OpenAPI spec version: v1
  */
-export interface RsData {
-  status?: number;
-  code?: string;
-  message?: string;
-  data?: unknown;
-}
-
 /**
- * 보류 사유 (정산_계좌_미등록: 정산 계좌 미등록, 대회_취소_처리: 대회 취소 처리, 대사_불일치: 대사 불일치)
+ * 보류 사유 (정산_계좌_미등록: 정산 계좌 미등록, 대회_취소_처리: 대회 취소 처리)
  */
 export type PayoutHoldRequestDtoReasonType = typeof PayoutHoldRequestDtoReasonType[keyof typeof PayoutHoldRequestDtoReasonType];
 
@@ -28,7 +21,7 @@ export const PayoutHoldRequestDtoReasonType = {
  * 지급보류 걸기 요청
  */
 export interface PayoutHoldRequestDto {
-  /** 보류 사유 (정산_계좌_미등록: 정산 계좌 미등록, 대회_취소_처리: 대회 취소 처리, 대사_불일치: 대사 불일치) */
+  /** 보류 사유 (정산_계좌_미등록: 정산 계좌 미등록, 대회_취소_처리: 대회 취소 처리) */
   reasonType: PayoutHoldRequestDtoReasonType;
   /**
      * 사유 상세 (선택, 500자 이하)
@@ -36,6 +29,13 @@ export interface PayoutHoldRequestDto {
      * @maxLength 500
      */
   reason?: string;
+}
+
+export interface RsData {
+  status?: number;
+  code?: string;
+  message?: string;
+  data?: unknown;
 }
 
 export interface PayoutSummaryDto {
@@ -197,10 +197,67 @@ export interface PayoutHoldDto {
   releasedAt?: string | null;
 }
 
+/**
+ * 청구 상태 (청구_중: 청구 중, 입금_확인: 입금 확인)
+ */
+export type PayoutClaimStatus = typeof PayoutClaimStatus[keyof typeof PayoutClaimStatus];
+
+
+export const PayoutClaimStatus = {
+  청구_중: '청구_중',
+  입금_확인: '입금_확인',
+} as const;
+
+export interface PayoutClaimDto {
+  id: number;
+  /** 청구 ID 표기 (RC-만든 날-16진수 4자리) */
+  claimCode: string;
+  sellerId: number;
+  raceId: number;
+  amount: number;
+  /** 상계 실패일 */
+  startDate: string;
+  /** 판매자 입금 기한 (상계 실패일 + 30일) */
+  dueDate: string;
+  status: PayoutClaimStatus;
+  /** @nullable */
+  confirmedBy?: number | null;
+  /** @nullable */
+  confirmedAt?: string | null;
+}
+
+export interface PayoutClaimSummaryDto {
+  /** 청구 중 건수 */
+  claimingCount: number;
+  /** 회수할 금액 합계 */
+  claimingAmount: number;
+  /** 이번 달 입금 확인 건수 */
+  confirmedThisMonthCount: number;
+}
+
+export interface PayoutClaimPageDto {
+  content: PayoutClaimDto[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
+export interface PayoutAdminClaimsDto {
+  summary: PayoutClaimSummaryDto;
+  claims: PayoutClaimPageDto;
+}
+
 export interface RsDataPayoutHoldDto {
   status?: number;
   message?: string;
   data?: PayoutHoldDto;
+}
+
+export interface RsDataPayoutClaimDto {
+  status?: number;
+  message?: string;
+  data?: PayoutClaimDto;
 }
 
 export interface RsDataPayoutSummaryDto {
@@ -227,6 +284,12 @@ export interface RsDataListSellerPayoutHoldDto {
   data?: SellerPayoutHoldDto[];
 }
 
+export interface RsDataPayoutAdminClaimsDto {
+  status?: number;
+  message?: string;
+  data?: PayoutAdminClaimsDto;
+}
+
 export type RefundEligibilityParams = {
 /**
  * 참가권의 대회일 (yyyy-MM-dd)
@@ -247,11 +310,11 @@ toMonth: string;
 
 export type ItemsParams = {
 /**
- * 조회 시작 정산 대상일 (yyyy-MM-dd)
+ * 조회 시작 정산 생성일 (yyyy-MM-dd)
  */
 from: string;
 /**
- * 조회 끝 정산 대상일 (yyyy-MM-dd, 포함)
+ * 조회 끝 정산 생성일 (yyyy-MM-dd, 포함)
  */
 to: string;
 /**
@@ -274,4 +337,31 @@ from: string;
  */
 to: string;
 };
+
+export type ClaimsParams = {
+/**
+ * 청구 상태 (청구_중, 입금_확인). 없으면 전체
+ */
+status?: ClaimsStatus;
+/**
+ * 청구 ID 표기로 한 건 찾기 (앞뒤 공백 · 대소문자 무시)
+ */
+code?: string;
+/**
+ * 페이지 번호 (0부터)
+ */
+page?: number;
+/**
+ * 페이지 크기 (1 ~ 100)
+ */
+size?: number;
+};
+
+export type ClaimsStatus = typeof ClaimsStatus[keyof typeof ClaimsStatus];
+
+
+export const ClaimsStatus = {
+  청구_중: '청구_중',
+  입금_확인: '입금_확인',
+} as const;
 

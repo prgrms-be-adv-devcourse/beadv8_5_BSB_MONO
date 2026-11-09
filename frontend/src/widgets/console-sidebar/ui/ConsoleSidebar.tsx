@@ -31,6 +31,7 @@ const MENU: Record<ConsoleRole, { label: string; home: Route; settings: Route; i
       { href: '/admin/sellers', label: '판매자 승인', icon: 'Users' },
       { href: '/admin/members', label: '회원 · 주문', icon: 'Orders' },
       { href: '/admin/settlements', label: '정산 · 환급 처리', icon: 'Inbox' },
+      { href: '/admin/claims', label: '회수 관리', icon: 'Inbox' },
       { href: '/admin/races', label: '대회 관리', icon: 'Calendar' },
       { href: '/admin/stats', label: '이용 통계', icon: 'Chart' },
     ],

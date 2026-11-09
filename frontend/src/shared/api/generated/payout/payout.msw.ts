@@ -16,6 +16,8 @@ import type {
 import type {
   RsDataListPayoutDto,
   RsDataListSellerPayoutHoldDto,
+  RsDataPayoutAdminClaimsDto,
+  RsDataPayoutClaimDto,
   RsDataPayoutHoldDto,
   RsDataPayoutItemPageDto,
   RsDataPayoutSummaryDto
@@ -26,6 +28,8 @@ export const getHoldResponseMock = (): RsDataPayoutHoldDto => ({"status":201,"me
 
 export const getReleaseResponseMock = (): RsDataPayoutHoldDto => ({"status":200,"message":"지급보류를 풀었습니다.","data":{"id":1,"holdCode":"HD-20261012-0001","payoutId":1,"reasonType":"정산_계좌_미등록","reason":"정산 계좌 등록 요청 중","status":"해제","heldBy":1,"heldAt":"2026-10-12T10:00:00","releasedBy":1,"releasedAt":"2026-10-15T09:00:00"}})
 
+export const getConfirmResponseMock = (): RsDataPayoutClaimDto => ({"status":200,"message":"청구 입금을 확인했습니다.","data":{"id":1,"claimCode":"RC-20261215-0001","sellerId":1,"raceId":7,"amount":105500,"startDate":"2026-12-14","dueDate":"2027-01-13","status":"입금_확인","confirmedBy":99,"confirmedAt":"2026-12-20T10:00:00"}})
+
 export const getSummaryResponseMock = (): RsDataPayoutSummaryDto => ({"status":200,"message":"정산 요약을 조회했습니다.","data":{"nextPayDate":"2026-10-20","scheduledPayoutAmount":94500,"heldCount":1}})
 
 export const getPayoutsResponseMock = (): RsDataListPayoutDto => ({"status":200,"message":"정산 내역을 조회했습니다.","data":[{"id":2,"payoutCode":"ST-20260926-0002","raceId":10,"raceName":"2026 한강 나이트런","payoutStage":"최종_정산","payoutMonth":"2026-09","salesAmount":100000,"refundAmount":0,"feeAmount":5500,"advanceDeductionAmount":40000,"payoutAmount":54500,"status":"지급_예정","settledAt":"2026-09-26T03:00:00","scheduledPayDate":"2026-10-20","paidAt":null},{"id":1,"payoutCode":"ST-20260916-0001","raceId":10,"raceName":"2026 한강 나이트런","payoutStage":"일차_정산","payoutMonth":"2026-09","salesAmount":100000,"refundAmount":0,"feeAmount":0,"advanceDeductionAmount":0,"payoutAmount":40000,"status":"지급_예정","settledAt":"2026-09-16T03:00:00","scheduledPayDate":"2026-10-20","paidAt":null}]})
@@ -33,6 +37,8 @@ export const getPayoutsResponseMock = (): RsDataListPayoutDto => ({"status":200,
 export const getItemsResponseMock = (): RsDataPayoutItemPageDto => ({"status":200,"message":"건별 정산을 조회했습니다.","data":{"content":[{"id":1,"orderItemId":100,"recordType":"판매","amount":50000,"feeRate":0.055,"feeAmount":2750,"targetDate":"2026-09-26","payoutId":1,"payoutCode":"ST-20260926-0001","raceId":10,"raceName":"2026 한강 나이트런","payoutStatus":"지급_예정","scheduledPayDate":"2026-10-20"}],"page":0,"size":50,"totalElements":1,"totalPages":1}})
 
 export const getHoldsResponseMock = (): RsDataListSellerPayoutHoldDto => ({"status":200,"message":"지급보류 내역을 조회했습니다.","data":[{"id":1,"holdCode":"HD-20261012-0001","payoutId":1,"payoutCode":"ST-20260926-0001","raceId":10,"raceName":"2026 한강 나이트런","payoutAmount":94500,"reasonType":"정산_계좌_미등록","reason":"정산 계좌 등록 요청 중","status":"지급보류","heldAt":"2026-10-12T10:00:00","releasedAt":null}]})
+
+export const getClaimsResponseMock = (): RsDataPayoutAdminClaimsDto => ({"status":200,"message":"청구 목록을 조회했습니다.","data":{"summary":{"claimingCount":1,"claimingAmount":105500,"confirmedThisMonthCount":1},"claims":{"content":[{"id":2,"claimCode":"RC-20261215-0002","sellerId":1,"raceId":7,"amount":105500,"startDate":"2026-12-14","dueDate":"2027-01-13","status":"청구_중","confirmedBy":null,"confirmedAt":null},{"id":1,"claimCode":"RC-20261215-0001","sellerId":3,"raceId":7,"amount":50000,"startDate":"2026-12-14","dueDate":"2027-01-13","status":"입금_확인","confirmedBy":99,"confirmedAt":"2026-12-20T10:00:00"}],"page":0,"size":50,"totalElements":2,"totalPages":1}}})
 
 
 export const getHoldMockHandler = (overrideResponse?: RsDataPayoutHoldDto | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<RsDataPayoutHoldDto> | RsDataPayoutHoldDto), options?: RequestHandlerOptions) => {
@@ -54,6 +60,28 @@ export const getReleaseMockHandler = (overrideResponse?: RsDataPayoutHoldDto | (
     return HttpResponse.json(overrideResponse !== undefined
     ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
     : getReleaseResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
+export const getConfirmMockHandler = (overrideResponse?: RsDataPayoutClaimDto | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<RsDataPayoutClaimDto> | RsDataPayoutClaimDto), options?: RequestHandlerOptions) => {
+  return http.post('*/api/v1/payout/claims/:claimId/confirm', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getConfirmResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
+export const getReceivableMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
+  return http.get('*/internal/v1/payout/sellers/:sellerId/receivable', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+
+    return new HttpResponse(null,
       { status: 200
       })
   }, options)
@@ -116,12 +144,27 @@ export const getHoldsMockHandler = (overrideResponse?: RsDataListSellerPayoutHol
       })
   }, options)
 }
+
+export const getClaimsMockHandler = (overrideResponse?: RsDataPayoutAdminClaimsDto | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<RsDataPayoutAdminClaimsDto> | RsDataPayoutAdminClaimsDto), options?: RequestHandlerOptions) => {
+  return http.get('*/api/v1/payout/admin/claims', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getClaimsResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
 export const getBukangPayoutAPIMock = () => [
   getHoldMockHandler(),
   getReleaseMockHandler(),
+  getConfirmMockHandler(),
+  getReceivableMockHandler(),
   getRefundEligibilityMockHandler(),
   getSummaryMockHandler(),
   getPayoutsMockHandler(),
   getItemsMockHandler(),
-  getHoldsMockHandler()
+  getHoldsMockHandler(),
+  getClaimsMockHandler()
 ]
