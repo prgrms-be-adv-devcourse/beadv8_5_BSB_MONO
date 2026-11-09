@@ -17,6 +17,7 @@ final class SellerKitApiExamples {
 						"courseName": "10K",
 						"participantName": "김러너",
 						"tshirtSize": "L",
+						"kitOptions": [ { "kitOptionId": 12, "name": "T-shirt", "value": "L" } ],
 						"shippingAddress": {
 							"recipientName": "김러너",
 							"recipientPhone": "010-1234-5678",
@@ -234,4 +235,24 @@ final class SellerKitApiExamples {
 
 	private SellerKitApiExamples() {
 	}
+
+	static final String KIT_OPTION_SALES_SUCCESS = """
+		{ "status": 200, "message": "키트 옵션별 판매 현황을 조회했습니다.", "data": [
+			{ "kitOptionId": 11, "name": "T-shirt", "value": "M", "stock": 30, "sold": 12, "remaining": 18 },
+			{ "kitOptionId": 12, "name": "T-shirt", "value": "L", "stock": null, "sold": 5, "remaining": null }
+		] }
+		""";
+
+	static final String KIT_OPTION_SALES_MISSING_RACE = """
+		{ "status": 400, "code": "INVALID_REQUEST", "message": "필수 요청 값(raceId)이 없습니다.", "data": null }
+		""";
+
+	static final String KIT_OPTION_SALES_OTHER_SELLER = """
+		{ "status": 403, "code": "ORDER_SELLER_FORBIDDEN", "message": "본인 대회의 키트 옵션만 볼 수 있습니다.", "data": null }
+		""";
+
+	static final String KIT_OPTION_SALES_UNAVAILABLE = """
+		{ "status": 503, "code": "ORDER_EXTERNAL_SERVICE_UNAVAILABLE",
+			"message": "상품 서비스에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요.", "data": null }
+		""";
 }

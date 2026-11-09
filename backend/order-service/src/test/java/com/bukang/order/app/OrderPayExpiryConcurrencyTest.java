@@ -334,7 +334,7 @@ class OrderPayExpiryConcurrencyTest {
 	// 회원 ID는 트랜잭션 밖에서 구한다. 안에서 주문을 먼저 읽으면 잠금 조회가 그 옛 상태를 그대로 돌려준다
 	private OrderPayResult pay(long orderId, LocalDateTime now) {
 		long memberId = memberOf(orderId);
-		return transactionTemplate.execute(status -> orderPayUseCase.pay(memberId, orderId, now));
+		return transactionTemplate.execute(status -> orderPayUseCase.pay(memberId, orderId, List.of(), now));
 	}
 
 	/**

@@ -9,12 +9,13 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestClient;
 
 import com.bukang.order.out.InternalHttpClients;
+import com.bukang.order.out.kit.HttpKitOptionAdapter;
 import com.bukang.order.out.seat.HttpCrewSeatHoldAdapter;
 import com.bukang.order.out.seat.HttpSeatHoldAdapter;
 
 /**
  * 상품 서비스(B)를 실제 HTTP로 부를 때만 켠다 (order.clients.product.mode=http, PRO-165)
- * 종목 정보, 자리 확보, 크루 자리 확보는 같은 서비스라 한 설정으로 함께 바꾼다
+ * 종목 정보·자리 확보·크루 자리 확보·키트 옵션은 같은 서비스라 한 설정으로 함께 바꾼다
  * 기본값(fake)이면 FakeRaceCourseAdapter·FakeSeatHoldAdapter가 대신 답해, 상품 서비스를 띄우지 않고도 주문을 개발할 수 있다
  */
 @Configuration
@@ -33,6 +34,11 @@ public class ProductClientConfig {
 	@Bean
 	public HttpRaceCourseAdapter httpRaceCourseAdapter() {
 		return new HttpRaceCourseAdapter(restClient);
+	}
+
+	@Bean
+	public HttpKitOptionAdapter httpKitOptionAdapter() {
+		return new HttpKitOptionAdapter(restClient);
 	}
 
 	@Bean
