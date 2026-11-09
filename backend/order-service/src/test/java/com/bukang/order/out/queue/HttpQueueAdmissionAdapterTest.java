@@ -64,6 +64,24 @@ class HttpQueueAdmissionAdapterTest {
 	}
 
 	@Test
+	@DisplayName("파티 신청은 파티장 ID로 파티 대기열 경로를 묻고, 답은 개인과 같게 옮기며 장애는 503이다")
+	void partyAdmission() {
+		String partyUrl = BASE_URL + "/internal/v1/queue/parties/races/1/racecourses/11";
+		server.expect(requestTo(partyUrl)).andExpect(method(HttpMethod.GET))
+			.andExpect(header("X-Member-Id", String.valueOf(MEMBER_ID)))
+			.andRespond(withSuccess(ADMITTED, MediaType.APPLICATION_JSON));
+		server.expect(requestTo(partyUrl)).andRespond(withSuccess(NOT_ADMITTED, MediaType.APPLICATION_JSON));
+		server.expect(requestTo(partyUrl)).andRespond(withServerError());
+
+		assertThat(adapter.findPartyAdmissionEndsAt(MEMBER_ID, RACE_ID, RACE_COURSE_ID, NOW))
+			.contains(LocalDateTime.of(2026, 10, 16, 14, 9, 0, 123_456_000));
+		assertThat(adapter.findPartyAdmissionEndsAt(MEMBER_ID, RACE_ID, RACE_COURSE_ID, NOW)).isEmpty();
+		assertThatThrownBy(() -> adapter.findPartyAdmissionEndsAt(MEMBER_ID, RACE_ID, RACE_COURSE_ID, NOW))
+			.isInstanceOf(ExternalServiceUnavailableException.class);
+		server.verify();
+	}
+
+	@Test
 	@DisplayName("입장 중이 아니면 빈 값이다 (주문이 403 입장 전으로 알린다)")
 	void notAdmitted() {
 		server.expect(requestTo(URL)).andRespond(withSuccess(NOT_ADMITTED, MediaType.APPLICATION_JSON));

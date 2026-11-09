@@ -12,6 +12,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import com.bukang.common.global.jpa.entity.BaseIdAndTime;
@@ -353,6 +354,12 @@ public class Payout extends BaseIdAndTime {
 	// 이 사유의 보류가 걸려 있는지 (같은 사유는 두 번 걸 수 없다)
 	public boolean isHeldFor(PayoutHoldReason reasonType) {
 		return activeHolds().anyMatch(active -> active.getReasonType() == reasonType);
+	}
+
+	// 이 사유로 걸려 있는 보류의 ID(HD-). 없으면 빈 값 (BUK-108 이상 감지)
+	public Optional<String> activeHoldCode(PayoutHoldReason reasonType) {
+		return activeHolds().filter(active -> active.getReasonType() == reasonType).map(PayoutHold::getHoldCode)
+			.findFirst();
 	}
 
 	private Stream<PayoutHold> activeHolds() {

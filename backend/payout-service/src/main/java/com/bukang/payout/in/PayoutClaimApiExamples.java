@@ -18,7 +18,9 @@ final class PayoutClaimApiExamples {
 				"dueDate": "2027-01-13",
 				"status": "입금_확인",
 				"confirmedBy": 99,
-				"confirmedAt": "2026-12-20T10:00:00"
+				"confirmedAt": "2026-12-20T10:00:00",
+				"virtualBankName": "국민은행",
+				"virtualAccountNumber": "12345678901234"
 			}
 		}
 		""";
@@ -49,7 +51,9 @@ final class PayoutClaimApiExamples {
 							"dueDate": "2027-01-13",
 							"status": "청구_중",
 							"confirmedBy": null,
-							"confirmedAt": null
+							"confirmedAt": null,
+							"virtualBankName": "국민은행",
+							"virtualAccountNumber": "12345678901234"
 						},
 						{
 							"id": 1,
@@ -61,7 +65,9 @@ final class PayoutClaimApiExamples {
 							"dueDate": "2027-01-13",
 							"status": "입금_확인",
 							"confirmedBy": 99,
-							"confirmedAt": "2026-12-20T10:00:00"
+							"confirmedAt": "2026-12-20T10:00:00",
+							"virtualBankName": "국민은행",
+							"virtualAccountNumber": "98765432109876"
 						}
 					],
 					"page": 0,

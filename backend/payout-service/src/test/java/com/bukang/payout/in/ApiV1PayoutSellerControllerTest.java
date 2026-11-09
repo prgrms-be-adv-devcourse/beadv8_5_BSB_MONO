@@ -42,10 +42,15 @@ import org.springframework.transaction.support.TransactionTemplate;
 import com.bukang.common.shared.seller.domain.SellerStatus;
 import com.bukang.payout.domain.BusinessDayCalendar;
 import com.bukang.payout.domain.Payout;
+import com.bukang.payout.domain.PayoutClaim;
 import com.bukang.payout.domain.PayoutHold;
 import com.bukang.payout.domain.PayoutHoldReason;
+import com.bukang.payout.domain.PayoutRecovery;
+import com.bukang.payout.domain.PayoutRecoveryReason;
 import com.bukang.payout.domain.exception.PayoutSellerLookupUnavailableException;
+import com.bukang.payout.out.PayoutClaimRepository;
 import com.bukang.payout.out.PayoutHoldRepository;
+import com.bukang.payout.out.PayoutRecoveryRepository;
 import com.bukang.payout.out.PayoutRepository;
 import com.bukang.payout.out.SellerLookupPort;
 import com.bukang.payout.out.SellerLookupPort.SellerOfMember;
@@ -93,6 +98,12 @@ class ApiV1PayoutSellerControllerTest {
 	private PayoutHoldRepository payoutHoldRepository;
 
 	@Autowired
+	private PayoutClaimRepository payoutClaimRepository;
+
+	@Autowired
+	private PayoutRecoveryRepository payoutRecoveryRepository;
+
+	@Autowired
 	private TransactionTemplate transactionTemplate;
 
 	// 회원 서비스는 띄우지 않는다. 회원 ID → 판매자 ID 변환 결과만 정해 둔다 (어댑터는 MemberSellerLookupAdapterTest)
@@ -127,11 +138,49 @@ class ApiV1PayoutSellerControllerTest {
 
 			Payout other = savePayout(OTHER_SELLER_ID, 10, LocalDate.of(2026, 9, 26));
 			other.addItem(300, 50_000L, FEE_RATE, LocalDate.of(2026, 9, 26));
+
+			saveRecoveries();
 		});
+	}
+
+	// 회수 내역: 청구가 있는 판매자 x 대회의 회수만 나온다
+	// 판매자 1 · 대회 10: 청구 중. 일정 변경 회수 2건(10/1, 10/2)과 그 전에 상계로 끝난 회수 1건(9/20, 청구에 안 들어감)
+	// 판매자 1 · 대회 12: 입금 확인. 대회 취소 회수 1건(9/16)이 입금으로 끝남
+	// 판매자 1 · 대회 11: 회수는 있지만 청구 전 (안 나온다)
+	// 판매자 2 · 대회 10: 청구 중 (판매자 1의 조회에 나오면 안 된다)
+	private void saveRecoveries() {
+		PayoutRecovery offset = payoutRecoveryRepository.save(PayoutRecovery.scheduleChanged(SELLER_ID, 10, 99,
+			20_000, LocalDateTime.of(2026, 9, 20, 9, 0)));
+		offset.completeByOffset(LocalDateTime.of(2026, 9, 21, 4, 0));
+		payoutRecoveryRepository.save(PayoutRecovery.scheduleChanged(SELLER_ID, 10, 100, 20_000,
+			LocalDateTime.of(2026, 10, 1, 9, 0)));
+		payoutRecoveryRepository.save(PayoutRecovery.scheduleChanged(SELLER_ID, 10, 101, 20_000,
+			LocalDateTime.of(2026, 10, 2, 9, 0)));
+		saveClaim(SELLER_ID, 10, 40_000, LocalDate.of(2026, 10, 3));
+
+		PayoutRecovery canceled = payoutRecoveryRepository.save(new PayoutRecovery(SELLER_ID, 12,
+			PayoutRecoveryReason.대회_취소, 30_000, LocalDateTime.of(2026, 9, 16, 9, 0)));
+		canceled.complete(MEMBER_ID, LocalDateTime.of(2026, 10, 5, 14, 0));
+		saveClaim(SELLER_ID, 12, 30_000, LocalDate.of(2026, 9, 17)).confirm(99, LocalDateTime.of(2026, 10, 5, 14, 0));
+
+		payoutRecoveryRepository.save(PayoutRecovery.scheduleChanged(SELLER_ID, 11, 200, 12_000,
+			LocalDateTime.of(2026, 10, 1, 9, 0)));
+
+		payoutRecoveryRepository.save(PayoutRecovery.scheduleChanged(OTHER_SELLER_ID, 10, 300, 20_000,
+			LocalDateTime.of(2026, 10, 1, 9, 0)));
+		saveClaim(OTHER_SELLER_ID, 10, 20_000, LocalDate.of(2026, 10, 3));
+	}
+
+	private PayoutClaim saveClaim(long sellerId, long raceId, long amount, LocalDate startDate) {
+		PayoutClaim claim = payoutClaimRepository.save(new PayoutClaim(sellerId, raceId, amount, startDate));
+		claim.assignClaimCode(startDate.plusDays(1));
+		return claim;
 	}
 
 	@AfterEach
 	void tearDown() {
+		payoutClaimRepository.deleteAll();
+		payoutRecoveryRepository.deleteAll();
 		payoutHoldRepository.deleteAll();
 		payoutRepository.deleteAll();
 	}
@@ -401,6 +450,66 @@ class ApiV1PayoutSellerControllerTest {
 	}
 
 	@Test
+	@DisplayName("회수 내역: 회수 요청일이 기간 안이고 청구가 있는 내 회수를 최근 것부터 청구 ID · 정산 ID와 함께 돌려준다")
+	void claims() throws Exception {
+		request("/claims", "from", "2026-09-15", "to", "2026-10-14")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.message").value("회수 내역을 조회했습니다."))
+			.andExpect(jsonPath("$.data", hasSize(3)))
+			.andExpect(jsonPath("$.data[*].requestedAt",
+				contains("2026-10-02T09:00:00", "2026-10-01T09:00:00", "2026-09-16T09:00:00")))
+			.andExpect(jsonPath("$.data[0].claimCode").value("RC-20261004-%04X".formatted(claimIdOf(SELLER_ID, 10))))
+			.andExpect(jsonPath("$.data[0].raceName").value("대회 10"))
+			.andExpect(jsonPath("$.data[0].payoutCode").value(payoutCodeOf(SELLER_ID, 10)))
+			.andExpect(jsonPath("$.data[0].amount").value(20_000))
+			.andExpect(jsonPath("$.data[0].reasonType").value("일정_변경"))
+			.andExpect(jsonPath("$.data[0].status").value("회수_요청"))
+			.andExpect(jsonPath("$.data[0].completedAt").value(nullValue()))
+			.andExpect(jsonPath("$.data[2].reasonType").value("대회_취소"))
+			.andExpect(jsonPath("$.data[2].status").value("회수_완료"))
+			.andExpect(jsonPath("$.data[2].completedAt").value("2026-10-05T14:00:00"))
+			.andDo(document("payout-seller-claims",
+				requestHeaders(MEMBER_ID_HEADER),
+				queryParameters(
+					parameterWithName("from").description("조회 시작 회수 요청일 (yyyy-MM-dd)"),
+					parameterWithName("to").description("조회 끝 회수 요청일 (yyyy-MM-dd, 포함). 시작 날 + 1개월 전까지")
+				),
+				responseFields(
+					fieldWithPath("status").description("HTTP 상태 코드"),
+					fieldWithPath("message").description("결과 메시지"),
+					fieldWithPath("data[].id").description("회수 ID"),
+					fieldWithPath("data[].claimCode").description("이 회수가 들어간 청구 ID 표기 (RC-만든 날-16진수 4자리). "
+						+ "청구는 판매자 x 대회 하나라 같은 대회의 회수는 같은 값이다"),
+					fieldWithPath("data[].raceId").description("대회 ID"),
+					fieldWithPath("data[].raceName").description("대회 이름 (정산 내역이 없으면 null)")
+						.optional().type(JsonFieldType.STRING),
+					fieldWithPath("data[].payoutCode").description("그 대회 최종 정산의 정산 ID 표기. "
+						+ "최종 정산이 없으면 1차 정산, 둘 다 없으면 null").optional().type(JsonFieldType.STRING),
+					fieldWithPath("data[].amount").description("회수할 금액"),
+					fieldWithPath("data[].reasonType").description("회수 사유 (대회_취소: 대회 취소, 일정_변경: 일정 변경 환불)"),
+					fieldWithPath("data[].status").description("회수 상태 (회수_요청: 입금 기다림, 회수_완료: 회수 완료)"),
+					fieldWithPath("data[].requestedAt").description("회수 요청 일시"),
+					fieldWithPath("data[].completedAt").description("회수 완료 일시 (입금 기다리는 중에는 null)")
+						.optional().type(JsonFieldType.STRING)
+				)));
+	}
+
+	@Test
+	@DisplayName("회수 기간의 끝 날은 그날 23시 59분까지 포함하고, 1개월을 넘기면 400")
+	void claimsBoundary() throws Exception {
+		request("/claims", "from", "2026-09-17", "to", "2026-10-01")
+			.andExpect(jsonPath("$.data", hasSize(1)));
+		request("/claims", "from", "2026-09-15", "to", "2026-10-15")
+			.andExpect(status().isBadRequest());
+	}
+
+	private long claimIdOf(long sellerId, long raceId) {
+		return payoutClaimRepository.findAll().stream()
+			.filter(c -> c.getSellerId() == sellerId && c.getRaceId() == raceId)
+			.findFirst().orElseThrow().getId() & 0xFFFF;
+	}
+
+	@Test
 	@DisplayName("정산 내역을 12개월 넘게 조회하면 400")
 	void payoutsTooLong() throws Exception {
 		request("/payouts", "fromMonth", "2025-11", "toMonth", "2026-11")
@@ -518,7 +627,8 @@ class ApiV1PayoutSellerControllerTest {
 			"/summary",
 			"/payouts?fromMonth=2025-11&toMonth=2026-10",
 			"/payout-items?from=2026-09-01&to=2026-09-30",
-			"/holds?from=2026-09-15&to=2026-10-14"
+			"/holds?from=2026-09-15&to=2026-10-14",
+			"/claims?from=2026-09-15&to=2026-10-14"
 		};
 		for (String path : paths) {
 			mockMvc.perform(get(URL + path).header("X-Member-Id", 0))
