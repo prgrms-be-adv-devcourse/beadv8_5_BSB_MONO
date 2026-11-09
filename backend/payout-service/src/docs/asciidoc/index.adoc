@@ -138,6 +138,13 @@ include::{snippets}/payout-seller-items-invalid-page/http-response.adoc[]
 
 operation::payout-seller-holds[snippets='http-request,request-headers,query-parameters,http-response,response-fields']
 
+[[payout-seller-claims]]
+=== 회수 내역
+
+회수 요청일이 기간 안이고 청구가 만들어진 회수를 한 건씩 돌려준다. 청구 전에 상계로 끝난 회수는 뺀다. 기간 한도는 건별 정산과 같다.
+
+operation::payout-seller-claims[snippets='http-request,request-headers,query-parameters,http-response,response-fields']
+
 ==== 실패 예시
 
 .정산 내역 12개월 초과 (400)
