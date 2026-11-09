@@ -38,6 +38,7 @@ import com.bukang.order.out.race.RaceCourseInfo;
 import com.bukang.order.out.race.RaceCoursePort;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * 파티 만들기·참가 링크·합류·나가기 (BUK-36, 정책 3장 「파티 만들기와 합류」, 11/02·11/03 결정)
@@ -45,6 +46,7 @@ import lombok.RequiredArgsConstructor;
  * 파티원을 바꾸는 요청은 파티 줄을 먼저 잠근다 (잠금 순서: 파티 → 참가 신청)
  * 파티를 만드는 기간은 제한하지 않는다. 대회가 취소됐거나 접수가 마감됐으면 막는다
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PartyUseCase {
@@ -125,6 +127,34 @@ public class PartyUseCase {
 			.filter(PartyMember::isActive)
 			.orElseThrow(PartyAccessDeniedException::notMember);
 		party.checkRecruiting();
+		return removeMember(party, member, now);
+	}
+
+	// 크루를 나간 사람을 이 파티에서 뺀다 (BUK-77, 크루 떠남 메시지). 나가기와 같은 일을 하되 거절하지 않고 건너뛴다
+	// 이미 빠졌거나, 파티원 줄의 크루 가입 시각이 메시지의 가입 시각보다 늦으면(다시 가입한 뒤 합류) 그대로 둔다
+	// 결제 진행 중·결제 끝 파티는 크루 나가기가 막혀 있어(C1·C2, BUK-78) 올 일이 없다. 바꾸지 않고 경고만 남긴다
+	// 파티를 잠근 뒤 처음 읽으므로 기다리는 사이 커밋된 합류·나가기를 본다. 파티마다 트랜잭션을 따로 열어 부른다
+	public boolean removeCrewLeaver(long partyId, long memberId, LocalDateTime leftCrewJoinedAt, LocalDateTime now) {
+		Party party = lockParty(partyId);
+		Optional<PartyMember> member = partyMemberRepository.findByPartyIdAndMemberId(partyId, memberId)
+			.filter(PartyMember::isActive)
+			.filter(row -> !row.getCrewJoinedAt().isAfter(leftCrewJoinedAt));
+		if (member.isEmpty()) {
+			return false;
+		}
+		if (party.getStatus() != PartyStatus.RECRUITING) {
+			log.warn("크루를 나간 사람이 모집 중이 아닌 파티에 있어 그대로 둡니다. partyId={}, memberId={}, status={}",
+				partyId, memberId, party.getStatus());
+			return false;
+		}
+		removeMember(party, member.get(), now);
+		return true;
+	}
+
+	// 신청서를 끝내고 파티원 줄에 나간 시각을 남긴다. 파티장이면 가장 먼저 합류한 파티원에게 넘기고, 남은 사람이 없으면 파티를 끝낸다
+	private Participation removeMember(Party party, PartyMember member, LocalDateTime now) {
+		long partyId = party.getId();
+		long memberId = member.getMemberId();
 		Participation participation = participationRepository.findActiveIdByPartyIdAndMemberId(partyId, memberId)
 			.flatMap(participationRepository::findByIdForUpdate)
 			.orElseThrow(() -> new IllegalStateException("파티원의 신청서가 없습니다. partyId=%d, memberId=%d"

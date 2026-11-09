@@ -14,6 +14,7 @@ import com.bukang.common.global.json.JsonConverter;
 import com.bukang.common.shared.kafka.KafkaMessageId;
 import com.bukang.common.shared.kafka.KafkaTopics;
 import com.bukang.common.shared.race.event.RaceCancelEvent;
+import com.bukang.order.app.CrewMemberLeftUseCase;
 import com.bukang.order.app.OrderInboxUseCase;
 import com.bukang.order.app.RaceCancelRefundUseCase;
 
@@ -42,6 +43,7 @@ public class OrderKafkaConsumer {
 
 	private final RaceCancelRefundUseCase raceCancelRefundUseCase;
 	private final OrderInboxUseCase orderInboxUseCase;
+	private final CrewMemberLeftUseCase crewMemberLeftUseCase;
 	private final JsonConverter jsonConverter;
 
 	// 판매자가 대회를 취소했다 (상품 서비스가 발행, key는 대회 ID). 결제한 참가권을 모두 환불한다
@@ -75,7 +77,37 @@ public class OrderKafkaConsumer {
 		orderInboxUseCase.record(messageId, GROUP_ID, KafkaTopics.ORDER_RACE_CANCEL, LocalDateTime.now());
 	}
 
-	// 끝까지 실패한 메시지. 환불하지 못한 참가권이 남았으므로 운영자가 확인해 다시 보내야 한다
+	// 크루원이 크루에서 빠졌다 (회원 서비스가 발행, key는 크루 ID, 본문 CrewMemberLeftEvent). 그 크루의 모집 중 파티에서 뺀다 (BUK-77)
+	@KafkaListener(topics = KafkaTopics.CREW_MEMBER_LEFT, groupId = GROUP_ID)
+	@RetryableTopic(
+		attempts = RETRY_ATTEMPTS,
+		backOff = @BackOff(delay = RETRY_DELAY_MILLIS, multiplier = RETRY_MULTIPLIER),
+		exclude = IllegalArgumentException.class,
+		numPartitions = PARTITIONS,
+		retryTopicSuffix = RETRY_TOPIC_SUFFIX,
+		dltTopicSuffix = DLT_TOPIC_SUFFIX
+	)
+	public void handleCrewMemberLeft(
+		String payload,
+		@Header(name = KafkaMessageId.HEADER, required = false) String messageId
+	) {
+		if (orderInboxUseCase.alreadyProcessed(messageId, GROUP_ID, KafkaTopics.CREW_MEMBER_LEFT)) {
+			return;
+		}
+		CrewMemberLeft event = jsonConverter.fromJson(payload, CrewMemberLeft.class);
+		if (event.joinedAt() == null) {
+			throw new IllegalArgumentException("크루 떠남 메시지에 joinedAt이 없습니다. payload=" + payload);
+		}
+		crewMemberLeftUseCase.removeFromParties(event.crewId(), event.memberId(), event.joinedAt(),
+			LocalDateTime.now());
+		orderInboxUseCase.record(messageId, GROUP_ID, KafkaTopics.CREW_MEMBER_LEFT, LocalDateTime.now());
+	}
+
+	// CrewMemberLeftEvent 중 쓰는 칸만 읽는다. 이유(reason)는 늘어날 수 있어 읽지 않는다. 모르는 값이 와도 실패하지 않게 (#311 계약)
+	record CrewMemberLeft(long crewId, long memberId, LocalDateTime joinedAt) {
+	}
+
+	// 끝까지 실패한 메시지. 환불하지 못한 참가권이나 크루를 나갔는데 파티에 남은 사람이 있으므로 운영자가 확인해 다시 보내야 한다
 	@DltHandler
 	public void handleDlt(String payload, @Header(KafkaHeaders.RECEIVED_TOPIC) String topic) {
 		log.error("Kafka 메시지를 끝내 처리하지 못했습니다. 확인 후 다시 보내야 합니다. topic={}, payload={}", topic, payload);
