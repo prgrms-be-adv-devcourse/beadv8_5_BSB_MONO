@@ -7,8 +7,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.bukang.payout.domain.PayoutClaimStatus;
 import com.bukang.payout.domain.PayoutCreateFailureType;
 import com.bukang.payout.domain.PayoutHoldReason;
+import com.bukang.payout.dto.PayoutAdminClaimsDto;
 import com.bukang.payout.dto.PayoutClaimDto;
 import com.bukang.payout.dto.PayoutCreateFailuresDto;
 import com.bukang.payout.dto.PayoutDto;
@@ -30,6 +32,7 @@ public class PayoutAdminFacade {
 	private final PayoutAdminVerifyUseCase payoutAdminVerifyUseCase;
 	private final PayoutHoldUseCase payoutHoldUseCase;
 	private final PayoutClaimUseCase payoutClaimUseCase;
+	private final PayoutClaimQueryUseCase payoutClaimQueryUseCase;
 	private final PayoutAdminQueryUseCase payoutAdminQueryUseCase;
 
 	public PayoutHoldDto hold(long memberId, long payoutId, PayoutHoldReason reasonType, String reason,
@@ -53,6 +56,13 @@ public class PayoutAdminFacade {
 	public PayoutClaimDto confirmClaim(long memberId, long claimId, LocalDateTime now) {
 		payoutAdminVerifyUseCase.verify(memberId);
 		return PayoutClaimDto.from(payoutClaimUseCase.confirm(claimId, memberId, now));
+	}
+
+	// 관리자 회수 관리 화면: 카드 숫자와 청구 목록 (BUK-107)
+	public PayoutAdminClaimsDto claims(long memberId, PayoutClaimStatus status, String code, int page, int size,
+		LocalDate today) {
+		payoutAdminVerifyUseCase.verify(memberId);
+		return payoutClaimQueryUseCase.claims(status, code, page, size, today);
 	}
 
 	// 이상 감지 기록 조회 (BUK-108). 관리자 확인 뒤 읽기 트랜잭션 하나만 연다
