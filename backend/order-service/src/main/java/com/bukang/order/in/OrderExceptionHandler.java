@@ -15,10 +15,12 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import com.bukang.common.global.rsdata.RsData;
 import com.bukang.order.domain.exception.IndividualParticipationExistsException;
 import com.bukang.order.domain.exception.InsufficientBalanceException;
+import com.bukang.order.domain.exception.KitOptionSoldOutException;
 import com.bukang.order.domain.exception.PartyConflictException;
 import com.bukang.order.domain.exception.PartyCrewSeatShortageException;
 import com.bukang.order.dto.IndividualParticipationExistsDto;
 import com.bukang.order.dto.InsufficientBalanceDto;
+import com.bukang.order.dto.KitOptionSoldOutDto;
 import com.bukang.order.dto.PartyConflictDto;
 import com.bukang.order.dto.PartyCrewSeatShortageDto;
 
@@ -44,6 +46,15 @@ public class OrderExceptionHandler {
 			.status(exception.getStatus())
 			.body(RsData.of(exception.getStatus(), exception.getCode(), exception.getMessage(),
 				new InsufficientBalanceDto(exception.getShortage())));
+	}
+
+	// 키트 옵션 품절: 공통 처리와 같은 형식에 팔린 옵션(data.soldOut)을 더한다
+	@ExceptionHandler(KitOptionSoldOutException.class)
+	public ResponseEntity<RsData<KitOptionSoldOutDto>> kitOptionSoldOutException(KitOptionSoldOutException exception) {
+		return ResponseEntity
+			.status(exception.getStatus())
+			.body(RsData.of(exception.getStatus(), exception.getCode(), exception.getMessage(),
+				new KitOptionSoldOutDto(exception.getSoldOut())));
 	}
 
 	// 개인 신청이 있어 파티를 만들거나 합류할 수 없음: 남은 개인 신청서 ID(data.participationId)를 더한다 (BUK-36)

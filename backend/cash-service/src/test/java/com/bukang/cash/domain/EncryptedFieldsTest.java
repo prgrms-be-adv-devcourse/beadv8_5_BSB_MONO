@@ -16,10 +16,10 @@ import com.bukang.cash.domain.charge.WalletCharge;
 import com.bukang.cash.domain.member.CashMember;
 import com.bukang.cash.domain.wallet.Wallet;
 import com.bukang.cash.domain.withdrawal.WalletWithdrawal;
-import com.bukang.cash.out.CashMemberRepository;
-import com.bukang.cash.out.WalletChargeRepository;
-import com.bukang.cash.out.WalletRepository;
-import com.bukang.cash.out.WalletWithdrawalRepository;
+import com.bukang.cash.out.charge.WalletChargeRepository;
+import com.bukang.cash.out.member.CashMemberRepository;
+import com.bukang.cash.out.wallet.WalletRepository;
+import com.bukang.cash.out.withdrawal.WalletWithdrawalRepository;
 
 import jakarta.persistence.EntityManager;
 

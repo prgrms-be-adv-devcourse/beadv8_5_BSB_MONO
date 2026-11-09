@@ -24,5 +24,9 @@ public enum NotificationKind {
 	// 환불 기한이 지나 키트를 보낼 참가자가 생겼다. 판매자에게 발송을 요청한다 (주문, 대회마다 한 번)
 	KIT_SHIPMENT_REQUIRED,
 	// 정산이 보류됐다. 판매자에게 보류 사유를 확인해 달라고 한다 (정산)
-	PAYOUT_HELD
+	PAYOUT_HELD,
+	// 회원이 대회에 문의를 남겼다. 그 대회 판매자에게 알린다 (문의, BUK-136)
+	INQUIRY_RECEIVED,
+	// 문의에 답변이 달렸다. 문의한 회원에게 알린다 (문의, BUK-136)
+	INQUIRY_ANSWERED
 }

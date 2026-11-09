@@ -6,6 +6,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.kafka.annotation.RetryableTopic;
 
+import com.bukang.payout.domain.exception.PayoutClaimConflictException;
+import com.bukang.payout.domain.exception.PayoutClaimNotFoundException;
 import com.bukang.payout.domain.exception.PayoutRecoveryConflictException;
 
 /**
@@ -21,5 +23,15 @@ class PayoutKafkaConsumerRetryTest {
 
 		assertThat(retry.exclude())
 			.contains(PayoutRecoveryConflictException.class, IllegalArgumentException.class);
+	}
+
+	@Test
+	@DisplayName("TC-DEPOSIT-6-1 입금액이 다른 청구 · 없는 청구 · 잘못된 입금 메시지는 재시도 없이 바로 DLT로 보낸다")
+	void claimDepositFailuresAreNotRetried() throws NoSuchMethodException {
+		RetryableTopic retry = PayoutKafkaConsumer.class.getMethod("handleClaimDeposited", String.class)
+			.getAnnotation(RetryableTopic.class);
+
+		assertThat(retry.exclude()).contains(PayoutClaimConflictException.class,
+			PayoutClaimNotFoundException.class, IllegalArgumentException.class);
 	}
 }

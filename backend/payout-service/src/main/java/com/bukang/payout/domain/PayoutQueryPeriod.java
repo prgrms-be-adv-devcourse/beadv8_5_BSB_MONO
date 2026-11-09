@@ -19,6 +19,10 @@ public final class PayoutQueryPeriod {
 
 	// 시작 달을 포함해 12개 달까지 (2025-11 ~ 2026-10은 되고, 2025-11 ~ 2026-11은 안 된다)
 	public static void checkPayoutMonths(YearMonth from, YearMonth to) {
+		// 정산 ID로 찾을 때만 기간을 비울 수 있어 required = false로 받는다. 비었으면 빠진 요청 값과 같은 문구로 답한다
+		if (from == null || to == null) {
+			throw new PayoutQueryException("필수 요청 값이 없습니다.");
+		}
 		if (from.isAfter(to)) {
 			throw new PayoutQueryException("조회 시작이 끝보다 늦습니다.");
 		}

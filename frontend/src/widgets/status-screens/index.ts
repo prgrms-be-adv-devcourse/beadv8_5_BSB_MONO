@@ -1,1 +1,1 @@
-export { NotFoundBody, OfflineBody } from './ui/StatusPages'
+export { LoadErrorBody, NotFoundBody, OfflineBody, type LoadErrorBodyProps } from './ui/StatusPages'
