@@ -308,6 +308,43 @@ describe('회원가입 단계', () => {
   })
 })
 
+describe('가입 뒤 돌아갈 화면 (BUK-98)', () => {
+  beforeEach(() => sessionStorage.clear())
+
+  // 로그인 화면에서 ?next=를 받아 첫 단계(본인 확인)를 연 뒤, 회원 정보 단계에서 가입을 마친다
+  async function joinWith(next: string) {
+    server.use(
+      http.post('*/api/v1/auth/join', () =>
+        HttpResponse.json({ status: 201, message: 'ok', data: null }, { status: 201 }),
+      ),
+    )
+    const client = new QueryClient()
+    const wrap = (page: ReactNode) => (
+      <QueryClientProvider client={client}>
+        <ToastProvider>
+          <SignupStepProvider initialState={ACCOUNT_DONE}>{page}</SignupStepProvider>
+        </ToastProvider>
+      </QueryClientProvider>
+    )
+    const view = render(wrap(<SignupIdentityPage next={next} />))
+    view.rerender(wrap(<SignupProfilePage />))
+    const user = userEvent.setup()
+    await fillProfile(user)
+    await user.click(screen.getByRole('radio', { name: '여성' }))
+    await user.click(screen.getByRole('button', { name: '가입 완료' }))
+  }
+
+  it('로그인 화면에서 넘어온 next가 있으면 가입 뒤 그 화면으로 간다', async () => {
+    await joinWith('/invite/q7Xk?party=pJ0in')
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/invite/q7Xk?party=pJ0in'))
+  })
+
+  it('next가 다른 사이트 주소면 가입 뒤 홈으로 간다', async () => {
+    await joinWith('//evil.com')
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/'))
+  })
+})
+
 describe('이메일 중복 확인 (PRO-201)', () => {
   async function fillAccount(user: ReturnType<typeof userEvent.setup>, email: string) {
     await user.type(screen.getByLabelText('이메일'), email)
