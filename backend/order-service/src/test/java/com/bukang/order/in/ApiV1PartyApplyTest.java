@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.stream.LongStream;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -414,7 +415,33 @@ class ApiV1PartyApplyTest {
 		join(OUTSIDER, token).andExpect(status().isCreated());
 	}
 
-	private void putCourse(LocalDateTime startAt, LocalDateTime endAt, int minCount, int maxCount) {
+	@Test
+	@DisplayName("판매자가 최대 인원을 비우면 11명이 넘어도 합류·신청할 수 있다 (11/09 결정: 10명 상한 없음)")
+	void noMaxCount() throws Exception {
+		putCourse(crewSaleStartAt, LocalDateTime.now().plusDays(20), 4, null);
+		List<Long> many = LongStream.rangeClosed(11, 21).boxed().toList();
+		long partyId = partyWith(many);
+
+		apply(LEADER, partyId)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.status").value("PAYING"));
+		assertThat(participationRepository.findByPartyIdIn(List.of(partyId))).hasSize(12);
+	}
+
+	@Test
+	@DisplayName("판매자 최대 인원이 6명이면 7번째는 합류할 수 없다")
+	void maxCountSix() throws Exception {
+		putCourse(crewSaleStartAt, LocalDateTime.now().plusDays(20), 4, 6);
+		long partyId = partyWith(List.of(11L, 12L, 13L, 14L, 15L));
+		String token = partyRepository.findById(partyId).orElseThrow().getJoinToken();
+
+		join(16L, token)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("ORDER_PARTY_FULL"));
+		apply(LEADER, partyId).andExpect(status().isOk());
+	}
+
+	private void putCourse(LocalDateTime startAt, LocalDateTime endAt, int minCount, Integer maxCount) {
 		raceCoursePort.put(StubRaceCoursePort.withCrewSale(StubRaceCoursePort.openCourse(COURSE_ID, RACE_ID, 14, null),
 			startAt, endAt, minCount, maxCount));
 	}

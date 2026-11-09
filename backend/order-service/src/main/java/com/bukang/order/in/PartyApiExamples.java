@@ -133,7 +133,7 @@ final class PartyApiExamples {
 			"status": 200,
 			"message": "이 대회 내 파티 상태를 조회했습니다.",
 			"data": { "role": "LEADER", "canApply": true, "partyId": 1, "raceCourseId": 2, "partyStatus": "RECRUITING",
-				"memberCount": 4, "minCount": 4, "maxCount": 10, "paidCount": 0, "myPaid": false,
+				"memberCount": 4, "minCount": 4, "maxCount": null, "paidCount": 0, "myPaid": false,
 				"participationId": 10 }
 		}
 		""";
@@ -143,7 +143,7 @@ final class PartyApiExamples {
 			"status": 200,
 			"message": "이 대회 내 파티 상태를 조회했습니다.",
 			"data": { "role": "LEADER", "canApply": false, "reason": "TOO_FEW_MEMBERS", "partyId": 1, "raceCourseId": 2,
-				"partyStatus": "RECRUITING", "memberCount": 2, "minCount": 4, "maxCount": 10, "paidCount": 0,
+				"partyStatus": "RECRUITING", "memberCount": 2, "minCount": 4, "maxCount": null, "paidCount": 0,
 				"myPaid": false, "participationId": 10 }
 		}
 		""";
@@ -153,7 +153,7 @@ final class PartyApiExamples {
 			"status": 200,
 			"message": "이 대회 내 파티 상태를 조회했습니다.",
 			"data": { "role": "MEMBER", "canApply": false, "reason": "NOT_LEADER", "partyId": 1, "raceCourseId": 2,
-				"partyStatus": "RECRUITING", "memberCount": 3, "minCount": 4, "maxCount": 10, "paidCount": 0,
+				"partyStatus": "RECRUITING", "memberCount": 3, "minCount": 4, "maxCount": null, "paidCount": 0,
 				"myPaid": false, "participationId": 10 }
 		}
 		""";
@@ -163,7 +163,7 @@ final class PartyApiExamples {
 			"status": 200,
 			"message": "이 대회 내 파티 상태를 조회했습니다.",
 			"data": { "role": "MEMBER", "canApply": false, "reason": "NOT_LEADER", "partyId": 1, "raceCourseId": 2,
-				"partyStatus": "PAYING", "memberCount": 4, "minCount": 4, "maxCount": 10, "paidCount": 1,
+				"partyStatus": "PAYING", "memberCount": 4, "minCount": 4, "maxCount": null, "paidCount": 1,
 				"paymentDueAt": "2026-11-07T10:00:00", "myPaid": false, "participationId": 10 }
 		}
 		""";
@@ -319,7 +319,7 @@ final class PartyApiExamples {
 		""";
 
 	static final String FULL = """
-		{ "status": 409, "code": "ORDER_PARTY_FULL", "message": "파티 인원이 다 찼습니다(최대 10명).",
+		{ "status": 409, "code": "ORDER_PARTY_FULL", "message": "파티 인원이 다 찼습니다(최대 6명).",
 			"data": { "partyId": 1 } }
 		""";
 
@@ -336,7 +336,7 @@ final class PartyApiExamples {
 
 	static final String SIZE_OUT_OF_RANGE = """
 		{ "status": 409, "code": "ORDER_PARTY_SIZE_OUT_OF_RANGE",
-			"message": "파티 인원이 4~10명이어야 신청할 수 있습니다(지금 3명).", "data": { "partyId": 1 } }
+			"message": "파티 인원이 4~6명이어야 신청할 수 있습니다(지금 3명).", "data": { "partyId": 1 } }
 		""";
 
 	static final String MEMBER_NOT_CREW = """

@@ -60,17 +60,12 @@ public record RaceCourseInfo(
 	 * @param startAt  파티 예매 시작. 파티원은 이 시각 7일 전까지 크루에 가입했어야 한다 (11/05 회의 P4)
 	 * @param endAt    파티 예매 마감 (크루 마감)
 	 * @param minCount 파티 최소 인원 (판매자가 정함, 11/05 회의 P3: 4명 아래로는 못 내림)
-	 * @param maxCount 파티 최대 인원 (판매자가 정함, 상한 10명). 상품 값은 of로 받아 상한을 씌운다
+	 * @param maxCount 파티 최대 인원 (판매자가 정함). null이면 제한 없음 (11/09 결정: 11/05 P3의 10명 상한을 없앰)
 	 */
-	public record CrewSale(LocalDateTime startAt, LocalDateTime endAt, int minCount, int maxCount) {
-		// 11/05 회의 P3: 최대 인원은 판매자가 정하되 10명을 넘지 않는다
-		public static final int MAX_COUNT_CAP = 10;
-
-		// 상품 값으로 만든다. 판매자가 최대 인원을 비우면(null, 상한 없음) 정책 상한 10명, 10명보다 크게 정해도 10명이다
-		// (상품 대회 등록은 10명 상한을 아직 막지 않는다)
-		public static CrewSale of(LocalDateTime startAt, LocalDateTime endAt, int minCount, Integer sellerMaxCount) {
-			int maxCount = sellerMaxCount == null ? MAX_COUNT_CAP : Math.min(sellerMaxCount, MAX_COUNT_CAP);
-			return new CrewSale(startAt, endAt, minCount, maxCount);
+	public record CrewSale(LocalDateTime startAt, LocalDateTime endAt, int minCount, Integer maxCount) {
+		// 이 인원이면 판매자 최대 인원을 넘는지. 최대가 없으면 넘지 않는다
+		public boolean exceedsMax(int size) {
+			return maxCount != null && size > maxCount;
 		}
 
 		// 파티 예매 시작 이상, 마감 전

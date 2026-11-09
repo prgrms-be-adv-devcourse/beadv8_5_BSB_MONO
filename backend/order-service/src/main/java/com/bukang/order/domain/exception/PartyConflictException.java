@@ -70,9 +70,12 @@ public class PartyConflictException extends BusinessException {
 		return new PartyConflictException(SALE_CLOSED, "파티 예매 기간이 아닙니다.", partyId, null);
 	}
 
-	public static PartyConflictException sizeOutOfRange(long partyId, int size, int minCount, int maxCount) {
+	// maxCount: 판매자 최대 인원. null이면 제한 없음
+	public static PartyConflictException sizeOutOfRange(long partyId, int size, int minCount, Integer maxCount) {
 		return new PartyConflictException(SIZE_OUT_OF_RANGE,
-			"파티 인원이 %d~%d명이어야 신청할 수 있습니다(지금 %d명).".formatted(minCount, maxCount, size), partyId, null);
+			(maxCount == null ? "파티 인원이 %d명 이상이어야 신청할 수 있습니다(지금 %d명).".formatted(minCount, size)
+				: "파티 인원이 %d~%d명이어야 신청할 수 있습니다(지금 %d명).".formatted(minCount, maxCount, size)),
+			partyId, null);
 	}
 
 	public static PartyConflictException memberNotCrew(long partyId) {

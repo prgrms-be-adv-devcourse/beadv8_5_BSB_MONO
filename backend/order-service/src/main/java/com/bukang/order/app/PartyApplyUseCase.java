@@ -257,7 +257,7 @@ public class PartyApplyUseCase {
 	// 11/05 회의 P3: 최소 4명(판매자 최소 인원이 더 크면 그 수) ~ 판매자 최대 인원
 	private static void checkSize(long partyId, int size, CrewSale crewSale) {
 		int minCount = Math.max(MIN_PARTY_SIZE, crewSale.minCount());
-		if (size < minCount || size > crewSale.maxCount()) {
+		if (size < minCount || crewSale.exceedsMax(size)) {
 			throw PartyConflictException.sizeOutOfRange(partyId, size, minCount, crewSale.maxCount());
 		}
 	}

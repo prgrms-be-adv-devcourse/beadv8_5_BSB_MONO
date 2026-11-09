@@ -50,8 +50,7 @@ public class PartyFacade {
 	@Transactional(readOnly = true)
 	public PartyRaceStatusDto findMyRaceStatus(long raceId, long memberId) {
 		return partyUseCase.findMyRaceParty(raceId, memberId, LocalDateTime.now())
-			.map(mine -> PartyRaceStatusDto.of(mine, memberId, PartyUseCase.MIN_PARTY_SIZE,
-				PartyUseCase.MAX_PARTY_SIZE))
+			.map(mine -> PartyRaceStatusDto.of(mine, memberId, PartyUseCase.MIN_PARTY_SIZE, null))
 			.orElseGet(PartyRaceStatusDto::none);
 	}
 }

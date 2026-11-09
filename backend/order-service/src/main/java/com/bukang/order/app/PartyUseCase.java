@@ -55,10 +55,9 @@ public class PartyUseCase {
 	// BUK-38에서 파티 상태가 새로 생기면 여기에 넣을지 같이 본다 (안 넣으면 그 파티는 「파티 없음」으로 보임)
 	private static final EnumSet<PartyStatus> LIVE_STATUSES =
 		EnumSet.of(PartyStatus.RECRUITING, PartyStatus.PAYING, PartyStatus.PAID);
-	// 정책 최소·최대 인원 (11/05 P3). 합류·신청은 판매자 값(RaceCourseInfo.crewSale)을 쓰고,
-	// shortcut: 내 파티 상태 응답(PartyFacade)은 아직 이 정책값을 보여 준다. 상태 조회에서 종목을 읽게 되면 판매자 값으로 바꾼다
+	// 정책 최소 인원 (11/05 P3). 최대는 판매자 값만 쓰고 없으면 제한 없음 (11/09 결정)
+	// shortcut: 내 파티 상태 응답(PartyFacade)은 아직 종목을 읽지 않아 판매자 최소·최대를 모른다. 최소는 정책값, 최대는 null로 준다
 	public static final int MIN_PARTY_SIZE = 4;
-	public static final int MAX_PARTY_SIZE = RaceCourseInfo.CrewSale.MAX_COUNT_CAP;
 
 	private final PartyRepository partyRepository;
 	private final PartyMemberRepository partyMemberRepository;
@@ -145,7 +144,11 @@ public class PartyUseCase {
 		if (course.crewSale() == null) {
 			return;
 		}
-		int maxCount = course.crewSale().maxCount();
+		// 판매자가 최대 인원을 비웠으면 제한 없이 받는다 (11/09 결정)
+		Integer maxCount = course.crewSale().maxCount();
+		if (maxCount == null) {
+			return;
+		}
 		if (partyMemberRepository.findActiveByPartyIdForUpdate(party.getId()).size() >= maxCount) {
 			throw PartyConflictException.full(party.getId(), maxCount);
 		}
