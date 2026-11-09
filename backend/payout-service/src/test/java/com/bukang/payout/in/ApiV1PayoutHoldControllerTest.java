@@ -7,18 +7,22 @@ import static org.springframework.restdocs.headers.HeaderDocumentation.headerWit
 import static org.springframework.restdocs.headers.HeaderDocumentation.requestHeaders;
 import static org.springframework.restdocs.headers.HeaderDocumentation.responseHeaders;
 import static org.springframework.restdocs.mockmvc.MockMvcRestDocumentation.document;
+import static org.springframework.restdocs.mockmvc.RestDocumentationRequestBuilders.get;
 import static org.springframework.restdocs.mockmvc.RestDocumentationRequestBuilders.post;
 import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
+import static org.springframework.restdocs.payload.PayloadDocumentation.relaxedResponseFields;
 import static org.springframework.restdocs.payload.PayloadDocumentation.requestFields;
 import static org.springframework.restdocs.payload.PayloadDocumentation.responseFields;
 import static org.springframework.restdocs.request.RequestDocumentation.parameterWithName;
 import static org.springframework.restdocs.request.RequestDocumentation.pathParameters;
+import static org.springframework.restdocs.request.RequestDocumentation.queryParameters;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Locale;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -174,6 +178,65 @@ class ApiV1PayoutHoldControllerTest {
 
 		result.andExpect(header().string("Location", "/api/v1/payout/holds/" + holdIdOf(result)));
 		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.지급보류);
+	}
+
+	@Test
+	@DisplayName("정산 ID(ST-)로 찾으면 정산 내역 한 건을 돌려주고, 그 id로 보류를 걸 수 있다")
+	void findByCodeThenHold() throws Exception {
+		Payout payout = savePayout();
+		payout.assignPayoutCode();
+		payoutRepository.save(payout);
+
+		String body = mockMvc.perform(get("/api/v1/payout/payouts")
+				.header("X-Member-Id", ADMIN_ID)
+				.param("code", payout.getPayoutCode()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.message").value("정산 내역을 조회했습니다."))
+			.andExpect(jsonPath("$.data.id").value(payout.getId()))
+			.andExpect(jsonPath("$.data.payoutCode").value(payout.getPayoutCode()))
+			.andDo(document("payout-admin-payout-by-code",
+				requestHeaders(MEMBER_ID_HEADER),
+				queryParameters(
+					parameterWithName("code").description("정산 ID (ST-정산 내역을 만든 날-16진수 4자리)")
+				),
+				relaxedResponseFields(
+					fieldWithPath("data.id").description("정산 내역 ID (지급보류 걸기 경로의 payoutId에 쓴다)"),
+					fieldWithPath("data.payoutCode").description("정산 ID 표기"),
+					fieldWithPath("data.status").description("상태 (지급_예정, 지급보류, 지급_완료, 취소)")
+				)))
+			.andReturn().getResponse().getContentAsString();
+		long payoutId = JsonPath.parse(body).read("$.data.id", Long.class);
+
+		holdAccount(payoutId).andExpect(status().isCreated());
+	}
+
+	@Test
+	@DisplayName("정산 ID로 찾을 때 소문자 · 앞뒤 공백이 섞여도 같은 정산 내역을 찾는다 (청구 ID 검색과 같은 처리)")
+	void findByCodeIgnoresCaseAndSpaces() throws Exception {
+		Payout payout = savePayout();
+		payout.assignPayoutCode();
+		payoutRepository.save(payout);
+
+		mockMvc.perform(get("/api/v1/payout/payouts")
+				.header("X-Member-Id", ADMIN_ID)
+				.param("code", " " + payout.getPayoutCode().toLowerCase(Locale.ROOT) + "  "))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.id").value(payout.getId()));
+	}
+
+	@Test
+	@DisplayName("정산 ID로 찾을 때 없는 정산 ID면 404, 일반 회원이면 403")
+	void findByCodeNotFoundOrForbidden() throws Exception {
+		mockMvc.perform(get("/api/v1/payout/payouts")
+				.header("X-Member-Id", ADMIN_ID)
+				.param("code", "ST-20000101-0000"))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.message").value("정산 내역을 찾을 수 없습니다."))
+			.andDo(document("payout-admin-payout-by-code-not-found", ERROR_RESPONSE));
+		mockMvc.perform(get("/api/v1/payout/payouts")
+				.header("X-Member-Id", MEMBER_ID)
+				.param("code", "ST-20000101-0000"))
+			.andExpect(status().isForbidden());
 	}
 
 	@Test

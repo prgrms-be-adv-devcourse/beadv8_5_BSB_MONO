@@ -6,7 +6,6 @@ import static lombok.AccessLevel.PROTECTED;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Objects;
 
 import org.hibernate.annotations.ColumnDefault;
@@ -19,7 +18,6 @@ import com.bukang.product.dto.RaceCourseSaveRequestDto;
 
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
-import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.JoinColumn;
@@ -29,7 +27,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * 대회 종목 (참가권). 컬럼은 크루 예매 ERD v5의 race_course 표에 피그잼의 나이 제한·키트 포함과 티셔츠 사이즈를 더했다.
+ * 대회 종목 (참가권). 컬럼은 크루 예매 ERD v5의 race_course 표에 피그잼의 나이 제한·키트 포함을 더했다.
  * 크루 몫·개인 몫 정원과 확보·판매 수를 센다. 남은 자리 판정은 이 행 하나의 조건부 UPDATE로 한다.
  * 이미지(대표·소개·코스 안내·키트 이미지, 소개 영상)는 종목에 연결한다. 클래스 이름 RaceCourse가 파일 연결 대상 종류(FileRef refType)가 된다.
  */
@@ -82,15 +80,9 @@ public class RaceCourse extends BaseIdAndTime {
 	@Column(nullable = false)
 	private long kitPrice;
 
+	// 키트 옵션(티셔츠 사이즈 등)은 종목이 아니라 대회에 둔다 (KitOption, product_kit_option)
 	@Column(nullable = false)
 	private boolean kitIncluded;
-
-	// 이 종목이 제공하는 기념 티셔츠 사이즈 (작은 사이즈부터, 예: S, M, L, XL). 비어 있으면 티셔츠가 없는 종목이다
-	// 세미는 키트 중 티셔츠만 사이즈를 받는다. 최종에서 키트 옵션이 여러 개가 되면 kit_option 테이블로 옮긴다
-	// (DB에는 "S,M,L,XL"처럼 한 칸에 두며, 피그잼 ERD kit_option.size_choices와 같은 형식이라 값을 그대로 옮길 수 있다)
-	@Convert(converter = TshirtSizeListConverter.class)
-	@Column(name = "tshirt_size_option")
-	private List<TshirtSize> tshirtSizeOption = List.of();
 
 	// 정원과 확보·판매 수
 	// 남은 크루 자리 = crewQuota − movedQuota − crewReserved − crewSold
@@ -168,10 +160,6 @@ public class RaceCourse extends BaseIdAndTime {
 					withName("판매가 시작된 종목은 참가 조건(%s)을 바꿀 수 없습니다.".formatted(changedCondition)));
 			}
 		}
-		// 판매 시작 뒤에는 참가자가 이미 고른 사이즈가 목록에서 빠질 수 있어 티셔츠 사이즈를 바꾸지 못한다
-		if (saleStarted && !tshirtSizeOption.equals(sortedTshirtSizes(request))) {
-			throw new RaceChangeNotAllowedException(withName("판매가 시작된 종목은 티셔츠 사이즈를 바꿀 수 없습니다."));
-		}
 		apply(request);
 	}
 
@@ -240,14 +228,8 @@ public class RaceCourse extends BaseIdAndTime {
 		this.price = request.getPrice();
 		this.kitPrice = request.getKitPrice();
 		this.kitIncluded = request.getKitIncluded();
-		this.tshirtSizeOption = sortedTshirtSizes(request);
 		this.crewQuota = request.getCrewQuota();
 		this.individualQuota = request.getIndividualQuota();
-	}
-
-	// 요청 순서와 상관없이 작은 사이즈부터 둔다 (enum 선언 순서). 그래서 순서만 다른 요청은 같은 목록이 된다
-	private List<TshirtSize> sortedTshirtSizes(RaceCourseSaveRequestDto request) {
-		return request.getTshirtSizeOption().stream().sorted().toList();
 	}
 
 	public void addRace(Race race) {

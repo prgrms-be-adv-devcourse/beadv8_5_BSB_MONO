@@ -13,19 +13,23 @@ import com.bukang.product.out.RaceRepository;
 import lombok.RequiredArgsConstructor;
 
 /**
- * 판매 시작일이 되거나 대회일이 지난 대회의 판매 상태를 바꾼다 (RaceSaleStatusScheduler가 5분마다 부른다)
- * - 판매 예정·판매 중 → 판매 종료: 대회일이 지난 대회 (대회 날짜 다음 날 0시부터)
+ * 판매 시작일이 되거나 대회일이 지난 대회의 판매 상태를 바꾼다 (RaceSaleStatusScheduler가 시계 기준 5분 정각마다, 0시 정각에도 부른다)
+ * - 판매 예정·판매 중·판매 중지 → 판매 종료: 대회일이 지난 대회 (대회 날짜 다음 날 0시부터)
+ *   판매 중지인 채 대회일이 지나도 판매 종료로 바꾼다. 판매 중지는 대회 무산을 뜻하지 않아 자동 취소하지 않는다 (11/08 결정)
+ *   대회가 열리지 않았으면 판매자가 취소해 환불한다
  * - 판매 예정 → 판매 중: 판매 시작일이 된 대회 (판매 시작일 0시부터)
  *   판매 중은 판매자 화면용 표시다. 구매자가 예매할 수 있는지는 크루 예매 시작·개인 예매 오픈 시각으로 따로 본다
  * 판매 종료를 먼저 바꿔, 판매 시작일과 대회일이 모두 지난 대회가 판매 중을 거치지 않게 한다.
- * 판매 중지는 판매자가 바꾸는 상태라 건드리지 않는다.
+ * 판매 중지로 바꾸고 되돌리는 일은 판매자가 한다 (RaceSaleStopUseCase). 이 배치는 판매 중지를 판매 중으로 되돌리지 않는다.
  * 상태는 조건부 UPDATE로 바꾼다. 판매자가 같은 대회를 수정해도 엔티티는 바뀐 컬럼만 저장하므로(@DynamicUpdate) 덮어쓰지 않는다.
  * 대상 ID를 읽은 뒤 판매자가 대회일을 미루면 UPDATE 조건에서 걸러져 판매 종료되지 않는다.
  */
 @Service
 @RequiredArgsConstructor
 public class RaceSaleStatusUseCase {
-	private static final List<RaceSaleStatus> OPEN_STATUSES = List.of(RaceSaleStatus.SCHEDULED, RaceSaleStatus.ON_SALE);
+	// 대회일이 지나면 판매 종료로 바꿀 상태 (판매 종료·대회 취소 말고 모두)
+	private static final List<RaceSaleStatus> CLOSABLE_STATUSES = List.of(
+		RaceSaleStatus.SCHEDULED, RaceSaleStatus.ON_SALE, RaceSaleStatus.STOPPED);
 
 	private final RaceRepository raceRepository;
 
@@ -34,9 +38,9 @@ public class RaceSaleStatusUseCase {
 		List<Long> changedIds = new ArrayList<>();
 
 		LocalDateTime today = now.toLocalDate().atStartOfDay();
-		List<Long> toClose = raceRepository.findIdsToClose(OPEN_STATUSES, today);
+		List<Long> toClose = raceRepository.findIdsToClose(CLOSABLE_STATUSES, today);
 		if (!toClose.isEmpty()) {
-			raceRepository.closeSale(toClose, OPEN_STATUSES, today, now);
+			raceRepository.closeSale(toClose, CLOSABLE_STATUSES, today, now);
 			changedIds.addAll(toClose);
 		}
 		List<Long> toOpen = raceRepository.findIdsToOpen(RaceSaleStatus.SCHEDULED, now.toLocalDate());

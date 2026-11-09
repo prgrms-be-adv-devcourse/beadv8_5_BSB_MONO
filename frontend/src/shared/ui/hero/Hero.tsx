@@ -48,17 +48,17 @@ export function Hero({
             {watermark}
           </span>
         )}
-        <p className="relative font-display text-eyebrow text-text-on-hero-accent">{eyebrow}</p>
+        <p className="relative text-caption-medium text-text-on-hero-accent">{eyebrow}</p>
         <div className="relative flex flex-col gap-1.5">
           <h1
             className={cn(
               'text-text-on-hero',
-              type === 'race' ? 'font-display text-display-l' : 'text-heading-xl',
+              type === 'race' ? 'font-display text-number-m' : 'text-title1',
             )}
           >
             {title}
           </h1>
-          {subtitle && <p className="text-body-m text-text-on-hero-muted">{subtitle}</p>}
+          {subtitle && <p className="text-body2-regular text-text-on-hero-muted">{subtitle}</p>}
         </div>
         {badges && <div className="relative flex flex-wrap gap-1.5">{badges}</div>}
       </div>

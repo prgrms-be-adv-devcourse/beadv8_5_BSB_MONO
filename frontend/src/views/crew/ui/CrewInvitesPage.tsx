@@ -169,10 +169,10 @@ export function CrewInvitesPage({
               <>
                 <InviteIntro title="초대 링크를 만들었어요" />
                 <div className="flex flex-col gap-1 rounded-lg bg-bg-brand-subtle p-4">
-                  <p className="text-heading-s break-all">
+                  <p className="text-body1-bold break-all">
                     {inviteUrl(created.inviteToken).replace(/^https?:\/\//, '')}
                   </p>
-                  <p className="text-caption text-text-secondary">
+                  <p className="text-caption-regular text-text-secondary">
                     {formatKstDateTime(created.expiresAt)}까지 쓸 수 있어요
                   </p>
                 </div>
@@ -195,14 +195,14 @@ export function CrewInvitesPage({
           </CrewBand>
           <Divider type="section" />
           <CrewBand>
-            <h2 className="text-heading-m">보낸 초대</h2>
+            <h2 className="text-title3">보낸 초대</h2>
             {invites.isPending ? (
               <InvitesSkeleton />
             ) : invites.isError ? (
               <CrewLoadError onRetry={() => invites.refetch()} />
             ) : invites.data.length === 0 ? (
               // 시안에 없는 상태: 보낸 초대가 없음
-              <p className="text-body-s text-text-secondary">아직 보낸 초대가 없어요.</p>
+              <p className="text-body2-regular text-text-secondary">아직 보낸 초대가 없어요.</p>
             ) : (
               <ul className="flex flex-col gap-4">
                 {invites.data.map((invite) => {
@@ -210,8 +210,8 @@ export function CrewInvitesPage({
                   return (
                     <li key={invite.inviteId} className="flex items-center gap-3">
                       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                        <p className="text-body-m">{inviteCreatedLabel(invite.createdAt)}</p>
-                        <p className="text-caption text-text-secondary">
+                        <p className="text-body2-regular">{inviteCreatedLabel(invite.createdAt)}</p>
+                        <p className="text-caption-regular text-text-secondary">
                           {withSubjectParticle(invite.createdBy.nickname)} 보냄
                           {remaining && ` · ${remaining} 남음`}
                         </p>
@@ -252,8 +252,8 @@ export function CrewInvitesPage({
 function InviteIntro({ title }: { title: string }) {
   return (
     <div className="flex flex-col gap-2">
-      <h2 className="text-heading-m">{title}</h2>
-      <p className="text-body-s text-text-secondary">
+      <h2 className="text-title3">{title}</h2>
+      <p className="text-body2-regular text-text-secondary">
         링크를 받은 사람이 가입하기를 누르면 바로 크루원이 돼요. 링크 하나로 한 명이 가입할 수
         있어요.
       </p>

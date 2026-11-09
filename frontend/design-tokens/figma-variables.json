@@ -4,16 +4,16 @@
     "Primitives": {
       "modes": ["Value"],
       "variables": {
-        "brand/50": { "type": "COLOR", "values": { "Value": "#ebf1ff" } },
-        "brand/100": { "type": "COLOR", "values": { "Value": "#d6e2ff" } },
-        "brand/200": { "type": "COLOR", "values": { "Value": "#adc5ff" } },
-        "brand/300": { "type": "COLOR", "values": { "Value": "#7fa4ff" } },
-        "brand/400": { "type": "COLOR", "values": { "Value": "#4d80ff" } },
-        "brand/500": { "type": "COLOR", "values": { "Value": "#0057ff" } },
-        "brand/600": { "type": "COLOR", "values": { "Value": "#0046cc" } },
-        "brand/700": { "type": "COLOR", "values": { "Value": "#0038a3" } },
-        "brand/800": { "type": "COLOR", "values": { "Value": "#002d82" } },
-        "brand/900": { "type": "COLOR", "values": { "Value": "#00225f" } },
+        "brand/50": { "type": "COLOR", "values": { "Value": "#eef3ff" } },
+        "brand/100": { "type": "COLOR", "values": { "Value": "#dde7fe" } },
+        "brand/200": { "type": "COLOR", "values": { "Value": "#bacefc" } },
+        "brand/300": { "type": "COLOR", "values": { "Value": "#8faef9" } },
+        "brand/400": { "type": "COLOR", "values": { "Value": "#6089f7" } },
+        "brand/500": { "type": "COLOR", "values": { "Value": "#2e62f5" } },
+        "brand/600": { "type": "COLOR", "values": { "Value": "#2450d4" } },
+        "brand/700": { "type": "COLOR", "values": { "Value": "#1d41ad" } },
+        "brand/800": { "type": "COLOR", "values": { "Value": "#183488" } },
+        "brand/900": { "type": "COLOR", "values": { "Value": "#12285f" } },
         "navy/50": { "type": "COLOR", "values": { "Value": "#f2f4f8" } },
         "navy/100": { "type": "COLOR", "values": { "Value": "#e3e7ef" } },
         "navy/200": { "type": "COLOR", "values": { "Value": "#c3cbda" } },
@@ -26,17 +26,17 @@
         "navy/900": { "type": "COLOR", "values": { "Value": "#14213d" } },
         "navy/950": { "type": "COLOR", "values": { "Value": "#0b1222" } },
         "neutral/0": { "type": "COLOR", "values": { "Value": "#ffffff" } },
-        "neutral/25": { "type": "COLOR", "values": { "Value": "#f7f9fc" } },
-        "neutral/50": { "type": "COLOR", "values": { "Value": "#f1f4f8" } },
-        "neutral/100": { "type": "COLOR", "values": { "Value": "#e8edf3" } },
-        "neutral/200": { "type": "COLOR", "values": { "Value": "#d9e0e8" } },
-        "neutral/300": { "type": "COLOR", "values": { "Value": "#c2cbd6" } },
-        "neutral/400": { "type": "COLOR", "values": { "Value": "#97a3b3" } },
-        "neutral/500": { "type": "COLOR", "values": { "Value": "#6f7c8e" } },
-        "neutral/600": { "type": "COLOR", "values": { "Value": "#536072" } },
-        "neutral/700": { "type": "COLOR", "values": { "Value": "#3c4757" } },
-        "neutral/800": { "type": "COLOR", "values": { "Value": "#283240" } },
-        "neutral/900": { "type": "COLOR", "values": { "Value": "#18202b" } },
+        "neutral/25": { "type": "COLOR", "values": { "Value": "#f7f7f8" } },
+        "neutral/50": { "type": "COLOR", "values": { "Value": "#f2f3f5" } },
+        "neutral/100": { "type": "COLOR", "values": { "Value": "#e8e9eb" } },
+        "neutral/200": { "type": "COLOR", "values": { "Value": "#d4d6d9" } },
+        "neutral/300": { "type": "COLOR", "values": { "Value": "#b1b4b8" } },
+        "neutral/400": { "type": "COLOR", "values": { "Value": "#8b8f94" } },
+        "neutral/500": { "type": "COLOR", "values": { "Value": "#6b6f75" } },
+        "neutral/600": { "type": "COLOR", "values": { "Value": "#4a4e54" } },
+        "neutral/700": { "type": "COLOR", "values": { "Value": "#33363b" } },
+        "neutral/800": { "type": "COLOR", "values": { "Value": "#24272b" } },
+        "neutral/900": { "type": "COLOR", "values": { "Value": "#17191c" } },
         "green/50": { "type": "COLOR", "values": { "Value": "#ecfbf2" } },
         "green/100": { "type": "COLOR", "values": { "Value": "#d1f5df" } },
         "green/400": { "type": "COLOR", "values": { "Value": "#4ade80" } },
@@ -72,7 +72,16 @@
         "lime/600": { "type": "COLOR", "values": { "Value": "#84b300" } },
         "lime/700": { "type": "COLOR", "values": { "Value": "#638600" } },
         "lime/800": { "type": "COLOR", "values": { "Value": "#4a6500" } },
-        "lime/900": { "type": "COLOR", "values": { "Value": "#2e3f00" } }
+        "lime/900": { "type": "COLOR", "values": { "Value": "#2e3f00" } },
+        "chip/default-bg": { "type": "COLOR", "values": { "Value": "#f2f3f5" } },
+        "chip/default-fg": { "type": "COLOR", "values": { "Value": "#4a4e54" } },
+        "chip/success-bg": { "type": "COLOR", "values": { "Value": "#e5f5ea" } },
+        "chip/success-fg": { "type": "COLOR", "values": { "Value": "#305e41" } },
+        "chip/warning-bg": { "type": "COLOR", "values": { "Value": "#faeede" } },
+        "chip/warning-fg": { "type": "COLOR", "values": { "Value": "#694d22" } },
+        "chip/danger-bg": { "type": "COLOR", "values": { "Value": "#ffebe9" } },
+        "chip/danger-fg": { "type": "COLOR", "values": { "Value": "#7d3d39" } },
+        "logo/blue": { "type": "COLOR", "values": { "Value": "#0057ff" } }
       }
     },
     "Color": {
@@ -80,7 +89,7 @@
       "variables": {
         "color/bg/default": {
           "type": "COLOR",
-          "values": { "Light": { "alias": "neutral/50" }, "Dark": { "alias": "navy/950" } }
+          "values": { "Light": { "alias": "neutral/0" }, "Dark": { "alias": "navy/950" } }
         },
         "color/bg/surface": {
           "type": "COLOR",
@@ -88,11 +97,11 @@
         },
         "color/bg/subtle": {
           "type": "COLOR",
-          "values": { "Light": { "alias": "neutral/100" }, "Dark": { "alias": "navy/800" } }
+          "values": { "Light": { "alias": "neutral/50" }, "Dark": { "alias": "navy/800" } }
         },
         "color/bg/inverse": {
           "type": "COLOR",
-          "values": { "Light": { "alias": "navy/900" }, "Dark": { "alias": "neutral/25" } }
+          "values": { "Light": { "alias": "neutral/900" }, "Dark": { "alias": "neutral/25" } }
         },
         "color/bg/brand": {
           "type": "COLOR",
@@ -116,7 +125,7 @@
         },
         "color/bg/disabled": {
           "type": "COLOR",
-          "values": { "Light": { "alias": "neutral/100" }, "Dark": { "alias": "navy/800" } }
+          "values": { "Light": { "alias": "neutral/50" }, "Dark": { "alias": "navy/800" } }
         },
         "color/bg/success-subtle": {
           "type": "COLOR",
@@ -136,15 +145,15 @@
         },
         "color/text/primary": {
           "type": "COLOR",
-          "values": { "Light": { "alias": "navy/900" }, "Dark": { "alias": "neutral/25" } }
+          "values": { "Light": { "alias": "neutral/900" }, "Dark": { "alias": "neutral/25" } }
         },
         "color/text/secondary": {
           "type": "COLOR",
-          "values": { "Light": { "alias": "navy/700" }, "Dark": { "alias": "navy/200" } }
+          "values": { "Light": { "alias": "neutral/500" }, "Dark": { "alias": "navy/200" } }
         },
         "color/text/tertiary": {
           "type": "COLOR",
-          "values": { "Light": { "alias": "navy/500" }, "Dark": { "alias": "navy/300" } }
+          "values": { "Light": { "alias": "neutral/400" }, "Dark": { "alias": "navy/300" } }
         },
         "color/text/inverse": {
           "type": "COLOR",
@@ -160,11 +169,11 @@
         },
         "color/text/brand": {
           "type": "COLOR",
-          "values": { "Light": { "alias": "brand/700" }, "Dark": { "alias": "brand/300" } }
+          "values": { "Light": { "alias": "brand/500" }, "Dark": { "alias": "brand/300" } }
         },
         "color/text/disabled": {
           "type": "COLOR",
-          "values": { "Light": { "alias": "neutral/500" }, "Dark": { "alias": "neutral/500" } }
+          "values": { "Light": { "alias": "neutral/300" }, "Dark": { "alias": "neutral/500" } }
         },
         "color/text/success": {
           "type": "COLOR",
@@ -184,11 +193,11 @@
         },
         "color/border/default": {
           "type": "COLOR",
-          "values": { "Light": { "alias": "neutral/200" }, "Dark": { "alias": "navy/700" } }
+          "values": { "Light": { "alias": "neutral/100" }, "Dark": { "alias": "navy/700" } }
         },
         "color/border/strong": {
           "type": "COLOR",
-          "values": { "Light": { "alias": "neutral/300" }, "Dark": { "alias": "navy/600" } }
+          "values": { "Light": { "alias": "neutral/200" }, "Dark": { "alias": "navy/600" } }
         },
         "color/border/brand": {
           "type": "COLOR",
@@ -204,11 +213,11 @@
         },
         "color/border/disabled": {
           "type": "COLOR",
-          "values": { "Light": { "alias": "neutral/100" }, "Dark": { "alias": "navy/800" } }
+          "values": { "Light": { "alias": "neutral/50" }, "Dark": { "alias": "navy/800" } }
         },
         "color/bg/control-off": {
           "type": "COLOR",
-          "values": { "Light": { "alias": "neutral/300" }, "Dark": { "alias": "navy/600" } },
+          "values": { "Light": { "alias": "neutral/200" }, "Dark": { "alias": "navy/600" } },
           "description": "꺼진 Switch 바탕"
         },
         "color/bg/control-thumb": {
@@ -218,28 +227,28 @@
         },
         "color/bg/track": {
           "type": "COLOR",
-          "values": { "Light": { "alias": "neutral/100" }, "Dark": { "alias": "navy/700" } },
+          "values": { "Light": { "alias": "neutral/50" }, "Dark": { "alias": "navy/700" } },
           "description": "ProgressBar·Skeleton의 빈 바탕"
         },
         "color/bg/accent": {
           "type": "COLOR",
-          "values": { "Light": { "alias": "lime/400" }, "Dark": { "alias": "lime/400" } }
+          "values": { "Light": { "alias": "brand/500" }, "Dark": { "alias": "lime/400" } }
         },
         "color/bg/accent-subtle": {
           "type": "COLOR",
-          "values": { "Light": { "alias": "lime/100" }, "Dark": { "alias": "lime/900" } }
+          "values": { "Light": { "alias": "brand/50" }, "Dark": { "alias": "lime/900" } }
         },
         "color/bg/hero": {
           "type": "COLOR",
-          "values": { "Light": { "alias": "navy/950" }, "Dark": { "alias": "navy/800" } }
+          "values": { "Light": { "alias": "neutral/900" }, "Dark": { "alias": "navy/800" } }
         },
         "color/text/on-accent": {
           "type": "COLOR",
-          "values": { "Light": { "alias": "navy/950" }, "Dark": { "alias": "navy/950" } }
+          "values": { "Light": { "alias": "neutral/0" }, "Dark": { "alias": "navy/950" } }
         },
         "color/text/accent": {
           "type": "COLOR",
-          "values": { "Light": { "alias": "lime/800" }, "Dark": { "alias": "lime/400" } }
+          "values": { "Light": { "alias": "brand/700" }, "Dark": { "alias": "lime/400" } }
         },
         "color/text/on-hero": {
           "type": "COLOR",
@@ -247,23 +256,23 @@
         },
         "color/text/on-hero-muted": {
           "type": "COLOR",
-          "values": { "Light": { "alias": "navy/300" }, "Dark": { "alias": "navy/200" } }
+          "values": { "Light": { "alias": "neutral/300" }, "Dark": { "alias": "navy/200" } }
         },
         "color/border/accent": {
           "type": "COLOR",
-          "values": { "Light": { "alias": "lime/400" }, "Dark": { "alias": "lime/400" } }
+          "values": { "Light": { "alias": "brand/500" }, "Dark": { "alias": "lime/400" } }
         },
         "color/bg/hero-raised": {
           "type": "COLOR",
-          "values": { "Light": { "alias": "navy/800" }, "Dark": { "alias": "navy/700" } }
+          "values": { "Light": { "alias": "neutral/800" }, "Dark": { "alias": "navy/700" } }
         },
         "color/bg/track-on-hero": {
           "type": "COLOR",
-          "values": { "Light": { "alias": "navy/700" }, "Dark": { "alias": "navy/600" } }
+          "values": { "Light": { "alias": "neutral/700" }, "Dark": { "alias": "navy/600" } }
         },
         "color/text/on-hero-accent": {
           "type": "COLOR",
-          "values": { "Light": { "alias": "lime/400" }, "Dark": { "alias": "lime/400" } }
+          "values": { "Light": { "alias": "brand/300" }, "Dark": { "alias": "lime/400" } }
         },
         "color/text/on-hero-success": {
           "type": "COLOR",
@@ -272,42 +281,42 @@
         },
         "color/bg/accent-hover": {
           "type": "COLOR",
-          "values": { "Light": { "alias": "lime/500" }, "Dark": { "alias": "lime/500" } },
+          "values": { "Light": { "alias": "brand/600" }, "Dark": { "alias": "lime/500" } },
           "description": "Accent(라임) 버튼 hover 바탕"
         },
         "color/bg/badge-brand": {
           "type": "COLOR",
-          "values": { "Light": { "alias": "brand/100" }, "Dark": { "alias": "brand/900" } },
+          "values": { "Light": { "alias": "brand/50" }, "Dark": { "alias": "brand/900" } },
           "description": "Badge 배경. 라이트는 100단계로 -subtle(50)보다 진하게 둬 상태끼리 구분되게 한다."
         },
         "color/bg/badge-success": {
           "type": "COLOR",
-          "values": { "Light": { "alias": "green/100" }, "Dark": { "alias": "green/900" } },
+          "values": { "Light": { "alias": "chip/success-bg" }, "Dark": { "alias": "green/900" } },
           "description": "Badge 배경. 라이트는 100단계로 -subtle(50)보다 진하게 둬 상태끼리 구분되게 한다."
         },
         "color/bg/badge-warning": {
           "type": "COLOR",
-          "values": { "Light": { "alias": "amber/100" }, "Dark": { "alias": "amber/900" } },
+          "values": { "Light": { "alias": "chip/warning-bg" }, "Dark": { "alias": "amber/900" } },
           "description": "Badge 배경. 라이트는 100단계로 -subtle(50)보다 진하게 둬 상태끼리 구분되게 한다."
         },
         "color/bg/badge-danger": {
           "type": "COLOR",
-          "values": { "Light": { "alias": "red/100" }, "Dark": { "alias": "red/900" } },
+          "values": { "Light": { "alias": "chip/danger-bg" }, "Dark": { "alias": "red/900" } },
           "description": "Badge 배경. 라이트는 100단계로 -subtle(50)보다 진하게 둬 상태끼리 구분되게 한다."
         },
         "color/bg/badge-info": {
           "type": "COLOR",
-          "values": { "Light": { "alias": "violet/100" }, "Dark": { "alias": "violet/900" } },
+          "values": { "Light": { "alias": "chip/default-bg" }, "Dark": { "alias": "violet/900" } },
           "description": "Badge 배경. 라이트는 100단계로 -subtle(50)보다 진하게 둬 상태끼리 구분되게 한다."
         },
         "color/bg/segment": {
           "type": "COLOR",
-          "values": { "Light": { "alias": "navy/100" }, "Dark": { "alias": "navy/800" } },
+          "values": { "Light": { "alias": "neutral/50" }, "Dark": { "alias": "navy/800" } },
           "description": "세그먼트 탭(TabBar) 바탕. 선택된 Tab은 color/bg/surface 알약으로 떠요."
         },
         "color/bg/overlay": {
           "type": "COLOR",
-          "values": { "Light": { "alias": "navy/950" }, "Dark": { "alias": "navy/950" } },
+          "values": { "Light": { "alias": "neutral/900" }, "Dark": { "alias": "navy/950" } },
           "description": "확인 창 · 시트 뒤 어두운 막. 칠 불투명도 45%와 함께 써요."
         },
         "color/text/on-image": {
@@ -319,6 +328,38 @@
           "type": "COLOR",
           "values": { "Light": { "alias": "green/400" }, "Dark": { "alias": "green/400" } },
           "description": "네이비 Hero 안의 완료(100%) 막대 채우기예요. 글자는 color/text/on-hero-success를 써요."
+        },
+        "color/bg/badge-neutral": {
+          "type": "COLOR",
+          "values": { "Light": { "alias": "chip/default-bg" }, "Dark": { "alias": "navy/800" } }
+        },
+        "color/text/badge-default": {
+          "type": "COLOR",
+          "values": { "Light": { "alias": "chip/default-fg" }, "Dark": { "alias": "navy/200" } }
+        },
+        "color/text/badge-success": {
+          "type": "COLOR",
+          "values": { "Light": { "alias": "chip/success-fg" }, "Dark": { "alias": "green/400" } }
+        },
+        "color/text/badge-warning": {
+          "type": "COLOR",
+          "values": { "Light": { "alias": "chip/warning-fg" }, "Dark": { "alias": "amber/400" } }
+        },
+        "color/text/badge-danger": {
+          "type": "COLOR",
+          "values": { "Light": { "alias": "chip/danger-fg" }, "Dark": { "alias": "red/300" } }
+        },
+        "color/bg/brand-disabled": {
+          "type": "COLOR",
+          "values": { "Light": { "alias": "brand/200" }, "Dark": { "alias": "brand/800" } }
+        },
+        "color/bg/subtle-hover": {
+          "type": "COLOR",
+          "values": { "Light": { "alias": "neutral/100" }, "Dark": { "alias": "neutral/700" } }
+        },
+        "color/bg/muted": {
+          "type": "COLOR",
+          "values": { "Light": { "alias": "neutral/25" }, "Dark": { "alias": "neutral/800" } }
         }
       }
     },
@@ -328,7 +369,7 @@
         "spacing/0": { "type": "FLOAT", "values": { "Value": 0 }, "description": "여백 없음." },
         "spacing/0-5": {
           "type": "FLOAT",
-          "values": { "Value": 2 },
+          "values": { "Value": 4 },
           "description": "2px. 글자와 작은 아이콘처럼 거의 붙어 있는 요소 사이."
         },
         "spacing/1": {
@@ -393,12 +434,12 @@
         },
         "radius/sm": {
           "type": "FLOAT",
-          "values": { "Value": 6 },
+          "values": { "Value": 8 },
           "description": "6px. 배지, 체크박스, 선택 목록 항목처럼 작은 요소."
         },
         "radius/md": {
           "type": "FLOAT",
-          "values": { "Value": 10 },
+          "values": { "Value": 12 },
           "description": "10px. 버튼, 입력칸, 칩, 토스트."
         },
         "radius/lg": {
@@ -408,14 +449,15 @@
         },
         "radius/xl": {
           "type": "FLOAT",
-          "values": { "Value": 24 },
+          "values": { "Value": 16 },
           "description": "24px. 바텀시트 위쪽 모서리."
         },
         "radius/full": {
           "type": "FLOAT",
           "values": { "Value": 9999 },
           "description": "알약·원 모양. 라디오, 스위치, 진행 막대, 아바타."
-        }
+        },
+        "radius/field": { "type": "FLOAT", "values": { "Value": 8 } }
       }
     },
     "Icon": {
@@ -475,7 +517,7 @@
         },
         "layout/page-margin": {
           "type": "FLOAT",
-          "values": { "Mobile": 16, "Tablet": 24, "Desktop": 40 },
+          "values": { "Mobile": 20, "Tablet": 24, "Desktop": 40 },
           "description": "화면 양옆 바깥 여백이에요."
         },
         "layout/gutter": {
@@ -514,7 +556,7 @@
         },
         "typography/display-l/line-height": {
           "type": "FLOAT",
-          "values": { "Mobile": 52, "Tablet": 60, "Desktop": 68 }
+          "values": { "Mobile": 48, "Tablet": 60, "Desktop": 68 }
         },
         "typography/display-m/size": {
           "type": "FLOAT",
@@ -542,11 +584,11 @@
         },
         "typography/heading-l/size": {
           "type": "FLOAT",
-          "values": { "Mobile": 22, "Tablet": 24, "Desktop": 18 }
+          "values": { "Mobile": 24, "Tablet": 24, "Desktop": 18 }
         },
         "typography/heading-l/line-height": {
           "type": "FLOAT",
-          "values": { "Mobile": 30, "Tablet": 32, "Desktop": 26 }
+          "values": { "Mobile": 32, "Tablet": 32, "Desktop": 26 }
         },
         "typography/heading-m/size": {
           "type": "FLOAT",
@@ -570,7 +612,7 @@
         },
         "typography/body-m/line-height": {
           "type": "FLOAT",
-          "values": { "Mobile": 22, "Tablet": 24, "Desktop": 22 }
+          "values": { "Mobile": 20, "Tablet": 24, "Desktop": 22 }
         },
         "typography/label-tag/size": {
           "type": "FLOAT",
@@ -582,11 +624,11 @@
         },
         "typography/body-l/size": {
           "type": "FLOAT",
-          "values": { "Mobile": 14, "Tablet": 17, "Desktop": 14 }
+          "values": { "Mobile": 16, "Tablet": 17, "Desktop": 14 }
         },
         "typography/body-l/line-height": {
           "type": "FLOAT",
-          "values": { "Mobile": 22, "Tablet": 28, "Desktop": 22 }
+          "values": { "Mobile": 24, "Tablet": 28, "Desktop": 22 }
         },
         "typography/body-s/size": {
           "type": "FLOAT",
@@ -594,18 +636,18 @@
         },
         "typography/body-s/line-height": {
           "type": "FLOAT",
-          "values": { "Mobile": 22, "Tablet": 20, "Desktop": 22 }
+          "values": { "Mobile": 20, "Tablet": 20, "Desktop": 22 }
         }
       }
     }
   },
   "textStyles": [
     {
-      "name": "Display/L",
+      "name": "Number/M",
       "fontFamily": "Barlow Condensed",
       "fontWeight": 700,
       "fontSize": 48,
-      "lineHeight": 52,
+      "lineHeight": 48,
       "letterSpacingPercent": -0.5,
       "bound": {
         "lineHeight": "typography/display-l/line-height",
@@ -613,7 +655,7 @@
       }
     },
     {
-      "name": "Display/M",
+      "name": "Number/S",
       "fontFamily": "Barlow Condensed",
       "fontWeight": 700,
       "fontSize": 32,
@@ -625,7 +667,7 @@
       }
     },
     {
-      "name": "Display/S",
+      "name": "보관/Display-S (쓰지 않음)",
       "fontFamily": "Barlow Condensed",
       "fontWeight": 600,
       "fontSize": 24,
@@ -637,7 +679,7 @@
       }
     },
     {
-      "name": "Heading/XL",
+      "name": "Title1",
       "fontFamily": "Noto Sans KR",
       "fontWeight": 700,
       "fontSize": 28,
@@ -649,47 +691,47 @@
       }
     },
     {
-      "name": "Heading/L",
+      "name": "Title2",
       "fontFamily": "Noto Sans KR",
       "fontWeight": 700,
-      "fontSize": 22,
-      "lineHeight": 30,
-      "letterSpacingPercent": -2,
+      "fontSize": 24,
+      "lineHeight": 32,
+      "letterSpacingPercent": -2.5,
       "bound": {
         "lineHeight": "typography/heading-l/line-height",
         "fontSize": "typography/heading-l/size"
       }
     },
     {
-      "name": "Heading/M",
+      "name": "Title3",
       "fontFamily": "Noto Sans KR",
       "fontWeight": 700,
       "fontSize": 20,
       "lineHeight": 28,
-      "letterSpacingPercent": -2,
+      "letterSpacingPercent": -2.5,
       "bound": {
         "lineHeight": "typography/heading-m/line-height",
         "fontSize": "typography/heading-m/size"
       }
     },
     {
-      "name": "Heading/S",
+      "name": "Body1/Bold",
       "fontFamily": "Noto Sans KR",
       "fontWeight": 700,
       "fontSize": 16,
       "lineHeight": 24,
-      "letterSpacingPercent": -1.5,
+      "letterSpacingPercent": -1,
       "bound": {
         "lineHeight": "typography/heading-s/line-height",
         "fontSize": "typography/heading-s/size"
       }
     },
     {
-      "name": "Body/L",
+      "name": "Body1/Regular",
       "fontFamily": "Noto Sans KR",
       "fontWeight": 400,
-      "fontSize": 14,
-      "lineHeight": 22,
+      "fontSize": 16,
+      "lineHeight": 24,
       "letterSpacingPercent": -1,
       "bound": {
         "lineHeight": "typography/body-l/line-height",
@@ -697,11 +739,11 @@
       }
     },
     {
-      "name": "Body/M",
+      "name": "보관/Body-M (Body2/Regular와 같음)",
       "fontFamily": "Noto Sans KR",
       "fontWeight": 400,
       "fontSize": 14,
-      "lineHeight": 22,
+      "lineHeight": 20,
       "letterSpacingPercent": -1,
       "bound": {
         "lineHeight": "typography/body-m/line-height",
@@ -709,11 +751,11 @@
       }
     },
     {
-      "name": "Body/S",
+      "name": "Body2/Regular",
       "fontFamily": "Noto Sans KR",
       "fontWeight": 400,
       "fontSize": 14,
-      "lineHeight": 22,
+      "lineHeight": 20,
       "letterSpacingPercent": -1,
       "bound": {
         "lineHeight": "typography/body-s/line-height",
@@ -721,25 +763,25 @@
       }
     },
     {
-      "name": "Label/L",
+      "name": "Body1/Medium",
       "fontFamily": "Noto Sans KR",
       "fontWeight": 500,
       "fontSize": 16,
-      "lineHeight": 22,
+      "lineHeight": 24,
       "letterSpacingPercent": -1,
       "bound": {}
     },
     {
-      "name": "Label/L Strong",
+      "name": "보관/Label-L Strong (Body1/Bold와 같음)",
       "fontFamily": "Noto Sans KR",
       "fontWeight": 700,
       "fontSize": 16,
-      "lineHeight": 22,
+      "lineHeight": 24,
       "letterSpacingPercent": -1,
       "bound": {}
     },
     {
-      "name": "Label/M",
+      "name": "Body2/Medium",
       "fontFamily": "Noto Sans KR",
       "fontWeight": 500,
       "fontSize": 14,
@@ -748,7 +790,7 @@
       "bound": {}
     },
     {
-      "name": "Label/S",
+      "name": "Caption/Medium",
       "fontFamily": "Noto Sans KR",
       "fontWeight": 500,
       "fontSize": 12,
@@ -757,16 +799,16 @@
       "bound": {}
     },
     {
-      "name": "Caption",
+      "name": "Caption/Regular",
       "fontFamily": "Noto Sans KR",
       "fontWeight": 400,
       "fontSize": 12,
-      "lineHeight": 18,
+      "lineHeight": 16,
       "letterSpacingPercent": -1,
       "bound": {}
     },
     {
-      "name": "Display/XL",
+      "name": "Number/L",
       "fontFamily": "Barlow Condensed",
       "fontWeight": 800,
       "fontSize": 64,
@@ -775,7 +817,7 @@
       "bound": {}
     },
     {
-      "name": "Eyebrow",
+      "name": "보관/Eyebrow (쓰지 않음)",
       "fontFamily": "Barlow Condensed",
       "fontWeight": 600,
       "fontSize": 14,
@@ -784,7 +826,7 @@
       "bound": {}
     },
     {
-      "name": "Label/Tag",
+      "name": "보관/Label-Tag (Caption/Medium로 대체)",
       "fontFamily": "Noto Sans KR",
       "fontWeight": 700,
       "fontSize": 12,
@@ -796,7 +838,7 @@
       }
     },
     {
-      "name": "Label/Strong",
+      "name": "Body2/Bold",
       "fontFamily": "Noto Sans KR",
       "fontWeight": 700,
       "fontSize": 14,

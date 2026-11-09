@@ -29,8 +29,8 @@ export function TimerBar({ message, remainingSeconds, className }: TimerBarProps
         className,
       )}
     >
-      <p className="text-body-s">{message}</p>
-      <p className="text-heading-s tabular-nums">{formatTimer(remainingSeconds)}</p>
+      <p className="text-body2-regular">{message}</p>
+      <p className="text-body1-bold tabular-nums">{formatTimer(remainingSeconds)}</p>
     </div>
   )
 }

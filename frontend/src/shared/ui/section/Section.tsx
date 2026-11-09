@@ -17,7 +17,7 @@ export function Section({ title, aside, className, children }: SectionProps) {
     <section className={cn('flex flex-col gap-4 bg-bg-surface px-4 py-6', className)}>
       {(title || aside) && (
         <div className="flex items-center justify-between gap-2">
-          {title && <h2 className="text-heading-m">{title}</h2>}
+          {title && <h2 className="text-title3">{title}</h2>}
           {aside}
         </div>
       )}

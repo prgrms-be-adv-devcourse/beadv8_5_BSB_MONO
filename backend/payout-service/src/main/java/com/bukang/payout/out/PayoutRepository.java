@@ -52,6 +52,11 @@ public interface PayoutRepository extends JpaRepository<Payout, Long> {
 	// 대회 취소 처리 · 정산 대사: 그 대회의 정산 내역 전부 (지급 전은 취소로 닫고, 지급 완료는 회수액에 더한다)
 	List<Payout> findByRaceId(long raceId);
 
+	// 정산 ID(ST-)로 찾기 (BUK-109): 관리자는 전체에서, 판매자는 자기 정산 내역 안에서만 찾는다. payout_code는 유일하다
+	Optional<Payout> findByPayoutCode(String payoutCode);
+
+	Optional<Payout> findBySellerIdAndPayoutCode(long sellerId, String payoutCode);
+
 	// 지급 배치: 지급 예정일이 오늘이거나 지난 정산 내역 (지난 날을 놓쳐도 다음 실행에서 따라잡는다)
 	List<Payout> findByStatusAndScheduledPayDateLessThanEqual(PayoutStatus status, LocalDate date);
 

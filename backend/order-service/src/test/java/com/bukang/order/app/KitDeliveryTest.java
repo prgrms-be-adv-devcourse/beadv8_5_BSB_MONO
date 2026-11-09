@@ -706,7 +706,7 @@ class KitDeliveryTest {
 		long orderId = paidOrder();
 
 		OrderPayResult again = transactionTemplate.execute(status ->
-			orderPayUseCase.pay(MEMBER_ID, orderId, LocalDateTime.now()));
+			orderPayUseCase.pay(MEMBER_ID, orderId, List.of(), LocalDateTime.now()));
 
 		assertThat(again.alreadyPaid()).isTrue();
 		assertThat(shipmentsOf(orderId)).hasSize(1);
@@ -1019,7 +1019,7 @@ class KitDeliveryTest {
 
 	private long paidOrder(long memberId, long courseId) throws Exception {
 		long orderId = createOrder(memberId, courseId);
-		transactionTemplate.execute(status -> orderPayUseCase.pay(memberId, orderId, LocalDateTime.now()));
+		transactionTemplate.execute(status -> orderPayUseCase.pay(memberId, orderId, List.of(), LocalDateTime.now()));
 		return orderId;
 	}
 

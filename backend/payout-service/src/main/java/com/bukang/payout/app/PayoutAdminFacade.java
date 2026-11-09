@@ -11,6 +11,7 @@ import com.bukang.payout.domain.PayoutClaimStatus;
 import com.bukang.payout.domain.PayoutHoldReason;
 import com.bukang.payout.dto.PayoutAdminClaimsDto;
 import com.bukang.payout.dto.PayoutClaimDto;
+import com.bukang.payout.dto.PayoutDto;
 import com.bukang.payout.dto.PayoutHoldDto;
 
 import lombok.RequiredArgsConstructor;
@@ -40,6 +41,11 @@ public class PayoutAdminFacade {
 	public PayoutHoldDto release(long memberId, long holdId, LocalDateTime now) {
 		payoutAdminVerifyUseCase.verify(memberId);
 		return payoutHoldUseCase.release(holdId, memberId, now);
+	}
+
+	public PayoutDto findPayout(long memberId, String payoutCode) {
+		payoutAdminVerifyUseCase.verify(memberId);
+		return payoutHoldUseCase.findPayout(payoutCode);
 	}
 
 	// 청구 입금 확인: 판매자가 청구 금액을 보낸 것을 관리자가 확인한다 (선 환불 후 회수 R4 · R5)

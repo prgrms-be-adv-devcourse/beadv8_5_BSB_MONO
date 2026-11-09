@@ -187,7 +187,7 @@ export const CropDialog: Story = {
       <>
         <button
           type="button"
-          className="text-label-m text-text-brand"
+          className="text-body2-medium text-text-brand"
           onClick={() => setOpen(true)}
         >
           창 열기
@@ -212,7 +212,7 @@ export const SelectDialog: Story = {
       <>
         <button
           type="button"
-          className="text-label-m text-text-brand"
+          className="text-body2-medium text-text-brand"
           onClick={() => setOpen(true)}
         >
           창 열기
@@ -260,7 +260,7 @@ export const ListDialog: Story = {
       <>
         <button
           type="button"
-          className="text-label-m text-text-brand"
+          className="text-body2-medium text-text-brand"
           onClick={() => setOpen(true)}
         >
           창 열기

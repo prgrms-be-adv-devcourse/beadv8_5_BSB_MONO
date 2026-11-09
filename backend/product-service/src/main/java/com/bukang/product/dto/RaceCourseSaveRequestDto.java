@@ -5,7 +5,6 @@ import java.util.List;
 
 import com.bukang.product.domain.CourseSurface;
 import com.bukang.product.domain.CourseType;
-import com.bukang.product.domain.TshirtSize;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
@@ -67,12 +66,6 @@ public class RaceCourseSaveRequestDto {
 	@PositiveOrZero(message = "키트 금액은 0원 이상이어야 합니다.")
 	private final Long kitPrice;
 
-	// 세미는 키트 중 티셔츠만 사이즈를 받는다. 참가 신청 화면은 이 목록 안에서 참가자에게 사이즈를 고르게 한다
-	// (주문 서비스가 고른 사이즈를 이 목록과 맞춰 보는 확인은 아직 없다)
-	@Schema(description = "이 종목이 제공하는 기념 티셔츠 사이즈 (XS, S, M, L, XL, XXL, XXXL 중에서 고른다. "
-		+ "순서는 상관없이 작은 사이즈부터 저장하며, 비우거나 보내지 않으면 티셔츠 없음)", example = "[\"S\", \"M\", \"L\", \"XL\"]")
-	private final List<@NotNull(message = "티셔츠 사이즈를 작성해주세요.") TshirtSize> tshirtSizeOption;
-
 	// 대회 당일 만 나이. 최소 나이는 만 14세보다 낮게 정할 수 없다 (listing-gaps.md 2장 '등록 정보')
 	@Schema(description = "참가 최소 나이 (대회 당일 만 나이)", example = "14")
 	@NotNull(message = "참가 최소 나이를 작성해주세요.")
@@ -95,9 +88,4 @@ public class RaceCourseSaveRequestDto {
 	@Schema(description = "종목 이미지 목록 (대표 이미지 1장 필수, 소개 이미지·소개 영상·코스 안내·키트 이미지는 선택)")
 	@NotNull(message = "종목 이미지 목록을 작성해주세요.")
 	private final List<@Valid @NotNull(message = "이미지 항목을 작성해주세요.") RaceImageRequestDto> images;
-
-	// 보내지 않으면 티셔츠가 없는 종목으로 본다
-	public List<TshirtSize> getTshirtSizeOption() {
-		return tshirtSizeOption == null ? List.of() : tshirtSizeOption;
-	}
 }

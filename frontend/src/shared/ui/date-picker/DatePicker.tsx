@@ -153,7 +153,7 @@ const DAY_PICKER_CLASSES = {
   month_caption: 'sr-only',
   month_grid: 'w-full table-fixed border-collapse',
   // 요일 줄 32 + 날짜 칸과의 간격 8
-  weekday: 'h-10 pb-2 text-label-m text-text-tertiary',
+  weekday: 'h-10 pb-2 text-body2-medium text-text-tertiary',
   day: 'p-0',
 }
 
@@ -170,7 +170,6 @@ type HeaderProps = {
 }
 
 // 피그마 DatePicker/Header. 연·월을 누르면 휠이 열리고, 고를 수 있는 첫 달에서는 이전 버튼을 막는다.
-// 모서리 8은 피그마 Radius 변수에 없는 값이라 그대로 적었다.
 function Header({
   label,
   wheelOpen,
@@ -190,7 +189,7 @@ function Header({
         aria-label={`${label}, 연·월 고르기`}
         onClick={onToggleWheel}
         className={cn(
-          'flex items-center gap-1 rounded-md px-1 py-2.5 text-heading-m text-text-primary',
+          'flex items-center gap-1 rounded-md px-1 py-2.5 text-title3 text-text-primary',
           FOCUS_RING,
         )}
       >
@@ -275,7 +274,7 @@ function WeekRow({
             <th
               key={d.toDateString()}
               scope="col"
-              className="h-10 pb-2 text-label-m text-text-tertiary"
+              className="h-10 pb-2 text-body2-medium text-text-tertiary"
             >
               {format(d, 'EEEEE', { locale: ko })}
             </th>
@@ -490,9 +489,7 @@ export function DatePicker(props: DatePickerProps) {
 
       {footer && (
         <div className="flex items-center gap-3 pt-2">
-          <span className="min-w-0 flex-1 truncate text-label-strong text-text-primary">
-            {text}
-          </span>
+          <span className="min-w-0 flex-1 truncate text-body2-bold text-text-primary">{text}</span>
           <Button onClick={footer.onConfirm}>{footer.confirmLabel ?? '선택 완료'}</Button>
         </div>
       )}

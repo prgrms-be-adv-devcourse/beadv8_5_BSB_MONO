@@ -29,7 +29,10 @@ public class SellerKitDto {
 	// 주문 당시 종목 이름
 	private final String courseName;
 	private final String participantName;
+	// 옛 티셔츠 사이즈 칸. 키트 옵션(kitOptions)으로 옮기는 동안만 둔다. 옵션을 고른 신청은 kitOptions를 본다
 	private final String tshirtSize;
+	// 결제 때 고른 키트 옵션 사본 (이름·값, 고른 순). 옵션 전에 결제한 신청은 비어 있고 tshirtSize를 쓴다
+	private List<KitOptionChoiceDto> kitOptions = List.of();
 	private final ShippingAddressDto shippingAddress;
 	private final KitDeliveryStatus kitDeliveryStatus;
 	private final String kitCarrier;
@@ -40,6 +43,8 @@ public class SellerKitDto {
 	private KitTrackingDto kitTracking;
 	@JsonIgnore
 	private final long shipmentId;
+	@JsonIgnore
+	private final long participationId;
 
 	// JPQL 생성자 조회용
 	public SellerKitDto(long orderItemId, String orderNo, OrderItemStatus orderItemStatus, long raceId,
@@ -48,7 +53,7 @@ public class SellerKitDto {
 		ShipmentStatus shipmentStatus, String kitCarrier, String kitTrackingNumber,
 		LocalDateTime kitShippedAt, LocalDateTime kitDeliveredAt,
 		long shipmentId, String carrierId, DeliveryTrackingStatus trackingStatus, String trackingStatusText,
-		LocalDateTime lastEventAt, LocalDateTime lastTrackedAt) {
+		LocalDateTime lastEventAt, LocalDateTime lastTrackedAt, long participationId) {
 		this.orderItemId = orderItemId;
 		this.orderNo = orderNo;
 		this.orderItemStatus = orderItemStatus;
@@ -64,8 +69,13 @@ public class SellerKitDto {
 		this.kitShippedAt = kitShippedAt;
 		this.kitDeliveredAt = kitDeliveredAt;
 		this.shipmentId = shipmentId;
+		this.participationId = participationId;
 		this.kitTracking = KitTrackingDto.of(carrierId, trackingStatus, trackingStatusText, lastEventAt, lastTrackedAt,
 			List.of());
+	}
+
+	public void attachKitOptions(List<KitOptionChoiceDto> kitOptions) {
+		this.kitOptions = kitOptions;
 	}
 
 	// 이 줄 배송의 이동 기록(오래된 것부터)을 붙인다

@@ -1,13 +1,11 @@
 package com.bukang.product.dto;
 
 import java.math.BigDecimal;
-import java.util.List;
 
 import com.bukang.product.domain.CourseStatus;
 import com.bukang.product.domain.CourseSurface;
 import com.bukang.product.domain.CourseType;
 import com.bukang.product.domain.RaceCourse;
-import com.bukang.product.domain.TshirtSize;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -29,8 +27,6 @@ public class RaceDetailCourseDto {
 	private final boolean kitIncluded;
 	// 참가비에 포함된 키트 금액
 	private final long kitPrice;
-	// 참가 신청 때 고를 수 있는 티셔츠 사이즈 (비어 있으면 티셔츠 없음)
-	private final List<TshirtSize> tshirtSizeOption;
 	private final CourseStatus status;
 	private final int crewQuota;
 	private final int individualQuota;
@@ -40,8 +36,7 @@ public class RaceDetailCourseDto {
 	public static RaceDetailCourseDto from(RaceCourse course) {
 		return new RaceDetailCourseDto(course.getId(), course.getName(), course.getCourseType(), course.getSurface(),
 			course.getDistanceKm(), course.getTimeLimitMinutes(), course.getMinAge(), course.getMaxAge(),
-			course.getPrice(), course.isKitIncluded(), course.getKitPrice(), course.getTshirtSizeOption(),
-			course.getStatus(), course.getCrewQuota(), course.getIndividualQuota(), course.crewRemaining(),
-			course.individualRemaining());
+			course.getPrice(), course.isKitIncluded(), course.getKitPrice(), course.getStatus(), course.getCrewQuota(),
+			course.getIndividualQuota(), course.crewRemaining(), course.individualRemaining());
 	}
 }

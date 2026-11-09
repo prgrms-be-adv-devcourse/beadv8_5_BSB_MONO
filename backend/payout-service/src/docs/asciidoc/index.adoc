@@ -35,6 +35,16 @@
 [[payout-hold]]
 == 지급보류 (관리자)
 
+[[payout-admin-payout-by-code]]
+=== 정산 ID로 정산 내역 찾기
+
+정산 ID(`ST-`)로 정산 내역 한 건을 찾는다. 응답의 `id`를 지급보류 걸기 경로의 `payoutId`로 쓴다.
+
+operation::payout-admin-payout-by-code[snippets='http-request,request-headers,query-parameters,http-response']
+
+.없는 정산 ID (404)
+include::{snippets}/payout-admin-payout-by-code-not-found/http-response.adoc[]
+
 [[payout-hold-create]]
 === 지급보류 걸기
 
@@ -129,6 +139,16 @@ include::{snippets}/payout-seller-summary-empty/http-response.adoc[]
 정산 월이 기간 안인 정산 내역을 최근 달부터 돌려준다. 시작 달을 포함해 최대 12개월까지 한 번에 조회한다.
 
 operation::payout-seller-payouts[snippets='http-request,request-headers,query-parameters,http-response,response-fields']
+
+==== 정산 ID로 찾기
+
+`code`(정산 ID, `ST-`)를 주면 기간은 보지 않고 내 정산 내역 중 그 한 줄만 돌려준다. 응답 필드는 위와 같다.
+없거나 다른 판매자의 정산 ID면 404다.
+
+operation::payout-seller-payouts-by-code[snippets='http-request,query-parameters,http-response']
+
+.없거나 다른 판매자의 정산 ID (404)
+include::{snippets}/payout-seller-payouts-by-code-not-found/http-response.adoc[]
 
 [[payout-seller-items]]
 === 건별 정산
