@@ -42,6 +42,14 @@ class PartyApplyUseCaseTest {
 	}
 
 	@Test
+	@DisplayName("크루 마감이 정확히 0시면 그 시각이 상한이다 (상품 Race.crewCloseAt과 같다)")
+	void crewEndAtMidnight() {
+		LocalDateTime midnightEnd = LocalDateTime.of(2026, 11, 13, 0, 0);
+		assertThat(dueAt(LocalDateTime.of(2026, 11, 12, 15, 0), midnightEnd, APPLICATION_CLOSE))
+			.isEqualTo(midnightEnd);
+	}
+
+	@Test
 	@DisplayName("접수 마감이 더 이르면 접수 마감에서 자른다")
 	void cappedByApplicationClose() {
 		assertThat(dueAt(LocalDateTime.of(2026, 11, 12, 15, 0), CREW_END, LocalDateTime.of(2026, 11, 12, 20, 0)))

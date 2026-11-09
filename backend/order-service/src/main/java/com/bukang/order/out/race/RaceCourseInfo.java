@@ -2,6 +2,7 @@ package com.bukang.order.out.race;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.Period;
 import java.util.List;
 import java.util.Objects;
@@ -75,6 +76,15 @@ public record RaceCourseInfo(
 		// 파티 예매 시작 이상, 마감 전
 		public boolean isOpen(LocalDateTime now) {
 			return !now.isBefore(startAt) && now.isBefore(endAt);
+		}
+
+		// 크루 자리를 닫는 시각 = 결제 기한 상한. 마감이 정확히 0시면 그 시각, 아니면 마감일 다음 날 0시
+		// 상품 Race.crewCloseAt(#357)과 같아야 한다. 상품 배치가 이 시각에 결제 대기 크루 자리를 모두 풀기 때문이다
+		public LocalDateTime closeAt() {
+			if (endAt.toLocalTime().equals(LocalTime.MIDNIGHT)) {
+				return endAt;
+			}
+			return endAt.toLocalDate().plusDays(1).atStartOfDay();
 		}
 
 		// 이 시각까지 크루에 가입한 사람만 파티로 신청할 수 있다

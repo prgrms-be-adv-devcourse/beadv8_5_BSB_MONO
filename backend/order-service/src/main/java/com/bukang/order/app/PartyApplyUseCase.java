@@ -138,9 +138,9 @@ public class PartyApplyUseCase {
 	// 크루 마감 시각(예: 19:00) 뒤에는 새 신청만 막고, 이미 신청한 파티는 그날 자정까지 결제한다 (상품이 이 기한으로 결제·반환을 판정)
 	static LocalDateTime paymentDueAt(RaceCourseInfo course, CrewSale crewSale, LocalDateTime now) {
 		LocalDateTime dueAt = now.plus(PAYMENT_WINDOW);
-		LocalDateTime crewEndDayMidnight = crewSale.endAt().toLocalDate().plusDays(1).atStartOfDay();
-		if (crewEndDayMidnight.isBefore(dueAt)) {
-			dueAt = crewEndDayMidnight;
+		LocalDateTime crewCloseAt = crewSale.closeAt();
+		if (crewCloseAt.isBefore(dueAt)) {
+			dueAt = crewCloseAt;
 		}
 		if (course.applicationCloseAt().isBefore(dueAt)) {
 			dueAt = course.applicationCloseAt();
