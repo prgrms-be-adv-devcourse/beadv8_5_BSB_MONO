@@ -36,6 +36,8 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.common.shared.member.web.MemberIdHeader;
 import com.bukang.member.app.MemberFacade;
@@ -82,6 +84,8 @@ class ApiV1CrewTest {
 	private CrewInviteRepository crewInviteRepository;
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
+	@Autowired
+	private PlatformTransactionManager transactionManager;
 
 	@MockitoBean
 	private Clock clock;
@@ -432,6 +436,44 @@ class ApiV1CrewTest {
 
 		assertThat(statuses).containsExactlyInAnyOrder(201, 409);
 		assertThat(crewMemberRepository.countByCrewId(crewId)).isEqualTo(2);
+	}
+
+	@Test
+	@DisplayName("가입이 초대를 읽은 뒤 크루 락을 기다리는 사이 취소가 커밋되면, 그 가입은 410 CREW_INVITE_CANCELED이다")
+	void cancelCommittedWhileJoinWaitsBlocksJoin() throws Exception {
+		long crewId = createCrew(leaderId, "새벽한강크루");
+		String token = createInvite(crewId, leaderId);
+		long inviteId = onlyInviteId();
+		TransactionTemplate tx = new TransactionTemplate(transactionManager);
+		CountDownLatch crewLocked = new CountDownLatch(1);
+		CountDownLatch release = new CountDownLatch(1);
+		ExecutorService executor = Executors.newFixedThreadPool(2);
+		try {
+			// 다른 트랜잭션이 크루 행을 잡고 있어, 가입은 초대를 읽은 뒤 크루 락에서 기다린다
+			Future<?> holder = executor.submit(() -> tx.executeWithoutResult(status -> {
+				jdbcTemplate.queryForList("select crew_id from member_crew where crew_id = ? for update", crewId);
+				crewLocked.countDown();
+				try {
+					release.await(10, TimeUnit.SECONDS);
+				} catch (InterruptedException exception) {
+					Thread.currentThread().interrupt();
+				}
+			}));
+			crewLocked.await(10, TimeUnit.SECONDS);
+			Future<Integer> joining = executor.submit(() -> join(otherId, token).andReturn().getResponse().getStatus());
+			// shortcut: 가입이 초대를 읽고 크루 락에 닿을 때까지 시간으로 기다린다. 흔들리면 멈춤 지점을 넣는다
+			Thread.sleep(500);
+			mockMvc.perform(delete(INVITE, crewId, inviteId).header(MemberIdHeader.NAME, leaderId))
+				.andExpect(status().isOk());
+			release.countDown();
+			holder.get(10, TimeUnit.SECONDS);
+
+			assertThat(joining.get(10, TimeUnit.SECONDS)).isEqualTo(410);
+			assertThat(crewMemberRepository.existsByCrewIdAndMemberId(crewId, otherId)).isFalse();
+		} finally {
+			release.countDown();
+			executor.shutdownNow();
+		}
 	}
 
 	@Test
