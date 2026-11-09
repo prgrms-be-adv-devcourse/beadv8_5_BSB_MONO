@@ -43,6 +43,7 @@ public class CashChargeConfirmUseCase {
 	private final WalletLedgerRepository walletLedgerRepository;
 	private final PaymentClient paymentClient;
 	private final TransactionTemplate transactionTemplate;
+	private final NewAccountChargeReviewGuard newAccountChargeReviewGuard;
 
 	public CashChargeResponseDto confirmWalletCharge(long customerId, String paymentKey, String orderId, long amount) {
 		if (amount < CashChargePolicy.MINIMUM_AMOUNT) {
@@ -169,6 +170,7 @@ public class CashChargeConfirmUseCase {
 		existing.markCompleted(result.pgPaymentKey(), LocalDateTime.now(), result.approvedAt());
 		walletLedgerRepository.save(customerWallet.credit(
 			result.approvedAmount(), LedgerType.충전__PG결제_토스페이먼츠, existing));
+		newAccountChargeReviewGuard.checkAndFlag(existing, customerWallet.getHolder());
 		return CashChargeResponseDto.completed(customerWallet.getBalance());
 	}
 
