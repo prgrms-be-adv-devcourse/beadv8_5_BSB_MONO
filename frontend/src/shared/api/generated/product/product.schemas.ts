@@ -30,19 +30,6 @@ export const RaceCourseSaveRequestDtoSurface = {
   TRAIL: 'TRAIL',
 } as const;
 
-export type RaceCourseSaveRequestDtoTshirtSizeOptionItem = typeof RaceCourseSaveRequestDtoTshirtSizeOptionItem[keyof typeof RaceCourseSaveRequestDtoTshirtSizeOptionItem];
-
-
-export const RaceCourseSaveRequestDtoTshirtSizeOptionItem = {
-  XS: 'XS',
-  S: 'S',
-  M: 'M',
-  L: 'L',
-  XL: 'XL',
-  XXL: 'XXL',
-  XXXL: 'XXXL',
-} as const;
-
 /**
  * 파일 용도 (업로드 URL 발급 때 정한 값)
  */
@@ -114,8 +101,6 @@ export interface RaceCourseSaveRequestDto {
      * @minimum 0
      */
   kitPrice: number;
-  /** 이 종목이 제공하는 기념 티셔츠 사이즈 (XS, S, M, L, XL, XXL, XXXL 중에서 고른다. 순서는 상관없이 작은 사이즈부터 저장하며, 비우거나 보내지 않으면 티셔츠 없음) */
-  tshirtSizeOption?: RaceCourseSaveRequestDtoTshirtSizeOptionItem[];
   /**
      * 참가 최소 나이 (대회 당일 만 나이)
      * @minimum 14
@@ -173,7 +158,7 @@ export interface RaceSaveRequestDto {
   crewSaleStartAt?: string;
   /** 크루 예매 마감 일시 (크루 예매 시작보다 늦게) */
   crewSaleEndAt?: string;
-  /** 개인 예매 오픈 일시 (크루 예매가 있으면 크루 마감일 다음 날 06:00 이후). 크루 예매가 없으면 이 날짜가 판매 시작일이 되며, 오늘로부터 이틀 뒤부터 */
+  /** 개인 예매 오픈 일시 (크루 예매가 있으면 크루 예매 마감일의 자정 이후). 크루 예매가 없으면 이 날짜가 판매 시작일이 되며, 오늘로부터 이틀 뒤부터 */
   individualOpenAt: string;
   /** 접수 마감 일시 (참가자 정보 수정 기한, 대회 일시 이전) */
   applicationCloseAt: string;
@@ -182,8 +167,8 @@ export interface RaceSaveRequestDto {
   /** 취소·환불 안내 글 */
   refundPolicy?: string;
   /**
-     * 크루 최소 인원
-     * @minimum 5
+     * 크루 최소 인원 (4명 이상, 11/05 회의 P3)
+     * @minimum 4
      */
   crewMinCount: number;
   /** 크루 최대 인원 (비우면 상한 없음, 최소 인원 이상) */
@@ -200,6 +185,112 @@ export interface RsData {
   code?: string;
   message?: string;
   data?: unknown;
+}
+
+/**
+ * 키트 옵션 등록·수정 요청 (옵션 하나 = 이름 + 값)
+ */
+export interface KitOptionSaveRequestDto {
+  /**
+     * 옵션 이름 (50자 이하). 같은 이름끼리 묶여 구매자가 하나를 고른다
+     * @minLength 0
+     * @maxLength 50
+     */
+  name: string;
+  /**
+     * 옵션 값 (50자 이하)
+     * @minLength 0
+     * @maxLength 50
+     */
+  value: string;
+  /**
+     * 준비 수량 (비우면 맞춤 제작이라 품절 없음, 숫자면 준비한 브랜드 상품 수). 판매 시작 뒤에는 늘리기만 하고, 맞춤 제작과 준비 수량 사이에서 바꿀 수 없다
+     * @minimum 0
+     * @nullable
+     */
+  stock?: number | null;
+}
+
+/**
+ * 키트 옵션 등록·수정 요청 (대회의 키트 옵션 전체)
+ */
+export interface KitOptionsSaveRequestDto {
+  /** 키트 옵션 목록. 등록할 때는 1개 이상이고, 수정할 때는 바꾼 뒤의 목록 전체를 보낸다 (빈 목록이면 옵션을 모두 뺀다. 판매 시작 뒤에는 뺄 수 없다) */
+  kitOptions: KitOptionSaveRequestDto[];
+}
+
+/**
+ * DLT 메시지 처리 완료 요청
+ */
+export interface DltCompleteRequestDto {
+  /**
+     * 처리 완료 메모 (무엇을 했는지, 500자 이하)
+     * @minLength 0
+     * @maxLength 500
+     */
+  memo: string;
+}
+
+/**
+ * 개인 자리 확보 요청 (주문 서비스가 [결제하기] 때 보낸다)
+ */
+export interface HoldRequestDto {
+  /**
+     * 종목 ID
+     * @minimum 0
+     */
+  raceCourseId: number;
+  /**
+     * 주문 서비스의 참가 신청 ID (같은 값으로 다시 요청하면 처음 결과를 돌려준다)
+     * @minimum 0
+     */
+  participationId: number;
+  /** 임시 확보 끝 시각 (대기열 활성 시간이 끝나는 시각, 지금보다 늦어야 한다) */
+  expiresAt: string;
+}
+
+/**
+ * 잡을 크루 자리 1석
+ */
+export interface CrewHoldSeatDto {
+  /**
+     * 주문 서비스의 참가 신청 ID (자리 1석 = 참가 신청 1건)
+     * @minimum 0
+     */
+  participationId: number;
+  /**
+     * 종목 ID
+     * @minimum 0
+     */
+  raceCourseId: number;
+}
+
+/**
+ * 크루 자리 확보 요청 (주문 서비스가 파티장의 [대회 참가] 때 파티원 수만큼 한꺼번에 보낸다)
+ */
+export interface CrewHoldRequestDto {
+  /**
+     * 주문 서비스의 파티 ID (같은 값으로 다시 요청하면 처음 결과를 돌려준다)
+     * @minimum 0
+     */
+  partyId: number;
+  /**
+     * 파티의 크루 ID
+     * @minimum 0
+     */
+  crewId: number;
+  /**
+     * 대회 ID
+     * @minimum 0
+     */
+  raceId: number;
+  /** 자리를 잡아 둘 끝 시각 (파티원 결제 기한, 지금보다 늦어야 한다) */
+  expiresAt: string;
+  /**
+     * 잡을 자리 목록 (파티원 1명 = 자리 1석)
+     * @minItems 1
+     */
+  seats: CrewHoldSeatDto[];
 }
 
 export type RaceSummaryDtoSaleStatus = typeof RaceSummaryDtoSaleStatus[keyof typeof RaceSummaryDtoSaleStatus];
@@ -461,6 +552,32 @@ export interface SellerRaceDto {
   courses?: SellerRaceCourseDto[];
 }
 
+export interface KitOptionValueDto {
+  kitOptionId: number;
+  value: string;
+  /**
+     * 준비 수량. null이면 맞춤 제작이라 품절 없음
+     * @nullable
+     */
+  stock?: number | null;
+}
+
+/**
+ * 이름이 같은 옵션 묶음. 구매자는 values 중 하나를 고른다
+ */
+export interface KitOptionGroupDto {
+  name: string;
+  values: KitOptionValueDto[];
+}
+
+/**
+ * 대회의 키트 옵션 목록 (등록·수정·조회가 같은 모양)
+ */
+export interface KitOptionListDto {
+  raceId: number;
+  kitOptions: KitOptionGroupDto[];
+}
+
 export interface RsDataRaceDetailDto {
   status?: number;
   message?: string;
@@ -471,6 +588,12 @@ export interface RsDataRaceSaveDto {
   status?: number;
   message?: string;
   data?: RaceSaveDto;
+}
+
+export interface RsDataKitOptionListDto {
+  status?: number;
+  message?: string;
+  data?: KitOptionListDto;
 }
 
 export interface RsDataRacePageDto {
@@ -579,6 +702,50 @@ export const SearchSort = {
   RACE_DATE: 'RACE_DATE',
   LATEST: 'LATEST',
   PRICE: 'PRICE',
+} as const;
+
+export type FindByRefundDeadlineParams = {
+/**
+ * 조회 시작 환불 마감일 (yyyy-MM-dd, 포함)
+ */
+from: string;
+/**
+ * 조회 끝 환불 마감일 (yyyy-MM-dd, 포함)
+ */
+to: string;
+};
+
+export type FindByRaceDateParams = {
+/**
+ * 조회 시작 대회 날짜 (yyyy-MM-dd, 포함)
+ */
+from: string;
+/**
+ * 조회 끝 대회 날짜 (yyyy-MM-dd, 포함)
+ */
+to: string;
+};
+
+export type ListParams = {
+/**
+ * 상태 (FAILED 처리 실패, RESENT 다시 보냄, COMPLETED 처리 완료)
+ */
+status?: ListStatus;
+/**
+ * 조회 건수 (1~100)
+ * @minimum 1
+ * @maximum 100
+ */
+size?: number;
+};
+
+export type ListStatus = typeof ListStatus[keyof typeof ListStatus];
+
+
+export const ListStatus = {
+  FAILED: 'FAILED',
+  RESENT: 'RESENT',
+  COMPLETED: 'COMPLETED',
 } as const;
 
 export type SuggestParams = {

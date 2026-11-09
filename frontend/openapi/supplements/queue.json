@@ -17,5 +17,31 @@
       }
     }
   },
-  "schemas": {}
+  "schemas": {
+    "QueueStatusDto": {
+      "type": "object",
+      "description": "대기열 상태. 등록과 순번 조회가 같은 모양이다",
+      "properties": {
+        "myRank": {
+          "type": "integer",
+          "format": "int64",
+          "description": "내 순번 (1부터)"
+        },
+        "ahead": {
+          "type": "integer",
+          "format": "int64",
+          "description": "내 앞에서 기다리는 인원"
+        },
+        "total": {
+          "type": "integer",
+          "format": "int64",
+          "description": "줄 전체 인원"
+        },
+        "canEnter": {
+          "type": "boolean",
+          "description": "입장할 수 있는지 (active로 승격됐는지)"
+        }
+      }
+    }
+  }
 }

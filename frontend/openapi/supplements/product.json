@@ -58,6 +58,30 @@
           }
         }
       }
+    },
+    "findKitOptions": {
+      "200": {
+        "wrapper": "RsDataKitOptionListDto",
+        "data": {
+          "$ref": "#/components/schemas/KitOptionListDto"
+        }
+      }
+    },
+    "registerKitOptions": {
+      "201": {
+        "wrapper": "RsDataKitOptionListDto",
+        "data": {
+          "$ref": "#/components/schemas/KitOptionListDto"
+        }
+      }
+    },
+    "updateKitOptions": {
+      "200": {
+        "wrapper": "RsDataKitOptionListDto",
+        "data": {
+          "$ref": "#/components/schemas/KitOptionListDto"
+        }
+      }
     }
   },
   "schemas": {
@@ -577,6 +601,67 @@
         "sold": {
           "type": "integer",
           "format": "int32"
+        }
+      }
+    },
+    "KitOptionListDto": {
+      "type": "object",
+      "description": "대회의 키트 옵션 목록 (등록·수정·조회가 같은 모양)",
+      "required": [
+        "raceId",
+        "kitOptions"
+      ],
+      "properties": {
+        "raceId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "kitOptions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/KitOptionGroupDto"
+          }
+        }
+      }
+    },
+    "KitOptionGroupDto": {
+      "type": "object",
+      "description": "이름이 같은 옵션 묶음. 구매자는 values 중 하나를 고른다",
+      "required": [
+        "name",
+        "values"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "values": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/KitOptionValueDto"
+          }
+        }
+      }
+    },
+    "KitOptionValueDto": {
+      "type": "object",
+      "required": [
+        "kitOptionId",
+        "value"
+      ],
+      "properties": {
+        "kitOptionId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "value": {
+          "type": "string"
+        },
+        "stock": {
+          "type": "integer",
+          "format": "int32",
+          "nullable": true,
+          "description": "준비 수량. null이면 맞춤 제작이라 품절 없음"
         }
       }
     }
