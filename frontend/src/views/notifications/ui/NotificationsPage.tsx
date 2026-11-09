@@ -5,11 +5,17 @@ import { useState } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
 import { LoadErrorBody } from '@/widgets/status-screens'
+import { useNotifications, type Notice } from '@/entities/notification'
 import { cn } from '@/shared/lib'
 import { FOCUS_RING, Icon, Skeleton, Tab, TabBar, Tabs } from '@/shared/ui'
 
-import { useNotifications, type Notice, type NoticeCategory } from '../api/use-notifications'
-import { byOldest, formatShortDate, NOTICE_CATEGORIES } from '../lib/notice'
+import {
+  byOldest,
+  categoryOf,
+  formatShortDate,
+  NOTICE_CATEGORIES,
+  type NoticeCategory,
+} from '../lib/notice'
 import { NoNotice } from './NoNotice'
 import { UnreadCount } from './UnreadCount'
 
@@ -25,7 +31,7 @@ export function NotificationsPage({ empty = false }: { empty?: boolean }) {
   const failed = !empty && notifications.isError
 
   const groups = NOTICE_CATEGORIES.map((category) => {
-    const items = all.filter((n) => n.category === category.value).sort(byOldest)
+    const items = all.filter((n) => categoryOf(n) === category.value).sort(byOldest)
     return { ...category, latest: items.at(-1), unread: items.filter((n) => n.unread).length }
   }).filter((group): group is typeof group & { latest: Notice } => group.latest !== undefined)
   const totalUnread = groups.reduce((sum, group) => sum + group.unread, 0)

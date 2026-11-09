@@ -590,6 +590,16 @@ describe('알림 읽음 목', () => {
     expect((await missing.json()).code).toBe('NOTIFICATION_NOT_FOUND')
   })
 
+  it('읽은 알림은 쿠키에 남아 다시 불러와도 읽음으로 온다', async () => {
+    const res = await post('/api/v1/notification/notifications/n1/read')
+    const cookie = (res.headers.get('set-cookie') ?? '').split(';')[0]
+    const list = await fetch('http://localhost/api/v1/notification/notifications', {
+      headers: { Cookie: cookie },
+    }).then((r) => r.json())
+    const n1 = (list.data as { id: string; unread: boolean }[]).find((n) => n.id === 'n1')
+    expect(n1?.unread).toBe(false)
+  })
+
   it('모두 읽음은 200이다', async () => {
     const res = await post('/api/v1/notification/notifications/read-all')
     expect(res.status).toBe(200)

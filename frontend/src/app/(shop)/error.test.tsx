@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { render as rtlRender, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -10,6 +11,10 @@ vi.mock('next/navigation', () => ({
 }))
 
 afterEach(() => vi.restoreAllMocks())
+
+// 머리말 알림 아이콘이 알림 쿼리를 쓴다. 앱에서는 루트 Provider가 감싼다
+const render = (ui: React.ReactElement) =>
+  rtlRender(<QueryClientProvider client={new QueryClient()}>{ui}</QueryClientProvider>)
 
 describe('회원 화면 오류 경계', () => {
   it('브라우저가 오프라인이면 연결 끊김 화면을 보여 주고, 다시 시도하기로 화면을 다시 그린다', async () => {

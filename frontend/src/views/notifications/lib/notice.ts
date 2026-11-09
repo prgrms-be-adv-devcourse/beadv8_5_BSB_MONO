@@ -1,20 +1,54 @@
 import type { Route } from 'next'
 
+import type { Notice } from '@/entities/notification'
 import type { IconName } from '@/shared/ui'
 
-import type { Notice, NoticeCategory } from '../api/use-notifications'
+export type NoticeCategory = 'race' | 'payment' | 'crew'
 
-// 피그마 시나리오 37 · 02 알림 목록의 묶음 순서와 이름
+// 피그마 시나리오 37 · 02 알림 목록의 묶음 순서와 이름. linkLabel은 알림에 이동 주소가 있을 때 버튼 문구
 export const NOTICE_CATEGORIES: {
   value: NoticeCategory
   title: string
   tab: string
   icon: IconName
+  linkLabel: string
 }[] = [
-  { value: 'race', title: '대회 소식', tab: '대회', icon: 'Calendar' },
-  { value: 'payment', title: '결제 · 예치금', tab: '결제', icon: 'Wallet' },
-  { value: 'crew', title: '크루 소식', tab: '크루', icon: 'Users' },
+  { value: 'race', title: '대회 소식', tab: '대회', icon: 'Calendar', linkLabel: '대회 보러 가기' },
+  {
+    value: 'payment',
+    title: '결제 · 예치금',
+    tab: '결제',
+    icon: 'Wallet',
+    linkLabel: '자세히 보기',
+  },
+  { value: 'crew', title: '크루 소식', tab: '크루', icon: 'Users', linkLabel: '크루 보러 가기' },
 ]
+
+// 서버 알림 종류(NotificationKind) → 묶음. seller는 「판매」 탭이 생기기 전까지 목록에 보이지 않는다
+const KIND_CATEGORY: Record<string, NoticeCategory | 'seller'> = {
+  RACE_CANCELED: 'race',
+  RACE_SCHEDULE_CHANGED: 'race',
+  INQUIRY_ANSWERED: 'race',
+  REFUND_COMPLETED: 'payment',
+  WITHDRAWAL_COMPLETED: 'payment',
+  PARTY_PAYMENT_REQUESTED: 'payment',
+  PARTY_PAYMENT_DEADLINE: 'payment',
+  CREW_JOINED: 'crew',
+  KIT_SHIPMENT_REQUIRED: 'seller',
+  KIT_TRACKING_STOPPED: 'seller',
+  PAYOUT_HELD: 'seller',
+  INQUIRY_RECEIVED: 'seller',
+}
+
+/** 목록에 보일 묶음. 판매자 알림 · 모르는 종류 · 날짜를 읽을 수 없는 알림은 undefined(목록에서 뺀다) */
+export function categoryOf(notice: Notice): NoticeCategory | undefined {
+  const category = Object.hasOwn(KIND_CATEGORY, notice.kind)
+    ? KIND_CATEGORY[notice.kind]
+    : undefined
+  if (category === undefined || category === 'seller') return undefined
+  // 날짜를 읽을 수 없는 알림은 시각을 보여 줄 수 없고 순서도 정할 수 없다
+  return Number.isNaN(Date.parse(notice.sentAt)) ? undefined : category
+}
 
 export function isNoticeCategory(value: string): value is NoticeCategory {
   return NOTICE_CATEGORIES.some((category) => category.value === value)
@@ -61,7 +95,7 @@ const BASE = 'http://app.invalid'
  * 앞 글자만 보지 않고 브라우저처럼 해석해 본다(탭·줄바꿈을 지우면 //가 되는 주소를 막는다).
  * /api/는 화면이 아니라 미리 불러오기 요청이 나가므로 막는다.
  */
-export function safeInternalHref(href: string | undefined): Route | undefined {
+export function safeInternalHref(href: string | null | undefined): Route | undefined {
   if (!href?.startsWith('/')) return undefined
   const url = new URL(href, BASE)
   if (url.origin !== BASE || url.pathname.startsWith('/api/')) return undefined

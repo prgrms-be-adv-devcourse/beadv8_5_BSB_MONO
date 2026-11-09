@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { ReactNode } from 'react'
 
+import { NoticeBellLink } from '@/entities/notification'
 import { cn } from '@/shared/lib'
 import { FOCUS_RING, Icon, IconButton, Logo } from '@/shared/ui'
 
@@ -61,9 +62,7 @@ export function AppHeader(props: AppHeaderProps) {
             <Icon name="Search" />
           </Link>
         )}
-        <Link href="/notifications" aria-label="알림" className={ICON_LINK}>
-          <Icon name="Bell" />
-        </Link>
+        <NoticeBellLink className={ICON_LINK} />
       </div>
     </header>
   )
