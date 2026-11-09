@@ -25,9 +25,9 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 @RequiredArgsConstructor
 public class CrewMemberLeftUseCase {
-	// 결제 진행 중·결제 끝도 찾는다. 바꾸지는 않고 경고 로그만 남긴다 (PartyUseCase.removeCrewLeaver)
-	private static final EnumSet<PartyStatus> LIVE_STATUSES =
-		EnumSet.of(PartyStatus.RECRUITING, PartyStatus.PAYING, PartyStatus.PAID);
+	// 결제 진행 중도 찾는다. 바꾸지는 않고 경고 로그만 남긴다 (PartyUseCase.removeCrewLeaver)
+	// 결제 끝 파티는 이미 결제해 참가가 정해진 사람이라 크루를 나가도 그대로 두는 것이 맞아 찾지 않는다 (BUK-78도 막지 않음)
+	private static final EnumSet<PartyStatus> STATUSES = EnumSet.of(PartyStatus.RECRUITING, PartyStatus.PAYING);
 
 	private final PartyMemberRepository partyMemberRepository;
 	private final PartyUseCase partyUseCase;
@@ -39,7 +39,7 @@ public class CrewMemberLeftUseCase {
 	public int removeFromParties(long crewId, long memberId, LocalDateTime crewJoinedAt, LocalDateTime now) {
 		int removed = 0;
 		RuntimeException failure = null;
-		for (JoinedParty joined : partyMemberRepository.findJoinedParties(crewId, memberId, LIVE_STATUSES)) {
+		for (JoinedParty joined : partyMemberRepository.findJoinedParties(crewId, memberId, STATUSES)) {
 			try {
 				if (Boolean.TRUE.equals(transactionTemplate.execute(status ->
 					partyUseCase.removeCrewLeaver(joined.partyId(), memberId, crewJoinedAt, now)))) {

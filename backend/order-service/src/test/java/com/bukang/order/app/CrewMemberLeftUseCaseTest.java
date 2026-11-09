@@ -120,7 +120,9 @@ class CrewMemberLeftUseCaseTest {
 		assertThat(statusOf(MEMBER)).isEqualTo(ParticipationStatus.CANCELED);
 		assertThat(statusOf(LEADER)).isEqualTo(ParticipationStatus.PENDING);
 		assertThat(party(partyId).getLeaderMemberId()).isEqualTo(LEADER);
+		// 자리 해제 메시지가 생겼다
 		long outbox = orderOutboxKafkaEventRepository.count();
+		assertThat(outbox).isPositive();
 
 		// 다시 와도 이미 빠져 있어 아무것도 바뀌지 않는다 (자리 해제 메시지도 다시 남기지 않음)
 		assertThat(useCase.removeFromParties(CREW_ID, MEMBER, LEFT_JOINED_AT, LocalDateTime.now())).isZero();
@@ -161,7 +163,7 @@ class CrewMemberLeftUseCaseTest {
 	}
 
 	@Test
-	@DisplayName("결제 진행 중·결제 끝 파티는 바꾸지 않는다 (크루 나가기가 막혀 있어 올 일이 없음, 경고 로그만)")
+	@DisplayName("결제 진행 중(경고 로그만)·결제 끝 파티는 바꾸지 않는다")
 	void keepsPayingParty() throws Exception {
 		for (PartyStatus status : new PartyStatus[] {PartyStatus.PAYING, PartyStatus.PAID}) {
 			long partyId = createParty(LEADER);

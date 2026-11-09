@@ -132,7 +132,8 @@ public class PartyUseCase {
 
 	// 크루를 나간 사람을 이 파티에서 뺀다 (BUK-77, 크루 떠남 메시지). 나가기와 같은 일을 하되 거절하지 않고 건너뛴다
 	// 이미 빠졌거나, 파티원 줄의 크루 가입 시각이 메시지의 가입 시각보다 늦으면(다시 가입한 뒤 합류) 그대로 둔다
-	// 결제 진행 중·결제 끝 파티는 크루 나가기가 막혀 있어(C1·C2, BUK-78) 올 일이 없다. 바꾸지 않고 경고만 남긴다
+	// 결제 진행 중 파티는 바꾸지 않고 경고만 남긴다. 크루 나가기 전 확인(BUK-78)을 회원 서비스가 붙이면 올 일이 없지만,
+	// 그전이나 내보내기·회원 탈퇴로는 올 수 있다. 남은 사람은 결제 기한이 지나면 미결제로 풀린다
 	// 파티를 잠근 뒤 처음 읽으므로 기다리는 사이 커밋된 합류·나가기를 본다. 파티마다 트랜잭션을 따로 열어 부른다
 	public boolean removeCrewLeaver(long partyId, long memberId, LocalDateTime leftCrewJoinedAt, LocalDateTime now) {
 		Party party = lockParty(partyId);
