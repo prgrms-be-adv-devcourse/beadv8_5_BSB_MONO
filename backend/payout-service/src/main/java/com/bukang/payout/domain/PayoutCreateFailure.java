@@ -18,6 +18,7 @@ import lombok.NoArgsConstructor;
 /**
  * 정산 생성 실패 기록 한 줄 (BUK-60). 배치가 정산 내역을 만들지 못할 때마다 쌓기만 한다
  * 다시 시도는 되돌아보기(7일)가 맡으므로 상태 칸이 없다. 풀렸는지는 그 대회 · 단계의 정산 내역이 있는지로 본다
+ * 배치가 함께 한 조치(actionTaken)는 기록할 때 한 번 적는다 (BUK-108)
  * 같은 실패가 매일 반복되면 줄도 매일 하나씩 쌓인다. 날마다 원인이 달라질 수 있어 덮어쓰지 않는다
  * 생성 시각은 BaseIdAndTime의 createDate다
  */
@@ -51,17 +52,24 @@ public class PayoutCreateFailure extends BaseIdAndTime {
 
 	private String note;
 
+	// 배치가 함께 한 조치 (BUK-108). 칸을 더하기 전에 쌓인 대사 불일치 기록만 NULL이다
+	@Enumerated(STRING)
+	@Column(length = 10)
+	private PayoutCreateFailureAction actionTaken;
+
 	// 배치의 실행 기준일(today). 생성 시각과 달리 dev 배치 API로 다른 날을 돌려도 어느 날의 실행인지 남는다
 	@Column(nullable = false)
 	private LocalDate runDate;
 
 	private PayoutCreateFailure(PayoutStage payoutStage, Long sellerId, Long raceId, LocalDate payoutTargetDate,
 		PayoutCreateFailureType failureType, String note, LocalDate runDate) {
-		this(payoutStage, sellerId, raceId, null, payoutTargetDate, failureType, note, runDate);
+		this(payoutStage, sellerId, raceId, null, payoutTargetDate, failureType, note, PayoutCreateFailureAction.기록만,
+			runDate);
 	}
 
 	private PayoutCreateFailure(PayoutStage payoutStage, Long sellerId, Long raceId, Long raceCourseId,
-		LocalDate payoutTargetDate, PayoutCreateFailureType failureType, String note, LocalDate runDate) {
+		LocalDate payoutTargetDate, PayoutCreateFailureType failureType, String note,
+		PayoutCreateFailureAction actionTaken, LocalDate runDate) {
 		this.payoutStage = payoutStage;
 		this.sellerId = sellerId;
 		this.raceId = raceId;
@@ -69,6 +77,7 @@ public class PayoutCreateFailure extends BaseIdAndTime {
 		this.payoutTargetDate = payoutTargetDate;
 		this.failureType = failureType;
 		this.note = note;
+		this.actionTaken = actionTaken;
 		this.runDate = runDate;
 	}
 
@@ -101,8 +110,9 @@ public class PayoutCreateFailure extends BaseIdAndTime {
 
 	// 정산 대사가 판매자 × 대회의 어긋남을 찾았다 (BUK-67). 비고에는 장수 · 금액만 쓰고 참가권 ID는 로그에 남긴다
 	public static PayoutCreateFailure reconcileMismatch(PayoutStage stage, long sellerId, long raceId,
-		Long raceCourseId, LocalDate payoutTargetDate, String note, LocalDate runDate) {
+		Long raceCourseId, LocalDate payoutTargetDate, String note, PayoutCreateFailureAction actionTaken,
+		LocalDate runDate) {
 		return new PayoutCreateFailure(stage, sellerId, raceId, raceCourseId, payoutTargetDate,
-			PayoutCreateFailureType.대사_불일치, note, runDate);
+			PayoutCreateFailureType.대사_불일치, note, actionTaken, runDate);
 	}
 }

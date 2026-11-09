@@ -27,6 +27,8 @@ import org.springframework.transaction.annotation.Transactional;
 import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutCreateDate;
 import com.bukang.payout.domain.PayoutCreateFailure;
+import com.bukang.payout.domain.PayoutCreateFailureAction;
+import com.bukang.payout.domain.PayoutHoldReason;
 import com.bukang.payout.domain.PayoutItem;
 import com.bukang.payout.domain.PayoutRecordType;
 import com.bukang.payout.domain.PayoutStage;
@@ -88,10 +90,12 @@ public class PayoutReconcileStepUseCase {
 			if (settled > sold) {
 				payouts.forEach(payout -> payoutHoldUseCase.holdForReconcileMismatch(payout, now));
 			}
+			PayoutCreateFailureAction action = heldForMismatch(payouts)
+				? PayoutCreateFailureAction.지급보류 : PayoutCreateFailureAction.기록만;
 			String note = "판매 합 = %,d, 정산 합 = %,d".formatted(sold, settled);
 			log.warn("대사_불일치 stage=일차_정산, sellerId={}, raceId={}, {}", sellerId, race.raceId(), note);
 			mismatches.add(PayoutCreateFailure.reconcileMismatch(PayoutStage.일차_정산, sellerId, race.raceId(), null,
-				race.refundDeadline(), note, today));
+				race.refundDeadline(), note, action, today));
 		}
 		return mismatches;
 	}
@@ -142,10 +146,13 @@ public class PayoutReconcileStepUseCase {
 			if (added) {
 				payoutLedgerUseCase.settleReceivable(target, now);
 			}
-			diff.extra().stream()
+			List<Payout> extraPayouts = diff.extra().stream()
 				.map(id -> saleById.get(id).getPayout())
 				.distinct()
-				.forEach(payout -> payoutHoldUseCase.holdForReconcileMismatch(payout, now));
+				.toList();
+			extraPayouts.forEach(payout -> payoutHoldUseCase.holdForReconcileMismatch(payout, now));
+			PayoutCreateFailureAction action = heldForMismatch(extraPayouts) ? PayoutCreateFailureAction.지급보류
+				: added ? PayoutCreateFailureAction.자동_보정 : PayoutCreateFailureAction.기록만;
 
 			LongFunction<Long> soldCourse = id -> soldById.get(id).raceCourseId();
 			LongFunction<Long> saleCourse = id -> saleById.get(id).getRaceCourseId();
@@ -165,7 +172,7 @@ public class PayoutReconcileStepUseCase {
 			log.warn("대사_불일치 stage=최종_정산, sellerId={}, raceId={}, 빠짐 orderItemId={}, 더 들어감 orderItemId={}, "
 				+ "가격 다름 orderItemId={}", sellerId, race.raceId(), diff.missing(), diff.extra(), priceDiffers);
 			mismatches.add(PayoutCreateFailure.reconcileMismatch(PayoutStage.최종_정산, sellerId, race.raceId(),
-				courses.size() == 1 ? courses.iterator().next() : null, race.raceDate(), truncate(note), today));
+				courses.size() == 1 ? courses.iterator().next() : null, race.raceDate(), truncate(note), action, today));
 		}
 		return mismatches;
 	}
@@ -175,6 +182,11 @@ public class PayoutReconcileStepUseCase {
 		return payoutRepository.findByRaceId(raceId).stream()
 			.filter(payout -> payout.getPayoutStage() == stage && payout.getStatus() != PayoutStatus.취소)
 			.collect(groupingBy(Payout::getSellerId));
+	}
+
+	// 지급 완료라 보류하지 못했으면 기록만이다. 어제 이미 같은 사유로 보류해 둔 정산 내역도 지급보류로 본다
+	private static boolean heldForMismatch(List<Payout> payouts) {
+		return payouts.stream().anyMatch(payout -> payout.isHeldFor(PayoutHoldReason.대사_불일치));
 	}
 
 	// 판매에만 있는 판매자(빠짐)와 정산에만 있는 판매자(더 들어감)를 모두 본다

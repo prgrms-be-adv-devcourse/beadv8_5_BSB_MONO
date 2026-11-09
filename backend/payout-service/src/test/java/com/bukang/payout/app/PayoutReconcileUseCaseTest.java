@@ -20,6 +20,7 @@ import com.bukang.payout.domain.BusinessDayCalendar;
 import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutCreateDate;
 import com.bukang.payout.domain.PayoutCreateFailure;
+import com.bukang.payout.domain.PayoutCreateFailureAction;
 import com.bukang.payout.domain.PayoutCreateFailureType;
 import com.bukang.payout.domain.PayoutHold;
 import com.bukang.payout.domain.PayoutHoldReason;
@@ -136,6 +137,10 @@ class PayoutReconcileUseCaseTest {
 		return payoutCreateFailureRepository.findAll();
 	}
 
+	private List<PayoutCreateFailureAction> actions() {
+		return mismatches().stream().map(PayoutCreateFailure::getActionTaken).toList();
+	}
+
 	private List<PayoutHold> reconcileHoldsOf(Payout payout) {
 		return payoutHoldRepository.findAll().stream()
 			.filter(hold -> hold.getPayout().getId() == payout.getId())
@@ -168,6 +173,7 @@ class PayoutReconcileUseCaseTest {
 				PayoutCreateFailure::getNote, PayoutCreateFailure::getRunDate)
 			.containsExactly(tuple(PayoutStage.일차_정산, 1L, 10L, null, YESTERDAY, PayoutCreateFailureType.대사_불일치,
 				"판매 합 = 70,000, 정산 합 = 50,000", TODAY));
+		assertThat(actions()).containsExactly(PayoutCreateFailureAction.기록만);
 		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.지급_예정);
 	}
 
@@ -189,6 +195,7 @@ class PayoutReconcileUseCaseTest {
 
 		assertThat(mismatches()).extracting(PayoutCreateFailure::getNote)
 			.containsExactly("판매 합 = 70,000, 정산 합 = 90,000");
+		assertThat(actions()).containsExactly(PayoutCreateFailureAction.지급보류);
 		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.지급보류);
 		assertThat(reconcileHoldsOf(payout)).hasSize(1);
 	}
@@ -217,6 +224,7 @@ class PayoutReconcileUseCaseTest {
 				PayoutCreateFailure::getRaceId, PayoutCreateFailure::getRaceCourseId,
 				PayoutCreateFailure::getPayoutTargetDate, PayoutCreateFailure::getNote)
 			.containsExactly(tuple(PayoutStage.최종_정산, 2L, 20L, COURSE_A, YESTERDAY, "빠진 1장 추가 (코스 3: 1장)"));
+		assertThat(actions()).containsExactly(PayoutCreateFailureAction.자동_보정);
 		assertThat(payout.getItems())
 			.filteredOn(item -> Long.valueOf(103).equals(item.getOrderItemId()))
 			.extracting(PayoutItem::getRecordType, PayoutItem::getAmount)
@@ -232,6 +240,7 @@ class PayoutReconcileUseCaseTest {
 
 		assertThat(mismatches()).extracting(PayoutCreateFailure::getRaceCourseId, PayoutCreateFailure::getNote)
 			.containsExactly(tuple(COURSE_A, "빠진 5장 (코스 3: 5장)"));
+		assertThat(actions()).containsExactly(PayoutCreateFailureAction.기록만);
 		assertThat(payoutRepository.findAll()).isEmpty();
 	}
 
@@ -245,6 +254,7 @@ class PayoutReconcileUseCaseTest {
 
 		assertThat(mismatches()).extracting(PayoutCreateFailure::getNote)
 			.containsExactly("더 들어감 1장 (코스 3: 1장)");
+		assertThat(actions()).containsExactly(PayoutCreateFailureAction.지급보류);
 		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.지급보류);
 		assertThat(reconcileHoldsOf(payout)).hasSize(1);
 	}
@@ -259,6 +269,8 @@ class PayoutReconcileUseCaseTest {
 
 		assertThat(mismatches()).extracting(PayoutCreateFailure::getRaceCourseId, PayoutCreateFailure::getNote)
 			.containsExactly(tuple(null, "빠진 1장 추가 (코스 3: 1장), 더 들어감 1장 (코스 4: 1장)"));
+		// 채우기와 보류가 함께면 관리자가 먼저 봐야 하는 지급보류로 적는다
+		assertThat(actions()).containsExactly(PayoutCreateFailureAction.지급보류);
 		assertThat(payout.getItems()).anyMatch(item -> Long.valueOf(103).equals(item.getOrderItemId()));
 		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.지급보류);
 	}
@@ -273,6 +285,7 @@ class PayoutReconcileUseCaseTest {
 
 		assertThat(mismatches()).extracting(PayoutCreateFailure::getNote)
 			.containsExactly("가격 다름 1장 (코스 3: 1장)");
+		assertThat(actions()).containsExactly(PayoutCreateFailureAction.기록만);
 		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.지급_예정);
 	}
 
@@ -314,7 +327,7 @@ class PayoutReconcileUseCaseTest {
 
 		useCase(List.of(), soldFiveOfSeller2()).run(TODAY, NOW);
 
-		assertThat(mismatches()).hasSize(1);
+		assertThat(actions()).containsExactly(PayoutCreateFailureAction.기록만);
 		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.지급_완료);
 		assertThat(reconcileHoldsOf(payout)).isEmpty();
 	}

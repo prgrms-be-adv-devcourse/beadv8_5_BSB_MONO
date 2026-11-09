@@ -12,6 +12,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.transaction.AfterTransaction;
 
 import com.bukang.payout.domain.PayoutCreateFailure;
+import com.bukang.payout.domain.PayoutCreateFailureAction;
 import com.bukang.payout.domain.PayoutCreateFailureType;
 import com.bukang.payout.domain.PayoutStage;
 
@@ -49,6 +50,7 @@ class PayoutCreateFailureRepositoryTest {
 		assertThat(found.getPayoutTargetDate()).isEqualTo(LocalDate.of(2026, 11, 5));
 		assertThat(found.getFailureType()).isEqualTo(PayoutCreateFailureType.주문_정산_대회일_불일치);
 		assertThat(found.getNote()).isNull();
+		assertThat(found.getActionTaken()).isEqualTo(PayoutCreateFailureAction.기록만);
 		assertThat(found.getRunDate()).isEqualTo(LocalDate.of(2026, 11, 10));
 		assertThat(found.getCreateDate()).isNotNull();
 	}
