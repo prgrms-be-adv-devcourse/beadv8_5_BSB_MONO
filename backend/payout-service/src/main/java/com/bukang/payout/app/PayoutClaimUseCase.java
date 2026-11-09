@@ -14,6 +14,7 @@ import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutAccount;
 import com.bukang.payout.domain.PayoutClaim;
 import com.bukang.payout.domain.PayoutClaimStatus;
+import com.bukang.payout.domain.PayoutHold;
 import com.bukang.payout.domain.PayoutItem;
 import com.bukang.payout.domain.PayoutRecordType;
 import com.bukang.payout.domain.PayoutRecovery;
@@ -23,6 +24,7 @@ import com.bukang.payout.domain.PayoutStage;
 import com.bukang.payout.domain.PayoutStatus;
 import com.bukang.payout.domain.exception.PayoutClaimConflictException;
 import com.bukang.payout.domain.exception.PayoutClaimNotFoundException;
+import com.bukang.payout.out.ClaimVirtualAccountPort;
 import com.bukang.payout.out.PayoutClaimRepository;
 import com.bukang.payout.out.PayoutItemRepository;
 import com.bukang.payout.out.PayoutRecoveryRepository;
@@ -44,6 +46,9 @@ import lombok.extern.slf4j.Slf4j;
  *
  * 관리자가 입금을 확인하면 청구 금액이 회사 계좌에 들어왔다고 보고 원장에 회수 입금을 남긴다.
  * cash 보관 지갑은 건드리지 않는다 (10/30 결정)
+ *
+ * 가상계좌 (BUK-88): 청구마다 캐시에 전용 가상계좌를 발급받고, 판매자가 입금하면 캐시가 보낸 입금 메시지로
+ * 관리자 확인 없이 회수를 끝낸다. 메시지가 빠질 때를 대비해 관리자 확인도 남긴다. 먼저 온 쪽만 회수를 끝낸다
  */
 @Slf4j
 @Service
@@ -59,6 +64,7 @@ public class PayoutClaimUseCase {
 	private final PayoutItemRepository payoutItemRepository;
 	private final PayoutRecoveryRepository payoutRecoveryRepository;
 	private final PayoutClaimRepository payoutClaimRepository;
+	private final ClaimVirtualAccountPort claimVirtualAccountPort;
 
 	/**
 	 * 하루 한 번 청구를 만들고 알림을 남긴다. 같은 날 다시 돌아도 청구와 알림은 한 번만 남는다
@@ -69,6 +75,7 @@ public class PayoutClaimUseCase {
 		int sellerNotices = 0;
 		int adminNotices = 0;
 		for (PayoutClaim claim : payoutClaimRepository.findByStatusOrderByIdAsc(PayoutClaimStatus.청구_중)) {
+			issueVirtualAccount(claim);
 			if (claim.markSellerNotice(today)) {
 				sellerNotices++;
 				log.info("[청구 알림] 판매자에게 정산금 반환을 요청합니다. sellerId={}, raceId={}, claimId={}, amount={}, accounts={}",
@@ -100,12 +107,57 @@ public class PayoutClaimUseCase {
 		if (claim.getStatus() == PayoutClaimStatus.청구_중) {
 			checkReceivableMatches(claim);
 		}
-		claim.confirm(confirmedBy, now);
+		finishRecovery(claim, confirmedBy, now);
+		return claim;
+	}
+
+	/**
+	 * 입금 메시지의 회수 확인: 판매자가 청구 전용 가상계좌로 입금했다 (BUK-88)
+	 * 같은 메시지가 다시 오거나 관리자가 먼저 확인했으면 건너뛴다. 청구 행을 잠가 동시에 와도 한쪽만 처리하고,
+	 * 회수 입금 줄의 유일 제약(bundle_key C{청구}:회수_입금)이 마지막으로 두 번 기록을 막는다
+	 * 입금액이 청구 금액과 다르거나 갚을 돈이 바뀌었으면 거부한다. 메시지는 DLT로 가고 사람이 맞춘다
+	 */
+	@Transactional
+	public void confirmByDeposit(String claimCode, long depositAmount, LocalDateTime depositedAt) {
+		PayoutClaim claim = payoutClaimRepository.findByClaimCodeForUpdate(claimCode)
+			.orElseThrow(PayoutClaimNotFoundException::new);
+		if (claim.getStatus() != PayoutClaimStatus.청구_중) {
+			log.info("이미 입금을 확인한 청구라 입금 메시지를 건너뜁니다. claimCode={}, confirmedBy={}", claimCode,
+				claim.getConfirmedBy());
+			return;
+		}
+		if (depositAmount != claim.getAmount()) {
+			log.error("입금액이 청구 금액과 달라 회수를 끝내지 않습니다. 사람이 확인해야 합니다. "
+					+ "claimCode={}, sellerId={}, raceId={}, 청구 금액={}, 입금액={}", claimCode, claim.getSellerId(),
+				claim.getRaceId(), claim.getAmount(), depositAmount);
+			throw new PayoutClaimConflictException("입금액이 청구 금액과 다릅니다.");
+		}
+		checkReceivableMatches(claim);
+		finishRecovery(claim, PayoutHold.SYSTEM_MEMBER_ID, depositedAt);
+	}
+
+	// 청구를 입금 확인으로 바꾸고, 청구 금액만큼 회수 입금 줄을 남기고, 그 대회의 요청 중인 회수를 입금으로 끝낸다
+	private void finishRecovery(PayoutClaim claim, long confirmedBy, LocalDateTime confirmedAt) {
+		claim.confirm(confirmedBy, confirmedAt);
 		payoutItemRepository.save(PayoutItem.ofClaim(claim, PayoutRecordType.회수_입금, -claim.getAmount()));
 		payoutRecoveryRepository.findBySellerIdAndRaceIdAndStatus(claim.getSellerId(), claim.getRaceId(),
 				PayoutRecoveryStatus.회수_요청)
-			.forEach(recovery -> recovery.complete(confirmedBy, now));
-		return claim;
+			.forEach(recovery -> recovery.complete(confirmedBy, confirmedAt));
+	}
+
+	// 아직 가상계좌가 없는 청구에 발급을 요청한다. 실패하면 로그만 남기고 다음 배치에서 다시 요청한다
+	// 청구 ID가 없는 예전 청구는 캐시가 입금을 맞출 키가 없어 발급하지 않는다 (관리자 확인으로 끝낸다)
+	// shortcut: 배치 트랜잭션 안에서 캐시를 부른다. 진짜 어댑터를 붙일 때 응답 제한 시간을 짧게 두거나 트랜잭션 밖으로 뺀다
+	private void issueVirtualAccount(PayoutClaim claim) {
+		if (claim.getVirtualAccountNumber() != null || claim.getClaimCode() == null) {
+			return;
+		}
+		try {
+			claimVirtualAccountPort.issue(claim.getClaimCode(), claim.getAmount(), claim.getDueDate())
+				.ifPresent(account -> claim.assignVirtualAccount(account.bankName(), account.accountNumber()));
+		} catch (RuntimeException e) {
+			log.warn("가상계좌 발급에 실패했습니다. 다음 배치에서 다시 요청합니다. claimCode={}", claim.getClaimCode(), e);
+		}
 	}
 
 	private void checkReceivableMatches(PayoutClaim claim) {

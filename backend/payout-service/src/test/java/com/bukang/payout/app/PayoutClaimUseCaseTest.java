@@ -6,8 +6,10 @@ import static org.assertj.core.api.Assertions.tuple;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.IntStream;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -28,12 +30,16 @@ import com.bukang.payout.domain.BusinessDayCalendar;
 import com.bukang.payout.domain.PayoutAccount;
 import com.bukang.payout.domain.PayoutClaim;
 import com.bukang.payout.domain.PayoutClaimStatus;
+import com.bukang.payout.domain.PayoutHold;
 import com.bukang.payout.domain.PayoutItem;
 import com.bukang.payout.domain.PayoutRecordType;
 import com.bukang.payout.domain.PayoutRecovery;
 import com.bukang.payout.domain.PayoutRecoveryCompletion;
 import com.bukang.payout.domain.PayoutRecoveryStatus;
 import com.bukang.payout.domain.exception.PayoutClaimConflictException;
+import com.bukang.payout.domain.exception.PayoutClaimNotFoundException;
+import com.bukang.payout.out.ClaimVirtualAccount;
+import com.bukang.payout.out.ClaimVirtualAccountPort;
 import com.bukang.payout.out.PayoutClaimRepository;
 import com.bukang.payout.out.PayoutHoldRepository;
 import com.bukang.payout.out.PayoutItemRepository;
@@ -60,6 +66,7 @@ class PayoutClaimUseCaseTest {
 	private static final LocalDate RACE_DATE = LocalDate.of(2026, 12, 13);
 	private static final LocalDate FIRST_PAY_DATE = LocalDate.of(2026, 11, 20);
 	private static final LocalDate FINAL_CREATED_DATE = RACE_DATE.plusDays(1);
+	private static final LocalDateTime DEPOSITED_AT = LocalDateTime.of(2026, 12, 18, 14, 30);
 
 	@Autowired
 	private PayoutRepository payoutRepository;
@@ -84,6 +91,8 @@ class PayoutClaimUseCaseTest {
 	private PayoutPayUseCase payUseCase;
 	private PayoutRaceCancelUseCase raceCancelUseCase;
 	private PayoutClaimUseCase claimUseCase;
+	// 캐시의 가상계좌 발급 API 대신. 테스트마다 바꿔 끼운다 (기본: 발급 전이라 빈 값)
+	private ClaimVirtualAccountPort virtualAccountPort;
 
 	@BeforeEach
 	void setUp() {
@@ -94,8 +103,10 @@ class PayoutClaimUseCaseTest {
 		raceCancelUseCase = new PayoutRaceCancelUseCase(payoutRepository, ledgerUseCase);
 		payUseCase = new PayoutPayUseCase(new PayoutPayStepUseCase(payoutRepository, raceCancelUseCase), transfer -> {
 		});
+		virtualAccountPort = (claimCode, amount, dueDate) -> Optional.empty();
 		claimUseCase = new PayoutClaimUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository,
-			payoutClaimRepository);
+			payoutClaimRepository,
+			(claimCode, amount, dueDate) -> virtualAccountPort.issue(claimCode, amount, dueDate));
 	}
 
 	private void createFirstAndPay() {
@@ -409,5 +420,150 @@ class PayoutClaimUseCaseTest {
 
 		assertThat(new PayoutReceivableQueryUseCase(payoutItemRepository).findReceivable(SELLER_ID)
 			.isHasReceivable()).isFalse();
+	}
+
+	// 최종 정산 뒤 105,500원 청구를 만들고 그 청구 ID를 돌려준다
+	private String openClaimCode() {
+		eightRefundsThenFinal();
+		run(FINAL_CREATED_DATE);
+		return claims().getFirst().getClaimCode();
+	}
+
+	private void deposit(String claimCode, long amount) {
+		claimUseCase.confirmByDeposit(claimCode, amount, DEPOSITED_AT);
+		entityManager.flush();
+		entityManager.clear();
+	}
+
+	@Test
+	@DisplayName("TC-VA-1-1 청구가 생기면 청구 ID · 금액 · 입금 기한으로 가상계좌를 발급받아 청구에 저장한다")
+	void issuesVirtualAccountForNewClaim() {
+		List<String> requests = new ArrayList<>();
+		virtualAccountPort = (claimCode, amount, dueDate) -> {
+			requests.add(claimCode + "/" + amount + "/" + dueDate);
+			return Optional.of(new ClaimVirtualAccount("신한은행", "56211234567890"));
+		};
+
+		eightRefundsThenFinal();
+		run(FINAL_CREATED_DATE);
+
+		PayoutClaim claim = claims().getFirst();
+		assertThat(requests).containsExactly(claim.getClaimCode() + "/105500/" + FINAL_CREATED_DATE.plusDays(30));
+		assertThat(claim).extracting(PayoutClaim::getVirtualBankName, PayoutClaim::getVirtualAccountNumber)
+			.containsExactly("신한은행", "56211234567890");
+	}
+
+	@Test
+	@DisplayName("TC-VA-1-2 이미 가상계좌가 있는 청구는 다음 배치에서 다시 발급하지 않는다")
+	void doesNotReissueVirtualAccount() {
+		List<String> requests = new ArrayList<>();
+		virtualAccountPort = (claimCode, amount, dueDate) -> {
+			requests.add(claimCode);
+			return Optional.of(new ClaimVirtualAccount("신한은행", "56211234567890"));
+		};
+		eightRefundsThenFinal();
+		run(FINAL_CREATED_DATE);
+
+		run(FINAL_CREATED_DATE.plusDays(1));
+
+		assertThat(requests).hasSize(1);
+	}
+
+	@Test
+	@DisplayName("TC-VA-2-1 발급 API가 아직 없어 빈 값이면 계좌 없이 두고, 다음 배치에서 다시 요청한다")
+	void retriesWhenNotIssued() {
+		List<String> requests = new ArrayList<>();
+		virtualAccountPort = (claimCode, amount, dueDate) -> {
+			requests.add(claimCode);
+			return Optional.empty();
+		};
+		eightRefundsThenFinal();
+		run(FINAL_CREATED_DATE);
+		run(FINAL_CREATED_DATE.plusDays(1));
+
+		assertThat(requests).hasSize(2);
+		assertThat(claims().getFirst().getVirtualAccountNumber()).isNull();
+	}
+
+	@Test
+	@DisplayName("TC-VA-2-2 발급 요청이 실패해도 청구와 판매자 알림은 남고 배치는 끝난다")
+	void issueFailureDoesNotStopBatch() {
+		virtualAccountPort = (claimCode, amount, dueDate) -> {
+			throw new IllegalStateException("캐시 응답 없음");
+		};
+		eightRefundsThenFinal();
+
+		ClaimRunResult result = run(FINAL_CREATED_DATE);
+
+		assertThat(result.created()).isEqualTo(1);
+		assertThat(result.sellerNotices()).isEqualTo(1);
+		assertThat(claims().getFirst().getVirtualAccountNumber()).isNull();
+	}
+
+	@Test
+	@DisplayName("TC-DEPOSIT-1-1 입금 메시지가 오면 관리자 확인 없이 청구가 입금 확인이 되고 갚을 돈이 0원, 회수가 입금으로 끝난다")
+	void depositConfirmsClaim() {
+		String claimCode = openClaimCode();
+
+		deposit(claimCode, 105_500L);
+
+		assertThat(ledgerUseCase.balance(SELLER_ID, RACE_ID, PayoutAccount.갚을_돈)).isZero();
+		assertThat(claims()).extracting(PayoutClaim::getStatus, PayoutClaim::getConfirmedBy,
+				PayoutClaim::getConfirmedAt)
+			.containsExactly(tuple(PayoutClaimStatus.입금_확인, PayoutHold.SYSTEM_MEMBER_ID, DEPOSITED_AT));
+		assertThat(payoutRecoveryRepository.findAll())
+			.extracting(PayoutRecovery::getStatus, PayoutRecovery::getCompletion)
+			.containsOnly(tuple(PayoutRecoveryStatus.회수_완료, PayoutRecoveryCompletion.입금));
+	}
+
+	@Test
+	@DisplayName("TC-DEPOSIT-2-1 같은 입금 메시지가 두 번 오면 두 번째는 건너뛰고 회수 입금 줄은 하나다")
+	void sameDepositTwiceIsSkipped() {
+		String claimCode = openClaimCode();
+		deposit(claimCode, 105_500L);
+		long lines = payoutItemRepository.count();
+
+		deposit(claimCode, 105_500L);
+
+		assertThat(payoutItemRepository.count()).isEqualTo(lines);
+		assertThat(ledgerUseCase.balance(SELLER_ID, RACE_ID, PayoutAccount.갚을_돈)).isZero();
+	}
+
+	@Test
+	@DisplayName("TC-DEPOSIT-2-2 관리자가 먼저 입금을 확인했으면 입금 메시지는 건너뛰고 확인한 관리자는 그대로다")
+	void depositAfterAdminConfirmIsSkipped() {
+		String claimCode = openClaimCode();
+		claimUseCase.confirm(claims().getFirst().getId(), ADMIN_ID, LocalDateTime.of(2026, 12, 20, 10, 0));
+		entityManager.flush();
+		long lines = payoutItemRepository.count();
+
+		deposit(claimCode, 105_500L);
+
+		assertThat(payoutItemRepository.count()).isEqualTo(lines);
+		assertThat(claims().getFirst().getConfirmedBy()).isEqualTo(ADMIN_ID);
+	}
+
+	@Test
+	@DisplayName("TC-DEPOSIT-3-1 입금액이 청구 금액과 다르면 회수를 끝내지 않고 거부하며 ERROR 로그를 남긴다")
+	void depositAmountMismatchIsRejected(CapturedOutput output) {
+		String claimCode = openClaimCode();
+		long lines = payoutItemRepository.count();
+
+		assertThatThrownBy(() -> claimUseCase.confirmByDeposit(claimCode, 100_000L, DEPOSITED_AT))
+			.isInstanceOf(PayoutClaimConflictException.class);
+		entityManager.flush();
+		entityManager.clear();
+
+		assertThat(payoutItemRepository.count()).isEqualTo(lines);
+		assertThat(claims()).extracting(PayoutClaim::getStatus).containsExactly(PayoutClaimStatus.청구_중);
+		assertThat(output.getAll().lines().filter(line -> line.contains("입금액이 청구 금액과 달라")))
+			.singleElement().asString().contains("ERROR", claimCode, "청구 금액=105500", "입금액=100000");
+	}
+
+	@Test
+	@DisplayName("TC-DEPOSIT-4-1 없는 청구 ID로 입금 메시지가 오면 거부한다")
+	void depositForUnknownClaimIsRejected() {
+		assertThatThrownBy(() -> claimUseCase.confirmByDeposit("RC-20261214-FFFF", 105_500L, DEPOSITED_AT))
+			.isInstanceOf(PayoutClaimNotFoundException.class);
 	}
 }
