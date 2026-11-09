@@ -156,8 +156,8 @@ public class PartyApplyUseCase {
 			.map(participation -> new Seat(participation.getId(), participation.getRaceCourseId()))
 			.toList();
 		party.markCrewHoldRequested(now);
-		return new Prepared(partyId, target.crewId(), course.raceId(), course.raceCourseId(), course.courseName(), paymentDueAt,
-			seats);
+		return new Prepared(partyId, target.crewId(), course.raceId(), course.raceCourseId(), course.courseName(),
+			paymentDueAt, seats);
 	}
 
 	// 3단계: 다시 잠그고 결제 기간을 연다. 1단계 뒤로 합류·나가기가 막혀 있어 파티원·신청서는 그대로여야 한다
