@@ -22,13 +22,14 @@ public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
 	 * 판매자가 배송 완료까지 바꿀 수 있게 한다
 	 * 취소 중(환불 결과를 기다림)인 참가권도 빠진다. 곧 취소될 수 있어 보내면 안 되고, 발송도 막힌다(Order.checkKitShippable).
 	 * 환불이 거절돼 결제 완료로 돌아오면 다시 보인다 (BUK-9). 아래 건수 조회도 같은 조건이다
-	 * 받는 분·주소는 배송에 복사한 값을, 참가자 이름·티셔츠 사이즈는 참가 신청의 값을 쓴다
+	 * 받는 분·주소는 배송에 복사한 값을, 참가자 이름·티셔츠 사이즈는 참가 신청의 값을 쓴다. 키트 옵션은 목록을 읽은 뒤 붙인다
 	 */
 	@Query(value = """
 		select new com.bukang.order.dto.SellerKitDto(i.id, o.orderNo, i.status, i.raceId, i.raceCourseId, i.itemName,
 			p.participant.name, p.participant.tshirtSize, s.shippingAddress,
 			s.status, s.carrier, s.trackingNumber, s.shippedAt, s.deliveredAt,
-			s.id, s.carrierId, s.trackingStatus, s.trackingStatusText, s.lastEventAt, s.lastTrackedAt)
+			s.id, s.carrierId, s.trackingStatus, s.trackingStatusText, s.lastEventAt, s.lastTrackedAt,
+			i.participationId)
 		from ShipmentItem si
 			join si.shipment s
 			join OrderItem i on i.id = si.orderItemId
