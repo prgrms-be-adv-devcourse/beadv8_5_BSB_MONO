@@ -517,8 +517,8 @@ class PayoutClaimUseCaseTest {
 	}
 
 	@Test
-	@DisplayName("TC-DEPOSIT-2-1 같은 입금 메시지가 두 번 오면 두 번째는 건너뛰고 회수 입금 줄은 하나다")
-	void sameDepositTwiceIsSkipped() {
+	@DisplayName("TC-DEPOSIT-2-1 같은 입금 메시지가 두 번 오면 두 번째는 INFO 로그만 남기고 건너뛰며 회수 입금 줄은 하나다")
+	void sameDepositTwiceIsSkipped(CapturedOutput output) {
 		String claimCode = openClaimCode();
 		deposit(claimCode, 105_500L);
 		long lines = payoutItemRepository.count();
@@ -527,11 +527,13 @@ class PayoutClaimUseCaseTest {
 
 		assertThat(payoutItemRepository.count()).isEqualTo(lines);
 		assertThat(ledgerUseCase.balance(SELLER_ID, RACE_ID, PayoutAccount.갚을_돈)).isZero();
+		assertThat(output.getAll().lines().filter(line -> line.contains(claimCode) && line.contains("건너뜁니다")))
+			.singleElement().asString().contains("INFO");
 	}
 
 	@Test
-	@DisplayName("TC-DEPOSIT-2-2 관리자가 먼저 입금을 확인했으면 입금 메시지는 건너뛰고 확인한 관리자는 그대로다")
-	void depositAfterAdminConfirmIsSkipped() {
+	@DisplayName("TC-DEPOSIT-2-2 관리자가 먼저 확인했으면 입금 메시지는 건너뛰되, 두 번 받았을 수 있어 WARN 로그를 남긴다")
+	void depositAfterAdminConfirmIsSkippedWithWarn(CapturedOutput output) {
 		String claimCode = openClaimCode();
 		claimUseCase.confirm(claims().getFirst().getId(), ADMIN_ID, LocalDateTime.of(2026, 12, 20, 10, 0));
 		entityManager.flush();
@@ -541,6 +543,9 @@ class PayoutClaimUseCaseTest {
 
 		assertThat(payoutItemRepository.count()).isEqualTo(lines);
 		assertThat(claims().getFirst().getConfirmedBy()).isEqualTo(ADMIN_ID);
+		assertThat(output.getAll().lines().filter(line -> line.contains("관리자가 이미 입금을 확인한 청구")))
+			.singleElement().asString()
+			.contains("WARN", claimCode, "입금액=105500", "confirmedBy=" + ADMIN_ID);
 	}
 
 	@Test

@@ -122,8 +122,7 @@ public class PayoutClaimUseCase {
 		PayoutClaim claim = payoutClaimRepository.findByClaimCodeForUpdate(claimCode)
 			.orElseThrow(PayoutClaimNotFoundException::new);
 		if (claim.getStatus() != PayoutClaimStatus.청구_중) {
-			log.info("이미 입금을 확인한 청구라 입금 메시지를 건너뜁니다. claimCode={}, confirmedBy={}", claimCode,
-				claim.getConfirmedBy());
+			skipConfirmed(claim, depositAmount, depositedAt);
 			return;
 		}
 		if (depositAmount != claim.getAmount()) {
@@ -134,6 +133,19 @@ public class PayoutClaimUseCase {
 		}
 		checkReceivableMatches(claim);
 		finishRecovery(claim, PayoutHold.SYSTEM_MEMBER_ID, depositedAt);
+	}
+
+	// 이미 확인한 청구에 입금 메시지가 왔다. 시스템이 확인한 청구면 같은 메시지가 다시 온 것이라 INFO로 넘긴다
+	// 관리자가 확인한 청구면 판매자가 목업 계좌와 가상계좌로 두 번 보냈을 수 있어 WARN으로 남긴다 (돌려줄 돈은 사람이 확인)
+	private void skipConfirmed(PayoutClaim claim, long depositAmount, LocalDateTime depositedAt) {
+		if (claim.getConfirmedBy() == PayoutHold.SYSTEM_MEMBER_ID) {
+			log.info("이미 입금을 확인한 청구라 입금 메시지를 건너뜁니다. claimCode={}", claim.getClaimCode());
+			return;
+		}
+		log.warn("관리자가 이미 입금을 확인한 청구에 가상계좌 입금이 왔습니다. 판매자가 두 번 보냈을 수 있어 확인이 필요합니다. "
+				+ "claimCode={}, sellerId={}, raceId={}, 입금액={}, depositedAt={}, confirmedBy={}, confirmedAt={}",
+			claim.getClaimCode(), claim.getSellerId(), claim.getRaceId(), depositAmount, depositedAt,
+			claim.getConfirmedBy(), claim.getConfirmedAt());
 	}
 
 	// 청구를 입금 확인으로 바꾸고, 청구 금액만큼 회수 입금 줄을 남기고, 그 대회의 요청 중인 회수를 입금으로 끝낸다
@@ -147,7 +159,8 @@ public class PayoutClaimUseCase {
 
 	// 아직 가상계좌가 없는 청구에 발급을 요청한다. 실패하면 로그만 남기고 다음 배치에서 다시 요청한다
 	// 청구 ID가 없는 예전 청구는 캐시가 입금을 맞출 키가 없어 발급하지 않는다 (관리자 확인으로 끝낸다)
-	// shortcut: 배치 트랜잭션 안에서 캐시를 부른다. 진짜 어댑터를 붙일 때 응답 제한 시간을 짧게 두거나 트랜잭션 밖으로 뺀다
+	// shortcut: 배치 트랜잭션 안에서 발급 포트를 부른다. 진짜 어댑터는 @Transactional 없이 HTTP만 부르고
+	// 응답 제한 시간을 짧게 둔다. 청구가 많아 배치가 길어지면 지급처럼 호출을 트랜잭션 밖으로 뺀다
 	private void issueVirtualAccount(PayoutClaim claim) {
 		if (claim.getVirtualAccountNumber() != null || claim.getClaimCode() == null) {
 			return;
