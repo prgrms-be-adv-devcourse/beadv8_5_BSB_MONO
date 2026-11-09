@@ -10,10 +10,12 @@ final class PayoutClaimApiExamples {
 			"message": "청구 입금을 확인했습니다.",
 			"data": {
 				"id": 1,
+				"claimCode": "RC-20261215-0001",
 				"sellerId": 1,
 				"raceId": 7,
 				"amount": 105500,
 				"startDate": "2026-12-14",
+				"dueDate": "2027-01-13",
 				"status": "입금_확인",
 				"confirmedBy": 99,
 				"confirmedAt": "2026-12-20T10:00:00"
