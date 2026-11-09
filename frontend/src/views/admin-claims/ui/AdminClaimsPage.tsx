@@ -12,6 +12,7 @@ import {
   Badge,
   Button,
   DataTable,
+  Dialog,
   EmptyState,
   KeyValue,
   Pagination,
@@ -198,8 +199,11 @@ export function AdminClaimsPage() {
 function ClaimPanel({ claim, sellerName }: { claim: Claim; sellerName: string }) {
   const toast = useToast()
   const queryClient = useQueryClient()
+  // 첫 청구가 자동으로 골라져 있어 잘못 누를 수 있으므로, 되돌릴 수 없는 입금 확인은 확인 창을 거친다 (#375 리뷰)
+  const [asking, setAsking] = useState(false)
   const confirm = payoutApi.useConfirm<unknown>({
     mutation: {
+      onSettled: () => setAsking(false),
       onSuccess: async () => {
         toast({ message: '회수 완료로 바꿨어요.', tone: 'success' })
         await queryClient.invalidateQueries({ queryKey: payoutApi.getClaimsQueryKey() })
@@ -221,16 +225,22 @@ function ClaimPanel({ claim, sellerName }: { claim: Claim; sellerName: string })
         )}
         {claim.status === '청구_중' && (
           <>
-            <Button
-              className="w-full"
-              disabled={confirm.isPending}
-              onClick={() => confirm.mutate({ claimId: claim.id })}
-            >
+            <Button className="w-full" disabled={confirm.isPending} onClick={() => setAsking(true)}>
               회수 완료
             </Button>
             <p className="text-caption text-text-tertiary">
               회사 계좌에 청구 금액이 들어온 것을 확인한 뒤 눌러 주세요. 되돌릴 수 없어요.
             </p>
+            <Dialog
+              open={asking}
+              onOpenChange={setAsking}
+              type="danger"
+              title="입금을 확인했나요?"
+              body={`${claim.claimCode} · ${sellerName}, ${formatWon(claim.amount)} 입금을 확인했나요? 회수 완료로 바꾸면 되돌릴 수 없어요.`}
+              confirmLabel="입금 확인"
+              confirming={confirm.isPending}
+              onConfirm={() => confirm.mutate({ claimId: claim.id })}
+            />
           </>
         )}
       </div>

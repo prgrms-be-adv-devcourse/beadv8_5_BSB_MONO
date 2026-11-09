@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
@@ -150,8 +150,33 @@ describe('AdminClaimsPage', () => {
     await screen.findByRole('row', { name: /RC-20261215-0002/ })
 
     await user.click(screen.getByRole('button', { name: '회수 완료' }))
+    const dialog = await screen.findByRole('alertdialog')
+    expect(dialog).toHaveTextContent('RC-20261215-0002 · 춘천러닝클럽, ₩105,500')
+    await user.click(within(dialog).getByRole('button', { name: '입금 확인' }))
 
     expect(await screen.findByText('회수 완료로 바꿨어요.')).toBeInTheDocument()
     expect(confirmedPath).toBe('/api/v1/payout/claims/2/confirm')
+  })
+
+  it('확인 창에서 취소하면 입금 확인 요청을 보내지 않는다', async () => {
+    mockClaims([CLAIMING])
+    let called = false
+    server.use(
+      http.post('*/api/v1/payout/claims/:claimId/confirm', () => {
+        called = true
+        return HttpResponse.json({ status: 200, message: 'ok', data: CLAIMING })
+      }),
+    )
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByRole('row', { name: /RC-20261215-0002/ })
+
+    await user.click(screen.getByRole('button', { name: '회수 완료' }))
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', { name: '취소' }),
+    )
+
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    expect(called).toBe(false)
   })
 })
