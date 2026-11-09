@@ -55,7 +55,7 @@ export function DepositChargePage() {
         )}
         {held && <ChargeHeldAlert />}
         <section className="flex flex-col gap-4 rounded-lg bg-bg-surface p-5 shadow-sm inset-ring inset-ring-border-default">
-          <label htmlFor="charge-amount" className="text-label-m">
+          <label htmlFor="charge-amount" className="text-body2-medium">
             충전할 금액
           </label>
           <div className="flex items-baseline justify-end gap-1 rounded-md px-4 py-3 inset-ring inset-ring-border-strong">
@@ -64,9 +64,9 @@ export function DepositChargePage() {
               inputMode="numeric"
               value={won(amount)}
               onChange={(e) => setAmount(Number(e.target.value.replace(/\D/g, '')) || 0)}
-              className="w-full bg-transparent text-right font-display text-display-m outline-none"
+              className="w-full bg-transparent text-right font-display text-number-s outline-none"
             />
-            <span className="text-label-m">원</span>
+            <span className="text-body2-medium">원</span>
           </div>
           <div className="flex gap-2">
             {STEPS.map((step) => (
@@ -80,15 +80,15 @@ export function DepositChargePage() {
               </Button>
             ))}
           </div>
-          <p className="text-caption text-text-tertiary">1만 원부터 충전할 수 있어요.</p>
+          <p className="text-caption-regular text-text-tertiary">1만 원부터 충전할 수 있어요.</p>
           <div className="flex flex-col gap-2 rounded-md bg-bg-subtle p-4">
             <KeyValue
               label="지금 예치금"
               value={balance === undefined ? '-' : `₩${won(balance)}`}
             />
             <div className="flex items-center justify-between">
-              <span className="text-body-s text-text-tertiary">충전 후 예치금</span>
-              <span className="text-label-strong">
+              <span className="text-body2-regular text-text-tertiary">충전 후 예치금</span>
+              <span className="text-body2-bold">
                 {balance === undefined ? '-' : `₩${won(balance + amount)}`}
               </span>
             </div>
@@ -96,7 +96,7 @@ export function DepositChargePage() {
         </section>
         <section className="flex flex-col gap-2 rounded-lg bg-bg-surface p-5 shadow-sm inset-ring inset-ring-border-default">
           <KeyValue label="충전 방법" value="토스페이먼츠 (카드 · 계좌이체)" />
-          <p className="text-caption text-text-tertiary">
+          <p className="text-caption-regular text-text-tertiary">
             쓰지 않은 예치금은 언제든 전부 돌려받을 수 있어요.
           </p>
         </section>

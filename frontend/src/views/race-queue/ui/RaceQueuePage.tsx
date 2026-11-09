@@ -90,7 +90,7 @@ export function RaceQueuePage({
       ) : queue.failed && remaining === null ? (
         <>
           <main className="flex flex-1 flex-col items-center justify-center gap-8 px-4 py-6">
-            <h1 className="text-center text-heading-l text-text-primary">
+            <h1 className="text-center text-title2 text-text-primary">
               대기열에서 자리를 잃었어요
               <br />
               다시 줄을 서 주세요
@@ -101,7 +101,7 @@ export function RaceQueuePage({
               strokeWidth={BIG_ICON_STROKE}
               aria-hidden
             />
-            <p className="text-center text-body-s text-text-secondary">
+            <p className="text-center text-body2-regular text-text-secondary">
               대기열이 다시 시작되어 순서가 사라졌어요.
               <br />
               다시 줄을 서면 처음부터 기다려요.
@@ -123,7 +123,7 @@ export function RaceQueuePage({
       ) : preview && remaining !== null ? (
         <>
           <main className="flex flex-1 flex-col items-center justify-center gap-8 px-4 py-6">
-            <h1 className="text-center text-heading-l text-text-primary">
+            <h1 className="text-center text-title2 text-text-primary">
               내 차례예요
               <br />
               지금 신청할 수 있어요
@@ -135,12 +135,12 @@ export function RaceQueuePage({
               aria-hidden
             />
             <div role="timer" className="flex flex-col items-center gap-1 text-center">
-              <p className="text-label-m text-text-secondary">남은 시간</p>
-              <p className="font-display text-display-m text-text-primary tabular-nums">
+              <p className="text-body2-medium text-text-secondary">남은 시간</p>
+              <p className="font-display text-number-s text-text-primary tabular-nums">
                 {formatTimer(remaining)}
               </p>
             </div>
-            <p className="text-center text-body-s text-text-secondary">
+            <p className="text-center text-body2-regular text-text-secondary">
               남은 시간 안에 참가 신청과 결제를 마쳐 주세요.
               <br />
               시간이 지나면 다시 줄을 서야 해요.
@@ -157,7 +157,7 @@ export function RaceQueuePage({
         </>
       ) : (
         <main className="flex flex-1 flex-col items-center justify-center gap-8 px-4 py-6">
-          <h1 className="text-center text-heading-l text-text-primary">
+          <h1 className="text-center text-title2 text-text-primary">
             지금 신청하는 분이 많아서
             <br />
             잠시 기다리고 있어요
@@ -170,7 +170,7 @@ export function RaceQueuePage({
           />
           {/* 진행률이 아니라 기다리는 중이라는 표시라 값 없이 계속 움직인다 */}
           <ProgressBar indeterminate aria-label="대기 중" className="w-70" />
-          <p className="text-center text-body-s text-text-secondary">
+          <p className="text-center text-body2-regular text-text-secondary">
             {queue.ahead === undefined
               ? '차례대로 들어가고 있어요.'
               : `내 앞에 ${queue.ahead}명이 있어요.`}{' '}

@@ -56,12 +56,12 @@ export const Gallery: Story = {
       {NAMES.map((name) => (
         <div key={name} className="flex flex-col items-center gap-2 rounded-md bg-bg-surface p-3">
           <Icon name={name} className="text-text-primary" />
-          <span className="text-caption text-text-tertiary">{name}</span>
+          <span className="text-caption-regular text-text-tertiary">{name}</span>
         </div>
       ))}
       <div className="flex flex-col items-center gap-2 rounded-md bg-bg-surface p-3">
         <Spinner className="text-text-brand" />
-        <span className="text-caption text-text-tertiary">Spinner</span>
+        <span className="text-caption-regular text-text-tertiary">Spinner</span>
       </div>
     </div>
   ),
