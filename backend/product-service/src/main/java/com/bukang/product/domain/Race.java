@@ -109,7 +109,7 @@ public class Race extends BaseIdAndTime {
 	@Column(columnDefinition = "TEXT")
 	private String refundPolicy;
 
-	// 크루 참가 신청 인원. 최소는 5 이상만 정할 수 있고, 최대가 null이면 상한이 없다
+	// 크루 참가 신청 인원. 최소는 4 이상만 정할 수 있고 (11/05 회의 P3), 최대가 null이면 상한이 없다
 	@ColumnDefault("5")
 	@Column(nullable = false)
 	private int crewMinCount;
