@@ -105,12 +105,13 @@ public class HttpRaceCourseAdapter implements RaceCoursePort {
 				CANCELED.equals(saleStatus), tshirtSizeOption, crewSale());
 		}
 
-		// 파티 예매 네 칸은 상품이 아직 주지 않는다(호빈님 요청 중). 하나라도 없으면 모르는 것으로 둔다
+		// 파티 예매 칸 (상품 PR #356). 최대 인원은 판매자가 비워 두면 null(상한 없음)이라 정책 상한으로 채운다
+		// 기간·최소 인원이 없으면 크루 예매를 하지 않는 대회이거나 옛 상품이라 모르는 것으로 둔다
 		private RaceCourseInfo.CrewSale crewSale() {
-			if (crewSaleStartAt == null || crewSaleEndAt == null || crewMinCount == null || crewMaxCount == null) {
+			if (crewSaleStartAt == null || crewSaleEndAt == null || crewMinCount == null) {
 				return null;
 			}
-			return new RaceCourseInfo.CrewSale(crewSaleStartAt, crewSaleEndAt, crewMinCount, crewMaxCount);
+			return RaceCourseInfo.CrewSale.of(crewSaleStartAt, crewSaleEndAt, crewMinCount, crewMaxCount);
 		}
 	}
 }

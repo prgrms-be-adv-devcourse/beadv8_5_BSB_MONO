@@ -58,7 +58,7 @@ public class PartyUseCase {
 	// shortcut: 판매자가 정하는 파티 최소·최대 인원(crewMinCount·crewMaxCount)이 상품 종목 응답에 아직 없어 정책 기본값을 둔다.
 	// 파티 신청(BUK-37, #337)이 RaceCourseInfo.crewSale을 들여오면 그 값으로 바꾼다 (최소는 4명 아래로 못 내림, 11/05 P3)
 	public static final int MIN_PARTY_SIZE = 4;
-	public static final int MAX_PARTY_SIZE = 10;
+	public static final int MAX_PARTY_SIZE = RaceCourseInfo.CrewSale.MAX_COUNT_CAP;
 
 	private final PartyRepository partyRepository;
 	private final PartyMemberRepository partyMemberRepository;

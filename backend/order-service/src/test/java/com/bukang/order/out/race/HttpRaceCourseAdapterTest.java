@@ -63,6 +63,24 @@ class HttpRaceCourseAdapterTest {
 	}
 
 	@Test
+	@DisplayName("파티 예매 칸: 최대 인원이 비면(상한 없음) 정책 상한 10명, 10명보다 크면 10명, 기간이 비면 모르는 것(null)으로 둔다")
+	void crewSale() {
+		server.expect(requestTo(URL)).andRespond(withSuccess(withCrew(5, "null"), MediaType.APPLICATION_JSON));
+		server.expect(requestTo(URL)).andRespond(withSuccess(withCrew(5, "20"), MediaType.APPLICATION_JSON));
+		server.expect(requestTo(URL)).andRespond(withSuccess(withCrew(5, "8"), MediaType.APPLICATION_JSON));
+		server.expect(requestTo(URL))
+			.andRespond(withSuccess(response("ON_SALE", "null", "null"), MediaType.APPLICATION_JSON));
+
+		RaceCourseInfo.CrewSale noCap = adapter.findCourse(7).orElseThrow().crewSale();
+		assertThat(noCap).isEqualTo(new RaceCourseInfo.CrewSale(LocalDateTime.of(2026, 9, 25, 10, 0),
+			LocalDateTime.of(2026, 9, 30, 19, 0), 5, 10));
+		assertThat(adapter.findCourse(7).orElseThrow().crewSale().maxCount()).isEqualTo(10);
+		assertThat(adapter.findCourse(7).orElseThrow().crewSale().maxCount()).isEqualTo(8);
+		assertThat(adapter.findCourse(7).orElseThrow().crewSale()).isNull();
+		server.verify();
+	}
+
+	@Test
 	@DisplayName("없는 종목(404)은 찾지 못한 것으로 보고, 취소된 대회(CANCELED)는 canceled로, 판매 중지(STOPPED)는 그대로 옮긴다")
 	void notFoundOrCanceled() {
 		server.expect(requestTo(URL)).andRespond(withStatus(HttpStatus.NOT_FOUND));
@@ -108,6 +126,13 @@ class HttpRaceCourseAdapterTest {
 				.isInstanceOf(ExternalServiceUnavailableException.class);
 			assertThat(Duration.ofNanos(System.nanoTime() - startedAt)).isLessThan(Duration.ofSeconds(2));
 		}
+	}
+
+	// 파티 예매 칸이 있는 응답 (상품 PR #356 RaceCourseInfoDto)
+	private String withCrew(int minCount, String maxCount) {
+		return response("ON_SALE", "null", "null").replace("\"tshirtSizeOption\"",
+			"\"crewSaleStartAt\": \"2026-09-25T10:00:00\", \"crewSaleEndAt\": \"2026-09-30T19:00:00\", "
+				+ "\"crewMinCount\": %d, \"crewMaxCount\": %s, \"tshirtSizeOption\"".formatted(minCount, maxCount));
 	}
 
 	// 상품 서비스 InternalV1RaceCourseController가 실제로 돌려주는 모양 (data = RaceCourseInfoDto)
