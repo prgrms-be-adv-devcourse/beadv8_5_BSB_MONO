@@ -153,9 +153,12 @@ public class ApiV1CashController {
 				@ExampleObject(name = "PG 승인 거절", value = CashApiExamples.CHARGE_CONFIRM_FAILED)
 			})),
 		@ApiResponse(responseCode = "400",
-			description = "최소 충전 금액 미만, 입력값 검증 실패, 요청 본문 형식 오류, 회원 ID 형식 오류 또는 0 이하",
+			description = "최소 충전 금액 미만, 1회·일일·잔액 충전 한도 초과, 입력값 검증 실패, 요청 본문 형식 오류, 회원 ID 형식 오류 또는 0 이하",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "최소 충전 금액 미만", value = CashApiExamples.CHARGE_AMOUNT_TOO_SMALL),
+				@ExampleObject(name = "1회 충전 한도 초과", value = CashApiExamples.CHARGE_LIMIT_PER_CHARGE),
+				@ExampleObject(name = "일일 충전 한도 초과", value = CashApiExamples.CHARGE_LIMIT_PER_DAY),
+				@ExampleObject(name = "잔액 상한 초과", value = CashApiExamples.CHARGE_LIMIT_BALANCE),
 				@ExampleObject(name = "입력값 검증 실패", value = CashApiExamples.CHARGE_CONFIRM_INVALID_INPUT),
 				@ExampleObject(name = "요청 본문 형식 오류", value = CashApiExamples.INVALID_BODY),
 				@ExampleObject(name = "회원 ID 형식 오류", value = CashApiExamples.INVALID_VALUE_TYPE),

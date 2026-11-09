@@ -49,7 +49,7 @@ public class CashChargeConfirmUseCase {
 			throw new ChargeAmountTooSmallException("최소 충전 금액은 10,000원입니다.");
 		}
 		if (amount > CashChargePolicy.MAX_PER_CHARGE) {
-			throw new ChargeAmountTooLargeException("1회 충전 한도는 100,000원입니다.");
+			throw ChargeAmountTooLargeException.perCharge("1회 충전 한도는 100,000원입니다.");
 		}
 
 		ChargeClaim claim = transactionTemplate.execute(status -> claimChargeLocked(customerId, orderId, amount));
@@ -199,14 +199,14 @@ public class CashChargeConfirmUseCase {
 		long todayTotal = walletLedgerRepository.sumAmountSince(
 			customerWallet, LedgerType.충전__PG결제_토스페이먼츠, startOfToday);
 		if (todayTotal + amount > CashChargePolicy.MAX_PER_DAY) {
-			throw new ChargeAmountTooLargeException("일일 충전 한도는 1,000,000원입니다.");
+			throw ChargeAmountTooLargeException.perDay("일일 충전 한도는 1,000,000원입니다.");
 		}
 	}
 
 	// 지갑에 평생 쌓인 금액이 아니라 지금 잔액(이번 충전액 더한 값) 기준이라, 환급하면 다시 여유가 생긴다
 	private void assertWithinBalanceCap(Wallet customerWallet, long amount) {
 		if (customerWallet.getBalance() + amount > CashChargePolicy.MAX_BALANCE) {
-			throw new ChargeAmountTooLargeException("보유 한도는 10,000,000원입니다.");
+			throw ChargeAmountTooLargeException.balance("보유 한도는 10,000,000원입니다.");
 		}
 	}
 

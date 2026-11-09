@@ -46,6 +46,7 @@ import com.bukang.cash.out.pg.PaymentClient;
 import com.bukang.cash.out.pg.PaymentLookupResult;
 import com.bukang.cash.out.wallet.WalletLedgerRepository;
 import com.bukang.cash.out.wallet.WalletRepository;
+import com.bukang.common.global.exception.BusinessException;
 
 // FakePaymentClient(mode=fake)는 항상 성공해서 실패·멱등 분기를 확인할 수 없으므로,
 // PaymentClient 빈을 Mockito 목으로 바꿔서 승인 성공/실패를 직접 제어한다
@@ -84,7 +85,9 @@ class CashChargeConfirmUseCaseTest {
 		createCustomerWallet(0);
 
 		assertThatThrownBy(() -> cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 9_999))
-			.isInstanceOf(ChargeAmountTooSmallException.class);
+			.isInstanceOf(ChargeAmountTooSmallException.class)
+			.extracting(e -> ((BusinessException)e).getCode())
+			.isEqualTo(ChargeAmountTooSmallException.CODE);
 
 		assertThat(walletChargeRepository.findByIdempotencyKey("order_1")).isEmpty();
 		assertBalance(CUSTOMER_ID, 0);
@@ -97,7 +100,9 @@ class CashChargeConfirmUseCaseTest {
 		createCustomerWallet(0);
 
 		assertThatThrownBy(() -> cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 100_001))
-			.isInstanceOf(ChargeAmountTooLargeException.class);
+			.isInstanceOf(ChargeAmountTooLargeException.class)
+			.extracting(e -> ((BusinessException)e).getCode())
+			.isEqualTo(ChargeAmountTooLargeException.PER_CHARGE_CODE);
 
 		assertThat(walletChargeRepository.findByIdempotencyKey("order_1")).isEmpty();
 		assertBalance(CUSTOMER_ID, 0);
@@ -110,7 +115,9 @@ class CashChargeConfirmUseCaseTest {
 		createCustomerWalletWithTodayCharge(950_000);
 
 		assertThatThrownBy(() -> cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 60_000))
-			.isInstanceOf(ChargeAmountTooLargeException.class);
+			.isInstanceOf(ChargeAmountTooLargeException.class)
+			.extracting(e -> ((BusinessException)e).getCode())
+			.isEqualTo(ChargeAmountTooLargeException.PER_DAY_CODE);
 
 		assertThat(walletChargeRepository.findByIdempotencyKey("order_1")).isEmpty();
 		assertBalance(CUSTOMER_ID, 950_000);
@@ -123,7 +130,9 @@ class CashChargeConfirmUseCaseTest {
 		createCustomerWalletWithBalance(9_990_000);
 
 		assertThatThrownBy(() -> cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 20_000))
-			.isInstanceOf(ChargeAmountTooLargeException.class);
+			.isInstanceOf(ChargeAmountTooLargeException.class)
+			.extracting(e -> ((BusinessException)e).getCode())
+			.isEqualTo(ChargeAmountTooLargeException.BALANCE_CODE);
 
 		assertThat(walletChargeRepository.findByIdempotencyKey("order_1")).isEmpty();
 		assertBalance(CUSTOMER_ID, 9_990_000);
