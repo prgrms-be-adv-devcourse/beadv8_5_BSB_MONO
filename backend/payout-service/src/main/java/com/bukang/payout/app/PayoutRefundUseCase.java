@@ -44,8 +44,8 @@ public class PayoutRefundUseCase {
 			return Optional.empty();
 		}
 		Optional<Payout> first = payoutRepository.findByRaceId(event.raceId()).stream()
-			.filter(payout -> payout.getPayoutStage() == PayoutStage.FIRST)
-			.filter(payout -> payout.getStatus() != PayoutStatus.CANCELED)
+			.filter(payout -> payout.getPayoutStage() == PayoutStage.일차_정산)
+			.filter(payout -> payout.getStatus() != PayoutStatus.취소)
 			.findFirst();
 		if (first.isEmpty()) {
 			log.info("1차 정산이 없는 대회의 환불이라 회수를 남기지 않습니다. raceId={}, orderItemId={}",

@@ -16,7 +16,11 @@ public interface SocialOAuth2Client {
 	// 서블릿 요청은 라이브러리 리졸버가 받는 형식이라 넘긴다 (콜백 주소는 설정의 절대 주소를 쓴다)
 	AuthorizationStart begin(SocialProvider provider, HttpServletRequest request);
 
+	// 카카오 메시지 추가 동의 요청을 만든다. 친구 목록·메시지 범위만 요청하고 콜백 주소는 로그인과 같다
+	AuthorizationStart beginMessageConsent(HttpServletRequest request);
+
 	// 콜백에서 받은 코드를 토큰으로 바꾸고 사람 정보를 받는다. state·PKCE·구글 ID 토큰을 검사한다
+	// 카카오면 받은 토큰도 사람 정보에 담는다(저장은 메시지 동의 때만)
 	// 실패하면 SocialLoginFailedException을 던진다
 	SocialIdentity complete(StoredAuthorization authorization, String code, String state);
 

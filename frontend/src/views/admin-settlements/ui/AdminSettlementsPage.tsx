@@ -61,14 +61,14 @@ const REFUNDS: RefundRequest[] = [
 ]
 
 // 표 안의 처리 글자 버튼
-const ACTION = cn('rounded-sm text-body-m text-text-primary hover:underline', FOCUS_RING)
+const ACTION = cn('rounded-sm text-body2-regular text-text-primary hover:underline', FOCUS_RING)
 
 // 피그마 V2 · A02 정산 · 환급 처리 (+ A02-1 전체 지급 완료 확인)
 export function AdminSettlementsPage({ confirmOpen = false }: { confirmOpen?: boolean }) {
   const [allOpen, setAllOpen] = useState(confirmOpen)
   const [selectedId, setSelectedId] = useState(SETTLEMENTS[0].id)
   const target = SETTLEMENTS.find((r) => r.id === selectedId) ?? SETTLEMENTS[0]
-  const [reasonType, setReasonType] = useState<payoutModel.PayoutHoldReason>('RACE_CANCELED')
+  const [reasonType, setReasonType] = useState<payoutModel.PayoutHoldReason>('대회_취소_처리')
 
   return (
     <ConsolePage
@@ -126,7 +126,7 @@ export function AdminSettlementsPage({ confirmOpen = false }: { confirmOpen?: bo
             onValueChange={(next) => next && setReasonType(next)}
             className="w-full"
           />
-          <p className="text-caption text-text-tertiary">
+          <p className="text-caption-regular text-text-tertiary">
             보류가 풀리면 해제일 다음 날 지급해요(원래 지급일보다 앞당기지 않아요).
           </p>
           {/* TODO(api): 관리자 목록 API가 생기면 실제 행에서만 켠다 */}
@@ -158,7 +158,7 @@ export function AdminSettlementsPage({ confirmOpen = false }: { confirmOpen?: bo
               },
             ]}
           />
-          <p className="text-caption text-text-tertiary">
+          <p className="text-caption-regular text-text-tertiary">
             회원 계좌로 보내고 환급 완료로 바꿔요. 1차에서는 실제 송금 없이 상태만 바꿔요.
           </p>
         </ConsoleCard>

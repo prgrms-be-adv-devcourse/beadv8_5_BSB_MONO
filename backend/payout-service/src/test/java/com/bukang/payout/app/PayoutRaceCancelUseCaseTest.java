@@ -98,13 +98,13 @@ class PayoutRaceCancelUseCaseTest {
 
 		assertThat(result).isEqualTo(new PayoutRaceCancelUseCase.CancelResult(1, 1, false));
 		Payout reloaded = reload(payout);
-		assertThat(reloaded.getStatus()).isEqualTo(PayoutStatus.CANCELED);
+		assertThat(reloaded.getStatus()).isEqualTo(PayoutStatus.취소);
 		// 원장 줄을 반대 부호로 되돌려 지급액(줄의 합)은 0, 판매액 칸은 만들 때 그대로 둔다 (PRO-214)
 		assertThat(reloaded.getPayoutAmount()).isZero();
 		assertThat(reloaded.getSalesAmount()).isEqualTo(50_000);
 		PayoutStatusHistory last = reloaded.getStatusHistories().getLast();
-		assertThat(last.getFromStatus()).isEqualTo(PayoutStatus.CALCULATED);
-		assertThat(last.getToStatus()).isEqualTo(PayoutStatus.CANCELED);
+		assertThat(last.getFromStatus()).isEqualTo(PayoutStatus.지급_예정);
+		assertThat(last.getToStatus()).isEqualTo(PayoutStatus.취소);
 		assertThat(last.getChangedBy()).isEqualTo(PayoutHold.SYSTEM_MEMBER_ID);
 		assertThat(last.getChangedAt()).isEqualTo(CANCELED_AT);
 		assertThat(last.getReason()).isEqualTo("대회 취소");
@@ -112,21 +112,21 @@ class PayoutRaceCancelUseCaseTest {
 	}
 
 	@Test
-	@DisplayName("다른 사유로 보류 중인 정산 내역도 취소로 닫는다. 보류 기록은 그대로 두고 이력에 HELD → CANCELED가 남는다")
+	@DisplayName("다른 사유로 보류 중인 정산 내역도 취소로 닫는다. 보류 기록은 그대로 두고 이력에 지급보류 → 취소가 남는다")
 	void cancelsHeldPayout() {
 		Payout payout = savePayout(RACE_ID, YearMonth.of(2026, 9), 50_000);
-		holdUseCase().hold(payout.getId(), PayoutHoldReason.ACCOUNT_NOT_REGISTERED, null, ADMIN_ID,
+		holdUseCase().hold(payout.getId(), PayoutHoldReason.정산_계좌_미등록, null, ADMIN_ID,
 			CANCELED_AT.minusDays(1));
 
 		useCase().cancelRace(RACE_ID, CANCELED_AT);
 
 		Payout reloaded = reload(payout);
-		assertThat(reloaded.getStatus()).isEqualTo(PayoutStatus.CANCELED);
+		assertThat(reloaded.getStatus()).isEqualTo(PayoutStatus.취소);
 		assertThat(reloaded.getStatusHistories())
 			.extracting(PayoutStatusHistory::getToStatus)
-			.containsExactly(PayoutStatus.CALCULATED, PayoutStatus.HELD, PayoutStatus.CANCELED);
+			.containsExactly(PayoutStatus.지급_예정, PayoutStatus.지급보류, PayoutStatus.취소);
 		assertThat(payoutHoldRepository.findAll()).singleElement()
-			.extracting(PayoutHold::getStatus).isEqualTo(PayoutHoldStatus.HELD);
+			.extracting(PayoutHold::getStatus).isEqualTo(PayoutHoldStatus.지급보류);
 	}
 
 	@Test
@@ -141,17 +141,17 @@ class PayoutRaceCancelUseCaseTest {
 		PayoutRaceCancelUseCase.CancelResult result = useCase().cancelRace(RACE_ID, CANCELED_AT);
 
 		assertThat(result).isEqualTo(new PayoutRaceCancelUseCase.CancelResult(2, 0, true));
-		assertThat(reload(paid).getStatus()).isEqualTo(PayoutStatus.PAID);
-		assertThat(reload(otherRace).getStatus()).isEqualTo(PayoutStatus.CALCULATED);
+		assertThat(reload(paid).getStatus()).isEqualTo(PayoutStatus.지급_완료);
+		assertThat(reload(otherRace).getStatus()).isEqualTo(PayoutStatus.지급_예정);
 		List<PayoutRecovery> recoveries = payoutRecoveryRepository.findAll();
 		assertThat(recoveries).hasSize(1);
 		PayoutRecovery recovery = recoveries.getFirst();
 		assertThat(recovery.getSellerId()).isEqualTo(SELLER_ID);
 		assertThat(recovery.getRaceId()).isEqualTo(RACE_ID);
-		assertThat(recovery.getReasonType()).isEqualTo(PayoutRecoveryReason.RACE_CANCELED);
+		assertThat(recovery.getReasonType()).isEqualTo(PayoutRecoveryReason.대회_취소);
 		// 47,250 + 18,900 (각각 5.5% 수수료를 뗀 지급액)
 		assertThat(recovery.getAmount()).isEqualTo(66_150);
-		assertThat(recovery.getStatus()).isEqualTo(PayoutRecoveryStatus.REQUESTED);
+		assertThat(recovery.getStatus()).isEqualTo(PayoutRecoveryStatus.회수_요청);
 		assertThat(recovery.getRequestedAt()).isEqualTo(CANCELED_AT);
 	}
 
@@ -193,7 +193,7 @@ class PayoutRaceCancelUseCaseTest {
 		PayoutRaceCancelUseCase.CancelResult result = useCase().cancelRace(RACE_ID, CANCELED_AT);
 
 		assertThat(result).isEqualTo(new PayoutRaceCancelUseCase.CancelResult(1, 0, false));
-		assertThat(reload(paying).getStatus()).isEqualTo(PayoutStatus.PAYING);
+		assertThat(reload(paying).getStatus()).isEqualTo(PayoutStatus.지급_중);
 		assertThat(payoutRecoveryRepository.count()).isZero();
 	}
 
@@ -210,8 +210,27 @@ class PayoutRaceCancelUseCaseTest {
 
 		payStepUseCase().complete(paying.getId(), CANCELED_AT.plusMinutes(1));
 
-		assertThat(reload(paying).getStatus()).isEqualTo(PayoutStatus.PAID);
+		assertThat(reload(paying).getStatus()).isEqualTo(PayoutStatus.지급_완료);
 		// 지급 완료 두 건의 지급액 합: (20,000 − 1,100) + (50,000 − 2,750) = 18,900 + 47,250 = 66,150
+		assertThat(payoutRecoveryRepository.findAll()).singleElement()
+			.extracting(PayoutRecovery::getAmount).isEqualTo(66_150L);
+	}
+
+	@Test
+	@DisplayName("BUK-62: 대회 취소 뒤 지급 중 정산 내역이 409로 지급 불일치가 되면, 돈은 나갔으므로 지급 완료처럼 회수를 만든다")
+	void payingPayoutMismatchAfterRaceCancelCreatesRecovery() {
+		Payout paid = savePayout(RACE_ID, YearMonth.of(2026, 8), 20_000);
+		paid.pay(CANCELED_AT.minusDays(10));
+		Payout paying = savePayout(RACE_ID, YearMonth.of(2026, 9), 50_000);
+		paying.startPaying(CANCELED_AT.minusMinutes(1));
+		useCase().cancelRace(RACE_ID, CANCELED_AT);
+		entityManager.flush();
+		entityManager.clear();
+
+		payStepUseCase().markMismatch(paying.getId(), CANCELED_AT.plusMinutes(1), "캐시 서비스 금액 불일치 (409)");
+
+		assertThat(reload(paying).getStatus()).isEqualTo(PayoutStatus.지급_불일치);
+		// 지급 완료 + 지급 불일치의 원장 지급액 합: 18,900 + 47,250 = 66,150
 		assertThat(payoutRecoveryRepository.findAll()).singleElement()
 			.extracting(PayoutRecovery::getAmount).isEqualTo(66_150L);
 	}
@@ -228,7 +247,7 @@ class PayoutRaceCancelUseCaseTest {
 		payStepUseCase().revert(paying.getId(), CANCELED_AT.plusMinutes(1), "캐시 서비스 거절");
 
 		Payout reloaded = reload(paying);
-		assertThat(reloaded.getStatus()).isEqualTo(PayoutStatus.CANCELED);
+		assertThat(reloaded.getStatus()).isEqualTo(PayoutStatus.취소);
 		assertThat(reloaded.getPayoutAmount()).isZero();
 		// 돈이 나가지 않았으므로 돌려받을 것도 없다
 		assertThat(payoutRecoveryRepository.count()).isZero();

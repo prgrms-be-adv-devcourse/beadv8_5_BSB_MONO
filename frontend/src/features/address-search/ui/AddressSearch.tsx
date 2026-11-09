@@ -109,7 +109,12 @@ export function AddressSearch({
     <div ref={root} className="flex flex-col gap-2">
       {/* 실패한 스크립트는 next/script가 성공으로 기억해 다시 열면 빈 창이 되므로, 실패하면 버튼을 숨긴다 */}
       {failed ? (
-        <p ref={notice} role="alert" tabIndex={-1} className="text-caption text-text-danger">
+        <p
+          ref={notice}
+          role="alert"
+          tabIndex={-1}
+          className="text-caption-regular text-text-danger"
+        >
           {ADDRESS_SEARCH_UNAVAILABLE}
         </p>
       ) : (
@@ -134,7 +139,7 @@ export function AddressSearch({
           />
           <Button
             type="button"
-            variant="ghost"
+            variant="text"
             size="s"
             className="self-end"
             aria-label="주소 검색 닫기"

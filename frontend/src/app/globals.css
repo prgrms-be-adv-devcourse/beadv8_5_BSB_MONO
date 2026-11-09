@@ -9,9 +9,20 @@
 /* 다크 모드는 피그마 Color 컬렉션의 Dark 모드. 시스템 설정을 따르지 않고 .dark 클래스로만 켠다. */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* 움직임. 값 없는 ProgressBar(대기열)가 쓴다. */
+/* 움직임. 값 없는 ProgressBar(대기열)가 쓴다.
+ * delayed-show: 0.3초 동안 숨겼다가 보인다. 금방 끝나는 로딩에서 회색 틀이 깜빡이지 않게 한다(시나리오 38 · 01 홈 로딩). */
 @theme {
   --animate-progress-indeterminate: progress-indeterminate 1.4s ease-in-out infinite;
+  --animate-delayed-show: delayed-show 0s 300ms both;
+
+  @keyframes delayed-show {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
 
   @keyframes progress-indeterminate {
     from {

@@ -249,7 +249,7 @@ class ApiV1PartyPaymentTest {
 		LocalDateTime afterDue = partyOf(partyId).getPaymentDueAt().plusSeconds(1);
 
 		assertThatThrownBy(() -> transactionTemplate.executeWithoutResult(status ->
-			orderPayUseCase.pay(2, orderId, afterDue)))
+			orderPayUseCase.pay(2, orderId, List.of(), afterDue)))
 			.isInstanceOf(OrderNotPayableException.class);
 		assertThat(walletPort.payCalls()).isEmpty();
 

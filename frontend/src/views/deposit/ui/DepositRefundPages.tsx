@@ -158,22 +158,22 @@ export function DepositRefundPage() {
           {/* 시안에 환급 실패 문구가 없어 결제 실패(M07-3)의 안내 문구를 쓴다 */}
           {failed && <Alert tone="danger" title="잠시 뒤 다시 시도해 주세요." />}
           <section className="flex flex-col gap-1 rounded-lg bg-bg-surface p-5 shadow-sm inset-ring inset-ring-border-default">
-            <p className="text-label-m text-text-secondary">돌려받을 금액</p>
+            <p className="text-body2-medium text-text-secondary">돌려받을 금액</p>
             {balancePending ? (
               <Skeleton shape="rect" className="h-11 w-36" />
             ) : (
-              <p className="font-display text-display-l">
+              <p className="font-display text-number-m">
                 {balance === undefined ? '-' : won(balance)}
               </p>
             )}
-            <p className="text-body-s text-text-secondary">
+            <p className="text-body2-regular text-text-secondary">
               남은 예치금 전부를 아래 계좌로 돌려받아요.
               <br />
               신청하면 바로 보내요.
             </p>
           </section>
           <section className="flex flex-col gap-4 rounded-lg bg-bg-surface p-5 shadow-sm inset-ring inset-ring-border-default">
-            <h2 className="text-heading-s">환급 계좌</h2>
+            <h2 className="text-body1-bold">환급 계좌</h2>
             <Controller
               control={control}
               name="bankCode"
@@ -246,15 +246,15 @@ export function DepositRefundDonePage() {
       <AppHeader type="sub" title="환급 완료" close backHref="/me/deposit" />
       <main className="flex flex-1 flex-col justify-center-safe gap-6 px-4 pt-6 pb-8">
         <div className="flex flex-col gap-2">
-          <h2 className="text-heading-l">예치금을 돌려받았어요</h2>
-          <p className="text-body-m text-text-secondary">
+          <h2 className="text-title2">예치금을 돌려받았어요</h2>
+          <p className="text-body2-regular text-text-secondary">
             남은 예치금 전부를 아래 계좌로 보냈어요.
           </p>
         </div>
         <section className="flex flex-col gap-4 rounded-lg bg-bg-surface p-5 shadow-sm inset-ring inset-ring-border-default">
-          <h3 className="text-heading-s">진행 단계</h3>
+          <h3 className="text-body1-bold">진행 단계</h3>
           <Stepper steps={['신청', '처리 중', '환급 완료']} current={2} />
-          <p className="text-caption text-text-tertiary">
+          <p className="text-caption-regular text-text-tertiary">
             신청하면 바로 보내고 &apos;환급 완료&apos;로 바뀌어요.
           </p>
         </section>

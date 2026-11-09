@@ -88,12 +88,12 @@ function SellerInfoCard({ seller }: { seller: memberModel.SellerDto }) {
       <dl className="grid grid-cols-2 gap-x-4 gap-y-4" data-clarity-mask="true">
         {fields.map(([label, value]) => (
           <div key={label} className="flex flex-col gap-0.5">
-            <dt className="text-caption text-text-secondary">{label}</dt>
-            <dd className="text-body-s text-text-primary">{value}</dd>
+            <dt className="text-caption-regular text-text-secondary">{label}</dt>
+            <dd className="text-body2-regular text-text-primary">{value}</dd>
           </div>
         ))}
       </dl>
-      <p className="text-caption text-text-tertiary">
+      <p className="text-caption-regular text-text-tertiary">
         판매자 정보를 바꾸려면 관리자 확인이 필요해요.
       </p>
     </ConsoleCard>

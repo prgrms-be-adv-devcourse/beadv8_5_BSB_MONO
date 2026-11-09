@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 import com.bukang.payout.domain.exception.PayoutHoldConflictException;
 
 /**
- * 지급 중(PAYING) 상태: 캐시 서비스에 정산금 이동을 요청하기 전에 커밋해, 결과를 모르는 동안 다른 변경을 막는다 (PRO-252)
+ * 지급 중 상태: 캐시 서비스에 정산금 이동을 요청하기 전에 커밋해, 결과를 모르는 동안 다른 변경을 막는다 (PRO-252)
  */
 class PayoutPayingTest {
 	private static final BusinessDayCalendar CALENDAR = new BusinessDayCalendar();
@@ -31,10 +31,10 @@ class PayoutPayingTest {
 
 		payout.startPaying(NOW);
 
-		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.PAYING);
+		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.지급_중);
 		PayoutStatusHistory last = payout.getStatusHistories().getLast();
-		assertThat(last.getFromStatus()).isEqualTo(PayoutStatus.CALCULATED);
-		assertThat(last.getToStatus()).isEqualTo(PayoutStatus.PAYING);
+		assertThat(last.getFromStatus()).isEqualTo(PayoutStatus.지급_예정);
+		assertThat(last.getToStatus()).isEqualTo(PayoutStatus.지급_중);
 	}
 
 	@Test
@@ -45,7 +45,7 @@ class PayoutPayingTest {
 
 		payout.pay(NOW);
 
-		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.PAID);
+		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.지급_완료);
 		assertThat(payout.getPaidAt()).isEqualTo(NOW);
 	}
 
@@ -58,7 +58,7 @@ class PayoutPayingTest {
 
 		payout.revertPaying(NOW, "캐시 서비스 거절");
 
-		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.CALCULATED);
+		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.지급_예정);
 		assertThat(payout.getScheduledPayDate()).isEqualTo(scheduledPayDate);
 		assertThat(payout.getStatusHistories().getLast().getReason()).isEqualTo("캐시 서비스 거절");
 	}
@@ -69,7 +69,7 @@ class PayoutPayingTest {
 		Payout paying = newPayout();
 		paying.startPaying(NOW);
 		Payout held = newPayout();
-		held.hold(PayoutHoldReason.ACCOUNT_NOT_REGISTERED, null, 99, NOW);
+		held.hold(PayoutHoldReason.정산_계좌_미등록, null, 99, NOW);
 
 		assertThatThrownBy(() -> paying.startPaying(NOW)).isInstanceOf(IllegalStateException.class);
 		assertThatThrownBy(() -> held.startPaying(NOW)).isInstanceOf(IllegalStateException.class);
@@ -90,10 +90,10 @@ class PayoutPayingTest {
 		Payout payout = newPayout();
 		payout.startPaying(NOW);
 
-		assertThatThrownBy(() -> payout.hold(PayoutHoldReason.ACCOUNT_NOT_REGISTERED, null, 99, NOW))
+		assertThatThrownBy(() -> payout.hold(PayoutHoldReason.정산_계좌_미등록, null, 99, NOW))
 			.isInstanceOf(PayoutHoldConflictException.class)
 			.hasMessage("지급 중인 정산 내역입니다.");
-		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.PAYING);
+		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.지급_중);
 	}
 
 	@Test
@@ -103,7 +103,7 @@ class PayoutPayingTest {
 		payout.startPaying(NOW);
 
 		assertThatThrownBy(() -> payout.cancel(99, NOW, "대회 취소")).isInstanceOf(IllegalStateException.class);
-		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.PAYING);
+		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.지급_중);
 	}
 
 	@Test

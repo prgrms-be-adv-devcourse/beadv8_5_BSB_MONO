@@ -24,8 +24,8 @@ export function BottomCta({ price, secondary, primary, className }: BottomCtaPro
     >
       {price && (
         <div className="flex shrink-0 flex-col">
-          <span className="text-caption text-text-tertiary">{price.label}</span>
-          <span className="font-display text-display-s text-text-primary">{price.amount}</span>
+          <span className="text-caption-regular text-text-tertiary">{price.label}</span>
+          <span className="text-title2 text-text-primary">{price.amount}</span>
         </div>
       )}
       {secondary && <div className="flex w-30 shrink-0 *:w-full">{secondary}</div>}

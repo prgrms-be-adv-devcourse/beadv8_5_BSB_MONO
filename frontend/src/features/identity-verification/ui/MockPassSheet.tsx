@@ -94,7 +94,7 @@ export function MockPassSheet({ open, onOpenChange, onVerified }: MockPassSheetP
           <div className="flex flex-col gap-2 rounded-md bg-bg-subtle p-3">
             <div className="flex items-center gap-2">
               <Badge tone="neutral">인증 업체 화면</Badge>
-              <span className="text-caption text-text-secondary">
+              <span className="text-caption-regular text-text-secondary">
                 크루런 밖에서 여는 본인인증 창이에요
               </span>
             </div>
@@ -103,7 +103,7 @@ export function MockPassSheet({ open, onOpenChange, onVerified }: MockPassSheetP
           {step === 'form' ? (
             <>
               <fieldset className="flex flex-col gap-2">
-                <legend className="mb-2 text-label-strong text-text-primary">통신사</legend>
+                <legend className="mb-2 text-body2-bold text-text-primary">통신사</legend>
                 <RadioGroup
                   value={carrier}
                   onValueChange={(value) => setCarrier(value as Carrier)}
@@ -115,7 +115,7 @@ export function MockPassSheet({ open, onOpenChange, onVerified }: MockPassSheetP
                 </RadioGroup>
               </fieldset>
               <fieldset className="flex flex-col gap-2">
-                <legend className="mb-2 text-label-strong text-text-primary">인증 방법</legend>
+                <legend className="mb-2 text-body2-bold text-text-primary">인증 방법</legend>
                 <RadioGroup value={method} onValueChange={(value) => setMethod(value as Method)}>
                   <Radio value="app" label="PASS 앱으로 인증" />
                   <Radio value="sms" label="문자로 인증" />

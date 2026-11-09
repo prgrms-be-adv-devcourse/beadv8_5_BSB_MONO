@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 
 import com.bukang.payout.app.PayoutPayStepUseCase.Start;
 import com.bukang.payout.dto.PayoutPayResultDto;
+import com.bukang.payout.out.PayoutTransferMismatchException;
 import com.bukang.payout.out.PayoutTransferPort;
 import com.bukang.payout.out.PayoutTransferRejectedException;
 import com.bukang.payout.out.PayoutTransferUnknownException;
@@ -16,17 +17,18 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * 지급 배치: 지급 예정일이 된 정산 예정(CALCULATED) 정산 내역의 정산금을 캐시 서비스에 옮기고 지급 완료(PAID)로 바꾼다
+ * 지급 배치: 지급 예정일이 된 정산 예정 정산 내역의 정산금을 캐시 서비스에 옮기고 지급 완료로 바꾼다
  * (payout.md 2-6, PRO-252)
- * 보류(HELD)는 상태가 달라 고르지 않는다. 보류가 풀리면 PRO-26이 지급 예정일을 다시 정하고 CALCULATED로 돌린다
+ * 보류는 상태가 달라 고르지 않는다. 보류가 풀리면 PRO-26이 지급 예정일을 다시 정하고 지급_예정으로 돌린다
  *
  * 정산 내역 한 건씩 처리한다. 한 건이 실패해도 나머지는 지급한다
- * 1. 지급 중(PAYING)으로 바꿔 커밋한다 (짧은 트랜잭션)
+ * 1. 지급 중으로 바꿔 커밋한다 (짧은 트랜잭션)
  * 2. 트랜잭션 밖에서 캐시 서비스에 정산금 이동을 요청한다 (동기 HTTP)
  * 3. 결과에 따라 새 트랜잭션에서 상태를 바꾼다
- *    - 성공: 지급 완료(PAID)
- *    - 거절(4xx): 돈이 안 나간 것이 확실하므로 정산 예정(CALCULATED)으로 되돌린다. 다음 실행에서 다시 지급한다
- *    - 모름(타임아웃 · 5xx): 돈이 나갔을 수 있으므로 지급 중(PAYING)으로 둔다. 다음 실행에서 같은 정산 ID로 다시 요청하고,
+ *    - 성공: 지급 완료
+ *    - 거절(4xx): 돈이 안 나간 것이 확실하므로 정산 예정으로 되돌린다. 다음 실행에서 다시 지급한다
+ *    - 불일치(409): 같은 정산 ID가 이미 다른 금액으로 지급됐다. 지급 불일치로 두고 다시 요청하지 않는다 (BUK-62)
+ *    - 모름(타임아웃 · 5xx): 돈이 나갔을 수 있으므로 지급 중으로 둔다. 다음 실행에서 같은 정산 ID로 다시 요청하고,
  *      캐시 서비스는 이미 옮겼으면 돈을 다시 옮기지 않고 성공으로 답한다
  * 대금 · 수수료가 둘 다 0원이면 캐시 서비스를 부르지 않고 지급 완료한다 (0원 지급 완료, payout.md Q20)
  */
@@ -35,6 +37,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class PayoutPayUseCase {
 	private static final String REJECTED_REASON = "캐시 서비스 거절";
+	private static final String MISMATCH_REASON = "캐시 서비스 금액 불일치 (409)";
 
 	private final PayoutPayStepUseCase payoutPayStepUseCase;
 	private final PayoutTransferPort payoutTransferPort;
@@ -43,21 +46,24 @@ public class PayoutPayUseCase {
 		int paid = 0;
 		int failed = 0;
 		int unknown = 0;
+		int mismatch = 0;
 		for (long payoutId : payoutPayStepUseCase.findTargetIds(today)) {
 			switch (payOne(payoutId, today, now)) {
 				case PAID -> paid++;
 				case FAILED -> failed++;
 				case UNKNOWN -> unknown++;
+				case MISMATCH -> mismatch++;
 				case SKIPPED -> {
 				}
 			}
 		}
-		if (failed > 0 || unknown > 0) {
-			log.error("지급 배치: 지급 완료 {}건, 실패(정산 예정 유지) {}건, 결과 모름(지급 중 유지) {}건", paid, failed, unknown);
+		if (failed > 0 || unknown > 0 || mismatch > 0) {
+			log.error("지급 배치: 지급 완료 {}건, 실패(정산 예정 유지) {}건, 결과 모름(지급 중 유지) {}건, 금액 불일치(확인 필요) {}건",
+				paid, failed, unknown, mismatch);
 		} else {
 			log.info("지급 배치: 지급 완료 {}건", paid);
 		}
-		return new PayoutPayResultDto(today, paid, failed, unknown);
+		return new PayoutPayResultDto(today, paid, failed, unknown, mismatch);
 	}
 
 	private Result payOne(long payoutId, LocalDate today, LocalDateTime now) {
@@ -89,6 +95,10 @@ public class PayoutPayUseCase {
 			log.error("캐시 서비스가 정산금 이동을 거절해 정산 예정으로 되돌립니다. payoutId={}, cause={}",
 				payoutId, exception.getMessage());
 			return revert(payoutId, now);
+		} catch (PayoutTransferMismatchException exception) {
+			log.error("캐시 서비스가 이미 다른 금액으로 지급했다고 답해 지급 불일치로 둡니다. 확인이 필요합니다. payoutId={}, cause={}",
+				payoutId, exception.getMessage());
+			return markMismatch(payoutId, now);
 		} catch (PayoutTransferUnknownException exception) {
 			log.error("정산금 이동 결과를 몰라 지급 중으로 두고 다음 실행에서 다시 요청합니다. payoutId={}, cause={}",
 				payoutId, exception.getMessage());
@@ -120,10 +130,22 @@ public class PayoutPayUseCase {
 		}
 	}
 
+	private Result markMismatch(long payoutId, LocalDateTime now) {
+		try {
+			payoutPayStepUseCase.markMismatch(payoutId, now, MISMATCH_REASON);
+			return Result.MISMATCH;
+		} catch (RuntimeException exception) {
+			// 바꾸지 못하면 지급 중으로 남는다. 다음 실행이 다시 요청하고, 또 409면 그때 지급 불일치로 바꾼다
+			log.error("지급 불일치로 바꾸지 못해 지급 중으로 둡니다. payoutId={}", payoutId, exception);
+			return Result.UNKNOWN;
+		}
+	}
+
 	private enum Result {
 		PAID,
 		FAILED,
 		UNKNOWN,
+		MISMATCH,
 		SKIPPED
 	}
 }

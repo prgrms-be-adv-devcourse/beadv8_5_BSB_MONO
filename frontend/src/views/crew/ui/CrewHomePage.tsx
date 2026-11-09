@@ -63,7 +63,7 @@ export function CrewHomePage({ crewId }: { crewId: number }) {
               }
             />
             <CrewBand>
-              <h2 className="text-heading-m">진행 중인 파티</h2>
+              <h2 className="text-title3">진행 중인 파티</h2>
               <EmptyState
                 title="진행 중인 파티가 없어요"
                 description="대회 상세에서 「크루로 신청」을 누르면 파티를 만들 수 있어요."
@@ -80,11 +80,11 @@ export function CrewHomePage({ crewId }: { crewId: number }) {
             <Divider type="section" />
             <CrewBand>
               <div className="flex items-center justify-between gap-2">
-                <h2 className="text-heading-m">크루원 {crew.data.memberCount}명</h2>
+                <h2 className="text-title3">크루원 {crew.data.memberCount}명</h2>
                 {crew.data.myRole === 'LEADER' && (
                   <Link
                     href={`/crews/${crewId}/manage` as Route}
-                    className={buttonClassName({ variant: 'ghost', size: 's' })}
+                    className={buttonClassName({ variant: 'text', size: 's' })}
                   >
                     크루 관리
                   </Link>
@@ -136,7 +136,7 @@ function LeaveCrew({ crew, onStale }: { crew: memberModel.CrewHomeDto; onStale: 
   return (
     <CrewBand>
       <Button
-        variant="ghost"
+        variant="text"
         size="m"
         className="self-start"
         onClick={() => setStep(crew.myRole === 'LEADER' ? 'leader' : 'confirm')}
