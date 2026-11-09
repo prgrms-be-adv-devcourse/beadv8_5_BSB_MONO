@@ -25,6 +25,7 @@ import com.bukang.product.dto.CrewHoldResultDto;
 import com.bukang.product.dto.HoldRequestDto;
 import com.bukang.product.dto.HoldResultDto;
 import com.bukang.product.dto.HoldSellResult;
+import com.bukang.product.dto.KitOptionListResponseDto;
 import com.bukang.product.dto.RaceCourseInfoDto;
 import com.bukang.product.dto.RaceDetailDto;
 import com.bukang.product.dto.RacePageDto;
@@ -219,6 +220,10 @@ public class ProductFacade {
 
 	public RaceDetailDto findRace(long raceId, Long memberId) {
 		return raceQueryUseCase.findDetail(raceId, memberId);
+	}
+
+	public KitOptionListResponseDto findKitOptions(long raceId, Long memberId) {
+		return raceQueryUseCase.findKitOptions(raceId, memberId);
 	}
 
 	public List<SellerRaceDto> findMyRaces(long memberId) {

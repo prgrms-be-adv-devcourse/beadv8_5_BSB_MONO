@@ -81,4 +81,13 @@ public class RaceSaveRequestDto {
 	@Schema(description = "종목 목록")
 	@NotEmpty(message = "종목을 1개 이상 작성해주세요.")
 	private final List<@Valid @NotNull(message = "종목 항목을 작성해주세요.") RaceCourseSaveRequestDto> courses;
+
+	// 한 대회의 모든 종목은 같은 키트를 주므로 키트 옵션은 대회에 받는다
+	@Schema(description = "키트 옵션 목록 (비우면 키트 옵션 없음). 수정할 때도 전체를 보내고, 판매 시작 뒤에는 옵션을 뺄 수 없다")
+	private final List<@Valid @NotNull(message = "키트 옵션 항목을 작성해주세요.") KitOptionSaveRequestDto> kitOptions;
+
+	// 보내지 않으면 키트 옵션이 없는 대회로 본다
+	public List<KitOptionSaveRequestDto> getKitOptions() {
+		return kitOptions == null ? List.of() : kitOptions;
+	}
 }
