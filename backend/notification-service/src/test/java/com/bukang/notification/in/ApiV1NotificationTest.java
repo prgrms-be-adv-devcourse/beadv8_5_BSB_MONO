@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -112,6 +113,8 @@ class ApiV1NotificationTest {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.length()").value(2))
 			.andExpect(jsonPath("$.data[0].title").value("환불이 끝났어요"))
+			.andExpect(jsonPath("$.data[0].kind").value("REFUND_COMPLETED"))
+			.andExpect(jsonPath("$.data[0].sentAt").value(Matchers.endsWith("+09:00")))
 			.andExpect(jsonPath("$.data[0].icon").value("CircleCheck"))
 			.andExpect(jsonPath("$.data[0].at").value("방금"))
 			.andExpect(jsonPath("$.data[0].group").value("today"))
