@@ -202,11 +202,15 @@ public class CrewFacade {
 		}
 
 		LocalDateTime now = now();
-		// 링크 하나로 24시간 동안 여러 명이 가입한다 (BUK-135). 초대 행을 잠가 읽어
-		// 취소와 동시에 와도 취소가 커밋된 뒤의 가입은 막는다. 잠금 순서는 회원 → 크루 → 초대로 크루 없애기와 같다
-		CrewInvite current = crewInviteRepository.findByIdForUpdate(invite.getId())
-			.orElseThrow(CrewInviteNotFoundException::new);
-		throwIfUnusableWhenOpeningLink(current, now);
+		// 링크 하나로 24시간 동안 여러 명이 가입한다 (BUK-135). 취소와 동시에 와도 취소가 커밋된 뒤의 가입은 막는다.
+		// 잠금 순서는 회원 → 크루 → 초대로 크루 없애기와 같다
+		if (crewInviteRepository.lockJoinable(invite.getId(), now) == 0) {
+			CrewInvite current = crewInviteRepository.findByIdForUpdate(invite.getId())
+				.orElseThrow(CrewInviteNotFoundException::new);
+			throwIfUnusableWhenOpeningLink(current, now);
+			// 쓰임·취소·만료는 되돌릴 수 없으므로 여기에 오지 않는다
+			throw new IllegalStateException("쓸 수 있는 초대인데 가입에 쓰지 못했습니다. inviteId=" + invite.getId());
+		}
 		try {
 			CrewMember member = crewMemberRepository.saveAndFlush(
 				CrewMember.invited(crew.getId(), memberId, invite.getId(), now));

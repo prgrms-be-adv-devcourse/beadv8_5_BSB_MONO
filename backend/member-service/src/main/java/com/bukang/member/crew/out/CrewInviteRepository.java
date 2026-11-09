@@ -44,7 +44,16 @@ public interface CrewInviteRepository extends JpaRepository<CrewInvite, Long> {
 	List<CrewInvite> findUsableByCrewIdAndCreatedBy(
 		@Param("crewId") long crewId, @Param("createdBy") long createdBy, @Param("now") LocalDateTime now);
 
-	// 취소한다. 가입은 초대 행을 잠가 읽으므로 취소가 커밋된 뒤의 가입은 막힌다
+	// 가입 직전에 쓸 수 있는 초대인지 DB에서 확인하고 행을 잠근다 (BUK-135, 여러 명 가입이라 닫지 않는다).
+	// 엔티티를 다시 읽으면 처음 읽은 옛 값(취소 전)이 돌아올 수 있어 조건부 UPDATE로 판단한다. 바뀐 행이 1일 때만 가입한다
+	@Modifying(flushAutomatically = true, clearAutomatically = true)
+	@Query("""
+		update CrewInvite i set i.updatedAt = :now
+		where i.id = :inviteId and i.usedAt is null and i.canceledAt is null and i.expiresAt > :now
+		""")
+	int lockJoinable(@Param("inviteId") long inviteId, @Param("now") LocalDateTime now);
+
+	// 취소한다. 가입과 같은 행을 조건부 UPDATE로 잠그므로 취소가 커밋된 뒤의 가입은 막힌다
 	@Modifying(flushAutomatically = true, clearAutomatically = true)
 	@Query("""
 		update CrewInvite i set i.canceledAt = :now, i.canceledBy = :memberId, i.updatedAt = :now
