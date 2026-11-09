@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { clearAccessToken, setAccessToken } from '@/shared/api'
 import { server } from '@/shared/testing'
+import { ToastProvider } from '@/shared/ui'
 
 import { NotificationsPage } from './NotificationsPage'
 
@@ -33,12 +34,28 @@ function notice(id: string, kind: string, body: string, sentAt: string, unread: 
 
 afterEach(() => clearAccessToken())
 
+const SELLER_URL = '*/api/v1/member/sellers/me'
+const READ_ALL_URL = '*/api/v1/notification/notifications/read-all'
+const seller = (status: 'APPROVED' | 'PENDING' | null) =>
+  http.get(SELLER_URL, () =>
+    status
+      ? HttpResponse.json({ status: 200, message: '조회', data: { status } })
+      : HttpResponse.json(
+          { status: 404, message: '없음', code: 'SELLER_NOT_FOUND', data: null },
+          { status: 404 },
+        ),
+  )
+const list = (data: unknown[]) =>
+  http.get(URL, () => HttpResponse.json({ status: 200, message: '알림을 조회했습니다.', data }))
+
 function renderPage() {
   setAccessToken('test-token')
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={client}>
-      <NotificationsPage />
+      <ToastProvider>
+        <NotificationsPage />
+      </ToastProvider>
     </QueryClientProvider>,
   )
 }
@@ -178,5 +195,123 @@ describe('NotificationsPage', () => {
 
     expect(await screen.findByText('아직 알림이 없어요')).toBeInTheDocument()
     expect(calls).toBe(2)
+  })
+
+  it('판매자에게는 판매 탭과 판매 소식 묶음을 맨 위에 보여 준다', async () => {
+    server.use(
+      seller('APPROVED'),
+      list([
+        notice(
+          'k',
+          'KIT_SHIPMENT_REQUIRED',
+          '키트를 보낼 참가자가 있어요',
+          '2026-11-09T10:00:00+09:00',
+          true,
+        ),
+        notice('c', 'CREW_JOINED', '크루 알림', '2026-11-02T12:00:00+09:00', false),
+      ]),
+    )
+    renderPage()
+
+    const sales = await screen.findByRole('link', { name: /판매 소식/ })
+    expect(sales).toHaveAttribute('href', '/notifications/seller')
+    expect(screen.getAllByRole('link')[0]).toBe(sales)
+    const tabs = screen.getAllByRole('tab').map((tab) => tab.textContent?.replace(/\d/g, ''))
+    expect(tabs).toEqual(['전체', '대회', '결제', '크루', '판매'])
+  })
+
+  it('판매자가 아니면 판매 탭과 판매 소식 묶음이 없다', async () => {
+    server.use(
+      seller(null),
+      list([
+        notice(
+          'k',
+          'KIT_SHIPMENT_REQUIRED',
+          '키트를 보낼 참가자가 있어요',
+          '2026-11-09T10:00:00+09:00',
+          true,
+        ),
+        notice('c', 'CREW_JOINED', '크루 알림', '2026-11-02T12:00:00+09:00', false),
+      ]),
+    )
+    renderPage()
+
+    await screen.findByRole('link', { name: /크루 소식/ })
+    expect(screen.queryByRole('link', { name: /판매 소식/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: '판매' })).not.toBeInTheDocument()
+  })
+
+  it('모두 읽음을 누르면 모두 읽음 API를 부르고 알림을 다시 불러온다', async () => {
+    let gets = 0
+    let readAll = 0
+    server.use(
+      http.get(URL, () => {
+        gets += 1
+        return HttpResponse.json({
+          status: 200,
+          message: '알림을 조회했습니다.',
+          data: [
+            notice('r', 'RACE_CANCELED', '대회 알림', '2026-11-02T10:00:00+09:00', gets === 1),
+          ],
+        })
+      }),
+      http.post(READ_ALL_URL, () => {
+        readAll += 1
+        return HttpResponse.json({
+          status: 200,
+          message: '알림을 모두 읽음으로 바꿨습니다.',
+          data: null,
+        })
+      }),
+    )
+    renderPage()
+    await screen.findByRole('link', { name: /대회 소식/ })
+
+    await userEvent.click(screen.getByRole('button', { name: '모두 읽음' }))
+
+    await vi.waitFor(() => expect(gets).toBe(2))
+    expect(readAll).toBe(1)
+    expect(await screen.findByRole('button', { name: '모두 읽음' })).toBeDisabled()
+    expect(screen.getByRole('link', { name: /대회 소식/ })).not.toHaveAccessibleName(/안 읽은 알림/)
+  })
+
+  it('안 읽은 알림이 없으면 모두 읽음을 누를 수 없다', async () => {
+    server.use(
+      list([notice('r', 'RACE_CANCELED', '대회 알림', '2026-11-02T10:00:00+09:00', false)]),
+    )
+    renderPage()
+    await screen.findByRole('link', { name: /대회 소식/ })
+
+    expect(screen.getByRole('button', { name: '모두 읽음' })).toBeDisabled()
+  })
+
+  it('목록에 안 보이는 알림만 안 읽었어도 모두 읽음을 누를 수 있다', async () => {
+    server.use(
+      seller(null),
+      list([
+        notice('k', 'KIT_SHIPMENT_REQUIRED', '키트 알림', '2026-11-09T10:00:00+09:00', true),
+        notice('r', 'RACE_CANCELED', '대회 알림', '2026-11-02T10:00:00+09:00', false),
+      ]),
+    )
+    renderPage()
+    await screen.findByRole('link', { name: /대회 소식/ })
+
+    expect(screen.getByRole('button', { name: '모두 읽음' })).toBeEnabled()
+  })
+
+  it('모두 읽음이 실패하면 알려 주고 다시 누를 수 있다', async () => {
+    server.use(
+      list([notice('r', 'RACE_CANCELED', '대회 알림', '2026-11-02T10:00:00+09:00', true)]),
+      http.post(READ_ALL_URL, () =>
+        HttpResponse.json({ status: 500, message: '오류', data: null }, { status: 500 }),
+      ),
+    )
+    renderPage()
+    await screen.findByRole('link', { name: /대회 소식/ })
+
+    await userEvent.click(screen.getByRole('button', { name: '모두 읽음' }))
+
+    expect(await screen.findByText('모두 읽음으로 바꾸지 못했어요')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '모두 읽음' })).toBeEnabled()
   })
 })

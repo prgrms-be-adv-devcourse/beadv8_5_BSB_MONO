@@ -37,7 +37,7 @@ function notice(id: string, kind: string, body: string, sentAt: string, extra = 
 const list = (data: unknown[]) =>
   http.get(URL, () => HttpResponse.json({ status: 200, message: '알림을 조회했습니다.', data }))
 
-function renderPage(category: 'race' | 'payment' | 'crew') {
+function renderPage(category: 'race' | 'payment' | 'crew' | 'seller') {
   setAccessToken('test-token')
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
@@ -163,5 +163,38 @@ describe('NotificationDetailPage', () => {
     await new Promise((resolve) => setTimeout(resolve, 50))
     expect(screen.getByText('대회 취소')).toBeInTheDocument()
     expect(screen.queryByText('정보를 불러오지 못했어요')).not.toBeInTheDocument()
+  })
+
+  it('판매 소식은 알림마다 제목 · 내용과 종류에 맞는 할 일 버튼을 보여 준다', async () => {
+    server.use(
+      list([
+        notice('s1', 'PAYOUT_HELD', '1차 정산', '2026-11-07T14:00:00+09:00', {
+          title: '정산이 보류됐어요',
+          href: '/seller/settlements',
+        }),
+        notice('s2', 'KIT_TRACKING_STOPPED', '참가자 3명', '2026-11-08T09:00:00+09:00', {
+          href: '/seller/kits',
+        }),
+        notice('s3', 'KIT_SHIPMENT_REQUIRED', '12명', '2026-11-09T10:00:00+09:00', {
+          href: '/seller/kits',
+        }),
+        notice('s4', 'INQUIRY_RECEIVED', '키트 문의', '2026-11-09T11:30:00+09:00', {
+          href: '/seller/inquiries',
+        }),
+        notice('s5', 'INQUIRY_RECEIVED', '주소 없는 문의', '2026-11-09T12:00:00+09:00'),
+      ]),
+    )
+    renderPage('seller')
+
+    expect(screen.getByRole('heading', { name: '판매 소식' })).toBeInTheDocument()
+    expect(await screen.findByText('정산이 보류됐어요')).toBeInTheDocument()
+    expect(screen.getByText('1차 정산')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '보류 사유 보기' })).toHaveAttribute(
+      'href',
+      '/seller/settlements',
+    )
+    expect(screen.getByRole('link', { name: '송장 번호 확인하기' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '송장 입력하기' })).toBeInTheDocument()
+    expect(screen.getAllByRole('link', { name: '답변하기' })).toHaveLength(1)
   })
 })
