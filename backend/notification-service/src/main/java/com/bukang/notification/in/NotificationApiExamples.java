@@ -11,6 +11,8 @@ final class NotificationApiExamples {
 			"data": [
 				{
 					"id": "12",
+					"kind": "REFUND_COMPLETED",
+					"sentAt": "2026-11-04T10:00:00+09:00",
 					"icon": "CircleCheck",
 					"title": "환불이 끝났어요",
 					"body": "가을 트레일 21K ·\\n₩60,000이 예치금으로 들어왔어요.",
@@ -21,6 +23,8 @@ final class NotificationApiExamples {
 				},
 				{
 					"id": "9",
+					"kind": "RACE_CANCELED",
+					"sentAt": "2026-11-02T10:00:00+09:00",
 					"icon": "CircleAlert",
 					"title": "대회가 취소됐어요",
 					"body": "10K · 참가비 전액\\n₩45,000을 예치금으로 돌려드렸어요.",

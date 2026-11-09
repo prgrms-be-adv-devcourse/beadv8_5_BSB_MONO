@@ -18,7 +18,7 @@ export function ConsoleCard({ title, aside, className, children }: ConsoleCardPr
     >
       {(title || aside) && (
         <div className="flex items-center justify-between gap-4">
-          {title && <h2 className="text-heading-s">{title}</h2>}
+          {title && <h2 className="text-body1-bold">{title}</h2>}
           {aside}
         </div>
       )}

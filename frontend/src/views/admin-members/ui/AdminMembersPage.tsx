@@ -104,12 +104,12 @@ export function AdminMembersPage() {
         </ConsoleCard>
         <ConsoleCard title="회원 상세" className="w-100 shrink-0">
           <div className="flex items-center gap-3">
-            <span className="flex size-10 items-center justify-center rounded-full bg-bg-brand-subtle text-label-m text-text-brand">
+            <span className="flex size-10 items-center justify-center rounded-full bg-bg-brand-subtle text-body2-medium text-text-brand">
               달
             </span>
             <div className="flex flex-col gap-0.5">
-              <p className="text-label-l">달리는곰</p>
-              <p className="text-body-s text-text-secondary">가입 2025. 3. 2 · 일반 회원</p>
+              <p className="text-body1-medium">달리는곰</p>
+              <p className="text-body2-regular text-text-secondary">가입 2025. 3. 2 · 일반 회원</p>
             </div>
           </div>
           <div className="flex flex-col gap-3 rounded-md bg-bg-subtle p-4">
@@ -122,7 +122,9 @@ export function AdminMembersPage() {
           <Button variant="secondary" className="w-full">
             개인정보 전체 보기
           </Button>
-          <p className="text-caption text-text-tertiary">전체 보기를 누르면 조회 기록이 남아요.</p>
+          <p className="text-caption-regular text-text-tertiary">
+            전체 보기를 누르면 조회 기록이 남아요.
+          </p>
         </ConsoleCard>
       </div>
     </ConsolePage>

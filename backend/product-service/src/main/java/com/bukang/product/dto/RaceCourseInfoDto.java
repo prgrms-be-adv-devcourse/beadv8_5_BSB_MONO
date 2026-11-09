@@ -48,6 +48,13 @@ public class RaceCourseInfoDto {
 	private final int crewRemaining;
 	private final boolean kitIncluded;
 	private final List<TshirtSize> tshirtSizeOption;
+	// 크루(파티) 예매 기간 (race.crew_sale_start_at·crew_sale_end_at). 크루 모집이 없는 대회는 null
+	// 주문이 파티 신청·합류 때 파티 예매 기간인지, 크루 가입이 시작 7일 전까지였는지 본다
+	private final LocalDateTime crewSaleStartAt;
+	private final LocalDateTime crewSaleEndAt;
+	// 파티 인원 최소·최대 (race.crew_min_count·crew_max_count). 최대가 null이면 상한이 없다
+	private final int crewMinCount;
+	private final Integer crewMaxCount;
 
 	public static RaceCourseInfoDto from(RaceCourse course) {
 		Race race = course.getRace();
@@ -56,6 +63,7 @@ public class RaceCourseInfoDto {
 			race.getSeller().getId(), course.getName(), race.getTitle() + " " + course.getName(), course.getPrice(),
 			course.getKitPrice(), race.getRefundDeadline(), race.getScheduleChangedAt(), race.getSaleStatus(),
 			course.getStatus(), course.individualRemaining(), course.crewRemaining(), course.isKitIncluded(),
-			course.getTshirtSizeOption());
+			course.getTshirtSizeOption(), race.getCrewSaleStartAt(), race.getCrewSaleEndAt(), race.getCrewMinCount(),
+			race.getCrewMaxCount());
 	}
 }

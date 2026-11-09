@@ -52,7 +52,7 @@ export function MyCrewsPage() {
           />
         ) : (
           <CrewBand>
-            <h2 className="text-heading-m">가입한 크루 {list.length}개</h2>
+            <h2 className="text-title3">가입한 크루 {list.length}개</h2>
             <ul className="flex flex-col gap-3">
               {list.map((crew) => (
                 <li key={crew.crewId}>
@@ -62,8 +62,8 @@ export function MyCrewsPage() {
                   >
                     <Avatar size="l" name={crew.name} />
                     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                      <span className="truncate text-heading-s">{crew.name}</span>
-                      <span className="text-caption text-text-secondary">
+                      <span className="truncate text-body1-bold">{crew.name}</span>
+                      <span className="text-caption-regular text-text-secondary">
                         크루원 {crew.memberCount}명
                       </span>
                     </span>

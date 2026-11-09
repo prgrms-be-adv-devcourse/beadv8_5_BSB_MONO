@@ -58,8 +58,8 @@ function rateText(step: FunnelStepView, first: boolean) {
 
 function FunnelTable({ steps }: { steps: FunnelStepView[] }) {
   return (
-    <table className="w-full text-body-s">
-      <thead className="text-caption text-text-tertiary">
+    <table className="w-full text-body2-regular">
+      <thead className="text-caption-regular text-text-tertiary">
         <tr>
           <th scope="col" className="w-28 py-2 text-left font-normal">
             단계
@@ -95,13 +95,13 @@ function FunnelTable({ steps }: { steps: FunnelStepView[] }) {
                       )}
                       style={{ width: `${step.barRatio * 100}%` }}
                     />
-                    <span className="pointer-events-none absolute top-full left-0 z-10 hidden rounded-md bg-bg-surface px-3 py-2 text-caption whitespace-nowrap shadow-md group-hover:block">
+                    <span className="pointer-events-none absolute top-full left-0 z-10 hidden rounded-md bg-bg-surface px-3 py-2 text-caption-regular whitespace-nowrap shadow-md group-hover:block">
                       {formatNumber(step.users)}명 · {rate} · {previous}
                     </span>
                   </>
                 )}
               </td>
-              <td className="py-2 text-right text-label-strong">{formatNumber(step.users)}명</td>
+              <td className="py-2 text-right text-body2-bold">{formatNumber(step.users)}명</td>
               <td className={cn('py-2 pl-3', step.biggestDrop && 'text-text-brand')}>{rate}</td>
               <td className="py-2 text-text-secondary">{previous}</td>
             </tr>
@@ -121,7 +121,7 @@ function FormErrorRanking({ query }: { query: StatsPeriodQuery }) {
       <SectionState result={result} name="입력 오류 항목 묶음을" skeletonClassName="h-32">
         {(data) =>
           data.groups.length === 0 ? (
-            <p className="py-3 text-body-s text-text-secondary">입력 오류가 없어요</p>
+            <p className="py-3 text-body2-regular text-text-secondary">입력 오류가 없어요</p>
           ) : (
             <DataTable
               label="입력 오류 항목 묶음"

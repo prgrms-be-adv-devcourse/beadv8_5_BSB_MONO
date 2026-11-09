@@ -24,11 +24,11 @@ export function IdentityVerificationBand({
   return (
     <section aria-labelledby="identity-band-title" className="flex flex-col gap-3">
       <div className="flex flex-col items-start gap-2">
-        <h2 id="identity-band-title" className="text-heading-m text-text-primary">
+        <h2 id="identity-band-title" className="text-title3 text-text-primary">
           본인 확인
         </h2>
         {verification && <Badge tone="success">본인인증 완료</Badge>}
-        <p className="text-body-s text-text-secondary">
+        <p className="text-body2-regular text-text-secondary">
           {verification
             ? '본인인증으로 확인한 이름·생년월일·휴대폰 번호를 채웠어요.'
             : '본인인증을 하면 이름·생년월일·휴대폰 번호가 채워져요.'}

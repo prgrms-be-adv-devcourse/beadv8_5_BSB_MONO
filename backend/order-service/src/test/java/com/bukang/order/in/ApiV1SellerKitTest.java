@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.AfterEach;
@@ -133,6 +134,7 @@ class ApiV1SellerKitTest {
 			.andExpect(jsonPath("$.data.totalElements").value(1))
 			.andExpect(jsonPath("$.data.kits[0].orderItemId").value(itemId))
 			.andExpect(jsonPath("$.data.kits[0].participantName").value("김러너"))
+			.andExpect(jsonPath("$.data.kits[0].shippingAddress.recipientPhone").value("010-1234-5678"))
 			.andExpect(jsonPath("$.data.kits[0].kitDeliveryStatus").value("PREPARING"));
 		mockMvc.perform(get(BASE_URL + "/summary").header("X-Member-Id", SELLER_MEMBER_ID))
 			.andExpect(status().isOk())
@@ -360,7 +362,7 @@ class ApiV1SellerKitTest {
 		OrderCreateResult result = transactionTemplate.execute(status -> orderCreateUseCase.create(buyerId,
 			participationId, UUID.randomUUID().toString(), LocalDateTime.now()));
 		long orderId = result.order().getId();
-		transactionTemplate.execute(status -> orderPayUseCase.pay(buyerId, orderId, LocalDateTime.now()));
+		transactionTemplate.execute(status -> orderPayUseCase.pay(buyerId, orderId, List.of(), LocalDateTime.now()));
 		return orderId;
 	}
 

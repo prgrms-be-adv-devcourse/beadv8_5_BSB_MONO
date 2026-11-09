@@ -73,7 +73,7 @@ export function LoginPage({
           )}
         >
           <Logo className="h-11 w-[150px]" />
-          <p className="mt-3 text-center text-heading-s">러닝 대회, 여기서 바로 신청해요</p>
+          <p className="mt-3 text-center text-body1-bold">러닝 대회, 여기서 바로 신청해요</p>
           {socialError && <Alert tone="danger" title={socialError} className="mt-6 w-full" />}
           <div className="mt-9 flex w-full flex-col gap-3">
             <TextField
@@ -103,14 +103,14 @@ export function LoginPage({
             >
               로그인
             </Button>
-            <div className="flex items-center gap-3 py-1 text-caption text-text-tertiary">
+            <div className="flex items-center gap-3 py-1 text-caption-regular text-text-tertiary">
               <span className="h-px flex-1 bg-border-default" aria-hidden />
               또는
               <span className="h-px flex-1 bg-border-default" aria-hidden />
             </div>
             <SocialLoginButtons next={next} highlight={socialAccount?.id} />
             <LinkRow
-              className="text-label-s text-text-secondary"
+              className="text-caption-medium text-text-secondary"
               links={[
                 { href: '/signup', label: '회원가입' },
                 { href: '/find-email', label: '이메일 찾기' },
@@ -122,14 +122,14 @@ export function LoginPage({
         <div className="flex-1" />
         <footer className="flex flex-col items-center gap-2 pt-4 pb-6 text-center">
           <LinkRow
-            className="text-label-s text-text-secondary"
+            className="text-caption-medium text-text-secondary"
             links={[
               { href: '/terms/service', label: '이용약관' },
               { href: '/terms/privacy', label: '개인정보처리방침' },
               { href: '/me', label: '고객센터' },
             ]}
           />
-          <p className="text-caption text-text-tertiary">
+          <p className="text-caption-regular text-text-tertiary">
             크루런은 통신판매중개자이며 거래 당사자가 아니에요.
           </p>
         </footer>

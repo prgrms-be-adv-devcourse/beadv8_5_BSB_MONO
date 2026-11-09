@@ -14,11 +14,12 @@ import java.util.Map;
  * - 멱등: 같은 파티 ID로 다시 부르면 새로 잡지 않고 처음 결과를 돌려준다 (응답을 못 받아 다시 불러도 자리가 두 배가 되지 않게)
  *   주의: 잡은 뒤 주문이 롤백되고 그 사이 파티원이 바뀌어 다시 부르면 seats가 처음과 다르다. 지금 계약은 처음 결과를 그대로 준다
  *   → 나간 사람 자리는 기한까지 묶이고 새로 온 사람 자리는 없다 (pending 57, 상품 API를 붙일 때 seats가 다르면 409로 맞춘다)
- * - 자리 1석 = 참가 신청 1건(application_id). 잡은 뒤 판매는 SeatHoldPort.sell, 복구는 Kafka product.hold.restore로 지금과 같다
+ * - 자리 1석 = 참가 신청 1건(participation_id). 잡은 뒤 판매는 SeatHoldPort.sell, 복구는 Kafka product.hold.restore로 지금과 같다
  */
 public interface CrewSeatHoldPort {
+	// crewId: 파티의 크루 ID. 상품이 자리 표(participation_hold.crew_id)에 남겨 결제율 미달을 계산한다 (11/06 결정, memberId는 보내지 않음)
 	// expiresAt: 자리를 잡아 둘 끝 시각 = 파티원 결제 기한. 개인 자리처럼 주문이 정해 보낸다 (호빈님 요청서 1번)
-	CrewSeatHoldResult holdAll(long partyId, LocalDateTime expiresAt, List<Seat> seats);
+	CrewSeatHoldResult holdAll(long partyId, long crewId, LocalDateTime expiresAt, List<Seat> seats);
 
 	record Seat(long participationId, long raceCourseId) {
 	}

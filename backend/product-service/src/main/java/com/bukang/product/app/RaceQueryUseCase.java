@@ -11,9 +11,11 @@ import com.bukang.product.domain.RaceCourse;
 import com.bukang.product.domain.exception.RaceCourseNotFoundException;
 import com.bukang.product.domain.exception.RaceNotFoundException;
 import com.bukang.product.domain.exception.SellerNotApprovedException;
+import com.bukang.product.dto.KitOptionListResponseDto;
 import com.bukang.product.dto.RaceCourseInfoDto;
 import com.bukang.product.dto.RaceDetailDto;
 import com.bukang.product.dto.SellerRaceDto;
+import com.bukang.product.out.KitOptionRepository;
 import com.bukang.product.out.ProductSellerRepository;
 import com.bukang.product.out.RaceCourseRepository;
 import com.bukang.product.out.RaceRepository;
@@ -21,7 +23,7 @@ import com.bukang.product.out.RaceRepository;
 import lombok.RequiredArgsConstructor;
 
 /**
- * DB에서 읽는 대회 조회: 대회 상세, 판매자의 내 대회, 주문 서비스에 주는 종목 정보
+ * DB에서 읽는 대회 조회: 대회 상세, 키트 옵션 목록, 판매자의 내 대회, 주문 서비스에 주는 종목 정보
  */
 @Service
 @RequiredArgsConstructor
@@ -29,6 +31,7 @@ public class RaceQueryUseCase {
 	private final ProductSellerRepository productSellerRepository;
 	private final RaceRepository raceRepository;
 	private final RaceCourseRepository raceCourseRepository;
+	private final KitOptionRepository kitOptionRepository;
 
 	// 취소된 대회는 등록한 판매자만 볼 수 있다. 다른 사람에게는 없는 대회(404)로 보인다
 	public RaceDetailDto findDetail(long raceId, Long memberId) {
@@ -36,6 +39,14 @@ public class RaceQueryUseCase {
 			.filter(found -> found.isVisibleTo(memberId))
 			.orElseThrow(RaceNotFoundException::new);
 		return RaceDetailDto.from(race);
+	}
+
+	// 대회 상세와 같은 공개 범위다. 취소된 대회는 등록한 판매자만 보고, 다른 사람에게는 없는 대회(404)다
+	public KitOptionListResponseDto findKitOptions(long raceId, Long memberId) {
+		raceRepository.findById(raceId)
+			.filter(found -> found.isVisibleTo(memberId))
+			.orElseThrow(RaceNotFoundException::new);
+		return KitOptionListResponseDto.of(raceId, kitOptionRepository.findByRaceIdOrderById(raceId));
 	}
 
 	public List<SellerRaceDto> findMine(long memberId) {

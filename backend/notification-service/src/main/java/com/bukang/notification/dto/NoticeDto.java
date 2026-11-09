@@ -1,5 +1,7 @@
 package com.bukang.notification.dto;
 
+import java.time.OffsetDateTime;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
@@ -9,6 +11,10 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public record NoticeDto(
 	@Schema(description = "알림 ID", example = "12")
 	String id,
+	@Schema(description = "알림 종류 이름 (화면 분류는 프론트가 정함)", example = "CREW_JOINED")
+	String kind,
+	@Schema(description = "알림이 만들어진 시각 (서울 +09:00)", example = "2026-11-02T10:00:00+09:00")
+	OffsetDateTime sentAt,
 	@Schema(description = "아이콘 이름 (알림 종류로 정함)", example = "CircleCheck")
 	String icon,
 	@Schema(description = "제목", example = "환불이 끝났어요")

@@ -424,6 +424,32 @@ class ApiV1RaceRegisterTest extends ProductIntegrationTest {
 	// ---------- RaceRequestValidator: 인원·일정 ----------
 
 	@Test
+	@DisplayName("키트 옵션 T-shirt L과 t-shirt l처럼 대소문자만 다른 같은 옵션을 두 번 넣으면 400이고 아무것도 저장하지 않는다")
+	void rejectDuplicateKitOptionIgnoringCase() throws Exception {
+		// given
+		RaceSaveRequestDto request = upcomingRace()
+			.kitOption("T-shirt", "L", 100)
+			.kitOption("t-shirt", "l", 50)
+			.build();
+
+		// when, then
+		assertRejected(request, "같은 키트 옵션을 두 번 작성할 수 없습니다. (옵션: t-shirt l)");
+	}
+
+	@Test
+	@DisplayName("키트 옵션 이름을 T-shirt M과 t-shirt L처럼 대소문자를 다르게 쓰면 400이고 아무것도 저장하지 않는다")
+	void rejectKitOptionNameWithDifferentCase() throws Exception {
+		// given
+		RaceSaveRequestDto request = upcomingRace()
+			.kitOption("T-shirt", "M", 100)
+			.kitOption("t-shirt", "L", 50)
+			.build();
+
+		// when, then
+		assertRejected(request, "같은 키트 옵션 이름은 대소문자까지 똑같이 작성해주세요. (T-shirt, t-shirt)");
+	}
+
+	@Test
 	@DisplayName("크루 최대 인원 5명이 최소 인원 10명보다 적으면 400")
 	void rejectCrewMaxBelowMin() throws Exception {
 		assertRejected(upcomingRace().crewCount(10, 5).build(), "크루 최대 인원은 최소 인원 이상이어야 합니다.");
@@ -451,17 +477,19 @@ class ApiV1RaceRegisterTest extends ProductIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("개인 예매 오픈이 크루 예매 마감일 다음 날 05:59면 400이고, 06:00 정각이면 등록된다")
-	void rejectIndividualOpenBeforeCrewNextDay() throws Exception {
+	@DisplayName("크루 예매가 19:00에 마감되면 개인 예매 오픈이 그날 23:59면 400이고, 크루 예매 마감일의 자정(다음 날 00:00)이면 "
+		+ "등록된다")
+	void rejectIndividualOpenBeforeCrewCloseMidnight() throws Exception {
 		RaceBuilder builder = upcomingRace();
-		LocalDateTime crewSaleEndAt = builder.now().plusDays(3);
-		LocalDateTime earliestOpenAt = crewSaleEndAt.toLocalDate().plusDays(1).atTime(6, 0);
+		LocalDateTime crewSaleEndAt = builder.now().plusDays(3).toLocalDate().atTime(19, 0);
+		// 크루 예매 마감일의 자정: 결제 대기 크루 자리를 반환하고 크루 몫을 개인 몫으로 옮기는 시각
+		LocalDateTime crewCloseAt = crewSaleEndAt.toLocalDate().plusDays(1).atStartOfDay();
 		builder.crewSale(builder.now().plusDays(2), crewSaleEndAt);
 
-		assertRejected(builder.individualOpenAt(earliestOpenAt.minusMinutes(1)).build(),
-			"개인 예매 오픈 일시는 크루 예매 마감일 다음 날 06:00 이후여야 합니다.");
+		assertRejected(builder.individualOpenAt(crewCloseAt.minusMinutes(1)).build(),
+			"개인 예매 오픈 일시는 크루 예매 마감일의 자정 이후여야 합니다.");
 
-		register(builder.individualOpenAt(earliestOpenAt).build());
+		register(builder.individualOpenAt(crewCloseAt).build());
 	}
 
 	@Test
@@ -666,7 +694,7 @@ class ApiV1RaceRegisterTest extends ProductIntegrationTest {
 			request.getRegionSido(), request.getRegionSigungu(), request.getRaceDate(), request.getCrewSaleStartAt(),
 			request.getCrewSaleEndAt(), request.getIndividualOpenAt(), request.getApplicationCloseAt(),
 			request.getRefundDeadline(), request.getRefundPolicy(), request.getCrewMinCount(),
-			request.getCrewMaxCount(), courses);
+			request.getCrewMaxCount(), courses, request.getKitOptions());
 	}
 
 	private ResultActions postRaw(String content) throws Exception {

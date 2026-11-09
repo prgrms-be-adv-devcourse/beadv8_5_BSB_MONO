@@ -32,7 +32,7 @@ export function AccountLinkPage({ linked, error }: { linked?: string; error?: st
     <>
       <AppHeader type="sub" title="계정 연결" />
       <main className="flex flex-1 flex-col gap-4 px-4 pt-(--layout-content-start) pb-6">
-        <p className="text-body-m text-text-secondary">
+        <p className="text-body2-regular text-text-secondary">
           연결해 두면 이메일 대신 카카오 · 구글로 로그인할 수 있어요.
         </p>
         {result && <Alert tone={result.tone} title={result.message} />}
@@ -54,14 +54,14 @@ export function AccountLinkPage({ linked, error }: { linked?: string; error?: st
                 className="flex min-h-16 items-center justify-between gap-3 border-b border-border-default py-3 last:border-b-0"
               >
                 <div className="flex flex-col">
-                  <span className="text-label-m">{provider.label}</span>
-                  <span className="text-caption text-text-tertiary">
+                  <span className="text-body2-medium">{provider.label}</span>
+                  <span className="text-caption-regular text-text-tertiary">
                     {isConnected ? '연결됨' : '연결 안 됨'}
                   </span>
                 </div>
                 {isConnected ? (
                   <Button
-                    variant="secondary"
+                    variant="ghost"
                     size="s"
                     disabled={!me.data || lastMethod || unlink.isPending}
                     onClick={() => unlink.mutate(provider.id as SocialProviderId)}
@@ -82,7 +82,7 @@ export function AccountLinkPage({ linked, error }: { linked?: string; error?: st
           })}
         </section>
         {lastMethod && (
-          <p className="text-caption text-text-tertiary">
+          <p className="text-caption-regular text-text-tertiary">
             로그인할 방법이 하나뿐이라 해제할 수 없어요. 다른 계정을 먼저 연결해 주세요.
           </p>
         )}

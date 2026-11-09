@@ -15,6 +15,7 @@ import org.springframework.data.repository.query.Param;
 
 import com.bukang.member.domain.Member;
 import com.bukang.member.domain.MemberStatus;
+import com.bukang.member.dto.MemberNicknameDto;
 
 import jakarta.persistence.LockModeType;
 
@@ -78,6 +79,11 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 	Page<String> findIdentityReviewHashes(Pageable pageable);
 
 	List<Member> findByNameBirthHashInAndStatusNot(Collection<String> nameBirthHashes, MemberStatus status);
+
+	// 다른 서비스에 닉네임을 줄 때 쓴다 (BUK-39). 엔티티 전체가 아니라 세 칸만 읽어 다른 개인정보를 메모리에 올리지 않는다
+	@Query("select new com.bukang.member.dto.MemberNicknameDto(m.id, m.nickname, m.status)"
+		+ " from Member m where m.id in :ids")
+	List<MemberNicknameDto> findNicknamesByIdIn(@Param("ids") Collection<Long> ids);
 
 	// 정보 수정 때 내 행을 빼고 중복을 찾는다
 	boolean existsByNicknameAndIdNot(String nickname, long id);
