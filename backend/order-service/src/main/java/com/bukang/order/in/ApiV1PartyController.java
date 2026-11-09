@@ -185,7 +185,8 @@ public class ApiV1PartyController {
 			+ "파티원 4명 이상(판매자 최소 인원이 더 크면 그 수)~최대 인원, 파티원 모두 크루원이고 파티 예매 시작 7일 전까지 가입. "
 			+ "자리가 모자라면 한 석도 잡지 않고 409 ORDER_PARTY_CREW_SEAT_SHORTAGE(data에 모자란 종목)를 주며 파티는 모집 중으로 남는다. "
 			+ "성공하면 파티는 결제 진행 중(PAYING), 파티원 신청서는 결제 대기(APPLIED)가 되고 "
-			+ "결제 기한(paymentDueAt) = 신청 뒤 24시간·크루 예매 마감·접수 마감 중 가장 이른 때이며, 파티원 모두에게 결제 알림을 보낸다. "
+			+ "결제 기한(paymentDueAt) = 신청 뒤 24시간·크루 예매 마감일 다음 날 0시·접수 마감 중 가장 이른 때이며 "
+			+ "(크루 마감 시각 뒤에도 그날 자정까지 결제할 수 있다), 파티원 모두에게 결제 알림을 보낸다. "
 			+ "같은 파티는 다시 신청할 수 없다(409 ORDER_PARTY_NOT_RECRUITING).")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "신청 성공 (status = PAYING, paymentDueAt)",

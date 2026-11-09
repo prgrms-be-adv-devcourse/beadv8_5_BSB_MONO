@@ -51,7 +51,7 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class PartyApplyUseCase {
-	// 11/05 회의 P2: 파티원 결제 기한은 신청 뒤 24시간 (크루 마감·접수 마감이 더 이르면 그때)
+	// 11/05 회의 P2: 파티원 결제 기한은 신청 뒤 24시간 (크루 마감일 자정·접수 마감이 더 이르면 그때)
 	static final Duration PAYMENT_WINDOW = Duration.ofHours(24);
 	// 11/05 회의 P3: 판매자가 정한 최소 인원이 이보다 작아도 4명은 있어야 한다
 	static final int MIN_PARTY_SIZE = 4;
@@ -129,11 +129,13 @@ public class PartyApplyUseCase {
 		return party;
 	}
 
-	// 11/05 회의 P2: min(신청 + 24시간, 크루 마감, 접수 마감)
+	// 11/05 회의 P2 + 11/09 호빈님 요청: min(신청 + 24시간, 크루 마감일 다음 날 0시, 접수 마감)
+	// 크루 마감 시각(예: 19:00) 뒤에는 새 신청만 막고, 이미 신청한 파티는 그날 자정까지 결제한다 (상품이 이 기한으로 결제·반환을 판정)
 	static LocalDateTime paymentDueAt(RaceCourseInfo course, CrewSale crewSale, LocalDateTime now) {
 		LocalDateTime dueAt = now.plus(PAYMENT_WINDOW);
-		if (crewSale.endAt().isBefore(dueAt)) {
-			dueAt = crewSale.endAt();
+		LocalDateTime crewEndDayMidnight = crewSale.endAt().toLocalDate().plusDays(1).atStartOfDay();
+		if (crewEndDayMidnight.isBefore(dueAt)) {
+			dueAt = crewEndDayMidnight;
 		}
 		if (course.applicationCloseAt().isBefore(dueAt)) {
 			dueAt = course.applicationCloseAt();
