@@ -13,11 +13,12 @@ import com.bukang.payout.dto.PayoutDto;
 import com.bukang.payout.dto.PayoutItemDto;
 import com.bukang.payout.dto.PayoutSummaryDto;
 import com.bukang.payout.dto.SellerPayoutHoldDto;
+import com.bukang.payout.dto.SellerRecoveryDto;
 
 import lombok.RequiredArgsConstructor;
 
 /**
- * 판매자 정산 조회 API(요약, 정산 내역, 건별 정산, 지급보류 내역)의 진입점.
+ * 판매자 정산 조회 API(요약, 정산 내역, 건별 정산, 지급보류 내역, 회수 내역)의 진입점.
  * 회원 ID를 판매자 ID로 바꾼 뒤(승인된 판매자만) 그 판매자의 기록만 조회한다
  *
  * 판매자 확인은 회원 서비스를 HTTP로 부르므로, 응답을 기다리는 동안 DB 연결을 잡지 않게 트랜잭션 없이 실행하고
@@ -49,5 +50,10 @@ public class PayoutSellerFacade {
 	public List<SellerPayoutHoldDto> holds(long memberId, LocalDate from, LocalDate to) {
 		long sellerId = sellerVerifyUseCase.verify(memberId);
 		return payoutSellerQueryUseCase.holds(sellerId, from, to);
+	}
+
+	public List<SellerRecoveryDto> claims(long memberId, LocalDate from, LocalDate to) {
+		long sellerId = sellerVerifyUseCase.verify(memberId);
+		return payoutSellerQueryUseCase.claims(sellerId, from, to);
 	}
 }
