@@ -68,7 +68,7 @@ public class ApiV1CrewManageController {
 	@DeleteMapping("/{crewId}/members/{memberId}")
 	@Operation(operationId = "removeCrewMember", summary = "크루원 내보내기 (2그룹)",
 		description = "크루장이 크루원이나 운영진을 크루에서 내보낸다. 운영진은 내보낼 수 없다(크루장만 한다). "
-			+ "크루장 자신은 내보낼 수 없다. 결제 기간 중인 파티장·파티원을 막을지는 회의에서 정한다(안건 14).")
+			+ "크루장 자신은 내보낼 수 없다. 내보낸 회원은 내보내기 전에 만든 초대 링크로 다시 가입할 수 없다. 결제 기간 중인 파티장·파티원을 막을지는 회의에서 정한다(안건 14).")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "내보내기 성공",
 			content = @Content(examples = @ExampleObject(value = CrewApiExamples.REMOVE_MEMBER_SUCCESS))),

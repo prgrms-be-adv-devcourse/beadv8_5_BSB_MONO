@@ -212,11 +212,12 @@ public class ApiV1CrewController {
 		@ApiResponse(responseCode = "404", description = "초대 토큰이 없음 (잘못된 링크) 또는 크루를 없앰",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = CrewApiExamples.CREW_INVITE_NOT_FOUND))),
-		@ApiResponse(responseCode = "410", description = "초대 링크를 더 쓸 수 없음 (24시간 지남, 취소됨, 이미 가입에 쓰임)",
+		@ApiResponse(responseCode = "410", description = "초대 링크를 더 쓸 수 없음 (24시간 지남, 취소됨, 이미 가입에 쓰임, 내보낸 회원)",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "24시간 지남", value = CrewApiExamples.LINK_EXPIRED),
 				@ExampleObject(name = "취소됨", value = CrewApiExamples.LINK_CANCELED),
-				@ExampleObject(name = "이미 가입에 쓰임", value = CrewApiExamples.LINK_ALREADY_USED)
+				@ExampleObject(name = "이미 가입에 쓰임", value = CrewApiExamples.LINK_ALREADY_USED),
+				@ExampleObject(name = "내보낸 회원 (내보내기 전에 만든 링크)", value = CrewApiExamples.LINK_REMOVED_MEMBER)
 			}))
 	})
 	public ResponseEntity<RsData<CrewInvitePreviewDto>> findCrewInvite(
@@ -243,11 +244,12 @@ public class ApiV1CrewController {
 		@ApiResponse(responseCode = "409", description = "이미 그 크루의 크루원 (프론트는 크루 홈으로 보낸다)",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = CrewApiExamples.CREW_ALREADY_MEMBER))),
-		@ApiResponse(responseCode = "410", description = "초대 링크를 더 쓸 수 없음 (24시간 지남, 취소됨, 이미 가입에 쓰임)",
+		@ApiResponse(responseCode = "410", description = "초대 링크를 더 쓸 수 없음 (24시간 지남, 취소됨, 이미 가입에 쓰임, 내보낸 회원)",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "24시간 지남", value = CrewApiExamples.LINK_EXPIRED),
 				@ExampleObject(name = "취소됨", value = CrewApiExamples.LINK_CANCELED),
-				@ExampleObject(name = "이미 가입에 쓰임", value = CrewApiExamples.LINK_ALREADY_USED)
+				@ExampleObject(name = "이미 가입에 쓰임", value = CrewApiExamples.LINK_ALREADY_USED),
+				@ExampleObject(name = "내보낸 회원 (내보내기 전에 만든 링크)", value = CrewApiExamples.LINK_REMOVED_MEMBER)
 			}))
 	})
 	public ResponseEntity<RsData<CrewJoinedDto>> joinCrew(

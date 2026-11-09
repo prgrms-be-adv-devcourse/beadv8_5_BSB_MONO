@@ -19,6 +19,7 @@ import com.bukang.common.shared.member.web.LoginRequiredException;
 import com.bukang.member.crew.domain.Crew;
 import com.bukang.member.crew.domain.CrewInvite;
 import com.bukang.member.crew.domain.CrewMember;
+import com.bukang.member.crew.domain.CrewRemoval;
 import com.bukang.member.crew.domain.CrewRole;
 import com.bukang.member.crew.domain.CrewStatus;
 import com.bukang.member.crew.domain.exception.CrewAlreadyLeaderException;
@@ -31,6 +32,7 @@ import com.bukang.member.crew.domain.exception.CrewInviteCanceledException;
 import com.bukang.member.crew.domain.exception.CrewInviteExpiredException;
 import com.bukang.member.crew.domain.exception.CrewInviteForbiddenException;
 import com.bukang.member.crew.domain.exception.CrewInviteNotFoundException;
+import com.bukang.member.crew.domain.exception.CrewInviteRemovedMemberException;
 import com.bukang.member.crew.domain.exception.CrewLeaderCannotLeaveException;
 import com.bukang.member.crew.domain.exception.CrewLeaderOnlyException;
 import com.bukang.member.crew.domain.exception.CrewMemberNotFoundException;
@@ -49,6 +51,7 @@ import com.bukang.member.crew.dto.MyCrewDto;
 import com.bukang.member.crew.out.CrewInviteRepository;
 import com.bukang.member.crew.out.CrewMemberProfilePort;
 import com.bukang.member.crew.out.CrewMemberRepository;
+import com.bukang.member.crew.out.CrewRemovalRepository;
 import com.bukang.member.crew.out.CrewRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -67,6 +70,7 @@ public class CrewFacade {
 	private final CrewRepository crewRepository;
 	private final CrewMemberRepository crewMemberRepository;
 	private final CrewInviteRepository crewInviteRepository;
+	private final CrewRemovalRepository crewRemovalRepository;
 	private final CrewMemberProfilePort profilePort;
 	private final Clock clock;
 	private final ApplicationEventPublisher eventPublisher;
@@ -175,6 +179,7 @@ public class CrewFacade {
 		boolean alreadyMember = crewMemberRepository.existsByCrewIdAndMemberId(crew.getId(), memberId);
 		if (!alreadyMember) {
 			throwIfUnusableWhenOpeningLink(invite, now());
+			throwIfRemovedAfterInvite(invite, memberId);
 		}
 		return new CrewInvitePreviewDto(
 			crew.getId(),
@@ -200,6 +205,8 @@ public class CrewFacade {
 		if (crewMemberRepository.existsByCrewIdAndMemberId(crew.getId(), memberId)) {
 			throw new CrewAlreadyMemberException();
 		}
+		// 내보내기도 크루 행을 잠그므로, 내보내기와 동시에 와도 내보낸 기록을 놓치지 않는다
+		throwIfRemovedAfterInvite(invite, memberId);
 
 		LocalDateTime now = now();
 		// 링크 하나로 24시간 동안 여러 명이 가입한다 (BUK-135). 취소와 동시에 와도 취소가 커밋된 뒤의 가입은 막는다.
@@ -250,6 +257,8 @@ public class CrewFacade {
 		if (crewMemberRepository.deleteByCrewIdAndMemberId(crewId, targetMemberId) == 0) {
 			throw new CrewMemberNotFoundException();
 		}
+		// 내보내기 전에 만든 초대 링크로 다시 들어오지 못하게 남긴다 (BUK-135)
+		crewRemovalRepository.save(CrewRemoval.of(crewId, targetMemberId, now()));
 		publishLeft(target, CrewMemberLeftReason.REMOVED);
 	}
 
@@ -395,6 +404,13 @@ public class CrewFacade {
 		}
 		if (!invite.getExpiresAt().isAfter(now)) {
 			throw CrewInviteExpiredException.whenOpeningLink();
+		}
+	}
+
+	private void throwIfRemovedAfterInvite(CrewInvite invite, long memberId) {
+		if (crewRemovalRepository.existsByCrewIdAndMemberIdAndRemovedAtGreaterThanEqual(
+			invite.getCrewId(), memberId, invite.getCreatedAt())) {
+			throw new CrewInviteRemovedMemberException();
 		}
 	}
 
