@@ -60,7 +60,15 @@ public class HttpCrewSeatHoldAdapter implements CrewSeatHoldPort {
 			if (exception.getStatusCode().isSameCodeAs(HttpStatus.CONFLICT)) {
 				throw new ParticipationNotPayableException(messageOf(exception));
 			}
-			// 400(끝 시각이 상품 시계로 이미 지남, 같은 신청 두 번 등)은 주문이 보낸 값이 계약과 어긋났다
+			// 400(끝 시각이 이미 지남, 같은 신청 두 번 등)도 확정 거절이다. 상품은 같은 파티의 자리를 400 검사보다 먼저 찾아
+			// 처음 결과를 주므로, 400이면 이 파티 몫으로 잡힌 자리가 없다 → 신청 중 표시를 지우게 거절로 알린다 (지훈님 리뷰)
+			// 주문이 보낸 값이 계약과 어긋났을 수 있어 error로 남긴다
+			if (exception.getStatusCode().isSameCodeAs(HttpStatus.BAD_REQUEST)) {
+				log.error("상품 서비스가 크루 자리 확보 요청을 400으로 거절했습니다. partyId={}, body={}", partyId,
+					InternalHttpClients.abbreviate(exception.getResponseBodyAsString()));
+				throw new ParticipationNotPayableException(messageOf(exception));
+			}
+			// 그 밖의 4xx는 경로·인증 계약이 어긋났다. 다시 해도 안 되지만 자리를 모르므로 503으로 둔다
 			log.error("상품 서비스가 크루 자리 확보 요청을 거절했습니다. 계약을 확인해야 합니다. status={}, partyId={}, body={}",
 				exception.getStatusCode(), partyId,
 				InternalHttpClients.abbreviate(exception.getResponseBodyAsString()));

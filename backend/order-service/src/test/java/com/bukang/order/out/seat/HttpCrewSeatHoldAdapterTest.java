@@ -71,13 +71,17 @@ class HttpCrewSeatHoldAdapterTest {
 	}
 
 	@Test
-	@DisplayName("없는 대회·종목(404)은 종목 없음, 409(크루 예매 기간 아님·다른 자리 목록 등)는 상품의 이유 그대로 409로 알린다")
+	@DisplayName("없는 대회·종목(404)은 종목 없음, 409·400(크루 예매 기간 아님·다른 자리 목록·끝 시각 지남 등)은 상품의 이유 그대로 409로 알린다")
 	void rejected() {
 		server.expect(requestTo(URL)).andRespond(withStatus(HttpStatus.NOT_FOUND));
 		server.expect(requestTo(URL)).andRespond(withStatus(HttpStatus.CONFLICT)
 			.contentType(MediaType.APPLICATION_JSON)
 			.body("{ \"status\": 409, \"message\": \"이미 다른 자리 목록으로 확보한 파티입니다.\", \"data\": null }"));
 		server.expect(requestTo(URL)).andRespond(withStatus(HttpStatus.CONFLICT));
+		// 상품은 같은 파티의 자리를 400 검사(끝 시각 지남 등)보다 먼저 찾으므로 400은 「이 파티 몫 자리 없음」 확정 답이다
+		server.expect(requestTo(URL)).andRespond(withStatus(HttpStatus.BAD_REQUEST)
+			.contentType(MediaType.APPLICATION_JSON)
+			.body("{ \"status\": 400, \"message\": \"자리 끝 시각이 이미 지났습니다.\", \"data\": null }"));
 
 		assertThatThrownBy(() -> adapter.holdAll(31, 7, 2, EXPIRES_AT, SEATS))
 			.isInstanceOf(RaceCourseNotFoundException.class);
@@ -87,15 +91,18 @@ class HttpCrewSeatHoldAdapterTest {
 		assertThatThrownBy(() -> adapter.holdAll(31, 7, 2, EXPIRES_AT, SEATS))
 			.isInstanceOf(ParticipationNotPayableException.class)
 			.hasMessage(HttpCrewSeatHoldAdapter.REJECTED_MESSAGE);
+		assertThatThrownBy(() -> adapter.holdAll(31, 7, 2, EXPIRES_AT, SEATS))
+			.isInstanceOf(ParticipationNotPayableException.class)
+			.hasMessage("자리 끝 시각이 이미 지났습니다.");
 		server.verify();
 	}
 
 	@Test
-	@DisplayName("5xx·응답 지연·400·형식이 다른 응답은 503으로 알린다 (같은 파티로 다시 하면 처음 결과를 받는다)")
+	@DisplayName("5xx·응답 지연·그 밖의 4xx·형식이 다른 응답은 503으로 알린다 (같은 파티로 다시 하면 처음 결과를 받는다)")
 	void unavailable() {
 		server.expect(requestTo(URL)).andRespond(withServerError());
 		server.expect(requestTo(URL)).andRespond(withException(new SocketTimeoutException("read timed out")));
-		server.expect(requestTo(URL)).andRespond(withStatus(HttpStatus.BAD_REQUEST));
+		server.expect(requestTo(URL)).andRespond(withStatus(HttpStatus.UNAUTHORIZED));
 		server.expect(requestTo(URL)).andRespond(withSuccess(data("{ \"held\": true }"), MediaType.APPLICATION_JSON));
 		server.expect(requestTo(URL)).andRespond(withSuccess(data("null"), MediaType.APPLICATION_JSON));
 
