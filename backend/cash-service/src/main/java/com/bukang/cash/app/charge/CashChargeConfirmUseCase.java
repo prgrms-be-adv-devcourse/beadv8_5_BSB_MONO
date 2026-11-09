@@ -44,13 +44,14 @@ public class CashChargeConfirmUseCase {
 	private final PaymentClient paymentClient;
 	private final TransactionTemplate transactionTemplate;
 	private final ChargeAbuseGuard chargeAbuseGuard;
+	private final NewAccountChargeReviewGuard newAccountChargeReviewGuard;
 
 	public CashChargeResponseDto confirmWalletCharge(long customerId, String paymentKey, String orderId, long amount) {
 		if (amount < CashChargePolicy.MINIMUM_AMOUNT) {
 			throw new ChargeAmountTooSmallException("최소 충전 금액은 10,000원입니다.");
 		}
 		if (amount > CashChargePolicy.MAX_PER_CHARGE) {
-			throw ChargeAmountTooLargeException.perCharge("1회 충전 한도는 100,000원입니다.");
+			throw ChargeAmountTooLargeException.perCharge("1회 충전 한도는 300,000원입니다.");
 		}
 		chargeAbuseGuard.assertNotCoolingDown(customerId);
 
@@ -176,6 +177,7 @@ public class CashChargeConfirmUseCase {
 		existing.markCompleted(result.pgPaymentKey(), LocalDateTime.now(), result.approvedAt());
 		walletLedgerRepository.save(customerWallet.credit(
 			result.approvedAmount(), LedgerType.충전__PG결제_토스페이먼츠, existing));
+		newAccountChargeReviewGuard.checkAndFlag(existing, customerWallet.getHolder());
 		return CashChargeResponseDto.completed(customerWallet.getBalance());
 	}
 
