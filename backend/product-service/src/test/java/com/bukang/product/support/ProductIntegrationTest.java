@@ -223,7 +223,7 @@ public abstract class ProductIntegrationTest {
 		if (!saleOpenDate.isBefore(today.plusDays(2))) {
 			return register(request);
 		}
-		// 날짜 단위로 옮겨야 '크루 마감 다음 날 06:00 이후', '환불 기준일 ≤ 대회 날짜' 같은 검사 결과가 그대로다
+		// 날짜 단위로 옮겨야 '개인 예매 오픈 ≥ 크루 예매 마감일의 자정', '환불 기준일 ≤ 대회 날짜' 같은 검사 결과가 그대로다
 		long days = ChronoUnit.DAYS.between(saleOpenDate, today) + 2;
 		RaceSaleStatus saleStatus = saleOpenDate.isAfter(today) ? RaceSaleStatus.SCHEDULED : RaceSaleStatus.ON_SALE;
 		RegisteredRace race = register(shiftSchedule(request, days));

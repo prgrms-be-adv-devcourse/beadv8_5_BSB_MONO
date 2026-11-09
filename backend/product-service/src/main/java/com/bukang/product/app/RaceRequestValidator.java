@@ -1,7 +1,6 @@
 package com.bukang.product.app;
 
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashSet;
@@ -13,6 +12,7 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 
 import com.bukang.common.shared.file.domain.FileType;
+import com.bukang.product.domain.Race;
 import com.bukang.product.domain.TshirtSize;
 import com.bukang.product.domain.exception.InvalidRaceException;
 import com.bukang.product.dto.RaceCourseSaveRequestDto;
@@ -25,8 +25,6 @@ import com.bukang.product.dto.RaceSaveRequestDto;
  */
 @Component
 public class RaceRequestValidator {
-	// 크루 예매가 있으면 개인 예매는 크루 마감일 다음 날 이 시각 이후에 연다 (마감 다음 날 06:00 배치가 크루 몫을 옮긴다)
-	private static final LocalTime INDIVIDUAL_OPEN_EARLIEST_TIME = LocalTime.of(6, 0);
 	// 종목에 붙이는 이미지 용도 (세미는 이미지를 모두 종목에 붙이고, 대회에는 붙이지 않는다)
 	private static final Set<FileType> COURSE_IMAGE_TYPES = Set.of(FileType.THUMBNAIL, FileType.DETAIL,
 		FileType.INTRO_VIDEO, FileType.COURSE, FileType.KIT);
@@ -51,11 +49,10 @@ public class RaceRequestValidator {
 			if (!crewSaleStartAt.isBefore(crewSaleEndAt)) {
 				throw new InvalidRaceException("크루 예매 마감 일시는 시작 일시보다 늦어야 합니다.");
 			}
-			// 예: 크루 마감 10/14 10:00 → 개인 예매는 10/15 06:00부터 열 수 있다
-			LocalDateTime individualOpenEarliest = crewSaleEndAt.toLocalDate().plusDays(1)
-				.atTime(INDIVIDUAL_OPEN_EARLIEST_TIME);
-			if (request.getIndividualOpenAt().isBefore(individualOpenEarliest)) {
-				throw new InvalidRaceException("개인 예매 오픈 일시는 크루 예매 마감일 다음 날 06:00 이후여야 합니다.");
+			// 개인 예매는 크루 몫이 개인 몫으로 넘어가는 크루 예매 마감일의 자정부터 열 수 있다
+			// 예: 크루 마감 10/14 10:00 → 10/15 00:00 배치가 크루 몫을 옮기므로 개인 예매는 10/15 00:00부터
+			if (request.getIndividualOpenAt().isBefore(Race.crewCloseAt(crewSaleEndAt))) {
+				throw new InvalidRaceException("개인 예매 오픈 일시는 크루 예매 마감일의 자정 이후여야 합니다.");
 			}
 		}
 		if (!request.getIndividualOpenAt().isBefore(request.getApplicationCloseAt())) {

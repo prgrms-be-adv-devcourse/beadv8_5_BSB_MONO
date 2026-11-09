@@ -36,7 +36,9 @@ import com.bukang.product.dto.RaceSuggestionDto;
 import com.bukang.product.dto.SellerRaceDto;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
@@ -54,6 +56,7 @@ public class ProductFacade {
 	private final RaceSaleStatusUseCase raceSaleStatusUseCase;
 	private final RaceHoldUseCase raceHoldUseCase;
 	private final RaceCancelUseCase raceCancelUseCase;
+	private final CrewSeatBatchUseCase crewSeatBatchUseCase;
 	private final TransactionTemplate transactionTemplate;
 	private final ProductOutboxKafkaAppendUseCase productOutboxKafkaAppendUseCase;
 	private final ProductOutboxKafkaRelayUseCase productOutboxKafkaRelayUseCase;
@@ -246,6 +249,29 @@ public class ProductFacade {
 			raceDocumentSyncAppendUseCase.append(event.raceId());
 		});
 		return result.raceChanges().size();
+	}
+
+	// 크루 자리 매시간 배치. CrewSeatBatchScheduler가 매시 정각의 시각을, 테스트는 고정 시각을 넣어 부른다
+	// 클래스의 읽기 전용 트랜잭션 밖에서(NOT_SUPPORTED) 돌려야 아래 transactionTemplate이 단계·종목마다 따로 트랜잭션을 연다
+	// ① 결제 기한이 지난 결제 대기 크루 자리 반환은 트랜잭션 하나로 한다
+	// ② 크루 몫 이동은 종목마다 따로 트랜잭션으로 한다. 한 종목이 실패해도 나머지 종목은 옮기고, 실패한 종목은 다음 정각에 다시 고른다
+	//   (반환·이동이 모두 조건부 UPDATE라 다시 돌아도 한 번만 반영된다)
+	@Transactional(propagation = Propagation.NOT_SUPPORTED)
+	public CrewSeatBatchUseCase.Result runCrewSeatBatch(LocalDateTime now) {
+		Integer released = transactionTemplate.execute(status -> crewSeatBatchUseCase.releaseExpiredCrew(now));
+		int closedCourses = 0;
+		for (long raceCourseId : crewSeatBatchUseCase.findClosableCourseIds(now)) {
+			try {
+				if (Boolean.TRUE.equals(transactionTemplate.execute(status ->
+					crewSeatBatchUseCase.closeCrew(raceCourseId, now)))) {
+					closedCourses++;
+				}
+			} catch (RuntimeException exception) {
+				log.error("크루 몫을 개인 몫으로 옮기지 못했습니다. 다음 정각에 다시 시도합니다. raceCourseId={}", raceCourseId,
+					exception);
+			}
+		}
+		return new CrewSeatBatchUseCase.Result(released == null ? 0 : released, closedCourses);
 	}
 
 	// 아웃박스의 미발행 메시지를 Kafka로 보낸다 (ProductOutboxKafkaRelayScheduler가 1초마다 부른다). 보낸 건수를 돌려준다

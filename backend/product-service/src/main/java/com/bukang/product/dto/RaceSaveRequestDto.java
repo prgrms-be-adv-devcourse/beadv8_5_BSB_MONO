@@ -53,7 +53,7 @@ public class RaceSaveRequestDto {
 	@Schema(description = "크루 예매 마감 일시 (크루 예매 시작보다 늦게)", example = "2026-10-14T10:00:00")
 	private final LocalDateTime crewSaleEndAt;
 
-	@Schema(description = "개인 예매 오픈 일시 (크루 예매가 있으면 크루 마감일 다음 날 06:00 이후). "
+	@Schema(description = "개인 예매 오픈 일시 (크루 예매가 있으면 크루 예매 마감일의 자정 이후). "
 		+ "크루 예매가 없으면 이 날짜가 판매 시작일이 되며, 오늘로부터 이틀 뒤부터", example = "2026-10-15T10:00:00")
 	@NotNull(message = "개인 예매 오픈 일시를 작성해주세요.")
 	private final LocalDateTime individualOpenAt;

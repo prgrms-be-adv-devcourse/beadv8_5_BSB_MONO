@@ -1,6 +1,7 @@
 package com.bukang.product.out;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -99,6 +100,27 @@ public interface RaceCourseRepository extends JpaRepository<RaceCourse, Long> {
 		+ "c.movedQuota = c.movedQuota + case when c.crewClosedAt is null then 0 else 1 end, "
 		+ "c.modifyDate = :now where c.id = :id")
 	int restoreCrew(@Param("id") long id, @Param("now") LocalDateTime now);
+
+	// 크루 몫을 개인 몫으로 옮길 종목 (종목 ID 순): 크루 예매 마감일의 자정이 지났고 아직 옮기지 않은 종목
+	// 크루 예매 마감 일시는 새 파티 참여 확정을 막는 기준이고, 결제 대기 크루 자리는 마감일 자정까지 결제할 수 있다
+	//   예: 마감 11/12 18:00 → 18:00부터 파티 참여 확정은 막히고, 11/13 00:00 실행에서 결제 대기 반환과 개인 몫 이동
+	//   마감이 11/13 00:00 정각이면 마지막 날은 11/12라 같은 11/13 00:00 실행에서 처리한다
+	// todayStart = 오늘 0시. 「마감 일시 ≤ 오늘 0시」면 마감일의 자정이 이미 왔다
+	// 크루 예매가 없는 대회(마감 일시 null)와 크루 정원이 0인 종목은 고르지 않는다
+	@Query("select c.id from RaceCourse c where c.crewClosedAt is null and c.crewQuota > 0 "
+		+ "and c.race.crewSaleEndAt <= :todayStart order by c.id")
+	List<Long> findCrewClosableIds(@Param("todayStart") LocalDateTime todayStart);
+
+	// 남은 크루 자리를 한 번에 개인 몫으로 옮기고 옮긴 일시를 남긴다
+	// movedQuota = 지금 movedQuota + 남은 크루 자리 = crewQuota − crewReserved − crewSold
+	// 결제 대기 크루 자리를 모두 반환한 뒤(crewReserved = 0)에만, 한 번만(crewClosedAt이 빔) 옮긴다
+	//   반환 전에 옮기면 결제 대기 자리가 개인 몫 계산에서 빠지고, 반환할 때 releaseCrew가 그 자리를 또 개인 몫으로 넘긴다
+	// 판매한 크루 자리(crewSold)는 옮기지 않는다. 나중에 환불되면 restoreCrew가 개인 몫으로 넘긴다
+	@Modifying(clearAutomatically = true)
+	@Query("update RaceCourse c set c.movedQuota = c.crewQuota - c.crewReserved - c.crewSold, "
+		+ "c.crewClosedAt = :now, c.modifyDate = :now "
+		+ "where c.id = :id and c.crewClosedAt is null and c.crewReserved = 0")
+	int moveCrewQuotaToIndividual(@Param("id") long id, @Param("now") LocalDateTime now);
 
 	// 남은 개인 자리로 종목 상태를 맞춘다: 0이면 정원 마감, 남았으면 접수 중
 	// 카운터를 바꾼 같은 트랜잭션에서 부른다 (행이 이미 잠겨 있어 그 사이 다른 요청이 끼어들지 못한다)

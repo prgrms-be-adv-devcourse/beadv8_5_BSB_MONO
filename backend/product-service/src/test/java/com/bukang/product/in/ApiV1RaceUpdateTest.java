@@ -813,7 +813,7 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 			.applicationCloseAt(now.minusDays(3));
 	}
 
-	// 이미 끝난 크루 예매(3일 전 시작, 2일 전 마감)를 더한다. 개인 예매 오픈(한 시간 전)은 크루 마감 다음 날 06:00 이후다
+	// 이미 끝난 크루 예매(3일 전 시작, 2일 전 마감)를 더한다. 개인 예매 오픈(한 시간 전)은 크루 예매 마감일의 자정 이후다
 	private RaceBuilder withPassedCrewSale(RaceBuilder builder) {
 		return builder.crewSale(now.minusDays(3), now.minusDays(2));
 	}

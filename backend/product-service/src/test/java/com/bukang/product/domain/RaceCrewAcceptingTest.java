@@ -41,7 +41,7 @@ class RaceCrewAcceptingTest {
 	}
 
 	// 판매 예정인 크루 예매 대회. 판정의 관심사는 크루 예매 일정뿐이라 나머지 일정은 그 뒤로 둔다
-	// (개인 예매는 크루 마감 다음 날 06:00, 접수 마감·대회일은 그 뒤)
+	// (개인 예매는 크루 예매 마감일의 자정 뒤 06:00, 접수 마감·대회일은 그 뒤)
 	private static Race crewRace() {
 		ProductMember member = new ProductMember(9001L, REGISTERED_AT, REGISTERED_AT, "러너9001");
 		ProductSeller seller = new ProductSeller(7001L, member, SellerType.BUSINESS, "(주)러닝7001", "123-45-67890",
