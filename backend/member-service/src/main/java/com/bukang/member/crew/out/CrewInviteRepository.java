@@ -26,7 +26,8 @@ public interface CrewInviteRepository extends JpaRepository<CrewInvite, Long> {
 	@Query("select i from CrewInvite i where i.id = :id")
 	Optional<CrewInvite> findByIdForUpdate(@Param("id") long id);
 
-	// 아직 쓸 수 있는 초대: 쓰이지 않음, 취소 안 됨, 끝나는 시각이 지금보다 뒤
+	// 아직 쓸 수 있는 초대: 취소 안 됨, 끝나는 시각이 지금보다 뒤
+	// usedAt은 여러 명 가입(BUK-135) 전에 한 번 쓰고 닫힌 옛 초대에만 있다
 	@Query("""
 		select i from CrewInvite i
 		where i.crewId = :crewId and i.usedAt is null and i.canceledAt is null and i.expiresAt > :now
@@ -43,16 +44,7 @@ public interface CrewInviteRepository extends JpaRepository<CrewInvite, Long> {
 	List<CrewInvite> findUsableByCrewIdAndCreatedBy(
 		@Param("crewId") long crewId, @Param("createdBy") long createdBy, @Param("now") LocalDateTime now);
 
-	// 가입에 쓴다. 바뀐 행이 1일 때만 가입한다. 같은 링크로 동시에 가입해도 한 명만 1을 받는다
-	@Modifying(flushAutomatically = true, clearAutomatically = true)
-	@Query("""
-		update CrewInvite i set i.usedAt = :now, i.usedBy = :memberId, i.updatedAt = :now
-		where i.id = :inviteId and i.usedAt is null and i.canceledAt is null and i.expiresAt > :now
-		""")
-	int markUsed(
-		@Param("inviteId") long inviteId, @Param("memberId") long memberId, @Param("now") LocalDateTime now);
-
-	// 취소한다. 가입과 동시에 일어나도 둘 중 하나만 성공한다
+	// 취소한다. 가입은 초대 행을 잠가 읽으므로 취소가 커밋된 뒤의 가입은 막힌다
 	@Modifying(flushAutomatically = true, clearAutomatically = true)
 	@Query("""
 		update CrewInvite i set i.canceledAt = :now, i.canceledBy = :memberId, i.updatedAt = :now

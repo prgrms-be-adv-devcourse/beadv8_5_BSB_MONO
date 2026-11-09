@@ -196,33 +196,24 @@ public class CrewFacade {
 		// 없애기가 먼저 끝났으면 링크가 사라진 것으로 보고, 가입이 먼저면 없애기가 「다른 크루원 있음」으로 막힌다
 		Crew crew = crewRepository.findActiveByIdForUpdate(invite.getCrewId())
 			.orElseThrow(CrewInviteNotFoundException::new);
-		// 이미 크루원이면 초대를 소모하지 않는다
+		// 이미 크루원이면 409로 답한다
 		if (crewMemberRepository.existsByCrewIdAndMemberId(crew.getId(), memberId)) {
 			throw new CrewAlreadyMemberException();
 		}
 
 		LocalDateTime now = now();
-		// 바뀐 행이 1일 때만 가입한다. 같은 링크로 동시에 가입해도 한 명만 1을 받는다
-		if (crewInviteRepository.markUsed(invite.getId(), memberId, now) == 0) {
-			CrewInvite current = crewInviteRepository.findByIdForUpdate(invite.getId())
-				.orElseThrow(CrewInviteNotFoundException::new);
-			// 같은 회원이 같은 링크로 두 기기에서 동시에 가입하면 먼저 커밋한 요청이 링크를 쓴다.
-			// 뒤 요청은 「이미 쓰인 링크」가 아니라 「이미 크루원」으로 답한다
-			if (current.getUsedBy() != null && current.getUsedBy() == memberId) {
-				throw new CrewAlreadyMemberException();
-			}
-			throwIfUnusableWhenOpeningLink(current, now);
-			// 쓰임·취소·만료는 되돌릴 수 없으므로 여기에 오지 않는다
-			throw new IllegalStateException("쓸 수 있는 초대인데 가입에 쓰지 못했습니다. inviteId=" + invite.getId());
-		}
+		// 링크 하나로 24시간 동안 여러 명이 가입한다 (BUK-135). 초대 행을 잠가 읽어
+		// 취소와 동시에 와도 취소가 커밋된 뒤의 가입은 막는다. 잠금 순서는 회원 → 크루 → 초대로 크루 없애기와 같다
+		CrewInvite current = crewInviteRepository.findByIdForUpdate(invite.getId())
+			.orElseThrow(CrewInviteNotFoundException::new);
+		throwIfUnusableWhenOpeningLink(current, now);
 		try {
 			CrewMember member = crewMemberRepository.saveAndFlush(
 				CrewMember.invited(crew.getId(), memberId, invite.getId(), now));
 			return new CrewJoinedDto(crew.getId(), crew.getName(), member.getRole(), member.getJoinedAt());
 		} catch (DataIntegrityViolationException exception) {
-			// 같은 회원이 서로 다른 링크로 같은 크루에 동시에 가입하면 uk_crew_member가 두 번째 행을 막는다.
-			// 예외가 나가 트랜잭션이 롤백되므로 두 번째 초대도 쓰이지 않은 채로 남는다
-			// (같은 링크로 동시에 가입하는 경우는 위의 회원 행 잠금과 usedBy 확인이 「이미 크루원」으로 답한다)
+			// 같은 회원이 같은 크루에 동시에 가입하면 uk_crew_member가 두 번째 행을 막는다
+			// (보통은 위의 회원 행 잠금 뒤 크루원 확인이 먼저 「이미 크루원」으로 답한다)
 			throw new CrewAlreadyMemberException();
 		}
 	}

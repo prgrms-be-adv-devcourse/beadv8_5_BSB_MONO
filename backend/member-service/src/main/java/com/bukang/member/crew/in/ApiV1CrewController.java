@@ -111,7 +111,7 @@ public class ApiV1CrewController {
 	@Operation(operationId = "createCrewInvite", summary = "초대 링크 만들기",
 		description = "크루장과 운영진이 초대 링크를 만든다. 링크는 만든 때부터 24시간 동안 쓸 수 있다. "
 			+ "응답의 inviteToken으로 프론트가 초대 받기 화면 주소를 만든다. 토큰은 이 응답에서만 받을 수 있다. "
-			+ "초대 링크 하나로는 한 명만 가입한다.")
+			+ "초대 링크 하나로 24시간 동안 여러 명이 가입할 수 있다. 링크가 퍼지면 초대 취소로 끊는다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "201", description = "만들기 성공",
 			content = @Content(examples = @ExampleObject(value = CrewApiExamples.CREATE_INVITE_SUCCESS))),
