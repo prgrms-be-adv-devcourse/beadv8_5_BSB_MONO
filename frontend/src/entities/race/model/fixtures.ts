@@ -8,23 +8,25 @@ import type { RaceDetail } from './types'
 export type RaceBanner = {
   id: string
   image: string
-  /** 글자가 박힌 배너 이미지는 제목을 비운다 */
+  /** 글자가 박힌 배너 이미지는 글을 비운다 */
+  chip?: string
   title?: string
-  tags?: string
+  description?: string
 }
 
 export const RACE_BANNERS: RaceBanner[] = [
   {
     id: 'cookierun',
     image: '/mock/races/cookierun.webp',
-    title: '「접수 중」\n용감한 쿠키RUN in 서울',
-    tags: '#함께뛰자  #5K  #10K',
+    chip: '이번 주 접수 마감',
+    title: '2026 용감한 쿠키RUN in 서울',
+    description: '10/31까지 · 5K · 10K · 서울숲 일대',
   },
   {
     id: 'youth10k',
     image: '/mock/races/youth10k.webp',
-    title: '긍정 하프 마라톤 YOUTH 10K\n10/12 (월) 18:00 접수 마감',
-    tags: '#10K  #접수마감임박',
+    title: '긍정 하프 마라톤 YOUTH 10K',
+    description: '10/12 (월) 18:00 접수 마감',
   },
   { id: 'jtbc', image: '/mock/races/jtbc.webp' },
 ]

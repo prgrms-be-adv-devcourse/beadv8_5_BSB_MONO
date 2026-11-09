@@ -44,7 +44,7 @@ export function Segmented<T extends string>({
             aria-selected={selected}
             onClick={() => onChange(item.value)}
             className={cn(
-              'flex min-w-0 items-center justify-center gap-1 truncate rounded-sm text-label-l',
+              'flex min-w-0 items-center justify-center gap-1 truncate rounded-sm text-body1-medium',
               size === 'm' ? 'h-10' : 'h-12',
               layout === 'fill' ? 'flex-1 px-2' : 'px-4',
               selected
@@ -55,7 +55,7 @@ export function Segmented<T extends string>({
           >
             {item.label}
             {item.count !== undefined && (
-              <span className={cn('text-label-s', selected && 'text-text-brand')}>
+              <span className={cn('text-caption-medium', selected && 'text-text-brand')}>
                 {item.count}
               </span>
             )}

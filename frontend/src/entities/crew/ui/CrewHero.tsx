@@ -19,8 +19,8 @@ export function CrewHero({ name, summary, people, action }: CrewHeroProps) {
       <div className="flex items-center gap-3">
         <Avatar size="xl" name={name} />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <h2 className="truncate text-heading-xl">{name}</h2>
-          <p className="text-body-s text-text-on-hero-muted">{summary}</p>
+          <h2 className="truncate text-title1">{name}</h2>
+          <p className="text-body2-regular text-text-on-hero-muted">{summary}</p>
         </div>
       </div>
       {(people?.length || action) && (

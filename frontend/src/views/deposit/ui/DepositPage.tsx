@@ -50,16 +50,16 @@ export function DepositPage({ refunding = false }: { refunding?: boolean }) {
       <main className="flex flex-1 flex-col gap-6 px-4 py-6">
         <section className="flex flex-col gap-3 rounded-lg bg-bg-surface p-5 shadow-sm inset-ring inset-ring-border-default">
           <div className="flex flex-col gap-1">
-            <p className="text-label-m text-text-secondary">보유 예치금</p>
+            <p className="text-body2-medium text-text-secondary">보유 예치금</p>
             {isPending ? (
               <Skeleton shape="rect" className="h-9 w-32" />
             ) : (
-              <p className="font-display text-display-m">
+              <p className="font-display text-number-s">
                 {isError || balance === undefined ? '-' : formatWon(balance)}
               </p>
             )}
             {isError && (
-              <p className="text-caption text-text-tertiary">잔액을 불러오지 못했어요.</p>
+              <p className="text-caption-regular text-text-tertiary">잔액을 불러오지 못했어요.</p>
             )}
           </div>
           {refunding && (
@@ -90,7 +90,7 @@ export function DepositPage({ refunding = false }: { refunding?: boolean }) {
               </Link>
             )}
           </div>
-          <p className="text-caption text-text-tertiary">
+          <p className="text-caption-regular text-text-tertiary">
             {refunding
               ? '돌려받는 중에는 다시 신청할 수 없어요. 충전은 할 수 있어요.'
               : '남은 예치금은 언제든 전부 돌려받을 수 있어요.'}
@@ -98,7 +98,7 @@ export function DepositPage({ refunding = false }: { refunding?: boolean }) {
         </section>
 
         <section className="flex flex-col gap-3">
-          <h2 className="text-heading-s">내역</h2>
+          <h2 className="text-body1-bold">내역</h2>
           <div className="flex flex-wrap gap-2">
             {FILTERS.map((f) => (
               <Chip key={f.value} selected={filter === f.value} onClick={() => setFilter(f.value)}>
@@ -132,13 +132,13 @@ export function DepositPage({ refunding = false }: { refunding?: boolean }) {
                   className="flex items-center justify-between gap-2 border-b border-border-default py-3"
                 >
                   <div className="flex min-w-0 flex-1 flex-col gap-1">
-                    <p className="text-label-m">{ledgerTitle(row)}</p>
-                    <p className="text-caption text-text-tertiary">
+                    <p className="text-body2-medium">{ledgerTitle(row)}</p>
+                    <p className="text-caption-regular text-text-tertiary">
                       {formatLedgerTime(row.createdAt)}
                     </p>
                     <ChargeRemainingLine row={row} />
                   </div>
-                  <p className="text-label-strong tabular-nums">{formatLedgerAmount(row.amount)}</p>
+                  <p className="text-body2-bold tabular-nums">{formatLedgerAmount(row.amount)}</p>
                 </li>
               ))}
             </ul>
@@ -155,8 +155,8 @@ export function DepositPage({ refunding = false }: { refunding?: boolean }) {
         </section>
 
         <section className="flex flex-col gap-3 rounded-lg bg-bg-subtle p-5">
-          <h2 className="text-heading-s">돌려받는 방법</h2>
-          <p className="text-body-s text-text-secondary">
+          <h2 className="text-body1-bold">돌려받는 방법</h2>
+          <p className="text-body2-regular text-text-secondary">
             결제한 카드로 먼저 돌려드리고, 카드 취소 기한이 지난 몫만 계좌로 보내 드려요.
           </p>
         </section>
@@ -170,7 +170,7 @@ function ChargeRemainingLine({ row }: { row: WalletLedger }) {
   const left = chargeRemaining(row)
   if (!left) return null
   return (
-    <p className="text-caption text-text-tertiary">
+    <p className="text-caption-regular text-text-tertiary">
       {`남은 금액 ${left.remainingAmount.toLocaleString('ko-KR')}원 · `}
       {/* 기한이 지난 몫은 계좌로 가므로 「까지」라고 쓰면 아직 카드로 받을 수 있는 것처럼 읽힌다 */}
       {left.expired

@@ -220,16 +220,18 @@ export function DepositRefundPage() {
         <main className="flex flex-1 flex-col gap-4 px-4 py-6">
           {notice && <Alert tone="danger" title={notice} />}
           <section className="flex flex-col gap-1 rounded-lg bg-bg-surface p-5 shadow-sm inset-ring inset-ring-border-default">
-            <p className="text-label-m text-text-secondary">돌려받을 금액</p>
+            <p className="text-body2-medium text-text-secondary">돌려받을 금액</p>
             {plan.isPending ? (
               <Skeleton shape="rect" className="h-11 w-36" />
             ) : (
-              <p className="font-display text-display-l">{data ? wonText(data.balance) : '-'}</p>
+              <p className="font-display text-number-m">{data ? wonText(data.balance) : '-'}</p>
             )}
             {plan.isError && (
-              <p className="text-body-s text-text-secondary">돌려받을 금액을 불러오지 못했어요.</p>
+              <p className="text-body2-regular text-text-secondary">
+                돌려받을 금액을 불러오지 못했어요.
+              </p>
             )}
-            {sentence && <p className="text-body-s text-text-secondary">{sentence}</p>}
+            {sentence && <p className="text-body2-regular text-text-secondary">{sentence}</p>}
           </section>
           {data && data.charges.length > 0 && (
             <section className="flex flex-col rounded-lg bg-bg-surface p-5 shadow-sm inset-ring inset-ring-border-default">
@@ -238,7 +240,7 @@ export function DepositRefundPage() {
                 aria-expanded={detailOpen}
                 aria-controls="refund-charges"
                 onClick={() => setDetailOpen((open) => !open)}
-                className="flex items-center justify-between text-heading-s"
+                className="flex items-center justify-between text-body1-bold"
               >
                 충전별 내역 상세보기
                 <Icon name={detailOpen ? 'ChevronUp' : 'ChevronDown'} className="size-5" />
@@ -252,16 +254,16 @@ export function DepositRefundPage() {
                       className="flex items-center justify-between gap-2 border-b border-border-default py-3 last:border-b-0"
                     >
                       <div className="flex min-w-0 flex-1 flex-col gap-1">
-                        <p className="text-label-m">
+                        <p className="text-body2-medium">
                           {`${charge.approvedAt.slice(0, 10)} 충전 · ${wonText(charge.chargedAmount)}`}
                         </p>
-                        <p className="text-caption text-text-tertiary">
+                        <p className="text-caption-regular text-text-tertiary">
                           {charge.refundTo === 'CARD'
                             ? `결제한 카드로 · 카드 취소 ${charge.cardCancelDate}까지`
                             : `계좌로 · 카드 취소 기한(${charge.cardCancelDate})이 지났어요`}
                         </p>
                       </div>
-                      <p className="text-label-strong tabular-nums">
+                      <p className="text-body2-bold tabular-nums">
                         {wonText(charge.remainingAmount)}
                       </p>
                     </li>
@@ -271,7 +273,7 @@ export function DepositRefundPage() {
           )}
           {accountRequired && (
             <section className="flex flex-col gap-4 rounded-lg bg-bg-surface p-5 shadow-sm inset-ring inset-ring-border-default">
-              <h2 className="text-heading-s">환급 계좌</h2>
+              <h2 className="text-body1-bold">환급 계좌</h2>
               <Controller
                 control={control}
                 name="bankCode"
@@ -353,7 +355,7 @@ export function DepositRefundDonePage() {
       <AppHeader type="sub" title="환급 완료" close backHref="/me/deposit" />
       <main className="flex flex-1 flex-col justify-center-safe gap-6 px-4 pt-6 pb-8">
         <div className="flex flex-col gap-2">
-          <h2 className="text-heading-l">
+          <h2 className="text-title2">
             {done
               ? '예치금을 돌려받았어요'
               : allReverted
@@ -361,14 +363,14 @@ export function DepositRefundDonePage() {
                 : '환급을 신청했어요'}
           </h2>
           {withdrawal.accountAmount > 0 && withdrawal.accountAmount === withdrawal.amount && (
-            <p className="text-body-m text-text-secondary">
+            <p className="text-body2-regular text-text-secondary">
               남은 예치금 전부를 아래 계좌로 보냈어요.
             </p>
           )}
         </div>
         {!allReverted && (
           <section className="flex flex-col gap-4 rounded-lg bg-bg-surface p-5 shadow-sm inset-ring inset-ring-border-default">
-            <h3 className="text-heading-s">진행 단계</h3>
+            <h3 className="text-body1-bold">진행 단계</h3>
             <Stepper steps={['신청', '처리 중', '환급 완료']} current={done ? 2 : 1} />
           </section>
         )}
@@ -376,7 +378,7 @@ export function DepositRefundDonePage() {
           {withdrawal.cardAmount > 0 && (
             <>
               <KeyValue label="카드 결제취소 요청" value={won(withdrawal.cardAmount)} />
-              <p className="text-caption text-text-tertiary">
+              <p className="text-caption-regular text-text-tertiary">
                 결제한 카드로 결제취소를 요청했어요. 카드사에 따라 며칠 걸릴 수 있어요.
               </p>
             </>
@@ -390,7 +392,7 @@ export function DepositRefundDonePage() {
           {withdrawal.revertedAmount > 0 && (
             <>
               <KeyValue label="예치금으로 되돌린 금액" value={won(withdrawal.revertedAmount)} />
-              <p className="text-caption text-text-tertiary">
+              <p className="text-caption-regular text-text-tertiary">
                 카드 결제취소가 거절돼 예치금으로 되돌렸어요. 다시 신청할 수 있어요.
               </p>
             </>

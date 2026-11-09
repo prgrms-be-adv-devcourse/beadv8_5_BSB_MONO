@@ -10,12 +10,22 @@ export type AvatarSize = 's' | 'm' | 'l' | 'xl'
 
 // S24 M32 L40 XL56. 첫 글자·아이콘·상태 점 크기도 크기마다 다르다.
 const SIZE: Record<AvatarSize, { box: string; initial: string; icon: string; status: string }> = {
-  s: { box: 'size-6', initial: 'text-label-s', icon: 'size-3.5', status: 'size-2 ring-[1.5px]' },
-  m: { box: 'size-8', initial: 'text-label-s', icon: 'size-4.5', status: 'size-2.5 ring-[1.67px]' },
-  l: { box: 'size-10', initial: 'text-label-m', icon: 'size-5.5', status: 'size-3 ring-2' },
+  s: {
+    box: 'size-6',
+    initial: 'text-caption-medium',
+    icon: 'size-3.5',
+    status: 'size-2 ring-[1.5px]',
+  },
+  m: {
+    box: 'size-8',
+    initial: 'text-caption-medium',
+    icon: 'size-4.5',
+    status: 'size-2.5 ring-[1.67px]',
+  },
+  l: { box: 'size-10', initial: 'text-body2-medium', icon: 'size-5.5', status: 'size-3 ring-2' },
   xl: {
     box: 'size-14',
-    initial: 'text-heading-m',
+    initial: 'text-title3',
     icon: 'size-7.5',
     status: 'size-3.5 ring-[2.33px]',
   },
@@ -93,7 +103,7 @@ export function AvatarGroup({ people, size = 's', className }: AvatarGroupProps)
       {rest > 0 && (
         <span
           className={cn(
-            'flex shrink-0 items-center justify-center rounded-full bg-bg-disabled text-label-s text-text-secondary ring-2 ring-bg-surface',
+            'flex shrink-0 items-center justify-center rounded-full bg-bg-disabled text-caption-medium text-text-secondary ring-2 ring-bg-surface',
             SIZE[size].box,
           )}
         >

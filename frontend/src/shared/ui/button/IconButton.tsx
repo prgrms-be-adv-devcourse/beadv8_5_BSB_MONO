@@ -8,9 +8,8 @@ export type IconButtonVariant = 'primary' | 'secondary' | 'ghost'
 export type IconButtonSize = 's' | 'm'
 
 const VARIANT: Record<IconButtonVariant, string> = {
-  primary: 'bg-bg-brand text-text-on-brand enabled:hover:bg-bg-brand-hover disabled:bg-bg-disabled',
-  secondary:
-    'bg-bg-surface text-text-primary inset-ring inset-ring-border-strong enabled:hover:bg-bg-subtle disabled:bg-bg-disabled disabled:inset-ring-border-disabled',
+  primary: 'bg-bg-brand text-text-on-brand enabled:hover:bg-bg-brand-hover',
+  secondary: 'bg-bg-subtle text-text-primary',
   ghost: 'text-text-primary enabled:hover:bg-bg-subtle',
 }
 
@@ -38,7 +37,8 @@ export function IconButton({
     <button
       type={type}
       className={cn(
-        'inline-flex shrink-0 items-center justify-center rounded-md disabled:cursor-not-allowed disabled:text-text-disabled',
+        // 피그마 v2/IconButton: 완전히 둥글고, 누를 수 없으면 원래 색 그대로 반만 보인다
+        'inline-flex shrink-0 items-center justify-center rounded-full disabled:cursor-not-allowed disabled:opacity-50',
         FOCUS_RING,
         VARIANT[variant],
         SIZE[size],

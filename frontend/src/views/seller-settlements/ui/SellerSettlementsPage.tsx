@@ -154,7 +154,7 @@ function MonthlyPayouts({ today }: { today: Date }) {
           disabled
           title="정산 ID로 찾기는 준비 중이에요"
           className={cn(
-            'rounded-sm text-label-m text-text-brand disabled:cursor-not-allowed disabled:text-text-disabled',
+            'rounded-sm text-body2-medium text-text-brand disabled:cursor-not-allowed disabled:text-text-disabled',
             FOCUS_RING,
           )}
         >
@@ -226,7 +226,7 @@ function MonthlyPayouts({ today }: { today: Date }) {
           />
         )}
       </QueryRows>
-      <p className="text-caption text-text-tertiary">
+      <p className="text-caption-regular text-text-tertiary">
         환불 마감 뒤 판매액의 40%를 1차 정산으로 먼저 지급하고, 대회가 끝나면 나머지를 최종 정산으로
         지급해요. 최종 정산에서 수수료((판매액 − 환불액)의 5.5%, 부가세 포함)와 1차 정산금을 빼요.
       </p>

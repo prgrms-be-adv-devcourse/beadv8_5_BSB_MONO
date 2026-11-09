@@ -41,9 +41,9 @@ export function RaceTicketCard({
         <RacePoster seed={title} title="" label="" className="size-18 shrink-0 rounded-md" />
       )}
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <p className="truncate text-heading-s">{title}</p>
-        <p className="truncate text-body-m text-text-secondary">{meta}</p>
-        <p className="text-label-strong">{ticket}</p>
+        <p className="truncate text-body1-bold">{title}</p>
+        <p className="truncate text-body2-regular text-text-secondary">{meta}</p>
+        <p className="text-body2-bold">{ticket}</p>
       </div>
       {action}
     </div>

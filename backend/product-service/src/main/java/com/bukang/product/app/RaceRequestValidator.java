@@ -1,11 +1,12 @@
 package com.bukang.product.app;
 
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -13,8 +14,11 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 
 import com.bukang.common.shared.file.domain.FileType;
+import com.bukang.product.domain.KitOption;
+import com.bukang.product.domain.Race;
 import com.bukang.product.domain.TshirtSize;
 import com.bukang.product.domain.exception.InvalidRaceException;
+import com.bukang.product.dto.KitOptionSaveRequestDto;
 import com.bukang.product.dto.RaceCourseSaveRequestDto;
 import com.bukang.product.dto.RaceImageRequestDto;
 import com.bukang.product.dto.RaceSaveRequestDto;
@@ -25,8 +29,6 @@ import com.bukang.product.dto.RaceSaveRequestDto;
  */
 @Component
 public class RaceRequestValidator {
-	// 크루 예매가 있으면 개인 예매는 크루 마감일 다음 날 이 시각 이후에 연다 (마감 다음 날 06:00 배치가 크루 몫을 옮긴다)
-	private static final LocalTime INDIVIDUAL_OPEN_EARLIEST_TIME = LocalTime.of(6, 0);
 	// 종목에 붙이는 이미지 용도 (세미는 이미지를 모두 종목에 붙이고, 대회에는 붙이지 않는다)
 	private static final Set<FileType> COURSE_IMAGE_TYPES = Set.of(FileType.THUMBNAIL, FileType.DETAIL,
 		FileType.INTRO_VIDEO, FileType.COURSE, FileType.KIT);
@@ -39,6 +41,26 @@ public class RaceRequestValidator {
 		boolean hasCrewSale = request.getCrewSaleStartAt() != null;
 		request.getCourses().forEach(course -> validateCourse(course, hasCrewSale));
 		validateImages(request);
+		validateKitOptions(request.getKitOptions());
+	}
+
+	// 같은 (이름, 값)은 한 번만 쓴다. 대소문자만 다른 것도 같은 옵션으로 본다 (KitOption.Key)
+	// 같은 이름은 대소문자까지 똑같이 쓴다. 다르면 목록 조회에서 이름이 둘로 묶여 선택 상자가 둘 생긴다
+	private void validateKitOptions(List<KitOptionSaveRequestDto> kitOptions) {
+		Set<KitOption.Key> seenKeys = new HashSet<>();
+		Map<String, String> nameByLowerName = new HashMap<>();
+		for (KitOptionSaveRequestDto option : kitOptions) {
+			String label = "%s %s".formatted(option.getName().strip(), option.getValue().strip());
+			if (!seenKeys.add(KitOption.Key.of(option.getName(), option.getValue()))) {
+				throw new InvalidRaceException("같은 키트 옵션을 두 번 작성할 수 없습니다. (옵션: %s)".formatted(label));
+			}
+			String name = option.getName().strip();
+			String firstName = nameByLowerName.putIfAbsent(name.toLowerCase(Locale.ROOT), name);
+			if (firstName != null && !firstName.equals(name)) {
+				throw new InvalidRaceException("같은 키트 옵션 이름은 대소문자까지 똑같이 작성해주세요. (%s, %s)"
+					.formatted(firstName, name));
+			}
+		}
 	}
 
 	private void validateSchedule(RaceSaveRequestDto request) {
@@ -51,11 +73,10 @@ public class RaceRequestValidator {
 			if (!crewSaleStartAt.isBefore(crewSaleEndAt)) {
 				throw new InvalidRaceException("크루 예매 마감 일시는 시작 일시보다 늦어야 합니다.");
 			}
-			// 예: 크루 마감 10/14 10:00 → 개인 예매는 10/15 06:00부터 열 수 있다
-			LocalDateTime individualOpenEarliest = crewSaleEndAt.toLocalDate().plusDays(1)
-				.atTime(INDIVIDUAL_OPEN_EARLIEST_TIME);
-			if (request.getIndividualOpenAt().isBefore(individualOpenEarliest)) {
-				throw new InvalidRaceException("개인 예매 오픈 일시는 크루 예매 마감일 다음 날 06:00 이후여야 합니다.");
+			// 개인 예매는 크루 몫이 개인 몫으로 넘어가는 크루 예매 마감일의 자정부터 열 수 있다
+			// 예: 크루 마감 10/14 10:00 → 10/15 00:00 배치가 크루 몫을 옮기므로 개인 예매는 10/15 00:00부터
+			if (request.getIndividualOpenAt().isBefore(Race.crewCloseAt(crewSaleEndAt))) {
+				throw new InvalidRaceException("개인 예매 오픈 일시는 크루 예매 마감일의 자정 이후여야 합니다.");
 			}
 		}
 		if (!request.getIndividualOpenAt().isBefore(request.getApplicationCloseAt())) {

@@ -119,7 +119,7 @@ export const PayoutsResponse = zod.object({
   "feeAmount": zod.int(),
   "advanceDeductionAmount": zod.int().describe('1차 정산금 차감 (최종에서 뺀 1차 지급액 − 회수액, 1차는 0)'),
   "payoutAmount": zod.int(),
-  "status": zod.enum(['지급_예정', '지급보류', '지급_중', '지급_완료', '취소']).describe('정산 상태 (지급_예정: 지급 예정, 지급보류: 지급보류, 지급_중: 지급 중, 지급_완료: 지급 완료, 취소: 취소)'),
+  "status": zod.enum(['지급_예정', '지급보류', '지급_중', '지급_완료', '취소', '지급_불일치']).describe('정산 상태 (지급_예정: 지급 예정, 지급보류: 지급보류, 지급_중: 지급 중, 지급_완료: 지급 완료, 취소: 취소, 지급_불일치: 캐시가 이미 다른 금액으로 지급했다고 답해 확인 중)'),
   "settledAt": zod.iso.datetime({"offset":true}),
   "scheduledPayDate": zod.iso.date(),
   "paidAt": zod.iso.datetime({"offset":true}).nullish()
@@ -157,7 +157,7 @@ export const ItemsResponse = zod.object({
   "payoutCode": zod.string(),
   "raceId": zod.int(),
   "raceName": zod.string(),
-  "payoutStatus": zod.enum(['지급_예정', '지급보류', '지급_중', '지급_완료', '취소']).describe('정산 상태 (지급_예정: 지급 예정, 지급보류: 지급보류, 지급_중: 지급 중, 지급_완료: 지급 완료, 취소: 취소)'),
+  "payoutStatus": zod.enum(['지급_예정', '지급보류', '지급_중', '지급_완료', '취소', '지급_불일치']).describe('정산 상태 (지급_예정: 지급 예정, 지급보류: 지급보류, 지급_중: 지급 중, 지급_완료: 지급 완료, 취소: 취소, 지급_불일치: 캐시가 이미 다른 금액으로 지급했다고 답해 확인 중)'),
   "scheduledPayDate": zod.iso.date()
 })),
   "page": zod.int(),

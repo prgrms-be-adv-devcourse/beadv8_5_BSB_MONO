@@ -29,8 +29,8 @@ export function AccountSettingsPage() {
       <AppHeader type="sub" title="계정 설정" />
       <main className="flex flex-1 flex-col gap-4 px-4 pt-(--layout-content-start) pb-6">
         <section className="flex flex-col gap-2 rounded-lg bg-bg-subtle p-4">
-          <h2 className="pb-1 text-label-strong">회원 정보</h2>
-          <div className="flex items-center justify-between gap-4 text-body-s">
+          <h2 className="pb-1 text-body2-bold">회원 정보</h2>
+          <div className="flex items-center justify-between gap-4 text-body2-regular">
             <span className="shrink-0 text-text-tertiary">닉네임</span>
             <span className="flex min-w-0 items-center gap-2">
               <span className="truncate font-medium text-text-primary">
@@ -49,18 +49,18 @@ export function AccountSettingsPage() {
         </section>
 
         <section className="flex flex-col gap-2 rounded-lg bg-bg-subtle p-4">
-          <h2 className="pb-1 text-label-strong">본인인증 정보</h2>
+          <h2 className="pb-1 text-body2-bold">본인인증 정보</h2>
           <KeyValue label="이름" value={member?.name ?? EMPTY} />
           <KeyValue label="휴대폰" value={member?.phone ? maskPhone(member.phone) : EMPTY} />
           <KeyValue
             label="생년월일"
             value={member?.birthDate ? toDotDate(member.birthDate) : EMPTY}
           />
-          <p className="text-caption text-text-secondary">
+          <p className="text-caption-regular text-text-secondary">
             본인인증으로 확인한 정보라 바꿀 수 없어요
           </p>
           {me.isError && (
-            <p role="alert" className="text-caption text-text-danger">
+            <p role="alert" className="text-caption-regular text-text-danger">
               회원 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.
             </p>
           )}
@@ -78,7 +78,7 @@ export function AccountSettingsPage() {
         <Link
           href="/me/withdraw"
           className={cn(
-            'mt-auto self-center rounded-sm px-2 py-3 text-label-s text-text-tertiary underline',
+            'mt-auto self-center rounded-sm px-2 py-3 text-caption-medium text-text-tertiary underline',
             FOCUS_RING,
           )}
         >

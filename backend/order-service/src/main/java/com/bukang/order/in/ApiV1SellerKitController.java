@@ -20,6 +20,7 @@ import com.bukang.order.domain.KitDeliveryStatus;
 import com.bukang.order.dto.DeliveryCarrierDto;
 import com.bukang.order.dto.KitShipmentRequestDto;
 import com.bukang.order.dto.OrderItemDto;
+import com.bukang.order.dto.SellerKitOptionSaleDto;
 import com.bukang.order.dto.SellerKitPageDto;
 import com.bukang.order.dto.SellerKitSummaryDto;
 
@@ -114,6 +115,44 @@ public class ApiV1SellerKitController {
 	) {
 		return ResponseEntity.ok().body(RsData.of(HttpStatus.OK, "키트 배송 건수를 조회했습니다.",
 			sellerKitFacade.summarize(memberId, raceId)));
+	}
+
+	@GetMapping("/options")
+	@Operation(summary = "키트 옵션별 판매 현황",
+		description = "대회의 키트 옵션마다 이름·값·준비 수량(stock)·판매 수(sold)·남은 수량(remaining)을 돌려준다. "
+			+ "옵션과 준비 수량은 상품 서비스의 옵션 목록에서, 판매 수는 주문이 결제 때 센 값(취소하면 줄어듦)이다. "
+			+ "준비 수량(판매 상한)이 null이면 제한이 없어 남은 수량도 null(제한 없음)이다. 옵션이 없는 대회는 빈 목록이다. "
+			+ "이 대회에 다른 판매자의 주문이 있으면 403이다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "조회 성공 (옵션이 없으면 빈 목록)",
+			content = @Content(examples = @ExampleObject(value = SellerKitApiExamples.KIT_OPTION_SALES_SUCCESS))),
+		@ApiResponse(responseCode = "400", description = "대회 ID 없음·숫자 아닌 값, 회원 ID가 0 이하",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "대회 ID 없음", value = SellerKitApiExamples.KIT_OPTION_SALES_MISSING_RACE),
+				@ExampleObject(name = "숫자 아닌 값", value = SellerKitApiExamples.INVALID_FORMAT),
+				@ExampleObject(name = "회원 ID가 0 이하", value = SellerKitApiExamples.INVALID_MEMBER_ID)
+			})),
+		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = SellerKitApiExamples.LOGIN_REQUIRED))),
+		@ApiResponse(responseCode = "403", description = "승인된 판매자가 아님, 다른 판매자의 대회",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "승인된 판매자가 아님", value = SellerKitApiExamples.NOT_SELLER),
+				@ExampleObject(name = "다른 판매자의 대회", value = SellerKitApiExamples.KIT_OPTION_SALES_OTHER_SELLER)
+			})),
+		@ApiResponse(responseCode = "503", description = "판매자 확인 또는 상품 서비스(옵션 목록)를 쓸 수 없음",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "판매자 확인 불가", value = SellerKitApiExamples.SELLER_UNAVAILABLE),
+				@ExampleObject(name = "상품 서비스 연결 실패", value = SellerKitApiExamples.KIT_OPTION_SALES_UNAVAILABLE)
+			}))
+	})
+	public ResponseEntity<RsData<List<SellerKitOptionSaleDto>>> findKitOptionSales(
+		@LoginMemberId long memberId,
+		@Parameter(description = "대회 ID", example = "1")
+		@RequestParam long raceId
+	) {
+		return ResponseEntity.ok().body(RsData.of(HttpStatus.OK, "키트 옵션별 판매 현황을 조회했습니다.",
+			sellerKitFacade.findKitOptionSales(memberId, raceId)));
 	}
 
 	@GetMapping("/carriers")
