@@ -3,6 +3,7 @@ package com.bukang.order.app;
 import java.time.LocalDateTime;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.bukang.order.dto.ParticipationDto;
@@ -36,6 +37,8 @@ public class PartyFacade {
 			request.getParticipant().toParticipantInfo(), LocalDateTime.now()).toDto();
 	}
 
+	// 상품에 크루 자리를 요청하기 전에 확인을 커밋해야 해서 트랜잭션을 PartyApplyUseCase가 나눠 연다 (BUK-105)
+	@Transactional(propagation = Propagation.NOT_SUPPORTED)
 	public PartyDto apply(long partyId, long memberId) {
 		return PartyDto.of(partyApplyUseCase.apply(partyId, memberId, LocalDateTime.now()));
 	}
@@ -47,8 +50,7 @@ public class PartyFacade {
 	@Transactional(readOnly = true)
 	public PartyRaceStatusDto findMyRaceStatus(long raceId, long memberId) {
 		return partyUseCase.findMyRaceParty(raceId, memberId, LocalDateTime.now())
-			.map(mine -> PartyRaceStatusDto.of(mine, memberId, PartyUseCase.MIN_PARTY_SIZE,
-				PartyUseCase.MAX_PARTY_SIZE))
+			.map(mine -> PartyRaceStatusDto.of(mine, memberId, PartyUseCase.MIN_PARTY_SIZE, null))
 			.orElseGet(PartyRaceStatusDto::none);
 	}
 }

@@ -70,8 +70,15 @@ public class PayoutClaim extends BaseIdAndTime {
 
 	private LocalDateTime confirmedAt;
 
-	// 입금을 확인한 관리자 회원 ID
+	// 입금을 확인한 관리자 회원 ID. 입금 메시지로 확인하면 시스템(PayoutHold.SYSTEM_MEMBER_ID)
 	private Long confirmedBy;
+
+	// 판매자가 입금할 청구 전용 가상계좌 (BUK-88). 캐시가 발급하기 전에는 NULL
+	@Column(length = 20)
+	private String virtualBankName;
+
+	@Column(length = 30)
+	private String virtualAccountNumber;
 
 	public PayoutClaim(long sellerId, long raceId, long amount, LocalDate startDate) {
 		if (amount <= 0) {
@@ -87,6 +94,11 @@ public class PayoutClaim extends BaseIdAndTime {
 	// 저장해서 ID를 받은 뒤 부른다. 하루 65,536건을 넘지 않는 한 같은 날 같은 코드가 나오지 않는다
 	public void assignClaimCode(LocalDate createdDate) {
 		this.claimCode = "RC-%s-%04X".formatted(createdDate.format(CODE_DATE), getId() & 0xFFFF);
+	}
+
+	public void assignVirtualAccount(String bankName, String accountNumber) {
+		this.virtualBankName = bankName;
+		this.virtualAccountNumber = accountNumber;
 	}
 
 	// 판매자 입금 기한. 저장하지 않고 상계 실패일에서 계산한다

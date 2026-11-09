@@ -71,11 +71,12 @@ public class ApiV1ParticipationController {
 		@ApiResponse(responseCode = "404", description = "없는 종목",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = ParticipationApiExamples.COURSE_NOT_FOUND))),
-		@ApiResponse(responseCode = "409", description = "같은 대회에 결제 대기·결제 완료 신청 또는 파티원 신청이 있음, 접수 기간이 아님, "
+		@ApiResponse(responseCode = "409", description = "같은 대회에 결제 대기·결제 완료 신청이 있음, "
+			+ "같은 대회 파티에 들어가 있음(data에 파티 번호·상태, 파티를 나간 뒤 신청), 접수 기간이 아님, "
 			+ "남은 결제 전 신청서를 [결제하기]가 처리 중이라 잠시 뒤 다시 시도",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "이미 신청함", value = ParticipationApiExamples.DUPLICATE_PARTICIPATION),
-				@ExampleObject(name = "파티로 신청한 대회", value = ParticipationApiExamples.PARTY_PARTICIPATION_EXISTS),
+				@ExampleObject(name = "파티에 들어가 있음", value = ParticipationApiExamples.PARTY_PARTICIPATION_EXISTS),
 				@ExampleObject(name = "접수 기간 아님", value = ParticipationApiExamples.NOT_ACCEPTING),
 				@ExampleObject(name = "잠시 뒤 다시 시도", value = ParticipationApiExamples.APPLY_RETRY)
 			}))

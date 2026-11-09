@@ -2,7 +2,10 @@ package com.bukang.payout.app;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -11,15 +14,19 @@ import org.springframework.transaction.annotation.Transactional;
 import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutItemPaging;
 import com.bukang.payout.domain.PayoutQueryPeriod;
+import com.bukang.payout.domain.PayoutRecoveryCompletion;
 import com.bukang.payout.domain.PayoutStage;
 import com.bukang.payout.domain.PayoutStatus;
+import com.bukang.payout.domain.exception.PayoutNotFoundException;
 import com.bukang.payout.dto.PageDto;
 import com.bukang.payout.dto.PayoutDto;
 import com.bukang.payout.dto.PayoutItemDto;
 import com.bukang.payout.dto.PayoutSummaryDto;
 import com.bukang.payout.dto.SellerPayoutHoldDto;
+import com.bukang.payout.dto.SellerRecoveryDto;
 import com.bukang.payout.out.PayoutHoldRepository;
 import com.bukang.payout.out.PayoutItemRepository;
+import com.bukang.payout.out.PayoutRecoveryRepository;
 import com.bukang.payout.out.PayoutRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -35,6 +42,7 @@ public class PayoutSellerQueryUseCase {
 	private final PayoutRepository payoutRepository;
 	private final PayoutItemRepository payoutItemRepository;
 	private final PayoutHoldRepository payoutHoldRepository;
+	private final PayoutRecoveryRepository payoutRecoveryRepository;
 
 	public List<PayoutDto> payouts(long sellerId, YearMonth fromMonth, YearMonth toMonth) {
 		PayoutQueryPeriod.checkPayoutMonths(fromMonth, toMonth);
@@ -44,6 +52,14 @@ public class PayoutSellerQueryUseCase {
 			.stream()
 			.map(PayoutDto::from)
 			.toList();
+	}
+
+	// 정산 ID로 찾기 (BUK-109): 다른 판매자의 정산 ID는 없는 ID와 똑같이 404로 답한다 (있는지조차 알리지 않는다)
+	// 저장된 정산 ID는 대문자라, 청구 ID 검색처럼 앞뒤 공백을 지우고 대문자로 맞춰 찾는다
+	public List<PayoutDto> payoutByCode(long sellerId, String payoutCode) {
+		String code = payoutCode.strip().toUpperCase(Locale.ROOT);
+		return List.of(PayoutDto.from(payoutRepository.findBySellerIdAndPayoutCode(sellerId, code)
+			.orElseThrow(PayoutNotFoundException::new)));
 	}
 
 	// 정렬은 쿼리에 고정(정산 생성일 최근 순)했으므로 Pageable에는 정렬을 넣지 않는다
@@ -61,6 +77,27 @@ public class PayoutSellerQueryUseCase {
 			.stream()
 			.map(SellerPayoutHoldDto::from)
 			.toList();
+	}
+
+	// 회수 요청일 기준, 기간 한도는 건별 정산 · 지급보류와 같은 1개월 (BUK-106)
+	public List<SellerRecoveryDto> claims(long sellerId, LocalDate from, LocalDate to) {
+		PayoutQueryPeriod.checkDetailDays(from, to);
+		Map<Long, Payout> payoutByRace = new HashMap<>();
+		return payoutRecoveryRepository.findSellerClaimedRecoveries(sellerId, from.atStartOfDay(),
+				to.plusDays(1).atStartOfDay(), PayoutRecoveryCompletion.상계)
+			.stream()
+			.map(row -> SellerRecoveryDto.of(row.recovery(), row.claimCode(),
+				payoutByRace.computeIfAbsent(row.recovery().getRaceId(), raceId -> payoutOf(sellerId, raceId))))
+			.toList();
+	}
+
+	// 회수 줄에 붙일 정산 ID: 최종 정산, 없으면(대회 취소 등) 1차 정산. 대회마다 한 번만 찾는다
+	private Payout payoutOf(long sellerId, long raceId) {
+		return payoutRepository.findFirstBySellerIdAndRaceIdAndPayoutStageOrderByIdAsc(sellerId, raceId,
+				PayoutStage.최종_정산)
+			.or(() -> payoutRepository.findFirstBySellerIdAndRaceIdAndPayoutStageOrderByIdAsc(sellerId, raceId,
+				PayoutStage.일차_정산))
+			.orElse(null);
 	}
 
 	public PayoutSummaryDto summary(long sellerId, LocalDate today) {

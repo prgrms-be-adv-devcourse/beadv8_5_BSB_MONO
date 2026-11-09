@@ -38,6 +38,7 @@ import com.bukang.order.out.race.RaceCourseInfo;
 import com.bukang.order.out.race.RaceCoursePort;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * 파티 만들기·참가 링크·합류·나가기 (BUK-36, 정책 3장 「파티 만들기와 합류」, 11/02·11/03 결정)
@@ -45,6 +46,7 @@ import lombok.RequiredArgsConstructor;
  * 파티원을 바꾸는 요청은 파티 줄을 먼저 잠근다 (잠금 순서: 파티 → 참가 신청)
  * 파티를 만드는 기간은 제한하지 않는다. 대회가 취소됐거나 접수가 마감됐으면 막는다
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PartyUseCase {
@@ -55,10 +57,9 @@ public class PartyUseCase {
 	// BUK-38에서 파티 상태가 새로 생기면 여기에 넣을지 같이 본다 (안 넣으면 그 파티는 「파티 없음」으로 보임)
 	private static final EnumSet<PartyStatus> LIVE_STATUSES =
 		EnumSet.of(PartyStatus.RECRUITING, PartyStatus.PAYING, PartyStatus.PAID);
-	// shortcut: 판매자가 정하는 파티 최소·최대 인원(crewMinCount·crewMaxCount)이 상품 종목 응답에 아직 없어 정책 기본값을 둔다.
-	// 파티 신청(BUK-37, #337)이 RaceCourseInfo.crewSale을 들여오면 그 값으로 바꾼다 (최소는 4명 아래로 못 내림, 11/05 P3)
+	// 정책 최소 인원 (11/05 P3). 최대는 판매자 값만 쓰고 없으면 제한 없음 (11/09 결정)
+	// shortcut: 내 파티 상태 응답(PartyFacade)은 아직 종목을 읽지 않아 판매자 최소·최대를 모른다. 최소는 정책값, 최대는 null로 준다
 	public static final int MIN_PARTY_SIZE = 4;
-	public static final int MAX_PARTY_SIZE = 10;
 
 	private final PartyRepository partyRepository;
 	private final PartyMemberRepository partyMemberRepository;
@@ -102,7 +103,7 @@ public class PartyUseCase {
 		if (!party.getJoinToken().equals(joinToken)) {
 			throw joinLinkNotFound();
 		}
-		party.checkRecruiting();
+		party.checkMembersChangeable();
 		party.checkJoinLinkAlive(now);
 		ParticipantInfo checked = checkParticipant(course, participant);
 		Optional<PartyMember> row = partyMemberRepository.findByPartyIdAndMemberId(partyId, memberId);
@@ -124,7 +125,39 @@ public class PartyUseCase {
 		PartyMember member = partyMemberRepository.findByPartyIdAndMemberId(partyId, memberId)
 			.filter(PartyMember::isActive)
 			.orElseThrow(PartyAccessDeniedException::notMember);
-		party.checkRecruiting();
+		party.checkMembersChangeable();
+		return removeMember(party, member, now);
+	}
+
+	// 크루를 나간 사람을 이 파티에서 뺀다 (BUK-77, 크루 떠남 메시지). 나가기와 같은 일을 하되 거절하지 않고 건너뛴다
+	// 이미 빠졌거나, 파티원 줄의 크루 가입 시각이 메시지의 가입 시각보다 늦으면(다시 가입한 뒤 합류) 그대로 둔다
+	// 결제 진행 중 파티는 바꾸지 않고 경고만 남긴다. 크루 나가기 전 확인(BUK-78)을 회원 서비스가 붙이면 올 일이 없지만,
+	// 그전이나 내보내기·회원 탈퇴로는 올 수 있다. 남은 사람은 결제 기한이 지나면 미결제로 풀린다
+	// 파티를 잠근 뒤 처음 읽으므로 기다리는 사이 커밋된 합류·나가기를 본다. 파티마다 트랜잭션을 따로 열어 부른다
+	public boolean removeCrewLeaver(long partyId, long memberId, LocalDateTime leftCrewJoinedAt, LocalDateTime now) {
+		Party party = lockParty(partyId);
+		Optional<PartyMember> member = partyMemberRepository.findByPartyIdAndMemberId(partyId, memberId)
+			.filter(PartyMember::isActive)
+			.filter(row -> !row.getCrewJoinedAt().isAfter(leftCrewJoinedAt));
+		if (member.isEmpty()) {
+			return false;
+		}
+		if (party.getStatus() != PartyStatus.RECRUITING) {
+			log.warn("크루를 나간 사람이 모집 중이 아닌 파티에 있어 그대로 둡니다. partyId={}, memberId={}, status={}",
+				partyId, memberId, party.getStatus());
+			return false;
+		}
+		// 파티장이 상품에 크루 자리를 요청해 결과를 모르는 중이면 파티원을 바꾸지 않는다 (자리 목록이 어긋남, #364)
+		// 예외(409)로 끝내 Kafka 재시도(10초·30초·90초)로 미룬다. 그때까지 표시가 남으면 DLT로 가고 운영자가 다시 보낸다
+		party.checkMembersChangeable();
+		removeMember(party, member.get(), now);
+		return true;
+	}
+
+	// 신청서를 끝내고 파티원 줄에 나간 시각을 남긴다. 파티장이면 가장 먼저 합류한 파티원에게 넘기고, 남은 사람이 없으면 파티를 끝낸다
+	private Participation removeMember(Party party, PartyMember member, LocalDateTime now) {
+		long partyId = party.getId();
+		long memberId = member.getMemberId();
 		Participation participation = participationRepository.findActiveIdByPartyIdAndMemberId(partyId, memberId)
 			.flatMap(participationRepository::findByIdForUpdate)
 			.orElseThrow(() -> new IllegalStateException("파티원의 신청서가 없습니다. partyId=%d, memberId=%d"
@@ -145,7 +178,11 @@ public class PartyUseCase {
 		if (course.crewSale() == null) {
 			return;
 		}
-		int maxCount = course.crewSale().maxCount();
+		// 판매자가 최대 인원을 비웠으면 제한 없이 받는다 (11/09 결정)
+		Integer maxCount = course.crewSale().maxCount();
+		if (maxCount == null) {
+			return;
+		}
 		if (partyMemberRepository.findActiveByPartyIdForUpdate(party.getId()).size() >= maxCount) {
 			throw PartyConflictException.full(party.getId(), maxCount);
 		}

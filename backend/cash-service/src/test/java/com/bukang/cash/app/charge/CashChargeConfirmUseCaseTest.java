@@ -95,6 +95,18 @@ class CashChargeConfirmUseCaseTest {
 	}
 
 	@Test
+	@DisplayName("Redis 연결에 실패해도 쿨다운 체크를 건너뛰고 충전은 그대로 진행된다 (fail-open, 이 테스트 클래스엔 진짜 Redis가 없다)")
+	void proceedsWhenRedisUnavailable() {
+		createCustomerWallet(0);
+		given(paymentClient.approve(anyString(), anyString(), anyLong()))
+			.willReturn(new PaymentApprovalResult(10_000, "toss_key_1", null));
+
+		CashChargeResponseDto response = cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 10_000);
+
+		assertThat(response.outcome()).isEqualTo(CashChargeResponseDto.Outcome.COMPLETED);
+	}
+
+	@Test
 	@DisplayName("1회 30만 원을 넘으면 PG 호출 없이 거절하고, 충전 행도 만들지 않는다")
 	void rejectsAboveMaxPerCharge() {
 		createCustomerWallet(0);

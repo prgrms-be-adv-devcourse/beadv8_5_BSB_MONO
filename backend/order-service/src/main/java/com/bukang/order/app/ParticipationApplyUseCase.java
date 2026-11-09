@@ -12,6 +12,7 @@ import com.bukang.order.domain.ParticipantInfo;
 import com.bukang.order.domain.Participation;
 import com.bukang.order.domain.ParticipationStatus;
 import com.bukang.order.domain.ParticipationType;
+import com.bukang.order.domain.PartyStatus;
 import com.bukang.order.domain.exception.AgeRestrictionException;
 import com.bukang.order.domain.exception.ApplicationPeriodException;
 import com.bukang.order.domain.exception.DuplicateParticipationException;
@@ -20,12 +21,14 @@ import com.bukang.order.domain.exception.ParticipationChangeRetryException;
 import com.bukang.order.domain.exception.ParticipationNotCancelableException;
 import com.bukang.order.domain.exception.ParticipationNotEditableException;
 import com.bukang.order.domain.exception.ParticipationNotFoundException;
+import com.bukang.order.domain.exception.PartyConflictException;
 import com.bukang.order.domain.exception.RaceCourseNotFoundException;
 import com.bukang.order.domain.exception.ShippingAddressRequiredException;
 import com.bukang.order.domain.exception.TshirtSizeNotAvailableException;
 import com.bukang.order.out.OrderItemRepository;
 import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationRepository;
+import com.bukang.order.out.PartyRepository;
 import com.bukang.order.out.race.RaceCourseInfo;
 import com.bukang.order.out.race.RaceCoursePort;
 
@@ -45,6 +48,7 @@ public class ParticipationApplyUseCase {
 	private final OrderRepository orderRepository;
 	private final OrderItemRepository orderItemRepository;
 	private final RaceCoursePort raceCoursePort;
+	private final PartyRepository partyRepository;
 
 	public Participation apply(long memberId, long raceCourseId, ParticipantInfo participant, LocalDateTime now) {
 		RaceCourseInfo course = findCourse(raceCourseId);
@@ -71,6 +75,7 @@ public class ParticipationApplyUseCase {
 
 	/**
 	 * 같은 대회에 결제 전(PENDING) 개인 신청서가 남아 있으면 취소하고 새로 받는다. 결제 대기·결제된 신청이 있으면 409다
+	 * 파티원 신청서가 살아 있으면(모집 중·결제 진행 중·결제 끝 파티) 파티를 나간 뒤 신청하라고 409로 안내한다 (BUK-127)
 	 * 신청서 화면은 [바로 결제]·[장바구니 담기] 때마다 신청서를 먼저 저장하는데, 주문 생성이 실패하거나(대기열 입장 끝 등)
 	 * 결제 없이 떠나면 결제 전 신청서는 기한이 없어 남는다. 프론트는 그 ID를 메모리에만 두므로, 막으면 그 대회에 다시 신청할 수 없다
 	 * 잠근 뒤 상태를 다시 본다. [결제하기]가 먼저 잠가 결제 대기로 바꿨으면 409, 그사이 끝난 신청이면 그대로 새로 받는다
@@ -91,7 +96,7 @@ public class ParticipationApplyUseCase {
 		}
 		Participation participation = active.get();
 		if (participation.getParticipationType() == ParticipationType.PARTY) {
-			throw new DuplicateParticipationException("파티로 신청한 대회예요. 개인으로 신청하려면 파티에서 나가 주세요.");
+			throw partyJoined(participation.getPartyId());
 		}
 		if (participation.getStatus() != ParticipationStatus.PENDING) {
 			throw new DuplicateParticipationException("이미 이 대회에 신청했습니다.");
@@ -99,6 +104,14 @@ public class ParticipationApplyUseCase {
 		participation.cancelBeforePayment(now);
 		// Hibernate는 INSERT를 UPDATE보다 먼저 보내므로, 취소를 먼저 반영해야 새 신청서가 유니크 제약에 걸리지 않는다
 		participationRepository.flush();
+	}
+
+	// 파티 상태는 안내용이라 잠그지 않고 읽는다 (잠금 순서 파티 → 참가 신청을 거스르지 않게)
+	private PartyConflictException partyJoined(long partyId) {
+		PartyStatus status = partyRepository.findById(partyId)
+			.orElseThrow(() -> new IllegalStateException("파티원 신청서의 파티가 없습니다. partyId=" + partyId))
+			.getStatus();
+		return PartyConflictException.joinedForIndividual(partyId, status);
 	}
 
 	static boolean isActiveParticipationConflict(DataIntegrityViolationException exception) {
