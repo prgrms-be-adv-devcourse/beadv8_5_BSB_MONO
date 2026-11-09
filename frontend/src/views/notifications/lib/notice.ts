@@ -3,7 +3,7 @@ import type { Route } from 'next'
 import type { Notice } from '@/entities/notification'
 import type { IconName } from '@/shared/ui'
 
-export type NoticeCategory = 'race' | 'payment' | 'crew'
+export type NoticeCategory = 'race' | 'payment' | 'crew' | 'seller'
 
 // 피그마 시나리오 37 · 02 알림 목록의 묶음 순서와 이름. linkLabel은 알림에 이동 주소가 있을 때 버튼 문구
 export const NOTICE_CATEGORIES: {
@@ -22,10 +22,12 @@ export const NOTICE_CATEGORIES: {
     linkLabel: '자세히 보기',
   },
   { value: 'crew', title: '크루 소식', tab: '크루', icon: 'Users', linkLabel: '크루 보러 가기' },
+  // 시나리오 39 · 판매자 회원에게만 보인다. 버튼 문구는 알림 종류마다 다르다(SELLER_ACTION)
+  { value: 'seller', title: '판매 소식', tab: '판매', icon: 'Package', linkLabel: '자세히 보기' },
 ]
 
-// 서버 알림 종류(NotificationKind) → 묶음. seller는 「판매」 탭이 생기기 전까지 목록에 보이지 않는다
-const KIND_CATEGORY: Record<string, NoticeCategory | 'seller'> = {
+// 서버 알림 종류(NotificationKind) → 묶음
+const KIND_CATEGORY: Record<string, NoticeCategory> = {
   RACE_CANCELED: 'race',
   RACE_SCHEDULE_CHANGED: 'race',
   INQUIRY_ANSWERED: 'race',
@@ -40,14 +42,26 @@ const KIND_CATEGORY: Record<string, NoticeCategory | 'seller'> = {
   INQUIRY_RECEIVED: 'seller',
 }
 
-/** 목록에 보일 묶음. 판매자 알림 · 모르는 종류 · 날짜를 읽을 수 없는 알림은 undefined(목록에서 뺀다) */
+/** 목록에 보일 묶음. 모르는 종류 · 날짜를 읽을 수 없는 알림은 undefined(목록에서 뺀다) */
 export function categoryOf(notice: Notice): NoticeCategory | undefined {
   const category = Object.hasOwn(KIND_CATEGORY, notice.kind)
     ? KIND_CATEGORY[notice.kind]
     : undefined
-  if (category === undefined || category === 'seller') return undefined
   // 날짜를 읽을 수 없는 알림은 시각을 보여 줄 수 없고 순서도 정할 수 없다
-  return Number.isNaN(Date.parse(notice.sentAt)) ? undefined : category
+  return category && !Number.isNaN(Date.parse(notice.sentAt)) ? category : undefined
+}
+
+// 시나리오 39 · 03-S 판매 소식의 할 일 버튼 문구
+const SELLER_ACTION: Record<string, string> = {
+  PAYOUT_HELD: '보류 사유 보기',
+  KIT_TRACKING_STOPPED: '송장 번호 확인하기',
+  KIT_SHIPMENT_REQUIRED: '송장 입력하기',
+  INQUIRY_RECEIVED: '답변하기',
+}
+
+/** 알림 버튼 문구. 판매 알림은 종류마다, 나머지는 묶음마다 정한다 */
+export function actionLabel(notice: Notice, category: (typeof NOTICE_CATEGORIES)[number]) {
+  return Object.hasOwn(SELLER_ACTION, notice.kind) ? SELLER_ACTION[notice.kind] : category.linkLabel
 }
 
 export function isNoticeCategory(value: string): value is NoticeCategory {

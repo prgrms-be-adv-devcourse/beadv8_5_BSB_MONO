@@ -58,3 +58,8 @@ export function useHasUnreadNotice() {
 export function readNotice(id: string) {
   return customFetch<RsData<null>>(`${BASE}/${encodeURIComponent(id)}/read`, { method: 'POST' })
 }
+
+/** 안 읽은 내 알림을 모두 읽음으로 바꾼다 */
+export function readAllNotices() {
+  return customFetch<RsData<null>>(`${BASE}/read-all`, { method: 'POST' })
+}

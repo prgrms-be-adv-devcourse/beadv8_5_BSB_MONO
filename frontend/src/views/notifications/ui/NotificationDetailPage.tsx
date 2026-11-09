@@ -10,6 +10,7 @@ import { NOTIFICATIONS_KEY, readNotice, useNotifications } from '@/entities/noti
 import { buttonClassName, Icon, Skeleton } from '@/shared/ui'
 
 import {
+  actionLabel,
   byOldest,
   categoryOf,
   formatDayChip,
@@ -20,7 +21,7 @@ import {
 } from '../lib/notice'
 import { NoNotice } from './NoNotice'
 
-// 피그마 시나리오 37 · 03 알림 상세: 한 종류의 알림을 날짜 칩 아래 대화처럼 오래된 것부터 보여 준다.
+// 피그마 시나리오 39 · 03 알림 상세 · 03-S 판매 소식: 한 종류의 알림을 날짜 칩 아래 대화처럼 오래된 것부터 보여 준다.
 // 없는 종류는 라우트(page.tsx)에서 404로 보낸다.
 export function NotificationDetailPage({ category }: { category: NoticeCategory }) {
   const meta = NOTICE_CATEGORIES.find((c) => c.value === category) ?? NOTICE_CATEGORIES[0]
@@ -72,19 +73,39 @@ export function NotificationDetailPage({ category }: { category: NoticeCategory 
                     <Icon name={meta.icon} className="size-4.5" />
                   </span>
                   <div className="flex min-w-0 flex-col items-start gap-1">
-                    <div className="flex max-w-80 flex-col gap-2 rounded-md rounded-tl-[2px] bg-bg-surface p-3 inset-ring inset-ring-border-default">
-                      <p className="text-body2-regular whitespace-pre-line">{notice.body}</p>
-                      {href && (
-                        <div className="flex justify-center rounded-sm bg-bg-brand-subtle py-2">
+                    {meta.value === 'seller' ? (
+                      // 시나리오 39 · 03-S 판매 소식: 회색 말풍선에 제목 · 내용 · 할 일 버튼
+                      <div className="flex max-w-80 flex-col items-start gap-2 rounded-md bg-bg-subtle p-3">
+                        <div className="flex flex-col gap-1">
+                          <p className="text-body2-bold">{notice.title}</p>
+                          <p className="text-body2-regular whitespace-pre-line text-text-secondary">
+                            {notice.body}
+                          </p>
+                        </div>
+                        {href && (
                           <Link
                             href={href}
-                            className={buttonClassName({ variant: 'text', size: 's' })}
+                            className={buttonClassName({ variant: 'ghost', size: 's' })}
                           >
-                            {meta.linkLabel}
+                            {actionLabel(notice, meta)}
                           </Link>
-                        </div>
-                      )}
-                    </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex max-w-80 flex-col gap-2 rounded-md rounded-tl-[2px] bg-bg-surface p-3 inset-ring inset-ring-border-default">
+                        <p className="text-body2-regular whitespace-pre-line">{notice.body}</p>
+                        {href && (
+                          <div className="flex justify-center rounded-sm bg-bg-brand-subtle py-2">
+                            <Link
+                              href={href}
+                              className={buttonClassName({ variant: 'text', size: 's' })}
+                            >
+                              {actionLabel(notice, meta)}
+                            </Link>
+                          </div>
+                        )}
+                      </div>
+                    )}
                     <span className="text-caption-regular text-text-tertiary">
                       {formatTime(notice.sentAt)}
                     </span>

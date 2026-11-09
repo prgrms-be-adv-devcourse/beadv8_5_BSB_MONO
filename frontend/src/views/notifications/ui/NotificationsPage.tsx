@@ -1,13 +1,21 @@
 'use client'
 
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useState } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
 import { LoadErrorBody } from '@/widgets/status-screens'
-import { useNotifications, type Notice } from '@/entities/notification'
+import { useAuthStatus } from '@/features/auth'
+import {
+  NOTIFICATIONS_KEY,
+  readAllNotices,
+  useNotifications,
+  type Notice,
+} from '@/entities/notification'
+import { memberApi, unwrapData } from '@/shared/api'
 import { cn } from '@/shared/lib'
-import { FOCUS_RING, Icon, Skeleton, Tab, TabBar, Tabs } from '@/shared/ui'
+import { Button, FOCUS_RING, Icon, Skeleton, Tab, TabBar, Tabs, useToast } from '@/shared/ui'
 
 import {
   byOldest,
@@ -21,7 +29,7 @@ import { UnreadCount } from './UnreadCount'
 
 type Filter = 'all' | NoticeCategory
 
-// 피그마 시나리오 37 · 02 알림 목록 (+ 01-A 알림 없음)
+// 피그마 시나리오 39 · 02 알림 목록 · 02-S 판매자 (+ 01-A 알림 없음)
 // empty는 시안 미리보기(?preview=empty)용. 없으면 알림 API로 불러온다.
 export function NotificationsPage({ empty = false }: { empty?: boolean }) {
   const [filter, setFilter] = useState<Filter>('all')
@@ -29,20 +37,30 @@ export function NotificationsPage({ empty = false }: { empty?: boolean }) {
   const all = empty ? [] : (notifications.data ?? [])
   const loading = !empty && notifications.isPending
   const failed = !empty && notifications.isError
+  const isSeller = useIsSeller()
+  const categories = NOTICE_CATEGORIES.filter((c) => c.value !== 'seller' || isSeller)
 
-  const groups = NOTICE_CATEGORIES.map((category) => {
-    const items = all.filter((n) => categoryOf(n) === category.value).sort(byOldest)
-    return { ...category, latest: items.at(-1), unread: items.filter((n) => n.unread).length }
-  }).filter((group): group is typeof group & { latest: Notice } => group.latest !== undefined)
+  // 판매 소식은 판매자에게 가장 먼저 볼 일이라 묶음 줄 맨 위에 둔다(탭은 맨 뒤)
+  const groups = [...categories]
+    .sort((a, b) => Number(b.value === 'seller') - Number(a.value === 'seller'))
+    .map((category) => {
+      const items = all.filter((n) => categoryOf(n) === category.value).sort(byOldest)
+      return { ...category, latest: items.at(-1), unread: items.filter((n) => n.unread).length }
+    })
+    .filter((group): group is typeof group & { latest: Notice } => group.latest !== undefined)
   const totalUnread = groups.reduce((sum, group) => sum + group.unread, 0)
   const visible = groups.filter((group) => filter === 'all' || group.value === filter)
 
   return (
     <>
-      <AppHeader type="sub" title="알림" />
+      <AppHeader
+        type="sub"
+        title="알림"
+        action={<ReadAllButton disabled={!all.some((n) => n.unread)} />}
+      />
       {loading ? (
         <main role="status" aria-label="알림 불러오는 중" className="flex flex-col">
-          {NOTICE_CATEGORIES.map((category) => (
+          {categories.map((category) => (
             <div key={category.value} className="flex items-center gap-3 px-4 py-3.5">
               <Skeleton shape="circle" className="size-12" />
               <Skeleton className="w-32" />
@@ -68,7 +86,7 @@ export function NotificationsPage({ empty = false }: { empty?: boolean }) {
               >
                 전체
               </Tab>
-              {NOTICE_CATEGORIES.map((category) => (
+              {categories.map((category) => (
                 <Tab key={category.value} value={category.value}>
                   {category.tab}
                 </Tab>
@@ -108,5 +126,36 @@ export function NotificationsPage({ empty = false }: { empty?: boolean }) {
         </main>
       )}
     </>
+  )
+}
+
+/** 판매자 승인을 받은 회원인지. 마이 화면 판매자 줄과 같은 내 판매자 신청 조회를 쓴다. 확인 전 · 오류 · 신청 전(404)은 판매자가 아니다 */
+function useIsSeller() {
+  const mine = memberApi.useFindMine({
+    query: { select: unwrapData, enabled: useAuthStatus() === 'authenticated', retry: false },
+  })
+  return mine.data?.status === 'APPROVED'
+}
+
+// 시나리오 39 · 머리말 [모두 읽음]. 목록에 안 보이는 알림(모르는 종류)도 같이 읽음으로 바뀐다
+function ReadAllButton({ disabled }: { disabled: boolean }) {
+  const queryClient = useQueryClient()
+  const toast = useToast()
+  const readAll = useMutation({
+    mutationFn: readAllNotices,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_KEY }),
+    onError: () => toast({ message: '모두 읽음으로 바꾸지 못했어요', tone: 'error' }),
+  })
+  return (
+    <Button
+      variant="text"
+      size="s"
+      className="mr-2"
+      disabled={disabled}
+      loading={readAll.isPending}
+      onClick={() => readAll.mutate()}
+    >
+      모두 읽음
+    </Button>
   )
 }

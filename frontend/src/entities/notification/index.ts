@@ -1,5 +1,6 @@
 export {
   NOTIFICATIONS_KEY,
+  readAllNotices,
   readNotice,
   useHasUnreadNotice,
   useNotifications,

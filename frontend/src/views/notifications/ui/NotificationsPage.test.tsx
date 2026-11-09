@@ -216,7 +216,9 @@ describe('NotificationsPage', () => {
     const sales = await screen.findByRole('link', { name: /판매 소식/ })
     expect(sales).toHaveAttribute('href', '/notifications/seller')
     expect(screen.getAllByRole('link')[0]).toBe(sales)
-    const tabs = screen.getAllByRole('tab').map((tab) => tab.textContent?.replace(/\d/g, ''))
+    const tabs = screen
+      .getAllByRole('tab')
+      .map((tab) => tab.textContent?.replace(/안 읽은 알림 \d+개|\d/g, ''))
     expect(tabs).toEqual(['전체', '대회', '결제', '크루', '판매'])
   })
 
@@ -311,7 +313,7 @@ describe('NotificationsPage', () => {
 
     await userEvent.click(screen.getByRole('button', { name: '모두 읽음' }))
 
-    expect(await screen.findByText('모두 읽음으로 바꾸지 못했어요')).toBeInTheDocument()
+    expect((await screen.findAllByText('모두 읽음으로 바꾸지 못했어요')).length).toBeGreaterThan(0)
     expect(screen.getByRole('button', { name: '모두 읽음' })).toBeEnabled()
   })
 })
