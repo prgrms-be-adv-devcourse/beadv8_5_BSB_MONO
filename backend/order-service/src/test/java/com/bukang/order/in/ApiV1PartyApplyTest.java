@@ -187,6 +187,22 @@ class ApiV1PartyApplyTest {
 	}
 
 	@Test
+	@DisplayName("상품이 처음 잡은 기한을 돌려주면(응답을 못 받고 다시 신청) 그 기한을 파티·신청서 결제 기한으로 쓴다")
+	void usesHeldExpiresAt() throws Exception {
+		long partyId = partyWith(MEMBERS);
+		LocalDateTime firstDueAt = LocalDateTime.now().plusHours(23).truncatedTo(ChronoUnit.MICROS);
+		doReturn(CrewSeatHoldResult.held(firstDueAt))
+			.when(crewSeatHoldPort).holdAll(anyLong(), anyLong(), anyLong(), any(), any());
+
+		apply(LEADER, partyId).andExpect(status().isOk());
+
+		assertThat(partyRepository.findById(partyId).orElseThrow().getPaymentDueAt()).isEqualTo(firstDueAt);
+		assertThat(participationRepository.findByPartyIdIn(List.of(partyId)))
+			.extracting(Participation::getPaymentDueAt)
+			.containsOnly(firstDueAt);
+	}
+
+	@Test
 	@DisplayName("파티장이 아니거나 파티 대기열에 입장하지 않았으면 거절하고 상품을 부르지 않는다")
 	void leaderAndQueue() throws Exception {
 		long partyId = partyWith(MEMBERS);

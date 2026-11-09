@@ -121,12 +121,14 @@ public class PartyApplyUseCase {
 			throw new PartyCrewSeatShortageException(partyId, course.raceCourseId(), shortage.needed(),
 				shortage.remaining());
 		}
-		participations.forEach(participation -> participation.markApplied(paymentDueAt));
-		party.startPayment(paymentDueAt, now);
+		// 상품이 실제로 잡아 둔 기한을 쓴다. 응답을 못 받고 다시 신청하면 상품은 처음 기한을 돌려주므로 위 값과 다를 수 있다
+		LocalDateTime dueAt = hold.expiresAt();
+		participations.forEach(participation -> participation.markApplied(dueAt));
+		party.startPayment(dueAt, now);
 		// 커밋된 뒤에만 나간다 (롤백되면 보내지 않는다). 잃어도 되는 메시지라 아웃박스 없이 보낸다 (11/04 결정)
 		members.forEach(member -> eventPublisher.publish(NotificationRequestedEvent.of(member.getMemberId(),
 			NotificationKind.PARTY_PAYMENT_REQUESTED, "파티 결제를 시작해 주세요",
-			course.courseName() + " 파티 신청이 끝났어요.\n" + paymentDueAt.format(DUE_FORMAT) + "까지 결제해 주세요.",
+			course.courseName() + " 파티 신청이 끝났어요.\n" + dueAt.format(DUE_FORMAT) + "까지 결제해 주세요.",
 			// shortcut: 프론트 파티 상세 경로가 아직 없어 /parties/{id}로 둔다. 화면이 생기면 맞춘다
 			"/parties/" + partyId)));
 		return party;

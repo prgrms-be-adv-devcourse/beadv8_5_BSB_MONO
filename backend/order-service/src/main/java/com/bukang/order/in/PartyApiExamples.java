@@ -354,6 +354,16 @@ final class PartyApiExamples {
 			"data": { "partyId": 1, "raceCourseId": 2, "needed": 4, "remaining": 1 } }
 		""";
 
+	// 상품이 크루 자리 확보를 409로 거절 (크루 예매 기간 아님·판매 중지, 다른 자리 목록으로 이미 잡은 파티). message는 상품 문구 그대로
+	static final String CREW_HOLD_REJECTED = """
+		{ "status": 409, "code": "ORDER_PARTICIPATION_NOT_PAYABLE", "message": "크루 예매 기간이 아닙니다.", "data": null }
+		""";
+
+	static final String QUEUE_SERVICE_UNAVAILABLE = """
+		{ "status": 503, "code": "ORDER_EXTERNAL_SERVICE_UNAVAILABLE",
+			"message": "대기열에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요.", "data": null }
+		""";
+
 	static final String PARTY_APPLY_UNAVAILABLE = """
 		{ "status": 503, "code": "ORDER_EXTERNAL_SERVICE_UNAVAILABLE",
 			"message": "파티 신청을 아직 쓸 수 없습니다. 잠시 뒤 다시 시도해주세요.", "data": null }

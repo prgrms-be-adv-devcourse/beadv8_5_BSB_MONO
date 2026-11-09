@@ -79,7 +79,7 @@ public class HttpCrewSeatHoldAdapter implements CrewSeatHoldPort {
 		}
 		List<ShortageBody> shortages = body.shortages() == null ? List.of() : body.shortages();
 		return CrewSeatHoldResult.shortOf(shortages.stream().collect(Collectors.toMap(ShortageBody::raceCourseId,
-			shortage -> new Shortage(shortage.needed(), shortage.remaining()))));
+			shortage -> new Shortage(shortage.needed(), shortage.remaining()), (first, second) -> first)));
 	}
 
 	// B 오류 응답(RsData)의 message. 읽지 못하면 기본 문구를 쓴다

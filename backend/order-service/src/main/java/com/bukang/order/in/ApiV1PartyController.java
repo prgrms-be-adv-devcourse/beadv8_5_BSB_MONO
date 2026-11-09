@@ -209,7 +209,8 @@ public class ApiV1PartyController {
 				@ExampleObject(name = "없는 크루", value = PartyApiExamples.CREW_NOT_FOUND)
 			})),
 		@ApiResponse(responseCode = "409", description = "이미 신청함, 크루 자리 모자람(data에 모자란 종목), 파티 예매 기간 아님, "
-			+ "인원이 범위 밖, 크루원이 아닌 파티원, 늦게 가입한 파티원, 확인하는 사이 파티원이 바뀜, 취소된 대회",
+			+ "인원이 범위 밖, 크루원이 아닌 파티원, 늦게 가입한 파티원, 확인하는 사이 파티원이 바뀜, 취소된 대회, "
+			+ "상품이 크루 자리 확보를 거절(판매 중지 등, ORDER_PARTICIPATION_NOT_PAYABLE)",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "이미 신청함", value = PartyApiExamples.APPLY_NOT_RECRUITING),
 				@ExampleObject(name = "크루 자리 모자람", value = PartyApiExamples.CREW_SEAT_SHORTAGE),
@@ -218,12 +219,15 @@ public class ApiV1PartyController {
 				@ExampleObject(name = "크루원이 아닌 파티원", value = PartyApiExamples.MEMBER_NOT_CREW),
 				@ExampleObject(name = "늦게 가입한 파티원", value = PartyApiExamples.MEMBER_JOINED_LATE),
 				@ExampleObject(name = "파티원이 바뀜", value = PartyApiExamples.MEMBERS_CHANGED),
-				@ExampleObject(name = "취소된 대회", value = PartyApiExamples.RACE_CANCELED)
+				@ExampleObject(name = "취소된 대회", value = PartyApiExamples.RACE_CANCELED),
+				@ExampleObject(name = "상품이 크루 자리 확보를 거절", value = PartyApiExamples.CREW_HOLD_REJECTED)
 			})),
-		@ApiResponse(responseCode = "503", description = "회원·상품 서비스에 연결하지 못함, 상품이 파티 예매 정보를 아직 주지 않음",
+		@ApiResponse(responseCode = "503",
+			description = "회원·상품·대기열 서비스에 연결하지 못함, 상품이 파티 예매 정보를 아직 주지 않음",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "회원 서비스", value = PartyApiExamples.MEMBER_SERVICE_UNAVAILABLE),
 				@ExampleObject(name = "상품 서비스", value = PartyApiExamples.PRODUCT_SERVICE_UNAVAILABLE),
+				@ExampleObject(name = "대기열 서비스", value = PartyApiExamples.QUEUE_SERVICE_UNAVAILABLE),
 				@ExampleObject(name = "파티 신청 준비 중", value = PartyApiExamples.PARTY_APPLY_UNAVAILABLE)
 			}))
 	})
