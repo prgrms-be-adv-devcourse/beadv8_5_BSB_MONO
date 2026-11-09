@@ -6,9 +6,6 @@ export {
   type DetailPeriod,
 } from './lib/period'
 export {
-  CREATE_FAILURE_ACTION,
-  CREATE_FAILURE_TYPE,
-  CREATE_FAILURE_TYPE_ITEMS,
   HOLD_REASON,
   HOLD_REASON_ITEMS,
   HOLD_STATUS,
