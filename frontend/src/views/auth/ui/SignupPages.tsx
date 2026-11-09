@@ -355,7 +355,7 @@ function SignupProfileForm() {
             onGenderChange={(gender) => setValue('gender', gender, { shouldValidate: true })}
           />
           {formError && (
-            <p role="alert" className="text-caption text-text-danger">
+            <p role="alert" className="text-caption-regular text-text-danger">
               {formError}
             </p>
           )}
@@ -410,7 +410,7 @@ export function SignupTermsSheet({
       }
     >
       <div className="flex flex-col gap-3 px-2 pt-1 pb-3">
-        <p className="text-body-m text-text-secondary">
+        <p className="text-body2-regular text-text-secondary">
           대회 신청과 거래를 위해 꼭 필요한 약관이에요.
         </p>
         <div className="rounded-md bg-bg-subtle p-4">
@@ -440,7 +440,7 @@ export function SignupTermsSheet({
             </div>
           ))}
         </div>
-        <p className="text-caption text-text-tertiary">
+        <p className="text-caption-regular text-text-tertiary">
           마케팅 정보 동의는 2년마다 다시 여쭤봐요. 마이에서 언제든 끌 수 있어요.
         </p>
       </div>
@@ -475,7 +475,7 @@ export function SignupProfileFields({
         {...register('nickname')}
       />
       <fieldset className="flex flex-col gap-2">
-        <legend className="mb-2 text-label-strong text-text-primary">성별 (선택)</legend>
+        <legend className="mb-2 text-body2-bold text-text-primary">성별 (선택)</legend>
         <RadioGroup
           value={gender}
           onValueChange={(value) => onGenderChange(value as SignupProfileValues['gender'])}

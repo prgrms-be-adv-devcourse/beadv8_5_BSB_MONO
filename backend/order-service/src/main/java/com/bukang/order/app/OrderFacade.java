@@ -2,6 +2,7 @@ package com.bukang.order.app;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -37,9 +38,10 @@ public class OrderFacade {
 		return orderQueryUseCase.findOwned(memberId, orderId);
 	}
 
-	@Transactional
-	public OrderPayResult pay(long orderId, long memberId) {
-		return orderPayUseCase.pay(memberId, orderId, LocalDateTime.now());
+	// 상품 HTTP를 잠금 밖에서 부르려고 트랜잭션은 OrderPayUseCase가 연다
+	@Transactional(propagation = Propagation.NOT_SUPPORTED)
+	public OrderPayResult pay(long orderId, long memberId, List<Long> kitOptionIds) {
+		return orderPayUseCase.pay(memberId, orderId, kitOptionIds, LocalDateTime.now());
 	}
 
 	// 다른 서비스에 묻는 판정을 잠금 밖에서 하려고 트랜잭션은 OrderCancelUseCase가 단계마다 연다

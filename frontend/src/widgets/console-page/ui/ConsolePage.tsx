@@ -26,8 +26,8 @@ export function ConsolePage({
       >
         <div className="flex items-center justify-between gap-4">
           <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <h1 className="text-heading-xl">{title}</h1>
-            {description && <p className="text-body-m text-text-secondary">{description}</p>}
+            <h1 className="text-title1">{title}</h1>
+            {description && <p className="text-body2-regular text-text-secondary">{description}</p>}
           </div>
           {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
         </div>

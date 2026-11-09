@@ -6,12 +6,12 @@ import { cn, TEXT_STYLES } from './cn'
 
 describe('cn', () => {
   it('글자 스타일과 글자 색을 함께 남긴다', () => {
-    expect(cn('text-heading-xl', 'text-text-primary')).toBe('text-heading-xl text-text-primary')
+    expect(cn('text-title1', 'text-text-primary')).toBe('text-title1 text-text-primary')
   })
 
   it('같은 종류끼리는 뒤의 클래스만 남긴다', () => {
-    expect(cn('text-body-m text-text-primary', 'text-heading-xl text-text-danger')).toBe(
-      'text-heading-xl text-text-danger',
+    expect(cn('text-body2-regular text-text-primary', 'text-title1 text-text-danger')).toBe(
+      'text-title1 text-text-danger',
     )
     expect(cn('bg-bg-surface shadow-sm rounded-md', 'bg-bg-brand shadow-lg rounded-xl')).toBe(
       'bg-bg-brand shadow-lg rounded-xl',

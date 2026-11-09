@@ -198,7 +198,7 @@ function WheelColumn({ label, options, value, onChange, align, className }: Whee
             aria-selected={distance === 0}
             onClick={() => onChange(option.value)}
             className={cn(
-              'flex h-11 snap-center items-center text-heading-l select-none',
+              'flex h-11 snap-center items-center text-title2 select-none',
               align === 'right' ? 'justify-end' : 'justify-start',
               distance === 0 ? 'text-text-primary' : 'font-medium text-text-disabled',
               distance >= 2 && 'opacity-50',

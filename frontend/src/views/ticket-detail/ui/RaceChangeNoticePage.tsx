@@ -46,8 +46,8 @@ export function RaceChangeNoticePage({ ticketId }: { ticketId: string }) {
         {changedAt ? (
           <div className="flex flex-col items-start gap-2">
             <Badge tone="warning">일정 변경</Badge>
-            <h2 className="text-heading-l">{race.title} 날짜가 바뀌었어요</h2>
-            <p className="text-body-s text-text-secondary">
+            <h2 className="text-title2">{race.title} 날짜가 바뀌었어요</h2>
+            <p className="text-body2-regular text-text-secondary">
               {formatRaceDate(changedAt)}에 주최 측이 대회 일정을 바꿨어요.
             </p>
           </div>
@@ -58,9 +58,9 @@ export function RaceChangeNoticePage({ ticketId }: { ticketId: string }) {
         <section className="flex flex-col gap-4 rounded-lg bg-bg-surface p-5 shadow-sm inset-ring inset-ring-border-default">
           {race.raceDate && (
             <div className="flex flex-col gap-1">
-              <span className="text-caption text-text-secondary">새 날짜</span>
-              <span className="font-display text-display-l">{formatRaceDate(race.raceDate)}</span>
-              <span className="text-caption text-text-secondary">
+              <span className="text-caption-regular text-text-secondary">새 날짜</span>
+              <span className="font-display text-number-m">{formatRaceDate(race.raceDate)}</span>
+              <span className="text-caption-regular text-text-secondary">
                 {formatRaceDateTime(race.raceDate)}
               </span>
             </div>
@@ -70,21 +70,21 @@ export function RaceChangeNoticePage({ ticketId }: { ticketId: string }) {
 
         {lastDay && (
           <section className="flex flex-col gap-3 rounded-lg bg-bg-surface p-5 shadow-sm inset-ring inset-ring-border-default">
-            <p className="text-label-m">전액 환불받을 수 있는 기간</p>
+            <p className="text-body2-medium">전액 환불받을 수 있는 기간</p>
             {daysLeft >= 0 ? (
               <>
                 <p className="flex items-baseline gap-2">
-                  <span className="font-display text-display-l">{daysLeft}</span>
-                  <span className="text-label-l">일 남았어요</span>
+                  <span className="font-display text-number-m">{daysLeft}</span>
+                  <span className="text-body1-medium">일 남았어요</span>
                 </p>
                 <ProgressBar
                   value={Math.min(100, Math.round((daysLeft / SCHEDULE_CHANGE_REFUND_DAYS) * 100))}
                 />
               </>
             ) : (
-              <p className="text-label-l">전액 환불 기간이 지났어요</p>
+              <p className="text-body1-medium">전액 환불 기간이 지났어요</p>
             )}
-            <p className="text-body-s text-text-secondary">
+            <p className="text-body2-regular text-text-secondary">
               {[
                 changedAt ? `${formatRaceDate(changedAt)} 알림` : undefined,
                 `${formatRaceDate(lastDay)} 23:59까지 전액 환불돼요.`,
@@ -96,7 +96,7 @@ export function RaceChangeNoticePage({ ticketId }: { ticketId: string }) {
         )}
 
         <section className="flex flex-col gap-3 rounded-lg bg-bg-surface p-5 shadow-sm inset-ring inset-ring-border-default">
-          <h3 className="text-heading-s">내 참가권</h3>
+          <h3 className="text-body1-bold">내 참가권</h3>
           <KeyValue label="종목" value={course?.name ?? ticket.itemName} />
           {/* 참가자 이름은 Clarity 화면 녹화에서 가린다 */}
           <div data-clarity-mask="true">
@@ -114,7 +114,7 @@ export function RaceChangeNoticePage({ ticketId }: { ticketId: string }) {
           />
         )}
 
-        <p className="text-caption text-text-tertiary">
+        <p className="text-caption-regular text-text-tertiary">
           그대로 참가하면 따로 할 일은 없어요. 참가권은 새 날짜로 유지돼요.
         </p>
       </main>

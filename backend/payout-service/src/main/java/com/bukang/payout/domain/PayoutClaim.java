@@ -5,6 +5,7 @@ import static lombok.AccessLevel.PROTECTED;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 import com.bukang.common.global.jpa.entity.BaseIdAndTime;
 import com.bukang.payout.domain.exception.PayoutClaimConflictException;
@@ -32,6 +33,15 @@ import lombok.NoArgsConstructor;
 public class PayoutClaim extends BaseIdAndTime {
 	// 관리자 알림을 남기는 날: 상계 실패일을 1일째로 셀 때 30일째 (피그잼 [6 / 3-3])
 	private static final int ADMIN_NOTICE_DAY = 30;
+	// 판매자가 청구액을 입금할 기한: 상계 실패일 + 30일 (11/6 결정, 일단 30일)
+	private static final int PAYMENT_DUE_DAYS = 30;
+
+	private static final DateTimeFormatter CODE_DATE = DateTimeFormatter.ofPattern("yyyyMMdd");
+
+	// 청구 ID: RC-만든 날-16진수 4자리 (예: RC-20261214-0A3F). 정산 ID(ST-)와 같은 방식이다
+	// 끝 4자리를 PK에서 만들어 저장 뒤에 채우므로 NULL을 허용한다
+	@Column(unique = true, length = 20)
+	private String claimCode;
 
 	@Column(nullable = false)
 	private long sellerId;
@@ -72,6 +82,16 @@ public class PayoutClaim extends BaseIdAndTime {
 		this.amount = amount;
 		this.startDate = startDate;
 		this.status = PayoutClaimStatus.청구_중;
+	}
+
+	// 저장해서 ID를 받은 뒤 부른다. 하루 65,536건을 넘지 않는 한 같은 날 같은 코드가 나오지 않는다
+	public void assignClaimCode(LocalDate createdDate) {
+		this.claimCode = "RC-%s-%04X".formatted(createdDate.format(CODE_DATE), getId() & 0xFFFF);
+	}
+
+	// 판매자 입금 기한. 저장하지 않고 상계 실패일에서 계산한다
+	public LocalDate getDueDate() {
+		return startDate.plusDays(PAYMENT_DUE_DAYS);
 	}
 
 	// 오늘 판매자 청구 알림을 남겨야 하는지. 남긴다고 보고 날짜를 적는다

@@ -71,6 +71,34 @@ final class RaceApiExamples {
 		{ "status": 400, "message": "키트 금액은 참가비보다 클 수 없습니다. (종목: 10K)", "data": null }
 		""";
 
+	static final String KIT_OPTION_DUPLICATED = """
+		{ "status": 400, "message": "같은 키트 옵션을 두 번 작성할 수 없습니다. (옵션: T-shirt L)", "data": null }
+		""";
+
+	static final String KIT_OPTION_NAME_CASE = """
+		{ "status": 400, "message": "같은 키트 옵션 이름은 대소문자까지 똑같이 작성해주세요. (T-shirt, t-shirt)", "data": null }
+		""";
+
+	static final String KIT_OPTION_REMOVED = """
+		{
+			"status": 409,
+			"message": "판매가 시작된 대회는 키트 옵션을 빼거나 이름·값을 바꿀 수 없습니다. (옵션: T-shirt L)",
+			"data": null
+		}
+		""";
+
+	static final String KIT_OPTION_STOCK_TYPE_CHANGED = """
+		{
+			"status": 409,
+			"message": "판매가 시작된 대회는 키트 옵션을 맞춤 제작과 준비 수량 사이에서 바꿀 수 없습니다. (옵션: T-shirt L)",
+			"data": null
+		}
+		""";
+
+	static final String KIT_OPTION_STOCK_DECREASED = """
+		{ "status": 409, "message": "판매가 시작된 대회는 키트 옵션 준비 수량을 줄일 수 없습니다. (옵션: T-shirt L)", "data": null }
+		""";
+
 	static final String THUMBNAIL_REQUIRED = """
 		{ "status": 400, "message": "10K 종목의 대표 이미지를 1장 연결해주세요.", "data": null }
 		""";
@@ -269,6 +297,32 @@ final class RaceApiExamples {
 					]
 				}
 			]
+		}
+		""";
+
+	static final String KIT_OPTIONS_SUCCESS = """
+		{
+			"status": 200,
+			"message": "키트 옵션 목록을 조회했습니다.",
+			"data": {
+				"raceId": 1,
+				"kitOptions": [
+					{
+						"name": "T-shirt",
+						"values": [
+							{ "kitOptionId": 11, "value": "M", "stock": 100 },
+							{ "kitOptionId": 12, "value": "L", "stock": 80 }
+						]
+					},
+					{
+						"name": "socks",
+						"values": [
+							{ "kitOptionId": 21, "value": "230-250", "stock": null },
+							{ "kitOptionId": 22, "value": "255-280", "stock": null }
+						]
+					}
+				]
+			}
 		}
 		""";
 

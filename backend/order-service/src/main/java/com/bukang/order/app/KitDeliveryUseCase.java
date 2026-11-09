@@ -19,6 +19,7 @@ import com.bukang.order.domain.DeliveryCarrier;
 import com.bukang.order.domain.KitDeliveryStatus;
 import com.bukang.order.domain.Order;
 import com.bukang.order.domain.OrderItem;
+import com.bukang.order.domain.ParticipationKitOption;
 import com.bukang.order.domain.Shipment;
 import com.bukang.order.domain.ShipmentStatus;
 import com.bukang.order.domain.ShipmentTrackingEvent;
@@ -28,12 +29,14 @@ import com.bukang.order.domain.exception.OrderAccessDeniedException;
 import com.bukang.order.domain.exception.OrderItemNotFoundException;
 import com.bukang.order.domain.exception.RaceCourseNotFoundException;
 import com.bukang.order.dto.DeliveryCarrierDto;
+import com.bukang.order.dto.KitOptionChoiceDto;
 import com.bukang.order.dto.OrderItemDto;
 import com.bukang.order.dto.SellerKitDto;
 import com.bukang.order.dto.SellerKitPageDto;
 import com.bukang.order.dto.SellerKitSummaryDto;
 import com.bukang.order.out.OrderItemRepository;
 import com.bukang.order.out.OrderRepository;
+import com.bukang.order.out.ParticipationKitOptionRepository;
 import com.bukang.order.out.ShipmentRepository;
 import com.bukang.order.out.ShipmentTrackingEventRepository;
 import com.bukang.order.out.race.RaceCourseInfo;
@@ -60,6 +63,7 @@ public class KitDeliveryUseCase {
 	private final ShipmentTrackingEventRepository shipmentTrackingEventRepository;
 	private final RaceCoursePort raceCoursePort;
 	private final TransactionTemplate transactionTemplate;
+	private final ParticipationKitOptionRepository participationKitOptionRepository;
 
 	// 개발용 가짜 택배사(dev.track.dummy)를 고를 수 있는지. 운영(prod)은 false다
 	@Value("${order.clients.delivery-tracker.dummy-carrier-enabled:false}")
@@ -138,6 +142,14 @@ public class KitDeliveryUseCase {
 				.findByShipmentIds(shipmentIds).stream()
 				.collect(Collectors.groupingBy(event -> event.getShipment().getId()));
 			kits.forEach(kit -> kit.attachTrackingEvents(events.getOrDefault(kit.getShipmentId(), List.of())));
+		}
+		List<Long> participationIds = kits.stream().map(SellerKitDto::getParticipationId).toList();
+		if (!participationIds.isEmpty()) {
+			Map<Long, List<KitOptionChoiceDto>> options = participationKitOptionRepository
+				.findByParticipationIdInOrderByIdAsc(participationIds).stream()
+				.collect(Collectors.groupingBy(ParticipationKitOption::getParticipationId,
+					Collectors.mapping(KitOptionChoiceDto::from, Collectors.toList())));
+			kits.forEach(kit -> kit.attachKitOptions(options.getOrDefault(kit.getParticipationId(), List.of())));
 		}
 		return SellerKitPageDto.from(kits);
 	}

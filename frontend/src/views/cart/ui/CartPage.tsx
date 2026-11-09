@@ -186,8 +186,8 @@ function CartContent({ initialQueueDialogOpen }: { initialQueueDialogOpen: boole
         <div className="flex flex-col gap-3 rounded-lg bg-bg-subtle p-5">
           <KeyValue label={`참가권 ${payable ? 1 : 0}개`} value={formatWon(total)} />
           <div className="flex items-center justify-between gap-2">
-            <span className="text-label-strong text-text-secondary">합계</span>
-            <span className="text-heading-s">{formatWon(total)}</span>
+            <span className="text-body2-bold text-text-secondary">합계</span>
+            <span className="text-body1-bold">{formatWon(total)}</span>
           </div>
         </div>
         {checkoutFailed && (
@@ -244,7 +244,7 @@ function CartLineCard({
       )}
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         <div className="flex items-center justify-between gap-2">
-          <p className="min-w-0 flex-1 text-label-strong">
+          <p className="min-w-0 flex-1 text-body2-bold">
             {race && option ? `${race.title} · ${option.name}` : '참가권'}
           </p>
           {failed ? (
@@ -255,23 +255,23 @@ function CartLineCard({
         </div>
         {application ? (
           // 참가자 이름이 들어 있어 Clarity 화면 녹화에서 가린다
-          <p className="text-body-s text-text-secondary" data-clarity-mask="true">
+          <p className="text-body2-regular text-text-secondary" data-clarity-mask="true">
             {application.participantName ? `참가자 ${application.participantName} · ` : ''}수량 1
             (고정)
             {race ? ` · 접수 마감 ${race.dDay}` : ''}
           </p>
         ) : (
           // 장바구니에 붙은 참가 신청이 없으면(신청서 없이 담음) 결제에 보낼 참가 신청 ID를 알 수 없다
-          <p className="text-body-s text-text-secondary">
+          <p className="text-body2-regular text-text-secondary">
             신청서를 찾을 수 없어 결제할 수 없어요. 빼고 다시 담아 주세요.
           </p>
         )}
-        {failed && <p className="text-body-s text-text-danger">{result.message}</p>}
+        {failed && <p className="text-body2-regular text-text-danger">{result.message}</p>}
         <div className="flex items-center justify-between gap-2">
-          <Button variant="ghost" size="s" disabled={removing} onClick={onRemove}>
+          <Button variant="text" size="s" disabled={removing} onClick={onRemove}>
             삭제
           </Button>
-          {option && <p className="text-heading-s">{formatWon(option.price)}</p>}
+          {option && <p className="text-body1-bold">{formatWon(option.price)}</p>}
         </div>
       </div>
     </li>
