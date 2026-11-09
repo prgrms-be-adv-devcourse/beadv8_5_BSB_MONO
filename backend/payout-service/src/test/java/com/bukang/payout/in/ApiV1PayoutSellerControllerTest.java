@@ -509,12 +509,6 @@ class ApiV1PayoutSellerControllerTest {
 			.findFirst().orElseThrow().getId() & 0xFFFF;
 	}
 
-	private String payoutCodeOf(long sellerId, long raceId) {
-		return payoutRepository.findAll().stream()
-			.filter(p -> p.getSellerId() == sellerId && p.getRaceId() == raceId)
-			.findFirst().orElseThrow().getPayoutCode();
-	}
-
 	@Test
 	@DisplayName("정산 내역을 12개월 넘게 조회하면 400")
 	void payoutsTooLong() throws Exception {
