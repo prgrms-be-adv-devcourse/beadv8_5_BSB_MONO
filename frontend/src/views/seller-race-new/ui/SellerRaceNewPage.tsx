@@ -523,7 +523,7 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
 /** 등록 실패 문구. 서버가 준 문구(승인되지 않은 판매자, 판매 시작일 규칙 등)를 그대로 보여 준다. */
 function registerErrorMessage(error: Error | null): string {
   if (error instanceof KitOptionsNotSavedError) {
-    return '대회는 등록했지만 키트 옵션을 저장하지 못했어요. 등록하기를 다시 누르면 같은 대회에 옵션을 저장해요.'
+    return '대회는 등록했지만 키트 옵션을 저장하지 못했어요. 등록하기를 다시 누르면 등록된 대회에 키트 옵션만 저장해요.'
   }
   if (error instanceof ApiError && error.serverMessage) return error.serverMessage
   return '사진이나 대회를 올리지 못했어요. 잠시 후 다시 시도해 주세요.'

@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useRef } from 'react'
 
 import { FileType, uploadFile } from '@/features/file-upload'
 import { ApiError, productApi, productModel, unwrapData, useIdempotencyKey } from '@/shared/api'
@@ -29,7 +30,7 @@ function fileSignature(file: File) {
   return [file.name, file.size, file.lastModified]
 }
 
-/** 대회는 등록했지만 키트 옵션을 저장하지 못했다. 등록하기를 다시 누르면 같은 대회에 옵션만 다시 보낸다 */
+/** 대회는 등록했지만 키트 옵션을 저장하지 못했다. 등록하기를 다시 누르면 등록된 대회에 옵션만 다시 보낸다 */
 export class KitOptionsNotSavedError extends Error {
   constructor(readonly cause: unknown) {
     super('키트 옵션을 저장하지 못했어요')
@@ -58,9 +59,20 @@ async function saveKitOptions(raceId: number, body: productModel.KitOptionsSaveR
 export function useRegisterRace() {
   const queryClient = useQueryClient()
   const registerKey = useIdempotencyKey()
+  // 대회는 등록했지만 키트 옵션을 저장하지 못한 대회. 다시 누르면 사진 · 대회를 다시 보내지 않고 이 대회에 옵션만 보낸다
+  // (대회 칸을 고친 뒤 눌러도 새 키로 대회가 하나 더 생기지 않게 한다)
+  const pendingKit = useRef<productModel.RaceSaveDto | null>(null)
   return useMutation({
     mutationFn: async ({ values, images }: { values: RaceFormValues; images: RaceImages }) => {
       const { kitOptions, ...race } = values
+      const pending = pendingKit.current
+      if (pending) {
+        await saveKitOptions(pending.raceId, toKitOptionsRequest(kitOptions)).catch((error) => {
+          throw new KitOptionsNotSavedError(error)
+        })
+        pendingKit.current = null
+        return pending
+      }
       const idempotencyKey = registerKey({
         values: race,
         cover: fileSignature(images.cover),
@@ -72,6 +84,7 @@ export function useRegisterRace() {
       )
       if (kitOptions.length > 0) {
         await saveKitOptions(saved.raceId, toKitOptionsRequest(kitOptions)).catch((error) => {
+          pendingKit.current = saved
           throw new KitOptionsNotSavedError(error)
         })
       }
