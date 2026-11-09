@@ -42,13 +42,15 @@ export function Stepper({ steps, current, className }: StepperProps) {
             >
               <span
                 className={cn(
-                  'flex size-7 items-center justify-center rounded-full text-label-m',
+                  'flex size-7 items-center justify-center rounded-full text-body2-medium',
                   MARKER[state],
                 )}
               >
                 {state === 'done' ? <Icon name="Check" className="size-4" /> : i + 1}
               </span>
-              <span className={cn('text-label-s whitespace-nowrap', LABEL[state])}>{label}</span>
+              <span className={cn('text-caption-medium whitespace-nowrap', LABEL[state])}>
+                {label}
+              </span>
             </li>
           </Fragment>
         )

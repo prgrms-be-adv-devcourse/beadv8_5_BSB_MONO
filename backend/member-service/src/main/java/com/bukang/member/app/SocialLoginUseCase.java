@@ -44,6 +44,7 @@ public class SocialLoginUseCase {
 	private final SocialAccountRepository socialAccountRepository;
 	private final SocialAccountUseCase socialAccountUseCase;
 	private final TokenIssueUseCase tokenIssueUseCase;
+	private final KakaoMessageTokens kakaoMessageTokens;
 
 	/**
 	 * 인가 요청을 만들어 Redis에 10분 저장한다 (BE-031 결정 3)
@@ -62,19 +63,24 @@ public class SocialLoginUseCase {
 			return AuthorizeResult.failed(failed(failurePath));
 		}
 		Long linkMemberId = null;
+		boolean messageConsent = false;
 		if (link) {
 			Optional<LinkTicket> ticket = socialLoginStore.takeLinkTicket(linkTicket);
 			if (ticket.isEmpty() || ticket.get().provider() != provider) {
 				return AuthorizeResult.failed(failed(failurePath));
 			}
 			linkMemberId = ticket.get().memberId();
+			messageConsent = ticket.get().messageConsent();
 		}
 
-		AuthorizationStart start = socialOAuth2Client.begin(provider, request);
+		// 메시지 동의 표면 친구 목록·메시지 범위만 요청한다 (kakao-crew-invite 결정 2)
+		AuthorizationStart start = messageConsent
+			? socialOAuth2Client.beginMessageConsent(request)
+			: socialOAuth2Client.begin(provider, request);
 		StoredAuthorization started = start.authorization();
 		String requestId = SocialRedirects.randomId();
 		socialLoginStore.saveAuthorization(requestId, new StoredAuthorization(provider, started.state(),
-			started.redirectUri(), started.scopes(), started.attributes(), safeNext, linkMemberId));
+			started.redirectUri(), started.scopes(), started.attributes(), safeNext, linkMemberId, messageConsent));
 		return new AuthorizeResult(start.authorizationUri(), requestId);
 	}
 
@@ -91,6 +97,11 @@ public class SocialLoginUseCase {
 		}
 		StoredAuthorization authorization = taken.get();
 		String failurePath = authorization.isLink() ? authorization.next() : SocialRedirects.LOGIN_PATH;
+		// 메시지 동의 화면에서 취소했으면 동의하지 않은 것으로 알린다
+		if (authorization.messageConsent() && error != null && authorization.state().equals(state)) {
+			return new CallbackResult.Redirect(
+				SocialRedirects.withQuery(failurePath, "error", KakaoMessageTokens.CONSENT_DENIED_CODE));
+		}
 		// error: 사용자가 동의 화면에서 취소했다. state가 다르면 다른 브라우저에서 시작한 콜백이다(로그인 위조 공격)
 		if (error != null || code == null || state == null
 			|| authorization.provider() != provider || !authorization.state().equals(state)) {
@@ -103,7 +114,18 @@ public class SocialLoginUseCase {
 		} catch (SocialLoginFailedException exception) {
 			return new CallbackResult.Redirect(failed(failurePath));
 		}
+		if (authorization.messageConsent()) {
+			return messageConsent(authorization, identity);
+		}
 		return authorization.isLink() ? link(authorization, identity) : login(authorization, identity);
+	}
+
+	// 메시지 동의: 연결된 카카오 계정과 같고 두 범위를 다 받았을 때만 토큰을 저장한다 (kakao-crew-invite 결정 2)
+	private CallbackResult messageConsent(StoredAuthorization authorization, SocialIdentity identity) {
+		Optional<String> error = kakaoMessageTokens.saveConsent(authorization.linkMemberId(), identity);
+		return new CallbackResult.Redirect(error
+			.map(code -> SocialRedirects.withQuery(authorization.next(), "error", code))
+			.orElseGet(() -> SocialRedirects.withQuery(authorization.next(), "kakaoConsent", "granted")));
 	}
 
 	// 계정 연결: 결과를 next에 linked 또는 error로 붙인다 (BE-032 결정 5)

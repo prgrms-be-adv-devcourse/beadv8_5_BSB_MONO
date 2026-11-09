@@ -53,7 +53,7 @@ export function BibCard({
   className,
 }: BibCardProps) {
   const colors = BAND[type]
-  const unitNode = unit && <span className={cn('text-label-m', colors.unit)}>{unit}</span>
+  const unitNode = unit && <span className={cn('text-body2-medium', colors.unit)}>{unit}</span>
   return (
     <article
       className={cn(
@@ -76,19 +76,19 @@ export function BibCard({
           </>
         )}
         <div className="relative flex items-center justify-between">
-          <span className={cn('font-display text-eyebrow', colors.eyebrow)}>{eyebrow}</span>
+          <span className={cn('text-caption-medium', colors.eyebrow)}>{eyebrow}</span>
           {status}
         </div>
         <p className="relative flex items-baseline gap-1.5">
           {type === 'ticket' && unitNode}
-          <span className={cn('font-display text-display-xl', colors.number)}>{number}</span>
+          <span className={cn('font-display text-number-l', colors.number)}>{number}</span>
           {type === 'crew' && unitNode}
         </p>
       </div>
       <div className="flex flex-col gap-1.5 px-5 pt-2 pb-5">
-        <p className="text-heading-s text-text-primary">{title}</p>
+        <p className="text-body1-bold text-text-primary">{title}</p>
         {progress}
-        {meta && <p className="text-body-s text-text-secondary">{meta}</p>}
+        {meta && <p className="text-body2-regular text-text-secondary">{meta}</p>}
       </div>
     </article>
   )

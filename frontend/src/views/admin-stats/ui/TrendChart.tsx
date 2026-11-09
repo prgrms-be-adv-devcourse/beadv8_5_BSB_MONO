@@ -192,10 +192,10 @@ function TrendTooltip({ active, payload }: TooltipContentProps<TooltipValueType,
   return (
     // 상자 아래 가운데가 점 위 16px에 오도록 옮긴다
     <div className="flex -translate-x-1/2 -translate-y-[calc(100%+16px)] flex-col gap-0.5 rounded-md border border-border-default bg-bg-surface px-3 py-2 shadow-md">
-      <span className="text-caption text-text-secondary">
+      <span className="text-caption-regular text-text-secondary">
         {formatStatsDayWithWeekday(point.date)}
       </span>
-      <span className="text-label-strong">{formatNumber(point.value)}명</span>
+      <span className="text-body2-bold">{formatNumber(point.value)}명</span>
     </div>
   )
 }

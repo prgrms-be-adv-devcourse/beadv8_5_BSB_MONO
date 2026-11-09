@@ -58,8 +58,8 @@ export function ProgressBar({
     <div className={cn('flex w-full flex-col gap-2', className)}>
       {(label || valueText) && (
         <div className="flex items-center justify-between gap-2">
-          <span className={cn('text-label-m', colors.label)}>{label}</span>
-          <span className={cn('text-label-strong', complete ? COMPLETE[tone].value : colors.value)}>
+          <span className={cn('text-body2-medium', colors.label)}>{label}</span>
+          <span className={cn('text-body2-bold', complete ? COMPLETE[tone].value : colors.value)}>
             {valueText}
           </span>
         </div>

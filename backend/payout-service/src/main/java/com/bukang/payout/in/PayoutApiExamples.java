@@ -12,9 +12,9 @@ final class PayoutApiExamples {
 				"id": 1,
 				"holdCode": "HD-20261012-0001",
 				"payoutId": 1,
-				"reasonType": "ACCOUNT_NOT_REGISTERED",
+				"reasonType": "정산_계좌_미등록",
 				"reason": "정산 계좌 등록 요청 중",
-				"status": "HELD",
+				"status": "지급보류",
 				"heldBy": 1,
 				"heldAt": "2026-10-12T10:00:00",
 				"releasedBy": null,
@@ -31,9 +31,9 @@ final class PayoutApiExamples {
 				"id": 1,
 				"holdCode": "HD-20261012-0001",
 				"payoutId": 1,
-				"reasonType": "ACCOUNT_NOT_REGISTERED",
+				"reasonType": "정산_계좌_미등록",
 				"reason": "정산 계좌 등록 요청 중",
-				"status": "RELEASED",
+				"status": "해제",
 				"heldBy": 1,
 				"heldAt": "2026-10-12T10:00:00",
 				"releasedBy": 1,
@@ -89,7 +89,7 @@ final class PayoutApiExamples {
 		""";
 
 	static final String ALREADY_HELD = """
-		{ "status": 409, "message": "이미 지급보류 중인 정산 내역입니다.", "data": null }
+		{ "status": 409, "message": "이미 같은 사유로 지급보류 중인 정산 내역입니다.", "data": null }
 		""";
 
 	static final String ALREADY_PAID = """

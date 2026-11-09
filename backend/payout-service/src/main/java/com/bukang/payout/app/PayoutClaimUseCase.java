@@ -68,7 +68,7 @@ public class PayoutClaimUseCase {
 		int created = createClaims(today);
 		int sellerNotices = 0;
 		int adminNotices = 0;
-		for (PayoutClaim claim : payoutClaimRepository.findByStatusOrderByIdAsc(PayoutClaimStatus.OPEN)) {
+		for (PayoutClaim claim : payoutClaimRepository.findByStatusOrderByIdAsc(PayoutClaimStatus.청구_중)) {
 			if (claim.markSellerNotice(today)) {
 				sellerNotices++;
 				log.info("[청구 알림] 판매자에게 정산금 반환을 요청합니다. sellerId={}, raceId={}, claimId={}, amount={}, accounts={}",
@@ -97,20 +97,20 @@ public class PayoutClaimUseCase {
 		PayoutClaim claim = payoutClaimRepository.findByIdForUpdate(claimId)
 			.orElseThrow(PayoutClaimNotFoundException::new);
 		// 이미 확인한 청구는 갚을 돈이 0이라 금액 비교보다 "이미 확인함"을 먼저 알린다 (claim.confirm)
-		if (claim.getStatus() == PayoutClaimStatus.OPEN) {
+		if (claim.getStatus() == PayoutClaimStatus.청구_중) {
 			checkReceivableMatches(claim);
 		}
 		claim.confirm(confirmedBy, now);
-		payoutItemRepository.save(PayoutItem.ofClaim(claim, PayoutRecordType.RECOVERY_RECEIVED, -claim.getAmount()));
+		payoutItemRepository.save(PayoutItem.ofClaim(claim, PayoutRecordType.회수_입금, -claim.getAmount()));
 		payoutRecoveryRepository.findBySellerIdAndRaceIdAndStatus(claim.getSellerId(), claim.getRaceId(),
-				PayoutRecoveryStatus.REQUESTED)
+				PayoutRecoveryStatus.회수_요청)
 			.forEach(recovery -> recovery.complete(confirmedBy, now));
 		return claim;
 	}
 
 	private void checkReceivableMatches(PayoutClaim claim) {
 		long receivable = payoutItemRepository.sumBalance(claim.getSellerId(), claim.getRaceId(),
-			PayoutAccount.RECEIVABLE);
+			PayoutAccount.갚을_돈);
 		if (receivable == claim.getAmount()) {
 			return;
 		}
@@ -124,7 +124,7 @@ public class PayoutClaimUseCase {
 	// 요청 중인 회수가 있는 판매자 × 대회마다 청구를 만들 때가 됐는지 본다
 	private int createClaims(LocalDate today) {
 		Set<SellerRace> targets = new LinkedHashSet<>();
-		payoutRecoveryRepository.findByStatus(PayoutRecoveryStatus.REQUESTED)
+		payoutRecoveryRepository.findByStatus(PayoutRecoveryStatus.회수_요청)
 			.forEach(recovery -> targets.add(new SellerRace(recovery.getSellerId(), recovery.getRaceId())));
 		int created = 0;
 		for (SellerRace target : targets) {
@@ -133,12 +133,12 @@ public class PayoutClaimUseCase {
 			}
 			Optional<LocalDate> startDate = claimStartDate(target, today);
 			long receivable = payoutItemRepository.sumBalance(target.sellerId(), target.raceId(),
-				PayoutAccount.RECEIVABLE);
+				PayoutAccount.갚을_돈);
 			if (startDate.isEmpty() || receivable <= 0) {
 				continue;
 			}
 			payoutClaimRepository.save(new PayoutClaim(target.sellerId(), target.raceId(), receivable,
-				startDate.get()));
+				startDate.get())).assignClaimCode(today);
 			created++;
 		}
 		return created;
@@ -149,13 +149,13 @@ public class PayoutClaimUseCase {
 	// - 대회가 취소됐으면 취소일. 단 취소 다음 날 배치부터 만든다
 	private Optional<LocalDate> claimStartDate(SellerRace target, LocalDate today) {
 		Optional<Payout> finalPayout = payoutRepository.findFirstBySellerIdAndRaceIdAndPayoutStageOrderByIdAsc(
-				target.sellerId(), target.raceId(), PayoutStage.FINAL)
-			.filter(payout -> payout.getStatus() != PayoutStatus.CANCELED);
+				target.sellerId(), target.raceId(), PayoutStage.최종_정산)
+			.filter(payout -> payout.getStatus() != PayoutStatus.취소);
 		if (finalPayout.isPresent()) {
 			return Optional.of(finalPayout.get().getSettledAt().toLocalDate());
 		}
 		return payoutRecoveryRepository.findFirstBySellerIdAndRaceIdAndReasonType(target.sellerId(),
-				target.raceId(), PayoutRecoveryReason.RACE_CANCELED)
+				target.raceId(), PayoutRecoveryReason.대회_취소)
 			.map(PayoutRecovery::getRequestedAt)
 			.map(LocalDateTime::toLocalDate)
 			.filter(canceledDate -> today.isAfter(canceledDate));

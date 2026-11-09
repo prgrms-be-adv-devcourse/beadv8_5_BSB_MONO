@@ -19,10 +19,11 @@ import com.bukang.payout.domain.PayoutStage;
  * POST {캐시 서비스}/internal/v1/cash/payouts/{payoutId} {sellerId, payoutStage, settlementAmount, feeAmount} → 2xx면 성공
  *
  * 캐시 서비스의 API는 김소희님이 만든다 (PRO-256, PR #198의 CashPayoutRequestDto). 필드 이름은 그쪽에 맞춘다
- * 응답 본문은 읽지 않는다. 같은 정산 ID로 다시 요청해도 캐시 서비스가 돈을 한 번만 옮기고 성공으로 답한다
+ * 성공 응답 본문은 읽지 않는다. 같은 정산 ID · 같은 금액으로 다시 요청하면 캐시 서비스가 돈을 한 번만 옮기고 성공으로 답한다
  *
- * 결과를 둘로 나눈다. 지급 배치가 정산 내역을 되돌릴지(돈이 안 나감), 지급 중으로 둘지(모름)가 이것으로 갈린다
- * - 4xx: 캐시 서비스가 처리하지 않은 것이 확실하다 → PayoutTransferRejectedException
+ * 결과를 셋으로 나눈다. 지급 배치가 정산 내역을 되돌릴지(돈이 안 나감), 지급 중으로 둘지(모름), 멈출지(불일치)가 이것으로 갈린다
+ * - 409: 같은 정산 ID를 이미 다른 판매자 · 금액으로 처리했다. 돈은 저장된 금액으로 나갔다 → PayoutTransferMismatchException (BUK-62)
+ * - 그 밖의 4xx: 캐시 서비스가 처리하지 않은 것이 확실하다 → PayoutTransferRejectedException
  * - 타임아웃 · 연결 실패 · 5xx: 캐시 서비스가 옮겼는지 모른다 → PayoutTransferUnknownException
  * 5xx를 '거절'로 보지 않는 이유: 캐시 서비스가 돈을 옮기고 커밋한 뒤 응답을 만들다 실패해도 5xx가 나올 수 있다
  *
@@ -62,6 +63,11 @@ public class CashPayoutTransferAdapter implements PayoutTransferPort {
 				.body(TransferRequest.from(transfer))
 				.retrieve()
 				.toBodilessEntity();
+		} catch (HttpClientErrorException.Conflict exception) {
+			// 저장된 금액은 응답 본문(data.settlementAmount · feeAmount)에 있다. 사람이 확인하도록 메시지에 그대로 남긴다
+			throw new PayoutTransferMismatchException(
+				"캐시 서비스가 같은 정산 ID를 이미 다른 값으로 처리했습니다. payoutId=%d, body=%s".formatted(
+					transfer.payoutId(), abbreviate(exception.getResponseBodyAsString())), exception);
 		} catch (HttpClientErrorException exception) {
 			throw new PayoutTransferRejectedException(
 				"캐시 서비스가 정산금 이동을 거절했습니다. payoutId=%d, status=%s, body=%s".formatted(
@@ -91,10 +97,18 @@ public class CashPayoutTransferAdapter implements PayoutTransferPort {
 	// 캐시 서비스 요청 본문 (cash CashPayoutRequestDto). sellerId는 판매자 ID(판매자 신청서 ID)이고 회원 ID가 아니다
 	// 금액은 정산 쪽 타입(long) 그대로 보낸다. JSON 숫자라 캐시 서비스의 Integer로 읽히고,
 	// int 범위를 넘으면 캐시 서비스가 400으로 거절해 정산 예정으로 남는다 (금액 타입 맞추기는 PRO-253)
-	record TransferRequest(long sellerId, PayoutStage payoutStage, long settlementAmount, long feeAmount) {
+	// 정산 단계는 캐시 서비스의 enum(FIRST · FINAL)에 맞춰 영어로 보낸다. 정산 안에서만 한글이다 (BUK-68)
+	record TransferRequest(long sellerId, String payoutStage, long settlementAmount, long feeAmount) {
 		static TransferRequest from(PayoutTransfer transfer) {
-			return new TransferRequest(transfer.sellerId(), transfer.stage(), transfer.payoutAmount(),
+			return new TransferRequest(transfer.sellerId(), cashStage(transfer.stage()), transfer.payoutAmount(),
 				transfer.feeAmount());
+		}
+
+		private static String cashStage(PayoutStage stage) {
+			return switch (stage) {
+				case 일차_정산 -> "FIRST";
+				case 최종_정산 -> "FINAL";
+			};
 		}
 	}
 }

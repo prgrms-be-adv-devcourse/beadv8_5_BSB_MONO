@@ -104,11 +104,11 @@ export function RaceDetailPage({
             )}
             <div className="absolute inset-x-0 bottom-0 h-35 bg-linear-to-b from-[rgb(0_0_0/0)] to-[rgb(0_0_0/0.55)]" />
             <div className="absolute bottom-5.5 left-5.5 flex flex-col gap-1.5 text-text-on-hero">
-              <p className="text-heading-m">{race.heroTitle}</p>
-              <p className="text-label-m whitespace-pre opacity-85">{race.heroTags}</p>
+              <p className="text-title3">{race.heroTitle}</p>
+              <p className="text-body2-medium whitespace-pre opacity-85">{race.heroTags}</p>
             </div>
             {race.images.length > 0 && (
-              <span className="absolute right-4 bottom-4.5 rounded-full bg-[rgb(0_0_0/0.4)] px-3 py-1 text-label-s text-text-on-hero">
+              <span className="absolute right-4 bottom-4.5 rounded-full bg-[rgb(0_0_0/0.4)] px-3 py-1 text-caption-medium text-text-on-hero">
                 1 / {race.images.length}
               </span>
             )}
@@ -118,18 +118,18 @@ export function RaceDetailPage({
             <div className="flex gap-1">
               <Badge tone={race.status.tone}>{race.status.label}</Badge>
             </div>
-            <h2 className="text-heading-xl">{race.title}</h2>
-            <p className="flex items-center gap-2 text-body-m text-text-secondary">
+            <h2 className="text-title1">{race.title}</h2>
+            <p className="flex items-center gap-2 text-body2-regular text-text-secondary">
               <Icon name="Calendar" className="size-4" />
               {race.startsAt}
             </p>
-            <p className="flex items-center gap-2 text-body-m text-text-secondary">
+            <p className="flex items-center gap-2 text-body2-regular text-text-secondary">
               <Icon name="MapPin" className="size-4" />
               {race.place}
             </p>
             <p className="flex items-baseline gap-2">
-              <span className="text-heading-l">{formatWon(minPrice)}</span>
-              <span className="text-body-s text-text-secondary">부터</span>
+              <span className="text-title2">{formatWon(minPrice)}</span>
+              <span className="text-body2-regular text-text-secondary">부터</span>
             </p>
           </div>
 
@@ -189,7 +189,7 @@ export function RaceDetailPage({
             {race.schedule.map((row) => (
               <KeyValue key={row.label} label={row.label} value={row.value} />
             ))}
-            <p className="text-caption text-text-tertiary">
+            <p className="text-caption-regular text-text-tertiary">
               정원이 차면 접수가 일찍 끝날 수 있어요.
             </p>
           </div>
@@ -200,10 +200,10 @@ export function RaceDetailPage({
             {race.refund.map((row) => (
               <KeyValue key={row.label} label={row.label} value={row.value} />
             ))}
-            <p className="text-caption text-text-tertiary">
+            <p className="text-caption-regular text-text-tertiary">
               환불은 예치금으로 돌려드려요. 키트는 환불 기한이 지난 뒤 배송해요.
             </p>
-            <p className="text-caption text-text-tertiary">
+            <p className="text-caption-regular text-text-tertiary">
               참가권은 다른 사람에게 양도할 수 없어요.
             </p>
           </div>
@@ -223,7 +223,7 @@ export function RaceDetailPage({
             {infoTab === 'detail' ? (
               <>
                 {race.description && (
-                  <p className="text-body-m whitespace-pre-line">{race.description}</p>
+                  <p className="text-body2-regular whitespace-pre-line">{race.description}</p>
                 )}
                 {race.images.map((src, i) => (
                   <div key={src} className="relative h-112 overflow-hidden rounded-md">
@@ -237,7 +237,7 @@ export function RaceDetailPage({
                   </div>
                 ))}
                 {!race.description && race.images.length === 0 && (
-                  <p className="py-6 text-center text-body-s text-text-tertiary">
+                  <p className="py-6 text-center text-body2-regular text-text-tertiary">
                     등록된 상세 정보가 없어요
                   </p>
                 )}
@@ -249,9 +249,9 @@ export function RaceDetailPage({
         </Section>
 
         <section className="flex flex-col gap-2 bg-bg-surface px-4 py-6">
-          <p className="text-label-m">{race.seller.name}</p>
-          <p className="text-caption text-text-tertiary">{race.seller.businessNo}</p>
-          <p className="text-caption text-text-tertiary">{race.seller.mailOrderNo}</p>
+          <p className="text-body2-medium">{race.seller.name}</p>
+          <p className="text-caption-regular text-text-tertiary">{race.seller.businessNo}</p>
+          <p className="text-caption-regular text-text-tertiary">{race.seller.mailOrderNo}</p>
         </section>
       </main>
       <BottomCta
@@ -330,20 +330,22 @@ function OptionCard({
         />
       )}
       <span className="flex min-w-0 flex-1 flex-col gap-1">
-        <span className="text-label-strong">
+        <span className="text-body2-bold">
           {option.name}
           {option.soldOut && <span className="text-text-tertiary"> · 정원 마감</span>}
         </span>
-        <span className="text-caption text-text-secondary">{option.includes}</span>
+        <span className="text-caption-regular text-text-secondary">{option.includes}</span>
       </span>
-      <span className="text-label-strong text-text-primary">{formatWon(option.price)}</span>
+      <span className="text-body2-bold text-text-primary">{formatWon(option.price)}</span>
     </button>
   )
 }
 
 function FaqList({ items }: { items: RaceDetail['faq'] }) {
   if (items.length === 0) {
-    return <p className="py-6 text-center text-body-s text-text-tertiary">등록된 질문이 없어요</p>
+    return (
+      <p className="py-6 text-center text-body2-regular text-text-tertiary">등록된 질문이 없어요</p>
+    )
   }
 
   return (
@@ -357,14 +359,14 @@ function FaqList({ items }: { items: RaceDetail['faq'] }) {
                 FOCUS_RING,
               )}
             >
-              <span className="text-label-strong text-text-brand">Q</span>
-              <span className="flex-1 text-label-m">{item.question}</span>
+              <span className="text-body2-bold text-text-brand">Q</span>
+              <span className="flex-1 text-body2-medium">{item.question}</span>
               <Icon
                 name="ChevronDown"
                 className="size-5 text-text-tertiary transition-transform group-open:rotate-180"
               />
             </summary>
-            <p className="pb-4 pl-6 text-body-s text-text-secondary">{item.answer}</p>
+            <p className="pb-4 pl-6 text-body2-regular text-text-secondary">{item.answer}</p>
           </details>
         </li>
       ))}

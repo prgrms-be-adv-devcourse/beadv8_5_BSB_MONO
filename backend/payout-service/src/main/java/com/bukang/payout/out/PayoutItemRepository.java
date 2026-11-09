@@ -23,7 +23,7 @@ public interface PayoutItemRepository extends JpaRepository<PayoutItem, Long> {
 	// 판매자가 갚을 돈이 남은 대회 (탈퇴 제한, R11). 대회마다 따로 더한다. 입금이 겹쳐 0 아래가 된 대회가 다른 대회의 빚을 가리지 않게 한다
 	@Query("""
 		select i.raceId from PayoutItem i
-		where i.sellerId = :sellerId and i.account = com.bukang.payout.domain.PayoutAccount.RECEIVABLE
+		where i.sellerId = :sellerId and i.account = com.bukang.payout.domain.PayoutAccount.갚을_돈
 		group by i.raceId
 		having sum(i.amount) > 0
 		""")
@@ -35,13 +35,13 @@ public interface PayoutItemRepository extends JpaRepository<PayoutItem, Long> {
 	// fetch join이 든 쿼리로는 개수를 셀 수 없으므로 개수 쿼리를 따로 적는다
 	@Query(value = """
 		select i from PayoutItem i join fetch i.payout p
-		where p.sellerId = :sellerId and i.recordType = com.bukang.payout.domain.PayoutRecordType.SALE
+		where p.sellerId = :sellerId and i.recordType = com.bukang.payout.domain.PayoutRecordType.판매
 			and i.payoutCreateDate between :from and :to
 		order by i.payoutCreateDate desc, i.id desc
 		""",
 		countQuery = """
 			select count(i) from PayoutItem i join i.payout p
-			where p.sellerId = :sellerId and i.recordType = com.bukang.payout.domain.PayoutRecordType.SALE
+			where p.sellerId = :sellerId and i.recordType = com.bukang.payout.domain.PayoutRecordType.판매
 				and i.payoutCreateDate between :from and :to
 			""")
 	Page<PayoutItem> findSellerItems(long sellerId, LocalDate from, LocalDate to, Pageable pageable);

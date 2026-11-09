@@ -46,7 +46,7 @@ export function SaleChangeCard({ row }: { row: SellerRaceRow }) {
         isRaceEditable(row.saleStatus) && (
           <Link
             href={`/seller/races/${row.id}/change`}
-            className={cn('rounded-sm text-label-m text-text-brand', FOCUS_RING)}
+            className={cn('rounded-sm text-body2-medium text-text-brand', FOCUS_RING)}
           >
             일정 변경 · 대회 취소
           </Link>
@@ -54,7 +54,7 @@ export function SaleChangeCard({ row }: { row: SellerRaceRow }) {
       }
       className="w-110 shrink-0"
     >
-      <p className="text-body-s text-text-secondary">
+      <p className="text-body2-regular text-text-secondary">
         {row.title} · {row.badge.label}
       </p>
       {edit.isPending ? (
@@ -101,7 +101,7 @@ function SaleChangeForm({ edit, row }: { edit: RaceForEdit; row: SellerRaceRow }
       )}
     >
       <div className="flex flex-col gap-3">
-        <h3 className="text-label-l">정원 늘리기</h3>
+        <h3 className="text-body1-medium">정원 늘리기</h3>
         <KeyValue label="이미 판매된 수량" value={`${n(row.sold)}명`} />
         {edit.request.courses.map((course, i) => (
           <TextField
@@ -117,7 +117,7 @@ function SaleChangeForm({ edit, row }: { edit: RaceForEdit; row: SellerRaceRow }
       </div>
       <Divider />
       <div className="flex flex-col gap-3">
-        <h3 className="text-label-l">가격 · 환불 기한</h3>
+        <h3 className="text-body1-medium">가격 · 환불 기한</h3>
         {edit.request.courses.map((course, i) => (
           <TextField
             key={course.courseId ?? i}
@@ -141,7 +141,7 @@ function SaleChangeForm({ edit, row }: { edit: RaceForEdit; row: SellerRaceRow }
         />
       </div>
       {!editable && (
-        <p className="text-body-s text-text-tertiary">
+        <p className="text-body2-regular text-text-tertiary">
           판매가 끝났거나 취소된 대회는 바꿀 수 없어요.
         </p>
       )}

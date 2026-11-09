@@ -59,6 +59,7 @@ public class OrderCancelUseCase {
 	private final WalletPort walletPort;
 	private final TransactionTemplate transactionTemplate;
 	private final EventPublisher eventPublisher;
+	private final KitOptionSaleUseCase kitOptionSaleUseCase;
 
 	// refundPending: 환불 결과를 몰라 취소 중으로 남았다 (컨트롤러가 202 "취소 처리 중"으로 답한다)
 	public record CancelResult(OrderDto order, long refundedAmount, boolean refundPending) {
@@ -143,6 +144,8 @@ public class OrderCancelUseCase {
 				.orElseThrow(() -> new ParticipationNotFoundException("존재하지 않는 참가 신청입니다."));
 			order.cancelItem(item, now);
 			participation.markCanceled(now);
+			// 확정 → 취소와 같은 트랜잭션이라, 같은 취소가 두 번 와도(재처리와 겹침) 위 isCanceling에서 걸려 한 번만 줄어든다
+			kitOptionSaleUseCase.release(participation.getId());
 			// 이 트랜잭션이 커밋돼야 보내진다 (롤백되면 메시지도 없다)
 			orderOutboxKafkaAppendUseCase.appendSeatRestore(item.getParticipationId());
 			orderOutboxKafkaAppendUseCase.appendItemRefunded(item, order.getBuyerId(), now, refundReason(item));
