@@ -26,6 +26,7 @@ import com.bukang.cash.out.charge.WalletChargeRepository;
 import com.bukang.cash.out.member.CashMemberRepository;
 import com.bukang.cash.out.pg.PaymentApprovalResult;
 import com.bukang.cash.out.pg.PaymentClient;
+import com.bukang.cash.out.pg.PaymentLookupResult;
 import com.bukang.cash.out.wallet.WalletLedgerRepository;
 import com.bukang.cash.out.wallet.WalletRepository;
 
@@ -37,6 +38,8 @@ class NewAccountChargeReviewTest {
 
 	@Autowired
 	private CashFacade cashFacade;
+	@Autowired
+	private CashChargeReconcileUseCase cashChargeReconcileUseCase;
 	@Autowired
 	private CashMemberRepository cashMemberRepository;
 	@Autowired
@@ -107,6 +110,37 @@ class NewAccountChargeReviewTest {
 	}
 
 	@Test
+	@DisplayName("재확인 배치가 나중에 완료로 맞추는 충전도 똑같이 검토 대상으로 표시될 수 있다")
+	void flagsChargeCompletedByReconcileBatch() {
+		Wallet wallet = createRecentlyJoinedCustomerWallet();
+		given(paymentClient.approve(anyString(), anyString(), anyLong()))
+			.willReturn(new PaymentApprovalResult(300_000, "toss_key_1", null));
+		cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 300_000);
+		createUncertainCharge(wallet, "order_2", 300_000);
+		given(paymentClient.lookupByOrderId("order_2"))
+			.willReturn(PaymentLookupResult.completed(new PaymentApprovalResult(300_000, "toss_key_2", null)));
+
+		cashChargeReconcileUseCase.reconcile(LocalDateTime.now());
+
+		assertThat(walletChargeRepository.findByIdempotencyKey("order_2").orElseThrow().isReviewFlagged()).isTrue();
+	}
+
+	@Test
+	@DisplayName("나중에 PG 결제취소된 충전도 누적 합계에서 빠지지 않는다")
+	void includesCanceledChargeInCumulativeTotal() {
+		createRecentlyJoinedCustomerWallet();
+		given(paymentClient.approve(anyString(), anyString(), anyLong()))
+			.willReturn(new PaymentApprovalResult(300_000, "toss_key_1", null))
+			.willReturn(new PaymentApprovalResult(300_000, "toss_key_2", null));
+		cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 300_000);
+		cancelCharge("order_1", 300_000);
+
+		cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_2", "order_2", 300_000);
+
+		assertThat(walletChargeRepository.findByIdempotencyKey("order_2").orElseThrow().isReviewFlagged()).isTrue();
+	}
+
+	@Test
 	@DisplayName("가입 후 24시간이 지난 뒤 생긴 충전은 그 전 충전들의 누적이 50만 원을 넘겼어도 표시되지 않는다")
 	void doesNotFlagChargeMadeAfterTheReviewWindow() {
 		LocalDateTime joinedAt = LocalDateTime.now().minusHours(25);
@@ -130,6 +164,23 @@ class NewAccountChargeReviewTest {
 			CashMember member = cashMemberRepository.save(
 				new CashMember(CUSTOMER_ID, joinedAt, joinedAt, "러너" + CUSTOMER_ID));
 			return walletRepository.save(new Wallet(member));
+		});
+	}
+
+	private void cancelCharge(String orderId, long amount) {
+		transactionTemplate.executeWithoutResult(status -> {
+			WalletCharge charge = walletChargeRepository.findByIdempotencyKey(orderId).orElseThrow();
+			charge.recordCancel(amount);
+			walletChargeRepository.saveAndFlush(charge);
+		});
+	}
+
+	// 결과를 몰라 재확인 배치가 나중에 처리할 충전을 흉내 낸다
+	private void createUncertainCharge(Wallet wallet, String orderId, long amount) {
+		transactionTemplate.executeWithoutResult(status -> {
+			WalletCharge charge = walletChargeRepository.save(new WalletCharge(wallet, amount, "TOSS", orderId));
+			ReflectionTestUtils.setField(charge, "status", ChargeStatus.UNCERTAIN);
+			walletChargeRepository.saveAndFlush(charge);
 		});
 	}
 
