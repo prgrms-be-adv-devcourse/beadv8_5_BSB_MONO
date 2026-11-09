@@ -13,13 +13,21 @@ import { ApiError, memberApi, unwrapData } from '@/shared/api'
 import { Alert, BottomCta, Button, buttonClassName, EmptyState, Skeleton } from '@/shared/ui'
 
 import { inviteFailureOf } from '../model/invite-failure'
+import { partyJoinPath } from '../model/invite-url'
 import { CrewBand, CrewLoadError } from './CrewBand'
 
 // 피그마 시안v4 · M10 초대 받기 (기본 · 링크 끝남).
 // 초대 링크 정보 조회와 가입 모두 로그인이 필요하다(백엔드 결정 BE-028). 로그인하지 않았으면
 // ProtectedScreenGuard가 로그인 화면으로 보내고, 로그인을 마치면 같은 초대 주소로 돌아온다.
 // 이미 그 크루의 크루원이면 이 화면 없이 크루 홈으로 보낸다.
-export function CrewInvitePage({ inviteToken }: { inviteToken: string }) {
+// 파티 참가 토큰이 함께 오면(?party=, BUK-98) 크루 홈 대신 그 파티 합류 화면으로 보낸다.
+export function CrewInvitePage({
+  inviteToken,
+  partyJoinToken,
+}: {
+  inviteToken: string
+  partyJoinToken?: string
+}) {
   const router = useRouter()
   const queryClient = useQueryClient()
   const invite = memberApi.useFindCrewInvite(inviteToken, {
@@ -35,12 +43,14 @@ export function CrewInvitePage({ inviteToken }: { inviteToken: string }) {
 
   const goCrewHome = (id: number) => {
     void queryClient.invalidateQueries({ queryKey: memberApi.getFindMyCrewsQueryKey() })
-    router.replace(`/crews/${id}` as Route)
+    router.replace(partyJoinToken ? partyJoinPath(partyJoinToken) : (`/crews/${id}` as Route))
   }
 
   useEffect(() => {
-    if (alreadyMember && crewId !== undefined) router.replace(`/crews/${crewId}` as Route)
-  }, [alreadyMember, crewId, router])
+    if (alreadyMember && crewId !== undefined) {
+      router.replace(partyJoinToken ? partyJoinPath(partyJoinToken) : (`/crews/${crewId}` as Route))
+    }
+  }, [alreadyMember, crewId, partyJoinToken, router])
 
   const failure = inviteFailureOf(invite.error ?? join.error)
   const joinIfPossible = () => {
