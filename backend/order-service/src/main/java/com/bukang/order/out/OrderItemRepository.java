@@ -124,7 +124,7 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
 
 	// 결제 전 확인용 (잠그지 않고, 엔티티를 영속성 컨텍스트에 올리지 않으려고 값만 읽는다)
 	@Query("select i.participationId as participationId, o.buyerId as buyerId, o.status as status,"
-		+ " i.raceId as raceId, i.raceCourseId as raceCourseId, p.partyId as partyId"
+		+ " o.paymentDueAt as paymentDueAt, i.raceId as raceId, i.raceCourseId as raceCourseId, p.partyId as partyId"
 		+ " from OrderItem i join i.order o join Participation p on p.id = i.participationId"
 		+ " where o.id = :orderId order by i.id")
 	List<PayTarget> findPayTargets(@Param("orderId") long orderId);
@@ -135,6 +135,8 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
 		long getBuyerId();
 
 		com.bukang.order.domain.OrderStatus getStatus();
+
+		java.time.LocalDateTime getPaymentDueAt();
 
 		long getRaceId();
 

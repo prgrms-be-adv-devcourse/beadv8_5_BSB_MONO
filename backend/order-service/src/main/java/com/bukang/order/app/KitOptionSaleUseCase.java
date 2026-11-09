@@ -30,12 +30,15 @@ import com.bukang.order.out.ParticipationKitOptionRepository;
 import com.bukang.order.out.kit.KitOptionPort;
 import com.bukang.order.out.kit.KitOptionPort.KitOption;
 
+import lombok.extern.slf4j.Slf4j;
+
 /**
  * 키트 옵션 고르기와 판매 수 세기 (11/07·11/09 결정). 상품은 준비 수량(stock)만 주고 판매 수는 주문이 센다
  * - 결제: 잠그기 전에 고른 옵션을 확인하고(choose), 예치금 결제 전에 판매 수를 +1 한다(reserve). 결제가 실패하면 함께 되돌아간다
  * - 결제한 참가권 취소: 고른 옵션의 판매 수를 -1 한다(release). 참가 확정 → 취소와 같은 트랜잭션에서 부르므로 한 번만 줄어든다
  * 잠금 순서: 주문 → 참가 신청 → 판매 수 줄(옵션 ID 오름차순). 결제·취소가 같은 순서라 서로 막혀 멈추지 않는다
  */
+@Slf4j
 @Service
 public class KitOptionSaleUseCase {
 
@@ -172,8 +175,11 @@ public class KitOptionSaleUseCase {
 		}
 		Map<Long, Integer> soldById = kitOptionSaleRepository.findByRaceId(raceId).stream()
 			.collect(Collectors.toMap(KitOptionSale::getId, KitOptionSale::getSold));
-		// 상품이 대회를 찾지 못하면(취소된 대회 등) 판매 현황도 빈 목록이다
-		return kitOptionPort.findKitOptions(raceId).orElse(List.of()).stream()
+		// 상품이 대회를 찾지 못하면(취소된 대회, 경로·주소 어긋남) 판매 현황도 빈 목록이다. 어긋남을 알아챌 수 있게 남긴다
+		return kitOptionPort.findKitOptions(raceId).orElseGet(() -> {
+			log.warn("상품 서비스가 키트 옵션 목록에 404를 줘 판매 현황을 비웁니다. raceId={}", raceId);
+			return List.of();
+		}).stream()
 			.map(option -> SellerKitOptionSaleDto.of(option.kitOptionId(), option.name(), option.value(),
 				option.stock(), soldById.getOrDefault(option.kitOptionId(), 0)))
 			.toList();

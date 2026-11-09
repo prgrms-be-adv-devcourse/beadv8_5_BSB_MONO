@@ -65,16 +65,16 @@ public class OrderPayUseCase {
 	 * 잠금·차감·확정은 한 트랜잭션(transactionTemplate)으로 묶는다
 	 */
 	public OrderPayResult pay(long memberId, long orderId, List<Long> kitOptionIds, LocalDateTime now) {
-		Prepared prepared = prepare(memberId, orderId, kitOptionIds);
+		Prepared prepared = prepare(memberId, orderId, kitOptionIds, now);
 		return transactionTemplate.execute(status -> payLocked(memberId, orderId, prepared, now));
 	}
 
 	/**
 	 * 잠그기 전 확인. 엔티티를 읽지 않고 값만 읽는다(잠근 뒤 옛 상태가 돌아오지 않게). 이미 결제한 주문이면 아무것도 하지 않는다
-	 * 결제 대기가 아니면 상품을 묻기 전에 409로 끝낸다(빈 판매 수 줄도 만들지 않는다)
+	 * 결제 대기가 아니거나 기한이 지났으면 상품을 묻기 전에 409로 끝낸다(빈 판매 수 줄도 만들지 않는다)
 	 * 종목은 파티원 결제만 묻는다(대회 취소·크루원 확인). 개인 결제는 주문 상품의 대회 ID로 옵션만 묻는다
 	 */
-	private Prepared prepare(long memberId, long orderId, List<Long> kitOptionIds) {
+	private Prepared prepare(long memberId, long orderId, List<Long> kitOptionIds, LocalDateTime now) {
 		OrderItemRepository.PayTarget target = orderItemRepository.findPayTargets(orderId).stream().findFirst()
 			.orElseThrow(() -> new OrderNotFoundException("존재하지 않는 주문입니다."));
 		if (target.getBuyerId() != memberId) {
@@ -83,7 +83,7 @@ public class OrderPayUseCase {
 		if (target.getStatus() == OrderStatus.PAID) {
 			return null;
 		}
-		Order.checkPayableStatus(target.getStatus());
+		Order.checkPayable(target.getStatus(), target.getPaymentDueAt(), now);
 		RaceCourseInfo course = null;
 		if (target.getPartyId() != null) {
 			course = findCourse(target.getRaceCourseId());
@@ -167,7 +167,9 @@ public class OrderPayUseCase {
 	 * 파티원 결제 전 확인 (BUK-38, 11/02 결정 ⑥). 예치금을 빼기 전에 끝낸다
 	 * 결제 기한은 위 order.checkPayable이 본다(주문 기한 = 파티 결제 기한). 결제 진행 중 대회가 취소되면 결제할 수 없고,
 	 * 크루를 떠난 파티원은 결제할 수 없다 (정책 6장: 탈퇴하면 미결제 자리는 풀림). 파티 상태는 마감 배치가 신청서를 세어 바꾼다
-	 * 종목은 잠그기 전에 받은 값이다(그 사이 대회가 취소되면 여기서 못 잡는다. 대회 취소 환불 배치가 다시 잡는지는 PR #370 리뷰 답 참고)
+	 * 종목은 잠그기 전에 받은 값이라 그 사이 대회가 취소되면 여기서 못 잡지만, 대회 취소 환불(RaceCancelRefundUseCase)이 막는다:
+	 * 환불이 먼저 이 주문을 지나가면 예치금 결제 취소(cancelPayment)로 뒤늦은 차감이 거절되고,
+	 * 이 결제가 먼저 주문을 잠그면 환불이 기다렸다가 결제 완료된 주문을 환불한다
 	 * shortcut: 회원 HTTP를 주문·신청서 잠금을 쥔 채 부른다(예치금 호출과 같음, pending 48). 결제가 몰리면 잠그기 전으로 옮긴다
 	 */
 	private void checkPartyPayable(Participation participation, RaceCourseInfo course, long memberId) {

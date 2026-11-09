@@ -1,6 +1,7 @@
 package com.bukang.order.in;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -33,10 +34,12 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.order.app.OrderCancelUseCase;
 import com.bukang.order.app.OrderExpiryUseCase;
+import com.bukang.order.app.OrderPayUseCase;
 import com.bukang.order.app.RaceCancelRefundUseCase;
 import com.bukang.order.domain.KitOptionSale;
 import com.bukang.order.domain.ParticipationKitOption;
 import com.bukang.order.domain.ParticipationStatus;
+import com.bukang.order.domain.exception.OrderNotPayableException;
 import com.bukang.order.out.KitOptionSaleRepository;
 import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationKitOptionRepository;
@@ -116,6 +119,9 @@ class ApiV1OrderKitOptionTest {
 
 	@Autowired
 	private OrderExpiryUseCase orderExpiryUseCase;
+
+	@Autowired
+	private OrderPayUseCase orderPayUseCase;
 
 	@Autowired
 	private RaceCancelRefundUseCase raceCancelRefundUseCase;
@@ -390,6 +396,18 @@ class ApiV1OrderKitOptionTest {
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("ORDER_PAYMENT_DEADLINE_PASSED"));
 
+		assertThat(kitOptionSaleRepository.count()).isZero();
+	}
+
+	@Test
+	@DisplayName("기한이 지났지만 아직 만료 처리 전인 주문도 상품을 묻기 전에 409이고, 빈 판매 수 줄을 만들지 않는다")
+	void pastDueOrderRejectedBeforeOptions() throws Exception {
+		long orderId = orderAndGetId(1, COURSE_ID);
+
+		assertThatThrownBy(() -> orderPayUseCase.pay(1, orderId, List.of(SHIRT_L, SOCKS_FREE),
+			LocalDateTime.now().plusHours(1)))
+			.isInstanceOf(OrderNotPayableException.class)
+			.extracting("code").isEqualTo("ORDER_PAYMENT_DEADLINE_PASSED");
 		assertThat(kitOptionSaleRepository.count()).isZero();
 	}
 
