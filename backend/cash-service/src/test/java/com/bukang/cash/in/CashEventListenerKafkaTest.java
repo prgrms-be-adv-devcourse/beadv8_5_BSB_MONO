@@ -26,8 +26,8 @@ import org.springframework.kafka.test.utils.KafkaTestUtils;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 
-import com.bukang.cash.out.CashMemberRepository;
-import com.bukang.cash.out.CashSellerRepository;
+import com.bukang.cash.out.member.CashMemberRepository;
+import com.bukang.cash.out.seller.CashSellerRepository;
 import com.bukang.common.global.json.JsonConverter;
 import com.bukang.common.shared.kafka.KafkaTopics;
 import com.bukang.common.shared.member.event.MemberJoinedEvent;
