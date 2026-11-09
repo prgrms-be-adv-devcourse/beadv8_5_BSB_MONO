@@ -36,6 +36,8 @@ export function useNotifications() {
         // 날짜를 읽을 수 없는 알림은 시각을 보여 줄 수 없고 순서도 정할 수 없어 뺀다
         return notices.filter((n) => !Number.isNaN(Date.parse(n.sentAt)))
       } catch (error) {
+        // shortcut: 알림 API가 백엔드에 아직 없어 404를 「알림 없음」으로 본다.
+        // 알림 API가 생기면 이 분기를 지운다. 남겨 두면 경로 · 라우팅이 빠진 404도 알림 없음으로 숨는다.
         if (error instanceof ApiError && error.status === 404) return []
         throw error
       }

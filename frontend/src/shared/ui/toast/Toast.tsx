@@ -39,12 +39,16 @@ function ToastList() {
       toast={toast}
       className="transition-opacity duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0"
     >
-      {/* 피그마 v2/Toast: 반전 바탕(bg-inverse) 카드, 행동 글자는 on-hero-accent */}
+      {/* 피그마 v2/Toast: 반전 바탕(bg-inverse) 카드, 행동 글자는 on-hero-accent.
+          다크 모드는 바탕이 밝아져 라임 글자가 잘 안 보이므로 반전 글자색을 쓴다 */}
       <Toast.Content className="flex items-center gap-3 rounded-md bg-bg-inverse px-4 py-3 shadow-md">
         <Toast.Title className="min-w-0 flex-1 text-body-s text-text-inverse" />
         {toast.actionProps && (
           <Toast.Action
-            className={cn('shrink-0 rounded-sm text-label-m text-text-on-hero-accent', FOCUS_RING)}
+            className={cn(
+              'shrink-0 rounded-sm text-label-m text-text-on-hero-accent dark:text-text-inverse',
+              FOCUS_RING,
+            )}
           />
         )}
       </Toast.Content>
