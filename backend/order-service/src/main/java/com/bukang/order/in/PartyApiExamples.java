@@ -133,7 +133,7 @@ final class PartyApiExamples {
 			"status": 200,
 			"message": "이 대회 내 파티 상태를 조회했습니다.",
 			"data": { "role": "LEADER", "canApply": true, "partyId": 1, "raceCourseId": 2, "partyStatus": "RECRUITING",
-				"memberCount": 4, "minCount": 4, "maxCount": 10, "paidCount": 0, "myPaid": false,
+				"memberCount": 4, "minCount": 4, "maxCount": null, "paidCount": 0, "myPaid": false,
 				"participationId": 10 }
 		}
 		""";
@@ -143,7 +143,7 @@ final class PartyApiExamples {
 			"status": 200,
 			"message": "이 대회 내 파티 상태를 조회했습니다.",
 			"data": { "role": "LEADER", "canApply": false, "reason": "TOO_FEW_MEMBERS", "partyId": 1, "raceCourseId": 2,
-				"partyStatus": "RECRUITING", "memberCount": 2, "minCount": 4, "maxCount": 10, "paidCount": 0,
+				"partyStatus": "RECRUITING", "memberCount": 2, "minCount": 4, "maxCount": null, "paidCount": 0,
 				"myPaid": false, "participationId": 10 }
 		}
 		""";
@@ -153,7 +153,7 @@ final class PartyApiExamples {
 			"status": 200,
 			"message": "이 대회 내 파티 상태를 조회했습니다.",
 			"data": { "role": "MEMBER", "canApply": false, "reason": "NOT_LEADER", "partyId": 1, "raceCourseId": 2,
-				"partyStatus": "RECRUITING", "memberCount": 3, "minCount": 4, "maxCount": 10, "paidCount": 0,
+				"partyStatus": "RECRUITING", "memberCount": 3, "minCount": 4, "maxCount": null, "paidCount": 0,
 				"myPaid": false, "participationId": 10 }
 		}
 		""";
@@ -163,7 +163,7 @@ final class PartyApiExamples {
 			"status": 200,
 			"message": "이 대회 내 파티 상태를 조회했습니다.",
 			"data": { "role": "MEMBER", "canApply": false, "reason": "NOT_LEADER", "partyId": 1, "raceCourseId": 2,
-				"partyStatus": "PAYING", "memberCount": 4, "minCount": 4, "maxCount": 10, "paidCount": 1,
+				"partyStatus": "PAYING", "memberCount": 4, "minCount": 4, "maxCount": null, "paidCount": 1,
 				"paymentDueAt": "2026-11-07T10:00:00", "myPaid": false, "participationId": 10 }
 		}
 		""";
@@ -245,6 +245,12 @@ final class PartyApiExamples {
 			"data": { "partyId": 1, "partyStatus": "PAYING" } }
 		""";
 
+	static final String CREW_HOLD_IN_PROGRESS = """
+		{ "status": 409, "code": "ORDER_PARTY_CREW_HOLD_IN_PROGRESS",
+			"message": "파티장이 신청하는 중이라 파티원을 바꿀 수 없습니다. 파티장이 다시 신청하면 풀립니다.",
+			"data": { "partyId": 1, "partyStatus": "RECRUITING" } }
+		""";
+
 	static final String LINK_EXPIRED = """
 		{ "status": 409, "code": "ORDER_PARTY_LINK_EXPIRED",
 			"message": "참가 링크가 만료됐습니다. 파티장에게 새 링크를 받아주세요.", "data": null }
@@ -308,12 +314,12 @@ final class PartyApiExamples {
 		""";
 
 	static final String QUEUE_NOT_ADMITTED = """
-		{ "status": 403, "code": "ORDER_QUEUE_NOT_ADMITTED", "message": "대기열에서 입장한 뒤 파티를 신청할 수 있습니다.",
+		{ "status": 403, "code": "ORDER_QUEUE_NOT_ADMITTED", "message": "파티 대기열에서 입장한 뒤 파티를 신청할 수 있습니다.",
 			"data": null }
 		""";
 
 	static final String FULL = """
-		{ "status": 409, "code": "ORDER_PARTY_FULL", "message": "파티 인원이 다 찼습니다(최대 10명).",
+		{ "status": 409, "code": "ORDER_PARTY_FULL", "message": "파티 인원이 다 찼습니다(최대 6명).",
 			"data": { "partyId": 1 } }
 		""";
 
@@ -330,7 +336,7 @@ final class PartyApiExamples {
 
 	static final String SIZE_OUT_OF_RANGE = """
 		{ "status": 409, "code": "ORDER_PARTY_SIZE_OUT_OF_RANGE",
-			"message": "파티 인원이 4~10명이어야 신청할 수 있습니다(지금 3명).", "data": { "partyId": 1 } }
+			"message": "파티 인원이 4~6명이어야 신청할 수 있습니다(지금 3명).", "data": { "partyId": 1 } }
 		""";
 
 	static final String MEMBER_NOT_CREW = """
@@ -352,6 +358,16 @@ final class PartyApiExamples {
 		{ "status": 409, "code": "ORDER_PARTY_CREW_SEAT_SHORTAGE",
 			"message": "남은 크루 자리가 3석 모자랍니다(필요 4석, 남은 1석).",
 			"data": { "partyId": 1, "raceCourseId": 2, "needed": 4, "remaining": 1 } }
+		""";
+
+	// 상품이 크루 자리 확보를 409로 거절 (크루 예매 기간 아님·판매 중지, 다른 자리 목록으로 이미 잡은 파티). message는 상품 문구 그대로
+	static final String CREW_HOLD_REJECTED = """
+		{ "status": 409, "code": "ORDER_PARTICIPATION_NOT_PAYABLE", "message": "크루 예매 기간이 아닙니다.", "data": null }
+		""";
+
+	static final String QUEUE_SERVICE_UNAVAILABLE = """
+		{ "status": 503, "code": "ORDER_EXTERNAL_SERVICE_UNAVAILABLE",
+			"message": "대기열에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요.", "data": null }
 		""";
 
 	static final String PARTY_APPLY_UNAVAILABLE = """

@@ -332,8 +332,14 @@ class ApiV1PartyPaymentTest {
 	@Test
 	@DisplayName("신청 때 기한이 3시간 안이면 마감 알림을 따로 보내지 않는다")
 	void noRemindForShortWindow() throws Exception {
-		raceCoursePort.put(StubRaceCoursePort.withCrewSale(StubRaceCoursePort.openCourse(courseId, RACE_ID, 14, null),
-			LocalDateTime.now().minusDays(1), LocalDateTime.now().plusHours(2), 4, 10));
+		// 결제 기한 = 접수 마감(2시간 뒤). 크루 마감일 자정은 시각에 따라 3시간보다 멀 수 있어 접수 마감으로 자른다
+		RaceCourseInfo open = StubRaceCoursePort.openCourse(courseId, RACE_ID, 14, null);
+		LocalDateTime closeAt = LocalDateTime.now().plusHours(2);
+		raceCoursePort.put(new RaceCourseInfo(open.raceCourseId(), open.raceId(), open.raceDate(),
+			open.applicationOpenAt(), closeAt, open.minAge(), open.maxAge(), open.sellerId(), open.courseName(),
+			open.price(), open.kitIncluded(), open.refundDeadline(), open.scheduleChangedAt(), false,
+			open.tshirtSizeOption(), new RaceCourseInfo.CrewSale(LocalDateTime.now().minusDays(1),
+			closeAt.minusMinutes(30), 4, 10)));
 		long partyId = appliedParty();
 		clearInvocations(notificationSender);
 

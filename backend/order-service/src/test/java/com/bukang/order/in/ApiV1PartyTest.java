@@ -378,7 +378,7 @@ class ApiV1PartyTest {
 			.andExpect(jsonPath("$.data.partyStatus").value("RECRUITING"))
 			.andExpect(jsonPath("$.data.memberCount").value(2))
 			.andExpect(jsonPath("$.data.minCount").value(4))
-			.andExpect(jsonPath("$.data.maxCount").value(10))
+			.andExpect(jsonPath("$.data.maxCount").doesNotExist())
 			.andExpect(jsonPath("$.data.paidCount").value(0))
 			.andExpect(jsonPath("$.data.myPaid").value(false));
 		raceStatus(MEMBER, RACE_ID)

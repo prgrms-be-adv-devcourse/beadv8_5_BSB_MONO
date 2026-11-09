@@ -25,4 +25,11 @@ public interface QueueAdmissionPort {
 		LocalDateTime now) {
 		return findAdmissionEndsAt(memberId, raceId, raceCourseId, now);
 	}
+
+	/**
+	 * 파티장이 파티 대기열(#347)을 통과해 입장 중인지 묻는다. 파티 [대회 참가](PartyApplyUseCase)가 부른다 (BUK-93)
+	 * 파티 줄만 본다. 개인 대기열에 입장한 회원은 입장 중이 아니다. 답과 장애 처리는 findAdmissionEndsAt과 같다
+	 */
+	Optional<LocalDateTime> findPartyAdmissionEndsAt(long leaderMemberId, long raceId, long raceCourseId,
+		LocalDateTime now);
 }
