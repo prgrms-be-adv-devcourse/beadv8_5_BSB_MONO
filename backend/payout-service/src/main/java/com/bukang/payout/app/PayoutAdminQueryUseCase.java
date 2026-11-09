@@ -31,10 +31,14 @@ public class PayoutAdminQueryUseCase {
 		PayoutQueryPeriod.checkFailureDays(from, to);
 		PayoutItemPaging.check(page, size);
 		return new PayoutCreateFailuresDto(
-			payoutCreateFailureRepository.countByFailureTypeAndRunDateBetween(PayoutCreateFailureType.대사_불일치, from, to),
+			count(PayoutCreateFailureType.대사_불일치, from, to),
 			payoutCreateFailureRepository.countAutoFilled(from, to),
-			payoutCreateFailureRepository.countByFailureTypeAndRunDateBetween(PayoutCreateFailureType.주문_조회_실패, from, to),
+			count(PayoutCreateFailureType.주문_조회_실패, from, to),
 			PageDto.from(payoutCreateFailureRepository.findAdminRecords(from, to, type, PageRequest.of(page, size)),
 				PayoutCreateFailureDto::from));
+	}
+
+	private long count(PayoutCreateFailureType type, LocalDate from, LocalDate to) {
+		return payoutCreateFailureRepository.countByFailureTypeAndRunDateBetween(type, from, to);
 	}
 }

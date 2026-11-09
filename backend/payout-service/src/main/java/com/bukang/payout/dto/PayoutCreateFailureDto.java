@@ -28,6 +28,11 @@ public class PayoutCreateFailureDto {
 	private final PayoutCreateFailureType failureType;
 	private final PayoutCreateFailureAction actionTaken;
 	private final String note;
+	// 최종 정산 대사의 판매 장수 · 정산 장수. 1차와 다른 실패는 null
+	private final Integer soldCount;
+	private final Integer settledCount;
+	// 이 어긋남으로 걸린 지급보류 ID(HD-). 여럿이면 쉼표로 잇는다
+	private final String holdCode;
 
 	public static PayoutCreateFailureDto from(PayoutCreateFailure failure) {
 		return new PayoutCreateFailureDto(
@@ -41,7 +46,10 @@ public class PayoutCreateFailureDto {
 			failure.getPayoutTargetDate(),
 			failure.getFailureType(),
 			failure.getActionTaken(),
-			failure.getNote()
+			failure.getNote(),
+			failure.getSoldCount(),
+			failure.getSettledCount(),
+			failure.getHoldCode()
 		);
 	}
 }

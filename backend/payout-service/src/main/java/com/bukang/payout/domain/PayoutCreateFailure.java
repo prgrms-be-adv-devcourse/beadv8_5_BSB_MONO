@@ -57,6 +57,14 @@ public class PayoutCreateFailure extends BaseIdAndTime {
 	@Column(length = 10)
 	private PayoutCreateFailureAction actionTaken;
 
+	// 최종 정산 대사가 비교한 판매 장수 · 정산 판매 줄 장수 (BUK-108 상세). 1차와 다른 실패는 NULL
+	private Integer soldCount;
+
+	private Integer settledCount;
+
+	// 이 어긋남으로 걸려 있는 대사 불일치 지급보류 ID(HD-). 여럿이면 쉼표로 잇는다. 보류가 없으면 NULL
+	private String holdCode;
+
 	// 배치의 실행 기준일(today). 생성 시각과 달리 dev 배치 API로 다른 날을 돌려도 어느 날의 실행인지 남는다
 	@Column(nullable = false)
 	private LocalDate runDate;
@@ -109,10 +117,15 @@ public class PayoutCreateFailure extends BaseIdAndTime {
 	}
 
 	// 정산 대사가 판매자 × 대회의 어긋남을 찾았다 (BUK-67). 비고에는 장수 · 금액만 쓰고 참가권 ID는 로그에 남긴다
+	// 장수 · 보류 ID는 관리자 이상 감지 상세에 보인다 (BUK-108)
 	public static PayoutCreateFailure reconcileMismatch(PayoutStage stage, long sellerId, long raceId,
 		Long raceCourseId, LocalDate payoutTargetDate, String note, PayoutCreateFailureAction actionTaken,
-		LocalDate runDate) {
-		return new PayoutCreateFailure(stage, sellerId, raceId, raceCourseId, payoutTargetDate,
+		Integer soldCount, Integer settledCount, String holdCode, LocalDate runDate) {
+		PayoutCreateFailure failure = new PayoutCreateFailure(stage, sellerId, raceId, raceCourseId, payoutTargetDate,
 			PayoutCreateFailureType.대사_불일치, note, actionTaken, runDate);
+		failure.soldCount = soldCount;
+		failure.settledCount = settledCount;
+		failure.holdCode = holdCode;
+		return failure;
 	}
 }

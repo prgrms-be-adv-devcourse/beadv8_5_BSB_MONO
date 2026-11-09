@@ -25,7 +25,10 @@ final class PayoutAdminApiExamples {
 							"payoutTargetDate": "2026-11-05",
 							"failureType": "대사_불일치",
 							"actionTaken": "지급보류",
-							"note": "더 들어감 2장 (코스 4: 2장)"
+							"note": "더 들어감 2장 (코스 4: 2장)",
+							"soldCount": 310,
+							"settledCount": 312,
+							"holdCode": "HD-20261106-0D44"
 						}
 					],
 					"page": 0,

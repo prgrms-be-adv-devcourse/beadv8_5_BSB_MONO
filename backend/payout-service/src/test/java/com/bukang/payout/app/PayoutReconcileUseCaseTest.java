@@ -196,6 +196,10 @@ class PayoutReconcileUseCaseTest {
 		assertThat(mismatches()).extracting(PayoutCreateFailure::getNote)
 			.containsExactly("판매 합 = 70,000, 정산 합 = 90,000");
 		assertThat(actions()).containsExactly(PayoutCreateFailureAction.지급보류);
+		// 1차는 장수를 줄마다 남기지 않아 장수 칸은 비우고, 건 보류의 ID를 적는다
+		assertThat(mismatches()).extracting(PayoutCreateFailure::getSoldCount, PayoutCreateFailure::getSettledCount,
+				PayoutCreateFailure::getHoldCode)
+			.containsExactly(tuple(null, null, reconcileHoldsOf(payout).getFirst().getHoldCode()));
 		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.지급보류);
 		assertThat(reconcileHoldsOf(payout)).hasSize(1);
 	}
@@ -225,6 +229,10 @@ class PayoutReconcileUseCaseTest {
 				PayoutCreateFailure::getPayoutTargetDate, PayoutCreateFailure::getNote)
 			.containsExactly(tuple(PayoutStage.최종_정산, 2L, 20L, COURSE_A, YESTERDAY, "빠진 1장 추가 (코스 3: 1장)"));
 		assertThat(actions()).containsExactly(PayoutCreateFailureAction.자동_보정);
+		// 장수는 채우기 전에 비교한 값이다 (판매 5장 · 정산 4장)
+		assertThat(mismatches()).extracting(PayoutCreateFailure::getSoldCount, PayoutCreateFailure::getSettledCount,
+				PayoutCreateFailure::getHoldCode)
+			.containsExactly(tuple(5, 4, null));
 		assertThat(payout.getItems())
 			.filteredOn(item -> Long.valueOf(103).equals(item.getOrderItemId()))
 			.extracting(PayoutItem::getRecordType, PayoutItem::getAmount)
@@ -255,6 +263,9 @@ class PayoutReconcileUseCaseTest {
 		assertThat(mismatches()).extracting(PayoutCreateFailure::getNote)
 			.containsExactly("더 들어감 1장 (코스 3: 1장)");
 		assertThat(actions()).containsExactly(PayoutCreateFailureAction.지급보류);
+		assertThat(mismatches()).extracting(PayoutCreateFailure::getSoldCount, PayoutCreateFailure::getSettledCount,
+				PayoutCreateFailure::getHoldCode)
+			.containsExactly(tuple(5, 6, reconcileHoldsOf(payout).getFirst().getHoldCode()));
 		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.지급보류);
 		assertThat(reconcileHoldsOf(payout)).hasSize(1);
 	}
@@ -328,6 +339,7 @@ class PayoutReconcileUseCaseTest {
 		useCase(List.of(), soldFiveOfSeller2()).run(TODAY, NOW);
 
 		assertThat(actions()).containsExactly(PayoutCreateFailureAction.기록만);
+		assertThat(mismatches()).extracting(PayoutCreateFailure::getHoldCode).containsExactly((String)null);
 		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.지급_완료);
 		assertThat(reconcileHoldsOf(payout)).isEmpty();
 	}

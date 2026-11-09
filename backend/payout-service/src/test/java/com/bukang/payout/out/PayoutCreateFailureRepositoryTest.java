@@ -77,12 +77,12 @@ class PayoutCreateFailureRepositoryTest {
 	private void saveThreeDays() {
 		payoutCreateFailureRepository.save(PayoutCreateFailure.reconcileMismatch(PayoutStage.최종_정산, 1, 10, null,
 			LocalDate.of(2026, 11, 4), "빠진 3장 추가 (코스 3: 3장)", PayoutCreateFailureAction.자동_보정,
-			LocalDate.of(2026, 11, 5)));
+			null, null, null, LocalDate.of(2026, 11, 5)));
 		payoutCreateFailureRepository.save(PayoutCreateFailure.orderLookup(PayoutStage.일차_정산, 20,
 			LocalDate.of(2026, 11, 5), LocalDate.of(2026, 11, 6)));
 		payoutCreateFailureRepository.save(PayoutCreateFailure.reconcileMismatch(PayoutStage.최종_정산, 2, 30, 4L,
 			LocalDate.of(2026, 11, 6), "더 들어감 2장 (코스 4: 2장)", PayoutCreateFailureAction.지급보류,
-			LocalDate.of(2026, 11, 7)));
+			null, null, null, LocalDate.of(2026, 11, 7)));
 	}
 
 	@Test

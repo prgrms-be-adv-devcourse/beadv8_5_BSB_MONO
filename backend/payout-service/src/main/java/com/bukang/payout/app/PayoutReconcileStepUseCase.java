@@ -13,6 +13,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
@@ -90,12 +91,13 @@ public class PayoutReconcileStepUseCase {
 			if (settled > sold) {
 				payouts.forEach(payout -> payoutHoldUseCase.holdForReconcileMismatch(payout, now));
 			}
-			PayoutCreateFailureAction action = heldForMismatch(payouts)
+			String holdCode = reconcileHoldCodes(payouts);
+			PayoutCreateFailureAction action = holdCode != null
 				? PayoutCreateFailureAction.지급보류 : PayoutCreateFailureAction.기록만;
 			String note = "판매 합 = %,d, 정산 합 = %,d".formatted(sold, settled);
 			log.warn("대사_불일치 stage=일차_정산, sellerId={}, raceId={}, {}", sellerId, race.raceId(), note);
 			mismatches.add(PayoutCreateFailure.reconcileMismatch(PayoutStage.일차_정산, sellerId, race.raceId(), null,
-				race.refundDeadline(), note, action, today));
+				race.refundDeadline(), note, action, null, null, holdCode, today));
 		}
 		return mismatches;
 	}
@@ -151,7 +153,8 @@ public class PayoutReconcileStepUseCase {
 				.distinct()
 				.toList();
 			extraPayouts.forEach(payout -> payoutHoldUseCase.holdForReconcileMismatch(payout, now));
-			PayoutCreateFailureAction action = heldForMismatch(extraPayouts) ? PayoutCreateFailureAction.지급보류
+			String holdCode = reconcileHoldCodes(extraPayouts);
+			PayoutCreateFailureAction action = holdCode != null ? PayoutCreateFailureAction.지급보류
 				: added ? PayoutCreateFailureAction.자동_보정 : PayoutCreateFailureAction.기록만;
 
 			LongFunction<Long> soldCourse = id -> soldById.get(id).raceCourseId();
@@ -172,7 +175,8 @@ public class PayoutReconcileStepUseCase {
 			log.warn("대사_불일치 stage=최종_정산, sellerId={}, raceId={}, 빠짐 orderItemId={}, 더 들어감 orderItemId={}, "
 				+ "가격 다름 orderItemId={}", sellerId, race.raceId(), diff.missing(), diff.extra(), priceDiffers);
 			mismatches.add(PayoutCreateFailure.reconcileMismatch(PayoutStage.최종_정산, sellerId, race.raceId(),
-				courses.size() == 1 ? courses.iterator().next() : null, race.raceDate(), truncate(note), action, today));
+				courses.size() == 1 ? courses.iterator().next() : null, race.raceDate(), truncate(note), action,
+				soldById.size(), saleById.size(), holdCode, today));
 		}
 		return mismatches;
 	}
@@ -184,9 +188,14 @@ public class PayoutReconcileStepUseCase {
 			.collect(groupingBy(Payout::getSellerId));
 	}
 
-	// 지급 완료라 보류하지 못했으면 기록만이다. 어제 이미 같은 사유로 보류해 둔 정산 내역도 지급보류로 본다
-	private static boolean heldForMismatch(List<Payout> payouts) {
-		return payouts.stream().anyMatch(payout -> payout.isHeldFor(PayoutHoldReason.대사_불일치));
+	// 걸려 있는 대사 불일치 보류의 ID를 쉼표로 잇는다. 없으면(지급 완료라 보류하지 못함) null이라 조치는 기록만이다
+	// 어제 이미 같은 사유로 보류해 둔 정산 내역도 그 보류 ID로 지급보류로 본다
+	private static String reconcileHoldCodes(List<Payout> payouts) {
+		String codes = payouts.stream()
+			.map(payout -> payout.activeHoldCode(PayoutHoldReason.대사_불일치))
+			.flatMap(Optional::stream)
+			.collect(Collectors.joining(", "));
+		return codes.isEmpty() ? null : truncate(codes);
 	}
 
 	// 판매에만 있는 판매자(빠짐)와 정산에만 있는 판매자(더 들어감)를 모두 본다

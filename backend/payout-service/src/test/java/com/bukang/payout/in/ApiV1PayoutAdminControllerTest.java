@@ -85,13 +85,15 @@ class ApiV1PayoutAdminControllerTest {
 		LocalDate runDate = LocalDate.of(2026, 11, 6);
 		payoutCreateFailureRepository.save(PayoutCreateFailure.reconcileMismatch(PayoutStage.최종_정산, 1, 10, null,
 			LocalDate.of(2026, 11, 5), "빠진 3장 추가 (코스 3: 3장)", PayoutCreateFailureAction.자동_보정,
-			LocalDate.of(2026, 11, 5)));
+			null, null, null, LocalDate.of(2026, 11, 5)));
 		payoutCreateFailureRepository.save(PayoutCreateFailure.orderLookup(PayoutStage.일차_정산, 30,
 			LocalDate.of(2026, 11, 5), runDate));
 		payoutCreateFailureRepository.save(PayoutCreateFailure.reconcileMismatch(PayoutStage.최종_정산, 2, 20, 3L,
-			LocalDate.of(2026, 11, 5), "빠진 3장 추가 (코스 3: 3장)", PayoutCreateFailureAction.자동_보정, runDate));
+			LocalDate.of(2026, 11, 5), "빠진 3장 추가 (코스 3: 3장)", PayoutCreateFailureAction.자동_보정, null, null, null,
+			runDate));
 		payoutCreateFailureRepository.save(PayoutCreateFailure.reconcileMismatch(PayoutStage.최종_정산, 1, 10, 4L,
-			LocalDate.of(2026, 11, 5), "더 들어감 2장 (코스 4: 2장)", PayoutCreateFailureAction.지급보류, runDate));
+			LocalDate.of(2026, 11, 5), "더 들어감 2장 (코스 4: 2장)", PayoutCreateFailureAction.지급보류, 310, 312,
+			"HD-20261106-0D44", runDate));
 	}
 
 	private ResultActions query(long memberId, String from, String to, String type) throws Exception {
@@ -123,6 +125,9 @@ class ApiV1PayoutAdminControllerTest {
 			.andExpect(jsonPath("$.data.records.content[0].sellerId").value(1))
 			.andExpect(jsonPath("$.data.records.content[0].raceId").value(10))
 			.andExpect(jsonPath("$.data.records.content[0].payoutStage").value("최종_정산"))
+			.andExpect(jsonPath("$.data.records.content[0].soldCount").value(310))
+			.andExpect(jsonPath("$.data.records.content[0].settledCount").value(312))
+			.andExpect(jsonPath("$.data.records.content[0].holdCode").value("HD-20261106-0D44"))
 			.andExpect(jsonPath("$.data.records.content[2].failureType").value("주문_조회_실패"))
 			.andExpect(jsonPath("$.data.records.content[2].actionTaken").value("기록만"))
 			.andDo(document("payout-admin-create-failures",
@@ -159,6 +164,14 @@ class ApiV1PayoutAdminControllerTest {
 						.optional().type(JsonFieldType.STRING),
 					fieldWithPath("data.records.content[].note").description("비고 (차이 내용)")
 						.optional().type(JsonFieldType.STRING),
+					fieldWithPath("data.records.content[].soldCount")
+						.description("최종 정산 대사가 비교한 판매 장수. 1차와 다른 실패는 null").optional().type(JsonFieldType.NUMBER),
+					fieldWithPath("data.records.content[].settledCount")
+						.description("최종 정산 대사가 비교한 정산 판매 줄 장수. 1차와 다른 실패는 null").optional()
+						.type(JsonFieldType.NUMBER),
+					fieldWithPath("data.records.content[].holdCode")
+						.description("이 어긋남으로 걸린 지급보류 ID (HD-, 여럿이면 쉼표). 보류가 없으면 null").optional()
+						.type(JsonFieldType.STRING),
 					fieldWithPath("data.records.page").description("페이지 번호 (0부터)"),
 					fieldWithPath("data.records.size").description("페이지 크기"),
 					fieldWithPath("data.records.totalElements").description("전체 기록 수"),
