@@ -205,7 +205,8 @@ public class CrewFacade {
 		if (crewMemberRepository.existsByCrewIdAndMemberId(crew.getId(), memberId)) {
 			throw new CrewAlreadyMemberException();
 		}
-		// 내보내기도 크루 행을 잠그므로, 내보내기와 동시에 와도 내보낸 기록을 놓치지 않는다
+		// 내보내기와 동시에 와도 다시 가입되지 않는다. 내보내기가 크루 락을 먼저 잡고 커밋하면,
+		// 가입은 크루 락 전에 만든 MySQL 스냅숏으로 위 크루원 확인을 하므로 아직 크루원으로 보고 409로 막힌다
 		throwIfRemovedAfterInvite(invite, memberId);
 
 		LocalDateTime now = now();
@@ -296,6 +297,7 @@ public class CrewFacade {
 		// 상태를 먼저 바꾼다. 아래 일괄 삭제가 바뀐 내용을 반영(flush)한 뒤 영속성 컨텍스트를 비운다
 		crew.disband(now());
 		crewInviteRepository.deleteAllByCrewId(crewId);
+		crewRemovalRepository.deleteAllByCrewId(crewId);
 		// 위에서 크루장 혼자인 것을 확인했으므로 빠진 사람은 크루장 한 명이다. 아니면 이벤트가 모자라므로 롤백한다
 		if (crewMemberRepository.deleteAllByCrewId(crewId) != 1) {
 			throw new IllegalStateException("크루를 없앨 때 크루장 말고 다른 크루원 행이 있습니다. crewId=" + crewId);
