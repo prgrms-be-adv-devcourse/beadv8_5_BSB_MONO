@@ -1,6 +1,7 @@
 package com.bukang.order.out.kit;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpStatus;
@@ -19,7 +20,8 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * 상품 서비스(B)의 키트 옵션 목록을 묻는다 (GET /api/v1/product/races/{raceId}/kit-options, 호빈님 #359)
  * 내부 경로가 없어 공개 경로를 게이트웨이를 거치지 않고 상품 서비스 주소(order.clients.product.base-url)로 바로 부른다.
- * 회원 ID 헤더 없이 부르므로 취소된 대회는 404로 온다 → 옵션 없음으로 본다 (취소된 대회는 결제가 다른 확인에서 막힌다)
+ * 옵션이 없는 대회는 빈 목록으로 온다. 회원 ID 헤더 없이 부르므로 취소된 대회는 404로 오고, 이때는 빈 값을 돌려
+ * 부르는 쪽이 취소인지 계약 어긋남인지 가린다 (KitOptionPort)
  * 응답이 없거나 형식이 다르면 판정할 수 없으므로 503으로 다시 시도하게 한다
  * 등록은 ProductClientConfig가 한다 (order.clients.product.mode=http)
  */
@@ -35,7 +37,7 @@ public class HttpKitOptionAdapter implements KitOptionPort {
 	private final RestClient restClient;
 
 	@Override
-	public List<KitOption> findKitOptions(long raceId) {
+	public Optional<List<KitOption>> findKitOptions(long raceId) {
 		RsData<Body> response;
 		try {
 			response = restClient.get()
@@ -44,10 +46,7 @@ public class HttpKitOptionAdapter implements KitOptionPort {
 				.body(RESPONSE_TYPE);
 		} catch (HttpClientErrorException exception) {
 			if (exception.getStatusCode().isSameCodeAs(HttpStatus.NOT_FOUND)) {
-				// 종목은 있는 대회라 404는 취소된 대회이거나 경로 계약이 어긋난 것이다. 후자를 알아챌 수 있게 남긴다
-				log.warn("상품 서비스가 키트 옵션 목록에 404를 줘 옵션 없음으로 봅니다. raceId={}, body={}", raceId,
-					InternalHttpClients.abbreviate(exception.getResponseBodyAsString()));
-				return List.of();
+				return Optional.empty();
 			}
 			log.error("상품 서비스가 키트 옵션 요청을 거절했습니다. 계약(경로)을 확인해야 합니다. status={}, raceId={}, body={}",
 				exception.getStatusCode(), raceId, InternalHttpClients.abbreviate(exception.getResponseBodyAsString()));
@@ -61,10 +60,10 @@ public class HttpKitOptionAdapter implements KitOptionPort {
 			log.error("상품 서비스의 키트 옵션 응답 형식이 계약과 다릅니다. raceId={}, response={}", raceId, response);
 			throw new ExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
 		}
-		return body.kitOptions().stream()
+		return Optional.of(body.kitOptions().stream()
 			.flatMap(group -> group.values().stream()
 				.map(value -> new KitOption(value.kitOptionId(), group.name(), value.value(), value.stock())))
-			.toList();
+			.toList());
 	}
 
 	// 상품 KitOptionListResponseDto. 옵션 이름마다 값 목록으로 묶여 온다

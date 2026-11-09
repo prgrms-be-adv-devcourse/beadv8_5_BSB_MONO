@@ -123,8 +123,10 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
 	Optional<Long> findOrderIdByItemId(@Param("orderItemId") long orderItemId);
 
 	// 결제 전 확인용 (잠그지 않고, 엔티티를 영속성 컨텍스트에 올리지 않으려고 값만 읽는다)
-	@Query("select i.participationId as participationId, o.buyerId as buyerId, o.status as status"
-		+ " from OrderItem i join i.order o where o.id = :orderId order by i.id")
+	@Query("select i.participationId as participationId, o.buyerId as buyerId, o.status as status,"
+		+ " i.raceId as raceId, i.raceCourseId as raceCourseId, p.partyId as partyId"
+		+ " from OrderItem i join i.order o join Participation p on p.id = i.participationId"
+		+ " where o.id = :orderId order by i.id")
 	List<PayTarget> findPayTargets(@Param("orderId") long orderId);
 
 	interface PayTarget {
@@ -133,6 +135,13 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
 		long getBuyerId();
 
 		com.bukang.order.domain.OrderStatus getStatus();
+
+		long getRaceId();
+
+		long getRaceCourseId();
+
+		// 파티원 신청서면 파티 ID, 개인 신청이면 null
+		Long getPartyId();
 	}
 
 	// 이 대회에 다른 판매자의 주문 상품이 있는지 (판매자 키트 옵션 판매 현황의 본인 대회 확인)

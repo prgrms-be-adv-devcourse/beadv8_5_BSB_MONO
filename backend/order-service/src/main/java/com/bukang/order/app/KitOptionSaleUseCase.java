@@ -58,17 +58,18 @@ public class KitOptionSaleUseCase {
 	}
 
 	/**
-	 * 고른 옵션을 확인하고, 처음 팔리는 옵션이면 판매 수 줄을 만든다. 주문을 잠그기 전에(트랜잭션 밖에서) 부른다
+	 * 대회 옵션 목록(raceOptions)으로 고른 옵션을 확인하고, 처음 팔리는 옵션이면 판매 수 줄을 만든다
+	 * 주문을 잠그기 전에(트랜잭션 밖에서) 부른다
 	 * 상품 HTTP와 줄 만들기가 잠금·DB 연결을 쥔 채 일어나지 않게 한다 (pending 48). 고른 옵션을 돌려준다(옵션 ID 오름차순)
 	 * 규칙: 모든 종목에 키트가 있다(11/09). 대회에 옵션이 있으면 옵션 이름마다 정확히 하나씩 고른다(추천값(미확정)).
 	 * 옵션이 하나도 없는 대회는 옵션 ID를 받지 않는다(오면 400)
 	 */
-	public List<KitOption> choose(long raceId, Collection<Long> kitOptionIds) {
+	public List<KitOption> choose(long raceId, List<KitOption> raceOptions, Collection<Long> kitOptionIds) {
 		Set<Long> ids = kitOptionIds == null ? Set.of() : new TreeSet<>(kitOptionIds);
 		if (kitOptionIds != null && ids.size() != kitOptionIds.size()) {
 			throw new KitOptionInvalidException("같은 키트 옵션을 두 번 골랐습니다.");
 		}
-		List<KitOption> chosen = choose(kitOptionPort.findKitOptions(raceId), ids);
+		List<KitOption> chosen = choose(raceOptions, ids);
 		chosen.forEach(option -> createSaleRowIfAbsent(option.kitOptionId(), raceId));
 		return chosen;
 	}
@@ -171,7 +172,8 @@ public class KitOptionSaleUseCase {
 		}
 		Map<Long, Integer> soldById = kitOptionSaleRepository.findByRaceId(raceId).stream()
 			.collect(Collectors.toMap(KitOptionSale::getId, KitOptionSale::getSold));
-		return kitOptionPort.findKitOptions(raceId).stream()
+		// 상품이 대회를 찾지 못하면(취소된 대회 등) 판매 현황도 빈 목록이다
+		return kitOptionPort.findKitOptions(raceId).orElse(List.of()).stream()
 			.map(option -> SellerKitOptionSaleDto.of(option.kitOptionId(), option.name(), option.value(),
 				option.stock(), soldById.getOrDefault(option.kitOptionId(), 0)))
 			.toList();

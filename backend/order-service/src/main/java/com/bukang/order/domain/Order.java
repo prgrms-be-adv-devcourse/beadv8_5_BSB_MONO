@@ -142,6 +142,14 @@ public class Order extends BaseIdAndTime {
 
 	// 결제할 수 있는지: 결제 대기 중이고 결제 기한(사본) 전이어야 한다. 최종 판정은 상품 서비스의 자리 판매가 한다
 	public void checkPayable(LocalDateTime now) {
+		checkPayableStatus(status);
+		if (!now.isBefore(paymentDueAt)) {
+			throw OrderNotPayableException.deadlinePassed("결제 기한이 지났습니다.");
+		}
+	}
+
+	// 결제 대기(CREATED)인지. 결제 전 잠그지 않은 확인(OrderPayUseCase)도 같은 응답을 주려고 상태만 받는다
+	public static void checkPayableStatus(OrderStatus status) {
 		// 만료 정리(1분마다)가 먼저 돌아 EXPIRED가 됐어도 회원에게는 같은 "기한 지남"으로 알린다
 		if (status == OrderStatus.EXPIRED) {
 			throw OrderNotPayableException.deadlinePassed("결제 기한이 지났습니다.");
@@ -149,9 +157,6 @@ public class Order extends BaseIdAndTime {
 		if (status != OrderStatus.CREATED) {
 			throw new OrderNotPayableException(
 				"결제할 수 없는 주문입니다(현재 상태: %s).".formatted(status.getLabel()));
-		}
-		if (!now.isBefore(paymentDueAt)) {
-			throw OrderNotPayableException.deadlinePassed("결제 기한이 지났습니다.");
 		}
 	}
 

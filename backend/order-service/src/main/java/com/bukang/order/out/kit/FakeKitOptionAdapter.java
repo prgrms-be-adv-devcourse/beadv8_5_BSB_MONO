@@ -1,6 +1,7 @@
 package com.bukang.order.out.kit;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
@@ -14,7 +15,7 @@ import org.springframework.stereotype.Component;
 @ConditionalOnProperty(prefix = "order.clients.product", name = "mode", havingValue = "fake", matchIfMissing = true)
 public class FakeKitOptionAdapter implements KitOptionPort {
 	@Override
-	public List<KitOption> findKitOptions(long raceId) {
-		return List.of();
+	public Optional<List<KitOption>> findKitOptions(long raceId) {
+		return Optional.of(List.of());
 	}
 }

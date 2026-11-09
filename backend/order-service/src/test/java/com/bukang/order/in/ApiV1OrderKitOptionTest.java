@@ -32,6 +32,7 @@ import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.order.app.OrderCancelUseCase;
+import com.bukang.order.app.OrderExpiryUseCase;
 import com.bukang.order.app.RaceCancelRefundUseCase;
 import com.bukang.order.domain.KitOptionSale;
 import com.bukang.order.domain.ParticipationKitOption;
@@ -42,6 +43,7 @@ import com.bukang.order.out.ParticipationKitOptionRepository;
 import com.bukang.order.out.ParticipationRepository;
 import com.bukang.order.out.QueueAdmissionRepository;
 import com.bukang.order.out.ShipmentRepository;
+import com.bukang.order.out.race.RaceCourseInfo;
 import com.bukang.order.support.QueueEntry;
 import com.bukang.order.support.StubKitOptionPort;
 import com.bukang.order.support.StubKitOptionPortConfig;
@@ -111,6 +113,9 @@ class ApiV1OrderKitOptionTest {
 
 	@Autowired
 	private OrderCancelUseCase orderCancelUseCase;
+
+	@Autowired
+	private OrderExpiryUseCase orderExpiryUseCase;
 
 	@Autowired
 	private RaceCancelRefundUseCase raceCancelRefundUseCase;
@@ -370,6 +375,61 @@ class ApiV1OrderKitOptionTest {
 				.header("X-Member-Id", SELLER_MEMBER_ID + 1))
 			.andExpect(status().isForbidden())
 			.andExpect(jsonPath("$.code").value("ORDER_SELLER_FORBIDDEN"));
+	}
+
+	@Test
+	@DisplayName("만료된 주문은 상품·옵션을 묻기 전에 409(기한 지남)이고, 빈 판매 수 줄도 만들지 않는다")
+	void expiredOrderRejectedBeforeOptions() throws Exception {
+		long orderId = orderAndGetId(1, COURSE_ID);
+		orderExpiryUseCase.expireOverdue(LocalDateTime.now().plusHours(1));
+
+		pay(1, orderId)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("ORDER_PAYMENT_DEADLINE_PASSED"));
+		pay(1, orderId, SHIRT_L, SOCKS_FREE)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("ORDER_PAYMENT_DEADLINE_PASSED"));
+
+		assertThat(kitOptionSaleRepository.count()).isZero();
+	}
+
+	@Test
+	@DisplayName("개인 결제는 종목을 묻지 않고 주문 상품의 대회 ID로 옵션만 묻는다")
+	void individualPayDoesNotAskCourse() throws Exception {
+		long orderId = orderAndGetId(1, COURSE_ID);
+		// 종목 조회가 불리면 404가 된다
+		raceCoursePort.clear();
+
+		pay(1, orderId, SHIRT_L, SOCKS_FREE).andExpect(status().isOk());
+	}
+
+	@Test
+	@DisplayName("상품이 취소되지 않은 대회의 옵션 목록에 404를 주면(경로·주소 어긋남) 옵션 없음으로 넘기지 않고 503이다")
+	void optionsNotFoundForOpenRace() throws Exception {
+		long orderId = orderAndGetId(1, COURSE_ID);
+		kitOptionPort.markNotFound(RACE_ID);
+
+		pay(1, orderId)
+			.andExpect(status().isServiceUnavailable())
+			.andExpect(jsonPath("$.code").value("ORDER_EXTERNAL_SERVICE_UNAVAILABLE"));
+		assertThat(walletPort.payCalls()).isEmpty();
+	}
+
+	@Test
+	@DisplayName("상품이 옵션 목록에 404를 주고 그 대회가 취소됐으면 409(대회 취소)다")
+	void optionsNotFoundForCanceledRace() throws Exception {
+		long orderId = orderAndGetId(1, COURSE_ID);
+		kitOptionPort.markNotFound(RACE_ID);
+		RaceCourseInfo open = StubRaceCoursePort.openCourse(COURSE_ID, RACE_ID, 14, null);
+		raceCoursePort.put(new RaceCourseInfo(open.raceCourseId(), open.raceId(), open.raceDate(),
+			open.applicationOpenAt(), open.applicationCloseAt(), open.minAge(), open.maxAge(), open.sellerId(),
+			open.courseName(), open.price(), open.kitIncluded(), open.refundDeadline(), null, true,
+			open.tshirtSizeOption()));
+
+		pay(1, orderId)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("ORDER_RACE_CANCELED"));
+		assertThat(walletPort.payCalls()).isEmpty();
 	}
 
 	private int sold(long kitOptionId) {
