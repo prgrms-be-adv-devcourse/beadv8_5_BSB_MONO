@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -18,6 +19,7 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizationRequestResolver;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestCustomizers;
+import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationExchange;
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
@@ -43,6 +45,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class SpringSocialOAuth2Client implements SocialOAuth2Client {
 	static final String FAILED_MESSAGE = "소셜 로그인에 실패했습니다.";
+	// 카카오 메시지 추가 동의용 등록. 키·콜백 주소는 카카오 로그인과 같고 범위만 다르다 (SocialLoginConfig)
+	public static final String KAKAO_MESSAGE_REGISTRATION_ID = "kakao-message";
 
 	private final Map<String, ClientRegistration> registrations;
 	private final DefaultOAuth2AuthorizationRequestResolver resolver;
@@ -71,7 +75,20 @@ public class SpringSocialOAuth2Client implements SocialOAuth2Client {
 
 	@Override
 	public AuthorizationStart begin(SocialProvider provider, HttpServletRequest servletRequest) {
-		ClientRegistration registration = registration(provider);
+		return begin(provider, registration(provider), servletRequest);
+	}
+
+	@Override
+	public AuthorizationStart beginMessageConsent(HttpServletRequest servletRequest) {
+		ClientRegistration registration = registrations.get(KAKAO_MESSAGE_REGISTRATION_ID);
+		if (registration == null) {
+			throw new SocialLoginFailedException(FAILED_MESSAGE);
+		}
+		return begin(SocialProvider.KAKAO, registration, servletRequest);
+	}
+
+	private AuthorizationStart begin(SocialProvider provider, ClientRegistration registration,
+		HttpServletRequest servletRequest) {
 		// 콜백 주소를 절대 주소로 고정했으므로(BE-031 결정 4) 리졸버는 요청의 호스트로 주소를 만들지 않는다
 		OAuth2AuthorizationRequest request = resolver.resolve(servletRequest, registration.getRegistrationId());
 		Map<String, String> attributes = new HashMap<>();
@@ -94,7 +111,7 @@ public class SpringSocialOAuth2Client implements SocialOAuth2Client {
 		OAuth2LoginAuthenticationToken token = new OAuth2LoginAuthenticationToken(registration, exchange);
 		try {
 			return switch (authorization.provider()) {
-				case KAKAO -> kakaoIdentity(principal(kakaoAuthentication.authenticate(token)));
+				case KAKAO -> kakaoIdentity((OAuth2LoginAuthenticationToken)kakaoAuthentication.authenticate(token));
 				case GOOGLE -> googleIdentity((OidcUser)principal(googleAuthentication.authenticate(token)));
 			};
 		} catch (OAuth2AuthenticationException | RestClientException exception) {
@@ -121,8 +138,9 @@ public class SpringSocialOAuth2Client implements SocialOAuth2Client {
 	}
 
 	// 카카오 사용자 정보: id(회원번호), kakao_account.email·is_email_valid·is_email_verified, kakao_account.name(심사 뒤)
-	// 이메일은 유효하고 인증된 것만 쓴다
-	private static SocialIdentity kakaoIdentity(OAuth2User user) {
+	// 이메일은 유효하고 인증된 것만 쓴다. 받은 토큰도 담는다(메시지 동의 때만 저장, kakao-crew-invite 결정 1)
+	private static SocialIdentity kakaoIdentity(OAuth2LoginAuthenticationToken authenticated) {
+		OAuth2User user = authenticated.getPrincipal();
 		Object id = user.getAttribute("id");
 		if (id == null) {
 			throw new SocialLoginFailedException(FAILED_MESSAGE);
@@ -132,7 +150,11 @@ public class SpringSocialOAuth2Client implements SocialOAuth2Client {
 			&& Boolean.TRUE.equals(account.get("is_email_verified"));
 		String email = emailVerified && account.get("email") instanceof String text ? text : null;
 		String name = account.get("name") instanceof String text ? text : null;
-		return new SocialIdentity(SocialProvider.KAKAO, String.valueOf(id), email, name);
+		OAuth2AccessToken accessToken = authenticated.getAccessToken();
+		SocialTokens tokens = new SocialTokens(accessToken.getTokenValue(), accessToken.getExpiresAt(),
+			authenticated.getRefreshToken() == null ? null : authenticated.getRefreshToken().getTokenValue(),
+			Set.copyOf(accessToken.getScopes()));
+		return new SocialIdentity(SocialProvider.KAKAO, String.valueOf(id), email, name, tokens);
 	}
 
 	// 구글 ID 토큰: sub(회원번호), email, email_verified, name

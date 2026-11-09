@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import com.bukang.common.global.rsdata.RsData;
 import com.bukang.member.domain.exception.RejoinTooSoonException;
@@ -35,5 +36,15 @@ public class MemberExceptionHandler {
 			.status(exception.getStatus())
 			.body(RsData.of(exception.getStatus(), exception.getCode(), exception.getMessage(),
 				new RejoinTooSoonDto(exception.getRejoinableDate(), exception.getBlockDays())));
+	}
+
+	// 경로 변수·쿼리 파라미터의 숫자 형식 오류 (예: 회원 ID에 문자). 처리하지 않으면 500으로 나간다
+	@ExceptionHandler(MethodArgumentTypeMismatchException.class)
+	public ResponseEntity<RsData<Void>> methodArgumentTypeMismatchException(
+		MethodArgumentTypeMismatchException exception
+	) {
+		return ResponseEntity
+			.status(HttpStatus.BAD_REQUEST)
+			.body(RsData.of(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "요청 값의 형식이 올바르지 않습니다.", null));
 	}
 }
