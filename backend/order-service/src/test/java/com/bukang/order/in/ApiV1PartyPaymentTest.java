@@ -192,6 +192,17 @@ class ApiV1PartyPaymentTest {
 					{ "raceCourseId": %d, "participant": %s, "thirdPartyConsent": true }
 					""".formatted(courseId, participant())))
 			.andExpect(status().isCreated());
+		// 결제한 파티원은 결제 끝 파티에 남아 있어 개인 신청을 막는다. 화면이 나누도록 파티 상태를 준다 (BUK-127)
+		mockMvc.perform(MockMvcRequestBuilders.post("/api/v1/order/participations")
+				.header("X-Member-Id", 2L)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{ "raceCourseId": %d, "participant": %s, "thirdPartyConsent": true }
+					""".formatted(courseId, participant())))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("ORDER_PARTY_ALREADY_JOINED"))
+			.andExpect(jsonPath("$.data.partyId").value(partyId))
+			.andExpect(jsonPath("$.data.partyStatus").value("PAID"));
 	}
 
 	@Test
