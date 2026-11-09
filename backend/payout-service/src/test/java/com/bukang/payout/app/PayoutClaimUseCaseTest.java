@@ -486,6 +486,27 @@ class PayoutClaimUseCaseTest {
 	}
 
 	@Test
+	@DisplayName("TC-VA-2-3 발급 응답이 시간 초과로 끊기면 다음 배치에서 같은 청구 ID로 다시 요청해 받은 계좌를 저장한다")
+	void retriesWithSameClaimCodeAfterTimeout() {
+		List<String> requests = new ArrayList<>();
+		virtualAccountPort = (claimCode, amount, dueDate) -> {
+			requests.add(claimCode);
+			if (requests.size() == 1) {
+				throw new IllegalStateException("캐시 응답 시간 초과");
+			}
+			return Optional.of(new ClaimVirtualAccount("신한은행", "56211234567890"));
+		};
+		eightRefundsThenFinal();
+		run(FINAL_CREATED_DATE);
+
+		run(FINAL_CREATED_DATE.plusDays(1));
+
+		PayoutClaim claim = claims().getFirst();
+		assertThat(requests).containsExactly(claim.getClaimCode(), claim.getClaimCode());
+		assertThat(claim.getVirtualAccountNumber()).isEqualTo("56211234567890");
+	}
+
+	@Test
 	@DisplayName("TC-VA-2-2 발급 요청이 실패해도 청구와 판매자 알림은 남고 배치는 끝난다")
 	void issueFailureDoesNotStopBatch() {
 		virtualAccountPort = (claimCode, amount, dueDate) -> {

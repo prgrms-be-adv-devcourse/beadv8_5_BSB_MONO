@@ -10,6 +10,10 @@ import java.util.Optional;
 @FunctionalInterface
 public interface ClaimVirtualAccountPort {
 	/**
+	 * 멱등: 같은 청구 ID로 다시 부르면 새 계좌를 만들지 않고 이미 발급한 같은 계좌를 돌려준다.
+	 * 응답이 시간 초과로 끊기면 정산은 계좌를 받지 못한 채 다음 배치에서 같은 청구 ID로 다시 부르므로,
+	 * 새 계좌가 또 생기면 판매자에게 알린 계좌와 저장한 계좌가 달라진다. 캐시 담당(BUK-84)과 이 약속으로 맞춘다
+	 *
 	 * @param claimCode 청구 ID. 캐시가 토스 orderId로 써서 입금이 어느 청구 건인지 맞춘다
 	 * @param amount 판매자가 입금할 금액 (청구 금액)
 	 * @param dueDate 입금 기한
