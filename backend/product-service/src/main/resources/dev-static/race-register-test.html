@@ -187,7 +187,7 @@
     <h2>종목 · 참가권</h2>
     <ul class="hint">
       <li>종목은 1개 이상이어야 합니다. 판매 시작 뒤에는 참가비·키트 금액 변경, 정원 줄이기, 참가 조건(거리·종목 구분·노면·제한 시간·나이 제한·키트 포함 여부) 변경,
-        티셔츠 사이즈 변경, 종목 빼기를 할 수 없습니다(409).</li>
+        종목 빼기를 할 수 없습니다(409).</li>
       <li>이미지는 종목마다 붙입니다. 용도를 고르고 파일을 선택하면 file-service(8083)로 ① 업로드 URL 발급 → ② S3에 직접 PUT → ③ 업로드 완료 확인을 하고 fileId를 채웁니다.
         file-service가 dev로 떠 있어야 합니다(dev에만 8085를 허용하는 CORS가 있습니다).</li>
       <li>이미지(대표·소개·코스·키트)는 JPG·PNG·WebP 10MB 이하, 소개 영상은 MP4·MOV 100MB 이하입니다(올린 뒤 파일 앞부분으로 형식을 다시 확인합니다).</li>
@@ -222,10 +222,9 @@
     // 이미지는 file-service로 올린다 (페이지 주소와 달라 file-service dev 설정의 CORS로 허용한다)
     const FILE_SERVICE_URL = 'http://localhost:8083';
 
-    // product-service CourseType·CourseSurface·TshirtSize·RaceSaleStatus와 같은 값
+    // product-service CourseType·CourseSurface·RaceSaleStatus와 같은 값
     const COURSE_TYPES = { KM_5: '5K', KM_10: '10K', HALF: '하프', FULL: '풀', ULTRA: '울트라' };
     const SURFACES = { ROAD: '로드', TRAIL: '트레일' };
-    const TSHIRT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
     const SALE_STATUSES = {
       SCHEDULED: '판매 예정', ON_SALE: '판매 중', STOPPED: '판매 중지', CLOSED: '판매 종료', CANCELED: '취소',
     };
@@ -469,7 +468,6 @@
     }
 
     function addCourseCard(course = {}) {
-      const sizes = course.tshirtSizeOption ?? [];
       const card = document.createElement('div');
       card.className = 'course';
       card.innerHTML = `
@@ -507,10 +505,7 @@
             <span class="hint">0 이상. 크루 + 개인 정원은 1명 이상. 판매 시작 뒤 줄일 수 없습니다</span></label>
           <div class="wide">
             <label class="inline"><input data-field="kitIncluded" type="checkbox" ${course.kitIncluded ? 'checked' : ''}> 키트 포함 (kitIncluded)</label>
-            <div class="checks">
-              ${TSHIRT_SIZES.map((size) => `<label class="inline"><input type="checkbox" data-size="${size}" ${sizes.includes(size) ? 'checked' : ''}> ${size}</label>`).join('')}
-            </div>
-            <p class="hint">티셔츠 사이즈(tshirtSizeOption)는 키트 포함일 때만 고를 수 있습니다. 비우면 티셔츠 없음. 판매 시작 뒤 바꿀 수 없습니다</p>
+            <p class="hint">티셔츠 사이즈 같은 키트 옵션은 종목이 아니라 대회에 붙습니다(kitOptions)</p>
           </div>
         </div>
         <h4>이미지 (images)</h4>
@@ -529,7 +524,6 @@
         <div class="actions"><button type="button" data-add-image>+ 이미지 추가</button></div>`;
       $('courses').append(card);
       updateCourseTitle(card);
-      syncSizeInputs(card);
       return card;
     }
 
@@ -537,17 +531,6 @@
       const name = field(card, 'name').value.trim() || '(이름 없음)';
       const courseId = field(card, 'courseId').value.trim();
       card.querySelector('[data-course-title]').textContent = courseId ? `${name} (courseId ${courseId})` : `${name} (새 종목)`;
-    }
-
-    // 티셔츠는 키트에 들어 있으므로 키트 포함일 때만 사이즈를 고르게 한다
-    function syncSizeInputs(card) {
-      const kitIncluded = field(card, 'kitIncluded').checked;
-      card.querySelectorAll('[data-size]').forEach((input) => {
-        input.disabled = !kitIncluded;
-        if (!kitIncluded) {
-          input.checked = false;
-        }
-      });
     }
 
     // 같은 용도 안에서 다음 노출 순서
@@ -726,7 +709,6 @@
         price: integer(value('price')),
         kitIncluded: field(card, 'kitIncluded').checked,
         kitPrice: integer(value('kitPrice')),
-        tshirtSizeOption: [...card.querySelectorAll('[data-size]:checked')].map((input) => input.dataset.size),
         minAge: integer(value('minAge')),
         maxAge: integer(value('maxAge')),
         crewQuota: integer(value('crewQuota')),
@@ -915,9 +897,6 @@
         }
         return;
       }
-      if (target.matches('[data-field=kitIncluded]')) {
-        syncSizeInputs(target.closest('.course'));
-      }
       if (target.matches('[data-key=fileType]')) {
         onFileTypeChange(target.closest('tr'));
       }
@@ -960,7 +939,7 @@
     fillDefaultSchedule();
     const firstCourse = addCourseCard({
       name: '10K', courseType: 'KM_10', surface: 'ROAD', distanceKm: 10, timeLimitMinutes: 90,
-      price: 45000, kitIncluded: true, kitPrice: 0, tshirtSizeOption: ['S', 'M', 'L', 'XL'],
+      price: 45000, kitIncluded: true, kitPrice: 0,
       minAge: 14, crewQuota: 0, individualQuota: 3,
     });
     addImageRow(firstCourse, { fileType: 'THUMBNAIL', sortNo: 0 });

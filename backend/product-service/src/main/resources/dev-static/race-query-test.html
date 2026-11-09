@@ -175,7 +175,7 @@
         <thead>
           <tr>
             <th>종목 ID</th><th>종목명</th><th>구분 · 노면</th><th>거리 · 제한 시간</th><th>나이</th><th>참가비 (키트)</th>
-            <th>티셔츠 사이즈</th><th>상태 (status)</th><th>크루 정원 / 남은</th><th>남은 개인 자리 / 개인 정원</th><th></th>
+            <th>상태 (status)</th><th>크루 정원 / 남은</th><th>남은 개인 자리 / 개인 정원</th><th></th>
           </tr>
         </thead>
         <tbody id="detailCourses"></tbody>
@@ -694,7 +694,6 @@
         ['환불 안내 (refundPolicy)', race.refundPolicy ?? ''],
       ]);
       $('detailCourses').innerHTML = race.courses.map((course) => {
-        const sizes = course.tshirtSizeOption ?? [];
         return `
           <tr>
             <td>${course.raceCourseId}</td>
@@ -703,7 +702,6 @@
             <td>${course.distanceKm}km · ${course.timeLimitMinutes}분</td>
             <td>${course.minAge} ~ ${course.maxAge ?? '상한 없음'}</td>
             <td>${won(course.price)}<div class="hint">키트 ${course.kitIncluded ? `포함 (${won(course.kitPrice)})` : '없음'}</div></td>
-            <td>${sizes.length === 0 ? '없음' : sizes.join(', ')}</td>
             <td class="${course.status === 'SOLD_OUT' ? 'fail' : 'ok'}">${courseStatusText(course.status)}</td>
             <td>${course.crewQuota} / ${course.crewRemaining}</td>
             <td><strong>${course.individualRemaining}</strong> / ${course.individualQuota}</td>

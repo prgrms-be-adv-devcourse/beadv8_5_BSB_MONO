@@ -10,7 +10,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import com.bukang.common.shared.file.domain.FileType;
 import com.bukang.product.domain.CourseSurface;
 import com.bukang.product.domain.CourseType;
-import com.bukang.product.domain.TshirtSize;
 import com.bukang.product.dto.KitOptionSaveRequestDto;
 import com.bukang.product.dto.RaceCourseSaveRequestDto;
 import com.bukang.product.dto.RaceImageRequestDto;
@@ -158,7 +157,6 @@ public final class RaceRequests {
 		private Long price = 45_000L;
 		private Boolean kitIncluded = false;
 		private Long kitPrice = 0L;
-		private List<TshirtSize> tshirtSizeOption;
 		private Integer minAge = 14;
 		private Integer maxAge;
 		private Integer crewQuota = 0;
@@ -201,16 +199,10 @@ public final class RaceRequests {
 			return this;
 		}
 
-		// 키트 포함 + 티셔츠 사이즈 (비우면 티셔츠 없음)
-		public CourseBuilder kit(long kitPrice, TshirtSize... sizes) {
+		// 키트 포함 (키트 옵션은 대회에 붙는다: RaceBuilder.kitOption)
+		public CourseBuilder kit(long kitPrice) {
 			this.kitIncluded = true;
 			this.kitPrice = kitPrice;
-			this.tshirtSizeOption = List.of(sizes);
-			return this;
-		}
-
-		public CourseBuilder tshirtSizes(List<TshirtSize> sizes) {
-			this.tshirtSizeOption = sizes;
 			return this;
 		}
 
@@ -235,7 +227,7 @@ public final class RaceRequests {
 		public RaceCourseSaveRequestDto build() {
 			List<RaceImageRequestDto> requestImages = images != null ? images : List.of(thumbnail());
 			return new RaceCourseSaveRequestDto(courseId, name, courseType, surface, distanceKm, timeLimitMinutes,
-				price, kitIncluded, kitPrice, tshirtSizeOption, minAge, maxAge, crewQuota, individualQuota,
+				price, kitIncluded, kitPrice, minAge, maxAge, crewQuota, individualQuota,
 				requestImages);
 		}
 	}

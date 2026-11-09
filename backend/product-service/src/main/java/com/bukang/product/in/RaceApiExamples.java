@@ -63,10 +63,6 @@ final class RaceApiExamples {
 		}
 		""";
 
-	static final String TSHIRT_SIZE_WITHOUT_KIT = """
-		{ "status": 400, "message": "키트가 없는 종목은 티셔츠 사이즈를 작성할 수 없습니다. (종목: 10K)", "data": null }
-		""";
-
 	static final String KIT_PRICE_OVER_PRICE = """
 		{ "status": 400, "message": "키트 금액은 참가비보다 클 수 없습니다. (종목: 10K)", "data": null }
 		""";
@@ -161,10 +157,6 @@ final class RaceApiExamples {
 
 	static final String COURSE_CONDITION_CHANGED = """
 		{ "status": 409, "message": "판매가 시작된 종목은 참가 조건(거리)을 바꿀 수 없습니다. (종목: 10K)", "data": null }
-		""";
-
-	static final String TSHIRT_SIZE_CHANGED = """
-		{ "status": 409, "message": "판매가 시작된 종목은 티셔츠 사이즈를 바꿀 수 없습니다. (종목: 10K)", "data": null }
 		""";
 
 	static final String SCHEDULE_PASSED = """
@@ -423,7 +415,6 @@ final class RaceApiExamples {
 						"price": 45000,
 						"kitIncluded": true,
 						"kitPrice": 0,
-						"tshirtSizeOption": ["S", "M", "L", "XL"],
 						"status": "OPEN",
 						"crewQuota": 0,
 						"individualQuota": 600,

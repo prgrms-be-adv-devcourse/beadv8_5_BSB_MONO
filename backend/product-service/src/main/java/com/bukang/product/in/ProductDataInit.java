@@ -163,7 +163,7 @@ public class ProductDataInit {
 	private RaceCourseSaveRequestDto dummyCourse(String name, CourseType courseType, String distanceKm,
 		int timeLimitMinutes, long price, int individualQuota) {
 		return new RaceCourseSaveRequestDto(null, name, courseType, CourseSurface.ROAD, new BigDecimal(distanceKm),
-			timeLimitMinutes, price, false, 0L, null, 14, null, 0, individualQuota,
+			timeLimitMinutes, price, false, 0L, 14, null, 0, individualQuota,
 			List.of(new RaceImageRequestDto(DUMMY_THUMBNAIL_FILE_ID, FileType.THUMBNAIL, 0)));
 	}
 }

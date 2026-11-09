@@ -86,7 +86,7 @@ public class ApiV1RaceController {
 		@ApiResponse(responseCode = "200", description = "같은 Idempotency-Key로 이미 등록한 대회 (새로 등록하지 않음)",
 			content = @Content(examples = @ExampleObject(value = RaceApiExamples.REGISTER_EXISTING))),
 		@ApiResponse(responseCode = "400",
-			description = "입력값 검증 실패, 요청 본문 형식 오류, 날짜 순서·인원·나이·정원·키트 금액·티셔츠 사이즈 오류, "
+			description = "입력값 검증 실패, 요청 본문 형식 오류, 날짜 순서·인원·나이·정원·키트 금액 오류, "
 				+ "같은 키트 옵션 중복·같은 옵션 이름의 대소문자 다름, "
 				+ "판매 시작일이 이틀 뒤보다 빠름, 이미지 용도·개수 오류, 같은 파일 중복, 회원 ID 형식 오류·0 이하 "
 				+ "또는 Idempotency-Key 헤더 없음·길이 오류",
@@ -96,7 +96,6 @@ public class ApiV1RaceController {
 				@ExampleObject(name = "날짜 순서 오류", value = RaceApiExamples.INVALID_SCHEDULE),
 				@ExampleObject(name = "판매 시작일이 이틀 뒤보다 빠름", value = RaceApiExamples.SALE_OPEN_TOO_SOON),
 				@ExampleObject(name = "키트 금액이 참가비보다 큼", value = RaceApiExamples.KIT_PRICE_OVER_PRICE),
-				@ExampleObject(name = "키트 없는 종목의 티셔츠 사이즈", value = RaceApiExamples.TSHIRT_SIZE_WITHOUT_KIT),
 				@ExampleObject(name = "같은 키트 옵션 중복", value = RaceApiExamples.KIT_OPTION_DUPLICATED),
 				@ExampleObject(name = "같은 옵션 이름의 대소문자 다름", value = RaceApiExamples.KIT_OPTION_NAME_CASE),
 				@ExampleObject(name = "대표 이미지 없음", value = RaceApiExamples.THUMBNAIL_REQUIRED),
@@ -151,7 +150,7 @@ public class ApiV1RaceController {
 			+ "판매 시작 전에 판매 시작일이 바뀌면 등록과 같이 오늘로부터 이틀 뒤부터 정할 수 있다. "
 			+ "판매가 시작된 뒤(판매 시작일 0시부터)에는 판매 시작일을 정하는 일정(크루 예매가 있으면 크루 예매 시작, "
 			+ "없으면 개인 예매 오픈)을 바꿀 수 없다. "
-			+ "판매가 시작된 뒤에는 참가비·키트 금액을 바꾸거나 환불 기준일을 앞당길 수 없고, 정원을 줄이거나 티셔츠 사이즈를 바꾸거나 "
+			+ "판매가 시작된 뒤에는 참가비·키트 금액을 바꾸거나 환불 기준일을 앞당길 수 없고, 정원을 줄이거나 "
 			+ "종목을 뺄 수 없다(정원은 늘리기만). 종목의 참가 조건(거리·종목 구분·노면·제한 시간·나이 제한·키트 포함 여부)도 바꿀 수 없다. "
 			+ "키트 옵션은 (이름, 값)으로 기존 옵션을 찾아 고치고, 없던 옵션은 더하고, 요청에 없는 옵션은 뺀다. "
 			+ "판매가 시작된 뒤에는 옵션 추가와 준비 수량 늘리기만 되고, 옵션을 빼거나 이름·값을 바꾸거나 "
@@ -163,7 +162,7 @@ public class ApiV1RaceController {
 		@ApiResponse(responseCode = "200", description = "수정 성공",
 			content = @Content(examples = @ExampleObject(value = RaceApiExamples.UPDATE_SUCCESS))),
 		@ApiResponse(responseCode = "400",
-			description = "입력값 검증 실패, 요청 본문 형식 오류, 날짜 순서·인원·나이·정원·키트 금액·티셔츠 사이즈 오류, "
+			description = "입력값 검증 실패, 요청 본문 형식 오류, 날짜 순서·인원·나이·정원·키트 금액 오류, "
 				+ "같은 키트 옵션 중복·같은 옵션 이름의 대소문자 다름, "
 				+ "판매 시작 전 바뀐 판매 시작일이 이틀 뒤보다 빠름, 이미지 용도·개수 오류, 같은 파일 중복, "
 				+ "이 대회의 종목이 아닌 종목 ID, 대회 ID·회원 ID 형식 오류 또는 회원 ID가 0 이하",
@@ -173,7 +172,6 @@ public class ApiV1RaceController {
 				@ExampleObject(name = "날짜 순서 오류", value = RaceApiExamples.INVALID_SCHEDULE),
 				@ExampleObject(name = "판매 시작일이 이틀 뒤보다 빠름", value = RaceApiExamples.SALE_OPEN_TOO_SOON),
 				@ExampleObject(name = "키트 금액이 참가비보다 큼", value = RaceApiExamples.KIT_PRICE_OVER_PRICE),
-				@ExampleObject(name = "키트 없는 종목의 티셔츠 사이즈", value = RaceApiExamples.TSHIRT_SIZE_WITHOUT_KIT),
 				@ExampleObject(name = "같은 키트 옵션 중복", value = RaceApiExamples.KIT_OPTION_DUPLICATED),
 				@ExampleObject(name = "같은 옵션 이름의 대소문자 다름", value = RaceApiExamples.KIT_OPTION_NAME_CASE),
 				@ExampleObject(name = "대표 이미지 없음", value = RaceApiExamples.THUMBNAIL_REQUIRED),
@@ -195,7 +193,7 @@ public class ApiV1RaceController {
 				examples = @ExampleObject(value = RaceApiExamples.RACE_NOT_FOUND))),
 		@ApiResponse(responseCode = "409",
 			description = "판매 시작 뒤 판매 시작일을 정하는 일정 변경·참가비·키트 금액 변경·환불 기준일 앞당김, "
-				+ "지난 판매 일정 변경·지난 시각으로 이동, 판매 시작 뒤 정원 줄이기·참가 조건 변경·티셔츠 사이즈 변경, "
+				+ "지난 판매 일정 변경·지난 시각으로 이동, 판매 시작 뒤 정원 줄이기·참가 조건 변경, "
 				+ "종목 빼기, 판매 시작 뒤 키트 옵션 빼기·맞춤 제작과 준비 수량 사이 전환·준비 수량 줄이기, "
 				+ "취소된 대회 또는 판매가 끝난 대회",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
@@ -209,7 +207,6 @@ public class ApiV1RaceController {
 				@ExampleObject(name = "판매 일정을 지난 시각으로", value = RaceApiExamples.SCHEDULE_TO_PAST),
 				@ExampleObject(name = "정원 줄이기", value = RaceApiExamples.QUOTA_DECREASED),
 				@ExampleObject(name = "참가 조건 변경", value = RaceApiExamples.COURSE_CONDITION_CHANGED),
-				@ExampleObject(name = "티셔츠 사이즈 변경", value = RaceApiExamples.TSHIRT_SIZE_CHANGED),
 				@ExampleObject(name = "종목 빼기", value = RaceApiExamples.COURSE_REMOVED),
 				@ExampleObject(name = "키트 옵션 빼기", value = RaceApiExamples.KIT_OPTION_REMOVED),
 				@ExampleObject(name = "맞춤 제작과 준비 수량 사이 전환", value = RaceApiExamples.KIT_OPTION_STOCK_TYPE_CHANGED),
@@ -474,7 +471,7 @@ public class ApiV1RaceController {
 
 	@GetMapping("/{raceId}")
 	@Operation(summary = "대회 상세",
-		description = "대회와 종목(남은 자리·티셔츠 사이즈 포함), 판매자 정보를 돌려준다. 로그인하지 않아도 된다. "
+		description = "대회와 종목(남은 자리 포함), 판매자 정보를 돌려준다. 로그인하지 않아도 된다. "
 			+ "취소된 대회는 등록한 판매자만 볼 수 있고, 다른 사람에게는 없는 대회(404)로 보인다. "
 			+ "종목 이미지는 file-service에서 종목마다 받는다(GET /api/v1/file/files?refType=RaceCourse&refId=종목 ID). "
 			+ "판매 상태(saleStatus)와 판매 시작일(saleOpenDate)은 판매자 화면용이고, "
