@@ -103,6 +103,12 @@ public class PartyConflictException extends BusinessException {
 			"파티장이 신청하는 중이라 파티원을 바꿀 수 없습니다. 파티장이 다시 신청하면 풀립니다.", partyId, PartyStatus.RECRUITING);
 	}
 
+	// 같은 파티의 다른 신청이 상품에 크루 자리를 요청하는 중이다 (두 번 누름). 잠시 뒤 결과를 확인하면 된다
+	public static PartyConflictException applyInProgress(long partyId) {
+		return new PartyConflictException(CREW_HOLD_IN_PROGRESS,
+			"이 파티의 신청을 처리하고 있습니다. 잠시 뒤 파티 상태를 확인해 주세요.", partyId, PartyStatus.RECRUITING);
+	}
+
 	public boolean hasData() {
 		return partyId != null;
 	}

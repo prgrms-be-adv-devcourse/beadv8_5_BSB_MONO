@@ -36,9 +36,14 @@ public class FakeCrewSeatHoldAdapter implements CrewSeatHoldPort {
 	}
 
 	// 확인과 차감을 한 번에 해야 두 파티가 같은 자리를 나눠 갖지 않는다 (B의 종목별 조건부 UPDATE + 한 트랜잭션 흉내)
+	// 공개 메서드는 잠그지 않는다. 테스트가 spy로 이 메서드를 가로챌 때 잠금을 쥔 채 기다리지 않게 한다
 	@Override
-	public synchronized CrewSeatHoldResult holdAll(long partyId, long crewId, long raceId, LocalDateTime expiresAt,
+	public CrewSeatHoldResult holdAll(long partyId, long crewId, long raceId, LocalDateTime expiresAt,
 		List<Seat> seats) {
+		return holdAllLocked(partyId, expiresAt, seats);
+	}
+
+	private synchronized CrewSeatHoldResult holdAllLocked(long partyId, LocalDateTime expiresAt, List<Seat> seats) {
 		CrewSeatHoldResult first = results.get(partyId);
 		if (first != null) {
 			// 상품처럼 자리 목록이 처음과 다르면 처음 결과 대신 409로 거절한다 (CrewSeatHoldPort 계약)
@@ -64,6 +69,13 @@ public class FakeCrewSeatHoldAdapter implements CrewSeatHoldPort {
 		heldSeats.put(partyId, List.copyOf(seats));
 		log.debug("가짜 크루 자리 확보 partyId={}, seats={}", partyId, needed);
 		return held;
+	}
+
+	// 테스트끼리 남은 자리를 나눠 쓰지 않게 처음으로 돌린다 (앱을 다시 켠 것과 같다)
+	public synchronized void clear() {
+		remainingSeats.clear();
+		results.clear();
+		heldSeats.clear();
 	}
 
 	private int remaining(long raceCourseId) {

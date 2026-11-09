@@ -77,6 +77,7 @@ public class PartyApplyUseCase {
 	 * 2. 잠금·DB 연결 없이 상품에 크루 자리를 요청한다 (되돌릴 수 없는 외부 호출, 파티 ID로 멱등)
 	 * 3. 다시 잠그고 결제 기간을 연다. 한 석도 잡지 않았다는 답이면 표시를 지워 파티원을 다시 바꿀 수 있게 한다
 	 * 상품 응답을 모를 때(503·예상 못 한 오류)는 표시를 남긴다. 파티장이 다시 신청하면 처음 결과로 이어진다
+	 * 다른 요청이 상품을 부르는 중이면(두 번 누름) 1단계에서 409로 막는다 (Party.markCrewHoldRequested)
 	 */
 	public Party apply(long partyId, long memberId, LocalDateTime now) {
 		Prepared prepared = transactionTemplate.execute(status -> prepare(partyId, memberId, now));
@@ -85,10 +86,15 @@ public class PartyApplyUseCase {
 			hold = crewSeatHoldPort.holdAll(partyId, prepared.crewId(), prepared.raceId(), prepared.paymentDueAt(),
 				prepared.seats());
 		} catch (ExternalServiceUnavailableException exception) {
+			endCrewHoldCall(partyId, now);
 			throw exception;
 		} catch (BusinessException exception) {
 			// 상품이 거절했다(404·409). 이 요청으로 새로 잡힌 자리가 없으므로 파티원을 다시 바꿀 수 있게 한다
 			clearCrewHoldRequested(partyId);
+			throw exception;
+		} catch (RuntimeException exception) {
+			// 예상 못 한 오류는 상품에 잡혔는지 모른다. 표시는 남기고 파티장의 재시도만 받는다
+			endCrewHoldCall(partyId, now);
 			throw exception;
 		}
 		if (!hold.held()) {
@@ -106,6 +112,8 @@ public class PartyApplyUseCase {
 		// 처음 신청의 기한이 지난 뒤 다시 누르면 상품은 지난 기한을 돌려준다. 결제 기간을 열지 않는다
 		// shortcut: 상품이 같은 파티의 끝난 자리를 다시 잡지 않아 이 파티는 새로 만들어야 한다. 상품이 바꾸면 풀린다
 		if (!dueAt.isAfter(now)) {
+			// 상품이 확정해서 답했으므로 표시를 지운다. 남기면 파티원이 나가지 못해 새 파티도 만들 수 없다
+			clearCrewHoldRequested(partyId);
 			throw new ParticipationNotPayableException("이미 잡았던 크루 자리의 결제 기한이 지났습니다. 새 파티로 신청해 주세요.");
 		}
 		return transactionTemplate.execute(status -> startPayment(prepared, memberId, dueAt, now));
@@ -184,6 +192,11 @@ public class PartyApplyUseCase {
 			// shortcut: 프론트 파티 상세 경로가 아직 없어 /parties/{id}로 둔다. 화면이 생기면 맞춘다
 			"/parties/" + partyId)));
 		return party;
+	}
+
+	private void endCrewHoldCall(long partyId, LocalDateTime now) {
+		transactionTemplate.executeWithoutResult(status -> partyRepository.findByIdForUpdate(partyId)
+			.ifPresent(party -> party.markCrewHoldCallEnded(now)));
 	}
 
 	private void clearCrewHoldRequested(long partyId) {

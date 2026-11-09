@@ -50,6 +50,7 @@ import com.bukang.order.out.PartyRepository;
 import com.bukang.order.out.seat.CrewSeatHoldPort;
 import com.bukang.order.out.seat.CrewSeatHoldPort.CrewSeatHoldResult;
 import com.bukang.order.out.seat.CrewSeatHoldPort.Shortage;
+import com.bukang.order.out.seat.FakeCrewSeatHoldAdapter;
 import com.bukang.order.support.StubCrewPort;
 import com.bukang.order.support.StubCrewPortConfig;
 import com.bukang.order.support.StubQueueAdmissionPort;
@@ -96,6 +97,9 @@ class ApiV1PartyApplyTest {
 	@MockitoSpyBean
 	private CrewSeatHoldPort crewSeatHoldPort;
 
+	@Autowired
+	private FakeCrewSeatHoldAdapter fakeCrewSeatHoldAdapter;
+
 	@MockitoSpyBean
 	private NotificationKafkaSender notificationSender;
 
@@ -113,6 +117,7 @@ class ApiV1PartyApplyTest {
 		partyMemberRepository.deleteAll();
 		partyRepository.deleteAll();
 		queueAdmissionPort.clear();
+		fakeCrewSeatHoldAdapter.clear();
 		raceCoursePort.clear();
 		crewPort.clear();
 	}
@@ -255,6 +260,33 @@ class ApiV1PartyApplyTest {
 			.andExpect(jsonPath("$.code").value("ORDER_PARTICIPATION_NOT_PAYABLE"));
 		assertThat(partyRepository.findById(partyId).orElseThrow().getStatus()).isEqualTo(PartyStatus.RECRUITING);
 		verify(notificationSender, never()).send(any());
+		// 상품이 확정해서 답했으므로 「신청 중」 표시를 지운다. 파티원이 나가 새 파티를 만들 수 있어야 한다
+		post(MEMBERS.getFirst(), partyId, "/leave").andExpect(status().isOk());
+	}
+
+	@Test
+	@DisplayName("상품을 부르는 중에 같은 파티 신청이 또 오면 409 신청 중으로 막고 상품은 한 번만 부른다")
+	void concurrentApply() throws Exception {
+		long partyId = partyWith(MEMBERS);
+		int[] secondStatus = new int[1];
+		String[] secondBody = new String[1];
+		doAnswer(invocation -> {
+			try (ExecutorService executor = Executors.newSingleThreadExecutor()) {
+				executor.submit(() -> {
+					var response = apply(LEADER, partyId).andReturn().getResponse();
+					secondStatus[0] = response.getStatus();
+					secondBody[0] = response.getContentAsString();
+					return null;
+				}).get();
+			}
+			return invocation.callRealMethod();
+		}).doCallRealMethod().when(crewSeatHoldPort).holdAll(anyLong(), anyLong(), anyLong(), any(), any());
+
+		apply(LEADER, partyId).andExpect(status().isOk());
+
+		assertThat(secondStatus[0]).isEqualTo(409);
+		assertThat(secondBody[0]).contains("ORDER_PARTY_CREW_HOLD_IN_PROGRESS");
+		verify(crewSeatHoldPort, times(1)).holdAll(anyLong(), anyLong(), anyLong(), any(), any());
 	}
 
 	@Test
