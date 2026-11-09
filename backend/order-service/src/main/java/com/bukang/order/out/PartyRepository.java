@@ -61,10 +61,21 @@ public interface PartyRepository extends JpaRepository<Party, Long> {
 	List<Long> findIdsToFinishPayment(@Param("status") PartyStatus status, @Param("now") LocalDateTime now,
 		@Param("waiting") ParticipationStatus waiting);
 
+	// 대회 다음 날 종료할 후보의 종목 (BUK-126). 대회 일시는 상품에 있어 종목마다 한 번 묻는다
+	@Query("select distinct p.raceCourseId from Party p where p.status = :status")
+	List<Long> findRaceCourseIdsByStatus(@Param("status") PartyStatus status);
+
+	@Query("select p.id from Party p where p.raceCourseId = :raceCourseId and p.status = :status order by p.id")
+	List<Long> findIdsByRaceCourseIdAndStatus(@Param("raceCourseId") long raceCourseId,
+		@Param("status") PartyStatus status);
+
 	// 링크 미리 보기 (BUK-39). 다시 만든 옛 토큰은 찾지 못한다
 	Optional<Party> findByJoinToken(String joinToken);
 
 	// 크루 홈 「진행 중인 파티」 (BUK-39)
 	// shortcut: crew_id·status 인덱스가 없다. 크루당 파티가 많아지면 (crew_id, status) 인덱스를 Flyway로 더한다
 	List<Party> findByCrewIdAndStatusInOrderByIdDesc(long crewId, Collection<PartyStatus> statuses);
+
+	// 크루 없애기 확인 (BUK-125). 막는 파티를 ID 순으로 돌려준다
+	List<Party> findByCrewIdAndStatusInOrderByIdAsc(long crewId, Collection<PartyStatus> statuses);
 }
