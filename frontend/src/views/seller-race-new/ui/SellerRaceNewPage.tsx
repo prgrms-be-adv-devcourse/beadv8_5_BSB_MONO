@@ -60,7 +60,7 @@ function dayOf(text: string): Date | undefined {
   return day ? parseISO(day) : undefined
 }
 
-const LINK = cn('rounded-sm text-label-m text-text-brand', FOCUS_RING)
+const LINK = cn('rounded-sm text-body2-medium text-text-brand', FOCUS_RING)
 
 // 종목 표의 한 줄 (TODO(PRO-144): 키트 칸 나누기)
 function courseRow(course: RaceCourseInput, id: string, index: number) {
@@ -362,7 +362,7 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
             ]}
           />
           {errors.courses?.message && (
-            <p className="text-body-s text-text-danger">{errors.courses.message}</p>
+            <p className="text-body2-regular text-text-danger">{errors.courses.message}</p>
           )}
           <Alert
             title="다른 곳에서도 함께 팔 수 있어요"
@@ -404,7 +404,7 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
             </button>
           }
         >
-          <p className="text-caption text-text-tertiary">
+          <p className="text-caption-regular text-text-tertiary">
             키트는 배송으로만 보내요. 환불 기한이 지난 뒤, 참가 신청 때 받은 주소로 보내요. 사이즈는
             옵션마다 신청 때 받아요.
           </p>
@@ -467,7 +467,7 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
               },
             ]}
           />
-          <p className="text-caption text-text-tertiary">
+          <p className="text-caption-regular text-text-tertiary">
             판매가 시작되면 옵션을 바꿀 수 없고 준비 수량만 늘릴 수 있어요.
           </p>
         </ConsoleCard>
@@ -477,7 +477,7 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
             <Radio value="public" label="전체 공개 (기본)" />
             <Radio value="link" label="링크로만 공개" />
           </RadioGroup>
-          <p className="text-caption text-text-tertiary">
+          <p className="text-caption-regular text-text-tertiary">
             링크로만 공개하면 대회 목록 · 검색에 나오지 않아요. 링크로 들어온 회원은 신청할 수 있고,
             링크가 퍼져도 막지 않아요.
           </p>

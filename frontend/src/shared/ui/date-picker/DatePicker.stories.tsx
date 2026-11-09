@@ -88,7 +88,7 @@ export const WithFooter: Story = {
           isDateDisabled={isPast}
           footer={{ onConfirm: () => setConfirmed(`${text(range?.from)} ~ ${text(range?.to)}`) }}
         />
-        <p className="text-body-s text-text-secondary">확정한 값: {confirmed || '없음'}</p>
+        <p className="text-body2-regular text-text-secondary">확정한 값: {confirmed || '없음'}</p>
       </div>
     )
   },

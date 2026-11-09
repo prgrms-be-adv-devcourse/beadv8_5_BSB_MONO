@@ -17,8 +17,8 @@ export type QuantityStepperProps = {
 }
 
 const SIZE = {
-  s: { button: 'size-8 [&_svg]:size-4', value: 'w-10 text-label-m' },
-  m: { button: 'size-11 [&_svg]:size-5', value: 'w-13 text-label-l' },
+  s: { button: 'size-8 [&_svg]:size-4', value: 'w-10 text-body2-medium' },
+  m: { button: 'size-11 [&_svg]:size-5', value: 'w-13 text-body1-medium' },
 }
 
 // − 숫자 + 로 키트 수량을 조절한다. S 32 / M 44(기본).

@@ -23,7 +23,7 @@ export function Radio({ label, className, ...props }: RadioProps) {
   return (
     <label
       className={cn(
-        'inline-flex items-center gap-2 text-body-m text-text-primary has-data-disabled:cursor-not-allowed has-data-disabled:text-text-disabled',
+        'inline-flex items-center gap-2 text-body2-regular text-text-primary has-data-disabled:cursor-not-allowed has-data-disabled:text-text-disabled',
         className,
       )}
     >

@@ -14,11 +14,11 @@ type Story = StoryObj<typeof meta>
 export const Types: Story = {
   render: () => (
     <div className="flex max-w-md flex-col gap-4 bg-bg-surface p-4">
-      <p className="text-label-m">line</p>
+      <p className="text-body2-medium">line</p>
       <Divider />
-      <p className="text-label-m">strong</p>
+      <p className="text-body2-medium">strong</p>
       <Divider type="strong" />
-      <p className="text-label-m">section (모바일 섹션 사이)</p>
+      <p className="text-body2-medium">section (모바일 섹션 사이)</p>
       <Divider type="section" />
     </div>
   ),
@@ -27,7 +27,7 @@ export const Types: Story = {
 /** 같은 줄 정보 사이 */
 export const Vertical: Story = {
   render: () => (
-    <div className="flex h-5 items-center gap-2 text-body-s text-text-secondary">
+    <div className="flex h-5 items-center gap-2 text-body2-regular text-text-secondary">
       <span>하프</span>
       <Divider orientation="vertical" />
       <span>2026.11.15</span>

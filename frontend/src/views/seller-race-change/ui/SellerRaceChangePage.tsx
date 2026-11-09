@@ -218,7 +218,7 @@ function ChangeContent({
             <KeyValue label="전액 환불 허용" value={`알린 날부터 7일 (~${refundUntil()})`} />
             <KeyValue label="정산 대상일" value="바뀐 대회일로 다시 잡혀요" />
           </div>
-          <p className="text-body-s text-text-tertiary">
+          <p className="text-body2-regular text-text-tertiary">
             정산은 대회가 끝난 뒤 한 번만 해서, 지금 환불하면 바로 돌려줘요.
           </p>
         </ConsoleCard>
@@ -231,14 +231,14 @@ function ChangeContent({
               key={item.label}
               className="flex flex-1 flex-col gap-1 rounded-md bg-bg-subtle p-4"
             >
-              <p className="text-caption text-text-secondary">{item.label}</p>
-              <p className="text-label-l">{item.title}</p>
-              <p className="text-body-s text-text-secondary">{item.body}</p>
+              <p className="text-caption-regular text-text-secondary">{item.label}</p>
+              <p className="text-body1-medium">{item.title}</p>
+              <p className="text-body2-regular text-text-secondary">{item.body}</p>
             </div>
           ))}
         </div>
         <div className="flex items-center justify-between gap-4">
-          <p className="text-body-s text-text-danger">
+          <p className="text-body2-regular text-text-danger">
             취소하면 되돌릴 수 없어요. 참가자에게 바로 알림이 가요.
           </p>
           <Button variant="danger" disabled={!editable} onClick={() => setCancelOpen(true)}>
@@ -327,8 +327,8 @@ function ModeCard({
         )}
       />
       <span className="flex min-w-0 flex-1 flex-col gap-1">
-        <span className="text-label-l">{title}</span>
-        <span className="text-body-s text-text-secondary">{description}</span>
+        <span className="text-body1-medium">{title}</span>
+        <span className="text-body2-regular text-text-secondary">{description}</span>
       </span>
     </button>
   )

@@ -6,8 +6,8 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import com.bukang.cash.app.CashChargeReconcileUseCase;
-import com.bukang.cash.app.CashWithdrawalReconcileUseCase;
+import com.bukang.cash.app.charge.CashChargeReconcileUseCase;
+import com.bukang.cash.app.withdrawal.CashWithdrawalReconcileUseCase;
 
 import lombok.RequiredArgsConstructor;
 

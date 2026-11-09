@@ -27,8 +27,8 @@ export function TicketCanceledPage({ ticketId }: { ticketId: string }) {
         ) : (
           <>
             <div className="flex flex-col gap-2">
-              <h2 className="text-heading-l">참가를 취소했어요</h2>
-              <p className="text-body-m text-text-secondary">
+              <h2 className="text-title2">참가를 취소했어요</h2>
+              <p className="text-body2-regular text-text-secondary">
                 {race?.title && course?.name ? `${race.title} · ${course.name}` : ticket.itemName}
               </p>
             </div>
