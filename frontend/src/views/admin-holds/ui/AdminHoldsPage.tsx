@@ -156,7 +156,7 @@ export function AdminHoldsPage() {
           <KeyValue label="보류 금액" value={hold.amount} />
           <KeyValue label="사유" value={hold.reason} />
           {/* TODO(api): 관리자 목록 API가 생기면 실제 행에서만 켠다 */}
-          <Button variant="secondary" className="w-full" disabled>
+          <Button variant="ghost" className="w-full" disabled>
             보류 해제
           </Button>
           <p className="text-caption-regular text-text-tertiary">

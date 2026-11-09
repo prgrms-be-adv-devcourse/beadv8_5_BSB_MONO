@@ -141,11 +141,7 @@ function HomeTabs() {
 }
 
 function EmptyRow({ children }: { children: string }) {
-  return (
-    <p className="px-(--layout-page-margin) py-6 text-center text-body2-regular text-text-tertiary">
-      {children}
-    </p>
-  )
+  return <p className="py-6 text-center text-body2-regular text-text-tertiary">{children}</p>
 }
 
 // 홈 로딩: 02 홈과 같은 배치(배너 · 바로가기 · 곧 마감 2열 4장)의 회색 틀.

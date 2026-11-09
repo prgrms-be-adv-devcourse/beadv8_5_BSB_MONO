@@ -50,7 +50,7 @@ export function CrewMemberList({
         ))}
       </ul>
       {hidden > 0 && (
-        <Button variant="ghost" size="m" onClick={() => setExpanded(true)}>
+        <Button variant="text" size="m" onClick={() => setExpanded(true)}>
           크루원 {hidden}명 더 보기
         </Button>
       )}

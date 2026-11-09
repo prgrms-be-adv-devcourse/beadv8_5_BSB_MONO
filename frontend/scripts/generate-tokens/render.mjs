@@ -13,6 +13,16 @@ export const PENDING = {
   layout: {},
   /** 간격 값(px). 피그마 값이 spacing/N = N × 4px 규칙과 다를 때 웹 값을 쓴다 */
   spacing: { 'spacing/0-5': { web: 2, figma: 4 } },
+  /**
+   * 글자 변수의 모드별 값(px). 피그마 Desktop 값이 옛 Heading/Body 값 그대로라 Title2가 Title3보다,
+   * Body1/Regular가 Body1/Medium보다 작아진다. 피그마를 고치기 전까지 웹은 Mobile 값을 쓴다.
+   */
+  typography: {
+    'typography/heading-l/size': { Desktop: { web: 24, figma: 18 } },
+    'typography/heading-l/line-height': { Desktop: { web: 32, figma: 26 } },
+    'typography/body-l/size': { Desktop: { web: 16, figma: 14 } },
+    'typography/body-l/line-height': { Desktop: { web: 24, figma: 22 } },
+  },
   /** 아직 웹에 없는 텍스트 스타일 */
   skipTextStyles: /** @type {string[]} */ ([]),
 }
@@ -20,7 +30,11 @@ export const PENDING = {
 // 피그마에서 「보관/」으로 시작하는 텍스트 스타일은 쓰지 않기로 한 것이라 옮기지 않는다
 const ARCHIVED = '보관/'
 
-/** PENDING 중 다시 확인해야 할 것. 피그마 값이 표의 figma와 달라졌거나, 피그마 스타일이 없어졌을 때 */
+/**
+ * PENDING 중 다시 확인해야 할 것. 피그마 값이 표의 figma와 달라졌거나, 피그마 스타일이 없어졌을 때
+ * @param {any} figma
+ * @param {Record<string, any>} [pending] 테스트에서 일부만 넘길 수 있게 느슨하게 받는다
+ */
 export function stalePending(figma, pending = PENDING) {
   const warnings = []
   const check = (label, actual, { web, figma: recorded }) => {
@@ -45,6 +59,12 @@ export function stalePending(figma, pending = PENDING) {
   const spacingVars = figma.collections.Spacing.variables
   for (const [name, entry] of Object.entries(pending.spacing ?? {})) {
     check(name, spacingVars[name]?.values.Value, entry)
+  }
+  const typographyVars = figma.collections.Typography.variables
+  for (const [name, modes] of Object.entries(pending.typography ?? {})) {
+    for (const [mode, entry] of Object.entries(modes)) {
+      check(`${name} (${mode})`, typographyVars[name]?.values[mode], entry)
+    }
   }
   const styles = new Set(figma.textStyles.map((s) => s.name))
   for (const name of pending.skipTextStyles) {
@@ -163,8 +183,18 @@ function responsiveNamer(styles) {
   const byVariable = {}
   for (const s of usedTextStyles(styles)) {
     const key = `--text-${kebab(s.name)}`
-    if (s.bound.fontSize) byVariable[s.bound.fontSize] = key
-    if (s.bound.lineHeight) byVariable[s.bound.lineHeight] = `${key}--line-height`
+    for (const [variable, cssKey] of [
+      [s.bound.fontSize, key],
+      [s.bound.lineHeight, `${key}--line-height`],
+    ]) {
+      if (!variable) continue
+      // 한 CSS 값만 화면 폭에 따라 바꿀 수 있어서, 두 스타일이 같은 변수를 쓰면 하나가 말없이 빠진다
+      if (byVariable[variable])
+        throw new Error(
+          `${variable}을 두 텍스트 스타일이 함께 씁니다: ${byVariable[variable]}, ${cssKey}`,
+        )
+      byVariable[variable] = cssKey
+    }
   }
   return (name) => (name.startsWith('typography/') ? byVariable[name] : `--${kebab(name)}`)
 }
@@ -188,7 +218,12 @@ export function renderTokensCss(figma) {
   )
   const cssName = responsiveNamer(figma.textStyles)
   // 쓰는 텍스트 스타일이 없는 글자 변수(보관 스타일 것)는 옮기지 않는다
-  const typography = Object.entries(c.Typography.variables).filter(([name]) => cssName(name))
+  const typography = Object.entries(c.Typography.variables)
+    .filter(([name]) => cssName(name))
+    .map(([name, v]) => {
+      const pending = Object.entries(PENDING.typography[name] ?? {}).map(([m, e]) => [m, e.web])
+      return [name, { ...v, values: { ...v.values, ...Object.fromEntries(pending) } }]
+    })
   const varying = [...layout, ...typography].filter(
     ([, v]) => new Set(Object.values(v.values)).size > 1,
   )
@@ -271,6 +306,9 @@ export function renderTokensCss(figma) {
     ),
     ...Object.keys(PENDING.layout),
     ...Object.keys(PENDING.spacing),
+    ...Object.entries(PENDING.typography).map(
+      ([name, modes]) => `${name} (${Object.keys(modes).join(', ')})`,
+    ),
     ...PENDING.skipTextStyles.map((name) => `텍스트 스타일 ${name}`),
   ]
 

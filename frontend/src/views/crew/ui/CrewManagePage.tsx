@@ -152,7 +152,7 @@ export function CrewManagePage({ crewId }: { crewId: number }) {
                   <h2 className="min-w-0 text-title3 break-all">
                     {crew.data.name} 크루원 {crew.data.memberCount}명
                   </h2>
-                  <Button variant="ghost" size="s" onClick={() => setRenaming(true)}>
+                  <Button variant="text" size="s" onClick={() => setRenaming(true)}>
                     이름 바꾸기
                   </Button>
                 </div>
@@ -169,7 +169,7 @@ export function CrewManagePage({ crewId }: { crewId: number }) {
                 action={(member) =>
                   member.role !== 'LEADER' && (
                     <Button
-                      variant="ghost"
+                      variant="text"
                       size="s"
                       aria-describedby={memberLabelId(member)}
                       onClick={() => setMenuTarget(member)}
@@ -191,7 +191,7 @@ export function CrewManagePage({ crewId }: { crewId: number }) {
             <Divider type="section" />
             <CrewBand>
               <Button
-                variant="ghost"
+                variant="text"
                 size="m"
                 className="self-start"
                 disabled={crew.data.memberCount > 1}

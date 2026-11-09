@@ -84,7 +84,7 @@ export function CrewHomePage({ crewId }: { crewId: number }) {
                 {crew.data.myRole === 'LEADER' && (
                   <Link
                     href={`/crews/${crewId}/manage` as Route}
-                    className={buttonClassName({ variant: 'ghost', size: 's' })}
+                    className={buttonClassName({ variant: 'text', size: 's' })}
                   >
                     크루 관리
                   </Link>
@@ -136,7 +136,7 @@ function LeaveCrew({ crew, onStale }: { crew: memberModel.CrewHomeDto; onStale: 
   return (
     <CrewBand>
       <Button
-        variant="ghost"
+        variant="text"
         size="m"
         className="self-start"
         onClick={() => setStep(crew.myRole === 'LEADER' ? 'leader' : 'confirm')}

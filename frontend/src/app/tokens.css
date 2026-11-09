@@ -5,6 +5,10 @@
  * Tailwind 기본 색·글자 크기·둥글기·그림자·화면 폭 기준은 지워서 시안에 없는 값을 쓰지 못하게 한다.
  * 피그마와 값이 아직 다른 토큰은 웹 값을 유지한다(scripts/generate-tokens/render.mjs의 PENDING):
  *   spacing/0-5
+ *   typography/heading-l/size (Desktop)
+ *   typography/heading-l/line-height (Desktop)
+ *   typography/body-l/size (Desktop)
+ *   typography/body-l/line-height (Desktop)
  */
 
 @theme {
@@ -367,14 +371,12 @@
       --text-number-s--line-height: 44px;
       --text-title1: 28px;
       --text-title1--line-height: 36px;
-      --text-title2: 18px;
-      --text-title2--line-height: 26px;
       --text-title3: 22px;
       --text-title3--line-height: 30px;
       --text-body1-bold: 18px;
       --text-body1-bold--line-height: 26px;
-      --text-body1-regular: 14px;
-      --text-body1-regular--line-height: 22px;
+      --text-body1-regular: 16px;
+      --text-body1-regular--line-height: 24px;
       --text-body2-regular: 14px;
       --text-body2-regular--line-height: 22px;
     }
@@ -392,8 +394,6 @@
     --text-number-s--line-height: 36px;
     --text-title1: 28px;
     --text-title1--line-height: 36px;
-    --text-title2: 24px;
-    --text-title2--line-height: 32px;
     --text-title3: 20px;
     --text-title3--line-height: 28px;
     --text-body1-bold: 16px;

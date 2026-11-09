@@ -72,7 +72,7 @@ export function NotificationDetailPage({ category }: { category: NoticeCategory 
                         <div className="flex justify-center rounded-sm bg-bg-brand-subtle py-2">
                           <Link
                             href={href}
-                            className={buttonClassName({ variant: 'ghost', size: 's' })}
+                            className={buttonClassName({ variant: 'text', size: 's' })}
                           >
                             {notice.link.label}
                           </Link>

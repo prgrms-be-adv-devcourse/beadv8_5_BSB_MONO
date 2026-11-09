@@ -61,7 +61,7 @@ export function AccountLinkPage({ linked, error }: { linked?: string; error?: st
                 </div>
                 {isConnected ? (
                   <Button
-                    variant="secondary"
+                    variant="ghost"
                     size="s"
                     disabled={!me.data || lastMethod || unlink.isPending}
                     onClick={() => unlink.mutate(provider.id as SocialProviderId)}

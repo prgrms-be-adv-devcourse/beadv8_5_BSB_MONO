@@ -139,7 +139,7 @@ export function AddressSearch({
           />
           <Button
             type="button"
-            variant="ghost"
+            variant="text"
             size="s"
             className="self-end"
             aria-label="주소 검색 닫기"

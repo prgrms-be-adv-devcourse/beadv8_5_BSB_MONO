@@ -116,7 +116,7 @@ export function ImageUpload({
               바꾸기
             </Button>
             {onRemove && (
-              <Button size="s" variant="ghost" onClick={() => onRemove(image.id)}>
+              <Button size="s" variant="text" onClick={() => onRemove(image.id)}>
                 삭제
               </Button>
             )}

@@ -268,7 +268,7 @@ function CartLineCard({
         )}
         {failed && <p className="text-body2-regular text-text-danger">{result.message}</p>}
         <div className="flex items-center justify-between gap-2">
-          <Button variant="ghost" size="s" disabled={removing} onClick={onRemove}>
+          <Button variant="text" size="s" disabled={removing} onClick={onRemove}>
             삭제
           </Button>
           {option && <p className="text-body1-bold">{formatWon(option.price)}</p>}

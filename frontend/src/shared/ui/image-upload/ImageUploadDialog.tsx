@@ -412,7 +412,7 @@ function Cropper({ file, outputSize, onPickAnother, onCancel, onApply }: Cropper
       </div>
 
       <div className="flex items-center gap-2">
-        <Button variant="ghost" onClick={onPickAnother}>
+        <Button variant="text" onClick={onPickAnother}>
           다른 이미지 고르기
         </Button>
         <span className="flex-1" />
