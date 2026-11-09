@@ -19,6 +19,7 @@ import com.bukang.order.domain.PartyMember;
 import com.bukang.order.domain.PartyStatus;
 import com.bukang.order.domain.exception.CrewNotFoundException;
 import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
+import com.bukang.order.domain.exception.ParticipationNotPayableException;
 import com.bukang.order.domain.exception.PartyAccessDeniedException;
 import com.bukang.order.domain.exception.PartyConflictException;
 import com.bukang.order.domain.exception.PartyCrewSeatShortageException;
@@ -123,6 +124,10 @@ public class PartyApplyUseCase {
 		}
 		// 상품이 실제로 잡아 둔 기한을 쓴다. 응답을 못 받고 다시 신청하면 상품은 처음 기한을 돌려주므로 위 값과 다를 수 있다
 		LocalDateTime dueAt = hold.expiresAt();
+		// 처음 신청이 롤백되고 기한이 지난 뒤 다시 누르면 상품은 지난 기한을 돌려준다. 결제 기간을 열지 않는다
+		if (!dueAt.isAfter(now)) {
+			throw new ParticipationNotPayableException("이미 잡았던 크루 자리의 결제 기한이 지났습니다. 새 파티로 신청해 주세요.");
+		}
 		participations.forEach(participation -> participation.markApplied(dueAt));
 		party.startPayment(dueAt, now);
 		// 커밋된 뒤에만 나간다 (롤백되면 보내지 않는다). 잃어도 되는 메시지라 아웃박스 없이 보낸다 (11/04 결정)
@@ -151,7 +156,7 @@ public class PartyApplyUseCase {
 	private static CrewSale checkSalePeriod(long partyId, RaceCourseInfo course, LocalDateTime now) {
 		ParticipationApplyUseCase.checkNotCanceled(course);
 		CrewSale crewSale = course.crewSale();
-		// shortcut: 상품 종목 조회에 파티 예매 칸이 아직 없어 실제 상품(http)에서는 판정할 수 없다. 호빈님이 칸을 더하면 풀린다
+		// 상품이 파티 예매 기간·최소 인원을 주지 않으면(크루 예매가 없는 대회, 옛 상품) 판정할 수 없다 (HttpRaceCourseAdapter)
 		if (crewSale == null) {
 			throw new ExternalServiceUnavailableException("파티 신청을 아직 쓸 수 없습니다. 잠시 뒤 다시 시도해주세요.");
 		}

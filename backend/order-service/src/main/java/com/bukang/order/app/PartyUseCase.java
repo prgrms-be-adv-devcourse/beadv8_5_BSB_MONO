@@ -55,8 +55,8 @@ public class PartyUseCase {
 	// BUK-38에서 파티 상태가 새로 생기면 여기에 넣을지 같이 본다 (안 넣으면 그 파티는 「파티 없음」으로 보임)
 	private static final EnumSet<PartyStatus> LIVE_STATUSES =
 		EnumSet.of(PartyStatus.RECRUITING, PartyStatus.PAYING, PartyStatus.PAID);
-	// shortcut: 판매자가 정하는 파티 최소·최대 인원(crewMinCount·crewMaxCount)이 상품 종목 응답에 아직 없어 정책 기본값을 둔다.
-	// 파티 신청(BUK-37, #337)이 RaceCourseInfo.crewSale을 들여오면 그 값으로 바꾼다 (최소는 4명 아래로 못 내림, 11/05 P3)
+	// 정책 최소·최대 인원 (11/05 P3). 합류·신청은 판매자 값(RaceCourseInfo.crewSale)을 쓰고,
+	// shortcut: 내 파티 상태 응답(PartyFacade)은 아직 이 정책값을 보여 준다. 상태 조회에서 종목을 읽게 되면 판매자 값으로 바꾼다
 	public static final int MIN_PARTY_SIZE = 4;
 	public static final int MAX_PARTY_SIZE = RaceCourseInfo.CrewSale.MAX_COUNT_CAP;
 

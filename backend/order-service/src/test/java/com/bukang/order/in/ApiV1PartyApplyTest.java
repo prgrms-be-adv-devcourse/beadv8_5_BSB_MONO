@@ -203,10 +203,25 @@ class ApiV1PartyApplyTest {
 	}
 
 	@Test
+	@DisplayName("상품이 돌려준 처음 기한이 이미 지났으면 결제 기간을 열지 않고 409, 파티는 모집 중으로 남는다")
+	void heldExpiresAtPassed() throws Exception {
+		long partyId = partyWith(MEMBERS);
+		doReturn(CrewSeatHoldResult.held(LocalDateTime.now().minusMinutes(1)))
+			.when(crewSeatHoldPort).holdAll(anyLong(), anyLong(), anyLong(), any(), any());
+
+		apply(LEADER, partyId)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("ORDER_PARTICIPATION_NOT_PAYABLE"));
+		assertThat(partyRepository.findById(partyId).orElseThrow().getStatus()).isEqualTo(PartyStatus.RECRUITING);
+		verify(notificationSender, never()).send(any());
+	}
+
+	@Test
 	@DisplayName("파티장이 아니거나 파티 대기열에 입장하지 않았으면 거절하고 상품을 부르지 않는다")
 	void leaderAndQueue() throws Exception {
 		long partyId = partyWith(MEMBERS);
-		queueAdmissionPort.notAdmitted(COURSE_ID);
+		// 개인 대기열에는 입장 중이어도 파티 대기열에 입장하지 않았으면 막힌다
+		queueAdmissionPort.notAdmittedToParty(COURSE_ID);
 
 		apply(MEMBERS.getFirst(), partyId)
 			.andExpect(status().isForbidden())
