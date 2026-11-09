@@ -61,6 +61,14 @@ public interface PartyRepository extends JpaRepository<Party, Long> {
 	List<Long> findIdsToFinishPayment(@Param("status") PartyStatus status, @Param("now") LocalDateTime now,
 		@Param("waiting") ParticipationStatus waiting);
 
+	// 대회 다음 날 종료할 후보의 종목 (BUK-126). 대회 일시는 상품에 있어 종목마다 한 번 묻는다
+	@Query("select distinct p.raceCourseId from Party p where p.status = :status")
+	List<Long> findRaceCourseIdsByStatus(@Param("status") PartyStatus status);
+
+	@Query("select p.id from Party p where p.raceCourseId = :raceCourseId and p.status = :status order by p.id")
+	List<Long> findIdsByRaceCourseIdAndStatus(@Param("raceCourseId") long raceCourseId,
+		@Param("status") PartyStatus status);
+
 	// 링크 미리 보기 (BUK-39). 다시 만든 옛 토큰은 찾지 못한다
 	Optional<Party> findByJoinToken(String joinToken);
 

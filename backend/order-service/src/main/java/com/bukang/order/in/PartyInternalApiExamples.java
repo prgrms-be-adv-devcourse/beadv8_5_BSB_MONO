@@ -21,6 +21,23 @@ final class PartyInternalApiExamples {
 				"blockingParties": [ { "partyId": 7, "status": "PAYING" } ] } }
 		""";
 
+	static final String PARTY_STATUS_PAID = """
+		{ "status": 200, "message": "크루원의 파티 상태를 조회했습니다.",
+			"data": { "canLeave": false, "canKick": false,
+				"blockingParties": [ { "partyId": 7, "status": "PAID" } ] } }
+		""";
+
+	static final String CREW_PARTY_STATUS_FREE = """
+		{ "status": 200, "message": "크루의 파티 상태를 조회했습니다.",
+			"data": { "canDelete": true, "blockingParties": [] } }
+		""";
+
+	static final String CREW_PARTY_STATUS_BLOCKED = """
+		{ "status": 200, "message": "크루의 파티 상태를 조회했습니다.",
+			"data": { "canDelete": false,
+				"blockingParties": [ { "partyId": 7, "status": "RECRUITING" }, { "partyId": 8, "status": "PAID" } ] } }
+		""";
+
 	private PartyInternalApiExamples() {
 	}
 }
