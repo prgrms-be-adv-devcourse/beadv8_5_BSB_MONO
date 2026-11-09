@@ -121,7 +121,7 @@ public class ApiV1SellerKitController {
 	@Operation(summary = "키트 옵션별 판매 현황",
 		description = "대회의 키트 옵션마다 이름·값·준비 수량(stock)·판매 수(sold)·남은 수량(remaining)을 돌려준다. "
 			+ "옵션과 준비 수량은 상품 서비스의 옵션 목록에서, 판매 수는 주문이 결제 때 센 값(취소하면 줄어듦)이다. "
-			+ "준비 수량이 null이면 맞춤 제작이라 남은 수량도 null이다. 옵션이 없는 대회는 빈 목록이다. "
+			+ "준비 수량(판매 상한)이 null이면 제한이 없어 남은 수량도 null(제한 없음)이다. 옵션이 없는 대회는 빈 목록이다. "
 			+ "이 대회에 다른 판매자의 주문이 있으면 403이다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "조회 성공 (옵션이 없으면 빈 목록)",

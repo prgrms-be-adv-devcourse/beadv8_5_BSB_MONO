@@ -275,14 +275,10 @@ final class OrderApiExamples {
 			"message": "옵션 이름마다 하나만 고를 수 있습니다. (옵션: T-shirt)", "data": null }
 		""";
 
-	static final String KIT_OPTION_WITHOUT_KIT = """
-		{ "status": 400, "code": "ORDER_KIT_OPTION_INVALID",
-			"message": "키트가 없는 종목은 키트 옵션을 고를 수 없습니다.", "data": null }
-		""";
-
 	static final String KIT_OPTION_SOLD_OUT = """
 		{ "status": 409, "code": "ORDER_KIT_OPTION_SOLD_OUT",
-			"message": "품절된 옵션이에요. 다시 골라 주세요. (옵션: T-shirt L)", "data": null }
+			"message": "선택하신 T-shirt L은(는) 준비된 수량이 모두 팔렸어요. 다른 옵션을 골라 주세요.",
+			"data": { "soldOut": [ { "kitOptionId": 12, "name": "T-shirt", "value": "L" } ] } }
 		""";
 
 	static final String PAY_SUCCESS = """

@@ -1,6 +1,7 @@
 package com.bukang.order.app;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -21,13 +22,13 @@ import com.bukang.order.domain.ParticipationKitOption;
 import com.bukang.order.domain.exception.KitOptionInvalidException;
 import com.bukang.order.domain.exception.KitOptionSoldOutException;
 import com.bukang.order.domain.exception.SellerAccessDeniedException;
+import com.bukang.order.dto.KitOptionChoiceDto;
 import com.bukang.order.dto.SellerKitOptionSaleDto;
 import com.bukang.order.out.KitOptionSaleRepository;
 import com.bukang.order.out.OrderItemRepository;
 import com.bukang.order.out.ParticipationKitOptionRepository;
 import com.bukang.order.out.kit.KitOptionPort;
 import com.bukang.order.out.kit.KitOptionPort.KitOption;
-import com.bukang.order.out.race.RaceCourseInfo;
 
 /**
  * 키트 옵션 고르기와 판매 수 세기 (11/07·11/09 결정). 상품은 준비 수량(stock)만 주고 판매 수는 주문이 센다
@@ -37,7 +38,6 @@ import com.bukang.order.out.race.RaceCourseInfo;
  */
 @Service
 public class KitOptionSaleUseCase {
-	static final String SOLD_OUT_MESSAGE = "품절된 옵션이에요. 다시 골라 주세요. (옵션: %s %s)";
 
 	private final KitOptionPort kitOptionPort;
 	private final KitOptionSaleRepository kitOptionSaleRepository;
@@ -60,38 +60,39 @@ public class KitOptionSaleUseCase {
 	/**
 	 * 고른 옵션을 확인하고, 처음 팔리는 옵션이면 판매 수 줄을 만든다. 주문을 잠그기 전에(트랜잭션 밖에서) 부른다
 	 * 상품 HTTP와 줄 만들기가 잠금·DB 연결을 쥔 채 일어나지 않게 한다 (pending 48). 고른 옵션을 돌려준다(옵션 ID 오름차순)
-	 * 규칙 (추천값(미확정)): 키트 없는 종목은 옵션을 받지 않는다. 키트 있는 종목은 대회 옵션 이름마다 정확히 하나씩 고른다.
-	 * 대회에 옵션이 없으면 아무것도 고르지 않는다
+	 * 규칙: 모든 종목에 키트가 있다(11/09). 대회에 옵션이 있으면 옵션 이름마다 정확히 하나씩 고른다(추천값(미확정)).
+	 * 옵션이 하나도 없는 대회는 옵션 ID를 받지 않는다(오면 400)
 	 */
-	public List<KitOption> choose(RaceCourseInfo course, Collection<Long> kitOptionIds) {
+	public List<KitOption> choose(long raceId, Collection<Long> kitOptionIds) {
 		Set<Long> ids = kitOptionIds == null ? Set.of() : new TreeSet<>(kitOptionIds);
 		if (kitOptionIds != null && ids.size() != kitOptionIds.size()) {
 			throw new KitOptionInvalidException("같은 키트 옵션을 두 번 골랐습니다.");
 		}
-		if (!course.kitIncluded()) {
-			if (!ids.isEmpty()) {
-				throw new KitOptionInvalidException("키트가 없는 종목은 키트 옵션을 고를 수 없습니다.");
-			}
-			return List.of();
-		}
-		List<KitOption> chosen = choose(kitOptionPort.findKitOptions(course.raceId()), ids);
-		chosen.forEach(option -> createSaleRowIfAbsent(option.kitOptionId(), course.raceId()));
+		List<KitOption> chosen = choose(kitOptionPort.findKitOptions(raceId), ids);
+		chosen.forEach(option -> createSaleRowIfAbsent(option.kitOptionId(), raceId));
 		return chosen;
 	}
 
 	/**
-	 * 고른 옵션의 판매 수를 +1 한다. 결제 트랜잭션 안에서, 예치금 결제 바로 전에 부른다. 품절이면 409
+	 * 고른 옵션의 판매 수를 +1 한다. 결제 트랜잭션 안에서, 예치금 결제 바로 전에 부른다
+	 * 판매 상한(stock)에 닿은 옵션이 있으면 그 옵션을 모두 담아 409를 던진다(롤백으로 다른 옵션의 +1도 되돌아간다)
 	 * 결제가 실패하면 같은 트랜잭션이라 함께 되돌아간다. 늘린 줄은 커밋까지 잠겨 같은 옵션의 다른 결제가 기다린다
 	 */
 	public void reserve(List<KitOption> chosen) {
+		List<KitOption> soldOut = new ArrayList<>();
 		// chosen이 옵션 ID 오름차순이라 줄을 늘 같은 순서로 잠근다
 		for (KitOption option : chosen) {
 			KitOptionSale sale = kitOptionSaleRepository.findByIdForUpdate(option.kitOptionId())
 				.orElseThrow(() -> new IllegalStateException(
 					"키트 옵션 판매 수 줄이 없습니다. kitOptionId=" + option.kitOptionId()));
 			if (!sale.increase(option.stock())) {
-				throw new KitOptionSoldOutException(SOLD_OUT_MESSAGE.formatted(option.name(), option.value()));
+				soldOut.add(option);
 			}
+		}
+		if (!soldOut.isEmpty()) {
+			throw new KitOptionSoldOutException(soldOut.stream()
+				.map(option -> new KitOptionChoiceDto(option.kitOptionId(), option.name(), option.value()))
+				.toList());
 		}
 	}
 

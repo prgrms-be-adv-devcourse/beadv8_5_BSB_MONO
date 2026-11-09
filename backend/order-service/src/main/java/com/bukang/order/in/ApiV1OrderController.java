@@ -125,9 +125,10 @@ public class ApiV1OrderController {
 			+ "잔액이 부족하면 주문과 자리를 그대로 두므로, 충전한 뒤 같은 주문으로 다시 결제한다. "
 			+ "기한이 지나 자리 판매가 거절되면 차감한 예치금을 돌려주고 409를 돌려준다. 이미 결제한 주문은 다시 차감하지 않고 200으로 돌려준다. "
 			+ "파티원 주문은 예치금을 빼기 전에 대회 취소와 크루원인지를 다시 본다(크루를 떠났으면 409 ORDER_PARTY_MEMBER_NOT_CREW). "
-			+ "키트 옵션은 결제 화면에서 고른 kitOptionIds로 받는다. 키트 있는 종목은 대회 옵션 이름마다 하나씩 골라야 하고, "
-			+ "키트 없는 종목·옵션 없는 대회는 비우거나 본문을 보내지 않는다. 예치금을 빼기 전에 옵션별 판매 수를 준비 수량과 견주어, "
-			+ "품절이면 409 ORDER_KIT_OPTION_SOLD_OUT을 돌려준다(자리는 결제 기한까지 그대로라 다른 옵션으로 다시 결제한다).")
+			+ "키트 옵션은 결제 화면에서 고른 kitOptionIds로 받는다. 대회에 옵션이 있으면 옵션 이름마다 하나씩 골라야 하고, "
+			+ "옵션이 없는 대회는 비우거나 본문을 보내지 않는다. 예치금을 빼기 전에 옵션별 판매 수를 판매 상한과 견주어, "
+			+ "다 팔린 옵션이 있으면 409 ORDER_KIT_OPTION_SOLD_OUT과 팔린 옵션 목록(data.soldOut)을 돌려준다"
+			+ "(자리는 결제 기한까지 그대로라 다른 옵션으로 다시 결제한다). 이미 결제한 주문은 kitOptionIds를 보지 않는다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "결제 완료 또는 이미 결제한 주문",
 			content = @Content(examples = {
@@ -135,14 +136,13 @@ public class ApiV1OrderController {
 				@ExampleObject(name = "이미 결제함", value = OrderApiExamples.PAY_ALREADY)
 			})),
 		@ApiResponse(responseCode = "400",
-			description = "주문 ID·회원 ID 오류, 요청 본문 형식 오류, 키트 옵션 ID 오류, 키트 없는 종목에 옵션, 다른 대회·없는 옵션, "
+			description = "주문 ID·회원 ID 오류, 요청 본문 형식 오류, 키트 옵션 ID 오류, 다른 대회·없는 옵션(옵션 없는 대회에 옵션 포함), "
 				+ "옵션 이름 빠짐·겹침",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "주문 ID·회원 ID 형식 오류", value = OrderApiExamples.INVALID_VALUE_TYPE),
 				@ExampleObject(name = "회원 ID가 0 이하", value = OrderApiExamples.INVALID_MEMBER_ID),
 				@ExampleObject(name = "요청 본문 형식 오류", value = OrderApiExamples.INVALID_BODY),
 				@ExampleObject(name = "키트 옵션 ID 오류", value = OrderApiExamples.PAY_INVALID_KIT_OPTION_ID),
-				@ExampleObject(name = "키트 없는 종목에 옵션", value = OrderApiExamples.KIT_OPTION_WITHOUT_KIT),
 				@ExampleObject(name = "이 대회의 옵션이 아님", value = OrderApiExamples.KIT_OPTION_NOT_IN_RACE),
 				@ExampleObject(name = "옵션 이름 빠짐", value = OrderApiExamples.KIT_OPTION_MISSING),
 				@ExampleObject(name = "옵션 이름 겹침", value = OrderApiExamples.KIT_OPTION_DUPLICATED_NAME)
@@ -284,14 +284,13 @@ public class ApiV1OrderController {
 		@ApiResponse(responseCode = "200", description = "조회 성공",
 			content = @Content(examples = @ExampleObject(value = OrderApiExamples.FIND_SUCCESS))),
 		@ApiResponse(responseCode = "400",
-			description = "주문 ID·회원 ID 오류, 요청 본문 형식 오류, 키트 옵션 ID 오류, 키트 없는 종목에 옵션, 다른 대회·없는 옵션, "
+			description = "주문 ID·회원 ID 오류, 요청 본문 형식 오류, 키트 옵션 ID 오류, 다른 대회·없는 옵션(옵션 없는 대회에 옵션 포함), "
 				+ "옵션 이름 빠짐·겹침",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "주문 ID·회원 ID 형식 오류", value = OrderApiExamples.INVALID_VALUE_TYPE),
 				@ExampleObject(name = "회원 ID가 0 이하", value = OrderApiExamples.INVALID_MEMBER_ID),
 				@ExampleObject(name = "요청 본문 형식 오류", value = OrderApiExamples.INVALID_BODY),
 				@ExampleObject(name = "키트 옵션 ID 오류", value = OrderApiExamples.PAY_INVALID_KIT_OPTION_ID),
-				@ExampleObject(name = "키트 없는 종목에 옵션", value = OrderApiExamples.KIT_OPTION_WITHOUT_KIT),
 				@ExampleObject(name = "이 대회의 옵션이 아님", value = OrderApiExamples.KIT_OPTION_NOT_IN_RACE),
 				@ExampleObject(name = "옵션 이름 빠짐", value = OrderApiExamples.KIT_OPTION_MISSING),
 				@ExampleObject(name = "옵션 이름 겹침", value = OrderApiExamples.KIT_OPTION_DUPLICATED_NAME)

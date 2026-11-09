@@ -65,9 +65,9 @@ import com.jayway.jsonpath.JsonPath;
 class ApiV1OrderKitOptionTest {
 	private static final String BASE_URL = "/api/v1/order/orders";
 	private static final long COURSE_ID = 10;
-	private static final long NO_KIT_COURSE_ID = 20;
+	private static final long NO_OPTION_COURSE_ID = 20;
 	private static final long RACE_ID = 100;
-	private static final long NO_KIT_RACE_ID = 200;
+	private static final long NO_OPTION_RACE_ID = 200;
 	private static final long SHIRT_M = 11;
 	private static final long SHIRT_L = 12;
 	private static final long SOCKS_FREE = 21;
@@ -121,7 +121,7 @@ class ApiV1OrderKitOptionTest {
 	@BeforeEach
 	void setUp() {
 		raceCoursePort.put(StubRaceCoursePort.openCourse(COURSE_ID, RACE_ID, 14, null));
-		raceCoursePort.put(StubRaceCoursePort.courseWithoutKit(NO_KIT_COURSE_ID, NO_KIT_RACE_ID));
+		raceCoursePort.put(StubRaceCoursePort.openCourse(NO_OPTION_COURSE_ID, NO_OPTION_RACE_ID, 14, null));
 		kitOptionPort.add(RACE_ID, SHIRT_M, "T-shirt", "M", 30);
 		kitOptionPort.add(RACE_ID, SHIRT_L, "T-shirt", "L", 1);
 		// 맞춤 제작(준비 수량 없음)이라 품절이 없다
@@ -170,7 +170,11 @@ class ApiV1OrderKitOptionTest {
 		pay(2, second, SHIRT_L, SOCKS_FREE)
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("ORDER_KIT_OPTION_SOLD_OUT"))
-			.andExpect(jsonPath("$.message").value("품절된 옵션이에요. 다시 골라 주세요. (옵션: T-shirt L)"));
+			.andExpect(jsonPath("$.message").value("선택하신 T-shirt L은(는) 준비된 수량이 모두 팔렸어요. 다른 옵션을 골라 주세요."))
+			.andExpect(jsonPath("$.data.soldOut.length()").value(1))
+			.andExpect(jsonPath("$.data.soldOut[0].kitOptionId").value(SHIRT_L))
+			.andExpect(jsonPath("$.data.soldOut[0].name").value("T-shirt"))
+			.andExpect(jsonPath("$.data.soldOut[0].value").value("L"));
 
 		assertThat(walletPort.payCalls()).hasSize(1);
 		assertThat(participationStatusOf(second)).isEqualTo(ParticipationStatus.APPLIED);
@@ -271,17 +275,35 @@ class ApiV1OrderKitOptionTest {
 	}
 
 	@Test
-	@DisplayName("키트가 없는 종목에 옵션을 보내면 400이고, 보내지 않으면 결제된다")
-	void optionsForCourseWithoutKit() throws Exception {
-		long orderId = orderAndGetId(1, NO_KIT_COURSE_ID);
+	@DisplayName("옵션이 없는 대회에 옵션을 보내면 400이고, 보내지 않으면 결제된다")
+	void optionsForRaceWithoutOptions() throws Exception {
+		long orderId = orderAndGetId(1, NO_OPTION_COURSE_ID);
 
 		pay(1, orderId, SHIRT_M)
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("ORDER_KIT_OPTION_INVALID"))
-			.andExpect(jsonPath("$.message").value("키트가 없는 종목은 키트 옵션을 고를 수 없습니다."));
+			.andExpect(jsonPath("$.message").value("이 대회의 키트 옵션이 아닙니다. (옵션 ID: 11)"));
 		assertThat(walletPort.payCalls()).isEmpty();
 
 		pay(1, orderId).andExpect(status().isOk());
+	}
+
+	@Test
+	@DisplayName("고른 옵션 여럿이 한꺼번에 다 팔렸으면 409 하나에 모두 담는다")
+	void severalSoldOut() throws Exception {
+		kitOptionPort.clear();
+		kitOptionPort.add(RACE_ID, SHIRT_L, "T-shirt", "L", 1);
+		kitOptionPort.add(RACE_ID, 31, "socks", "M", 1);
+		long first = orderAndGetId(1, COURSE_ID);
+		pay(1, first, SHIRT_L, 31).andExpect(status().isOk());
+		long second = orderAndGetId(2, COURSE_ID);
+
+		pay(2, second, SHIRT_L, 31)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.message").value(
+				"선택하신 T-shirt L, socks M은(는) 준비된 수량이 모두 팔렸어요. 다른 옵션을 골라 주세요."))
+			.andExpect(jsonPath("$.data.soldOut.length()").value(2))
+			.andExpect(jsonPath("$.data.soldOut[1].kitOptionId").value(31));
 	}
 
 	@Test
@@ -392,13 +414,10 @@ class ApiV1OrderKitOptionTest {
 				{ "raceCourseId": %d, "thirdPartyConsent": true,
 					"participant": { "name": "김러너", "birth": "1994-06-25", "gender": "MALE",
 						"phone": "010-1234-5678", "emergencyContactName": "김가족",
-						"emergencyContactPhone": "010-9876-5432", "tshirtSize": %s,
-						"shippingAddress": %s } }
-				""".formatted(courseId, courseId == COURSE_ID ? "\"L\"" : "null",
-				courseId == COURSE_ID ? """
-					{ "recipientName": "김러너", "recipientPhone": "010-1234-5678",
-						"zipcode": "04700", "address": "서울 성동구 왕십리로 00", "addressDetail": "101동 1001호" }"""
-					: "null"))));
+						"emergencyContactPhone": "010-9876-5432", "tshirtSize": "L",
+						"shippingAddress": { "recipientName": "김러너", "recipientPhone": "010-1234-5678",
+							"zipcode": "04700", "address": "서울 성동구 왕십리로 00", "addressDetail": "101동 1001호" } } }
+				""".formatted(courseId))));
 		return read(mockMvc.perform(post(BASE_URL)
 			.header("X-Member-Id", memberId)
 			.header("Idempotency-Key", UUID.randomUUID().toString())

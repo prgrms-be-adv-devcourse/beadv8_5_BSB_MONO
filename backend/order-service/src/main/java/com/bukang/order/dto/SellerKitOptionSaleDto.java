@@ -8,9 +8,9 @@ import io.swagger.v3.oas.annotations.media.Schema;
  * @param kitOptionId 상품의 옵션 ID
  * @param name        옵션 이름 (예: T-shirt)
  * @param value       옵션 값 (예: L)
- * @param stock       준비 수량. null이면 맞춤 제작이라 품절이 없다
+ * @param stock       판매 상한(준비 수량). null이면 제한 없음(맞춤 제작)
  * @param sold        판매 수 (결제한 참가권 중 취소되지 않은 것)
- * @param remaining   남은 수량 (준비 수량 - 판매 수, 0 아래면 0). 맞춤 제작이면 null
+ * @param remaining   남은 수량 (판매 상한 - 판매 수, 0 아래면 0). 판매 상한이 없으면 null(제한 없음)
  */
 @Schema(description = "키트 옵션별 판매 현황")
 public record SellerKitOptionSaleDto(long kitOptionId, String name, String value, Integer stock, int sold,

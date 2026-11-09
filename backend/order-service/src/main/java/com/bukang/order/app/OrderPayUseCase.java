@@ -76,7 +76,7 @@ public class OrderPayUseCase {
 			.orElseThrow(() -> new ParticipationNotFoundException("존재하지 않는 참가 신청입니다."));
 		RaceCourseInfo course = raceCoursePort.findCourse(raceCourseId)
 			.orElseThrow(() -> new RaceCourseNotFoundException("존재하지 않는 종목입니다."));
-		return new Prepared(course, kitOptionSaleUseCase.choose(course, kitOptionIds));
+		return new Prepared(course, kitOptionSaleUseCase.choose(course.raceId(), kitOptionIds));
 	}
 
 	private record Prepared(RaceCourseInfo course, List<KitOption> kitOptions) {

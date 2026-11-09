@@ -1392,7 +1392,7 @@
             "null"
           ],
           "format": "int32",
-          "description": "준비 수량. null이면 맞춤 제작"
+          "description": "판매 상한(준비 수량). null이면 제한 없음"
         },
         "sold": {
           "type": "integer",
@@ -1404,7 +1404,7 @@
             "null"
           ],
           "format": "int32",
-          "description": "남은 수량. 맞춤 제작이면 null"
+          "description": "남은 수량. 판매 상한이 없으면 null(제한 없음)"
         }
       },
       "required": [
@@ -1414,6 +1414,21 @@
         "stock",
         "sold",
         "remaining"
+      ]
+    },
+    "KitOptionSoldOutDto": {
+      "type": "object",
+      "description": "키트 옵션 품절 409(ORDER_KIT_OPTION_SOLD_OUT)의 data. 판매 상한에 닿은 옵션을 모두 담는다",
+      "properties": {
+        "soldOut": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/KitOptionChoiceDto"
+          }
+        }
+      },
+      "required": [
+        "soldOut"
       ]
     }
   }
