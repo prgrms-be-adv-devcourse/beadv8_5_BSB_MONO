@@ -112,7 +112,10 @@ export function LoginPage({
             <LinkRow
               className="text-label-s text-text-secondary"
               links={[
-                { href: '/signup', label: '회원가입' },
+                {
+                  href: next ? `/signup?next=${encodeURIComponent(next)}` : '/signup',
+                  label: '회원가입',
+                },
                 { href: '/find-email', label: '이메일 찾기' },
                 { href: '/password-reset', label: '비밀번호 재설정' },
               ]}
@@ -153,7 +156,14 @@ function loginErrorMessage(error: Error | null): string | undefined {
 }
 
 type RowLink = {
-  href: '/signup' | '/find-email' | '/password-reset' | '/terms/service' | '/terms/privacy' | '/me'
+  href:
+    | '/signup'
+    | `/signup?next=${string}`
+    | '/find-email'
+    | '/password-reset'
+    | '/terms/service'
+    | '/terms/privacy'
+    | '/me'
   label: string
 }
 
