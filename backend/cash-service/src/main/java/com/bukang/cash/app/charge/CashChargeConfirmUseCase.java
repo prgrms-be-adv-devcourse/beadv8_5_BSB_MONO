@@ -43,6 +43,7 @@ public class CashChargeConfirmUseCase {
 	private final WalletLedgerRepository walletLedgerRepository;
 	private final PaymentClient paymentClient;
 	private final TransactionTemplate transactionTemplate;
+	private final ChargeAbuseGuard chargeAbuseGuard;
 
 	public CashChargeResponseDto confirmWalletCharge(long customerId, String paymentKey, String orderId, long amount) {
 		if (amount < CashChargePolicy.MINIMUM_AMOUNT) {
@@ -51,6 +52,7 @@ public class CashChargeConfirmUseCase {
 		if (amount > CashChargePolicy.MAX_PER_CHARGE) {
 			throw new ChargeAmountTooLargeException("1회 충전 한도는 100,000원입니다.");
 		}
+		chargeAbuseGuard.assertAttemptNotRateLimited(customerId);
 
 		ChargeClaim claim = transactionTemplate.execute(status -> claimChargeLocked(customerId, orderId, amount));
 		if (claim.resolved() != null) {
@@ -63,9 +65,11 @@ public class CashChargeConfirmUseCase {
 		PaymentApprovalResult result;
 		try {
 			result = paymentClient.approve(paymentKey, orderId, amount);
+			chargeAbuseGuard.resetFailureCount(customerId);
 		} catch (PaymentApprovalFailedException failure) {
 			if (!failure.isResultUnknown()) {
 				// PG가 거절을 분명히 알려 줬다 (카드 한도 초과, 일시 장애, 결제 시간 만료 등). 그 문구를 그대로 보여 준다
+				chargeAbuseGuard.registerDefiniteFailure(customerId);
 				return transactionTemplate.execute(
 					status -> recordFailedLocked(customerId, orderId, failure.getMessage()));
 			}
