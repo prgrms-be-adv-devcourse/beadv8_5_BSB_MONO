@@ -24,6 +24,8 @@ vi.mock('next/navigation', () => ({
 beforeEach(() => {
   push.mockClear()
   replace.mockClear()
+  // 가입 단계가 sessionStorage에 남긴 값(돌아갈 화면 등)이 다른 테스트로 넘어가지 않게 비운다
+  sessionStorage.clear()
 })
 
 // 본인인증을 마친 결과. 본인인증 화면 자체는 signup-verification.test.tsx에서 확인한다
@@ -309,8 +311,6 @@ describe('회원가입 단계', () => {
 })
 
 describe('가입 뒤 돌아갈 화면 (BUK-98)', () => {
-  beforeEach(() => sessionStorage.clear())
-
   // 로그인 화면에서 ?next=를 받아 첫 단계(본인 확인)를 연 뒤, 회원 정보 단계에서 가입을 마친다
   async function joinWith(next?: string) {
     server.use(
@@ -360,6 +360,27 @@ describe('가입 뒤 돌아갈 화면 (BUK-98)', () => {
     await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/'))
     expect(replace).not.toHaveBeenCalledWith('/invite/old')
   })
+
+  it.each([
+    ['계정', <SignupAccountPage key="account" />],
+    ['회원 정보', <SignupProfilePage key="profile" />],
+  ])(
+    '%s 단계에서 입력값이 사라져 첫 화면으로 되돌릴 때 돌아갈 화면(next)을 붙여 보낸다',
+    (_, page) => {
+      const client = new QueryClient()
+      const wrap = (node: ReactNode) => (
+        <QueryClientProvider client={client}>
+          <ToastProvider>
+            <SignupStepProvider>{node}</SignupStepProvider>
+          </ToastProvider>
+        </QueryClientProvider>
+      )
+      const view = render(wrap(<SignupIdentityPage next="/invite/q7Xk?party=pJ0in" />))
+      view.unmount()
+      render(wrap(page))
+      expect(replace).toHaveBeenCalledWith('/signup?next=%2Finvite%2Fq7Xk%3Fparty%3DpJ0in')
+    },
+  )
 })
 
 describe('이메일 중복 확인 (PRO-201)', () => {
