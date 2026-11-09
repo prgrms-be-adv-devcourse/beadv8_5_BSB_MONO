@@ -17,6 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * 대회 다음 날 결제 끝 파티를 종료로 바꾼다 (BUK-126, 11/09 결정 ⑥). 종료되면 그 파티원은 크루를 나갈 수 있다 (BUK-125)
  * 대회 일시는 상품(RaceCoursePort)에서 종목마다 한 번 묻는다. 상품 조회가 실패하거나 종목이 없으면 그 종목만 건너뛰고 다음 실행에서 다시 본다
+ * shortcut: 상품에서 종목이 지워지면(404) 그 파티는 계속 결제 끝으로 남는다. 생기면 로그를 보고 손으로 종료한다
  * 멱등: 파티를 잠근 뒤 아직 결제 끝일 때만 바꾸므로, 두 번 돌거나 서버 둘이 함께 돌아도 한 번만 바뀐다
  */
 @Slf4j
@@ -37,8 +38,8 @@ public class PartyCloseUseCase {
 					log.warn("종목을 찾지 못해 파티 종료를 건너뜁니다. raceCourseId={}", raceCourseId);
 					continue;
 				}
-				// 대회 당일까지는 끝나지 않았다. 다음 날 00시부터 종료한다
-				if (!now.toLocalDate().isAfter(course.raceDate().toLocalDate())) {
+				// 대회 당일까지는 끝나지 않았다. 다음 날 00시부터 종료한다. 취소된 대회는 열리지 않으므로 바로 종료한다
+				if (!course.canceled() && !now.toLocalDate().isAfter(course.raceDate().toLocalDate())) {
 					continue;
 				}
 				closed += closeCourse(raceCourseId, now);

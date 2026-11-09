@@ -1,10 +1,15 @@
 package com.bukang.order.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.Optional;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -14,11 +19,14 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.order.domain.Party;
 import com.bukang.order.domain.PartyStatus;
+import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
 import com.bukang.order.out.PartyRepository;
 import com.bukang.order.out.race.RaceCourseInfo;
+import com.bukang.order.out.race.RaceCoursePort;
 import com.bukang.order.support.StubRaceCoursePort;
 import com.bukang.order.support.StubRaceCoursePortConfig;
 
@@ -31,6 +39,8 @@ class PartyCloseUseCaseTest {
 	private static final long RACED_COURSE = 10;
 	private static final long TODAY_COURSE = 20;
 	private static final long MISSING_COURSE = 30;
+	private static final long CANCELED_COURSE = 40;
+	private static final long FAILING_COURSE = 50;
 
 	@Autowired
 	private PartyCloseUseCase partyCloseUseCase;
@@ -72,6 +82,34 @@ class PartyCloseUseCaseTest {
 		assertThat(statusOf(unknownCourse)).isEqualTo(PartyStatus.PAID);
 	}
 
+	@Test
+	@DisplayName("취소된 대회의 결제 끝 파티는 대회일 전이라도 바로 종료한다")
+	void closeCanceledRace() {
+		LocalDateTime now = LocalDateTime.now();
+		raceCoursePort.put(StubRaceCoursePort.canceled(courseOn(CANCELED_COURSE, now.plusDays(30))));
+		long canceled = party(CANCELED_COURSE, PartyStatus.PAID);
+
+		assertThat(partyCloseUseCase.closeFinishedRaces(now)).isEqualTo(1);
+
+		assertThat(statusOf(canceled)).isEqualTo(PartyStatus.CLOSED);
+	}
+
+	@Test
+	@DisplayName("한 종목의 상품 조회가 실패해도 배치를 멈추지 않고 다음 종목을 본다")
+	void continueWhenOneCourseLookupFails() {
+		PartyRepository repository = mock(PartyRepository.class);
+		RaceCoursePort port = mock(RaceCoursePort.class);
+		when(repository.findRaceCourseIdsByStatus(PartyStatus.PAID)).thenReturn(List.of(FAILING_COURSE, RACED_COURSE));
+		when(port.findCourse(FAILING_COURSE)).thenThrow(new ExternalServiceUnavailableException("상품이 내려갔습니다."));
+		when(port.findCourse(RACED_COURSE)).thenReturn(Optional.of(courseOn(RACED_COURSE,
+			LocalDateTime.now().minusDays(1))));
+
+		PartyCloseUseCase useCase = new PartyCloseUseCase(repository, port, mock(TransactionTemplate.class));
+		useCase.closeFinishedRaces(LocalDateTime.now());
+
+		verify(repository).findIdsByRaceCourseIdAndStatus(RACED_COURSE, PartyStatus.PAID);
+	}
+
 	private PartyStatus statusOf(long partyId) {
 		return partyRepository.findById(partyId).orElseThrow().getStatus();
 	}
@@ -83,9 +121,10 @@ class PartyCloseUseCaseTest {
 	}
 
 	private static RaceCourseInfo courseOn(long raceCourseId, LocalDateTime raceDate) {
-		RaceCourseInfo c = StubRaceCoursePort.openCourse(raceCourseId, 5, 14, null, LocalDate.now().minusDays(10));
-		return new RaceCourseInfo(c.raceCourseId(), c.raceId(), raceDate, c.applicationOpenAt(),
-			c.applicationCloseAt(), c.minAge(), c.maxAge(), c.sellerId(), c.courseName(), c.price(), c.kitIncluded(),
-			c.refundDeadline(), c.scheduleChangedAt(), c.canceled(), c.tshirtSizeOption());
+		RaceCourseInfo open = StubRaceCoursePort.openCourse(raceCourseId, 5, 14, null, LocalDate.now().minusDays(10));
+		return new RaceCourseInfo(open.raceCourseId(), open.raceId(), raceDate, open.applicationOpenAt(),
+			open.applicationCloseAt(), open.minAge(), open.maxAge(), open.sellerId(), open.courseName(), open.price(),
+			open.kitIncluded(), open.refundDeadline(), open.scheduleChangedAt(), open.canceled(),
+			open.tshirtSizeOption());
 	}
 }

@@ -75,4 +75,7 @@ public interface PartyRepository extends JpaRepository<Party, Long> {
 	// 크루 홈 「진행 중인 파티」 (BUK-39)
 	// shortcut: crew_id·status 인덱스가 없다. 크루당 파티가 많아지면 (crew_id, status) 인덱스를 Flyway로 더한다
 	List<Party> findByCrewIdAndStatusInOrderByIdDesc(long crewId, Collection<PartyStatus> statuses);
+
+	// 크루 없애기 확인 (BUK-125). 막는 파티를 ID 순으로 돌려준다
+	List<Party> findByCrewIdAndStatusInOrderByIdAsc(long crewId, Collection<PartyStatus> statuses);
 }

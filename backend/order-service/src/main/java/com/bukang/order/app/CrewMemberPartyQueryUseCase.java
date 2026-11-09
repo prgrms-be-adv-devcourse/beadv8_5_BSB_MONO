@@ -1,6 +1,5 @@
 package com.bukang.order.app;
 
-import java.util.Comparator;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -41,10 +40,8 @@ public class CrewMemberPartyQueryUseCase {
 	}
 
 	public CrewPartyStatusDto findCrewPartyStatus(long crewId) {
-		List<BlockingParty> parties = partyRepository.findByCrewIdAndStatusInOrderByIdDesc(crewId, UNFINISHED)
-			.stream()
+		List<BlockingParty> parties = partyRepository.findByCrewIdAndStatusInOrderByIdAsc(crewId, UNFINISHED).stream()
 			.map(party -> new BlockingParty(party.getId(), party.getStatus()))
-			.sorted(Comparator.comparingLong(BlockingParty::partyId))
 			.toList();
 		return new CrewPartyStatusDto(parties.isEmpty(), parties);
 	}
