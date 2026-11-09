@@ -117,7 +117,7 @@ public class ApiV1PayoutClaimController {
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = PayoutApiExamples.MEMBER_UNAVAILABLE)))
 	})
-	public ResponseEntity<RsData<PayoutAdminClaimsDto>> claims(
+	public ResponseEntity<RsData<PayoutAdminClaimsDto>> adminClaims(
 		@LoginMemberId long memberId,
 		@Parameter(description = "청구 상태 (청구_중, 입금_확인). 없으면 전체", example = "청구_중")
 		@RequestParam(required = false) PayoutClaimStatus status,
