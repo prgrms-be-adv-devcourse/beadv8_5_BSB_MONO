@@ -231,7 +231,10 @@ export const CreateFailuresResponse = zod.object({
   "payoutTargetDate": zod.iso.date().nullable(),
   "failureType": zod.enum(['주문_정산_대회일_불일치', '정산_계좌_조회_실패', '정산_저장_실패', '정산_조회_실패', '알_수_없는_실패', '대회_조회_실패', '주문_조회_실패', '취소_중이라_미룸', '대사_불일치']).describe('정산 생성 실패 종류'),
   "actionTaken": zod.union([zod.enum(['지급보류', '자동_보정', '기록만']).describe('배치가 기록할 때 한 조치 (지급보류, 자동_보정: 빠진 참가권 채움, 기록만)'),zod.null()]).describe('칸을 더하기 전의 대사 불일치 기록은 null'),
-  "note": zod.string().nullable()
+  "note": zod.string().nullable(),
+  "soldCount": zod.int().nullable().describe('최종 정산 대사의 판매 장수. 1차와 다른 실패는 null'),
+  "settledCount": zod.int().nullable().describe('최종 정산 대사의 정산 판매 줄 장수. 1차와 다른 실패는 null'),
+  "holdCode": zod.string().nullable().describe('이 어긋남으로 걸린 지급보류 ID (HD-, 여럿이면 쉼표)')
 })),
   "page": zod.int(),
   "size": zod.int(),

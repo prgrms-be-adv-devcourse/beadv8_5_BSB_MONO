@@ -519,6 +519,23 @@
         "note": {
           "type": "string",
           "nullable": true
+        },
+        "soldCount": {
+          "type": "integer",
+          "format": "int32",
+          "nullable": true,
+          "description": "최종 정산 대사의 판매 장수. 1차와 다른 실패는 null"
+        },
+        "settledCount": {
+          "type": "integer",
+          "format": "int32",
+          "nullable": true,
+          "description": "최종 정산 대사의 정산 판매 줄 장수. 1차와 다른 실패는 null"
+        },
+        "holdCode": {
+          "type": "string",
+          "nullable": true,
+          "description": "이 어긋남으로 걸린 지급보류 ID (HD-, 여럿이면 쉼표)"
         }
       },
       "required": [
@@ -532,7 +549,10 @@
         "payoutTargetDate",
         "failureType",
         "actionTaken",
-        "note"
+        "note",
+        "soldCount",
+        "settledCount",
+        "holdCode"
       ]
     },
     "PayoutCreateFailurePageDto": {

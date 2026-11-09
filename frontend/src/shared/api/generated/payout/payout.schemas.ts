@@ -254,6 +254,21 @@ export interface PayoutCreateFailureDto {
   actionTaken: PayoutCreateFailureAction | null;
   /** @nullable */
   note: string | null;
+  /**
+     * 최종 정산 대사의 판매 장수. 1차와 다른 실패는 null
+     * @nullable
+     */
+  soldCount: number | null;
+  /**
+     * 최종 정산 대사의 정산 판매 줄 장수. 1차와 다른 실패는 null
+     * @nullable
+     */
+  settledCount: number | null;
+  /**
+     * 이 어긋남으로 걸린 지급보류 ID (HD-, 여럿이면 쉼표)
+     * @nullable
+     */
+  holdCode: string | null;
 }
 
 export interface PayoutCreateFailurePageDto {

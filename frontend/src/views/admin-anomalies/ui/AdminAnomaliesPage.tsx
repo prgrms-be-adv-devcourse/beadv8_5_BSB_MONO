@@ -1,38 +1,62 @@
 'use client'
 
-import { keepPreviousData } from '@tanstack/react-query'
+import { keepPreviousData, useQueries } from '@tanstack/react-query'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
 import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
 import {
   CREATE_FAILURE_ACTION,
-  CREATE_FAILURE_TYPE,
   CREATE_FAILURE_TYPE_ITEMS,
   detailPeriods,
   formatMonthDay,
   PAYOUT_STAGE,
 } from '@/entities/payout'
-import { ApiError, payoutApi, unwrapData, type payoutModel } from '@/shared/api'
+import {
+  ApiError,
+  memberApi,
+  payoutApi,
+  productApi,
+  unwrapData,
+  type payoutModel,
+} from '@/shared/api'
 import { formatNumber } from '@/shared/lib'
 import {
   Alert,
   Badge,
+  Button,
   buttonClassName,
   DataTable,
   EmptyState,
   KeyValue,
   Pagination,
+  Segmented,
   Select,
   Skeleton,
   StatTile,
 } from '@/shared/ui'
+
+import { captionText, courseText, diffText, noteText, summaryText } from '../lib/anomaly-text'
 
 /** 한 페이지 크기 (백엔드 한도 1~100) */
 const PAGE_SIZE = 20
 
 type TypeFilter = payoutModel.PayoutCreateFailureType | 'all'
 type FailureRecord = payoutModel.PayoutCreateFailureDto
+
+// 관리자 「정산 · 환급 처리」 탭 막대 (시안 C8). 회수 화면은 아직 없어 눌러도 옮기지 않는다
+type AdminPayoutTab = 'settlements' | 'holds' | 'claims' | 'anomalies'
+const TAB_ITEMS: { value: AdminPayoutTab; label: string }[] = [
+  { value: 'settlements', label: '정산 · 환급 내역' },
+  { value: 'holds', label: '지급보류' },
+  { value: 'claims', label: '회수' },
+  { value: 'anomalies', label: '이상 감지' },
+]
+const TAB_HREF = {
+  settlements: '/admin/settlements',
+  holds: '/admin/holds',
+} as const
 
 function errorText(error: unknown) {
   return (error instanceof ApiError && error.serverMessage) || '잠시 뒤 다시 시도해 주세요.'
@@ -41,16 +65,6 @@ function errorText(error: unknown) {
 /** '2026-11-06T03:00:12' → '11/6 03:00' */
 function formatRecordedAt(dateTime: string) {
   return `${formatMonthDay(dateTime)} ${dateTime.slice(11, 16)}`
-}
-
-// 관리자 쪽에 판매자 · 대회 이름 API가 없어 ID로 보여 준다 (BUK-108)
-function sellerText(r: FailureRecord) {
-  return r.sellerId == null ? '–' : `판매자 #${r.sellerId}`
-}
-
-function raceText(r: FailureRecord) {
-  const race = r.raceId == null ? '대회 모름' : `대회 #${r.raceId}`
-  return `${race} · ${PAYOUT_STAGE[r.payoutStage]}`
 }
 
 function ActionBadge({ action }: { action: FailureRecord['actionTaken'] }) {
@@ -63,7 +77,9 @@ function ActionBadge({ action }: { action: FailureRecord['actionTaken'] }) {
 }
 
 // 피그마 시안 N4 이상 감지 · N8 이상 감지 없음 (BUK-108)
+// 판매자 · 대회 · 코스 이름은 정산 API에 없어(C6 결정) 회원 판매자 목록과 대회 상세를 따로 받아 합친다
 export function AdminAnomaliesPage() {
+  const router = useRouter()
   // 화면을 연 날 기준. 기간 목록이 렌더마다 바뀌지 않게 한 번만 잡는다
   const [periods] = useState(() => detailPeriods(new Date()))
   const [periodValue, setPeriodValue] = useState(periods[0].value)
@@ -89,11 +105,61 @@ export function AdminAnomaliesPage() {
   const rows = data?.records.content ?? []
   const selected = rows.find((r) => r.id === selectedId) ?? rows[0]
 
+  // 판매자 ID는 판매자 신청서 ID다. 승인된 판매자만 정산을 받는다
+  const sellers = memberApi.useFindAll(
+    { status: 'APPROVED' },
+    { query: { select: unwrapData, enabled: rows.length > 0 } },
+  )
+  const sellerName = (r: FailureRecord) => {
+    if (r.sellerId == null) {
+      return '—'
+    }
+    const seller = sellers.data?.find((s) => s.id === r.sellerId)
+    return seller ? seller.businessName || seller.representativeName : `판매자 #${r.sellerId}`
+  }
+
+  const raceIds = [...new Set(rows.flatMap((r) => (r.raceId == null ? [] : [r.raceId])))]
+  const races = useQueries({
+    queries: raceIds.map((raceId) =>
+      productApi.getFindRaceQueryOptions(raceId, {
+        query: { select: unwrapData, staleTime: 5 * 60_000 },
+      }),
+    ),
+  })
+  const raceOf = (raceId: number | null) =>
+    raceId == null ? undefined : races[raceIds.indexOf(raceId)]?.data
+  const raceText = (r: FailureRecord) => {
+    const race = r.raceId == null ? '대회 모름' : (raceOf(r.raceId)?.title ?? `대회 #${r.raceId}`)
+    return `${race} · ${PAYOUT_STAGE[r.payoutStage]}`
+  }
+
+  const selectedCourses = selected
+    ? courseText(selected, raceOf(selected.raceId)?.courses ?? [])
+    : null
+
   return (
     <ConsolePage
       title="이상 감지"
       description="매일 정산 생성 배치 뒤에 주문 판매와 정산 내역을 비교한 결과예요."
+      // TODO(api): 이상 감지 기록 엑셀 내려받기 API가 없어 막아 둔다
+      actions={
+        <Button variant="secondary" disabled title="엑셀 내려받기는 준비 중이에요">
+          엑셀로 내려받기
+        </Button>
+      }
     >
+      <Segmented
+        label="정산 · 환급 처리"
+        layout="hug"
+        value="anomalies"
+        onChange={(next) => {
+          if (next === 'settlements' || next === 'holds') {
+            router.push(TAB_HREF[next])
+          }
+        }}
+        items={TAB_ITEMS}
+      />
+
       <div className="flex gap-4">
         {data ? (
           <>
@@ -114,7 +180,9 @@ export function AdminAnomaliesPage() {
         )}
       </div>
 
-      <ConsoleCard title={`이상 감지 ${formatNumber(data?.records.totalElements ?? 0)}건`}>
+      <ConsoleCard
+        title={`${period.label} 이상 감지 ${formatNumber(data?.records.totalElements ?? 0)}건`}
+      >
         <div className="flex items-start gap-4">
           <Select
             label="조회 기간"
@@ -161,13 +229,10 @@ export function AdminAnomaliesPage() {
                   width: 'w-30',
                   render: (r) => formatRecordedAt(r.recordedAt),
                 },
-                { key: 'seller', header: '판매자', width: 'w-30', render: sellerText },
-                { key: 'race', header: '대회 · 단계', width: 'w-40', render: raceText },
-                {
-                  key: 'note',
-                  header: '내용',
-                  render: (r) => r.note ?? CREATE_FAILURE_TYPE[r.failureType],
-                },
+                { key: 'seller', header: '판매자', width: 'w-35', render: sellerName },
+                { key: 'race', header: '대회 · 단계', width: 'w-50', render: raceText },
+                { key: 'diff', header: '차이', align: 'right', width: 'w-20', render: diffText },
+                { key: 'summary', header: '내용', render: summaryText },
                 {
                   key: 'action',
                   header: '처리',
@@ -190,20 +255,13 @@ export function AdminAnomaliesPage() {
 
       {selected && (
         <ConsoleCard title="기록 상세">
-          <div className="flex flex-col gap-3 rounded-md bg-bg-subtle p-4">
+          <div className="flex flex-col gap-3 rounded-md border border-border-default p-4">
             <p className="text-label-m">
-              {formatRecordedAt(selected.recordedAt)} · {sellerText(selected)} ·{' '}
+              {formatRecordedAt(selected.recordedAt)} · {sellerName(selected)} ·{' '}
               {raceText(selected)}
             </p>
-            <KeyValue label="종류" value={CREATE_FAILURE_TYPE[selected.failureType]} />
-            <KeyValue label="비고" value={selected.note ?? '–'} />
-            {selected.raceCourseId != null && (
-              <KeyValue label="코스" value={`코스 #${selected.raceCourseId}`} />
-            )}
-            {selected.payoutTargetDate && (
-              <KeyValue label="정산 대상일" value={formatMonthDay(selected.payoutTargetDate)} />
-            )}
-            <KeyValue label="배치 실행일" value={formatMonthDay(selected.runDate)} />
+            <KeyValue label="비고" value={noteText(selected)} />
+            {selectedCourses && <KeyValue label="코스별" value={selectedCourses} />}
             {selected.actionTaken === '지급보류' && (
               <Link
                 href="/admin/holds"
@@ -212,9 +270,7 @@ export function AdminAnomaliesPage() {
                 보류 보기
               </Link>
             )}
-            <p className="text-caption text-text-tertiary">
-              참가권 ID는 비고에 다 담기지 않아 서버 로그에 있어요.
-            </p>
+            <p className="text-caption text-text-tertiary">{captionText(selected)}</p>
           </div>
         </ConsoleCard>
       )}
