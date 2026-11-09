@@ -30,7 +30,8 @@ class FakeCrewSeatHoldAdapterTest {
 	@Test
 	@DisplayName("남은 크루 자리 5석에 4명 파티는 잡히고, 이어서 온 2명 파티는 한 석도 잡지 않는다 (11/03 결정)")
 	void allOrNothing() {
-		adapter.holdAll(100L, CREW_ID, RACE_ID, DUE, seats(COURSE_10K, FakeCrewSeatHoldAdapter.CREW_SEATS_PER_COURSE - 5));
+		adapter.holdAll(100L, CREW_ID, RACE_ID, DUE,
+			seats(COURSE_10K, FakeCrewSeatHoldAdapter.CREW_SEATS_PER_COURSE - 5));
 
 		CrewSeatHoldResult four = adapter.holdAll(101L, CREW_ID, RACE_ID, DUE, seats(COURSE_10K, 4));
 		CrewSeatHoldResult two = adapter.holdAll(102L, CREW_ID, RACE_ID, DUE, seats(COURSE_10K, 2));

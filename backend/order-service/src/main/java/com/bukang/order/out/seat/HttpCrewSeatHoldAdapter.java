@@ -62,7 +62,8 @@ public class HttpCrewSeatHoldAdapter implements CrewSeatHoldPort {
 			}
 			// 400(끝 시각이 상품 시계로 이미 지남, 같은 신청 두 번 등)은 주문이 보낸 값이 계약과 어긋났다
 			log.error("상품 서비스가 크루 자리 확보 요청을 거절했습니다. 계약을 확인해야 합니다. status={}, partyId={}, body={}",
-				exception.getStatusCode(), partyId, InternalHttpClients.abbreviate(exception.getResponseBodyAsString()));
+				exception.getStatusCode(), partyId,
+				InternalHttpClients.abbreviate(exception.getResponseBodyAsString()));
 			throw new ExternalServiceUnavailableException(HttpSeatHoldAdapter.UNAVAILABLE_MESSAGE);
 		} catch (RestClientException exception) {
 			log.warn("상품 서비스에 크루 자리 확보를 요청하지 못했습니다. partyId={}, cause={}", partyId, exception.toString());

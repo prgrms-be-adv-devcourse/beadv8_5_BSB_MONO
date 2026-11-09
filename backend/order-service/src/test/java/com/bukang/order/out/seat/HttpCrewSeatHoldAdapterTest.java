@@ -53,15 +53,15 @@ class HttpCrewSeatHoldAdapterTest {
 		server.expect(requestTo(URL)).andExpect(method(HttpMethod.POST))
 			.andExpect(content().json("""
 				{ "partyId": 31, "crewId": 7, "raceId": 2, "expiresAt": "2026-11-13T00:00:00",
-				  "seats": [ { "participationId": 1001, "raceCourseId": 10 },
-				             { "participationId": 1002, "raceCourseId": 10 } ] }
+					"seats": [ { "participationId": 1001, "raceCourseId": 10 },
+						{ "participationId": 1002, "raceCourseId": 10 } ] }
 				""", true))
 			.andRespond(withSuccess(data("""
 				{ "held": true, "expiresAt": "2026-11-13T00:00:00", "shortages": [] }
 				"""), MediaType.APPLICATION_JSON));
 		server.expect(requestTo(URL)).andRespond(withSuccess(data("""
 			{ "held": false, "expiresAt": null,
-			  "shortages": [ { "raceCourseId": 10, "needed": 2, "remaining": 1 } ] }
+				"shortages": [ { "raceCourseId": 10, "needed": 2, "remaining": 1 } ] }
 			"""), MediaType.APPLICATION_JSON));
 
 		assertThat(adapter.holdAll(31, 7, 2, EXPIRES_AT, SEATS)).isEqualTo(CrewSeatHoldResult.held(EXPIRES_AT));
