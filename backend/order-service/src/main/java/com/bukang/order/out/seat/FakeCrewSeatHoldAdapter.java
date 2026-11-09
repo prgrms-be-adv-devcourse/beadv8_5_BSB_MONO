@@ -33,7 +33,7 @@ public class FakeCrewSeatHoldAdapter implements CrewSeatHoldPort {
 
 	// 확인과 차감을 한 번에 해야 두 파티가 같은 자리를 나눠 갖지 않는다 (B의 종목별 조건부 UPDATE + 한 트랜잭션 흉내)
 	@Override
-	public synchronized CrewSeatHoldResult holdAll(long partyId, LocalDateTime expiresAt, List<Seat> seats) {
+	public synchronized CrewSeatHoldResult holdAll(long partyId, long crewId, LocalDateTime expiresAt, List<Seat> seats) {
 		CrewSeatHoldResult first = results.get(partyId);
 		if (first != null) {
 			return first;

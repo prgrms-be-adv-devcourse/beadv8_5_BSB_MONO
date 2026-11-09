@@ -18,7 +18,7 @@ public class DisabledCrewSeatHoldAdapter implements CrewSeatHoldPort {
 	static final String MESSAGE = "파티 신청을 아직 쓸 수 없습니다. 잠시 뒤 다시 시도해주세요.";
 
 	@Override
-	public CrewSeatHoldResult holdAll(long partyId, LocalDateTime expiresAt, List<Seat> seats) {
+	public CrewSeatHoldResult holdAll(long partyId, long crewId, LocalDateTime expiresAt, List<Seat> seats) {
 		throw new ExternalServiceUnavailableException(MESSAGE);
 	}
 }

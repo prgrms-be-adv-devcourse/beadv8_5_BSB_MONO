@@ -60,7 +60,7 @@ export const PayoutStage = {
 } as const;
 
 /**
- * 정산 상태 (지급_예정: 지급 예정, 지급보류: 지급보류, 지급_중: 지급 중, 지급_완료: 지급 완료, 취소: 취소)
+ * 정산 상태 (지급_예정: 지급 예정, 지급보류: 지급보류, 지급_중: 지급 중, 지급_완료: 지급 완료, 취소: 취소, 지급_불일치: 캐시가 이미 다른 금액으로 지급했다고 답해 확인 중)
  */
 export type PayoutStatus = typeof PayoutStatus[keyof typeof PayoutStatus];
 
@@ -71,6 +71,7 @@ export const PayoutStatus = {
   지급_중: '지급_중',
   지급_완료: '지급_완료',
   취소: '취소',
+  지급_불일치: '지급_불일치',
 } as const;
 
 export interface PayoutDto {

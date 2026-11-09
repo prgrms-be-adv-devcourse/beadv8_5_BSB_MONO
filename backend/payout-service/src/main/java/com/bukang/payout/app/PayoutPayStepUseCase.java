@@ -59,8 +59,15 @@ public class PayoutPayStepUseCase {
 		Optional<Payout> waitingFirst = findWaitingFirst(payout);
 		if (waitingFirst.isPresent()) {
 			// 보류가 안 풀린 1차 때문에 최종이 계속 밀리면 원인을 찾을 수 있게 실행마다 한 줄 남긴다
-			log.info("1차 정산이 지급 완료되지 않아 최종 정산 지급을 미룹니다. payoutId={}, firstPayoutId={}, firstStatus={}",
-				payout.getId(), waitingFirst.get().getId(), waitingFirst.get().getStatus());
+			// 1차가 지급 불일치면 사람이 풀기 전까지 계속 밀리므로 warn으로 남긴다 (BUK-62)
+			Payout first = waitingFirst.get();
+			if (first.getStatus() == PayoutStatus.지급_불일치) {
+				log.warn("1차 정산이 지급 불일치라 최종 정산 지급을 미룹니다. 확인이 필요합니다. payoutId={}, firstPayoutId={}",
+					payout.getId(), first.getId());
+			} else {
+				log.info("1차 정산이 지급 완료되지 않아 최종 정산 지급을 미룹니다. payoutId={}, firstPayoutId={}, firstStatus={}",
+					payout.getId(), first.getId(), first.getStatus());
+			}
 			return Start.skipped();
 		}
 		if (!payout.hasTransferAmount()) {
@@ -117,6 +124,20 @@ public class PayoutPayStepUseCase {
 		payout.cancelRejected(now, RACE_CANCELED_REASON);
 		// 1차가 거절로 닫히면 지급 전 취소와 같으므로 상계로 끝난 회수도 되돌린다 (R9, PR #284 리뷰)
 		payoutRaceCancelUseCase.recoverAfterRejectedCancel(payout, now);
+	}
+
+	// 캐시 서비스가 같은 정산 ID를 이미 다른 금액으로 지급했다고 답했다(409). 다시 요청해도 같으므로 지급 불일치로 멈춘다 (BUK-62)
+	// 지급 대상(정산 예정 · 지급 중)이 아니게 되므로 다음 지급 배치가 고르지 않는다
+	// 지급 중에 대회가 취소됐으면 지급 완료(complete)와 같이 회수를 만든다. 돈은 나갔고, 회수가 미뤄진 1차 정산금도 받아야 한다
+	// 회수 금액은 정산 원장 기준이다. 캐시가 말한 저장 금액과 다를 수 있어 경고를 남긴다
+	@Transactional
+	public void markMismatch(long payoutId, LocalDateTime now, String reason) {
+		Payout payout = payoutRepository.findById(payoutId).orElseThrow(PayoutNotFoundException::new);
+		payout.markPayMismatch(now, reason);
+		if (payout.isRaceCanceled()) {
+			log.warn("지급 중에 대회가 취소된 정산 내역이 지급 불일치가 됐습니다. 원장 금액으로 회수를 만듭니다. payoutId={}", payoutId);
+			payoutRaceCancelUseCase.recoverAfterPayResult(payout.getSellerId(), payout.getRaceId(), now);
+		}
 	}
 
 	/**

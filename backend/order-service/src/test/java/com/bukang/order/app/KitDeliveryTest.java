@@ -891,6 +891,7 @@ class KitDeliveryTest {
 	}
 
 	// 배송 표 전의 옛 칸. 엔티티에서 빼서 테스트 DB에는 없으므로 다시 붙인다
+	// recipient_phone은 서버에서 varchar(20)이지만, 받는 사람 연락처가 암호문(BUK-94)이라 되돌리기 안내대로 255로 둔다
 	private void addLegacyColumns() {
 		jdbcTemplate.execute("""
 			alter table order_order_item add column if not exists kit_delivery_status varchar(20);
@@ -899,7 +900,7 @@ class KitDeliveryTest {
 			alter table order_order_item add column if not exists kit_shipped_at timestamp(6);
 			alter table order_order_item add column if not exists kit_delivered_at timestamp(6);
 			alter table order_order add column if not exists recipient_name varchar(50);
-			alter table order_order add column if not exists recipient_phone varchar(20);
+			alter table order_order add column if not exists recipient_phone varchar(255);
 			alter table order_order add column if not exists zipcode varchar(10);
 			alter table order_order add column if not exists address varchar(255);
 			alter table order_order add column if not exists address_detail varchar(255)
