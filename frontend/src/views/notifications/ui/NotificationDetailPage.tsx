@@ -19,6 +19,7 @@ import {
   safeInternalHref,
   type NoticeCategory,
 } from '../lib/notice'
+import { useIsSeller } from '../model/use-is-seller'
 import { NoNotice } from './NoNotice'
 
 // 피그마 시나리오 39 · 03 알림 상세 · 03-S 판매 소식: 한 종류의 알림을 날짜 칩 아래 대화처럼 오래된 것부터 보여 준다.
@@ -27,15 +28,18 @@ export function NotificationDetailPage({ category }: { category: NoticeCategory 
   const meta = NOTICE_CATEGORIES.find((c) => c.value === category) ?? NOTICE_CATEGORIES[0]
   const notifications = useNotifications()
 
-  const items = (notifications.data ?? [])
-    .filter((n) => categoryOf(n) === meta.value)
-    .sort(byOldest)
+  const seller = useIsSeller()
+  // 판매 소식은 승인된 판매자에게만 보인다. 주소로 직접 들어와도 판매자가 아니면 빈 화면이다
+  const allowed = meta.value !== 'seller' || seller.isSeller
+  const items = allowed
+    ? (notifications.data ?? []).filter((n) => categoryOf(n) === meta.value).sort(byOldest)
+    : []
   useReadOnOpen(items.filter((n) => n.unread).map((n) => n.id))
 
   return (
     <>
       <AppHeader type="sub" title={meta.title} backHref="/notifications" />
-      {notifications.isPending ? (
+      {notifications.isPending || (meta.value === 'seller' && seller.pending) ? (
         <main
           role="status"
           aria-label="알림 불러오는 중"

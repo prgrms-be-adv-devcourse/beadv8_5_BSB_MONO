@@ -6,14 +6,12 @@ import { useState } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
 import { LoadErrorBody } from '@/widgets/status-screens'
-import { useAuthStatus } from '@/features/auth'
 import {
   NOTIFICATIONS_KEY,
   readAllNotices,
   useNotifications,
   type Notice,
 } from '@/entities/notification'
-import { memberApi, unwrapData } from '@/shared/api'
 import { cn } from '@/shared/lib'
 import { Button, FOCUS_RING, Icon, Skeleton, Tab, TabBar, Tabs, useToast } from '@/shared/ui'
 
@@ -24,6 +22,7 @@ import {
   NOTICE_CATEGORIES,
   type NoticeCategory,
 } from '../lib/notice'
+import { useIsSeller } from '../model/use-is-seller'
 import { NoNotice } from './NoNotice'
 import { UnreadCount } from './UnreadCount'
 
@@ -37,7 +36,7 @@ export function NotificationsPage({ empty = false }: { empty?: boolean }) {
   const all = empty ? [] : (notifications.data ?? [])
   const loading = !empty && notifications.isPending
   const failed = !empty && notifications.isError
-  const isSeller = useIsSeller()
+  const { isSeller } = useIsSeller()
   const categories = NOTICE_CATEGORIES.filter((c) => c.value !== 'seller' || isSeller)
 
   // 판매 소식은 판매자에게 가장 먼저 볼 일이라 묶음 줄 맨 위에 둔다(탭은 맨 뒤)
@@ -127,14 +126,6 @@ export function NotificationsPage({ empty = false }: { empty?: boolean }) {
       )}
     </>
   )
-}
-
-/** 판매자 승인을 받은 회원인지. 마이 화면 판매자 줄과 같은 내 판매자 신청 조회를 쓴다. 확인 전 · 오류 · 신청 전(404)은 판매자가 아니다 */
-function useIsSeller() {
-  const mine = memberApi.useFindMine({
-    query: { select: unwrapData, enabled: useAuthStatus() === 'authenticated', retry: false },
-  })
-  return mine.data?.status === 'APPROVED'
 }
 
 // 시나리오 39 · 머리말 [모두 읽음]. 목록에 안 보이는 알림(모르는 종류)도 같이 읽음으로 바뀐다

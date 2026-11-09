@@ -222,26 +222,29 @@ describe('NotificationsPage', () => {
     expect(tabs).toEqual(['전체', '대회', '결제', '크루', '판매'])
   })
 
-  it('판매자가 아니면 판매 탭과 판매 소식 묶음이 없다', async () => {
-    server.use(
-      seller(null),
-      list([
-        notice(
-          'k',
-          'KIT_SHIPMENT_REQUIRED',
-          '키트를 보낼 참가자가 있어요',
-          '2026-11-09T10:00:00+09:00',
-          true,
-        ),
-        notice('c', 'CREW_JOINED', '크루 알림', '2026-11-02T12:00:00+09:00', false),
-      ]),
-    )
-    renderPage()
+  it.each([null, 'PENDING'] as const)(
+    '판매자가 아니면(%s) 판매 탭과 판매 소식 묶음이 없다',
+    async (status) => {
+      server.use(
+        seller(status),
+        list([
+          notice(
+            'k',
+            'KIT_SHIPMENT_REQUIRED',
+            '키트를 보낼 참가자가 있어요',
+            '2026-11-09T10:00:00+09:00',
+            true,
+          ),
+          notice('c', 'CREW_JOINED', '크루 알림', '2026-11-02T12:00:00+09:00', false),
+        ]),
+      )
+      renderPage()
 
-    await screen.findByRole('link', { name: /크루 소식/ })
-    expect(screen.queryByRole('link', { name: /판매 소식/ })).not.toBeInTheDocument()
-    expect(screen.queryByRole('tab', { name: '판매' })).not.toBeInTheDocument()
-  })
+      await screen.findByRole('link', { name: /크루 소식/ })
+      expect(screen.queryByRole('link', { name: /판매 소식/ })).not.toBeInTheDocument()
+      expect(screen.queryByRole('tab', { name: '판매' })).not.toBeInTheDocument()
+    },
+  )
 
   it('모두 읽음을 누르면 모두 읽음 API를 부르고 알림을 다시 불러온다', async () => {
     let gets = 0

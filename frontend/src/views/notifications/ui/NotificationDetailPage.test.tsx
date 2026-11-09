@@ -34,6 +34,11 @@ function notice(id: string, kind: string, body: string, sentAt: string, extra = 
   }
 }
 
+const seller = (status: 'APPROVED' | 'PENDING') =>
+  http.get('*/api/v1/member/sellers/me', () =>
+    HttpResponse.json({ status: 200, message: '조회', data: { status } }),
+  )
+
 const list = (data: unknown[]) =>
   http.get(URL, () => HttpResponse.json({ status: 200, message: '알림을 조회했습니다.', data }))
 
@@ -167,6 +172,7 @@ describe('NotificationDetailPage', () => {
 
   it('판매 소식은 알림마다 제목 · 내용과 종류에 맞는 할 일 버튼을 보여 준다', async () => {
     server.use(
+      seller('APPROVED'),
       list([
         notice('s1', 'PAYOUT_HELD', '1차 정산', '2026-11-07T14:00:00+09:00', {
           title: '정산이 보류됐어요',
@@ -196,5 +202,23 @@ describe('NotificationDetailPage', () => {
     expect(screen.getByRole('link', { name: '송장 번호 확인하기' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '송장 입력하기' })).toBeInTheDocument()
     expect(screen.getAllByRole('link', { name: '답변하기' })).toHaveLength(1)
+  })
+
+  it('판매자가 아니면(심사 중) 판매 소식 주소로 들어와도 빈 화면이고 읽음으로 바꾸지 않는다', async () => {
+    const reads: string[] = []
+    server.use(
+      seller('PENDING'),
+      list([notice('s1', 'KIT_SHIPMENT_REQUIRED', '12명', '2026-11-09T10:00:00+09:00')]),
+      http.post(READ_URL, ({ params }) => {
+        reads.push(String(params.id))
+        return HttpResponse.json({ status: 200, message: '읽음', data: null })
+      }),
+    )
+    renderPage('seller')
+
+    expect(await screen.findByText('아직 알림이 없어요')).toBeInTheDocument()
+    expect(screen.queryByText('12명')).not.toBeInTheDocument()
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(reads).toEqual([])
   })
 })
