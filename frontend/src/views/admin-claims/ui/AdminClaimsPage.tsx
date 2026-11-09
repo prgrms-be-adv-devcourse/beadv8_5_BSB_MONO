@@ -34,9 +34,12 @@ function errorText(error: unknown) {
   return (error instanceof ApiError && error.serverMessage) || '잠시 뒤 다시 시도해 주세요.'
 }
 
-/** 판매자 ID → 이름. 회원 서비스의 승인된 판매자 목록에서 맞춘다 (C6: 정산 API에는 이름이 없다) */
+/**
+ * 판매자 ID → 이름. 회원 서비스의 판매자 신청 목록에서 맞춘다 (C6: 정산 API에는 이름이 없다)
+ * 상태로 거르지 않는다. 승인 뒤 상태가 바뀐 판매자의 청구도 이름으로 보여야 한다 (#375 리뷰)
+ */
 function useSellerNames() {
-  const sellers = memberApi.useFindAll({ status: 'APPROVED' }, { query: { select: unwrapData } })
+  const sellers = memberApi.useFindAll(undefined, { query: { select: unwrapData } })
   return useMemo(
     () => new Map((sellers.data ?? []).map((s) => [s.id, s.businessName || s.representativeName])),
     [sellers.data],

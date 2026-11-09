@@ -96,6 +96,37 @@ describe('AdminClaimsPage', () => {
     expect(queries[0].get('status')).toBe('청구_중')
   })
 
+  it('승인 상태가 아닌 판매자(반려 등)의 이름도 붙인다', async () => {
+    mockClaims([CLAIMING])
+    server.use(
+      http.get('*/api/v1/member/admin/sellers', ({ request }) => {
+        // 상태로 거르면 반려된 판매자가 빠진다
+        const all = !new URL(request.url).searchParams.has('status')
+        return HttpResponse.json({
+          status: 200,
+          message: 'ok',
+          data: all
+            ? [
+                {
+                  id: 11,
+                  memberId: 8,
+                  sellerType: 'PERSONAL',
+                  businessName: null,
+                  representativeName: '반려된판매자',
+                  status: 'REJECTED',
+                  requestedAt: '2026-10-01T10:00:00',
+                },
+              ]
+            : [],
+        })
+      }),
+    )
+    renderPage()
+
+    const row = await screen.findByRole('row', { name: /RC-20261215-0002/ })
+    expect(await within(row).findByText('반려된판매자')).toBeInTheDocument()
+  })
+
   it('입금 확인 탭을 누르면 입금 확인 목록을 부른다', async () => {
     const queries = mockClaims([CLAIMING])
     const user = userEvent.setup()
