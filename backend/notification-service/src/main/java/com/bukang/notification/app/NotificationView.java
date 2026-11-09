@@ -2,6 +2,7 @@ package com.bukang.notification.app;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 import com.bukang.common.shared.notification.NotificationKind;
 import com.bukang.notification.domain.Notification;
@@ -17,7 +18,8 @@ final class NotificationView {
 	static NoticeDto toNotice(Notification notification, LocalDateTime now) {
 		LocalDateTime at = notification.getOccurredAt();
 		boolean today = at.toLocalDate().equals(now.toLocalDate());
-		return new NoticeDto(String.valueOf(notification.getId()), icon(notification.getKind()),
+		return new NoticeDto(String.valueOf(notification.getId()), notification.getKind().name(),
+			at.atZone(ZoneId.of("Asia/Seoul")).toOffsetDateTime(), icon(notification.getKind()),
 			notification.getTitle(), notification.getBody(), at(at, now, today), today ? "today" : "earlier",
 			notification.getHref(), notification.isUnread());
 	}

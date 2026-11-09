@@ -8,6 +8,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import com.bukang.common.shared.notification.NotificationKind;
+import com.bukang.common.shared.notification.event.NotificationRequestedEvent;
+import com.bukang.notification.domain.Notification;
+import com.bukang.notification.dto.NoticeDto;
 
 class NotificationViewTest {
 	private final LocalDateTime now = LocalDateTime.of(2026, 11, 4, 15, 0);
@@ -27,5 +30,18 @@ class NotificationViewTest {
 	void inquiryIcons() {
 		assertThat(NotificationView.icon(NotificationKind.INQUIRY_RECEIVED)).isEqualTo("Inbox");
 		assertThat(NotificationView.icon(NotificationKind.INQUIRY_ANSWERED)).isEqualTo("Bell");
+	}
+
+	@Test
+	@DisplayName("종류 이름과 서울 시각(+09:00) 발송 시각을 함께 준다")
+	void kindAndSentAt() {
+		LocalDateTime occurredAt = LocalDateTime.of(2026, 11, 2, 10, 0);
+		Notification notification = Notification.from("m-1", new NotificationRequestedEvent("m-1", 1L,
+			NotificationKind.CREW_JOINED, "크루에 가입했어요", "러너크루의 크루원이 됐어요.", "/crews/3", occurredAt));
+
+		NoticeDto dto = NotificationView.toNotice(notification, now);
+
+		assertThat(dto.kind()).isEqualTo("CREW_JOINED");
+		assertThat(dto.sentAt().toString()).isEqualTo("2026-11-02T10:00+09:00");
 	}
 }
