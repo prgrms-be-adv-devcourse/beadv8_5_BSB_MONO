@@ -35,6 +35,20 @@ describe('renderTokensCss', () => {
     expect(css).not.toContain('--text-heading-s')
   })
 
+  it('데스크톱에서도 제목 · 본문 크기 순서가 뒤집히지 않는다 (PENDING)', () => {
+    const desktop = css.slice(css.indexOf('@media (width >= 80rem)'), css.indexOf('.app-mobile'))
+    expect(desktop).not.toContain('--text-title2: 18px;')
+    expect(desktop).not.toContain('--text-body1-regular: 14px;')
+    expect(desktop).toContain('--text-body1-regular: 16px;')
+  })
+
+  it('글자 변수 하나를 두 스타일이 쓰면 만들지 않고 멈춘다', () => {
+    const shared = structuredClone(figma)
+    const medium = shared.textStyles.find((s: { name: string }) => s.name === 'Body1/Medium')
+    medium.bound = { fontSize: 'typography/heading-s/size' }
+    expect(() => renderTokensCss(shared)).toThrow('typography/heading-s/size')
+  })
+
   it('보관 텍스트 스타일과 그 글자 변수는 옮기지 않는다', () => {
     expect(css).not.toContain('--text-eyebrow')
     expect(css).not.toContain('display-s')
@@ -65,6 +79,7 @@ describe('stalePending', () => {
       },
       layout: { 'layout/app-max-width': { web: 640, figma: 480 } },
       spacing: { 'spacing/0-5': { web: 2, figma: 8 } },
+      typography: { 'typography/heading-l/size': { Desktop: { web: 24, figma: 20 } } },
       skipTextStyles: ['Label/L Strong'],
     }
 
@@ -73,6 +88,7 @@ describe('stalePending', () => {
       'color/bg/segment (Dark): 피그마 값이 navy/700에서 navy/800로 바뀌었습니다',
       'layout/app-max-width: 피그마 값이 480에서 600로 바뀌었습니다',
       'spacing/0-5: 피그마 값이 8에서 4로 바뀌었습니다',
+      'typography/heading-l/size (Desktop): 피그마 값이 20에서 18로 바뀌었습니다',
       '텍스트 스타일 Label/L Strong: 피그마에 없습니다',
     ])
   })
