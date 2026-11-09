@@ -112,6 +112,35 @@ final class PayoutApiExamples {
 		{ "status": 409, "message": "다른 요청이 먼저 정산 내역을 바꿨습니다. 다시 시도해주세요.", "data": null }
 		""";
 
+
+	static final String PAYOUT_BY_CODE_SUCCESS = """
+		{
+			"status": 200,
+			"message": "정산 내역을 조회했습니다.",
+			"data": {
+				"id": 2,
+				"payoutCode": "ST-20260926-0002",
+				"raceId": 10,
+				"raceName": "2026 한강 나이트런",
+				"payoutStage": "최종_정산",
+				"payoutMonth": "2026-09",
+				"salesAmount": 100000,
+				"refundAmount": 0,
+				"feeAmount": 5500,
+				"advanceDeductionAmount": 40000,
+				"payoutAmount": 54500,
+				"status": "지급_예정",
+				"settledAt": "2026-09-26T03:00:00",
+				"scheduledPayDate": "2026-10-20",
+				"paidAt": null
+			}
+		}
+		""";
+
+	static final String MISSING_PARAMETER = """
+		{ "status": 400, "message": "필수 요청 값이 없습니다.", "data": null }
+		""";
+
 	private PayoutApiExamples() {
 	}
 }
