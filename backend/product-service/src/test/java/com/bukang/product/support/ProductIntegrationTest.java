@@ -44,6 +44,7 @@ import com.bukang.common.shared.seller.domain.SellerType;
 import com.bukang.product.TestcontainersConfiguration;
 import com.bukang.product.app.ProductFacade;
 import com.bukang.product.app.RaceDocumentSyncAppendUseCase;
+import com.bukang.product.domain.KitOption;
 import com.bukang.product.domain.ProductMember;
 import com.bukang.product.domain.ProductOutboxKafkaEvent;
 import com.bukang.product.domain.ProductSeller;
@@ -182,6 +183,11 @@ public abstract class ProductIntegrationTest {
 		ProductMember member = productMemberRepository.save(new ProductMember(memberId, now, now, "러너" + memberId));
 		productSellerRepository.save(new ProductSeller(sellerId, member, SellerType.BUSINESS, "(주)러닝" + sellerId,
 			"123-45-67890", "김대표", SellerStatus.APPROVED, now, now));
+	}
+
+	// 대회에 키트 옵션 1개를 API를 거치지 않고 저장한다 (키트 옵션이 이미 있는 대회를 만든다). stock이 null이면 맞춤 제작이다
+	protected void saveKitOption(long raceId, String name, String value, Integer stock) {
+		kitOptionRepository.save(new KitOption(raceRepository.findById(raceId).orElseThrow(), name, value, stock));
 	}
 
 	// ---------- 대회 등록 ----------
