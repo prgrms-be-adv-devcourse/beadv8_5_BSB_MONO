@@ -154,10 +154,10 @@ export const UpdateResponse = zod.object({
   "status": zod.int().optional(),
   "message": zod.string().optional(),
   "data": zod.object({
-  "raceId": zod.int().optional(),
-  "saleStatus": zod.enum(['SCHEDULED', 'ON_SALE', 'STOPPED', 'CLOSED', 'CANCELED']).optional(),
-  "saleOpenDate": zod.iso.date().optional(),
-  "courseIds": zod.array(zod.int()).optional()
+  "raceId": zod.int(),
+  "saleStatus": zod.enum(['SCHEDULED', 'ON_SALE', 'STOPPED', 'CLOSED', 'CANCELED']),
+  "saleOpenDate": zod.iso.date(),
+  "courseIds": zod.array(zod.int())
 }).optional()
 })
 
@@ -557,10 +557,10 @@ export const CancelResponse = zod.object({
   "status": zod.int().optional(),
   "message": zod.string().optional(),
   "data": zod.object({
-  "raceId": zod.int().optional(),
-  "saleStatus": zod.enum(['SCHEDULED', 'ON_SALE', 'STOPPED', 'CLOSED', 'CANCELED']).optional(),
-  "saleOpenDate": zod.iso.date().optional(),
-  "courseIds": zod.array(zod.int()).optional()
+  "raceId": zod.int(),
+  "saleStatus": zod.enum(['SCHEDULED', 'ON_SALE', 'STOPPED', 'CLOSED', 'CANCELED']),
+  "saleOpenDate": zod.iso.date(),
+  "courseIds": zod.array(zod.int())
 }).optional()
 })
 

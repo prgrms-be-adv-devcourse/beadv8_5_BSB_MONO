@@ -527,7 +527,13 @@
             "format": "int32"
           }
         }
-      }
+      },
+      "required": [
+        "raceId",
+        "saleStatus",
+        "saleOpenDate",
+        "courseIds"
+      ]
     },
     "SellerRaceDto": {
       "type": "object",

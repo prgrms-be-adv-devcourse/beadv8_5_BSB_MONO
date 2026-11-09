@@ -61,7 +61,7 @@ describe('useRegisterRace', () => {
       individualOpenAt: '2026-10-20T00:00:00',
       applicationCloseAt: '2026-10-31T23:59:59',
       refundDeadline: '2026-10-31',
-      crewMinCount: 5,
+      crewMinCount: 4,
     })
     expect(body?.crewSaleStartAt).toBeUndefined()
     const courseImages = body?.courses.map((c) => c.images) ?? []

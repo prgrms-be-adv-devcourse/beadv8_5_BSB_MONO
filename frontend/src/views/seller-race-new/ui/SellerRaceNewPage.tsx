@@ -38,7 +38,7 @@ import {
   type RaceFormValues,
 } from '../model/race-form'
 import { errorSections, useRaceFormTracking } from '../model/use-race-form-tracking'
-import { useRegisterRace } from '../model/use-register-race'
+import { KitOptionsNotSavedError, useRegisterRace } from '../model/use-register-race'
 import { CourseAddDialog } from './CourseAddDialog'
 
 const FORM_ID = 'seller-race-new'
@@ -60,28 +60,10 @@ function dayOf(text: string): Date | undefined {
   return day ? parseISO(day) : undefined
 }
 
-const KITS = [
-  {
-    option: '기념 티셔츠',
-    size: 'S · M · L · XL · 2XL',
-    courses: '10K · 5K',
-    method: '배송',
-    note: '사이즈표는 소개 이미지에',
-  },
-  {
-    option: '배번',
-    size: '없음',
-    courses: '10K · 5K',
-    method: '배송',
-    note: '환불 기한 뒤 함께 배송',
-  },
-]
-
 const LINK = cn('rounded-sm text-label-m text-text-brand', FOCUS_RING)
 
 // 종목 표의 한 줄 (TODO(PRO-144): 키트 칸 나누기)
 function courseRow(course: RaceCourseInput, id: string, index: number) {
-  const sizes = course.tshirtSizeOption ?? []
   return {
     id,
     index,
@@ -89,7 +71,7 @@ function courseRow(course: RaceCourseInput, id: string, index: number) {
     price: formatWon(course.price),
     capacity: `${formatNumber(course.crewQuota + course.individualQuota)}명`,
     age: `만 ${course.minAge}세 ~ ${course.maxAge ? `만 ${course.maxAge}세` : '제한 없음'}`,
-    kit: course.kitIncluded ? (sizes.length ? `티셔츠 ${sizes.join(' · ')}` : '포함') : '없음',
+    kit: course.kitIncluded ? '포함' : '없음',
   }
 }
 
@@ -113,6 +95,7 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
   })
   // 종목 표의 줄 키는 useFieldArray의 id다. 이름이 같은 종목도 따로 지울 수 있다
   const courseFields = useFieldArray({ control, name: 'courses' })
+  const kitFields = useFieldArray({ control, name: 'kitOptions' })
   const [courseOpen, setCourseOpen] = useState(false)
   // 시·도 · 시·군·구는 주소 검색 결과로만 채운다. 검색을 못 불러오면 둘 다, 시·군·구가 없는 곳(세종)이면 시·군·구만 직접 쓴다
   const [manualRegion, setManualRegion] = useState({ sido: false, sigungu: false })
@@ -412,7 +395,11 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
         <ConsoleCard
           title="키트 배송"
           aside={
-            <button type="button" className={LINK}>
+            <button
+              type="button"
+              className={LINK}
+              onClick={() => kitFields.append({ name: '', value: '', stock: '' })}
+            >
               옵션 추가
             </button>
           }
@@ -423,16 +410,66 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
           </p>
           <DataTable
             label="키트 옵션"
-            rows={KITS}
-            rowKey={(r) => r.option}
+            rows={kitFields.fields.map((f, index) => ({ id: f.id, index }))}
+            rowKey={(r) => r.id}
             columns={[
-              { key: 'option', header: '키트 옵션', render: (r) => r.option },
-              { key: 'size', header: '사이즈', render: (r) => r.size },
-              { key: 'courses', header: '포함 종목', render: (r) => r.courses },
-              { key: 'method', header: '받는 방법', render: (r) => r.method },
-              { key: 'note', header: '안내', render: (r) => r.note },
+              {
+                key: 'name',
+                header: '옵션 이름',
+                render: ({ index }) => (
+                  <TextField
+                    aria-label={`옵션 이름 ${index + 1}`}
+                    placeholder="티셔츠"
+                    error={errors.kitOptions?.[index]?.name?.message}
+                    {...register(`kitOptions.${index}.name`)}
+                  />
+                ),
+              },
+              {
+                key: 'value',
+                header: '옵션 값',
+                render: ({ index }) => (
+                  <TextField
+                    aria-label={`옵션 값 ${index + 1}`}
+                    placeholder="M"
+                    error={errors.kitOptions?.[index]?.value?.message}
+                    {...register(`kitOptions.${index}.value`)}
+                  />
+                ),
+              },
+              {
+                key: 'stock',
+                header: '준비 수량',
+                render: ({ index }) => (
+                  <TextField
+                    aria-label={`준비 수량 ${index + 1}`}
+                    inputMode="numeric"
+                    placeholder="맞춤 제작"
+                    error={errors.kitOptions?.[index]?.stock?.message}
+                    {...register(`kitOptions.${index}.stock`)}
+                  />
+                ),
+              },
+              {
+                key: 'remove',
+                header: '',
+                align: 'right',
+                render: ({ index }) => (
+                  <button
+                    type="button"
+                    className={LINK}
+                    aria-label={`키트 옵션 ${index + 1} 삭제`}
+                    onClick={() => kitFields.remove(index)}
+                  >
+                    삭제
+                  </button>
+                ),
+              },
             ]}
           />
+          <p className="text-caption text-text-tertiary">
+            판매가 시작되면 옵션을 바꿀 수 없고 준비 수량만 늘릴 수 있어요.
+          </p>
         </ConsoleCard>
 
         <ConsoleCard title="공개 범위">
@@ -485,6 +522,9 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
 
 /** 등록 실패 문구. 서버가 준 문구(승인되지 않은 판매자, 판매 시작일 규칙 등)를 그대로 보여 준다. */
 function registerErrorMessage(error: Error | null): string {
+  if (error instanceof KitOptionsNotSavedError) {
+    return '대회는 등록했지만 키트 옵션을 저장하지 못했어요. 등록하기를 다시 누르면 같은 대회에 옵션을 저장해요.'
+  }
   if (error instanceof ApiError && error.serverMessage) return error.serverMessage
   return '사진이나 대회를 올리지 못했어요. 잠시 후 다시 시도해 주세요.'
 }

@@ -507,10 +507,10 @@ export const RaceSaveDtoSaleStatus = {
 } as const;
 
 export interface RaceSaveDto {
-  raceId?: number;
-  saleStatus?: RaceSaveDtoSaleStatus;
-  saleOpenDate?: string;
-  courseIds?: number[];
+  raceId: number;
+  saleStatus: RaceSaveDtoSaleStatus;
+  saleOpenDate: string;
+  courseIds: number[];
 }
 
 export type SellerRaceDtoSaleStatus = typeof SellerRaceDtoSaleStatus[keyof typeof SellerRaceDtoSaleStatus];
