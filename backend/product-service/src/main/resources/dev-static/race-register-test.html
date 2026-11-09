@@ -130,7 +130,7 @@
     <h2>버튼이 부르는 API</h2>
     <ul class="hint">
       <li>[등록] POST /api/v1/product/races → 201, 판매 예정(SCHEDULED)으로 저장되고 바로 공개됩니다. 판매 시작일이 오늘로부터 이틀 뒤보다 빠르면 400.
-        판매 시작일 0시에 5분마다 도는 상태 배치가 판매 중(ON_SALE)으로 바꾸고, 이때부터 판매 시작 뒤 수정 규칙이 걸립니다.
+        판매 시작일 0시 정각에 상태 배치(5분 정각마다)가 판매 중(ON_SALE)으로 바꾸고, 이때부터 판매 시작 뒤 수정 규칙이 걸립니다.
         판매 상태는 판매자 화면용이고, 자리 확보는 크루 예매 시작·개인 예매 오픈 시각부터 됩니다. 성공하면 대회 ID와 종목별 courseId를 채웁니다.</li>
       <li>[불러오기] GET /api/v1/product/races/{raceId} → 폼을 채우고, 종목마다 file-service GET /api/v1/file/files?refType=RaceCourse&amp;refId={종목 ID}로 이미지 표를 채웁니다. 취소된 대회는 등록한 회원 ID로만 보입니다(아니면 404).</li>
       <li>[수정] PUT /api/v1/product/races/{raceId} (등록과 같은 본문). courseId가 있는 종목은 고치고, 없는 종목은 추가하고, 요청에 없는 기존 종목은 뺍니다. 이미지 목록도 통째로 바뀝니다.
