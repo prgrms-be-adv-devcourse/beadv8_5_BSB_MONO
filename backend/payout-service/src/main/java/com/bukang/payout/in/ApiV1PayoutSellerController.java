@@ -88,16 +88,21 @@ public class ApiV1PayoutSellerController {
 	@GetMapping("/payouts")
 	@Operation(summary = "정산 내역 조회",
 		description = "정산 월(대회일이 속한 달, 1차는 환불 마감일이 속한 달)이 기간 안인 정산 내역을 최근 달부터 돌려준다. "
-			+ "시작 달을 포함해 최대 12개월까지 한 번에 조회한다.")
+			+ "시작 달을 포함해 최대 12개월까지 한 번에 조회한다. "
+			+ "정산 ID(code)를 주면 기간은 보지 않고 내 정산 내역 중 그 한 줄만 돌려준다. "
+			+ "없거나 다른 판매자의 정산 ID면 404다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "조회 성공",
-			content = @Content(examples = @ExampleObject(value = PayoutSellerApiExamples.PAYOUTS_SUCCESS))),
+			content = @Content(examples = {
+				@ExampleObject(name = "기간으로 조회", value = PayoutSellerApiExamples.PAYOUTS_SUCCESS),
+				@ExampleObject(name = "정산 ID로 찾기", value = PayoutSellerApiExamples.PAYOUT_BY_CODE_SUCCESS)
+			})),
 		@ApiResponse(responseCode = "400",
-			description = "기간 한도 초과, 시작이 끝보다 늦음, 기간 없음, 값 형식 오류 또는 회원 ID가 0 이하",
+			description = "기간 한도 초과, 시작이 끝보다 늦음, 정산 ID · 기간 없음, 값 형식 오류 또는 회원 ID가 0 이하",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "12개월 초과", value = PayoutSellerApiExamples.PAYOUT_PERIOD_TOO_LONG),
 				@ExampleObject(name = "시작이 끝보다 늦음", value = PayoutSellerApiExamples.PERIOD_REVERSED),
-				@ExampleObject(name = "기간 없음", value = PayoutSellerApiExamples.MISSING_PARAMETER),
+				@ExampleObject(name = "정산 ID · 기간 없음", value = PayoutSellerApiExamples.MISSING_PARAMETER),
 				@ExampleObject(name = "기간·회원 ID 형식 오류", value = PayoutSellerApiExamples.INVALID_VALUE_TYPE),
 				@ExampleObject(name = "회원 ID가 0 이하", value = PayoutSellerApiExamples.INVALID_MEMBER_ID)
 			})),
@@ -107,21 +112,27 @@ public class ApiV1PayoutSellerController {
 		@ApiResponse(responseCode = "403", description = "판매자 신청이 없거나 대기 · 반려 상태",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = PayoutSellerApiExamples.SELLER_NOT_APPROVED))),
-		@ApiResponse(responseCode = "404", description = "존재하지 않거나 탈퇴한 회원",
-			content = @Content(schema = @Schema(implementation = RsData.class),
-				examples = @ExampleObject(value = PayoutSellerApiExamples.MEMBER_NOT_FOUND))),
+		@ApiResponse(responseCode = "404", description = "존재하지 않거나 탈퇴한 회원, 또는 정산 ID로 찾은 내 정산 내역이 없음",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "회원 없음", value = PayoutSellerApiExamples.MEMBER_NOT_FOUND),
+				@ExampleObject(name = "정산 내역 없음", value = PayoutSellerApiExamples.PAYOUT_NOT_FOUND)
+			})),
 		@ApiResponse(responseCode = "503", description = "회원 서비스에서 판매자 정보를 확인하지 못함",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = PayoutSellerApiExamples.SELLER_LOOKUP_UNAVAILABLE)))
 	})
 	public ResponseEntity<RsData<List<PayoutDto>>> payouts(
 		@LoginMemberId long memberId,
-		@Parameter(description = "조회 시작 정산 월 (yyyy-MM)", example = "2025-11")
-		@RequestParam @DateTimeFormat(pattern = "yyyy-MM") YearMonth fromMonth,
-		@Parameter(description = "조회 끝 정산 월 (yyyy-MM, 포함)", example = "2026-10")
-		@RequestParam @DateTimeFormat(pattern = "yyyy-MM") YearMonth toMonth
+		@Parameter(description = "정산 ID (ST-…). 주면 기간은 보지 않는다", example = "ST-20260926-0001")
+		@RequestParam(required = false) String code,
+		@Parameter(description = "조회 시작 정산 월 (yyyy-MM). 정산 ID가 없으면 필수", example = "2025-11")
+		@RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM") YearMonth fromMonth,
+		@Parameter(description = "조회 끝 정산 월 (yyyy-MM, 포함). 정산 ID가 없으면 필수", example = "2026-10")
+		@RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM") YearMonth toMonth
 	) {
-		List<PayoutDto> payouts = payoutSellerFacade.payouts(memberId, fromMonth, toMonth);
+		List<PayoutDto> payouts = code != null
+			? payoutSellerFacade.payoutByCode(memberId, code)
+			: payoutSellerFacade.payouts(memberId, fromMonth, toMonth);
 		return ResponseEntity.ok(RsData.of(HttpStatus.OK, "정산 내역을 조회했습니다.", payouts));
 	}
 
