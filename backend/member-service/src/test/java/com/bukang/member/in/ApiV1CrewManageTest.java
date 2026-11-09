@@ -222,6 +222,31 @@ class ApiV1CrewManageTest {
 	}
 
 	@Test
+	@DisplayName("링크를 만든 시각과 내보낸 시각이 같으면 그 링크로는 다시 가입할 수 없다")
+	void removedAtSameInstantAsInviteBlocks() throws Exception {
+		String token = crewFacade.createInvite(leaderId, crewId).inviteToken();
+		remove(leaderId, crewId, memberId).andExpect(status().isOk());
+
+		mockMvc.perform(post(JOIN, token).header(MemberIdHeader.NAME, memberId))
+			.andExpect(status().isGone())
+			.andExpect(jsonPath("$.code").value("CREW_INVITE_REMOVED_MEMBER"));
+	}
+
+	@Test
+	@DisplayName("내보낸 뒤 새 링크로 다시 들어온 회원이 옛 링크를 열면 410이 아니라 이미 크루원으로 200이다")
+	void rejoinedMemberOpensOldLinkAsMember() throws Exception {
+		String oldToken = crewFacade.createInvite(leaderId, crewId).inviteToken();
+		now = now.plusSeconds(60);
+		remove(leaderId, crewId, memberId).andExpect(status().isOk());
+		now = now.plusSeconds(60);
+		joinCrew(crewId, leaderId, memberId);
+
+		mockMvc.perform(get(INVITE_BY_TOKEN, oldToken).header(MemberIdHeader.NAME, memberId))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.alreadyMember").value(true));
+	}
+
+	@Test
 	@DisplayName("내보낸 뒤 크루장이 새로 만든 링크로는 다시 가입할 수 있다")
 	void removedMemberRejoinsWithNewLink() throws Exception {
 		remove(leaderId, crewId, memberId).andExpect(status().isOk());
@@ -416,6 +441,10 @@ class ApiV1CrewManageTest {
 		Long invites = jdbcTemplate.queryForObject(
 			"select count(*) from member_crew_invite where crew_id = ?", Long.class, crewId);
 		assertThat(invites).isZero();
+		// 내보낸 기록도 크루 데이터라 함께 지운다
+		Long removals = jdbcTemplate.queryForObject(
+			"select count(*) from member_crew_removal where crew_id = ?", Long.class, crewId);
+		assertThat(removals).isZero();
 
 		mockMvc.perform(get(CREW, crewId).header(MemberIdHeader.NAME, leaderId))
 			.andExpect(status().isNotFound())
