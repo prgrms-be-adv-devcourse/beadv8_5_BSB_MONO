@@ -27,8 +27,9 @@ class ChargeAbuseGuard {
 
 	private final StringRedisTemplate redisTemplate;
 
-	// 5분 고정 구간 안에 이 횟수를 넘겨 시도하면(4번째부터) 10분 쿨다운을 건다. 성공·실패·입력오류 무관하게 호출 자체를 센다
-	void assertAttemptNotRateLimited(long customerId) {
+	// 쿨다운·잠금 중인지만 본다. 시도 횟수는 올리지 않는다 — 멱등 재확인·동시 중복 요청까지 "새 시도"로 세지 않기 위해
+	// 지갑 잠금·선점보다 먼저 불러, 이미 막힌 회원은 DB를 건드리기 전에 빠르게 거절한다
+	void assertNotCoolingDown(long customerId) {
 		try {
 			String cooldownKey = "charge:" + customerId + ":cooldown";
 			Long cooldownTtl = redisTemplate.getExpire(cooldownKey);
@@ -41,19 +42,28 @@ class ChargeAbuseGuard {
 			if (lockTtl != null && lockTtl > 0) {
 				throw new ChargeCooldownException(lockMessage(lockTtl));
 			}
+		} catch (DataAccessException e) {
+			log.warn("충전 이상 감지(쿨다운) 체크 중 Redis 장애로 건너뜁니다. customerId={}", customerId, e);
+		}
+	}
 
+	// 지갑 잠금 안에서 새로 선점한(= 진짜 새 시도인) 충전만 횟수를 센다. 멱등 재확인(이미 COMPLETED·IN_PROGRESS)은 부르지 않는다.
+	// 5분 고정 구간 안에 이 횟수를 넘겨 시도하면(4번째부터) 10분 쿨다운을 건다
+	// (던진 예외가 선점 트랜잭션을 롤백시켜, 쿨다운에 걸린 시도는 충전 행을 남기지 않는다)
+	void registerNewAttempt(long customerId) {
+		try {
 			String attemptsKey = "charge:" + customerId + ":attempts";
+			// INCR보다 먼저 SET NX EX로 키·타이머를 깔아 둔다. 이러면 그 뒤 INCR이 어떻게 되든
+			// (실패해도) 타이머 없는 카운터가 남지 않는다 — 이미 있는 키는 손대지 않아 고정 구간이 그대로 유지된다
+			redisTemplate.opsForValue().setIfAbsent(attemptsKey, "0", ATTEMPT_WINDOW);
 			Long count = redisTemplate.opsForValue().increment(attemptsKey);
-			if (count != null && count == 1) {
-				redisTemplate.expire(attemptsKey, ATTEMPT_WINDOW);
-			}
 			if (count != null && count > CashChargePolicy.MAX_CHARGE_ATTEMPTS_PER_WINDOW) {
-				redisTemplate.opsForValue().set(cooldownKey, "1", COOLDOWN_DURATION);
+				redisTemplate.opsForValue().set("charge:" + customerId + ":cooldown", "1", COOLDOWN_DURATION);
 				log.warn("충전 어뷰징 감지: 짧은 시간에 반복 시도로 쿨다운이 걸렸습니다. customerId={}", customerId);
 				throw new ChargeCooldownException(cooldownMessage(COOLDOWN_DURATION.toSeconds()));
 			}
 		} catch (DataAccessException e) {
-			log.warn("충전 이상 감지(쿨다운) 체크 중 Redis 장애로 건너뜁니다. customerId={}", customerId, e);
+			log.warn("충전 시도 횟수 기록 중 Redis 장애로 건너뜁니다. customerId={}", customerId, e);
 		}
 	}
 
@@ -61,10 +71,9 @@ class ChargeAbuseGuard {
 	void registerDefiniteFailure(long customerId) {
 		try {
 			String failuresKey = "charge:" + customerId + ":failures";
+			// 이유는 registerNewAttempt와 같다 — INCR 전에 타이머부터 보장해 둔다
+			redisTemplate.opsForValue().setIfAbsent(failuresKey, "0", FAILURE_WINDOW);
 			Long count = redisTemplate.opsForValue().increment(failuresKey);
-			if (count != null && count == 1) {
-				redisTemplate.expire(failuresKey, FAILURE_WINDOW);
-			}
 			if (count != null && count > CashChargePolicy.MAX_CHARGE_FAILURES_PER_WINDOW) {
 				redisTemplate.opsForValue().set("charge:" + customerId + ":lock", "1", LOCK_DURATION);
 				log.warn("충전 어뷰징 감지: 결제 실패 반복으로 충전이 잠겼습니다. customerId={}", customerId);

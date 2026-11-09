@@ -52,7 +52,7 @@ public class CashChargeConfirmUseCase {
 		if (amount > CashChargePolicy.MAX_PER_CHARGE) {
 			throw new ChargeAmountTooLargeException("1회 충전 한도는 100,000원입니다.");
 		}
-		chargeAbuseGuard.assertAttemptNotRateLimited(customerId);
+		chargeAbuseGuard.assertNotCoolingDown(customerId);
 
 		ChargeClaim claim = transactionTemplate.execute(status -> claimChargeLocked(customerId, orderId, amount));
 		if (claim.resolved() != null) {
@@ -97,6 +97,9 @@ public class CashChargeConfirmUseCase {
 		if (existing != null && existing.getStatus() == ChargeStatus.IN_PROGRESS) {
 			return ChargeClaim.waiting();
 		}
+		// 여기까지 왔으면 진짜 새 시도(또는 실패건 재시도)다. 멱등 재확인은 위에서 이미 반환돼 이 줄까지 안 온다.
+		// 쿨다운에 걸리면 여기서 던져 이 트랜잭션 전체가 롤백되므로, 충전 행이 선점된 채로 남지 않는다
+		chargeAbuseGuard.registerNewAttempt(customerId);
 		assertWithinDailyLimit(customerWallet, amount);
 		assertWithinBalanceCap(customerWallet, amount);
 		WalletCharge charge = existing != null
