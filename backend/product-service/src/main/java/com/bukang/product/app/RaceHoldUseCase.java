@@ -77,6 +77,9 @@ public class RaceHoldUseCase {
 		Race race = raceCourseRepository.findRaceIdById(raceCourseId)
 			.flatMap(raceRepository::findByIdForShare)
 			.orElseThrow(RaceCourseNotFoundException::new);
+		if (race.isStopped()) {
+			throw RaceNotAcceptingException.stopped();
+		}
 		if (!race.isAcceptingIndividual(now)) {
 			throw new RaceNotAcceptingException();
 		}
@@ -119,6 +122,9 @@ public class RaceHoldUseCase {
 		// 대회 행을 공유 잠금으로 먼저 읽고, 종목 행은 그다음에 잠근다 (개인 확보·취소·수정과 같은 대회 → 종목 순서)
 		// 취소가 진행 중이면 커밋을 기다렸다가 취소된 상태를 보고 막힌다
 		Race race = raceRepository.findByIdForShare(raceId).orElseThrow(RaceNotFoundException::new);
+		if (race.isStopped()) {
+			throw RaceNotAcceptingException.stopped();
+		}
 		if (!race.isAcceptingCrew(now)) {
 			throw RaceNotAcceptingException.crew();
 		}

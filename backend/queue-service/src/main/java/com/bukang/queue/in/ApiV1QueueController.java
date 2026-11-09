@@ -57,9 +57,11 @@ public class ApiV1QueueController {
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = QueueApiExamples.LOGIN_REQUIRED))),
 		@ApiResponse(responseCode = "403",
-			description = "다른 대회의 종목 또는 대회에서 뺀 종목, 접수 기간이 아님(판매 중이 아님, 개인 예매 오픈 전, 접수 마감 뒤)",
+			description = "다른 대회의 종목 또는 대회에서 뺀 종목, 판매를 멈춘 대회, "
+				+ "접수 기간이 아님(판매 중이 아님, 개인 예매 오픈 전, 접수 마감 뒤)",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "이 대회의 종목이 아님", value = QueueApiExamples.COURSE_NOT_IN_RACE),
+				@ExampleObject(name = "판매를 멈춘 대회", value = QueueApiExamples.SALE_STOPPED),
 				@ExampleObject(name = "접수 기간 아님", value = QueueApiExamples.NOT_ENTERABLE)
 			})),
 		@ApiResponse(responseCode = "404", description = "없는 대회 또는 없는 종목",

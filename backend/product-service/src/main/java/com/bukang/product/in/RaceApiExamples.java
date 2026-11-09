@@ -216,6 +216,60 @@ final class RaceApiExamples {
 		{ "status": 409, "message": "대회 상태가 바뀌어 취소하지 못했습니다. 다시 조회해 주세요.", "data": null }
 		""";
 
+	static final String STOP_SUCCESS = """
+		{
+			"status": 200,
+			"message": "대회 판매를 멈췄습니다.",
+			"data": {
+				"raceId": 1,
+				"saleStatus": "STOPPED",
+				"saleOpenDate": "2026-10-20",
+				"courseIds": [1]
+			}
+		}
+		""";
+
+	static final String RESUME_SUCCESS = """
+		{
+			"status": 200,
+			"message": "대회 판매를 다시 열었습니다.",
+			"data": {
+				"raceId": 1,
+				"saleStatus": "ON_SALE",
+				"saleOpenDate": "2026-10-20",
+				"courseIds": [1]
+			}
+		}
+		""";
+
+	static final String STOP_BEFORE_SALE = """
+		{
+			"status": 409,
+			"message": "판매 중인 대회만 판매를 멈출 수 있습니다. 판매 시작 전에는 대회 수정으로 일정을 바꿔 주세요.",
+			"data": null
+		}
+		""";
+
+	static final String ALREADY_STOPPED = """
+		{ "status": 409, "message": "이미 판매를 멈춘 대회입니다.", "data": null }
+		""";
+
+	static final String STOP_AFTER_APPLICATION_CLOSE = """
+		{ "status": 409, "message": "접수 마감이 지난 대회는 판매를 멈출 수 없습니다.", "data": null }
+		""";
+
+	static final String RESUME_NOT_STOPPED = """
+		{ "status": 409, "message": "판매를 멈춘 대회만 다시 열 수 있습니다.", "data": null }
+		""";
+
+	static final String RESUME_AFTER_APPLICATION_CLOSE = """
+		{ "status": 409, "message": "접수 마감이 지나 판매를 다시 열 수 없습니다.", "data": null }
+		""";
+
+	static final String SALE_STATUS_CHANGED = """
+		{ "status": 409, "message": "대회 상태가 바뀌어 처리하지 못했습니다. 다시 조회해 주세요.", "data": null }
+		""";
+
 	static final String SEARCH_SUCCESS = """
 		{
 			"status": 200,

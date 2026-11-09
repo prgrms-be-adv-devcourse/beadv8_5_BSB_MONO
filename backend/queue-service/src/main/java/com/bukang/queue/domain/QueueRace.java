@@ -111,6 +111,11 @@ public class QueueRace extends BaseEntity {
 		};
 	}
 
+	// 판매자가 판매를 멈춘 대회인지. 대기열 등록이 기간 문구보다 먼저 판매 중지 문구로 거절할 때 쓴다
+	public boolean isStopped() {
+		return saleStatus == RaceSaleStatus.STOPPED;
+	}
+
 	public boolean isCanceled() {
 		return saleStatus == RaceSaleStatus.CANCELED;
 	}

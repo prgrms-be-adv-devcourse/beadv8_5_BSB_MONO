@@ -100,6 +100,11 @@ final class QueueApiExamples {
 		{ "status": 403, "message": "이 대회의 종목이 아닙니다.", "data": null }
 		""";
 
+	// 개인·파티 대기열 등록이 함께 쓴다
+	static final String SALE_STOPPED = """
+		{ "status": 403, "message": "판매를 잠시 멈춘 대회입니다.", "data": null }
+		""";
+
 	static final String NOT_ENTERABLE = """
 		{ "status": 403, "message": "접수 기간이 아닙니다.", "data": null }
 		""";
