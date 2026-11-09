@@ -42,7 +42,7 @@ import {
   type SignupProfileValues,
 } from '../model/schemas'
 import { saveSignupDraft, takeSignupDraft } from '../model/signup-draft'
-import { saveSignupNext, takeSignupNext } from '../model/signup-next'
+import { saveSignupNext, signupStartHref, takeSignupNext } from '../model/signup-next'
 import { useSignupStep } from '../model/signup-store'
 import { requiredTermsChecked, SIGNUP_TERMS } from '../model/signup-terms'
 import { CenterBody, StepIntro } from './parts'
@@ -133,7 +133,7 @@ export function SignupAccountPage({ invalid = false }: { invalid?: boolean }) {
   const verification = useSignupStep((s) => s.verification)
   const ready = invalid || (termsAgreed && verification !== null)
   useEffect(() => {
-    if (!ready) router.replace('/signup')
+    if (!ready) router.replace(signupStartHref())
   }, [ready, router])
 
   return ready ? <SignupAccountForm invalid={invalid} /> : null
@@ -264,7 +264,7 @@ export function SignupProfilePage() {
   const ready =
     termsAgreed && verification !== null && signupAccountSchema.safeParse(account).success
   useEffect(() => {
-    if (!ready) router.replace('/signup')
+    if (!ready) router.replace(signupStartHref())
   }, [ready, router])
 
   return ready ? <SignupProfileForm /> : null
