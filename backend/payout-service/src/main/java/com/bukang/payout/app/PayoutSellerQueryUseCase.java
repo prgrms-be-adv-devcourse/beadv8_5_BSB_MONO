@@ -3,6 +3,7 @@ package com.bukang.payout.app;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
+import java.util.Locale;
 
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -48,8 +49,10 @@ public class PayoutSellerQueryUseCase {
 	}
 
 	// 정산 ID로 찾기 (BUK-109): 다른 판매자의 정산 ID는 없는 ID와 똑같이 404로 답한다 (있는지조차 알리지 않는다)
+	// 저장된 정산 ID는 대문자라, 청구 ID 검색처럼 앞뒤 공백을 지우고 대문자로 맞춰 찾는다
 	public List<PayoutDto> payoutByCode(long sellerId, String payoutCode) {
-		return List.of(PayoutDto.from(payoutRepository.findBySellerIdAndPayoutCode(sellerId, payoutCode)
+		String code = payoutCode.strip().toUpperCase(Locale.ROOT);
+		return List.of(PayoutDto.from(payoutRepository.findBySellerIdAndPayoutCode(sellerId, code)
 			.orElseThrow(PayoutNotFoundException::new)));
 	}
 

@@ -22,6 +22,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Locale;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -207,6 +208,20 @@ class ApiV1PayoutHoldControllerTest {
 		long payoutId = JsonPath.parse(body).read("$.data.id", Long.class);
 
 		holdAccount(payoutId).andExpect(status().isCreated());
+	}
+
+	@Test
+	@DisplayName("정산 ID로 찾을 때 소문자 · 앞뒤 공백이 섞여도 같은 정산 내역을 찾는다 (청구 ID 검색과 같은 처리)")
+	void findByCodeIgnoresCaseAndSpaces() throws Exception {
+		Payout payout = savePayout();
+		payout.assignPayoutCode();
+		payoutRepository.save(payout);
+
+		mockMvc.perform(get("/api/v1/payout/payouts")
+				.header("X-Member-Id", ADMIN_ID)
+				.param("code", " " + payout.getPayoutCode().toLowerCase(Locale.ROOT) + "  "))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.id").value(payout.getId()));
 	}
 
 	@Test

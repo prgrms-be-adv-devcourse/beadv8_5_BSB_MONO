@@ -1,6 +1,7 @@
 package com.bukang.payout.app;
 
 import java.time.LocalDateTime;
+import java.util.Locale;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -45,9 +46,11 @@ public class PayoutHoldUseCase {
 	}
 
 	// 보류 걸 정산 내역을 정산 ID(ST-)로 찾는다 (BUK-109). 응답의 id로 hold()를 부른다
+	// 저장된 정산 ID는 대문자라, 청구 ID 검색처럼 앞뒤 공백을 지우고 대문자로 맞춰 찾는다
 	@Transactional(readOnly = true)
 	public PayoutDto findPayout(String payoutCode) {
-		return PayoutDto.from(payoutRepository.findByPayoutCode(payoutCode).orElseThrow(PayoutNotFoundException::new));
+		String code = payoutCode.strip().toUpperCase(Locale.ROOT);
+		return PayoutDto.from(payoutRepository.findByPayoutCode(code).orElseThrow(PayoutNotFoundException::new));
 	}
 
 	@Transactional

@@ -130,7 +130,7 @@ public class ApiV1PayoutSellerController {
 		@Parameter(description = "조회 끝 정산 월 (yyyy-MM, 포함). 정산 ID가 없으면 필수", example = "2026-10")
 		@RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM") YearMonth toMonth
 	) {
-		List<PayoutDto> payouts = code != null
+		List<PayoutDto> payouts = code != null && !code.isBlank()
 			? payoutSellerFacade.payoutByCode(memberId, code)
 			: payoutSellerFacade.payouts(memberId, fromMonth, toMonth);
 		return ResponseEntity.ok(RsData.of(HttpStatus.OK, "정산 내역을 조회했습니다.", payouts));

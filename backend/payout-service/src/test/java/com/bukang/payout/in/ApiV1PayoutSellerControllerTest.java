@@ -18,6 +18,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Locale;
 import java.util.Optional;
 
 import org.junit.jupiter.api.AfterEach;
@@ -461,6 +462,24 @@ class ApiV1PayoutSellerControllerTest {
 				queryParameters(
 					parameterWithName("code").description("정산 ID (ST-정산 내역을 만든 날-16진수 4자리). 주면 기간은 보지 않는다")
 				)));
+	}
+
+	@Test
+	@DisplayName("정산 ID로 찾기: 소문자 · 앞뒤 공백이 섞여도 같은 정산 내역을 찾는다 (청구 ID 검색과 같은 처리)")
+	void payoutByCodeIgnoresCaseAndSpaces() throws Exception {
+		String code = payoutCodeOf(SELLER_ID, 11);
+		request("/payouts", "code", "  " + code.toLowerCase(Locale.ROOT) + " ")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data", hasSize(1)))
+			.andExpect(jsonPath("$.data[0].payoutCode").value(code));
+	}
+
+	@Test
+	@DisplayName("정산 ID가 빈 값이면 없는 것으로 보고 기간을 요구한다 (기간도 없으면 400)")
+	void blankCodeNeedsPeriod() throws Exception {
+		request("/payouts", "code", " ")
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message").value("필수 요청 값이 없습니다."));
 	}
 
 	@Test
