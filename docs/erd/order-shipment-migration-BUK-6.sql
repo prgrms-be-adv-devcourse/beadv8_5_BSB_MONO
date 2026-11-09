@@ -86,6 +86,8 @@ WHERE i.kit_delivery_status IS NOT NULL
 --    자식 → 부모 순으로 DELETE FROM order_shipment_item; DELETE FROM order_shipment; 를 먼저 둔다
 --    (TRUNCATE는 안 된다: MySQL은 외래 키로 참조되는 부모 표를 자식이 비어 있어도 TRUNCATE하지 못한다, ERROR 1701)
 --    (1)은 배송이 있는 주문을 건너뛰므로, 비우지 않으면 되돌린 동안 바뀐 발송 정보가 옮겨지지 않는다)
+--    BUK-94부터 받는 사람 연락처는 암호문이다. 이 되돌리기는 옛 주문 칸에 암호문을 그대로 옮기므로,
+--    돌리기 전에 ALTER TABLE order_order MODIFY recipient_phone varchar(255); 를 먼저 하고, 이전 앱은 그 칸을 읽지 못한다
 -- [되돌리기 시작]
 -- START TRANSACTION;
 --

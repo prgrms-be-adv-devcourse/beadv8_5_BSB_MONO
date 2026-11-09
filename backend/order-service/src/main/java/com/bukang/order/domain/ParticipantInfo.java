@@ -59,7 +59,7 @@ public class ParticipantInfo {
 	@Embedded
 	@AttributeOverrides({
 		@AttributeOverride(name = "recipientName", column = @Column(name = "shipping_recipient_name", length = 50)),
-		@AttributeOverride(name = "recipientPhone", column = @Column(name = "shipping_recipient_phone", length = 20)),
+		@AttributeOverride(name = "recipientPhone", column = @Column(name = "shipping_recipient_phone", length = 255)),
 		@AttributeOverride(name = "zipcode", column = @Column(name = "shipping_zipcode", length = 10)),
 		@AttributeOverride(name = "address", column = @Column(name = "shipping_address", length = 255)),
 		@AttributeOverride(name = "addressDetail", column = @Column(name = "shipping_address_detail", length = 255))
