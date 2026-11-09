@@ -169,8 +169,8 @@ public class PartyApplyUseCase {
 			List<Seat> seats = participationRepository.findActiveByPartyIdForUpdate(partyId).stream()
 				.map(participation -> new Seat(participation.getId(), participation.getRaceCourseId()))
 				.toList();
-			// 상품이 처음 결과를 돌려주면 이 값은 쓰이지 않는다. 크루 자리 닫는 시각이 지나 지난 값이 되면 상품이 400(→ 503)을 줘
-			// 표시가 또 남으므로, 그때는 미래 값을 보내 상품이 기간으로 거절(409, 확정 답)하게 한다 (영호님 리뷰)
+			// 상품이 처음 결과를 돌려주면 이 값은 쓰이지 않는다. 크루 자리 닫는 시각이 지나 지난 값이 되지 않게
+			// 미래 값을 보내 상품이 기간으로 거절(409)하게 한다 (영호님 리뷰). 지난 값의 400도 거절로 받아 표시를 지운다
 			LocalDateTime dueAt = saleOpen ? paymentDueAt(course, crewSale, now) : now.plus(PAYMENT_WINDOW);
 			return new Prepared(partyId, target.crewId(), course.raceId(), course.raceCourseId(), course.courseName(),
 				dueAt, seats);

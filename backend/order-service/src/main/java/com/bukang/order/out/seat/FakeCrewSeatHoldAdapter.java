@@ -10,7 +10,6 @@ import java.util.stream.Collectors;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
-import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
 import com.bukang.order.domain.exception.ParticipationNotPayableException;
 
 import lombok.extern.slf4j.Slf4j;
@@ -53,9 +52,9 @@ public class FakeCrewSeatHoldAdapter implements CrewSeatHoldPort {
 			}
 			return first;
 		}
-		// 상품처럼 처음 결과를 찾은 다음에 끝 시각을 본다. 지난 끝 시각은 상품이 400을 주고 HTTP 어댑터가 503으로 바꾼다
+		// 상품처럼 처음 결과를 찾은 다음에 끝 시각을 본다. 지난 끝 시각은 상품이 400을 주고 HTTP 어댑터가 거절(409)로 바꾼다
 		if (!expiresAt.isAfter(LocalDateTime.now())) {
-			throw new ExternalServiceUnavailableException("상품 서비스에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요.");
+			throw new ParticipationNotPayableException("자리 끝 시각이 이미 지났습니다.");
 		}
 		Map<Long, Integer> needed = seats.stream()
 			.collect(Collectors.groupingBy(Seat::raceCourseId, Collectors.summingInt(seat -> 1)));

@@ -246,7 +246,7 @@ class ApiV1PartyApplyTest {
 		// 크루 마감이 이틀 전이라 크루 자리 닫는 시각(마감일 다음 날 0시)도 지났다
 		putCourse(crewSaleStartAt.minusDays(5), LocalDateTime.now().minusDays(2), 4, 10);
 
-		// 가짜 어댑터도 상품처럼 지난 끝 시각이면 503이다. 미래 기한을 보내야 상품이 확정 답(여기서는 처음 확보)을 준다
+		// 가짜 어댑터도 상품처럼 지난 끝 시각을 거절한다. 미래 기한을 보내야 상품이 확정 답(여기서는 새로 확보)을 준다
 		apply(LEADER, partyId).andExpect(status().isOk());
 		ArgumentCaptor<LocalDateTime> sentExpiresAt = ArgumentCaptor.forClass(LocalDateTime.class);
 		verify(crewSeatHoldPort, times(2)).holdAll(anyLong(), anyLong(), anyLong(), sentExpiresAt.capture(), any());
