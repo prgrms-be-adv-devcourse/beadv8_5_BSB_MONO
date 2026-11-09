@@ -73,24 +73,29 @@ public class PayoutCreateUseCase {
 	 * 03:00 실행을 놓쳐도(서버 중단, 배포, 실패한 정산 내역) 다음 실행들이 따라잡는다. @Scheduled는 놓친 실행을 다시 돌리지 않는다
 	 */
 	public PayoutCreateResultDto run(LocalDate today, LocalDateTime now) {
-		Counts first = createFirstPayoutsForRaces(today, now);
+		Counts firstCounts = createFirstPayoutsForRaces(today, now);
 
 		LocalDate toRaceDate = PayoutCreateDate.raceDateFor(today);
-		LocalDate fromRaceDate = toRaceDate.minusDays(LOOKBACK_DAYS - 1);
-		Counts last = createFinalPayoutsForRaces(fromRaceDate, toRaceDate, today, now);
+		LocalDate fromRaceDate = lookbackStart(toRaceDate);
+		Counts finalCounts = createFinalPayoutsForRaces(fromRaceDate, toRaceDate, today, now);
 
 		log.info("정산 생성 배치 완료. 1차 생성 {} · 이미 있음 {} · 실패 {}, 최종(대회일 {} ~ {}) 생성 {} · 이미 있음 {} · 실패 {}",
-			first.created, first.skipped, first.failed, fromRaceDate, toRaceDate, last.created, last.skipped,
-			last.failed);
-		return new PayoutCreateResultDto(fromRaceDate, toRaceDate, first.created + last.created,
-			first.skipped + last.skipped, first.failed + last.failed);
+			firstCounts.created, firstCounts.skipped, firstCounts.failed, fromRaceDate, toRaceDate,
+			finalCounts.created, finalCounts.skipped, finalCounts.failed);
+		return new PayoutCreateResultDto(fromRaceDate, toRaceDate, firstCounts.created + finalCounts.created,
+			firstCounts.skipped + finalCounts.skipped, firstCounts.failed + finalCounts.failed);
+	}
+
+	// 되돌아보기 기간의 첫날. 마지막 날(to)을 넣어 LOOKBACK_DAYS일이 되게 한다
+	private static LocalDate lookbackStart(LocalDate to) {
+		return to.minusDays(LOOKBACK_DAYS - 1);
 	}
 
 	// 1차: 환불 마감일이 되돌아보기 기간 안인 대회마다 판매 집계(가격 합 · 장수)로 만든다. 정산 월은 환불 마감일의 달이다
 	// 참가권 목록은 받지 않는다. 대회 하나는 코스 하나라 가격이 하나여서 집계만으로 1차 정산금을 계산할 수 있다 (PRO-214)
 	private Counts createFirstPayoutsForRaces(LocalDate today, LocalDateTime now) {
 		LocalDate toRefundDeadline = PayoutCreateDate.refundDeadlineFor(today);
-		LocalDate fromRefundDeadline = toRefundDeadline.minusDays(LOOKBACK_DAYS - 1);
+		LocalDate fromRefundDeadline = lookbackStart(toRefundDeadline);
 
 		Counts counts = new Counts(payoutCreateFailureUseCase, today);
 		List<RaceSchedule> races;
