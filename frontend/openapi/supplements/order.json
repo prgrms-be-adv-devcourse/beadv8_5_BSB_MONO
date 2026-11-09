@@ -264,6 +264,17 @@
           "$ref": "#/components/schemas/PartyRaceStatusDto"
         }
       }
+    },
+    "findKitOptionSales": {
+      "200": {
+        "wrapper": "RsDataListSellerKitOptionSaleDto",
+        "data": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/SellerKitOptionSaleDto"
+          }
+        }
+      }
     }
   },
   "schemas": {
@@ -830,7 +841,15 @@
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "옛 티셔츠 사이즈. 키트 옵션으로 옮기는 동안만 둔다. kitOptions가 비어 있을 때만 쓴다"
+        },
+        "kitOptions": {
+          "type": "array",
+          "description": "결제 때 고른 키트 옵션 (이름·값). 옵션 전에 결제한 신청은 빈 목록",
+          "items": {
+            "$ref": "#/components/schemas/KitOptionChoiceDto"
+          }
         },
         "shippingAddress": {
           "$ref": "#/components/schemas/ShippingAddressDto"
@@ -1331,6 +1350,71 @@
           "description": "내 신청서 ID. [결제하기]에 쓴다"
         }
       }
+    },
+    "KitOptionChoiceDto": {
+      "type": "object",
+      "description": "참가 신청이 고른 키트 옵션 하나",
+      "properties": {
+        "kitOptionId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "name": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kitOptionId",
+        "name",
+        "value"
+      ]
+    },
+    "SellerKitOptionSaleDto": {
+      "type": "object",
+      "description": "키트 옵션별 판매 현황",
+      "properties": {
+        "kitOptionId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "name": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "stock": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int32",
+          "description": "준비 수량. null이면 맞춤 제작"
+        },
+        "sold": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "remaining": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int32",
+          "description": "남은 수량. 맞춤 제작이면 null"
+        }
+      },
+      "required": [
+        "kitOptionId",
+        "name",
+        "value",
+        "stock",
+        "sold",
+        "remaining"
+      ]
     }
   }
 }
