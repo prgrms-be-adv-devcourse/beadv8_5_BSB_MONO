@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import type { ReactNode } from 'react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vitest'
 
 import { ApiError, type productModel } from '@/shared/api'
 import { server } from '@/shared/testing'
@@ -197,17 +197,23 @@ describe('useRegisterRace', () => {
       expect(kitRequested).toBe(false)
     })
 
-    it('키트 옵션 저장이 실패하면 오류가 되고, 다시 누르면 같은 키로 같은 대회를 받아 옵션을 다시 보낸다', async () => {
-      const raceKeys: (string | null)[] = []
-      let kitCalls = 0
+    it('키트 옵션 저장이 실패하면 오류가 되고, 다시 누르면 대회 칸을 고쳤어도 사진 · 대회는 다시 보내지 않고 같은 대회에 옵션만 보낸다', async () => {
+      let raceCalls = 0
+      let uploads = 0
+      const kitRaceIds: string[] = []
+      const countUpload = ({ request }: { request: Request }) => {
+        if (new URL(request.url).pathname.startsWith('/api/v1/file/')) uploads += 1
+      }
+      server.events.on('request:start', countUpload)
+      onTestFinished(() => server.events.removeListener('request:start', countUpload))
       server.use(
-        http.post('*/api/v1/product/races', ({ request }) => {
-          raceKeys.push(request.headers.get('Idempotency-Key'))
+        http.post('*/api/v1/product/races', () => {
+          raceCalls += 1
           return savedRace()
         }),
-        http.post('*/api/v1/product/races/:raceId/kit-options', () => {
-          kitCalls += 1
-          return kitCalls === 1
+        http.post('*/api/v1/product/races/:raceId/kit-options', ({ params }) => {
+          kitRaceIds.push(String(params.raceId))
+          return kitRaceIds.length === 1
             ? HttpResponse.json({ status: 500, message: '잠시 후', data: null }, { status: 500 })
             : kitSaved(201)
         }),
@@ -215,12 +221,14 @@ describe('useRegisterRace', () => {
       const { result } = renderHook(() => useRegisterRace(), { wrapper })
       act(() => result.current.mutate({ values: kitValues, images }))
       await waitFor(() => expect(result.current.isError).toBe(true))
-      act(() => result.current.mutate({ values: kitValues, images }))
+      const uploadsBefore = uploads
+      act(() => result.current.mutate({ values: { ...kitValues, title: '고친 제목' }, images }))
       await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
-      expect(raceKeys).toHaveLength(2)
-      expect(raceKeys[1]).toBe(raceKeys[0])
-      expect(kitCalls).toBe(2)
+      expect(raceCalls).toBe(1)
+      expect(uploads).toBe(uploadsBefore)
+      expect(kitRaceIds).toEqual(['7', '7'])
+      expect(result.current.data?.raceId).toBe(7)
     })
 
     it('옵션이 이미 저장돼 있으면(409, 앞선 응답만 잃은 경우) 같은 목록으로 통째로 바꾼다', async () => {
