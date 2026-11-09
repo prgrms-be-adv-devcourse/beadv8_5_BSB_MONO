@@ -1,18 +1,24 @@
 package com.bukang.payout.in;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.bukang.common.global.rsdata.RsData;
 import com.bukang.common.shared.member.web.LoginMemberId;
 import com.bukang.payout.app.PayoutAdminFacade;
+import com.bukang.payout.domain.PayoutClaimStatus;
+import com.bukang.payout.domain.PayoutItemPaging;
+import com.bukang.payout.dto.PayoutAdminClaimsDto;
 import com.bukang.payout.dto.PayoutClaimDto;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -31,7 +37,7 @@ import lombok.RequiredArgsConstructor;
  * 회원 ID는 게이트웨이가 토큰에서 꺼내 넣은 X-Member-Id 헤더를 믿는다.
  * 지급보류 API와 같이 PayoutAdminFacade가 먼저 회원 서비스에 물어 관리자가 아니면 403으로 막는다 (PRO-265)
  */
-@Tag(name = "PayoutClaim", description = "청구 입금 확인 API (관리자)")
+@Tag(name = "PayoutClaim", description = "청구 목록 · 입금 확인 API (관리자)")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/payout")
@@ -79,5 +85,51 @@ public class ApiV1PayoutClaimController {
 	) {
 		PayoutClaimDto claim = payoutAdminFacade.confirmClaim(memberId, claimId, LocalDateTime.now(ZONE));
 		return ResponseEntity.ok(RsData.of(HttpStatus.OK, "청구 입금을 확인했습니다.", claim));
+	}
+
+	@GetMapping("/admin/claims")
+	@Operation(summary = "회수 관리 청구 목록",
+		description = "관리자 회수 관리 화면의 카드 숫자(청구 중 건수, 회수할 금액 합계, 이번 달 입금 확인 건수)와 "
+			+ "청구 목록을 최근 청구부터 돌려준다. code(RC-)를 주면 그 한 건만 찾고 status는 보지 않는다. "
+			+ "카드 숫자는 필터와 상관없이 전체 기준이다. 판매자 이름은 넣지 않는다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "조회 성공 (청구가 없으면 빈 목록)",
+			content = @Content(examples = {
+				@ExampleObject(name = "목록", value = PayoutClaimApiExamples.CLAIMS_SUCCESS),
+				@ExampleObject(name = "청구 없음", value = PayoutClaimApiExamples.CLAIMS_EMPTY)
+			})),
+		@ApiResponse(responseCode = "400", description = "페이지 번호 · 크기 범위 밖, 값 형식 오류 또는 회원 ID가 0 이하",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "페이지 크기 범위 밖", value = PayoutClaimApiExamples.INVALID_PAGE_SIZE),
+				@ExampleObject(name = "상태 · 회원 ID 형식 오류", value = PayoutApiExamples.INVALID_VALUE_TYPE),
+				@ExampleObject(name = "회원 ID가 0 이하", value = PayoutApiExamples.INVALID_MEMBER_ID)
+			})),
+		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = PayoutApiExamples.LOGIN_REQUIRED))),
+		@ApiResponse(responseCode = "403", description = "관리자가 아님",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = PayoutApiExamples.NOT_ADMIN))),
+		@ApiResponse(responseCode = "404", description = "헤더의 회원이 없거나 탈퇴함",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = PayoutApiExamples.MEMBER_NOT_FOUND))),
+		@ApiResponse(responseCode = "503", description = "회원 서비스가 응답하지 않아 관리자인지 확인하지 못함",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = PayoutApiExamples.MEMBER_UNAVAILABLE)))
+	})
+	public ResponseEntity<RsData<PayoutAdminClaimsDto>> claims(
+		@LoginMemberId long memberId,
+		@Parameter(description = "청구 상태 (청구_중, 입금_확인). 없으면 전체", example = "청구_중")
+		@RequestParam(required = false) PayoutClaimStatus status,
+		@Parameter(description = "청구 ID 표기로 한 건 찾기 (앞뒤 공백 · 대소문자 무시)", example = "RC-20261215-0001")
+		@RequestParam(required = false) String code,
+		@Parameter(description = "페이지 번호 (0부터)", example = "0")
+		@RequestParam(defaultValue = "0") int page,
+		@Parameter(description = "페이지 크기 (1 ~ 100)", example = "50")
+		@RequestParam(defaultValue = "" + PayoutItemPaging.DEFAULT_SIZE) int size
+	) {
+		PayoutAdminClaimsDto claims = payoutAdminFacade.claims(memberId, status, code, page, size,
+			LocalDate.now(ZONE));
+		return ResponseEntity.ok(RsData.of(HttpStatus.OK, "청구 목록을 조회했습니다.", claims));
 	}
 }

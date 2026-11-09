@@ -73,6 +73,36 @@ include::{snippets}/payout-hold-release-not-found/http-response.adoc[]
 .이미 해제됨 (409)
 include::{snippets}/payout-hold-release-conflict/http-response.adoc[]
 
+[[payout-admin-claims]]
+== 회수 관리 (관리자)
+
+[[payout-admin-claims-list]]
+=== 청구 목록
+
+카드 숫자(청구 중 건수, 회수할 금액 합계, 이번 달 입금 확인 건수)와 청구 목록을 최근 청구부터 돌려준다.
+카드 숫자는 `status` · `code`와 상관없이 전체 기준이다. 판매자 이름은 넣지 않으니 프론트가 회원 정보에서 따로 받아 합친다.
+「회수 완료」 버튼은 아래 청구 입금 확인 API를 쓴다.
+
+operation::payout-admin-claims[snippets='http-request,request-headers,query-parameters,http-response,response-fields']
+
+.청구 ID(`RC-`)로 한 건 찾기
+include::{snippets}/payout-admin-claims-by-code/http-response.adoc[]
+
+.청구가 없음
+include::{snippets}/payout-admin-claims-empty/http-response.adoc[]
+
+==== 실패 예시
+
+.관리자가 아님 (403)
+include::{snippets}/payout-admin-claims-forbidden/http-response.adoc[]
+
+[[payout-claim-confirm]]
+=== 청구 입금 확인
+
+판매자가 청구 금액을 보낸 것을 관리자가 확인한다. 청구는 입금 확인으로 바뀌고, 그 대회의 요청 중인 회수가 끝난다.
+
+operation::payout-claim-confirm[snippets='http-request,request-headers,path-parameters,http-response,response-fields']
+
 [[payout-seller]]
 == 정산 조회 (판매자)
 
