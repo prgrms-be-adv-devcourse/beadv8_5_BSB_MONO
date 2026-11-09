@@ -203,6 +203,47 @@ class ApiV1CrewManageTest {
 	}
 
 	@Test
+	@DisplayName("내보낸 크루원은 내보내기 전에 만든 링크로 다시 가입할 수 없고 410 CREW_INVITE_REMOVED_MEMBER이다. 다른 사람은 그 링크로 가입한다")
+	void removedMemberCannotRejoinWithOldLink() throws Exception {
+		String oldToken = crewFacade.createInvite(leaderId, crewId).inviteToken();
+		now = now.plusSeconds(60);
+		remove(leaderId, crewId, memberId).andExpect(status().isOk());
+
+		mockMvc.perform(get(INVITE_BY_TOKEN, oldToken).header(MemberIdHeader.NAME, memberId))
+			.andExpect(status().isGone())
+			.andExpect(jsonPath("$.code").value("CREW_INVITE_REMOVED_MEMBER"));
+		mockMvc.perform(post(JOIN, oldToken).header(MemberIdHeader.NAME, memberId))
+			.andExpect(status().isGone())
+			.andExpect(jsonPath("$.code").value("CREW_INVITE_REMOVED_MEMBER"));
+		assertThat(crewMemberRepository.existsByCrewIdAndMemberId(crewId, memberId)).isFalse();
+
+		mockMvc.perform(post(JOIN, oldToken).header(MemberIdHeader.NAME, outsiderId))
+			.andExpect(status().isCreated());
+	}
+
+	@Test
+	@DisplayName("내보낸 뒤 크루장이 새로 만든 링크로는 다시 가입할 수 있다")
+	void removedMemberRejoinsWithNewLink() throws Exception {
+		remove(leaderId, crewId, memberId).andExpect(status().isOk());
+		now = now.plusSeconds(60);
+		String newToken = crewFacade.createInvite(leaderId, crewId).inviteToken();
+
+		mockMvc.perform(post(JOIN, newToken).header(MemberIdHeader.NAME, memberId))
+			.andExpect(status().isCreated());
+	}
+
+	@Test
+	@DisplayName("스스로 탈퇴한 크루원은 같은 링크로 다시 가입할 수 있다")
+	void leftMemberRejoinsWithSameLink() throws Exception {
+		String token = crewFacade.createInvite(leaderId, crewId).inviteToken();
+		now = now.plusSeconds(60);
+		leave(memberId, crewId).andExpect(status().isOk());
+
+		mockMvc.perform(post(JOIN, token).header(MemberIdHeader.NAME, memberId))
+			.andExpect(status().isCreated());
+	}
+
+	@Test
 	@DisplayName("운영진과 크루원은 내보낼 수 없고 403 CREW_LEADER_ONLY이며, 크루원이 아니면 403 CREW_NOT_MEMBER이다")
 	void onlyLeaderRemoves() throws Exception {
 		remove(managerId, crewId, memberId)
