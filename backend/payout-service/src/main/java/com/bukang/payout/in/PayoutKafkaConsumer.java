@@ -108,7 +108,9 @@ public class PayoutKafkaConsumer {
 		payoutClaimUseCase.confirmByDeposit(event.claimCode(), event.amount(), event.depositedAt());
 	}
 
-	// 끝까지 실패한 메시지. 닫히지 않은 정산 내역이 지급될 수 있으므로 운영자가 확인해 직접 보류를 걸고 다시 보내야 한다
+	// 끝까지 실패한 메시지. 운영자가 확인해 처리한다
+	// - 대회 취소 · 환불: 닫히지 않은 정산 내역이 지급될 수 있으므로 직접 보류를 걸고 다시 보낸다
+	// - 청구 입금: 판매자는 돈을 냈는데 회수가 끝나지 않았다. 입금액과 청구를 맞춰 보고 관리자 입금 확인으로 끝낸다
 	@DltHandler
 	public void handleDlt(String payload, @Header(KafkaHeaders.RECEIVED_TOPIC) String topic) {
 		log.error("Kafka 메시지를 끝내 처리하지 못했습니다. 확인 후 다시 보내야 합니다. topic={}, payload={}", topic, payload);
