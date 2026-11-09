@@ -6,103 +6,137 @@ import { BottomNav } from '@/widgets/bottom-nav'
 import { OfflineBody } from '@/widgets/status-screens'
 import { RACE_BANNERS, RaceCard, type RaceSummary } from '@/entities/race'
 import { cn } from '@/shared/lib'
-import {
-  buttonClassName,
-  Carousel,
-  CarouselSlide,
-  DragScroll,
-  FOCUS_RING,
-  Skeleton,
-} from '@/shared/ui'
+import { Carousel, CarouselSlide, FOCUS_RING, Icon, Skeleton } from '@/shared/ui'
 
 export type HomePageProps = {
   state?: 'loading' | 'offline'
-  /** 곧 마감 (종목별 카드) */
+  /** 곧 마감 (대회별 카드, 4개) */
   closingSoon: RaceSummary[]
-  /** 지금 접수 중 (대회별 카드, 4개) */
-  openRaces: RaceSummary[]
 }
 
-// 피그마 V2 · M01 홈: ① 배너 → ② 곧 마감(가로 넘김) → ③ 지금 접수 중(2열, 4개만)
+const HOME_TABS = [
+  { label: '홈', href: '/' },
+  { label: '대회 일정', href: '/races' },
+  { label: '크루', href: '/crews' },
+] as const
+
+const SHORTCUTS = [
+  { label: '신청 내역', href: '/tickets', icon: 'TicketCheck' },
+  { label: '예치금', href: '/me/deposit', icon: 'Wallet' },
+  { label: '크루', href: '/crews', icon: 'Users' },
+] as const
+
+// 피그마 시나리오 38 · 02 홈(v2): 로고·알림 → 홈 탭 → 메인 배너 → 바로가기 → 곧 마감돼요(2열 4개)
 // (+ 홈 로딩, 공통 연결 끊김). 배너는 API가 없어 시안 예시를 그대로 쓴다.
-export function HomePage({ state, closingSoon, openRaces }: HomePageProps) {
-  if (state) {
-    return (
-      <>
-        <AppHeader />
-        {state === 'loading' ? <HomeSkeleton /> : <OfflineBody />}
-        <BottomNav />
-      </>
-    )
-  }
+export function HomePage({ state, closingSoon }: HomePageProps) {
   return (
     <>
-      <AppHeader />
-      <main className="flex-1">
-        <section className="pt-4 pb-2">
-          <Carousel label="접수 중인 대회">
-            {RACE_BANNERS.map((banner, i) => (
-              <CarouselSlide
-                key={banner.id}
-                image={
-                  <Image
-                    src={banner.image}
-                    alt={banner.title ?? ''}
-                    fill
-                    sizes="420px"
-                    // 첫 장이 첫 화면에서 가장 큰 요소(LCP)라 먼저 받는다. 나머지는 지연 로딩
-                    loading={i === 0 ? 'eager' : undefined}
-                    fetchPriority={i === 0 ? 'high' : undefined}
-                    className="object-cover"
-                  />
-                }
-                title={banner.title}
-                tags={banner.tags}
-              />
-            ))}
-          </Carousel>
-        </section>
-
-        <section className="flex flex-col gap-4 pt-8 pb-2">
-          <SectionHead title="곧 마감돼요" />
-          {closingSoon.length === 0 ? (
-            <EmptyRow>곧 마감되는 대회가 없어요</EmptyRow>
-          ) : (
-            <DragScroll className="scroll-px-(--layout-page-margin) gap-4 px-(--layout-page-margin)">
-              {closingSoon.map((race) => (
-                <RaceCard
-                  key={`${race.id}-${race.option}`}
-                  race={race}
-                  className="w-54 shrink-0 snap-start"
+      {state ? (
+        // 시안 01 홈 로딩 · 01-A 연결 끊김은 홈 탭 없이 기본 헤더를 쓴다
+        <>
+          <AppHeader />
+          {state === 'loading' ? <HomeSkeleton /> : <OfflineBody />}
+        </>
+      ) : (
+        <>
+          <AppHeader search={false} className="border-b-0" />
+          <HomeTabs />
+          <main className="flex-1">
+            <Carousel label="접수 중인 대회" className="pt-4 pb-2">
+              {RACE_BANNERS.map((banner, i) => (
+                <CarouselSlide
+                  key={banner.id}
+                  image={
+                    <Image
+                      src={banner.image}
+                      alt={banner.title ?? ''}
+                      fill
+                      sizes="568px"
+                      // 첫 장이 첫 화면에서 가장 큰 요소(LCP)라 먼저 받는다. 나머지는 지연 로딩
+                      loading={i === 0 ? 'eager' : undefined}
+                      fetchPriority={i === 0 ? 'high' : undefined}
+                      className="object-cover"
+                    />
+                  }
+                  chip={banner.chip}
+                  title={banner.title}
+                  description={banner.description}
                 />
               ))}
-            </DragScroll>
-          )}
-        </section>
+            </Carousel>
 
-        <section className="flex flex-col gap-4 py-8">
-          <SectionHead title="지금 접수 중인 대회" />
-          {openRaces.length === 0 ? (
-            <EmptyRow>지금 접수 중인 대회가 없어요</EmptyRow>
-          ) : (
-            <div className="grid grid-cols-2 gap-x-4 gap-y-6 px-(--layout-page-margin)">
-              {openRaces.map((race) => (
-                <RaceCard key={race.id} race={race} />
+            <nav aria-label="바로가기" className="flex gap-2 px-4 pt-3 pb-2">
+              {SHORTCUTS.map((item) => (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  className={cn(
+                    'flex flex-1 flex-col items-center gap-1.5 rounded-md bg-bg-subtle py-3 text-body2-medium text-text-secondary',
+                    FOCUS_RING,
+                  )}
+                >
+                  <Icon name={item.icon} className="size-5.5" />
+                  {item.label}
+                </Link>
               ))}
-            </div>
-          )}
-          <div className="px-(--layout-page-margin)">
-            <Link
-              href="/races"
-              className={buttonClassName({ variant: 'secondary', className: 'w-full' })}
-            >
-              대회 전체 보기
-            </Link>
-          </div>
-        </section>
-      </main>
+            </nav>
+
+            <section aria-labelledby="closing-soon" className="flex flex-col gap-3.5 px-4 py-7">
+              <div className="flex items-center justify-between">
+                <h2 id="closing-soon" className="flex items-center gap-1.5 text-title3">
+                  곧 마감돼요
+                  {closingSoon.length > 0 && (
+                    <span className="text-text-tertiary">{closingSoon.length}</span>
+                  )}
+                </h2>
+                <Link
+                  href="/races"
+                  className={cn('rounded-sm text-body2-medium text-text-tertiary', FOCUS_RING)}
+                >
+                  전체 보기
+                </Link>
+              </div>
+              {closingSoon.length === 0 ? (
+                <EmptyRow>곧 마감되는 대회가 없어요</EmptyRow>
+              ) : (
+                <div className="grid grid-cols-2 gap-x-4 gap-y-6">
+                  {closingSoon.map((race) => (
+                    <RaceCard key={race.id} race={race} />
+                  ))}
+                </div>
+              )}
+            </section>
+          </main>
+        </>
+      )}
       <BottomNav />
     </>
+  )
+}
+
+// 홈 위쪽 탭. 화면을 바꾸는 링크라 Tabs 대신 nav로 그린다.
+function HomeTabs() {
+  return (
+    <nav aria-label="홈 메뉴" className="flex gap-5 bg-bg-surface px-4">
+      {HOME_TABS.map((tab) => {
+        const current = tab.href === '/'
+        return (
+          <Link
+            key={tab.label}
+            href={tab.href}
+            aria-current={current ? 'page' : undefined}
+            className={cn(
+              'flex flex-col gap-1.5 rounded-sm pt-1 text-body1-bold',
+              current ? 'text-text-primary' : 'text-text-tertiary',
+              FOCUS_RING,
+            )}
+          >
+            {tab.label}
+            <span aria-hidden className={cn('h-0.5', current && 'bg-text-primary')} />
+          </Link>
+        )
+      })}
+    </nav>
   )
 }
 
@@ -114,21 +148,7 @@ function EmptyRow({ children }: { children: string }) {
   )
 }
 
-function SectionHead({ title }: { title: string }) {
-  return (
-    <div className="flex items-end justify-between px-(--layout-page-margin)">
-      <h2 className="text-title2">{title}</h2>
-      <Link
-        href="/races"
-        className={cn('rounded-sm text-body2-medium text-text-secondary', FOCUS_RING)}
-      >
-        전체 보기
-      </Link>
-    </div>
-  )
-}
-
-// 피그마 시나리오 38 · 01 홈 로딩: 배너 · 곧 마감(가로 카드) · 지금 접수 중(2열 4장 + 더 보기) 자리.
+// 홈 로딩: 02 홈과 같은 배치(배너 · 바로가기 · 곧 마감 2열 4장)의 회색 틀.
 // 0.3초 안에 끝나면 보이지 않는다(animate-delayed-show).
 function HomeSkeleton() {
   return (
@@ -137,28 +157,20 @@ function HomeSkeleton() {
       aria-label="불러오는 중"
       className="flex flex-1 animate-delayed-show flex-col"
     >
-      <div className="flex gap-3 overflow-hidden pt-4 pb-2 pl-4">
-        {[0, 1].map((i) => (
-          <Skeleton key={i} shape="rect" className="h-73.5 w-105 shrink-0 rounded-lg" />
+      <div className="px-4 pt-4 pb-2">
+        <Skeleton shape="rect" className="aspect-568/300 w-full rounded-lg" />
+      </div>
+      <div className="flex gap-2 px-4 pt-3 pb-2">
+        {SHORTCUTS.map((item) => (
+          <Skeleton key={item.label} shape="rect" className="h-18 flex-1" />
         ))}
       </div>
-      <div className="flex flex-col gap-3 pt-8 pb-2">
+      <div className="flex flex-col gap-3.5 px-4 py-7">
         <SkeletonHead />
-        <div className="flex gap-3 overflow-hidden pl-4">
-          {[0, 1].map((i) => (
-            <SkeletonCard key={i} className="w-44 shrink-0" lines={['w-full', 'w-3/5']} />
-          ))}
-        </div>
-      </div>
-      <div className="flex flex-col gap-2 pt-8 pb-8">
-        <SkeletonHead />
-        <div className="grid grid-cols-2 gap-x-4 gap-y-6 px-4">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-6">
           {[0, 1, 2, 3].map((i) => (
-            <SkeletonCard key={i} lines={['w-5/6']} />
+            <SkeletonCard key={i} />
           ))}
-        </div>
-        <div className="px-4">
-          <Skeleton shape="rect" className="h-11 w-full" />
         </div>
       </div>
     </main>
@@ -167,25 +179,21 @@ function HomeSkeleton() {
 
 function SkeletonHead() {
   return (
-    <div className="flex h-7.5 items-center justify-between px-4">
-      <Skeleton className="h-3.75 w-40" />
+    <div className="flex h-7 items-center justify-between">
+      <Skeleton className="h-3.75 w-28" />
       <Skeleton className="h-2.5 w-12" />
     </div>
   )
 }
 
-function SkeletonCard({ lines, className }: { lines: string[]; className?: string }) {
+function SkeletonCard() {
   return (
-    <div className={cn('flex flex-col', className)}>
-      <Skeleton shape="rect" className="aspect-square w-full" />
-      <div className="flex h-12 flex-col gap-2 pt-2">
-        {lines.map((width) => (
-          <Skeleton key={width} className={cn('h-2.75', width)} />
-        ))}
-      </div>
-      <div className="flex flex-col gap-3 pt-2">
-        <Skeleton className="h-2.5 w-21" />
-        <Skeleton className="h-2.5 w-16" />
+    <div className="flex flex-col gap-2.5">
+      <Skeleton shape="rect" className="aspect-4/3 w-full" />
+      <div className="flex flex-col gap-2">
+        <Skeleton className="h-2.75 w-5/6" />
+        <Skeleton className="h-2.5 w-3/5" />
+        <Skeleton className="h-2.5 w-1/3" />
       </div>
     </div>
   )

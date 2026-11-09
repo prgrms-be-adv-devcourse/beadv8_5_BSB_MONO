@@ -20,12 +20,7 @@ export {
   parseRaceDateInput,
 } from './lib/race-date'
 export { RACE_BANNERS, RACE_DETAIL, type RaceBanner } from './model/fixtures'
-export {
-  applicationPhase,
-  toClosingSoonCards,
-  toOpenRaceCard,
-  toRaceListItem,
-} from './model/mappers'
+export { applicationPhase, toClosingSoonCard, toRaceListItem } from './model/mappers'
 export type {
   ApplicationPhase,
   RaceBadge,

@@ -25,7 +25,7 @@ export type CarouselProps = {
   className?: string
 }
 
-// 홈 배너 캐러셀. 지금 장이 가운데 오고 양옆 장이 살짝 보이며, 손가락·트랙패드로 넘긴다(CSS scroll-snap).
+// 홈 배너 캐러셀(피그마 v2 메인 배너). 한 장이 좌우 16 여백 안을 채우고, 손가락·트랙패드로 넘긴다(CSS scroll-snap).
 // 데스크톱도 모바일과 같은 모양이라 화살표는 없고, 점을 누르거나 마우스로 잡고 끌어 이동한다.
 // 자동 넘김만 마지막 장 다음에 첫 장으로 되감고, 끌기·손가락으로는 양 끝에서 멈춘다.
 // 끝없이 이어지는 순환(양 끝 장 복제)은 쓰지 않기로 했다.
@@ -63,7 +63,7 @@ export function Carousel({ label, children, autoPlayMs = 5000, className }: Caro
         return
       }
       setIndex(next)
-      // 트랙 좌우 여백이 (트랙 폭 - 장 폭) / 2라서, n번째 장이 가운데 오는 위치는 n × 한 장 길이다.
+      // 트랙 좌우 여백과 장 사이 간격이 같아서, n번째 장이 제자리에 오는 위치는 n × 한 장 길이다.
       track.scrollTo({ left: next * slideStep(), behavior: 'smooth' })
     },
     [slideStep],
@@ -160,7 +160,7 @@ export function Carousel({ label, children, autoPlayMs = 5000, className }: Caro
     <section
       aria-roledescription="carousel"
       aria-label={label}
-      className={cn('flex flex-col items-center gap-3 pt-4 pb-2', className)}
+      className={cn('flex flex-col items-center gap-3', className)}
       onPointerEnter={pause}
       onPointerLeave={resume}
       onTouchStart={pause}
@@ -179,8 +179,8 @@ export function Carousel({ label, children, autoPlayMs = 5000, className }: Caro
         // 이미지·링크를 브라우저 기본 끌기(파일 끌기)로 집어 가지 않게 막는다.
         onDragStart={(event) => event.preventDefault()}
         className={cn(
-          // 좌우 여백 6.25%씩 두고 장이 안쪽 폭을 채우면, 장 폭이 전체의 87.5%가 되고 어느 장이든 가운데에 온다.
-          'flex w-full [scrollbar-width:none] gap-2.5 overflow-x-auto px-[6.25%] [&::-webkit-scrollbar]:hidden',
+          // 장이 좌우 16 여백 안쪽 폭을 채우고 장 사이도 16이라, 넘기면 다음 장이 같은 자리에 온다.
+          'flex w-full [scrollbar-width:none] gap-4 overflow-x-auto px-4 [&::-webkit-scrollbar]:hidden',
           // 끄는 동안 snap이 켜져 있으면 장 경계로 계속 끌려가서 끈다.
           dragging ? 'cursor-grabbing select-none' : 'cursor-grab snap-x snap-mandatory',
         )}
@@ -191,14 +191,12 @@ export function Carousel({ label, children, autoPlayMs = 5000, className }: Caro
             role="group"
             aria-roledescription="slide"
             aria-label={`${i + 1} / ${count}`}
-            // 시안 420/480 비율(600 기둥에서는 525). 트랙 안쪽 폭(전체의 87.5%)을 꽉 채우고, 양옆에 이전·다음 장이 살짝 보인다.
             className="relative w-full shrink-0 snap-center"
           >
             {slide}
             <span
               aria-hidden
-              // 이미지 위 반투명 검정은 피그마에도 변수 없이 쓴 값이다.
-              className="absolute right-3.5 bottom-4 rounded-full bg-[rgb(0_0_0/0.4)] px-2.5 py-0.75 text-caption-medium text-text-on-hero"
+              className="absolute right-5 bottom-4.5 text-caption-regular text-text-on-image"
             >
               {i + 1} / {count}
             </span>
@@ -230,30 +228,31 @@ export function Carousel({ label, children, autoPlayMs = 5000, className }: Caro
 export type CarouselSlideProps = {
   /** 배너 이미지. next/image에 fill과 object-cover를 줘서 넣는다. */
   image: ReactNode
-  /** 없으면 글자와 아래 그림자를 그리지 않는다(이미지에 글이 박힌 배너). */
+  /** 제목 위 작은 칩 (예: 이번 주 접수 마감) */
+  chip?: ReactNode
+  /** 없으면 글자를 그리지 않는다(이미지에 글이 박힌 배너). */
   title?: ReactNode
-  /** 예: #함께뛰자 #5K #10K */
-  tags?: ReactNode
+  /** 예: 10/31까지 · 5K · 10K · 서울숲 일대 */
+  description?: ReactNode
 }
 
-// 배너 한 장. 10:7 비율, 아래쪽 그림자 위에 흰 글자.
-export function CarouselSlide({ image, title, tags }: CarouselSlideProps) {
+// 피그마 v2 메인 배너 한 장. 모든 배너에 같은 어두운 막을 덮고, 아래쪽에 흰 글자를 놓는다.
+// 이미지 위 반투명 색은 피그마에도 변수 없이 쓴 값이다.
+export function CarouselSlide({ image, chip, title, description }: CarouselSlideProps) {
   return (
-    // 둥글기 20은 피그마 배너 값 그대로다(radius 토큰에 없음).
-    <div className="relative aspect-[10/7] overflow-hidden rounded-lg bg-bg-subtle">
+    <div className="relative aspect-568/300 overflow-hidden rounded-lg bg-bg-subtle">
       {image}
+      <div aria-hidden className="absolute inset-0 bg-[rgb(10_15_28/0.55)]" />
       {title && (
-        <>
-          <div
-            aria-hidden
-            className="absolute inset-x-0 bottom-0 h-[58%] bg-linear-to-b from-[rgb(0_0_0/0)] to-[rgb(0_0_0/0.55)]"
-          />
-          <div className="absolute inset-x-5.5 bottom-5.5 flex flex-col gap-3 text-text-on-hero">
-            <p className="text-title1 break-keep whitespace-pre-line">{title}</p>
-            {/* 태그 사이 두 칸 띄어쓰기를 살린다. */}
-            {tags && <p className="text-body2-medium whitespace-pre-wrap">{tags}</p>}
-          </div>
-        </>
+        <div className="absolute inset-x-5 bottom-4.5 flex flex-col items-start gap-1.5 text-text-on-image">
+          {chip && (
+            <span className="rounded-sm bg-[rgb(255_255_255/0.2)] px-2 py-0.75 text-caption-medium">
+              {chip}
+            </span>
+          )}
+          <p className="text-title2 break-keep">{title}</p>
+          {description && <p className="text-body2-regular opacity-80">{description}</p>}
+        </div>
       )}
     </div>
   )
