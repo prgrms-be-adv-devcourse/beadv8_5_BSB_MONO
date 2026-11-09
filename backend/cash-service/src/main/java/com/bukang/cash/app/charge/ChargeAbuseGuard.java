@@ -49,6 +49,7 @@ class ChargeAbuseGuard {
 			}
 			if (count != null && count > CashChargePolicy.MAX_CHARGE_ATTEMPTS_PER_WINDOW) {
 				redisTemplate.opsForValue().set(cooldownKey, "1", COOLDOWN_DURATION);
+				log.warn("충전 어뷰징 감지: 짧은 시간에 반복 시도로 쿨다운이 걸렸습니다. customerId={}", customerId);
 				throw new ChargeCooldownException(cooldownMessage(COOLDOWN_DURATION.toSeconds()));
 			}
 		} catch (DataAccessException e) {
@@ -66,6 +67,7 @@ class ChargeAbuseGuard {
 			}
 			if (count != null && count > CashChargePolicy.MAX_CHARGE_FAILURES_PER_WINDOW) {
 				redisTemplate.opsForValue().set("charge:" + customerId + ":lock", "1", LOCK_DURATION);
+				log.warn("충전 어뷰징 감지: 결제 실패 반복으로 충전이 잠겼습니다. customerId={}", customerId);
 			}
 		} catch (DataAccessException e) {
 			log.warn("충전 실패 횟수 기록 중 Redis 장애로 건너뜁니다. customerId={}", customerId, e);
