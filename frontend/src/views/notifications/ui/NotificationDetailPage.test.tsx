@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -14,8 +14,28 @@ vi.mock('next/navigation', () => ({
 }))
 
 const URL = '*/api/v1/notification/notifications'
+const READ_URL = '*/api/v1/notification/notifications/:id/read'
 
 afterEach(() => clearAccessToken())
+
+function notice(id: string, kind: string, body: string, sentAt: string, extra = {}) {
+  return {
+    id,
+    kind,
+    icon: 'Bell',
+    title: '제목',
+    body,
+    at: '방금',
+    group: 'today',
+    href: null,
+    sentAt,
+    unread: true,
+    ...extra,
+  }
+}
+
+const list = (data: unknown[]) =>
+  http.get(URL, () => HttpResponse.json({ status: 200, message: '알림을 조회했습니다.', data }))
 
 function renderPage(category: 'race' | 'payment' | 'crew') {
   setAccessToken('test-token')
@@ -39,91 +59,109 @@ describe('NotificationDetailPage', () => {
     expect(screen.getByText('오전 10:00')).toBeInTheDocument()
   })
 
-  it('알림에 이동 주소가 있으면 버튼으로 그 화면에 간다', async () => {
+  it('알림에 이동 주소가 있을 때만 종류에 맞는 문구의 버튼으로 그 화면에 간다', async () => {
+    server.use(
+      list([
+        notice('a', 'RACE_SCHEDULE_CHANGED', '일정 변경', '2026-11-02T10:00:00+09:00', {
+          href: '/races/1',
+        }),
+        notice('b', 'RACE_CANCELED', '대회 취소', '2026-11-02T11:00:00+09:00'),
+      ]),
+    )
     renderPage('race')
 
-    const link = await screen.findByRole('link', { name: '대회 보러 가기' })
-    expect(link.getAttribute('href')).toMatch(/^\/races\//)
+    expect(await screen.findByText('대회 취소')).toBeInTheDocument()
+    const links = screen.getAllByRole('link', { name: '대회 보러 가기' })
+    expect(links).toHaveLength(1)
+    expect(links[0]).toHaveAttribute('href', '/races/1')
   })
 
   it('앱 밖 주소나 스크립트 주소는 버튼으로 그리지 않는다', async () => {
+    const hrefs = [
+      '/\t/evil.example',
+      '/\n/evil.example',
+      '/api/v1/member/members/me',
+      'https://evil.example',
+      '//evil.example',
+      'javascript:alert(1)',
+    ]
     server.use(
-      http.get(URL, () =>
-        HttpResponse.json({
-          status: 200,
-          message: '알림을 조회했습니다.',
-          data: [
-            {
-              id: 'x0',
-              category: 'race',
-              body: '탭 끼운 주소',
-              sentAt: '2026-11-02T09:00:00+09:00',
-              link: { label: '탭 끼움', href: '/\t/evil.example' },
-              unread: true,
-            },
-            {
-              id: 'x4',
-              category: 'race',
-              body: '줄바꿈 끼운 주소',
-              sentAt: '2026-11-02T09:10:00+09:00',
-              link: { label: '줄바꿈 끼움', href: '/\n/evil.example' },
-              unread: true,
-            },
-            {
-              id: 'x5',
-              category: 'race',
-              body: 'API 주소',
-              sentAt: '2026-11-02T09:20:00+09:00',
-              link: { label: 'API', href: '/api/v1/member/members/me' },
-              unread: true,
-            },
-            {
-              id: 'x1',
-              category: 'race',
-              body: '바깥 주소',
-              sentAt: '2026-11-02T10:00:00+09:00',
-              link: { label: '바깥으로', href: 'https://evil.example' },
-              unread: true,
-            },
-            {
-              id: 'x2',
-              category: 'race',
-              body: '두 빗금 주소',
-              sentAt: '2026-11-02T11:00:00+09:00',
-              link: { label: '두 빗금', href: '//evil.example' },
-              unread: true,
-            },
-            {
-              id: 'x3',
-              category: 'race',
-              body: '스크립트 주소',
-              sentAt: '2026-11-02T12:00:00+09:00',
-              link: { label: '스크립트', href: 'javascript:alert(1)' },
-              unread: true,
-            },
-          ],
-        }),
+      list(
+        hrefs.map((href, i) =>
+          notice(`x${i}`, 'RACE_CANCELED', `주소 ${i}`, `2026-11-02T1${i}:00:00+09:00`, { href }),
+        ),
       ),
     )
     renderPage('race')
 
-    expect(await screen.findByText('바깥 주소')).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: '바깥으로' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: '두 빗금' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: '스크립트' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: '탭 끼움' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: '줄바꿈 끼움' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: 'API' })).not.toBeInTheDocument()
+    expect(await screen.findByText('주소 5')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: '대회 보러 가기' })).not.toBeInTheDocument()
   })
 
   it('그 종류의 알림이 없으면 빈 화면을 보여 준다', async () => {
-    server.use(
-      http.get(URL, () =>
-        HttpResponse.json({ status: 200, message: '알림을 조회했습니다.', data: [] }),
-      ),
-    )
+    server.use(list([]))
     renderPage('crew')
 
     expect(await screen.findByText('아직 알림이 없어요')).toBeInTheDocument()
+  })
+
+  it('열면 그 종류의 안 읽은 알림만 하나씩 읽음으로 바꾸고, 알림을 다시 불러온다', async () => {
+    let gets = 0
+    const reads: string[] = []
+    server.use(
+      http.get(URL, () => {
+        gets += 1
+        // 다시 불러와도 안 읽음으로 오는 경우(폴링과 겹침): 같은 알림을 또 읽지 않아야 한다
+        return HttpResponse.json({
+          status: 200,
+          message: '알림을 조회했습니다.',
+          data: [
+            notice('r1', 'RACE_CANCELED', '대회 취소', '2026-11-01T10:00:00+09:00'),
+            notice('r2', 'INQUIRY_ANSWERED', '문의 답변', '2026-11-02T10:00:00+09:00'),
+            notice('r3', 'RACE_CANCELED', '읽은 알림', '2026-11-02T11:00:00+09:00', {
+              unread: false,
+            }),
+            notice('p1', 'REFUND_COMPLETED', '환불', '2026-11-02T12:00:00+09:00'),
+          ],
+        })
+      }),
+      http.post(READ_URL, ({ params }) => {
+        reads.push(String(params.id))
+        return HttpResponse.json({
+          status: 200,
+          message: '알림을 읽음으로 바꿨습니다.',
+          data: null,
+        })
+      }),
+    )
+    renderPage('race')
+
+    await waitFor(() => expect(gets).toBe(2))
+    expect(reads.sort()).toEqual(['r1', 'r2'])
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(reads).toHaveLength(2)
+  })
+
+  it('읽음 호출이 실패해도(남의 알림 404 등) 알림은 그대로 보인다', async () => {
+    server.use(
+      list([notice('r1', 'RACE_CANCELED', '대회 취소', '2026-11-01T10:00:00+09:00')]),
+      http.post(READ_URL, () =>
+        HttpResponse.json(
+          {
+            status: 404,
+            message: '알림을 찾을 수 없습니다.',
+            code: 'NOTIFICATION_NOT_FOUND',
+            data: null,
+          },
+          { status: 404 },
+        ),
+      ),
+    )
+    renderPage('race')
+
+    expect(await screen.findByText('대회 취소')).toBeInTheDocument()
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(screen.getByText('대회 취소')).toBeInTheDocument()
+    expect(screen.queryByText('정보를 불러오지 못했어요')).not.toBeInTheDocument()
   })
 })

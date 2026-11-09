@@ -16,6 +16,21 @@ vi.mock('next/navigation', () => ({
 
 const URL = '*/api/v1/notification/notifications'
 
+function notice(id: string, kind: string, body: string, sentAt: string, unread: boolean) {
+  return {
+    id,
+    kind,
+    icon: 'Bell',
+    title: '제목',
+    body,
+    at: '방금',
+    group: 'today',
+    href: null,
+    sentAt,
+    unread,
+  }
+}
+
 afterEach(() => clearAccessToken())
 
 function renderPage() {
@@ -68,15 +83,7 @@ describe('NotificationsPage', () => {
         HttpResponse.json({
           status: 200,
           message: '알림을 조회했습니다.',
-          data: [
-            {
-              id: 'a',
-              category: 'race',
-              body: '대회 알림',
-              sentAt: '2026-11-02T10:00:00+09:00',
-              unread: false,
-            },
-          ],
+          data: [notice('a', 'RACE_CANCELED', '대회 알림', '2026-11-02T10:00:00+09:00', false)],
         }),
       ),
     )
@@ -95,14 +102,8 @@ describe('NotificationsPage', () => {
           status: 200,
           message: '알림을 조회했습니다.',
           data: [
-            { id: 'bad', category: 'crew', body: '날짜 없음', sentAt: '', unread: true },
-            {
-              id: 'ok',
-              category: 'race',
-              body: '정상 알림',
-              sentAt: '2026-11-02T10:00:00+09:00',
-              unread: false,
-            },
+            notice('bad', 'CREW_JOINED', '날짜 없음', '', true),
+            notice('ok', 'RACE_CANCELED', '정상 알림', '2026-11-02T10:00:00+09:00', false),
           ],
         }),
       ),
@@ -129,15 +130,32 @@ describe('NotificationsPage', () => {
     expect(screen.queryByRole('button', { name: /다시 시도/ })).not.toBeInTheDocument()
   })
 
-  it('알림 API가 없으면(404) 알림이 없는 것으로 보여 준다', async () => {
+  it('판매자 알림이나 모르는 종류는 목록에서 뺀다', async () => {
     server.use(
       http.get(URL, () =>
-        HttpResponse.json({ status: 404, message: '없음', data: null }, { status: 404 }),
+        HttpResponse.json({
+          status: 200,
+          message: '알림을 조회했습니다.',
+          data: [
+            notice(
+              's',
+              'KIT_SHIPMENT_REQUIRED',
+              '키트 보내 주세요',
+              '2026-11-02T10:00:00+09:00',
+              true,
+            ),
+            notice('u', 'SOMETHING_NEW', '새 종류', '2026-11-02T11:00:00+09:00', true),
+            notice('c', 'CREW_JOINED', '크루 알림', '2026-11-02T12:00:00+09:00', false),
+          ],
+        }),
       ),
     )
     renderPage()
 
-    expect(await screen.findByText('아직 알림이 없어요')).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: /크루 소식/ })).toBeInTheDocument()
+    expect(screen.queryByText('키트 보내 주세요')).not.toBeInTheDocument()
+    expect(screen.queryByText('새 종류')).not.toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /전체/ })).not.toHaveTextContent(/\d/)
   })
 
   it('그 밖의 오류면 불러오지 못함 화면을 보여 주고, 다시 시도하기로 다시 불러온다', async () => {

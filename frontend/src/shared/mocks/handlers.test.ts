@@ -375,9 +375,10 @@ describe('방금 가입한 회원과 시연용 기존 회원', () => {
     expect(balance.data.balance).toBe(5000)
     const notices = await get('/api/v1/notification/notifications')
     expect(notices.data).toHaveLength(4)
-    for (const notice of notices.data as { category: string; sentAt: string }[]) {
-      expect(['race', 'payment', 'crew']).toContain(notice.category)
-      expect(Number.isNaN(Date.parse(notice.sentAt))).toBe(false)
+    for (const notice of notices.data as { kind: string; sentAt: string; group: string }[]) {
+      expect(notice.kind).toMatch(/^[A-Z_]+$/)
+      expect(notice.sentAt).toMatch(/\+09:00$/)
+      expect(['today', 'earlier']).toContain(notice.group)
     }
 
     // 방금 가입한 회원의 쿠키가 남아 있어도 runner1로 로그인하면 지운다
@@ -574,5 +575,23 @@ describe('체험용 PASS 본인인증 목', () => {
       verificationToken: mockPassToken('박새내', '010-2222-3333', '2000-01-02'),
     })
     expect(ok.status).toBe(201)
+  })
+})
+
+describe('알림 읽음 목', () => {
+  const post = (path: string) => fetch(`http://localhost${path}`, { method: 'POST' })
+
+  it('내 알림 하나를 읽음으로 바꾸면 200, 없는 알림이면 404 NOTIFICATION_NOT_FOUND이다', async () => {
+    const ok = await post('/api/v1/notification/notifications/n1/read')
+    expect(ok.status).toBe(200)
+
+    const missing = await post('/api/v1/notification/notifications/999/read')
+    expect(missing.status).toBe(404)
+    expect((await missing.json()).code).toBe('NOTIFICATION_NOT_FOUND')
+  })
+
+  it('모두 읽음은 200이다', async () => {
+    const res = await post('/api/v1/notification/notifications/read-all')
+    expect(res.status).toBe(200)
   })
 })
