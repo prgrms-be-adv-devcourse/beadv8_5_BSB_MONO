@@ -1,19 +1,23 @@
 package com.bukang.payout.app;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.bukang.payout.domain.PayoutCreateFailureType;
 import com.bukang.payout.domain.PayoutHoldReason;
 import com.bukang.payout.dto.PayoutClaimDto;
+import com.bukang.payout.dto.PayoutCreateFailuresDto;
+import com.bukang.payout.dto.PayoutDto;
 import com.bukang.payout.dto.PayoutHoldDto;
 
 import lombok.RequiredArgsConstructor;
 
 /**
- * 관리자 API(지급보류 걸기·풀기, 청구 입금 확인)의 진입점. 관리자인지 먼저 확인하고 UseCase를 부른다 (PRO-265)
+ * 관리자 API(지급보류 걸기·풀기, 청구 입금 확인, 이상 감지 기록 조회)의 진입점. 관리자인지 먼저 확인하고 UseCase를 부른다 (PRO-265)
  *
  * 관리자 확인은 회원 서비스를 HTTP로 부르므로, 응답을 기다리는 동안 DB 연결을 잡지 않게 트랜잭션 없이 실행하고
  * 각 UseCase가 자기 트랜잭션을 열고 커밋한다. 그래서 메서드마다 트랜잭션 UseCase는 하나만 부른다 (둘을 부르면 따로 커밋된다)
@@ -26,6 +30,7 @@ public class PayoutAdminFacade {
 	private final PayoutAdminVerifyUseCase payoutAdminVerifyUseCase;
 	private final PayoutHoldUseCase payoutHoldUseCase;
 	private final PayoutClaimUseCase payoutClaimUseCase;
+	private final PayoutAdminQueryUseCase payoutAdminQueryUseCase;
 
 	public PayoutHoldDto hold(long memberId, long payoutId, PayoutHoldReason reasonType, String reason,
 		LocalDateTime now) {
@@ -38,10 +43,22 @@ public class PayoutAdminFacade {
 		return payoutHoldUseCase.release(holdId, memberId, now);
 	}
 
+	public PayoutDto findPayout(long memberId, String payoutCode) {
+		payoutAdminVerifyUseCase.verify(memberId);
+		return payoutHoldUseCase.findPayout(payoutCode);
+	}
+
 	// 청구 입금 확인: 판매자가 청구 금액을 보낸 것을 관리자가 확인한다 (선 환불 후 회수 R4 · R5)
 	// 응답 DTO는 청구 트랜잭션이 커밋된 뒤에 만든다. PayoutClaim에 지연 로딩 연관이 없어 안전하다
 	public PayoutClaimDto confirmClaim(long memberId, long claimId, LocalDateTime now) {
 		payoutAdminVerifyUseCase.verify(memberId);
 		return PayoutClaimDto.from(payoutClaimUseCase.confirm(claimId, memberId, now));
+	}
+
+	// 이상 감지 기록 조회 (BUK-108). 관리자 확인 뒤 읽기 트랜잭션 하나만 연다
+	public PayoutCreateFailuresDto createFailures(long memberId, LocalDate from, LocalDate to,
+		PayoutCreateFailureType type, int page, int size) {
+		payoutAdminVerifyUseCase.verify(memberId);
+		return payoutAdminQueryUseCase.createFailures(from, to, type, page, size);
 	}
 }

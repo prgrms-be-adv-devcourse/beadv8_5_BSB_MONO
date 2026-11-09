@@ -91,7 +91,7 @@ export function CrewInvitePage({ inviteToken }: { inviteToken: string }) {
           <>
             <CrewHero name={data.crewName} summary={`크루원 ${data.memberCount}명`} />
             <CrewBand>
-              <h2 className="text-heading-m">{data.crewName}에서 초대했어요</h2>
+              <h2 className="text-title3">{data.crewName}에서 초대했어요</h2>
               <Alert
                 tone="info"
                 title={
@@ -99,12 +99,12 @@ export function CrewInvitePage({ inviteToken }: { inviteToken: string }) {
                 }
                 description={`${formatKstDateTime(data.expiresAt)}까지 가입할 수 있어요.`}
               />
-              <p className="text-body-s text-text-secondary">
+              <p className="text-body2-regular text-text-secondary">
                 가입하면 크루원 목록에 내 닉네임이 보여요. 실명은 보이지 않아요.
               </p>
               {join.isError &&
                 !(join.error instanceof ApiError && join.error.code === 'CREW_ALREADY_MEMBER') && (
-                  <p role="alert" className="text-body-s text-text-danger">
+                  <p role="alert" className="text-body2-regular text-text-danger">
                     가입하지 못했어요. 잠시 후 다시 시도해 주세요.
                   </p>
                 )}

@@ -20,13 +20,14 @@ const meta = {
       <Carousel {...args}>
         <CarouselSlide
           image={<Placeholder className="bg-bg-brand" />}
-          title={'「추가 접수 오픈」\n용감한 쿠키RUN in 서울'}
-          tags="#함께뛰자  #5K  #10K"
+          chip="이번 주 접수 마감"
+          title="2026 용감한 쿠키RUN in 서울"
+          description="10/31까지 · 5K · 10K · 서울숲 일대"
         />
         <CarouselSlide
           image={<Placeholder className="bg-bg-hero" />}
-          title={'긍정 하프 마라톤 YOUTH 10K\n10/12 (월) 18:00 접수 마감'}
-          tags="#10K  #접수마감임박"
+          title="긍정 하프 마라톤 YOUTH 10K"
+          description="10/12 (월) 18:00 접수 마감"
         />
         <CarouselSlide image={<Placeholder className="bg-bg-accent" />} />
       </Carousel>

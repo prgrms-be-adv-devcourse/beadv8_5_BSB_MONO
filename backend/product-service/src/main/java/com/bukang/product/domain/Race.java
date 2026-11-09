@@ -109,7 +109,7 @@ public class Race extends BaseIdAndTime {
 	@Column(columnDefinition = "TEXT")
 	private String refundPolicy;
 
-	// 크루 참가 신청 인원. 최소는 5 이상만 정할 수 있고, 최대가 null이면 상한이 없다
+	// 크루 참가 신청 인원. 최소는 4 이상만 정할 수 있고 (11/05 회의 P3), 최대가 null이면 상한이 없다
 	@ColumnDefault("5")
 	@Column(nullable = false)
 	private int crewMinCount;
@@ -289,6 +289,40 @@ public class Race extends BaseIdAndTime {
 		}
 		if (isSaleEnded(now)) {
 			throw new RaceChangeNotAllowedException("판매가 끝난 대회는 취소할 수 없습니다.");
+		}
+	}
+
+	// 판매를 멈출 수 있는지: 판매 중이고 접수 마감 전일 때만 (11/08 결정, docs/policy/questions.md)
+	// 판매 시작 전(판매 예정)에는 멈추지 않고 수정으로 일정을 바꾼다
+	// 접수 마감 뒤에는 이미 팔 수 없어 멈출 이유가 없다
+	public void checkStoppable(LocalDateTime now) {
+		switch (saleStatus) {
+			case ON_SALE -> {
+			}
+			case SCHEDULED -> throw new RaceChangeNotAllowedException(
+				"판매 중인 대회만 판매를 멈출 수 있습니다. 판매 시작 전에는 대회 수정으로 일정을 바꿔 주세요.");
+			case STOPPED -> throw new RaceChangeNotAllowedException("이미 판매를 멈춘 대회입니다.");
+			case CLOSED -> throw new RaceChangeNotAllowedException("판매가 끝난 대회입니다.");
+			case CANCELED -> throw new RaceChangeNotAllowedException("취소된 대회입니다.");
+		}
+		if (!now.isBefore(applicationCloseAt)) {
+			throw new RaceChangeNotAllowedException("접수 마감이 지난 대회는 판매를 멈출 수 없습니다.");
+		}
+	}
+
+	// 판매자가 판매를 멈춘 대회인지. 자리 확보가 기간 문구보다 먼저 판매 중지 문구로 거절할 때 쓴다
+	public boolean isStopped() {
+		return saleStatus == RaceSaleStatus.STOPPED;
+	}
+
+	// 판매를 다시 열 수 있는지: 판매 중지이고 접수 마감 전일 때만. 다시 열면 판매 중으로 돌아간다
+	// 판매 중인 대회만 멈출 수 있으므로, 멈춘 대회는 늘 판매 시작일이 지나 있다
+	public void checkResumable(LocalDateTime now) {
+		if (saleStatus != RaceSaleStatus.STOPPED) {
+			throw new RaceChangeNotAllowedException("판매를 멈춘 대회만 다시 열 수 있습니다.");
+		}
+		if (!now.isBefore(applicationCloseAt)) {
+			throw new RaceChangeNotAllowedException("접수 마감이 지나 판매를 다시 열 수 없습니다.");
 		}
 	}
 

@@ -40,7 +40,7 @@ export function SortSelect<Value extends string>({
       <BaseSelect.Trigger
         aria-label={ariaLabel}
         className={cn(
-          'group/trigger flex items-center gap-1 rounded-sm text-label-m',
+          'group/trigger flex items-center gap-1 rounded-sm text-body2-medium',
           FOCUS_RING,
           className,
         )}

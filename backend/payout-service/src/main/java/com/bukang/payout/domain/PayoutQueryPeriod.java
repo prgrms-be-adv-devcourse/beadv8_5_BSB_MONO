@@ -19,6 +19,10 @@ public final class PayoutQueryPeriod {
 
 	// 시작 달을 포함해 12개 달까지 (2025-11 ~ 2026-10은 되고, 2025-11 ~ 2026-11은 안 된다)
 	public static void checkPayoutMonths(YearMonth from, YearMonth to) {
+		// 정산 ID로 찾을 때만 기간을 비울 수 있어 required = false로 받는다. 비었으면 빠진 요청 값과 같은 문구로 답한다
+		if (from == null || to == null) {
+			throw new PayoutQueryException("필수 요청 값이 없습니다.");
+		}
 		if (from.isAfter(to)) {
 			throw new PayoutQueryException("조회 시작이 끝보다 늦습니다.");
 		}
@@ -29,11 +33,20 @@ public final class PayoutQueryPeriod {
 
 	// 끝 날이 시작 날 + 1개월 전이어야 한다 (9/1 ~ 9/30, 9/15 ~ 10/14는 되고, 9/15 ~ 10/15는 안 된다)
 	public static void checkDetailDays(LocalDate from, LocalDate to) {
+		checkOneMonth(from, to, "건별 정산·지급보류 내역은 최대 1개월까지 조회할 수 있습니다.");
+	}
+
+	// 관리자 이상 감지 기록은 실행일로 최대 1개월 (BUK-108). 한도 규칙은 건별 정산과 같다
+	public static void checkFailureDays(LocalDate from, LocalDate to) {
+		checkOneMonth(from, to, "이상 감지 기록은 최대 1개월까지 조회할 수 있습니다.");
+	}
+
+	private static void checkOneMonth(LocalDate from, LocalDate to, String tooLongMessage) {
 		if (from.isAfter(to)) {
 			throw new PayoutQueryException("조회 시작이 끝보다 늦습니다.");
 		}
 		if (!to.isBefore(from.plusMonths(MAX_DETAIL_MONTHS))) {
-			throw new PayoutQueryException("건별 정산·지급보류 내역은 최대 1개월까지 조회할 수 있습니다.");
+			throw new PayoutQueryException(tooLongMessage);
 		}
 	}
 }

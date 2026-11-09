@@ -8,17 +8,17 @@ export type ApplicationPhase = 'upcoming' | 'open' | 'closed'
 /** 홈 카드 (곧 마감 · 지금 접수 중) */
 export type RaceSummary = {
   id: string
-  /** 종목을 골라 둔 채 상세로 보낼 때 (곧 마감 카드는 종목별로 나온다) */
-  option?: string
   title: string
   /** 없으면 대회 정보로 만든 색 포스터를 그린다 (목록 API는 이미지를 주지 않는다) */
   image?: string
   /** 포스터에 크게 쓰는 종목 (예: 10K · 5K) */
   posterLabel: string
-  /** 카드 첫 줄 (접수 상태 · 마감) */
-  schedule: string
-  /** 카드 둘째 줄 (종목 · 장소) */
-  place: string
+  /** 이미지 위 상태 칩 (예: D-2 · 86자리 남음) */
+  status: string
+  /** 대회일 · 장소 */
+  meta: string
+  /** 예: 35,000원부터 */
+  price: string
 }
 
 /** 대회 찾기 목록의 한 줄 */

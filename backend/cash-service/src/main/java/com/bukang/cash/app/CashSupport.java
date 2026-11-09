@@ -8,13 +8,13 @@ import java.util.Optional;
 import org.springframework.stereotype.Service;
 
 import com.bukang.cash.config.CashWalletProperties;
-import com.bukang.cash.domain.exception.CashSellerNotFoundException;
-import com.bukang.cash.domain.exception.WalletNotFoundException;
+import com.bukang.cash.domain.exception.seller.CashSellerNotFoundException;
+import com.bukang.cash.domain.exception.wallet.WalletNotFoundException;
 import com.bukang.cash.domain.payment.Payment;
 import com.bukang.cash.domain.wallet.Wallet;
-import com.bukang.cash.out.CashSellerRepository;
-import com.bukang.cash.out.PaymentRepository;
-import com.bukang.cash.out.WalletRepository;
+import com.bukang.cash.out.payment.PaymentRepository;
+import com.bukang.cash.out.seller.CashSellerRepository;
+import com.bukang.cash.out.wallet.WalletRepository;
 
 import lombok.RequiredArgsConstructor;
 

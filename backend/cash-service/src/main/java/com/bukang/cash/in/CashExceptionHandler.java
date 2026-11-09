@@ -9,8 +9,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
-import com.bukang.cash.domain.exception.PayoutTransferMismatchException;
-import com.bukang.cash.dto.CashPayoutResponseDto;
+import com.bukang.cash.domain.exception.payout.PayoutTransferMismatchException;
+import com.bukang.cash.dto.payout.CashPayoutResponseDto;
 import com.bukang.common.global.rsdata.RsData;
 
 /**

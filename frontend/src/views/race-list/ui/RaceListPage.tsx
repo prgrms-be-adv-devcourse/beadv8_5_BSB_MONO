@@ -101,7 +101,7 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
     <>
       <AppHeader />
       <main className="flex flex-1 flex-col gap-4 px-4 pt-8 pb-8">
-        <h1 className="text-heading-xl">대회 찾기</h1>
+        <h1 className="text-title1">대회 찾기</h1>
         <div className="relative">
           <label className="flex items-center gap-2 rounded-md bg-bg-surface p-4 inset-ring inset-ring-border-default focus-within:inset-ring-2 focus-within:inset-ring-border-focus">
             <Icon name="Search" className="size-5" />
@@ -112,7 +112,7 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
               onBlur={() => setFocused(false)}
               placeholder="대회 이름이나 지역으로 찾기"
               aria-label="대회 찾기"
-              className="min-w-0 flex-1 bg-transparent text-body-m outline-none placeholder:text-text-tertiary"
+              className="min-w-0 flex-1 bg-transparent text-body2-regular outline-none placeholder:text-text-tertiary"
             />
           </label>
           {showSuggestions && (
@@ -130,7 +130,10 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
                         ? `/races/${item.raceId}`
                         : `/races/${item.raceId}?option=${item.option}`
                     }
-                    className={cn('flex items-center gap-2 px-4 py-2 text-body-m', FOCUS_RING)}
+                    className={cn(
+                      'flex items-center gap-2 px-4 py-2 text-body2-regular',
+                      FOCUS_RING,
+                    )}
                   >
                     <Icon name="Search" className="size-4 text-text-tertiary" />
                     <span className="truncate">{item.label}</span>
@@ -149,7 +152,7 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
           {loading ? (
             <Skeleton className="w-12" />
           ) : (
-            <p className="text-label-m text-text-secondary">대회 {formatNumber(total)}개</p>
+            <p className="text-body2-medium text-text-secondary">대회 {formatNumber(total)}개</p>
           )}
           <SortSelect
             items={[...SORTS]}
@@ -219,11 +222,13 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
                   )}
                   <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
                     <Badge tone={race.badge.tone}>{race.badge.label}</Badge>
-                    <p className="text-heading-s">{race.title}</p>
-                    <p className="text-body-s text-text-secondary">{race.meta}</p>
+                    <p className="text-body1-bold">{race.title}</p>
+                    <p className="text-body2-regular text-text-secondary">{race.meta}</p>
                     <div className="flex w-full items-center justify-between pt-1">
-                      <span className="text-label-m">{race.price}</span>
-                      <span className="text-caption text-text-secondary">{race.remaining}</span>
+                      <span className="text-body2-medium">{race.price}</span>
+                      <span className="text-caption-regular text-text-secondary">
+                        {race.remaining}
+                      </span>
                     </div>
                   </div>
                 </Link>
@@ -292,7 +297,7 @@ function SheetAction({
       <span className="flex size-12 items-center justify-center rounded-full bg-bg-subtle">
         <Icon name={icon} className="size-5" />
       </span>
-      <span className="text-label-s">{label}</span>
+      <span className="text-caption-medium">{label}</span>
     </button>
   )
 }

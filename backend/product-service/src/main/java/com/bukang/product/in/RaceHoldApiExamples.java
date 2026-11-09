@@ -102,6 +102,10 @@ final class RaceHoldApiExamples {
 		{ "status": 400, "message": "같은 참가 신청이 두 번 들어 있습니다. participationId=1001", "data": null }
 		""";
 
+	static final String SALE_STOPPED = """
+		{ "status": 409, "message": "판매를 잠시 멈춘 대회입니다.", "data": null }
+		""";
+
 	static final String CREW_NOT_ACCEPTING = """
 		{ "status": 409, "message": "크루 예매 기간이 아닙니다.", "data": null }
 		""";

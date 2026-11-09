@@ -2,7 +2,6 @@ package com.bukang.product.app;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -16,7 +15,6 @@ import org.springframework.stereotype.Component;
 import com.bukang.common.shared.file.domain.FileType;
 import com.bukang.product.domain.KitOption;
 import com.bukang.product.domain.Race;
-import com.bukang.product.domain.TshirtSize;
 import com.bukang.product.domain.exception.InvalidRaceException;
 import com.bukang.product.dto.KitOptionSaveRequestDto;
 import com.bukang.product.dto.RaceCourseSaveRequestDto;
@@ -104,22 +102,6 @@ public class RaceRequestValidator {
 		}
 		if (course.getCrewQuota() + course.getIndividualQuota() == 0) {
 			throw new InvalidRaceException(withCourse("정원은 1명 이상이어야 합니다.", course));
-		}
-		validateTshirtSizes(course);
-	}
-
-	// 티셔츠는 키트에 들어 있으므로 키트가 없는 종목은 사이즈를 받지 않는다
-	private void validateTshirtSizes(RaceCourseSaveRequestDto course) {
-		List<TshirtSize> sizes = course.getTshirtSizeOption();
-		if (!sizes.isEmpty() && !course.getKitIncluded()) {
-			throw new InvalidRaceException(withCourse("키트가 없는 종목은 티셔츠 사이즈를 작성할 수 없습니다.", course));
-		}
-		Set<TshirtSize> seenSizes = EnumSet.noneOf(TshirtSize.class);
-		for (TshirtSize size : sizes) {
-			if (!seenSizes.add(size)) {
-				throw new InvalidRaceException(
-					withCourse("같은 티셔츠 사이즈(%s)를 두 번 작성할 수 없습니다.".formatted(size), course));
-			}
 		}
 	}
 
