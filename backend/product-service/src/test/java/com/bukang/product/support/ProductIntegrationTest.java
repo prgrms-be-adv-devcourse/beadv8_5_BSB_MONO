@@ -268,7 +268,7 @@ public abstract class ProductIntegrationTest {
 			plusDays(request.getCrewSaleStartAt(), days), plusDays(request.getCrewSaleEndAt(), days),
 			request.getIndividualOpenAt().plusDays(days), request.getApplicationCloseAt().plusDays(days),
 			request.getRefundDeadline().plusDays(days), request.getRefundPolicy(), request.getCrewMinCount(),
-			request.getCrewMaxCount(), request.getCourses(), request.getKitOptions());
+			request.getCrewMaxCount(), request.getCourses());
 	}
 
 	private static LocalDateTime plusDays(LocalDateTime dateTime, long days) {

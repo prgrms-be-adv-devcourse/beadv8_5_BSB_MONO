@@ -28,6 +28,7 @@ import com.bukang.product.app.RaceRegisterResult;
 import com.bukang.product.domain.CourseSurface;
 import com.bukang.product.domain.CourseType;
 import com.bukang.product.dto.KitOptionListResponseDto;
+import com.bukang.product.dto.KitOptionsSaveRequestDto;
 import com.bukang.product.dto.RaceDetailDto;
 import com.bukang.product.dto.RacePageDto;
 import com.bukang.product.dto.RaceSaveDto;
@@ -87,7 +88,6 @@ public class ApiV1RaceController {
 			content = @Content(examples = @ExampleObject(value = RaceApiExamples.REGISTER_EXISTING))),
 		@ApiResponse(responseCode = "400",
 			description = "입력값 검증 실패, 요청 본문 형식 오류, 날짜 순서·인원·나이·정원·키트 금액 오류, "
-				+ "같은 키트 옵션 중복·같은 옵션 이름의 대소문자 다름, "
 				+ "판매 시작일이 이틀 뒤보다 빠름, 이미지 용도·개수 오류, 같은 파일 중복, 회원 ID 형식 오류·0 이하 "
 				+ "또는 Idempotency-Key 헤더 없음·길이 오류",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
@@ -96,8 +96,6 @@ public class ApiV1RaceController {
 				@ExampleObject(name = "날짜 순서 오류", value = RaceApiExamples.INVALID_SCHEDULE),
 				@ExampleObject(name = "판매 시작일이 이틀 뒤보다 빠름", value = RaceApiExamples.SALE_OPEN_TOO_SOON),
 				@ExampleObject(name = "키트 금액이 참가비보다 큼", value = RaceApiExamples.KIT_PRICE_OVER_PRICE),
-				@ExampleObject(name = "같은 키트 옵션 중복", value = RaceApiExamples.KIT_OPTION_DUPLICATED),
-				@ExampleObject(name = "같은 옵션 이름의 대소문자 다름", value = RaceApiExamples.KIT_OPTION_NAME_CASE),
 				@ExampleObject(name = "대표 이미지 없음", value = RaceApiExamples.THUMBNAIL_REQUIRED),
 				@ExampleObject(name = "같은 파일 중복", value = RaceApiExamples.DUPLICATE_FILE),
 				@ExampleObject(name = "회원 ID 형식 오류", value = RaceApiExamples.INVALID_VALUE_TYPE),
@@ -152,18 +150,15 @@ public class ApiV1RaceController {
 			+ "없으면 개인 예매 오픈)을 바꿀 수 없다. "
 			+ "판매가 시작된 뒤에는 참가비·키트 금액을 바꾸거나 환불 기준일을 앞당길 수 없고, 정원을 줄이거나 "
 			+ "종목을 뺄 수 없다(정원은 늘리기만). 종목의 참가 조건(거리·종목 구분·노면·제한 시간·나이 제한·키트 포함 여부)도 바꿀 수 없다. "
-			+ "키트 옵션은 (이름, 값)으로 기존 옵션을 찾아 고치고, 없던 옵션은 더하고, 요청에 없는 옵션은 뺀다. "
-			+ "판매가 시작된 뒤에는 옵션 추가와 준비 수량 늘리기만 되고, 옵션을 빼거나 이름·값을 바꾸거나 "
-			+ "맞춤 제작과 준비 수량 사이에서 바꿀 수 없다. "
 			+ "이미 지난 판매 일정(크루 예매 시작·마감, 개인 예매 오픈, 접수 마감)을 바꾸거나 "
 			+ "일정을 지난 시각으로 옮길 수 없다(아직 오지 않은 일정은 앞당기거나 늦출 수 있다). "
-			+ "판매가 시작된 뒤 대회 일시나 장소를 바꾸면 일정·장소 변경 안내 일시를 기록한다(이날부터 7일 동안 전액 환불).")
+			+ "판매가 시작된 뒤 대회 일시나 장소를 바꾸면 일정·장소 변경 안내 일시를 기록한다(이날부터 7일 동안 전액 환불). "
+			+ "키트 옵션은 받지 않고 건드리지 않는다(키트 옵션 등록·수정 API로 바꾼다).")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "수정 성공",
 			content = @Content(examples = @ExampleObject(value = RaceApiExamples.UPDATE_SUCCESS))),
 		@ApiResponse(responseCode = "400",
 			description = "입력값 검증 실패, 요청 본문 형식 오류, 날짜 순서·인원·나이·정원·키트 금액 오류, "
-				+ "같은 키트 옵션 중복·같은 옵션 이름의 대소문자 다름, "
 				+ "판매 시작 전 바뀐 판매 시작일이 이틀 뒤보다 빠름, 이미지 용도·개수 오류, 같은 파일 중복, "
 				+ "이 대회의 종목이 아닌 종목 ID, 대회 ID·회원 ID 형식 오류 또는 회원 ID가 0 이하",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
@@ -172,8 +167,6 @@ public class ApiV1RaceController {
 				@ExampleObject(name = "날짜 순서 오류", value = RaceApiExamples.INVALID_SCHEDULE),
 				@ExampleObject(name = "판매 시작일이 이틀 뒤보다 빠름", value = RaceApiExamples.SALE_OPEN_TOO_SOON),
 				@ExampleObject(name = "키트 금액이 참가비보다 큼", value = RaceApiExamples.KIT_PRICE_OVER_PRICE),
-				@ExampleObject(name = "같은 키트 옵션 중복", value = RaceApiExamples.KIT_OPTION_DUPLICATED),
-				@ExampleObject(name = "같은 옵션 이름의 대소문자 다름", value = RaceApiExamples.KIT_OPTION_NAME_CASE),
 				@ExampleObject(name = "대표 이미지 없음", value = RaceApiExamples.THUMBNAIL_REQUIRED),
 				@ExampleObject(name = "같은 파일 중복", value = RaceApiExamples.DUPLICATE_FILE),
 				@ExampleObject(name = "이 대회의 종목이 아님", value = RaceApiExamples.COURSE_NOT_IN_RACE),
@@ -194,8 +187,7 @@ public class ApiV1RaceController {
 		@ApiResponse(responseCode = "409",
 			description = "판매 시작 뒤 판매 시작일을 정하는 일정 변경·참가비·키트 금액 변경·환불 기준일 앞당김, "
 				+ "지난 판매 일정 변경·지난 시각으로 이동, 판매 시작 뒤 정원 줄이기·참가 조건 변경, "
-				+ "종목 빼기, 판매 시작 뒤 키트 옵션 빼기·맞춤 제작과 준비 수량 사이 전환·준비 수량 줄이기, "
-				+ "취소된 대회 또는 판매가 끝난 대회",
+				+ "종목 빼기, 취소된 대회 또는 판매가 끝난 대회",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "취소된 대회", value = RaceApiExamples.UPDATE_CANCELED),
 				@ExampleObject(name = "판매가 끝난 대회", value = RaceApiExamples.UPDATE_CLOSED),
@@ -207,10 +199,7 @@ public class ApiV1RaceController {
 				@ExampleObject(name = "판매 일정을 지난 시각으로", value = RaceApiExamples.SCHEDULE_TO_PAST),
 				@ExampleObject(name = "정원 줄이기", value = RaceApiExamples.QUOTA_DECREASED),
 				@ExampleObject(name = "참가 조건 변경", value = RaceApiExamples.COURSE_CONDITION_CHANGED),
-				@ExampleObject(name = "종목 빼기", value = RaceApiExamples.COURSE_REMOVED),
-				@ExampleObject(name = "키트 옵션 빼기", value = RaceApiExamples.KIT_OPTION_REMOVED),
-				@ExampleObject(name = "맞춤 제작과 준비 수량 사이 전환", value = RaceApiExamples.KIT_OPTION_STOCK_TYPE_CHANGED),
-				@ExampleObject(name = "키트 옵션 준비 수량 줄이기", value = RaceApiExamples.KIT_OPTION_STOCK_DECREASED)
+				@ExampleObject(name = "종목 빼기", value = RaceApiExamples.COURSE_REMOVED)
 			}))
 	})
 	public ResponseEntity<RsData<RaceSaveDto>> update(
@@ -530,5 +519,111 @@ public class ApiV1RaceController {
 	) {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "키트 옵션 목록을 조회했습니다.", productFacade.findKitOptions(raceId, memberId)));
+	}
+
+	@PostMapping("/{raceId}/kit-options")
+	@Operation(summary = "키트 옵션 등록",
+		description = "본인 대회에 키트 옵션을 처음 등록한다. 대회는 키트 옵션 없이 등록하고, 키트 생성 화면에서 만든 옵션을 이 API로 붙인다. "
+			+ "옵션은 1개 이상 보내고, 이미 옵션을 등록한 대회는 키트 옵션 수정으로 바꾼다. "
+			+ "판매 시작 전(판매 시작일 0시 전)에만 등록할 수 있다. 판매가 시작된 대회, 취소된 대회, 판매가 끝난 대회에는 "
+			+ "등록할 수 없다. 응답은 키트 옵션 목록 조회와 같은 모양이다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "201", description = "등록 성공",
+			content = @Content(examples = @ExampleObject(value = RaceApiExamples.KIT_OPTIONS_REGISTER_SUCCESS))),
+		@ApiResponse(responseCode = "400",
+			description = "입력값 검증 실패, 요청 본문 형식 오류, 키트 옵션 없음, "
+				+ "같은 키트 옵션 중복·같은 옵션 이름의 대소문자 다름, 대회 ID·회원 ID 형식 오류 또는 회원 ID가 0 이하",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "입력값 검증 실패", value = RaceApiExamples.KIT_OPTIONS_INVALID_INPUT),
+				@ExampleObject(name = "요청 본문 형식 오류", value = RaceApiExamples.INVALID_BODY),
+				@ExampleObject(name = "키트 옵션 없음", value = RaceApiExamples.KIT_OPTIONS_EMPTY),
+				@ExampleObject(name = "같은 키트 옵션 중복", value = RaceApiExamples.KIT_OPTION_DUPLICATED),
+				@ExampleObject(name = "같은 옵션 이름의 대소문자 다름", value = RaceApiExamples.KIT_OPTION_NAME_CASE),
+				@ExampleObject(name = "대회 ID·회원 ID 형식 오류", value = RaceApiExamples.INVALID_VALUE_TYPE),
+				@ExampleObject(name = "회원 ID가 0 이하", value = RaceApiExamples.INVALID_MEMBER_ID)
+			})),
+		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = RaceApiExamples.LOGIN_REQUIRED))),
+		@ApiResponse(responseCode = "403", description = "승인된 판매자가 아님 또는 다른 판매자의 대회",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "승인된 판매자가 아님", value = RaceApiExamples.SELLER_NOT_APPROVED),
+				@ExampleObject(name = "다른 판매자의 대회", value = RaceApiExamples.NOT_OWNER)
+			})),
+		@ApiResponse(responseCode = "404", description = "없는 대회",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = RaceApiExamples.RACE_NOT_FOUND))),
+		@ApiResponse(responseCode = "409",
+			description = "이미 키트 옵션을 등록한 대회, 판매가 시작된 대회, 취소된 대회 또는 판매가 끝난 대회",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "이미 등록한 대회", value = RaceApiExamples.KIT_OPTIONS_ALREADY_REGISTERED),
+				@ExampleObject(name = "판매가 시작된 대회", value = RaceApiExamples.KIT_OPTIONS_AFTER_SALE_START),
+				@ExampleObject(name = "취소된 대회", value = RaceApiExamples.KIT_OPTIONS_RACE_CANCELED),
+				@ExampleObject(name = "판매가 끝난 대회", value = RaceApiExamples.KIT_OPTIONS_RACE_CLOSED)
+			}))
+	})
+	public ResponseEntity<RsData<KitOptionListResponseDto>> registerKitOptions(
+		@LoginMemberId long memberId,
+		@Parameter(description = "대회 ID", example = "1")
+		@PathVariable long raceId,
+		@Valid @RequestBody KitOptionsSaveRequestDto request
+	) {
+		return ResponseEntity.status(HttpStatus.CREATED)
+			.body(RsData.of(HttpStatus.CREATED, "키트 옵션을 등록했습니다.",
+				productFacade.registerKitOptions(memberId, raceId, request.getKitOptions())));
+	}
+
+	@PutMapping("/{raceId}/kit-options")
+	@Operation(summary = "키트 옵션 수정",
+		description = "본인 대회의 키트 옵션을 요청 목록으로 통째로 바꾼다. (이름, 값)이 같은 옵션은 준비 수량을 고치고, "
+			+ "없던 옵션은 더하고, 요청에 없는 옵션은 뺀다. 판매가 시작된 뒤(판매 시작일 0시부터)에는 준비 수량이 있는 옵션의 "
+			+ "준비 수량 늘리기만 되고, 옵션을 더하거나 빼거나 이름·값을 바꾸거나 맞춤 제작과 준비 수량 사이에서 바꿀 수 없다. "
+			+ "취소된 대회와 판매가 끝난 대회는 바꿀 수 없다. 응답은 키트 옵션 목록 조회와 같은 모양이다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "수정 성공",
+			content = @Content(examples = @ExampleObject(value = RaceApiExamples.KIT_OPTIONS_UPDATE_SUCCESS))),
+		@ApiResponse(responseCode = "400",
+			description = "입력값 검증 실패, 요청 본문 형식 오류, 같은 키트 옵션 중복·같은 옵션 이름의 대소문자 다름, "
+				+ "대회 ID·회원 ID 형식 오류 또는 회원 ID가 0 이하",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "입력값 검증 실패", value = RaceApiExamples.KIT_OPTIONS_INVALID_INPUT),
+				@ExampleObject(name = "요청 본문 형식 오류", value = RaceApiExamples.INVALID_BODY),
+				@ExampleObject(name = "같은 키트 옵션 중복", value = RaceApiExamples.KIT_OPTION_DUPLICATED),
+				@ExampleObject(name = "같은 옵션 이름의 대소문자 다름", value = RaceApiExamples.KIT_OPTION_NAME_CASE),
+				@ExampleObject(name = "대회 ID·회원 ID 형식 오류", value = RaceApiExamples.INVALID_VALUE_TYPE),
+				@ExampleObject(name = "회원 ID가 0 이하", value = RaceApiExamples.INVALID_MEMBER_ID)
+			})),
+		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = RaceApiExamples.LOGIN_REQUIRED))),
+		@ApiResponse(responseCode = "403", description = "승인된 판매자가 아님 또는 다른 판매자의 대회",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "승인된 판매자가 아님", value = RaceApiExamples.SELLER_NOT_APPROVED),
+				@ExampleObject(name = "다른 판매자의 대회", value = RaceApiExamples.NOT_OWNER)
+			})),
+		@ApiResponse(responseCode = "404", description = "없는 대회",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = RaceApiExamples.RACE_NOT_FOUND))),
+		@ApiResponse(responseCode = "409",
+			description = "판매 시작 뒤 키트 옵션 더하기·빼기·이름·값 바꾸기·맞춤 제작과 준비 수량 사이 전환·준비 수량 줄이기, "
+				+ "취소된 대회 또는 판매가 끝난 대회",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "키트 옵션 더하기", value = RaceApiExamples.KIT_OPTION_ADDED),
+				@ExampleObject(name = "키트 옵션 빼기·이름·값 바꾸기", value = RaceApiExamples.KIT_OPTION_REMOVED),
+				@ExampleObject(name = "맞춤 제작과 준비 수량 사이 전환", value = RaceApiExamples.KIT_OPTION_STOCK_TYPE_CHANGED),
+				@ExampleObject(name = "키트 옵션 준비 수량 줄이기", value = RaceApiExamples.KIT_OPTION_STOCK_DECREASED),
+				@ExampleObject(name = "취소된 대회", value = RaceApiExamples.KIT_OPTIONS_RACE_CANCELED),
+				@ExampleObject(name = "판매가 끝난 대회", value = RaceApiExamples.KIT_OPTIONS_RACE_CLOSED)
+			}))
+	})
+	public ResponseEntity<RsData<KitOptionListResponseDto>> updateKitOptions(
+		@LoginMemberId long memberId,
+		@Parameter(description = "대회 ID", example = "1")
+		@PathVariable long raceId,
+		@Valid @RequestBody KitOptionsSaveRequestDto request
+	) {
+		return ResponseEntity.ok()
+			.body(RsData.of(HttpStatus.OK, "키트 옵션을 수정했습니다.",
+				productFacade.updateKitOptions(memberId, raceId, request.getKitOptions())));
 	}
 }

@@ -310,6 +310,17 @@ public class Race extends BaseIdAndTime {
 		}
 	}
 
+	// 키트 옵션을 등록하거나 바꿀 수 있는지: 대회 수정과 같이 취소된 대회와 판매가 끝난 대회만 막는다 (BUK-137)
+	// 판매 시작 뒤 옵션 빼기·수량 줄이기 같은 규칙은 KitOption이 옵션마다 본다
+	public void checkKitOptionChangeable(LocalDateTime now) {
+		if (saleStatus == RaceSaleStatus.CANCELED) {
+			throw new RaceChangeNotAllowedException("취소된 대회는 키트 옵션을 바꿀 수 없습니다.");
+		}
+		if (isSaleEnded(now)) {
+			throw new RaceChangeNotAllowedException("판매가 끝난 대회는 키트 옵션을 바꿀 수 없습니다.");
+		}
+	}
+
 	// 판매자가 판매를 멈춘 대회인지. 자리 확보가 기간 문구보다 먼저 판매 중지 문구로 거절할 때 쓴다
 	public boolean isStopped() {
 		return saleStatus == RaceSaleStatus.STOPPED;

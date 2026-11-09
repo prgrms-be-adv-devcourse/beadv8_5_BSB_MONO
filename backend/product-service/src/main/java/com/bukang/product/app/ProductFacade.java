@@ -26,6 +26,7 @@ import com.bukang.product.dto.HoldRequestDto;
 import com.bukang.product.dto.HoldResultDto;
 import com.bukang.product.dto.HoldSellResult;
 import com.bukang.product.dto.KitOptionListResponseDto;
+import com.bukang.product.dto.KitOptionSaveRequestDto;
 import com.bukang.product.dto.RaceCourseInfoDto;
 import com.bukang.product.dto.RaceDetailDto;
 import com.bukang.product.dto.RacePageDto;
@@ -58,6 +59,7 @@ public class ProductFacade {
 	private final RaceHoldUseCase raceHoldUseCase;
 	private final RaceCancelUseCase raceCancelUseCase;
 	private final RaceSaleStopUseCase raceSaleStopUseCase;
+	private final RaceKitOptionUseCase raceKitOptionUseCase;
 	private final CrewSeatBatchUseCase crewSeatBatchUseCase;
 	private final TransactionTemplate transactionTemplate;
 	private final ProductOutboxKafkaAppendUseCase productOutboxKafkaAppendUseCase;
@@ -175,6 +177,20 @@ public class ProductFacade {
 			raceDocumentSyncAppendUseCase.append(raceId);
 			return resumed.dto();
 		});
+	}
+
+	// 판매자가 대회에 키트 옵션을 처음 등록한다. 주문은 결제 때 목록을 HTTP로 읽으므로 메시지·검색 문서는 남기지 않는다
+	@Transactional
+	public KitOptionListResponseDto registerKitOptions(long memberId, long raceId,
+		List<KitOptionSaveRequestDto> requests) {
+		return raceKitOptionUseCase.register(memberId, raceId, requests, LocalDateTime.now());
+	}
+
+	// 판매자가 대회의 키트 옵션을 통째로 바꾼다 (메시지는 등록과 같이 남기지 않는다)
+	@Transactional
+	public KitOptionListResponseDto updateKitOptions(long memberId, long raceId,
+		List<KitOptionSaveRequestDto> requests) {
+		return raceKitOptionUseCase.update(memberId, raceId, requests, LocalDateTime.now());
 	}
 
 	// 주문 서비스의 [결제하기] 자리 확보 (내부 API)
