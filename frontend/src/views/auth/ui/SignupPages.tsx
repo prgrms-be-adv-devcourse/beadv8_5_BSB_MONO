@@ -53,10 +53,12 @@ const STEPS = ['약관', '본인 확인', '계정', '회원 정보']
 // 비밀번호를 넣기 전에 본인인증을 받아, 모바일에서 포트원 창을 다녀와도 다시 받을 비밀번호가 없다.
 // 인증을 마치면 계정(이메일 · 비밀번호) 단계로 넘어간다. 이미 인증했으면 확인된 정보를 보여 주고 「다음」으로 넘어간다.
 // next는 가입을 마친 뒤 돌아갈 화면(?next=, BUK-98). 마지막 단계까지 남겨 둔다.
+// next 없이 들어오면 전에 그만둔 가입이 남긴 값을 지운다. 모바일 본인인증은 지금 주소(?next= 포함)로 돌아오므로 지워도 된다.
 export function SignupIdentityPage({ next }: { next?: string } = {}) {
   const router = useRouter()
   useEffect(() => {
     if (next) saveSignupNext(next)
+    else takeSignupNext()
   }, [next])
   const terms = useSignupStep((s) => s.terms)
   const termsAgreed = useSignupStep((s) => s.termsAgreed)
