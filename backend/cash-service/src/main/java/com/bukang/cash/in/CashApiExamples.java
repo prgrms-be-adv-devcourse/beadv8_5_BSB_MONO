@@ -123,7 +123,19 @@ final class CashApiExamples {
 		""";
 
 	static final String CHARGE_AMOUNT_TOO_SMALL = """
-		{ "status": 400, "message": "최소 충전 금액은 10,000원입니다.", "data": null }
+		{ "status": 400, "code": "CHARGE_AMOUNT_TOO_SMALL", "message": "최소 충전 금액은 10,000원입니다.", "data": null }
+		""";
+
+	static final String CHARGE_LIMIT_PER_CHARGE = """
+		{ "status": 400, "code": "CHARGE_LIMIT_PER_CHARGE", "message": "1회 충전 한도는 100,000원입니다.", "data": null }
+		""";
+
+	static final String CHARGE_LIMIT_PER_DAY = """
+		{ "status": 400, "code": "CHARGE_LIMIT_PER_DAY", "message": "일일 충전 한도는 1,000,000원입니다.", "data": null }
+		""";
+
+	static final String CHARGE_LIMIT_BALANCE = """
+		{ "status": 400, "code": "CHARGE_LIMIT_BALANCE", "message": "보유 한도는 10,000,000원입니다.", "data": null }
 		""";
 
 	static final String CHARGE_CONFIRM_INVALID_INPUT = """

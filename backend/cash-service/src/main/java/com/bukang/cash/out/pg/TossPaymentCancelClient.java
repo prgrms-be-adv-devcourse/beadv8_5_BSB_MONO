@@ -7,7 +7,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
-import com.bukang.cash.domain.exception.PaymentCancelFailedException;
+import com.bukang.cash.domain.exception.withdrawal.PaymentCancelFailedException;
 import com.bukang.common.global.web.IdempotencyKeyHeader;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
