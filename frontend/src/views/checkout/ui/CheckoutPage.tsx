@@ -7,7 +7,12 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
 import { SAMPLE_PARTICIPANT } from '@/features/booking'
-import { chargeAmountFor, ChargeHeldAlert, requestCharge } from '@/features/deposit-charge'
+import {
+  chargeAmountFor,
+  ChargeHeldAlert,
+  MAX_CHARGE,
+  requestCharge,
+} from '@/features/deposit-charge'
 import { useQueueAdmission } from '@/features/queue-admission'
 import { parseKstDateTime, RACE_DETAIL, raceDetailQueryOptions } from '@/entities/race'
 import { invalidateTicketQueries } from '@/entities/ticket'
@@ -352,7 +357,14 @@ function OrderCheckout({
       onAgreedChange={setAgreed}
       notice={chargeHeld && <ChargeHeldAlert />}
       action={
-        <Button size="l" disabled={!ready} onClick={() => pay.mutate({ auto: false })}>
+        <Button
+          size="l"
+          disabled={!ready}
+          aria-describedby={
+            payment && payment.balanceAfter < 0 ? CHARGE_LIMIT_NOTICE_ID : undefined
+          }
+          onClick={() => pay.mutate({ auto: false })}
+        >
           {payment && payment.charge > 0
             ? `${won(payment.charge)} 충전하고 결제`
             : `${won(amount)} 결제`}
@@ -361,6 +373,9 @@ function OrderCheckout({
     />
   )
 }
+
+/** 1회 충전 한도 안내. 충전 버튼이 이 안내로 설명된다 (화면 낭독기가 버튼과 함께 읽는다) */
+const CHARGE_LIMIT_NOTICE_ID = 'checkout-charge-limit-notice'
 
 /** 대회 · 종목 · 참가자. 대회 상세를 아직 못 받았으면 주문 상품 이름을 쓴다. */
 function orderSummary(
@@ -412,6 +427,8 @@ function CheckoutForm({
   action: ReactNode
 }) {
   const payment = balance === undefined ? undefined : splitPayment(amount, balance)
+  // 1회 충전 한도보다 많이 모자라 한 번 충전으로는 결제할 수 없다
+  const overLimit = payment !== undefined && payment.balanceAfter < 0
   return (
     <>
       <AppHeader type="sub" title="결제" />
@@ -453,13 +470,19 @@ function CheckoutForm({
             />
             <KeyValue
               label="결제 뒤 남는 예치금"
-              value={payment ? won(payment.balanceAfter) : '-'}
+              value={payment && !overLimit ? won(payment.balanceAfter) : '-'}
             />
             <p className="text-caption-regular text-text-tertiary">
               1만 원보다 적게 모자라면 1만 원을 충전해요.
               <br />
               결제가 안 돼도 충전한 돈은 예치금으로 남아요.
             </p>
+            {overLimit && (
+              <p id={CHARGE_LIMIT_NOTICE_ID} className="text-caption-medium text-text-primary">
+                한 번에 {MAX_CHARGE / 10_000}만 원까지 충전할 수 있어요. 충전한 뒤 남은 금액은 다시
+                충전해 주세요.
+              </p>
+            )}
           </div>
 
           <fieldset className="flex flex-col gap-3">
