@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -80,7 +81,21 @@ public class PartyApplyUseCase {
 	 * 다른 요청이 상품을 부르는 중이면(두 번 누름) 1단계에서 409로 막는다 (Party.markCrewHoldRequested)
 	 */
 	public Party apply(long partyId, long memberId, LocalDateTime now) {
-		Prepared prepared = transactionTemplate.execute(status -> prepare(partyId, memberId, now));
+		Prepared prepared;
+		try {
+			prepared = transactionTemplate.execute(status -> prepare(partyId, memberId, now));
+		} catch (ExternalServiceUnavailableException exception) {
+			throw exception;
+		} catch (BusinessException checkFailed) {
+			// 앞선 신청이 503으로 끝나 표시가 남은 파티는, 그 뒤 크루 예매가 끝났거나 파티원이 크루를 떠나 확인에 걸려도
+			// 상품에 물어 처음 결과를 받는다. 막기만 하면 표시를 지울 길이 없어 파티원이 나가지도 못한다 (영호님 리뷰)
+			prepared = resumeAfterUnknownHold(partyId, memberId, now).orElseThrow(() -> checkFailed);
+		}
+		return holdAndStartPayment(prepared, memberId, now);
+	}
+
+	private Party holdAndStartPayment(Prepared prepared, long memberId, LocalDateTime now) {
+		long partyId = prepared.partyId();
 		CrewSeatHoldResult hold;
 		try {
 			hold = crewSeatHoldPort.holdAll(partyId, prepared.crewId(), prepared.raceId(), prepared.paymentDueAt(),
@@ -117,6 +132,35 @@ public class PartyApplyUseCase {
 			throw new ParticipationNotPayableException("이미 잡았던 크루 자리의 결제 기한이 지났습니다. 새 파티로 신청해 주세요.");
 		}
 		return transactionTemplate.execute(status -> startPayment(prepared, memberId, dueAt, now));
+	}
+
+	// 표시가 남은 파티의 재시도: 기간·크루원·대기열·인원 확인 없이 같은 자리 목록으로 상품을 부를 준비를 한다
+	// 상품은 같은 파티 ID면 기간 확인보다 먼저 처음 결과를 돌려준다. 처음 요청이 상품에 닿지 않았으면 상품이 기간으로 거절하고,
+	// 그 거절(확정 답)에 표시를 지운다. 표시가 없으면 빈 값 → 원래 확인 오류를 그대로 낸다
+	// 크루원이 아닌 파티원이 섞였어도 결제(OrderPayUseCase)에서 크루원인지 다시 본다
+	private Optional<Prepared> resumeAfterUnknownHold(long partyId, long memberId, LocalDateTime now) {
+		ApplyTarget target = partyRepository.findApplyTarget(partyId)
+			.orElseThrow(() -> new PartyNotFoundException("존재하지 않는 파티입니다."));
+		RaceCourseInfo course = raceCoursePort.findCourse(target.raceCourseId())
+			.orElseThrow(() -> new RaceCourseNotFoundException("존재하지 않는 종목입니다."));
+		return Optional.ofNullable(transactionTemplate.execute(status -> {
+			Party party = partyRepository.findByIdForUpdate(partyId)
+				.orElseThrow(() -> new PartyNotFoundException("존재하지 않는 파티입니다."));
+			party.checkApplicable(memberId);
+			if (party.getCrewHoldRequestedAt() == null) {
+				return null;
+			}
+			party.markCrewHoldRequested(now);
+			partyMemberRepository.findActiveByPartyIdForUpdate(partyId);
+			List<Seat> seats = participationRepository.findActiveByPartyIdForUpdate(partyId).stream()
+				.map(participation -> new Seat(participation.getId(), participation.getRaceCourseId()))
+				.toList();
+			// 상품이 처음 결과를 돌려주면 이 값은 쓰이지 않는다
+			LocalDateTime dueAt = course.crewSale() == null ? now.plus(PAYMENT_WINDOW)
+				: paymentDueAt(course, course.crewSale(), now);
+			return new Prepared(partyId, target.crewId(), course.raceId(), course.raceCourseId(), course.courseName(),
+				dueAt, seats);
+		}));
 	}
 
 	// 1단계: 확인을 모두 끝내고 「크루 자리 요청함」을 남긴다. 잠금 순서: 파티 → 파티원 → 참가 신청

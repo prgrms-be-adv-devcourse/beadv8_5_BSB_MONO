@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -45,6 +46,7 @@ import com.bukang.order.domain.ParticipationStatus;
 import com.bukang.order.domain.Party;
 import com.bukang.order.domain.PartyStatus;
 import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
+import com.bukang.order.domain.exception.ParticipationNotPayableException;
 import com.bukang.order.out.ParticipationRepository;
 import com.bukang.order.out.PartyMemberRepository;
 import com.bukang.order.out.PartyRepository;
@@ -198,6 +200,51 @@ class ApiV1PartyApplyTest {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.status").value("PAYING"));
 		verify(crewSeatHoldPort, times(2)).holdAll(eq(partyId), eq(CREW_ID), eq(RACE_ID), any(), any());
+	}
+
+	@Test
+	@DisplayName("503 뒤 크루 예매가 끝나도 표시가 남은 파티는 다시 누르면 상품의 처음 결과로 신청된다 (영호님 리뷰)")
+	void retryAfterSaleClosed() throws Exception {
+		long partyId = partyWith(MEMBERS);
+		doAnswer(invocation -> {
+			invocation.callRealMethod();
+			throw new ExternalServiceUnavailableException("상품 서비스에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요.");
+		}).doCallRealMethod().when(crewSeatHoldPort).holdAll(anyLong(), anyLong(), anyLong(), any(), any());
+		apply(LEADER, partyId).andExpect(status().isServiceUnavailable());
+
+		// 크루 예매가 끝났고 대기열 입장도 끝났다
+		putCourse(crewSaleStartAt, LocalDateTime.now().minusMinutes(1), 4, 10);
+		queueAdmissionPort.notAdmittedToParty(COURSE_ID);
+
+		apply(LEADER, partyId)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.status").value("PAYING"));
+	}
+
+	@Test
+	@DisplayName("503 뒤 크루 예매가 끝나 다시 눌렀는데 상품에도 자리가 없으면(거절) 표시를 지워 파티원이 나갈 수 있다")
+	void retryAfterSaleClosedRejected() throws Exception {
+		long partyId = partyWith(MEMBERS);
+		doThrow(new ExternalServiceUnavailableException("상품 서비스에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요."))
+			.doThrow(new ParticipationNotPayableException("크루 예매 기간이 아닙니다."))
+			.when(crewSeatHoldPort).holdAll(anyLong(), anyLong(), anyLong(), any(), any());
+		apply(LEADER, partyId).andExpect(status().isServiceUnavailable());
+		putCourse(crewSaleStartAt, LocalDateTime.now().minusMinutes(1), 4, 10);
+
+		apply(LEADER, partyId).andExpect(status().isConflict());
+		post(MEMBERS.getFirst(), partyId, "/leave").andExpect(status().isOk());
+	}
+
+	@Test
+	@DisplayName("표시가 없는 파티는 크루 예매가 끝나면 상품을 부르지 않고 409다")
+	void saleClosedWithoutHold() throws Exception {
+		long partyId = partyWith(MEMBERS);
+		putCourse(crewSaleStartAt, LocalDateTime.now().minusMinutes(1), 4, 10);
+
+		apply(LEADER, partyId)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("ORDER_PARTY_SALE_CLOSED"));
+		verify(crewSeatHoldPort, never()).holdAll(anyLong(), anyLong(), anyLong(), any(), any());
 	}
 
 	@Test
