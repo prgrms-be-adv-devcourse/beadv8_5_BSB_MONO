@@ -52,6 +52,13 @@ public class PartyConflictException extends BusinessException {
 		return new PartyConflictException(ALREADY_JOINED, "이미 이 파티에 합류했습니다.", partyId, null);
 	}
 
+	// 개인 참가 신청: 같은 대회 파티에 살아 있는 파티원 신청서가 있음 (11/09 결정 ⑧, BUK-127)
+	// 화면이 그 파티로 보내 [파티 나가기]를 보여 주도록 파티 번호·상태를 준다. 나가기는 모집 중에만 된다
+	public static PartyConflictException joinedForIndividual(long partyId, PartyStatus status) {
+		return new PartyConflictException(ALREADY_JOINED,
+			"이미 파티에 가입되어 있어요. 개인으로 신청하려면 파티를 나간 뒤 신청해 주세요.", partyId, status);
+	}
+
 	// 같은 대회의 다른 파티에 살아 있는 신청서가 있음. partyId는 그 다른 파티 (본인이 파티원이므로 알려도 된다)
 	public static PartyConflictException otherPartyJoined(long otherPartyId) {
 		return new PartyConflictException(OTHER_PARTY_JOINED,

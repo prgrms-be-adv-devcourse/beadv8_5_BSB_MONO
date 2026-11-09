@@ -202,7 +202,18 @@ class ApiV1PartyTest {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(body(COURSE_10K)))
 			.andExpect(status().isConflict())
-			.andExpect(jsonPath("$.message").value("파티로 신청한 대회예요. 개인으로 신청하려면 파티에서 나가 주세요."));
+			.andExpect(jsonPath("$.code").value("ORDER_PARTY_ALREADY_JOINED"))
+			.andExpect(jsonPath("$.message").value("이미 파티에 가입되어 있어요. 개인으로 신청하려면 파티를 나간 뒤 신청해 주세요."))
+			.andExpect(jsonPath("$.data.partyId").value(firstPartyId))
+			.andExpect(jsonPath("$.data.partyStatus").value("RECRUITING"));
+
+		// 파티를 나가면 개인으로 신청할 수 있다 (BUK-127)
+		leave(MEMBER, firstPartyId).andExpect(status().isOk());
+		mockMvc.perform(post("/api/v1/order/participations")
+				.header("X-Member-Id", MEMBER)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(body(COURSE_10K)))
+			.andExpect(status().isCreated());
 	}
 
 	@Test
