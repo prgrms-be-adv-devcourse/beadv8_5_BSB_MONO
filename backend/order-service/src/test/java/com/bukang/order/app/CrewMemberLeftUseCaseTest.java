@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -26,6 +27,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.bukang.order.domain.Participation;
 import com.bukang.order.domain.ParticipationStatus;
 import com.bukang.order.domain.Party;
 import com.bukang.order.domain.PartyMember;
@@ -290,10 +292,11 @@ class CrewMemberLeftUseCaseTest {
 
 	// 살아 있는 신청서가 있으면 그것, 없으면 마지막 신청서의 상태
 	private ParticipationStatus statusOf(long memberId) {
-		return participationRepository.findAll().stream()
+		List<ParticipationStatus> statuses = participationRepository.findAll().stream()
 			.filter(p -> p.getMemberId() == memberId)
-			.reduce((first, second) -> second.getStatus().isActive() ? second : first)
-			.orElseThrow().getStatus();
+			.map(Participation::getStatus)
+			.toList();
+		return statuses.stream().filter(ParticipationStatus::isActive).findFirst().orElse(statuses.getLast());
 	}
 
 	private static String participant() {

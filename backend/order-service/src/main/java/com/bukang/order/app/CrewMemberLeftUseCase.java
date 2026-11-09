@@ -11,6 +11,7 @@ import com.bukang.order.out.PartyMemberRepository;
 import com.bukang.order.out.PartyMemberRepository.JoinedParty;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * 크루를 나간 사람을 그 크루의 파티에서 뺀다 (BUK-77, 회원 서비스의 queuing.crew.memberleft)
@@ -20,6 +21,7 @@ import lombok.RequiredArgsConstructor;
  * shortcut: 합류가 크루원 확인을 마치고 커밋하기 전에 이 메시지가 먼저 처리되면 그 파티를 찾지 못해 그 사람이 남는다.
  * 아웃박스 릴레이·Kafka를 거쳐 오는 메시지가 합류 트랜잭션(밀리초)보다 늦어 드물다. 실제로 생기면 합류에서 잠근 뒤 크루원을 다시 묻는다
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CrewMemberLeftUseCase {
@@ -33,13 +35,24 @@ public class CrewMemberLeftUseCase {
 
 	// 뺀 파티 수. 바깥 트랜잭션 없이 부른다 (OrderKafkaConsumer)
 	// crewJoinedAt: 메시지의 joinedAt(빠진 크루원 행의 크루 가입 시각). 이보다 늦게 가입한 파티원 줄은 다시 가입한 사람이라 두고 간다
+	// 한 파티가 실패해도 나머지 파티는 처리하고, 끝에 예외를 던져 메시지를 다시 처리하게 한다 (이미 뺀 파티는 건너뜀)
 	public int removeFromParties(long crewId, long memberId, LocalDateTime crewJoinedAt, LocalDateTime now) {
 		int removed = 0;
+		RuntimeException failure = null;
 		for (JoinedParty joined : partyMemberRepository.findJoinedParties(crewId, memberId, LIVE_STATUSES)) {
-			if (Boolean.TRUE.equals(transactionTemplate.execute(status ->
-				partyUseCase.removeCrewLeaver(joined.partyId(), memberId, crewJoinedAt, now)))) {
-				removed++;
+			try {
+				if (Boolean.TRUE.equals(transactionTemplate.execute(status ->
+					partyUseCase.removeCrewLeaver(joined.partyId(), memberId, crewJoinedAt, now)))) {
+					removed++;
+				}
+			} catch (RuntimeException exception) {
+				log.error("크루를 나간 사람을 파티에서 빼지 못했습니다. partyId={}, memberId={}",
+					joined.partyId(), memberId, exception);
+				failure = exception;
 			}
+		}
+		if (failure != null) {
+			throw failure;
 		}
 		return removed;
 	}

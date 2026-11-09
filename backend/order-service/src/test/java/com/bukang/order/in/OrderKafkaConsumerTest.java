@@ -25,8 +25,8 @@ import tools.jackson.databind.json.JsonMapper;
 class OrderKafkaConsumerTest {
 	private static final String PAYLOAD = "{\"raceId\":300,\"sellerId\":7,\"canceledAt\":\"2026-10-14T18:00:00\"}";
 
-	private static final String CREW_LEFT_PAYLOAD = "{\"eventId\":\"3f1c\",\"crewId\":7,\"memberId\":2,\"reason\":\"%s\","
-		+ "\"joinedAt\":\"2026-11-01T09:00:00\",\"leftAt\":\"2026-11-04T12:00:00\"}";
+	private static final String CREW_LEFT_PAYLOAD = "{\"eventId\":\"3f1c\",\"crewId\":7,\"memberId\":2,"
+		+ "\"reason\":\"%s\",\"joinedAt\":\"2026-11-01T09:00:00\",\"leftAt\":\"2026-11-04T12:00:00\"}";
 
 	private static final String MESSAGE_ID = "product-outbox-3c7e1a9b-2f4d-4b8e-a6c1-9d0e5f7a2b42";
 
@@ -101,9 +101,12 @@ class OrderKafkaConsumerTest {
 	}
 
 	@Test
-	@DisplayName("크루 가입 시각이 없는 크루 떠남 메시지는 누구를 뺄지 정할 수 없어 바로 DLT로 보낸다")
+	@DisplayName("크루 가입 시각이나 회원 ID가 없는 크루 떠남 메시지는 누구를 뺄지 정할 수 없어 바로 DLT로 보낸다")
 	void crewMemberLeftWithoutJoinedAt() {
 		assertThatThrownBy(() -> consumer.handleCrewMemberLeft("{\"crewId\":7,\"memberId\":2}", MESSAGE_ID))
+			.isInstanceOf(IllegalArgumentException.class);
+		assertThatThrownBy(() -> consumer.handleCrewMemberLeft(
+			"{\"crewId\":7,\"joinedAt\":\"2026-11-01T09:00:00\"}", MESSAGE_ID))
 			.isInstanceOf(IllegalArgumentException.class);
 		verifyNoInteractions(crewMemberLeftUseCase);
 	}

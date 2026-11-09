@@ -95,8 +95,9 @@ public class OrderKafkaConsumer {
 			return;
 		}
 		CrewMemberLeft event = jsonConverter.fromJson(payload, CrewMemberLeft.class);
-		if (event.joinedAt() == null) {
-			throw new IllegalArgumentException("크루 떠남 메시지에 joinedAt이 없습니다. payload=" + payload);
+		// 칸이 빠지면 0·null로 읽혀 아무 파티도 못 찾고 처리됨으로 남는다. 다시 해도 안 되므로 바로 DLT로 보낸다
+		if (event.crewId() <= 0 || event.memberId() <= 0 || event.joinedAt() == null) {
+			throw new IllegalArgumentException("크루 떠남 메시지에 crewId·memberId·joinedAt이 없습니다. payload=" + payload);
 		}
 		crewMemberLeftUseCase.removeFromParties(event.crewId(), event.memberId(), event.joinedAt(),
 			LocalDateTime.now());
