@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 
 import com.bukang.common.global.json.JsonConverter;
 import com.bukang.common.shared.kafka.KafkaTopics;
+import com.bukang.order.app.CrewMemberLeftUseCase;
 import com.bukang.order.app.OrderInboxUseCase;
 import com.bukang.order.app.RaceCancelRefundUseCase;
 
@@ -24,12 +25,16 @@ import tools.jackson.databind.json.JsonMapper;
 class OrderKafkaConsumerTest {
 	private static final String PAYLOAD = "{\"raceId\":300,\"sellerId\":7,\"canceledAt\":\"2026-10-14T18:00:00\"}";
 
+	private static final String CREW_LEFT_PAYLOAD = "{\"eventId\":\"3f1c\",\"crewId\":7,\"memberId\":2,"
+		+ "\"reason\":\"%s\",\"joinedAt\":\"2026-11-01T09:00:00\",\"leftAt\":\"2026-11-04T12:00:00\"}";
+
 	private static final String MESSAGE_ID = "product-outbox-3c7e1a9b-2f4d-4b8e-a6c1-9d0e5f7a2b42";
 
 	private final RaceCancelRefundUseCase useCase = mock();
 	private final OrderInboxUseCase inbox = mock();
-	private final OrderKafkaConsumer consumer =
-		new OrderKafkaConsumer(useCase, inbox, new JsonConverter(JsonMapper.builder().build()));
+	private final CrewMemberLeftUseCase crewMemberLeftUseCase = mock();
+	private final OrderKafkaConsumer consumer = new OrderKafkaConsumer(useCase, inbox, crewMemberLeftUseCase,
+		new JsonConverter(JsonMapper.builder().build()));
 
 	@Test
 	@DisplayName("대회 취소 메시지(RaceCancelEvent)를 받으면 그 대회 ID로 일괄 환불한다")
@@ -72,5 +77,37 @@ class OrderKafkaConsumerTest {
 		assertThatThrownBy(() -> consumer.handleRaceCancel("{", MESSAGE_ID))
 			.isInstanceOf(IllegalArgumentException.class);
 		verifyNoInteractions(useCase);
+	}
+
+	@Test
+	@DisplayName("크루 떠남 메시지를 받으면 크루·회원·크루 가입 시각으로 파티에서 빼고 인박스에 남긴다. 모르는 이유 값도 처리한다")
+	void crewMemberLeft() {
+		consumer.handleCrewMemberLeft(CREW_LEFT_PAYLOAD.formatted("SOMETHING_NEW"), MESSAGE_ID);
+
+		verify(crewMemberLeftUseCase).removeFromParties(eq(7L), eq(2L), eq(LocalDateTime.of(2026, 11, 1, 9, 0)),
+			any(LocalDateTime.class));
+		verify(inbox)
+			.record(eq(MESSAGE_ID), eq("order"), eq(KafkaTopics.CREW_MEMBER_LEFT), any(LocalDateTime.class));
+	}
+
+	@Test
+	@DisplayName("이미 처리한 크루 떠남 메시지는 건너뛴다")
+	void crewMemberLeftSkipsProcessed() {
+		given(inbox.alreadyProcessed(MESSAGE_ID, "order", KafkaTopics.CREW_MEMBER_LEFT)).willReturn(true);
+
+		consumer.handleCrewMemberLeft(CREW_LEFT_PAYLOAD.formatted("LEFT"), MESSAGE_ID);
+
+		verifyNoInteractions(crewMemberLeftUseCase);
+	}
+
+	@Test
+	@DisplayName("크루 가입 시각이나 회원 ID가 없는 크루 떠남 메시지는 누구를 뺄지 정할 수 없어 바로 DLT로 보낸다")
+	void crewMemberLeftWithoutJoinedAt() {
+		assertThatThrownBy(() -> consumer.handleCrewMemberLeft("{\"crewId\":7,\"memberId\":2}", MESSAGE_ID))
+			.isInstanceOf(IllegalArgumentException.class);
+		assertThatThrownBy(() -> consumer.handleCrewMemberLeft(
+			"{\"crewId\":7,\"joinedAt\":\"2026-11-01T09:00:00\"}", MESSAGE_ID))
+			.isInstanceOf(IllegalArgumentException.class);
+		verifyNoInteractions(crewMemberLeftUseCase);
 	}
 }
