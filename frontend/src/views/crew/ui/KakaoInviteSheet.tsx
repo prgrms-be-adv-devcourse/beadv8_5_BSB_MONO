@@ -154,7 +154,7 @@ export function KakaoInviteSheet({
       <div className="flex flex-col gap-4 px-2 pb-2">
         {blocking === 'KAKAO_MESSAGE_CONSENT_REQUIRED' ? (
           <>
-            <p className="text-body-m">
+            <p className="text-body2-regular">
               카카오톡으로 초대를 보내려면 친구 목록과 메시지 보내기 동의가 필요해요.
             </p>
             <Button size="l" loading={consent.isPending} onClick={() => consent.mutate()}>
@@ -163,7 +163,9 @@ export function KakaoInviteSheet({
           </>
         ) : blocking === 'KAKAO_NOT_LINKED' ? (
           <>
-            <p className="text-body-m">마이 &gt; 계정 연결에서 카카오를 먼저 연결해 주세요.</p>
+            <p className="text-body2-regular">
+              마이 &gt; 계정 연결에서 카카오를 먼저 연결해 주세요.
+            </p>
             <Link
               href="/me/accounts"
               className={buttonClassName({ variant: 'secondary', size: 'l' })}
@@ -193,14 +195,14 @@ export function KakaoInviteSheet({
             {partial?.dailyLimit && <Alert tone="warning" title={DAILY_LIMIT} />}
             {partial?.unconfirmed && <Alert tone="warning" title={PARTIAL_UNCONFIRMED} />}
             {list.length === 0 ? (
-              <p className="text-body-m text-text-secondary">
+              <p className="text-body2-regular text-text-secondary">
                 {partial
                   ? `더 보낼 수 있는 친구가 없어요. ${COPY_LINK_HINT}`
                   : `크루런을 쓰는 카카오 친구가 없어요. ${COPY_LINK_HINT}`}
               </p>
             ) : (
               <>
-                <p className="text-caption text-text-secondary">
+                <p className="text-caption-regular text-text-secondary">
                   {MAX_RECEIVERS}명까지 고를 수 있어요
                 </p>
                 <ul className="flex flex-col gap-3">

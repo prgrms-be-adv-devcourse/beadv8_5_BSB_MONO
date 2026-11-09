@@ -12,7 +12,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * 암호화를 붙이기 전에 평문으로 저장된 참가자·비상 연락처 휴대폰 번호를 앱이 뜰 때 한 번 암호화한다 (BUK-92)
+ * 암호화를 붙이기 전에 평문으로 저장된 휴대폰 번호를 앱이 뜰 때 한 번 암호화한다
+ * 참가자·비상 연락처(BUK-92), 참가 신청·배송의 받는 사람 연락처(BUK-94)
  * Flyway SQL로는 암호화할 수 없어 여기서 한다. 평문은 옛 칸 길이(20자) 안이고 암호문은 44자 이상이라 길이로 가린다
  * 그래서 다시 돌려도 이미 암호화한 값은 건너뛴다. 여러 대가 함께 떠도 읽은 평문이 그대로일 때만 바꿔 두 번 암호화하지 않는다
  * 평문 행을 읽으면 복호화가 실패하므로, 웹 서버·Kafka 리스너·스케줄러가 시작하기 전(모든 빈을 만든 직후, Flyway 뒤)에 돈다
@@ -22,7 +23,12 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class ParticipantPhoneEncryptRunner implements SmartInitializingSingleton {
 	private static final int PLAINTEXT_MAX_LENGTH = 20;
-	private static final List<String> COLUMNS = List.of("participant_phone", "emergency_contact_phone");
+	// 표 이름, 칸 이름
+	private static final List<List<String>> COLUMNS = List.of(
+		List.of("order_participation", "participant_phone"),
+		List.of("order_participation", "emergency_contact_phone"),
+		List.of("order_participation", "shipping_recipient_phone"),
+		List.of("order_shipment", "recipient_phone"));
 
 	private final JdbcTemplate jdbcTemplate;
 	private final TextEncryptor textEncryptor;
@@ -42,14 +48,16 @@ public class ParticipantPhoneEncryptRunner implements SmartInitializingSingleton
 
 	public int encryptPlaintextPhones() {
 		int encrypted = 0;
-		for (String column : COLUMNS) {
+		for (List<String> tableColumn : COLUMNS) {
+			String table = tableColumn.get(0);
+			String column = tableColumn.get(1);
 			List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-				"select id, " + column + " as phone from order_participation where char_length(" + column + ") <= ?",
+				"select id, " + column + " as phone from " + table + " where char_length(" + column + ") <= ?",
 				PLAINTEXT_MAX_LENGTH);
 			for (Map<String, Object> row : rows) {
 				String plain = (String)row.get("phone");
 				encrypted += jdbcTemplate.update(
-					"update order_participation set " + column + " = ? where id = ? and " + column + " = ?",
+					"update " + table + " set " + column + " = ? where id = ? and " + column + " = ?",
 					textEncryptor.encrypt(plain), row.get("id"), plain);
 			}
 		}

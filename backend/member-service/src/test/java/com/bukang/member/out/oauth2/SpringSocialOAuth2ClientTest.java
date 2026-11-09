@@ -53,4 +53,20 @@ class SpringSocialOAuth2ClientTest {
 		assertThat(client.begin(SocialProvider.KAKAO, new MockHttpServletRequest()).authorization().state())
 			.isNotEqualTo(start.authorization().state());
 	}
+
+	@Test
+	@DisplayName("메시지 추가 동의는 카카오 인가 주소에 친구 목록·메시지 범위만 요청하고, 콜백 주소는 로그인과 같다")
+	void beginMessageConsentRequestsMessageScopes() {
+		AuthorizationStart start = client.beginMessageConsent(new MockHttpServletRequest());
+
+		Map<String, String> query = UriComponentsBuilder.fromUriString(start.authorizationUri()).build()
+			.getQueryParams().toSingleValueMap();
+		assertThat(start.authorizationUri()).startsWith("https://kauth.kakao.com/oauth/authorize?");
+		assertThat(query).containsEntry("scope", "talk_message%20friends")
+			.containsEntry("code_challenge_method", "S256");
+		assertThat(start.authorization().provider()).isEqualTo(SocialProvider.KAKAO);
+		assertThat(start.authorization().scopes()).containsExactlyInAnyOrder("talk_message", "friends");
+		assertThat(start.authorization().redirectUri())
+			.isEqualTo("https://crewrun.example/api/v1/auth/oauth2/callback/kakao");
+	}
 }

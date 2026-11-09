@@ -72,7 +72,7 @@ class PayoutHoldUseCaseTest {
 	}
 
 	private PayoutHoldDto holdOf(Payout payout) {
-		return useCase().hold(payout.getId(), PayoutHoldReason.ACCOUNT_NOT_REGISTERED, "계좌 확인 중", ADMIN_ID, HELD_AT);
+		return useCase().hold(payout.getId(), PayoutHoldReason.정산_계좌_미등록, "계좌 확인 중", ADMIN_ID, HELD_AT);
 	}
 
 	private Payout reload(Payout payout) {
@@ -82,7 +82,7 @@ class PayoutHoldUseCaseTest {
 	}
 
 	@Test
-	@DisplayName("보류를 걸면 정산 내역이 HELD가 되고, 지급보류 ID가 HD-보류한 날-16진수 4자리로 붙는다")
+	@DisplayName("보류를 걸면 정산 내역이 지급보류가 되고, 지급보류 ID가 HD-보류한 날-16진수 4자리로 붙는다")
 	void hold() {
 		Payout payout = saveFinalPayout();
 
@@ -90,9 +90,9 @@ class PayoutHoldUseCaseTest {
 
 		assertThat(hold.getHoldCode()).isEqualTo("HD-20261012-%04X".formatted(hold.getId() & 0xFFFF));
 		assertThat(hold.getPayoutId()).isEqualTo(payout.getId());
-		assertThat(hold.getStatus()).isEqualTo(PayoutHoldStatus.HELD);
+		assertThat(hold.getStatus()).isEqualTo(PayoutHoldStatus.지급보류);
 		assertThat(hold.getHeldBy()).isEqualTo(ADMIN_ID);
-		assertThat(reload(payout).getStatus()).isEqualTo(PayoutStatus.HELD);
+		assertThat(reload(payout).getStatus()).isEqualTo(PayoutStatus.지급보류);
 		assertThat(payoutHoldRepository.findById(hold.getId()).orElseThrow().getHoldCode())
 			.isEqualTo(hold.getHoldCode());
 	}
@@ -104,19 +104,19 @@ class PayoutHoldUseCaseTest {
 		PayoutHoldDto hold = holdOf(payout);
 
 		payUseCase().run(LocalDate.of(2026, 11, 20), LocalDateTime.of(2026, 11, 20, 4, 0));
-		assertThat(reload(payout).getStatus()).isEqualTo(PayoutStatus.HELD);
+		assertThat(reload(payout).getStatus()).isEqualTo(PayoutStatus.지급보류);
 
 		// 보류를 풀면 해제일 다음 날에 지급한다. 다음 달 20일까지 기다리지 않는다 (11/23 월 → 11/24 화)
 		PayoutHoldDto released = useCase().release(hold.getId(), 77, LocalDateTime.of(2026, 11, 23, 9, 0));
-		assertThat(released.getStatus()).isEqualTo(PayoutHoldStatus.RELEASED);
+		assertThat(released.getStatus()).isEqualTo(PayoutHoldStatus.해제);
 		assertThat(released.getReleasedBy()).isEqualTo(77);
 		assertThat(reload(payout).getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 11, 24));
 
 		payUseCase().run(LocalDate.of(2026, 11, 23), LocalDateTime.of(2026, 11, 23, 4, 0));
-		assertThat(reload(payout).getStatus()).isEqualTo(PayoutStatus.CALCULATED);
+		assertThat(reload(payout).getStatus()).isEqualTo(PayoutStatus.지급_예정);
 
 		payUseCase().run(LocalDate.of(2026, 11, 24), LocalDateTime.of(2026, 11, 24, 4, 0));
-		assertThat(reload(payout).getStatus()).isEqualTo(PayoutStatus.PAID);
+		assertThat(reload(payout).getStatus()).isEqualTo(PayoutStatus.지급_완료);
 	}
 
 	@Test
@@ -130,8 +130,34 @@ class PayoutHoldUseCaseTest {
 
 		PayoutHoldDto released = useCase().release(hold.getId(), ADMIN_ID, LocalDateTime.of(2026, 10, 15, 9, 0));
 
-		assertThat(released.getStatus()).isEqualTo(PayoutHoldStatus.RELEASED);
-		assertThat(reload(payout).getStatus()).isEqualTo(PayoutStatus.CALCULATED);
+		assertThat(released.getStatus()).isEqualTo(PayoutHoldStatus.해제);
+		assertThat(reload(payout).getStatus()).isEqualTo(PayoutStatus.지급_예정);
+	}
+
+	// 풀기 API는 보류를 읽고 hold.getPayout().release를 부른다. 이때 정산 내역의 보류 목록이 처음 지연 로딩되므로
+	// 방금 푼 보류가 목록에서도 풀린 객체로 보여야 남은 보류를 바르게 센다 (PR #330 리뷰)
+	@Test
+	@DisplayName("보류 두 개 중 하나를 풀기 API로 풀면 지급보류 그대로이고, 나머지를 풀면 지급 예정으로 돌아간다 (BUK-67)")
+	void releaseOneOfTwoHolds() {
+		Payout payout = saveFinalPayout();
+		PayoutHoldDto accountHold = holdOf(payout);
+		PayoutHoldDto mismatchHold = useCase().hold(payout.getId(), PayoutHoldReason.대사_불일치, null,
+			PayoutHold.SYSTEM_MEMBER_ID, HELD_AT);
+		entityManager.flush();
+		entityManager.clear();
+
+		useCase().release(accountHold.getId(), ADMIN_ID, LocalDateTime.of(2026, 11, 23, 9, 0));
+
+		Payout stillHeld = reload(payout);
+		assertThat(stillHeld.getStatus()).isEqualTo(PayoutStatus.지급보류);
+		assertThat(stillHeld.getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 11, 20));
+		entityManager.clear();
+
+		useCase().release(mismatchHold.getId(), ADMIN_ID, LocalDateTime.of(2026, 11, 25, 9, 0));
+
+		Payout released = reload(payout);
+		assertThat(released.getStatus()).isEqualTo(PayoutStatus.지급_예정);
+		assertThat(released.getScheduledPayDate()).isEqualTo(LocalDate.of(2026, 11, 26));
 	}
 
 	@Test
@@ -151,21 +177,21 @@ class PayoutHoldUseCaseTest {
 		assertThatThrownBy(() -> loaded.release(otherHoldEntity, ADMIN_ID, LocalDateTime.of(2026, 10, 15, 9, 0),
 			new BusinessDayCalendar()))
 			.isInstanceOf(IllegalArgumentException.class);
-		assertThat(loaded.getStatus()).isEqualTo(PayoutStatus.HELD);
-		assertThat(otherHoldEntity.getStatus()).isEqualTo(PayoutHoldStatus.HELD);
+		assertThat(loaded.getStatus()).isEqualTo(PayoutStatus.지급보류);
+		assertThat(otherHoldEntity.getStatus()).isEqualTo(PayoutHoldStatus.지급보류);
 	}
 
 	@Test
 	@DisplayName("없는 정산 내역에 보류를 걸거나 없는 보류를 풀면 찾을 수 없다는 예외가 난다")
 	void notFound() {
-		assertThatThrownBy(() -> useCase().hold(9999, PayoutHoldReason.RACE_CANCELED, null, ADMIN_ID, HELD_AT))
+		assertThatThrownBy(() -> useCase().hold(9999, PayoutHoldReason.대회_취소_처리, null, ADMIN_ID, HELD_AT))
 			.isInstanceOf(PayoutNotFoundException.class);
 		assertThatThrownBy(() -> useCase().release(9999, ADMIN_ID, HELD_AT))
 			.isInstanceOf(PayoutHoldNotFoundException.class);
 	}
 
 	@Test
-	@DisplayName("지급 배치가 읽은 뒤 보류가 걸리면, 배치가 그 정산 내역을 PAID로 덮어쓰지 못한다 (@Version)")
+	@DisplayName("지급 배치가 읽은 뒤 보류가 걸리면, 배치가 그 정산 내역을 지급_완료로 덮어쓰지 못한다 (@Version)")
 	void staleBatchCannotOverwriteHold() {
 		Payout payout = saveFinalPayout();
 		entityManager.flush();

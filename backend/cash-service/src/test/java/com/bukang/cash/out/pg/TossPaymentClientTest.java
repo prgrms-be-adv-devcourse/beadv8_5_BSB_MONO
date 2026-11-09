@@ -29,9 +29,9 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
-import com.bukang.cash.domain.exception.PaymentApprovalFailedException;
-import com.bukang.cash.domain.exception.PaymentCancelFailedException;
-import com.bukang.cash.domain.exception.PaymentLookupFailedException;
+import com.bukang.cash.domain.exception.charge.PaymentApprovalFailedException;
+import com.bukang.cash.domain.exception.charge.PaymentLookupFailedException;
+import com.bukang.cash.domain.exception.withdrawal.PaymentCancelFailedException;
 
 class TossPaymentClientTest {
 	private static final String BASE_URL = "http://toss";

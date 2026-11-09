@@ -8,7 +8,7 @@ export function AuthIntro({ title, size = 'm' }: { title: string; size?: 's' | '
     <div className="flex flex-col items-center gap-1 pb-3">
       <Logo className="h-11 w-[150px]" />
       <div className="h-2" />
-      <p className={size === 's' ? 'text-heading-s' : 'text-heading-m'}>{title}</p>
+      <p className={size === 's' ? 'text-body1-bold' : 'text-title3'}>{title}</p>
     </div>
   )
 }
@@ -17,8 +17,8 @@ export function AuthIntro({ title, size = 'm' }: { title: string; size?: 's' | '
 export function StepIntro({ title, description }: { title: string; description: string }) {
   return (
     <div className="flex flex-col gap-1">
-      <h2 className="text-heading-m">{title}</h2>
-      <p className="text-body-s text-text-tertiary">{description}</p>
+      <h2 className="text-title3">{title}</h2>
+      <p className="text-body2-regular text-text-tertiary">{description}</p>
     </div>
   )
 }

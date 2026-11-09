@@ -57,12 +57,12 @@ function Swatches({
 }) {
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="text-heading-s text-text-primary">{title}</h2>
+      <h2 className="text-body1-bold text-text-primary">{title}</h2>
       <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3">
         {items.map(([name, className]) => (
           <div key={name} className="flex flex-col gap-1.5">
             <div className={`h-14 rounded-md inset-ring inset-ring-border-default ${className}`} />
-            <span className="text-caption text-text-secondary">{name}</span>
+            <span className="text-caption-regular text-text-secondary">{name}</span>
           </div>
         ))}
       </div>
@@ -71,24 +71,20 @@ function Swatches({
 }
 
 const TYPE = [
-  ['display-xl', 'font-display text-display-xl', '21.0975'],
-  ['display-l', 'font-display text-display-l', 'SEOUL HALF'],
-  ['display-m', 'font-display text-display-m', '₩45,000'],
-  ['display-s', 'font-display text-display-s', '5 / 8'],
-  ['eyebrow', 'font-display text-eyebrow', 'SEOUL · 2026.11.15 SUN'],
-  ['heading-xl', 'text-heading-xl', '서울 하프 마라톤'],
-  ['heading-l', 'text-heading-l', '크루 결제 현황'],
-  ['heading-m', 'text-heading-m', '티셔츠 사이즈'],
-  ['heading-s', 'text-heading-s', '하프 코스 · 21.0975km'],
-  ['body-l', 'text-body-l', '크루원 전원이 결제를 마쳐야 단체 접수가 확정됩니다.'],
-  ['body-m', 'text-body-m', '크루원 전원이 결제를 마쳐야 단체 접수가 확정됩니다.'],
-  ['body-s', 'text-body-s', '크루원 전원이 결제를 마쳐야 단체 접수가 확정됩니다.'],
-  ['caption', 'text-caption', '마감까지 3일 남았습니다'],
-  ['label-l', 'text-label-l', '접수하기'],
-  ['label-m', 'text-label-m', '접수하기'],
-  ['label-s', 'text-label-s', '접수하기'],
-  ['label-strong', 'text-label-strong', '결제 완료'],
-  ['label-tag', 'text-label-tag', '마감 임박'],
+  ['number-l', 'font-display text-number-l', '21.0975'],
+  ['number-m', 'font-display text-number-m', 'SEOUL HALF'],
+  ['number-s', 'font-display text-number-s', '₩45,000'],
+  ['title1', 'text-title1', '서울 하프 마라톤'],
+  ['title2', 'text-title2', '크루 결제 현황'],
+  ['title3', 'text-title3', '티셔츠 사이즈'],
+  ['body1-bold', 'text-body1-bold', '하프 코스 · 21.0975km'],
+  ['body1-medium', 'text-body1-medium', '접수하기'],
+  ['body1-regular', 'text-body1-regular', '크루원 전원이 결제를 마쳐야 단체 접수가 확정됩니다.'],
+  ['body2-bold', 'text-body2-bold', '결제 완료'],
+  ['body2-medium', 'text-body2-medium', '접수하기'],
+  ['body2-regular', 'text-body2-regular', '크루원 전원이 결제를 마쳐야 단체 접수가 확정됩니다.'],
+  ['caption-medium', 'text-caption-medium', '마감 임박'],
+  ['caption-regular', 'text-caption-regular', '마감까지 3일 남았습니다'],
 ] as const
 
 const meta = {
@@ -116,7 +112,7 @@ export const Typography: Story = {
     <div className="flex flex-col divide-y divide-border-default">
       {TYPE.map(([name, className, sample]) => (
         <div key={name} className="flex items-baseline gap-6 py-3">
-          <span className="w-28 shrink-0 text-caption text-text-tertiary">{name}</span>
+          <span className="w-28 shrink-0 text-caption-regular text-text-tertiary">{name}</span>
           <span className={`min-w-0 truncate text-text-primary ${className}`}>{sample}</span>
         </div>
       ))}
@@ -137,7 +133,7 @@ export const RadiusAndShadow: Story = {
           <div
             className={`size-20 bg-bg-brand-subtle inset-ring inset-ring-border-brand ${className}`}
           />
-          <span className="text-caption text-text-secondary">{name}</span>
+          <span className="text-caption-regular text-text-secondary">{name}</span>
         </div>
       ))}
       {[
@@ -147,7 +143,7 @@ export const RadiusAndShadow: Story = {
       ].map(([name, className]) => (
         <div key={name} className="flex flex-col items-center gap-2">
           <div className={`size-20 rounded-lg bg-bg-surface ${className}`} />
-          <span className="text-caption text-text-secondary">{name}</span>
+          <span className="text-caption-regular text-text-secondary">{name}</span>
         </div>
       ))}
     </div>

@@ -46,8 +46,8 @@ export function CheckoutCompletePage({ orderId }: { orderId: number }) {
         {order.data ? (
           <>
             <div className="flex flex-col gap-2 pb-2">
-              <h2 className="text-heading-l">참가가 확정됐어요</h2>
-              <p className="text-body-m text-text-secondary">
+              <h2 className="text-title2">참가가 확정됐어요</h2>
+              <p className="text-body2-regular text-text-secondary">
                 {race.data && option
                   ? `${race.data.title} · ${option.name}`
                   : (item?.itemName ?? '')}

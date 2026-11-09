@@ -53,7 +53,7 @@ export function TrendSection({ query }: { query: StatsPeriodQuery }) {
       className="flex flex-col gap-6 rounded-xl border border-border-default bg-bg-surface p-8 shadow-[0_8px_24px_rgb(0_0_0/0.06)]"
     >
       <div className="flex items-start justify-between gap-4">
-        <h2 className="text-label-m text-text-secondary">{title}</h2>
+        <h2 className="text-body2-medium text-text-secondary">{title}</h2>
         <div role="group" aria-label="볼 숫자" className="flex gap-1 rounded-full bg-bg-subtle p-1">
           {KINDS.map((k) => (
             <button
@@ -62,7 +62,7 @@ export function TrendSection({ query }: { query: StatsPeriodQuery }) {
               aria-pressed={kind === k}
               onClick={() => setKind(k)}
               className={cn(
-                'h-8 rounded-full px-4 text-label-m',
+                'h-8 rounded-full px-4 text-body2-medium',
                 kind === k ? 'bg-bg-inverse text-text-inverse' : 'text-text-secondary',
                 FOCUS_RING,
               )}
@@ -79,22 +79,22 @@ export function TrendSection({ query }: { query: StatsPeriodQuery }) {
             <div className="flex flex-col gap-4">
               <div className="flex items-center gap-3">
                 <p className="flex items-baseline gap-1">
-                  <span className="font-display text-display-l">{formatNumber(data.total)}</span>
-                  <span className="text-label-m">명</span>
+                  <span className="font-display text-number-m">{formatNumber(data.total)}</span>
+                  <span className="text-body2-medium">명</span>
                 </p>
                 {!empty && (
                   <p className="flex items-center gap-1.5">
-                    <span className="rounded-sm bg-bg-inverse px-2 py-0.5 text-label-s text-text-inverse">
+                    <span className="rounded-sm bg-bg-inverse px-2 py-0.5 text-caption-medium text-text-inverse">
                       {trendDeltaText(data.total, data.previousTotal)}
                     </span>
-                    <span className="text-caption text-text-tertiary">지난 기간보다</span>
+                    <span className="text-caption-regular text-text-tertiary">지난 기간보다</span>
                   </p>
                 )}
               </div>
               <div className="relative">
                 <TrendChart points={data.points} empty={empty} />
                 {empty && (
-                  <p className="absolute inset-x-0 top-1/3 text-center text-body-s text-text-secondary">
+                  <p className="absolute inset-x-0 top-1/3 text-center text-body2-regular text-text-secondary">
                     {COPY[kind].empty}
                   </p>
                 )}

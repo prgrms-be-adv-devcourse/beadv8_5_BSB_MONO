@@ -169,7 +169,7 @@ function SalesBody({ race, raceId }: { race: productModel.SellerRaceDto; raceId:
           title="참가자 목록은 준비 중이에요"
           description="판매 인원은 위 전체 판매에서 볼 수 있어요."
         />
-        <p className="text-caption text-text-tertiary">
+        <p className="text-caption-regular text-text-tertiary">
           참가권 결제 한 건이 주문 1건이에요. 구매자는 닉네임으로 보여 줘요. 취소한 주문의 자리는
           남은 자리로 자동 복구돼요.
         </p>
@@ -202,7 +202,7 @@ function SalesBody({ race, raceId }: { race: productModel.SellerRaceDto; raceId:
             <TextField label="내려받는 사유" disabled className="flex-1" />
             <Button disabled>엑셀로 내려받기</Button>
           </div>
-          <p className="text-caption text-text-tertiary">
+          <p className="text-caption-regular text-text-tertiary">
             내려받기 기록은 1년 보관돼요. 참가자 정보는 대회가 끝나고 1년 뒤 파기해야 해요.
           </p>
         </ConsoleCard>
