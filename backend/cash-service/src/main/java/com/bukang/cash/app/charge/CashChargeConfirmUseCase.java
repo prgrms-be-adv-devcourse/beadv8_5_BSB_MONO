@@ -49,7 +49,7 @@ public class CashChargeConfirmUseCase {
 			throw new ChargeAmountTooSmallException("최소 충전 금액은 10,000원입니다.");
 		}
 		if (amount > CashChargePolicy.MAX_PER_CHARGE) {
-			throw ChargeAmountTooLargeException.perCharge("1회 충전 한도는 100,000원입니다.");
+			throw ChargeAmountTooLargeException.perCharge("1회 충전 한도는 300,000원입니다.");
 		}
 
 		ChargeClaim claim = transactionTemplate.execute(status -> claimChargeLocked(customerId, orderId, amount));

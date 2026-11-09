@@ -5,7 +5,7 @@ import java.time.LocalDateTime;
 
 public final class CashChargePolicy {
 	public static final long MINIMUM_AMOUNT = 10_000L;
-	public static final long MAX_PER_CHARGE = 100_000L;
+	public static final long MAX_PER_CHARGE = 300_000L;
 	public static final long MAX_PER_DAY = 1_000_000L;
 	public static final long MAX_BALANCE = 10_000_000L;
 

@@ -127,7 +127,7 @@ final class CashApiExamples {
 		""";
 
 	static final String CHARGE_LIMIT_PER_CHARGE = """
-		{ "status": 400, "code": "CHARGE_LIMIT_PER_CHARGE", "message": "1회 충전 한도는 100,000원입니다.", "data": null }
+		{ "status": 400, "code": "CHARGE_LIMIT_PER_CHARGE", "message": "1회 충전 한도는 300,000원입니다.", "data": null }
 		""";
 
 	static final String CHARGE_LIMIT_PER_DAY = """
