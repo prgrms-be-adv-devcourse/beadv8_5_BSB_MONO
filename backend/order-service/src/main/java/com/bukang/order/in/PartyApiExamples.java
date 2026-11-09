@@ -245,6 +245,12 @@ final class PartyApiExamples {
 			"data": { "partyId": 1, "partyStatus": "PAYING" } }
 		""";
 
+	static final String CREW_HOLD_IN_PROGRESS = """
+		{ "status": 409, "code": "ORDER_PARTY_CREW_HOLD_IN_PROGRESS",
+			"message": "파티장이 신청하는 중이라 파티원을 바꿀 수 없습니다. 파티장이 다시 신청하면 풀립니다.",
+			"data": { "partyId": 1, "partyStatus": "RECRUITING" } }
+		""";
+
 	static final String LINK_EXPIRED = """
 		{ "status": 409, "code": "ORDER_PARTY_LINK_EXPIRED",
 			"message": "참가 링크가 만료됐습니다. 파티장에게 새 링크를 받아주세요.", "data": null }

@@ -21,6 +21,7 @@ public class PartyConflictException extends BusinessException {
 	public static final String MEMBER_NOT_CREW = "ORDER_PARTY_MEMBER_NOT_CREW";
 	public static final String MEMBER_JOINED_LATE = "ORDER_PARTY_MEMBER_JOINED_LATE";
 	public static final String MEMBERS_CHANGED = "ORDER_PARTY_MEMBERS_CHANGED";
+	public static final String CREW_HOLD_IN_PROGRESS = "ORDER_PARTY_CREW_HOLD_IN_PROGRESS";
 
 	// 없으면 null (data 없이 응답)
 	private final Long partyId;
@@ -94,6 +95,12 @@ public class PartyConflictException extends BusinessException {
 	public static PartyConflictException membersChanged(long partyId) {
 		return new PartyConflictException(MEMBERS_CHANGED,
 			"신청하는 사이 파티원이 바뀌었습니다. 다시 신청해 주세요.", partyId, null);
+	}
+
+	// 파티장이 신청해 상품에 크루 자리를 요청했는데 결과를 아직 모른다. 파티장이 다시 신청하면 풀린다 (BUK-105)
+	public static PartyConflictException crewHoldInProgress(long partyId) {
+		return new PartyConflictException(CREW_HOLD_IN_PROGRESS,
+			"파티장이 신청하는 중이라 파티원을 바꿀 수 없습니다. 파티장이 다시 신청하면 풀립니다.", partyId, PartyStatus.RECRUITING);
 	}
 
 	public boolean hasData() {

@@ -102,7 +102,7 @@ public class PartyUseCase {
 		if (!party.getJoinToken().equals(joinToken)) {
 			throw joinLinkNotFound();
 		}
-		party.checkRecruiting();
+		party.checkMembersChangeable();
 		party.checkJoinLinkAlive(now);
 		ParticipantInfo checked = checkParticipant(course, participant);
 		Optional<PartyMember> row = partyMemberRepository.findByPartyIdAndMemberId(partyId, memberId);
@@ -124,7 +124,7 @@ public class PartyUseCase {
 		PartyMember member = partyMemberRepository.findByPartyIdAndMemberId(partyId, memberId)
 			.filter(PartyMember::isActive)
 			.orElseThrow(PartyAccessDeniedException::notMember);
-		party.checkRecruiting();
+		party.checkMembersChangeable();
 		Participation participation = participationRepository.findActiveIdByPartyIdAndMemberId(partyId, memberId)
 			.flatMap(participationRepository::findByIdForUpdate)
 			.orElseThrow(() -> new IllegalStateException("파티원의 신청서가 없습니다. partyId=%d, memberId=%d"

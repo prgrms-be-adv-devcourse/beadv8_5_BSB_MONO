@@ -150,11 +150,12 @@ public class ApiV1PartyController {
 				@ExampleObject(name = "링크 없음", value = PartyApiExamples.JOIN_LINK_NOT_FOUND),
 				@ExampleObject(name = "없는 종목", value = PartyApiExamples.COURSE_NOT_FOUND)
 			})),
-		@ApiResponse(responseCode = "409", description = "링크 만료, 모집 중이 아님, 이미 합류함, 최대 인원이 참, "
-			+ "다른 파티로 신청함, 개인 신청 있음, 취소된 대회, 접수 마감",
+		@ApiResponse(responseCode = "409", description = "링크 만료, 모집 중이 아님, 파티장이 신청하는 중, 이미 합류함, "
+			+ "최대 인원이 참, 다른 파티로 신청함, 개인 신청 있음, 취소된 대회, 접수 마감",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "링크 만료", value = PartyApiExamples.LINK_EXPIRED),
 				@ExampleObject(name = "모집 중이 아님", value = PartyApiExamples.NOT_RECRUITING),
+				@ExampleObject(name = "파티장이 신청하는 중", value = PartyApiExamples.CREW_HOLD_IN_PROGRESS),
 				@ExampleObject(name = "이미 합류함", value = PartyApiExamples.ALREADY_JOINED),
 				@ExampleObject(name = "최대 인원 참", value = PartyApiExamples.FULL),
 				@ExampleObject(name = "다른 파티로 신청함", value = PartyApiExamples.OTHER_PARTY_JOINED),
@@ -259,9 +260,12 @@ public class ApiV1PartyController {
 		@ApiResponse(responseCode = "404", description = "없는 파티",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = PartyApiExamples.PARTY_NOT_FOUND))),
-		@ApiResponse(responseCode = "409", description = "모집 중이 아님 (data.partyId·data.partyStatus)",
-			content = @Content(schema = @Schema(implementation = RsData.class),
-				examples = @ExampleObject(value = PartyApiExamples.NOT_RECRUITING)))
+		@ApiResponse(responseCode = "409",
+			description = "모집 중이 아님, 파티장이 신청하는 중(상품 응답을 기다림) (data.partyId·data.partyStatus)",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "모집 중이 아님", value = PartyApiExamples.NOT_RECRUITING),
+				@ExampleObject(name = "파티장이 신청하는 중", value = PartyApiExamples.CREW_HOLD_IN_PROGRESS)
+			}))
 	})
 	public ResponseEntity<RsData<ParticipationDto>> leave(
 		@LoginMemberId long memberId,

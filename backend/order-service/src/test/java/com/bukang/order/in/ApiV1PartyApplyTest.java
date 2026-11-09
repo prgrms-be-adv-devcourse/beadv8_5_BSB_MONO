@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -42,6 +43,7 @@ import com.bukang.order.domain.Participation;
 import com.bukang.order.domain.ParticipationStatus;
 import com.bukang.order.domain.Party;
 import com.bukang.order.domain.PartyStatus;
+import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
 import com.bukang.order.out.ParticipationRepository;
 import com.bukang.order.out.PartyMemberRepository;
 import com.bukang.order.out.PartyRepository;
@@ -162,6 +164,45 @@ class ApiV1PartyApplyTest {
 		verify(crewSeatHoldPort, times(1)).holdAll(eq(partyId), eq(CREW_ID), eq(RACE_ID), any(), any());
 		// 결제 진행 중에는 합류·나가기도 막힌다
 		post(MEMBERS.getFirst(), partyId, "/leave").andExpect(status().isConflict());
+	}
+
+	@Test
+	@DisplayName("상품은 자리를 잡았는데 응답이 늦어 503으로 끝나면, 그사이 파티원을 바꿀 수 없고 다시 신청하면 처음 자리로 신청된다")
+	void retryAfterTimeout() throws Exception {
+		long partyId = partyWith(MEMBERS);
+		String token = partyRepository.findById(partyId).orElseThrow().getJoinToken();
+		// 상품은 자리를 잡고(가짜 어댑터가 기억) 주문은 응답을 못 받는다
+		doAnswer(invocation -> {
+			invocation.callRealMethod();
+			throw new ExternalServiceUnavailableException("상품 서비스에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요.");
+		}).doCallRealMethod().when(crewSeatHoldPort).holdAll(anyLong(), anyLong(), anyLong(), any(), any());
+
+		apply(LEADER, partyId).andExpect(status().isServiceUnavailable());
+		assertThat(partyRepository.findById(partyId).orElseThrow().getStatus()).isEqualTo(PartyStatus.RECRUITING);
+
+		// 상품에 잡힌 자리 목록이 바뀌면 다시 신청할 수 없으므로 나가기·합류를 막는다
+		post(MEMBERS.getFirst(), partyId, "/leave")
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("ORDER_PARTY_CREW_HOLD_IN_PROGRESS"));
+		join(OUTSIDER, token)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("ORDER_PARTY_CREW_HOLD_IN_PROGRESS"));
+
+		apply(LEADER, partyId)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.status").value("PAYING"));
+		verify(crewSeatHoldPort, times(2)).holdAll(eq(partyId), eq(CREW_ID), eq(RACE_ID), any(), any());
+	}
+
+	@Test
+	@DisplayName("자리가 모자라 한 석도 잡지 않았으면 파티원을 다시 바꿀 수 있다")
+	void membersChangeableAfterShortage() throws Exception {
+		long partyId = partyWith(MEMBERS);
+		doReturn(CrewSeatHoldResult.shortOf(Map.of(COURSE_ID, new Shortage(4, 1))))
+			.when(crewSeatHoldPort).holdAll(anyLong(), anyLong(), anyLong(), any(), any());
+
+		apply(LEADER, partyId).andExpect(status().isConflict());
+		post(MEMBERS.getFirst(), partyId, "/leave").andExpect(status().isOk());
 	}
 
 	@Test

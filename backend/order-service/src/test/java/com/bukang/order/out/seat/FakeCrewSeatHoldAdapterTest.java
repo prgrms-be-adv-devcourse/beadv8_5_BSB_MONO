@@ -1,6 +1,7 @@
 package com.bukang.order.out.seat;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -11,6 +12,7 @@ import java.util.stream.LongStream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import com.bukang.order.domain.exception.ParticipationNotPayableException;
 import com.bukang.order.out.seat.CrewSeatHoldPort.CrewSeatHoldResult;
 import com.bukang.order.out.seat.CrewSeatHoldPort.Seat;
 import com.bukang.order.out.seat.CrewSeatHoldPort.Shortage;
@@ -62,12 +64,15 @@ class FakeCrewSeatHoldAdapterTest {
 	}
 
 	@Test
-	@DisplayName("같은 파티 ID로 다시 부르면 새로 잡지 않고 처음 결과를 돌려준다")
+	@DisplayName("같은 파티 ID로 같은 자리를 다시 부르면 처음 결과를, 자리 목록이 다르면 409를 준다 (상품과 같은 계약)")
 	void idempotentByPartyId() {
-		CrewSeatHoldResult first = adapter.holdAll(100L, CREW_ID, RACE_ID, DUE, seats(COURSE_10K, 3));
-		CrewSeatHoldResult again = adapter.holdAll(100L, CREW_ID, RACE_ID, DUE, seats(COURSE_10K, 3));
+		List<Seat> partySeats = seats(COURSE_10K, 3);
+		CrewSeatHoldResult first = adapter.holdAll(100L, CREW_ID, RACE_ID, DUE, partySeats);
+		CrewSeatHoldResult again = adapter.holdAll(100L, CREW_ID, RACE_ID, DUE, partySeats.reversed());
 
 		assertThat(again).isEqualTo(first);
+		assertThatThrownBy(() -> adapter.holdAll(100L, CREW_ID, RACE_ID, DUE, seats(COURSE_10K, 3)))
+			.isInstanceOf(ParticipationNotPayableException.class);
 		// 3석만 줄었으므로 나머지 17석을 다른 파티가 모두 잡을 수 있다
 		List<Seat> rest = seats(COURSE_10K, FakeCrewSeatHoldAdapter.CREW_SEATS_PER_COURSE - 3);
 		assertThat(adapter.holdAll(101L, CREW_ID, RACE_ID, DUE, rest).held()).isTrue();

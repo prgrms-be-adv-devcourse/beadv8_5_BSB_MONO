@@ -9,8 +9,10 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.common.global.eventpublisher.EventPublisher;
+import com.bukang.common.global.exception.BusinessException;
 import com.bukang.common.shared.notification.NotificationKind;
 import com.bukang.common.shared.notification.event.NotificationRequestedEvent;
 import com.bukang.order.domain.Participation;
@@ -66,8 +68,51 @@ public class PartyApplyUseCase {
 	private final CrewPort crewPort;
 	private final CrewSeatHoldPort crewSeatHoldPort;
 	private final EventPublisher eventPublisher;
+	private final TransactionTemplate transactionTemplate;
 
+	/**
+	 * 세 단계로 나눈다 (BUK-105)
+	 * 1. 확인하고 파티에 「크루 자리 요청함」을 남겨 커밋한다 → 상품 응답을 못 받아도 그사이 합류·나가기가 막혀,
+	 *    다시 신청하면 같은 자리 목록이 가고 상품이 처음 결과를 돌려준다 (상품은 목록이 다르면 409)
+	 * 2. 잠금·DB 연결 없이 상품에 크루 자리를 요청한다 (되돌릴 수 없는 외부 호출, 파티 ID로 멱등)
+	 * 3. 다시 잠그고 결제 기간을 연다. 한 석도 잡지 않았다는 답이면 표시를 지워 파티원을 다시 바꿀 수 있게 한다
+	 * 상품 응답을 모를 때(503·예상 못 한 오류)는 표시를 남긴다. 파티장이 다시 신청하면 처음 결과로 이어진다
+	 */
 	public Party apply(long partyId, long memberId, LocalDateTime now) {
+		Prepared prepared = transactionTemplate.execute(status -> prepare(partyId, memberId, now));
+		CrewSeatHoldResult hold;
+		try {
+			hold = crewSeatHoldPort.holdAll(partyId, prepared.crewId(), prepared.raceId(), prepared.paymentDueAt(),
+				prepared.seats());
+		} catch (ExternalServiceUnavailableException exception) {
+			throw exception;
+		} catch (BusinessException exception) {
+			// 상품이 거절했다(404·409). 이 요청으로 새로 잡힌 자리가 없으므로 파티원을 다시 바꿀 수 있게 한다
+			clearCrewHoldRequested(partyId);
+			throw exception;
+		}
+		if (!hold.held()) {
+			clearCrewHoldRequested(partyId);
+			Shortage shortage = hold.shortages().get(prepared.raceCourseId());
+			if (shortage == null) {
+				throw new IllegalStateException("크루 자리를 잡지 못했는데 모자란 종목이 없습니다. partyId=%d, shortages=%s"
+					.formatted(partyId, hold.shortages()));
+			}
+			throw new PartyCrewSeatShortageException(partyId, prepared.raceCourseId(), shortage.needed(),
+				shortage.remaining());
+		}
+		// 상품이 실제로 잡아 둔 기한을 쓴다. 응답을 못 받고 다시 신청하면 상품은 처음 기한을 돌려주므로 보낸 값과 다를 수 있다
+		LocalDateTime dueAt = hold.expiresAt();
+		// 처음 신청의 기한이 지난 뒤 다시 누르면 상품은 지난 기한을 돌려준다. 결제 기간을 열지 않는다
+		// shortcut: 상품이 같은 파티의 끝난 자리를 다시 잡지 않아 이 파티는 새로 만들어야 한다. 상품이 바꾸면 풀린다
+		if (!dueAt.isAfter(now)) {
+			throw new ParticipationNotPayableException("이미 잡았던 크루 자리의 결제 기한이 지났습니다. 새 파티로 신청해 주세요.");
+		}
+		return transactionTemplate.execute(status -> startPayment(prepared, memberId, dueAt, now));
+	}
+
+	// 1단계: 확인을 모두 끝내고 「크루 자리 요청함」을 남긴다. 잠금 순서: 파티 → 파티원 → 참가 신청
+	private Prepared prepare(long partyId, long memberId, LocalDateTime now) {
 		// 잠그기 전 확인: 종목·크루는 파티를 만든 뒤 바뀌지 않으므로 값만 읽는다 (엔티티를 먼저 읽으면 잠금 조회가 옛 상태를 돌려준다)
 		ApplyTarget target = partyRepository.findApplyTarget(partyId)
 			.orElseThrow(() -> new PartyNotFoundException("존재하지 않는 파티입니다."));
@@ -107,36 +152,48 @@ public class PartyApplyUseCase {
 
 		// 상품 자리 기한도 결제 기한과 같은 시각으로 보낸다 (요청서 「확인할 것」 1번, 11/05 회의 P1·P2)
 		LocalDateTime paymentDueAt = paymentDueAt(course, crewSale, now);
-		// 되돌릴 수 없는 외부 호출. 같은 파티 ID로 다시 부르면 처음 결과를 돌려준다(멱등)
 		List<Seat> seats = participations.stream()
 			.map(participation -> new Seat(participation.getId(), participation.getRaceCourseId()))
 			.toList();
-		CrewSeatHoldResult hold = crewSeatHoldPort.holdAll(partyId, target.crewId(), course.raceId(), paymentDueAt,
+		party.markCrewHoldRequested(now);
+		return new Prepared(partyId, target.crewId(), course.raceId(), course.raceCourseId(), course.courseName(), paymentDueAt,
 			seats);
-		if (!hold.held()) {
-			Shortage shortage = hold.shortages().get(course.raceCourseId());
-			if (shortage == null) {
-				throw new IllegalStateException("크루 자리를 잡지 못했는데 모자란 종목이 없습니다. partyId=%d, shortages=%s"
-					.formatted(partyId, hold.shortages()));
-			}
-			throw new PartyCrewSeatShortageException(partyId, course.raceCourseId(), shortage.needed(),
-				shortage.remaining());
-		}
-		// 상품이 실제로 잡아 둔 기한을 쓴다. 응답을 못 받고 다시 신청하면 상품은 처음 기한을 돌려주므로 위 값과 다를 수 있다
-		LocalDateTime dueAt = hold.expiresAt();
-		// 처음 신청이 롤백되고 기한이 지난 뒤 다시 누르면 상품은 지난 기한을 돌려준다. 결제 기간을 열지 않는다
-		if (!dueAt.isAfter(now)) {
-			throw new ParticipationNotPayableException("이미 잡았던 크루 자리의 결제 기한이 지났습니다. 새 파티로 신청해 주세요.");
+	}
+
+	// 3단계: 다시 잠그고 결제 기간을 연다. 1단계 뒤로 합류·나가기가 막혀 있어 파티원·신청서는 그대로여야 한다
+	private Party startPayment(Prepared prepared, long memberId, LocalDateTime dueAt, LocalDateTime now) {
+		long partyId = prepared.partyId();
+		Party party = partyRepository.findByIdForUpdate(partyId)
+			.orElseThrow(() -> new PartyNotFoundException("존재하지 않는 파티입니다."));
+		// 파티장이 두 번 눌러 다른 요청이 먼저 결제 기간을 열었으면 「이미 신청함」이다
+		party.checkApplicable(memberId);
+		List<PartyMember> members = partyMemberRepository.findActiveByPartyIdForUpdate(partyId);
+		List<Participation> participations = participationRepository.findActiveByPartyIdForUpdate(partyId);
+		Set<Long> participationIds = participations.stream().map(Participation::getId).collect(Collectors.toSet());
+		Set<Long> heldIds = prepared.seats().stream().map(Seat::participationId).collect(Collectors.toSet());
+		if (!participationIds.equals(heldIds)) {
+			throw new IllegalStateException("크루 자리를 잡은 뒤 신청서가 바뀌었습니다. partyId=%d, held=%s, now=%s"
+				.formatted(partyId, heldIds, participationIds));
 		}
 		participations.forEach(participation -> participation.markApplied(dueAt));
 		party.startPayment(dueAt, now);
 		// 커밋된 뒤에만 나간다 (롤백되면 보내지 않는다). 잃어도 되는 메시지라 아웃박스 없이 보낸다 (11/04 결정)
 		members.forEach(member -> eventPublisher.publish(NotificationRequestedEvent.of(member.getMemberId(),
 			NotificationKind.PARTY_PAYMENT_REQUESTED, "파티 결제를 시작해 주세요",
-			course.courseName() + " 파티 신청이 끝났어요.\n" + dueAt.format(DUE_FORMAT) + "까지 결제해 주세요.",
+			prepared.courseName() + " 파티 신청이 끝났어요.\n" + dueAt.format(DUE_FORMAT) + "까지 결제해 주세요.",
 			// shortcut: 프론트 파티 상세 경로가 아직 없어 /parties/{id}로 둔다. 화면이 생기면 맞춘다
 			"/parties/" + partyId)));
 		return party;
+	}
+
+	private void clearCrewHoldRequested(long partyId) {
+		transactionTemplate.executeWithoutResult(status -> partyRepository.findByIdForUpdate(partyId)
+			.ifPresent(Party::clearCrewHoldRequested));
+	}
+
+	// 1단계에서 정한 값. 3단계는 이 자리 목록으로 신청서가 그대로인지 본다
+	private record Prepared(long partyId, long crewId, long raceId, long raceCourseId, String courseName,
+		LocalDateTime paymentDueAt, List<Seat> seats) {
 	}
 
 	// 11/05 회의 P2 + 11/09 호빈님 요청: min(신청 + 24시간, 크루 마감일 다음 날 0시, 접수 마감)

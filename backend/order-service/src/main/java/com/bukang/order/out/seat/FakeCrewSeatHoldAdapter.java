@@ -4,10 +4,13 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
+
+import com.bukang.order.domain.exception.ParticipationNotPayableException;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -25,6 +28,7 @@ public class FakeCrewSeatHoldAdapter implements CrewSeatHoldPort {
 	private final FakeSeatHoldAdapter seatHoldAdapter;
 	private final Map<Long, Integer> remainingSeats = new HashMap<>();
 	private final Map<Long, CrewSeatHoldResult> results = new HashMap<>();
+	private final Map<Long, List<Seat>> heldSeats = new HashMap<>();
 
 	public FakeCrewSeatHoldAdapter(FakeSeatHoldAdapter seatHoldAdapter) {
 		this.seatHoldAdapter = seatHoldAdapter;
@@ -37,6 +41,10 @@ public class FakeCrewSeatHoldAdapter implements CrewSeatHoldPort {
 		List<Seat> seats) {
 		CrewSeatHoldResult first = results.get(partyId);
 		if (first != null) {
+			// 상품처럼 자리 목록이 처음과 다르면 처음 결과 대신 409로 거절한다 (CrewSeatHoldPort 계약)
+			if (!Set.copyOf(heldSeats.get(partyId)).equals(Set.copyOf(seats))) {
+				throw new ParticipationNotPayableException("이미 다른 자리 목록으로 확보한 파티입니다.");
+			}
 			return first;
 		}
 		Map<Long, Integer> needed = seats.stream()
@@ -53,6 +61,7 @@ public class FakeCrewSeatHoldAdapter implements CrewSeatHoldPort {
 		seats.forEach(seat -> seatHoldAdapter.holdCrewSeat(seat.participationId(), seat.raceCourseId(), expiresAt));
 		CrewSeatHoldResult held = CrewSeatHoldResult.held(expiresAt);
 		results.put(partyId, held);
+		heldSeats.put(partyId, List.copyOf(seats));
 		log.debug("가짜 크루 자리 확보 partyId={}, seats={}", partyId, needed);
 		return held;
 	}

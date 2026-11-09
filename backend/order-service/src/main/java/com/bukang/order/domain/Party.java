@@ -69,13 +69,18 @@ public class Party extends BaseIdAndTime {
 	@Column(name = "status", nullable = false, columnDefinition = "varchar(20)")
 	private PartyStatus status;
 
-	// 파티원 결제 기한 = min(신청 + 24시간, 크루 예매 마감, 접수 마감). 신청 때 정한다
+	// 파티원 결제 기한 = 상품이 잡은 크루 자리 기한 (min(신청 + 24시간, 크루 자리 닫는 시각, 접수 마감)). 신청 때 정한다
 	@Column(name = "payment_due_at")
 	private LocalDateTime paymentDueAt;
 
 	// 결제 마감 알림을 보낸 시각. 한 번만 보낸다 (BUK-38)
 	@Column(name = "payment_reminded_at")
 	private LocalDateTime paymentRemindedAt;
+
+	// 상품에 크루 자리를 요청한 시각. 결과를 모르는 동안(응답 시간 초과 등) 합류·나가기를 막는다 (BUK-105)
+	// 결제 기간을 열거나, 한 석도 잡지 않았다는 답을 받으면 비운다
+	@Column(name = "crew_hold_requested_at")
+	private LocalDateTime crewHoldRequestedAt;
 
 	@Column(name = "applied_at")
 	private LocalDateTime appliedAt;
@@ -120,6 +125,27 @@ public class Party extends BaseIdAndTime {
 		}
 	}
 
+	// 합류·나가기: 모집 중이고, 상품에 크루 자리를 요청해 결과를 모르는 중이 아니어야 한다
+	// 상품은 같은 파티의 자리 목록이 처음과 다르면 거절하므로, 그사이 파티원이 바뀌면 다시 신청할 수 없게 된다
+	public void checkMembersChangeable() {
+		checkRecruiting();
+		if (crewHoldRequestedAt != null) {
+			throw PartyConflictException.crewHoldInProgress(getId());
+		}
+	}
+
+	// 상품을 부르기 전에 남겨 커밋한다. 다시 신청할 때는 처음 시각을 그대로 둔다
+	public void markCrewHoldRequested(LocalDateTime now) {
+		if (crewHoldRequestedAt == null) {
+			this.crewHoldRequestedAt = now;
+		}
+	}
+
+	// 상품이 한 석도 잡지 않았다고 답했다 (모자람, 거절). 파티원을 다시 바꿀 수 있다
+	public void clearCrewHoldRequested() {
+		this.crewHoldRequestedAt = null;
+	}
+
 	// 파티장 [신청] 전 확인 (BUK-37). 이미 신청한 파티는 모집 중이 아니라 409다 (11/02 결정 ⑩: 같은 파티 재신청 막음)
 	public void checkApplicable(long memberId) {
 		checkLeader(memberId);
@@ -132,6 +158,7 @@ public class Party extends BaseIdAndTime {
 	public void startPayment(LocalDateTime paymentDueAt, LocalDateTime now) {
 		checkRecruiting();
 		this.status = PartyStatus.PAYING;
+		this.crewHoldRequestedAt = null;
 		this.paymentDueAt = paymentDueAt;
 		this.appliedAt = now;
 		// 신청 때 결제 알림을 막 보냈는데 기한이 3시간 안이면 마감 알림을 또 보내지 않는다
