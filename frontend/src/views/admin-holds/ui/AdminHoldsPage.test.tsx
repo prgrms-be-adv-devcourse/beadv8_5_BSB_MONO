@@ -46,7 +46,7 @@ describe('AdminHoldsPage', () => {
     expect(await screen.findByText('지급보류를 걸었어요.')).toBeInTheDocument()
     expect(request).toEqual({
       path: '/api/v1/payout/payouts/12/holds',
-      body: { reasonType: 'ACCOUNT_NOT_REGISTERED' },
+      body: { reasonType: '정산_계좌_미등록' },
     })
   })
 

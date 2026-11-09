@@ -100,7 +100,8 @@ class QueueKafkaInboxTest {
 		// 마지막 메시지(11시)가 반영될 때까지 기다린다
 		await().atMost(WAIT).untilAsserted(() ->
 			assertThat(queueRaceRepository.findById(RACE_ID)).get().usingRecursiveComparison().isEqualTo(
-				new QueueRace(RACE_ID, RaceSaleStatus.ON_SALE, INDIVIDUAL_OPEN_AT, APPLICATION_CLOSE_AT, at(11))));
+				new QueueRace(RACE_ID, RaceSaleStatus.ON_SALE, INDIVIDUAL_OPEN_AT, APPLICATION_CLOSE_AT,
+					null, null, at(11))));
 		assertThat(queueInboxKafkaEventRepository.findAll())
 			.extracting(QueueInboxKafkaEvent::getMessageId)
 			.containsExactlyInAnyOrder(MESSAGE_ID_A, MESSAGE_ID_B);
@@ -133,7 +134,7 @@ class QueueKafkaInboxTest {
 
 	private String raceMessage(RaceSaleStatus saleStatus, LocalDateTime updatedAt) {
 		return jsonConverter.toJson(
-			new RaceChangedEvent(RACE_ID, saleStatus, INDIVIDUAL_OPEN_AT, APPLICATION_CLOSE_AT, updatedAt));
+			new RaceChangedEvent(RACE_ID, saleStatus, INDIVIDUAL_OPEN_AT, APPLICATION_CLOSE_AT, null, null, updatedAt));
 	}
 
 	private String raceCourseMessage(LocalDateTime updatedAt, boolean deleted) {

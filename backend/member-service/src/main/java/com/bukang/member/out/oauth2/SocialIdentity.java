@@ -8,8 +8,14 @@ import com.bukang.member.domain.SocialProvider;
  * @param providerUserId 카카오 회원번호, 구글 sub
  * @param verifiedEmail 제공자가 확인했다고 한 이메일만 담는다. 확인되지 않았거나 동의하지 않았으면 null (BE-032 결정 2)
  * @param name 제공자가 준 실명. 없으면 null (가입 화면에 미리 채우기만 한다)
+ * @param tokens 카카오 코드 교환으로 받은 토큰. 구글이거나 토큰이 없으면 null. 메시지 추가 동의 때만 저장한다
  */
-public record SocialIdentity(SocialProvider provider, String providerUserId, String verifiedEmail, String name) {
+public record SocialIdentity(SocialProvider provider, String providerUserId, String verifiedEmail, String name,
+	SocialTokens tokens) {
+	public SocialIdentity(SocialProvider provider, String providerUserId, String verifiedEmail, String name) {
+		this(provider, providerUserId, verifiedEmail, name, null);
+	}
+
 	// 이메일·이름은 개인정보라 로그에 찍혀도 나오지 않게 가린다
 	@Override
 	public String toString() {

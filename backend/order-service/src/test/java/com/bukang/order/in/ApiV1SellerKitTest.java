@@ -133,6 +133,7 @@ class ApiV1SellerKitTest {
 			.andExpect(jsonPath("$.data.totalElements").value(1))
 			.andExpect(jsonPath("$.data.kits[0].orderItemId").value(itemId))
 			.andExpect(jsonPath("$.data.kits[0].participantName").value("김러너"))
+			.andExpect(jsonPath("$.data.kits[0].shippingAddress.recipientPhone").value("010-1234-5678"))
 			.andExpect(jsonPath("$.data.kits[0].kitDeliveryStatus").value("PREPARING"));
 		mockMvc.perform(get(BASE_URL + "/summary").header("X-Member-Id", SELLER_MEMBER_ID))
 			.andExpect(status().isOk())

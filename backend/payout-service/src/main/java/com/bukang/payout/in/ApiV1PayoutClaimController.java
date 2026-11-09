@@ -45,7 +45,7 @@ public class ApiV1PayoutClaimController {
 	@PostMapping("/claims/{claimId}/confirm")
 	@Operation(summary = "청구 입금 확인",
 		description = "판매자가 청구 금액을 보낸 것을 확인한다. 청구 금액만큼 회수 입금을 원장에 남기고, "
-			+ "그 대회의 요청 중인 회수를 입금으로 끝내고, 청구를 입금 확인(CONFIRMED)으로 바꾼다.")
+			+ "그 대회의 요청 중인 회수를 입금으로 끝내고, 청구를 입금 확인으로 바꾼다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "확인 성공",
 			content = @Content(examples = @ExampleObject(value = PayoutClaimApiExamples.CONFIRM_SUCCESS))),

@@ -41,7 +41,8 @@ class QueueKafkaConsumerTest extends QueueIntegrationTest {
 			raceMessage(RaceSaleStatus.SCHEDULED, INDIVIDUAL_OPEN_AT, at(10)), NO_HEADER);
 		// usingRecursiveComparison()을 붙이면 id, saleStatus, individualOpenAt, applicationCloseAt, updatedAt 필드를 하나씩 비교
 		assertThat(findRace(RACE_ID)).usingRecursiveComparison().isEqualTo(
-			new QueueRace(RACE_ID, RaceSaleStatus.SCHEDULED, INDIVIDUAL_OPEN_AT, APPLICATION_CLOSE_AT, at(10)));
+			new QueueRace(RACE_ID, RaceSaleStatus.SCHEDULED, INDIVIDUAL_OPEN_AT, APPLICATION_CLOSE_AT,
+				null, null, at(10)));
 	}
 
 	@Test
@@ -54,7 +55,8 @@ class QueueKafkaConsumerTest extends QueueIntegrationTest {
 		// 두 개가 들어갔다면 List<QueueRace> 로 나오기에 비교에 실패해야함. 그러나 실패를 하지 않는건 멱등하게 하나만 처리되었음을 의미
 		assertThat(queueRaceRepository.count()).isEqualTo(1);
 		assertThat(findRace(RACE_ID)).usingRecursiveComparison().isEqualTo(
-			new QueueRace(RACE_ID, RaceSaleStatus.SCHEDULED, INDIVIDUAL_OPEN_AT, APPLICATION_CLOSE_AT, at(10)));
+			new QueueRace(RACE_ID, RaceSaleStatus.SCHEDULED, INDIVIDUAL_OPEN_AT, APPLICATION_CLOSE_AT,
+				null, null, at(10)));
 	}
 
 	@Test
@@ -82,7 +84,8 @@ class QueueKafkaConsumerTest extends QueueIntegrationTest {
 			raceMessage(RaceSaleStatus.ON_SALE, INDIVIDUAL_OPEN_AT, at(11)), NO_HEADER);
 
 		assertThat(findRace(RACE_ID)).usingRecursiveComparison().isEqualTo(
-			new QueueRace(RACE_ID, RaceSaleStatus.ON_SALE, INDIVIDUAL_OPEN_AT, APPLICATION_CLOSE_AT, at(11)));
+			new QueueRace(RACE_ID, RaceSaleStatus.ON_SALE, INDIVIDUAL_OPEN_AT, APPLICATION_CLOSE_AT,
+				null, null, at(11)));
 	}
 
 	@Test
@@ -145,7 +148,7 @@ class QueueKafkaConsumerTest extends QueueIntegrationTest {
 	// 상품이 보내는 대회 메시지 (접수 마감은 모든 테스트에서 같다)
 	private String raceMessage(RaceSaleStatus saleStatus, LocalDateTime individualOpenAt, LocalDateTime updatedAt) {
 		return jsonConverter.toJson(
-			new RaceChangedEvent(RACE_ID, saleStatus, individualOpenAt, APPLICATION_CLOSE_AT, updatedAt));
+			new RaceChangedEvent(RACE_ID, saleStatus, individualOpenAt, APPLICATION_CLOSE_AT, null, null, updatedAt));
 	}
 
 	// 상품이 보내는 종목 메시지 (대회 RACE_ID의 종목 RACE_COURSE_ID)

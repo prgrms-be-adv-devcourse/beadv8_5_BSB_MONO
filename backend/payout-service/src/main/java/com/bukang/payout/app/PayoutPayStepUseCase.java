@@ -21,7 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * 지급 배치의 정산 내역 한 건 단계마다 짧은 트랜잭션을 연다 (PRO-252)
  * 캐시 서비스 호출(HTTP)은 이 트랜잭션들 밖에서 한다. 호출하는 동안 정산 DB 연결과 행 잠금을 잡지 않기 위해서다
- * 지급 중(PAYING)을 호출 전에 커밋해 두므로, 트랜잭션 밖에 있어도 그동안 보류 · 상계 · 취소가 끼어들지 못한다
+ * 지급 중을 호출 전에 커밋해 두므로, 트랜잭션 밖에 있어도 그동안 보류 · 상계 · 취소가 끼어들지 못한다
  * PayoutPayUseCase가 부른다. 같은 클래스 안에서 부르면 @Transactional 프록시를 거치지 않으므로 빈을 나눈다
  */
 @Slf4j
@@ -35,7 +35,7 @@ public class PayoutPayStepUseCase {
 
 	@Transactional(readOnly = true)
 	public List<Long> findTargetIds(LocalDate today) {
-		return payoutRepository.findPayTargetIds(today, PayoutStatus.CALCULATED, PayoutStatus.PAYING);
+		return payoutRepository.findPayTargetIds(today, PayoutStatus.지급_예정, PayoutStatus.지급_중);
 	}
 
 	/**
@@ -50,17 +50,24 @@ public class PayoutPayStepUseCase {
 	@Transactional
 	public Start start(long payoutId, LocalDate today, LocalDateTime now) {
 		Payout payout = payoutRepository.findById(payoutId).orElseThrow(PayoutNotFoundException::new);
-		if (payout.getStatus() == PayoutStatus.PAYING) {
+		if (payout.getStatus() == PayoutStatus.지급_중) {
 			return Start.transfer(PayoutTransfer.from(payout));
 		}
-		if (payout.getStatus() != PayoutStatus.CALCULATED || payout.getScheduledPayDate().isAfter(today)) {
+		if (payout.getStatus() != PayoutStatus.지급_예정 || payout.getScheduledPayDate().isAfter(today)) {
 			return Start.skipped();
 		}
 		Optional<Payout> waitingFirst = findWaitingFirst(payout);
 		if (waitingFirst.isPresent()) {
 			// 보류가 안 풀린 1차 때문에 최종이 계속 밀리면 원인을 찾을 수 있게 실행마다 한 줄 남긴다
-			log.info("1차 정산이 지급 완료되지 않아 최종 정산 지급을 미룹니다. payoutId={}, firstPayoutId={}, firstStatus={}",
-				payout.getId(), waitingFirst.get().getId(), waitingFirst.get().getStatus());
+			// 1차가 지급 불일치면 사람이 풀기 전까지 계속 밀리므로 warn으로 남긴다 (BUK-62)
+			Payout first = waitingFirst.get();
+			if (first.getStatus() == PayoutStatus.지급_불일치) {
+				log.warn("1차 정산이 지급 불일치라 최종 정산 지급을 미룹니다. 확인이 필요합니다. payoutId={}, firstPayoutId={}",
+					payout.getId(), first.getId());
+			} else {
+				log.info("1차 정산이 지급 완료되지 않아 최종 정산 지급을 미룹니다. payoutId={}, firstPayoutId={}, firstStatus={}",
+					payout.getId(), first.getId(), first.getStatus());
+			}
 			return Start.skipped();
 		}
 		if (!payout.hasTransferAmount()) {
@@ -74,18 +81,18 @@ public class PayoutPayStepUseCase {
 	// 최종은 1차가 지급 완료된 뒤에만 지급한다 (PRO-188, 10/28 결정). 1차가 보류 · 지급 중이면 최종도 기다린다
 	// 살아 있는 1차(대회 취소로 닫히지 않은 1차, PayoutLedgerUseCase.findLive와 같은 기준)가 없으면 기다리지 않는다.
 	// 1차를 만들지 못한 채 최종이 만들어진 경우이고, 그 뒤 1차는 만들어지지 않는다 (PRO-190)
-	// 지급 중(PAYING)인 최종의 재시도에는 걸지 않는다. 이미 돈이 나갔을 수 있어 결과를 확인해야 한다
+	// 지급 중인 최종의 재시도에는 걸지 않는다. 이미 돈이 나갔을 수 있어 결과를 확인해야 한다
 	// 같은 날 1차 · 최종이 함께 대상이면 같은 실행에서 1차 → 최종 순서로 지급한다(같은 날 두 번 이체해도 된다, 10/28 결정).
 	// 지급 배치가 ID 순서로 처리하고 1차가 최종보다 먼저 저장되기 때문이다 (PayoutRepository.findPayTargetIds)
 	// 최종이 기다려야 하는 1차를 돌려준다. 기다리지 않아도 되면 빈 값
 	private Optional<Payout> findWaitingFirst(Payout payout) {
-		if (payout.getPayoutStage() != PayoutStage.FINAL) {
+		if (payout.getPayoutStage() != PayoutStage.최종_정산) {
 			return Optional.empty();
 		}
 		return payoutRepository.findFirstBySellerIdAndRaceIdAndPayoutStageOrderByIdAsc(
-				payout.getSellerId(), payout.getRaceId(), PayoutStage.FIRST)
-			.filter(first -> first.getStatus() != PayoutStatus.CANCELED)
-			.filter(first -> first.getStatus() != PayoutStatus.PAID);
+				payout.getSellerId(), payout.getRaceId(), PayoutStage.일차_정산)
+			.filter(first -> first.getStatus() != PayoutStatus.취소)
+			.filter(first -> first.getStatus() != PayoutStatus.지급_완료);
 	}
 
 	// 캐시 서비스가 돈을 옮긴 뒤 지급 완료로 바꾼다
@@ -94,7 +101,7 @@ public class PayoutPayStepUseCase {
 	@Transactional
 	public boolean complete(long payoutId, LocalDateTime now) {
 		Payout payout = payoutRepository.findById(payoutId).orElseThrow(PayoutNotFoundException::new);
-		if (payout.getStatus() == PayoutStatus.PAID) {
+		if (payout.getStatus() == PayoutStatus.지급_완료) {
 			return false;
 		}
 		payout.pay(now);
@@ -117,6 +124,20 @@ public class PayoutPayStepUseCase {
 		payout.cancelRejected(now, RACE_CANCELED_REASON);
 		// 1차가 거절로 닫히면 지급 전 취소와 같으므로 상계로 끝난 회수도 되돌린다 (R9, PR #284 리뷰)
 		payoutRaceCancelUseCase.recoverAfterRejectedCancel(payout, now);
+	}
+
+	// 캐시 서비스가 같은 정산 ID를 이미 다른 금액으로 지급했다고 답했다(409). 다시 요청해도 같으므로 지급 불일치로 멈춘다 (BUK-62)
+	// 지급 대상(정산 예정 · 지급 중)이 아니게 되므로 다음 지급 배치가 고르지 않는다
+	// 지급 중에 대회가 취소됐으면 지급 완료(complete)와 같이 회수를 만든다. 돈은 나갔고, 회수가 미뤄진 1차 정산금도 받아야 한다
+	// 회수 금액은 정산 원장 기준이다. 캐시가 말한 저장 금액과 다를 수 있어 경고를 남긴다
+	@Transactional
+	public void markMismatch(long payoutId, LocalDateTime now, String reason) {
+		Payout payout = payoutRepository.findById(payoutId).orElseThrow(PayoutNotFoundException::new);
+		payout.markPayMismatch(now, reason);
+		if (payout.isRaceCanceled()) {
+			log.warn("지급 중에 대회가 취소된 정산 내역이 지급 불일치가 됐습니다. 원장 금액으로 회수를 만듭니다. payoutId={}", payoutId);
+			payoutRaceCancelUseCase.recoverAfterPayResult(payout.getSellerId(), payout.getRaceId(), now);
+		}
 	}
 
 	/**
