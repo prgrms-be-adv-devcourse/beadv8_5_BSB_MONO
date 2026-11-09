@@ -197,6 +197,83 @@ export interface PayoutHoldDto {
   releasedAt?: string | null;
 }
 
+/**
+ * 정산 생성 실패 종류
+ */
+export type PayoutCreateFailureType = typeof PayoutCreateFailureType[keyof typeof PayoutCreateFailureType];
+
+
+export const PayoutCreateFailureType = {
+  주문_정산_대회일_불일치: '주문_정산_대회일_불일치',
+  정산_계좌_조회_실패: '정산_계좌_조회_실패',
+  정산_저장_실패: '정산_저장_실패',
+  정산_조회_실패: '정산_조회_실패',
+  알_수_없는_실패: '알_수_없는_실패',
+  대회_조회_실패: '대회_조회_실패',
+  주문_조회_실패: '주문_조회_실패',
+  취소_중이라_미룸: '취소_중이라_미룸',
+  대사_불일치: '대사_불일치',
+} as const;
+
+/**
+ * 배치가 기록할 때 한 조치 (지급보류, 자동_보정: 빠진 참가권 채움, 기록만)
+ */
+export type PayoutCreateFailureAction = typeof PayoutCreateFailureAction[keyof typeof PayoutCreateFailureAction];
+
+
+export const PayoutCreateFailureAction = {
+  지급보류: '지급보류',
+  자동_보정: '자동_보정',
+  기록만: '기록만',
+} as const;
+
+export interface PayoutCreateFailureDto {
+  id: number;
+  recordedAt: string;
+  runDate: string;
+  payoutStage: PayoutStage;
+  /**
+     * 대회 · 주문 조회 실패는 null
+     * @nullable
+     */
+  sellerId: number | null;
+  /**
+     * 대회 조회 실패는 null
+     * @nullable
+     */
+  raceId: number | null;
+  /**
+     * 대사 불일치에서 어긋난 코스가 하나일 때만
+     * @nullable
+     */
+  raceCourseId: number | null;
+  /** @nullable */
+  payoutTargetDate: string | null;
+  failureType: PayoutCreateFailureType;
+  /** 칸을 더하기 전의 대사 불일치 기록은 null */
+  actionTaken: PayoutCreateFailureAction | null;
+  /** @nullable */
+  note: string | null;
+}
+
+export interface PayoutCreateFailurePageDto {
+  content: PayoutCreateFailureDto[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
+export interface PayoutCreateFailuresDto {
+  /** 대사 불일치 건수 */
+  mismatchCount: number;
+  /** 빠진 참가권을 채운 대사 불일치 건수 (장수 아님) */
+  autoFilledCount: number;
+  /** 주문 조회 실패 건수 */
+  orderLookupFailureCount: number;
+  records: PayoutCreateFailurePageDto;
+}
+
 export interface RsDataPayoutHoldDto {
   status?: number;
   message?: string;
@@ -225,6 +302,12 @@ export interface RsDataListSellerPayoutHoldDto {
   status?: number;
   message?: string;
   data?: SellerPayoutHoldDto[];
+}
+
+export interface RsDataPayoutCreateFailuresDto {
+  status?: number;
+  message?: string;
+  data?: PayoutCreateFailuresDto;
 }
 
 export type RefundEligibilityParams = {
@@ -273,5 +356,28 @@ from: string;
  * 조회 끝 보류일 (yyyy-MM-dd, 포함)
  */
 to: string;
+};
+
+export type CreateFailuresParams = {
+/**
+ * 조회 시작 실행일 (yyyy-MM-dd)
+ */
+from: string;
+/**
+ * 조회 끝 실행일 (yyyy-MM-dd, 포함)
+ */
+to: string;
+/**
+ * 실패 종류 (없으면 전체)
+ */
+type?: PayoutCreateFailureType;
+/**
+ * 페이지 번호 (0부터)
+ */
+page?: number;
+/**
+ * 페이지 크기 (1 ~ 100)
+ */
+size?: number;
 };
 

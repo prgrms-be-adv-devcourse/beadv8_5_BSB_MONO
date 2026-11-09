@@ -25,6 +25,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  CreateFailuresParams,
   HoldsParams,
   ItemsParams,
   PayoutHoldRequestDto,
@@ -33,6 +34,7 @@ import type {
   RsData,
   RsDataListPayoutDto,
   RsDataListSellerPayoutHoldDto,
+  RsDataPayoutCreateFailuresDto,
   RsDataPayoutHoldDto,
   RsDataPayoutItemPageDto,
   RsDataPayoutSummaryDto
@@ -751,6 +753,115 @@ export function useHolds<TData = Awaited<ReturnType<typeof holds>>, TError = RsD
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getHoldsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateFailuresUrl = (params: CreateFailuresParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/payout/admin/create-failures?${stringifiedParams}` : `/api/v1/payout/admin/create-failures`
+}
+
+/**
+ * 정산 생성 배치가 남긴 실패 기록(대사 불일치 · 주문 조회 실패 등)을 실행일 기간으로 최근 것부터 돌려준다. 카드 숫자(대사 불일치 · 자동으로 채운 참가권 · 주문 조회 실패 건수)는 종류 선택과 상관없이 기간 전체로 센다. 끝 날이 시작 날 + 1개월 전이어야 한다(최대 1개월). 기록이 없으면 빈 목록과 카드 0을 돌려준다.
+ * @summary 이상 감지 기록 조회
+ */
+export const createFailures = async (params: CreateFailuresParams, options?: Parameters<typeof customFetch>[1]): Promise<RsDataPayoutCreateFailuresDto> => {
+
+  return customFetch<RsDataPayoutCreateFailuresDto>(getCreateFailuresUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getCreateFailuresQueryKey = (params?: CreateFailuresParams,) => {
+    return [
+    `/api/v1/payout/admin/create-failures`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getCreateFailuresQueryOptions = <TData = Awaited<ReturnType<typeof createFailures>>, TError = RsData>(params: CreateFailuresParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof createFailures>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getCreateFailuresQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof createFailures>>> = ({ signal }) => createFailures(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof createFailures>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type CreateFailuresQueryResult = NonNullable<Awaited<ReturnType<typeof createFailures>>>
+export type CreateFailuresQueryError = RsData
+
+
+export function useCreateFailures<TData = Awaited<ReturnType<typeof createFailures>>, TError = RsData>(
+ params: CreateFailuresParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof createFailures>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof createFailures>>,
+          TError,
+          Awaited<ReturnType<typeof createFailures>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useCreateFailures<TData = Awaited<ReturnType<typeof createFailures>>, TError = RsData>(
+ params: CreateFailuresParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof createFailures>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof createFailures>>,
+          TError,
+          Awaited<ReturnType<typeof createFailures>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useCreateFailures<TData = Awaited<ReturnType<typeof createFailures>>, TError = RsData>(
+ params: CreateFailuresParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof createFailures>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 이상 감지 기록 조회
+ */
+
+export function useCreateFailures<TData = Awaited<ReturnType<typeof createFailures>>, TError = RsData>(
+ params: CreateFailuresParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof createFailures>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getCreateFailuresQueryOptions(params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

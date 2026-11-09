@@ -60,3 +60,35 @@ export const HOLD_REASON_ITEMS: { value: payoutModel.PayoutHoldReason; label: st
   { value: '대회_취소_처리', label: HOLD_REASON.대회_취소_처리 },
   { value: '정산_계좌_미등록', label: HOLD_REASON.정산_계좌_미등록 },
 ]
+
+// 관리자 이상 감지 (BUK-108)
+export const CREATE_FAILURE_TYPE: Record<payoutModel.PayoutCreateFailureType, string> = {
+  주문_정산_대회일_불일치: '주문 · 정산 대회일 불일치',
+  정산_계좌_조회_실패: '정산 계좌 조회 실패',
+  정산_저장_실패: '정산 저장 실패',
+  정산_조회_실패: '정산 조회 실패',
+  알_수_없는_실패: '알 수 없는 실패',
+  대회_조회_실패: '대회 조회 실패',
+  주문_조회_실패: '주문 조회 실패',
+  취소_중이라_미룸: '취소 중이라 미룸',
+  대사_불일치: '대사 불일치',
+}
+
+/** 이상 감지 종류 고르기. 'all'이면 종류를 보내지 않는다 */
+export const CREATE_FAILURE_TYPE_ITEMS: {
+  value: payoutModel.PayoutCreateFailureType | 'all'
+  label: string
+}[] = [
+  { value: 'all', label: '전체' },
+  ...(Object.keys(CREATE_FAILURE_TYPE) as payoutModel.PayoutCreateFailureType[]).map((value) => ({
+    value,
+    label: CREATE_FAILURE_TYPE[value],
+  })),
+]
+
+/** 배치가 기록할 때 한 조치. 칸을 더하기 전의 대사 불일치 기록은 null이라 「알 수 없음」으로 보여 준다 */
+export const CREATE_FAILURE_ACTION: Record<payoutModel.PayoutCreateFailureAction, Label> = {
+  지급보류: { label: '지급보류', tone: 'warning' },
+  자동_보정: { label: '자동 보정', tone: 'info' },
+  기록만: { label: '기록만', tone: 'neutral' },
+}

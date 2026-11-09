@@ -16,6 +16,7 @@ import type {
 import type {
   RsDataListPayoutDto,
   RsDataListSellerPayoutHoldDto,
+  RsDataPayoutCreateFailuresDto,
   RsDataPayoutHoldDto,
   RsDataPayoutItemPageDto,
   RsDataPayoutSummaryDto
@@ -33,6 +34,8 @@ export const getPayoutsResponseMock = (): RsDataListPayoutDto => ({"status":200,
 export const getItemsResponseMock = (): RsDataPayoutItemPageDto => ({"status":200,"message":"건별 정산을 조회했습니다.","data":{"content":[{"id":1,"orderItemId":100,"recordType":"판매","amount":50000,"feeRate":0.055,"feeAmount":2750,"targetDate":"2026-09-26","payoutId":1,"payoutCode":"ST-20260926-0001","raceId":10,"raceName":"2026 한강 나이트런","payoutStatus":"지급_예정","scheduledPayDate":"2026-10-20"}],"page":0,"size":50,"totalElements":1,"totalPages":1}})
 
 export const getHoldsResponseMock = (): RsDataListSellerPayoutHoldDto => ({"status":200,"message":"지급보류 내역을 조회했습니다.","data":[{"id":1,"holdCode":"HD-20261012-0001","payoutId":1,"payoutCode":"ST-20260926-0001","raceId":10,"raceName":"2026 한강 나이트런","payoutAmount":94500,"reasonType":"정산_계좌_미등록","reason":"정산 계좌 등록 요청 중","status":"지급보류","heldAt":"2026-10-12T10:00:00","releasedAt":null}]})
+
+export const getCreateFailuresResponseMock = (): RsDataPayoutCreateFailuresDto => ({"status":200,"message":"이상 감지 기록을 조회했습니다.","data":{"mismatchCount":2,"autoFilledCount":1,"orderLookupFailureCount":1,"records":{"content":[{"id":3,"recordedAt":"2026-11-06T03:00:12","runDate":"2026-11-06","payoutStage":"최종_정산","sellerId":1,"raceId":10,"raceCourseId":4,"payoutTargetDate":"2026-11-05","failureType":"대사_불일치","actionTaken":"지급보류","note":"더 들어감 2장 (코스 4: 2장)"}],"page":0,"size":50,"totalElements":1,"totalPages":1}}})
 
 
 export const getHoldMockHandler = (overrideResponse?: RsDataPayoutHoldDto | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<RsDataPayoutHoldDto> | RsDataPayoutHoldDto), options?: RequestHandlerOptions) => {
@@ -116,6 +119,18 @@ export const getHoldsMockHandler = (overrideResponse?: RsDataListSellerPayoutHol
       })
   }, options)
 }
+
+export const getCreateFailuresMockHandler = (overrideResponse?: RsDataPayoutCreateFailuresDto | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<RsDataPayoutCreateFailuresDto> | RsDataPayoutCreateFailuresDto), options?: RequestHandlerOptions) => {
+  return http.get('*/api/v1/payout/admin/create-failures', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getCreateFailuresResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
 export const getBukangPayoutAPIMock = () => [
   getHoldMockHandler(),
   getReleaseMockHandler(),
@@ -123,5 +138,6 @@ export const getBukangPayoutAPIMock = () => [
   getSummaryMockHandler(),
   getPayoutsMockHandler(),
   getItemsMockHandler(),
-  getHoldsMockHandler()
+  getHoldsMockHandler(),
+  getCreateFailuresMockHandler()
 ]

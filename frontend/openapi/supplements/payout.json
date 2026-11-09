@@ -53,6 +53,14 @@
           "$ref": "#/components/schemas/PayoutHoldDto"
         }
       }
+    },
+    "createFailures": {
+      "200": {
+        "wrapper": "RsDataPayoutCreateFailuresDto",
+        "data": {
+          "$ref": "#/components/schemas/PayoutCreateFailuresDto"
+        }
+      }
     }
   },
   "schemas": {
@@ -60,7 +68,10 @@
       "type": "object",
       "properties": {
         "nextPayDate": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "format": "date",
           "description": "다음 정산일. 지급 예정 정산 내역이 없으면 null"
         },
@@ -427,6 +438,165 @@
         "최종_정산"
       ],
       "description": "정산 단계 (일차_정산: 1차 정산, 최종_정산: 최종 정산)"
+    },
+    "PayoutCreateFailureType": {
+      "type": "string",
+      "enum": [
+        "주문_정산_대회일_불일치",
+        "정산_계좌_조회_실패",
+        "정산_저장_실패",
+        "정산_조회_실패",
+        "알_수_없는_실패",
+        "대회_조회_실패",
+        "주문_조회_실패",
+        "취소_중이라_미룸",
+        "대사_불일치"
+      ],
+      "description": "정산 생성 실패 종류"
+    },
+    "PayoutCreateFailureAction": {
+      "type": "string",
+      "enum": [
+        "지급보류",
+        "자동_보정",
+        "기록만"
+      ],
+      "description": "배치가 기록할 때 한 조치 (지급보류, 자동_보정: 빠진 참가권 채움, 기록만)"
+    },
+    "PayoutCreateFailureDto": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "recordedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "runDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "payoutStage": {
+          "$ref": "#/components/schemas/PayoutStage"
+        },
+        "sellerId": {
+          "type": "integer",
+          "format": "int32",
+          "nullable": true,
+          "description": "대회 · 주문 조회 실패는 null"
+        },
+        "raceId": {
+          "type": "integer",
+          "format": "int32",
+          "nullable": true,
+          "description": "대회 조회 실패는 null"
+        },
+        "raceCourseId": {
+          "type": "integer",
+          "format": "int32",
+          "nullable": true,
+          "description": "대사 불일치에서 어긋난 코스가 하나일 때만"
+        },
+        "payoutTargetDate": {
+          "type": "string",
+          "format": "date",
+          "nullable": true
+        },
+        "failureType": {
+          "$ref": "#/components/schemas/PayoutCreateFailureType"
+        },
+        "actionTaken": {
+          "allOf": [
+            {
+              "$ref": "#/components/schemas/PayoutCreateFailureAction"
+            }
+          ],
+          "nullable": true,
+          "description": "칸을 더하기 전의 대사 불일치 기록은 null"
+        },
+        "note": {
+          "type": "string",
+          "nullable": true
+        }
+      },
+      "required": [
+        "id",
+        "recordedAt",
+        "runDate",
+        "payoutStage",
+        "sellerId",
+        "raceId",
+        "raceCourseId",
+        "payoutTargetDate",
+        "failureType",
+        "actionTaken",
+        "note"
+      ]
+    },
+    "PayoutCreateFailurePageDto": {
+      "type": "object",
+      "properties": {
+        "content": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/PayoutCreateFailureDto"
+          }
+        },
+        "page": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "size": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "totalElements": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "totalPages": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "required": [
+        "content",
+        "page",
+        "size",
+        "totalElements",
+        "totalPages"
+      ]
+    },
+    "PayoutCreateFailuresDto": {
+      "type": "object",
+      "properties": {
+        "mismatchCount": {
+          "type": "integer",
+          "format": "int64",
+          "description": "대사 불일치 건수"
+        },
+        "autoFilledCount": {
+          "type": "integer",
+          "format": "int64",
+          "description": "빠진 참가권을 채운 대사 불일치 건수 (장수 아님)"
+        },
+        "orderLookupFailureCount": {
+          "type": "integer",
+          "format": "int64",
+          "description": "주문 조회 실패 건수"
+        },
+        "records": {
+          "$ref": "#/components/schemas/PayoutCreateFailurePageDto"
+        }
+      },
+      "required": [
+        "mismatchCount",
+        "autoFilledCount",
+        "orderLookupFailureCount",
+        "records"
+      ]
     }
   }
 }

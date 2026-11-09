@@ -195,3 +195,48 @@ export const HoldsResponse = zod.object({
   "releasedAt": zod.iso.datetime({"offset":true}).nullish()
 })).optional()
 })
+
+
+/**
+ * 정산 생성 배치가 남긴 실패 기록(대사 불일치 · 주문 조회 실패 등)을 실행일 기간으로 최근 것부터 돌려준다. 카드 숫자(대사 불일치 · 자동으로 채운 참가권 · 주문 조회 실패 건수)는 종류 선택과 상관없이 기간 전체로 센다. 끝 날이 시작 날 + 1개월 전이어야 한다(최대 1개월). 기록이 없으면 빈 목록과 카드 0을 돌려준다.
+ * @summary 이상 감지 기록 조회
+ */
+export const createFailuresQueryPageDefault = 0;
+export const createFailuresQuerySizeDefault = 50;
+
+export const CreateFailuresQueryParams = zod.object({
+  "from": zod.iso.date().describe('조회 시작 실행일 (yyyy-MM-dd)'),
+  "to": zod.iso.date().describe('조회 끝 실행일 (yyyy-MM-dd, 포함)'),
+  "type": zod.enum(['주문_정산_대회일_불일치', '정산_계좌_조회_실패', '정산_저장_실패', '정산_조회_실패', '알_수_없는_실패', '대회_조회_실패', '주문_조회_실패', '취소_중이라_미룸', '대사_불일치']).optional().describe('실패 종류 (없으면 전체)'),
+  "page": zod.int().default(createFailuresQueryPageDefault).describe('페이지 번호 (0부터)'),
+  "size": zod.int().default(createFailuresQuerySizeDefault).describe('페이지 크기 (1 ~ 100)')
+})
+
+export const CreateFailuresResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.object({
+  "mismatchCount": zod.int().describe('대사 불일치 건수'),
+  "autoFilledCount": zod.int().describe('빠진 참가권을 채운 대사 불일치 건수 (장수 아님)'),
+  "orderLookupFailureCount": zod.int().describe('주문 조회 실패 건수'),
+  "records": zod.object({
+  "content": zod.array(zod.object({
+  "id": zod.int(),
+  "recordedAt": zod.iso.datetime({"offset":true}),
+  "runDate": zod.iso.date(),
+  "payoutStage": zod.enum(['일차_정산', '최종_정산']).describe('정산 단계 (일차_정산: 1차 정산, 최종_정산: 최종 정산)'),
+  "sellerId": zod.int().nullable().describe('대회 · 주문 조회 실패는 null'),
+  "raceId": zod.int().nullable().describe('대회 조회 실패는 null'),
+  "raceCourseId": zod.int().nullable().describe('대사 불일치에서 어긋난 코스가 하나일 때만'),
+  "payoutTargetDate": zod.iso.date().nullable(),
+  "failureType": zod.enum(['주문_정산_대회일_불일치', '정산_계좌_조회_실패', '정산_저장_실패', '정산_조회_실패', '알_수_없는_실패', '대회_조회_실패', '주문_조회_실패', '취소_중이라_미룸', '대사_불일치']).describe('정산 생성 실패 종류'),
+  "actionTaken": zod.union([zod.enum(['지급보류', '자동_보정', '기록만']).describe('배치가 기록할 때 한 조치 (지급보류, 자동_보정: 빠진 참가권 채움, 기록만)'),zod.null()]).describe('칸을 더하기 전의 대사 불일치 기록은 null'),
+  "note": zod.string().nullable()
+})),
+  "page": zod.int(),
+  "size": zod.int(),
+  "totalElements": zod.int(),
+  "totalPages": zod.int()
+})
+}).optional()
+})
