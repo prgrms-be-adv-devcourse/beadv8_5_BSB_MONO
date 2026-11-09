@@ -19,8 +19,8 @@ export function Chip({ selected = false, type = 'button', className, ...props }:
         'relative inline-flex h-8 shrink-0 items-center gap-1 rounded-full px-3 whitespace-nowrap before:absolute before:inset-x-0 before:-inset-y-1.5 disabled:cursor-not-allowed disabled:opacity-50',
         FOCUS_RING,
         selected
-          ? 'bg-bg-inverse text-label-strong text-text-inverse'
-          : 'bg-bg-surface text-label-m text-text-secondary inset-ring inset-ring-border-default enabled:hover:bg-bg-subtle disabled:inset-ring-border-disabled',
+          ? 'bg-bg-inverse text-body2-bold text-text-inverse'
+          : 'bg-bg-surface text-body2-medium text-text-secondary inset-ring inset-ring-border-default enabled:hover:bg-bg-subtle disabled:inset-ring-border-disabled',
         className,
       )}
       {...props}

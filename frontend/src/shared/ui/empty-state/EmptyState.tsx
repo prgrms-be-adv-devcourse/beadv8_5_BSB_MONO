@@ -32,8 +32,8 @@ export function EmptyState({
       {/* 시안 선 굵기 3.43(48 기준) = 24 기준 1.71 */}
       <Icon name={icon} className="size-12 text-text-tertiary" strokeWidth={1.71} />
       <div role={role} className="flex flex-col">
-        <p className="text-label-l text-text-primary">{title}</p>
-        {description && <p className="text-body-s text-text-secondary">{description}</p>}
+        <p className="text-body1-medium text-text-primary">{title}</p>
+        {description && <p className="text-body2-regular text-text-secondary">{description}</p>}
       </div>
       {action}
     </div>

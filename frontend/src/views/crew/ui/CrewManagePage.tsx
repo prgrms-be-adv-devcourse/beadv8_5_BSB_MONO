@@ -149,14 +149,14 @@ export function CrewManagePage({ crewId }: { crewId: number }) {
             <CrewBand>
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between gap-2">
-                  <h2 className="min-w-0 text-heading-m break-all">
+                  <h2 className="min-w-0 text-title3 break-all">
                     {crew.data.name} 크루원 {crew.data.memberCount}명
                   </h2>
                   <Button variant="ghost" size="s" onClick={() => setRenaming(true)}>
                     이름 바꾸기
                   </Button>
                 </div>
-                <p className="text-body-s text-text-secondary">
+                <p className="text-body2-regular text-text-secondary">
                   {crew.data.memberCount <= 1
                     ? '아직 다른 크루원이 없어요. 초대 링크로 크루원을 모아 보세요.'
                     : '크루원의 「관리」를 눌러 크루장을 넘기거나 크루에서 내보낼 수 있어요.'}
@@ -200,7 +200,7 @@ export function CrewManagePage({ crewId }: { crewId: number }) {
               >
                 크루 없애기
               </Button>
-              <p id="crew-disband-reason" className="text-body-s text-text-secondary">
+              <p id="crew-disband-reason" className="text-body2-regular text-text-secondary">
                 {crew.data.memberCount <= 1
                   ? '크루원이 나뿐이라 크루를 없앨 수 있어요.'
                   : '다른 크루원이 있으면 크루를 없앨 수 없어요. 크루장을 넘긴 뒤 크루를 떠날 수 있어요.'}

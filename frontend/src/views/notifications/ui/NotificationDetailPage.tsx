@@ -57,7 +57,7 @@ export function NotificationDetailPage({ category }: { category: NoticeCategory 
             return (
               <Fragment key={notice.id}>
                 {(i === 0 || formatDayChip(items[i - 1].sentAt) !== day) && (
-                  <p className="self-center rounded-full bg-bg-subtle px-2.5 py-1 text-caption text-text-secondary">
+                  <p className="self-center rounded-full bg-bg-subtle px-2.5 py-1 text-caption-regular text-text-secondary">
                     {day}
                   </p>
                 )}
@@ -67,7 +67,7 @@ export function NotificationDetailPage({ category }: { category: NoticeCategory 
                   </span>
                   <div className="flex min-w-0 flex-col items-start gap-1">
                     <div className="flex max-w-80 flex-col gap-2 rounded-md rounded-tl-[2px] bg-bg-surface p-3 inset-ring inset-ring-border-default">
-                      <p className="text-body-m whitespace-pre-line">{notice.body}</p>
+                      <p className="text-body2-regular whitespace-pre-line">{notice.body}</p>
                       {href && notice.link && (
                         <div className="flex justify-center rounded-sm bg-bg-brand-subtle py-2">
                           <Link
@@ -79,7 +79,7 @@ export function NotificationDetailPage({ category }: { category: NoticeCategory 
                         </div>
                       )}
                     </div>
-                    <span className="text-caption text-text-tertiary">
+                    <span className="text-caption-regular text-text-tertiary">
                       {formatTime(notice.sentAt)}
                     </span>
                   </div>

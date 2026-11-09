@@ -35,9 +35,9 @@ export function Alert({ tone = 'info', title, description, onClose, className }:
     >
       <Icon name={ICON[tone].name} className={cn('size-5', ICON[tone].color)} />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <p className="text-label-strong text-text-primary">{title}</p>
+        <p className="text-body2-bold text-text-primary">{title}</p>
         {description && (
-          <p className="line-clamp-2 text-body-s text-text-secondary">{description}</p>
+          <p className="line-clamp-2 text-body2-regular text-text-secondary">{description}</p>
         )}
       </div>
       {onClose && (

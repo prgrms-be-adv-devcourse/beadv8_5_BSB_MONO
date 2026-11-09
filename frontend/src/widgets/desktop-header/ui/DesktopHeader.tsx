@@ -20,7 +20,7 @@ export function DesktopHeader() {
           <Link
             href="/seller-apply"
             className={cn(
-              'flex h-10 items-center rounded-sm px-2 text-label-l text-text-brand',
+              'flex h-10 items-center rounded-sm px-2 text-body1-medium text-text-brand',
               FOCUS_RING,
             )}
           >
@@ -31,7 +31,7 @@ export function DesktopHeader() {
         <Link
           href="/races"
           className={cn(
-            'flex h-10 w-70 items-center gap-2 rounded-full bg-bg-subtle px-4 text-body-s text-text-tertiary',
+            'flex h-10 w-70 items-center gap-2 rounded-full bg-bg-subtle px-4 text-body2-regular text-text-tertiary',
             FOCUS_RING,
           )}
         >

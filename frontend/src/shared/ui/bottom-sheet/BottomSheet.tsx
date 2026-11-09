@@ -38,7 +38,7 @@ export function BottomSheet({ open, onOpenChange, title, children, footer }: Bot
               <div className="h-1 w-9 rounded-full bg-bg-control-off" />
             </div>
             <div className="flex items-center gap-2 py-1 pr-2 pl-5">
-              <Drawer.Title className="min-w-0 flex-1 text-heading-m text-text-primary">
+              <Drawer.Title className="min-w-0 flex-1 text-title3 text-text-primary">
                 {title}
               </Drawer.Title>
               <Drawer.Close

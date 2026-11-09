@@ -109,7 +109,7 @@ export function AdminHoldsPage() {
         aside={
           <button
             type="button"
-            className={cn('rounded-sm text-label-m text-text-brand', FOCUS_RING)}
+            className={cn('rounded-sm text-body2-medium text-text-brand', FOCUS_RING)}
           >
             ID로 찾기
           </button>
@@ -150,7 +150,7 @@ export function AdminHoldsPage() {
 
       <ConsoleCard title="보류 처리">
         <div className="flex flex-col gap-3 rounded-md bg-bg-subtle p-4">
-          <p className="text-label-m">
+          <p className="text-body2-medium">
             {hold.id} · {hold.seller}
           </p>
           <KeyValue label="보류 금액" value={hold.amount} />
@@ -159,12 +159,12 @@ export function AdminHoldsPage() {
           <Button variant="secondary" className="w-full" disabled>
             보류 해제
           </Button>
-          <p className="text-caption text-text-tertiary">
+          <p className="text-caption-regular text-text-tertiary">
             해제하면 해제일 다음 날 지급해요(원래 지급일보다 앞당기지 않아요).
           </p>
         </div>
         <Divider />
-        <h3 className="text-label-l">새 보류 걸기</h3>
+        <h3 className="text-body1-medium">새 보류 걸기</h3>
         {/* TODO(api): 관리자 정산 목록 API가 생기면 정산 ID(ST-…)로 고르게 바꾼다. 지금은 정산 내역 번호를 직접 넣는다 */}
         <TextField
           label="정산 내역 번호"
@@ -184,7 +184,9 @@ export function AdminHoldsPage() {
         <Button className="w-full" disabled={placeHold.isPending} onClick={submitHold}>
           보류 걸기
         </Button>
-        <p className="text-caption text-text-tertiary">판매자 화면에 사유가 그대로 보여요.</p>
+        <p className="text-caption-regular text-text-tertiary">
+          판매자 화면에 사유가 그대로 보여요.
+        </p>
       </ConsoleCard>
     </ConsolePage>
   )

@@ -89,13 +89,13 @@ export function ImageUpload({
           <Icon name="Image" className="size-7" />
         </span>
         <span className="flex flex-col gap-1">
-          <span className={cn('text-label-m', over ? 'text-text-brand' : 'text-text-primary')}>
+          <span className={cn('text-body2-medium', over ? 'text-text-brand' : 'text-text-primary')}>
             {over ? '여기에 놓으면 올라가요' : '끌어다 놓거나 눌러서 올리기'}
           </span>
-          <span className="text-caption text-text-tertiary">{sub}</span>
+          <span className="text-caption-regular text-text-tertiary">{sub}</span>
           {!over && (
             // 칸 전체가 버튼이라 안에 버튼을 또 두지 않는다. 모양만 보조 버튼이다.
-            <span className="mt-2 inline-flex w-fit items-center rounded-md bg-bg-surface px-3 py-2 text-label-s text-text-primary inset-ring inset-ring-border-strong">
+            <span className="mt-2 inline-flex w-fit items-center rounded-md bg-bg-surface px-3 py-2 text-caption-medium text-text-primary inset-ring inset-ring-border-strong">
               이미지 올리기
             </span>
           )}
@@ -109,8 +109,8 @@ export function ImageUpload({
         {/* eslint-disable-next-line @next/next/no-img-element -- 업로드 전 blob 주소도 보여 줘야 한다 */}
         <img src={image.url} alt="" className="size-24 shrink-0 rounded-sm object-cover" />
         <div className="flex min-w-0 flex-col gap-1">
-          <p className="truncate text-label-m text-text-primary">{image.name}</p>
-          {image.meta && <p className="text-caption text-text-tertiary">{image.meta}</p>}
+          <p className="truncate text-body2-medium text-text-primary">{image.name}</p>
+          {image.meta && <p className="text-caption-regular text-text-tertiary">{image.meta}</p>}
           <div className="mt-2 flex gap-2">
             <Button size="s" variant="secondary" onClick={onOpen}>
               바꾸기
@@ -136,7 +136,7 @@ export function ImageUpload({
                 alt={`${index + 1}번째 소개 이미지`}
                 className="h-[90px] w-30 rounded-sm object-cover"
               />
-              <span className="absolute top-1.5 left-1.5 rounded-full bg-bg-inverse px-1.5 py-0.5 text-label-tag text-text-inverse">
+              <span className="absolute top-1.5 left-1.5 rounded-full bg-bg-inverse px-1.5 py-0.5 text-caption-medium text-text-inverse">
                 {index + 1}
               </span>
             </li>
@@ -152,7 +152,7 @@ export function ImageUpload({
           )}
         >
           <Icon name="Plus" className="size-5" />
-          <span className="text-caption">추가 · 편집</span>
+          <span className="text-caption-regular">추가 · 편집</span>
         </button>
       </div>
     )
@@ -160,14 +160,14 @@ export function ImageUpload({
 
   return (
     <div className={cn('flex w-full flex-col gap-2', className)}>
-      <span id={labelId} className="text-label-m text-text-primary">
+      <span id={labelId} className="text-body2-medium text-text-primary">
         {label}
       </span>
       <div {...dropProps}>{body}</div>
       {description && (
         <p
           id={helperId}
-          className={cn('text-caption', error ? 'text-text-danger' : 'text-text-tertiary')}
+          className={cn('text-caption-regular', error ? 'text-text-danger' : 'text-text-tertiary')}
         >
           {description}
         </p>

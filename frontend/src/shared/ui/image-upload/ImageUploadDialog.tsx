@@ -64,8 +64,8 @@ function Shell({ open, onOpenChange, title, description, children }: ShellProps)
         <Dialog.Popup className="fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-32px)] w-160 max-w-[calc(100vw-var(--layout-page-margin)*2)] -translate-1/2 flex-col gap-5 overflow-y-auto rounded-lg bg-bg-surface p-6 shadow-lg transition-opacity duration-150 outline-none data-ending-style:opacity-0 data-starting-style:opacity-0">
           <div className="flex items-start gap-4">
             <div className="flex flex-1 flex-col gap-1">
-              <Dialog.Title className="text-heading-m text-text-primary">{title}</Dialog.Title>
-              <Dialog.Description className="text-body-m text-text-secondary">
+              <Dialog.Title className="text-title3 text-text-primary">{title}</Dialog.Title>
+              <Dialog.Description className="text-body2-regular text-text-secondary">
                 {description}
               </Dialog.Description>
             </div>
@@ -98,10 +98,10 @@ function Dropzone({ multiple = false, layout, sub, error, onFiles }: DropzonePro
   )
   const text = (
     <>
-      <p className={cn('text-label-m', over ? 'text-text-brand' : 'text-text-primary')}>
+      <p className={cn('text-body2-medium', over ? 'text-text-brand' : 'text-text-primary')}>
         {over ? '여기에 놓으면 올라가요' : '이미지를 여기로 끌어다 놓으세요'}
       </p>
-      <p className="text-caption text-text-tertiary">{sub}</p>
+      <p className="text-caption-regular text-text-tertiary">{sub}</p>
     </>
   )
   return (
@@ -148,7 +148,7 @@ function Dropzone({ multiple = false, layout, sub, error, onFiles }: DropzonePro
           }}
         />
       </div>
-      {error && <p className="text-caption text-text-danger">{error}</p>}
+      {error && <p className="text-caption-regular text-text-danger">{error}</p>}
     </div>
   )
 }
@@ -404,8 +404,8 @@ function Cropper({ file, outputSize, onPickAnother, onCancel, onApply }: Cropper
           )}
         </div>
         <div className="flex min-w-0 flex-col gap-0.5">
-          <p className="text-label-m text-text-primary">목록에서는 이렇게 보여요</p>
-          <p className="truncate text-caption text-text-tertiary">
+          <p className="text-body2-medium text-text-primary">목록에서는 이렇게 보여요</p>
+          <p className="truncate text-caption-regular text-text-tertiary">
             {file.name} · {outputSize}×{outputSize}로 저장
           </p>
         </div>
@@ -510,8 +510,10 @@ export function ImageListDialog({
               {item.status === 'error' ? (
                 <div className="flex h-full flex-col items-center justify-center gap-1 rounded-sm bg-bg-danger-subtle px-2 text-center inset-ring inset-ring-border-danger">
                   <Icon name="CircleAlert" className="size-5 text-text-danger" />
-                  <p className="text-caption text-text-danger">{item.error}</p>
-                  <p className="w-full truncate text-caption text-text-tertiary">{item.name}</p>
+                  <p className="text-caption-regular text-text-danger">{item.error}</p>
+                  <p className="w-full truncate text-caption-regular text-text-tertiary">
+                    {item.name}
+                  </p>
                 </div>
               ) : (
                 <>
@@ -522,13 +524,13 @@ export function ImageListDialog({
                     className="size-full cursor-grab object-cover"
                   />
                   {item.status === 'done' && (
-                    <span className="absolute top-1.5 left-1.5 rounded-full bg-bg-inverse px-1.5 py-0.5 text-label-tag text-text-inverse">
+                    <span className="absolute top-1.5 left-1.5 rounded-full bg-bg-inverse px-1.5 py-0.5 text-caption-medium text-text-inverse">
                       {order.get(item.id)}
                     </span>
                   )}
                   {item.status === 'uploading' && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-bg-overlay/55 px-4">
-                      <p className="text-caption text-text-inverse">
+                      <p className="text-caption-regular text-text-inverse">
                         올리는 중 {Math.round(item.progress * 100)}%
                       </p>
                       <div className="h-1 w-full overflow-hidden rounded-full bg-bg-surface/30">
@@ -558,7 +560,7 @@ export function ImageListDialog({
       )}
 
       <div className="flex items-center gap-2">
-        <p className="text-caption text-text-secondary" aria-live="polite">
+        <p className="text-caption-regular text-text-secondary" aria-live="polite">
           {done}장{failed > 0 && ` · ${failed}장은 올리지 못했어요`}
         </p>
         <span className="flex-1" />

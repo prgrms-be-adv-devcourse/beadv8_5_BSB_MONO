@@ -83,13 +83,13 @@ export function NotificationsPage({ empty = false }: { empty?: boolean }) {
                       <Icon name={group.icon} />
                     </span>
                     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                      <span className="text-heading-s">{group.title}</span>
-                      <span className="truncate text-body-m text-text-secondary">
+                      <span className="text-body1-bold">{group.title}</span>
+                      <span className="truncate text-body2-regular text-text-secondary">
                         {group.latest.body}
                       </span>
                     </span>
                     <span className="flex shrink-0 flex-col items-end gap-1.5">
-                      <span className="text-caption text-text-tertiary">
+                      <span className="text-caption-regular text-text-tertiary">
                         {formatShortDate(group.latest.sentAt)}
                       </span>
                       {group.unread > 0 && <UnreadCount count={group.unread} />}

@@ -61,7 +61,7 @@ export function Tab({ value, children, count, disabled }: TabProps) {
       value={value}
       disabled={disabled}
       className={cn(
-        'group flex min-w-0 items-center justify-center gap-1 text-label-l text-text-tertiary',
+        'group flex min-w-0 items-center justify-center gap-1 text-body1-medium text-text-tertiary',
         'data-active:font-bold data-active:text-text-primary data-disabled:text-text-disabled',
         variant === 'segment'
           ? 'h-10 rounded-sm px-4 data-active:bg-bg-surface data-active:shadow-sm'
@@ -71,7 +71,7 @@ export function Tab({ value, children, count, disabled }: TabProps) {
     >
       <span className="truncate whitespace-nowrap">{children}</span>
       {count !== undefined && (
-        <span className="text-label-s group-data-active:text-text-brand group-data-disabled:text-text-disabled">
+        <span className="text-caption-medium group-data-active:text-text-brand group-data-disabled:text-text-disabled">
           {count}
         </span>
       )}

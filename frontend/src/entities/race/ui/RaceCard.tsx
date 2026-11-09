@@ -32,8 +32,8 @@ export function RaceCard({ race, className }: RaceCardProps) {
           className="aspect-square w-full rounded-md"
         />
       )}
-      <p className="text-heading-s break-keep whitespace-pre-line">{race.title}</p>
-      <div className="flex flex-col gap-1 text-body-s text-text-secondary">
+      <p className="text-body1-bold break-keep whitespace-pre-line">{race.title}</p>
+      <div className="flex flex-col gap-1 text-body2-regular text-text-secondary">
         <RaceMeta icon="Calendar">{race.schedule}</RaceMeta>
         <RaceMeta icon="MapPin">{race.place}</RaceMeta>
       </div>

@@ -198,7 +198,7 @@ export function Carousel({ label, children, autoPlayMs = 5000, className }: Caro
             <span
               aria-hidden
               // 이미지 위 반투명 검정은 피그마에도 변수 없이 쓴 값이다.
-              className="absolute right-3.5 bottom-4 rounded-full bg-[rgb(0_0_0/0.4)] px-2.5 py-0.75 text-label-s text-text-on-hero"
+              className="absolute right-3.5 bottom-4 rounded-full bg-[rgb(0_0_0/0.4)] px-2.5 py-0.75 text-caption-medium text-text-on-hero"
             >
               {i + 1} / {count}
             </span>
@@ -249,9 +249,9 @@ export function CarouselSlide({ image, title, tags }: CarouselSlideProps) {
             className="absolute inset-x-0 bottom-0 h-[58%] bg-linear-to-b from-[rgb(0_0_0/0)] to-[rgb(0_0_0/0.55)]"
           />
           <div className="absolute inset-x-5.5 bottom-5.5 flex flex-col gap-3 text-text-on-hero">
-            <p className="text-heading-xl break-keep whitespace-pre-line">{title}</p>
+            <p className="text-title1 break-keep whitespace-pre-line">{title}</p>
             {/* 태그 사이 두 칸 띄어쓰기를 살린다. */}
-            {tags && <p className="text-label-m whitespace-pre-wrap">{tags}</p>}
+            {tags && <p className="text-body2-medium whitespace-pre-wrap">{tags}</p>}
           </div>
         </>
       )}

@@ -108,7 +108,7 @@ export function HomePage({ state, closingSoon, openRaces }: HomePageProps) {
 
 function EmptyRow({ children }: { children: string }) {
   return (
-    <p className="px-(--layout-page-margin) py-6 text-center text-body-s text-text-tertiary">
+    <p className="px-(--layout-page-margin) py-6 text-center text-body2-regular text-text-tertiary">
       {children}
     </p>
   )
@@ -117,8 +117,11 @@ function EmptyRow({ children }: { children: string }) {
 function SectionHead({ title }: { title: string }) {
   return (
     <div className="flex items-end justify-between px-(--layout-page-margin)">
-      <h2 className="text-heading-l">{title}</h2>
-      <Link href="/races" className={cn('rounded-sm text-label-m text-text-secondary', FOCUS_RING)}>
+      <h2 className="text-title2">{title}</h2>
+      <Link
+        href="/races"
+        className={cn('rounded-sm text-body2-medium text-text-secondary', FOCUS_RING)}
+      >
         전체 보기
       </Link>
     </div>

@@ -56,8 +56,8 @@ function FormBody({
     <main className="flex justify-center pt-12 pb-16">
       <div className={cn('flex flex-col gap-6', width)}>
         <div className="flex flex-col gap-2 pb-2">
-          <h1 className="text-heading-xl">{title}</h1>
-          {description && <p className="text-body-m text-text-secondary">{description}</p>}
+          <h1 className="text-title1">{title}</h1>
+          {description && <p className="text-body2-regular text-text-secondary">{description}</p>}
         </div>
         {children}
       </div>
@@ -173,7 +173,9 @@ export function SellerApplyPage() {
               />
             </div>
           )}
-          <p className="text-caption text-text-tertiary">사업자가 아니면 성명 · 연락처만 받아요.</p>
+          <p className="text-caption-regular text-text-tertiary">
+            사업자가 아니면 성명 · 연락처만 받아요.
+          </p>
         </ConsoleCard>
 
         <ConsoleCard title="정산 계좌">
@@ -195,12 +197,17 @@ export function SellerApplyPage() {
             />
             <Link
               href="/terms/service"
-              className={cn('rounded-sm text-body-s text-text-tertiary underline', FOCUS_RING)}
+              className={cn(
+                'rounded-sm text-body2-regular text-text-tertiary underline',
+                FOCUS_RING,
+              )}
             >
               보기
             </Link>
           </div>
-          <p className="text-caption text-text-tertiary">동의한 약관 버전과 시각을 기록해요.</p>
+          <p className="text-caption-regular text-text-tertiary">
+            동의한 약관 버전과 시각을 기록해요.
+          </p>
         </ConsoleCard>
 
         <Alert
@@ -319,7 +326,7 @@ export function SellerApplyResultPage() {
       ) : mine.isError ? (
         isNoApplication(mine.error) ? (
           <section className="flex flex-col items-start gap-3 rounded-lg bg-bg-surface p-5 inset-ring inset-ring-border-default">
-            <h2 className="text-heading-s">아직 판매자 신청을 하지 않았어요</h2>
+            <h2 className="text-body1-bold">아직 판매자 신청을 하지 않았어요</h2>
             <Link href="/seller-apply" className={buttonClassName()}>
               판매자 신청하러 가기
             </Link>
@@ -338,8 +345,10 @@ function ResultSection({ card }: { card: ResultCard }) {
   return (
     <section className="flex flex-col items-start gap-3 rounded-lg bg-bg-surface p-5 inset-ring inset-ring-border-default">
       <Badge tone={card.tone}>{card.badge}</Badge>
-      <h2 className="text-heading-s">{card.title}</h2>
-      {card.description && <p className="text-body-s text-text-secondary">{card.description}</p>}
+      <h2 className="text-body1-bold">{card.title}</h2>
+      {card.description && (
+        <p className="text-body2-regular text-text-secondary">{card.description}</p>
+      )}
       <div className="flex gap-2">{card.actions}</div>
     </section>
   )
@@ -371,7 +380,7 @@ export function SellerApplicationPage() {
     >
       {auth === 'anonymous' ? (
         <section className="flex flex-col items-start gap-3 rounded-lg bg-bg-surface p-5 inset-ring inset-ring-border-default">
-          <h2 className="text-heading-s">로그인이 필요해요</h2>
+          <h2 className="text-body1-bold">로그인이 필요해요</h2>
           <Link href={loginHref('/seller-apply/mine')} className={buttonClassName()}>
             로그인하러 가기
           </Link>
@@ -381,7 +390,7 @@ export function SellerApplicationPage() {
       ) : mine.isError ? (
         isNoApplication(mine.error) ? (
           <section className="flex flex-col items-start gap-3 rounded-lg bg-bg-surface p-5 inset-ring inset-ring-border-default">
-            <h2 className="text-heading-s">아직 판매자 신청을 하지 않았어요</h2>
+            <h2 className="text-body1-bold">아직 판매자 신청을 하지 않았어요</h2>
             <Link href="/seller-apply" className={buttonClassName()}>
               판매자 신청하러 가기
             </Link>
@@ -410,7 +419,7 @@ function LockedApplication({ seller }: { seller: memberModel.SellerDto }) {
     <>
       <div className="flex items-center gap-3">
         <Badge tone={status.tone}>{status.label}</Badge>
-        <p className="text-body-s text-text-secondary">
+        <p className="text-body2-regular text-text-secondary">
           신청일 {formatSellerDate(seller.requestedAt)}
         </p>
       </div>
@@ -443,7 +452,7 @@ function LockedApplication({ seller }: { seller: memberModel.SellerDto }) {
         ) : (
           <TextField label="성명" value={seller.representativeName} disabled readOnly />
         )}
-        <p className="text-caption text-text-tertiary">
+        <p className="text-caption-regular text-text-tertiary">
           {business
             ? '사업자등록번호 · 상호 · 대표자를 심사해요.'
             : '비사업자는 성명만 보여요. 연락처는 아직 서버에 저장하지 않아요.'}

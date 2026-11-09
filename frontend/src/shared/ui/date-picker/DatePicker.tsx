@@ -153,7 +153,7 @@ const DAY_PICKER_CLASSES = {
   month_caption: 'sr-only',
   month_grid: 'w-full table-fixed border-collapse',
   // 요일 줄 32 + 날짜 칸과의 간격 8
-  weekday: 'h-10 pb-2 text-label-m text-text-tertiary',
+  weekday: 'h-10 pb-2 text-body2-medium text-text-tertiary',
   day: 'p-0',
 }
 
@@ -190,7 +190,7 @@ function Header({
         aria-label={`${label}, 연·월 고르기`}
         onClick={onToggleWheel}
         className={cn(
-          'flex items-center gap-1 rounded-md px-1 py-2.5 text-heading-m text-text-primary',
+          'flex items-center gap-1 rounded-md px-1 py-2.5 text-title3 text-text-primary',
           FOCUS_RING,
         )}
       >
@@ -275,7 +275,7 @@ function WeekRow({
             <th
               key={d.toDateString()}
               scope="col"
-              className="h-10 pb-2 text-label-m text-text-tertiary"
+              className="h-10 pb-2 text-body2-medium text-text-tertiary"
             >
               {format(d, 'EEEEE', { locale: ko })}
             </th>
@@ -490,9 +490,7 @@ export function DatePicker(props: DatePickerProps) {
 
       {footer && (
         <div className="flex items-center gap-3 pt-2">
-          <span className="min-w-0 flex-1 truncate text-label-strong text-text-primary">
-            {text}
-          </span>
+          <span className="min-w-0 flex-1 truncate text-body2-bold text-text-primary">{text}</span>
           <Button onClick={footer.onConfirm}>{footer.confirmLabel ?? '선택 완료'}</Button>
         </div>
       )}

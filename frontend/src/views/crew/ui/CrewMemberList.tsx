@@ -40,7 +40,7 @@ export function CrewMemberList({
             <span
               id={labelId?.(member)}
               title={member.nickname}
-              className="min-w-0 truncate text-body-m"
+              className="min-w-0 truncate text-body2-regular"
             >
               {member.nickname}
             </span>

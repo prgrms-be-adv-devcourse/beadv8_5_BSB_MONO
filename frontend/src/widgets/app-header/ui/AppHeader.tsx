@@ -39,7 +39,7 @@ export function AppHeader(props: AppHeaderProps) {
     return (
       <header className={cn(base, 'px-1')}>
         <BackButton href={props.backHref} close={props.close} />
-        <h1 className="min-w-0 flex-1 truncate text-heading-s">{props.title}</h1>
+        <h1 className="min-w-0 flex-1 truncate text-body1-bold">{props.title}</h1>
         {props.action}
       </header>
     )
