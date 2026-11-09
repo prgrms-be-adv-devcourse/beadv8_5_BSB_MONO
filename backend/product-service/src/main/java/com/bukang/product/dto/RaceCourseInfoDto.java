@@ -2,20 +2,19 @@ package com.bukang.product.dto;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
 
 import com.bukang.common.shared.race.domain.RaceSaleStatus;
 import com.bukang.product.domain.CourseStatus;
 import com.bukang.product.domain.Race;
 import com.bukang.product.domain.RaceCourse;
-import com.bukang.product.domain.TshirtSize;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 /**
  * 주문 서비스에 주는 종목 정보 (내부 API). 주문 서비스 RaceCourseInfo에 있는 필드는 이름·뜻이 같다.
- * 나머지 필드(대회명·종목명, 판매 상태·남은 자리·티셔츠 사이즈 등)는 주문 서비스가 아직 쓰지 않지만 함께 준다.
+ * 나머지 필드(대회명·종목명, 판매 상태·남은 자리 등)는 주문 서비스가 아직 쓰지 않지만 함께 준다.
+ * 키트 옵션은 여기 넣지 않는다. 주문도 공개 API(GET /api/v1/product/races/{raceId}/kit-options)로 받는다 (BUK-120)
  */
 @AllArgsConstructor
 @Getter
@@ -47,7 +46,6 @@ public class RaceCourseInfoDto {
 	private final int individualRemaining;
 	private final int crewRemaining;
 	private final boolean kitIncluded;
-	private final List<TshirtSize> tshirtSizeOption;
 	// 크루(파티) 예매 기간 (race.crew_sale_start_at·crew_sale_end_at). 크루 모집이 없는 대회는 null
 	// 주문이 파티 신청·합류 때 파티 예매 기간인지, 크루 가입이 시작 7일 전까지였는지 본다
 	private final LocalDateTime crewSaleStartAt;
@@ -63,7 +61,7 @@ public class RaceCourseInfoDto {
 			race.getSeller().getId(), course.getName(), race.getTitle() + " " + course.getName(), course.getPrice(),
 			course.getKitPrice(), race.getRefundDeadline(), race.getScheduleChangedAt(), race.getSaleStatus(),
 			course.getStatus(), course.individualRemaining(), course.crewRemaining(), course.isKitIncluded(),
-			course.getTshirtSizeOption(), race.getCrewSaleStartAt(), race.getCrewSaleEndAt(), race.getCrewMinCount(),
+			race.getCrewSaleStartAt(), race.getCrewSaleEndAt(), race.getCrewMinCount(),
 			race.getCrewMaxCount());
 	}
 }

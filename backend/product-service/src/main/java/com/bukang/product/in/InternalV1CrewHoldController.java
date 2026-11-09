@@ -64,9 +64,10 @@ public class InternalV1CrewHoldController {
 				@ExampleObject(name = "없는 종목", value = RaceInternalApiExamples.COURSE_NOT_FOUND)
 			})),
 		@ApiResponse(responseCode = "409",
-			description = "크루 예매 기간이 아님(판매 중지·대회 취소 포함), 종목이 요청한 대회의 것이 아님, "
+			description = "판매를 멈춘 대회, 크루 예매 기간이 아님(대회 취소 포함), 종목이 요청한 대회의 것이 아님, "
 				+ "다른 자리 목록으로 확보한 파티, 이미 자리를 확보한 참가 신청이 들어 있음 또는 이미 끝난 참가 신청",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "판매를 멈춘 대회", value = RaceHoldApiExamples.SALE_STOPPED),
 				@ExampleObject(name = "크루 예매 기간이 아님", value = RaceHoldApiExamples.CREW_NOT_ACCEPTING),
 				@ExampleObject(name = "다른 대회의 종목", value = RaceHoldApiExamples.CREW_HOLD_COURSE_NOT_IN_RACE),
 				@ExampleObject(name = "다른 자리 목록으로 확보한 파티", value = RaceHoldApiExamples.CREW_HOLD_MISMATCH),

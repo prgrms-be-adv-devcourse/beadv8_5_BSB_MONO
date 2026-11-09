@@ -69,9 +69,9 @@ public class RaceSaveRequestDto {
 	@Schema(description = "취소·환불 안내 글", example = "환불 기한까지 취소하면 전액 환불됩니다.")
 	private final String refundPolicy;
 
-	@Schema(description = "크루 최소 인원", example = "5")
+	@Schema(description = "크루 최소 인원 (4명 이상, 11/05 회의 P3)", example = "5")
 	@NotNull(message = "크루 최소 인원을 작성해주세요.")
-	@Min(value = 5, message = "크루 최소 인원은 5명 이상이어야 합니다.")
+	@Min(value = 4, message = "크루 최소 인원은 4명 이상이어야 합니다.")
 	private final Integer crewMinCount;
 
 	@Schema(description = "크루 최대 인원 (비우면 상한 없음, 최소 인원 이상)", example = "20")
