@@ -308,7 +308,7 @@ final class PartyApiExamples {
 		""";
 
 	static final String QUEUE_NOT_ADMITTED = """
-		{ "status": 403, "code": "ORDER_QUEUE_NOT_ADMITTED", "message": "대기열에서 입장한 뒤 파티를 신청할 수 있습니다.",
+		{ "status": 403, "code": "ORDER_QUEUE_NOT_ADMITTED", "message": "파티 대기열에서 입장한 뒤 파티를 신청할 수 있습니다.",
 			"data": null }
 		""";
 

@@ -29,9 +29,9 @@ import com.bukang.order.out.ParticipationRepository;
 import com.bukang.order.out.PartyMemberRepository;
 import com.bukang.order.out.PartyRepository;
 import com.bukang.order.out.PartyRepository.ApplyTarget;
-import com.bukang.order.out.QueueAdmissionRepository;
 import com.bukang.order.out.crew.CrewPort;
 import com.bukang.order.out.crew.CrewPort.CrewMembership;
+import com.bukang.order.out.queue.QueueAdmissionPort;
 import com.bukang.order.out.race.RaceCourseInfo;
 import com.bukang.order.out.race.RaceCourseInfo.CrewSale;
 import com.bukang.order.out.race.RaceCoursePort;
@@ -45,7 +45,7 @@ import lombok.RequiredArgsConstructor;
 /**
  * 파티장 [신청] (BUK-37, 정책 3장 「파티 결제와 임시 확보」, 11/02 결정 ④⑤⑩, 11/05 회의 P2~P5)
  * 파티원 전원의 크루 자리를 상품에 한꺼번에 잡고(전부 아니면 실패), 신청서를 결제 대기로 바꿔 결제 기간을 연다
- * 상품·회원 호출(읽기)은 파티를 잠그기 전에 하고, 잠근 뒤 파티장·모집 중·파티원이 그대로인지 다시 본다 (pending 56)
+ * 상품·회원·대기열 호출(읽기)은 파티를 잠그기 전에 하고, 잠근 뒤 파티장·모집 중·파티원이 그대로인지 다시 본다 (pending 56)
  * 확인은 모두 크루 자리 확보 전에 끝낸다. 잠금 순서: 파티 → 파티원 → 참가 신청
  */
 @Service
@@ -60,7 +60,7 @@ public class PartyApplyUseCase {
 	private final PartyRepository partyRepository;
 	private final PartyMemberRepository partyMemberRepository;
 	private final ParticipationRepository participationRepository;
-	private final QueueAdmissionRepository queueAdmissionRepository;
+	private final QueueAdmissionPort queueAdmissionPort;
 	private final RaceCoursePort raceCoursePort;
 	private final CrewPort crewPort;
 	private final CrewSeatHoldPort crewSeatHoldPort;
@@ -82,13 +82,14 @@ public class PartyApplyUseCase {
 		CrewSale crewSale = checkSalePeriod(partyId, course, now);
 		Set<Long> checkedMemberIds = new HashSet<>(partyMemberRepository.findActiveMemberIds(partyId));
 		checkedMemberIds.forEach(id -> checkCrewMember(partyId, target.crewId(), id, crewSale));
+		// 대기열도 HTTP라 잠그기 전에 묻는다. 파티장은 위에서 확인했고 잠근 뒤 checkApplicable로 다시 본다
+		checkQueueAdmitted(memberId, course, now);
 
 		Party party = partyRepository.findByIdForUpdate(partyId)
 			.orElseThrow(() -> new PartyNotFoundException("존재하지 않는 파티입니다."));
 		// 위 확인과 파티장 확인 API(pending 56)는 잠그지 않으므로, 그 뒤 파티장이 넘어갔거나 신청됐을 수 있어 다시 본다
 		// shortcut: now는 요청을 받은 시각이라 잠금·HTTP를 기다린 몇 초만큼 기간·입장 판정이 이르다. 마감 경계 몇 초는 받아들인다
 		party.checkApplicable(memberId);
-		checkQueueAdmitted(memberId, course.raceCourseId(), now);
 		List<PartyMember> members = partyMemberRepository.findActiveByPartyIdForUpdate(partyId);
 		Set<Long> memberIds = members.stream().map(PartyMember::getMemberId).collect(Collectors.toSet());
 		// 회원 서비스에 물은 뒤 누가 합류하거나 나갔으면, 확인하지 않은 사람이 섞이므로 다시 누르게 한다
@@ -170,12 +171,10 @@ public class PartyApplyUseCase {
 		}
 	}
 
-	// shortcut: 파티 대기열이 아직 없어(호빈님) 개인 예매와 같은 입장 기록(회원 × 종목)을 본다. 개인·파티 대기열을 따로 두면
-	// (11/03 결정) 파티 대기열 입장 기록으로 바꾼다
-	private void checkQueueAdmitted(long memberId, long raceCourseId, LocalDateTime now) {
-		queueAdmissionRepository.findByMemberIdAndRaceCourseId(memberId, raceCourseId)
-			.filter(admission -> admission.isAdmittedAt(now))
-			.orElseThrow(() -> new QueueNotAdmittedException("대기열에서 입장한 뒤 파티를 신청할 수 있습니다."));
+	// 파티장이 파티 대기열(#347)을 통과해 입장 중이어야 한다. 개인 대기열 입장으로는 신청할 수 없다 (11/03 결정)
+	private void checkQueueAdmitted(long leaderMemberId, RaceCourseInfo course, LocalDateTime now) {
+		queueAdmissionPort.findPartyAdmissionEndsAt(leaderMemberId, course.raceId(), course.raceCourseId(), now)
+			.orElseThrow(() -> new QueueNotAdmittedException("파티 대기열에서 입장한 뒤 파티를 신청할 수 있습니다."));
 	}
 
 	// 11/05 회의 P3: 최소 4명(판매자 최소 인원이 더 크면 그 수) ~ 판매자 최대 인원

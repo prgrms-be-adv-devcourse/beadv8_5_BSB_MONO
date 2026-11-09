@@ -45,13 +45,13 @@ import com.bukang.order.domain.PartyStatus;
 import com.bukang.order.out.ParticipationRepository;
 import com.bukang.order.out.PartyMemberRepository;
 import com.bukang.order.out.PartyRepository;
-import com.bukang.order.out.QueueAdmissionRepository;
 import com.bukang.order.out.seat.CrewSeatHoldPort;
 import com.bukang.order.out.seat.CrewSeatHoldPort.CrewSeatHoldResult;
 import com.bukang.order.out.seat.CrewSeatHoldPort.Shortage;
-import com.bukang.order.support.QueueEntry;
 import com.bukang.order.support.StubCrewPort;
 import com.bukang.order.support.StubCrewPortConfig;
+import com.bukang.order.support.StubQueueAdmissionPort;
+import com.bukang.order.support.StubQueueAdmissionPortConfig;
 import com.bukang.order.support.StubRaceCoursePort;
 import com.bukang.order.support.StubRaceCoursePortConfig;
 import com.jayway.jsonpath.JsonPath;
@@ -60,7 +60,7 @@ import com.jayway.jsonpath.JsonPath;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Import({StubRaceCoursePortConfig.class, StubCrewPortConfig.class})
+@Import({StubRaceCoursePortConfig.class, StubCrewPortConfig.class, StubQueueAdmissionPortConfig.class})
 class ApiV1PartyApplyTest {
 	private static final String BASE_URL = "/api/v1/order/parties";
 	private static final long LEADER = 1;
@@ -83,7 +83,7 @@ class ApiV1PartyApplyTest {
 	private ParticipationRepository participationRepository;
 
 	@Autowired
-	private QueueAdmissionRepository queueAdmissionRepository;
+	private StubQueueAdmissionPort queueAdmissionPort;
 
 	@Autowired
 	private StubRaceCoursePort raceCoursePort;
@@ -110,7 +110,7 @@ class ApiV1PartyApplyTest {
 		participationRepository.deleteAll();
 		partyMemberRepository.deleteAll();
 		partyRepository.deleteAll();
-		queueAdmissionRepository.deleteAll();
+		queueAdmissionPort.clear();
 		raceCoursePort.clear();
 		crewPort.clear();
 	}
@@ -119,7 +119,6 @@ class ApiV1PartyApplyTest {
 	@DisplayName("파티장이 신청하면 자리를 한꺼번에 잡고, 파티는 결제 진행 중, 신청서는 결제 대기, 파티원 모두에게 결제 알림이 간다")
 	void apply() throws Exception {
 		long partyId = partyWith(MEMBERS);
-		QueueEntry.enter(mockMvc, LEADER, COURSE_ID);
 		// DB는 마이크로초까지 남기므로 맞춰 비교한다 (Linux CI는 나노초)
 		LocalDateTime before = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
 
@@ -169,7 +168,6 @@ class ApiV1PartyApplyTest {
 	@DisplayName("크루 자리가 모자라면 한 석도 잡지 않고 409와 모자란 종목을 주며, 파티는 모집 중으로 남는다")
 	void shortage() throws Exception {
 		long partyId = partyWith(MEMBERS);
-		QueueEntry.enter(mockMvc, LEADER, COURSE_ID);
 		doReturn(CrewSeatHoldResult.shortOf(Map.of(COURSE_ID, new Shortage(4, 1))))
 			.when(crewSeatHoldPort).holdAll(anyLong(), anyLong(), anyLong(), any(), any());
 
@@ -189,10 +187,10 @@ class ApiV1PartyApplyTest {
 	}
 
 	@Test
-	@DisplayName("파티장이 아니거나 대기열에 들어오지 않았으면 거절하고 상품을 부르지 않는다")
+	@DisplayName("파티장이 아니거나 파티 대기열에 입장하지 않았으면 거절하고 상품을 부르지 않는다")
 	void leaderAndQueue() throws Exception {
 		long partyId = partyWith(MEMBERS);
-		QueueEntry.enter(mockMvc, MEMBERS.getFirst(), COURSE_ID);
+		queueAdmissionPort.notAdmitted(COURSE_ID);
 
 		apply(MEMBERS.getFirst(), partyId)
 			.andExpect(status().isForbidden())
@@ -207,7 +205,6 @@ class ApiV1PartyApplyTest {
 	@DisplayName("파티원이 4명보다 적거나 판매자 최소·최대 인원 밖이면 거절하고 상품을 부르지 않는다")
 	void size() throws Exception {
 		long partyId = partyWith(MEMBERS.subList(0, 2));
-		QueueEntry.enter(mockMvc, LEADER, COURSE_ID);
 
 		// 판매자 최소 인원이 2명이어도 4명은 있어야 한다 (11/05 회의 P3)
 		putCourse(crewSaleStartAt, LocalDateTime.now().plusDays(20), 2, 10);
@@ -226,7 +223,6 @@ class ApiV1PartyApplyTest {
 	@DisplayName("크루를 떠난 파티원이나 파티 예매 시작 7일 전보다 늦게 가입한 파티원이 있으면 거절하고 상품을 부르지 않는다")
 	void crewMembers() throws Exception {
 		long partyId = partyWith(MEMBERS);
-		QueueEntry.enter(mockMvc, LEADER, COURSE_ID);
 
 		crewPort.rejoinedCrewAt(MEMBERS.getLast(), crewSaleStartAt.minusDays(7).plusMinutes(1));
 		apply(LEADER, partyId)
@@ -250,7 +246,6 @@ class ApiV1PartyApplyTest {
 	@DisplayName("파티 예매 기간(크루 예매 시작~마감) 밖이면 거절하고 상품을 부르지 않는다")
 	void salePeriod() throws Exception {
 		long partyId = partyWith(MEMBERS);
-		QueueEntry.enter(mockMvc, LEADER, COURSE_ID);
 
 		putCourse(LocalDateTime.now().plusHours(1), LocalDateTime.now().plusDays(20), 4, 10);
 		apply(LEADER, partyId)
@@ -269,7 +264,6 @@ class ApiV1PartyApplyTest {
 	void membersChanged() throws Exception {
 		long partyId = partyWith(MEMBERS);
 		String token = partyRepository.findById(partyId).orElseThrow().getJoinToken();
-		QueueEntry.enter(mockMvc, LEADER, COURSE_ID);
 		crewPort.beforeNextLookup(() -> {
 			// 다른 요청(다른 트랜잭션)으로 합류를 끝낸다
 			try (ExecutorService executor = Executors.newSingleThreadExecutor()) {
@@ -292,7 +286,6 @@ class ApiV1PartyApplyTest {
 	@DisplayName("취소된 대회는 신청할 수 없고 상품 자리를 부르지 않는다")
 	void canceledRace() throws Exception {
 		long partyId = partyWith(MEMBERS);
-		QueueEntry.enter(mockMvc, LEADER, COURSE_ID);
 		raceCoursePort.put(StubRaceCoursePort.canceled(StubRaceCoursePort.openCourse(COURSE_ID, RACE_ID, 14, null)));
 
 		apply(LEADER, partyId)

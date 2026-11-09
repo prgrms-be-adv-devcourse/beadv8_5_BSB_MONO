@@ -181,7 +181,7 @@ public class ApiV1PartyController {
 	@PostMapping("/{partyId}/apply")
 	@Operation(operationId = "applyParty", summary = "파티 신청 (파티장)",
 		description = "파티장이 [신청]을 누르면 파티원 전원의 크루 자리를 한꺼번에 잡고 파티원 결제 기간을 연다. "
-			+ "확인: 파티장·모집 중, 대기열 입장 중, 대회 취소 아님, 파티 예매 기간(크루 예매 시작~마감)이고 접수 마감 전, "
+			+ "확인: 파티장·모집 중, 파티 대기열 입장 중, 대회 취소 아님, 파티 예매 기간(크루 예매 시작~마감)이고 접수 마감 전, "
 			+ "파티원 4명 이상(판매자 최소 인원이 더 크면 그 수)~최대 인원, 파티원 모두 크루원이고 파티 예매 시작 7일 전까지 가입. "
 			+ "자리가 모자라면 한 석도 잡지 않고 409 ORDER_PARTY_CREW_SEAT_SHORTAGE(data에 모자란 종목)를 주며 파티는 모집 중으로 남는다. "
 			+ "성공하면 파티는 결제 진행 중(PAYING), 파티원 신청서는 결제 대기(APPLIED)가 되고 "
@@ -197,7 +197,7 @@ public class ApiV1PartyController {
 		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = PartyApiExamples.LOGIN_REQUIRED))),
-		@ApiResponse(responseCode = "403", description = "파티장이 아님, 대기열 입장 중이 아님",
+		@ApiResponse(responseCode = "403", description = "파티장이 아님, 파티 대기열 입장 중이 아님",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "파티장이 아님", value = PartyApiExamples.LEADER_ONLY),
 				@ExampleObject(name = "대기열 입장 전", value = PartyApiExamples.QUEUE_NOT_ADMITTED)

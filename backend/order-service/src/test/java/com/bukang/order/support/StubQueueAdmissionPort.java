@@ -27,6 +27,13 @@ public class StubQueueAdmissionPort implements QueueAdmissionPort {
 		return Optional.of(admissionEndsAt.getOrDefault(raceCourseId, now.plusMinutes(ADMISSION_MINUTES)));
 	}
 
+	// 파티 대기열도 종목마다 같은 답을 준다 (notAdmitted·admitUntil이 함께 정한다)
+	@Override
+	public Optional<LocalDateTime> findPartyAdmissionEndsAt(long leaderMemberId, long raceId, long raceCourseId,
+		LocalDateTime now) {
+		return findAdmissionEndsAt(leaderMemberId, raceId, raceCourseId, now);
+	}
+
 	// 이 종목에는 입장 중이 아니다 (줄 서는 중, 대기열을 거치지 않음)
 	public void notAdmitted(long raceCourseId) {
 		notAdmittedCourses.add(raceCourseId);
