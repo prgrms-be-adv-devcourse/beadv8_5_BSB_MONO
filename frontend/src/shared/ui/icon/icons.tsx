@@ -175,8 +175,7 @@ export type SpinnerProps = {
   label?: string | null
 }
 
-// HeroUI Spinner 생김새: 굵기 1/8, 둥근 끝, 끝으로 갈수록 옅어지는 호가 0.75초에 한 바퀴. 색은 currentColor.
-// 다크 모드는 brand-500이 어두운 바탕에서 3:1에 못 미쳐 밝은 브랜드 글자색을 쓴다.
+// 피그마 v2/Spinner: 1초에 한 바퀴, 색은 감싸는 부품의 글자색(currentColor). 호 모양은 끝으로 갈수록 옅어진다.
 export function Spinner({
   className,
   trackClassName = 'stroke-border-default',
@@ -187,10 +186,7 @@ export function Spinner({
     <span
       role={label === null ? undefined : 'status'}
       aria-hidden={label === null || undefined}
-      className={cn(
-        'inline-flex size-6 shrink-0 text-border-brand dark:text-text-brand',
-        className,
-      )}
+      className={cn('inline-flex size-6 shrink-0', className)}
     >
       <svg
         viewBox="0 0 24 24"
@@ -198,7 +194,7 @@ export function Spinner({
         strokeWidth={3}
         strokeLinecap="round"
         aria-hidden
-        className="size-full animate-[spin_0.75s_linear_infinite] motion-reduce:animate-[spin_3s_linear_infinite]"
+        className="size-full animate-[spin_1s_linear_infinite] motion-reduce:animate-[spin_3s_linear_infinite]"
       >
         <defs>
           <linearGradient id={gradientId} x1="0" y1="1" x2="0" y2="0">

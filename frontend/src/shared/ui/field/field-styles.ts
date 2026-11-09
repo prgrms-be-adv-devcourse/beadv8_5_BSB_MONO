@@ -6,7 +6,7 @@ export const FIELD_LABEL =
 
 // 입력 상자: 기본 1px border/strong, 포커스(열림) 2px border/focus, 오류 2px border/danger
 export const FIELD_BOX =
-  'w-full rounded-md bg-bg-surface px-4 py-3 text-body2-regular text-text-primary inset-ring inset-ring-border-strong outline-none ' +
+  'w-full rounded-field bg-bg-surface px-4 py-3 text-body2-regular text-text-primary inset-ring inset-ring-border-strong outline-none ' +
   'placeholder:text-text-tertiary ' +
   'group-data-invalid:inset-ring-2 group-data-invalid:inset-ring-border-danger ' +
   'group-data-disabled:cursor-not-allowed group-data-disabled:bg-bg-disabled group-data-disabled:text-text-disabled group-data-disabled:inset-ring-border-disabled'

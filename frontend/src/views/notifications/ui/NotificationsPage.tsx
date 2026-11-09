@@ -55,7 +55,7 @@ export function NotificationsPage({ empty = false }: { empty?: boolean }) {
       ) : (
         <main className="flex flex-1 flex-col">
           <Tabs value={filter} onValueChange={(value) => setFilter(value as Filter)}>
-            <TabBar variant="underline">
+            <TabBar layout="hug">
               <Tab
                 value="all"
                 count={totalUnread > 0 ? <UnreadCount count={totalUnread} /> : undefined}

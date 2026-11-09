@@ -170,7 +170,6 @@ type HeaderProps = {
 }
 
 // 피그마 DatePicker/Header. 연·월을 누르면 휠이 열리고, 고를 수 있는 첫 달에서는 이전 버튼을 막는다.
-// 모서리 8은 피그마 Radius 변수에 없는 값이라 그대로 적었다.
 function Header({
   label,
   wheelOpen,

@@ -54,7 +54,7 @@ function NavItem({ item, selected }: { item: Item; selected: boolean }) {
       aria-current={selected ? 'page' : undefined}
       className={cn(
         'flex h-14 flex-1 flex-col items-center justify-center gap-0.5 rounded-md text-caption-medium',
-        selected ? 'text-text-brand' : 'text-text-tertiary',
+        selected ? 'text-text-primary' : 'text-text-tertiary',
         FOCUS_RING,
       )}
     >
