@@ -139,6 +139,10 @@ class ApiV1PayoutClaimControllerTest {
 					fieldWithPath("data.confirmedBy").description("입금을 확인한 관리자 회원 ID (확인 전에는 null)")
 						.optional().type(JsonFieldType.NUMBER),
 					fieldWithPath("data.confirmedAt").description("입금 확인 일시 (확인 전에는 null)")
+						.optional().type(JsonFieldType.STRING),
+					fieldWithPath("data.virtualBankName").description("판매자가 입금할 가상계좌 은행 이름 (발급 전에는 null)")
+						.optional().type(JsonFieldType.STRING),
+					fieldWithPath("data.virtualAccountNumber").description("판매자가 입금할 가상계좌 번호 (발급 전에는 null)")
 						.optional().type(JsonFieldType.STRING)
 				)));
 
@@ -227,6 +231,8 @@ class ApiV1PayoutClaimControllerTest {
 		saveClaim(2, 7, 30_000, null);
 		saveClaim(3, 7, 50_000, now);
 		PayoutClaim lastMonth = saveClaim(4, 7, 70_000, now.minusMonths(1));
+		lastMonth.assignVirtualAccount("국민은행", "12345678901234");
+		payoutClaimRepository.save(lastMonth);
 
 		adminClaims(ADMIN_ID, "page", "0", "size", "20")
 			.andExpect(status().isOk())
@@ -236,6 +242,10 @@ class ApiV1PayoutClaimControllerTest {
 			.andExpect(jsonPath("$.data.summary.confirmedThisMonthCount").value(1))
 			.andExpect(jsonPath("$.data.claims.totalElements").value(4))
 			.andExpect(jsonPath("$.data.claims.content[0].id").value(lastMonth.getId()))
+			.andExpect(jsonPath("$.data.claims.content[0].virtualBankName").value("국민은행"))
+			.andExpect(jsonPath("$.data.claims.content[0].virtualAccountNumber").value("12345678901234"))
+			// 캐시가 가상계좌를 아직 발급하지 않은 청구는 null
+			.andExpect(jsonPath("$.data.claims.content[1].virtualBankName").doesNotExist())
 			.andDo(document("payout-admin-claims",
 				requestHeaders(headerWithName("X-Member-Id").description("관리자 회원 ID (게이트웨이가 토큰에서 꺼내 넣는다)")),
 				queryParameters(
@@ -264,6 +274,10 @@ class ApiV1PayoutClaimControllerTest {
 						.optional().type(JsonFieldType.NUMBER),
 					fieldWithPath("data.claims.content[].confirmedAt").description("입금 확인 일시 (확인 전 null)")
 						.optional().type(JsonFieldType.STRING),
+					fieldWithPath("data.claims.content[].virtualBankName")
+						.description("판매자가 입금할 가상계좌 은행 이름 (발급 전 null)").optional().type(JsonFieldType.STRING),
+					fieldWithPath("data.claims.content[].virtualAccountNumber")
+						.description("판매자가 입금할 가상계좌 번호 (발급 전 null)").optional().type(JsonFieldType.STRING),
 					fieldWithPath("data.claims.page").description("페이지 번호 (0부터)"),
 					fieldWithPath("data.claims.size").description("페이지 크기"),
 					fieldWithPath("data.claims.totalElements").description("전체 청구 수"),
