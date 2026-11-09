@@ -5,7 +5,9 @@ import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -18,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.stream.LongStream;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,16 +45,19 @@ import com.bukang.order.domain.Participation;
 import com.bukang.order.domain.ParticipationStatus;
 import com.bukang.order.domain.Party;
 import com.bukang.order.domain.PartyStatus;
+import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
+import com.bukang.order.domain.exception.ParticipationNotPayableException;
 import com.bukang.order.out.ParticipationRepository;
 import com.bukang.order.out.PartyMemberRepository;
 import com.bukang.order.out.PartyRepository;
-import com.bukang.order.out.QueueAdmissionRepository;
 import com.bukang.order.out.seat.CrewSeatHoldPort;
 import com.bukang.order.out.seat.CrewSeatHoldPort.CrewSeatHoldResult;
 import com.bukang.order.out.seat.CrewSeatHoldPort.Shortage;
-import com.bukang.order.support.QueueEntry;
+import com.bukang.order.out.seat.FakeCrewSeatHoldAdapter;
 import com.bukang.order.support.StubCrewPort;
 import com.bukang.order.support.StubCrewPortConfig;
+import com.bukang.order.support.StubQueueAdmissionPort;
+import com.bukang.order.support.StubQueueAdmissionPortConfig;
 import com.bukang.order.support.StubRaceCoursePort;
 import com.bukang.order.support.StubRaceCoursePortConfig;
 import com.jayway.jsonpath.JsonPath;
@@ -60,7 +66,7 @@ import com.jayway.jsonpath.JsonPath;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Import({StubRaceCoursePortConfig.class, StubCrewPortConfig.class})
+@Import({StubRaceCoursePortConfig.class, StubCrewPortConfig.class, StubQueueAdmissionPortConfig.class})
 class ApiV1PartyApplyTest {
 	private static final String BASE_URL = "/api/v1/order/parties";
 	private static final long LEADER = 1;
@@ -83,7 +89,7 @@ class ApiV1PartyApplyTest {
 	private ParticipationRepository participationRepository;
 
 	@Autowired
-	private QueueAdmissionRepository queueAdmissionRepository;
+	private StubQueueAdmissionPort queueAdmissionPort;
 
 	@Autowired
 	private StubRaceCoursePort raceCoursePort;
@@ -93,6 +99,9 @@ class ApiV1PartyApplyTest {
 
 	@MockitoSpyBean
 	private CrewSeatHoldPort crewSeatHoldPort;
+
+	@Autowired
+	private FakeCrewSeatHoldAdapter fakeCrewSeatHoldAdapter;
 
 	@MockitoSpyBean
 	private NotificationKafkaSender notificationSender;
@@ -110,7 +119,8 @@ class ApiV1PartyApplyTest {
 		participationRepository.deleteAll();
 		partyMemberRepository.deleteAll();
 		partyRepository.deleteAll();
-		queueAdmissionRepository.deleteAll();
+		queueAdmissionPort.clear();
+		fakeCrewSeatHoldAdapter.clear();
 		raceCoursePort.clear();
 		crewPort.clear();
 	}
@@ -119,7 +129,6 @@ class ApiV1PartyApplyTest {
 	@DisplayName("파티장이 신청하면 자리를 한꺼번에 잡고, 파티는 결제 진행 중, 신청서는 결제 대기, 파티원 모두에게 결제 알림이 간다")
 	void apply() throws Exception {
 		long partyId = partyWith(MEMBERS);
-		QueueEntry.enter(mockMvc, LEADER, COURSE_ID);
 		// DB는 마이크로초까지 남기므로 맞춰 비교한다 (Linux CI는 나노초)
 		LocalDateTime before = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
 
@@ -160,18 +169,140 @@ class ApiV1PartyApplyTest {
 		apply(LEADER, partyId)
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("ORDER_PARTY_NOT_RECRUITING"));
-		verify(crewSeatHoldPort, times(1)).holdAll(eq(partyId), eq(CREW_ID), any(), any());
+		verify(crewSeatHoldPort, times(1)).holdAll(eq(partyId), eq(CREW_ID), eq(RACE_ID), any(), any());
 		// 결제 진행 중에는 합류·나가기도 막힌다
 		post(MEMBERS.getFirst(), partyId, "/leave").andExpect(status().isConflict());
+	}
+
+	@Test
+	@DisplayName("상품은 자리를 잡았는데 응답이 늦어 503으로 끝나면, 그사이 파티원을 바꿀 수 없고 다시 신청하면 처음 자리로 신청된다")
+	void retryAfterTimeout() throws Exception {
+		long partyId = partyWith(MEMBERS);
+		String token = partyRepository.findById(partyId).orElseThrow().getJoinToken();
+		// 상품은 자리를 잡고(가짜 어댑터가 기억) 주문은 응답을 못 받는다
+		doAnswer(invocation -> {
+			invocation.callRealMethod();
+			throw new ExternalServiceUnavailableException("상품 서비스에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요.");
+		}).doCallRealMethod().when(crewSeatHoldPort).holdAll(anyLong(), anyLong(), anyLong(), any(), any());
+
+		apply(LEADER, partyId).andExpect(status().isServiceUnavailable());
+		assertThat(partyRepository.findById(partyId).orElseThrow().getStatus()).isEqualTo(PartyStatus.RECRUITING);
+
+		// 상품에 잡힌 자리 목록이 바뀌면 다시 신청할 수 없으므로 나가기·합류를 막는다
+		post(MEMBERS.getFirst(), partyId, "/leave")
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("ORDER_PARTY_CREW_HOLD_IN_PROGRESS"));
+		join(OUTSIDER, token)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("ORDER_PARTY_CREW_HOLD_IN_PROGRESS"));
+
+		apply(LEADER, partyId)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.status").value("PAYING"));
+		verify(crewSeatHoldPort, times(2)).holdAll(eq(partyId), eq(CREW_ID), eq(RACE_ID), any(), any());
+	}
+
+	@Test
+	@DisplayName("503 뒤 크루 예매가 끝나도 표시가 남은 파티는 다시 누르면 상품의 처음 결과로 신청된다 (영호님 리뷰)")
+	void retryAfterSaleClosed() throws Exception {
+		long partyId = partyWith(MEMBERS);
+		doAnswer(invocation -> {
+			invocation.callRealMethod();
+			throw new ExternalServiceUnavailableException("상품 서비스에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요.");
+		}).doCallRealMethod().when(crewSeatHoldPort).holdAll(anyLong(), anyLong(), anyLong(), any(), any());
+		apply(LEADER, partyId).andExpect(status().isServiceUnavailable());
+
+		// 크루 예매가 끝났고 대기열 입장도 끝났다
+		putCourse(crewSaleStartAt, LocalDateTime.now().minusMinutes(1), 4, 10);
+		queueAdmissionPort.notAdmittedToParty(COURSE_ID);
+
+		apply(LEADER, partyId)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.status").value("PAYING"));
+	}
+
+	@Test
+	@DisplayName("503 뒤 크루 예매가 끝나 다시 눌렀는데 상품에도 자리가 없으면(거절) 표시를 지워 파티원이 나갈 수 있다")
+	void retryAfterSaleClosedRejected() throws Exception {
+		long partyId = partyWith(MEMBERS);
+		doThrow(new ExternalServiceUnavailableException("상품 서비스에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요."))
+			.doThrow(new ParticipationNotPayableException("크루 예매 기간이 아닙니다."))
+			.when(crewSeatHoldPort).holdAll(anyLong(), anyLong(), anyLong(), any(), any());
+		apply(LEADER, partyId).andExpect(status().isServiceUnavailable());
+		putCourse(crewSaleStartAt, LocalDateTime.now().minusMinutes(1), 4, 10);
+
+		apply(LEADER, partyId).andExpect(status().isConflict());
+		post(MEMBERS.getFirst(), partyId, "/leave").andExpect(status().isOk());
+	}
+
+	@Test
+	@DisplayName("첫 요청이 상품에 닿지 않은 채 크루 마감일 다음 날 0시가 지나도, 재시도는 지난 기한을 보내지 않는다 (영호님 리뷰)")
+	void retryAfterCrewCloseSendsFutureExpiresAt() throws Exception {
+		long partyId = partyWith(MEMBERS);
+		doThrow(new ExternalServiceUnavailableException("상품 서비스에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요."))
+			.doCallRealMethod()
+			.when(crewSeatHoldPort).holdAll(anyLong(), anyLong(), anyLong(), any(), any());
+		apply(LEADER, partyId).andExpect(status().isServiceUnavailable());
+		// 크루 마감이 이틀 전이라 크루 자리 닫는 시각(마감일 다음 날 0시)도 지났다
+		putCourse(crewSaleStartAt.minusDays(5), LocalDateTime.now().minusDays(2), 4, 10);
+
+		// 가짜 어댑터도 상품처럼 지난 끝 시각이면 503이다. 미래 기한을 보내야 상품이 확정 답(여기서는 처음 확보)을 준다
+		apply(LEADER, partyId).andExpect(status().isOk());
+		ArgumentCaptor<LocalDateTime> sentExpiresAt = ArgumentCaptor.forClass(LocalDateTime.class);
+		verify(crewSeatHoldPort, times(2)).holdAll(anyLong(), anyLong(), anyLong(), sentExpiresAt.capture(), any());
+		assertThat(sentExpiresAt.getAllValues().getLast()).isAfter(LocalDateTime.now());
+	}
+
+	@Test
+	@DisplayName("표시가 남아도 크루 예매가 열려 있으면 재시도도 파티 대기열·인원을 확인한다 (상품에 닿지 않았으면 새로 잡히므로)")
+	void retryWhileSaleOpenChecksQueue() throws Exception {
+		long partyId = partyWith(MEMBERS);
+		doThrow(new ExternalServiceUnavailableException("상품 서비스에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요."))
+			.doCallRealMethod()
+			.when(crewSeatHoldPort).holdAll(anyLong(), anyLong(), anyLong(), any(), any());
+		apply(LEADER, partyId).andExpect(status().isServiceUnavailable());
+
+		queueAdmissionPort.notAdmittedToParty(COURSE_ID);
+		apply(LEADER, partyId)
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.code").value("ORDER_QUEUE_NOT_ADMITTED"));
+		queueAdmissionPort.clear();
+		putCourse(crewSaleStartAt, LocalDateTime.now().plusDays(20), 6, 10);
+		apply(LEADER, partyId)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("ORDER_PARTY_SIZE_OUT_OF_RANGE"));
+		verify(crewSeatHoldPort, times(1)).holdAll(anyLong(), anyLong(), anyLong(), any(), any());
+	}
+
+	@Test
+	@DisplayName("표시가 없는 파티는 크루 예매가 끝나면 상품을 부르지 않고 409다")
+	void saleClosedWithoutHold() throws Exception {
+		long partyId = partyWith(MEMBERS);
+		putCourse(crewSaleStartAt, LocalDateTime.now().minusMinutes(1), 4, 10);
+
+		apply(LEADER, partyId)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("ORDER_PARTY_SALE_CLOSED"));
+		verify(crewSeatHoldPort, never()).holdAll(anyLong(), anyLong(), anyLong(), any(), any());
+	}
+
+	@Test
+	@DisplayName("자리가 모자라 한 석도 잡지 않았으면 파티원을 다시 바꿀 수 있다")
+	void membersChangeableAfterShortage() throws Exception {
+		long partyId = partyWith(MEMBERS);
+		doReturn(CrewSeatHoldResult.shortOf(Map.of(COURSE_ID, new Shortage(4, 1))))
+			.when(crewSeatHoldPort).holdAll(anyLong(), anyLong(), anyLong(), any(), any());
+
+		apply(LEADER, partyId).andExpect(status().isConflict());
+		post(MEMBERS.getFirst(), partyId, "/leave").andExpect(status().isOk());
 	}
 
 	@Test
 	@DisplayName("크루 자리가 모자라면 한 석도 잡지 않고 409와 모자란 종목을 주며, 파티는 모집 중으로 남는다")
 	void shortage() throws Exception {
 		long partyId = partyWith(MEMBERS);
-		QueueEntry.enter(mockMvc, LEADER, COURSE_ID);
 		doReturn(CrewSeatHoldResult.shortOf(Map.of(COURSE_ID, new Shortage(4, 1))))
-			.when(crewSeatHoldPort).holdAll(anyLong(), anyLong(), any(), any());
+			.when(crewSeatHoldPort).holdAll(anyLong(), anyLong(), anyLong(), any(), any());
 
 		apply(LEADER, partyId)
 			.andExpect(status().isConflict())
@@ -189,10 +320,68 @@ class ApiV1PartyApplyTest {
 	}
 
 	@Test
-	@DisplayName("파티장이 아니거나 대기열에 들어오지 않았으면 거절하고 상품을 부르지 않는다")
+	@DisplayName("상품이 처음 잡은 기한을 돌려주면(응답을 못 받고 다시 신청) 그 기한을 파티·신청서 결제 기한으로 쓴다")
+	void usesHeldExpiresAt() throws Exception {
+		long partyId = partyWith(MEMBERS);
+		LocalDateTime firstDueAt = LocalDateTime.now().plusHours(23).truncatedTo(ChronoUnit.MICROS);
+		doReturn(CrewSeatHoldResult.held(firstDueAt))
+			.when(crewSeatHoldPort).holdAll(anyLong(), anyLong(), anyLong(), any(), any());
+
+		apply(LEADER, partyId).andExpect(status().isOk());
+
+		assertThat(partyRepository.findById(partyId).orElseThrow().getPaymentDueAt()).isEqualTo(firstDueAt);
+		assertThat(participationRepository.findByPartyIdIn(List.of(partyId)))
+			.extracting(Participation::getPaymentDueAt)
+			.containsOnly(firstDueAt);
+	}
+
+	@Test
+	@DisplayName("상품이 돌려준 처음 기한이 이미 지났으면 결제 기간을 열지 않고 409, 파티는 모집 중으로 남는다")
+	void heldExpiresAtPassed() throws Exception {
+		long partyId = partyWith(MEMBERS);
+		doReturn(CrewSeatHoldResult.held(LocalDateTime.now().minusMinutes(1)))
+			.when(crewSeatHoldPort).holdAll(anyLong(), anyLong(), anyLong(), any(), any());
+
+		apply(LEADER, partyId)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("ORDER_PARTICIPATION_NOT_PAYABLE"));
+		assertThat(partyRepository.findById(partyId).orElseThrow().getStatus()).isEqualTo(PartyStatus.RECRUITING);
+		verify(notificationSender, never()).send(any());
+		// 상품이 확정해서 답했으므로 「신청 중」 표시를 지운다. 파티원이 나가 새 파티를 만들 수 있어야 한다
+		post(MEMBERS.getFirst(), partyId, "/leave").andExpect(status().isOk());
+	}
+
+	@Test
+	@DisplayName("상품을 부르는 중에 같은 파티 신청이 또 오면 409 신청 중으로 막고 상품은 한 번만 부른다")
+	void concurrentApply() throws Exception {
+		long partyId = partyWith(MEMBERS);
+		int[] secondStatus = new int[1];
+		String[] secondBody = new String[1];
+		doAnswer(invocation -> {
+			try (ExecutorService executor = Executors.newSingleThreadExecutor()) {
+				executor.submit(() -> {
+					var response = apply(LEADER, partyId).andReturn().getResponse();
+					secondStatus[0] = response.getStatus();
+					secondBody[0] = response.getContentAsString();
+					return null;
+				}).get();
+			}
+			return invocation.callRealMethod();
+		}).doCallRealMethod().when(crewSeatHoldPort).holdAll(anyLong(), anyLong(), anyLong(), any(), any());
+
+		apply(LEADER, partyId).andExpect(status().isOk());
+
+		assertThat(secondStatus[0]).isEqualTo(409);
+		assertThat(secondBody[0]).contains("ORDER_PARTY_CREW_HOLD_IN_PROGRESS");
+		verify(crewSeatHoldPort, times(1)).holdAll(anyLong(), anyLong(), anyLong(), any(), any());
+	}
+
+	@Test
+	@DisplayName("파티장이 아니거나 파티 대기열에 입장하지 않았으면 거절하고 상품을 부르지 않는다")
 	void leaderAndQueue() throws Exception {
 		long partyId = partyWith(MEMBERS);
-		QueueEntry.enter(mockMvc, MEMBERS.getFirst(), COURSE_ID);
+		// 개인 대기열에는 입장 중이어도 파티 대기열에 입장하지 않았으면 막힌다
+		queueAdmissionPort.notAdmittedToParty(COURSE_ID);
 
 		apply(MEMBERS.getFirst(), partyId)
 			.andExpect(status().isForbidden())
@@ -200,14 +389,13 @@ class ApiV1PartyApplyTest {
 		apply(LEADER, partyId)
 			.andExpect(status().isForbidden())
 			.andExpect(jsonPath("$.code").value("ORDER_QUEUE_NOT_ADMITTED"));
-		verify(crewSeatHoldPort, never()).holdAll(anyLong(), anyLong(), any(), any());
+		verify(crewSeatHoldPort, never()).holdAll(anyLong(), anyLong(), anyLong(), any(), any());
 	}
 
 	@Test
 	@DisplayName("파티원이 4명보다 적거나 판매자 최소·최대 인원 밖이면 거절하고 상품을 부르지 않는다")
 	void size() throws Exception {
 		long partyId = partyWith(MEMBERS.subList(0, 2));
-		QueueEntry.enter(mockMvc, LEADER, COURSE_ID);
 
 		// 판매자 최소 인원이 2명이어도 4명은 있어야 한다 (11/05 회의 P3)
 		putCourse(crewSaleStartAt, LocalDateTime.now().plusDays(20), 2, 10);
@@ -219,14 +407,13 @@ class ApiV1PartyApplyTest {
 		apply(LEADER, partyId)
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("ORDER_PARTY_SIZE_OUT_OF_RANGE"));
-		verify(crewSeatHoldPort, never()).holdAll(anyLong(), anyLong(), any(), any());
+		verify(crewSeatHoldPort, never()).holdAll(anyLong(), anyLong(), anyLong(), any(), any());
 	}
 
 	@Test
 	@DisplayName("크루를 떠난 파티원이나 파티 예매 시작 7일 전보다 늦게 가입한 파티원이 있으면 거절하고 상품을 부르지 않는다")
 	void crewMembers() throws Exception {
 		long partyId = partyWith(MEMBERS);
-		QueueEntry.enter(mockMvc, LEADER, COURSE_ID);
 
 		crewPort.rejoinedCrewAt(MEMBERS.getLast(), crewSaleStartAt.minusDays(7).plusMinutes(1));
 		apply(LEADER, partyId)
@@ -239,7 +426,7 @@ class ApiV1PartyApplyTest {
 		apply(LEADER, partyId)
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("ORDER_PARTY_MEMBER_NOT_CREW"));
-		verify(crewSeatHoldPort, never()).holdAll(anyLong(), anyLong(), any(), any());
+		verify(crewSeatHoldPort, never()).holdAll(anyLong(), anyLong(), anyLong(), any(), any());
 
 		crewPort.clear();
 		crewPort.rejoinedCrewAt(MEMBERS.getLast(), crewSaleStartAt.minusDays(7));
@@ -250,7 +437,6 @@ class ApiV1PartyApplyTest {
 	@DisplayName("파티 예매 기간(크루 예매 시작~마감) 밖이면 거절하고 상품을 부르지 않는다")
 	void salePeriod() throws Exception {
 		long partyId = partyWith(MEMBERS);
-		QueueEntry.enter(mockMvc, LEADER, COURSE_ID);
 
 		putCourse(LocalDateTime.now().plusHours(1), LocalDateTime.now().plusDays(20), 4, 10);
 		apply(LEADER, partyId)
@@ -261,7 +447,7 @@ class ApiV1PartyApplyTest {
 		apply(LEADER, partyId)
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("ORDER_PARTY_SALE_CLOSED"));
-		verify(crewSeatHoldPort, never()).holdAll(anyLong(), anyLong(), any(), any());
+		verify(crewSeatHoldPort, never()).holdAll(anyLong(), anyLong(), anyLong(), any(), any());
 	}
 
 	@Test
@@ -269,7 +455,6 @@ class ApiV1PartyApplyTest {
 	void membersChanged() throws Exception {
 		long partyId = partyWith(MEMBERS);
 		String token = partyRepository.findById(partyId).orElseThrow().getJoinToken();
-		QueueEntry.enter(mockMvc, LEADER, COURSE_ID);
 		crewPort.beforeNextLookup(() -> {
 			// 다른 요청(다른 트랜잭션)으로 합류를 끝낸다
 			try (ExecutorService executor = Executors.newSingleThreadExecutor()) {
@@ -282,7 +467,7 @@ class ApiV1PartyApplyTest {
 		apply(LEADER, partyId)
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("ORDER_PARTY_MEMBERS_CHANGED"));
-		verify(crewSeatHoldPort, never()).holdAll(anyLong(), anyLong(), any(), any());
+		verify(crewSeatHoldPort, never()).holdAll(anyLong(), anyLong(), anyLong(), any(), any());
 
 		// 다시 누르면 새 파티원까지 확인해 신청된다
 		apply(LEADER, partyId).andExpect(status().isOk());
@@ -292,13 +477,12 @@ class ApiV1PartyApplyTest {
 	@DisplayName("취소된 대회는 신청할 수 없고 상품 자리를 부르지 않는다")
 	void canceledRace() throws Exception {
 		long partyId = partyWith(MEMBERS);
-		QueueEntry.enter(mockMvc, LEADER, COURSE_ID);
 		raceCoursePort.put(StubRaceCoursePort.canceled(StubRaceCoursePort.openCourse(COURSE_ID, RACE_ID, 14, null)));
 
 		apply(LEADER, partyId)
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("ORDER_RACE_CANCELED"));
-		verify(crewSeatHoldPort, never()).holdAll(anyLong(), anyLong(), any(), any());
+		verify(crewSeatHoldPort, never()).holdAll(anyLong(), anyLong(), anyLong(), any(), any());
 	}
 
 	@Test
@@ -317,7 +501,33 @@ class ApiV1PartyApplyTest {
 		join(OUTSIDER, token).andExpect(status().isCreated());
 	}
 
-	private void putCourse(LocalDateTime startAt, LocalDateTime endAt, int minCount, int maxCount) {
+	@Test
+	@DisplayName("판매자가 최대 인원을 비우면 11명이 넘어도 합류·신청할 수 있다 (11/09 결정: 10명 상한 없음)")
+	void noMaxCount() throws Exception {
+		putCourse(crewSaleStartAt, LocalDateTime.now().plusDays(20), 4, null);
+		List<Long> many = LongStream.rangeClosed(11, 21).boxed().toList();
+		long partyId = partyWith(many);
+
+		apply(LEADER, partyId)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.status").value("PAYING"));
+		assertThat(participationRepository.findByPartyIdIn(List.of(partyId))).hasSize(12);
+	}
+
+	@Test
+	@DisplayName("판매자 최대 인원이 6명이면 7번째는 합류할 수 없다")
+	void maxCountSix() throws Exception {
+		putCourse(crewSaleStartAt, LocalDateTime.now().plusDays(20), 4, 6);
+		long partyId = partyWith(List.of(11L, 12L, 13L, 14L, 15L));
+		String token = partyRepository.findById(partyId).orElseThrow().getJoinToken();
+
+		join(16L, token)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("ORDER_PARTY_FULL"));
+		apply(LEADER, partyId).andExpect(status().isOk());
+	}
+
+	private void putCourse(LocalDateTime startAt, LocalDateTime endAt, int minCount, Integer maxCount) {
 		raceCoursePort.put(StubRaceCoursePort.withCrewSale(StubRaceCoursePort.openCourse(COURSE_ID, RACE_ID, 14, null),
 			startAt, endAt, minCount, maxCount));
 	}

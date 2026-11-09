@@ -36,7 +36,7 @@ public record PartyRaceStatusDto(
 	Integer memberCount,
 	@Schema(description = "신청할 수 있는 최소 인원", example = "4")
 	Integer minCount,
-	@Schema(description = "파티 최대 인원", example = "10")
+	@Schema(description = "파티 최대 인원. null이면 제한 없음", example = "10")
 	Integer maxCount,
 	@Schema(description = "결제를 마친(참가 확정) 파티원 수", example = "0")
 	Integer paidCount,
@@ -61,7 +61,7 @@ public record PartyRaceStatusDto(
 			null, null, null);
 	}
 
-	public static PartyRaceStatusDto of(MyRaceParty mine, long memberId, int minCount, int maxCount) {
+	public static PartyRaceStatusDto of(MyRaceParty mine, long memberId, int minCount, Integer maxCount) {
 		Party party = mine.party();
 		boolean leader = party.isLeader(memberId);
 		Reason reason = reason(leader, party.getStatus(), mine.raceOpen(), mine.memberCount(), minCount, maxCount);
@@ -71,7 +71,7 @@ public record PartyRaceStatusDto(
 	}
 
 	private static Reason reason(boolean leader, PartyStatus status, boolean raceOpen, int memberCount, int minCount,
-		int maxCount) {
+		Integer maxCount) {
 		if (!leader) {
 			return Reason.NOT_LEADER;
 		}
@@ -84,6 +84,6 @@ public record PartyRaceStatusDto(
 		if (memberCount < minCount) {
 			return Reason.TOO_FEW_MEMBERS;
 		}
-		return memberCount > maxCount ? Reason.TOO_MANY_MEMBERS : null;
+		return maxCount != null && memberCount > maxCount ? Reason.TOO_MANY_MEMBERS : null;
 	}
 }

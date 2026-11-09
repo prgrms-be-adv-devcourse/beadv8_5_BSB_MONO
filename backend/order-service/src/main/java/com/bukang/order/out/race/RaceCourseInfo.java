@@ -2,6 +2,7 @@ package com.bukang.order.out.race;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.Period;
 import java.util.List;
 import java.util.Objects;
@@ -59,12 +60,26 @@ public record RaceCourseInfo(
 	 * @param startAt  파티 예매 시작. 파티원은 이 시각 7일 전까지 크루에 가입했어야 한다 (11/05 회의 P4)
 	 * @param endAt    파티 예매 마감 (크루 마감)
 	 * @param minCount 파티 최소 인원 (판매자가 정함, 11/05 회의 P3: 4명 아래로는 못 내림)
-	 * @param maxCount 파티 최대 인원 (판매자가 정함, 상한 10명)
+	 * @param maxCount 파티 최대 인원 (판매자가 정함). null이면 제한 없음 (11/09 결정: 11/05 P3의 10명 상한을 없앰)
 	 */
-	public record CrewSale(LocalDateTime startAt, LocalDateTime endAt, int minCount, int maxCount) {
+	public record CrewSale(LocalDateTime startAt, LocalDateTime endAt, int minCount, Integer maxCount) {
+		// 이 인원이면 판매자 최대 인원을 넘는지. 최대가 없으면 넘지 않는다
+		public boolean exceedsMax(int size) {
+			return maxCount != null && size > maxCount;
+		}
+
 		// 파티 예매 시작 이상, 마감 전
 		public boolean isOpen(LocalDateTime now) {
 			return !now.isBefore(startAt) && now.isBefore(endAt);
+		}
+
+		// 크루 자리를 닫는 시각 = 결제 기한 상한. 마감이 정확히 0시면 그 시각, 아니면 마감일 다음 날 0시
+		// 상품 Race.crewCloseAt(#357)과 같아야 한다. 상품 배치가 이 시각에 결제 대기 크루 자리를 모두 풀기 때문이다
+		public LocalDateTime closeAt() {
+			if (endAt.toLocalTime().equals(LocalTime.MIDNIGHT)) {
+				return endAt;
+			}
+			return endAt.toLocalDate().plusDays(1).atStartOfDay();
 		}
 
 		// 이 시각까지 크루에 가입한 사람만 파티로 신청할 수 있다

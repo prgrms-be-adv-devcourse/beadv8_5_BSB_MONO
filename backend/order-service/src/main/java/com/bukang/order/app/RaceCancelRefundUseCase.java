@@ -47,6 +47,7 @@ public class RaceCancelRefundUseCase {
 	private final WalletPort walletPort;
 	private final OrderOutboxKafkaAppendUseCase orderOutboxKafkaAppendUseCase;
 	private final TransactionTemplate transactionTemplate;
+	private final KitOptionSaleUseCase kitOptionSaleUseCase;
 
 	/**
 	 * @param refundedOrders 이번에 취소·환불한 주문 수
@@ -138,6 +139,8 @@ public class RaceCancelRefundUseCase {
 			Participation participation = participationRepository.findByIdForUpdate(item.getParticipationId())
 				.orElseThrow(() -> new ParticipationNotFoundException("존재하지 않는 참가 신청입니다."));
 			participation.markCanceled(now);
+			// 환불이 실패하면 아래 예외로 함께 롤백된다
+			kitOptionSaleUseCase.release(participation.getId());
 		}
 		// 주문 하나 = 참가권 하나라 주문 단위 전액 환불이 그 참가권의 환불이다. 실패하면 예외로 이 주문만 롤백된다
 		walletPort.refund(order.getId(), order.getBuyerId());
