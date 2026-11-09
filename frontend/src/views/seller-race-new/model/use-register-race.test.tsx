@@ -134,4 +134,116 @@ describe('useRegisterRace', () => {
       '승인된 판매자만 대회를 등록·수정할 수 있습니다.',
     )
   })
+
+  describe('키트 옵션', () => {
+    const kitValues: RaceFormValues = {
+      ...values,
+      kitOptions: [
+        { name: '티셔츠', value: 'M', stock: '100' },
+        { name: '양말', value: '230-250', stock: '' },
+      ],
+    }
+    const savedRace = () =>
+      HttpResponse.json(
+        {
+          status: 201,
+          message: '대회를 등록했습니다.',
+          data: { raceId: 7, saleStatus: 'SCHEDULED', saleOpenDate: '2026-10-20', courseIds: [1] },
+        },
+        { status: 201 },
+      )
+    const kitSaved = (status: number) =>
+      HttpResponse.json({ status, message: '', data: { raceId: 7, kitOptions: [] } }, { status })
+
+    it('대회를 등록한 뒤 받은 대회 ID로 키트 옵션을 등록한다', async () => {
+      const calls: string[] = []
+      let kitBody: unknown
+      server.use(
+        http.post('*/api/v1/product/races', () => {
+          calls.push('race')
+          return savedRace()
+        }),
+        http.post('*/api/v1/product/races/:raceId/kit-options', async ({ request, params }) => {
+          calls.push(`kit:${String(params.raceId)}`)
+          kitBody = await request.json()
+          return kitSaved(201)
+        }),
+      )
+      const { result } = renderHook(() => useRegisterRace(), { wrapper })
+      act(() => result.current.mutate({ values: kitValues, images }))
+      await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+      expect(calls).toEqual(['race', 'kit:7'])
+      expect(kitBody).toEqual({
+        kitOptions: [
+          { name: '티셔츠', value: 'M', stock: 100 },
+          { name: '양말', value: '230-250', stock: null },
+        ],
+      })
+    })
+
+    it('키트 옵션이 없으면 키트 옵션 등록을 보내지 않는다', async () => {
+      let kitRequested = false
+      server.use(
+        http.post('*/api/v1/product/races', savedRace),
+        http.post('*/api/v1/product/races/:raceId/kit-options', () => {
+          kitRequested = true
+          return kitSaved(201)
+        }),
+      )
+      const { result } = renderHook(() => useRegisterRace(), { wrapper })
+      act(() => result.current.mutate({ values: { ...kitValues, kitOptions: [] }, images }))
+      await waitFor(() => expect(result.current.isSuccess).toBe(true))
+      expect(kitRequested).toBe(false)
+    })
+
+    it('키트 옵션 저장이 실패하면 오류가 되고, 다시 누르면 같은 키로 같은 대회를 받아 옵션을 다시 보낸다', async () => {
+      const raceKeys: (string | null)[] = []
+      let kitCalls = 0
+      server.use(
+        http.post('*/api/v1/product/races', ({ request }) => {
+          raceKeys.push(request.headers.get('Idempotency-Key'))
+          return savedRace()
+        }),
+        http.post('*/api/v1/product/races/:raceId/kit-options', () => {
+          kitCalls += 1
+          return kitCalls === 1
+            ? HttpResponse.json({ status: 500, message: '잠시 후', data: null }, { status: 500 })
+            : kitSaved(201)
+        }),
+      )
+      const { result } = renderHook(() => useRegisterRace(), { wrapper })
+      act(() => result.current.mutate({ values: kitValues, images }))
+      await waitFor(() => expect(result.current.isError).toBe(true))
+      act(() => result.current.mutate({ values: kitValues, images }))
+      await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+      expect(raceKeys).toHaveLength(2)
+      expect(raceKeys[1]).toBe(raceKeys[0])
+      expect(kitCalls).toBe(2)
+    })
+
+    it('옵션이 이미 저장돼 있으면(409, 앞선 응답만 잃은 경우) 같은 목록으로 통째로 바꾼다', async () => {
+      let putBody: unknown
+      server.use(
+        http.post('*/api/v1/product/races', savedRace),
+        http.post('*/api/v1/product/races/:raceId/kit-options', () =>
+          HttpResponse.json({ status: 409, message: '이미 등록함', data: null }, { status: 409 }),
+        ),
+        http.put('*/api/v1/product/races/:raceId/kit-options', async ({ request }) => {
+          putBody = await request.json()
+          return kitSaved(200)
+        }),
+      )
+      const { result } = renderHook(() => useRegisterRace(), { wrapper })
+      act(() => result.current.mutate({ values: kitValues, images }))
+      await waitFor(() => expect(result.current.isSuccess).toBe(true))
+      expect(putBody).toEqual({
+        kitOptions: [
+          { name: '티셔츠', value: 'M', stock: 100 },
+          { name: '양말', value: '230-250', stock: null },
+        ],
+      })
+    })
+  })
 })
