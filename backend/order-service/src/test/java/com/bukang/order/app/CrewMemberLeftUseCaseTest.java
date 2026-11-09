@@ -1,6 +1,7 @@
 package com.bukang.order.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -32,6 +33,7 @@ import com.bukang.order.domain.ParticipationStatus;
 import com.bukang.order.domain.Party;
 import com.bukang.order.domain.PartyMember;
 import com.bukang.order.domain.PartyStatus;
+import com.bukang.order.domain.exception.PartyConflictException;
 import com.bukang.order.out.OrderOutboxKafkaEventRepository;
 import com.bukang.order.out.ParticipationRepository;
 import com.bukang.order.out.PartyMemberRepository;
@@ -177,6 +179,24 @@ class CrewMemberLeftUseCaseTest {
 			tearDown();
 			setUp();
 		}
+	}
+
+	@Test
+	@DisplayName("파티장이 크루 자리를 요청해 결과를 모르는 중이면 바꾸지 않고 예외로 끝내 Kafka 재시도로 미룬다. 표시가 풀리면 뺀다")
+	void waitsWhileCrewHoldInProgress() throws Exception {
+		long partyId = createParty(LEADER);
+		join(MEMBER, partyId);
+		jdbcTemplate.update("update order_party set crew_hold_requested_at = ? where id = ?", LocalDateTime.now(),
+			partyId);
+
+		assertThatThrownBy(() -> useCase.removeFromParties(CREW_ID, MEMBER, LEFT_JOINED_AT, LocalDateTime.now()))
+			.isInstanceOf(PartyConflictException.class);
+		assertThat(member(partyId, MEMBER).isActive()).isTrue();
+		assertThat(statusOf(MEMBER)).isEqualTo(ParticipationStatus.PENDING);
+
+		jdbcTemplate.update("update order_party set crew_hold_requested_at = null where id = ?", partyId);
+		assertThat(useCase.removeFromParties(CREW_ID, MEMBER, LEFT_JOINED_AT, LocalDateTime.now())).isOne();
+		assertThat(member(partyId, MEMBER).isActive()).isFalse();
 	}
 
 	@Test

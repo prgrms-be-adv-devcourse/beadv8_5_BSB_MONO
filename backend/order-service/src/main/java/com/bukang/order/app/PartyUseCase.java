@@ -147,6 +147,9 @@ public class PartyUseCase {
 				partyId, memberId, party.getStatus());
 			return false;
 		}
+		// 파티장이 상품에 크루 자리를 요청해 결과를 모르는 중이면 파티원을 바꾸지 않는다 (자리 목록이 어긋남, #364)
+		// 예외(409)로 끝내 Kafka 재시도(10초·30초·90초)로 미룬다. 그때까지 표시가 남으면 DLT로 가고 운영자가 다시 보낸다
+		party.checkMembersChangeable();
 		removeMember(party, member.get(), now);
 		return true;
 	}
