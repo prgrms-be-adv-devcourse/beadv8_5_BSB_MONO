@@ -55,7 +55,7 @@ export function AdminClaimsPage() {
   const [selectedId, setSelectedId] = useState<number>()
   const sellerNames = useSellerNames()
 
-  const claims = payoutApi.useClaims(
+  const claims = payoutApi.useAdminClaims(
     code ? { code, page: 0, size: PAGE_SIZE } : { status, page, size: PAGE_SIZE },
     { query: { select: unwrapData, placeholderData: keepPreviousData } },
   )
@@ -209,7 +209,7 @@ function ClaimPanel({ claim, sellerName }: { claim: Claim; sellerName: string })
       onSettled: () => setAsking(false),
       onSuccess: async () => {
         toast({ message: '회수 완료로 바꿨어요.', tone: 'success' })
-        await queryClient.invalidateQueries({ queryKey: payoutApi.getClaimsQueryKey() })
+        await queryClient.invalidateQueries({ queryKey: payoutApi.getAdminClaimsQueryKey() })
       },
       onError: (error) => toast({ message: errorText(error), tone: 'error' }),
     },
@@ -223,6 +223,14 @@ function ClaimPanel({ claim, sellerName }: { claim: Claim; sellerName: string })
         </p>
         <KeyValue label="청구 금액" value={formatWon(claim.amount)} />
         <KeyValue label="입금 기한" value={formatMonthDay(claim.dueDate)} />
+        <KeyValue
+          label="입금 계좌"
+          value={
+            claim.virtualBankName && claim.virtualAccountNumber
+              ? `${claim.virtualBankName} ${claim.virtualAccountNumber}`
+              : '발급 전'
+          }
+        />
         {claim.confirmedAt && (
           <KeyValue label="입금 확인일" value={formatMonthDay(claim.confirmedAt)} />
         )}

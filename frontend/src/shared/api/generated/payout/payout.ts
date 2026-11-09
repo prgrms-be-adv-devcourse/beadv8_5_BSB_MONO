@@ -25,7 +25,10 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AdminClaimsParams,
   ClaimsParams,
+  CreateFailuresParams,
+  FindPayoutParams,
   HoldsParams,
   ItemsParams,
   PayoutHoldRequestDto,
@@ -616,7 +619,7 @@ export function useSummary<TData = Awaited<ReturnType<typeof summary>>, TError =
 
 
 
-export const getPayoutsUrl = (params: PayoutsParams,) => {
+export const getPayoutsUrl = (params?: PayoutsParams,) => {
   const normalizedParams = new URLSearchParams();
 
   Object.entries(params || {}).forEach(([key, value]) => {
@@ -632,10 +635,10 @@ export const getPayoutsUrl = (params: PayoutsParams,) => {
 }
 
 /**
- * 정산 월(대회일이 속한 달, 1차는 환불 마감일이 속한 달)이 기간 안인 정산 내역을 최근 달부터 돌려준다. 시작 달을 포함해 최대 12개월까지 한 번에 조회한다.
+ * 정산 월(대회일이 속한 달, 1차는 환불 마감일이 속한 달)이 기간 안인 정산 내역을 최근 달부터 돌려준다. 시작 달을 포함해 최대 12개월까지 한 번에 조회한다. 정산 ID(code)를 주면 기간은 보지 않고 내 정산 내역 중 그 한 줄만 돌려준다. 없거나 다른 판매자의 정산 ID면 404다.
  * @summary 정산 내역 조회
  */
-export const payouts = async (params: PayoutsParams, options?: Parameters<typeof customFetch>[1]): Promise<RsDataListPayoutDto> => {
+export const payouts = async (params?: PayoutsParams, options?: Parameters<typeof customFetch>[1]): Promise<RsDataListPayoutDto> => {
 
   return customFetch<RsDataListPayoutDto>(getPayoutsUrl(params),
   {
@@ -657,7 +660,7 @@ export const getPayoutsQueryKey = (params?: PayoutsParams,) => {
     }
 
 
-export const getPayoutsQueryOptions = <TData = Awaited<ReturnType<typeof payouts>>, TError = RsData>(params: PayoutsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof payouts>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+export const getPayoutsQueryOptions = <TData = Awaited<ReturnType<typeof payouts>>, TError = RsData>(params?: PayoutsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof payouts>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -680,7 +683,7 @@ export type PayoutsQueryError = RsData
 
 
 export function usePayouts<TData = Awaited<ReturnType<typeof payouts>>, TError = RsData>(
- params: PayoutsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof payouts>>, TError, TData>> & Pick<
+ params: undefined |  PayoutsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof payouts>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof payouts>>,
           TError,
@@ -690,7 +693,7 @@ export function usePayouts<TData = Awaited<ReturnType<typeof payouts>>, TError =
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function usePayouts<TData = Awaited<ReturnType<typeof payouts>>, TError = RsData>(
- params: PayoutsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof payouts>>, TError, TData>> & Pick<
+ params?: PayoutsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof payouts>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof payouts>>,
           TError,
@@ -700,7 +703,7 @@ export function usePayouts<TData = Awaited<ReturnType<typeof payouts>>, TError =
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function usePayouts<TData = Awaited<ReturnType<typeof payouts>>, TError = RsData>(
- params: PayoutsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof payouts>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ params?: PayoutsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof payouts>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
@@ -708,7 +711,7 @@ export function usePayouts<TData = Awaited<ReturnType<typeof payouts>>, TError =
  */
 
 export function usePayouts<TData = Awaited<ReturnType<typeof payouts>>, TError = RsData>(
- params: PayoutsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof payouts>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ params?: PayoutsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof payouts>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
@@ -943,7 +946,7 @@ export function useHolds<TData = Awaited<ReturnType<typeof holds>>, TError = RsD
 
 
 
-export const getClaimsUrl = (params?: ClaimsParams,) => {
+export const getClaimsUrl = (params: ClaimsParams,) => {
   const normalizedParams = new URLSearchParams();
 
   Object.entries(params || {}).forEach(([key, value]) => {
@@ -955,16 +958,16 @@ export const getClaimsUrl = (params?: ClaimsParams,) => {
 
   const stringifiedParams = normalizedParams.toString();
 
-  return stringifiedParams.length > 0 ? `/api/v1/payout/admin/claims?${stringifiedParams}` : `/api/v1/payout/admin/claims`
+  return stringifiedParams.length > 0 ? `/api/v1/payout/seller/claims?${stringifiedParams}` : `/api/v1/payout/seller/claims`
 }
 
 /**
- * 관리자 회수 관리 화면의 카드 숫자(청구 중 건수, 회수할 금액 합계, 이번 달 입금 확인 건수)와 청구 목록을 최근 청구부터 돌려준다. code(RC-)를 주면 그 한 건만 찾고 status는 보지 않는다. 카드 숫자는 필터와 상관없이 전체 기준이다. 판매자 이름은 넣지 않는다.
- * @summary 회수 관리 청구 목록
+ * 회수 요청일이 기간 안이고 청구가 만들어진 회수를 최근 것부터 한 건씩 돌려준다. 청구 전에 상계로 끝난 회수는 빼고, 같은 대회의 회수는 같은 청구 ID를 갖는다. 끝 날이 시작 날 + 1개월 전이어야 한다(최대 1개월).
+ * @summary 회수 내역 조회
  */
-export const claims = async (params?: ClaimsParams, options?: Parameters<typeof customFetch>[1]): Promise<RsDataPayoutAdminClaimsDto> => {
+export const claims = async (params: ClaimsParams, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
 
-  return customFetch<RsDataPayoutAdminClaimsDto>(getClaimsUrl(params),
+  return customFetch<unknown>(getClaimsUrl(params),
   {
     ...options,
     method: 'GET'
@@ -979,12 +982,12 @@ export const claims = async (params?: ClaimsParams, options?: Parameters<typeof 
 
 export const getClaimsQueryKey = (params?: ClaimsParams,) => {
     return [
-    `/api/v1/payout/admin/claims`, ...(params ? [params] : [])
+    `/api/v1/payout/seller/claims`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getClaimsQueryOptions = <TData = Awaited<ReturnType<typeof claims>>, TError = RsData>(params?: ClaimsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof claims>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+export const getClaimsQueryOptions = <TData = Awaited<ReturnType<typeof claims>>, TError = RsData>(params: ClaimsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof claims>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -1007,7 +1010,7 @@ export type ClaimsQueryError = RsData
 
 
 export function useClaims<TData = Awaited<ReturnType<typeof claims>>, TError = RsData>(
- params: undefined |  ClaimsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof claims>>, TError, TData>> & Pick<
+ params: ClaimsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof claims>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof claims>>,
           TError,
@@ -1017,7 +1020,7 @@ export function useClaims<TData = Awaited<ReturnType<typeof claims>>, TError = R
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function useClaims<TData = Awaited<ReturnType<typeof claims>>, TError = RsData>(
- params?: ClaimsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof claims>>, TError, TData>> & Pick<
+ params: ClaimsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof claims>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof claims>>,
           TError,
@@ -1027,19 +1030,346 @@ export function useClaims<TData = Awaited<ReturnType<typeof claims>>, TError = R
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function useClaims<TData = Awaited<ReturnType<typeof claims>>, TError = RsData>(
- params?: ClaimsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof claims>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ params: ClaimsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof claims>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 회수 내역 조회
+ */
+
+export function useClaims<TData = Awaited<ReturnType<typeof claims>>, TError = RsData>(
+ params: ClaimsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof claims>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getClaimsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getFindPayoutUrl = (params: FindPayoutParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/payout/payouts?${stringifiedParams}` : `/api/v1/payout/payouts`
+}
+
+/**
+ * 정산 ID(ST-)로 정산 내역 한 건을 찾는다. 응답의 id를 지급보류 걸기 경로의 payoutId로 쓴다.
+ * @summary 정산 ID로 정산 내역 찾기
+ */
+export const findPayout = async (params: FindPayoutParams, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getFindPayoutUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getFindPayoutQueryKey = (params?: FindPayoutParams,) => {
+    return [
+    `/api/v1/payout/payouts`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getFindPayoutQueryOptions = <TData = Awaited<ReturnType<typeof findPayout>>, TError = RsData>(params: FindPayoutParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findPayout>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getFindPayoutQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof findPayout>>> = ({ signal }) => findPayout(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof findPayout>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type FindPayoutQueryResult = NonNullable<Awaited<ReturnType<typeof findPayout>>>
+export type FindPayoutQueryError = RsData
+
+
+export function useFindPayout<TData = Awaited<ReturnType<typeof findPayout>>, TError = RsData>(
+ params: FindPayoutParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof findPayout>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findPayout>>,
+          TError,
+          Awaited<ReturnType<typeof findPayout>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindPayout<TData = Awaited<ReturnType<typeof findPayout>>, TError = RsData>(
+ params: FindPayoutParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findPayout>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findPayout>>,
+          TError,
+          Awaited<ReturnType<typeof findPayout>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindPayout<TData = Awaited<ReturnType<typeof findPayout>>, TError = RsData>(
+ params: FindPayoutParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findPayout>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 정산 ID로 정산 내역 찾기
+ */
+
+export function useFindPayout<TData = Awaited<ReturnType<typeof findPayout>>, TError = RsData>(
+ params: FindPayoutParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findPayout>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getFindPayoutQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateFailuresUrl = (params: CreateFailuresParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/payout/admin/create-failures?${stringifiedParams}` : `/api/v1/payout/admin/create-failures`
+}
+
+/**
+ * 정산 생성 배치가 남긴 실패 기록(대사 불일치 · 주문 조회 실패 등)을 실행일 기간으로 최근 것부터 돌려준다. 카드 숫자(대사 불일치 · 자동으로 채운 참가권 · 주문 조회 실패 건수)는 종류 선택과 상관없이 기간 전체로 센다. 끝 날이 시작 날 + 1개월 전이어야 한다(최대 1개월). 기록이 없으면 빈 목록과 카드 0을 돌려준다.
+ * @summary 이상 감지 기록 조회
+ */
+export const createFailures = async (params: CreateFailuresParams, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getCreateFailuresUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getCreateFailuresQueryKey = (params?: CreateFailuresParams,) => {
+    return [
+    `/api/v1/payout/admin/create-failures`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getCreateFailuresQueryOptions = <TData = Awaited<ReturnType<typeof createFailures>>, TError = RsData>(params: CreateFailuresParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof createFailures>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getCreateFailuresQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof createFailures>>> = ({ signal }) => createFailures(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof createFailures>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type CreateFailuresQueryResult = NonNullable<Awaited<ReturnType<typeof createFailures>>>
+export type CreateFailuresQueryError = RsData
+
+
+export function useCreateFailures<TData = Awaited<ReturnType<typeof createFailures>>, TError = RsData>(
+ params: CreateFailuresParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof createFailures>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof createFailures>>,
+          TError,
+          Awaited<ReturnType<typeof createFailures>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useCreateFailures<TData = Awaited<ReturnType<typeof createFailures>>, TError = RsData>(
+ params: CreateFailuresParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof createFailures>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof createFailures>>,
+          TError,
+          Awaited<ReturnType<typeof createFailures>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useCreateFailures<TData = Awaited<ReturnType<typeof createFailures>>, TError = RsData>(
+ params: CreateFailuresParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof createFailures>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 이상 감지 기록 조회
+ */
+
+export function useCreateFailures<TData = Awaited<ReturnType<typeof createFailures>>, TError = RsData>(
+ params: CreateFailuresParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof createFailures>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getCreateFailuresQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getAdminClaimsUrl = (params?: AdminClaimsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/payout/admin/claims?${stringifiedParams}` : `/api/v1/payout/admin/claims`
+}
+
+/**
+ * 관리자 회수 관리 화면의 카드 숫자(청구 중 건수, 회수할 금액 합계, 이번 달 입금 확인 건수)와 청구 목록을 최근 청구부터 돌려준다. code(RC-)를 주면 그 한 건만 찾고 status는 보지 않는다. 카드 숫자는 필터와 상관없이 전체 기준이다. 판매자 이름은 넣지 않는다.
+ * @summary 회수 관리 청구 목록
+ */
+export const adminClaims = async (params?: AdminClaimsParams, options?: Parameters<typeof customFetch>[1]): Promise<RsDataPayoutAdminClaimsDto> => {
+
+  return customFetch<RsDataPayoutAdminClaimsDto>(getAdminClaimsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getAdminClaimsQueryKey = (params?: AdminClaimsParams,) => {
+    return [
+    `/api/v1/payout/admin/claims`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getAdminClaimsQueryOptions = <TData = Awaited<ReturnType<typeof adminClaims>>, TError = RsData>(params?: AdminClaimsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminClaims>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getAdminClaimsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof adminClaims>>> = ({ signal }) => adminClaims(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof adminClaims>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type AdminClaimsQueryResult = NonNullable<Awaited<ReturnType<typeof adminClaims>>>
+export type AdminClaimsQueryError = RsData
+
+
+export function useAdminClaims<TData = Awaited<ReturnType<typeof adminClaims>>, TError = RsData>(
+ params: undefined |  AdminClaimsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminClaims>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof adminClaims>>,
+          TError,
+          Awaited<ReturnType<typeof adminClaims>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAdminClaims<TData = Awaited<ReturnType<typeof adminClaims>>, TError = RsData>(
+ params?: AdminClaimsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminClaims>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof adminClaims>>,
+          TError,
+          Awaited<ReturnType<typeof adminClaims>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAdminClaims<TData = Awaited<ReturnType<typeof adminClaims>>, TError = RsData>(
+ params?: AdminClaimsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminClaims>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
  * @summary 회수 관리 청구 목록
  */
 
-export function useClaims<TData = Awaited<ReturnType<typeof claims>>, TError = RsData>(
- params?: ClaimsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof claims>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+export function useAdminClaims<TData = Awaited<ReturnType<typeof adminClaims>>, TError = RsData>(
+ params?: AdminClaimsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof adminClaims>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  const queryOptions = getClaimsQueryOptions(params,options)
+  const queryOptions = getAdminClaimsQueryOptions(params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

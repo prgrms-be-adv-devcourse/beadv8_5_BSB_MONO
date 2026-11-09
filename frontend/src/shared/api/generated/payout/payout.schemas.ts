@@ -224,6 +224,16 @@ export interface PayoutClaimDto {
   confirmedBy?: number | null;
   /** @nullable */
   confirmedAt?: string | null;
+  /**
+     * 판매자가 입금할 가상계좌 은행 이름. 발급 전에는 null
+     * @nullable
+     */
+  virtualBankName?: string | null;
+  /**
+     * 판매자가 입금할 가상계좌 번호. 발급 전에는 null
+     * @nullable
+     */
+  virtualAccountNumber?: string | null;
 }
 
 export interface PayoutClaimSummaryDto {
@@ -299,13 +309,17 @@ raceDate: string;
 
 export type PayoutsParams = {
 /**
- * 조회 시작 정산 월 (yyyy-MM)
+ * 정산 ID (ST-…). 주면 기간은 보지 않는다
  */
-fromMonth: string;
+code?: string;
 /**
- * 조회 끝 정산 월 (yyyy-MM, 포함)
+ * 조회 시작 정산 월 (yyyy-MM). 정산 ID가 없으면 필수
  */
-toMonth: string;
+fromMonth?: string;
+/**
+ * 조회 끝 정산 월 (yyyy-MM, 포함). 정산 ID가 없으면 필수
+ */
+toMonth?: string;
 };
 
 export type ItemsParams = {
@@ -340,9 +354,65 @@ to: string;
 
 export type ClaimsParams = {
 /**
+ * 조회 시작 회수 요청일 (yyyy-MM-dd)
+ */
+from: string;
+/**
+ * 조회 끝 회수 요청일 (yyyy-MM-dd, 포함)
+ */
+to: string;
+};
+
+export type FindPayoutParams = {
+/**
+ * 정산 ID (ST-…)
+ */
+code: string;
+};
+
+export type CreateFailuresParams = {
+/**
+ * 조회 시작 실행일 (yyyy-MM-dd)
+ */
+from: string;
+/**
+ * 조회 끝 실행일 (yyyy-MM-dd, 포함)
+ */
+to: string;
+/**
+ * 실패 종류 (없으면 전체)
+ */
+type?: CreateFailuresType;
+/**
+ * 페이지 번호 (0부터)
+ */
+page?: number;
+/**
+ * 페이지 크기 (1 ~ 100)
+ */
+size?: number;
+};
+
+export type CreateFailuresType = typeof CreateFailuresType[keyof typeof CreateFailuresType];
+
+
+export const CreateFailuresType = {
+  주문_정산_대회일_불일치: '주문_정산_대회일_불일치',
+  정산_계좌_조회_실패: '정산_계좌_조회_실패',
+  정산_저장_실패: '정산_저장_실패',
+  정산_조회_실패: '정산_조회_실패',
+  알_수_없는_실패: '알_수_없는_실패',
+  대회_조회_실패: '대회_조회_실패',
+  주문_조회_실패: '주문_조회_실패',
+  취소_중이라_미룸: '취소_중이라_미룸',
+  대사_불일치: '대사_불일치',
+} as const;
+
+export type AdminClaimsParams = {
+/**
  * 청구 상태 (청구_중, 입금_확인). 없으면 전체
  */
-status?: ClaimsStatus;
+status?: AdminClaimsStatus;
 /**
  * 청구 ID 표기로 한 건 찾기 (앞뒤 공백 · 대소문자 무시)
  */
@@ -357,10 +427,10 @@ page?: number;
 size?: number;
 };
 
-export type ClaimsStatus = typeof ClaimsStatus[keyof typeof ClaimsStatus];
+export type AdminClaimsStatus = typeof AdminClaimsStatus[keyof typeof AdminClaimsStatus];
 
 
-export const ClaimsStatus = {
+export const AdminClaimsStatus = {
   청구_중: '청구_중',
   입금_확인: '입금_확인',
 } as const;

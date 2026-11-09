@@ -21,6 +21,8 @@ const CLAIMING: payoutModel.PayoutClaimDto = {
   status: '청구_중',
   confirmedBy: null,
   confirmedAt: null,
+  virtualBankName: '국민은행',
+  virtualAccountNumber: '12345678901234',
 }
 
 function claimsBody(content: payoutModel.PayoutClaimDto[], summary = [1, 105500, 0]) {
@@ -93,6 +95,7 @@ describe('AdminClaimsPage', () => {
     expect(within(row).getByText('춘천러닝클럽')).toBeInTheDocument()
     expect(within(row).getByText('₩105,500')).toBeInTheDocument()
     expect(screen.getByText('3')).toBeInTheDocument()
+    expect(screen.getByText('국민은행 12345678901234')).toBeInTheDocument()
     expect(queries[0].get('status')).toBe('청구_중')
   })
 

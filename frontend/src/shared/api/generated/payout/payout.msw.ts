@@ -28,7 +28,7 @@ export const getHoldResponseMock = (): RsDataPayoutHoldDto => ({"status":201,"me
 
 export const getReleaseResponseMock = (): RsDataPayoutHoldDto => ({"status":200,"message":"지급보류를 풀었습니다.","data":{"id":1,"holdCode":"HD-20261012-0001","payoutId":1,"reasonType":"정산_계좌_미등록","reason":"정산 계좌 등록 요청 중","status":"해제","heldBy":1,"heldAt":"2026-10-12T10:00:00","releasedBy":1,"releasedAt":"2026-10-15T09:00:00"}})
 
-export const getConfirmResponseMock = (): RsDataPayoutClaimDto => ({"status":200,"message":"청구 입금을 확인했습니다.","data":{"id":1,"claimCode":"RC-20261215-0001","sellerId":1,"raceId":7,"amount":105500,"startDate":"2026-12-14","dueDate":"2027-01-13","status":"입금_확인","confirmedBy":99,"confirmedAt":"2026-12-20T10:00:00"}})
+export const getConfirmResponseMock = (): RsDataPayoutClaimDto => ({"status":200,"message":"청구 입금을 확인했습니다.","data":{"id":1,"claimCode":"RC-20261215-0001","sellerId":1,"raceId":7,"amount":105500,"startDate":"2026-12-14","dueDate":"2027-01-13","status":"입금_확인","confirmedBy":99,"confirmedAt":"2026-12-20T10:00:00","virtualBankName":"국민은행","virtualAccountNumber":"12345678901234"}})
 
 export const getSummaryResponseMock = (): RsDataPayoutSummaryDto => ({"status":200,"message":"정산 요약을 조회했습니다.","data":{"nextPayDate":"2026-10-20","scheduledPayoutAmount":94500,"heldCount":1}})
 
@@ -38,7 +38,7 @@ export const getItemsResponseMock = (): RsDataPayoutItemPageDto => ({"status":20
 
 export const getHoldsResponseMock = (): RsDataListSellerPayoutHoldDto => ({"status":200,"message":"지급보류 내역을 조회했습니다.","data":[{"id":1,"holdCode":"HD-20261012-0001","payoutId":1,"payoutCode":"ST-20260926-0001","raceId":10,"raceName":"2026 한강 나이트런","payoutAmount":94500,"reasonType":"정산_계좌_미등록","reason":"정산 계좌 등록 요청 중","status":"지급보류","heldAt":"2026-10-12T10:00:00","releasedAt":null}]})
 
-export const getClaimsResponseMock = (): RsDataPayoutAdminClaimsDto => ({"status":200,"message":"청구 목록을 조회했습니다.","data":{"summary":{"claimingCount":1,"claimingAmount":105500,"confirmedThisMonthCount":1},"claims":{"content":[{"id":2,"claimCode":"RC-20261215-0002","sellerId":1,"raceId":7,"amount":105500,"startDate":"2026-12-14","dueDate":"2027-01-13","status":"청구_중","confirmedBy":null,"confirmedAt":null},{"id":1,"claimCode":"RC-20261215-0001","sellerId":3,"raceId":7,"amount":50000,"startDate":"2026-12-14","dueDate":"2027-01-13","status":"입금_확인","confirmedBy":99,"confirmedAt":"2026-12-20T10:00:00"}],"page":0,"size":50,"totalElements":2,"totalPages":1}}})
+export const getAdminClaimsResponseMock = (): RsDataPayoutAdminClaimsDto => ({"status":200,"message":"청구 목록을 조회했습니다.","data":{"summary":{"claimingCount":1,"claimingAmount":105500,"confirmedThisMonthCount":1},"claims":{"content":[{"id":2,"claimCode":"RC-20261215-0002","sellerId":1,"raceId":7,"amount":105500,"startDate":"2026-12-14","dueDate":"2027-01-13","status":"청구_중","confirmedBy":null,"confirmedAt":null,"virtualBankName":"국민은행","virtualAccountNumber":"12345678901234"},{"id":1,"claimCode":"RC-20261215-0001","sellerId":3,"raceId":7,"amount":50000,"startDate":"2026-12-14","dueDate":"2027-01-13","status":"입금_확인","confirmedBy":99,"confirmedAt":"2026-12-20T10:00:00","virtualBankName":"국민은행","virtualAccountNumber":"98765432109876"}],"page":0,"size":50,"totalElements":2,"totalPages":1}}})
 
 
 export const getHoldMockHandler = (overrideResponse?: RsDataPayoutHoldDto | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<RsDataPayoutHoldDto> | RsDataPayoutHoldDto), options?: RequestHandlerOptions) => {
@@ -145,13 +145,43 @@ export const getHoldsMockHandler = (overrideResponse?: RsDataListSellerPayoutHol
   }, options)
 }
 
-export const getClaimsMockHandler = (overrideResponse?: RsDataPayoutAdminClaimsDto | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<RsDataPayoutAdminClaimsDto> | RsDataPayoutAdminClaimsDto), options?: RequestHandlerOptions) => {
+export const getClaimsMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
+  return http.get('*/api/v1/payout/seller/claims', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+
+    return new HttpResponse(null,
+      { status: 200
+      })
+  }, options)
+}
+
+export const getFindPayoutMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
+  return http.get('*/api/v1/payout/payouts', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+
+    return new HttpResponse(null,
+      { status: 200
+      })
+  }, options)
+}
+
+export const getCreateFailuresMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
+  return http.get('*/api/v1/payout/admin/create-failures', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+
+    return new HttpResponse(null,
+      { status: 200
+      })
+  }, options)
+}
+
+export const getAdminClaimsMockHandler = (overrideResponse?: RsDataPayoutAdminClaimsDto | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<RsDataPayoutAdminClaimsDto> | RsDataPayoutAdminClaimsDto), options?: RequestHandlerOptions) => {
   return http.get('*/api/v1/payout/admin/claims', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
 
 
     return HttpResponse.json(overrideResponse !== undefined
     ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
-    : getClaimsResponseMock(),
+    : getAdminClaimsResponseMock(),
       { status: 200
       })
   }, options)
@@ -166,5 +196,8 @@ export const getBukangPayoutAPIMock = () => [
   getPayoutsMockHandler(),
   getItemsMockHandler(),
   getHoldsMockHandler(),
-  getClaimsMockHandler()
+  getClaimsMockHandler(),
+  getFindPayoutMockHandler(),
+  getCreateFailuresMockHandler(),
+  getAdminClaimsMockHandler()
 ]

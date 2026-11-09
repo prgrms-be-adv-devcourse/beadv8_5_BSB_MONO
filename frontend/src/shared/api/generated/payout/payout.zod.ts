@@ -90,7 +90,9 @@ export const ConfirmResponse = zod.object({
   "dueDate": zod.iso.date().describe('판매자 입금 기한 (상계 실패일 + 30일)'),
   "status": zod.enum(['청구_중', '입금_확인']).describe('청구 상태 (청구_중: 청구 중, 입금_확인: 입금 확인)'),
   "confirmedBy": zod.int().nullish(),
-  "confirmedAt": zod.iso.datetime({"offset":true}).nullish()
+  "confirmedAt": zod.iso.datetime({"offset":true}).nullish(),
+  "virtualBankName": zod.string().nullish().describe('판매자가 입금할 가상계좌 은행 이름. 발급 전에는 null'),
+  "virtualAccountNumber": zod.string().nullish().describe('판매자가 입금할 가상계좌 번호. 발급 전에는 null')
 }).optional()
 })
 
@@ -133,12 +135,13 @@ export const SummaryResponse = zod.object({
 
 
 /**
- * 정산 월(대회일이 속한 달, 1차는 환불 마감일이 속한 달)이 기간 안인 정산 내역을 최근 달부터 돌려준다. 시작 달을 포함해 최대 12개월까지 한 번에 조회한다.
+ * 정산 월(대회일이 속한 달, 1차는 환불 마감일이 속한 달)이 기간 안인 정산 내역을 최근 달부터 돌려준다. 시작 달을 포함해 최대 12개월까지 한 번에 조회한다. 정산 ID(code)를 주면 기간은 보지 않고 내 정산 내역 중 그 한 줄만 돌려준다. 없거나 다른 판매자의 정산 ID면 404다.
  * @summary 정산 내역 조회
  */
 export const PayoutsQueryParams = zod.object({
-  "fromMonth": zod.string().describe('조회 시작 정산 월 (yyyy-MM)'),
-  "toMonth": zod.string().describe('조회 끝 정산 월 (yyyy-MM, 포함)')
+  "code": zod.string().optional().describe('정산 ID (ST-…). 주면 기간은 보지 않는다'),
+  "fromMonth": zod.string().optional().describe('조회 시작 정산 월 (yyyy-MM). 정산 ID가 없으면 필수'),
+  "toMonth": zod.string().optional().describe('조회 끝 정산 월 (yyyy-MM, 포함). 정산 ID가 없으면 필수')
 })
 
 export const PayoutsResponse = zod.object({
@@ -235,20 +238,61 @@ export const HoldsResponse = zod.object({
 
 
 /**
+ * 회수 요청일이 기간 안이고 청구가 만들어진 회수를 최근 것부터 한 건씩 돌려준다. 청구 전에 상계로 끝난 회수는 빼고, 같은 대회의 회수는 같은 청구 ID를 갖는다. 끝 날이 시작 날 + 1개월 전이어야 한다(최대 1개월).
+ * @summary 회수 내역 조회
+ */
+export const ClaimsQueryParams = zod.object({
+  "from": zod.iso.date().describe('조회 시작 회수 요청일 (yyyy-MM-dd)'),
+  "to": zod.iso.date().describe('조회 끝 회수 요청일 (yyyy-MM-dd, 포함)')
+})
+
+export const ClaimsResponse = zod.unknown()
+
+
+/**
+ * 정산 ID(ST-)로 정산 내역 한 건을 찾는다. 응답의 id를 지급보류 걸기 경로의 payoutId로 쓴다.
+ * @summary 정산 ID로 정산 내역 찾기
+ */
+export const FindPayoutQueryParams = zod.object({
+  "code": zod.string().describe('정산 ID (ST-…)')
+})
+
+export const FindPayoutResponse = zod.unknown()
+
+
+/**
+ * 정산 생성 배치가 남긴 실패 기록(대사 불일치 · 주문 조회 실패 등)을 실행일 기간으로 최근 것부터 돌려준다. 카드 숫자(대사 불일치 · 자동으로 채운 참가권 · 주문 조회 실패 건수)는 종류 선택과 상관없이 기간 전체로 센다. 끝 날이 시작 날 + 1개월 전이어야 한다(최대 1개월). 기록이 없으면 빈 목록과 카드 0을 돌려준다.
+ * @summary 이상 감지 기록 조회
+ */
+export const createFailuresQueryPageDefault = 0;
+export const createFailuresQuerySizeDefault = 50;
+
+export const CreateFailuresQueryParams = zod.object({
+  "from": zod.iso.date().describe('조회 시작 실행일 (yyyy-MM-dd)'),
+  "to": zod.iso.date().describe('조회 끝 실행일 (yyyy-MM-dd, 포함)'),
+  "type": zod.enum(['주문_정산_대회일_불일치', '정산_계좌_조회_실패', '정산_저장_실패', '정산_조회_실패', '알_수_없는_실패', '대회_조회_실패', '주문_조회_실패', '취소_중이라_미룸', '대사_불일치']).optional().describe('실패 종류 (없으면 전체)'),
+  "page": zod.int().default(createFailuresQueryPageDefault).describe('페이지 번호 (0부터)'),
+  "size": zod.int().default(createFailuresQuerySizeDefault).describe('페이지 크기 (1 ~ 100)')
+})
+
+export const CreateFailuresResponse = zod.unknown()
+
+
+/**
  * 관리자 회수 관리 화면의 카드 숫자(청구 중 건수, 회수할 금액 합계, 이번 달 입금 확인 건수)와 청구 목록을 최근 청구부터 돌려준다. code(RC-)를 주면 그 한 건만 찾고 status는 보지 않는다. 카드 숫자는 필터와 상관없이 전체 기준이다. 판매자 이름은 넣지 않는다.
  * @summary 회수 관리 청구 목록
  */
-export const claimsQueryPageDefault = 0;
-export const claimsQuerySizeDefault = 50;
+export const adminClaimsQueryPageDefault = 0;
+export const adminClaimsQuerySizeDefault = 50;
 
-export const ClaimsQueryParams = zod.object({
+export const AdminClaimsQueryParams = zod.object({
   "status": zod.enum(['청구_중', '입금_확인']).optional().describe('청구 상태 (청구_중, 입금_확인). 없으면 전체'),
   "code": zod.string().optional().describe('청구 ID 표기로 한 건 찾기 (앞뒤 공백 · 대소문자 무시)'),
-  "page": zod.int().default(claimsQueryPageDefault).describe('페이지 번호 (0부터)'),
-  "size": zod.int().default(claimsQuerySizeDefault).describe('페이지 크기 (1 ~ 100)')
+  "page": zod.int().default(adminClaimsQueryPageDefault).describe('페이지 번호 (0부터)'),
+  "size": zod.int().default(adminClaimsQuerySizeDefault).describe('페이지 크기 (1 ~ 100)')
 })
 
-export const ClaimsResponse = zod.object({
+export const AdminClaimsResponse = zod.object({
   "status": zod.int().optional(),
   "message": zod.string().optional(),
   "data": zod.object({
@@ -268,7 +312,9 @@ export const ClaimsResponse = zod.object({
   "dueDate": zod.iso.date().describe('판매자 입금 기한 (상계 실패일 + 30일)'),
   "status": zod.enum(['청구_중', '입금_확인']).describe('청구 상태 (청구_중: 청구 중, 입금_확인: 입금 확인)'),
   "confirmedBy": zod.int().nullish(),
-  "confirmedAt": zod.iso.datetime({"offset":true}).nullish()
+  "confirmedAt": zod.iso.datetime({"offset":true}).nullish(),
+  "virtualBankName": zod.string().nullish().describe('판매자가 입금할 가상계좌 은행 이름. 발급 전에는 null'),
+  "virtualAccountNumber": zod.string().nullish().describe('판매자가 입금할 가상계좌 번호. 발급 전에는 null')
 })),
   "page": zod.int(),
   "size": zod.int(),

@@ -7,8 +7,16 @@
   },
   "tags": [
     {
+      "name": "PayoutSeller",
+      "description": "정산 요약, 정산 내역, 건별 정산, 지급보류 내역, 회수 내역 조회 API (판매자)"
+    },
+    {
       "name": "Payout",
-      "description": "지급보류 걸기, 지급보류 풀기 API (관리자)"
+      "description": "정산 ID로 정산 내역 찾기, 지급보류 걸기, 지급보류 풀기 API (관리자)"
+    },
+    {
+      "name": "Payout",
+      "description": "이상 감지 기록 조회 API (관리자)"
     },
     {
       "name": "PayoutClaim",
@@ -17,10 +25,6 @@
     {
       "name": "PayoutInternal",
       "description": "참가권 환불 가능 여부 조회 API (서비스 간 내부 호출 전용)"
-    },
-    {
-      "name": "PayoutSeller",
-      "description": "정산 요약, 정산 내역, 건별 정산, 지급보류 내역 조회 API (판매자)"
     },
     {
       "name": "PayoutInternal",
@@ -522,7 +526,9 @@
                     "dueDate": "2027-01-13",
                     "status": "입금_확인",
                     "confirmedBy": 99,
-                    "confirmedAt": "2026-12-20T10:00:00"
+                    "confirmedAt": "2026-12-20T10:00:00",
+                    "virtualBankName": "국민은행",
+                    "virtualAccountNumber": "12345678901234"
                   }
                 }
               }
@@ -952,7 +958,7 @@
           "PayoutSeller"
         ],
         "summary": "정산 내역 조회",
-        "description": "정산 월(대회일이 속한 달, 1차는 환불 마감일이 속한 달)이 기간 안인 정산 내역을 최근 달부터 돌려준다. 시작 달을 포함해 최대 12개월까지 한 번에 조회한다.",
+        "description": "정산 월(대회일이 속한 달, 1차는 환불 마감일이 속한 달)이 기간 안인 정산 내역을 최근 달부터 돌려준다. 시작 달을 포함해 최대 12개월까지 한 번에 조회한다. 정산 ID(code)를 주면 기간은 보지 않고 내 정산 내역 중 그 한 줄만 돌려준다. 없거나 다른 판매자의 정산 ID면 404다.",
         "operationId": "payouts",
         "parameters": [
           {
@@ -967,10 +973,20 @@
             "example": 1
           },
           {
+            "name": "code",
+            "in": "query",
+            "description": "정산 ID (ST-…). 주면 기간은 보지 않는다",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "ST-20260926-0001"
+          },
+          {
             "name": "fromMonth",
             "in": "query",
-            "description": "조회 시작 정산 월 (yyyy-MM)",
-            "required": true,
+            "description": "조회 시작 정산 월 (yyyy-MM). 정산 ID가 없으면 필수",
+            "required": false,
             "schema": {
               "type": "string"
             },
@@ -979,8 +995,8 @@
           {
             "name": "toMonth",
             "in": "query",
-            "description": "조회 끝 정산 월 (yyyy-MM, 포함)",
-            "required": true,
+            "description": "조회 끝 정산 월 (yyyy-MM, 포함). 정산 ID가 없으면 필수",
+            "required": false,
             "schema": {
               "type": "string"
             },
@@ -992,51 +1008,82 @@
             "description": "조회 성공",
             "content": {
               "application/json": {
-                "example": {
-                  "status": 200,
-                  "message": "정산 내역을 조회했습니다.",
-                  "data": [
-                    {
-                      "id": 2,
-                      "payoutCode": "ST-20260926-0002",
-                      "raceId": 10,
-                      "raceName": "2026 한강 나이트런",
-                      "payoutStage": "최종_정산",
-                      "payoutMonth": "2026-09",
-                      "salesAmount": 100000,
-                      "refundAmount": 0,
-                      "feeAmount": 5500,
-                      "advanceDeductionAmount": 40000,
-                      "payoutAmount": 54500,
-                      "status": "지급_예정",
-                      "settledAt": "2026-09-26T03:00:00",
-                      "scheduledPayDate": "2026-10-20",
-                      "paidAt": null
-                    },
-                    {
-                      "id": 1,
-                      "payoutCode": "ST-20260916-0001",
-                      "raceId": 10,
-                      "raceName": "2026 한강 나이트런",
-                      "payoutStage": "일차_정산",
-                      "payoutMonth": "2026-09",
-                      "salesAmount": 100000,
-                      "refundAmount": 0,
-                      "feeAmount": 0,
-                      "advanceDeductionAmount": 0,
-                      "payoutAmount": 40000,
-                      "status": "지급_예정",
-                      "settledAt": "2026-09-16T03:00:00",
-                      "scheduledPayDate": "2026-10-20",
-                      "paidAt": null
+                "examples": {
+                  "기간으로 조회": {
+                    "description": "기간으로 조회",
+                    "value": {
+                      "status": 200,
+                      "message": "정산 내역을 조회했습니다.",
+                      "data": [
+                        {
+                          "id": 2,
+                          "payoutCode": "ST-20260926-0002",
+                          "raceId": 10,
+                          "raceName": "2026 한강 나이트런",
+                          "payoutStage": "최종_정산",
+                          "payoutMonth": "2026-09",
+                          "salesAmount": 100000,
+                          "refundAmount": 0,
+                          "feeAmount": 5500,
+                          "advanceDeductionAmount": 40000,
+                          "payoutAmount": 54500,
+                          "status": "지급_예정",
+                          "settledAt": "2026-09-26T03:00:00",
+                          "scheduledPayDate": "2026-10-20",
+                          "paidAt": null
+                        },
+                        {
+                          "id": 1,
+                          "payoutCode": "ST-20260916-0001",
+                          "raceId": 10,
+                          "raceName": "2026 한강 나이트런",
+                          "payoutStage": "일차_정산",
+                          "payoutMonth": "2026-09",
+                          "salesAmount": 100000,
+                          "refundAmount": 0,
+                          "feeAmount": 0,
+                          "advanceDeductionAmount": 0,
+                          "payoutAmount": 40000,
+                          "status": "지급_예정",
+                          "settledAt": "2026-09-16T03:00:00",
+                          "scheduledPayDate": "2026-10-20",
+                          "paidAt": null
+                        }
+                      ]
                     }
-                  ]
+                  },
+                  "정산 ID로 찾기": {
+                    "description": "정산 ID로 찾기",
+                    "value": {
+                      "status": 200,
+                      "message": "정산 내역을 조회했습니다.",
+                      "data": [
+                        {
+                          "id": 2,
+                          "payoutCode": "ST-20260926-0002",
+                          "raceId": 10,
+                          "raceName": "2026 한강 나이트런",
+                          "payoutStage": "최종_정산",
+                          "payoutMonth": "2026-09",
+                          "salesAmount": 100000,
+                          "refundAmount": 0,
+                          "feeAmount": 5500,
+                          "advanceDeductionAmount": 40000,
+                          "payoutAmount": 54500,
+                          "status": "지급_예정",
+                          "settledAt": "2026-09-26T03:00:00",
+                          "scheduledPayDate": "2026-10-20",
+                          "paidAt": null
+                        }
+                      ]
+                    }
+                  }
                 }
               }
             }
           },
           "400": {
-            "description": "기간 한도 초과, 시작이 끝보다 늦음, 기간 없음, 값 형식 오류 또는 회원 ID가 0 이하",
+            "description": "기간 한도 초과, 시작이 끝보다 늦음, 정산 ID · 기간 없음, 값 형식 오류 또는 회원 ID가 0 이하",
             "content": {
               "application/json": {
                 "schema": {
@@ -1059,8 +1106,8 @@
                       "data": null
                     }
                   },
-                  "기간 없음": {
-                    "description": "기간 없음",
+                  "정산 ID · 기간 없음": {
+                    "description": "정산 ID · 기간 없음",
                     "value": {
                       "status": 400,
                       "message": "필수 요청 값이 없습니다.",
@@ -1120,16 +1167,29 @@
             }
           },
           "404": {
-            "description": "존재하지 않거나 탈퇴한 회원",
+            "description": "존재하지 않거나 탈퇴한 회원, 또는 정산 ID로 찾은 내 정산 내역이 없음",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RsData"
                 },
-                "example": {
-                  "status": 404,
-                  "message": "존재하지 않는 회원입니다.",
-                  "data": null
+                "examples": {
+                  "회원 없음": {
+                    "description": "회원 없음",
+                    "value": {
+                      "status": 404,
+                      "message": "존재하지 않는 회원입니다.",
+                      "data": null
+                    }
+                  },
+                  "정산 내역 없음": {
+                    "description": "정산 내역 없음",
+                    "value": {
+                      "status": 404,
+                      "message": "정산 내역을 찾을 수 없습니다.",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -1575,6 +1635,658 @@
         }
       }
     },
+    "/api/v1/payout/seller/claims": {
+      "get": {
+        "tags": [
+          "PayoutSeller"
+        ],
+        "summary": "회수 내역 조회",
+        "description": "회수 요청일이 기간 안이고 청구가 만들어진 회수를 최근 것부터 한 건씩 돌려준다. 청구 전에 상계로 끝난 회수는 빼고, 같은 대회의 회수는 같은 청구 ID를 갖는다. 끝 날이 시작 날 + 1개월 전이어야 한다(최대 1개월).",
+        "operationId": "claims",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "조회 시작 회수 요청일 (yyyy-MM-dd)",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-09-15"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "조회 끝 회수 요청일 (yyyy-MM-dd, 포함)",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-10-14"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "조회 성공",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "회수 내역을 조회했습니다.",
+                  "data": [
+                    {
+                      "id": 1,
+                      "claimCode": "RC-20261103-02C4",
+                      "raceId": 10,
+                      "raceName": "2026 한강 나이트런",
+                      "payoutCode": "ST-20261101-5C9A",
+                      "amount": 60000,
+                      "reasonType": "일정_변경",
+                      "status": "회수_요청",
+                      "requestedAt": "2026-11-01T09:00:00",
+                      "completedAt": null
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "기간 한도 초과, 시작이 끝보다 늦음, 기간 없음, 값 형식 오류 또는 회원 ID가 0 이하",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "1개월 초과": {
+                    "description": "1개월 초과",
+                    "value": {
+                      "status": 400,
+                      "message": "건별 정산·지급보류 내역은 최대 1개월까지 조회할 수 있습니다.",
+                      "data": null
+                    }
+                  },
+                  "시작이 끝보다 늦음": {
+                    "description": "시작이 끝보다 늦음",
+                    "value": {
+                      "status": 400,
+                      "message": "조회 시작이 끝보다 늦습니다.",
+                      "data": null
+                    }
+                  },
+                  "기간 없음": {
+                    "description": "기간 없음",
+                    "value": {
+                      "status": 400,
+                      "message": "필수 요청 값이 없습니다.",
+                      "data": null
+                    }
+                  },
+                  "기간·회원 ID 형식 오류": {
+                    "description": "기간·회원 ID 형식 오류",
+                    "value": {
+                      "status": 400,
+                      "message": "요청 값의 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  },
+                  "회원 ID가 0 이하": {
+                    "description": "회원 ID가 0 이하",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "회원 ID가 올바르지 않습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "code": "LOGIN_REQUIRED",
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "판매자 신청이 없거나 대기 · 반려 상태",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 403,
+                  "message": "승인된 판매자만 정산을 조회할 수 있습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "존재하지 않거나 탈퇴한 회원",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 404,
+                  "message": "존재하지 않는 회원입니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "회원 서비스에서 판매자 정보를 확인하지 못함",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 503,
+                  "message": "판매자 정보를 확인하지 못했습니다. 잠시 뒤 다시 시도해주세요.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payout/payouts": {
+      "get": {
+        "tags": [
+          "Payout"
+        ],
+        "summary": "정산 ID로 정산 내역 찾기",
+        "description": "정산 ID(ST-)로 정산 내역 한 건을 찾는다. 응답의 id를 지급보류 걸기 경로의 payoutId로 쓴다.",
+        "operationId": "findPayout",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          },
+          {
+            "name": "code",
+            "in": "query",
+            "description": "정산 ID (ST-…)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "ST-20260926-0002"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "조회 성공",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "정산 내역을 조회했습니다.",
+                  "data": {
+                    "id": 2,
+                    "payoutCode": "ST-20260926-0002",
+                    "raceId": 10,
+                    "raceName": "2026 한강 나이트런",
+                    "payoutStage": "최종_정산",
+                    "payoutMonth": "2026-09",
+                    "salesAmount": 100000,
+                    "refundAmount": 0,
+                    "feeAmount": 5500,
+                    "advanceDeductionAmount": 40000,
+                    "payoutAmount": 54500,
+                    "status": "지급_예정",
+                    "settledAt": "2026-09-26T03:00:00",
+                    "scheduledPayDate": "2026-10-20",
+                    "paidAt": null
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "정산 ID 없음, 회원 ID 형식 오류 또는 회원 ID가 0 이하",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "정산 ID 없음": {
+                    "description": "정산 ID 없음",
+                    "value": {
+                      "status": 400,
+                      "message": "필수 요청 값이 없습니다.",
+                      "data": null
+                    }
+                  },
+                  "회원 ID 형식 오류": {
+                    "description": "회원 ID 형식 오류",
+                    "value": {
+                      "status": 400,
+                      "message": "요청 값의 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  },
+                  "회원 ID가 0 이하": {
+                    "description": "회원 ID가 0 이하",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "회원 ID가 올바르지 않습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "code": "LOGIN_REQUIRED",
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "관리자가 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 403,
+                  "code": "PAYOUT_NOT_ADMIN",
+                  "message": "관리자만 이용할 수 있습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "헤더의 회원(없거나 탈퇴) 또는 그 정산 ID의 정산 내역이 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "정산 내역 없음": {
+                    "description": "정산 내역 없음",
+                    "value": {
+                      "status": 404,
+                      "message": "정산 내역을 찾을 수 없습니다.",
+                      "data": null
+                    }
+                  },
+                  "회원 없음": {
+                    "description": "회원 없음",
+                    "value": {
+                      "status": 404,
+                      "code": "PAYOUT_MEMBER_NOT_FOUND",
+                      "message": "존재하지 않는 회원입니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "회원 서비스가 응답하지 않아 관리자인지 확인하지 못함",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 503,
+                  "code": "PAYOUT_MEMBER_UNAVAILABLE",
+                  "message": "회원 서비스에 연결하지 못해 관리자인지 확인하지 못했습니다. 잠시 뒤 다시 시도해주세요.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payout/admin/create-failures": {
+      "get": {
+        "tags": [
+          "Payout"
+        ],
+        "summary": "이상 감지 기록 조회",
+        "description": "정산 생성 배치가 남긴 실패 기록(대사 불일치 · 주문 조회 실패 등)을 실행일 기간으로 최근 것부터 돌려준다. 카드 숫자(대사 불일치 · 자동으로 채운 참가권 · 주문 조회 실패 건수)는 종류 선택과 상관없이 기간 전체로 센다. 끝 날이 시작 날 + 1개월 전이어야 한다(최대 1개월). 기록이 없으면 빈 목록과 카드 0을 돌려준다.",
+        "operationId": "createFailures",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "조회 시작 실행일 (yyyy-MM-dd)",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-11-01"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "조회 끝 실행일 (yyyy-MM-dd, 포함)",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-11-06"
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "description": "실패 종류 (없으면 전체)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "주문_정산_대회일_불일치",
+                "정산_계좌_조회_실패",
+                "정산_저장_실패",
+                "정산_조회_실패",
+                "알_수_없는_실패",
+                "대회_조회_실패",
+                "주문_조회_실패",
+                "취소_중이라_미룸",
+                "대사_불일치"
+              ]
+            },
+            "example": "대사_불일치"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "페이지 번호 (0부터)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            },
+            "example": 0
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "페이지 크기 (1 ~ 100)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            },
+            "example": 50
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "조회 성공 (기록이 없어도 200)",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "기록 있음": {
+                    "description": "기록 있음",
+                    "value": {
+                      "status": 200,
+                      "message": "이상 감지 기록을 조회했습니다.",
+                      "data": {
+                        "mismatchCount": 2,
+                        "autoFilledCount": 1,
+                        "orderLookupFailureCount": 1,
+                        "records": {
+                          "content": [
+                            {
+                              "id": 3,
+                              "recordedAt": "2026-11-06T03:00:12",
+                              "runDate": "2026-11-06",
+                              "payoutStage": "최종_정산",
+                              "sellerId": 1,
+                              "raceId": 10,
+                              "raceCourseId": 4,
+                              "payoutTargetDate": "2026-11-05",
+                              "failureType": "대사_불일치",
+                              "actionTaken": "지급보류",
+                              "note": "더 들어감 2장 (코스 4: 2장)",
+                              "soldCount": 310,
+                              "settledCount": 312,
+                              "holdCode": "HD-20261106-0D44"
+                            }
+                          ],
+                          "page": 0,
+                          "size": 50,
+                          "totalElements": 1,
+                          "totalPages": 1
+                        }
+                      }
+                    }
+                  },
+                  "기록 없음": {
+                    "description": "기록 없음",
+                    "value": {
+                      "status": 200,
+                      "message": "이상 감지 기록을 조회했습니다.",
+                      "data": {
+                        "mismatchCount": 0,
+                        "autoFilledCount": 0,
+                        "orderLookupFailureCount": 0,
+                        "records": {
+                          "content": [],
+                          "page": 0,
+                          "size": 50,
+                          "totalElements": 0,
+                          "totalPages": 0
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "기간 한도 초과, 시작이 끝보다 늦음, 페이지 번호·크기 범위 오류, 기간 없음, 값 형식 오류(없는 종류 포함) 또는 회원 ID가 0 이하",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "1개월 초과": {
+                    "description": "1개월 초과",
+                    "value": {
+                      "status": 400,
+                      "message": "이상 감지 기록은 최대 1개월까지 조회할 수 있습니다.",
+                      "data": null
+                    }
+                  },
+                  "시작이 끝보다 늦음": {
+                    "description": "시작이 끝보다 늦음",
+                    "value": {
+                      "status": 400,
+                      "message": "조회 시작이 끝보다 늦습니다.",
+                      "data": null
+                    }
+                  },
+                  "페이지 번호 음수": {
+                    "description": "페이지 번호 음수",
+                    "value": {
+                      "status": 400,
+                      "message": "페이지 번호는 0 이상이어야 합니다.",
+                      "data": null
+                    }
+                  },
+                  "페이지 크기 범위 밖": {
+                    "description": "페이지 크기 범위 밖",
+                    "value": {
+                      "status": 400,
+                      "message": "페이지 크기는 1 이상 100 이하여야 합니다.",
+                      "data": null
+                    }
+                  },
+                  "기간 없음": {
+                    "description": "기간 없음",
+                    "value": {
+                      "status": 400,
+                      "message": "필수 요청 값이 없습니다.",
+                      "data": null
+                    }
+                  },
+                  "기간·종류·회원 ID 형식 오류": {
+                    "description": "기간·종류·회원 ID 형식 오류",
+                    "value": {
+                      "status": 400,
+                      "message": "요청 값의 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  },
+                  "회원 ID가 0 이하": {
+                    "description": "회원 ID가 0 이하",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "회원 ID가 올바르지 않습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "code": "LOGIN_REQUIRED",
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "관리자가 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 403,
+                  "code": "PAYOUT_NOT_ADMIN",
+                  "message": "관리자만 이용할 수 있습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "헤더의 회원이 없거나 탈퇴함",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 404,
+                  "code": "PAYOUT_MEMBER_NOT_FOUND",
+                  "message": "존재하지 않는 회원입니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "회원 서비스가 응답하지 않아 관리자인지 확인하지 못함",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 503,
+                  "code": "PAYOUT_MEMBER_UNAVAILABLE",
+                  "message": "회원 서비스에 연결하지 못해 관리자인지 확인하지 못했습니다. 잠시 뒤 다시 시도해주세요.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/payout/admin/claims": {
       "get": {
         "tags": [
@@ -1582,7 +2294,7 @@
         ],
         "summary": "회수 관리 청구 목록",
         "description": "관리자 회수 관리 화면의 카드 숫자(청구 중 건수, 회수할 금액 합계, 이번 달 입금 확인 건수)와 청구 목록을 최근 청구부터 돌려준다. code(RC-)를 주면 그 한 건만 찾고 status는 보지 않는다. 카드 숫자는 필터와 상관없이 전체 기준이다. 판매자 이름은 넣지 않는다.",
-        "operationId": "claims",
+        "operationId": "adminClaims",
         "parameters": [
           {
             "name": "X-Member-Id",
@@ -1673,7 +2385,9 @@
                               "dueDate": "2027-01-13",
                               "status": "청구_중",
                               "confirmedBy": null,
-                              "confirmedAt": null
+                              "confirmedAt": null,
+                              "virtualBankName": "국민은행",
+                              "virtualAccountNumber": "12345678901234"
                             },
                             {
                               "id": 1,
@@ -1685,7 +2399,9 @@
                               "dueDate": "2027-01-13",
                               "status": "입금_확인",
                               "confirmedBy": 99,
-                              "confirmedAt": "2026-12-20T10:00:00"
+                              "confirmedAt": "2026-12-20T10:00:00",
+                              "virtualBankName": "국민은행",
+                              "virtualAccountNumber": "98765432109876"
                             }
                           ],
                           "page": 0,

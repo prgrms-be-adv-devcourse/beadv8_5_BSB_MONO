@@ -54,19 +54,19 @@
         }
       }
     },
-    "claims": {
-      "200": {
-        "wrapper": "RsDataPayoutAdminClaimsDto",
-        "data": {
-          "$ref": "#/components/schemas/PayoutAdminClaimsDto"
-        }
-      }
-    },
     "confirm": {
       "200": {
         "wrapper": "RsDataPayoutClaimDto",
         "data": {
           "$ref": "#/components/schemas/PayoutClaimDto"
+        }
+      }
+    },
+    "adminClaims": {
+      "200": {
+        "wrapper": "RsDataPayoutAdminClaimsDto",
+        "data": {
+          "$ref": "#/components/schemas/PayoutAdminClaimsDto"
         }
       }
     }
@@ -500,6 +500,16 @@
           "type": "string",
           "format": "date-time",
           "nullable": true
+        },
+        "virtualBankName": {
+          "type": "string",
+          "nullable": true,
+          "description": "판매자가 입금할 가상계좌 은행 이름. 발급 전에는 null"
+        },
+        "virtualAccountNumber": {
+          "type": "string",
+          "nullable": true,
+          "description": "판매자가 입금할 가상계좌 번호. 발급 전에는 null"
         }
       },
       "required": [
