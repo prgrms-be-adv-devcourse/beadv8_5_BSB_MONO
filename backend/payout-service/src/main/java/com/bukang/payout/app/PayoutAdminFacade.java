@@ -8,16 +8,18 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.bukang.payout.domain.PayoutClaimStatus;
+import com.bukang.payout.domain.PayoutCreateFailureType;
 import com.bukang.payout.domain.PayoutHoldReason;
 import com.bukang.payout.dto.PayoutAdminClaimsDto;
 import com.bukang.payout.dto.PayoutClaimDto;
+import com.bukang.payout.dto.PayoutCreateFailuresDto;
 import com.bukang.payout.dto.PayoutDto;
 import com.bukang.payout.dto.PayoutHoldDto;
 
 import lombok.RequiredArgsConstructor;
 
 /**
- * 관리자 API(지급보류 걸기·풀기, 청구 입금 확인)의 진입점. 관리자인지 먼저 확인하고 UseCase를 부른다 (PRO-265)
+ * 관리자 API(지급보류 걸기·풀기, 청구 입금 확인, 이상 감지 기록 조회)의 진입점. 관리자인지 먼저 확인하고 UseCase를 부른다 (PRO-265)
  *
  * 관리자 확인은 회원 서비스를 HTTP로 부르므로, 응답을 기다리는 동안 DB 연결을 잡지 않게 트랜잭션 없이 실행하고
  * 각 UseCase가 자기 트랜잭션을 열고 커밋한다. 그래서 메서드마다 트랜잭션 UseCase는 하나만 부른다 (둘을 부르면 따로 커밋된다)
@@ -31,6 +33,7 @@ public class PayoutAdminFacade {
 	private final PayoutHoldUseCase payoutHoldUseCase;
 	private final PayoutClaimUseCase payoutClaimUseCase;
 	private final PayoutClaimQueryUseCase payoutClaimQueryUseCase;
+	private final PayoutAdminQueryUseCase payoutAdminQueryUseCase;
 
 	public PayoutHoldDto hold(long memberId, long payoutId, PayoutHoldReason reasonType, String reason,
 		LocalDateTime now) {
@@ -60,5 +63,12 @@ public class PayoutAdminFacade {
 		LocalDate today) {
 		payoutAdminVerifyUseCase.verify(memberId);
 		return payoutClaimQueryUseCase.claims(status, code, page, size, today);
+	}
+
+	// 이상 감지 기록 조회 (BUK-108). 관리자 확인 뒤 읽기 트랜잭션 하나만 연다
+	public PayoutCreateFailuresDto createFailures(long memberId, LocalDate from, LocalDate to,
+		PayoutCreateFailureType type, int page, int size) {
+		payoutAdminVerifyUseCase.verify(memberId);
+		return payoutAdminQueryUseCase.createFailures(from, to, type, page, size);
 	}
 }

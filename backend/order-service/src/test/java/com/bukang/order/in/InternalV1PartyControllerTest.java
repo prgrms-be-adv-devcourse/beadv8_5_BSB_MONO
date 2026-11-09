@@ -48,9 +48,8 @@ class InternalV1PartyControllerTest {
 	}
 
 	@Test
-	@DisplayName("파티가 없거나 결제 끝·종료된 파티, 이미 나간 파티, 다른 크루 파티뿐이면 나가기·내보내기 둘 다 된다")
+	@DisplayName("파티가 없거나 종료된 파티, 이미 나간 파티, 다른 크루 파티뿐이면 나가기·내보내기 둘 다 된다")
 	void free() throws Exception {
-		joinedParty(CREW, PartyStatus.PAID);
 		joinedParty(CREW, PartyStatus.CLOSED);
 		joinedParty(OTHER_CREW, PartyStatus.PAYING);
 		long left = joinedParty(CREW, PartyStatus.RECRUITING);
@@ -95,6 +94,46 @@ class InternalV1PartyControllerTest {
 		find(CREW, 99).andExpect(jsonPath("$.data.canLeave").value(true));
 	}
 
+	@Test
+	@DisplayName("결제 끝 파티도 끝나기(종료) 전에는 나가기·내보내기 둘 다 막힌다 (11/09 결정, 회의 C1)")
+	void paid() throws Exception {
+		long partyId = joinedParty(CREW, PartyStatus.PAID);
+
+		find(CREW, MEMBER)
+			.andExpect(jsonPath("$.data.canLeave").value(false))
+			.andExpect(jsonPath("$.data.canKick").value(false))
+			.andExpect(jsonPath("$.data.blockingParties[0].partyId").value(partyId))
+			.andExpect(jsonPath("$.data.blockingParties[0].status").value("PAID"));
+	}
+
+	@Test
+	@DisplayName("크루 없애기: 모집 중·결제 진행 중·결제 끝 파티가 하나라도 있으면 막고 그 파티들을 돌려준다")
+	void crewDeleteBlocked() throws Exception {
+		long recruiting = joinedParty(CREW, PartyStatus.RECRUITING);
+		long paid = joinedParty(CREW, PartyStatus.PAID);
+		joinedParty(CREW, PartyStatus.CLOSED);
+		joinedParty(OTHER_CREW, PartyStatus.PAYING);
+
+		findCrew(CREW)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.canDelete").value(false))
+			.andExpect(jsonPath("$.data.blockingParties.length()").value(2))
+			.andExpect(jsonPath("$.data.blockingParties[0].partyId").value(recruiting))
+			.andExpect(jsonPath("$.data.blockingParties[1].partyId").value(paid))
+			.andExpect(jsonPath("$.data.blockingParties[1].status").value("PAID"));
+	}
+
+	@Test
+	@DisplayName("크루 없애기: 파티가 없거나 종료된 파티뿐이면 없앨 수 있다")
+	void crewDeleteFree() throws Exception {
+		joinedParty(CREW, PartyStatus.CLOSED);
+
+		findCrew(CREW)
+			.andExpect(jsonPath("$.data.canDelete").value(true))
+			.andExpect(jsonPath("$.data.blockingParties").isEmpty());
+		findCrew(OTHER_CREW).andExpect(jsonPath("$.data.canDelete").value(true));
+	}
+
 	// 파티장 LEADER와 파티원 MEMBER가 들어 있는 파티. 신청(PAYING)은 아직 만들어지지 않아 상태를 직접 바꾼다
 	private long joinedParty(long crewId, PartyStatus status) {
 		LocalDateTime now = LocalDateTime.now();
@@ -104,6 +143,10 @@ class InternalV1PartyControllerTest {
 		partyMemberRepository.save(PartyMember.join(partyId, LEADER, crewId, now, now));
 		partyMemberRepository.save(PartyMember.join(partyId, MEMBER, crewId, now, now));
 		return partyId;
+	}
+
+	private ResultActions findCrew(long crewId) throws Exception {
+		return mockMvc.perform(get("/internal/v1/order/crews/{crewId}/party-status", crewId));
 	}
 
 	private ResultActions find(long crewId, long memberId) throws Exception {
