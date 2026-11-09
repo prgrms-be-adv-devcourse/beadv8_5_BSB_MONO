@@ -314,24 +314,41 @@ class ApiV1CrewTest {
 	}
 
 	@Test
-	@DisplayName("다른 사람이 이미 쓴 링크는 410 CREW_INVITE_ALREADY_USED이고, 쓰인 초대는 취소할 수 없다 (409)")
-	void usedLinkIsGone() throws Exception {
+	@DisplayName("링크 하나로 여러 명이 가입하고, 가입에 쓰인 초대도 취소할 수 있으며 취소 뒤에는 410 CREW_INVITE_CANCELED이다")
+	void oneLinkJoinsManyUntilCanceled() throws Exception {
 		long crewId = createCrew(leaderId, "새벽한강크루");
 		String token = createInvite(crewId, leaderId);
 		long inviteId = onlyInviteId();
-		join(otherId, token).andExpect(status().isCreated());
+		long fourthId = memberFacade.join(MemberFixture.joinRequest().build(identityStore)).getId();
 
-		join(outsiderId, token)
+		join(otherId, token).andExpect(status().isCreated());
+		join(outsiderId, token).andExpect(status().isCreated());
+		assertThat(crewMemberRepository.countByCrewId(crewId)).isEqualTo(3);
+
+		// 링크가 퍼지면 크루장이 취소로 끊는다
+		mockMvc.perform(delete(INVITE, crewId, inviteId).header(MemberIdHeader.NAME, leaderId))
+			.andExpect(status().isOk());
+		join(fourthId, token)
 			.andExpect(status().isGone())
-			.andExpect(jsonPath("$.code").value("CREW_INVITE_ALREADY_USED"))
-			.andExpect(jsonPath("$.message").value("이미 가입에 쓰인 초대 링크입니다. 새 초대 링크를 받아주세요."));
-		mockMvc.perform(get(INVITE_BY_TOKEN, token).header(MemberIdHeader.NAME, outsiderId))
+			.andExpect(jsonPath("$.code").value("CREW_INVITE_CANCELED"));
+		assertThat(crewMemberRepository.existsByCrewIdAndMemberId(crewId, fourthId)).isFalse();
+	}
+
+	@Test
+	@DisplayName("여러 명 가입으로 바뀌기 전에 이미 쓰인 초대는 그대로 410 CREW_INVITE_ALREADY_USED이고 취소할 수 없다 (409)")
+	void legacyUsedLinkStaysGone() throws Exception {
+		long crewId = createCrew(leaderId, "새벽한강크루");
+		String token = createInvite(crewId, leaderId);
+		long inviteId = onlyInviteId();
+		jdbcTemplate.update("update member_crew_invite set used_at = created_at, used_by = ? where invite_id = ?",
+			leaderId, inviteId);
+
+		join(otherId, token)
 			.andExpect(status().isGone())
 			.andExpect(jsonPath("$.code").value("CREW_INVITE_ALREADY_USED"));
 		mockMvc.perform(delete(INVITE, crewId, inviteId).header(MemberIdHeader.NAME, leaderId))
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("CREW_INVITE_ALREADY_USED"));
-		assertThat(crewMemberRepository.existsByCrewIdAndMemberId(crewId, outsiderId)).isFalse();
 	}
 
 	@Test
@@ -394,15 +411,15 @@ class ApiV1CrewTest {
 	}
 
 	@Test
-	@DisplayName("서로 다른 두 회원이 같은 링크로 동시에 가입하면 한 명만 201이고 다른 한 명은 410 CREW_INVITE_ALREADY_USED이다")
-	void concurrentJoinBySameLinkAllowsOne() throws Exception {
+	@DisplayName("서로 다른 두 회원이 같은 링크로 동시에 가입하면 둘 다 201이다")
+	void concurrentJoinBySameLinkAllowsBoth() throws Exception {
 		long crewId = createCrew(leaderId, "새벽한강크루");
 		String token = createInvite(crewId, leaderId);
 
 		List<Integer> statuses = joinAtOnce(token, otherId, outsiderId);
 
-		assertThat(statuses).containsExactlyInAnyOrder(201, 410);
-		assertThat(crewMemberRepository.countByCrewId(crewId)).isEqualTo(2);
+		assertThat(statuses).containsExactly(201, 201);
+		assertThat(crewMemberRepository.countByCrewId(crewId)).isEqualTo(3);
 	}
 
 	@Test
@@ -442,8 +459,8 @@ class ApiV1CrewTest {
 
 		mockMvc.perform(get(INVITES, crewId).header(MemberIdHeader.NAME, leaderId))
 			.andExpect(status().isOk())
-			// 처음 가입에 쓴 초대는 목록에서 빠진다
-			.andExpect(jsonPath("$.data.length()").value(2))
+			// 가입에 쓴 초대도 24시간 안이면 목록에 남아 취소할 수 있다
+			.andExpect(jsonPath("$.data.length()").value(3))
 			.andExpect(jsonPath("$.data[0].inviteId").isNumber())
 			.andExpect(jsonPath("$.data[0].inviteToken").doesNotExist());
 		mockMvc.perform(get(INVITES, crewId).header(MemberIdHeader.NAME, otherId))
