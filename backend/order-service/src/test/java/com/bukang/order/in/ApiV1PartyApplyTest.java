@@ -236,6 +236,45 @@ class ApiV1PartyApplyTest {
 	}
 
 	@Test
+	@DisplayName("첫 요청이 상품에 닿지 않은 채 크루 마감일 다음 날 0시가 지나도, 재시도는 지난 기한을 보내지 않는다 (영호님 리뷰)")
+	void retryAfterCrewCloseSendsFutureExpiresAt() throws Exception {
+		long partyId = partyWith(MEMBERS);
+		doThrow(new ExternalServiceUnavailableException("상품 서비스에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요."))
+			.doCallRealMethod()
+			.when(crewSeatHoldPort).holdAll(anyLong(), anyLong(), anyLong(), any(), any());
+		apply(LEADER, partyId).andExpect(status().isServiceUnavailable());
+		// 크루 마감이 이틀 전이라 크루 자리 닫는 시각(마감일 다음 날 0시)도 지났다
+		putCourse(crewSaleStartAt.minusDays(5), LocalDateTime.now().minusDays(2), 4, 10);
+
+		// 가짜 어댑터도 상품처럼 지난 끝 시각이면 503이다. 미래 기한을 보내야 상품이 확정 답(여기서는 처음 확보)을 준다
+		apply(LEADER, partyId).andExpect(status().isOk());
+		ArgumentCaptor<LocalDateTime> sentExpiresAt = ArgumentCaptor.forClass(LocalDateTime.class);
+		verify(crewSeatHoldPort, times(2)).holdAll(anyLong(), anyLong(), anyLong(), sentExpiresAt.capture(), any());
+		assertThat(sentExpiresAt.getAllValues().getLast()).isAfter(LocalDateTime.now());
+	}
+
+	@Test
+	@DisplayName("표시가 남아도 크루 예매가 열려 있으면 재시도도 파티 대기열·인원을 확인한다 (상품에 닿지 않았으면 새로 잡히므로)")
+	void retryWhileSaleOpenChecksQueue() throws Exception {
+		long partyId = partyWith(MEMBERS);
+		doThrow(new ExternalServiceUnavailableException("상품 서비스에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요."))
+			.doCallRealMethod()
+			.when(crewSeatHoldPort).holdAll(anyLong(), anyLong(), anyLong(), any(), any());
+		apply(LEADER, partyId).andExpect(status().isServiceUnavailable());
+
+		queueAdmissionPort.notAdmittedToParty(COURSE_ID);
+		apply(LEADER, partyId)
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.code").value("ORDER_QUEUE_NOT_ADMITTED"));
+		queueAdmissionPort.clear();
+		putCourse(crewSaleStartAt, LocalDateTime.now().plusDays(20), 6, 10);
+		apply(LEADER, partyId)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("ORDER_PARTY_SIZE_OUT_OF_RANGE"));
+		verify(crewSeatHoldPort, times(1)).holdAll(anyLong(), anyLong(), anyLong(), any(), any());
+	}
+
+	@Test
 	@DisplayName("표시가 없는 파티는 크루 예매가 끝나면 상품을 부르지 않고 409다")
 	void saleClosedWithoutHold() throws Exception {
 		long partyId = partyWith(MEMBERS);

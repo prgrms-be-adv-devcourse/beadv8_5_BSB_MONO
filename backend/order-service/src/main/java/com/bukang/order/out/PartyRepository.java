@@ -31,10 +31,12 @@ public interface PartyRepository extends JpaRepository<Party, Long> {
 
 	// 파티 신청 때 잠그기 전에 파티장·상태로 먼저 거른다. 상품·회원을 부르기 전에 빨리 거절하려는 것이고, 잠근 뒤 다시 본다
 	@Query("select new com.bukang.order.out.PartyRepository$ApplyTarget(p.raceCourseId, p.crewId, p.leaderMemberId, "
-		+ "p.status) from Party p where p.id = :id")
+		+ "p.status, p.crewHoldRequestedAt) from Party p where p.id = :id")
 	Optional<ApplyTarget> findApplyTarget(@Param("id") long id);
 
-	record ApplyTarget(long raceCourseId, long crewId, long leaderMemberId, PartyStatus status) {
+	// crewHoldRequestedAt: 크루 자리를 요청해 결과를 모르는 중인지 (재시도 길을 열지 정한다)
+	record ApplyTarget(long raceCourseId, long crewId, long leaderMemberId, PartyStatus status,
+		LocalDateTime crewHoldRequestedAt) {
 	}
 
 	// 이 대회에서 그 회원이 나가지 않은 살아 있는 파티 (BUK-91). 한 대회 한 신청이라 보통 하나지만, 혹시 여럿이면 최근 것부터

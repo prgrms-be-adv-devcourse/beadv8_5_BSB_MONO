@@ -134,15 +134,26 @@ public class PartyApplyUseCase {
 		return transactionTemplate.execute(status -> startPayment(prepared, memberId, dueAt, now));
 	}
 
-	// 표시가 남은 파티의 재시도: 기간·크루원·대기열·인원 확인 없이 같은 자리 목록으로 상품을 부를 준비를 한다
+	// 표시가 남은 파티의 재시도: 기간·크루원 확인 없이 같은 자리 목록으로 상품을 부를 준비를 한다 (대기열·인원은 기간 중에만 본다)
 	// 상품은 같은 파티 ID면 기간 확인보다 먼저 처음 결과를 돌려준다. 처음 요청이 상품에 닿지 않았으면 상품이 기간으로 거절하고,
 	// 그 거절(확정 답)에 표시를 지운다. 표시가 없으면 빈 값 → 원래 확인 오류를 그대로 낸다
 	// 크루원이 아닌 파티원이 섞였어도 결제(OrderPayUseCase)에서 크루원인지 다시 본다
 	private Optional<Prepared> resumeAfterUnknownHold(long partyId, long memberId, LocalDateTime now) {
 		ApplyTarget target = partyRepository.findApplyTarget(partyId)
 			.orElseThrow(() -> new PartyNotFoundException("존재하지 않는 파티입니다."));
+		// 파티장이 아니거나 표시가 없으면 원래 확인 오류를 낸다. 대기열(HTTP)을 묻기 전에 값만 읽어 거른다 (잠근 뒤 다시 본다)
+		if (target.leaderMemberId() != memberId || target.crewHoldRequestedAt() == null) {
+			return Optional.empty();
+		}
 		RaceCourseInfo course = raceCoursePort.findCourse(target.raceCourseId())
 			.orElseThrow(() -> new RaceCourseNotFoundException("존재하지 않는 종목입니다."));
+		// 크루 예매가 아직 열려 있으면, 첫 요청이 상품에 닿지 않았을 때 상품이 자리를 새로 잡는다
+		// → 기간 확인만 건너뛰고 대기열·인원은 그대로 확인한다 (영호님 리뷰). 닫혔으면 상품이 처음 결과를 주거나 기간으로 거절한다
+		CrewSale crewSale = course.crewSale();
+		boolean saleOpen = crewSale != null && crewSale.isOpen(now) && course.isBeforeClose(now);
+		if (saleOpen) {
+			checkQueueAdmitted(memberId, course, now);
+		}
 		return Optional.ofNullable(transactionTemplate.execute(status -> {
 			Party party = partyRepository.findByIdForUpdate(partyId)
 				.orElseThrow(() -> new PartyNotFoundException("존재하지 않는 파티입니다."));
@@ -151,13 +162,16 @@ public class PartyApplyUseCase {
 				return null;
 			}
 			party.markCrewHoldRequested(now);
-			partyMemberRepository.findActiveByPartyIdForUpdate(partyId);
+			int size = partyMemberRepository.findActiveByPartyIdForUpdate(partyId).size();
+			if (saleOpen) {
+				checkSize(partyId, size, crewSale);
+			}
 			List<Seat> seats = participationRepository.findActiveByPartyIdForUpdate(partyId).stream()
 				.map(participation -> new Seat(participation.getId(), participation.getRaceCourseId()))
 				.toList();
-			// 상품이 처음 결과를 돌려주면 이 값은 쓰이지 않는다
-			LocalDateTime dueAt = course.crewSale() == null ? now.plus(PAYMENT_WINDOW)
-				: paymentDueAt(course, course.crewSale(), now);
+			// 상품이 처음 결과를 돌려주면 이 값은 쓰이지 않는다. 크루 자리 닫는 시각이 지나 지난 값이 되면 상품이 400(→ 503)을 줘
+			// 표시가 또 남으므로, 그때는 미래 값을 보내 상품이 기간으로 거절(409, 확정 답)하게 한다 (영호님 리뷰)
+			LocalDateTime dueAt = saleOpen ? paymentDueAt(course, crewSale, now) : now.plus(PAYMENT_WINDOW);
 			return new Prepared(partyId, target.crewId(), course.raceId(), course.raceCourseId(), course.courseName(),
 				dueAt, seats);
 		}));
