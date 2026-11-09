@@ -152,6 +152,10 @@ member:
       # 링크 앞부분 (프론트 확인 화면 /unsubscribe). 요청 Host 헤더로 만들지 않는다
       front-base-url: ${FRONT_PUBLIC_BASE_URL:}
       token-ttl: 365d
+  # 크루 초대 카카오톡 메시지 (KakaoInviteProperties). 버튼 링크 앞부분이고, 카카오 콘솔 「웹 도메인」에 등록한 도메인이어야 한다
+  crew:
+    kakao-invite:
+      front-base-url: ${FRONT_PUBLIC_BASE_URL:}
   # 회원 탈퇴 전에 남은 예치금·참가권을 묻는 내부 API (BE-022). 로컬 개발은 bootRun으로 띄운 서비스 포트로 부른다
   clients:
     # 연결·응답 시간 제한. 넘으면 탈퇴하지 않고 503으로 다시 시도하게 한다

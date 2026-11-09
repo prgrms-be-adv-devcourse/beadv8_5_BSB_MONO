@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.bukang.common.shared.kafka.KafkaEventHeaders;
+import com.bukang.common.shared.kafka.KafkaMessageId;
 import com.bukang.member.domain.MemberOutboxEvent;
 import com.bukang.member.domain.MemberOutboxStatus;
 import com.bukang.member.out.MemberOutboxEventRepository;
@@ -34,6 +35,7 @@ import lombok.extern.slf4j.Slf4j;
  * 아웃박스의 보낼 차례 행을 저장 순서대로 Kafka에 보낸다 (BUK-41, 주문 OrderOutboxKafkaRelayUseCase와 같은 폴링 방식)
  * - 행은 SELECT ... FOR UPDATE SKIP LOCKED로 읽는다. 서버 두 대가 함께 돌아도 다른 서버가 읽은 행은 건너뛰어 두 번 보내지 않는다
  * - 브로커가 받았다고 응답해야 "보냄"으로 바꾼다. 응답 전에 서버가 죽으면 다음 실행에 한 번 더 보낸다 (최소 한 번 전달)
+ *   그래서 메시지마다 행에 저장한 message-id(member-outbox-{UUID})를 붙인다. 다시 보내도 같은 값이라 받는 쪽 인박스가 거른다
  * - 보내지 못하면 이번 실행을 멈춘다. 브로커 장애 중에 계속 보내면 행마다 기다려(max.block.ms 3초) 커넥션과 락을 오래 쥔다
  * - 메시지 하나의 문제(크기 초과, 직렬화 오류, 잘못된 토픽)는 MAX_MESSAGE_FAILURES번째 실패에 포기한다.
  *   그래야 같은 대상의 뒤 이벤트가 막히지 않는다. 포기하면 순서가 바뀌므로 에러 로그를 보고 사람이 확인한다.
@@ -135,7 +137,10 @@ public class MemberOutboxRelayUseCase {
 
 	private ProducerRecord<String, String> record(MemberOutboxEvent event) {
 		String refId = String.valueOf(event.getRefId());
-		ProducerRecord<String, String> record = new ProducerRecord<>(event.getTopic(), refId, event.getPayload());
+		// 메시지 ID는 행에 저장한 값을 그대로 보낸다 (여기서 새로 만들면 다시 보낼 때마다 값이 달라진다)
+		event.assignMessageIdIfAbsent();
+		ProducerRecord<String, String> record =
+			KafkaMessageId.record(event.getTopic(), refId, event.getPayload(), event.getMessageId());
 		Headers headers = record.headers();
 		addHeader(headers, KafkaEventHeaders.EVENT_ID, event.getEventId());
 		addHeader(headers, KafkaEventHeaders.EVENT_TYPE, event.getTopic());
