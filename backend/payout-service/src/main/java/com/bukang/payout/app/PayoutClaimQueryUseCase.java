@@ -41,7 +41,8 @@ public class PayoutClaimQueryUseCase {
 			List<PayoutClaim> found = payoutClaimRepository.findByClaimCode(code.strip().toUpperCase(Locale.ROOT))
 				.stream()
 				.toList();
-			claims = new PageImpl<>(found, pageable, found.size());
+			// 한 건 찾기는 늘 첫 페이지다. page가 1 이상이면 PageImpl이 총 개수를 size + 1로 맞춰 버린다 (#368 리뷰)
+			claims = new PageImpl<>(found, PageRequest.of(0, size), found.size());
 		} else if (status != null) {
 			claims = payoutClaimRepository.findByStatusOrderByIdDesc(status, pageable);
 		} else {

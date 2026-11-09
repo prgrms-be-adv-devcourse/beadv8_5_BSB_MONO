@@ -29,10 +29,12 @@ export function MenuRow({ icon, label, value, description, ...action }: MenuRowP
     <>
       <Icon name={icon} className="size-5" />
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="text-label-m">{label}</span>
-        {description && <span className="text-caption text-text-secondary">{description}</span>}
+        <span className="text-body2-medium">{label}</span>
+        {description && (
+          <span className="text-caption-regular text-text-secondary">{description}</span>
+        )}
       </span>
-      {value && <span className="text-label-m">{value}</span>}
+      {value && <span className="text-body2-medium">{value}</span>}
       <Icon name="ChevronRight" className="size-5" />
     </>
   )

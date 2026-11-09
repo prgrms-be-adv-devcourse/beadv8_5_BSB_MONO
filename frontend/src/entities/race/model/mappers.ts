@@ -90,44 +90,20 @@ export function toRaceListItem(race: SummaryDto, now: Date = new Date()): RaceLi
   }
 }
 
-/** 곧 마감 카드: 종목마다 한 장 (종목을 골라 둔 채 상세로 간다) */
-export function toClosingSoonCards(race: SummaryDto): RaceSummary[] {
-  const dDay = race.applicationCloseAt ? formatDDay(race.applicationCloseAt) : ''
-  return (race.courses ?? []).map((course) => ({
-    id: String(race.raceId),
-    option: String(course.raceCourseId),
-    title: `${race.title ?? ''} (${course.name ?? ''})`,
-    image: race.imageUrl,
-    posterLabel: course.name ?? '',
-    schedule: `${dDay} · 남은 ${formatNumber(course.individualRemaining ?? 0)}자리`,
-    place: `${course.name ?? ''} · ${race.location ?? ''}`,
-  }))
-}
-
-/** 카드 첫 줄: 오픈 예정이면 오픈 일시, 접수 중이면 마감 일시 */
-function phaseSchedule(race: SummaryDto, now: Date): string {
-  const phase = applicationPhase(race, now)
-  if (phase === 'upcoming') {
-    return race.individualOpenAt
-      ? `오픈 예정 · ${formatRaceDateTime(race.individualOpenAt)}`
-      : '오픈 예정'
-  }
-  if (phase === 'closed') return '마감'
-  return race.applicationCloseAt
-    ? `접수 중 · ~${formatRaceDateTime(race.applicationCloseAt)}`
-    : '접수 중'
-}
-
-/** 지금 접수 중 카드: 대회마다 한 장 */
-export function toOpenRaceCard(race: SummaryDto, now: Date = new Date()): RaceSummary {
-  const names = courseNames(race.courses)
+/** 곧 마감 카드: 대회마다 한 장 (피그마 v2 · 대회 카드) */
+export function toClosingSoonCard(race: SummaryDto, now: Date = new Date()): RaceSummary {
+  const place = race.location ?? ''
+  const seats = `${formatNumber(remainingSeats(race.courses))}자리 남음`
   return {
     id: String(race.raceId),
     title: race.title ?? '',
     image: race.imageUrl,
-    posterLabel: names.join(' · '),
-    schedule: phaseSchedule(race, now),
-    place: [names.join(' / '), race.location].filter(Boolean).join(' · '),
+    posterLabel: courseNames(race.courses).join(' · '),
+    status: race.applicationCloseAt
+      ? `${formatDDay(race.applicationCloseAt, now)} · ${seats}`
+      : seats,
+    meta: race.raceDate ? `${formatRaceDate(race.raceDate)} · ${place}` : place,
+    price: `${formatNumber(race.minPrice ?? 0)}원부터`,
   }
 }
 

@@ -321,6 +321,19 @@ class ApiV1PayoutClaimControllerTest {
 	}
 
 	@Test
+	@DisplayName("관리자 회수 관리: RC- 청구 ID로 찾을 때 page를 1로 줘도 첫 페이지의 1건만 준다")
+	void adminClaimsByCodeIgnoresPage() throws Exception {
+		PayoutClaim target = saveClaim(1, 7, 105_500, null);
+
+		adminClaims(ADMIN_ID, "code", target.getClaimCode(), "page", "1", "size", "50")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.claims.content[0].claimCode").value(target.getClaimCode()))
+			.andExpect(jsonPath("$.data.claims.page").value(0))
+			.andExpect(jsonPath("$.data.claims.totalElements").value(1))
+			.andExpect(jsonPath("$.data.claims.totalPages").value(1));
+	}
+
+	@Test
 	@DisplayName("관리자 회수 관리: 관리자가 아니면 403")
 	void adminClaimsForbidden() throws Exception {
 		adminClaims(MEMBER_ID)

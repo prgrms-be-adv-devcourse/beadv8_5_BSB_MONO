@@ -35,7 +35,7 @@ export type SelectProps<Value extends string> = {
 
 // Select/Option 한 줄. BottomSheet 안 선택지도 같은 모양을 쓴다.
 export const OPTION =
-  'flex h-11 w-full cursor-default items-center gap-2 rounded-sm px-4 py-3 text-left text-body-m text-text-primary outline-none select-none'
+  'flex h-11 w-full cursor-default items-center gap-2 rounded-md px-4 py-3 text-left text-body2-regular text-text-primary outline-none select-none'
 
 // 하나를 고르는 필드. 높이 46. 선택지가 4개 이하라면 Chip이나 Radio를 쓴다.
 export function Select<Value extends string>({

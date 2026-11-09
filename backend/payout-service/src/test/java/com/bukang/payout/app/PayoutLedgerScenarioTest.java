@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 import org.assertj.core.groups.Tuple;
 import org.junit.jupiter.api.BeforeEach;
@@ -93,7 +94,7 @@ class PayoutLedgerScenarioTest {
 			new PayoutHoldUseCase(payoutRepository, payoutHoldRepository, calendar));
 		raceCancelUseCase = new PayoutRaceCancelUseCase(payoutRepository, ledgerUseCase);
 		claimUseCase = new PayoutClaimUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository,
-			payoutClaimRepository);
+			payoutClaimRepository, (claimCode, amount, dueDate) -> Optional.empty());
 		PayoutPayStepUseCase payStepUseCase = new PayoutPayStepUseCase(payoutRepository, raceCancelUseCase);
 		payUseCase = new PayoutPayUseCase(payStepUseCase, transfer -> {
 		});

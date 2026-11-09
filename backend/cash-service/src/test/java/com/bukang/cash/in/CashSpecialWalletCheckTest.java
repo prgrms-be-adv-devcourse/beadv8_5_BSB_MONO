@@ -17,8 +17,8 @@ import org.springframework.transaction.annotation.Transactional;
 import com.bukang.cash.config.CashWalletProperties;
 import com.bukang.cash.domain.member.CashMember;
 import com.bukang.cash.domain.wallet.Wallet;
-import com.bukang.cash.out.CashMemberRepository;
-import com.bukang.cash.out.WalletRepository;
+import com.bukang.cash.out.member.CashMemberRepository;
+import com.bukang.cash.out.wallet.WalletRepository;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;

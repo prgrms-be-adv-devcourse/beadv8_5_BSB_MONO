@@ -94,7 +94,7 @@ export function SellerRacesPage({ registeredRaceId }: { registeredRaceId?: strin
             aside={
               <button
                 type="button"
-                className={cn('rounded-sm text-label-m text-text-brand', FOCUS_RING)}
+                className={cn('rounded-sm text-body2-medium text-text-brand', FOCUS_RING)}
               >
                 대회명으로 찾기
               </button>
@@ -131,7 +131,7 @@ export function SellerRacesPage({ registeredRaceId }: { registeredRaceId?: strin
                 },
               ]}
             />
-            <p className="text-body-s text-text-tertiary">
+            <p className="text-body2-regular text-text-tertiary">
               줄을 고르면 오른쪽에서 판매 중 변경을 할 수 있어요.
             </p>
           </ConsoleCard>

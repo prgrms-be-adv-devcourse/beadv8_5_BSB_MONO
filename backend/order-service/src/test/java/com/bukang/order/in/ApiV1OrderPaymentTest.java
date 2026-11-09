@@ -226,7 +226,7 @@ class ApiV1OrderPaymentTest {
 		long balanceBefore = walletPort.balance();
 		// 예치금 차감(D)과 자리 판매(B)는 끝났는데 이쪽 트랜잭션만 롤백된 상황
 		transactionTemplate.executeWithoutResult(status -> {
-			orderPayUseCase.pay(MEMBER_ID, orderId, LocalDateTime.now());
+			orderPayUseCase.pay(MEMBER_ID, orderId, List.of(), LocalDateTime.now());
 			status.setRollbackOnly();
 		});
 		assertThat(orderRepository.findById(orderId).orElseThrow().getStatus()).isEqualTo(OrderStatus.CREATED);

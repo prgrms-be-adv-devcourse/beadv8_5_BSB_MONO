@@ -30,6 +30,7 @@ public class QueueRegisterUseCase {
 	// 같은 회원은 여러 기기에서 등록해도 한 자리다 (이미 줄에 있으면 처음 순번을 유지한다)
 	public QueueStatusDto register(long memberId, long raceId, long raceCourseId, LocalDateTime now) {
 		QueueRace race = findRaceOfCourse(raceId, raceCourseId);
+		checkNotStopped(race);
 		if (!race.isEnterable(now)) {
 			throw new QueueNotEnterableException("접수 기간이 아닙니다.");
 		}
@@ -41,10 +42,19 @@ public class QueueRegisterUseCase {
 	// 주문 서비스가 [대회 참가] 때 다시 확인한다
 	public QueueStatusDto registerParty(long leaderMemberId, long raceId, long raceCourseId, LocalDateTime now) {
 		QueueRace race = findRaceOfCourse(raceId, raceCourseId);
+		checkNotStopped(race);
 		if (!race.isPartyEnterable(now)) {
 			throw new QueueNotEnterableException("크루 예매 기간이 아닙니다.");
 		}
 		return addToLine(QueueLine.PARTY, leaderMemberId, raceId, raceCourseId, now);
+	}
+
+	// 판매자가 판매를 멈춘 대회는 기간 문구보다 먼저 알린다 (개인·파티 줄 공통). 상품 자리 확보 거절 문구와 같다
+	// 기간 검사(isEnterable·isPartyEnterable)도 판매 중만 받아 어차피 막히지만, 구매자가 멈춘 이유를 알게 한다
+	private static void checkNotStopped(QueueRace race) {
+		if (race.isStopped()) {
+			throw new QueueNotEnterableException("판매를 잠시 멈춘 대회입니다.");
+		}
 	}
 
 	// 대회·종목 복제본을 읽고, 종목이 그 대회의 것인지 확인한다 (개인·파티 줄 공통)
