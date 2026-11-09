@@ -106,9 +106,11 @@ public class PartyApplyUseCase {
 		// 상품 자리 기한도 결제 기한과 같은 시각으로 보낸다 (요청서 「확인할 것」 1번, 11/05 회의 P1·P2)
 		LocalDateTime paymentDueAt = paymentDueAt(course, crewSale, now);
 		// 되돌릴 수 없는 외부 호출. 같은 파티 ID로 다시 부르면 처음 결과를 돌려준다(멱등)
-		CrewSeatHoldResult hold = crewSeatHoldPort.holdAll(partyId, target.crewId(), paymentDueAt, participations.stream()
+		List<Seat> seats = participations.stream()
 			.map(participation -> new Seat(participation.getId(), participation.getRaceCourseId()))
-			.toList());
+			.toList();
+		CrewSeatHoldResult hold = crewSeatHoldPort.holdAll(partyId, target.crewId(), course.raceId(), paymentDueAt,
+			seats);
 		if (!hold.held()) {
 			Shortage shortage = hold.shortages().get(course.raceCourseId());
 			if (shortage == null) {
