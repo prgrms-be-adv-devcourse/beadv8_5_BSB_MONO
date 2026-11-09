@@ -157,7 +157,7 @@ export function AdminSellersPage({ rejectOpen = false }: { rejectOpen?: boolean 
             ]}
           />
           {list.isSuccess && applications.length === 0 && (
-            <p className="text-body-s text-text-tertiary">이 상태의 신청이 없어요.</p>
+            <p className="text-body2-regular text-text-tertiary">이 상태의 신청이 없어요.</p>
           )}
         </ConsoleCard>
 
@@ -169,8 +169,8 @@ export function AdminSellersPage({ rejectOpen = false }: { rejectOpen?: boolean 
                 ['구분', sellerKindLabel(app)],
               ].map(([label, value]) => (
                 <div key={label} className="flex items-start justify-between gap-4">
-                  <dt className="text-body-s text-text-secondary">{label}</dt>
-                  <dd className="text-label-m">{value}</dd>
+                  <dt className="text-body2-regular text-text-secondary">{label}</dt>
+                  <dd className="text-body2-medium">{value}</dd>
                 </div>
               ))}
             </dl>
@@ -207,7 +207,7 @@ export function AdminSellersPage({ rejectOpen = false }: { rejectOpen?: boolean 
                   {app.status === 'APPROVED' ? '승인' : '반려'}
                 </Badge>
                 {app.status === 'REJECTED' && app.rejectReason && (
-                  <p className="text-body-s text-text-secondary">사유: {app.rejectReason}</p>
+                  <p className="text-body2-regular text-text-secondary">사유: {app.rejectReason}</p>
                 )}
               </div>
             )}

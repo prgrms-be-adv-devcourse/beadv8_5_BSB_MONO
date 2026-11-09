@@ -63,20 +63,18 @@ export function StatTile({
         className,
       )}
     >
-      <span className={cn('w-full truncate text-center text-label-s', colors.label)}>{label}</span>
+      <span className={cn('w-full truncate text-center text-caption-medium', colors.label)}>
+        {label}
+      </span>
       <span className="flex items-baseline gap-1">
         <span
-          className={cn(
-            'font-display',
-            size === 'm' ? 'text-display-m' : 'text-display-s',
-            colors.value,
-          )}
+          className={cn(size === 'm' ? 'font-display text-number-s' : 'text-title2', colors.value)}
         >
           {value}
         </span>
-        {unit && <span className={cn('text-label-m', colors.unit)}>{unit}</span>}
+        {unit && <span className={cn('text-body2-medium', colors.unit)}>{unit}</span>}
       </span>
-      {caption && <span className={cn('text-caption', colors.caption)}>{caption}</span>}
+      {caption && <span className={cn('text-caption-regular', colors.caption)}>{caption}</span>}
     </div>
   )
 }

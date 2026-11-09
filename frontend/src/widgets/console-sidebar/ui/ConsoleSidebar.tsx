@@ -56,7 +56,7 @@ export function ConsoleSidebar({ role }: { role: ConsoleRole }) {
       >
         <Logo variant="symbol" className="desktop:hidden" />
         <Logo variant="wordmarkOnHero" className="hidden desktop:block" />
-        <span className="hidden text-label-s text-text-on-hero-muted desktop:inline">
+        <span className="hidden text-caption-medium text-text-on-hero-muted desktop:inline">
           {menu.label}
         </span>
       </Link>
@@ -116,7 +116,7 @@ function ItemContent({ label, icon }: { label: string; icon: IconName }) {
 
 function itemClassName(selected: boolean) {
   return cn(
-    'flex size-11 items-center justify-center gap-3 rounded-md text-label-m desktop:h-11 desktop:w-full desktop:justify-start desktop:px-3',
+    'flex size-11 items-center justify-center gap-3 rounded-md text-body2-medium desktop:h-11 desktop:w-full desktop:justify-start desktop:px-3',
     selected
       ? 'bg-bg-hero-raised text-text-on-hero-accent'
       : 'text-text-on-hero-muted hover:bg-bg-hero-raised',

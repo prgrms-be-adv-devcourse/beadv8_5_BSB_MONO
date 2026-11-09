@@ -36,7 +36,7 @@ function errorText(error: unknown) {
 // 접수 마감이 이 날 수 안에 오면 처리할 일에 띄운다 (정책 2장 등록 정보-6: 조기 마감될 수 있어 미리 알린다)
 const CLOSING_SOON_DAYS = 7
 
-const LINK = cn('rounded-sm text-label-m text-text-brand', FOCUS_RING)
+const LINK = cn('rounded-sm text-body2-medium text-text-brand', FOCUS_RING)
 
 // 피그마 V2 · S05 판매자 홈 (+ 판매자 · 관리자 공통 로딩 · 연결 끊김)
 export function SellerDashboardPage({ state }: { state?: 'loading' | 'offline' }) {
@@ -74,8 +74,8 @@ function TodoRow({
   const body = (
     <>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <p className="text-label-l">{title}</p>
-        <p className="text-body-s text-text-secondary">{description}</p>
+        <p className="text-body1-medium">{title}</p>
+        <p className="text-body2-regular text-text-secondary">{description}</p>
       </div>
       {count}
     </>
@@ -178,10 +178,10 @@ function DashboardBody() {
             onSale.map((race) => (
               <div key={race.id} className="flex flex-col gap-3 rounded-md bg-bg-subtle p-5">
                 <div className="flex items-center gap-2">
-                  <p className="text-label-l">{race.title}</p>
+                  <p className="text-body1-medium">{race.title}</p>
                   <Badge tone={race.badge.tone}>{race.badge.label}</Badge>
                 </div>
-                <p className="text-body-s text-text-secondary">{race.period}</p>
+                <p className="text-body2-regular text-text-secondary">{race.period}</p>
                 <ProgressBar
                   label="접수율"
                   value={race.capacity > 0 ? Math.round((race.sold / race.capacity) * 100) : 0}

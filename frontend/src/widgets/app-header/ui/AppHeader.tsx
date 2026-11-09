@@ -5,16 +5,21 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { ReactNode } from 'react'
 
+import { NoticeBellLink } from '@/entities/notification'
 import { cn } from '@/shared/lib'
 import { FOCUS_RING, Icon, IconButton, Logo } from '@/shared/ui'
 
 // IconButton(M 44, ghost)과 같은 모양의 링크
 const ICON_LINK = cn(
-  'inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-primary hover:bg-bg-subtle [&_svg]:size-5',
+  'inline-flex size-11 shrink-0 items-center justify-center rounded-full text-text-primary hover:bg-bg-subtle [&_svg]:size-5',
   FOCUS_RING,
 )
 
-type MainProps = { type?: 'main' }
+type MainProps = {
+  type?: 'main'
+  /** false면 검색 아이콘을 빼고 알림만 둔다(홈) */
+  search?: boolean
+}
 type SubProps = {
   type: 'sub'
   title: string
@@ -39,25 +44,25 @@ export function AppHeader(props: AppHeaderProps) {
     return (
       <header className={cn(base, 'px-1')}>
         <BackButton href={props.backHref} close={props.close} />
-        <h1 className="min-w-0 flex-1 truncate text-heading-s">{props.title}</h1>
+        <h1 className="min-w-0 flex-1 truncate text-body1-bold">{props.title}</h1>
         {props.action}
       </header>
     )
   }
 
   return (
-    <header className={cn(base, 'px-(--layout-page-margin)')}>
+    <header className={cn(base, 'pr-1 pl-(--layout-page-margin)')}>
       <Link href="/" aria-label="홈" className={cn('rounded-sm', FOCUS_RING)}>
         <Logo />
       </Link>
       <div className="flex-1" />
       <div className="flex">
-        <Link href="/races" aria-label="대회 찾기" className={ICON_LINK}>
-          <Icon name="Search" />
-        </Link>
-        <Link href="/cart" aria-label="장바구니" className={ICON_LINK}>
-          <Icon name="Cart" />
-        </Link>
+        {props.search !== false && (
+          <Link href="/races" aria-label="대회 찾기" className={ICON_LINK}>
+            <Icon name="Search" />
+          </Link>
+        )}
+        <NoticeBellLink className={ICON_LINK} />
       </div>
     </header>
   )

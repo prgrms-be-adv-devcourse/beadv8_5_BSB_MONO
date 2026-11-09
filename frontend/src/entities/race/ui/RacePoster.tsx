@@ -28,8 +28,8 @@ export function RacePoster({ seed, title, label, className }: RacePosterProps) {
       aria-hidden
       className={cn('flex flex-col justify-between overflow-hidden p-3', toneOf(seed), className)}
     >
-      <span className="text-heading-m break-keep">{label}</span>
-      <span className="line-clamp-2 text-caption break-keep opacity-85">{title}</span>
+      <span className="text-title3 break-keep">{label}</span>
+      <span className="line-clamp-2 text-caption-regular break-keep opacity-85">{title}</span>
     </div>
   )
 }

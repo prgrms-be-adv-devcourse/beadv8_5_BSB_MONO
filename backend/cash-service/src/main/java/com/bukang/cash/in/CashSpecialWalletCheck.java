@@ -6,7 +6,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import com.bukang.cash.config.CashWalletProperties;
-import com.bukang.cash.out.WalletRepository;
+import com.bukang.cash.out.wallet.WalletRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

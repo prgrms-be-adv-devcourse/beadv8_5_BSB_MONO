@@ -116,14 +116,14 @@ function ParticipantForm({
       <main className="flex flex-1 flex-col gap-2 bg-bg-surface">
         <Section>
           <div className="flex flex-col gap-1">
-            <p className="text-heading-s">{title}</p>
+            <p className="text-body1-bold">{title}</p>
             {closeAt && (
               <>
                 <p className="flex items-baseline gap-2">
-                  <span className="font-display text-display-m">{formatDDay(closeAt)}</span>
-                  <span className="text-label-m text-text-secondary">접수 마감까지</span>
+                  <span className="font-display text-number-s">{formatDDay(closeAt)}</span>
+                  <span className="text-body2-medium text-text-secondary">접수 마감까지</span>
                 </p>
-                <p className="text-body-s text-text-secondary">
+                <p className="text-body2-regular text-text-secondary">
                   {formatRaceDateTime(closeAt)} 접수 마감 전까지 수정할 수 있어요.
                 </p>
               </>
@@ -147,7 +147,7 @@ function ParticipantForm({
             aside={
               <Link
                 href="/me/edit"
-                className={cn('rounded-sm text-label-m text-text-brand', FOCUS_RING)}
+                className={cn('rounded-sm text-body2-medium text-text-brand', FOCUS_RING)}
               >
                 회원 정보에서 바꾸기 ›
               </Link>
@@ -163,7 +163,7 @@ function ParticipantForm({
             </div>
             <Divider />
             <fieldset className="flex flex-col gap-2">
-              <legend className="mb-2 text-label-m">성별</legend>
+              <legend className="mb-2 text-body2-medium">성별</legend>
               <Controller
                 control={control}
                 name="gender"
@@ -196,7 +196,7 @@ function ParticipantForm({
           </Section>
 
           <Section title="비상 연락처">
-            <p className="text-body-s text-text-secondary">
+            <p className="text-body2-regular text-text-secondary">
               연락받을 분께 먼저 알린 뒤 입력해 주세요. 대회 중 사고가 나면 주최 측이 연락해요.
             </p>
             <TextField
@@ -216,7 +216,7 @@ function ParticipantForm({
           {hasKit && (
             <Section title="키트 배송 주소">
               {refundDeadline && (
-                <p className="text-body-s text-text-secondary">
+                <p className="text-body2-regular text-text-secondary">
                   환불 기한({formatRaceDate(refundDeadline)})이 지난 뒤 이 주소로 키트를 보내요.
                 </p>
               )}
@@ -253,7 +253,7 @@ function ParticipantForm({
           </div>
         )}
 
-        <p className="px-4 pt-2 pb-6 text-caption text-text-tertiary">
+        <p className="px-4 pt-2 pb-6 text-caption-regular text-text-tertiary">
           참가자 정보는 대회 주최자에게 전달돼요.
         </p>
       </main>

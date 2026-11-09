@@ -10,15 +10,15 @@ export function TermsPage({ slug }: { slug: TermsSlug }) {
       <AppHeader type="sub" title={terms.title} />
       <main className="flex flex-1 flex-col gap-5 px-4 py-6">
         <div className="flex flex-col gap-1">
-          <h2 className="text-heading-l">{terms.heading}</h2>
-          <p className="text-caption text-text-tertiary">
+          <h2 className="text-title2">{terms.heading}</h2>
+          <p className="text-caption-regular text-text-tertiary">
             시행일 {TERMS_EFFECTIVE_DATE} · 버전 {TERMS_VERSION}
           </p>
         </div>
         {terms.articles.map(([title, body]) => (
           <section key={title} className="flex flex-col gap-1.5">
-            <h3 className="text-heading-s">{title}</h3>
-            <p className="text-body-m text-text-secondary">{body}</p>
+            <h3 className="text-body1-bold">{title}</h3>
+            <p className="text-body2-regular text-text-secondary">{body}</p>
           </section>
         ))}
       </main>

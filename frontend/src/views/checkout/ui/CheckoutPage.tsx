@@ -439,7 +439,7 @@ function CheckoutForm({
 
           <div className="flex flex-col gap-1">
             {/* 참가자 이름이 들어 있어 Clarity 화면 녹화에서 가린다 */}
-            <p className="text-body-s text-text-secondary" data-clarity-mask="true">
+            <p className="text-body2-regular text-text-secondary" data-clarity-mask="true">
               {summary}
             </p>
             <p className="text-[32px] leading-11 font-bold tracking-[-0.015em]">{won(amount)}</p>
@@ -455,7 +455,7 @@ function CheckoutForm({
               label="결제 뒤 남는 예치금"
               value={payment ? won(payment.balanceAfter) : '-'}
             />
-            <p className="text-caption text-text-tertiary">
+            <p className="text-caption-regular text-text-tertiary">
               1만 원보다 적게 모자라면 1만 원을 충전해요.
               <br />
               결제가 안 돼도 충전한 돈은 예치금으로 남아요.
@@ -463,7 +463,7 @@ function CheckoutForm({
           </div>
 
           <fieldset className="flex flex-col gap-3">
-            <legend className="mb-3 text-label-m">충전 수단</legend>
+            <legend className="mb-3 text-body2-medium">충전 수단</legend>
             <RadioGroup defaultValue="toss">
               <Radio value="toss" label="카드 · 간편결제 (토스페이먼츠)" />
             </RadioGroup>
@@ -472,7 +472,7 @@ function CheckoutForm({
           <div className="flex flex-col gap-3">
             {refund && (
               <div className="flex flex-col gap-2 rounded-md px-4 pt-3 pb-4 inset-ring inset-ring-border-default">
-                <p className="text-body-s text-text-secondary">환불 규정</p>
+                <p className="text-body2-regular text-text-secondary">환불 규정</p>
                 {refund.map((row) => (
                   <KeyValue key={row.label} label={row.label} value={row.value} />
                 ))}

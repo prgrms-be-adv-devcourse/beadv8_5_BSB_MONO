@@ -255,7 +255,7 @@ describe('SellerApplyResultPage 상태별 카드', () => {
   it('심사 중 배지는 Neutral 톤이다', async () => {
     server.use(memberMock.getFindMineMockHandler(sellerResponse({ status: 'PENDING' })))
     renderWithClient(<SellerApplyResultPage />)
-    expect((await screen.findByText('심사 중')).className).toContain('bg-bg-subtle')
+    expect((await screen.findByText('심사 중')).className).toContain('bg-bg-badge-neutral')
   })
 
   it('404 SELLER_NOT_FOUND는 오류가 아니라 신청하러 가도록 안내한다', async () => {

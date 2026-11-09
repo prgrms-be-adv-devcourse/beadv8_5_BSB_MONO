@@ -42,6 +42,11 @@ public class PayoutSellerFacade {
 		return payoutSellerQueryUseCase.payouts(sellerId, fromMonth, toMonth);
 	}
 
+	public List<PayoutDto> payoutByCode(long memberId, String payoutCode) {
+		long sellerId = sellerVerifyUseCase.verify(memberId);
+		return payoutSellerQueryUseCase.payoutByCode(sellerId, payoutCode);
+	}
+
 	public PageDto<PayoutItemDto> items(long memberId, LocalDate from, LocalDate to, int page, int size) {
 		long sellerId = sellerVerifyUseCase.verify(memberId);
 		return payoutSellerQueryUseCase.items(sellerId, from, to, page, size);

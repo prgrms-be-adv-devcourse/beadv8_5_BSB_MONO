@@ -18,6 +18,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Locale;
 import java.util.Optional;
 
 import org.junit.jupiter.api.AfterEach;
@@ -553,6 +554,66 @@ class ApiV1PayoutSellerControllerTest {
 		request("/payouts", "fromMonth", "2026/01", "toMonth", "2026-02")
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.message").value("요청 값의 형식이 올바르지 않습니다."));
+	}
+
+	private String payoutCodeOf(long sellerId, long raceId) {
+		return payoutRepository.findAll().stream()
+			.filter(payout -> payout.getSellerId() == sellerId && payout.getRaceId() == raceId)
+			.findFirst().orElseThrow().getPayoutCode();
+	}
+
+	@Test
+	@DisplayName("정산 ID로 찾기: 내 정산 ID(ST-)를 주면 기간 없이 그 정산 내역 한 줄만 돌려준다")
+	void payoutByCode() throws Exception {
+		String code = payoutCodeOf(SELLER_ID, 11);
+		request("/payouts", "code", code)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.message").value("정산 내역을 조회했습니다."))
+			.andExpect(jsonPath("$.data", hasSize(1)))
+			.andExpect(jsonPath("$.data[0].payoutCode").value(code))
+			.andExpect(jsonPath("$.data[0].payoutMonth").value("2026-08"))
+			.andDo(document("payout-seller-payouts-by-code",
+				requestHeaders(MEMBER_ID_HEADER),
+				queryParameters(
+					parameterWithName("code").description("정산 ID (ST-정산 내역을 만든 날-16진수 4자리). 주면 기간은 보지 않는다")
+				)));
+	}
+
+	@Test
+	@DisplayName("정산 ID로 찾기: 소문자 · 앞뒤 공백이 섞여도 같은 정산 내역을 찾는다 (청구 ID 검색과 같은 처리)")
+	void payoutByCodeIgnoresCaseAndSpaces() throws Exception {
+		String code = payoutCodeOf(SELLER_ID, 11);
+		request("/payouts", "code", "  " + code.toLowerCase(Locale.ROOT) + " ")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data", hasSize(1)))
+			.andExpect(jsonPath("$.data[0].payoutCode").value(code));
+	}
+
+	@Test
+	@DisplayName("정산 ID가 빈 값이면 없는 것으로 보고 기간을 요구한다 (기간도 없으면 400)")
+	void blankCodeNeedsPeriod() throws Exception {
+		request("/payouts", "code", " ")
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message").value("필수 요청 값이 없습니다."));
+	}
+
+	@Test
+	@DisplayName("정산 ID로 찾기: 다른 판매자의 정산 ID나 없는 정산 ID면 404")
+	void payoutByCodeNotFound() throws Exception {
+		request("/payouts", "code", payoutCodeOf(OTHER_SELLER_ID, 10))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.message").value("정산 내역을 찾을 수 없습니다."))
+			.andDo(document("payout-seller-payouts-by-code-not-found", ERROR_RESPONSE));
+		request("/payouts", "code", "ST-20000101-0000")
+			.andExpect(status().isNotFound());
+	}
+
+	@Test
+	@DisplayName("정산 ID도 기간도 없으면 400")
+	void payoutsWithoutCodeAndPeriod() throws Exception {
+		request("/payouts")
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message").value("필수 요청 값이 없습니다."));
 	}
 
 	@Test
