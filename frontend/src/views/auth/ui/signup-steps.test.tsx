@@ -312,7 +312,7 @@ describe('가입 뒤 돌아갈 화면 (BUK-98)', () => {
   beforeEach(() => sessionStorage.clear())
 
   // 로그인 화면에서 ?next=를 받아 첫 단계(본인 확인)를 연 뒤, 회원 정보 단계에서 가입을 마친다
-  async function joinWith(next: string) {
+  async function joinWith(next?: string) {
     server.use(
       http.post('*/api/v1/auth/join', () =>
         HttpResponse.json({ status: 201, message: 'ok', data: null }, { status: 201 }),
@@ -342,6 +342,23 @@ describe('가입 뒤 돌아갈 화면 (BUK-98)', () => {
   it('next가 다른 사이트 주소면 가입 뒤 홈으로 간다', async () => {
     await joinWith('//evil.com')
     await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/'))
+  })
+
+  it('초대 가입을 그만두고 같은 탭에서 next 없이 다시 가입하면 이전 초대 화면이 아니라 홈으로 간다', async () => {
+    const client = new QueryClient()
+    const { unmount } = render(
+      <QueryClientProvider client={client}>
+        <ToastProvider>
+          <SignupStepProvider>
+            <SignupIdentityPage next="/invite/old" />
+          </SignupStepProvider>
+        </ToastProvider>
+      </QueryClientProvider>,
+    )
+    unmount()
+    await joinWith()
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/'))
+    expect(replace).not.toHaveBeenCalledWith('/invite/old')
   })
 })
 
