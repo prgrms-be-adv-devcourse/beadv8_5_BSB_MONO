@@ -25,6 +25,7 @@ import com.bukang.order.app.OrderPayResult;
 import com.bukang.order.dto.OrderCreateRequestDto;
 import com.bukang.order.dto.OrderDto;
 import com.bukang.order.dto.OrderPageDto;
+import com.bukang.order.dto.OrderPayRequestDto;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -123,17 +124,28 @@ public class ApiV1OrderController {
 		description = "결제 대기(CREATED) 주문을 예치금으로 결제하고 참가를 확정한다. 순서: 예치금 차감 → 자리 판매 → 주문 PAID·참가 신청 CONFIRMED. "
 			+ "잔액이 부족하면 주문과 자리를 그대로 두므로, 충전한 뒤 같은 주문으로 다시 결제한다. "
 			+ "기한이 지나 자리 판매가 거절되면 차감한 예치금을 돌려주고 409를 돌려준다. 이미 결제한 주문은 다시 차감하지 않고 200으로 돌려준다. "
-			+ "파티원 주문은 예치금을 빼기 전에 대회 취소와 크루원인지를 다시 본다(크루를 떠났으면 409 ORDER_PARTY_MEMBER_NOT_CREW).")
+			+ "파티원 주문은 예치금을 빼기 전에 대회 취소와 크루원인지를 다시 본다(크루를 떠났으면 409 ORDER_PARTY_MEMBER_NOT_CREW). "
+			+ "키트 옵션은 결제 화면에서 고른 kitOptionIds로 받는다. 키트 있는 종목은 대회 옵션 이름마다 하나씩 골라야 하고, "
+			+ "키트 없는 종목·옵션 없는 대회는 비우거나 본문을 보내지 않는다. 예치금을 빼기 전에 옵션별 판매 수를 준비 수량과 견주어, "
+			+ "품절이면 409 ORDER_KIT_OPTION_SOLD_OUT을 돌려준다(자리는 결제 기한까지 그대로라 다른 옵션으로 다시 결제한다).")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "결제 완료 또는 이미 결제한 주문",
 			content = @Content(examples = {
 				@ExampleObject(name = "결제 완료", value = OrderApiExamples.PAY_SUCCESS),
 				@ExampleObject(name = "이미 결제함", value = OrderApiExamples.PAY_ALREADY)
 			})),
-		@ApiResponse(responseCode = "400", description = "주문 ID·회원 ID 오류",
+		@ApiResponse(responseCode = "400",
+			description = "주문 ID·회원 ID 오류, 요청 본문 형식 오류, 키트 옵션 ID 오류, 키트 없는 종목에 옵션, 다른 대회·없는 옵션, "
+				+ "옵션 이름 빠짐·겹침",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "주문 ID·회원 ID 형식 오류", value = OrderApiExamples.INVALID_VALUE_TYPE),
-				@ExampleObject(name = "회원 ID가 0 이하", value = OrderApiExamples.INVALID_MEMBER_ID)
+				@ExampleObject(name = "회원 ID가 0 이하", value = OrderApiExamples.INVALID_MEMBER_ID),
+				@ExampleObject(name = "요청 본문 형식 오류", value = OrderApiExamples.INVALID_BODY),
+				@ExampleObject(name = "키트 옵션 ID 오류", value = OrderApiExamples.PAY_INVALID_KIT_OPTION_ID),
+				@ExampleObject(name = "키트 없는 종목에 옵션", value = OrderApiExamples.KIT_OPTION_WITHOUT_KIT),
+				@ExampleObject(name = "이 대회의 옵션이 아님", value = OrderApiExamples.KIT_OPTION_NOT_IN_RACE),
+				@ExampleObject(name = "옵션 이름 빠짐", value = OrderApiExamples.KIT_OPTION_MISSING),
+				@ExampleObject(name = "옵션 이름 겹침", value = OrderApiExamples.KIT_OPTION_DUPLICATED_NAME)
 			})),
 		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
 			content = @Content(schema = @Schema(implementation = RsData.class),
@@ -145,22 +157,25 @@ public class ApiV1OrderController {
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = OrderApiExamples.ORDER_NOT_FOUND))),
 		@ApiResponse(responseCode = "409",
-			description = "잔액 부족, 기한 지남, 자리 판매 거절(예치금 환원), 결제 대기가 아닌 주문, 파티원이 크루를 떠남, 대회 취소",
+			description = "잔액 부족, 기한 지남, 자리 판매 거절(예치금 환원), 결제 대기가 아닌 주문, 파티원이 크루를 떠남, 대회 취소, "
+				+ "키트 옵션 품절",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "잔액 부족", value = OrderApiExamples.INSUFFICIENT_BALANCE),
 				@ExampleObject(name = "기한 지남", value = OrderApiExamples.PAY_DEADLINE_PASSED),
 				@ExampleObject(name = "자리 판매 거절", value = OrderApiExamples.SELL_EXPIRED),
 				@ExampleObject(name = "결제 대기가 아님", value = OrderApiExamples.NOT_PAYABLE_ORDER),
 				@ExampleObject(name = "파티원이 크루를 떠남", value = OrderApiExamples.PARTY_PAYER_NOT_CREW),
-				@ExampleObject(name = "대회 취소", value = OrderApiExamples.PAY_RACE_CANCELED)
+				@ExampleObject(name = "대회 취소", value = OrderApiExamples.PAY_RACE_CANCELED),
+				@ExampleObject(name = "키트 옵션 품절", value = OrderApiExamples.KIT_OPTION_SOLD_OUT)
 			}))
 	})
 	public ResponseEntity<RsData<OrderDto>> pay(
 		@LoginMemberId long memberId,
 		@Parameter(description = "주문 ID", example = "1")
-		@PathVariable long orderId
+		@PathVariable long orderId,
+		@RequestBody(required = false) @Valid OrderPayRequestDto request
 	) {
-		OrderPayResult result = orderFacade.pay(orderId, memberId);
+		OrderPayResult result = orderFacade.pay(orderId, memberId, request == null ? null : request.getKitOptionIds());
 		String message = result.alreadyPaid() ? "이미 결제한 주문입니다." : "결제했습니다. 참가가 확정되었습니다.";
 		return ResponseEntity.ok().body(RsData.of(HttpStatus.OK, message, result.order()));
 	}
@@ -268,10 +283,18 @@ public class ApiV1OrderController {
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "조회 성공",
 			content = @Content(examples = @ExampleObject(value = OrderApiExamples.FIND_SUCCESS))),
-		@ApiResponse(responseCode = "400", description = "주문 ID·회원 ID 오류",
+		@ApiResponse(responseCode = "400",
+			description = "주문 ID·회원 ID 오류, 요청 본문 형식 오류, 키트 옵션 ID 오류, 키트 없는 종목에 옵션, 다른 대회·없는 옵션, "
+				+ "옵션 이름 빠짐·겹침",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "주문 ID·회원 ID 형식 오류", value = OrderApiExamples.INVALID_VALUE_TYPE),
-				@ExampleObject(name = "회원 ID가 0 이하", value = OrderApiExamples.INVALID_MEMBER_ID)
+				@ExampleObject(name = "회원 ID가 0 이하", value = OrderApiExamples.INVALID_MEMBER_ID),
+				@ExampleObject(name = "요청 본문 형식 오류", value = OrderApiExamples.INVALID_BODY),
+				@ExampleObject(name = "키트 옵션 ID 오류", value = OrderApiExamples.PAY_INVALID_KIT_OPTION_ID),
+				@ExampleObject(name = "키트 없는 종목에 옵션", value = OrderApiExamples.KIT_OPTION_WITHOUT_KIT),
+				@ExampleObject(name = "이 대회의 옵션이 아님", value = OrderApiExamples.KIT_OPTION_NOT_IN_RACE),
+				@ExampleObject(name = "옵션 이름 빠짐", value = OrderApiExamples.KIT_OPTION_MISSING),
+				@ExampleObject(name = "옵션 이름 겹침", value = OrderApiExamples.KIT_OPTION_DUPLICATED_NAME)
 			})),
 		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
 			content = @Content(schema = @Schema(implementation = RsData.class),

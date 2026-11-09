@@ -121,4 +121,20 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
 	// 주문 상품이 속한 주문의 ID. 주문을 잠그고 바꾸기 전에 읽는다 (키트 발송, PRO-136)
 	@Query("select i.order.id from OrderItem i where i.id = :orderItemId")
 	Optional<Long> findOrderIdByItemId(@Param("orderItemId") long orderItemId);
+
+	// 결제 전 확인용 (잠그지 않고, 엔티티를 영속성 컨텍스트에 올리지 않으려고 값만 읽는다)
+	@Query("select i.participationId as participationId, o.buyerId as buyerId, o.status as status"
+		+ " from OrderItem i join i.order o where o.id = :orderId order by i.id")
+	List<PayTarget> findPayTargets(@Param("orderId") long orderId);
+
+	interface PayTarget {
+		long getParticipationId();
+
+		long getBuyerId();
+
+		com.bukang.order.domain.OrderStatus getStatus();
+	}
+
+	// 이 대회에 다른 판매자의 주문 상품이 있는지 (판매자 키트 옵션 판매 현황의 본인 대회 확인)
+	boolean existsByRaceIdAndSellerIdNot(long raceId, long sellerId);
 }

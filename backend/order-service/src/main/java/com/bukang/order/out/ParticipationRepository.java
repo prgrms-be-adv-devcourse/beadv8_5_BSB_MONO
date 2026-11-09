@@ -21,6 +21,10 @@ public interface ParticipationRepository extends JpaRepository<Participation, Lo
 		+ "and p.activeFlag = true")
 	Optional<Long> findActiveIdByRaceIdAndMemberId(@Param("raceId") long raceId, @Param("memberId") long memberId);
 
+	// 결제 전 확인용 종목 ID (잠그기 전에 엔티티를 읽지 않으려고 값만 읽는다)
+	@Query("select p.raceCourseId from Participation p where p.id = :id")
+	Optional<Long> findRaceCourseIdById(@Param("id") long id);
+
 	// 파티에서 나갈 때 끝낼 그 사람의 파티원 신청서
 	@Query("select p.id from Participation p where p.partyId = :partyId and p.memberId = :memberId "
 		+ "and p.activeFlag = true")

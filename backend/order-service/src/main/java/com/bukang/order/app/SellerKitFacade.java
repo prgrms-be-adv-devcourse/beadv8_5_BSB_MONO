@@ -13,6 +13,7 @@ import com.bukang.order.domain.exception.SellerAccessDeniedException;
 import com.bukang.order.dto.DeliveryCarrierDto;
 import com.bukang.order.dto.KitShipmentRequestDto;
 import com.bukang.order.dto.OrderItemDto;
+import com.bukang.order.dto.SellerKitOptionSaleDto;
 import com.bukang.order.dto.SellerKitPageDto;
 import com.bukang.order.dto.SellerKitSummaryDto;
 import com.bukang.order.out.seller.SellerLookupPort;
@@ -32,6 +33,7 @@ public class SellerKitFacade {
 
 	private final SellerLookupPort sellerLookupPort;
 	private final KitDeliveryUseCase kitDeliveryUseCase;
+	private final KitOptionSaleUseCase kitOptionSaleUseCase;
 
 	public SellerKitPageDto findKits(long memberId, Long raceId, KitDeliveryStatus status, int page, int size) {
 		return kitDeliveryUseCase.findKits(sellerIdOf(memberId), raceId, status, page, size);
@@ -39,6 +41,10 @@ public class SellerKitFacade {
 
 	public SellerKitSummaryDto summarize(long memberId, Long raceId) {
 		return kitDeliveryUseCase.summarize(sellerIdOf(memberId), raceId, LocalDateTime.now());
+	}
+
+	public List<SellerKitOptionSaleDto> findKitOptionSales(long memberId, long raceId) {
+		return kitOptionSaleUseCase.findSales(sellerIdOf(memberId), raceId);
 	}
 
 	public OrderItemDto ship(long memberId, long orderItemId, KitShipmentRequestDto request) {
