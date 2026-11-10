@@ -2,6 +2,7 @@ package com.bukang.cash.app.payout;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
@@ -22,6 +23,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.cash.app.CashFacade;
 import com.bukang.cash.config.CashWalletProperties;
+import com.bukang.cash.domain.exception.payout.PayoutTransferFailedException;
 import com.bukang.cash.domain.exception.payout.PayoutTransferMismatchException;
 import com.bukang.cash.domain.exception.seller.CashSellerNotFoundException;
 import com.bukang.cash.domain.member.CashMember;
@@ -107,6 +109,31 @@ class CashPayoutUseCaseTest {
 		assertThat(ledgersFor(PayoutTransferType.SETTLEMENT)).extracting(WalletLedger::getLedgerType)
 			.containsExactly(LedgerType.정산지급__상품판매_대금);
 		assertThat(ledgersFor(PayoutTransferType.FEE)).isEmpty();
+	}
+
+	@Test
+	@DisplayName("송금이 실패하면 홀딩 지갑 차감을 되돌리고 422로 거절하며, 수수료 이동은 되돌리지 않는다")
+	void bankFailed_revertsSettlementAndRejects() {
+		createHoldingWallet();
+		createSystemWallet();
+		createSellerWithMapping();
+		given(bankTransferClient.transfer(anyString(), anyLong(), anyLong())).willReturn(BankTransferResult.FAILED);
+
+		assertThatThrownBy(() -> cashFacade.payout(506, SELLER_APPLICATION_ID, PayoutStage.FINAL, 90_000, 5_500))
+			.isInstanceOf(PayoutTransferFailedException.class)
+			.hasFieldOrPropertyWithValue("code", "PAYOUT_TRANSFER_FAILED");
+
+		PayoutTransfer transfer =
+			payoutTransferRepository.findByPayoutIdAndTransferType(506, PayoutTransferType.SETTLEMENT).orElseThrow();
+		assertThat(transfer.getStatus()).isEqualTo(PayoutTransferStatus.FAILED);
+		assertBalance(cashWalletProperties.holdingMemberId(), -5_500);
+		assertBalance(cashWalletProperties.systemMemberId(), 5_500);
+		assertThat(walletLedgerRepository.findAll())
+			.filteredOn(ledger -> ledger.getRefId() == transfer.getId())
+			.extracting(WalletLedger::getLedgerType, WalletLedger::getAmount)
+			.containsExactlyInAnyOrder(
+				tuple(LedgerType.정산지급__상품판매_대금, -90_000L),
+				tuple(LedgerType.정산지급취소__상품판매_대금, 90_000L));
 	}
 
 	@Test

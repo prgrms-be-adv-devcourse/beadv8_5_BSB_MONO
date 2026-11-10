@@ -68,4 +68,8 @@ public class PayoutTransfer extends BaseIdAndTime {
 	public void markCompleted() {
 		this.status = PayoutTransferStatus.COMPLETED;
 	}
+
+	public void markFailed() {
+		this.status = PayoutTransferStatus.FAILED;
+	}
 }

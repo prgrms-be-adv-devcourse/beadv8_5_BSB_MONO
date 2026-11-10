@@ -10,9 +10,11 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.cash.app.CashSupport;
 import com.bukang.cash.config.CashWalletProperties;
+import com.bukang.cash.domain.exception.payout.PayoutTransferFailedException;
 import com.bukang.cash.domain.exception.payout.PayoutTransferMismatchException;
 import com.bukang.cash.domain.payout.PayoutStage;
 import com.bukang.cash.domain.payout.PayoutTransfer;
+import com.bukang.cash.domain.payout.PayoutTransferStatus;
 import com.bukang.cash.domain.payout.PayoutTransferType;
 import com.bukang.cash.domain.wallet.LedgerRefType;
 import com.bukang.cash.domain.wallet.LedgerType;
@@ -53,7 +55,12 @@ public class CashPayoutUseCase {
 			return requested.response();
 		}
 		BankTransferResult result = bankTransferClient.transfer(requested.bankTransferId(), sellerId, settlementAmount);
-		return transactionTemplate.execute(status -> applyResultLocked(requested, result));
+		PayoutTransferStatus applied = transactionTemplate.execute(status -> applyResultLocked(requested, result));
+		// 되돌린 장부가 롤백되지 않도록 결과를 커밋한 뒤에 거절한다
+		if (applied == PayoutTransferStatus.FAILED) {
+			throw new PayoutTransferFailedException("은행이 정산금 송금을 거절했습니다. payoutId=%d".formatted(payoutId));
+		}
+		return CashPayoutResponseDto.paid(requested.settlementAmount(), requested.paidFeeAmount());
 	}
 
 	private Requested recordRequestLocked(
@@ -111,14 +118,20 @@ public class CashPayoutUseCase {
 		return new Requested(settlement.getId(), settlement.bankTransferId(), settlementAmount, paidFeeAmount, null);
 	}
 
-	private CashPayoutResponseDto applyResultLocked(Requested requested, BankTransferResult result) {
-		cashSupport.lockWallet(cashWalletProperties.holdingMemberId());
+	private PayoutTransferStatus applyResultLocked(Requested requested, BankTransferResult result) {
+		Wallet holdingWallet = cashSupport.lockWallet(cashWalletProperties.holdingMemberId());
 		PayoutTransfer settlement = payoutTransferRepository.findById(requested.transferId()).orElseThrow();
-		if (result != BankTransferResult.COMPLETED) {
-			throw new IllegalStateException("아직 처리하지 않는 송금 결과입니다. result=" + result);
+		switch (result) {
+			case COMPLETED -> settlement.markCompleted();
+			case FAILED -> {
+				// 은행이 확실히 거절해 돈이 나가지 않았으니 홀딩 지갑에서 뺀 대금을 되돌린다. 수수료는 그대로 둔다
+				settlement.markFailed();
+				walletLedgerRepository.save(holdingWallet.credit(settlement.getAmount(),
+					LedgerType.정산지급취소__상품판매_대금, LedgerRefType.Payout, settlement.getId()));
+			}
+			default -> throw new IllegalStateException("아직 처리하지 않는 송금 결과입니다. result=" + result);
 		}
-		settlement.markCompleted();
-		return CashPayoutResponseDto.paid(requested.settlementAmount(), requested.paidFeeAmount());
+		return settlement.getStatus();
 	}
 
 	// 저장된 이동 기록의 판매자·금액이 이번 요청과 다르면, 지갑을 건드리지 않고 저장된 값을 담아 409를 던진다
