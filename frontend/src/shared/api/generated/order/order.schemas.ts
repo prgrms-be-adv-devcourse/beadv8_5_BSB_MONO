@@ -235,6 +235,11 @@ export interface ParticipationDto {
   raceCourseId?: number;
   memberId?: number;
   participationType?: ParticipationDtoParticipationType;
+  /**
+     * 파티원 신청서면 그 파티 ID, 개인 신청이면 null
+     * @nullable
+     */
+  partyId?: number | null;
   status?: ParticipationDtoStatus;
   participant?: ParticipantInfoDto;
   /** @nullable */
@@ -445,6 +450,15 @@ export const SellerKitDtoKitDeliveryStatus = {
 } as const;
 
 /**
+ * 참가 신청이 고른 키트 옵션 하나
+ */
+export interface KitOptionChoiceDto {
+  kitOptionId: number;
+  name: string;
+  value: string;
+}
+
+/**
  * 판매자 키트 배송 목록의 한 줄
  */
 export interface SellerKitDto {
@@ -455,8 +469,13 @@ export interface SellerKitDto {
   raceCourseId?: number;
   courseName?: string;
   participantName?: string;
-  /** @nullable */
+  /**
+     * 옛 티셔츠 사이즈. 키트 옵션으로 옮기는 동안만 둔다. kitOptions가 비어 있을 때만 쓴다
+     * @nullable
+     */
   tshirtSize?: string | null;
+  /** 결제 때 고른 키트 옵션 (이름·값). 옵션 전에 결제한 신청은 빈 목록 */
+  kitOptions?: KitOptionChoiceDto[];
   shippingAddress?: ShippingAddressDto;
   kitDeliveryStatus?: SellerKitDtoKitDeliveryStatus;
   /** @nullable */
@@ -488,6 +507,284 @@ export interface SellerKitSummaryDto {
   shipping?: number;
   delivered?: number;
   beforeRefundDeadline?: number;
+}
+
+export type PartyDtoStatus = typeof PartyDtoStatus[keyof typeof PartyDtoStatus];
+
+
+export const PartyDtoStatus = {
+  RECRUITING: 'RECRUITING',
+  PAYING: 'PAYING',
+  PAID: 'PAID',
+  CLOSED: 'CLOSED',
+} as const;
+
+/**
+ * 파티 (파티장에게 주는 정보)
+ */
+export interface PartyDto {
+  id?: number;
+  crewId?: number;
+  raceId?: number;
+  /** 파티 종목 ID. 파티원 모두 이 종목으로 신청한다 */
+  raceCourseId?: number;
+  leaderMemberId?: number;
+  status?: PartyDtoStatus;
+  /**
+     * 파티원 결제 기한. 신청 전이면 null
+     * @nullable
+     */
+  paymentDueAt?: string | null;
+  /** 참가 링크 토큰 */
+  joinToken?: string;
+  joinTokenExpiresAt?: string;
+}
+
+/**
+ * RECRUITING(모집 중) / PAYING(결제 진행 중) / PAID(결제 끝) / CLOSED(종료)
+ */
+export type PartyDetailDtoStatus = typeof PartyDetailDtoStatus[keyof typeof PartyDetailDtoStatus];
+
+
+export const PartyDetailDtoStatus = {
+  RECRUITING: 'RECRUITING',
+  PAYING: 'PAYING',
+  PAID: 'PAID',
+  CLOSED: 'CLOSED',
+} as const;
+
+/**
+ * 신청서 상태
+ */
+export type PartyDetailMemberDtoParticipationStatus = typeof PartyDetailMemberDtoParticipationStatus[keyof typeof PartyDetailMemberDtoParticipationStatus];
+
+
+export const PartyDetailMemberDtoParticipationStatus = {
+  PENDING: 'PENDING',
+  APPLIED: 'APPLIED',
+  CONFIRMED: 'CONFIRMED',
+  RELEASED: 'RELEASED',
+  FAILED: 'FAILED',
+  CANCELED: 'CANCELED',
+} as const;
+
+/**
+ * 파티 상세의 파티원 한 명
+ */
+export interface PartyDetailMemberDto {
+  memberId: number;
+  /** 닉네임. 회원 서비스에 없으면 「탈퇴한 회원」 */
+  nickname: string;
+  leader: boolean;
+  /** 합류 시각 */
+  joinedAt: string;
+  /** 신청서 상태 */
+  participationStatus?: PartyDetailMemberDtoParticipationStatus;
+  /** 결제했는지 (신청서가 참가 확정) */
+  paid: boolean;
+}
+
+/**
+ * 파티 상세 (파티원만 봄). 참가자 정보는 없음
+ */
+export interface PartyDetailDto {
+  id: number;
+  crewId: number;
+  raceId: number;
+  /** 파티 종목 ID */
+  raceCourseId: number;
+  leaderMemberId: number;
+  /** RECRUITING(모집 중) / PAYING(결제 진행 중) / PAID(결제 끝) / CLOSED(종료) */
+  status: PartyDetailDtoStatus;
+  /** 파티원 결제 기한. 신청 전이면 null */
+  paymentDueAt?: string;
+  /** 참가 링크 토큰. 파티장에게만 주고 파티원에게는 null */
+  joinToken?: string;
+  /** 참가 링크 만료 시각 */
+  joinTokenExpiresAt: string;
+  /** 파티원 수 (파티장 포함) */
+  memberCount: number;
+  /** 결제를 마친(참가 확정) 파티원 수 */
+  paidCount: number;
+  /** 파티원, 합류 순 */
+  members: PartyDetailMemberDto[];
+}
+
+/**
+ * RECRUITING(모집 중) / PAYING(결제 진행 중) / PAID(결제 끝) / CLOSED(종료)
+ */
+export type PartySummaryDtoStatus = typeof PartySummaryDtoStatus[keyof typeof PartySummaryDtoStatus];
+
+
+export const PartySummaryDtoStatus = {
+  RECRUITING: 'RECRUITING',
+  PAYING: 'PAYING',
+  PAID: 'PAID',
+  CLOSED: 'CLOSED',
+} as const;
+
+/**
+ * 파티 카드 (내 파티, 크루 홈 진행 중인 파티). 토큰·명단은 없음
+ */
+export interface PartySummaryDto {
+  id: number;
+  crewId: number;
+  raceId: number;
+  /** 파티 종목 ID */
+  raceCourseId: number;
+  /** RECRUITING(모집 중) / PAYING(결제 진행 중) / PAID(결제 끝) / CLOSED(종료) */
+  status: PartySummaryDtoStatus;
+  leaderMemberId: number;
+  /** 파티장 닉네임. 회원 서비스에 없으면 「탈퇴한 회원」 */
+  leaderNickname: string;
+  /** 파티원 수 (파티장 포함) */
+  memberCount: number;
+  /** 결제를 마친 파티원 수 */
+  paidCount: number;
+  /** 파티원 결제 기한. 신청 전이면 null */
+  paymentDueAt?: string;
+  /** 내가 들어 있는 파티인지. 이 카드만 상세로 보냄 */
+  myParty: boolean;
+}
+
+/**
+ * RECRUITING(모집 중) / PAYING(결제 진행 중) / PAID(결제 끝) / CLOSED(종료)
+ */
+export type PartyPreviewDtoStatus = typeof PartyPreviewDtoStatus[keyof typeof PartyPreviewDtoStatus];
+
+
+export const PartyPreviewDtoStatus = {
+  RECRUITING: 'RECRUITING',
+  PAYING: 'PAYING',
+  PAID: 'PAID',
+  CLOSED: 'CLOSED',
+} as const;
+
+/**
+ * 참가 링크로 본 파티 (합류 확인 화면). 명단·참가자 정보·토큰은 없음
+ */
+export interface PartyPreviewDto {
+  id: number;
+  crewId: number;
+  raceId: number;
+  /** 파티 종목 ID. 합류하면 이 종목으로 신청 */
+  raceCourseId: number;
+  /** RECRUITING(모집 중) / PAYING(결제 진행 중) / PAID(결제 끝) / CLOSED(종료) */
+  status: PartyPreviewDtoStatus;
+  /** 파티장 닉네임. 회원 서비스에 없으면 「탈퇴한 회원」 */
+  leaderNickname: string;
+  /** 파티원 수 (파티장 포함) */
+  memberCount: number;
+  /** 참가 링크 만료 시각 */
+  joinTokenExpiresAt: string;
+  /** 참가 링크가 아직 살아 있는지 (만료 시각 전) */
+  joinLinkAlive: boolean;
+}
+
+/**
+ * 파티 만들기 응답: 파티와 파티장의 신청서
+ */
+export interface PartyCreatedDto {
+  party?: PartyDto;
+  participation?: ParticipationDto;
+}
+
+/**
+ * LEADER(파티장) / MEMBER(파티원) / NONE(파티 없음)
+ */
+export type PartyRaceStatusDtoRole = typeof PartyRaceStatusDtoRole[keyof typeof PartyRaceStatusDtoRole];
+
+
+export const PartyRaceStatusDtoRole = {
+  LEADER: 'LEADER',
+  MEMBER: 'MEMBER',
+  NONE: 'NONE',
+} as const;
+
+/**
+ * 신청할 수 없는 이유 (canApply=false일 때만)
+ */
+export type PartyRaceStatusDtoReason = typeof PartyRaceStatusDtoReason[keyof typeof PartyRaceStatusDtoReason];
+
+
+export const PartyRaceStatusDtoReason = {
+  NO_PARTY: 'NO_PARTY',
+  NOT_LEADER: 'NOT_LEADER',
+  NOT_RECRUITING: 'NOT_RECRUITING',
+  RACE_CLOSED: 'RACE_CLOSED',
+  TOO_FEW_MEMBERS: 'TOO_FEW_MEMBERS',
+  TOO_MANY_MEMBERS: 'TOO_MANY_MEMBERS',
+} as const;
+
+/**
+ * 파티 상태
+ */
+export type PartyRaceStatusDtoPartyStatus = typeof PartyRaceStatusDtoPartyStatus[keyof typeof PartyRaceStatusDtoPartyStatus];
+
+
+export const PartyRaceStatusDtoPartyStatus = {
+  RECRUITING: 'RECRUITING',
+  PAYING: 'PAYING',
+  PAID: 'PAID',
+} as const;
+
+/**
+ * 이 대회에서 내 파티 상태. 파티가 없으면 role=NONE, canApply=false, reason=NO_PARTY만 온다
+ */
+export interface PartyRaceStatusDto {
+  /** LEADER(파티장) / MEMBER(파티원) / NONE(파티 없음) */
+  role: PartyRaceStatusDtoRole;
+  /** 파티장, 모집 중, 접수 중인 대회, 인원이 최소~최대일 때만 true. 이때만 파티 대기열에 넣는다. 안내용이라 대기열 입장·크루 예매 기간·크루원 자격은 신청 때 다시 확인한다(어긋나면 409) */
+  canApply: boolean;
+  /** 신청할 수 없는 이유 (canApply=false일 때만) */
+  reason?: PartyRaceStatusDtoReason;
+  /** 파티 ID */
+  partyId?: number;
+  /** 파티 종목 ID */
+  raceCourseId?: number;
+  /** 파티 상태 */
+  partyStatus?: PartyRaceStatusDtoPartyStatus;
+  /** 파티원 수 (파티장 포함) */
+  memberCount?: number;
+  /** 신청할 수 있는 최소 인원 */
+  minCount?: number;
+  /** 파티 최대 인원 */
+  maxCount?: number;
+  /** 결제를 마친(참가 확정) 파티원 수 */
+  paidCount?: number;
+  /** 파티원 결제 마감 (파티 신청 뒤에만). 해제 배치 전에는 지나도 PAYING이니 만료는 이 값과 지금 시각으로 판단 */
+  paymentDueAt?: string;
+  /** 내가 결제했는지 */
+  myPaid?: boolean;
+  /** 내 신청서 ID. [결제하기]에 쓴다 */
+  participationId?: number;
+}
+
+/**
+ * 키트 옵션별 판매 현황
+ */
+export interface SellerKitOptionSaleDto {
+  kitOptionId: number;
+  name: string;
+  value: string;
+  /**
+     * 판매 상한(준비 수량). null이면 제한 없음
+     * @nullable
+     */
+  stock: number | null;
+  sold: number;
+  /**
+     * 남은 수량. 판매 상한이 없으면 null(제한 없음)
+     * @nullable
+     */
+  remaining: number | null;
+}
+
+/**
+ * 키트 옵션 품절 409(ORDER_KIT_OPTION_SOLD_OUT)의 data. 판매 상한에 닿은 옵션을 모두 담는다
+ */
+export interface KitOptionSoldOutDto {
+  soldOut: KitOptionChoiceDto[];
 }
 
 export interface RsDataParticipationDto {
