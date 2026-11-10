@@ -13,6 +13,14 @@ import org.springframework.core.env.PropertySource;
 import org.springframework.core.io.ClassPathResource;
 
 import com.bukang.inquiry.out.member.FakeMemberAdminAdapter;
+import com.bukang.inquiry.out.member.FakeMemberNicknamesAdapter;
+import com.bukang.inquiry.out.member.FakeMemberSellerAdapter;
+import com.bukang.inquiry.out.member.HttpMemberNicknamesAdapter;
+import com.bukang.inquiry.out.member.HttpMemberSellerAdapter;
+import com.bukang.inquiry.out.member.MemberNicknamesPort;
+import com.bukang.inquiry.out.member.MemberSellerPort;
+import com.bukang.inquiry.out.order.FakeOrderLookupAdapter;
+import com.bukang.inquiry.out.order.OrderLookupPort;
 import com.bukang.inquiry.out.member.HttpMemberAdminAdapter;
 import com.bukang.inquiry.out.member.MemberAdminPort;
 import com.bukang.inquiry.out.member.MemberClientConfig;
@@ -28,16 +36,23 @@ class InquiryAdapterConfigTest {
 	private final ApplicationContextRunner runner = new ApplicationContextRunner()
 		.withInitializer(context -> context.getBeanFactory()
 			.setConversionService(ApplicationConversionService.getSharedInstance()))
-		.withUserConfiguration(MemberClientConfig.class, FakeMemberAdminAdapter.class, FakeRaceSellerAdapter.class)
+		.withUserConfiguration(MemberClientConfig.class, FakeMemberAdminAdapter.class, FakeMemberSellerAdapter.class,
+			FakeMemberNicknamesAdapter.class, FakeRaceSellerAdapter.class, FakeOrderLookupAdapter.class)
 		.withPropertyValues("inquiry.clients.timeout=2s", "inquiry.clients.member.base-url=http://localhost:8080");
 
 	@Test
 	@DisplayName("관리자 확인: mode가 http면 회원 서비스 어댑터만, fake면 가짜 어댑터만 등록된다")
 	void memberMode() {
-		runner.withPropertyValues("inquiry.clients.member.mode=http").run(context ->
-			assertThat(context).getBean(MemberAdminPort.class).isInstanceOf(HttpMemberAdminAdapter.class));
-		runner.withPropertyValues("inquiry.clients.member.mode=fake").run(context ->
-			assertThat(context).getBean(MemberAdminPort.class).isInstanceOf(FakeMemberAdminAdapter.class));
+		runner.withPropertyValues("inquiry.clients.member.mode=http").run(context -> {
+			assertThat(context).getBean(MemberAdminPort.class).isInstanceOf(HttpMemberAdminAdapter.class);
+			assertThat(context).getBean(MemberSellerPort.class).isInstanceOf(HttpMemberSellerAdapter.class);
+			assertThat(context).getBean(MemberNicknamesPort.class).isInstanceOf(HttpMemberNicknamesAdapter.class);
+		});
+		runner.withPropertyValues("inquiry.clients.member.mode=fake").run(context -> {
+			assertThat(context).getBean(MemberAdminPort.class).isInstanceOf(FakeMemberAdminAdapter.class);
+			assertThat(context).getBean(MemberSellerPort.class).isInstanceOf(FakeMemberSellerAdapter.class);
+			assertThat(context).getBean(MemberNicknamesPort.class).isInstanceOf(FakeMemberNicknamesAdapter.class);
+		});
 	}
 
 	@Test
@@ -48,15 +63,25 @@ class InquiryAdapterConfigTest {
 	}
 
 	@Test
+	@DisplayName("주문 조회: mode가 fake일 때만 가짜 어댑터가 등록된다")
+	void orderMode() {
+		runner.withPropertyValues("inquiry.clients.order.mode=fake").run(context ->
+			assertThat(context).getBean(OrderLookupPort.class).isInstanceOf(FakeOrderLookupAdapter.class));
+	}
+
+	@Test
 	@DisplayName("mode 설정이 빠지면 관리자 확인·판매자 조회 빈이 없다 (가짜로 열리지 않는다)")
 	void missingModeFailsClosed() {
 		runner.run(context -> assertThat(context)
 			.doesNotHaveBean(MemberAdminPort.class)
-			.doesNotHaveBean(RaceSellerPort.class));
+			.doesNotHaveBean(MemberSellerPort.class)
+			.doesNotHaveBean(MemberNicknamesPort.class)
+			.doesNotHaveBean(RaceSellerPort.class)
+			.doesNotHaveBean(OrderLookupPort.class));
 	}
 
 	@Test
-	@DisplayName("개발(dev) 설정은 회원·상품 모두 fake, 운영(prod) 설정은 회원만 http이고 상품 mode는 일부러 없다")
+	@DisplayName("개발(dev) 설정은 회원·상품·주문 모두 fake, 운영(prod) 설정은 회원만 http이고 상품·주문 mode는 일부러 없다")
 	void profiles() throws Exception {
 		List<PropertySource<?>> dev = new YamlPropertySourceLoader()
 			.load("dev", new ClassPathResource("application-dev.yaml"));
@@ -66,6 +91,7 @@ class InquiryAdapterConfigTest {
 		assertThat(dev).anySatisfy(source -> {
 			assertThat(source.getProperty("inquiry.clients.member.mode")).isEqualTo("fake");
 			assertThat(source.getProperty("inquiry.clients.product.mode")).isEqualTo("fake");
+			assertThat(source.getProperty("inquiry.clients.order.mode")).isEqualTo("fake");
 		});
 		assertThat(prod).anySatisfy(source -> {
 			assertThat(source.getProperty("inquiry.clients.member.mode")).isEqualTo("http");
@@ -74,5 +100,7 @@ class InquiryAdapterConfigTest {
 		});
 		assertThat(prod).noneSatisfy(source ->
 			assertThat(source.getProperty("inquiry.clients.product.mode")).isNotNull());
+		assertThat(prod).noneSatisfy(source ->
+			assertThat(source.getProperty("inquiry.clients.order.mode")).isNotNull());
 	}
 }

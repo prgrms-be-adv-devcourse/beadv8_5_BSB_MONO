@@ -103,7 +103,7 @@ class InquiryNotificationTest extends InquiryTestBase {
 	@DisplayName("문의 저장이 롤백되면 알림을 보내지 않는다 (커밋 뒤에만 보낸다)")
 	void rollbackSendsNothing() {
 		assertThatThrownBy(() -> transactionTemplate.executeWithoutResult(status -> {
-			inquiryUseCase.create(ME, SELLER, RACE, InquiryType.RACE_VENUE, "제목", "본문");
+			inquiryUseCase.create(ME, SELLER, RACE, ORDER, InquiryType.RACE_VENUE, "제목", "본문");
 			throw new IllegalStateException("롤백을 일으키는 실패");
 		})).isInstanceOf(IllegalStateException.class);
 
@@ -126,9 +126,9 @@ class InquiryNotificationTest extends InquiryTestBase {
 	}
 
 	@Test
-	@DisplayName("제목 100자·본문 2000자 문의도 알림 제목 100자·내용 500자·링크 300자를 넘지 않는다 (알림 서비스가 버리지 않게)")
+	@DisplayName("제목 100자·본문 1000자 문의도 알림 제목 100자·내용 500자·링크 300자를 넘지 않는다 (알림 서비스가 버리지 않게)")
 	void notificationFitsReceiverLimits() throws Exception {
-		postAs(BASE + "/inquiries", ME, createJson(RACE, "RACE_VENUE", "가".repeat(100), "나".repeat(2000)))
+		postAs(BASE + "/inquiries", ME, createJson(RACE, "RACE_VENUE", "가".repeat(100), "나".repeat(1000)))
 			.andExpect(status().isCreated());
 		Inquiry saved = inquiryRepository.findAll().getFirst();
 		postAs(BASE + "/seller/inquiries/" + saved.getId() + "/answer", SELLER, answerJson("다".repeat(2000)))

@@ -47,9 +47,11 @@ class ApiV1InquiryTest extends InquiryTestBase {
 	}
 
 	@Test
-	@DisplayName("없는 대회에는 문의를 만들 수 없다 (404), 아무것도 저장하지 않는다")
+	@DisplayName("주문에는 있지만 상품 서비스가 모르는 대회에는 문의를 만들 수 없다 (404), 아무것도 저장하지 않는다")
 	void createRaceNotFound() throws Exception {
-		postAs(CREATE_URL, ME, createJson(NO_RACE, "ETC", "제목", "본문"))
+		orderLookupPort.order(ORDER_WITH_UNKNOWN_RACE, orderOf(ME, NO_RACE));
+
+		postAs(CREATE_URL, ME, createJsonOf(NO_RACE, ORDER_WITH_UNKNOWN_RACE, "ETC", "제목", "본문"))
 			.andExpect(status().isNotFound())
 			.andExpect(jsonPath("$.code").value("INQUIRY_RACE_NOT_FOUND"));
 
@@ -69,14 +71,14 @@ class ApiV1InquiryTest extends InquiryTestBase {
 	}
 
 	@Test
-	@DisplayName("제목 100자·본문 2000자는 저장되고, 하나라도 넘으면 400이다")
+	@DisplayName("제목 100자·본문 1000자는 저장되고, 하나라도 넘으면 400이다")
 	void createLengthLimits() throws Exception {
-		postAs(CREATE_URL, ME, createJson(RACE, "ETC", "가".repeat(100), "나".repeat(2000)))
+		postAs(CREATE_URL, ME, createJson(RACE, "ETC", "가".repeat(100), "나".repeat(1000)))
 			.andExpect(status().isCreated());
 		postAs(CREATE_URL, ME, createJson(RACE, "ETC", "가".repeat(101), "본문"))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
-		postAs(CREATE_URL, ME, createJson(RACE, "ETC", "제목", "나".repeat(2001)))
+		postAs(CREATE_URL, ME, createJson(RACE, "ETC", "제목", "나".repeat(1001)))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
 

@@ -31,16 +31,63 @@ class InquirySchemaTest extends InquiryTestBase {
 	}
 
 	@Test
-	@DisplayName("제목 100자·본문 2000자를 넘는 값은 DB가 거절한다")
+	@DisplayName("제목 100자·본문 1000자·답변 2000자를 넘는 값은 DB가 거절한다")
 	void columnLengths() {
 		inquiryRepository.saveAndFlush(
-			Inquiry.create(ME, RACE, InquiryType.ETC, SELLER, "가".repeat(100), "나".repeat(2000)));
+			Inquiry.create(ME, RACE, ORDER, InquiryType.ETC, SELLER, "가".repeat(100), "나".repeat(1000)));
 
 		assertThatThrownBy(() -> inquiryRepository.saveAndFlush(
-			Inquiry.create(ME, RACE, InquiryType.ETC, SELLER, "가".repeat(101), "본문")))
+			Inquiry.create(ME, RACE, ORDER, InquiryType.ETC, SELLER, "가".repeat(101), "본문")))
 			.isInstanceOf(DataIntegrityViolationException.class);
 		assertThatThrownBy(() -> inquiryRepository.saveAndFlush(
-			Inquiry.create(ME, RACE, InquiryType.ETC, SELLER, "제목", "나".repeat(2001))))
+			Inquiry.create(ME, RACE, ORDER, InquiryType.ETC, SELLER, "제목", "나".repeat(1001))))
 			.isInstanceOf(DataIntegrityViolationException.class);
+	}
+
+	@Test
+	@DisplayName("답변 2000자는 들어가고 2001자는 DB가 거절한다")
+	void answerLength() {
+		Inquiry saved = saveSellerInquiry(ME, RACE, SELLER);
+
+		jdbcTemplate.update("update inquiry_inquiry set answer = ? where id = ?", "다".repeat(2000), saved.getId());
+		assertThatThrownBy(() -> jdbcTemplate.update("update inquiry_inquiry set answer = ? where id = ?",
+			"다".repeat(2001), saved.getId())).isInstanceOf(DataIntegrityViolationException.class);
+	}
+
+	@Test
+	@DisplayName("판매자 문의는 대회·주문·판매자 회원 ID가 비어 있어도 저장된다")
+	void sellerSupportColumnsNullable() {
+		Inquiry saved = saveSellerSupportInquiry(APPROVED_SELLER);
+
+		Inquiry found = inquiryRepository.findById(saved.getId()).orElseThrow();
+		assertThat(found.getRaceId()).isNull();
+		assertThat(found.getOrderId()).isNull();
+		assertThat(found.getSellerMemberId()).isNull();
+		assertThat(found.getDeletedAt()).isNull();
+	}
+
+	@Test
+	@DisplayName("목록 쿼리가 인덱스를 쓴다: 판매자 목록은 idx_inquiry_seller, 관리자 목록은 idx_inquiry_status")
+	void listQueriesUseIndexes() {
+		for (int i = 0; i < 300; i++) {
+			jdbcTemplate.update("insert into inquiry_inquiry (member_id, race_id, order_id, type, assignee, "
+				+ "seller_member_id, title, body, status) values (?, 100, 500, 'RACE_VENUE', 'SELLER', ?, 't', 'b', ?)",
+				i % 7, 10 + i % 5, i % 3 == 0 ? "ANSWERED" : "WAITING");
+		}
+		jdbcTemplate.execute("analyze");
+
+		String sellerPlan = String.join(" ", jdbcTemplate.queryForList(
+			"explain select * from inquiry_inquiry where seller_member_id = 10 and assignee = 'SELLER' "
+				+ "and deleted_at is null order by status desc, id desc limit 20", String.class));
+		String adminPlan = String.join(" ", jdbcTemplate.queryForList(
+			"explain select * from inquiry_inquiry where deleted_at is null order by status desc, id desc limit 20",
+			String.class));
+		String filteredPlan = String.join(" ", jdbcTemplate.queryForList(
+			"explain select * from inquiry_inquiry where status = 'WAITING' and deleted_at is null "
+				+ "order by id desc limit 20", String.class));
+
+		assertThat(sellerPlan.toLowerCase()).contains("idx_inquiry_seller");
+		assertThat(adminPlan.toLowerCase()).contains("idx_inquiry_status");
+		assertThat(filteredPlan.toLowerCase()).contains("idx_inquiry_status");
 	}
 }
