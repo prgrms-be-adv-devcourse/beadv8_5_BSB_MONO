@@ -69,6 +69,15 @@ public class PayoutTransfer extends BaseIdAndTime {
 		this.status = PayoutTransferStatus.COMPLETED;
 	}
 
+	// 실패가 확정된 송금만 다시 보낸다. 결과를 모르는 송금을 다시 보내면 돈이 두 번 나갈 수 있다
+	public void retry() {
+		if (status != PayoutTransferStatus.FAILED) {
+			throw new IllegalStateException("실패한 송금만 다시 보낼 수 있습니다. status=" + status);
+		}
+		this.attempt++;
+		this.status = PayoutTransferStatus.REQUESTED;
+	}
+
 	public void markUnknown() {
 		this.status = PayoutTransferStatus.UNKNOWN;
 	}

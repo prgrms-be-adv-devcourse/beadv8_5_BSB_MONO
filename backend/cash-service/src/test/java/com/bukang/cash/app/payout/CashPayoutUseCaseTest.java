@@ -160,6 +160,29 @@ class CashPayoutUseCaseTest {
 	}
 
 	@Test
+	@DisplayName("송금이 실패한 정산 ID로 다시 요청하면 새 송금 ID로 다시 보내고, 홀딩 지갑에서 다시 뺀다")
+	void retryAfterFailed_sendsNewTransfer() {
+		createHoldingWallet();
+		createSellerWithMapping();
+		given(bankTransferClient.transfer(anyString(), anyLong(), anyLong()))
+			.willReturn(BankTransferResult.FAILED, BankTransferResult.COMPLETED);
+		assertThatThrownBy(() -> cashFacade.payout(508, SELLER_APPLICATION_ID, PayoutStage.FIRST, 90_000, 0))
+			.isInstanceOf(PayoutTransferFailedException.class);
+
+		CashPayoutResponseDto retried = cashFacade.payout(508, SELLER_APPLICATION_ID, PayoutStage.FIRST, 90_000, 0);
+
+		assertThat(retried.outcome()).isEqualTo(CashPayoutResponseDto.Outcome.PAID);
+		PayoutTransfer transfer =
+			payoutTransferRepository.findByPayoutIdAndTransferType(508, PayoutTransferType.SETTLEMENT).orElseThrow();
+		then(bankTransferClient).should().transfer("payout-" + transfer.getId() + "-1", SELLER_APPLICATION_ID, 90_000);
+		then(bankTransferClient).should().transfer("payout-" + transfer.getId() + "-2", SELLER_APPLICATION_ID, 90_000);
+		assertThat(transfer.getStatus()).isEqualTo(PayoutTransferStatus.COMPLETED);
+		assertBalance(cashWalletProperties.holdingMemberId(), -90_000);
+		assertThat(ledgersFor(PayoutTransferType.SETTLEMENT)).extracting(WalletLedger::getLedgerType)
+			.containsExactly(LedgerType.정산지급__상품판매_대금, LedgerType.정산지급__상품판매_대금);
+	}
+
+	@Test
 	@DisplayName("최종 정산은 대금(홀딩 지급 1줄)과 수수료(홀딩→시스템 2줄)를 서로 다른 ref_id로 남긴다")
 	void finalStage_transfersSettlementAndFeeWithDifferentRefIds() {
 		createHoldingWallet();

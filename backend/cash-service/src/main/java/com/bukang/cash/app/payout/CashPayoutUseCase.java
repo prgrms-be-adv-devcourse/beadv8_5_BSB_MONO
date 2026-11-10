@@ -126,14 +126,23 @@ public class CashPayoutUseCase {
 		}
 
 		long paidFeeAmount = withFee ? feeAmount : 0;
-		// 6.대금 차감과 송금 기록 (대금이 있고 아직 처리 전일 때만). 은행에 보내기 전에 기록해, 서버가 멈춰도 재확인이 이어받는다
-		if (!withSettlement || existingSettlement.isPresent()) {
+		// 6.대금 차감과 송금 기록 (대금이 있고 아직 완료 전일 때만). 은행에 보내기 전에 기록해, 서버가 멈춰도 재확인이 이어받는다
+		boolean settlementCompleted = existingSettlement
+			.map(stored -> stored.getStatus() == PayoutTransferStatus.COMPLETED)
+			.orElse(false);
+		if (!withSettlement || settlementCompleted) {
 			return Requested.done(feeTransferred
 				? CashPayoutResponseDto.paid(settlementAmount, paidFeeAmount)
 				: CashPayoutResponseDto.alreadyPaid(settlementAmount, paidFeeAmount));
 		}
-		PayoutTransfer settlement = payoutTransferRepository.save(
-			new PayoutTransfer(payoutId, sellerId, PayoutTransferType.SETTLEMENT, settlementAmount));
+		// 실패가 확정된 송금은 같은 행의 시도 횟수를 올려 새 송금 ID로 다시 보낸다 (완료된 송금은 정산 ID마다 하나뿐)
+		PayoutTransfer settlement = existingSettlement
+			.map(failed -> {
+				failed.retry();
+				return failed;
+			})
+			.orElseGet(() -> payoutTransferRepository.save(
+				new PayoutTransfer(payoutId, sellerId, PayoutTransferType.SETTLEMENT, settlementAmount)));
 		walletLedgerRepository.save(holdingWallet.debit(
 			settlementAmount, LedgerType.정산지급__상품판매_대금, LedgerRefType.Payout, settlement.getId()));
 		return new Requested(
