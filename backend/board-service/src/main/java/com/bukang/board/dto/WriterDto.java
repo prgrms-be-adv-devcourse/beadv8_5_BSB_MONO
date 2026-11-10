@@ -15,7 +15,7 @@ public record WriterDto(
 	@Schema(description = "탈퇴한 회원인지", example = "false")
 	boolean withdrawn
 ) {
-	// 회원 복사본이 아직 없으면(가입 이벤트가 늦음) 닉네임을 모른다
+	// 회원 복사본이 아직 없거나 닉네임이 비어 있으면(가입 이벤트가 늦음) 닉네임을 모른다
 	private static final String UNKNOWN_NICKNAME = "알 수 없는 회원";
 
 	public static WriterDto of(BoardMember member) {
@@ -25,6 +25,8 @@ public record WriterDto(
 		if (member.isWithdrawn()) {
 			return new WriterDto(BoardMember.WITHDRAWN_NICKNAME, false, true);
 		}
-		return new WriterDto(member.getNickname(), member.isSellerApproved(), false);
+		// 판매자 이벤트가 가입 이벤트보다 먼저 와서 만든 복사본은 닉네임이 비어 있다
+		String nickname = member.getNickname() == null ? UNKNOWN_NICKNAME : member.getNickname();
+		return new WriterDto(nickname, member.isSellerApproved(), false);
 	}
 }
