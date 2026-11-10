@@ -13,6 +13,7 @@ import com.bukang.cash.app.payment.CashCompleteOrderPaymentUseCase;
 import com.bukang.cash.app.payment.CashRefundPaymentUseCase;
 import com.bukang.cash.app.payment.CashRefundableChargeQueryUseCase;
 import com.bukang.cash.app.payout.CashPayoutUseCase;
+import com.bukang.cash.app.recovery.CashRecoveryDepositUseCase;
 import com.bukang.cash.app.recovery.CashRecoveryVirtualAccountUseCase;
 import com.bukang.cash.app.wallet.CashEnsureWalletUseCase;
 import com.bukang.cash.app.wallet.CashWalletLedgerQueryUseCase;
@@ -53,6 +54,7 @@ public class CashFacade {
 	private final CashWalletLedgerQueryUseCase cashWalletLedgerQueryUseCase;
 	private final CashRefundableChargeQueryUseCase cashRefundableChargeQueryUseCase;
 	private final CashRecoveryVirtualAccountUseCase cashRecoveryVirtualAccountUseCase;
+	private final CashRecoveryDepositUseCase cashRecoveryDepositUseCase;
 
 	@Transactional
 	public CashMember syncMember(long id, LocalDateTime createDate, LocalDateTime modifyDate,
@@ -134,5 +136,10 @@ public class CashFacade {
 	// @Transactional을 일부러 안 붙인다. 충전 확정과 같은 이유로, 토스 가상계좌 발급을 트랜잭션 밖에서 부른다
 	public CashClaimVirtualAccountResponseDto issueClaimVirtualAccount(String claimCode, long amount) {
 		return cashRecoveryVirtualAccountUseCase.issue(claimCode, amount);
+	}
+
+	// @Transactional을 일부러 안 붙인다. 토스 입금 조회를 트랜잭션 밖에서 부르고, 기록만 짧은 트랜잭션으로 한다
+	public void receiveRecoveryDeposit(String claimCode, String secret, String pgStatus) {
+		cashRecoveryDepositUseCase.receive(claimCode, secret, pgStatus);
 	}
 }

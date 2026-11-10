@@ -206,12 +206,14 @@ public class InternalV1CashController {
 				@ExampleObject(name = "청구 ID 형식 오류", value = CashInternalApiExamples.INVALID_CLAIM_CODE),
 				@ExampleObject(name = "요청 본문 형식 오류", value = CashInternalApiExamples.INVALID_BODY)
 			})),
-		@ApiResponse(responseCode = "503", description = "PG가 발급·조회를 거절함, PG 연결 실패 또는 응답에 계좌 정보가 없음",
+		@ApiResponse(responseCode = "503",
+			description = "PG가 발급·조회를 거절함, PG 연결 실패, 응답에 계좌 정보가 없음 또는 PG에서 찾은 계좌의 금액이 다름",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "발급 거절", value = CashInternalApiExamples.VIRTUAL_ACCOUNT_REJECTED),
 				@ExampleObject(name = "조회 거절", value = CashInternalApiExamples.VIRTUAL_ACCOUNT_LOOKUP_REJECTED),
 				@ExampleObject(name = "PG 연결 실패", value = CashInternalApiExamples.VIRTUAL_ACCOUNT_PG_UNREACHABLE),
-				@ExampleObject(name = "계좌 정보 없음", value = CashInternalApiExamples.VIRTUAL_ACCOUNT_INVALID_RESPONSE)
+				@ExampleObject(name = "계좌 정보 없음", value = CashInternalApiExamples.VIRTUAL_ACCOUNT_INVALID_RESPONSE),
+				@ExampleObject(name = "금액이 다른 계좌", value = CashInternalApiExamples.VIRTUAL_ACCOUNT_AMOUNT_MISMATCH)
 			}))
 	})
 	public ResponseEntity<RsData<CashClaimVirtualAccountResponseDto>> issueClaimVirtualAccount(
