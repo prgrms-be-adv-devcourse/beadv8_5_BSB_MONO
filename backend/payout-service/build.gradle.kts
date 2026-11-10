@@ -13,6 +13,8 @@ dependencies {
 	implementation(project(":common"))
 
 	implementation("org.springframework.boot:spring-boot-starter-webmvc") // spring-web
+	// RestClient.Builder 자동 설정 (Boot 4에서 분리된 모듈). 어댑터가 이 빌더를 받아야 나가는 HTTP 요청에 Observation이 붙는다
+	implementation("org.springframework.boot:spring-boot-starter-restclient")
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa") // dataJpa
 	// 표 변경은 Flyway SQL(db/migration)로만 한다 (PR #265). MySQL 지원은 별도 모듈
 	implementation("org.springframework.boot:spring-boot-starter-flyway")
