@@ -68,4 +68,8 @@ public class RecoveryDeposit extends BaseIdAndTime {
 		this.status = RecoveryDepositStatus.DEPOSITED;
 		this.depositedAt = depositedAt;
 	}
+
+	public void markExpired() {
+		this.status = RecoveryDepositStatus.EXPIRED;
+	}
 }

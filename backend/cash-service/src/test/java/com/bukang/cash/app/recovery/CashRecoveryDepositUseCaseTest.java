@@ -51,6 +51,9 @@ class CashRecoveryDepositUseCaseTest {
 	private static final String CLAIM_CODE = "RC-20261214-0A3F";
 	private static final String SECRET = "ps_secret_1";
 	private static final LocalDateTime DEPOSITED_AT = LocalDateTime.of(2026, 12, 20, 14, 2);
+	// 회수 입금의 입금 기한은 2027-03-14 10:00이다
+	private static final LocalDateTime BEFORE_DUE = LocalDateTime.of(2026, 12, 21, 9, 0);
+	private static final LocalDateTime AFTER_DUE = LocalDateTime.of(2027, 3, 14, 10, 1);
 
 	@Autowired
 	private CashFacade cashFacade;
@@ -204,7 +207,7 @@ class CashRecoveryDepositUseCaseTest {
 		given(paymentClient.lookupByOrderId(CLAIM_CODE)).willReturn(
 			PaymentLookupResult.completed(new PaymentApprovalResult(400_000, "pay_key_1", DEPOSITED_AT)));
 
-		cashRecoveryDepositUseCase.reconcile();
+		cashRecoveryDepositUseCase.reconcile(BEFORE_DUE);
 
 		assertRecordedOnce();
 	}
@@ -219,11 +222,54 @@ class CashRecoveryDepositUseCaseTest {
 		given(paymentClient.lookupByOrderId(CLAIM_CODE)).willReturn(
 			PaymentLookupResult.completed(new PaymentApprovalResult(400_000, "pay_key_1", DEPOSITED_AT)));
 
-		cashRecoveryDepositUseCase.reconcile();
+		cashRecoveryDepositUseCase.reconcile(BEFORE_DUE);
 
 		assertRecordedOnce();
 		assertThat(recoveryDepositRepository.findById(failing.getId()).orElseThrow().getStatus())
 			.isEqualTo(RecoveryDepositStatus.WAITING);
+	}
+
+	@Test
+	@DisplayName("입금 기한이 지났고 PG도 입금 전이라고 하면 기한 지남으로 바꾸고 기록하지 않는다")
+	void reconcileExpiresOverdueDeposit() {
+		given(paymentClient.lookupByOrderId(CLAIM_CODE)).willReturn(PaymentLookupResult.notCompleted());
+
+		cashRecoveryDepositUseCase.reconcile(AFTER_DUE);
+
+		assertThat(recoveryDepositRepository.findById(deposit.getId()).orElseThrow().getStatus())
+			.isEqualTo(RecoveryDepositStatus.EXPIRED);
+		assertThat(walletLedgerRepository.count()).isZero();
+	}
+
+	@Test
+	@DisplayName("입금 기한이 지났어도 PG가 입금 완료라고 하면(기한 직전 입금, 알림 빠짐) 기한 지남이 아니라 입금으로 기록한다")
+	void reconcileRecordsDepositMadeBeforeDueEvenAfterDue() {
+		given(paymentClient.lookupByOrderId(CLAIM_CODE)).willReturn(
+			PaymentLookupResult.completed(new PaymentApprovalResult(400_000, "pay_key_1", DEPOSITED_AT)));
+
+		cashRecoveryDepositUseCase.reconcile(AFTER_DUE);
+
+		assertRecordedOnce();
+	}
+
+	@Test
+	@DisplayName("입금 기한이 지났어도 PG 조회가 실패하면 입금됐는지 모르므로 기한 지남으로 바꾸지 않는다")
+	void reconcileKeepsWaitingWhenLookupFailsAfterDue() {
+		given(paymentClient.lookupByOrderId(CLAIM_CODE)).willThrow(new PaymentLookupFailedException("timeout", null));
+
+		cashRecoveryDepositUseCase.reconcile(AFTER_DUE);
+
+		assertNothingRecorded();
+	}
+
+	@Test
+	@DisplayName("입금 기한 전이면 PG가 입금 전이라고 해도 입금 대기로 둔다")
+	void reconcileKeepsWaitingBeforeDue() {
+		given(paymentClient.lookupByOrderId(CLAIM_CODE)).willReturn(PaymentLookupResult.notCompleted());
+
+		cashRecoveryDepositUseCase.reconcile(BEFORE_DUE);
+
+		assertNothingRecorded();
 	}
 
 	private void assertRecordedOnce() {

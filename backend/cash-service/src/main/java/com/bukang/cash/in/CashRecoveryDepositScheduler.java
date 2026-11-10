@@ -1,5 +1,7 @@
 package com.bukang.cash.in;
 
+import java.time.LocalDateTime;
+
 import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -23,6 +25,6 @@ public class CashRecoveryDepositScheduler {
 		fixedDelayString = "${cash.recovery.reconcile.interval-millis}",
 		initialDelayString = "${cash.recovery.reconcile.interval-millis}")
 	public void reconcile() {
-		cashRecoveryDepositUseCase.reconcile();
+		cashRecoveryDepositUseCase.reconcile(LocalDateTime.now());
 	}
 }
