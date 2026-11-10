@@ -38,7 +38,12 @@ public class CashRecoveryDepositUseCase {
 	private final TransactionTemplate transactionTemplate;
 
 	public void receive(String claimCode, String secret) {
-		RecoveryDeposit deposit = recoveryDepositRepository.findByClaimCode(claimCode).orElseThrow();
+		// 모르는 주문번호도 오류로 답하지 않는다. 오류로 답하면 PG가 같은 알림을 계속 다시 보낸다
+		RecoveryDeposit deposit = recoveryDepositRepository.findByClaimCode(claimCode).orElse(null);
+		if (deposit == null) {
+			log.warn("회수 입금 기록에 없는 주문번호의 입금 알림이라 무시합니다. claimCode={}", claimCode);
+			return;
+		}
 		if (!matchesSecret(deposit, secret)) {
 			log.warn("가상계좌 입금 알림의 비밀값이 맞지 않아 무시합니다. claimCode={}", claimCode);
 			return;

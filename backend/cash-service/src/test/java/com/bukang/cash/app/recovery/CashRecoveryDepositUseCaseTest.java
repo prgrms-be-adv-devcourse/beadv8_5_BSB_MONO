@@ -1,6 +1,7 @@
 package com.bukang.cash.app.recovery;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
@@ -112,6 +113,16 @@ class CashRecoveryDepositUseCaseTest {
 			PaymentLookupResult.completed(new PaymentApprovalResult(400_000, "pay_key_1", DEPOSITED_AT)));
 
 		cashFacade.receiveRecoveryDeposit(CLAIM_CODE, "forged_secret");
+
+		verify(paymentClient, never()).lookupByOrderId(anyString());
+		assertNothingRecorded();
+	}
+
+	@Test
+	@DisplayName("회수 입금 기록에 없는 주문번호의 알림이면 오류 없이 끝내고, PG 조회도 기록도 하지 않는다")
+	void ignoresCallbackForUnknownOrder() {
+		assertThatCode(() -> cashFacade.receiveRecoveryDeposit("RC-20261214-FFFF", SECRET))
+			.doesNotThrowAnyException();
 
 		verify(paymentClient, never()).lookupByOrderId(anyString());
 		assertNothingRecorded();
