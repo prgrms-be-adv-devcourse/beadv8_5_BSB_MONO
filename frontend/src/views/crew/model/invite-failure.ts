@@ -22,6 +22,12 @@ export function inviteFailureOf(error: unknown): InviteFailure | null {
         title: EXPIRED.title,
         description: '크루장이 이 초대를 취소했어요. 크루장에게 새 링크를 받아 주세요.',
       }
+    case 'CREW_INVITE_REMOVED_MEMBER':
+      return {
+        title: '이 링크로는 가입할 수 없어요',
+        description:
+          '크루에서 내보낸 회원은 그 전에 받은 링크를 쓸 수 없어요. 크루장에게 새 링크를 받아 주세요.',
+      }
     case 'CREW_INVITE_ALREADY_USED':
       return { title: EXPIRED.title, description: error.serverMessage ?? EXPIRED.description }
   }

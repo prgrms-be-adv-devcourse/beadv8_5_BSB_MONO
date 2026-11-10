@@ -318,8 +318,8 @@ function InviteIntro({ title }: { title: string }) {
     <div className="flex flex-col gap-2">
       <h2 className="text-title3">{title}</h2>
       <p className="text-body2-regular text-text-secondary">
-        링크를 받은 사람이 가입하기를 누르면 바로 크루원이 돼요. 링크 하나로 한 명이 가입할 수
-        있어요.
+        링크를 받은 사람이 가입하기를 누르면 바로 크루원이 돼요. 링크 하나로 24시간 동안 여러 명이
+        가입할 수 있어요.
       </p>
     </div>
   )
