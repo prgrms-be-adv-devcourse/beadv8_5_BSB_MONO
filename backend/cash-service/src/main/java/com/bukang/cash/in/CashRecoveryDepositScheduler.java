@@ -6,12 +6,13 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import com.bukang.cash.app.recovery.CashRecoveryDepositRelayUseCase;
 import com.bukang.cash.app.recovery.CashRecoveryDepositUseCase;
 
 import lombok.RequiredArgsConstructor;
 
 /**
- * cash.recovery.reconcile.interval-millis마다 입금 알림이 빠진 회수 입금을 PG 재조회로 맞춘다
+ * cash.recovery.reconcile.interval-millis마다 입금 알림이 빠진 회수 입금을 PG 재조회로 맞추고, 입금 완료를 정산에 알린다
  * fixedDelay라 이전 실행이 끝난 뒤부터 시간을 세므로 실행이 겹치지 않는다
  * 테스트에서는 등록하지 않는다. 테스트는 CashRecoveryDepositUseCase를 직접 부른다
  */
@@ -20,11 +21,14 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class CashRecoveryDepositScheduler {
 	private final CashRecoveryDepositUseCase cashRecoveryDepositUseCase;
+	private final CashRecoveryDepositRelayUseCase cashRecoveryDepositRelayUseCase;
 
 	@Scheduled(
 		fixedDelayString = "${cash.recovery.reconcile.interval-millis}",
 		initialDelayString = "${cash.recovery.reconcile.interval-millis}")
 	public void reconcile() {
 		cashRecoveryDepositUseCase.reconcile(LocalDateTime.now());
+		// 재확인에서 새로 입금 완료가 된 건도 이번 실행에서 바로 정산에 알린다
+		cashRecoveryDepositRelayUseCase.relay(LocalDateTime.now());
 	}
 }

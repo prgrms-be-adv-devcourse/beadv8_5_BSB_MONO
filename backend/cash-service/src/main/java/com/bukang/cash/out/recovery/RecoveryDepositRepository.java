@@ -18,6 +18,8 @@ public interface RecoveryDepositRepository extends JpaRepository<RecoveryDeposit
 
 	List<RecoveryDeposit> findByStatusOrderByIdAsc(RecoveryDepositStatus status);
 
+	List<RecoveryDeposit> findByStatusAndSentAtIsNullOrderByIdAsc(RecoveryDepositStatus status);
+
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	@Query("select d from RecoveryDeposit d where d.id = :id")
 	Optional<RecoveryDeposit> findByIdForUpdate(@Param("id") long id);
