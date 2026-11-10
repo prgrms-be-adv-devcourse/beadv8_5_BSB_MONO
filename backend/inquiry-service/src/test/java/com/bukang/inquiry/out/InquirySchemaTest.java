@@ -67,12 +67,12 @@ class InquirySchemaTest extends InquiryTestBase {
 	}
 
 	@Test
-	@DisplayName("목록 쿼리가 인덱스를 쓴다: 판매자 목록은 idx_inquiry_seller, 관리자 목록은 idx_inquiry_status")
+	@DisplayName("목록 쿼리가 인덱스를 쓴다: 판매자 목록은 idx_inquiry_seller, 관리자 목록은 idx_inquiry_status, 관리자 목록의 담당 필터는 idx_inquiry_assignee")
 	void listQueriesUseIndexes() {
 		for (int i = 0; i < 300; i++) {
 			jdbcTemplate.update("insert into inquiry_inquiry (member_id, race_id, order_id, type, assignee, "
-				+ "seller_member_id, title, body, status) values (?, 100, 500, 'RACE_VENUE', 'SELLER', ?, 't', 'b', ?)",
-				i % 7, 10 + i % 5, i % 3 == 0 ? "ANSWERED" : "WAITING");
+				+ "seller_member_id, title, body, status) values (?, 100, 500, 'RACE_VENUE', ?, ?, 't', 'b', ?)",
+				i % 7, i % 4 == 0 ? "ADMIN" : "SELLER", 10 + i % 5, i % 3 == 0 ? "ANSWERED" : "WAITING");
 		}
 		jdbcTemplate.execute("analyze");
 
@@ -86,6 +86,15 @@ class InquirySchemaTest extends InquiryTestBase {
 			"explain select * from inquiry_inquiry where status = 'WAITING' and deleted_at is null "
 				+ "order by id desc limit 20", String.class));
 
+		String adminAssigneePlan = String.join(" ", jdbcTemplate.queryForList(
+			"explain select * from inquiry_inquiry where assignee = 'ADMIN' and deleted_at is null "
+				+ "order by status desc, id desc limit 20", String.class));
+		String adminAssigneeStatusPlan = String.join(" ", jdbcTemplate.queryForList(
+			"explain select * from inquiry_inquiry where assignee = 'ADMIN' and status = 'WAITING' "
+				+ "and deleted_at is null order by id desc limit 20", String.class));
+
+		assertThat(adminAssigneePlan.toLowerCase()).contains("idx_inquiry_assignee");
+		assertThat(adminAssigneeStatusPlan.toLowerCase()).contains("idx_inquiry_assignee");
 		assertThat(sellerPlan.toLowerCase()).contains("idx_inquiry_seller");
 		assertThat(adminPlan.toLowerCase()).contains("idx_inquiry_status");
 		assertThat(filteredPlan.toLowerCase()).contains("idx_inquiry_status");

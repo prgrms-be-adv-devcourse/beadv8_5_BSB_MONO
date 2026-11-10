@@ -222,4 +222,98 @@ class InquiryManageApiTest extends InquiryTestBase {
 			.andExpect(jsonPath("$.data.order").doesNotExist());
 		assertThat(inquiryRepository.count()).isEqualTo(1);
 	}
+
+	// 관리자 담당 둘(대기·완료)과 판매자 담당 둘(대기·완료), 지운 문의 하나를 만든다
+	private long[] assigneeFixture() throws Exception {
+		Inquiry adminWaiting = saveAdminInquiry(ME, RACE, SELLER);
+		Inquiry adminAnswered = saveAdminInquiry(OTHER, RACE, SELLER);
+		Inquiry sellerWaiting = saveSellerInquiry(ME, RACE, SELLER);
+		Inquiry sellerAnswered = saveSellerInquiry(OTHER, RACE, SELLER);
+		Inquiry deleted = saveAdminInquiry(ME, RACE, SELLER);
+		deleteAs(BASE + "/inquiries/" + deleted.getId(), ME).andExpect(status().isOk());
+		postAs(ADMIN_URL + "/" + adminAnswered.getId() + "/answer", ADMIN, answerJson("답")).andExpect(status().isOk());
+		postAs(SELLER_URL + "/" + sellerAnswered.getId() + "/answer", SELLER, answerJson("답"))
+			.andExpect(status().isOk());
+		return new long[] {adminWaiting.getId(), adminAnswered.getId(), sellerWaiting.getId(), sellerAnswered.getId()};
+	}
+
+	@Test
+	@DisplayName("관리자 목록: assignee=ADMIN이면 관리자 담당 문의만 나온다 (답변 대기 먼저, 최신순)")
+	void adminListAssigneeAdmin() throws Exception {
+		long[] ids = assigneeFixture();
+
+		getAs(ADMIN_URL + "?assignee=ADMIN", ADMIN)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.inquiries.length()").value(2))
+			.andExpect(jsonPath("$.data.inquiries[0].id").value(ids[0]))
+			.andExpect(jsonPath("$.data.inquiries[1].id").value(ids[1]))
+			.andExpect(jsonPath("$.data.inquiries[0].assignee").value("ADMIN"))
+			.andExpect(jsonPath("$.data.totalElements").value(2));
+	}
+
+	@Test
+	@DisplayName("관리자 목록: assignee=SELLER이면 판매자 담당 문의만 나온다")
+	void adminListAssigneeSeller() throws Exception {
+		long[] ids = assigneeFixture();
+
+		getAs(ADMIN_URL + "?assignee=SELLER", ADMIN)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.inquiries.length()").value(2))
+			.andExpect(jsonPath("$.data.inquiries[0].id").value(ids[2]))
+			.andExpect(jsonPath("$.data.inquiries[1].id").value(ids[3]))
+			.andExpect(jsonPath("$.data.inquiries[0].assignee").value("SELLER"));
+	}
+
+	@Test
+	@DisplayName("관리자 목록: assignee와 status를 함께 쓰면 둘 다 만족하는 문의만 나온다")
+	void adminListAssigneeAndStatus() throws Exception {
+		long[] ids = assigneeFixture();
+
+		getAs(ADMIN_URL + "?assignee=ADMIN&status=ANSWERED", ADMIN)
+			.andExpect(jsonPath("$.data.inquiries.length()").value(1))
+			.andExpect(jsonPath("$.data.inquiries[0].id").value(ids[1]))
+			.andExpect(jsonPath("$.data.totalElements").value(1));
+		getAs(ADMIN_URL + "?assignee=SELLER&status=WAITING", ADMIN)
+			.andExpect(jsonPath("$.data.inquiries.length()").value(1))
+			.andExpect(jsonPath("$.data.inquiries[0].id").value(ids[2]));
+	}
+
+	@Test
+	@DisplayName("관리자 목록: 상태별 개수는 assignee를 따르고 status 거르기와는 상관없다 (지운 문의는 뺀다)")
+	void adminListCountsFollowAssignee() throws Exception {
+		assigneeFixture();
+
+		getAs(ADMIN_URL + "?assignee=ADMIN", ADMIN)
+			.andExpect(jsonPath("$.data.waitingCount").value(1))
+			.andExpect(jsonPath("$.data.answeredCount").value(1));
+		getAs(ADMIN_URL + "?assignee=ADMIN&status=WAITING", ADMIN)
+			.andExpect(jsonPath("$.data.inquiries.length()").value(1))
+			.andExpect(jsonPath("$.data.waitingCount").value(1))
+			.andExpect(jsonPath("$.data.answeredCount").value(1));
+		getAs(ADMIN_URL + "?assignee=SELLER&status=ANSWERED", ADMIN)
+			.andExpect(jsonPath("$.data.inquiries.length()").value(1))
+			.andExpect(jsonPath("$.data.waitingCount").value(1))
+			.andExpect(jsonPath("$.data.answeredCount").value(1));
+	}
+
+	@Test
+	@DisplayName("관리자 목록: assignee가 없으면 담당과 상관없이 전부 나오고 개수도 전체다")
+	void adminListWithoutAssignee() throws Exception {
+		assigneeFixture();
+
+		getAs(ADMIN_URL, ADMIN)
+			.andExpect(jsonPath("$.data.inquiries.length()").value(4))
+			.andExpect(jsonPath("$.data.totalElements").value(4))
+			.andExpect(jsonPath("$.data.waitingCount").value(2))
+			.andExpect(jsonPath("$.data.answeredCount").value(2));
+	}
+
+	@Test
+	@DisplayName("관리자 목록: 잘못된 assignee는 400 INVALID_REQUEST다")
+	void adminListInvalidAssignee() throws Exception {
+		getAs(ADMIN_URL + "?assignee=NOPE", ADMIN)
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+		getAs(ADMIN_URL + "?assignee=admin", ADMIN).andExpect(status().isBadRequest());
+	}
 }
