@@ -25,8 +25,16 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  CrewHoldRequestDto,
+  DltCompleteRequestDto,
+  FindByRaceDateParams,
+  FindByRefundDeadlineParams,
+  HoldRequestDto,
+  KitOptionsSaveRequestDto,
+  ListParams,
   RaceSaveRequestDto,
   RsData,
+  RsDataKitOptionListDto,
   RsDataListSellerRaceDto,
   RsDataRaceDetailDto,
   RsDataRacePageDto,
@@ -67,7 +75,7 @@ export const getFindRaceUrl = (raceId: number,) => {
 }
 
 /**
- * 대회와 종목(남은 자리·티셔츠 사이즈 포함), 판매자 정보를 돌려준다. 로그인하지 않아도 된다. 취소된 대회는 등록한 판매자만 볼 수 있고, 다른 사람에게는 없는 대회(404)로 보인다. 종목 이미지는 file-service에서 종목마다 받는다(GET /api/v1/file/files?refType=RaceCourse&refId=종목 ID). 판매 상태(saleStatus)와 판매 시작일(saleOpenDate)은 판매자 화면용이고, 구매자 화면의 예매 버튼은 크루 예매 기간·개인 예매 오픈·접수 마감 일시로 켠다.
+ * 대회와 종목(남은 자리 포함), 판매자 정보를 돌려준다. 로그인하지 않아도 된다. 취소된 대회는 등록한 판매자만 볼 수 있고, 다른 사람에게는 없는 대회(404)로 보인다. 종목 이미지는 file-service에서 종목마다 받는다(GET /api/v1/file/files?refType=RaceCourse&refId=종목 ID). 판매 상태(saleStatus)와 판매 시작일(saleOpenDate)은 판매자 화면용이고, 구매자 화면의 예매 버튼은 크루 예매 기간·개인 예매 오픈·접수 마감 일시로 켠다.
  * @summary 대회 상세
  */
 export const findRace = async (raceId: number, options?: Parameters<typeof customFetch>[1]): Promise<RsDataRaceDetailDto> => {
@@ -169,7 +177,7 @@ export const getUpdateUrl = (raceId: number,) => {
 }
 
 /**
- * 본인이 등록한 대회를 등록과 같은 모양의 요청으로 통째로 바꾼다. 종목은 courseId가 있으면 수정하고 없으면 추가하며, 요청에 없는 기존 종목은 뺀다. 이미지 목록도 통째로 바뀌어, 수정이 커밋된 뒤 file-service에 다시 연결을 요청한다. 취소된 대회와 판매가 끝난 대회(대회일 다음 날 0시부터)는 수정할 수 없다. 판매 시작 전에 판매 시작일이 바뀌면 등록과 같이 오늘로부터 이틀 뒤부터 정할 수 있다. 판매가 시작된 뒤(판매 시작일 0시부터)에는 판매 시작일을 정하는 일정(크루 예매가 있으면 크루 예매 시작, 없으면 개인 예매 오픈)을 바꿀 수 없다. 판매가 시작된 뒤에는 참가비·키트 금액을 바꾸거나 환불 기준일을 앞당길 수 없고, 정원을 줄이거나 티셔츠 사이즈를 바꾸거나 종목을 뺄 수 없다(정원은 늘리기만). 종목의 참가 조건(거리·종목 구분·노면·제한 시간·나이 제한·키트 포함 여부)도 바꿀 수 없다. 이미 지난 판매 일정(크루 예매 시작·마감, 개인 예매 오픈, 접수 마감)을 바꾸거나 일정을 지난 시각으로 옮길 수 없다(아직 오지 않은 일정은 앞당기거나 늦출 수 있다). 판매가 시작된 뒤 대회 일시나 장소를 바꾸면 일정·장소 변경 안내 일시를 기록한다(이날부터 7일 동안 전액 환불).
+ * 본인이 등록한 대회를 등록과 같은 모양의 요청으로 통째로 바꾼다. 종목은 courseId가 있으면 수정하고 없으면 추가하며, 요청에 없는 기존 종목은 뺀다. 이미지 목록도 통째로 바뀌어, 수정이 커밋된 뒤 file-service에 다시 연결을 요청한다. 취소된 대회와 판매가 끝난 대회(대회일 다음 날 0시부터)는 수정할 수 없다. 판매 시작 전에 판매 시작일이 바뀌면 등록과 같이 오늘로부터 이틀 뒤부터 정할 수 있다. 판매가 시작된 뒤(판매 시작일 0시부터)에는 판매 시작일을 정하는 일정(크루 예매가 있으면 크루 예매 시작, 없으면 개인 예매 오픈)을 바꿀 수 없다. 판매가 시작된 뒤에는 참가비·키트 금액을 바꾸거나 환불 기준일을 앞당길 수 없고, 정원을 줄이거나 종목을 뺄 수 없다(정원은 늘리기만). 종목의 참가 조건(거리·종목 구분·노면·제한 시간·나이 제한·키트 포함 여부)도 바꿀 수 없다. 이미 지난 판매 일정(크루 예매 시작·마감, 개인 예매 오픈, 접수 마감)을 바꾸거나 일정을 지난 시각으로 옮길 수 없다(아직 오지 않은 일정은 앞당기거나 늦출 수 있다). 판매가 시작된 뒤 대회 일시나 장소를 바꾸면 일정·장소 변경 안내 일시를 기록한다(이날부터 7일 동안 전액 환불). 키트 옵션은 받지 않고 건드리지 않는다(키트 옵션 등록·수정 API로 바꾼다).
  * @summary 대회 수정
  */
 export const update = async (raceId: number,
@@ -250,6 +258,706 @@ export const useUpdate = <TError = RsData,
       return useMutation(getUpdateMutationOptions(options), queryClient);
     }
 
+export const getFindKitOptionsUrl = (raceId: number,) => {
+
+
+
+
+  return `/api/v1/product/races/${raceId}/kit-options`
+}
+
+/**
+ * 대회 키트의 옵션을 이름(name)별로 묶어 돌려준다. 로그인하지 않아도 된다. 결제 화면에서 이름마다 선택 상자 하나를 그리고, 구매자는 이름마다 값 하나를 고른다(고른 kitOptionId를 주문에 보낸다). 이름과 값은 판매자가 등록한 순서대로 나온다. stock은 준비 수량이고, null이면 맞춤 제작이라 품절이 없다. 품절인지는 주문 서비스가 판매 수와 견주어 판단한다. 옵션이 없는 대회는 빈 목록(kitOptions: [])을 돌려준다. 대회 상세와 같이 취소된 대회는 등록한 판매자만 볼 수 있고, 다른 사람에게는 없는 대회(404)로 보인다.
+ * @summary 키트 옵션 목록
+ */
+export const findKitOptions = async (raceId: number, options?: Parameters<typeof customFetch>[1]): Promise<RsDataKitOptionListDto> => {
+
+  return customFetch<RsDataKitOptionListDto>(getFindKitOptionsUrl(raceId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getFindKitOptionsQueryKey = (raceId: number,) => {
+    return [
+    `/api/v1/product/races/${raceId}/kit-options`
+    ] as const;
+    }
+
+
+export const getFindKitOptionsQueryOptions = <TData = Awaited<ReturnType<typeof findKitOptions>>, TError = RsData>(raceId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findKitOptions>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getFindKitOptionsQueryKey(raceId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof findKitOptions>>> = ({ signal }) => findKitOptions(raceId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: raceId !== null && raceId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof findKitOptions>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type FindKitOptionsQueryResult = NonNullable<Awaited<ReturnType<typeof findKitOptions>>>
+export type FindKitOptionsQueryError = RsData
+
+
+export function useFindKitOptions<TData = Awaited<ReturnType<typeof findKitOptions>>, TError = RsData>(
+ raceId: number, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof findKitOptions>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findKitOptions>>,
+          TError,
+          Awaited<ReturnType<typeof findKitOptions>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindKitOptions<TData = Awaited<ReturnType<typeof findKitOptions>>, TError = RsData>(
+ raceId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findKitOptions>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findKitOptions>>,
+          TError,
+          Awaited<ReturnType<typeof findKitOptions>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindKitOptions<TData = Awaited<ReturnType<typeof findKitOptions>>, TError = RsData>(
+ raceId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findKitOptions>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 키트 옵션 목록
+ */
+
+export function useFindKitOptions<TData = Awaited<ReturnType<typeof findKitOptions>>, TError = RsData>(
+ raceId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findKitOptions>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getFindKitOptionsQueryOptions(raceId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateKitOptionsUrl = (raceId: number,) => {
+
+
+
+
+  return `/api/v1/product/races/${raceId}/kit-options`
+}
+
+/**
+ * 본인 대회의 키트 옵션을 요청 목록으로 통째로 바꾼다. (이름, 값)이 같은 옵션은 준비 수량을 고치고, 없던 옵션은 더하고, 요청에 없는 옵션은 뺀다. 판매가 시작된 뒤(판매 시작일 0시부터)에는 준비 수량이 있는 옵션의 준비 수량 늘리기만 되고, 옵션을 더하거나 빼거나 이름·값을 바꾸거나 맞춤 제작과 준비 수량 사이에서 바꿀 수 없다. 취소된 대회와 판매가 끝난 대회는 바꿀 수 없다. 응답은 키트 옵션 목록 조회와 같은 모양이다.
+ * @summary 키트 옵션 수정
+ */
+export const updateKitOptions = async (raceId: number,
+    kitOptionsSaveRequestDto: KitOptionsSaveRequestDto, options?: Parameters<typeof customFetch>[1]): Promise<RsDataKitOptionListDto> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<RsDataKitOptionListDto>(getUpdateKitOptionsUrl(raceId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(kitOptionsSaveRequestDto)
+  }
+);}
+
+
+
+
+
+export const getUpdateKitOptionsMutationKey = () => ['updateKitOptions'] as const;
+
+export const getUpdateKitOptionsMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateKitOptions>>, TError,UpdateKitOptionsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateKitOptions>>, TError,UpdateKitOptionsMutationVariables, TContext> => {
+
+const mutationKey = getUpdateKitOptionsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateKitOptions>>, UpdateKitOptionsMutationVariables> = (props) => {
+          const {raceId,data} = props ?? {};
+
+          return  updateKitOptions(raceId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateKitOptionsMutationResult = NonNullable<Awaited<ReturnType<typeof updateKitOptions>>>
+    export type UpdateKitOptionsMutationBody = KitOptionsSaveRequestDto
+    export type UpdateKitOptionsMutationError = RsData
+    export type UpdateKitOptionsMutationVariables = {raceId: number;data: KitOptionsSaveRequestDto}
+
+    /**
+ * @summary 키트 옵션 수정
+ */
+export const useUpdateKitOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateKitOptions>>, TError,UpdateKitOptionsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof updateKitOptions>>,
+        TError,
+        UpdateKitOptionsMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateKitOptionsMutationOptions(options), queryClient);
+    }
+
+export const getRegisterKitOptionsUrl = (raceId: number,) => {
+
+
+
+
+  return `/api/v1/product/races/${raceId}/kit-options`
+}
+
+/**
+ * 본인 대회에 키트 옵션을 처음 등록한다. 대회는 키트 옵션 없이 등록하고, 키트 생성 화면에서 만든 옵션을 이 API로 붙인다. 옵션은 1개 이상 보내고, 이미 옵션을 등록한 대회는 키트 옵션 수정으로 바꾼다. 판매 시작 전(판매 시작일 0시 전)에만 등록할 수 있다. 판매가 시작된 대회, 취소된 대회, 판매가 끝난 대회에는 등록할 수 없다. 응답은 키트 옵션 목록 조회와 같은 모양이다.
+ * @summary 키트 옵션 등록
+ */
+export const registerKitOptions = async (raceId: number,
+    kitOptionsSaveRequestDto: KitOptionsSaveRequestDto, options?: Parameters<typeof customFetch>[1]): Promise<RsDataKitOptionListDto> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<RsDataKitOptionListDto>(getRegisterKitOptionsUrl(raceId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(kitOptionsSaveRequestDto)
+  }
+);}
+
+
+
+
+
+export const getRegisterKitOptionsMutationKey = () => ['registerKitOptions'] as const;
+
+export const getRegisterKitOptionsMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerKitOptions>>, TError,RegisterKitOptionsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof registerKitOptions>>, TError,RegisterKitOptionsMutationVariables, TContext> => {
+
+const mutationKey = getRegisterKitOptionsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof registerKitOptions>>, RegisterKitOptionsMutationVariables> = (props) => {
+          const {raceId,data} = props ?? {};
+
+          return  registerKitOptions(raceId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RegisterKitOptionsMutationResult = NonNullable<Awaited<ReturnType<typeof registerKitOptions>>>
+    export type RegisterKitOptionsMutationBody = KitOptionsSaveRequestDto
+    export type RegisterKitOptionsMutationError = RsData
+    export type RegisterKitOptionsMutationVariables = {raceId: number;data: KitOptionsSaveRequestDto}
+
+    /**
+ * @summary 키트 옵션 등록
+ */
+export const useRegisterKitOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerKitOptions>>, TError,RegisterKitOptionsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof registerKitOptions>>,
+        TError,
+        RegisterKitOptionsMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRegisterKitOptionsMutationOptions(options), queryClient);
+    }
+
+export const getResendUrl = (id: number,) => {
+
+
+
+
+  return `/internal/v1/product/kafka-failures/${id}/resend`
+}
+
+/**
+ * 처리 실패 상태의 메시지를 message-id 헤더째 product의 첫 재시도 토픽으로 다시 보내고 다시 보냄으로 바꾼다. product만 다시 받고(같은 토픽을 받는 다른 서비스는 받지 않음), 처리되면 처리 완료로, 또 실패하면 처리 실패로 돌아가 Slack으로 다시 알린다. Kafka로 보내지 못하면 처리 실패로 되돌리고 503으로 응답한다.
+ * @summary 처리 실패 메시지 다시 보내기
+ */
+export const resend = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getResendUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getResendMutationKey = () => ['resend'] as const;
+
+export const getResendMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resend>>, TError,ResendMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resend>>, TError,ResendMutationVariables, TContext> => {
+
+const mutationKey = getResendMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resend>>, ResendMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  resend(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResendMutationResult = NonNullable<Awaited<ReturnType<typeof resend>>>
+
+    export type ResendMutationError = RsData
+    export type ResendMutationVariables = {id: number}
+
+    /**
+ * @summary 처리 실패 메시지 다시 보내기
+ */
+export const useResend = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resend>>, TError,ResendMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof resend>>,
+        TError,
+        ResendMutationVariables,
+        TContext
+      > => {
+      return useMutation(getResendMutationOptions(options), queryClient);
+    }
+
+export const getCompleteUrl = (id: number,) => {
+
+
+
+
+  return `/internal/v1/product/kafka-failures/${id}/complete`
+}
+
+/**
+ * 원인을 직접 고쳤거나 버릴 메시지를 메모와 함께 처리 완료로 닫는다. 처리 완료가 아니면(처리 실패, 다시 보냄) 닫을 수 있다.
+ * @summary 처리 실패 메시지 처리 완료
+ */
+export const complete = async (id: number,
+    dltCompleteRequestDto: DltCompleteRequestDto, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<unknown>(getCompleteUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(dltCompleteRequestDto)
+  }
+);}
+
+
+
+
+
+export const getCompleteMutationKey = () => ['complete'] as const;
+
+export const getCompleteMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof complete>>, TError,CompleteMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof complete>>, TError,CompleteMutationVariables, TContext> => {
+
+const mutationKey = getCompleteMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof complete>>, CompleteMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  complete(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CompleteMutationResult = NonNullable<Awaited<ReturnType<typeof complete>>>
+    export type CompleteMutationBody = DltCompleteRequestDto
+    export type CompleteMutationError = RsData
+    export type CompleteMutationVariables = {id: number;data: DltCompleteRequestDto}
+
+    /**
+ * @summary 처리 실패 메시지 처리 완료
+ */
+export const useComplete = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof complete>>, TError,CompleteMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof complete>>,
+        TError,
+        CompleteMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCompleteMutationOptions(options), queryClient);
+    }
+
+export const getHoldUrl = () => {
+
+
+
+
+  return `/internal/v1/product/holds`
+}
+
+/**
+ * 참가자가 [결제하기]를 누르면 개인 자리 1석을 결제 대기로 확보한다. 남은 자리가 없으면 held=false(매진)로 응답한다. 자리는 요청한 끝 시각(대기열 활성 시간이 끝나는 시각)까지만 유지하고, 끝나면 주문 서비스가 Kafka로 해제를 알린다. 같은 참가 신청 ID로 다시 요청하면 새 자리를 잡지 않고 처음 결과를 돌려준다. 판매 예정·판매 중인 대회의 개인 예매 오픈부터 접수 마감 전까지만 확보할 수 있다.
+ * @summary 개인 자리 확보
+ */
+export const hold = async (holdRequestDto: HoldRequestDto, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<unknown>(getHoldUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(holdRequestDto)
+  }
+);}
+
+
+
+
+
+export const getHoldMutationKey = () => ['hold'] as const;
+
+export const getHoldMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof hold>>, TError,HoldMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof hold>>, TError,HoldMutationVariables, TContext> => {
+
+const mutationKey = getHoldMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof hold>>, HoldMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  hold(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type HoldMutationResult = NonNullable<Awaited<ReturnType<typeof hold>>>
+    export type HoldMutationBody = HoldRequestDto
+    export type HoldMutationError = RsData
+    export type HoldMutationVariables = {data: HoldRequestDto}
+
+    /**
+ * @summary 개인 자리 확보
+ */
+export const useHold = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof hold>>, TError,HoldMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof hold>>,
+        TError,
+        HoldMutationVariables,
+        TContext
+      > => {
+      return useMutation(getHoldMutationOptions(options), queryClient);
+    }
+
+export const getSellUrl = (participationId: number,) => {
+
+
+
+
+  return `/internal/v1/product/holds/${participationId}/sell`
+}
+
+/**
+ * 결제가 끝난 결제 대기 자리를 판매로 바꾼다. 끝 시각이 지났거나 이미 해제된 자리, 취소된 대회의 자리는 판매하지 않고 result=EXPIRED로 응답한다(주문 서비스는 결제를 취소하고 예치금을 돌려준다). 이미 판매한 자리면 끝 시각과 상관없이 SOLD로 응답한다(같은 주문으로 다시 결제할 때).
+ * @summary 자리 판매
+ */
+export const sell = async (participationId: number, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getSellUrl(participationId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getSellMutationKey = () => ['sell'] as const;
+
+export const getSellMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sell>>, TError,SellMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sell>>, TError,SellMutationVariables, TContext> => {
+
+const mutationKey = getSellMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sell>>, SellMutationVariables> = (props) => {
+          const {participationId} = props ?? {};
+
+          return  sell(participationId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SellMutationResult = NonNullable<Awaited<ReturnType<typeof sell>>>
+
+    export type SellMutationError = RsData
+    export type SellMutationVariables = {participationId: number}
+
+    /**
+ * @summary 자리 판매
+ */
+export const useSell = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sell>>, TError,SellMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof sell>>,
+        TError,
+        SellMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSellMutationOptions(options), queryClient);
+    }
+
+export const getHold1Url = () => {
+
+
+
+
+  return `/internal/v1/product/crew-holds`
+}
+
+/**
+ * 파티장이 [대회 참가]를 누르면 파티원 수만큼 크루 자리를 결제 대기로 한꺼번에 확보한다. 종목 하나라도 남은 크루 자리가 모자라면 한 석도 잡지 않고 held=false와 모자란 종목(필요한 수·남은 수)으로 응답한다. 자리는 요청한 끝 시각(파티원 결제 기한)까지만 유지한다. 같은 파티 ID로 다시 요청하면 새 자리를 잡지 않고 처음 결과를 돌려주고, 자리 목록이 처음과 다르면 409로 응답한다. 판매 예정·판매 중인 대회의 크루 예매 시작부터 크루 예매 마감 전까지(접수 마감 전)만 확보할 수 있다.
+ * @summary 크루 자리 확보
+ */
+export const hold1 = async (crewHoldRequestDto: CrewHoldRequestDto, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<unknown>(getHold1Url(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(crewHoldRequestDto)
+  }
+);}
+
+
+
+
+
+export const getHold1MutationKey = () => ['hold1'] as const;
+
+export const getHold1MutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof hold1>>, TError,Hold1MutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof hold1>>, TError,Hold1MutationVariables, TContext> => {
+
+const mutationKey = getHold1MutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof hold1>>, Hold1MutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  hold1(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type Hold1MutationResult = NonNullable<Awaited<ReturnType<typeof hold1>>>
+    export type Hold1MutationBody = CrewHoldRequestDto
+    export type Hold1MutationError = RsData
+    export type Hold1MutationVariables = {data: CrewHoldRequestDto}
+
+    /**
+ * @summary 크루 자리 확보
+ */
+export const useHold1 = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof hold1>>, TError,Hold1MutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof hold1>>,
+        TError,
+        Hold1MutationVariables,
+        TContext
+      > => {
+      return useMutation(getHold1MutationOptions(options), queryClient);
+    }
+
 export const getSearchUrl = (params?: SearchParams,) => {
   const normalizedParams = new URLSearchParams();
 
@@ -274,7 +982,7 @@ export const getSearchUrl = (params?: SearchParams,) => {
 }
 
 /**
- * 판매 예정·판매 중이고 아직 접수 마감 전인 대회를 찾는다. 로그인하지 않아도 된다. 검색어는 대회명·장소·종목명·지역·소개에서 찾고, 단어는 하나만 맞아도 나온다(예: '충남 트레일'). 오타는 단어 길이에 따라 허용한다(1~2글자 단어는 허용 안 함, 3~5글자는 1글자, 6글자 이상은 2글자). 정확도순은 대회명에서 맞으면 3배, 장소에서 맞으면 2배 점수를 준다. 정렬을 보내지 않으면 검색어가 있을 때 정확도순, 없을 때 마감 임박순이다. 종목 조건(종목 구분·노면·거리·참가비)은 종목 하나라도 맞으면 그 대회가 나온다. 종목이 여러 개인 대회도 한 줄로 나온다. 가격 낮은순과 최저가(minPrice)는 조건에 맞은 종목 중 가장 싼 종목 기준이다(조건이 없으면 대회에서 가장 싼 종목). 최신 등록순은 대회 등록 일시 기준이다. 목록 카드는 대회 정보로 만든 색 포스터를 쓰므로 이미지는 주지 않는다. 판매 상태(saleStatus)와 판매 시작일(saleOpenDate)은 판매자 화면용이다. 구매자 화면은 크루 예매 기간·개인 예매 오픈·접수 마감 일시로 오픈 예정·예매 중·마감을 보여 준다.
+ * 판매 예정·판매 중·판매 중지이고 아직 접수 마감 전인 대회를 찾는다. 로그인하지 않아도 된다. 검색어는 대회명·장소·종목명·지역·소개에서 찾고, 단어는 하나만 맞아도 나온다(예: '충남 트레일'). 오타는 단어 길이에 따라 허용한다(1~2글자 단어는 허용 안 함, 3~5글자는 1글자, 6글자 이상은 2글자). 정확도순은 대회명에서 맞으면 3배, 장소에서 맞으면 2배 점수를 준다. 정렬을 보내지 않으면 검색어가 있을 때 정확도순, 없을 때 마감 임박순이다. 종목 조건(종목 구분·노면·거리·참가비)은 종목 하나라도 맞으면 그 대회가 나온다. 종목이 여러 개인 대회도 한 줄로 나온다. 가격 낮은순과 최저가(minPrice)는 조건에 맞은 종목 중 가장 싼 종목 기준이다(조건이 없으면 대회에서 가장 싼 종목). 최신 등록순은 대회 등록 일시 기준이다. 목록 카드는 대회 정보로 만든 색 포스터를 쓰므로 이미지는 주지 않는다. 판매 상태(saleStatus)와 판매 시작일(saleOpenDate)은 판매자 화면용이다. 구매자 화면은 크루 예매 기간·개인 예매 오픈·접수 마감 일시로 오픈 예정·예매 중·마감을 보여 준다.
  * @summary 공개 대회 목록
  */
 export const search = async (params?: SearchParams, options?: Parameters<typeof customFetch>[1]): Promise<RsDataRacePageDto> => {
@@ -376,7 +1084,7 @@ export const getRegisterUrl = () => {
 }
 
 /**
- * 승인된 판매자가 대회와 종목을 판매 예정(SCHEDULED)으로 등록하고, 등록하면 바로 공개된다. 판매 시작일(saleOpenDate)은 크루 예매 시작·개인 예매 오픈 중 이른 날짜로 채우고, 오늘로부터 이틀 뒤부터 정할 수 있다. 판매 시작일 0시에 상태 배치(5분마다)가 판매 중으로 바꾸고, 이때부터 판매 시작 뒤 수정 규칙이 걸린다. 판매 상태는 판매자 화면용이고, 구매자는 크루 예매 시작·개인 예매 오픈 시각부터 예매할 수 있다. 이미지는 종목마다 받고(대표 이미지 1장 필수), 등록이 커밋된 뒤 file-service에 연결을 요청한다. 파일이 없거나 본인이 올린 파일이 아니어서 연결에 실패하면 응답에는 나오지 않고 file-service 로그에 남는다.
+ * 승인된 판매자가 대회와 종목을 판매 예정(SCHEDULED)으로 등록하고, 등록하면 바로 공개된다. 판매 시작일(saleOpenDate)은 크루 예매 시작·개인 예매 오픈 중 이른 날짜로 채우고, 오늘로부터 이틀 뒤부터 정할 수 있다. 판매 시작일 0시 정각에 상태 배치(5분 정각마다)가 판매 중으로 바꾸고, 이때부터 판매 시작 뒤 수정 규칙이 걸린다. 판매 상태는 판매자 화면용이고, 구매자는 크루 예매 시작·개인 예매 오픈 시각부터 예매할 수 있다. 이미지는 종목마다 받고(대표 이미지 1장 필수), 등록이 커밋된 뒤 file-service에 연결을 요청한다. 파일이 없거나 본인이 올린 파일이 아니어서 연결에 실패하면 응답에는 나오지 않고 file-service 로그에 남는다. 같은 판매자가 같은 Idempotency-Key로 다시 보내면 새로 등록하지 않고 처음 대회를 200으로 돌려준다.
  * @summary 대회 등록
  */
 export const register = async (raceSaveRequestDto: RaceSaveRequestDto, options?: Parameters<typeof customFetch>[1]): Promise<RsDataRaceSaveDto> => {
@@ -456,6 +1164,156 @@ export const useRegister = <TError = RsData,
       return useMutation(getRegisterMutationOptions(options), queryClient);
     }
 
+export const getStopUrl = (raceId: number,) => {
+
+
+
+
+  return `/api/v1/product/races/${raceId}/stop`
+}
+
+/**
+ * 본인이 등록한 판매 중인 대회의 판매를 멈춘다(판매 중지). 접수 마감 전까지만 멈출 수 있고, 판매 시작 전(판매 예정)에는 멈추지 않고 대회 수정으로 일정을 바꾼다. 멈춘 대회는 검색·상세에는 그대로 나오지만 대기열 입장과 새 자리 확보가 막힌다. 이미 잡은 결제 대기 자리는 결제 기한 안에 결제하면 참가 확정이다. 멈춘 동안 수정은 판매 중과 같은 규칙이다. 다시 열기 전에 대회일이 지나면 대회일 다음 날 0시에 판매 종료로 바뀐다.
+ * @summary 판매 중지
+ */
+export const stop = async (raceId: number, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getStopUrl(raceId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getStopMutationKey = () => ['stop'] as const;
+
+export const getStopMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof stop>>, TError,StopMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof stop>>, TError,StopMutationVariables, TContext> => {
+
+const mutationKey = getStopMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof stop>>, StopMutationVariables> = (props) => {
+          const {raceId} = props ?? {};
+
+          return  stop(raceId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type StopMutationResult = NonNullable<Awaited<ReturnType<typeof stop>>>
+
+    export type StopMutationError = RsData
+    export type StopMutationVariables = {raceId: number}
+
+    /**
+ * @summary 판매 중지
+ */
+export const useStop = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof stop>>, TError,StopMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof stop>>,
+        TError,
+        StopMutationVariables,
+        TContext
+      > => {
+      return useMutation(getStopMutationOptions(options), queryClient);
+    }
+
+export const getResumeUrl = (raceId: number,) => {
+
+
+
+
+  return `/api/v1/product/races/${raceId}/resume`
+}
+
+/**
+ * 본인이 멈춘 대회의 판매를 다시 연다(판매 중). 접수 마감 전까지만 열 수 있다. 다시 열면 대기열 입장과 자리 확보가 다시 된다.
+ * @summary 판매 다시 열기
+ */
+export const resume = async (raceId: number, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getResumeUrl(raceId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getResumeMutationKey = () => ['resume'] as const;
+
+export const getResumeMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resume>>, TError,ResumeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resume>>, TError,ResumeMutationVariables, TContext> => {
+
+const mutationKey = getResumeMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resume>>, ResumeMutationVariables> = (props) => {
+          const {raceId} = props ?? {};
+
+          return  resume(raceId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResumeMutationResult = NonNullable<Awaited<ReturnType<typeof resume>>>
+
+    export type ResumeMutationError = RsData
+    export type ResumeMutationVariables = {raceId: number}
+
+    /**
+ * @summary 판매 다시 열기
+ */
+export const useResume = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resume>>, TError,ResumeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof resume>>,
+        TError,
+        ResumeMutationVariables,
+        TContext
+      > => {
+      return useMutation(getResumeMutationOptions(options), queryClient);
+    }
+
 export const getCancelUrl = (raceId: number,) => {
 
 
@@ -531,6 +1389,435 @@ export const useCancel = <TError = RsData,
       return useMutation(getCancelMutationOptions(options), queryClient);
     }
 
+export const getFindByRefundDeadlineUrl = (params: FindByRefundDeadlineParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/internal/v1/product/races/by-refund-deadline?${stringifiedParams}` : `/internal/v1/product/races/by-refund-deadline`
+}
+
+/**
+ * 정산 서비스가 1차 정산 생성 배치에서 부른다. 환불 마감일이 from ~ to(양 끝 포함, 최대 31일)인 대회를 환불 마감일, 대회 ID 순으로 돌려준다. 취소된 대회는 빼고, 판매 중지 대회는 넣는다. 필드는 정산 서비스 RaceSchedule과 같고, raceName은 대회명, raceDate는 대회 일시다.
+ * @summary 환불 마감일 기간으로 대회 조회
+ */
+export const findByRefundDeadline = async (params: FindByRefundDeadlineParams, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getFindByRefundDeadlineUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getFindByRefundDeadlineQueryKey = (params?: FindByRefundDeadlineParams,) => {
+    return [
+    `/internal/v1/product/races/by-refund-deadline`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getFindByRefundDeadlineQueryOptions = <TData = Awaited<ReturnType<typeof findByRefundDeadline>>, TError = RsData>(params: FindByRefundDeadlineParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findByRefundDeadline>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getFindByRefundDeadlineQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof findByRefundDeadline>>> = ({ signal }) => findByRefundDeadline(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof findByRefundDeadline>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type FindByRefundDeadlineQueryResult = NonNullable<Awaited<ReturnType<typeof findByRefundDeadline>>>
+export type FindByRefundDeadlineQueryError = RsData
+
+
+export function useFindByRefundDeadline<TData = Awaited<ReturnType<typeof findByRefundDeadline>>, TError = RsData>(
+ params: FindByRefundDeadlineParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof findByRefundDeadline>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findByRefundDeadline>>,
+          TError,
+          Awaited<ReturnType<typeof findByRefundDeadline>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindByRefundDeadline<TData = Awaited<ReturnType<typeof findByRefundDeadline>>, TError = RsData>(
+ params: FindByRefundDeadlineParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findByRefundDeadline>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findByRefundDeadline>>,
+          TError,
+          Awaited<ReturnType<typeof findByRefundDeadline>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindByRefundDeadline<TData = Awaited<ReturnType<typeof findByRefundDeadline>>, TError = RsData>(
+ params: FindByRefundDeadlineParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findByRefundDeadline>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 환불 마감일 기간으로 대회 조회
+ */
+
+export function useFindByRefundDeadline<TData = Awaited<ReturnType<typeof findByRefundDeadline>>, TError = RsData>(
+ params: FindByRefundDeadlineParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findByRefundDeadline>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getFindByRefundDeadlineQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getFindByRaceDateUrl = (params: FindByRaceDateParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/internal/v1/product/races/by-race-date?${stringifiedParams}` : `/internal/v1/product/races/by-race-date`
+}
+
+/**
+ * 정산 서비스가 최종 정산 생성 배치에서 부른다. 대회 날짜가 from ~ to(양 끝 포함, 최대 31일)인 대회를 대회 일시, 대회 ID 순으로 돌려준다. 취소된 대회는 빼고, 판매 중지 대회는 넣는다. 필드는 정산 서비스 RaceSchedule과 같고, raceName은 대회명, raceDate는 대회 일시다.
+ * @summary 대회일 기간으로 대회 조회
+ */
+export const findByRaceDate = async (params: FindByRaceDateParams, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getFindByRaceDateUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getFindByRaceDateQueryKey = (params?: FindByRaceDateParams,) => {
+    return [
+    `/internal/v1/product/races/by-race-date`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getFindByRaceDateQueryOptions = <TData = Awaited<ReturnType<typeof findByRaceDate>>, TError = RsData>(params: FindByRaceDateParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findByRaceDate>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getFindByRaceDateQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof findByRaceDate>>> = ({ signal }) => findByRaceDate(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof findByRaceDate>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type FindByRaceDateQueryResult = NonNullable<Awaited<ReturnType<typeof findByRaceDate>>>
+export type FindByRaceDateQueryError = RsData
+
+
+export function useFindByRaceDate<TData = Awaited<ReturnType<typeof findByRaceDate>>, TError = RsData>(
+ params: FindByRaceDateParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof findByRaceDate>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findByRaceDate>>,
+          TError,
+          Awaited<ReturnType<typeof findByRaceDate>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindByRaceDate<TData = Awaited<ReturnType<typeof findByRaceDate>>, TError = RsData>(
+ params: FindByRaceDateParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findByRaceDate>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findByRaceDate>>,
+          TError,
+          Awaited<ReturnType<typeof findByRaceDate>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindByRaceDate<TData = Awaited<ReturnType<typeof findByRaceDate>>, TError = RsData>(
+ params: FindByRaceDateParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findByRaceDate>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 대회일 기간으로 대회 조회
+ */
+
+export function useFindByRaceDate<TData = Awaited<ReturnType<typeof findByRaceDate>>, TError = RsData>(
+ params: FindByRaceDateParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findByRaceDate>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getFindByRaceDateQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListUrl = (params?: ListParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/internal/v1/product/kafka-failures?${stringifiedParams}` : `/internal/v1/product/kafka-failures`
+}
+
+/**
+ * 상태별 DLT 실패 행을 최근 것부터 size건 돌려준다. 상태를 빼면 처리 실패(사람이 봐야 하는 메시지)를 보여 준다.
+ * @summary 처리 실패 메시지 목록
+ */
+export const list = async (params?: ListParams, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getListUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListQueryKey = (params?: ListParams,) => {
+    return [
+    `/internal/v1/product/kafka-failures`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListQueryOptions = <TData = Awaited<ReturnType<typeof list>>, TError = RsData>(params?: ListParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof list>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof list>>> = ({ signal }) => list(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof list>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ListQueryResult = NonNullable<Awaited<ReturnType<typeof list>>>
+export type ListQueryError = RsData
+
+
+export function useList<TData = Awaited<ReturnType<typeof list>>, TError = RsData>(
+ params: undefined |  ListParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof list>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof list>>,
+          TError,
+          Awaited<ReturnType<typeof list>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useList<TData = Awaited<ReturnType<typeof list>>, TError = RsData>(
+ params?: ListParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof list>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof list>>,
+          TError,
+          Awaited<ReturnType<typeof list>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useList<TData = Awaited<ReturnType<typeof list>>, TError = RsData>(
+ params?: ListParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof list>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 처리 실패 메시지 목록
+ */
+
+export function useList<TData = Awaited<ReturnType<typeof list>>, TError = RsData>(
+ params?: ListParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof list>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getFindCourseInfoUrl = (raceCourseId: number,) => {
+
+
+
+
+  return `/internal/v1/product/courses/${raceCourseId}`
+}
+
+/**
+ * 참가 신청·결제·취소에 필요한 종목과 대회 정보를 돌려준다. 필드 이름은 주문 서비스 RaceCourseInfo와 같다. title은 대회명, course는 종목명, courseName은 주문 상품명으로 남길 '대회명 종목명'이다. price가 구매자가 내는 참가권 한 장 값이고 kitPrice는 그 안에 포함된 키트 금액이다(더하지 않는다). scheduleChangedAt은 판매 시작 뒤 대회 일시·장소를 바꾼 일시로, 이날부터 7일 동안 전액 환불이다.
+ * @summary 주문용 종목 정보 조회
+ */
+export const findCourseInfo = async (raceCourseId: number, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getFindCourseInfoUrl(raceCourseId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getFindCourseInfoQueryKey = (raceCourseId: number,) => {
+    return [
+    `/internal/v1/product/courses/${raceCourseId}`
+    ] as const;
+    }
+
+
+export const getFindCourseInfoQueryOptions = <TData = Awaited<ReturnType<typeof findCourseInfo>>, TError = RsData>(raceCourseId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findCourseInfo>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getFindCourseInfoQueryKey(raceCourseId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof findCourseInfo>>> = ({ signal }) => findCourseInfo(raceCourseId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: raceCourseId !== null && raceCourseId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof findCourseInfo>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type FindCourseInfoQueryResult = NonNullable<Awaited<ReturnType<typeof findCourseInfo>>>
+export type FindCourseInfoQueryError = RsData
+
+
+export function useFindCourseInfo<TData = Awaited<ReturnType<typeof findCourseInfo>>, TError = RsData>(
+ raceCourseId: number, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof findCourseInfo>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findCourseInfo>>,
+          TError,
+          Awaited<ReturnType<typeof findCourseInfo>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindCourseInfo<TData = Awaited<ReturnType<typeof findCourseInfo>>, TError = RsData>(
+ raceCourseId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findCourseInfo>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findCourseInfo>>,
+          TError,
+          Awaited<ReturnType<typeof findCourseInfo>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindCourseInfo<TData = Awaited<ReturnType<typeof findCourseInfo>>, TError = RsData>(
+ raceCourseId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findCourseInfo>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 주문용 종목 정보 조회
+ */
+
+export function useFindCourseInfo<TData = Awaited<ReturnType<typeof findCourseInfo>>, TError = RsData>(
+ raceCourseId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findCourseInfo>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getFindCourseInfoQueryOptions(raceCourseId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getSuggestUrl = (params: SuggestParams,) => {
   const normalizedParams = new URLSearchParams();
 
@@ -547,7 +1834,7 @@ export const getSuggestUrl = (params: SuggestParams,) => {
 }
 
 /**
- * 입력한 글자로 시작하는 대회명과 종목명('대회명 종목명')을 각각 5개까지 찾는다. 로그인하지 않아도 된다. 공개 목록과 같은 대회(판매 예정·판매 중, 접수 마감 전)에서만 찾는다.
+ * 입력한 글자로 시작하는 대회명과 종목명('대회명 종목명')을 각각 5개까지 찾는다. 로그인하지 않아도 된다. 공개 목록과 같은 대회(판매 예정·판매 중·판매 중지, 접수 마감 전)에서만 찾는다.
  * @summary 검색창 연관검색어
  */
 export const suggest = async (params: SuggestParams, options?: Parameters<typeof customFetch>[1]): Promise<RsDataRaceSuggestionDto> => {

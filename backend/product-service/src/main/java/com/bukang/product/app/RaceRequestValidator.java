@@ -2,7 +2,6 @@ package com.bukang.product.app;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -16,7 +15,6 @@ import org.springframework.stereotype.Component;
 import com.bukang.common.shared.file.domain.FileType;
 import com.bukang.product.domain.KitOption;
 import com.bukang.product.domain.Race;
-import com.bukang.product.domain.TshirtSize;
 import com.bukang.product.domain.exception.InvalidRaceException;
 import com.bukang.product.dto.KitOptionSaveRequestDto;
 import com.bukang.product.dto.RaceCourseSaveRequestDto;
@@ -41,12 +39,12 @@ public class RaceRequestValidator {
 		boolean hasCrewSale = request.getCrewSaleStartAt() != null;
 		request.getCourses().forEach(course -> validateCourse(course, hasCrewSale));
 		validateImages(request);
-		validateKitOptions(request.getKitOptions());
 	}
 
+	// 키트 옵션 등록·수정 요청 검사 (키트 옵션은 대회 등록·수정과 따로 받는다, BUK-137)
 	// 같은 (이름, 값)은 한 번만 쓴다. 대소문자만 다른 것도 같은 옵션으로 본다 (KitOption.Key)
 	// 같은 이름은 대소문자까지 똑같이 쓴다. 다르면 목록 조회에서 이름이 둘로 묶여 선택 상자가 둘 생긴다
-	private void validateKitOptions(List<KitOptionSaveRequestDto> kitOptions) {
+	public void validateKitOptions(List<KitOptionSaveRequestDto> kitOptions) {
 		Set<KitOption.Key> seenKeys = new HashSet<>();
 		Map<String, String> nameByLowerName = new HashMap<>();
 		for (KitOptionSaveRequestDto option : kitOptions) {
@@ -104,22 +102,6 @@ public class RaceRequestValidator {
 		}
 		if (course.getCrewQuota() + course.getIndividualQuota() == 0) {
 			throw new InvalidRaceException(withCourse("정원은 1명 이상이어야 합니다.", course));
-		}
-		validateTshirtSizes(course);
-	}
-
-	// 티셔츠는 키트에 들어 있으므로 키트가 없는 종목은 사이즈를 받지 않는다
-	private void validateTshirtSizes(RaceCourseSaveRequestDto course) {
-		List<TshirtSize> sizes = course.getTshirtSizeOption();
-		if (!sizes.isEmpty() && !course.getKitIncluded()) {
-			throw new InvalidRaceException(withCourse("키트가 없는 종목은 티셔츠 사이즈를 작성할 수 없습니다.", course));
-		}
-		Set<TshirtSize> seenSizes = EnumSet.noneOf(TshirtSize.class);
-		for (TshirtSize size : sizes) {
-			if (!seenSizes.add(size)) {
-				throw new InvalidRaceException(
-					withCourse("같은 티셔츠 사이즈(%s)를 두 번 작성할 수 없습니다.".formatted(size), course));
-			}
 		}
 	}
 

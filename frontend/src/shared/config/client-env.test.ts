@@ -18,6 +18,7 @@ describe('parseClientEnv', () => {
       NEXT_PUBLIC_CLARITY_ID: undefined,
       NEXT_PUBLIC_PORTONE_STORE_ID: undefined,
       NEXT_PUBLIC_PORTONE_IDENTITY_CHANNEL_KEY: undefined,
+      NEXT_PUBLIC_KAKAO_JS_KEY: undefined,
       NEXT_PUBLIC_API_MOCKING: 'off',
     })
   })
@@ -31,6 +32,7 @@ describe('parseClientEnv', () => {
         NEXT_PUBLIC_CLARITY_ID: 'abc123',
         NEXT_PUBLIC_PORTONE_STORE_ID: 'store-1',
         NEXT_PUBLIC_PORTONE_IDENTITY_CHANNEL_KEY: 'channel-key',
+        NEXT_PUBLIC_KAKAO_JS_KEY: '0123456789abcdef0123456789ABCDEF',
         NEXT_PUBLIC_API_MOCKING: 'on',
       }),
     ).toEqual({
@@ -40,6 +42,7 @@ describe('parseClientEnv', () => {
       NEXT_PUBLIC_CLARITY_ID: 'abc123',
       NEXT_PUBLIC_PORTONE_STORE_ID: 'store-1',
       NEXT_PUBLIC_PORTONE_IDENTITY_CHANNEL_KEY: 'channel-key',
+      NEXT_PUBLIC_KAKAO_JS_KEY: '0123456789abcdef0123456789ABCDEF',
       NEXT_PUBLIC_API_MOCKING: 'on',
     })
   })
@@ -59,6 +62,12 @@ describe('parseClientEnv', () => {
   it('Clarity ID에 영문 · 숫자가 아닌 글자가 있으면 멈춘다', () => {
     expect(() => parseClientEnv({ NEXT_PUBLIC_CLARITY_ID: 'abc"/><script>' })).toThrow(
       'Clarity ID는 영문 · 숫자만 씁니다.',
+    )
+  })
+
+  it('카카오 JavaScript 키가 32자리 16진수가 아니면 멈춘다', () => {
+    expect(() => parseClientEnv({ NEXT_PUBLIC_KAKAO_JS_KEY: 'abc"/><script>' })).toThrow(
+      '카카오 JavaScript 키는 32자리 16진수입니다.',
     )
   })
 

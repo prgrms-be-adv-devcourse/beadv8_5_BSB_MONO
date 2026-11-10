@@ -63,10 +63,6 @@ final class RaceApiExamples {
 		}
 		""";
 
-	static final String TSHIRT_SIZE_WITHOUT_KIT = """
-		{ "status": 400, "message": "키트가 없는 종목은 티셔츠 사이즈를 작성할 수 없습니다. (종목: 10K)", "data": null }
-		""";
-
 	static final String KIT_PRICE_OVER_PRICE = """
 		{ "status": 400, "message": "키트 금액은 참가비보다 클 수 없습니다. (종목: 10K)", "data": null }
 		""";
@@ -163,10 +159,6 @@ final class RaceApiExamples {
 		{ "status": 409, "message": "판매가 시작된 종목은 참가 조건(거리)을 바꿀 수 없습니다. (종목: 10K)", "data": null }
 		""";
 
-	static final String TSHIRT_SIZE_CHANGED = """
-		{ "status": 409, "message": "판매가 시작된 종목은 티셔츠 사이즈를 바꿀 수 없습니다. (종목: 10K)", "data": null }
-		""";
-
 	static final String SCHEDULE_PASSED = """
 		{ "status": 409, "message": "이미 지난 크루 예매 시작 일시는 바꿀 수 없습니다.", "data": null }
 		""";
@@ -214,6 +206,60 @@ final class RaceApiExamples {
 
 	static final String CANCEL_STATUS_CHANGED = """
 		{ "status": 409, "message": "대회 상태가 바뀌어 취소하지 못했습니다. 다시 조회해 주세요.", "data": null }
+		""";
+
+	static final String STOP_SUCCESS = """
+		{
+			"status": 200,
+			"message": "대회 판매를 멈췄습니다.",
+			"data": {
+				"raceId": 1,
+				"saleStatus": "STOPPED",
+				"saleOpenDate": "2026-10-20",
+				"courseIds": [1]
+			}
+		}
+		""";
+
+	static final String RESUME_SUCCESS = """
+		{
+			"status": 200,
+			"message": "대회 판매를 다시 열었습니다.",
+			"data": {
+				"raceId": 1,
+				"saleStatus": "ON_SALE",
+				"saleOpenDate": "2026-10-20",
+				"courseIds": [1]
+			}
+		}
+		""";
+
+	static final String STOP_BEFORE_SALE = """
+		{
+			"status": 409,
+			"message": "판매 중인 대회만 판매를 멈출 수 있습니다. 판매 시작 전에는 대회 수정으로 일정을 바꿔 주세요.",
+			"data": null
+		}
+		""";
+
+	static final String ALREADY_STOPPED = """
+		{ "status": 409, "message": "이미 판매를 멈춘 대회입니다.", "data": null }
+		""";
+
+	static final String STOP_AFTER_APPLICATION_CLOSE = """
+		{ "status": 409, "message": "접수 마감이 지난 대회는 판매를 멈출 수 없습니다.", "data": null }
+		""";
+
+	static final String RESUME_NOT_STOPPED = """
+		{ "status": 409, "message": "판매를 멈춘 대회만 다시 열 수 있습니다.", "data": null }
+		""";
+
+	static final String RESUME_AFTER_APPLICATION_CLOSE = """
+		{ "status": 409, "message": "접수 마감이 지나 판매를 다시 열 수 없습니다.", "data": null }
+		""";
+
+	static final String SALE_STATUS_CHANGED = """
+		{ "status": 409, "message": "대회 상태가 바뀌어 처리하지 못했습니다. 다시 조회해 주세요.", "data": null }
 		""";
 
 	static final String SEARCH_SUCCESS = """
@@ -326,6 +372,73 @@ final class RaceApiExamples {
 		}
 		""";
 
+	static final String KIT_OPTIONS_REGISTER_SUCCESS = """
+		{
+			"status": 201,
+			"message": "키트 옵션을 등록했습니다.",
+			"data": {
+				"raceId": 1,
+				"kitOptions": [
+					{
+						"name": "T-shirt",
+						"values": [
+							{ "kitOptionId": 11, "value": "M", "stock": 100 },
+							{ "kitOptionId": 12, "value": "L", "stock": 80 }
+						]
+					}
+				]
+			}
+		}
+		""";
+
+	static final String KIT_OPTIONS_UPDATE_SUCCESS = """
+		{
+			"status": 200,
+			"message": "키트 옵션을 수정했습니다.",
+			"data": {
+				"raceId": 1,
+				"kitOptions": [
+					{
+						"name": "T-shirt",
+						"values": [
+							{ "kitOptionId": 11, "value": "M", "stock": 120 },
+							{ "kitOptionId": 12, "value": "L", "stock": 80 },
+							{ "kitOptionId": 13, "value": "XL", "stock": 50 }
+						]
+					}
+				]
+			}
+		}
+		""";
+
+	static final String KIT_OPTIONS_INVALID_INPUT = """
+		{ "status": 400, "message": "키트 옵션 이름을 작성해주세요.", "data": null }
+		""";
+
+	static final String KIT_OPTIONS_EMPTY = """
+		{ "status": 400, "message": "키트 옵션을 1개 이상 작성해주세요.", "data": null }
+		""";
+
+	static final String KIT_OPTIONS_ALREADY_REGISTERED = """
+		{ "status": 409, "message": "이미 키트 옵션을 등록한 대회입니다. 키트 옵션 수정으로 바꿔 주세요.", "data": null }
+		""";
+
+	static final String KIT_OPTIONS_AFTER_SALE_START = """
+		{ "status": 409, "message": "판매가 시작된 대회에는 키트 옵션을 등록할 수 없습니다.", "data": null }
+		""";
+
+	static final String KIT_OPTION_ADDED = """
+		{ "status": 409, "message": "판매가 시작된 대회는 키트 옵션을 더할 수 없습니다. (옵션: T-shirt XL)", "data": null }
+		""";
+
+	static final String KIT_OPTIONS_RACE_CANCELED = """
+		{ "status": 409, "message": "취소된 대회는 키트 옵션을 바꿀 수 없습니다.", "data": null }
+		""";
+
+	static final String KIT_OPTIONS_RACE_CLOSED = """
+		{ "status": 409, "message": "판매가 끝난 대회는 키트 옵션을 바꿀 수 없습니다.", "data": null }
+		""";
+
 	static final String DETAIL_SUCCESS = """
 		{
 			"status": 200,
@@ -369,7 +482,6 @@ final class RaceApiExamples {
 						"price": 45000,
 						"kitIncluded": true,
 						"kitPrice": 0,
-						"tshirtSizeOption": ["S", "M", "L", "XL"],
 						"status": "OPEN",
 						"crewQuota": 0,
 						"individualQuota": 600,

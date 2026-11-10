@@ -51,6 +51,9 @@ public class WalletCharge extends BaseIdAndTime {
 	private LocalDateTime approvedAt;
 	// 이 충전에서 PG 결제취소로 이미 돌려준 금액. 부분 취소를 여러 번 하면 더해진다
 	private long canceledAmount;
+	// 신규 계정 고액 충전 검토 대상 표시 (정책 4장 2차 2-1). 가입 후 24시간 안에 누적 충전이
+	// 한도를 처음 넘긴 충전 건에만 선다. 충전을 막지는 않는다
+	private boolean reviewFlagged;
 
 	public WalletCharge(Wallet wallet, long amount, String pgProvider, String idempotencyKey) {
 		this.wallet = wallet;
@@ -92,5 +95,9 @@ public class WalletCharge extends BaseIdAndTime {
 
 	public void markUncertain() {
 		this.status = ChargeStatus.UNCERTAIN;
+	}
+
+	public void markReviewFlagged() {
+		this.reviewFlagged = true;
 	}
 }

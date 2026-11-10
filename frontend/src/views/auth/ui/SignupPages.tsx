@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react'
 import { useForm, useWatch, type FieldErrors, type UseFormRegister } from 'react-hook-form'
 
 import { AppHeader } from '@/widgets/app-header'
-import { checkEmailAvailable, useLogin } from '@/features/auth'
+import { checkEmailAvailable, loginHref, safeNextPath, useLogin } from '@/features/auth'
 import {
   IdentityMockNotice,
   LockedIdentityFields,
@@ -42,6 +42,7 @@ import {
   type SignupProfileValues,
 } from '../model/schemas'
 import { saveSignupDraft, takeSignupDraft } from '../model/signup-draft'
+import { saveSignupNext, signupStartHref, takeSignupNext } from '../model/signup-next'
 import { useSignupStep } from '../model/signup-store'
 import { requiredTermsChecked, SIGNUP_TERMS } from '../model/signup-terms'
 import { CenterBody, StepIntro } from './parts'
@@ -51,8 +52,14 @@ const STEPS = ['약관', '본인 확인', '계정', '회원 정보']
 // 시안 M04-P 1 · 이메일 가입 본인 확인. 가입의 첫 화면이고, 약관 동의(M04-0) 바텀시트를 이 화면 위에 띄운다.
 // 비밀번호를 넣기 전에 본인인증을 받아, 모바일에서 포트원 창을 다녀와도 다시 받을 비밀번호가 없다.
 // 인증을 마치면 계정(이메일 · 비밀번호) 단계로 넘어간다. 이미 인증했으면 확인된 정보를 보여 주고 「다음」으로 넘어간다.
-export function SignupIdentityPage() {
+// next는 가입을 마친 뒤 돌아갈 화면(?next=, BUK-98). 마지막 단계까지 남겨 둔다.
+// next 없이 들어오면 전에 그만둔 가입이 남긴 값을 지운다. 모바일 본인인증은 지금 주소(?next= 포함)로 돌아오므로 지워도 된다.
+export function SignupIdentityPage({ next }: { next?: string } = {}) {
   const router = useRouter()
+  useEffect(() => {
+    if (next) saveSignupNext(next)
+    else takeSignupNext()
+  }, [next])
   const terms = useSignupStep((s) => s.terms)
   const termsAgreed = useSignupStep((s) => s.termsAgreed)
   const verification = useSignupStep((s) => s.verification)
@@ -126,7 +133,7 @@ export function SignupAccountPage({ invalid = false }: { invalid?: boolean }) {
   const verification = useSignupStep((s) => s.verification)
   const ready = invalid || (termsAgreed && verification !== null)
   useEffect(() => {
-    if (!ready) router.replace('/signup')
+    if (!ready) router.replace(signupStartHref())
   }, [ready, router])
 
   return ready ? <SignupAccountForm invalid={invalid} /> : null
@@ -257,7 +264,7 @@ export function SignupProfilePage() {
   const ready =
     termsAgreed && verification !== null && signupAccountSchema.safeParse(account).success
   useEffect(() => {
-    if (!ready) router.replace('/signup')
+    if (!ready) router.replace(signupStartHref())
   }, [ready, router])
 
   return ready ? <SignupProfileForm /> : null
@@ -308,14 +315,17 @@ function SignupProfileForm() {
     join.mutate(
       { data: body },
       {
-        onSuccess: () =>
+        onSuccess: () => {
+          // 가입이 실패해 다시 시도해도 남아 있도록, 가입이 된 뒤에 꺼낸다
+          const next = safeNextPath(takeSignupNext())
           login.mutate(
             { email: body.email, password: body.password },
             {
-              onSuccess: () => router.replace('/'),
-              onError: () => router.replace('/login'),
+              onSuccess: () => router.replace(next),
+              onError: () => router.replace(next === '/' ? '/login' : loginHref(next)),
             },
-          ),
+          )
+        },
         onError: (error) => {
           const { target, message } = joinErrorMessage(error)
           if (target === 'duplicate') return setDuplicate(true)

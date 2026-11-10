@@ -104,6 +104,24 @@ describe('SellerRaceNewPage', () => {
     expect(screen.getByRole('cell', { name: '2,000명' })).toBeInTheDocument()
   })
 
+  it('키트 옵션은 옵션 추가로 줄을 늘려 직접 쓰고, 삭제로 지운다', async () => {
+    renderPage()
+    const table = screen.getByRole('table', { name: '키트 옵션' })
+    const rowCount = () => within(table).getAllByRole('textbox', { name: /^옵션 이름/ }).length
+    const before = rowCount()
+
+    await userEvent.click(screen.getByRole('button', { name: '옵션 추가' }))
+    expect(rowCount()).toBe(before + 1)
+    const name = within(table).getByRole('textbox', { name: `옵션 이름 ${before + 1}` })
+    await userEvent.type(name, '양말')
+    expect(name).toHaveValue('양말')
+
+    await userEvent.click(
+      within(table).getByRole('button', { name: `키트 옵션 ${before + 1} 삭제` }),
+    )
+    expect(rowCount()).toBe(before)
+  })
+
   it('종목 추가 창에서 칸을 채우면 종목 표에 한 줄이 늘고, 삭제로 지울 수 있다', async () => {
     renderPage()
     await userEvent.click(screen.getByRole('button', { name: '종목 추가' }))

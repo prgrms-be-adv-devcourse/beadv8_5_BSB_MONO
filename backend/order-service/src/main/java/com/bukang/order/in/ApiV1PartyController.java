@@ -150,11 +150,12 @@ public class ApiV1PartyController {
 				@ExampleObject(name = "링크 없음", value = PartyApiExamples.JOIN_LINK_NOT_FOUND),
 				@ExampleObject(name = "없는 종목", value = PartyApiExamples.COURSE_NOT_FOUND)
 			})),
-		@ApiResponse(responseCode = "409", description = "링크 만료, 모집 중이 아님, 이미 합류함, 최대 인원이 참, "
-			+ "다른 파티로 신청함, 개인 신청 있음, 취소된 대회, 접수 마감",
+		@ApiResponse(responseCode = "409", description = "링크 만료, 모집 중이 아님, 파티장이 신청하는 중, 이미 합류함, "
+			+ "최대 인원이 참, 다른 파티로 신청함, 개인 신청 있음, 취소된 대회, 접수 마감",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "링크 만료", value = PartyApiExamples.LINK_EXPIRED),
 				@ExampleObject(name = "모집 중이 아님", value = PartyApiExamples.NOT_RECRUITING),
+				@ExampleObject(name = "파티장이 신청하는 중", value = PartyApiExamples.CREW_HOLD_IN_PROGRESS),
 				@ExampleObject(name = "이미 합류함", value = PartyApiExamples.ALREADY_JOINED),
 				@ExampleObject(name = "최대 인원 참", value = PartyApiExamples.FULL),
 				@ExampleObject(name = "다른 파티로 신청함", value = PartyApiExamples.OTHER_PARTY_JOINED),
@@ -181,11 +182,12 @@ public class ApiV1PartyController {
 	@PostMapping("/{partyId}/apply")
 	@Operation(operationId = "applyParty", summary = "파티 신청 (파티장)",
 		description = "파티장이 [신청]을 누르면 파티원 전원의 크루 자리를 한꺼번에 잡고 파티원 결제 기간을 연다. "
-			+ "확인: 파티장·모집 중, 대기열 입장 중, 대회 취소 아님, 파티 예매 기간(크루 예매 시작~마감)이고 접수 마감 전, "
-			+ "파티원 4명 이상(판매자 최소 인원이 더 크면 그 수)~최대 인원, 파티원 모두 크루원이고 파티 예매 시작 7일 전까지 가입. "
+			+ "확인: 파티장·모집 중, 파티 대기열 입장 중, 대회 취소 아님, 파티 예매 기간(크루 예매 시작~마감)이고 접수 마감 전, "
+			+ "파티원 4명 이상(판매자 최소 인원이 더 크면 그 수)~판매자 최대 인원(비우면 제한 없음), 파티원 모두 크루원이고 파티 예매 시작 7일 전까지 가입. "
 			+ "자리가 모자라면 한 석도 잡지 않고 409 ORDER_PARTY_CREW_SEAT_SHORTAGE(data에 모자란 종목)를 주며 파티는 모집 중으로 남는다. "
 			+ "성공하면 파티는 결제 진행 중(PAYING), 파티원 신청서는 결제 대기(APPLIED)가 되고 "
-			+ "결제 기한(paymentDueAt) = 신청 뒤 24시간·크루 예매 마감·접수 마감 중 가장 이른 때이며, 파티원 모두에게 결제 알림을 보낸다. "
+			+ "결제 기한(paymentDueAt) = 신청 뒤 24시간·크루 예매 마감일 다음 날 0시·접수 마감 중 가장 이른 때이며 "
+			+ "(크루 마감 시각 뒤에도 그날 자정까지 결제할 수 있다), 파티원 모두에게 결제 알림을 보낸다. "
 			+ "같은 파티는 다시 신청할 수 없다(409 ORDER_PARTY_NOT_RECRUITING).")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "신청 성공 (status = PAYING, paymentDueAt)",
@@ -196,7 +198,7 @@ public class ApiV1PartyController {
 		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = PartyApiExamples.LOGIN_REQUIRED))),
-		@ApiResponse(responseCode = "403", description = "파티장이 아님, 대기열 입장 중이 아님",
+		@ApiResponse(responseCode = "403", description = "파티장이 아님, 파티 대기열 입장 중이 아님",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "파티장이 아님", value = PartyApiExamples.LEADER_ONLY),
 				@ExampleObject(name = "대기열 입장 전", value = PartyApiExamples.QUEUE_NOT_ADMITTED)
@@ -208,7 +210,8 @@ public class ApiV1PartyController {
 				@ExampleObject(name = "없는 크루", value = PartyApiExamples.CREW_NOT_FOUND)
 			})),
 		@ApiResponse(responseCode = "409", description = "이미 신청함, 크루 자리 모자람(data에 모자란 종목), 파티 예매 기간 아님, "
-			+ "인원이 범위 밖, 크루원이 아닌 파티원, 늦게 가입한 파티원, 확인하는 사이 파티원이 바뀜, 취소된 대회",
+			+ "인원이 범위 밖, 크루원이 아닌 파티원, 늦게 가입한 파티원, 확인하는 사이 파티원이 바뀜, 취소된 대회, "
+			+ "상품이 크루 자리 확보를 거절(판매 중지 등, ORDER_PARTICIPATION_NOT_PAYABLE)",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "이미 신청함", value = PartyApiExamples.APPLY_NOT_RECRUITING),
 				@ExampleObject(name = "크루 자리 모자람", value = PartyApiExamples.CREW_SEAT_SHORTAGE),
@@ -217,12 +220,15 @@ public class ApiV1PartyController {
 				@ExampleObject(name = "크루원이 아닌 파티원", value = PartyApiExamples.MEMBER_NOT_CREW),
 				@ExampleObject(name = "늦게 가입한 파티원", value = PartyApiExamples.MEMBER_JOINED_LATE),
 				@ExampleObject(name = "파티원이 바뀜", value = PartyApiExamples.MEMBERS_CHANGED),
-				@ExampleObject(name = "취소된 대회", value = PartyApiExamples.RACE_CANCELED)
+				@ExampleObject(name = "취소된 대회", value = PartyApiExamples.RACE_CANCELED),
+				@ExampleObject(name = "상품이 크루 자리 확보를 거절", value = PartyApiExamples.CREW_HOLD_REJECTED)
 			})),
-		@ApiResponse(responseCode = "503", description = "회원·상품 서비스에 연결하지 못함, 상품이 파티 예매 정보를 아직 주지 않음",
+		@ApiResponse(responseCode = "503",
+			description = "회원·상품·대기열 서비스에 연결하지 못함, 상품이 파티 예매 정보를 아직 주지 않음",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "회원 서비스", value = PartyApiExamples.MEMBER_SERVICE_UNAVAILABLE),
 				@ExampleObject(name = "상품 서비스", value = PartyApiExamples.PRODUCT_SERVICE_UNAVAILABLE),
+				@ExampleObject(name = "대기열 서비스", value = PartyApiExamples.QUEUE_SERVICE_UNAVAILABLE),
 				@ExampleObject(name = "파티 신청 준비 중", value = PartyApiExamples.PARTY_APPLY_UNAVAILABLE)
 			}))
 	})
@@ -254,9 +260,12 @@ public class ApiV1PartyController {
 		@ApiResponse(responseCode = "404", description = "없는 파티",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = PartyApiExamples.PARTY_NOT_FOUND))),
-		@ApiResponse(responseCode = "409", description = "모집 중이 아님 (data.partyId·data.partyStatus)",
-			content = @Content(schema = @Schema(implementation = RsData.class),
-				examples = @ExampleObject(value = PartyApiExamples.NOT_RECRUITING)))
+		@ApiResponse(responseCode = "409",
+			description = "모집 중이 아님, 파티장이 신청하는 중(상품 응답을 기다림) (data.partyId·data.partyStatus)",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "모집 중이 아님", value = PartyApiExamples.NOT_RECRUITING),
+				@ExampleObject(name = "파티장이 신청하는 중", value = PartyApiExamples.CREW_HOLD_IN_PROGRESS)
+			}))
 	})
 	public ResponseEntity<RsData<ParticipationDto>> leave(
 		@LoginMemberId long memberId,

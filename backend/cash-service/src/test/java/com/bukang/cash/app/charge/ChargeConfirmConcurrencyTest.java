@@ -24,10 +24,14 @@ import org.junit.jupiter.api.Test;
 import org.mockito.invocation.Invocation;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.data.redis.core.RedisCallback;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.bukang.cash.RedisTestcontainersConfiguration;
 import com.bukang.cash.app.CashFacade;
 import com.bukang.cash.domain.exception.charge.PaymentApprovalFailedException;
 import com.bukang.cash.domain.member.CashMember;
@@ -43,8 +47,10 @@ import com.bukang.cash.out.wallet.WalletRepository;
 
 // 같은 orderId로 충전 confirm이 동시에 여러 번 와도 중복 적립 없이 하나의 결과로 수렴하는지,
 // 그리고 PaymentClient.approve가 실제로 몇 번 불리는지 확인한다 (완료 기준: "한 번만 불리고"를 전제함)
+// 진짜 Redis 위에서 돈다 — 가짜 Redis(연결 실패 시 건너뛰기)로는 쿨다운 집계 순서 버그를 숨겨 버린다
 @SpringBootTest
 @ActiveProfiles("test")
+@Import(RedisTestcontainersConfiguration.class)
 class ChargeConfirmConcurrencyTest {
 	private static final long CUSTOMER_ID = 3;
 
@@ -60,6 +66,8 @@ class ChargeConfirmConcurrencyTest {
 	private WalletLedgerRepository walletLedgerRepository;
 	@Autowired
 	private TransactionTemplate transactionTemplate;
+	@Autowired
+	private StringRedisTemplate redisTemplate;
 
 	@MockitoBean
 	private PaymentClient paymentClient;
@@ -70,6 +78,10 @@ class ChargeConfirmConcurrencyTest {
 		walletLedgerRepository.deleteAll();
 		walletRepository.deleteAll();
 		cashMemberRepository.deleteAll();
+		redisTemplate.execute((RedisCallback<Void>)connection -> {
+			connection.serverCommands().flushDb();
+			return null;
+		});
 	}
 
 	@Test

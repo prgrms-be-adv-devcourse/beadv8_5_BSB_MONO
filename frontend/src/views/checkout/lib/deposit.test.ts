@@ -19,6 +19,15 @@ describe('splitPayment', () => {
     })
   })
 
+  it('1회 충전 한도(30만 원)를 넘게 모자라면 30만 원까지만 충전한다', () => {
+    expect(splitPayment(300_000, 0).charge).toBe(300_000)
+    expect(splitPayment(450_000, 0)).toEqual({
+      fromDeposit: 0,
+      charge: 300_000,
+      balanceAfter: -150_000,
+    })
+  })
+
   it('예치금이 넉넉하면 충전하지 않는다', () => {
     expect(splitPayment(15_000, 40_000)).toEqual({
       fromDeposit: 15_000,

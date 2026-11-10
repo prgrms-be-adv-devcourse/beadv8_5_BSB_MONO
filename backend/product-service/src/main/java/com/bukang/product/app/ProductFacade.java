@@ -26,6 +26,7 @@ import com.bukang.product.dto.HoldRequestDto;
 import com.bukang.product.dto.HoldResultDto;
 import com.bukang.product.dto.HoldSellResult;
 import com.bukang.product.dto.KitOptionListResponseDto;
+import com.bukang.product.dto.KitOptionSaveRequestDto;
 import com.bukang.product.dto.RaceCourseInfoDto;
 import com.bukang.product.dto.RaceDetailDto;
 import com.bukang.product.dto.RacePageDto;
@@ -57,6 +58,8 @@ public class ProductFacade {
 	private final RaceSaleStatusUseCase raceSaleStatusUseCase;
 	private final RaceHoldUseCase raceHoldUseCase;
 	private final RaceCancelUseCase raceCancelUseCase;
+	private final RaceSaleStopUseCase raceSaleStopUseCase;
+	private final RaceKitOptionUseCase raceKitOptionUseCase;
 	private final CrewSeatBatchUseCase crewSeatBatchUseCase;
 	private final TransactionTemplate transactionTemplate;
 	private final ProductOutboxKafkaAppendUseCase productOutboxKafkaAppendUseCase;
@@ -151,6 +154,43 @@ public class ProductFacade {
 			return canceled;
 		});
 		return result.saved().dto();
+	}
+
+	// 판매자가 판매를 멈춘다. 대기열에 보낼 대회 변경 메시지(판매 중지 → 입장 막힘)와 검색 문서 동기화 이벤트를
+	// 같은 트랜잭션에서 남긴다. 판매 중지 대회도 공개 목록에는 남는다 (검색 문서의 판매 상태만 바뀐다)
+	@Transactional(propagation = Propagation.NOT_SUPPORTED)
+	public RaceSaveDto stopRace(long memberId, long raceId) {
+		return transactionTemplate.execute(status -> {
+			RaceSaveResult stopped = raceSaleStopUseCase.stop(memberId, raceId, LocalDateTime.now());
+			appendRaceChanged(stopped);
+			raceDocumentSyncAppendUseCase.append(raceId);
+			return stopped.dto();
+		});
+	}
+
+	// 판매자가 판매를 다시 연다. 메시지와 검색 문서는 멈추기와 같이 남긴다 (대기열 입장이 다시 열린다)
+	@Transactional(propagation = Propagation.NOT_SUPPORTED)
+	public RaceSaveDto resumeRace(long memberId, long raceId) {
+		return transactionTemplate.execute(status -> {
+			RaceSaveResult resumed = raceSaleStopUseCase.resume(memberId, raceId, LocalDateTime.now());
+			appendRaceChanged(resumed);
+			raceDocumentSyncAppendUseCase.append(raceId);
+			return resumed.dto();
+		});
+	}
+
+	// 판매자가 대회에 키트 옵션을 처음 등록한다. 주문은 결제 때 목록을 HTTP로 읽으므로 메시지·검색 문서는 남기지 않는다
+	@Transactional
+	public KitOptionListResponseDto registerKitOptions(long memberId, long raceId,
+		List<KitOptionSaveRequestDto> requests) {
+		return raceKitOptionUseCase.register(memberId, raceId, requests, LocalDateTime.now());
+	}
+
+	// 판매자가 대회의 키트 옵션을 통째로 바꾼다 (메시지는 등록과 같이 남기지 않는다)
+	@Transactional
+	public KitOptionListResponseDto updateKitOptions(long memberId, long raceId,
+		List<KitOptionSaveRequestDto> requests) {
+		return raceKitOptionUseCase.update(memberId, raceId, requests, LocalDateTime.now());
 	}
 
 	// 주문 서비스의 [결제하기] 자리 확보 (내부 API)

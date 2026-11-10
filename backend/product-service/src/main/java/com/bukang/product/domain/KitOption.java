@@ -55,7 +55,7 @@ public class KitOption extends BaseIdAndTime {
 	private String value;
 
 	// 준비 수량. null이면 맞춤 제작이라 품절이 없다. 숫자면 판매자가 준비한 브랜드 상품 수다
-	// 판매가 시작된 뒤에는 맞춤 제작과 준비 수량 사이에서 바꿀 수 없다 (11/08 결정, docs/policy/questions.md)
+	// 판매가 시작된 뒤에는 늘리기만 하고, 맞춤 제작과 준비 수량 사이에서 바꿀 수 없다 (11/08 결정, docs/policy/questions.md)
 	private Integer stock;
 
 	public KitOption(Race race, String name, String value, Integer stock) {
@@ -90,6 +90,14 @@ public class KitOption extends BaseIdAndTime {
 			throw new RaceChangeNotAllowedException(withLabel("판매가 시작된 대회는 키트 옵션 준비 수량을 줄일 수 없습니다."));
 		}
 		this.stock = stock;
+	}
+
+	// 판매가 시작된 뒤에는 옵션을 더할 수 없다. 그 전에 결제한 구매자는 새 옵션을 고르지 못한 채 남는다
+	// 판매 시작 뒤에는 준비 수량 늘리기만 된다 (11/09 결정, docs/policy/questions.md)
+	public void checkAddable(boolean saleStarted) {
+		if (saleStarted) {
+			throw new RaceChangeNotAllowedException(withLabel("판매가 시작된 대회는 키트 옵션을 더할 수 없습니다."));
+		}
 	}
 
 	// 판매가 시작된 뒤에는 옵션을 뺄 수 없다. 이미 그 옵션을 고른 구매자가 있을 수 있다

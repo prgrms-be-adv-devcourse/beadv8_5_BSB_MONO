@@ -42,7 +42,6 @@ public class RaceUpdateUseCase {
 	private final RaceRepository raceRepository;
 	private final RaceCourseRepository raceCourseRepository;
 	private final RaceRequestValidator raceRequestValidator;
-	private final RaceKitOptionUpdater raceKitOptionUpdater;
 
 	public RaceSaveResult update(long memberId, long raceId, RaceSaveRequestDto request) {
 		ProductSeller seller = productSellerRepository.findByMemberIdAndStatus(memberId, SellerStatus.APPROVED)
@@ -90,7 +89,6 @@ public class RaceUpdateUseCase {
 		});
 		// 새 종목은 목록 끝에 붙었으므로 요청 순서로 다시 맞춘다
 		race.sortCourses(new ArrayList<>(imagesByCourse.keySet()));
-		raceKitOptionUpdater.replace(race, request.getKitOptions(), saleStarted);
 		// 새 종목 INSERT와 뺀 종목 DELETE를 실행해, 새 종목의 ID로 파일 연결 대상과 메시지를 만든다
 		raceRepository.flush();
 

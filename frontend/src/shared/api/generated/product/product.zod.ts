@@ -8,7 +8,7 @@
 import * as zod from 'zod';
 
 /**
- * 대회와 종목(남은 자리·티셔츠 사이즈 포함), 판매자 정보를 돌려준다. 로그인하지 않아도 된다. 취소된 대회는 등록한 판매자만 볼 수 있고, 다른 사람에게는 없는 대회(404)로 보인다. 종목 이미지는 file-service에서 종목마다 받는다(GET /api/v1/file/files?refType=RaceCourse&refId=종목 ID). 판매 상태(saleStatus)와 판매 시작일(saleOpenDate)은 판매자 화면용이고, 구매자 화면의 예매 버튼은 크루 예매 기간·개인 예매 오픈·접수 마감 일시로 켠다.
+ * 대회와 종목(남은 자리 포함), 판매자 정보를 돌려준다. 로그인하지 않아도 된다. 취소된 대회는 등록한 판매자만 볼 수 있고, 다른 사람에게는 없는 대회(404)로 보인다. 종목 이미지는 file-service에서 종목마다 받는다(GET /api/v1/file/files?refType=RaceCourse&refId=종목 ID). 판매 상태(saleStatus)와 판매 시작일(saleOpenDate)은 판매자 화면용이고, 구매자 화면의 예매 버튼은 크루 예매 기간·개인 예매 오픈·접수 마감 일시로 켠다.
  * @summary 대회 상세
  */
 export const FindRaceParams = zod.object({
@@ -68,7 +68,7 @@ export const FindRaceResponse = zod.object({
 
 
 /**
- * 본인이 등록한 대회를 등록과 같은 모양의 요청으로 통째로 바꾼다. 종목은 courseId가 있으면 수정하고 없으면 추가하며, 요청에 없는 기존 종목은 뺀다. 이미지 목록도 통째로 바뀌어, 수정이 커밋된 뒤 file-service에 다시 연결을 요청한다. 취소된 대회와 판매가 끝난 대회(대회일 다음 날 0시부터)는 수정할 수 없다. 판매 시작 전에 판매 시작일이 바뀌면 등록과 같이 오늘로부터 이틀 뒤부터 정할 수 있다. 판매가 시작된 뒤(판매 시작일 0시부터)에는 판매 시작일을 정하는 일정(크루 예매가 있으면 크루 예매 시작, 없으면 개인 예매 오픈)을 바꿀 수 없다. 판매가 시작된 뒤에는 참가비·키트 금액을 바꾸거나 환불 기준일을 앞당길 수 없고, 정원을 줄이거나 티셔츠 사이즈를 바꾸거나 종목을 뺄 수 없다(정원은 늘리기만). 종목의 참가 조건(거리·종목 구분·노면·제한 시간·나이 제한·키트 포함 여부)도 바꿀 수 없다. 이미 지난 판매 일정(크루 예매 시작·마감, 개인 예매 오픈, 접수 마감)을 바꾸거나 일정을 지난 시각으로 옮길 수 없다(아직 오지 않은 일정은 앞당기거나 늦출 수 있다). 판매가 시작된 뒤 대회 일시나 장소를 바꾸면 일정·장소 변경 안내 일시를 기록한다(이날부터 7일 동안 전액 환불).
+ * 본인이 등록한 대회를 등록과 같은 모양의 요청으로 통째로 바꾼다. 종목은 courseId가 있으면 수정하고 없으면 추가하며, 요청에 없는 기존 종목은 뺀다. 이미지 목록도 통째로 바뀌어, 수정이 커밋된 뒤 file-service에 다시 연결을 요청한다. 취소된 대회와 판매가 끝난 대회(대회일 다음 날 0시부터)는 수정할 수 없다. 판매 시작 전에 판매 시작일이 바뀌면 등록과 같이 오늘로부터 이틀 뒤부터 정할 수 있다. 판매가 시작된 뒤(판매 시작일 0시부터)에는 판매 시작일을 정하는 일정(크루 예매가 있으면 크루 예매 시작, 없으면 개인 예매 오픈)을 바꿀 수 없다. 판매가 시작된 뒤에는 참가비·키트 금액을 바꾸거나 환불 기준일을 앞당길 수 없고, 정원을 줄이거나 종목을 뺄 수 없다(정원은 늘리기만). 종목의 참가 조건(거리·종목 구분·노면·제한 시간·나이 제한·키트 포함 여부)도 바꿀 수 없다. 이미 지난 판매 일정(크루 예매 시작·마감, 개인 예매 오픈, 접수 마감)을 바꾸거나 일정을 지난 시각으로 옮길 수 없다(아직 오지 않은 일정은 앞당기거나 늦출 수 있다). 판매가 시작된 뒤 대회 일시나 장소를 바꾸면 일정·장소 변경 안내 일시를 기록한다(이날부터 7일 동안 전액 환불). 키트 옵션은 받지 않고 건드리지 않는다(키트 옵션 등록·수정 API로 바꾼다).
  * @summary 대회 수정
  */
 export const UpdateParams = zod.object({
@@ -87,7 +87,7 @@ export const updateBodyRegionSidoMax = 20;
 export const updateBodyRegionSigunguMin = 0;
 export const updateBodyRegionSigunguMax = 30;
 
-export const updateBodyCrewMinCountMin = 5;
+export const updateBodyCrewMinCountMin = 4;
 
 export const updateBodyCoursesItemNameMin = 0;
 export const updateBodyCoursesItemNameMax = 50;
@@ -122,11 +122,11 @@ export const UpdateBody = zod.object({
   "raceDate": zod.iso.datetime({"offset":true}).describe('대회 일시'),
   "crewSaleStartAt": zod.iso.datetime({"offset":true}).optional().describe('크루 예매 시작 일시 (비우면 크루 모집 없이 개인 예매만). 이 날짜가 판매 시작일이 되며, 오늘로부터 이틀 뒤부터'),
   "crewSaleEndAt": zod.iso.datetime({"offset":true}).optional().describe('크루 예매 마감 일시 (크루 예매 시작보다 늦게)'),
-  "individualOpenAt": zod.iso.datetime({"offset":true}).describe('개인 예매 오픈 일시 (크루 예매가 있으면 크루 마감일 다음 날 06:00 이후). 크루 예매가 없으면 이 날짜가 판매 시작일이 되며, 오늘로부터 이틀 뒤부터'),
+  "individualOpenAt": zod.iso.datetime({"offset":true}).describe('개인 예매 오픈 일시 (크루 예매가 있으면 크루 예매 마감일의 자정 이후). 크루 예매가 없으면 이 날짜가 판매 시작일이 되며, 오늘로부터 이틀 뒤부터'),
   "applicationCloseAt": zod.iso.datetime({"offset":true}).describe('접수 마감 일시 (참가자 정보 수정 기한, 대회 일시 이전)'),
   "refundDeadline": zod.iso.date().describe('환불 기준일 (이날까지 취소하면 전액 환불, 대회 날짜 이하)'),
   "refundPolicy": zod.string().optional().describe('취소·환불 안내 글'),
-  "crewMinCount": zod.int().min(updateBodyCrewMinCountMin).describe('크루 최소 인원'),
+  "crewMinCount": zod.int().min(updateBodyCrewMinCountMin).describe('크루 최소 인원 (4명 이상, 11/05 회의 P3)'),
   "crewMaxCount": zod.int().optional().describe('크루 최대 인원 (비우면 상한 없음, 최소 인원 이상)'),
   "courses": zod.array(zod.object({
   "courseId": zod.int().optional().describe('종목 ID (수정 때 기존 종목이면 넣고, 새 종목이면 비운다. 등록 때는 무시한다)'),
@@ -138,7 +138,6 @@ export const UpdateBody = zod.object({
   "price": zod.int().min(updateBodyCoursesItemPriceMin).describe('참가비 (원)'),
   "kitIncluded": zod.boolean().describe('키트 포함 여부'),
   "kitPrice": zod.int().min(updateBodyCoursesItemKitPriceMin).describe('참가비에 포함된 키트 금액 (원). 참가비보다 클 수 없다'),
-  "tshirtSizeOption": zod.array(zod.enum(['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'])).optional().describe('이 종목이 제공하는 기념 티셔츠 사이즈 (XS, S, M, L, XL, XXL, XXXL 중에서 고른다. 순서는 상관없이 작은 사이즈부터 저장하며, 비우거나 보내지 않으면 티셔츠 없음)'),
   "minAge": zod.int().min(updateBodyCoursesItemMinAgeMin).describe('참가 최소 나이 (대회 당일 만 나이)'),
   "maxAge": zod.int().optional().describe('참가 최대 나이 (비우면 상한 없음, 최소 나이 이상)'),
   "crewQuota": zod.int().min(updateBodyCoursesItemCrewQuotaMin).describe('크루 몫 정원 (크루 예매가 없으면 0)'),
@@ -155,16 +154,219 @@ export const UpdateResponse = zod.object({
   "status": zod.int().optional(),
   "message": zod.string().optional(),
   "data": zod.object({
-  "raceId": zod.int().optional(),
-  "saleStatus": zod.enum(['SCHEDULED', 'ON_SALE', 'STOPPED', 'CLOSED', 'CANCELED']).optional(),
-  "saleOpenDate": zod.iso.date().optional(),
-  "courseIds": zod.array(zod.int()).optional()
+  "raceId": zod.int(),
+  "saleStatus": zod.enum(['SCHEDULED', 'ON_SALE', 'STOPPED', 'CLOSED', 'CANCELED']),
+  "saleOpenDate": zod.iso.date(),
+  "courseIds": zod.array(zod.int())
 }).optional()
 })
 
 
 /**
- * 판매 예정·판매 중이고 아직 접수 마감 전인 대회를 찾는다. 로그인하지 않아도 된다. 검색어는 대회명·장소·종목명·지역·소개에서 찾고, 단어는 하나만 맞아도 나온다(예: '충남 트레일'). 오타는 단어 길이에 따라 허용한다(1~2글자 단어는 허용 안 함, 3~5글자는 1글자, 6글자 이상은 2글자). 정확도순은 대회명에서 맞으면 3배, 장소에서 맞으면 2배 점수를 준다. 정렬을 보내지 않으면 검색어가 있을 때 정확도순, 없을 때 마감 임박순이다. 종목 조건(종목 구분·노면·거리·참가비)은 종목 하나라도 맞으면 그 대회가 나온다. 종목이 여러 개인 대회도 한 줄로 나온다. 가격 낮은순과 최저가(minPrice)는 조건에 맞은 종목 중 가장 싼 종목 기준이다(조건이 없으면 대회에서 가장 싼 종목). 최신 등록순은 대회 등록 일시 기준이다. 목록 카드는 대회 정보로 만든 색 포스터를 쓰므로 이미지는 주지 않는다. 판매 상태(saleStatus)와 판매 시작일(saleOpenDate)은 판매자 화면용이다. 구매자 화면은 크루 예매 기간·개인 예매 오픈·접수 마감 일시로 오픈 예정·예매 중·마감을 보여 준다.
+ * 대회 키트의 옵션을 이름(name)별로 묶어 돌려준다. 로그인하지 않아도 된다. 결제 화면에서 이름마다 선택 상자 하나를 그리고, 구매자는 이름마다 값 하나를 고른다(고른 kitOptionId를 주문에 보낸다). 이름과 값은 판매자가 등록한 순서대로 나온다. stock은 준비 수량이고, null이면 맞춤 제작이라 품절이 없다. 품절인지는 주문 서비스가 판매 수와 견주어 판단한다. 옵션이 없는 대회는 빈 목록(kitOptions: [])을 돌려준다. 대회 상세와 같이 취소된 대회는 등록한 판매자만 볼 수 있고, 다른 사람에게는 없는 대회(404)로 보인다.
+ * @summary 키트 옵션 목록
+ */
+export const FindKitOptionsParams = zod.object({
+  "raceId": zod.int().describe('대회 ID')
+})
+
+export const FindKitOptionsResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.object({
+  "raceId": zod.int(),
+  "kitOptions": zod.array(zod.object({
+  "name": zod.string(),
+  "values": zod.array(zod.object({
+  "kitOptionId": zod.int(),
+  "value": zod.string(),
+  "stock": zod.int().nullish().describe('준비 수량. null이면 맞춤 제작이라 품절 없음')
+}))
+}).describe('이름이 같은 옵션 묶음. 구매자는 values 중 하나를 고른다'))
+}).optional().describe('대회의 키트 옵션 목록 (등록·수정·조회가 같은 모양)')
+})
+
+
+/**
+ * 본인 대회의 키트 옵션을 요청 목록으로 통째로 바꾼다. (이름, 값)이 같은 옵션은 준비 수량을 고치고, 없던 옵션은 더하고, 요청에 없는 옵션은 뺀다. 판매가 시작된 뒤(판매 시작일 0시부터)에는 준비 수량이 있는 옵션의 준비 수량 늘리기만 되고, 옵션을 더하거나 빼거나 이름·값을 바꾸거나 맞춤 제작과 준비 수량 사이에서 바꿀 수 없다. 취소된 대회와 판매가 끝난 대회는 바꿀 수 없다. 응답은 키트 옵션 목록 조회와 같은 모양이다.
+ * @summary 키트 옵션 수정
+ */
+export const UpdateKitOptionsParams = zod.object({
+  "raceId": zod.int().describe('대회 ID')
+})
+
+export const updateKitOptionsBodyKitOptionsItemNameMin = 0;
+export const updateKitOptionsBodyKitOptionsItemNameMax = 50;
+
+export const updateKitOptionsBodyKitOptionsItemValueMin = 0;
+export const updateKitOptionsBodyKitOptionsItemValueMax = 50;
+
+export const updateKitOptionsBodyKitOptionsItemStockMin = 0;
+
+
+
+export const UpdateKitOptionsBody = zod.object({
+  "kitOptions": zod.array(zod.object({
+  "name": zod.string().min(updateKitOptionsBodyKitOptionsItemNameMin).max(updateKitOptionsBodyKitOptionsItemNameMax).describe('옵션 이름 (50자 이하). 같은 이름끼리 묶여 구매자가 하나를 고른다'),
+  "value": zod.string().min(updateKitOptionsBodyKitOptionsItemValueMin).max(updateKitOptionsBodyKitOptionsItemValueMax).describe('옵션 값 (50자 이하)'),
+  "stock": zod.int().min(updateKitOptionsBodyKitOptionsItemStockMin).nullish().describe('준비 수량 (비우면 맞춤 제작이라 품절 없음, 숫자면 준비한 브랜드 상품 수). 판매 시작 뒤에는 늘리기만 하고, 맞춤 제작과 준비 수량 사이에서 바꿀 수 없다')
+}).describe('키트 옵션 등록·수정 요청 (옵션 하나 = 이름 + 값)')).describe('키트 옵션 목록. 등록할 때는 1개 이상이고, 수정할 때는 바꾼 뒤의 목록 전체를 보낸다 (빈 목록이면 옵션을 모두 뺀다. 판매 시작 뒤에는 뺄 수 없다)')
+}).describe('키트 옵션 등록·수정 요청 (대회의 키트 옵션 전체)')
+
+export const UpdateKitOptionsResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.object({
+  "raceId": zod.int(),
+  "kitOptions": zod.array(zod.object({
+  "name": zod.string(),
+  "values": zod.array(zod.object({
+  "kitOptionId": zod.int(),
+  "value": zod.string(),
+  "stock": zod.int().nullish().describe('준비 수량. null이면 맞춤 제작이라 품절 없음')
+}))
+}).describe('이름이 같은 옵션 묶음. 구매자는 values 중 하나를 고른다'))
+}).optional().describe('대회의 키트 옵션 목록 (등록·수정·조회가 같은 모양)')
+})
+
+
+/**
+ * 본인 대회에 키트 옵션을 처음 등록한다. 대회는 키트 옵션 없이 등록하고, 키트 생성 화면에서 만든 옵션을 이 API로 붙인다. 옵션은 1개 이상 보내고, 이미 옵션을 등록한 대회는 키트 옵션 수정으로 바꾼다. 판매 시작 전(판매 시작일 0시 전)에만 등록할 수 있다. 판매가 시작된 대회, 취소된 대회, 판매가 끝난 대회에는 등록할 수 없다. 응답은 키트 옵션 목록 조회와 같은 모양이다.
+ * @summary 키트 옵션 등록
+ */
+export const RegisterKitOptionsParams = zod.object({
+  "raceId": zod.int().describe('대회 ID')
+})
+
+export const registerKitOptionsBodyKitOptionsItemNameMin = 0;
+export const registerKitOptionsBodyKitOptionsItemNameMax = 50;
+
+export const registerKitOptionsBodyKitOptionsItemValueMin = 0;
+export const registerKitOptionsBodyKitOptionsItemValueMax = 50;
+
+export const registerKitOptionsBodyKitOptionsItemStockMin = 0;
+
+
+
+export const RegisterKitOptionsBody = zod.object({
+  "kitOptions": zod.array(zod.object({
+  "name": zod.string().min(registerKitOptionsBodyKitOptionsItemNameMin).max(registerKitOptionsBodyKitOptionsItemNameMax).describe('옵션 이름 (50자 이하). 같은 이름끼리 묶여 구매자가 하나를 고른다'),
+  "value": zod.string().min(registerKitOptionsBodyKitOptionsItemValueMin).max(registerKitOptionsBodyKitOptionsItemValueMax).describe('옵션 값 (50자 이하)'),
+  "stock": zod.int().min(registerKitOptionsBodyKitOptionsItemStockMin).nullish().describe('준비 수량 (비우면 맞춤 제작이라 품절 없음, 숫자면 준비한 브랜드 상품 수). 판매 시작 뒤에는 늘리기만 하고, 맞춤 제작과 준비 수량 사이에서 바꿀 수 없다')
+}).describe('키트 옵션 등록·수정 요청 (옵션 하나 = 이름 + 값)')).describe('키트 옵션 목록. 등록할 때는 1개 이상이고, 수정할 때는 바꾼 뒤의 목록 전체를 보낸다 (빈 목록이면 옵션을 모두 뺀다. 판매 시작 뒤에는 뺄 수 없다)')
+}).describe('키트 옵션 등록·수정 요청 (대회의 키트 옵션 전체)')
+
+export const RegisterKitOptionsResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.object({
+  "raceId": zod.int(),
+  "kitOptions": zod.array(zod.object({
+  "name": zod.string(),
+  "values": zod.array(zod.object({
+  "kitOptionId": zod.int(),
+  "value": zod.string(),
+  "stock": zod.int().nullish().describe('준비 수량. null이면 맞춤 제작이라 품절 없음')
+}))
+}).describe('이름이 같은 옵션 묶음. 구매자는 values 중 하나를 고른다'))
+}).optional().describe('대회의 키트 옵션 목록 (등록·수정·조회가 같은 모양)')
+})
+
+
+/**
+ * 처리 실패 상태의 메시지를 message-id 헤더째 product의 첫 재시도 토픽으로 다시 보내고 다시 보냄으로 바꾼다. product만 다시 받고(같은 토픽을 받는 다른 서비스는 받지 않음), 처리되면 처리 완료로, 또 실패하면 처리 실패로 돌아가 Slack으로 다시 알린다. Kafka로 보내지 못하면 처리 실패로 되돌리고 503으로 응답한다.
+ * @summary 처리 실패 메시지 다시 보내기
+ */
+export const ResendParams = zod.object({
+  "id": zod.int().describe('DLT 실패 행 ID (Slack 알림의 행 ID)')
+})
+
+export const ResendResponse = zod.unknown()
+
+
+/**
+ * 원인을 직접 고쳤거나 버릴 메시지를 메모와 함께 처리 완료로 닫는다. 처리 완료가 아니면(처리 실패, 다시 보냄) 닫을 수 있다.
+ * @summary 처리 실패 메시지 처리 완료
+ */
+export const CompleteParams = zod.object({
+  "id": zod.int().describe('DLT 실패 행 ID (Slack 알림의 행 ID)')
+})
+
+export const completeBodyMemoMin = 0;
+export const completeBodyMemoMax = 500;
+
+
+
+export const CompleteBody = zod.object({
+  "memo": zod.string().min(completeBodyMemoMin).max(completeBodyMemoMax).describe('처리 완료 메모 (무엇을 했는지, 500자 이하)')
+}).describe('DLT 메시지 처리 완료 요청')
+
+export const CompleteResponse = zod.unknown()
+
+
+/**
+ * 참가자가 [결제하기]를 누르면 개인 자리 1석을 결제 대기로 확보한다. 남은 자리가 없으면 held=false(매진)로 응답한다. 자리는 요청한 끝 시각(대기열 활성 시간이 끝나는 시각)까지만 유지하고, 끝나면 주문 서비스가 Kafka로 해제를 알린다. 같은 참가 신청 ID로 다시 요청하면 새 자리를 잡지 않고 처음 결과를 돌려준다. 판매 예정·판매 중인 대회의 개인 예매 오픈부터 접수 마감 전까지만 확보할 수 있다.
+ * @summary 개인 자리 확보
+ */
+export const holdBodyRaceCourseIdMin = 0;
+
+export const holdBodyParticipationIdMin = 0;
+
+
+
+export const HoldBody = zod.object({
+  "raceCourseId": zod.int().min(holdBodyRaceCourseIdMin).describe('종목 ID'),
+  "participationId": zod.int().min(holdBodyParticipationIdMin).describe('주문 서비스의 참가 신청 ID (같은 값으로 다시 요청하면 처음 결과를 돌려준다)'),
+  "expiresAt": zod.iso.datetime({"offset":true}).describe('임시 확보 끝 시각 (대기열 활성 시간이 끝나는 시각, 지금보다 늦어야 한다)')
+}).describe('개인 자리 확보 요청 (주문 서비스가 [결제하기] 때 보낸다)')
+
+export const HoldResponse = zod.unknown()
+
+
+/**
+ * 결제가 끝난 결제 대기 자리를 판매로 바꾼다. 끝 시각이 지났거나 이미 해제된 자리, 취소된 대회의 자리는 판매하지 않고 result=EXPIRED로 응답한다(주문 서비스는 결제를 취소하고 예치금을 돌려준다). 이미 판매한 자리면 끝 시각과 상관없이 SOLD로 응답한다(같은 주문으로 다시 결제할 때).
+ * @summary 자리 판매
+ */
+export const SellParams = zod.object({
+  "participationId": zod.int().describe('자리를 확보할 때 보낸 참가 신청 ID')
+})
+
+export const SellResponse = zod.unknown()
+
+
+/**
+ * 파티장이 [대회 참가]를 누르면 파티원 수만큼 크루 자리를 결제 대기로 한꺼번에 확보한다. 종목 하나라도 남은 크루 자리가 모자라면 한 석도 잡지 않고 held=false와 모자란 종목(필요한 수·남은 수)으로 응답한다. 자리는 요청한 끝 시각(파티원 결제 기한)까지만 유지한다. 같은 파티 ID로 다시 요청하면 새 자리를 잡지 않고 처음 결과를 돌려주고, 자리 목록이 처음과 다르면 409로 응답한다. 판매 예정·판매 중인 대회의 크루 예매 시작부터 크루 예매 마감 전까지(접수 마감 전)만 확보할 수 있다.
+ * @summary 크루 자리 확보
+ */
+export const hold1BodyPartyIdMin = 0;
+
+export const hold1BodyCrewIdMin = 0;
+
+export const hold1BodyRaceIdMin = 0;
+
+export const hold1BodySeatsItemParticipationIdMin = 0;
+
+export const hold1BodySeatsItemRaceCourseIdMin = 0;
+
+
+
+
+export const Hold1Body = zod.object({
+  "partyId": zod.int().min(hold1BodyPartyIdMin).describe('주문 서비스의 파티 ID (같은 값으로 다시 요청하면 처음 결과를 돌려준다)'),
+  "crewId": zod.int().min(hold1BodyCrewIdMin).describe('파티의 크루 ID'),
+  "raceId": zod.int().min(hold1BodyRaceIdMin).describe('대회 ID'),
+  "expiresAt": zod.iso.datetime({"offset":true}).describe('자리를 잡아 둘 끝 시각 (파티원 결제 기한, 지금보다 늦어야 한다)'),
+  "seats": zod.array(zod.object({
+  "participationId": zod.int().min(hold1BodySeatsItemParticipationIdMin).describe('주문 서비스의 참가 신청 ID (자리 1석 = 참가 신청 1건)'),
+  "raceCourseId": zod.int().min(hold1BodySeatsItemRaceCourseIdMin).describe('종목 ID')
+}).describe('잡을 크루 자리 1석')).min(1).describe('잡을 자리 목록 (파티원 1명 = 자리 1석)')
+}).describe('크루 자리 확보 요청 (주문 서비스가 파티장의 [대회 참가] 때 파티원 수만큼 한꺼번에 보낸다)')
+
+export const Hold1Response = zod.unknown()
+
+
+/**
+ * 판매 예정·판매 중·판매 중지이고 아직 접수 마감 전인 대회를 찾는다. 로그인하지 않아도 된다. 검색어는 대회명·장소·종목명·지역·소개에서 찾고, 단어는 하나만 맞아도 나온다(예: '충남 트레일'). 오타는 단어 길이에 따라 허용한다(1~2글자 단어는 허용 안 함, 3~5글자는 1글자, 6글자 이상은 2글자). 정확도순은 대회명에서 맞으면 3배, 장소에서 맞으면 2배 점수를 준다. 정렬을 보내지 않으면 검색어가 있을 때 정확도순, 없을 때 마감 임박순이다. 종목 조건(종목 구분·노면·거리·참가비)은 종목 하나라도 맞으면 그 대회가 나온다. 종목이 여러 개인 대회도 한 줄로 나온다. 가격 낮은순과 최저가(minPrice)는 조건에 맞은 종목 중 가장 싼 종목 기준이다(조건이 없으면 대회에서 가장 싼 종목). 최신 등록순은 대회 등록 일시 기준이다. 목록 카드는 대회 정보로 만든 색 포스터를 쓰므로 이미지는 주지 않는다. 판매 상태(saleStatus)와 판매 시작일(saleOpenDate)은 판매자 화면용이다. 구매자 화면은 크루 예매 기간·개인 예매 오픈·접수 마감 일시로 오픈 예정·예매 중·마감을 보여 준다.
  * @summary 공개 대회 목록
  */
 export const searchQueryMinPriceMin = 0;
@@ -232,7 +434,7 @@ export const SearchResponse = zod.object({
 
 
 /**
- * 승인된 판매자가 대회와 종목을 판매 예정(SCHEDULED)으로 등록하고, 등록하면 바로 공개된다. 판매 시작일(saleOpenDate)은 크루 예매 시작·개인 예매 오픈 중 이른 날짜로 채우고, 오늘로부터 이틀 뒤부터 정할 수 있다. 판매 시작일 0시에 상태 배치(5분마다)가 판매 중으로 바꾸고, 이때부터 판매 시작 뒤 수정 규칙이 걸린다. 판매 상태는 판매자 화면용이고, 구매자는 크루 예매 시작·개인 예매 오픈 시각부터 예매할 수 있다. 이미지는 종목마다 받고(대표 이미지 1장 필수), 등록이 커밋된 뒤 file-service에 연결을 요청한다. 파일이 없거나 본인이 올린 파일이 아니어서 연결에 실패하면 응답에는 나오지 않고 file-service 로그에 남는다.
+ * 승인된 판매자가 대회와 종목을 판매 예정(SCHEDULED)으로 등록하고, 등록하면 바로 공개된다. 판매 시작일(saleOpenDate)은 크루 예매 시작·개인 예매 오픈 중 이른 날짜로 채우고, 오늘로부터 이틀 뒤부터 정할 수 있다. 판매 시작일 0시 정각에 상태 배치(5분 정각마다)가 판매 중으로 바꾸고, 이때부터 판매 시작 뒤 수정 규칙이 걸린다. 판매 상태는 판매자 화면용이고, 구매자는 크루 예매 시작·개인 예매 오픈 시각부터 예매할 수 있다. 이미지는 종목마다 받고(대표 이미지 1장 필수), 등록이 커밋된 뒤 file-service에 연결을 요청한다. 파일이 없거나 본인이 올린 파일이 아니어서 연결에 실패하면 응답에는 나오지 않고 file-service 로그에 남는다. 같은 판매자가 같은 Idempotency-Key로 다시 보내면 새로 등록하지 않고 처음 대회를 200으로 돌려준다.
  * @summary 대회 등록
  */
 export const registerHeaderIdempotencyKeyMax = 64;
@@ -255,7 +457,7 @@ export const registerBodyRegionSidoMax = 20;
 export const registerBodyRegionSigunguMin = 0;
 export const registerBodyRegionSigunguMax = 30;
 
-export const registerBodyCrewMinCountMin = 5;
+export const registerBodyCrewMinCountMin = 4;
 
 export const registerBodyCoursesItemNameMin = 0;
 export const registerBodyCoursesItemNameMax = 50;
@@ -290,11 +492,11 @@ export const RegisterBody = zod.object({
   "raceDate": zod.iso.datetime({"offset":true}).describe('대회 일시'),
   "crewSaleStartAt": zod.iso.datetime({"offset":true}).optional().describe('크루 예매 시작 일시 (비우면 크루 모집 없이 개인 예매만). 이 날짜가 판매 시작일이 되며, 오늘로부터 이틀 뒤부터'),
   "crewSaleEndAt": zod.iso.datetime({"offset":true}).optional().describe('크루 예매 마감 일시 (크루 예매 시작보다 늦게)'),
-  "individualOpenAt": zod.iso.datetime({"offset":true}).describe('개인 예매 오픈 일시 (크루 예매가 있으면 크루 마감일 다음 날 06:00 이후). 크루 예매가 없으면 이 날짜가 판매 시작일이 되며, 오늘로부터 이틀 뒤부터'),
+  "individualOpenAt": zod.iso.datetime({"offset":true}).describe('개인 예매 오픈 일시 (크루 예매가 있으면 크루 예매 마감일의 자정 이후). 크루 예매가 없으면 이 날짜가 판매 시작일이 되며, 오늘로부터 이틀 뒤부터'),
   "applicationCloseAt": zod.iso.datetime({"offset":true}).describe('접수 마감 일시 (참가자 정보 수정 기한, 대회 일시 이전)'),
   "refundDeadline": zod.iso.date().describe('환불 기준일 (이날까지 취소하면 전액 환불, 대회 날짜 이하)'),
   "refundPolicy": zod.string().optional().describe('취소·환불 안내 글'),
-  "crewMinCount": zod.int().min(registerBodyCrewMinCountMin).describe('크루 최소 인원'),
+  "crewMinCount": zod.int().min(registerBodyCrewMinCountMin).describe('크루 최소 인원 (4명 이상, 11/05 회의 P3)'),
   "crewMaxCount": zod.int().optional().describe('크루 최대 인원 (비우면 상한 없음, 최소 인원 이상)'),
   "courses": zod.array(zod.object({
   "courseId": zod.int().optional().describe('종목 ID (수정 때 기존 종목이면 넣고, 새 종목이면 비운다. 등록 때는 무시한다)'),
@@ -306,7 +508,6 @@ export const RegisterBody = zod.object({
   "price": zod.int().min(registerBodyCoursesItemPriceMin).describe('참가비 (원)'),
   "kitIncluded": zod.boolean().describe('키트 포함 여부'),
   "kitPrice": zod.int().min(registerBodyCoursesItemKitPriceMin).describe('참가비에 포함된 키트 금액 (원). 참가비보다 클 수 없다'),
-  "tshirtSizeOption": zod.array(zod.enum(['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'])).optional().describe('이 종목이 제공하는 기념 티셔츠 사이즈 (XS, S, M, L, XL, XXL, XXXL 중에서 고른다. 순서는 상관없이 작은 사이즈부터 저장하며, 비우거나 보내지 않으면 티셔츠 없음)'),
   "minAge": zod.int().min(registerBodyCoursesItemMinAgeMin).describe('참가 최소 나이 (대회 당일 만 나이)'),
   "maxAge": zod.int().optional().describe('참가 최대 나이 (비우면 상한 없음, 최소 나이 이상)'),
   "crewQuota": zod.int().min(registerBodyCoursesItemCrewQuotaMin).describe('크루 몫 정원 (크루 예매가 없으면 0)'),
@@ -319,16 +520,29 @@ export const RegisterBody = zod.object({
 }).describe('종목 등록·수정 요청')).min(1).describe('종목 목록')
 }).describe('대회 등록·수정 요청 (수정할 때도 대회 전체를 보낸다)')
 
-export const RegisterResponse = zod.object({
-  "status": zod.int().optional(),
-  "message": zod.string().optional(),
-  "data": zod.object({
-  "raceId": zod.int().optional(),
-  "saleStatus": zod.enum(['SCHEDULED', 'ON_SALE', 'STOPPED', 'CLOSED', 'CANCELED']).optional(),
-  "saleOpenDate": zod.iso.date().optional(),
-  "courseIds": zod.array(zod.int()).optional()
-}).optional()
+export const RegisterResponse = zod.unknown()
+
+
+/**
+ * 본인이 등록한 판매 중인 대회의 판매를 멈춘다(판매 중지). 접수 마감 전까지만 멈출 수 있고, 판매 시작 전(판매 예정)에는 멈추지 않고 대회 수정으로 일정을 바꾼다. 멈춘 대회는 검색·상세에는 그대로 나오지만 대기열 입장과 새 자리 확보가 막힌다. 이미 잡은 결제 대기 자리는 결제 기한 안에 결제하면 참가 확정이다. 멈춘 동안 수정은 판매 중과 같은 규칙이다. 다시 열기 전에 대회일이 지나면 대회일 다음 날 0시에 판매 종료로 바뀐다.
+ * @summary 판매 중지
+ */
+export const StopParams = zod.object({
+  "raceId": zod.int().describe('대회 ID')
 })
+
+export const StopResponse = zod.unknown()
+
+
+/**
+ * 본인이 멈춘 대회의 판매를 다시 연다(판매 중). 접수 마감 전까지만 열 수 있다. 다시 열면 대기열 입장과 자리 확보가 다시 된다.
+ * @summary 판매 다시 열기
+ */
+export const ResumeParams = zod.object({
+  "raceId": zod.int().describe('대회 ID')
+})
+
+export const ResumeResponse = zod.unknown()
 
 
 /**
@@ -343,16 +557,69 @@ export const CancelResponse = zod.object({
   "status": zod.int().optional(),
   "message": zod.string().optional(),
   "data": zod.object({
-  "raceId": zod.int().optional(),
-  "saleStatus": zod.enum(['SCHEDULED', 'ON_SALE', 'STOPPED', 'CLOSED', 'CANCELED']).optional(),
-  "saleOpenDate": zod.iso.date().optional(),
-  "courseIds": zod.array(zod.int()).optional()
+  "raceId": zod.int(),
+  "saleStatus": zod.enum(['SCHEDULED', 'ON_SALE', 'STOPPED', 'CLOSED', 'CANCELED']),
+  "saleOpenDate": zod.iso.date(),
+  "courseIds": zod.array(zod.int())
 }).optional()
 })
 
 
 /**
- * 입력한 글자로 시작하는 대회명과 종목명('대회명 종목명')을 각각 5개까지 찾는다. 로그인하지 않아도 된다. 공개 목록과 같은 대회(판매 예정·판매 중, 접수 마감 전)에서만 찾는다.
+ * 정산 서비스가 1차 정산 생성 배치에서 부른다. 환불 마감일이 from ~ to(양 끝 포함, 최대 31일)인 대회를 환불 마감일, 대회 ID 순으로 돌려준다. 취소된 대회는 빼고, 판매 중지 대회는 넣는다. 필드는 정산 서비스 RaceSchedule과 같고, raceName은 대회명, raceDate는 대회 일시다.
+ * @summary 환불 마감일 기간으로 대회 조회
+ */
+export const FindByRefundDeadlineQueryParams = zod.object({
+  "from": zod.iso.date().describe('조회 시작 환불 마감일 (yyyy-MM-dd, 포함)'),
+  "to": zod.iso.date().describe('조회 끝 환불 마감일 (yyyy-MM-dd, 포함)')
+})
+
+export const FindByRefundDeadlineResponse = zod.unknown()
+
+
+/**
+ * 정산 서비스가 최종 정산 생성 배치에서 부른다. 대회 날짜가 from ~ to(양 끝 포함, 최대 31일)인 대회를 대회 일시, 대회 ID 순으로 돌려준다. 취소된 대회는 빼고, 판매 중지 대회는 넣는다. 필드는 정산 서비스 RaceSchedule과 같고, raceName은 대회명, raceDate는 대회 일시다.
+ * @summary 대회일 기간으로 대회 조회
+ */
+export const FindByRaceDateQueryParams = zod.object({
+  "from": zod.iso.date().describe('조회 시작 대회 날짜 (yyyy-MM-dd, 포함)'),
+  "to": zod.iso.date().describe('조회 끝 대회 날짜 (yyyy-MM-dd, 포함)')
+})
+
+export const FindByRaceDateResponse = zod.unknown()
+
+
+/**
+ * 상태별 DLT 실패 행을 최근 것부터 size건 돌려준다. 상태를 빼면 처리 실패(사람이 봐야 하는 메시지)를 보여 준다.
+ * @summary 처리 실패 메시지 목록
+ */
+export const listQueryStatusDefault = `FAILED`;
+export const listQuerySizeDefault = 50;
+export const listQuerySizeMax = 100;
+
+
+
+export const ListQueryParams = zod.object({
+  "status": zod.enum(['FAILED', 'RESENT', 'COMPLETED']).default(listQueryStatusDefault).describe('상태 (FAILED 처리 실패, RESENT 다시 보냄, COMPLETED 처리 완료)'),
+  "size": zod.int().min(1).max(listQuerySizeMax).default(listQuerySizeDefault).describe('조회 건수 (1~100)')
+})
+
+export const ListResponse = zod.unknown()
+
+
+/**
+ * 참가 신청·결제·취소에 필요한 종목과 대회 정보를 돌려준다. 필드 이름은 주문 서비스 RaceCourseInfo와 같다. title은 대회명, course는 종목명, courseName은 주문 상품명으로 남길 '대회명 종목명'이다. price가 구매자가 내는 참가권 한 장 값이고 kitPrice는 그 안에 포함된 키트 금액이다(더하지 않는다). scheduleChangedAt은 판매 시작 뒤 대회 일시·장소를 바꾼 일시로, 이날부터 7일 동안 전액 환불이다.
+ * @summary 주문용 종목 정보 조회
+ */
+export const FindCourseInfoParams = zod.object({
+  "raceCourseId": zod.int().describe('종목 ID')
+})
+
+export const FindCourseInfoResponse = zod.unknown()
+
+
+/**
+ * 입력한 글자로 시작하는 대회명과 종목명('대회명 종목명')을 각각 5개까지 찾는다. 로그인하지 않아도 된다. 공개 목록과 같은 대회(판매 예정·판매 중·판매 중지, 접수 마감 전)에서만 찾는다.
  * @summary 검색창 연관검색어
  */
 

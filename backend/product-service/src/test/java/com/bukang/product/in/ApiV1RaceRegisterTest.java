@@ -40,7 +40,6 @@ import com.bukang.product.domain.ProductMember;
 import com.bukang.product.domain.ProductSeller;
 import com.bukang.product.domain.Race;
 import com.bukang.product.domain.RaceCourse;
-import com.bukang.product.domain.TshirtSize;
 import com.bukang.product.domain.document.RaceCourseDocument;
 import com.bukang.product.dto.RaceCourseSaveRequestDto;
 import com.bukang.product.dto.RaceImageRequestDto;
@@ -199,7 +198,6 @@ class ApiV1RaceRegisterTest extends ProductIntegrationTest {
 			assertThat(tenK.getPrice()).isEqualTo(45_000);
 			assertThat(tenK.isKitIncluded()).isFalse();
 			assertThat(tenK.getKitPrice()).isZero();
-			assertThat(tenK.getTshirtSizeOption()).isEmpty();
 			assertThat(tenK.getMinAge()).isEqualTo(14);
 			assertThat(tenK.getMaxAge()).isNull();
 			assertThat(tenK.getCrewQuota()).isZero();
@@ -223,25 +221,12 @@ class ApiV1RaceRegisterTest extends ProductIntegrationTest {
 			assertThat(half.getPrice()).isEqualTo(60_000);
 			assertThat(half.isKitIncluded()).isTrue();
 			assertThat(half.getKitPrice()).isEqualTo(5_000);
-			assertThat(half.getTshirtSizeOption()).containsExactly(TshirtSize.M);
 			assertThat(half.getMinAge()).isEqualTo(20);
 			assertThat(half.getMaxAge()).isEqualTo(60);
 			assertThat(half.getCrewQuota()).isZero();
 			assertThat(half.getIndividualQuota()).isEqualTo(300);
 			assertThat(half.getStatus()).isEqualTo(CourseStatus.OPEN);
 		});
-	}
-
-	@Test
-	@DisplayName("티셔츠 사이즈를 XXL, S, XL, M 순서로 보내도 작은 사이즈부터 S, M, XL, XXL로 저장한다")
-	void saveTshirtSizesFromSmallest() throws Exception {
-		RegisteredRace registered = register(upcomingRace()
-			.course(course().kit(5_000, TshirtSize.XXL, TshirtSize.S, TshirtSize.XL, TshirtSize.M))
-			.build());
-
-		RaceCourse savedCourse = raceCourseRepository.findById(registered.courseId()).orElseThrow();
-		assertThat(savedCourse.getTshirtSizeOption())
-			.containsExactly(TshirtSize.S, TshirtSize.M, TshirtSize.XL, TshirtSize.XXL);
 	}
 
 	@Test
@@ -407,7 +392,7 @@ class ApiV1RaceRegisterTest extends ProductIntegrationTest {
 			// 빌더는 환불 기준일이 없으면 대회 날짜로 채우므로, 대회 일시를 비울 때는 환불 기준일을 직접 넣는다
 			Arguments.of("대회 일시 없음", upcomingRace().raceDate(null).refundDeadline(LocalDate.now().plusDays(15)).build(),
 				"대회 일시를 작성해주세요."),
-			Arguments.of("크루 최소 인원 4명", upcomingRace().crewCount(4, null).build(), "크루 최소 인원은 5명 이상이어야 합니다."),
+			Arguments.of("크루 최소 인원 3명", upcomingRace().crewCount(3, null).build(), "크루 최소 인원은 4명 이상이어야 합니다."),
 			Arguments.of("종목 0개", withCourses(upcomingRace().build(), List.of()), "종목을 1개 이상 작성해주세요."),
 			Arguments.of("참가비 0원", upcomingRace().course(course().price(0)).build(), "참가비는 0원보다 커야 합니다."),
 			Arguments.of("거리 10.555km", upcomingRace().course(course().distanceKm("10.555")).build(),
@@ -422,32 +407,6 @@ class ApiV1RaceRegisterTest extends ProductIntegrationTest {
 	}
 
 	// ---------- RaceRequestValidator: 인원·일정 ----------
-
-	@Test
-	@DisplayName("키트 옵션 T-shirt L과 t-shirt l처럼 대소문자만 다른 같은 옵션을 두 번 넣으면 400이고 아무것도 저장하지 않는다")
-	void rejectDuplicateKitOptionIgnoringCase() throws Exception {
-		// given
-		RaceSaveRequestDto request = upcomingRace()
-			.kitOption("T-shirt", "L", 100)
-			.kitOption("t-shirt", "l", 50)
-			.build();
-
-		// when, then
-		assertRejected(request, "같은 키트 옵션을 두 번 작성할 수 없습니다. (옵션: t-shirt l)");
-	}
-
-	@Test
-	@DisplayName("키트 옵션 이름을 T-shirt M과 t-shirt L처럼 대소문자를 다르게 쓰면 400이고 아무것도 저장하지 않는다")
-	void rejectKitOptionNameWithDifferentCase() throws Exception {
-		// given
-		RaceSaveRequestDto request = upcomingRace()
-			.kitOption("T-shirt", "M", 100)
-			.kitOption("t-shirt", "L", 50)
-			.build();
-
-		// when, then
-		assertRejected(request, "같은 키트 옵션 이름은 대소문자까지 똑같이 작성해주세요. (T-shirt, t-shirt)");
-	}
 
 	@Test
 	@DisplayName("크루 최대 인원 5명이 최소 인원 10명보다 적으면 400")
@@ -590,20 +549,6 @@ class ApiV1RaceRegisterTest extends ProductIntegrationTest {
 		assertRejected(upcomingRace().course(course().quota(0, 0)).build(), "정원은 1명 이상이어야 합니다. (종목: 10K)");
 	}
 
-	@Test
-	@DisplayName("키트가 없는 종목에 티셔츠 사이즈 M을 넣으면 400")
-	void rejectTshirtSizeWithoutKit() throws Exception {
-		assertRejected(upcomingRace().course(course().tshirtSizes(List.of(TshirtSize.M))).build(),
-			"키트가 없는 종목은 티셔츠 사이즈를 작성할 수 없습니다. (종목: 10K)");
-	}
-
-	@Test
-	@DisplayName("티셔츠 사이즈를 M, L, M으로 M을 두 번 넣으면 400")
-	void rejectDuplicateTshirtSize() throws Exception {
-		assertRejected(upcomingRace().course(course().kit(0, TshirtSize.M, TshirtSize.L, TshirtSize.M)).build(),
-			"같은 티셔츠 사이즈(M)를 두 번 작성할 수 없습니다. (종목: 10K)");
-	}
-
 	// ---------- RaceRequestValidator: 이미지 ----------
 
 	@Test
@@ -675,7 +620,7 @@ class ApiV1RaceRegisterTest extends ProductIntegrationTest {
 		return builder.individualOpenAt(builder.now().plusDays(2));
 	}
 
-	// 하프 종목 (트레일 21.1km, 제한 180분, 참가비 60,000원, 키트 5,000원·티셔츠 M, 20~60세, 개인 정원 300)
+	// 하프 종목 (트레일 21.1km, 제한 180분, 참가비 60,000원, 키트 5,000원, 20~60세, 개인 정원 300)
 	private static CourseBuilder halfCourse() {
 		return course().name("하프")
 			.type(CourseType.HALF)
@@ -683,7 +628,7 @@ class ApiV1RaceRegisterTest extends ProductIntegrationTest {
 			.distanceKm("21.1")
 			.timeLimitMinutes(180)
 			.price(60_000)
-			.kit(5_000, TshirtSize.M)
+			.kit(5_000)
 			.age(20, 60)
 			.quota(0, 300);
 	}
@@ -694,7 +639,7 @@ class ApiV1RaceRegisterTest extends ProductIntegrationTest {
 			request.getRegionSido(), request.getRegionSigungu(), request.getRaceDate(), request.getCrewSaleStartAt(),
 			request.getCrewSaleEndAt(), request.getIndividualOpenAt(), request.getApplicationCloseAt(),
 			request.getRefundDeadline(), request.getRefundPolicy(), request.getCrewMinCount(),
-			request.getCrewMaxCount(), courses, request.getKitOptions());
+			request.getCrewMaxCount(), courses);
 	}
 
 	private ResultActions postRaw(String content) throws Exception {

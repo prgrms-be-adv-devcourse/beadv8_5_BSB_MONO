@@ -20,6 +20,13 @@ spring:
       # 여러 서비스가 같은 인프라를 함께 쓰므로, 한 서비스를 종료해도 컨테이너는 멈추지 않는다
       lifecycle-management: start-only
 
+  # Redis가 응답하지 않을 때 오래 기다리지 않도록 대기 시간을 줄인다 (Lettuce 기본값은 명령 60초, 연결 10초)
+  # 접속 주소(host, port)는 프로파일별 yaml에 있다
+  data:
+    redis:
+      timeout: 2s
+      connect-timeout: 2s
+
   # Kafka 메시지는 JSON 문자열로 주고받는다 (이유는 member-service의 application.yaml과 README 참고)
   kafka:
     producer:

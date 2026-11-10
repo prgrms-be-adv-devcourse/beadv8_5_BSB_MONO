@@ -348,7 +348,7 @@
                     "value": {
                       "status": 400,
                       "code": "CHARGE_LIMIT_PER_CHARGE",
-                      "message": "1회 충전 한도는 100,000원입니다.",
+                      "message": "1회 충전 한도는 300,000원입니다.",
                       "data": null
                     }
                   },

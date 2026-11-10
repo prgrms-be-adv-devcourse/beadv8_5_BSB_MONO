@@ -43,14 +43,17 @@ public class CashChargeConfirmUseCase {
 	private final WalletLedgerRepository walletLedgerRepository;
 	private final PaymentClient paymentClient;
 	private final TransactionTemplate transactionTemplate;
+	private final ChargeAbuseGuard chargeAbuseGuard;
+	private final NewAccountChargeReviewGuard newAccountChargeReviewGuard;
 
 	public CashChargeResponseDto confirmWalletCharge(long customerId, String paymentKey, String orderId, long amount) {
 		if (amount < CashChargePolicy.MINIMUM_AMOUNT) {
 			throw new ChargeAmountTooSmallException("최소 충전 금액은 10,000원입니다.");
 		}
 		if (amount > CashChargePolicy.MAX_PER_CHARGE) {
-			throw ChargeAmountTooLargeException.perCharge("1회 충전 한도는 100,000원입니다.");
+			throw ChargeAmountTooLargeException.perCharge("1회 충전 한도는 300,000원입니다.");
 		}
+		chargeAbuseGuard.assertNotCoolingDown(customerId);
 
 		ChargeClaim claim = transactionTemplate.execute(status -> claimChargeLocked(customerId, orderId, amount));
 		if (claim.resolved() != null) {
@@ -63,9 +66,11 @@ public class CashChargeConfirmUseCase {
 		PaymentApprovalResult result;
 		try {
 			result = paymentClient.approve(paymentKey, orderId, amount);
+			chargeAbuseGuard.resetFailureCount(customerId);
 		} catch (PaymentApprovalFailedException failure) {
 			if (!failure.isResultUnknown()) {
 				// PG가 거절을 분명히 알려 줬다 (카드 한도 초과, 일시 장애, 결제 시간 만료 등). 그 문구를 그대로 보여 준다
+				chargeAbuseGuard.registerDefiniteFailure(customerId);
 				return transactionTemplate.execute(
 					status -> recordFailedLocked(customerId, orderId, failure.getMessage()));
 			}
@@ -93,6 +98,9 @@ public class CashChargeConfirmUseCase {
 		if (existing != null && existing.getStatus() == ChargeStatus.IN_PROGRESS) {
 			return ChargeClaim.waiting();
 		}
+		// 여기까지 왔으면 진짜 새 시도(또는 실패건 재시도)다. 멱등 재확인은 위에서 이미 반환돼 이 줄까지 안 온다.
+		// 쿨다운에 걸리면 여기서 던져 이 트랜잭션 전체가 롤백되므로, 충전 행이 선점된 채로 남지 않는다
+		chargeAbuseGuard.registerNewAttempt(customerId);
 		assertWithinDailyLimit(customerWallet, amount);
 		assertWithinBalanceCap(customerWallet, amount);
 		WalletCharge charge = existing != null
@@ -169,6 +177,7 @@ public class CashChargeConfirmUseCase {
 		existing.markCompleted(result.pgPaymentKey(), LocalDateTime.now(), result.approvedAt());
 		walletLedgerRepository.save(customerWallet.credit(
 			result.approvedAmount(), LedgerType.충전__PG결제_토스페이먼츠, existing));
+		newAccountChargeReviewGuard.checkAndFlag(existing, customerWallet.getHolder());
 		return CashChargeResponseDto.completed(customerWallet.getBalance());
 	}
 

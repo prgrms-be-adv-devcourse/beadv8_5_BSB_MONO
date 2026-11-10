@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import type { Route } from 'next'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import Script from 'next/script'
 import { useEffect, useRef, useState } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
@@ -16,6 +17,7 @@ import {
   withSubjectParticle,
 } from '@/entities/crew'
 import { ApiError, memberApi, memberModel, unwrapData } from '@/shared/api'
+import { clientEnv } from '@/shared/config'
 import {
   Button,
   buttonClassName,
@@ -35,6 +37,27 @@ const KAKAO_CONSENT_ERRORS: Record<string, string> = {
   KAKAO_CONSENT_DENIED: '동의하지 않아 카카오톡으로 보낼 수 없어요.',
   KAKAO_ACCOUNT_MISMATCH:
     '연결된 카카오 계정과 다른 계정으로 동의했어요. 카카오에서 로그아웃한 뒤 다시 시도해 주세요.',
+}
+
+// 카카오 JavaScript SDK. 버전을 고정하고, 카카오 파일이 바뀌면 브라우저가 실행하지 않게 integrity를 붙인다.
+// integrity는 2.8.4 파일을 받아 sha384로 직접 계산한 값이다. 버전을 올리면 다시 계산한다.
+const KAKAO_SDK = 'https://t1.kakaocdn.net/kakao_js_sdk/2.8.4/kakao.min.js'
+const KAKAO_SDK_INTEGRITY =
+  'sha384-BGX7Wb16GmRFagri4bLJV2DgipVZaU2AI812GZtHtHzzDQJnfHasDXN5houxv45w'
+
+type KakaoLink = { webUrl: string; mobileWebUrl: string }
+type KakaoWindow = {
+  Kakao?: {
+    init: (key: string) => void
+    isInitialized: () => boolean
+    Share: {
+      sendDefault: (template: {
+        objectType: 'feed'
+        content: { title: string; description: string; link: KakaoLink }
+        buttons: { title: string; link: KakaoLink }[]
+      }) => void
+    }
+  }
 }
 
 // 피그마 시안v4 · M27 초대 링크 만들기 (만듦 · 취소 확인).
@@ -129,6 +152,32 @@ export function CrewInvitesPage({
     )
   }
 
+  // 받는 사람이 크루런 회원이 아니어도 되도록, 크루장이 카카오톡 화면에서 직접 친구·채팅방을 고르게 한다.
+  // SDK를 불러오지 못했거나(광고 차단 등) 템플릿 인자가 틀려 예외가 나면 링크 복사로 안내한다.
+  // 도메인 미등록·키 오류는 예외 없이 카카오 공유 창 안에 오류가 뜨므로 여기서 잡지 못한다.
+  const kakaoKey = clientEnv.NEXT_PUBLIC_KAKAO_JS_KEY
+  const myNickname = me.data?.nickname
+  const shareToKakao = (crewName: string, nickname: string, url: string) => {
+    const link = { webUrl: url, mobileWebUrl: url }
+    try {
+      const { Kakao } = window as unknown as KakaoWindow
+      if (!Kakao || !kakaoKey) throw new Error('카카오 SDK 없음')
+      if (!Kakao.isInitialized()) Kakao.init(kakaoKey)
+      Kakao.Share.sendDefault({
+        objectType: 'feed',
+        content: {
+          title: `${crewName} 크루 초대`,
+          // 백엔드의 카카오 친구에게 보내기 문구와 같다
+          description: `${nickname} 님이 크루런 크루에 초대했어요. 링크는 24시간 동안 쓸 수 있어요.`,
+          link,
+        },
+        buttons: [{ title: '초대 받기', link }],
+      })
+    } catch {
+      showToast({ tone: 'error', message: '카카오톡을 열지 못했어요. 링크를 복사해 보내 주세요.' })
+    }
+  }
+
   const canCancel = (invite: memberModel.CrewInviteDto) =>
     myRole === 'LEADER' || invite.createdBy.memberId === me.data?.id
 
@@ -164,6 +213,9 @@ export function CrewInvitesPage({
         </main>
       ) : (
         <main className="flex flex-1 flex-col">
+          {kakaoKey && (
+            <Script src={KAKAO_SDK} integrity={KAKAO_SDK_INTEGRITY} crossOrigin="anonymous" />
+          )}
           <CrewBand>
             {created ? (
               <>
@@ -179,6 +231,18 @@ export function CrewInvitesPage({
                 <Button size="l" onClick={() => copy(inviteUrl(created.inviteToken))}>
                   링크 복사하기
                 </Button>
+                {/* 메시지에 보낸 사람 닉네임이 들어가므로 내 정보를 받은 뒤에 보여 준다 */}
+                {kakaoKey && myNickname && (
+                  <Button
+                    variant="secondary"
+                    size="l"
+                    onClick={() =>
+                      shareToKakao(crew.data.name, myNickname, inviteUrl(created.inviteToken))
+                    }
+                  >
+                    카카오톡으로 공유하기
+                  </Button>
+                )}
               </>
             ) : (
               // 시안에 없는 상태: 링크를 만들기 전. 만든 링크는 응답에만 오므로 이 화면에서 만든다.
@@ -190,7 +254,7 @@ export function CrewInvitesPage({
               </>
             )}
             <Button variant="secondary" size="l" onClick={() => setKakaoOpen(true)}>
-              카카오톡으로 보내기
+              카카오톡 친구에게 보내기
             </Button>
           </CrewBand>
           <Divider type="section" />

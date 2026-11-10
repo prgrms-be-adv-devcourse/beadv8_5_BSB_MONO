@@ -44,6 +44,7 @@ public class CashChargeReconcileUseCase {
 	private final WalletLedgerRepository walletLedgerRepository;
 	private final PaymentClient paymentClient;
 	private final TransactionTemplate transactionTemplate;
+	private final NewAccountChargeReviewGuard newAccountChargeReviewGuard;
 
 	public void reconcile(LocalDateTime now) {
 		LocalDateTime staleBefore = now.minusMinutes(chargeReconcileProperties.staleInProgressMinutes());
@@ -112,6 +113,7 @@ public class CashChargeReconcileUseCase {
 		existing.markCompleted(result.pgPaymentKey(), LocalDateTime.now(), result.approvedAt());
 		walletLedgerRepository.save(customerWallet.credit(
 			result.approvedAmount(), LedgerType.충전__PG결제_토스페이먼츠, existing));
+		newAccountChargeReviewGuard.checkAndFlag(existing, customerWallet.getHolder());
 		log.info("충전 대사: 확인 못 했던 충전을 완료로 맞췄습니다. orderId={}", orderId);
 	}
 
