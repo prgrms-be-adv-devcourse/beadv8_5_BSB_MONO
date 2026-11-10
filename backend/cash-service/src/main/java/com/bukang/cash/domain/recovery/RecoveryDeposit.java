@@ -49,6 +49,9 @@ public class RecoveryDeposit extends BaseIdAndTime {
 	@Column(nullable = false, length = 20)
 	private RecoveryDepositStatus status;
 
+	// PG가 알려 준 입금 시각(한국 시간). 입금 완료일 때만 있다
+	private LocalDateTime depositedAt;
+
 	public RecoveryDeposit(
 		String claimCode, long amount, String bankName, String accountNumber, LocalDateTime dueDate, String secret
 	) {
@@ -59,5 +62,10 @@ public class RecoveryDeposit extends BaseIdAndTime {
 		this.dueDate = dueDate;
 		this.secret = secret;
 		this.status = RecoveryDepositStatus.WAITING;
+	}
+
+	public void markDeposited(LocalDateTime depositedAt) {
+		this.status = RecoveryDepositStatus.DEPOSITED;
+		this.depositedAt = depositedAt;
 	}
 }
