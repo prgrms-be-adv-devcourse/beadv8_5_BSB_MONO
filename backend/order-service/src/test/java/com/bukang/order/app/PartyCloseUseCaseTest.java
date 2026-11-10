@@ -1,6 +1,8 @@
 package com.bukang.order.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -17,8 +19,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.order.domain.Gender;
@@ -138,8 +142,10 @@ class PartyCloseUseCaseTest {
 		long paid = party(RACED_COURSE, PartyStatus.PAID);
 		long otherRace = party(RACED_COURSE, PartyStatus.RECRUITING, OTHER_RACE);
 
-		assertThat(partyCloseUseCase.closeCanceledRace(RACE, now)).isEqualTo(3);
-		assertThat(partyCloseUseCase.closeCanceledRace(RACE, now)).isZero();
+		assertThat(partyCloseUseCase.closeCanceledRace(RACE, now))
+			.isEqualTo(new PartyCloseUseCase.CanceledRaceCloseResult(3, 0));
+		assertThat(partyCloseUseCase.closeCanceledRace(RACE, now))
+			.isEqualTo(new PartyCloseUseCase.CanceledRaceCloseResult(0, 0));
 
 		assertThat(statusOf(recruiting)).isEqualTo(PartyStatus.CLOSED);
 		assertThat(statusOf(paying)).isEqualTo(PartyStatus.CLOSED);
@@ -153,6 +159,24 @@ class PartyCloseUseCaseTest {
 		// 결제 기한이 지나도 결제 마감 배치는 종료된 파티를 다시 건드리지 않는다
 		assertThat(partyPaymentDeadlineUseCase.finishDue(now.plusHours(2))).isZero();
 		assertThat(statusOf(paying)).isEqualTo(PartyStatus.CLOSED);
+	}
+
+	@Test
+	@DisplayName("취소된 대회의 파티 하나가 실패해도 다음 파티를 종료하고 실패를 센다")
+	@SuppressWarnings("unchecked")
+	void continueWhenOneCanceledPartyFails() {
+		PartyRepository repository = mock(PartyRepository.class);
+		TransactionTemplate transactionTemplate = mock(TransactionTemplate.class);
+		when(repository.findIdsByRaceIdAndStatusIn(eq(RACE), any())).thenReturn(List.of(1L, 2L));
+		when(transactionTemplate.execute(any(TransactionCallback.class)))
+			.thenThrow(new CannotAcquireLockException("잠금 대기 초과"))
+			.thenReturn(Boolean.TRUE);
+
+		PartyCloseUseCase useCase = new PartyCloseUseCase(repository, mock(ParticipationRepository.class),
+			mock(OrderItemRepository.class), mock(RaceCoursePort.class), transactionTemplate);
+
+		assertThat(useCase.closeCanceledRace(RACE, LocalDateTime.now()))
+			.isEqualTo(new PartyCloseUseCase.CanceledRaceCloseResult(1, 1));
 	}
 
 	@Test

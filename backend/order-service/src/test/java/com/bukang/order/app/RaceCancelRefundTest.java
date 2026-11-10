@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -187,6 +188,19 @@ class RaceCancelRefundTest {
 		RaceCancelRefundUseCase.RefundResult result = raceCancelRefundUseCase.refundAll(RACE_ID, LocalDateTime.now());
 
 		assertThat(result).isEqualTo(new RaceCancelRefundUseCase.RefundResult(1, 1));
+		assertCanceled(paid);
+	}
+
+	@Test
+	@DisplayName("종료하지 못한 파티가 있으면 실패로 세어 메시지를 다시 처리하게 한다 (BUK-155)")
+	void countsPartiesNotClosed() throws Exception {
+		long paid = paidOrder(1, COURSE_ID);
+		doReturn(new PartyCloseUseCase.CanceledRaceCloseResult(0, 2))
+			.when(partyCloseUseCase).closeCanceledRace(eq(RACE_ID), any());
+
+		RaceCancelRefundUseCase.RefundResult result = raceCancelRefundUseCase.refundAll(RACE_ID, LocalDateTime.now());
+
+		assertThat(result).isEqualTo(new RaceCancelRefundUseCase.RefundResult(1, 2));
 		assertCanceled(paid);
 	}
 

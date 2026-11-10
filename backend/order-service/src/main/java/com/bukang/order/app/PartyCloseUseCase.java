@@ -74,20 +74,31 @@ public class PartyCloseUseCase {
 	 * - 결제 대기이고 주문이 있음: 그대로 둔다. 환불이 예치금 결제를 막아 두고 주문 만료가 기한에 끝낸다
 	 * - 참가 확정: 그대로 둔다. 대회 취소 환불이 취소·환불한다
 	 * 잠금 순서: 파티 → 참가 신청 (결제 마감과 같다). 종료된 파티는 건너뛰어 두 번 불러도 한 번만 바뀐다
-	 * 실패하면 예외를 그대로 던져 대회 취소 메시지를 다시 처리하게 한다. 바깥 트랜잭션 없이 부른다
-	 * @return 이번에 종료한 파티 수
+	 * 한 파티가 실패해도(잠금 대기 초과 등) 그 파티만 롤백하고 다음 파티를 종료한다. 실패 수를 돌려주면 부르는 쪽이
+	 * 대회 취소 메시지를 다시 처리하게 하고, 그때 종료된 파티는 건너뛰어 실패한 파티만 다시 본다. 바깥 트랜잭션 없이 부른다
 	 */
-	public int closeCanceledRace(long raceId, LocalDateTime now) {
+	public CanceledRaceCloseResult closeCanceledRace(long raceId, LocalDateTime now) {
 		int closed = 0;
+		int failed = 0;
 		for (long partyId : partyRepository.findIdsByRaceIdAndStatusIn(raceId, NOT_CLOSED)) {
-			if (Boolean.TRUE.equals(transactionTemplate.execute(status -> closeCanceledLocked(partyId, now)))) {
-				closed++;
+			try {
+				if (Boolean.TRUE.equals(transactionTemplate.execute(status -> closeCanceledLocked(partyId, now)))) {
+					closed++;
+				}
+			} catch (RuntimeException exception) {
+				failed++;
+				log.warn("취소된 대회의 파티를 종료하지 못했습니다. raceId={}, partyId={}, cause={}", raceId, partyId,
+					exception.toString());
 			}
 		}
-		if (closed > 0) {
-			log.info("취소된 대회의 파티 종료: raceId={}, {}건", raceId, closed);
+		if (closed > 0 || failed > 0) {
+			log.info("취소된 대회의 파티 종료: raceId={}, 종료 {}건, 실패 {}건", raceId, closed, failed);
 		}
-		return closed;
+		return new CanceledRaceCloseResult(closed, failed);
+	}
+
+	// failed: 이번에 종료하지 못한 파티 수. 0보다 크면 대회 취소 메시지를 다시 처리해야 한다
+	public record CanceledRaceCloseResult(int closed, int failed) {
 	}
 
 	private boolean closeCanceledLocked(long partyId, LocalDateTime now) {
