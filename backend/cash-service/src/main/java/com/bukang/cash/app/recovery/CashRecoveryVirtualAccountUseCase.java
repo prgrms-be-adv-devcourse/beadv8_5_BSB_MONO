@@ -1,8 +1,11 @@
 package com.bukang.cash.app.recovery;
 
+import java.util.Optional;
+
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
+import com.bukang.cash.domain.exception.recovery.VirtualAccountIssueFailedException;
 import com.bukang.cash.domain.recovery.RecoveryDeposit;
 import com.bukang.cash.dto.recovery.CashClaimVirtualAccountResponseDto;
 import com.bukang.cash.out.pg.PaymentClient;
@@ -33,8 +36,15 @@ public class CashRecoveryVirtualAccountUseCase {
 	// PG가 발급한 직후 저장하지 못했으면(응답 시간 초과, 서버 종료) 그 계좌는 PG에만 남아 있다.
 	// 같은 주문번호로 다시 발급하면 계좌가 둘이 될 수 있어, 먼저 PG에서 찾고 없을 때만 발급한다
 	private RecoveryDeposit issueAndSave(String claimCode, long amount) {
-		VirtualAccountIssueResult issued = paymentClient.findVirtualAccount(claimCode)
-			.orElseGet(() -> paymentClient.issueVirtualAccount(claimCode, amount));
+		Optional<VirtualAccountIssueResult> found = paymentClient.findVirtualAccount(claimCode);
+		// 같은 토스 키를 쓰는 다른 환경(로컬·배포 서버)에서 같은 날 같은 청구 ID가 나오면 그 환경의 계좌가 찾아진다.
+		// 금액이 다르면 이 청구의 계좌가 아니므로 쓰지 않는다. 금액까지 같으면 가려내지 못한다
+		if (found.isPresent() && found.get().amount() != amount) {
+			log.error("PG에 같은 주문번호로 금액이 다른 가상계좌가 있어 발급하지 않습니다. claimCode={}, 요청 금액={}, PG 계좌 금액={}",
+				claimCode, amount, found.get().amount());
+			throw new VirtualAccountIssueFailedException("PG에 같은 주문번호로 금액이 다른 가상계좌가 있습니다.");
+		}
+		VirtualAccountIssueResult issued = found.orElseGet(() -> paymentClient.issueVirtualAccount(claimCode, amount));
 		try {
 			return recoveryDepositRepository.save(new RecoveryDeposit(
 				claimCode, amount, issued.bankName(), issued.accountNumber(), issued.dueDate(), issued.secret()));

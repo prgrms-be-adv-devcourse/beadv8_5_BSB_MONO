@@ -1,6 +1,7 @@
 package com.bukang.cash.app.recovery;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
@@ -20,6 +21,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.bukang.cash.app.CashFacade;
+import com.bukang.cash.domain.exception.recovery.VirtualAccountIssueFailedException;
 import com.bukang.cash.domain.recovery.RecoveryDeposit;
 import com.bukang.cash.domain.recovery.RecoveryDepositStatus;
 import com.bukang.cash.dto.recovery.CashClaimVirtualAccountResponseDto;
@@ -50,7 +52,7 @@ class CashRecoveryVirtualAccountUseCaseTest {
 	@DisplayName("처음 요청한 청구는 PG에서 가상계좌를 발급받아 입금 대기로 저장하고, 은행 이름과 계좌번호를 돌려준다")
 	void issuesAndSavesOnFirstRequest() {
 		given(paymentClient.issueVirtualAccount(CLAIM_CODE, 400_000))
-			.willReturn(new VirtualAccountIssueResult("국민은행", "X6000123456789", DUE_DATE, "ps_secret_1"));
+			.willReturn(new VirtualAccountIssueResult("국민은행", "X6000123456789", 400_000, DUE_DATE, "ps_secret_1"));
 
 		CashClaimVirtualAccountResponseDto result = cashFacade.issueClaimVirtualAccount(CLAIM_CODE, 400_000);
 
@@ -68,7 +70,7 @@ class CashRecoveryVirtualAccountUseCaseTest {
 	@DisplayName("같은 청구로 다시 요청하면 PG를 다시 부르지 않고 처음 발급한 계좌를 그대로 돌려준다")
 	void returnsSavedAccountOnRepeatedRequest() {
 		given(paymentClient.issueVirtualAccount(CLAIM_CODE, 400_000))
-			.willReturn(new VirtualAccountIssueResult("국민은행", "X6000123456789", DUE_DATE, "ps_secret_1"));
+			.willReturn(new VirtualAccountIssueResult("국민은행", "X6000123456789", 400_000, DUE_DATE, "ps_secret_1"));
 		cashFacade.issueClaimVirtualAccount(CLAIM_CODE, 400_000);
 
 		CashClaimVirtualAccountResponseDto result = cashFacade.issueClaimVirtualAccount(CLAIM_CODE, 400_000);
@@ -82,7 +84,8 @@ class CashRecoveryVirtualAccountUseCaseTest {
 	@DisplayName("결제 쪽에 기록은 없는데 PG에 이 청구로 발급한 계좌가 있으면, 새로 발급하지 않고 그 계좌를 저장해 돌려준다")
 	void savesAccountFoundAtPgWithoutIssuing() {
 		given(paymentClient.findVirtualAccount(CLAIM_CODE))
-			.willReturn(Optional.of(new VirtualAccountIssueResult("국민은행", "X6000123456789", DUE_DATE, "ps_secret_1")));
+			.willReturn(Optional.of(
+				new VirtualAccountIssueResult("국민은행", "X6000123456789", 400_000, DUE_DATE, "ps_secret_1")));
 
 		CashClaimVirtualAccountResponseDto result = cashFacade.issueClaimVirtualAccount(CLAIM_CODE, 400_000);
 
@@ -95,13 +98,26 @@ class CashRecoveryVirtualAccountUseCaseTest {
 	}
 
 	@Test
+	@DisplayName("PG에서 찾은 계좌의 금액이 요청 금액과 다르면(같은 토스 키를 쓰는 다른 환경의 같은 청구 ID) 저장하지 않고 503으로 막는다")
+	void rejectsAccountFoundAtPgWithDifferentAmount() {
+		given(paymentClient.findVirtualAccount(CLAIM_CODE)).willReturn(Optional.of(
+			new VirtualAccountIssueResult("국민은행", "X-other-env", 390_000, DUE_DATE, "secret-other-env")));
+
+		assertThatThrownBy(() -> cashFacade.issueClaimVirtualAccount(CLAIM_CODE, 400_000))
+			.isInstanceOf(VirtualAccountIssueFailedException.class);
+
+		verify(paymentClient, never()).issueVirtualAccount(anyString(), anyLong());
+		assertThat(recoveryDepositRepository.count()).isZero();
+	}
+
+	@Test
 	@DisplayName("같은 청구의 다른 요청이 먼저 저장해 저장이 유일 제약에 걸리면, 오류 대신 먼저 저장된 계좌를 돌려준다")
 	void returnsAccountSavedByConcurrentRequest() {
 		// 이 요청이 PG 발급을 기다리는 사이, 같은 청구의 다른 요청이 먼저 저장을 끝낸 상황을 만든다
 		given(paymentClient.issueVirtualAccount(CLAIM_CODE, 400_000)).willAnswer(invocation -> {
 			recoveryDepositRepository.save(
 				new RecoveryDeposit(CLAIM_CODE, 400_000, "국민은행", "X-first", DUE_DATE, "secret-first"));
-			return new VirtualAccountIssueResult("국민은행", "X-second", DUE_DATE, "secret-second");
+			return new VirtualAccountIssueResult("국민은행", "X-second", 400_000, DUE_DATE, "secret-second");
 		});
 
 		CashClaimVirtualAccountResponseDto result = cashFacade.issueClaimVirtualAccount(CLAIM_CODE, 400_000);

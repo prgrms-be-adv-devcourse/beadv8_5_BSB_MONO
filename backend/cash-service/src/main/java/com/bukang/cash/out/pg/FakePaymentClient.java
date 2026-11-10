@@ -43,7 +43,7 @@ public class FakePaymentClient implements PaymentClient {
 	public VirtualAccountIssueResult issueVirtualAccount(String orderId, long amount) {
 		// Toss 테스트 계좌처럼 X로 시작해 가짜임을 알 수 있게 한다
 		return new VirtualAccountIssueResult(
-			"국민은행", "X-fake-" + orderId, LocalDateTime.now().plusDays(90), "fake-secret-" + orderId);
+			"국민은행", "X-fake-" + orderId, amount, LocalDateTime.now().plusDays(90), "fake-secret-" + orderId);
 	}
 
 	@Override
