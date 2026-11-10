@@ -25,6 +25,7 @@ import com.bukang.cash.app.CashFacade;
 import com.bukang.cash.config.CashWalletProperties;
 import com.bukang.cash.domain.exception.payout.PayoutTransferFailedException;
 import com.bukang.cash.domain.exception.payout.PayoutTransferMismatchException;
+import com.bukang.cash.domain.exception.payout.PayoutTransferUnknownException;
 import com.bukang.cash.domain.exception.seller.CashSellerNotFoundException;
 import com.bukang.cash.domain.member.CashMember;
 import com.bukang.cash.domain.payout.PayoutStage;
@@ -134,6 +135,28 @@ class CashPayoutUseCaseTest {
 			.containsExactlyInAnyOrder(
 				tuple(LedgerType.정산지급__상품판매_대금, -90_000L),
 				tuple(LedgerType.정산지급취소__상품판매_대금, 90_000L));
+	}
+
+	@Test
+	@DisplayName("송금 결과를 모르면 503으로 답하고 차감은 그대로 두며, 같은 정산 ID로 다시 와도 은행에 다시 보내지 않는다")
+	void bankUnknown_keepsDebitAndDoesNotResend() {
+		createHoldingWallet();
+		createSellerWithMapping();
+		given(bankTransferClient.transfer(anyString(), anyLong(), anyLong())).willReturn(BankTransferResult.UNKNOWN);
+
+		assertThatThrownBy(() -> cashFacade.payout(507, SELLER_APPLICATION_ID, PayoutStage.FIRST, 90_000, 0))
+			.isInstanceOf(PayoutTransferUnknownException.class)
+			.hasFieldOrPropertyWithValue("code", "PAYOUT_TRANSFER_UNKNOWN");
+		assertThatThrownBy(() -> cashFacade.payout(507, SELLER_APPLICATION_ID, PayoutStage.FIRST, 90_000, 0))
+			.isInstanceOf(PayoutTransferUnknownException.class);
+
+		then(bankTransferClient).should().transfer(anyString(), anyLong(), anyLong());
+		PayoutTransfer transfer =
+			payoutTransferRepository.findByPayoutIdAndTransferType(507, PayoutTransferType.SETTLEMENT).orElseThrow();
+		assertThat(transfer.getStatus()).isEqualTo(PayoutTransferStatus.UNKNOWN);
+		assertBalance(cashWalletProperties.holdingMemberId(), -90_000);
+		assertThat(ledgersFor(PayoutTransferType.SETTLEMENT)).extracting(WalletLedger::getLedgerType)
+			.containsExactly(LedgerType.정산지급__상품판매_대금);
 	}
 
 	@Test

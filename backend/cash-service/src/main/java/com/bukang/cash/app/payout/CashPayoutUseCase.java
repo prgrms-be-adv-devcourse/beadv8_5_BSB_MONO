@@ -12,6 +12,7 @@ import com.bukang.cash.app.CashSupport;
 import com.bukang.cash.config.CashWalletProperties;
 import com.bukang.cash.domain.exception.payout.PayoutTransferFailedException;
 import com.bukang.cash.domain.exception.payout.PayoutTransferMismatchException;
+import com.bukang.cash.domain.exception.payout.PayoutTransferUnknownException;
 import com.bukang.cash.domain.payout.PayoutStage;
 import com.bukang.cash.domain.payout.PayoutTransfer;
 import com.bukang.cash.domain.payout.PayoutTransferStatus;
@@ -51,6 +52,9 @@ public class CashPayoutUseCase {
 	) {
 		Requested requested = transactionTemplate.execute(status ->
 			recordRequestLocked(payoutId, sellerId, payoutStage, settlementAmount, feeAmount));
+		if (requested.inFlight()) {
+			throw unknown(payoutId);
+		}
 		if (requested.transferId() == null) {
 			return requested.response();
 		}
@@ -60,7 +64,15 @@ public class CashPayoutUseCase {
 		if (applied == PayoutTransferStatus.FAILED) {
 			throw new PayoutTransferFailedException("은행이 정산금 송금을 거절했습니다. payoutId=%d".formatted(payoutId));
 		}
+		if (applied == PayoutTransferStatus.UNKNOWN) {
+			throw unknown(payoutId);
+		}
 		return CashPayoutResponseDto.paid(requested.settlementAmount(), requested.paidFeeAmount());
+	}
+
+	private PayoutTransferUnknownException unknown(long payoutId) {
+		return new PayoutTransferUnknownException(
+			"정산금 송금 결과를 아직 알 수 없습니다. 재확인이 맞춘 뒤 다시 요청하세요. payoutId=%d".formatted(payoutId));
 	}
 
 	private Requested recordRequestLocked(
@@ -104,8 +116,17 @@ public class CashPayoutUseCase {
 				feeAmount, LedgerType.정산수령__상품판매_수수료, LedgerRefType.Payout, fee.getId()));
 		}
 
+		// 5.이전 송금 결과를 아직 모르면 돈이 나갔을 수 있어 은행에 다시 보내지 않는다 (수수료 이동은 커밋하고 503)
+		boolean settlementInFlight = existingSettlement
+			.map(stored -> stored.getStatus() == PayoutTransferStatus.REQUESTED
+				|| stored.getStatus() == PayoutTransferStatus.UNKNOWN)
+			.orElse(false);
+		if (settlementInFlight) {
+			return Requested.inFlightRequest();
+		}
+
 		long paidFeeAmount = withFee ? feeAmount : 0;
-		// 5.대금 차감과 송금 기록 (대금이 있고 아직 처리 전일 때만). 은행에 보내기 전에 기록해, 서버가 멈춰도 재확인이 이어받는다
+		// 6.대금 차감과 송금 기록 (대금이 있고 아직 처리 전일 때만). 은행에 보내기 전에 기록해, 서버가 멈춰도 재확인이 이어받는다
 		if (!withSettlement || existingSettlement.isPresent()) {
 			return Requested.done(feeTransferred
 				? CashPayoutResponseDto.paid(settlementAmount, paidFeeAmount)
@@ -115,7 +136,8 @@ public class CashPayoutUseCase {
 			new PayoutTransfer(payoutId, sellerId, PayoutTransferType.SETTLEMENT, settlementAmount));
 		walletLedgerRepository.save(holdingWallet.debit(
 			settlementAmount, LedgerType.정산지급__상품판매_대금, LedgerRefType.Payout, settlement.getId()));
-		return new Requested(settlement.getId(), settlement.bankTransferId(), settlementAmount, paidFeeAmount, null);
+		return new Requested(
+			settlement.getId(), settlement.bankTransferId(), settlementAmount, paidFeeAmount, null, false);
 	}
 
 	private PayoutTransferStatus applyResultLocked(Requested requested, BankTransferResult result) {
@@ -129,7 +151,8 @@ public class CashPayoutUseCase {
 				walletLedgerRepository.save(holdingWallet.credit(settlement.getAmount(),
 					LedgerType.정산지급취소__상품판매_대금, LedgerRefType.Payout, settlement.getId()));
 			}
-			default -> throw new IllegalStateException("아직 처리하지 않는 송금 결과입니다. result=" + result);
+			// 은행이 송금했을 수 있어 되돌리지 않는다. 재확인이 완료나 실패로 맞춘다
+			case UNKNOWN -> settlement.markUnknown();
 		}
 		return settlement.getStatus();
 	}
@@ -154,13 +177,17 @@ public class CashPayoutUseCase {
 		}
 	}
 
-	// transferId가 null이면 은행에 보낼 대금이 없어 response로 바로 답한다
+	// transferId가 null이면 은행에 보낼 대금이 없어 response로 바로 답하고, inFlight면 이전 송금 결과를 몰라 503으로 답한다
 	private record Requested(
 		Long transferId, String bankTransferId, long settlementAmount, long paidFeeAmount,
-		CashPayoutResponseDto response
+		CashPayoutResponseDto response, boolean inFlight
 	) {
 		static Requested done(CashPayoutResponseDto response) {
-			return new Requested(null, null, 0, 0, response);
+			return new Requested(null, null, 0, 0, response, false);
+		}
+
+		static Requested inFlightRequest() {
+			return new Requested(null, null, 0, 0, null, true);
 		}
 	}
 }

@@ -28,6 +28,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.cash.app.CashFacade;
 import com.bukang.cash.config.CashWalletProperties;
+import com.bukang.cash.domain.exception.payout.PayoutTransferUnknownException;
 import com.bukang.cash.domain.member.CashMember;
 import com.bukang.cash.domain.payout.PayoutStage;
 import com.bukang.cash.domain.seller.CashSeller;
@@ -79,7 +80,7 @@ class PayoutConcurrencyTest {
 	}
 
 	@Test
-	@DisplayName("같은 정산 ID로 10개 스레드가 동시에 지급 요청해도 대금·수수료 이동은 한 번만 일어난다")
+	@DisplayName("같은 정산 ID로 10개 스레드가 동시에 지급 요청해도 송금과 수수료 이동은 한 번만 일어난다")
 	void concurrentSamePayoutId_transfersOnlyOnce() throws InterruptedException {
 		createWallet(cashWalletProperties.holdingMemberId(), "홀딩");
 		createWallet(cashWalletProperties.systemMemberId(), "시스템");
@@ -93,13 +94,14 @@ class PayoutConcurrencyTest {
 			&& result.dto().outcome() == CashPayoutResponseDto.Outcome.PAID).count();
 		long alreadyPaidCount = results.stream().filter(result -> result.dto() != null
 			&& result.dto().outcome() == CashPayoutResponseDto.Outcome.ALREADY_PAID).count();
-		long errorCount = results.stream().filter(result -> result.error() != null).count();
+		// 첫 요청이 은행 결과를 기다리는 사이에 온 요청은 결과를 몰라 503(PayoutTransferUnknownException)이다
+		long inFlightCount = results.stream()
+			.filter(result -> result.error() instanceof PayoutTransferUnknownException).count();
 
 		printAttemptSummary(results);
 
-		assertThat(errorCount).as("예외 없이 전부 응답해야 한다").isZero();
 		assertThat(paidCount).as("딱 한 번만 실제로 지급돼야 한다").isEqualTo(1);
-		assertThat(alreadyPaidCount).as("나머지는 이미 지급됨으로 수렴해야 한다").isEqualTo(9);
+		assertThat(alreadyPaidCount + inFlightCount).as("나머지는 이미 지급됨이나 결과 모름으로 답해야 한다").isEqualTo(9);
 		then(bankTransferClient).should().transfer(anyString(), anyLong(), anyLong());
 		assertBalance(cashWalletProperties.holdingMemberId(), -95_500);
 		assertBalance(SELLER_MEMBER_ID, 0);
