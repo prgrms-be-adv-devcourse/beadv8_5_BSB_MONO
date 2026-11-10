@@ -10,7 +10,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import com.bukang.common.shared.file.domain.FileType;
 import com.bukang.product.domain.CourseSurface;
 import com.bukang.product.domain.CourseType;
-import com.bukang.product.dto.KitOptionSaveRequestDto;
 import com.bukang.product.dto.RaceCourseSaveRequestDto;
 import com.bukang.product.dto.RaceImageRequestDto;
 import com.bukang.product.dto.RaceSaveRequestDto;
@@ -62,7 +61,6 @@ public final class RaceRequests {
 		private Integer crewMinCount = 5;
 		private Integer crewMaxCount;
 		private final List<RaceCourseSaveRequestDto> courses = new ArrayList<>();
-		private final List<KitOptionSaveRequestDto> kitOptions = new ArrayList<>();
 
 		public RaceBuilder title(String title) {
 			this.title = title;
@@ -117,12 +115,6 @@ public final class RaceRequests {
 			return this;
 		}
 
-		// 키트 옵션 1개를 더한다. stock이 null이면 맞춤 제작이다 (부르지 않으면 키트 옵션 없음)
-		public RaceBuilder kitOption(String name, String value, Integer stock) {
-			kitOptions.add(new KitOptionSaveRequestDto(name, value, stock));
-			return this;
-		}
-
 		// 부르지 않으면 기본 종목(course()) 1개를 넣는다
 		public RaceBuilder course(CourseBuilder... builders) {
 			for (CourseBuilder builder : builders) {
@@ -143,7 +135,7 @@ public final class RaceRequests {
 			LocalDate deadline = refundDeadline != null ? refundDeadline : raceDate.toLocalDate();
 			return new RaceSaveRequestDto(title, description, location, regionSido, regionSigungu, raceDate,
 				crewSaleStartAt, crewSaleEndAt, individualOpenAt, applicationCloseAt, deadline, refundPolicy,
-				crewMinCount, crewMaxCount, requestCourses, kitOptions);
+				crewMinCount, crewMaxCount, requestCourses);
 		}
 	}
 
@@ -199,7 +191,7 @@ public final class RaceRequests {
 			return this;
 		}
 
-		// 키트 포함 (키트 옵션은 대회에 붙는다: RaceBuilder.kitOption)
+		// 키트 포함 (키트 옵션은 대회를 등록한 뒤 키트 옵션 등록 API로 붙인다)
 		public CourseBuilder kit(long kitPrice) {
 			this.kitIncluded = true;
 			this.kitPrice = kitPrice;

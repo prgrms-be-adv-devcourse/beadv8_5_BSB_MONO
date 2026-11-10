@@ -44,8 +44,9 @@ public class ApiV1PartyQueueController {
 	@Operation(summary = "파티 대기열 등록",
 		description = "대회·종목의 파티 대기열에 파티장을 줄 세우고 순번을 돌려준다. "
 			+ "판매 중이고 크루 예매 시작부터 크루 예매 마감 전까지(접수 마감 전)만 들어올 수 있다. "
-			+ "등록 전에 주문 서비스의 파티장 확인 API(GET /api/v1/order/parties/leader?raceId=)로 파티장인지 확인하고, "
-			+ "종목은 그 응답의 파티 종목을 보낸다. 대기열은 파티장인지 확인하지 않는다. "
+			+ "등록 전에 주문 서비스의 이 대회 내 파티 상태 API(GET /api/v1/order/parties/me/race-status?raceId=)로 "
+			+ "파티장이고 신청할 수 있는지(role=LEADER, canApply=true) 확인하고, 종목은 그 응답의 raceCourseId를 보낸다. "
+			+ "대기열은 파티장인지 확인하지 않는다. "
 			+ "이미 줄에 있는 파티장이 다시 등록하면(다른 기기 등) 처음 순번을 그대로 돌려준다. "
 			+ "이미 입장(active)한 파티장은 다시 줄을 설 수 없다. "
 			+ "대기열(Redis)에 연결하지 못하면 대기열 없이 통과시키지 않고 막는다.")

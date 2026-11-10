@@ -38,7 +38,6 @@ public class RaceRegisterUseCase {
 	private final ProductSellerRepository productSellerRepository;
 	private final RaceRepository raceRepository;
 	private final RaceRequestValidator raceRequestValidator;
-	private final RaceKitOptionUpdater raceKitOptionUpdater;
 
 	public RaceSaveResult register(long memberId, String idempotencyKey, RaceSaveRequestDto request,
 		LocalDateTime now) {
@@ -57,7 +56,6 @@ public class RaceRegisterUseCase {
 		}
 		// 종목도 함께 저장된다 (cascade PERSIST). ID 생성 방식이 IDENTITY라 저장하면 바로 INSERT되어 ID가 생긴다
 		raceRepository.save(race);
-		raceKitOptionUpdater.register(race, request.getKitOptions());
 
 		List<FileLinkRequestedEvent.Ref> refs = new ArrayList<>();
 		imagesByCourse.forEach((course, images) ->
