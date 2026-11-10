@@ -2,6 +2,8 @@ package com.bukang.cash.app.recovery;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import java.time.LocalDateTime;
 
@@ -56,5 +58,19 @@ class CashRecoveryVirtualAccountUseCaseTest {
 		assertThat(saved.getDueDate()).isEqualTo(DUE_DATE);
 		assertThat(saved.getSecret()).isEqualTo("ps_secret_1");
 		assertThat(saved.getStatus()).isEqualTo(RecoveryDepositStatus.WAITING);
+	}
+
+	@Test
+	@DisplayName("같은 청구로 다시 요청하면 PG를 다시 부르지 않고 처음 발급한 계좌를 그대로 돌려준다")
+	void returnsSavedAccountOnRepeatedRequest() {
+		given(paymentClient.issueVirtualAccount(CLAIM_CODE, 400_000))
+			.willReturn(new VirtualAccountIssueResult("국민은행", "X6000123456789", DUE_DATE, "ps_secret_1"));
+		cashFacade.issueClaimVirtualAccount(CLAIM_CODE, 400_000);
+
+		CashClaimVirtualAccountResponseDto result = cashFacade.issueClaimVirtualAccount(CLAIM_CODE, 400_000);
+
+		assertThat(result).isEqualTo(new CashClaimVirtualAccountResponseDto("국민은행", "X6000123456789"));
+		verify(paymentClient, times(1)).issueVirtualAccount(CLAIM_CODE, 400_000);
+		assertThat(recoveryDepositRepository.count()).isEqualTo(1);
 	}
 }

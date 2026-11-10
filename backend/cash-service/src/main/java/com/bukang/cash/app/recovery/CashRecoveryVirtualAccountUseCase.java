@@ -21,9 +21,15 @@ public class CashRecoveryVirtualAccountUseCase {
 	private final RecoveryDepositRepository recoveryDepositRepository;
 
 	public CashClaimVirtualAccountResponseDto issue(String claimCode, long amount) {
-		VirtualAccountIssueResult issued = paymentClient.issueVirtualAccount(claimCode, amount);
-		RecoveryDeposit deposit = recoveryDepositRepository.save(new RecoveryDeposit(
-			claimCode, amount, issued.bankName(), issued.accountNumber(), issued.dueDate(), issued.secret()));
+		// 이미 발급한 청구면 PG를 다시 부르지 않는다. 정산이 응답을 못 받고 다시 불러도 판매자에게 알린 계좌가 바뀌지 않는다
+		RecoveryDeposit deposit = recoveryDepositRepository.findByClaimCode(claimCode)
+			.orElseGet(() -> issueAndSave(claimCode, amount));
 		return new CashClaimVirtualAccountResponseDto(deposit.getBankName(), deposit.getAccountNumber());
+	}
+
+	private RecoveryDeposit issueAndSave(String claimCode, long amount) {
+		VirtualAccountIssueResult issued = paymentClient.issueVirtualAccount(claimCode, amount);
+		return recoveryDepositRepository.save(new RecoveryDeposit(
+			claimCode, amount, issued.bankName(), issued.accountNumber(), issued.dueDate(), issued.secret()));
 	}
 }
