@@ -94,6 +94,10 @@ spring:
               uri: ${gateway.services.notification}
               predicates:
                 - Path=/api/v1/notification/**
+            - id: board-service
+              uri: ${gateway.services.board}
+              predicates:
+                - Path=/api/v1/board/**
 
 gateway:
   auth:
@@ -131,4 +135,8 @@ gateway:
       # 대회 사진 등 대상에 연결된 파일은 누구나 본다. 연결 전 파일을 올린 회원만 보게 막는 일은 file-service가 한다
       # (/** 는 그 아래가 없는 /api/v1/file/files 목록 조회도 포함한다)
       - pattern: /api/v1/file/files/**
+        methods: [ GET ]
+      # 게시판은 로그인 없이 읽을 수 있다. 글·댓글·좋아요 쓰기(POST·PUT·DELETE)는 토큰이 필요하다
+      # 토큰이 있으면 회원 ID를 넘겨 "내가 누른 좋아요", "내 숨겨진 글"을 보여 준다
+      - pattern: /api/v1/board/**
         methods: [ GET ]

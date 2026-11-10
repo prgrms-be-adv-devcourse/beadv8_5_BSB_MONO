@@ -3,7 +3,7 @@
 #
 # 앱 이미지 10개(gateway·서비스 8개·web)는 EC2에서 빌드하지 않고, GitHub Actions(app-cd.yml)가 빌드해 GHCR에 올린 것을 받는다
 # 배포는 app-cd.yml이 한다 (main push 또는 Actions에서 직접 실행). 서버에서 직접 띄울 때는:
-#   docker compose pull gateway member-service cash-service payout-service file-service order-service product-service queue-service notification-service web
+#   docker compose pull gateway member-service cash-service payout-service file-service order-service product-service queue-service notification-service board-service web
 #   docker compose up -d --no-build
 # (--build를 붙이면 EC2에서 빌드한 이미지가 GHCR 이름으로 덮어써진다)
 #
@@ -86,6 +86,9 @@ services:
     restart: unless-stopped
   notification-service:
     image: ghcr.io/prgrms-be-adv-devcourse/bukang-notification-service:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+  board-service:
+    image: ghcr.io/prgrms-be-adv-devcourse/bukang-board-service:${IMAGE_TAG:-latest}
     restart: unless-stopped
   web:
     image: ghcr.io/prgrms-be-adv-devcourse/bukang-web:${IMAGE_TAG:-latest}
