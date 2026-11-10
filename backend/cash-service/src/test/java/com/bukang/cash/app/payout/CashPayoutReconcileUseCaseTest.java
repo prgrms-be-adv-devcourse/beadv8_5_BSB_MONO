@@ -21,6 +21,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.cash.app.CashFacade;
 import com.bukang.cash.config.CashWalletProperties;
+import com.bukang.cash.domain.exception.payout.PayoutTransferFailedException;
 import com.bukang.cash.domain.member.CashMember;
 import com.bukang.cash.domain.payout.PayoutStage;
 import com.bukang.cash.domain.payout.PayoutTransfer;
@@ -109,6 +110,35 @@ class CashPayoutReconcileUseCaseTest {
 		assertThat(settlement().getStatus()).isEqualTo(expectedStatus);
 		assertThat(walletRepository.findById(cashWalletProperties.holdingMemberId()).orElseThrow().getBalance())
 			.isEqualTo(expectedHoldingBalance);
+	}
+
+	@ParameterizedTest(name = "재확인이 먼저 {0}로 맞추고 은행이 {1}로 답하면 → {2}, 홀딩 {3}")
+	@CsvSource({
+		"FAILED, FAILED, FAILED, 0",
+		"COMPLETED, UNKNOWN, COMPLETED, -90000"
+	})
+	@DisplayName("지급 요청이 은행 응답을 기다리는 사이 재확인이 먼저 반영하면, 지급 요청은 다시 반영하지 않고 그 결과로 답한다")
+	void reconcileWinsWhilePayoutWaitsForBank(
+		BankTransferResult lookupResult, BankTransferResult transferResult,
+		PayoutTransferStatus expectedStatus, long expectedHoldingBalance
+	) {
+		given(bankTransferClient.lookup(anyString())).willReturn(lookupResult);
+		given(bankTransferClient.transfer(anyString(), anyLong(), anyLong())).willAnswer(invocation -> {
+			cashPayoutReconcileUseCase.reconcile(LocalDateTime.now());
+			return transferResult;
+		});
+
+		Throwable thrown =
+			catchThrowable(() -> cashFacade.payout(PAYOUT_ID, SELLER_APPLICATION_ID, PayoutStage.FIRST, 90_000, 0));
+
+		assertThat(settlement().getStatus()).isEqualTo(expectedStatus);
+		assertThat(walletRepository.findById(cashWalletProperties.holdingMemberId()).orElseThrow().getBalance())
+			.as("되돌리기는 한 번만 일어나야 한다").isEqualTo(expectedHoldingBalance);
+		if (expectedStatus == PayoutTransferStatus.FAILED) {
+			assertThat(thrown).isInstanceOf(PayoutTransferFailedException.class);
+		} else {
+			assertThat(thrown).isNull();
+		}
 	}
 
 	// 결과 모름: 은행이 결과 모름으로 답함. 요청함: 은행을 부르는 중 서버가 멈춘 것처럼 결과 반영 전에 끊김

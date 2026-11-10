@@ -64,7 +64,8 @@ public class CashPayoutUseCase {
 		if (applied == PayoutTransferStatus.FAILED) {
 			throw new PayoutTransferFailedException("은행이 정산금 송금을 거절했습니다. payoutId=%d".formatted(payoutId));
 		}
-		if (applied == PayoutTransferStatus.UNKNOWN) {
+		// 결과 모름이거나, 기다리는 사이 다른 요청이 새 시도를 시작했다
+		if (applied != PayoutTransferStatus.COMPLETED) {
 			throw unknown(payoutId);
 		}
 		return CashPayoutResponseDto.paid(requested.settlementAmount(), requested.paidFeeAmount());
@@ -152,6 +153,11 @@ public class CashPayoutUseCase {
 	private PayoutTransferStatus applyResultLocked(Requested requested, BankTransferResult result) {
 		Wallet holdingWallet = cashSupport.lockWallet(cashWalletProperties.holdingMemberId());
 		PayoutTransfer settlement = payoutTransferRepository.findById(requested.transferId()).orElseThrow();
+		// 은행을 기다리는 사이 재확인이 먼저 반영했으면 그 결과로 답한다. 다시 반영하면 되돌리기가 두 번 일어난다
+		if (settlement.getStatus() != PayoutTransferStatus.REQUESTED
+			|| !settlement.bankTransferId().equals(requested.bankTransferId())) {
+			return settlement.getStatus();
+		}
 		switch (result) {
 			case COMPLETED -> settlement.markCompleted();
 			case FAILED -> {
