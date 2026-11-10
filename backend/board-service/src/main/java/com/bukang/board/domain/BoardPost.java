@@ -3,6 +3,8 @@ package com.bukang.board.domain;
 import static jakarta.persistence.EnumType.STRING;
 import static lombok.AccessLevel.PROTECTED;
 
+import org.hibernate.annotations.DynamicUpdate;
+
 import com.bukang.common.global.jpa.entity.BaseIdAndTime;
 
 import jakarta.persistence.Column;
@@ -17,6 +19,8 @@ import lombok.NoArgsConstructor;
  * 게시판 글. 사진은 이 서비스가 들고 있지 않고 file-service가 이 글(refType BoardPost)에 연결해 보관한다
  * 좋아요 수는 BoardPostRepository의 update 쿼리로만 바꾼다 (읽고 더해 저장하면 동시에 누른 하나가 사라진다)
  */
+// 바뀐 칼럼만 UPDATE한다. 좋아요 수·신고 수는 아래 updatable = false로 쿼리로만 바꾼다 (읽은 옛 값으로 덮어쓰지 않게)
+@DynamicUpdate
 @Entity
 @NoArgsConstructor(access = PROTECTED)
 @Getter
@@ -49,10 +53,10 @@ public class BoardPost extends BaseIdAndTime {
 	@Column(nullable = false)
 	private boolean edited;
 
-	@Column(name = "like_count", nullable = false)
+	@Column(name = "like_count", nullable = false, updatable = false)
 	private long likeCount;
 
-	@Column(name = "report_count", nullable = false)
+	@Column(name = "report_count", nullable = false, updatable = false)
 	private int reportCount;
 
 	public static BoardPost create(long memberId, BoardCategory category, String title, String content) {

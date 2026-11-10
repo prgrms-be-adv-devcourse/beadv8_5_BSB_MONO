@@ -73,7 +73,8 @@ public class BoardKafkaListener {
 		SellerChangedEvent event = parse(payload, SellerChangedEvent.class);
 		if (event != null) {
 			boardMemberSyncUseCase.syncSeller(messageId, KafkaTopics.SELLER_CHANGED, event.memberId(),
-				event.status() == SellerStatus.APPROVED);
+				event.status() == SellerStatus.APPROVED,
+				event.reviewedAt() != null ? event.reviewedAt() : event.requestedAt());
 		}
 	}
 

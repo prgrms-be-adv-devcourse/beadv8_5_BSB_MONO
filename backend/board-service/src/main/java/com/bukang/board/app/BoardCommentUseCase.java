@@ -66,13 +66,17 @@ public class BoardCommentUseCase {
 	}
 
 	// 없는 댓글, 지운 댓글, 지운 글의 댓글은 404. 남의 댓글은 403
+	// 숨겨진 글의 댓글: 글쓴이가 아니면 404(숨겨진 글이 있다는 사실을 드러내지 않음), 글쓴이면 409
 	private BoardComment findWritable(long memberId, long commentId) {
 		BoardComment comment = boardCommentRepository.findById(commentId)
 			.filter(found -> !found.isDeleted())
 			.orElseThrow(BoardCommentNotFoundException::new);
-		boardPostRepository.findById(comment.getPostId())
-			.filter(post -> !post.isDeleted())
+		BoardPost post = boardPostRepository.findById(comment.getPostId())
+			.filter(found -> !found.isDeleted())
 			.orElseThrow(BoardCommentNotFoundException::new);
+		if (post.isHidden()) {
+			throw post.isWrittenBy(memberId) ? new BoardPostHiddenException() : new BoardCommentNotFoundException();
+		}
 		if (!comment.isWrittenBy(memberId)) {
 			throw new BoardNotWriterException();
 		}

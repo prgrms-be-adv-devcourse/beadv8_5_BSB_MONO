@@ -7,6 +7,7 @@ import com.bukang.board.domain.BoardPost;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
@@ -28,7 +29,7 @@ public record PostSaveRequestDto(
 	@Schema(description = "사진 파일 ID 목록 (file-service에 올린 POST_IMAGE 파일, 최대 5개, 순서대로 보여 준다). "
 		+ "고치기에서 빼면 사진을 그대로 두고, 빈 목록이면 사진을 모두 뗀다", example = "[11, 12]")
 	@Size(max = 5, message = "사진은 5장까지 올릴 수 있습니다.")
-	List<@Positive(message = "파일 ID는 0보다 커야 합니다.") Long> fileIds
+	List<@NotNull(message = "파일 ID를 작성해주세요.") @Positive(message = "파일 ID는 0보다 커야 합니다.") Long> fileIds
 ) {
 	public BoardCategory categoryOrDefault() {
 		return category != null ? category : BoardCategory.FREE;

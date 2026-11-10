@@ -36,24 +36,27 @@ public class BoardMemberSyncUseCase {
 			boardMemberRepository.save(new BoardMember(id, nickname, createDate, modifyDate));
 			return;
 		}
-		if (modifyDate.isBefore(stored.get().getModifyDate())) {
+		// 판매자 이벤트가 먼저 와서 만든 복사본은 수정 시각이 없다. 가입 이벤트가 채운다
+		if (stored.get().isProfileSynced() && modifyDate.isBefore(stored.get().getModifyDate())) {
 			log.info("저장된 값보다 오래된 회원 메시지를 건너뜁니다. memberId={}, modifyDate={}, storedModifyDate={}",
 				id, modifyDate, stored.get().getModifyDate());
 			return;
 		}
-		stored.get().syncProfile(nickname, modifyDate);
+		stored.get().syncProfile(nickname, createDate, modifyDate);
 	}
 
 	// 판매자 표시는 지금 승인 상태를 따른다 (승인이면 켜고, 대기·반려면 끈다)
-	// 회원 가입을 해야 판매자 등록을 할 수 있으므로 복사본이 없는 메시지는 잘못된 메시지다. 에러 로그만 남기고 건너뛴다
+	// 토픽이 달라 판매자 이벤트가 가입 이벤트보다 먼저 올 수 있다. 복사본이 없으면 판매자 여부만 담아 만들고(인박스에는 이미 남으므로
+	// 건너뛰면 표시가 영영 빠진다), 닉네임은 늦게 온 가입 이벤트가 채운다. changedAt은 이벤트 시각(순서 비교용)이다
 	@Transactional
-	public void syncSeller(String messageId, String topic, long memberId, boolean approved) {
+	public void syncSeller(String messageId, String topic, long memberId, boolean approved,
+		LocalDateTime changedAt) {
 		if (!boardInboxUseCase.tryRecord(messageId, topic, LocalDateTime.now())) {
 			return;
 		}
 		boardMemberRepository.findById(memberId).ifPresentOrElse(
-			member -> member.changeSeller(approved),
-			() -> log.error("회원 복사본이 없는 판매자 메시지를 건너뜁니다. memberId={}", memberId));
+			member -> member.changeSeller(approved, changedAt),
+			() -> boardMemberRepository.save(BoardMember.sellerOf(memberId, approved, changedAt)));
 	}
 
 	// 탈퇴는 되돌아가지 않는다. 가입 이벤트보다 먼저 와도 탈퇴한 회원으로 만들어, 늦게 온 가입 이벤트가 닉네임을 되살리지 못한다
