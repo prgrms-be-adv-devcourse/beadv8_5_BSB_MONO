@@ -42,7 +42,7 @@ public class TossWebhookController {
 				examples = @ExampleObject(value = CashApiExamples.TOSS_DEPOSIT_INVALID_BODY)))
 	})
 	public ResponseEntity<RsData<Void>> receiveDeposit(@RequestBody TossDepositCallbackRequestDto request) {
-		cashFacade.receiveRecoveryDeposit(request.getOrderId(), request.getSecret());
+		cashFacade.receiveRecoveryDeposit(request.getOrderId(), request.getSecret(), request.getStatus());
 		return ResponseEntity.ok().body(RsData.of(HttpStatus.OK, "입금 알림을 받았습니다.", null));
 	}
 }

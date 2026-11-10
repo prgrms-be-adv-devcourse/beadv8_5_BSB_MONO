@@ -31,6 +31,9 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 @RequiredArgsConstructor
 public class CashRecoveryDepositUseCase {
+	// PG가 입금 완료를 알릴 때의 결제 상태
+	private static final String DONE = "DONE";
+
 	private final PaymentClient paymentClient;
 	private final RecoveryDepositRepository recoveryDepositRepository;
 	private final WalletLedgerRepository walletLedgerRepository;
@@ -38,7 +41,8 @@ public class CashRecoveryDepositUseCase {
 	private final CashWalletProperties cashWalletProperties;
 	private final TransactionTemplate transactionTemplate;
 
-	public void receive(String claimCode, String secret) {
+	// pgStatus는 알림 본문의 결제 상태다. 입금 오류를 알아채는 데만 쓰고, 입금 완료와 금액은 PG 조회로 판단한다
+	public void receive(String claimCode, String secret, String pgStatus) {
 		// 모르는 주문번호도 오류로 답하지 않는다. 오류로 답하면 PG가 같은 알림을 계속 다시 보낸다
 		RecoveryDeposit deposit = recoveryDepositRepository.findByClaimCode(claimCode).orElse(null);
 		if (deposit == null) {
@@ -51,6 +55,7 @@ public class CashRecoveryDepositUseCase {
 		}
 		// PG는 같은 알림을 여러 번 보낼 수 있다. 이미 기록한 청구면 PG를 다시 조회하지 않는다
 		if (deposit.getStatus() != RecoveryDepositStatus.WAITING) {
+			warnIfDepositReverted(deposit, pgStatus);
 			log.info("이미 처리한 회수 입금이라 알림을 건너뜁니다. claimCode={}, status={}", claimCode, deposit.getStatus());
 			return;
 		}
@@ -68,6 +73,16 @@ public class CashRecoveryDepositUseCase {
 			return;
 		}
 		transactionTemplate.executeWithoutResult(status -> record(deposit.getId(), lookup.approval()));
+	}
+
+	// 입금 오류(판매자 계좌 송금 한도 초과, 네트워크 문제 등)면 PG가 상태를 DONE에서 WAITING_FOR_DEPOSIT(옛 버전은 CANCELED)으로
+	// 되돌리고 알림을 다시 보낸다. 홀딩 지갑에는 받지 못한 돈이 남고 정산은 이미 회수를 끝냈으므로, 자동으로 되돌리지 않고 사람이 맞춘다
+	private void warnIfDepositReverted(RecoveryDeposit deposit, String pgStatus) {
+		if (deposit.getStatus() == RecoveryDepositStatus.DEPOSITED && pgStatus != null && !DONE.equals(pgStatus)) {
+			log.error("회수 입금 입금 오류: 입금 완료로 기록한 청구의 PG 상태가 {}(으)로 바뀌었습니다. 판매자에게 다시 입금을 안내하고 "
+					+ "홀딩 지갑 장부와 정산 청구를 사람이 맞춰야 합니다. claimCode={}, 금액={}",
+				pgStatus, deposit.getClaimCode(), deposit.getAmount());
+		}
 	}
 
 	// 웹훅 주소는 토큰 없이 열려 있어 누구나 부를 수 있다. 발급 때 PG가 준 비밀값과 같아야 PG가 보낸 알림으로 본다
