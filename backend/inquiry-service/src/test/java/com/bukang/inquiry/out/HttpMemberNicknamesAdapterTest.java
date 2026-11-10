@@ -41,7 +41,7 @@ class HttpMemberNicknamesAdapterTest {
 	@Test
 	@DisplayName("회원 ID를 쉼표로 이어 묻고, 응답에 없는 회원은 결과에서 빠진다")
 	void nicknames() {
-		server.expect(requestTo(URL + "1,2")).andExpect(method(HttpMethod.GET))
+		server.expect(requestTo(URL + "1%2C2")).andExpect(method(HttpMethod.GET))
 			.andRespond(withSuccess(body("[{\"memberId\": 1, \"nickname\": \"러너하나\"}]"), MediaType.APPLICATION_JSON));
 
 		assertThat(adapter.findNicknames(List.of(1L, 2L, 1L))).containsOnly(java.util.Map.entry(1L, "러너하나"));
@@ -53,7 +53,7 @@ class HttpMemberNicknamesAdapterTest {
 	void chunks() {
 		List<Long> ids = LongStream.rangeClosed(1, 101).boxed().toList();
 		server.expect(requestTo(URL + ids.subList(0, 100).stream().map(String::valueOf)
-			.collect(java.util.stream.Collectors.joining(",")))).andRespond(withSuccess(body("[]"),
+			.collect(java.util.stream.Collectors.joining("%2C")))).andRespond(withSuccess(body("[]"),
 			MediaType.APPLICATION_JSON));
 		server.expect(requestTo(URL + "101")).andRespond(
 			withSuccess(body("[{\"memberId\": 101, \"nickname\": \"백한번째\"}]"), MediaType.APPLICATION_JSON));

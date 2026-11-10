@@ -15,15 +15,15 @@ import org.springframework.core.io.ClassPathResource;
 import com.bukang.inquiry.out.member.FakeMemberAdminAdapter;
 import com.bukang.inquiry.out.member.FakeMemberNicknamesAdapter;
 import com.bukang.inquiry.out.member.FakeMemberSellerAdapter;
+import com.bukang.inquiry.out.member.HttpMemberAdminAdapter;
 import com.bukang.inquiry.out.member.HttpMemberNicknamesAdapter;
 import com.bukang.inquiry.out.member.HttpMemberSellerAdapter;
+import com.bukang.inquiry.out.member.MemberAdminPort;
+import com.bukang.inquiry.out.member.MemberClientConfig;
 import com.bukang.inquiry.out.member.MemberNicknamesPort;
 import com.bukang.inquiry.out.member.MemberSellerPort;
 import com.bukang.inquiry.out.order.FakeOrderLookupAdapter;
 import com.bukang.inquiry.out.order.OrderLookupPort;
-import com.bukang.inquiry.out.member.HttpMemberAdminAdapter;
-import com.bukang.inquiry.out.member.MemberAdminPort;
-import com.bukang.inquiry.out.member.MemberClientConfig;
 import com.bukang.inquiry.out.race.FakeRaceSellerAdapter;
 import com.bukang.inquiry.out.race.RaceSellerPort;
 
