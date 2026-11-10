@@ -124,6 +124,16 @@ final class CashInternalApiExamples {
 		}
 		""";
 
+	static final String PAYOUT_TRANSFER_FAILED = """
+		{ "status": 422, "code": "PAYOUT_TRANSFER_FAILED", "message": "은행이 정산금 송금을 거절했습니다. payoutId=500",
+			"data": null }
+		""";
+
+	static final String PAYOUT_TRANSFER_UNKNOWN = """
+		{ "status": 503, "code": "PAYOUT_TRANSFER_UNKNOWN",
+			"message": "정산금 송금 결과를 아직 알 수 없습니다. 재확인이 맞춘 뒤 다시 요청하세요. payoutId=500", "data": null }
+		""";
+
 	static final String PAYMENT_ALREADY_FINALIZED = """
 		{ "status": 409, "message": "이미 취소·환불된 결제입니다.", "data": null }
 		""";

@@ -15,6 +15,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -296,6 +298,22 @@ class InternalV1CashControllerTest {
 			.andExpect(jsonPath("$.data.feeAmount").value(5_500));
 
 		assertBalance(cashWalletProperties.holdingMemberId(), -95_500);
+	}
+
+	@ParameterizedTest(name = "은행이 {0}로 답하면 {1} {2}")
+	@CsvSource({
+		"FAILED, 422, PAYOUT_TRANSFER_FAILED",
+		"UNKNOWN, 503, PAYOUT_TRANSFER_UNKNOWN"
+	})
+	@DisplayName("정산금 송금이 실패하면 422, 결과를 모르면 503으로 정산에 답한다")
+	void payoutBankFailedOrUnknown(BankTransferResult bankResult, int httpStatus, String code) throws Exception {
+		long sellerApplicationId = 54;
+		createSellerWithMapping(sellerApplicationId, 15, "판매자6");
+		given(bankTransferClient.transfer(anyString(), anyLong(), anyLong())).willReturn(bankResult);
+
+		payout(907, sellerApplicationId, "FIRST", 40_000, 0)
+			.andExpect(status().is(httpStatus))
+			.andExpect(jsonPath("$.code").value(code));
 	}
 
 	@Test
