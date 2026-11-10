@@ -7,6 +7,7 @@ import static lombok.AccessLevel.PROTECTED;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import com.bukang.common.shared.crew.event.CrewMemberJoinedEvent;
 import com.bukang.common.shared.crew.event.CrewMemberLeftEvent;
 import com.bukang.common.shared.crew.event.CrewMemberLeftReason;
 
@@ -86,6 +87,11 @@ public class CrewMember {
 	// 이 크루원 행을 지운 뒤 보낼 이벤트 (BE-032). 이벤트마다 새 이벤트 ID(UUID)를 넣고, 이 행의 가입 시각을 싣는다
 	public CrewMemberLeftEvent leftEvent(CrewMemberLeftReason reason, LocalDateTime now) {
 		return new CrewMemberLeftEvent(UUID.randomUUID().toString(), crewId, memberId, reason, joinedAt, now);
+	}
+
+	// 초대 링크로 가입한 뒤 보낼 이벤트 (BUK-99). 이 행의 가입 시각을 싣는다
+	public CrewMemberJoinedEvent joinedEvent() {
+		return new CrewMemberJoinedEvent(UUID.randomUUID().toString(), crewId, memberId, joinedAt);
 	}
 
 	// 크루장 넘기기. 가입 시각은 바꾸지 않는다
