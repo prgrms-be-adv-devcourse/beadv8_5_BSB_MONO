@@ -99,6 +99,18 @@ final class CashInternalApiExamples {
 		}
 		""";
 
+	static final String CLAIM_AMOUNT_MISSING = """
+		{ "status": 400, "code": "INVALID_REQUEST", "message": "금액을 작성해주세요.", "data": null }
+		""";
+
+	static final String CLAIM_AMOUNT_NOT_POSITIVE = """
+		{ "status": 400, "code": "INVALID_REQUEST", "message": "금액은 0보다 커야 합니다.", "data": null }
+		""";
+
+	static final String INVALID_CLAIM_CODE = """
+		{ "status": 400, "code": "INVALID_REQUEST", "message": "청구 ID는 영문·숫자·-·_로 6~64자여야 합니다.", "data": null }
+		""";
+
 	static final String VIRTUAL_ACCOUNT_REJECTED = """
 		{ "status": 503, "message": "PG사가 가상계좌 발급을 거절했습니다.", "data": null }
 		""";

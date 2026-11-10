@@ -31,6 +31,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Pattern;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -198,9 +199,13 @@ public class InternalV1CashController {
 		@ApiResponse(responseCode = "200", description = "발급 성공 또는 이미 발급한 계좌",
 			content = @Content(
 				examples = @ExampleObject(value = CashInternalApiExamples.CLAIM_VIRTUAL_ACCOUNT_SUCCESS))),
-		@ApiResponse(responseCode = "400", description = "요청 본문 형식 오류",
-			content = @Content(schema = @Schema(implementation = RsData.class),
-				examples = @ExampleObject(value = CashInternalApiExamples.INVALID_BODY))),
+		@ApiResponse(responseCode = "400", description = "금액 검증 실패, 청구 ID 형식 오류 또는 요청 본문 형식 오류",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "금액 없음", value = CashInternalApiExamples.CLAIM_AMOUNT_MISSING),
+				@ExampleObject(name = "금액 0 이하", value = CashInternalApiExamples.CLAIM_AMOUNT_NOT_POSITIVE),
+				@ExampleObject(name = "청구 ID 형식 오류", value = CashInternalApiExamples.INVALID_CLAIM_CODE),
+				@ExampleObject(name = "요청 본문 형식 오류", value = CashInternalApiExamples.INVALID_BODY)
+			})),
 		@ApiResponse(responseCode = "503", description = "PG가 발급·조회를 거절함, PG 연결 실패 또는 응답에 계좌 정보가 없음",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "발급 거절", value = CashInternalApiExamples.VIRTUAL_ACCOUNT_REJECTED),
@@ -210,9 +215,11 @@ public class InternalV1CashController {
 			}))
 	})
 	public ResponseEntity<RsData<CashClaimVirtualAccountResponseDto>> issueClaimVirtualAccount(
-		@Parameter(description = "정산의 청구 ID (PG 주문번호로 쓴다)", example = "RC-20261214-0A3F")
-		@PathVariable String claimCode,
-		@RequestBody CashClaimVirtualAccountRequestDto request
+		// PG 주문번호로 그대로 쓰므로 Toss 주문번호 규칙에 맞는지 먼저 본다. 어긋나면 Toss가 거절해 503처럼 보이게 된다
+		@Parameter(description = "정산의 청구 ID (PG 주문번호로 쓴다, 영문·숫자·-·_ 6~64자)", example = "RC-20261214-0A3F")
+		@PathVariable @Pattern(regexp = "[A-Za-z0-9_-]{6,64}", message = "청구 ID는 영문·숫자·-·_로 6~64자여야 합니다.")
+		String claimCode,
+		@Valid @RequestBody CashClaimVirtualAccountRequestDto request
 	) {
 		CashClaimVirtualAccountResponseDto result = cashFacade.issueClaimVirtualAccount(claimCode, request.getAmount());
 		return ResponseEntity.ok().body(RsData.of(HttpStatus.OK, "가상계좌를 발급했습니다.", result));
