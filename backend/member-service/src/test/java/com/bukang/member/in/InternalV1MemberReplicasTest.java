@@ -81,23 +81,27 @@ class InternalV1MemberReplicasTest {
 	}
 
 	@Test
-	@DisplayName("회원마다 memberId, nickname, sellerApproved, withdrawn, modifyDate 다섯 칸만 내보낸다 (개인정보 없음)")
+	@DisplayName("회원마다 memberId, nickname, sellerApproved, withdrawn, modifyDate 여섯 칸만 내보낸다 (개인정보 없음)")
 	void exposesOnlyPublicFields() throws Exception {
-		LocalDateTime modifyDate = memberRepository.findById(first).orElseThrow().getModifyDate();
+		Member stored = memberRepository.findById(first).orElseThrow();
+		LocalDateTime createDate = stored.getCreateDate();
+		LocalDateTime modifyDate = stored.getModifyDate();
 
 		String body = replicas(first - 1, 1)
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.message").value("회원 복사본 목록을 조회했습니다."))
 			.andExpect(jsonPath("$.data.members.length()").value(1))
-			.andExpect(jsonPath("$.data.members[0].length()").value(5))
+			.andExpect(jsonPath("$.data.members[0].length()").value(6))
 			.andExpect(jsonPath("$.data.members[0].memberId").value(first))
 			.andExpect(jsonPath("$.data.members[0].nickname").value("러너A"))
 			.andExpect(jsonPath("$.data.members[0].sellerApproved").value(false))
 			.andExpect(jsonPath("$.data.members[0].withdrawn").value(false))
 			.andReturn().getResponse().getContentAsString();
 		// 끝자리 0을 줄여 쓰는 표기 차이가 있어 문자열이 아니라 시각으로 비교한다
-		String sent = JsonPath.read(body, "$.data.members[0].modifyDate");
-		assertThat(LocalDateTime.parse(sent)).isEqualTo(modifyDate);
+		String sentModify = JsonPath.read(body, "$.data.members[0].modifyDate");
+		String sentCreate = JsonPath.read(body, "$.data.members[0].createDate");
+		assertThat(LocalDateTime.parse(sentModify)).isEqualTo(modifyDate);
+		assertThat(LocalDateTime.parse(sentCreate)).isEqualTo(createDate);
 	}
 
 	@Test
