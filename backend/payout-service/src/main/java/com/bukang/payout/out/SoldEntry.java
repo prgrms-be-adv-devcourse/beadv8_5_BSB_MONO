@@ -18,4 +18,9 @@ public record SoldEntry(long orderItemId, long sellerId, long raceId, Long raceC
 		long price) {
 		this(orderItemId, sellerId, raceId, raceCourseId, raceDate, price, SoldEntryStatus.결제_완료);
 	}
+
+	// 취소 중이거나 상태를 모르는 참가권이다. 있으면 그 판매자 × 대회의 최종 정산을 미룬다 (BUK-52)
+	public boolean blocksFinalPayout() {
+		return status != SoldEntryStatus.결제_완료;
+	}
 }
