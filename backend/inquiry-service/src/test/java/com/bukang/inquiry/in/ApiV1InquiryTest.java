@@ -92,7 +92,7 @@ class ApiV1InquiryTest extends InquiryTestBase {
 		"{\"raceId\": 100, \"type\": \"ETC\", \"title\": \"제목\", \"body\": \"\"}",
 		"{\"raceId\": 100, \"type\": \"NOPE\", \"title\": \"제목\", \"body\": \"본문\"}",
 		"{\"raceId\": 0, \"type\": \"ETC\", \"title\": \"제목\", \"body\": \"본문\"}",
-		"{\"type\": \"ETC\", \"title\": \"제목\", \"body\": \"본문\"}",
+		"{\"type\": \"RACE_VENUE\", \"title\": \"제목\", \"body\": \"본문\"}",
 		"{}",
 		"{not json"
 	})

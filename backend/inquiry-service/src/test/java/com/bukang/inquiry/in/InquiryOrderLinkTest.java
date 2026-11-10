@@ -3,6 +3,7 @@ package com.bukang.inquiry.in;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.after;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -12,6 +13,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 
 import com.bukang.inquiry.domain.Inquiry;
 import com.bukang.inquiry.domain.InquiryAssignee;
@@ -84,12 +86,108 @@ class InquiryOrderLinkTest extends InquiryTestBase {
 	}
 
 	@Test
-	@DisplayName("회원 문의 종류에 주문 ID나 대회 ID가 없으면 400이다")
-	void memberTypeNeedsOrderAndRace() throws Exception {
-		postAs(CREATE_URL, ME, createJsonOf(RACE, null, "ETC", "제목", "본문")).andExpect(status().isBadRequest());
+	@DisplayName("주문 ID만 보내고 대회 ID가 없으면 400이다 (판매자 담당·관리자 담당 모두)")
+	void orderIdNeedsRaceId() throws Exception {
 		postAs(CREATE_URL, ME, createJsonOf(null, ORDER, "ETC", "제목", "본문")).andExpect(status().isBadRequest());
-		postAs(CREATE_URL, ME, createJsonOf(null, null, "RACE_VENUE", "제목", "본문")).andExpect(status().isBadRequest());
+		postAs(CREATE_URL, ME, createJsonOf(null, ORDER, "APPLY_PAYMENT", "제목", "본문"))
+			.andExpect(status().isBadRequest());
+		postAs(CREATE_URL, ME, createJsonOf(null, ORDER, "RACE_VENUE", "제목", "본문"))
+			.andExpect(status().isBadRequest());
 		postAs(CREATE_URL, ME, createJsonOf(RACE, 0L, "ETC", "제목", "본문")).andExpect(status().isBadRequest());
+
+		assertThat(inquiryRepository.count()).isZero();
+	}
+
+	@Test
+	@DisplayName("판매자 담당 종류(대회·현장, 기념품·배송)는 대회 ID가 없으면 400이다")
+	void sellerTypeNeedsRaceId() throws Exception {
+		postAs(CREATE_URL, ME, createJsonOf(null, null, "RACE_VENUE", "제목", "본문")).andExpect(status().isBadRequest());
+		postAs(CREATE_URL, ME, createJsonOf(null, null, "KIT_DELIVERY", "제목", "본문"))
+			.andExpect(status().isBadRequest());
+
+		assertThat(inquiryRepository.count()).isZero();
+	}
+
+	@Test
+	@DisplayName("주문 없는 판매자 담당 문의(대회 상세의 문의하기)는 201이고, 판매자 회원 ID를 저장하며 판매자에게 알린다")
+	void sellerInquiryWithoutOrder() throws Exception {
+		// 주문 ID가 없으면 주문 서비스를 부르지 않는다
+		orderLookupPort.setUnavailable(true);
+
+		postAs(CREATE_URL, OTHER, createJsonOf(RACE, null, "RACE_VENUE", "주차는 어디에 하나요", "본문"))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.data.raceId").value(RACE))
+			.andExpect(jsonPath("$.data.orderId").doesNotExist())
+			.andExpect(jsonPath("$.data.assignee").value("SELLER"));
+
+		Inquiry saved = inquiryRepository.findAll().getFirst();
+		assertThat(saved.getOrderId()).isNull();
+		assertThat(saved.getSellerMemberId()).isEqualTo(SELLER);
+		ArgumentCaptor<ProducerRecord<String, String>> captor = ArgumentCaptor.forClass(ProducerRecord.class);
+		verify(kafkaTemplate, timeout(3000)).send(captor.capture());
+		assertThat(captor.getValue().key()).isEqualTo(String.valueOf(SELLER));
+		// 판매자 상세에는 주문 정보가 없다 (주문 ID가 없으므로 주문 서비스를 부르지 않는다)
+		orderLookupPort.setUnavailable(false);
+		getAs(BASE + "/seller/inquiries/" + saved.getId(), SELLER)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.order").doesNotExist());
+	}
+
+	@Test
+	@DisplayName("대회·주문 없는 관리자 담당 문의(예치금·가입 문의)는 201이고, 상품·주문 서비스를 부르지 않으며 판매자 회원 ID도 비운다")
+	void adminInquiryWithoutRaceAndOrder() throws Exception {
+		raceSellerPort.setUnavailable(true);
+		orderLookupPort.setUnavailable(true);
+
+		postAs(CREATE_URL, ME, createJsonOf(null, null, "ETC", "예치금 문의", "충전이 안 돼요"))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.data.assignee").value("ADMIN"))
+			.andExpect(jsonPath("$.data.raceId").doesNotExist())
+			.andExpect(jsonPath("$.data.orderId").doesNotExist());
+
+		Inquiry saved = inquiryRepository.findAll().getFirst();
+		assertThat(saved.getRaceId()).isNull();
+		assertThat(saved.getOrderId()).isNull();
+		assertThat(saved.getSellerMemberId()).isNull();
+		verify(kafkaTemplate, after(300).never()).send(any(ProducerRecord.class));
+	}
+
+	@Test
+	@DisplayName("대회만 고른 관리자 담당 문의는 상품 서비스로 대회를 확인하고 판매자 회원 ID를 저장하지만 알림은 없다")
+	void adminInquiryWithRaceOnly() throws Exception {
+		postAs(CREATE_URL, ME, createJsonOf(RACE, null, "APPLY_PAYMENT", "제목", "본문"))
+			.andExpect(status().isCreated());
+
+		Inquiry saved = inquiryRepository.findAll().getFirst();
+		assertThat(saved.getRaceId()).isEqualTo(RACE);
+		assertThat(saved.getOrderId()).isNull();
+		assertThat(saved.getSellerMemberId()).isEqualTo(SELLER);
+		verify(kafkaTemplate, after(300).never()).send(any(ProducerRecord.class));
+	}
+
+	@Test
+	@DisplayName("주문 없이 없는 대회로 문의하면 404 INQUIRY_RACE_NOT_FOUND이고 저장하지 않는다")
+	void noOrderUnknownRace() throws Exception {
+		postAs(CREATE_URL, ME, createJsonOf(NO_RACE, null, "RACE_VENUE", "제목", "본문"))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("INQUIRY_RACE_NOT_FOUND"));
+		postAs(CREATE_URL, ME, createJsonOf(NO_RACE, null, "ETC", "제목", "본문"))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("INQUIRY_RACE_NOT_FOUND"));
+
+		assertThat(inquiryRepository.count()).isZero();
+	}
+
+	@Test
+	@DisplayName("주문 없이 대회만 보냈는데 상품 서비스가 멈추면 503이고 저장하지 않는다")
+	void noOrderProductUnavailable() throws Exception {
+		raceSellerPort.setUnavailable(true);
+
+		postAs(CREATE_URL, ME, createJsonOf(RACE, null, "RACE_VENUE", "제목", "본문"))
+			.andExpect(status().isServiceUnavailable())
+			.andExpect(jsonPath("$.code").value("INQUIRY_EXTERNAL_SERVICE_UNAVAILABLE"));
+		postAs(CREATE_URL, ME, createJsonOf(RACE, null, "ETC", "제목", "본문"))
+			.andExpect(status().isServiceUnavailable());
 
 		assertThat(inquiryRepository.count()).isZero();
 	}
