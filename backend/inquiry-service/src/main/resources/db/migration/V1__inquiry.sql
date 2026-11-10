@@ -1,5 +1,7 @@
 -- 문의 서비스 첫 테이블 (BUK-154). 문의 한 건이 행 하나이고, 답변도 같은 행에 저장한다
--- race_id·order_id·seller_member_id는 판매자가 관리자에게 보낸 문의(SELLER_SUPPORT)에서 비어 있다
+-- race_id·order_id·seller_member_id는 비어 있을 수 있다. 관리자 담당 문의는 대회·주문 없이 보낼 수 있고(예치금·가입 문의),
+-- 대회만 있고 주문이 없는 문의도 있다. 판매자가 관리자에게 보낸 문의(SELLER_SUPPORT)는 셋 다 비어 있다
+-- seller_member_id는 대회 ID가 있을 때만 채운다. 판매자 담당 문의는 대회 ID가 필수라 언제나 채워진다
 -- deleted_at이 차 있으면 보낸 회원이 지운 문의다. 행은 남기고 어느 목록·상세에도 보이지 않는다 (3년 보관)
 -- 인덱스는 create table 안에 둔다 (알림·주문 서비스 V1과 같은 방식). 바꿀 내용은 새 V<날짜시각>__설명.sql로 더한다
 create table if not exists inquiry_inquiry (

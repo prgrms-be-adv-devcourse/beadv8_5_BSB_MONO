@@ -26,8 +26,13 @@ public enum InquiryType {
 		return assignee;
 	}
 
-	// 회원 문의는 주문 하나와 대회 하나에 묶고, 판매자 문의는 묶지 않는다
+	// 회원 문의는 대회(와 주문)에 묶을 수 있고, 판매자 문의는 대회·주문 없이 보낸다
 	public boolean linkedToOrder() {
 		return this != SELLER_SUPPORT;
+	}
+
+	// 판매자 담당 종류는 판매자를 정해야 하므로 대회 ID가 꼭 있어야 한다. 관리자 담당 종류는 대회가 없어도 된다
+	public boolean requiresRace() {
+		return assignee == InquiryAssignee.SELLER;
 	}
 }

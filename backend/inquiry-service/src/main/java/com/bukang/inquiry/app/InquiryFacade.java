@@ -47,8 +47,11 @@ public class InquiryFacade {
 	private final MemberNicknamesPort memberNicknamesPort;
 	private final InquiryUseCase inquiryUseCase;
 
-	// 회원 문의: 주문 주인이 나이고 주문에 그 대회가 있어야 한다(아니면 404). 판매자를 모르면 저장하지 않는다(404·503)
-	// 판매자 문의: 승인된 판매자만 보낼 수 있다(아니면 403, 회원 서비스 장애면 503)
+	// 입구별 규칙 (설계 10장)
+	// - 주문 ID가 있으면: 주문 주인이 나이고 주문에 그 대회가 있어야 한다 (아니면 404)
+	// - 대회 ID가 있으면: 상품 서비스로 대회와 판매자를 확인한다 (대회 없음 404, 장애 503). 확인하지 못하면 저장하지 않는다
+	// - 대회 ID가 없으면(관리자 담당만 가능): 상품·주문 서비스를 부르지 않고 판매자 회원 ID도 비운다
+	// - 판매자 문의: 승인된 판매자만 보낼 수 있다 (아니면 403, 회원 서비스 장애면 503)
 	public InquiryDto create(long memberId, InquiryCreateRequestDto request) {
 		if (!request.type().linkedToOrder()) {
 			if (!memberSellerPort.isApprovedSeller(memberId)) {
@@ -56,11 +59,13 @@ public class InquiryFacade {
 			}
 			return inquiryUseCase.create(memberId, null, null, null, request.type(), request.title(), request.body());
 		}
-		orderLookupPort.findOrder(request.orderId())
-			.filter(order -> order.memberId() == memberId && order.hasRace(request.raceId()))
-			.orElseThrow(InquiryOrderNotFoundException::new);
-		long sellerMemberId = raceSellerPort.findSellerMemberId(request.raceId())
-			.orElseThrow(InquiryRaceNotFoundException::new);
+		if (request.orderId() != null) {
+			orderLookupPort.findOrder(request.orderId())
+				.filter(order -> order.memberId() == memberId && order.hasRace(request.raceId()))
+				.orElseThrow(InquiryOrderNotFoundException::new);
+		}
+		Long sellerMemberId = request.raceId() == null ? null
+			: raceSellerPort.findSellerMemberId(request.raceId()).orElseThrow(InquiryRaceNotFoundException::new);
 		return inquiryUseCase.create(memberId, sellerMemberId, request.raceId(), request.orderId(), request.type(),
 			request.title(), request.body());
 	}

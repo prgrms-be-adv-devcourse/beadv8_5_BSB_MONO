@@ -11,13 +11,16 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
-@Schema(description = "문의 남기기 요청. 회원 문의는 주문 ID와 대회 ID가 모두 필요하고, 판매자 문의(SELLER_SUPPORT)는 둘 다 넣지 않는다")
+@Schema(description = "문의 남기기 요청. 판매자 담당 종류(RACE_VENUE, KIT_DELIVERY)는 대회 ID가 필수이고 주문 ID는 선택이다. "
+	+ "관리자 담당 종류(APPLY_PAYMENT, ETC)는 대회 ID·주문 ID가 모두 선택이다. 주문 ID를 보내면 대회 ID도 함께 보낸다. "
+	+ "판매자 문의(SELLER_SUPPORT)는 둘 다 보내지 않는다")
 public record InquiryCreateRequestDto(
-	@Schema(description = "문의할 대회 ID. 주문에 있는 대회여야 한다 (판매자 문의는 null)", example = "1", nullable = true)
+	@Schema(description = "문의할 대회 ID. 주문 ID를 함께 보내면 그 주문에 있는 대회여야 한다 "
+		+ "(판매자 담당 종류는 필수, 판매자 문의는 null)", example = "1", nullable = true)
 	@Positive(message = "대회 ID가 올바르지 않습니다.")
 	Long raceId,
 
-	@Schema(description = "문의할 주문 ID. 내 주문이어야 한다 (판매자 문의는 null)", example = "500", nullable = true)
+	@Schema(description = "문의할 주문 ID. 보내면 내 주문이어야 한다 (선택, 판매자 문의는 null)", example = "500", nullable = true)
 	@Positive(message = "주문 ID가 올바르지 않습니다.")
 	Long orderId,
 
@@ -38,9 +41,15 @@ public record InquiryCreateRequestDto(
 	String body
 ) {
 	@JsonIgnore
-	@AssertTrue(message = "문의할 주문과 대회를 골라주세요.")
-	public boolean isOrderLinked() {
-		return type == null || !type.linkedToOrder() || (raceId != null && orderId != null);
+	@AssertTrue(message = "문의할 대회를 골라주세요.")
+	public boolean isRaceChosenForSellerType() {
+		return type == null || !type.requiresRace() || raceId != null;
+	}
+
+	@JsonIgnore
+	@AssertTrue(message = "주문을 고르면 대회도 함께 보내주세요.")
+	public boolean isRaceSentWithOrder() {
+		return orderId == null || raceId != null;
 	}
 
 	@JsonIgnore
