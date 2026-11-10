@@ -16,6 +16,7 @@ import com.bukang.member.app.SellerFacade;
 import com.bukang.member.dto.MarketingUnsubscribeLinkDto;
 import com.bukang.member.dto.MemberAdminDto;
 import com.bukang.member.dto.MemberNicknameDto;
+import com.bukang.member.dto.MemberReplicaPageDto;
 import com.bukang.member.dto.MemberSellerDto;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -33,7 +34,7 @@ import lombok.RequiredArgsConstructor;
  * 회원이 아니라 서비스가 부르므로 회원 ID 헤더를 받지 않는다
  */
 @Tag(name = "MemberInternal",
-	description = "회원의 판매자 ID 조회, 관리자 여부 조회, 광고 수신 거부 링크 발급, 닉네임 여러 명 조회 API (서비스 간 내부 호출 전용)")
+	description = "회원의 판매자 ID 조회, 관리자 여부 조회, 광고 수신 거부 링크 발급, 닉네임 여러 명 조회, 회원 복사본 목록 조회 API (서비스 간 내부 호출 전용)")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/internal/v1/member")
@@ -127,5 +128,31 @@ public class InternalV1MemberController {
 	) {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "회원 닉네임을 조회했습니다.", memberFacade.findNicknames(ids)));
+	}
+
+	// 게시판 등이 뜰 때 Kafka 메시지가 지워진 옛 회원의 복사본을 채우려고 부른다 (BUK-161). 공개 정보 다섯 칸만 내보낸다
+	@GetMapping("/members/replicas")
+	@Operation(summary = "회원 복사본 목록 조회",
+		description = "다른 서비스가 회원 복사본을 처음 채우려고 부른다. 회원 ID가 afterId보다 큰 회원을 회원 ID 순서로 size명까지 돌려주고, "
+			+ "memberId, nickname, sellerApproved, withdrawn, modifyDate만 담는다. 탈퇴한 회원은 닉네임을 「탈퇴한 회원」으로 돌려준다. "
+			+ "sellerApproved는 가장 최근 판매자 신청이 승인 상태일 때만 true다. "
+			+ "hasNext가 true면 nextAfterId를 afterId로 보내 다음 쪽을 받는다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "조회 성공 (받을 회원이 없으면 members가 빈 목록)",
+			content = @Content(examples = @ExampleObject(value = MemberInternalApiExamples.REPLICAS))),
+		@ApiResponse(responseCode = "400", description = "afterId가 음수, size가 1~500이 아님, 또는 숫자가 아님",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "범위 밖", value = MemberInternalApiExamples.REPLICAS_INVALID),
+				@ExampleObject(name = "숫자가 아님", value = MemberInternalApiExamples.INVALID_ID_FORMAT)
+			}))
+	})
+	public ResponseEntity<RsData<MemberReplicaPageDto>> findReplicas(
+		@Parameter(description = "이 회원 ID보다 큰 회원부터 받는다 (처음은 0)", example = "0")
+		@RequestParam(defaultValue = "0") long afterId,
+		@Parameter(description = "한 번에 받을 회원 수 (1~500)", example = "500")
+		@RequestParam(defaultValue = "500") int size
+	) {
+		return ResponseEntity.ok()
+			.body(RsData.of(HttpStatus.OK, "회원 복사본 목록을 조회했습니다.", memberFacade.findReplicas(afterId, size)));
 	}
 }
