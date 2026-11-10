@@ -1,5 +1,7 @@
 package com.bukang.cash.out.pg;
 
+import java.util.Optional;
+
 import org.springframework.web.client.RestClient;
 
 /**
@@ -17,12 +19,17 @@ public class TossPaymentClient implements PaymentClient {
 	public TossPaymentClient(RestClient moneyMovingRestClient, RestClient lookupRestClient, String secretKey) {
 		this.confirmClient = new TossPaymentConfirmClient(moneyMovingRestClient, lookupRestClient, secretKey);
 		this.cancelClient = new TossPaymentCancelClient(moneyMovingRestClient, secretKey);
-		this.virtualAccountClient = new TossVirtualAccountClient(moneyMovingRestClient, secretKey);
+		this.virtualAccountClient = new TossVirtualAccountClient(moneyMovingRestClient, lookupRestClient, secretKey);
 	}
 
 	@Override
 	public VirtualAccountIssueResult issueVirtualAccount(String orderId, long amount) {
 		return virtualAccountClient.issue(orderId, amount);
+	}
+
+	@Override
+	public Optional<VirtualAccountIssueResult> findVirtualAccount(String orderId) {
+		return virtualAccountClient.find(orderId);
 	}
 
 	@Override

@@ -466,6 +466,63 @@ class TossPaymentClientTest {
 			.isInstanceOf(VirtualAccountIssueFailedException.class);
 	}
 
+	@Test
+	@DisplayName("주문번호로 이미 발급된 가상계좌가 있으면 계좌번호·입금 기한(한국 시간)·웹훅 비밀값을 돌려준다")
+	void findVirtualAccount() {
+		String response = """
+			{ "orderId": "RC-20261214-0A3F", "status": "WAITING_FOR_DEPOSIT", "secret": "ps_secret_1",
+			"virtualAccount": { "accountNumber": "X6000123456789", "bankCode": "06",
+			"dueDate": "2027-03-14T10:00:00+09:00" } }
+			""";
+		server.expect(requestTo(BASE_URL + "/v1/payments/orders/RC-20261214-0A3F"))
+			.andExpect(method(HttpMethod.GET))
+			.andExpect(header(HttpHeaders.AUTHORIZATION, BASIC_AUTH))
+			.andRespond(withSuccess(response, MediaType.APPLICATION_JSON));
+
+		assertThat(client.findVirtualAccount("RC-20261214-0A3F")).contains(new VirtualAccountIssueResult(
+			"국민은행", "X6000123456789", LocalDateTime.of(2027, 3, 14, 10, 0), "ps_secret_1"));
+	}
+
+	@Test
+	@DisplayName("Toss가 이 주문번호의 결제를 모르면(404) 발급된 가상계좌가 없다고 돌려준다")
+	void findVirtualAccountNotFound() {
+		server.expect(requestTo(BASE_URL + "/v1/payments/orders/RC-20261214-0A3F"))
+			.andRespond(withStatus(HttpStatus.NOT_FOUND)
+				.contentType(MediaType.APPLICATION_JSON)
+				.body(errorResponse("NOT_FOUND_PAYMENT", "존재하지 않는 결제 정보 입니다.")));
+
+		assertThat(client.findVirtualAccount("RC-20261214-0A3F")).isEmpty();
+	}
+
+	@Test
+	@DisplayName("조회가 5xx로 실패하면 발급 여부를 알 수 없어 새로 발급하지 않도록 가상계좌 발급 실패 예외로 알린다")
+	void findVirtualAccountServerError() {
+		server.expect(requestTo(BASE_URL + "/v1/payments/orders/RC-20261214-0A3F")).andRespond(withServerError());
+
+		assertThatThrownBy(() -> client.findVirtualAccount("RC-20261214-0A3F"))
+			.isInstanceOf(VirtualAccountIssueFailedException.class);
+	}
+
+	@Test
+	@DisplayName("조회 서버에 연결하지 못하면(타임아웃 등) 가상계좌 발급 실패 예외로 알린다")
+	void findVirtualAccountConnectionFailure() {
+		server.expect(requestTo(BASE_URL + "/v1/payments/orders/RC-20261214-0A3F"))
+			.andRespond(withException(new SocketTimeoutException("read timed out")));
+
+		assertThatThrownBy(() -> client.findVirtualAccount("RC-20261214-0A3F"))
+			.isInstanceOf(VirtualAccountIssueFailedException.class);
+	}
+
+	@Test
+	@DisplayName("주문번호의 결제는 있는데 가상계좌 정보가 없으면 새로 발급하지 않도록 가상계좌 발급 실패 예외로 알린다")
+	void findVirtualAccountWithoutAccount() {
+		server.expect(requestTo(BASE_URL + "/v1/payments/orders/RC-20261214-0A3F"))
+			.andRespond(withSuccess("{ \"status\": \"DONE\" }", MediaType.APPLICATION_JSON));
+
+		assertThatThrownBy(() -> client.findVirtualAccount("RC-20261214-0A3F"))
+			.isInstanceOf(VirtualAccountIssueFailedException.class);
+	}
+
 	private PaymentApprovalFailedException approveFailure() {
 		return catchThrowableOfType(PaymentApprovalFailedException.class,
 			() -> client.approve("pay_123", "order_1", 10_000));
