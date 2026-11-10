@@ -1,6 +1,7 @@
 package com.bukang.cash.out.pg;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
@@ -36,5 +37,18 @@ public class FakePaymentClient implements PaymentClient {
 		String paymentKey, String cancelReason, long cancelAmount, String idempotencyKey
 	) {
 		return new PaymentCancelResult(cancelAmount, "fake-cancel-" + paymentKey);
+	}
+
+	@Override
+	public VirtualAccountIssueResult issueVirtualAccount(String orderId, long amount) {
+		// Toss 테스트 계좌처럼 X로 시작해 가짜임을 알 수 있게 한다
+		return new VirtualAccountIssueResult(
+			"국민은행", "X-fake-" + orderId, LocalDateTime.now().plusDays(90), "fake-secret-" + orderId);
+	}
+
+	@Override
+	public Optional<VirtualAccountIssueResult> findVirtualAccount(String orderId) {
+		// 가짜 발급은 항상 성공해 결제 쪽에 바로 저장되므로, PG에만 남은 계좌는 없다
+		return Optional.empty();
 	}
 }

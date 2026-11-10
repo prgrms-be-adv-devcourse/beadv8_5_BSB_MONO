@@ -31,6 +31,7 @@ import com.bukang.cash.domain.wallet.Wallet;
 import com.bukang.cash.out.member.CashMemberRepository;
 import com.bukang.cash.out.payment.PaymentRepository;
 import com.bukang.cash.out.payout.PayoutTransferRepository;
+import com.bukang.cash.out.recovery.RecoveryDepositRepository;
 import com.bukang.cash.out.seller.CashSellerRepository;
 import com.bukang.cash.out.wallet.WalletLedgerRepository;
 import com.bukang.cash.out.wallet.WalletRepository;
@@ -59,6 +60,8 @@ class InternalV1CashControllerTest {
 	@Autowired
 	private CashSellerRepository cashSellerRepository;
 	@Autowired
+	private RecoveryDepositRepository recoveryDepositRepository;
+	@Autowired
 	private TransactionTemplate transactionTemplate;
 
 	@BeforeEach
@@ -80,6 +83,48 @@ class InternalV1CashControllerTest {
 		walletRepository.deleteAll();
 		cashSellerRepository.deleteAll();
 		cashMemberRepository.deleteAll();
+		recoveryDepositRepository.deleteAll();
+	}
+
+	@Test
+	@DisplayName("정산이 청구 ID와 금액으로 가상계좌를 요청하면 발급한 은행 이름과 계좌번호를 돌려준다 (가짜 PG)")
+	void issueClaimVirtualAccount() throws Exception {
+		mockMvc.perform(post("/internal/v1/cash/claims/{claimCode}/virtual-account", "RC-20261214-0A3F")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"amount\": 400000}"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.message").value("가상계좌를 발급했습니다."))
+			.andExpect(jsonPath("$.data.bankName").value("국민은행"))
+			.andExpect(jsonPath("$.data.accountNumber").value("X-fake-RC-20261214-0A3F"));
+
+		assertThat(recoveryDepositRepository.findByClaimCode("RC-20261214-0A3F").orElseThrow().getAmount())
+			.isEqualTo(400_000);
+	}
+
+	@Test
+	@DisplayName("가상계좌 요청에 금액이 없거나 0 이하면 400으로 거절하고 발급하지 않는다")
+	void issueClaimVirtualAccountRejectsInvalidAmount() throws Exception {
+		issueClaimVirtualAccount("RC-20261214-0A3F", "{}")
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message").value("금액을 작성해주세요."));
+		issueClaimVirtualAccount("RC-20261214-0A3F", "{\"amount\": 0}")
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message").value("금액은 0보다 커야 합니다."));
+
+		assertThat(recoveryDepositRepository.count()).isZero();
+	}
+
+	@Test
+	@DisplayName("청구 ID가 PG 주문번호 규칙(영문·숫자·-·_ 6~64자)에 맞지 않으면 400으로 거절하고 발급하지 않는다")
+	void issueClaimVirtualAccountRejectsInvalidClaimCode() throws Exception {
+		issueClaimVirtualAccount("RC 0A3F", "{\"amount\": 400000}")
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+			.andExpect(jsonPath("$.message").value("청구 ID는 영문·숫자·-·_로 6~64자여야 합니다."));
+		issueClaimVirtualAccount("R".repeat(65), "{\"amount\": 400000}")
+			.andExpect(status().isBadRequest());
+
+		assertThat(recoveryDepositRepository.count()).isZero();
 	}
 
 	@Test
@@ -335,6 +380,12 @@ class InternalV1CashControllerTest {
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
 			.andExpect(jsonPath("$.message").value("요청 값의 형식이 올바르지 않습니다."));
+	}
+
+	private ResultActions issueClaimVirtualAccount(String claimCode, String body) throws Exception {
+		return mockMvc.perform(post("/internal/v1/cash/claims/{claimCode}/virtual-account", claimCode)
+			.contentType(MediaType.APPLICATION_JSON)
+			.content(body));
 	}
 
 	private ResultActions pay(long orderId, long memberId, long amount) throws Exception {

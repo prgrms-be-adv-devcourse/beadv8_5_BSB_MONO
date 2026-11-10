@@ -13,6 +13,7 @@ import com.bukang.cash.app.payment.CashCompleteOrderPaymentUseCase;
 import com.bukang.cash.app.payment.CashRefundPaymentUseCase;
 import com.bukang.cash.app.payment.CashRefundableChargeQueryUseCase;
 import com.bukang.cash.app.payout.CashPayoutUseCase;
+import com.bukang.cash.app.recovery.CashRecoveryVirtualAccountUseCase;
 import com.bukang.cash.app.wallet.CashEnsureWalletUseCase;
 import com.bukang.cash.app.wallet.CashWalletLedgerQueryUseCase;
 import com.bukang.cash.app.withdrawal.CashWithdrawalUseCase;
@@ -27,6 +28,7 @@ import com.bukang.cash.dto.payment.CashPaymentResponseDto;
 import com.bukang.cash.dto.payment.CashRefundResponseDto;
 import com.bukang.cash.dto.payment.RefundableChargesResponseDto;
 import com.bukang.cash.dto.payout.CashPayoutResponseDto;
+import com.bukang.cash.dto.recovery.CashClaimVirtualAccountResponseDto;
 import com.bukang.cash.dto.wallet.CashBalanceResponseDto;
 import com.bukang.cash.dto.wallet.WalletBalanceResponseDto;
 import com.bukang.cash.dto.wallet.WalletLedgerItemDto;
@@ -50,6 +52,7 @@ public class CashFacade {
 	private final CashSyncSellerUseCase cashSyncSellerUseCase;
 	private final CashWalletLedgerQueryUseCase cashWalletLedgerQueryUseCase;
 	private final CashRefundableChargeQueryUseCase cashRefundableChargeQueryUseCase;
+	private final CashRecoveryVirtualAccountUseCase cashRecoveryVirtualAccountUseCase;
 
 	@Transactional
 	public CashMember syncMember(long id, LocalDateTime createDate, LocalDateTime modifyDate,
@@ -126,5 +129,10 @@ public class CashFacade {
 	@Transactional
 	public CashSeller syncSeller(SellerChangedEvent event) {
 		return cashSyncSellerUseCase.syncSeller(event);
+	}
+
+	// @Transactional을 일부러 안 붙인다. 충전 확정과 같은 이유로, 토스 가상계좌 발급을 트랜잭션 밖에서 부른다
+	public CashClaimVirtualAccountResponseDto issueClaimVirtualAccount(String claimCode, long amount) {
+		return cashRecoveryVirtualAccountUseCase.issue(claimCode, amount);
 	}
 }
