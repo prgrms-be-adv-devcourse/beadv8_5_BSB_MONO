@@ -1,6 +1,7 @@
 package com.bukang.board.app;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.stereotype.Service;
@@ -8,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.bukang.board.domain.BoardMember;
 import com.bukang.board.out.BoardMemberRepository;
+import com.bukang.board.out.member.MemberReplicaPort.MemberReplica;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -68,5 +70,17 @@ public class BoardMemberSyncUseCase {
 		boardMemberRepository.findById(id).ifPresentOrElse(
 			member -> member.withdraw(withdrawnAt),
 			() -> boardMemberRepository.save(BoardMember.withdrawnOf(id, withdrawnAt)));
+	}
+
+	// 회원 서비스에서 받은 회원을 복사본이 없는 경우에만 넣는다 (BUK-161). 새로 넣은 수를 돌려준다
+	// 이벤트와 같은 회원을 동시에 넣어도 하나만 들어가고, 이미 있는 회원은 건드리지 않는다
+	@Transactional
+	public int insertMissing(List<MemberReplica> replicas) {
+		int inserted = 0;
+		for (MemberReplica replica : replicas) {
+			inserted += boardMemberRepository.insertIgnore(replica.memberId(), replica.nickname(),
+				replica.sellerApproved(), replica.withdrawn(), replica.modifyDate());
+		}
+		return inserted;
 	}
 }

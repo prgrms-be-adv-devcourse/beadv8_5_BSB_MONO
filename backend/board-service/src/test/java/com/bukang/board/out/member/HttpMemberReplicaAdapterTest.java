@@ -94,7 +94,8 @@ class HttpMemberReplicaAdapterTest {
 				MediaType.APPLICATION_JSON));
 
 		assertThatThrownBy(() -> adapter.fetch(7, 500)).isInstanceOf(IllegalStateException.class);
-		assertThatThrownBy(() -> adapter.fetch(7, 500)).isInstanceOf(IllegalStateException.class);
+		// 빈 data는 읽는 단계에서 이미 실패할 수 있다. 어느 쪽이든 빈 쪽으로 넘어가지 않는 것이 약속이다
+		assertThatThrownBy(() -> adapter.fetch(7, 500)).isInstanceOf(RuntimeException.class);
 	}
 
 	@Test

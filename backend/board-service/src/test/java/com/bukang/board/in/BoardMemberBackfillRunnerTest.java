@@ -16,6 +16,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.web.client.RestClientException;
@@ -83,7 +84,8 @@ class BoardMemberBackfillRunnerTest {
 		@TestConfiguration
 		static class DownPort {
 			@Bean
-			MemberReplicaPort memberReplicaPort() {
+			@Primary
+			MemberReplicaPort downMemberReplicaPort() {
 				return (afterId, size) -> {
 					CALLS.incrementAndGet();
 					throw new RestClientException("회원 서비스 꺼짐");

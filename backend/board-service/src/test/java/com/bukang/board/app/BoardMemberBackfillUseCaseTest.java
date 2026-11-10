@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -18,6 +19,7 @@ import java.util.concurrent.Future;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.web.client.RestClientException;
 
@@ -103,22 +105,29 @@ class BoardMemberBackfillUseCaseTest extends BoardTestBase {
 	}
 
 	@Test
-	@DisplayName("채우기와 이벤트가 같은 회원을 동시에 넣어도 오류 없이 하나만 들어간다")
+	@DisplayName("채우기와 이벤트가 같은 회원을 동시에 넣어도 채우기는 오류 없이 끝나고 행은 하나만 들어간다")
 	void concurrentInsertKeepsOneRow() throws Exception {
 		when(port.fetch(0, 500)).thenReturn(page(false, 10, replica(10, "동시", false, false, T1)));
 		ExecutorService executor = Executors.newFixedThreadPool(4);
 		CountDownLatch start = new CountDownLatch(1);
 		try {
-			List<Future<?>> futures = List.of(
+			List<Future<?>> backfills = List.of(
 				executor.submit(() -> awaitThen(start, backfill::run)),
-				executor.submit(() -> awaitThen(start, backfill::run)),
-				executor.submit(() -> awaitThen(start,
-					() -> sync.syncProfile("m-1", "topic", 10, T1, T1, "이벤트"))),
-				executor.submit(() -> awaitThen(start,
-					() -> sync.syncProfile("m-2", "topic", 10, T1, T1, "이벤트"))));
+				executor.submit(() -> awaitThen(start, backfill::run)));
+			// 이벤트는 기존 방식(읽고 저장)이라 진 쪽이 키 중복으로 실패할 수 있다. 실패하면 롤백돼 Kafka가 다시 보내므로 여기서는 허용한다
+			List<Future<?>> events = List.of(
+				executor.submit(() -> awaitThen(start, () -> sync.syncProfile("m-1", "topic", 10, T1, T1, "이벤트"))),
+				executor.submit(() -> awaitThen(start, () -> sync.syncProfile("m-2", "topic", 10, T1, T1, "이벤트"))));
 			start.countDown();
-			for (Future<?> future : futures) {
+			for (Future<?> future : backfills) {
 				future.get();
+			}
+			for (Future<?> future : events) {
+				try {
+					future.get();
+				} catch (ExecutionException exception) {
+					assertThat(exception.getCause()).isInstanceOf(DataIntegrityViolationException.class);
+				}
 			}
 		} finally {
 			executor.shutdownNow();

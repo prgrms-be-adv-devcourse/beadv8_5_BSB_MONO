@@ -14,6 +14,11 @@ spring:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT}
 
+board:
+  clients:
+    member:
+      base-url: http://bukang-member-service:8080
+
 # 운영에서는 API 구조가 외부에 노출되지 않도록 Swagger 비활성화
 springdoc:
   api-docs:

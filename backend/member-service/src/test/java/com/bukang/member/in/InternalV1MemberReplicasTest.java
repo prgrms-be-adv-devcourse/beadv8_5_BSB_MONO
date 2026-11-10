@@ -29,6 +29,7 @@ import com.bukang.member.out.SellerRepository;
 import com.bukang.member.out.TermsAgreementRepository;
 import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
 import com.bukang.member.support.MemberFixture;
+import com.jayway.jsonpath.JsonPath;
 
 import jakarta.persistence.EntityManagerFactory;
 
@@ -84,7 +85,7 @@ class InternalV1MemberReplicasTest {
 	void exposesOnlyPublicFields() throws Exception {
 		LocalDateTime modifyDate = memberRepository.findById(first).orElseThrow().getModifyDate();
 
-		replicas(first - 1, 1)
+		String body = replicas(first - 1, 1)
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.message").value("회원 복사본 목록을 조회했습니다."))
 			.andExpect(jsonPath("$.data.members.length()").value(1))
@@ -93,7 +94,10 @@ class InternalV1MemberReplicasTest {
 			.andExpect(jsonPath("$.data.members[0].nickname").value("러너A"))
 			.andExpect(jsonPath("$.data.members[0].sellerApproved").value(false))
 			.andExpect(jsonPath("$.data.members[0].withdrawn").value(false))
-			.andExpect(jsonPath("$.data.members[0].modifyDate").value(modifyDate.toString()));
+			.andReturn().getResponse().getContentAsString();
+		// 끝자리 0을 줄여 쓰는 표기 차이가 있어 문자열이 아니라 시각으로 비교한다
+		String sent = JsonPath.read(body, "$.data.members[0].modifyDate");
+		assertThat(LocalDateTime.parse(sent)).isEqualTo(modifyDate);
 	}
 
 	@Test
