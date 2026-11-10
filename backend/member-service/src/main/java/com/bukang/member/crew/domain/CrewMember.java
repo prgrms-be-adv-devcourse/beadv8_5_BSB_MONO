@@ -5,6 +5,7 @@ import static jakarta.persistence.GenerationType.IDENTITY;
 import static lombok.AccessLevel.PROTECTED;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 import com.bukang.common.shared.crew.event.CrewMemberJoinedEvent;
@@ -89,9 +90,12 @@ public class CrewMember {
 		return new CrewMemberLeftEvent(UUID.randomUUID().toString(), crewId, memberId, reason, joinedAt, now);
 	}
 
-	// 초대 링크로 가입한 뒤 보낼 이벤트 (BUK-99). 이 행의 가입 시각을 싣는다
+	// 초대 링크로 가입한 뒤 보낼 이벤트 (BUK-99). 이 행의 가입 시각을 싣는다.
+	// 저장 직후라 메모리 값은 나노초까지 있을 수 있어, DB(DATETIME(6))와 같게 마이크로초로 자른다.
+	// 그래야 이탈 이벤트가 DB에서 읽어 싣는 joinedAt과 같은 값이 된다
 	public CrewMemberJoinedEvent joinedEvent() {
-		return new CrewMemberJoinedEvent(UUID.randomUUID().toString(), crewId, memberId, joinedAt);
+		return new CrewMemberJoinedEvent(UUID.randomUUID().toString(), crewId, memberId,
+			joinedAt.truncatedTo(ChronoUnit.MICROS));
 	}
 
 	// 크루장 넘기기. 가입 시각은 바꾸지 않는다
