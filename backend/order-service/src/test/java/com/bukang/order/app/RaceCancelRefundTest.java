@@ -46,6 +46,8 @@ import com.bukang.order.domain.Order;
 import com.bukang.order.domain.OrderItemStatus;
 import com.bukang.order.domain.OrderStatus;
 import com.bukang.order.domain.ParticipationStatus;
+import com.bukang.order.domain.Party;
+import com.bukang.order.domain.PartyStatus;
 import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
 import com.bukang.order.domain.exception.OrderNotPayableException;
 import com.bukang.order.in.OrderKafkaConsumer;
@@ -53,6 +55,7 @@ import com.bukang.order.out.OrderInboxKafkaEventRepository;
 import com.bukang.order.out.OrderOutboxKafkaEventRepository;
 import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationRepository;
+import com.bukang.order.out.PartyRepository;
 import com.bukang.order.out.QueueAdmissionRepository;
 import com.bukang.order.support.QueueEntry;
 import com.bukang.order.support.SeatOutboxMessages;
@@ -96,6 +99,9 @@ class RaceCancelRefundTest {
 
 	@Autowired
 	private QueueAdmissionRepository queueAdmissionRepository;
+
+	@Autowired
+	private PartyRepository partyRepository;
 
 	@Autowired
 	private OrderCreateUseCase orderCreateUseCase;
@@ -154,6 +160,17 @@ class RaceCancelRefundTest {
 		orderOutboxKafkaEventRepository.deleteAll();
 		orderInboxKafkaEventRepository.deleteAll();
 		walletPort.clear();
+		partyRepository.deleteAll();
+	}
+
+	@Test
+	@DisplayName("대회 취소를 처리하면 그 대회의 끝나지 않은 파티도 종료한다 (BUK-155)")
+	void closesPartiesOfCanceledRace() {
+		long party = partyRepository.save(Party.create(2, 1, RACE_ID, COURSE_ID, LocalDateTime.now())).getId();
+
+		raceCancelRefundUseCase.refundAll(RACE_ID, LocalDateTime.now());
+
+		assertThat(partyRepository.findById(party).orElseThrow().getStatus()).isEqualTo(PartyStatus.CLOSED);
 	}
 
 	@Test

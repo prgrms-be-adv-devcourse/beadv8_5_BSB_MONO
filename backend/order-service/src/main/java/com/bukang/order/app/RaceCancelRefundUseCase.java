@@ -30,6 +30,7 @@ import lombok.extern.slf4j.Slf4j;
  * 결제 대기 주문은 예치금 결제를 취소해 둔다(D, 주문 ID 멱등). 결제가 차감·판매 뒤 응답을 못 받아 결제 대기로 남았으면
  * 상품은 이미 판 자리라 다시 결제할 때 판매를 허락하므로, D에서 막지 않으면 취소된 대회의 참가권이 결제된다.
  * 빠져나간 돈도 이때 돌려받는다. 주문은 결제 대기로 두고, 기한이 지나면 만료 정리가 끝낸다
+ * 그 대회의 끝나지 않은 파티도 종료한다 (BUK-155, PartyCloseUseCase.closeCanceledRace)
  */
 @Slf4j
 @Service
@@ -48,6 +49,7 @@ public class RaceCancelRefundUseCase {
 	private final OrderOutboxKafkaAppendUseCase orderOutboxKafkaAppendUseCase;
 	private final TransactionTemplate transactionTemplate;
 	private final KitOptionSaleUseCase kitOptionSaleUseCase;
+	private final PartyCloseUseCase partyCloseUseCase;
 
 	/**
 	 * @param refundedOrders 이번에 취소·환불한 주문 수
@@ -66,6 +68,8 @@ public class RaceCancelRefundUseCase {
 	public RefundResult refundAll(long raceId, LocalDateTime now) {
 		// 환불을 시작하기 전에 정산이 그 대회 지급을 막게 한다 (11/05 회의 R1). 다시 처리할 때도 보내 완료보다 늘 앞선다
 		transactionTemplate.executeWithoutResult(status -> orderOutboxKafkaAppendUseCase.appendRaceHeld(raceId, now));
+		// 끝나지 않은 파티를 종료한다 (BUK-155). 예치금을 부르지 않아 환불 장애와 상관없이 먼저 끝낸다
+		partyCloseUseCase.closeCanceledRace(raceId, now);
 		int refunded = 0;
 		int failed = 0;
 		int consecutiveFailures = 0;
