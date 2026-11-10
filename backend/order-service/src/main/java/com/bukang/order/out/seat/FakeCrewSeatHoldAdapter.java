@@ -4,10 +4,13 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
+
+import com.bukang.order.domain.exception.ParticipationNotPayableException;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -15,7 +18,7 @@ import lombok.extern.slf4j.Slf4j;
  * 가짜 어댑터: 상품 API가 생기기 전까지, 종목마다 크루 전용 자리 20석을 메모리에 두고 파티 단위로 한꺼번에 잡는다 (BUK-35)
  * 계약(전부 아니면 실패, 파티 ID 멱등)은 CrewSeatHoldPort 그대로 지킨다. 앱을 다시 켜면 처음으로 돌아간다
  * 잡은 자리는 가짜 자리 어댑터(FakeSeatHoldAdapter)에도 남겨, 파티원 결제의 자리 판매(SeatHoldPort.sell)가 성공하게 한다 (BUK-38)
- * order.clients.product.mode=fake(기본값)일 때만 쓴다. http면 상품 API가 생기기 전까지 DisabledCrewSeatHoldAdapter가 막는다
+ * order.clients.product.mode=fake(기본값)일 때만 쓴다. http면 HttpCrewSeatHoldAdapter가 실제 상품을 부른다
  */
 @Slf4j
 @Component
@@ -25,6 +28,7 @@ public class FakeCrewSeatHoldAdapter implements CrewSeatHoldPort {
 	private final FakeSeatHoldAdapter seatHoldAdapter;
 	private final Map<Long, Integer> remainingSeats = new HashMap<>();
 	private final Map<Long, CrewSeatHoldResult> results = new HashMap<>();
+	private final Map<Long, List<Seat>> heldSeats = new HashMap<>();
 
 	public FakeCrewSeatHoldAdapter(FakeSeatHoldAdapter seatHoldAdapter) {
 		this.seatHoldAdapter = seatHoldAdapter;
@@ -32,11 +36,25 @@ public class FakeCrewSeatHoldAdapter implements CrewSeatHoldPort {
 	}
 
 	// 확인과 차감을 한 번에 해야 두 파티가 같은 자리를 나눠 갖지 않는다 (B의 종목별 조건부 UPDATE + 한 트랜잭션 흉내)
+	// 공개 메서드는 잠그지 않는다. 테스트가 spy로 이 메서드를 가로챌 때 잠금을 쥔 채 기다리지 않게 한다
 	@Override
-	public synchronized CrewSeatHoldResult holdAll(long partyId, LocalDateTime expiresAt, List<Seat> seats) {
+	public CrewSeatHoldResult holdAll(long partyId, long crewId, long raceId, LocalDateTime expiresAt,
+		List<Seat> seats) {
+		return holdAllLocked(partyId, expiresAt, seats);
+	}
+
+	private synchronized CrewSeatHoldResult holdAllLocked(long partyId, LocalDateTime expiresAt, List<Seat> seats) {
 		CrewSeatHoldResult first = results.get(partyId);
 		if (first != null) {
+			// 상품처럼 자리 목록이 처음과 다르면 처음 결과 대신 409로 거절한다 (CrewSeatHoldPort 계약)
+			if (!Set.copyOf(heldSeats.get(partyId)).equals(Set.copyOf(seats))) {
+				throw new ParticipationNotPayableException("이미 다른 자리 목록으로 확보한 파티입니다.");
+			}
 			return first;
+		}
+		// 상품처럼 처음 결과를 찾은 다음에 끝 시각을 본다. 지난 끝 시각은 상품이 400을 주고 HTTP 어댑터가 거절(409)로 바꾼다
+		if (!expiresAt.isAfter(LocalDateTime.now())) {
+			throw new ParticipationNotPayableException("자리 끝 시각이 이미 지났습니다.");
 		}
 		Map<Long, Integer> needed = seats.stream()
 			.collect(Collectors.groupingBy(Seat::raceCourseId, Collectors.summingInt(seat -> 1)));
@@ -52,8 +70,16 @@ public class FakeCrewSeatHoldAdapter implements CrewSeatHoldPort {
 		seats.forEach(seat -> seatHoldAdapter.holdCrewSeat(seat.participationId(), seat.raceCourseId(), expiresAt));
 		CrewSeatHoldResult held = CrewSeatHoldResult.held(expiresAt);
 		results.put(partyId, held);
+		heldSeats.put(partyId, List.copyOf(seats));
 		log.debug("가짜 크루 자리 확보 partyId={}, seats={}", partyId, needed);
 		return held;
+	}
+
+	// 테스트끼리 남은 자리를 나눠 쓰지 않게 처음으로 돌린다 (앱을 다시 켠 것과 같다)
+	public synchronized void clear() {
+		remainingSeats.clear();
+		results.clear();
+		heldSeats.clear();
 	}
 
 	private int remaining(long raceCourseId) {

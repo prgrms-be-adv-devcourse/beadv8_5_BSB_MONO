@@ -8,6 +8,7 @@ import static lombok.AccessLevel.PROTECTED;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -108,7 +109,7 @@ public class Race extends BaseIdAndTime {
 	@Column(columnDefinition = "TEXT")
 	private String refundPolicy;
 
-	// 크루 참가 신청 인원. 최소는 5 이상만 정할 수 있고, 최대가 null이면 상한이 없다
+	// 크루 참가 신청 인원. 최소는 4 이상만 정할 수 있고 (11/05 회의 P3), 최대가 null이면 상한이 없다
 	@ColumnDefault("5")
 	@Column(nullable = false)
 	private int crewMinCount;
@@ -159,7 +160,7 @@ public class Race extends BaseIdAndTime {
 		if (saleStarted && request.getRefundDeadline().isBefore(refundDeadline)) {
 			throw new RaceChangeNotAllowedException("판매가 시작된 대회는 환불 기준일을 앞당길 수 없습니다.");
 		}
-		// 판매 일정은 마음대로 바꾸지 못한다 (대기열, 크루 마감 다음 날 06:00 배치, 확보 기한이 이 일정을 따른다)
+		// 판매 일정은 마음대로 바꾸지 못한다 (대기열, 크루 예매 마감일 자정의 크루 배치, 확보 기한이 이 일정을 따른다)
 		// 판매 시작일 전에는 일정이 모두 아직 오지 않았으므로, 지난 시각으로 옮기는 것만 막힌다
 		checkScheduleChange("크루 예매 시작", crewSaleStartAt, request.getCrewSaleStartAt(), now);
 		checkScheduleChange("크루 예매 마감", crewSaleEndAt, request.getCrewSaleEndAt(), now);
@@ -291,6 +292,51 @@ public class Race extends BaseIdAndTime {
 		}
 	}
 
+	// 판매를 멈출 수 있는지: 판매 중이고 접수 마감 전일 때만 (11/08 결정, docs/policy/questions.md)
+	// 판매 시작 전(판매 예정)에는 멈추지 않고 수정으로 일정을 바꾼다
+	// 접수 마감 뒤에는 이미 팔 수 없어 멈출 이유가 없다
+	public void checkStoppable(LocalDateTime now) {
+		switch (saleStatus) {
+			case ON_SALE -> {
+			}
+			case SCHEDULED -> throw new RaceChangeNotAllowedException(
+				"판매 중인 대회만 판매를 멈출 수 있습니다. 판매 시작 전에는 대회 수정으로 일정을 바꿔 주세요.");
+			case STOPPED -> throw new RaceChangeNotAllowedException("이미 판매를 멈춘 대회입니다.");
+			case CLOSED -> throw new RaceChangeNotAllowedException("판매가 끝난 대회입니다.");
+			case CANCELED -> throw new RaceChangeNotAllowedException("취소된 대회입니다.");
+		}
+		if (!now.isBefore(applicationCloseAt)) {
+			throw new RaceChangeNotAllowedException("접수 마감이 지난 대회는 판매를 멈출 수 없습니다.");
+		}
+	}
+
+	// 키트 옵션을 등록하거나 바꿀 수 있는지: 대회 수정과 같이 취소된 대회와 판매가 끝난 대회만 막는다 (BUK-137)
+	// 판매 시작 뒤 옵션 빼기·수량 줄이기 같은 규칙은 KitOption이 옵션마다 본다
+	public void checkKitOptionChangeable(LocalDateTime now) {
+		if (saleStatus == RaceSaleStatus.CANCELED) {
+			throw new RaceChangeNotAllowedException("취소된 대회는 키트 옵션을 바꿀 수 없습니다.");
+		}
+		if (isSaleEnded(now)) {
+			throw new RaceChangeNotAllowedException("판매가 끝난 대회는 키트 옵션을 바꿀 수 없습니다.");
+		}
+	}
+
+	// 판매자가 판매를 멈춘 대회인지. 자리 확보가 기간 문구보다 먼저 판매 중지 문구로 거절할 때 쓴다
+	public boolean isStopped() {
+		return saleStatus == RaceSaleStatus.STOPPED;
+	}
+
+	// 판매를 다시 열 수 있는지: 판매 중지이고 접수 마감 전일 때만. 다시 열면 판매 중으로 돌아간다
+	// 판매 중인 대회만 멈출 수 있으므로, 멈춘 대회는 늘 판매 시작일이 지나 있다
+	public void checkResumable(LocalDateTime now) {
+		if (saleStatus != RaceSaleStatus.STOPPED) {
+			throw new RaceChangeNotAllowedException("판매를 멈춘 대회만 다시 열 수 있습니다.");
+		}
+		if (!now.isBefore(applicationCloseAt)) {
+			throw new RaceChangeNotAllowedException("접수 마감이 지나 판매를 다시 열 수 없습니다.");
+		}
+	}
+
 	// 대회일 다음 날 0시부터는 판매 종료로 본다
 	// (상태 배치가 판매 종료로 바꾸기 전이라도 같은 기준으로 막는다)
 	private boolean isSaleEnded(LocalDateTime now) {
@@ -298,11 +344,34 @@ public class Race extends BaseIdAndTime {
 	}
 
 	// 개인 예매로 자리를 확보할 수 있는지: 판매 예정·판매 중이고, 개인 예매 오픈부터 접수 마감 전까지
-	// 판매 예정도 넣는 이유: 판매 시작일 0시가 지나도 상태 배치가 판매 중으로 바꾸기까지 최대 5분 걸린다
+	// 판매 예정도 넣는 이유: 0시 정각 상태 배치가 늦거나 실패하면 다음 5분 정각까지 판매 예정으로 남을 수 있다
 	// (개인 예매가 판매 시작일 0시에 열리는 대회)
 	public boolean isAcceptingIndividual(LocalDateTime now) {
 		return (saleStatus == RaceSaleStatus.SCHEDULED || saleStatus == RaceSaleStatus.ON_SALE)
 			&& !now.isBefore(individualOpenAt) && now.isBefore(applicationCloseAt);
+	}
+
+	// 파티 신청으로 크루 자리를 확보할 수 있는지: 판매 예정·판매 중이고, 크루 예매 시작부터 크루 예매 마감 전까지, 접수 마감 전
+	// 판매 예정도 넣는 이유는 개인 예매와 같다 (0시 정각 상태 배치가 늦으면 잠시 판매 예정으로 남는다)
+	// 크루 예매가 없는 대회(크루 일정이 비어 있음)는 늘 확보할 수 없다
+	public boolean isAcceptingCrew(LocalDateTime now) {
+		if (crewSaleStartAt == null || crewSaleEndAt == null) {
+			return false;
+		}
+		return (saleStatus == RaceSaleStatus.SCHEDULED || saleStatus == RaceSaleStatus.ON_SALE)
+			&& !now.isBefore(crewSaleStartAt) && now.isBefore(crewSaleEndAt) && now.isBefore(applicationCloseAt);
+	}
+
+	// 크루 예매 마감일의 자정: 결제 대기 크루 자리를 반환하고 크루 몫을 개인 몫으로 옮기는 시각 (개인 예매는 이때부터 열 수 있다)
+	// 크루 예매 마감 일시는 파티 참여 확정만 막고, 그 전에 잡은 결제 대기는 이 시각까지 결제할 수 있다
+	// 마감이 00:00 정각이면 마지막 날은 그 전날이라 그 시각, 아니면 마감일 다음 날 00:00
+	//   예: 11/12 19:00 → 11/13 00:00, 11/13 00:00 → 11/13 00:00
+	// 크루 배치가 옮길 종목을 고르는 조건(RaceCourseRepository.findCrewClosableIds: 마감 일시 ≤ 오늘 0시)과 같은 기준이다
+	public static LocalDateTime crewCloseAt(LocalDateTime crewSaleEndAt) {
+		if (crewSaleEndAt.toLocalTime().equals(LocalTime.MIDNIGHT)) {
+			return crewSaleEndAt;
+		}
+		return crewSaleEndAt.toLocalDate().plusDays(1).atStartOfDay();
 	}
 
 	// 대기열에 보낼 대회 변경 메시지 (개인·파티 대기열 진입 판정에 쓰는 칸과 수정 일시)

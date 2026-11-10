@@ -39,13 +39,13 @@ export function MyPage() {
         <div className="flex items-center gap-3" data-clarity-mask="true">
           <span
             aria-hidden
-            className="flex size-10 items-center justify-center rounded-full bg-bg-brand-subtle text-label-m text-text-brand"
+            className="flex size-10 items-center justify-center rounded-full bg-bg-brand-subtle text-body2-medium text-text-brand"
           >
             {member?.nickname?.slice(0, 1)}
           </span>
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <p className="text-heading-m">{member?.nickname ?? EMPTY}</p>
-            <p className="text-body-s text-text-secondary">{member?.email ?? EMPTY}</p>
+            <p className="text-title3">{member?.nickname ?? EMPTY}</p>
+            <p className="text-body2-regular text-text-secondary">{member?.email ?? EMPTY}</p>
           </div>
         </div>
 
@@ -60,7 +60,7 @@ export function MyPage() {
             value={member?.birthDate ? toDotDate(member.birthDate) : EMPTY}
           />
           {me.isError && (
-            <p role="alert" className="text-caption text-text-danger">
+            <p role="alert" className="text-caption-regular text-text-danger">
               회원 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.
             </p>
           )}
@@ -83,7 +83,7 @@ export function MyPage() {
           <MenuRow href="/crews" icon="Users" label="내 크루" />
         </MenuCard>
 
-        <h2 className="pt-2 text-label-strong">알림 설정</h2>
+        <h2 className="pt-2 text-body2-bold">알림 설정</h2>
         <section className="flex flex-col gap-4 rounded-lg bg-bg-surface px-4 py-4 shadow-sm inset-ring inset-ring-border-default">
           <SwitchRow
             label="마케팅 정보 받기"
@@ -98,7 +98,7 @@ export function MyPage() {
         </MenuCard>
 
         <section className="flex flex-col rounded-lg bg-bg-subtle px-4 pt-4 pb-2">
-          <h2 className="pb-2 text-label-strong">계정 관리</h2>
+          <h2 className="pb-2 text-body2-bold">계정 관리</h2>
           <MenuRow
             onClick={() => logout.mutate()}
             disabled={logout.isPending}
@@ -160,8 +160,8 @@ function SwitchRow({
   return (
     <div className="flex items-center justify-between gap-4">
       <div className="flex flex-col gap-0.5">
-        <span className="text-label-m">{label}</span>
-        <span className="text-caption text-text-secondary">{description}</span>
+        <span className="text-body2-medium">{label}</span>
+        <span className="text-caption-regular text-text-secondary">{description}</span>
       </div>
       <Switch aria-label={label} defaultChecked={defaultChecked} />
     </div>

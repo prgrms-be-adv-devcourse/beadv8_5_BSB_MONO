@@ -21,12 +21,12 @@ import com.bukang.cash.domain.payout.PayoutTransferType;
 import com.bukang.cash.domain.wallet.LedgerRefType;
 import com.bukang.cash.domain.wallet.Wallet;
 import com.bukang.cash.domain.wallet.WalletLedger;
-import com.bukang.cash.out.CashMemberRepository;
-import com.bukang.cash.out.PaymentRepository;
-import com.bukang.cash.out.PayoutTransferRepository;
-import com.bukang.cash.out.WalletChargeRepository;
-import com.bukang.cash.out.WalletLedgerRepository;
-import com.bukang.cash.out.WalletRepository;
+import com.bukang.cash.out.charge.WalletChargeRepository;
+import com.bukang.cash.out.member.CashMemberRepository;
+import com.bukang.cash.out.payment.PaymentRepository;
+import com.bukang.cash.out.payout.PayoutTransferRepository;
+import com.bukang.cash.out.wallet.WalletLedgerRepository;
+import com.bukang.cash.out.wallet.WalletRepository;
 
 // DB 제약(UNIQUE, NOT NULL)이 실제로 걸려 있는지 H2에 저장해 확인한다
 @SpringBootTest

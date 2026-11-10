@@ -61,7 +61,7 @@ export function DayCell({
       {band && <span aria-hidden className={cn('absolute inset-y-0.5 bg-bg-brand-subtle', band)} />}
       <span
         className={cn(
-          'relative flex size-10 items-center justify-center rounded-full text-label-l text-text-secondary',
+          'relative flex size-10 items-center justify-center rounded-full text-body1-medium text-text-secondary',
           'group-focus-visible/day:inset-ring-2 group-focus-visible/day:inset-ring-border-focus',
           today && 'bg-bg-subtle font-bold text-text-primary',
           rangeMiddle && 'text-text-primary',

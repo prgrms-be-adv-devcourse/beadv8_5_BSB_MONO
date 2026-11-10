@@ -53,7 +53,7 @@ public class RaceSaveRequestDto {
 	@Schema(description = "크루 예매 마감 일시 (크루 예매 시작보다 늦게)", example = "2026-10-14T10:00:00")
 	private final LocalDateTime crewSaleEndAt;
 
-	@Schema(description = "개인 예매 오픈 일시 (크루 예매가 있으면 크루 마감일 다음 날 06:00 이후). "
+	@Schema(description = "개인 예매 오픈 일시 (크루 예매가 있으면 크루 예매 마감일의 자정 이후). "
 		+ "크루 예매가 없으면 이 날짜가 판매 시작일이 되며, 오늘로부터 이틀 뒤부터", example = "2026-10-15T10:00:00")
 	@NotNull(message = "개인 예매 오픈 일시를 작성해주세요.")
 	private final LocalDateTime individualOpenAt;
@@ -69,9 +69,9 @@ public class RaceSaveRequestDto {
 	@Schema(description = "취소·환불 안내 글", example = "환불 기한까지 취소하면 전액 환불됩니다.")
 	private final String refundPolicy;
 
-	@Schema(description = "크루 최소 인원", example = "5")
+	@Schema(description = "크루 최소 인원 (4명 이상, 11/05 회의 P3)", example = "5")
 	@NotNull(message = "크루 최소 인원을 작성해주세요.")
-	@Min(value = 5, message = "크루 최소 인원은 5명 이상이어야 합니다.")
+	@Min(value = 4, message = "크루 최소 인원은 4명 이상이어야 합니다.")
 	private final Integer crewMinCount;
 
 	@Schema(description = "크루 최대 인원 (비우면 상한 없음, 최소 인원 이상)", example = "20")
@@ -81,4 +81,7 @@ public class RaceSaveRequestDto {
 	@Schema(description = "종목 목록")
 	@NotEmpty(message = "종목을 1개 이상 작성해주세요.")
 	private final List<@Valid @NotNull(message = "종목 항목을 작성해주세요.") RaceCourseSaveRequestDto> courses;
+
+	// 키트 옵션은 받지 않는다. 대회를 등록한 뒤 키트 옵션 등록·수정 API로 따로 붙인다 (BUK-137)
+	// 옛 화면이 kitOptions를 보내도 모르는 칸이라 무시된다
 }

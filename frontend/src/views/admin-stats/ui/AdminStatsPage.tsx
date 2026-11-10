@@ -120,7 +120,7 @@ function PeriodPicker({
         onChange={choose}
       />
       {period && (
-        <p className="text-caption text-text-tertiary">
+        <p className="text-caption-regular text-text-tertiary">
           {spanText(period.current)} · 비교 기간 {spanText(period.previous)}
         </p>
       )}
@@ -163,18 +163,16 @@ function RealtimeSection({ result }: { result: ReturnType<typeof useRealtimeStat
         {(data) => (
           <div className="flex items-start gap-4">
             <div className="flex w-80 shrink-0 flex-col items-center gap-1 rounded-lg bg-bg-subtle p-4">
-              <span className="text-label-s text-text-secondary">최근 30분 접속자</span>
+              <span className="text-caption-medium text-text-secondary">최근 30분 접속자</span>
               <span className="flex items-baseline gap-1">
-                <span className="font-display text-display-s">
-                  {formatNumber(data.activeUsers)}
-                </span>
-                <span className="text-label-m">명</span>
+                <span className="text-title2">{formatNumber(data.activeUsers)}</span>
+                <span className="text-body2-medium">명</span>
               </span>
             </div>
             <div className="flex min-w-0 flex-1 flex-col gap-2">
               <SubHeading>많이 본 화면 5개</SubHeading>
               {data.topScreens.length === 0 ? (
-                <p className="py-3 text-body-s text-text-secondary">
+                <p className="py-3 text-body2-regular text-text-secondary">
                   최근 30분 동안 본 화면이 없어요
                 </p>
               ) : (

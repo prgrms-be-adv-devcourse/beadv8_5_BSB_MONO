@@ -26,7 +26,6 @@ import com.bukang.common.shared.seller.domain.SellerType;
 import com.bukang.product.domain.CourseType;
 import com.bukang.product.domain.ProductMember;
 import com.bukang.product.domain.ProductSeller;
-import com.bukang.product.domain.TshirtSize;
 import com.bukang.product.dto.RaceSaveRequestDto;
 import com.bukang.product.support.ProductIntegrationTest;
 import com.bukang.product.support.RaceRequests.RaceBuilder;
@@ -34,7 +33,7 @@ import com.jayway.jsonpath.JsonPath;
 
 /**
  * 대회 조회 API(⑧-2)를 확인한다.
- * - 대회 상세(GET /api/v1/product/races/{raceId}): 대회·판매자·종목(남은 자리·티셔츠 사이즈) 필드,
+ * - 대회 상세(GET /api/v1/product/races/{raceId}): 대회·판매자·종목(남은 자리) 필드,
  *   판매 예정 대회는 등록하자마자 누구나 보고, 취소된 대회는 등록한 판매자만 보고 다른 사람에게는 없는 대회(404)로 보이는지,
  *   없는 대회 404, 형식 오류 400
  * - 내 대회(GET /api/v1/product/races/mine): 최근 등록 순, 종목 정원·결제 대기·판매 수가 자리 확보·판매·복구로
@@ -75,7 +74,7 @@ class ApiV1RaceQueryTest extends ProductIntegrationTest {
 			.course(
 				course(),
 				course().name("하프").type(CourseType.HALF).distanceKm("21.1").timeLimitMinutes(180).price(60_000)
-					.kit(5_000, TshirtSize.XL, TshirtSize.S, TshirtSize.M).age(19, 70).quota(0, 50))
+					.kit(5_000).age(19, 70).quota(0, 50))
 			.build();
 		RegisteredRace registered = registerOnSale(request);
 		long tenKmId = registered.courseIds().get(0);
@@ -105,17 +104,16 @@ class ApiV1RaceQueryTest extends ProductIntegrationTest {
 			.andExpect(jsonPath("$.data.seller.businessName").value("(주)러닝" + SELLER_ID))
 			.andExpect(jsonPath("$.data.seller.businessNumber").value("123-45-67890"))
 			.andExpect(jsonPath("$.data.seller.representativeName").value("김대표"))
-			// 키트 없는 10K: 티셔츠 사이즈는 빈 목록
+			// 키트 없는 10K
 			.andExpect(jsonPath("$.data.courses", hasSize(2)))
 			.andExpect(jsonPath("$.data.courses[0].raceCourseId").value(tenKmId))
 			.andExpect(jsonPath("$.data.courses[0].name").value("10K"))
 			.andExpect(jsonPath("$.data.courses[0].kitIncluded").value(false))
 			.andExpect(jsonPath("$.data.courses[0].kitPrice").value(0))
-			.andExpect(jsonPath("$.data.courses[0].tshirtSizeOption", hasSize(0)))
 			.andExpect(jsonPath("$.data.courses[0].maxAge", nullValue()))
 			.andExpect(jsonPath("$.data.courses[0].individualQuota").value(100))
 			.andExpect(jsonPath("$.data.courses[0].individualRemaining").value(100))
-			// 키트 있는 하프: 티셔츠 사이즈는 보낸 순서(XL, S, M)와 상관없이 작은 사이즈부터
+			// 키트 있는 하프
 			.andExpect(jsonPath("$.data.courses[1].raceCourseId").value(halfId))
 			.andExpect(jsonPath("$.data.courses[1].name").value("하프"))
 			.andExpect(jsonPath("$.data.courses[1].courseType").value("HALF"))
@@ -127,7 +125,6 @@ class ApiV1RaceQueryTest extends ProductIntegrationTest {
 			.andExpect(jsonPath("$.data.courses[1].price").value(60_000))
 			.andExpect(jsonPath("$.data.courses[1].kitIncluded").value(true))
 			.andExpect(jsonPath("$.data.courses[1].kitPrice").value(5_000))
-			.andExpect(jsonPath("$.data.courses[1].tshirtSizeOption", contains("S", "M", "XL")))
 			.andExpect(jsonPath("$.data.courses[1].status").value("OPEN"))
 			.andExpect(jsonPath("$.data.courses[1].crewQuota").value(0))
 			.andExpect(jsonPath("$.data.courses[1].individualQuota").value(50))
@@ -303,7 +300,7 @@ class ApiV1RaceQueryTest extends ProductIntegrationTest {
 	void findMineReflectsReservedAndSold() throws Exception {
 		RaceBuilder builder = race();
 		LocalDateTime now = builder.now();
-		// 크루 예매(3일 전~2일 전)가 끝났고 개인 예매가 크루 마감 다음 날 06:00에 열려, 지금 개인 자리를 확보할 수 있다
+		// 크루 예매(3일 전~2일 전)가 끝났고 개인 예매가 크루 예매 마감일의 자정 뒤인 06:00에 열려, 지금 개인 자리를 확보할 수 있다
 		RaceSaveRequestDto request = builder
 			.crewSale(now.minusDays(3), now.minusDays(2))
 			.individualOpenAt(now.minusDays(1).toLocalDate().atTime(6, 0))
@@ -355,23 +352,24 @@ class ApiV1RaceQueryTest extends ProductIntegrationTest {
 	// ---------- 주문용 종목 정보 ----------
 
 	@Test
-	@DisplayName("판매 중 대회의 종목 정보는 주문 서비스 13필드와 추가 필드(대회명·종목명·판매 상태·남은 자리·키트·티셔츠 사이즈)를 "
+	@DisplayName("판매 중 대회의 종목 정보는 주문 서비스 13필드와 추가 필드(대회명·종목명·판매 상태·남은 자리·키트)를 "
 		+ "주고, applicationOpenAt은 개인 예매 오픈, courseName은 '2026 춘천 가을 마라톤 하프'다")
 	void findCourseInfo() throws Exception {
 		RaceBuilder builder = race().title("2026 춘천 가을 마라톤");
 		LocalDateTime now = builder.now();
 		LocalDateTime crewSaleStartAt = now.minusDays(3);
-		// 크루 마감 다음 날 06:00. 크루 예매 시작과 달라야 applicationOpenAt이 개인 예매 오픈인지 알 수 있다
+		// 크루 예매 마감일의 자정 뒤 06:00. 크루 예매 시작과 달라야 applicationOpenAt이 개인 예매 오픈인지 알 수 있다
 		LocalDateTime individualOpenAt = now.minusDays(1).toLocalDate().atTime(6, 0);
 		LocalDate refundDeadline = now.plusDays(15).toLocalDate();
 		RaceSaveRequestDto request = builder
 			.crewSale(crewSaleStartAt, now.minusDays(2))
+			.crewCount(5, 10)
 			.individualOpenAt(individualOpenAt)
 			.raceDate(now.plusDays(20))
 			.applicationCloseAt(now.plusDays(18))
 			.refundDeadline(refundDeadline)
 			.course(course().name("하프").type(CourseType.HALF).distanceKm("21.1").price(60_000)
-				.kit(5_000, TshirtSize.L, TshirtSize.S, TshirtSize.M).age(19, 70).quota(10, 90))
+				.kit(5_000).age(19, 70).quota(10, 90))
 			.build();
 		RegisteredRace registered = registerOnSale(request);
 		holdSeat(registered.courseId(), 4001);
@@ -399,14 +397,18 @@ class ApiV1RaceQueryTest extends ProductIntegrationTest {
 			.andExpect(jsonPath("$.data.individualRemaining").value(89))
 			.andExpect(jsonPath("$.data.crewRemaining").value(10))
 			.andExpect(jsonPath("$.data.kitIncluded").value(true))
-			.andExpect(jsonPath("$.data.tshirtSizeOption", contains("S", "M", "L")));
+			// 주문이 파티 신청·합류 판정에 쓰는 크루 예매 네 칸
+			.andExpect(jsonPath("$.data.crewMinCount").value(5))
+			.andExpect(jsonPath("$.data.crewMaxCount").value(10));
 
 		String body = bodyOf(result);
 		Map<String, Object> data = JsonPath.read(body, "$.data");
 		assertThat(data).containsOnlyKeys("raceCourseId", "raceId", "title", "raceDate", "applicationOpenAt",
 			"applicationCloseAt", "minAge", "maxAge", "sellerId", "course", "courseName", "price", "kitPrice",
 			"refundDeadline", "scheduleChangedAt", "saleStatus", "courseStatus", "individualRemaining", "crewRemaining",
-			"kitIncluded", "tshirtSizeOption");
+			"kitIncluded", "crewSaleStartAt", "crewSaleEndAt", "crewMinCount", "crewMaxCount");
+		assertThat(dateTimeAt(body, "$.data.crewSaleStartAt")).isEqualTo(crewSaleStartAt);
+		assertThat(dateTimeAt(body, "$.data.crewSaleEndAt")).isEqualTo(now.minusDays(2));
 		assertThat(dateTimeAt(body, "$.data.raceDate")).isEqualTo(now.plusDays(20));
 		assertThat(dateTimeAt(body, "$.data.applicationOpenAt"))
 			.isEqualTo(individualOpenAt)
@@ -443,7 +445,7 @@ class ApiV1RaceQueryTest extends ProductIntegrationTest {
 
 	@Test
 	@DisplayName("판매 예정(개인 예매 이틀 뒤 오픈) 대회의 종목 정보도 200이며 "
-		+ "courseName은 '2026 서울 하프 마라톤 10K', 키트 없는 종목이라 kitPrice 0·티셔츠 사이즈 없음이다")
+		+ "courseName은 '2026 서울 하프 마라톤 10K', 키트 없는 종목이라 kitPrice 0이다")
 	void findScheduledCourseInfo() throws Exception {
 		RaceBuilder builder = race();
 		LocalDateTime individualOpenAt = builder.now().plusDays(2);
@@ -459,7 +461,6 @@ class ApiV1RaceQueryTest extends ProductIntegrationTest {
 			.andExpect(jsonPath("$.data.maxAge", nullValue()))
 			.andExpect(jsonPath("$.data.kitIncluded").value(false))
 			.andExpect(jsonPath("$.data.kitPrice").value(0))
-			.andExpect(jsonPath("$.data.tshirtSizeOption", hasSize(0)))
 			.andExpect(jsonPath("$.data.courseStatus").value("OPEN"))
 			.andExpect(jsonPath("$.data.individualRemaining").value(100))
 			.andExpect(jsonPath("$.data.crewRemaining").value(0));

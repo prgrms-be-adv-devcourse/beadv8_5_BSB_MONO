@@ -21,6 +21,7 @@ public class PartyConflictException extends BusinessException {
 	public static final String MEMBER_NOT_CREW = "ORDER_PARTY_MEMBER_NOT_CREW";
 	public static final String MEMBER_JOINED_LATE = "ORDER_PARTY_MEMBER_JOINED_LATE";
 	public static final String MEMBERS_CHANGED = "ORDER_PARTY_MEMBERS_CHANGED";
+	public static final String CREW_HOLD_IN_PROGRESS = "ORDER_PARTY_CREW_HOLD_IN_PROGRESS";
 
 	// 없으면 null (data 없이 응답)
 	private final Long partyId;
@@ -52,6 +53,13 @@ public class PartyConflictException extends BusinessException {
 		return new PartyConflictException(ALREADY_JOINED, "이미 이 파티에 합류했습니다.", partyId, null);
 	}
 
+	// 개인 참가 신청: 같은 대회 파티에 살아 있는 파티원 신청서가 있음 (11/09 결정 ⑧, BUK-127)
+	// 화면이 그 파티로 보내 [파티 나가기]를 보여 주도록 파티 번호·상태를 준다. 나가기는 모집 중에만 된다
+	public static PartyConflictException joinedForIndividual(long partyId, PartyStatus status) {
+		return new PartyConflictException(ALREADY_JOINED,
+			"이미 파티에 가입되어 있어요. 개인으로 신청하려면 파티를 나간 뒤 신청해 주세요.", partyId, status);
+	}
+
 	// 같은 대회의 다른 파티에 살아 있는 신청서가 있음. partyId는 그 다른 파티 (본인이 파티원이므로 알려도 된다)
 	public static PartyConflictException otherPartyJoined(long otherPartyId) {
 		return new PartyConflictException(OTHER_PARTY_JOINED,
@@ -69,9 +77,12 @@ public class PartyConflictException extends BusinessException {
 		return new PartyConflictException(SALE_CLOSED, "파티 예매 기간이 아닙니다.", partyId, null);
 	}
 
-	public static PartyConflictException sizeOutOfRange(long partyId, int size, int minCount, int maxCount) {
+	// maxCount: 판매자 최대 인원. null이면 제한 없음
+	public static PartyConflictException sizeOutOfRange(long partyId, int size, int minCount, Integer maxCount) {
 		return new PartyConflictException(SIZE_OUT_OF_RANGE,
-			"파티 인원이 %d~%d명이어야 신청할 수 있습니다(지금 %d명).".formatted(minCount, maxCount, size), partyId, null);
+			(maxCount == null ? "파티 인원이 %d명 이상이어야 신청할 수 있습니다(지금 %d명).".formatted(minCount, size)
+				: "파티 인원이 %d~%d명이어야 신청할 수 있습니다(지금 %d명).".formatted(minCount, maxCount, size)),
+			partyId, null);
 	}
 
 	public static PartyConflictException memberNotCrew(long partyId) {
@@ -94,6 +105,18 @@ public class PartyConflictException extends BusinessException {
 	public static PartyConflictException membersChanged(long partyId) {
 		return new PartyConflictException(MEMBERS_CHANGED,
 			"신청하는 사이 파티원이 바뀌었습니다. 다시 신청해 주세요.", partyId, null);
+	}
+
+	// 파티장이 신청해 상품에 크루 자리를 요청했는데 결과를 아직 모른다. 파티장이 다시 신청하면 풀린다 (BUK-105)
+	public static PartyConflictException crewHoldInProgress(long partyId) {
+		return new PartyConflictException(CREW_HOLD_IN_PROGRESS,
+			"파티장이 신청하는 중이라 파티원을 바꿀 수 없습니다. 파티장이 다시 신청하면 풀립니다.", partyId, PartyStatus.RECRUITING);
+	}
+
+	// 같은 파티의 다른 신청이 상품에 크루 자리를 요청하는 중이다 (두 번 누름). 잠시 뒤 결과를 확인하면 된다
+	public static PartyConflictException applyInProgress(long partyId) {
+		return new PartyConflictException(CREW_HOLD_IN_PROGRESS,
+			"이 파티의 신청을 처리하고 있습니다. 잠시 뒤 파티 상태를 확인해 주세요.", partyId, PartyStatus.RECRUITING);
 	}
 
 	public boolean hasData() {

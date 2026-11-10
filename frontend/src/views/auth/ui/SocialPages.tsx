@@ -51,7 +51,7 @@ export function SocialCompletePage({ next }: { next?: string }) {
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-3 bg-bg-surface">
       <Spinner label="로그인하고 있어요" />
-      <p aria-hidden className="text-body-m text-text-secondary">
+      <p aria-hidden className="text-body2-regular text-text-secondary">
         로그인하고 있어요
       </p>
     </main>
@@ -205,7 +205,7 @@ function SocialSignupForm({
         <div className="bg-bg-surface px-4 pt-3 pb-1">
           <Stepper steps={STEPS} current={termsAgreed ? 1 : 0} />
         </div>
-        <p className="bg-bg-brand-subtle px-4 py-3 text-body-s text-text-primary">
+        <p className="bg-bg-brand-subtle px-4 py-3 text-body2-regular text-text-primary">
           {providerLabel} 계정으로 가입하고 있어요
         </p>
         <CenterBody center={false}>
@@ -259,7 +259,7 @@ function SocialSignupForm({
             onGenderChange={(value) => setValue('gender', value, { shouldValidate: true })}
           />
           {formError && (
-            <p role="alert" className="text-caption text-text-danger">
+            <p role="alert" className="text-caption-regular text-text-danger">
               {formError}
             </p>
           )}

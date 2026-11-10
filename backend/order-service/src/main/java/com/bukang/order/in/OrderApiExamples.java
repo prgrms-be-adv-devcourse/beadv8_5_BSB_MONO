@@ -257,6 +257,30 @@ final class OrderApiExamples {
 		{ "status": 403, "code": "ORDER_FORBIDDEN", "message": "본인의 주문만 볼 수 있습니다.", "data": null }
 		""";
 
+	static final String PAY_INVALID_KIT_OPTION_ID = """
+		{ "status": 400, "code": "INVALID_REQUEST", "message": "키트 옵션 ID가 올바르지 않습니다.", "data": null }
+		""";
+
+	static final String KIT_OPTION_NOT_IN_RACE = """
+		{ "status": 400, "code": "ORDER_KIT_OPTION_INVALID", "message": "이 대회의 키트 옵션이 아닙니다. (옵션 ID: 99)", "data": null }
+		""";
+
+	static final String KIT_OPTION_MISSING = """
+		{ "status": 400, "code": "ORDER_KIT_OPTION_INVALID",
+			"message": "키트 옵션을 모두 골라 주세요. (고르지 않은 옵션: T-shirt)", "data": null }
+		""";
+
+	static final String KIT_OPTION_DUPLICATED_NAME = """
+		{ "status": 400, "code": "ORDER_KIT_OPTION_INVALID",
+			"message": "옵션 이름마다 하나만 고를 수 있습니다. (옵션: T-shirt)", "data": null }
+		""";
+
+	static final String KIT_OPTION_SOLD_OUT = """
+		{ "status": 409, "code": "ORDER_KIT_OPTION_SOLD_OUT",
+			"message": "선택하신 T-shirt L은(는) 준비된 수량이 모두 팔렸어요. 다른 옵션을 골라 주세요.",
+			"data": { "soldOut": [ { "kitOptionId": 12, "name": "T-shirt", "value": "L" } ] } }
+		""";
+
 	static final String PAY_SUCCESS = """
 		{
 			"status": 200,

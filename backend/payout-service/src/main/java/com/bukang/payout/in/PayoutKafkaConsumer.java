@@ -12,11 +12,15 @@ import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
 
 import com.bukang.common.global.json.JsonConverter;
+import com.bukang.common.shared.cash.event.ClaimDepositedEvent;
 import com.bukang.common.shared.kafka.KafkaTopics;
 import com.bukang.common.shared.order.event.OrderItemRefundedEvent;
 import com.bukang.common.shared.race.event.RaceCancelEvent;
+import com.bukang.payout.app.PayoutClaimUseCase;
 import com.bukang.payout.app.PayoutRaceCancelUseCase;
 import com.bukang.payout.app.PayoutRefundUseCase;
+import com.bukang.payout.domain.exception.PayoutClaimConflictException;
+import com.bukang.payout.domain.exception.PayoutClaimNotFoundException;
 import com.bukang.payout.domain.exception.PayoutRecoveryConflictException;
 
 import lombok.RequiredArgsConstructor;
@@ -47,6 +51,7 @@ public class PayoutKafkaConsumer {
 
 	private final PayoutRaceCancelUseCase payoutRaceCancelUseCase;
 	private final PayoutRefundUseCase payoutRefundUseCase;
+	private final PayoutClaimUseCase payoutClaimUseCase;
 	private final JsonConverter jsonConverter;
 
 	// 판매자가 대회를 취소했다 (상품 서비스가 발행, key는 대회 ID). 지급 전 정산 내역은 닫고, 지급한 돈은 회수를 만든다
@@ -84,7 +89,28 @@ public class PayoutKafkaConsumer {
 		payoutRefundUseCase.recordRefund(event, LocalDateTime.now(ZONE));
 	}
 
-	// 끝까지 실패한 메시지. 닫히지 않은 정산 내역이 지급될 수 있으므로 운영자가 확인해 직접 보류를 걸고 다시 보내야 한다
+	// 판매자가 청구 전용 가상계좌에 입금했다 (캐시 서비스가 발행, key는 청구 ID, BUK-88). 회수를 끝낸다
+	// 이미 확인한 청구는 건너뛰므로 같은 메시지를 다시 처리해도 안전하다
+	@KafkaListener(topics = KafkaTopics.CLAIM_DEPOSITED, groupId = GROUP_ID)
+	@RetryableTopic(
+		attempts = RETRY_ATTEMPTS,
+		backOff = @BackOff(delay = RETRY_DELAY_MILLIS, multiplier = RETRY_MULTIPLIER),
+		// 다시 해도 결과가 같은 실패는 재시도 없이 바로 DLT로 보낸다
+		// 깨진 JSON(IllegalArgumentException), 없는 청구, 입금액 · 갚을 돈이 청구 금액과 다름(PayoutClaimConflictException)
+		exclude = {IllegalArgumentException.class, PayoutClaimNotFoundException.class,
+			PayoutClaimConflictException.class},
+		numPartitions = PARTITIONS,
+		retryTopicSuffix = RETRY_TOPIC_SUFFIX,
+		dltTopicSuffix = DLT_TOPIC_SUFFIX
+	)
+	public void handleClaimDeposited(String payload) {
+		ClaimDepositedEvent event = jsonConverter.fromJson(payload, ClaimDepositedEvent.class);
+		payoutClaimUseCase.confirmByDeposit(event.claimCode(), event.amount(), event.depositedAt());
+	}
+
+	// 끝까지 실패한 메시지. 운영자가 확인해 처리한다
+	// - 대회 취소 · 환불: 닫히지 않은 정산 내역이 지급될 수 있으므로 직접 보류를 걸고 다시 보낸다
+	// - 청구 입금: 판매자는 돈을 냈는데 회수가 끝나지 않았다. 입금액과 청구를 맞춰 보고 관리자 입금 확인으로 끝낸다
 	@DltHandler
 	public void handleDlt(String payload, @Header(KafkaHeaders.RECEIVED_TOPIC) String topic) {
 		log.error("Kafka 메시지를 끝내 처리하지 못했습니다. 확인 후 다시 보내야 합니다. topic={}, payload={}", topic, payload);

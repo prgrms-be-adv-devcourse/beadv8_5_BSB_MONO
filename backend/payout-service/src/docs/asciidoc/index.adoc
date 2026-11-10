@@ -35,6 +35,16 @@
 [[payout-hold]]
 == 지급보류 (관리자)
 
+[[payout-admin-payout-by-code]]
+=== 정산 ID로 정산 내역 찾기
+
+정산 ID(`ST-`)로 정산 내역 한 건을 찾는다. 응답의 `id`를 지급보류 걸기 경로의 `payoutId`로 쓴다.
+
+operation::payout-admin-payout-by-code[snippets='http-request,request-headers,query-parameters,http-response']
+
+.없는 정산 ID (404)
+include::{snippets}/payout-admin-payout-by-code-not-found/http-response.adoc[]
+
 [[payout-hold-create]]
 === 지급보류 걸기
 
@@ -73,6 +83,59 @@ include::{snippets}/payout-hold-release-not-found/http-response.adoc[]
 .이미 해제됨 (409)
 include::{snippets}/payout-hold-release-conflict/http-response.adoc[]
 
+[[payout-admin-claims]]
+== 회수 관리 (관리자)
+
+[[payout-admin-claims-list]]
+=== 청구 목록
+
+카드 숫자(청구 중 건수, 회수할 금액 합계, 이번 달 입금 확인 건수)와 청구 목록을 최근 청구부터 돌려준다.
+카드 숫자는 `status` · `code`와 상관없이 전체 기준이다. 판매자 이름은 넣지 않으니 프론트가 회원 정보에서 따로 받아 합친다.
+「회수 완료」 버튼은 아래 청구 입금 확인 API를 쓴다.
+
+operation::payout-admin-claims[snippets='http-request,request-headers,query-parameters,http-response,response-fields']
+
+.청구 ID(`RC-`)로 한 건 찾기
+include::{snippets}/payout-admin-claims-by-code/http-response.adoc[]
+
+.청구가 없음
+include::{snippets}/payout-admin-claims-empty/http-response.adoc[]
+
+==== 실패 예시
+
+.관리자가 아님 (403)
+include::{snippets}/payout-admin-claims-forbidden/http-response.adoc[]
+
+[[payout-claim-confirm]]
+=== 청구 입금 확인
+
+판매자가 청구 금액을 보낸 것을 관리자가 확인한다. 청구는 입금 확인으로 바뀌고, 그 대회의 요청 중인 회수가 끝난다.
+
+operation::payout-claim-confirm[snippets='http-request,request-headers,path-parameters,http-response,response-fields']
+
+[[payout-admin]]
+== 이상 감지 (관리자)
+
+[[payout-admin-create-failures]]
+=== 이상 감지 기록 조회
+
+정산 생성 배치가 남긴 실패 기록(대사 불일치 · 주문 조회 실패 등)을 배치 실행일 기간으로 최근 것부터 돌려준다.
+카드 숫자는 종류 선택과 상관없이 기간 전체로 센다. 「자동으로 채운 참가권」은 빠진 참가권을 채운 대사 불일치 건수(판매자 × 대회 줄 수)다.
+`actionTaken`(처리)은 기록할 때 배치가 한 조치이며, 관리자가 보류를 풀어도 바뀌지 않는다.
+
+operation::payout-admin-create-failures[snippets='http-request,request-headers,query-parameters,http-response,response-fields']
+
+.기록 없음 (200)
+include::{snippets}/payout-admin-create-failures-empty/http-response.adoc[]
+
+==== 실패 예시
+
+.관리자가 아님 (403)
+include::{snippets}/payout-admin-create-failures-forbidden/http-response.adoc[]
+
+.기간 1개월 초과 (400)
+include::{snippets}/payout-admin-create-failures-too-long/http-response.adoc[]
+
 [[payout-seller]]
 == 정산 조회 (판매자)
 
@@ -100,6 +163,16 @@ include::{snippets}/payout-seller-summary-empty/http-response.adoc[]
 
 operation::payout-seller-payouts[snippets='http-request,request-headers,query-parameters,http-response,response-fields']
 
+==== 정산 ID로 찾기
+
+`code`(정산 ID, `ST-`)를 주면 기간은 보지 않고 내 정산 내역 중 그 한 줄만 돌려준다. 응답 필드는 위와 같다.
+없거나 다른 판매자의 정산 ID면 404다.
+
+operation::payout-seller-payouts-by-code[snippets='http-request,query-parameters,http-response']
+
+.없거나 다른 판매자의 정산 ID (404)
+include::{snippets}/payout-seller-payouts-by-code-not-found/http-response.adoc[]
+
 [[payout-seller-items]]
 === 건별 정산
 
@@ -117,6 +190,13 @@ include::{snippets}/payout-seller-items-invalid-page/http-response.adoc[]
 보류한 날이 기간 안인 지급보류를 해제된 것까지 돌려준다. 기간 한도는 건별 정산과 같다.
 
 operation::payout-seller-holds[snippets='http-request,request-headers,query-parameters,http-response,response-fields']
+
+[[payout-seller-claims]]
+=== 회수 내역
+
+회수 요청일이 기간 안이고 청구가 만들어진 회수를 한 건씩 돌려준다. 청구 전에 상계로 끝난 회수는 뺀다. 기간 한도는 건별 정산과 같다.
+
+operation::payout-seller-claims[snippets='http-request,request-headers,query-parameters,http-response,response-fields']
 
 ==== 실패 예시
 

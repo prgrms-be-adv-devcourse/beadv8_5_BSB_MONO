@@ -59,8 +59,10 @@ public class InternalV1HoldController {
 		@ApiResponse(responseCode = "404", description = "없는 종목",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = RaceInternalApiExamples.COURSE_NOT_FOUND))),
-		@ApiResponse(responseCode = "409", description = "접수 기간이 아님(판매 중지·대회 취소 포함) 또는 이미 끝난 참가 신청",
+		@ApiResponse(responseCode = "409",
+			description = "판매를 멈춘 대회, 접수 기간이 아님(대회 취소 포함) 또는 이미 끝난 참가 신청",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "판매를 멈춘 대회", value = RaceHoldApiExamples.SALE_STOPPED),
 				@ExampleObject(name = "접수 기간이 아님", value = RaceHoldApiExamples.NOT_ACCEPTING),
 				@ExampleObject(name = "이미 끝난 참가 신청", value = RaceHoldApiExamples.HOLD_FINISHED)
 			}))
