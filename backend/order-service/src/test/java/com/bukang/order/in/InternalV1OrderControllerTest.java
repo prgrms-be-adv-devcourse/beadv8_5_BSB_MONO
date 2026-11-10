@@ -325,6 +325,22 @@ class InternalV1OrderControllerTest {
 	}
 
 	@Test
+	@DisplayName("주문 요약: 결제 전 키트 종목은 구매자 주문 상세처럼 배송 준비이고, 상품 서비스가 멈추면 상품명으로 대신한다")
+	void orderLookupUnpaidKitWhileProductDown() throws Exception {
+		long orderId = createdOrder(7, COURSE_1115);
+		raceCoursePort.setUnavailable(true);
+
+		findOrderLookup(orderId)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.status").value("CREATED"))
+			.andExpect(jsonPath("$.data.items[0].raceId").value(100))
+			.andExpect(jsonPath("$.data.items[0].raceName").value("테스트 대회 종목 " + COURSE_1115))
+			.andExpect(jsonPath("$.data.items[0].courseName").doesNotExist())
+			.andExpect(jsonPath("$.data.items[0].kitSummary").value("키트"))
+			.andExpect(jsonPath("$.data.items[0].deliveryStatus").value("PREPARING"));
+	}
+
+	@Test
 	@DisplayName("주문 요약: 없는 주문이면 404와 ORDER_NOT_FOUND")
 	void orderLookupNotFound() throws Exception {
 		findOrderLookup(999_999)

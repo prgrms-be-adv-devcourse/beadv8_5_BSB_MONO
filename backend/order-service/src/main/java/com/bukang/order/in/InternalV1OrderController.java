@@ -126,7 +126,7 @@ public class InternalV1OrderController {
 	@Operation(summary = "문의용 주문 요약 조회",
 		description = "문의 서비스가 부른다. 주문한 회원 ID, 주문번호, 결제 금액, 주문 상태와 주문 상품마다 대회 ID·대회명·종목명·"
 			+ "키트 요약·키트 배송 상태를 돌려준다. status는 OrderStatus, deliveryStatus는 KitDeliveryStatus 이름 그대로다. "
-			+ "키트가 없거나 결제 전이라 배송이 없으면 kitSummary·deliveryStatus는 null이다. "
+			+ "deliveryStatus는 구매자 주문 상세와 같은 값이고, 키트가 없으면 kitSummary·deliveryStatus는 null이다. "
 			+ "대회명·종목명은 상품 서비스에서 받고, 받지 못하면 raceName에 주문 때 남긴 상품명(대회명 종목명)을, courseName에 null을 준다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "조회 성공",

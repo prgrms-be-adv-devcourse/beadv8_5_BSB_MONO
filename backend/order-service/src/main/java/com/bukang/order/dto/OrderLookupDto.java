@@ -8,7 +8,7 @@ import java.util.List;
  *
  * @param memberId      주문한 회원 ID
  * @param orderNo       주문번호 (예: OD-20261110-3F9A)
- * @param paymentAmount 결제한 금액(원). 취소해도 줄이지 않는다 (취소액은 주문 상세의 canceledAmount)
+ * @param paymentAmount 주문 금액(원, 주문 totalAmount). 결제 전·만료 주문은 낼 금액이고, 취소해도 줄이지 않는다
  * @param status        주문 상태 (OrderStatus 이름)
  * @param items         주문 상품마다 한 줄
  */
@@ -19,8 +19,8 @@ public record OrderLookupDto(long memberId, String orderNo, long paymentAmount, 
 	 * @param raceId         대회 ID
 	 * @param raceName       대회명. 상품 서비스에서 받지 못하면 주문 때 남긴 상품명("대회명 종목명")
 	 * @param courseName     종목명 (예: 10K). 상품 서비스에서 받지 못하면 null
-	 * @param kitSummary     고른 키트 옵션 (예: "T-shirt L, 양말 260"). 키트가 없으면 null
-	 * @param deliveryStatus 키트 배송 상태 (KitDeliveryStatus 이름). 키트가 없으면 null
+	 * @param kitSummary     고른 키트 옵션 (예: "T-shirt L, 양말 260"). 고른 옵션이 없으면 "키트", 키트가 없으면 null
+	 * @param deliveryStatus 키트 배송 상태 (KitDeliveryStatus 이름, 구매자 주문 상세와 같은 값). 키트가 없으면 null
 	 */
 	public record Item(long raceId, String raceName, String courseName, String kitSummary, String deliveryStatus) {
 	}
