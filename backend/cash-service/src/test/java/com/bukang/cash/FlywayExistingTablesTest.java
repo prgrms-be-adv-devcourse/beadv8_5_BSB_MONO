@@ -51,7 +51,8 @@ class FlywayExistingTablesTest {
 		jdbcTemplate.update("insert into cash_wallet_charge (id, wallet_id, amount, canceled_amount, review_flagged,"
 			+ " pg_provider, idempotency_key, status) values (1, 10, 5000, 0, 0, 'TOSS', 'charge-1', 'COMPLETED')");
 		jdbcTemplate.update("insert into cash_wallet_withdrawal (id, wallet_id, amount, bank_code, account_number,"
-			+ " account_holder, idempotency_key, status) values (1, 10, 1000, '004', 'enc', '러너', 'wd-1', 'COMPLETED')");
+			+ " account_holder, idempotency_key, status)"
+			+ " values (1, 10, 1000, '004', 'enc', '러너', 'wd-1', 'COMPLETED')");
 
 		// dev·운영과 같은 Flyway 설정
 		MigrateResult result = Flyway.configure()
