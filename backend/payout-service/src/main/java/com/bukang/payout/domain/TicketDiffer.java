@@ -9,5 +9,8 @@ import java.util.Collection;
  * 같은 참가권의 판매 줄은 DB 유일 제약(order_item_id, record_type)으로 한 줄뿐이라 중복은 따로 보지 않는다
  */
 public interface TicketDiffer {
+	// 쓸 방식을 고르는 설정 (set | bitmap, 없으면 set). 방식마다 앱을 다시 띄워 메모리를 따로 잰다
+	String METHOD_PROPERTY = "payout.reconcile.method";
+
 	TicketDiff diff(Collection<Long> soldIds, Collection<Long> payoutIds);
 }

@@ -6,11 +6,17 @@ import java.util.Collection;
 import java.util.List;
 import java.util.stream.Stream;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.stereotype.Component;
+
 /**
  * 비트맵 방식: 참가권 ID마다 비트 하나(위치 = ID - 가장 작은 ID)를 켜고, 판매 XOR 정산으로 어긋난 위치를 찾는다
  * ID가 촘촘하면 장수 / 8바이트 정도로 작지만, 흩어지면 가장 작은 ID부터 가장 큰 ID까지 비트가 필요하다
  * BitSet의 위치는 int라 범위가 int를 넘으면 그 대회는 집합 방식으로 비교한다 (11/5 결정)
+ * payout.reconcile.method=bitmap일 때만 빈으로 쓴다. 집합과 메모리 · 시간을 비교하는 부하 테스트용이다
  */
+@Component
+@ConditionalOnProperty(name = TicketDiffer.METHOD_PROPERTY, havingValue = "bitmap")
 public class BitmapTicketDiffer implements TicketDiffer {
 	private final TicketDiffer fallback = new SetTicketDiffer();
 
