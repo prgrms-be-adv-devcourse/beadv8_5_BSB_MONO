@@ -18,18 +18,18 @@ class InquiryManageApiTest extends InquiryTestBase {
 	private static final String ADMIN_URL = BASE + "/admin/inquiries";
 
 	@Test
-	@DisplayName("판매자 상세: 그 대회 항목만 담은 주문 정보와 닉네임을 주고, 주문 전체 결제 금액·주문 상태는 주지 않는다")
+	@DisplayName("판매자 상세: 그 대회 항목만 담은 주문 정보와 닉네임, 주문 상태를 주고, 결제 금액은 주지 않는다")
 	void sellerDetail() throws Exception {
 		Inquiry inquiry = saveSellerInquiry(ME, RACE, SELLER);
 
-		// 한 주문에 다른 판매자의 대회가 함께 있을 수 있어, 주문 전체 금액은 판매자에게 보이지 않는다
+		// 발송 전에 취소된 키트도 배송 상태는 배송 준비로 와서, 판매자는 주문 상태로 취소 여부를 확인한다
 		getAs(SELLER_URL + "/" + inquiry.getId(), SELLER)
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.id").value(inquiry.getId()))
 			.andExpect(jsonPath("$.data.memberNickname").value("러너하나"))
 			.andExpect(jsonPath("$.data.order.orderNo").value("OD-20261110-1"))
 			.andExpect(jsonPath("$.data.order.paymentAmount").doesNotExist())
-			.andExpect(jsonPath("$.data.order.status").doesNotExist())
+			.andExpect(jsonPath("$.data.order.status").value("PAID"))
 			// 주문에는 대회 두 개가 있지만, 이 문의의 대회(100) 항목만 담는다
 			.andExpect(jsonPath("$.data.order.items.length()").value(1))
 			.andExpect(jsonPath("$.data.order.items[0].raceId").value(RACE))
