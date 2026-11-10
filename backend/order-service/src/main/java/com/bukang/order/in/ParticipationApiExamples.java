@@ -188,8 +188,9 @@ final class ParticipationApiExamples {
 		""";
 
 	static final String PARTY_PARTICIPATION_EXISTS = """
-		{ "status": 409, "code": "ORDER_DUPLICATE_PARTICIPATION",
-			"message": "파티로 신청한 대회예요. 개인으로 신청하려면 파티에서 나가 주세요.", "data": null }
+		{ "status": 409, "code": "ORDER_PARTY_ALREADY_JOINED",
+			"message": "이미 파티에 가입되어 있어요. 개인으로 신청하려면 파티를 나간 뒤 신청해 주세요.",
+			"data": { "partyId": 12, "partyStatus": "RECRUITING" } }
 		""";
 
 	static final String NOT_ACCEPTING = """

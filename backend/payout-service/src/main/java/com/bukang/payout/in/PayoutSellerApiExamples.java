@@ -133,6 +133,27 @@ final class PayoutSellerApiExamples {
 		}
 		""";
 
+	static final String CLAIMS_SUCCESS = """
+		{
+			"status": 200,
+			"message": "회수 내역을 조회했습니다.",
+			"data": [
+				{
+					"id": 1,
+					"claimCode": "RC-20261103-02C4",
+					"raceId": 10,
+					"raceName": "2026 한강 나이트런",
+					"payoutCode": "ST-20261101-5C9A",
+					"amount": 60000,
+					"reasonType": "일정_변경",
+					"status": "회수_요청",
+					"requestedAt": "2026-11-01T09:00:00",
+					"completedAt": null
+				}
+			]
+		}
+		""";
+
 	static final String PAYOUT_PERIOD_TOO_LONG = """
 		{ "status": 400, "message": "정산 내역은 최대 12개월까지 조회할 수 있습니다.", "data": null }
 		""";
@@ -171,6 +192,37 @@ final class PayoutSellerApiExamples {
 
 	static final String SELLER_LOOKUP_UNAVAILABLE = """
 		{ "status": 503, "message": "판매자 정보를 확인하지 못했습니다. 잠시 뒤 다시 시도해주세요.", "data": null }
+		""";
+
+
+	static final String PAYOUT_BY_CODE_SUCCESS = """
+		{
+			"status": 200,
+			"message": "정산 내역을 조회했습니다.",
+			"data": [
+				{
+					"id": 2,
+					"payoutCode": "ST-20260926-0002",
+					"raceId": 10,
+					"raceName": "2026 한강 나이트런",
+					"payoutStage": "최종_정산",
+					"payoutMonth": "2026-09",
+					"salesAmount": 100000,
+					"refundAmount": 0,
+					"feeAmount": 5500,
+					"advanceDeductionAmount": 40000,
+					"payoutAmount": 54500,
+					"status": "지급_예정",
+					"settledAt": "2026-09-26T03:00:00",
+					"scheduledPayDate": "2026-10-20",
+					"paidAt": null
+				}
+			]
+		}
+		""";
+
+	static final String PAYOUT_NOT_FOUND = """
+		{ "status": 404, "message": "정산 내역을 찾을 수 없습니다.", "data": null }
 		""";
 
 	private PayoutSellerApiExamples() {

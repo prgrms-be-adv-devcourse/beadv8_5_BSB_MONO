@@ -139,6 +139,24 @@ class ApiV1QueueControllerTest extends QueueIntegrationTest {
 	}
 
 	@Test
+	@DisplayName("register: 판매자가 판매를 멈춘(STOPPED) 대회는 개인 예매 시간 안이어도 403 '판매를 잠시 멈춘 대회입니다.'이고 "
+		+ "waiting에 넣지 않는다")
+	void rejectStoppedRace() throws Exception {
+		// given
+		LocalDateTime now = LocalDateTime.now();
+		saveRace(RACE_ID, RaceSaleStatus.STOPPED, now.minusHours(1), now.plusDays(1));
+		saveCourse(RACE_ID, false);
+
+		// when
+		ResultActions result = register(MEMBER_ID);
+
+		// then
+		result.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.message").value("판매를 잠시 멈춘 대회입니다."));
+		assertThat(redisTemplate.hasKey(WAITING_KEY)).isFalse();
+	}
+
+	@Test
 	@DisplayName("register: 판매 중이어도 개인 예매 오픈(1시간 뒤) 전이면 403이다")
 	void rejectBeforeIndividualOpen() throws Exception {
 		LocalDateTime now = LocalDateTime.now();

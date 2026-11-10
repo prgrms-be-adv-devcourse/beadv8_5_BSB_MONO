@@ -57,9 +57,9 @@ export function MyTicketsPage({ state }: { state?: MyTicketsState }) {
               </>
             ) : (
               <>
-                <p className="text-heading-m">{member?.nickname ?? '-'}</p>
+                <p className="text-title3">{member?.nickname ?? '-'}</p>
                 {/* 실명은 Clarity 화면 녹화에서 가린다 */}
-                <p className="text-body-s text-text-secondary" data-clarity-mask="true">
+                <p className="text-body2-regular text-text-secondary" data-clarity-mask="true">
                   {member?.name ?? '-'}
                 </p>
               </>
@@ -74,14 +74,14 @@ export function MyTicketsPage({ state }: { state?: MyTicketsState }) {
           <div className="flex items-center justify-between gap-2">
             <Link
               href="/me/deposit"
-              className={cn('rounded-sm text-label-m text-text-secondary', FOCUS_RING)}
+              className={cn('rounded-sm text-body2-medium text-text-secondary', FOCUS_RING)}
             >
               예치금
             </Link>
             {loading || wallet.isPending ? (
               <Skeleton className="h-5 w-16" />
             ) : (
-              <p className="font-display text-display-s">
+              <p className="text-title2">
                 {wallet.balance === undefined ? '-' : formatWon(wallet.balance)}
               </p>
             )}

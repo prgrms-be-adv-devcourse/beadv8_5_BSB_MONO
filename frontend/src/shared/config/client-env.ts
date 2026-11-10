@@ -36,6 +36,11 @@ export function parseClientEnv(raw: Raw) {
    * 비우거나 가짜 응답 모드(API_MOCKING=on)면 넣지 않는다. 스크립트 주소에 들어가므로 영문 · 숫자만 받는다.
    */
   const NEXT_PUBLIC_CLARITY_ID = value(raw, 'NEXT_PUBLIC_CLARITY_ID')
+  /**
+   * 카카오 JavaScript 키(카카오 콘솔 앱 > 플랫폼 키). 크루 초대 링크를 카카오톡으로 공유할 때 쓴다.
+   * 비우면 공유 버튼을 숨긴다. 공개되는 값이라 카카오 콘솔의 JavaScript SDK 도메인으로 쓸 곳을 제한한다.
+   */
+  const NEXT_PUBLIC_KAKAO_JS_KEY = value(raw, 'NEXT_PUBLIC_KAKAO_JS_KEY')
   /** next.config가 API_MOCKING 값을 그대로 넣는다. 브라우저가 가짜 응답 모드인지 알아야 토스 결제창을 건너뛸 수 있다. */
   const NEXT_PUBLIC_API_MOCKING = value(raw, 'NEXT_PUBLIC_API_MOCKING') ?? 'off'
 
@@ -63,6 +68,13 @@ export function parseClientEnv(raw: Raw) {
       'Clarity ID는 영문 · 숫자만 씁니다.',
     )
   }
+  if (NEXT_PUBLIC_KAKAO_JS_KEY !== undefined) {
+    check(
+      /^[0-9a-f]{32}$/i.test(NEXT_PUBLIC_KAKAO_JS_KEY),
+      'NEXT_PUBLIC_KAKAO_JS_KEY',
+      '카카오 JavaScript 키는 32자리 16진수입니다.',
+    )
+  }
   check(
     NEXT_PUBLIC_API_MOCKING === 'on' || NEXT_PUBLIC_API_MOCKING === 'off',
     'NEXT_PUBLIC_API_MOCKING',
@@ -85,6 +97,7 @@ export function parseClientEnv(raw: Raw) {
     NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION: value(raw, 'NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION'),
     /** 네이버 서치어드바이저 소유 확인 코드(HTML 태그 방식의 content 값). 비우면 확인 태그를 넣지 않는다. */
     NEXT_PUBLIC_NAVER_SITE_VERIFICATION: value(raw, 'NEXT_PUBLIC_NAVER_SITE_VERIFICATION'),
+    NEXT_PUBLIC_KAKAO_JS_KEY,
     NEXT_PUBLIC_API_MOCKING: NEXT_PUBLIC_API_MOCKING as 'on' | 'off',
   }
 }
@@ -99,5 +112,6 @@ export const clientEnv = parseClientEnv({
   NEXT_PUBLIC_PORTONE_IDENTITY_CHANNEL_KEY: process.env.NEXT_PUBLIC_PORTONE_IDENTITY_CHANNEL_KEY,
   NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
   NEXT_PUBLIC_NAVER_SITE_VERIFICATION: process.env.NEXT_PUBLIC_NAVER_SITE_VERIFICATION,
+  NEXT_PUBLIC_KAKAO_JS_KEY: process.env.NEXT_PUBLIC_KAKAO_JS_KEY,
   NEXT_PUBLIC_API_MOCKING: process.env.NEXT_PUBLIC_API_MOCKING,
 })

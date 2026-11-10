@@ -151,6 +151,19 @@ describe('LoginPage', () => {
     await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/'))
   })
 
+  it('next가 있으면 회원가입 링크에도 넘겨 가입 뒤 같은 화면으로 돌아오게 한다 (BUK-98)', () => {
+    render(withQueryClient(<LoginPage next="/invite/q7Xk?party=pJ0in" />))
+    expect(screen.getByRole('link', { name: '회원가입' })).toHaveAttribute(
+      'href',
+      '/signup?next=%2Finvite%2Fq7Xk%3Fparty%3DpJ0in',
+    )
+  })
+
+  it('next가 없으면 회원가입 링크는 그대로다', () => {
+    render(withQueryClient(<LoginPage />))
+    expect(screen.getByRole('link', { name: '회원가입' })).toHaveAttribute('href', '/signup')
+  })
+
   it('시안 미리보기(failed)는 로그인 실패 문구를 보여 준다', () => {
     render(withQueryClient(<LoginPage failed />))
     expect(screen.getByText(AUTH_ERRORS.loginFailed)).toBeInTheDocument()

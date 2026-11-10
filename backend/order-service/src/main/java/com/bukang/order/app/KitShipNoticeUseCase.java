@@ -12,6 +12,7 @@ import com.bukang.common.global.eventpublisher.EventPublisher;
 import com.bukang.common.shared.notification.NotificationKind;
 import com.bukang.common.shared.notification.event.NotificationRequestedEvent;
 import com.bukang.order.domain.KitShipNotice;
+import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
 import com.bukang.order.out.KitShipNoticeRepository;
 import com.bukang.order.out.race.RaceCourseInfo;
 import com.bukang.order.out.race.RaceCoursePort;
@@ -49,7 +50,15 @@ public class KitShipNoticeUseCase {
 					|| course.isRefundableOn(now.toLocalDate())) {
 					continue;
 				}
-				if (notifySeller(course, now)) {
+				Long memberId;
+				try {
+					memberId = sellerLookupPort.findSellerMemberId(course.sellerId()).orElse(null);
+				} catch (ExternalServiceUnavailableException exception) {
+					// 판매자 조회가 꺼졌거나(운영 disabled) 내려갔다. 남은 대회도 같으니 한 줄만 남기고 다음 배치에서 다시 본다
+					log.warn("판매자 조회를 쓸 수 없어 이번 키트 발송 알림을 멈춥니다. cause={}", exception.getMessage());
+					break;
+				}
+				if (notifySeller(course, memberId, now)) {
 					noticedRaceIds.add(course.raceId());
 				}
 			} catch (DataIntegrityViolationException exception) {
@@ -62,8 +71,7 @@ public class KitShipNoticeUseCase {
 		return noticedRaceIds.size();
 	}
 
-	private boolean notifySeller(RaceCourseInfo course, LocalDateTime now) {
-		Long memberId = sellerLookupPort.findSellerMemberId(course.sellerId()).orElse(null);
+	private boolean notifySeller(RaceCourseInfo course, Long memberId, LocalDateTime now) {
 		if (memberId == null) {
 			log.warn("판매자를 찾지 못해 키트 발송을 알리지 못했습니다. raceId={}, sellerId={}", course.raceId(),
 				course.sellerId());

@@ -19,8 +19,8 @@ export type DialogProps = {
   confirming?: boolean
 }
 
-// 화면 가운데 떠서 확인을 받는 창. 모바일 폭 320, 태블릿 이상 폭 480.
-// 버튼은 화면 폭과 상관없이 반씩 나눠 본문과 좌우 끝을 맞춘다. 오른쪽 정렬은 왼쪽에 빈 공간이 커서 쓰지 않는다.
+// 화면 가운데 떠서 확인을 받는 창. 모바일 폭 320, 태블릿 이상 폭 400.
+// 버튼은 모바일(S)에서 반씩 나누고, 태블릿 이상(M)에서는 글자 폭만큼 오른쪽에 붙인다(피그마 v2/Dialog).
 export function Dialog({
   open,
   onOpenChange,
@@ -35,22 +35,25 @@ export function Dialog({
   return (
     <AlertDialog.Root open={open} onOpenChange={onOpenChange}>
       <AlertDialog.Portal>
-        <AlertDialog.Backdrop className="fixed inset-0 z-50 bg-bg-overlay/45 transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0" />
-        <AlertDialog.Popup className="fixed top-1/2 left-1/2 z-50 flex w-80 max-w-[calc(100vw-var(--layout-page-margin)*2)] -translate-1/2 flex-col gap-6 rounded-lg bg-bg-surface p-6 shadow-lg transition-opacity duration-150 outline-none data-ending-style:opacity-0 data-starting-style:opacity-0 tablet:w-120">
+        <AlertDialog.Backdrop className="fixed inset-0 z-50 bg-bg-overlay/40 transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0" />
+        <AlertDialog.Popup className="fixed top-1/2 left-1/2 z-50 flex w-80 max-w-[calc(100vw-var(--layout-page-margin)*2)] -translate-1/2 flex-col gap-6 rounded-xl bg-bg-surface p-6 shadow-lg transition-opacity duration-150 outline-none data-ending-style:opacity-0 data-starting-style:opacity-0 tablet:w-100">
           <div className="flex flex-col gap-2">
-            <AlertDialog.Title className="text-heading-m text-text-primary">
-              {title}
-            </AlertDialog.Title>
+            <AlertDialog.Title className="text-title3 text-text-primary">{title}</AlertDialog.Title>
             {body && (
               // 본문에 입력칸(반려 사유 등)을 넣을 수 있게 p 대신 div로 그린다
-              <AlertDialog.Description render={<div />} className="text-body-m text-text-secondary">
+              <AlertDialog.Description
+                render={<div />}
+                className="text-body2-regular text-text-secondary"
+              >
                 {body}
               </AlertDialog.Description>
             )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 tablet:justify-end">
             {type !== 'alert' && (
-              <AlertDialog.Close render={<Button variant="secondary" className="flex-1" />}>
+              <AlertDialog.Close
+                render={<Button variant="secondary" className="flex-1 tablet:flex-none" />}
+              >
                 {cancelLabel}
               </AlertDialog.Close>
             )}
@@ -58,7 +61,7 @@ export function Dialog({
               variant={type === 'danger' ? 'danger' : 'primary'}
               loading={confirming}
               onClick={onConfirm}
-              className="flex-1"
+              className="flex-1 tablet:flex-none"
             >
               {confirmLabel}
             </Button>

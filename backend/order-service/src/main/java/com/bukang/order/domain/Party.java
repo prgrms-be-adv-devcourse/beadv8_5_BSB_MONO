@@ -44,6 +44,9 @@ public class Party extends BaseIdAndTime {
 	static final Duration JOIN_LINK_VALIDITY = Duration.ofHours(24);
 	// 추천값(미확정, BUK-38): 결제 기한 3시간 전에 결제하지 않은 파티원에게 마감 알림을 한 번 보낸다
 	public static final Duration PAYMENT_REMIND_BEFORE = Duration.ofHours(3);
+	// 상품을 부르는 중으로 보는 가장 긴 시간. 상품 호출 제한(order.clients.timeout 2초)보다 넉넉히 둔다
+	// 추천값(미확정): 부르다 서버가 죽어 끝 시각이 남지 않아도 이만큼 지나면 파티장이 다시 신청할 수 있다
+	public static final Duration CREW_HOLD_CALL_LIMIT = Duration.ofMinutes(1);
 
 	@Column(name = "crew_id", nullable = false)
 	private long crewId;
@@ -69,13 +72,22 @@ public class Party extends BaseIdAndTime {
 	@Column(name = "status", nullable = false, columnDefinition = "varchar(20)")
 	private PartyStatus status;
 
-	// 파티원 결제 기한 = min(신청 + 24시간, 크루 예매 마감, 접수 마감). 신청 때 정한다
+	// 파티원 결제 기한 = 상품이 잡은 크루 자리 기한 (min(신청 + 24시간, 크루 자리 닫는 시각, 접수 마감)). 신청 때 정한다
 	@Column(name = "payment_due_at")
 	private LocalDateTime paymentDueAt;
 
 	// 결제 마감 알림을 보낸 시각. 한 번만 보낸다 (BUK-38)
 	@Column(name = "payment_reminded_at")
 	private LocalDateTime paymentRemindedAt;
+
+	// 상품에 크루 자리를 마지막으로 요청한 시각. 결과를 모르는 동안(응답 시간 초과 등) 합류·나가기를 막는다 (BUK-105)
+	// 결제 기간을 열거나, 상품이 확정해서 답하면(모자람·거절·지난 기한) 비운다
+	@Column(name = "crew_hold_requested_at")
+	private LocalDateTime crewHoldRequestedAt;
+
+	// 그 요청이 결과를 모른 채 끝난 시각(503 등). 비어 있으면 요청이 아직 상품을 부르는 중이다 → 같은 파티 신청을 또 받지 않는다
+	@Column(name = "crew_hold_call_ended_at")
+	private LocalDateTime crewHoldCallEndedAt;
 
 	@Column(name = "applied_at")
 	private LocalDateTime appliedAt;
@@ -120,6 +132,39 @@ public class Party extends BaseIdAndTime {
 		}
 	}
 
+	// 합류·나가기: 모집 중이고, 상품에 크루 자리를 요청해 결과를 모르는 중이 아니어야 한다
+	// 상품은 같은 파티의 자리 목록이 처음과 다르면 거절하므로, 그사이 파티원이 바뀌면 다시 신청할 수 없게 된다
+	public void checkMembersChangeable() {
+		checkRecruiting();
+		if (crewHoldRequestedAt != null) {
+			throw PartyConflictException.crewHoldInProgress(getId());
+		}
+	}
+
+	// 상품을 부르기 전에 남겨 커밋한다. 다른 요청이 상품을 부르는 중이면 막는다 (두 요청이 엇갈려 결과를 덮지 않게)
+	// 503으로 끝난 뒤의 재시도는 부르는 중이 아니므로 받는다. 부르다 서버가 죽어 끝 시각이 없으면 CREW_HOLD_CALL_LIMIT 뒤에 받는다
+	public void markCrewHoldRequested(LocalDateTime now) {
+		if (crewHoldRequestedAt != null && crewHoldCallEndedAt == null
+			&& now.isBefore(crewHoldRequestedAt.plus(CREW_HOLD_CALL_LIMIT))) {
+			throw PartyConflictException.applyInProgress(getId());
+		}
+		this.crewHoldRequestedAt = now;
+		this.crewHoldCallEndedAt = null;
+	}
+
+	// 상품 응답을 모른 채 요청이 끝났다(503 등). 표시는 남겨 파티원을 못 바꾸게 하고, 파티장의 재시도는 받는다
+	public void markCrewHoldCallEnded(LocalDateTime now) {
+		if (crewHoldRequestedAt != null) {
+			this.crewHoldCallEndedAt = now;
+		}
+	}
+
+	// 상품이 확정해서 답했다 (모자람, 거절, 지난 기한). 새로 잡힌 자리가 없으니 파티원을 다시 바꿀 수 있다
+	public void clearCrewHoldRequested() {
+		this.crewHoldRequestedAt = null;
+		this.crewHoldCallEndedAt = null;
+	}
+
 	// 파티장 [신청] 전 확인 (BUK-37). 이미 신청한 파티는 모집 중이 아니라 409다 (11/02 결정 ⑩: 같은 파티 재신청 막음)
 	public void checkApplicable(long memberId) {
 		checkLeader(memberId);
@@ -132,6 +177,8 @@ public class Party extends BaseIdAndTime {
 	public void startPayment(LocalDateTime paymentDueAt, LocalDateTime now) {
 		checkRecruiting();
 		this.status = PartyStatus.PAYING;
+		this.crewHoldRequestedAt = null;
+		this.crewHoldCallEndedAt = null;
 		this.paymentDueAt = paymentDueAt;
 		this.appliedAt = now;
 		// 신청 때 결제 알림을 막 보냈는데 기한이 3시간 안이면 마감 알림을 또 보내지 않는다

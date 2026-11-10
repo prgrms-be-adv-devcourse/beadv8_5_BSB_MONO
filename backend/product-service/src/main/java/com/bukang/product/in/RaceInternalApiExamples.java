@@ -29,7 +29,10 @@ final class RaceInternalApiExamples {
 				"individualRemaining": 580,
 				"crewRemaining": 0,
 				"kitIncluded": true,
-				"tshirtSizeOption": ["S", "M", "L", "XL"]
+				"crewSaleStartAt": "2026-10-10T10:00:00",
+				"crewSaleEndAt": "2026-10-12T18:00:00",
+				"crewMinCount": 5,
+				"crewMaxCount": 10
 			}
 		}
 		""";

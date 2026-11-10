@@ -28,7 +28,7 @@ export function ProfileEditPage() {
         <ProfileForm member={me.data} />
       ) : (
         me.isError && (
-          <p role="alert" className="px-4 py-6 text-body-s text-text-danger">
+          <p role="alert" className="px-4 py-6 text-body2-regular text-text-danger">
             회원 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.
           </p>
         )
@@ -77,7 +77,7 @@ function ProfileForm({ member }: { member: memberModel.MemberDto }) {
   return (
     <>
       <main className="flex flex-1 flex-col gap-5 px-4 py-6">
-        <h2 className="text-heading-m">닉네임을 고쳐요</h2>
+        <h2 className="text-title3">닉네임을 고쳐요</h2>
         <TextField
           label="닉네임"
           helper="다른 사람에게는 실명 대신 닉네임이 보여요. 한글 2~8자, 영문 4~16자"
@@ -85,7 +85,7 @@ function ProfileForm({ member }: { member: memberModel.MemberDto }) {
           {...register('nickname')}
         />
         {formError && (
-          <p role="alert" className="text-caption text-text-danger">
+          <p role="alert" className="text-caption-regular text-text-danger">
             {formError}
           </p>
         )}

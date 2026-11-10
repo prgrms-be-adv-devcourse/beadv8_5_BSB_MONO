@@ -22,13 +22,13 @@ const meta = {
           문의
         </Tab>
       </TabBar>
-      <TabPanel value="info" className="p-4 text-body-m">
+      <TabPanel value="info" className="p-4 text-body2-regular">
         대회 정보 내용
       </TabPanel>
-      <TabPanel value="course" className="p-4 text-body-m">
+      <TabPanel value="course" className="p-4 text-body2-regular">
         코스 내용
       </TabPanel>
-      <TabPanel value="review" className="p-4 text-body-m">
+      <TabPanel value="review" className="p-4 text-body2-regular">
         후기 내용
       </TabPanel>
     </Tabs>

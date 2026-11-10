@@ -5,6 +5,7 @@ import static com.bukang.product.support.RaceRequests.image;
 import static com.bukang.product.support.RaceRequests.race;
 import static com.bukang.product.support.RaceRequests.thumbnail;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -32,9 +33,9 @@ import com.bukang.common.shared.race.domain.RaceSaleStatus;
 import com.bukang.product.domain.CourseStatus;
 import com.bukang.product.domain.CourseSurface;
 import com.bukang.product.domain.CourseType;
+import com.bukang.product.domain.KitOption;
 import com.bukang.product.domain.Race;
 import com.bukang.product.domain.RaceCourse;
-import com.bukang.product.domain.TshirtSize;
 import com.bukang.product.domain.document.RaceCourseDocument;
 import com.bukang.product.dto.RaceImageRequestDto;
 import com.bukang.product.dto.RaceSaveRequestDto;
@@ -48,7 +49,7 @@ import com.bukang.product.support.RaceRequests.RaceBuilder;
  * - 판매 시작일 전(판매 예정)에는 참가비·키트 금액·정원·참가 조건·환불 기준일을 자유롭게 바꿀 수 있다
  *   판매 시작일이 바뀌면 등록과 같이 오늘로부터 이틀 뒤부터만 된다 (400)
  * - 판매가 시작된 뒤(판매 시작일 0시부터)에는 판매 시작일을 정하는 일정(크루 예매 시작, 크루 예매가 없으면 개인 예매 오픈)
- *   변경, 참가비·키트 금액 변경, 정원 줄이기, 참가 조건·티셔츠 사이즈 변경, 환불 기준일 앞당기기, 종목 빼기가 409다
+ *   변경, 참가비·키트 금액 변경, 정원 줄이기, 참가 조건 변경, 환불 기준일 앞당기기, 종목 빼기가 409다
  * - 취소된 대회와 판매가 끝난 대회(대회일 다음 날 0시부터)는 어떤 칸도 수정할 수 없다 (409)
  * - 이미 지난 판매 일정을 바꾸거나 일정을 지난 시각으로 옮기면 409다 (판매 시작일 전에도)
  * - 판매가 시작된 뒤 대회 일시·장소를 바꾸면 일정·장소 변경 일시를 남긴다 (판매 전에는 남기지 않는다)
@@ -80,7 +81,7 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 				.distanceKm("21.1")
 				.timeLimitMinutes(180)
 				.age(20, 60)
-				.kit(5_000, TshirtSize.L, TshirtSize.M))
+				.kit(5_000))
 			.build();
 
 		update(registered.raceId(), request)
@@ -103,8 +104,6 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 		assertThat(course.getMinAge()).isEqualTo(20);
 		assertThat(course.getMaxAge()).isEqualTo(60);
 		assertThat(course.isKitIncluded()).isTrue();
-		// 요청 순서(L, M)와 상관없이 작은 사이즈부터 저장한다
-		assertThat(course.getTshirtSizeOption()).containsExactly(TshirtSize.M, TshirtSize.L);
 		Race race = findRace(registered.raceId());
 		assertThat(race.getRefundDeadline()).isEqualTo(now.plusDays(5).toLocalDate());
 		assertThat(race.getIndividualOpenAt()).isEqualTo(now.plusDays(3));
@@ -254,23 +253,6 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.message")
 				.value("판매가 시작된 종목은 참가 조건(%s)을 바꿀 수 없습니다. (종목: 10K)".formatted(condition)));
-	}
-
-	@Test
-	@DisplayName("판매 중 종목의 티셔츠 사이즈를 S·M·L에서 S·M으로 바꾸면 409이다")
-	void rejectTshirtSizeChangeAfterSaleStarted() throws Exception {
-		RegisteredRace registered = registerOnSale(sameRace()
-			.course(course().kit(5_000, TshirtSize.S, TshirtSize.M, TshirtSize.L))
-			.build());
-
-		update(registered.raceId(), sameRace()
-			.course(sameCourse(registered.courseId()).kit(5_000, TshirtSize.S, TshirtSize.M))
-			.build())
-			.andExpect(status().isConflict())
-			.andExpect(jsonPath("$.message").value("판매가 시작된 종목은 티셔츠 사이즈를 바꿀 수 없습니다. (종목: 10K)"));
-
-		assertThat(findCourse(registered.courseId()).getTshirtSizeOption())
-			.containsExactly(TshirtSize.S, TshirtSize.M, TshirtSize.L);
 	}
 
 	@Test
@@ -523,22 +505,6 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("판매 중 종목의 티셔츠 사이즈 S·M·L을 L·S·M으로 순서만 바꿔 보내면 통과하고 S·M·L 그대로 저장된다")
-	void allowTshirtSizeReorderAfterSaleStarted() throws Exception {
-		RegisteredRace registered = registerOnSale(sameRace()
-			.course(course().kit(5_000, TshirtSize.S, TshirtSize.M, TshirtSize.L))
-			.build());
-
-		update(registered.raceId(), sameRace()
-			.course(sameCourse(registered.courseId()).kit(5_000, TshirtSize.L, TshirtSize.S, TshirtSize.M))
-			.build())
-			.andExpect(status().isOk());
-
-		assertThat(findCourse(registered.courseId()).getTshirtSizeOption())
-			.containsExactly(TshirtSize.S, TshirtSize.M, TshirtSize.L);
-	}
-
-	@Test
 	@DisplayName("판매 중 대회의 환불 기준일을 대회 5일 전에서 2일 전으로 늦추는 것은 된다")
 	void allowRefundDeadlineDelayAfterSaleStarted() throws Exception {
 		RegisteredRace registered = registerOnSale(sameRace().refundDeadline(now.plusDays(10).toLocalDate()).build());
@@ -788,6 +754,27 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 		assertThat(course.getIndividualReserved()).isEqualTo(1);
 	}
 
+	// ---------- 키트 옵션 (BUK-137) ----------
+
+	@Test
+	@DisplayName("키트 옵션을 등록한 대회를 수정해도 키트 옵션은 그대로 남는다")
+	void keepKitOptionsWhenUpdatingRace() throws Exception {
+		// given
+		RegisteredRace registered = register(scheduledRace().build());
+		saveKitOption(registered.raceId(), "T-shirt", "L", 100);
+
+		// when
+		ResultActions updated = update(registered.raceId(), scheduledRace()
+			.course(sameCourse(registered.courseId()).price(60_000))
+			.build());
+
+		// then
+		updated.andExpect(status().isOk());
+		assertThat(kitOptionRepository.findByRaceIdOrderById(registered.raceId()))
+			.extracting(KitOption::getName, KitOption::getValue, KitOption::getStock)
+			.containsExactly(tuple("T-shirt", "L", 100));
+	}
+
 	// ---------- 도우미 ----------
 
 	// 기본 요청과 같은 일정 (대회 15일 뒤, 개인 예매 한 시간 전 오픈, 접수 마감 10일 뒤, 환불 기준일 = 대회 날짜)
@@ -813,7 +800,7 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 			.applicationCloseAt(now.minusDays(3));
 	}
 
-	// 이미 끝난 크루 예매(3일 전 시작, 2일 전 마감)를 더한다. 개인 예매 오픈(한 시간 전)은 크루 마감 다음 날 06:00 이후다
+	// 이미 끝난 크루 예매(3일 전 시작, 2일 전 마감)를 더한다. 개인 예매 오픈(한 시간 전)은 크루 예매 마감일의 자정 이후다
 	private RaceBuilder withPassedCrewSale(RaceBuilder builder) {
 		return builder.crewSale(now.minusDays(3), now.minusDays(2));
 	}

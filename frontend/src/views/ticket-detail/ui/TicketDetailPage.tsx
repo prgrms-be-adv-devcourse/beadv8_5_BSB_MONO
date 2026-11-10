@@ -20,7 +20,7 @@ import { fullRefundLastDay } from '../model/refund-period'
 import { useTicket } from '../model/use-ticket'
 import { TicketStateView, ticketViewState } from './TicketStateView'
 
-const LINK = cn('rounded-sm text-label-m text-text-brand', FOCUS_RING)
+const LINK = cn('rounded-sm text-body2-medium text-text-brand', FOCUS_RING)
 
 // 피그마 V2 · M16 참가권 상세 · 취소 (+ M16-1 참가 취소 확인)
 // confirmOpen은 시안 미리보기(?preview=confirm)용. 취소 확인 창을 연 채로 보여 준다.
@@ -104,10 +104,10 @@ export function TicketDetailPage({
           </div>
           <div className="flex flex-col gap-2">
             {participantLine && (
-              <p className="text-body-m text-text-secondary">{participantLine}</p>
+              <p className="text-body2-regular text-text-secondary">{participantLine}</p>
             )}
             {editable && closeAt && (
-              <p className="text-caption text-text-tertiary">
+              <p className="text-caption-regular text-text-tertiary">
                 접수 마감({formatRaceDate(closeAt)}) 전까지 고칠 수 있어요.
               </p>
             )}
@@ -146,7 +146,7 @@ export function TicketDetailPage({
             >
               참가 취소하기
             </Button>
-            <p className="text-caption text-text-tertiary">
+            <p className="text-caption-regular text-text-tertiary">
               취소하면 자리는 바로 다른 사람에게 열려요.
             </p>
           </div>

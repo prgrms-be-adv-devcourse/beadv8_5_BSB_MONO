@@ -27,10 +27,10 @@ export function StatsBlock({
     <section aria-labelledby={id} className="flex flex-col gap-4">
       <div className="flex items-start justify-between gap-4">
         <div className="flex flex-col gap-1">
-          <h2 id={id} className="text-heading-s">
+          <h2 id={id} className="text-body1-bold">
             {title}
           </h2>
-          {description && <p className="text-body-s text-text-secondary">{description}</p>}
+          {description && <p className="text-body2-regular text-text-secondary">{description}</p>}
         </div>
         {aside}
       </div>
@@ -40,7 +40,7 @@ export function StatsBlock({
 }
 
 export function SubHeading({ children }: { children: ReactNode }) {
-  return <h3 className="text-label-strong">{children}</h3>
+  return <h3 className="text-body2-bold">{children}</h3>
 }
 
 /**

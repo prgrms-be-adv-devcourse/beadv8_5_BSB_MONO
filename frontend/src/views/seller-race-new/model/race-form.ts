@@ -39,7 +39,7 @@ export function saleOpenTooEarlyMessage(earliest: Date): string {
 export const MAX_INTRO_IMAGES = 5
 
 /**
- * 크루 최소 인원. 세미는 크루 예매가 없어 쓰이지 않지만 API가 5 이상을 꼭 받는다.
+ * 크루 최소 인원. 세미는 크루 예매가 없어 쓰이지 않지만 API가 4 이상을 꼭 받는다.
  * 크루 예매(최종)를 열 때 입력 칸으로 바꾼다.
  */
 const CREW_MIN_COUNT = productZod.registerBodyCrewMinCountMin
@@ -65,6 +65,76 @@ export const RACE_DEFAULT_TIMES = {
 const date = z
   .string()
   .refine((value) => parseRaceDateInput(value) !== null, RACE_FORM_ERRORS.dateRequired)
+
+export const KIT_OPTION_ERRORS = {
+  nameRequired: '옵션 이름을 입력해 주세요.',
+  nameMax: `옵션 이름은 ${productZod.registerKitOptionsBodyKitOptionsItemNameMax}자 이하로 입력해 주세요.`,
+  valueRequired: '옵션 값을 입력해 주세요.',
+  valueMax: `옵션 값은 ${productZod.registerKitOptionsBodyKitOptionsItemValueMax}자 이하로 입력해 주세요.`,
+  stockNumber: '준비 수량은 0 이상의 숫자로 입력해 주세요. 비우면 맞춤 제작이에요.',
+  duplicate: '같은 옵션을 두 번 넣을 수 없어요.',
+  nameCase: '같은 옵션 이름은 대소문자까지 똑같이 써 주세요.',
+} as const
+
+/** 키트 옵션 한 줄의 입력값. 준비 수량도 입력 그대로(글자) 받고, 비우면 맞춤 제작이다 */
+export type KitOptionInput = { name: string; value: string; stock: string }
+
+/**
+ * 키트 옵션 목록 규칙. 대회를 먼저 등록한 뒤 옵션을 따로 보내므로, 서버(RaceRequestValidator.validateKitOptions)가
+ * 400으로 막을 입력은 여기서 먼저 막는다. 그래야 옵션 없는 대회만 남는 일이 줄어든다.
+ */
+const kitOptionsSchema = z
+  .array(
+    z.object({
+      name: z
+        .string()
+        .trim()
+        .min(1, KIT_OPTION_ERRORS.nameRequired)
+        .max(productZod.registerKitOptionsBodyKitOptionsItemNameMax, KIT_OPTION_ERRORS.nameMax),
+      value: z
+        .string()
+        .trim()
+        .min(1, KIT_OPTION_ERRORS.valueRequired)
+        .max(productZod.registerKitOptionsBodyKitOptionsItemValueMax, KIT_OPTION_ERRORS.valueMax),
+      // 서버는 int라 9자리까지만 받는다
+      stock: z
+        .string()
+        .trim()
+        .regex(/^\d{0,9}$/, KIT_OPTION_ERRORS.stockNumber),
+    }),
+  )
+  .superRefine((options, ctx) => {
+    // 서버 KitOption.Key와 같이 앞뒤 공백을 지우고 대소문자를 무시해 비교한다
+    const seen = new Set<string>()
+    const nameOf = new Map<string, string>()
+    options.forEach((option, i) => {
+      const name = option.name.trim()
+      const key = JSON.stringify([name.toLowerCase(), option.value.trim().toLowerCase()])
+      if (seen.has(key)) {
+        ctx.addIssue({ code: 'custom', path: [i, 'value'], message: KIT_OPTION_ERRORS.duplicate })
+        return
+      }
+      seen.add(key)
+      const first = nameOf.get(name.toLowerCase())
+      if (first !== undefined && first !== name) {
+        ctx.addIssue({ code: 'custom', path: [i, 'name'], message: KIT_OPTION_ERRORS.nameCase })
+      }
+      if (first === undefined) nameOf.set(name.toLowerCase(), name)
+    })
+  })
+
+/** 키트 옵션 등록 · 수정 요청. 준비 수량을 비우면 null(맞춤 제작)로 보낸다 */
+export function toKitOptionsRequest(
+  options: KitOptionInput[],
+): productModel.KitOptionsSaveRequestDto {
+  return {
+    kitOptions: options.map((option) => ({
+      name: option.name.trim(),
+      value: option.value.trim(),
+      stock: option.stock.trim() === '' ? null : Number(option.stock),
+    })),
+  }
+}
 
 /**
  * 대회 등록 폼 규칙. 칸끼리의 순서는 서버(RaceRequestValidator · Race)와 같게 본다.
@@ -98,6 +168,7 @@ export function createRaceFormSchema({ today }: { today?: Date } = {}) {
       applicationCloseAt: date,
       refundDeadline: date,
       courses: z.array(courseSchema).min(1, RACE_FORM_ERRORS.coursesRequired),
+      kitOptions: kitOptionsSchema,
     })
     .superRefine((values, ctx) => {
       // 형식이 맞는 칸끼리만 순서를 본다. 'yyyy-MM-dd' 글자라 글자 비교가 곧 날짜 비교다
@@ -256,7 +327,6 @@ export function toCourseInput(
       surface: 'ROAD',
       kitIncluded: true,
       kitPrice: 0,
-      tshirtSizeOption: ['S', 'M', 'L', 'XL', 'XXL'],
       crewQuota: 0,
     },
   }
@@ -273,7 +343,6 @@ const DRAFT_COURSES: RaceCourseInput[] = [
     price: 45000,
     kitIncluded: true,
     kitPrice: 0,
-    tshirtSizeOption: ['S', 'M', 'L', 'XL', 'XXL'],
     minAge: 16,
     maxAge: 80,
     crewQuota: 0,
@@ -288,7 +357,6 @@ const DRAFT_COURSES: RaceCourseInput[] = [
     price: 35000,
     kitIncluded: true,
     kitPrice: 0,
-    tshirtSizeOption: ['S', 'M', 'L', 'XL', 'XXL'],
     minAge: 14,
     maxAge: 80,
     crewQuota: 0,
@@ -306,6 +374,8 @@ export const RACE_FORM_DEFAULTS: RaceFormValues = {
   applicationCloseAt: '',
   refundDeadline: '',
   courses: DRAFT_COURSES,
+  // 시안의 기념 티셔츠 사이즈. 준비 수량을 비우면 맞춤 제작이다
+  kitOptions: ['S', 'M', 'L', 'XL', 'XXL'].map((value) => ({ name: '티셔츠', value, stock: '' })),
 }
 
 /** 검사를 마친 입력과 종목별 이미지로 대회 등록 요청을 만든다. images는 courses와 같은 순서다. */

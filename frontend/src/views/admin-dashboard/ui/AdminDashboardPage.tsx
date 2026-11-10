@@ -45,7 +45,7 @@ const REFUNDS: Refund[] = [
   { at: '9/30', member: '달리는곰', amount: '₩120,000', status: '환급 완료', tone: 'success' },
 ]
 
-const LINK = cn('rounded-sm text-label-m text-text-brand', FOCUS_RING)
+const LINK = cn('rounded-sm text-body2-medium text-text-brand', FOCUS_RING)
 
 // 피그마 V2 · A03 관리자 홈
 export function AdminDashboardPage() {
@@ -105,7 +105,7 @@ export function AdminDashboardPage() {
               },
             ]}
           />
-          <p className="text-body-s text-text-tertiary">
+          <p className="text-body2-regular text-text-tertiary">
             보류된 금액은 지급 완료로 바꿀 수 없어요.
           </p>
         </ConsoleCard>

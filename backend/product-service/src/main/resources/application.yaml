@@ -20,6 +20,14 @@ spring:
       # 여러 서비스가 같은 인프라를 함께 쓰므로, 한 서비스를 종료해도 컨테이너는 멈추지 않는다
       lifecycle-management: start-only
 
+  # @Scheduled 작업(아웃박스 전송 1초, 검색 문서 동기화 1초, 크루 자리 배치 매시 정각, 판매 상태 배치 5분 정각)이
+  # 저마다 스레드를 쓰게 한다. 기본값 1이면 0시 정각에 크루 자리 배치와 판매 상태 배치가 한 스레드를 나눠 써,
+  # 한쪽이 끝날 때까지 다른 쪽(예: 판매 상태 변경)이 늦어진다 (PR #358 리뷰)
+  task:
+    scheduling:
+      pool:
+        size: 4
+
   # JPA 공통 (ddl-auto와 SQL 출력 형식은 프로파일별 yaml)
   jpa:
     open-in-view: false

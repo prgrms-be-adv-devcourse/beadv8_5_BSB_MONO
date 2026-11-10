@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.bukang.common.global.rsdata.RsData;
 import com.bukang.common.shared.member.web.LoginMemberId;
 import com.bukang.queue.app.QueueFacade;
+import com.bukang.queue.dto.QueueEntryResponseDto;
 import com.bukang.queue.dto.QueueRegisterRequestDto;
 import com.bukang.queue.dto.QueueStatusDto;
 
@@ -56,9 +57,11 @@ public class ApiV1QueueController {
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = QueueApiExamples.LOGIN_REQUIRED))),
 		@ApiResponse(responseCode = "403",
-			description = "다른 대회의 종목 또는 대회에서 뺀 종목, 접수 기간이 아님(판매 중이 아님, 개인 예매 오픈 전, 접수 마감 뒤)",
+			description = "다른 대회의 종목 또는 대회에서 뺀 종목, 판매를 멈춘 대회, "
+				+ "접수 기간이 아님(판매 중이 아님, 개인 예매 오픈 전, 접수 마감 뒤)",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "이 대회의 종목이 아님", value = QueueApiExamples.COURSE_NOT_IN_RACE),
+				@ExampleObject(name = "판매를 멈춘 대회", value = QueueApiExamples.SALE_STOPPED),
 				@ExampleObject(name = "접수 기간 아님", value = QueueApiExamples.NOT_ENTERABLE)
 			})),
 		@ApiResponse(responseCode = "404", description = "없는 대회 또는 없는 종목",
@@ -121,5 +124,39 @@ public class ApiV1QueueController {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "대기열 상태를 조회했습니다.",
 				queueFacade.getStatus(memberId, raceId, raceCourseId)));
+	}
+
+	@GetMapping("/races/{raceId}/entry")
+	@Operation(summary = "들어갈 대기열 조회",
+		description = "대회 상세의 [예매하기] 버튼이 파티 대기열과 개인 대기열 중 어디로 갈지 오늘 날짜(한국)로 알려 준다. "
+			+ "로그인하지 않아도 된다. "
+			+ "크루 예매가 있는 대회는 크루 예매 마지막 날까지 PARTY(크루 예매 시작 날짜 ~ 마지막 날), "
+			+ "그 뒤와 크루 예매가 없는 대회는 INDIVIDUAL(개인 예매 오픈 날짜 ~ 접수 마감 날짜)이다. "
+			+ "크루 예매 마감이 00:00 정각이면 그 전날이 마지막 날이다. "
+			+ "url은 그 대기열에 등록하는 API(POST)이고, PARTY는 등록 전에 주문 서비스의 파티장 확인이 필요하다. "
+			+ "날짜만 보므로 실제로 들어갈 수 있는지는 대기열 등록이 시각으로 판정한다"
+			+ "(예: 크루 예매가 19:00에 마감되면 그날 21:00에도 PARTY지만 등록은 막힌다). "
+			+ "없는 대회와 취소된 대회는 404다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "조회 성공",
+			content = @Content(examples = {
+				@ExampleObject(name = "파티 대기열", value = QueueApiExamples.ENTRY_PARTY),
+				@ExampleObject(name = "개인 대기열", value = QueueApiExamples.ENTRY_INDIVIDUAL)
+			})),
+		@ApiResponse(responseCode = "400", description = "대회 ID 오류",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "ID 형식 오류", value = QueueApiExamples.INVALID_VALUE_TYPE),
+				@ExampleObject(name = "대회 ID가 0 이하", value = QueueApiExamples.INVALID_RACE_ID)
+			})),
+		@ApiResponse(responseCode = "404", description = "없는 대회 또는 취소된 대회",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = QueueApiExamples.RACE_NOT_FOUND)))
+	})
+	public ResponseEntity<RsData<QueueEntryResponseDto>> findEntry(
+		@Parameter(description = "대회 ID", example = "1")
+		@PathVariable @Positive(message = "대회 ID는 0보다 커야 합니다.") long raceId
+	) {
+		return ResponseEntity.ok()
+			.body(RsData.of(HttpStatus.OK, "들어갈 대기열을 조회했습니다.", queueFacade.findEntry(raceId)));
 	}
 }

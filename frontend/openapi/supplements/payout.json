@@ -53,6 +53,22 @@
           "$ref": "#/components/schemas/PayoutHoldDto"
         }
       }
+    },
+    "confirm": {
+      "200": {
+        "wrapper": "RsDataPayoutClaimDto",
+        "data": {
+          "$ref": "#/components/schemas/PayoutClaimDto"
+        }
+      }
+    },
+    "adminClaims": {
+      "200": {
+        "wrapper": "RsDataPayoutAdminClaimsDto",
+        "data": {
+          "$ref": "#/components/schemas/PayoutAdminClaimsDto"
+        }
+      }
     }
   },
   "schemas": {
@@ -60,7 +76,10 @@
       "type": "object",
       "properties": {
         "nextPayDate": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "format": "date",
           "description": "다음 정산일. 지급 예정 정산 내역이 없으면 null"
         },
@@ -379,9 +398,10 @@
         "지급보류",
         "지급_중",
         "지급_완료",
-        "취소"
+        "취소",
+        "지급_불일치"
       ],
-      "description": "정산 상태 (지급_예정: 지급 예정, 지급보류: 지급보류, 지급_중: 지급 중, 지급_완료: 지급 완료, 취소: 취소)"
+      "description": "정산 상태 (지급_예정: 지급 예정, 지급보류: 지급보류, 지급_중: 지급 중, 지급_완료: 지급 완료, 취소: 취소, 지급_불일치: 캐시가 이미 다른 금액으로 지급했다고 답해 확인 중)"
     },
     "PayoutHoldStatus": {
       "type": "string",
@@ -426,6 +446,156 @@
         "최종_정산"
       ],
       "description": "정산 단계 (일차_정산: 1차 정산, 최종_정산: 최종 정산)"
+    },
+    "PayoutClaimStatus": {
+      "type": "string",
+      "enum": [
+        "청구_중",
+        "입금_확인"
+      ],
+      "description": "청구 상태 (청구_중: 청구 중, 입금_확인: 입금 확인)"
+    },
+    "PayoutClaimDto": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "claimCode": {
+          "type": "string",
+          "description": "청구 ID 표기 (RC-만든 날-16진수 4자리)"
+        },
+        "sellerId": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "raceId": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "amount": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "startDate": {
+          "type": "string",
+          "format": "date",
+          "description": "상계 실패일"
+        },
+        "dueDate": {
+          "type": "string",
+          "format": "date",
+          "description": "판매자 입금 기한 (상계 실패일 + 30일)"
+        },
+        "status": {
+          "$ref": "#/components/schemas/PayoutClaimStatus"
+        },
+        "confirmedBy": {
+          "type": "integer",
+          "format": "int32",
+          "nullable": true
+        },
+        "confirmedAt": {
+          "type": "string",
+          "format": "date-time",
+          "nullable": true
+        },
+        "virtualBankName": {
+          "type": "string",
+          "nullable": true,
+          "description": "판매자가 입금할 가상계좌 은행 이름. 발급 전에는 null"
+        },
+        "virtualAccountNumber": {
+          "type": "string",
+          "nullable": true,
+          "description": "판매자가 입금할 가상계좌 번호. 발급 전에는 null"
+        }
+      },
+      "required": [
+        "id",
+        "claimCode",
+        "sellerId",
+        "raceId",
+        "amount",
+        "startDate",
+        "dueDate",
+        "status"
+      ]
+    },
+    "PayoutClaimSummaryDto": {
+      "type": "object",
+      "properties": {
+        "claimingCount": {
+          "type": "integer",
+          "format": "int64",
+          "description": "청구 중 건수"
+        },
+        "claimingAmount": {
+          "type": "integer",
+          "format": "int64",
+          "description": "회수할 금액 합계"
+        },
+        "confirmedThisMonthCount": {
+          "type": "integer",
+          "format": "int64",
+          "description": "이번 달 입금 확인 건수"
+        }
+      },
+      "required": [
+        "claimingCount",
+        "claimingAmount",
+        "confirmedThisMonthCount"
+      ]
+    },
+    "PayoutClaimPageDto": {
+      "type": "object",
+      "properties": {
+        "content": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/PayoutClaimDto"
+          }
+        },
+        "page": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "size": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "totalElements": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "totalPages": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "required": [
+        "content",
+        "page",
+        "size",
+        "totalElements",
+        "totalPages"
+      ]
+    },
+    "PayoutAdminClaimsDto": {
+      "type": "object",
+      "properties": {
+        "summary": {
+          "$ref": "#/components/schemas/PayoutClaimSummaryDto"
+        },
+        "claims": {
+          "$ref": "#/components/schemas/PayoutClaimPageDto"
+        }
+      },
+      "required": [
+        "summary",
+        "claims"
+      ]
     }
   }
 }
