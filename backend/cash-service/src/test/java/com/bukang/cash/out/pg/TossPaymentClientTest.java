@@ -31,6 +31,7 @@ import org.springframework.web.client.RestClient;
 
 import com.bukang.cash.domain.exception.charge.PaymentApprovalFailedException;
 import com.bukang.cash.domain.exception.charge.PaymentLookupFailedException;
+import com.bukang.cash.domain.exception.recovery.VirtualAccountIssueFailedException;
 import com.bukang.cash.domain.exception.withdrawal.PaymentCancelFailedException;
 
 class TossPaymentClientTest {
@@ -422,6 +423,47 @@ class TossPaymentClientTest {
 		server.verify();
 		assertThat(result).isEqualTo(new VirtualAccountIssueResult(
 			"X6000123456789", LocalDateTime.of(2027, 3, 14, 10, 0), "ps_secret_1"));
+	}
+
+	@Test
+	@DisplayName("Toss가 4xx로 발급을 거절하면 가상계좌 발급 실패 예외로 알린다")
+	void issueVirtualAccountRejected() {
+		server.expect(requestTo(BASE_URL + "/v1/virtual-accounts"))
+			.andRespond(withStatus(HttpStatus.BAD_REQUEST)
+				.contentType(MediaType.APPLICATION_JSON)
+				.body(errorResponse("DUPLICATED_ORDER_ID", "이미 승인 및 취소가 진행된 중복된 주문번호 입니다.")));
+
+		assertThatThrownBy(() -> client.issueVirtualAccount("RC-20261214-0A3F", 400_000))
+			.isInstanceOf(VirtualAccountIssueFailedException.class);
+	}
+
+	@Test
+	@DisplayName("Toss가 5xx로 답하면 가상계좌 발급 실패 예외로 알린다")
+	void issueVirtualAccountServerError() {
+		server.expect(requestTo(BASE_URL + "/v1/virtual-accounts")).andRespond(withServerError());
+
+		assertThatThrownBy(() -> client.issueVirtualAccount("RC-20261214-0A3F", 400_000))
+			.isInstanceOf(VirtualAccountIssueFailedException.class);
+	}
+
+	@Test
+	@DisplayName("Toss 서버에 연결하지 못하면(타임아웃 등) 가상계좌 발급 실패 예외로 알린다")
+	void issueVirtualAccountConnectionFailure() {
+		server.expect(requestTo(BASE_URL + "/v1/virtual-accounts"))
+			.andRespond(withException(new SocketTimeoutException("read timed out")));
+
+		assertThatThrownBy(() -> client.issueVirtualAccount("RC-20261214-0A3F", 400_000))
+			.isInstanceOf(VirtualAccountIssueFailedException.class);
+	}
+
+	@Test
+	@DisplayName("200인데 계좌 정보가 비어 있으면 가상계좌 발급 실패 예외로 알린다")
+	void issueVirtualAccountWithoutAccount() {
+		server.expect(requestTo(BASE_URL + "/v1/virtual-accounts"))
+			.andRespond(withSuccess("{ \"secret\": \"ps_secret_1\" }", MediaType.APPLICATION_JSON));
+
+		assertThatThrownBy(() -> client.issueVirtualAccount("RC-20261214-0A3F", 400_000))
+			.isInstanceOf(VirtualAccountIssueFailedException.class);
 	}
 
 	private PaymentApprovalFailedException approveFailure() {
