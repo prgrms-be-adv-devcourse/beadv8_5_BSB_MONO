@@ -93,4 +93,20 @@ class CashRecoveryVirtualAccountUseCaseTest {
 		assertThat(saved.getAmount()).isEqualTo(400_000);
 		assertThat(saved.getSecret()).isEqualTo("ps_secret_1");
 	}
+
+	@Test
+	@DisplayName("같은 청구의 다른 요청이 먼저 저장해 저장이 유일 제약에 걸리면, 오류 대신 먼저 저장된 계좌를 돌려준다")
+	void returnsAccountSavedByConcurrentRequest() {
+		// 이 요청이 PG 발급을 기다리는 사이, 같은 청구의 다른 요청이 먼저 저장을 끝낸 상황을 만든다
+		given(paymentClient.issueVirtualAccount(CLAIM_CODE, 400_000)).willAnswer(invocation -> {
+			recoveryDepositRepository.save(
+				new RecoveryDeposit(CLAIM_CODE, 400_000, "국민은행", "X-first", DUE_DATE, "secret-first"));
+			return new VirtualAccountIssueResult("국민은행", "X-second", DUE_DATE, "secret-second");
+		});
+
+		CashClaimVirtualAccountResponseDto result = cashFacade.issueClaimVirtualAccount(CLAIM_CODE, 400_000);
+
+		assertThat(result).isEqualTo(new CashClaimVirtualAccountResponseDto("국민은행", "X-first"));
+		assertThat(recoveryDepositRepository.count()).isEqualTo(1);
+	}
 }
