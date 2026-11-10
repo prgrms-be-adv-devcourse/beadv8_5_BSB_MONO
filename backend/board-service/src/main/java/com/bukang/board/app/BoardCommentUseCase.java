@@ -27,10 +27,12 @@ public class BoardCommentUseCase {
 	private final BoardPostRepository boardPostRepository;
 	private final BoardPostFinder boardPostFinder;
 	private final BoardCooldown boardCooldown;
+	private final BoardWriterGuard boardWriterGuard;
 
 	// 숨겨진 글(쓴 사람만 볼 수 있다)에는 쓴 사람도 댓글·답글을 못 단다 (409)
 	@Transactional
 	public long create(long memberId, long postId, CommentSaveRequestDto request) {
+		boardWriterGuard.checkNotWithdrawn(memberId);
 		BoardPost post = boardPostFinder.findViewable(postId, memberId);
 		if (post.isHidden()) {
 			throw new BoardPostHiddenException();
@@ -47,11 +49,13 @@ public class BoardCommentUseCase {
 
 	@Transactional
 	public void update(long memberId, long commentId, CommentSaveRequestDto request) {
+		boardWriterGuard.checkNotWithdrawn(memberId);
 		findWritable(memberId, commentId).edit(request.content());
 	}
 
 	@Transactional
 	public void delete(long memberId, long commentId) {
+		boardWriterGuard.checkNotWithdrawn(memberId);
 		findWritable(memberId, commentId).delete();
 	}
 

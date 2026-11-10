@@ -31,10 +31,12 @@ public class BoardPostUseCase {
 	private final BoardPostFinder boardPostFinder;
 	private final BoardCooldown boardCooldown;
 	private final EventPublisher eventPublisher;
+	private final BoardWriterGuard boardWriterGuard;
 
 	// 입력 검사는 컨트롤러(@Valid)가 끝냈다. 도배 제한은 검사를 통과한 요청에만 센다
 	@Transactional
 	public long create(long memberId, PostSaveRequestDto request) {
+		boardWriterGuard.checkNotWithdrawn(memberId);
 		if (!boardCooldown.acquirePost(memberId)) {
 			throw new BoardTooFastException();
 		}
@@ -49,6 +51,7 @@ public class BoardPostUseCase {
 	// 남의 글은 403, 숨겨진 내 글은 409. fileIds를 빼면 사진을 건드리지 않고, 빈 목록이면 사진을 모두 뗀다
 	@Transactional
 	public void update(long memberId, long postId, PostSaveRequestDto request) {
+		boardWriterGuard.checkNotWithdrawn(memberId);
 		BoardPost post = boardPostFinder.findViewable(postId, memberId);
 		if (!post.isWrittenBy(memberId)) {
 			throw new BoardNotWriterException();
@@ -65,6 +68,7 @@ public class BoardPostUseCase {
 	// 숨겨진 내 글도 지울 수 있다 (스스로 내리는 것이라 막을 이유가 없다)
 	@Transactional
 	public void delete(long memberId, long postId) {
+		boardWriterGuard.checkNotWithdrawn(memberId);
 		BoardPost post = boardPostFinder.findViewable(postId, memberId);
 		if (!post.isWrittenBy(memberId)) {
 			throw new BoardNotWriterException();

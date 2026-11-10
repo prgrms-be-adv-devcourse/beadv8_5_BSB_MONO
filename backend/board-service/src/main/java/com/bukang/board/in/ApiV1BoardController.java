@@ -67,6 +67,9 @@ public class ApiV1BoardController {
 		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음 (로그인 안 함)",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = BoardApiExamples.LOGIN_REQUIRED))),
+		@ApiResponse(responseCode = "403", description = "탈퇴한 회원",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = BoardApiExamples.MEMBER_WITHDRAWN))),
 		@ApiResponse(responseCode = "429", description = "1분 안에 또 글을 씀",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = BoardApiExamples.TOO_FAST)))
@@ -112,9 +115,10 @@ public class ApiV1BoardController {
 		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음 (로그인 안 함)",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = BoardApiExamples.LOGIN_REQUIRED))),
-		@ApiResponse(responseCode = "403", description = "남의 글",
-			content = @Content(schema = @Schema(implementation = RsData.class),
-				examples = @ExampleObject(value = BoardApiExamples.NOT_WRITER))),
+		@ApiResponse(responseCode = "403", description = "남의 글, 탈퇴한 회원",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "남의 글", value = BoardApiExamples.NOT_WRITER),
+				@ExampleObject(name = "탈퇴한 회원", value = BoardApiExamples.MEMBER_WITHDRAWN)})),
 		@ApiResponse(responseCode = "404", description = "없는 글, 지운 글, 남의 숨겨진 글",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = BoardApiExamples.POST_NOT_FOUND))),
@@ -142,9 +146,10 @@ public class ApiV1BoardController {
 		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음 (로그인 안 함)",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = BoardApiExamples.LOGIN_REQUIRED))),
-		@ApiResponse(responseCode = "403", description = "남의 글",
-			content = @Content(schema = @Schema(implementation = RsData.class),
-				examples = @ExampleObject(value = BoardApiExamples.NOT_WRITER))),
+		@ApiResponse(responseCode = "403", description = "남의 글, 탈퇴한 회원",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "남의 글", value = BoardApiExamples.NOT_WRITER),
+				@ExampleObject(name = "탈퇴한 회원", value = BoardApiExamples.MEMBER_WITHDRAWN)})),
 		@ApiResponse(responseCode = "404", description = "없는 글, 지운 글, 남의 숨겨진 글",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = BoardApiExamples.POST_NOT_FOUND)))
@@ -192,6 +197,9 @@ public class ApiV1BoardController {
 		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음 (로그인 안 함)",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = BoardApiExamples.LOGIN_REQUIRED))),
+		@ApiResponse(responseCode = "403", description = "탈퇴한 회원",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = BoardApiExamples.MEMBER_WITHDRAWN))),
 		@ApiResponse(responseCode = "404", description = "없는 글·지운 글·남의 숨겨진 글, 또는 없는·지운·다른 글의 부모 댓글",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "글 없음", value = BoardApiExamples.POST_NOT_FOUND),
@@ -225,9 +233,10 @@ public class ApiV1BoardController {
 		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음 (로그인 안 함)",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = BoardApiExamples.LOGIN_REQUIRED))),
-		@ApiResponse(responseCode = "403", description = "남의 댓글",
-			content = @Content(schema = @Schema(implementation = RsData.class),
-				examples = @ExampleObject(value = BoardApiExamples.NOT_WRITER))),
+		@ApiResponse(responseCode = "403", description = "남의 댓글, 탈퇴한 회원",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "남의 댓글", value = BoardApiExamples.NOT_WRITER),
+				@ExampleObject(name = "탈퇴한 회원", value = BoardApiExamples.MEMBER_WITHDRAWN)})),
 		@ApiResponse(responseCode = "404", description = "없는·지운 댓글, 지운 글의 댓글",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = BoardApiExamples.COMMENT_NOT_FOUND)))
@@ -252,9 +261,10 @@ public class ApiV1BoardController {
 		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음 (로그인 안 함)",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = BoardApiExamples.LOGIN_REQUIRED))),
-		@ApiResponse(responseCode = "403", description = "남의 댓글",
-			content = @Content(schema = @Schema(implementation = RsData.class),
-				examples = @ExampleObject(value = BoardApiExamples.NOT_WRITER))),
+		@ApiResponse(responseCode = "403", description = "남의 댓글, 탈퇴한 회원",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "남의 댓글", value = BoardApiExamples.NOT_WRITER),
+				@ExampleObject(name = "탈퇴한 회원", value = BoardApiExamples.MEMBER_WITHDRAWN)})),
 		@ApiResponse(responseCode = "404", description = "없는·지운 댓글, 지운 글의 댓글",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = BoardApiExamples.COMMENT_NOT_FOUND)))
@@ -278,6 +288,9 @@ public class ApiV1BoardController {
 		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음 (로그인 안 함)",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = BoardApiExamples.LOGIN_REQUIRED))),
+		@ApiResponse(responseCode = "403", description = "탈퇴한 회원",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = BoardApiExamples.MEMBER_WITHDRAWN))),
 		@ApiResponse(responseCode = "404", description = "없는 글, 지운 글, 남의 숨겨진 글",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = BoardApiExamples.POST_NOT_FOUND)))
@@ -300,6 +313,9 @@ public class ApiV1BoardController {
 		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음 (로그인 안 함)",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = BoardApiExamples.LOGIN_REQUIRED))),
+		@ApiResponse(responseCode = "403", description = "탈퇴한 회원",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = BoardApiExamples.MEMBER_WITHDRAWN))),
 		@ApiResponse(responseCode = "404", description = "없는 글, 지운 글, 남의 숨겨진 글",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = BoardApiExamples.POST_NOT_FOUND)))

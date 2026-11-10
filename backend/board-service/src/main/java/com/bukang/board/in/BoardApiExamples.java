@@ -124,6 +124,10 @@ final class BoardApiExamples {
 		{ "status": 403, "code": "BOARD_NOT_WRITER", "message": "작성자만 할 수 있습니다.", "data": null }
 		""";
 
+	static final String MEMBER_WITHDRAWN = """
+		{ "status": 403, "code": "BOARD_MEMBER_WITHDRAWN", "message": "탈퇴한 회원은 글을 쓸 수 없습니다.", "data": null }
+		""";
+
 	static final String POST_NOT_FOUND = """
 		{ "status": 404, "code": "BOARD_POST_NOT_FOUND", "message": "게시글을 찾을 수 없습니다.", "data": null }
 		""";
