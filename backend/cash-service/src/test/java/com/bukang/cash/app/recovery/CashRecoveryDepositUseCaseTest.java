@@ -5,10 +5,16 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -149,6 +155,52 @@ class CashRecoveryDepositUseCaseTest {
 		cashFacade.receiveRecoveryDeposit(CLAIM_CODE, SECRET);
 
 		assertNothingRecorded();
+	}
+
+	@Test
+	@DisplayName("이미 입금 완료로 기록한 청구에 같은 알림이 다시 오면 PG를 조회하지 않고 장부도 더 남기지 않는다")
+	void ignoresRepeatedCallbackAfterDeposit() {
+		given(paymentClient.lookupByOrderId(CLAIM_CODE)).willReturn(
+			PaymentLookupResult.completed(new PaymentApprovalResult(400_000, "pay_key_1", DEPOSITED_AT)));
+		cashFacade.receiveRecoveryDeposit(CLAIM_CODE, SECRET);
+
+		cashFacade.receiveRecoveryDeposit(CLAIM_CODE, SECRET);
+
+		verify(paymentClient, times(1)).lookupByOrderId(CLAIM_CODE);
+		assertRecordedOnce();
+	}
+
+	@Test
+	@DisplayName("같은 알림이 10개 스레드에서 동시에 와도 오류 없이 홀딩 지갑에는 한 번만 기록한다")
+	void recordsOnceUnderConcurrentCallbacks() throws Exception {
+		given(paymentClient.lookupByOrderId(CLAIM_CODE)).willReturn(
+			PaymentLookupResult.completed(new PaymentApprovalResult(400_000, "pay_key_1", DEPOSITED_AT)));
+		int threadCount = 10;
+		ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+		CountDownLatch startSignal = new CountDownLatch(1);
+		List<Future<?>> futures = new ArrayList<>();
+		for (int i = 0; i < threadCount; i++) {
+			futures.add(executor.submit(() -> {
+				startSignal.await();
+				cashFacade.receiveRecoveryDeposit(CLAIM_CODE, SECRET);
+				return null;
+			}));
+		}
+		startSignal.countDown();
+		for (Future<?> future : futures) {
+			future.get();
+		}
+		executor.shutdown();
+
+		assertRecordedOnce();
+	}
+
+	private void assertRecordedOnce() {
+		assertThat(walletRepository.findById(cashWalletProperties.holdingMemberId()).orElseThrow().getBalance())
+			.isEqualTo(400_000);
+		assertThat(walletLedgerRepository.count()).isEqualTo(1);
+		assertThat(recoveryDepositRepository.findById(deposit.getId()).orElseThrow().getStatus())
+			.isEqualTo(RecoveryDepositStatus.DEPOSITED);
 	}
 
 	private void assertNothingRecorded() {

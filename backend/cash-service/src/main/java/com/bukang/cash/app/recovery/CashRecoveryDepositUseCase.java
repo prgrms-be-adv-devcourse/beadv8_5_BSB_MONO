@@ -9,6 +9,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import com.bukang.cash.app.CashSupport;
 import com.bukang.cash.config.CashWalletProperties;
 import com.bukang.cash.domain.recovery.RecoveryDeposit;
+import com.bukang.cash.domain.recovery.RecoveryDepositStatus;
 import com.bukang.cash.domain.wallet.LedgerRefType;
 import com.bukang.cash.domain.wallet.LedgerType;
 import com.bukang.cash.domain.wallet.Wallet;
@@ -48,6 +49,11 @@ public class CashRecoveryDepositUseCase {
 			log.warn("가상계좌 입금 알림의 비밀값이 맞지 않아 무시합니다. claimCode={}", claimCode);
 			return;
 		}
+		// PG는 같은 알림을 여러 번 보낼 수 있다. 이미 기록한 청구면 PG를 다시 조회하지 않는다
+		if (deposit.getStatus() != RecoveryDepositStatus.WAITING) {
+			log.info("이미 처리한 회수 입금이라 알림을 건너뜁니다. claimCode={}, status={}", claimCode, deposit.getStatus());
+			return;
+		}
 		PaymentLookupResult lookup = paymentClient.lookupByOrderId(claimCode);
 		if (lookup.status() != PaymentLookupResult.Status.COMPLETED) {
 			log.info("PG 조회 결과가 아직 입금 완료가 아니라 기록하지 않습니다. claimCode={}, status={}",
@@ -72,9 +78,13 @@ public class CashRecoveryDepositUseCase {
 	}
 
 	// 회수금은 플랫폼 밖에서 들어온 돈이라 충전처럼 홀딩 지갑 한 줄만 남긴다
+	// 같은 알림이 동시에 오면 둘 다 위의 입금 대기 확인을 지날 수 있다. 행을 잠근 뒤 다시 확인해 한쪽만 기록한다
 	private void record(long depositId, PaymentApprovalResult approval) {
+		RecoveryDeposit deposit = recoveryDepositRepository.findByIdForUpdate(depositId).orElseThrow();
+		if (deposit.getStatus() != RecoveryDepositStatus.WAITING) {
+			return;
+		}
 		Wallet holdingWallet = cashSupport.lockWallet(cashWalletProperties.holdingMemberId());
-		RecoveryDeposit deposit = recoveryDepositRepository.findById(depositId).orElseThrow();
 		deposit.markDeposited(approval.approvedAt());
 		walletLedgerRepository.save(holdingWallet.credit(approval.approvedAmount(),
 			LedgerType.회수입금__가상계좌_토스페이먼츠, LedgerRefType.RecoveryDeposit, deposit.getId()));
