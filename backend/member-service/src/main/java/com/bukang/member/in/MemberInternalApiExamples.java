@@ -77,9 +77,9 @@ final class MemberInternalApiExamples {
 			"data": {
 				"members": [
 					{ "memberId": 1, "nickname": "러너A", "sellerApproved": true, "withdrawn": false,
-						"modifyDate": "2026-11-10T09:30:00" },
+						"createDate": "2026-10-01T10:00:00", "modifyDate": "2026-11-10T09:30:00" },
 					{ "memberId": 2, "nickname": "탈퇴한 회원", "sellerApproved": false, "withdrawn": true,
-						"modifyDate": "2026-11-09T18:00:00" }
+						"createDate": "2026-09-01T10:00:00", "modifyDate": "2026-11-09T18:00:00" }
 				],
 				"hasNext": true,
 				"nextAfterId": 2

@@ -72,15 +72,13 @@ public class BoardMemberSyncUseCase {
 			() -> boardMemberRepository.save(BoardMember.withdrawnOf(id, withdrawnAt)));
 	}
 
-	// 회원 서비스에서 받은 회원을 복사본이 없는 경우에만 넣는다 (BUK-161). 새로 넣은 수를 돌려준다
-	// 이벤트와 같은 회원을 동시에 넣어도 하나만 들어가고, 이미 있는 회원은 건드리지 않는다
+	// 회원 서비스에서 받은 회원을 복사본이 없거나 프로필이 비어 있을 때만 넣는다 (BUK-161)
+	// 이벤트와 같은 회원을 동시에 넣어도 하나만 들어가고, 프로필을 이미 받은 회원은 건드리지 않는다
 	@Transactional
-	public int insertMissing(List<MemberReplica> replicas) {
-		int inserted = 0;
+	public void insertMissing(List<MemberReplica> replicas) {
 		for (MemberReplica replica : replicas) {
-			inserted += boardMemberRepository.insertIgnore(replica.memberId(), replica.nickname(),
-				replica.sellerApproved(), replica.withdrawn(), replica.modifyDate());
+			boardMemberRepository.upsertProfile(replica.memberId(), replica.nickname(), replica.sellerApproved(),
+				replica.withdrawn(), replica.createDate(), replica.modifyDate());
 		}
-		return inserted;
 	}
 }

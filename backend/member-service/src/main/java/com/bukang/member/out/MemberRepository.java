@@ -88,7 +88,7 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 
 	// 다른 서비스의 회원 복사본 처음 채우기 (BUK-161). 회원 ID 순서로 afterId 뒤부터 읽고, 개인정보 칸은 읽지 않는다
 	// 판매자 승인 여부는 회원의 가장 최근 신청(ID가 가장 큰 행)이 APPROVED인지를 같은 쿼리의 서브쿼리로 판단한다 (회원마다 조회하지 않음)
-	@Query("select new com.bukang.member.dto.MemberReplicaDto(m.id, m.nickname, m.status, m.modifyDate,"
+	@Query("select new com.bukang.member.dto.MemberReplicaDto(m.id, m.nickname, m.status, m.createDate, m.modifyDate,"
 		+ " case when exists (select 1 from Seller s where s.member = m"
 		+ " and s.status = com.bukang.common.shared.seller.domain.SellerStatus.APPROVED"
 		+ " and s.id = (select max(l.id) from Seller l where l.member = m)) then true else false end)"

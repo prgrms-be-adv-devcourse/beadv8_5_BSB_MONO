@@ -15,7 +15,7 @@ public interface MemberReplicaPort {
 
 	@JsonIgnoreProperties(ignoreUnknown = true)
 	record MemberReplica(long memberId, String nickname, boolean sellerApproved, boolean withdrawn,
-		LocalDateTime modifyDate) {
+		LocalDateTime createDate, LocalDateTime modifyDate) {
 	}
 
 	// hasNext가 true면 nextAfterId로 다음 쪽을 받는다

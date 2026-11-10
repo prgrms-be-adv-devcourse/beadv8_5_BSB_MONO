@@ -36,7 +36,8 @@ class HttpMemberReplicaAdapterTest {
 			"data": {
 				"members": [
 					{ "memberId": 8, "nickname": "러너A", "sellerApproved": true, "withdrawn": false,
-						"createDate": "2026-10-01T10:00:00", "modifyDate": "2026-11-10T09:30:00", "email": "ignored@crewrun.com" },
+						"createDate": "2026-10-01T10:00:00", "modifyDate": "2026-11-10T09:30:00",
+						"email": "ignored@crewrun.com" },
 					{ "memberId": 9, "nickname": "탈퇴한 회원", "sellerApproved": false, "withdrawn": true,
 						"createDate": "2026-09-01T10:00:00.5", "modifyDate": "2026-11-09T18:00:00.123456" }
 				],
@@ -69,7 +70,8 @@ class HttpMemberReplicaAdapterTest {
 		assertThat(page.members()).containsExactly(
 			new MemberReplicaPort.MemberReplica(8, "러너A", true, false, LocalDateTime.of(2026, 10, 1, 10, 0),
 				LocalDateTime.of(2026, 11, 10, 9, 30)),
-			new MemberReplicaPort.MemberReplica(9, "탈퇴한 회원", false, true, LocalDateTime.of(2026, 9, 1, 10, 0, 0, 500000000),
+			new MemberReplicaPort.MemberReplica(9, "탈퇴한 회원", false, true,
+				LocalDateTime.of(2026, 9, 1, 10, 0, 0, 500000000),
 				LocalDateTime.of(2026, 11, 9, 18, 0, 0, 123456000)));
 		server.verify();
 	}
