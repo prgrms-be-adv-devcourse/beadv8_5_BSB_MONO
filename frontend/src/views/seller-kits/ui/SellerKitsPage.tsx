@@ -213,7 +213,7 @@ export function SellerKitsPage() {
           aside={
             <button
               type="button"
-              className={cn('rounded-sm text-label-m text-text-brand', FOCUS_RING)}
+              className={cn('rounded-sm text-body2-medium text-text-brand', FOCUS_RING)}
             >
               주문번호로 찾기
             </button>
@@ -281,20 +281,20 @@ export function SellerKitsPage() {
               ]}
             />
           )}
-          <p className="text-body-s text-text-tertiary">
+          <p className="text-body2-regular text-text-tertiary">
             구매자 실명·연락처는 배송 처리에 필요한 범위에서만 보여요.
           </p>
         </ConsoleCard>
 
         <ConsoleCard title="배송 상태 바꾸기" className="w-90 shrink-0">
-          <p className="text-body-s text-text-secondary">
+          <p className="text-body2-regular text-text-secondary">
             {selected.length}건 선택
             {selectedLabels.length > 0 && ` · ${selectedLabels.join(' · ')}`}
           </p>
           <div className="flex items-center gap-2">
             {KIT_FLOW.map((step, i) => (
               <Fragment key={step}>
-                {i > 0 && <span className="text-label-m text-text-tertiary">→</span>}
+                {i > 0 && <span className="text-body2-medium text-text-tertiary">→</span>}
                 <Chip
                   selected={step === next}
                   disabled={step === 'PREPARING'}
@@ -330,7 +330,7 @@ export function SellerKitsPage() {
               )}
               {selected.length > 1 && (
                 // 줄은 표의 위에서부터 순서대로 주문에 붙는다. 한 번 보내면 되돌릴 수 없어서 짝을 미리 보여 준다.
-                <ul aria-label="발송 미리보기" className="flex flex-col gap-1 text-body-s">
+                <ul aria-label="발송 미리보기" className="flex flex-col gap-1 text-body2-regular">
                   {selected.map((kit, i) => (
                     <li key={kitId(kit)} className="flex gap-2 text-text-secondary">
                       <span>{kit.orderNo}</span>
@@ -342,10 +342,10 @@ export function SellerKitsPage() {
               )}
             </>
           )}
-          <p className="text-body-s text-text-tertiary">
+          <p className="text-body2-regular text-text-tertiary">
             키트 배송은 정산과 관계없어요. 정산은 환불 기한과 대회 일정으로 정해져요.
           </p>
-          {blocker && <p className="text-body-s text-text-secondary">{blocker}</p>}
+          {blocker && <p className="text-body2-regular text-text-secondary">{blocker}</p>}
           {result && result.done > 0 && (
             <Alert tone="success" title={`${result.done}건을 ${TO[next]} 바꿨어요`} />
           )}

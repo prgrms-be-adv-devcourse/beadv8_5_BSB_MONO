@@ -75,6 +75,7 @@ export const ChangeParticipantResponse = zod.object({
   "raceCourseId": zod.int().optional(),
   "memberId": zod.int().optional(),
   "participationType": zod.enum(['INDIVIDUAL', 'PARTY']).optional(),
+  "partyId": zod.int().nullish().describe('파티원 신청서면 그 파티 ID, 개인 신청이면 null'),
   "status": zod.enum(['PENDING', 'APPLIED', 'CONFIRMED', 'RELEASED', 'FAILED', 'CANCELED']).optional(),
   "participant": zod.object({
   "name": zod.string().optional(),
@@ -169,6 +170,7 @@ export const ApplyResponse = zod.object({
   "raceCourseId": zod.int().optional(),
   "memberId": zod.int().optional(),
   "participationType": zod.enum(['INDIVIDUAL', 'PARTY']).optional(),
+  "partyId": zod.int().nullish().describe('파티원 신청서면 그 파티 ID, 개인 신청이면 null'),
   "status": zod.enum(['PENDING', 'APPLIED', 'CONFIRMED', 'RELEASED', 'FAILED', 'CANCELED']).optional(),
   "participant": zod.object({
   "name": zod.string().optional(),
@@ -212,6 +214,7 @@ export const CancelBeforePaymentResponse = zod.object({
   "raceCourseId": zod.int().optional(),
   "memberId": zod.int().optional(),
   "participationType": zod.enum(['INDIVIDUAL', 'PARTY']).optional(),
+  "partyId": zod.int().nullish().describe('파티원 신청서면 그 파티 ID, 개인 신청이면 null'),
   "status": zod.enum(['PENDING', 'APPLIED', 'CONFIRMED', 'RELEASED', 'FAILED', 'CANCELED']).optional(),
   "participant": zod.object({
   "name": zod.string().optional(),
@@ -581,6 +584,7 @@ export const FindByIdResponse = zod.object({
   "raceCourseId": zod.int().optional(),
   "memberId": zod.int().optional(),
   "participationType": zod.enum(['INDIVIDUAL', 'PARTY']).optional(),
+  "partyId": zod.int().nullish().describe('파티원 신청서면 그 파티 ID, 개인 신청이면 null'),
   "status": zod.enum(['PENDING', 'APPLIED', 'CONFIRMED', 'RELEASED', 'FAILED', 'CANCELED']).optional(),
   "participant": zod.object({
   "name": zod.string().optional(),
@@ -757,7 +761,12 @@ export const FindKitsResponse = zod.object({
   "raceCourseId": zod.int().optional(),
   "courseName": zod.string().optional(),
   "participantName": zod.string().optional(),
-  "tshirtSize": zod.string().nullish(),
+  "tshirtSize": zod.string().nullish().describe('옛 티셔츠 사이즈. 키트 옵션으로 옮기는 동안만 둔다. kitOptions가 비어 있을 때만 쓴다'),
+  "kitOptions": zod.array(zod.object({
+  "kitOptionId": zod.int(),
+  "name": zod.string(),
+  "value": zod.string()
+}).describe('참가 신청이 고른 키트 옵션 하나')).optional().describe('결제 때 고른 키트 옵션 (이름·값). 옵션 전에 결제한 신청은 빈 목록'),
   "shippingAddress": zod.object({
   "recipientName": zod.string().optional(),
   "recipientPhone": zod.string().optional(),

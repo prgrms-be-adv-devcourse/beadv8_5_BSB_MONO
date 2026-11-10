@@ -46,12 +46,15 @@ import com.bukang.payout.out.RaceSchedule;
 import com.bukang.payout.out.SellerAccountPort;
 import com.bukang.payout.out.SoldEntry;
 import com.bukang.payout.out.SoldEntryPort;
+import com.bukang.payout.out.SoldSummary;
+import com.bukang.payout.out.SoldSummaryPort;
 import com.bukang.payout.support.StubRacePort;
 
 /**
  * 정산 생성이 실패할 때마다 실패 기록표에 한 줄 쌓이는지 본다 (BUK-60, 지시서 6장 TC-60-*)
  * 기준 실행은 11/10 03:00이다. 최종은 대회일 11/3 ~ 11/9를 보고, 대회 10의 대회일은 11/5다
- * 1차 정산은 보지 않는다 (사용자: "1차 정산은 고려하지 않는다"). 그래서 상품 서비스의 환불 마감일은 1차 기간 밖에 둔다
+ * TC-60-*는 최종만 본다 (사용자: "1차 정산은 고려하지 않는다"). 그래서 상품 서비스의 환불 마감일은 1차 기간 밖에 둔다
+ * 1차 실패 기록 세 곳은 리팩터링 전에 지금 동작을 붙잡아 두려고 따로 본다 (BUK-122). 이때는 대회일을 최종 기간 밖에 둔다
  * 생성 시각은 BaseIdAndTime이 실제 시각으로 채우므로 값은 보지 않고 채워졌는지만 본다
  */
 @DataJpaTest
@@ -67,6 +70,11 @@ class PayoutCreateUseCaseFailureRecordTest {
 	private static final SoldEntry SELLER_1 = new SoldEntry(100, 1, 10, 10L, RACE_DATE, 50_000L);
 	private static final SoldEntry SELLER_2 = new SoldEntry(200, 2, 10, 10L, RACE_DATE, 30_000L);
 	private static final String RECORD_FAILED_LOG = "정산 생성 실패를 기록표에 남기지 못했습니다";
+	// 1차: 11/10 실행은 환불 마감일 11/3 ~ 11/9를 본다. 대회일은 최종 기간(대회일 11/3 ~ 11/9)에 걸리지 않게 1년 뒤로 둔다
+	private static final LocalDate REFUND_DEADLINE = LocalDate.of(2026, 11, 5);
+	private static final RaceSchedule FIRST_RACE_10 =
+		new RaceSchedule(10, "대회 10", REFUND_DEADLINE.plusYears(1), REFUND_DEADLINE);
+	private static final SoldSummary FIRST_SELLER_1 = new SoldSummary(1, 10, 10, 50_000L, 1);
 
 	@Autowired
 	private PayoutRepository payoutRepository;
@@ -113,6 +121,20 @@ class PayoutCreateUseCaseFailureRecordTest {
 		PayoutCreateStepUseCase step = mock(PayoutCreateStepUseCase.class);
 		doThrow(exception).when(step).createFinal(any(), any(), any());
 		return step;
+	}
+
+	// 1차 정산 내역 저장(PayoutCreateStepUseCase)이 exception으로 실패한다
+	private static PayoutCreateStepUseCase firstStepThrowing(RuntimeException exception) {
+		PayoutCreateStepUseCase step = mock(PayoutCreateStepUseCase.class);
+		doThrow(exception).when(step).createFirst(any(), any(), any());
+		return step;
+	}
+
+	// 1차용: 판매 집계 포트를 받는다. 최종 대상 대회가 없어 참가권 목록은 묻지 않는다
+	private PayoutCreateUseCase firstUseCase(PayoutCreateStepUseCase step, SoldSummaryPort soldSummaryPort,
+		RacePort racePort) {
+		return new PayoutCreateUseCase(payoutRepository, step, soldEntries(), sellerId -> true, racePort,
+			soldSummaryPort, new PayoutCreateFailureUseCase(payoutCreateFailureRepository));
 	}
 
 	private PayoutCreateUseCase useCase(PayoutRepository repository, PayoutCreateStepUseCase step,
@@ -313,5 +335,51 @@ class PayoutCreateUseCaseFailureRecordTest {
 			sellerId -> true, racesOf(race(10, raceDate))).run(TODAY, NOW);
 
 		assertThat(payoutCreateFailureRepository.count()).isZero();
+	}
+
+	@Test
+	@DisplayName("1차 대상 대회 목록을 받지 못하면 1차 '대회_조회_실패' 한 줄에 본 환불 마감일 기간을 남긴다 (BUK-122)")
+	void firstRaceLookupFailureIsRecorded() {
+		RacePort firstLookupDown = new RacePort() {
+			@Override
+			public List<RaceSchedule> findRacesByRefundDeadline(LocalDate fromRefundDeadline,
+				LocalDate toRefundDeadline) {
+				throw new IllegalStateException("상품 서비스 응답 없음");
+			}
+
+			@Override
+			public List<RaceSchedule> findRacesByRaceDate(LocalDate fromRaceDate, LocalDate toRaceDate) {
+				return List.of();
+			}
+		};
+
+		firstUseCase(realStep(), raceId -> List.of(), firstLookupDown).run(TODAY, NOW);
+
+		assertThat(rows()).containsExactly(tuple(PayoutStage.일차_정산, null, null, null, null,
+			PayoutCreateFailureType.대회_조회_실패, "from~to: 2026/11/3~2026/11/9", TODAY));
+	}
+
+	@Test
+	@DisplayName("1차 판매 집계를 주문 서비스에서 받지 못하면 판매자 칸이 빈 1차 '주문_조회_실패' 한 줄이 쌓인다 (BUK-122)")
+	void firstOrderLookupFailureIsRecorded() {
+		SoldSummaryPort orderDown = raceId -> {
+			throw new PayoutOrderLookupUnavailableException(raceId, new IllegalStateException("응답 없음"));
+		};
+
+		firstUseCase(realStep(), orderDown, racesOf(FIRST_RACE_10)).run(TODAY, NOW);
+
+		assertThat(rows()).containsExactly(tuple(PayoutStage.일차_정산, null, 10L, null, REFUND_DEADLINE,
+			PayoutCreateFailureType.주문_조회_실패, null, TODAY));
+	}
+
+	@Test
+	@DisplayName("1차 정산 내역을 만들다 실패하면 판매자 × 대회 1차 실패 한 줄이 환불 마감일로 쌓인다 (BUK-122)")
+	void firstSellerRaceFailureIsRecorded() {
+		PayoutCreateStepUseCase step = firstStepThrowing(new IllegalArgumentException("예상 못한 값"));
+
+		firstUseCase(step, raceId -> List.of(FIRST_SELLER_1), racesOf(FIRST_RACE_10)).run(TODAY, NOW);
+
+		assertThat(rows()).containsExactly(tuple(PayoutStage.일차_정산, 1L, 10L, null, REFUND_DEADLINE,
+			PayoutCreateFailureType.알_수_없는_실패, "IllegalArgumentException", TODAY));
 	}
 }

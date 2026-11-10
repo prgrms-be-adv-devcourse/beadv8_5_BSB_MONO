@@ -82,6 +82,13 @@ public class FakeQueueAdmissionAdapter implements QueueAdmissionPort {
 		return Optional.of(endsAt);
 	}
 
+	// 파티 대기열은 가짜에서 따로 줄을 세우지 않는다. 파티장은 언제든 지금 입장해 입장 시간 뒤에 끝난 것으로 친다
+	@Override
+	public Optional<LocalDateTime> findPartyAdmissionEndsAt(long leaderMemberId, long raceId, long raceCourseId,
+		LocalDateTime now) {
+		return Optional.of(now.plusMinutes(admissionMinutes));
+	}
+
 	// 대기열을 다시 통과한 것으로 친다 (dev 더미 API). 입장 끝 시각을 지금부터 다시 센다
 	public LocalDateTime enter(long memberId, long raceCourseId, LocalDateTime now) {
 		pruneIfLarge(now);

@@ -192,6 +192,17 @@ class ApiV1PartyPaymentTest {
 					{ "raceCourseId": %d, "participant": %s, "thirdPartyConsent": true }
 					""".formatted(courseId, participant())))
 			.andExpect(status().isCreated());
+		// 결제한 파티원은 결제 끝 파티에 남아 있어 개인 신청을 막는다. 화면이 나누도록 파티 상태를 준다 (BUK-127)
+		mockMvc.perform(MockMvcRequestBuilders.post("/api/v1/order/participations")
+				.header("X-Member-Id", 2L)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{ "raceCourseId": %d, "participant": %s, "thirdPartyConsent": true }
+					""".formatted(courseId, participant())))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("ORDER_PARTY_ALREADY_JOINED"))
+			.andExpect(jsonPath("$.data.partyId").value(partyId))
+			.andExpect(jsonPath("$.data.partyStatus").value("PAID"));
 	}
 
 	@Test
@@ -249,7 +260,7 @@ class ApiV1PartyPaymentTest {
 		LocalDateTime afterDue = partyOf(partyId).getPaymentDueAt().plusSeconds(1);
 
 		assertThatThrownBy(() -> transactionTemplate.executeWithoutResult(status ->
-			orderPayUseCase.pay(2, orderId, afterDue)))
+			orderPayUseCase.pay(2, orderId, List.of(), afterDue)))
 			.isInstanceOf(OrderNotPayableException.class);
 		assertThat(walletPort.payCalls()).isEmpty();
 
@@ -321,8 +332,14 @@ class ApiV1PartyPaymentTest {
 	@Test
 	@DisplayName("신청 때 기한이 3시간 안이면 마감 알림을 따로 보내지 않는다")
 	void noRemindForShortWindow() throws Exception {
-		raceCoursePort.put(StubRaceCoursePort.withCrewSale(StubRaceCoursePort.openCourse(courseId, RACE_ID, 14, null),
-			LocalDateTime.now().minusDays(1), LocalDateTime.now().plusHours(2), 4, 10));
+		// 결제 기한 = 접수 마감(2시간 뒤). 크루 마감일 자정은 시각에 따라 3시간보다 멀 수 있어 접수 마감으로 자른다
+		RaceCourseInfo open = StubRaceCoursePort.openCourse(courseId, RACE_ID, 14, null);
+		LocalDateTime closeAt = LocalDateTime.now().plusHours(2);
+		raceCoursePort.put(new RaceCourseInfo(open.raceCourseId(), open.raceId(), open.raceDate(),
+			open.applicationOpenAt(), closeAt, open.minAge(), open.maxAge(), open.sellerId(), open.courseName(),
+			open.price(), open.kitIncluded(), open.refundDeadline(), open.scheduleChangedAt(), false,
+			open.tshirtSizeOption(), new RaceCourseInfo.CrewSale(LocalDateTime.now().minusDays(1),
+			closeAt.minusMinutes(30), 4, 10)));
 		long partyId = appliedParty();
 		clearInvocations(notificationSender);
 

@@ -4,11 +4,13 @@ import {
   COURSE_DRAFT_DEFAULTS,
   COURSE_FORM_ERRORS,
   createRaceFormSchema,
+  KIT_OPTION_ERRORS,
   RACE_FORM_DEFAULTS,
   RACE_FORM_ERRORS,
   raceFormSchema,
   saleOpenTooEarlyMessage,
   toCourseInput,
+  toKitOptionsRequest,
   toRaceSaveRequest,
 } from './race-form'
 
@@ -165,5 +167,59 @@ describe('toCourseInput 종목 추가 창', () => {
         timeLimitMinutes: COURSE_FORM_ERRORS.timeLimitPositive,
       },
     })
+  })
+})
+
+describe('키트 옵션 칸 (서버 RaceRequestValidator.validateKitOptions와 같다)', () => {
+  const kit = (name: string, value: string, stock = '') => ({ name, value, stock })
+  const messages = (kitOptions: ReturnType<typeof kit>[]) => {
+    const result = raceFormSchema.safeParse({ ...base, kitOptions })
+    return result.success
+      ? []
+      : result.error.issues.filter((i) => i.path[0] === 'kitOptions').map((i) => i.message)
+  }
+
+  it('옵션이 없어도 대회는 등록할 수 있다', () => {
+    expect(messages([])).toEqual([])
+  })
+
+  it('이름 · 값이 비었거나 준비 수량이 0 이상의 정수가 아니면 막는다', () => {
+    expect(messages([kit(' ', 'M')])).toEqual([KIT_OPTION_ERRORS.nameRequired])
+    expect(messages([kit('티셔츠', '')])).toEqual([KIT_OPTION_ERRORS.valueRequired])
+    expect(messages([kit('티셔츠', 'M', '-1')])).toEqual([KIT_OPTION_ERRORS.stockNumber])
+    expect(messages([kit('티셔츠', 'M', '1.5')])).toEqual([KIT_OPTION_ERRORS.stockNumber])
+    expect(messages([kit('티셔츠', 'M', '0'), kit('티셔츠', 'L', '')])).toEqual([])
+  })
+
+  it('이름은 50자, 값은 50자까지 받는다', () => {
+    expect(messages([kit('가'.repeat(51), 'M')])).toEqual([KIT_OPTION_ERRORS.nameMax])
+    expect(messages([kit('티셔츠', '가'.repeat(51))])).toEqual([KIT_OPTION_ERRORS.valueMax])
+  })
+
+  it('이름 · 값이 대소문자와 앞뒤 공백만 다른 옵션은 같은 옵션이라 막는다', () => {
+    expect(messages([kit('T-shirt', 'M'), kit('T-shirt', ' m ')])).toEqual([
+      KIT_OPTION_ERRORS.duplicate,
+    ])
+  })
+
+  it('같은 옵션 이름은 대소문자까지 똑같이 써야 한다', () => {
+    expect(messages([kit('T-shirt', 'M'), kit('t-shirt', 'L')])).toEqual([
+      KIT_OPTION_ERRORS.nameCase,
+    ])
+  })
+
+  it('요청은 앞뒤 공백을 지우고, 준비 수량을 비우면 null(맞춤 제작)로 보낸다', () => {
+    expect(toKitOptionsRequest([kit(' 티셔츠 ', ' M ', '100'), kit('양말', '230-250')])).toEqual({
+      kitOptions: [
+        { name: '티셔츠', value: 'M', stock: 100 },
+        { name: '양말', value: '230-250', stock: null },
+      ],
+    })
+  })
+
+  it('대회 등록 요청에는 키트 옵션을 넣지 않는다 (키트 옵션은 따로 등록한다)', () => {
+    const request = toRaceSaveRequest(base, [])
+    expect(request).not.toHaveProperty('kitOptions')
+    for (const course of request.courses) expect(course).not.toHaveProperty('tshirtSizeOption')
   })
 })

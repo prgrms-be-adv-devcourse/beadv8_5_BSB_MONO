@@ -279,7 +279,7 @@ class OrderExpiryWalletTest {
 	}
 
 	private OrderPayResult pay(long memberId, long orderId, LocalDateTime now) {
-		return transactionTemplate.execute(status -> orderPayUseCase.pay(memberId, orderId, now));
+		return transactionTemplate.execute(status -> orderPayUseCase.pay(memberId, orderId, List.of(), now));
 	}
 
 	private long apply(long memberId) throws Exception {

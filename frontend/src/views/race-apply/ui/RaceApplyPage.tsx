@@ -52,7 +52,7 @@ import {
   type ParticipantFormValues,
 } from '../model/participant-form'
 
-const LINK = cn('rounded-sm text-label-m text-text-brand', FOCUS_RING)
+const LINK = cn('rounded-sm text-body2-medium text-text-brand', FOCUS_RING)
 
 /** 신청서를 저장한 뒤 어디로 갈지 */
 type NextStep = 'cart' | 'checkout'
@@ -347,7 +347,7 @@ function ParticipantForm({
           <PhoneField label="휴대폰 번호" error={errors.phone?.message} {...register('phone')} />
           <Divider />
           <fieldset className="flex flex-col gap-2">
-            <legend className="mb-2 text-label-m">성별</legend>
+            <legend className="mb-2 text-body2-medium">성별</legend>
             <Controller
               control={control}
               name="gender"
@@ -363,7 +363,7 @@ function ParticipantForm({
               )}
             />
             {errors.gender?.message && (
-              <p role="alert" className="text-caption text-text-danger">
+              <p role="alert" className="text-caption-regular text-text-danger">
                 {errors.gender.message}
               </p>
             )}
@@ -437,13 +437,15 @@ function ParticipantForm({
                 value="이름 · 생년월일 · 성별 · 연락처 2개 · 사이즈 · 배송 주소"
               />
               <KeyValue label="보유 기간" value="대회 종료 후 1년" />
-              <p className="text-caption text-text-tertiary">동의하지 않으면 신청할 수 없어요.</p>
+              <p className="text-caption-regular text-text-tertiary">
+                동의하지 않으면 신청할 수 없어요.
+              </p>
             </div>
           </div>
-          <p className="text-caption text-text-tertiary">
+          <p className="text-caption-regular text-text-tertiary">
             입력한 정보는 다음 신청 때 자동으로 채워져요.
           </p>
-          <p className="text-caption text-text-tertiary">
+          <p className="text-caption-regular text-text-tertiary">
             참가권은 다른 사람에게 양도할 수 없어요. 꼭 본인 정보로 신청해 주세요.
           </p>
           {saveError && <Alert tone="danger" title={saveError} />}

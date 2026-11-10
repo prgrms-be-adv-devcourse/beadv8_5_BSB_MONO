@@ -193,7 +193,7 @@
             }
           },
           "400": {
-            "description": "최소 충전 금액 미만, 입력값 검증 실패 또는 요청 본문 형식 오류",
+            "description": "최소 충전 금액 미만, 1회·일일·잔액 충전 한도 초과, 입력값 검증 실패, 요청 본문 형식 오류, 회원 ID 형식 오류 또는 0 이하",
             "content": {
               "application/json": {
                 "schema": {
@@ -204,7 +204,35 @@
                     "description": "최소 충전 금액 미만",
                     "value": {
                       "status": 400,
+                      "code": "CHARGE_AMOUNT_TOO_SMALL",
                       "message": "최소 충전 금액은 10,000원입니다.",
+                      "data": null
+                    }
+                  },
+                  "1회 충전 한도 초과": {
+                    "description": "1회 충전 한도 초과",
+                    "value": {
+                      "status": 400,
+                      "code": "CHARGE_LIMIT_PER_CHARGE",
+                      "message": "1회 충전 한도는 300,000원입니다.",
+                      "data": null
+                    }
+                  },
+                  "일일 충전 한도 초과": {
+                    "description": "일일 충전 한도 초과",
+                    "value": {
+                      "status": 400,
+                      "code": "CHARGE_LIMIT_PER_DAY",
+                      "message": "일일 충전 한도는 1,000,000원입니다.",
+                      "data": null
+                    }
+                  },
+                  "잔액 상한 초과": {
+                    "description": "잔액 상한 초과",
+                    "value": {
+                      "status": 400,
+                      "code": "CHARGE_LIMIT_BALANCE",
+                      "message": "보유 한도는 10,000,000원입니다.",
                       "data": null
                     }
                   },

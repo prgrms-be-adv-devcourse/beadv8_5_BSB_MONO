@@ -11,19 +11,19 @@ export const Tabs = BaseTabs.Root
 export const TabPanel = BaseTabs.Panel
 
 export type TabBarProps = {
-  /** fill: 모바일에서 탭이 폭을 똑같이 나눈다. hug: 태블릿·데스크톱에서 왼쪽부터 내용 폭만큼 나열한다. */
+  /** fill: 탭이 폭을 똑같이 나눈다(기본). hug: 왼쪽부터 내용 폭만큼 20 간격으로 나열한다. */
   layout?: 'fill' | 'hug'
   children: ReactNode
   className?: string
 }
 
-// 탭 묶음 막대. 회색(bg-segment) 판 안에 탭이 4 간격으로 놓인다. 높이 48 = 여백 4 + 탭 40 + 여백 4.
+// 피그마 v2/TabBar. 흰 바탕 아래 1px 선 위에 탭이 놓인다. 회색 판 모양은 Segmented를 쓴다.
 export function TabBar({ layout = 'fill', children, className }: TabBarProps) {
   return (
     <BaseTabs.List
       className={cn(
-        'flex gap-1 rounded-md bg-bg-segment p-1',
-        layout === 'fill' && '*:flex-1',
+        'flex border-b border-border-default bg-bg-surface',
+        layout === 'fill' ? '*:flex-1' : 'gap-5 px-4',
         className,
       )}
     >
@@ -40,24 +40,22 @@ export type TabProps = {
   disabled?: boolean
 }
 
-// 탭 하나. 높이 40, 고른 탭만 흰 바탕으로 떠 있고 글자가 굵어진다(Label/L Strong).
+// 피그마 v2/Tab. 높이 48, 고른 탭만 굵은 글자(Body1/Bold)와 아래 2px 밑줄(text-primary)이 붙는다.
 export function Tab({ value, children, count, disabled }: TabProps) {
   return (
     <BaseTabs.Tab
       value={value}
       disabled={disabled}
       className={cn(
-        'group flex h-10 min-w-0 items-center justify-center gap-1 rounded-sm px-4 text-label-l text-text-tertiary',
-        'data-active:bg-bg-surface data-active:font-bold data-active:text-text-primary data-active:shadow-sm',
-        'data-disabled:text-text-disabled',
+        'group relative flex min-w-0 items-center justify-center gap-1 py-3 text-body1-medium text-text-tertiary',
+        'data-active:font-bold data-active:text-text-primary data-disabled:opacity-50',
+        'after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:rounded-[1px] data-active:after:bg-text-primary',
         FOCUS_RING,
       )}
     >
       <span className="truncate whitespace-nowrap">{children}</span>
       {count !== undefined && (
-        <span className="text-label-s group-data-active:text-text-brand group-data-disabled:text-text-disabled">
-          {count}
-        </span>
+        <span className="text-caption-medium group-data-active:text-text-brand">{count}</span>
       )}
     </BaseTabs.Tab>
   )

@@ -36,7 +36,7 @@ export function SocialLoginButtons({
           type="button"
           onClick={() => goToSocialLogin(socialAuthorizeHref(provider.id, { next }))}
           className={cn(
-            'flex h-12 w-full items-center justify-center rounded-md text-label-m font-bold',
+            'flex h-12 w-full items-center justify-center rounded-md text-body2-medium font-bold',
             STYLE[provider.id],
             highlight === provider.id && 'ring-2 ring-border-brand ring-offset-2',
             FOCUS_RING,

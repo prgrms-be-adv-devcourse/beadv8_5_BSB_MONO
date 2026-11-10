@@ -1,8 +1,11 @@
 package com.bukang.payout.out;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -23,4 +26,24 @@ public interface PayoutClaimRepository extends JpaRepository<PayoutClaim, Long> 
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	@Query("select c from PayoutClaim c where c.id = :id")
 	Optional<PayoutClaim> findByIdForUpdate(long id);
+
+	// 관리자 회수 관리 목록: 최근 청구부터
+	Page<PayoutClaim> findAllByOrderByIdDesc(Pageable pageable);
+
+	Page<PayoutClaim> findByStatusOrderByIdDesc(PayoutClaimStatus status, Pageable pageable);
+
+	Optional<PayoutClaim> findByClaimCode(String claimCode);
+
+	// 관리자 회수 관리 카드 숫자
+	long countByStatus(PayoutClaimStatus status);
+
+	@Query("select coalesce(sum(c.amount), 0) from PayoutClaim c where c.status = :status")
+	long sumAmountByStatus(PayoutClaimStatus status);
+
+	long countByConfirmedAtGreaterThanEqualAndConfirmedAtLessThan(LocalDateTime from, LocalDateTime to);
+
+	// 입금 메시지: 관리자 확인 · 같은 메시지 재전송과 동시에 처리되지 않게 잠그고, 늦은 쪽은 이미 확인된 상태를 본다
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("select c from PayoutClaim c where c.claimCode = :claimCode")
+	Optional<PayoutClaim> findByClaimCodeForUpdate(String claimCode);
 }

@@ -20,7 +20,7 @@ export function TableHeaderCell({
     <th
       scope="col"
       className={cn(
-        'h-11 max-w-0 truncate border-b border-border-default bg-bg-subtle px-4 text-label-m text-text-secondary',
+        'h-11 max-w-0 truncate border-b border-border-default bg-bg-subtle px-4 text-body2-medium text-text-secondary',
         ALIGN[align],
         className,
       )}
@@ -38,7 +38,7 @@ export function TableCell({
   return (
     <td
       className={cn(
-        'h-14 max-w-0 truncate border-b border-border-default bg-bg-surface px-4 text-body-m text-text-primary',
+        'h-14 max-w-0 truncate border-b border-border-default bg-bg-surface px-4 text-body2-regular text-text-primary',
         ALIGN[align],
         className,
       )}

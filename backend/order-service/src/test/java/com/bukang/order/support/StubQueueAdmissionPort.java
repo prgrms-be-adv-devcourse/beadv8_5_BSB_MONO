@@ -16,6 +16,7 @@ public class StubQueueAdmissionPort implements QueueAdmissionPort {
 	public static final long ADMISSION_MINUTES = 15;
 
 	private final Set<Long> notAdmittedCourses = ConcurrentHashMap.newKeySet();
+	private final Set<Long> notAdmittedPartyCourses = ConcurrentHashMap.newKeySet();
 	private final Map<Long, LocalDateTime> admissionEndsAt = new ConcurrentHashMap<>();
 
 	@Override
@@ -25,6 +26,21 @@ public class StubQueueAdmissionPort implements QueueAdmissionPort {
 			return Optional.empty();
 		}
 		return Optional.of(admissionEndsAt.getOrDefault(raceCourseId, now.plusMinutes(ADMISSION_MINUTES)));
+	}
+
+	// 파티 대기열은 따로 정한다 (개인 대기열 입장으로 파티를 신청하지 못하는지 확인하려고)
+	@Override
+	public Optional<LocalDateTime> findPartyAdmissionEndsAt(long leaderMemberId, long raceId, long raceCourseId,
+		LocalDateTime now) {
+		if (notAdmittedPartyCourses.contains(raceCourseId)) {
+			return Optional.empty();
+		}
+		return Optional.of(now.plusMinutes(ADMISSION_MINUTES));
+	}
+
+	// 이 종목의 파티 대기열에는 입장 중이 아니다 (개인 대기열은 그대로 입장 중)
+	public void notAdmittedToParty(long raceCourseId) {
+		notAdmittedPartyCourses.add(raceCourseId);
 	}
 
 	// 이 종목에는 입장 중이 아니다 (줄 서는 중, 대기열을 거치지 않음)
@@ -39,6 +55,7 @@ public class StubQueueAdmissionPort implements QueueAdmissionPort {
 
 	public void clear() {
 		notAdmittedCourses.clear();
+		notAdmittedPartyCourses.clear();
 		admissionEndsAt.clear();
 	}
 }

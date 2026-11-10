@@ -8,7 +8,7 @@ export type KeyValueProps = { label: ReactNode; value: ReactNode; className?: st
 // 라벨 text-tertiary, 값 text-primary Medium.
 export function KeyValue({ label, value, className }: KeyValueProps) {
   return (
-    <div className={cn('flex items-center justify-between gap-4 text-body-s', className)}>
+    <div className={cn('flex items-center justify-between gap-4 text-body2-regular', className)}>
       <span className="shrink-0 text-text-tertiary">{label}</span>
       <span className="min-w-0 text-right font-medium text-text-primary">{value}</span>
     </div>

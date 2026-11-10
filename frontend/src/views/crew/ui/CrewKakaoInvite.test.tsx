@@ -58,11 +58,11 @@ function mockFriends(count: number) {
 }
 
 async function openSheet(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(await screen.findByRole('button', { name: '카카오톡으로 보내기' }))
+  await user.click(await screen.findByRole('button', { name: '카카오톡 친구에게 보내기' }))
   return screen.findByRole('dialog')
 }
 
-describe('CrewInvitesPage 카카오톡으로 보내기', () => {
+describe('CrewInvitesPage 카카오톡 친구에게 보내기', () => {
   it('크루런을 쓰는 카카오 친구를 골라 보내면 고른 사람의 uuid를 보내고 보낸 사람 수를 알린다', async () => {
     mockFriends(3)
     let body: unknown

@@ -47,7 +47,8 @@ import lombok.extern.slf4j.Slf4j;
  * 정산 내역(판매자 × 대회)마다 트랜잭션을 따로 연다 (PRO-60). 하루치를 트랜잭션 하나로 만들면 정산 내역 하나의 실패로
  * 그날 모든 판매자의 정산 내역이 롤백되고, 배치는 지난 날을 다시 보지 않아 다시 만들어지지 않는다
  * 그래서 이 클래스에는 트랜잭션을 걸지 않고, 실패한 정산 내역은 로그를 남기고 다음 정산 내역을 처리한다
- * 실패는 세 곳(대회 목록 조회 · 대회 판매 값 조회 · 판매자 × 대회)에서 실패 기록표에도 한 줄씩 쌓는다 (BUK-60)
+ * 실패는 세 곳(대회 목록 조회 · 대회 판매 값 조회 · 판매자 × 대회)에서 Counts가 세고 로그를 남긴 뒤 실패 기록표에도
+ * 한 줄씩 쌓는다 (BUK-60)
  */
 @Slf4j
 @Service
@@ -72,34 +73,37 @@ public class PayoutCreateUseCase {
 	 * 03:00 실행을 놓쳐도(서버 중단, 배포, 실패한 정산 내역) 다음 실행들이 따라잡는다. @Scheduled는 놓친 실행을 다시 돌리지 않는다
 	 */
 	public PayoutCreateResultDto run(LocalDate today, LocalDateTime now) {
-		Counts first = createFirstPayoutsForRaces(today, now);
+		Counts firstCounts = createFirstPayoutsForRaces(today, now);
 
 		LocalDate toRaceDate = PayoutCreateDate.raceDateFor(today);
-		LocalDate fromRaceDate = toRaceDate.minusDays(LOOKBACK_DAYS - 1);
-		Counts last = createFinalPayoutsForRaces(fromRaceDate, toRaceDate, today, now);
+		LocalDate fromRaceDate = lookbackStart(toRaceDate);
+		Counts finalCounts = createFinalPayoutsForRaces(fromRaceDate, toRaceDate, today, now);
 
 		log.info("정산 생성 배치 완료. 1차 생성 {} · 이미 있음 {} · 실패 {}, 최종(대회일 {} ~ {}) 생성 {} · 이미 있음 {} · 실패 {}",
-			first.created, first.skipped, first.failed, fromRaceDate, toRaceDate, last.created, last.skipped,
-			last.failed);
-		return new PayoutCreateResultDto(fromRaceDate, toRaceDate, first.created + last.created,
-			first.skipped + last.skipped, first.failed + last.failed);
+			firstCounts.created, firstCounts.skipped, firstCounts.failed, fromRaceDate, toRaceDate,
+			finalCounts.created, finalCounts.skipped, finalCounts.failed);
+		return new PayoutCreateResultDto(fromRaceDate, toRaceDate, firstCounts.created + finalCounts.created,
+			firstCounts.skipped + finalCounts.skipped, firstCounts.failed + finalCounts.failed);
+	}
+
+	// 되돌아보기 기간의 첫날. 마지막 날(to)을 넣어 LOOKBACK_DAYS일이 되게 한다
+	private static LocalDate lookbackStart(LocalDate to) {
+		return to.minusDays(LOOKBACK_DAYS - 1);
 	}
 
 	// 1차: 환불 마감일이 되돌아보기 기간 안인 대회마다 판매 집계(가격 합 · 장수)로 만든다. 정산 월은 환불 마감일의 달이다
 	// 참가권 목록은 받지 않는다. 대회 하나는 코스 하나라 가격이 하나여서 집계만으로 1차 정산금을 계산할 수 있다 (PRO-214)
 	private Counts createFirstPayoutsForRaces(LocalDate today, LocalDateTime now) {
 		LocalDate toRefundDeadline = PayoutCreateDate.refundDeadlineFor(today);
-		LocalDate fromRefundDeadline = toRefundDeadline.minusDays(LOOKBACK_DAYS - 1);
+		LocalDate fromRefundDeadline = lookbackStart(toRefundDeadline);
 
-		Counts counts = new Counts();
+		Counts counts = new Counts(payoutCreateFailureUseCase, today);
 		List<RaceSchedule> races;
 		try {
 			races = racePort.findRacesByRefundDeadline(fromRefundDeadline, toRefundDeadline);
 		} catch (RuntimeException exception) {
 			// 예외를 run() 밖으로 던지면 같은 실행의 최종 정산도 만들지 못한다. 1차만 실패로 남기고 최종으로 넘어간다 (PRO-241)
-			counts.failRaceLookup(PayoutStage.일차_정산, exception);
-			payoutCreateFailureUseCase.record(PayoutCreateFailure.raceLookup(PayoutStage.일차_정산, fromRefundDeadline,
-				toRefundDeadline, today));
+			counts.failRaceLookup(PayoutStage.일차_정산, fromRefundDeadline, toRefundDeadline, exception);
 			return counts;
 		}
 		for (RaceSchedule race : races) {
@@ -107,59 +111,65 @@ public class PayoutCreateUseCase {
 			try {
 				summaries = soldSummaryPort.summarizeSold(race.raceId());
 			} catch (RuntimeException exception) {
-				counts.failRace(PayoutStage.일차_정산, race.raceId(), exception);
-				payoutCreateFailureUseCase.record(PayoutCreateFailure.orderLookup(PayoutStage.일차_정산, race.raceId(),
-					race.refundDeadline(), today));
+				counts.failOrderLookup(PayoutStage.일차_정산, race.raceId(), race.refundDeadline(), exception);
 				continue;
 			}
 			// 정산 내역은 판매자 × 대회 단위이고, 코스별 집계는 그 안의 1차 정산금 줄이 된다
 			summaries.stream()
 				.collect(groupingBy(SoldSummary::sellerId))
 				.forEach((sellerId, courses) -> createFirstPayout(new SellerRace(sellerId, race.raceId()), courses,
-					race.raceName(), race.refundDeadline(), counts, today, now));
+					race, counts, now));
 		}
 		return counts;
 	}
 
 	// 1차 정산 내역 하나를 만든다. 이미 만든 정산 내역은 건너뛰고, 실패하면 이 정산 내역만 실패로 남긴다
-	private void createFirstPayout(SellerRace key, List<SoldSummary> courses, String raceName,
-		LocalDate refundDeadline, Counts counts, LocalDate today, LocalDateTime now) {
+	private void createFirstPayout(SellerRace key, List<SoldSummary> courses, RaceSchedule race, Counts counts,
+		LocalDateTime now) {
 		try {
-			// 1차는 판매자 × 대회마다 한 번이라 정산 월은 보지 않는다. 판매 시작 뒤에도 환불 마감일을 늦출 수 있어
-			// (상품 Race.update) 마감일이 다음 달로 넘어가면 정산 월이 바뀌고, 월까지 보면 같은 대회의 1차가
-			// 한 번 더 만들어져 1차 정산금이 두 번 나간다 (PRO-232)
-			if (exists(() -> payoutRepository.existsBySellerIdAndRaceIdAndPayoutStage(key.sellerId(), key.raceId(),
-				PayoutStage.일차_정산))) {
-				counts.skipped++;
-				return;
-			}
-			// 최종이 먼저 만들어졌으면 1차를 만들지 않는다. 환불 마감일과 대회일이 되돌아보기 기간(7일) 안에 있으면
-			// 1차가 실패한 실행에서 최종이 1차 정산금 차감 0원(판매자 정산액 전부)으로 만들어지고, 다음 실행에서 1차가
-			// 만들어져 1차 정산금이 한 번 더 나간다. 최종이 이미 전액을 계산했으므로 건너뛴다 (1차 없는 최종은 PRO-190)
-			if (exists(() -> payoutRepository.existsBySellerIdAndRaceIdAndPayoutStage(key.sellerId(), key.raceId(),
-				PayoutStage.최종_정산))) {
-				log.warn("최종 정산이 이미 있어 1차 정산을 만들지 않습니다. sellerId={}, raceId={}", key.sellerId(),
-					key.raceId());
-				counts.skipped++;
-				return;
-			}
-			List<CourseSale> courseSales = courses.stream()
-				.map(course -> new CourseSale(course.raceCourseId(), course.priceSum(), course.ticketCount()))
-				.toList();
-			payoutCreateStepUseCase.createFirst(new FirstPayoutSource(key.sellerId(), key.raceId(), raceName,
-				sellerAccountPort.hasPayoutAccount(key.sellerId()), courseSales), refundDeadline, now);
-			counts.created++;
+			createFirstIfAbsent(key, courses, race, counts, now);
 		} catch (RuntimeException exception) {
-			if (isSavedByOther(exception, () -> payoutRepository.existsBySellerIdAndRaceIdAndPayoutStage(
-				key.sellerId(), key.raceId(), PayoutStage.일차_정산))) {
+			if (isSavedByOther(exception, () -> firstExists(key))) {
 				counts.skipSavedByOther(key, PayoutStage.일차_정산);
 				return;
 			}
-			counts.failed++;
-			log.error("1차 정산 내역을 만들지 못했습니다. sellerId={}, raceId={}, 코스 {}개",
-				key.sellerId(), key.raceId(), courses.size(), exception);
-			recordSellerRaceFailure(PayoutStage.일차_정산, key, refundDeadline, exception, today);
+			counts.failFirstSellerRace(key, courses, race.refundDeadline(), exception);
 		}
+	}
+
+	private void createFirstIfAbsent(SellerRace key, List<SoldSummary> courses, RaceSchedule race, Counts counts,
+		LocalDateTime now) {
+		if (firstExists(key)) {
+			counts.skip();
+			return;
+		}
+		// 최종이 먼저 만들어졌으면 1차를 만들지 않는다. 환불 마감일과 대회일이 되돌아보기 기간(7일) 안에 있으면
+		// 1차가 실패한 실행에서 최종이 1차 정산금 차감 0원(판매자 정산액 전부)으로 만들어지고, 다음 실행에서 1차가
+		// 만들어져 1차 정산금이 한 번 더 나간다. 최종이 이미 전액을 계산했으므로 건너뛴다 (1차 없는 최종은 PRO-190)
+		if (exists(() -> payoutRepository.existsBySellerIdAndRaceIdAndPayoutStage(key.sellerId(), key.raceId(),
+			PayoutStage.최종_정산))) {
+			log.warn("최종 정산이 이미 있어 1차 정산을 만들지 않습니다. sellerId={}, raceId={}", key.sellerId(),
+				key.raceId());
+			counts.skip();
+			return;
+		}
+		payoutCreateStepUseCase.createFirst(new FirstPayoutSource(key.sellerId(), key.raceId(), race.raceName(),
+			sellerAccountPort.hasPayoutAccount(key.sellerId()), toCourseSales(courses)), race.refundDeadline(), now);
+		counts.create();
+	}
+
+	// 1차는 판매자 × 대회마다 한 번이라 정산 월은 보지 않는다. 판매 시작 뒤에도 환불 마감일을 늦출 수 있어
+	// (상품 Race.update) 마감일이 다음 달로 넘어가면 정산 월이 바뀌고, 월까지 보면 같은 대회의 1차가
+	// 한 번 더 만들어져 1차 정산금이 두 번 나간다 (PRO-232)
+	private boolean firstExists(SellerRace key) {
+		return exists(() -> payoutRepository.existsBySellerIdAndRaceIdAndPayoutStage(key.sellerId(), key.raceId(),
+			PayoutStage.일차_정산));
+	}
+
+	private static List<CourseSale> toCourseSales(List<SoldSummary> courses) {
+		return courses.stream()
+			.map(course -> new CourseSale(course.raceCourseId(), course.priceSum(), course.ticketCount()))
+			.toList();
 	}
 
 	// 최종: 대회일이 되돌아보기 기간 안인 대회마다 판매 내역(참가권 목록)으로 만든다. 정산 월은 대회일의 달이다
@@ -167,15 +177,13 @@ public class PayoutCreateUseCase {
 	// 기간을 물으면 상품의 대회일과 어긋난 참가권은 대상 대회에서 빠지거나 다른 기간에 잡힌다
 	private Counts createFinalPayoutsForRaces(LocalDate fromRaceDate, LocalDate toRaceDate, LocalDate today,
 		LocalDateTime now) {
-		Counts counts = new Counts();
+		Counts counts = new Counts(payoutCreateFailureUseCase, today);
 		List<RaceSchedule> races;
 		try {
 			races = racePort.findRacesByRaceDate(fromRaceDate, toRaceDate);
 		} catch (RuntimeException exception) {
 			// 1차와 같은 기준으로 실패를 세어 배치 결과에 남긴다 (PRO-241)
-			counts.failRaceLookup(PayoutStage.최종_정산, exception);
-			payoutCreateFailureUseCase.record(PayoutCreateFailure.raceLookup(PayoutStage.최종_정산, fromRaceDate,
-				toRaceDate, today));
+			counts.failRaceLookup(PayoutStage.최종_정산, fromRaceDate, toRaceDate, exception);
 			return counts;
 		}
 		for (RaceSchedule race : races) {
@@ -183,55 +191,52 @@ public class PayoutCreateUseCase {
 			try {
 				entries = soldEntryPort.findSoldEntries(race.raceId());
 			} catch (RuntimeException exception) {
-				counts.failRace(PayoutStage.최종_정산, race.raceId(), exception);
-				payoutCreateFailureUseCase.record(PayoutCreateFailure.orderLookup(PayoutStage.최종_정산, race.raceId(),
-					race.raceDate(), today));
+				counts.failOrderLookup(PayoutStage.최종_정산, race.raceId(), race.raceDate(), exception);
 				continue;
 			}
-			YearMonth payoutMonth = YearMonth.from(race.raceDate());
 			entries.stream()
 				.collect(groupingBy(SoldEntry::sellerId))
 				.forEach((sellerId, sellerEntries) -> createFinalPayout(new SellerRace(sellerId, race.raceId()),
-					sellerEntries, race, payoutMonth, counts, today, now));
+					sellerEntries, race, counts, now));
 		}
 		return counts;
 	}
 
 	// 최종 정산 내역 하나를 만든다. 이 정산 내역만 실패로 남기고 다음 정산 내역을 계속 만든다
 	// 참가권의 대회일이 상품의 대회일과 다르면 만들지 않는다. 실패한 정산 내역과 그 항목 · 보류는 함께 롤백된다
-	private void createFinalPayout(SellerRace key, List<SoldEntry> entries, RaceSchedule race, YearMonth payoutMonth,
-		Counts counts, LocalDate today, LocalDateTime now) {
+	private void createFinalPayout(SellerRace key, List<SoldEntry> entries, RaceSchedule race, Counts counts,
+		LocalDateTime now) {
 		try {
-			checkRaceDate(key, entries, race);
-			// 정산 월은 실행일이 아니라 대회일로 정한다. 실행일로 정하면 월말 대회를 다음 달 실행이
-			// 다시 볼 때 정산 월이 달라져 아래 중복 확인을 통과하고, 같은 참가권이 두 번 지급된다
-			// 이미 만든 정산 내역은 건너뛴다 (되돌아보기로 매일 같은 대회를 다시 보므로 대부분 여기서 걸린다)
-			// 확인과 저장 사이에 다른 인스턴스가 먼저 저장하면 DB 유일 제약이 막고, 이미 있음으로 센다 (PRO-120)
-			if (exists(() -> payoutRepository.existsBySellerIdAndRaceIdAndPayoutMonthAndPayoutStage(
-				key.sellerId(), key.raceId(), payoutMonth.toString(), PayoutStage.최종_정산))) {
-				counts.skipped++;
-				return;
-			}
-			payoutCreateStepUseCase.createFinal(new FinalPayoutSource(key.sellerId(), key.raceId(), race.raceName(),
-				sellerAccountPort.hasPayoutAccount(key.sellerId()), entries), race.raceDate(), now);
-			counts.created++;
+			createFinalIfAbsent(key, entries, race, counts, now);
 		} catch (RuntimeException exception) {
-			if (isSavedByOther(exception, () -> payoutRepository.existsBySellerIdAndRaceIdAndPayoutMonthAndPayoutStage(
-				key.sellerId(), key.raceId(), payoutMonth.toString(), PayoutStage.최종_정산))) {
+			if (isSavedByOther(exception, () -> finalExists(key, race.raceDate()))) {
 				counts.skipSavedByOther(key, PayoutStage.최종_정산);
 				return;
 			}
-			counts.fail(key, entries, exception);
-			recordSellerRaceFailure(PayoutStage.최종_정산, key, race.raceDate(), exception, today);
+			counts.failFinalSellerRace(key, entries, race.raceDate(), exception);
 		}
 	}
 
-	// 다른 서버가 먼저 저장한 건은 위에서 return하므로 여기까지 오지 않는다 (AC-60-6)
-	private void recordSellerRaceFailure(PayoutStage stage, SellerRace key, LocalDate payoutTargetDate,
-		RuntimeException exception, LocalDate today) {
-		PayoutCreateFailureType type = failureTypeOf(exception);
-		payoutCreateFailureUseCase.record(PayoutCreateFailure.sellerRace(stage, key.sellerId(), key.raceId(),
-			payoutTargetDate, type, unknownFailureNote(type, exception), today));
+	// 이미 만든 정산 내역은 건너뛴다 (되돌아보기로 매일 같은 대회를 다시 보므로 대부분 여기서 걸린다)
+	// 확인과 저장 사이에 다른 인스턴스가 먼저 저장하면 DB 유일 제약이 막고, 이미 있음으로 센다 (PRO-120)
+	private void createFinalIfAbsent(SellerRace key, List<SoldEntry> entries, RaceSchedule race, Counts counts,
+		LocalDateTime now) {
+		checkRaceDate(key, entries, race);
+		if (finalExists(key, race.raceDate())) {
+			counts.skip();
+			return;
+		}
+		payoutCreateStepUseCase.createFinal(new FinalPayoutSource(key.sellerId(), key.raceId(), race.raceName(),
+			sellerAccountPort.hasPayoutAccount(key.sellerId()), entries), race.raceDate(), now);
+		counts.create();
+	}
+
+	// 정산 월은 실행일이 아니라 대회일로 정한다. 실행일로 정하면 월말 대회를 다음 달 실행이
+	// 다시 볼 때 정산 월이 달라져 중복 확인을 통과하고, 같은 참가권이 두 번 지급된다
+	private boolean finalExists(SellerRace key, LocalDate raceDate) {
+		String payoutMonth = YearMonth.from(raceDate).toString();
+		return exists(() -> payoutRepository.existsBySellerIdAndRaceIdAndPayoutMonthAndPayoutStage(
+			key.sellerId(), key.raceId(), payoutMonth, PayoutStage.최종_정산));
 	}
 
 	// 알 수 없는 실패만 비고에 예외 이름을 남겨, 관리자가 로그를 열기 전에 원인을 짐작하게 한다 (PR #307 리뷰)
@@ -305,11 +310,27 @@ public class PayoutCreateUseCase {
 	private record SellerRace(long sellerId, long raceId) {
 	}
 
-	// 단계 하나의 실행 결과
+	// 단계 하나의 실행 결과. 실패는 세기 · ERROR 로그 · 실패 기록표 한 줄을 함께 남긴다 (BUK-60)
+	// 실행마다 새로 만드는 상태값이라 빈으로 두지 않는다
 	private static final class Counts {
+		private final PayoutCreateFailureUseCase payoutCreateFailureUseCase;
+		private final LocalDate today;
 		private int created;
 		private int skipped;
 		private int failed;
+
+		private Counts(PayoutCreateFailureUseCase payoutCreateFailureUseCase, LocalDate today) {
+			this.payoutCreateFailureUseCase = payoutCreateFailureUseCase;
+			this.today = today;
+		}
+
+		private void create() {
+			created++;
+		}
+
+		private void skip() {
+			skipped++;
+		}
 
 		// 다른 실행이 먼저 만든 정산 내역은 정상 상황이라 실패로 세지 않고 WARN만 남긴다 (PRO-120)
 		private void skipSavedByOther(SellerRace key, PayoutStage stage) {
@@ -319,20 +340,41 @@ public class PayoutCreateUseCase {
 		}
 
 		// 대상 대회 목록을 못 받으면 몇 건이 빠졌는지 모르므로 한 건으로 센다. 되돌아보기로 다음 실행이 따라잡는다
-		private void failRaceLookup(PayoutStage stage, RuntimeException exception) {
+		private void failRaceLookup(PayoutStage stage, LocalDate from, LocalDate to, RuntimeException exception) {
 			failed++;
 			log.error("정산 대상 대회를 상품 서비스에서 받지 못했습니다. stage={}", stage, exception);
+			payoutCreateFailureUseCase.record(PayoutCreateFailure.raceLookup(stage, from, to, today));
 		}
 
-		private void failRace(PayoutStage stage, long raceId, RuntimeException exception) {
+		private void failOrderLookup(PayoutStage stage, long raceId, LocalDate payoutTargetDate,
+			RuntimeException exception) {
 			failed++;
 			log.error("정산용 판매 값을 주문 서비스에서 받지 못했습니다. stage={}, raceId={}", stage, raceId, exception);
+			payoutCreateFailureUseCase.record(PayoutCreateFailure.orderLookup(stage, raceId, payoutTargetDate, today));
 		}
 
-		private void fail(SellerRace key, List<SoldEntry> entries, RuntimeException exception) {
+		private void failFirstSellerRace(SellerRace key, List<SoldSummary> courses, LocalDate refundDeadline,
+			RuntimeException exception) {
+			failed++;
+			log.error("1차 정산 내역을 만들지 못했습니다. sellerId={}, raceId={}, 코스 {}개",
+				key.sellerId(), key.raceId(), courses.size(), exception);
+			recordSellerRaceFailure(PayoutStage.일차_정산, key, refundDeadline, exception);
+		}
+
+		private void failFinalSellerRace(SellerRace key, List<SoldEntry> entries, LocalDate raceDate,
+			RuntimeException exception) {
 			failed++;
 			log.error("정산 내역을 만들지 못했습니다. sellerId={}, raceId={}, 참가권 {}장",
 				key.sellerId(), key.raceId(), entries.size(), exception);
+			recordSellerRaceFailure(PayoutStage.최종_정산, key, raceDate, exception);
+		}
+
+		// 다른 서버가 먼저 저장한 건은 호출부가 skipSavedByOther로 먼저 return하므로 여기까지 오지 않는다 (AC-60-6)
+		private void recordSellerRaceFailure(PayoutStage stage, SellerRace key, LocalDate payoutTargetDate,
+			RuntimeException exception) {
+			PayoutCreateFailureType type = failureTypeOf(exception);
+			payoutCreateFailureUseCase.record(PayoutCreateFailure.sellerRace(stage, key.sellerId(), key.raceId(),
+				payoutTargetDate, type, unknownFailureNote(type, exception), today));
 		}
 	}
 }

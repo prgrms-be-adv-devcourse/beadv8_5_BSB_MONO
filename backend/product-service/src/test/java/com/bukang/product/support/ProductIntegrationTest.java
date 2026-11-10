@@ -44,11 +44,13 @@ import com.bukang.common.shared.seller.domain.SellerType;
 import com.bukang.product.TestcontainersConfiguration;
 import com.bukang.product.app.ProductFacade;
 import com.bukang.product.app.RaceDocumentSyncAppendUseCase;
+import com.bukang.product.domain.KitOption;
 import com.bukang.product.domain.ProductMember;
 import com.bukang.product.domain.ProductOutboxKafkaEvent;
 import com.bukang.product.domain.ProductSeller;
 import com.bukang.product.dto.RaceSaveRequestDto;
 import com.bukang.product.in.ProductKafkaConsumer;
+import com.bukang.product.out.KitOptionRepository;
 import com.bukang.product.out.ParticipationHoldRepository;
 import com.bukang.product.out.ProductInboxKafkaEventRepository;
 import com.bukang.product.out.ProductMemberRepository;
@@ -102,6 +104,8 @@ public abstract class ProductIntegrationTest {
 	@Autowired
 	protected ParticipationHoldRepository participationHoldRepository;
 	@Autowired
+	protected KitOptionRepository kitOptionRepository;
+	@Autowired
 	protected RaceCourseDocumentRepository raceCourseDocumentRepository;
 	@Autowired
 	protected ProductOutboxKafkaEventRepository productOutboxKafkaEventRepository;
@@ -137,10 +141,11 @@ public abstract class ProductIntegrationTest {
 		seedSeller(OTHER_SELLER_MEMBER_ID, OTHER_SELLER_ID);
 	}
 
-	// FK 순서대로 지운다: 자리 → 대회(종목은 함께 지워진다) → 판매자 → 회원, 그리고 아웃박스·인박스·동기화 이벤트와 검색 문서
+	// FK 순서대로 지운다: 자리·키트 옵션 → 대회(종목은 함께 지워진다) → 판매자 → 회원, 그리고 아웃박스·인박스·동기화 이벤트와 검색 문서
 	@AfterEach
 	void cleanUpProductTest() {
 		participationHoldRepository.deleteAll();
+		kitOptionRepository.deleteAll();
 		raceRepository.deleteAll();
 		productSellerRepository.deleteAll();
 		productMemberRepository.deleteAll();
@@ -178,6 +183,11 @@ public abstract class ProductIntegrationTest {
 		ProductMember member = productMemberRepository.save(new ProductMember(memberId, now, now, "러너" + memberId));
 		productSellerRepository.save(new ProductSeller(sellerId, member, SellerType.BUSINESS, "(주)러닝" + sellerId,
 			"123-45-67890", "김대표", SellerStatus.APPROVED, now, now));
+	}
+
+	// 대회에 키트 옵션 1개를 API를 거치지 않고 저장한다 (키트 옵션이 이미 있는 대회를 만든다). stock이 null이면 맞춤 제작이다
+	protected void saveKitOption(long raceId, String name, String value, Integer stock) {
+		kitOptionRepository.save(new KitOption(raceRepository.findById(raceId).orElseThrow(), name, value, stock));
 	}
 
 	// ---------- 대회 등록 ----------
@@ -223,7 +233,7 @@ public abstract class ProductIntegrationTest {
 		if (!saleOpenDate.isBefore(today.plusDays(2))) {
 			return register(request);
 		}
-		// 날짜 단위로 옮겨야 '크루 마감 다음 날 06:00 이후', '환불 기준일 ≤ 대회 날짜' 같은 검사 결과가 그대로다
+		// 날짜 단위로 옮겨야 '개인 예매 오픈 ≥ 크루 예매 마감일의 자정', '환불 기준일 ≤ 대회 날짜' 같은 검사 결과가 그대로다
 		long days = ChronoUnit.DAYS.between(saleOpenDate, today) + 2;
 		RaceSaleStatus saleStatus = saleOpenDate.isAfter(today) ? RaceSaleStatus.SCHEDULED : RaceSaleStatus.ON_SALE;
 		RegisteredRace race = register(shiftSchedule(request, days));

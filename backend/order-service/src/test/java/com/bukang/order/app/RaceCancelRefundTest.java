@@ -384,7 +384,8 @@ class RaceCancelRefundTest {
 	}
 
 	private OrderPayResult pay(long memberId, long orderId) {
-		return transactionTemplate.execute(status -> orderPayUseCase.pay(memberId, orderId, LocalDateTime.now()));
+		return transactionTemplate.execute(status ->
+			orderPayUseCase.pay(memberId, orderId, List.of(), LocalDateTime.now()));
 	}
 
 	private long apply(long memberId, long courseId) throws Exception {

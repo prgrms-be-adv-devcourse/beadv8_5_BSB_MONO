@@ -7,7 +7,12 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
 import { SAMPLE_PARTICIPANT } from '@/features/booking'
-import { chargeAmountFor, ChargeHeldAlert, requestCharge } from '@/features/deposit-charge'
+import {
+  chargeAmountFor,
+  ChargeHeldAlert,
+  MAX_CHARGE,
+  requestCharge,
+} from '@/features/deposit-charge'
 import { useQueueAdmission } from '@/features/queue-admission'
 import { parseKstDateTime, RACE_DETAIL, raceDetailQueryOptions } from '@/entities/race'
 import { invalidateTicketQueries } from '@/entities/ticket'
@@ -352,7 +357,14 @@ function OrderCheckout({
       onAgreedChange={setAgreed}
       notice={chargeHeld && <ChargeHeldAlert />}
       action={
-        <Button size="l" disabled={!ready} onClick={() => pay.mutate({ auto: false })}>
+        <Button
+          size="l"
+          disabled={!ready}
+          aria-describedby={
+            payment && payment.balanceAfter < 0 ? CHARGE_LIMIT_NOTICE_ID : undefined
+          }
+          onClick={() => pay.mutate({ auto: false })}
+        >
           {payment && payment.charge > 0
             ? `${won(payment.charge)} 충전하고 결제`
             : `${won(amount)} 결제`}
@@ -361,6 +373,9 @@ function OrderCheckout({
     />
   )
 }
+
+/** 1회 충전 한도 안내. 충전 버튼이 이 안내로 설명된다 (화면 낭독기가 버튼과 함께 읽는다) */
+const CHARGE_LIMIT_NOTICE_ID = 'checkout-charge-limit-notice'
 
 /** 대회 · 종목 · 참가자. 대회 상세를 아직 못 받았으면 주문 상품 이름을 쓴다. */
 function orderSummary(
@@ -412,6 +427,8 @@ function CheckoutForm({
   action: ReactNode
 }) {
   const payment = balance === undefined ? undefined : splitPayment(amount, balance)
+  // 1회 충전 한도보다 많이 모자라 한 번 충전으로는 결제할 수 없다
+  const overLimit = payment !== undefined && payment.balanceAfter < 0
   return (
     <>
       <AppHeader type="sub" title="결제" />
@@ -439,7 +456,7 @@ function CheckoutForm({
 
           <div className="flex flex-col gap-1">
             {/* 참가자 이름이 들어 있어 Clarity 화면 녹화에서 가린다 */}
-            <p className="text-body-s text-text-secondary" data-clarity-mask="true">
+            <p className="text-body2-regular text-text-secondary" data-clarity-mask="true">
               {summary}
             </p>
             <p className="text-[32px] leading-11 font-bold tracking-[-0.015em]">{won(amount)}</p>
@@ -453,17 +470,23 @@ function CheckoutForm({
             />
             <KeyValue
               label="결제 뒤 남는 예치금"
-              value={payment ? won(payment.balanceAfter) : '-'}
+              value={payment && !overLimit ? won(payment.balanceAfter) : '-'}
             />
-            <p className="text-caption text-text-tertiary">
+            <p className="text-caption-regular text-text-tertiary">
               1만 원보다 적게 모자라면 1만 원을 충전해요.
               <br />
               결제가 안 돼도 충전한 돈은 예치금으로 남아요.
             </p>
+            {overLimit && (
+              <p id={CHARGE_LIMIT_NOTICE_ID} className="text-caption-medium text-text-primary">
+                한 번에 {MAX_CHARGE / 10_000}만 원까지 충전할 수 있어요. 충전한 뒤 남은 금액은 다시
+                충전해 주세요.
+              </p>
+            )}
           </div>
 
           <fieldset className="flex flex-col gap-3">
-            <legend className="mb-3 text-label-m">충전 수단</legend>
+            <legend className="mb-3 text-body2-medium">충전 수단</legend>
             <RadioGroup defaultValue="toss">
               <Radio value="toss" label="카드 · 간편결제 (토스페이먼츠)" />
             </RadioGroup>
@@ -472,7 +495,7 @@ function CheckoutForm({
           <div className="flex flex-col gap-3">
             {refund && (
               <div className="flex flex-col gap-2 rounded-md px-4 pt-3 pb-4 inset-ring inset-ring-border-default">
-                <p className="text-body-s text-text-secondary">환불 규정</p>
+                <p className="text-body2-regular text-text-secondary">환불 규정</p>
                 {refund.map((row) => (
                   <KeyValue key={row.label} label={row.label} value={row.value} />
                 ))}
