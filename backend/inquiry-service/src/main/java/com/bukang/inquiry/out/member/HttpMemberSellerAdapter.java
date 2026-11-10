@@ -15,9 +15,9 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * 회원 서비스의 판매자 신청 내부 API를 부른다 (GET /internal/v1/member/members/{memberId}/seller → RsData.data {sellerId, status})
- * - 200: status가 APPROVED일 때만 판매자다 (승인 대기·반려는 아니다)
- * - 404: 없거나 탈퇴한 회원, 판매자 신청이 없는 회원 → 판매자가 아니다
- * - 그 밖(시간 초과 · 연결 실패 · 5xx · 그 밖의 4xx · 빈 응답): 판매자인지 모르므로 503으로 다시 시도하게 한다
+ * - 200: status가 APPROVED일 때만 판매자다 (승인 대기·반려, 신청이 없어 status가 null인 회원은 아니다)
+ * - 404 MEMBER_NOT_FOUND: 없거나 탈퇴한 회원 → 판매자가 아니다
+ * - 그 밖(시간 초과 · 연결 실패 · 5xx · 코드가 다른 404 · 그 밖의 4xx · data가 없는 응답): 판매자인지 모르므로 503으로 다시 시도하게 한다
  * 등록은 MemberClientConfig가 한다 (inquiry.clients.member.mode=http)
  */
 @Slf4j
@@ -37,7 +37,12 @@ public class HttpMemberSellerAdapter implements MemberSellerPort {
 		try {
 			response = restClient.get().uri(PATH, memberId).retrieve().body(RESPONSE_TYPE);
 		} catch (HttpClientErrorException.NotFound exception) {
-			return false;
+			if (HttpMemberAdminAdapter.isMemberNotFound(exception)) {
+				return false;
+			}
+			log.error("회원 서비스가 판매자 확인 요청에 회원 없음이 아닌 404로 답했습니다. 계약(경로)을 확인해야 합니다. memberId={}",
+				memberId, exception);
+			throw new InquiryExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
 		} catch (HttpClientErrorException exception) {
 			// 4xx는 다시 시도해도 풀리지 않는다. 경로 계약이 어긋났을 수 있어 장애와 구분해 남긴다
 			log.error("회원 서비스가 판매자 확인 요청을 거절했습니다. 계약(경로)을 확인해야 합니다. status={}, memberId={}",
@@ -47,10 +52,11 @@ public class HttpMemberSellerAdapter implements MemberSellerPort {
 			log.error("회원 서비스에 판매자 여부를 묻지 못했습니다. memberId={}", memberId, exception);
 			throw new InquiryExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
 		}
-		if (response == null || response.data() == null || response.data().status() == null) {
+		if (response == null || response.data() == null) {
 			log.error("회원 서비스의 판매자 확인 응답에 값이 없습니다. memberId={}, response={}", memberId, response);
 			throw new InquiryExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
 		}
+		// 신청이 없으면 status가 null로 온다 (회원 서비스 MemberSellerDto.NONE)
 		return response.data().status() == SellerStatus.APPROVED;
 	}
 

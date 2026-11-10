@@ -32,6 +32,7 @@ import lombok.RequiredArgsConstructor;
  * 답변·고치기·지우기는 「답변 대기이고 지우지 않은 행만」 바꾸는 조건부 UPDATE라서 겹쳐도 한쪽만 성공한다.
  * 바뀐 행이 0일 때 「이미 처리됨(409)」과 「없어짐(404)」을 가르려면 상대가 방금 커밋한 값을 읽어야 하므로,
  * MySQL 기본(REPEATABLE READ)의 스냅샷 읽기 대신 READ COMMITTED로 연다
+ * MySQL은 READ COMMITTED에서 쓰려면 binlog_format=ROW가 필요하다 (MySQL 8 기본값). 서버 설정을 STATEMENT로 바꾸면 쓰기가 실패한다
  */
 @Service
 @RequiredArgsConstructor

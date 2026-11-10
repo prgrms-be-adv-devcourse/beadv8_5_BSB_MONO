@@ -11,7 +11,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.bukang.inquiry.domain.Inquiry;
 import com.bukang.inquiry.domain.InquiryStatus;
-import com.bukang.inquiry.domain.InquiryType;
 import com.bukang.inquiry.domain.exception.InquiryAdminForbiddenException;
 import com.bukang.inquiry.domain.exception.InquiryExternalServiceUnavailableException;
 import com.bukang.inquiry.domain.exception.InquiryOrderNotFoundException;
@@ -71,7 +70,7 @@ public class InquiryFacade {
 	}
 
 	public InquiryDto findSellerDetail(long sellerMemberId, long inquiryId) {
-		return detailOf(inquiryUseCase.findForSellerOne(sellerMemberId, inquiryId));
+		return detailOf(inquiryUseCase.findForSellerOne(sellerMemberId, inquiryId), false);
 	}
 
 	public InquiryManagePageDto findForAdmin(long adminMemberId, InquiryStatus status, int page, int size) {
@@ -81,7 +80,7 @@ public class InquiryFacade {
 
 	public InquiryDto findAdminDetail(long adminMemberId, long inquiryId) {
 		requireAdmin(adminMemberId);
-		return detailOf(inquiryUseCase.findForAdminOne(inquiryId));
+		return detailOf(inquiryUseCase.findForAdminOne(inquiryId), true);
 	}
 
 	public InquiryDto answerByAdmin(long adminMemberId, long inquiryId, String content) {
@@ -103,9 +102,10 @@ public class InquiryFacade {
 	}
 
 	// 상세: 닉네임과 주문 정보는 실패해도 null로 두고 문의는 준다
-	private InquiryDto detailOf(Inquiry inquiry) {
+	// 주문 전체 값(결제 금액·주문 상태)은 관리자 상세에만 준다 (InquiryOrderDto.of)
+	private InquiryDto detailOf(Inquiry inquiry, boolean withOrderTotals) {
 		String nickname = nicknamesOf(Set.of(inquiry.getMemberId())).get(inquiry.getMemberId());
-		return InquiryDto.from(inquiry).withManageInfo(nickname, orderOf(inquiry));
+		return InquiryDto.from(inquiry).withManageInfo(nickname, orderOf(inquiry, withOrderTotals));
 	}
 
 	private Map<Long, String> nicknamesOf(Collection<Long> memberIds) {
@@ -121,13 +121,13 @@ public class InquiryFacade {
 	}
 
 	// 판매자 문의는 주문이 없다. 주문 서비스가 멈췄거나 주문이 이제 없다고 하면 주문 정보만 비운다
-	private InquiryOrderDto orderOf(Inquiry inquiry) {
-		if (inquiry.getType() == InquiryType.SELLER_SUPPORT || inquiry.getOrderId() == null) {
+	private InquiryOrderDto orderOf(Inquiry inquiry, boolean withOrderTotals) {
+		if (inquiry.getOrderId() == null) {
 			return null;
 		}
 		try {
 			return orderLookupPort.findOrder(inquiry.getOrderId())
-				.map(order -> InquiryOrderDto.of(order, inquiry.getRaceId()))
+				.map(order -> InquiryOrderDto.of(order, inquiry.getRaceId(), withOrderTotals))
 				.orElse(null);
 		} catch (InquiryExternalServiceUnavailableException exception) {
 			log.warn("주문 정보를 받지 못해 주문 정보 없이 응답합니다. inquiryId={}, orderId={}", inquiry.getId(),

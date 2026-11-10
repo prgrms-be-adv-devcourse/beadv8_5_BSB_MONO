@@ -65,7 +65,7 @@ public class HttpMemberAdminAdapter implements MemberAdminPort {
 	}
 
 	// 회원 서비스가 회원을 찾지 못했다고 답한 404인지 (오류 응답 RsData의 code)
-	private static boolean isMemberNotFound(HttpClientErrorException exception) {
+	static boolean isMemberNotFound(HttpClientErrorException exception) {
 		try {
 			ErrorResponse body = exception.getResponseBodyAs(ErrorResponse.class);
 			return body != null && MEMBER_NOT_FOUND_CODE.equals(body.code());
