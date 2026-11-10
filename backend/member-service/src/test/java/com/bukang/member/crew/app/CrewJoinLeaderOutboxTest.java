@@ -103,7 +103,7 @@ class CrewJoinLeaderOutboxTest {
 	private long crewId;
 	private String inviteToken;
 
-	// 크루장과 크루원이 있는 크루 하나, 아직 가입하지 않은 회원 하나, 크루장이 만든 초대 링크 하나. 그 뒤 요청은 NOW에 한다
+	// 크루장과 크루원이 있는 크루 하나, 아직 가입하지 않은 회원 하나, 크루장이 NOW에 만든 초대 링크 하나. 그 뒤 요청은 NOW에 한다
 	@BeforeEach
 	void setUp() {
 		given(clock.instant()).willReturn(CREATED);
@@ -112,9 +112,10 @@ class CrewJoinLeaderOutboxTest {
 		joinerId = joinMember();
 		crewId = crewFacade.createCrew(leaderId, "새벽한강크루").crewId();
 		crewFacade.join(memberId, crewFacade.createInvite(leaderId, crewId).inviteToken());
+		given(clock.instant()).willReturn(NOW);
+		// 초대 링크는 24시간 동안만 쓸 수 있으므로 요청 시각(NOW)에 만든다
 		inviteToken = crewFacade.createInvite(leaderId, crewId).inviteToken();
 		memberOutboxEventRepository.deleteAll();
-		given(clock.instant()).willReturn(NOW);
 	}
 
 	@AfterEach
