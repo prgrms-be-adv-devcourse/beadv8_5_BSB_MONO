@@ -36,9 +36,9 @@ class HttpMemberReplicaAdapterTest {
 			"data": {
 				"members": [
 					{ "memberId": 8, "nickname": "러너A", "sellerApproved": true, "withdrawn": false,
-						"modifyDate": "2026-11-10T09:30:00", "email": "ignored@crewrun.com" },
+						"createDate": "2026-10-01T10:00:00", "modifyDate": "2026-11-10T09:30:00", "email": "ignored@crewrun.com" },
 					{ "memberId": 9, "nickname": "탈퇴한 회원", "sellerApproved": false, "withdrawn": true,
-						"modifyDate": "2026-11-09T18:00:00.123456" }
+						"createDate": "2026-09-01T10:00:00.5", "modifyDate": "2026-11-09T18:00:00.123456" }
 				],
 				"hasNext": true,
 				"nextAfterId": 9
@@ -57,7 +57,7 @@ class HttpMemberReplicaAdapterTest {
 	}
 
 	@Test
-	@DisplayName("afterId와 size로 GET 하고, 응답의 회원 다섯 칸과 hasNext, nextAfterId를 읽는다 (모르는 칸은 무시)")
+	@DisplayName("afterId와 size로 GET 하고, 응답의 회원 여섯 칸과 hasNext, nextAfterId를 읽는다 (모르는 칸은 무시)")
 	void fetch() {
 		server.expect(requestTo(URL)).andExpect(method(HttpMethod.GET))
 			.andRespond(withSuccess(RESPONSE, MediaType.APPLICATION_JSON));
@@ -67,8 +67,9 @@ class HttpMemberReplicaAdapterTest {
 		assertThat(page.hasNext()).isTrue();
 		assertThat(page.nextAfterId()).isEqualTo(9);
 		assertThat(page.members()).containsExactly(
-			new MemberReplicaPort.MemberReplica(8, "러너A", true, false, LocalDateTime.of(2026, 11, 10, 9, 30)),
-			new MemberReplicaPort.MemberReplica(9, "탈퇴한 회원", false, true,
+			new MemberReplicaPort.MemberReplica(8, "러너A", true, false, LocalDateTime.of(2026, 10, 1, 10, 0),
+				LocalDateTime.of(2026, 11, 10, 9, 30)),
+			new MemberReplicaPort.MemberReplica(9, "탈퇴한 회원", false, true, LocalDateTime.of(2026, 9, 1, 10, 0, 0, 500000000),
 				LocalDateTime.of(2026, 11, 9, 18, 0, 0, 123456000)));
 		server.verify();
 	}

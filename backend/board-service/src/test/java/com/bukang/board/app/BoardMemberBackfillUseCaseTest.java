@@ -35,6 +35,7 @@ import com.bukang.board.support.BoardTestBase;
 class BoardMemberBackfillUseCaseTest extends BoardTestBase {
 	private static final LocalDateTime T1 = LocalDateTime.of(2026, 11, 1, 9, 0);
 	private static final LocalDateTime T2 = LocalDateTime.of(2026, 11, 5, 9, 0);
+	private static final LocalDateTime CREATED = LocalDateTime.of(2026, 10, 1, 9, 0);
 
 	@Autowired
 	private BoardMemberBackfillUseCase backfill;
@@ -56,6 +57,7 @@ class BoardMemberBackfillUseCaseTest extends BoardTestBase {
 		assertThat(seller.isSellerApproved()).isTrue();
 		assertThat(seller.isWithdrawn()).isFalse();
 		assertThat(seller.getModifyDate()).isEqualTo(T1);
+		assertThat(seller.getCreateDate()).isEqualTo(CREATED);
 		BoardMember withdrawn = memberRepository.findById(12L).orElseThrow();
 		assertThat(withdrawn.isWithdrawn()).isTrue();
 		assertThat(withdrawn.getNickname()).isEqualTo("탈퇴한 회원");
@@ -75,6 +77,66 @@ class BoardMemberBackfillUseCaseTest extends BoardTestBase {
 		assertThat(me.isSellerApproved()).isFalse();
 		assertThat(me.isWithdrawn()).isFalse();
 		assertThat(memberRepository.findById(11L)).isPresent();
+	}
+
+	@Test
+	@DisplayName("판매자 이벤트가 먼저 만든 닉네임 없는 복사본은 프로필(닉네임·시각·탈퇴 여부)만 채우고 판매자 칸은 그대로 둔다")
+	void fillsProfileOfSellerOnlyRow() {
+		LocalDateTime sellerAt = T2.plusDays(1);
+		sync.syncSeller("m-seller", "topic", 10, true, sellerAt);
+		sync.syncSeller("m-seller-2", "topic", 11, true, sellerAt);
+		when(port.fetch(0, 500)).thenReturn(page(false, 11,
+			replica(10, "뒤늦은닉", false, false, T1), replica(11, "탈퇴한 회원", false, true, T1)));
+
+		backfill.run();
+
+		BoardMember filled = memberRepository.findById(10L).orElseThrow();
+		assertThat(filled.getNickname()).isEqualTo("뒤늦은닉");
+		assertThat(filled.getCreateDate()).isEqualTo(CREATED);
+		assertThat(filled.getModifyDate()).isEqualTo(T1);
+		assertThat(filled.isWithdrawn()).isFalse();
+		assertThat(filled.isSellerApproved()).isTrue();
+		assertThat(filled.getSellerChangedAt()).isEqualTo(sellerAt);
+		BoardMember withdrawn = memberRepository.findById(11L).orElseThrow();
+		assertThat(withdrawn.isWithdrawn()).isTrue();
+		assertThat(withdrawn.isSellerApproved()).isTrue();
+	}
+
+	@Test
+	@DisplayName("프로필을 이미 받은 복사본은 닉네임·시각·탈퇴 여부를 그대로 둔다")
+	void keepsProfileOfSyncedRow() {
+		when(port.fetch(0, 500)).thenReturn(page(false, ME, replica(ME, "옛닉", false, true, T1)));
+
+		backfill.run();
+
+		BoardMember me = memberRepository.findById(ME).orElseThrow();
+		assertThat(me.getNickname()).isEqualTo("러너하나");
+		assertThat(me.isWithdrawn()).isFalse();
+		assertThat(me.getModifyDate()).isNotEqualTo(T1);
+	}
+
+	@Test
+	@DisplayName("첫 호출이 실패해도 간격을 두고 3번 더 시도해, 회원 서비스가 늦게 떠도 채운다")
+	void retriesFirstCall() {
+		when(port.fetch(0, 500))
+			.thenThrow(new RestClientException("연결 거부"))
+			.thenThrow(new RestClientException("연결 거부"))
+			.thenReturn(page(false, 10, replica(10, "재시도", false, false, T1)));
+
+		backfill.run();
+
+		verify(port, times(3)).fetch(0, 500);
+		assertThat(memberRepository.findById(10L)).isPresent();
+	}
+
+	@Test
+	@DisplayName("첫 호출이 4번 모두 실패하면 로그만 남기고 끝난다")
+	void givesUpAfterRetries() {
+		when(port.fetch(0, 500)).thenThrow(new RestClientException("연결 거부"));
+
+		assertThatCode(backfill::run).doesNotThrowAnyException();
+
+		verify(port, times(4)).fetch(0, 500);
 	}
 
 	@Test
@@ -192,7 +254,7 @@ class BoardMemberBackfillUseCaseTest extends BoardTestBase {
 
 	private static MemberReplica replica(long id, String nickname, boolean seller, boolean withdrawn,
 		LocalDateTime modifyDate) {
-		return new MemberReplica(id, nickname, seller, withdrawn, modifyDate);
+		return new MemberReplica(id, nickname, seller, withdrawn, CREATED, modifyDate);
 	}
 
 	private static MemberReplicaPage page(boolean hasNext, long nextAfterId, MemberReplica... members) {

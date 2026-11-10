@@ -73,11 +73,12 @@ class BoardMemberBackfillRunnerTest {
 		@DisplayName("게시판은 정상으로 떠 있다 (채우기만 오류를 로그로 남기고 끝남)")
 		void boardStaysUp() throws Exception {
 			long deadline = System.currentTimeMillis() + 5000;
-			while (CALLS.get() == 0 && System.currentTimeMillis() < deadline) {
+			while (CALLS.get() < 4 && System.currentTimeMillis() < deadline) {
 				Thread.sleep(50);
 			}
 
-			assertThat(CALLS.get()).isEqualTo(1);
+			// 첫 호출 실패 뒤 3번 더 시도하고 끝난다
+			assertThat(CALLS.get()).isEqualTo(4);
 			assertThat(context.isActive()).isTrue();
 		}
 
