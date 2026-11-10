@@ -17,6 +17,8 @@ import com.bukang.cash.dto.payment.CashRefundRequestDto;
 import com.bukang.cash.dto.payment.CashRefundResponseDto;
 import com.bukang.cash.dto.payout.CashPayoutRequestDto;
 import com.bukang.cash.dto.payout.CashPayoutResponseDto;
+import com.bukang.cash.dto.recovery.CashClaimVirtualAccountRequestDto;
+import com.bukang.cash.dto.recovery.CashClaimVirtualAccountResponseDto;
 import com.bukang.cash.dto.wallet.CashBalanceResponseDto;
 import com.bukang.common.global.rsdata.RsData;
 
@@ -35,7 +37,8 @@ import lombok.RequiredArgsConstructor;
  * 서비스끼리 부르는 내부 API. 게이트웨이에 라우팅하지 않는다(/internal/** 경로)
  * 회원이 아니라 서비스가 부르므로 회원 ID 헤더를 받지 않는다 (file-service, order-service와 같은 방식)
  */
-@Tag(name = "CashInternal", description = "주문 결제, 결제 취소(환원), 환불, 잔액 조회 API (서비스 간 내부 호출 전용)")
+@Tag(name = "CashInternal",
+	description = "주문 결제, 결제 취소(환원), 환불, 잔액 조회, 정산 지급, 청구용 가상계좌 발급 API (서비스 간 내부 호출 전용)")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/internal/v1/cash")
@@ -185,5 +188,33 @@ public class InternalV1CashController {
 		CashPayoutResponseDto result = cashFacade.payout(payoutId, request.getSellerId(), request.getPayoutStage(),
 			request.getSettlementAmount(), request.getFeeAmount());
 		return ResponseEntity.ok().body(RsData.of(HttpStatus.OK, result.message(), result));
+	}
+
+	// 정산 서비스가 청구 배치에서 아직 계좌가 없는 청구마다 부른다. 실패하면 정산은 다음 배치에서 같은 청구 ID로 다시 부른다
+	@PostMapping("/claims/{claimCode}/virtual-account")
+	@Operation(summary = "청구용 가상계좌 발급", description = "판매자가 갚을 돈(청구)을 받을 가상계좌를 PG에서 발급받아 회수 입금으로 "
+		+ "저장한다. 같은 청구 ID로 다시 요청하면 새로 발급하지 않고 처음 발급한 계좌를 돌려준다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "발급 성공 또는 이미 발급한 계좌",
+			content = @Content(
+				examples = @ExampleObject(value = CashInternalApiExamples.CLAIM_VIRTUAL_ACCOUNT_SUCCESS))),
+		@ApiResponse(responseCode = "400", description = "요청 본문 형식 오류",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = CashInternalApiExamples.INVALID_BODY))),
+		@ApiResponse(responseCode = "503", description = "PG가 발급·조회를 거절함, PG 연결 실패 또는 응답에 계좌 정보가 없음",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "발급 거절", value = CashInternalApiExamples.VIRTUAL_ACCOUNT_REJECTED),
+				@ExampleObject(name = "조회 거절", value = CashInternalApiExamples.VIRTUAL_ACCOUNT_LOOKUP_REJECTED),
+				@ExampleObject(name = "PG 연결 실패", value = CashInternalApiExamples.VIRTUAL_ACCOUNT_PG_UNREACHABLE),
+				@ExampleObject(name = "계좌 정보 없음", value = CashInternalApiExamples.VIRTUAL_ACCOUNT_INVALID_RESPONSE)
+			}))
+	})
+	public ResponseEntity<RsData<CashClaimVirtualAccountResponseDto>> issueClaimVirtualAccount(
+		@Parameter(description = "정산의 청구 ID (PG 주문번호로 쓴다)", example = "RC-20261214-0A3F")
+		@PathVariable String claimCode,
+		@RequestBody CashClaimVirtualAccountRequestDto request
+	) {
+		CashClaimVirtualAccountResponseDto result = cashFacade.issueClaimVirtualAccount(claimCode, request.getAmount());
+		return ResponseEntity.ok().body(RsData.of(HttpStatus.OK, "가상계좌를 발급했습니다.", result));
 	}
 }

@@ -31,6 +31,7 @@ import com.bukang.cash.domain.wallet.Wallet;
 import com.bukang.cash.out.member.CashMemberRepository;
 import com.bukang.cash.out.payment.PaymentRepository;
 import com.bukang.cash.out.payout.PayoutTransferRepository;
+import com.bukang.cash.out.recovery.RecoveryDepositRepository;
 import com.bukang.cash.out.seller.CashSellerRepository;
 import com.bukang.cash.out.wallet.WalletLedgerRepository;
 import com.bukang.cash.out.wallet.WalletRepository;
@@ -59,6 +60,8 @@ class InternalV1CashControllerTest {
 	@Autowired
 	private CashSellerRepository cashSellerRepository;
 	@Autowired
+	private RecoveryDepositRepository recoveryDepositRepository;
+	@Autowired
 	private TransactionTemplate transactionTemplate;
 
 	@BeforeEach
@@ -80,6 +83,22 @@ class InternalV1CashControllerTest {
 		walletRepository.deleteAll();
 		cashSellerRepository.deleteAll();
 		cashMemberRepository.deleteAll();
+		recoveryDepositRepository.deleteAll();
+	}
+
+	@Test
+	@DisplayName("정산이 청구 ID와 금액으로 가상계좌를 요청하면 발급한 은행 이름과 계좌번호를 돌려준다 (가짜 PG)")
+	void issueClaimVirtualAccount() throws Exception {
+		mockMvc.perform(post("/internal/v1/cash/claims/{claimCode}/virtual-account", "RC-20261214-0A3F")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"amount\": 400000}"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.message").value("가상계좌를 발급했습니다."))
+			.andExpect(jsonPath("$.data.bankName").value("국민은행"))
+			.andExpect(jsonPath("$.data.accountNumber").value("X-fake-RC-20261214-0A3F"));
+
+		assertThat(recoveryDepositRepository.findByClaimCode("RC-20261214-0A3F").orElseThrow().getAmount())
+			.isEqualTo(400_000);
 	}
 
 	@Test

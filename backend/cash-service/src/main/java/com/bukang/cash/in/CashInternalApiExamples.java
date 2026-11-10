@@ -88,6 +88,33 @@ final class CashInternalApiExamples {
 		}
 		""";
 
+	static final String CLAIM_VIRTUAL_ACCOUNT_SUCCESS = """
+		{
+			"status": 200,
+			"message": "가상계좌를 발급했습니다.",
+			"data": {
+				"bankName": "국민은행",
+				"accountNumber": "X6000123456789"
+			}
+		}
+		""";
+
+	static final String VIRTUAL_ACCOUNT_REJECTED = """
+		{ "status": 503, "message": "PG사가 가상계좌 발급을 거절했습니다.", "data": null }
+		""";
+
+	static final String VIRTUAL_ACCOUNT_LOOKUP_REJECTED = """
+		{ "status": 503, "message": "PG사에서 가상계좌를 확인하지 못했습니다.", "data": null }
+		""";
+
+	static final String VIRTUAL_ACCOUNT_PG_UNREACHABLE = """
+		{ "status": 503, "message": "PG 서버에 연결하지 못했습니다. 잠시 후 다시 시도해주세요.", "data": null }
+		""";
+
+	static final String VIRTUAL_ACCOUNT_INVALID_RESPONSE = """
+		{ "status": 503, "message": "PG 서버 응답이 올바르지 않습니다.", "data": null }
+		""";
+
 	static final String INVALID_MEMBER_ID = """
 		{ "status": 400, "message": "회원 ID를 작성해주세요.", "data": null }
 		""";
