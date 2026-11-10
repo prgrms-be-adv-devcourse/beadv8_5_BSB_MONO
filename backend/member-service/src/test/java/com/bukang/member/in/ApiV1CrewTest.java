@@ -34,12 +34,16 @@ import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.event.ApplicationEvents;
+import org.springframework.test.context.event.RecordApplicationEvents;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.common.shared.member.web.MemberIdHeader;
+import com.bukang.common.shared.notification.NotificationKind;
+import com.bukang.common.shared.notification.event.NotificationRequestedEvent;
 import com.bukang.member.app.MemberFacade;
 import com.bukang.member.crew.out.CrewInviteRepository;
 import com.bukang.member.crew.out.CrewMemberRepository;
@@ -55,6 +59,7 @@ import com.jayway.jsonpath.JsonPath;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@RecordApplicationEvents
 @Import(InMemoryIdentityVerificationStore.Config.class)
 class ApiV1CrewTest {
 	@Autowired
@@ -86,6 +91,8 @@ class ApiV1CrewTest {
 	private JdbcTemplate jdbcTemplate;
 	@Autowired
 	private PlatformTransactionManager transactionManager;
+	@Autowired
+	private ApplicationEvents applicationEvents;
 
 	@MockitoBean
 	private Clock clock;
@@ -353,6 +360,34 @@ class ApiV1CrewTest {
 		mockMvc.perform(delete(INVITE, crewId, inviteId).header(MemberIdHeader.NAME, leaderId))
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("CREW_INVITE_ALREADY_USED"));
+	}
+
+	@Test
+	@DisplayName("크루에 가입하면 가입한 회원에게 CREW_JOINED 알림 요청이 한 번 나간다")
+	void joinPublishesNotification() throws Exception {
+		long crewId = createCrew(leaderId, "새벽한강크루");
+		String token = createInvite(crewId, leaderId);
+
+		join(otherId, token).andExpect(status().isCreated());
+
+		List<NotificationRequestedEvent> events = applicationEvents.stream(NotificationRequestedEvent.class).toList();
+		assertThat(events).hasSize(1);
+		NotificationRequestedEvent event = events.get(0);
+		assertThat(event.memberId()).isEqualTo(otherId);
+		assertThat(event.kind()).isEqualTo(NotificationKind.CREW_JOINED);
+		assertThat(event.body()).contains("새벽한강크루");
+		assertThat(event.href()).isEqualTo("/crews/" + crewId);
+	}
+
+	@Test
+	@DisplayName("이미 크루원이라 가입이 실패하면 알림 요청이 나가지 않는다")
+	void alreadyMemberPublishesNoNotification() throws Exception {
+		long crewId = createCrew(leaderId, "새벽한강크루");
+		String token = createInvite(crewId, leaderId);
+
+		join(leaderId, token).andExpect(status().isConflict());
+
+		assertThat(applicationEvents.stream(NotificationRequestedEvent.class)).isEmpty();
 	}
 
 	@Test
