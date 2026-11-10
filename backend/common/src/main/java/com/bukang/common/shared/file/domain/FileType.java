@@ -17,7 +17,9 @@ public enum FileType {
 	// 종목에 포함된 기념품(키트) 이미지. 종목마다 1장
 	KIT("키트 이미지", FileKind.IMAGE, 1),
 	INTRO_VIDEO("대회 소개 영상", FileKind.VIDEO, 1),
-	ROSTER("크루원 명단", FileKind.EXCEL, 1);
+	ROSTER("크루원 명단", FileKind.EXCEL, 1),
+	// 게시판 글에 붙이는 사진. 글마다 최대 5장
+	POST_IMAGE("게시글 사진", FileKind.IMAGE, 5);
 
 	// 화면과 메시지에 쓰는 이름
 	private final String label;
