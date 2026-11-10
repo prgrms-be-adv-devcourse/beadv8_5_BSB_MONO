@@ -9,8 +9,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -71,6 +74,12 @@ public abstract class InquiryTestBase {
 	protected StubOrderLookupPort orderLookupPort;
 	@MockitoBean
 	protected KafkaTemplate<String, String> kafkaTemplate;
+
+	// NotificationKafkaSender는 커밋 뒤 공용 ForkJoin 풀에서 보낸다. 끝나지 않은 전송이 다음 테스트의 목에 늦게 잡히지 않게 기다린다
+	@AfterEach
+	void waitForAsyncNotifications() {
+		ForkJoinPool.commonPool().awaitQuiescence(5, TimeUnit.SECONDS);
+	}
 
 	@BeforeEach
 	void resetState() {
