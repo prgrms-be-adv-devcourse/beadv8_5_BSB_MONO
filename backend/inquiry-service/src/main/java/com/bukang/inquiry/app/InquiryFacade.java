@@ -109,10 +109,10 @@ public class InquiryFacade {
 	}
 
 	// 상세: 닉네임과 주문 정보는 실패해도 null로 두고 문의는 준다
-	// 주문 전체 값(결제 금액·주문 상태)은 관리자 상세에만 준다 (InquiryOrderDto.of)
-	private InquiryDto detailOf(Inquiry inquiry, boolean withOrderTotals) {
+	// 결제 금액은 관리자 상세에만 준다 (InquiryOrderDto.of)
+	private InquiryDto detailOf(Inquiry inquiry, boolean withPayment) {
 		String nickname = nicknamesOf(Set.of(inquiry.getMemberId())).get(inquiry.getMemberId());
-		return InquiryDto.from(inquiry).withManageInfo(nickname, orderOf(inquiry, withOrderTotals));
+		return InquiryDto.from(inquiry).withManageInfo(nickname, orderOf(inquiry, withPayment));
 	}
 
 	private Map<Long, String> nicknamesOf(Collection<Long> memberIds) {
@@ -128,13 +128,13 @@ public class InquiryFacade {
 	}
 
 	// 판매자 문의는 주문이 없다. 주문 서비스가 멈췄거나 주문이 이제 없다고 하면 주문 정보만 비운다
-	private InquiryOrderDto orderOf(Inquiry inquiry, boolean withOrderTotals) {
+	private InquiryOrderDto orderOf(Inquiry inquiry, boolean withPayment) {
 		if (inquiry.getOrderId() == null) {
 			return null;
 		}
 		try {
 			return orderLookupPort.findOrder(inquiry.getOrderId())
-				.map(order -> InquiryOrderDto.of(order, inquiry.getRaceId(), withOrderTotals))
+				.map(order -> InquiryOrderDto.of(order, inquiry.getRaceId(), withPayment))
 				.orElse(null);
 		} catch (InquiryExternalServiceUnavailableException exception) {
 			log.warn("주문 정보를 받지 못해 주문 정보 없이 응답합니다. inquiryId={}, orderId={}", inquiry.getId(),
