@@ -422,7 +422,7 @@ class TossPaymentClientTest {
 
 		server.verify();
 		assertThat(result).isEqualTo(new VirtualAccountIssueResult(
-			"X6000123456789", LocalDateTime.of(2027, 3, 14, 10, 0), "ps_secret_1"));
+			"국민은행", "X6000123456789", LocalDateTime.of(2027, 3, 14, 10, 0), "ps_secret_1"));
 	}
 
 	@Test

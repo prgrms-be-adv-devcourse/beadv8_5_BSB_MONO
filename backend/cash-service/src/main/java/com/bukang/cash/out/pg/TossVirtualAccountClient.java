@@ -25,6 +25,7 @@ class TossVirtualAccountClient {
 	static final String ISSUE_PATH = "/v1/virtual-accounts";
 	// 은행은 국민은행 한 곳으로 정한다
 	static final String BANK_KOOKMIN = "06";
+	static final String BANK_KOOKMIN_NAME = "국민은행";
 	// 유효기간은 Toss 최대인 90일이다. 정산의 입금 기한(30일)을 넘겨 늦게 내도 자동으로 기록된다
 	static final int VALID_HOURS = 90 * 24;
 	private static final String ORDER_NAME = "크루런 정산금 반환";
@@ -62,8 +63,8 @@ class TossVirtualAccountClient {
 			log.error("Toss 가상계좌 발급 응답에 계좌 정보가 없습니다. orderId={}", orderId);
 			throw new VirtualAccountIssueFailedException("PG 서버 응답이 올바르지 않습니다.");
 		}
-		return new VirtualAccountIssueResult(
-			account.accountNumber(), account.dueDate().atZoneSameInstant(KOREA).toLocalDateTime(), response.secret());
+		return new VirtualAccountIssueResult(BANK_KOOKMIN_NAME, account.accountNumber(),
+			account.dueDate().atZoneSameInstant(KOREA).toLocalDateTime(), response.secret());
 	}
 
 	private record IssueRequest(
