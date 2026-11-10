@@ -22,7 +22,8 @@ import lombok.NoArgsConstructor;
 @Table(name = "inquiry_inquiry", indexes = {
 	@Index(name = "idx_inquiry_member", columnList = "member_id, id"),
 	@Index(name = "idx_inquiry_seller", columnList = "seller_member_id, assignee, status, id"),
-	@Index(name = "idx_inquiry_status", columnList = "status, id")
+	@Index(name = "idx_inquiry_status", columnList = "status, id"),
+	@Index(name = "idx_inquiry_assignee", columnList = "assignee, status, id")
 })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

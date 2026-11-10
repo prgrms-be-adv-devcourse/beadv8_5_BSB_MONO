@@ -81,13 +81,20 @@ public class InquiryUseCase {
 	}
 
 	// 관리자는 담당과 상관없이 모든 문의를 본다 (판매자가 제때 답하는지 봐야 한다). 관리자 확인은 부르는 쪽이 끝냈다
+	// assignee·status는 선택이고 함께 쓸 수 있다. 개수는 assignee를 따르고 status와는 상관없다
 	@Transactional(readOnly = true)
-	public InquiryList findForAdmin(InquiryStatus status, int page, int size) {
+	public InquiryList findForAdmin(InquiryAssignee assignee, InquiryStatus status, int page, int size) {
 		PageRequest pageRequest = PageRequest.of(page, size);
+		if (assignee == null) {
+			var result = status == null
+				? inquiryRepository.findByDeletedAtIsNullOrderByStatusDescIdDesc(pageRequest)
+				: inquiryRepository.findByStatusAndDeletedAtIsNullOrderByIdDesc(status, pageRequest);
+			return listOf(result, inquiryRepository.countAll());
+		}
 		var result = status == null
-			? inquiryRepository.findByDeletedAtIsNullOrderByStatusDescIdDesc(pageRequest)
-			: inquiryRepository.findByStatusAndDeletedAtIsNullOrderByIdDesc(status, pageRequest);
-		return listOf(result, inquiryRepository.countAll());
+			? inquiryRepository.findByAssigneeAndDeletedAtIsNullOrderByStatusDescIdDesc(assignee, pageRequest)
+			: inquiryRepository.findByAssigneeAndStatusAndDeletedAtIsNullOrderByIdDesc(assignee, status, pageRequest);
+		return listOf(result, inquiryRepository.countByAssignee(assignee));
 	}
 
 	// 판매자는 자기 대회의 판매자 담당 문의만 본다. 아니면 없는 문의와 같이 404다

@@ -35,11 +35,22 @@ public interface InquiryRepository extends JpaRepository<Inquiry, Long> {
 
 	Page<Inquiry> findByStatusAndDeletedAtIsNullOrderByIdDesc(InquiryStatus status, Pageable pageable);
 
+	// 관리자 목록의 담당 필터 (idx_inquiry_assignee)
+	Page<Inquiry> findByAssigneeAndDeletedAtIsNullOrderByStatusDescIdDesc(InquiryAssignee assignee, Pageable pageable);
+
+	Page<Inquiry> findByAssigneeAndStatusAndDeletedAtIsNullOrderByIdDesc(InquiryAssignee assignee,
+		InquiryStatus status, Pageable pageable);
+
 	// 상태별 개수 (판매자 목록 범위)
 	@Query("select i.status as status, count(i) as total from Inquiry i where i.sellerMemberId = :sellerMemberId "
 		+ "and i.assignee = :assignee and i.deletedAt is null group by i.status")
 	List<StatusCount> countBySeller(@Param("sellerMemberId") long sellerMemberId,
 		@Param("assignee") InquiryAssignee assignee);
+
+	// 상태별 개수 (관리자 목록 범위: 담당 필터를 쓰면 그 담당)
+	@Query("select i.status as status, count(i) as total from Inquiry i where i.assignee = :assignee "
+		+ "and i.deletedAt is null group by i.status")
+	List<StatusCount> countByAssignee(@Param("assignee") InquiryAssignee assignee);
 
 	// 상태별 개수 (관리자 목록 범위: 전체)
 	@Query("select i.status as status, count(i) as total from Inquiry i where i.deletedAt is null group by i.status")

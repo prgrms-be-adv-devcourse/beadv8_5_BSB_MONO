@@ -16,6 +16,7 @@ import com.bukang.common.global.rsdata.RsData;
 import com.bukang.common.shared.member.web.LoginMemberId;
 import com.bukang.inquiry.app.InquiryFacade;
 import com.bukang.inquiry.app.InquiryUseCase;
+import com.bukang.inquiry.domain.InquiryAssignee;
 import com.bukang.inquiry.domain.InquiryStatus;
 import com.bukang.inquiry.dto.InquiryAnswerRequestDto;
 import com.bukang.inquiry.dto.InquiryCreateRequestDto;
@@ -190,7 +191,10 @@ public class ApiV1InquiryController {
 
 	@GetMapping("/admin/inquiries")
 	@Operation(summary = "관리자 문의 목록",
-		description = "담당과 상관없이 모든 문의를 준다. 답변 대기가 먼저, 그 안에서 최신순이다. 상태별 개수와 문의한 회원 닉네임을 함께 준다. 관리자만 쓴다.")
+		description = "모든 문의를 준다. assignee로 담당을, status로 상태를 거를 수 있고 함께 쓸 수 있다. "
+			+ "답변 대기가 먼저, 그 안에서 최신순이다. "
+			+ "상태별 개수(waitingCount, answeredCount)는 assignee 범위 전체이고 status와는 상관없다. "
+			+ "문의한 회원 닉네임을 함께 준다. 관리자만 쓴다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "조회 성공 (없으면 빈 목록)",
 			content = @Content(examples = @ExampleObject(value = InquiryApiExamples.MANAGE_LIST_SUCCESS))),
@@ -211,6 +215,9 @@ public class ApiV1InquiryController {
 	})
 	public RsData<InquiryManagePageDto> findForAdmin(
 		@LoginMemberId long memberId,
+		@Parameter(description = "담당으로 거르기 (ADMIN 관리자 담당 / SELLER 판매자 담당, 생략하면 전체). "
+			+ "상태별 개수도 이 담당 범위로 센다")
+		@RequestParam(required = false) InquiryAssignee assignee,
 		@Parameter(description = "상태로 거르기 (WAITING 답변 대기 / ANSWERED 답변 완료, 생략하면 전체)")
 		@RequestParam(required = false) InquiryStatus status,
 		@Parameter(description = "페이지 번호 (0부터)", example = "0")
@@ -219,7 +226,7 @@ public class ApiV1InquiryController {
 		@RequestParam(defaultValue = "20") @Min(value = 1, message = "페이지 크기는 1 이상이어야 합니다.")
 		@Max(value = MAX_PAGE_SIZE, message = "한 번에 100개까지 조회할 수 있습니다.") int size
 	) {
-		return RsData.of(HttpStatus.OK, "문의 목록을 조회했습니다.", inquiryFacade.findForAdmin(memberId, status, page, size));
+		return RsData.of(HttpStatus.OK, "문의 목록을 조회했습니다.", inquiryFacade.findForAdmin(memberId, assignee, status, page, size));
 	}
 
 	@PostMapping("/admin/inquiries/{inquiryId}/answer")

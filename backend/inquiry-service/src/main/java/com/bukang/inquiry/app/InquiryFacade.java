@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.bukang.inquiry.domain.Inquiry;
+import com.bukang.inquiry.domain.InquiryAssignee;
 import com.bukang.inquiry.domain.InquiryStatus;
 import com.bukang.inquiry.domain.exception.InquiryAdminForbiddenException;
 import com.bukang.inquiry.domain.exception.InquiryExternalServiceUnavailableException;
@@ -78,9 +79,10 @@ public class InquiryFacade {
 		return detailOf(inquiryUseCase.findForSellerOne(sellerMemberId, inquiryId), false);
 	}
 
-	public InquiryManagePageDto findForAdmin(long adminMemberId, InquiryStatus status, int page, int size) {
+	public InquiryManagePageDto findForAdmin(long adminMemberId, InquiryAssignee assignee, InquiryStatus status,
+		int page, int size) {
 		requireAdmin(adminMemberId);
-		return withNicknames(inquiryUseCase.findForAdmin(status, page, size));
+		return withNicknames(inquiryUseCase.findForAdmin(assignee, status, page, size));
 	}
 
 	public InquiryDto findAdminDetail(long adminMemberId, long inquiryId) {

@@ -26,5 +26,7 @@ create table if not exists inquiry_inquiry (
 	-- 판매자 목록: 판매자·담당으로 찾고 「답변 대기 먼저, 최신순」(status desc, id desc)을 인덱스 순서로 읽는다
 	index idx_inquiry_seller (seller_member_id, assignee, status, id),
 	-- 관리자 목록: 전체를 같은 순서로 읽고, 상태로 거르면 (status = ?, id desc)로 읽는다. 상태별 개수도 이 인덱스로 센다
-	index idx_inquiry_status (status, id)
+	index idx_inquiry_status (status, id),
+	-- 관리자 목록의 담당 필터: 담당으로 찾고 같은 순서로 읽으며, 담당 범위의 상태별 개수도 이 인덱스로 센다
+	index idx_inquiry_assignee (assignee, status, id)
 ) engine=InnoDB;

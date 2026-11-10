@@ -67,7 +67,8 @@ class InquirySchemaTest extends InquiryTestBase {
 	}
 
 	@Test
-	@DisplayName("목록 쿼리가 인덱스를 쓴다: 판매자 목록은 idx_inquiry_seller, 관리자 목록은 idx_inquiry_status, 관리자 목록의 담당 필터는 idx_inquiry_assignee")
+	@DisplayName("목록 쿼리가 인덱스를 쓴다: 판매자 목록 idx_inquiry_seller, 관리자 목록 idx_inquiry_status, "
+		+ "관리자 담당 필터 idx_inquiry_assignee")
 	void listQueriesUseIndexes() {
 		for (int i = 0; i < 300; i++) {
 			jdbcTemplate.update("insert into inquiry_inquiry (member_id, race_id, order_id, type, assignee, "
