@@ -211,6 +211,37 @@ class BoardPostApiTest extends BoardTestBase {
 		assertThat(postRepository.count()).isZero();
 	}
 
+	@Test
+	@DisplayName("사진 파일 ID 목록에 null이 있으면 400이고 도배 제한 시간을 쓰지 않는다")
+	void nullFileId() throws Exception {
+		createPost(ME, body("title", "제목", "content", "본문", "fileIds", java.util.Arrays.asList(11L, null)))
+			.andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+
+		verify(valueOperations, never()).setIfAbsent(anyString(), anyString(), any(Duration.class));
+		assertThat(postRepository.count()).isZero();
+	}
+
+	@Test
+	@DisplayName("글을 읽은 뒤 다른 곳에서 좋아요가 커밋되고 그 뒤 고치기·지우기가 커밋돼도 좋아요 수가 유지된다")
+	void editKeepsLikeCountChangedMeanwhile() throws Exception {
+		long postId = newPost(ME, "제목");
+
+		transactionTemplate.executeWithoutResult(tx -> {
+			BoardPost stale = postRepository.findById(postId).orElseThrow();
+			jdbcTemplate.update("update board_post set like_count = 5, report_count = 2 where id = ?", postId);
+			stale.edit(BoardCategory.FREE, "새 제목", "새 본문");
+		});
+		assertThat(postRepository.findById(postId).orElseThrow().getLikeCount()).isEqualTo(5);
+		assertThat(postRepository.findById(postId).orElseThrow().getReportCount()).isEqualTo(2);
+
+		transactionTemplate.executeWithoutResult(tx -> {
+			BoardPost stale = postRepository.findById(postId).orElseThrow();
+			jdbcTemplate.update("update board_post set like_count = 9 where id = ?", postId);
+			stale.delete();
+		});
+		assertThat(postRepository.findById(postId).orElseThrow().getLikeCount()).isEqualTo(9);
+	}
+
 	// ---- 도배 제한 (Redis) ----
 
 	@Test

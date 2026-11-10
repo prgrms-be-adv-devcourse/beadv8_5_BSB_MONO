@@ -119,6 +119,26 @@ class BoardCommentApiTest extends BoardTestBase {
 	}
 
 	@Test
+	@DisplayName("숨겨진 글의 댓글은 글쓴이가 아니면 고치기·지우기가 404, 글쓴이면 409 BOARD_POST_HIDDEN")
+	void editCommentOfHiddenPost() throws Exception {
+		long postId = newPost(ME, "글");
+		long comment = newComment(OTHER, postId, "댓글", null);
+		hidePost(postId);
+
+		putComment(OTHER, comment, body("content", "바꿈")).andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("BOARD_COMMENT_NOT_FOUND"));
+		deleteComment(OTHER, comment).andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("BOARD_COMMENT_NOT_FOUND"));
+		putComment(ME, comment, body("content", "바꿈")).andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("BOARD_POST_HIDDEN"));
+		deleteComment(ME, comment).andExpect(status().isConflict());
+
+		BoardComment saved = commentRepository.findById(comment).orElseThrow();
+		assertThat(saved.getContent()).isEqualTo("댓글");
+		assertThat(saved.getStatus()).isEqualTo(BoardCommentStatus.VISIBLE);
+	}
+
+	@Test
 	@DisplayName("로그인 없이 댓글을 달면 401")
 	void commentNeedsLogin() throws Exception {
 		long postId = newPost(ME, "글");

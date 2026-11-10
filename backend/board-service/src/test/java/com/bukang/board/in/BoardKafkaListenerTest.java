@@ -134,12 +134,31 @@ class BoardKafkaListenerTest extends BoardTestBase {
 	}
 
 	@Test
-	@DisplayName("회원 복사본이 없는 판매자 이벤트는 예외 없이 건너뛴다")
-	void sellerWithoutMemberIsSkipped() {
-		assertThatCode(() -> listener.handleSellerChanged(seller(999L, SellerStatus.APPROVED), "s-1"))
-			.doesNotThrowAnyException();
+	@DisplayName("판매자 이벤트가 가입 이벤트보다 먼저 와도 판매자 여부를 담은 복사본을 만들고, 늦게 온 가입 이벤트가 지우지 않는다")
+	void sellerBeforeJoin() {
+		listener.handleSellerChanged(seller(NEW_MEMBER, SellerStatus.APPROVED), "s-1");
 
-		assertThat(memberRepository.findById(999L)).isEmpty();
+		assertThat(memberRepository.findById(NEW_MEMBER).orElseThrow().isSellerApproved()).isTrue();
+
+		listener.handleMemberJoined(joined(NEW_MEMBER, "새러너", T0), "m-1");
+
+		BoardMember member = memberRepository.findById(NEW_MEMBER).orElseThrow();
+		assertThat(member.getNickname()).isEqualTo("새러너");
+		assertThat(member.isSellerApproved()).isTrue();
+		assertThat(member.getCreateDate()).isEqualTo(T0);
+	}
+
+	@Test
+	@DisplayName("판매자 이벤트의 시각이 저장된 것보다 옛것이면 버린다 (승인 뒤에 늦게 온 옛 반려)")
+	void staleSellerEventIsDropped() {
+		listener.handleSellerChanged(sellerAt(ME, SellerStatus.APPROVED, T0.plusDays(1)), "s-1");
+		listener.handleSellerChanged(sellerAt(ME, SellerStatus.REJECTED, T0), "s-2");
+
+		assertThat(memberRepository.findById(ME).orElseThrow().isSellerApproved()).isTrue();
+
+		listener.handleSellerChanged(sellerAt(ME, SellerStatus.REJECTED, T0.plusDays(2)), "s-3");
+
+		assertThat(memberRepository.findById(ME).orElseThrow().isSellerApproved()).isFalse();
 	}
 
 	@Test
@@ -216,7 +235,11 @@ class BoardKafkaListenerTest extends BoardTestBase {
 	}
 
 	private String seller(long memberId, SellerStatus status) {
+		return sellerAt(memberId, status, T0);
+	}
+
+	private String sellerAt(long memberId, SellerStatus status, LocalDateTime reviewedAt) {
 		return jsonConverter.toJson(new SellerChangedEvent(1L, memberId, SellerType.INDIVIDUAL, null, null, "대표",
-			status, T0, T0));
+			status, T0.minusDays(1), reviewedAt));
 	}
 }
