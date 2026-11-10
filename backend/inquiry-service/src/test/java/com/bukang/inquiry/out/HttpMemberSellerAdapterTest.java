@@ -54,19 +54,32 @@ class HttpMemberSellerAdapterTest {
 	}
 
 	@Test
-	@DisplayName("없거나 탈퇴한 회원(404)은 판매자가 아니다")
-	void notFound() {
-		server.expect(requestTo(URL)).andRespond(withStatus(HttpStatus.NOT_FOUND));
+	@DisplayName("판매자 신청이 없는 회원(200, sellerId·status가 null)은 판매자가 아니다")
+	void noApplication() {
+		// 회원 서비스 SellerFacade.findSellerOfMember는 신청이 없으면 404가 아니라 MemberSellerDto.NONE을 준다
+		server.expect(requestTo(URL))
+			.andRespond(withSuccess(body("{\"sellerId\": null, \"status\": null}"), MediaType.APPLICATION_JSON));
 
 		assertThat(adapter.isApprovedSeller(3L)).isFalse();
 	}
 
 	@Test
-	@DisplayName("5xx·값이 없는 응답은 판매자로 보지 않고 503으로 던진다")
+	@DisplayName("없거나 탈퇴한 회원(404 MEMBER_NOT_FOUND)은 판매자가 아니다")
+	void notFound() {
+		server.expect(requestTo(URL)).andRespond(withStatus(HttpStatus.NOT_FOUND)
+			.body("{\"status\":404,\"code\":\"MEMBER_NOT_FOUND\",\"message\":\"존재하지 않는 회원입니다.\"}")
+			.contentType(MediaType.APPLICATION_JSON));
+
+		assertThat(adapter.isApprovedSeller(3L)).isFalse();
+	}
+
+	@Test
+	@DisplayName("5xx·data가 없는 응답·회원 없음이 아닌 404는 판매자로 보지 않고 503으로 던진다")
 	void unknownIsUnavailable() {
 		server.expect(requestTo(URL)).andRespond(withServerError());
 		server.expect(requestTo(URL)).andRespond(withSuccess(body("null"), MediaType.APPLICATION_JSON));
-		server.expect(requestTo(URL)).andRespond(withSuccess(body("{}"), MediaType.APPLICATION_JSON));
+		// 경로가 바뀌어 기본 404가 오면 계약이 어긋난 것이라, 모든 판매자 문의가 조용히 403이 되지 않게 503으로 본다
+		server.expect(requestTo(URL)).andRespond(withStatus(HttpStatus.NOT_FOUND));
 
 		for (int i = 0; i < 3; i++) {
 			assertThatThrownBy(() -> adapter.isApprovedSeller(3L))
