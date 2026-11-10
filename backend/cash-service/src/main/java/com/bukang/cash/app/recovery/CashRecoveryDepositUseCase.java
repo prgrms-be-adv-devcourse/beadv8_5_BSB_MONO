@@ -49,6 +49,18 @@ public class CashRecoveryDepositUseCase {
 			return;
 		}
 		PaymentLookupResult lookup = paymentClient.lookupByOrderId(claimCode);
+		if (lookup.status() != PaymentLookupResult.Status.COMPLETED) {
+			log.info("PG 조회 결과가 아직 입금 완료가 아니라 기록하지 않습니다. claimCode={}, status={}",
+				claimCode, lookup.status());
+			return;
+		}
+		// 다른 금액은 은행·PG가 이체 단계에서 막는다. 그래도 다르면 어느 쪽이 맞는지 모르므로 기록하지 않고 사람이 맞춘다
+		long depositedAmount = lookup.approval().approvedAmount();
+		if (depositedAmount != deposit.getAmount()) {
+			log.error("입금 금액이 청구 금액과 달라 기록하지 않습니다. 사람이 확인해야 합니다. claimCode={}, 청구 금액={}, 입금 금액={}",
+				claimCode, deposit.getAmount(), depositedAmount);
+			return;
+		}
 		transactionTemplate.executeWithoutResult(status -> record(deposit.getId(), lookup.approval()));
 	}
 

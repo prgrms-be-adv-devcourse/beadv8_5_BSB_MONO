@@ -128,6 +128,29 @@ class CashRecoveryDepositUseCaseTest {
 		assertNothingRecorded();
 	}
 
+	@Test
+	@DisplayName("PG 조회 결과가 아직 입금 완료가 아니면 기록하지 않고 입금 대기로 둔다")
+	void ignoresWhenPgSaysNotDeposited() {
+		given(paymentClient.lookupByOrderId(CLAIM_CODE)).willReturn(PaymentLookupResult.pending());
+		cashFacade.receiveRecoveryDeposit(CLAIM_CODE, SECRET);
+		assertNothingRecorded();
+
+		given(paymentClient.lookupByOrderId(CLAIM_CODE)).willReturn(PaymentLookupResult.notCompleted());
+		cashFacade.receiveRecoveryDeposit(CLAIM_CODE, SECRET);
+		assertNothingRecorded();
+	}
+
+	@Test
+	@DisplayName("PG 조회의 입금 금액이 청구 금액과 다르면 기록하지 않고 입금 대기로 둔다 (사람이 맞춘다)")
+	void ignoresWhenDepositedAmountDiffers() {
+		given(paymentClient.lookupByOrderId(CLAIM_CODE)).willReturn(
+			PaymentLookupResult.completed(new PaymentApprovalResult(390_000, "pay_key_1", DEPOSITED_AT)));
+
+		cashFacade.receiveRecoveryDeposit(CLAIM_CODE, SECRET);
+
+		assertNothingRecorded();
+	}
+
 	private void assertNothingRecorded() {
 		assertThat(walletRepository.findById(cashWalletProperties.holdingMemberId()).orElseThrow().getBalance())
 			.isZero();
