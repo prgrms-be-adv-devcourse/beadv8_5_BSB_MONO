@@ -2,12 +2,14 @@ package com.bukang.cash.app.recovery;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.List;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.cash.app.CashSupport;
 import com.bukang.cash.config.CashWalletProperties;
+import com.bukang.cash.domain.exception.charge.PaymentLookupFailedException;
 import com.bukang.cash.domain.recovery.RecoveryDeposit;
 import com.bukang.cash.domain.recovery.RecoveryDepositStatus;
 import com.bukang.cash.domain.wallet.LedgerRefType;
@@ -54,6 +56,28 @@ public class CashRecoveryDepositUseCase {
 			log.info("이미 처리한 회수 입금이라 알림을 건너뜁니다. claimCode={}, status={}", claimCode, deposit.getStatus());
 			return;
 		}
+		confirmWithPg(deposit);
+	}
+
+	/**
+	 * 입금 알림이 빠졌을 때를 대비해 입금 대기 건을 PG에 다시 조회해 맞춘다. 알림을 받았을 때와 같은 확인을 거친다
+	 * 한 건의 조회가 실패해도 남은 건은 계속 본다. 실패한 건은 입금 대기로 남아 다음 실행에서 다시 본다
+	 */
+	public void reconcile() {
+		List<RecoveryDeposit> waiting =
+			recoveryDepositRepository.findByStatusOrderByIdAsc(RecoveryDepositStatus.WAITING);
+		for (RecoveryDeposit deposit : waiting) {
+			try {
+				confirmWithPg(deposit);
+			} catch (PaymentLookupFailedException lookupFailure) {
+				log.warn("회수 입금 재확인: PG 조회에 실패해 다음 실행으로 미룹니다. claimCode={}", deposit.getClaimCode());
+			}
+		}
+	}
+
+	// 입금 완료와 금액은 알림 내용이 아니라 PG 조회 결과로만 판단한다
+	private void confirmWithPg(RecoveryDeposit deposit) {
+		String claimCode = deposit.getClaimCode();
 		PaymentLookupResult lookup = paymentClient.lookupByOrderId(claimCode);
 		if (lookup.status() != PaymentLookupResult.Status.COMPLETED) {
 			log.info("PG 조회 결과가 아직 입금 완료가 아니라 기록하지 않습니다. claimCode={}, status={}",

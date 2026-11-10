@@ -28,6 +28,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.cash.app.CashFacade;
 import com.bukang.cash.config.CashWalletProperties;
+import com.bukang.cash.domain.exception.charge.PaymentLookupFailedException;
 import com.bukang.cash.domain.member.CashMember;
 import com.bukang.cash.domain.recovery.RecoveryDeposit;
 import com.bukang.cash.domain.recovery.RecoveryDepositStatus;
@@ -65,6 +66,8 @@ class CashRecoveryDepositUseCaseTest {
 	private RecoveryDepositRepository recoveryDepositRepository;
 	@Autowired
 	private TransactionTemplate transactionTemplate;
+	@Autowired
+	private CashRecoveryDepositUseCase cashRecoveryDepositUseCase;
 	@MockitoBean
 	private PaymentClient paymentClient;
 
@@ -193,6 +196,34 @@ class CashRecoveryDepositUseCaseTest {
 		executor.shutdown();
 
 		assertRecordedOnce();
+	}
+
+	@Test
+	@DisplayName("입금 알림이 오지 않아도 재확인이 입금 대기 건을 PG에 다시 조회해 입금 완료면 홀딩 지갑에 기록한다")
+	void reconcileRecordsDepositWithoutCallback() {
+		given(paymentClient.lookupByOrderId(CLAIM_CODE)).willReturn(
+			PaymentLookupResult.completed(new PaymentApprovalResult(400_000, "pay_key_1", DEPOSITED_AT)));
+
+		cashRecoveryDepositUseCase.reconcile();
+
+		assertRecordedOnce();
+	}
+
+	@Test
+	@DisplayName("재확인 중 한 건의 PG 조회가 실패해도 다른 입금 대기 건은 계속 확인한다")
+	void reconcileContinuesAfterLookupFailure() {
+		RecoveryDeposit failing = recoveryDepositRepository.save(new RecoveryDeposit(
+			"RC-20261213-0001", 100_000, "국민은행", "X6000000000001", LocalDateTime.of(2027, 3, 13, 10, 0), "s"));
+		given(paymentClient.lookupByOrderId(failing.getClaimCode()))
+			.willThrow(new PaymentLookupFailedException("timeout", null));
+		given(paymentClient.lookupByOrderId(CLAIM_CODE)).willReturn(
+			PaymentLookupResult.completed(new PaymentApprovalResult(400_000, "pay_key_1", DEPOSITED_AT)));
+
+		cashRecoveryDepositUseCase.reconcile();
+
+		assertRecordedOnce();
+		assertThat(recoveryDepositRepository.findById(failing.getId()).orElseThrow().getStatus())
+			.isEqualTo(RecoveryDepositStatus.WAITING);
 	}
 
 	private void assertRecordedOnce() {
