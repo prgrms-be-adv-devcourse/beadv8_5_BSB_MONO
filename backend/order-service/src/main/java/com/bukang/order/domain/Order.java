@@ -321,6 +321,12 @@ public class Order extends BaseIdAndTime {
 			.orElse(null);
 	}
 
+	// 주문 상품의 키트 배송 상태. 배송이 없으면(키트 없음·결제 전) null. 판매자·구매자 API와 같은 값이다 (BUK-160)
+	public KitDeliveryStatus kitDeliveryStatus(OrderItem item) {
+		Shipment shipment = findKitShipment(item);
+		return shipment == null ? null : shipment.getStatus().getKitDeliveryStatus();
+	}
+
 	// 개인 예매 주문은 참가 신청 1건짜리다 (결제 1건 = 참가 신청 1건)
 	public long participationId() {
 		return items.getFirst().getParticipationId();
