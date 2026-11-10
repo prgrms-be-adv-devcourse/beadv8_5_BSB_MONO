@@ -1,6 +1,7 @@
 package com.bukang.cash.out.kafka;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.kafka.core.KafkaTemplate;
 
+import com.bukang.cash.domain.exception.recovery.ClaimDepositedSendFailedException;
 import com.bukang.common.global.json.JsonConverter;
 import com.bukang.common.shared.cash.event.ClaimDepositedEvent;
 import com.bukang.common.shared.kafka.KafkaMessageId;
@@ -46,6 +48,23 @@ class ClaimDepositedSenderTest {
 		assertThat(jsonConverter.fromJson(record.value(), ClaimDepositedEvent.class)).isEqualTo(EVENT);
 		assertThat(new String(record.headers().lastHeader(KafkaMessageId.HEADER).value(), StandardCharsets.UTF_8))
 			.isEqualTo("cash-claimdeposited-RC-20261214-0A3F");
+	}
+
+	@Test
+	@DisplayName("브로커가 받지 못했다고 답하면 보내기 실패 예외로 알린다")
+	void throwsWhenBrokerRejects() {
+		given(kafkaTemplate.send(any(ProducerRecord.class)))
+			.willReturn(CompletableFuture.failedFuture(new IllegalStateException("브로커 응답 없음")));
+
+		assertThatThrownBy(() -> sender.send(EVENT)).isInstanceOf(ClaimDepositedSendFailedException.class);
+	}
+
+	@Test
+	@DisplayName("브로커에 연결하지 못해 send가 바로 예외를 던져도 보내기 실패 예외로 알린다")
+	void throwsWhenSendFailsImmediately() {
+		given(kafkaTemplate.send(any(ProducerRecord.class))).willThrow(new IllegalStateException("연결 실패"));
+
+		assertThatThrownBy(() -> sender.send(EVENT)).isInstanceOf(ClaimDepositedSendFailedException.class);
 	}
 
 	@SuppressWarnings("unchecked")

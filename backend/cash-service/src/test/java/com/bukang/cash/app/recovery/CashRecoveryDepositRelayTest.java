@@ -1,7 +1,9 @@
 package com.bukang.cash.app.recovery;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -15,6 +17,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
+import com.bukang.cash.domain.exception.recovery.ClaimDepositedSendFailedException;
 import com.bukang.cash.domain.recovery.RecoveryDeposit;
 import com.bukang.cash.out.kafka.ClaimDepositedSender;
 import com.bukang.cash.out.recovery.RecoveryDepositRepository;
@@ -61,6 +64,21 @@ class CashRecoveryDepositRelayTest {
 		cashRecoveryDepositRelayUseCase.relay(NOW.plusMinutes(10));
 
 		verify(claimDepositedSender, times(1)).send(any());
+	}
+
+	@Test
+	@DisplayName("보내기에 실패하면 오류 없이 이번 실행을 멈추고, 실패한 건과 뒤의 건은 보낸 시각을 비워 둬 다음 실행에서 다시 보낸다")
+	void stopsAtSendFailureAndRetriesNextRun() {
+		RecoveryDeposit first = saveDeposit("RC-20261214-0A3F", true);
+		RecoveryDeposit second = saveDeposit("RC-20261214-0B00", true);
+		willThrow(new ClaimDepositedSendFailedException("브로커 응답 없음", null))
+			.given(claimDepositedSender).send(any());
+
+		assertThatCode(() -> cashRecoveryDepositRelayUseCase.relay(NOW)).doesNotThrowAnyException();
+
+		verify(claimDepositedSender, times(1)).send(any());
+		assertThat(recoveryDepositRepository.findById(first.getId()).orElseThrow().getSentAt()).isNull();
+		assertThat(recoveryDepositRepository.findById(second.getId()).orElseThrow().getSentAt()).isNull();
 	}
 
 	private RecoveryDeposit saveDeposit(String claimCode, boolean deposited) {
