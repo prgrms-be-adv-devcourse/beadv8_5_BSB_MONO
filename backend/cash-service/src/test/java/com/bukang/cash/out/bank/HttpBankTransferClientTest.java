@@ -66,6 +66,34 @@ class HttpBankTransferClientTest {
 		server.verify();
 	}
 
+	static Stream<Arguments> lookupResponses() {
+		return Stream.of(
+			Arguments.of("완료", withSuccess(body("COMPLETED"), MediaType.APPLICATION_JSON),
+				BankTransferResult.COMPLETED),
+			Arguments.of("실패", withSuccess(body("FAILED"), MediaType.APPLICATION_JSON), BankTransferResult.FAILED),
+			Arguments.of("처리 중", withSuccess(body("PROCESSING"), MediaType.APPLICATION_JSON),
+				BankTransferResult.UNKNOWN),
+			Arguments.of("송금 없음 404", withStatus(HttpStatus.NOT_FOUND), BankTransferResult.NOT_FOUND),
+			Arguments.of("그 밖의 4xx", withStatus(HttpStatus.BAD_REQUEST), BankTransferResult.UNKNOWN),
+			Arguments.of("5xx", withStatus(HttpStatus.INTERNAL_SERVER_ERROR), BankTransferResult.UNKNOWN),
+			Arguments.of("응답 시간 초과", withException(new SocketTimeoutException()), BankTransferResult.UNKNOWN)
+		);
+	}
+
+	@ParameterizedTest(name = "{0} → {2}")
+	@MethodSource("lookupResponses")
+	@DisplayName("송금 ID로 조회하고, 은행 응답을 완료·실패·없음·결과 모름으로 나눈다")
+	void lookup(String name, ResponseCreator response, BankTransferResult expected) {
+		server.expect(requestTo(BASE_URL + "/fakebank/v1/transfers/payout-transfer-11"))
+			.andExpect(method(HttpMethod.GET))
+			.andRespond(response);
+
+		BankTransferResult result = client.lookup("payout-transfer-11");
+
+		assertThat(result).isEqualTo(expected);
+		server.verify();
+	}
+
 	private static String body(String status) {
 		return """
 			{ "transferId": "payout-transfer-11", "status": "%s" }

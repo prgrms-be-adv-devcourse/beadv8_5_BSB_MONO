@@ -6,4 +6,7 @@ package com.bukang.cash.out.bank;
  */
 public interface BankTransferClient {
 	BankTransferResult transfer(String transferId, long sellerId, long amount);
+
+	// 결과를 모르는 송금을 재확인할 때 쓴다. 조회 자체가 실패하면 UNKNOWN이다
+	BankTransferResult lookup(String transferId);
 }

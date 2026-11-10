@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -55,6 +56,13 @@ class FakeBankControllerTest {
 		mockMvc.perform(get("/fakebank/v1/transfers/" + transferId))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.status").value(lookupStatus));
+	}
+
+	@Test
+	@DisplayName("은행에 없는 송금 ID를 조회하면 404다")
+	void lookupUnknownTransfer() throws Exception {
+		mockMvc.perform(get("/fakebank/v1/transfers/never-sent"))
+			.andExpect(status().isNotFound());
 	}
 
 	private void changeMode(String mode) throws Exception {

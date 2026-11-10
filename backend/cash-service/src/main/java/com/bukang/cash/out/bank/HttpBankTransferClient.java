@@ -1,5 +1,6 @@
 package com.bukang.cash.out.bank;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -36,6 +37,27 @@ public class HttpBankTransferClient implements BankTransferClient {
 		} catch (RestClientException e) {
 			// 5xx·시간 초과·응답 해석 실패는 은행이 송금했는지 알 수 없다
 			log.warn("송금 결과를 알 수 없습니다. transferId={}", transferId, e);
+			return BankTransferResult.UNKNOWN;
+		}
+	}
+
+	@Override
+	public BankTransferResult lookup(String transferId) {
+		try {
+			TransferResponse response = restClient.get()
+				.uri(TRANSFER_PATH + "/{transferId}", transferId)
+				.retrieve()
+				.body(TransferResponse.class);
+			return toResult(response);
+		} catch (HttpClientErrorException e) {
+			if (e.getStatusCode() == HttpStatus.NOT_FOUND) {
+				return BankTransferResult.NOT_FOUND;
+			}
+			// 404 말고는 은행에 송금이 있는지 알 수 없어 결과 모름으로 둔다
+			log.warn("송금 조회가 거절됐습니다. transferId={}, status={}", transferId, e.getStatusCode());
+			return BankTransferResult.UNKNOWN;
+		} catch (RestClientException e) {
+			log.warn("송금 조회에 실패했습니다. transferId={}", transferId, e);
 			return BankTransferResult.UNKNOWN;
 		}
 	}

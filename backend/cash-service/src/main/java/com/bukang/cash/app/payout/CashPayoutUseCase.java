@@ -156,9 +156,7 @@ public class CashPayoutUseCase {
 			case COMPLETED -> settlement.markCompleted();
 			case FAILED -> {
 				// 은행이 확실히 거절해 돈이 나가지 않았으니 홀딩 지갑에서 뺀 대금을 되돌린다. 수수료는 그대로 둔다
-				settlement.markFailed();
-				walletLedgerRepository.save(holdingWallet.credit(settlement.getAmount(),
-					LedgerType.정산지급취소__상품판매_대금, LedgerRefType.Payout, settlement.getId()));
+				walletLedgerRepository.save(settlement.fail(holdingWallet));
 			}
 			// 은행이 송금했을 수 있어 되돌리지 않는다. 재확인이 완료나 실패로 맞춘다
 			case UNKNOWN -> settlement.markUnknown();

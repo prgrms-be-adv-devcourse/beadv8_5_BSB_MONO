@@ -2,6 +2,10 @@ package com.bukang.cash.domain.payout;
 
 import static jakarta.persistence.EnumType.STRING;
 
+import com.bukang.cash.domain.wallet.LedgerRefType;
+import com.bukang.cash.domain.wallet.LedgerType;
+import com.bukang.cash.domain.wallet.Wallet;
+import com.bukang.cash.domain.wallet.WalletLedger;
 import com.bukang.common.global.jpa.entity.BaseIdAndTime;
 
 import jakarta.persistence.Column;
@@ -82,7 +86,9 @@ public class PayoutTransfer extends BaseIdAndTime {
 		this.status = PayoutTransferStatus.UNKNOWN;
 	}
 
-	public void markFailed() {
+	// 은행이 송금하지 않은 것이 확정됐다. 홀딩 지갑에서 뺀 대금을 되돌리는 장부 줄을 돌려준다 (저장은 부른 쪽이 한다)
+	public WalletLedger fail(Wallet holdingWallet) {
 		this.status = PayoutTransferStatus.FAILED;
+		return holdingWallet.credit(amount, LedgerType.정산지급취소__상품판매_대금, LedgerRefType.Payout, getId());
 	}
 }
