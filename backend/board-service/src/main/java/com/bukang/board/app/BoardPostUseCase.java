@@ -74,6 +74,8 @@ public class BoardPostUseCase {
 			throw new BoardNotWriterException();
 		}
 		post.delete();
+		// 빈 목록을 보내야 file-service가 사진 연결을 떼어, 지운 글의 사진이 공개 조회에 남지 않고 정리 배치 대상이 된다
+		requestFileLink(memberId, post, List.of());
 	}
 
 	private void requestFileLink(long memberId, BoardPost post, List<Long> fileIds) {

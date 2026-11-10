@@ -340,6 +340,19 @@ class BoardPostApiTest extends BoardTestBase {
 	}
 
 	@Test
+	@DisplayName("글을 지우면 사진 연결을 모두 떼는 메시지를 보낸다 (지운 글의 사진이 공개 조회에 남지 않게)")
+	void deleteUnlinksFiles() throws Exception {
+		long postId = newPost(ME, "제목");
+
+		deletePost(ME, postId).andExpect(status().isOk());
+
+		FileLinkRequestedEvent cleared = sentFileLink();
+		assertThat(cleared.ownerId()).isEqualTo(ME);
+		assertThat(cleared.refs().getFirst().refId()).isEqualTo(postId);
+		assertThat(cleared.refs().getFirst().files()).isEmpty();
+	}
+
+	@Test
 	@DisplayName("롤백된 글쓰기는 사진 연결 메시지를 보내지 않는다 (커밋 뒤에만 보낸다)")
 	void rolledBackCreateSendsNothing() {
 		transactionTemplate.executeWithoutResult(tx -> {
