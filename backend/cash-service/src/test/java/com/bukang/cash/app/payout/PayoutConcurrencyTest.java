@@ -1,6 +1,10 @@
 package com.bukang.cash.app.payout;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -19,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.cash.app.CashFacade;
@@ -28,6 +33,8 @@ import com.bukang.cash.domain.payout.PayoutStage;
 import com.bukang.cash.domain.seller.CashSeller;
 import com.bukang.cash.domain.wallet.Wallet;
 import com.bukang.cash.dto.payout.CashPayoutResponseDto;
+import com.bukang.cash.out.bank.BankTransferClient;
+import com.bukang.cash.out.bank.BankTransferResult;
 import com.bukang.cash.out.member.CashMemberRepository;
 import com.bukang.cash.out.payout.PayoutTransferRepository;
 import com.bukang.cash.out.seller.CashSellerRepository;
@@ -59,6 +66,8 @@ class PayoutConcurrencyTest {
 	private PayoutTransferRepository payoutTransferRepository;
 	@Autowired
 	private TransactionTemplate transactionTemplate;
+	@MockitoBean
+	private BankTransferClient bankTransferClient;
 
 	@AfterEach
 	void tearDown() {
@@ -75,6 +84,7 @@ class PayoutConcurrencyTest {
 		createWallet(cashWalletProperties.holdingMemberId(), "홀딩");
 		createWallet(cashWalletProperties.systemMemberId(), "시스템");
 		createSellerWithMapping();
+		given(bankTransferClient.transfer(anyString(), anyLong(), anyLong())).willReturn(BankTransferResult.COMPLETED);
 
 		List<AttemptResult> results = runConcurrently(10, i -> () ->
 			cashFacade.payout(PAYOUT_ID, SELLER_APPLICATION_ID, PayoutStage.FINAL, 90_000, 5_500));
@@ -90,10 +100,11 @@ class PayoutConcurrencyTest {
 		assertThat(errorCount).as("예외 없이 전부 응답해야 한다").isZero();
 		assertThat(paidCount).as("딱 한 번만 실제로 지급돼야 한다").isEqualTo(1);
 		assertThat(alreadyPaidCount).as("나머지는 이미 지급됨으로 수렴해야 한다").isEqualTo(9);
+		then(bankTransferClient).should().transfer(anyString(), anyLong(), anyLong());
 		assertBalance(cashWalletProperties.holdingMemberId(), -95_500);
-		assertBalance(SELLER_MEMBER_ID, 90_000);
+		assertBalance(SELLER_MEMBER_ID, 0);
 		assertBalance(cashWalletProperties.systemMemberId(), 5_500);
-		assertThat(walletLedgerRepository.findAll()).as("장부는 대금 2줄 + 수수료 2줄만 있어야 한다").hasSize(4);
+		assertThat(walletLedgerRepository.findAll()).as("장부는 대금 1줄 + 수수료 2줄만 있어야 한다").hasSize(3);
 		assertThat(payoutTransferRepository.count()).as("이동 기록도 대금·수수료 하나씩만 있어야 한다").isEqualTo(2);
 	}
 

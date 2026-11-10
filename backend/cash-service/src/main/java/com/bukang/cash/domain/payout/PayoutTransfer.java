@@ -41,10 +41,31 @@ public class PayoutTransfer extends BaseIdAndTime {
 	@Column(nullable = false)
 	private long amount;
 
+	@Enumerated(STRING)
+	@Column(nullable = false, length = 20)
+	private PayoutTransferStatus status;
+
+	// 은행 송금을 몇 번째로 시도하는지. 은행은 같은 송금 ID를 한 번만 보내므로, 실패 뒤 다시 보낼 때 ID를 바꾸는 데 쓴다
+	@Column(nullable = false)
+	private int attempt;
+
 	public PayoutTransfer(long payoutId, long sellerId, PayoutTransferType transferType, long amount) {
 		this.payoutId = payoutId;
 		this.sellerId = sellerId;
 		this.transferType = transferType;
 		this.amount = amount;
+		// 수수료는 지갑끼리 옮겨 바로 끝나고, 대금은 은행 송금 결과를 기다린다
+		this.status = transferType == PayoutTransferType.FEE ? PayoutTransferStatus.COMPLETED
+			: PayoutTransferStatus.REQUESTED;
+		this.attempt = 1;
+	}
+
+	// 은행에 보내는 송금 ID. 같은 시도는 같은 ID라 결과를 모를 때 다시 물어봐도 두 번 나가지 않는다
+	public String bankTransferId() {
+		return "payout-" + getId() + "-" + attempt;
+	}
+
+	public void markCompleted() {
+		this.status = PayoutTransferStatus.COMPLETED;
 	}
 }

@@ -1,6 +1,9 @@
 package com.bukang.cash.in;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -17,6 +20,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -28,6 +32,8 @@ import com.bukang.cash.domain.seller.CashSeller;
 import com.bukang.cash.domain.wallet.LedgerRefType;
 import com.bukang.cash.domain.wallet.LedgerType;
 import com.bukang.cash.domain.wallet.Wallet;
+import com.bukang.cash.out.bank.BankTransferClient;
+import com.bukang.cash.out.bank.BankTransferResult;
 import com.bukang.cash.out.member.CashMemberRepository;
 import com.bukang.cash.out.payment.PaymentRepository;
 import com.bukang.cash.out.payout.PayoutTransferRepository;
@@ -60,9 +66,12 @@ class InternalV1CashControllerTest {
 	private CashSellerRepository cashSellerRepository;
 	@Autowired
 	private TransactionTemplate transactionTemplate;
+	@MockitoBean
+	private BankTransferClient bankTransferClient;
 
 	@BeforeEach
 	void setUp() {
+		given(bankTransferClient.transfer(anyString(), anyLong(), anyLong())).willReturn(BankTransferResult.COMPLETED);
 		transactionTemplate.executeWithoutResult(status -> {
 			createWallet(cashWalletProperties.holdingMemberId(), "홀딩");
 			createWallet(cashWalletProperties.systemMemberId(), "시스템");
@@ -220,7 +229,7 @@ class InternalV1CashControllerTest {
 	}
 
 	@Test
-	@DisplayName("최종 정산 지급은 홀딩 지갑에서 판매자·시스템 지갑으로 대금·수수료를 옮긴다")
+	@DisplayName("최종 정산 지급은 대금을 은행으로 보내고 수수료를 시스템 지갑으로 옮긴다")
 	void payoutFinalStageTransfersSettlementAndFee() throws Exception {
 		long sellerApplicationId = 50;
 		long sellerMemberId = 10;
@@ -233,7 +242,8 @@ class InternalV1CashControllerTest {
 			.andExpect(jsonPath("$.data.settlementAmount").value(90_000))
 			.andExpect(jsonPath("$.data.feeAmount").value(5_500));
 
-		assertBalance(sellerMemberId, 90_000);
+		assertBalance(sellerMemberId, 0);
+		assertBalance(cashWalletProperties.holdingMemberId(), -95_500);
 		assertBalance(cashWalletProperties.systemMemberId(), 5_500);
 	}
 
@@ -249,7 +259,8 @@ class InternalV1CashControllerTest {
 			.andExpect(jsonPath("$.data.outcome").value("PAID"))
 			.andExpect(jsonPath("$.data.feeAmount").value(0));
 
-		assertBalance(sellerMemberId, 40_000);
+		assertBalance(sellerMemberId, 0);
+		assertBalance(cashWalletProperties.holdingMemberId(), -40_000);
 		assertBalance(cashWalletProperties.systemMemberId(), 0);
 	}
 
@@ -266,7 +277,7 @@ class InternalV1CashControllerTest {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.outcome").value("ALREADY_PAID"));
 
-		assertBalance(sellerMemberId, 90_000);
+		assertBalance(cashWalletProperties.holdingMemberId(), -95_500);
 		assertBalance(cashWalletProperties.systemMemberId(), 5_500);
 	}
 
@@ -284,7 +295,7 @@ class InternalV1CashControllerTest {
 			.andExpect(jsonPath("$.data.settlementAmount").value(90_000))
 			.andExpect(jsonPath("$.data.feeAmount").value(5_500));
 
-		assertBalance(sellerMemberId, 90_000);
+		assertBalance(cashWalletProperties.holdingMemberId(), -95_500);
 	}
 
 	@Test
