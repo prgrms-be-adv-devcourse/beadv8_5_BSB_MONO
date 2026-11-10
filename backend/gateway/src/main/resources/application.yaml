@@ -136,3 +136,6 @@ gateway:
       # (/** 는 그 아래가 없는 /api/v1/file/files 목록 조회도 포함한다)
       - pattern: /api/v1/file/files/**
         methods: [ GET ]
+      # 토스가 가상계좌 입금을 알린다. 토스는 우리 토큰이 없고, 진짜 알림인지는 cash-service가 비밀값과 토스 조회로 확인한다 (BUK-146)
+      - pattern: /api/v1/cash/webhooks/toss/deposit
+        methods: [ POST ]
