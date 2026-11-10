@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -103,6 +104,9 @@ class RaceCancelRefundTest {
 	@Autowired
 	private PartyRepository partyRepository;
 
+	@MockitoSpyBean
+	private PartyCloseUseCase partyCloseUseCase;
+
 	@Autowired
 	private OrderCreateUseCase orderCreateUseCase;
 
@@ -171,6 +175,19 @@ class RaceCancelRefundTest {
 		raceCancelRefundUseCase.refundAll(RACE_ID, LocalDateTime.now());
 
 		assertThat(partyRepository.findById(party).orElseThrow().getStatus()).isEqualTo(PartyStatus.CLOSED);
+	}
+
+	@Test
+	@DisplayName("파티 종료에 실패해도 환불은 계속하고, 실패로 세어 메시지를 다시 처리하게 한다 (BUK-155)")
+	void refundsEvenIfPartyCloseFails() throws Exception {
+		long paid = paidOrder(1, COURSE_ID);
+		doThrow(new IllegalStateException("파티 종료 실패"))
+			.when(partyCloseUseCase).closeCanceledRace(eq(RACE_ID), any());
+
+		RaceCancelRefundUseCase.RefundResult result = raceCancelRefundUseCase.refundAll(RACE_ID, LocalDateTime.now());
+
+		assertThat(result).isEqualTo(new RaceCancelRefundUseCase.RefundResult(1, 1));
+		assertCanceled(paid);
 	}
 
 	@Test

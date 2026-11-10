@@ -55,7 +55,7 @@ public class RaceCancelRefundUseCase {
 	 * @param refundedOrders 이번에 취소·환불한 주문 수
 	 * @param failedOrders   환불(D 장애 등)에 실패해 결제 완료로 남긴 주문 수. 같은 대회 취소를 다시 처리하면 이어서 환불한다
 	 *                       예치금 장애로 중간에 멈추면 1 이상이다 (보지 못한 주문은 세지 않는다)
-	 *                       결제 대기 주문의 결제 취소에 실패한 것도 센다
+	 *                       결제 대기 주문의 결제 취소에 실패한 것도 센다. 파티 종료(BUK-155)에 실패하면 1을 더한다
 	 */
 	public record RefundResult(int refundedOrders, int failedOrders) {
 	}
@@ -68,10 +68,15 @@ public class RaceCancelRefundUseCase {
 	public RefundResult refundAll(long raceId, LocalDateTime now) {
 		// 환불을 시작하기 전에 정산이 그 대회 지급을 막게 한다 (11/05 회의 R1). 다시 처리할 때도 보내 완료보다 늘 앞선다
 		transactionTemplate.executeWithoutResult(status -> orderOutboxKafkaAppendUseCase.appendRaceHeld(raceId, now));
-		// 끝나지 않은 파티를 종료한다 (BUK-155). 예치금을 부르지 않아 환불 장애와 상관없이 먼저 끝낸다
-		partyCloseUseCase.closeCanceledRace(raceId, now);
 		int refunded = 0;
 		int failed = 0;
+		// 끝나지 않은 파티를 종료한다 (BUK-155). 실패해도 환불은 계속하고, 실패로 세어 메시지를 다시 처리하게 한다
+		try {
+			partyCloseUseCase.closeCanceledRace(raceId, now);
+		} catch (RuntimeException exception) {
+			failed++;
+			log.warn("취소된 대회의 파티를 종료하지 못했습니다. raceId={}, cause={}", raceId, exception.toString());
+		}
 		int consecutiveFailures = 0;
 		long afterId = 0;
 		List<Long> orderIds;
