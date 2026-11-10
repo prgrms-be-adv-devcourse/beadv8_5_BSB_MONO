@@ -226,7 +226,8 @@ public class ApiV1InquiryController {
 		@RequestParam(defaultValue = "20") @Min(value = 1, message = "페이지 크기는 1 이상이어야 합니다.")
 		@Max(value = MAX_PAGE_SIZE, message = "한 번에 100개까지 조회할 수 있습니다.") int size
 	) {
-		return RsData.of(HttpStatus.OK, "문의 목록을 조회했습니다.", inquiryFacade.findForAdmin(memberId, assignee, status, page, size));
+		return RsData.of(HttpStatus.OK, "문의 목록을 조회했습니다.",
+			inquiryFacade.findForAdmin(memberId, assignee, status, page, size));
 	}
 
 	@PostMapping("/admin/inquiries/{inquiryId}/answer")
