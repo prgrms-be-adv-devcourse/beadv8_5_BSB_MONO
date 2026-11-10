@@ -20,11 +20,12 @@
 | `product-service` | Spring Boot 앱 | 8085 | 대회(상품), 종목(참가권), 정원 (뼈대만 있음) |
 | `queue-service` | Spring Boot 앱 | 8086 | 예매 대기열 (뼈대만 있음) |
 | `notification-service` | Spring Boot 앱 | 8087 | 내 알림. 다른 서비스가 보낸 `push.notification.requested`를 저장하고 조회·읽음 API를 연다 (BUK-69) |
+| `inquiry-service` | Spring Boot 앱 | 8088 | 대회 문의. 회원이 문의를 남기면 담당(판매자·관리자)이 한 번 답하고, 알림이 간다 (BUK-154) |
 
 인프라(`compose.yml`: MySQL, Kafka, Elasticsearch, Redis, 로컬 S3 대체재 S3Mock)는 모든 서비스가 공용으로 씁니다.
 
 - Java 25 (Gradle toolchain), Spring Boot 4.1.1, Gradle 9.7.1 (Kotlin DSL)
-- 루트 패키지: `com.bukang` (`group`은 `com`). 모듈별 패키지는 `com.bukang.common`, `com.bukang.member`, `com.bukang.cash`, `com.bukang.payout`, `com.bukang.file`, `com.bukang.order`, `com.bukang.product`, `com.bukang.queue`
+- 루트 패키지: `com.bukang` (`group`은 `com`). 모듈별 패키지는 `com.bukang.common`, `com.bukang.member`, `com.bukang.cash`, `com.bukang.payout`, `com.bukang.file`, `com.bukang.order`, `com.bukang.product`, `com.bukang.queue`, `com.bukang.notification`, `com.bukang.inquiry`
   (모듈 폴더 이름은 케밥 케이스 `<도메인>-service`, Java 패키지는 하이픈을 쓸 수 없으므로 도메인 한 단어)
 - 공통 빌드 설정(Java 버전, Spring Boot BOM, Lombok, Checkstyle)은 루트 `build.gradle.kts`, 모듈별 의존성은 각 모듈의 `build.gradle.kts`에 있습니다.
 - 운영에서는 Nginx가 HTTP 요청을 받아 `/api`를 `gateway`(8000)로, 나머지를 프론트(`web`, Next.js 3000)로 넘기고, 게이트웨이가 경로를 보고 각 서비스로 보냅니다.
@@ -39,7 +40,7 @@ Windows에서는 `gradlew.bat`, Git Bash에서는 `./gradlew`를 사용합니다
 
 ```bash
 ./gradlew build                          # 전체 모듈 컴파일 + 테스트 + 패키징 (CI: .github/workflows/backend-ci.yml)
-./gradlew :gateway:bootRun               # 게이트웨이 실행 (8000, localhost:8080~8087로 라우팅)
+./gradlew :gateway:bootRun               # 게이트웨이 실행 (8000, localhost:8080~8088로 라우팅)
 ./gradlew :member-service:bootRun        # 회원 서비스 실행 (dev 프로파일, compose.yml 인프라 자동 실행)
 ./gradlew :cash-service:bootRun          # 캐시 서비스 실행 (8081)
 ./gradlew :payout-service:bootRun        # 정산 서비스 실행 (8082)
@@ -48,6 +49,7 @@ Windows에서는 `gradlew.bat`, Git Bash에서는 `./gradlew`를 사용합니다
 ./gradlew :product-service:bootRun       # 상품 서비스 실행 (8085)
 ./gradlew :queue-service:bootRun         # 대기열 서비스 실행 (8086)
 ./gradlew :notification-service:bootRun  # 알림 서비스 실행 (8087)
+./gradlew :inquiry-service:bootRun       # 문의 서비스 실행 (8088)
 ./gradlew test                           # 전체 테스트 (test 프로파일, H2)
 ./gradlew :member-service:test           # 한 모듈만 테스트
 ./gradlew :member-service:test --tests "com.bukang.member.MemberApplicationTests"              # 단일 테스트 클래스
@@ -60,7 +62,7 @@ Windows에서는 `gradlew.bat`, Git Bash에서는 `./gradlew`를 사용합니다
 
 ```
 backend/
-├── settings.gradle.kts        include("common", "jwt", "gateway", "member-service", "cash-service", "payout-service", "file-service", "order-service", "product-service", "queue-service", "notification-service")
+├── settings.gradle.kts        include("common", "jwt", "gateway", "member-service", "cash-service", "payout-service", "file-service", "order-service", "product-service", "queue-service", "notification-service", "inquiry-service")
 ├── build.gradle.kts           모든 모듈 공통 설정
 ├── compose.yml                공용 인프라 (MySQL, Kafka, Elasticsearch, Redis) + 서비스별 앱 컨테이너 + nginx·web(프론트)
 ├── compose.prod.yml           운영(EC2) 덮어쓰기: Nginx HTTPS + certbot (인증서 자동 발급·갱신)
@@ -163,7 +165,7 @@ backend/
   규칙과 다른 기존 테이블(상품의 `race`, `race_course`, `participation_hold`)은 서비스별로 DB를 나눌 때(최종, Flyway) 맞춥니다.
   테이블 이름을 바꿀 때는 Flyway가 없는 서비스라면 배포 전에 서버 DB에서 `RENAME TABLE`을 먼저 실행합니다.
   compose가 `ddl-auto: update`로 띄워서, 이름만 바꿔 배포하면 빈 새 테이블이 생기고 기존 데이터는 옛 테이블에 남습니다.
-- 표 변경은 Flyway SQL로 합니다. 지금 Flyway를 쓰는 서비스는 `member-service`, `payout-service`, `order-service`, `notification-service`이고, 나머지는 compose가 `ddl-auto: update`로 띄웁니다.
+- 표 변경은 Flyway SQL로 합니다. 지금 Flyway를 쓰는 서비스는 `member-service`, `payout-service`, `order-service`, `notification-service`, `inquiry-service`이고, 나머지는 compose가 `ddl-auto: update`로 띄웁니다.
   - Flyway 서비스: 엔티티를 고치면 같은 커밋에 `src/main/resources/db/migration/V<날짜시각>__설명.sql`을 더합니다. 이미 돈 SQL 파일은 고치지 않습니다.
     dev·prod는 `ddl-auto: validate`라 SQL을 빠뜨리면 앱이 뜨지 않습니다. `Flyway*ValidateTest`가 빈 DB에 SQL을 모두 돌린 뒤 칸 이름·타입을
     엔티티와 맞춰 보므로, 칸을 빠뜨리면 테스트에서 먼저 실패합니다(길이·not null·인덱스·제약은 Hibernate validate가 보지 않으니 리뷰로 봅니다).
