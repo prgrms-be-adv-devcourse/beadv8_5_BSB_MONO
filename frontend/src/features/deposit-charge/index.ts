@@ -1,6 +1,7 @@
 export {
   CHARGE_RETURN_PATH,
   chargeAmountFor,
+  MAX_CHARGE,
   MIN_CHARGE,
   requestCharge,
   type ChargeRequest,

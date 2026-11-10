@@ -28,17 +28,26 @@ const DUE_AT = '2026-10-14T10:10:00'
 
 /** 상품 API 명세 예시의 대회 1 · 종목 1(10K, 45,000원)을 결제 대기로 잡아 둔 주문 */
 function orderResponse(
-  patch: { status?: 'CREATED' | 'EXPIRED' | 'PAID'; paymentDueAt?: string } = {},
+  patch: {
+    status?: 'CREATED' | 'EXPIRED' | 'PAID'
+    paymentDueAt?: string
+    totalAmount?: number
+  } = {},
 ) {
+  const totalAmount = patch.totalAmount ?? 45000
   const example = orderMock.getFindById1ResponseMock()
   return {
     ...example,
     data: {
       ...example.data,
       status: patch.status ?? 'CREATED',
-      totalAmount: 45000,
+      totalAmount,
       paymentDueAt: patch.paymentDueAt ?? DUE_AT,
-      items: example.data!.items!.map((item) => ({ ...item, raceCourseId: 1, amount: 45000 })),
+      items: example.data!.items!.map((item) => ({
+        ...item,
+        raceCourseId: 1,
+        amount: totalAmount,
+      })),
     },
   } as const
 }
@@ -74,6 +83,9 @@ function renderCheckout(
     </QueryClientProvider>,
   )
 }
+
+const LIMIT_NOTICE =
+  '한 번에 30만 원까지 충전할 수 있어요. 충전한 뒤 남은 금액은 다시 충전해 주세요.'
 
 const timer = () => screen.getByRole('timer')
 const agree = (user: ReturnType<typeof userEvent.setup>) =>
@@ -297,6 +309,37 @@ describe('결제 화면', () => {
     expect(replace).not.toHaveBeenCalled()
   })
 
+  it('1회 충전 한도(30만 원)보다 많이 모자라면 30만 원만 충전하고, 나눠 충전하라는 안내를 보여 준다', async () => {
+    server.use(
+      orderMock.getFindById1MockHandler(orderResponse({ totalAmount: 450_000 })),
+      balanceHandler(0),
+      payHandler(() => conflict('ORDER_INSUFFICIENT_BALANCE', { shortage: 450_000 })),
+    )
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    renderCheckout()
+
+    // 버튼에 보이는 충전 금액과 실제로 보내는 충전 금액이 같아야 한다
+    const button = await screen.findByRole('button', { name: '₩300,000 충전하고 결제' })
+    expect(button).toHaveAccessibleDescription(LIMIT_NOTICE)
+    await agree(user)
+    await user.click(button)
+
+    await vi.waitFor(() =>
+      expect(requestCharge).toHaveBeenCalledWith({ amount: 300_000, returnOrderId: 1 }),
+    )
+  })
+
+  it('정확히 30만 원 모자라면 한 번에 충전하고 한도 안내를 보여 주지 않는다', async () => {
+    server.use(
+      orderMock.getFindById1MockHandler(orderResponse({ totalAmount: 300_000 })),
+      balanceHandler(0),
+    )
+    renderCheckout()
+
+    await screen.findByRole('button', { name: '₩300,000 충전하고 결제' })
+    expect(screen.queryByText(LIMIT_NOTICE)).not.toBeInTheDocument()
+  })
+
   it('결제 때 예치금이 모자라다고 하면(409 ORDER_INSUFFICIENT_BALANCE) 서버가 알려 준 부족 금액만큼 충전한다', async () => {
     server.use(payHandler(() => conflict('ORDER_INSUFFICIENT_BALANCE', { shortage: 12_000 })))
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
@@ -385,6 +428,32 @@ describe('결제 화면', () => {
     await user.click(button)
     await vi.waitFor(() =>
       expect(requestCharge).toHaveBeenCalledWith({ amount: 10_000, returnOrderId: 1 }),
+    )
+  })
+
+  it('30만 원을 충전하고 돌아와도 모자라면 남은 금액을 충전하는 버튼을 보여 주고 한도 안내는 감춘다', async () => {
+    // 45만 원 주문에 30만 원을 충전하고 돌아온 상태. 다시 결제하면 15만 원이 모자라다
+    let paid = 0
+    server.use(
+      orderMock.getFindById1MockHandler(orderResponse({ totalAmount: 450_000 })),
+      balanceHandler(300_000),
+      payHandler(() => {
+        paid += 1
+        return conflict('ORDER_INSUFFICIENT_BALANCE', { shortage: 150_000 })
+      }),
+    )
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    renderCheckout(undefined, { charged: true })
+
+    const button = await screen.findByRole('button', { name: '₩150,000 충전하고 결제' })
+    await vi.waitFor(() => expect(button).toBeEnabled())
+    expect(paid).toBe(1)
+    expect(requestCharge).not.toHaveBeenCalled()
+    expect(screen.queryByText(LIMIT_NOTICE)).not.toBeInTheDocument()
+
+    await user.click(button)
+    await vi.waitFor(() =>
+      expect(requestCharge).toHaveBeenCalledWith({ amount: 150_000, returnOrderId: 1 }),
     )
   })
 

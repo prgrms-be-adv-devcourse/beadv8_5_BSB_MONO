@@ -19,6 +19,12 @@ describe('chargeAmountFor', () => {
     expect(chargeAmountFor(5_000)).toBe(10_000)
     expect(chargeAmountFor(12_000)).toBe(12_000)
   })
+
+  it('1회 충전 한도(30만 원)를 넘게 모자라면 30만 원까지만 충전한다', () => {
+    expect(chargeAmountFor(300_000)).toBe(300_000)
+    expect(chargeAmountFor(300_001)).toBe(300_000)
+    expect(chargeAmountFor(450_000)).toBe(300_000)
+  })
 })
 
 describe('requestCharge', () => {
