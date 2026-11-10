@@ -15,4 +15,7 @@ public interface PaymentClient {
 	// idempotencyKey가 같은 요청은 PG가 한 번만 처리하므로, 결과를 모를 때 같은 키로 다시 불러 확인한다.
 	// 실패하면 PaymentCancelFailedException을 던진다.
 	PaymentCancelResult cancel(String paymentKey, String cancelReason, long cancelAmount, String idempotencyKey);
+
+	// orderId로 amount를 받을 가상계좌를 발급한다. 판매자가 갚을 돈(청구)마다 하나씩 쓴다
+	VirtualAccountIssueResult issueVirtualAccount(String orderId, long amount);
 }

@@ -398,6 +398,32 @@ class TossPaymentClientTest {
 			.isEqualTo(true);
 	}
 
+	@Test
+	@DisplayName("청구 ID를 주문번호로 국민은행·90일 유효 가상계좌 발급을 요청하고, 계좌번호·입금 기한(한국 시간)·웹훅 비밀값을 돌려준다")
+	void issueVirtualAccount() {
+		String response = """
+			{ "orderId": "RC-20261214-0A3F", "status": "WAITING_FOR_DEPOSIT", "secret": "ps_secret_1",
+			"virtualAccount": { "accountNumber": "X6000123456789", "bankCode": "06",
+			"dueDate": "2027-03-14T10:00:00+09:00" } }
+			""";
+		server.expect(requestTo(BASE_URL + "/v1/virtual-accounts"))
+			.andExpect(method(HttpMethod.POST))
+			.andExpect(header(HttpHeaders.AUTHORIZATION, BASIC_AUTH))
+			.andExpect(jsonPath("$.orderId").value("RC-20261214-0A3F"))
+			.andExpect(jsonPath("$.amount").value(400_000))
+			.andExpect(jsonPath("$.bank").value("06"))
+			.andExpect(jsonPath("$.validHours").value(2160))
+			.andExpect(jsonPath("$.orderName").isNotEmpty())
+			.andExpect(jsonPath("$.customerName").isNotEmpty())
+			.andRespond(withSuccess(response, MediaType.APPLICATION_JSON));
+
+		VirtualAccountIssueResult result = client.issueVirtualAccount("RC-20261214-0A3F", 400_000);
+
+		server.verify();
+		assertThat(result).isEqualTo(new VirtualAccountIssueResult(
+			"X6000123456789", LocalDateTime.of(2027, 3, 14, 10, 0), "ps_secret_1"));
+	}
+
 	private PaymentApprovalFailedException approveFailure() {
 		return catchThrowableOfType(PaymentApprovalFailedException.class,
 			() -> client.approve("pay_123", "order_1", 10_000));
