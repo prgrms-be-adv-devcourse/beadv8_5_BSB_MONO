@@ -158,6 +158,18 @@ class CrewJoinLeaderOutboxTest {
 	}
 
 	@Test
+	@DisplayName("시계가 나노초를 줘도 가입 시각은 DB에 저장된 크루원 행의 가입 시각(마이크로초)과 같다")
+	void joinedAtMatchesStoredRow() {
+		given(clock.instant()).willReturn(NOW.plusNanos(123_456_789));
+
+		crewFacade.join(joinerId, inviteToken);
+
+		CrewMemberJoinedEvent body = jsonConverter.fromJson(
+			rows(KafkaTopics.CREW_MEMBER_JOINED).get(0).getPayload(), CrewMemberJoinedEvent.class);
+		assertThat(body.joinedAt()).isEqualTo(at(NOW.plusNanos(123_456_000)));
+	}
+
+	@Test
 	@DisplayName("크루 가입 본문에는 이벤트 ID, 크루 ID, 회원 ID, 가입 시각만 있다")
 	void joinBodyKeys() {
 		crewFacade.join(joinerId, inviteToken);
