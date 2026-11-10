@@ -10,7 +10,7 @@ spring:
       - ${KAFKA_BOOTSTRAP_SERVERS}
 
 # 관리자 확인은 실제 회원 서비스에 묻는다. compose.yml의 앱 컨테이너끼리는 컨테이너 이름으로 접속한다
-# product.mode는 일부러 적지 않는다. 상품 서비스 연결(HttpRaceSellerAdapter)이 생기기 전에는 빈이 없어 앱이 뜨지 않는다
+# product.mode·order.mode는 일부러 적지 않는다. 상품·주문 서비스 연결(Http 어댑터)이 생기기 전에는 빈이 없어 앱이 뜨지 않는다
 inquiry:
   clients:
     member:

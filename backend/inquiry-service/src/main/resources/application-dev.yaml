@@ -16,13 +16,16 @@ spring:
     bootstrap-servers:
       - localhost:9092
 
-# 로컬 개발은 다른 서비스를 띄우지 않아도 되게 fake다 (누구나 관리자, 대회 판매자 회원은 1번)
+# 로컬 개발은 다른 서비스를 띄우지 않아도 되게 fake다 (누구나 관리자·승인된 판매자, 대회 판매자 회원은 1번)
 inquiry:
   clients:
     member:
       mode: fake
       base-url: http://localhost:8080
     product:
+      mode: fake
+    # 주문 ID = 회원 ID x 1000 + 대회 ID면 그 회원의 주문이다 (예: 4001). 1000 미만은 없는 주문
+    order:
       mode: fake
 
 logging:

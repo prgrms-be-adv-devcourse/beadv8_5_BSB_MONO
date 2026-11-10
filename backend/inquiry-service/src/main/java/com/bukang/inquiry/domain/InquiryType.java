@@ -12,7 +12,9 @@ public enum InquiryType {
 	// 기념품·배송
 	KIT_DELIVERY(InquiryAssignee.SELLER),
 	// 기타
-	ETC(InquiryAssignee.ADMIN);
+	ETC(InquiryAssignee.ADMIN),
+	// 판매자 문의: 승인된 판매자가 관리자에게 보낸다. 주문·대회 없이 보낸다
+	SELLER_SUPPORT(InquiryAssignee.ADMIN);
 
 	private final InquiryAssignee assignee;
 
@@ -22,5 +24,10 @@ public enum InquiryType {
 
 	public InquiryAssignee assignee() {
 		return assignee;
+	}
+
+	// 회원 문의는 주문 하나와 대회 하나에 묶고, 판매자 문의는 묶지 않는다
+	public boolean linkedToOrder() {
+		return this != SELLER_SUPPORT;
 	}
 }

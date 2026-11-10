@@ -21,20 +21,25 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name = "inquiry_inquiry", indexes = {
 	@Index(name = "idx_inquiry_member", columnList = "member_id, id"),
-	@Index(name = "idx_inquiry_seller", columnList = "seller_member_id, id"),
+	@Index(name = "idx_inquiry_seller", columnList = "seller_member_id, assignee, status, id"),
 	@Index(name = "idx_inquiry_status", columnList = "status, id")
 })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Inquiry extends BaseIdAndTime {
 	public static final int MAX_TITLE_LENGTH = 100;
-	public static final int MAX_BODY_LENGTH = 2000;
+	public static final int MAX_BODY_LENGTH = 1000;
+	public static final int MAX_ANSWER_LENGTH = 2000;
 
 	@Column(name = "member_id", nullable = false)
 	private long memberId;
 
-	@Column(name = "race_id", nullable = false)
-	private long raceId;
+	// 판매자 문의(SELLER_SUPPORT)는 대회·주문·판매자 회원이 없다
+	@Column(name = "race_id")
+	private Long raceId;
+
+	@Column(name = "order_id")
+	private Long orderId;
 
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 30)
@@ -45,8 +50,8 @@ public class Inquiry extends BaseIdAndTime {
 	private InquiryAssignee assignee;
 
 	// 문의를 만들 때 상품 서비스에서 받아 저장한다. 판매자 권한은 「요청한 회원 = 이 값」으로 확인한다
-	@Column(name = "seller_member_id", nullable = false)
-	private long sellerMemberId;
+	@Column(name = "seller_member_id")
+	private Long sellerMemberId;
 
 	@Column(nullable = false, length = MAX_TITLE_LENGTH)
 	private String title;
@@ -58,7 +63,7 @@ public class Inquiry extends BaseIdAndTime {
 	@Column(nullable = false, length = 10)
 	private InquiryStatus status;
 
-	@Column(length = MAX_BODY_LENGTH)
+	@Column(length = MAX_ANSWER_LENGTH)
 	private String answer;
 
 	@Column(name = "answered_by")
@@ -67,11 +72,16 @@ public class Inquiry extends BaseIdAndTime {
 	@Column(name = "answered_at")
 	private LocalDateTime answeredAt;
 
-	public static Inquiry create(long memberId, long raceId, InquiryType type, long sellerMemberId, String title,
-		String body) {
+	// 보낸 회원이 지운 시각. 차 있으면 어느 목록·상세에도 보이지 않는다 (행은 남긴다)
+	@Column(name = "deleted_at")
+	private LocalDateTime deletedAt;
+
+	public static Inquiry create(long memberId, Long raceId, Long orderId, InquiryType type, Long sellerMemberId,
+		String title, String body) {
 		Inquiry inquiry = new Inquiry();
 		inquiry.memberId = memberId;
 		inquiry.raceId = raceId;
+		inquiry.orderId = orderId;
 		inquiry.type = type;
 		inquiry.assignee = type.assignee();
 		inquiry.sellerMemberId = sellerMemberId;
@@ -82,7 +92,7 @@ public class Inquiry extends BaseIdAndTime {
 	}
 
 	public boolean isSellerOwnedBy(long memberId) {
-		return assignee == InquiryAssignee.SELLER && sellerMemberId == memberId;
+		return assignee == InquiryAssignee.SELLER && sellerMemberId != null && sellerMemberId == memberId;
 	}
 
 	public boolean isAdminOwned() {

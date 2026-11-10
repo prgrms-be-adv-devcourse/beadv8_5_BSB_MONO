@@ -11,6 +11,7 @@ final class InquiryApiExamples {
 			"data": {
 				"id": 12,
 				"raceId": 1,
+				"orderId": 500,
 				"type": "RACE_VENUE",
 				"assignee": "SELLER",
 				"title": "주차는 어디에 하나요",
@@ -18,7 +19,9 @@ final class InquiryApiExamples {
 				"status": "WAITING",
 				"answer": null,
 				"answeredAt": null,
-				"createDate": "2026-11-10T10:00:00"
+				"createDate": "2026-11-10T10:00:00",
+				"memberNickname": null,
+				"order": null
 			}
 		}
 		""";
@@ -30,6 +33,7 @@ final class InquiryApiExamples {
 			"data": {
 				"id": 12,
 				"raceId": 1,
+				"orderId": 500,
 				"type": "RACE_VENUE",
 				"assignee": "SELLER",
 				"title": "주차는 어디에 하나요",
@@ -37,7 +41,9 @@ final class InquiryApiExamples {
 				"status": "ANSWERED",
 				"answer": "정문 앞 공영주차장을 이용해 주세요.",
 				"answeredAt": "2026-11-10T15:30:00",
-				"createDate": "2026-11-10T10:00:00"
+				"createDate": "2026-11-10T10:00:00",
+				"memberNickname": null,
+				"order": null
 			}
 		}
 		""";
@@ -51,6 +57,7 @@ final class InquiryApiExamples {
 					{
 						"id": 12,
 						"raceId": 1,
+				"orderId": 500,
 						"type": "RACE_VENUE",
 						"assignee": "SELLER",
 						"title": "주차는 어디에 하나요",
@@ -58,7 +65,9 @@ final class InquiryApiExamples {
 						"status": "WAITING",
 						"answer": null,
 						"answeredAt": null,
-						"createDate": "2026-11-10T10:00:00"
+						"createDate": "2026-11-10T10:00:00",
+				"memberNickname": null,
+				"order": null
 					}
 				],
 				"page": 0,
@@ -69,6 +78,77 @@ final class InquiryApiExamples {
 		}
 		""";
 
+	static final String DETAIL_SUCCESS = """
+		{
+			"status": 200,
+			"message": "문의를 조회했습니다.",
+			"data": {
+				"id": 12,
+				"raceId": 1,
+				"orderId": 500,
+				"type": "RACE_VENUE",
+				"assignee": "SELLER",
+				"title": "주차는 어디에 하나요",
+				"body": "대회장 근처 주차장이 있는지 알고 싶어요.",
+				"status": "WAITING",
+				"answer": null,
+				"answeredAt": null,
+				"createDate": "2026-11-10T10:00:00",
+				"memberNickname": "러너하나",
+				"order": {
+					"orderNo": "OD-20261110-3F9A",
+					"paymentAmount": 50000,
+					"status": "PAID",
+					"items": [
+						{
+							"raceId": 1,
+							"raceName": "서울 마라톤",
+							"courseName": "10K",
+							"kitSummary": "티셔츠 M, 완주 메달",
+							"deliveryStatus": "PREPARING"
+						}
+					]
+				}
+			}
+		}
+		""";
+
+	static final String MANAGE_LIST_SUCCESS = """
+		{
+			"status": 200,
+			"message": "문의 목록을 조회했습니다.",
+			"data": {
+				"inquiries": [
+					{
+						"id": 12,
+						"raceId": 1,
+						"orderId": 500,
+						"type": "RACE_VENUE",
+						"assignee": "SELLER",
+						"title": "주차는 어디에 하나요",
+						"body": "대회장 근처 주차장이 있는지 알고 싶어요.",
+						"status": "WAITING",
+						"answer": null,
+						"answeredAt": null,
+						"createDate": "2026-11-10T10:00:00",
+						"memberNickname": "러너하나",
+						"order": null
+					}
+				],
+				"page": 0,
+				"size": 20,
+				"totalElements": 1,
+				"totalPages": 1,
+				"waitingCount": 1,
+				"answeredCount": 0
+			}
+		}
+		""";
+
+	static final String DELETE_SUCCESS = """
+		{ "status": 200, "message": "문의를 지웠습니다.", "data": null }
+		""";
+
 	static final String ANSWER_SUCCESS = """
 		{
 			"status": 200,
@@ -76,6 +156,7 @@ final class InquiryApiExamples {
 			"data": {
 				"id": 12,
 				"raceId": 1,
+				"orderId": 500,
 				"type": "RACE_VENUE",
 				"assignee": "SELLER",
 				"title": "주차는 어디에 하나요",
@@ -83,7 +164,9 @@ final class InquiryApiExamples {
 				"status": "ANSWERED",
 				"answer": "정문 앞 공영주차장을 이용해 주세요.",
 				"answeredAt": "2026-11-10T15:30:00",
-				"createDate": "2026-11-10T10:00:00"
+				"createDate": "2026-11-10T10:00:00",
+				"memberNickname": null,
+				"order": null
 			}
 		}
 		""";
@@ -114,6 +197,19 @@ final class InquiryApiExamples {
 
 	static final String NOT_FOUND = """
 		{ "status": 404, "code": "INQUIRY_NOT_FOUND", "message": "문의를 찾을 수 없습니다.", "data": null }
+		""";
+
+	static final String ORDER_NOT_FOUND = """
+		{ "status": 404, "code": "INQUIRY_ORDER_NOT_FOUND", "message": "주문을 찾을 수 없습니다.", "data": null }
+		""";
+
+	static final String NOT_SELLER = """
+		{ "status": 403, "code": "INQUIRY_SELLER_FORBIDDEN", "message": "승인된 판매자만 이용할 수 있습니다.", "data": null }
+		""";
+
+	static final String ORDER_UNAVAILABLE = """
+		{ "status": 503, "code": "INQUIRY_EXTERNAL_SERVICE_UNAVAILABLE", \
+		"message": "주문 서비스에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요.", "data": null }
 		""";
 
 	static final String RACE_NOT_FOUND = """
