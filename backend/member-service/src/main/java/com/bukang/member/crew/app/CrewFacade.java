@@ -16,6 +16,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.bukang.common.shared.crew.event.CrewMemberLeftReason;
 import com.bukang.common.shared.member.web.LoginRequiredException;
+import com.bukang.common.shared.notification.NotificationKind;
+import com.bukang.common.shared.notification.event.NotificationRequestedEvent;
 import com.bukang.member.crew.domain.Crew;
 import com.bukang.member.crew.domain.CrewInvite;
 import com.bukang.member.crew.domain.CrewMember;
@@ -218,6 +220,9 @@ public class CrewFacade {
 		try {
 			CrewMember member = crewMemberRepository.saveAndFlush(
 				CrewMember.invited(crew.getId(), memberId, invite.getId(), now));
+			// 트랜잭션 안에서 낸다. 커밋 뒤에 common이 보내므로 롤백되면 알림도 나가지 않는다
+			eventPublisher.publishEvent(NotificationRequestedEvent.of(memberId, NotificationKind.CREW_JOINED,
+				"크루에 가입했어요", crew.getName() + "의 크루원이 됐어요.", "/crews/" + crew.getId()));
 			return new CrewJoinedDto(crew.getId(), crew.getName(), member.getRole(), member.getJoinedAt());
 		} catch (DataIntegrityViolationException exception) {
 			// 같은 회원이 서로 다른 링크로 같은 크루에 동시에 가입하면 uk_crew_member가 두 번째 행을 막는다.
