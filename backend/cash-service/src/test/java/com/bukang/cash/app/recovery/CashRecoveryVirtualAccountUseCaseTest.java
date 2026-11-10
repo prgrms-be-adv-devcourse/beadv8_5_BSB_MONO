@@ -1,11 +1,15 @@
 package com.bukang.cash.app.recovery;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -72,5 +76,21 @@ class CashRecoveryVirtualAccountUseCaseTest {
 		assertThat(result).isEqualTo(new CashClaimVirtualAccountResponseDto("국민은행", "X6000123456789"));
 		verify(paymentClient, times(1)).issueVirtualAccount(CLAIM_CODE, 400_000);
 		assertThat(recoveryDepositRepository.count()).isEqualTo(1);
+	}
+
+	@Test
+	@DisplayName("결제 쪽에 기록은 없는데 PG에 이 청구로 발급한 계좌가 있으면, 새로 발급하지 않고 그 계좌를 저장해 돌려준다")
+	void savesAccountFoundAtPgWithoutIssuing() {
+		given(paymentClient.findVirtualAccount(CLAIM_CODE))
+			.willReturn(Optional.of(new VirtualAccountIssueResult("국민은행", "X6000123456789", DUE_DATE, "ps_secret_1")));
+
+		CashClaimVirtualAccountResponseDto result = cashFacade.issueClaimVirtualAccount(CLAIM_CODE, 400_000);
+
+		assertThat(result).isEqualTo(new CashClaimVirtualAccountResponseDto("국민은행", "X6000123456789"));
+		verify(paymentClient, never()).issueVirtualAccount(anyString(), anyLong());
+		RecoveryDeposit saved = recoveryDepositRepository.findByClaimCode(CLAIM_CODE).orElseThrow();
+		assertThat(saved.getAccountNumber()).isEqualTo("X6000123456789");
+		assertThat(saved.getAmount()).isEqualTo(400_000);
+		assertThat(saved.getSecret()).isEqualTo("ps_secret_1");
 	}
 }

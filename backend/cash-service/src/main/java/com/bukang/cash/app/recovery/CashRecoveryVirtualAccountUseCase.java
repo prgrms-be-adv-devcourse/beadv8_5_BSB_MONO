@@ -27,8 +27,11 @@ public class CashRecoveryVirtualAccountUseCase {
 		return new CashClaimVirtualAccountResponseDto(deposit.getBankName(), deposit.getAccountNumber());
 	}
 
+	// PG가 발급한 직후 저장하지 못했으면(응답 시간 초과, 서버 종료) 그 계좌는 PG에만 남아 있다.
+	// 같은 주문번호로 다시 발급하면 계좌가 둘이 될 수 있어, 먼저 PG에서 찾고 없을 때만 발급한다
 	private RecoveryDeposit issueAndSave(String claimCode, long amount) {
-		VirtualAccountIssueResult issued = paymentClient.issueVirtualAccount(claimCode, amount);
+		VirtualAccountIssueResult issued = paymentClient.findVirtualAccount(claimCode)
+			.orElseGet(() -> paymentClient.issueVirtualAccount(claimCode, amount));
 		return recoveryDepositRepository.save(new RecoveryDeposit(
 			claimCode, amount, issued.bankName(), issued.accountNumber(), issued.dueDate(), issued.secret()));
 	}
