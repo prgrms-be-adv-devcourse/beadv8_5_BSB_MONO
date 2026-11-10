@@ -140,3 +140,6 @@ gateway:
       # 토큰이 있으면 회원 ID를 넘겨 "내가 누른 좋아요", "내 숨겨진 글"을 보여 준다
       - pattern: /api/v1/board/**
         methods: [ GET ]
+      # 토스가 가상계좌 입금을 알린다. 토스는 우리 토큰이 없고, 진짜 알림인지는 cash-service가 비밀값과 토스 조회로 확인한다 (BUK-146)
+      - pattern: /api/v1/cash/webhooks/toss/deposit
+        methods: [ POST ]
