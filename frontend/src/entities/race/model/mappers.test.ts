@@ -19,15 +19,15 @@ const OPEN = new Date('2026-10-20T09:00:00+09:00')
 const AFTER_CLOSE = new Date('2026-10-31T18:00:00+09:00')
 
 describe('대회 응답 → 화면 모양', () => {
-  it('목록 한 줄: 대회일 · 장소, 최저가, 남은 자리', () => {
+  it('목록 한 줄: 대회일 · 장소, 최저가 (남은 자리는 보여 주지 않는다)', () => {
     expect(toRaceListItem(summary)).toMatchObject({
       id: '1',
       title: '2026 용감한 쿠키RUN in 서울',
       posterLabel: '10K',
       meta: '11/1 (일) · 서울숲 일대',
       price: '₩45,000~',
-      remaining: '580자리 남음',
     })
+    expect(toRaceListItem(summary)).not.toHaveProperty('remaining')
   })
 
   it('목록 응답에 imageUrl이 있을 때만 카드 이미지가 붙는다', () => {
@@ -37,24 +37,24 @@ describe('대회 응답 → 화면 모양', () => {
     )
   })
 
-  it('곧 마감 카드: 대회마다 한 장, 남은 날 · 남은 자리, 대회일 · 장소, 최저가부터', () => {
+  it('곧 마감 카드: 대회마다 한 장, 남은 날, 대회일 · 장소, 최저가부터', () => {
     expect(toClosingSoonCard(summary, OPEN)).toMatchObject({
       id: '1',
       title: '2026 용감한 쿠키RUN in 서울',
       posterLabel: '10K',
-      status: 'D-11 · 580자리 남음',
+      status: 'D-11',
       meta: '11/1 (일) · 서울숲 일대',
       price: '45,000원부터',
     })
   })
 
-  it('곧 마감 카드: 대회일이 없으면 장소만, 마감일이 없으면 남은 자리만', () => {
+  it('곧 마감 카드: 대회일이 없으면 장소만, 마감일이 없으면 상태 칩이 비어 있다', () => {
     const card = toClosingSoonCard(
       { ...summary, raceDate: undefined, applicationCloseAt: undefined },
       OPEN,
     )
     expect(card.meta).toBe('서울숲 일대')
-    expect(card.status).toBe('580자리 남음')
+    expect(card.status).toBe('')
   })
 
   it('신청 기간: 개인 예매 오픈 전 · 접수 중 · 접수 마감 뒤', () => {
