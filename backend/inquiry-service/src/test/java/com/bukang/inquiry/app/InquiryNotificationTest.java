@@ -41,7 +41,8 @@ class InquiryNotificationTest extends InquiryTestBase {
 	@Test
 	@DisplayName("판매자 담당 문의가 생기면 그 대회 판매자에게 INQUIRY_RECEIVED를 보낸다")
 	void sellerInquiryNotifiesSeller() throws Exception {
-		postAs(BASE + "/inquiries", ME, createJson(RACE, "RACE_VENUE", "주차는 어디에 하나요", "본문")).andExpect(status().isCreated());
+		postAs(BASE + "/inquiries", ME, createJson(RACE, "RACE_VENUE", "주차는 어디에 하나요", "본문"))
+			.andExpect(status().isCreated());
 
 		List<NotificationRequestedEvent> events = sentEvents(1);
 		NotificationRequestedEvent event = events.getFirst();
@@ -68,8 +69,10 @@ class InquiryNotificationTest extends InquiryTestBase {
 		Inquiry bySeller = saveSellerInquiry(ME, RACE, SELLER);
 		Inquiry byAdmin = saveAdminInquiry(OTHER, RACE, SELLER);
 
-		postAs(BASE + "/seller/inquiries/" + bySeller.getId() + "/answer", SELLER, answerJson("답")).andExpect(status().isOk());
-		postAs(BASE + "/admin/inquiries/" + byAdmin.getId() + "/answer", ADMIN, answerJson("답")).andExpect(status().isOk());
+		postAs(BASE + "/seller/inquiries/" + bySeller.getId() + "/answer", SELLER, answerJson("답"))
+			.andExpect(status().isOk());
+		postAs(BASE + "/admin/inquiries/" + byAdmin.getId() + "/answer", ADMIN, answerJson("답"))
+			.andExpect(status().isOk());
 
 		List<NotificationRequestedEvent> events = sentEvents(2);
 		assertThat(events).extracting(NotificationRequestedEvent::kind)
@@ -83,11 +86,14 @@ class InquiryNotificationTest extends InquiryTestBase {
 	@DisplayName("답변이 막히면(이미 답변·남의 문의) 알림을 보내지 않는다")
 	void rejectedAnswerNoNotification() throws Exception {
 		Inquiry inquiry = saveSellerInquiry(ME, RACE, SELLER);
-		postAs(BASE + "/seller/inquiries/" + inquiry.getId() + "/answer", SELLER, answerJson("답")).andExpect(status().isOk());
+		postAs(BASE + "/seller/inquiries/" + inquiry.getId() + "/answer", SELLER, answerJson("답"))
+			.andExpect(status().isOk());
 		sentEvents(1);
 
-		postAs(BASE + "/seller/inquiries/" + inquiry.getId() + "/answer", SELLER, answerJson("또")).andExpect(status().isConflict());
-		postAs(BASE + "/seller/inquiries/" + inquiry.getId() + "/answer", OTHER_SELLER, answerJson("남")).andExpect(status().isNotFound());
+		postAs(BASE + "/seller/inquiries/" + inquiry.getId() + "/answer", SELLER, answerJson("또"))
+			.andExpect(status().isConflict());
+		postAs(BASE + "/seller/inquiries/" + inquiry.getId() + "/answer", OTHER_SELLER, answerJson("남"))
+			.andExpect(status().isNotFound());
 
 		// 처음 한 번 보낸 것 말고는 늘지 않는다
 		verify(kafkaTemplate, after(500).times(1)).send(any(ProducerRecord.class));
@@ -112,7 +118,8 @@ class InquiryNotificationTest extends InquiryTestBase {
 
 		postAs(BASE + "/inquiries", ME, createJson(RACE, "RACE_VENUE", "제목", "본문")).andExpect(status().isCreated());
 		Inquiry saved = inquiryRepository.findAll().getFirst();
-		postAs(BASE + "/seller/inquiries/" + saved.getId() + "/answer", SELLER, answerJson("답")).andExpect(status().isOk());
+		postAs(BASE + "/seller/inquiries/" + saved.getId() + "/answer", SELLER, answerJson("답"))
+			.andExpect(status().isOk());
 
 		assertThat(inquiryRepository.count()).isEqualTo(1);
 		assertThat(inquiryRepository.findById(saved.getId()).orElseThrow().getAnswer()).isEqualTo("답");
@@ -121,9 +128,11 @@ class InquiryNotificationTest extends InquiryTestBase {
 	@Test
 	@DisplayName("제목 100자·본문 2000자 문의도 알림 제목 100자·내용 500자·링크 300자를 넘지 않는다 (알림 서비스가 버리지 않게)")
 	void notificationFitsReceiverLimits() throws Exception {
-		postAs(BASE + "/inquiries", ME, createJson(RACE, "RACE_VENUE", "가".repeat(100), "나".repeat(2000))).andExpect(status().isCreated());
+		postAs(BASE + "/inquiries", ME, createJson(RACE, "RACE_VENUE", "가".repeat(100), "나".repeat(2000)))
+			.andExpect(status().isCreated());
 		Inquiry saved = inquiryRepository.findAll().getFirst();
-		postAs(BASE + "/seller/inquiries/" + saved.getId() + "/answer", SELLER, answerJson("다".repeat(2000))).andExpect(status().isOk());
+		postAs(BASE + "/seller/inquiries/" + saved.getId() + "/answer", SELLER, answerJson("다".repeat(2000)))
+			.andExpect(status().isOk());
 
 		for (NotificationRequestedEvent event : sentEvents(2)) {
 			assertThat(event.title().length()).isLessThanOrEqualTo(100);

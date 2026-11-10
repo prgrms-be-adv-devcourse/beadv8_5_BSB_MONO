@@ -53,7 +53,8 @@ class HttpMemberAdminAdapterTest {
 	@Test
 	@DisplayName("없거나 탈퇴한 회원(404 MEMBER_NOT_FOUND)은 관리자가 아니다")
 	void memberNotFound() {
-		server.expect(requestTo(URL)).andRespond(withStatus(HttpStatus.NOT_FOUND).contentType(MediaType.APPLICATION_JSON)
+		server.expect(requestTo(URL)).andRespond(withStatus(HttpStatus.NOT_FOUND)
+			.contentType(MediaType.APPLICATION_JSON)
 			.body("{\"status\":404,\"code\":\"MEMBER_NOT_FOUND\",\"message\":\"없음\",\"data\":null}"));
 
 		assertThat(adapter.isAdmin(3L)).isFalse();
@@ -68,7 +69,8 @@ class HttpMemberAdminAdapterTest {
 		server.expect(requestTo(URL)).andRespond(withSuccess(body("{}"), MediaType.APPLICATION_JSON));
 
 		for (int i = 0; i < 4; i++) {
-			assertThatThrownBy(() -> adapter.isAdmin(3L)).isInstanceOf(InquiryExternalServiceUnavailableException.class);
+			assertThatThrownBy(() -> adapter.isAdmin(3L))
+				.isInstanceOf(InquiryExternalServiceUnavailableException.class);
 		}
 	}
 

@@ -125,11 +125,13 @@ final class InquiryApiExamples {
 		""";
 
 	static final String PRODUCT_UNAVAILABLE = """
-		{ "status": 503, "code": "INQUIRY_EXTERNAL_SERVICE_UNAVAILABLE", "message": "상품 서비스에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요.", "data": null }
+		{ "status": 503, "code": "INQUIRY_EXTERNAL_SERVICE_UNAVAILABLE", \
+		"message": "상품 서비스에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요.", "data": null }
 		""";
 
 	static final String MEMBER_UNAVAILABLE = """
-		{ "status": 503, "code": "INQUIRY_EXTERNAL_SERVICE_UNAVAILABLE", "message": "회원 서비스에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요.", "data": null }
+		{ "status": 503, "code": "INQUIRY_EXTERNAL_SERVICE_UNAVAILABLE", \
+		"message": "회원 서비스에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요.", "data": null }
 		""";
 
 	private InquiryApiExamples() {

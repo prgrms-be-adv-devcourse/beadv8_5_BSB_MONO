@@ -33,7 +33,8 @@ class InquirySchemaTest extends InquiryTestBase {
 	@Test
 	@DisplayName("제목 100자·본문 2000자를 넘는 값은 DB가 거절한다")
 	void columnLengths() {
-		inquiryRepository.saveAndFlush(Inquiry.create(ME, RACE, InquiryType.ETC, SELLER, "가".repeat(100), "나".repeat(2000)));
+		inquiryRepository.saveAndFlush(
+			Inquiry.create(ME, RACE, InquiryType.ETC, SELLER, "가".repeat(100), "나".repeat(2000)));
 
 		assertThatThrownBy(() -> inquiryRepository.saveAndFlush(
 			Inquiry.create(ME, RACE, InquiryType.ETC, SELLER, "가".repeat(101), "본문")))

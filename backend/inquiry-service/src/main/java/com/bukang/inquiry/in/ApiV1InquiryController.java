@@ -83,13 +83,14 @@ public class ApiV1InquiryController {
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = InquiryApiExamples.LOGIN_REQUIRED)))
 	})
-	public RsData<InquiryPageDto> findMine(@LoginMemberId long memberId, @RequestParam(defaultValue = "0")
-	@Parameter(description = "페이지 번호 (0부터)", example = "0")
-	@Min(value = 0, message = "페이지 번호는 0 이상이어야 합니다.") int page,
-		@RequestParam(defaultValue = "20")
+	public RsData<InquiryPageDto> findMine(
+		@LoginMemberId long memberId,
+		@Parameter(description = "페이지 번호 (0부터)", example = "0")
+		@RequestParam(defaultValue = "0") @Min(value = 0, message = "페이지 번호는 0 이상이어야 합니다.") int page,
 		@Parameter(description = "페이지 크기 (1~100)", example = "20")
-		@Min(value = 1, message = "페이지 크기는 1 이상이어야 합니다.")
-		@Max(value = MAX_PAGE_SIZE, message = "한 번에 100개까지 조회할 수 있습니다.") int size) {
+		@RequestParam(defaultValue = "20") @Min(value = 1, message = "페이지 크기는 1 이상이어야 합니다.")
+		@Max(value = MAX_PAGE_SIZE, message = "한 번에 100개까지 조회할 수 있습니다.") int size
+	) {
 		return RsData.of(HttpStatus.OK, "문의 목록을 조회했습니다.", inquiryUseCase.findMine(memberId, page, size));
 	}
 
@@ -130,13 +131,14 @@ public class ApiV1InquiryController {
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = InquiryApiExamples.LOGIN_REQUIRED)))
 	})
-	public RsData<InquiryPageDto> findForSeller(@LoginMemberId long memberId, @RequestParam(defaultValue = "0")
-	@Parameter(description = "페이지 번호 (0부터)", example = "0")
-	@Min(value = 0, message = "페이지 번호는 0 이상이어야 합니다.") int page,
-		@RequestParam(defaultValue = "20")
+	public RsData<InquiryPageDto> findForSeller(
+		@LoginMemberId long memberId,
+		@Parameter(description = "페이지 번호 (0부터)", example = "0")
+		@RequestParam(defaultValue = "0") @Min(value = 0, message = "페이지 번호는 0 이상이어야 합니다.") int page,
 		@Parameter(description = "페이지 크기 (1~100)", example = "20")
-		@Min(value = 1, message = "페이지 크기는 1 이상이어야 합니다.")
-		@Max(value = MAX_PAGE_SIZE, message = "한 번에 100개까지 조회할 수 있습니다.") int size) {
+		@RequestParam(defaultValue = "20") @Min(value = 1, message = "페이지 크기는 1 이상이어야 합니다.")
+		@Max(value = MAX_PAGE_SIZE, message = "한 번에 100개까지 조회할 수 있습니다.") int size
+	) {
 		return RsData.of(HttpStatus.OK, "문의 목록을 조회했습니다.", inquiryUseCase.findForSeller(memberId, page, size));
 	}
 
@@ -190,13 +192,14 @@ public class ApiV1InquiryController {
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = InquiryApiExamples.MEMBER_UNAVAILABLE)))
 	})
-	public RsData<InquiryPageDto> findForAdmin(@LoginMemberId long memberId, @RequestParam(defaultValue = "0")
-	@Parameter(description = "페이지 번호 (0부터)", example = "0")
-	@Min(value = 0, message = "페이지 번호는 0 이상이어야 합니다.") int page,
-		@RequestParam(defaultValue = "20")
+	public RsData<InquiryPageDto> findForAdmin(
+		@LoginMemberId long memberId,
+		@Parameter(description = "페이지 번호 (0부터)", example = "0")
+		@RequestParam(defaultValue = "0") @Min(value = 0, message = "페이지 번호는 0 이상이어야 합니다.") int page,
 		@Parameter(description = "페이지 크기 (1~100)", example = "20")
-		@Min(value = 1, message = "페이지 크기는 1 이상이어야 합니다.")
-		@Max(value = MAX_PAGE_SIZE, message = "한 번에 100개까지 조회할 수 있습니다.") int size) {
+		@RequestParam(defaultValue = "20") @Min(value = 1, message = "페이지 크기는 1 이상이어야 합니다.")
+		@Max(value = MAX_PAGE_SIZE, message = "한 번에 100개까지 조회할 수 있습니다.") int size
+	) {
 		return RsData.of(HttpStatus.OK, "문의 목록을 조회했습니다.", inquiryFacade.findForAdmin(memberId, page, size));
 	}
 
