@@ -1,7 +1,10 @@
 package com.bukang.cash.app.recovery;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -100,5 +103,25 @@ class CashRecoveryDepositUseCaseTest {
 		RecoveryDeposit saved = recoveryDepositRepository.findById(deposit.getId()).orElseThrow();
 		assertThat(saved.getStatus()).isEqualTo(RecoveryDepositStatus.DEPOSITED);
 		assertThat(saved.getDepositedAt()).isEqualTo(DEPOSITED_AT);
+	}
+
+	@Test
+	@DisplayName("알림의 비밀값이 발급 때 받은 값과 다르면 PG를 조회하지 않고, 장부도 상태도 그대로 둔다")
+	void ignoresCallbackWithWrongSecret() {
+		given(paymentClient.lookupByOrderId(CLAIM_CODE)).willReturn(
+			PaymentLookupResult.completed(new PaymentApprovalResult(400_000, "pay_key_1", DEPOSITED_AT)));
+
+		cashFacade.receiveRecoveryDeposit(CLAIM_CODE, "forged_secret");
+
+		verify(paymentClient, never()).lookupByOrderId(anyString());
+		assertNothingRecorded();
+	}
+
+	private void assertNothingRecorded() {
+		assertThat(walletRepository.findById(cashWalletProperties.holdingMemberId()).orElseThrow().getBalance())
+			.isZero();
+		assertThat(walletLedgerRepository.count()).isZero();
+		assertThat(recoveryDepositRepository.findById(deposit.getId()).orElseThrow().getStatus())
+			.isEqualTo(RecoveryDepositStatus.WAITING);
 	}
 }
