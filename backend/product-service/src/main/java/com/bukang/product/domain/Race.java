@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.regex.Pattern;
 
 import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.DynamicUpdate;
@@ -59,6 +60,11 @@ public class Race extends BaseIdAndTime {
 	private static final int SALE_OPEN_MIN_DAYS = 2;
 	// 응답 메시지에 보여 주는 날짜 형식 (예: 10월 16일)
 	private static final DateTimeFormatter MESSAGE_DATE = DateTimeFormatter.ofPattern("M월 d일");
+	// AI 추천 벡터를 만들 글(embeddingText)의 칸 구분자와, 글에 넣을 소개의 최대 글자 수
+	private static final String EMBEDDING_TEXT_SEPARATOR = " | ";
+	private static final int EMBEDDING_DESCRIPTION_MAX_LENGTH = 500;
+	// 소개에서 지울 HTML 태그 (<p>, <br/> 등)
+	private static final Pattern HTML_TAG = Pattern.compile("<[^>]*>");
 
 	@ManyToOne(fetch = LAZY, optional = false)
 	@JoinColumn(name = "seller_id", nullable = false)
@@ -378,5 +384,24 @@ public class Race extends BaseIdAndTime {
 	public RaceChangedEvent toChangedEvent() {
 		return new RaceChangedEvent(getId(), saleStatus, individualOpenAt, applicationCloseAt,
 			crewSaleStartAt, crewSaleEndAt, getModifyDate());
+	}
+
+	// AI 추천 벡터를 만들 글 (BUK-162). 이 글이 바뀔 때만 임베딩 동기화 이벤트를 남긴다
+	//   예: "2026 서울마라톤 | 광화문광장 | 서울특별시 종로구 | 풀, 10K | 도심을 달리는 …"
+	//   날짜·가격·판매 상태는 넣지 않는다. 자주 바뀌고 뜻 비교에 도움이 안 되어 추천의 필터로 거른다
+	//   소개는 HTML 태그를 지우고 앞부분만 쓴다. 너무 길면 대회의 핵심 뜻이 묻힌다
+	public String embeddingText() {
+		String courseNames = String.join(", ", courses.stream().map(RaceCourse::getName).toList());
+		return String.join(EMBEDDING_TEXT_SEPARATOR, title, location, regionSido + " " + regionSigungu, courseNames,
+			embeddingDescription());
+	}
+
+	private String embeddingDescription() {
+		if (description == null) {
+			return "";
+		}
+		String plain = HTML_TAG.matcher(description).replaceAll(" ").replaceAll("\\s+", " ").strip();
+		return plain.length() > EMBEDDING_DESCRIPTION_MAX_LENGTH
+			? plain.substring(0, EMBEDDING_DESCRIPTION_MAX_LENGTH) : plain;
 	}
 }

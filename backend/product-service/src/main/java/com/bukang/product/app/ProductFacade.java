@@ -20,6 +20,7 @@ import com.bukang.common.shared.seller.domain.SellerStatus;
 import com.bukang.common.shared.seller.domain.SellerType;
 import com.bukang.product.domain.HoldReleaseReason;
 import com.bukang.product.domain.ProductDltKafkaEvent;
+import com.bukang.product.domain.RaceSyncType;
 import com.bukang.product.dto.CrewHoldRequestDto;
 import com.bukang.product.dto.CrewHoldResultDto;
 import com.bukang.product.dto.HoldRequestDto;
@@ -35,6 +36,8 @@ import com.bukang.product.dto.RaceSaveRequestDto;
 import com.bukang.product.dto.RaceScheduleDto;
 import com.bukang.product.dto.RaceSearchCondition;
 import com.bukang.product.dto.RaceSuggestionDto;
+import com.bukang.product.dto.RaceSummaryDto;
+import com.bukang.product.dto.RaceSyncEventDto;
 import com.bukang.product.dto.SellerRaceDto;
 
 import lombok.RequiredArgsConstructor;
@@ -53,6 +56,7 @@ public class ProductFacade {
 	private final RaceRegisterUseCase raceRegisterUseCase;
 	private final RaceUpdateUseCase raceUpdateUseCase;
 	private final RaceSearchUseCase raceSearchUseCase;
+	private final RaceRecommendUseCase raceRecommendUseCase;
 	private final RaceQueryUseCase raceQueryUseCase;
 	private final RaceScheduleQueryUseCase raceScheduleQueryUseCase;
 	private final RaceSaleStatusUseCase raceSaleStatusUseCase;
@@ -66,6 +70,10 @@ public class ProductFacade {
 	private final ProductOutboxKafkaRelayUseCase productOutboxKafkaRelayUseCase;
 	private final RaceDocumentSyncAppendUseCase raceDocumentSyncAppendUseCase;
 	private final RaceDocumentSyncProcessUseCase raceDocumentSyncProcessUseCase;
+	private final RaceEmbeddingSyncAppendUseCase raceEmbeddingSyncAppendUseCase;
+	private final RaceEmbeddingSyncProcessUseCase raceEmbeddingSyncProcessUseCase;
+	private final RaceSearchReconcileUseCase raceSearchReconcileUseCase;
+	private final RaceSyncFailureUseCase raceSyncFailureUseCase;
 	private final ProductInboxUseCase productInboxUseCase;
 	private final ProductDltUseCase productDltUseCase;
 
@@ -254,6 +262,18 @@ public class ProductFacade {
 		return raceSearchUseCase.search(condition, page, size);
 	}
 
+	// 검색어와 뜻이 비슷한 대회 (AI 추천, BUK-162). 임베딩 API를 부르는 동안 DB 연결을 잡지 않게 트랜잭션 밖에서 돈다
+	@Transactional(propagation = Propagation.NOT_SUPPORTED)
+	public List<RaceSummaryDto> recommendRaces(String keyword) {
+		return raceRecommendUseCase.recommendByKeyword(keyword);
+	}
+
+	// 보고 있는 대회와 비슷한 대회 (AI 추천, BUK-162). 트랜잭션은 recommendRaces와 같은 이유로 열지 않는다
+	@Transactional(propagation = Propagation.NOT_SUPPORTED)
+	public List<RaceSummaryDto> findSimilarRaces(long raceId) {
+		return raceRecommendUseCase.recommendSimilar(raceId);
+	}
+
 	public RaceSuggestionDto suggestRaces(String keyword) {
 		return raceSearchUseCase.suggest(keyword);
 	}
@@ -367,12 +387,48 @@ public class ProductFacade {
 		return raceDocumentSyncProcessUseCase.process(LocalDateTime.now());
 	}
 
+	// 미처리 임베딩 동기화 이벤트를 처리해 검색 문서의 AI 추천 벡터를 채운다 (RaceEmbeddingSyncScheduler가 부른다, BUK-162)
+	// 벡터를 채운 대회 수를 돌려준다
+	@Transactional
+	public int syncRaceEmbeddings() {
+		return raceEmbeddingSyncProcessUseCase.process(LocalDateTime.now());
+	}
+
+	// DB와 검색 문서가 어긋난 대회를 찾아 문서·임베딩 동기화 이벤트를 남긴다 (RaceSearchReconcileScheduler가 부른다, BUK-162)
+	// 문서가 없거나 모자란 대회, 벡터가 없는 대회를 다시 맞추게 한다 (배포 전부터 있던 대회, ES 데이터가 날아간 경우 등)
+	@Transactional
+	public RaceSearchReconcileUseCase.Result reconcileRaceSearch() {
+		return raceSearchReconcileUseCase.reconcile();
+	}
+
+	// 처리 실패한 검색 문서 동기화 행 목록 (내부 API, BUK-162). 최근 것부터 size건
+	@Transactional(readOnly = true)
+	public List<RaceSyncEventDto> findRaceSyncFailures(RaceSyncType type, int size) {
+		return raceSyncFailureUseCase.findFailed(type, size).stream().map(RaceSyncEventDto::from).toList();
+	}
+
+	// 사람이 원인을 고친 뒤 처리 실패한 동기화 행을 미처리로 되돌린다 (내부 API, BUK-162). 스케줄러가 곧 다시 처리한다
+	@Transactional
+	public RaceSyncEventDto retryRaceSync(RaceSyncType type, long id) {
+		return RaceSyncEventDto.from(raceSyncFailureUseCase.retry(type, id));
+	}
+
+	// 사람이 검색 문서를 직접 고친 뒤 처리 실패한 문서 동기화 행을 메모와 함께 닫는다 (내부 API, BUK-162). 다시 처리하지 않는다
+	@Transactional
+	public RaceSyncEventDto completeRaceDocumentSync(long id, String memo) {
+		return RaceSyncEventDto.from(raceSyncFailureUseCase.completeDocumentManually(id, memo, LocalDateTime.now()));
+	}
+
 	// 대회 저장 메시지와 검색 문서 동기화 이벤트를 남긴다 (대회 저장 트랜잭션 안에서 부른다)
 	private void appendRaceSaved(RaceSaveResult result) {
 		appendFileLink(result);
 		appendRaceChanged(result);
 		appendRaceCourseChanged(result);
 		raceDocumentSyncAppendUseCase.append(result.raceId());
+		// AI 추천 벡터를 만들 글이 바뀐 저장(등록, 대회명·장소·지역·소개·종목 구성을 바꾼 수정)만 남긴다 (BUK-162)
+		if (result.embeddingTextChanged()) {
+			raceEmbeddingSyncAppendUseCase.append(result.raceId());
+		}
 	}
 
 	// file-service에 보낼 이미지 연결 메시지 (race.filelink.requested)

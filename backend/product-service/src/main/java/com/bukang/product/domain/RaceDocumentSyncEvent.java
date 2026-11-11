@@ -1,15 +1,13 @@
 package com.bukang.product.domain;
 
-import static jakarta.persistence.EnumType.STRING;
 import static lombok.AccessLevel.PROTECTED;
 
 import java.time.LocalDateTime;
 
-import com.bukang.common.global.jpa.entity.BaseIdAndTime;
+import com.bukang.product.domain.exception.RaceSyncEventStatusException;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import lombok.Getter;
@@ -21,6 +19,7 @@ import lombok.NoArgsConstructor;
  * 처리는 같은 서비스의 스케줄러(RaceDocumentSyncScheduler)가 한다. 성공하면 COMPLETE, 실패하면 PENDING으로 두고 재시도 시각 뒤에 다시 처리한다.
  * Kafka 아웃박스와 달리 보내는 쪽과 처리하는 쪽이 같아서, 처리했는지까지 이 행 하나로 기록한다 (인박스를 따로 두지 않는다).
  * 처리는 DB의 최신 대회·종목을 읽어 문서를 맞추므로, 행에는 대회 ID만 둔다 (Kafka 아웃박스와 달리 payload가 없다).
+ * 칸과 상태 변경은 임베딩 동기화 이벤트와 같아 BaseRaceSyncEvent에 있다.
  */
 @Entity
 @NoArgsConstructor(access = PROTECTED)
@@ -30,58 +29,30 @@ import lombok.NoArgsConstructor;
 	// 미처리(PENDING) 행을 만든 순서대로 빠르게 찾는다 (스케줄러가 쓴다)
 	indexes = @Index(name = "idx_race_document_sync_status_create", columnList = "status, create_date")
 )
-public class RaceDocumentSyncEvent extends BaseIdAndTime {
-	// 검색 문서를 맞출 대회 ID
-	@Column(name = "race_id", nullable = false)
-	private long raceId;
-
-	@Enumerated(STRING)
-	@Column(name = "status", nullable = false, columnDefinition = "varchar(20)")
-	private SyncStatus status;
-
-	// 처리하지 못한 횟수
-	@Column(name = "retry_count", nullable = false)
-	private int retryCount;
-
-	// 처리하지 못했을 때 다시 처리해도 되는 가장 이른 시각 (재시도 간격을 점점 늘린다). 한 번도 실패하지 않았으면 null
-	@Column(name = "next_retry_date")
-	private LocalDateTime nextRetryDate;
-
-	// 처리를 마친 시각
-	@Column(name = "complete_date")
-	private LocalDateTime completeDate;
+public class RaceDocumentSyncEvent extends BaseRaceSyncEvent {
+	// 사람이 처리 실패 행을 다시 처리하지 않고 닫을 때 남긴 메모 (예: "Kibana에서 문서를 직접 고침", BUK-162)
+	// 임베딩 동기화에는 없다. 벡터는 사람이 만들 수 없어 원인을 고친 뒤 재처리하는 길만 둔다
+	@Column(name = "complete_memo", length = 500)
+	private String completeMemo;
 
 	private RaceDocumentSyncEvent(long raceId) {
-		this.raceId = raceId;
-		this.status = SyncStatus.PENDING;
+		super(raceId);
 	}
 
 	public static RaceDocumentSyncEvent pending(long raceId) {
 		return new RaceDocumentSyncEvent(raceId);
 	}
 
-	public void markComplete(LocalDateTime now) {
-		this.status = SyncStatus.COMPLETE;
-		this.completeDate = now;
-	}
-
-	// 처리하지 못한 횟수를 올리고, maxRetry번째 실패면 처리 실패로 바꿔 더는 처리하지 않는다
-	// 아직 재시도할 수 있으면 nextRetryDate 전에는 다시 처리하지 않는다
-	public void markFailed(int maxRetry, LocalDateTime nextRetryDate) {
-		this.retryCount++;
-		if (retryCount >= maxRetry) {
-			this.status = SyncStatus.FAILED;
-			return;
+	// 사람이 검색 문서를 직접 고친 뒤 처리 실패 행을 메모와 함께 처리 완료로 닫는다 (다시 처리하지 않는다)
+	// 처리 실패 상태에서만 닫는다. 미처리면 스케줄러가 곧 처리하고, 처리 완료면 이미 끝났다
+	public void completeManually(LocalDateTime now, String memo) {
+		if (!isFailed()) {
+			throw new RaceSyncEventStatusException(getId(), getStatus(), "처리 완료로 닫을");
 		}
-		this.nextRetryDate = nextRetryDate;
-	}
-
-	// 지금 처리해도 되는지 (실패한 적이 없거나, 재시도 시각이 지났다)
-	public boolean isProcessableAt(LocalDateTime now) {
-		return nextRetryDate == null || !nextRetryDate.isAfter(now);
-	}
-
-	public boolean isFailed() {
-		return status == SyncStatus.FAILED;
+		if (memo == null || memo.isBlank()) {
+			throw new IllegalArgumentException("처리 완료 메모를 적어야 합니다.");
+		}
+		markComplete(now);
+		this.completeMemo = memo.strip();
 	}
 }
