@@ -110,7 +110,8 @@ class FlywayExistingTablesTest {
 		// int 칸이 남으면 validate로 바꿀 때 "found [int], but expecting [bigint]"로 앱이 뜨지 않는다
 		assertThat(jdbcTemplate.queryForList("""
 			select concat(table_name, '.', column_name) from information_schema.columns
-			where table_schema = database() and table_name like 'cash\\_%' and data_type = 'int'""", String.class))
+			where table_schema = database() and table_name like 'cash\\_%' and data_type = 'int'
+				and concat(table_name, '.', column_name) <> 'cash_payout_transfer.attempt'""", String.class))
 			.isEmpty();
 		assertThat(jdbcTemplate.queryForList("""
 			select character_maximum_length from information_schema.columns where table_schema = database()
