@@ -1,5 +1,7 @@
 package com.bukang.cash.out.pg;
 
+import java.util.Optional;
+
 /**
  * PG(결제대행사)에 결제 승인을 요청하고, 승인 결과를 조회하고, 결제를 취소한다
  * 프론트가 PG 결제창에서 받은 paymentKey·orderId·amount를 그대로 넘기면, 이 승인이 끝나야 실제로 돈이 움직인다.
@@ -15,4 +17,10 @@ public interface PaymentClient {
 	// idempotencyKey가 같은 요청은 PG가 한 번만 처리하므로, 결과를 모를 때 같은 키로 다시 불러 확인한다.
 	// 실패하면 PaymentCancelFailedException을 던진다.
 	PaymentCancelResult cancel(String paymentKey, String cancelReason, long cancelAmount, String idempotencyKey);
+
+	// orderId로 amount를 받을 가상계좌를 발급한다. 판매자가 갚을 돈(청구)마다 하나씩 쓴다
+	VirtualAccountIssueResult issueVirtualAccount(String orderId, long amount);
+
+	// orderId로 이미 발급한 가상계좌를 찾는다. 없으면 빈 값이고, 조회가 실패하면 VirtualAccountIssueFailedException을 던진다
+	Optional<VirtualAccountIssueResult> findVirtualAccount(String orderId);
 }

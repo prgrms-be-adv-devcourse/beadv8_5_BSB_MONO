@@ -29,8 +29,9 @@ public class CashSellerAccountAdapter implements SellerAccountPort {
 
 	private final RestClient restClient;
 
-	public CashSellerAccountAdapter(String cashServiceUrl) {
-		this(RestClient.builder()
+	public CashSellerAccountAdapter(RestClient.Builder builder, String cashServiceUrl) {
+		// Boot가 주는 빌더는 주입마다 새로 만들어져(prototype) 다른 어댑터와 baseUrl이 섞이지 않는다
+		this(builder
 			.baseUrl(cashServiceUrl)
 			.requestFactory(requestFactory())
 			.build());

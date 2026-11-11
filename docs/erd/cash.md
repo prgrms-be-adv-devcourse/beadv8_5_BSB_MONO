@@ -114,7 +114,7 @@
 | | ledger_type | ENUM | NOT NULL | 아래 "ledger_type 값" 참고 |
 | | amount | BIGINT | NOT NULL | 변동 금액 (+/−) |
 | | balance_after | BIGINT | NOT NULL | 변동 후 잔액 |
-| | ref_type_code | ENUM | NOT NULL | WalletCharge / Order / Withdrawal / Payout. 돈의 이동을 일으킨 원인 객체. 한 이동의 두 줄(고객·홀딩)은 같은 ref를 가리킴. 충전은 CashMember 대신 WalletCharge(PG 거래 추적) |
+| | ref_type_code | ENUM | NOT NULL | WalletCharge / Order / Withdrawal / Payout / RecoveryDeposit. 돈의 이동을 일으킨 원인 객체. 한 이동의 두 줄(고객·홀딩)은 같은 ref를 가리킴. 충전은 CashMember 대신 WalletCharge(PG 거래 추적) |
 | | ref_id | BIGINT | NOT NULL | 근거 ID (WalletCharge·WalletWithdrawal의 id, 주문 id) |
 | | create_date / modify_date | DATETIME(6) | | 기록 일시 / 수정 일시 |
 
@@ -136,10 +136,12 @@ ref_type_code는 DTO에서 문자열로 받더라도 `LedgerRefType.valueOf(...)
 - 출금취소__통장입금
 - 출금__PG결제취소_토스페이먼츠 (2차, BUK-22)
 - 출금취소__PG결제취소_토스페이먼츠 (2차, BUK-22)
+- 회수입금__가상계좌_토스페이먼츠 (2차, BUK-146)
 
 #### 장부 기록 규칙 (10/8)
 
 돈이 고객 지갑과 홀딩 지갑 사이에서 움직이면 같은 ref_type_code·ref_id로 두 줄을 한 트랜잭션에서 남긴다(두 줄 amount 합 = 0). 충전·환급은 돈이 플랫폼 밖과 오가는 거라 고객 지갑만 기록한다.
+판매자가 갚는 회수금도 플랫폼 밖에서 들어오는 돈이라 홀딩 지갑 한 줄만 남긴다.
 
 | 상황 | 고객 지갑 | 홀딩 지갑 (2번) | ref_type_code |
 | --- | --- | --- | --- |
@@ -152,6 +154,7 @@ ref_type_code는 DTO에서 문자열로 받더라도 `LedgerRefType.valueOf(...)
 | 환급 실패 · 카드 몫 (2차) | (+) 출금취소__PG결제취소_토스페이먼츠 (되돌린 몫마다 한 줄) | - | Withdrawal |
 | 정산 대금 (2차) | (+) 정산수령__상품판매_대금 (판매자 지갑) | (−) 정산지급__상품판매_대금 | Payout |
 | 정산 수수료 (2차) | (+) 정산수령__상품판매_수수료 (1번 system 지갑) | (−) 정산지급__상품판매_수수료 | Payout |
+| 회수 입금 (2차) | - | (+) 회수입금__가상계좌_토스페이먼츠 (청구 하나에 한 줄) | RecoveryDeposit |
 
 결제 화면에서 부족분을 충전한 경우도 WalletCharge로 통일한다. 정산은 payout 한 건마다 홀딩 지갑(−)과 받는 지갑(+) 두 줄을 남긴다. 대금과 수수료는 각각 별도 payout 건이라 ref_id가 다르다(2차).
 
