@@ -42,8 +42,10 @@ public class CashPayoutTransferAdapter implements PayoutTransferPort {
 	private final RestClient restClient;
 
 	@Autowired
-	public CashPayoutTransferAdapter(@Value("${payout.services.cash}") String cashServiceUrl) {
-		this(RestClient.builder()
+	public CashPayoutTransferAdapter(RestClient.Builder builder,
+		@Value("${payout.services.cash}") String cashServiceUrl) {
+		// Boot가 주는 빌더는 주입마다 새로 만들어져(prototype) 다른 어댑터와 baseUrl이 섞이지 않는다
+		this(builder
 			.baseUrl(cashServiceUrl)
 			.requestFactory(requestFactory())
 			.build());
