@@ -121,7 +121,7 @@ public class CashFacade {
 			customerId, bankCode, accountNumber, accountHolder, idempotencyKey, now);
 	}
 
-	@Transactional
+	// @Transactional을 일부러 안 붙인다. 충전 확정과 같은 이유로, 은행 송금을 트랜잭션 밖에서 부른다
 	public CashPayoutResponseDto payout(
 		long payoutId, long sellerId, PayoutStage payoutStage, long settlementAmount, long feeAmount
 	) {

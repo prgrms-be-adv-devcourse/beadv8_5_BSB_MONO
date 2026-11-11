@@ -104,3 +104,8 @@ cash:
       # 연결·응답에 각각 거는 시간 제한. 승인은 카드사까지 다녀오므로 넉넉히, 조회는 Toss 기록만 읽으므로 짧게 둔다
       confirm-timeout: 5s
       lookup-timeout: 2s
+    # 정산금 송금 (BUK-83). 실제 은행 대신 같은 앱 안의 가짜 은행(/fakebank)을 HTTP로 부른다
+    bank:
+      base-url: http://localhost:${server.port}
+      # 연결·응답에 각각 거는 시간 제한. 넘으면 송금 결과를 모름으로 두고 재확인이 맞춘다
+      timeout: 5s
