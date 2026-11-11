@@ -1,6 +1,7 @@
 package com.bukang.payout.app;
 
 import java.time.LocalDateTime;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
 
@@ -43,6 +44,18 @@ public class PayoutLedgerUseCase {
 	private final PayoutRecoveryRepository payoutRecoveryRepository;
 
 	/**
+	 * 같은 판매자 × 대회의 정산 내역을 상태와 상관없이 잠근다. 회수와 최종 정산 생성이 시작할 때 부른다 (BUK-52)
+	 * 둘이 겹치면 최종 생성이 아직 커밋되지 않은 회수의 1차 정산금 차감을 못 보고 전액을 또 빼서 판매자 몫이 두 번 깎인다
+	 * 먼저 잠근 쪽이 끝난 뒤에 다른 쪽이 시작하므로 한 번에 하나만 돈다. 1차 정산이 이미 지급 완료여도 잠근다
+	 * 트랜잭션의 첫 문장이어야 한다. 일반 조회가 먼저 나가면 잠금을 기다린 뒤에도 옛 값을 읽을 수 있다
+	 * 1차 정산이 없으면 잠글 행이 없다. 그때는 1차 정산금이 없어 겹쳐도 깎을 몫이 없다
+	 */
+	@Transactional(propagation = Propagation.MANDATORY)
+	public void lockSellerRace(long sellerId, long raceId) {
+		payoutRepository.findForUpdate(sellerId, raceId, EnumSet.allOf(PayoutStatus.class));
+	}
+
+	/**
 	 * 일정 변경 환불의 회수 요청 (payout.md 4-2, PRO-33 · PRO-214)
 	 * 1차 정산을 만든 뒤의 환불은 1차 지급 전 · 뒤를 나누지 않고 항상 회수 요청으로 기록한다
 	 * 회수액은 그 참가권의 1차 몫(가격 × 40%, 원 미만 버림)이다. 가격은 주문 쪽 값을 받는다
@@ -57,6 +70,7 @@ public class PayoutLedgerUseCase {
 	@Transactional
 	public Optional<PayoutRecovery> recoverScheduleChange(long sellerId, long raceId, long raceCourseId,
 		long orderItemId, long price, LocalDateTime now) {
+		lockSellerRace(sellerId, raceId);
 		// 같은 환불 알림이 다시 와도(Kafka 재전달) 실패로 보지 않고 이미 만든 회수를 돌려준다.
 		// 409로 던지면 소비자가 재시도하다 DLT로 보내 이미 처리한 환불이 실패로 쌓인다 (R1)
 		Optional<PayoutRecovery> existing = payoutRecoveryRepository.findByOrderItemId(orderItemId);

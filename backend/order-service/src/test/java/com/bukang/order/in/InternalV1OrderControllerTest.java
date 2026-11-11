@@ -132,6 +132,7 @@ class InternalV1OrderControllerTest {
 			.andExpect(jsonPath("$.data[0].raceCourseId").value(COURSE_1115))
 			.andExpect(jsonPath("$.data[0].raceDate").value("2026-11-15"))
 			.andExpect(jsonPath("$.data[0].price").value(TICKET_PRICE))
+			.andExpect(jsonPath("$.data[0].status").value("PAID"))
 			.andExpect(jsonPath("$.data[1].orderItemId").value(third));
 	}
 

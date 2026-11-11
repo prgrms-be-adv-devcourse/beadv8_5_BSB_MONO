@@ -6,29 +6,34 @@ import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.cash.app.CashSupport;
 import com.bukang.cash.config.CashWalletProperties;
+import com.bukang.cash.domain.exception.payout.PayoutTransferFailedException;
 import com.bukang.cash.domain.exception.payout.PayoutTransferMismatchException;
+import com.bukang.cash.domain.exception.payout.PayoutTransferUnknownException;
 import com.bukang.cash.domain.payout.PayoutStage;
 import com.bukang.cash.domain.payout.PayoutTransfer;
+import com.bukang.cash.domain.payout.PayoutTransferStatus;
 import com.bukang.cash.domain.payout.PayoutTransferType;
 import com.bukang.cash.domain.wallet.LedgerRefType;
 import com.bukang.cash.domain.wallet.LedgerType;
 import com.bukang.cash.domain.wallet.Wallet;
 import com.bukang.cash.dto.payout.CashPayoutResponseDto;
+import com.bukang.cash.out.bank.BankTransferClient;
+import com.bukang.cash.out.bank.BankTransferResult;
 import com.bukang.cash.out.payout.PayoutTransferRepository;
 import com.bukang.cash.out.wallet.WalletLedgerRepository;
 
 import lombok.RequiredArgsConstructor;
 
 /**
- * 정산 지급: 홀딩 지갑에서 판매자 지갑으로 대금을, 최종 정산이면 시스템 지갑으로 수수료도 함께 옮긴다
- * 요청의 sellerId는 판매자 신청서 ID라 회원 ID(= 지갑 ID)와 다르다. CashSupport로 실제 회원 ID를 찾아 지갑을 잠근다.
- * 같은 payoutId로 다시 요청했는데 판매자·금액이 이전과 다르면 지갑을 건드리지 않고 저장된 값으로 409 거절한다 (리뷰 반영).
- * 최종 정산은 회수 상계로 대금이 0원이 될 수 있다. 이때도 수수료는 상계와 무관하게 그대로 옮기므로,
- * 대금·수수료 이동은 각각 있을 때만 처리하고(둘 다 0원인 호출은 없다고 전제) 판매자 지갑도 대금이 있을 때만 잠근다.
- * 대금 이동·수수료 이동은 각각 독립된 PayoutTransfer 행을 근거로 삼아 서로 다른 ref_id로 장부에 남긴다.
+ * 정산 지급: 대금은 홀딩 지갑에서 빼고 은행으로 판매자 계좌에 송금하고, 최종 정산이면 수수료를 시스템 지갑으로 옮긴다
+ * 요청의 sellerId는 판매자 신청서 ID라 회원 ID와 다르다. 은행에는 이 ID를 그대로 보내고, 판매자가 있는지만 CashSupport로 확인한다.
+ * 같은 payoutId로 다시 요청했는데 판매자·금액이 이전과 다르면 지갑을 건드리지 않고 저장된 값으로 409 거절한다.
+ * 최종 정산은 회수 상계로 대금이 0원이 될 수 있다. 이때도 수수료는 그대로 옮기므로 대금·수수료는 각각 있을 때만 처리한다
+ * (둘 다 0원인 호출은 없다고 전제). 대금 이동·수수료 이동은 각각 PayoutTransfer 행을 근거로 삼아 서로 다른 ref_id로 장부에 남긴다.
  */
 @Service
 @RequiredArgsConstructor
@@ -37,59 +42,135 @@ public class CashPayoutUseCase {
 	private final CashWalletProperties cashWalletProperties;
 	private final PayoutTransferRepository payoutTransferRepository;
 	private final WalletLedgerRepository walletLedgerRepository;
+	private final BankTransferClient bankTransferClient;
+	private final TransactionTemplate transactionTemplate;
 
+	// 은행을 기다리는 동안 홀딩 지갑 잠금을 잡지 않도록 세 단계로 나눈다 (환급과 같은 구조).
+	// 1) 잠금 트랜잭션: 수수료 이동, 대금 차감과 송금 기록  2) 트랜잭션 밖: 은행 송금  3) 잠금 트랜잭션: 결과 반영
 	public CashPayoutResponseDto payout(
+		long payoutId, long sellerId, PayoutStage payoutStage, long settlementAmount, long feeAmount
+	) {
+		Requested requested = transactionTemplate.execute(status ->
+			recordRequestLocked(payoutId, sellerId, payoutStage, settlementAmount, feeAmount));
+		if (requested.inFlight()) {
+			throw unknown(payoutId);
+		}
+		if (requested.transferId() == null) {
+			return requested.response();
+		}
+		BankTransferResult result = bankTransferClient.transfer(requested.bankTransferId(), sellerId, settlementAmount);
+		PayoutTransferStatus applied = transactionTemplate.execute(status -> applyResultLocked(requested, result));
+		// 되돌린 장부가 롤백되지 않도록 결과를 커밋한 뒤에 거절한다
+		if (applied == PayoutTransferStatus.FAILED) {
+			throw new PayoutTransferFailedException("은행이 정산금 송금을 거절했습니다. payoutId=%d".formatted(payoutId));
+		}
+		// 결과 모름이거나, 기다리는 사이 다른 요청이 새 시도를 시작했다
+		if (applied != PayoutTransferStatus.COMPLETED) {
+			throw unknown(payoutId);
+		}
+		return CashPayoutResponseDto.paid(requested.settlementAmount(), requested.paidFeeAmount());
+	}
+
+	private PayoutTransferUnknownException unknown(long payoutId) {
+		return new PayoutTransferUnknownException(
+			"정산금 송금 결과를 아직 알 수 없습니다. 재확인이 맞춘 뒤 다시 요청하세요. payoutId=%d".formatted(payoutId));
+	}
+
+	private Requested recordRequestLocked(
 		long payoutId, long sellerId, PayoutStage payoutStage, long settlementAmount, long feeAmount
 	) {
 		long holdingMemberId = cashWalletProperties.holdingMemberId();
 		long systemMemberId = cashWalletProperties.systemMemberId();
 		boolean withSettlement = settlementAmount > 0;
-		// 1차 정산은 수수료가 없다. 최종 정산도 상계로 대금만 0원이 되고 수수료는 남을 수 있다 (완료 기준)
+		// 1차 정산은 수수료가 없다. 최종 정산도 상계로 대금만 0원이 되고 수수료는 남을 수 있다
 		boolean withFee = payoutStage == PayoutStage.FINAL && feeAmount > 0;
 
-		// 1.지갑 잠금 (홀딩은 항상, 판매자·시스템은 실제로 돈이 오갈 때만, ID 작은 쪽부터)
-		// 대금이 없으면(수수료만 있는 요청) 판매자 ID를 회원 ID로 바꿀 필요도 없다
+		// 1.없는 판매자에게 송금하지 않도록 먼저 확인한다 (대금이 없으면 확인할 필요도 없다)
+		if (withSettlement) {
+			cashSupport.resolveSellerMemberId(sellerId);
+		}
+
+		// 2.지갑 잠금 (홀딩은 항상, 시스템은 수수료가 있을 때만, ID 작은 쪽부터)
 		List<Long> holderIds = new ArrayList<>();
 		holderIds.add(holdingMemberId);
-		Long sellerMemberId = null;
-		if (withSettlement) {
-			sellerMemberId = cashSupport.resolveSellerMemberId(sellerId);
-			holderIds.add(sellerMemberId);
-		}
 		if (withFee) {
 			holderIds.add(systemMemberId);
 		}
-		long[] holderIdArray = holderIds.stream().mapToLong(Long::longValue).toArray();
-		Map<Long, Wallet> wallets = cashSupport.lockWallets(holderIdArray);
+		Map<Long, Wallet> wallets = cashSupport.lockWallets(holderIds.stream().mapToLong(Long::longValue).toArray());
 		Wallet holdingWallet = wallets.get(holdingMemberId);
 
-		// 2.같은 payoutId로 이미 처리된 이동이 있으면, 지갑을 잠근 뒤(동시 요청 직렬화) 이번 요청과 값이 같은지 먼저 확인한다
+		// 3.같은 payoutId로 이미 처리된 이동이 있으면, 지갑을 잠근 뒤(동시 요청 직렬화) 이번 요청과 값이 같은지 먼저 확인한다
 		Optional<PayoutTransfer> existingSettlement =
 			payoutTransferRepository.findByPayoutIdAndTransferType(payoutId, PayoutTransferType.SETTLEMENT);
 		Optional<PayoutTransfer> existingFee =
 			payoutTransferRepository.findByPayoutIdAndTransferType(payoutId, PayoutTransferType.FEE);
 		validateConsistentRetry(payoutId, sellerId, settlementAmount, feeAmount, existingSettlement, existingFee);
 
-		// 3.대금 이동 (홀딩 → 판매자, 대금이 있고 아직 처리 전일 때만)
-		boolean settlementTransferred = withSettlement && existingSettlement.isEmpty();
-		if (settlementTransferred) {
-			transfer(payoutId, sellerId, PayoutTransferType.SETTLEMENT, settlementAmount, holdingWallet,
-				wallets.get(sellerMemberId), LedgerType.정산지급__상품판매_대금, LedgerType.정산수령__상품판매_대금);
-		}
 		// 4.수수료 이동 (홀딩 → 시스템, 최종이고 수수료가 있고 아직 처리 전일 때만)
 		boolean feeTransferred = withFee && existingFee.isEmpty();
 		if (feeTransferred) {
-			transfer(payoutId, sellerId, PayoutTransferType.FEE, feeAmount, holdingWallet,
-				wallets.get(systemMemberId), LedgerType.정산지급__상품판매_수수료, LedgerType.정산수령__상품판매_수수료);
+			PayoutTransfer fee = payoutTransferRepository.save(
+				new PayoutTransfer(payoutId, sellerId, PayoutTransferType.FEE, feeAmount));
+			walletLedgerRepository.save(holdingWallet.debit(
+				feeAmount, LedgerType.정산지급__상품판매_수수료, LedgerRefType.Payout, fee.getId()));
+			walletLedgerRepository.save(wallets.get(systemMemberId).credit(
+				feeAmount, LedgerType.정산수령__상품판매_수수료, LedgerRefType.Payout, fee.getId()));
+		}
+
+		// 5.이전 송금 결과를 아직 모르면 돈이 나갔을 수 있어 은행에 다시 보내지 않는다 (수수료 이동은 커밋하고 503)
+		boolean settlementInFlight = existingSettlement
+			.map(stored -> stored.getStatus() == PayoutTransferStatus.REQUESTED
+				|| stored.getStatus() == PayoutTransferStatus.UNKNOWN)
+			.orElse(false);
+		if (settlementInFlight) {
+			return Requested.inFlightRequest();
 		}
 
 		long paidFeeAmount = withFee ? feeAmount : 0;
-		return settlementTransferred || feeTransferred
-			? CashPayoutResponseDto.paid(settlementAmount, paidFeeAmount)
-			: CashPayoutResponseDto.alreadyPaid(settlementAmount, paidFeeAmount);
+		// 6.대금 차감과 송금 기록 (대금이 있고 아직 완료 전일 때만). 은행에 보내기 전에 기록해, 서버가 멈춰도 재확인이 이어받는다
+		boolean settlementCompleted = existingSettlement
+			.map(stored -> stored.getStatus() == PayoutTransferStatus.COMPLETED)
+			.orElse(false);
+		if (!withSettlement || settlementCompleted) {
+			return Requested.done(feeTransferred
+				? CashPayoutResponseDto.paid(settlementAmount, paidFeeAmount)
+				: CashPayoutResponseDto.alreadyPaid(settlementAmount, paidFeeAmount));
+		}
+		// 실패가 확정된 송금은 같은 행의 시도 횟수를 올려 새 송금 ID로 다시 보낸다 (완료된 송금은 정산 ID마다 하나뿐)
+		PayoutTransfer settlement = existingSettlement
+			.map(failed -> {
+				failed.retry();
+				return failed;
+			})
+			.orElseGet(() -> payoutTransferRepository.save(
+				new PayoutTransfer(payoutId, sellerId, PayoutTransferType.SETTLEMENT, settlementAmount)));
+		walletLedgerRepository.save(holdingWallet.debit(
+			settlementAmount, LedgerType.정산지급__상품판매_대금, LedgerRefType.Payout, settlement.getId()));
+		return new Requested(
+			settlement.getId(), settlement.bankTransferId(), settlementAmount, paidFeeAmount, null, false);
 	}
 
-	// 저장된 이동 기록의 판매자·금액이 이번 요청과 다르면, 지갑을 건드리지 않고 저장된 값을 담아 409를 던진다 (리뷰 반영)
+	private PayoutTransferStatus applyResultLocked(Requested requested, BankTransferResult result) {
+		Wallet holdingWallet = cashSupport.lockWallet(cashWalletProperties.holdingMemberId());
+		PayoutTransfer settlement = payoutTransferRepository.findById(requested.transferId()).orElseThrow();
+		// 은행을 기다리는 사이 재확인이 먼저 반영했으면 그 결과로 답한다. 다시 반영하면 되돌리기가 두 번 일어난다
+		if (settlement.getStatus() != PayoutTransferStatus.REQUESTED
+			|| !settlement.bankTransferId().equals(requested.bankTransferId())) {
+			return settlement.getStatus();
+		}
+		switch (result) {
+			case COMPLETED -> settlement.markCompleted();
+			case FAILED -> {
+				// 은행이 확실히 거절해 돈이 나가지 않았으니 홀딩 지갑에서 뺀 대금을 되돌린다. 수수료는 그대로 둔다
+				walletLedgerRepository.save(settlement.fail(holdingWallet));
+			}
+			// 은행이 송금했을 수 있어 되돌리지 않는다. 재확인이 완료나 실패로 맞춘다
+			case UNKNOWN -> settlement.markUnknown();
+		}
+		return settlement.getStatus();
+	}
+
+	// 저장된 이동 기록의 판매자·금액이 이번 요청과 다르면, 지갑을 건드리지 않고 저장된 값을 담아 409를 던진다
 	private void validateConsistentRetry(
 		long payoutId, long sellerId, long settlementAmount, long feeAmount,
 		Optional<PayoutTransfer> existingSettlement, Optional<PayoutTransfer> existingFee
@@ -109,15 +190,17 @@ public class CashPayoutUseCase {
 		}
 	}
 
-	private void transfer(
-		long payoutId, long sellerId, PayoutTransferType transferType, long amount,
-		Wallet fromWallet, Wallet toWallet, LedgerType debitType, LedgerType creditType
+	// transferId가 null이면 은행에 보낼 대금이 없어 response로 바로 답하고, inFlight면 이전 송금 결과를 몰라 503으로 답한다
+	private record Requested(
+		Long transferId, String bankTransferId, long settlementAmount, long paidFeeAmount,
+		CashPayoutResponseDto response, boolean inFlight
 	) {
-		PayoutTransfer transferRecord = payoutTransferRepository.save(
-			new PayoutTransfer(payoutId, sellerId, transferType, amount));
-		walletLedgerRepository.save(
-			fromWallet.debit(amount, debitType, LedgerRefType.Payout, transferRecord.getId()));
-		walletLedgerRepository.save(
-			toWallet.credit(amount, creditType, LedgerRefType.Payout, transferRecord.getId()));
+		static Requested done(CashPayoutResponseDto response) {
+			return new Requested(null, null, 0, 0, response, false);
+		}
+
+		static Requested inFlightRequest() {
+			return new Requested(null, null, 0, 0, null, true);
+		}
 	}
 }
