@@ -149,6 +149,7 @@ backend/
 - `ai-service`(크루런 AI)는 Spring AI 2.0.2를 쓴다. 코드는 `ChatClient`만 쓰고, 어느 회사 모델인지는 설정 `spring.ai.model.chat`이 정한다
   (기본·prod는 `openai`, dev·test는 `ollama`). OpenAI 키는 `.env`의 `OPENAI_API_KEY`로만 받고, 비어 있어도 앱은 뜬다(질문하면 503).
   대화 기록은 Spring AI의 Redis 저장소에 둔다(키 `ai:chats:{화면}-{회원 번호}:{순번}`, 보관 24시간, 검색·JSON 기능을 써서 Redis 8 이상).
+  Redis 저장소의 `metadata-fields`를 비우지 않는다. 비우면 OpenAI 답(숫자·목록 메타데이터)이 인덱스에 못 들어가 대화 기록에서 빠진다. 인덱스 모양을 바꾸면 `index-name`도 바꾼다.
   `ChatMemory`를 빈으로 등록하면 Spring AI가 Redis 저장소를 만들지 않고 메모리 저장소로 바뀌므로 등록하지 않는다(`AiChatConfig`).
   도구(`@Tool`)는 화면별 묶음(`SellerTools`, `AdminTools`)으로 나누고 인자를 받지 않는다. 회원 번호는 `ToolContext`의 `AiToolTrace`에서 꺼낸다(모델이 정하지 않음).
   도구는 필요한 값만 돌려주고 개인정보(구매자 이름·배송지·신청자 이름)는 모델에 보내지 않는다. 출처·버튼·목록은 `AiToolTrace`에 모아 코드가 응답에 붙인다.
