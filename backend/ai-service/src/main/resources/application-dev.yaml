@@ -1,0 +1,21 @@
+spring:
+  ai:
+    # 로컬은 내 컴퓨터의 Ollama를 쓴다 (요금 없음). 띄우는 방법은 README의 "크루런 AI" 참고
+    model:
+      chat: ollama
+    ollama:
+      base-url: http://localhost:11434
+      chat:
+        # 추천값(미확정): 도구 호출을 지원하는 작은 모델 (약 2GB)
+        model: llama3.2:3b
+
+# 로컬 개발은 회원 서비스를 띄우지 않아도 되게 fake다 (누구나 관리자·승인된 판매자)
+ai:
+  clients:
+    member:
+      mode: fake
+      base-url: http://localhost:8080
+
+logging:
+  level:
+    com.bukang: debug
