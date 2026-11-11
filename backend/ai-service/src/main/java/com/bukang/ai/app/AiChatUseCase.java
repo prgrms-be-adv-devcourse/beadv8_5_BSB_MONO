@@ -59,7 +59,9 @@ public class AiChatUseCase {
 			throw exception;
 		} catch (RuntimeException exception) {
 			// 모델 회사 오류·시간 초과·Redis 장애. 질문 내용은 로그에 남기지 않는다
-			log.error("모델에서 답을 받지 못했습니다. memberId={}, screen={}", memberId, screen, exception);
+			// 예외를 통째로 남기지 않는다. OpenAI는 틀린 키의 오류 문구에 키의 앞머리와 끝 4자리를 넣어 준다 (sk-proj-****abcd)
+			log.error("모델에서 답을 받지 못했습니다. memberId={}, screen={}, error={}: {}",
+				memberId, screen, exception.getClass().getName(), maskKey(exception.getMessage()));
 			dropUnansweredQuestion(conversationId);
 			throw new AiModelUnavailableException();
 		}
@@ -80,6 +82,10 @@ public class AiChatUseCase {
 			log.error("대화 기록을 지우지 못했습니다. memberId={}, screen={}", memberId, screen, exception);
 			throw new AiModelUnavailableException();
 		}
+	}
+
+	static String maskKey(String message) {
+		return message == null ? null : message.replaceAll("sk-[A-Za-z0-9_*-]+", "sk-(가림)");
 	}
 
 	// 대화 기록 advisor는 모델을 부르기 전에 질문부터 저장한다. 답을 받지 못했으면 그 질문을 기록에서 뺀다

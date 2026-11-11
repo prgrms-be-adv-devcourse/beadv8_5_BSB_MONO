@@ -11,9 +11,12 @@ import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.MessageType;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.ResultActions;
 
@@ -24,6 +27,7 @@ import redis.clients.jedis.RedisClient;
 import tools.jackson.databind.ObjectMapper;
 
 // 모델 답은 대역이 정한 "답변 N"이다. 대화 기록은 모델 답이 아니라 Redis에 저장된 메시지와 모델에 보낸 요청으로 확인한다
+@ExtendWith(OutputCaptureExtension.class)
 class ApiV1AiChatTest extends AiTestBase {
 	@Autowired
 	private RedisClient redisClient;
@@ -175,6 +179,17 @@ class ApiV1AiChatTest extends AiTestBase {
 			.andExpect(jsonPath("$.message").value("지금은 답변을 만들 수 없습니다. 잠시 뒤 다시 시도해주세요."));
 		assertThat(texts(stored("seller-3"))).containsExactly("앞 질문", "답변 1");
 		assertThat(stored("seller-31")).isEmpty();
+	}
+
+	@Test
+	@DisplayName("모델 오류 문구에 든 키 조각(sk-…끝 4자리)은 로그에 남기지 않는다")
+	void masksKeyInLog(CapturedOutput output) throws Exception {
+		chatModel.failWith(new IllegalStateException(
+			"401: Incorrect API key provided: sk-proj-************************ZZZZ. You can find your API key at"));
+
+		chat("seller", SELLER, "질문").andExpect(status().isServiceUnavailable());
+
+		assertThat(output.getAll()).contains("Incorrect API key provided: sk-(가림).").doesNotContain("ZZZZ", "sk-proj");
 	}
 
 	@Test
