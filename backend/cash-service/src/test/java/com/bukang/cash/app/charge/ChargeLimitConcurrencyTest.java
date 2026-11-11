@@ -30,6 +30,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.cash.RedisTestcontainersConfiguration;
+import com.bukang.cash.TestcontainersConfiguration;
 import com.bukang.cash.app.CashFacade;
 import com.bukang.cash.domain.exception.charge.ChargeAmountTooLargeException;
 import com.bukang.cash.domain.member.CashMember;
@@ -45,10 +46,11 @@ import com.bukang.cash.out.wallet.WalletLedgerRepository;
 import com.bukang.cash.out.wallet.WalletRepository;
 
 // 주문번호가 다른 충전 두 건이 동시에 확정될 때, 먼저 처리 중이 된 충전 금액도 한도에 세어 뒤 충전을 막는지 확인한다.
-// 토스 승인을 늦춰 두 요청이 모두 처리 중인 순간을 만든다
+// 토스 승인을 늦춰 두 요청이 모두 처리 중인 순간을 만든다.
+// 뒤 요청이 앞 요청의 처리 중 기록을 보는지는 격리 수준에 달려 있어, 운영과 같은 MySQL(REPEATABLE READ)에서 돌린다
 @SpringBootTest
 @ActiveProfiles("test")
-@Import(RedisTestcontainersConfiguration.class)
+@Import({TestcontainersConfiguration.class, RedisTestcontainersConfiguration.class})
 class ChargeLimitConcurrencyTest {
 	private static final long CUSTOMER_ID = 33;
 	private static final long CHARGE_AMOUNT = 100_000;
