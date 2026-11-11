@@ -1,0 +1,35 @@
+package com.bukang.member.crew.in;
+
+import java.time.Clock;
+import java.time.LocalDateTime;
+
+import org.springframework.context.annotation.Profile;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
+
+import com.bukang.member.crew.app.CrewInviteCleanupUseCase;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+/**
+ * 매일 04:30에 만료·취소된 지 7일 지난 크루 초대를 지운다 (BUK-100)
+ * test 프로파일에서는 등록하지 않는다. 테스트는 CrewInviteCleanupUseCase에 시각을 넣어 직접 부른다
+ */
+@Slf4j
+@Profile("!test")
+@Component
+@RequiredArgsConstructor
+public class CrewInviteCleanupScheduler {
+	private static final String ZONE = "Asia/Seoul";
+
+	private final CrewInviteCleanupUseCase crewInviteCleanupUseCase;
+	// 초대 시각을 적는 CrewFacade와 같은 시계로 읽는다
+	private final Clock clock;
+
+	@Scheduled(cron = "0 30 4 * * *", zone = ZONE)
+	public void cleanup() {
+		int deleted = crewInviteCleanupUseCase.cleanup(LocalDateTime.now(clock));
+		log.info("만료·취소된 지 7일 지난 크루 초대를 지웠습니다. 건수={}", deleted);
+	}
+}
