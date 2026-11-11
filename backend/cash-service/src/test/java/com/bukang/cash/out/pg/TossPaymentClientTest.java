@@ -415,10 +415,11 @@ class TossPaymentClientTest {
 	}
 
 	@Test
-	@DisplayName("청구 ID를 주문번호로 국민은행·90일 유효 가상계좌 발급을 요청하고, 계좌번호·입금 기한(한국 시간)·웹훅 비밀값을 돌려준다")
+	@DisplayName("청구 ID를 주문번호로 국민은행·90일 유효 가상계좌 발급을 요청하고, 계좌번호·금액·입금 기한(한국 시간)·웹훅 비밀값을 돌려준다")
 	void issueVirtualAccount() {
 		String response = """
 			{ "orderId": "RC-20261214-0A3F", "status": "WAITING_FOR_DEPOSIT", "secret": "ps_secret_1",
+			"totalAmount": 400000,
 			"virtualAccount": { "accountNumber": "X6000123456789", "bankCode": "06",
 			"dueDate": "2027-03-14T10:00:00+09:00" } }
 			""";
@@ -437,7 +438,7 @@ class TossPaymentClientTest {
 
 		server.verify();
 		assertThat(result).isEqualTo(new VirtualAccountIssueResult(
-			"국민은행", "X6000123456789", LocalDateTime.of(2027, 3, 14, 10, 0), "ps_secret_1"));
+			"국민은행", "X6000123456789", 400_000, LocalDateTime.of(2027, 3, 14, 10, 0), "ps_secret_1"));
 	}
 
 	@Test
@@ -482,10 +483,11 @@ class TossPaymentClientTest {
 	}
 
 	@Test
-	@DisplayName("주문번호로 이미 발급된 가상계좌가 있으면 계좌번호·입금 기한(한국 시간)·웹훅 비밀값을 돌려준다")
+	@DisplayName("주문번호로 이미 발급된 가상계좌가 있으면 계좌번호·금액·입금 기한(한국 시간)·웹훅 비밀값을 돌려준다")
 	void findVirtualAccount() {
 		String response = """
 			{ "orderId": "RC-20261214-0A3F", "status": "WAITING_FOR_DEPOSIT", "secret": "ps_secret_1",
+			"totalAmount": 400000,
 			"virtualAccount": { "accountNumber": "X6000123456789", "bankCode": "06",
 			"dueDate": "2027-03-14T10:00:00+09:00" } }
 			""";
@@ -495,7 +497,7 @@ class TossPaymentClientTest {
 			.andRespond(withSuccess(response, MediaType.APPLICATION_JSON));
 
 		assertThat(client.findVirtualAccount("RC-20261214-0A3F")).contains(new VirtualAccountIssueResult(
-			"국민은행", "X6000123456789", LocalDateTime.of(2027, 3, 14, 10, 0), "ps_secret_1"));
+			"국민은행", "X6000123456789", 400_000, LocalDateTime.of(2027, 3, 14, 10, 0), "ps_secret_1"));
 	}
 
 	@Test

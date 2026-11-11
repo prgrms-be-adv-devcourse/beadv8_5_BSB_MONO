@@ -10,7 +10,8 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum QueueEntryType {
-	// 파티 대기열. 등록 전에 주문 서비스의 파티장 확인(GET /api/v1/order/parties/leader?raceId=)이 필요하다
+	// 파티 대기열. 등록 전에 주문 서비스의 이 대회 내 파티 상태(GET /api/v1/order/parties/me/race-status?raceId=)로
+	// 파티장이고 신청할 수 있는지(role=LEADER, canApply=true) 확인한다
 	PARTY("/api/v1/queue/parties"),
 	// 개인 대기열
 	INDIVIDUAL("/api/v1/queue");

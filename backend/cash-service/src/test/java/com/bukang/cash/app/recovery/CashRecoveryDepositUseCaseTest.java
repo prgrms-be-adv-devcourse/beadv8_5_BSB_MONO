@@ -20,12 +20,15 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Test;-recovery-deposit-reconcile
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -51,6 +54,7 @@ import com.bukang.cash.out.wallet.WalletRepository;
 // 토스 입금 알림을 받아 회수 입금을 홀딩 지갑에 기록하는 유스케이스 테스트. PG 조회는 목으로 결과를 정한다
 @SpringBootTest
 @ActiveProfiles("test")
+@ExtendWith(OutputCaptureExtension.class)
 class CashRecoveryDepositUseCaseTest {
 	private static final String CLAIM_CODE = "RC-20261214-0A3F";
 	private static final String SECRET = "ps_secret_1";
@@ -106,7 +110,7 @@ class CashRecoveryDepositUseCaseTest {
 		given(paymentClient.lookupByOrderId(CLAIM_CODE)).willReturn(
 			PaymentLookupResult.completed(new PaymentApprovalResult(400_000, "pay_key_1", DEPOSITED_AT)));
 
-		cashFacade.receiveRecoveryDeposit(CLAIM_CODE, SECRET);
+		cashFacade.receiveRecoveryDeposit(CLAIM_CODE, SECRET, "DONE");
 
 		assertThat(walletRepository.findById(cashWalletProperties.holdingMemberId()).orElseThrow().getBalance())
 			.isEqualTo(400_000);
@@ -128,7 +132,7 @@ class CashRecoveryDepositUseCaseTest {
 		given(paymentClient.lookupByOrderId(CLAIM_CODE)).willReturn(
 			PaymentLookupResult.completed(new PaymentApprovalResult(400_000, "pay_key_1", DEPOSITED_AT)));
 
-		cashFacade.receiveRecoveryDeposit(CLAIM_CODE, "forged_secret");
+		cashFacade.receiveRecoveryDeposit(CLAIM_CODE, "forged_secret", "DONE");
 
 		verify(paymentClient, never()).lookupByOrderId(anyString());
 		assertNothingRecorded();
@@ -137,7 +141,7 @@ class CashRecoveryDepositUseCaseTest {
 	@Test
 	@DisplayName("회수 입금 기록에 없는 주문번호의 알림이면 오류 없이 끝내고, PG 조회도 기록도 하지 않는다")
 	void ignoresCallbackForUnknownOrder() {
-		assertThatCode(() -> cashFacade.receiveRecoveryDeposit("RC-20261214-FFFF", SECRET))
+		assertThatCode(() -> cashFacade.receiveRecoveryDeposit("RC-20261214-FFFF", SECRET, "DONE"))
 			.doesNotThrowAnyException();
 
 		verify(paymentClient, never()).lookupByOrderId(anyString());
@@ -148,11 +152,11 @@ class CashRecoveryDepositUseCaseTest {
 	@DisplayName("PG 조회 결과가 아직 입금 완료가 아니면 기록하지 않고 입금 대기로 둔다")
 	void ignoresWhenPgSaysNotDeposited() {
 		given(paymentClient.lookupByOrderId(CLAIM_CODE)).willReturn(PaymentLookupResult.pending());
-		cashFacade.receiveRecoveryDeposit(CLAIM_CODE, SECRET);
+		cashFacade.receiveRecoveryDeposit(CLAIM_CODE, SECRET, "DONE");
 		assertNothingRecorded();
 
 		given(paymentClient.lookupByOrderId(CLAIM_CODE)).willReturn(PaymentLookupResult.notCompleted());
-		cashFacade.receiveRecoveryDeposit(CLAIM_CODE, SECRET);
+		cashFacade.receiveRecoveryDeposit(CLAIM_CODE, SECRET, "DONE");
 		assertNothingRecorded();
 	}
 
@@ -162,7 +166,7 @@ class CashRecoveryDepositUseCaseTest {
 		given(paymentClient.lookupByOrderId(CLAIM_CODE)).willReturn(
 			PaymentLookupResult.completed(new PaymentApprovalResult(390_000, "pay_key_1", DEPOSITED_AT)));
 
-		cashFacade.receiveRecoveryDeposit(CLAIM_CODE, SECRET);
+		cashFacade.receiveRecoveryDeposit(CLAIM_CODE, SECRET, "DONE");
 
 		assertNothingRecorded();
 	}
@@ -172,12 +176,26 @@ class CashRecoveryDepositUseCaseTest {
 	void ignoresRepeatedCallbackAfterDeposit() {
 		given(paymentClient.lookupByOrderId(CLAIM_CODE)).willReturn(
 			PaymentLookupResult.completed(new PaymentApprovalResult(400_000, "pay_key_1", DEPOSITED_AT)));
-		cashFacade.receiveRecoveryDeposit(CLAIM_CODE, SECRET);
+		cashFacade.receiveRecoveryDeposit(CLAIM_CODE, SECRET, "DONE");
 
-		cashFacade.receiveRecoveryDeposit(CLAIM_CODE, SECRET);
+		cashFacade.receiveRecoveryDeposit(CLAIM_CODE, SECRET, "DONE");
 
 		verify(paymentClient, times(1)).lookupByOrderId(CLAIM_CODE);
 		assertRecordedOnce();
+	}
+
+	@Test
+	@DisplayName("입금 완료로 기록한 청구에 입금 오류 알림(DONE이 아닌 상태)이 오면 장부는 그대로 두고, 사람이 맞추도록 에러 로그를 남긴다")
+	void logsErrorWhenDepositRevertedAfterRecording(CapturedOutput output) {
+		given(paymentClient.lookupByOrderId(CLAIM_CODE)).willReturn(
+			PaymentLookupResult.completed(new PaymentApprovalResult(400_000, "pay_key_1", DEPOSITED_AT)));
+		cashFacade.receiveRecoveryDeposit(CLAIM_CODE, SECRET, "DONE");
+
+		cashFacade.receiveRecoveryDeposit(CLAIM_CODE, SECRET, "WAITING_FOR_DEPOSIT");
+
+		verify(paymentClient, times(1)).lookupByOrderId(CLAIM_CODE);
+		assertRecordedOnce();
+		assertThat(output).contains("입금 오류", CLAIM_CODE);
 	}
 
 	@Test
@@ -192,7 +210,7 @@ class CashRecoveryDepositUseCaseTest {
 		for (int i = 0; i < threadCount; i++) {
 			futures.add(executor.submit(() -> {
 				startSignal.await();
-				cashFacade.receiveRecoveryDeposit(CLAIM_CODE, SECRET);
+				cashFacade.receiveRecoveryDeposit(CLAIM_CODE, SECRET, "DONE");
 				return null;
 			}));
 		}

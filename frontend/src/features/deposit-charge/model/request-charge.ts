@@ -6,9 +6,15 @@ import { readPendingCharge, savePendingCharge } from '../lib/pending-charge'
 /** 정책 4장 예치금-1: 충전 최소 금액 */
 export const MIN_CHARGE = 10_000
 
-/** 결제 중 모자란 금액으로 충전할 금액. 1만 원보다 적게 모자라면 1만 원을 충전한다. */
+/** 정책 4장 2차 2-1: 1회 충전 한도. 넘으면 서버가 충전 전체를 거절한다 */
+export const MAX_CHARGE = 300_000
+
+/**
+ * 결제 중 모자란 금액으로 충전할 금액. 1만 원보다 적게 모자라면 1만 원을 충전한다.
+ * 한도보다 많이 모자라면 한도만큼 충전하고, 돌아와 다시 결제할 때 남은 금액을 또 충전한다.
+ */
 export function chargeAmountFor(shortage: number) {
-  return Math.max(shortage, MIN_CHARGE)
+  return Math.min(Math.max(shortage, MIN_CHARGE), MAX_CHARGE)
 }
 
 /** 토스 결제창이 성공·실패 뒤 돌아오는 화면 */

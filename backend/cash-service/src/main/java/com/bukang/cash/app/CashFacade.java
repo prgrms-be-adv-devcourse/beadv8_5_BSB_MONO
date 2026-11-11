@@ -139,7 +139,7 @@ public class CashFacade {
 	}
 
 	// @Transactional을 일부러 안 붙인다. 토스 입금 조회를 트랜잭션 밖에서 부르고, 기록만 짧은 트랜잭션으로 한다
-	public void receiveRecoveryDeposit(String claimCode, String secret) {
-		cashRecoveryDepositUseCase.receive(claimCode, secret);
+	public void receiveRecoveryDeposit(String claimCode, String secret, String pgStatus) {
+		cashRecoveryDepositUseCase.receive(claimCode, secret, pgStatus);
 	}
 }

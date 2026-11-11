@@ -5,6 +5,7 @@ import static com.bukang.product.support.RaceRequests.image;
 import static com.bukang.product.support.RaceRequests.race;
 import static com.bukang.product.support.RaceRequests.thumbnail;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -32,6 +33,7 @@ import com.bukang.common.shared.race.domain.RaceSaleStatus;
 import com.bukang.product.domain.CourseStatus;
 import com.bukang.product.domain.CourseSurface;
 import com.bukang.product.domain.CourseType;
+import com.bukang.product.domain.KitOption;
 import com.bukang.product.domain.Race;
 import com.bukang.product.domain.RaceCourse;
 import com.bukang.product.domain.document.RaceCourseDocument;
@@ -750,6 +752,27 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 		assertThat(course.getIndividualQuota()).isEqualTo(2);
 		// 수정은 확보 수를 덮어쓰지 않는다
 		assertThat(course.getIndividualReserved()).isEqualTo(1);
+	}
+
+	// ---------- 키트 옵션 (BUK-137) ----------
+
+	@Test
+	@DisplayName("키트 옵션을 등록한 대회를 수정해도 키트 옵션은 그대로 남는다")
+	void keepKitOptionsWhenUpdatingRace() throws Exception {
+		// given
+		RegisteredRace registered = register(scheduledRace().build());
+		saveKitOption(registered.raceId(), "T-shirt", "L", 100);
+
+		// when
+		ResultActions updated = update(registered.raceId(), scheduledRace()
+			.course(sameCourse(registered.courseId()).price(60_000))
+			.build());
+
+		// then
+		updated.andExpect(status().isOk());
+		assertThat(kitOptionRepository.findByRaceIdOrderById(registered.raceId()))
+			.extracting(KitOption::getName, KitOption::getValue, KitOption::getStock)
+			.containsExactly(tuple("T-shirt", "L", 100));
 	}
 
 	// ---------- 도우미 ----------

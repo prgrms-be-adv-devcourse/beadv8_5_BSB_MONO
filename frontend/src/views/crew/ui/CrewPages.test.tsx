@@ -325,3 +325,38 @@ describe('CrewInvitePage (M10)', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 })
+
+describe('CrewInvitePage 파티 참가 링크가 함께 온 초대 (BUK-98)', () => {
+  it('가입하면 크루 홈 대신 파티 합류 화면으로 간다', async () => {
+    const user = userEvent.setup()
+    renderPage(<CrewInvitePage inviteToken="q7Xk2LmZ9vBn4RtW8yCp1A" partyJoinToken="pJ0in" />)
+    await user.click(await screen.findByRole('button', { name: '새벽한강크루에 가입하기' }))
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/parties/join/pJ0in'))
+    expect(replace).not.toHaveBeenCalledWith('/crews/1')
+  })
+
+  it('이미 크루원이면 바로 파티 합류 화면으로 보낸다', async () => {
+    renderPage(<CrewInvitePage inviteToken="member" partyJoinToken="pJ0in" />)
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/parties/join/pJ0in'))
+    expect(replace).not.toHaveBeenCalledWith('/crews/1')
+  })
+
+  it('가입하는 사이 이미 크루원이 됐어도(409) 파티 합류 화면으로 보낸다', async () => {
+    server.use(
+      http.post('*/api/v1/member/crews/invites/:inviteToken/join', () =>
+        failWith(409, 'CREW_ALREADY_MEMBER'),
+      ),
+    )
+    const user = userEvent.setup()
+    renderPage(<CrewInvitePage inviteToken="q7Xk2LmZ9vBn4RtW8yCp1A" partyJoinToken="pJ0in" />)
+    await user.click(await screen.findByRole('button', { name: '새벽한강크루에 가입하기' }))
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/parties/join/pJ0in'))
+  })
+
+  it('파티 토큰에 주소 기호가 섞여도 다른 경로로 빠지지 않는다', async () => {
+    renderPage(<CrewInvitePage inviteToken="member" partyJoinToken="../../admin?x=1" />)
+    await vi.waitFor(() =>
+      expect(replace).toHaveBeenCalledWith('/parties/join/..%2F..%2Fadmin%3Fx%3D1'),
+    )
+  })
+})

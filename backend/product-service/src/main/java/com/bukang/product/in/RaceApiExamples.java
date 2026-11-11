@@ -372,6 +372,73 @@ final class RaceApiExamples {
 		}
 		""";
 
+	static final String KIT_OPTIONS_REGISTER_SUCCESS = """
+		{
+			"status": 201,
+			"message": "키트 옵션을 등록했습니다.",
+			"data": {
+				"raceId": 1,
+				"kitOptions": [
+					{
+						"name": "T-shirt",
+						"values": [
+							{ "kitOptionId": 11, "value": "M", "stock": 100 },
+							{ "kitOptionId": 12, "value": "L", "stock": 80 }
+						]
+					}
+				]
+			}
+		}
+		""";
+
+	static final String KIT_OPTIONS_UPDATE_SUCCESS = """
+		{
+			"status": 200,
+			"message": "키트 옵션을 수정했습니다.",
+			"data": {
+				"raceId": 1,
+				"kitOptions": [
+					{
+						"name": "T-shirt",
+						"values": [
+							{ "kitOptionId": 11, "value": "M", "stock": 120 },
+							{ "kitOptionId": 12, "value": "L", "stock": 80 },
+							{ "kitOptionId": 13, "value": "XL", "stock": 50 }
+						]
+					}
+				]
+			}
+		}
+		""";
+
+	static final String KIT_OPTIONS_INVALID_INPUT = """
+		{ "status": 400, "message": "키트 옵션 이름을 작성해주세요.", "data": null }
+		""";
+
+	static final String KIT_OPTIONS_EMPTY = """
+		{ "status": 400, "message": "키트 옵션을 1개 이상 작성해주세요.", "data": null }
+		""";
+
+	static final String KIT_OPTIONS_ALREADY_REGISTERED = """
+		{ "status": 409, "message": "이미 키트 옵션을 등록한 대회입니다. 키트 옵션 수정으로 바꿔 주세요.", "data": null }
+		""";
+
+	static final String KIT_OPTIONS_AFTER_SALE_START = """
+		{ "status": 409, "message": "판매가 시작된 대회에는 키트 옵션을 등록할 수 없습니다.", "data": null }
+		""";
+
+	static final String KIT_OPTION_ADDED = """
+		{ "status": 409, "message": "판매가 시작된 대회는 키트 옵션을 더할 수 없습니다. (옵션: T-shirt XL)", "data": null }
+		""";
+
+	static final String KIT_OPTIONS_RACE_CANCELED = """
+		{ "status": 409, "message": "취소된 대회는 키트 옵션을 바꿀 수 없습니다.", "data": null }
+		""";
+
+	static final String KIT_OPTIONS_RACE_CLOSED = """
+		{ "status": 409, "message": "판매가 끝난 대회는 키트 옵션을 바꿀 수 없습니다.", "data": null }
+		""";
+
 	static final String DETAIL_SUCCESS = """
 		{
 			"status": 200,

@@ -186,6 +186,15 @@ final class CrewApiExamples {
 		}
 		""";
 
+	static final String LINK_REMOVED_MEMBER = """
+		{
+			"status": 410,
+			"code": "CREW_INVITE_REMOVED_MEMBER",
+			"message": "크루에서 내보낸 회원은 이 초대 링크로 가입할 수 없습니다. 크루장에게 새 초대 링크를 받아주세요.",
+			"data": null
+		}
+		""";
+
 	static final String LINK_ALREADY_USED = """
 		{
 			"status": 410,

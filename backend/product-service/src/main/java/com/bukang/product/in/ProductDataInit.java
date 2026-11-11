@@ -155,7 +155,7 @@ public class ProductDataInit {
 		RaceSaveDto saved = productFacade.registerRace(SELLER_MEMBER_ID, UUID.randomUUID().toString(),
 			new RaceSaveRequestDto(title, "대기열 복제본 확인용 더미 대회", location, regionSido, regionSigungu, raceDate,
 				null, null, individualOpenAt, applicationCloseAt, applicationCloseAt.toLocalDate(),
-				"환불 기한까지 취소하면 전액 환불됩니다.", 5, null, List.of(course), List.of())).race();
+				"환불 기한까지 취소하면 전액 환불됩니다.", 5, null, List.of(course))).race();
 		log.info("더미 대회 생성: raceId={}, title={}, individualOpenAt={}", saved.getRaceId(), title, individualOpenAt);
 	}
 

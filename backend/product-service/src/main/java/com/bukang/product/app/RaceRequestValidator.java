@@ -39,12 +39,12 @@ public class RaceRequestValidator {
 		boolean hasCrewSale = request.getCrewSaleStartAt() != null;
 		request.getCourses().forEach(course -> validateCourse(course, hasCrewSale));
 		validateImages(request);
-		validateKitOptions(request.getKitOptions());
 	}
 
+	// 키트 옵션 등록·수정 요청 검사 (키트 옵션은 대회 등록·수정과 따로 받는다, BUK-137)
 	// 같은 (이름, 값)은 한 번만 쓴다. 대소문자만 다른 것도 같은 옵션으로 본다 (KitOption.Key)
 	// 같은 이름은 대소문자까지 똑같이 쓴다. 다르면 목록 조회에서 이름이 둘로 묶여 선택 상자가 둘 생긴다
-	private void validateKitOptions(List<KitOptionSaveRequestDto> kitOptions) {
+	public void validateKitOptions(List<KitOptionSaveRequestDto> kitOptions) {
 		Set<KitOption.Key> seenKeys = new HashSet<>();
 		Map<String, String> nameByLowerName = new HashMap<>();
 		for (KitOptionSaveRequestDto option : kitOptions) {

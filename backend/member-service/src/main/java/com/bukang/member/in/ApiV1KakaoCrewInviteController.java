@@ -105,7 +105,7 @@ public class ApiV1KakaoCrewInviteController {
 
 	@PostMapping("/api/v1/member/crews/{crewId}/kakao-invites")
 	@Operation(operationId = "sendKakaoCrewInvites", summary = "크루 초대 카카오톡 보내기",
-		description = "크루장과 운영진만 부른다. 받는 사람마다 새 초대 링크(24시간, 한 명만 가입)를 만들어 카카오톡 메시지 버튼에 담아 "
+		description = "크루장과 운영진만 부른다. 받는 사람마다 새 초대 링크(24시간)를 만들어 카카오톡 메시지 버튼에 담아 "
 			+ "한 명씩 보낸다. 보내지 못한 몫의 링크는 취소한다. 한 명이라도 보냈으면 200이고 실패는 failures로 알린다. "
 			+ "초대 토큰은 응답에 싣지 않는다.")
 	@ApiResponses({

@@ -93,7 +93,7 @@ class TossVirtualAccountClient {
 			log.error("Toss 응답에 가상계좌 정보가 없습니다. orderId={}", orderId);
 			throw new VirtualAccountIssueFailedException("PG 서버 응답이 올바르지 않습니다.");
 		}
-		return new VirtualAccountIssueResult(BANK_KOOKMIN_NAME, account.accountNumber(),
+		return new VirtualAccountIssueResult(BANK_KOOKMIN_NAME, account.accountNumber(), response.totalAmount(),
 			account.dueDate().atZoneSameInstant(KOREA).toLocalDateTime(), response.secret());
 	}
 
@@ -104,7 +104,7 @@ class TossVirtualAccountClient {
 
 	// Toss 응답(Payment 객체) 중 계좌번호·입금 기한과 웹훅 비밀값만 받는다. 발급과 조회 응답이 같은 모양이다
 	@JsonIgnoreProperties(ignoreUnknown = true)
-	private record AccountResponse(String secret, VirtualAccount virtualAccount) {
+	private record AccountResponse(String secret, long totalAmount, VirtualAccount virtualAccount) {
 	}
 
 	@JsonIgnoreProperties(ignoreUnknown = true)
