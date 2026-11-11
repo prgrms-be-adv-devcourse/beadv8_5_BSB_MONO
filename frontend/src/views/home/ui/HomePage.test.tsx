@@ -15,7 +15,7 @@ const RACE: RaceSummary = {
   id: '1',
   title: '2026 용감한 쿠키RUN in 서울',
   posterLabel: '10K',
-  status: 'D-1 · 86자리 남음',
+  status: 'D-1',
   meta: '11/1 (일) · 서울숲 일대',
   price: '35,000원부터',
 }
@@ -74,7 +74,7 @@ describe('HomePage', () => {
     renderHome([RACE, { ...RACE, id: '2' }])
     const section = within(screen.getByRole('region', { name: /곧 마감돼요/ }))
     expect(section.getByText('2')).toBeInTheDocument()
-    expect(section.getAllByText('D-1 · 86자리 남음')).toHaveLength(2)
+    expect(section.getAllByText('D-1')).toHaveLength(2)
     expect(section.getAllByText('11/1 (일) · 서울숲 일대')).toHaveLength(2)
     expect(section.getAllByText('35,000원부터')).toHaveLength(2)
     expect(screen.queryByText(/지금 접수 중/)).not.toBeInTheDocument()

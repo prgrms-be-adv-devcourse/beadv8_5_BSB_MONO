@@ -13,7 +13,7 @@ export type RaceSummary = {
   image?: string
   /** 포스터에 크게 쓰는 종목 (예: 10K · 5K) */
   posterLabel: string
-  /** 이미지 위 상태 칩 (예: D-2 · 86자리 남음) */
+  /** 이미지 위 상태 칩 (예: D-2). 빈 문자열이면 칩을 그리지 않는다 */
   status: string
   /** 대회일 · 장소 */
   meta: string
@@ -30,7 +30,6 @@ export type RaceListItem = {
   badge: RaceBadge
   meta: string
   price: string
-  remaining: string
 }
 
 export type RaceOption = {
@@ -64,9 +63,7 @@ export type RaceDetail = {
   description?: string
   /** 접수 마감까지 남은 날 (D-12) */
   dDay: string
-  remaining: number
   capacity: number
-  applied: number
   options: RaceOption[]
   schedule: { label: string; value: string }[]
   refund: { label: string; value: string }[]
