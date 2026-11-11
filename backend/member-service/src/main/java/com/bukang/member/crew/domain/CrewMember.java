@@ -33,7 +33,11 @@ import lombok.NoArgsConstructor;
 @Table(
 	name = "member_crew_member",
 	uniqueConstraints = @UniqueConstraint(name = "uk_crew_member", columnNames = {"crew_id", "member_id"}),
-	indexes = @Index(name = "idx_crew_member_member", columnList = "member_id")
+	indexes = {
+		@Index(name = "idx_crew_member_member", columnList = "member_id"),
+		// 초대 정리(BUK-100)가 크루원이 가리키는 초대인지 확인할 때 쓴다
+		@Index(name = "idx_crew_member_invite", columnList = "invite_id")
+	}
 )
 public class CrewMember {
 	@Id
