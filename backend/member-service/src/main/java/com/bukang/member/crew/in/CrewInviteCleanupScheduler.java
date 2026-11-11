@@ -2,6 +2,7 @@ package com.bukang.member.crew.in;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -24,12 +25,14 @@ public class CrewInviteCleanupScheduler {
 	private static final String ZONE = "Asia/Seoul";
 
 	private final CrewInviteCleanupUseCase crewInviteCleanupUseCase;
-	// 초대 시각을 적는 CrewFacade와 같은 시계로 읽는다
+	// 초대 시각을 적는 CrewFacade.now()와 같은 방식(서버 시간대)으로 읽는다
+	// 시계 빈은 UTC라 LocalDateTime.now(clock)을 쓰면 9시간 어긋난다
 	private final Clock clock;
 
 	@Scheduled(cron = "0 30 4 * * *", zone = ZONE)
 	public void cleanup() {
-		int deleted = crewInviteCleanupUseCase.cleanup(LocalDateTime.now(clock));
+		LocalDateTime now = LocalDateTime.ofInstant(clock.instant(), ZoneId.systemDefault());
+		int deleted = crewInviteCleanupUseCase.cleanup(now);
 		log.info("만료·취소된 지 7일 지난 크루 초대를 지웠습니다. 건수={}", deleted);
 	}
 }
