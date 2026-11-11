@@ -348,6 +348,28 @@ services:
       bukang-redis:
         condition: service_healthy
 
+  # 크루런 AI (BUK-165). DB·Kafka를 쓰지 않고 대화 기록만 Redis에 둔다. 모델은 OpenAI이고 키는 .env의 OPENAI_API_KEY다 (비어도 뜬다)
+  # gateway의 depends_on에 넣지 않는다. AI가 뜨지 못해도 게이트웨이와 다른 서비스는 떠야 한다
+  ai-service:
+    build:
+      context: .
+      args:
+        MODULE: ai-service
+    image: bukang-ai-service:latest
+    container_name: bukang-ai-service
+    profiles: [ app ]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+    healthcheck:
+      <<: *app-healthcheck
+      test: [ "CMD", "bash", "-c", "</dev/tcp/127.0.0.1/8092" ]
+    depends_on:
+      bukang-redis:
+        condition: service_healthy
+
   bukang-db:
     # 팀원 간 버전 차이를 막기 위해 LTS 버전으로 고정
     image: mysql:8.4
@@ -471,3 +493,20 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # 로컬에서 크루런 AI를 실제 모델로 확인할 때만 띄운다 (ai-service의 dev 프로파일이 localhost:11434로 부른다). GPU 없이 CPU로 돈다
+  # 이미지(약 3GB)와 모델(약 2GB)이 커서 profiles로 분리했다. bootRun이 인프라를 띄울 때도, 서버(app 프로파일)에서도 뜨지 않는다
+  # 실행: docker compose --profile ai up -d bukang-ollama
+  # 모델 받기(처음 한 번, 약 2GB): docker exec bukang-ollama ollama pull llama3.2:3b
+  bukang-ollama:
+    image: ollama/ollama:0.40.16
+    container_name: bukang-ollama
+    profiles: [ ai ]
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+
+volumes:
+  # 받은 모델을 컨테이너를 지워도 남긴다
+  ollama-data:

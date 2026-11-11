@@ -11,6 +11,7 @@ gateway:
     notification: http://bukang-notification-service:8087
     inquiry: http://bukang-inquiry-service:8088
     board: http://bukang-board-service:8089
+    ai: http://bukang-ai-service:8092
 
 # Access Token 검사용 서명 키. member-service와 같은 .env의 JWT_SECRET을 쓴다
 jwt:
