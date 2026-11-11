@@ -16,14 +16,14 @@ import org.springframework.stereotype.Component;
  * payout.reconcile.method=bitmap일 때만 빈으로 쓴다. 집합과 메모리 · 시간을 비교하는 부하 테스트용이다
  */
 @Component
-@ConditionalOnProperty(name = TicketDiffer.METHOD_PROPERTY, havingValue = "bitmap")
-public class BitmapTicketDiffer implements TicketDiffer {
-	private final TicketDiffer fallback = new SetTicketDiffer();
+@ConditionalOnProperty(name = EntryDiffer.METHOD_PROPERTY, havingValue = "bitmap")
+public class BitmapEntryDiffer implements EntryDiffer {
+	private final EntryDiffer fallback = new SetEntryDiffer();
 
 	@Override
-	public TicketDiff diff(Collection<Long> soldIds, Collection<Long> payoutIds) {
+	public EntryDiff diff(Collection<Long> soldIds, Collection<Long> payoutIds) {
 		if (soldIds.isEmpty() && payoutIds.isEmpty()) {
-			return new TicketDiff(List.of(), List.of());
+			return new EntryDiff(List.of(), List.of());
 		}
 		long minId = Stream.concat(soldIds.stream(), payoutIds.stream()).mapToLong(Long::longValue).min().orElseThrow();
 		long maxId = Stream.concat(soldIds.stream(), payoutIds.stream()).mapToLong(Long::longValue).max().orElseThrow();
@@ -38,7 +38,7 @@ public class BitmapTicketDiffer implements TicketDiffer {
 		List<Long> missing = new ArrayList<>();
 		List<Long> extra = new ArrayList<>();
 		mismatched.stream().forEach(index -> (sold.get(index) ? missing : extra).add(minId + index));
-		return new TicketDiff(missing, extra);
+		return new EntryDiff(missing, extra);
 	}
 
 	private static BitSet bitmapOf(Collection<Long> ids, long minId) {

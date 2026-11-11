@@ -13,6 +13,7 @@ import org.springframework.web.client.RestClientException;
 
 import com.bukang.common.global.rsdata.RsData;
 import com.bukang.payout.domain.exception.PayoutOrderLookupUnavailableException;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
  * 주문 서비스의 1차 정산용 판매 집계 내부 API를 HTTP로 부르는 어댑터 (PRO-214)
@@ -72,9 +73,11 @@ public class OrderSoldSummaryAdapter implements SoldSummaryPort {
 	}
 
 	// 주문 서비스 응답(SoldSummaryDto)의 모양. 포트의 SoldSummary가 응답 형식에 묶이지 않도록 따로 둔다
-	private record SoldSummaryResponse(long sellerId, long raceId, long raceCourseId, long priceSum, int ticketCount) {
+	private record SoldSummaryResponse(long sellerId, long raceId, long raceCourseId, long priceSum,
+		// 주문 응답 칸 이름이라 주문 서비스(SoldSummaryDto)와 함께 바꿔야 한다
+		@JsonProperty("ticketCount") int entryCount) {
 		SoldSummary toSoldSummary() {
-			return new SoldSummary(sellerId, raceId, raceCourseId, priceSum, ticketCount);
+			return new SoldSummary(sellerId, raceId, raceCourseId, priceSum, entryCount);
 		}
 	}
 }

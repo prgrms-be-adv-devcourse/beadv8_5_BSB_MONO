@@ -163,20 +163,20 @@ class PayoutPayUseCaseTest {
 	void paysFirstPayoutOnPayDate() {
 		BusinessDayCalendar calendar = new BusinessDayCalendar();
 		LocalDateTime settledAt = LocalDateTime.of(2026, 10, 18, 3, 0);
-		Payout twoTickets = Payout.first(1, 10, "테스트 대회", LocalDate.of(2026, 10, 17), settledAt, calendar);
-		twoTickets.recordAdvance(10, 100_000L, 2, LocalDate.of(2026, 10, 18));
-		Payout oneTicket = Payout.first(2, 10, "테스트 대회", LocalDate.of(2026, 10, 17), settledAt, calendar);
-		oneTicket.recordAdvance(10, 50_000L, 1, LocalDate.of(2026, 10, 18));
-		payoutRepository.save(twoTickets);
-		payoutRepository.save(oneTicket);
+		Payout twoEntries = Payout.first(1, 10, "테스트 대회", LocalDate.of(2026, 10, 17), settledAt, calendar);
+		twoEntries.recordAdvance(10, 100_000L, 2, LocalDate.of(2026, 10, 18));
+		Payout oneEntry = Payout.first(2, 10, "테스트 대회", LocalDate.of(2026, 10, 17), settledAt, calendar);
+		oneEntry.recordAdvance(10, 50_000L, 1, LocalDate.of(2026, 10, 18));
+		payoutRepository.save(twoEntries);
+		payoutRepository.save(oneEntry);
 
-		assertThat(twoTickets.getScheduledPayDate()).isEqualTo(PAY_DATE);
+		assertThat(twoEntries.getScheduledPayDate()).isEqualTo(PAY_DATE);
 		useCase().run(PAY_DATE, NOW);
 
-		Payout paidTwo = payoutRepository.findById(twoTickets.getId()).orElseThrow();
+		Payout paidTwo = payoutRepository.findById(twoEntries.getId()).orElseThrow();
 		assertThat(paidTwo.getStatus()).isEqualTo(PayoutStatus.지급_완료);
 		assertThat(paidTwo.getPayoutAmount()).isEqualTo(40_000L);
-		Payout paidOne = payoutRepository.findById(oneTicket.getId()).orElseThrow();
+		Payout paidOne = payoutRepository.findById(oneEntry.getId()).orElseThrow();
 		assertThat(paidOne.getStatus()).isEqualTo(PayoutStatus.지급_완료);
 		assertThat(paidOne.getPayoutAmount()).isEqualTo(20_000L);
 	}

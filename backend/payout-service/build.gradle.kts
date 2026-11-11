@@ -31,7 +31,7 @@ dependencies {
 	testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-kafka-test")
-	testImplementation("org.openjdk.jol:jol-core:0.17") // 대사 비교 방식(집합 · 비트맵)의 메모리 크기 측정 (TicketDifferMemoryTest)
+	testImplementation("org.openjdk.jol:jol-core:0.17") // 대사 비교 방식(집합 · 비트맵)의 메모리 크기 측정 (EntryDifferMemoryTest)
 	testImplementation(testFixtures(project(":common"))) // GlobalConfigTestExecutionListener (테스트마다 EventPublisher 재설정)
 
 	// Spring REST Docs: 컨트롤러 테스트가 통과할 때만 API 문서 스니펫이 만들어진다

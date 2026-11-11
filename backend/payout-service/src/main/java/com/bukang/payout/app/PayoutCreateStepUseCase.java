@@ -45,7 +45,7 @@ public class PayoutCreateStepUseCase {
 		Payout payout = Payout.first(source.sellerId(), source.raceId(), source.raceName(),
 			refundDeadline, now, businessDayCalendar);
 		source.courses().forEach(course ->
-			payout.recordAdvance(course.raceCourseId(), course.priceSum(), course.ticketCount(), createDate));
+			payout.recordAdvance(course.raceCourseId(), course.priceSum(), course.entryCount(), createDate));
 
 		save(payout);
 		payoutHoldUseCase.holdNew(payout, source.hasPayoutAccount(), now);
@@ -94,7 +94,7 @@ public class PayoutCreateStepUseCase {
 	}
 
 	// 코스 하나의 판매 집계 (가격 합 · 장수)
-	public record CourseSale(long raceCourseId, long priceSum, int ticketCount) {
+	public record CourseSale(long raceCourseId, long priceSum, int entryCount) {
 	}
 
 	/**

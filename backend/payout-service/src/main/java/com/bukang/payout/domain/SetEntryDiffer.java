@@ -13,13 +13,13 @@ import org.springframework.stereotype.Component;
  * 운영 배치의 기본값이다. payout.reconcile.method가 없거나 set이면 이 빈을 쓴다 (비트맵과 비교하는 부하 테스트용 설정)
  */
 @Component
-@ConditionalOnProperty(name = TicketDiffer.METHOD_PROPERTY, havingValue = "set", matchIfMissing = true)
-public class SetTicketDiffer implements TicketDiffer {
+@ConditionalOnProperty(name = EntryDiffer.METHOD_PROPERTY, havingValue = "set", matchIfMissing = true)
+public class SetEntryDiffer implements EntryDiffer {
 	@Override
-	public TicketDiff diff(Collection<Long> soldIds, Collection<Long> payoutIds) {
+	public EntryDiff diff(Collection<Long> soldIds, Collection<Long> payoutIds) {
 		Set<Long> sold = new HashSet<>(soldIds);
 		Set<Long> payout = new HashSet<>(payoutIds);
-		return new TicketDiff(sortedMinus(sold, payout), sortedMinus(payout, sold));
+		return new EntryDiff(sortedMinus(sold, payout), sortedMinus(payout, sold));
 	}
 
 	private static List<Long> sortedMinus(Set<Long> from, Set<Long> minus) {

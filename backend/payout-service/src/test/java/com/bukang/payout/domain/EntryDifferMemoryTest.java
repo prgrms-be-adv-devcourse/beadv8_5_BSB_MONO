@@ -17,11 +17,11 @@ import org.openjdk.jol.info.GraphLayout;
 /**
  * 대사 비교 방식의 메모리 크기를 JOL로 잰다 (부하 테스트 S4, 비트맵 vs 집합)
  * 측정용이라 평소 테스트에서는 건너뛴다. PAYOUT_MEASURE=true 환경 변수로 돌리고, 결과는 테스트 표준 출력(리포트 XML)에 남긴다
- * 집합 방식은 HashSet 2개(판매 · 정산), 비트맵 방식은 BitSet 3개(판매 · 정산 · XOR 결과)를 만든다 (SetTicketDiffer · BitmapTicketDiffer와 같음)
+ * 집합 방식은 HashSet 2개(판매 · 정산), 비트맵 방식은 BitSet 3개(판매 · 정산 · XOR 결과)를 만든다 (SetEntryDiffer · BitmapEntryDiffer와 같음)
  * 참가권 ID는 촘촘하다고 가정한다(주문 상품 ID 연속). 흩어지면 비트맵이 커진다
  */
 @EnabledIfEnvironmentVariable(named = "PAYOUT_MEASURE", matches = "true")
-class TicketDifferMemoryTest {
+class EntryDifferMemoryTest {
 	private static final long FIRST_ID = 1_000_000L;
 
 	@ParameterizedTest
@@ -40,7 +40,7 @@ class TicketDifferMemoryTest {
 		mismatched.xor(payoutBits);
 		long bitmapBytes = GraphLayout.parseInstance(soldBits, payoutBits, mismatched).totalSize();
 
-		System.out.printf("TicketDifferMemory count=%d set=%d bytes bitmap=%d bytes ratio=%.1f%n",
+		System.out.printf("EntryDifferMemory count=%d set=%d bytes bitmap=%d bytes ratio=%.1f%n",
 			count, setBytes, bitmapBytes, (double)setBytes / bitmapBytes);
 		assertThat(bitmapBytes).isLessThan(setBytes);
 	}
