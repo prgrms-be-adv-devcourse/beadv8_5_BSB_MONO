@@ -41,6 +41,7 @@ jobs:
           - { name: product-service, context: backend, module: product-service }
           - { name: queue-service, context: backend, module: queue-service }
           - { name: notification-service, context: backend, module: notification-service }
+          - { name: board-service, context: backend, module: board-service }
           # web은 SITE_URL·NEXT_PUBLIC_TOSS_CLIENT_KEY·NEXT_PUBLIC_GTM_ID·NEXT_PUBLIC_CLARITY_ID·NEXT_PUBLIC_KAKAO_JS_KEY·IMAGE_REMOTE_HOSTS·NEXT_PUBLIC_PORTONE_*·NEXT_PUBLIC_*_SITE_VERIFICATION을 빌드할 때 이미지에 고정한다 (저장소 Variables에서 읽음)
           - { name: web, context: frontend, module: '' }
     steps:
@@ -99,7 +100,7 @@ jobs:
         working-directory: ${{ env.DEPLOY_DIR }}/backend
         run: |
           docker compose pull gateway member-service cash-service payout-service file-service \
-            order-service product-service queue-service notification-service web
+            order-service product-service queue-service notification-service board-service web
 
       # --wait: 모든 컨테이너가 healthy(healthcheck 없는 것은 running)가 될 때까지 기다리고, 실패하면 이 단계를 실패로 끝낸다
       - name: 띄우기

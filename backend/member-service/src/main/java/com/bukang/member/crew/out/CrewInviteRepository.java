@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Limit;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
@@ -61,6 +62,17 @@ public interface CrewInviteRepository extends JpaRepository<CrewInvite, Long> {
 		""")
 	int markCanceled(
 		@Param("inviteId") long inviteId, @Param("memberId") long memberId, @Param("now") LocalDateTime now);
+
+	// 정리할 초대 ID (BUK-100): 만료되거나 취소된 시각이 before보다 앞이고, 가입에 쓰이지 않은 초대
+	// 가입에 쓰임 = 지금 크루원 행이 가리킴(inviteId) 또는 옛 방식으로 한 번 쓰임(usedAt)
+	// 끝난 지 7일 지난 초대는 가입·취소 조건(expiresAt > now)에 걸리지 않아, 고른 뒤 지우기 전에 크루원이 새로 가리킬 수 없다
+	@Query("""
+		select i.id from CrewInvite i
+		where i.usedAt is null and (i.expiresAt < :before or i.canceledAt < :before)
+			and not exists (select 1 from CrewMember m where m.inviteId = i.id)
+		order by i.id
+		""")
+	List<Long> findCleanableIds(@Param("before") LocalDateTime before, Limit limit);
 
 	// 크루 없애기: 그 크루의 모든 초대 행을 지운다
 	@Modifying(flushAutomatically = true, clearAutomatically = true)

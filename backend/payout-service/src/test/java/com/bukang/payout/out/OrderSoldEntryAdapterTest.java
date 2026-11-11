@@ -49,8 +49,10 @@ class OrderSoldEntryAdapterTest {
 					"status": 200,
 					"message": "판매 내역을 조회했습니다.",
 					"data": [
-						{ "orderItemId": 1, "sellerId": 3, "raceId": 5, "raceDate": "2026-09-22", "price": 60000 },
-						{ "orderItemId": 4, "sellerId": 4, "raceId": 5, "raceDate": "2026-09-22", "price": 55000 }
+						{ "orderItemId": 1, "sellerId": 3, "raceId": 5, "raceDate": "2026-09-22", "price": 60000,
+							"status": "PAID" },
+						{ "orderItemId": 4, "sellerId": 4, "raceId": 5, "raceDate": "2026-09-22", "price": 55000,
+							"status": "CANCELING" }
 					]
 				}
 				""", MediaType.APPLICATION_JSON));
@@ -58,10 +60,48 @@ class OrderSoldEntryAdapterTest {
 		List<SoldEntry> entries = adapter.findSoldEntries(5);
 
 		assertThat(entries).containsExactly(
-			new SoldEntry(1, 3, 5, null, LocalDate.of(2026, 9, 22), 60_000L),
-			new SoldEntry(4, 4, 5, null, LocalDate.of(2026, 9, 22), 55_000L)
+			new SoldEntry(1, 3, 5, null, LocalDate.of(2026, 9, 22), 60_000L, SoldEntryStatus.결제_완료),
+			new SoldEntry(4, 4, 5, null, LocalDate.of(2026, 9, 22), 55_000L, SoldEntryStatus.취소_중)
 		);
 		server.verify();
+	}
+
+	@Test
+	@DisplayName("status 칸이 없는 응답(옛 주문 서버)은 결제 완료로 짐작하지 않고 모름으로 받는다")
+	void missingStatusIsUnknown() {
+		server.expect(requestTo(URL))
+			.andRespond(withSuccess("""
+				{
+					"status": 200,
+					"message": "판매 내역을 조회했습니다.",
+					"data": [
+						{ "orderItemId": 1, "sellerId": 3, "raceId": 5, "raceDate": "2026-09-22", "price": 60000 }
+					]
+				}
+				""", MediaType.APPLICATION_JSON));
+
+		assertThat(adapter.findSoldEntries(5))
+			.containsExactly(new SoldEntry(1, 3, 5, null, LocalDate.of(2026, 9, 22), 60_000L, SoldEntryStatus.모름));
+	}
+
+	@Test
+	@DisplayName("처음 보는 status 값도 결제 완료로 짐작하지 않고 모름으로 받는다")
+	void unknownStatusIsUnknown() {
+		server.expect(requestTo(URL))
+			.andRespond(withSuccess("""
+				{
+					"status": 200,
+					"message": "판매 내역을 조회했습니다.",
+					"data": [
+						{ "orderItemId": 1, "sellerId": 3, "raceId": 5, "raceDate": "2026-09-22", "price": 60000,
+							"status": "REFUNDED_SOMEHOW" }
+					]
+				}
+				""", MediaType.APPLICATION_JSON));
+
+		assertThat(adapter.findSoldEntries(5))
+			.extracting(SoldEntry::status)
+			.containsExactly(SoldEntryStatus.모름);
 	}
 
 	@Test
@@ -74,13 +114,14 @@ class OrderSoldEntryAdapterTest {
 					"message": "판매 내역을 조회했습니다.",
 					"data": [
 						{ "orderItemId": 1, "sellerId": 3, "raceId": 5, "raceCourseId": 11, "raceDate": "2026-09-22",
-							"price": 60000 }
+							"price": 60000, "status": "PAID" }
 					]
 				}
 				""", MediaType.APPLICATION_JSON));
 
 		assertThat(adapter.findSoldEntries(5))
-			.containsExactly(new SoldEntry(1L, 3L, 5L, 11L, LocalDate.of(2026, 9, 22), 60_000L));
+			.containsExactly(new SoldEntry(1L, 3L, 5L, 11L, LocalDate.of(2026, 9, 22), 60_000L,
+				SoldEntryStatus.결제_완료));
 	}
 
 	@Test
