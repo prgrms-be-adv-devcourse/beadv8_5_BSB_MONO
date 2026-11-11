@@ -242,7 +242,8 @@ public class InternalV1CashController {
 	@PostMapping("/withdrawal-items/{itemId}/resolve")
 	@Operation(summary = "환급 카드 몫 수동 정리", description = "수동 확인 필요인 환급 카드 몫을 담당자의 결론대로 반영한다. "
 		+ "카드로 나감(CARD_CANCELED)이면 몫을 완료로 바꾸고 충전 건의 취소한 금액에 더하며, 안 나감(NOT_CANCELED)이면 "
-		+ "예치금에 되돌린다. 마지막 몫이 정리되면 환급이 완료되고 회원에게 완료 알림이 간다.")
+		+ "예치금에 되돌린다. 마지막 몫이 정리되면 환급이 끝나고 회원에게 알림이 간다. 카드·계좌로 돌려준 몫이 하나도 없으면 "
+		+ "환급은 완료가 아니라 실패(FAILED)로 끝난다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "정리 성공",
 			content = @Content(examples = {
