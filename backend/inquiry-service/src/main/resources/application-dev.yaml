@@ -1,0 +1,34 @@
+spring:
+  # 지금은 다른 서비스와 같은 DB(bukang-db)를 쓰고, 테이블 이름 접두사(inquiry_)로 구분한다
+  datasource:
+    url: jdbc:mysql://localhost:3306/bukang-db
+    username: bukang2
+    password: bukang2
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    properties:
+      hibernate:
+        format_sql: true
+        highlight_sql: true
+
+  kafka:
+    bootstrap-servers:
+      - localhost:9092
+
+# 로컬 개발은 다른 서비스를 띄우지 않아도 되게 fake다 (누구나 관리자·승인된 판매자, 대회 판매자 회원은 1번)
+inquiry:
+  clients:
+    member:
+      mode: fake
+      base-url: http://localhost:8080
+    product:
+      mode: fake
+    # 주문 ID = 회원 ID x 1000 + 대회 ID면 그 회원의 주문이다 (예: 4001). 1000 미만은 없는 주문
+    order:
+      mode: fake
+
+logging:
+  level:
+    com.bukang: debug
+    org.hibernate.SQL: debug

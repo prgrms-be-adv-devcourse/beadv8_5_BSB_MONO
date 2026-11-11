@@ -36,7 +36,7 @@ import com.sun.net.httpserver.HttpServer;
 class GatewayRoutingTest {
 
 	private static final List<String> SERVICES =
-		List.of("member", "cash", "payout", "file", "order", "product", "queue", "notification", "board");
+		List.of("member", "cash", "payout", "file", "order", "product", "queue", "notification", "inquiry", "board");
 	private static final List<HttpServer> STUBS = new CopyOnWriteArrayList<>();
 	// 가짜 서버가 받은 요청을 "서비스이름 경로" 형식으로 남긴다
 	private static final List<String> RECEIVED = new CopyOnWriteArrayList<>();
@@ -91,6 +91,9 @@ class GatewayRoutingTest {
 		"/api/v1/product/races/1, product",
 		"/api/v1/queue/1, queue",
 		"/api/v1/notification/notifications, notification",
+		"/api/v1/inquiry/inquiries/me, inquiry",
+		"/api/v1/inquiry/seller/inquiries/1/answer, inquiry",
+		"/api/v1/inquiry/admin/inquiries, inquiry",
 		"/api/v1/board/posts/1, board",
 		"/api/v1/board/posts/1/like, board"
 	})

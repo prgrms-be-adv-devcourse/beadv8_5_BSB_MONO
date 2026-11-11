@@ -46,7 +46,7 @@ import io.jsonwebtoken.security.Keys;
 class GatewayAuthenticationTest {
 
 	private static final List<String> SERVICES =
-		List.of("member", "cash", "payout", "file", "order", "product", "queue", "notification", "board");
+		List.of("member", "cash", "payout", "file", "order", "product", "queue", "notification", "inquiry", "board");
 	private static final String MEMBER_ID_HEADER = "X-Member-Id";
 	private static final String LOGIN_REQUIRED = "AUTH_LOGIN_REQUIRED";
 	private static final String TOKEN_EXPIRED = "AUTH_TOKEN_EXPIRED";

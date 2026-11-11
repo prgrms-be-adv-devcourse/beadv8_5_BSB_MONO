@@ -1,0 +1,16 @@
+# 테스트 전용 설정 (@ActiveProfiles("test")로 활성화)
+# inquiry.clients.*.mode는 일부러 적지 않는다. 회원·상품 서비스는 테스트가 정한 가짜(Stub)로 바꿔 쓴다
+spring:
+  datasource:
+    # MySQL 대신 H2 인메모리 DB, Flyway SQL로 테이블을 만들어 운영과 같은 제약으로 확인한다
+    url: jdbc:h2:mem:bukang-inquiry-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+
+  kafka:
+    bootstrap-servers: localhost:9092
+
+logging:
+  level:
+    com.bukang: debug

@@ -24,6 +24,7 @@ COPY order-service order-service
 COPY product-service product-service
 COPY queue-service queue-service
 COPY notification-service notification-service
+COPY inquiry-service inquiry-service
 COPY board-service board-service
 
 # Gradle 캐시(~/.gradle)를 빌드 간에 유지해서, 의존성은 변경된 것만 새로 받는다
@@ -48,6 +49,6 @@ RUN useradd --system --no-create-home --shell /usr/sbin/nologin spring
 COPY --from=build /workspace/${MODULE}/build/libs/*.jar app.jar
 
 USER spring
-# 실제 포트는 서비스마다 다르다 (gateway 8000, member-service 8080, cash-service 8081, payout-service 8082, file-service 8083, order-service 8084, product-service 8085, queue-service 8086, notification-service 8087, board-service 8089 / 각 application.yaml의 server.port)
-EXPOSE 8000 8080 8081 8082 8083 8084 8085 8086 8087 8089
+# 실제 포트는 서비스마다 다르다 (gateway 8000, member-service 8080, cash-service 8081, payout-service 8082, file-service 8083, order-service 8084, product-service 8085, queue-service 8086, notification-service 8087, inquiry-service 8088, board-service 8089 / 각 application.yaml의 server.port)
+EXPOSE 8000 8080 8081 8082 8083 8084 8085 8086 8087 8088 8089
 ENTRYPOINT ["java", "-jar", "app.jar"]

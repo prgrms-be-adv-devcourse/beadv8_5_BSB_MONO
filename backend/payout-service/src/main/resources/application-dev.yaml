@@ -43,5 +43,6 @@ payout:
     order: http://localhost:8084
     cash: http://localhost:8081
     product: http://localhost:8085
-    # 판매자 정산 조회에서 회원 ID를 판매자 ID로 바꿀 때(MemberSellerLookupAdapter), 관리자 API에서 관리자인지 물을 때(MemberAdminAdapter) 부른다
+    # 판매자 정산 조회에서 회원 ID를 판매자 ID로 바꿀 때(MemberSellerLookupAdapter), 관리자 API에서 관리자인지 물을 때(MemberAdminAdapter),
+    # 정산 생성 때 판매자 정산 계좌 등록 여부를 물을 때(MemberSellerAccountAdapter) 부른다
     member: http://localhost:8080
