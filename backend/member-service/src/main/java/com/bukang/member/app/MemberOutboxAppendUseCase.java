@@ -38,8 +38,8 @@ import lombok.RequiredArgsConstructor;
 public class MemberOutboxAppendUseCase {
 	private static final String MEMBER = Member.class.getSimpleName();
 	private static final String SELLER = Seller.class.getSimpleName();
-	// 크루원 이탈·가입·크루장 변경 이벤트는 같은 토픽 안에서 크루 단위로 순서를 지킨다 (Kafka key = 크루 ID).
-	// 토픽이 서로 다르므로 가입과 이탈 사이의 순서는 보장하지 않는다
+	// 크루원 이탈·가입·크루장 변경 이벤트는 대상이 Crew:크루ID라, 릴레이가 같은 크루의 이벤트를 저장한 순서대로 보낸다.
+	// 다만 토픽이 서로 달라서, 받는 쪽에 도착하는 순서는 토픽 사이에서 보장하지 못한다 (Kafka key = 크루 ID)
 	private static final String CREW = Crew.class.getSimpleName();
 
 	private final MemberOutboxEventRepository memberOutboxEventRepository;
