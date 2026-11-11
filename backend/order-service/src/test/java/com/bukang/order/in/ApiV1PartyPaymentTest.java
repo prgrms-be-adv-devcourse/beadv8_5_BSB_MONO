@@ -174,6 +174,15 @@ class ApiV1PartyPaymentTest {
 		assertThat(statusOf(participationIds.get(4L))).isEqualTo(ParticipationStatus.RELEASED);
 		assertThat(SeatOutboxMessages.released(outboxRepository))
 			.containsExactlyInAnyOrder(participationIds.get(3L), participationIds.get(4L));
+		// 결제하지 않은 파티원은 파티에서 빠지고, 결제한 파티원과 파티장은 그대로다 (BUK-163)
+		assertThat(partyMemberRepository.findActiveMemberIds(partyId)).containsExactlyInAnyOrder(LEADER, 2L);
+		assertThat(partyOf(partyId).getLeaderMemberId()).isEqualTo(LEADER);
+		mockMvc.perform(MockMvcRequestBuilders.get(PARTY_URL + "/" + partyId).header("X-Member-Id", 2L))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.memberCount").value(2))
+			.andExpect(jsonPath("$.data.paidCount").value(2));
+		mockMvc.perform(MockMvcRequestBuilders.get(PARTY_URL + "/" + partyId).header("X-Member-Id", 3L))
+			.andExpect(status().isForbidden());
 		// 확정·미결제 수는 신청서에서 센 값이다
 		List<NotificationRequestedEvent> sent = sentNotifications();
 		assertThat(sent).hasSize(4)
@@ -183,6 +192,7 @@ class ApiV1PartyPaymentTest {
 			});
 		// 다시 돌려도 바뀌지 않는다
 		assertThat(deadlineUseCase.finishDue(afterDue.plusMinutes(1))).isZero();
+		assertThat(partyMemberRepository.findActiveMemberIds(partyId)).containsExactlyInAnyOrder(LEADER, 2L);
 
 		// 결제하지 않아 끝난 파티원은 같은 대회에 개인으로 다시 신청할 수 있다 (11/03 결정)
 		mockMvc.perform(MockMvcRequestBuilders.post("/api/v1/order/participations")
@@ -267,6 +277,9 @@ class ApiV1PartyPaymentTest {
 		// 주문을 만든 신청서는 주문 만료가 끝낼 때까지 파티 마감이 기다린다
 		assertThat(deadlineUseCase.finishDue(afterDue)).isZero();
 		assertThat(statusOf(participationId)).isEqualTo(ParticipationStatus.APPLIED);
+		// 주문이 없는 미결제 파티원은 신청서가 풀릴 때 함께 빠지고, 파티장이 빠져 남은 사람이 파티장이 된다 (BUK-163)
+		assertThat(partyMemberRepository.findActiveMemberIds(partyId)).containsExactly(2L);
+		assertThat(partyOf(partyId).getLeaderMemberId()).isEqualTo(2L);
 		orderExpiryUseCase.expireOverdue(afterDue);
 		assertThat(deadlineUseCase.finishDue(afterDue)).isEqualTo(1);
 
@@ -274,8 +287,25 @@ class ApiV1PartyPaymentTest {
 		assertThat(participationRepository.findByPartyIdIn(List.of(partyId)))
 			.extracting(Participation::getStatus)
 			.containsOnly(ParticipationStatus.RELEASED);
+		// 주문 만료로 풀린 사람도 마감 때 빠진다
+		assertThat(partyMemberRepository.findActiveMemberIds(partyId)).isEmpty();
 		// 4명 모두 자리 해제를 보낸다 (주문 만료 1건 + 마감 3건)
 		assertThat(SeatOutboxMessages.released(outboxRepository)).hasSize(4);
+	}
+
+	@Test
+	@DisplayName("파티장이 결제하지 않으면 파티에서 빠지고, 결제한 파티원 중 가장 먼저 합류한 사람이 파티장이 된다")
+	void unpaidLeader() throws Exception {
+		long partyId = appliedParty();
+		Map<Long, Long> participationIds = participationIdsByMember(partyId);
+		pay(3, createOrder(3, participationIds.get(3L))).andExpect(status().isOk());
+		pay(2, createOrder(2, participationIds.get(2L))).andExpect(status().isOk());
+
+		assertThat(deadlineUseCase.finishDue(partyOf(partyId).getPaymentDueAt().plusSeconds(1))).isEqualTo(1);
+
+		assertThat(partyOf(partyId).getStatus()).isEqualTo(PartyStatus.PAID);
+		assertThat(partyMemberRepository.findActiveMemberIds(partyId)).containsExactlyInAnyOrder(2L, 3L);
+		assertThat(partyOf(partyId).getLeaderMemberId()).isEqualTo(2L);
 	}
 
 	@Test

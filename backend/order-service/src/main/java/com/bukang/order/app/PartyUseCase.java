@@ -7,7 +7,9 @@ import static com.bukang.order.app.ParticipationApplyUseCase.checkTshirtSize;
 import static com.bukang.order.app.ParticipationApplyUseCase.isActiveParticipationConflict;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.dao.DataIntegrityViolationException;
@@ -152,6 +154,21 @@ public class PartyUseCase {
 		party.checkMembersChangeable();
 		removeMember(party, member.get(), now);
 		return true;
+	}
+
+	// 결제 기간이 끝나 신청서가 미결제로 풀린 사람을 파티에서 뺀다 (BUK-163, 11/11 결정). 파티를 잠근 채 부른다
+	// 신청서는 부르는 쪽(PartyPaymentDeadlineUseCase, 주문 만료)이 이미 끝냈다. 이미 빠진 사람은 건너뛴다
+	// 파티장이 빠지면 나가기처럼 남은 사람 중 가장 먼저 합류한 사람에게 넘긴다 (추천값). 남은 사람이 없으면 마감이 파티를 끝낸다
+	public void removeUnpaid(Party party, Collection<Long> memberIds, LocalDateTime now) {
+		List<PartyMember> unpaid = partyMemberRepository.findActiveByPartyIdForUpdate(party.getId()).stream()
+			.filter(member -> memberIds.contains(member.getMemberId()))
+			.toList();
+		unpaid.forEach(member -> member.leave(now));
+		if (unpaid.stream().anyMatch(member -> party.isLeader(member.getMemberId()))) {
+			partyMemberRepository.findFirstByPartyIdAndLeftAtIsNullAndMemberIdNotOrderByJoinedAtAscIdAsc(
+					party.getId(), party.getLeaderMemberId())
+				.ifPresent(next -> party.handOverLeader(next.getMemberId()));
+		}
 	}
 
 	// 신청서를 끝내고 파티원 줄에 나간 시각을 남긴다. 파티장이면 가장 먼저 합류한 파티원에게 넘기고, 남은 사람이 없으면 파티를 끝낸다

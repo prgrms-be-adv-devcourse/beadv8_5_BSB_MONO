@@ -27,6 +27,8 @@ import lombok.extern.slf4j.Slf4j;
  * 마감: 기한이 지났거나 모두 결제한 파티를 끝낸다
  * - 기한이 지났으면 결제하지 않은 신청서(결제 대기)를 미결제 해제로 끝내고 상품에 자리 해제(product.hold.cancel)를 남긴다
  *   → 신청서가 살아 있지 않게 되어 그 사람은 같은 대회에 개인으로 다시 신청할 수 있다 (11/03 결정)
+ *   같은 트랜잭션에서 그 사람을 파티에서 뺀다 (BUK-163, 11/11 결정). 주문 만료가 푼 사람은 다음 실행에서 뺀다
+ *   → 파티 조회·내 파티 목록에 보이지 않고, 결제 끝 파티에 묶이지 않아 크루도 나갈 수 있다
  *   [결제하기]로 주문을 만든 신청서는 건너뛴다. 주문 기한 = 파티 결제 기한이라 주문 만료(OrderExpiryUseCase)가
  *   예치금 결제 취소·자리 해제와 함께 끝낸다. 그래서 결제 대기가 하나라도 남으면 다음 실행에서 다시 본다
  * - 결제 대기가 없으면 결제한 사람이 있으면 결제 끝, 없으면 종료로 바꾸고 파티원에게 결제·미결제 수를 알린다
@@ -44,6 +46,7 @@ public class PartyPaymentDeadlineUseCase {
 	private final ParticipationRepository participationRepository;
 	private final OrderItemRepository orderItemRepository;
 	private final OrderOutboxKafkaAppendUseCase orderOutboxKafkaAppendUseCase;
+	private final PartyUseCase partyUseCase;
 	private final EventPublisher eventPublisher;
 	private final TransactionTemplate transactionTemplate;
 
@@ -93,12 +96,18 @@ public class PartyPaymentDeadlineUseCase {
 					orderOutboxKafkaAppendUseCase.appendSeatRelease(participation.getId());
 				});
 		}
+		// 신청 뒤의 파티원 신청서는 결제 대기 → 참가 확정 또는 미결제 해제로만 끝난다
+		List<Participation> all = participationRepository.findByPartyIdIn(List.of(partyId));
+		if (!now.isBefore(party.getPaymentDueAt())) {
+			// 방금 푼 사람과 주문 만료(OrderExpiryUseCase)가 먼저 푼 사람을 파티에서 뺀다. 이미 빠진 사람은 건너뛴다
+			partyUseCase.removeUnpaid(party, all.stream()
+				.filter(participation -> participation.getStatus() == ParticipationStatus.RELEASED)
+				.map(Participation::getMemberId).toList(), now);
+		}
 		// 주문을 만든 결제 대기가 남았거나 기한 전이면서 아직 결제 중인 사람이 있으면 다음 실행에서 다시 본다
 		if (active.stream().anyMatch(participation -> participation.getStatus() == ParticipationStatus.APPLIED)) {
 			return false;
 		}
-		// 신청 뒤의 파티원 신청서는 결제 대기 → 참가 확정 또는 미결제 해제로만 끝난다
-		List<Participation> all = participationRepository.findByPartyIdIn(List.of(partyId));
 		long paid = all.stream().filter(participation -> participation.getStatus() == ParticipationStatus.CONFIRMED)
 			.count();
 		long unpaid = all.stream().filter(participation -> participation.getStatus() == ParticipationStatus.RELEASED)
@@ -109,8 +118,14 @@ public class PartyPaymentDeadlineUseCase {
 				|| participation.getStatus() == ParticipationStatus.RELEASED)
 			.forEach(participation -> eventPublisher.publish(NotificationRequestedEvent.of(
 				participation.getMemberId(), NotificationKind.PARTY_PAYMENT_DEADLINE, "파티 결제가 마감됐어요",
-				finishMessage(participation.getStatus(), paid, unpaid), "/parties/" + partyId)));
+				finishMessage(participation.getStatus(), paid, unpaid), finishLink(party, participation))));
 		return true;
+	}
+
+	// 결제하지 않은 사람은 파티에서 빠져 파티 화면을 볼 수 없으므로 대회 화면으로 보낸다 (추천값)
+	private static String finishLink(Party party, Participation participation) {
+		return participation.getStatus() == ParticipationStatus.RELEASED
+			? "/races/" + party.getRaceId() : "/parties/" + party.getId();
 	}
 
 	private static String finishMessage(ParticipationStatus status, long paid, long unpaid) {
