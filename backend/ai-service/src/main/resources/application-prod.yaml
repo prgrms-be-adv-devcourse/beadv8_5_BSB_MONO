@@ -13,6 +13,12 @@ ai:
     member:
       mode: http
       base-url: http://bukang-member-service:8080
+    payout:
+      base-url: http://bukang-payout-service:8082
+    order:
+      base-url: http://bukang-order-service:8084
+    inquiry:
+      base-url: http://bukang-inquiry-service:8088
 
 # 운영에서는 API 구조가 외부에 노출되지 않도록 Swagger 비활성화
 springdoc:

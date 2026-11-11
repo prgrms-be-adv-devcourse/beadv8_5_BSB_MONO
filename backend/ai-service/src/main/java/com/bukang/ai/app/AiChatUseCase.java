@@ -2,6 +2,7 @@ package com.bukang.ai.app;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Service;
 import com.bukang.ai.domain.AiScreen;
 import com.bukang.ai.domain.exception.AiForbiddenException;
 import com.bukang.ai.domain.exception.AiModelUnavailableException;
+import com.bukang.ai.dto.AiChatDto;
 import com.bukang.ai.out.member.MemberRolePort;
 import com.bukang.common.global.exception.BusinessException;
 
@@ -37,22 +39,38 @@ public class AiChatUseCase {
 		- 건수·금액·날짜 같은 숫자는 조회한 값만 말한다. 모르면 지어내지 않고 해당 화면에서 확인하라고 안내한다.
 		- 다른 회원·다른 판매자의 정보는 답할 수 없다고 말한다.
 		- 승인, 송장 입력, 정산 신청 같은 처리는 하지 않는다. 처리할 화면을 안내한다.
+		- 조회 결과에 error가 있으면 숫자를 말하지 않고 그 화면에서 확인하라고 안내한다.
+		- 메뉴 경로와 화면 주소를 지어내지 않는다. 화면으로 가는 버튼과 목록 카드는 답 아래에 따로 붙는다.
+		- %s
 		""";
+	// 아직 조회할 API가 없는 질문 (BUK-170). 도구가 생기면 이 줄에서 뺀다
+	private static final Map<AiScreen, String> NOT_YET = Map.of(
+		AiScreen.SELLER, "이번 달 판매액은 아직 조회할 수 없다. 숫자를 말하지 말고 '주문 · 참가자' 화면에서 확인하라고 안내한다.",
+		AiScreen.ADMIN, "예치금 환급 요청, 지급보류 중인 정산 합계는 아직 조회할 수 없다. "
+			+ "숫자를 말하지 말고 '정산 · 환급 처리' 화면에서 확인하라고 안내한다.");
 
 	private final ChatClient chatClient;
 	private final ChatMemoryRepository chatMemoryRepository;
 	private final MemberRolePort memberRolePort;
+	private final SellerTools sellerTools;
+	private final AdminTools adminTools;
 
-	public String chat(long memberId, AiScreen screen, String message) {
+	public AiChatDto chat(long memberId, AiScreen screen, String message) {
 		checkRole(memberId, screen);
 		String conversationId = screen.conversationId(memberId);
+		// 회원 번호는 모델이 아니라 여기서 넣는다. 도구가 부른 화면(출처)과 목록도 여기 모인다
+		AiToolTrace trace = new AiToolTrace(memberId);
 		String answer;
 		try {
 			// 지시문과 질문은 문자열이 아니라 메시지로 넘긴다. 문자열로 넘기면 템플릿으로 읽혀 질문 속 중괄호가 변수로 풀린다
-			// 도구(운영 숫자 조회)는 화면 종류에 맞는 묶음만 여기서 .tools(...)로 붙인다 (다음 이슈)
+			// 도구는 화면 종류에 맞는 묶음만 붙인다. 판매자 화면에서는 관리자 도구가 모델에 아예 보이지 않는다
+			// 한 질문의 도구 호출 수는 spring.ai.tools.limits(application.yaml)가 막는다. 넘으면 예외 → 아래 503
 			answer = chatClient.prompt()
-				.messages(new SystemMessage(SYSTEM_PROMPT.formatted(screen.getLabel())), new UserMessage(message))
+				.messages(new SystemMessage(SYSTEM_PROMPT.formatted(screen.getLabel(), NOT_YET.get(screen))),
+					new UserMessage(message))
 				.advisors(advisor -> advisor.param(ChatMemory.CONVERSATION_ID, conversationId))
+				.tools(screen == AiScreen.SELLER ? sellerTools : adminTools)
+				.toolContext(Map.of(AiToolTrace.KEY, trace))
 				.call()
 				.content();
 		} catch (BusinessException exception) {
@@ -70,7 +88,7 @@ public class AiChatUseCase {
 			dropUnansweredQuestion(conversationId);
 			throw new AiModelUnavailableException();
 		}
-		return answer;
+		return new AiChatDto(answer, trace.sources(), trace.list());
 	}
 
 	// 「새 대화」: 이 화면의 내 대화 기록을 지운다
