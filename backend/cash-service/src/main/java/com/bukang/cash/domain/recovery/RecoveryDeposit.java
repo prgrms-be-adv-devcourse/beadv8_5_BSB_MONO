@@ -52,6 +52,9 @@ public class RecoveryDeposit extends BaseIdAndTime {
 	// PG가 알려 준 입금 시각(한국 시간). 입금 완료일 때만 있다
 	private LocalDateTime depositedAt;
 
+	// 정산에 입금 메시지를 보낸 시각. 입금 완료인데 비어 있으면 아직 안 보낸 것이다 (아웃박스 표시)
+	private LocalDateTime sentAt;
+
 	public RecoveryDeposit(
 		String claimCode, long amount, String bankName, String accountNumber, LocalDateTime dueDate, String secret
 	) {
@@ -67,5 +70,13 @@ public class RecoveryDeposit extends BaseIdAndTime {
 	public void markDeposited(LocalDateTime depositedAt) {
 		this.status = RecoveryDepositStatus.DEPOSITED;
 		this.depositedAt = depositedAt;
+	}
+
+	public void markExpired() {
+		this.status = RecoveryDepositStatus.EXPIRED;
+	}
+
+	public void markSent(LocalDateTime sentAt) {
+		this.sentAt = sentAt;
 	}
 }

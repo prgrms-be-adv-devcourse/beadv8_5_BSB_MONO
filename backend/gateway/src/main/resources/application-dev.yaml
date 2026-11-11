@@ -9,6 +9,8 @@ gateway:
     product: http://localhost:8085
     queue: http://localhost:8086
     notification: http://localhost:8087
+    inquiry: http://localhost:8088
+    board: http://localhost:8089
 
 # Access Token 검사용 서명 키. member-service가 발급할 때 쓰는 키와 같아야 한다
 jwt:

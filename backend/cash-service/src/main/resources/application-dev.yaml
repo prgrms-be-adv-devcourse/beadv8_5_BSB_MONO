@@ -8,10 +8,8 @@ spring:
 
   jpa:
     hibernate:
-      # 표는 Flyway가 만들고 바꾼다. 전환 중이라 한 번 더 update로 둔다: V1은 표가 이미 있으면 건너뛰어,
-      # 팀원 로컬 DB의 옛 cash 표에 빠진 칸이 있으면 validate로는 뜨지 않는다. Flyway가 먼저 돌고 Hibernate가 빠진 칸을 채운다
-      # 서버에 한 번 배포한 뒤 validate로 바꾼다 (compose.yml의 cash-service 줄과 함께)
-      ddl-auto: update
+      # 표는 Flyway가 만들고 바꾼다. Hibernate는 엔티티와 표가 맞는지만 확인한다
+      ddl-auto: validate
     properties:
       hibernate:
         show_sql: false

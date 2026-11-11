@@ -1,7 +1,8 @@
 package com.bukang.cash.out.pg;
 
 // PG 결제 조회 결과. approval은 COMPLETED일 때만 있다
-public record PaymentLookupResult(Status status, PaymentApprovalResult approval) {
+// awaitingDeposit은 PENDING 중에서도 가상계좌 입금 대기라고 PG가 답했을 때만 true다
+public record PaymentLookupResult(Status status, PaymentApprovalResult approval, boolean awaitingDeposit) {
 	public enum Status {
 		// 승인 완료
 		COMPLETED,
@@ -12,14 +13,18 @@ public record PaymentLookupResult(Status status, PaymentApprovalResult approval)
 	}
 
 	public static PaymentLookupResult completed(PaymentApprovalResult approval) {
-		return new PaymentLookupResult(Status.COMPLETED, approval);
+		return new PaymentLookupResult(Status.COMPLETED, approval, false);
 	}
 
 	public static PaymentLookupResult notCompleted() {
-		return new PaymentLookupResult(Status.NOT_COMPLETED, null);
+		return new PaymentLookupResult(Status.NOT_COMPLETED, null, false);
 	}
 
 	public static PaymentLookupResult pending() {
-		return new PaymentLookupResult(Status.PENDING, null);
+		return new PaymentLookupResult(Status.PENDING, null, false);
+	}
+
+	public static PaymentLookupResult waitingForDeposit() {
+		return new PaymentLookupResult(Status.PENDING, null, true);
 	}
 }
