@@ -37,8 +37,9 @@ spring:
       max-attempts: 2
       backoff:
         initial-interval: 1s
-    # 한 질문에서 도구를 부르는 횟수 상한. 추천값(미확정). 넘으면 Spring AI가 예외를 던져 503(AI_MODEL_UNAVAILABLE)으로 답한다
+    # 한 질문에서 도구를 부르는 횟수 상한. 추천값(미확정). 넘으면 도구를 더 부르지 않고 503(AI_MODEL_UNAVAILABLE)으로 답한다 (AiChatUseCase)
     # 모델 호출은 도구 호출 묶음마다 한 번씩 더 나가므로, 한 질문의 모델 호출도 최대 (도구 호출 상한 + 1)번이다
+    # 모델이 느리면 그 전에 게이트웨이(60초)가 먼저 끊을 수 있다
     tools:
       limits:
         max-total-tool-calls: 4

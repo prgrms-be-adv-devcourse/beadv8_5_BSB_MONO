@@ -5,12 +5,14 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
  * 운영 숫자를 각 서비스에서 읽어 온다 (도구가 쓴다). 읽기만 하므로 몇 번 불러도 된다
  * 회원 번호를 그대로 넘기고, 판매자·관리자 확인은 화면이 부를 때와 똑같이 그 서비스가 한다
  * 도구에 필요한 값만 받는다. 배송지·연락처·대표자 이름 같은 값은 응답에 있어도 읽지 않는다
- * 가져오지 못하면(연결 실패, 4xx·5xx, 빈 응답) RuntimeException을 던진다
+ * 가져오지 못하면(연결 실패, 4xx·5xx, 빈 응답, 숫자 칸이 빠진 응답) RuntimeException을 던진다
+ * 숫자 칸은 required로 받는다. 상대가 칸 이름을 바꿨을 때 0으로 읽혀 「0건」이라고 답하지 않게 한다
  */
 public interface OpsPort {
 	// 주문: 키트 배송 건수 (배송 준비, 그중 환불 기한 전이라 아직 보낼 수 없는 것)
@@ -32,7 +34,8 @@ public interface OpsPort {
 	List<LocalDateTime> pendingSellerRequestedAts(long memberId);
 
 	@JsonIgnoreProperties(ignoreUnknown = true)
-	record KitSummary(long preparing, long beforeRefundDeadline) {
+	record KitSummary(@JsonProperty(required = true) long preparing,
+		@JsonProperty(required = true) long beforeRefundDeadline) {
 	}
 
 	record KitPage(List<Kit> kits, long totalElements) {
@@ -43,11 +46,13 @@ public interface OpsPort {
 	}
 
 	@JsonIgnoreProperties(ignoreUnknown = true)
-	record PayoutSummary(LocalDate nextPayDate, long scheduledPayoutAmount, long heldCount) {
+	record PayoutSummary(LocalDate nextPayDate, @JsonProperty(required = true) long scheduledPayoutAmount,
+		@JsonProperty(required = true) long heldCount) {
 	}
 
 	@JsonIgnoreProperties(ignoreUnknown = true)
-	record Hold(String raceName, long payoutAmount, String reasonType, String reason, String status,
-				LocalDateTime heldAt) {
+	// releasedAt이 null이면 아직 보류 중이다
+	record Hold(String raceName, @JsonProperty(required = true) long payoutAmount, String reasonType, String reason,
+				LocalDateTime heldAt, LocalDateTime releasedAt) {
 	}
 }

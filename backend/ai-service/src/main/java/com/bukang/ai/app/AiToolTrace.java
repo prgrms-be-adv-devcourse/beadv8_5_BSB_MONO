@@ -45,17 +45,26 @@ public class AiToolTrace {
 	 * 조회하고 출처를 남긴다. 실패하면 예외를 모델 쪽으로 던지지 않고, 숫자 없이 화면에서 확인하라는 결과를 돌려준다
 	 * (출처는 조회 시각 없이 남겨 화면이 버튼만 보여 주게 한다)
 	 */
-	public synchronized Object run(AiSource source, Supplier<Object> query) {
+	public Object run(AiSource source, Supplier<Object> query) {
 		try {
 			Object result = query.get();
-			sources.put(source, AiSourceDto.of(source, LocalDateTime.now(ZONE).withNano(0)));
+			source(source, LocalDateTime.now(ZONE).withNano(0));
 			return result;
 		} catch (RuntimeException exception) {
 			log.warn("도구가 값을 가져오지 못했습니다. source={}, memberId={}", source, memberId, exception);
-			sources.put(source, AiSourceDto.of(source, null));
+			source(source, null);
 			return Map.of("error", "지금은 조회하지 못했다. 숫자를 말하지 말고 '%s' 화면에서 확인하라고 안내한다."
 				.formatted(source.getScreen()));
 		}
+	}
+
+	private synchronized void source(AiSource source, LocalDateTime asOf) {
+		sources.put(source, AiSourceDto.of(source, asOf));
+	}
+
+	// 같은 도구를 다시 부를 때 앞 호출의 목록이 남지 않게 비운다
+	public synchronized void clearList() {
+		this.list = null;
 	}
 
 	public synchronized void list(List<AiListDto.Row> rows, long moreCount) {
