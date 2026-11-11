@@ -1,5 +1,7 @@
 package com.bukang.cash.in;
 
+import java.time.LocalDateTime;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,6 +22,8 @@ import com.bukang.cash.dto.payout.CashPayoutResponseDto;
 import com.bukang.cash.dto.recovery.CashClaimVirtualAccountRequestDto;
 import com.bukang.cash.dto.recovery.CashClaimVirtualAccountResponseDto;
 import com.bukang.cash.dto.wallet.CashBalanceResponseDto;
+import com.bukang.cash.dto.withdrawal.CashWithdrawalItemResolveRequestDto;
+import com.bukang.cash.dto.withdrawal.CashWithdrawalItemResolveResponseDto;
 import com.bukang.common.global.rsdata.RsData;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -39,7 +43,8 @@ import lombok.RequiredArgsConstructor;
  * 회원이 아니라 서비스가 부르므로 회원 ID 헤더를 받지 않는다 (file-service, order-service와 같은 방식)
  */
 @Tag(name = "CashInternal",
-	description = "주문 결제, 결제 취소(환원), 환불, 잔액 조회, 정산 지급, 청구용 가상계좌 발급 API (서비스 간 내부 호출 전용)")
+	description = "주문 결제, 결제 취소(환원), 환불, 잔액 조회, 정산 지급, 청구용 가상계좌 발급, 환급 카드 몫 정리 API "
+		+ "(서비스 간 내부 호출·담당자 전용)")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/internal/v1/cash")
@@ -231,5 +236,40 @@ public class InternalV1CashController {
 	) {
 		CashClaimVirtualAccountResponseDto result = cashFacade.issueClaimVirtualAccount(claimCode, request.getAmount());
 		return ResponseEntity.ok().body(RsData.of(HttpStatus.OK, "가상계좌를 발급했습니다.", result));
+	}
+
+	// 담당자가 PG 관리 화면에서 취소 기록을 보고 부른다. 관리자 화면은 없다(정책 5장 2차 1 「수동 확인 필요」)
+	@PostMapping("/withdrawal-items/{itemId}/resolve")
+	@Operation(summary = "환급 카드 몫 수동 정리", description = "수동 확인 필요인 환급 카드 몫을 담당자의 결론대로 반영한다. "
+		+ "카드로 나감(CARD_CANCELED)이면 몫을 완료로 바꾸고 충전 건의 취소한 금액에 더하며, 안 나감(NOT_CANCELED)이면 "
+		+ "예치금에 되돌린다. 마지막 몫이 정리되면 환급이 완료되고 회원에게 완료 알림이 간다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "정리 성공",
+			content = @Content(examples = {
+				@ExampleObject(name = "카드로 나감, 환급 완료",
+					value = CashInternalApiExamples.WITHDRAWAL_ITEM_RESOLVED_CARD),
+				@ExampleObject(name = "안 나감, 다른 몫이 남음",
+					value = CashInternalApiExamples.WITHDRAWAL_ITEM_RESOLVED_NOT_CANCELED)
+			})),
+		@ApiResponse(responseCode = "400", description = "결과 누락, 요청 본문 형식 오류 또는 몫 ID 형식 오류",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "결과 누락", value = CashInternalApiExamples.WITHDRAWAL_ITEM_RESULT_MISSING),
+				@ExampleObject(name = "요청 본문 형식 오류", value = CashInternalApiExamples.INVALID_BODY),
+				@ExampleObject(name = "몫 ID 형식 오류", value = CashInternalApiExamples.INVALID_VALUE_TYPE)
+			})),
+		@ApiResponse(responseCode = "404", description = "존재하지 않는 환급 카드 몫",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = CashInternalApiExamples.WITHDRAWAL_ITEM_NOT_FOUND))),
+		@ApiResponse(responseCode = "409", description = "수동 확인 필요가 아닌 몫 (재확인 중이거나 이미 끝남)",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = CashInternalApiExamples.WITHDRAWAL_ITEM_NOT_MANUAL_CHECK)))
+	})
+	public ResponseEntity<RsData<CashWithdrawalItemResolveResponseDto>> resolveWithdrawalItem(
+		@Parameter(description = "환급 카드 몫 ID", example = "42") @PathVariable long itemId,
+		@Valid @RequestBody CashWithdrawalItemResolveRequestDto request
+	) {
+		CashWithdrawalItemResolveResponseDto result =
+			cashFacade.resolveWithdrawalItem(itemId, request.getResult(), LocalDateTime.now());
+		return ResponseEntity.ok().body(RsData.of(HttpStatus.OK, "환급 카드 몫을 정리했습니다.", result));
 	}
 }
