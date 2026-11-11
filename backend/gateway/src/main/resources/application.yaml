@@ -94,6 +94,10 @@ spring:
               uri: ${gateway.services.notification}
               predicates:
                 - Path=/api/v1/notification/**
+            - id: inquiry-service
+              uri: ${gateway.services.inquiry}
+              predicates:
+                - Path=/api/v1/inquiry/**
 
 gateway:
   auth:
