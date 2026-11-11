@@ -41,7 +41,7 @@ import com.sun.net.httpserver.HttpServer;
 class GatewayTimeoutTest {
 
 	private static final List<String> OTHER_SERVICES = List.of("member", "payout", "file", "product", "queue",
-		"notification", "inquiry");
+		"notification", "inquiry", "board");
 	// 응답 시간 제한(500ms)보다 충분히 길게 잡는다
 	private static final long SLOW_RESPONSE_MILLIS = 3000;
 	private static HttpServer slowStub;

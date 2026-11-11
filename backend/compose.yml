@@ -118,6 +118,8 @@ services:
         condition: service_healthy
       notification-service:
         condition: service_healthy
+      board-service:
+        condition: service_healthy
 
   member-service:
     build:
@@ -319,6 +321,31 @@ services:
       bukang-db:
         condition: service_healthy
       bukang-kafka:
+        condition: service_healthy
+
+  # 커뮤니티 게시판 (BUK-156). 표는 처음부터 Flyway가 만들어 SPRING_JPA_HIBERNATE_DDL_AUTO를 덮지 않는다
+  board-service:
+    build:
+      context: .
+      args:
+        MODULE: board-service
+    image: bukang-board-service:latest
+    container_name: bukang-board-service
+    profiles: [ app ]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+    healthcheck:
+      <<: *app-healthcheck
+      test: [ "CMD", "bash", "-c", "</dev/tcp/127.0.0.1/8089" ]
+    depends_on:
+      bukang-db:
+        condition: service_healthy
+      bukang-kafka:
+        condition: service_healthy
+      bukang-redis:
         condition: service_healthy
 
   bukang-db:

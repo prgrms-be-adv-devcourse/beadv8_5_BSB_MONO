@@ -1,0 +1,76 @@
+server:
+  # 다른 서비스(member 8080 … notification 8087)와 동시에 실행하므로 포트를 나눈다. 8090·8091은 다른 도구가 쓴다
+  port: 8089
+
+spring:
+  application:
+    name: board-service
+
+  profiles:
+    active: dev
+
+  output:
+    ansi:
+      enabled: always
+
+  # 개발 실행(bootRun/IDE) 시 backend/compose.yml의 인프라를 자동으로 띄운다
+  # compose.yml과 .env 경로는 common의 LocalDevEnvironmentPostProcessor가 실행 위치와 상관없이 찾아 준다
+  docker:
+    compose:
+      # 여러 서비스가 같은 인프라를 함께 쓰므로, 한 서비스를 종료해도 컨테이너는 멈추지 않는다
+      lifecycle-management: start-only
+
+  # 표 변경은 Flyway SQL(db/migration)로만 한다. 모든 서비스가 같은 스키마를 쓰므로 기록 표는 게시판 전용 이름으로 둔다
+  # SQL 번호는 날짜·시각이라 머지 순서와 다를 수 있어 out-of-order를 켠다
+  flyway:
+    table: flyway_schema_history_board
+    baseline-on-migrate: true
+    baseline-version: 0
+    out-of-order: true
+
+  jpa:
+    hibernate:
+      # 표는 Flyway가 만든다. Hibernate는 엔티티와 표가 맞는지만 확인한다
+      ddl-auto: validate
+    open-in-view: false
+
+  # Redis(도배 제한)가 응답하지 않을 때 글쓰기가 오래 멈추지 않도록 대기 시간을 줄인다 (Lettuce 기본값은 명령 60초, 연결 10초)
+  # 도배 제한은 Redis가 멈추면 제한 없이 통과시키므로, 장애 때 글쓰기가 이 시간만큼만 늦어진다 (BoardCooldown)
+  # 접속 주소(host, port)는 프로파일별 yaml에 있다
+  data:
+    redis:
+      timeout: 2s
+      connect-timeout: 2s
+
+  # Kafka 메시지는 JSON 문자열로 주고받는다 (이유는 member-service의 application.yaml과 README 참고)
+  kafka:
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties:
+        # 브로커가 없을 때 send()가 기다리는 시간 (기본 60초)
+        max.block.ms: 3000
+
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      auto-offset-reset: earliest
+      properties:
+        # 구독한 토픽이 없으면 브로커에 자동 생성을 요청한다 (브로커도 자동 생성을 허용해야 동작)
+        "[allow.auto.create.topics]": true
+
+# Swagger / OpenAPI V3 설정 (prod에서는 비활성화)
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: method
+    persist-authorization: true
+  default-produces-media-type: application/json
+  open-api:
+    info:
+      title: Bukang Board API
+      description: 크루 중심 마라톤 대회 예매·커머스 플랫폼 커뮤니티 게시판 API
+      version: v1
