@@ -1,6 +1,7 @@
 package com.bukang.ai.support;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -38,7 +39,10 @@ public class FakeChatModel implements ChatModel {
 				.build())));
 		}
 		String text = blankAnswer ? " " : "답변 " + prompts.size();
-		return new ChatResponse(List.of(new Generation(new AssistantMessage(text))));
+		// OpenAI의 답처럼 문자열이 아닌 메타데이터(숫자, 목록)를 단다. 이런 답도 대화 기록에서 다시 읽혀야 한다
+		return new ChatResponse(List.of(new Generation(AssistantMessage.builder().content(text)
+			.properties(Map.of("index", 0, "annotations", List.of(), "finishReason", "STOP"))
+			.build())));
 	}
 
 	// 진짜 모델(OpenAI·Ollama)처럼 도구를 실을 수 있는 옵션을 쓴다. 기본 옵션이면 ChatClient가 도구를 요청에 싣지 않는다

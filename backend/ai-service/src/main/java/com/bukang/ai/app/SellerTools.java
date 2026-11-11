@@ -26,7 +26,7 @@ public class SellerTools {
 
 	private final OpsPort opsPort;
 
-	@Tool(description = "내 송장 입력 대기 키트를 조회한다. waitingCount: 지금 송장을 입력할 수 있는 건수, "
+	@Tool(description = "마지막 질문이 송장 입력 대기 키트(보낼 키트)를 물을 때만 부른다. waitingCount: 지금 송장을 입력할 수 있는 건수, "
 		+ "beforeRefundDeadlineCount: 환불 기한 전이라 아직 보낼 수 없는 건수(대기에 넣지 않는다), "
 		+ "listedCount: 답 아래 목록 카드에 화면이 따로 보여 주는 줄 수(목록 내용은 말하지 않는다), notListedCount: 목록에 없는 나머지 건수")
 	public Object sellerKitsWaitingForTracking(ToolContext toolContext) {
@@ -49,14 +49,14 @@ public class SellerTools {
 		});
 	}
 
-	@Tool(description = "내 다음 정산을 조회한다. nextPayDate: 다음 정산일(null이면 지급 예정 정산이 없다), "
+	@Tool(description = "마지막 질문이 다음 정산일·정산 예정액·지급보류 건수를 물을 때만 부른다. nextPayDate: 다음 정산일(null이면 지급 예정 정산이 없다), "
 		+ "scheduledPayoutAmount: 그날 받을 정산 예정액(원, 지급보류 제외), heldCount: 지급보류 중인 정산 내역 수")
 	public Object sellerNextPayout(ToolContext toolContext) {
 		AiToolTrace trace = AiToolTrace.of(toolContext);
 		return trace.run(AiSource.SELLER_PAYOUT, () -> opsPort.payoutSummary(trace.memberId()));
 	}
 
-	@Tool(description = "내 정산이 지급보류된 이유를 조회한다. heldPayoutCount: 지금 지급보류 중인 정산 내역 수(전체 기간). "
+	@Tool(description = "마지막 질문이 지급보류된 이유를 물을 때만 부른다. heldPayoutCount: 지금 지급보류 중인 정산 내역 수(전체 기간). "
 		+ "holds: 최근 1개월 안에 보류되어 아직 풀리지 않은 것의 대회 이름, 보류된 지급액(원), 사유 종류, 사유 글, 보류한 날. "
 		+ "notListedCount: 최근 1개월 것 중 여기 담지 않은 나머지 건수. "
 		+ "heldPayoutCount가 0보다 큰데 holds에 없는 보류는 1개월보다 오래된 것이니 화면에서 확인하라고 안내한다")

@@ -22,7 +22,7 @@ import lombok.RequiredArgsConstructor;
 public class AdminTools {
 	private final OpsPort opsPort;
 
-	@Tool(description = "답변 대기 문의 수를 조회한다. waitingCount: 전체 답변 대기 문의 수, "
+	@Tool(description = "마지막 질문이 답변 대기 문의 수를 물을 때만 부른다. waitingCount: 전체 답변 대기 문의 수, "
 		+ "adminAssignedWaitingCount: 그중 관리자가 답해야 하는(관리자 담당) 문의 수")
 	public Object adminWaitingInquiries(ToolContext toolContext) {
 		AiToolTrace trace = AiToolTrace.of(toolContext);
@@ -31,7 +31,7 @@ public class AdminTools {
 			opsPort.waitingInquiryCount(trace.memberId(), true)));
 	}
 
-	@Tool(description = "승인 대기 판매자 신청을 조회한다. pendingCount: 승인 대기 건수, "
+	@Tool(description = "마지막 질문이 승인 대기 판매자를 물을 때만 부른다. pendingCount: 승인 대기 건수, "
 		+ "oldestRequestedDate: 가장 오래된 신청일(없으면 null). 신청자 이름·연락처는 조회할 수 없으니 화면에서 확인하라고 안내한다")
 	public Object adminPendingSellers(ToolContext toolContext) {
 		AiToolTrace trace = AiToolTrace.of(toolContext);
