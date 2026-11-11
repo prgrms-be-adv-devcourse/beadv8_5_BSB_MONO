@@ -73,19 +73,37 @@ class AiToolsTest {
 	}
 
 	@Test
+	@DisplayName("키트 도구를 다시 불렀을 때 실패하면 앞 호출의 목록을 남기지 않는다")
+	void kitsListCleared() {
+		ops.kitSummary = new OpsPort.KitSummary(1, 0);
+		ops.kitPage = new OpsPort.KitPage(List.of(new OpsPort.Kit("ORD-1", "김민지", "10km")), 1);
+		sellerTools.sellerKitsWaitingForTracking(toolContext);
+		assertThat(trace.list()).isNotNull();
+
+		ops.unavailable = true;
+		sellerTools.sellerKitsWaitingForTracking(toolContext);
+
+		assertThat(trace.list()).isNull();
+		assertThat(trace.sources()).singleElement().satisfies(source -> assertThat(source.asOf()).isNull());
+	}
+
+	@Test
 	@DisplayName("지급보류 이유는 최근 1개월의 아직 풀리지 않은 보류만, 상한까지만 돌려준다")
 	void holds() {
-		OpsPort.Hold held = new OpsPort.Hold("한강 나이트런", 120000, "정산_계좌_미등록", "계좌를 등록해 주세요", "지급보류",
-			LocalDateTime.of(2026, 11, 3, 9, 0));
-		OpsPort.Hold released = new OpsPort.Hold("봄 마라톤", 50000, "대사_불일치", "확인 끝", "해제",
-			LocalDateTime.of(2026, 10, 20, 9, 0));
+		OpsPort.Hold held = new OpsPort.Hold("한강 나이트런", 120000, "정산_계좌_미등록", "계좌를 등록해 주세요",
+			LocalDateTime.of(2026, 11, 3, 9, 0), null);
+		OpsPort.Hold released = new OpsPort.Hold("봄 마라톤", 50000, "대사_불일치", "확인 끝",
+			LocalDateTime.of(2026, 10, 20, 9, 0), LocalDateTime.of(2026, 10, 25, 9, 0));
 		ops.holds = List.of(held, released, held, held, held, held, held);
+		ops.payoutSummary = new OpsPort.PayoutSummary(null, 0, 8);
 
 		SellerTools.HoldsResult result = (SellerTools.HoldsResult)sellerTools.sellerPayoutHoldReasons(toolContext);
 
 		assertThat(result.holds()).hasSize(SellerTools.LIST_LIMIT).containsOnly(new SellerTools.HoldLine(
 			"한강 나이트런", 120000, "정산_계좌_미등록", "계좌를 등록해 주세요", LocalDate.of(2026, 11, 3)));
 		assertThat(result.notListedCount()).isEqualTo(1);
+		// 1개월보다 오래된 보류가 있는지 모델이 알 수 있게 전체 보류 건수를 함께 준다
+		assertThat(result.heldPayoutCount()).isEqualTo(8);
 		// 정산 API의 기간 한도: 끝 날 < 시작 날 + 1개월
 		assertThat(ops.holdsTo).isBefore(ops.holdsFrom.plusMonths(1));
 	}

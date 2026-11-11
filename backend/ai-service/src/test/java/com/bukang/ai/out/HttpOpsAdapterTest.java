@@ -73,8 +73,8 @@ class HttpOpsAdapterTest {
 		assertThat(adapter.payoutSummary(3L))
 			.isEqualTo(new OpsPort.PayoutSummary(LocalDate.of(2026, 11, 20), 1250000, 1));
 		assertThat(adapter.holds(3L, LocalDate.of(2026, 10, 12), LocalDate.of(2026, 11, 11))).containsExactly(
-			new OpsPort.Hold("한강 나이트런", 120000, "정산_계좌_미등록", "계좌를 등록해 주세요", "지급보류",
-				LocalDateTime.of(2026, 11, 3, 9, 0)));
+			new OpsPort.Hold("한강 나이트런", 120000, "정산_계좌_미등록", "계좌를 등록해 주세요",
+				LocalDateTime.of(2026, 11, 3, 9, 0), null));
 		server.verify();
 	}
 
@@ -103,6 +103,18 @@ class HttpOpsAdapterTest {
 
 		assertThat(adapter.pendingSellerRequestedAts(20L)).containsExactly(LocalDateTime.of(2026, 10, 3, 9, 0));
 		server.verify();
+	}
+
+	@Test
+	@DisplayName("숫자 칸이 빠진 응답은 0으로 읽지 않고 예외다 (상대가 칸 이름을 바꿨을 때 「0건」이라고 답하지 않게)")
+	void missingNumber() {
+		server.expect(requestTo("http://svc/api/v1/order/seller/kits/summary"))
+			.andRespond(ok("{\"preparingCount\":7,\"beforeRefundDeadline\":3}"));
+		server.expect(requestTo("http://svc/api/v1/inquiry/admin/inquiries?status=WAITING&page=0&size=1"))
+			.andRespond(ok("{\"inquiries\":[]}"));
+
+		assertThatThrownBy(() -> adapter.kitSummary(3L)).isInstanceOf(RestClientException.class);
+		assertThatThrownBy(() -> adapter.waitingInquiryCount(20L, false)).isInstanceOf(RestClientException.class);
 	}
 
 	@Test

@@ -11,6 +11,9 @@ import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.MessageType;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.model.Generation;
+import org.springframework.ai.model.tool.ToolCallLimitExceededException;
 import org.springframework.stereotype.Service;
 
 import com.bukang.ai.domain.AiScreen;
@@ -60,19 +63,19 @@ public class AiChatUseCase {
 		String conversationId = screen.conversationId(memberId);
 		// 회원 번호는 모델이 아니라 여기서 넣는다. 도구가 부른 화면(출처)과 목록도 여기 모인다
 		AiToolTrace trace = new AiToolTrace(memberId);
-		String answer;
+		Generation result;
 		try {
 			// 지시문과 질문은 문자열이 아니라 메시지로 넘긴다. 문자열로 넘기면 템플릿으로 읽혀 질문 속 중괄호가 변수로 풀린다
 			// 도구는 화면 종류에 맞는 묶음만 붙인다. 판매자 화면에서는 관리자 도구가 모델에 아예 보이지 않는다
-			// 한 질문의 도구 호출 수는 spring.ai.tools.limits(application.yaml)가 막는다. 넘으면 예외 → 아래 503
-			answer = chatClient.prompt()
+			ChatResponse response = chatClient.prompt()
 				.messages(new SystemMessage(SYSTEM_PROMPT.formatted(screen.getLabel(), NOT_YET.get(screen))),
 					new UserMessage(message))
 				.advisors(advisor -> advisor.param(ChatMemory.CONVERSATION_ID, conversationId))
-				.tools(screen == AiScreen.SELLER ? sellerTools : adminTools)
+				.tools(toolsOf(screen))
 				.toolContext(Map.of(AiToolTrace.KEY, trace))
 				.call()
-				.content();
+				.chatResponse();
+			result = response == null ? null : response.getResult();
 		} catch (BusinessException exception) {
 			throw exception;
 		} catch (RuntimeException exception) {
@@ -80,12 +83,21 @@ public class AiChatUseCase {
 			// 예외를 통째로 남기지 않는다. OpenAI는 틀린 키의 오류 문구에 키의 앞머리와 끝 4자리를 넣어 준다 (sk-proj-****abcd)
 			log.error("모델에서 답을 받지 못했습니다. memberId={}, screen={}, error={}: {}",
 				memberId, screen, exception.getClass().getName(), maskKey(exception.getMessage()));
-			dropUnansweredQuestion(conversationId);
+			dropUnansweredQuestion(conversationId, false);
 			throw new AiModelUnavailableException();
 		}
+		// 한 질문의 도구 호출 수가 상한(spring.ai.tools.limits)을 넘으면 Spring AI는 예외를 던지지 않고 한도 초과 문구를 답으로 돌려준다
+		// 그 문구를 답으로 내보내지 않고, 대화 기록에 남은 질문과 그 문구도 뺀다
+		if (result != null
+			&& ToolCallLimitExceededException.FINISH_REASON.equals(result.getMetadata().getFinishReason())) {
+			log.error("한 질문의 도구 호출 수 상한을 넘었습니다. memberId={}, screen={}", memberId, screen);
+			dropUnansweredQuestion(conversationId, true);
+			throw new AiModelUnavailableException();
+		}
+		String answer = result == null ? null : result.getOutput().getText();
 		if (answer == null || answer.isBlank()) {
 			log.error("모델이 빈 답을 돌려줬습니다. memberId={}, screen={}", memberId, screen);
-			dropUnansweredQuestion(conversationId);
+			dropUnansweredQuestion(conversationId, false);
 			throw new AiModelUnavailableException();
 		}
 		return new AiChatDto(answer, trace.sources(), trace.list());
@@ -108,13 +120,14 @@ public class AiChatUseCase {
 
 	// 대화 기록 advisor는 모델을 부르기 전에 질문부터 저장한다. 답을 받지 못했으면 그 질문을 기록에서 뺀다
 	// (남겨 두면 다시 물을 때마다 답 없는 같은 질문이 쌓여 앞 대화를 밀어낸다)
-	private void dropUnansweredQuestion(String conversationId) {
+	// dropAnswer: 마지막 답이 비어 있지 않아도 뺀다 (한도 초과 문구)
+	private void dropUnansweredQuestion(String conversationId, boolean dropAnswer) {
 		try {
 			List<Message> messages = new ArrayList<>(chatMemoryRepository.findByConversationId(conversationId));
 			int before = messages.size();
 			// 빈 답이 왔을 때는 그 빈 답까지 저장돼 있다
 			if (!messages.isEmpty() && messages.getLast().getMessageType() == MessageType.ASSISTANT
-				&& (messages.getLast().getText() == null || messages.getLast().getText().isBlank())) {
+				&& (dropAnswer || messages.getLast().getText() == null || messages.getLast().getText().isBlank())) {
 				messages.removeLast();
 			}
 			if (!messages.isEmpty() && messages.getLast().getMessageType() == MessageType.USER) {
@@ -127,6 +140,14 @@ public class AiChatUseCase {
 			// Redis 장애로 모델 호출이 실패한 경우다. 남은 질문은 보관 시간이 지나면 지워진다
 			log.warn("답 없는 질문을 대화 기록에서 빼지 못했습니다. conversationId={}", conversationId, exception);
 		}
+	}
+
+	// 화면이 늘면 여기서 컴파일 오류가 나게 switch로 나눈다 (다른 화면에 관리자 도구가 붙지 않게)
+	private Object toolsOf(AiScreen screen) {
+		return switch (screen) {
+			case SELLER -> sellerTools;
+			case ADMIN -> adminTools;
+		};
 	}
 
 	private void checkRole(long memberId, AiScreen screen) {

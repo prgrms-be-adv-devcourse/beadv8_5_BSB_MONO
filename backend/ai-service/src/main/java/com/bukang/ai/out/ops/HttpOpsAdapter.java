@@ -10,6 +10,7 @@ import org.springframework.web.client.RestClient;
 import com.bukang.common.global.rsdata.RsData;
 import com.bukang.common.shared.member.web.MemberIdHeader;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import lombok.RequiredArgsConstructor;
 
@@ -95,14 +96,15 @@ public class HttpOpsAdapter implements OpsPort {
 	}
 
 	@JsonIgnoreProperties(ignoreUnknown = true)
-	record KitPageResponse(List<Kit> kits, long totalElements) {
+	record KitPageResponse(@JsonProperty(required = true) List<Kit> kits,
+		@JsonProperty(required = true) long totalElements) {
 	}
 
 	@JsonIgnoreProperties(ignoreUnknown = true)
-	record InquiryPageResponse(long waitingCount) {
+	record InquiryPageResponse(@JsonProperty(required = true) long waitingCount) {
 	}
 
 	@JsonIgnoreProperties(ignoreUnknown = true)
-	record SellerResponse(LocalDateTime requestedAt) {
+	record SellerResponse(@JsonProperty(required = true) LocalDateTime requestedAt) {
 	}
 }
