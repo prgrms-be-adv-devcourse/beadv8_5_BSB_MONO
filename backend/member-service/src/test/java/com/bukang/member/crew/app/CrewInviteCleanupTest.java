@@ -107,6 +107,33 @@ class CrewInviteCleanupTest {
 	}
 
 	@Test
+	@DisplayName("크루원이 가입에 쓴 뒤 취소된 초대는 취소된 지 7일이 지나도 남긴다")
+	void keepsCanceledInviteReferencedByCrewMember() {
+		long joinedThenCanceled = canceledInvite(NOW.minusDays(8));
+		crewMemberRepository.save(
+			CrewMember.invited(crewId, 2L, joinedThenCanceled, NOW.minusDays(8).minusMinutes(30)));
+
+		int deleted = crewInviteCleanupUseCase.cleanup(NOW);
+
+		assertThat(deleted).isZero();
+		assertThat(remainingIds()).containsExactly(joinedThenCanceled);
+	}
+
+	@Test
+	@DisplayName("가입한 크루원이 크루를 떠나 가리키는 행이 없어지면, 만료된 지 7일 지난 그 초대는 지운다")
+	void deletesInviteOnceReferencingCrewMemberLeft() {
+		long invite = invite(expiresAt(NOW.minusDays(30)));
+		CrewMember member = crewMemberRepository.save(
+			CrewMember.invited(crewId, 2L, invite, NOW.minusDays(30).minusHours(1)));
+		crewMemberRepository.delete(member);
+
+		int deleted = crewInviteCleanupUseCase.cleanup(NOW);
+
+		assertThat(deleted).isEqualTo(1);
+		assertThat(remainingIds()).isEmpty();
+	}
+
+	@Test
 	@DisplayName("여러 명 가입 전에 한 번 쓰고 닫힌 옛 초대는 만료된 지 7일이 지나도 남긴다")
 	void keepsLegacyUsedInvite() {
 		long legacyUsed = invite(expiresAt(NOW.minusDays(30)));
