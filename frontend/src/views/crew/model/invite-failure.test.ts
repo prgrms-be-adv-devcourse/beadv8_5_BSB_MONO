@@ -29,6 +29,14 @@ describe('inviteFailureOf', () => {
     expect(inviteFailureOf(apiError(404, 'CREW_INVITE_NOT_FOUND'))?.description).toBe('서버 문구')
   })
 
+  it('내보낸 회원이 내보내기 전 링크를 열면 새 링크를 받으라고 안내한다 (BUK-135)', () => {
+    expect(inviteFailureOf(apiError(410, 'CREW_INVITE_REMOVED_MEMBER'))).toEqual({
+      title: '이 링크로는 가입할 수 없어요',
+      description:
+        '크루에서 내보낸 회원은 그 전에 받은 링크를 쓸 수 없어요. 크루장에게 새 링크를 받아 주세요.',
+    })
+  })
+
   it('서버 오류나 네트워크 오류는 링크 문제가 아니다', () => {
     expect(inviteFailureOf(apiError(500, 'INTERNAL_ERROR'))).toBeNull()
     expect(inviteFailureOf(new TypeError('Failed to fetch'))).toBeNull()

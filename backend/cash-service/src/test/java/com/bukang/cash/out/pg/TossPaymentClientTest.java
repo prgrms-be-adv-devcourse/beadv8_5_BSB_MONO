@@ -31,6 +31,7 @@ import org.springframework.web.client.RestClient;
 
 import com.bukang.cash.domain.exception.charge.PaymentApprovalFailedException;
 import com.bukang.cash.domain.exception.charge.PaymentLookupFailedException;
+import com.bukang.cash.domain.exception.recovery.VirtualAccountIssueFailedException;
 import com.bukang.cash.domain.exception.withdrawal.PaymentCancelFailedException;
 
 class TossPaymentClientTest {
@@ -396,6 +397,132 @@ class TossPaymentClientTest {
 			.asInstanceOf(InstanceOfAssertFactories.type(PaymentCancelFailedException.class))
 			.extracting(PaymentCancelFailedException::isResultUnknown)
 			.isEqualTo(true);
+	}
+
+	@Test
+	@DisplayName("청구 ID를 주문번호로 국민은행·90일 유효 가상계좌 발급을 요청하고, 계좌번호·금액·입금 기한(한국 시간)·웹훅 비밀값을 돌려준다")
+	void issueVirtualAccount() {
+		String response = """
+			{ "orderId": "RC-20261214-0A3F", "status": "WAITING_FOR_DEPOSIT", "secret": "ps_secret_1",
+			"totalAmount": 400000,
+			"virtualAccount": { "accountNumber": "X6000123456789", "bankCode": "06",
+			"dueDate": "2027-03-14T10:00:00+09:00" } }
+			""";
+		server.expect(requestTo(BASE_URL + "/v1/virtual-accounts"))
+			.andExpect(method(HttpMethod.POST))
+			.andExpect(header(HttpHeaders.AUTHORIZATION, BASIC_AUTH))
+			.andExpect(jsonPath("$.orderId").value("RC-20261214-0A3F"))
+			.andExpect(jsonPath("$.amount").value(400_000))
+			.andExpect(jsonPath("$.bank").value("06"))
+			.andExpect(jsonPath("$.validHours").value(2160))
+			.andExpect(jsonPath("$.orderName").isNotEmpty())
+			.andExpect(jsonPath("$.customerName").isNotEmpty())
+			.andRespond(withSuccess(response, MediaType.APPLICATION_JSON));
+
+		VirtualAccountIssueResult result = client.issueVirtualAccount("RC-20261214-0A3F", 400_000);
+
+		server.verify();
+		assertThat(result).isEqualTo(new VirtualAccountIssueResult(
+			"국민은행", "X6000123456789", 400_000, LocalDateTime.of(2027, 3, 14, 10, 0), "ps_secret_1"));
+	}
+
+	@Test
+	@DisplayName("Toss가 4xx로 발급을 거절하면 가상계좌 발급 실패 예외로 알린다")
+	void issueVirtualAccountRejected() {
+		server.expect(requestTo(BASE_URL + "/v1/virtual-accounts"))
+			.andRespond(withStatus(HttpStatus.BAD_REQUEST)
+				.contentType(MediaType.APPLICATION_JSON)
+				.body(errorResponse("DUPLICATED_ORDER_ID", "이미 승인 및 취소가 진행된 중복된 주문번호 입니다.")));
+
+		assertThatThrownBy(() -> client.issueVirtualAccount("RC-20261214-0A3F", 400_000))
+			.isInstanceOf(VirtualAccountIssueFailedException.class);
+	}
+
+	@Test
+	@DisplayName("Toss가 5xx로 답하면 가상계좌 발급 실패 예외로 알린다")
+	void issueVirtualAccountServerError() {
+		server.expect(requestTo(BASE_URL + "/v1/virtual-accounts")).andRespond(withServerError());
+
+		assertThatThrownBy(() -> client.issueVirtualAccount("RC-20261214-0A3F", 400_000))
+			.isInstanceOf(VirtualAccountIssueFailedException.class);
+	}
+
+	@Test
+	@DisplayName("Toss 서버에 연결하지 못하면(타임아웃 등) 가상계좌 발급 실패 예외로 알린다")
+	void issueVirtualAccountConnectionFailure() {
+		server.expect(requestTo(BASE_URL + "/v1/virtual-accounts"))
+			.andRespond(withException(new SocketTimeoutException("read timed out")));
+
+		assertThatThrownBy(() -> client.issueVirtualAccount("RC-20261214-0A3F", 400_000))
+			.isInstanceOf(VirtualAccountIssueFailedException.class);
+	}
+
+	@Test
+	@DisplayName("200인데 계좌 정보가 비어 있으면 가상계좌 발급 실패 예외로 알린다")
+	void issueVirtualAccountWithoutAccount() {
+		server.expect(requestTo(BASE_URL + "/v1/virtual-accounts"))
+			.andRespond(withSuccess("{ \"secret\": \"ps_secret_1\" }", MediaType.APPLICATION_JSON));
+
+		assertThatThrownBy(() -> client.issueVirtualAccount("RC-20261214-0A3F", 400_000))
+			.isInstanceOf(VirtualAccountIssueFailedException.class);
+	}
+
+	@Test
+	@DisplayName("주문번호로 이미 발급된 가상계좌가 있으면 계좌번호·금액·입금 기한(한국 시간)·웹훅 비밀값을 돌려준다")
+	void findVirtualAccount() {
+		String response = """
+			{ "orderId": "RC-20261214-0A3F", "status": "WAITING_FOR_DEPOSIT", "secret": "ps_secret_1",
+			"totalAmount": 400000,
+			"virtualAccount": { "accountNumber": "X6000123456789", "bankCode": "06",
+			"dueDate": "2027-03-14T10:00:00+09:00" } }
+			""";
+		server.expect(requestTo(BASE_URL + "/v1/payments/orders/RC-20261214-0A3F"))
+			.andExpect(method(HttpMethod.GET))
+			.andExpect(header(HttpHeaders.AUTHORIZATION, BASIC_AUTH))
+			.andRespond(withSuccess(response, MediaType.APPLICATION_JSON));
+
+		assertThat(client.findVirtualAccount("RC-20261214-0A3F")).contains(new VirtualAccountIssueResult(
+			"국민은행", "X6000123456789", 400_000, LocalDateTime.of(2027, 3, 14, 10, 0), "ps_secret_1"));
+	}
+
+	@Test
+	@DisplayName("Toss가 이 주문번호의 결제를 모르면(404) 발급된 가상계좌가 없다고 돌려준다")
+	void findVirtualAccountNotFound() {
+		server.expect(requestTo(BASE_URL + "/v1/payments/orders/RC-20261214-0A3F"))
+			.andRespond(withStatus(HttpStatus.NOT_FOUND)
+				.contentType(MediaType.APPLICATION_JSON)
+				.body(errorResponse("NOT_FOUND_PAYMENT", "존재하지 않는 결제 정보 입니다.")));
+
+		assertThat(client.findVirtualAccount("RC-20261214-0A3F")).isEmpty();
+	}
+
+	@Test
+	@DisplayName("조회가 5xx로 실패하면 발급 여부를 알 수 없어 새로 발급하지 않도록 가상계좌 발급 실패 예외로 알린다")
+	void findVirtualAccountServerError() {
+		server.expect(requestTo(BASE_URL + "/v1/payments/orders/RC-20261214-0A3F")).andRespond(withServerError());
+
+		assertThatThrownBy(() -> client.findVirtualAccount("RC-20261214-0A3F"))
+			.isInstanceOf(VirtualAccountIssueFailedException.class);
+	}
+
+	@Test
+	@DisplayName("조회 서버에 연결하지 못하면(타임아웃 등) 가상계좌 발급 실패 예외로 알린다")
+	void findVirtualAccountConnectionFailure() {
+		server.expect(requestTo(BASE_URL + "/v1/payments/orders/RC-20261214-0A3F"))
+			.andRespond(withException(new SocketTimeoutException("read timed out")));
+
+		assertThatThrownBy(() -> client.findVirtualAccount("RC-20261214-0A3F"))
+			.isInstanceOf(VirtualAccountIssueFailedException.class);
+	}
+
+	@Test
+	@DisplayName("주문번호의 결제는 있는데 가상계좌 정보가 없으면 새로 발급하지 않도록 가상계좌 발급 실패 예외로 알린다")
+	void findVirtualAccountWithoutAccount() {
+		server.expect(requestTo(BASE_URL + "/v1/payments/orders/RC-20261214-0A3F"))
+			.andRespond(withSuccess("{ \"status\": \"DONE\" }", MediaType.APPLICATION_JSON));
+
+		assertThatThrownBy(() -> client.findVirtualAccount("RC-20261214-0A3F"))
+			.isInstanceOf(VirtualAccountIssueFailedException.class);
 	}
 
 	private PaymentApprovalFailedException approveFailure() {

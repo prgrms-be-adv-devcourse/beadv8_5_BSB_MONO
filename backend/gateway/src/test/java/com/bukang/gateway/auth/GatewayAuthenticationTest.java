@@ -232,6 +232,25 @@ class GatewayAuthenticationTest {
 	}
 
 	@Test
+	@DisplayName("토스 가상계좌 입금 알림(POST)은 토큰 없이 통과하고, 클라이언트가 보낸 X-Member-Id는 지운다")
+	void passesTossDepositWebhookWithoutToken() throws Exception {
+		HttpResponse<String> response = send(request("/api/v1/cash/webhooks/toss/deposit")
+			.header(MEMBER_ID_HEADER, "999")
+			.POST(HttpRequest.BodyPublishers.noBody()));
+
+		assertThat(response.statusCode()).isEqualTo(200);
+		assertThat(RECEIVED_MEMBER_IDS).containsExactly("없음");
+	}
+
+	@Test
+	@DisplayName("토스 입금 알림 주소라도 POST가 아니면 토큰이 필요하다")
+	void requiresTokenForTossDepositWebhookNonPost() throws Exception {
+		HttpResponse<String> response = send(request("/api/v1/cash/webhooks/toss/deposit"));
+
+		assertUnauthorized(response, LOGIN_REQUIRED, "로그인이 필요합니다.");
+	}
+
+	@Test
 	@DisplayName("가입 본인인증 주소라도 POST가 아니면 토큰이 필요하다")
 	void requiresTokenForIdentityVerificationNonPost() throws Exception {
 		HttpResponse<String> response = send(request("/api/v1/auth/identity-verifications/abc"));

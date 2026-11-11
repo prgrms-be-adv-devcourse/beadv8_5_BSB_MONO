@@ -71,6 +71,12 @@ public interface PartyRepository extends JpaRepository<Party, Long> {
 	List<Long> findIdsByRaceCourseIdAndStatus(@Param("raceCourseId") long raceCourseId,
 		@Param("status") PartyStatus status);
 
+	// 대회가 취소되면 종료할 파티 (BUK-155)
+	// shortcut: race_id 인덱스가 없다. 대회 취소는 드물고 파티 수도 적어 전체를 훑어도 된다. 늘면 Flyway로 더한다
+	@Query("select p.id from Party p where p.raceId = :raceId and p.status in :statuses order by p.id")
+	List<Long> findIdsByRaceIdAndStatusIn(@Param("raceId") long raceId,
+		@Param("statuses") Collection<PartyStatus> statuses);
+
 	// 링크 미리 보기 (BUK-39). 다시 만든 옛 토큰은 찾지 못한다
 	Optional<Party> findByJoinToken(String joinToken);
 
