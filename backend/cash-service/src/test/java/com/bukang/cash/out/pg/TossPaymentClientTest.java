@@ -22,6 +22,8 @@ import org.assertj.core.api.InstanceOfAssertFactories;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
@@ -255,6 +257,19 @@ class TossPaymentClientTest {
 			.andRespond(withSuccess(paymentResponse("pay_123", 10_000, "SOMETHING_NEW"), MediaType.APPLICATION_JSON));
 
 		assertThat(client.lookupByOrderId("order_1").status()).isEqualTo(PaymentLookupResult.Status.PENDING);
+	}
+
+	@ParameterizedTest(name = "{0} → 입금 대기 표시 {1}")
+	@CsvSource({"WAITING_FOR_DEPOSIT, true", "PARTIAL_CANCELED, false", "SOMETHING_NEW, false"})
+	@DisplayName("조회 결과가 가상계좌 입금 대기일 때만 입금 대기 표시를 붙이고, 일부 취소·모르는 값엔 붙이지 않는다 (셋 다 아직 정해지지 않음)")
+	void lookupMarksAwaitingDepositOnlyWhenWaitingForDeposit(String tossStatus, boolean awaitingDeposit) {
+		server.expect(requestTo(LOOKUP_URL))
+			.andRespond(withSuccess(paymentResponse("pay_123", 10_000, tossStatus), MediaType.APPLICATION_JSON));
+
+		PaymentLookupResult result = client.lookupByOrderId("order_1");
+
+		assertThat(result.status()).isEqualTo(PaymentLookupResult.Status.PENDING);
+		assertThat(result.awaitingDeposit()).isEqualTo(awaitingDeposit);
 	}
 
 	@Test

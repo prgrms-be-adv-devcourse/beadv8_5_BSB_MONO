@@ -15,11 +15,15 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
@@ -229,16 +233,25 @@ class CashRecoveryDepositUseCaseTest {
 			.isEqualTo(RecoveryDepositStatus.WAITING);
 	}
 
-	@Test
-	@DisplayName("입금 기한이 지났고 PG도 입금 전이라고 하면 기한 지남으로 바꾸고 기록하지 않는다")
-	void reconcileExpiresOverdueDeposit() {
-		given(paymentClient.lookupByOrderId(CLAIM_CODE)).willReturn(PaymentLookupResult.notCompleted());
+	@ParameterizedTest(name = "{0}")
+	@MethodSource("overdueLookups")
+	@DisplayName("입금 기한이 지난 뒤 재확인은 PG가 승인 안 됨·입금 대기라고 할 때만 기한 지남으로 바꾸고, 기록은 하지 않는다")
+	void reconcileAfterDueByPgStatus(String pgAnswer, PaymentLookupResult lookup, RecoveryDepositStatus expected) {
+		given(paymentClient.lookupByOrderId(CLAIM_CODE)).willReturn(lookup);
 
 		cashRecoveryDepositUseCase.reconcile(AFTER_DUE);
 
 		assertThat(recoveryDepositRepository.findById(deposit.getId()).orElseThrow().getStatus())
-			.isEqualTo(RecoveryDepositStatus.EXPIRED);
+			.isEqualTo(expected);
 		assertThat(walletLedgerRepository.count()).isZero();
+	}
+
+	static Stream<Arguments> overdueLookups() {
+		return Stream.of(
+			Arguments.of("승인 안 됨이면 기한 지남", PaymentLookupResult.notCompleted(), RecoveryDepositStatus.EXPIRED),
+			Arguments.of("입금 대기면 기한 지남", PaymentLookupResult.waitingForDeposit(), RecoveryDepositStatus.EXPIRED),
+			Arguments.of("일부 취소·모르는 값처럼 아직 정해지지 않았으면 입금 대기 그대로",
+				PaymentLookupResult.pending(), RecoveryDepositStatus.WAITING));
 	}
 
 	@Test
