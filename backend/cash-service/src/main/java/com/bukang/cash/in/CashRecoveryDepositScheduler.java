@@ -1,6 +1,7 @@
 package com.bukang.cash.in;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -20,6 +21,9 @@ import lombok.RequiredArgsConstructor;
 @Component
 @RequiredArgsConstructor
 public class CashRecoveryDepositScheduler {
+	// 입금 기한은 한국 시간으로 저장하므로, 서버 기본 시간대와 상관없이 한국 시각으로 비교한다
+	private static final ZoneId KOREA = ZoneId.of("Asia/Seoul");
+
 	private final CashRecoveryDepositUseCase cashRecoveryDepositUseCase;
 	private final CashRecoveryDepositRelayUseCase cashRecoveryDepositRelayUseCase;
 
@@ -27,8 +31,9 @@ public class CashRecoveryDepositScheduler {
 		fixedDelayString = "${cash.recovery.reconcile.interval-millis}",
 		initialDelayString = "${cash.recovery.reconcile.interval-millis}")
 	public void reconcile() {
-		cashRecoveryDepositUseCase.reconcile(LocalDateTime.now());
+		LocalDateTime now = LocalDateTime.now(KOREA);
+		cashRecoveryDepositUseCase.reconcile(now);
 		// 재확인에서 새로 입금 완료가 된 건도 이번 실행에서 바로 정산에 알린다
-		cashRecoveryDepositRelayUseCase.relay(LocalDateTime.now());
+		cashRecoveryDepositRelayUseCase.relay(now);
 	}
 }
