@@ -16,6 +16,7 @@ import org.springframework.ai.chat.prompt.Prompt;
 public class FakeChatModel implements ChatModel {
 	private final List<Prompt> prompts = new CopyOnWriteArrayList<>();
 	private volatile RuntimeException failure;
+	private volatile boolean blankAnswer;
 
 	@Override
 	public ChatResponse call(Prompt prompt) {
@@ -23,7 +24,8 @@ public class FakeChatModel implements ChatModel {
 			throw failure;
 		}
 		prompts.add(prompt);
-		return new ChatResponse(List.of(new Generation(new AssistantMessage("답변 " + prompts.size()))));
+		String text = blankAnswer ? " " : "답변 " + prompts.size();
+		return new ChatResponse(List.of(new Generation(new AssistantMessage(text))));
 	}
 
 	public List<Prompt> prompts() {
@@ -38,8 +40,13 @@ public class FakeChatModel implements ChatModel {
 		this.failure = failure;
 	}
 
+	public void answerBlank() {
+		this.blankAnswer = true;
+	}
+
 	public void reset() {
 		prompts.clear();
 		failure = null;
+		blankAnswer = false;
 	}
 }

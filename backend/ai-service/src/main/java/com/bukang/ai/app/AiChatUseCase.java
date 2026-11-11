@@ -1,5 +1,6 @@
 package com.bukang.ai.app;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.ai.chat.client.ChatClient;
@@ -64,6 +65,7 @@ public class AiChatUseCase {
 		}
 		if (answer == null || answer.isBlank()) {
 			log.error("모델이 빈 답을 돌려줬습니다. memberId={}, screen={}", memberId, screen);
+			dropUnansweredQuestion(conversationId);
 			throw new AiModelUnavailableException();
 		}
 		return answer;
@@ -72,16 +74,30 @@ public class AiChatUseCase {
 	// 「새 대화」: 이 화면의 내 대화 기록을 지운다
 	public void clear(long memberId, AiScreen screen) {
 		checkRole(memberId, screen);
-		chatMemoryRepository.deleteByConversationId(screen.conversationId(memberId));
+		try {
+			chatMemoryRepository.deleteByConversationId(screen.conversationId(memberId));
+		} catch (RuntimeException exception) {
+			log.error("대화 기록을 지우지 못했습니다. memberId={}, screen={}", memberId, screen, exception);
+			throw new AiModelUnavailableException();
+		}
 	}
 
 	// 대화 기록 advisor는 모델을 부르기 전에 질문부터 저장한다. 답을 받지 못했으면 그 질문을 기록에서 뺀다
 	// (남겨 두면 다시 물을 때마다 답 없는 같은 질문이 쌓여 앞 대화를 밀어낸다)
 	private void dropUnansweredQuestion(String conversationId) {
 		try {
-			List<Message> messages = chatMemoryRepository.findByConversationId(conversationId);
+			List<Message> messages = new ArrayList<>(chatMemoryRepository.findByConversationId(conversationId));
+			int before = messages.size();
+			// 빈 답이 왔을 때는 그 빈 답까지 저장돼 있다
+			if (!messages.isEmpty() && messages.getLast().getMessageType() == MessageType.ASSISTANT
+				&& (messages.getLast().getText() == null || messages.getLast().getText().isBlank())) {
+				messages.removeLast();
+			}
 			if (!messages.isEmpty() && messages.getLast().getMessageType() == MessageType.USER) {
-				chatMemoryRepository.saveAll(conversationId, messages.subList(0, messages.size() - 1));
+				messages.removeLast();
+			}
+			if (messages.size() != before) {
+				chatMemoryRepository.saveAll(conversationId, messages);
 			}
 		} catch (RuntimeException exception) {
 			// Redis 장애로 모델 호출이 실패한 경우다. 남은 질문은 보관 시간이 지나면 지워진다

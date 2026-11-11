@@ -38,7 +38,9 @@ class AiModelConfigTest {
 	@SpringBootTest
 	// 개발자 PC의 backend/.env나 환경 변수에 키가 있어도 키가 없는 상태로 확인하도록 빈 값으로 고정한다
 	@TestPropertySource(properties = {
-		"spring.profiles.active=nokey", "ai.clients.member.mode=fake", "spring.ai.openai.api-key="
+		"spring.profiles.active=nokey", "spring.ai.openai.api-key=",
+		// 회원 서비스 연결도 서버와 같은 http로 띄운다 (부르지는 않는다)
+		"ai.clients.member.mode=http", "ai.clients.member.base-url=http://bukang-member-service:8080"
 	})
 	class DefaultWithoutKey {
 		@Autowired

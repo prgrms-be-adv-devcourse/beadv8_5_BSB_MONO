@@ -178,6 +178,17 @@ class ApiV1AiChatTest extends AiTestBase {
 	}
 
 	@Test
+	@DisplayName("모델이 빈 답을 주면 503이고, 질문과 빈 답을 대화 기록에 남기지 않는다")
+	void blankAnswer() throws Exception {
+		chat("seller", SELLER, "앞 질문").andExpect(status().isOk());
+		chatModel.answerBlank();
+
+		chat("seller", SELLER, "질문").andExpect(status().isServiceUnavailable())
+			.andExpect(jsonPath("$.code").value("AI_MODEL_UNAVAILABLE"));
+		assertThat(texts(stored("seller-3"))).containsExactly("앞 질문", "답변 1");
+	}
+
+	@Test
 	@DisplayName("회원 ID 헤더가 없으면 401, 질문이 비었거나 1,000자를 넘으면 400, 없는 화면은 404다")
 	void invalidRequests() throws Exception {
 		mockMvc.perform(post("/api/v1/ai/seller/chat").contentType(MediaType.APPLICATION_JSON)

@@ -88,9 +88,11 @@ public class ApiV1AiChatController {
 		@ApiResponse(responseCode = "403", description = "그 화면의 역할이 없는 회원",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = AiApiExamples.FORBIDDEN))),
-		@ApiResponse(responseCode = "503", description = "회원 서비스에 연결하지 못해 역할을 확인할 수 없음",
-			content = @Content(schema = @Schema(implementation = RsData.class),
-				examples = @ExampleObject(value = AiApiExamples.MEMBER_UNAVAILABLE)))
+		@ApiResponse(responseCode = "503", description = "회원 서비스에 연결하지 못해 역할을 확인할 수 없음, 또는 대화 기록(Redis)을 지우지 못함",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "회원 서비스", value = AiApiExamples.MEMBER_UNAVAILABLE),
+				@ExampleObject(name = "대화 기록", value = AiApiExamples.MODEL_UNAVAILABLE)
+			}))
 	})
 	public ResponseEntity<RsData<Void>> clear(
 		@LoginMemberId long memberId,
