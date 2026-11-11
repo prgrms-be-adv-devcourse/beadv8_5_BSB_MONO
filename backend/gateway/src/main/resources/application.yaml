@@ -94,6 +94,14 @@ spring:
               uri: ${gateway.services.notification}
               predicates:
                 - Path=/api/v1/notification/**
+            - id: inquiry-service
+              uri: ${gateway.services.inquiry}
+              predicates:
+                - Path=/api/v1/inquiry/**
+            - id: board-service
+              uri: ${gateway.services.board}
+              predicates:
+                - Path=/api/v1/board/**
 
 gateway:
   auth:
@@ -132,3 +140,10 @@ gateway:
       # (/** 는 그 아래가 없는 /api/v1/file/files 목록 조회도 포함한다)
       - pattern: /api/v1/file/files/**
         methods: [ GET ]
+      # 게시판은 로그인 없이 읽을 수 있다. 글·댓글·좋아요 쓰기(POST·PUT·DELETE)는 토큰이 필요하다
+      # 토큰이 있으면 회원 ID를 넘겨 "내가 누른 좋아요", "내 숨겨진 글"을 보여 준다
+      - pattern: /api/v1/board/**
+        methods: [ GET ]
+      # 토스가 가상계좌 입금을 알린다. 토스는 우리 토큰이 없고, 진짜 알림인지는 cash-service가 비밀값과 토스 조회로 확인한다 (BUK-146)
+      - pattern: /api/v1/cash/webhooks/toss/deposit
+        methods: [ POST ]

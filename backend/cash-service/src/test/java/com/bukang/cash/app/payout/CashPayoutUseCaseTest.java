@@ -2,24 +2,35 @@ package com.bukang.cash.app.payout;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.cash.app.CashFacade;
 import com.bukang.cash.config.CashWalletProperties;
+import com.bukang.cash.domain.exception.payout.PayoutTransferFailedException;
 import com.bukang.cash.domain.exception.payout.PayoutTransferMismatchException;
+import com.bukang.cash.domain.exception.payout.PayoutTransferUnknownException;
 import com.bukang.cash.domain.exception.seller.CashSellerNotFoundException;
 import com.bukang.cash.domain.member.CashMember;
 import com.bukang.cash.domain.payout.PayoutStage;
+import com.bukang.cash.domain.payout.PayoutTransfer;
+import com.bukang.cash.domain.payout.PayoutTransferStatus;
 import com.bukang.cash.domain.payout.PayoutTransferType;
 import com.bukang.cash.domain.seller.CashSeller;
 import com.bukang.cash.domain.wallet.LedgerRefType;
@@ -27,6 +38,8 @@ import com.bukang.cash.domain.wallet.LedgerType;
 import com.bukang.cash.domain.wallet.Wallet;
 import com.bukang.cash.domain.wallet.WalletLedger;
 import com.bukang.cash.dto.payout.CashPayoutResponseDto;
+import com.bukang.cash.out.bank.BankTransferClient;
+import com.bukang.cash.out.bank.BankTransferResult;
 import com.bukang.cash.out.member.CashMemberRepository;
 import com.bukang.cash.out.payout.PayoutTransferRepository;
 import com.bukang.cash.out.seller.CashSellerRepository;
@@ -57,6 +70,13 @@ class CashPayoutUseCaseTest {
 	private PayoutTransferRepository payoutTransferRepository;
 	@Autowired
 	private TransactionTemplate transactionTemplate;
+	@MockitoBean
+	private BankTransferClient bankTransferClient;
+
+	@BeforeEach
+	void setUp() {
+		given(bankTransferClient.transfer(anyString(), anyLong(), anyLong())).willReturn(BankTransferResult.COMPLETED);
+	}
 
 	@AfterEach
 	void tearDown() {
@@ -68,8 +88,8 @@ class CashPayoutUseCaseTest {
 	}
 
 	@Test
-	@DisplayName("1차 정산은 수수료 없이 대금 이동만 처리되고, 홀딩→판매자 2줄만 장부에 남는다")
-	void firstStage_transfersSettlementOnly() {
+	@DisplayName("1차 정산 대금은 판매자 지갑이 아니라 은행 송금으로 나가고, 홀딩 지갑에만 지급 1줄이 남는다")
+	void firstStage_sendsSettlementToBank() {
 		createHoldingWallet();
 		createSystemWallet();
 		createSellerWithMapping();
@@ -79,15 +99,91 @@ class CashPayoutUseCaseTest {
 		assertThat(result.outcome()).isEqualTo(CashPayoutResponseDto.Outcome.PAID);
 		assertThat(result.settlementAmount()).isEqualTo(90_000);
 		assertThat(result.feeAmount()).isZero();
+		PayoutTransfer transfer =
+			payoutTransferRepository.findByPayoutIdAndTransferType(500, PayoutTransferType.SETTLEMENT).orElseThrow();
+		then(bankTransferClient).should()
+			.transfer("payout-" + transfer.getId() + "-1", SELLER_APPLICATION_ID, 90_000);
+		assertThat(transfer.getStatus()).isEqualTo(PayoutTransferStatus.COMPLETED);
 		assertBalance(cashWalletProperties.holdingMemberId(), -90_000);
-		assertBalance(SELLER_MEMBER_ID, 90_000);
+		assertBalance(SELLER_MEMBER_ID, 0);
 		assertBalance(cashWalletProperties.systemMemberId(), 0);
-		assertThat(ledgersFor(PayoutTransferType.SETTLEMENT)).hasSize(2);
+		assertThat(ledgersFor(PayoutTransferType.SETTLEMENT)).extracting(WalletLedger::getLedgerType)
+			.containsExactly(LedgerType.정산지급__상품판매_대금);
 		assertThat(ledgersFor(PayoutTransferType.FEE)).isEmpty();
 	}
 
 	@Test
-	@DisplayName("최종 정산은 대금(홀딩→판매자)과 수수료(홀딩→시스템)를 각각 2줄씩, 서로 다른 ref_id로 남긴다")
+	@DisplayName("송금이 실패하면 홀딩 지갑 차감을 되돌리고 422로 거절하며, 수수료 이동은 되돌리지 않는다")
+	void bankFailed_revertsSettlementAndRejects() {
+		createHoldingWallet();
+		createSystemWallet();
+		createSellerWithMapping();
+		given(bankTransferClient.transfer(anyString(), anyLong(), anyLong())).willReturn(BankTransferResult.FAILED);
+
+		assertThatThrownBy(() -> cashFacade.payout(506, SELLER_APPLICATION_ID, PayoutStage.FINAL, 90_000, 5_500))
+			.isInstanceOf(PayoutTransferFailedException.class)
+			.hasFieldOrPropertyWithValue("code", "PAYOUT_TRANSFER_FAILED");
+
+		PayoutTransfer transfer =
+			payoutTransferRepository.findByPayoutIdAndTransferType(506, PayoutTransferType.SETTLEMENT).orElseThrow();
+		assertThat(transfer.getStatus()).isEqualTo(PayoutTransferStatus.FAILED);
+		assertBalance(cashWalletProperties.holdingMemberId(), -5_500);
+		assertBalance(cashWalletProperties.systemMemberId(), 5_500);
+		assertThat(walletLedgerRepository.findAll())
+			.filteredOn(ledger -> ledger.getRefId() == transfer.getId())
+			.extracting(WalletLedger::getLedgerType, WalletLedger::getAmount)
+			.containsExactlyInAnyOrder(
+				tuple(LedgerType.정산지급__상품판매_대금, -90_000L),
+				tuple(LedgerType.정산지급취소__상품판매_대금, 90_000L));
+	}
+
+	@Test
+	@DisplayName("송금 결과를 모르면 503으로 답하고 차감은 그대로 두며, 같은 정산 ID로 다시 와도 은행에 다시 보내지 않는다")
+	void bankUnknown_keepsDebitAndDoesNotResend() {
+		createHoldingWallet();
+		createSellerWithMapping();
+		given(bankTransferClient.transfer(anyString(), anyLong(), anyLong())).willReturn(BankTransferResult.UNKNOWN);
+
+		assertThatThrownBy(() -> cashFacade.payout(507, SELLER_APPLICATION_ID, PayoutStage.FIRST, 90_000, 0))
+			.isInstanceOf(PayoutTransferUnknownException.class)
+			.hasFieldOrPropertyWithValue("code", "PAYOUT_TRANSFER_UNKNOWN");
+		assertThatThrownBy(() -> cashFacade.payout(507, SELLER_APPLICATION_ID, PayoutStage.FIRST, 90_000, 0))
+			.isInstanceOf(PayoutTransferUnknownException.class);
+
+		then(bankTransferClient).should().transfer(anyString(), anyLong(), anyLong());
+		PayoutTransfer transfer =
+			payoutTransferRepository.findByPayoutIdAndTransferType(507, PayoutTransferType.SETTLEMENT).orElseThrow();
+		assertThat(transfer.getStatus()).isEqualTo(PayoutTransferStatus.UNKNOWN);
+		assertBalance(cashWalletProperties.holdingMemberId(), -90_000);
+		assertThat(ledgersFor(PayoutTransferType.SETTLEMENT)).extracting(WalletLedger::getLedgerType)
+			.containsExactly(LedgerType.정산지급__상품판매_대금);
+	}
+
+	@Test
+	@DisplayName("송금이 실패한 정산 ID로 다시 요청하면 새 송금 ID로 다시 보내고, 홀딩 지갑에서 다시 뺀다")
+	void retryAfterFailed_sendsNewTransfer() {
+		createHoldingWallet();
+		createSellerWithMapping();
+		given(bankTransferClient.transfer(anyString(), anyLong(), anyLong()))
+			.willReturn(BankTransferResult.FAILED, BankTransferResult.COMPLETED);
+		assertThatThrownBy(() -> cashFacade.payout(508, SELLER_APPLICATION_ID, PayoutStage.FIRST, 90_000, 0))
+			.isInstanceOf(PayoutTransferFailedException.class);
+
+		CashPayoutResponseDto retried = cashFacade.payout(508, SELLER_APPLICATION_ID, PayoutStage.FIRST, 90_000, 0);
+
+		assertThat(retried.outcome()).isEqualTo(CashPayoutResponseDto.Outcome.PAID);
+		PayoutTransfer transfer =
+			payoutTransferRepository.findByPayoutIdAndTransferType(508, PayoutTransferType.SETTLEMENT).orElseThrow();
+		then(bankTransferClient).should().transfer("payout-" + transfer.getId() + "-1", SELLER_APPLICATION_ID, 90_000);
+		then(bankTransferClient).should().transfer("payout-" + transfer.getId() + "-2", SELLER_APPLICATION_ID, 90_000);
+		assertThat(transfer.getStatus()).isEqualTo(PayoutTransferStatus.COMPLETED);
+		assertBalance(cashWalletProperties.holdingMemberId(), -90_000);
+		assertThat(ledgersFor(PayoutTransferType.SETTLEMENT)).extracting(WalletLedger::getLedgerType)
+			.containsExactly(LedgerType.정산지급__상품판매_대금, LedgerType.정산지급__상품판매_대금);
+	}
+
+	@Test
+	@DisplayName("최종 정산은 대금(홀딩 지급 1줄)과 수수료(홀딩→시스템 2줄)를 서로 다른 ref_id로 남긴다")
 	void finalStage_transfersSettlementAndFeeWithDifferentRefIds() {
 		createHoldingWallet();
 		createSystemWallet();
@@ -97,24 +193,22 @@ class CashPayoutUseCaseTest {
 
 		assertThat(result.outcome()).isEqualTo(CashPayoutResponseDto.Outcome.PAID);
 		assertBalance(cashWalletProperties.holdingMemberId(), -95_500);
-		assertBalance(SELLER_MEMBER_ID, 90_000);
+		assertBalance(SELLER_MEMBER_ID, 0);
 		assertBalance(cashWalletProperties.systemMemberId(), 5_500);
 
 		List<WalletLedger> settlementLedgers = ledgersFor(PayoutTransferType.SETTLEMENT);
 		List<WalletLedger> feeLedgers = ledgersFor(PayoutTransferType.FEE);
-		assertThat(settlementLedgers).hasSize(2);
+		assertThat(settlementLedgers).hasSize(1);
 		assertThat(feeLedgers).hasSize(2);
 		long settlementRefId = settlementLedgers.get(0).getRefId();
 		long feeRefId = feeLedgers.get(0).getRefId();
-		assertThat(settlementLedgers).as("대금 이동 2줄은 같은 ref_id를 가리킨다")
-			.allMatch(ledger -> ledger.getRefId() == settlementRefId);
 		assertThat(feeLedgers).as("수수료 이동 2줄은 같은 ref_id를 가리킨다")
 			.allMatch(ledger -> ledger.getRefId() == feeRefId);
 		assertThat(settlementRefId).as("대금과 수수료는 ref_id가 달라야 한다").isNotEqualTo(feeRefId);
 	}
 
 	@Test
-	@DisplayName("같은 정산 ID로 다시 요청해도 지갑 잔액이 한 번만 바뀌고 ALREADY_PAID를 돌려준다")
+	@DisplayName("같은 정산 ID로 다시 요청해도 송금은 한 번만 나가고 잔액도 한 번만 바뀌며 ALREADY_PAID를 돌려준다")
 	void sameRequestTwice_changesBalanceOnlyOnce() {
 		createHoldingWallet();
 		createSystemWallet();
@@ -125,10 +219,11 @@ class CashPayoutUseCaseTest {
 
 		assertThat(first.outcome()).isEqualTo(CashPayoutResponseDto.Outcome.PAID);
 		assertThat(second.outcome()).isEqualTo(CashPayoutResponseDto.Outcome.ALREADY_PAID);
+		then(bankTransferClient).should().transfer(anyString(), anyLong(), anyLong());
 		assertBalance(cashWalletProperties.holdingMemberId(), -95_500);
-		assertBalance(SELLER_MEMBER_ID, 90_000);
+		assertBalance(SELLER_MEMBER_ID, 0);
 		assertBalance(cashWalletProperties.systemMemberId(), 5_500);
-		assertThat(walletLedgerRepository.findAll()).as("장부는 대금 2줄 + 수수료 2줄만 있어야 한다").hasSize(4);
+		assertThat(walletLedgerRepository.findAll()).as("장부는 대금 1줄 + 수수료 2줄만 있어야 한다").hasSize(3);
 		assertThat(payoutTransferRepository.count()).isEqualTo(2);
 	}
 
@@ -179,7 +274,7 @@ class CashPayoutUseCaseTest {
 				assertThat(mismatch.getStoredFeeAmount()).isEqualTo(5_500);
 			});
 		assertBalance(cashWalletProperties.holdingMemberId(), -95_500);
-		assertBalance(SELLER_MEMBER_ID, 90_000);
+		assertBalance(SELLER_MEMBER_ID, 0);
 		assertThat(payoutTransferRepository.count()).as("재요청이 거절됐으니 이동 기록은 원래 2개뿐이어야 한다").isEqualTo(2);
 	}
 

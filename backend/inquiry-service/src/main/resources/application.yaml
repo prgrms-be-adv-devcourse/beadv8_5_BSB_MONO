@@ -1,0 +1,66 @@
+server:
+  # 다른 서비스(member 8080 … notification 8087)와 동시에 실행하므로 포트를 나눈다
+  port: 8088
+
+spring:
+  application:
+    name: inquiry-service
+
+  profiles:
+    active: dev
+
+  output:
+    ansi:
+      enabled: always
+
+  # 개발 실행(bootRun/IDE) 시 backend/compose.yml의 인프라를 자동으로 띄운다
+  docker:
+    compose:
+      # 여러 서비스가 같은 인프라를 함께 쓰므로, 한 서비스를 종료해도 컨테이너는 멈추지 않는다
+      lifecycle-management: start-only
+
+  # 테이블 변경은 Flyway SQL(db/migration)로만 한다. 모든 서비스가 같은 스키마를 쓰므로 기록 테이블은 문의 전용 이름으로 둔다
+  # SQL 번호는 날짜·시각이라 머지 순서와 다를 수 있어 out-of-order를 켠다
+  flyway:
+    table: flyway_schema_history_inquiry
+    baseline-on-migrate: true
+    baseline-version: 0
+    out-of-order: true
+
+  jpa:
+    hibernate:
+      # 테이블은 Flyway가 만든다. Hibernate는 엔티티와 테이블이 맞는지만 확인한다
+      ddl-auto: validate
+    open-in-view: false
+
+  # 알림 요청(NotificationRequestedEvent)을 Kafka로 보낸다 (common의 NotificationKafkaSender)
+  kafka:
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties:
+        # 브로커가 없을 때 send()가 기다리는 시간 (기본 60초)
+        max.block.ms: 3000
+
+# Swagger / OpenAPI V3 설정 (prod에서는 비활성화)
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: method
+    persist-authorization: true
+  default-produces-media-type: application/json
+  open-api:
+    info:
+      title: Bukang Inquiry API
+      description: 크루 중심 마라톤 대회 예매·커머스 플랫폼 문의 API
+      version: v1
+
+# 다른 서비스 호출. mode가 http면 실제 내부 API(/internal/v1/...)를, fake면 가짜 어댑터를 쓴다
+# mode는 프로파일별 yaml에 꼭 적는다. 빠지면 가짜로 열리지 않고 앱이 뜨지 않는다 (누구나 관리자가 되지 않게)
+inquiry:
+  clients:
+    # 연결·응답 시간 제한. 넘으면 503으로 다시 시도하게 한다
+    timeout: 2s

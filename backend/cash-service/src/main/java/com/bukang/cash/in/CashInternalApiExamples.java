@@ -127,6 +127,10 @@ final class CashInternalApiExamples {
 		{ "status": 503, "message": "PG 서버 응답이 올바르지 않습니다.", "data": null }
 		""";
 
+	static final String VIRTUAL_ACCOUNT_AMOUNT_MISMATCH = """
+		{ "status": 503, "message": "PG에 같은 주문번호로 금액이 다른 가상계좌가 있습니다.", "data": null }
+		""";
+
 	static final String INVALID_MEMBER_ID = """
 		{ "status": 400, "message": "회원 ID를 작성해주세요.", "data": null }
 		""";
@@ -161,6 +165,16 @@ final class CashInternalApiExamples {
 				"feeAmount": 5500
 			}
 		}
+		""";
+
+	static final String PAYOUT_TRANSFER_FAILED = """
+		{ "status": 422, "code": "PAYOUT_TRANSFER_FAILED", "message": "은행이 정산금 송금을 거절했습니다. payoutId=500",
+			"data": null }
+		""";
+
+	static final String PAYOUT_TRANSFER_UNKNOWN = """
+		{ "status": 503, "code": "PAYOUT_TRANSFER_UNKNOWN",
+			"message": "정산금 송금 결과를 아직 알 수 없습니다. 재확인이 맞춘 뒤 다시 요청하세요. payoutId=500", "data": null }
 		""";
 
 	static final String PAYMENT_ALREADY_FINALIZED = """

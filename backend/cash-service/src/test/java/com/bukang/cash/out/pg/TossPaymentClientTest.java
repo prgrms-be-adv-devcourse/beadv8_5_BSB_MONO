@@ -22,6 +22,8 @@ import org.assertj.core.api.InstanceOfAssertFactories;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
@@ -257,6 +259,19 @@ class TossPaymentClientTest {
 		assertThat(client.lookupByOrderId("order_1").status()).isEqualTo(PaymentLookupResult.Status.PENDING);
 	}
 
+	@ParameterizedTest(name = "{0} → 입금 대기 표시 {1}")
+	@CsvSource({"WAITING_FOR_DEPOSIT, true", "PARTIAL_CANCELED, false", "SOMETHING_NEW, false"})
+	@DisplayName("조회 결과가 가상계좌 입금 대기일 때만 입금 대기 표시를 붙이고, 일부 취소·모르는 값엔 붙이지 않는다 (셋 다 아직 정해지지 않음)")
+	void lookupMarksAwaitingDepositOnlyWhenWaitingForDeposit(String tossStatus, boolean awaitingDeposit) {
+		server.expect(requestTo(LOOKUP_URL))
+			.andRespond(withSuccess(paymentResponse("pay_123", 10_000, tossStatus), MediaType.APPLICATION_JSON));
+
+		PaymentLookupResult result = client.lookupByOrderId("order_1");
+
+		assertThat(result.status()).isEqualTo(PaymentLookupResult.Status.PENDING);
+		assertThat(result.awaitingDeposit()).isEqualTo(awaitingDeposit);
+	}
+
 	@Test
 	@DisplayName("Toss가 이 주문번호의 결제를 모르면(404) 승인 안 됨으로 확정한다")
 	void lookupReturnsNotCompletedWhenPaymentNotFound() {
@@ -400,10 +415,11 @@ class TossPaymentClientTest {
 	}
 
 	@Test
-	@DisplayName("청구 ID를 주문번호로 국민은행·90일 유효 가상계좌 발급을 요청하고, 계좌번호·입금 기한(한국 시간)·웹훅 비밀값을 돌려준다")
+	@DisplayName("청구 ID를 주문번호로 국민은행·90일 유효 가상계좌 발급을 요청하고, 계좌번호·금액·입금 기한(한국 시간)·웹훅 비밀값을 돌려준다")
 	void issueVirtualAccount() {
 		String response = """
 			{ "orderId": "RC-20261214-0A3F", "status": "WAITING_FOR_DEPOSIT", "secret": "ps_secret_1",
+			"totalAmount": 400000,
 			"virtualAccount": { "accountNumber": "X6000123456789", "bankCode": "06",
 			"dueDate": "2027-03-14T10:00:00+09:00" } }
 			""";
@@ -422,7 +438,7 @@ class TossPaymentClientTest {
 
 		server.verify();
 		assertThat(result).isEqualTo(new VirtualAccountIssueResult(
-			"국민은행", "X6000123456789", LocalDateTime.of(2027, 3, 14, 10, 0), "ps_secret_1"));
+			"국민은행", "X6000123456789", 400_000, LocalDateTime.of(2027, 3, 14, 10, 0), "ps_secret_1"));
 	}
 
 	@Test
@@ -467,10 +483,11 @@ class TossPaymentClientTest {
 	}
 
 	@Test
-	@DisplayName("주문번호로 이미 발급된 가상계좌가 있으면 계좌번호·입금 기한(한국 시간)·웹훅 비밀값을 돌려준다")
+	@DisplayName("주문번호로 이미 발급된 가상계좌가 있으면 계좌번호·금액·입금 기한(한국 시간)·웹훅 비밀값을 돌려준다")
 	void findVirtualAccount() {
 		String response = """
 			{ "orderId": "RC-20261214-0A3F", "status": "WAITING_FOR_DEPOSIT", "secret": "ps_secret_1",
+			"totalAmount": 400000,
 			"virtualAccount": { "accountNumber": "X6000123456789", "bankCode": "06",
 			"dueDate": "2027-03-14T10:00:00+09:00" } }
 			""";
@@ -480,7 +497,7 @@ class TossPaymentClientTest {
 			.andRespond(withSuccess(response, MediaType.APPLICATION_JSON));
 
 		assertThat(client.findVirtualAccount("RC-20261214-0A3F")).contains(new VirtualAccountIssueResult(
-			"국민은행", "X6000123456789", LocalDateTime.of(2027, 3, 14, 10, 0), "ps_secret_1"));
+			"국민은행", "X6000123456789", 400_000, LocalDateTime.of(2027, 3, 14, 10, 0), "ps_secret_1"));
 	}
 
 	@Test

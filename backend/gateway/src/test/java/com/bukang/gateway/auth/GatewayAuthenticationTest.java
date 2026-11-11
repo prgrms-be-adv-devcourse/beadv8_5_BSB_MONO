@@ -46,7 +46,7 @@ import io.jsonwebtoken.security.Keys;
 class GatewayAuthenticationTest {
 
 	private static final List<String> SERVICES =
-		List.of("member", "cash", "payout", "file", "order", "product", "queue", "notification");
+		List.of("member", "cash", "payout", "file", "order", "product", "queue", "notification", "inquiry", "board");
 	private static final String MEMBER_ID_HEADER = "X-Member-Id";
 	private static final String LOGIN_REQUIRED = "AUTH_LOGIN_REQUIRED";
 	private static final String TOKEN_EXPIRED = "AUTH_TOKEN_EXPIRED";
@@ -232,6 +232,25 @@ class GatewayAuthenticationTest {
 	}
 
 	@Test
+	@DisplayName("토스 가상계좌 입금 알림(POST)은 토큰 없이 통과하고, 클라이언트가 보낸 X-Member-Id는 지운다")
+	void passesTossDepositWebhookWithoutToken() throws Exception {
+		HttpResponse<String> response = send(request("/api/v1/cash/webhooks/toss/deposit")
+			.header(MEMBER_ID_HEADER, "999")
+			.POST(HttpRequest.BodyPublishers.noBody()));
+
+		assertThat(response.statusCode()).isEqualTo(200);
+		assertThat(RECEIVED_MEMBER_IDS).containsExactly("없음");
+	}
+
+	@Test
+	@DisplayName("토스 입금 알림 주소라도 POST가 아니면 토큰이 필요하다")
+	void requiresTokenForTossDepositWebhookNonPost() throws Exception {
+		HttpResponse<String> response = send(request("/api/v1/cash/webhooks/toss/deposit"));
+
+		assertUnauthorized(response, LOGIN_REQUIRED, "로그인이 필요합니다.");
+	}
+
+	@Test
 	@DisplayName("가입 본인인증 주소라도 POST가 아니면 토큰이 필요하다")
 	void requiresTokenForIdentityVerificationNonPost() throws Exception {
 		HttpResponse<String> response = send(request("/api/v1/auth/identity-verifications/abc"));
@@ -336,6 +355,37 @@ class GatewayAuthenticationTest {
 	void requiresTokenForProductWrite() throws Exception {
 		HttpResponse<String> response = send(request("/api/v1/product/races")
 			.POST(HttpRequest.BodyPublishers.noBody()));
+
+		assertUnauthorized(response, LOGIN_REQUIRED, "로그인이 필요합니다.");
+	}
+
+	@Test
+	@DisplayName("게시판 GET은 로그인 없이 통과하고, 클라이언트가 보낸 X-Member-Id는 지운다")
+	void passesBoardReadWithoutToken() throws Exception {
+		HttpResponse<String> response = send(request("/api/v1/board/posts/1").header(MEMBER_ID_HEADER, "999"));
+
+		assertThat(response.statusCode()).isEqualTo(200);
+		assertThat(RECEIVED_MEMBER_IDS).containsExactly("없음");
+	}
+
+	@Test
+	@DisplayName("게시판 GET에 유효한 토큰이 있으면 회원 ID를 넘긴다 (내가 누른 좋아요 표시 등에 쓴다)")
+	void forwardsMemberIdForBoardReadWithToken() throws Exception {
+		HttpResponse<String> response = send(request("/api/v1/board/posts/1")
+			.header("Authorization", "Bearer " + jwtProvider.issueAccessToken(42L)));
+
+		assertThat(response.statusCode()).isEqualTo(200);
+		assertThat(RECEIVED_MEMBER_IDS).containsExactly("42");
+	}
+
+	@ParameterizedTest(name = "{0}")
+	@DisplayName("게시판 쓰기(글·댓글 POST, 좋아요 PUT, 지우기 DELETE)는 토큰이 필요하다")
+	@ValueSource(strings = {"POST /api/v1/board/posts", "PUT /api/v1/board/posts/1/like",
+		"DELETE /api/v1/board/posts/1", "POST /api/v1/board/posts/1/comments"})
+	void requiresTokenForBoardWrite(String methodAndPath) throws Exception {
+		String[] parts = methodAndPath.split(" ");
+		HttpResponse<String> response = send(request(parts[1])
+			.method(parts[0], HttpRequest.BodyPublishers.noBody()));
 
 		assertUnauthorized(response, LOGIN_REQUIRED, "로그인이 필요합니다.");
 	}

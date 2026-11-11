@@ -160,8 +160,8 @@ public class InternalV1CashController {
 
 	// 정산 서비스가 지급 배치에서 정산 내역마다 부른다. 에러 응답은 GlobalExceptionHandler, CashExceptionHandler가 처리한다
 	@PostMapping("/payouts/{payoutId}")
-	@Operation(summary = "정산 지급", description = "홀딩 지갑에서 판매자 지갑으로 정산 대금을 옮기고, 최종 정산이면 시스템 지갑으로 "
-		+ "수수료도 함께 옮긴다. 같은 정산 ID의 이동을 다시 요청해도 지갑을 건드리지 않고 그대로 성공한다.")
+	@Operation(summary = "정산 지급", description = "홀딩 지갑에서 정산 대금을 빼고 은행으로 판매자 계좌에 송금하며, 최종 정산이면 "
+		+ "시스템 지갑으로 수수료도 옮긴다. 완료된 정산 ID를 다시 요청하면 그대로 성공하고, 송금이 실패한 정산 ID는 새로 송금한다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "지급 성공 또는 이미 지급됨",
 			content = @Content(examples = {
@@ -174,13 +174,19 @@ public class InternalV1CashController {
 				@ExampleObject(name = "요청 본문 형식 오류", value = CashInternalApiExamples.INVALID_BODY),
 				@ExampleObject(name = "정산 ID 형식 오류", value = CashInternalApiExamples.INVALID_VALUE_TYPE)
 			})),
-		@ApiResponse(responseCode = "404", description = "존재하지 않는 판매자 또는 존재하지 않는 홀딩·판매자·시스템 지갑",
+		@ApiResponse(responseCode = "404", description = "존재하지 않는 판매자 또는 존재하지 않는 홀딩·시스템 지갑",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "존재하지 않는 판매자", value = CashInternalApiExamples.SELLER_NOT_FOUND),
 				@ExampleObject(name = "존재하지 않는 지갑", value = CashInternalApiExamples.WALLET_NOT_FOUND)
 			})),
 		@ApiResponse(responseCode = "409", description = "같은 정산 ID로 이전과 다른 판매자·금액이 요청됨 (data에 저장된 원래 값이 담김)",
-			content = @Content(examples = @ExampleObject(value = CashInternalApiExamples.PAYOUT_MISMATCH)))
+			content = @Content(examples = @ExampleObject(value = CashInternalApiExamples.PAYOUT_MISMATCH))),
+		@ApiResponse(responseCode = "422", description = "은행이 송금을 거절함. 홀딩 지갑 차감은 되돌렸고, 같은 정산 ID로 다시 요청하면 새로 송금한다",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = CashInternalApiExamples.PAYOUT_TRANSFER_FAILED))),
+		@ApiResponse(responseCode = "503", description = "송금 결과를 아직 모름. 은행에 다시 보내지 않고 매일 03:30 재확인이 맞춘다",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = CashInternalApiExamples.PAYOUT_TRANSFER_UNKNOWN)))
 	})
 	public ResponseEntity<RsData<CashPayoutResponseDto>> payout(
 		@Parameter(description = "정산 ID", example = "500") @PathVariable long payoutId,
@@ -206,12 +212,14 @@ public class InternalV1CashController {
 				@ExampleObject(name = "청구 ID 형식 오류", value = CashInternalApiExamples.INVALID_CLAIM_CODE),
 				@ExampleObject(name = "요청 본문 형식 오류", value = CashInternalApiExamples.INVALID_BODY)
 			})),
-		@ApiResponse(responseCode = "503", description = "PG가 발급·조회를 거절함, PG 연결 실패 또는 응답에 계좌 정보가 없음",
+		@ApiResponse(responseCode = "503",
+			description = "PG가 발급·조회를 거절함, PG 연결 실패, 응답에 계좌 정보가 없음 또는 PG에서 찾은 계좌의 금액이 다름",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "발급 거절", value = CashInternalApiExamples.VIRTUAL_ACCOUNT_REJECTED),
 				@ExampleObject(name = "조회 거절", value = CashInternalApiExamples.VIRTUAL_ACCOUNT_LOOKUP_REJECTED),
 				@ExampleObject(name = "PG 연결 실패", value = CashInternalApiExamples.VIRTUAL_ACCOUNT_PG_UNREACHABLE),
-				@ExampleObject(name = "계좌 정보 없음", value = CashInternalApiExamples.VIRTUAL_ACCOUNT_INVALID_RESPONSE)
+				@ExampleObject(name = "계좌 정보 없음", value = CashInternalApiExamples.VIRTUAL_ACCOUNT_INVALID_RESPONSE),
+				@ExampleObject(name = "금액이 다른 계좌", value = CashInternalApiExamples.VIRTUAL_ACCOUNT_AMOUNT_MISMATCH)
 			}))
 	})
 	public ResponseEntity<RsData<CashClaimVirtualAccountResponseDto>> issueClaimVirtualAccount(

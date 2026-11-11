@@ -2,6 +2,10 @@ package com.bukang.cash.domain.payout;
 
 import static jakarta.persistence.EnumType.STRING;
 
+import com.bukang.cash.domain.wallet.LedgerRefType;
+import com.bukang.cash.domain.wallet.LedgerType;
+import com.bukang.cash.domain.wallet.Wallet;
+import com.bukang.cash.domain.wallet.WalletLedger;
 import com.bukang.common.global.jpa.entity.BaseIdAndTime;
 
 import jakarta.persistence.Column;
@@ -41,10 +45,50 @@ public class PayoutTransfer extends BaseIdAndTime {
 	@Column(nullable = false)
 	private long amount;
 
+	@Enumerated(STRING)
+	@Column(nullable = false, length = 20)
+	private PayoutTransferStatus status;
+
+	// 은행 송금을 몇 번째로 시도하는지. 은행은 같은 송금 ID를 한 번만 보내므로, 실패 뒤 다시 보낼 때 ID를 바꾸는 데 쓴다
+	@Column(nullable = false)
+	private int attempt;
+
 	public PayoutTransfer(long payoutId, long sellerId, PayoutTransferType transferType, long amount) {
 		this.payoutId = payoutId;
 		this.sellerId = sellerId;
 		this.transferType = transferType;
 		this.amount = amount;
+		// 수수료는 지갑끼리 옮겨 바로 끝나고, 대금은 은행 송금 결과를 기다린다
+		this.status = transferType == PayoutTransferType.FEE ? PayoutTransferStatus.COMPLETED
+			: PayoutTransferStatus.REQUESTED;
+		this.attempt = 1;
+	}
+
+	// 은행에 보내는 송금 ID. 같은 시도는 같은 ID라 결과를 모를 때 다시 물어봐도 두 번 나가지 않는다
+	public String bankTransferId() {
+		return "payout-" + getId() + "-" + attempt;
+	}
+
+	public void markCompleted() {
+		this.status = PayoutTransferStatus.COMPLETED;
+	}
+
+	// 실패가 확정된 송금만 다시 보낸다. 결과를 모르는 송금을 다시 보내면 돈이 두 번 나갈 수 있다
+	public void retry() {
+		if (status != PayoutTransferStatus.FAILED) {
+			throw new IllegalStateException("실패한 송금만 다시 보낼 수 있습니다. status=" + status);
+		}
+		this.attempt++;
+		this.status = PayoutTransferStatus.REQUESTED;
+	}
+
+	public void markUnknown() {
+		this.status = PayoutTransferStatus.UNKNOWN;
+	}
+
+	// 은행이 송금하지 않은 것이 확정됐다. 홀딩 지갑에서 뺀 대금을 되돌리는 장부 줄을 돌려준다 (저장은 부른 쪽이 한다)
+	public WalletLedger fail(Wallet holdingWallet) {
+		this.status = PayoutTransferStatus.FAILED;
+		return holdingWallet.credit(amount, LedgerType.정산지급취소__상품판매_대금, LedgerRefType.Payout, getId());
 	}
 }
