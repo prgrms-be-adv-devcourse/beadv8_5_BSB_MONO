@@ -173,7 +173,6 @@ backend/
   - `order-service`는 전환 중입니다(BUK-29). V1은 `create table if not exists`라 표가 이미 있으면 통째로 건너뛰어, 지난 배포 뒤 엔티티에 더한 칸이
     서버·로컬 표에 없으면 `validate`로는 뜨지 않습니다. 그래서 서버에 한 번 배포할 때까지 dev와 compose는 `update`로 둡니다
     (Flyway가 먼저 돌고 Hibernate가 빠진 칸을 채움). 그 뒤 dev는 `validate`로, compose의 `order-service` 줄은 지웁니다.
-  - `cash-service`도 같은 이유로 전환 중입니다(BUK-79). 서버에 한 번 배포한 뒤 dev는 `validate`로, compose의 `cash-service` 줄은 지웁니다.
   - **다른 서비스도 Flyway를 넣기를 권합니다.** `update`는 표·칸을 더하기만 해서 이름 바꾸기·칸 지우기·제약 바꾸기·데이터 옮기기를 못 하고,
     그때마다 서버 DB에서 SQL을 손으로 돌려야 합니다(주문 BUK-6). 또 서비스별로 DB를 나눌 때(최종) Flyway가 있으면 새 DB에 SQL을 처음부터 돌려
     표를 그대로 만들고 접속 주소만 바꾸면 되지만, 없으면 표 구조를 손으로 옮겨야 합니다.
