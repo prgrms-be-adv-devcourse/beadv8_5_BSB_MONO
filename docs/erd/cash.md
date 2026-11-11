@@ -130,7 +130,8 @@ ref_type_code는 DTO에서 문자열로 받더라도 `LedgerRefType.valueOf(...)
 - 정산지급__상품판매_수수료
 - 정산수령__상품판매_수수료
 - 정산지급__상품판매_대금
-- 정산수령__상품판매_대금
+- 정산수령__상품판매_대금 (2차부터 쓰지 않음, 대금은 은행으로 판매자 계좌에 송금)
+- 정산지급취소__상품판매_대금 (2차, BUK-83)
 - 환불__주문취소
 - 임시보관반환__주문취소
 - 출금취소__통장입금
@@ -142,6 +143,7 @@ ref_type_code는 DTO에서 문자열로 받더라도 `LedgerRefType.valueOf(...)
 
 돈이 고객 지갑과 홀딩 지갑 사이에서 움직이면 같은 ref_type_code·ref_id로 두 줄을 한 트랜잭션에서 남긴다(두 줄 amount 합 = 0). 충전·환급은 돈이 플랫폼 밖과 오가는 거라 고객 지갑만 기록한다.
 판매자가 갚는 회수금도 플랫폼 밖에서 들어오는 돈이라 홀딩 지갑 한 줄만 남긴다.
+정산 대금도 은행으로 판매자 계좌에 송금해 플랫폼 밖으로 나가는 돈이라 홀딩 지갑 한 줄만 남긴다(BUK-83).
 
 | 상황 | 고객 지갑 | 홀딩 지갑 (2번) | ref_type_code |
 | --- | --- | --- | --- |
@@ -152,11 +154,13 @@ ref_type_code는 DTO에서 문자열로 받더라도 `LedgerRefType.valueOf(...)
 | 환급 실패 | (+) 출금취소__통장입금 | - | Withdrawal |
 | 환급 신청 · 카드 몫 (2차) | (−) 출금__PG결제취소_토스페이먼츠 (충전 건마다 한 줄) | - | Withdrawal |
 | 환급 실패 · 카드 몫 (2차) | (+) 출금취소__PG결제취소_토스페이먼츠 (되돌린 몫마다 한 줄) | - | Withdrawal |
-| 정산 대금 (2차) | (+) 정산수령__상품판매_대금 (판매자 지갑) | (−) 정산지급__상품판매_대금 | Payout |
+| 정산 대금 (2차) | - (판매자 지갑에 넣지 않고 은행으로 판매자 계좌에 송금) | (−) 정산지급__상품판매_대금 (송금 시도마다 한 줄) | Payout |
+| 정산 대금 송금 실패 (2차) | - | (+) 정산지급취소__상품판매_대금 (실패한 시도마다 한 줄) | Payout |
 | 정산 수수료 (2차) | (+) 정산수령__상품판매_수수료 (1번 system 지갑) | (−) 정산지급__상품판매_수수료 | Payout |
 | 회수 입금 (2차) | - | (+) 회수입금__가상계좌_토스페이먼츠 (청구 하나에 한 줄) | RecoveryDeposit |
 
-결제 화면에서 부족분을 충전한 경우도 WalletCharge로 통일한다. 정산은 payout 한 건마다 홀딩 지갑(−)과 받는 지갑(+) 두 줄을 남긴다. 대금과 수수료는 각각 별도 payout 건이라 ref_id가 다르다(2차).
+결제 화면에서 부족분을 충전한 경우도 WalletCharge로 통일한다. 정산 수수료는 홀딩 지갑(−)과 시스템 지갑(+) 두 줄을, 정산 대금은 홀딩 지갑 한 줄을 남긴다. 대금과 수수료는 각각 별도 payout_transfer 행이라 ref_id가 다르다(2차).
+송금 결과를 모르면 대금을 되돌리지 않는다. 은행이 이미 보냈을 수 있어서다. 재확인이 실패로 확정할 때만 정산지급취소 줄을 남긴다.
 
 ### wallet_withdrawal 예치금 환급 (`CASH_WALLET_WITHDRAWAL`)
 
@@ -189,17 +193,18 @@ member-service의 회원을 Kafka 이벤트(`MemberJoinedEvent`)로 복제해 �
 
 ### cash_seller 판매자 (`CASH_SELLER`)
 
-판매자 신청서 ID로 정산 지갑(회원 지갑)을 찾기 위해 둔다.
+판매자 신청서 ID를 회원과 잇는다. 정산 대금을 송금하기 전에 판매자가 있는지 이 표로 확인한다.
 
 | 키 | 컬럼 | 타입 | 제약 | 설명·값 |
 | --- | --- | --- | --- | --- |
 | PK | id | BIGINT | | 판매자 신청서 ID (자동 생성 안 함) |
-| FK | member_id | BIGINT | NOT NULL | → cash_member. 판매자 회원. 정산 대금은 이 회원의 지갑으로 들어간다 |
+| FK | member_id | BIGINT | NOT NULL | → cash_member. 판매자 회원 |
 | | create_date / modify_date | DATETIME(6) | | 생성·수정 일시 |
 
 ### payout_transfer 정산 지급 (`CASH_PAYOUT_TRANSFER`)
 
 정산 한 건의 돈 이동(대금 또는 수수료)을 기록하고, 그 id를 wallet_ledger의 ref_id(Payout)로 쓴다.
+대금은 은행 송금이라 송금 상태를 함께 둔다. 수수료는 지갑끼리 옮겨 바로 완료다(BUK-83).
 
 | 키 | 컬럼 | 타입 | 제약 | 설명·값 |
 | --- | --- | --- | --- | --- |
@@ -208,6 +213,25 @@ member-service의 회원을 Kafka 이벤트(`MemberJoinedEvent`)로 복제해 �
 | | seller_id | BIGINT | NOT NULL | 판매자 신청서 ID (추적용) |
 | | transfer_type | ENUM | NOT NULL | SETTLEMENT(대금) / FEE(수수료) |
 | | amount | BIGINT | NOT NULL | 지급 금액 |
+| | status | ENUM | NOT NULL | REQUESTED(홀딩 지갑에서 빼고 결과 반영 전) / UNKNOWN(은행이 보냈는지 모름) / COMPLETED / FAILED. 수수료는 생성 시 COMPLETED |
+| | attempt | INT | NOT NULL | 송금 시도 횟수 (1부터). 은행에 보내는 송금 ID는 `payout-{id}-{attempt}` |
 | | create_date / modify_date | DATETIME(6) | | 생성·수정 일시 |
 
 (payout_id, transfer_type)에 UNIQUE를 걸어 같은 정산의 같은 이동이 두 번 기록되지 않게 한다.
+같은 정산 ID로 다시 요청이 오면: COMPLETED는 그대로 성공, REQUESTED·UNKNOWN은 은행에 다시 보내지 않고 503, FAILED는 같은 행의 attempt를 올려 새 송금 ID로 다시 보낸다.
+REQUESTED·UNKNOWN은 매일 03:30 재확인이 은행에 조회해 맞춘다. 은행이 "없음"이라고 답하면 마지막으로 바뀐 지 10분이 지난 건만 FAILED로 확정한다.
+
+### fakebank_transfer 가짜 은행 송금 기록 (`CASH_FAKEBANK_TRANSFER`)
+
+실제 은행 대신 cash-service 안의 가짜 은행(`/fakebank`)이 남기는 송금 기록이다. 진짜 은행처럼 재배포해도 남아야, 재확인이 은행의 "없음"을 "은행에 닿지 않음"으로 믿을 수 있다(BUK-83).
+결제 쪽 표와 FK로 잇지 않는다. 결제는 HTTP로만 이 은행을 부른다.
+
+| 키 | 컬럼 | 타입 | 제약 | 설명·값 |
+| --- | --- | --- | --- | --- |
+| PK | id | BIGINT | | 기록 ID |
+| | transfer_id | VARCHAR(100) | NOT NULL, UNIQUE | 결제가 보낸 송금 ID. 같은 ID는 한 번만 송금한다 |
+| | seller_id | BIGINT | NOT NULL | 판매자 신청서 ID |
+| | amount | BIGINT | NOT NULL | 송금 금액 |
+| | status | ENUM | NOT NULL | COMPLETED / FAILED / PROCESSING. 조회했을 때 보이는 최종 결과 |
+| | result_mode | ENUM | NOT NULL | SUCCESS / FAIL / PENDING_THEN_SUCCESS / PENDING_THEN_FAIL / DROP. 송금 때의 결과 설정. 같은 ID로 다시 요청하면 처음과 같은 응답을 준다 |
+| | create_date / modify_date | DATETIME(6) | | 생성·수정 일시 |
