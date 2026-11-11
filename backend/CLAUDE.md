@@ -21,13 +21,13 @@
 | `queue-service` | Spring Boot 앱 | 8086 | 예매 대기열 (뼈대만 있음) |
 | `notification-service` | Spring Boot 앱 | 8087 | 내 알림. 다른 서비스가 보낸 `push.notification.requested`를 저장하고 조회·읽음 API를 연다 (BUK-69) |
 | `inquiry-service` | Spring Boot 앱 | 8088 | 대회 문의. 회원이 문의를 남기면 담당(판매자·관리자)이 한 번 답하고, 알림이 간다 (BUK-154) |
-| `ai-service` | Spring Boot 앱 | 8092 | 판매자·관리자 센터의 챗봇 「크루런 AI」. 질문을 모델에 보내 답하고 대화 기록을 Redis에 둔다. DB·Kafka 없음 (BUK-165, 뼈대) |
 | `board-service` | Spring Boot 앱 | 8089 | 커뮤니티 자유 게시판. 글·댓글·답글·좋아요(읽기는 로그인 없이), 회원 이벤트로 닉네임·판매자 복사본(`BoardMember`) (BUK-156) |
+| `ai-service` | Spring Boot 앱 | 8092 | 판매자·관리자 센터의 챗봇 「크루런 AI」. 질문을 모델에 보내 답하고 대화 기록을 Redis에 둔다. DB·Kafka 없음 (BUK-165, 뼈대) |
 
 인프라(`compose.yml`: MySQL, Kafka, Elasticsearch, Redis, 로컬 S3 대체재 S3Mock)는 모든 서비스가 공용으로 씁니다.
 
 - Java 25 (Gradle toolchain), Spring Boot 4.1.1, Gradle 9.7.1 (Kotlin DSL)
-- 루트 패키지: `com.bukang` (`group`은 `com`). 모듈별 패키지는 `com.bukang.common`, `com.bukang.member`, `com.bukang.cash`, `com.bukang.payout`, `com.bukang.file`, `com.bukang.order`, `com.bukang.product`, `com.bukang.queue`, `com.bukang.notification`, `com.bukang.inquiry`
+- 루트 패키지: `com.bukang` (`group`은 `com`). 모듈별 패키지는 `com.bukang.common`, `com.bukang.member`, `com.bukang.cash`, `com.bukang.payout`, `com.bukang.file`, `com.bukang.order`, `com.bukang.product`, `com.bukang.queue`, `com.bukang.notification`, `com.bukang.inquiry`, `com.bukang.ai`
   (모듈 폴더 이름은 케밥 케이스 `<도메인>-service`, Java 패키지는 하이픈을 쓸 수 없으므로 도메인 한 단어)
 - 공통 빌드 설정(Java 버전, Spring Boot BOM, Lombok, Checkstyle)은 루트 `build.gradle.kts`, 모듈별 의존성은 각 모듈의 `build.gradle.kts`에 있습니다.
 - 운영에서는 Nginx가 HTTP 요청을 받아 `/api`를 `gateway`(8000)로, 나머지를 프론트(`web`, Next.js 3000)로 넘기고, 게이트웨이가 경로를 보고 각 서비스로 보냅니다.
@@ -159,6 +159,7 @@ backend/
 
 - `common`은 실행 앱이 아니라 jar 라이브러리입니다. 각 서비스는 `implementation(project(":common"))`으로 의존합니다.
   서비스의 `@SpringBootApplication(scanBasePackages = {"com.bukang.<서비스>", "com.bukang.common"})`로 common의 빈도 등록합니다.
+  (DB·Kafka가 없는 `ai-service`만 예외로, 오류 응답과 `@LoginMemberId` 패키지만 고릅니다. common에 모든 서비스가 써야 하는 빈을 새 패키지로 더하면 `AiApplication`에도 더합니다.)
 - **서비스끼리는 서로 의존하지 않습니다.** 다른 서비스의 클래스가 필요하면 `common`에 올릴지(계약: 이벤트, 공개 필드) 먼저 검토합니다.
   `common`에는 특정 서비스 전용 코드(Spring Security 인증·필터, 회원 엔티티 등)를 넣지 않습니다.
   단, 암호화 유틸(`spring-security-crypto`)은 `global/crypto`에 두고, yaml에 `crypto.enabled: true`를 넣은 서비스에서만 빈을 만듭니다(`@ConditionalOnProperty`).

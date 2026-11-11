@@ -1,5 +1,7 @@
 package com.bukang.ai.domain;
 
+import java.util.Locale;
+
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
@@ -20,6 +22,6 @@ public enum AiScreen {
 	 * 화면과 회원 번호 사이에 콜론을 쓰지 않는다. Spring AI가 대화 번호 속 콜론을 \\:로 바꿔 키에 넣는다
 	 */
 	public String conversationId(long memberId) {
-		return name().toLowerCase() + "-" + memberId;
+		return name().toLowerCase(Locale.ROOT) + "-" + memberId;
 	}
 }

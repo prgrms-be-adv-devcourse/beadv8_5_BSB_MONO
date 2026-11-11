@@ -35,7 +35,7 @@ public abstract class AiTestBase {
 	protected static final long SELLER_AND_ADMIN = 5L;
 
 	// 테스트 클래스가 달라도 컨테이너 하나를 함께 쓴다 (JVM이 끝날 때 Testcontainers가 지운다)
-	protected static final RedisContainer REDIS = new RedisContainer("redis:8.2");
+	public static final RedisContainer REDIS = new RedisContainer("redis:8.2");
 
 	static {
 		REDIS.start();

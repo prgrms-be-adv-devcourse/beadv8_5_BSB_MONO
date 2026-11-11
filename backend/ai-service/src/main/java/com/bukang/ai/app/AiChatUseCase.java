@@ -1,8 +1,12 @@
 package com.bukang.ai.app;
 
+import java.util.List;
+
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.ChatMemoryRepository;
+import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.MessageType;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.stereotype.Service;
@@ -40,13 +44,14 @@ public class AiChatUseCase {
 
 	public String chat(long memberId, AiScreen screen, String message) {
 		checkRole(memberId, screen);
+		String conversationId = screen.conversationId(memberId);
 		String answer;
 		try {
 			// 지시문과 질문은 문자열이 아니라 메시지로 넘긴다. 문자열로 넘기면 템플릿으로 읽혀 질문 속 중괄호가 변수로 풀린다
 			// 도구(운영 숫자 조회)는 화면 종류에 맞는 묶음만 여기서 .tools(...)로 붙인다 (다음 이슈)
 			answer = chatClient.prompt()
 				.messages(new SystemMessage(SYSTEM_PROMPT.formatted(screen.getLabel())), new UserMessage(message))
-				.advisors(advisor -> advisor.param(ChatMemory.CONVERSATION_ID, screen.conversationId(memberId)))
+				.advisors(advisor -> advisor.param(ChatMemory.CONVERSATION_ID, conversationId))
 				.call()
 				.content();
 		} catch (BusinessException exception) {
@@ -54,6 +59,7 @@ public class AiChatUseCase {
 		} catch (RuntimeException exception) {
 			// 모델 회사 오류·시간 초과·Redis 장애. 질문 내용은 로그에 남기지 않는다
 			log.error("모델에서 답을 받지 못했습니다. memberId={}, screen={}", memberId, screen, exception);
+			dropUnansweredQuestion(conversationId);
 			throw new AiModelUnavailableException();
 		}
 		if (answer == null || answer.isBlank()) {
@@ -67,6 +73,20 @@ public class AiChatUseCase {
 	public void clear(long memberId, AiScreen screen) {
 		checkRole(memberId, screen);
 		chatMemoryRepository.deleteByConversationId(screen.conversationId(memberId));
+	}
+
+	// 대화 기록 advisor는 모델을 부르기 전에 질문부터 저장한다. 답을 받지 못했으면 그 질문을 기록에서 뺀다
+	// (남겨 두면 다시 물을 때마다 답 없는 같은 질문이 쌓여 앞 대화를 밀어낸다)
+	private void dropUnansweredQuestion(String conversationId) {
+		try {
+			List<Message> messages = chatMemoryRepository.findByConversationId(conversationId);
+			if (!messages.isEmpty() && messages.getLast().getMessageType() == MessageType.USER) {
+				chatMemoryRepository.saveAll(conversationId, messages.subList(0, messages.size() - 1));
+			}
+		} catch (RuntimeException exception) {
+			// Redis 장애로 모델 호출이 실패한 경우다. 남은 질문은 보관 시간이 지나면 지워진다
+			log.warn("답 없는 질문을 대화 기록에서 빼지 못했습니다. conversationId={}", conversationId, exception);
+		}
 	}
 
 	private void checkRole(long memberId, AiScreen screen) {

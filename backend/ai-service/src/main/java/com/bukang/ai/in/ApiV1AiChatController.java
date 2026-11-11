@@ -1,5 +1,7 @@
 package com.bukang.ai.in;
 
+import java.util.Locale;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -63,7 +65,8 @@ public class ApiV1AiChatController {
 	})
 	public ResponseEntity<RsData<AiChatDto>> chat(
 		@LoginMemberId long memberId,
-		@Parameter(description = "화면 종류 (seller: 판매자 센터, admin: 관리자 센터)", example = "seller")
+		@Parameter(description = "화면 종류 (seller: 판매자 센터, admin: 관리자 센터)", example = "seller",
+			schema = @Schema(allowableValues = {"seller", "admin"}))
 		@PathVariable String screen,
 		@Valid @RequestBody AiChatRequestDto request
 	) {
@@ -91,7 +94,8 @@ public class ApiV1AiChatController {
 	})
 	public ResponseEntity<RsData<Void>> clear(
 		@LoginMemberId long memberId,
-		@Parameter(description = "화면 종류 (seller: 판매자 센터, admin: 관리자 센터)", example = "seller")
+		@Parameter(description = "화면 종류 (seller: 판매자 센터, admin: 관리자 센터)", example = "seller",
+			schema = @Schema(allowableValues = {"seller", "admin"}))
 		@PathVariable String screen
 	) {
 		aiChatUseCase.clear(memberId, toScreen(screen));
@@ -99,6 +103,6 @@ public class ApiV1AiChatController {
 	}
 
 	private static AiScreen toScreen(String screen) {
-		return AiScreen.valueOf(screen.toUpperCase());
+		return AiScreen.valueOf(screen.toUpperCase(Locale.ROOT));
 	}
 }

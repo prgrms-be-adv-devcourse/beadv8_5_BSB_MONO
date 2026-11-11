@@ -36,15 +36,18 @@ class AiModelConfigTest {
 	@Nested
 	@DisplayName("기본 설정은 OpenAI 모델을 쓰고, 키가 없어도 앱이 뜬다")
 	@SpringBootTest
-	@TestPropertySource(properties = {"spring.profiles.active=nokey", "ai.clients.member.mode=fake"})
+	// 개발자 PC의 backend/.env나 환경 변수에 키가 있어도 키가 없는 상태로 확인하도록 빈 값으로 고정한다
+	@TestPropertySource(properties = {
+		"spring.profiles.active=nokey", "ai.clients.member.mode=fake", "spring.ai.openai.api-key="
+	})
 	class DefaultWithoutKey {
 		@Autowired
 		private ApplicationContext context;
 
 		@DynamicPropertySource
 		static void redisProperties(DynamicPropertyRegistry registry) {
-			registry.add("spring.ai.chat.memory.repository.redis.host", AiRedis.REDIS::getRedisHost);
-			registry.add("spring.ai.chat.memory.repository.redis.port", AiRedis.REDIS::getRedisPort);
+			registry.add("spring.ai.chat.memory.repository.redis.host", AiTestBase.REDIS::getRedisHost);
+			registry.add("spring.ai.chat.memory.repository.redis.port", AiTestBase.REDIS::getRedisPort);
 		}
 
 		@Test
@@ -52,10 +55,5 @@ class AiModelConfigTest {
 			assertThat(context.getBean(ChatModel.class)).isInstanceOf(OpenAiChatModel.class);
 			assertThat(context.getBeansOfType(OllamaChatModel.class)).isEmpty();
 		}
-	}
-
-	// AiTestBase의 Redis 컨테이너를 함께 쓴다 (protected 필드를 꺼내려고 상속)
-	private abstract static class AiRedis extends AiTestBase {
-		static final com.redis.testcontainers.RedisContainer REDIS = AiTestBase.REDIS;
 	}
 }

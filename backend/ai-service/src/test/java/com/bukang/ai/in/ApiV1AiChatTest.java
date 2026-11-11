@@ -164,14 +164,17 @@ class ApiV1AiChatTest extends AiTestBase {
 	}
 
 	@Test
-	@DisplayName("모델이 실패하면 503이다. 질문은 모델을 부르기 전에 저장돼 대화 기록에 남는다")
+	@DisplayName("모델이 실패하면 503이고, 답 없는 질문은 대화 기록에 남기지 않는다 (앞 대화는 그대로)")
 	void modelUnavailable() throws Exception {
+		chat("seller", SELLER, "앞 질문").andExpect(status().isOk());
 		chatModel.failWith(new IllegalStateException("모델 연결 실패"));
 
+		chat("seller", OTHER_SELLER, "첫 질문부터 실패").andExpect(status().isServiceUnavailable());
 		chat("seller", SELLER, "질문").andExpect(status().isServiceUnavailable())
 			.andExpect(jsonPath("$.code").value("AI_MODEL_UNAVAILABLE"))
 			.andExpect(jsonPath("$.message").value("지금은 답변을 만들 수 없습니다. 잠시 뒤 다시 시도해주세요."));
-		assertThat(texts(stored("seller-3"))).containsExactly("질문");
+		assertThat(texts(stored("seller-3"))).containsExactly("앞 질문", "답변 1");
+		assertThat(stored("seller-31")).isEmpty();
 	}
 
 	@Test
