@@ -1,5 +1,6 @@
 package com.bukang.cash.fakebank;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -24,10 +25,13 @@ import org.springframework.test.web.servlet.MockMvc;
 class FakeBankControllerTest {
 	@Autowired
 	private MockMvc mockMvc;
+	@Autowired
+	private FakeBankTransferRepository fakeBankTransferRepository;
 
 	@AfterEach
 	void tearDown() throws Exception {
 		changeMode("SUCCESS");
+		fakeBankTransferRepository.deleteAll();
 	}
 
 	@ParameterizedTest(name = "{0}: 송금 응답 {1} {2}, 조회 {3}")
@@ -56,6 +60,23 @@ class FakeBankControllerTest {
 		mockMvc.perform(get("/fakebank/v1/transfers/" + transferId))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.status").value(lookupStatus));
+	}
+
+	@Test
+	@DisplayName("응답이 끊긴 송금도 은행 기록은 DB에 남아, 앱을 다시 켜도(가짜 은행을 새로 만들어도) 완료로 조회된다")
+	void transferSurvivesRestart() throws Exception {
+		changeMode("DROP");
+		mockMvc.perform(post("/fakebank/v1/transfers")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{ "transferId": "transfer-restart", "sellerId": 7, "amount": 30000 }
+					"""))
+			.andExpect(status().isGatewayTimeout());
+
+		FakeBank restarted = new FakeBank(fakeBankTransferRepository);
+
+		assertThat(restarted.find("transfer-restart")).map(FakeBankTransfer::getStatus)
+			.contains(FakeBank.Status.COMPLETED);
 	}
 
 	@Test

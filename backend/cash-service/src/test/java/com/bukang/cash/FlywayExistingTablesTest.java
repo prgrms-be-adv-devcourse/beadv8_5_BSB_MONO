@@ -49,7 +49,7 @@ class FlywayExistingTablesTest {
 		jdbcTemplate.execute("alter table cash_wallet_withdrawal modify account_number varchar(512) not null");
 		jdbcTemplate.execute("alter table cash_wallet_withdrawal modify account_holder varchar(50) not null");
 		// ID·금액을 long으로 바꾸기 전에 만든 운영 표는 int 칸이다 (update는 칸 타입을 넓히지 않는다).
-		// 환급 몫·회수 입금 표는 그 뒤에 생겨 처음부터 bigint다. 암호문 칸은 512로 늘리기 전 길이(255)다
+		// 환급 몫·회수 입금·가짜 은행 표는 그 뒤에 생겨 처음부터 bigint다. 암호문 칸은 512로 늘리기 전 길이(255)다
 		// MySQL은 외래 키가 걸린 칸의 타입을 바꾸지 못해, 외래 키를 풀고 바꾼 뒤 같은 이름으로 다시 건다
 		List<Map<String, Object>> foreignKeys = jdbcTemplate.queryForList("""
 			select table_name t, constraint_name k, column_name c, referenced_table_name rt, referenced_column_name rc
@@ -62,7 +62,8 @@ class FlywayExistingTablesTest {
 			select table_name t, column_name c, is_nullable n, extra e from information_schema.columns
 			where table_schema = database() and data_type = 'bigint'
 				and table_name like 'cash\\_%'
-				and table_name not in ('cash_wallet_withdrawal_item', 'cash_recovery_deposit')""")) {
+				and table_name not in
+					('cash_wallet_withdrawal_item', 'cash_recovery_deposit', 'cash_fakebank_transfer')""")) {
 			jdbcTemplate.execute("alter table " + column.get("t") + " modify " + column.get("c") + " int"
 				+ ("NO".equals(column.get("n")) ? " not null " : " ") + column.get("e"));
 		}

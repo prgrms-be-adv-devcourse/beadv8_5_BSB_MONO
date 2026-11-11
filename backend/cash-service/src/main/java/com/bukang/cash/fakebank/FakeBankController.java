@@ -12,7 +12,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.bukang.cash.fakebank.FakeBank.Mode;
 import com.bukang.cash.fakebank.FakeBank.Status;
-import com.bukang.cash.fakebank.FakeBank.Transfer;
 
 import io.swagger.v3.oas.annotations.Hidden;
 import lombok.RequiredArgsConstructor;
@@ -39,19 +38,19 @@ public class FakeBankController {
 
 	@PostMapping("/transfers")
 	public ResponseEntity<TransferResponse> transfer(@RequestBody TransferRequest request) {
-		Transfer transfer = fakeBank.transfer(request.transferId(), request.sellerId(), request.amount());
-		return switch (transfer.mode()) {
+		FakeBankTransfer transfer = fakeBank.transfer(request.transferId(), request.sellerId(), request.amount());
+		return switch (transfer.getResultMode()) {
 			case DROP -> ResponseEntity.status(HttpStatus.GATEWAY_TIMEOUT).build();
 			case PENDING_THEN_SUCCESS, PENDING_THEN_FAIL ->
-				ResponseEntity.ok(new TransferResponse(transfer.transferId(), Status.PROCESSING));
-			default -> ResponseEntity.ok(new TransferResponse(transfer.transferId(), transfer.status()));
+				ResponseEntity.ok(new TransferResponse(transfer.getTransferId(), Status.PROCESSING));
+			default -> ResponseEntity.ok(new TransferResponse(transfer.getTransferId(), transfer.getStatus()));
 		};
 	}
 
 	@GetMapping("/transfers/{transferId}")
 	public ResponseEntity<TransferResponse> find(@PathVariable String transferId) {
 		return ResponseEntity.of(fakeBank.find(transferId)
-			.map(transfer -> new TransferResponse(transfer.transferId(), transfer.status())));
+			.map(transfer -> new TransferResponse(transfer.getTransferId(), transfer.getStatus())));
 	}
 
 	@PutMapping("/mode")

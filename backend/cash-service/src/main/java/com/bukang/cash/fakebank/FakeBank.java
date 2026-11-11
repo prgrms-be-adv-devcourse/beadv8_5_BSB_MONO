@@ -1,18 +1,19 @@
 package com.bukang.cash.fakebank;
 
-import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.stereotype.Component;
 
+import lombok.RequiredArgsConstructor;
+
 /**
- * 실제 은행 송금 API처럼 움직이는 가짜 은행. 송금 기록과 결과 설정을 메모리에만 둔다 (앱을 다시 켜면 사라진다)
+ * 실제 은행 송금 API처럼 움직이는 가짜 은행. 송금 기록은 DB에 남기고, 결과 설정만 메모리에 둔다 (앱을 다시 켜면 성공으로 돌아간다)
  * 같은 송금 ID로 다시 요청하면 새로 송금하지 않고 처음 기록을 돌려준다 (은행의 중복 송금 방지)
  */
 @Component
+@RequiredArgsConstructor
 public class FakeBank {
-	private final Map<String, Transfer> transfers = new ConcurrentHashMap<>();
+	private final FakeBankTransferRepository fakeBankTransferRepository;
 	private volatile Mode mode = Mode.SUCCESS;
 
 	public enum Mode {
@@ -30,21 +31,19 @@ public class FakeBank {
 		FAILED
 	}
 
-	// status는 조회했을 때 보이는 최종 결과다
-	public record Transfer(String transferId, long sellerId, long amount, Status status, Mode mode) {
-	}
-
 	public void changeMode(Mode mode) {
 		this.mode = mode;
 	}
 
-	public Transfer transfer(String transferId, long sellerId, long amount) {
+	// 같은 송금 ID가 동시에 오면 유니크 제약이 한쪽을 막아 500이 되고, 결제는 이를 결과 모름으로 받아 재확인이 맞춘다
+	public FakeBankTransfer transfer(String transferId, long sellerId, long amount) {
 		Mode current = mode;
 		Status status = current == Mode.FAIL || current == Mode.PENDING_THEN_FAIL ? Status.FAILED : Status.COMPLETED;
-		return transfers.computeIfAbsent(transferId, id -> new Transfer(id, sellerId, amount, status, current));
+		return fakeBankTransferRepository.findByTransferId(transferId).orElseGet(() ->
+			fakeBankTransferRepository.save(new FakeBankTransfer(transferId, sellerId, amount, status, current)));
 	}
 
-	public Optional<Transfer> find(String transferId) {
-		return Optional.ofNullable(transfers.get(transferId));
+	public Optional<FakeBankTransfer> find(String transferId) {
+		return fakeBankTransferRepository.findByTransferId(transferId);
 	}
 }
