@@ -4,7 +4,6 @@ import static com.bukang.common.shared.race.domain.RaceSaleStatus.CANCELED;
 import static com.bukang.common.shared.race.domain.RaceSaleStatus.CLOSED;
 import static com.bukang.common.shared.race.domain.RaceSaleStatus.ON_SALE;
 import static com.bukang.common.shared.race.domain.RaceSaleStatus.SCHEDULED;
-import static com.bukang.common.shared.race.domain.RaceSaleStatus.STOPPED;
 import static com.bukang.product.support.RaceRequests.course;
 import static com.bukang.product.support.RaceRequests.race;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -128,11 +127,11 @@ class RaceSaleStatusUseCaseTest extends ProductIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("판매 중지·대회 취소 대회는 판매 시작일과 대회일(15일 뒤)이 지난 30일 뒤에도 상태가 그대로다")
-	void keepStoppedAndCanceledRaces() throws Exception {
+	@DisplayName("대회일(15일 뒤)이 지난 30일 뒤에는 판매 중지 대회는 판매 종료로 바뀌고(자동 취소하지 않음), 대회 취소 대회는 그대로다")
+	void closeStoppedAndKeepCanceledRaces() throws Exception {
 		RegisteredRace stopped = registerOnSale(race().title("판매 중지 대회").build());
-		// 판매 중지로 바꾸는 API가 아직 없어 상태 칸을 직접 바꾼다
-		updateRace(stopped.raceId(), "saleStatus", STOPPED);
+		postAs("/api/v1/product/races/" + stopped.raceId() + "/stop", SELLER_MEMBER_ID)
+			.andExpect(status().isOk());
 		RegisteredRace canceled = registerOnSale(race().title("취소된 대회").build());
 		postAs("/api/v1/product/races/" + canceled.raceId() + "/cancel", SELLER_MEMBER_ID)
 			.andExpect(status().isOk())
@@ -140,8 +139,8 @@ class RaceSaleStatusUseCaseTest extends ProductIntegrationTest {
 
 		List<RaceChangedEvent> changes = refresh(LocalDate.now().plusDays(30).atStartOfDay());
 
-		assertThat(changes).isEmpty();
-		assertThat(saleStatusOf(stopped.raceId())).isEqualTo(STOPPED);
+		assertThat(changes).extracting(RaceChangedEvent::raceId).containsExactly(stopped.raceId());
+		assertThat(saleStatusOf(stopped.raceId())).isEqualTo(CLOSED);
 		assertThat(saleStatusOf(canceled.raceId())).isEqualTo(CANCELED);
 	}
 

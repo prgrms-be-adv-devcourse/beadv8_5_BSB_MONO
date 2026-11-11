@@ -32,8 +32,10 @@ public class MemberSellerAccountAdapter implements SellerAccountPort {
 	private final RestClient restClient;
 
 	@Autowired
-	public MemberSellerAccountAdapter(@Value("${payout.services.member}") String memberServiceUrl) {
-		this(RestClient.builder()
+	public MemberSellerAccountAdapter(RestClient.Builder builder,
+		@Value("${payout.services.member}") String memberServiceUrl) {
+		// Boot가 주는 빌더는 주입마다 새로 만들어져(prototype) 다른 어댑터와 baseUrl이 섞이지 않는다
+		this(builder
 			.baseUrl(memberServiceUrl)
 			.requestFactory(requestFactory())
 			.build());

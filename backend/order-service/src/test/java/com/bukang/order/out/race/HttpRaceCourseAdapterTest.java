@@ -43,7 +43,7 @@ class HttpRaceCourseAdapterTest {
 	}
 
 	@Test
-	@DisplayName("종목 ID로 묻고, 응답을 주문 RaceCourseInfo로 옮긴다 (없을 수 있는 최대 나이·일정 변경 일시는 null)")
+	@DisplayName("종목 ID로 묻고, 응답을 주문 RaceCourseInfo로 옮긴다 (없을 수 있는 최대 나이·일정 변경 일시는 null, 대회명·종목명도 옮김)")
 	void findCourse() {
 		server.expect(requestTo(URL)).andExpect(method(HttpMethod.GET))
 			.andRespond(withSuccess(response("ON_SALE", "null", "null"), MediaType.APPLICATION_JSON));
@@ -55,10 +55,28 @@ class HttpRaceCourseAdapterTest {
 		assertThat(info).isEqualTo(new RaceCourseInfo(7, 3, LocalDateTime.of(2026, 11, 15, 8, 0),
 			LocalDateTime.of(2026, 10, 1, 10, 0), LocalDateTime.of(2026, 11, 1, 23, 59, 59), 14, null, 9,
 			"2026 서울 하프 마라톤 10K", 50_000, true, LocalDate.of(2026, 11, 8), null, false,
-			List.of("S", "M", "L")));
+			List.of("S", "M", "L"), null, "2026 서울 하프 마라톤", "10K"));
 		RaceCourseInfo changed = adapter.findCourse(7).orElseThrow();
 		assertThat(changed.maxAge()).isEqualTo(60);
 		assertThat(changed.scheduleChangedAt()).isEqualTo(LocalDateTime.of(2026, 10, 20, 9, 0));
+		server.verify();
+	}
+
+	@Test
+	@DisplayName("파티 예매 칸: 최대 인원이 비면 제한 없음(null), 정한 값은 그대로(20명도), 기간이 비면 모르는 것(null)으로 둔다")
+	void crewSale() {
+		server.expect(requestTo(URL)).andRespond(withSuccess(withCrew(5, "null"), MediaType.APPLICATION_JSON));
+		server.expect(requestTo(URL)).andRespond(withSuccess(withCrew(5, "20"), MediaType.APPLICATION_JSON));
+		server.expect(requestTo(URL)).andRespond(withSuccess(withCrew(5, "8"), MediaType.APPLICATION_JSON));
+		server.expect(requestTo(URL))
+			.andRespond(withSuccess(response("ON_SALE", "null", "null"), MediaType.APPLICATION_JSON));
+
+		RaceCourseInfo.CrewSale noCap = adapter.findCourse(7).orElseThrow().crewSale();
+		assertThat(noCap).isEqualTo(new RaceCourseInfo.CrewSale(LocalDateTime.of(2026, 9, 25, 10, 0),
+			LocalDateTime.of(2026, 9, 30, 19, 0), 5, null));
+		assertThat(adapter.findCourse(7).orElseThrow().crewSale().maxCount()).isEqualTo(20);
+		assertThat(adapter.findCourse(7).orElseThrow().crewSale().maxCount()).isEqualTo(8);
+		assertThat(adapter.findCourse(7).orElseThrow().crewSale()).isNull();
 		server.verify();
 	}
 
@@ -108,6 +126,13 @@ class HttpRaceCourseAdapterTest {
 				.isInstanceOf(ExternalServiceUnavailableException.class);
 			assertThat(Duration.ofNanos(System.nanoTime() - startedAt)).isLessThan(Duration.ofSeconds(2));
 		}
+	}
+
+	// 파티 예매 칸이 있는 응답 (상품 PR #356 RaceCourseInfoDto)
+	private String withCrew(int minCount, String maxCount) {
+		return response("ON_SALE", "null", "null").replace("\"tshirtSizeOption\"",
+			"\"crewSaleStartAt\": \"2026-09-25T10:00:00\", \"crewSaleEndAt\": \"2026-09-30T19:00:00\", "
+				+ "\"crewMinCount\": %d, \"crewMaxCount\": %s, \"tshirtSizeOption\"".formatted(minCount, maxCount));
 	}
 
 	// 상품 서비스 InternalV1RaceCourseController가 실제로 돌려주는 모양 (data = RaceCourseInfoDto)

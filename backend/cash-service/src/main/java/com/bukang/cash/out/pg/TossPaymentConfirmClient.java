@@ -10,8 +10,8 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
-import com.bukang.cash.domain.exception.PaymentApprovalFailedException;
-import com.bukang.cash.domain.exception.PaymentLookupFailedException;
+import com.bukang.cash.domain.exception.charge.PaymentApprovalFailedException;
+import com.bukang.cash.domain.exception.charge.PaymentLookupFailedException;
 import com.bukang.cash.out.pg.TossErrorCodeReader.ErrorResponse;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 

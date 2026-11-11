@@ -5,8 +5,7 @@ import { fileMock, productMock } from '@/shared/testing'
 import {
   applicationPhase,
   raceBadge,
-  toClosingSoonCards,
-  toOpenRaceCard,
+  toClosingSoonCard,
   toRaceDetail,
   toRaceListItem,
 } from './mappers'
@@ -20,15 +19,15 @@ const OPEN = new Date('2026-10-20T09:00:00+09:00')
 const AFTER_CLOSE = new Date('2026-10-31T18:00:00+09:00')
 
 describe('대회 응답 → 화면 모양', () => {
-  it('목록 한 줄: 대회일 · 장소, 최저가, 남은 자리', () => {
+  it('목록 한 줄: 대회일 · 장소, 최저가 (남은 자리는 보여 주지 않는다)', () => {
     expect(toRaceListItem(summary)).toMatchObject({
       id: '1',
       title: '2026 용감한 쿠키RUN in 서울',
       posterLabel: '10K',
       meta: '11/1 (일) · 서울숲 일대',
       price: '₩45,000~',
-      remaining: '580자리 남음',
     })
+    expect(toRaceListItem(summary)).not.toHaveProperty('remaining')
   })
 
   it('목록 응답에 imageUrl이 있을 때만 카드 이미지가 붙는다', () => {
@@ -38,10 +37,24 @@ describe('대회 응답 → 화면 모양', () => {
     )
   })
 
-  it('곧 마감 카드는 종목마다 한 장이고 종목을 골라 둔다', () => {
-    expect(toClosingSoonCards(summary)).toEqual([
-      expect.objectContaining({ id: '1', option: '1', title: '2026 용감한 쿠키RUN in 서울 (10K)' }),
-    ])
+  it('곧 마감 카드: 대회마다 한 장, 남은 날, 대회일 · 장소, 최저가부터', () => {
+    expect(toClosingSoonCard(summary, OPEN)).toMatchObject({
+      id: '1',
+      title: '2026 용감한 쿠키RUN in 서울',
+      posterLabel: '10K',
+      status: 'D-11',
+      meta: '11/1 (일) · 서울숲 일대',
+      price: '45,000원부터',
+    })
+  })
+
+  it('곧 마감 카드: 대회일이 없으면 장소만, 마감일이 없으면 상태 칩이 비어 있다', () => {
+    const card = toClosingSoonCard(
+      { ...summary, raceDate: undefined, applicationCloseAt: undefined },
+      OPEN,
+    )
+    expect(card.meta).toBe('서울숲 일대')
+    expect(card.status).toBe('')
   })
 
   it('신청 기간: 개인 예매 오픈 전 · 접수 중 · 접수 마감 뒤', () => {
@@ -70,11 +83,6 @@ describe('대회 응답 → 화면 모양', () => {
       '정원 마감',
     )
     expect(raceBadge(summary, AFTER_CLOSE)).toEqual({ label: '마감', tone: 'neutral' })
-  })
-
-  it('지금 접수 중 카드 첫 줄: 오픈 예정이면 오픈 일시, 접수 중이면 마감 일시', () => {
-    expect(toOpenRaceCard(summary, BEFORE_OPEN).schedule).toBe('오픈 예정 · 10/20 (화) 09:00')
-    expect(toOpenRaceCard(summary, OPEN).schedule).toBe('접수 중 · ~10/31 (토) 18:00')
   })
 
   it('상세: 신청 기간을 함께 넘긴다', () => {

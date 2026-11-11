@@ -37,6 +37,10 @@ public final class KafkaTopics {
 	// 이름은 정산 담당과 확인 중이다 (11/05 회의 R1)
 	public static final String ORDER_RACE_REFUND = "queuing.order.racerefund";
 
+	// 판매자가 청구 전용 가상계좌에 입금했다. 정산이 청구를 입금 확인으로 바꾸고 회수를 끝낸다 (cash → payout, key 청구 ID)
+	// 이름 · 내용은 캐시 담당과 맞추는 중이다 (BUK-88 초안)
+	public static final String CLAIM_DEPOSITED = "queuing.claim.deposited";
+
 	// 회원 한 명에게 알림을 띄워 달라는 요청 (모든 서비스 → notification). 문구는 보내는 쪽이 만든다 (BUK-69)
 	public static final String NOTIFICATION_REQUESTED = "push.notification.requested";
 

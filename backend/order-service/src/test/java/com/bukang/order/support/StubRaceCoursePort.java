@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
 import com.bukang.order.out.race.RaceCourseInfo;
 import com.bukang.order.out.race.RaceCoursePort;
 
@@ -20,10 +21,19 @@ public class StubRaceCoursePort implements RaceCoursePort {
 	public static final List<String> TSHIRT_SIZES = List.of("S", "M", "L", "XL");
 
 	private final Map<Long, RaceCourseInfo> courses = new HashMap<>();
+	// 상품 서비스가 멈춘 상황 (HTTP 어댑터는 연결 실패를 503 예외로 바꾼다)
+	private volatile boolean unavailable;
 
 	@Override
 	public Optional<RaceCourseInfo> findCourse(long raceCourseId) {
+		if (unavailable) {
+			throw new ExternalServiceUnavailableException("상품 서비스에 연결하지 못했습니다.");
+		}
 		return Optional.ofNullable(courses.get(raceCourseId));
+	}
+
+	public void setUnavailable(boolean unavailable) {
+		this.unavailable = unavailable;
 	}
 
 	public void put(RaceCourseInfo course) {
@@ -32,6 +42,7 @@ public class StubRaceCoursePort implements RaceCoursePort {
 
 	public void clear() {
 		courses.clear();
+		unavailable = false;
 	}
 
 	// 지금 접수 중이고 대회는 60일 뒤, 환불 기한은 40일 뒤인 종목
@@ -88,7 +99,7 @@ public class StubRaceCoursePort implements RaceCoursePort {
 
 	// 파티 예매 정보를 붙인다 (파티 신청·합류 최대 인원 테스트)
 	public static RaceCourseInfo withCrewSale(RaceCourseInfo course, LocalDateTime startAt, LocalDateTime endAt,
-		int minCount, int maxCount) {
+		int minCount, Integer maxCount) {
 		return new RaceCourseInfo(course.raceCourseId(), course.raceId(), course.raceDate(), course.applicationOpenAt(),
 			course.applicationCloseAt(), course.minAge(), course.maxAge(), course.sellerId(), course.courseName(),
 			course.price(), course.kitIncluded(), course.refundDeadline(), course.scheduleChangedAt(),

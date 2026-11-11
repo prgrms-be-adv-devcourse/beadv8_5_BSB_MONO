@@ -204,7 +204,7 @@ export function DateTimeField(props: DateTimeFieldProps) {
             />
             {props.mode === 'range' && (
               <>
-                <span aria-hidden className="text-body-m text-text-secondary">
+                <span aria-hidden className="text-body2-regular text-text-secondary">
                   ~
                 </span>
                 <TimeInput

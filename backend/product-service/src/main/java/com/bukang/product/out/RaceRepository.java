@@ -80,7 +80,7 @@ public interface RaceRepository extends JpaRepository<Race, Long> {
 	@Query("select r.id from Race r where r.saleStatus = :status and r.saleOpenDate <= :today")
 	List<Long> findIdsToOpen(@Param("status") RaceSaleStatus status, @Param("today") LocalDate today);
 
-	// 판매 상태 배치가 바꿀 대회 (대회일이 지난 판매 예정·판매 중 대회)
+	// 판매 상태 배치가 바꿀 대회 (대회일이 지난 판매 예정·판매 중·판매 중지 대회)
 	@Query("select r.id from Race r where r.saleStatus in :statuses and r.raceDate < :before")
 	List<Long> findIdsToClose(@Param("statuses") Collection<RaceSaleStatus> statuses,
 		@Param("before") LocalDateTime before);
@@ -89,7 +89,7 @@ public interface RaceRepository extends JpaRepository<Race, Long> {
 	// ID를 읽은 뒤 판매자가 대회일·판매 시작일을 미뤘거나 상태를 바꿨으면 그 대회는 건너뛴다
 	// 엔티티를 거치지 않으므로 수정 일시(updated_at)도 직접 채운다
 
-	// 대회일이 지난 판매 예정·판매 중 대회 → 판매 종료
+	// 대회일이 지난 판매 예정·판매 중·판매 중지 대회 → 판매 종료
 	@Modifying(clearAutomatically = true)
 	@Query("update Race r set r.saleStatus = com.bukang.common.shared.race.domain.RaceSaleStatus.CLOSED, "
 		+ "r.modifyDate = :now "
@@ -106,6 +106,24 @@ public interface RaceRepository extends JpaRepository<Race, Long> {
 		+ "where r.id = :id and r.saleStatus in :statuses and r.raceDate >= :today")
 	int cancel(@Param("id") long id, @Param("statuses") Collection<RaceSaleStatus> statuses,
 		@Param("today") LocalDateTime today, @Param("now") LocalDateTime now);
+
+	// 판매자가 판매를 멈춘다: 판매 중 → 판매 중지. 판매 중이고 접수 마감 전일 때만 바꾼다 (조건부 UPDATE)
+	// 확인은 대회 행을 잠근 뒤 Race.checkStoppable이 먼저 하고(이유별 문구), 여기서는 한 번 더 조건을 건다
+	//   엔티티를 고쳐 저장하지 않는 이유는 취소와 같다. 확인과 저장 사이 상태가 바뀌었으면 0행이 되어 덮어쓰지 않는다
+	@Modifying(clearAutomatically = true)
+	@Query("update Race r set r.saleStatus = com.bukang.common.shared.race.domain.RaceSaleStatus.STOPPED, "
+		+ "r.modifyDate = :now "
+		+ "where r.id = :id and r.saleStatus = com.bukang.common.shared.race.domain.RaceSaleStatus.ON_SALE "
+		+ "and r.applicationCloseAt > :now")
+	int stopSale(@Param("id") long id, @Param("now") LocalDateTime now);
+
+	// 판매자가 판매를 다시 연다: 판매 중지 → 판매 중. 판매 중지이고 접수 마감 전일 때만 바꾼다 (조건부 UPDATE)
+	@Modifying(clearAutomatically = true)
+	@Query("update Race r set r.saleStatus = com.bukang.common.shared.race.domain.RaceSaleStatus.ON_SALE, "
+		+ "r.modifyDate = :now "
+		+ "where r.id = :id and r.saleStatus = com.bukang.common.shared.race.domain.RaceSaleStatus.STOPPED "
+		+ "and r.applicationCloseAt > :now")
+	int resumeSale(@Param("id") long id, @Param("now") LocalDateTime now);
 
 	// 판매 시작일이 된 판매 예정 대회 → 판매 중
 	@Modifying(clearAutomatically = true)

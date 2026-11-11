@@ -11,11 +11,30 @@ export const PENDING = {
   color: {},
   /** 레이아웃 값(px). 예: 'layout/app-max-width': { web: 600, figma: 480 } (피그마 값은 모든 모드에서 같을 때) */
   layout: {},
+  /** 간격 값(px). 피그마 값이 spacing/N = N × 4px 규칙과 다를 때 웹 값을 쓴다 */
+  spacing: { 'spacing/0-5': { web: 2, figma: 4 } },
+  /**
+   * 글자 변수의 모드별 값(px). 피그마 Desktop 값이 옛 Heading/Body 값 그대로라 Title2가 Title3보다,
+   * Body1/Regular가 Body1/Medium보다 작아진다. 피그마를 고치기 전까지 웹은 Mobile 값을 쓴다.
+   */
+  typography: {
+    'typography/heading-l/size': { Desktop: { web: 24, figma: 18 } },
+    'typography/heading-l/line-height': { Desktop: { web: 32, figma: 26 } },
+    'typography/body-l/size': { Desktop: { web: 16, figma: 14 } },
+    'typography/body-l/line-height': { Desktop: { web: 24, figma: 22 } },
+  },
   /** 아직 웹에 없는 텍스트 스타일 */
-  skipTextStyles: ['Label/L Strong'],
+  skipTextStyles: /** @type {string[]} */ ([]),
 }
 
-/** PENDING 중 다시 확인해야 할 것. 피그마 값이 표의 figma와 달라졌거나, 피그마 스타일이 없어졌을 때 */
+// 피그마에서 「보관/」으로 시작하는 텍스트 스타일은 쓰지 않기로 한 것이라 옮기지 않는다
+const ARCHIVED = '보관/'
+
+/**
+ * PENDING 중 다시 확인해야 할 것. 피그마 값이 표의 figma와 달라졌거나, 피그마 스타일이 없어졌을 때
+ * @param {any} figma
+ * @param {Record<string, any>} [pending] 테스트에서 일부만 넘길 수 있게 느슨하게 받는다
+ */
 export function stalePending(figma, pending = PENDING) {
   const warnings = []
   const check = (label, actual, { web, figma: recorded }) => {
@@ -36,6 +55,16 @@ export function stalePending(figma, pending = PENDING) {
     const values = new Set(Object.values(layout[name]?.values ?? {}))
     const actual = values.size === 1 ? [...values][0] : layout[name] && [...values].join('·')
     check(name, actual, entry)
+  }
+  const spacingVars = figma.collections.Spacing.variables
+  for (const [name, entry] of Object.entries(pending.spacing ?? {})) {
+    check(name, spacingVars[name]?.values.Value, entry)
+  }
+  const typographyVars = figma.collections.Typography.variables
+  for (const [name, modes] of Object.entries(pending.typography ?? {})) {
+    for (const [mode, entry] of Object.entries(modes)) {
+      check(`${name} (${mode})`, typographyVars[name]?.values[mode], entry)
+    }
   }
   const styles = new Set(figma.textStyles.map((s) => s.name))
   for (const name of pending.skipTextStyles) {
@@ -61,7 +90,8 @@ function colorRef(alias) {
   return `var(--color-${kebab(alias)})`
 }
 
-// 원색은 색 이름이 처음 나온 순서로 묶고, 같은 색 안에서는 단계 순으로 정렬한다
+// 원색은 색 이름이 처음 나온 순서로 묶고, 같은 색 안에서는 단계 순으로 정렬한다.
+// 단계가 숫자가 아닌 묶음(chip/default-bg, logo/blue)은 피그마 순서 그대로 둔다.
 function primitives(vars) {
   const families = []
   const byFamily = {}
@@ -71,12 +101,13 @@ function primitives(vars) {
       byFamily[family] = []
       families.push(family)
     }
-    byFamily[family].push({ step: Number(step), value: v.values.Value })
+    byFamily[family].push({ step, value: v.values.Value })
   }
+  const order = (a, b) => Number(a.step) - Number(b.step) || 0
   return families.map((family) =>
     byFamily[family]
-      .sort((a, b) => a.step - b.step)
-      .map(({ step, value }) => `  --color-${family}-${step}: ${value};`),
+      .sort(order)
+      .map(({ step, value }) => `  --color-${family}-${kebab(step)}: ${value};`),
   )
 }
 
@@ -99,8 +130,8 @@ function spacing(vars) {
   // 피그마 spacing/N = N × 4px이면 Tailwind 기본 배수(0.25rem = 4px)로 p-4처럼 피그마 번호를 그대로 쓴다
   for (const [name, v] of Object.entries(vars)) {
     const step = Number(name.split('/')[1].replace('-', '.'))
-    if (v.values.Value !== step * 4)
-      throw new Error(`${name}이 4px 배수가 아닙니다: ${v.values.Value}`)
+    const value = PENDING.spacing[name]?.web ?? v.values.Value
+    if (value !== step * 4) throw new Error(`${name}이 4px 배수가 아닙니다: ${value}`)
   }
   return ['  --spacing: 0.25rem;']
 }
@@ -121,18 +152,19 @@ function shadows(effectStyles) {
   })
 }
 
+const usedTextStyles = (styles) =>
+  styles.filter((s) => !s.name.startsWith(ARCHIVED) && !PENDING.skipTextStyles.includes(s.name))
+
 function textStyles(styles) {
-  return styles
-    .filter((s) => !PENDING.skipTextStyles.includes(s.name))
-    .flatMap((s) => {
-      const key = `--text-${kebab(s.name)}`
-      return [
-        `  ${key}: ${px(s.fontSize)};`,
-        `  ${key}--line-height: ${px(s.lineHeight)};`,
-        `  ${key}--letter-spacing: ${em(s.letterSpacingPercent)};`,
-        `  ${key}--font-weight: ${s.fontWeight};`,
-      ]
-    })
+  return usedTextStyles(styles).flatMap((s) => {
+    const key = `--text-${kebab(s.name)}`
+    return [
+      `  ${key}: ${px(s.fontSize)};`,
+      `  ${key}--line-height: ${px(s.lineHeight)};`,
+      `  ${key}--letter-spacing: ${em(s.letterSpacingPercent)};`,
+      `  ${key}--font-weight: ${s.fontWeight};`,
+    ]
+  })
 }
 
 function layoutValue(name, value) {
@@ -143,13 +175,28 @@ function layoutValue(name, value) {
   return px(value)
 }
 
-/** 화면 폭에 따라 바뀌는 값. typography/heading-xl/size → --text-heading-xl */
-function responsiveName(name) {
-  if (name.startsWith('typography/')) {
-    const [, style, prop] = name.split('/')
-    return prop === 'size' ? `--text-${style}` : `--text-${style}--${prop}`
+/**
+ * 화면 폭에 따라 바뀌는 값의 CSS 이름.
+ * 글자 변수는 그 변수를 쓰는 텍스트 스타일 이름을 따른다. typography/heading-xl/size를 Title1이 쓰면 --text-title1.
+ */
+function responsiveNamer(styles) {
+  const byVariable = {}
+  for (const s of usedTextStyles(styles)) {
+    const key = `--text-${kebab(s.name)}`
+    for (const [variable, cssKey] of [
+      [s.bound.fontSize, key],
+      [s.bound.lineHeight, `${key}--line-height`],
+    ]) {
+      if (!variable) continue
+      // 한 CSS 값만 화면 폭에 따라 바꿀 수 있어서, 두 스타일이 같은 변수를 쓰면 하나가 말없이 빠진다
+      if (byVariable[variable])
+        throw new Error(
+          `${variable}을 두 텍스트 스타일이 함께 씁니다: ${byVariable[variable]}, ${cssKey}`,
+        )
+      byVariable[variable] = cssKey
+    }
   }
-  return `--${kebab(name)}`
+  return (name) => (name.startsWith('typography/') ? byVariable[name] : `--${kebab(name)}`)
 }
 
 function responsiveValue(name, value) {
@@ -157,12 +204,10 @@ function responsiveValue(name, value) {
 }
 
 /** mode 값 중 앞 mode와 다른 것만. 앞 mode가 없으면 전부 */
-function modeLines(entries, mode, previous, indent) {
+function modeLines(entries, mode, previous, indent, cssName) {
   return entries
     .filter(([, v]) => previous === undefined || v.values[mode] !== v.values[previous])
-    .map(
-      ([name, v]) => `${indent}${responsiveName(name)}: ${responsiveValue(name, v.values[mode])};`,
-    )
+    .map(([name, v]) => `${indent}${cssName(name)}: ${responsiveValue(name, v.values[mode])};`)
 }
 
 /** @param {any} figma figma-variables.json 내용 */
@@ -171,7 +216,14 @@ export function renderTokensCss(figma) {
   const layout = Object.entries(c.Layout.variables).filter(
     ([name]) => name.startsWith('layout/') && !SKIP_LAYOUT.includes(name),
   )
+  const cssName = responsiveNamer(figma.textStyles)
+  // 쓰는 텍스트 스타일이 없는 글자 변수(보관 스타일 것)는 옮기지 않는다
   const typography = Object.entries(c.Typography.variables)
+    .filter(([name]) => cssName(name))
+    .map(([name, v]) => {
+      const pending = Object.entries(PENDING.typography[name] ?? {}).map(([m, e]) => [m, e.web])
+      return [name, { ...v, values: { ...v.values, ...Object.fromEntries(pending) } }]
+    })
   const varying = [...layout, ...typography].filter(
     ([, v]) => new Set(Object.values(v.values)).size > 1,
   )
@@ -204,8 +256,8 @@ export function renderTokensCss(figma) {
     `  --breakpoint-desktop: ${rem(desktop)};`,
     '',
     '  /*',
-    '   * 글자 (텍스트 스타일). text-heading-xl 하나로 크기·줄 높이·자간·굵기가 함께 들어간다.',
-    '   * Display·Eyebrow는 피그마에서 Barlow Condensed라 font-display를 같이 붙인다.',
+    '   * 글자 (텍스트 스타일). text-title1 하나로 크기·줄 높이·자간·굵기가 함께 들어간다.',
+    '   * Number는 피그마에서 Barlow Condensed라 font-display를 같이 붙인다.',
     '   * 여기 값은 모바일 기준이고, 화면 폭에 따라 바뀌는 값은 아래 @layer base에 있다.',
     '   */',
     ...textStyles(figma.textStyles),
@@ -219,20 +271,20 @@ export function renderTokensCss(figma) {
     '',
     '  /* 레이아웃 (Layout 컬렉션, Mobile 모드). max-w-(--layout-content-max-width)처럼 쓴다. */',
     '  :root {',
-    ...modeLines(layout, 'Mobile', undefined, '    '),
+    ...modeLines(layout, 'Mobile', undefined, '    ', cssName),
     '  }',
     '',
     '  /* Typography·Layout 컬렉션의 Tablet 모드 */',
     `  @media (width >= ${rem(tablet)}) {`,
     '    :root {',
-    ...modeLines(varying, 'Tablet', 'Mobile', '      '),
+    ...modeLines(varying, 'Tablet', 'Mobile', '      ', cssName),
     '    }',
     '  }',
     '',
     '  /* Typography·Layout 컬렉션의 Desktop 모드 */',
     `  @media (width >= ${rem(desktop)}) {`,
     '    :root {',
-    ...modeLines(varying, 'Desktop', 'Tablet', '      '),
+    ...modeLines(varying, 'Desktop', 'Tablet', '      ', cssName),
     '    }',
     '  }',
     '',
@@ -243,6 +295,7 @@ export function renderTokensCss(figma) {
       'Mobile',
       undefined,
       '    ',
+      cssName,
     ),
     '  }',
   ]
@@ -252,6 +305,10 @@ export function renderTokensCss(figma) {
       ([name, modes]) => `${name} (${Object.keys(modes).join(', ')})`,
     ),
     ...Object.keys(PENDING.layout),
+    ...Object.keys(PENDING.spacing),
+    ...Object.entries(PENDING.typography).map(
+      ([name, modes]) => `${name} (${Object.keys(modes).join(', ')})`,
+    ),
     ...PENDING.skipTextStyles.map((name) => `텍스트 스타일 ${name}`),
   ]
 

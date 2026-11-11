@@ -14,8 +14,8 @@ import org.springframework.transaction.annotation.Transactional;
 import com.bukang.cash.config.CashWalletProperties;
 import com.bukang.cash.domain.member.CashMember;
 import com.bukang.cash.domain.wallet.Wallet;
-import com.bukang.cash.out.CashMemberRepository;
-import com.bukang.cash.out.WalletRepository;
+import com.bukang.cash.out.member.CashMemberRepository;
+import com.bukang.cash.out.wallet.WalletRepository;
 
 import jakarta.persistence.EntityManager;
 

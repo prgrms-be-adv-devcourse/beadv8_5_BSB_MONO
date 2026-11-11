@@ -1,9 +1,17 @@
 package com.bukang.cash.in;
 
 /**
- * ApiV1CashController의 Swagger 응답 예시 (실제 응답 메시지와 같게 유지한다)
+ * ApiV1CashController, TossWebhookController의 Swagger 응답 예시 (실제 응답 메시지와 같게 유지한다)
  */
 final class CashApiExamples {
+	static final String TOSS_DEPOSIT_RECEIVED = """
+		{ "status": 200, "message": "입금 알림을 받았습니다.", "data": null }
+		""";
+
+	static final String TOSS_DEPOSIT_INVALID_BODY = """
+		{ "status": 400, "code": "INVALID_REQUEST", "message": "요청 본문 형식이 올바르지 않습니다.", "data": null }
+		""";
+
 	static final String GET_BALANCE_SUCCESS = """
 		{
 			"status": 200,
@@ -123,7 +131,19 @@ final class CashApiExamples {
 		""";
 
 	static final String CHARGE_AMOUNT_TOO_SMALL = """
-		{ "status": 400, "message": "최소 충전 금액은 10,000원입니다.", "data": null }
+		{ "status": 400, "code": "CHARGE_AMOUNT_TOO_SMALL", "message": "최소 충전 금액은 10,000원입니다.", "data": null }
+		""";
+
+	static final String CHARGE_LIMIT_PER_CHARGE = """
+		{ "status": 400, "code": "CHARGE_LIMIT_PER_CHARGE", "message": "1회 충전 한도는 300,000원입니다.", "data": null }
+		""";
+
+	static final String CHARGE_LIMIT_PER_DAY = """
+		{ "status": 400, "code": "CHARGE_LIMIT_PER_DAY", "message": "일일 충전 한도는 1,000,000원입니다.", "data": null }
+		""";
+
+	static final String CHARGE_LIMIT_BALANCE = """
+		{ "status": 400, "code": "CHARGE_LIMIT_BALANCE", "message": "보유 한도는 10,000,000원입니다.", "data": null }
 		""";
 
 	static final String CHARGE_CONFIRM_INVALID_INPUT = """

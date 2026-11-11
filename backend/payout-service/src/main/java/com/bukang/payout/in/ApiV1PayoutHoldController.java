@@ -6,15 +6,18 @@ import java.time.ZoneId;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.bukang.common.global.rsdata.RsData;
 import com.bukang.common.shared.member.web.LoginMemberId;
 import com.bukang.payout.app.PayoutAdminFacade;
+import com.bukang.payout.dto.PayoutDto;
 import com.bukang.payout.dto.PayoutHoldDto;
 import com.bukang.payout.dto.PayoutHoldRequestDto;
 
@@ -34,7 +37,7 @@ import lombok.RequiredArgsConstructor;
  * 회원 ID는 게이트웨이가 토큰에서 꺼내 넣은 X-Member-Id 헤더를 믿는다. 게이트웨이는 역할을 보지 않으므로,
  * PayoutAdminFacade가 먼저 회원 서비스에 물어 관리자가 아니면 403으로 막는다 (PRO-265)
  */
-@Tag(name = "Payout", description = "지급보류 걸기, 지급보류 풀기 API (관리자)")
+@Tag(name = "Payout", description = "정산 ID로 정산 내역 찾기, 지급보류 걸기, 지급보류 풀기 API (관리자)")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/payout")
@@ -94,6 +97,42 @@ public class ApiV1PayoutHoldController {
 			memberId, payoutId, request.getReasonType(), request.getReason(), LocalDateTime.now(ZONE));
 		return ResponseEntity.created(URI.create("/api/v1/payout/holds/" + hold.getId()))
 			.body(RsData.of(HttpStatus.CREATED, "지급보류를 걸었습니다.", hold));
+	}
+
+	@GetMapping("/payouts")
+	@Operation(summary = "정산 ID로 정산 내역 찾기",
+		description = "정산 ID(ST-)로 정산 내역 한 건을 찾는다. 응답의 id를 지급보류 걸기 경로의 payoutId로 쓴다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "조회 성공",
+			content = @Content(examples = @ExampleObject(value = PayoutApiExamples.PAYOUT_BY_CODE_SUCCESS))),
+		@ApiResponse(responseCode = "400", description = "정산 ID 없음, 회원 ID 형식 오류 또는 회원 ID가 0 이하",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "정산 ID 없음", value = PayoutApiExamples.MISSING_PARAMETER),
+				@ExampleObject(name = "회원 ID 형식 오류", value = PayoutApiExamples.INVALID_VALUE_TYPE),
+				@ExampleObject(name = "회원 ID가 0 이하", value = PayoutApiExamples.INVALID_MEMBER_ID)
+			})),
+		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = PayoutApiExamples.LOGIN_REQUIRED))),
+		@ApiResponse(responseCode = "403", description = "관리자가 아님",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = PayoutApiExamples.NOT_ADMIN))),
+		@ApiResponse(responseCode = "404", description = "헤더의 회원(없거나 탈퇴) 또는 그 정산 ID의 정산 내역이 없음",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "정산 내역 없음", value = PayoutApiExamples.PAYOUT_NOT_FOUND),
+				@ExampleObject(name = "회원 없음", value = PayoutApiExamples.MEMBER_NOT_FOUND)
+			})),
+		@ApiResponse(responseCode = "503", description = "회원 서비스가 응답하지 않아 관리자인지 확인하지 못함",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = PayoutApiExamples.MEMBER_UNAVAILABLE)))
+	})
+	public ResponseEntity<RsData<PayoutDto>> findPayout(
+		@LoginMemberId long memberId,
+		@Parameter(description = "정산 ID (ST-…)", example = "ST-20260926-0002")
+		@RequestParam String code
+	) {
+		PayoutDto payout = payoutAdminFacade.findPayout(memberId, code);
+		return ResponseEntity.ok(RsData.of(HttpStatus.OK, "정산 내역을 조회했습니다.", payout));
 	}
 
 	@PostMapping("/holds/{holdId}/release")

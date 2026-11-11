@@ -248,7 +248,7 @@ export function PasswordNewPage() {
           error={errors.passwordConfirm?.message}
           {...register('passwordConfirm')}
         />
-        <p className="text-caption text-text-tertiary">
+        <p className="text-caption-regular text-text-tertiary">
           바꾸면 다른 기기에서 로그인된 상태도 모두 풀려요.
         </p>
       </CenterBody>
@@ -288,7 +288,7 @@ export function FindEmailPage() {
     <>
       <AppHeader type="sub" title="이메일 찾기" />
       <CenterBody>
-        <h2 className="text-heading-m">가입할 때 적은 정보를 입력해 주세요</h2>
+        <h2 className="text-title3">가입할 때 적은 정보를 입력해 주세요</h2>
         <TextField
           label="이름"
           autoComplete="name"
@@ -302,7 +302,7 @@ export function FindEmailPage() {
           error={errors.phone?.message}
           {...register('phone')}
         />
-        <p className="text-caption text-text-tertiary">
+        <p className="text-caption-regular text-text-tertiary">
           세 가지가 모두 맞는 계정이 있으면 이메일 일부를 가려서 보여 드려요.
         </p>
       </CenterBody>

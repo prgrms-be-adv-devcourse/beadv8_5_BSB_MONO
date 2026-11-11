@@ -69,4 +69,20 @@ class PayoutItemConstraintTest {
 			entityManager.flush();
 		}).isInstanceOf(PersistenceException.class);
 	}
+
+	@Test
+	@DisplayName("TC-DEPOSIT-5-1 같은 청구의 회수 입금 줄을 두 번 넣으면 저장에 실패한다 (bundle_key, BUK-88)")
+	void claimDepositTwice() {
+		PayoutClaim claim = new PayoutClaim(1, 7, 105_500L, TARGET_DATE);
+		entityManager.persist(claim);
+		entityManager.persist(PayoutItem.ofClaim(claim, PayoutRecordType.회수_입금, -105_500L));
+		entityManager.flush();
+
+		PayoutItem again = PayoutItem.ofClaim(claim, PayoutRecordType.회수_입금, -105_500L);
+
+		assertThatThrownBy(() -> {
+			entityManager.persist(again);
+			entityManager.flush();
+		}).isInstanceOf(PersistenceException.class);
+	}
 }

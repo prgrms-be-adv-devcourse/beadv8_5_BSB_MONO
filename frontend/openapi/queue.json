@@ -2,34 +2,307 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Bukang Queue API",
-    "description": "크루 중심 마라톤 대회 예매·커머스 플랫폼 대기열 API (backend/queue-service의 ApiV1QueueController에서 옮겨 적음)",
+    "description": "크루 중심 마라톤 대회 예매·커머스 플랫폼 대기열 API",
     "version": "v1"
   },
   "tags": [
     {
       "name": "Queue",
       "description": "대기열 등록, 순번 조회 API"
+    },
+    {
+      "name": "QueueDlt",
+      "description": "Kafka 처리 실패 메시지 목록, 다시 보내기, 처리 완료 API (운영자 내부 호출 전용)"
+    },
+    {
+      "name": "PartyQueue",
+      "description": "파티 대기열 등록, 순번 조회 API"
+    },
+    {
+      "name": "PartyQueueAdmission",
+      "description": "주문 서비스용 파티 대기열 입장 확인 API (서비스 간 내부 호출 전용)"
+    },
+    {
+      "name": "QueueAdmission",
+      "description": "주문 서비스용 대기열 입장 확인 API (서비스 간 내부 호출 전용)"
     }
   ],
   "paths": {
+    "/internal/v1/queue/kafka-failures/{id}/resend": {
+      "post": {
+        "tags": [
+          "QueueDlt"
+        ],
+        "summary": "처리 실패 메시지 다시 보내기",
+        "description": "처리 실패 상태의 메시지를 message-id 헤더째 queue의 첫 재시도 토픽으로 다시 보내고 다시 보냄으로 바꾼다. queue만 다시 받고(같은 토픽을 받는 다른 서비스는 받지 않음), 처리되면 처리 완료로, 또 실패하면 처리 실패로 돌아가 Slack으로 다시 알린다. Kafka로 보내지 못하면 처리 실패로 되돌리고 503으로 응답한다.",
+        "operationId": "resend",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "DLT 실패 행 ID (Slack 알림의 행 ID)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 15
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "다시 보냄",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "메시지를 다시 보냈습니다.",
+                  "data": {
+                    "id": 15,
+                    "status": "RESENT",
+                    "originalTopic": "queuing.race.changed",
+                    "dltTopic": "queuing.race.changed.queue.dlt",
+                    "dltPartition": 0,
+                    "dltOffset": 7,
+                    "messageKey": "1",
+                    "messageId": "product-outbox-7c9e6679-7425-40de-944b-e07fc1f90a42",
+                    "payload": "{\"raceId\":1,\"saleStatus\":\"ON_SALE\"}",
+                    "exceptionClass": "org.springframework.dao.DataIntegrityViolationException",
+                    "exceptionMessage": "could not execute statement",
+                    "createDate": "2026-11-04T10:15:30",
+                    "resentDate": "2026-11-04T11:02:10",
+                    "completedDate": null,
+                    "completeMemo": null
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ID 형식 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 400,
+                  "message": "요청 값의 형식이 올바르지 않습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "없는 행",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 404,
+                  "code": "KAFKA_DLT_NOT_FOUND",
+                  "message": "[queue] DLT 메시지 15번이 없습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "처리 실패 상태가 아님 (이미 다시 보냈거나 처리 완료)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 409,
+                  "code": "KAFKA_DLT_INVALID_STATUS",
+                  "message": "[queue] DLT 메시지 15번은 다시 보냄 상태라 다시 보낼 수 없습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Kafka로 보내지 못함 (처리 실패로 되돌림)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 503,
+                  "code": "KAFKA_DLT_RESEND_FAILED",
+                  "message": "[queue] DLT 메시지 15번을 Kafka로 다시 보내지 못했습니다. 잠시 뒤 다시 시도하세요.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/queue/kafka-failures/{id}/complete": {
+      "post": {
+        "tags": [
+          "QueueDlt"
+        ],
+        "summary": "처리 실패 메시지 처리 완료",
+        "description": "원인을 직접 고쳤거나 버릴 메시지를 메모와 함께 처리 완료로 닫는다. 처리 완료가 아니면(처리 실패, 다시 보냄) 닫을 수 있다.",
+        "operationId": "complete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "DLT 실패 행 ID (Slack 알림의 행 ID)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 15
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DltCompleteRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "처리 완료",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "처리 완료로 바꿨습니다.",
+                  "data": {
+                    "id": 15,
+                    "status": "COMPLETED",
+                    "originalTopic": "queuing.race.changed",
+                    "dltTopic": "queuing.race.changed.queue.dlt",
+                    "dltPartition": 0,
+                    "dltOffset": 7,
+                    "messageKey": "1",
+                    "messageId": "product-outbox-7c9e6679-7425-40de-944b-e07fc1f90a42",
+                    "payload": "{\"raceId\":1,\"saleStatus\":\"ON_SALE\"}",
+                    "exceptionClass": "org.springframework.dao.DataIntegrityViolationException",
+                    "exceptionMessage": "could not execute statement",
+                    "createDate": "2026-11-04T10:15:30",
+                    "resentDate": null,
+                    "completedDate": "2026-11-04T11:05:00",
+                    "completeMemo": "DB에서 대회 복제본을 직접 고쳐 다시 보내지 않고 닫음"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "메모 없음, 메모가 500자 초과, 요청 본문 형식 오류 또는 ID 형식 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "메모 없음": {
+                    "description": "메모 없음",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "처리 완료 메모를 작성해주세요.",
+                      "data": null
+                    }
+                  },
+                  "메모가 500자 초과": {
+                    "description": "메모가 500자 초과",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "처리 완료 메모는 500자 이하로 작성해주세요.",
+                      "data": null
+                    }
+                  },
+                  "요청 본문 형식 오류": {
+                    "description": "요청 본문 형식 오류",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "요청 본문 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  },
+                  "ID 형식 오류": {
+                    "description": "ID 형식 오류",
+                    "value": {
+                      "status": 400,
+                      "message": "요청 값의 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "없는 행",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 404,
+                  "code": "KAFKA_DLT_NOT_FOUND",
+                  "message": "[queue] DLT 메시지 15번이 없습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "이미 처리 완료",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 409,
+                  "code": "KAFKA_DLT_INVALID_STATUS",
+                  "message": "[queue] DLT 메시지 15번은 처리 완료 상태라 처리 완료로 바꿀 수 없습니다.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/queue": {
       "post": {
         "tags": [
           "Queue"
         ],
         "summary": "대기열 등록",
-        "description": "대회·종목의 대기열에 회원을 줄 세우고 순번을 돌려준다. 이미 줄에 있으면 처음 순번을 그대로 돌려준다. 이미 입장(active)한 회원은 409다.",
+        "description": "대회·종목의 대기열에 회원을 줄 세우고 순번을 돌려준다. 판매 중이고 개인 예매 오픈부터 접수 마감 전까지만 들어올 수 있다. 이미 줄에 있는 회원이 다시 등록하면(다른 기기 등) 처음 순번을 그대로 돌려준다. 이미 입장(active)한 회원은 다시 줄을 설 수 없다. 대기열(Redis)에 연결하지 못하면 대기열 없이 통과시키지 않고 막는다.",
         "operationId": "register",
         "parameters": [
           {
             "name": "X-Member-Id",
             "in": "header",
-            "description": "요청한 회원 ID (게이트웨이가 넣어 준다)",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
             "required": true,
             "schema": {
               "type": "integer",
-              "format": "int32",
-              "exclusiveMinimum": 0
+              "format": "int64"
             },
             "example": 1
           }
@@ -49,25 +322,21 @@
             "description": "등록 성공 (이미 줄에 있으면 처음 순번)",
             "content": {
               "application/json": {
-                "examples": {
-                  "등록 성공": {
-                    "value": {
-                      "status": 200,
-                      "message": "대기열에 등록했습니다.",
-                      "data": {
-                        "myRank": 3,
-                        "ahead": 2,
-                        "total": 10,
-                        "canEnter": false
-                      }
-                    }
+                "example": {
+                  "status": 200,
+                  "message": "대기열에 등록했습니다.",
+                  "data": {
+                    "myRank": 3,
+                    "ahead": 2,
+                    "total": 10,
+                    "canEnter": false
                   }
                 }
               }
             }
           },
           "400": {
-            "description": "입력값 검증 실패",
+            "description": "입력값 검증 실패, 요청 본문 형식 오류 또는 회원 ID 오류",
             "content": {
               "application/json": {
                 "schema": {
@@ -78,7 +347,32 @@
                     "description": "입력값 검증 실패",
                     "value": {
                       "status": 400,
-                      "message": "대회 ID는 0보다 커야 합니다.",
+                      "message": "대회 ID를 작성해주세요.",
+                      "data": null
+                    }
+                  },
+                  "요청 본문 형식 오류": {
+                    "description": "요청 본문 형식 오류",
+                    "value": {
+                      "status": 400,
+                      "message": "요청 본문 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  },
+                  "회원 ID 형식 오류": {
+                    "description": "회원 ID 형식 오류",
+                    "value": {
+                      "status": 400,
+                      "message": "요청 값의 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  },
+                  "회원 ID가 0 이하": {
+                    "description": "회원 ID가 0 이하",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "회원 ID가 올바르지 않습니다.",
                       "data": null
                     }
                   }
@@ -93,32 +387,44 @@
                 "schema": {
                   "$ref": "#/components/schemas/RsData"
                 },
-                "examples": {
-                  "회원 ID 헤더 없음": {
-                    "description": "회원 ID 헤더 없음",
-                    "value": {
-                      "status": 401,
-                      "message": "로그인이 필요합니다.",
-                      "data": null
-                    }
-                  }
+                "example": {
+                  "status": 401,
+                  "code": "LOGIN_REQUIRED",
+                  "message": "로그인이 필요합니다.",
+                  "data": null
                 }
               }
             }
           },
           "403": {
-            "description": "접수 기간이 아니거나 이 대회의 종목이 아님",
+            "description": "다른 대회의 종목 또는 대회에서 뺀 종목, 판매를 멈춘 대회, 접수 기간이 아님(판매 중이 아님, 개인 예매 오픈 전, 접수 마감 뒤)",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RsData"
                 },
                 "examples": {
-                  "접수 기간이 아니거나 이 대회의 종목이 아님": {
-                    "description": "접수 기간이 아니거나 이 대회의 종목이 아님",
+                  "이 대회의 종목이 아님": {
+                    "description": "이 대회의 종목이 아님",
                     "value": {
                       "status": 403,
-                      "message": "지금은 대기열에 들어갈 수 없습니다.",
+                      "message": "이 대회의 종목이 아닙니다.",
+                      "data": null
+                    }
+                  },
+                  "판매를 멈춘 대회": {
+                    "description": "판매를 멈춘 대회",
+                    "value": {
+                      "status": 403,
+                      "message": "판매를 잠시 멈춘 대회입니다.",
+                      "data": null
+                    }
+                  },
+                  "접수 기간 아님": {
+                    "description": "접수 기간 아님",
+                    "value": {
+                      "status": 403,
+                      "message": "접수 기간이 아닙니다.",
                       "data": null
                     }
                   }
@@ -134,11 +440,19 @@
                   "$ref": "#/components/schemas/RsData"
                 },
                 "examples": {
-                  "없는 대회 또는 없는 종목": {
-                    "description": "없는 대회 또는 없는 종목",
+                  "없는 대회": {
+                    "description": "없는 대회",
                     "value": {
                       "status": 404,
                       "message": "존재하지 않는 대회입니다.",
+                      "data": null
+                    }
+                  },
+                  "없는 종목": {
+                    "description": "없는 종목",
+                    "value": {
+                      "status": 404,
+                      "message": "존재하지 않는 종목입니다.",
                       "data": null
                     }
                   }
@@ -153,15 +467,10 @@
                 "schema": {
                   "$ref": "#/components/schemas/RsData"
                 },
-                "examples": {
-                  "이미 입장(active)한 회원": {
-                    "description": "이미 입장(active)한 회원",
-                    "value": {
-                      "status": 409,
-                      "message": "이미 입장한 회원입니다.",
-                      "data": null
-                    }
-                  }
+                "example": {
+                  "status": 409,
+                  "message": "이미 입장한 회원입니다.",
+                  "data": null
                 }
               }
             }
@@ -173,12 +482,586 @@
                 "schema": {
                   "$ref": "#/components/schemas/RsData"
                 },
+                "example": {
+                  "status": 503,
+                  "message": "대기열에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/queue/parties": {
+      "post": {
+        "tags": [
+          "PartyQueue"
+        ],
+        "summary": "파티 대기열 등록",
+        "description": "대회·종목의 파티 대기열에 파티장을 줄 세우고 순번을 돌려준다. 판매 중이고 크루 예매 시작부터 크루 예매 마감 전까지(접수 마감 전)만 들어올 수 있다. 등록 전에 주문 서비스의 이 대회 내 파티 상태 API(GET /api/v1/order/parties/me/race-status?raceId=)로 파티장이고 신청할 수 있는지(role=LEADER, canApply=true) 확인하고, 종목은 그 응답의 raceCourseId를 보낸다. 대기열은 파티장인지 확인하지 않는다. 이미 줄에 있는 파티장이 다시 등록하면(다른 기기 등) 처음 순번을 그대로 돌려준다. 이미 입장(active)한 파티장은 다시 줄을 설 수 없다. 대기열(Redis)에 연결하지 못하면 대기열 없이 통과시키지 않고 막는다.",
+        "operationId": "register_1",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueueRegisterRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "등록 성공 (이미 줄에 있으면 처음 순번)",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "파티 대기열에 등록했습니다.",
+                  "data": {
+                    "myRank": 3,
+                    "ahead": 2,
+                    "total": 10,
+                    "canEnter": false
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "입력값 검증 실패, 요청 본문 형식 오류 또는 회원 ID 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
                 "examples": {
-                  "대기열(Redis) 연결 실패": {
-                    "description": "대기열(Redis) 연결 실패",
+                  "입력값 검증 실패": {
+                    "description": "입력값 검증 실패",
                     "value": {
-                      "status": 503,
-                      "message": "대기열에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요.",
+                      "status": 400,
+                      "message": "대회 ID를 작성해주세요.",
+                      "data": null
+                    }
+                  },
+                  "요청 본문 형식 오류": {
+                    "description": "요청 본문 형식 오류",
+                    "value": {
+                      "status": 400,
+                      "message": "요청 본문 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  },
+                  "회원 ID 형식 오류": {
+                    "description": "회원 ID 형식 오류",
+                    "value": {
+                      "status": 400,
+                      "message": "요청 값의 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  },
+                  "회원 ID가 0 이하": {
+                    "description": "회원 ID가 0 이하",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "회원 ID가 올바르지 않습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "code": "LOGIN_REQUIRED",
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "다른 대회의 종목 또는 대회에서 뺀 종목, 판매를 멈춘 대회, 크루 예매 기간이 아님(판매 중이 아님, 크루 예매가 없는 대회, 크루 예매 시작 전, 크루 예매 마감·접수 마감 뒤)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "이 대회의 종목이 아님": {
+                    "description": "이 대회의 종목이 아님",
+                    "value": {
+                      "status": 403,
+                      "message": "이 대회의 종목이 아닙니다.",
+                      "data": null
+                    }
+                  },
+                  "판매를 멈춘 대회": {
+                    "description": "판매를 멈춘 대회",
+                    "value": {
+                      "status": 403,
+                      "message": "판매를 잠시 멈춘 대회입니다.",
+                      "data": null
+                    }
+                  },
+                  "크루 예매 기간 아님": {
+                    "description": "크루 예매 기간 아님",
+                    "value": {
+                      "status": 403,
+                      "message": "크루 예매 기간이 아닙니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "없는 대회 또는 없는 종목",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "없는 대회": {
+                    "description": "없는 대회",
+                    "value": {
+                      "status": 404,
+                      "message": "존재하지 않는 대회입니다.",
+                      "data": null
+                    }
+                  },
+                  "없는 종목": {
+                    "description": "없는 종목",
+                    "value": {
+                      "status": 404,
+                      "message": "존재하지 않는 종목입니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "이미 입장(active)한 파티장",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 409,
+                  "message": "이미 입장한 회원입니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "대기열(Redis) 연결 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 503,
+                  "message": "대기열에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/queue/races/{raceId}/racecourses/{raceCourseId}": {
+      "get": {
+        "tags": [
+          "QueueAdmission"
+        ],
+        "summary": "대기열 입장 확인",
+        "description": "회원이 대회·종목에 입장(active) 중인지와 입장 끝 시각, 끝 시각까지 남은 시간(ms)을 돌려준다. 입장 끝 시각이 주문의 자리 확보 기한·결제 기한이 된다. 줄에서 기다리는 중, 입장 시간이 끝남, 대기열에 없음이면 admitted=false다. 대기열(Redis)에 연결하지 못해도 오류가 아니라 admitted=false로 돌려준다. 대기열(Redis)만 읽고 대회·종목이 있는지는 확인하지 않는다.",
+        "operationId": "getAdmission",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          },
+          {
+            "name": "raceId",
+            "in": "path",
+            "description": "대회 ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "exclusiveMinimum": 0
+            },
+            "example": 1
+          },
+          {
+            "name": "raceCourseId",
+            "in": "path",
+            "description": "종목 ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "exclusiveMinimum": 0
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "확인 성공 (입장 중 또는 입장 중 아님)",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "입장 중": {
+                    "description": "입장 중",
+                    "value": {
+                      "status": 200,
+                      "message": "대기열에 입장 중입니다.",
+                      "data": {
+                        "admitted": true,
+                        "admissionEndsAt": "2026-10-16T14:10:00",
+                        "remainingMillis": 540000
+                      }
+                    }
+                  },
+                  "입장 중 아님": {
+                    "description": "입장 중 아님",
+                    "value": {
+                      "status": 200,
+                      "message": "대기열에 입장 중이 아닙니다.",
+                      "data": {
+                        "admitted": false,
+                        "admissionEndsAt": null,
+                        "remainingMillis": 0
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "대회·종목 ID 또는 회원 ID 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "ID 형식 오류": {
+                    "description": "ID 형식 오류",
+                    "value": {
+                      "status": 400,
+                      "message": "요청 값의 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  },
+                  "대회·종목 ID가 0 이하": {
+                    "description": "대회·종목 ID가 0 이하",
+                    "value": {
+                      "status": 400,
+                      "message": "대회 ID는 0보다 커야 합니다.",
+                      "data": null
+                    }
+                  },
+                  "회원 ID가 0 이하": {
+                    "description": "회원 ID가 0 이하",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "회원 ID가 올바르지 않습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "code": "LOGIN_REQUIRED",
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/queue/parties/races/{raceId}/racecourses/{raceCourseId}": {
+      "get": {
+        "tags": [
+          "PartyQueueAdmission"
+        ],
+        "summary": "파티 대기열 입장 확인",
+        "description": "파티장(X-Member-Id)이 대회·종목의 파티 대기열에 입장(active) 중인지와 입장 끝 시각, 끝 시각까지 남은 시간(ms)을 돌려준다. 파티 줄만 보고, 개인 대기열에 입장한 회원은 admitted=false다. 줄에서 기다리는 중, 입장 시간이 끝남, 파티 대기열에 없음이면 admitted=false다. 대기열(Redis)에 연결하지 못해도 오류가 아니라 admitted=false로 돌려준다. 대기열(Redis)만 읽고 대회·종목이 있는지는 확인하지 않는다.",
+        "operationId": "getAdmission_1",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          },
+          {
+            "name": "raceId",
+            "in": "path",
+            "description": "대회 ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "exclusiveMinimum": 0
+            },
+            "example": 1
+          },
+          {
+            "name": "raceCourseId",
+            "in": "path",
+            "description": "종목 ID (파티 종목)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "exclusiveMinimum": 0
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "확인 성공 (입장 중 또는 입장 중 아님)",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "입장 중": {
+                    "description": "입장 중",
+                    "value": {
+                      "status": 200,
+                      "message": "파티 대기열에 입장 중입니다.",
+                      "data": {
+                        "admitted": true,
+                        "admissionEndsAt": "2026-10-16T14:15:00",
+                        "remainingMillis": 840000
+                      }
+                    }
+                  },
+                  "입장 중 아님": {
+                    "description": "입장 중 아님",
+                    "value": {
+                      "status": 200,
+                      "message": "파티 대기열에 입장 중이 아닙니다.",
+                      "data": {
+                        "admitted": false,
+                        "admissionEndsAt": null,
+                        "remainingMillis": 0
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "대회·종목 ID 또는 회원 ID 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "ID 형식 오류": {
+                    "description": "ID 형식 오류",
+                    "value": {
+                      "status": 400,
+                      "message": "요청 값의 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  },
+                  "대회·종목 ID가 0 이하": {
+                    "description": "대회·종목 ID가 0 이하",
+                    "value": {
+                      "status": 400,
+                      "message": "대회 ID는 0보다 커야 합니다.",
+                      "data": null
+                    }
+                  },
+                  "회원 ID가 0 이하": {
+                    "description": "회원 ID가 0 이하",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "회원 ID가 올바르지 않습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "code": "LOGIN_REQUIRED",
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/queue/kafka-failures": {
+      "get": {
+        "tags": [
+          "QueueDlt"
+        ],
+        "summary": "처리 실패 메시지 목록",
+        "description": "상태별 DLT 실패 행을 최근 것부터 size건 돌려준다. 상태를 빼면 처리 실패(사람이 봐야 하는 메시지)를 보여 준다.",
+        "operationId": "list",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "상태 (FAILED 처리 실패, RESENT 다시 보냄, COMPLETED 처리 완료)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "FAILED",
+              "enum": [
+                "FAILED",
+                "RESENT",
+                "COMPLETED"
+              ]
+            },
+            "example": "FAILED"
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "조회 건수 (1~100)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1
+            },
+            "example": 50
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "조회 성공",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "처리 실패 메시지를 조회했습니다.",
+                  "data": [
+                    {
+                      "id": 15,
+                      "status": "FAILED",
+                      "originalTopic": "queuing.race.changed",
+                      "dltTopic": "queuing.race.changed.queue.dlt",
+                      "dltPartition": 0,
+                      "dltOffset": 7,
+                      "messageKey": "1",
+                      "messageId": "product-outbox-7c9e6679-7425-40de-944b-e07fc1f90a42",
+                      "payload": "{\"raceId\":1,\"saleStatus\":\"ON_SALE\"}",
+                      "exceptionClass": "org.springframework.dao.DataIntegrityViolationException",
+                      "exceptionMessage": "could not execute statement",
+                      "createDate": "2026-11-04T10:15:30",
+                      "resentDate": null,
+                      "completedDate": null,
+                      "completeMemo": null
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "없는 상태 값 또는 조회 건수 범위 밖",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "없는 상태 값": {
+                    "description": "없는 상태 값",
+                    "value": {
+                      "status": 400,
+                      "message": "요청 값의 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  },
+                  "조회 건수 범위 밖": {
+                    "description": "조회 건수 범위 밖",
+                    "value": {
+                      "status": 400,
+                      "message": "한 번에 100건까지 조회할 수 있습니다.",
                       "data": null
                     }
                   }
@@ -195,18 +1078,17 @@
           "Queue"
         ],
         "summary": "대기열 순번 조회",
-        "description": "대기 화면이 몇 초마다 불러 내 순번과 입장 여부를 확인한다. 입장(active)했으면 canEnter=true다. 줄에도 입장 상태에도 없으면 404다.",
+        "description": "대기 화면이 몇 초마다 불러 내 순번과 입장 여부를 확인한다. 줄에서 기다리는 중이면 순번·앞 인원·전체 인원을, 입장(active)했으면 canEnter=true를 돌려준다. 대기열(Redis)만 읽고 대회·종목이 있는지는 확인하지 않는다. 대기열(Redis)에 연결하지 못하면 막는다.",
         "operationId": "getStatus",
         "parameters": [
           {
             "name": "X-Member-Id",
             "in": "header",
-            "description": "요청한 회원 ID (게이트웨이가 넣어 준다)",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
             "required": true,
             "schema": {
               "type": "integer",
-              "format": "int32",
-              "exclusiveMinimum": 0
+              "format": "int64"
             },
             "example": 1
           },
@@ -217,7 +1099,7 @@
             "required": true,
             "schema": {
               "type": "integer",
-              "format": "int32",
+              "format": "int64",
               "exclusiveMinimum": 0
             },
             "example": 1
@@ -229,7 +1111,7 @@
             "required": true,
             "schema": {
               "type": "integer",
-              "format": "int32",
+              "format": "int64",
               "exclusiveMinimum": 0
             },
             "example": 1
@@ -242,6 +1124,7 @@
               "application/json": {
                 "examples": {
                   "기다리는 중": {
+                    "description": "기다리는 중",
                     "value": {
                       "status": 200,
                       "message": "대기열 상태를 조회했습니다.",
@@ -254,6 +1137,7 @@
                     }
                   },
                   "입장 가능": {
+                    "description": "입장 가능",
                     "value": {
                       "status": 200,
                       "message": "대기열 상태를 조회했습니다.",
@@ -277,11 +1161,28 @@
                   "$ref": "#/components/schemas/RsData"
                 },
                 "examples": {
-                  "대회·종목 ID 또는 회원 ID 오류": {
-                    "description": "대회·종목 ID 또는 회원 ID 오류",
+                  "ID 형식 오류": {
+                    "description": "ID 형식 오류",
+                    "value": {
+                      "status": 400,
+                      "message": "요청 값의 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  },
+                  "대회·종목 ID가 0 이하": {
+                    "description": "대회·종목 ID가 0 이하",
                     "value": {
                       "status": 400,
                       "message": "대회 ID는 0보다 커야 합니다.",
+                      "data": null
+                    }
+                  },
+                  "회원 ID가 0 이하": {
+                    "description": "회원 ID가 0 이하",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "회원 ID가 올바르지 않습니다.",
                       "data": null
                     }
                   }
@@ -296,35 +1197,26 @@
                 "schema": {
                   "$ref": "#/components/schemas/RsData"
                 },
-                "examples": {
-                  "회원 ID 헤더 없음": {
-                    "description": "회원 ID 헤더 없음",
-                    "value": {
-                      "status": 401,
-                      "message": "로그인이 필요합니다.",
-                      "data": null
-                    }
-                  }
+                "example": {
+                  "status": 401,
+                  "code": "LOGIN_REQUIRED",
+                  "message": "로그인이 필요합니다.",
+                  "data": null
                 }
               }
             }
           },
           "404": {
-            "description": "줄에도 없고 입장한 상태도 아닌 회원",
+            "description": "줄에도 없고 입장한 상태도 아닌 회원 (등록하지 않음, 입장 시간이 끝남, 없는 대회·종목)",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RsData"
                 },
-                "examples": {
-                  "줄에도 없고 입장한 상태도 아닌 회원": {
-                    "description": "줄에도 없고 입장한 상태도 아닌 회원",
-                    "value": {
-                      "status": 404,
-                      "message": "대기열에 없는 회원입니다.",
-                      "data": null
-                    }
-                  }
+                "example": {
+                  "status": 404,
+                  "message": "대기열에 없는 회원입니다.",
+                  "data": null
                 }
               }
             }
@@ -336,15 +1228,283 @@
                 "schema": {
                   "$ref": "#/components/schemas/RsData"
                 },
+                "example": {
+                  "status": 503,
+                  "message": "대기열에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/queue/races/{raceId}/entry": {
+      "get": {
+        "tags": [
+          "Queue"
+        ],
+        "summary": "들어갈 대기열 조회",
+        "description": "대회 상세의 [예매하기] 버튼이 파티 대기열과 개인 대기열 중 어디로 갈지 오늘 날짜(한국)로 알려 준다. 로그인하지 않아도 된다. 크루 예매가 있는 대회는 크루 예매 마지막 날까지 PARTY(크루 예매 시작 날짜 ~ 마지막 날), 그 뒤와 크루 예매가 없는 대회는 INDIVIDUAL(개인 예매 오픈 날짜 ~ 접수 마감 날짜)이다. 크루 예매 마감이 00:00 정각이면 그 전날이 마지막 날이다. url은 그 대기열에 등록하는 API(POST)이고, PARTY는 등록 전에 주문 서비스의 파티장 확인이 필요하다. 날짜만 보므로 실제로 들어갈 수 있는지는 대기열 등록이 시각으로 판정한다(예: 크루 예매가 19:00에 마감되면 그날 21:00에도 PARTY지만 등록은 막힌다). 없는 대회와 취소된 대회는 404다.",
+        "operationId": "findEntry",
+        "parameters": [
+          {
+            "name": "raceId",
+            "in": "path",
+            "description": "대회 ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "exclusiveMinimum": 0
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "조회 성공",
+            "content": {
+              "application/json": {
                 "examples": {
-                  "대기열(Redis) 연결 실패": {
-                    "description": "대기열(Redis) 연결 실패",
+                  "파티 대기열": {
+                    "description": "파티 대기열",
                     "value": {
-                      "status": 503,
-                      "message": "대기열에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요.",
+                      "status": 200,
+                      "message": "들어갈 대기열을 조회했습니다.",
+                      "data": {
+                        "raceId": 1,
+                        "entryType": "PARTY",
+                        "openDate": "2026-11-10",
+                        "closeDate": "2026-11-12",
+                        "url": "/api/v1/queue/parties"
+                      }
+                    }
+                  },
+                  "개인 대기열": {
+                    "description": "개인 대기열",
+                    "value": {
+                      "status": 200,
+                      "message": "들어갈 대기열을 조회했습니다.",
+                      "data": {
+                        "raceId": 1,
+                        "entryType": "INDIVIDUAL",
+                        "openDate": "2026-11-13",
+                        "closeDate": "2026-11-20",
+                        "url": "/api/v1/queue"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "대회 ID 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "ID 형식 오류": {
+                    "description": "ID 형식 오류",
+                    "value": {
+                      "status": 400,
+                      "message": "요청 값의 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  },
+                  "대회 ID가 0 이하": {
+                    "description": "대회 ID가 0 이하",
+                    "value": {
+                      "status": 400,
+                      "message": "대회 ID는 0보다 커야 합니다.",
                       "data": null
                     }
                   }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "없는 대회 또는 취소된 대회",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 404,
+                  "message": "존재하지 않는 대회입니다.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/queue/parties/races/{raceId}/racecourses/{raceCourseId}": {
+      "get": {
+        "tags": [
+          "PartyQueue"
+        ],
+        "summary": "파티 대기열 순번 조회",
+        "description": "파티 대기 화면이 몇 초마다 불러 파티장의 순번과 입장 여부를 확인한다. 줄에서 기다리는 중이면 순번·앞 인원·전체 인원을, 입장(active)했으면 canEnter=true를 돌려준다. canEnter=true가 되면 [대회 참가] 화면으로 넘어간다. 대기열(Redis)만 읽고 대회·종목이 있는지는 확인하지 않는다. 대기열(Redis)에 연결하지 못하면 막는다.",
+        "operationId": "getStatus_1",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          },
+          {
+            "name": "raceId",
+            "in": "path",
+            "description": "대회 ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "exclusiveMinimum": 0
+            },
+            "example": 1
+          },
+          {
+            "name": "raceCourseId",
+            "in": "path",
+            "description": "종목 ID (파티 종목)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "exclusiveMinimum": 0
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "조회 성공 (기다리는 중 또는 입장 가능)",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "기다리는 중": {
+                    "description": "기다리는 중",
+                    "value": {
+                      "status": 200,
+                      "message": "파티 대기열 상태를 조회했습니다.",
+                      "data": {
+                        "myRank": 3,
+                        "ahead": 2,
+                        "total": 10,
+                        "canEnter": false
+                      }
+                    }
+                  },
+                  "입장 가능": {
+                    "description": "입장 가능",
+                    "value": {
+                      "status": 200,
+                      "message": "파티 대기열 상태를 조회했습니다.",
+                      "data": {
+                        "myRank": 0,
+                        "ahead": 0,
+                        "total": 0,
+                        "canEnter": true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "대회·종목 ID 또는 회원 ID 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "ID 형식 오류": {
+                    "description": "ID 형식 오류",
+                    "value": {
+                      "status": 400,
+                      "message": "요청 값의 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  },
+                  "대회·종목 ID가 0 이하": {
+                    "description": "대회·종목 ID가 0 이하",
+                    "value": {
+                      "status": 400,
+                      "message": "대회 ID는 0보다 커야 합니다.",
+                      "data": null
+                    }
+                  },
+                  "회원 ID가 0 이하": {
+                    "description": "회원 ID가 0 이하",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "회원 ID가 올바르지 않습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "code": "LOGIN_REQUIRED",
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "파티 줄에도 없고 입장한 상태도 아닌 회원 (등록하지 않음, 입장 시간이 끝남, 없는 대회·종목)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 404,
+                  "message": "대기열에 없는 회원입니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "대기열(Redis) 연결 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 503,
+                  "message": "대기열에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요.",
+                  "data": null
                 }
               }
             }
@@ -371,54 +1531,45 @@
           "data": {}
         }
       },
+      "DltCompleteRequestDto": {
+        "type": "object",
+        "description": "DLT 메시지 처리 완료 요청",
+        "properties": {
+          "memo": {
+            "type": "string",
+            "description": "처리 완료 메모 (무엇을 했는지, 500자 이하)",
+            "example": "DB에서 대회 복제본을 직접 고쳐 다시 보내지 않고 닫음",
+            "maxLength": 500,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "memo"
+        ]
+      },
       "QueueRegisterRequestDto": {
         "type": "object",
         "description": "대기열 등록 요청",
         "properties": {
           "raceId": {
             "type": "integer",
-            "format": "int32",
+            "format": "int64",
             "description": "대회 ID",
             "example": 1,
-            "exclusiveMinimum": 0
+            "minimum": 0
           },
           "raceCourseId": {
             "type": "integer",
-            "format": "int32",
+            "format": "int64",
             "description": "종목 ID",
             "example": 1,
-            "exclusiveMinimum": 0
+            "minimum": 0
           }
         },
         "required": [
-          "raceId",
-          "raceCourseId"
+          "raceCourseId",
+          "raceId"
         ]
-      },
-      "QueueStatusDto": {
-        "type": "object",
-        "description": "대기열 상태. 등록과 순번 조회가 같은 모양이다",
-        "properties": {
-          "myRank": {
-            "type": "integer",
-            "format": "int64",
-            "description": "내 순번 (1부터)"
-          },
-          "ahead": {
-            "type": "integer",
-            "format": "int64",
-            "description": "내 앞에서 기다리는 인원"
-          },
-          "total": {
-            "type": "integer",
-            "format": "int64",
-            "description": "줄 전체 인원"
-          },
-          "canEnter": {
-            "type": "boolean",
-            "description": "입장할 수 있는지 (active로 승격됐는지)"
-          }
-        }
       }
     }
   }

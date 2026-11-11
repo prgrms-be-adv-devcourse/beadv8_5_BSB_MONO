@@ -24,6 +24,8 @@ vi.mock('next/navigation', () => ({
 beforeEach(() => {
   push.mockClear()
   replace.mockClear()
+  // 가입 단계가 sessionStorage에 남긴 값(돌아갈 화면 등)이 다른 테스트로 넘어가지 않게 비운다
+  sessionStorage.clear()
 })
 
 // 본인인증을 마친 결과. 본인인증 화면 자체는 signup-verification.test.tsx에서 확인한다
@@ -306,6 +308,79 @@ describe('회원가입 단계', () => {
     expect(screen.getByText(AUTH_ERRORS.passwordMismatch)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '다음' })).toBeDisabled()
   })
+})
+
+describe('가입 뒤 돌아갈 화면 (BUK-98)', () => {
+  // 로그인 화면에서 ?next=를 받아 첫 단계(본인 확인)를 연 뒤, 회원 정보 단계에서 가입을 마친다
+  async function joinWith(next?: string) {
+    server.use(
+      http.post('*/api/v1/auth/join', () =>
+        HttpResponse.json({ status: 201, message: 'ok', data: null }, { status: 201 }),
+      ),
+    )
+    const client = new QueryClient()
+    const wrap = (page: ReactNode) => (
+      <QueryClientProvider client={client}>
+        <ToastProvider>
+          <SignupStepProvider initialState={ACCOUNT_DONE}>{page}</SignupStepProvider>
+        </ToastProvider>
+      </QueryClientProvider>
+    )
+    const view = render(wrap(<SignupIdentityPage next={next} />))
+    view.rerender(wrap(<SignupProfilePage />))
+    const user = userEvent.setup()
+    await fillProfile(user)
+    await user.click(screen.getByRole('radio', { name: '여성' }))
+    await user.click(screen.getByRole('button', { name: '가입 완료' }))
+  }
+
+  it('로그인 화면에서 넘어온 next가 있으면 가입 뒤 그 화면으로 간다', async () => {
+    await joinWith('/invite/q7Xk?party=pJ0in')
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/invite/q7Xk?party=pJ0in'))
+  })
+
+  it('next가 다른 사이트 주소면 가입 뒤 홈으로 간다', async () => {
+    await joinWith('//evil.com')
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/'))
+  })
+
+  it('초대 가입을 그만두고 같은 탭에서 next 없이 다시 가입하면 이전 초대 화면이 아니라 홈으로 간다', async () => {
+    const client = new QueryClient()
+    const { unmount } = render(
+      <QueryClientProvider client={client}>
+        <ToastProvider>
+          <SignupStepProvider>
+            <SignupIdentityPage next="/invite/old" />
+          </SignupStepProvider>
+        </ToastProvider>
+      </QueryClientProvider>,
+    )
+    unmount()
+    await joinWith()
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/'))
+    expect(replace).not.toHaveBeenCalledWith('/invite/old')
+  })
+
+  it.each([
+    ['계정', <SignupAccountPage key="account" />],
+    ['회원 정보', <SignupProfilePage key="profile" />],
+  ])(
+    '%s 단계에서 입력값이 사라져 첫 화면으로 되돌릴 때 돌아갈 화면(next)을 붙여 보낸다',
+    (_, page) => {
+      const client = new QueryClient()
+      const wrap = (node: ReactNode) => (
+        <QueryClientProvider client={client}>
+          <ToastProvider>
+            <SignupStepProvider>{node}</SignupStepProvider>
+          </ToastProvider>
+        </QueryClientProvider>
+      )
+      const view = render(wrap(<SignupIdentityPage next="/invite/q7Xk?party=pJ0in" />))
+      view.unmount()
+      render(wrap(page))
+      expect(replace).toHaveBeenCalledWith('/signup?next=%2Finvite%2Fq7Xk%3Fparty%3DpJ0in')
+    },
+  )
 })
 
 describe('이메일 중복 확인 (PRO-201)', () => {

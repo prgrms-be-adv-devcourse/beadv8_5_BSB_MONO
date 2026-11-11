@@ -20,9 +20,13 @@ import com.bukang.common.shared.seller.domain.SellerStatus;
 import com.bukang.common.shared.seller.domain.SellerType;
 import com.bukang.product.domain.HoldReleaseReason;
 import com.bukang.product.domain.ProductDltKafkaEvent;
+import com.bukang.product.dto.CrewHoldRequestDto;
+import com.bukang.product.dto.CrewHoldResultDto;
 import com.bukang.product.dto.HoldRequestDto;
 import com.bukang.product.dto.HoldResultDto;
 import com.bukang.product.dto.HoldSellResult;
+import com.bukang.product.dto.KitOptionListResponseDto;
+import com.bukang.product.dto.KitOptionSaveRequestDto;
 import com.bukang.product.dto.RaceCourseInfoDto;
 import com.bukang.product.dto.RaceDetailDto;
 import com.bukang.product.dto.RacePageDto;
@@ -34,7 +38,9 @@ import com.bukang.product.dto.RaceSuggestionDto;
 import com.bukang.product.dto.SellerRaceDto;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
@@ -52,6 +58,9 @@ public class ProductFacade {
 	private final RaceSaleStatusUseCase raceSaleStatusUseCase;
 	private final RaceHoldUseCase raceHoldUseCase;
 	private final RaceCancelUseCase raceCancelUseCase;
+	private final RaceSaleStopUseCase raceSaleStopUseCase;
+	private final RaceKitOptionUseCase raceKitOptionUseCase;
+	private final CrewSeatBatchUseCase crewSeatBatchUseCase;
 	private final TransactionTemplate transactionTemplate;
 	private final ProductOutboxKafkaAppendUseCase productOutboxKafkaAppendUseCase;
 	private final ProductOutboxKafkaRelayUseCase productOutboxKafkaRelayUseCase;
@@ -147,6 +156,43 @@ public class ProductFacade {
 		return result.saved().dto();
 	}
 
+	// 판매자가 판매를 멈춘다. 대기열에 보낼 대회 변경 메시지(판매 중지 → 입장 막힘)와 검색 문서 동기화 이벤트를
+	// 같은 트랜잭션에서 남긴다. 판매 중지 대회도 공개 목록에는 남는다 (검색 문서의 판매 상태만 바뀐다)
+	@Transactional(propagation = Propagation.NOT_SUPPORTED)
+	public RaceSaveDto stopRace(long memberId, long raceId) {
+		return transactionTemplate.execute(status -> {
+			RaceSaveResult stopped = raceSaleStopUseCase.stop(memberId, raceId, LocalDateTime.now());
+			appendRaceChanged(stopped);
+			raceDocumentSyncAppendUseCase.append(raceId);
+			return stopped.dto();
+		});
+	}
+
+	// 판매자가 판매를 다시 연다. 메시지와 검색 문서는 멈추기와 같이 남긴다 (대기열 입장이 다시 열린다)
+	@Transactional(propagation = Propagation.NOT_SUPPORTED)
+	public RaceSaveDto resumeRace(long memberId, long raceId) {
+		return transactionTemplate.execute(status -> {
+			RaceSaveResult resumed = raceSaleStopUseCase.resume(memberId, raceId, LocalDateTime.now());
+			appendRaceChanged(resumed);
+			raceDocumentSyncAppendUseCase.append(raceId);
+			return resumed.dto();
+		});
+	}
+
+	// 판매자가 대회에 키트 옵션을 처음 등록한다. 주문은 결제 때 목록을 HTTP로 읽으므로 메시지·검색 문서는 남기지 않는다
+	@Transactional
+	public KitOptionListResponseDto registerKitOptions(long memberId, long raceId,
+		List<KitOptionSaveRequestDto> requests) {
+		return raceKitOptionUseCase.register(memberId, raceId, requests, LocalDateTime.now());
+	}
+
+	// 판매자가 대회의 키트 옵션을 통째로 바꾼다 (메시지는 등록과 같이 남기지 않는다)
+	@Transactional
+	public KitOptionListResponseDto updateKitOptions(long memberId, long raceId,
+		List<KitOptionSaveRequestDto> requests) {
+		return raceKitOptionUseCase.update(memberId, raceId, requests, LocalDateTime.now());
+	}
+
 	// 주문 서비스의 [결제하기] 자리 확보 (내부 API)
 	@Transactional(propagation = Propagation.NOT_SUPPORTED)
 	public HoldResultDto holdSeat(HoldRequestDto request) {
@@ -157,6 +203,24 @@ public class ProductFacade {
 			// 늦은 쪽 트랜잭션은 카운터를 올린 것까지 롤백되었으므로, 먼저 잡힌 자리의 결과를 돌려준다
 			return transactionTemplate.execute(status ->
 				raceHoldUseCase.findExisting(request.getParticipationId()));
+		}
+	}
+
+	// 주문 서비스의 파티 [대회 참가] 크루 자리 확보 (내부 API). 파티원 수만큼 한꺼번에, 모자라면 한 석도 잡지 않는다
+	@Transactional(propagation = Propagation.NOT_SUPPORTED)
+	public CrewHoldResultDto holdCrewSeats(CrewHoldRequestDto request) {
+		// 요청 DTO를 UseCase 안쪽으로 넘기지 않고 값만 풀어 넘긴다
+		List<RaceHoldUseCase.CrewSeat> seats = request.getSeats().stream()
+			.map(seat -> new RaceHoldUseCase.CrewSeat(seat.getParticipationId(), seat.getRaceCourseId()))
+			.toList();
+		try {
+			return transactionTemplate.execute(status -> raceHoldUseCase.holdCrew(request.getPartyId(),
+				request.getCrewId(), request.getRaceId(), request.getExpiresAt(), seats, LocalDateTime.now()));
+		} catch (DataIntegrityViolationException exception) {
+			// 같은 파티로 동시에 확보를 요청해 늦은 쪽이 유니크 제약(participation_id)에 걸렸다
+			// 늦은 쪽 트랜잭션은 카운터를 올린 것까지 롤백되었으므로, 먼저 잡힌 자리의 결과를 돌려준다
+			return transactionTemplate.execute(status ->
+				raceHoldUseCase.findExistingCrew(request.getPartyId(), seats));
 		}
 	}
 
@@ -198,6 +262,10 @@ public class ProductFacade {
 		return raceQueryUseCase.findDetail(raceId, memberId);
 	}
 
+	public KitOptionListResponseDto findKitOptions(long raceId, Long memberId) {
+		return raceQueryUseCase.findKitOptions(raceId, memberId);
+	}
+
 	public List<SellerRaceDto> findMyRaces(long memberId) {
 		return raceQueryUseCase.findMine(memberId);
 	}
@@ -226,6 +294,29 @@ public class ProductFacade {
 			raceDocumentSyncAppendUseCase.append(event.raceId());
 		});
 		return result.raceChanges().size();
+	}
+
+	// 크루 자리 매시간 배치. CrewSeatBatchScheduler가 매시 정각의 시각을, 테스트는 고정 시각을 넣어 부른다
+	// 클래스의 읽기 전용 트랜잭션 밖에서(NOT_SUPPORTED) 돌려야 아래 transactionTemplate이 단계·종목마다 따로 트랜잭션을 연다
+	// ① 결제 기한이 지난 결제 대기 크루 자리 반환은 트랜잭션 하나로 한다
+	// ② 크루 몫 이동은 종목마다 따로 트랜잭션으로 한다. 한 종목이 실패해도 나머지 종목은 옮기고, 실패한 종목은 다음 정각에 다시 고른다
+	//   (반환·이동이 모두 조건부 UPDATE라 다시 돌아도 한 번만 반영된다)
+	@Transactional(propagation = Propagation.NOT_SUPPORTED)
+	public CrewSeatBatchUseCase.Result runCrewSeatBatch(LocalDateTime now) {
+		Integer released = transactionTemplate.execute(status -> crewSeatBatchUseCase.releaseExpiredCrew(now));
+		int closedCourses = 0;
+		for (long raceCourseId : crewSeatBatchUseCase.findClosableCourseIds(now)) {
+			try {
+				if (Boolean.TRUE.equals(transactionTemplate.execute(status ->
+					crewSeatBatchUseCase.closeCrew(raceCourseId, now)))) {
+					closedCourses++;
+				}
+			} catch (RuntimeException exception) {
+				log.error("크루 몫을 개인 몫으로 옮기지 못했습니다. 다음 정각에 다시 시도합니다. raceCourseId={}", raceCourseId,
+					exception);
+			}
+		}
+		return new CrewSeatBatchUseCase.Result(released == null ? 0 : released, closedCourses);
 	}
 
 	// 아웃박스의 미발행 메시지를 Kafka로 보낸다 (ProductOutboxKafkaRelayScheduler가 1초마다 부른다). 보낸 건수를 돌려준다

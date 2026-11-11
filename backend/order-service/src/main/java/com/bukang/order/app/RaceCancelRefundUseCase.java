@@ -30,6 +30,7 @@ import lombok.extern.slf4j.Slf4j;
  * 결제 대기 주문은 예치금 결제를 취소해 둔다(D, 주문 ID 멱등). 결제가 차감·판매 뒤 응답을 못 받아 결제 대기로 남았으면
  * 상품은 이미 판 자리라 다시 결제할 때 판매를 허락하므로, D에서 막지 않으면 취소된 대회의 참가권이 결제된다.
  * 빠져나간 돈도 이때 돌려받는다. 주문은 결제 대기로 두고, 기한이 지나면 만료 정리가 끝낸다
+ * 그 대회의 끝나지 않은 파티도 종료한다 (BUK-155, PartyCloseUseCase.closeCanceledRace)
  */
 @Slf4j
 @Service
@@ -47,12 +48,14 @@ public class RaceCancelRefundUseCase {
 	private final WalletPort walletPort;
 	private final OrderOutboxKafkaAppendUseCase orderOutboxKafkaAppendUseCase;
 	private final TransactionTemplate transactionTemplate;
+	private final KitOptionSaleUseCase kitOptionSaleUseCase;
+	private final PartyCloseUseCase partyCloseUseCase;
 
 	/**
 	 * @param refundedOrders 이번에 취소·환불한 주문 수
 	 * @param failedOrders   환불(D 장애 등)에 실패해 결제 완료로 남긴 주문 수. 같은 대회 취소를 다시 처리하면 이어서 환불한다
 	 *                       예치금 장애로 중간에 멈추면 1 이상이다 (보지 못한 주문은 세지 않는다)
-	 *                       결제 대기 주문의 결제 취소에 실패한 것도 센다
+	 *                       결제 대기 주문의 결제 취소에 실패한 것도 센다. 종료하지 못한 파티 수(BUK-155)도 더한다
 	 */
 	public record RefundResult(int refundedOrders, int failedOrders) {
 	}
@@ -67,6 +70,13 @@ public class RaceCancelRefundUseCase {
 		transactionTemplate.executeWithoutResult(status -> orderOutboxKafkaAppendUseCase.appendRaceHeld(raceId, now));
 		int refunded = 0;
 		int failed = 0;
+		// 끝나지 않은 파티를 종료한다 (BUK-155). 실패해도 환불은 계속하고, 실패로 세어 메시지를 다시 처리하게 한다
+		try {
+			failed += partyCloseUseCase.closeCanceledRace(raceId, now).failed();
+		} catch (RuntimeException exception) {
+			failed++;
+			log.warn("취소된 대회의 파티를 종료하지 못했습니다. raceId={}, cause={}", raceId, exception.toString());
+		}
 		int consecutiveFailures = 0;
 		long afterId = 0;
 		List<Long> orderIds;
@@ -138,6 +148,8 @@ public class RaceCancelRefundUseCase {
 			Participation participation = participationRepository.findByIdForUpdate(item.getParticipationId())
 				.orElseThrow(() -> new ParticipationNotFoundException("존재하지 않는 참가 신청입니다."));
 			participation.markCanceled(now);
+			// 환불이 실패하면 아래 예외로 함께 롤백된다
+			kitOptionSaleUseCase.release(participation.getId());
 		}
 		// 주문 하나 = 참가권 하나라 주문 단위 전액 환불이 그 참가권의 환불이다. 실패하면 예외로 이 주문만 롤백된다
 		walletPort.refund(order.getId(), order.getBuyerId());

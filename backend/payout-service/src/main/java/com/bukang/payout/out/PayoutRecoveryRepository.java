@@ -1,11 +1,14 @@
 package com.bukang.payout.out;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 
 import com.bukang.payout.domain.PayoutRecovery;
+import com.bukang.payout.domain.PayoutRecoveryCompletion;
 import com.bukang.payout.domain.PayoutRecoveryReason;
 import com.bukang.payout.domain.PayoutRecoveryStatus;
 
@@ -25,4 +28,20 @@ public interface PayoutRecoveryRepository extends JpaRepository<PayoutRecovery, 
 	// 청구 배치: 대회 취소 회수의 요청일(= 대회 취소일)로 청구 날짜를 정한다
 	Optional<PayoutRecovery> findFirstBySellerIdAndRaceIdAndReasonType(long sellerId, long raceId,
 		PayoutRecoveryReason reasonType);
+
+	// 판매자 회수 내역 (BUK-106): 청구가 있는 판매자 x 대회의 회수만, 회수 요청일 최근 순
+	// 청구 전에 상계로 끝난 회수는 청구 금액에 들어가지 않았으므로 뺀다
+	@Query("""
+		select new com.bukang.payout.out.PayoutRecoveryRepository$ClaimedRecovery(r, c.claimCode)
+		from PayoutRecovery r
+		join PayoutClaim c on c.sellerId = r.sellerId and c.raceId = r.raceId
+		where r.sellerId = :sellerId and r.requestedAt >= :start and r.requestedAt < :end
+			and (r.completion is null or r.completion <> :offset)
+		order by r.requestedAt desc, r.id desc
+		""")
+	List<ClaimedRecovery> findSellerClaimedRecoveries(long sellerId, LocalDateTime start, LocalDateTime end,
+		PayoutRecoveryCompletion offset);
+
+	record ClaimedRecovery(PayoutRecovery recovery, String claimCode) {
+	}
 }

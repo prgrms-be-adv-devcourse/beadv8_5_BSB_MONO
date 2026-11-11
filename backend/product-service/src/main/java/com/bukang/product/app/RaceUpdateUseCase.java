@@ -33,6 +33,7 @@ import lombok.RequiredArgsConstructor;
 /**
  * 판매자가 본인이 등록한 대회를 등록과 같은 모양의 요청으로 통째로 바꾼다.
  * 종목은 courseId가 있으면 수정, 없으면 추가하고, 요청에 없는 기존 종목은 뺀다. 이미지 목록도 통째로 바뀐다.
+ * 키트 옵션은 (이름, 값)으로 기존 옵션을 찾아 같은 방법으로 바꾼다 (RaceKitOptionUpdater).
  */
 @Service
 @RequiredArgsConstructor
