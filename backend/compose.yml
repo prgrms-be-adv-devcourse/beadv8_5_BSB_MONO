@@ -445,3 +445,25 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # Ollama (로컬 임베딩·채팅 모델, 상품 서비스 AI 추천 개발용) → http://localhost:11434
+  # ai 프로필이라 기본 `docker compose up`과 다른 서비스의 bootRun에서는 뜨지 않는다
+  # 상품 서비스를 dev로 띄울 때만 application-dev.yaml의 spring.docker.compose.profiles.active가 켠다
+  # 모델은 처음 한 번 받아 둔다: docker compose exec bukang-ollama ollama pull <모델 이름>
+  bukang-ollama:
+    image: ollama/ollama:0.40.15
+    container_name: bukang-ollama
+    profiles: [ ai ]
+    ports:
+      - "11434:11434"
+    volumes:
+      # Ollama가 모델을 저장하는 경로. 다른 경로에 연결하면 컨테이너를 지울 때 받은 모델도 사라진다
+      - bukang-ollama-data:/root/.ollama
+    healthcheck:
+      test: [ "CMD", "ollama", "list" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  bukang-ollama-data:

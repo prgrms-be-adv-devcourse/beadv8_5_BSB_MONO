@@ -5,6 +5,14 @@ plugins {
 	id("io.spring.dependency-management")
 }
 
+// Spring AI 버전은 BOM 하나로 맞춘다 (Spring Boot BOM에 들어 있지 않다)
+// dependencies 블록보다 위에 둔다. 아래 QueryDSL 줄이 importedProperties를 읽는 순간 BOM 목록이 정해져, 그 뒤에 더한 BOM은 무시된다
+dependencyManagement {
+	imports {
+		mavenBom("org.springframework.ai:spring-ai-bom:2.0.1")
+	}
+}
+
 dependencies {
 	implementation(project(":common"))
 
@@ -14,6 +22,9 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-kafka") // kafka (서비스 간 이벤트)
 	implementation("org.springframework.boot:spring-boot-starter-data-elasticsearch") // elastic search (대회 검색)
 	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.0") //swagger and openapi
+	// AI 추천 임베딩 (버전은 아래 spring-ai-bom). dev·test는 Ollama, prod는 OpenAI를 쓴다
+	implementation("org.springframework.ai:spring-ai-starter-model-ollama")
+	implementation("org.springframework.ai:spring-ai-starter-model-openai")
 
 	developmentOnly("org.springframework.boot:spring-boot-devtools") // dev-tools
 	// App 실행시 compose.yml 인프라 자동 실행 (bootRun/IDE 실행에만 포함, 운영 jar에서는 제외)
@@ -31,6 +42,9 @@ dependencies {
 	testImplementation("org.springframework.boot:spring-boot-testcontainers") // @ServiceConnection
 	testImplementation("org.testcontainers:testcontainers-junit-jupiter") // @Testcontainers
 	testImplementation("org.testcontainers:testcontainers-elasticsearch")
+	// 테스트용 Ollama(AI 추천 임베딩, BUK-162)를 Docker로 띄운다. 접속 주소는 @ServiceConnection이 넣어 준다
+	testImplementation("org.springframework.ai:spring-ai-spring-boot-testcontainers")
+	testImplementation("org.testcontainers:testcontainers-ollama")
 
 	// QueryDSL (Jakarta 버전, 버전은 Spring Boot BOM의 querydsl.version 사용)
 	val querydslVersion = dependencyManagement.importedProperties["querydsl.version"]
