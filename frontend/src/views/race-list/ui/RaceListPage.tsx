@@ -224,12 +224,7 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
                     <Badge tone={race.badge.tone}>{race.badge.label}</Badge>
                     <p className="text-body1-bold">{race.title}</p>
                     <p className="text-body2-regular text-text-secondary">{race.meta}</p>
-                    <div className="flex w-full items-center justify-between pt-1">
-                      <span className="text-body2-medium">{race.price}</span>
-                      <span className="text-caption-regular text-text-secondary">
-                        {race.remaining}
-                      </span>
-                    </div>
+                    <span className="pt-1 text-body2-medium">{race.price}</span>
                   </div>
                 </Link>
                 <IconButton

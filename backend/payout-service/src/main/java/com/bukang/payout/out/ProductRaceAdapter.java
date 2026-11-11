@@ -38,8 +38,10 @@ public class ProductRaceAdapter implements RacePort {
 	private final RestClient restClient;
 
 	@Autowired
-	public ProductRaceAdapter(@Value("${payout.services.product}") String productServiceUrl) {
-		this(RestClient.builder()
+	public ProductRaceAdapter(RestClient.Builder builder,
+		@Value("${payout.services.product}") String productServiceUrl) {
+		// Boot가 주는 빌더는 주입마다 새로 만들어져(prototype) 다른 어댑터와 baseUrl이 섞이지 않는다
+		this(builder
 			.baseUrl(productServiceUrl)
 			.requestFactory(requestFactory())
 			.build());
