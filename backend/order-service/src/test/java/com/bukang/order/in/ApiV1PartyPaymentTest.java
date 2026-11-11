@@ -43,6 +43,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import com.bukang.common.shared.notification.NotificationKafkaSender;
 import com.bukang.common.shared.notification.NotificationKind;
 import com.bukang.common.shared.notification.event.NotificationRequestedEvent;
+import com.bukang.order.app.CrewMemberPartyQueryUseCase;
 import com.bukang.order.app.OrderExpiryUseCase;
 import com.bukang.order.app.OrderPayUseCase;
 import com.bukang.order.app.PartyPaymentDeadlineUseCase;
@@ -120,6 +121,9 @@ class ApiV1PartyPaymentTest {
 	private OrderPayUseCase orderPayUseCase;
 
 	@Autowired
+	private CrewMemberPartyQueryUseCase crewMemberPartyQueryUseCase;
+
+	@Autowired
 	private OrderExpiryUseCase orderExpiryUseCase;
 
 	@Autowired
@@ -183,6 +187,12 @@ class ApiV1PartyPaymentTest {
 			.andExpect(jsonPath("$.data.paidCount").value(2));
 		mockMvc.perform(MockMvcRequestBuilders.get(PARTY_URL + "/" + partyId).header("X-Member-Id", 3L))
 			.andExpect(status().isForbidden());
+		// 빠진 사람은 내 파티 목록에 이 파티가 없고 크루 나가기도 막히지 않는다. 결제한 사람은 그대로 막힌다
+		mockMvc.perform(MockMvcRequestBuilders.get(PARTY_URL + "/me").header("X-Member-Id", 3L))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data").isEmpty());
+		assertThat(crewMemberPartyQueryUseCase.findPartyStatus(CREW_ID, 3L).blockingParties()).isEmpty();
+		assertThat(crewMemberPartyQueryUseCase.findPartyStatus(CREW_ID, 2L).blockingParties()).hasSize(1);
 		// 확정·미결제 수는 신청서에서 센 값이다
 		List<NotificationRequestedEvent> sent = sentNotifications();
 		assertThat(sent).hasSize(4)
