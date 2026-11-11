@@ -33,8 +33,10 @@ public class OrderSoldEntryAdapter implements SoldEntryPort {
 	private final RestClient restClient;
 
 	@Autowired
-	public OrderSoldEntryAdapter(@Value("${payout.services.order}") String orderServiceUrl) {
-		this(RestClient.builder()
+	public OrderSoldEntryAdapter(RestClient.Builder builder,
+		@Value("${payout.services.order}") String orderServiceUrl) {
+		// Boot가 주는 빌더는 주입마다 새로 만들어져(prototype) 다른 어댑터와 baseUrl이 섞이지 않는다
+		this(builder
 			.baseUrl(orderServiceUrl)
 			.requestFactory(requestFactory())
 			.build());
