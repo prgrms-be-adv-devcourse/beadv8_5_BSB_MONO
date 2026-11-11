@@ -44,6 +44,7 @@
 2. 수수료는 홀딩 지갑에서 시스템 지갑(1번)으로 옮기고 바로 끝난다.
 3. 은행이 송금을 거절하면 홀딩 지갑에서 뺀 대금을 되돌리고 정산에 422로 답한다. 같은 정산 ID로 다시 오면 새로 송금한다.
 4. 송금 결과를 모르면(응답 끊김, 은행 처리 중) 되돌리지 않고 정산에 503으로 답한다. 같은 정산 ID로 다시 와도 은행에 다시 보내지 않고, 매일 03:30 재확인이 은행에 물어 완료나 실패로 맞춘다.
+   재확인은 한 건에서 오류가 나도(은행 조회 실패 포함) 오류 로그를 남기고 다음 건을 보며, 그 건은 다음 날 다시 본다.
    자세한 규칙은 `docs/policy/payout.md` 2-5와 BUK-83이 원본이다.
 
 ### 판매자 회수금 입금 (2차)
@@ -112,6 +113,8 @@
 | | canceled_amount | BIGINT | NOT NULL | PG 결제취소로 이미 돌려준 금액 (기본 0). 부분 취소를 여러 번 하면 더해진다 |
 | | review_flagged | BIT(1) | NOT NULL | 신규 회원 고액 충전 검토 대상 표시 (기본 false). 가입 24시간 안 완료된 충전 누적이 50만 원을 처음 넘기는 충전에만 true. 충전을 막지 않는다 |
 | | create_date / modify_date | DATETIME(6) | | 요청 일시 / 수정 일시 |
+
+충전 재확인은 한 건에서 오류가 나도 오류 로그를 남기고 다음 건을 보며, 그 건은 상태를 그대로 두고 다음 실행에서 다시 본다.
 
 이상 충전 감지(쿨다운·잠금)는 DB가 아니라 Redis 카운터로 센다. Redis 장애 때는 감지를 건너뛰고 충전을 받는다.
 
@@ -198,10 +201,10 @@ ref_type_code는 DTO에서 문자열로 받더라도 `LedgerRefType.valueOf(...)
 | | bank_code | VARCHAR(10) | NULL | 은행 코드. 계좌로 보낼 몫이 있을 때만 받는다 (카드로만 돌려주면 비어 있다) |
 | | account_number | VARCHAR(512) | NULL | 계좌번호 (AES 암호문) |
 | | account_holder | VARCHAR(50) | NULL | 예금주 |
-| | status | ENUM | NOT NULL | REQUESTED / IN_PROGRESS / COMPLETED / FAILED (생성 시 REQUESTED). IN_PROGRESS는 PG 결제취소 결과를 기다리는 몫이 남아 있음 |
-| | fail_reason | ENUM | NULL | INVALID_ACCOUNT. FAILED일 때만 채움 (사유가 정해지면 추가) |
+| | status | ENUM | NOT NULL | REQUESTED / IN_PROGRESS / COMPLETED / FAILED (생성 시 REQUESTED). IN_PROGRESS는 PG 결제취소 결과를 기다리는 몫이 남아 있음. FAILED는 돌려준 몫이 없음(신청 금액 전부를 예치금에 되돌림) |
+| | fail_reason | ENUM | NULL | ALL_REVERTED / INVALID_ACCOUNT. FAILED일 때만 채움. ALL_REVERTED는 신청 금액 전부를 예치금에 되돌림 |
 | | idempotency_key | VARCHAR(64) | NOT NULL, UNIQUE | 중복 신청 방지 |
-| | complete_date | DATETIME(6) | NULL | 완료 일시 |
+| | complete_date | DATETIME(6) | NULL | 끝난 일시 (완료·실패) |
 | | create_date / modify_date | DATETIME(6) | | 신청 일시 / 수정 일시 |
 
 신청 시 잔액을 바로 차감하고 wallet_ledger에 몫마다 기록하며(카드 몫은 충전 건마다, 계좌 몫은 한 줄), 실패한 몫은 잔액을 되돌리는 장부 기록을 남긴다.
@@ -226,7 +229,7 @@ ref_type_code는 DTO에서 문자열로 받더라도 `LedgerRefType.valueOf(...)
 - COMPLETED: 결제취소됨. 충전 건의 canceled_amount에 더한다
 - REVERTED: 토스가 거절해 예치금에 되돌림 (잠깐 문제·우리 설정 문제 거절, 계좌로 바꿔야 하는데 계좌 정보가 없을 때, 수동 정리에서 안 나감)
 - TRANSFERRED_TO_ACCOUNT: 다시 신청해도 카드로 돌려줄 수 없는 거절(환불 기간 초과, 부분 취소 불가, 결제사 거절, 모르는 코드 등)이라 계좌 송금으로 바꿈
-- MANUAL_CHECK: 수동 확인 필요. 토스가 "이미 취소됨"류로 거절했거나, 결과를 모른 채 몫이 생긴 지 7일이 지남. 이미 카드로 나갔을 수 있어 되돌리지 않고 재확인도 하지 않는다. 담당자가 내부 API(`POST /internal/v1/cash/withdrawal-items/{id}/resolve`)로 COMPLETED나 REVERTED로 정리한다. 이 몫이 있는 환급은 IN_PROGRESS로 남는다
+- MANUAL_CHECK: 수동 확인 필요. 토스가 "이미 취소됨"류로 거절했거나, 결과를 모른 채 몫이 생긴 지 7일이 지났거나, 생긴 지 30분이 지난 몫을 재확인하다 서버 오류가 남. 이미 카드로 나갔을 수 있어 되돌리지 않고 재확인도 하지 않는다. 담당자가 내부 API(`POST /internal/v1/cash/withdrawal-items/{id}/resolve`)로 COMPLETED나 REVERTED로 정리한다. 이 몫이 있는 환급은 IN_PROGRESS로 남는다
 
 몫을 반영할 때는 지갑을 잠근 뒤 아직 PENDING·UNKNOWN(수동 정리는 MANUAL_CHECK)인지 다시 보고, 이미 끝난 몫은 건너뛴다(신청과 재확인이 같은 몫을 두 번 반영하지 않게).
 
