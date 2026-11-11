@@ -735,7 +735,8 @@ class ApiV1OrderCancelTest {
 
 		mockMvc.perform(get("/internal/v1/order/sold-entries").param("raceId", String.valueOf(RACE_ID)))
 			.andExpect(jsonPath("$.data.length()").value(1))
-			.andExpect(jsonPath("$.data[0].orderItemId").value(paid.orderItemId()));
+			.andExpect(jsonPath("$.data[0].orderItemId").value(paid.orderItemId()))
+			.andExpect(jsonPath("$.data[0].status").value("CANCELING"));
 		mockMvc.perform(get("/internal/v1/order/sold-summary").param("raceId", String.valueOf(RACE_ID)))
 			.andExpect(jsonPath("$.data[0].ticketCount").value(1));
 		mockMvc.perform(get("/internal/v1/order/members/" + MEMBER_ID + "/active-tickets/count"))

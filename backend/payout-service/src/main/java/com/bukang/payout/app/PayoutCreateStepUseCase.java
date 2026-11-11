@@ -58,6 +58,8 @@ public class PayoutCreateStepUseCase {
 	 */
 	@Transactional
 	public void createFinal(FinalPayoutSource source, LocalDate raceDate, LocalDateTime now) {
+		// 회수와 겹쳐도 판매자 몫이 두 번 깎이지 않게, 남은 1차 정산금을 읽기 전에 정산 내역을 잠근다 (BUK-52)
+		payoutLedgerUseCase.lockSellerRace(source.sellerId(), source.raceId());
 		LocalDate createDate = PayoutCreateDate.of(raceDate);
 		Optional<Payout> first = payoutRepository.findFirstBySellerIdAndRaceIdAndPayoutStageOrderByIdAsc(
 			source.sellerId(), source.raceId(), PayoutStage.일차_정산);

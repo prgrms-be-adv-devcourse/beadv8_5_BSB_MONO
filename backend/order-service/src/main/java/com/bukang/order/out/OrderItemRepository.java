@@ -21,7 +21,8 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
 	 * 취소 중은 환불 결과를 아직 모르는 판매라 판매로 센다. 환불이 거절되면 결제 완료로 돌아가기 때문이다 (BUK-9)
 	 */
 	@Query("""
-		select new com.bukang.order.dto.SoldEntryDto(i.id, i.sellerId, i.raceId, i.raceCourseId, i.raceDate, i.amount)
+		select new com.bukang.order.dto.SoldEntryDto(i.id, i.sellerId, i.raceId, i.raceCourseId, i.raceDate, i.amount,
+			i.status)
 		from OrderItem i
 		where i.raceId = :raceId
 			and i.status in (com.bukang.order.domain.OrderItemStatus.PAID,
