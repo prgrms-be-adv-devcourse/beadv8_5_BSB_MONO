@@ -23,6 +23,7 @@ import com.bukang.payout.domain.PayoutRecoveryReason;
 import com.bukang.payout.domain.PayoutRecoveryStatus;
 import com.bukang.payout.domain.PayoutStatus;
 import com.bukang.payout.domain.PayoutStatusHistory;
+import com.bukang.payout.out.PayoutCreateFailureRepository;
 import com.bukang.payout.out.PayoutHoldRepository;
 import com.bukang.payout.out.PayoutItemRepository;
 import com.bukang.payout.out.PayoutRecoveryRepository;
@@ -44,6 +45,9 @@ class PayoutRaceCancelUseCaseTest {
 	private PayoutRepository payoutRepository;
 
 	@Autowired
+	private PayoutCreateFailureRepository payoutCreateFailureRepository;
+
+	@Autowired
 	private PayoutHoldRepository payoutHoldRepository;
 
 	@Autowired
@@ -61,7 +65,7 @@ class PayoutRaceCancelUseCaseTest {
 	}
 
 	private PayoutPayStepUseCase payStepUseCase() {
-		return new PayoutPayStepUseCase(payoutRepository, useCase());
+		return new PayoutPayStepUseCase(payoutRepository, useCase(), payoutCreateFailureRepository);
 	}
 
 	private PayoutHoldUseCase holdUseCase() {
@@ -182,6 +186,23 @@ class PayoutRaceCancelUseCaseTest {
 		assertThat(again).isEqualTo(new PayoutRaceCancelUseCase.CancelResult(2, 0, false));
 		assertThat(reload(calculated).getStatusHistories()).hasSize(2);
 		assertThat(payoutRecoveryRepository.count()).isEqualTo(1);
+	}
+
+	@Test
+	@DisplayName("BUK-166: 지급 확인 필요 정산 내역도 닫지 않고 대회 취소 표시만 남기며, 회수를 만들지 않는다")
+	void checkRequiredPayoutWaitsForPayResult() {
+		Payout checkRequired = savePayout(RACE_ID, YearMonth.of(2026, 9), 50_000);
+		checkRequired.startPaying(CANCELED_AT.minusMinutes(2));
+		for (int count = 0; count < Payout.MAX_UNKNOWN_PAY; count++) {
+			checkRequired.recordUnknownPay(CANCELED_AT.minusMinutes(1));
+		}
+
+		PayoutRaceCancelUseCase.CancelResult result = useCase().cancelRace(RACE_ID, CANCELED_AT);
+
+		assertThat(result).isEqualTo(new PayoutRaceCancelUseCase.CancelResult(1, 0, false));
+		assertThat(reload(checkRequired).getStatus()).isEqualTo(PayoutStatus.지급_확인_필요);
+		assertThat(reload(checkRequired).isRaceCanceled()).isTrue();
+		assertThat(payoutRecoveryRepository.count()).isZero();
 	}
 
 	@Test

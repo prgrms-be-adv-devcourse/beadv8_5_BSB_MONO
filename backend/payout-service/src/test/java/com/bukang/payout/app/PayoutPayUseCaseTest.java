@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -17,14 +18,20 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.payout.domain.BusinessDayCalendar;
 import com.bukang.payout.domain.Payout;
+import com.bukang.payout.domain.PayoutCreateFailure;
+import com.bukang.payout.domain.PayoutCreateFailureType;
 import com.bukang.payout.domain.PayoutHoldReason;
 import com.bukang.payout.domain.PayoutStage;
 import com.bukang.payout.domain.PayoutStatus;
 import com.bukang.payout.domain.exception.PayoutHoldConflictException;
 import com.bukang.payout.dto.PayoutPayResultDto;
+import com.bukang.payout.out.PayoutCreateFailureRepository;
 import com.bukang.payout.out.PayoutHoldRepository;
 import com.bukang.payout.out.PayoutItemRepository;
 import com.bukang.payout.out.PayoutRecoveryRepository;
@@ -46,6 +53,9 @@ class PayoutPayUseCaseTest {
 	private PayoutRepository payoutRepository;
 
 	@Autowired
+	private PayoutCreateFailureRepository payoutCreateFailureRepository;
+
+	@Autowired
 	private PayoutHoldRepository payoutHoldRepository;
 
 	@Autowired
@@ -57,6 +67,9 @@ class PayoutPayUseCaseTest {
 	@Autowired
 	private EntityManager entityManager;
 
+	@Autowired
+	private PlatformTransactionManager transactionManager;
+
 	// 대회 취소를 표시한 지급 중이 없으면 부르지 않는다. 지급 단계를 만들려고 실제 저장소로 묶어 둔다
 	private PayoutRaceCancelUseCase raceCancelUseCase() {
 		return new PayoutRaceCancelUseCase(payoutRepository,
@@ -67,6 +80,14 @@ class PayoutPayUseCaseTest {
 	private final List<PayoutTransfer> transfers = new ArrayList<>();
 	private Consumer<PayoutTransfer> cashService;
 
+	// 실패 기록은 테스트 트랜잭션과 따로 커밋되므로(REQUIRES_NEW) 롤백되지 않는다. 다른 테스트에 남지 않게 새 트랜잭션에서 지운다
+	@AfterEach
+	void deleteFailureRecords() {
+		TransactionTemplate requiresNew = new TransactionTemplate(transactionManager);
+		requiresNew.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+		requiresNew.executeWithoutResult(status -> payoutCreateFailureRepository.deleteAllInBatch());
+	}
+
 	@BeforeEach
 	void setUp() {
 		transfers.clear();
@@ -75,7 +96,8 @@ class PayoutPayUseCaseTest {
 	}
 
 	private PayoutPayUseCase useCase() {
-		return new PayoutPayUseCase(new PayoutPayStepUseCase(payoutRepository, raceCancelUseCase()), transfer -> {
+		return new PayoutPayUseCase(new PayoutPayStepUseCase(payoutRepository, raceCancelUseCase(),
+			payoutCreateFailureRepository), transfer -> {
 			transfers.add(transfer);
 			cashService.accept(transfer);
 		});
@@ -305,6 +327,61 @@ class PayoutPayUseCaseTest {
 	}
 
 	@Test
+	@DisplayName("BUK-166: 결과를 3번 모르면 지급 확인 필요로 멈추고, 다음 실행은 다시 요청하지 않으며 이상 감지에 한 줄 남는다")
+	void unknownThreeTimesStopsAsCheckRequired() {
+		Payout payout = savePayoutWithSale(1);
+		cashService = transfer -> {
+			throw new PayoutTransferUnknownException("read timed out", null);
+		};
+
+		for (int day = 0; day < Payout.MAX_UNKNOWN_PAY; day++) {
+			useCase().run(PAY_DATE.plusDays(day), NOW.plusDays(day));
+		}
+		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.지급_확인_필요);
+
+		useCase().run(PAY_DATE.plusDays(Payout.MAX_UNKNOWN_PAY), NOW.plusDays(Payout.MAX_UNKNOWN_PAY));
+
+		assertThat(transfers).hasSize(Payout.MAX_UNKNOWN_PAY);
+		assertThat(payoutCreateFailureRepository.findAll()).singleElement()
+			.extracting(PayoutCreateFailure::getFailureType).isEqualTo(PayoutCreateFailureType.지급_확인_필요);
+	}
+
+	@Test
+	@DisplayName("BUK-166: 결과 모름이 2번이면 아직 지급 중이고, 3번째 요청이 성공하면 지급 완료한다")
+	void unknownTwiceThenSuccessIsPaid() {
+		Payout payout = savePayoutWithSale(1);
+		cashService = transfer -> {
+			throw new PayoutTransferUnknownException("read timed out", null);
+		};
+		useCase().run(PAY_DATE, NOW);
+		useCase().run(PAY_DATE.plusDays(1), NOW.plusDays(1));
+		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.지급_중);
+
+		cashService = transfer -> {
+		};
+		useCase().run(PAY_DATE.plusDays(2), NOW.plusDays(2));
+
+		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.지급_완료);
+		assertThat(payoutCreateFailureRepository.findAll()).isEmpty();
+	}
+
+	@Test
+	@DisplayName("BUK-166: 지급 확인 필요 정산 내역에는 보류를 걸 수 없다. 돈이 나갔는지 모른다")
+	void cannotHoldCheckRequired() {
+		Payout payout = savePayoutWithSale(1);
+		cashService = transfer -> {
+			throw new PayoutTransferUnknownException("read timed out", null);
+		};
+		for (int day = 0; day < Payout.MAX_UNKNOWN_PAY; day++) {
+			useCase().run(PAY_DATE.plusDays(day), NOW.plusDays(day));
+		}
+
+		Payout checkRequired = payoutRepository.findById(payout.getId()).orElseThrow();
+		assertThatThrownBy(() -> checkRequired.hold(PayoutHoldReason.정산_계좌_미등록, null, 99, NOW))
+			.isInstanceOf(PayoutHoldConflictException.class);
+	}
+
+	@Test
 	@DisplayName("지급 중으로 남은 정산 내역에는 보류를 걸 수 없다")
 	void cannotHoldWhileUnknown() {
 		Payout payout = savePayoutWithSale(1);
@@ -372,7 +449,8 @@ class PayoutPayUseCaseTest {
 	@DisplayName("다른 배치가 먼저 지급을 시작해 낙관적 락으로 부딪히면 그 건은 캐시 서비스를 부르지 않고 건너뛴다")
 	void skipsWhenAnotherRunStartedFirst() {
 		Payout payout = savePayoutWithSale(1);
-		PayoutPayStepUseCase conflicting = new PayoutPayStepUseCase(payoutRepository, raceCancelUseCase()) {
+		PayoutPayStepUseCase conflicting = new PayoutPayStepUseCase(payoutRepository, raceCancelUseCase(),
+			payoutCreateFailureRepository) {
 			@Override
 			public Start start(long payoutId, LocalDate today, LocalDateTime now) {
 				throw new ObjectOptimisticLockingFailureException(Payout.class, payoutId);
