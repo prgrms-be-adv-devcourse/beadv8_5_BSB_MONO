@@ -2,19 +2,24 @@ package com.bukang.payout.app;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.bukang.payout.domain.PayoutBatchTrigger;
 import com.bukang.payout.domain.PayoutClaimStatus;
 import com.bukang.payout.domain.PayoutCreateFailureType;
 import com.bukang.payout.domain.PayoutHoldReason;
+import com.bukang.payout.domain.PayoutQueryPeriod;
 import com.bukang.payout.dto.PayoutAdminClaimsDto;
+import com.bukang.payout.dto.PayoutBatchRunDto;
 import com.bukang.payout.dto.PayoutClaimDto;
 import com.bukang.payout.dto.PayoutCreateFailuresDto;
 import com.bukang.payout.dto.PayoutDto;
 import com.bukang.payout.dto.PayoutHoldDto;
+import com.bukang.payout.out.PayoutBatchRunRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -34,6 +39,8 @@ public class PayoutAdminFacade {
 	private final PayoutClaimUseCase payoutClaimUseCase;
 	private final PayoutClaimQueryUseCase payoutClaimQueryUseCase;
 	private final PayoutAdminQueryUseCase payoutAdminQueryUseCase;
+	private final PayoutBatchUseCase payoutBatchUseCase;
+	private final PayoutBatchRunRepository payoutBatchRunRepository;
 
 	public PayoutHoldDto hold(long memberId, long payoutId, PayoutHoldReason reasonType, String reason,
 		LocalDateTime now) {
@@ -70,5 +77,26 @@ public class PayoutAdminFacade {
 		PayoutCreateFailureType type, int page, int size) {
 		payoutAdminVerifyUseCase.verify(memberId);
 		return payoutAdminQueryUseCase.createFailures(from, to, type, page, size);
+	}
+
+	// 정산 생성 배치를 다시 돌린다 (BUK-167). 스케줄과 같은 잠금을 써서 이미 돌고 있으면 409다
+	public List<PayoutBatchRunDto> runCreate(long memberId, LocalDate today, LocalDateTime now) {
+		payoutAdminVerifyUseCase.verify(memberId);
+		return payoutBatchUseCase.runCreate(PayoutBatchTrigger.관리자, memberId, today, now);
+	}
+
+	// 지급 배치(회수 청구 포함)를 다시 돌린다 (BUK-167)
+	public List<PayoutBatchRunDto> runPay(long memberId, LocalDate today, LocalDateTime now) {
+		payoutAdminVerifyUseCase.verify(memberId);
+		return payoutBatchUseCase.runPay(PayoutBatchTrigger.관리자, memberId, today, now);
+	}
+
+	// 배치 실행 기록 (BUK-167). 기간은 실행 기준일 기준, 최대 1개월
+	public List<PayoutBatchRunDto> batchRuns(long memberId, LocalDate from, LocalDate to) {
+		payoutAdminVerifyUseCase.verify(memberId);
+		PayoutQueryPeriod.checkBatchRunDays(from, to);
+		return payoutBatchRunRepository.findByRunDateBetweenOrderByIdDesc(from, to).stream()
+			.map(PayoutBatchRunDto::from)
+			.toList();
 	}
 }
