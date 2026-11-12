@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.bukang.common.global.rsdata.RsData;
 import com.bukang.common.shared.member.web.LoginMemberId;
+import com.bukang.member.app.EmailCheckLimiter;
 import com.bukang.member.app.MemberFacade;
 import com.bukang.member.dto.EmailAvailabilityRequestDto;
 import com.bukang.member.dto.EmailAvailabilityResponseDto;
@@ -28,6 +29,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -37,22 +39,28 @@ import lombok.RequiredArgsConstructor;
 @RequestMapping("/api/v1/member/members")
 public class ApiV1MemberController {
 	private final MemberFacade memberFacade;
+	private final EmailCheckLimiter emailCheckLimiter;
 
 	// 가입 화면이 이메일 단계에서 중복을 알려 주는 용도. 토큰 없이 부른다(게이트웨이 공개 주소). 중복도 정상 흐름이라 409가 아닌 200 (BE-023)
 	@GetMapping("/email-availability")
 	@Operation(summary = "이메일 사용 가능 여부 확인",
 		description = "이메일이 아직 가입되지 않았으면 available=true, 이미 가입됐으면 false를 돌려준다. 로그인 없이 부를 수 있다. "
-			+ "탈퇴한 회원의 이메일은 비워지므로 다시 쓸 수 있다.")
+			+ "탈퇴한 회원의 이메일은 비워지므로 다시 쓸 수 있다. 같은 IP는 1분에 10번까지 받는다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "확인 성공 (이미 쓰는 이메일이어도 200)",
 			content = @Content(examples = @ExampleObject(value = MemberApiExamples.EMAIL_AVAILABILITY_SUCCESS))),
 		@ApiResponse(responseCode = "400", description = "이메일 누락, 형식 오류 또는 255자 초과",
 			content = @Content(schema = @Schema(implementation = RsData.class),
-				examples = @ExampleObject(value = MemberApiExamples.EMAIL_AVAILABILITY_INVALID_INPUT)))
+				examples = @ExampleObject(value = MemberApiExamples.EMAIL_AVAILABILITY_INVALID_INPUT))),
+		@ApiResponse(responseCode = "429", description = "같은 IP가 1분에 10번을 넘김",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = MemberApiExamples.EMAIL_AVAILABILITY_TOO_MANY)))
 	})
 	public ResponseEntity<RsData<EmailAvailabilityResponseDto>> checkEmailAvailability(
-		@Valid @ModelAttribute @ParameterObject EmailAvailabilityRequestDto emailAvailabilityRequestDto
+		@Valid @ModelAttribute @ParameterObject EmailAvailabilityRequestDto emailAvailabilityRequestDto,
+		HttpServletRequest httpRequest
 	) {
+		emailCheckLimiter.check(ClientIp.of(httpRequest));
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "이메일 사용 가능 여부를 확인했습니다.",
 				memberFacade.checkEmailAvailability(emailAvailabilityRequestDto.email())));
