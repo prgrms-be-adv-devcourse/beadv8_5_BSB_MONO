@@ -8,13 +8,13 @@ import { useEffect } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
 import { useAuthStatus } from '@/features/auth'
-import { CrewHero, formatKstDateTime, formatRemaining } from '@/entities/crew'
+import { formatKstDateTime, formatRemaining } from '@/entities/crew'
 import { ApiError, memberApi, unwrapData } from '@/shared/api'
 import { Alert, BottomCta, Button, buttonClassName, EmptyState, Skeleton } from '@/shared/ui'
 
 import { inviteFailureOf } from '../model/invite-failure'
 import { partyJoinPath } from '../model/invite-url'
-import { CrewBand, CrewLoadError } from './CrewBand'
+import { CrewBand, CrewIdentityBand, CrewLoadError } from './CrewBand'
 
 // 피그마 시안v4 · M10 초대 받기 (기본 · 링크 끝남).
 // 초대 링크 정보 조회와 가입 모두 로그인이 필요하다(백엔드 결정 BE-028). 로그인하지 않았으면
@@ -99,7 +99,7 @@ export function CrewInvitePage({
           <CrewLoadError onRetry={() => invite.refetch()} />
         ) : (
           <>
-            <CrewHero name={data.crewName} summary={`크루원 ${data.memberCount}명`} />
+            <CrewIdentityBand name={data.crewName} summary={`크루원 ${data.memberCount}명`} />
             <CrewBand>
               <h2 className="text-title3">{data.crewName}에서 초대했어요</h2>
               <Alert
@@ -109,9 +109,6 @@ export function CrewInvitePage({
                 }
                 description={`${formatKstDateTime(data.expiresAt)}까지 가입할 수 있어요.`}
               />
-              <p className="text-body2-regular text-text-secondary">
-                가입하면 크루원 목록에 내 닉네임이 보여요. 실명은 보이지 않아요.
-              </p>
               {join.isError &&
                 !(join.error instanceof ApiError && join.error.code === 'CREW_ALREADY_MEMBER') && (
                   <p role="alert" className="text-body2-regular text-text-danger">
@@ -140,13 +137,15 @@ export function CrewInvitePage({
 function InviteSkeleton() {
   return (
     <>
-      <section className="flex items-center gap-3 bg-bg-hero px-4 py-6">
+      <CrewBand>
         <span role="status" className="sr-only">
           초대 링크를 확인하는 중
         </span>
-        <Skeleton shape="circle" className="size-14" />
-        <Skeleton className="flex-1" />
-      </section>
+        <div className="flex items-center gap-3">
+          <Skeleton shape="circle" className="size-14" />
+          <Skeleton className="flex-1" />
+        </div>
+      </CrewBand>
       <CrewBand>
         <Skeleton className="w-full" />
         <Skeleton className="w-2/3" />

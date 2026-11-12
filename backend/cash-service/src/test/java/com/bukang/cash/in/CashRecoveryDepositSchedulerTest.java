@@ -2,6 +2,8 @@ package com.bukang.cash.in;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
@@ -39,5 +41,17 @@ class CashRecoveryDepositSchedulerTest {
 		verify(relayUseCase).relay(relayNow.capture());
 		assertThat(reconcileNow.getValue()).isCloseTo(koreaNow, within(1, ChronoUnit.MINUTES));
 		assertThat(relayNow.getValue()).isCloseTo(koreaNow, within(1, ChronoUnit.MINUTES));
+	}
+
+	@Test
+	@DisplayName("회수 입금 재확인이 예외로 끝나도 같은 실행에서 정산 알림을 보낸다")
+	void relayRunsEvenIfReconcileFails() {
+		CashRecoveryDepositUseCase depositUseCase = mock(CashRecoveryDepositUseCase.class);
+		CashRecoveryDepositRelayUseCase relayUseCase = mock(CashRecoveryDepositRelayUseCase.class);
+		willThrow(new IllegalStateException("예상 못 한 오류")).given(depositUseCase).reconcile(any());
+
+		new CashRecoveryDepositScheduler(depositUseCase, relayUseCase).reconcile();
+
+		verify(relayUseCase).relay(any());
 	}
 }

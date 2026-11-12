@@ -23,7 +23,7 @@ export function useWithdraw() {
 }
 
 /** 탈퇴 실패 이유를 서버 code로 가른다. 모르는 code는 other. */
-export type WithdrawFailure = 'cash-left' | 'ticket-left' | 'check-failed' | 'other'
+export type WithdrawFailure = 'cash-left' | 'ticket-left' | 'crew-leader' | 'check-failed' | 'other'
 
 export function withdrawFailure(error: unknown): WithdrawFailure {
   if (!(error instanceof ApiError)) return 'other'
@@ -32,6 +32,8 @@ export function withdrawFailure(error: unknown): WithdrawFailure {
       return 'cash-left'
     case 'MEMBER_WITHDRAW_TICKET_LEFT':
       return 'ticket-left'
+    case 'MEMBER_WITHDRAW_CREW_LEADER':
+      return 'crew-leader'
     case 'MEMBER_WITHDRAW_CHECK_FAILED':
       return 'check-failed'
     default:

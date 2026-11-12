@@ -1,16 +1,27 @@
 'use client'
 
+import { useState } from 'react'
+
 import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
+import { useAuthStatus } from '@/features/auth'
+import { cashApi, memberApi, unwrapData } from '@/shared/api'
 import {
   Alert,
   Badge,
   Button,
   DataTable,
   KeyValue,
+  Segmented,
   Select,
   TextField,
   type BadgeTone,
 } from '@/shared/ui'
+
+import { ADMIN_MEMBER_PAGE_SIZE } from '../model/admin-members-api'
+import { ChargeReviewTab } from './ChargeReviewTab'
+import { IdentityReviewTab } from './IdentityReviewTab'
+
+type Tab = 'all' | 'identity' | 'charge'
 
 type Order = {
   id: string
@@ -56,77 +67,109 @@ const KEYS = [
 
 // 피그마 V2 · A04 회원 · 주문 조회
 export function AdminMembersPage() {
+  const authenticated = useAuthStatus() === 'authenticated'
+  const [tab, setTab] = useState<Tab>('all')
+  // 탭 배지. 탭을 누르기 전에도 개수가 보이도록 첫 페이지를 항상 불러온다(각 탭의 첫 페이지와 같은 요청이라 한 번만 간다).
+  const identity = memberApi.useFindIdentityReview(
+    { page: 0, size: ADMIN_MEMBER_PAGE_SIZE },
+    { query: { select: unwrapData, enabled: authenticated } },
+  )
+  const charge = cashApi.useGetChargeReviews(
+    { page: 0, size: ADMIN_MEMBER_PAGE_SIZE },
+    { query: { select: unwrapData, enabled: authenticated } },
+  )
+
   return (
     <ConsolePage title="회원 · 주문 조회" description="회원 닉네임이나 주문번호로 찾아요.">
-      <Alert
-        title="개인정보를 조회하면 기록이 남아요"
-        description="누가 언제 어떤 정보를 봤는지 남겨요. 업무에 필요한 만큼만 조회해 주세요."
+      <Segmented
+        label="회원 보기"
+        layout="hug"
+        size="l"
+        value={tab}
+        onChange={setTab}
+        items={[
+          { value: 'all', label: '전체 회원' },
+          { value: 'identity', label: '확인이 필요한 계정', count: identity.data?.totalElements },
+          { value: 'charge', label: '고액 충전 확인', count: charge.data?.totalElements },
+        ]}
       />
-      <ConsoleCard>
-        <div className="flex items-end gap-4">
-          <Select label="검색 기준" items={KEYS} defaultValue="nickname" className="w-80" />
-          <TextField label="검색어" defaultValue="달리는곰" className="flex-1" />
-          {/* TODO(api): 조회 */}
-          <Button>조회</Button>
-        </div>
-      </ConsoleCard>
-      <div className="flex flex-wrap items-start gap-6">
-        <ConsoleCard title={`달리는곰의 주문 ${ORDERS.length}건`} className="min-w-130 flex-1">
-          <DataTable
-            label="회원 주문"
-            rows={ORDERS}
-            rowKey={(o) => o.id}
-            columns={[
-              { key: 'id', header: '주문번호', width: 'w-42.5', render: (o) => o.id },
-              { key: 'product', header: '상품', render: (o) => o.product },
-              {
-                key: 'amount',
-                header: '금액',
-                align: 'right',
-                width: 'w-24',
-                render: (o) => o.amount,
-              },
-              {
-                key: 'status',
-                header: '상태',
-                width: 'w-29',
-                render: (o) => <Badge tone={o.tone}>{o.status}</Badge>,
-              },
-              {
-                key: 'paidAt',
-                header: '결제일',
-                align: 'right',
-                width: 'w-21',
-                render: (o) => o.paidAt,
-              },
-            ]}
+      {tab === 'identity' && <IdentityReviewTab />}
+      {tab === 'charge' && <ChargeReviewTab />}
+      {tab === 'all' && (
+        <>
+          <Alert
+            title="개인정보를 조회하면 기록이 남아요"
+            description="누가 언제 어떤 정보를 봤는지 남겨요. 업무에 필요한 만큼만 조회해 주세요."
           />
-        </ConsoleCard>
-        <ConsoleCard title="회원 상세" className="w-100 shrink-0">
-          <div className="flex items-center gap-3">
-            <span className="flex size-10 items-center justify-center rounded-full bg-bg-brand-subtle text-body2-medium text-text-brand">
-              달
-            </span>
-            <div className="flex flex-col gap-0.5">
-              <p className="text-body1-medium">달리는곰</p>
-              <p className="text-body2-regular text-text-secondary">가입 2025. 3. 2 · 일반 회원</p>
+          <ConsoleCard>
+            <div className="flex items-end gap-4">
+              <Select label="검색 기준" items={KEYS} defaultValue="nickname" className="w-80" />
+              <TextField label="검색어" defaultValue="달리는곰" className="flex-1" />
+              {/* TODO(api): 조회 */}
+              <Button>조회</Button>
             </div>
+          </ConsoleCard>
+          <div className="flex flex-wrap items-start gap-6">
+            <ConsoleCard title={`달리는곰의 주문 ${ORDERS.length}건`} className="min-w-130 flex-1">
+              <DataTable
+                label="회원 주문"
+                rows={ORDERS}
+                rowKey={(o) => o.id}
+                columns={[
+                  { key: 'id', header: '주문번호', width: 'w-42.5', render: (o) => o.id },
+                  { key: 'product', header: '상품', render: (o) => o.product },
+                  {
+                    key: 'amount',
+                    header: '금액',
+                    align: 'right',
+                    width: 'w-24',
+                    render: (o) => o.amount,
+                  },
+                  {
+                    key: 'status',
+                    header: '상태',
+                    width: 'w-29',
+                    render: (o) => <Badge tone={o.tone}>{o.status}</Badge>,
+                  },
+                  {
+                    key: 'paidAt',
+                    header: '결제일',
+                    align: 'right',
+                    width: 'w-21',
+                    render: (o) => o.paidAt,
+                  },
+                ]}
+              />
+            </ConsoleCard>
+            <ConsoleCard title="회원 상세" className="w-100 shrink-0">
+              <div className="flex items-center gap-3">
+                <span className="flex size-10 items-center justify-center rounded-full bg-bg-brand-subtle text-body2-medium text-text-brand">
+                  달
+                </span>
+                <div className="flex flex-col gap-0.5">
+                  <p className="text-body1-medium">달리는곰</p>
+                  <p className="text-body2-regular text-text-secondary">
+                    가입 2025. 3. 2 · 일반 회원
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-col gap-3 rounded-md bg-bg-subtle p-4">
+                <KeyValue label="예치금 잔액" value="₩45,000" />
+                <KeyValue label="참가권" value="2장 (쿠키RUN, 춘천 나이트런)" />
+                <KeyValue label="판매자" value="아니요" />
+              </div>
+              <KeyValue label="휴대폰" value="010-****-1234" />
+              {/* TODO(api): 개인정보 전체 보기 (조회 기록 남김) */}
+              <Button variant="secondary" className="w-full">
+                개인정보 전체 보기
+              </Button>
+              <p className="text-caption-regular text-text-tertiary">
+                전체 보기를 누르면 조회 기록이 남아요.
+              </p>
+            </ConsoleCard>
           </div>
-          <div className="flex flex-col gap-3 rounded-md bg-bg-subtle p-4">
-            <KeyValue label="예치금 잔액" value="₩45,000" />
-            <KeyValue label="참가권" value="2장 (쿠키RUN, 춘천 나이트런)" />
-            <KeyValue label="판매자" value="아니요" />
-          </div>
-          <KeyValue label="휴대폰" value="010-****-1234" />
-          {/* TODO(api): 개인정보 전체 보기 (조회 기록 남김) */}
-          <Button variant="secondary" className="w-full">
-            개인정보 전체 보기
-          </Button>
-          <p className="text-caption-regular text-text-tertiary">
-            전체 보기를 누르면 조회 기록이 남아요.
-          </p>
-        </ConsoleCard>
-      </div>
+        </>
+      )}
     </ConsolePage>
   )
 }
