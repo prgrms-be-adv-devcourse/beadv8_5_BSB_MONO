@@ -188,6 +188,7 @@ backend/
     같은 DB를 함께 쓰므로 기록 표 이름을 서비스마다 다르게 둡니다(`flyway_schema_history_<서비스>`). 설정은 `member-service`의 `application-dev.yaml`을 따릅니다.
   - `payout-service`·`cash-service`의 enum 칸은 DB ENUM이라 enum 값을 더할 때도 ENUM 목록을 바꾸는 SQL이 필요합니다
     (`PayoutEnumColumnTest`·`CashEnumColumnTest`가 확인). cash의 Flyway 테스트는 H2가 아니라 MySQL(Testcontainers)로 돌아 Docker가 필요합니다.
+    `order-service`도 동시성 테스트 일부를 `@MySqlContainerTest`로 MySQL에서 다시 돌려 Docker가 필요합니다 (BUK-188).
   - `order-service`는 전환 중입니다(BUK-29). V1은 `create table if not exists`라 표가 이미 있으면 통째로 건너뛰어, 지난 배포 뒤 엔티티에 더한 칸이
     서버·로컬 표에 없으면 `validate`로는 뜨지 않습니다. 그래서 서버에 한 번 배포할 때까지 dev와 compose는 `update`로 둡니다
     (Flyway가 먼저 돌고 Hibernate가 빠진 칸을 채움). 그 뒤 dev는 `validate`로, compose의 `order-service` 줄은 지웁니다.

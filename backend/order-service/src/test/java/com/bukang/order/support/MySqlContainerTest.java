@@ -21,7 +21,11 @@ import org.testcontainers.mysql.MySQLContainer;
 @Retention(RetentionPolicy.RUNTIME)
 @SpringBootTest(properties = {
 	"spring.flyway.enabled=true",
+	// dev·운영과 같은 Flyway 설정 (FlywayBaselineValidateTest와 같다)
 	"spring.flyway.table=flyway_schema_history_order",
+	"spring.flyway.baseline-on-migrate=true",
+	"spring.flyway.baseline-version=0",
+	"spring.flyway.out-of-order=true",
 	"spring.jpa.hibernate.ddl-auto=validate"
 })
 @Import(MySqlContainerTest.Container.class)

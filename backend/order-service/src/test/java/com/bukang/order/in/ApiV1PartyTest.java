@@ -377,10 +377,14 @@ class ApiV1PartyTest {
 		}
 		start.countDown();
 		List<String> outcomes = new ArrayList<>();
-		for (Future<String> result : results) {
-			outcomes.add(result.get(30, TimeUnit.SECONDS));
+		try {
+			for (Future<String> result : results) {
+				outcomes.add(result.get(30, TimeUnit.SECONDS));
+			}
+		} finally {
+			// 잠금 대기로 시간이 넘어도 스레드가 남아 다음 테스트의 정리를 막지 않게 한다
+			pool.shutdownNow();
 		}
-		pool.shutdown();
 
 		assertThat(outcomes).containsOnlyOnce("201")
 			.filteredOn(outcome -> !outcome.equals("201")).containsOnly("409 ORDER_PARTY_FULL");
