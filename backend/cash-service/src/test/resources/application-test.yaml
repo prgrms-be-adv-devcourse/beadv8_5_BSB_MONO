@@ -32,10 +32,12 @@ spring:
 
   # Redis는 처음 명령을 보낼 때 연결하므로, Redis 서버 없이도 컨텍스트는 뜬다
   # 실제 Redis 동작이 필요한 테스트는 RedisTestcontainersConfiguration을 @Import해 이 값을 컨테이너 주소로 덮어쓴다
+  # 6379로 두면 bootRun이 띄운 로컬 Redis(bukang-redis)에 붙어, 앞 테스트가 남긴 쿨다운 키에 뒤 테스트가 막힌다.
+  # 아무것도 없는 포트로 두어 나머지 테스트는 항상 Redis 없음(fail-open)으로 돈다
   data:
     redis:
       host: localhost
-      port: 6379
+      port: 6390
 
 logging:
   level:
