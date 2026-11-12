@@ -13,6 +13,8 @@ public enum NotificationKind {
 	RACE_SCHEDULE_CHANGED,
 	// 예치금을 계좌로 돌려받았다 (예치금)
 	WITHDRAWAL_COMPLETED,
+	// 충전한 돈을 카드로 돌려받을 수 있는 기한(PG 결제취소 기한)이 3일·1일 남았다 (예치금)
+	CARD_CANCEL_DEADLINE,
 	// 크루에 가입했다 (회원)
 	CREW_JOINED,
 	// 파티 신청 뒤 파티원에게 결제를 요청한다 (주문, BUK-37)

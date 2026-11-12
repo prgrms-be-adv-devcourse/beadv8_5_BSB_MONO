@@ -33,6 +33,7 @@ const KIND_CATEGORY: Record<string, NoticeCategory> = {
   INQUIRY_ANSWERED: 'race',
   REFUND_COMPLETED: 'payment',
   WITHDRAWAL_COMPLETED: 'payment',
+  CARD_CANCEL_DEADLINE: 'payment',
   PARTY_PAYMENT_REQUESTED: 'payment',
   PARTY_PAYMENT_DEADLINE: 'payment',
   CREW_JOINED: 'crew',
