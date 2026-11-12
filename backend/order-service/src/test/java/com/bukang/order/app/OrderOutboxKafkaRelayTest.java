@@ -2,6 +2,7 @@ package com.bukang.order.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.inOrder;
@@ -31,12 +32,14 @@ import org.springframework.transaction.IllegalTransactionStateException;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.common.global.json.JsonConverter;
+import com.bukang.common.global.notify.SlackNotifier;
 import com.bukang.common.shared.kafka.KafkaMessageId;
 import com.bukang.common.shared.kafka.KafkaTopics;
 import com.bukang.common.shared.race.event.HoldCancelEvent;
 import com.bukang.common.shared.race.event.HoldRestoreEvent;
 import com.bukang.order.domain.OrderOutboxKafkaEvent;
 import com.bukang.order.domain.OutboxStatus;
+import com.bukang.order.domain.exception.OutboxEventNotFailedException;
 import com.bukang.order.out.OrderOutboxKafkaEventRepository;
 
 /**
@@ -71,6 +74,9 @@ class OrderOutboxKafkaRelayTest {
 	// 실제 KafkaTemplate을 감싼다. 자동 설정 빈의 타입이 KafkaTemplate<?, ?>라 같은 타입으로 받는다
 	@MockitoSpyBean
 	private KafkaTemplate<?, ?> kafkaTemplate;
+	// 발행 실패 알림을 보냈는지 본다. 테스트는 webhook 주소가 비어 실제로는 로그만 남는다
+	@MockitoSpyBean
+	private SlackNotifier slackNotifier;
 
 	private final LocalDateTime now = LocalDateTime.now().withNano(0);
 
@@ -241,6 +247,44 @@ class OrderOutboxKafkaRelayTest {
 		// 첫 행 MAX_RETRY번 + 셋째 행 1번
 		verify(kafka(), times(OrderOutboxKafkaRelayUseCase.MAX_RETRY + 1))
 			.send(record(KafkaTopics.PRODUCT_HOLD_RESTORE, "1001", restorePayload(PARTICIPATION_ID)));
+	}
+
+	@Test
+	@DisplayName("발행 실패가 되면 Slack으로 한 번 알리고, 되돌리면 재시도 횟수·다음 시도 시각이 비워져 다음 릴레이가 다시 보낸다 (BUK-180)")
+	void retrySendFailed() {
+		failSendTo(KafkaTopics.PRODUCT_HOLD_RESTORE, PARTICIPATION_ID);
+		restore(PARTICIPATION_ID);
+		for (int i = 0; i < OrderOutboxKafkaRelayUseCase.MAX_RETRY; i++) {
+			relayAt(now.plusHours(i));
+		}
+		long id = allEvents().getFirst().getId();
+		verify(slackNotifier, times(1)).sendAfterCommit(anyString());
+
+		// 원인(브로커)을 고친 뒤 되돌린다
+		succeedSendTo(KafkaTopics.PRODUCT_HOLD_RESTORE, PARTICIPATION_ID);
+		orderOutboxKafkaRelayUseCase.retry(id);
+
+		OrderOutboxKafkaEvent reset = orderOutboxKafkaEventRepository.findById(id).orElseThrow();
+		assertThat(reset.getStatus()).isEqualTo(OutboxStatus.PENDING);
+		assertThat(reset.getRetryCount()).isZero();
+		assertThat(reset.getNextRetryDate()).isNull();
+		// 다음 시도 시각을 비웠으므로 마지막 실패보다 이른 시각에 돌려도 곧바로 보낸다
+		assertThat(relayAt(now)).isEqualTo(1);
+		assertThat(orderOutboxKafkaEventRepository.findById(id).orElseThrow().getStatus()).isEqualTo(OutboxStatus.SENT);
+	}
+
+	@Test
+	@DisplayName("발행 실패가 아닌 행(미처리·발행 완료)은 되돌리지 않는다")
+	void rejectRetryUnlessSendFailed() {
+		restore(PARTICIPATION_ID);
+		long id = allEvents().getFirst().getId();
+
+		assertThatThrownBy(() -> orderOutboxKafkaRelayUseCase.retry(id))
+			.isInstanceOf(OutboxEventNotFailedException.class);
+		relayAt(now);
+		assertThatThrownBy(() -> orderOutboxKafkaRelayUseCase.retry(id))
+			.isInstanceOf(OutboxEventNotFailedException.class)
+			.hasMessage("아웃박스 메시지 " + id + "번은 발행 완료 상태라 다시 보낼 수 없습니다.");
 	}
 
 	@Test

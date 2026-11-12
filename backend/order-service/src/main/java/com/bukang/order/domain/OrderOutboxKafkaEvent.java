@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 
 import com.bukang.common.global.jpa.entity.BaseIdAndTime;
 import com.bukang.common.shared.kafka.KafkaMessageId;
+import com.bukang.order.domain.exception.OutboxEventNotFailedException;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -114,5 +115,16 @@ public class OrderOutboxKafkaEvent extends BaseIdAndTime {
 
 	public boolean isFailed() {
 		return status == OutboxStatus.SEND_FAILED;
+	}
+
+	// 원인을 고친 뒤 발행 실패 행을 다시 보내게 한다 (BUK-180). 재시도 횟수와 다음 시도 시각을 처음처럼 비워 릴레이가 곧바로 보낸다
+	// 발행 실패가 아니면(이미 보냈거나 아직 보내는 중) 바꾸지 않고 예외를 던진다
+	public void resetToPending() {
+		if (!isFailed()) {
+			throw new OutboxEventNotFailedException(getId(), status.getLabel());
+		}
+		this.status = OutboxStatus.PENDING;
+		this.retryCount = 0;
+		this.nextRetryDate = null;
 	}
 }
