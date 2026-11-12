@@ -3,6 +3,8 @@ package com.bukang.board.domain;
 import static jakarta.persistence.EnumType.STRING;
 import static lombok.AccessLevel.PROTECTED;
 
+import java.time.LocalDateTime;
+
 import com.bukang.common.global.jpa.entity.BaseIdAndTime;
 
 import jakarta.persistence.Column;
@@ -43,6 +45,14 @@ public class BoardComment extends BaseIdAndTime {
 	@Column(nullable = false)
 	private boolean edited;
 
+	// 관리자가 되살리거나 지운 기록. 되살린 뒤에는 handledAt 이후의 신고만 다시 숨김 기준에 센다
+	@Enumerated(STRING)
+	@Column(name = "handled_action", columnDefinition = "varchar(20)")
+	private ReportHandledAction handledAction;
+
+	@Column(name = "handled_at")
+	private LocalDateTime handledAt;
+
 	public static BoardComment create(long postId, Long parentId, long memberId, String content) {
 		BoardComment comment = new BoardComment();
 		comment.postId = postId;
@@ -61,6 +71,15 @@ public class BoardComment extends BaseIdAndTime {
 		return status == BoardCommentStatus.DELETED;
 	}
 
+	// 지우지도 숨기지도 않은 댓글
+	public boolean isVisible() {
+		return status == BoardCommentStatus.VISIBLE;
+	}
+
+	public boolean isHidden() {
+		return status == BoardCommentStatus.HIDDEN;
+	}
+
 	public void edit(String content) {
 		this.content = content;
 		this.edited = true;
@@ -68,5 +87,15 @@ public class BoardComment extends BaseIdAndTime {
 
 	public void delete() {
 		this.status = BoardCommentStatus.DELETED;
+	}
+
+	public void hide() {
+		this.status = BoardCommentStatus.HIDDEN;
+	}
+
+	public void handle(ReportHandledAction action, LocalDateTime now) {
+		this.status = action == ReportHandledAction.RESTORED ? BoardCommentStatus.VISIBLE : BoardCommentStatus.DELETED;
+		this.handledAction = action;
+		this.handledAt = now;
 	}
 }

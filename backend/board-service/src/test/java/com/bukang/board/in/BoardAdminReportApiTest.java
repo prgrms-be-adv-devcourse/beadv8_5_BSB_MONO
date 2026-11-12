@@ -90,15 +90,15 @@ class BoardAdminReportApiTest extends BoardTestBase {
 		long postId = hiddenPost("러닝화 최저가 모음");
 		hiddenComment(newPost(ME, "다른 글"));
 		long pendingPost = newPost(ME, "아직 숨기지 않은 글");
-		reportPost(11, pendingPost, "OTHER");
-		reportPost(12, pendingPost, "OTHER");
+		reportPost(11L, pendingPost, "OTHER");
+		reportPost(12L, pendingPost, "OTHER");
 
 		list(ADMIN).andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.hiddenCount").value(2))
 			.andExpect(jsonPath("$.data.pendingReportCount").value(2))
 			.andExpect(jsonPath("$.data.handledTodayCount").value(0))
 			.andExpect(jsonPath("$.data.items.length()").value(2))
-			.andExpect(jsonPath("$.data.items[?(@.targetType=='POST')].targetId").value(postId))
+			.andExpect(jsonPath("$.data.items[?(@.targetType=='POST')].targetId").value((int) postId))
 			.andExpect(jsonPath("$.data.items[?(@.targetType=='POST')].writerNickname").value("러너하나"))
 			.andExpect(jsonPath("$.data.items[?(@.targetType=='POST')].content").value("러닝화 최저가 모음"))
 			.andExpect(jsonPath("$.data.items[?(@.targetType=='POST')].reportCount").value(5))
@@ -132,13 +132,13 @@ class BoardAdminReportApiTest extends BoardTestBase {
 		long postId = hiddenPost("글");
 		handle(ADMIN, "posts", postId, "restore").andExpect(status().isOk());
 
-		reportPost(21, postId, "AD").andExpect(status().isCreated());
-		reportPost(22, postId, "AD").andExpect(status().isCreated());
+		reportPost(21L, postId, "AD").andExpect(status().isCreated());
+		reportPost(22L, postId, "AD").andExpect(status().isCreated());
 		getPost(OTHER, postId).andExpect(status().isOk());
 
-		reportPost(23, postId, "AD");
-		reportPost(24, postId, "AD");
-		reportPost(25, postId, "AD");
+		reportPost(23L, postId, "AD");
+		reportPost(24L, postId, "AD");
+		reportPost(25L, postId, "AD");
 		getPost(OTHER, postId).andExpect(status().isNotFound());
 	}
 

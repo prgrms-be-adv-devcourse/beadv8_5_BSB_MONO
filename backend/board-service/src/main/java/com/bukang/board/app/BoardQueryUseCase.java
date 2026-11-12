@@ -42,14 +42,14 @@ public class BoardQueryUseCase {
 		return PostDetailDto.of(post, writer, mine, liked);
 	}
 
-	// 댓글 아래에 답글을 묶어 준다. 지운 답글은 빼고, 지운 댓글은 지우지 않은 답글이 달려 있을 때만 지움 상태로 남긴다
+	// 댓글 아래에 답글을 묶어 준다. 지운·숨긴 답글은 빼고, 지운·숨긴 댓글은 보이는 답글이 달려 있을 때만 지움 상태로 남긴다
 	// shortcut: 글의 댓글을 모두 읽는다 (페이지 없음). 댓글이 수백 개를 넘는 글이 생기면 커서 방식으로 바꾼다
 	public List<CommentDto> getComments(Long viewerId, long postId) {
 		boardPostFinder.findViewable(postId, viewerId);
 		List<BoardComment> comments = boardCommentRepository.findByPostIdOrderByIdAsc(postId);
 
 		Map<Long, List<BoardComment>> repliesByParent = comments.stream()
-			.filter(comment -> comment.getParentId() != null && !comment.isDeleted())
+			.filter(comment -> comment.getParentId() != null && comment.isVisible())
 			.collect(Collectors.groupingBy(BoardComment::getParentId));
 		Set<Long> writerIds = comments.stream().map(BoardComment::getMemberId).collect(Collectors.toSet());
 		Map<Long, BoardMember> writers = new HashMap<>();
@@ -67,7 +67,7 @@ public class BoardQueryUseCase {
 		List<CommentDto> replyDtos = replies.stream()
 			.map(reply -> visibleDto(reply, List.of(), writers, viewerId))
 			.toList();
-		if (parent.isDeleted()) {
+		if (!parent.isVisible()) {
 			return CommentDto.deleted(parent, replyDtos);
 		}
 		return visibleDto(parent, replyDtos, writers, viewerId);

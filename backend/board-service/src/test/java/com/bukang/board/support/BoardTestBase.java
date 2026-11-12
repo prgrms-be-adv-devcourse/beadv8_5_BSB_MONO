@@ -176,7 +176,8 @@ public abstract class BoardTestBase {
 	}
 
 	protected ResultActions reportComment(Long memberId, long commentId, String reason) throws Exception {
-		return mockMvc.perform(json(as(post(COMMENTS + "/" + commentId + "/report"), memberId), body("reason", reason)));
+		return mockMvc.perform(
+			json(as(post(COMMENTS + "/" + commentId + "/report"), memberId), body("reason", reason)));
 	}
 
 	/** 신고 자동 숨김(다음 이슈)이 하는 일을 흉내 낸다 */
