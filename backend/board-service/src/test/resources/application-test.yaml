@@ -13,6 +13,11 @@ spring:
       # 브로커 없이도 컨텍스트가 뜨도록 리스너 자동 시작을 끈다
       auto-startup: false
 
+board:
+  clients:
+    member:
+      mode: fake
+
 logging:
   level:
     com.bukang: debug

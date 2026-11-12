@@ -19,7 +19,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 class NewAccountChargeReviewGuard {
 	private static final long REVIEW_THRESHOLD = 500_000L;
-	private static final long WINDOW_HOURS = 24L;
+	static final long WINDOW_HOURS = 24L;
 
 	private final WalletChargeRepository walletChargeRepository;
 

@@ -330,7 +330,7 @@ export const CreateResponse = zod.object({
   "unitPrice": zod.int().optional(),
   "quantity": zod.int().optional(),
   "amount": zod.int().optional(),
-  "status": zod.enum(['ORDERED', 'PAID', 'CANCELED']).optional(),
+  "status": zod.enum(['ORDERED', 'PAID', 'CANCELING', 'CANCELED']).optional(),
   "kitDeliveryStatus": zod.union([zod.literal('PREPARING'),zod.literal('SHIPPING'),zod.literal('DELIVERED'),zod.literal(null)]).nullish(),
   "kitCarrier": zod.string().nullish(),
   "kitTrackingNumber": zod.string().nullish(),
@@ -342,12 +342,21 @@ export const CreateResponse = zod.object({
 
 
 /**
- * 결제 대기(CREATED) 주문을 예치금으로 결제하고 참가를 확정한다. 순서: 예치금 차감 → 자리 판매 → 주문 PAID·참가 신청 CONFIRMED. 잔액이 부족하면 주문과 자리를 그대로 두므로, 충전한 뒤 같은 주문으로 다시 결제한다. 기한이 지나 자리 판매가 거절되면 차감한 예치금을 돌려주고 409를 돌려준다. 이미 결제한 주문은 다시 차감하지 않고 200으로 돌려준다.
+ * 결제 대기(CREATED) 주문을 예치금으로 결제하고 참가를 확정한다. 순서: 예치금 차감 → 자리 판매 → 주문 PAID·참가 신청 CONFIRMED. 잔액이 부족하면 주문과 자리를 그대로 두므로, 충전한 뒤 같은 주문으로 다시 결제한다. 기한이 지나 자리 판매가 거절되면 차감한 예치금을 돌려주고 409를 돌려준다. 이미 결제한 주문은 다시 차감하지 않고 200으로 돌려준다. 키트 옵션은 결제 화면에서 고른 kitOptionIds로 받는다. 대회에 옵션이 있으면 옵션 이름마다 하나씩 골라야 하고, 옵션이 없는 대회는 비우거나 본문을 보내지 않는다.
  * @summary 예치금 결제
  */
 export const PayParams = zod.object({
   "orderId": zod.int().describe('주문 ID')
 })
+
+
+export const payBodyKitOptionIdsMax = 20;
+
+
+
+export const PayBody = zod.object({
+  "kitOptionIds": zod.array(zod.int().min(1)).max(payBodyKitOptionIdsMax).optional().describe('고른 키트 옵션 ID (상품 GET /api/v1/product/races/{raceId}/kit-options의 kitOptionId). 대회에 옵션이 있으면 이름마다 하나씩 골라야 하고, 옵션 없는 대회는 비운다')
+}).describe('예치금 결제 요청. 본문이 없으면 키트 옵션 없이 결제한다')
 
 export const PayResponse = zod.object({
   "status": zod.int().optional(),
@@ -379,7 +388,7 @@ export const PayResponse = zod.object({
   "unitPrice": zod.int().optional(),
   "quantity": zod.int().optional(),
   "amount": zod.int().optional(),
-  "status": zod.enum(['ORDERED', 'PAID', 'CANCELED']).optional(),
+  "status": zod.enum(['ORDERED', 'PAID', 'CANCELING', 'CANCELED']).optional(),
   "kitDeliveryStatus": zod.union([zod.literal('PREPARING'),zod.literal('SHIPPING'),zod.literal('DELIVERED'),zod.literal(null)]).nullish(),
   "kitCarrier": zod.string().nullish(),
   "kitTrackingNumber": zod.string().nullish(),
@@ -429,7 +438,7 @@ export const CancelItemResponse = zod.object({
   "unitPrice": zod.int().optional(),
   "quantity": zod.int().optional(),
   "amount": zod.int().optional(),
-  "status": zod.enum(['ORDERED', 'PAID', 'CANCELED']).optional(),
+  "status": zod.enum(['ORDERED', 'PAID', 'CANCELING', 'CANCELED']).optional(),
   "kitDeliveryStatus": zod.union([zod.literal('PREPARING'),zod.literal('SHIPPING'),zod.literal('DELIVERED'),zod.literal(null)]).nullish(),
   "kitCarrier": zod.string().nullish(),
   "kitTrackingNumber": zod.string().nullish(),
@@ -526,7 +535,7 @@ export const CheckoutResponse = zod.object({
   "unitPrice": zod.int().optional(),
   "quantity": zod.int().optional(),
   "amount": zod.int().optional(),
-  "status": zod.enum(['ORDERED', 'PAID', 'CANCELED']).optional(),
+  "status": zod.enum(['ORDERED', 'PAID', 'CANCELING', 'CANCELED']).optional(),
   "kitDeliveryStatus": zod.union([zod.literal('PREPARING'),zod.literal('SHIPPING'),zod.literal('DELIVERED'),zod.literal(null)]).nullish(),
   "kitCarrier": zod.string().nullish(),
   "kitTrackingNumber": zod.string().nullish(),
@@ -673,7 +682,7 @@ export const FindById1Response = zod.object({
   "unitPrice": zod.int().optional(),
   "quantity": zod.int().optional(),
   "amount": zod.int().optional(),
-  "status": zod.enum(['ORDERED', 'PAID', 'CANCELED']).optional(),
+  "status": zod.enum(['ORDERED', 'PAID', 'CANCELING', 'CANCELED']).optional(),
   "kitDeliveryStatus": zod.union([zod.literal('PREPARING'),zod.literal('SHIPPING'),zod.literal('DELIVERED'),zod.literal(null)]).nullish(),
   "kitCarrier": zod.string().nullish(),
   "kitTrackingNumber": zod.string().nullish(),
@@ -839,7 +848,7 @@ export const ShipResponse = zod.object({
   "unitPrice": zod.int().optional(),
   "quantity": zod.int().optional(),
   "amount": zod.int().optional(),
-  "status": zod.enum(['ORDERED', 'PAID', 'CANCELED']).optional(),
+  "status": zod.enum(['ORDERED', 'PAID', 'CANCELING', 'CANCELED']).optional(),
   "kitDeliveryStatus": zod.union([zod.literal('PREPARING'),zod.literal('SHIPPING'),zod.literal('DELIVERED'),zod.literal(null)]).nullish(),
   "kitCarrier": zod.string().nullish(),
   "kitTrackingNumber": zod.string().nullish(),
@@ -869,7 +878,7 @@ export const CompleteDeliveryResponse = zod.object({
   "unitPrice": zod.int().optional(),
   "quantity": zod.int().optional(),
   "amount": zod.int().optional(),
-  "status": zod.enum(['ORDERED', 'PAID', 'CANCELED']).optional(),
+  "status": zod.enum(['ORDERED', 'PAID', 'CANCELING', 'CANCELED']).optional(),
   "kitDeliveryStatus": zod.union([zod.literal('PREPARING'),zod.literal('SHIPPING'),zod.literal('DELIVERED'),zod.literal(null)]).nullish(),
   "kitCarrier": zod.string().nullish(),
   "kitTrackingNumber": zod.string().nullish(),
