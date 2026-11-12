@@ -25,6 +25,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
@@ -351,6 +352,40 @@ class ApiV1PartyTest {
 
 		assertThat(statuses).containsExactlyInAnyOrder(201, 409);
 		assertThat(partyMemberRepository.findAll()).filteredOn(row -> row.getMemberId() == MEMBER).hasSize(1);
+	}
+
+	@Test
+	@DisplayName("남은 자리가 1개인 파티에 여러 명이 동시에 합류하면 한 명만 합류되고 나머지는 정원 참(409)이다")
+	void concurrentJoinsOverLastSeat() throws Exception {
+		LocalDateTime now = LocalDateTime.now();
+		// 최대 2명: 파티장 + 1자리
+		raceCoursePort.put(StubRaceCoursePort.withCrewSale(StubRaceCoursePort.openCourse(COURSE_10K, RACE_ID, 14, null),
+			now.minusDays(1), now.plusDays(1), 1, 2));
+		String token = token(create(LEADER, COURSE_10K));
+		int joiners = 5;
+		ExecutorService pool = Executors.newFixedThreadPool(joiners);
+		CountDownLatch start = new CountDownLatch(1);
+		List<Future<String>> results = new ArrayList<>();
+		for (int i = 0; i < joiners; i++) {
+			long memberId = 10 + i;
+			results.add(pool.submit(() -> {
+				start.await();
+				MockHttpServletResponse response = join(memberId, token).andReturn().getResponse();
+				return response.getStatus() == 201 ? "201"
+					: response.getStatus() + " " + JsonPath.read(response.getContentAsString(), "$.code");
+			}));
+		}
+		start.countDown();
+		List<String> outcomes = new ArrayList<>();
+		for (Future<String> result : results) {
+			outcomes.add(result.get(30, TimeUnit.SECONDS));
+		}
+		pool.shutdown();
+
+		assertThat(outcomes).containsOnlyOnce("201")
+			.filteredOn(outcome -> !outcome.equals("201")).containsOnly("409 ORDER_PARTY_FULL");
+		assertThat(partyMemberRepository.findAll()).filteredOn(row -> row.getLeftAt() == null).hasSize(2);
+		assertThat(participationRepository.findAll()).filteredOn(row -> row.getStatus().isActive()).hasSize(2);
 	}
 
 	@Test
