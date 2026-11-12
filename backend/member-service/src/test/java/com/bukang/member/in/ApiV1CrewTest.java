@@ -34,10 +34,16 @@ import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.event.ApplicationEvents;
+import org.springframework.test.context.event.RecordApplicationEvents;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.common.shared.member.web.MemberIdHeader;
+import com.bukang.common.shared.notification.NotificationKind;
+import com.bukang.common.shared.notification.event.NotificationRequestedEvent;
 import com.bukang.member.app.MemberFacade;
 import com.bukang.member.crew.out.CrewInviteRepository;
 import com.bukang.member.crew.out.CrewMemberRepository;
@@ -53,6 +59,7 @@ import com.jayway.jsonpath.JsonPath;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@RecordApplicationEvents
 @Import(InMemoryIdentityVerificationStore.Config.class)
 class ApiV1CrewTest {
 	@Autowired
@@ -82,6 +89,10 @@ class ApiV1CrewTest {
 	private CrewInviteRepository crewInviteRepository;
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
+	@Autowired
+	private PlatformTransactionManager transactionManager;
+	@Autowired
+	private ApplicationEvents applicationEvents;
 
 	@MockitoBean
 	private Clock clock;
@@ -314,24 +325,69 @@ class ApiV1CrewTest {
 	}
 
 	@Test
-	@DisplayName("다른 사람이 이미 쓴 링크는 410 CREW_INVITE_ALREADY_USED이고, 쓰인 초대는 취소할 수 없다 (409)")
-	void usedLinkIsGone() throws Exception {
+	@DisplayName("링크 하나로 여러 명이 가입하고, 가입에 쓰인 초대도 취소할 수 있으며 취소 뒤에는 410 CREW_INVITE_CANCELED이다")
+	void oneLinkJoinsManyUntilCanceled() throws Exception {
 		long crewId = createCrew(leaderId, "새벽한강크루");
 		String token = createInvite(crewId, leaderId);
 		long inviteId = onlyInviteId();
-		join(otherId, token).andExpect(status().isCreated());
+		long fourthId = memberFacade.join(MemberFixture.joinRequest().build(identityStore)).getId();
 
-		join(outsiderId, token)
+		join(otherId, token).andExpect(status().isCreated());
+		join(outsiderId, token).andExpect(status().isCreated());
+		assertThat(crewMemberRepository.countByCrewId(crewId)).isEqualTo(3);
+
+		// 링크가 퍼지면 크루장이 취소로 끊는다
+		mockMvc.perform(delete(INVITE, crewId, inviteId).header(MemberIdHeader.NAME, leaderId))
+			.andExpect(status().isOk());
+		join(fourthId, token)
 			.andExpect(status().isGone())
-			.andExpect(jsonPath("$.code").value("CREW_INVITE_ALREADY_USED"))
-			.andExpect(jsonPath("$.message").value("이미 가입에 쓰인 초대 링크입니다. 새 초대 링크를 받아주세요."));
-		mockMvc.perform(get(INVITE_BY_TOKEN, token).header(MemberIdHeader.NAME, outsiderId))
+			.andExpect(jsonPath("$.code").value("CREW_INVITE_CANCELED"));
+		assertThat(crewMemberRepository.existsByCrewIdAndMemberId(crewId, fourthId)).isFalse();
+	}
+
+	@Test
+	@DisplayName("여러 명 가입으로 바뀌기 전에 이미 쓰인 초대는 그대로 410 CREW_INVITE_ALREADY_USED이고 취소할 수 없다 (409)")
+	void legacyUsedLinkStaysGone() throws Exception {
+		long crewId = createCrew(leaderId, "새벽한강크루");
+		String token = createInvite(crewId, leaderId);
+		long inviteId = onlyInviteId();
+		jdbcTemplate.update("update member_crew_invite set used_at = created_at, used_by = ? where invite_id = ?",
+			leaderId, inviteId);
+
+		join(otherId, token)
 			.andExpect(status().isGone())
 			.andExpect(jsonPath("$.code").value("CREW_INVITE_ALREADY_USED"));
 		mockMvc.perform(delete(INVITE, crewId, inviteId).header(MemberIdHeader.NAME, leaderId))
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("CREW_INVITE_ALREADY_USED"));
-		assertThat(crewMemberRepository.existsByCrewIdAndMemberId(crewId, outsiderId)).isFalse();
+	}
+
+	@Test
+	@DisplayName("크루에 가입하면 가입한 회원에게 CREW_JOINED 알림 요청이 한 번 나간다")
+	void joinPublishesNotification() throws Exception {
+		long crewId = createCrew(leaderId, "새벽한강크루");
+		String token = createInvite(crewId, leaderId);
+
+		join(otherId, token).andExpect(status().isCreated());
+
+		List<NotificationRequestedEvent> events = applicationEvents.stream(NotificationRequestedEvent.class).toList();
+		assertThat(events).hasSize(1);
+		NotificationRequestedEvent event = events.get(0);
+		assertThat(event.memberId()).isEqualTo(otherId);
+		assertThat(event.kind()).isEqualTo(NotificationKind.CREW_JOINED);
+		assertThat(event.body()).contains("새벽한강크루");
+		assertThat(event.href()).isEqualTo("/crews/" + crewId);
+	}
+
+	@Test
+	@DisplayName("이미 크루원이라 가입이 실패하면 알림 요청이 나가지 않는다")
+	void alreadyMemberPublishesNoNotification() throws Exception {
+		long crewId = createCrew(leaderId, "새벽한강크루");
+		String token = createInvite(crewId, leaderId);
+
+		join(leaderId, token).andExpect(status().isConflict());
+
+		assertThat(applicationEvents.stream(NotificationRequestedEvent.class)).isEmpty();
 	}
 
 	@Test
@@ -394,15 +450,15 @@ class ApiV1CrewTest {
 	}
 
 	@Test
-	@DisplayName("서로 다른 두 회원이 같은 링크로 동시에 가입하면 한 명만 201이고 다른 한 명은 410 CREW_INVITE_ALREADY_USED이다")
-	void concurrentJoinBySameLinkAllowsOne() throws Exception {
+	@DisplayName("서로 다른 두 회원이 같은 링크로 동시에 가입하면 둘 다 201이다")
+	void concurrentJoinBySameLinkAllowsBoth() throws Exception {
 		long crewId = createCrew(leaderId, "새벽한강크루");
 		String token = createInvite(crewId, leaderId);
 
 		List<Integer> statuses = joinAtOnce(token, otherId, outsiderId);
 
-		assertThat(statuses).containsExactlyInAnyOrder(201, 410);
-		assertThat(crewMemberRepository.countByCrewId(crewId)).isEqualTo(2);
+		assertThat(statuses).containsExactly(201, 201);
+		assertThat(crewMemberRepository.countByCrewId(crewId)).isEqualTo(3);
 	}
 
 	@Test
@@ -415,6 +471,44 @@ class ApiV1CrewTest {
 
 		assertThat(statuses).containsExactlyInAnyOrder(201, 409);
 		assertThat(crewMemberRepository.countByCrewId(crewId)).isEqualTo(2);
+	}
+
+	@Test
+	@DisplayName("가입이 초대를 읽은 뒤 크루 락을 기다리는 사이 취소가 커밋되면, 그 가입은 410 CREW_INVITE_CANCELED이다")
+	void cancelCommittedWhileJoinWaitsBlocksJoin() throws Exception {
+		long crewId = createCrew(leaderId, "새벽한강크루");
+		String token = createInvite(crewId, leaderId);
+		long inviteId = onlyInviteId();
+		TransactionTemplate tx = new TransactionTemplate(transactionManager);
+		CountDownLatch crewLocked = new CountDownLatch(1);
+		CountDownLatch release = new CountDownLatch(1);
+		ExecutorService executor = Executors.newFixedThreadPool(2);
+		try {
+			// 다른 트랜잭션이 크루 행을 잡고 있어, 가입은 초대를 읽은 뒤 크루 락에서 기다린다
+			Future<?> holder = executor.submit(() -> tx.executeWithoutResult(status -> {
+				jdbcTemplate.queryForList("select crew_id from member_crew where crew_id = ? for update", crewId);
+				crewLocked.countDown();
+				try {
+					release.await(10, TimeUnit.SECONDS);
+				} catch (InterruptedException exception) {
+					Thread.currentThread().interrupt();
+				}
+			}));
+			crewLocked.await(10, TimeUnit.SECONDS);
+			Future<Integer> joining = executor.submit(() -> join(otherId, token).andReturn().getResponse().getStatus());
+			// shortcut: 가입이 초대를 읽고 크루 락에 닿을 때까지 시간으로 기다린다. 흔들리면 멈춤 지점을 넣는다
+			Thread.sleep(500);
+			mockMvc.perform(delete(INVITE, crewId, inviteId).header(MemberIdHeader.NAME, leaderId))
+				.andExpect(status().isOk());
+			release.countDown();
+			holder.get(10, TimeUnit.SECONDS);
+
+			assertThat(joining.get(10, TimeUnit.SECONDS)).isEqualTo(410);
+			assertThat(crewMemberRepository.existsByCrewIdAndMemberId(crewId, otherId)).isFalse();
+		} finally {
+			release.countDown();
+			executor.shutdownNow();
+		}
 	}
 
 	@Test
@@ -442,8 +536,8 @@ class ApiV1CrewTest {
 
 		mockMvc.perform(get(INVITES, crewId).header(MemberIdHeader.NAME, leaderId))
 			.andExpect(status().isOk())
-			// 처음 가입에 쓴 초대는 목록에서 빠진다
-			.andExpect(jsonPath("$.data.length()").value(2))
+			// 가입에 쓴 초대도 24시간 안이면 목록에 남아 취소할 수 있다
+			.andExpect(jsonPath("$.data.length()").value(3))
 			.andExpect(jsonPath("$.data[0].inviteId").isNumber())
 			.andExpect(jsonPath("$.data[0].inviteToken").doesNotExist());
 		mockMvc.perform(get(INVITES, crewId).header(MemberIdHeader.NAME, otherId))

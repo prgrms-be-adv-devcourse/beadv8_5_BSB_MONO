@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.assertj.core.groups.Tuple;
 import org.junit.jupiter.api.DisplayName;
@@ -46,6 +47,7 @@ import com.bukang.payout.out.RaceSchedule;
 import com.bukang.payout.out.SellerAccountPort;
 import com.bukang.payout.out.SoldEntry;
 import com.bukang.payout.out.SoldEntryPort;
+import com.bukang.payout.out.SoldEntryStatus;
 import com.bukang.payout.out.SoldSummary;
 import com.bukang.payout.out.SoldSummaryPort;
 import com.bukang.payout.support.StubRacePort;
@@ -69,6 +71,11 @@ class PayoutCreateUseCaseFailureRecordTest {
 	private static final SoldEntry MISMATCHED = new SoldEntry(100, 1, 10, 10L, RACE_DATE.minusDays(1), 50_000L);
 	private static final SoldEntry SELLER_1 = new SoldEntry(100, 1, 10, 10L, RACE_DATE, 50_000L);
 	private static final SoldEntry SELLER_2 = new SoldEntry(200, 2, 10, 10L, RACE_DATE, 30_000L);
+	// 판매자 1의 참가권 하나가 취소 중이거나 상태를 모른다 (BUK-52, 최종 정산 미룸)
+	private static final SoldEntry CANCELING_OF_SELLER_1 =
+		new SoldEntry(101, 1, 10, 10L, RACE_DATE, 50_000L, SoldEntryStatus.취소_중);
+	private static final SoldEntry UNKNOWN_OF_SELLER_1 =
+		new SoldEntry(101, 1, 10, 10L, RACE_DATE, 50_000L, SoldEntryStatus.모름);
 	private static final String RECORD_FAILED_LOG = "정산 생성 실패를 기록표에 남기지 못했습니다";
 	// 1차: 11/10 실행은 환불 마감일 11/3 ~ 11/9를 본다. 대회일은 최종 기간(대회일 11/3 ~ 11/9)에 걸리지 않게 1년 뒤로 둔다
 	private static final LocalDate REFUND_DEADLINE = LocalDate.of(2026, 11, 5);
@@ -171,6 +178,69 @@ class PayoutCreateUseCaseFailureRecordTest {
 		useCase(realStep(), soldEntries(MISMATCHED), sellerId -> true, racesOf(RACE_10)).run(TODAY, NOW);
 
 		assertThat(rows()).containsExactly(sellerRaceRow(PayoutCreateFailureType.주문_정산_대회일_불일치));
+	}
+
+	@Test
+	@DisplayName("BUK-52 취소 중 참가권이 1장이라도 있으면 그 판매자 × 대회의 최종 정산을 미루고 '취소_중이라_미룸'이 쌓인다")
+	void cancelingEntryDefersFinalPayout() {
+		useCase(realStep(), soldEntries(SELLER_1, CANCELING_OF_SELLER_1), sellerId -> true, racesOf(RACE_10))
+			.run(TODAY, NOW);
+
+		assertThat(payoutRepository.findAll()).isEmpty();
+		assertThat(rows()).containsExactly(sellerRaceRow(PayoutCreateFailureType.취소_중이라_미룸));
+	}
+
+	@Test
+	@DisplayName("BUK-52 판매 줄 상태가 '모름'이면 결제 완료로 짐작하지 않고 미룬다")
+	void unknownStatusDefersFinalPayout() {
+		useCase(realStep(), soldEntries(SELLER_1, UNKNOWN_OF_SELLER_1), sellerId -> true, racesOf(RACE_10))
+			.run(TODAY, NOW);
+
+		assertThat(payoutRepository.findAll()).isEmpty();
+		assertThat(rows()).containsExactly(sellerRaceRow(PayoutCreateFailureType.취소_중이라_미룸));
+	}
+
+	@Test
+	@DisplayName("BUK-52 같은 대회의 다른 판매자는 미루지 않고 최종 정산을 만든다")
+	void otherSellerOfSameRaceIsNotDeferred() {
+		useCase(realStep(), soldEntries(SELLER_1, CANCELING_OF_SELLER_1, SELLER_2), sellerId -> true,
+			racesOf(RACE_10)).run(TODAY, NOW);
+
+		assertThat(payoutRepository.findAll()).extracting(Payout::getSellerId).containsExactly(2L);
+		assertThat(rows()).containsExactly(sellerRaceRow(PayoutCreateFailureType.취소_중이라_미룸));
+	}
+
+	@Test
+	@DisplayName("BUK-52 취소 중 참가권이 정리되면 다음 실행(되돌아보기)에서 최종 정산이 만들어진다. 미룬 날의 기록은 남는다")
+	void deferredFinalPayoutIsCreatedWhenResolved() {
+		AtomicReference<List<SoldEntry>> sold = new AtomicReference<>(List.of(SELLER_1, CANCELING_OF_SELLER_1));
+		PayoutCreateUseCase useCase = useCase(realStep(), raceId -> sold.get(), sellerId -> true, racesOf(RACE_10));
+
+		useCase.run(TODAY, NOW);
+		assertThat(payoutRepository.findAll()).isEmpty();
+
+		sold.set(List.of(SELLER_1, new SoldEntry(101, 1, 10, 10L, RACE_DATE, 50_000L)));
+		useCase.run(TODAY.plusDays(1), NOW.plusDays(1));
+
+		assertThat(payoutRepository.findAll()).extracting(Payout::getPayoutStage)
+			.containsExactly(PayoutStage.최종_정산);
+		assertThat(rows()).containsExactly(sellerRaceRow(PayoutCreateFailureType.취소_중이라_미룸));
+	}
+
+	@Test
+	@DisplayName("BUK-52 1차 정산은 취소 중 참가권이 있어도 지금처럼 만들어지고, 최종 정산만 미룬다")
+	void firstPayoutIsNotDeferred() {
+		// 환불 마감일 11/5는 1차 기간, 대회일 11/5는 최종 기간에 모두 걸린다
+		RaceSchedule both = new RaceSchedule(10, "대회 10", RACE_DATE, RACE_DATE);
+		PayoutCreateUseCase useCase = new PayoutCreateUseCase(payoutRepository, realStep(),
+			soldEntries(SELLER_1, CANCELING_OF_SELLER_1), sellerId -> true, racesOf(both),
+			raceId -> List.of(FIRST_SELLER_1), new PayoutCreateFailureUseCase(payoutCreateFailureRepository));
+
+		useCase.run(TODAY, NOW);
+
+		assertThat(payoutRepository.findAll()).extracting(Payout::getPayoutStage)
+			.containsExactly(PayoutStage.일차_정산);
+		assertThat(rows()).containsExactly(sellerRaceRow(PayoutCreateFailureType.취소_중이라_미룸));
 	}
 
 	@Test

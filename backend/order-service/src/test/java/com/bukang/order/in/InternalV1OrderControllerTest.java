@@ -27,7 +27,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 import com.bukang.order.app.OrderExpiryUseCase;
 import com.bukang.order.domain.OrderItem;
 import com.bukang.order.domain.OrderItemStatus;
+import com.bukang.order.domain.ParticipationKitOption;
 import com.bukang.order.out.OrderRepository;
+import com.bukang.order.out.ParticipationKitOptionRepository;
 import com.bukang.order.out.ParticipationRepository;
 import com.bukang.order.out.QueueAdmissionRepository;
 import com.bukang.order.out.race.RaceCourseInfo;
@@ -60,6 +62,9 @@ class InternalV1OrderControllerTest {
 	private static final long OTHER_SELLER_ID = 8;
 	private static final String SUMMARY_URL = "/internal/v1/order/sold-summary";
 	private static final long TICKET_PRICE = StubRaceCoursePort.PRICE;
+	// 주문 요약: 대회명·종목명을 주는 키트 종목과, 이름을 주지 않는 키트 없는 종목
+	private static final long COURSE_NAMED = 18;
+	private static final long COURSE_NO_KIT = 19;
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -72,6 +77,9 @@ class InternalV1OrderControllerTest {
 
 	@Autowired
 	private QueueAdmissionRepository queueAdmissionRepository;
+
+	@Autowired
+	private ParticipationKitOptionRepository participationKitOptionRepository;
 
 	@Autowired
 	private StubRaceCoursePort raceCoursePort;
@@ -98,6 +106,7 @@ class InternalV1OrderControllerTest {
 	void tearDown() {
 		orderRepository.deleteAll();
 		participationRepository.deleteAll();
+		participationKitOptionRepository.deleteAll();
 		queueAdmissionRepository.deleteAll();
 		raceCoursePort.clear();
 		seatHoldPort.clear();
@@ -123,6 +132,7 @@ class InternalV1OrderControllerTest {
 			.andExpect(jsonPath("$.data[0].raceCourseId").value(COURSE_1115))
 			.andExpect(jsonPath("$.data[0].raceDate").value("2026-11-15"))
 			.andExpect(jsonPath("$.data[0].price").value(TICKET_PRICE))
+			.andExpect(jsonPath("$.data[0].status").value("PAID"))
 			.andExpect(jsonPath("$.data[1].orderItemId").value(third));
 	}
 
@@ -267,6 +277,84 @@ class InternalV1OrderControllerTest {
 		mockMvc.perform(get(SUMMARY_URL).param("raceId", "abc"))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.message").value("요청 값의 형식이 올바르지 않습니다."));
+	}
+
+	@Test
+	@DisplayName("주문 요약: 결제한 키트 종목은 대회명·종목명, 고른 키트 옵션, 배송 준비 상태를 준다")
+	void orderLookupWithKit() throws Exception {
+		RaceCourseInfo base = courseOn(COURSE_NAMED, 102, LocalDateTime.of(2026, 11, 20, 8, 0));
+		raceCoursePort.put(new RaceCourseInfo(base.raceCourseId(), base.raceId(), base.raceDate(),
+			base.applicationOpenAt(), base.applicationCloseAt(), base.minAge(), base.maxAge(), base.sellerId(),
+			base.courseName(), base.price(), base.kitIncluded(), base.refundDeadline(), base.scheduleChangedAt(),
+			false, base.tshirtSizeOption(), null, "서울 마라톤", "10K"));
+		long orderItemId = paidOrderItem(5, COURSE_NAMED);
+		long participationId = transactionTemplate.execute(status ->
+			findOrderItem(orderItemId).getParticipationId());
+		participationKitOptionRepository.save(ParticipationKitOption.of(participationId, 1, "T-shirt", "L"));
+		participationKitOptionRepository.save(ParticipationKitOption.of(participationId, 2, "양말", "260"));
+		long orderId = orderIdOf(orderItemId);
+
+		findOrderLookup(orderId)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.message").value("주문 요약을 조회했습니다."))
+			.andExpect(jsonPath("$.data.memberId").value(5))
+			.andExpect(jsonPath("$.data.orderNo").isNotEmpty())
+			.andExpect(jsonPath("$.data.paymentAmount").value(TICKET_PRICE))
+			.andExpect(jsonPath("$.data.status").value("PAID"))
+			.andExpect(jsonPath("$.data.items.length()").value(1))
+			.andExpect(jsonPath("$.data.items[0].raceId").value(102))
+			.andExpect(jsonPath("$.data.items[0].raceName").value("서울 마라톤"))
+			.andExpect(jsonPath("$.data.items[0].courseName").value("10K"))
+			.andExpect(jsonPath("$.data.items[0].kitSummary").value("T-shirt L, 양말 260"))
+			.andExpect(jsonPath("$.data.items[0].deliveryStatus").value("PREPARING"));
+	}
+
+	@Test
+	@DisplayName("주문 요약: 키트 없는 종목은 키트 칸이 null이고, 상품이 이름을 주지 않으면 상품명으로 대신한다")
+	void orderLookupWithoutKit() throws Exception {
+		raceCoursePort.put(StubRaceCoursePort.courseWithoutKit(COURSE_NO_KIT, 103));
+		long orderId = createdOrder(6, COURSE_NO_KIT);
+
+		findOrderLookup(orderId)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.status").value("CREATED"))
+			.andExpect(jsonPath("$.data.items[0].raceId").value(103))
+			.andExpect(jsonPath("$.data.items[0].raceName").value("테스트 대회 종목 " + COURSE_NO_KIT))
+			.andExpect(jsonPath("$.data.items[0].courseName").doesNotExist())
+			.andExpect(jsonPath("$.data.items[0].kitSummary").doesNotExist())
+			.andExpect(jsonPath("$.data.items[0].deliveryStatus").doesNotExist());
+	}
+
+	@Test
+	@DisplayName("주문 요약: 결제 전 키트 종목은 구매자 주문 상세처럼 배송 준비이고, 상품 서비스가 멈추면 상품명으로 대신한다")
+	void orderLookupUnpaidKitWhileProductDown() throws Exception {
+		long orderId = createdOrder(7, COURSE_1115);
+		raceCoursePort.setUnavailable(true);
+
+		findOrderLookup(orderId)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.status").value("CREATED"))
+			.andExpect(jsonPath("$.data.items[0].raceId").value(100))
+			.andExpect(jsonPath("$.data.items[0].raceName").value("테스트 대회 종목 " + COURSE_1115))
+			.andExpect(jsonPath("$.data.items[0].courseName").doesNotExist())
+			.andExpect(jsonPath("$.data.items[0].kitSummary").value("키트"))
+			.andExpect(jsonPath("$.data.items[0].deliveryStatus").value("PREPARING"));
+	}
+
+	@Test
+	@DisplayName("주문 요약: 없는 주문이면 404와 ORDER_NOT_FOUND")
+	void orderLookupNotFound() throws Exception {
+		findOrderLookup(999_999)
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("ORDER_NOT_FOUND"));
+	}
+
+	private ResultActions findOrderLookup(long orderId) throws Exception {
+		return mockMvc.perform(get("/internal/v1/order/orders/" + orderId + "/summary"));
+	}
+
+	private long orderIdOf(long orderItemId) {
+		return transactionTemplate.execute(status -> findOrderItem(orderItemId).getOrder().getId());
 	}
 
 	private ResultActions summarizeSold(long raceId) throws Exception {

@@ -18,6 +18,10 @@ public final class KafkaTopics {
 	public static final String SELLER_CHANGED = "queuing.seller.changed";
 	// 크루원이 크루에서 빠졌다 (떠나기·내보내기·없애기·회원 탈퇴). 주문 서비스가 그 사람을 파티에서 뺀다
 	public static final String CREW_MEMBER_LEFT = "queuing.crew.memberleft";
+	// 회원이 초대 링크로 크루에 가입했다. 알림 서비스가 받는다 (BUK-99)
+	public static final String CREW_MEMBER_JOINED = "queuing.crew.memberjoined";
+	// 크루장이 바뀌었다 (크루장 넘기기). 알림 서비스가 받는다 (BUK-99)
+	public static final String CREW_LEADER_CHANGED = "queuing.crew.leaderchanged";
 	// 대회가 바뀌었다 (등록·수정·취소, 상태 배치의 판매 상태 변경). 대기열 서비스가 대회 복제본에 저장한다
 	public static final String RACE_CHANGED = "queuing.race.changed";
 	// 종목이 바뀌었다 (등록한 종목, 수정 때 바뀐·새·뺀 종목). 대기열 서비스가 종목 복제본에 저장한다

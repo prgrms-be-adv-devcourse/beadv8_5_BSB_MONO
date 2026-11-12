@@ -27,6 +27,8 @@ Gradle 멀티 모듈로 `common`·`jwt`(공통 라이브러리), `gateway`(API �
 | `order-service` | 주문 서비스 (prod 프로파일) | 호스트에 열지 않음 (`bukang-order-service:8084`) |
 | `product-service` | 상품 서비스 (prod 프로파일) | 호스트에 열지 않음 (`bukang-product-service:8085`) |
 | `queue-service` | 대기열 서비스 (prod 프로파일) | 호스트에 열지 않음 (`bukang-queue-service:8086`) |
+| `ai-service` | 크루런 AI 서비스 (prod 프로파일, 모델은 OpenAI) | 호스트에 열지 않음 (`bukang-ai-service:8092`) |
+| `bukang-ollama` | 로컬 모델 서버 Ollama (`ai` 프로파일로 분리, 아래 [크루런 AI](#크루런-ai) 참고) | `localhost:11434` |
 
 앱 서비스(`nginx`, `web`, `gateway`, `member-service`, `cash-service`, `payout-service`, `file-service`, `order-service`, `product-service`, `queue-service`)는 `app` 프로파일로 분리되어 있어서 `--profile app`을 붙일 때만 실행됩니다.
 서비스 7개는 호스트에 포트를 열지 않고 `gateway`를 거쳐서만 부를 수 있습니다. 서비스는 `X-Member-Id` 헤더를 로그인한 회원으로 믿기 때문에,
@@ -353,6 +355,32 @@ Kafka에는 메시지를 **JSON 문자열**로 보냅니다. Kafka 직렬화기�
     기본 타입 필드에 값이 없으면 파싱에 실패합니다(Jackson 3 기본값 `FAIL_ON_NULL_FOR_PRIMITIVES`).
   - 필드 이름을 바꾸면 기존 메시지의 그 값을 읽지 못해 `null`이 됩니다. 필드를 지우면 기존 메시지의 그 값은 무시됩니다.
 
+## 크루런 AI
+
+판매자·관리자 센터의 챗봇입니다(`ai-service`, 8092). 지금은 뼈대라 질문을 모델에 보내 답만 돌려주고, 운영 숫자를 가져오는 도구는 아직 없습니다.
+
+| 프로파일 | 모델 | 필요한 것 |
+|---|---|---|
+| dev (로컬) | Ollama `llama3.2:3b` (내 컴퓨터, 요금 없음) | 아래 Ollama 컨테이너 |
+| test | 가짜 모델 (모델을 부르지 않음) | Docker (Redis 컨테이너) |
+| prod (서버) | OpenAI | `.env`의 `OPENAI_API_KEY` (비어도 앱은 뜨고, 질문하면 503) |
+
+로컬에서 실제 모델로 물어보기 (이미지 약 3GB, 모델 약 2GB를 처음 한 번 받습니다):
+
+```bash
+docker compose --profile ai up -d bukang-ollama
+docker exec bukang-ollama ollama pull llama3.2:3b
+./gradlew :ai-service:bootRun
+curl -X POST localhost:8092/api/v1/ai/seller/chat -H 'X-Member-Id: 1' -H 'Content-Type: application/json' -d '{"message": "안녕하세요"}'
+```
+
+- 주소: `POST /api/v1/ai/{seller|admin}/chat`(질문), `DELETE /api/v1/ai/{seller|admin}/chat`(새 대화). 그 화면의 역할(승인된 판매자·관리자)이 없으면 403입니다. dev는 누구나 통과합니다(가짜 회원 어댑터).
+- 대화 기록은 Redis에 (화면, 회원 번호)마다 따로 두고 24시간 뒤 지워집니다. 모델에는 최근 10개만 보냅니다.
+- Ollama를 띄우지 않고 질문하면 503 `AI_MODEL_UNAVAILABLE`로 답합니다.
+- 대화 기록은 Redis의 검색·JSON 기능을 씁니다. compose의 `redis:8.2`에는 들어 있지만 Homebrew 등으로 따로 설치한 Redis에는 없습니다.
+  내 컴퓨터에 그런 Redis가 `localhost:6379`를 먼저 쓰고 있으면 앱이 거기에 붙어 `Could not initialize Redis schema: ERR unknown command 'FT._LIST'`로 뜨지 않습니다.
+  그 Redis를 끄거나(`brew services stop redis`), 다른 포트의 `redis:8.2`를 가리킵니다(`--spring.ai.chat.memory.repository.redis.port=6380`).
+
 ## API 문서 (Swagger)
 
 ### 접속
@@ -366,6 +394,7 @@ Kafka에는 메시지를 **JSON 문자열**로 보냅니다. Kafka 직렬화기�
 | http://localhost:8084/swagger-ui.html | 주문 서비스 Swagger UI |
 | http://localhost:8085/swagger-ui.html | 상품 서비스 Swagger UI |
 | http://localhost:8086/swagger-ui.html | 대기열 서비스 Swagger UI |
+| http://localhost:8092/swagger-ui.html | 크루런 AI 서비스 Swagger UI |
 | http://localhost:8080/v3/api-docs | OpenAPI 문서 원본(JSON) |
 
 ### 작성 규칙

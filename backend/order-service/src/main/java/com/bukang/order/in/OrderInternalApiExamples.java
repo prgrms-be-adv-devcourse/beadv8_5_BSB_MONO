@@ -10,9 +10,9 @@ final class OrderInternalApiExamples {
 			"message": "판매 내역을 조회했습니다.",
 			"data": [
 				{ "orderItemId": 1, "sellerId": 3, "raceId": 5, "raceCourseId": 11, "raceDate": "2026-11-09",
-					"price": 50000 },
+					"price": 50000, "status": "PAID" },
 				{ "orderItemId": 4, "sellerId": 8, "raceId": 5, "raceCourseId": 12, "raceDate": "2026-11-09",
-					"price": 50000 }
+					"price": 50000, "status": "CANCELING" }
 			]
 		}
 		""";
@@ -54,4 +54,36 @@ final class OrderInternalApiExamples {
 
 	private OrderInternalApiExamples() {
 	}
+
+	static final String ORDER_LOOKUP_SUCCESS = """
+		{
+			"status": 200,
+			"message": "주문 요약을 조회했습니다.",
+			"data": {
+				"memberId": 3, "orderNo": "OD-20261110-3F9A", "paymentAmount": 50000, "status": "PAID",
+				"items": [
+					{ "raceId": 5, "raceName": "2026 서울 하프 마라톤", "courseName": "10K",
+						"kitSummary": "T-shirt L", "deliveryStatus": "PREPARING" }
+				]
+			}
+		}
+		""";
+
+	static final String ORDER_LOOKUP_NO_KIT = """
+		{
+			"status": 200,
+			"message": "주문 요약을 조회했습니다.",
+			"data": {
+				"memberId": 3, "orderNo": "OD-20261110-3F9B", "paymentAmount": 30000, "status": "CANCELED",
+				"items": [
+					{ "raceId": 5, "raceName": "2026 서울 하프 마라톤", "courseName": "5K",
+						"kitSummary": null, "deliveryStatus": null }
+				]
+			}
+		}
+		""";
+
+	static final String ORDER_NOT_FOUND = """
+		{ "status": 404, "code": "ORDER_NOT_FOUND", "message": "존재하지 않는 주문입니다.", "data": null }
+		""";
 }

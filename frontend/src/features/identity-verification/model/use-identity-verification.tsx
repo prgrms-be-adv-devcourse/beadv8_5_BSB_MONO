@@ -5,6 +5,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Dialog, useToast } from '@/shared/ui'
 
 import {
+  IDENTITY_MESSAGES,
   isIdentityMock,
   prepareIdentityVerification,
   requestIdentityVerification,
@@ -125,7 +126,8 @@ export function useIdentityVerification({
         }}
         type="alert"
         title="본인인증을 마치지 못했어요"
-        body={failure}
+        // 시안 M04-P-2: 제목이 이미 「마치지 못했어요」라서 같은 말을 되풀이하지 않는다
+        body={failure === IDENTITY_MESSAGES.failed ? '다시 시도해 주세요.' : failure}
         confirmLabel="확인"
         onConfirm={() => setFailure(undefined)}
       />

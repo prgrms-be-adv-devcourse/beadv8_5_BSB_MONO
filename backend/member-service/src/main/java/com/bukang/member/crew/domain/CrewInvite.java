@@ -18,7 +18,9 @@ import lombok.NoArgsConstructor;
 
 /**
  * 초대 링크. 토큰 원문은 저장하지 않고 SHA-256 값만 저장한다 (BE-028)
- * 상태는 컬럼 하나로 두지 않고 시각으로 판단한다: 쓰임(usedAt), 취소(canceledAt), 24시간 지남(expiresAt)
+ * 상태는 컬럼 하나로 두지 않고 시각으로 판단한다: 취소(canceledAt), 24시간 지남(expiresAt)
+ * 링크 하나로 24시간 동안 여러 명이 가입한다 (BUK-135). 누가 어느 초대로 들어왔는지는 크루원의 inviteId에 남는다
+ * usedAt·usedBy는 그 전에 한 번 쓰고 닫힌 옛 초대에만 있고, 새로 채우지 않는다
  * 그래서 만료를 바꿔 주는 배치가 필요 없다
  */
 @Entity

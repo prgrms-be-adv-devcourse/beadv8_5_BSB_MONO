@@ -1,5 +1,5 @@
 import type { fileModel, productModel } from '@/shared/api'
-import { formatNumber, formatWon } from '@/shared/lib'
+import { formatNumber } from '@/shared/lib'
 
 import {
   daysUntil,
@@ -72,10 +72,6 @@ export function raceBadge(
   return { label: '접수 중', tone: 'brand' }
 }
 
-function remainingSeats(courses: { individualRemaining?: number }[] | undefined): number {
-  return (courses ?? []).reduce((sum, c) => sum + (c.individualRemaining ?? 0), 0)
-}
-
 export function toRaceListItem(race: SummaryDto, now: Date = new Date()): RaceListItem {
   const place = race.location ?? ''
   return {
@@ -85,23 +81,20 @@ export function toRaceListItem(race: SummaryDto, now: Date = new Date()): RaceLi
     posterLabel: courseNames(race.courses).join(' · '),
     badge: raceBadge(race, now),
     meta: race.raceDate ? `${formatRaceDate(race.raceDate)} · ${place}` : place,
-    price: `${formatWon(race.minPrice ?? 0)}~`,
-    remaining: `${formatNumber(remainingSeats(race.courses))}자리 남음`,
+    price: `${formatNumber(race.minPrice ?? 0)}원부터`,
   }
 }
 
 /** 곧 마감 카드: 대회마다 한 장 (피그마 v2 · 대회 카드) */
 export function toClosingSoonCard(race: SummaryDto, now: Date = new Date()): RaceSummary {
   const place = race.location ?? ''
-  const seats = `${formatNumber(remainingSeats(race.courses))}자리 남음`
   return {
     id: String(race.raceId),
     title: race.title ?? '',
     image: race.imageUrl,
     posterLabel: courseNames(race.courses).join(' · '),
-    status: race.applicationCloseAt
-      ? `${formatDDay(race.applicationCloseAt, now)} · ${seats}`
-      : seats,
+    // 대회별 남은 자리 수는 회원에게 보여 주지 않는다 (11/10 결정)
+    status: race.applicationCloseAt ? formatDDay(race.applicationCloseAt, now) : '',
     meta: race.raceDate ? `${formatRaceDate(race.raceDate)} · ${place}` : place,
     price: `${formatNumber(race.minPrice ?? 0)}원부터`,
   }
@@ -152,10 +145,6 @@ export function toRaceDetail(
     (sum, c) => sum + (c.individualQuota ?? 0) + (c.crewQuota ?? 0),
     0,
   )
-  const remaining = courses.reduce(
-    (sum, c) => sum + (c.individualRemaining ?? 0) + (c.crewRemaining ?? 0),
-    0,
-  )
   const status = raceBadge(race, now)
   const refundDeadline = race.refundDeadline ? `${formatRaceDate(race.refundDeadline)} 23:59` : '-'
   // 판매 시작일(saleOpenDate)은 판매자 화면용 날짜라, 접수 기간은 개인 예매 오픈 일시부터 보여 준다
@@ -177,9 +166,16 @@ export function toRaceDetail(
     place: [race.location, names.join(' / ')].filter(Boolean).join(' · '),
     description: race.description ?? undefined,
     dDay: closeAt ? formatDDay(closeAt, now) : '-',
-    remaining,
     capacity,
-    applied: capacity - remaining,
+    // 크루 전용 자리가 있는 대회는 신청하기가 「어떻게 신청할까요?」 시트를 연다
+    crew: courses.some((c) => (c.crewQuota ?? 0) > 0)
+      ? {
+          startAt: race.crewSaleStartAt ?? undefined,
+          endAt: race.crewSaleEndAt ?? undefined,
+          minCount: race.crewMinCount,
+          maxCount: race.crewMaxCount ?? undefined,
+        }
+      : undefined,
     options,
     schedule: [
       {
@@ -191,6 +187,7 @@ export function toRaceDetail(
       },
       { label: '전액 환불 기한', value: refundDeadline },
     ],
+    infoEditDeadline: closeAt ? formatRaceDateTime(closeAt) : '-',
     refund: refundRows(refundDeadline),
     faq: [],
     seller: {

@@ -34,6 +34,8 @@ import com.bukang.common.shared.order.event.OrderItemRefundReason;
  * @param tshirtSizeOption   이 종목이 주는 기념 티셔츠 사이즈 (B race_course.tshirt_size_option, XS~XXXL 중 판매자가 고름).
  *                           비어 있으면 티셔츠가 없다. 판매 시작 뒤에는 B가 바꾸지 못하게 막는다
  * @param crewSale           파티(크루) 예매 정보. 상품이 아직 주지 않으면 null
+ * @param raceName           대회명 (B race.title). 문의 서비스용 주문 요약에 쓴다 (BUK-160). 상품이 주지 않으면 null
+ * @param course             종목명만 (B race_course.name, 예: "10K"). courseName은 "대회명 종목명"이다. 주지 않으면 null
  */
 public record RaceCourseInfo(
 	long raceCourseId,
@@ -51,7 +53,9 @@ public record RaceCourseInfo(
 	LocalDateTime scheduleChangedAt,
 	boolean canceled,
 	List<String> tshirtSizeOption,
-	CrewSale crewSale
+	CrewSale crewSale,
+	String raceName,
+	String course
 ) {
 	/**
 	 * 파티(크루) 예매 정보 (B race.crew_sale_start_at·crew_sale_end_at·crew_min_count·crew_max_count). 파티 신청·합류에 쓴다
@@ -95,6 +99,16 @@ public record RaceCourseInfo(
 		// 상품이 빈 값을 섞어 보내도 종목 조회가 실패하지 않게 거른다
 		tshirtSizeOption = tshirtSizeOption == null ? List.of()
 			: tshirtSizeOption.stream().filter(Objects::nonNull).toList();
+	}
+
+	// 대회명·종목명을 따로 정하지 않을 때 (주문 요약 말고는 쓰지 않는다)
+	public RaceCourseInfo(long raceCourseId, long raceId, LocalDateTime raceDate, LocalDateTime applicationOpenAt,
+		LocalDateTime applicationCloseAt, int minAge, Integer maxAge, long sellerId, String courseName, long price,
+		boolean kitIncluded, LocalDate refundDeadline, LocalDateTime scheduleChangedAt, boolean canceled,
+		List<String> tshirtSizeOption, CrewSale crewSale) {
+		this(raceCourseId, raceId, raceDate, applicationOpenAt, applicationCloseAt, minAge, maxAge, sellerId,
+			courseName, price, kitIncluded, refundDeadline, scheduleChangedAt, canceled, tshirtSizeOption, crewSale,
+			null, null);
 	}
 
 	// 파티 예매 정보를 따로 정하지 않을 때 (개인 신청만 쓰는 곳·테스트)

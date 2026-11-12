@@ -11,7 +11,6 @@ import { AppHeader } from '@/widgets/app-header'
 import { useAuthStatus } from '@/features/auth'
 import {
   canInvite,
-  formatKstDateTime,
   formatRemaining,
   inviteCreatedLabel,
   withSubjectParticle,
@@ -219,15 +218,10 @@ export function CrewInvitesPage({
           <CrewBand>
             {created ? (
               <>
-                <InviteIntro title="초대 링크를 만들었어요" />
-                <div className="flex flex-col gap-1 rounded-lg bg-bg-brand-subtle p-4">
-                  <p className="text-body1-bold break-all">
-                    {inviteUrl(created.inviteToken).replace(/^https?:\/\//, '')}
-                  </p>
-                  <p className="text-caption-regular text-text-secondary">
-                    {formatKstDateTime(created.expiresAt)}까지 쓸 수 있어요
-                  </p>
-                </div>
+                <h2 className="text-title3">초대 링크를 만들었어요</h2>
+                <p className="rounded-lg bg-bg-brand-subtle p-4 text-body1-bold break-all">
+                  {inviteUrl(created.inviteToken).replace(/^https?:\/\//, '')}
+                </p>
                 <Button size="l" onClick={() => copy(inviteUrl(created.inviteToken))}>
                   링크 복사하기
                 </Button>
@@ -236,6 +230,7 @@ export function CrewInvitesPage({
                   <Button
                     variant="secondary"
                     size="l"
+                    className="bg-[#FEE500] text-[#191919] enabled:hover:bg-[#FEE500]"
                     onClick={() =>
                       shareToKakao(crew.data.name, myNickname, inviteUrl(created.inviteToken))
                     }
@@ -247,7 +242,7 @@ export function CrewInvitesPage({
             ) : (
               // 시안에 없는 상태: 링크를 만들기 전. 만든 링크는 응답에만 오므로 이 화면에서 만든다.
               <>
-                <InviteIntro title="초대 링크를 만들어요" />
+                <h2 className="text-title3">초대 링크를 만들어요</h2>
                 <Button size="l" loading={create.isPending} onClick={createInvite}>
                   초대 링크 만들기
                 </Button>
@@ -310,18 +305,6 @@ export function CrewInvitesPage({
         onConfirm={confirmCancel}
       />
     </>
-  )
-}
-
-function InviteIntro({ title }: { title: string }) {
-  return (
-    <div className="flex flex-col gap-2">
-      <h2 className="text-title3">{title}</h2>
-      <p className="text-body2-regular text-text-secondary">
-        링크를 받은 사람이 가입하기를 누르면 바로 크루원이 돼요. 링크 하나로 한 명이 가입할 수
-        있어요.
-      </p>
-    </div>
   )
 }
 
