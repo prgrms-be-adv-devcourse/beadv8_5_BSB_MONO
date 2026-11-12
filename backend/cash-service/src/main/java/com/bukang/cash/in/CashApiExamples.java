@@ -175,6 +175,7 @@ final class CashApiExamples {
 				"balance": 0,
 				"cardAmount": 30000,
 				"accountAmount": 100000,
+				"switchedToAccountAmount": 0,
 				"processingAmount": 0,
 				"revertedAmount": 0,
 				"accountRequired": false
@@ -191,8 +192,26 @@ final class CashApiExamples {
 				"balance": 10000,
 				"cardAmount": 30000,
 				"accountAmount": 70000,
+				"switchedToAccountAmount": 0,
 				"processingAmount": 20000,
 				"revertedAmount": 10000,
+				"accountRequired": false
+			}
+		}
+		""";
+
+	static final String WITHDRAWAL_SWITCHED_TO_ACCOUNT = """
+		{
+			"status": 200,
+			"message": "환급 신청이 완료되었습니다.",
+			"data": {
+				"withdrawnAmount": 130000,
+				"balance": 0,
+				"cardAmount": 0,
+				"accountAmount": 130000,
+				"switchedToAccountAmount": 30000,
+				"processingAmount": 0,
+				"revertedAmount": 0,
 				"accountRequired": false
 			}
 		}
@@ -207,6 +226,7 @@ final class CashApiExamples {
 				"balance": 30000,
 				"cardAmount": 0,
 				"accountAmount": 0,
+				"switchedToAccountAmount": 0,
 				"processingAmount": 0,
 				"revertedAmount": 30000,
 				"accountRequired": true

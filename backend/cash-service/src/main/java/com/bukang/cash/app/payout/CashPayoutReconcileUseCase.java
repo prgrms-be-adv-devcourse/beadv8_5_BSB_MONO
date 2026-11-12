@@ -46,15 +46,25 @@ public class CashPayoutReconcileUseCase {
 				.map(transfer -> new Target(transfer.getId(), transfer.bankTransferId(), transfer.getModifyDate()))
 				.toList());
 		for (Target target : targets) {
-			BankTransferResult result = bankTransferClient.lookup(target.bankTransferId());
-			// 수정 시각은 은행에 보낸 시각보다 늦거나 같아, 10분 기준을 넉넉하게 지킨다
-			boolean notFoundLongEnough = result == BankTransferResult.NOT_FOUND
-				&& target.modifyDate().isBefore(now.minusMinutes(NOT_FOUND_FAIL_AFTER_MINUTES));
-			if (result == BankTransferResult.COMPLETED || result == BankTransferResult.FAILED || notFoundLongEnough) {
-				transactionTemplate.executeWithoutResult(status -> applyLocked(target, result));
-			} else {
-				log.warn("정산금 송금 재확인: 아직 결과를 모릅니다. transferId={}, 은행 응답={}", target.bankTransferId(), result);
+			try {
+				reconcileOne(target, now);
+			} catch (RuntimeException unexpected) {
+				// 한 건의 오류로 뒤의 송금이 막히지 않게 넘어간다. 상태를 그대로 두므로 다음 날 다시 본다
+				log.error("정산금 송금 재확인: 한 건을 처리하다 오류가 나 다음 실행으로 미룹니다. transferId={}",
+					target.bankTransferId(), unexpected);
 			}
+		}
+	}
+
+	private void reconcileOne(Target target, LocalDateTime now) {
+		BankTransferResult result = bankTransferClient.lookup(target.bankTransferId());
+		// 수정 시각은 은행에 보낸 시각보다 늦거나 같아, 10분 기준을 넉넉하게 지킨다
+		boolean notFoundLongEnough = result == BankTransferResult.NOT_FOUND
+			&& target.modifyDate().isBefore(now.minusMinutes(NOT_FOUND_FAIL_AFTER_MINUTES));
+		if (result == BankTransferResult.COMPLETED || result == BankTransferResult.FAILED || notFoundLongEnough) {
+			transactionTemplate.executeWithoutResult(status -> applyLocked(target, result));
+		} else {
+			log.warn("정산금 송금 재확인: 아직 결과를 모릅니다. transferId={}, 은행 응답={}", target.bankTransferId(), result);
 		}
 	}
 
