@@ -102,6 +102,13 @@ spring:
               uri: ${gateway.services.board}
               predicates:
                 - Path=/api/v1/board/**
+            # 크루런 AI는 모델 답을 기다린다. 기본 10초로는 답이 오기 전에 504로 끊길 수 있어 60초로 늘린다 (추천값. Nginx의 기본 응답 대기도 60초)
+            - id: ai-service
+              uri: ${gateway.services.ai}
+              predicates:
+                - Path=/api/v1/ai/**
+              metadata:
+                response-timeout: 60000
 
 gateway:
   auth:
