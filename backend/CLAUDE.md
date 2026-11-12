@@ -22,7 +22,7 @@
 | `notification-service` | Spring Boot 앱 | 8087 | 내 알림. 다른 서비스가 보낸 `push.notification.requested`를 저장하고 조회·읽음 API를 연다 (BUK-69) |
 | `inquiry-service` | Spring Boot 앱 | 8088 | 대회 문의. 회원이 문의를 남기면 담당(판매자·관리자)이 한 번 답하고, 알림이 간다 (BUK-154) |
 | `board-service` | Spring Boot 앱 | 8089 | 커뮤니티 자유 게시판. 글·댓글·답글·좋아요(읽기는 로그인 없이), 회원 이벤트로 닉네임·판매자 복사본(`BoardMember`) (BUK-156) |
-| `ai-service` | Spring Boot 앱 | 8092 | 판매자·관리자 센터의 챗봇 「크루런 AI」. 질문을 모델에 보내 답하고 대화 기록을 Redis에 둔다. DB·Kafka 없음 (BUK-165, 뼈대) |
+| `ai-service` | Spring Boot 앱 | 8092 | 판매자·관리자 센터의 챗봇 「크루런 AI」. 질문을 모델에 보내 답하고 운영 숫자는 도구로 각 서비스 API에서 가져오고 출처를 붙인다. 대화 기록은 Redis. DB·Kafka 없음 (BUK-165, BUK-170) |
 
 인프라(`compose.yml`: MySQL, Kafka, Elasticsearch, Redis, 로컬 S3 대체재 S3Mock)는 모든 서비스가 공용으로 씁니다.
 
@@ -132,10 +132,12 @@ backend/
 │   └── in/                    QueueExceptionHandler (헤더 누락·형식 오류를 RsData로 응답)
 └── ai-service/      com.bukang.ai
     ├── in/                    ApiV1AiChatController (POST·DELETE /api/v1/ai/{seller|admin}/chat: 질문, 새 대화)
-    ├── app/                   AiChatUseCase (역할 확인 → 앞 대화와 함께 모델 호출. 지시문과, 도구가 붙을 자리가 여기 있다)
+    ├── app/                   AiChatUseCase (역할 확인 → 화면에 맞는 도구를 붙여 앞 대화와 함께 모델 호출 → 답 + 출처 + 목록),
+    │                          SellerTools·AdminTools (운영 숫자 조회 도구, BUK-170), AiToolTrace (도구에 넘기는 회원 번호 + 부른 도구 기록)
     ├── config/                AiChatConfig (ChatClient + Redis 대화 기록, 최근 10개만)
-    ├── domain/                AiScreen(화면 종류, 대화 번호 = 화면-회원 번호), exception/
-    └── out/member/            MemberRolePort (관리자·승인된 판매자 확인. prod=http, dev=fake)
+    ├── domain/                AiScreen(화면 종류, 대화 번호 = 화면-회원 번호), AiSource(도구별 출처 화면·버튼·프론트 경로), exception/
+    ├── out/member/            MemberRolePort (관리자·승인된 판매자 확인. prod=http, dev=fake)
+    └── out/ops/               OpsPort·HttpOpsAdapter (도구가 주문·정산·문의·회원의 화면용 API를 X-Member-Id로 직접 부른다. 가짜 모드 없음)
 ```
 
 - 파일은 브라우저가 presigned PUT으로 S3 `{환경}/uploads/`에 직접 올리고, 완료 API가 `{환경}/files/`로 옮긴 뒤 형식·크기를 확인한다 (README "파일 저장소" 참고).
@@ -147,7 +149,11 @@ backend/
 - `ai-service`(크루런 AI)는 Spring AI 2.0.2를 쓴다. 코드는 `ChatClient`만 쓰고, 어느 회사 모델인지는 설정 `spring.ai.model.chat`이 정한다
   (기본·prod는 `openai`, dev·test는 `ollama`). OpenAI 키는 `.env`의 `OPENAI_API_KEY`로만 받고, 비어 있어도 앱은 뜬다(질문하면 503).
   대화 기록은 Spring AI의 Redis 저장소에 둔다(키 `ai:chats:{화면}-{회원 번호}:{순번}`, 보관 24시간, 검색·JSON 기능을 써서 Redis 8 이상).
+  Redis 저장소의 `metadata-fields`를 비우지 않는다. 비우면 OpenAI 답(숫자·목록 메타데이터)이 인덱스에 못 들어가 대화 기록에서 빠진다. 인덱스 모양을 바꾸면 `index-name`도 바꾼다.
   `ChatMemory`를 빈으로 등록하면 Spring AI가 Redis 저장소를 만들지 않고 메모리 저장소로 바뀌므로 등록하지 않는다(`AiChatConfig`).
+  도구(`@Tool`)는 화면별 묶음(`SellerTools`, `AdminTools`)으로 나누고 인자를 받지 않는다. 회원 번호는 `ToolContext`의 `AiToolTrace`에서 꺼낸다(모델이 정하지 않음).
+  도구는 필요한 값만 돌려주고 개인정보(구매자 이름·배송지·신청자 이름)는 모델에 보내지 않는다. 출처·버튼·목록은 `AiToolTrace`에 모아 코드가 응답에 붙인다.
+  도구를 더하면 `AiSource`(화면 이름·프론트 경로)와 `AiApiExamples`도 함께 고친다. 한 질문의 도구 호출 상한은 `spring.ai.tools.limits`.
   common은 통째로 스캔하지 않고 오류 응답과 `@LoginMemberId`만 고른다(Kafka·DB가 없다). 테스트는 가짜 모델(`FakeChatModel`)과 Testcontainers Redis로 돈다(Docker 필요).
 - 회원 ID는 `X-Member-Id` 헤더로 받는다. 컨트롤러는 헤더를 직접 읽지 않고 `@LoginMemberId long memberId`로 받는다(int·Integer로는 받지 않는다). 헤더가 없으면 401 `LOGIN_REQUIRED`, 숫자가 아니거나 0 이하면 400 `INVALID_REQUEST`로 common이 응답한다(`shared/member/web`). 게이트웨이의 `auth/JwtAuthenticationFilter`가 클라이언트가 보낸 이 헤더를 지우고, Access Token을 검사해 토큰 속 회원 ID로 다시 넣는다.
   토큰 없이 통과하는 주소는 `gateway`의 `application.yaml` `gateway.auth.public-paths`에 있다. 로그인 전에 쓰는 API를 추가하면 여기에도 추가한다(빠뜨리면 401로 막힌다).

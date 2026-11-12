@@ -22,12 +22,17 @@ public class MemberClientConfig {
 		@Value("${ai.clients.member.base-url}") String baseUrl,
 		@Value("${ai.clients.timeout}") Duration timeout
 	) {
+		return new HttpMemberRoleAdapter(restClient(baseUrl, timeout));
+	}
+
+	// 다른 서비스를 부르는 RestClient (OpsClientConfig도 쓴다)
+	public static RestClient restClient(String baseUrl, Duration timeout) {
 		HttpClient httpClient = HttpClient.newBuilder()
 			.version(HttpClient.Version.HTTP_1_1)
 			.connectTimeout(timeout)
 			.build();
 		JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
 		requestFactory.setReadTimeout(timeout);
-		return new HttpMemberRoleAdapter(RestClient.builder().baseUrl(baseUrl).requestFactory(requestFactory).build());
+		return RestClient.builder().baseUrl(baseUrl).requestFactory(requestFactory).build();
 	}
 }
