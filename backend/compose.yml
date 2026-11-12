@@ -471,3 +471,37 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # 관측 도구 (로컬 전용). profiles를 monitoring으로 묶어 운영(COMPOSE_PROFILES=app)과
+  # bootRun의 인프라 자동 실행(프로필 없는 서비스만 띄움)에서는 뜨지 않는다
+  # 실행: docker compose --profile monitoring up -d prometheus grafana
+
+  # 지표 저장소 → http://localhost:9095 (Status → Targets에서 수집 대상 상태 확인)
+  # 맥에서 bootRun으로 띄운 서비스의 /actuator/prometheus를 15초마다 가져간다 (설정: docker/prometheus/prometheus.yml)
+  # 데이터는 컨테이너 안에만 두어, 컨테이너를 지우면 쌓인 지표도 지워진다
+  prometheus:
+    image: prom/prometheus:v3.16.0
+    container_name: bukang-prometheus
+    profiles: [ monitoring ]
+    ports:
+      # 9090은 S3Mock이 쓰므로 9095 사용
+      - "9095:9090"
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    # 맥·윈도우의 Docker Desktop은 host.docker.internal을 알아서 맞춰 주지만, 리눅스는 이 줄이 있어야 호스트를 찾는다
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # 지표 그래프 화면 → http://localhost:3001 (처음 로그인 admin / admin, 로그인하면 비밀번호를 바꾸라고 한다)
+  # Prometheus 데이터 소스는 시작할 때 자동으로 등록된다 (docker/grafana/provisioning/datasources/prometheus.yml)
+  grafana:
+    image: grafana/grafana:13.3.1
+    container_name: bukang-grafana
+    profiles: [ monitoring ]
+    ports:
+      # 3000은 프론트(Next.js)가 쓰므로 3001 사용
+      - "3001:3000"
+    volumes:
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
