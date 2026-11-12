@@ -901,3 +901,43 @@ export const SendKakaoCrewInvitesResponse = zod.object({
 }))
 }).optional()
 })
+
+
+/**
+ * 관리자가 같은 사람으로 보이는 계정 묶음을 확인한다.
+ * @summary 확인이 필요한 계정 목록 조회
+ */
+export const findIdentityReviewQueryPageDefault = 0;
+export const findIdentityReviewQueryPageMin = 0;
+
+export const findIdentityReviewQuerySizeDefault = 20;
+export const findIdentityReviewQuerySizeMax = 100;
+
+
+
+export const FindIdentityReviewQueryParams = zod.object({
+  "page": zod.int().min(findIdentityReviewQueryPageMin).default(findIdentityReviewQueryPageDefault).describe('페이지 번호 (0부터)'),
+  "size": zod.int().min(1).max(findIdentityReviewQuerySizeMax).default(findIdentityReviewQuerySizeDefault).describe('페이지 크기 (1~100)')
+})
+
+export const FindIdentityReviewResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.object({
+  "groups": zod.array(zod.object({
+  "members": zod.array(zod.object({
+  "id": zod.int(),
+  "nickname": zod.string(),
+  "maskedName": zod.string(),
+  "maskedPhone": zod.string(),
+  "maskedEmail": zod.string(),
+  "ciVerified": zod.boolean(),
+  "joinedAt": zod.iso.datetime({"offset":true}).describe('한국 시간, 시간대 표시 없음')
+}))
+})),
+  "page": zod.int().describe('0부터 센다'),
+  "size": zod.int(),
+  "totalElements": zod.int(),
+  "totalPages": zod.int()
+}).optional().describe('확인이 필요한 계정 한 페이지. totalElements는 묶음 수')
+})
