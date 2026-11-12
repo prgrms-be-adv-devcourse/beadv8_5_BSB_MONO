@@ -121,6 +121,10 @@ member:
       google:
         client-id: ${OAUTH2_GOOGLE_CLIENT_ID:}
         client-secret: ${OAUTH2_GOOGLE_CLIENT_SECRET:}
+    # 로그인 실패 제한 (LoginAttemptProperties, BUK-185). 같은 이메일로 max-failures번 틀리면 block-duration 동안 막는다
+    login-attempt:
+      max-failures: 5
+      block-duration: 10m
     # 비밀번호 재설정 (PasswordResetProperties, BUK-40). 숫자는 정책 회의 전 초안 값이다
     password-reset:
       # 메일 링크 앞부분. 운영은 크루런 공개 주소를 넣는다. 요청 Host 헤더로 만들지 않는다

@@ -42,7 +42,8 @@ import com.bukang.member.support.MemberFixture;
 class ApiV1AuthLoginLockTest {
 	private static final String EMAIL = "runner1@crewrun.com";
 	private static final String PASSWORD = "password1234";
-	private static final String LOCKED_MESSAGE = "로그인을 5번 실패해 10분 동안 로그인할 수 없습니다. 잠시 뒤 다시 시도해주세요.";
+	private static final String LOCKED_MESSAGE =
+		"로그인을 5번 실패해 10분 동안 로그인할 수 없습니다. 잠시 뒤 다시 시도해주세요.";
 
 	@Autowired
 	private InMemoryIdentityVerificationStore identityStore;
@@ -124,7 +125,8 @@ class ApiV1AuthLoginLockTest {
 		failTimes("RUNNER1@crewrun.com", 2);
 
 		login(EMAIL, PASSWORD).andExpect(status().isTooManyRequests());
-		memberFacade.join(MemberFixture.joinRequest().email("other@crewrun.com").password(PASSWORD).build(identityStore));
+		memberFacade.join(MemberFixture.joinRequest()
+			.email("other@crewrun.com").password(PASSWORD).build(identityStore));
 		login("other@crewrun.com", PASSWORD).andExpect(status().isOk());
 	}
 
