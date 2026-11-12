@@ -1,6 +1,5 @@
 package com.bukang.order.in;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -22,8 +21,12 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.transaction.support.TransactionTemplate;
 
+import com.bukang.order.app.OrderExpiryUseCase;
+import com.bukang.order.domain.DeliveryCarrier;
 import com.bukang.order.domain.Gender;
+import com.bukang.order.domain.Order;
 import com.bukang.order.domain.ParticipantInfo;
 import com.bukang.order.domain.Participation;
 import com.bukang.order.domain.Party;
@@ -110,6 +113,12 @@ class ApiV1MyTicketTest {
 	@Autowired
 	private StubMemberPorts memberPorts;
 
+	@Autowired
+	private OrderExpiryUseCase orderExpiryUseCase;
+
+	@Autowired
+	private TransactionTemplate transactionTemplate;
+
 	@BeforeEach
 	void setUp() {
 		raceCoursePort.put(withRaceName(StubRaceCoursePort.openCourse(COURSE_ID, RACE_ID, 14, null), "서울 마라톤"));
@@ -150,12 +159,41 @@ class ApiV1MyTicketTest {
 			.andExpect(jsonPath("$.data.tickets[0].participantName").value("김러너"))
 			.andExpect(jsonPath("$.data.tickets[0].status").value("CONFIRMED"))
 			.andExpect(jsonPath("$.data.tickets[0].orderId").value(orderId))
+			.andExpect(jsonPath("$.data.tickets[0].orderStatus").value("PAID"))
 			.andExpect(jsonPath("$.data.tickets[0].orderItemStatus").value("PAID"))
 			.andExpect(jsonPath("$.data.tickets[0].amount").value(StubRaceCoursePort.PRICE))
 			.andExpect(jsonPath("$.data.tickets[0].kitOptions[0].name").value("T-shirt"))
 			.andExpect(jsonPath("$.data.tickets[0].kitOptions[0].value").value("L"))
 			.andExpect(jsonPath("$.data.tickets[0].kitDeliveryStatus").value("PREPARING"))
 			.andExpect(jsonPath("$.data.tickets[0].partyId").doesNotExist());
+	}
+
+	@Test
+	@DisplayName("판매자가 키트를 보내면 배송 중과 택배사·송장이 나온다")
+	void shippedTicket() throws Exception {
+		long orderId = orderAndPay(MEMBER);
+		transactionTemplate.executeWithoutResult(status -> {
+			Order order = orderRepository.findById(orderId).orElseThrow();
+			order.shipKit(order.getItems().getFirst(), DeliveryCarrier.CJ_LOGISTICS, "123456789012",
+				LocalDateTime.now());
+		});
+
+		tickets(MEMBER, false)
+			.andExpect(jsonPath("$.data.tickets[0].kitDeliveryStatus").value("SHIPPING"))
+			.andExpect(jsonPath("$.data.tickets[0].kitCarrier").value(DeliveryCarrier.CJ_LOGISTICS.getLabel()))
+			.andExpect(jsonPath("$.data.tickets[0].kitTrackingNumber").value("123456789012"));
+	}
+
+	@Test
+	@DisplayName("결제하지 않아 만료된 주문은 주문 상태 EXPIRED로 가를 수 있다 (주문 상품은 ORDERED로 남는다)")
+	void expiredOrder() throws Exception {
+		createOrder(MEMBER);
+		orderExpiryUseCase.expireOverdue(LocalDateTime.now().plusHours(1));
+
+		tickets(MEMBER, false)
+			.andExpect(jsonPath("$.data.tickets[0].orderStatus").value("EXPIRED"))
+			.andExpect(jsonPath("$.data.tickets[0].orderItemStatus").value("ORDERED"))
+			.andExpect(jsonPath("$.data.tickets[0].kitDeliveryStatus").doesNotExist());
 	}
 
 	@Test
@@ -203,6 +241,21 @@ class ApiV1MyTicketTest {
 			.andExpect(jsonPath("$.data.tickets[0].leaderNickname").value("러너A"))
 			.andExpect(jsonPath("$.data.tickets[0].orderId").doesNotExist())
 			.andExpect(jsonPath("$.data.tickets[0].kitOptions.length()").value(0));
+	}
+
+	@Test
+	@DisplayName("회원 서비스에 묻지 못해도 목록은 나오고 파티장 닉네임만 비운다")
+	void memberUnavailable() throws Exception {
+		Party party = partyRepository.save(Party.create(CREW_ID, LEADER, PARTY_RACE_ID, PARTY_COURSE_ID,
+			LocalDateTime.now()));
+		participationRepository.save(Participation.partyMember(MEMBER, PARTY_RACE_ID, PARTY_COURSE_ID,
+			party.getId(), PARTICIPANT, LocalDateTime.now()));
+		memberPorts.setUnavailable(true);
+
+		tickets(MEMBER, false)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.tickets[0].leaderMemberId").value(LEADER))
+			.andExpect(jsonPath("$.data.tickets[0].leaderNickname").doesNotExist());
 	}
 
 	@Test
@@ -261,6 +314,16 @@ class ApiV1MyTicketTest {
 
 	// 신청서 작성 → [결제하기] → 티셔츠 L로 예치금 결제
 	private long orderAndPay(long memberId) throws Exception {
+		long orderId = createOrder(memberId);
+		mockMvc.perform(post("/api/v1/order/orders/" + orderId + "/payment").header("X-Member-Id", memberId)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"kitOptionIds\": [" + SHIRT_L + "]}"))
+			.andExpect(status().isOk());
+		return orderId;
+	}
+
+	// 신청서 작성 → [결제하기]로 결제 대기 주문을 만든다
+	private long createOrder(long memberId) throws Exception {
 		QueueEntry.enter(mockMvc, memberId, COURSE_ID);
 		long participationId = read(mockMvc.perform(post("/api/v1/order/participations")
 			.header("X-Member-Id", memberId)
@@ -273,17 +336,11 @@ class ApiV1MyTicketTest {
 						"shippingAddress": { "recipientName": "김러너", "recipientPhone": "010-1234-5678",
 							"zipcode": "04700", "address": "서울 성동구 왕십리로 00", "addressDetail": "101동 1001호" } } }
 				""".formatted(COURSE_ID))));
-		long orderId = read(mockMvc.perform(post("/api/v1/order/orders")
+		return read(mockMvc.perform(post("/api/v1/order/orders")
 			.header("X-Member-Id", memberId)
 			.header("Idempotency-Key", UUID.randomUUID().toString())
 			.contentType(MediaType.APPLICATION_JSON)
 			.content("{\"participationId\": %d}".formatted(participationId))));
-		mockMvc.perform(post("/api/v1/order/orders/" + orderId + "/payment").header("X-Member-Id", memberId)
-				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"kitOptionIds\": [" + SHIRT_L + "]}"))
-			.andExpect(status().isOk());
-		assertThat(orderId).isPositive();
-		return orderId;
 	}
 
 	private long read(ResultActions result) throws Exception {

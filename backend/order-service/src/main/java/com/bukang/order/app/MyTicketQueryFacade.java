@@ -14,6 +14,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import com.bukang.order.domain.Participation;
+import com.bukang.order.domain.ParticipationKitOption;
 import com.bukang.order.domain.Party;
 import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
 import com.bukang.order.dto.KitOptionChoiceDto;
@@ -70,7 +71,7 @@ public class MyTicketQueryFacade {
 			.collect(Collectors.toMap(TicketShipment::orderItemId, Function.identity(), (older, newer) -> newer));
 		Map<Long, List<KitOptionChoiceDto>> kitOptions = participationKitOptionRepository
 			.findByParticipationIdInOrderByIdAsc(participationIds).stream()
-			.collect(Collectors.groupingBy(option -> option.getParticipationId(),
+			.collect(Collectors.groupingBy(ParticipationKitOption::getParticipationId,
 				Collectors.mapping(KitOptionChoiceDto::from, Collectors.toList())));
 		List<Long> partyIds = rows.stream().map(Participation::getPartyId).filter(Objects::nonNull).distinct().toList();
 		// HashMap이라 개인 신청(partyId null)으로 찾아도 null이 나온다
@@ -140,6 +141,7 @@ public class MyTicketQueryFacade {
 			participation.getPaymentDueAt(),
 			order == null ? null : order.orderId(),
 			order == null ? null : order.orderNo(),
+			order == null ? null : order.orderStatus(),
 			order == null ? null : order.orderItemId(),
 			order == null ? null : order.status(),
 			order == null ? null : order.amount(),

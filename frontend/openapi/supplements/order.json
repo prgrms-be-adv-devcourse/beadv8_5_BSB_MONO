@@ -1597,6 +1597,20 @@
           ],
           "description": "주문번호. 주문 전이면 null"
         },
+        "orderStatus": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "CREATED",
+            "PAID",
+            "PARTIAL_CANCELED",
+            "CANCELED",
+            "EXPIRED"
+          ],
+          "description": "주문 상태. 결제하지 않아 만료되면 주문 상품은 ORDERED로 남으니 이 칸(EXPIRED)으로 가른다. 주문 전이면 null"
+        },
         "orderItemId": {
           "type": [
             "integer",

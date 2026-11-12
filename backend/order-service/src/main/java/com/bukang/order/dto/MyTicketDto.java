@@ -6,6 +6,7 @@ import java.util.List;
 
 import com.bukang.order.domain.KitDeliveryStatus;
 import com.bukang.order.domain.OrderItemStatus;
+import com.bukang.order.domain.OrderStatus;
 import com.bukang.order.domain.ParticipationStatus;
 import com.bukang.order.domain.ParticipationType;
 import com.bukang.order.domain.PartyStatus;
@@ -35,6 +36,9 @@ public record MyTicketDto(
 	@Schema(description = "결제 기한. 자리 확보 전이면 null", example = "2026-11-12T10:15:00") LocalDateTime paymentDueAt,
 	@Schema(description = "주문 ID. 주문 전이면 null", example = "5") Long orderId,
 	@Schema(description = "주문번호. 주문 전이면 null", example = "OD-20261112-0A1F") String orderNo,
+	@Schema(description = "주문 상태 CREATED(결제 대기) / PAID(결제 완료) / PARTIAL_CANCELED(부분 취소) / CANCELED(취소) / "
+		+ "EXPIRED(기한 만료). 결제하지 않아 만료되면 주문 상품은 ORDERED로 남으니 이 칸으로 가른다. 주문 전이면 null",
+		example = "PAID") OrderStatus orderStatus,
 	@Schema(description = "주문 상품 ID. 참가권 취소(POST /orders/{orderId}/items/{orderItemId}/cancel)에 쓴다. 주문 전이면 null",
 		example = "7") Long orderItemId,
 	@Schema(description = "주문 상품 상태 ORDERED(결제 대기) / PAID(결제 완료) / CANCELING(취소 중) / CANCELED(취소). "
