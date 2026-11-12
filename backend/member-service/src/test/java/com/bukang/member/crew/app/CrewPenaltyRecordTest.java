@@ -77,7 +77,8 @@ class CrewPenaltyRecordTest {
 	@Test
 	@DisplayName("달은 한국 시간으로 정한다: UTC 11/30 16:00은 한국 12/1이라 12월과 11월을 묻는다")
 	void monthsInKoreanTime() {
-		given(lowPaymentCrewPort.findLowPaymentCrews(YearMonth.of(2026, 12))).willReturn(List.of(new LowPaymentCrew(7L, 3)));
+		given(lowPaymentCrewPort.findLowPaymentCrews(YearMonth.of(2026, 12)))
+			.willReturn(List.of(new LowPaymentCrew(7L, 3)));
 		given(lowPaymentCrewPort.findLowPaymentCrews(YearMonth.of(2026, 11))).willReturn(List.of());
 
 		crewPenaltyRecordUseCase.record(Instant.parse("2026-11-30T16:00:00Z"));
