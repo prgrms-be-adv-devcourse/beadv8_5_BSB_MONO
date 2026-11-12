@@ -125,7 +125,7 @@ public class ApiV1PayoutAdminController {
 		@ApiResponse(responseCode = "503", description = "회원 서비스가 응답하지 않아 관리자인지 확인하지 못함",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = PayoutApiExamples.MEMBER_UNAVAILABLE))),
-		@ApiResponse(responseCode = "409", description = "같은 배치가 이미 돌고 있음",
+		@ApiResponse(responseCode = "409", description = "같은 배치가 이미 돌고 있거나 막 끝남 (끝난 뒤 30초 동안)",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = PayoutAdminApiExamples.BATCH_RUNNING)))
 	})
@@ -167,7 +167,7 @@ public class ApiV1PayoutAdminController {
 		@ApiResponse(responseCode = "503", description = "회원 서비스가 응답하지 않아 관리자인지 확인하지 못함",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = PayoutApiExamples.MEMBER_UNAVAILABLE))),
-		@ApiResponse(responseCode = "409", description = "같은 배치가 이미 돌고 있음",
+		@ApiResponse(responseCode = "409", description = "같은 배치가 이미 돌고 있거나 막 끝남 (끝난 뒤 30초 동안)",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = PayoutAdminApiExamples.BATCH_RUNNING)))
 	})

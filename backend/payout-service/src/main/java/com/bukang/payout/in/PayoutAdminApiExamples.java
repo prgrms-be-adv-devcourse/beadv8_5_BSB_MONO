@@ -74,7 +74,7 @@ final class PayoutAdminApiExamples {
 
 	static final String BATCH_RUNNING = """
 		{ "status": 409, "code": "PAYOUT_BATCH_RUNNING",
-			"message": "정산 지급 배치가 이미 돌고 있습니다. 끝난 뒤 다시 돌려주세요.", "data": null }
+			"message": "정산 지급 배치가 이미 돌고 있거나 막 끝났습니다. 잠시 뒤 다시 돌려주세요.", "data": null }
 		""";
 
 	static final String BATCH_FUTURE_DATE = """
