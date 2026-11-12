@@ -1,9 +1,12 @@
 package com.bukang.cash.app.withdrawal;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
+import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -11,15 +14,23 @@ import org.springframework.transaction.support.TransactionTemplate;
 import com.bukang.cash.app.CashSupport;
 import com.bukang.cash.config.ChargeReconcileProperties;
 import com.bukang.cash.domain.exception.withdrawal.PaymentCancelFailedException;
+import com.bukang.cash.domain.exception.withdrawal.WithdrawalItemNotFoundException;
+import com.bukang.cash.domain.exception.withdrawal.WithdrawalItemNotManualCheckException;
 import com.bukang.cash.domain.wallet.LedgerRefType;
 import com.bukang.cash.domain.wallet.LedgerType;
 import com.bukang.cash.domain.wallet.Wallet;
+import com.bukang.cash.domain.withdrawal.WalletWithdrawal;
 import com.bukang.cash.domain.withdrawal.WalletWithdrawalItem;
+import com.bukang.cash.domain.withdrawal.WithdrawalItemResolution;
 import com.bukang.cash.domain.withdrawal.WithdrawalItemStatus;
+import com.bukang.cash.dto.withdrawal.CashWithdrawalItemResolveResponseDto;
 import com.bukang.cash.out.pg.PaymentCancelResult;
 import com.bukang.cash.out.pg.PaymentClient;
 import com.bukang.cash.out.wallet.WalletLedgerRepository;
 import com.bukang.cash.out.withdrawal.WalletWithdrawalItemRepository;
+import com.bukang.common.global.eventpublisher.EventPublisher;
+import com.bukang.common.shared.notification.NotificationKind;
+import com.bukang.common.shared.notification.event.NotificationRequestedEvent;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,8 +43,15 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 @RequiredArgsConstructor
 public class CashWithdrawalReconcileUseCase {
-	private static final List<WithdrawalItemStatus> UNFINISHED =
+	// 재확인이 토스에 다시 물어 맞추는 몫
+	private static final List<WithdrawalItemStatus> RECONCILABLE =
 		List.of(WithdrawalItemStatus.PENDING, WithdrawalItemStatus.UNKNOWN);
+	// 환급 완료 판단: 수동 확인 필요도 아직 정해지지 않은 몫이다
+	private static final List<WithdrawalItemStatus> NOT_DONE =
+		List.of(WithdrawalItemStatus.PENDING, WithdrawalItemStatus.UNKNOWN, WithdrawalItemStatus.MANUAL_CHECK);
+	// 토스 중복 방지 키는 15일 뒤 만료돼 같은 키가 새 요청으로 처리될 수 있다. 그 전에 자동 재요청을 멈춘다
+	private static final int MANUAL_CHECK_AFTER_DAYS = 7;
+	private static final String COMPLETED_HREF = "/me/deposit";
 	private static final int MAX_CONSECUTIVE_NO_ANSWERS = 3;
 	// 같은 키가 아직 처리 중이라는 토스 응답(409). 결과는 모르지만 토스가 답했다
 	private static final String IDEMPOTENT_REQUEST_PROCESSING = "IDEMPOTENT_REQUEST_PROCESSING";
@@ -44,6 +62,7 @@ public class CashWithdrawalReconcileUseCase {
 	private final WalletLedgerRepository walletLedgerRepository;
 	private final ChargeReconcileProperties chargeReconcileProperties;
 	private final TransactionTemplate transactionTemplate;
+	private final EventPublisher eventPublisher;
 
 	// 신청과 같이 토스를 부르는 동안 잠금을 잡지 않는다: 대상 읽기(짧은 트랜잭션) → 몫마다 토스 호출(트랜잭션 밖)
 	// → 몫마다 결과 반영(잠금 트랜잭션). 한 몫의 결과는 바로 커밋되고 다음 몫으로 넘어간다
@@ -55,6 +74,10 @@ public class CashWithdrawalReconcileUseCase {
 		int consecutiveNoAnswers = 0;
 		for (int i = 0; i < targets.size(); i++) {
 			Target target = targets.get(i);
+			if (target.createDate().isBefore(now.minusDays(MANUAL_CHECK_AFTER_DAYS))) {
+				transactionTemplate.executeWithoutResult(status -> markManualCheckLocked(target));
+				continue;
+			}
 			Outcome outcome = callPg(target);
 			// 충전 재확인처럼 토스가 계속 답하지 않으면(장애) 남은 몫까지 부르지 않고 다음 회차로 미룬다
 			consecutiveNoAnswers = outcome.pgAnswered() ? 0 : consecutiveNoAnswers + 1;
@@ -91,7 +114,7 @@ public class CashWithdrawalReconcileUseCase {
 		// 이미 반영된 몫을 또 반영하면 돈이 두 번 움직인다
 		Wallet wallet = cashSupport.lockWallet(target.walletId());
 		WalletWithdrawalItem item = walletWithdrawalItemRepository.findById(target.itemId()).orElseThrow();
-		if (!UNFINISHED.contains(item.getStatus())) {
+		if (!RECONCILABLE.contains(item.getStatus())) {
 			return;
 		}
 		if (outcome.failure() == null) {
@@ -99,22 +122,115 @@ public class CashWithdrawalReconcileUseCase {
 			item.markCompleted();
 		} else {
 			PaymentCancelFailedException rejected = outcome.failure();
-			// PG가 확실히 거절했으니 카드로 돌려주지 못했다. 신청 때 뺀 몫을 예치금에 되돌린다
-			walletLedgerRepository.save(wallet.credit(item.getAmount(),
-				LedgerType.출금취소__PG결제취소_토스페이먼츠, LedgerRefType.Withdrawal, item.getWithdrawal().getId()));
-			if (CashWithdrawalUseCase.CARD_REFUND_IMPOSSIBLE.contains(rejected.getPgCode())
-				&& item.getWithdrawal().hasBankAccount()) {
-				// 정책: 카드로 돌려줄 수 없는 거절이면 신청 때 받은 계좌로 보낸다
+			CardCancelRejection handling = CardCancelRejection.of(rejected.getPgCode());
+			if (handling == CardCancelRejection.MANUAL_CHECK) {
+				// 이미 카드로 나갔을 수 있어 되돌리지 않는다. 사람이 정리할 때까지 환급은 처리 중으로 남는다
+				item.markManualCheck();
+				log.error("환급 재확인: PG가 이미 취소됨류로 거절했습니다. 수동 확인 필요. itemId={}, chargeId={}, code={}",
+					item.getId(), item.getCharge().getId(), rejected.getPgCode());
+				return;
+			}
+			if (handling == CardCancelRejection.SWITCH_TO_ACCOUNT && item.getWithdrawal().hasBankAccount()) {
+				// 정책: 다시 신청해도 카드로 돌려줄 수 없는 거절이면 신청 때 받은 계좌로 보낸다
+				revert(wallet, item);
 				walletLedgerRepository.save(
 					wallet.debit(item.getAmount(), LedgerType.출금__통장입금, item.getWithdrawal()));
 				item.markTransferredToAccount();
 			} else {
+				// 잠깐 문제·우리 설정 문제 거절, 또는 계좌로 바꿔야 하는데 계좌 정보가 없으면 예치금에 되돌린다
+				revert(wallet, item);
 				item.markReverted();
 			}
 		}
-		if (!walletWithdrawalItemRepository.existsByWithdrawalAndStatusIn(item.getWithdrawal(), UNFINISHED)) {
-			item.getWithdrawal().markCompleted(now);
+		completeIfDone(item.getWithdrawal(), now);
+	}
+
+	// 정책 5장 2차 1 「결과를 모를 때」: 7일이 지나도 모르면 토스에 묻지 않고 사람이 확인하게 한다
+	private void markManualCheckLocked(Target target) {
+		cashSupport.lockWallet(target.walletId());
+		WalletWithdrawalItem item = walletWithdrawalItemRepository.findById(target.itemId()).orElseThrow();
+		if (!RECONCILABLE.contains(item.getStatus())) {
+			return;
 		}
+		item.markManualCheck();
+		log.error("환급 재확인: {}일 넘게 결제취소 결과를 확인하지 못해 재확인을 멈춥니다. 수동 확인 필요. itemId={}, chargeId={}",
+			MANUAL_CHECK_AFTER_DAYS, target.itemId(), target.chargeId());
+	}
+
+	/**
+	 * 정책 5장 2차 1 「수동 확인 필요」: 담당자가 PG 취소 기록을 보고 내린 결론을 반영한다.
+	 * 재확인과 같이 지갑을 잠근 뒤 아직 수동 확인 필요인지 다시 보고 반영한다
+	 */
+	public CashWithdrawalItemResolveResponseDto resolveManualCheck(
+		long itemId, WithdrawalItemResolution resolution, LocalDateTime now
+	) {
+		long walletId = transactionTemplate.execute(status -> walletWithdrawalItemRepository.findById(itemId)
+			.orElseThrow(() -> new WithdrawalItemNotFoundException("존재하지 않는 환급 카드 몫입니다. itemId=" + itemId))
+			.getWithdrawal().getWallet().getId());
+		return transactionTemplate.execute(status -> {
+			Wallet wallet = cashSupport.lockWallet(walletId);
+			WalletWithdrawalItem item = walletWithdrawalItemRepository.findById(itemId).orElseThrow();
+			if (item.getStatus() != WithdrawalItemStatus.MANUAL_CHECK) {
+				throw new WithdrawalItemNotManualCheckException(
+					"수동 확인 필요인 몫만 정리할 수 있습니다. itemId=%d, status=%s".formatted(itemId, item.getStatus()));
+			}
+			if (resolution == WithdrawalItemResolution.CARD_CANCELED) {
+				item.getCharge().recordCancel(item.getAmount());
+				item.markCompleted();
+			} else {
+				revert(wallet, item);
+				item.markReverted();
+			}
+			// 사람이 내린 결론으로 돈이 움직여, 나중에 어떤 결론으로 정리했는지 확인할 수 있게 남긴다
+			log.warn("환급 몫 수동 정리: itemId={}, result={}, withdrawalId={}, amount={}",
+				itemId, resolution, item.getWithdrawal().getId(), item.getAmount());
+			completeIfDone(item.getWithdrawal(), now);
+			return new CashWithdrawalItemResolveResponseDto(item.getId(), item.getStatus(),
+				item.getWithdrawal().getId(), item.getWithdrawal().getStatus());
+		});
+	}
+
+	// 카드로 돌려주지 못한 몫이다. 신청 때 뺀 몫을 예치금에 되돌린다
+	private void revert(Wallet wallet, WalletWithdrawalItem item) {
+		walletLedgerRepository.save(wallet.credit(item.getAmount(),
+			LedgerType.출금취소__PG결제취소_토스페이먼츠, LedgerRefType.Withdrawal, item.getWithdrawal().getId()));
+	}
+
+	// 마지막 몫이 정해지면 환급을 끝내고 알린다. 여기까지 온 환급은 신청 때 끝나지 않고 처리 중이던 환급이다
+	private void completeIfDone(WalletWithdrawal withdrawal, LocalDateTime now) {
+		if (walletWithdrawalItemRepository.existsByWithdrawalAndStatusIn(withdrawal, NOT_DONE)) {
+			return;
+		}
+		withdrawal.markCompleted(now);
+		eventPublisher.publish(completedNotice(withdrawal, now));
+	}
+
+	// 정책 5장 2차 1 「알림」: 0원인 금액은 빼고, 계좌로 바꾼 몫은 이유를 함께 적는다
+	private NotificationRequestedEvent completedNotice(WalletWithdrawal withdrawal, LocalDateTime now) {
+		WithdrawalAmounts amounts =
+			WithdrawalAmounts.of(withdrawal, walletWithdrawalItemRepository.findByWithdrawal(withdrawal));
+		List<String> parts = new ArrayList<>();
+		if (amounts.cardAmount() > 0) {
+			parts.add(String.format(Locale.KOREA, "카드 취소 요청 %,d원", amounts.cardAmount()));
+		}
+		if (amounts.accountAmount() > 0) {
+			String reason = "";
+			if (amounts.switchedToAccountAmount() == amounts.accountAmount()) {
+				reason = "(카드 취소가 되지 않아 계좌로 보냄)";
+			} else if (amounts.switchedToAccountAmount() > 0) {
+				reason = String.format(Locale.KOREA, "(그중 %,d원은 카드 취소가 되지 않아 계좌로 보냄)",
+					amounts.switchedToAccountAmount());
+			}
+			parts.add(String.format(Locale.KOREA, "계좌 송금 %,d원", amounts.accountAmount()) + reason);
+		}
+		if (amounts.revertedAmount() > 0) {
+			parts.add(String.format(Locale.KOREA, "예치금으로 돌아온 금액 %,d원", amounts.revertedAmount()));
+		}
+		// 재확인이 여러 번 돌거나 서버가 여러 대여도 알림 서비스가 한 번만 저장하도록(message_id 유니크) 환급 ID로 정한다
+		String key = "withdrawal:" + withdrawal.getId() + ":completed";
+		String eventId = UUID.nameUUIDFromBytes(key.getBytes(StandardCharsets.UTF_8)).toString();
+		return new NotificationRequestedEvent(eventId, withdrawal.getWallet().getId(),
+			NotificationKind.WITHDRAWAL_COMPLETED, "예치금 환급이 끝났어요", String.join(", ", parts), COMPLETED_HREF, now);
 	}
 
 	// 결과 모름인 몫 + 서버가 멈춰 PENDING으로 남은 몫. 아직 처리 중인 정상 신청을 건드리지 않도록

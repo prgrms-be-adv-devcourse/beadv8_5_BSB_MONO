@@ -217,17 +217,18 @@ ref_type_code는 DTO에서 문자열로 받더라도 `LedgerRefType.valueOf(...)
 | FK | withdrawal_id | BIGINT | NOT NULL | → cash_wallet_withdrawal |
 | FK | charge_id | BIGINT | NOT NULL | → cash_wallet_charge. 결제취소할 충전 건 |
 | | amount | BIGINT | NOT NULL | 결제취소할 금액 (그 충전의 남은 금액. 충전 금액보다 작으면 부분 취소) |
-| | status | ENUM | NOT NULL | PENDING / UNKNOWN / COMPLETED / REVERTED / TRANSFERRED_TO_ACCOUNT. 아래 참고 |
+| | status | ENUM | NOT NULL | PENDING / UNKNOWN / COMPLETED / REVERTED / TRANSFERRED_TO_ACCOUNT / MANUAL_CHECK. 아래 참고 |
 | | pg_idempotency_key | VARCHAR(100) | NOT NULL | 토스에 보낸 중복 방지 키(`신청 키:충전 ID`). 재확인도 같은 키로 보내 두 번 취소되지 않는다 |
 | | create_date / modify_date | DATETIME(6) | | 생성·수정 일시 |
 
 - PENDING: 예치금은 뺐고 토스를 부르기 전이거나 부르는 중. 서버가 멈춰 2분 넘게 남으면 재확인이 이어받는다
 - UNKNOWN: 토스 결제취소 결과를 모름. 재확인이 같은 키로 다시 요청해 맞춘다
 - COMPLETED: 결제취소됨. 충전 건의 canceled_amount에 더한다
-- REVERTED: 토스가 거절해 예치금에 되돌림
-- TRANSFERRED_TO_ACCOUNT: 카드로 돌려줄 수 없는 거절(환불 기간 초과, 부분 취소 불가)이라 계좌 송금으로 바꿈
+- REVERTED: 토스가 거절해 예치금에 되돌림 (잠깐 문제·우리 설정 문제 거절, 계좌로 바꿔야 하는데 계좌 정보가 없을 때, 수동 정리에서 안 나감)
+- TRANSFERRED_TO_ACCOUNT: 다시 신청해도 카드로 돌려줄 수 없는 거절(환불 기간 초과, 부분 취소 불가, 결제사 거절, 모르는 코드 등)이라 계좌 송금으로 바꿈
+- MANUAL_CHECK: 수동 확인 필요. 토스가 "이미 취소됨"류로 거절했거나, 결과를 모른 채 몫이 생긴 지 7일이 지남. 이미 카드로 나갔을 수 있어 되돌리지 않고 재확인도 하지 않는다. 담당자가 내부 API(`POST /internal/v1/cash/withdrawal-items/{id}/resolve`)로 COMPLETED나 REVERTED로 정리한다. 이 몫이 있는 환급은 IN_PROGRESS로 남는다
 
-몫을 반영할 때는 지갑을 잠근 뒤 아직 PENDING·UNKNOWN인지 다시 보고, 이미 끝난 몫은 건너뛴다(신청과 재확인이 같은 몫을 두 번 반영하지 않게).
+몫을 반영할 때는 지갑을 잠근 뒤 아직 PENDING·UNKNOWN(수동 정리는 MANUAL_CHECK)인지 다시 보고, 이미 끝난 몫은 건너뛴다(신청과 재확인이 같은 몫을 두 번 반영하지 않게).
 
 ### cash_member 회원 복제본 (`CASH_MEMBER`)
 

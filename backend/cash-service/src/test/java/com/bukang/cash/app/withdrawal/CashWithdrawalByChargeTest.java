@@ -11,8 +11,10 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -21,6 +23,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -29,6 +33,8 @@ import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.data.domain.Sort;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.event.ApplicationEvents;
+import org.springframework.test.context.event.RecordApplicationEvents;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
@@ -40,12 +46,15 @@ import com.bukang.cash.domain.charge.WalletCharge;
 import com.bukang.cash.domain.exception.withdrawal.PaymentCancelFailedException;
 import com.bukang.cash.domain.exception.withdrawal.WithdrawalAccountRequiredException;
 import com.bukang.cash.domain.exception.withdrawal.WithdrawalInProgressException;
+import com.bukang.cash.domain.exception.withdrawal.WithdrawalItemNotFoundException;
+import com.bukang.cash.domain.exception.withdrawal.WithdrawalItemNotManualCheckException;
 import com.bukang.cash.domain.member.CashMember;
 import com.bukang.cash.domain.wallet.LedgerType;
 import com.bukang.cash.domain.wallet.Wallet;
 import com.bukang.cash.domain.wallet.WalletLedger;
 import com.bukang.cash.domain.withdrawal.WalletWithdrawal;
 import com.bukang.cash.domain.withdrawal.WalletWithdrawalItem;
+import com.bukang.cash.domain.withdrawal.WithdrawalItemResolution;
 import com.bukang.cash.domain.withdrawal.WithdrawalItemStatus;
 import com.bukang.cash.domain.withdrawal.WithdrawalStatus;
 import com.bukang.cash.dto.withdrawal.CashWithdrawalResponseDto;
@@ -57,12 +66,15 @@ import com.bukang.cash.out.wallet.WalletLedgerRepository;
 import com.bukang.cash.out.wallet.WalletRepository;
 import com.bukang.cash.out.withdrawal.WalletWithdrawalItemRepository;
 import com.bukang.cash.out.withdrawal.WalletWithdrawalRepository;
+import com.bukang.common.shared.notification.NotificationKind;
+import com.bukang.common.shared.notification.event.NotificationRequestedEvent;
 
 // 정책 5장 2차 1 「PG 결제취소와 기한」대로 환급을 충전 건별 PG 결제취소와 계좌 송금으로 나누는 흐름.
 // 토스는 Mockito 목으로 바꿔 결과를 직접 정한다. 지갑 잔액은 ReflectionTestUtils로 넣는다
 @SpringBootTest
 @ActiveProfiles("test")
 @ExtendWith(OutputCaptureExtension.class)
+@RecordApplicationEvents
 class CashWithdrawalByChargeTest {
 	private static final long CUSTOMER_ID = 3;
 	private static final LocalDateTime NOW = LocalDateTime.of(2026, 11, 5, 10, 0);
@@ -87,6 +99,8 @@ class CashWithdrawalByChargeTest {
 	private CashWithdrawalReconcileUseCase cashWithdrawalReconcileUseCase;
 	@Autowired
 	private WalletWithdrawalItemRepository walletWithdrawalItemRepository;
+	@Autowired
+	private ApplicationEvents applicationEvents;
 
 	@MockitoBean
 	private PaymentClient paymentClient;
@@ -220,7 +234,7 @@ class CashWithdrawalByChargeTest {
 		Wallet wallet = createWallet(30_000);
 		completedCharge(wallet, 30_000, "charge_1", LocalDateTime.of(2026, 10, 10, 9, 0));
 		given(paymentClient.cancel(anyString(), anyString(), anyLong(), anyString()))
-			.willThrow(new PaymentCancelFailedException("PG사가 결제 취소를 거절했습니다.", "NOT_CANCELABLE_AMOUNT", false));
+			.willThrow(new PaymentCancelFailedException("PG사가 결제 취소를 거절했습니다.", "PROVIDER_ERROR", false));
 
 		CashWithdrawalResponseDto response =
 			cashFacade.requestWithdrawal(CUSTOMER_ID, null, null, null, "withdrawal_1", NOW);
@@ -284,6 +298,7 @@ class CashWithdrawalByChargeTest {
 		assertThat(walletRepository.findById(CUSTOMER_ID).orElseThrow().getBalance()).isZero();
 		assertThat(response.cardAmount()).isZero();
 		assertThat(response.accountAmount()).isEqualTo(30_000);
+		assertThat(response.switchedToAccountAmount()).isEqualTo(30_000);
 		assertThat(response.revertedAmount()).isZero();
 		assertThat(walletLedgerRepository.findAll())
 			.extracting(WalletLedger::getLedgerType, WalletLedger::getAmount)
@@ -355,7 +370,7 @@ class CashWithdrawalByChargeTest {
 		completedCharge(wallet, 30_000, "charge_1", LocalDateTime.of(2026, 10, 10, 9, 0));
 		given(paymentClient.cancel(anyString(), anyString(), anyLong(), anyString()))
 			.willThrow(new PaymentCancelFailedException("PG 서버에 연결하지 못했습니다.", null, true))
-			.willThrow(new PaymentCancelFailedException("PG사가 결제 취소를 거절했습니다.", "NOT_CANCELABLE_AMOUNT", false));
+			.willThrow(new PaymentCancelFailedException("PG사가 결제 취소를 거절했습니다.", "PROVIDER_ERROR", false));
 		cashFacade.requestWithdrawal(CUSTOMER_ID, null, null, null, "withdrawal_1", NOW);
 
 		cashWithdrawalReconcileUseCase.reconcile(NOW.plusMinutes(5));
@@ -484,7 +499,7 @@ class CashWithdrawalByChargeTest {
 		TransactionTemplate otherTransaction = new TransactionTemplate(transactionManager);
 		otherTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
 		given(paymentClient.cancel(anyString(), anyString(), anyLong(), eq("withdrawal_1:" + chargeD.getId())))
-			.willThrow(new PaymentCancelFailedException("PG사가 결제 취소를 거절했습니다.", "NOT_CANCELABLE_AMOUNT", false));
+			.willThrow(new PaymentCancelFailedException("PG사가 결제 취소를 거절했습니다.", "PROVIDER_ERROR", false));
 		given(paymentClient.cancel(anyString(), anyString(), anyLong(), eq("withdrawal_1:" + chargeC.getId())))
 			.willAnswer(invocation -> {
 				balanceSeenByOtherTransaction.set(otherTransaction.execute(
@@ -557,7 +572,7 @@ class CashWithdrawalByChargeTest {
 		completedCharge(wallet, 30_000, "charge_1", LocalDateTime.of(2026, 10, 10, 9, 0));
 		AtomicInteger calls = new AtomicInteger();
 		PaymentCancelFailedException rejected =
-			new PaymentCancelFailedException("PG사가 결제 취소를 거절했습니다.", "NOT_CANCELABLE_AMOUNT", false);
+			new PaymentCancelFailedException("PG사가 결제 취소를 거절했습니다.", "PROVIDER_ERROR", false);
 		given(paymentClient.cancel(anyString(), anyString(), anyLong(), anyString())).willAnswer(invocation -> {
 			if (calls.incrementAndGet() == 1) {
 				// 신청의 토스 호출이 오래 걸려 그사이 재확인이 대기 몫을 집어 먼저 끝낸다
@@ -578,7 +593,7 @@ class CashWithdrawalByChargeTest {
 		completedCharge(wallet, 30_000, "charge_1", LocalDateTime.of(2026, 10, 10, 9, 0));
 		AtomicInteger calls = new AtomicInteger();
 		PaymentCancelFailedException rejected =
-			new PaymentCancelFailedException("PG사가 결제 취소를 거절했습니다.", "NOT_CANCELABLE_AMOUNT", false);
+			new PaymentCancelFailedException("PG사가 결제 취소를 거절했습니다.", "PROVIDER_ERROR", false);
 		given(paymentClient.cancel(anyString(), anyString(), anyLong(), anyString())).willAnswer(invocation -> {
 			int call = calls.incrementAndGet();
 			if (call == 1) {
@@ -608,7 +623,7 @@ class CashWithdrawalByChargeTest {
 		completedCharge(wallet, 30_000, "charge_e", LocalDateTime.of(2026, 10, 14, 9, 0));
 		// C는 거절(되돌림), D는 결과 모름(처리 중), E는 성공(카드), 충전이 아닌 70,000원은 계좌
 		given(paymentClient.cancel(anyString(), anyString(), anyLong(), eq("withdrawal_1:" + chargeC.getId())))
-			.willThrow(new PaymentCancelFailedException("PG사가 결제 취소를 거절했습니다.", "NOT_CANCELABLE_AMOUNT", false));
+			.willThrow(new PaymentCancelFailedException("PG사가 결제 취소를 거절했습니다.", "PROVIDER_ERROR", false));
 		given(paymentClient.cancel(anyString(), anyString(), anyLong(), eq("withdrawal_1:" + chargeD.getId())))
 			.willThrow(new PaymentCancelFailedException("PG 서버에 연결하지 못했습니다.", null, true));
 		CashWithdrawalResponseDto first =
@@ -618,9 +633,280 @@ class CashWithdrawalByChargeTest {
 			cashFacade.requestWithdrawal(CUSTOMER_ID, "004", "110123456789", "김러너", "withdrawal_1", NOW);
 
 		assertThat(first).isEqualTo(new CashWithdrawalResponseDto(
-			130_000, 10_000, 30_000, 70_000, 20_000, 10_000, false));
+			130_000, 10_000, 30_000, 70_000, 0, 20_000, 10_000, false));
 		assertThat(replayed).isEqualTo(first);
 		verify(paymentClient, times(3)).cancel(anyString(), anyString(), anyLong(), anyString());
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = {"PROVIDER_ERROR", "FORBIDDEN_CONSECUTIVE_REQUEST", "EXCEED_CANCEL_LIMIT",
+		"UNAUTHORIZED_KEY", "INCORRECT_BASIC_AUTH_FORMAT", "INVALID_REQUEST", "FORBIDDEN_REQUEST",
+		"INVALID_CANCEL_REQUEST_ID"})
+	@DisplayName("잠깐 문제·우리 설정 문제 거절은 계좌 정보가 있어도 계좌로 바꾸지 않고 예치금에 되돌린다 (다시 신청하면 카드로 받을 수 있다)")
+	void temporaryOrConfigRejectionReverts(String pgCode) {
+		Wallet wallet = createWallet(30_000);
+		completedCharge(wallet, 30_000, "charge_1", LocalDateTime.of(2026, 10, 10, 9, 0));
+		given(paymentClient.cancel(anyString(), anyString(), anyLong(), anyString()))
+			.willThrow(new PaymentCancelFailedException("PG사가 결제 취소를 거절했습니다.", pgCode, false));
+
+		CashWithdrawalResponseDto response = cashFacade.requestWithdrawal(
+			CUSTOMER_ID, "004", "110123456789", "김러너", "withdrawal_1", NOW);
+
+		assertThat(walletRepository.findById(CUSTOMER_ID).orElseThrow().getBalance()).isEqualTo(30_000);
+		assertThat(response.revertedAmount()).isEqualTo(30_000);
+		assertThat(response.accountAmount()).isZero();
+		assertThat(onlyItem().getStatus()).isEqualTo(WithdrawalItemStatus.REVERTED);
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = {"REFUND_REJECTED", "NOT_CANCELABLE_PAYMENT", "NOT_CANCELABLE_PAYMENT_FOR_DORMANT_USER",
+		"A_CODE_TOSS_ADDS_LATER"})
+	@DisplayName("정해 둔 코드가 아닌 거절(결제사 거절, 모르는 코드 등)은 계좌 정보가 있으면 계좌 송금으로 바꾼다")
+	void otherRejectionSwitchesToAccount(String pgCode) {
+		Wallet wallet = createWallet(30_000);
+		completedCharge(wallet, 30_000, "charge_1", LocalDateTime.of(2026, 10, 10, 9, 0));
+		given(paymentClient.cancel(anyString(), anyString(), anyLong(), anyString()))
+			.willThrow(new PaymentCancelFailedException("PG사가 결제 취소를 거절했습니다.", pgCode, false));
+
+		CashWithdrawalResponseDto response = cashFacade.requestWithdrawal(
+			CUSTOMER_ID, "004", "110123456789", "김러너", "withdrawal_1", NOW);
+
+		assertThat(walletRepository.findById(CUSTOMER_ID).orElseThrow().getBalance()).isZero();
+		assertThat(response.accountAmount()).isEqualTo(30_000);
+		assertThat(response.switchedToAccountAmount()).isEqualTo(30_000);
+		assertThat(onlyItem().getStatus()).isEqualTo(WithdrawalItemStatus.TRANSFERRED_TO_ACCOUNT);
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = {"ALREADY_CANCELED_PAYMENT", "ALREADY_REFUND_PAYMENT", "NOT_CANCELABLE_AMOUNT"})
+	@DisplayName("이미 취소됐을 수 있다는 거절은 예치금에 되돌리지 않고 수동 확인 필요로 둔다 (응답은 처리 중, 환급은 처리 중으로 남음)")
+	void alreadyCanceledRejectionNeedsManualCheck(String pgCode, CapturedOutput output) {
+		Wallet wallet = createWallet(30_000);
+		completedCharge(wallet, 30_000, "charge_1", LocalDateTime.of(2026, 10, 10, 9, 0));
+		given(paymentClient.cancel(anyString(), anyString(), anyLong(), anyString()))
+			.willThrow(new PaymentCancelFailedException("PG사가 결제 취소를 거절했습니다.", pgCode, false));
+
+		CashWithdrawalResponseDto response = cashFacade.requestWithdrawal(
+			CUSTOMER_ID, "004", "110123456789", "김러너", "withdrawal_1", NOW);
+
+		assertThat(walletRepository.findById(CUSTOMER_ID).orElseThrow().getBalance()).isZero();
+		assertThat(walletLedgerRepository.findAll())
+			.extracting(WalletLedger::getLedgerType, WalletLedger::getAmount)
+			.containsExactly(tuple(LedgerType.출금__PG결제취소_토스페이먼츠, -30_000L));
+		assertThat(onlyItem().getStatus()).isEqualTo(WithdrawalItemStatus.MANUAL_CHECK);
+		assertThat(walletWithdrawalRepository.findByIdempotencyKey("withdrawal_1").orElseThrow().getStatus())
+			.isEqualTo(WithdrawalStatus.IN_PROGRESS);
+		assertThat(response.processingAmount()).isEqualTo(30_000);
+		assertThat(response.revertedAmount()).isZero();
+		assertThat(output).contains("수동 확인 필요");
+	}
+
+	@Test
+	@DisplayName("재확인에서 이미 취소됨으로 거절된 몫은 되돌리지 않고 수동 확인 필요로 두며, 다음 재확인은 토스를 부르지 않는다")
+	void reconcileAlreadyCanceledStopsAsking() {
+		Wallet wallet = createWallet(30_000);
+		completedCharge(wallet, 30_000, "charge_1", LocalDateTime.of(2026, 10, 10, 9, 0));
+		given(paymentClient.cancel(anyString(), anyString(), anyLong(), anyString()))
+			.willThrow(new PaymentCancelFailedException("PG 서버에 연결하지 못했습니다.", null, true))
+			.willThrow(new PaymentCancelFailedException(
+				"PG사가 결제 취소를 거절했습니다.", "ALREADY_CANCELED_PAYMENT", false));
+		cashFacade.requestWithdrawal(CUSTOMER_ID, null, null, null, "withdrawal_1", NOW);
+
+		cashWithdrawalReconcileUseCase.reconcile(NOW.plusMinutes(5));
+		cashWithdrawalReconcileUseCase.reconcile(NOW.plusMinutes(10));
+
+		verify(paymentClient, times(2)).cancel(anyString(), anyString(), anyLong(), anyString());
+		assertThat(walletRepository.findById(CUSTOMER_ID).orElseThrow().getBalance()).isZero();
+		assertThat(onlyItem().getStatus()).isEqualTo(WithdrawalItemStatus.MANUAL_CHECK);
+		assertThat(walletWithdrawalRepository.findByIdempotencyKey("withdrawal_1").orElseThrow().getStatus())
+			.isEqualTo(WithdrawalStatus.IN_PROGRESS);
+		assertThat(completedNotices()).isEmpty();
+	}
+
+	@Test
+	@DisplayName("몫이 생긴 지 7일이 지나도 결과를 모르면 토스를 부르지 않고 수동 확인 필요로 바꾼다 (중복 방지 키 15일 만료 전)")
+	void reconcileStopsAfterSevenDays(CapturedOutput output) {
+		Wallet wallet = createWallet(30_000);
+		completedCharge(wallet, 30_000, "charge_1", LocalDateTime.of(2026, 10, 10, 9, 0));
+		given(paymentClient.cancel(anyString(), anyString(), anyLong(), anyString()))
+			.willThrow(new PaymentCancelFailedException("PG 서버에 연결하지 못했습니다.", null, true));
+		cashFacade.requestWithdrawal(CUSTOMER_ID, null, null, null, "withdrawal_1", NOW);
+
+		cashWithdrawalReconcileUseCase.reconcile(LocalDateTime.now().plusDays(7).plusMinutes(1));
+
+		verify(paymentClient, times(1)).cancel(anyString(), anyString(), anyLong(), anyString());
+		assertThat(onlyItem().getStatus()).isEqualTo(WithdrawalItemStatus.MANUAL_CHECK);
+		assertThat(walletRepository.findById(CUSTOMER_ID).orElseThrow().getBalance()).isZero();
+		assertThat(output).contains("7일 넘게", "수동 확인 필요");
+	}
+
+	@Test
+	@DisplayName("7일이 안 된 결과 모름 몫은 지금처럼 토스에 다시 묻는다")
+	void reconcileStillAsksBeforeSevenDays() {
+		Wallet wallet = createWallet(30_000);
+		completedCharge(wallet, 30_000, "charge_1", LocalDateTime.of(2026, 10, 10, 9, 0));
+		given(paymentClient.cancel(anyString(), anyString(), anyLong(), anyString()))
+			.willThrow(new PaymentCancelFailedException("PG 서버에 연결하지 못했습니다.", null, true));
+		cashFacade.requestWithdrawal(CUSTOMER_ID, null, null, null, "withdrawal_1", NOW);
+
+		cashWithdrawalReconcileUseCase.reconcile(LocalDateTime.now().plusDays(6));
+
+		verify(paymentClient, times(2)).cancel(anyString(), anyString(), anyLong(), anyString());
+		assertThat(onlyItem().getStatus()).isEqualTo(WithdrawalItemStatus.UNKNOWN);
+	}
+
+	@Test
+	@DisplayName("같은 키 재요청은 수동 확인 필요 몫을 처리 중에, 계좌로 바꾼 몫을 계좌 송금과 계좌로 바꾼 금액에 담는다")
+	void replayCountsManualCheckAndSwitchedParts() {
+		Wallet wallet = createWallet(100_000);
+		WalletCharge chargeC = completedCharge(wallet, 10_000, "charge_c", LocalDateTime.of(2026, 10, 10, 9, 0));
+		WalletCharge chargeD = completedCharge(wallet, 20_000, "charge_d", LocalDateTime.of(2026, 10, 13, 9, 0));
+		given(paymentClient.cancel(anyString(), anyString(), anyLong(), eq("withdrawal_1:" + chargeC.getId())))
+			.willThrow(new PaymentCancelFailedException(
+				"PG사가 결제 취소를 거절했습니다.", "ALREADY_CANCELED_PAYMENT", false));
+		given(paymentClient.cancel(anyString(), anyString(), anyLong(), eq("withdrawal_1:" + chargeD.getId())))
+			.willThrow(new PaymentCancelFailedException("PG사가 결제 취소를 거절했습니다.", "REFUND_REJECTED", false));
+		CashWithdrawalResponseDto first =
+			cashFacade.requestWithdrawal(CUSTOMER_ID, "004", "110123456789", "김러너", "withdrawal_1", NOW);
+
+		CashWithdrawalResponseDto replayed =
+			cashFacade.requestWithdrawal(CUSTOMER_ID, "004", "110123456789", "김러너", "withdrawal_1", NOW);
+
+		assertThat(first).isEqualTo(new CashWithdrawalResponseDto(
+			100_000, 0, 0, 90_000, 20_000, 10_000, 0, false));
+		assertThat(replayed).isEqualTo(first);
+	}
+
+	@Test
+	@DisplayName("수동 확인 몫을 카드로 나감으로 정리하면 몫을 완료로 바꾸고 충전 건 취소 금액에 더하며, 환급을 마무리하고 알린다")
+	void resolveCardCanceledCompletesWithdrawal(CapturedOutput output) {
+		WalletCharge charge = createManualCheckPart();
+		long itemId = onlyItem().getId();
+
+		cashFacade.resolveWithdrawalItem(itemId, WithdrawalItemResolution.CARD_CANCELED, NOW);
+
+		assertThat(output).contains("환급 몫 수동 정리: itemId=" + itemId + ", result=CARD_CANCELED");
+
+		assertThat(onlyItem().getStatus()).isEqualTo(WithdrawalItemStatus.COMPLETED);
+		assertThat(walletChargeRepository.findById(charge.getId()).orElseThrow().getCanceledAmount()).isEqualTo(30_000);
+		assertThat(walletRepository.findById(CUSTOMER_ID).orElseThrow().getBalance()).isZero();
+		assertThat(walletWithdrawalRepository.findByIdempotencyKey("withdrawal_1").orElseThrow().getStatus())
+			.isEqualTo(WithdrawalStatus.COMPLETED);
+		assertThat(completedNotices()).extracting(NotificationRequestedEvent::body)
+			.containsExactly("카드 취소 요청 30,000원");
+	}
+
+	@Test
+	@DisplayName("수동 확인 몫을 안 나감으로 정리하면 예치금에 되돌리고(환급 취소 원장 줄) 환급을 마무리하고 알린다")
+	void resolveNotCanceledRevertsToBalance() {
+		createManualCheckPart();
+
+		cashFacade.resolveWithdrawalItem(onlyItem().getId(), WithdrawalItemResolution.NOT_CANCELED, NOW);
+
+		assertRevertedOnce();
+		assertThat(onlyItem().getStatus()).isEqualTo(WithdrawalItemStatus.REVERTED);
+		assertThat(walletWithdrawalRepository.findByIdempotencyKey("withdrawal_1").orElseThrow().getStatus())
+			.isEqualTo(WithdrawalStatus.COMPLETED);
+		assertThat(completedNotices()).extracting(NotificationRequestedEvent::body)
+			.containsExactly("예치금으로 돌아온 금액 30,000원");
+	}
+
+	@Test
+	@DisplayName("수동 확인 필요가 아닌 몫은 정리하지 않고 409, 없는 몫은 404로 거절한다")
+	void resolveRejectsOtherParts() {
+		Wallet wallet = createWallet(30_000);
+		completedCharge(wallet, 30_000, "charge_1", LocalDateTime.of(2026, 10, 10, 9, 0));
+		given(paymentClient.cancel(anyString(), anyString(), anyLong(), anyString()))
+			.willThrow(new PaymentCancelFailedException("PG 서버에 연결하지 못했습니다.", null, true));
+		cashFacade.requestWithdrawal(CUSTOMER_ID, null, null, null, "withdrawal_1", NOW);
+		long itemId = onlyItem().getId();
+
+		assertThatThrownBy(() -> cashFacade.resolveWithdrawalItem(itemId, WithdrawalItemResolution.NOT_CANCELED, NOW))
+			.isInstanceOf(WithdrawalItemNotManualCheckException.class)
+			.hasFieldOrPropertyWithValue("code", "WITHDRAWAL_ITEM_NOT_MANUAL_CHECK");
+		assertThatThrownBy(() -> cashFacade.resolveWithdrawalItem(
+			itemId + 1, WithdrawalItemResolution.NOT_CANCELED, NOW))
+			.isInstanceOf(WithdrawalItemNotFoundException.class);
+
+		assertThat(onlyItem().getStatus()).isEqualTo(WithdrawalItemStatus.UNKNOWN);
+		assertThat(walletRepository.findById(CUSTOMER_ID).orElseThrow().getBalance()).isZero();
+	}
+
+	@Test
+	@DisplayName("신청 때 바로 끝난 환급은 완료 알림을 보내지 않는다 (회원이 결과 화면을 보고 있다)")
+	void noNoticeWhenFinishedAtRequest() {
+		Wallet wallet = createWallet(30_000);
+		completedCharge(wallet, 30_000, "charge_1", LocalDateTime.of(2026, 10, 10, 9, 0));
+
+		cashFacade.requestWithdrawal(CUSTOMER_ID, null, null, null, "withdrawal_1", NOW);
+
+		assertThat(completedNotices()).isEmpty();
+	}
+
+	@Test
+	@DisplayName("처리 중이던 환급을 재확인이 끝내면 회원에게 완료 알림을 한 번 보내고, 계좌로 바꾼 몫은 이유를 적는다")
+	void reconcileCompletionNotifiesOnce() {
+		Wallet wallet = createWallet(130_000);
+		WalletCharge chargeC = completedCharge(wallet, 10_000, "charge_c", LocalDateTime.of(2026, 10, 10, 9, 0));
+		WalletCharge chargeD = completedCharge(wallet, 20_000, "charge_d", LocalDateTime.of(2026, 10, 13, 9, 0));
+		given(paymentClient.cancel(anyString(), anyString(), anyLong(), anyString()))
+			.willThrow(new PaymentCancelFailedException("PG 서버에 연결하지 못했습니다.", null, true));
+		cashFacade.requestWithdrawal(CUSTOMER_ID, "004", "110123456789", "김러너", "withdrawal_1", NOW);
+		given(paymentClient.cancel(anyString(), anyString(), anyLong(), eq("withdrawal_1:" + chargeC.getId())))
+			.willReturn(new PaymentCancelResult(10_000, "txn_c"));
+		given(paymentClient.cancel(anyString(), anyString(), anyLong(), eq("withdrawal_1:" + chargeD.getId())))
+			.willThrow(new PaymentCancelFailedException("PG사가 결제 취소를 거절했습니다.", "REFUND_REJECTED", false));
+
+		cashWithdrawalReconcileUseCase.reconcile(NOW.plusMinutes(5));
+		cashWithdrawalReconcileUseCase.reconcile(NOW.plusMinutes(10));
+
+		long withdrawalId = walletWithdrawalRepository.findByIdempotencyKey("withdrawal_1").orElseThrow().getId();
+		String expectedEventId = UUID.nameUUIDFromBytes(
+			("withdrawal:" + withdrawalId + ":completed").getBytes(StandardCharsets.UTF_8)).toString();
+		assertThat(completedNotices())
+			.extracting(NotificationRequestedEvent::eventId, NotificationRequestedEvent::memberId,
+				NotificationRequestedEvent::title, NotificationRequestedEvent::body, NotificationRequestedEvent::href)
+			.containsExactly(tuple(expectedEventId, CUSTOMER_ID, "예치금 환급이 끝났어요",
+				"카드 취소 요청 10,000원, 계좌 송금 120,000원(그중 20,000원은 카드 취소가 되지 않아 계좌로 보냄)", "/me/deposit"));
+	}
+
+	@Test
+	@DisplayName("카드 몫이 모두 계좌로 바뀌어 끝나면 알림에 계좌 송금 금액과 카드 취소가 되지 않은 이유만 적는다")
+	void noticeExplainsSwitchedAccountPart() {
+		Wallet wallet = createWallet(30_000);
+		completedCharge(wallet, 30_000, "charge_1", LocalDateTime.of(2026, 10, 10, 9, 0));
+		given(paymentClient.cancel(anyString(), anyString(), anyLong(), anyString()))
+			.willThrow(new PaymentCancelFailedException("PG 서버에 연결하지 못했습니다.", null, true))
+			.willThrow(new PaymentCancelFailedException("PG사가 결제 취소를 거절했습니다.", "REFUND_REJECTED", false));
+		cashFacade.requestWithdrawal(CUSTOMER_ID, "004", "110123456789", "김러너", "withdrawal_1", NOW);
+
+		cashWithdrawalReconcileUseCase.reconcile(NOW.plusMinutes(5));
+
+		assertThat(completedNotices()).extracting(NotificationRequestedEvent::body)
+			.containsExactly("계좌 송금 30,000원(카드 취소가 되지 않아 계좌로 보냄)");
+	}
+
+	// 기한 안 충전 30,000원을 환급 신청했는데 토스가 이미 취소됨으로 거절해 수동 확인 필요가 된 몫을 만든다
+	private WalletCharge createManualCheckPart() {
+		Wallet wallet = createWallet(30_000);
+		WalletCharge charge = completedCharge(wallet, 30_000, "charge_1", LocalDateTime.of(2026, 10, 10, 9, 0));
+		given(paymentClient.cancel(anyString(), anyString(), anyLong(), anyString()))
+			.willThrow(new PaymentCancelFailedException(
+				"PG사가 결제 취소를 거절했습니다.", "ALREADY_CANCELED_PAYMENT", false));
+		cashFacade.requestWithdrawal(CUSTOMER_ID, null, null, null, "withdrawal_1", NOW);
+		return charge;
+	}
+
+	private WalletWithdrawalItem onlyItem() {
+		List<WalletWithdrawalItem> items = walletWithdrawalItemRepository.findAll();
+		assertThat(items).hasSize(1);
+		return items.getFirst();
+	}
+
+	private List<NotificationRequestedEvent> completedNotices() {
+		return applicationEvents.stream(NotificationRequestedEvent.class)
+			.filter(event -> event.kind() == NotificationKind.WITHDRAWAL_COMPLETED)
+			.toList();
 	}
 
 	// 거절된 30,000원 몫이 예치금에 한 번만 돌아왔는지 본다

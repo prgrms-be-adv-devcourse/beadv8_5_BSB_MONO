@@ -4,7 +4,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -34,15 +33,13 @@ import com.bukang.cash.out.withdrawal.WalletWithdrawalItemRepository;
 import com.bukang.cash.out.withdrawal.WalletWithdrawalRepository;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CashWithdrawalUseCase {
 	static final String CANCEL_REASON = "예치금 환급";
-	// 카드로는 돌려줄 수 없다는 토스 거절 코드 (docs.tosspayments.com/reference/error-codes).
-	// 환불 가능 기간이 지남, 부분 취소를 허용하지 않는 결제(일부 체크카드·에스크로). 이 몫은 계좌로 보낸다
-	static final Set<String> CARD_REFUND_IMPOSSIBLE =
-		Set.of("EXCEED_MAX_REFUND_DUE", "NOT_ALLOWED_PARTIAL_REFUND");
 
 	private final WalletWithdrawalRepository walletWithdrawalRepository;
 	private final WalletWithdrawalItemRepository walletWithdrawalItemRepository;
@@ -128,25 +125,14 @@ public class CashWithdrawalUseCase {
 		return new Requested(null, withdrawal.getId(), amount, cardAmount, accountAmount, hasBankAccount, calls);
 	}
 
-	// 정책: 같은 키 재요청은 다시 처리하지 않고 지금 처리 상태를 돌려준다. 몫별 상태에서 네 금액을 다시 계산한다.
+	// 정책: 같은 키 재요청은 다시 처리하지 않고 지금 처리 상태를 돌려준다. 몫별 상태에서 금액을 다시 계산한다.
 	// shortcut: 계좌 정보가 없어 되돌린 몫인지는 저장하지 않아 accountRequired는 늘 false, 필요해지면 몫에 사유를 남긴다
 	private CashWithdrawalResponseDto replayOf(WalletWithdrawal withdrawal, long balance) {
-		long cardAmount = 0;
-		long processingAmount = 0;
-		long revertedAmount = 0;
-		for (WalletWithdrawalItem item : walletWithdrawalItemRepository.findByWithdrawal(withdrawal)) {
-			switch (item.getStatus()) {
-				case COMPLETED -> cardAmount += item.getAmount();
-				case PENDING, UNKNOWN -> processingAmount += item.getAmount();
-				case REVERTED -> revertedAmount += item.getAmount();
-				default -> {
-				}
-			}
-		}
-		// 나머지는 계좌 몫: 처음부터 계좌로 보낸 몫 + 카드에서 계좌로 바꾼 몫(TRANSFERRED_TO_ACCOUNT)
-		long accountAmount = withdrawal.getAmount() - cardAmount - processingAmount - revertedAmount;
-		return new CashWithdrawalResponseDto(withdrawal.getAmount(), balance, cardAmount, accountAmount,
-			processingAmount, revertedAmount, false);
+		WithdrawalAmounts amounts =
+			WithdrawalAmounts.of(withdrawal, walletWithdrawalItemRepository.findByWithdrawal(withdrawal));
+		return new CashWithdrawalResponseDto(withdrawal.getAmount(), balance, amounts.cardAmount(),
+			amounts.accountAmount(), amounts.switchedToAccountAmount(), amounts.processingAmount(),
+			amounts.revertedAmount(), false);
 	}
 
 	private CardOutcome callPg(CardCall call) {
@@ -176,6 +162,7 @@ public class CashWithdrawalUseCase {
 				switch (item.getStatus()) {
 					case REVERTED -> revertedAmount += call.amount();
 					case TRANSFERRED_TO_ACCOUNT -> switchedToAccountAmount += call.amount();
+					case MANUAL_CHECK -> processingAmount += call.amount();
 					default -> {
 					}
 				}
@@ -194,12 +181,21 @@ public class CashWithdrawalUseCase {
 				processingAmount += call.amount();
 				continue;
 			}
+			CardCancelRejection handling = CardCancelRejection.of(rejected.getPgCode());
+			if (handling == CardCancelRejection.MANUAL_CHECK) {
+				// 이미 카드로 나갔을 수 있어 되돌리지 않는다. 회원에게는 처리 중으로 보이고 사람이 정리한다
+				item.markManualCheck();
+				log.error("환급 결제취소: PG가 이미 취소됨류로 거절했습니다. 수동 확인 필요. itemId={}, chargeId={}, code={}",
+					item.getId(), charge.getId(), rejected.getPgCode());
+				processingAmount += call.amount();
+				continue;
+			}
 			// PG가 확실히 거절했으니 이 몫은 카드로 돌려주지 못했다. 카드 몫 줄을 되돌린다
 			walletLedgerRepository.save(customerWallet.credit(call.amount(),
 				LedgerType.출금취소__PG결제취소_토스페이먼츠, LedgerRefType.Withdrawal, withdrawal.getId()));
-			if (CARD_REFUND_IMPOSSIBLE.contains(rejected.getPgCode())) {
+			if (handling == CardCancelRejection.SWITCH_TO_ACCOUNT) {
 				if (requested.hasBankAccount()) {
-					// 정책: 기한 초과·부분 취소 불가로 카드로 돌려줄 수 없으면 계좌 송금으로 바꾼다
+					// 정책: 다시 신청해도 카드로 돌려줄 수 없는 거절이면 계좌 송금으로 바꾼다
 					walletLedgerRepository.save(
 						customerWallet.debit(call.amount(), LedgerType.출금__통장입금, withdrawal));
 					item.markTransferredToAccount();
@@ -209,7 +205,7 @@ public class CashWithdrawalUseCase {
 				// 계좌 정보가 없으면 다른 몫은 이미 처리됐을 수 있어 신청 전체를 되돌리지 않고 이 몫만 되돌린다
 				accountRequired = true;
 			}
-			// 그 밖의 거절은 예치금에 되돌리고 회원이 다시 신청하게 한다
+			// 잠깐 문제·우리 설정 문제 거절은 예치금에 되돌리고 회원이 다시 신청하게 한다
 			item.markReverted();
 			revertedAmount += call.amount();
 		}
@@ -221,7 +217,8 @@ public class CashWithdrawalUseCase {
 
 		return new CashWithdrawalResponseDto(requested.amount(), customerWallet.getBalance(),
 			requested.cardAmount() - revertedAmount - processingAmount - switchedToAccountAmount,
-			requested.accountAmount() + switchedToAccountAmount, processingAmount, revertedAmount, accountRequired);
+			requested.accountAmount() + switchedToAccountAmount, switchedToAccountAmount, processingAmount,
+			revertedAmount, accountRequired);
 	}
 
 	// 1단계 결과. replay가 있으면 같은 키 재요청이라 2·3단계 없이 그대로 돌려준다
