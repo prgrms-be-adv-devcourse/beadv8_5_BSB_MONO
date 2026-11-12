@@ -16,6 +16,7 @@ import net.javacrumbs.shedlock.core.LockingTaskExecutor.TaskResult;
 
 import com.bukang.payout.app.PayoutClaimUseCase.ClaimRunResult;
 import com.bukang.payout.domain.PayoutBatchRun;
+import com.bukang.payout.domain.PayoutBatchRunStatus;
 import com.bukang.payout.domain.PayoutBatchTrigger;
 import com.bukang.payout.domain.PayoutBatchType;
 import com.bukang.payout.domain.exception.PayoutBatchRunningException;
@@ -44,6 +45,7 @@ public class PayoutBatchUseCase {
 	// 서버마다 시계가 조금 달라도 같은 스케줄이 두 번 돌지 않게 끝난 뒤 잠시 잠금을 쥔다
 	private static final Duration LOCK_AT_LEAST = Duration.ofSeconds(30);
 	private static final ZoneId ZONE = ZoneId.of("Asia/Seoul");
+	private static final String STALE_RUN_REASON = "끝나지 않고 멈춤 (서버가 배치 도중 꺼진 것으로 보임)";
 
 	private final LockingTaskExecutor payoutLockingTaskExecutor;
 	private final PayoutCreateUseCase payoutCreateUseCase;
@@ -55,16 +57,21 @@ public class PayoutBatchUseCase {
 	// 정산 생성 뒤 같은 기준일 · 시작 시각으로 대사를 돌린다. 대사가 실패해도 생성 결과는 이미 커밋됐다 (AC-67-10)
 	public List<PayoutBatchRunDto> runCreate(PayoutBatchTrigger trigger, Long startedBy, LocalDate today,
 		LocalDateTime now) {
-		return withLock(CREATE_LOCK, "정산 생성", () -> List.of(
-			record(PayoutBatchType.생성, trigger, startedBy, today, now, () -> create(today, now))));
+		return withLock(CREATE_LOCK, "정산 생성", () -> {
+			closeStaleRuns(List.of(PayoutBatchType.생성), now);
+			return List.of(record(PayoutBatchType.생성, trigger, startedBy, today, now, () -> create(today, now)));
+		});
 	}
 
 	// 지급 뒤 회수 청구 · 알림. 지급은 실패해도 예외를 던지지 않아 청구가 막히지 않는다 (선 환불 후 회수)
 	public List<PayoutBatchRunDto> runPay(PayoutBatchTrigger trigger, Long startedBy, LocalDate today,
 		LocalDateTime now) {
-		return withLock(PAY_LOCK, "정산 지급", () -> List.of(
-			record(PayoutBatchType.지급, trigger, startedBy, today, now, () -> pay(today, now)),
-			record(PayoutBatchType.청구, trigger, startedBy, today, now, () -> claim(today, now))));
+		return withLock(PAY_LOCK, "정산 지급", () -> {
+			closeStaleRuns(List.of(PayoutBatchType.지급, PayoutBatchType.청구), now);
+			return List.of(
+				record(PayoutBatchType.지급, trigger, startedBy, today, now, () -> pay(today, now)),
+				record(PayoutBatchType.청구, trigger, startedBy, today, now, () -> claim(today, now)));
+		});
 	}
 
 	private Outcome create(LocalDate today, LocalDateTime now) {
@@ -90,6 +97,18 @@ public class PayoutBatchUseCase {
 		ClaimRunResult result = payoutClaimUseCase.run(today, now);
 		return new Outcome(result.created(), 0, "청구 %d · 판매자 알림 %d · 관리자 알림 %d".formatted(result.created(),
 			result.sellerNotices(), result.adminNotices()));
+	}
+
+	// 서버가 배치 도중 꺼지면 끝 줄을 못 써서 진행 중으로 남는다 (PR #431 리뷰, 11/12 결정)
+	// 잠금 최대 시간(1시간)보다 오래된 진행 중은 이미 멈춘 실행이므로, 같은 배치를 다시 시작할 때 실패로 닫는다
+	private void closeStaleRuns(List<PayoutBatchType> types, LocalDateTime now) {
+		for (PayoutBatchRun stale : payoutBatchRunRepository.findByBatchTypeInAndStatusAndStartedAtBefore(types,
+			PayoutBatchRunStatus.진행_중, now.minus(LOCK_AT_MOST))) {
+			stale.fail(STALE_RUN_REASON, now);
+			payoutBatchRunRepository.save(stale);
+			log.warn("진행 중으로 남은 정산 배치 기록을 실패로 닫습니다. runId={}, type={}, startedAt={}",
+				stale.getId(), stale.getBatchType(), stale.getStartedAt());
+		}
 	}
 
 	// 진행 중 한 줄을 먼저 커밋하고, 일을 마치면 결과로 바꾼다. 예외로 멈추면 실패로 남기고 다음 배치는 계속한다

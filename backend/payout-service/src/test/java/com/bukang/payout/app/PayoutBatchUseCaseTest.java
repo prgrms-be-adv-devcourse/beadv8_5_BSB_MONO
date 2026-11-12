@@ -148,6 +148,25 @@ class PayoutBatchUseCaseTest {
 	}
 
 	@Test
+	@DisplayName("PR #431 리뷰: 1시간보다 오래 진행 중으로 남은 같은 배치 기록은 다음 실행이 실패로 닫는다. 다른 배치 기록은 그대로다")
+	void nextRunClosesStaleRunningRecord() {
+		PayoutBatchRun stalePay = payoutBatchRunRepository.save(
+			new PayoutBatchRun(PayoutBatchType.지급, PayoutBatchTrigger.스케줄, TODAY.minusDays(1), null,
+				NOW.minusDays(1)));
+		PayoutBatchRun staleCreate = payoutBatchRunRepository.save(
+			new PayoutBatchRun(PayoutBatchType.생성, PayoutBatchTrigger.스케줄, TODAY.minusDays(1), null,
+				NOW.minusDays(1)));
+
+		useCase.runPay(PayoutBatchTrigger.스케줄, null, TODAY, NOW);
+
+		assertThat(payoutBatchRunRepository.findById(stalePay.getId()).orElseThrow())
+			.extracting(PayoutBatchRun::getStatus, PayoutBatchRun::getFinishedAt)
+			.containsExactly(PayoutBatchRunStatus.실패, NOW);
+		assertThat(payoutBatchRunRepository.findById(staleCreate.getId()).orElseThrow().getStatus())
+			.isEqualTo(PayoutBatchRunStatus.진행_중);
+	}
+
+	@Test
 	@DisplayName("BUK-167 같은 배치의 잠금을 다른 곳이 쥐고 있으면 돌리지 않고 409 예외를 던진다. 기록도 남지 않는다")
 	void throwsWhenLockIsHeld() {
 		new JdbcTemplate(dataSource).update("""
