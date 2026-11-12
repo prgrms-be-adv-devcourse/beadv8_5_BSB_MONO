@@ -779,10 +779,13 @@ class CashWithdrawalByChargeTest {
 
 	@Test
 	@DisplayName("수동 확인 몫을 카드로 나감으로 정리하면 몫을 완료로 바꾸고 충전 건 취소 금액에 더하며, 환급을 마무리하고 알린다")
-	void resolveCardCanceledCompletesWithdrawal() {
+	void resolveCardCanceledCompletesWithdrawal(CapturedOutput output) {
 		WalletCharge charge = createManualCheckPart();
+		long itemId = onlyItem().getId();
 
-		cashFacade.resolveWithdrawalItem(onlyItem().getId(), WithdrawalItemResolution.CARD_CANCELED, NOW);
+		cashFacade.resolveWithdrawalItem(itemId, WithdrawalItemResolution.CARD_CANCELED, NOW);
+
+		assertThat(output).contains("환급 몫 수동 정리: itemId=" + itemId + ", result=CARD_CANCELED");
 
 		assertThat(onlyItem().getStatus()).isEqualTo(WithdrawalItemStatus.COMPLETED);
 		assertThat(walletChargeRepository.findById(charge.getId()).orElseThrow().getCanceledAmount()).isEqualTo(30_000);
