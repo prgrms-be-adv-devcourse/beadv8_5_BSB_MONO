@@ -2,6 +2,8 @@
 -- 결과 모름 횟수 칸을 더하고, 상태 · 이상 감지 종류 ENUM에 새 값을 넣는다. 기존 값은 모두 새 목록 안에 있어 변환이 실패하지 않는다
 -- ENUM 목록은 유니코드 순
 alter table payout_payout add column unknown_pay_count integer not null default 0;
+-- 같은 기준일에는 한 번만 센다 (PR #427 리뷰). 마지막으로 센 기준일
+alter table payout_payout add column last_unknown_pay_date date;
 
 alter table payout_payout modify status enum('지급_불일치','지급_예정','지급_완료','지급_중','지급_확인_필요','지급보류','취소')
 	not null;

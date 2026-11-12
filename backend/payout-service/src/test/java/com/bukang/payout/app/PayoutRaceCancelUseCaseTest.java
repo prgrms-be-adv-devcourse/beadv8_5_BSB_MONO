@@ -193,8 +193,8 @@ class PayoutRaceCancelUseCaseTest {
 	void checkRequiredPayoutWaitsForPayResult() {
 		Payout checkRequired = savePayout(RACE_ID, YearMonth.of(2026, 9), 50_000);
 		checkRequired.startPaying(CANCELED_AT.minusMinutes(2));
-		for (int count = 0; count < Payout.MAX_UNKNOWN_PAY; count++) {
-			checkRequired.recordUnknownPay(CANCELED_AT.minusMinutes(1));
+		for (int day = 0; day < Payout.MAX_UNKNOWN_PAY; day++) {
+			checkRequired.recordUnknownPay(CANCELED_AT.toLocalDate().minusDays(day), CANCELED_AT.minusMinutes(1));
 		}
 
 		PayoutRaceCancelUseCase.CancelResult result = useCase().cancelRace(RACE_ID, CANCELED_AT);

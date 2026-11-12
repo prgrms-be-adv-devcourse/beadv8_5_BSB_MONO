@@ -111,10 +111,14 @@ public class Payout extends BaseIdAndTime {
 	// 지급 결과가 나오면 성공은 지급 완료로 바꾼 뒤 회수를 만들고, 거절은 정산 예정으로 되돌리지 않고 취소로 닫는다
 	private LocalDateTime raceCanceledAt;
 
-	// 지급 결과를 모른(타임아웃 · 5xx) 횟수 (BUK-166). MAX_UNKNOWN_PAY번이 되면 다시 요청하지 않고 지급_확인_필요로 멈춘다
+	// 지급 결과를 모른(타임아웃 · 5xx) 날의 수 (BUK-166). MAX_UNKNOWN_PAY번이 되면 다시 요청하지 않고 지급_확인_필요로 멈춘다
 	// 거절(4xx) · 불일치(409)는 세지 않는다. 돈이 나갔는지 아는 결과다
+	// 같은 기준일에는 한 번만 센다. 관리자가 같은 날 지급 배치를 여러 번 돌려도 몇 분 만에 멈추지 않게 한다 (PR #427 리뷰)
 	@Column(nullable = false)
 	private int unknownPayCount;
+
+	// 마지막으로 결과 모름을 센 기준일. 같은 날 다시 모르면 세지 않는다
+	private LocalDate lastUnknownPayDate;
 
 	// 낙관적 락: 지급 배치와 보류 API가 같은 정산 내역을 동시에 바꾸면 늦게 커밋한 쪽이 실패한다
 	// 없으면 배치가 읽은 지급_예정을 근거로, 그 사이 걸린 지급보류를 지급_완료로 덮어쓸 수 있다
@@ -302,16 +306,20 @@ public class Payout extends BaseIdAndTime {
 	}
 
 	/**
-	 * 지급 결과를 몰랐다고 센다 (BUK-166). MAX_UNKNOWN_PAY번째면 지급_확인_필요로 바꿔 지급 배치가 더는 고르지 않게 한다
+	 * 지급 결과를 몰랐다고 센다 (BUK-166). 같은 기준일에는 한 번만 센다. MAX_UNKNOWN_PAY번째면 지급_확인_필요로 바꿔 지급 배치가 더는 고르지 않게 한다
 	 * 그 전에는 지급_중으로 두고 다음 실행에서 같은 금액으로 다시 요청한다
 	 *
 	 * @return 이번에 지급_확인_필요로 바뀌었으면 true
 	 */
-	public boolean recordUnknownPay(LocalDateTime recordedAt) {
+	public boolean recordUnknownPay(LocalDate runDate, LocalDateTime recordedAt) {
 		if (status != PayoutStatus.지급_중) {
 			throw new IllegalStateException("지급 중 상태가 아니라 결과 모름을 셀 수 없습니다. payoutId=%d, status=%s"
 				.formatted(getId(), status));
 		}
+		if (runDate.equals(lastUnknownPayDate)) {
+			return false;
+		}
+		lastUnknownPayDate = runDate;
 		unknownPayCount++;
 		if (unknownPayCount < MAX_UNKNOWN_PAY) {
 			return false;

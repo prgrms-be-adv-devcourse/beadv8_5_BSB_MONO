@@ -347,6 +347,22 @@ class PayoutPayUseCaseTest {
 	}
 
 	@Test
+	@DisplayName("PR #427 리뷰: 같은 기준일에 지급 배치를 여러 번 돌려도 결과 모름은 하루에 한 번만 센다")
+	void unknownIsCountedOncePerRunDate() {
+		Payout payout = savePayoutWithSale(1);
+		cashService = transfer -> {
+			throw new PayoutTransferUnknownException("read timed out", null);
+		};
+
+		for (int run = 0; run < Payout.MAX_UNKNOWN_PAY + 1; run++) {
+			useCase().run(PAY_DATE, NOW.plusMinutes(run));
+		}
+
+		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.지급_중);
+		assertThat(payoutRepository.findById(payout.getId()).orElseThrow().getUnknownPayCount()).isEqualTo(1);
+	}
+
+	@Test
 	@DisplayName("BUK-166: 결과 모름이 2번이면 아직 지급 중이고, 3번째 요청이 성공하면 지급 완료한다")
 	void unknownTwiceThenSuccessIsPaid() {
 		Payout payout = savePayoutWithSale(1);

@@ -149,7 +149,7 @@ public class PayoutPayStepUseCase {
 	@Transactional
 	public boolean markUnknown(long payoutId, LocalDate today, LocalDateTime now) {
 		Payout payout = payoutRepository.findById(payoutId).orElseThrow(PayoutNotFoundException::new);
-		if (!payout.recordUnknownPay(now)) {
+		if (!payout.recordUnknownPay(today, now)) {
 			return false;
 		}
 		payoutCreateFailureRepository.save(PayoutCreateFailure.payCheckRequired(payout, today));
