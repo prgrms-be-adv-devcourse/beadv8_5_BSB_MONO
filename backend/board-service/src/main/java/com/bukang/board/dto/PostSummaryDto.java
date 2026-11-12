@@ -43,7 +43,9 @@ public record PostSummaryDto(
 
 	public static PostSummaryDto of(BoardPost post, WriterDto writer, long commentCount) {
 		String content = post.getContent();
-		String excerpt = content.length() <= EXCERPT_LENGTH ? content : content.substring(0, EXCERPT_LENGTH);
+		// 글자(코드 포인트) 단위로 잘라 이모지를 반쪽으로 남기지 않는다
+		String excerpt = content.codePointCount(0, content.length()) <= EXCERPT_LENGTH ? content
+			: content.substring(0, content.offsetByCodePoints(0, EXCERPT_LENGTH));
 		return new PostSummaryDto(post.getId(), post.getCategory(), post.getCategory().getLabel(), post.getTitle(),
 			excerpt, writer, post.getCreateDate(), post.getLikeCount(), commentCount, null);
 	}

@@ -102,7 +102,7 @@ public class BoardPostListUseCase {
 	}
 
 	private long parseLatestCursor(String cursor) {
-		if (cursor == null) {
+		if (isFirstPage(cursor)) {
 			return Long.MAX_VALUE;
 		}
 		return parsePositive(cursor);
@@ -110,7 +110,7 @@ public class BoardPostListUseCase {
 
 	// [좋아요 수, 글 ID]. 처음 쪽은 [MAX, MAX]라 모든 글이 뒤에 온다
 	private long[] parsePopularCursor(String cursor) {
-		if (cursor == null) {
+		if (isFirstPage(cursor)) {
 			return new long[] {Long.MAX_VALUE, Long.MAX_VALUE};
 		}
 		String[] parts = cursor.split("-", -1);
@@ -119,6 +119,11 @@ public class BoardPostListUseCase {
 		}
 		long likes = parseNumber(parts[0]);
 		return new long[] {likes, parsePositive(parts[1])};
+	}
+
+	// cursor를 비워서(cursor=) 보내도 첫 쪽이다
+	private boolean isFirstPage(String cursor) {
+		return cursor == null || cursor.isBlank();
 	}
 
 	private long parsePositive(String text) {

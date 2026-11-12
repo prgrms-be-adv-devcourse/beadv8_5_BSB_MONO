@@ -221,4 +221,30 @@ class BoardPostListApiTest extends BoardTestBase {
 		mockMvc.perform(get(POSTS + "?size=51")).andExpect(status().isBadRequest());
 		mockMvc.perform(get(POSTS + "?q=" + "가".repeat(51))).andExpect(status().isBadRequest());
 	}
+
+	@Test
+	@DisplayName("cursor를 비워서(cursor=) 보내면 첫 쪽으로 본다")
+	void blankCursorIsFirstPage() throws Exception {
+		long postId = newPost(ME, "글");
+
+		assertThat(ids(list(null, "?cursor="))).containsExactly((int)postId);
+		assertThat(ids(list(null, "?sort=POPULAR&cursor="))).containsExactly((int)postId);
+	}
+
+	@Test
+	@DisplayName("본문 앞부분을 자를 때 이모지를 반쪽으로 남기지 않는다")
+	void excerptKeepsEmoji() throws Exception {
+		postIn(ME, "FREE", "제목", "가".repeat(99) + "🏃🏃");
+
+		mockMvc.perform(get(POSTS)).andExpect(jsonPath("$.data[0].excerpt").value("가".repeat(99) + "🏃"));
+	}
+
+	@Test
+	@DisplayName("검색어의 !도 글자 그대로 찾는다")
+	void searchExclamation() throws Exception {
+		long exclaim = postIn(ME, "FREE", "완주했다!", "본문");
+		postIn(ME, "FREE", "완주했다", "본문");
+
+		assertThat(ids(list(null, "?q=!"))).containsExactly((int)exclaim);
+	}
 }
