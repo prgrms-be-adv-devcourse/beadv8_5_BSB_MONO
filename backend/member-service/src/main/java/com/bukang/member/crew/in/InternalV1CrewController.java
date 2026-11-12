@@ -11,6 +11,7 @@ import com.bukang.common.global.rsdata.RsData;
 import com.bukang.member.crew.app.CrewFacade;
 import com.bukang.member.crew.dto.CrewMemberCountDto;
 import com.bukang.member.crew.dto.CrewMemberStatusDto;
+import com.bukang.member.crew.dto.CrewPenaltyDto;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -23,10 +24,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
 /**
- * 파티 서비스가 동기 호출로 부르는 크루 내부 API. /internal/** 은 게이트웨이에 노출하지 않는다
+ * 파티(주문) 서비스가 동기 호출로 부르는 크루 내부 API. /internal/** 은 게이트웨이에 노출하지 않는다
  * 회원이 아니라 서비스가 부르므로 회원 ID 헤더를 받지 않는다 (InternalV1MemberController와 같은 방식)
  */
-@Tag(name = "CrewInternal", description = "크루원 여부·가입 시각 조회, 크루원 수 조회 API (서비스 간 내부 호출 전용)")
+@Tag(name = "CrewInternal",
+	description = "크루원 여부·가입 시각 조회, 크루원 수 조회, 파티 만들기 제한 조회 API (서비스 간 내부 호출 전용)")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/internal/v1/member/crews")
@@ -71,5 +73,23 @@ public class InternalV1CrewController {
 	) {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "크루원 수를 조회했습니다.", crewFacade.findMemberCount(crewId)));
+	}
+
+	@GetMapping("/{crewId}/penalty")
+	@Operation(summary = "파티 만들기 제한 조회",
+		description = "주문 서비스가 파티를 만들 때 부른다. 결제율 미달로 제한 중이면 restricted가 true이고 endAt에 끝나는 시각을 준다. "
+			+ "제한 기간이 겹치면 가장 늦게 끝나는 시각을 준다. 제한 중이 아니거나 크루가 없어도 200이며 restricted는 false, endAt은 null이다.")
+	@ApiResponses(
+		@ApiResponse(responseCode = "200", description = "조회 성공 (크루가 없어도 200)",
+			content = @Content(examples = {
+				@ExampleObject(name = "제한 중", value = CrewInternalApiExamples.PENALTY_RESTRICTED),
+				@ExampleObject(name = "제한 없음", value = CrewInternalApiExamples.PENALTY_NOT_RESTRICTED)
+			}))
+	)
+	public ResponseEntity<RsData<CrewPenaltyDto>> findPenalty(
+		@Parameter(description = "크루 ID", example = "1") @PathVariable long crewId
+	) {
+		return ResponseEntity.ok()
+			.body(RsData.of(HttpStatus.OK, "크루 파티 만들기 제한을 조회했습니다.", crewFacade.findPenalty(crewId)));
 	}
 }

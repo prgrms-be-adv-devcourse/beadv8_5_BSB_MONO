@@ -51,10 +51,12 @@ import com.bukang.member.crew.dto.CrewJoinedDto;
 import com.bukang.member.crew.dto.CrewMemberCountDto;
 import com.bukang.member.crew.dto.CrewMemberDto;
 import com.bukang.member.crew.dto.CrewMemberStatusDto;
+import com.bukang.member.crew.dto.CrewPenaltyDto;
 import com.bukang.member.crew.dto.MyCrewDto;
 import com.bukang.member.crew.out.CrewInviteRepository;
 import com.bukang.member.crew.out.CrewMemberProfilePort;
 import com.bukang.member.crew.out.CrewMemberRepository;
+import com.bukang.member.crew.out.CrewPenaltyRepository;
 import com.bukang.member.crew.out.CrewRemovalRepository;
 import com.bukang.member.crew.out.CrewRepository;
 
@@ -75,6 +77,7 @@ public class CrewFacade {
 	private final CrewMemberRepository crewMemberRepository;
 	private final CrewInviteRepository crewInviteRepository;
 	private final CrewRemovalRepository crewRemovalRepository;
+	private final CrewPenaltyRepository crewPenaltyRepository;
 	private final CrewMemberProfilePort profilePort;
 	private final Clock clock;
 	private final ApplicationEventPublisher eventPublisher;
@@ -363,7 +366,13 @@ public class CrewFacade {
 			members.stream()
 				.map(member -> new CrewMemberDto(member.getMemberId(), nicknames.get(member.getMemberId()),
 					member.getRole()))
-				.toList());
+				.toList(),
+			crewPenaltyRepository.findRestrictedUntil(crew.getId(), now()));
+	}
+
+	// 주문 서비스가 파티를 만들 때 묻는다. 크루가 없어도 제한 기록이 없으니 restricted=false다 (BUK-187)
+	public CrewPenaltyDto findPenalty(long crewId) {
+		return CrewPenaltyDto.of(crewPenaltyRepository.findRestrictedUntil(crewId, now()));
 	}
 
 	private Map<Long, Integer> countMembers(List<Long> crewIds) {
