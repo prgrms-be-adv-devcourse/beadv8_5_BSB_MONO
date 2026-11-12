@@ -30,6 +30,10 @@ beforeEach(() => {
 // 탈퇴 직후 토큰을 비우면 장치가 탈퇴 화면을 내리고 로그인 화면으로 보내 완료 화면에 가지 못했다.
 it('로그인 확인 장치 안에서 탈퇴해도 로그인 화면이 아니라 탈퇴 완료 화면으로 간다', async () => {
   server.use(
+    // 크루장인 크루가 없는 회원 (목의 기본 크루 목록에는 크루장인 크루가 있다)
+    http.get('*/api/v1/member/crews/me', () =>
+      HttpResponse.json({ status: 200, message: '내 크루', data: [] }),
+    ),
     http.get('*/api/v1/cash/wallets/balance', () =>
       HttpResponse.json({ status: 200, message: '잔액을 조회했습니다.', data: { balance: 0 } }),
     ),

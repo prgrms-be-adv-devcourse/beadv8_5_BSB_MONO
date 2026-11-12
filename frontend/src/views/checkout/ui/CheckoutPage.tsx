@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
-import { SAMPLE_PARTICIPANT } from '@/features/booking'
+import { forgetKitOptionIds, readKitOptionIds, SAMPLE_PARTICIPANT } from '@/features/booking'
 import {
   chargeAmountFor,
   ChargeHeldAlert,
@@ -268,7 +268,13 @@ function OrderCheckout({
   // 결제창을 저절로 다시 띄우지 않는다. 사용자가 두 번 충전하는 것처럼 보이고, 클릭 없이 띄운 결제창은 브라우저가 막을 수도 있다.
   // 잔액을 다시 불러 화면의 계산 · "충전하고 결제" 버튼으로 모자란 만큼을 보여 주고, 사용자가 눌러 충전한다.
   const pay = useMutation<orderModel.OrderDto, Error, { auto: boolean }>({
-    mutationFn: async () => unwrapData(await orderApi.pay(orderId)),
+    // 참가 신청에서 고른 키트 옵션. 옵션이 있는 대회는 이름마다 하나씩 없으면 서버가 400으로 거절한다
+    mutationFn: async () => {
+      const kitOptionIds = readKitOptionIds(orderId)
+      return unwrapData(
+        await orderApi.pay(orderId, kitOptionIds.length > 0 ? { kitOptionIds } : undefined),
+      )
+    },
     // 이 화면이 받아 둔 결제 전 주문 · 잔액이 캐시에 1분 동안 남는다. 지우지 않으면 결제 직후 참가권 상세가
     // 결제 전 주문을 읽어 '참가권을 찾을 수 없어요'가 나오고, 내 참가권의 예치금도 옛 값으로 보인다.
     // 결제한 주문만 다시 받은 뒤에 넘어간다 (받기 전에 상세를 열면 옛 주문을 잠깐 읽는다).
@@ -276,6 +282,7 @@ function OrderCheckout({
     // 넘어가는데, 그때 사용자가 다른 화면에 가 있어도 완료 화면으로 다시 보낸다.
     // 다시 받은 주문이 PAID라 아래 effect도 완료 화면으로 보내므로, 같은 replace로 맞춰 기록이 두 번 남지 않게 한다.
     onSuccess: async () => {
+      forgetKitOptionIds(orderId)
       void invalidateTicketQueries(queryClient)
       await queryClient.refetchQueries(
         { queryKey: orderApi.getFindById1QueryKey(orderId) },

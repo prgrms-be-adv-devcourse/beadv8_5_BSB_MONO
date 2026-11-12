@@ -581,27 +581,17 @@ const raceHandlers = [
   // 키트 옵션: 티셔츠는 그 대회 종목의 사이즈 목록과 같은 값, 양말은 220~280. 맞춤 제작이라 stock은 null
   http.get('*/api/v1/product/races/:raceId/kit-options', ({ params }) => {
     const raceId = Number(params.raceId)
-    const race = findMockRace(raceId)
-    if (!race) {
+    const kitOptions = mockKitOptionGroups(raceId)
+    if (!kitOptions) {
       return HttpResponse.json(
         { status: 404, code: 'RACE_NOT_FOUND', message: '대회를 찾을 수 없습니다.', data: null },
         { status: 404 },
       )
     }
-    const shirtSizes = race.detail.courses?.[0]?.tshirtSizeOption ?? []
-    const socks = [220, 230, 240, 250, 260, 270, 280].map(String)
-    const values = (base: number, list: string[]) =>
-      list.map((value, i) => ({ kitOptionId: raceId * 100 + base + i, value, stock: null }))
     return HttpResponse.json({
       status: 200,
       message: '키트 옵션 목록을 조회했습니다.',
-      data: {
-        raceId,
-        kitOptions: [
-          { name: '티셔츠 사이즈', values: values(10, shirtSizes) },
-          { name: '양말 사이즈', values: values(20, socks) },
-        ],
-      },
+      data: { raceId, kitOptions },
     })
   }),
   getSearchMockHandler(({ request }) => {
@@ -620,6 +610,30 @@ const raceHandlers = [
     }
   }),
 ]
+
+/** 대회의 키트 옵션 묶음(옵션 이름마다 값 목록). 대회가 없으면 undefined */
+function mockKitOptionGroups(raceId: number) {
+  const race = findMockRace(raceId)
+  if (!race) return undefined
+  const shirtSizes = race.detail.courses?.[0]?.tshirtSizeOption ?? []
+  const socks = [220, 230, 240, 250, 260, 270, 280].map(String)
+  const values = (base: number, list: string[]) =>
+    list.map((value, i) => ({ kitOptionId: raceId * 100 + base + i, value, stock: null }))
+  return [
+    { name: '티셔츠 사이즈', values: values(10, shirtSizes) },
+    { name: '양말 사이즈', values: values(20, socks) },
+  ]
+}
+
+/** 진짜 서버처럼 옵션 이름마다 하나씩, 이 대회의 옵션만 골랐는지 본다 */
+function kitOptionsComplete(raceId: number, ids: number[]) {
+  const groups = mockKitOptionGroups(raceId) ?? []
+  const all = groups.flatMap((group) => group.values.map((v) => v.kitOptionId))
+  return (
+    ids.every((id) => all.includes(id)) &&
+    groups.every((group) => group.values.filter((v) => ids.includes(v.kitOptionId)).length === 1)
+  )
+}
 
 const orderHandlers = [
   queueAdmissionHandler,
@@ -643,8 +657,20 @@ const orderHandlers = [
     return { ...example, data: { ...example.data, items: [] } }
   }),
   // 진짜 서버처럼 예치금(wallet.ts)에서 주문 금액을 뺀다. 모자라면 409 ORDER_INSUFFICIENT_BALANCE + 부족 금액
-  http.post('*/api/v1/order/orders/:orderId/payment', ({ cookies }) => {
+  http.post('*/api/v1/order/orders/:orderId/payment', async ({ cookies, request }) => {
     const paid = getPayResponseMock()
+    const body = (await request.json().catch(() => null)) as { kitOptionIds?: number[] } | null
+    if (!kitOptionsComplete(paid.data?.raceId ?? 0, body?.kitOptionIds ?? [])) {
+      return HttpResponse.json(
+        {
+          status: 400,
+          code: 'ORDER_KIT_OPTION_INVALID',
+          message: '키트 옵션을 모두 골라 주세요.',
+          data: null,
+        },
+        { status: 400 },
+      )
+    }
     const { shortage, next } = payFromMockWallet(paid.data?.totalAmount ?? 0, cookies)
     if (shortage > 0) {
       return HttpResponse.json(

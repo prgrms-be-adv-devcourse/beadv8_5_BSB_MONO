@@ -9,7 +9,7 @@ import { Controller, useForm } from 'react-hook-form'
 
 import { AppHeader } from '@/widgets/app-header'
 import { AddressSearch, type AddressSearchResult } from '@/features/address-search'
-import { useBookingFlow, type BookingParticipant } from '@/features/booking'
+import { saveKitOptionIds, useBookingFlow, type BookingParticipant } from '@/features/booking'
 import {
   admissionExpiredHref,
   isQueueNotAdmitted,
@@ -33,6 +33,7 @@ import {
   Checkbox,
   Chip,
   Divider,
+  EmptyState,
   FOCUS_RING,
   KeyValue,
   PhoneField,
@@ -77,7 +78,8 @@ export function RaceApplyPage({
 }) {
   const defaults = useParticipantDefaults(option)
   const preview = previewRemainingSeconds !== undefined
-  // 키트 옵션이 있으면 참가자 정보 다음에 키트 옵션 단계를 둔다. 못 불러오면 없는 것으로 본다.
+  // 키트 옵션이 있으면 참가자 정보 다음에 키트 옵션 단계를 둔다.
+  // 못 불러오면 옵션이 없는 것으로 보지 않는다. 옵션이 있는 대회는 결제가 매번 거절되므로 진행을 막고 다시 시도하게 한다.
   const kit = productApi.useFindKitOptions(Number(race.id), {
     query: { select: unwrapData },
   })
@@ -97,7 +99,20 @@ export function RaceApplyPage({
           remainingSeconds={remaining}
         />
       )}
-      {defaults && !kit.isPending ? (
+      {kit.isError ? (
+        <main className="flex flex-1 items-center justify-center bg-bg-surface px-4 py-6">
+          <EmptyState
+            icon="CircleAlert"
+            title="키트 옵션을 불러오지 못했어요"
+            description="잠시 뒤 다시 시도해 주세요."
+            action={
+              <Button onClick={() => void kit.refetch()} disabled={kit.isFetching}>
+                다시 시도하기
+              </Button>
+            }
+          />
+        </main>
+      ) : defaults && !kit.isPending ? (
         <ParticipantForm
           race={race}
           option={option}
@@ -202,7 +217,10 @@ function ParticipantForm({
         },
         participant,
       )
-      return createOrder(participation.id ?? 0)
+      const orderId = await createOrder(participation.id ?? 0)
+      // 결제가 옵션 이름마다 하나씩 보낼 수 있도록 고른 옵션 전체를 주문에 붙여 남긴다
+      saveKitOptionIds(orderId, kitStep ? kitGroups.flatMap((g) => picked[g.name] ?? []) : [])
+      return orderId
     },
     onSuccess: (orderId) => router.push(`/checkout?orderId=${orderId}`),
     // 결제가 대기열 입장 전(입장 시간이 끝남)이라 막히면 입장 시간 만료 화면(M07-1)으로 간다.
@@ -244,7 +262,7 @@ function ParticipantForm({
   })
   const allPicked = kitGroups.every((g) => picked[g.name] !== undefined)
   const pay = () => {
-    // 티셔츠 옵션의 고른 값이 주문 API의 사이즈다. 그 밖의 옵션은 주문 API가 받지 않아 보내지 않는다.
+    // 참가 신청에는 티셔츠 사이즈만 보낸다. 고른 옵션 전체는 결제에서 kitOptionIds로 보낸다.
     const size = tshirtGroup?.values.find((v) => v.kitOptionId === picked[tshirtGroup.name])
     save.mutate({
       ...confirmed,

@@ -44,14 +44,17 @@ const email = z
   .min(1, AUTH_ERRORS.emailRequired)
   .pipe(z.email(AUTH_ERRORS.emailFormat))
 
-// 10자 이상, 공백만은 안 됨. 백엔드 가입 요청 DTO(@NotBlank, @Size(min = 10))와 같다.
+// 서버는 비밀번호를 UTF-8 72바이트까지만 받는다(BCrypt 한계, 백엔드 @PasswordBytes). 한글은 한 글자가 3바이트라 24자까지다.
+export const PASSWORD_MAX_BYTES = 72
+export const isPasswordTooLong = (value: string) =>
+  new TextEncoder().encode(value).length > PASSWORD_MAX_BYTES
+
+// 10자 이상, 공백만은 안 됨, 72바이트 이하(시안 「비밀번호 · 너무 김」). 백엔드 가입 요청 DTO(@NotBlank, @Size(min = 10), @PasswordBytes)와 같다.
 const newPassword = z
   .string()
   .min(memberZod.joinBodyPasswordMin, AUTH_ERRORS.passwordRule)
   .refine((value) => value.trim().length > 0, AUTH_ERRORS.passwordRule)
-
-// 시안 「비밀번호 · 너무 김」. 백엔드에는 상한이 없어 화면에서만 64자로 막는다(정해진 값이 아님).
-export const PASSWORD_MAX = 64
+  .refine((value) => !isPasswordTooLong(value), AUTH_ERRORS.passwordTooLong)
 
 // 이메일 찾기의 생년월일은 숫자 8자리(19950302)로 받는다
 const birth = z
@@ -93,7 +96,7 @@ export type LoginValues = z.infer<typeof loginSchema>
 // 가입은 이메일 → 비밀번호 → 닉네임 순서로 한 칸씩 받는다. 비밀번호는 한 번만 적는다.
 export const signupEmailSchema = z.object({ email })
 export const signupPasswordSchema = z.object({
-  password: newPassword.pipe(z.string().max(PASSWORD_MAX, AUTH_ERRORS.passwordTooLong)),
+  password: newPassword,
 })
 export const signupAccountSchema = z.object({
   email,

@@ -15,15 +15,47 @@ const DISTANCES = [
   { label: '풀', sub: '42.195km', courseType: 'FULL' },
 ] as const
 
-// 지역 이름은 주소 검색 API가 채우는 시·도 이름이다. 묶음에 시·도가 여럿이면 시·도별 「전체 대회」만 둔다.
+// 대회의 시·도는 주소 검색(shorthand: false)이 채운 이름 그대로 저장되고, 검색 필터는 글자가 똑같아야 걸린다.
+// 그래서 value는 저장되는 이름(서울특별시)이고, label은 화면에 보이는 짧은 이름(서울)이다.
+// 묶음에 시·도가 여럿이면 시·도별 「전체 대회」만 둔다. 광역시는 가까운 도 묶음에 넣는다.
 const REGIONS = [
-  { label: '서울', sidos: ['서울'] },
-  { label: '경기 · 인천', sidos: ['경기', '인천'] },
-  { label: '강원', sidos: ['강원'] },
-  { label: '충청', sidos: ['충북', '충남'] },
-  { label: '전라', sidos: ['전북', '전남'] },
-  { label: '경상', sidos: ['경북', '경남'] },
-  { label: '제주', sidos: ['제주'] },
+  { label: '서울', sidos: [{ label: '서울', value: '서울특별시' }] },
+  {
+    label: '경기 · 인천',
+    sidos: [
+      { label: '경기', value: '경기도' },
+      { label: '인천', value: '인천광역시' },
+    ],
+  },
+  { label: '강원', sidos: [{ label: '강원', value: '강원특별자치도' }] },
+  {
+    label: '충청',
+    sidos: [
+      { label: '충북', value: '충청북도' },
+      { label: '충남', value: '충청남도' },
+      { label: '대전', value: '대전광역시' },
+      { label: '세종', value: '세종특별자치시' },
+    ],
+  },
+  {
+    label: '전라',
+    sidos: [
+      { label: '전북', value: '전북특별자치도' },
+      { label: '전남', value: '전라남도' },
+      { label: '광주', value: '광주광역시' },
+    ],
+  },
+  {
+    label: '경상',
+    sidos: [
+      { label: '경북', value: '경상북도' },
+      { label: '경남', value: '경상남도' },
+      { label: '부산', value: '부산광역시' },
+      { label: '대구', value: '대구광역시' },
+      { label: '울산', value: '울산광역시' },
+    ],
+  },
+  { label: '제주', sidos: [{ label: '제주', value: '제주특별자치도' }] },
 ] as const
 
 const REGION_ROWS = [
@@ -100,9 +132,9 @@ export function CategoryScreen({
         <ul aria-label={`${region.label} 대회`} className="flex flex-1 flex-col pr-4">
           {region.sidos.map((sido) => (
             <Row
-              key={sido}
-              label={`${multi ? sido : region.label} 전체 대회`}
-              onClick={() => onPick({ regionSido: sido })}
+              key={sido.value}
+              label={`${multi ? sido.label : region.label} 전체 대회`}
+              onClick={() => onPick({ regionSido: sido.value })}
             />
           ))}
           {!multi &&
@@ -110,7 +142,7 @@ export function CategoryScreen({
               <Row
                 key={row.label}
                 label={row.label}
-                onClick={() => onPick({ regionSido: region.sidos[0], ...row.filters })}
+                onClick={() => onPick({ regionSido: region.sidos[0].value, ...row.filters })}
               />
             ))}
         </ul>

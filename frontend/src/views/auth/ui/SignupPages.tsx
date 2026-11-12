@@ -35,7 +35,7 @@ import {
 import { joinErrorMessage, toJoinRequest } from '../model/join'
 import {
   AUTH_ERRORS,
-  PASSWORD_MAX,
+  isPasswordTooLong,
   signupAccountSchema,
   signupEmailSchema,
   signupPasswordSchema,
@@ -247,7 +247,7 @@ function SignupPasswordStep({ invalid, onBack }: { invalid: boolean; onBack: () 
   } = useForm<{ password: string }>({
     resolver: zodResolver(signupPasswordSchema),
     mode: 'onChange',
-    defaultValues: { password: invalid ? 'password1234'.repeat(6) : password },
+    defaultValues: { password: invalid ? 'password1234'.repeat(7) : password },
   })
   useEffect(() => {
     if (invalid) return
@@ -273,7 +273,7 @@ function SignupPasswordStep({ invalid, onBack }: { invalid: boolean; onBack: () 
             type="password"
             autoComplete="new-password"
             autoFocus
-            error={typed.length > PASSWORD_MAX ? AUTH_ERRORS.passwordTooLong : undefined}
+            error={isPasswordTooLong(typed) ? AUTH_ERRORS.passwordTooLong : undefined}
             hints={[{ ok: typed.length >= 10, text: '10자 이상이에요' }]}
             {...register('password')}
           />

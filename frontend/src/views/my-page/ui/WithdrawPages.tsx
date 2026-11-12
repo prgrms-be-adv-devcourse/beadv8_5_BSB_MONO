@@ -11,11 +11,12 @@ import { Badge, BottomCta, Button, buttonClassName, Checkbox, Dialog, KeyValue }
 import { useWithdrawBlockers } from '../model/use-withdraw-blockers'
 
 // 탈퇴 실패 안내. 남은 예치금 · 참가권 문구는 시안 M31의 안내를 따른다.
-// 시안에 없는 문구: check-failed(다른 서비스 확인 실패), other(그 밖의 실패)
+// 시안에 없는 문구: crew-leader(크루장인 크루가 있음), check-failed(다른 서비스 확인 실패), other(그 밖의 실패)
 const WITHDRAW_ERRORS: Record<WithdrawFailure, string> = {
   'cash-left': '남은 예치금이 있어요. 돌려받기를 신청하면 환급이 끝난 뒤 탈퇴할 수 있어요.',
   'ticket-left':
     '끝나지 않은 참가권이 있어요. 참가권을 취소하거나 대회가 끝난 뒤 탈퇴할 수 있어요.',
+  'crew-leader': '크루장을 넘기거나 크루를 없앤 뒤 탈퇴할 수 있어요.',
   'check-failed': '남은 예치금과 참가권을 확인하지 못했어요. 잠시 후 다시 시도해 주세요.',
   other: '지금은 탈퇴할 수 없어요. 잠시 후 다시 시도해 주세요.',
 }
@@ -32,7 +33,9 @@ export function WithdrawPage() {
   const remaining = useWithdrawBlockers()
   const hasCash = remaining.balance > 0
   const hasTicket = remaining.ticketCount > 0
-  const blocked = remaining.pending || hasCash || hasTicket
+  const hasCrew = remaining.leaderCrewCount > 0
+  // 확인하지 못한 것은 남은 일이 없다는 뜻이 아니므로, 다시 확인되기 전까지 막는다
+  const blocked = remaining.pending || remaining.failed || hasCash || hasTicket || hasCrew
   // 성공해도 완료 화면을 새로 불러오는 동안은 토큰이 남아 있어 요청 중과 같이 막는다
   const busy = withdraw.isPending || withdraw.isSuccess
   const onWithdraw = () => {
@@ -53,9 +56,23 @@ export function WithdrawPage() {
       <AppHeader type="sub" title="회원 탈퇴" />
       <main className="flex flex-1 flex-col pb-6">
         <h2 className="px-4 pt-6 pb-4 text-title2">
-          {blocked ? '탈퇴하기 전에 남은 일이 있어요' : '이제 탈퇴할 수 있어요'}
+          {remaining.failed
+            ? '남은 일을 확인하지 못했어요'
+            : blocked
+              ? '탈퇴하기 전에 남은 일이 있어요'
+              : '이제 탈퇴할 수 있어요'}
         </h2>
-        {(hasCash || hasTicket) && (
+        {remaining.failed && (
+          <section className="flex flex-col items-start gap-3 px-4 pb-4">
+            <p role="alert" className="text-body2-regular text-text-secondary">
+              남은 예치금과 참가권을 확인하지 못했어요
+            </p>
+            <Button variant="secondary" size="s" onClick={remaining.retry}>
+              다시 시도하기
+            </Button>
+          </section>
+        )}
+        {(hasCash || hasTicket || hasCrew) && (
           <section className="flex flex-col px-4">
             {hasCash && (
               <div className="flex flex-col items-start gap-1 border-b border-border-default py-4 last:border-b-0">
@@ -75,7 +92,7 @@ export function WithdrawPage() {
               </div>
             )}
             {hasTicket && (
-              <div className="flex flex-col items-start gap-1 py-4">
+              <div className="flex flex-col items-start gap-1 border-b border-border-default py-4 last:border-b-0">
                 <p className="flex items-center gap-2 text-body2-medium">
                   <Badge tone="warning">필수</Badge>
                   끝나지 않은 참가권 {remaining.ticketCount}장
@@ -88,6 +105,23 @@ export function WithdrawPage() {
                   className={buttonClassName({ variant: 'secondary', size: 's' })}
                 >
                   참가권 보기
+                </Link>
+              </div>
+            )}
+            {hasCrew && (
+              <div className="flex flex-col items-start gap-1 py-4">
+                <p className="flex items-center gap-2 text-body2-medium">
+                  <Badge tone="warning">필수</Badge>
+                  크루장인 크루 {remaining.leaderCrewCount}개
+                </p>
+                <p className="text-body2-regular text-text-secondary">
+                  크루장을 넘기거나 크루를 없앤 뒤 탈퇴할 수 있어요.
+                </p>
+                <Link
+                  href="/crews"
+                  className={buttonClassName({ variant: 'secondary', size: 's' })}
+                >
+                  내 크루 보기
                 </Link>
               </div>
             )}

@@ -18,7 +18,15 @@ import {
   type RaceListItem,
   type RaceSearchFilters,
 } from '@/entities/race'
-import { cn, formatNumber, useTrackOnce } from '@/shared/lib'
+import {
+  addRecentSearch,
+  clearRecentSearches,
+  cn,
+  formatNumber,
+  loadRecentSearches,
+  removeRecentSearch,
+  useTrackOnce,
+} from '@/shared/lib'
 import {
   Badge,
   Button,
@@ -31,12 +39,6 @@ import {
   SortSelect,
 } from '@/shared/ui'
 
-import {
-  addRecentSearch,
-  clearRecentSearches,
-  loadRecentSearches,
-  removeRecentSearch,
-} from '../model/recent-searches'
 import { useDebouncedValue } from '../model/use-debounced-value'
 import { CategoryScreen } from './CategoryScreen'
 import { RecentSearches } from './RecentSearches'

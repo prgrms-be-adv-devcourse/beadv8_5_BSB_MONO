@@ -7,7 +7,10 @@ export { useWithdraw, withdrawFailure, type WithdrawFailure } from './model/use-
 export { AuthSessionRestorer } from './ui/AuthSessionRestorer'
 export { ProtectedScreenGuard } from './ui/ProtectedScreenGuard'
 export {
+  forgetLinkingProvider,
   goToSocialLogin,
+  linkingProvider,
+  rememberLinkingProvider,
   socialAuthorizeHref,
   socialLinkResultMessage,
   socialLoginErrorMessage,

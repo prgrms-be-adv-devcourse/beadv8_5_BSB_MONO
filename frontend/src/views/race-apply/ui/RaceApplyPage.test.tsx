@@ -4,7 +4,12 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { BookingFlowProvider, useBookingFlow, type BookingFlowInitial } from '@/features/booking'
+import {
+  BookingFlowProvider,
+  readKitOptionIds,
+  useBookingFlow,
+  type BookingFlowInitial,
+} from '@/features/booking'
 import { RACE_DETAIL, type RaceOption } from '@/entities/race'
 import {
   completePostcode,
@@ -72,6 +77,7 @@ beforeEach(() => {
   )
   push.mockClear()
   replace.mockClear()
+  sessionStorage.clear()
   installPostcodeFake()
 })
 
@@ -285,6 +291,38 @@ describe('참가 신청 · 참가자 정보', () => {
 
     await vi.waitFor(() => expect(push).toHaveBeenCalledWith('/checkout?orderId=1'))
     expect(bodies[0]).toMatchObject({ participant: { tshirtSize: 'M' } })
+    // 결제가 옵션 이름마다 하나씩 보낼 수 있도록 고른 kitOptionId를 주문에 붙여 남긴다
+    expect(readKitOptionIds(1)).toEqual([11, 22])
+  })
+
+  it('키트 옵션을 불러오지 못하면 옵션 없음으로 보지 않고 진행을 막고 다시 시도를 보여 준다', async () => {
+    let fail = true
+    server.use(
+      http.get('*/api/v1/product/races/:raceId/kit-options', () =>
+        fail
+          ? HttpResponse.json({ status: 500, message: '오류', data: null }, { status: 500 })
+          : HttpResponse.json({
+              status: 200,
+              message: '',
+              data: {
+                raceId: 1,
+                kitOptions: [
+                  { name: '양말', values: [{ kitOptionId: 21, value: '230', stock: null }] },
+                ],
+              },
+            }),
+      ),
+    )
+    const user = userEvent.setup()
+    renderPage()
+
+    expect(await screen.findByText('키트 옵션을 불러오지 못했어요')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '다음' })).not.toBeInTheDocument()
+    fail = false
+    await user.click(screen.getByRole('button', { name: '다시 시도하기' }))
+
+    expect(await screen.findByLabelText('이름')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '다음' })).toBeInTheDocument()
   })
 
   it('키트 옵션 단계에서 이전 단계를 누르면 입력한 값이 남아 있다', async () => {

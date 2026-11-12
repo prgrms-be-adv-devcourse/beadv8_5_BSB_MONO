@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { saveKitOptionIds } from '@/features/booking'
 import { cashApi, orderApi } from '@/shared/api'
 import { orderMock, server } from '@/shared/testing'
 
@@ -108,6 +109,7 @@ describe('결제 화면', () => {
   })
   afterEach(() => {
     vi.useRealTimers()
+    sessionStorage.clear()
   })
 
   it('주문 금액 · 대회 · 참가자와 결제 기한까지 남은 시간을 보여 준다', async () => {
@@ -202,6 +204,41 @@ describe('결제 화면', () => {
 
     await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/checkout/complete?orderId=1'))
     expect(paid).toBe(true)
+  })
+
+  it('참가 신청에서 고른 키트 옵션을 결제 본문 kitOptionIds로 보낸다', async () => {
+    saveKitOptionIds(1, [11, 22])
+    const bodies: unknown[] = []
+    server.use(
+      http.post('*/api/v1/order/orders/:orderId/payment', async ({ request }) => {
+        bodies.push(await request.json())
+        return HttpResponse.json(orderMock.getPayResponseMock())
+      }),
+    )
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    renderCheckout()
+
+    const pay = await screen.findByRole('button', { name: '45,000원 결제' })
+    await agree(user)
+    await user.click(pay)
+
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/checkout/complete?orderId=1'))
+    expect(bodies).toEqual([{ kitOptionIds: [11, 22] }])
+  })
+
+  it('충전하고 돌아와 다시 결제할 때도 고른 키트 옵션을 보낸다', async () => {
+    saveKitOptionIds(1, [11, 22])
+    const bodies: unknown[] = []
+    server.use(
+      http.post('*/api/v1/order/orders/:orderId/payment', async ({ request }) => {
+        bodies.push(await request.json())
+        return HttpResponse.json(orderMock.getPayResponseMock())
+      }),
+    )
+    renderCheckout(undefined, { charged: true })
+
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/checkout/complete?orderId=1'))
+    expect(bodies).toEqual([{ kitOptionIds: [11, 22] }])
   })
 
   it('결제하면 결제 전 주문 · 잔액 · 내 참가권 캐시를 지워 다음 화면이 결제한 값을 받는다', async () => {

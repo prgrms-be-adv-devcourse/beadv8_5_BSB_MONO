@@ -1,10 +1,13 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
 import {
+  forgetLinkingProvider,
+  linkingProvider,
   SOCIAL_PROVIDERS,
+  socialLinkResultMessage,
   socialProviderOf,
   useAuthStatus,
   useLinkSocial,
@@ -44,13 +47,24 @@ export function AccountLinkPage({ linked, error }: { linked?: string; error?: st
     const provider = socialProviderOf(linked)
     if (!provider || notified.current) return
     notified.current = true
+    forgetLinkingProvider()
     toast({ message: `${LABEL[provider.id]} 계정을 연결했어요`, tone: 'success' })
   }, [linked, toast])
 
-  // 돌아온 주소에 어느 제공자인지 없으므로, 연결 안 된 제공자가 하나뿐이면 그것을 시도한 것으로 본다
+  // 돌아온 주소에는 어느 제공자인지 없다. 시작할 때 남겨 둔 제공자를 쓰고, 없으면(저장소를 못 쓴 경우)
+  // 연결 안 된 제공자가 하나뿐일 때만 그것을 시도한 것으로 본다.
+  const started = useSyncExternalStore(
+    () => () => {},
+    linkingProvider,
+    () => undefined,
+  )
   const unconnected = SOCIAL_PROVIDERS.filter((p) => !connected.has(p.code))
-  const tried = unconnected.length === 1 && me.data ? unconnected[0] : undefined
+  const guessed = unconnected.length === 1 && me.data ? unconnected[0].id : undefined
+  const triedId = started ?? guessed
+  const tried = SOCIAL_PROVIDERS.find((p) => p.id === triedId)
   const takenByOther = error === 'AUTH_SOCIAL_ALREADY_LINKED'
+  // 이미 연결한 제공자를 또 연결하려 한 경우는 다시 시도해도 같다
+  const alreadyMine = error === 'MEMBER_SOCIAL_PROVIDER_ALREADY_LINKED'
   const actionError = link.error ?? unlink.error
 
   return (
@@ -142,7 +156,17 @@ export function AccountLinkPage({ linked, error }: { linked?: string; error?: st
           })
         }}
       />
-      {takenByOther ? (
+      {alreadyMine ? (
+        <Dialog
+          open={errorOpen}
+          onOpenChange={setErrorOpen}
+          type="alert"
+          title={socialLinkResultMessage(undefined, error)?.message ?? ''}
+          body="로그인 방법 목록에서 연결 상태를 확인해 주세요."
+          confirmLabel="확인"
+          onConfirm={() => setErrorOpen(false)}
+        />
+      ) : takenByOther ? (
         <Dialog
           open={errorOpen}
           onOpenChange={setErrorOpen}

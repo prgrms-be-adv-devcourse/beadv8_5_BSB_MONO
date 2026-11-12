@@ -10,6 +10,11 @@ import { ToastProvider } from '@/shared/ui'
 
 import { AccountLinkPage } from './AccountLinkPage'
 
+const goToSocialLogin = vi.hoisted(() => vi.fn())
+vi.mock('@/features/auth/lib/social-login', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  goToSocialLogin,
+}))
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), back: vi.fn(), replace: vi.fn() }),
   usePathname: () => '/me/accounts',
@@ -28,7 +33,7 @@ function me(socialProviders: string[], passwordSet: boolean) {
 }
 
 function renderPage(props: { linked?: string; error?: string } = {}) {
-  render(
+  return render(
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
     >
@@ -39,7 +44,16 @@ function renderPage(props: { linked?: string; error?: string } = {}) {
   )
 }
 
-beforeEach(() => setAccessToken('access-token'))
+beforeEach(() => {
+  setAccessToken('access-token')
+  goToSocialLogin.mockClear()
+  sessionStorage.clear()
+  server.use(
+    http.post('*/api/v1/member/members/me/social-accounts/:provider/link-ticket', () =>
+      HttpResponse.json({ status: 200, message: '연결 표', data: null }),
+    ),
+  )
+})
 
 describe('AccountLinkPage', () => {
   it('연결 상태를 보여 주고, 비밀번호 없이 하나만 연결돼 있으면 연결 해제 버튼을 막는다', async () => {
@@ -107,5 +121,53 @@ describe('AccountLinkPage', () => {
     renderPage({ linked: 'google' })
 
     expect(await screen.findByText('Google 계정을 연결했어요')).toBeInTheDocument()
+  })
+
+  // 돌아온 주소에는 어느 제공자인지 없다. 연결을 시작할 때 남겨 둔 제공자로 안내하고 다시 시도한다.
+  it('연결하려던 제공자를 기억해 실패하면 그 제공자로 안내하고 다시 시도한다', async () => {
+    me([], true)
+    const user = userEvent.setup()
+    const first = renderPage()
+
+    // 둘 다 연결 안 된 상태에서 Google을 시작한다 (연결 안 된 제공자가 둘이라 짐작으로는 알 수 없다)
+    await user.click((await screen.findAllByRole('button', { name: '연결하기' }))[1])
+    await vi.waitFor(() => expect(goToSocialLogin).toHaveBeenCalledTimes(1))
+    expect(goToSocialLogin.mock.calls[0][0]).toContain('/google')
+    first.unmount()
+    goToSocialLogin.mockClear()
+
+    renderPage({ error: 'AUTH_SOCIAL_FAILED' })
+    expect(await screen.findByText('Google 연결을 마치지 못했어요')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '다시 시도하기' }))
+
+    await vi.waitFor(() => expect(goToSocialLogin).toHaveBeenCalledTimes(1))
+    expect(goToSocialLogin.mock.calls[0][0]).toContain('/google')
+  })
+
+  it('다른 회원에 연결된 계정 안내도 시작했던 제공자 이름을 쓴다', async () => {
+    me([], true)
+    sessionStorage.setItem('crewrun:social-link-provider', 'kakao')
+    renderPage({ error: 'AUTH_SOCIAL_ALREADY_LINKED' })
+
+    expect(
+      await screen.findByText('이 카카오 계정은 다른 크루런 회원에 연결돼 있어요'),
+    ).toBeInTheDocument()
+  })
+
+  it('이미 연결한 제공자를 또 연결하려 했다는 코드는 그 뜻으로 안내하고 다시 시도 버튼은 없다', async () => {
+    me(['KAKAO'], true)
+    renderPage({ error: 'MEMBER_SOCIAL_PROVIDER_ALREADY_LINKED' })
+
+    expect(await screen.findByText('이미 연결된 소셜 로그인이에요.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '다시 시도하기' })).not.toBeInTheDocument()
+  })
+
+  it('연결에 성공하면 기억해 둔 제공자를 지운다', async () => {
+    me(['KAKAO', 'GOOGLE'], true)
+    sessionStorage.setItem('crewrun:social-link-provider', 'google')
+    renderPage({ linked: 'google' })
+
+    expect(await screen.findByText('Google 계정을 연결했어요')).toBeInTheDocument()
+    expect(sessionStorage.getItem('crewrun:social-link-provider')).toBeNull()
   })
 })

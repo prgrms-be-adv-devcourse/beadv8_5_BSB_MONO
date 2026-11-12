@@ -4,7 +4,7 @@ import {
   AUTH_ERRORS,
   findEmailSchema,
   loginSchema,
-  PASSWORD_MAX,
+  PASSWORD_MAX_BYTES,
   passwordNewSchema,
   signupAccountSchema,
   signupProfileSchema,
@@ -58,15 +58,30 @@ describe('signupAccountSchema', () => {
     expect(signupAccountSchema.safeParse({ ...valid, password }).success).toBe(true)
   })
 
-  it('비밀번호가 64자를 넘으면 「너무 길어요」로 막는다 (시안 비밀번호 · 너무 김)', () => {
-    const password = 'a'.repeat(PASSWORD_MAX + 1)
-    expect(firstError(signupAccountSchema.safeParse({ ...valid, password }))).toEqual({
-      path: 'password',
-      message: AUTH_ERRORS.passwordTooLong,
-    })
+  // 서버는 글자 수가 아니라 UTF-8 72바이트로 막는다(BCrypt 한계). 한글은 한 글자가 3바이트다.
+  it('한글 25자(75바이트)는 「너무 길어요」로 막고, 72바이트 이하는 통과한다', () => {
+    expect(PASSWORD_MAX_BYTES).toBe(72)
     expect(
-      signupAccountSchema.safeParse({ ...valid, password: 'a'.repeat(PASSWORD_MAX) }).success,
-    ).toBe(true)
+      firstError(signupAccountSchema.safeParse({ ...valid, password: '가'.repeat(25) })),
+    ).toEqual({ path: 'password', message: AUTH_ERRORS.passwordTooLong })
+    expect(signupAccountSchema.safeParse({ ...valid, password: '가'.repeat(24) }).success).toBe(
+      true,
+    )
+    // 영문 · 숫자는 한 글자가 1바이트라 72자까지
+    expect(signupAccountSchema.safeParse({ ...valid, password: 'a'.repeat(72) }).success).toBe(true)
+    expect(
+      firstError(signupAccountSchema.safeParse({ ...valid, password: 'a'.repeat(73) })),
+    ).toEqual({ path: 'password', message: AUTH_ERRORS.passwordTooLong })
+    // 글자 수는 64자 이하여도 바이트가 넘으면 막는다
+    expect(
+      signupAccountSchema.safeParse({ ...valid, password: 'a'.repeat(30) + '가'.repeat(15) })
+        .success,
+    ).toBe(false)
+  })
+
+  it('비밀번호 재설정도 같은 바이트 상한을 건다', () => {
+    const password = '가'.repeat(25)
+    expect(passwordNewSchema.safeParse({ password, passwordConfirm: password }).success).toBe(false)
   })
 })
 
