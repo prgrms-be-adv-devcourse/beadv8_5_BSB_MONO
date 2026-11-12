@@ -17,6 +17,14 @@ public interface CrewPort {
 	OptionalInt countMembers(long crewId);
 
 	/**
+	 * 결제율 미달로 파티 만들기가 제한 중이면 끝나는 시각을 돌려준다 (BUK-190, 회원 BUK-187)
+	 * 위 두 조회와 달리 묻지 못하면 503을 던지지 않고 빈 값(제한 없음)으로 본다. 경고 로그만 남긴다
+	 * (회원 서비스가 멈추면 바로 앞의 크루원 확인이 이미 503으로 막는다. 남는 경우는 회원 API가 아직 배포되지 않은 404 같은
+	 * 계약 문제인데, 그때 모든 파티 만들기를 막는 것보다 제한을 잠시 놓치는 쪽을 골랐다)
+	 */
+	Optional<LocalDateTime> findPartyRestrictionEnd(long crewId);
+
+	/**
 	 * @param crewMember 크루원인지 (크루장·운영진 포함)
 	 * @param joinedAt   크루 가입 시각. 크루원이 아니면 null. 파티 예매 시작 7일 전까지 가입했는지 본다
 	 */

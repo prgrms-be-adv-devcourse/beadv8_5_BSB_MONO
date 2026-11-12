@@ -800,6 +800,14 @@ export interface KitOptionSoldOutDto {
   soldOut: KitOptionChoiceDto[];
 }
 
+/**
+ * 크루 파티 만들기 제한 403(ORDER_CREW_PARTY_RESTRICTED)의 data. 결제율 미달로 제한 중인 크루가 파티를 만들 때 준다
+ */
+export interface CrewPartyRestrictedDto {
+  /** 제한이 끝나는 시각. 이때부터 다시 파티를 만들 수 있다 */
+  endAt: string;
+}
+
 export interface RsDataParticipationDto {
   status?: number;
   message?: string;

@@ -34,4 +34,9 @@ public class FakeCrewAdapter implements CrewPort {
 	public OptionalInt countMembers(long crewId) {
 		return OptionalInt.of(MEMBER_COUNT);
 	}
+
+	@Override
+	public Optional<LocalDateTime> findPartyRestrictionEnd(long crewId) {
+		return Optional.empty();
+	}
 }
