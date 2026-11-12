@@ -496,6 +496,136 @@
           }
         }
       }
+    },
+    "/api/v1/cash/admin/charge-reviews": {
+      "get": {
+        "tags": [
+          "Cash"
+        ],
+        "summary": "고액 충전 확인 목록 조회",
+        "description": "관리자가 가입 직후 고액을 충전한 회원을 확인한다.",
+        "operationId": "getChargeReviews",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 넣어준다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "example": 3
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "페이지 번호 (0부터)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0,
+              "minimum": 0
+            },
+            "example": 0
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "페이지 크기 (1~100)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1
+            },
+            "example": 20
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "조회 성공 (없으면 빈 목록)",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "조회 성공": {
+                    "description": "조회 성공",
+                    "value": {
+                      "status": 200,
+                      "message": "고액 충전 확인 목록을 조회했습니다.",
+                      "data": {
+                        "content": [
+                          {
+                            "memberId": 12,
+                            "nickname": "러너1",
+                            "joinedAt": "2026-11-10T09:00:00",
+                            "chargeAmount": 300000,
+                            "chargedAt": "2026-11-10T21:25:35",
+                            "joinWindowChargeTotal": 600000
+                          }
+                        ],
+                        "page": 0,
+                        "size": 20,
+                        "totalElements": 1,
+                        "totalPages": 1
+                      }
+                    }
+                  },
+                  "빈 목록": {
+                    "description": "빈 목록",
+                    "value": {
+                      "status": 200,
+                      "message": "고액 충전 확인 목록을 조회했습니다.",
+                      "data": {
+                        "content": [],
+                        "page": 0,
+                        "size": 20,
+                        "totalElements": 0,
+                        "totalPages": 0
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "관리자가 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 403,
+                  "code": "CASH_ADMIN_FORBIDDEN",
+                  "message": "관리자만 이용할 수 있습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "회원 서비스 연결 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 503,
+                  "code": "CASH_MEMBER_SERVICE_UNAVAILABLE",
+                  "message": "회원 서비스에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
