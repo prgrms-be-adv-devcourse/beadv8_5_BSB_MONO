@@ -24,7 +24,8 @@ class BoardPostListApiTest extends BoardTestBase {
 	private static final String NEXT = "X-Next-Cursor";
 
 	private MvcResult list(Long memberId, String query) throws Exception {
-		return mockMvc.perform(as(get(POSTS + query), memberId)).andReturn();
+		// URI로 넘겨야 %25 같은 인코딩 값을 한 번 더 인코딩하지 않는다
+		return mockMvc.perform(as(get(java.net.URI.create(POSTS + query)), memberId)).andReturn();
 	}
 
 	private List<Number> ids(MvcResult result) throws Exception {
@@ -116,7 +117,8 @@ class BoardPostListApiTest extends BoardTestBase {
 	void popular() throws Exception {
 		long old = newPost(ME, "오래된 인기 글");
 		setLikes(old, 100);
-		jdbcTemplate.update("update board_post set create_date = ? where id = ?", LocalDateTime.now().minusDays(8), old);
+		jdbcTemplate.update("update board_post set create_date = ? where id = ?", LocalDateTime.now().minusDays(8),
+			old);
 		long low = newPost(ME, "낮음");
 		setLikes(low, 1);
 		long tieOlder = newPost(ME, "동점 먼저 쓴 글");
@@ -199,8 +201,9 @@ class BoardPostListApiTest extends BoardTestBase {
 		List<Number> all = new ArrayList<>(ids(first));
 		all.addAll(ids(second));
 		all.addAll(ids(third));
-		assertThat(all).containsExactly(created.get(3).intValue(), created.get(2).intValue(), created.get(1).intValue(),
-			created.get(0).intValue(), created.get(5).intValue(), created.get(4).intValue());
+		assertThat(all).containsExactly(created.get(3).intValue(), created.get(2).intValue(),
+			created.get(1).intValue(), created.get(0).intValue(), created.get(5).intValue(),
+			created.get(4).intValue());
 		assertThat(third.getResponse().getHeader(NEXT)).isNull();
 	}
 
