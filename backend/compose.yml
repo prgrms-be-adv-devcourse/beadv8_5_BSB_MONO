@@ -350,7 +350,8 @@ services:
 
   # 크루런 AI (BUK-165). DB·Kafka를 쓰지 않고 대화 기록만 Redis에 둔다. 모델은 OpenAI이고 키는 .env의 OPENAI_API_KEY다 (비어도 뜬다)
   # gateway의 depends_on에 넣지 않는다. AI가 뜨지 못해도 게이트웨이와 다른 서비스는 떠야 한다
-  # (그래도 배포(app-cd.yml)의 up --wait는 AI가 healthy가 못 되면 실패로 끝난다. AI는 Redis가 없거나 검색 기능이 없으면 뜨지 않는다)
+  # (그래도 배포(app-cd.yml)의 up --wait는 AI가 healthy가 못 되면 실패로 끝난다. AI는 Redis가 없거나 검색 기능이 없으면 뜨지 않는다.
+  #  그때도 배포는 Nginx를 다시 읽어 다른 서비스로 가는 길은 살린다)
   ai-service:
     build:
       context: .
