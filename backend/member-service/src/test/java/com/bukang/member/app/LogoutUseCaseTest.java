@@ -3,6 +3,7 @@ package com.bukang.member.app;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -15,6 +16,7 @@ import java.time.ZoneOffset;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.QueryTimeoutException;
 
 import com.bukang.jwt.JwtProperties;
 import com.bukang.jwt.JwtProvider;
@@ -107,5 +109,18 @@ class LogoutUseCaseTest {
 			+ jwtProvider.issueRefreshToken(MEMBER_ID, "family-1", NOW.plus(Duration.ofDays(14))));
 
 		verify(revokedAccessTokenRepository, never()).revoke(anyString(), any(Duration.class));
+	}
+
+	@Test
+	@DisplayName("Access 차단 기록이 Redis 오류로 실패해도 Refresh 기록은 지우고 로그아웃은 끝난다")
+	void continuesWhenAccessRevokeFails() {
+		String accessToken = jwtProvider.issueAccessToken(MEMBER_ID);
+		String refreshToken = jwtProvider.issueRefreshToken(MEMBER_ID, "family-1", NOW.plus(Duration.ofDays(14)));
+		doThrow(new QueryTimeoutException("redis down")).when(revokedAccessTokenRepository)
+			.revoke(anyString(), any(Duration.class));
+
+		logoutUseCase.logout(refreshToken, "Bearer " + accessToken);
+
+		verify(refreshTokenRepository).deleteIfFamily(MEMBER_ID, "family-1");
 	}
 }

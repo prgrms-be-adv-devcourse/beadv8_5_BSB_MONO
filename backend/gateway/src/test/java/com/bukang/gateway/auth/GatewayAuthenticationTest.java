@@ -240,6 +240,18 @@ class GatewayAuthenticationTest {
 	}
 
 	@Test
+	@DisplayName("Redis 확인이 끝나지 않고 늦어지면 200ms 뒤 요청을 통과시킨다")
+	void passesWhenRedisIsSlow() throws Exception {
+		when(redis.hasKey(anyString())).thenReturn(Mono.never());
+
+		HttpResponse<String> response = send(request("/api/v1/order/orders")
+			.header("Authorization", "Bearer " + jwtProvider.issueAccessToken(42L)));
+
+		assertThat(response.statusCode()).isEqualTo(200);
+		assertThat(RECEIVED_MEMBER_IDS).containsExactly("42");
+	}
+
+	@Test
 	@DisplayName("공개 주소에서도 로그아웃한 Access Token이면 회원 ID를 넘기지 않고 로그인하지 않은 요청으로 넘긴다")
 	void passesPublicPathWithRevokedTokenAsAnonymous() throws Exception {
 		String revoked = jwtProvider.issueAccessToken(42L);
