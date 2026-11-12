@@ -30,7 +30,7 @@ final class CrewInternalApiExamples {
 		{
 			"status": 200,
 			"message": "크루원 수를 조회했습니다.",
-			"data": { "crewId": 1, "memberCount": 5 }
+			"data": { "crewId": 1, "memberCount": 5, "crewCreatedAt": "2026-10-01T09:00:00" }
 		}
 		""";
 

@@ -78,6 +78,11 @@ public class BoardPostUseCase {
 		requestFileLink(memberId, post, List.of());
 	}
 
+	// 관리자가 글을 지울 때도 사진 연결을 뗀다 (쓴 사람 이름으로 보낸다)
+	public void releaseFiles(BoardPost post) {
+		requestFileLink(post.getMemberId(), post, List.of());
+	}
+
 	private void requestFileLink(long memberId, BoardPost post, List<Long> fileIds) {
 		List<FileLinkRequestedEvent.Item> items = IntStream.range(0, fileIds.size())
 			.mapToObj(index -> new FileLinkRequestedEvent.Item(fileIds.get(index), FileType.POST_IMAGE, index))

@@ -4,11 +4,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.willAnswer;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
@@ -18,6 +21,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -37,6 +41,7 @@ import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.RefreshTokenRepository;
 import com.bukang.member.out.RefreshTokenRepository.NewFamily;
 import com.bukang.member.out.RefreshTokenRepository.Rotation;
+import com.bukang.member.out.RevokedAccessTokenRepository;
 import com.bukang.member.out.RotationOutcome;
 import com.bukang.member.out.RotationResult;
 import com.bukang.member.out.TermsAgreementRepository;
@@ -77,6 +82,10 @@ class ApiV1AuthReissueLogoutTest {
 
 	@MockitoBean
 	private RefreshTokenRepository refreshTokenRepository;
+
+	// Redis 없이 로그아웃이 Access 토큰 차단을 기록하는지만 확인한다
+	@MockitoBean
+	private RevokedAccessTokenRepository revokedAccessTokenRepository;
 
 	private final Map<Long, Saved> redis = new HashMap<>();
 	private long memberId;
@@ -194,6 +203,21 @@ class ApiV1AuthReissueLogoutTest {
 	}
 
 	@Test
+	@DisplayName("Authorization 헤더를 보내 로그아웃하면 그 Access Token의 jti가 남은 시간만큼 차단 기록으로 남는다")
+	void logoutRevokesAccessToken() throws Exception {
+		String accessToken = jwtProvider.issueAccessToken(memberId);
+
+		mockMvc.perform(post("/api/v1/auth/logout").header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
+			.andExpect(status().isOk());
+
+		ArgumentCaptor<Duration> ttl = ArgumentCaptor.forClass(Duration.class);
+		verify(revokedAccessTokenRepository).revoke(
+			eq(jwtProvider.parse(accessToken, TokenType.ACCESS).jti()), ttl.capture());
+		assertThat(ttl.getValue()).isPositive().isLessThanOrEqualTo(Duration.ofMinutes(30))
+			.isGreaterThan(Duration.ofMinutes(29));
+	}
+
+	@Test
 	@DisplayName("쿠키 없이 로그아웃해도 성공하고 쿠키 만료를 내려준다")
 	void logoutWithoutCookie() throws Exception {
 		MvcResult result = mockMvc.perform(post("/api/v1/auth/logout"))
@@ -207,17 +231,17 @@ class ApiV1AuthReissueLogoutTest {
 	private RotationResult rotate(long id, Rotation rotation) {
 		Saved saved = redis.get(id);
 		if (saved == null) {
-			return new RotationResult(RotationOutcome.MISSING, null);
+			return RotationResult.of(RotationOutcome.MISSING);
 		}
 		if (!saved.familyId().equals(rotation.familyId())) {
-			return new RotationResult(RotationOutcome.STALE, null);
+			return RotationResult.of(RotationOutcome.STALE);
 		}
 		if (saved.jti().equals(rotation.presentedJti())) {
 			redis.put(id, new Saved(saved.familyId(), rotation.newJti(), saved.familyExpiresAt()));
-			return new RotationResult(RotationOutcome.ROTATED, null);
+			return RotationResult.of(RotationOutcome.ROTATED);
 		}
 		redis.remove(id);
-		return new RotationResult(RotationOutcome.THEFT, null);
+		return RotationResult.of(RotationOutcome.THEFT);
 	}
 
 	// refresh-token-delete-family.lua 흉내

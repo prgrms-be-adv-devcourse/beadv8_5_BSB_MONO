@@ -1,5 +1,6 @@
 package com.bukang.member.in;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -30,6 +31,7 @@ import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.TermsAgreementRepository;
 import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
 import com.bukang.member.support.MemberFixture;
+import com.jayway.jsonpath.JsonPath;
 
 // 파티 서비스가 부르는 크루 내부 API: 크루원 여부·가입 시각, 크루원 수, 파티 만들기 제한 (BUK-187)
 @SpringBootTest
@@ -148,6 +150,18 @@ class InternalV1CrewTest {
 			.andExpect(jsonPath("$.message").value("크루원 수를 조회했습니다."))
 			.andExpect(jsonPath("$.data.crewId").value(crewId))
 			.andExpect(jsonPath("$.data.memberCount").value(2));
+	}
+
+	@Test
+	@DisplayName("크루원 수 응답에 크루 생성 시각이 들어 있다")
+	void memberCountHasCrewCreatedAt() throws Exception {
+		String body = mockMvc.perform(get(MEMBER_COUNT, crewId))
+			.andExpect(status().isOk())
+			.andReturn().getResponse().getContentAsString();
+
+		String createdAt = JsonPath.read(body, "$.data.crewCreatedAt");
+		assertThat(LocalDateTime.parse(createdAt))
+			.isEqualTo(crewRepository.findById(crewId).orElseThrow().getCreatedAt());
 	}
 
 	@Test

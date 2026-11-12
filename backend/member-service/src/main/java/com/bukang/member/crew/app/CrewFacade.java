@@ -340,8 +340,8 @@ public class CrewFacade {
 
 	// 내부 API: 크루장, 운영진, 크루원을 모두 센다
 	public CrewMemberCountDto findMemberCount(long crewId) {
-		findActiveCrew(crewId);
-		return new CrewMemberCountDto(crewId, (int)crewMemberRepository.countByCrewId(crewId));
+		Crew crew = findActiveCrew(crewId);
+		return new CrewMemberCountDto(crewId, (int)crewMemberRepository.countByCrewId(crewId), crew.getCreatedAt());
 	}
 
 	private CrewHomeDto home(Crew crew, long memberId) {

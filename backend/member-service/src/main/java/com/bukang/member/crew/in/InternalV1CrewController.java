@@ -28,7 +28,7 @@ import lombok.RequiredArgsConstructor;
  * 회원이 아니라 서비스가 부르므로 회원 ID 헤더를 받지 않는다 (InternalV1MemberController와 같은 방식)
  */
 @Tag(name = "CrewInternal",
-	description = "크루원 여부·가입 시각 조회, 크루원 수 조회, 파티 만들기 제한 조회 API (서비스 간 내부 호출 전용)")
+	description = "크루원 여부·가입 시각 조회, 크루원 수·크루 생성 시각 조회, 파티 만들기 제한 조회 API (서비스 간 내부 호출 전용)")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/internal/v1/member/crews")
@@ -60,7 +60,7 @@ public class InternalV1CrewController {
 	@GetMapping("/{crewId}/member-count")
 	@Operation(summary = "크루원 수 조회",
 		description = "파티 서비스가 크루원 4명 이상 신청 조건을 확인할 때 부른다. 크루장, 운영진, 크루원을 모두 센다. "
-			+ "크루가 없거나 없앤 크루면 404이다.")
+			+ "크루 생성 시각(크루 몫 30일 기준 확인용)도 함께 준다. 크루가 없거나 없앤 크루면 404이다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "조회 성공",
 			content = @Content(examples = @ExampleObject(value = CrewInternalApiExamples.MEMBER_COUNT))),
