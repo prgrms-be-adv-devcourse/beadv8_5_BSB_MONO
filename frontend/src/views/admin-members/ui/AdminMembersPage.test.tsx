@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
@@ -59,8 +59,12 @@ describe('AdminMembersPage 탭', () => {
     renderPage()
 
     expect(screen.getByRole('tab', { name: /전체 회원/ })).toBeInTheDocument()
-    expect(await screen.findByRole('tab', { name: /확인이 필요한 계정/ })).toHaveTextContent('3')
-    expect(await screen.findByRole('tab', { name: /고액 충전 확인/ })).toHaveTextContent('7')
+    await waitFor(() =>
+      expect(screen.getByRole('tab', { name: /확인이 필요한 계정/ })).toHaveTextContent('3'),
+    )
+    await waitFor(() =>
+      expect(screen.getByRole('tab', { name: /고액 충전 확인/ })).toHaveTextContent('7'),
+    )
   })
 
   it('전체 회원 탭에는 기존 화면이 보인다', () => {
