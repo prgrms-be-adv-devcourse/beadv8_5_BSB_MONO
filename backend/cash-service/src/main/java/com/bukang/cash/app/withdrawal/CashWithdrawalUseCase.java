@@ -209,16 +209,16 @@ public class CashWithdrawalUseCase {
 			item.markReverted();
 			revertedAmount += call.amount();
 		}
+		long cardAmount = requested.cardAmount() - revertedAmount - processingAmount - switchedToAccountAmount;
+		long accountAmount = requested.accountAmount() + switchedToAccountAmount;
 		if (processingAmount > 0) {
 			withdrawal.markInProgress();
 		} else {
-			withdrawal.markCompleted(LocalDateTime.now());
+			withdrawal.finish(cardAmount + accountAmount, LocalDateTime.now());
 		}
 
-		return new CashWithdrawalResponseDto(requested.amount(), customerWallet.getBalance(),
-			requested.cardAmount() - revertedAmount - processingAmount - switchedToAccountAmount,
-			requested.accountAmount() + switchedToAccountAmount, switchedToAccountAmount, processingAmount,
-			revertedAmount, accountRequired);
+		return new CashWithdrawalResponseDto(requested.amount(), customerWallet.getBalance(), cardAmount,
+			accountAmount, switchedToAccountAmount, processingAmount, revertedAmount, accountRequired);
 	}
 
 	// 1단계 결과. replay가 있으면 같은 키 재요청이라 2·3단계 없이 그대로 돌려준다

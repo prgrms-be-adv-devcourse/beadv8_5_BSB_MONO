@@ -23,6 +23,7 @@ import com.bukang.cash.domain.withdrawal.WalletWithdrawal;
 import com.bukang.cash.domain.withdrawal.WalletWithdrawalItem;
 import com.bukang.cash.domain.withdrawal.WithdrawalItemResolution;
 import com.bukang.cash.domain.withdrawal.WithdrawalItemStatus;
+import com.bukang.cash.domain.withdrawal.WithdrawalStatus;
 import com.bukang.cash.dto.withdrawal.CashWithdrawalItemResolveResponseDto;
 import com.bukang.cash.out.pg.PaymentCancelResult;
 import com.bukang.cash.out.pg.PaymentClient;
@@ -74,30 +75,57 @@ public class CashWithdrawalReconcileUseCase {
 		int consecutiveNoAnswers = 0;
 		for (int i = 0; i < targets.size(); i++) {
 			Target target = targets.get(i);
-			if (target.createDate().isBefore(now.minusDays(MANUAL_CHECK_AFTER_DAYS))) {
-				transactionTemplate.executeWithoutResult(status -> markManualCheckLocked(target));
-				continue;
-			}
-			Outcome outcome = callPg(target);
-			// 충전 재확인처럼 토스가 계속 답하지 않으면(장애) 남은 몫까지 부르지 않고 다음 회차로 미룬다
-			consecutiveNoAnswers = outcome.pgAnswered() ? 0 : consecutiveNoAnswers + 1;
-			if (consecutiveNoAnswers >= MAX_CONSECUTIVE_NO_ANSWERS) {
-				log.warn("환급 재확인: 토스가 {}번 연달아 응답하지 않아 이번 실행을 멈춥니다. 남은 몫={}",
-					consecutiveNoAnswers, targets.size() - i - 1);
-				return;
-			}
-			if (outcome.failure() != null && outcome.failure().isResultUnknown()) {
-				// 이번에도 모르면 되돌리지 않는다(돈이 두 번 나갈 수 있다). 다음 재확인에 같은 키로 다시 묻는다.
-				// 토스 중복 방지 키는 15일만 유효해서, 그보다 훨씬 전에 사람이 보게 한다
-				LocalDateTime alertBefore = now.minusMinutes(chargeReconcileProperties.alertAfterMinutes());
-				if (target.createDate().isBefore(alertBefore)) {
-					log.error("환급 재확인: {}분 넘게 결제취소 결과를 확인하지 못했습니다. 수동 확인 필요. itemId={}, chargeId={}",
-						chargeReconcileProperties.alertAfterMinutes(), target.itemId(), target.chargeId());
+			// 정책 5장 2차 1 「결과를 모를 때」: 한 몫에서 우리 서버 오류가 나도 뒤의 몫은 계속 맞춘다.
+			// 토스가 답하지 않은 것이 아니므로 연달아 무응답 횟수에는 세지 않는다
+			try {
+				if (target.createDate().isBefore(now.minusDays(MANUAL_CHECK_AFTER_DAYS))) {
+					transactionTemplate.executeWithoutResult(status -> markManualCheckLocked(target,
+						MANUAL_CHECK_AFTER_DAYS + "일 넘게 결제취소 결과를 확인하지 못해 재확인을 멈춥니다."));
+					continue;
 				}
-				continue;
+				Outcome outcome = callPg(target);
+				// 충전 재확인처럼 토스가 계속 답하지 않으면(장애) 남은 몫까지 부르지 않고 다음 회차로 미룬다
+				consecutiveNoAnswers = outcome.pgAnswered() ? 0 : consecutiveNoAnswers + 1;
+				if (consecutiveNoAnswers >= MAX_CONSECUTIVE_NO_ANSWERS) {
+					log.warn("환급 재확인: 토스가 {}번 연달아 응답하지 않아 이번 실행을 멈춥니다. 남은 몫={}",
+						consecutiveNoAnswers, targets.size() - i - 1);
+					return;
+				}
+				if (outcome.failure() != null && outcome.failure().isResultUnknown()) {
+					// 이번에도 모르면 되돌리지 않는다(돈이 두 번 나갈 수 있다). 다음 재확인에 같은 키로 다시 묻는다.
+					// 토스 중복 방지 키는 15일만 유효해서, 그보다 훨씬 전에 사람이 보게 한다
+					if (target.createDate().isBefore(alertBefore(now))) {
+						log.error("환급 재확인: {}분 넘게 결제취소 결과를 확인하지 못했습니다. 수동 확인 필요. itemId={}, chargeId={}",
+							chargeReconcileProperties.alertAfterMinutes(), target.itemId(), target.chargeId());
+					}
+					continue;
+				}
+				transactionTemplate.executeWithoutResult(status -> applyLocked(target, outcome, now));
+			} catch (RuntimeException unexpected) {
+				handleUnexpected(target, now, unexpected);
 			}
-			transactionTemplate.executeWithoutResult(status -> applyLocked(target, outcome, now));
 		}
+	}
+
+	// 잠깐 생긴 오류는 30분 안에 풀리므로 다음 재확인에 다시 한다. 그보다 오래된 몫이면 사람이 고쳐야 풀리는 오류로 보고 넘긴다
+	private void handleUnexpected(Target target, LocalDateTime now, RuntimeException unexpected) {
+		if (!target.createDate().isBefore(alertBefore(now))) {
+			log.error("환급 재확인: 몫을 처리하다 오류가 나 다음 재확인으로 미룹니다. itemId={}, chargeId={}",
+				target.itemId(), target.chargeId(), unexpected);
+			return;
+		}
+		log.error("환급 재확인: {}분 넘은 몫을 처리하다 오류가 났습니다. itemId={}, chargeId={}",
+			chargeReconcileProperties.alertAfterMinutes(), target.itemId(), target.chargeId(), unexpected);
+		try {
+			transactionTemplate.executeWithoutResult(status ->
+				markManualCheckLocked(target, "처리하다 오류가 나 재확인을 멈춥니다."));
+		} catch (RuntimeException again) {
+			log.error("환급 재확인: 수동 확인 필요로 바꾸지 못해 다음 재확인에서 다시 봅니다. itemId={}", target.itemId(), again);
+		}
+	}
+
+	private LocalDateTime alertBefore(LocalDateTime now) {
+		return now.minusMinutes(chargeReconcileProperties.alertAfterMinutes());
 	}
 
 	private Outcome callPg(Target target) {
@@ -145,16 +173,15 @@ public class CashWithdrawalReconcileUseCase {
 		completeIfDone(item.getWithdrawal(), now);
 	}
 
-	// 정책 5장 2차 1 「결과를 모를 때」: 7일이 지나도 모르면 토스에 묻지 않고 사람이 확인하게 한다
-	private void markManualCheckLocked(Target target) {
+	// 정책 5장 2차 1 「결과를 모를 때」: 7일이 지나도 모르거나, 30분 넘은 몫에서 오류가 나면 토스에 묻지 않고 사람이 확인하게 한다
+	private void markManualCheckLocked(Target target, String reason) {
 		cashSupport.lockWallet(target.walletId());
 		WalletWithdrawalItem item = walletWithdrawalItemRepository.findById(target.itemId()).orElseThrow();
 		if (!RECONCILABLE.contains(item.getStatus())) {
 			return;
 		}
 		item.markManualCheck();
-		log.error("환급 재확인: {}일 넘게 결제취소 결과를 확인하지 못해 재확인을 멈춥니다. 수동 확인 필요. itemId={}, chargeId={}",
-			MANUAL_CHECK_AFTER_DAYS, target.itemId(), target.chargeId());
+		log.error("환급 재확인: {} 수동 확인 필요. itemId={}, chargeId={}", reason, target.itemId(), target.chargeId());
 	}
 
 	/**
@@ -201,14 +228,25 @@ public class CashWithdrawalReconcileUseCase {
 		if (walletWithdrawalItemRepository.existsByWithdrawalAndStatusIn(withdrawal, NOT_DONE)) {
 			return;
 		}
-		withdrawal.markCompleted(now);
-		eventPublisher.publish(completedNotice(withdrawal, now));
-	}
-
-	// 정책 5장 2차 1 「알림」: 0원인 금액은 빼고, 계좌로 바꾼 몫은 이유를 함께 적는다
-	private NotificationRequestedEvent completedNotice(WalletWithdrawal withdrawal, LocalDateTime now) {
 		WithdrawalAmounts amounts =
 			WithdrawalAmounts.of(withdrawal, walletWithdrawalItemRepository.findByWithdrawal(withdrawal));
+		withdrawal.finish(amounts.cardAmount() + amounts.accountAmount(), now);
+		eventPublisher.publish(finishedNotice(withdrawal, amounts, now));
+	}
+
+	// 정책 5장 2차 1 「알림」: 0원인 금액은 빼고, 계좌로 바꾼 몫은 이유를 함께 적는다. 실패면 실패 문구로 보낸다
+	private NotificationRequestedEvent finishedNotice(
+		WalletWithdrawal withdrawal, WithdrawalAmounts amounts, LocalDateTime now
+	) {
+		// 재확인이 여러 번 돌거나 서버가 여러 대여도 알림 서비스가 한 번만 저장하도록(message_id 유니크) 환급 ID로 정한다
+		String key = "withdrawal:" + withdrawal.getId() + ":completed";
+		String eventId = UUID.nameUUIDFromBytes(key.getBytes(StandardCharsets.UTF_8)).toString();
+		if (withdrawal.getStatus() == WithdrawalStatus.FAILED) {
+			return new NotificationRequestedEvent(eventId, withdrawal.getWallet().getId(),
+				NotificationKind.WITHDRAWAL_COMPLETED, "예치금 환급이 되지 않았어요",
+				String.format(Locale.KOREA, "카드 취소가 되지 않아 %,d원을 예치금으로 돌려드렸어요. 다시 신청해 주세요.",
+					amounts.revertedAmount()), COMPLETED_HREF, now);
+		}
 		List<String> parts = new ArrayList<>();
 		if (amounts.cardAmount() > 0) {
 			parts.add(String.format(Locale.KOREA, "카드 취소 요청 %,d원", amounts.cardAmount()));
@@ -226,9 +264,6 @@ public class CashWithdrawalReconcileUseCase {
 		if (amounts.revertedAmount() > 0) {
 			parts.add(String.format(Locale.KOREA, "예치금으로 돌아온 금액 %,d원", amounts.revertedAmount()));
 		}
-		// 재확인이 여러 번 돌거나 서버가 여러 대여도 알림 서비스가 한 번만 저장하도록(message_id 유니크) 환급 ID로 정한다
-		String key = "withdrawal:" + withdrawal.getId() + ":completed";
-		String eventId = UUID.nameUUIDFromBytes(key.getBytes(StandardCharsets.UTF_8)).toString();
 		return new NotificationRequestedEvent(eventId, withdrawal.getWallet().getId(),
 			NotificationKind.WITHDRAWAL_COMPLETED, "예치금 환급이 끝났어요", String.join(", ", parts), COMPLETED_HREF, now);
 	}

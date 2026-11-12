@@ -79,8 +79,10 @@ public class WalletWithdrawal extends BaseIdAndTime {
 		this.status = WithdrawalStatus.IN_PROGRESS;
 	}
 
-	public void markCompleted(LocalDateTime completeDate) {
-		this.status = WithdrawalStatus.COMPLETED;
+	// 정책 5장 2차 1 「실패와 동시 처리」: 카드·계좌로 돌려준 몫이 하나도 없으면 실패로 끝낸다
+	public void finish(long returnedAmount, LocalDateTime completeDate) {
+		this.status = returnedAmount > 0 ? WithdrawalStatus.COMPLETED : WithdrawalStatus.FAILED;
+		this.failReason = returnedAmount > 0 ? null : WithdrawalFailReason.ALL_REVERTED;
 		this.completeDate = completeDate;
 	}
 }

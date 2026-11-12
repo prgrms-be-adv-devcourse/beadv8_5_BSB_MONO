@@ -428,7 +428,7 @@ class InternalV1CashControllerTest {
 	}
 
 	@Test
-	@DisplayName("수동 확인 필요인 환급 카드 몫을 안 나감으로 정리하면 예치금에 되돌리고, 마지막 몫이라 환급이 끝났다고 돌려준다")
+	@DisplayName("수동 확인 필요인 환급 카드 몫을 안 나감으로 정리하면 예치금에 되돌리고, 마지막 몫인데 돌려준 몫이 없어 환급이 실패로 끝났다고 돌려준다")
 	void resolveWithdrawalItem() throws Exception {
 		long itemId = createWithdrawalItem(WithdrawalItemStatus.MANUAL_CHECK);
 
@@ -437,7 +437,7 @@ class InternalV1CashControllerTest {
 			.andExpect(jsonPath("$.message").value("환급 카드 몫을 정리했습니다."))
 			.andExpect(jsonPath("$.data.itemId").value(itemId))
 			.andExpect(jsonPath("$.data.itemStatus").value("REVERTED"))
-			.andExpect(jsonPath("$.data.withdrawalStatus").value("COMPLETED"));
+			.andExpect(jsonPath("$.data.withdrawalStatus").value("FAILED"));
 
 		assertBalance(CUSTOMER_ID, 15_000);
 	}
