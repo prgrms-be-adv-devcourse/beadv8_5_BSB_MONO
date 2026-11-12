@@ -4,6 +4,7 @@ import {
   AUTH_ERRORS,
   findEmailSchema,
   loginSchema,
+  PASSWORD_MAX,
   passwordNewSchema,
   signupAccountSchema,
   signupProfileSchema,
@@ -38,7 +39,6 @@ describe('signupAccountSchema', () => {
   const valid = {
     email: 'runner@crewrun.kr',
     password: 'password12',
-    passwordConfirm: 'password12',
   }
 
   it('맞는 값은 통과한다', () => {
@@ -48,28 +48,25 @@ describe('signupAccountSchema', () => {
   it.each(['password1', '123456789', ' '.repeat(10)])(
     '비밀번호 규칙(10자 이상, 공백만은 안 됨)에 안 맞으면 막는다: "%s"',
     (password) => {
-      const result = signupAccountSchema.safeParse({
-        ...valid,
-        password,
-        passwordConfirm: password,
-      })
+      const result = signupAccountSchema.safeParse({ ...valid, password })
       expect(firstError(result)).toEqual({ path: 'password', message: AUTH_ERRORS.passwordRule })
     },
   )
 
   it('10자면 영문 · 숫자 섞지 않아도 통과한다 (백엔드와 같음)', () => {
     const password = '1234567890'
-    expect(
-      signupAccountSchema.safeParse({ ...valid, password, passwordConfirm: password }).success,
-    ).toBe(true)
+    expect(signupAccountSchema.safeParse({ ...valid, password }).success).toBe(true)
   })
 
-  it('비밀번호 확인이 다르면 확인 칸에 오류를 낸다', () => {
-    const result = signupAccountSchema.safeParse({ ...valid, passwordConfirm: 'password2' })
-    expect(firstError(result)).toEqual({
-      path: 'passwordConfirm',
-      message: AUTH_ERRORS.passwordMismatch,
+  it('비밀번호가 64자를 넘으면 「너무 길어요」로 막는다 (시안 비밀번호 · 너무 김)', () => {
+    const password = 'a'.repeat(PASSWORD_MAX + 1)
+    expect(firstError(signupAccountSchema.safeParse({ ...valid, password }))).toEqual({
+      path: 'password',
+      message: AUTH_ERRORS.passwordTooLong,
     })
+    expect(
+      signupAccountSchema.safeParse({ ...valid, password: 'a'.repeat(PASSWORD_MAX) }).success,
+    ).toBe(true)
   })
 })
 
@@ -109,14 +106,13 @@ describe('signupProfileSchema', () => {
 })
 
 describe('찾기 · 재설정 스키마', () => {
-  it('이메일 찾기는 나이 제한 없이 생년월일 형식만 본다', () => {
+  it('이메일 찾기는 나이 제한 없이 생년월일 숫자 8자리만 본다', () => {
     const year = new Date().getFullYear() - 5
-    const result = findEmailSchema.safeParse({
-      name: '김러너',
-      birth: `${year}-01-01`,
-      phone: '01012345678',
-    })
-    expect(result.success).toBe(true)
+    const find = (birth: string) =>
+      findEmailSchema.safeParse({ name: '김러너', birth, phone: '01012345678' }).success
+    expect(find(`${year}0101`)).toBe(true)
+    expect(find(`${year}-01-01`)).toBe(false)
+    expect(find('19951340')).toBe(false)
   })
 
   it('새 비밀번호 확인이 다르면 막는다', () => {

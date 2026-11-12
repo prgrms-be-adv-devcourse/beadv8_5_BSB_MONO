@@ -31,6 +31,7 @@ import {
   RadioGroup,
   Skeleton,
   TimerBar,
+  type IconName,
 } from '@/shared/ui'
 
 import { useDepositBalance } from '../api/deposit-balance'
@@ -49,6 +50,7 @@ const RESULT: Record<
     title: string
     description: ReactNode
     action: string
+    icon: IconName
     /** 대회를 모를 때(미리보기) 가는 곳. 시간 초과는 대회를 알면 그 대회 상세(M02)로 간다 */
     href: '/races' | '/checkout'
   }
@@ -63,6 +65,7 @@ const RESULT: Record<
       </>
     ),
     action: '대회 다시 보기',
+    icon: 'CircleAlert',
     href: '/races',
   },
   soldout: {
@@ -75,6 +78,7 @@ const RESULT: Record<
       </>
     ),
     action: '다른 대회 보기',
+    icon: 'TriangleAlert',
     href: '/races',
   },
   failed: {
@@ -87,6 +91,7 @@ const RESULT: Record<
       </>
     ),
     action: '다시 결제하기',
+    icon: 'CircleAlert',
     href: '/checkout',
   },
 }
@@ -151,7 +156,7 @@ function CheckoutResult({
     <>
       <AppHeader type="sub" title="결제" close backHref="/" />
       <main className="flex flex-1 items-center justify-center px-4 py-6">
-        <EmptyState title={result.title} description={result.description} />
+        <EmptyState icon={result.icon} title={result.title} description={result.description} />
       </main>
       <BottomCta
         className="sticky bottom-0 z-10"
@@ -461,6 +466,42 @@ function CheckoutForm({
   const payment = balance === undefined ? undefined : splitPayment(amount, balance)
   // 1회 충전 한도보다 많이 모자라 한 번 충전으로는 결제할 수 없다
   const overLimit = payment !== undefined && payment.balanceAfter < 0
+  const calc = (
+    <div key="calc" className="flex flex-col gap-3 border-t border-border-default pt-4">
+      <KeyValue label="예치금에서" value={payment ? won(payment.fromDeposit) : '-'} />
+      <KeyValue label="충전 (최소 1만 원)" value={payment ? `+${won(payment.charge)}` : '-'} />
+      <KeyValue
+        label="결제 뒤 남는 예치금"
+        value={payment && !overLimit ? won(payment.balanceAfter) : '-'}
+      />
+      {overLimit && (
+        <p id={CHARGE_LIMIT_NOTICE_ID} className="text-caption-medium text-text-primary">
+          한 번에 {MAX_CHARGE / 10_000}만 원까지 충전할 수 있어요. 충전한 뒤 남은 금액은 다시 충전해
+          주세요.
+        </p>
+      )}
+    </div>
+  )
+  const method = (
+    <fieldset key="method" className="flex flex-col gap-3">
+      <legend className="mb-3 text-body2-bold">{offline ? '충전 수단' : '결제 수단'}</legend>
+      {offline ? (
+        <RadioGroup defaultValue="toss">
+          <Radio value="toss" label="카드 · 간편결제 (토스페이먼츠)" />
+        </RadioGroup>
+      ) : (
+        <div className="flex flex-col gap-2 rounded-md bg-bg-brand-subtle p-4 inset-ring-2 inset-ring-border-brand">
+          <p className="text-body2-bold">예치금</p>
+          <p className="text-body1-bold">{balance === undefined ? '-' : won(balance)}</p>
+          {payment && payment.charge > 0 && (
+            <Badge tone="warning" className="self-start">
+              {`${won(amount - payment.fromDeposit)} 부족`}
+            </Badge>
+          )}
+        </div>
+      )}
+    </fieldset>
+  )
   return (
     <>
       <AppHeader type="sub" title="결제" />
@@ -493,43 +534,7 @@ function CheckoutForm({
           <p className="text-[32px] leading-11 font-bold tracking-[-0.015em]">{won(amount)}</p>
         </div>
 
-        <fieldset className="flex flex-col gap-3">
-          <legend className="mb-3 text-body2-bold">결제 수단</legend>
-          {offline ? (
-            <RadioGroup defaultValue="toss">
-              <Radio value="toss" label="카드 · 간편결제 (토스페이먼츠)" />
-            </RadioGroup>
-          ) : (
-            <div className="flex flex-col gap-2 rounded-md bg-bg-brand-subtle p-4 inset-ring-2 inset-ring-border-brand">
-              <p className="text-body2-bold">예치금</p>
-              <p className="text-body1-bold">{balance === undefined ? '-' : won(balance)}</p>
-              {payment && payment.charge > 0 && (
-                <Badge tone="warning" className="self-start">
-                  {`${won(amount - payment.fromDeposit)} 부족`}
-                </Badge>
-              )}
-            </div>
-          )}
-        </fieldset>
-
-        <div className="flex flex-col gap-3 border-t border-border-default pt-4">
-          <KeyValue label="예치금에서" value={payment ? won(payment.fromDeposit) : '-'} />
-          <KeyValue label="충전 (최소 1만 원)" value={payment ? `+${won(payment.charge)}` : '-'} />
-          <KeyValue
-            label="결제 뒤 남는 예치금"
-            value={payment && !overLimit ? won(payment.balanceAfter) : '-'}
-          />
-          <p className="text-caption-regular text-text-tertiary">
-            1만 원보다 적게 모자라면 1만 원을 충전해요.
-          </p>
-          {overLimit && (
-            <p id={CHARGE_LIMIT_NOTICE_ID} className="text-caption-medium text-text-primary">
-              한 번에 {MAX_CHARGE / 10_000}만 원까지 충전할 수 있어요. 충전한 뒤 남은 금액은 다시
-              충전해 주세요.
-            </p>
-          )}
-        </div>
-
+        {offline ? [calc, method] : [method, calc]}
         {(kitOption || shipTo) && (
           // 받는 곳 주소가 들어 있어 Clarity 화면 녹화에서 가린다
           <div className="flex flex-col gap-3" data-clarity-mask="true">

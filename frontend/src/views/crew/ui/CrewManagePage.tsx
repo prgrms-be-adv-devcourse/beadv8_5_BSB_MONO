@@ -136,7 +136,7 @@ export function CrewManagePage({ crewId }: { crewId: number }) {
           <EmptyState
             className="pt-26"
             title="크루장만 크루를 관리할 수 있어요"
-            description="크루장을 넘기거나 크루원을 내보내는 일은 크루장이 해요."
+            description="역할을 바꾸거나 크루원을 내보내는 일은 크루장이 해요."
             action={
               <Link
                 href={`/crews/${crewId}` as Route}
@@ -174,19 +174,17 @@ export function CrewManagePage({ crewId }: { crewId: number }) {
                   )
                 }
               />
-              {crew.data.memberCount <= 1 && (
-                <Link
-                  href={`/crews/${crewId}/invites` as Route}
-                  className={buttonClassName({ variant: 'secondary', size: 'm' })}
-                >
-                  초대 링크 만들기
-                </Link>
-              )}
+              <Link
+                href={`/crews/${crewId}/invites` as Route}
+                className={buttonClassName({ variant: 'secondary', size: 'm' })}
+              >
+                초대 링크 만들기
+              </Link>
             </CrewBand>
             <Divider type="section" />
             <CrewBand>
               <Button
-                variant="text"
+                variant="ghost"
                 size="m"
                 className="self-start"
                 // 크루원이 남아 있으면 요청 없이 막힘 안내만 띄운다(시안 11/9)
@@ -196,11 +194,6 @@ export function CrewManagePage({ crewId }: { crewId: number }) {
               >
                 크루 없애기
               </Button>
-              {crew.data.memberCount <= 1 && (
-                <p className="text-body2-regular text-text-secondary">
-                  크루원이 나뿐이라 크루를 없앨 수 있어요.
-                </p>
-              )}
             </CrewBand>
           </>
         )}
@@ -289,16 +282,32 @@ function dialogCopy(pending: Pending, crewName: string) {
   }
 }
 
-// 시안 M28 「로딩」: 띠 두 개에 회색 줄로 자리만 잡는다
+// 시안 M28 「로딩」(1333:26140): 제목 줄 · 버튼 상자 · 큰 상자 위 띠, 아래 띠에 아바타와 두 줄씩 네 개
 function ManageSkeleton() {
   return (
-    <CrewBand>
-      <span role="status" className="sr-only">
-        크루 관리를 불러오는 중
-      </span>
-      <Skeleton className="w-2/3" />
-      <Skeleton className="w-full" />
-      <Skeleton className="w-1/2" />
-    </CrewBand>
+    <>
+      <CrewBand>
+        <span role="status" className="sr-only">
+          크루 관리를 불러오는 중
+        </span>
+        <Skeleton className="h-5 w-65" />
+        <Skeleton className="w-45" />
+        <Skeleton shape="rect" className="h-12 w-full" />
+        <Skeleton shape="rect" className="h-45 w-full" />
+      </CrewBand>
+      <Divider type="section" />
+      <CrewBand>
+        <Skeleton className="h-5 w-30" />
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="flex items-center gap-3">
+            <Skeleton shape="circle" className="size-8" />
+            <div className="flex flex-1 flex-col gap-1">
+              <Skeleton className="w-full" />
+              <Skeleton className="w-30" />
+            </div>
+          </div>
+        ))}
+      </CrewBand>
+    </>
   )
 }

@@ -124,6 +124,20 @@ describe('CommunityPostPage', () => {
     expect(await screen.findByText('글을 찾을 수 없어요')).toBeInTheDocument()
   })
 
+  it('내 댓글 더보기 시트에는 수정하기·삭제하기만 있다', async () => {
+    const user = userEvent.setup()
+    renderPage(1, true)
+    await screen.findByText('감사합니다. 내년에도 나갈게요!')
+
+    await user.click(screen.getByRole('button', { name: '댓글 더보기' }))
+    const sheet = await screen.findByRole('dialog', { name: '댓글' })
+    expect(
+      within(sheet)
+        .getAllByRole('button')
+        .map((b) => b.textContent),
+    ).toEqual(['수정하기', '삭제하기'])
+  })
+
   it('내 댓글을 지우면 확인창을 거쳐 지워진다', async () => {
     const user = userEvent.setup()
     renderPage(1, true)

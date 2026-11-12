@@ -207,3 +207,16 @@ describe('DepositPage 내역', () => {
     expect(screen.getByRole('button', { name: '다시 불러오기' })).toBeInTheDocument()
   })
 })
+
+describe('DepositPage 돌려받는 중 (M17-1)', () => {
+  it('돌려받는 중이면 다시 신청할 수 없다는 안내를 보여 준다', () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={client}>
+        <DepositPage refunding />
+      </QueryClientProvider>,
+    )
+
+    expect(screen.getByText('돌려받는 중에는 다시 신청할 수 없어요.')).toBeInTheDocument()
+  })
+})

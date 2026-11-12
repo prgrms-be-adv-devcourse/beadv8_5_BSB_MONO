@@ -14,17 +14,9 @@ import {
 } from '@/entities/board'
 import { ApiError } from '@/shared/api'
 import { cn } from '@/shared/lib'
-import {
-  Avatar,
-  Badge,
-  BottomSheet,
-  BottomSheetOption,
-  Dialog,
-  FOCUS_RING,
-  Icon,
-  IconButton,
-  useToast,
-} from '@/shared/ui'
+import { Avatar, Badge, Dialog, FOCUS_RING, Icon, IconButton, useToast } from '@/shared/ui'
+
+import { MenuSheet, MenuSheetAction } from './MenuSheet'
 
 type Mode =
   { kind: 'new' } | { kind: 'reply'; parent: BoardComment } | { kind: 'edit'; target: BoardComment }
@@ -89,20 +81,25 @@ export function CommentSection({
 
   return (
     <>
-      <section aria-label="댓글" className="flex flex-col gap-4 px-4 py-5">
+      <section aria-label="댓글" className="flex flex-col gap-5 px-4 py-5">
         <h2 className="text-body1-bold">댓글 {countComments(list)}</h2>
         {comments.isError && (
           <p role="alert" className="text-body2-regular text-text-secondary">
             댓글을 불러오지 못했어요
           </p>
         )}
-        <ul className="flex flex-col gap-4">
+        <ul className="flex flex-col gap-5">
           {list.map((comment) => (
-            <li key={comment.commentId} className="flex flex-col gap-4">
+            <li key={comment.commentId} className="flex flex-col gap-5">
               <CommentRow
                 comment={comment}
-                onReply={() =>
-                  authenticated ? setMode({ kind: 'reply', parent: comment }) : setLoginOpen(true)
+                onReply={
+                  locked
+                    ? undefined
+                    : () =>
+                        authenticated
+                          ? setMode({ kind: 'reply', parent: comment })
+                          : setLoginOpen(true)
                 }
                 onMenu={() => setMenu(comment)}
               />
@@ -134,7 +131,7 @@ export function CommentSection({
           </button>
         ) : (
           <form
-            className="flex items-center gap-2"
+            className="flex items-center gap-3"
             onSubmit={(e) => {
               e.preventDefault()
               submit()
@@ -167,12 +164,8 @@ export function CommentSection({
         )}
       </div>
 
-      <BottomSheet
-        open={menu !== null}
-        onOpenChange={(open) => !open && setMenu(null)}
-        title="댓글"
-      >
-        <BottomSheetOption
+      <MenuSheet open={menu !== null} onOpenChange={(open) => !open && setMenu(null)} label="댓글">
+        <MenuSheetAction
           onClick={() => {
             if (menu) {
               setMode({ kind: 'edit', target: menu })
@@ -182,16 +175,17 @@ export function CommentSection({
           }}
         >
           수정하기
-        </BottomSheetOption>
-        <BottomSheetOption
+        </MenuSheetAction>
+        <MenuSheetAction
+          danger
           onClick={() => {
             setDeleting(menu)
             setMenu(null)
           }}
         >
           삭제하기
-        </BottomSheetOption>
-      </BottomSheet>
+        </MenuSheetAction>
+      </MenuSheet>
       <Dialog
         open={deleting !== null}
         onOpenChange={(open) => !open && setDeleting(null)}
@@ -231,7 +225,7 @@ function CommentRow({
   return (
     <div className="flex gap-3">
       <Avatar size="s" name={gone ? undefined : writer?.nickname} className="mt-0.5" />
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex items-center gap-2">
           <span className={cn('text-body2-bold', gone && 'text-text-tertiary')}>
             {writer?.nickname}
@@ -239,7 +233,7 @@ function CommentRow({
           {writer?.seller && <Badge>판매자</Badge>}
         </div>
         <p className="text-body2-regular break-words whitespace-pre-wrap">{comment.content}</p>
-        <div className="flex items-center gap-2 text-caption-regular text-text-tertiary">
+        <div className="flex items-center gap-3 text-caption-regular text-text-tertiary">
           <span>
             {formatRelative(comment.createdAt)}
             {comment.edited && ' · 수정됨'}
@@ -256,7 +250,12 @@ function CommentRow({
         </div>
       </div>
       {comment.mine && (
-        <IconButton size="s" aria-label="댓글 더보기" onClick={onMenu}>
+        <IconButton
+          size="s"
+          aria-label="댓글 더보기"
+          className="-m-1.5 [&_svg]:size-5"
+          onClick={onMenu}
+        >
           <Icon name="MoreVertical" />
         </IconButton>
       )}

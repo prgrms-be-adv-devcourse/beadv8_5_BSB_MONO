@@ -17,4 +17,4 @@ export {
 } from './lib/social-login'
 export { applyLogin } from './model/use-login'
 export { useLinkSocial, useSocialJoin, useUnlinkSocial } from './model/use-social'
-export { SocialLoginButtons } from './ui/SocialLoginButtons'
+export { SocialLoginButtons, SocialMark } from './ui/SocialLoginButtons'

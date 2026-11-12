@@ -20,7 +20,9 @@ import {
   ProgressBar,
 } from '@/shared/ui'
 
+import { useQueueProgress } from '../model/use-queue-progress'
 import { useQueueTracking } from '../model/use-queue-tracking'
+import { RunnerFigure } from './RunnerFigure'
 
 // 피그마 V2 · 대기열 A안(확정) · 나가기 확인 / M05-Q2 대기열 · 내 차례
 // 같은 주소에서 입장 여부에 따라 두 화면을 바꿔 그린다.
@@ -82,10 +84,13 @@ export function RaceQueuePage({
   // 대기열에 등록하지 못했다. 입장 확인은 묻지 않고 이유를 안내한다
   const blocked = !preview && queue.skippedStatus !== undefined
   const notice = skippedNotice(queue.skippedStatus ?? 0)
+  const progress = useQueueProgress(queue.rank)
+  // 기다리는 화면은 시안처럼 제목 줄 없이 오른쪽 위 닫기(X)만 둔다
+  const waiting = !blocked && !(queue.failed && remaining === null) && !(preview && admitted)
 
   return (
     <>
-      <AppHeader type="sub" title="대기열" close backHref={raceHref} />
+      {!waiting && <AppHeader type="sub" title="대기열" close backHref={raceHref} />}
       {blocked ? (
         // 줄을 서지 못했다. 배경에 대기 화면을 그리지 않고, 확인하면 대회 상세로 돌려보낸다
         <>
@@ -186,14 +191,14 @@ export function RaceQueuePage({
                 {optionName ? `${race.data.title} · ${optionName}` : race.data.title}
               </p>
             )}
-            <Icon
-              name="Users"
-              className="mt-9 size-24 text-text-primary"
-              strokeWidth={BIG_ICON_STROKE}
-              aria-hidden
+            <RunnerFigure className="mt-9 size-24" />
+            {/* 대기 인원 · 순번 숫자 없이 진행 정도만 보여 준다. 순번을 모르는 동안은 값 없이 움직인다 */}
+            <ProgressBar
+              value={progress}
+              indeterminate={progress === undefined}
+              aria-label="대기 진행 정도"
+              className="mt-9 w-full"
             />
-            {/* 진행률이 아니라 기다리는 중이라는 표시라 값 없이 계속 움직인다 */}
-            <ProgressBar indeterminate aria-label="대기 중" className="mt-9 w-full" />
             <p className="pt-9 text-caption-regular text-text-tertiary">
               이 화면을 나가면 순서가 처음으로 돌아가요.
             </p>

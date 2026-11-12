@@ -38,15 +38,16 @@ export function CrewIdentityBand({
   )
 }
 
-// 시안에 없는 상태: 네트워크 · 서버 오류로 불러오지 못했을 때. 디자인 담당에게 시안을 요청해 둔 자리다.
+// 시안 M28 「불러오지 못함」(1333:26189): 네트워크 · 서버 오류로 불러오지 못했을 때
 export function CrewLoadError({ onRetry }: { onRetry: () => void }) {
   return (
     <EmptyState
-      title="크루 정보를 불러오지 못했어요"
-      description="잠시 후 다시 시도해 주세요."
+      className="pt-26"
+      title="정보를 불러오지 못했어요"
+      description="연결이 잠시 끊겼어요. 네트워크를 확인한 뒤 다시 시도해 주세요."
       action={
         <Button variant="secondary" size="m" onClick={onRetry}>
-          다시 불러오기
+          다시 시도
         </Button>
       }
     />

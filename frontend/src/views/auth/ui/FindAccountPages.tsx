@@ -7,7 +7,6 @@ import { useEffect, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 
 import { AppHeader } from '@/widgets/app-header'
-import { BirthDateField } from '@/entities/member'
 import { ApiError, clearAccessToken, memberApi } from '@/shared/api'
 import {
   Alert,
@@ -15,10 +14,8 @@ import {
   Button,
   buttonClassName,
   EmptyState,
-  PhoneField,
   Spinner,
   TextField,
-  useToast,
 } from '@/shared/ui'
 
 import {
@@ -29,7 +26,7 @@ import {
   type PasswordNewValues,
   type PasswordResetValues,
 } from '../model/schemas'
-import { AccountTabs, AuthIntro, CenterBody } from './parts'
+import { AccountTabs, AuthIntro, CenterBody, StatusScreen } from './parts'
 
 // 피그마 V2 · M03-1 비밀번호 재설정 · 이메일
 // 가입 여부와 상관없이 같은 안내를 보여 준다(서버도 같은 응답을 준다). 같은 이메일은 1분에 한 번만 받는다(429).
@@ -50,9 +47,11 @@ export function PasswordResetPage() {
     return (
       <>
         <AppHeader type="sub" title="계정 찾기" />
-        <main className="flex flex-1 items-center justify-center px-4 py-6">
-          <EmptyState title="메일을 보냈어요" description="30분 안에 메일의 링크를 눌러 주세요." />
-        </main>
+        <StatusScreen
+          icon="Inbox"
+          title="메일을 보냈어요"
+          description="30분 안에 메일의 링크를 눌러 주세요."
+        />
         <BottomCta
           className="sticky bottom-0 z-10"
           primary={
@@ -69,37 +68,34 @@ export function PasswordResetPage() {
     <>
       <AppHeader type="sub" title="계정 찾기" />
       <AccountTabs current="password" />
-      <CenterBody center={false}>
-        <h2 className="text-title3">
-          가입한 이메일 주소를
-          <br />
-          입력해 주세요.
-        </h2>
-        {requestReset.isError && (
-          <Alert tone="danger" title={requestErrorMessage(requestReset.error)} />
-        )}
-        <TextField
-          aria-label="이메일"
-          placeholder="이메일 주소를 입력해 주세요"
-          type="email"
-          autoComplete="email"
-          error={errors.email?.message}
-          {...register('email', { onChange: () => requestReset.isError && requestReset.reset() })}
-        />
-      </CenterBody>
-      <BottomCta
-        className="sticky bottom-0 z-10"
-        primary={
+      <form noValidate onSubmit={onSubmit} className="contents">
+        <CenterBody center={false}>
+          <h2 className="text-title3">
+            가입한 이메일 주소를
+            <br />
+            입력해 주세요.
+          </h2>
+          {requestReset.isError && (
+            <Alert tone="danger" title={requestErrorMessage(requestReset.error)} />
+          )}
+          <TextField
+            aria-label="이메일"
+            placeholder="이메일 주소를 입력해 주세요"
+            type="email"
+            autoComplete="email"
+            error={errors.email?.message}
+            {...register('email', { onChange: () => requestReset.isError && requestReset.reset() })}
+          />
           <Button
+            type="submit"
             size="l"
             disabled={!isValid || requestReset.isPending}
             loading={requestReset.isPending}
-            onClick={onSubmit}
           >
             비밀번호 재설정 링크 보내기
           </Button>
-        }
-      />
+        </CenterBody>
+      </form>
     </>
   )
 }
@@ -124,8 +120,6 @@ function takeTokenFromHash() {
 // 피그마 V2 · M03-2 새 비밀번호 정하기 (메일 링크로 들어온다)
 // 화면을 열 때 링크가 아직 쓸 수 있는지 먼저 확인한다. 만료 · 이미 사용 · 더 새 링크가 나온 경우는 모두 다시 요청하게 한다.
 export function PasswordNewPage() {
-  const router = useRouter()
-  const showToast = useToast()
   const tokenRef = useRef('')
   const verifyLink = memberApi.useVerifyPasswordReset()
   const confirmReset = memberApi.useConfirmPasswordReset()
@@ -157,16 +151,32 @@ export function PasswordNewPage() {
     confirmReset.mutate(
       { data: { token, password } },
       {
-        onSuccess: () => {
-          // 서버가 모든 기기의 로그인을 풀었으므로 이 탭도 로그아웃 상태로 바꾼다
-          clearAccessToken()
-          showToast({ message: '비밀번호를 바꿨어요. 새 비밀번호로 로그인해 주세요.' })
-          router.replace('/login')
-        },
+        // 서버가 모든 기기의 로그인을 풀었으므로 이 탭도 로그아웃 상태로 바꾼다
+        onSuccess: clearAccessToken,
       },
     ),
   )
 
+  // 시안 「비밀번호 재설정 · 바꿈 완료」
+  if (confirmReset.isSuccess) {
+    return (
+      <>
+        <AppHeader type="sub" title="비밀번호 재설정" />
+        <StatusScreen
+          title="비밀번호를 바꿨어요"
+          description="새 비밀번호로 다시 로그인해 주세요."
+        />
+        <BottomCta
+          className="sticky bottom-0 z-10"
+          primary={
+            <Link href="/login" className={buttonClassName({ size: 'l' })}>
+              로그인하기
+            </Link>
+          }
+        />
+      </>
+    )
+  }
   // 확인 단계는 400(쓸 수 없는 링크 · 토큰 없음)만 만료로 본다. 서버 오류나 네트워크 오류는 링크가 살아 있을 수 있다.
   const linkExpired =
     (verifyLink.error instanceof ApiError && verifyLink.error.status === 400) ||
@@ -273,42 +283,50 @@ export function FindEmailPage() {
     mode: 'onTouched',
     defaultValues: { name: '', birth: '', phone: '' },
   })
-  // TODO(api): 이름 · 생년월일 · 휴대폰 번호로 이메일을 찾는다.
+  // TODO(api): 이름 · 생년월일 · 휴대폰 번호로 이메일을 찾는 API가 없다. 찾지 못한 경우 화면(일치하는 계정 없음)도 API가 생기면 붙인다.
   const onSubmit = handleSubmit(() => router.push('/find-email/result'))
 
   return (
     <>
       <AppHeader type="sub" title="계정 찾기" />
       <AccountTabs current="email" />
-      <CenterBody center={false}>
-        <h2 className="text-title3">
-          가입할 때 적은 정보를
-          <br />
-          입력해 주세요.
-        </h2>
-        <TextField
-          aria-label="이름"
-          placeholder="이름을 입력해 주세요"
-          autoComplete="name"
-          error={errors.name?.message}
-          {...register('name')}
-        />
-        <BirthDateField label="생년월일" error={errors.birth?.message} {...register('birth')} />
-        <PhoneField
-          label="휴대폰 번호"
-          placeholder="010-1234-5678"
-          error={errors.phone?.message}
-          {...register('phone')}
-        />
-      </CenterBody>
-      <BottomCta
-        className="sticky bottom-0 z-10"
-        primary={
-          <Button size="l" disabled={!isValid} onClick={onSubmit}>
+      <form noValidate onSubmit={onSubmit} className="contents">
+        <CenterBody center={false}>
+          <h2 className="text-title3">
+            가입할 때 적은 정보를
+            <br />
+            입력해 주세요.
+          </h2>
+          <TextField
+            aria-label="이름"
+            placeholder="이름을 입력해 주세요"
+            autoComplete="name"
+            error={errors.name?.message}
+            {...register('name')}
+          />
+          <TextField
+            aria-label="생년월일"
+            placeholder="생년월일 8자리 (예: 19950302)"
+            inputMode="numeric"
+            autoComplete="bday"
+            maxLength={8}
+            error={errors.birth?.message}
+            {...register('birth')}
+          />
+          <TextField
+            aria-label="휴대폰 번호"
+            placeholder="휴대폰 번호 (예: 01012345678)"
+            type="tel"
+            inputMode="numeric"
+            autoComplete="tel"
+            error={errors.phone?.message}
+            {...register('phone')}
+          />
+          <Button type="submit" size="l" disabled={!isValid}>
             가입한 이메일 찾기
           </Button>
-        }
-      />
+        </CenterBody>
+      </form>
     </>
   )
 }

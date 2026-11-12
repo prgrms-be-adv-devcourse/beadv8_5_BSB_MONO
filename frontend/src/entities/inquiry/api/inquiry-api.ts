@@ -2,7 +2,14 @@
 
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { ApiError, customFetch, productApi, unwrapData, type RsData } from '@/shared/api'
+import {
+  ApiError,
+  customFetch,
+  productApi,
+  productModel,
+  unwrapData,
+  type RsData,
+} from '@/shared/api'
 
 import type {
   CreateInquiryRequest,
@@ -128,15 +135,29 @@ export function useAnswerInquiry(role: ManageRole, id: number) {
   })
 }
 
-/** 대회 이름. raceId가 없으면(판매자 문의 · 대회 없는 문의) 부르지 않는다 */
-export function useRaceName(raceId: number | null) {
+function useRace<T>(raceId: number | null, select: (race: productModel.RaceDetailDto) => T) {
   return useQuery({
     queryKey: productApi.getFindRaceQueryKey(raceId ?? 0),
     queryFn: async ({ signal }) => unwrapData(await productApi.findRace(raceId ?? 0, { signal })),
-    select: (race) => race.title,
+    select,
     enabled: raceId !== null,
     staleTime: 60 * 1000,
   }).data
+}
+
+/** 대회 이름. raceId가 없으면(판매자 문의 · 대회 없는 문의) 부르지 않는다 */
+export function useRaceName(raceId: number | null) {
+  return useRace(raceId, (race) => race.title)
+}
+
+/** 판매자(주최) 이름. 판매자가 답한 문의의 「판매자 답변 · 러너스컴퍼니」에 쓴다 */
+export function useRaceSellerName(raceId: number | null) {
+  return useRace(raceId, (race) => race.seller?.businessName)
+}
+
+/** 대회 날짜(2026-11-16T08:00:00). 참가권 고르기에서 날짜와 신청 · 참가 완료를 가를 때 쓴다 */
+export function useRaceDate(raceId: number | null) {
+  return useRace(raceId, (race) => race.raceDate)
 }
 
 /** 서버 문구가 있으면 그대로, 없으면 기본 문구 */

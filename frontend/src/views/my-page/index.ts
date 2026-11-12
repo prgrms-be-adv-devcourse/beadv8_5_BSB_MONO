@@ -1,3 +1,4 @@
+export { EmailInfoPage, TermsConsentPage } from './ui/AccountInfoPages'
 export { AccountLinkPage } from './ui/AccountLinkPage'
 export { AccountSettingsPage } from './ui/AccountSettingsPage'
 export { MyPage } from './ui/MyPage'

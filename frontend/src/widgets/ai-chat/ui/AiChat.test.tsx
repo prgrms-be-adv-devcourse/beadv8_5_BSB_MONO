@@ -18,6 +18,7 @@ function renderChat() {
         placeholder="정산이나 주문을 물어보세요"
         scopeNote="내 판매자 정보로만 답해요"
         suggestions={['다음 정산 일정']}
+        footnote="크루런 AI는 틀릴 수 있어요."
       />
     </QueryClientProvider>,
   )
@@ -66,6 +67,7 @@ describe('AiChat', () => {
     expect(body).toEqual({ message: '송장 입력 대기 키트는 몇 개예요?' })
     expect(screen.getByText('OD-1')).toBeInTheDocument()
     expect(screen.getByText('외 1건')).toBeInTheDocument()
+    expect(screen.getByText('크루런 AI는 틀릴 수 있어요.')).toBeInTheDocument()
     expect(screen.getByText('주문 관리 · 키트 배송 현황 기준 · 11월 3일')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /송장 입력하러 가기/ })).toHaveAttribute(
       'href',

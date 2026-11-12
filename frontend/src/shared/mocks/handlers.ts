@@ -578,6 +578,32 @@ const raceHandlers = [
       data: openedForMock(race.detail),
     })
   }),
+  // 키트 옵션: 티셔츠는 그 대회 종목의 사이즈 목록과 같은 값, 양말은 220~280. 맞춤 제작이라 stock은 null
+  http.get('*/api/v1/product/races/:raceId/kit-options', ({ params }) => {
+    const raceId = Number(params.raceId)
+    const race = findMockRace(raceId)
+    if (!race) {
+      return HttpResponse.json(
+        { status: 404, code: 'RACE_NOT_FOUND', message: '대회를 찾을 수 없습니다.', data: null },
+        { status: 404 },
+      )
+    }
+    const shirtSizes = race.detail.courses?.[0]?.tshirtSizeOption ?? []
+    const socks = [220, 230, 240, 250, 260, 270, 280].map(String)
+    const values = (base: number, list: string[]) =>
+      list.map((value, i) => ({ kitOptionId: raceId * 100 + base + i, value, stock: null }))
+    return HttpResponse.json({
+      status: 200,
+      message: '키트 옵션 목록을 조회했습니다.',
+      data: {
+        raceId,
+        kitOptions: [
+          { name: '티셔츠 사이즈', values: values(10, shirtSizes) },
+          { name: '양말 사이즈', values: values(20, socks) },
+        ],
+      },
+    })
+  }),
   getSearchMockHandler(({ request }) => {
     const query = new URL(request.url).searchParams
     const sort = query.get('sort') as SearchParams['sort']

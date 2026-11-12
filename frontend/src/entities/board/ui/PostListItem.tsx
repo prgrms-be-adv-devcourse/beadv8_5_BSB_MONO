@@ -32,7 +32,7 @@ export function PostListItem({ post }: { post: PostSummary }) {
             </span>
             {writer.seller && <Badge>판매자</Badge>}
             <span>· {formatRelative(post.createdAt)}</span>
-            <Icon name="Heart" className="ml-1 size-4" />
+            <Icon name="Heart" className="ml-2 size-4" />
             <span>{post.likeCount}</span>
             <CommentIcon className="size-4" />
             <span>{post.commentCount}</span>

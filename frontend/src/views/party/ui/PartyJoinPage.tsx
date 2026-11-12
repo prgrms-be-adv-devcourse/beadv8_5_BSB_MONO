@@ -7,6 +7,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 
 import { AppHeader } from '@/widgets/app-header'
+import { formatKstDateTime } from '@/entities/crew'
 import {
   individualParticipationId,
   partyFailureOf,
@@ -15,6 +16,7 @@ import {
   type PartyFailure,
 } from '@/entities/party'
 import { ApiError, memberApi, productApi, unwrapData } from '@/shared/api'
+import { formatNumber } from '@/shared/lib'
 import { Alert, BottomCta, Button, Skeleton } from '@/shared/ui'
 
 import { JOIN_FAILURE } from '../lib/party-copy'
@@ -116,8 +118,15 @@ export function PartyJoinPage({ token }: { token: string }) {
           noValidate
           className="flex flex-col gap-4 bg-bg-surface px-4 pb-6"
         >
+          <Alert
+            title={`이 링크로 ${formatKstDateTime(data.joinTokenExpiresAt)}까지 합류할 수 있어요`}
+            description="파티장이 링크를 새로 만들면 이 링크는 더 쓸 수 없어요."
+          />
           {serverMessage && <Alert tone="danger" title={serverMessage} />}
-          <ParticipantFields form={form} />
+          <ParticipantFields
+            form={form}
+            course={course ? `${course.name} · ${formatNumber(course.price ?? 0)}원` : undefined}
+          />
         </form>
       </>
     )

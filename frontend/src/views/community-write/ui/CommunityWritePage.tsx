@@ -202,7 +202,7 @@ function WriteForm({
             ))}
           </div>
         </fieldset>
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-2">
           <TextField
             label="제목"
             value={title}
@@ -282,7 +282,7 @@ function WriteForm({
         className="sticky bottom-0"
         primary={
           <Button type="submit" size="l" disabled={!canSubmit} loading={pending}>
-            {editing ? '저장하기' : '등록'}
+            {editing ? '수정 완료' : '등록'}
           </Button>
         }
       />

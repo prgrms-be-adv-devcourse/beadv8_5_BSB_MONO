@@ -79,6 +79,13 @@ describe('파티 상세', () => {
     )
   })
 
+  it('결제 진행 중이면 결제 인원을 세고 결제하지 않은 파티원은 결제 전으로 보여 준다', async () => {
+    renderPage(<PartyDetailPage partyId={3} />)
+    expect(await screen.findByText('결제 완료 1 / 3명')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '파티원' })).toBeInTheDocument()
+    expect(screen.getAllByText('결제 전').length).toBeGreaterThan(0)
+  })
+
   it('없는 파티면 불러오지 못했다는 화면을 보여 준다', async () => {
     renderPage(<PartyDetailPage partyId={404} />)
     expect(await screen.findByText('파티 정보를 불러오지 못했어요')).toBeInTheDocument()
@@ -101,6 +108,12 @@ describe('파티 합류', () => {
   ])('링크 %s는 합류 대신 이유를 보여 준다', async (token, title) => {
     renderPage(<PartyJoinPage token={token} />)
     expect(await screen.findByText(title)).toBeInTheDocument()
+  })
+
+  it('막힌 화면은 이유와 홈으로 가는 버튼을 보여 준다', async () => {
+    renderPage(<PartyJoinPage token="notfound" />)
+    expect(await screen.findByText('참가 링크를 찾을 수 없어요')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '홈으로 가기' })).toHaveAttribute('href', '/')
   })
 
   async function fillAndSubmit(user: ReturnType<typeof userEvent.setup>) {
@@ -161,7 +174,7 @@ describe('파티 신청', () => {
   it('크루 전용 자리가 모자라면 결과 화면을 보여 준다', async () => {
     const user = userEvent.setup()
     renderPage(<PartyApplyPage partyId={9} />)
-    await user.click(await screen.findByRole('button', { name: '파티 신청하기' }))
+    await user.click(await screen.findByRole('button', { name: /명 파티 신청하기/ }))
     expect(await screen.findByText('크루 전용 자리가 2자리 모자랐어요')).toBeInTheDocument()
     expect(screen.getByText('청구된 금액 없음')).toBeInTheDocument()
   })
@@ -169,7 +182,7 @@ describe('파티 신청', () => {
   it('신청에 성공하면 파티 상세로 간다', async () => {
     const user = userEvent.setup()
     renderPage(<PartyApplyPage partyId={1} />)
-    await user.click(await screen.findByRole('button', { name: '파티 신청하기' }))
+    await user.click(await screen.findByRole('button', { name: /명 파티 신청하기/ }))
     await waitFor(() => expect(replace).toHaveBeenCalledWith('/parties/1'))
   })
 })
@@ -207,7 +220,7 @@ describe('파티 만들기', () => {
     expect(await screen.findByRole('button', { name: /CHUNCHEON 10K 2026/ })).toBeDisabled()
     await user.click(await screen.findByRole('button', { name: /2026 용감한 쿠키RUN in 서울/ }))
     expect(
-      await screen.findByRole('radio', { name: /10K · ₩45,000 · 남은 크루 전용 자리 86자리/ }),
+      await screen.findByRole('radio', { name: /10K · 45,000원 · 남은 크루 전용 자리 86자리/ }),
     ).toBeInTheDocument()
   })
 

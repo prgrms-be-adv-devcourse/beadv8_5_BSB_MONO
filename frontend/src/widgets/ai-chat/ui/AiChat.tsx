@@ -32,6 +32,8 @@ export type AiChatProps = {
   scopeNote: string
   /** 첫 화면의 추천 질문 */
   suggestions: string[]
+  /** 대화 화면 맨 아래 작은 안내 */
+  footnote: string
 }
 
 /** 2026-11-03T14:03:00 → 11월 3일 */
@@ -50,7 +52,7 @@ function BrandMark({ className }: { className?: string }) {
     <span
       aria-hidden
       className={cn(
-        'flex shrink-0 items-center justify-center rounded-sm bg-bg-brand text-body2-bold text-text-on-brand',
+        'flex shrink-0 items-center justify-center rounded-md bg-bg-brand text-body2-bold text-text-on-brand italic',
         className,
       )}
     >
@@ -153,7 +155,14 @@ function AnswerBlock({ answer }: { answer: AiAnswer }) {
 
 // 피그마 판매자 · 관리자 크루런 AI. 첫 화면(로고 · 인사 · 입력칸 · 추천 질문)과 대화 화면을 한 부품이 그린다.
 // 대화 기록은 서버가 화면별 · 회원별로 들고 있고(새 대화 = DELETE), 이 화면은 이번에 오간 대화만 보여 준다.
-export function AiChat({ screen, greeting, placeholder, scopeNote, suggestions }: AiChatProps) {
+export function AiChat({
+  screen,
+  greeting,
+  placeholder,
+  scopeNote,
+  suggestions,
+  footnote,
+}: AiChatProps) {
   const chat = useAiChat(screen)
   const clear = useAiClear(screen)
   const [turns, setTurns] = useState<Turn[]>([])
@@ -190,7 +199,7 @@ export function AiChat({ screen, greeting, placeholder, scopeNote, suggestions }
     return (
       <main className="flex min-w-0 flex-1 flex-col items-center justify-center px-10 pb-16">
         <div className="flex w-full max-w-135 flex-col items-center gap-6">
-          <Logo className="h-12 w-auto" />
+          <Logo className="h-14 w-auto" />
           <h1 className="text-title2">{greeting}</h1>
           <div className="w-full">
             <Composer
@@ -222,7 +231,13 @@ export function AiChat({ screen, greeting, placeholder, scopeNote, suggestions }
           <BrandMark className="size-8" />
           <h1 className="text-body1-bold">크루런 AI</h1>
         </div>
-        <Button variant="text" size="s" onClick={startOver} disabled={clear.isPending}>
+        <Button
+          variant="text"
+          size="s"
+          className="text-text-brand"
+          onClick={startOver}
+          disabled={clear.isPending}
+        >
           새 대화
         </Button>
       </div>
@@ -257,14 +272,14 @@ export function AiChat({ screen, greeting, placeholder, scopeNote, suggestions }
             }
             return (
               <div key={turn.id} className="flex items-start gap-3">
-                <BrandMark className="size-6" />
+                <BrandMark className="size-7" />
                 <AnswerBlock answer={turn.answer} />
               </div>
             )
           })}
           {chat.isPending && (
             <div className="flex items-center gap-3" role="status" aria-label="답을 만드는 중">
-              <BrandMark className="size-6" />
+              <BrandMark className="size-7" />
               <Spinner label={null} className="text-text-tertiary" />
             </div>
           )}
@@ -283,9 +298,7 @@ export function AiChat({ screen, greeting, placeholder, scopeNote, suggestions }
             rows={1}
           />
         </div>
-        <p className="text-caption-regular text-text-tertiary">
-          크루런 AI는 틀릴 수 있어요. 돈이 오가는 일은 각 화면에서 한 번 더 확인해 주세요.
-        </p>
+        <p className="text-caption-regular text-text-tertiary">{footnote}</p>
       </div>
     </main>
   )

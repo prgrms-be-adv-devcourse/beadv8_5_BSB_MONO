@@ -50,15 +50,17 @@ describe('TicketDetailPage', () => {
 
     expect(await screen.findByText('김러너 · 10K')).toBeInTheDocument()
     expect(screen.getByText('주문번호 OD-20261012-0001 · 11/1 (일) 08:00')).toBeInTheDocument()
-    expect(screen.getByText('사이즈 L · 비상 연락처 010-98**-5432')).toBeInTheDocument()
+    expect(screen.getByText('사이즈 L')).toBeInTheDocument()
+    expect(screen.getByText('비상 연락처 010-98**-5432')).toBeInTheDocument()
     // Clarity 화면 녹화에서 참가자 이름 · 연락처를 가린다
     expect(screen.getByText('김러너 · 10K').closest('[data-clarity-mask="true"]')).not.toBeNull()
     expect(
-      screen
-        .getByText('사이즈 L · 비상 연락처 010-98**-5432')
-        .closest('[data-clarity-mask="true"]'),
+      screen.getByText('비상 연락처 010-98**-5432').closest('[data-clarity-mask="true"]'),
     ).not.toBeNull()
-    expect(screen.getByText('오늘 취소하면 ₩50,000을 예치금으로 돌려받아요')).toBeInTheDocument()
+    expect(screen.getByText('오늘 취소하면 50,000원을 예치금으로 돌려받아요')).toBeInTheDocument()
+    // 환불 기준: 기한 안(지금) 전액 환불, 기한 다음 날 0시부터 환불 불가
+    expect(screen.getByText(/23:59 \(지금\)$/)).toBeInTheDocument()
+    expect(screen.getByText(/00:00 ~$/)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '고치기' })).toHaveAttribute(
       'href',
       '/tickets/1-1/edit',

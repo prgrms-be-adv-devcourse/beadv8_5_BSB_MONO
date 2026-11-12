@@ -6,15 +6,14 @@ import Link from 'next/link'
 import { useState } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
-import { loginHref, useAuthStatus } from '@/features/auth'
-import { RacePoster, type RaceDetail, type RaceOption } from '@/entities/race'
+import { RaceShareSheet } from '@/widgets/race-share-sheet'
+import { useAuthStatus } from '@/features/auth'
+import { useMyRaceStatus } from '@/entities/party'
+import { formatRaceDateTime, RacePoster, type RaceDetail, type RaceOption } from '@/entities/race'
 import { cn, formatNumber, formatWon, useTrackOnce } from '@/shared/lib'
 import {
   Alert,
   Badge,
-  BottomCta,
-  Button,
-  buttonClassName,
   FOCUS_RING,
   Icon,
   IconButton,
@@ -22,8 +21,10 @@ import {
   Section,
   Segmented,
   StatTile,
-  useToast,
 } from '@/shared/ui'
+
+import { ApplyCta } from './ApplyCta'
+import { SimilarRaces } from './SimilarRaces'
 
 const ANCHORS = [
   { value: 'options', label: '종목' },
@@ -39,16 +40,18 @@ export type RaceDetailPageProps = {
   optionId?: string
   /** M02-1: 이 대회에 이미 신청한 회원 (한 사람은 한 대회에 1건만) */
   alreadyApplied?: boolean
+  /** M02-4: 파티 결제를 안 했거나 실패해 같은 대회에 다시 신청할 수 없는 회원 */
+  reapplyBlocked?: boolean
 }
 
-// 피그마 V2 · M02 대회 상세 (+ M02-1 이미 신청함, 링크 복사 완료 토스트)
+// 피그마 V2 · M02 대회 상세 (+ M02-1 이미 신청함 · M02-3 크루 전용 자리 · M02-4 다시 신청할 수 없음 · M02-5 파티로 신청 중 · M02-6 비슷한 대회 · 공유 시트)
 // 대회는 상품 API, 종목 이미지는 파일 API에서 받는다(page.tsx). 이미지가 없으면 색 포스터를 그린다.
 export function RaceDetailPage({
   race,
   optionId: initialOptionId,
   alreadyApplied = false,
+  reapplyBlocked = false,
 }: RaceDetailPageProps) {
-  const toast = useToast()
   const authStatus = useAuthStatus()
   useTrackOnce('view_item', {
     raceId: race.id,
@@ -60,17 +63,17 @@ export function RaceDetailPage({
       race.options.find((o) => !o.soldOut)?.id ??
       '',
   )
-  // 신청은 대기열(M05-Q1)을 거친다. 차례가 되면 대기열 화면에서 신청 화면(M05)으로 간다
-  const queueHref = `/races/${race.id}/queue?option=${optionId}` as const
+  // 크루 전용 자리가 있는 대회는 로그인한 뒤 내 파티 상태를 받아 신청 방법을 정한다
+  const { data: party } = useMyRaceStatus(
+    authStatus === 'authenticated' && race.crew ? Number(race.id) : undefined,
+  )
+  const inParty = party !== undefined && party.role !== 'NONE'
+  const joinedAsMember = party?.role === 'MEMBER' && party.partyStatus !== 'PAID'
+  const [shareOpen, setShareOpen] = useState(false)
   const posterLabel = race.options.map((o) => o.name).join(' · ')
   const [anchor, setAnchor] = useState<Anchor>('options')
   const [infoTab, setInfoTab] = useState<'detail' | 'faq'>('detail')
   const minPrice = race.options.length > 0 ? Math.min(...race.options.map((o) => o.price)) : 0
-
-  function copyLink() {
-    void navigator.clipboard?.writeText(window.location.href)
-    toast({ message: '링크를 복사했어요', tone: 'success' })
-  }
 
   function jumpTo(next: Anchor) {
     setAnchor(next)
@@ -83,7 +86,7 @@ export function RaceDetailPage({
         type="sub"
         title={race.title}
         action={
-          <IconButton aria-label="링크 복사" onClick={copyLink}>
+          <IconButton aria-label="공유하기" onClick={() => setShareOpen(true)}>
             <Icon name="Share" />
           </IconButton>
         }
@@ -140,18 +143,29 @@ export function RaceDetailPage({
           </div>
         </div>
 
-        {alreadyApplied && (
+        {(alreadyApplied || joinedAsMember) && (
           <div className="bg-bg-surface px-4 py-4">
             <Alert
-              title="이 대회에 이미 신청했어요"
+              title={alreadyApplied ? '이 대회에 이미 신청했어요' : '파티로 신청 중인 대회예요'}
               description={
                 <>
                   한 사람은 한 대회에 1건만 가질 수 있어요.
-                  <br />내 참가 대회에서 확인해 주세요.
+                  <br />
+                  {alreadyApplied
+                    ? '내 참가 대회에서 확인해 주세요.'
+                    : '개인으로 나가려면 파티에서 먼저 나가 주세요.'}
                 </>
               }
             />
           </div>
+        )}
+        {inParty && !joinedAsMember && !alreadyApplied && (
+          <p className="bg-bg-surface px-4 pb-4">
+            <Badge>
+              내 파티 · {race.options.find((o) => o.id === String(party.raceCourseId))?.name} ·{' '}
+              {party.memberCount}명
+            </Badge>
+          </p>
         )}
 
         <div className="sticky top-(--layout-header-height) z-[5] bg-bg-surface">
@@ -174,14 +188,28 @@ export function RaceDetailPage({
           </div>
         </Section>
 
+        {race.crew && (
+          <Section title="크루원과 함께 신청하려면">
+            <div className="flex flex-col gap-4">
+              {race.crew.endAt && (
+                <KeyValue label="크루 전용 자리 마감" value={formatRaceDateTime(race.crew.endAt)} />
+              )}
+              {race.crew.minCount !== undefined && (
+                <KeyValue
+                  label="파티 인원"
+                  value={`${race.crew.minCount}명 ~ ${race.crew.maxCount ?? race.crew.minCount}명`}
+                />
+              )}
+            </div>
+          </Section>
+        )}
+
         <Section title="접수 일정">
           <div id="race-schedule" className="flex scroll-mt-32 flex-col gap-4">
-            {race.schedule.map((row) => (
+            {race.schedule.slice(0, 1).map((row) => (
               <KeyValue key={row.label} label={row.label} value={row.value} />
             ))}
-            <p className="text-caption-regular text-text-tertiary">
-              정원이 차면 접수가 일찍 끝날 수 있어요.
-            </p>
+            <KeyValue label="정보 수정 기한" value={race.infoEditDeadline} />
           </div>
         </Section>
 
@@ -238,6 +266,8 @@ export function RaceDetailPage({
           </div>
         </Section>
 
+        <SimilarRaces raceId={race.id} />
+
         <section className="flex flex-col gap-2 bg-bg-surface px-4 py-6">
           <p className="text-body2-medium">{race.seller.name}</p>
           <p className="text-caption-regular text-text-tertiary">{race.seller.businessNo}</p>
@@ -250,31 +280,18 @@ export function RaceDetailPage({
           이 대회에 문의하기
         </Link>
       </main>
-      <BottomCta
-        className="sticky bottom-0 z-10"
-        primary={
-          alreadyApplied ? (
-            <Button size="l" disabled>
-              이미 신청했어요
-            </Button>
-          ) : race.phase !== 'open' ? (
-            <Button size="l" disabled>
-              {race.phase === 'upcoming' ? '아직 접수 전이에요' : '접수가 마감됐어요'}
-            </Button>
-          ) : optionId === '' ? (
-            <Button size="l" disabled>
-              {race.options.length === 0 ? '신청할 수 있는 종목이 없어요' : '정원이 모두 찼어요'}
-            </Button>
-          ) : (
-            // 로그인 전이면 로그인(M03)으로 보내고, 로그인 뒤 대기열로 이어 간다
-            <Link
-              href={authStatus === 'anonymous' ? loginHref(queueHref) : queueHref}
-              className={buttonClassName({ size: 'l' })}
-            >
-              신청하기
-            </Link>
-          )
-        }
+      <ApplyCta
+        race={race}
+        optionId={optionId}
+        alreadyApplied={alreadyApplied}
+        reapplyBlocked={reapplyBlocked}
+        party={party}
+      />
+      <RaceShareSheet
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        title={race.title}
+        url={`${typeof window === 'undefined' ? '' : window.location.origin}/races/${race.id}`}
       />
     </>
   )

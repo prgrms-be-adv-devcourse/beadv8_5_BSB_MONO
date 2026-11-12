@@ -103,6 +103,42 @@ describe('CrewHomePage 크루 탈퇴', () => {
     expect(await screen.findByText('새벽한강크루에서 나왔어요')).toBeInTheDocument()
   })
 
+  it('진행 중인 파티에 들어 있으면 떠나기 요청 없이 막힘 안내만 띄운다', async () => {
+    mockCrew({ myRole: 'MEMBER' })
+    server.use(
+      http.get('*/api/v1/order/parties/crews/:crewId/active', () =>
+        HttpResponse.json({
+          status: 200,
+          message: '조회',
+          data: [
+            {
+              id: 9,
+              crewId: 1,
+              raceId: 100,
+              raceCourseId: 2,
+              status: 'RECRUITING',
+              leaderMemberId: 1,
+              memberCount: 3,
+              paidCount: 0,
+              paymentDueAt: null,
+              leaderNickname: '달리는곰',
+              myParty: true,
+            },
+          ],
+        }),
+      ),
+    )
+    const requests = capture('delete', '*/api/v1/member/crews/:crewId/members/me')
+    const user = userEvent.setup()
+    renderPage(<CrewHomePage crewId={1} />)
+    await screen.findByText(/파티장 달리는곰/)
+    await user.click(screen.getByRole('button', { name: '크루 떠나기' }))
+    const dialog = await screen.findByRole('alertdialog')
+    expect(within(dialog).getByText('진행 중인 파티가 끝난 뒤 떠날 수 있어요')).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: '확인' }))
+    expect(requests).toHaveLength(0)
+  })
+
   it('확인을 두 번 눌러도 요청은 한 번만 보낸다', async () => {
     mockCrew({ myRole: 'MEMBER' })
     const requests = capture('delete', '*/api/v1/member/crews/:crewId/members/me', async () => {
@@ -347,6 +383,17 @@ describe('CrewManagePage 크루장 넘기기', () => {
   })
 })
 
+describe('CrewManagePage 초대 링크', () => {
+  it('크루원이 몇 명이든 초대 링크 만들기가 항상 보인다', async () => {
+    mockCrew()
+    renderPage(<CrewManagePage crewId={1} />)
+    expect(await screen.findByRole('link', { name: '초대 링크 만들기' })).toHaveAttribute(
+      'href',
+      '/crews/1/invites',
+    )
+  })
+})
+
 describe('CrewManagePage 크루 없애기', () => {
   it('다른 크루원이 있으면 누르면 막힘 확인창이 뜨고 삭제 요청은 가지 않는다', async () => {
     mockCrew()
@@ -367,8 +414,7 @@ describe('CrewManagePage 크루 없애기', () => {
     const requests = capture('delete', '*/api/v1/member/crews/:crewId')
     const user = userEvent.setup()
     renderPage(<CrewManagePage crewId={1} />)
-    expect(await screen.findByText('크루원이 나뿐이라 크루를 없앨 수 있어요.')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '크루 없애기' }))
+    await user.click(await screen.findByRole('button', { name: '크루 없애기' }))
     const dialog = await screen.findByRole('alertdialog')
     expect(within(dialog).getByText('새벽한강크루를 없앨까요?')).toBeInTheDocument()
     expect(requests).toHaveLength(0)

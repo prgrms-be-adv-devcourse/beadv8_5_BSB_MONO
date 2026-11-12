@@ -101,7 +101,8 @@ describe('본인 확인 단계 (포트원)', () => {
     await user.click(screen.getByRole('button', { name: '본인 확인하기' }))
 
     const dialog = await screen.findByRole('alertdialog', { name: '본인인증을 마치지 못했어요' })
-    expect(within(dialog).getByText(IDENTITY_MESSAGES.failed)).toBeInTheDocument()
+    // 제목이 이미 「마치지 못했어요」라서 본문은 「다시 시도해 주세요.」만 둔다 (시안 M04-P-2)
+    expect(within(dialog).getByText('다시 시도해 주세요.')).toBeInTheDocument()
     expect(push).not.toHaveBeenCalled()
   })
 

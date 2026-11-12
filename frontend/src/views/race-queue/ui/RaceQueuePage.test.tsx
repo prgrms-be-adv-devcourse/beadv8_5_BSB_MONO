@@ -96,6 +96,21 @@ describe('RaceQueuePage', () => {
     expect(admissionAsked).toBe(0)
   })
 
+  it('기다리는 화면은 제목 줄 없이 닫기만 두고, 순번이 줄면 숫자 없이 막대만 차오른다', async () => {
+    mockQueue([queueStatus(1)], queueStatus(4))
+    renderQueue()
+
+    expect(screen.queryByRole('heading', { name: '대기열' })).not.toBeInTheDocument()
+    await vi.waitFor(() =>
+      expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '20'),
+    )
+    await act(() => vi.advanceTimersByTimeAsync(ADMISSION_POLL_MS))
+    await vi.waitFor(() =>
+      expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '80'),
+    )
+    expect(screen.queryByText(/\d+번째|\d+명/)).not.toBeInTheDocument()
+  })
+
   it('등록한 뒤 순번을 다시 묻다가 차례가 오면 버튼 없이 신청서로 넘어간다', async () => {
     // 순번은 두 번 줄고, 세 번째에 차례가 온다
     const calls = mockQueue([queueStatus(1), queueStatus(0), queueStatus(0, true)])

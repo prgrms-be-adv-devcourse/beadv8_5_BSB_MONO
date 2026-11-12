@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -46,7 +47,7 @@ describe('MyTicketsPage', () => {
     expect(screen.getByText('2026 용감한 쿠키RUN in 서울')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '참가 예정 1' })).toBeInTheDocument()
     expect(
-      screen.getByText('11/1 (일) · 10/31 (토)까지 취소하면 ₩50,000 전액 환불'),
+      screen.getByText('11/1 (일) · 10/31 (토)까지 취소하면 50,000원 전액 환불'),
     ).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /김러너 · 10K/ })).toHaveAttribute(
       'href',
@@ -68,7 +69,7 @@ describe('MyTicketsPage', () => {
     )
     renderPage()
 
-    expect(await screen.findByText('아직 신청한 대회가 없어요')).toBeInTheDocument()
+    expect(await screen.findByText('아직 참가 예정인 대회가 없어요')).toBeInTheDocument()
   })
 
   it('주문 목록을 못 불러오면(400) 안내를 보여 준다', async () => {
@@ -82,6 +83,22 @@ describe('MyTicketsPage', () => {
     )
     renderPage()
 
-    expect(await screen.findByText('참가권을 불러오지 못했어요')).toBeInTheDocument()
+    expect(await screen.findByText('정보를 불러오지 못했어요')).toBeInTheDocument()
+  })
+
+  it('불러오지 못했을 때 다시 시도하기를 누르면 다시 불러온다', async () => {
+    let calls = 0
+    server.use(
+      http.get('*/api/v1/order/orders', () => {
+        calls += 1
+        return HttpResponse.json({ status: 500, message: '오류', data: null }, { status: 500 })
+      }),
+    )
+    const user = userEvent.setup({ advanceTimers: () => {} })
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: '다시 시도하기' }))
+
+    await vi.waitFor(() => expect(calls).toBe(2))
   })
 })

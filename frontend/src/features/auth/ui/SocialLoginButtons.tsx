@@ -75,3 +75,17 @@ export function SocialLoginButtons({ next }: { next?: string }) {
     </div>
   )
 }
+
+/** 소셜 제공자 표시 원(지름 24). 소셜 가입 화면 위 띠에서 어느 계정인지 알린다 */
+export function SocialMark({ id }: { id: SocialProviderId }) {
+  return (
+    <span
+      className={cn(
+        'flex size-6 items-center justify-center rounded-full [&_svg]:size-4',
+        STYLE[id],
+      )}
+    >
+      {MARK[id]}
+    </span>
+  )
+}

@@ -1,13 +1,20 @@
 'use client'
 
 import { zodResolver } from '@hookform/resolvers/zod'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useForm, useWatch, type UseFormRegister } from 'react-hook-form'
 import { z } from 'zod'
 
 import { AppHeader } from '@/widgets/app-header'
-import { safeNextPath, socialProviderOf, useAuthStatus, useSocialJoin } from '@/features/auth'
+import {
+  safeNextPath,
+  SocialMark,
+  socialProviderOf,
+  useAuthStatus,
+  useSocialJoin,
+} from '@/features/auth'
 import {
   IdentityVerificationBand,
   LockedIdentityFields,
@@ -15,7 +22,15 @@ import {
   type RejoinInfo,
 } from '@/features/identity-verification'
 import { ApiError, memberApi, unwrapData } from '@/shared/api'
-import { BottomCta, Button, Divider, Spinner, TextField } from '@/shared/ui'
+import {
+  BottomCta,
+  Button,
+  buttonClassName,
+  Divider,
+  EmptyState,
+  Spinner,
+  TextField,
+} from '@/shared/ui'
 
 import { joinErrorMessage } from '../model/join'
 import {
@@ -48,13 +63,18 @@ export function SocialCompletePage({ next }: { next?: string }) {
     if (status === 'authenticated') router.replace(safeNextPath(next))
     if (status === 'anonymous') router.replace(FAILED_LOGIN)
   }, [status, next, router])
+  // 시안 M03-S1: 어느 제공자인지 주소에 없어 「소셜 계정」으로 부른다
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-3 bg-bg-surface">
-      <Spinner label="로그인하고 있어요" />
-      <p aria-hidden className="text-body2-regular text-text-secondary">
-        로그인하고 있어요
-      </p>
-    </main>
+    <>
+      <AppHeader type="sub" title="로그인" />
+      <main className="flex flex-1 items-center justify-center bg-bg-surface">
+        <EmptyState
+          role="status"
+          title="소셜 계정을 확인하고 있어요"
+          description="잠시만 기다려 주세요. 확인이 끝나면 자동으로 이동해요."
+        />
+      </main>
+    </>
   )
 }
 
@@ -64,13 +84,11 @@ export function SocialCompletePage({ next }: { next?: string }) {
  * 제공자가 확인한 이메일이 있으면 고칠 수 없게 보여 주고, 없으면 직접 입력한다.
  */
 export function SocialSignupPage({ next }: { next?: string }) {
-  const router = useRouter()
   const info = memberApi.useFindSocialSignup({ query: { select: unwrapData, retry: false } })
-  // 가입 대기가 없거나 지났으면(401) 소셜 로그인부터 다시 하게 로그인 화면으로 보낸다
-  useEffect(() => {
-    if (info.isError) router.replace(FAILED_LOGIN)
-  }, [info.isError, router])
+  // 가입 대기가 없거나 지났으면(401) 「가입 시간이 지났어요」를 보여 준다. 가입을 누른 뒤 지난 경우도 같다.
+  const [expired, setExpired] = useState(false)
 
+  if (info.isError || expired) return <SocialSignupExpired />
   if (!info.data) {
     return (
       <main className="flex flex-1 items-center justify-center bg-bg-surface">
@@ -81,6 +99,7 @@ export function SocialSignupPage({ next }: { next?: string }) {
   return (
     <SocialSignupForm
       next={next}
+      onExpired={() => setExpired(true)}
       provider={info.data.provider}
       lockedEmail={info.data.emailLocked ? (info.data.email ?? undefined) : undefined}
       name={info.data.name ?? undefined}
@@ -88,15 +107,38 @@ export function SocialSignupPage({ next }: { next?: string }) {
   )
 }
 
+// 시안 M04-SE 소셜 가입 · 가입 시간 지남. 소셜 로그인으로 돌아온 뒤 15분 안에 가입을 마치지 못했을 때
+function SocialSignupExpired() {
+  return (
+    <>
+      <AppHeader type="sub" title="가입하기" />
+      <main className="flex flex-1 items-center justify-center bg-bg-surface">
+        <EmptyState
+          role="alert"
+          title="가입 시간이 지났어요"
+          description="소셜 로그인으로 돌아온 뒤 15분 안에 가입을 마치지 못했어요. 처음부터 다시 시작해 주세요."
+          action={
+            <Link href="/login" className={buttonClassName({ variant: 'secondary' })}>
+              로그인 화면으로
+            </Link>
+          }
+        />
+      </main>
+    </>
+  )
+}
+
 type SocialSignupValues = SignupProfileValues & { email: string }
 
 function SocialSignupForm({
   next,
+  onExpired,
   provider,
   lockedEmail,
   name,
 }: {
   next?: string
+  onExpired: () => void
   provider: string
   lockedEmail?: string
   name?: string
@@ -160,7 +202,7 @@ function SocialSignupForm({
         onSuccess: () => router.replace(safeNextPath(next)),
         onError: (error) => {
           if (error instanceof ApiError && error.code === 'AUTH_SOCIAL_SIGNUP_EXPIRED') {
-            router.replace(FAILED_LOGIN)
+            onExpired()
             return
           }
           if (error instanceof ApiError && error.code === 'AUTH_SOCIAL_ALREADY_LINKED') {
@@ -200,8 +242,9 @@ function SocialSignupForm({
     <>
       <form noValidate onSubmit={onFormSubmit} className="contents">
         <AppHeader type="sub" title="가입하기" />
-        <p className="bg-bg-brand-subtle px-4 py-3 text-body2-medium text-text-primary">
-          {providerLabel} 계정으로 가입하고 있어요
+        <p className="flex items-center bg-bg-brand-subtle px-4 py-3">
+          <SocialMark id={socialProviderOf(provider)?.id ?? 'kakao'} />
+          <span className="sr-only">{providerLabel} 계정으로 가입하고 있어요</span>
         </p>
         <CenterBody center={false}>
           <IdentityVerificationBand

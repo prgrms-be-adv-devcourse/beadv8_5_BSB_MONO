@@ -46,11 +46,7 @@ const IDENTITY_DONE: SignupStepInitial = {
 // 계정 입력까지 마친 채로 회원 정보 단계를 연다.
 const ACCOUNT_DONE: SignupStepInitial = {
   ...IDENTITY_DONE,
-  account: {
-    email: 'runner@crewrun.kr',
-    password: 'password1234',
-    passwordConfirm: 'password1234',
-  },
+  account: { email: 'runner@crewrun.kr', password: 'password1234' },
 }
 
 type Step = 'identity' | 'account' | 'profile'
@@ -79,9 +75,23 @@ function renderProfileStep(initialState: SignupStepInitial = ACCOUNT_DONE) {
   renderSignup('profile', initialState)
 }
 
-// 이름 · 생년월일 · 휴대폰 번호는 본인인증 결과로 잠겨 있어 닉네임만 적는다
+// 닉네임 단계(시안)에는 닉네임만 적는다
 async function fillProfile(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText('닉네임'), '달리는곰')
+}
+
+type User = ReturnType<typeof userEvent.setup>
+
+// 이메일 단계를 채우고 「다음」을 눌러 비밀번호 단계로 간다
+async function goToPassword(user: User, email = 'runner@crewrun.kr') {
+  await user.type(screen.getByLabelText('이메일'), email)
+  await user.click(screen.getByRole('button', { name: '다음' }))
+  return screen.findByLabelText('비밀번호')
+}
+
+// 가입을 마치면 「가입을 마쳤어요」 화면이 뜬다. 「홈으로 가기」를 눌러야 next로 간다.
+async function finishDone(user: User) {
+  await user.click(await screen.findByRole('button', { name: '홈으로 가기' }))
 }
 
 describe('회원가입 단계', () => {
@@ -111,25 +121,62 @@ describe('회원가입 단계', () => {
     expect(push).not.toHaveBeenCalled()
   })
 
-  it('비밀번호가 9자면(백엔드 10자 이상) 오류가 뜨고 다음 버튼이 꺼진다', async () => {
+  it('비밀번호가 9자면(백엔드 10자 이상) 다음 버튼이 꺼지고, 10자가 되면 켜진다', async () => {
+    const user = userEvent.setup()
+    renderSignup()
+
+    await user.type(await goToPassword(user), 'password1')
+    expect(screen.getByRole('button', { name: '다음' })).toBeDisabled()
+
+    await user.type(screen.getByLabelText('비밀번호'), '2')
+    expect(await screen.findByRole('button', { name: '다음' })).toBeEnabled()
+  })
+
+  it('비밀번호 단계에서 뒤로 가면 이메일 단계로 돌아가 적은 이메일이 남아 있다', async () => {
+    const user = userEvent.setup()
+    renderSignup()
+
+    await goToPassword(user)
+    await user.click(screen.getByRole('button', { name: '뒤로 가기' }))
+
+    expect(screen.getByLabelText('이메일')).toHaveValue('runner@crewrun.kr')
+  })
+
+  it('이메일 단계에서 뒤로 가면 그만둘지 묻고, 계속 가입하면 그대로 둔다', async () => {
     const user = userEvent.setup()
     renderSignup()
 
     await user.type(screen.getByLabelText('이메일'), 'runner@crewrun.kr')
-    await user.type(screen.getByLabelText('비밀번호'), 'password1')
-    await user.tab()
+    await user.click(screen.getByRole('button', { name: '뒤로 가기' }))
+    expect(await screen.findByText('가입을 그만둘까요?')).toBeInTheDocument()
 
-    expect(await screen.findByText(AUTH_ERRORS.passwordRule)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '다음' })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: '계속 가입하기' }))
+    await vi.waitFor(() => expect(screen.queryByText('가입을 그만둘까요?')).not.toBeInTheDocument())
+    expect(screen.getByLabelText('이메일')).toHaveValue('runner@crewrun.kr')
+    expect(replace).not.toHaveBeenCalled()
+  })
+
+  it('가입을 그만두면 적은 내용과 돌아갈 화면을 지우고 로그인 화면으로 간다', async () => {
+    const user = userEvent.setup()
+    sessionStorage.setItem('crewrun:signup-next', '/invite/q7Xk')
+    const { show } = renderSignup()
+
+    await user.type(screen.getByLabelText('이메일'), 'runner@crewrun.kr')
+    await user.click(screen.getByRole('button', { name: '뒤로 가기' }))
+    await user.click(await screen.findByRole('button', { name: '그만두기' }))
+
+    expect(replace).toHaveBeenCalledWith('/login')
+    expect(sessionStorage.getItem('crewrun:signup-next')).toBeNull()
+    // 본인인증 결과가 지워져 이메일 단계로 다시 오면 첫 단계로 돌려보낸다
+    show('profile')
+    expect(replace).toHaveBeenCalledWith('/signup')
   })
 
   it('다음 단계로 갔다가 돌아와도 입력값이 남아 있다', async () => {
     const user = userEvent.setup()
     const { show } = renderSignup()
 
-    await user.type(screen.getByLabelText('이메일'), 'runner@crewrun.kr')
-    await user.type(screen.getByLabelText('비밀번호'), 'password123')
-    await user.type(screen.getByLabelText('비밀번호 확인'), 'password123')
+    await user.type(await goToPassword(user), 'password123')
     await user.click(screen.getByRole('button', { name: '다음' }))
     await vi.waitFor(() => expect(push).toHaveBeenCalledWith('/signup/profile'))
 
@@ -138,8 +185,9 @@ describe('회원가입 단계', () => {
 
     show('account')
     expect(screen.getByLabelText('이메일')).toHaveValue('runner@crewrun.kr')
-    expect(screen.getByLabelText('비밀번호 확인')).toHaveValue('password123')
     expect(await screen.findByRole('button', { name: '다음' })).toBeEnabled()
+    await user.click(screen.getByRole('button', { name: '다음' }))
+    expect(await screen.findByLabelText('비밀번호')).toHaveValue('password123')
 
     show('profile')
     expect(screen.getByLabelText('닉네임')).toHaveValue('달리는곰')
@@ -154,7 +202,7 @@ describe('회원가입 단계', () => {
     expect(push).toHaveBeenCalledWith('/signup/account')
   })
 
-  it('가입 완료를 누르면 이름 · 생년월일 · 휴대폰 번호 대신 인증 토큰을 보내고, 바로 로그인해 홈으로 간다', async () => {
+  it('가입 완료를 누르면 이름 · 생년월일 · 휴대폰 번호 대신 인증 토큰을 보내고, 바로 로그인한 뒤 완료 화면의 「홈으로 가기」로 홈에 간다', async () => {
     let body: unknown
     server.use(
       http.post('*/api/v1/auth/join', async ({ request }) => {
@@ -168,24 +216,18 @@ describe('회원가입 단계', () => {
     const user = userEvent.setup()
     renderProfileStep()
 
-    for (const [label, value] of [
-      ['이름', '김러너'],
-      ['생년월일', '1995.03.02'],
-      ['휴대폰 번호', '010-1234-5678'],
-    ]) {
-      expect(screen.getByLabelText(label)).toHaveValue(value)
-      expect(screen.getByLabelText(label)).toBeDisabled()
-    }
     await fillProfile(user)
-    await user.click(screen.getByRole('radio', { name: '여성' }))
     await user.click(screen.getByRole('button', { name: '가입 완료하기' }))
 
-    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/'))
+    expect(await screen.findByText('가입을 마쳤어요')).toBeInTheDocument()
+    // 완료 화면에서는 아직 이동하지 않는다
+    expect(replace).not.toHaveBeenCalled()
+    await finishDone(user)
+    expect(replace).toHaveBeenCalledWith('/')
     expect(body).toEqual({
       email: 'runner@crewrun.kr',
       password: 'password1234',
       nickname: '달리는곰',
-      gender: 'FEMALE',
       agreedTerms: ['SERVICE', 'PRIVACY', 'MARKETING'],
       verificationToken: 'mock-verification.token',
     })
@@ -300,14 +342,14 @@ describe('회원가입 단계', () => {
     expect(replace).toHaveBeenCalledWith('/signup')
   })
 
-  it('시안 미리보기(invalid)는 앞 단계 없이 M04-1E 오류를 보여 준다', () => {
+  it('시안 미리보기(invalid)는 앞 단계 없이 「비밀번호 · 너무 김」 오류를 보여 준다', () => {
     render(
       <SignupStepProvider>
         <SignupAccountPage invalid />
       </SignupStepProvider>,
     )
-    expect(screen.getByText(AUTH_ERRORS.emailTaken)).toBeInTheDocument()
-    expect(screen.getByText(AUTH_ERRORS.passwordMismatch)).toBeInTheDocument()
+    expect(screen.getByText(AUTH_ERRORS.passwordTooLong)).toBeInTheDocument()
+    expect(screen.getByText('10자 이상이에요')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '다음' })).toBeDisabled()
   })
 })
@@ -332,8 +374,8 @@ describe('가입 뒤 돌아갈 화면 (BUK-98)', () => {
     view.rerender(wrap(<SignupProfilePage />))
     const user = userEvent.setup()
     await fillProfile(user)
-    await user.click(screen.getByRole('radio', { name: '여성' }))
     await user.click(screen.getByRole('button', { name: '가입 완료하기' }))
+    await finishDone(user)
   }
 
   it('로그인 화면에서 넘어온 next가 있으면 가입 뒤 그 화면으로 간다', async () => {
@@ -386,10 +428,8 @@ describe('가입 뒤 돌아갈 화면 (BUK-98)', () => {
 })
 
 describe('이메일 중복 확인 (PRO-201)', () => {
-  async function fillAccount(user: ReturnType<typeof userEvent.setup>, email: string) {
+  async function fillAccount(user: User, email: string) {
     await user.type(screen.getByLabelText('이메일'), email)
-    await user.type(screen.getByLabelText('비밀번호'), 'password123')
-    await user.type(screen.getByLabelText('비밀번호 확인'), 'password123')
   }
 
   it('이미 가입된 이메일이면 칸에 오류가 뜨고 다음 단계로 못 넘어간다', async () => {
@@ -401,7 +441,7 @@ describe('이메일 중복 확인 (PRO-201)', () => {
 
     expect(await screen.findByText(AUTH_ERRORS.emailTaken)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '다음' })).toBeDisabled()
-    expect(push).not.toHaveBeenCalled()
+    expect(screen.queryByLabelText('비밀번호')).not.toBeInTheDocument()
   })
 
   it('이메일 칸을 벗어나면 다음을 누르기 전에 중복을 알려 준다', async () => {
@@ -421,7 +461,7 @@ describe('이메일 중복 확인 (PRO-201)', () => {
     await fillAccount(user, 'runner@crewrun.kr')
     await user.click(screen.getByRole('button', { name: '다음' }))
 
-    await vi.waitFor(() => expect(push).toHaveBeenCalledWith('/signup/profile'))
+    expect(await screen.findByLabelText('비밀번호')).toBeInTheDocument()
     expect(screen.queryByText(AUTH_ERRORS.emailTaken)).not.toBeInTheDocument()
   })
 
@@ -441,33 +481,31 @@ describe('이메일 중복 확인 (PRO-201)', () => {
     await user.click(screen.getByRole('button', { name: '다음' }))
 
     expect(await screen.findByText(AUTH_ERRORS.emailCheckFailed)).toBeInTheDocument()
-    expect(push).not.toHaveBeenCalled()
+    expect(screen.queryByLabelText('비밀번호')).not.toBeInTheDocument()
 
     // 확인 실패는 버튼을 막지 않는다. 서버가 돌아오면 같은 이메일로 다시 시도할 수 있다.
     server.resetHandlers()
     await user.click(screen.getByRole('button', { name: '다음' }))
-    await vi.waitFor(() => expect(push).toHaveBeenCalledWith('/signup/profile'))
+    expect(await screen.findByLabelText('비밀번호')).toBeInTheDocument()
   })
 })
 
 describe('Enter로 제출 (QA 10/20)', () => {
-  it('계정 단계에서 Enter를 누르면 다음과 같이 회원 정보 단계로 간다', async () => {
+  it('이메일 단계와 비밀번호 단계에서 Enter를 누르면 다음과 같이 넘어간다', async () => {
     const user = userEvent.setup()
     renderSignup()
 
-    await user.type(screen.getByLabelText('이메일'), 'runner@crewrun.kr')
-    await user.type(screen.getByLabelText('비밀번호'), 'password123')
-    await user.type(screen.getByLabelText('비밀번호 확인'), 'password123{Enter}')
+    await user.type(screen.getByLabelText('이메일'), 'runner@crewrun.kr{Enter}')
+    await user.type(await screen.findByLabelText('비밀번호'), 'password123{Enter}')
 
     await vi.waitFor(() => expect(push).toHaveBeenCalledWith('/signup/profile'))
   })
 
-  it('계정 입력이 틀리면 Enter를 눌러도 넘어가지 않는다', async () => {
+  it('비밀번호가 짧으면 Enter를 눌러도 넘어가지 않는다', async () => {
     const user = userEvent.setup()
     renderSignup()
 
-    await user.type(screen.getByLabelText('이메일'), 'runner@crewrun.kr')
-    await user.type(screen.getByLabelText('비밀번호'), 'short{Enter}')
+    await user.type(await goToPassword(user), 'short{Enter}')
 
     // 검사에 실패하면 다음 버튼이 꺼져 있어 Enter로도 제출되지 않는다
     expect(screen.getByRole('button', { name: '다음' })).toBeDisabled()
@@ -489,7 +527,7 @@ describe('Enter로 제출 (QA 10/20)', () => {
     renderProfileStep()
 
     await user.type(screen.getByLabelText('닉네임'), '달리는곰{Enter}')
-    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/'))
+    expect(await screen.findByText('가입을 마쳤어요')).toBeInTheDocument()
     expect(joined).toBe(1)
   })
 
@@ -515,7 +553,7 @@ describe('Enter로 제출 (QA 10/20)', () => {
     expect(joined).toBe(1)
 
     finish()
-    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/'))
+    expect(await screen.findByText('가입을 마쳤어요')).toBeInTheDocument()
   })
 
   it('회원 정보가 덜 채워졌으면 Enter를 눌러도 가입 요청을 보내지 않는다', async () => {
@@ -555,7 +593,7 @@ describe('약관 동의 전송 (PRO-208)', () => {
     )
     await submitWith({ service: true, privacy: true, age: true, marketing: false })
 
-    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/'))
+    expect(await screen.findByText('가입을 마쳤어요')).toBeInTheDocument()
     expect(sent.agreedTerms).toEqual(['SERVICE', 'PRIVACY'])
   })
 

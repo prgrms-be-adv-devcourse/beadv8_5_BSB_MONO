@@ -4,23 +4,18 @@ import Link from 'next/link'
 
 import { AppHeader } from '@/widgets/app-header'
 import { BottomNav } from '@/widgets/bottom-nav'
+import { LoadErrorBody } from '@/widgets/status-screens'
 import { TICKET_STATUS } from '@/entities/ticket'
 import { cn } from '@/shared/lib'
-import {
-  Alert,
-  Badge,
-  BibCard,
-  buttonClassName,
-  EmptyState,
-  FOCUS_RING,
-  Skeleton,
-} from '@/shared/ui'
+import { Badge, BibCard, buttonClassName, EmptyState, FOCUS_RING, Skeleton } from '@/shared/ui'
 
 import { useTicketCards, type TicketCard } from '../model/use-ticket-cards'
 
 export type MyTicketsState = 'loading' | 'empty'
 
-// 피그마 v2 · 내 참가권(1333:26919). 크루 신청 줄은 참가권에 크루 정보가 없어 아직 없다.
+// 피그마 v2 · 내 참가권(1333:26919) · 참가권 없음(1333:26995) · 불러오지 못함(1333:27000).
+// 참가권 없음 · 불러오지 못함은 시안처럼 뒤로 가기 머리말이고 아래 탭은 없다.
+// 크루 신청 줄은 참가권에 크루 정보가 없어 아직 없다.
 // state는 시안 미리보기(?preview=loading|empty)용. 없으면 주문 API로 불러온다.
 export function MyTicketsPage({ state }: { state?: MyTicketsState }) {
   const cards = useTicketCards()
@@ -29,25 +24,38 @@ export function MyTicketsPage({ state }: { state?: MyTicketsState }) {
   const past = state === 'empty' ? [] : cards.past
   const failed = state === undefined && cards.isError
 
+  if (failed) {
+    return (
+      <>
+        <AppHeader type="sub" title="내 참가권" backHref="/me" />
+        <LoadErrorBody onRetry={cards.refetch} retrying={cards.isFetching} />
+      </>
+    )
+  }
+  if (!loading && upcoming.length === 0 && past.length === 0) {
+    return (
+      <>
+        <AppHeader type="sub" title="내 참가권" backHref="/me" />
+        <main className="flex flex-1 items-center justify-center px-4 pb-16">
+          <EmptyState
+            title="아직 참가 예정인 대회가 없어요"
+            description="대회를 둘러보고 참가 신청을 해 보세요."
+            action={
+              <Link href="/races" className={buttonClassName({ variant: 'secondary' })}>
+                대회 보러 가기
+              </Link>
+            }
+          />
+        </main>
+      </>
+    )
+  }
+
   return (
     <>
       <AppHeader />
       <main className="flex flex-1 flex-col gap-6 px-4 pt-(--layout-content-start) pb-6">
         {loading && <TicketSkeletons />}
-        {failed && <Alert tone="danger" title="참가권을 불러오지 못했어요" />}
-        {!loading && !failed && upcoming.length === 0 && past.length === 0 && (
-          <div className="flex flex-1 items-center justify-center">
-            <EmptyState
-              title="아직 신청한 대회가 없어요"
-              description="대회를 찾아 첫 참가권을 받아 보세요."
-              action={
-                <Link href="/races" className={buttonClassName({ variant: 'secondary' })}>
-                  대회 찾기
-                </Link>
-              }
-            />
-          </div>
-        )}
         {!loading && <TicketGroup title="참가 예정" tickets={upcoming} />}
         {!loading && <TicketGroup title="지난 대회" tickets={past} />}
       </main>

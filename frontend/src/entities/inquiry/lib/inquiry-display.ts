@@ -33,6 +33,12 @@ export const ASSIGNEE_ANSWERER: Record<InquiryAssignee, string> = {
   ADMIN: '크루런',
 }
 
+/** 쓰기 · 고치기 화면 위에 보이는 한 줄 (피그마 M38 · M43 · M44) */
+export const ANSWERER_NOTE: Record<InquiryAssignee, string> = {
+  SELLER: '판매자가 답해요',
+  ADMIN: '크루런이 답해요',
+}
+
 export const STATUS: Record<InquiryStatus, { label: string; tone: BadgeTone }> = {
   WAITING: { label: '답변 대기', tone: 'neutral' },
   ANSWERED: { label: '답변 완료', tone: 'success' },

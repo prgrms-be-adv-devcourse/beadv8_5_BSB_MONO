@@ -12,18 +12,18 @@ import { isNoApplication } from '@/entities/member'
 import { myTicketCountQueryOptions } from '@/entities/ticket'
 import { useMyBalance } from '@/entities/wallet'
 import { memberApi, unwrapData } from '@/shared/api'
-import { cn, formatWon } from '@/shared/lib'
+import { cn, formatNumber } from '@/shared/lib'
 import { Avatar, buttonClassName, Dialog, Divider, FOCUS_RING, Skeleton } from '@/shared/ui'
 
 import { EMPTY, MenuGroup, MenuRow } from './MenuRow'
 
-// 피그마 v2 · 마이(1333:22460) + 로딩(1333:21220) · 불러오지 못함(1333:21252) · 로그아웃 확인 창(1459:15984)
+// 피그마 v2 · 마이(1639:16187 내 문의 메뉴가 붙은 최신판, 1333:22460) + 로딩(1333:21220) · 불러오지 못함(1333:21252) · 로그아웃 확인 창(1459:15984)
 // 회원 정보는 내 정보 조회(GET /api/v1/member/members/me)로 불러온다.
 // 예치금은 지갑 잔액 API(useMyBalance)로 불러온다.
 // 참가 대회 수는 내 참가권 화면과 같은 목록(주문 API)에서 취소한 참가권만 빼고 센다.
 // 판매자 메뉴는 내 판매자 신청 조회(GET /api/v1/member/sellers/me) 상태로 갈 곳을 정한다(SellerMenuRow).
 // 마이는 보기만 한다. 회원 정보 수정 · 계정 연결 · 탈퇴는 계정 설정(/me/settings) 안에서 한다.
-// TODO(api): 알림 설정 · 주문·배송 내역 화면이 아직 없어 마이에 두지 않았다.
+// TODO(api): 시안의 「주문·배송 내역」은 구매자용 배송 상태 · 수령 확인 API가 없어 두지 않았다(주문 API는 판매자용 키트 조회뿐).
 export function MyPage() {
   const logout = useLogout()
   const [logoutOpen, setLogoutOpen] = useState(false)
@@ -78,7 +78,7 @@ export function MyPage() {
         <div className="mx-4 mt-4 flex items-center gap-2 rounded-lg bg-bg-surface p-3 pl-4 inset-ring inset-ring-border-default">
           <span className="text-body2-regular text-text-secondary">예치금</span>
           <span className="flex-1 text-body2-bold">
-            {balance === undefined ? EMPTY : formatWon(balance)}
+            {balance === undefined ? EMPTY : `${formatNumber(balance)}원`}
           </span>
           <Link href="/me/deposit/charge" className={buttonClassName({ size: 's' })}>
             충전하기
@@ -94,12 +94,8 @@ export function MyPage() {
           />
           <MenuRow href="/me/deposit" icon="Wallet" label="예치금 내역" />
           <MenuRow href="/crews" icon="Users" label="내 크루" />
-        </MenuGroup>
-
-        <Divider />
-        <MenuGroup title="문의">
           <MenuRow href="/me/inquiries" icon="Inbox" label="내 문의" />
-          <MenuRow href="/me/support" icon="Info" label="고객센터" />
+          <MenuRow href="/me/inquiries/new" icon="Info" label="참가 · 결제 문의하기" />
         </MenuGroup>
 
         <Divider />

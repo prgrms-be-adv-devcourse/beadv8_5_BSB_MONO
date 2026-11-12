@@ -104,7 +104,7 @@ describe('CommunityWritePage', () => {
     expect(router.replace).not.toHaveBeenCalled()
   })
 
-  it('글 수정은 원래 제목·본문이 채워져 있고, 저장하면 글 상세로 돌아간다', async () => {
+  it('글 수정은 원래 제목·본문이 채워져 있고, 수정 완료를 누르면 글 상세로 돌아간다', async () => {
     const user = userEvent.setup()
     renderPage(1)
 
@@ -112,7 +112,7 @@ describe('CommunityWritePage', () => {
       'JTBC 서울마라톤 첫 풀코스 완주했어요',
     )
     await user.type(screen.getByRole('textbox', { name: '제목' }), '!')
-    await user.click(screen.getByRole('button', { name: '저장하기' }))
+    await user.click(screen.getByRole('button', { name: '수정 완료' }))
 
     await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/community/1'))
   })

@@ -14,7 +14,7 @@ import { SignupStepProvider } from '../model/signup-store'
 import { termChecks } from '../model/signup-terms'
 import { PasswordNewPage, PasswordResetPage } from './FindAccountPages'
 import { LoginPage } from './LoginPage'
-import { SignupAccountPage, SignupProfilePage } from './SignupPages'
+import { SignupProfilePage } from './SignupPages'
 
 const push = vi.fn()
 const replace = vi.fn()
@@ -35,7 +35,6 @@ const VERIFIED = {
   birthDate: '1995-03-02',
   phone: '010-1234-5678',
 }
-const IDENTITY_DONE = { termsAgreed: true, terms: termChecks(true), verification: VERIFIED }
 
 function withQueryClient(ui: ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -218,11 +217,7 @@ describe('SignupProfilePage', () => {
             termsAgreed: true,
             terms: termChecks(true),
             verification: VERIFIED,
-            account: {
-              email: 'runner@crewrun.kr',
-              password: 'password123',
-              passwordConfirm: 'password123',
-            },
+            account: { email: 'runner@crewrun.kr', password: 'password123' },
           }}
         >
           <SignupProfilePage />
@@ -230,9 +225,8 @@ describe('SignupProfilePage', () => {
       ),
     )
 
-    // 이름 · 생년월일 · 휴대폰 번호는 본인인증 결과로 잠겨 있다
-    expect(screen.getByLabelText('이름')).toHaveValue('김러너')
-    expect(screen.getByLabelText('이름')).toBeDisabled()
+    // 닉네임 단계(시안)에는 본인인증 결과 칸이 없고 닉네임만 적는다
+    expect(screen.queryByLabelText('이름')).not.toBeInTheDocument()
     await user.type(screen.getByLabelText('닉네임'), '곰')
     await user.tab()
 
@@ -291,7 +285,7 @@ function openResetLink(token: string) {
 }
 
 describe('PasswordNewPage', () => {
-  it('링크의 토큰을 읽어 주소에서 지우고, 새 비밀번호와 함께 보낸 뒤 로그인 화면으로 간다', async () => {
+  it('링크의 토큰을 읽어 주소에서 지우고, 새 비밀번호와 함께 보낸 뒤 「바꿨어요」 완료 화면에서 로그인으로 안내한다', async () => {
     const user = userEvent.setup()
     let sent: unknown
     server.use(
@@ -307,7 +301,8 @@ describe('PasswordNewPage', () => {
     expect(window.location.hash).toBe('')
     await user.click(screen.getByRole('button', { name: '비밀번호 바꾸기' }))
 
-    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/login'))
+    expect(await screen.findByText('비밀번호를 바꿨어요')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '로그인하기' })).toHaveAttribute('href', '/login')
     expect(sent).toEqual({ token: 'link-token', password: 'newpassword1' })
     expect(getAuthStatus()).toBe('anonymous')
   })
@@ -395,32 +390,5 @@ describe('비밀번호 확인 칸', () => {
     await user.clear(screen.getByLabelText('새 비밀번호'))
     await user.type(screen.getByLabelText('새 비밀번호'), 'password1232')
     expect(screen.queryByText(AUTH_ERRORS.passwordMismatch)).not.toBeInTheDocument()
-  })
-
-  it('확인 칸이 비어 있으면 비밀번호를 입력해도 다르다는 오류를 먼저 띄우지 않는다', async () => {
-    const user = userEvent.setup()
-    render(
-      <SignupStepProvider initialState={IDENTITY_DONE}>
-        <SignupAccountPage />
-      </SignupStepProvider>,
-    )
-
-    await user.type(screen.getByLabelText('비밀번호'), 'password123')
-    expect(screen.queryByText(AUTH_ERRORS.passwordMismatch)).not.toBeInTheDocument()
-  })
-
-  it('가입 계정 화면에서도 비밀번호를 고치면 확인 칸 오류가 바로 뜬다', async () => {
-    const user = userEvent.setup()
-    render(
-      <SignupStepProvider initialState={IDENTITY_DONE}>
-        <SignupAccountPage />
-      </SignupStepProvider>,
-    )
-
-    await user.type(screen.getByLabelText('비밀번호'), 'password123')
-    await user.type(screen.getByLabelText('비밀번호 확인'), 'password123')
-    await user.tab()
-    await user.type(screen.getByLabelText('비밀번호'), '2')
-    expect(await screen.findByText(AUTH_ERRORS.passwordMismatch)).toBeInTheDocument()
   })
 })

@@ -25,7 +25,6 @@ import {
   Avatar,
   Badge,
   BottomSheet,
-  BottomSheetOption,
   Button,
   Dialog,
   EmptyState,
@@ -39,6 +38,7 @@ import {
 } from '@/shared/ui'
 
 import { CommentSection, countComments } from './CommentSection'
+import { MenuSheet, MenuSheetAction } from './MenuSheet'
 
 const errorMessage = (e: unknown, fallback: string) =>
   e instanceof ApiError && e.serverMessage ? e.serverMessage : fallback
@@ -146,7 +146,7 @@ export function CommunityPostPage({ postId }: { postId: number }) {
             신고로 숨겨진 글이에요
           </p>
         )}
-        <article className="flex flex-col gap-4 px-4 pt-5 pb-4">
+        <article className="flex flex-col gap-4 px-4 pt-5 pb-6">
           <div className="flex flex-col gap-1">
             <span className="text-caption-medium text-text-secondary">{p.categoryLabel}</span>
             <h1 className="text-title2 break-words">{p.title}</h1>
@@ -208,37 +208,38 @@ export function CommunityPostPage({ postId }: { postId: number }) {
         <CommentSection postId={postId} authenticated={authenticated} locked={hidden} next={next} />
       </main>
 
-      <BottomSheet
+      <MenuSheet
         open={sheet === 'menu'}
         onOpenChange={(open) => !open && setSheet(null)}
-        title="더보기"
+        label="더보기"
       >
         {p.mine ? (
           <>
             {!hidden && (
-              <BottomSheetOption onClick={() => router.push(`/community/${postId}/edit`)}>
+              <MenuSheetAction onClick={() => router.push(`/community/${postId}/edit`)}>
                 수정하기
-              </BottomSheetOption>
+              </MenuSheetAction>
             )}
-            <BottomSheetOption
+            <MenuSheetAction
+              danger
               onClick={() => {
                 setSheet(null)
                 setDeleteOpen(true)
               }}
             >
               삭제하기
-            </BottomSheetOption>
+            </MenuSheetAction>
           </>
         ) : (
-          <BottomSheetOption
+          <MenuSheetAction
             onClick={() =>
               authenticated ? setSheet('report') : (setSheet(null), setLoginOpen(true))
             }
           >
             신고하기
-          </BottomSheetOption>
+          </MenuSheetAction>
         )}
-      </BottomSheet>
+      </MenuSheet>
       <BottomSheet
         open={sheet === 'report'}
         onOpenChange={(open) => !open && setSheet(null)}
@@ -253,10 +254,10 @@ export function CommunityPostPage({ postId }: { postId: number }) {
           aria-label="신고 사유"
           value={reason ?? ''}
           onValueChange={(value) => setReason(value as ReportReason)}
-          className="gap-0 px-2"
+          className="gap-1 px-2"
         >
           {REPORT_REASONS.map((r) => (
-            <Radio key={r.value} value={r.value} label={r.label} className="h-13" />
+            <Radio key={r.value} value={r.value} label={r.label} className="h-12" />
           ))}
         </RadioGroup>
       </BottomSheet>

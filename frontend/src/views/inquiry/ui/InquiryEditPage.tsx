@@ -6,11 +6,13 @@ import { useState } from 'react'
 import { AppHeader } from '@/widgets/app-header'
 import { LoadErrorBody } from '@/widgets/status-screens'
 import {
+  ANSWERER_NOTE,
   BODY_MAX,
   inquiryErrorMessage,
   TITLE_MAX,
   useEditInquiry,
   useMyInquiry,
+  useRaceName,
   type Inquiry,
 } from '@/entities/inquiry'
 import { BottomCta, Button, Skeleton, Textarea, TextField, useToast } from '@/shared/ui'
@@ -44,6 +46,7 @@ function EditForm({ inquiry, header }: { inquiry: Inquiry; header: React.ReactNo
   const router = useRouter()
   const toast = useToast()
   const edit = useEditInquiry(inquiry.id)
+  const raceName = useRaceName(inquiry.raceId)
   const [title, setTitle] = useState(inquiry.title)
   const [body, setBody] = useState(inquiry.body)
   const ready = title.trim() !== '' && body.trim() !== ''
@@ -61,6 +64,9 @@ function EditForm({ inquiry, header }: { inquiry: Inquiry; header: React.ReactNo
     <>
       {header}
       <main className="flex flex-1 flex-col gap-4 px-4 pt-4">
+        <p className="text-caption-regular text-text-tertiary">
+          {[raceName, ANSWERER_NOTE[inquiry.assignee]].filter(Boolean).join(' · ')}
+        </p>
         <TextField
           label="제목"
           value={title}

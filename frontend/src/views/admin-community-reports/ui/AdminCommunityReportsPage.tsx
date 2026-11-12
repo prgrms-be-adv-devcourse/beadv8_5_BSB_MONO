@@ -36,6 +36,13 @@ const STATUS: Record<AdminReport['status'], { label: string; tone: BadgeTone }> 
 
 const rowKey = (r: AdminReport) => `${r.targetType}-${r.targetId}`
 const kind = (r: AdminReport) => (r.targetType === 'POST' ? '글' : '댓글')
+const handledText = (r: AdminReport) => {
+  const label = STATUS[r.status].label
+  if (!r.handledAt) return label
+  const d = new Date(r.handledAt)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${label} · ${d.getMonth() + 1}.${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
 const reasonText = (r: AdminReport) =>
   r.reasons.map((x) => `${REASON[x.reason]} ${x.count}`).join(' · ')
 const topReason = (r: AdminReport) =>
@@ -54,6 +61,7 @@ export function AdminCommunityReportsPage() {
 
   const act = (action: 'restore' | 'delete') => {
     if (!selected) return
+    setSelectedKey(rowKey(selected))
     handle.mutate(
       { targetType: selected.targetType, targetId: selected.targetId, action },
       {
@@ -97,7 +105,9 @@ export function AdminCommunityReportsPage() {
             <StatTile label="오늘 처리" value={reports.data.handledTodayCount} unit="건" />
           </div>
 
-          <ConsoleCard title={`숨겨진 글 · 댓글 ${items.length}건`}>
+          <ConsoleCard
+            title={`${reports.data.hiddenCount > 0 ? '숨겨진' : '신고된'} 글 · 댓글 ${items.length}건`}
+          >
             {items.length === 0 ? (
               <EmptyState title="숨겨진 글 · 댓글이 없어요" />
             ) : (
@@ -146,25 +156,31 @@ export function AdminCommunityReportsPage() {
                 </p>
                 <KeyValue label="내용" value={selected.content} />
                 <KeyValue label="신고 사유" value={reasonText(selected)} />
-                <Button
-                  variant="secondary"
-                  className="w-full"
-                  disabled={selected.status !== 'HIDDEN' || handle.isPending}
-                  onClick={() => act('restore')}
-                >
-                  되살리기
-                </Button>
-                <Button
-                  variant="danger"
-                  className="w-full"
-                  disabled={selected.status !== 'HIDDEN' || handle.isPending}
-                  onClick={() => act('delete')}
-                >
-                  지우기
-                </Button>
-                <p className="text-caption-regular text-text-tertiary">
-                  되살리면 다시 모두에게 보여요. 지우면 쓴 사람에게도 보이지 않아요.
-                </p>
+                {selected.status === 'HIDDEN' ? (
+                  <>
+                    <Button
+                      variant="secondary"
+                      className="w-full"
+                      disabled={handle.isPending}
+                      onClick={() => act('restore')}
+                    >
+                      되살리기
+                    </Button>
+                    <Button
+                      variant="danger"
+                      className="w-full"
+                      disabled={handle.isPending}
+                      onClick={() => act('delete')}
+                    >
+                      지우기
+                    </Button>
+                    <p className="text-caption-regular text-text-tertiary">
+                      되살리면 다시 모두에게 보여요. 지우면 쓴 사람에게도 보이지 않아요.
+                    </p>
+                  </>
+                ) : (
+                  <KeyValue label="처리" value={handledText(selected)} />
+                )}
               </div>
             </ConsoleCard>
           )}

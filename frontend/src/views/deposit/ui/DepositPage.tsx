@@ -66,10 +66,15 @@ export function DepositPage({ refunding = false }: { refunding?: boolean }) {
             )}
           </div>
           {refunding && (
-            <Alert
-              title="5,000원 돌려받는 중이에요"
-              description="국민은행 계좌로 보내면 '환급 완료'로 바뀌어요."
-            />
+            <>
+              <Alert
+                title="5,000원 돌려받는 중이에요"
+                description="국민은행 계좌로 보내면 '환급 완료'로 바뀌어요."
+              />
+              <p className="text-caption-regular text-text-tertiary">
+                돌려받는 중에는 다시 신청할 수 없어요.
+              </p>
+            </>
           )}
         </section>
 
@@ -131,12 +136,7 @@ export function DepositPage({ refunding = false }: { refunding?: boolean }) {
 
         <section className="flex flex-col gap-3">
           <h2 className="text-body1-bold">돌려받는 방법</h2>
-          <div className="flex flex-col gap-2">
-            <KeyValue label="계좌로 돌려받기" value="남은 예치금 전부" />
-            <p className="text-caption-regular text-text-tertiary">
-              관리자가 확인한 뒤 계좌로 보내 드려요.
-            </p>
-          </div>
+          <KeyValue label="계좌로 돌려받기" value="남은 예치금 전부" />
         </section>
       </main>
       <BottomCta

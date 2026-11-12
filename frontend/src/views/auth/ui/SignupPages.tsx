@@ -1,12 +1,12 @@
 'use client'
 
 import { zodResolver } from '@hookform/resolvers/zod'
+import type { Route } from 'next'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { useForm, useWatch, type FieldErrors, type UseFormRegister } from 'react-hook-form'
 
-import { AppHeader } from '@/widgets/app-header'
 import { checkEmailAvailable, loginHref, safeNextPath, useLogin } from '@/features/auth'
 import {
   IdentityMockNotice,
@@ -35,20 +35,22 @@ import {
 import { joinErrorMessage, toJoinRequest } from '../model/join'
 import {
   AUTH_ERRORS,
+  PASSWORD_MAX,
   signupAccountSchema,
+  signupEmailSchema,
+  signupPasswordSchema,
   signupProfileSchema,
-  type SignupAccountValues,
   type SignupProfileValues,
 } from '../model/schemas'
 import { saveSignupDraft, takeSignupDraft } from '../model/signup-draft'
 import { saveSignupNext, signupStartHref, takeSignupNext } from '../model/signup-next'
 import { useSignupStep } from '../model/signup-store'
 import { requiredTermsChecked, SIGNUP_TERMS } from '../model/signup-terms'
-import { CenterBody, StepIntro } from './parts'
+import { CenterBody, LineField, StatusScreen, StepHeader, StepIntro } from './parts'
 
-// 시안 M04-P 1 · 이메일 가입 본인 확인. 가입의 첫 화면이고, 약관 동의(M04-0) 바텀시트를 이 화면 위에 띄운다.
+// 시안 가입 · 본인 확인. 가입의 첫 화면이고, 약관 동의(M04-0) 바텀시트를 이 화면 위에 띄운다.
 // 비밀번호를 넣기 전에 본인인증을 받아, 모바일에서 포트원 창을 다녀와도 다시 받을 비밀번호가 없다.
-// 인증을 마치면 계정(이메일 · 비밀번호) 단계로 넘어간다. 이미 인증했으면 확인된 정보를 보여 주고 「다음」으로 넘어간다.
+// 인증을 마치면 이메일 · 비밀번호 단계로 넘어간다. 이미 인증했으면 확인된 정보를 보여 주고 「다음」으로 넘어간다.
 // next는 가입을 마친 뒤 돌아갈 화면(?next=, BUK-98). 마지막 단계까지 남겨 둔다.
 // next 없이 들어오면 전에 그만둔 가입이 남긴 값을 지운다. 모바일 본인인증은 지금 주소(?next= 포함)로 돌아오므로 지워도 된다.
 export function SignupIdentityPage({ next }: { next?: string } = {}) {
@@ -91,7 +93,7 @@ export function SignupIdentityPage({ next }: { next?: string } = {}) {
 
   return (
     <>
-      <AppHeader type="sub" title="가입하기" />
+      <StepHeader onBack={() => router.back()} />
       <CenterBody center={false}>
         <StepIntro title={'휴대폰으로\n본인 확인을 해 주세요'} />
         {mock && <IdentityMockNotice />}
@@ -113,53 +115,55 @@ export function SignupIdentityPage({ next }: { next?: string } = {}) {
   )
 }
 
-// 피그마 V2 · M04-1 계정(이메일 · 비밀번호) (+ M04-1E 입력 오류). 약관 동의와 본인인증을 마친 뒤 온다.
-// invalid는 시안 미리보기(?preview=error)용. 앞 단계를 건너뛰고 M04-1E 오류를 띄운 채로 보여 준다.
-// 입력값은 SignupStepProvider((auth) 레이아웃)에 남아 회원 정보 단계에서 돌아와도 그대로다.
+// 시안 가입 · 이메일 → 비밀번호 (두 화면). 약관 동의와 본인인증을 마친 뒤 온다. 한 주소(/signup/account) 안에서 단계만 바뀐다.
+// invalid는 시안 미리보기(?preview=error)용. 앞 단계를 건너뛰고 「비밀번호 · 너무 김」 오류를 띄운 채로 보여 준다.
+// 입력값은 SignupStepProvider((auth) 레이아웃)에 남아 닉네임 단계에서 돌아와도 그대로다.
 export function SignupAccountPage({ invalid = false }: { invalid?: boolean }) {
   const router = useRouter()
   const termsAgreed = useSignupStep((s) => s.termsAgreed)
   const verification = useSignupStep((s) => s.verification)
   const ready = invalid || (termsAgreed && verification !== null)
+  const [step, setStep] = useState<'email' | 'password'>(invalid ? 'password' : 'email')
   useEffect(() => {
     if (!ready) router.replace(signupStartHref())
   }, [ready, router])
 
-  return ready ? <SignupAccountForm invalid={invalid} /> : null
+  if (!ready) return null
+  return step === 'email' ? (
+    <SignupEmailStep onNext={() => setStep('password')} />
+  ) : (
+    <SignupPasswordStep invalid={invalid} onBack={() => setStep('email')} />
+  )
 }
 
-function SignupAccountForm({ invalid }: { invalid: boolean }) {
+// 이메일 단계. 뒤로 가면 「가입을 그만둘까요?」를 먼저 묻는다. 그만두면 적은 내용과 본인인증 결과를 지우고 로그인 화면으로 간다.
+function SignupEmailStep({ onNext }: { onNext: () => void }) {
   const router = useRouter()
   const account = useSignupStep((s) => s.account)
   const setAccount = useSignupStep((s) => s.setAccount)
-
+  const reset = useSignupStep((s) => s.reset)
+  const [quitOpen, setQuitOpen] = useState(false)
   const {
     register,
     handleSubmit,
     subscribe,
     getValues,
-    trigger,
     setError,
     formState: { errors, isValid, isSubmitting },
-  } = useForm<SignupAccountValues>({
-    resolver: zodResolver(signupAccountSchema),
+  } = useForm<{ email: string }>({
+    resolver: zodResolver(signupEmailSchema),
     mode: 'onTouched',
-    defaultValues: invalid
-      ? { email: 'runner@crewrun.kr', password: 'password12', passwordConfirm: 'password13' }
-      : account,
+    defaultValues: { email: account.email },
   })
   // 입력할 때마다 스토어에 옮겨 둔다. 뒤로 왔다가 다시 와도 값이 남는다.
-  useEffect(() => {
-    if (invalid) return
-    return subscribe({
-      formState: { values: true },
-      callback: ({ values }) => setAccount(values),
-    })
-  }, [invalid, subscribe, setAccount])
-  // 비밀번호를 고치면 이미 채운 확인 칸도 다시 검사한다. 비어 있으면 "다르다" 오류를 먼저 띄우지 않는다.
-  const revalidateConfirm = () => {
-    if (getValues('passwordConfirm')) void trigger('passwordConfirm')
-  }
+  useEffect(
+    () =>
+      subscribe({
+        formState: { values: true },
+        callback: ({ values }) => setAccount({ email: values.email }),
+      }),
+    [subscribe, setAccount],
+  )
   // 이메일 중복 확인. 칸을 벗어날 때 먼저 알려 주고, "다음"에서도 한 번 더 확인해 중복이면 못 넘어가게 한다.
   // quiet: 칸을 벗어날 때처럼 미리 알려 주는 확인. 형식이 맞는 이메일만 묻고, 서버에 닿지 못해도 오류를 띄우지 않는다.
   // "다음"에서는 확인 요청이 실패해도 칸 오류로 알리고 넘어가지 않는다.
@@ -167,7 +171,7 @@ function SignupAccountForm({ invalid }: { invalid: boolean }) {
   const checkEmail = async (quiet = false): Promise<boolean> => {
     setEmailCheckFailed(false)
     const email = getValues('email').trim()
-    if (quiet && !signupAccountSchema.shape.email.safeParse(email).success) return false
+    if (quiet && !signupEmailSchema.shape.email.safeParse(email).success) return false
     try {
       const available = await checkEmailAvailable(email)
       if (!available && getValues('email').trim() === email) {
@@ -182,52 +186,102 @@ function SignupAccountForm({ invalid }: { invalid: boolean }) {
   }
   // 입력 칸에서 Enter를 눌러도 같은 길로 오도록 form 제출에 묶는다. 버튼이 꺼져 있으면 Enter로도 제출되지 않는다.
   const onFormSubmit = handleSubmit(async () => {
-    if (await checkEmail()) router.push('/signup/profile')
+    if (await checkEmail()) onNext()
   })
 
   return (
     <>
-      <AppHeader type="sub" title="가입하기" />
+      <StepHeader onBack={() => setQuitOpen(true)} />
       <form noValidate onSubmit={onFormSubmit} className="contents">
         <CenterBody center={false}>
-          <StepIntro title={'로그인할 때 쓸\n이메일과 비밀번호를 적어 주세요'} />
-          <TextField
-            label="이메일"
+          <StepIntro title={'로그인할 때 쓸\n이메일을 적어 주세요'} />
+          <LineField
+            aria-label="이메일"
             type="email"
             autoComplete="email"
-            placeholder="이메일을 입력해 주세요"
+            autoFocus
             error={
-              errors.email?.message ??
-              (emailCheckFailed ? AUTH_ERRORS.emailCheckFailed : undefined) ??
-              (invalid ? AUTH_ERRORS.emailTaken : undefined)
+              errors.email?.message ?? (emailCheckFailed ? AUTH_ERRORS.emailCheckFailed : undefined)
             }
             {...register('email', { onBlur: () => void checkEmail(true) })}
-          />
-          <TextField
-            label="비밀번호"
-            type="password"
-            autoComplete="new-password"
-            placeholder="비밀번호를 입력해 주세요"
-            helper="10자 이상"
-            error={errors.password?.message}
-            {...register('password', { onChange: revalidateConfirm })}
-          />
-          <TextField
-            label="비밀번호 확인"
-            type="password"
-            autoComplete="new-password"
-            placeholder="비밀번호를 한 번 더 입력해 주세요"
-            error={
-              errors.passwordConfirm?.message ??
-              (invalid ? AUTH_ERRORS.passwordMismatch : undefined)
-            }
-            {...register('passwordConfirm')}
           />
         </CenterBody>
         <BottomCta
           className="sticky bottom-0 z-10"
           primary={
-            <Button type="submit" size="l" disabled={!isValid || invalid} loading={isSubmitting}>
+            <Button type="submit" size="l" disabled={!isValid} loading={isSubmitting}>
+              다음
+            </Button>
+          }
+        />
+      </form>
+      <Dialog
+        open={quitOpen}
+        onOpenChange={setQuitOpen}
+        title="가입을 그만둘까요?"
+        body="지금 나가면 적은 내용이 지워져요. 다음에 가입할 때 본인 확인부터 다시 해야 해요."
+        cancelLabel="그만두기"
+        confirmLabel="계속 가입하기"
+        onCancel={() => {
+          takeSignupNext()
+          reset()
+          router.replace('/login')
+        }}
+        onConfirm={() => setQuitOpen(false)}
+      />
+    </>
+  )
+}
+
+// 비밀번호 단계. 한 번만 적고, 조건(10자 이상)을 맞추면 아래에 초록 체크가 뜬다.
+function SignupPasswordStep({ invalid, onBack }: { invalid: boolean; onBack: () => void }) {
+  const router = useRouter()
+  const password = useSignupStep((s) => s.account.password)
+  const setAccount = useSignupStep((s) => s.setAccount)
+  const {
+    register,
+    handleSubmit,
+    subscribe,
+    control,
+    formState: { isValid },
+  } = useForm<{ password: string }>({
+    resolver: zodResolver(signupPasswordSchema),
+    mode: 'onChange',
+    defaultValues: { password: invalid ? 'password1234'.repeat(6) : password },
+  })
+  useEffect(() => {
+    if (invalid) return
+    return subscribe({
+      formState: { values: true },
+      callback: ({ values }) => setAccount({ password: values.password }),
+    })
+  }, [invalid, subscribe, setAccount])
+  const typed = useWatch({ control, name: 'password' })
+
+  return (
+    <>
+      <StepHeader onBack={onBack} />
+      <form
+        noValidate
+        onSubmit={handleSubmit(() => router.push('/signup/profile'))}
+        className="contents"
+      >
+        <CenterBody center={false}>
+          <StepIntro title={'비밀번호를\n정해 주세요'} />
+          <LineField
+            aria-label="비밀번호"
+            type="password"
+            autoComplete="new-password"
+            autoFocus
+            error={typed.length > PASSWORD_MAX ? AUTH_ERRORS.passwordTooLong : undefined}
+            hints={[{ ok: typed.length >= 10, text: '10자 이상이에요' }]}
+            {...register('password')}
+          />
+        </CenterBody>
+        <BottomCta
+          className="sticky bottom-0 z-10"
+          primary={
+            <Button type="submit" size="l" disabled={!isValid}>
               다음
             </Button>
           }
@@ -237,8 +291,8 @@ function SignupAccountForm({ invalid }: { invalid: boolean }) {
   )
 }
 
-// 시안 M04-P 4 · 이메일 가입 회원 정보. 이름 · 생년월일 · 휴대폰 번호는 본인인증 결과로 잠겨 있고, 닉네임과 성별만 적는다.
-// 앞 단계(약관 · 본인인증 · 계정)를 마치지 않고 들어오면(주소 직접 입력, 새로고침) 첫 단계로 돌려보낸다.
+// 시안 가입 · 닉네임 → 가입 완료. 본인인증 결과와 이메일 · 비밀번호는 앞 단계에서 받았으므로 닉네임만 적는다.
+// 앞 단계(약관 · 본인인증 · 이메일 · 비밀번호)를 마치지 않고 들어오면(주소 직접 입력, 새로고침) 첫 단계로 돌려보낸다.
 export function SignupProfilePage() {
   const router = useRouter()
   const termsAgreed = useSignupStep((s) => s.termsAgreed)
@@ -246,14 +300,17 @@ export function SignupProfilePage() {
   const verification = useSignupStep((s) => s.verification)
   const ready =
     termsAgreed && verification !== null && signupAccountSchema.safeParse(account).success
+  // 가입과 로그인을 마치면 돌아갈 화면(next)을 담아 완료 화면으로 바꾼다
+  const [done, setDone] = useState<Route>()
   useEffect(() => {
     if (!ready) router.replace(signupStartHref())
   }, [ready, router])
 
-  return ready ? <SignupProfileForm /> : null
+  if (done !== undefined) return <SignupDonePage next={done} />
+  return ready ? <SignupProfileForm onDone={setDone} /> : null
 }
 
-function SignupProfileForm() {
+function SignupProfileForm({ onDone }: { onDone: (next: Route) => void }) {
   const router = useRouter()
   const account = useSignupStep((s) => s.account)
   const terms = useSignupStep((s) => s.terms)
@@ -280,7 +337,6 @@ function SignupProfileForm() {
     mode: 'onTouched',
     defaultValues: profile,
   })
-  const gender = useWatch({ control, name: 'gender' })
   useEffect(
     () =>
       subscribe({
@@ -289,7 +345,8 @@ function SignupProfileForm() {
       }),
     [subscribe, setProfile],
   )
-  // 가입(POST /api/v1/auth/join) 뒤 같은 이메일 · 비밀번호로 바로 로그인해 홈으로 간다.
+  const nickname = useWatch({ control, name: 'nickname' })
+  // 가입(POST /api/v1/auth/join) 뒤 같은 이메일 · 비밀번호로 바로 로그인하고 「가입을 마쳤어요」를 보여 준다.
   // 가입 API는 토큰을 주지 않는다. 로그인만 실패하면 가입은 됐으므로 로그인 화면으로 보낸다.
   const onSubmit = handleSubmit((values) => {
     setFormError(undefined)
@@ -304,7 +361,7 @@ function SignupProfileForm() {
           login.mutate(
             { email: body.email, password: body.password },
             {
-              onSuccess: () => router.replace(next),
+              onSuccess: () => onDone(next),
               onError: () => router.replace(next === '/' ? '/login' : loginHref(next)),
             },
           )
@@ -334,21 +391,24 @@ function SignupProfileForm() {
   return (
     <>
       <form noValidate onSubmit={onSubmit} className="contents">
-        <AppHeader type="sub" title="가입하기" />
+        <StepHeader onBack={() => router.back()} />
         <CenterBody center={false}>
           <StepIntro title={'크루런에서 쓸\n닉네임을 정해 주세요'} />
-          <LockedIdentityFields identity={verification} />
-          <SignupProfileFields
-            register={register}
-            errors={errors}
-            gender={gender}
-            onGenderChange={(gender) => setValue('gender', gender, { shouldValidate: true })}
+          <LineField
+            aria-label="닉네임"
+            autoComplete="nickname"
+            autoFocus
+            error={errors.nickname?.message ?? formError}
+            hints={[
+              nickname && isValid
+                ? { ok: true, text: '규칙에 맞아요' }
+                : { ok: false, text: '한글 2~8자, 영문 4~16자' },
+            ]}
+            onClear={
+              nickname ? () => setValue('nickname', '', { shouldValidate: true }) : undefined
+            }
+            {...register('nickname')}
           />
-          {formError && (
-            <p role="alert" className="text-caption-regular text-text-danger">
-              {formError}
-            </p>
-          )}
         </CenterBody>
         <BottomCta
           className="sticky bottom-0 z-10"
@@ -361,6 +421,25 @@ function SignupProfileForm() {
       </form>
       <DuplicateIdentityDialog open={duplicate} onOpenChange={setDuplicate} />
       <RejoinTooSoonDialog rejoin={rejoin} onClose={() => setRejoin(null)} />
+    </>
+  )
+}
+
+// 시안 가입 완료. 가입과 자동 로그인을 마치면 이 화면을 보여 주고, 「홈으로 가기」가 next(없으면 홈)로 보낸다.
+function SignupDonePage({ next }: { next: Route }) {
+  const router = useRouter()
+  return (
+    <>
+      <StepHeader title="가입하기" />
+      <StatusScreen title="가입을 마쳤어요" />
+      <BottomCta
+        className="sticky bottom-0 z-10"
+        primary={
+          <Button size="l" onClick={() => router.replace(next)}>
+            홈으로 가기
+          </Button>
+        }
+      />
     </>
   )
 }
@@ -417,7 +496,7 @@ export function SignupTermsSheet({
               />
               {'href' in term && (
                 <Link
-                  href={term.href}
+                  href={{ pathname: term.href, query: { from: 'signup' } }}
                   aria-label={`${term.label} 보기`}
                   className={cn('rounded-sm text-text-primary', FOCUS_RING)}
                 >
@@ -488,7 +567,7 @@ export function DuplicateIdentityDialog({
       open={open}
       onOpenChange={onOpenChange}
       title="이미 가입한 사람이에요"
-      body="로그인하거나 계정을 연결해 주세요. 계정 연결은 로그인한 뒤 마이 › 계정 관리에서 해요."
+      body="로그인하거나 계정을 연결해 주세요."
       cancelLabel="닫기"
       confirmLabel="로그인하기"
       onConfirm={() => router.push('/login')}

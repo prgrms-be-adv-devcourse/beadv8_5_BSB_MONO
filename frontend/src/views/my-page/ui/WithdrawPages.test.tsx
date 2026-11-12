@@ -26,28 +26,83 @@ beforeEach(() => {
   reloadTo.mockClear()
 })
 
-// 남은 일을 모두 마친 상태(시안 M31-C)에서 안내를 확인하고 탈퇴하기를 누른다.
-async function openConfirm() {
-  const user = userEvent.setup()
+function remaining({ balance, orders }: { balance: number; orders: unknown[] }) {
+  server.use(
+    http.get('*/api/v1/cash/wallets/balance', () =>
+      HttpResponse.json({ status: 200, message: '잔액을 조회했습니다.', data: { balance } }),
+    ),
+    http.get('*/api/v1/order/orders', () =>
+      HttpResponse.json({
+        status: 200,
+        message: '주문 내역을 조회했습니다.',
+        data: { orders, page: 0, size: 100, totalElements: orders.length, totalPages: 1 },
+      }),
+    ),
+  )
+}
+
+function renderPage() {
+  setAccessToken('token')
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <WithdrawPage blocked={false} />
+      <WithdrawPage />
     </QueryClientProvider>,
   )
-  await user.click(screen.getByRole('checkbox', { name: '안내를 모두 확인했어요' }))
+}
+
+// 남은 일을 모두 마친 상태(시안 M31-C)에서 안내를 확인하고 탈퇴하기를 누른다.
+async function openConfirm() {
+  remaining({ balance: 0, orders: [] })
+  const user = userEvent.setup()
+  renderPage()
+  const checkbox = screen.getByRole('checkbox', { name: '안내를 모두 확인했어요' })
+  await vi.waitFor(() => expect(checkbox).toBeEnabled())
+  await user.click(checkbox)
   await user.click(screen.getByRole('button', { name: '탈퇴하기' }))
   return user
 }
 
 describe('WithdrawPage 최종 확인 창', () => {
-  it('남은 일이 있으면 탈퇴하기가 꺼져 있어 창이 뜨지 않는다', () => {
-    render(
-      <QueryClientProvider client={new QueryClient()}>
-        <WithdrawPage />
-      </QueryClientProvider>,
-    )
+  it('남은 예치금이 있으면 안내하고, 탈퇴하기가 꺼져 있어 창이 뜨지 않는다', async () => {
+    remaining({ balance: 5000, orders: [] })
+    renderPage()
+
+    expect(await screen.findByText('남은 예치금 5,000원')).toBeInTheDocument()
+    expect(screen.getByText('탈퇴하기 전에 남은 일이 있어요')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '탈퇴하기' })).toBeDisabled()
+    expect(screen.getByRole('checkbox', { name: '안내를 모두 확인했어요' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
     expect(screen.queryByText('정말 탈퇴할까요?')).not.toBeInTheDocument()
+  })
+
+  it('끝나지 않은 참가권이 있으면 몇 장인지 안내하고 탈퇴하기를 막는다', async () => {
+    // 목의 주문 목록에서 참가권이 되는 것은 결제한 주문 1개. 대회 날짜는 아직 지나지 않았다
+    server.use(
+      http.get('*/api/v1/product/races/:raceId', () =>
+        HttpResponse.json({
+          status: 200,
+          message: '대회를 조회했습니다.',
+          data: { id: 1, title: '용감한 쿠키RUN', raceDate: '2099-11-01' },
+        }),
+      ),
+      http.get('*/api/v1/cash/wallets/balance', () =>
+        HttpResponse.json({ status: 200, message: '잔액을 조회했습니다.', data: { balance: 0 } }),
+      ),
+    )
+    renderPage()
+
+    expect(await screen.findByText('끝나지 않은 참가권 1장')).toBeInTheDocument()
+    expect(screen.getByText(/용감한 쿠키RUN\(11\/1\)을 취소하거나/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '탈퇴하기' })).toBeDisabled()
+  })
+
+  it('남은 일이 없으면 이제 탈퇴할 수 있다고 알린다', async () => {
+    remaining({ balance: 0, orders: [] })
+    renderPage()
+
+    expect(await screen.findByText('이제 탈퇴할 수 있어요')).toBeInTheDocument()
   })
 
   it('탈퇴하기를 누르면 확인 창이 뜨고 아직 이동하지 않는다', async () => {

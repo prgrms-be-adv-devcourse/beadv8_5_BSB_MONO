@@ -9,6 +9,7 @@ export function AdminAiPage() {
       placeholder="처리를 기다리는 일이나 정산 현황을 물어보세요"
       scopeNote="회원 정보는 가린 값으로만 답해요"
       suggestions={['승인 대기 판매자', '예치금 환급 요청', '지급보류 중인 정산', '답변 대기 문의']}
+      footnote="크루런 AI는 틀릴 수 있어요. 처리는 각 화면에서 해 주세요."
     />
   )
 }

@@ -38,13 +38,12 @@ function mockDraft() {
 }
 
 describe('InquiryAiDraft', () => {
-  it('초안을 받으면 확인 필요 표시와 안내를 보여 주고, 비워 둔 곳을 고치고 확인해야 보낼 수 있다', async () => {
+  it('문의를 열면 초안이 들어와 확인 필요 표시와 안내를 보여 주고, 비워 둔 곳을 고치고 확인해야 보낼 수 있다', async () => {
     mockDraft()
     const user = userEvent.setup()
     const onSend = renderDraft()
 
-    await user.click(screen.getByRole('button', { name: 'AI 초안 받기' }))
-
+    // 문의를 열면 초안이 저절로 들어온다
     expect(await screen.findByText('확인 필요 1곳')).toBeInTheDocument()
     expect(screen.getByText('발송 날짜를 넣지 못했어요')).toBeInTheDocument()
     expect(screen.getByText('참고한 정보 · 주문 OD-20261030-0217')).toBeInTheDocument()
@@ -65,7 +64,7 @@ describe('InquiryAiDraft', () => {
     expect(onSend).toHaveBeenCalledWith('11월 10일에 보내 드려요.')
   })
 
-  it('초안을 만들지 못하면 서버 문구를 보여 주고 다시 받을 수 있다', async () => {
+  it('초안을 만들지 못하면 서버 문구와 안내를 보여 주고, 직접 써서 보내거나 다시 만들 수 있다', async () => {
     server.use(
       http.post('*/api/v1/ai/seller/inquiries/5/draft', () =>
         HttpResponse.json(
@@ -80,12 +79,19 @@ describe('InquiryAiDraft', () => {
       ),
     )
     const user = userEvent.setup()
-    renderDraft()
+    const onSend = renderDraft()
 
-    await user.click(screen.getByRole('button', { name: 'AI 초안 받기' }))
+    expect(await screen.findByText('답변 초안을 만들지 못했어요')).toBeInTheDocument()
+    expect(screen.getByText(/지금은 답변을 만들 수 없습니다\./)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '답변 보내기' })).toBeDisabled()
 
-    expect(await screen.findByText('초안을 만들지 못했어요')).toBeInTheDocument()
-    expect(screen.getByText('지금은 답변을 만들 수 없습니다.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'AI 초안 받기' })).toBeEnabled()
+    // 초안이 없으면 확인 체크 없이 직접 쓴 답을 보낼 수 있다
+    await user.type(screen.getByLabelText('답변'), '직접 쓴 답이에요.')
+    await user.click(screen.getByRole('button', { name: '답변 보내기' }))
+    expect(onSend).toHaveBeenCalledWith('직접 쓴 답이에요.')
+
+    mockDraft()
+    await user.click(screen.getByRole('button', { name: '다시 만들기' }))
+    expect(await screen.findByText('확인 필요 1곳')).toBeInTheDocument()
   })
 })

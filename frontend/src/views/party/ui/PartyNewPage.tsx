@@ -17,8 +17,8 @@ import {
   type PartyFailure,
 } from '@/entities/party'
 import { fetchRacePage, RaceSort } from '@/entities/race'
-import { ApiError, productApi, productModel, unwrapData } from '@/shared/api'
-import { cn, formatWon } from '@/shared/lib'
+import { ApiError, memberApi, productApi, productModel, unwrapData } from '@/shared/api'
+import { cn, formatNumber } from '@/shared/lib'
 import {
   Alert,
   Badge,
@@ -69,6 +69,9 @@ export function PartyNewPage({ crewId }: { crewId?: number }) {
   const [serverMessage, setServerMessage] = useState<string>()
   const detail = productApi.useFindRace(raceId ?? 0, {
     query: { enabled: raceId !== undefined, select: unwrapData },
+  })
+  const crew = memberApi.useFindCrew(crewId ?? 0, {
+    query: { enabled: crewId !== undefined, select: unwrapData },
   })
   const create = useCreateParty()
   const form = useForm<ParticipantValues>({
@@ -160,7 +163,9 @@ export function PartyNewPage({ crewId }: { crewId?: number }) {
       <div className="flex flex-col gap-6 bg-bg-surface px-4 py-6">
         <div className="flex flex-col gap-1">
           <h2 className="text-title1">어느 대회, 어느 종목으로 나갈까요?</h2>
-          <p className="text-body2-regular text-text-secondary">1/2 대회·종목 고르기</p>
+          <p className="text-body2-regular text-text-secondary">
+            {crew.data ? `${crew.data.name} 크루로 파티를 만들어요 · ` : ''}1/2 대회·종목 고르기
+          </p>
         </div>
         <Alert
           title="파티원은 모두 이 종목으로 신청해요"
@@ -186,17 +191,22 @@ export function PartyNewPage({ crewId }: { crewId?: number }) {
                     }}
                     className={cn(
                       'flex w-full flex-col items-start gap-2 rounded-lg border p-4 text-left',
-                      selected ? 'border-border-brand' : 'border-border-subtle',
+                      selected ? 'border-2 border-border-brand' : 'border-border-default',
                       disabled && 'opacity-40',
                     )}
                   >
-                    <Badge>
-                      {phase === 'open'
-                        ? '크루 예매 중'
-                        : phase === 'before'
-                          ? '크루 예매 전'
-                          : '크루 예매 끝'}
-                    </Badge>
+                    <span className="flex w-full items-center justify-between">
+                      <Badge>
+                        {phase === 'open'
+                          ? '크루 예매 중'
+                          : phase === 'before'
+                            ? '크루 예매 전'
+                            : '크루 예매 끝'}
+                      </Badge>
+                      {selected && (
+                        <span className="text-body2-medium text-text-brand">선택됨</span>
+                      )}
+                    </span>
                     <span className="text-body1-medium">{race.title}</span>
                     <span className="text-caption-regular text-text-secondary">
                       {phase === 'ended' && race.crewSaleEndAt
@@ -226,7 +236,7 @@ export function PartyNewPage({ crewId }: { crewId?: number }) {
                     key={c.raceCourseId}
                     value={String(c.raceCourseId)}
                     disabled={(c.crewRemaining ?? 0) <= 0}
-                    label={`${c.name} · ${formatWon(c.price ?? 0)} · 남은 크루 전용 자리 ${c.crewRemaining ?? 0}자리`}
+                    label={`${c.name} · ${formatNumber(c.price ?? 0)}원 · 남은 크루 전용 자리 ${c.crewRemaining ?? 0}자리`}
                   />
                 ))}
               </RadioGroup>

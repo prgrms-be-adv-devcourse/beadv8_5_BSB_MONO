@@ -58,7 +58,7 @@ export function DepositChargePage() {
           <label htmlFor="charge-amount" className="text-body2-medium">
             충전할 금액
           </label>
-          <div className="flex items-baseline justify-end gap-1 rounded-md px-4 py-3 inset-ring inset-ring-border-strong">
+          <div className="flex items-baseline justify-end gap-1 border-b border-border-strong px-1 py-3">
             <input
               id="charge-amount"
               inputMode="numeric"
@@ -76,14 +76,14 @@ export function DepositChargePage() {
               <Button
                 key={step}
                 variant="secondary"
-                className="flex-1 justify-start"
+                className="flex-1"
                 onClick={() => setAmount((a) => a + step)}
               >
                 +{step / 10_000}만
               </Button>
             ))}
           </div>
-          <div className="flex flex-col gap-2 rounded-md bg-bg-subtle p-4">
+          <div className="flex flex-col gap-2 border-t border-border-default pt-4">
             <KeyValue
               label="지금 예치금"
               value={balance === undefined ? '-' : `${won(balance)}원`}

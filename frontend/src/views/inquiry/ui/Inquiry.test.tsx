@@ -151,8 +151,11 @@ describe('문의 상세', () => {
       'href',
       '/me/inquiries/1/edit',
     )
+    // 답변 전 배지는 「답변 기다림」(목록은 「답변 대기」)
+    expect(screen.getByText('답변 기다림')).toBeInTheDocument()
     server.use(http.delete('*/api/v1/inquiry/inquiries/1', () => ok(null)))
     await user.click(screen.getByRole('button', { name: '지우기' }))
+    expect(await screen.findByText('지운 문의는 되돌릴 수 없어요.')).toBeInTheDocument()
     const buttons = await screen.findAllByRole('button', { name: '지우기' })
     await user.click(buttons[buttons.length - 1])
 
@@ -235,6 +238,39 @@ describe('문의 쓰기', () => {
     renderUi(<InquiryComposePage />)
 
     expect(await screen.findByRole('textbox', { name: '제목' })).toBeInTheDocument()
+  })
+
+  it('고객센터에서 오고 참가권이 있으면 참가권을 고르고, 쓰기 위에 고른 참가권을 보여 준다', async () => {
+    const user = userEvent.setup()
+    server.use(
+      http.get('*/api/v1/order/orders', () =>
+        ok({
+          orders: [{ id: 1, status: 'PAID' }],
+          page: 0,
+          size: 100,
+          totalElements: 1,
+          totalPages: 1,
+        }),
+      ),
+      http.get('*/api/v1/order/orders/1', () =>
+        ok({
+          id: 1,
+          orderNo: 'OD-20261030-0217',
+          raceId: 1,
+          status: 'PAID',
+          items: [{ id: 10, itemName: '춘천 호수 하프마라톤 10K', status: 'PAID' }],
+        }),
+      ),
+    )
+    renderUi(<InquiryComposePage />)
+
+    // 「대회 종목」 이름은 「대회 · 종목」으로 나눠 보이고, 그 아래에 날짜와 신청 · 참가 완료가 온다
+    expect(await screen.findByText('춘천 호수 하프마라톤 · 10K')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '다음' }))
+
+    expect(
+      await screen.findByText('춘천 호수 하프마라톤 · 10K · 크루런이 답해요'),
+    ).toBeInTheDocument()
   })
 
   it('서버가 거절하면 문구를 알리고 이동하지 않는다', async () => {

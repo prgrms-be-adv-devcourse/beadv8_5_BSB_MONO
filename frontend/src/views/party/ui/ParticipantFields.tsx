@@ -15,7 +15,14 @@ const CONSENT_LINES = [
 ]
 
 // 파티 만들기 · 합류가 함께 쓰는 내 참가 정보 입력. 동의가 맨 위다(11/5).
-export function ParticipantFields({ form }: { form: UseFormReturn<ParticipantValues> }) {
+export function ParticipantFields({
+  form,
+  course,
+}: {
+  form: UseFormReturn<ParticipantValues>
+  /** 합류 화면에서 파티장이 정한 종목을 읽기 전용으로 보여 준다 (시안 파티 08) */
+  course?: string
+}) {
   const {
     register,
     control,
@@ -23,8 +30,8 @@ export function ParticipantFields({ form }: { form: UseFormReturn<ParticipantVal
   } = form
   return (
     <div className="flex flex-col gap-6">
-      <section className="flex flex-col gap-3 rounded-lg bg-bg-muted p-4">
-        <h3 className="text-body2-medium">개인정보 제3자 제공 동의</h3>
+      <section className="flex flex-col gap-3">
+        <h3 className="text-body1-medium">개인정보 제3자 제공 동의</h3>
         <ul className="flex flex-col gap-1 text-caption-regular text-text-secondary">
           {CONSENT_LINES.map((line) => (
             <li key={line}>{line}</li>
@@ -37,7 +44,7 @@ export function ParticipantFields({ form }: { form: UseFormReturn<ParticipantVal
             <Checkbox
               checked={field.value === true}
               onCheckedChange={field.onChange}
-              label={<span className="font-bold">[필수] 동의합니다</span>}
+              label="개인정보 제3자 제공에 동의해요 (필수)"
             />
           )}
         />
@@ -47,6 +54,12 @@ export function ParticipantFields({ form }: { form: UseFormReturn<ParticipantVal
           </p>
         )}
       </section>
+      {course && (
+        <section className="flex flex-col gap-3">
+          <h3 className="text-body1-medium">종목</h3>
+          <TextField label="파티 종목" value={course} readOnly />
+        </section>
+      )}
       <section className="flex flex-col gap-4">
         <h3 className="text-body1-medium">참가자 정보</h3>
         <TextField

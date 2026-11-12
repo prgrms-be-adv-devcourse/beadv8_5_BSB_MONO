@@ -6,6 +6,7 @@ import { useState } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
 import {
+  ANSWERER_NOTE,
   ASSIGNEE_ANSWERER,
   ASSIGNEE_OF,
   BODY_MAX,
@@ -14,9 +15,11 @@ import {
   TYPE_CHOICES,
   TYPE_LABEL,
   useCreateInquiry,
+  useRaceDate,
   useRaceName,
   type InquiryType,
 } from '@/entities/inquiry'
+import { formatRaceDate } from '@/entities/race'
 import { myTicketsQueryOptions, type MyTicket } from '@/entities/ticket'
 import { cn } from '@/shared/lib'
 import { BottomCta, Button, FOCUS_RING, Skeleton, Textarea, TextField, useToast } from '@/shared/ui'
@@ -28,6 +31,43 @@ const cardTone = (selected: boolean) =>
     : 'bg-bg-surface inset-ring-border-default'
 
 type Target = { raceId: number | null; orderId: number | null }
+
+/** 「춘천 호수 하프마라톤 10K」 → 「춘천 호수 하프마라톤 · 10K」 (주문 상품명 끝의 종목을 떼어 보여 준다) */
+const ticketTitle = (itemName: string) => itemName.replace(/\s+(\S+)$/, ' · $1')
+
+/** 참가권 하나 (피그마 M42): 대회 · 종목, 그 아래 「11.16 (일) · 신청 완료」. 대회 날이 지났으면 참가 완료 */
+function TicketOption({
+  ticket,
+  selected,
+  onSelect,
+}: {
+  ticket: MyTicket
+  selected: boolean
+  onSelect: () => void
+}) {
+  const raceDate = useRaceDate(ticket.raceId)
+  const done =
+    ticket.itemStatus === 'CANCELED'
+      ? '취소'
+      : raceDate && raceDate.slice(0, 10) < today()
+        ? '참가 완료'
+        : '신청 완료'
+  return (
+    <button
+      type="button"
+      aria-pressed={selected}
+      onClick={onSelect}
+      className={cn(CARD, 'flex-col items-start gap-1', cardTone(selected), FOCUS_RING)}
+    >
+      <span className="text-body1-bold">{ticketTitle(ticket.itemName)}</span>
+      <span className="text-caption-regular text-text-tertiary">
+        {[raceDate && formatRaceDate(raceDate).replace('/', '.'), done].filter(Boolean).join(' · ')}
+      </span>
+    </button>
+  )
+}
+
+const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' })
 
 /**
  * 피그마 문의 · 문의 쓰기 두 갈래.
@@ -47,7 +87,7 @@ function RaceFlow({ raceId }: { raceId: number }) {
     return (
       <WriteStep
         title={`${TYPE_LABEL[type]} 문의하기`}
-        subtitle={`${raceName ?? ''} · ${ASSIGNEE_ANSWERER[ASSIGNEE_OF[type]]}가 답해요`}
+        subtitle={[raceName, ANSWERER_NOTE[ASSIGNEE_OF[type]]].filter(Boolean).join(' · ')}
         type={type}
         target={{ raceId, orderId: null }}
       />
@@ -91,7 +131,7 @@ function RaceFlow({ raceId }: { raceId: number }) {
 function PaymentFlow() {
   const tickets = useQuery(myTicketsQueryOptions())
   // undefined = 아직 고르는 중, null = 참가권 없이 쓰기
-  const [target, setTarget] = useState<Target | null>()
+  const [target, setTarget] = useState<(Target & { label: string }) | null>()
   const [pickedId, setPickedId] = useState<string>()
 
   const list = tickets.data
@@ -101,8 +141,9 @@ function PaymentFlow() {
     return (
       <WriteStep
         title="참가 · 결제 문의하기"
+        subtitle={[target?.label, ANSWERER_NOTE.ADMIN].filter(Boolean).join(' · ')}
         type="APPLY_PAYMENT"
-        target={target ?? { raceId: null, orderId: null }}
+        target={{ raceId: target?.raceId ?? null, orderId: target?.orderId ?? null }}
       />
     )
   }
@@ -121,21 +162,12 @@ function PaymentFlow() {
           </div>
         ) : (
           list.map((ticket) => (
-            <button
+            <TicketOption
               key={ticket.id}
-              type="button"
-              aria-pressed={picked?.id === ticket.id}
-              onClick={() => choose(ticket)}
-              className={cn(
-                CARD,
-                'flex-col items-start gap-1',
-                cardTone(picked?.id === ticket.id),
-                FOCUS_RING,
-              )}
-            >
-              <span className="text-body1-bold">{ticket.itemName}</span>
-              <span className="text-caption-regular text-text-tertiary">{ticket.orderNo}</span>
-            </button>
+              ticket={ticket}
+              selected={picked?.id === ticket.id}
+              onSelect={() => choose(ticket)}
+            />
           ))
         )}
       </main>
@@ -150,7 +182,14 @@ function PaymentFlow() {
           <Button
             size="l"
             disabled={!picked}
-            onClick={() => picked && setTarget({ raceId: picked.raceId, orderId: picked.orderId })}
+            onClick={() =>
+              picked &&
+              setTarget({
+                raceId: picked.raceId,
+                orderId: picked.orderId,
+                label: ticketTitle(picked.itemName),
+              })
+            }
           >
             다음
           </Button>

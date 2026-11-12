@@ -12,7 +12,7 @@ import {
   usePartyQueueStatus,
   useRegisterPartyQueue,
 } from '@/entities/party'
-import { ApiError, productApi, unwrapData } from '@/shared/api'
+import { ApiError, memberApi, productApi, unwrapData } from '@/shared/api'
 import {
   Alert,
   BottomCta,
@@ -35,6 +35,9 @@ export function PartyApplyPage({ partyId }: { partyId: number }) {
   const party = usePartyDetail(partyId)
   const data = party.data
   const race = productApi.useFindRace(data?.raceId ?? 0, {
+    query: { enabled: data !== undefined, select: unwrapData },
+  })
+  const crew = memberApi.useFindCrew(data?.crewId ?? 0, {
     query: { enabled: data !== undefined, select: unwrapData },
   })
   const register = useRegisterPartyQueue()
@@ -110,23 +113,40 @@ export function PartyApplyPage({ partyId }: { partyId: number }) {
     body = <PartyLoadError onRetry={() => void party.refetch()} />
   } else {
     body = (
-      <section className="flex flex-col gap-4 bg-bg-surface px-4 py-6">
-        <div className="flex flex-col gap-1">
+      <>
+        <section className="flex flex-col gap-2 bg-bg-surface px-4 py-6">
           <h2 className="text-title1">{race.data?.title}</h2>
-          <p className="text-body2-regular text-text-secondary">파티원 {data.memberCount}명</p>
-        </div>
-        {message && <Alert tone="danger" title={message} />}
-        <KeyValue label="잡을 자리" value={course?.name ?? ''} />
-        <KeyValue label="크루 전용 자리" value={`${course?.crewRemaining ?? 0}개 남음`} />
-        <KeyValue label="신청 인원" value={`${data.memberCount}명`} />
-        {queued && (
-          <ProgressBar
-            indeterminate
-            label="신청 차례를 기다리고 있어요"
-            valueText={queue.data ? `내 앞 ${queue.data.ahead}명` : undefined}
-          />
-        )}
-      </section>
+          <p className="text-body2-regular text-text-secondary">
+            {crew.data ? `${crew.data.name} 크루 · ` : ''}파티원 {data.memberCount}명
+          </p>
+        </section>
+        <Divider type="section" />
+        <section className="flex flex-col gap-4 bg-bg-surface px-4 py-6">
+          <h2 className="text-title2">{course?.name}로 잡을 자리</h2>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col gap-1">
+              <span className="text-body1-medium">{course?.name}</span>
+              <span className="text-caption-regular text-text-secondary">
+                크루 전용 자리 {course?.crewRemaining ?? 0}개 남음
+              </span>
+            </div>
+            <span className="text-body1-medium">{data.memberCount}명</span>
+          </div>
+          {message && <Alert tone="danger" title={message} />}
+          {queued && (
+            <ProgressBar
+              indeterminate
+              label="신청 차례를 기다리고 있어요"
+              valueText={queue.data ? `내 앞 ${queue.data.ahead}명` : undefined}
+            />
+          )}
+        </section>
+        <Divider type="section" />
+        <section className="flex flex-col gap-3 bg-bg-surface px-4 py-6">
+          <KeyValue label="파티 신청 수수료" value="0원" />
+          <KeyValue label="결제" value="파티원이 각자 결제" />
+        </section>
+      </>
     )
   }
 
@@ -144,7 +164,7 @@ export function PartyApplyPage({ partyId }: { partyId: number }) {
               loading={register.isPending || apply.isPending}
               onClick={start}
             >
-              {queued ? '차례를 기다리는 중' : '파티 신청하기'}
+              {queued ? '차례를 기다리는 중' : `${data.memberCount}명 파티 신청하기`}
             </Button>
           }
         />

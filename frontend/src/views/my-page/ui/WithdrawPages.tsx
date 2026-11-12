@@ -5,17 +5,10 @@ import { useState } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
 import { useWithdraw, withdrawFailure, type WithdrawFailure } from '@/features/auth'
-import { cn } from '@/shared/lib'
-import {
-  Badge,
-  BottomCta,
-  Button,
-  buttonClassName,
-  Checkbox,
-  Dialog,
-  FOCUS_RING,
-  KeyValue,
-} from '@/shared/ui'
+import { formatNumber } from '@/shared/lib'
+import { Badge, BottomCta, Button, buttonClassName, Checkbox, Dialog, KeyValue } from '@/shared/ui'
+
+import { useWithdrawBlockers } from '../model/use-withdraw-blockers'
 
 // 탈퇴 실패 안내. 남은 예치금 · 참가권 문구는 시안 M31의 안내를 따른다.
 // 시안에 없는 문구: check-failed(다른 서비스 확인 실패), other(그 밖의 실패)
@@ -27,15 +20,19 @@ const WITHDRAW_ERRORS: Record<WithdrawFailure, string> = {
   other: '지금은 탈퇴할 수 없어요. 잠시 후 다시 시도해 주세요.',
 }
 
-// 피그마 V2 · M31 회원 탈퇴 (남은 일이 있으면 탈퇴 버튼을 막는다)
-// 피그마 V2 · M31-C 회원 탈퇴 최종 확인 (탈퇴하기를 누르면 뜨는 창)
-// TODO(api): 남은 예치금 · 끝나지 않은 참가권을 확인한다 (blocked)
+// 피그마 V2 · M31 회원 탈퇴(1333:22355): 남은 일이 있으면 체크박스 · 탈퇴하기를 막는다
+// 피그마 V2 · M31-C 회원 탈퇴 최종 확인(1333:22400): 남은 일이 없으면 「이제 탈퇴할 수 있어요」, 탈퇴하기를 누르면 뜨는 창
+// 남은 일(예치금 · 끝나지 않은 참가권)은 지갑 · 주문 API로 미리 확인한다(useWithdrawBlockers).
 // 탈퇴 요청은 서버가 남은 예치금 · 참가권을 다시 확인한다. 막히면 code별 안내를 화면에 띄운다.
-export function WithdrawPage({ blocked = true }: { blocked?: boolean }) {
+export function WithdrawPage() {
   const [checked, setChecked] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const withdraw = useWithdraw()
   const [failure, setFailure] = useState<WithdrawFailure>()
+  const remaining = useWithdrawBlockers()
+  const hasCash = remaining.balance > 0
+  const hasTicket = remaining.ticketCount > 0
+  const blocked = remaining.pending || hasCash || hasTicket
   // 성공해도 완료 화면을 새로 불러오는 동안은 토큰이 남아 있어 요청 중과 같이 막는다
   const busy = withdraw.isPending || withdraw.isSuccess
   const onWithdraw = () => {
@@ -54,43 +51,50 @@ export function WithdrawPage({ blocked = true }: { blocked?: boolean }) {
   return (
     <>
       <AppHeader type="sub" title="회원 탈퇴" />
-      <main className="flex flex-1 flex-col gap-4 px-4 py-6">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-title2">탈퇴하기 전에 남은 일이 있어요</h2>
-          <p className="text-body2-regular text-text-secondary">
-            아래 2가지를 마치면 탈퇴할 수 있어요.
-          </p>
-        </div>
-        <section className="flex flex-col rounded-lg bg-bg-surface px-5 py-2 shadow-sm inset-ring inset-ring-border-default">
-          <div className="flex gap-3 border-b border-border-default py-4">
-            <Badge tone="info">안내</Badge>
-            <div className="flex flex-col items-start gap-1">
-              <p className="text-body2-medium">남은 예치금 ₩5,000</p>
-              <p className="text-body2-regular text-text-secondary">
-                돌려받기를 신청하면 환급이 끝난 뒤 탈퇴돼요.
-              </p>
-              <Link
-                href="/me/deposit/refund"
-                className={buttonClassName({ variant: 'secondary', size: 's' })}
-              >
-                돌려받기 먼저
-              </Link>
-            </div>
-          </div>
-          <div className="flex gap-3 py-4">
-            <Badge tone="warning">필수</Badge>
-            <div className="flex flex-col items-start gap-1">
-              <p className="text-body2-medium">끝나지 않은 참가권 1장</p>
-              <p className="text-body2-regular text-text-secondary">
-                용감한 쿠키RUN(11/1)을 취소하거나 대회가 끝난 뒤 탈퇴할 수 있어요.
-              </p>
-              <Link href="/tickets" className={cn('rounded-sm text-caption-medium', FOCUS_RING)}>
-                참가권 보기
-              </Link>
-            </div>
-          </div>
-        </section>
-        <section className="flex flex-col gap-2 rounded-lg bg-bg-subtle p-4">
+      <main className="flex flex-1 flex-col pb-6">
+        <h2 className="px-4 pt-6 pb-4 text-title2">
+          {blocked ? '탈퇴하기 전에 남은 일이 있어요' : '이제 탈퇴할 수 있어요'}
+        </h2>
+        {(hasCash || hasTicket) && (
+          <section className="flex flex-col px-4">
+            {hasCash && (
+              <div className="flex flex-col items-start gap-1 border-b border-border-default py-4 last:border-b-0">
+                <p className="flex items-center gap-2 text-body2-medium">
+                  <Badge tone="info">안내</Badge>
+                  남은 예치금 {formatNumber(remaining.balance)}원
+                </p>
+                <p className="text-body2-regular text-text-secondary">
+                  돌려받기를 신청하면 환급이 끝난 뒤 탈퇴돼요.
+                </p>
+                <Link
+                  href="/me/deposit/refund"
+                  className={buttonClassName({ variant: 'secondary', size: 's' })}
+                >
+                  돌려받기 먼저
+                </Link>
+              </div>
+            )}
+            {hasTicket && (
+              <div className="flex flex-col items-start gap-1 py-4">
+                <p className="flex items-center gap-2 text-body2-medium">
+                  <Badge tone="warning">필수</Badge>
+                  끝나지 않은 참가권 {remaining.ticketCount}장
+                </p>
+                <p className="text-body2-regular text-text-secondary">
+                  {remaining.firstRace}을 취소하거나 대회가 끝난 뒤 탈퇴할 수 있어요.
+                </p>
+                <Link
+                  href="/tickets"
+                  className={buttonClassName({ variant: 'secondary', size: 's' })}
+                >
+                  참가권 보기
+                </Link>
+              </div>
+            )}
+          </section>
+        )}
+        <div className="mt-2 h-3 bg-bg-subtle" />
+        <section className="flex flex-col gap-2 px-4 py-5">
           <p className="text-body2-bold">탈퇴하면 개인정보는 바로 지워요</p>
           <p className="text-caption-regular text-text-secondary">
             다만 법에 따라 아래 기록은 정해진 기간만 보관해요.
@@ -99,17 +103,19 @@ export function WithdrawPage({ blocked = true }: { blocked?: boolean }) {
           <KeyValue label="소비자 불만 · 분쟁 기록" value="3년" />
           <KeyValue label="접속 기록" value="3개월" />
         </section>
-        <Checkbox
-          checked={checked}
-          onCheckedChange={setChecked}
-          disabled={blocked}
-          label="안내를 모두 확인했어요"
-        />
-        {failure && (
-          <p role="alert" className="text-caption-regular text-text-danger">
-            {WITHDRAW_ERRORS[failure]}
-          </p>
-        )}
+        <div className="px-4">
+          <Checkbox
+            checked={checked}
+            onCheckedChange={setChecked}
+            disabled={blocked}
+            label="안내를 모두 확인했어요"
+          />
+          {failure && (
+            <p role="alert" className="pt-3 text-caption-regular text-text-danger">
+              {WITHDRAW_ERRORS[failure]}
+            </p>
+          )}
+        </div>
       </main>
       <BottomCta
         className="sticky bottom-0 z-10"
@@ -151,9 +157,6 @@ export function WithdrawDonePage() {
       <AppHeader type="sub" title="탈퇴 완료" close backHref="/" />
       <main className="flex flex-1 flex-col justify-center-safe gap-5 px-4 pt-6 pb-8">
         <h2 className="text-title2">탈퇴했어요</h2>
-        <p className="text-body2-regular text-text-secondary">
-          그동안 크루런과 함께 달려 주셔서 고마워요.
-        </p>
       </main>
       <BottomCta
         className="sticky bottom-0 z-10"

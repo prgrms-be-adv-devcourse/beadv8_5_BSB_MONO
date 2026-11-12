@@ -70,7 +70,7 @@ describe('MyCrewsPage (M09-0)', () => {
   it('불러오지 못하면 다시 불러오기를 보여 준다', async () => {
     server.use(http.get('*/api/v1/member/crews/me', () => failWith(500, 'INTERNAL_ERROR')))
     renderPage(<MyCrewsPage />)
-    expect(await screen.findByRole('button', { name: '다시 불러오기' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: '다시 시도' })).toBeInTheDocument()
   })
 })
 
@@ -144,8 +144,9 @@ describe('CrewHomePage (M09)', () => {
       ),
     )
     renderPage(<CrewHomePage crewId={1} />)
-    const card = await screen.findByRole('link', { name: /달리는곰님의 파티/ })
-    expect(card).toHaveAttribute('href', '/parties/9')
+    expect(await screen.findByText(/파티장 달리는곰 · 3명/)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '진행 중인 파티 1개' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '파티 보기' })).toHaveAttribute('href', '/parties/9')
     expect(screen.getByRole('link', { name: '파티 만들기' })).toHaveAttribute(
       'href',
       '/parties/new?crewId=1',
@@ -177,8 +178,8 @@ describe('CrewHomePage (M09)', () => {
       ),
     )
     renderPage(<CrewHomePage crewId={1} />)
-    expect(await screen.findByText(/남의곰님의 파티/)).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: /남의곰님의 파티/ })).not.toBeInTheDocument()
+    expect(await screen.findByText(/파티장 남의곰/)).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: '파티 보기' })).not.toBeInTheDocument()
   })
 
   it('크루원은 초대 링크 만들기를 보지 못한다', async () => {

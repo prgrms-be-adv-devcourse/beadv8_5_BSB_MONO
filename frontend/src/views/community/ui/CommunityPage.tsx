@@ -37,8 +37,9 @@ const TABS = [
   { label: '크루', href: '/crews' },
 ] as const
 
+// 피그마 머리글 아이콘은 24 그대로 두고 누르는 면만 -m-2 p-2로 키운다
 const ICON_LINK =
-  'inline-flex size-11 shrink-0 items-center justify-center rounded-full text-text-primary hover:bg-bg-subtle [&_svg]:size-5'
+  '-m-2 inline-flex shrink-0 items-center justify-center rounded-full p-2 text-text-primary hover:bg-bg-subtle [&_svg]:size-6'
 
 // 피그마 커뮤니티 M34 목록 · M34-1 로그인 전 · M34-2 로그인 안내 시트 · M34-3 글 없음 · M34-4 검색 결과 · M34-5 검색 결과 없음 · M34-6 정렬 시트
 export function CommunityPage() {
@@ -69,7 +70,7 @@ export function CommunityPage() {
       {searching ? (
         <form
           role="search"
-          className="flex items-center gap-1 py-2 pr-4 pl-1"
+          className="flex items-center py-2.5 pr-4 pl-0.5"
           onSubmit={(e) => {
             e.preventDefault()
             setQ(draft.trim())
@@ -78,8 +79,8 @@ export function CommunityPage() {
           <IconButton type="button" aria-label="뒤로 가기" onClick={closeSearch}>
             <Icon name="ChevronLeft" />
           </IconButton>
-          <div className="flex h-11 min-w-0 flex-1 items-center gap-2 rounded-full px-3 inset-ring-2 inset-ring-border-brand">
-            <Icon name="Search" className="size-5 shrink-0" />
+          <div className="flex h-11 min-w-0 flex-1 items-center gap-2 rounded-full px-4 inset-ring-2 inset-ring-border-brand">
+            <Icon name="Search" className="size-4.5 shrink-0" />
             <input
               autoFocus
               type="search"
@@ -105,7 +106,7 @@ export function CommunityPage() {
         </form>
       ) : (
         <>
-          <header className="flex h-14 shrink-0 items-center gap-1 pr-1 pl-4">
+          <header className="flex shrink-0 items-center gap-3 px-4 py-3">
             <Link href="/" aria-label="홈" className={cn('rounded-sm', FOCUS_RING)}>
               <Logo />
             </Link>
@@ -119,10 +120,7 @@ export function CommunityPage() {
               <Icon name="Search" />
             </button>
             {auth === 'anonymous' ? (
-              <Link
-                href="/login?next=%2Fcommunity"
-                className={buttonClassName({ size: 's', className: 'mr-3' })}
-              >
+              <Link href="/login?next=%2Fcommunity" className={buttonClassName({ size: 's' })}>
                 로그인
               </Link>
             ) : (
@@ -172,8 +170,8 @@ export function CommunityPage() {
         {searching && q === '' ? null : (
           <div
             className={cn(
-              'flex items-center px-4 py-1',
-              searching ? 'justify-between' : 'justify-end',
+              'flex items-center px-4 pb-1',
+              searching ? 'justify-between pt-4' : 'justify-end pt-1',
             )}
           >
             {searching && posts.data && posts.data.length > 0 && (
@@ -222,11 +220,12 @@ export function CommunityPage() {
             }
           />
         ) : posts.data.length === 0 ? (
-          <div className="flex flex-1 items-center justify-center px-4 py-8">
+          // 피그마: 검색 결과 없음은 머리글 아래 160, 글 없음은 정렬 줄 아래 120에서 시작
+          <div className={searching ? 'pt-40' : 'pt-30'}>
             {searching ? (
               <EmptyState icon="Search" title={`‘${q}’에 맞는 글이 없어요`} />
             ) : (
-              <div className="flex flex-col items-center gap-4 text-center">
+              <div className="flex flex-col items-center gap-4 px-6 py-10 text-center">
                 <CommentIcon className="size-12 text-text-tertiary" strokeWidth={1.71} />
                 <p className="text-body1-medium text-text-primary">아직 글이 없어요</p>
               </div>

@@ -112,6 +112,8 @@ export type AdminReport = {
   reportCount: number
   reasons: { reason: ReportReason; count: number }[]
   status: ReportStatus
+  /** 되살리거나 지운 시각. 아직 처리하지 않았으면 없다 */
+  handledAt?: string | null
 }
 
 export type AdminReportList = {

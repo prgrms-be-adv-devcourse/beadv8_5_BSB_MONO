@@ -58,15 +58,20 @@ export function AxBriefing({ screen, askHref, basisHref, className }: AxBriefing
     >
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2 text-caption-regular text-text-secondary">
-          <Icon name="Info" className="size-4 text-text-brand" />
-          <span className="text-caption-medium text-text-brand">크루런 AI 브리핑</span>
-          <span>{basis}</span>
+          <span
+            aria-hidden
+            className="flex size-8 items-center justify-center rounded-full bg-bg-subtle text-text-primary"
+          >
+            <Icon name="Info" className="size-4" />
+          </span>
+          <span className="text-body2-bold text-text-brand">크루런 AI 브리핑</span>
+          <span>· {basis}</span>
         </div>
         <Link href={askHref} className={buttonClassName({ variant: 'secondary', size: 's' })}>
           크루런 AI에 물어보기
         </Link>
       </div>
-      <p className="text-body1-bold">{headline}</p>
+      <p className="text-title3">{headline}</p>
       <div className="lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] grid grid-cols-1 gap-6">
         <div className="flex flex-col gap-3">
           <p className="text-caption-medium text-text-secondary">먼저 할 일</p>
@@ -77,7 +82,7 @@ export function AxBriefing({ screen, askHref, basisHref, className }: AxBriefing
               const className = 'flex items-center gap-3 rounded-sm hover:bg-bg-subtle'
               const row = (
                 <>
-                  <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-bg-subtle text-caption-medium">
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-bg-subtle text-body2-medium text-text-secondary">
                     {index + 1}
                   </span>
                   <span className="flex min-w-0 flex-1 flex-col">
@@ -94,7 +99,7 @@ export function AxBriefing({ screen, askHref, basisHref, className }: AxBriefing
                     </span>
                   </span>
                   {href && (
-                    <span className="flex shrink-0 items-center gap-1 text-caption-regular text-text-secondary">
+                    <span className="flex shrink-0 items-center gap-2 text-body2-regular text-text-primary">
                       {todo.linkLabel}
                       <Icon name="ChevronRight" className="size-4" />
                     </span>
@@ -118,10 +123,10 @@ export function AxBriefing({ screen, askHref, basisHref, className }: AxBriefing
         <div className="flex flex-col gap-3">
           <p className="text-caption-medium text-text-secondary">평소와 다른 지표</p>
           {metrics.map((metric) => (
-            <div key={metric.label} className="flex flex-col gap-1 rounded-md bg-bg-subtle p-4">
+            <div key={metric.label} className="flex flex-col gap-1 rounded-lg bg-bg-subtle p-4">
               <span className="text-caption-regular text-text-secondary">{metric.label}</span>
               <span className="flex items-baseline gap-2">
-                <span className="text-title3">{metric.value}</span>
+                <span className="text-title2">{metric.value}</span>
                 <span
                   className={cn(
                     'text-caption-medium',

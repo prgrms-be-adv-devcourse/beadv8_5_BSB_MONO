@@ -163,6 +163,7 @@ type MockReport = {
   reportCount: number
   reasons: { reason: string; count: number }[]
   status: 'HIDDEN' | 'RESTORED' | 'DELETED'
+  handledAt?: string | null
 }
 
 const SEED_REPORTS: MockReport[] = [
@@ -416,6 +417,7 @@ export const boardHandlers = [
     )
     if (!target) return fail(404, 'BOARD_REPORT_NOT_FOUND', '신고를 찾을 수 없습니다.')
     target.status = params.action === 'restore' ? 'RESTORED' : 'DELETED'
+    target.handledAt = new Date().toISOString()
     return ok('처리했습니다.', null)
   }),
   // 글에 붙은 사진 (file-service)

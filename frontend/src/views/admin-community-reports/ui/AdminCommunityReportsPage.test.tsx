@@ -42,7 +42,7 @@ describe('AdminCommunityReportsPage', () => {
     expect(screen.getByText('광고 7')).toBeInTheDocument()
   })
 
-  it('줄을 고르고 되살리면 상태가 「되살림」으로 바뀌고 처리 버튼이 막힌다', async () => {
+  it('줄을 고르고 되살리면 상태가 「되살림」으로 바뀌고 처리 버튼 대신 처리 결과가 보인다', async () => {
     const user = userEvent.setup()
     renderPage()
     await screen.findByText('숨겨진 글 · 댓글 3건')
@@ -53,8 +53,9 @@ describe('AdminCommunityReportsPage', () => {
 
     const table = screen.getByRole('table', { name: '숨겨진 글 · 댓글' })
     await vi.waitFor(() => expect(within(table).getAllByText('되살림')).toHaveLength(2))
-    expect(screen.getByRole('button', { name: '되살리기' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: '지우기' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: '되살리기' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '지우기' })).not.toBeInTheDocument()
+    expect(screen.getByText(/^되살림 · \d+\.\d+ \d{2}:\d{2}$/)).toBeInTheDocument()
   })
 
   it('지우기를 누르면 상태가 「지움」으로 바뀐다', async () => {

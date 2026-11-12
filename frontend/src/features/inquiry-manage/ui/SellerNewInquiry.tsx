@@ -27,7 +27,7 @@ export function SellerNewInquiry() {
     )
 
   return (
-    <div className="flex max-w-xl flex-col gap-4">
+    <div className="flex flex-col gap-4 rounded-xl bg-bg-surface p-6 inset-ring inset-ring-border-default">
       <TextField
         label="제목"
         value={title}

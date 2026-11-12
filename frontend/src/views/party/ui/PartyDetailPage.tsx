@@ -25,7 +25,7 @@ import {
   unwrapData,
   useIdempotencyKey,
 } from '@/shared/api'
-import { cn } from '@/shared/lib'
+import { cn, formatNumber } from '@/shared/lib'
 import {
   Avatar,
   Badge,
@@ -35,6 +35,7 @@ import {
   Divider,
   Skeleton,
   useToast,
+  type BadgeTone,
 } from '@/shared/ui'
 
 import { PARTY_STATUS_STEPS, PARTY_STEP_INDEX } from '../lib/party-copy'
@@ -43,9 +44,18 @@ import { PartyLoadError } from './PartyFailureScreen'
 
 const ERROR_FALLBACK = '잠시 후 다시 시도해 주세요.'
 
-function memberBadge(m: PartyMember) {
-  if (m.paid) return '참가 확정'
-  return m.participationStatus === 'APPLIED' ? '결제 대기' : '결제 전'
+// 시안 파티 04 · 20 · 21 · 22 · 23: 모집 중은 모두 결제 전, 결제 진행 중은 결제 완료 · 결제 전(주황), 결제 끝은 참가 확정 · 결제 안 함(빨강)
+function memberBadge(
+  m: PartyMember,
+  status: PartyDetail['status'],
+): { label: string; tone: BadgeTone } {
+  if (status === 'PAID' || status === 'CLOSED') {
+    return m.paid ? { label: '참가 확정', tone: 'accent' } : { label: '결제 안 함', tone: 'danger' }
+  }
+  if (status === 'PAYING') {
+    return m.paid ? { label: '결제 완료', tone: 'neutral' } : { label: '결제 전', tone: 'warning' }
+  }
+  return { label: '결제 전', tone: 'neutral' }
 }
 
 // 피그마 파티 04 · 04-1 · 05 · 06 · 07 · 16~18. 파티장 · 파티원, 모집 중 · 결제 진행 중에 따라 「지금 할 일」이 달라진다.
@@ -78,6 +88,7 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
   const toast = useToast()
   const queryClient = useQueryClient()
   const raceStatus = useMyRaceStatus(party.raceId)
+  const me = memberApi.useFindMe({ query: { select: unwrapData } })
   const race = productApi.useFindRace(party.raceId, { query: { select: unwrapData } })
   const crew = memberApi.useFindCrew(party.crewId, { query: { select: unwrapData } })
   const regenerate = useRegenerateJoinLink()
@@ -131,16 +142,27 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
     onError: toastError,
   })
 
-  const todo = (() => {
+  const myPaid = raceStatus.data?.myPaid === true
+  const participationId = raceStatus.data?.participationId
+  const price = course?.price ?? 0
+  const todo: { title: string; description?: string } = (() => {
     if (party.status === 'CLOSED') return { title: '종료된 파티예요' }
-    if (party.status === 'PAID') return { title: '파티원 모두 결제했어요' }
-    const due = party.paymentDueAt
-      ? `${formatKstDateTime(party.paymentDueAt)}까지 결제해 주세요`
-      : ''
+    if (party.status === 'PAID') {
+      return !isLeader && !myPaid
+        ? {
+            title: '결제 기간이 끝나 결제할 수 없어요',
+            description: `${party.paymentDueAt ? formatKstDateTime(party.paymentDueAt) : ''}에 결제 기간이 끝났어요. 이 대회에는 다시 신청할 수 없어요.`,
+          }
+        : { title: '결제 기간이 끝났어요' }
+    }
     if (party.status === 'PAYING') {
-      return raceStatus.data?.myPaid
-        ? { title: '결제를 마쳤어요', description: due }
-        : { title: '지금 결제할 수 있어요', description: due }
+      if (myPaid) {
+        return { title: isLeader ? '파티원 결제를 기다리고 있어요' : '결제를 마쳤어요' }
+      }
+      return {
+        title: `내 몫 ${formatNumber(price)}원을 결제해 주세요`,
+        description: '결제 기간이 끝나면 결제할 수 없어요. 이 파티로는 참가가 확정되지 않아요.',
+      }
     }
     if (!isLeader) return { title: '파티장이 파티를 신청하면 결제할 수 있어요' }
     if (!linkAlive) return { title: '참가 링크 기간이 끝났어요' }
@@ -149,7 +171,6 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
   })()
 
   const canApply = isLeader && recruiting && min > 0 && party.memberCount >= min
-  const participationId = raceStatus.data?.participationId
 
   return (
     <>
@@ -207,10 +228,15 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
             새 참가 링크 만들기
           </Button>
         )}
-        {party.status === 'PAYING' && participationId !== undefined && !raceStatus.data?.myPaid && (
+        {party.status === 'PAYING' && participationId !== undefined && !myPaid && (
           <Button size="l" loading={pay.isPending} onClick={() => pay.mutate(participationId)}>
-            결제하기
+            {course?.name} · {formatNumber(price)}원 결제하기
           </Button>
+        )}
+        {party.status === 'PAID' && !isLeader && !myPaid && (
+          <Link href="/races" className={buttonClassName({ variant: 'secondary', size: 'l' })}>
+            다른 대회 보기
+          </Link>
         )}
         {recruiting && isLeader && linkAlive && (
           <div className="flex items-center justify-between text-body2-regular text-text-secondary">
@@ -228,9 +254,19 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
       </section>
       <Divider />
       <section className="flex flex-col gap-3 px-4 py-6">
-        <h3 className="text-body1-medium">
-          {party.memberCount}명 / 최소 {min}명{max ? ` · 최대 ${max}명` : ''}
-        </h3>
+        {recruiting ? (
+          <h3 className="text-body1-medium">
+            {party.memberCount}명 / 최소 {min}명{max ? ` · 최대 ${max}명` : ''}
+          </h3>
+        ) : (
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-body1-medium">파티원</h3>
+            <span className="text-body2-regular text-text-secondary">
+              {party.status === 'PAYING' ? '결제 완료' : '참가 확정'} {party.paidCount} /{' '}
+              {party.memberCount}명
+            </span>
+          </div>
+        )}
         <ul className="flex flex-col gap-3">
           {party.members.map((m) => (
             <li key={m.memberId} className="flex items-center gap-3">
@@ -238,13 +274,15 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
               <div className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate text-body2-medium">
                   {m.nickname}
-                  {m.leader && isLeader ? ' · 나' : ''}
+                  {m.memberId === me.data?.id ? ' · 나' : ''}
                 </span>
                 <span className="text-caption-regular text-text-secondary">
                   {m.leader ? '파티장' : '파티원'}
                 </span>
               </div>
-              <Badge>{memberBadge(m)}</Badge>
+              <Badge tone={memberBadge(m, party.status).tone}>
+                {memberBadge(m, party.status).label}
+              </Badge>
             </li>
           ))}
         </ul>

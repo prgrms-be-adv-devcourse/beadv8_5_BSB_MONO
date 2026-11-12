@@ -18,12 +18,12 @@ const base = productMock.getSearchResponseMock().data!.races![0]
 const cheap = { ...base, raceId: 2, title: '싼 대회', minPrice: 10000 }
 const soon = { ...base, raceId: 1, title: '곧 마감 대회', minPrice: 50000 }
 
-function renderPage() {
+function renderPage(state?: 'empty') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
       <ToastProvider>
-        <RaceListPage />
+        <RaceListPage state={state} />
       </ToastProvider>
     </QueryClientProvider>,
   )
@@ -126,5 +126,58 @@ describe('RaceListPage', () => {
     expect(items[0].querySelector('img')).toBeNull()
     expect(items[1].querySelector('img')).toHaveAttribute('fetchpriority', 'high')
     expect(items[2].querySelector('img')).toHaveAttribute('loading', 'lazy')
+  })
+
+  it('검색어를 제출하면 최근 검색어에 남고, 하나씩 또는 전체 삭제할 수 있다', async () => {
+    localStorage.clear()
+    const user = userEvent.setup()
+    renderPage()
+    const input = screen.getByRole('textbox', { name: '대회 찾기' })
+
+    await user.type(input, '서울 하프{Enter}')
+    await user.clear(input)
+    await user.type(input, 'JTBC{Enter}')
+    await user.click(input)
+    await user.clear(input)
+
+    expect(await screen.findByRole('heading', { name: '최근 검색어' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '서울 하프' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '서울 하프 삭제' }))
+    expect(screen.queryByRole('button', { name: '서울 하프' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '전체 삭제' }))
+    expect(screen.queryByRole('heading', { name: '최근 검색어' })).not.toBeInTheDocument()
+  })
+
+  it('카테고리에서 거리를 고르면 그 종목으로 거른 목록을 불러온다', async () => {
+    const types: (string | null)[] = []
+    server.use(
+      http.get('*/api/v1/product/races', ({ request }) => {
+        types.push(new URL(request.url).searchParams.get('courseType'))
+        return HttpResponse.json({
+          status: 200,
+          message: '대회 목록을 조회했습니다.',
+          data: { races: [soon], page: 0, size: 20, totalElements: 1, totalPages: 1 },
+        })
+      }),
+    )
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(screen.getByRole('button', { name: '종목' }))
+    await user.click(
+      within(screen.getByRole('list', { name: '거리' })).getByRole('button', { name: /5K/ }),
+    )
+
+    await vi.waitFor(() => expect(types.at(-1)).toBe('KM_5'))
+    expect(await screen.findByRole('button', { name: '종목', pressed: true })).toBeInTheDocument()
+  })
+
+  it('결과가 없으면 필터 초기화로 검색어를 지운다', async () => {
+    const user = userEvent.setup()
+    renderPage('empty')
+
+    expect(screen.getByRole('textbox', { name: '대회 찾기' })).toHaveValue('제주 트레일')
+    await user.click(await screen.findByRole('button', { name: '필터 초기화' }))
+    expect(screen.getByRole('textbox', { name: '대회 찾기' })).toHaveValue('')
   })
 })
