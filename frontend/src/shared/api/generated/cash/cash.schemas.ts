@@ -267,6 +267,29 @@ export interface RefundableChargesDto {
   charges: RefundableChargesDtoChargesItem[];
 }
 
+export interface ChargeReviewDto {
+  memberId: number;
+  nickname: string;
+  /** 한국 시간, 시간대 표시 없음 */
+  joinedAt: string;
+  chargeAmount: number;
+  chargedAt: string;
+  /** 가입 24시간 안 충전 합계 */
+  joinWindowChargeTotal: number;
+}
+
+/**
+ * 고액 충전 확인 한 페이지. 회원 한 명이 한 줄
+ */
+export interface PageDtoChargeReviewDto {
+  content: ChargeReviewDto[];
+  /** 0부터 센다 */
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
 export interface RsDataCashWithdrawalDto {
   status?: number;
   message?: string;
@@ -297,6 +320,12 @@ export interface RsDataWalletBalanceDto {
   data?: WalletBalanceDto;
 }
 
+export interface RsDataPageDtoChargeReviewDto {
+  status?: number;
+  message?: string;
+  data?: PageDtoChargeReviewDto;
+}
+
 export type GetLedgersParams = {
 /**
  * 탭 필터. 생략하면 전체
@@ -325,4 +354,18 @@ export const GetLedgersCategory = {
   WITHDRAWAL: 'WITHDRAWAL',
   PAYOUT: 'PAYOUT',
 } as const;
+
+export type GetChargeReviewsParams = {
+/**
+ * 페이지 번호 (0부터)
+ * @minimum 0
+ */
+page?: number;
+/**
+ * 페이지 크기 (1~100)
+ * @minimum 1
+ * @maximum 100
+ */
+size?: number;
+};
 

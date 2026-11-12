@@ -16,6 +16,7 @@ import type {
 import type {
   RsDataCashChargeDto,
   RsDataCashWithdrawalDto,
+  RsDataPageDtoChargeReviewDto,
   RsDataPageDtoWalletLedgerItemDto,
   RsDataRefundableChargesDto,
   RsDataWalletBalanceDto
@@ -31,6 +32,8 @@ export const getGetRefundableChargesResponseMock = (): RsDataRefundableChargesDt
 export const getGetLedgersResponseMock = (): RsDataPageDtoWalletLedgerItemDto => ({"status":200,"message":"예치금 내역을 조회했습니다.","data":{"content":[{"category":"PAYMENT","ledgerType":"사용__주문결제","amount":-5000,"balanceAfter":5000,"createdAt":"2026-10-21T11:30:00.102938","refId":100,"charge":null},{"category":"CHARGE","ledgerType":"충전__PG결제_토스페이먼츠","amount":10000,"balanceAfter":10000,"createdAt":"2026-10-20T09:03:03.319058","refId":1,"charge":{"chargeId":1,"chargedAt":"2026-10-20T09:03:01","amount":10000,"remainingAmount":5000,"lastCancelableDate":"2027-10-19","expired":false}}],"page":0,"size":20,"totalElements":2,"totalPages":1}})
 
 export const getGetBalanceResponseMock = (): RsDataWalletBalanceDto => ({"status":200,"message":"잔액 조회 성공","data":{"holderId":3,"balance":50000}})
+
+export const getGetChargeReviewsResponseMock = (): RsDataPageDtoChargeReviewDto => ({"status":200,"message":"고액 충전 확인 목록을 조회했습니다.","data":{"content":[{"memberId":12,"nickname":"러너1","joinedAt":"2026-11-10T09:00:00","chargeAmount":300000,"chargedAt":"2026-11-10T21:25:35","joinWindowChargeTotal":600000}],"page":0,"size":20,"totalElements":1,"totalPages":1}})
 
 
 export const getRequestWithdrawalMockHandler = (overrideResponse?: RsDataCashWithdrawalDto | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<RsDataCashWithdrawalDto> | RsDataCashWithdrawalDto), options?: RequestHandlerOptions) => {
@@ -92,10 +95,23 @@ export const getGetBalanceMockHandler = (overrideResponse?: RsDataWalletBalanceD
       })
   }, options)
 }
+
+export const getGetChargeReviewsMockHandler = (overrideResponse?: RsDataPageDtoChargeReviewDto | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<RsDataPageDtoChargeReviewDto> | RsDataPageDtoChargeReviewDto), options?: RequestHandlerOptions) => {
+  return http.get('*/api/v1/cash/admin/charge-reviews', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getGetChargeReviewsResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
 export const getBukangCashAPIMock = () => [
   getRequestWithdrawalMockHandler(),
   getConfirmWalletChargeMockHandler(),
   getGetRefundableChargesMockHandler(),
   getGetLedgersMockHandler(),
-  getGetBalanceMockHandler()
+  getGetBalanceMockHandler(),
+  getGetChargeReviewsMockHandler()
 ]

@@ -161,3 +161,40 @@ export const GetBalanceResponse = zod.object({
   "balance": zod.int().optional()
 }).optional().describe('지갑 잔액 조회 응답')
 })
+
+
+/**
+ * 관리자가 가입 직후 고액을 충전한 회원을 확인한다.
+ * @summary 고액 충전 확인 목록 조회
+ */
+export const getChargeReviewsQueryPageDefault = 0;
+export const getChargeReviewsQueryPageMin = 0;
+
+export const getChargeReviewsQuerySizeDefault = 20;
+export const getChargeReviewsQuerySizeMax = 100;
+
+
+
+export const GetChargeReviewsQueryParams = zod.object({
+  "page": zod.int().min(getChargeReviewsQueryPageMin).default(getChargeReviewsQueryPageDefault).describe('페이지 번호 (0부터)'),
+  "size": zod.int().min(1).max(getChargeReviewsQuerySizeMax).default(getChargeReviewsQuerySizeDefault).describe('페이지 크기 (1~100)')
+})
+
+export const GetChargeReviewsResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.object({
+  "content": zod.array(zod.object({
+  "memberId": zod.int(),
+  "nickname": zod.string(),
+  "joinedAt": zod.iso.datetime({"offset":true}).describe('한국 시간, 시간대 표시 없음'),
+  "chargeAmount": zod.int(),
+  "chargedAt": zod.iso.datetime({"offset":true}),
+  "joinWindowChargeTotal": zod.int().describe('가입 24시간 안 충전 합계')
+})),
+  "page": zod.int().describe('0부터 센다'),
+  "size": zod.int(),
+  "totalElements": zod.int(),
+  "totalPages": zod.int()
+}).optional().describe('고액 충전 확인 한 페이지. 회원 한 명이 한 줄')
+})

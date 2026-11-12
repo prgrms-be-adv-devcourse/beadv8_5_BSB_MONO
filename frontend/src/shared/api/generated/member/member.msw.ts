@@ -23,6 +23,7 @@ import type {
   RsDataCrewInvitePreviewDto,
   RsDataCrewJoinedDto,
   RsDataEmailAvailabilityResponseDto,
+  RsDataIdentityReviewPageDto,
   RsDataIdentityVerificationStartDto,
   RsDataKakaoInviteSendResultDto,
   RsDataListCrewInviteDto,
@@ -93,6 +94,8 @@ export const getStartIdentityVerificationResponseMock = (): RsDataIdentityVerifi
 export const getFindKakaoInviteFriendsResponseMock = (): RsDataListKakaoFriendDto => ({"status":200,"message":"카카오 친구를 조회했습니다.","data":[{"uuid":"abcdefg0001","nickname":"이수민","profileImageUrl":"https://k.kakaocdn.net/dn/a.jpg"}]})
 
 export const getSendKakaoCrewInvitesResponseMock = (): RsDataKakaoInviteSendResultDto => ({"status":200,"message":"카카오톡으로 초대를 보냈습니다.","data":{"sentUuids":["abcdefg0001"],"failures":[{"uuid":"abcdefg0002","reason":"DAILY_LIMIT"}]}})
+
+export const getFindIdentityReviewResponseMock = (): RsDataIdentityReviewPageDto => ({"status":200,"message":"확인이 필요한 계정을 조회했습니다.","data":{"groups":[{"members":[{"id":12,"nickname":"러너12","maskedName":"홍*동","maskedPhone":"010-****-5678","maskedEmail":"ho***@crewrun.com","ciVerified":false,"joinedAt":"2026-11-02T09:00:00"},{"id":13,"nickname":"러너13","maskedName":"홍*동","maskedPhone":"010-****-9012","maskedEmail":"ho***@gmail.com","ciVerified":true,"joinedAt":"2026-11-02T09:00:00"}]}],"page":0,"size":20,"totalElements":1,"totalPages":1}})
 
 
 export const getVerifyIdentityWithMockPassMockHandler = (overrideResponse?: RsDataVerifiedIdentityDto | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<RsDataVerifiedIdentityDto> | RsDataVerifiedIdentityDto), options?: RequestHandlerOptions) => {
@@ -570,6 +573,18 @@ export const getSendKakaoCrewInvitesMockHandler = (overrideResponse?: RsDataKaka
       })
   }, options)
 }
+
+export const getFindIdentityReviewMockHandler = (overrideResponse?: RsDataIdentityReviewPageDto | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<RsDataIdentityReviewPageDto> | RsDataIdentityReviewPageDto), options?: RequestHandlerOptions) => {
+  return http.get('*/api/v1/member/admin/members/identity-review', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getFindIdentityReviewResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
 export const getBukangMemberAPIMock = () => [
   getVerifyIdentityWithMockPassMockHandler(),
   getFindMeMockHandler(),
@@ -612,5 +627,6 @@ export const getBukangMemberAPIMock = () => [
   getConfirmPasswordResetMockHandler(),
   getIssueKakaoMessageConsentTicketMockHandler(),
   getFindKakaoInviteFriendsMockHandler(),
-  getSendKakaoCrewInvitesMockHandler()
+  getSendKakaoCrewInvitesMockHandler(),
+  getFindIdentityReviewMockHandler()
 ]
