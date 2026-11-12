@@ -60,7 +60,7 @@ public class TokenReissueUseCase {
 		String issuedRefreshToken = switch (result.outcome()) {
 			case ROTATED -> newToken;
 			// 유예: 방금 회전한 요청이 받은 토큰과 같은 jti·만료로 다시 서명해 돌려준다. 미리 만든 newToken은 버린다
-			case GRACE -> regraceToken(memberId, claims.familyId(), result, now);
+			case GRACE -> regraceToken(memberId, claims.familyId(), result);
 			case THEFT -> {
 				// 토큰 값은 로그에 남기지 않는다
 				log.warn("이미 쓴 Refresh Token이 다시 들어와 family를 끊었습니다. 탈취가 의심됩니다. memberId={}", memberId);
@@ -75,12 +75,13 @@ public class TokenReissueUseCase {
 			Duration.between(now, refreshExpiresAt));
 	}
 
-	private String regraceToken(long memberId, String familyId, RotationResult result, Instant now) {
-		if (!result.currentExpiresAt().isAfter(now)) {
-			// 키 TTL이 먼저 지우므로 보통 오지 않지만, 시계 차이로 만료 직전 기록이 남을 수 있다
+	private String regraceToken(long memberId, String familyId, RotationResult result) {
+		try {
+			return jwtProvider.reissueRefreshToken(memberId, familyId, result.currentJti(), result.currentExpiresAt());
+		} catch (IllegalArgumentException e) {
+			// 저장된 만료 시각이 이미 지났다. 키 TTL이 먼저 지우므로 보통 오지 않지만, 시계 차이로 남아 있을 수 있다
 			throw new InvalidRefreshTokenException(INVALID_MESSAGE);
 		}
-		return jwtProvider.reissueRefreshToken(memberId, familyId, result.currentJti(), result.currentExpiresAt());
 	}
 
 	private JwtClaims verify(String refreshToken) {
