@@ -46,7 +46,6 @@ import com.bukang.member.out.RefreshTokenRepository.NewFamily;
 import com.bukang.member.out.SocialAccountRepository;
 import com.bukang.member.out.TermsAgreementRepository;
 import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
-import com.bukang.member.out.loginattempt.InMemoryLoginAttemptStore;
 import com.bukang.member.out.oauth2.InMemorySocialLoginStore;
 import com.bukang.member.out.oauth2.SocialIdentity;
 import com.bukang.member.out.oauth2.SocialOAuth2Client;
@@ -86,9 +85,6 @@ class ApiV1SocialAuthTest {
 	@Autowired
 	private InMemorySocialLoginStore store;
 
-	@Autowired
-	private InMemoryLoginAttemptStore loginAttemptStore;
-
 	@MockitoBean
 	private SocialOAuth2Client socialOAuth2Client;
 
@@ -97,7 +93,6 @@ class ApiV1SocialAuthTest {
 
 	@BeforeEach
 	void setUp() {
-		loginAttemptStore.clearAll();
 		given(socialOAuth2Client.isConfigured(any())).willReturn(true);
 		given(socialOAuth2Client.begin(any(), any())).willAnswer(invocation -> {
 			SocialProvider provider = invocation.getArgument(0);

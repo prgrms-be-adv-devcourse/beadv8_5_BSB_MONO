@@ -2,13 +2,22 @@ package com.bukang.member.in;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.HexFormat;
+import java.util.Optional;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,6 +27,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.test.context.ActiveProfiles;
@@ -27,6 +37,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
 import com.bukang.member.app.MemberFacade;
+import com.bukang.member.domain.Member;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.RefreshTokenRepository;
 import com.bukang.member.out.TermsAgreementRepository;
@@ -48,7 +59,7 @@ class ApiV1AuthLoginLockTest {
 	@Autowired
 	private InMemoryIdentityVerificationStore identityStore;
 
-	@Autowired
+	@MockitoSpyBean
 	private InMemoryLoginAttemptStore loginAttemptStore;
 
 	@Autowired
@@ -57,7 +68,7 @@ class ApiV1AuthLoginLockTest {
 	@Autowired
 	private MemberFacade memberFacade;
 
-	@Autowired
+	@MockitoSpyBean
 	private MemberRepository memberRepository;
 
 	@Autowired
@@ -71,7 +82,6 @@ class ApiV1AuthLoginLockTest {
 
 	@BeforeEach
 	void setUp() {
-		loginAttemptStore.clearAll();
 		memberFacade.join(MemberFixture.joinRequest().email(EMAIL).password(PASSWORD).build(identityStore));
 	}
 
@@ -138,6 +148,43 @@ class ApiV1AuthLoginLockTest {
 		assertThat(loginAttemptStore.counts().keySet())
 			.hasSize(1)
 			.allSatisfy(key -> assertThat(key).matches("[0-9a-f]{64}"));
+	}
+
+	@Test
+	@DisplayName("DB가 같은 회원으로 찾아 주는 다른 표기(악센트)로 시도해도 저장된 이메일 기준으로 센다")
+	void countsByStoredEmailWhenLookupMatchesDifferentSpelling() throws Exception {
+		String accented = "r\u00fanner1@crewrun.com";
+		Member stored = memberRepository.findActiveByEmail(EMAIL).orElseThrow();
+		doReturn(Optional.of(stored)).when(memberRepository).findActiveByEmail(accented);
+
+		failTimes(accented, 5);
+
+		assertThat(loginAttemptStore.counts().keySet()).containsExactly(sha256(EMAIL));
+		login(EMAIL, PASSWORD).andExpect(status().isTooManyRequests());
+	}
+
+	@Test
+	@DisplayName("횟수를 올릴 때 Redis 오류가 나면 차단 없이 로그인을 계속한다")
+	void continuesWhenRecordFails() throws Exception {
+		doThrow(new RedisConnectionFailureException("Redis 연결 실패"))
+			.when(loginAttemptStore).record(anyString(), anyInt(), any());
+
+		login(EMAIL, PASSWORD).andExpect(status().isOk());
+		login(EMAIL, "wrong-password").andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	@DisplayName("횟수를 지울 때 Redis 오류가 나도 로그인은 성공한다")
+	void continuesWhenClearFails() throws Exception {
+		doThrow(new RedisConnectionFailureException("Redis 연결 실패"))
+			.when(loginAttemptStore).clear(anyString());
+
+		login(EMAIL, PASSWORD).andExpect(status().isOk());
+	}
+
+	private static String sha256(String value) throws Exception {
+		return HexFormat.of().formatHex(
+			MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
 	}
 
 	private void failTimes(String email, int times) throws Exception {
