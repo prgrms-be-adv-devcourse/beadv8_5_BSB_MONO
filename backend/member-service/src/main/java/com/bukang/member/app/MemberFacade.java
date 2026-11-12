@@ -186,7 +186,7 @@ public class MemberFacade {
 		return tokenReissueUseCase.reissue(refreshToken);
 	}
 
-	public void logout(String refreshToken) {
-		logoutUseCase.logout(refreshToken);
+	public void logout(String refreshToken, String authorization) {
+		logoutUseCase.logout(refreshToken, authorization);
 	}
 }

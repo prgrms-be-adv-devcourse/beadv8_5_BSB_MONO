@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -145,7 +146,7 @@ public class ApiV1AuthController {
 
 	@PostMapping("/logout")
 	@Operation(summary = "로그아웃", description = "Redis의 Refresh Token을 지우고 Refresh Token 쿠키를 만료시킨다. "
-		+ "쿠키가 없거나 이미 무효한 토큰이어도 성공으로 응답한다.")
+		+ "요청에 Access Token이 있으면 남은 시간 동안 막는다. 쿠키가 없거나 이미 무효한 토큰이어도 성공으로 응답한다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "로그아웃 성공",
 			headers = @Header(name = HttpHeaders.SET_COOKIE,
@@ -155,9 +156,11 @@ public class ApiV1AuthController {
 	})
 	public ResponseEntity<RsData<Void>> logout(
 		@Parameter(description = "로그인 때 받은 Refresh Token (httpOnly 쿠키라 브라우저가 자동으로 보낸다)")
-		@CookieValue(name = REFRESH_TOKEN_COOKIE, required = false) String refreshToken
+		@CookieValue(name = REFRESH_TOKEN_COOKIE, required = false) String refreshToken,
+		@Parameter(description = "지금 쓰던 Access Token (Bearer). 보내면 게이트웨이가 남은 시간 동안 이 토큰을 바로 막는다. 없거나 무효해도 성공한다")
+		@RequestHeader(name = HttpHeaders.AUTHORIZATION, required = false) String authorization
 	) {
-		memberFacade.logout(refreshToken);
+		memberFacade.logout(refreshToken, authorization);
 
 		return ResponseEntity.ok()
 			.header(HttpHeaders.SET_COOKIE, refreshTokenCookie("", Duration.ZERO).toString())
