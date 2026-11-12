@@ -35,13 +35,4 @@ public class BoardReport extends BaseIdAndTime {
 	@Enumerated(STRING)
 	@Column(nullable = false, columnDefinition = "varchar(20)")
 	private ReportReason reason;
-
-	public static BoardReport create(ReportTargetType targetType, long targetId, long reporterId, ReportReason reason) {
-		BoardReport report = new BoardReport();
-		report.targetType = targetType;
-		report.targetId = targetId;
-		report.reporterId = reporterId;
-		report.reason = reason;
-		return report;
-	}
 }

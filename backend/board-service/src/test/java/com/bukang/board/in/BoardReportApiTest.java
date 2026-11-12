@@ -16,7 +16,10 @@ import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.support.TransactionTemplate;
 
+import com.bukang.board.domain.BoardComment;
 import com.bukang.board.domain.BoardMember;
 import com.bukang.board.support.BoardTestBase;
 
@@ -25,6 +28,9 @@ import com.bukang.board.support.BoardTestBase;
  */
 class BoardReportApiTest extends BoardTestBase {
 	private static final long REPORTER_1 = 11L;
+
+	@Autowired
+	private TransactionTemplate transactionTemplate;
 
 	private long postRows(long postId) {
 		return jdbcTemplate.queryForObject(
@@ -203,5 +209,44 @@ class BoardReportApiTest extends BoardTestBase {
 		hidePost(postId);
 
 		reportComment(REPORTER_1, commentId, "AD").andExpect(status().isNotFound());
+	}
+
+	@Test
+	@DisplayName("같은 회원이 동시에 10번 눌러도 모두 201이고 신고는 1건이다 (500이 나지 않는다)")
+	void sameMemberConcurrently() throws Exception {
+		long postId = newPost(ME, "글");
+		ExecutorService pool = Executors.newFixedThreadPool(10);
+		CountDownLatch start = new CountDownLatch(1);
+		List<Future<Integer>> futures = new ArrayList<>();
+		for (int i = 0; i < 10; i++) {
+			futures.add(pool.submit(() -> {
+				start.await();
+				return reportPost(REPORTER_1, postId, "AD").andReturn().getResponse().getStatus();
+			}));
+		}
+		start.countDown();
+		for (Future<Integer> future : futures) {
+			assertThat(future.get(10, TimeUnit.SECONDS)).isEqualTo(201);
+		}
+		pool.shutdownNow();
+
+		assertThat(postRows(postId)).isEqualTo(1);
+	}
+
+	@Test
+	@DisplayName("댓글을 고치는 저장이 그 사이에 숨겨진 상태를 되돌리지 않는다 (바뀐 컬럼만 저장)")
+	void commentEditKeepsHiddenStatus() throws Exception {
+		long postId = newPost(ME, "글");
+		long commentId = newComment(OTHER, postId, "댓글", null);
+
+		transactionTemplate.executeWithoutResult(status -> {
+			BoardComment comment = commentRepository.findById(commentId).orElseThrow();
+			jdbcTemplate.update("update board_comment set status = 'HIDDEN' where id = ?", commentId);
+			comment.edit("고친 댓글");
+			commentRepository.flush();
+		});
+
+		assertThat(jdbcTemplate.queryForObject("select status from board_comment where id = ?", String.class,
+			commentId)).isEqualTo("HIDDEN");
 	}
 }

@@ -8,7 +8,6 @@ import org.springframework.transaction.annotation.Transactional;
 import com.bukang.board.domain.BoardComment;
 import com.bukang.board.domain.BoardPost;
 import com.bukang.board.domain.BoardPostStatus;
-import com.bukang.board.domain.BoardReport;
 import com.bukang.board.domain.ReportReason;
 import com.bukang.board.domain.ReportTargetType;
 import com.bukang.board.domain.exception.BoardCommentNotFoundException;
@@ -40,10 +39,12 @@ public class BoardReportUseCase {
 	// 없는 글, 지운 글, 숨겨진 글은 404 (숨겨진 글이 있다는 사실이 드러나지 않게). 내 글은 400
 	@Transactional
 	public void reportPost(long memberId, long postId, ReportReason reason) {
-		boardWriterGuard.checkNotWithdrawn(memberId);
+		// 잠금을 가장 먼저 잡는다. MySQL 기본 격리(REPEATABLE READ)는 첫 일반 조회 시점의 데이터만 보여 주므로,
+		// 다른 조회가 잠금보다 앞서면 잠금을 기다린 뒤에도 앞 요청이 방금 넣은 신고를 못 센다
 		BoardPost post = boardPostRepository.findLockedById(postId)
 			.filter(found -> found.getStatus() == BoardPostStatus.VISIBLE)
 			.orElseThrow(BoardPostNotFoundException::new);
+		boardWriterGuard.checkNotWithdrawn(memberId);
 		if (post.isWrittenBy(memberId)) {
 			throw new BoardSelfReportException();
 		}
@@ -55,10 +56,10 @@ public class BoardReportUseCase {
 	// 숨겨진 글의 댓글도 404다
 	@Transactional
 	public void reportComment(long memberId, long commentId, ReportReason reason) {
-		boardWriterGuard.checkNotWithdrawn(memberId);
 		BoardComment comment = boardCommentRepository.findLockedById(commentId)
 			.filter(BoardComment::isVisible)
 			.orElseThrow(BoardCommentNotFoundException::new);
+		boardWriterGuard.checkNotWithdrawn(memberId);
 		boardPostRepository.findById(comment.getPostId())
 			.filter(found -> found.getStatus() == BoardPostStatus.VISIBLE)
 			.orElseThrow(BoardCommentNotFoundException::new);
@@ -73,9 +74,8 @@ public class BoardReportUseCase {
 	// 신고를 넣고 숨김 기준에 세는 신고 수를 돌려준다 (되살린 적이 있으면 그 시각 이후의 신고만)
 	private long record(ReportTargetType type, long targetId, long memberId, ReportReason reason,
 		LocalDateTime handledAt) {
-		if (!boardReportRepository.existsByTargetTypeAndTargetIdAndReporterId(type, targetId, memberId)) {
-			boardReportRepository.save(BoardReport.create(type, targetId, memberId, reason));
-		}
+		// 이미 신고한 회원이면 0행이라 넘어간다. 중복 키 예외를 내지 않아 500이 나지 않는다
+		boardReportRepository.insertIgnore(type.name(), targetId, memberId, reason.name(), LocalDateTime.now());
 		return boardReportRepository.countByTargetTypeAndTargetIdAndCreateDateAfter(type, targetId,
 			handledAt != null ? handledAt : EPOCH);
 	}

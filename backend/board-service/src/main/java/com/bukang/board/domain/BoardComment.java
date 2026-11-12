@@ -5,6 +5,8 @@ import static lombok.AccessLevel.PROTECTED;
 
 import java.time.LocalDateTime;
 
+import org.hibernate.annotations.DynamicUpdate;
+
 import com.bukang.common.global.jpa.entity.BaseIdAndTime;
 
 import jakarta.persistence.Column;
@@ -18,6 +20,8 @@ import lombok.NoArgsConstructor;
 /**
  * 댓글 또는 답글. parentId가 있으면 그 댓글의 답글이다 (한 단계만, 답글의 답글은 없다)
  */
+// 바뀐 컬럼만 UPDATE한다. 고치는 요청이 그 사이에 신고로 숨겨진 상태를 옛 값으로 되돌리지 않게
+@DynamicUpdate
 @Entity
 @NoArgsConstructor(access = PROTECTED)
 @Getter
