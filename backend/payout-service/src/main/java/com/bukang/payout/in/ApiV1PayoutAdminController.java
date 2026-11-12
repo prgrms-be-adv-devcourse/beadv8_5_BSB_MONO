@@ -102,12 +102,14 @@ public class ApiV1PayoutAdminController {
 	@Operation(summary = "정산 생성 배치 다시 돌리기 (BUK-167)",
 		description = "정산 생성과 대사를 기준일로 다시 돌린다. "
 			+ "스케줄과 같은 잠금을 써서 이미 돌고 있으면 409로 거절한다. 배치 종류마다 실행 기록 한 줄을 남기고 돌려준다. "
-			+ "기준일을 빼면 오늘(한국 시간)이다.")
+			+ "기준일을 빼면 오늘(한국 시간)이다. "
+			+ "오늘보다 뒤인 기준일은 400으로 거절한다(과거 날짜는 놓친 날을 따라잡는 데 쓴다).")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "배치를 돌림 (일부 실패여도 200, 기록의 status로 본다)",
 			content = @Content(examples = @ExampleObject(value = PayoutAdminApiExamples.BATCH_RUN_SUCCESS))),
-		@ApiResponse(responseCode = "400", description = "기준일 · 회원 ID 형식 오류 또는 회원 ID가 0 이하",
+		@ApiResponse(responseCode = "400", description = "기준일이 오늘보다 뒤, 기준일 · 회원 ID 형식 오류 또는 회원 ID가 0 이하",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "기준일이 오늘보다 뒤", value = PayoutAdminApiExamples.BATCH_FUTURE_DATE),
 				@ExampleObject(name = "기준일 · 회원 ID 형식 오류", value = PayoutApiExamples.INVALID_VALUE_TYPE),
 				@ExampleObject(name = "회원 ID가 0 이하", value = PayoutApiExamples.INVALID_MEMBER_ID)
 			})),
@@ -142,12 +144,14 @@ public class ApiV1PayoutAdminController {
 	@Operation(summary = "정산 지급 배치 다시 돌리기 (BUK-167)",
 		description = "지급과 회수 청구 · 알림을 기준일로 다시 돌린다. "
 			+ "스케줄과 같은 잠금을 써서 이미 돌고 있으면 409로 거절한다. 배치 종류마다 실행 기록 한 줄을 남기고 돌려준다. "
-			+ "기준일을 빼면 오늘(한국 시간)이다.")
+			+ "기준일을 빼면 오늘(한국 시간)이다. "
+			+ "오늘보다 뒤인 기준일은 400으로 거절한다(과거 날짜는 놓친 날을 따라잡는 데 쓴다).")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "배치를 돌림 (일부 실패여도 200, 기록의 status로 본다)",
 			content = @Content(examples = @ExampleObject(value = PayoutAdminApiExamples.BATCH_RUN_SUCCESS))),
-		@ApiResponse(responseCode = "400", description = "기준일 · 회원 ID 형식 오류 또는 회원 ID가 0 이하",
+		@ApiResponse(responseCode = "400", description = "기준일이 오늘보다 뒤, 기준일 · 회원 ID 형식 오류 또는 회원 ID가 0 이하",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "기준일이 오늘보다 뒤", value = PayoutAdminApiExamples.BATCH_FUTURE_DATE),
 				@ExampleObject(name = "기준일 · 회원 ID 형식 오류", value = PayoutApiExamples.INVALID_VALUE_TYPE),
 				@ExampleObject(name = "회원 ID가 0 이하", value = PayoutApiExamples.INVALID_MEMBER_ID)
 			})),

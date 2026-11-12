@@ -13,6 +13,7 @@ import com.bukang.payout.domain.PayoutClaimStatus;
 import com.bukang.payout.domain.PayoutCreateFailureType;
 import com.bukang.payout.domain.PayoutHoldReason;
 import com.bukang.payout.domain.PayoutQueryPeriod;
+import com.bukang.payout.domain.exception.PayoutBatchFutureDateException;
 import com.bukang.payout.dto.PayoutAdminClaimsDto;
 import com.bukang.payout.dto.PayoutBatchRunDto;
 import com.bukang.payout.dto.PayoutClaimDto;
@@ -82,13 +83,22 @@ public class PayoutAdminFacade {
 	// 정산 생성 배치를 다시 돌린다 (BUK-167). 스케줄과 같은 잠금을 써서 이미 돌고 있으면 409다
 	public List<PayoutBatchRunDto> runCreate(long memberId, LocalDate today, LocalDateTime now) {
 		payoutAdminVerifyUseCase.verify(memberId);
+		checkNotFuture(today, now);
 		return payoutBatchUseCase.runCreate(PayoutBatchTrigger.관리자, memberId, today, now);
 	}
 
 	// 지급 배치(회수 청구 포함)를 다시 돌린다 (BUK-167)
 	public List<PayoutBatchRunDto> runPay(long memberId, LocalDate today, LocalDateTime now) {
 		payoutAdminVerifyUseCase.verify(memberId);
+		checkNotFuture(today, now);
 		return payoutBatchUseCase.runPay(PayoutBatchTrigger.관리자, memberId, today, now);
+	}
+
+	// 미래 기준일로 지급하면 지급일이 안 된 정산이 오늘 나간다 (BUK-167 리뷰). 생성도 같은 이유로 막는다
+	private static void checkNotFuture(LocalDate today, LocalDateTime now) {
+		if (today.isAfter(now.toLocalDate())) {
+			throw new PayoutBatchFutureDateException();
+		}
 	}
 
 	// 배치 실행 기록 (BUK-167). 기간은 실행 기준일 기준, 최대 1개월

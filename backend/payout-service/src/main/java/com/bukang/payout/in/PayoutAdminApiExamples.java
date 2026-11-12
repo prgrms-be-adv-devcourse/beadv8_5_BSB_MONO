@@ -77,6 +77,10 @@ final class PayoutAdminApiExamples {
 			"message": "정산 지급 배치가 이미 돌고 있습니다. 끝난 뒤 다시 돌려주세요.", "data": null }
 		""";
 
+	static final String BATCH_FUTURE_DATE = """
+		{ "status": 400, "code": "PAYOUT_BATCH_FUTURE_DATE", "message": "배치 기준일은 오늘보다 뒤일 수 없습니다.", "data": null }
+		""";
+
 	static final String BATCH_RUNS_SUCCESS = """
 		{
 			"status": 200,
