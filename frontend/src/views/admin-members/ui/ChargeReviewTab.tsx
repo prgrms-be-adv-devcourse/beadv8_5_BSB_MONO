@@ -1,5 +1,6 @@
 'use client'
 
+import { keepPreviousData } from '@tanstack/react-query'
 import { useState } from 'react'
 
 import { ConsoleCard } from '@/widgets/console-page'
@@ -16,7 +17,7 @@ export function ChargeReviewTab() {
   const [page, setPage] = useState(0)
   const list = cashApi.useGetChargeReviews(
     { page, size: ADMIN_MEMBER_PAGE_SIZE },
-    { query: { select: unwrapData, enabled: authenticated } },
+    { query: { select: unwrapData, enabled: authenticated, placeholderData: keepPreviousData } },
   )
   const rows = list.data?.content ?? []
   const totalPages = list.data?.totalPages ?? 0

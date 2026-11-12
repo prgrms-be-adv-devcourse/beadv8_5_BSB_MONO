@@ -95,7 +95,7 @@ export const getFindKakaoInviteFriendsResponseMock = (): RsDataListKakaoFriendDt
 
 export const getSendKakaoCrewInvitesResponseMock = (): RsDataKakaoInviteSendResultDto => ({"status":200,"message":"카카오톡으로 초대를 보냈습니다.","data":{"sentUuids":["abcdefg0001"],"failures":[{"uuid":"abcdefg0002","reason":"DAILY_LIMIT"}]}})
 
-export const getFindIdentityReviewResponseMock = (): RsDataIdentityReviewPageDto => ({"status":200,"message":"확인이 필요한 계정 목록을 조회했습니다.","data":{"groups":[{"members":[{"id":12,"nickname":"러너12","maskedName":"홍*동","maskedPhone":"010-****-5678","maskedEmail":"ho***@crewrun.com","ciVerified":false,"joinedAt":"2026-11-02T09:00:00"},{"id":13,"nickname":"러너13","maskedName":"홍*동","maskedPhone":"010-****-5678","maskedEmail":"ho***@gmail.com","ciVerified":true,"joinedAt":"2026-11-02T09:00:00"}]}],"page":0,"size":20,"totalElements":1,"totalPages":1}})
+export const getFindIdentityReviewResponseMock = (): RsDataIdentityReviewPageDto => ({"status":200,"message":"확인이 필요한 계정을 조회했습니다.","data":{"groups":[{"members":[{"id":12,"nickname":"러너12","maskedName":"홍*동","maskedPhone":"010-****-5678","maskedEmail":"ho***@crewrun.com","ciVerified":false,"joinedAt":"2026-11-02T09:00:00"},{"id":13,"nickname":"러너13","maskedName":"홍*동","maskedPhone":"010-****-9012","maskedEmail":"ho***@gmail.com","ciVerified":true,"joinedAt":"2026-11-02T09:00:00"}]}],"page":0,"size":20,"totalElements":1,"totalPages":1}})
 
 
 export const getVerifyIdentityWithMockPassMockHandler = (overrideResponse?: RsDataVerifiedIdentityDto | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<RsDataVerifiedIdentityDto> | RsDataVerifiedIdentityDto), options?: RequestHandlerOptions) => {

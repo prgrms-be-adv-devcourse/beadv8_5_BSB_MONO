@@ -4724,7 +4724,7 @@
                     "description": "조회 성공",
                     "value": {
                       "status": 200,
-                      "message": "확인이 필요한 계정 목록을 조회했습니다.",
+                      "message": "확인이 필요한 계정을 조회했습니다.",
                       "data": {
                         "groups": [
                           {
@@ -4742,7 +4742,7 @@
                                 "id": 13,
                                 "nickname": "러너13",
                                 "maskedName": "홍*동",
-                                "maskedPhone": "010-****-5678",
+                                "maskedPhone": "010-****-9012",
                                 "maskedEmail": "ho***@gmail.com",
                                 "ciVerified": true,
                                 "joinedAt": "2026-11-02T09:00:00"

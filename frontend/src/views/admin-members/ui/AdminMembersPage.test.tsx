@@ -141,8 +141,9 @@ describe('AdminMembersPage 고액 충전 확인', () => {
 
     await user.click(await screen.findByRole('button', { name: '다음 페이지' }))
 
-    await screen.findByRole('table', { name: '고액 충전 확인' })
-    expect(requested).toContain('1')
+    // 첫 요청은 0, 다음 페이지 버튼을 누른 뒤 요청은 1 (화면의 1부터 세는 번호를 그대로 보내면 안 된다)
+    await waitFor(() => expect(requested.at(-1)).toBe('1'))
+    expect(requested[0]).toBe('0')
   })
 })
 
