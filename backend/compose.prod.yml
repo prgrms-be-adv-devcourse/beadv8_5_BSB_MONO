@@ -93,6 +93,11 @@ services:
   ai-service:
     image: ghcr.io/prgrms-be-adv-devcourse/bukang-ai-service:${IMAGE_TAG:-latest}
     restart: unless-stopped
+    # 서버(7.8GB)에 상한 없는 컨테이너가 많아 AI가 메모리를 넘기면 다른 서비스까지 죽을 수 있다. 넘기면 AI만 다시 시작된다 (BUK-183)
+    # 힙은 상한의 60%만 쓰고 나머지는 메타스페이스·스레드 등 힙 밖 메모리에 남긴다
+    mem_limit: 512m
+    environment:
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=60
   web:
     image: ghcr.io/prgrms-be-adv-devcourse/bukang-web:${IMAGE_TAG:-latest}
     restart: unless-stopped
