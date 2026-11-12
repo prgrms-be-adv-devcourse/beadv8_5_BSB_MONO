@@ -1,6 +1,8 @@
 package com.bukang.gateway.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -29,16 +31,20 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.bukang.jwt.JwtProperties;
 import com.bukang.jwt.JwtProvider;
+import com.bukang.jwt.TokenType;
 import com.sun.net.httpserver.HttpServer;
 
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import reactor.core.publisher.Mono;
 
 // 모든 서비스 주소를 가짜 서버 하나로 돌려 두고, 게이트웨이가 토큰을 검사해 회원 ID를 넘기는지 확인한다
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -67,6 +73,10 @@ class GatewayAuthenticationTest {
 	@Autowired
 	private JwtProvider jwtProvider;
 
+	// 로그아웃한 Access 토큰 표시(access-tokens:{jti}:revoked)를 읽는 Redis. 실제 Redis 없이 답을 정해 준다
+	@MockitoBean
+	private ReactiveStringRedisTemplate redis;
+
 	@DynamicPropertySource
 	static void serviceUris(DynamicPropertyRegistry registry) throws IOException {
 		stub = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
@@ -93,6 +103,11 @@ class GatewayAuthenticationTest {
 	@BeforeEach
 	void clearReceived() {
 		RECEIVED_MEMBER_IDS.clear();
+		when(redis.hasKey(anyString())).thenReturn(Mono.just(false));
+	}
+
+	private String jtiOf(String accessToken) {
+		return jwtProvider.parse(accessToken, TokenType.ACCESS).jti();
 	}
 
 	@Test
@@ -183,6 +198,58 @@ class GatewayAuthenticationTest {
 			.header("Authorization", "Bearer " + refreshToken(42L)));
 
 		assertUnauthorized(response, INVALID_TOKEN, "유효하지 않은 토큰입니다.");
+	}
+
+	@Test
+	@DisplayName("로그아웃한 Access Token(Redis에 표시가 있는 jti)이면 서비스로 넘기지 않고 401로 응답한다")
+	void rejectsRevokedAccessToken() throws Exception {
+		String revoked = jwtProvider.issueAccessToken(42L);
+		when(redis.hasKey("access-tokens:" + jtiOf(revoked) + ":revoked")).thenReturn(Mono.just(true));
+
+		HttpResponse<String> response = send(request("/api/v1/order/orders")
+			.header("Authorization", "Bearer " + revoked));
+
+		assertUnauthorized(response, INVALID_TOKEN, "로그아웃된 토큰입니다.");
+		assertThat(RECEIVED_MEMBER_IDS).isEmpty();
+	}
+
+	@Test
+	@DisplayName("한 토큰을 로그아웃해도 같은 회원의 다른 Access Token은 막히지 않는다")
+	void doesNotRejectOtherTokenOfSameMember() throws Exception {
+		String revoked = jwtProvider.issueAccessToken(42L);
+		String other = jwtProvider.issueAccessToken(42L);
+		when(redis.hasKey("access-tokens:" + jtiOf(revoked) + ":revoked")).thenReturn(Mono.just(true));
+
+		HttpResponse<String> response = send(request("/api/v1/order/orders")
+			.header("Authorization", "Bearer " + other));
+
+		assertThat(response.statusCode()).isEqualTo(200);
+		assertThat(RECEIVED_MEMBER_IDS).containsExactly("42");
+	}
+
+	@Test
+	@DisplayName("Redis 확인이 실패하면 요청을 막지 않고 통과시킨다")
+	void passesWhenRedisFails() throws Exception {
+		when(redis.hasKey(anyString())).thenReturn(Mono.error(new IllegalStateException("redis down")));
+
+		HttpResponse<String> response = send(request("/api/v1/order/orders")
+			.header("Authorization", "Bearer " + jwtProvider.issueAccessToken(42L)));
+
+		assertThat(response.statusCode()).isEqualTo(200);
+		assertThat(RECEIVED_MEMBER_IDS).containsExactly("42");
+	}
+
+	@Test
+	@DisplayName("공개 주소에서도 로그아웃한 Access Token이면 회원 ID를 넘기지 않고 로그인하지 않은 요청으로 넘긴다")
+	void passesPublicPathWithRevokedTokenAsAnonymous() throws Exception {
+		String revoked = jwtProvider.issueAccessToken(42L);
+		when(redis.hasKey("access-tokens:" + jtiOf(revoked) + ":revoked")).thenReturn(Mono.just(true));
+
+		HttpResponse<String> response = send(request("/api/v1/product/races/1")
+			.header("Authorization", "Bearer " + revoked));
+
+		assertThat(response.statusCode()).isEqualTo(200);
+		assertThat(RECEIVED_MEMBER_IDS).containsExactly("없음");
 	}
 
 	@Test
