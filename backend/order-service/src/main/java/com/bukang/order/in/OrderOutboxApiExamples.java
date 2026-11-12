@@ -60,7 +60,7 @@ final class OrderOutboxApiExamples {
 		""";
 
 	static final String INVALID_VALUE_TYPE = """
-		{ "status": 400, "message": "요청 값의 형식이 올바르지 않습니다.", "data": null }
+		{ "status": 400, "code": "INVALID_REQUEST", "message": "요청 값의 형식이 올바르지 않습니다.", "data": null }
 		""";
 
 	private OrderOutboxApiExamples() {

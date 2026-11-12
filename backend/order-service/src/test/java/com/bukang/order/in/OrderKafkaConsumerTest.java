@@ -95,6 +95,7 @@ class OrderKafkaConsumerTest {
 			any(LocalDateTime.class));
 		verify(inbox)
 			.record(eq(MESSAGE_ID), eq("order"), eq(KafkaTopics.CREW_MEMBER_LEFT), any(LocalDateTime.class));
+		verify(dlt).completeByResend(eq(MESSAGE_ID), any(LocalDateTime.class));
 	}
 
 	@Test
@@ -105,6 +106,7 @@ class OrderKafkaConsumerTest {
 		consumer.handleCrewMemberLeft(CREW_LEFT_PAYLOAD.formatted("LEFT"), MESSAGE_ID);
 
 		verifyNoInteractions(crewMemberLeftUseCase);
+		verify(dlt).completeByResend(eq(MESSAGE_ID), any(LocalDateTime.class));
 	}
 
 	@Test
