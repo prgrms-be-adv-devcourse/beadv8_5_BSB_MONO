@@ -46,11 +46,14 @@ public class ApiV1PartyController {
 	@Operation(operationId = "createParty", summary = "파티 만들기",
 		description = "크루원이 파티를 만든다. 파티장이 고른 종목이 파티 종목이 되어 파티원 모두 그 종목으로 신청하고, 만든 뒤에는 바꿀 수 없다. "
 			+ "파티장도 참가자라 파티원 신청서(결제 전)를 함께 만들고, 참가 링크(24시간)가 함께 만들어진다. "
+			+ "고른 크루원(invitedMemberIds)에게는 초대 알림과 참가 링크를 보낸다. 나 자신·같은 사람 두 번·크루원이 아닌 사람·"
+			+ "파티 예매 시작 7일 전보다 늦게 가입한 사람은 거절하지 않고 건너뛰며, 실제로 보낸 사람은 응답 invitedMemberIds에 담긴다. "
 			+ "같은 대회에 개인 신청이 남아 있으면 409 ORDER_INDIVIDUAL_PARTICIPATION_EXISTS와 data.participationId를 준다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "201", description = "만들기 성공",
 			content = @Content(examples = @ExampleObject(value = PartyApiExamples.CREATE_SUCCESS))),
-		@ApiResponse(responseCode = "400", description = "입력값 검증 실패, 제3자 제공 미동의, 요청 본문 형식 오류, 나이 제한 밖 등",
+		@ApiResponse(responseCode = "400",
+			description = "입력값 검증 실패(초대 50명 넘음 포함), 제3자 제공 미동의, 요청 본문 형식 오류, 나이 제한 밖 등",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "입력값 검증 실패", value = PartyApiExamples.INVALID_INPUT),
 				@ExampleObject(name = "제3자 제공 미동의", value = PartyApiExamples.CONSENT_REQUIRED),

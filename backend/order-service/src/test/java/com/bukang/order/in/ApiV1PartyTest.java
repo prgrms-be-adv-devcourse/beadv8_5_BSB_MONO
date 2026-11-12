@@ -1,6 +1,10 @@
 package com.bukang.order.in;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -14,11 +18,14 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.LongStream;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -26,12 +33,17 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
+import com.bukang.common.shared.notification.NotificationKafkaSender;
+import com.bukang.common.shared.notification.NotificationKind;
+import com.bukang.common.shared.notification.event.NotificationRequestedEvent;
 import com.bukang.order.domain.ParticipationStatus;
 import com.bukang.order.domain.Party;
 import com.bukang.order.domain.PartyStatus;
+import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
 import com.bukang.order.out.OrderOutboxKafkaEventRepository;
 import com.bukang.order.out.ParticipationRepository;
 import com.bukang.order.out.PartyMemberRepository;
@@ -82,6 +94,9 @@ class ApiV1PartyTest {
 	@Autowired
 	private StubCrewPort crewPort;
 
+	@MockitoSpyBean
+	private NotificationKafkaSender notificationSender;
+
 	@BeforeEach
 	void setUp() {
 		raceCoursePort.put(StubRaceCoursePort.openCourse(COURSE_10K, RACE_ID, 14, null));
@@ -116,6 +131,57 @@ class ApiV1PartyTest {
 		assertThat(party.getJoinTokenExpiresAt()).isAfter(LocalDateTime.now().plusHours(23));
 		assertThat(participationRepository.findAll().getFirst().getPartyId()).isEqualTo(party.getId());
 		assertThat(partyMemberRepository.findByPartyIdAndMemberId(party.getId(), LEADER)).isPresent();
+		verify(notificationSender, never()).send(any());
+	}
+
+	@Test
+	@DisplayName("고른 크루원에게만 참가 링크를 담은 초대 알림을 한 번 보낸다. 같은 요청이 다시 오면 409라 다시 보내지 않는다")
+	void createInvites() throws Exception {
+		LocalDateTime now = LocalDateTime.now();
+		raceCoursePort.put(StubRaceCoursePort.withCrewSale(StubRaceCoursePort.openCourse(COURSE_10K, RACE_ID, 14, null),
+			now.minusDays(1), now.plusDays(5), 4, null));
+		crewPort.notCrewMember(OTHER);
+		// 파티 예매 시작 7일 전보다 늦게 가입해 합류가 막히는 사람 (P4)
+		crewPort.rejoinedCrewAt(FOURTH, now.minusDays(2));
+		String invited = "[%d, %d, %d, %d, %d]".formatted(LEADER, MEMBER, MEMBER, OTHER, FOURTH);
+
+		String token = token(create(LEADER, COURSE_10K, invited)
+			.andExpect(jsonPath("$.data.invitedMemberIds.length()").value(1))
+			.andExpect(jsonPath("$.data.invitedMemberIds[0]").value(MEMBER)));
+
+		ArgumentCaptor<NotificationRequestedEvent> sent = ArgumentCaptor.forClass(NotificationRequestedEvent.class);
+		verify(notificationSender, times(1)).send(sent.capture());
+		assertThat(sent.getValue().memberId()).isEqualTo(MEMBER);
+		assertThat(sent.getValue().kind()).isEqualTo(NotificationKind.PARTY_INVITED);
+		assertThat(sent.getValue().href()).isEqualTo("/parties/join/" + token);
+
+		create(LEADER, COURSE_10K, invited).andExpect(status().isConflict());
+		verify(notificationSender, times(1)).send(any());
+	}
+
+	@Test
+	@DisplayName("고른 크루원을 확인하지 못해도(회원 서비스 503) 파티는 만들어지고 그 사람만 알림에서 빠진다")
+	void createInvitesMemberServiceDown() throws Exception {
+		// 파티장 확인은 통과하고, 그다음 초대할 사람 확인에서 회원 서비스가 멈춘 경우
+		crewPort.beforeNextLookup(() -> crewPort.beforeNextLookup(() -> {
+			throw new ExternalServiceUnavailableException("회원 서비스에 연결하지 못했습니다.");
+		}));
+
+		create(LEADER, COURSE_10K, "[%d, %d]".formatted(MEMBER, OTHER))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.data.invitedMemberIds.length()").value(1))
+			.andExpect(jsonPath("$.data.invitedMemberIds[0]").value(OTHER));
+		verify(notificationSender, times(1)).send(any());
+	}
+
+	@Test
+	@DisplayName("초대는 한 번에 50명까지이고, 빈 회원 ID는 받지 않는다 (400)")
+	void createInvitesInvalid() throws Exception {
+		String fiftyOne = LongStream.rangeClosed(1, 51).mapToObj(String::valueOf)
+			.collect(Collectors.joining(", ", "[", "]"));
+		create(LEADER, COURSE_10K, fiftyOne).andExpect(status().isBadRequest());
+		create(LEADER, COURSE_10K, "[2, null]").andExpect(status().isBadRequest());
+		assertThat(partyRepository.count()).isZero();
 	}
 
 	@Test
@@ -460,12 +526,17 @@ class ApiV1PartyTest {
 	}
 
 	private ResultActions create(long memberId, long raceCourseId) throws Exception {
+		return create(memberId, raceCourseId, "null");
+	}
+
+	private ResultActions create(long memberId, long raceCourseId, String invitedMemberIds) throws Exception {
 		return mockMvc.perform(post(BASE_URL)
 			.header("X-Member-Id", memberId)
 			.contentType(MediaType.APPLICATION_JSON)
 			.content("""
-				{ "crewId": %d, "raceCourseId": %d, "participant": %s, "thirdPartyConsent": true }
-				""".formatted(CREW_ID, raceCourseId, participant())));
+				{ "crewId": %d, "raceCourseId": %d, "participant": %s, "thirdPartyConsent": true,
+					"invitedMemberIds": %s }
+				""".formatted(CREW_ID, raceCourseId, participant(), invitedMemberIds)));
 	}
 
 	private ResultActions join(long memberId, String token) throws Exception {

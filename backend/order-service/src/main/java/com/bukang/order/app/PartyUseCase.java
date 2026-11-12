@@ -7,6 +7,7 @@ import static com.bukang.order.app.ParticipationApplyUseCase.checkTshirtSize;
 import static com.bukang.order.app.ParticipationApplyUseCase.isActiveParticipationConflict;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.List;
@@ -15,6 +16,9 @@ import java.util.Optional;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
+import com.bukang.common.global.eventpublisher.EventPublisher;
+import com.bukang.common.shared.notification.NotificationKind;
+import com.bukang.common.shared.notification.event.NotificationRequestedEvent;
 import com.bukang.order.domain.ParticipantInfo;
 import com.bukang.order.domain.Participation;
 import com.bukang.order.domain.ParticipationStatus;
@@ -25,6 +29,7 @@ import com.bukang.order.domain.PartyStatus;
 import com.bukang.order.domain.exception.ApplicationPeriodException;
 import com.bukang.order.domain.exception.CrewNotFoundException;
 import com.bukang.order.domain.exception.DuplicateParticipationException;
+import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
 import com.bukang.order.domain.exception.IndividualParticipationExistsException;
 import com.bukang.order.domain.exception.PartyAccessDeniedException;
 import com.bukang.order.domain.exception.PartyConflictException;
@@ -37,6 +42,7 @@ import com.bukang.order.out.PartyRepository.JoinTarget;
 import com.bukang.order.out.crew.CrewPort;
 import com.bukang.order.out.crew.CrewPort.CrewMembership;
 import com.bukang.order.out.race.RaceCourseInfo;
+import com.bukang.order.out.race.RaceCourseInfo.CrewSale;
 import com.bukang.order.out.race.RaceCoursePort;
 
 import lombok.RequiredArgsConstructor;
@@ -62,26 +68,37 @@ public class PartyUseCase {
 	// 정책 최소 인원 (11/05 P3). 최대는 판매자 값만 쓰고 없으면 제한 없음 (11/09 결정)
 	// shortcut: 내 파티 상태 응답(PartyFacade)은 아직 종목을 읽지 않아 판매자 최소·최대를 모른다. 최소는 정책값, 최대는 null로 준다
 	public static final int MIN_PARTY_SIZE = 4;
+	private static final DateTimeFormatter LINK_EXPIRES_FORMAT = DateTimeFormatter.ofPattern("M월 d일 HH:mm");
 
 	private final PartyRepository partyRepository;
 	private final PartyMemberRepository partyMemberRepository;
 	private final ParticipationRepository participationRepository;
 	private final RaceCoursePort raceCoursePort;
 	private final CrewPort crewPort;
+	private final EventPublisher eventPublisher;
 
-	public record Created(Party party, Participation participation) {
+	/**
+	 * @param invitedMemberIds 초대 알림을 보낸 크루원 (고른 사람 중 걸러진 사람은 빠진다)
+	 */
+	public record Created(Party party, Participation participation, List<Long> invitedMemberIds) {
 	}
 
 	// 파티장도 참가자다. 만들 때 고른 종목이 파티 종목이 되고, 파티장 참가자 정보로 자기 신청서를 가진다
+	// 고른 크루원에게는 참가 링크를 담은 초대 알림을 보낸다 (BUK-182, 11/05 결정 「고르기 + 링크」)
+	// 같은 요청이 다시 오면 「한 대회 한 신청」(409)으로 롤백돼 알림도 다시 나가지 않는다
 	public Created create(long memberId, long crewId, long raceCourseId, ParticipantInfo participant,
-		LocalDateTime now) {
+		Collection<Long> invitedMemberIds, LocalDateTime now) {
 		RaceCourseInfo course = findOpenCourse(raceCourseId, now);
 		LocalDateTime crewJoinedAt = checkCrewMember(crewId, memberId);
 		ParticipantInfo checked = checkParticipant(course, participant);
 		checkNoLiveParticipation(course.raceId(), memberId, null);
+		List<Long> invitees = findInvitees(crewId, memberId, course.crewSale(), invitedMemberIds);
 		Party party = partyRepository.save(Party.create(crewId, memberId, course.raceId(), course.raceCourseId(), now));
 		partyMemberRepository.save(PartyMember.join(party.getId(), memberId, crewId, crewJoinedAt, now));
-		return new Created(party, saveParticipation(party, memberId, course, checked, now));
+		Participation participation = saveParticipation(party, memberId, course, checked, now);
+		// 커밋된 뒤에만 나간다. 잃어도 되는 메시지라 아웃박스 없이 보낸다 (11/04 결정)
+		invitees.forEach(invitee -> eventPublisher.publish(inviteNotice(invitee, party, course)));
+		return new Created(party, participation, invitees);
 	}
 
 	public Party regenerateJoinLink(long partyId, long memberId, LocalDateTime now) {
@@ -261,6 +278,51 @@ public class PartyUseCase {
 			throw PartyAccessDeniedException.crewMemberRequired();
 		}
 		return membership.joinedAt();
+	}
+
+	// 고른 크루원 중 초대 알림을 보낼 사람. 거절하지 않고 건너뛴다 (추천값): 나 자신·같은 사람 두 번은 빼고,
+	// 크루원이 아니거나 파티 예매 시작 7일 전보다 늦게 가입한 사람(합류가 막힘, P4)에게는 보내지 않는다
+	// 크루원 확인이 없으면 아무 회원에게나 알림을 보낼 수 있다. 확인하지 못하면(회원 서비스 503) 그 사람만 건너뛴다
+	// (초대는 덤이라 파티 만들기를 막지 않는다. 링크는 파티장이 직접 나눌 수 있다)
+	// shortcut: 한 번에 여러 명을 묻는 내부 API가 없어 트랜잭션 안에서 한 명씩 묻는다(최대 50번).
+	// 회원 서비스가 느리면 그만큼 DB 연결을 잡는다. 회원에 여러 명 확인 API가 생기면 한 번에 묻는다
+	private List<Long> findInvitees(long crewId, long leaderId, CrewSale crewSale, Collection<Long> memberIds) {
+		if (memberIds == null) {
+			return List.of();
+		}
+		List<Long> candidates = memberIds.stream().distinct().filter(id -> id != leaderId).toList();
+		List<Long> invitees = candidates.stream()
+			.filter(id -> canInvite(crewId, id, crewSale))
+			.toList();
+		if (invitees.size() < candidates.size()) {
+			log.info("크루원이 아니거나 늦게 가입한 사람에게는 초대 알림을 보내지 않습니다. crewId={}, picked={}, invited={}",
+				crewId, candidates, invitees);
+		}
+		return invitees;
+	}
+
+	private boolean canInvite(long crewId, long memberId, CrewSale crewSale) {
+		try {
+			return crewPort.findMembership(crewId, memberId)
+				.filter(CrewMembership::crewMember)
+				.filter(membership -> crewSale == null || joinedInTime(membership, crewSale))
+				.isPresent();
+		} catch (ExternalServiceUnavailableException unavailable) {
+			log.warn("크루원인지 확인하지 못해 초대 알림을 건너뜁니다. crewId={}, memberId={}", crewId, memberId);
+			return false;
+		}
+	}
+
+	private static boolean joinedInTime(CrewMembership membership, CrewSale crewSale) {
+		return membership.joinedAt() != null && !membership.joinedAt().isAfter(crewSale.joinDeadline());
+	}
+
+	// shortcut: 주문은 파티장 닉네임을 몰라 문구에 넣지 않는다. 회원 정보를 받게 되면 넣는다
+	private static NotificationRequestedEvent inviteNotice(long memberId, Party party, RaceCourseInfo course) {
+		return NotificationRequestedEvent.of(memberId, NotificationKind.PARTY_INVITED, "파티에 초대받았어요",
+			course.courseName() + " 크루 파티에 초대받았어요.\n"
+				+ party.getJoinTokenExpiresAt().format(LINK_EXPIRES_FORMAT) + "까지 링크로 합류할 수 있어요.",
+			"/parties/join/" + party.getJoinToken());
 	}
 
 	private static ParticipantInfo checkParticipant(RaceCourseInfo course, ParticipantInfo participant) {
