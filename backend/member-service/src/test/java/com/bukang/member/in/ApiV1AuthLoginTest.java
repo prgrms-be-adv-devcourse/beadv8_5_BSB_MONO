@@ -119,7 +119,7 @@ class ApiV1AuthLoginTest {
 		verify(refreshTokenRepository).create(eq((long)memberId), saved.capture());
 		assertThat(saved.getValue().familyId()).isEqualTo(refreshClaims.familyId());
 		assertThat(saved.getValue().jti()).isEqualTo(refreshClaims.jti());
-		assertThat(saved.getValue().token()).isEqualTo(refreshToken);
+		assertThat(saved.getValue().tokenExpiresAt()).isEqualTo(refreshClaims.expiresAt());
 		assertThat(Duration.between(saved.getValue().issuedAt(), saved.getValue().familyExpiresAt()))
 			.isEqualTo(Duration.ofDays(30));
 	}

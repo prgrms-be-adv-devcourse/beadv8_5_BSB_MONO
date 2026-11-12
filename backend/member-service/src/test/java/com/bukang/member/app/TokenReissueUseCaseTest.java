@@ -64,7 +64,7 @@ class TokenReissueUseCaseTest {
 	@DisplayName("ROTATED: 새 Access Token과 같은 family의 새 Refresh Token(14일)을 돌려준다")
 	void returnsNewTokensWhenRotated() {
 		given(repository.rotate(eq(MEMBER_ID), any(Rotation.class)))
-			.willReturn(new RotationResult(RotationOutcome.ROTATED, null));
+			.willReturn(RotationResult.of(RotationOutcome.ROTATED));
 
 		AuthTokens tokens = useCase.reissue(presentedToken);
 
@@ -80,7 +80,7 @@ class TokenReissueUseCaseTest {
 		assertThat(rotation.familyId()).isEqualTo(FAMILY_ID);
 		assertThat(rotation.presentedJti()).isEqualTo(presented.jti());
 		assertThat(rotation.newJti()).isEqualTo(issued.jti());
-		assertThat(rotation.newToken()).isEqualTo(tokens.refreshToken());
+		assertThat(rotation.newTokenExpiresAt()).isEqualTo(issued.expiresAt());
 		assertThat(rotation.reuseGrace()).isEqualTo(Duration.ofSeconds(5));
 	}
 
@@ -90,7 +90,7 @@ class TokenReissueUseCaseTest {
 		Instant familyExpiresAt = NOW.plus(Duration.ofDays(3));
 		given(repository.findFamilyExpiresAt(MEMBER_ID)).willReturn(Optional.of(familyExpiresAt));
 		given(repository.rotate(eq(MEMBER_ID), any(Rotation.class)))
-			.willReturn(new RotationResult(RotationOutcome.ROTATED, null));
+			.willReturn(RotationResult.of(RotationOutcome.ROTATED));
 
 		AuthTokens tokens = useCase.reissue(presentedToken);
 
@@ -99,23 +99,38 @@ class TokenReissueUseCaseTest {
 	}
 
 	@Test
-	@DisplayName("GRACE: 미리 만든 토큰 대신 Redis의 지금 토큰을 그대로 돌려준다")
-	void returnsCurrentTokenWithinGrace() {
-		String currentToken = jwtProvider.issueRefreshToken(MEMBER_ID, FAMILY_ID, NOW.plus(Duration.ofDays(14)));
+	@DisplayName("GRACE: Redis의 jti·만료 시각으로 지금 토큰과 같은 Refresh Token을 다시 서명해 돌려준다")
+	void resignsCurrentTokenWithinGrace() {
+		Instant currentExpiresAt = NOW.plus(Duration.ofDays(14));
 		given(repository.rotate(eq(MEMBER_ID), any(Rotation.class)))
-			.willReturn(new RotationResult(RotationOutcome.GRACE, currentToken));
+			.willReturn(new RotationResult(RotationOutcome.GRACE, "J-current", currentExpiresAt));
 
 		AuthTokens tokens = useCase.reissue(presentedToken);
 
-		assertThat(tokens.refreshToken()).isEqualTo(currentToken);
+		JwtClaims issued = jwtProvider.parse(tokens.refreshToken(), TokenType.REFRESH);
+		assertThat(issued.memberId()).isEqualTo(MEMBER_ID);
+		assertThat(issued.familyId()).isEqualTo(FAMILY_ID);
+		assertThat(issued.jti()).isEqualTo("J-current");
+		assertThat(issued.expiresAt()).isEqualTo(currentExpiresAt);
 		assertThat(tokens.refreshTokenExpiration()).isEqualTo(Duration.ofDays(14));
+	}
+
+	@Test
+	@DisplayName("GRACE인데 저장된 만료 시각이 이미 지났으면 토큰을 만들지 않고 401로 거절한다")
+	void rejectsGraceWithExpiredCurrentToken() {
+		given(repository.rotate(eq(MEMBER_ID), any(Rotation.class)))
+			.willReturn(new RotationResult(RotationOutcome.GRACE, "J-current", NOW));
+
+		assertThatThrownBy(() -> useCase.reissue(presentedToken))
+			.isInstanceOf(InvalidRefreshTokenException.class)
+			.hasMessage(TokenReissueUseCase.INVALID_MESSAGE);
 	}
 
 	@ParameterizedTest
 	@DisplayName("THEFT·STALE·MISSING이면 401로 거절한다")
 	@EnumSource(value = RotationOutcome.class, names = {"THEFT", "STALE", "MISSING"})
 	void rejectsWhenNotRotated(RotationOutcome outcome) {
-		given(repository.rotate(eq(MEMBER_ID), any(Rotation.class))).willReturn(new RotationResult(outcome, null));
+		given(repository.rotate(eq(MEMBER_ID), any(Rotation.class))).willReturn(RotationResult.of(outcome));
 
 		assertThatThrownBy(() -> useCase.reissue(presentedToken))
 			.isInstanceOf(InvalidRefreshTokenException.class)
