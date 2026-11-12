@@ -45,14 +45,15 @@ public class ApiV1MemberController {
 	@GetMapping("/email-availability")
 	@Operation(summary = "이메일 사용 가능 여부 확인",
 		description = "이메일이 아직 가입되지 않았으면 available=true, 이미 가입됐으면 false를 돌려준다. 로그인 없이 부를 수 있다. "
-			+ "탈퇴한 회원의 이메일은 비워지므로 다시 쓸 수 있다. 같은 IP는 1분에 10번까지 받는다.")
+			+ "탈퇴한 회원의 이메일은 비워지므로 다시 쓸 수 있다. 같은 IP는 1분에 30번까지 받는다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "확인 성공 (이미 쓰는 이메일이어도 200)",
 			content = @Content(examples = @ExampleObject(value = MemberApiExamples.EMAIL_AVAILABILITY_SUCCESS))),
 		@ApiResponse(responseCode = "400", description = "이메일 누락, 형식 오류 또는 255자 초과",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = MemberApiExamples.EMAIL_AVAILABILITY_INVALID_INPUT))),
-		@ApiResponse(responseCode = "429", description = "같은 IP가 1분에 10번을 넘김",
+		@ApiResponse(responseCode = "429", description = "요청이 너무 많음. 앱은 같은 IP가 1분에 30번을 넘기면 EMAIL_CHECK_TOO_MANY를, "
+			+ "그 앞의 Nginx는 초당 1건(몰아서 20건)을 넘기면 TOO_MANY_REQUESTS를 준다. 어느 쪽이든 같은 안내를 보여 주면 된다",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = MemberApiExamples.EMAIL_AVAILABILITY_TOO_MANY)))
 	})
