@@ -332,6 +332,25 @@ class ApiV1SocialAuthTest {
 		verify(refreshTokenRepository, never()).create(anyLong(), any(NewFamily.class));
 	}
 
+	@Test
+	@DisplayName("소셜 회원 이메일도 5번 시도하면 막혀, 6번째는 소셜 안내 없이 429 AUTH_LOGIN_LOCKED다")
+	void lockedEmailGetsNoSocialGuidance() throws Exception {
+		socialMember();
+		for (int i = 0; i < 5; i++) {
+			emailLogin().andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("AUTH_SOCIAL_ACCOUNT"));
+		}
+
+		emailLogin().andExpect(status().isTooManyRequests()).andExpect(jsonPath("$.code").value("AUTH_LOGIN_LOCKED"));
+	}
+
+	private ResultActions emailLogin() throws Exception {
+		return mockMvc.perform(post("/api/v1/auth/login")
+			.contentType(MediaType.APPLICATION_JSON)
+			.content("""
+				{ "email": "runner@kakao.com", "password": "password1234" }
+				"""));
+	}
+
 	// 카카오로 가입한 비밀번호 없는 회원을 만든다 (가입 흐름 그대로)
 	private long socialMember() throws Exception {
 		String requestId = authorize("kakao", "/");
