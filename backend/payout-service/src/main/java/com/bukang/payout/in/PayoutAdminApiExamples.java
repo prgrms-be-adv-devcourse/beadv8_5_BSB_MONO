@@ -81,6 +81,46 @@ final class PayoutAdminApiExamples {
 		{ "status": 400, "code": "PAYOUT_BATCH_FUTURE_DATE", "message": "배치 기준일은 오늘보다 뒤일 수 없습니다.", "data": null }
 		""";
 
+	static final String PAY_CHECK_PAID = """
+		{
+			"status": 200,
+			"message": "지급 확인 필요 정산 내역을 닫았습니다.",
+			"data": {
+				"id": 2,
+				"payoutCode": "ST-20260926-0002",
+				"raceId": 10,
+				"raceName": "2026 한강 나이트런",
+				"payoutStage": "최종_정산",
+				"payoutMonth": "2026-09",
+				"salesAmount": 100000,
+				"refundAmount": 0,
+				"feeAmount": 5500,
+				"advanceDeductionAmount": 40000,
+				"payoutAmount": 54500,
+				"status": "지급_완료",
+				"settledAt": "2026-09-26T03:00:00",
+				"scheduledPayDate": "2026-10-20",
+				"paidAt": "2026-10-23T10:00:00"
+			}
+		}
+		""";
+
+	static final String PAY_CHECK_RESULT_REQUIRED = """
+		{ "status": 400, "message": "지급 결과를 선택해주세요.", "data": null }
+		""";
+
+	static final String PAY_CHECK_MEMO_REQUIRED = """
+		{ "status": 400, "message": "판단 근거 메모를 작성해주세요.", "data": null }
+		""";
+
+	static final String PAY_CHECK_MEMO_TOO_LONG = """
+		{ "status": 400, "message": "판단 근거 메모는 255자 이하로 작성해주세요.", "data": null }
+		""";
+
+	static final String NOT_PAY_CHECK = """
+		{ "status": 409, "code": "PAYOUT_NOT_PAY_CHECK", "message": "지급 확인이 필요한 정산 내역이 아닙니다.", "data": null }
+		""";
+
 	static final String BATCH_RUNS_SUCCESS = """
 		{
 			"status": 200,

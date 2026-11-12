@@ -9,7 +9,9 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -21,6 +23,8 @@ import com.bukang.payout.domain.PayoutCreateFailureType;
 import com.bukang.payout.domain.PayoutItemPaging;
 import com.bukang.payout.dto.PayoutBatchRunDto;
 import com.bukang.payout.dto.PayoutCreateFailuresDto;
+import com.bukang.payout.dto.PayoutDto;
+import com.bukang.payout.dto.PayoutPayCheckRequestDto;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -30,6 +34,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -219,5 +224,54 @@ public class ApiV1PayoutAdminController {
 	) {
 		List<PayoutBatchRunDto> runs = payoutAdminFacade.batchRuns(memberId, from, to);
 		return ResponseEntity.ok(RsData.of(HttpStatus.OK, "배치 실행 기록을 조회했습니다.", runs));
+	}
+
+	@PostMapping("/payouts/{payoutId}/pay-check")
+	@Operation(summary = "지급 확인 필요 정산 내역 닫기 (BUK-174)",
+		description = "지급 결과를 3번 몰라 멈춘 정산 내역을, 관리자가 캐시 서비스에서 확인한 결과대로 닫는다. "
+			+ "지급됨이면 지급 완료로, 지급_안_됨이면 지급 예정으로 되돌려 다음 지급 배치가 다시 지급한다. "
+			+ "대회 취소 표시가 있으면 지급됨은 회수를 만들고, 지급_안_됨은 취소로 닫고 회수를 계산한다. "
+			+ "판단 근거 메모는 상태 이력에 남는다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "닫음",
+			content = @Content(examples = @ExampleObject(value = PayoutAdminApiExamples.PAY_CHECK_PAID))),
+		@ApiResponse(responseCode = "400", description = "결과 없음, 메모 없음 · 255자 초과, 본문 · ID 형식 오류 또는 회원 ID가 0 이하",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "결과 없음", value = PayoutAdminApiExamples.PAY_CHECK_RESULT_REQUIRED),
+				@ExampleObject(name = "메모 없음", value = PayoutAdminApiExamples.PAY_CHECK_MEMO_REQUIRED),
+				@ExampleObject(name = "메모 255자 초과", value = PayoutAdminApiExamples.PAY_CHECK_MEMO_TOO_LONG),
+				@ExampleObject(name = "본문 형식 오류", value = PayoutApiExamples.INVALID_BODY),
+				@ExampleObject(name = "ID · 회원 ID 형식 오류", value = PayoutApiExamples.INVALID_VALUE_TYPE),
+				@ExampleObject(name = "회원 ID가 0 이하", value = PayoutApiExamples.INVALID_MEMBER_ID)
+			})),
+		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = PayoutApiExamples.LOGIN_REQUIRED))),
+		@ApiResponse(responseCode = "403", description = "관리자가 아님",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = PayoutApiExamples.NOT_ADMIN))),
+		@ApiResponse(responseCode = "404", description = "헤더의 회원이 없거나 탈퇴함, 또는 정산 내역이 없음",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "회원 없음", value = PayoutApiExamples.MEMBER_NOT_FOUND),
+				@ExampleObject(name = "정산 내역 없음", value = PayoutApiExamples.PAYOUT_NOT_FOUND)
+			})),
+		@ApiResponse(responseCode = "409", description = "지급 확인 필요가 아님 (이미 닫혔거나 다른 상태) 또는 동시에 바뀜",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "지급 확인 필요가 아님", value = PayoutAdminApiExamples.NOT_PAY_CHECK),
+				@ExampleObject(name = "동시에 바뀜", value = PayoutApiExamples.CONCURRENT_UPDATE)
+			})),
+		@ApiResponse(responseCode = "503", description = "회원 서비스가 응답하지 않아 관리자인지 확인하지 못함",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = PayoutApiExamples.MEMBER_UNAVAILABLE)))
+	})
+	public ResponseEntity<RsData<PayoutDto>> closePayCheck(
+		@LoginMemberId long memberId,
+		@Parameter(description = "정산 내역 ID", example = "2")
+		@PathVariable long payoutId,
+		@Valid @RequestBody PayoutPayCheckRequestDto request
+	) {
+		PayoutDto payout = payoutAdminFacade.closePayCheck(memberId, payoutId, request.result(), request.memo(),
+			LocalDateTime.now(ZONE));
+		return ResponseEntity.ok(RsData.of(HttpStatus.OK, "지급 확인 필요 정산 내역을 닫았습니다.", payout));
 	}
 }
