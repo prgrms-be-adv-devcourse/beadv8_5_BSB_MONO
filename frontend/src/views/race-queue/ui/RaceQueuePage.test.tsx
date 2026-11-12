@@ -97,14 +97,27 @@ describe('RaceQueuePage', () => {
   })
 
   it('기다리는 화면은 제목 줄 없이 닫기만 두고, 순번이 줄면 숫자 없이 막대만 차오른다', async () => {
+    // 등록 때 순번 5 → 첫 순번 조회 때 순번 2. 조회 응답을 테스트가 열 때까지 붙잡아 실행 속도와 상관없이 같은 순서로 본다.
     mockQueue([queueStatus(1)], queueStatus(4))
+    let openStatus = () => {}
+    const statusGate = new Promise<void>((resolve) => {
+      openStatus = resolve
+    })
+    server.use(
+      http.get('*/api/v1/queue/races/:raceId/racecourses/:raceCourseId', async () => {
+        await statusGate
+        return HttpResponse.json(queueStatus(1))
+      }),
+    )
     renderQueue()
 
     expect(screen.queryByRole('heading', { name: '대기열' })).not.toBeInTheDocument()
+    // 순번 5에서 줄을 섰으니 (5-5+1)/5 = 20
     await vi.waitFor(() =>
       expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '20'),
     )
-    await act(() => vi.advanceTimersByTimeAsync(ADMISSION_POLL_MS))
+    openStatus()
+    // 순번 2로 줄었으니 (5-2+1)/5 = 80
     await vi.waitFor(() =>
       expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '80'),
     )
