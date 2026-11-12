@@ -53,7 +53,8 @@ def lint(d):
             text(f"{who}.facts", v, LIMITS["fact"])
         for c in t.get("checks", []) or []:
             text(f"{who}.checks {plain(c['item'])}", c.get("text", ""))
-            if len(re.findall(r"[.다요]\s", plain(c.get("text", "")) + " ")) > 2:
+            # 마침표·물음표 뒤가 공백이거나 끝일 때만 문장 끝으로 센다. 「서비스마다 」의 「다 」는 세지 않는다
+            if len(re.findall(r"[.!?](?:\s|$)", plain(c.get("text", "")))) > 2:
                 warns.append(f"{who}.checks {plain(c['item'])}: 두 문장 이내로 덜어냄")
     for s in d.get("apply", {}).get("summary", []):
         text("apply.summary", s, LIMITS["summary"])
