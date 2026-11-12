@@ -70,7 +70,7 @@ describe('MyCrewsPage (M09-0)', () => {
   it('불러오지 못하면 다시 불러오기를 보여 준다', async () => {
     server.use(http.get('*/api/v1/member/crews/me', () => failWith(500, 'INTERNAL_ERROR')))
     renderPage(<MyCrewsPage />)
-    expect(await screen.findByRole('button', { name: '다시 불러오기' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: '다시 시도' })).toBeInTheDocument()
   })
 })
 
@@ -109,7 +109,7 @@ describe('CrewNewPage (M26)', () => {
 describe('CrewHomePage (M09)', () => {
   it('크루장은 크루원 목록과 초대 링크 만들기를 본다', async () => {
     renderPage(<CrewHomePage crewId={1} />)
-    expect(await screen.findByText('크루원 3명 · 나는 크루장')).toBeInTheDocument()
+    expect(await screen.findByText('나는 크루장')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '초대 링크 만들기' })).toHaveAttribute(
       'href',
       '/crews/1/invites',
@@ -119,9 +119,72 @@ describe('CrewHomePage (M09)', () => {
     expect(screen.getByText('한강페이서')).toBeInTheDocument()
   })
 
+  it('진행 중인 파티를 카드로 보여 주고 파티 만들기로 이어 준다', async () => {
+    server.use(
+      http.get('*/api/v1/order/parties/crews/:crewId/active', () =>
+        HttpResponse.json({
+          status: 200,
+          message: '조회',
+          data: [
+            {
+              id: 9,
+              crewId: 1,
+              raceId: 100,
+              raceCourseId: 2,
+              status: 'RECRUITING',
+              leaderMemberId: 1,
+              memberCount: 3,
+              paidCount: 0,
+              paymentDueAt: null,
+              leaderNickname: '달리는곰',
+              myParty: true,
+            },
+          ],
+        }),
+      ),
+    )
+    renderPage(<CrewHomePage crewId={1} />)
+    expect(await screen.findByText(/파티장 달리는곰 · 3명/)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '진행 중인 파티 1개' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '파티 보기' })).toHaveAttribute('href', '/parties/9')
+    expect(screen.getByRole('link', { name: '파티 만들기' })).toHaveAttribute(
+      'href',
+      '/parties/new?crewId=1',
+    )
+  })
+
+  it('내 파티가 아닌 파티 카드는 링크 없이 보여 준다(남의 파티는 403이다)', async () => {
+    server.use(
+      http.get('*/api/v1/order/parties/crews/:crewId/active', () =>
+        HttpResponse.json({
+          status: 200,
+          message: '조회',
+          data: [
+            {
+              id: 9,
+              crewId: 1,
+              raceId: 100,
+              raceCourseId: 2,
+              status: 'RECRUITING',
+              leaderMemberId: 2,
+              memberCount: 3,
+              paidCount: 0,
+              paymentDueAt: null,
+              leaderNickname: '남의곰',
+              myParty: false,
+            },
+          ],
+        }),
+      ),
+    )
+    renderPage(<CrewHomePage crewId={1} />)
+    expect(await screen.findByText(/파티장 남의곰/)).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: '파티 보기' })).not.toBeInTheDocument()
+  })
+
   it('크루원은 초대 링크 만들기를 보지 못한다', async () => {
     renderPage(<CrewHomePage crewId={5} />)
-    expect(await screen.findByText('크루원 3명 · 나는 크루원')).toBeInTheDocument()
+    expect(await screen.findByText('나는 크루원')).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: '초대 링크 만들기' })).not.toBeInTheDocument()
   })
 

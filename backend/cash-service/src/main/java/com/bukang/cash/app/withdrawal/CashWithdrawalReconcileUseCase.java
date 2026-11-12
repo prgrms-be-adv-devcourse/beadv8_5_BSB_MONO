@@ -208,6 +208,9 @@ public class CashWithdrawalReconcileUseCase {
 				revert(wallet, item);
 				item.markReverted();
 			}
+			// 사람이 내린 결론으로 돈이 움직여, 나중에 어떤 결론으로 정리했는지 확인할 수 있게 남긴다
+			log.warn("환급 몫 수동 정리: itemId={}, result={}, withdrawalId={}, amount={}",
+				itemId, resolution, item.getWithdrawal().getId(), item.getAmount());
 			completeIfDone(item.getWithdrawal(), now);
 			return new CashWithdrawalItemResolveResponseDto(item.getId(), item.getStatus(),
 				item.getWithdrawal().getId(), item.getWithdrawal().getStatus());

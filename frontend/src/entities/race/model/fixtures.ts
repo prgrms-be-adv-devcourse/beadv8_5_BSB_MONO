@@ -86,6 +86,7 @@ export const RACE_DETAIL: RaceDetail = {
     { label: '정보 수정 기한', value: '10/31 (토) 18:00' },
     { label: '전액 환불 기한', value: '10/31 (토) 23:59' },
   ],
+  infoEditDeadline: '10/31 (토) 18:00',
   refund: refundRows('10/31 (토) 23:59'),
   faq: FAQ_ROWS,
   seller: {

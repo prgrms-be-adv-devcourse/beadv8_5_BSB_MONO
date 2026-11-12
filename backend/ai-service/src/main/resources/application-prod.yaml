@@ -1,0 +1,27 @@
+spring:
+  ai:
+    chat:
+      memory:
+        repository:
+          redis:
+            host: ${REDIS_HOST}
+            port: ${REDIS_PORT}
+
+# 역할 확인은 실제 회원 서비스에 묻는다. compose.yml의 앱 컨테이너끼리는 컨테이너 이름으로 접속한다
+ai:
+  clients:
+    member:
+      mode: http
+      base-url: http://bukang-member-service:8080
+
+# 운영에서는 API 구조가 외부에 노출되지 않도록 Swagger 비활성화
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+logging:
+  level:
+    com:
+      bukang: info

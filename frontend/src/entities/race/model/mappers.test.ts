@@ -25,7 +25,7 @@ describe('대회 응답 → 화면 모양', () => {
       title: '2026 용감한 쿠키RUN in 서울',
       posterLabel: '10K',
       meta: '11/1 (일) · 서울숲 일대',
-      price: '₩45,000~',
+      price: '45,000원부터',
     })
     expect(toRaceListItem(summary)).not.toHaveProperty('remaining')
   })
@@ -101,6 +101,7 @@ describe('대회 응답 → 화면 모양', () => {
     expect(race.images).toEqual([files[0].url, files[1].url])
     expect(race.startsAt).toBe('11/1 (일) 08:00 출발')
     expect(race.schedule).toContainEqual({ label: '전액 환불 기한', value: '10/31 (토) 23:59' })
+    expect(race.infoEditDeadline).toMatch(/\(.\) \d\d:\d\d$/)
     expect(race.seller.company).toBe('(주)쿠키런')
   })
 

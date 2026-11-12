@@ -1,3 +1,4 @@
+export { forgetKitOptionIds, readKitOptionIds, saveKitOptionIds } from './model/kit-choice'
 export {
   BookingFlowProvider,
   HOLD_SECONDS,

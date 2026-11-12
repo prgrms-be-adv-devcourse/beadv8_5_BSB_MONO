@@ -6,8 +6,17 @@ import { useState } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
 import { LedgerCategory, useMyBalance, walletLedgersQueryOptions } from '@/entities/wallet'
-import { formatWon } from '@/shared/lib'
-import { Alert, Button, buttonClassName, Chip, EmptyState, KeyValue, Skeleton } from '@/shared/ui'
+import { formatNumber } from '@/shared/lib'
+import {
+  Alert,
+  BottomCta,
+  Button,
+  buttonClassName,
+  Chip,
+  EmptyState,
+  KeyValue,
+  Skeleton,
+} from '@/shared/ui'
 
 import {
   formatLedgerAmount,
@@ -42,14 +51,14 @@ export function DepositPage({ refunding = false }: { refunding?: boolean }) {
     <>
       <AppHeader type="sub" title="예치금" />
       <main className="flex flex-1 flex-col gap-6 px-4 py-6">
-        <section className="flex flex-col gap-3 rounded-lg bg-bg-surface p-5 shadow-sm inset-ring inset-ring-border-default">
+        <section className="flex flex-col gap-3">
           <div className="flex flex-col gap-1">
-            <p className="text-body2-medium text-text-secondary">보유 예치금</p>
+            <p className="text-body2-regular text-text-secondary">보유 예치금</p>
             {isPending ? (
               <Skeleton shape="rect" className="h-9 w-32" />
             ) : (
               <p className="font-display text-number-s">
-                {isError || balance === undefined ? '-' : formatWon(balance)}
+                {isError || balance === undefined ? '-' : `${formatNumber(balance)}원`}
               </p>
             )}
             {isError && (
@@ -57,38 +66,16 @@ export function DepositPage({ refunding = false }: { refunding?: boolean }) {
             )}
           </div>
           {refunding && (
-            <Alert
-              title="₩5,000 돌려받는 중이에요"
-              description="국민은행 계좌로 보내면 '환급 완료'로 바뀌어요."
-            />
+            <>
+              <Alert
+                title="5,000원 돌려받는 중이에요"
+                description="국민은행 계좌로 보내면 '환급 완료'로 바뀌어요."
+              />
+              <p className="text-caption-regular text-text-tertiary">
+                돌려받는 중에는 다시 신청할 수 없어요.
+              </p>
+            </>
           )}
-          <div className="flex gap-2">
-            <Link href="/me/deposit/charge" className={buttonClassName({ className: 'flex-1' })}>
-              충전하기
-            </Link>
-            {refunding ? (
-              <span
-                className={buttonClassName({
-                  variant: 'secondary',
-                  className: 'flex-1 bg-bg-disabled text-text-disabled inset-ring-border-disabled',
-                })}
-              >
-                돌려받기
-              </span>
-            ) : (
-              <Link
-                href="/me/deposit/refund"
-                className={buttonClassName({ variant: 'secondary', className: 'flex-1' })}
-              >
-                돌려받기
-              </Link>
-            )}
-          </div>
-          <p className="text-caption-regular text-text-tertiary">
-            {refunding
-              ? '돌려받는 중에는 다시 신청할 수 없어요. 충전은 할 수 있어요.'
-              : '남은 예치금은 언제든 전부 돌려받을 수 있어요.'}
-          </p>
         </section>
 
         <section className="flex flex-col gap-3">
@@ -147,16 +134,39 @@ export function DepositPage({ refunding = false }: { refunding?: boolean }) {
           )}
         </section>
 
-        <section className="flex flex-col gap-3 rounded-lg bg-bg-subtle p-5">
+        <section className="flex flex-col gap-3">
           <h2 className="text-body1-bold">돌려받는 방법</h2>
-          <div className="flex flex-col gap-2">
-            <KeyValue label="계좌로 돌려받기" value="남은 예치금 전부" />
-            <p className="text-caption-regular text-text-tertiary">
-              관리자가 확인한 뒤 계좌로 보내 드려요.
-            </p>
-          </div>
+          <KeyValue label="계좌로 돌려받기" value="남은 예치금 전부" />
         </section>
       </main>
+      <BottomCta
+        className="sticky bottom-0 z-10"
+        secondary={
+          refunding ? (
+            <span
+              className={buttonClassName({
+                variant: 'secondary',
+                size: 'l',
+                className: 'bg-bg-disabled text-text-disabled inset-ring-border-disabled',
+              })}
+            >
+              돌려받기
+            </span>
+          ) : (
+            <Link
+              href="/me/deposit/refund"
+              className={buttonClassName({ variant: 'secondary', size: 'l' })}
+            >
+              돌려받기
+            </Link>
+          )
+        }
+        primary={
+          <Link href="/me/deposit/charge" className={buttonClassName({ size: 'l' })}>
+            충전하기
+          </Link>
+        }
+      />
     </>
   )
 }
