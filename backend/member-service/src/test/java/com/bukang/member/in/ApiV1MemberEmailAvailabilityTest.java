@@ -134,9 +134,9 @@ class ApiV1MemberEmailAvailabilityTest {
 	}
 
 	@Test
-	@DisplayName("같은 IP는 10번까지 받고 11번째는 429이며, 문구와 형식은 재설정 429를 따른다")
+	@DisplayName("같은 IP는 30번까지 받고 31번째는 429이며, 문구와 형식은 재설정 429를 따른다")
 	void limitsPerIp() throws Exception {
-		for (int i = 0; i < 10; i++) {
+		for (int i = 0; i < 30; i++) {
 			check("203.0.113.7").andExpect(status().isOk());
 		}
 
@@ -151,7 +151,7 @@ class ApiV1MemberEmailAvailabilityTest {
 	@Test
 	@DisplayName("한 IP가 한도를 넘어도 다른 IP의 요청은 받는다")
 	void otherIpStillAllowed() throws Exception {
-		for (int i = 0; i < 11; i++) {
+		for (int i = 0; i < 31; i++) {
 			check("203.0.113.7");
 		}
 
@@ -161,7 +161,7 @@ class ApiV1MemberEmailAvailabilityTest {
 	@Test
 	@DisplayName("X-Forwarded-For를 바꿔도 X-Real-IP로 세므로 한도를 피할 수 없다")
 	void forgedForwardedForCannotBypass() throws Exception {
-		for (int i = 0; i < 10; i++) {
+		for (int i = 0; i < 30; i++) {
 			mockMvc.perform(MockMvcRequestBuilders.get(PATH).param("email", EMAIL)
 				.header("X-Real-IP", "203.0.113.7").header("X-Forwarded-For", "10.0.0." + i))
 				.andExpect(status().isOk());
@@ -173,15 +173,21 @@ class ApiV1MemberEmailAvailabilityTest {
 	}
 
 	@Test
-	@DisplayName("429 응답은 가입 여부를 알려 주지 않는다 (가입된 이메일도 같은 응답)")
-	void tooManyResponseHidesMembership() throws Exception {
+	@DisplayName("429 응답 본문은 가입된 이메일과 가입 안 된 이메일이 완전히 같다")
+	void tooManyResponseBodyIsSameForAnyEmail() throws Exception {
 		memberFacade.join(MemberFixture.joinRequest().email(EMAIL).build(identityStore));
-		for (int i = 0; i < 10; i++) {
-			check("203.0.113.7");
-		}
+		String registered = tooManyBody("203.0.113.7", EMAIL);
+		String unregistered = tooManyBody("198.51.100.9", "nobody@crewrun.com");
 
-		check("203.0.113.7")
+		assertThat(registered).contains("EMAIL_CHECK_TOO_MANY").isEqualTo(unregistered);
+	}
+
+	private String tooManyBody(String ip, String email) throws Exception {
+		for (int i = 0; i < 30; i++) {
+			mockMvc.perform(MockMvcRequestBuilders.get(PATH).param("email", email).header("X-Real-IP", ip));
+		}
+		return mockMvc.perform(MockMvcRequestBuilders.get(PATH).param("email", email).header("X-Real-IP", ip))
 			.andExpect(status().isTooManyRequests())
-			.andExpect(jsonPath("$.data").doesNotExist());
+			.andReturn().getResponse().getContentAsString();
 	}
 }
