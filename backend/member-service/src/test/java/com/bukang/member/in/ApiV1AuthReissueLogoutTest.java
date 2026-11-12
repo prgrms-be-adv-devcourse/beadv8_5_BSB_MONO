@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.willAnswer;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -211,7 +212,7 @@ class ApiV1AuthReissueLogoutTest {
 
 		ArgumentCaptor<Duration> ttl = ArgumentCaptor.forClass(Duration.class);
 		verify(revokedAccessTokenRepository).revoke(
-			org.mockito.ArgumentMatchers.eq(jwtProvider.parse(accessToken, TokenType.ACCESS).jti()), ttl.capture());
+			eq(jwtProvider.parse(accessToken, TokenType.ACCESS).jti()), ttl.capture());
 		assertThat(ttl.getValue()).isPositive().isLessThanOrEqualTo(Duration.ofMinutes(30))
 			.isGreaterThan(Duration.ofMinutes(29));
 	}
