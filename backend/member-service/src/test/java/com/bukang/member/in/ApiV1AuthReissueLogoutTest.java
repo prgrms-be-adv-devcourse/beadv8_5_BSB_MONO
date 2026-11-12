@@ -207,17 +207,17 @@ class ApiV1AuthReissueLogoutTest {
 	private RotationResult rotate(long id, Rotation rotation) {
 		Saved saved = redis.get(id);
 		if (saved == null) {
-			return new RotationResult(RotationOutcome.MISSING, null);
+			return RotationResult.of(RotationOutcome.MISSING);
 		}
 		if (!saved.familyId().equals(rotation.familyId())) {
-			return new RotationResult(RotationOutcome.STALE, null);
+			return RotationResult.of(RotationOutcome.STALE);
 		}
 		if (saved.jti().equals(rotation.presentedJti())) {
 			redis.put(id, new Saved(saved.familyId(), rotation.newJti(), saved.familyExpiresAt()));
-			return new RotationResult(RotationOutcome.ROTATED, null);
+			return RotationResult.of(RotationOutcome.ROTATED);
 		}
 		redis.remove(id);
-		return new RotationResult(RotationOutcome.THEFT, null);
+		return RotationResult.of(RotationOutcome.THEFT);
 	}
 
 	// refresh-token-delete-family.lua 흉내
