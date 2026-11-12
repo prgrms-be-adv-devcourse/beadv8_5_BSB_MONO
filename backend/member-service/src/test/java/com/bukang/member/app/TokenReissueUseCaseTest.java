@@ -126,6 +126,22 @@ class TokenReissueUseCaseTest {
 			.hasMessage(TokenReissueUseCase.INVALID_MESSAGE);
 	}
 
+	@Test
+	@DisplayName("GRACE에서 다시 서명하는 순간 만료 시각이 지나 있어도 500이 아니라 401로 거절한다")
+	void rejectsGraceWhenExpiryPassesBeforeResigning() {
+		JwtProvider provider = org.mockito.Mockito.spy(jwtProvider);
+		org.mockito.Mockito.doThrow(new IllegalArgumentException("만료 시각은 지금보다 뒤여야 합니다"))
+			.when(provider).reissueRefreshToken(anyLong(), any(), any(), any());
+		TokenReissueUseCase raceUseCase =
+			new TokenReissueUseCase(provider, JWT_PROPERTIES, REFRESH_PROPERTIES, repository, clock);
+		given(repository.rotate(eq(MEMBER_ID), any(Rotation.class)))
+			.willReturn(new RotationResult(RotationOutcome.GRACE, "J-current", NOW.plusSeconds(1)));
+
+		assertThatThrownBy(() -> raceUseCase.reissue(presentedToken))
+			.isInstanceOf(InvalidRefreshTokenException.class)
+			.hasMessage(TokenReissueUseCase.INVALID_MESSAGE);
+	}
+
 	@ParameterizedTest
 	@DisplayName("THEFT·STALE·MISSING이면 401로 거절한다")
 	@EnumSource(value = RotationOutcome.class, names = {"THEFT", "STALE", "MISSING"})
