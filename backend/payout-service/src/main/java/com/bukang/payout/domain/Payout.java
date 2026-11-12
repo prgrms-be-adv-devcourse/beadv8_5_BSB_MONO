@@ -303,6 +303,9 @@ public class Payout extends BaseIdAndTime {
 				.formatted(getId(), status));
 		}
 		changeStatus(PayoutStatus.지급_예정, PayoutHold.SYSTEM_MEMBER_ID, revertedAt, reason);
+		// 거절은 돈이 안 나간 것이 확실한 결과다. 다음 지급은 결과 모름을 처음부터 다시 센다 (PR #427 리뷰, 11/12 결정)
+		unknownPayCount = 0;
+		lastUnknownPayDate = null;
 	}
 
 	/**

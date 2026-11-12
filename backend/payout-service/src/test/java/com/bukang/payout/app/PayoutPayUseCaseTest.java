@@ -363,6 +363,30 @@ class PayoutPayUseCaseTest {
 	}
 
 	@Test
+	@DisplayName("PR #427 리뷰: 거절로 정산 예정에 되돌리면 결과 모름 횟수를 0으로 되돌려, 다시 3번을 센다")
+	void rejectResetsUnknownCount() {
+		Payout payout = savePayoutWithSale(1);
+		cashService = transfer -> {
+			throw new PayoutTransferUnknownException("read timed out", null);
+		};
+		useCase().run(PAY_DATE, NOW);
+		useCase().run(PAY_DATE.plusDays(1), NOW.plusDays(1));
+
+		cashService = transfer -> {
+			throw new PayoutTransferRejectedException("잔액 부족", null);
+		};
+		useCase().run(PAY_DATE.plusDays(2), NOW.plusDays(2));
+		assertThat(payoutRepository.findById(payout.getId()).orElseThrow().getUnknownPayCount()).isZero();
+
+		cashService = transfer -> {
+			throw new PayoutTransferUnknownException("read timed out", null);
+		};
+		useCase().run(PAY_DATE.plusDays(3), NOW.plusDays(3));
+
+		assertThat(statusOf(payout)).isEqualTo(PayoutStatus.지급_중);
+	}
+
+	@Test
 	@DisplayName("BUK-166: 결과 모름이 2번이면 아직 지급 중이고, 3번째 요청이 성공하면 지급 완료한다")
 	void unknownTwiceThenSuccessIsPaid() {
 		Payout payout = savePayoutWithSale(1);
