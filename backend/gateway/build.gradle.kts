@@ -19,6 +19,8 @@ dependencies {
 	implementation("org.springframework.cloud:spring-cloud-starter-gateway-server-webflux")
 	// 토큰 검사(JwtProvider). 웹 의존성이 없는 모듈이라 WebFlux와 충돌하지 않는다
 	implementation(project(":jwt"))
+	// 로그아웃한 Access 토큰 표시를 reactive로 읽는다. member-service와 같은 Redis에 붙는다
+	implementation("org.springframework.boot:spring-boot-starter-data-redis")
 
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
 	// 테스트에서 JwtProvider가 만들지 않는 모양의 토큰(Refresh 등)을 직접 서명해 만든다

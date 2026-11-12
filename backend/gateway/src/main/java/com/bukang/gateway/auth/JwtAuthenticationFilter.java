@@ -6,6 +6,7 @@ import java.util.Locale;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
@@ -21,6 +22,7 @@ import com.bukang.jwt.JwtProvider;
 import com.bukang.jwt.TokenType;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
 
 /**
@@ -29,6 +31,7 @@ import reactor.core.publisher.Mono;
  * 라우팅 규칙에 맞지 않는 요청(/internal/** 등)은 이 필터를 거치지 않고 404로 응답한다.
  * 토큰 검사 전에, 경로에 ..·. 칸이나 ;·\·%2e·%2f·%5c·%25가 있는 요청은 400으로 거절한다 (경로 조작으로 공개 주소 판단 우회 차단).
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
@@ -44,9 +47,15 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 	private static final String CODE_TOKEN_EXPIRED = "AUTH_TOKEN_EXPIRED";
 	private static final String CODE_INVALID_TOKEN = "AUTH_INVALID_TOKEN";
 
+	private static String revokedKey(String jti) {
+		return "access-tokens:" + jti + ":revoked";
+	}
+
 	private final JwtProvider jwtProvider;
 	// 토큰 없이 통과하는 주소는 코드가 아니라 application.yaml의 gateway.auth.public-paths에 둔다
 	private final PublicPaths publicPaths;
+	// 로그아웃한 Access 토큰 표시를 읽는다. 키 형식은 member-service의 RevokedAccessTokenRepository와 같다 (양쪽 테스트가 같은 값을 확인)
+	private final ReactiveStringRedisTemplate redis;
 
 	@Override
 	public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
@@ -64,8 +73,8 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 		if (isPublic(request)) {
 			// 공개 주소라도 유효한 토큰이 있으면 회원 ID를 넘긴다 (예: 대회 상세의 "이미 신청함" 표시)
 			// 토큰이 없거나 무효하면 로그인하지 않은 요청으로 넘긴다
-			ServerHttpRequest forwarded = withMemberIdIfValid(request, token);
-			return chain.filter(exchange.mutate().request(forwarded).build());
+			return withMemberIdIfValid(request, token)
+				.flatMap(forwarded -> chain.filter(exchange.mutate().request(forwarded).build()));
 		}
 
 		if (token == null) {
@@ -86,7 +95,18 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 		ServerHttpRequest authenticated = request.mutate()
 			.header(MEMBER_ID_HEADER, String.valueOf(claims.memberId()))
 			.build();
-		return chain.filter(exchange.mutate().request(authenticated).build());
+		return isRevoked(claims).flatMap(revoked -> revoked
+			? reject(exchange.getResponse(), HttpStatus.UNAUTHORIZED, CODE_INVALID_TOKEN, "로그아웃된 토큰입니다.")
+			: chain.filter(exchange.mutate().request(authenticated).build()));
+	}
+
+	// 로그아웃한 토큰인지 Redis로 확인한다. Redis가 실패하면 사이트 전체가 멈추지 않도록 통과시킨다 (토큰은 만료 시각에 어차피 끝난다)
+	private Mono<Boolean> isRevoked(JwtClaims claims) {
+		return redis.hasKey(revokedKey(claims.jti()))
+			.onErrorResume(e -> {
+				log.warn("로그아웃한 토큰 확인에 실패해 통과시킵니다: {}", e.toString());
+				return Mono.just(false);
+			});
 	}
 
 	// 토큰 검사가 다른 필터보다 먼저 일어나도록 가장 앞에 둔다
@@ -122,16 +142,20 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 			|| publicPaths.matches(request.getMethod(), request.getPath().pathWithinApplication());
 	}
 
-	private ServerHttpRequest withMemberIdIfValid(ServerHttpRequest request, String token) {
+	// 로그아웃한 토큰도 무효한 토큰처럼 로그인하지 않은 요청으로 본다
+	private Mono<ServerHttpRequest> withMemberIdIfValid(ServerHttpRequest request, String token) {
 		if (token == null) {
-			return request;
+			return Mono.just(request);
 		}
+		JwtClaims claims;
 		try {
-			JwtClaims claims = jwtProvider.parse(token, TokenType.ACCESS);
-			return request.mutate().header(MEMBER_ID_HEADER, String.valueOf(claims.memberId())).build();
+			claims = jwtProvider.parse(token, TokenType.ACCESS);
 		} catch (InvalidTokenException e) {
-			return request;
+			return Mono.just(request);
 		}
+		return isRevoked(claims).map(revoked -> revoked
+			? request
+			: request.mutate().header(MEMBER_ID_HEADER, String.valueOf(claims.memberId())).build());
 	}
 
 	private String resolveToken(ServerHttpRequest request) {
