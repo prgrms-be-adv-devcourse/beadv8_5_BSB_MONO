@@ -75,7 +75,7 @@ describe('본인 확인 단계 (포트원)', () => {
 
     // 체험용 표시는 가짜 응답 모드에서만 보인다
     expect(screen.queryByText('체험용 화면이에요. 실제 인증은 하지 않아요')).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '휴대폰 본인인증' }))
+    await user.click(screen.getByRole('button', { name: '본인 확인하기' }))
 
     await vi.waitFor(() => expect(push).toHaveBeenCalledWith('/signup/account'))
     expect(openPortOne).toHaveBeenCalledWith({
@@ -98,7 +98,7 @@ describe('본인 확인 단계 (포트원)', () => {
     const user = userEvent.setup()
     renderIdentityStep()
 
-    await user.click(screen.getByRole('button', { name: '휴대폰 본인인증' }))
+    await user.click(screen.getByRole('button', { name: '본인 확인하기' }))
 
     const dialog = await screen.findByRole('alertdialog', { name: '본인인증을 마치지 못했어요' })
     expect(within(dialog).getByText(IDENTITY_MESSAGES.failed)).toBeInTheDocument()
@@ -116,10 +116,10 @@ describe('본인 확인 단계 (포트원)', () => {
     const user = userEvent.setup()
     renderIdentityStep()
 
-    await user.click(screen.getByRole('button', { name: '휴대폰 본인인증' }))
+    await user.click(screen.getByRole('button', { name: '본인 확인하기' }))
 
     await vi.waitFor(() =>
-      expect(screen.getByRole('button', { name: '휴대폰 본인인증' })).not.toHaveAttribute(
+      expect(screen.getByRole('button', { name: '본인 확인하기' })).not.toHaveAttribute(
         'aria-busy',
       ),
     )
@@ -140,7 +140,7 @@ describe('본인 확인 단계 (포트원)', () => {
     const user = userEvent.setup()
     renderIdentityStep()
 
-    await user.click(screen.getByRole('button', { name: '휴대폰 본인인증' }))
+    await user.click(screen.getByRole('button', { name: '본인 확인하기' }))
 
     const dialog = await screen.findByRole('alertdialog', { name: '이미 가입한 사람이에요' })
     await user.click(within(dialog).getByRole('button', { name: '로그인하기' }))
@@ -166,7 +166,7 @@ describe('본인 확인 단계 (포트원)', () => {
     const user = userEvent.setup()
     renderIdentityStep()
 
-    await user.click(screen.getByRole('button', { name: '휴대폰 본인인증' }))
+    await user.click(screen.getByRole('button', { name: '본인 확인하기' }))
 
     const dialog = await screen.findByRole('alertdialog', { name: '아직 다시 가입할 수 없어요' })
     expect(
@@ -182,7 +182,7 @@ describe('본인 확인 단계 (포트원)', () => {
     const user = userEvent.setup()
     renderIdentityStep()
 
-    await user.click(screen.getByRole('button', { name: '휴대폰 본인인증' }))
+    await user.click(screen.getByRole('button', { name: '본인 확인하기' }))
 
     expect(await screen.findByText(IDENTITY_MESSAGES.notConfigured)).toBeInTheDocument()
     expect(openPortOne).not.toHaveBeenCalled()
@@ -214,7 +214,7 @@ describe('본인 확인 단계 (가짜 응답 모드의 체험용 창)', () => {
   })
 
   async function fillMockWindow(user: ReturnType<typeof userEvent.setup>) {
-    await user.click(screen.getByRole('button', { name: '휴대폰 본인인증' }))
+    await user.click(screen.getByRole('button', { name: '본인 확인하기' }))
     const sheet = await screen.findByRole('dialog', { name: '휴대폰 본인인증' })
     expect(within(sheet).getByRole('radio', { name: 'SKT' })).toBeChecked()
     await user.click(within(sheet).getByRole('radio', { name: 'LG U+' }))

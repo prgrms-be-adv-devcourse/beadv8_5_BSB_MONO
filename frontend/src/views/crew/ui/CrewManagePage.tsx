@@ -18,6 +18,7 @@ import {
   Dialog,
   Divider,
   EmptyState,
+  Icon,
   Skeleton,
   useToast,
 } from '@/shared/ui'
@@ -50,6 +51,7 @@ export function CrewManagePage({ crewId }: { crewId: number }) {
   const disband = memberApi.useDisbandCrew()
   const [menuTarget, setMenuTarget] = useState<Member | null>(null)
   const [renaming, setRenaming] = useState(false)
+  const [blockedOpen, setBlockedOpen] = useState(false)
   // 확인 창 문구는 닫히는 동안에도 그대로 보이도록, 열림 여부와 마지막으로 고른 일을 따로 둔다
   const [pending, setPending] = useState<Pending>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -147,20 +149,13 @@ export function CrewManagePage({ crewId }: { crewId: number }) {
         ) : (
           <>
             <CrewBand>
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between gap-2">
-                  <h2 className="min-w-0 text-title3 break-all">
-                    {crew.data.name} 크루원 {crew.data.memberCount}명
-                  </h2>
-                  <Button variant="text" size="s" onClick={() => setRenaming(true)}>
-                    이름 바꾸기
-                  </Button>
-                </div>
-                <p className="text-body2-regular text-text-secondary">
-                  {crew.data.memberCount <= 1
-                    ? '아직 다른 크루원이 없어요. 초대 링크로 크루원을 모아 보세요.'
-                    : '크루원의 「관리」를 눌러 크루장을 넘기거나 크루에서 내보낼 수 있어요.'}
-                </p>
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="min-w-0 text-title3 break-all">
+                  {crew.data.name} 크루원 {crew.data.memberCount}명
+                </h2>
+                <Button variant="text" size="s" onClick={() => setRenaming(true)}>
+                  이름 바꾸기
+                </Button>
               </div>
               <CrewMemberList
                 members={crew.data.members}
@@ -169,7 +164,7 @@ export function CrewManagePage({ crewId }: { crewId: number }) {
                 action={(member) =>
                   member.role !== 'LEADER' && (
                     <Button
-                      variant="text"
+                      variant="ghost"
                       size="s"
                       aria-describedby={memberLabelId(member)}
                       onClick={() => setMenuTarget(member)}
@@ -194,17 +189,18 @@ export function CrewManagePage({ crewId }: { crewId: number }) {
                 variant="text"
                 size="m"
                 className="self-start"
-                disabled={crew.data.memberCount > 1}
-                aria-describedby="crew-disband-reason"
-                onClick={() => ask({ kind: 'disband' })}
+                // 크루원이 남아 있으면 요청 없이 막힘 안내만 띄운다(시안 11/9)
+                onClick={() =>
+                  crew.data.memberCount > 1 ? setBlockedOpen(true) : ask({ kind: 'disband' })
+                }
               >
                 크루 없애기
               </Button>
-              <p id="crew-disband-reason" className="text-body2-regular text-text-secondary">
-                {crew.data.memberCount <= 1
-                  ? '크루원이 나뿐이라 크루를 없앨 수 있어요.'
-                  : '다른 크루원이 있으면 크루를 없앨 수 없어요. 크루장을 넘긴 뒤 크루를 떠날 수 있어요.'}
-              </p>
+              {crew.data.memberCount <= 1 && (
+                <p className="text-body2-regular text-text-secondary">
+                  크루원이 나뿐이라 크루를 없앨 수 있어요.
+                </p>
+              )}
             </CrewBand>
           </>
         )}
@@ -217,10 +213,19 @@ export function CrewManagePage({ crewId }: { crewId: number }) {
         {menuTarget && (
           <>
             <BottomSheetOption onClick={() => ask({ kind: 'transfer', member: menuTarget })}>
-              크루장 넘기기
+              <span className="flex items-center gap-3">
+                <Icon name="ArrowRight" className="size-5" />
+                크루장 넘기기
+              </span>
             </BottomSheetOption>
-            <BottomSheetOption onClick={() => ask({ kind: 'remove', member: menuTarget })}>
-              크루에서 내보내기
+            <BottomSheetOption
+              className="text-text-danger"
+              onClick={() => ask({ kind: 'remove', member: menuTarget })}
+            >
+              <span className="flex items-center gap-3">
+                <Icon name="LogOut" className="size-5" />
+                크루에서 내보내기
+              </span>
             </BottomSheetOption>
           </>
         )}
@@ -233,6 +238,15 @@ export function CrewManagePage({ crewId }: { crewId: number }) {
         {...dialogCopy(pending, crew.data?.name ?? '')}
         confirming={confirming}
         onConfirm={confirm}
+      />
+      <Dialog
+        open={blockedOpen}
+        onOpenChange={setBlockedOpen}
+        type="alert"
+        title="크루원이 남아 있어 없앨 수 없어요"
+        body="크루원을 모두 내보낸 뒤 없앨 수 있어요."
+        confirmLabel="확인"
+        onConfirm={() => setBlockedOpen(false)}
       />
       {crew.data && (
         <CrewRenameSheet
@@ -270,8 +284,8 @@ function dialogCopy(pending: Pending, crewName: string) {
   }
   return {
     title: `${withObjectParticle(crewName)} 없앨까요?`,
-    body: '없앤 크루는 되살릴 수 없어요. 남아 있던 초대 링크도 쓸 수 없게 돼요.',
-    confirmLabel: '없애기',
+    body: '없애면 크루 홈과 보낸 초대 링크를 더 쓸 수 없어요.',
+    confirmLabel: '크루 없애기',
   }
 }
 

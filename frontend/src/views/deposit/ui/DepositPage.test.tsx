@@ -43,7 +43,7 @@ describe('DepositPage 잔액', () => {
     )
     renderPage()
 
-    expect(await screen.findByText('₩12,000')).toBeInTheDocument()
+    expect(await screen.findByText('12,000원')).toBeInTheDocument()
     expect(balanceCalls).toBe(1)
   })
 
@@ -103,10 +103,10 @@ describe('DepositPage 내역', () => {
 
     const items = await screen.findAllByRole('listitem')
     expect(within(items[0]).getByText('결제 · 주문 #12')).toBeInTheDocument()
-    expect(within(items[0]).getByText('− ₩45,000')).toBeInTheDocument()
+    expect(within(items[0]).getByText('− 45,000원')).toBeInTheDocument()
     expect(within(items[0]).getByText('10/5 14:22')).toBeInTheDocument()
     expect(within(items[1]).getByText('충전 · 토스페이먼츠')).toBeInTheDocument()
-    expect(within(items[1]).getByText('+ ₩10,000')).toBeInTheDocument()
+    expect(within(items[1]).getByText('+ 10,000원')).toBeInTheDocument()
   })
 
   it('전체 탭은 category 없이, 다른 탭은 그 category로 부른다', async () => {
@@ -188,7 +188,7 @@ describe('DepositPage 내역', () => {
     renderPage()
 
     expect(await screen.findByText('정산 · 판매 대금 입금')).toBeInTheDocument()
-    expect(screen.getByText('+ ₩40,000')).toBeInTheDocument()
+    expect(screen.getByText('+ 40,000원')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '더 보기' })).toBeInTheDocument()
   })
 

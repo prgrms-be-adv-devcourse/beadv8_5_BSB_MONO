@@ -115,7 +115,7 @@ const agree = (user: ReturnType<typeof userEvent.setup>) =>
   user.click(screen.getByRole('checkbox', { name: '[필수] 개인정보 제3자 제공 동의' }))
 
 describe('참가 신청 · 참가자 정보', () => {
-  it('지난 신청 값으로 채우고, 바로 결제를 누르면 참가 신청을 저장한 뒤 결제로 간다', async () => {
+  it('지난 신청 값으로 채우고, 다음을 누르면 참가 신청을 저장한 뒤 결제로 간다', async () => {
     const bodies = captureApply()
     const user = userEvent.setup()
     renderPage()
@@ -129,7 +129,7 @@ describe('참가 신청 · 참가자 정보', () => {
     await user.type(emergencyName, '박가족')
     await user.click(screen.getByRole('radio', { name: '여성' }))
     await agree(user)
-    await user.click(screen.getByRole('button', { name: '바로 결제' }))
+    await user.click(screen.getByRole('button', { name: '다음' }))
 
     await vi.waitFor(() => expect(push).toHaveBeenCalledWith('/checkout?orderId=1'))
     expect(bodies[0]).toEqual({
@@ -160,7 +160,7 @@ describe('참가 신청 · 참가자 정보', () => {
     })
   })
 
-  it('바로 결제는 참가 신청 ID로 주문을 만들고(Idempotency-Key), 실패 뒤 다시 눌러도 같은 키를 보낸다', async () => {
+  it('다음(결제)은 참가 신청 ID로 주문을 만들고(Idempotency-Key), 실패 뒤 다시 눌러도 같은 키를 보낸다', async () => {
     captureApply()
     const calls: { key: string | null; body: unknown }[] = []
     server.use(
@@ -180,9 +180,9 @@ describe('참가 신청 · 참가자 정보', () => {
 
     await screen.findByLabelText('이름')
     await agree(user)
-    await user.click(screen.getByRole('button', { name: '바로 결제' }))
+    await user.click(screen.getByRole('button', { name: '다음' }))
     expect(await screen.findByText('같은 주문 요청을 처리하고 있습니다.')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '바로 결제' }))
+    await user.click(screen.getByRole('button', { name: '다음' }))
 
     await vi.waitFor(() => expect(push).toHaveBeenCalledWith('/checkout?orderId=1'))
     expect(calls[0].body).toEqual({ participationId: 1 })
@@ -203,7 +203,7 @@ describe('참가 신청 · 참가자 정보', () => {
 
     await screen.findByLabelText('이름')
     await agree(user)
-    await user.click(screen.getByRole('button', { name: '바로 결제' }))
+    await user.click(screen.getByRole('button', { name: '다음' }))
 
     expect(await screen.findByText(message)).toBeInTheDocument()
     expect(push).not.toHaveBeenCalled()
@@ -224,7 +224,7 @@ describe('참가 신청 · 참가자 정보', () => {
 
     await screen.findByLabelText('이름')
     await agree(user)
-    await user.click(screen.getByRole('button', { name: '바로 결제' }))
+    await user.click(screen.getByRole('button', { name: '다음' }))
 
     await vi.waitFor(() =>
       expect(replace).toHaveBeenCalledWith('/checkout?result=timeout&raceId=1'),
@@ -393,7 +393,7 @@ describe('참가 신청 · 참가자 정보', () => {
 
     await screen.findByLabelText('이름')
     await agree(user)
-    await user.click(screen.getByRole('button', { name: '바로 결제' }))
+    await user.click(screen.getByRole('button', { name: '다음' }))
 
     expect(await screen.findByText('이미 이 대회에 신청했습니다.')).toBeInTheDocument()
     expect(push).not.toHaveBeenCalled()
@@ -411,7 +411,7 @@ describe('참가 신청 · 참가자 정보', () => {
 
     await screen.findByLabelText('이름')
     await agree(user)
-    await user.click(screen.getByRole('button', { name: '바로 결제' }))
+    await user.click(screen.getByRole('button', { name: '다음' }))
 
     expect(await screen.findByText(message)).toBeInTheDocument()
   })
@@ -426,7 +426,7 @@ describe('참가 신청 · 참가자 정보', () => {
 
     await screen.findByLabelText('이름')
     await agree(user)
-    await user.click(screen.getByRole('button', { name: '바로 결제' }))
+    await user.click(screen.getByRole('button', { name: '다음' }))
 
     // 참가자 이름 · 비상 연락처 이름
     expect(await screen.findAllByText('이름을 입력해 주세요.')).toHaveLength(2)
@@ -457,7 +457,7 @@ describe('참가 신청 · 참가자 정보', () => {
 
     await screen.findByLabelText('이름')
     await agree(user)
-    await user.click(screen.getByRole('button', { name: '바로 결제' }))
+    await user.click(screen.getByRole('button', { name: '다음' }))
 
     await vi.waitFor(() => expect(push).toHaveBeenCalledWith('/checkout?orderId=1'))
     expect(changedId).toBe('7')
@@ -536,7 +536,7 @@ describe('참가 신청 · 키트 배송 주소 검색', () => {
     expect(detail).toHaveValue('')
     await user.type(detail, '3층')
     await agree(user)
-    await user.click(screen.getByRole('button', { name: '바로 결제' }))
+    await user.click(screen.getByRole('button', { name: '다음' }))
 
     await vi.waitFor(() => expect(bodies).toHaveLength(1))
     expect(bodies[0]).toMatchObject({
@@ -557,7 +557,7 @@ describe('참가 신청 · 키트 배송 주소 검색', () => {
 
     await screen.findByLabelText('이름')
     await agree(user)
-    await user.click(screen.getByRole('button', { name: '바로 결제' }))
+    await user.click(screen.getByRole('button', { name: '다음' }))
     expect(await screen.findByText('키트를 받을 주소를 입력해 주세요.')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: '주소 검색' }))

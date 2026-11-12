@@ -93,11 +93,11 @@ describe('CrewHomePage 크루 탈퇴', () => {
     const requests = capture('delete', '*/api/v1/member/crews/:crewId/members/me')
     const user = userEvent.setup()
     renderPage(<CrewHomePage crewId={1} />)
-    await user.click(await screen.findByRole('button', { name: '크루 나가기' }))
+    await user.click(await screen.findByRole('button', { name: '크루 떠나기' }))
     const dialog = await screen.findByRole('alertdialog')
-    expect(within(dialog).getByText('새벽한강크루에서 나갈까요?')).toBeInTheDocument()
+    expect(within(dialog).getByText('새벽한강크루에서 떠날까요?')).toBeInTheDocument()
     expect(requests).toHaveLength(0)
-    await user.click(within(dialog).getByRole('button', { name: '나가기' }))
+    await user.click(within(dialog).getByRole('button', { name: '떠나기' }))
     await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/crews'))
     expect(requests[0].url).toBe('/api/v1/member/crews/1/members/me')
     expect(await screen.findByText('새벽한강크루에서 나왔어요')).toBeInTheDocument()
@@ -111,9 +111,9 @@ describe('CrewHomePage 크루 탈퇴', () => {
     })
     const user = userEvent.setup()
     renderPage(<CrewHomePage crewId={1} />)
-    await user.click(await screen.findByRole('button', { name: '크루 나가기' }))
+    await user.click(await screen.findByRole('button', { name: '크루 떠나기' }))
     const confirm = within(await screen.findByRole('alertdialog')).getByRole('button', {
-      name: '나가기',
+      name: '떠나기',
     })
     await user.click(confirm)
     await user.click(confirm)
@@ -126,7 +126,7 @@ describe('CrewHomePage 크루 탈퇴', () => {
     const requests = capture('delete', '*/api/v1/member/crews/:crewId/members/me')
     const user = userEvent.setup()
     renderPage(<CrewHomePage crewId={1} />)
-    await user.click(await screen.findByRole('button', { name: '크루 나가기' }))
+    await user.click(await screen.findByRole('button', { name: '크루 떠나기' }))
     const dialog = await screen.findByRole('alertdialog')
     expect(within(dialog).getByText('크루장을 넘긴 뒤에 나갈 수 있어요')).toBeInTheDocument()
     await user.click(within(dialog).getByRole('button', { name: '크루 관리로 가기' }))
@@ -138,7 +138,7 @@ describe('CrewHomePage 크루 탈퇴', () => {
     mockCrew({ myRole: 'LEADER', alone: true })
     const user = userEvent.setup()
     renderPage(<CrewHomePage crewId={1} />)
-    await user.click(await screen.findByRole('button', { name: '크루 나가기' }))
+    await user.click(await screen.findByRole('button', { name: '크루 떠나기' }))
     const dialog = await screen.findByRole('alertdialog')
     expect(
       within(dialog).getByText('크루원이 나뿐이라 크루 관리에서 크루를 없앨 수 있어요.'),
@@ -152,9 +152,9 @@ describe('CrewHomePage 크루 탈퇴', () => {
     )
     const user = userEvent.setup()
     renderPage(<CrewHomePage crewId={1} />)
-    await user.click(await screen.findByRole('button', { name: '크루 나가기' }))
+    await user.click(await screen.findByRole('button', { name: '크루 떠나기' }))
     await user.click(
-      within(await screen.findByRole('alertdialog')).getByRole('button', { name: '나가기' }),
+      within(await screen.findByRole('alertdialog')).getByRole('button', { name: '떠나기' }),
     )
     expect(await screen.findByText('크루장을 넘긴 뒤에 나갈 수 있어요')).toBeInTheDocument()
     expect(replace).not.toHaveBeenCalled()
@@ -167,9 +167,9 @@ describe('CrewHomePage 크루 탈퇴', () => {
     capture('delete', '*/api/v1/member/crews/:crewId/members/me', () => failWith(503))
     const user = userEvent.setup()
     renderPage(<CrewHomePage crewId={1} />)
-    await user.click(await screen.findByRole('button', { name: '크루 나가기' }))
+    await user.click(await screen.findByRole('button', { name: '크루 떠나기' }))
     await user.click(
-      within(await screen.findByRole('alertdialog')).getByRole('button', { name: '나가기' }),
+      within(await screen.findByRole('alertdialog')).getByRole('button', { name: '떠나기' }),
     )
     expect(await findErrorToast('잠시 후 다시 시도해 주세요.')).toBeInTheDocument()
     expect(replace).not.toHaveBeenCalled()
@@ -348,15 +348,18 @@ describe('CrewManagePage 크루장 넘기기', () => {
 })
 
 describe('CrewManagePage 크루 없애기', () => {
-  it('다른 크루원이 있으면 버튼이 꺼져 있고 이유를 보여 준다', async () => {
+  it('다른 크루원이 있으면 누르면 막힘 확인창이 뜨고 삭제 요청은 가지 않는다', async () => {
     mockCrew()
+    const requests = capture('delete', '*/api/v1/member/crews/:crewId')
+    const user = userEvent.setup()
     renderPage(<CrewManagePage crewId={1} />)
-    expect(await screen.findByRole('button', { name: '크루 없애기' })).toBeDisabled()
-    expect(
-      screen.getByText(
-        '다른 크루원이 있으면 크루를 없앨 수 없어요. 크루장을 넘긴 뒤 크루를 떠날 수 있어요.',
-      ),
-    ).toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: '크루 없애기' }))
+    const dialog = await screen.findByRole('alertdialog')
+    expect(within(dialog).getByText('크루원이 남아 있어 없앨 수 없어요')).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: '확인' }))
+    await vi.waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    expect(requests).toHaveLength(0)
+    expect(replace).not.toHaveBeenCalled()
   })
 
   it('혼자면 확인을 거쳐 없애고 내 크루 목록으로 간다', async () => {
@@ -369,7 +372,7 @@ describe('CrewManagePage 크루 없애기', () => {
     const dialog = await screen.findByRole('alertdialog')
     expect(within(dialog).getByText('새벽한강크루를 없앨까요?')).toBeInTheDocument()
     expect(requests).toHaveLength(0)
-    await user.click(within(dialog).getByRole('button', { name: '없애기' }))
+    await user.click(within(dialog).getByRole('button', { name: '크루 없애기' }))
     await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/crews'))
     expect(requests.map((request) => request.url)).toEqual(['/api/v1/member/crews/1'])
     expect(await screen.findByText('새벽한강크루를 없앴어요')).toBeInTheDocument()
@@ -384,7 +387,7 @@ describe('CrewManagePage 크루 없애기', () => {
     renderPage(<CrewManagePage crewId={1} />)
     await user.click(await screen.findByRole('button', { name: '크루 없애기' }))
     await user.click(
-      within(await screen.findByRole('alertdialog')).getByRole('button', { name: '없애기' }),
+      within(await screen.findByRole('alertdialog')).getByRole('button', { name: '크루 없애기' }),
     )
     expect(
       await findErrorToast(

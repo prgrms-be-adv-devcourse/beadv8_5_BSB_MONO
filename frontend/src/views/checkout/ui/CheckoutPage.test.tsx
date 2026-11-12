@@ -117,7 +117,7 @@ describe('결제 화면', () => {
       await screen.findByText('2026 용감한 쿠키RUN in 서울 · 10K · 이달림'),
     ).toBeInTheDocument()
     // 예치금 10만 원에서 45,000원을 내고 55,000원이 남는다
-    expect(screen.getByText('₩55,000')).toBeInTheDocument()
+    expect(screen.getByText('55,000원')).toBeInTheDocument()
     expect(timer()).toHaveTextContent(/10:00|09:5\d/)
     // Clarity 화면 녹화에서 참가자 이름이 든 주문 요약을 가린다
     expect(
@@ -125,6 +125,23 @@ describe('결제 화면', () => {
         .getByText('2026 용감한 쿠키RUN in 서울 · 10K · 이달림')
         .closest('[data-clarity-mask="true"]'),
     ).not.toBeNull()
+  })
+
+  it('키트 배송지 · 옵션도 Clarity 화면 녹화에서 가린다', async () => {
+    const example = orderMock.getFindById1ResponseMock()
+    server.use(
+      orderMock.getFindById1MockHandler({
+        ...orderResponse(),
+        data: {
+          ...orderResponse().data,
+          shippingAddress: { ...example.data!.shippingAddress, address: '서울 성동구 왕십리로 1' },
+        },
+      }),
+    )
+    renderCheckout()
+
+    const label = await screen.findByText('키트 배송지')
+    expect(label.closest('[data-clarity-mask="true"]')).not.toBeNull()
   })
 
   it('대기열에 입장 중이면 결제 기한 대신 대기열에서 받은 남은 시간을 센다', async () => {
@@ -179,7 +196,7 @@ describe('결제 화면', () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     renderCheckout()
 
-    const pay = await screen.findByRole('button', { name: '₩45,000 결제' })
+    const pay = await screen.findByRole('button', { name: '45,000원 결제' })
     await agree(user)
     await user.click(pay)
 
@@ -219,7 +236,7 @@ describe('결제 화면', () => {
       </QueryClientProvider>,
     )
 
-    const pay = await screen.findByRole('button', { name: '₩45,000 결제' })
+    const pay = await screen.findByRole('button', { name: '45,000원 결제' })
     await agree(user)
     await user.click(pay)
 
@@ -269,7 +286,7 @@ describe('결제 화면', () => {
       </QueryClientProvider>,
     )
 
-    const pay = await screen.findByRole('button', { name: '₩45,000 결제' })
+    const pay = await screen.findByRole('button', { name: '45,000원 결제' })
     await agree(user)
     await user.click(pay)
 
@@ -296,8 +313,10 @@ describe('결제 화면', () => {
     renderCheckout()
 
     // 45,000원 중 40,000원은 예치금에서, 모자란 5,000원은 최소 충전 금액 1만 원으로 충전한다.
-    const button = await screen.findByRole('button', { name: '₩10,000 충전하고 결제' })
-    expect(screen.getByText('+₩10,000')).toBeInTheDocument()
+    const button = await screen.findByRole('button', { name: '10,000원 충전하고 결제' })
+    expect(screen.getByText('+10,000원')).toBeInTheDocument()
+    // 결제 수단 카드에 모자란 금액이 배지로 보인다 (피그마 M07 C안)
+    expect(screen.getByText('5,000원 부족')).toBeInTheDocument()
     await agree(user)
     await user.click(button)
 
@@ -319,7 +338,7 @@ describe('결제 화면', () => {
     renderCheckout()
 
     // 버튼에 보이는 충전 금액과 실제로 보내는 충전 금액이 같아야 한다
-    const button = await screen.findByRole('button', { name: '₩300,000 충전하고 결제' })
+    const button = await screen.findByRole('button', { name: '300,000원 충전하고 결제' })
     expect(button).toHaveAccessibleDescription(LIMIT_NOTICE)
     await agree(user)
     await user.click(button)
@@ -336,7 +355,7 @@ describe('결제 화면', () => {
     )
     renderCheckout()
 
-    await screen.findByRole('button', { name: '₩300,000 충전하고 결제' })
+    await screen.findByRole('button', { name: '300,000원 충전하고 결제' })
     expect(screen.queryByText(LIMIT_NOTICE)).not.toBeInTheDocument()
   })
 
@@ -345,7 +364,7 @@ describe('결제 화면', () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     renderCheckout()
 
-    const pay = await screen.findByRole('button', { name: '₩45,000 결제' })
+    const pay = await screen.findByRole('button', { name: '45,000원 결제' })
     await agree(user)
     await user.click(pay)
 
@@ -362,7 +381,7 @@ describe('결제 화면', () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     renderCheckout()
 
-    const pay = await screen.findByRole('button', { name: '₩45,000 결제' })
+    const pay = await screen.findByRole('button', { name: '45,000원 결제' })
     await agree(user)
     await user.click(pay)
 
@@ -377,7 +396,7 @@ describe('결제 화면', () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     renderCheckout()
 
-    const pay = await screen.findByRole('button', { name: '₩45,000 결제' })
+    const pay = await screen.findByRole('button', { name: '45,000원 결제' })
     await agree(user)
     await user.click(pay)
 
@@ -391,7 +410,7 @@ describe('결제 화면', () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     renderCheckout()
 
-    const pay = await screen.findByRole('button', { name: '₩45,000 결제' })
+    const pay = await screen.findByRole('button', { name: '45,000원 결제' })
     await agree(user)
     await user.click(pay)
 
@@ -421,7 +440,7 @@ describe('결제 화면', () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     renderCheckout(undefined, { charged: true })
 
-    const button = await screen.findByRole('button', { name: '₩10,000 충전하고 결제' })
+    const button = await screen.findByRole('button', { name: '10,000원 충전하고 결제' })
     await vi.waitFor(() => expect(button).toBeEnabled())
     expect(requestCharge).not.toHaveBeenCalled()
 
@@ -445,7 +464,7 @@ describe('결제 화면', () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     renderCheckout(undefined, { charged: true })
 
-    const button = await screen.findByRole('button', { name: '₩150,000 충전하고 결제' })
+    const button = await screen.findByRole('button', { name: '150,000원 충전하고 결제' })
     await vi.waitFor(() => expect(button).toBeEnabled())
     expect(paid).toBe(1)
     expect(requestCharge).not.toHaveBeenCalled()
@@ -488,7 +507,7 @@ describe('결제 화면', () => {
     expect(await screen.findByText('결제하지 못했어요')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '다시 결제하기' }))
 
-    expect(await screen.findByRole('button', { name: '₩45,000 결제' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: '45,000원 결제' })).toBeInTheDocument()
   })
 
   it('결제 때 기한이 지났다고 하면(409 ORDER_PAYMENT_DEADLINE_PASSED) 시간 초과 화면을 보여 준다', async () => {
@@ -496,7 +515,7 @@ describe('결제 화면', () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     renderCheckout()
 
-    const pay = await screen.findByRole('button', { name: '₩45,000 결제' })
+    const pay = await screen.findByRole('button', { name: '45,000원 결제' })
     await agree(user)
     await user.click(pay)
 
@@ -512,7 +531,7 @@ describe('결제 화면', () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     renderCheckout()
 
-    const pay = await screen.findByRole('button', { name: '₩45,000 결제' })
+    const pay = await screen.findByRole('button', { name: '45,000원 결제' })
     await agree(user)
     await user.click(pay)
 

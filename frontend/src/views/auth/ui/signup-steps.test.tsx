@@ -89,7 +89,7 @@ describe('회원가입 단계', () => {
     const user = userEvent.setup()
     renderSignup('identity', {})
 
-    const agree = await screen.findByRole('button', { name: '동의하고 계속하기' })
+    const agree = await screen.findByRole('button', { name: '동의하고 본인 확인하기' })
     expect(agree).toBeDisabled()
 
     await user.click(screen.getByRole('checkbox', { name: '[필수] 서비스 이용약관' }))
@@ -102,10 +102,12 @@ describe('회원가입 단계', () => {
     renderSignup('identity', {})
 
     await user.click(await screen.findByRole('button', { name: '닫기' }))
-    expect(screen.queryByRole('button', { name: '동의하고 계속하기' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '동의하고 본인 확인하기' })).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: '휴대폰 본인인증' }))
-    expect(await screen.findByRole('button', { name: '동의하고 계속하기' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '본인 확인하기' }))
+    expect(
+      await screen.findByRole('button', { name: '동의하고 본인 확인하기' }),
+    ).toBeInTheDocument()
     expect(push).not.toHaveBeenCalled()
   })
 
@@ -176,7 +178,7 @@ describe('회원가입 단계', () => {
     }
     await fillProfile(user)
     await user.click(screen.getByRole('radio', { name: '여성' }))
-    await user.click(screen.getByRole('button', { name: '가입 완료' }))
+    await user.click(screen.getByRole('button', { name: '가입 완료하기' }))
 
     await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/'))
     expect(body).toEqual({
@@ -208,7 +210,7 @@ describe('회원가입 단계', () => {
     renderProfileStep()
 
     await fillProfile(user)
-    await user.click(screen.getByRole('button', { name: '가입 완료' }))
+    await user.click(screen.getByRole('button', { name: '가입 완료하기' }))
 
     expect(await screen.findByText('이미 사용 중인 닉네임입니다.')).toBeInTheDocument()
     expect(replace).not.toHaveBeenCalled()
@@ -229,7 +231,7 @@ describe('회원가입 단계', () => {
       renderProfileStep()
 
       await fillProfile(user)
-      await user.click(screen.getByRole('button', { name: '가입 완료' }))
+      await user.click(screen.getByRole('button', { name: '가입 완료하기' }))
 
       expect(await screen.findByText('이미 가입한 사람이에요')).toBeInTheDocument()
       await user.click(screen.getByRole('button', { name: '로그인하기' }))
@@ -255,7 +257,7 @@ describe('회원가입 단계', () => {
     renderProfileStep()
 
     await fillProfile(user)
-    await user.click(screen.getByRole('button', { name: '가입 완료' }))
+    await user.click(screen.getByRole('button', { name: '가입 완료하기' }))
 
     expect(
       await screen.findByText(
@@ -278,7 +280,7 @@ describe('회원가입 단계', () => {
     renderProfileStep()
 
     await fillProfile(user)
-    await user.click(screen.getByRole('button', { name: '가입 완료' }))
+    await user.click(screen.getByRole('button', { name: '가입 완료하기' }))
 
     // Toast는 화면 낭독기용 영역에도 같은 글을 그려 두 번 찾힌다
     expect((await screen.findAllByText(AUTH_ERRORS.verificationExpired)).length).toBeGreaterThan(0)
@@ -331,7 +333,7 @@ describe('가입 뒤 돌아갈 화면 (BUK-98)', () => {
     const user = userEvent.setup()
     await fillProfile(user)
     await user.click(screen.getByRole('radio', { name: '여성' }))
-    await user.click(screen.getByRole('button', { name: '가입 완료' }))
+    await user.click(screen.getByRole('button', { name: '가입 완료하기' }))
   }
 
   it('로그인 화면에서 넘어온 next가 있으면 가입 뒤 그 화면으로 간다', async () => {
@@ -505,7 +507,7 @@ describe('Enter로 제출 (QA 10/20)', () => {
     renderProfileStep()
 
     await fillProfile(user)
-    const button = screen.getByRole('button', { name: '가입 완료' })
+    const button = screen.getByRole('button', { name: '가입 완료하기' })
     await user.click(button)
     await vi.waitFor(() => expect(button).toHaveAttribute('aria-busy', 'true'))
     await user.click(button)
@@ -529,7 +531,7 @@ describe('Enter로 제출 (QA 10/20)', () => {
 
     await user.type(screen.getByLabelText('닉네임'), '곰{Enter}')
 
-    expect(screen.getByRole('button', { name: '가입 완료' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '가입 완료하기' })).toBeDisabled()
     expect(joined).toBe(0)
     expect(replace).not.toHaveBeenCalled()
   })
@@ -540,7 +542,7 @@ describe('약관 동의 전송 (PRO-208)', () => {
     const user = userEvent.setup()
     renderProfileStep({ ...ACCOUNT_DONE, terms })
     await fillProfile(user)
-    await user.click(screen.getByRole('button', { name: '가입 완료' }))
+    await user.click(screen.getByRole('button', { name: '가입 완료하기' }))
   }
 
   it('체크하지 않은 선택 약관은 빼고 보낸다', async () => {

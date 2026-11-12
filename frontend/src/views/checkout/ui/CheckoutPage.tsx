@@ -20,6 +20,7 @@ import { orderApi, unwrapData, type orderModel } from '@/shared/api'
 import { formatNumber, orderTrackItems, useTrackOnce } from '@/shared/lib'
 import {
   Alert,
+  Badge,
   BottomCta,
   Button,
   buttonClassName,
@@ -29,7 +30,6 @@ import {
   Radio,
   RadioGroup,
   Skeleton,
-  Stepper,
   TimerBar,
 } from '@/shared/ui'
 
@@ -95,7 +95,7 @@ const RESULT: Record<
 const OFFLINE_PREVIEW_BALANCE = 40_000
 const OFFLINE_PREVIEW_SECONDS = 310
 
-const won = (amount: number) => `₩${formatNumber(amount)}`
+const won = (amount: number) => `${formatNumber(amount)}원`
 
 // 피그마 V2 · M07 결제 · 부족분 충전 (+ 연결 끊김, M07-1~3 결과)
 // 결제 화면은 주문(/checkout?orderId=)으로 그린다. 남은 시간은 대기열 입장 끝 시각(= 결제 기한)까지 센다.
@@ -353,6 +353,8 @@ function OrderCheckout({
       amount={amount}
       balance={balance}
       refund={race.data?.refund}
+      kitOption={kitOptionLabel(participation.data?.participant?.tshirtSize)}
+      shipTo={shipToLabel(order.data.shippingAddress)}
       agreed={agreed || charged}
       onAgreedChange={setAgreed}
       notice={chargeHeld && <ChargeHeldAlert />}
@@ -390,6 +392,31 @@ function orderSummary(
   return participant ? `${name} · ${participant}` : name
 }
 
+const kitOptionLabel = (tshirtSize?: string | null) =>
+  tshirtSize ? `티셔츠 ${tshirtSize}` : undefined
+
+const shipToLabel = (address?: orderModel.ShippingAddressDto | null) =>
+  address?.address ? [address.address, address.addressDetail].filter(Boolean).join(' ') : undefined
+
+/** 결제 단계 막대 (피그마 M07: 단계마다 위에 막대, 지금 단계만 굵은 글씨) */
+function StepBars({ steps, current }: { steps: string[]; current: number }) {
+  return (
+    <ol className="flex gap-2">
+      {steps.map((label, i) => (
+        <li
+          key={label}
+          aria-current={i === current ? 'step' : undefined}
+          className={`flex flex-1 flex-col gap-2 border-t-4 pt-2 text-body2-regular ${
+            i <= current ? 'border-border-brand' : 'border-border-default'
+          } ${i === current ? 'font-bold text-text-primary' : 'text-text-secondary'}`}
+        >
+          {label}
+        </li>
+      ))}
+    </ol>
+  )
+}
+
 function CheckoutSkeleton() {
   return (
     <>
@@ -408,6 +435,8 @@ function CheckoutForm({
   amount,
   balance,
   refund,
+  kitOption,
+  shipTo,
   agreed,
   onAgreedChange,
   notice,
@@ -420,6 +449,9 @@ function CheckoutForm({
   /** 예치금 잔액. 불러오지 못하면 undefined */
   balance?: number
   refund?: { label: string; value: string }[]
+  /** 키트 옵션 · 배송지. 모르면 줄을 그리지 않는다 */
+  kitOption?: string
+  shipTo?: string
   agreed: boolean
   onAgreedChange: (agreed: boolean) => void
   /** 결제창 위에 보여 줄 안내 */
@@ -441,72 +473,85 @@ function CheckoutForm({
         }
         remainingSeconds={remaining}
       />
-      <main className="flex flex-1 flex-col px-4 py-6">
-        <div className="flex flex-col gap-7 rounded-lg bg-bg-surface p-5 shadow-sm inset-ring inset-ring-border-default">
-          <Stepper steps={['종목 선택', '참가자 정보', '결제']} current={2} />
+      <main className="flex flex-1 flex-col gap-7 px-8 py-6">
+        <StepBars steps={['참가자 정보', '키트 옵션', '결제']} current={2} />
 
-          {offline && (
-            <Alert
-              tone="danger"
-              title="연결이 끊겼어요"
-              description="결제는 한 번만 처리돼요. 다시 연결되면 결제가 됐는지 확인해 드려요."
-            />
-          )}
-          {notice}
+        {offline && (
+          <Alert
+            tone="info"
+            title="연결이 끊겼어요"
+            description="결제는 한 번만 처리돼요. 다시 연결되면 결제가 됐는지 확인해 드려요."
+          />
+        )}
+        {notice}
 
-          <div className="flex flex-col gap-1">
-            {/* 참가자 이름이 들어 있어 Clarity 화면 녹화에서 가린다 */}
-            <p className="text-body2-regular text-text-secondary" data-clarity-mask="true">
-              {summary}
-            </p>
-            <p className="text-[32px] leading-11 font-bold tracking-[-0.015em]">{won(amount)}</p>
-          </div>
+        <div className="flex flex-col gap-1">
+          {/* 참가자 이름이 들어 있어 Clarity 화면 녹화에서 가린다 */}
+          <p className="text-body2-regular text-text-secondary" data-clarity-mask="true">
+            {summary}
+          </p>
+          <p className="text-[32px] leading-11 font-bold tracking-[-0.015em]">{won(amount)}</p>
+        </div>
 
-          <div className="flex flex-col gap-3 border-t border-border-default pt-4">
-            <KeyValue label="예치금에서" value={payment ? won(payment.fromDeposit) : '-'} />
-            <KeyValue
-              label="충전 (최소 1만 원)"
-              value={payment ? `+${won(payment.charge)}` : '-'}
-            />
-            <KeyValue
-              label="결제 뒤 남는 예치금"
-              value={payment && !overLimit ? won(payment.balanceAfter) : '-'}
-            />
-            <p className="text-caption-regular text-text-tertiary">
-              1만 원보다 적게 모자라면 1만 원을 충전해요.
-              <br />
-              결제가 안 돼도 충전한 돈은 예치금으로 남아요.
-            </p>
-            {overLimit && (
-              <p id={CHARGE_LIMIT_NOTICE_ID} className="text-caption-medium text-text-primary">
-                한 번에 {MAX_CHARGE / 10_000}만 원까지 충전할 수 있어요. 충전한 뒤 남은 금액은 다시
-                충전해 주세요.
-              </p>
-            )}
-          </div>
-
-          <fieldset className="flex flex-col gap-3">
-            <legend className="mb-3 text-body2-medium">충전 수단</legend>
+        <fieldset className="flex flex-col gap-3">
+          <legend className="mb-3 text-body2-bold">결제 수단</legend>
+          {offline ? (
             <RadioGroup defaultValue="toss">
               <Radio value="toss" label="카드 · 간편결제 (토스페이먼츠)" />
             </RadioGroup>
-          </fieldset>
+          ) : (
+            <div className="flex flex-col gap-2 rounded-md bg-bg-brand-subtle p-4 inset-ring-2 inset-ring-border-brand">
+              <p className="text-body2-bold">예치금</p>
+              <p className="text-body1-bold">{balance === undefined ? '-' : won(balance)}</p>
+              {payment && payment.charge > 0 && (
+                <Badge tone="warning" className="self-start">
+                  {`${won(amount - payment.fromDeposit)} 부족`}
+                </Badge>
+              )}
+            </div>
+          )}
+        </fieldset>
 
-          <div className="flex flex-col gap-3">
-            {refund && (
-              <div className="flex flex-col gap-2 rounded-md px-4 pt-3 pb-4 inset-ring inset-ring-border-default">
-                <p className="text-body2-regular text-text-secondary">환불 규정</p>
-                {refund.map((row) => (
-                  <KeyValue key={row.label} label={row.label} value={row.value} />
-                ))}
-              </div>
-            )}
-            <Checkbox
-              checked={agreed}
-              onCheckedChange={onAgreedChange}
-              label="[필수] 환불 기한을 확인했어요"
-            />
+        <div className="flex flex-col gap-3 border-t border-border-default pt-4">
+          <KeyValue label="예치금에서" value={payment ? won(payment.fromDeposit) : '-'} />
+          <KeyValue label="충전 (최소 1만 원)" value={payment ? `+${won(payment.charge)}` : '-'} />
+          <KeyValue
+            label="결제 뒤 남는 예치금"
+            value={payment && !overLimit ? won(payment.balanceAfter) : '-'}
+          />
+          <p className="text-caption-regular text-text-tertiary">
+            1만 원보다 적게 모자라면 1만 원을 충전해요.
+          </p>
+          {overLimit && (
+            <p id={CHARGE_LIMIT_NOTICE_ID} className="text-caption-medium text-text-primary">
+              한 번에 {MAX_CHARGE / 10_000}만 원까지 충전할 수 있어요. 충전한 뒤 남은 금액은 다시
+              충전해 주세요.
+            </p>
+          )}
+        </div>
+
+        {(kitOption || shipTo) && (
+          // 받는 곳 주소가 들어 있어 Clarity 화면 녹화에서 가린다
+          <div className="flex flex-col gap-3" data-clarity-mask="true">
+            {kitOption && <KeyValue label="키트 옵션" value={kitOption} />}
+            {shipTo && <KeyValue label="키트 배송지" value={shipTo} />}
           </div>
+        )}
+
+        <div className="flex flex-col gap-3">
+          {refund && (
+            <div className="flex flex-col gap-2 rounded-md px-4 pt-3 pb-4 inset-ring inset-ring-border-default">
+              <p className="text-body2-regular text-text-secondary">환불 규정</p>
+              {refund.map((row) => (
+                <KeyValue key={row.label} label={row.label} value={row.value} />
+              ))}
+            </div>
+          )}
+          <Checkbox
+            checked={agreed}
+            onCheckedChange={onAgreedChange}
+            label="[필수] 환불 기한을 확인했어요"
+          />
         </div>
       </main>
       <BottomCta className="sticky bottom-0 z-10" primary={action} />

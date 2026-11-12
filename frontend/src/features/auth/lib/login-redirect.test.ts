@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { loginHref, safeNextPath } from './login-redirect'
+import { loginHref, safeInternalPath, safeNextPath } from './login-redirect'
 
 describe('safeNextPath', () => {
   it('앱 내부 경로는 그대로 쓴다', () => {
@@ -37,5 +37,15 @@ describe('loginHref', () => {
     expect(href).toBe('/login?next=%2Fraces%2F1%2Fapply%3Foption%3D2')
     const next = new URL(href, 'http://localhost').searchParams.get('next')
     expect(safeNextPath(next)).toBe('/races/1/apply?option=2')
+  })
+})
+
+describe('safeInternalPath', () => {
+  it('사이트 안 경로만 돌려주고 그 밖은 null이다', () => {
+    expect(safeInternalPath('/seller/kits')).toBe('/seller/kits')
+    expect(safeInternalPath('/')).toBe('/')
+    expect(safeInternalPath('https://evil.example')).toBeNull()
+    expect(safeInternalPath('//evil.example')).toBeNull()
+    expect(safeInternalPath('')).toBeNull()
   })
 })

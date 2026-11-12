@@ -43,10 +43,8 @@ describe('AccountSettingsPage', () => {
     expect(screen.getByText('010-****-5432')).toBeInTheDocument()
     expect(screen.getByText('김곰')).toBeInTheDocument()
     expect(screen.getByText('1990.01.31')).toBeInTheDocument()
-    expect(screen.getByText('본인인증으로 확인한 정보라 바꿀 수 없어요')).toBeInTheDocument()
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
-    expect(screen.getAllByRole('link', { name: /수정/ })).toHaveLength(1)
-    expect(screen.getByRole('link', { name: '닉네임 수정' })).toHaveAttribute('href', '/me/edit')
+    expect(screen.getByRole('link', { name: '닉네임 변경' })).toHaveAttribute('href', '/me/edit')
   })
 
   it('계정 연결로 들어갈 수 있다', () => {

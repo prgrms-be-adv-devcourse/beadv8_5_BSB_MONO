@@ -103,7 +103,7 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
       <main className="flex flex-1 flex-col gap-4 px-4 pt-8 pb-8">
         <h1 className="text-title1">대회 찾기</h1>
         <div className="relative">
-          <label className="flex items-center gap-2 rounded-md bg-bg-surface p-4 inset-ring inset-ring-border-default focus-within:inset-ring-2 focus-within:inset-ring-border-focus">
+          <label className="flex items-center gap-2 rounded-md py-4 focus-within:inset-ring-2 focus-within:inset-ring-border-focus">
             <Icon name="Search" className="size-5" />
             <input
               value={query}
@@ -179,25 +179,17 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
         )}
         {!loading && !list.isError && races.length === 0 && (
           <div className="flex flex-1 items-center justify-center">
-            <EmptyState
-              title={`'${query}'에 맞는 대회가 없어요`}
-              description="다른 지역이나 종목으로 찾아보세요."
-              action={
-                <Button variant="secondary" onClick={() => setQuery('')}>
-                  필터 초기화
-                </Button>
-              }
-            />
+            <EmptyState icon="Search" title={`‘${query}’에 맞는 대회가 없어요`} />
           </div>
         )}
         {!loading && races.length > 0 && (
-          <ul className="flex flex-col gap-3">
+          <ul className="flex flex-col">
             {races.map((race) => (
               <li key={race.id} className="relative">
                 <Link
                   href={`/races/${race.id}`}
                   className={cn(
-                    'flex gap-3 rounded-lg bg-bg-surface p-4 pr-12 shadow-sm inset-ring inset-ring-border-default',
+                    'flex gap-3 border border-border-default bg-bg-surface py-4 pr-12',
                     FOCUS_RING,
                   )}
                 >
@@ -205,19 +197,19 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
                     <Image
                       src={race.image}
                       alt=""
-                      width={80}
-                      height={80}
+                      width={96}
+                      height={96}
                       // 사진이 있는 첫 카드의 썸네일이 목록 첫 화면에서 가장 큰 요소(LCP)라 먼저 받는다
                       loading={race.id === firstImageId ? 'eager' : undefined}
                       fetchPriority={race.id === firstImageId ? 'high' : undefined}
-                      className="size-20 shrink-0 rounded-md object-cover"
+                      className="size-24 shrink-0 rounded-md object-cover"
                     />
                   ) : (
                     <RacePoster
                       seed={race.id}
                       title=""
                       label={race.posterLabel}
-                      className="size-20 shrink-0 rounded-md"
+                      className="size-24 shrink-0 rounded-md"
                     />
                   )}
                   <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
@@ -230,7 +222,7 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
                 <IconButton
                   size="s"
                   aria-label={`${race.title} 더보기`}
-                  className="absolute top-2 right-2"
+                  className="absolute top-2.5 right-2"
                   onClick={() => setMenuRace(race)}
                 >
                   <Icon name="MoreVertical" />

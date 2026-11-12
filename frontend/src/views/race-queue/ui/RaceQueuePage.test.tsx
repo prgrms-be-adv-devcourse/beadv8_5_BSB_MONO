@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -71,7 +72,7 @@ describe('RaceQueuePage', () => {
     vi.useRealTimers()
   })
 
-  it('입장 전이면 차례 기다리기(M05-Q1)를 값 없는 막대와 내 앞 인원과 함께 보여 준다', async () => {
+  it('입장 전이면 대기열 A안을 값 없는 막대와 함께 보여 주고, 내 앞 인원 숫자는 보이지 않는다', async () => {
     mockQueue([queueStatus(2)])
     let admissionAsked = 0
     server.use(
@@ -82,17 +83,12 @@ describe('RaceQueuePage', () => {
     )
     renderQueue()
 
-    expect(screen.getByRole('heading', { name: '대기열' })).toBeInTheDocument()
     expect(
-      screen.getByRole('heading', { name: /지금 신청하는 분이 많아서\s*잠시 기다리고 있어요/ }),
+      screen.getByRole('heading', { name: /신청하는 분이 많아\s*잠시 기다리고 있어요/ }),
     ).toBeInTheDocument()
-    expect(
-      await screen.findByText(/내 앞에 2명이 있어요\. 잠시만 기다려 주세요\./),
-    ).toBeInTheDocument()
-    expect(screen.getByText(/화면을 나가면 다시 줄을 서야 해요\./)).toBeInTheDocument()
+    expect(screen.getByText('이 화면을 나가면 순서가 처음으로 돌아가요.')).toBeInTheDocument()
+    expect(screen.queryByText(/내 앞에/)).not.toBeInTheDocument()
     expect(screen.getByRole('progressbar')).not.toHaveAttribute('aria-valuenow')
-    // 왼쪽 위 X는 대회 상세로 간다. 하단 버튼은 없다
-    expect(screen.getByRole('link', { name: '닫기' })).toHaveAttribute('href', '/races/1')
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
     await act(() => vi.advanceTimersByTimeAsync(ADMISSION_POLL_MS))
     expect(screen.queryByRole('timer')).not.toBeInTheDocument()
@@ -114,12 +110,10 @@ describe('RaceQueuePage', () => {
 
     await vi.waitFor(() => expect(calls.status).toBe(1))
     expect(calls.register).toBe(1)
-    expect(await screen.findByText(/내 앞에 1명이 있어요/)).toBeInTheDocument()
     expect(admissionAsked).toBe(0)
 
     await act(() => vi.advanceTimersByTimeAsync(ADMISSION_POLL_MS))
     await vi.waitFor(() => expect(calls.status).toBe(2))
-    expect(await screen.findByText(/내 앞에 0명이 있어요/)).toBeInTheDocument()
     expect(replace).not.toHaveBeenCalled()
 
     await act(() => vi.advanceTimersByTimeAsync(ADMISSION_POLL_MS))
@@ -185,7 +179,7 @@ describe('RaceQueuePage', () => {
     lostForever = false
     await act(async () => screen.getByRole('button', { name: '다시 줄 서기' }).click())
     await vi.waitFor(() => expect(registered).toBe(4))
-    expect(await screen.findByText(/내 앞에 1명이 있어요/)).toBeInTheDocument()
+    expect(await screen.findByRole('progressbar')).toBeInTheDocument()
     expect(screen.queryByText(/대기열에서 자리를 잃었어요/)).not.toBeInTheDocument()
   })
 
@@ -211,6 +205,37 @@ describe('RaceQueuePage', () => {
     await vi.waitFor(() =>
       expect(replace).toHaveBeenCalledWith('/checkout?result=timeout&raceId=1'),
     )
+  })
+
+  it('X를 누르면 나가기 확인 창이 뜨고, 계속 기다리기는 창만 닫고 나가기는 대회 상세로 보낸다', async () => {
+    mockQueue([queueStatus(2)])
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    renderQueue()
+
+    await user.click(screen.getByRole('button', { name: '닫기' }))
+    const dialog = await screen.findByRole('alertdialog')
+    expect(within(dialog).getByText('대기열에서 나갈까요?')).toBeInTheDocument()
+
+    await user.click(within(dialog).getByRole('button', { name: '계속 기다리기' }))
+    await vi.waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    expect(replace).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('button', { name: '닫기' }))
+    await user.click(await screen.findByRole('button', { name: '나가기' }))
+    expect(replace).toHaveBeenCalledWith('/races/1')
+  })
+
+  it('나가기 확인 창을 Esc로 닫으면 창만 닫히고 대기열을 떠나지 않는다', async () => {
+    mockQueue([queueStatus(2)])
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    renderQueue()
+
+    await user.click(screen.getByRole('button', { name: '닫기' }))
+    await screen.findByRole('alertdialog')
+    await user.keyboard('{Escape}')
+
+    await vi.waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    expect(replace).not.toHaveBeenCalled()
   })
 
   it('시안 미리보기는 API를 부르지 않고 시안의 남은 시간을 보여 준다', () => {

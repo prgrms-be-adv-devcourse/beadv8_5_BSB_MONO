@@ -22,7 +22,8 @@ import { TicketStateView, ticketViewState } from './TicketStateView'
 
 const LINK = cn('rounded-sm text-body2-medium text-text-brand', FOCUS_RING)
 
-// 피그마 V2 · M16 참가권 상세 · 취소 (+ M16-1 참가 취소 확인)
+// 피그마 v2 · 참가권 상세(1333:26931 · 1333:26947): 카드 상자 대신 회색 띠로 나눈 구역. 크루 신청 구역은 참가권에 크루 정보가 없어 아직 없다.
+// (+ M16-1 참가 취소 확인)
 // confirmOpen은 시안 미리보기(?preview=confirm)용. 취소 확인 창을 연 채로 보여 준다.
 export function TicketDetailPage({
   ticketId,
@@ -70,9 +71,9 @@ export function TicketDetailPage({
   return (
     <>
       <AppHeader type="sub" title="참가권" backHref="/tickets" />
-      <main className="flex flex-1 flex-col gap-4 px-4 py-6">
+      <main className="flex flex-1 flex-col pb-6">
         {/* 참가자 이름 · 연락처는 Clarity 화면 녹화에서 가린다 */}
-        <div className="contents" data-clarity-mask="true">
+        <div className="px-4 py-4" data-clarity-mask="true">
           <BibCard
             image={data.image}
             imagePosition="50% 12%"
@@ -91,7 +92,7 @@ export function TicketDetailPage({
         </div>
 
         <section
-          className="flex flex-col gap-3 rounded-lg bg-bg-surface p-5 shadow-sm inset-ring inset-ring-border-default"
+          className="flex flex-col gap-3 border-t-8 border-bg-subtle px-4 py-6"
           data-clarity-mask="true"
         >
           <div className="flex items-center justify-between">
@@ -115,7 +116,7 @@ export function TicketDetailPage({
         </section>
 
         {refundDeadline && (
-          <section className="flex flex-col gap-3 rounded-lg bg-bg-surface p-5 shadow-sm inset-ring inset-ring-border-default">
+          <section className="flex flex-col gap-3 border-t-8 border-bg-subtle px-4 py-6">
             <h2 className="text-[18px] leading-6.5 font-bold tracking-[-0.015em]">환불 기준</h2>
             <div className="flex flex-col gap-2">
               <KeyValue label={`~ ${formatRaceDate(refundDeadline)} 23:59`} value="전액 환불" />
@@ -126,6 +127,7 @@ export function TicketDetailPage({
 
         {cancel.isError && (
           <Alert
+            className="mx-4 w-auto"
             tone="danger"
             title="참가를 취소하지 못했어요"
             description={ticketErrorMessage(cancel.error)}
@@ -133,11 +135,15 @@ export function TicketDetailPage({
         )}
 
         {refundable && (
-          <Alert title={`오늘 취소하면 ${amount}을 예치금으로 돌려받아요`} description={kitNote} />
+          <Alert
+            className="mx-4 mt-4 w-auto"
+            title={`오늘 취소하면 ${amount}을 예치금으로 돌려받아요`}
+            description={kitNote}
+          />
         )}
 
         {status === 'confirmed' && (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 border-t-8 border-bg-subtle px-4 pt-6">
             <Button
               variant="danger"
               size="l"

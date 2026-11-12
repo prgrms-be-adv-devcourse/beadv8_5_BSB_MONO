@@ -1,120 +1,156 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
+import Link from 'next/link'
+import { useState } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
 import { BottomNav } from '@/widgets/bottom-nav'
+import { LoadErrorBody } from '@/widgets/status-screens'
 import { useAuthStatus, useLogout } from '@/features/auth'
 import { isNoApplication } from '@/entities/member'
 import { myTicketCountQueryOptions } from '@/entities/ticket'
 import { useMyBalance } from '@/entities/wallet'
 import { memberApi, unwrapData } from '@/shared/api'
-import { formatWon } from '@/shared/lib'
-import { KeyValue, Switch } from '@/shared/ui'
+import { cn, formatWon } from '@/shared/lib'
+import { Avatar, buttonClassName, Dialog, Divider, FOCUS_RING, Skeleton } from '@/shared/ui'
 
-import { maskPhone, toDotDate } from '../model/member-format'
-import { EMPTY, MenuCard, MenuRow } from './MenuRow'
+import { EMPTY, MenuGroup, MenuRow } from './MenuRow'
 
-// 피그마 V2 · M30 마이 · 설정 (+ M30-2 판매자 승인 후)
+// 피그마 v2 · 마이(1333:22460) + 로딩(1333:21220) · 불러오지 못함(1333:21252) · 로그아웃 확인 창(1459:15984)
 // 회원 정보는 내 정보 조회(GET /api/v1/member/members/me)로 불러온다.
 // 예치금은 지갑 잔액 API(useMyBalance)로 불러온다.
 // 참가 대회 수는 내 참가권 화면과 같은 목록(주문 API)에서 취소한 참가권만 빼고 센다.
 // 판매자 메뉴는 내 판매자 신청 조회(GET /api/v1/member/sellers/me) 상태로 갈 곳을 정한다(SellerMenuRow).
 // 마이는 보기만 한다. 회원 정보 수정 · 계정 연결 · 탈퇴는 계정 설정(/me/settings) 안에서 한다.
-// TODO(api): 알림 설정 API가 아직 없다. 지금은 시안 값을 보여 준다.
+// TODO(api): 알림 설정 · 주문·배송 내역 화면이 아직 없어 마이에 두지 않았다.
 export function MyPage() {
   const logout = useLogout()
+  const [logoutOpen, setLogoutOpen] = useState(false)
+  const authenticated = useAuthStatus() === 'authenticated'
   const me = memberApi.useFindMe({
     // 로그인 확인(재발급)이 끝난 뒤에만 부른다. 로그아웃으로 캐시를 지운 뒤 다시 부르지도 않는다.
-    query: { select: unwrapData, enabled: useAuthStatus() === 'authenticated' },
+    query: { select: unwrapData, enabled: authenticated },
   })
   const member = me.data
   const { balance } = useMyBalance()
-  const ticketCount = useQuery(myTicketCountQueryOptions(useAuthStatus() === 'authenticated'))
+  const ticketCount = useQuery(myTicketCountQueryOptions(authenticated))
+
+  if (me.isError) {
+    return (
+      <>
+        <AppHeader type="sub" title="마이" />
+        <LoadErrorBody onRetry={() => me.refetch()} retrying={me.isFetching} />
+      </>
+    )
+  }
+  if (!member) {
+    return (
+      <>
+        <AppHeader type="sub" title="마이" />
+        <MyPageSkeleton />
+      </>
+    )
+  }
+
   return (
     <>
       <AppHeader />
-      <main className="flex flex-1 flex-col gap-4 px-4 pt-(--layout-content-start) pb-6">
+      <main className="flex flex-1 flex-col pt-(--layout-content-start) pb-6">
         {/* 회원 정보 글자는 Clarity 화면 녹화에서 가린다 */}
-        <div className="flex items-center gap-3" data-clarity-mask="true">
-          <span
-            aria-hidden
-            className="flex size-10 items-center justify-center rounded-full bg-bg-brand-subtle text-body2-medium text-text-brand"
-          >
-            {member?.nickname?.slice(0, 1)}
-          </span>
+        <div className="flex items-center gap-3 px-4" data-clarity-mask="true">
+          <Avatar size="xl" name={member.nickname} />
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <p className="text-title3">{member?.nickname ?? EMPTY}</p>
-            <p className="text-body2-regular text-text-secondary">{member?.email ?? EMPTY}</p>
+            <p className="truncate text-title3">
+              {member.nickname}
+              <span> 님</span>
+            </p>
+            <p className="truncate text-caption-regular text-text-secondary">{member.email}</p>
           </div>
+          <Link
+            href="/me/settings"
+            className={buttonClassName({ variant: 'secondary', size: 's' })}
+          >
+            계정 설정
+          </Link>
         </div>
 
-        <section
-          className="flex flex-col gap-2 rounded-lg bg-bg-subtle p-4"
-          data-clarity-mask="true"
-        >
-          <KeyValue label="이름" value={member?.name ?? EMPTY} />
-          <KeyValue label="휴대폰" value={member?.phone ? maskPhone(member.phone) : EMPTY} />
-          <KeyValue
-            label="생년월일"
-            value={member?.birthDate ? toDotDate(member.birthDate) : EMPTY}
-          />
-          {me.isError && (
-            <p role="alert" className="text-caption-regular text-text-danger">
-              회원 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.
-            </p>
-          )}
-        </section>
+        <div className="mx-4 mt-4 flex items-center gap-2 rounded-lg bg-bg-surface p-3 pl-4 inset-ring inset-ring-border-default">
+          <span className="text-body2-regular text-text-secondary">예치금</span>
+          <span className="flex-1 text-body2-bold">
+            {balance === undefined ? EMPTY : formatWon(balance)}
+          </span>
+          <Link href="/me/deposit/charge" className={buttonClassName({ size: 's' })}>
+            충전하기
+          </Link>
+        </div>
 
-        <MenuCard>
+        <MenuGroup title="나의 참가">
           <MenuRow
             href="/tickets"
-            icon="Calendar"
-            label="내 참가 대회"
-            value={ticketCount.data === undefined ? '-' : `${ticketCount.data}개`}
+            icon="TicketCheck"
+            label="내 참가권"
+            value={ticketCount.data === undefined ? undefined : `${ticketCount.data}개`}
           />
-          <MenuRow
-            href="/me/deposit"
-            icon="Package"
-            label="예치금"
-            value={balance === undefined ? '-' : formatWon(balance)}
-          />
-          {/* 크루는 하단 탭이 아니라 마이의 이 메뉴로 들어간다(시안v4 M09-0) */}
+          <MenuRow href="/me/deposit" icon="Wallet" label="예치금 내역" />
           <MenuRow href="/crews" icon="Users" label="내 크루" />
-        </MenuCard>
+        </MenuGroup>
 
-        <h2 className="pt-2 text-body2-bold">알림 설정</h2>
-        <section className="flex flex-col gap-4 rounded-lg bg-bg-surface px-4 py-4 shadow-sm inset-ring inset-ring-border-default">
-          <SwitchRow
-            label="마케팅 정보 받기"
-            description="2025.3.2 동의 · 2년마다 다시 여쭤봐요"
-            defaultChecked
-          />
-          <SwitchRow label="밤 9시~아침 8시 광고 받기" description="마케팅 동의와 따로 받아요" />
-        </section>
+        <Divider />
+        <MenuGroup title="문의">
+          <MenuRow href="/me/inquiries" icon="Inbox" label="내 문의" />
+          <MenuRow href="/me/support" icon="Info" label="고객센터" />
+        </MenuGroup>
 
-        <MenuCard>
+        <Divider />
+        <MenuGroup title="판매">
           <SellerMenuRow />
-        </MenuCard>
+        </MenuGroup>
 
-        <section className="flex flex-col rounded-lg bg-bg-subtle px-4 pt-4 pb-2">
-          <h2 className="pb-2 text-body2-bold">계정 관리</h2>
-          <MenuRow
-            onClick={() => logout.mutate()}
-            disabled={logout.isPending}
-            icon="LogOut"
-            label="로그아웃"
-          />
-          <MenuRow
-            href="/me/settings"
-            icon="Settings"
-            label="계정 설정"
-            description="계정과 개인정보 설정을 관리할 수 있어요"
-          />
-        </section>
+        <button
+          type="button"
+          onClick={() => setLogoutOpen(true)}
+          disabled={logout.isPending}
+          className={cn(
+            'mt-6 self-start rounded-sm px-4 py-2 text-caption-regular text-text-secondary',
+            FOCUS_RING,
+          )}
+        >
+          로그아웃
+        </button>
       </main>
       <BottomNav />
+      <Dialog
+        open={logoutOpen}
+        onOpenChange={setLogoutOpen}
+        title="로그아웃할까요?"
+        body="이 기기에서 로그아웃돼요."
+        confirmLabel="로그아웃"
+        confirming={logout.isPending}
+        onConfirm={() => logout.mutate()}
+      />
     </>
+  )
+}
+
+// 피그마 마이 · 로딩: 회색 상자로 자리만 잡는다
+function MyPageSkeleton() {
+  return (
+    <main aria-busy="true" className="flex flex-1 flex-col gap-3 px-4 pt-6">
+      <Skeleton className="h-5 w-65" />
+      <Skeleton className="h-3 w-45" />
+      <Skeleton shape="rect" className="h-12" />
+      <Skeleton shape="rect" className="h-45" />
+      <div className="flex flex-col gap-3 pt-8">
+        <Skeleton className="h-5 w-30" />
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="flex items-center gap-3">
+            <Skeleton shape="circle" className="size-8 shrink-0" />
+            <Skeleton className="h-3 flex-1" />
+          </div>
+        ))}
+      </div>
+    </main>
   )
 }
 
@@ -145,25 +181,5 @@ function SellerMenuRow() {
       label="판매자 등록 신청"
       description="대회를 열고 참가권을 팔 수 있어요"
     />
-  )
-}
-
-function SwitchRow({
-  label,
-  description,
-  defaultChecked,
-}: {
-  label: string
-  description: string
-  defaultChecked?: boolean
-}) {
-  return (
-    <div className="flex items-center justify-between gap-4">
-      <div className="flex flex-col gap-0.5">
-        <span className="text-body2-medium">{label}</span>
-        <span className="text-caption-regular text-text-secondary">{description}</span>
-      </div>
-      <Switch aria-label={label} defaultChecked={defaultChecked} />
-    </div>
   )
 }

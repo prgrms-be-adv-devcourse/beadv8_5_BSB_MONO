@@ -15,7 +15,7 @@ import {
   type RejoinInfo,
 } from '@/features/identity-verification'
 import { ApiError, memberApi, unwrapData } from '@/shared/api'
-import { BottomCta, Button, Divider, Spinner, Stepper, TextField } from '@/shared/ui'
+import { BottomCta, Button, Divider, Spinner, TextField } from '@/shared/ui'
 
 import { joinErrorMessage } from '../model/join'
 import {
@@ -87,8 +87,6 @@ export function SocialSignupPage({ next }: { next?: string }) {
     />
   )
 }
-
-const STEPS = ['약관', '회원 정보']
 
 type SocialSignupValues = SignupProfileValues & { email: string }
 
@@ -201,11 +199,8 @@ function SocialSignupForm({
   return (
     <>
       <form noValidate onSubmit={onFormSubmit} className="contents">
-        <AppHeader type="sub" title={`${providerLabel}로 가입하기`} />
-        <div className="bg-bg-surface px-4 pt-3 pb-1">
-          <Stepper steps={STEPS} current={termsAgreed ? 1 : 0} />
-        </div>
-        <p className="bg-bg-brand-subtle px-4 py-3 text-body2-regular text-text-primary">
+        <AppHeader type="sub" title="가입하기" />
+        <p className="bg-bg-brand-subtle px-4 py-3 text-body2-medium text-text-primary">
           {providerLabel} 계정으로 가입하고 있어요
         </p>
         <CenterBody center={false}>
@@ -232,7 +227,7 @@ function SocialSignupForm({
             }}
           />
           <Divider type="section" className="-mx-4" />
-          <StepIntro title="회원 정보" description="마지막 단계예요. 다음은 가입 완료예요." />
+          <StepIntro title="회원 정보" />
           <LockedIdentityFields identity={verification} provider={{ name, label: providerLabel }} />
           {lockedEmail ? (
             <TextField

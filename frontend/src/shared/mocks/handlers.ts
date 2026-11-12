@@ -38,9 +38,12 @@ import {
 } from '@/shared/api/generated/product/product.msw'
 import type { SearchParams } from '@/shared/api/generated/product/product.schemas'
 
+import { aiHandlers } from './ai'
+import { boardHandlers } from './board'
 import { crewHandlers } from './crews'
 import { fileUploadHandlers } from './file-upload'
 import { answerMockPass, readMockVerificationToken, type MockAnswer } from './identity-verification'
+import { inquiryHandlers } from './inquiry'
 import {
   clearMockBalanceCookie,
   clearMockMemberCookie,
@@ -60,6 +63,7 @@ import {
   MOCK_REFRESH_COOKIE_NAME,
 } from './mock-session'
 import { notificationHandlers } from './notifications'
+import { partyHandlers } from './party'
 import { findMockRace, getMockRaces, mockImageOfCourse, searchMockRaces } from './races'
 import { resetMockKitsForTesting, sellerKitHandlers } from './seller-kits'
 import { balanceCookieHeaders, payFromMockWallet, walletHandlers } from './wallet'
@@ -690,6 +694,10 @@ export const handlers = [
   fileImageHandler,
   ...authHandlers,
   ...meHandlers,
+  ...aiHandlers,
+  ...boardHandlers,
+  ...inquiryHandlers,
+  ...partyHandlers,
   ...crewHandlers,
   ...notificationHandlers,
   ...withdrawHandlers,

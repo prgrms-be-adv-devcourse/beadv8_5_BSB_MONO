@@ -1,5 +1,6 @@
 'use client'
 
+import type { Route } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useState } from 'react'
@@ -134,19 +135,8 @@ export function RaceDetailPage({
           </div>
 
           <div className="flex gap-2 px-4 pb-5">
-            <StatTile
-              size="s"
-              className="inset-ring inset-ring-border-default"
-              label="접수 마감"
-              value={race.dDay}
-            />
-            <StatTile
-              size="s"
-              className="inset-ring inset-ring-border-default"
-              label="정원"
-              value={formatNumber(race.capacity)}
-              unit="명"
-            />
+            <StatTile size="s" label="접수 마감" value={race.dDay} />
+            <StatTile size="s" label="정원" value={formatNumber(race.capacity)} unit="명" />
           </div>
         </div>
 
@@ -253,6 +243,12 @@ export function RaceDetailPage({
           <p className="text-caption-regular text-text-tertiary">{race.seller.businessNo}</p>
           <p className="text-caption-regular text-text-tertiary">{race.seller.mailOrderNo}</p>
         </section>
+        <Link
+          href={`/me/inquiries/new?raceId=${race.id}` as Route}
+          className="self-start px-4 pt-2 pb-6 text-caption-regular text-text-tertiary underline"
+        >
+          이 대회에 문의하기
+        </Link>
       </main>
       <BottomCta
         className="sticky bottom-0 z-10"

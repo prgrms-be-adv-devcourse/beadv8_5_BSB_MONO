@@ -67,7 +67,7 @@ type ReplaceCart = {
   label?: string
 }
 
-// 피그마 V2 · M05 참가 신청 · 참가자 정보 (+ M05-1 장바구니 바꾸기 확인)
+// 피그마 V3 · M05 참가 신청 · 참가자 정보 (+ M05-1 장바구니 바꾸기 확인). 아래 버튼은 시안의 「다음」(결제로)
 // 종목은 page.tsx에서 정원이 남은 종목 중에 골라 넘긴다 (상품 API의 대회 상세 courses).
 // 입력 칸은 이번에 입력해 둔 값(결제에서 돌아온 경우) → 지난 신청 값 → 회원 정보 순으로 채운다.
 // 대기열에서 내 차례(M05-Q2)로 들어오면 남은 시간 띠가 결제(M07)까지 따라간다.
@@ -312,7 +312,7 @@ function ParticipantForm({
     <>
       <main className="flex flex-1 flex-col gap-2 bg-bg-surface">
         <div className="bg-bg-surface px-4 py-5">
-          <Stepper steps={['종목 선택', '참가자 정보', '결제']} current={1} />
+          <Stepper steps={['참가자 정보', '결제']} current={0} />
         </div>
 
         <Section title="선택한 대회">
@@ -424,11 +424,6 @@ function ParticipantForm({
 
         <Section>
           <div className="flex flex-col gap-4 rounded-lg bg-bg-surface p-5 shadow-sm inset-ring inset-ring-border-default">
-            <Checkbox
-              checked={agreed}
-              onCheckedChange={setAgreed}
-              label={<span className="font-bold">[필수] 개인정보 제3자 제공 동의</span>}
-            />
             <div className="flex flex-col gap-2">
               <KeyValue label="받는 곳" value={`${race.seller.company} (판매자)`} />
               <KeyValue label="목적" value="대회 운영 · 보험 가입" />
@@ -441,6 +436,11 @@ function ParticipantForm({
                 동의하지 않으면 신청할 수 없어요.
               </p>
             </div>
+            <Checkbox
+              checked={agreed}
+              onCheckedChange={setAgreed}
+              label={<span className="font-bold">[필수] 개인정보 제3자 제공 동의</span>}
+            />
           </div>
           <p className="text-caption-regular text-text-tertiary">
             입력한 정보는 다음 신청 때 자동으로 채워져요.
@@ -460,7 +460,7 @@ function ParticipantForm({
         }
         primary={
           <Button size="l" disabled={!agreed || busy} onClick={submit('checkout')}>
-            바로 결제
+            다음
           </Button>
         }
       />

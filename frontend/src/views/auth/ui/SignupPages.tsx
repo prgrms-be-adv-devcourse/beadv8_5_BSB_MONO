@@ -28,7 +28,6 @@ import {
   Icon,
   Radio,
   RadioGroup,
-  Stepper,
   TextField,
   useToast,
 } from '@/shared/ui'
@@ -46,8 +45,6 @@ import { saveSignupNext, signupStartHref, takeSignupNext } from '../model/signup
 import { useSignupStep } from '../model/signup-store'
 import { requiredTermsChecked, SIGNUP_TERMS } from '../model/signup-terms'
 import { CenterBody, StepIntro } from './parts'
-
-const STEPS = ['약관', '본인 확인', '계정', '회원 정보']
 
 // 시안 M04-P 1 · 이메일 가입 본인 확인. 가입의 첫 화면이고, 약관 동의(M04-0) 바텀시트를 이 화면 위에 띄운다.
 // 비밀번호를 넣기 전에 본인인증을 받아, 모바일에서 포트원 창을 다녀와도 다시 받을 비밀번호가 없다.
@@ -95,16 +92,8 @@ export function SignupIdentityPage({ next }: { next?: string } = {}) {
   return (
     <>
       <AppHeader type="sub" title="가입하기" />
-      {termsAgreed && (
-        <div className="bg-bg-surface px-4 pt-3 pb-1">
-          <Stepper steps={STEPS} current={1} />
-        </div>
-      )}
       <CenterBody center={false}>
-        <StepIntro
-          title="본인 확인"
-          description="본인인증을 하면 이름·생년월일·휴대폰 번호가 채워져요. 다음 단계에서 이메일과 비밀번호를 정해요."
-        />
+        <StepIntro title={'휴대폰으로\n본인 확인을 해 주세요'} />
         {mock && <IdentityMockNotice />}
         {verification && <LockedIdentityFields identity={verification} />}
       </CenterBody>
@@ -112,7 +101,7 @@ export function SignupIdentityPage({ next }: { next?: string } = {}) {
         className="sticky bottom-0 z-10"
         primary={
           <Button size="l" loading={opening} onClick={onPrimary}>
-            {verification ? '다음' : '휴대폰 본인인증'}
+            {verification ? '다음' : '본인 확인하기'}
           </Button>
         }
       />
@@ -200,14 +189,8 @@ function SignupAccountForm({ invalid }: { invalid: boolean }) {
     <>
       <AppHeader type="sub" title="가입하기" />
       <form noValidate onSubmit={onFormSubmit} className="contents">
-        <div className="bg-bg-surface px-4 pt-3 pb-1">
-          <Stepper steps={STEPS} current={2} />
-        </div>
         <CenterBody center={false}>
-          <StepIntro
-            title="계정을 만들어요"
-            description="이메일과 비밀번호를 정해요. 다음은 회원 정보예요."
-          />
+          <StepIntro title={'로그인할 때 쓸\n이메일과 비밀번호를 적어 주세요'} />
           <TextField
             label="이메일"
             type="email"
@@ -352,11 +335,8 @@ function SignupProfileForm() {
     <>
       <form noValidate onSubmit={onSubmit} className="contents">
         <AppHeader type="sub" title="가입하기" />
-        <div className="bg-bg-surface px-4 pt-3 pb-1">
-          <Stepper steps={STEPS} current={3} />
-        </div>
         <CenterBody center={false}>
-          <StepIntro title="회원 정보" description="마지막 단계예요. 다음은 가입 완료예요." />
+          <StepIntro title={'크루런에서 쓸\n닉네임을 정해 주세요'} />
           <LockedIdentityFields identity={verification} />
           <SignupProfileFields
             register={register}
@@ -374,7 +354,7 @@ function SignupProfileForm() {
           className="sticky bottom-0 z-10"
           primary={
             <Button type="submit" size="l" disabled={!isValid} loading={submitting}>
-              가입 완료
+              가입 완료하기
             </Button>
           }
         />
@@ -415,15 +395,12 @@ export function SignupTermsSheet({
             if (agreeTerms()) onOpenChange(false)
           }}
         >
-          동의하고 계속하기
+          동의하고 본인 확인하기
         </Button>
       }
     >
       <div className="flex flex-col gap-3 px-2 pt-1 pb-3">
-        <p className="text-body2-regular text-text-secondary">
-          대회 신청과 거래를 위해 꼭 필요한 약관이에요.
-        </p>
-        <div className="rounded-md bg-bg-subtle p-4">
+        <div className="rounded-md border border-border-default p-3">
           <Checkbox
             checked={allChecked}
             onCheckedChange={setAllTerms}
@@ -450,9 +427,6 @@ export function SignupTermsSheet({
             </div>
           ))}
         </div>
-        <p className="text-caption-regular text-text-tertiary">
-          마케팅 정보 동의는 2년마다 다시 여쭤봐요. 마이에서 언제든 끌 수 있어요.
-        </p>
       </div>
     </BottomSheet>
   )

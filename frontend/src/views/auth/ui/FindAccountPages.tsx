@@ -29,7 +29,7 @@ import {
   type PasswordNewValues,
   type PasswordResetValues,
 } from '../model/schemas'
-import { AuthIntro, CenterBody } from './parts'
+import { AccountTabs, AuthIntro, CenterBody } from './parts'
 
 // 피그마 V2 · M03-1 비밀번호 재설정 · 이메일
 // 가입 여부와 상관없이 같은 안내를 보여 준다(서버도 같은 응답을 준다). 같은 이메일은 1분에 한 번만 받는다(429).
@@ -49,23 +49,15 @@ export function PasswordResetPage() {
   if (requestReset.isSuccess) {
     return (
       <>
-        <AppHeader type="sub" title="비밀번호 재설정" />
+        <AppHeader type="sub" title="계정 찾기" />
         <main className="flex flex-1 items-center justify-center px-4 py-6">
-          <EmptyState
-            title="메일을 보냈어요"
-            description="입력한 이메일이 가입된 이메일이면 재설정 링크를 보냈어요. 링크는 30분 동안 쓸 수 있어요. 메일이 보이지 않으면 스팸함도 확인해 주세요."
-            action={
-              <Button variant="secondary" onClick={() => requestReset.reset()}>
-                다시 보내기
-              </Button>
-            }
-          />
+          <EmptyState title="메일을 보냈어요" description="30분 안에 메일의 링크를 눌러 주세요." />
         </main>
         <BottomCta
           className="sticky bottom-0 z-10"
           primary={
             <Link href="/login" className={buttonClassName({ size: 'l' })}>
-              로그인하기
+              로그인 화면으로
             </Link>
           }
         />
@@ -75,14 +67,20 @@ export function PasswordResetPage() {
 
   return (
     <>
-      <AppHeader type="sub" title="비밀번호 재설정" />
-      <CenterBody>
-        <AuthIntro title="비밀번호를 잊으셨나요?" />
+      <AppHeader type="sub" title="계정 찾기" />
+      <AccountTabs current="password" />
+      <CenterBody center={false}>
+        <h2 className="text-title3">
+          가입한 이메일 주소를
+          <br />
+          입력해 주세요.
+        </h2>
         {requestReset.isError && (
           <Alert tone="danger" title={requestErrorMessage(requestReset.error)} />
         )}
         <TextField
-          label="이메일"
+          aria-label="이메일"
+          placeholder="이메일 주소를 입력해 주세요"
           type="email"
           autoComplete="email"
           error={errors.email?.message}
@@ -98,7 +96,7 @@ export function PasswordResetPage() {
             loading={requestReset.isPending}
             onClick={onSubmit}
           >
-            재설정 링크 보내기
+            비밀번호 재설정 링크 보내기
           </Button>
         }
       />
@@ -180,18 +178,15 @@ export function PasswordNewPage() {
         <AppHeader type="sub" title="비밀번호 재설정" />
         <main className="flex flex-1 items-center justify-center px-4 py-6">
           <EmptyState
-            title="링크를 쓸 수 없어요"
-            description="재설정 링크는 30분 동안 한 번만 쓸 수 있어요. 새 링크를 받으면 이전 링크는 쓸 수 없어요. 다시 요청해 주세요."
+            title="링크가 만료됐어요"
+            description="재설정 링크는 30분이 지나거나 한 번 쓰면 다시 쓸 수 없어요. 링크를 다시 받아 주세요."
+            action={
+              <Link href="/password-reset" className={buttonClassName({ variant: 'secondary' })}>
+                링크 다시 받기
+              </Link>
+            }
           />
         </main>
-        <BottomCta
-          className="sticky bottom-0 z-10"
-          primary={
-            <Link href="/password-reset" className={buttonClassName({ size: 'l' })}>
-              재설정 링크 다시 받기
-            </Link>
-          }
-        />
       </>
     )
   }
@@ -248,9 +243,6 @@ export function PasswordNewPage() {
           error={errors.passwordConfirm?.message}
           {...register('passwordConfirm')}
         />
-        <p className="text-caption-regular text-text-tertiary">
-          바꾸면 다른 기기에서 로그인된 상태도 모두 풀려요.
-        </p>
       </CenterBody>
       <BottomCta
         className="sticky bottom-0 z-10"
@@ -286,11 +278,17 @@ export function FindEmailPage() {
 
   return (
     <>
-      <AppHeader type="sub" title="이메일 찾기" />
-      <CenterBody>
-        <h2 className="text-title3">가입할 때 적은 정보를 입력해 주세요</h2>
+      <AppHeader type="sub" title="계정 찾기" />
+      <AccountTabs current="email" />
+      <CenterBody center={false}>
+        <h2 className="text-title3">
+          가입할 때 적은 정보를
+          <br />
+          입력해 주세요.
+        </h2>
         <TextField
-          label="이름"
+          aria-label="이름"
+          placeholder="이름을 입력해 주세요"
           autoComplete="name"
           error={errors.name?.message}
           {...register('name')}
@@ -302,15 +300,12 @@ export function FindEmailPage() {
           error={errors.phone?.message}
           {...register('phone')}
         />
-        <p className="text-caption-regular text-text-tertiary">
-          세 가지가 모두 맞는 계정이 있으면 이메일 일부를 가려서 보여 드려요.
-        </p>
       </CenterBody>
       <BottomCta
         className="sticky bottom-0 z-10"
         primary={
           <Button size="l" disabled={!isValid} onClick={onSubmit}>
-            이메일 찾기
+            가입한 이메일 찾기
           </Button>
         }
       />
@@ -325,6 +320,7 @@ export function FindEmailResultPage() {
       <AppHeader type="sub" title="이메일 찾기" />
       <main className="flex flex-1 items-center justify-center px-4 py-6">
         <EmptyState
+          icon="CircleCheck"
           title="가입한 이메일을 찾았어요"
           description="ru****@crewrun.kr · 2026.09.12 가입"
           action={

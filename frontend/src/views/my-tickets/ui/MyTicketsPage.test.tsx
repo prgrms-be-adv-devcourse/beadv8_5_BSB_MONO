@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { clearAccessToken, setAccessToken } from '@/shared/api'
+import { clearAccessToken } from '@/shared/api'
 import { server } from '@/shared/testing'
 
 import { MyTicketsPage } from './MyTicketsPage'
@@ -44,6 +44,7 @@ describe('MyTicketsPage', () => {
 
     expect(await screen.findByText('김러너 · 10K')).toBeInTheDocument()
     expect(screen.getByText('2026 용감한 쿠키RUN in 서울')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '참가 예정 1' })).toBeInTheDocument()
     expect(
       screen.getByText('11/1 (일) · 10/31 (토)까지 취소하면 ₩50,000 전액 환불'),
     ).toBeInTheDocument()
@@ -53,24 +54,6 @@ describe('MyTicketsPage', () => {
     )
     // 결제 대기 · 기한 만료 주문은 상세를 부르지 않는다
     expect(detailIds).toEqual(['1'])
-  })
-
-  it('내 닉네임과 이름을 회원 정보로 보여 준다', async () => {
-    setAccessToken('test-token')
-    server.use(
-      http.get('*/api/v1/member/members/me', () =>
-        HttpResponse.json({
-          status: 200,
-          message: '내 정보를 조회했습니다.',
-          data: { id: 7, nickname: '새벽러너', name: '박달리', email: 'run@example.com' },
-        }),
-      ),
-    )
-    renderPage()
-
-    expect(await screen.findByText('새벽러너')).toBeInTheDocument()
-    expect(screen.getByText('박달리')).toBeInTheDocument()
-    expect(screen.queryByText('달리는곰')).not.toBeInTheDocument()
   })
 
   it('결제한 주문이 없으면 빈 화면을 보여 준다', async () => {

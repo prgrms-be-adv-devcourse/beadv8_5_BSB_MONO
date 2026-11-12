@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 
 import { ApiError } from '@/shared/api'
 import { cn } from '@/shared/lib'
-import { Button, buttonClassName, EmptyState } from '@/shared/ui'
+import { Avatar, Button, buttonClassName, EmptyState } from '@/shared/ui'
 
 // 크루 화면의 흰 띠. 머리글 아래로 기둥 폭을 가득 채우고, 띠 사이는 Divider(section)로 나눈다(11/1 배치 규칙).
 export function CrewBand({ children, className }: { children: ReactNode; className?: string }) {
@@ -11,6 +11,30 @@ export function CrewBand({ children, className }: { children: ReactNode; classNa
     <section className={cn('flex flex-col gap-3 bg-bg-surface px-4 py-6', className)}>
       {children}
     </section>
+  )
+}
+
+// 크루 홈(M09) · 초대 받기(M10) 맨 위의 흰 띠. 크루 얼굴과 이름, 이름 아래 한 줄, 오른쪽 아래 버튼(선택).
+export function CrewIdentityBand({
+  name,
+  summary,
+  action,
+}: {
+  name: string
+  summary: ReactNode
+  action?: ReactNode
+}) {
+  return (
+    <CrewBand className="gap-4">
+      <div className="flex items-center gap-3">
+        <Avatar size="xl" name={name} />
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <h2 className="truncate text-title1">{name}</h2>
+          <p className="text-body2-regular text-text-secondary">{summary}</p>
+        </div>
+      </div>
+      {action && <div className="flex justify-end">{action}</div>}
+    </CrewBand>
   )
 }
 
