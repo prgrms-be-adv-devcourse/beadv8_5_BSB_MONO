@@ -170,6 +170,18 @@ export interface KitShipmentRequestDto {
 }
 
 /**
+ * 예치금 결제 요청. 본문이 없으면 키트 옵션 없이 결제한다
+ */
+export interface OrderPayRequestDto {
+  /**
+     * 고른 키트 옵션 ID (상품 GET /api/v1/product/races/{raceId}/kit-options의 kitOptionId). 대회에 옵션이 있으면 이름마다 하나씩 골라야 하고, 옵션 없는 대회는 비운다
+     * @maxItems 20
+     * @items.minimum 1
+     */
+  kitOptionIds?: number[];
+}
+
+/**
  * 키트 배송지 응답
  */
 export interface ShippingAddressDto {
@@ -256,6 +268,7 @@ export type OrderItemDtoStatus = typeof OrderItemDtoStatus[keyof typeof OrderIte
 export const OrderItemDtoStatus = {
   ORDERED: 'ORDERED',
   PAID: 'PAID',
+  CANCELING: 'CANCELING',
   CANCELED: 'CANCELED',
 } as const;
 
