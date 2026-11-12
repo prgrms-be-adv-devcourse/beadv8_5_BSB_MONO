@@ -1,6 +1,7 @@
 package com.bukang.gateway.auth;
 
 import java.util.List;
+import java.time.Duration;
 import java.util.Locale;
 
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
@@ -46,6 +47,9 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 	private static final String CODE_LOGIN_REQUIRED = "AUTH_LOGIN_REQUIRED";
 	private static final String CODE_TOKEN_EXPIRED = "AUTH_TOKEN_EXPIRED";
 	private static final String CODE_INVALID_TOKEN = "AUTH_INVALID_TOKEN";
+
+	// Redis가 끊기지 않고 느려지기만 해도 모든 요청이 늦어지지 않게 확인에 따로 건 제한. 넘으면 실패와 같게 통과시킨다
+	private static final Duration REVOKED_CHECK_TIMEOUT = Duration.ofMillis(200);
 
 	private static String revokedKey(String jti) {
 		return "access-tokens:" + jti + ":revoked";
@@ -103,6 +107,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 	// 로그아웃한 토큰인지 Redis로 확인한다. Redis가 실패하면 사이트 전체가 멈추지 않도록 통과시킨다 (토큰은 만료 시각에 어차피 끝난다)
 	private Mono<Boolean> isRevoked(JwtClaims claims) {
 		return redis.hasKey(revokedKey(claims.jti()))
+			.timeout(REVOKED_CHECK_TIMEOUT)
 			.onErrorResume(e -> {
 				log.warn("로그아웃한 토큰 확인에 실패해 통과시킵니다: {}", e.toString());
 				return Mono.just(false);

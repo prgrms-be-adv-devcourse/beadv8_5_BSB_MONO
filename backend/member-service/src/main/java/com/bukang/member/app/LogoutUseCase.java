@@ -3,6 +3,7 @@ package com.bukang.member.app;
 import java.time.Clock;
 import java.time.Duration;
 
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 
 import com.bukang.jwt.InvalidTokenException;
@@ -13,7 +14,9 @@ import com.bukang.member.out.RefreshTokenRepository;
 import com.bukang.member.out.RevokedAccessTokenRepository;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class LogoutUseCase {
@@ -63,6 +66,9 @@ public class LogoutUseCase {
 			}
 		} catch (InvalidTokenException e) {
 			// 로그아웃은 항상 성공한다
+		} catch (DataAccessException e) {
+			// 차단 기록이 실패해도 Refresh 삭제와 쿠키 만료는 계속한다. Access 토큰은 만료 시각에 어차피 끝난다
+			log.warn("Access 토큰 차단 기록에 실패했습니다: {}", e.toString());
 		}
 	}
 }
