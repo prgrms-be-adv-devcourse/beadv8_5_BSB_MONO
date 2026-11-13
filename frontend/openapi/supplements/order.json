@@ -529,6 +529,17 @@
             "null"
           ],
           "format": "date-time"
+        },
+        "kitTracking": {
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/KitTrackingDto"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "키트 배송 조회. 발송 전이거나 자동 조회하지 않는 배송이면 null"
         }
       },
       "description": "주문 상품"
@@ -903,6 +914,17 @@
             "null"
           ],
           "format": "date-time"
+        },
+        "kitTracking": {
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/KitTrackingDto"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "키트 배송 조회. 발송 전이거나 자동 조회하지 않는 배송이면 null"
         }
       }
     },
@@ -1056,12 +1078,18 @@
           "description": "RECRUITING(모집 중) / PAYING(결제 진행 중) / PAID(결제 끝) / CLOSED(종료)"
         },
         "paymentDueAt": {
-          "type": "string",
+          "type": [
+            "string",
+            "null"
+          ],
           "format": "date-time",
           "description": "파티원 결제 기한. 신청 전이면 null"
         },
         "joinToken": {
-          "type": "string",
+          "type": [
+            "string",
+            "null"
+          ],
           "description": "참가 링크 토큰. 파티장에게만 주고 파티원에게는 null"
         },
         "joinTokenExpiresAt": {
@@ -1195,7 +1223,10 @@
           "description": "결제를 마친 파티원 수"
         },
         "paymentDueAt": {
-          "type": "string",
+          "type": [
+            "string",
+            "null"
+          ],
           "format": "date-time",
           "description": "파티원 결제 기한. 신청 전이면 null"
         },
@@ -1342,7 +1373,10 @@
           "description": "신청할 수 있는 최소 인원"
         },
         "maxCount": {
-          "type": "integer",
+          "type": [
+            "integer",
+            "null"
+          ],
           "format": "int32",
           "description": "파티 최대 인원"
         },
@@ -1751,6 +1785,113 @@
         "totalPages": {
           "type": "integer",
           "format": "int32"
+        }
+      }
+    },
+    "KitTrackingEventDto": {
+      "type": "object",
+      "description": "이동 기록 한 줄",
+      "properties": {
+        "time": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "NOT_TRACKED",
+            "INFORMATION_RECEIVED",
+            "AT_PICKUP",
+            "IN_TRANSIT",
+            "OUT_FOR_DELIVERY",
+            "ATTEMPT_FAIL",
+            "DELIVERED",
+            "AVAILABLE_FOR_PICKUP",
+            "EXCEPTION",
+            "UNKNOWN"
+          ]
+        },
+        "statusText": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "택배사가 붙인 상태 이름"
+        },
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "location": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "KitTrackingDto": {
+      "type": "object",
+      "description": "키트 배송 조회 (Delivery Tracker에서 받아 저장한 값). 자동 조회하지 않는 배송이면 null",
+      "properties": {
+        "carrierId": {
+          "type": "string",
+          "description": "택배사 ID (Delivery Tracker)"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "NOT_TRACKED",
+            "INFORMATION_RECEIVED",
+            "AT_PICKUP",
+            "IN_TRANSIT",
+            "OUT_FOR_DELIVERY",
+            "ATTEMPT_FAIL",
+            "DELIVERED",
+            "AVAILABLE_FOR_PICKUP",
+            "EXCEPTION",
+            "UNKNOWN"
+          ],
+          "description": "배송 상태. NOT_TRACKED는 아직 조회되지 않음"
+        },
+        "statusLabel": {
+          "type": "string",
+          "description": "배송 상태 이름"
+        },
+        "statusText": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "택배사가 붙인 상태 이름"
+        },
+        "lastEventAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time",
+          "description": "마지막 상태의 시각"
+        },
+        "lastTrackedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time",
+          "description": "마지막으로 조회한 시각. 아직 조회하지 않았으면 null"
+        },
+        "events": {
+          "type": "array",
+          "description": "이동 기록 (오래된 것부터)",
+          "items": {
+            "$ref": "#/components/schemas/KitTrackingEventDto"
+          }
         }
       }
     }
