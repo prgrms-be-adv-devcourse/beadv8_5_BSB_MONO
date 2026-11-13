@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
 import { LoadErrorBody } from '@/widgets/status-screens'

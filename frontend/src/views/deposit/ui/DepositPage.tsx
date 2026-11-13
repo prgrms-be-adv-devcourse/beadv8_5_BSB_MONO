@@ -2,7 +2,6 @@
 
 import { useInfiniteQuery } from '@tanstack/react-query'
 import Link from 'next/link'
-import { useState } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
 import {
