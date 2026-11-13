@@ -346,10 +346,23 @@ describe('CrewInvitePage (M10)', () => {
     await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/crews/1'))
   })
 
-  it('이미 크루원이면 바로 크루 홈으로 보낸다', async () => {
+  it('이미 크루원이면 안내 창을 띄우고, 확인하면 크루 홈으로 보낸다', async () => {
+    const user = userEvent.setup()
     renderPage(<CrewInvitePage inviteToken="member" />)
-    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/crews/1'))
+    const dialog = await screen.findByRole('alertdialog')
+    expect(dialog).toHaveTextContent('이미 가입한 크루의 초대 링크예요!')
     expect(screen.queryByRole('button', { name: /가입하기/ })).not.toBeInTheDocument()
+    expect(replace).not.toHaveBeenCalled()
+    await user.click(within(dialog).getByRole('button', { name: '크루 홈으로 가기' }))
+    expect(replace).toHaveBeenCalledWith('/crews/1')
+  })
+
+  it('이미 크루원 안내 창을 Esc로 닫아도 크루 홈으로 보낸다', async () => {
+    const user = userEvent.setup()
+    renderPage(<CrewInvitePage inviteToken="member" />)
+    await screen.findByRole('alertdialog')
+    await user.keyboard('{Escape}')
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/crews/1'))
   })
 
   it.each([
@@ -402,6 +415,7 @@ describe('CrewInvitePage 파티 참가 링크가 함께 온 초대 (BUK-98)', ()
     renderPage(<CrewInvitePage inviteToken="member" partyJoinToken="pJ0in" />)
     await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/parties/join/pJ0in'))
     expect(replace).not.toHaveBeenCalledWith('/crews/1')
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
   })
 
   it('가입하는 사이 이미 크루원이 됐어도(409) 파티 합류 화면으로 보낸다', async () => {
