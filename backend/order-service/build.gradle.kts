@@ -16,6 +16,11 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-validation") // @Valid 요청 검증
 	implementation("org.springframework.boot:spring-boot-starter-kafka") // kafka (결제·취소 이벤트 발행)
 	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.0") //swagger and openapi
+	// 부하 측정용 지표(Micrometer, 결제 잠금 측정). 웹으로는 기본값대로 /actuator/health만 열린다
+	implementation("org.springframework.boot:spring-boot-starter-actuator")
+	// Actuator 지표를 Prometheus 형식(/actuator/prometheus)으로 내보낸다. 측정할 때만 환경변수로 연다
+	// (MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE=health,prometheus, docs/measurements/load)
+	runtimeOnly("io.micrometer:micrometer-registry-prometheus")
 
 	developmentOnly("org.springframework.boot:spring-boot-devtools") // dev-tools
 	// App 실행시 compose.yml 인프라 자동 실행 (bootRun/IDE 실행에만 포함, 운영 jar에서는 제외)
@@ -27,6 +32,7 @@ dependencies {
 	testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-kafka-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
+	testImplementation("org.springframework.boot:spring-boot-micrometer-metrics-test") // @AutoConfigureMetrics
 	testImplementation(testFixtures(project(":common"))) // GlobalConfigTestExecutionListener (테스트마다 EventPublisher 재설정)
 
 	// QueryDSL (Jakarta 버전, 버전은 Spring Boot BOM의 querydsl.version 사용)
