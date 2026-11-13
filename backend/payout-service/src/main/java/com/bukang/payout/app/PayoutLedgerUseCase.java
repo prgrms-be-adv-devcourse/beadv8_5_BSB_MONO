@@ -14,7 +14,6 @@ import com.bukang.payout.domain.PayoutAccount;
 import com.bukang.payout.domain.PayoutItem;
 import com.bukang.payout.domain.PayoutRecordType;
 import com.bukang.payout.domain.PayoutRecovery;
-import com.bukang.payout.domain.PayoutRecoveryCompletion;
 import com.bukang.payout.domain.PayoutRecoveryReason;
 import com.bukang.payout.domain.PayoutRecoveryStatus;
 import com.bukang.payout.domain.PayoutStage;
@@ -33,7 +32,7 @@ import lombok.extern.slf4j.Slf4j;
  * 잔고는 판매자 × 대회 × 계정의 원장 줄을 더해 계산한다. 따로 저장하지 않는다
  * 상계는 갚을 돈을 같은 판매자 × 대회의 지급 전 정산 내역에서 바로 뺀다. 정산 내역 금액까지만 뺀다
  * 회수 요청 · 최종 생성 · 대회 취소가 같은 규칙을 쓰도록 한곳에 둔다
- * 일정 변경 환불 · 대회 취소의 회수 요청과 관리자의 입금 확인도 여기서 받는다 (payout.md 4-2 · 4-3, PRO-33 · PRO-34)
+ * 참가권 환불(일정 변경 · 대회 취소)의 회수 요청과 관리자의 입금 확인도 여기서 받는다 (payout.md 4-2 · 4-3, BUK-76)
  */
 @Slf4j
 @Service
@@ -56,20 +55,21 @@ public class PayoutLedgerUseCase {
 	}
 
 	/**
-	 * 일정 변경 환불의 회수 요청 (payout.md 4-2, PRO-33 · PRO-214)
+	 * 참가권 환불의 회수 요청 (payout.md 4-2 · 4-3, PRO-33 · PRO-214, BUK-76)
+	 * 일정 변경 · 대회 취소 모두 주문이 환불을 끝낸 참가권마다 한 건씩 만든다 (선 환불 후 회수)
 	 * 1차 정산을 만든 뒤의 환불은 1차 지급 전 · 뒤를 나누지 않고 항상 회수 요청으로 기록한다
 	 * 회수액은 그 참가권의 1차 몫(가격 × 40%, 원 미만 버림)이다. 가격은 주문 쪽 값을 받는다
-	 * 요청하면 같은 판매자 × 대회의 지급 전 정산 내역에서 바로 상계하고, 다 갚으면 회수가 바로 끝난다(구매자 환불로 이어짐)
-	 *
-	 * 지금은 정산 쪽 진입점만 만든다. 주문 서비스가 환불 신청 때 부르는 연결과 "회수 대기" 환불은 order 담당과 맞춘다
+	 * 요청하면 같은 판매자 × 대회의 지급 전 정산 내역에서 바로 상계하고, 다 갚으면 회수가 바로 끝난다
+	 * 1차가 지급 중이면 상계할 곳이 없어 요청으로 남는다. 지급이 거절돼 1차가 닫히면 대회 취소 되돌리기가 지운다
 	 *
 	 * @param raceCourseId 환불된 참가권의 코스 (원장 줄에 적어 코스별로 본다)
 	 * @param price 환불된 참가권의 가격 (주문 상품 가격)
+	 * @param reason 회수 사유 (일정 변경 / 대회 취소)
 	 * @return 만든 회수. 1차 정산이 없으면(1차 정산금을 준 적이 없으면) 돌려받을 것이 없어 빈 값
 	 */
 	@Transactional
-	public Optional<PayoutRecovery> recoverScheduleChange(long sellerId, long raceId, long raceCourseId,
-		long orderItemId, long price, LocalDateTime now) {
+	public Optional<PayoutRecovery> recoverRefund(long sellerId, long raceId, long raceCourseId,
+		long orderItemId, long price, PayoutRecoveryReason reason, LocalDateTime now) {
 		lockSellerRace(sellerId, raceId);
 		// 같은 환불 알림이 다시 와도(Kafka 재전달) 실패로 보지 않고 이미 만든 회수를 돌려준다.
 		// 409로 던지면 소비자가 재시도하다 DLT로 보내 이미 처리한 환불이 실패로 쌓인다 (R1)
@@ -90,59 +90,30 @@ public class PayoutLedgerUseCase {
 		}
 
 		long amount = TwoStagePayoutCalculator.firstShare(price);
-		PayoutRecovery recovery = openRecovery(
-			PayoutRecovery.scheduleChanged(sellerId, raceId, orderItemId, amount, now), orderItemId, raceCourseId);
+		PayoutRecovery recovery = reason == PayoutRecoveryReason.대회_취소
+			? PayoutRecovery.raceCanceled(sellerId, raceId, orderItemId, amount, now)
+			: PayoutRecovery.scheduleChanged(sellerId, raceId, orderItemId, amount, now);
+		PayoutRecovery opened = openRecovery(recovery, orderItemId, raceCourseId);
 		settle(sellerId, raceId, now);
-		return Optional.of(recovery);
+		return Optional.of(opened);
 	}
 
 	/**
-	 * 대회 취소의 회수 요청 (payout.md 4-3, PRO-34 · PRO-214). 대회당 1건만 만든다
-	 * 판매자가 손에 든 돈 = 남은 1차 정산금 + 번 돈. 지급 전 정산 내역은 먼저 되돌렸으므로 지급한 정산 내역의 몫만 남는다
-	 * 이미 요청 중인 갚을 돈은 따로 받으므로 더하지 않는다
-	 *
-	 * @return 만든 회수. 이미 있거나 돌려받을 돈이 없으면 빈 값
-	 */
-	@Transactional
-	public Optional<PayoutRecovery> recoverRaceCancel(long sellerId, long raceId, LocalDateTime now) {
-		if (payoutRecoveryRepository.existsByRaceIdAndReasonType(raceId, PayoutRecoveryReason.대회_취소)) {
-			return Optional.empty();
-		}
-		long advance = balance(sellerId, raceId, PayoutAccount.선금);
-		long earning = balance(sellerId, raceId, PayoutAccount.번_돈);
-		if (earning != 0) {
-			// 최종 지급 뒤의 대회 취소는 번 돈까지 되돌려야 하는데 아직 정하지 않았다 (PRO-214 미룸). 금액만 맞춰 1차 정산금 줄로 남긴다
-			log.warn("최종 지급 뒤 대회 취소: 번 돈까지 회수합니다. sellerId={}, raceId={}, earning={}",
-				sellerId, raceId, earning);
-		}
-		long amount = advance + earning;
-		if (amount < 0) {
-			// 회수 요청액이 준 1차 정산금보다 많은 상태(지급 전 정산 내역에 상계했던 회수가 남음). 처리 규칙을 정하지 않았다
-			log.warn("대회 취소 회수액이 음수라 만들지 않습니다. sellerId={}, raceId={}, amount={}", sellerId, raceId, amount);
-		}
-		// 지급액이 0원인 정산 내역(0원 지급 완료)만 있으면 돌려받을 돈이 없다
-		if (amount <= 0) {
-			return Optional.empty();
-		}
-		return Optional.of(openRecovery(
-			new PayoutRecovery(sellerId, raceId, PayoutRecoveryReason.대회_취소, amount, now), null, null));
-	}
-
-	/**
-	 * 대회 취소로 지급 전 1차 정산 내역을 닫은 뒤, 그 1차 정산 내역에서 상계로 끝났던 일정 변경 회수를 되돌린다 (R9)
+	 * 1차 정산 내역이 돈 없이 닫힌 뒤(대회 취소로 지급 전 취소, 지급 거절), 그 판매자 × 대회의 회수를 되돌린다 (R9, BUK-76)
 	 * 1차 정산 내역의 상계 줄은 정산 내역 취소로 되돌아가지만 회수 줄(요청 · 갚을 돈 추가)은 회수에 붙어 남는다.
 	 * 그대로 두면 판매자가 받은 적 없는 몫이 1차 정산금 잔고 −, 갚을 돈 +로 남아 청구된다
-	 * 최종 정산이 없을 때만 부른다. 그때 상계로 끝난 회수는 모두 1차 정산 내역에서 갚은 몫이다
-	 * 대회 취소 회수(recoverRaceCancel)를 만들기 전에 불러야 남은 1차 정산금을 맞게 센다
+	 * 사유(일정 변경 · 대회 취소)와 상관없이 요청 중이거나 상계로 끝난 회수를 모두 되돌린다.
+	 * 환불 알림이 대회 취소보다 먼저 와서 상계됐거나, 1차 지급 중에 요청으로 남은 회수도 여기서 지운다
+	 * 최종 정산이 없을 때만 부른다. 그때 판매자가 받은 정산금은 없다
+	 * 입금으로 끝난 회수는 판매자가 낸 돈이라 되돌리지 않는다 (남은 위험, BUK-76)
 	 */
 	@Transactional(propagation = Propagation.MANDATORY)
-	public List<PayoutRecovery> revertOffsetRecoveries(long sellerId, long raceId) {
-		List<PayoutRecovery> offset = payoutRecoveryRepository.findBySellerIdAndRaceIdAndStatus(
-				sellerId, raceId, PayoutRecoveryStatus.회수_완료).stream()
-			.filter(recovery -> recovery.getReasonType() == PayoutRecoveryReason.일정_변경)
-			.filter(recovery -> recovery.getCompletion() == PayoutRecoveryCompletion.상계)
+	public List<PayoutRecovery> revertRecoveries(long sellerId, long raceId) {
+		List<PayoutRecovery> reverted = payoutRecoveryRepository.findForUpdateBySellerIdAndRaceIdAndStatusIn(
+				sellerId, raceId, EnumSet.of(PayoutRecoveryStatus.회수_요청, PayoutRecoveryStatus.회수_완료)).stream()
+			.filter(PayoutRecovery::isRevertibleByRaceCancel)
 			.toList();
-		for (PayoutRecovery recovery : offset) {
+		for (PayoutRecovery recovery : reverted) {
 			long amount = recovery.getAmount();
 			Long orderItemId = recovery.getOrderItemId();
 			payoutItemRepository.save(PayoutItem.ofRecovery(recovery, PayoutRecordType.회수_요청_취소,
@@ -151,7 +122,7 @@ public class PayoutLedgerUseCase {
 				orderItemId, null, -amount));
 			recovery.cancelByRaceCancel();
 		}
-		return offset;
+		return reverted;
 	}
 
 	/**

@@ -35,6 +35,7 @@ import com.bukang.payout.domain.PayoutItem;
 import com.bukang.payout.domain.PayoutRecordType;
 import com.bukang.payout.domain.PayoutRecovery;
 import com.bukang.payout.domain.PayoutRecoveryCompletion;
+import com.bukang.payout.domain.PayoutRecoveryReason;
 import com.bukang.payout.domain.PayoutRecoveryStatus;
 import com.bukang.payout.domain.exception.PayoutClaimConflictException;
 import com.bukang.payout.domain.exception.PayoutClaimNotFoundException;
@@ -122,8 +123,16 @@ class PayoutClaimUseCaseTest {
 	}
 
 	private void refund(int... orderItemIds) {
-		Arrays.stream(orderItemIds).forEach(id -> ledgerUseCase.recoverScheduleChange(SELLER_ID, RACE_ID, RACE_ID, id,
-			PRICE, LocalDateTime.of(2026, 11, 26, 10, 0)));
+		Arrays.stream(orderItemIds).forEach(id -> ledgerUseCase.recoverRefund(SELLER_ID, RACE_ID, RACE_ID, id,
+			PRICE, PayoutRecoveryReason.일정_변경, LocalDateTime.of(2026, 11, 26, 10, 0)));
+	}
+
+	// 대회 취소: 정산이 대회 취소 메시지를 처리하고, 주문이 환불한 101~110번마다 회수를 요청한다 (BUK-76)
+	private void cancelRaceAndRefundAll(LocalDateTime at) {
+		raceCancelUseCase.cancelRace(RACE_ID, at);
+		for (int id = 101; id <= 110; id++) {
+			ledgerUseCase.recoverRefund(SELLER_ID, RACE_ID, RACE_ID, id, PRICE, PayoutRecoveryReason.대회_취소, at);
+		}
 	}
 
 	private void createFinal(int... orderItemIds) {
@@ -230,7 +239,7 @@ class PayoutClaimUseCaseTest {
 	@DisplayName("TC-CLAIM-4-1 1차 지급 뒤 대회가 취소되면 취소 다음 날 배치에서 200,000원 청구가 생긴다")
 	void raceCancelCreatesClaimNextDay() {
 		createFirstAndPay();
-		raceCancelUseCase.cancelRace(RACE_ID, LocalDateTime.of(2026, 12, 1, 0, 30));
+		cancelRaceAndRefundAll(LocalDateTime.of(2026, 12, 1, 0, 30));
 
 		run(LocalDate.of(2026, 12, 2));
 
@@ -242,7 +251,7 @@ class PayoutClaimUseCaseTest {
 	@DisplayName("TC-CLAIM-4-2 새벽에 대회가 취소돼도 같은 날 배치에서는 청구가 생기지 않는다")
 	void raceCancelNoClaimSameDay() {
 		createFirstAndPay();
-		raceCancelUseCase.cancelRace(RACE_ID, LocalDateTime.of(2026, 12, 1, 0, 30));
+		cancelRaceAndRefundAll(LocalDateTime.of(2026, 12, 1, 0, 30));
 
 		run(LocalDate.of(2026, 12, 1));
 

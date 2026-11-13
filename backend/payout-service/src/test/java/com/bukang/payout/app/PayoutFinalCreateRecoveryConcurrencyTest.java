@@ -29,6 +29,7 @@ import com.bukang.payout.app.PayoutCreateStepUseCase.FirstPayoutSource;
 import com.bukang.payout.domain.BusinessDayCalendar;
 import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutAccount;
+import com.bukang.payout.domain.PayoutRecoveryReason;
 import com.bukang.payout.domain.PayoutStage;
 import com.bukang.payout.out.PayoutHoldRepository;
 import com.bukang.payout.out.PayoutItemRepository;
@@ -124,7 +125,7 @@ class PayoutFinalCreateRecoveryConcurrencyTest {
 		CompletableFuture<Void> recovery = CompletableFuture.runAsync(() -> {
 			try {
 				new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
-					ledgerUseCase.recoverScheduleChange(SELLER_ID, RACE_ID, RACE_ID, 108, PRICE,
+					ledgerUseCase.recoverRefund(SELLER_ID, RACE_ID, RACE_ID, 108, PRICE, PayoutRecoveryReason.일정_변경,
 						LocalDate.of(2026, 12, 14).atTime(2, 59));
 					recovered.countDown();
 					sleep(HOLD_LOCK_MILLIS);
