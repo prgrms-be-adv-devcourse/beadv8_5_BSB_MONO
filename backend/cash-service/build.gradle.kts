@@ -19,9 +19,11 @@ dependencies {
 	// 계좌번호·pgPaymentKey 암호화(AES-GCM)는 common global/crypto를 쓴다 (spring-security-crypto도 common이 가져온다)
 	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.0") //swagger and openapi
 
-    // 지표(Micrometer)를 모으고 /actuator/prometheus로 연다. Prometheus가 이 주소를 주기적으로 가져간다(Pull)
-    implementation("org.springframework.boot:spring-boot-starter-actuator")
-    runtimeOnly("io.micrometer:micrometer-registry-prometheus")
+	// 지표(Micrometer)를 모으고 /actuator/prometheus로 연다. Prometheus가 이 주소를 주기적으로 가져간다(Pull)
+	implementation("org.springframework.boot:spring-boot-starter-actuator")
+	runtimeOnly("io.micrometer:micrometer-registry-prometheus")
+	// 요청 하나의 흐름(span)을 OTLP로 내보낸다. 추적은 dev에서만 주소를 적어 내보낸다 (application-dev.yaml)
+	implementation("org.springframework.boot:spring-boot-starter-opentelemetry")
 
 	developmentOnly("org.springframework.boot:spring-boot-devtools") // dev-tools
 	// App 실행시 compose.yml 인프라 자동 실행 (bootRun/IDE 실행에만 포함, 운영 jar에서는 제외)

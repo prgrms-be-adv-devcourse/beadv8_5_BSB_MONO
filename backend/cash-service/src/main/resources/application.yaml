@@ -64,6 +64,12 @@ management:
         # 응답 시간을 구간별 개수(_bucket)로도 내보내, Prometheus의 histogram_quantile로 p95·p99를 계산한다
         # 이름에 .이 있어 [ ]로 감싼다 (감싸지 않으면 http → server → requests로 나눠 읽는다)
         "[http.server.requests]": true
+  otlp:
+    metrics:
+      export:
+        # OTel 스타터가 메트릭도 OTLP로 1분마다 보내려 한다 (기본 켜짐, 주소 localhost:4318)
+        # 메트릭은 Prometheus가 가져가는(Pull) 방식으로 정했으므로 끈다. 운영에서 없는 주소로 보내다 오류를 쌓지 않게도 한다
+        enabled: false
 
 # Swagger / OpenAPI V3 설정 (prod에서는 비활성화)
 springdoc:
