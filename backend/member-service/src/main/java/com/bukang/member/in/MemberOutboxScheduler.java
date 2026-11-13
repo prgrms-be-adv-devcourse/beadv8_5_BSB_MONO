@@ -6,6 +6,8 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
+
 import com.bukang.member.app.MemberOutboxCleanupUseCase;
 import com.bukang.member.app.MemberOutboxRelayUseCase;
 
@@ -27,6 +29,7 @@ public class MemberOutboxScheduler {
 	private final MemberOutboxCleanupUseCase memberOutboxCleanupUseCase;
 
 	// 이전 실행이 끝나고 1초 뒤 다시 보낸다. 메시지는 저장한 뒤 평균 1초 늦게 나간다
+	// @SchedulerLock을 붙이지 않는다: 행을 SKIP LOCKED로 읽어 pod 여러 개가 나눠 보낸다 (MemberOutboxRelayUseCase, BUK-206)
 	@Scheduled(fixedDelay = 1_000, initialDelay = 5_000)
 	public void relay() {
 		int sent = memberOutboxRelayUseCase.relay(LocalDateTime.now());
@@ -36,6 +39,7 @@ public class MemberOutboxScheduler {
 	}
 
 	// 매일 새벽 4시에 보낸 지 7일 지난 행을 지운다
+	@SchedulerLock(name = "member-outbox-cleanup", lockAtMostFor = "PT30M", lockAtLeastFor = "PT30S")
 	@Scheduled(cron = "0 0 4 * * *", zone = ZONE)
 	public void cleanup() {
 		int deleted = memberOutboxCleanupUseCase.cleanup(LocalDateTime.now());

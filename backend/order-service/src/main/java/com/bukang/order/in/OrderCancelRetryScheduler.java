@@ -6,6 +6,8 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
+
 import com.bukang.order.app.OrderCancelRetryUseCase;
 
 import lombok.RequiredArgsConstructor;
@@ -25,6 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 public class OrderCancelRetryScheduler {
 	private final OrderCancelRetryUseCase orderCancelRetryUseCase;
 
+	@SchedulerLock(name = "order-cancel-retry", lockAtMostFor = "PT10M")
 	@Scheduled(fixedDelay = 60_000, initialDelay = 90_000)
 	public void retry() {
 		OrderCancelRetryUseCase.RetryResult result = orderCancelRetryUseCase.retry(LocalDateTime.now());

@@ -6,6 +6,8 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
+
 import com.bukang.cash.app.charge.CashChargeReconcileUseCase;
 import com.bukang.cash.app.withdrawal.CashWithdrawalReconcileUseCase;
 
@@ -25,6 +27,7 @@ public class CashChargeReconcileScheduler {
 	private final CashChargeReconcileUseCase cashChargeReconcileUseCase;
 	private final CashWithdrawalReconcileUseCase cashWithdrawalReconcileUseCase;
 
+	@SchedulerLock(name = "cash-charge-reconcile", lockAtMostFor = "PT10M")
 	@Scheduled(
 		fixedDelayString = "${cash.charge.reconcile.interval-millis}",
 		initialDelayString = "${cash.charge.reconcile.interval-millis}")

@@ -6,6 +6,8 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
+
 import com.bukang.order.app.OrderExpiryUseCase;
 
 import lombok.RequiredArgsConstructor;
@@ -20,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 public class OrderExpiryScheduler {
 	private final OrderExpiryUseCase orderExpiryUseCase;
 
+	@SchedulerLock(name = "order-expiry", lockAtMostFor = "PT10M")
 	@Scheduled(fixedDelay = 60_000, initialDelay = 60_000)
 	public void expireOverdue() {
 		orderExpiryUseCase.expireOverdue(LocalDateTime.now());

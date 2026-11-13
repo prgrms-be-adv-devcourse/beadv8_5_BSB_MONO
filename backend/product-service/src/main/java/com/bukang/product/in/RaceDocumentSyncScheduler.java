@@ -4,6 +4,8 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
+
 import com.bukang.product.app.ProductFacade;
 
 import lombok.RequiredArgsConstructor;
@@ -21,6 +23,7 @@ import lombok.extern.slf4j.Slf4j;
 public class RaceDocumentSyncScheduler {
 	private final ProductFacade productFacade;
 
+	@SchedulerLock(name = "product-race-document-sync", lockAtMostFor = "PT1M")
 	@Scheduled(fixedDelay = 1_000, initialDelay = 5_000)
 	public void sync() {
 		int synced = productFacade.syncRaceDocuments();

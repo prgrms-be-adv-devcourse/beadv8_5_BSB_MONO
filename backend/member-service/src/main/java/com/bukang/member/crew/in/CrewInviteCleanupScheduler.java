@@ -8,6 +8,8 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
+
 import com.bukang.member.crew.app.CrewInviteCleanupUseCase;
 
 import lombok.RequiredArgsConstructor;
@@ -29,6 +31,7 @@ public class CrewInviteCleanupScheduler {
 	// 시계 빈은 UTC라 LocalDateTime.now(clock)을 쓰면 9시간 어긋난다
 	private final Clock clock;
 
+	@SchedulerLock(name = "member-crew-invite-cleanup", lockAtMostFor = "PT30M", lockAtLeastFor = "PT30S")
 	@Scheduled(cron = "0 30 4 * * *", zone = ZONE)
 	public void cleanup() {
 		LocalDateTime now = LocalDateTime.ofInstant(clock.instant(), ZoneId.systemDefault());

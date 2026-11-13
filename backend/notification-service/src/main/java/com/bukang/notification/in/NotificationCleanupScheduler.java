@@ -4,6 +4,8 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
+
 import com.bukang.notification.app.NotificationUseCase;
 
 import lombok.RequiredArgsConstructor;
@@ -19,6 +21,7 @@ public class NotificationCleanupScheduler {
 
 	private final NotificationUseCase notificationUseCase;
 
+	@SchedulerLock(name = "notification-cleanup", lockAtMostFor = "PT30M", lockAtLeastFor = "PT30S")
 	@Scheduled(cron = "0 0 4 * * *", zone = "Asia/Seoul")
 	public void deleteExpired() {
 		int deleted = notificationUseCase.deleteExpired(RETENTION_DAYS);

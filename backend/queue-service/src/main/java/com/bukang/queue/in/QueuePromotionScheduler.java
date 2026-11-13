@@ -4,6 +4,8 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
+
 import com.bukang.queue.app.QueueFacade;
 
 import lombok.RequiredArgsConstructor;
@@ -21,6 +23,7 @@ public class QueuePromotionScheduler {
 	private final QueueFacade queueFacade;
 
 	// 앞 실행이 끝난 뒤 queue.schedule.time(ms)만큼 쉬고 다시 돈다
+	@SchedulerLock(name = "queue-promotion", lockAtMostFor = "PT1M")
 	@Scheduled(fixedDelayString = "${queue.schedule.time}", initialDelayString = "${queue.schedule.time}")
 	public void promote() {
 		queueFacade.promote();
