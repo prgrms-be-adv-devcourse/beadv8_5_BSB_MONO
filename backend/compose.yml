@@ -347,6 +347,9 @@ services:
         condition: service_healthy
       bukang-redis:
         condition: service_healthy
+      # 뜰 때 회원 서비스에서 회원 복사본을 채우므로 회원 서비스가 먼저 떠 있어야 한다 (BUK-161)
+      member-service:
+        condition: service_healthy
 
   # 크루런 AI (BUK-165). DB·Kafka를 쓰지 않고 대화 기록만 Redis에 둔다. 모델은 OpenAI이고 키는 .env의 OPENAI_API_KEY다 (비어도 뜬다)
   # gateway의 depends_on에 넣지 않는다. AI가 뜨지 못해도 게이트웨이와 다른 서비스는 떠야 한다
