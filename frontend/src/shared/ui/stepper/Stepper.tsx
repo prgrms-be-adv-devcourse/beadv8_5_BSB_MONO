@@ -1,11 +1,12 @@
-import { Fragment, type ReactNode } from 'react'
+import { Fragment } from 'react'
 
 import { cn } from '@/shared/lib'
 
 import { Icon } from '../icon/icons'
 
 export type StepperProps = {
-  steps: ReactNode[]
+  /** 단계 이름. 이름이 key라 겹치면 안 된다 */
+  steps: string[]
   /** 지금 단계(0부터). 앞은 끝난 단계, 뒤는 남은 단계로 그린다. */
   current: number
   className?: string
@@ -30,7 +31,7 @@ export function Stepper({ steps, current, className }: StepperProps) {
       {steps.map((label, i) => {
         const state = i < current ? 'done' : i === current ? 'current' : 'upcoming'
         return (
-          <Fragment key={i}>
+          <Fragment key={label}>
             {i > 0 && (
               <li aria-hidden className="flex-1 px-1 pt-3.25">
                 <div className={cn('h-0.5', i <= current ? 'bg-bg-brand' : 'bg-border-default')} />

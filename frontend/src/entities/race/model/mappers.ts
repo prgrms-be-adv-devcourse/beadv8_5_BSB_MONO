@@ -163,6 +163,7 @@ export function toRaceDetail(
     status,
     phase: applicationPhase(race, now),
     startsAt: race.raceDate ? `${formatRaceDateTime(race.raceDate)} 출발` : '',
+    raceDate: race.raceDate ?? undefined,
     place: [race.location, names.join(' / ')].filter(Boolean).join(' · '),
     description: race.description ?? undefined,
     dDay: closeAt ? formatDDay(closeAt, now) : '-',

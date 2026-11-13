@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { cache } from 'react'
 
 import { RaceDetailPage } from '@/views/race-detail'
-import { fetchRaceDetail } from '@/entities/race'
+import { fetchRaceDetail, raceJsonLd, serializeJsonLd } from '@/entities/race'
 import { BASE_OPEN_GRAPH, DEFAULT_OG_IMAGE } from '@/shared/config'
 
 // 메타데이터와 화면이 같은 요청 안에서 대회를 한 번만 불러온다
@@ -38,10 +38,16 @@ export default async function Page({ params, searchParams }: PageProps<'/races/[
   const race = await getRace(raceId)
   if (!race) notFound()
   return (
-    <RaceDetailPage
-      race={race}
-      optionId={typeof option === 'string' ? option : undefined}
-      alreadyApplied={preview === 'applied'}
-    />
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(raceJsonLd(race)) }}
+      />
+      <RaceDetailPage
+        race={race}
+        optionId={typeof option === 'string' ? option : undefined}
+        alreadyApplied={preview === 'applied'}
+      />
+    </>
   )
 }

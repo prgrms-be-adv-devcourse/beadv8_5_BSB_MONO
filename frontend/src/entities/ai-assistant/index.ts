@@ -1,9 +1,5 @@
 export {
   aiErrorMessage,
-  useAiChat,
-  useAiClear,
-  useAxBriefing,
-  useInquiryDraft,
   type AiAnswer,
   type AiList,
   type AiScreen,
@@ -13,3 +9,4 @@ export {
   type AxBriefingTodo,
   type InquiryDraft,
 } from './api/ai-assistant-api'
+export { useAiChat, useAiClear, useAxBriefing, useInquiryDraft } from './api/use-ai-assistant'

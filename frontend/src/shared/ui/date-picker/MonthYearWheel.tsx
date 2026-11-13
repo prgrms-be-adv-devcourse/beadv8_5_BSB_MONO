@@ -12,6 +12,8 @@ import {
 
 import { cn } from '@/shared/lib'
 
+import { FOCUS_RING } from '../focus-ring'
+
 const ROW = 44
 const SETTLE_MS = 120
 // 이만큼 움직이기 전까지는 끌기가 아니라 클릭으로 본다
@@ -191,21 +193,23 @@ function WheelColumn({ label, options, value, onChange, align, className }: Whee
       {options.map((option, i) => {
         const distance = Math.abs(i - index)
         return (
-          <div
+          <button
             key={option.value}
+            type="button"
             id={`${id}-${option.value}`}
             role="option"
             aria-selected={distance === 0}
             onClick={() => onChange(option.value)}
             className={cn(
-              'flex h-11 snap-center items-center text-title2 select-none',
+              'flex h-11 w-full cursor-[inherit] snap-center items-center text-title2 select-none',
+              FOCUS_RING,
               align === 'right' ? 'justify-end' : 'justify-start',
               distance === 0 ? 'text-text-primary' : 'font-medium text-text-disabled',
               distance >= 2 && 'opacity-50',
             )}
           >
             {option.label}
-          </div>
+          </button>
         )
       })}
     </div>

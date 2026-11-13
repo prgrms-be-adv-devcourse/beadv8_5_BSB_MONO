@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { useMyBalance } from '@/entities/wallet'
 import { clearAccessToken, setAccessToken } from '@/shared/api'
 
-import { useDepositBalance } from './deposit-balance'
+import { useDepositBalance } from './use-deposit-balance'
 
 // 예치금 화면(useMyBalance)과 결제 화면(useDepositBalance)은 같은 잔액 캐시를 쓴다.
 // 한쪽이 캐시에 다른 모양을 넣으면 반대쪽이 `₩[object Object]`나 오류가 되므로, 두 순서를 모두 확인한다.

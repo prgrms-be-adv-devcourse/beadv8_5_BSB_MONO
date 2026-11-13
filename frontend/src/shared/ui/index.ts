@@ -83,4 +83,5 @@ export { DataTable, type DataTableColumn, type DataTableProps } from './table/Da
 export { TableCell, TableHeaderCell, type CellAlign } from './table/Table'
 export { Tab, TabBar, TabPanel, Tabs, type TabBarProps, type TabProps } from './tabs/Tabs'
 export { formatTimer, TimerBar, type TimerBarProps } from './timer-bar/TimerBar'
-export { ToastProvider, useToast, type ShowToastOptions, type ToastTone } from './toast/Toast'
+export { ToastProvider, type ShowToastOptions, type ToastTone } from './toast/Toast'
+export { useToast } from './toast/use-toast'
