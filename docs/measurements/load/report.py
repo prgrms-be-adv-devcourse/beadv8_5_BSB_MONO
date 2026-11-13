@@ -61,6 +61,8 @@ def read_scenario(rep_dir, name):
     return {
         'p50': pay.get('med'), 'p95': pay.get('p(95)'), 'p99': pay.get('p(99)'), 'count': pay.get('count'),
         'fail': failed.get('values', {}).get('rate'), 'dropped': dropped,
+        # 판정 P3·G3는 결제 요청만 센다 (흐름의 fail은 입장~주문 실패도 포함)
+        'pay_fail': metrics.get('pay_failed', {}).get('values', {}).get('rate'),
         'pending_max': pending['max'], 'pending_avg': pending['avg'], 'pending_seconds': pending['seconds'],
         'active_max': max(active) if active else None, 'series': series,
     }
@@ -87,8 +89,8 @@ def judge(med):
          s4.get('pending_seconds') is not None and s4['pending_seconds'] > P1_PENDING_SECONDS),
         ('P2', f'S4 0.3초 흐름에서 결제 p95 > {P2_P95_MS}ms', s4.get('p95'),
          s4.get('p95') is not None and s4['p95'] > P2_P95_MS),
-        ('P3', f'S4 0.3초 흐름에서 실패 > {P3_FAIL_RATE:.0%}', s4.get('fail'),
-         s4.get('fail') is not None and s4['fail'] > P3_FAIL_RATE),
+        ('P3', f'S4 0.3초 흐름에서 결제 실패 > {P3_FAIL_RATE:.0%}', s4.get('pay_fail'),
+         s4.get('pay_fail') is not None and s4['pay_fail'] > P3_FAIL_RATE),
         ('P4', f'S3 p95 ≥ S2 p95 × {P4_RATIO}', ratio, ratio is not None and ratio >= P4_RATIO),
     ]
 
@@ -122,17 +124,17 @@ def summary(results, out):
                 if name not in names:
                     names.append(name)
         lines += [f'## {label_dir.name}', '',
-                  '| 시나리오 | 결제 p50 | 결제 p95 | 결제 p99 | 건수 | 실패율 | 건너뜀 | 연결 대기 최대 | 대기 평균 | 대기>0 초 | 활성 연결 최대 |',
-                  '|---|---|---|---|---|---|---|---|---|---|---|']
+                  '| 시나리오 | 결제 p50 | 결제 p95 | 결제 p99 | 건수 | 실패율 | 결제 실패율 | 건너뜀 | 연결 대기 최대 | 대기 평균 | 대기>0 초 | 활성 연결 최대 |',
+                  '|---|---|---|---|---|---|---|---|---|---|---|---|']
         med = {}
         for name in names:
             rows = [read_scenario(rep, name) for rep in reps]
             failed_reps = [rep.name for rep in reps if name in failed_names(rep)]
             rows = [r for r in rows if r]
             if not rows:
-                lines.append(f'| {name} | 측정 실패 ({", ".join(failed_reps)}) |' + ' |' * 9)
+                lines.append(f'| {name} | 측정 실패 ({", ".join(failed_reps)}) |' + ' |' * 10)
                 continue
-            keys = ['p50', 'p95', 'p99', 'count', 'fail', 'dropped', 'pending_max', 'pending_avg', 'pending_seconds',
+            keys = ['p50', 'p95', 'p99', 'count', 'fail', 'pay_fail', 'dropped', 'pending_max', 'pending_avg', 'pending_seconds',
                     'active_max']
             med[name] = {k: median([r[k] for r in rows]) for k in keys}
 
@@ -141,7 +143,7 @@ def summary(results, out):
                 show = (lambda v: '-' if v is None else f'{v:.2%}') if percent else (lambda v: fmt(v, digits))
                 return f'{show(med[name][key])} ({", ".join(show(v) for v in each)})'
             lines.append(f'| {name} | {cell("p50")} | {cell("p95")} | {cell("p99")} | {cell("count")} | '
-                         f'{cell("fail", percent=True)} | {cell("dropped")} | {cell("pending_max")} | {cell("pending_avg", 1)} | '
+                         f'{cell("fail", percent=True)} | {cell("pay_fail", percent=True)} | {cell("dropped")} | {cell("pending_max")} | {cell("pending_avg", 1)} | '
                          f'{cell("pending_seconds")} | {cell("active_max")} |')
             plot(label_dir.name, name, rows, out)
         lines += ['', '판정(변경 전 기준, 중앙값):', '', '| 번호 | 조건 | 값 | 맞음 |', '|---|---|---|---|']
@@ -186,7 +188,7 @@ def plot(label, name, rows, out):
 def selftest():
     assert pending_stats([[0, 0], [1, 2], [2, 4]]) == {'max': 4, 'avg': 2, 'seconds': 2}
     assert pending_stats([]) == {'max': None, 'avg': None, 'seconds': None}
-    verdict = judge({'s4-300-flow': {'pending_seconds': 31, 'p95': 2500, 'fail': 0.0},
+    verdict = judge({'s4-300-flow': {'pending_seconds': 31, 'p95': 2500, 'fail': 0.5, 'pay_fail': 0.0},
                      's2': {'p95': 100}, 's3': {'p95': 300}})
     assert [hit for *_, hit in verdict] == [True, True, False, True]
     assert judge({})[0][3] is False

@@ -30,11 +30,6 @@ on:
   pull_request:
     types: [ labeled ]
 
-# 측정끼리 같은 머신 자원을 나눠 쓰지 않게 하나씩만 돈다
-concurrency:
-  group: order-load-test
-  cancel-in-progress: false
-
 permissions:
   contents: read
 
@@ -43,6 +38,11 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'load-test'
     runs-on: ubuntu-latest
     timeout-minutes: 350
+    # 측정끼리 같은 머신 자원을 나눠 쓰지 않게 하나씩만 돈다. job에 걸어야 다른 라벨로 건너뛰는 실행이
+    # 기다리던 측정을 취소하지 않는다 (workflow에 걸면 건너뛸 실행도 그룹에 들어와 대기 중인 실행을 밀어낸다)
+    concurrency:
+      group: order-load-test
+      cancel-in-progress: false
     env:
       REF_A: ${{ inputs.ref_a || github.event.pull_request.head.sha || github.sha }}
       REF_B: ${{ inputs.ref_b }}

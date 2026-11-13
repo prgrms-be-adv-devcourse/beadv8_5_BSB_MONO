@@ -108,7 +108,7 @@ done
 cat "$RUN_DIR/check.txt"
 
 log "Prometheus 구간 지표 받기"
-python3 "$HERE/report.py" prom "$PROM" "$RUN_DIR"
+python3 "$HERE/report.py" prom "$PROM" "$RUN_DIR" || log "지표 받기 실패 (로그는 남긴다)"
 
 compose logs --no-color order cash product > "$RUN_DIR/services.log" 2>&1 || true
 gzip -f "$RUN_DIR/services.log"
