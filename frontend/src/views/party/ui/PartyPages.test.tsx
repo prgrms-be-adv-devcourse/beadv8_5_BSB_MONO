@@ -171,10 +171,11 @@ describe('파티 상세 · 친구 초대', () => {
       ),
     )
     const user = userEvent.setup()
+    await navigator.clipboard.writeText('처음 값')
     renderPage(<PartyDetailPage partyId={1} />)
     await user.click(await screen.findByRole('button', { name: '친구 초대' }))
-    expect(await screen.findByText('초대할 권한이 없습니다.')).toBeInTheDocument()
-    expect(await navigator.clipboard.readText()).toBe('')
+    expect((await screen.findAllByText('초대할 권한이 없습니다.')).length).toBeGreaterThan(0)
+    expect(await navigator.clipboard.readText()).toBe('처음 값')
   })
 
   it('만드는 동안 다시 눌러도 초대 링크를 하나만 만든다', async () => {

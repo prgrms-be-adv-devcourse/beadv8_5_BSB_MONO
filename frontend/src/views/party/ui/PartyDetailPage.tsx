@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
-import { formatKstDateTime, parseKstDateTime } from '@/entities/crew'
+import { canInvite, formatKstDateTime, inviteUrl, parseKstDateTime } from '@/entities/crew'
 import {
   partyKeys,
   useLeaveParty,
@@ -93,6 +93,9 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
   const crew = memberApi.useFindCrew(party.crewId, { query: { select: unwrapData } })
   const regenerate = useRegenerateJoinLink()
   const leave = useLeaveParty()
+  const createInvite = memberApi.useCreateCrewInvite()
+  // 초대 토큰은 만들 때 응답에만 오므로, 복사가 실패해도 다시 만들지 않게 만든 링크를 들고 있는다
+  const [friendLink, setFriendLink] = useState<string>()
   const orderKey = useIdempotencyKey()
   const [confirm, setConfirm] = useState<'regenerate' | 'leave' | null>(null)
 
@@ -123,14 +126,36 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
     })
   }
 
-  async function copyLink() {
-    if (!party.joinToken) return
+  async function copy(url: string, done: string) {
     try {
-      await navigator.clipboard.writeText(partyJoinUrl(party.joinToken))
-      toast({ message: '참가 링크를 복사했어요', tone: 'success' })
+      await navigator.clipboard.writeText(url)
+      toast({ message: done, tone: 'success' })
     } catch {
       toast({ message: '복사하지 못했어요. 다시 시도해 주세요.', tone: 'error' })
     }
+  }
+
+  // 크루 가입부터 파티 합류까지 링크 하나로 잇는다(BUK-98). 초대 링크는 크루장 · 운영진만 만들 수 있다.
+  const canInviteFriends = crew.data?.myRole !== undefined && canInvite(crew.data.myRole)
+  function inviteFriend() {
+    const joinToken = party.joinToken
+    if (!joinToken) return
+    if (friendLink) return void copy(friendLink, '초대 링크를 복사했어요')
+    createInvite.mutate(
+      { crewId: party.crewId },
+      {
+        onSuccess: (res) => {
+          const url = inviteUrl(res.data?.inviteToken ?? '', window.location.origin, joinToken)
+          setFriendLink(url)
+          void copy(url, '초대 링크를 복사했어요')
+        },
+        onError: toastError,
+      },
+    )
+  }
+
+  function copyLink() {
+    if (party.joinToken) void copy(partyJoinUrl(party.joinToken), '참가 링크를 복사했어요')
   }
 
   const pay = useMutation({
@@ -242,9 +267,15 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
           <div className="flex items-center justify-between text-body2-regular text-text-secondary">
             <span>링크 · {formatKstDateTime(party.joinTokenExpiresAt)}까지</span>
             <span className="flex gap-4">
-              <button type="button" onClick={() => void copyLink()}>
-                링크 복사
-              </button>
+              {canInviteFriends ? (
+                <button type="button" disabled={createInvite.isPending} onClick={inviteFriend}>
+                  친구 초대
+                </button>
+              ) : (
+                <button type="button" onClick={copyLink}>
+                  링크 복사
+                </button>
+              )}
               <button type="button" onClick={() => setConfirm('regenerate')}>
                 새로 만들기
               </button>
