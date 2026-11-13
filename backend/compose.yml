@@ -505,3 +505,15 @@ services:
       - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
     depends_on:
       - prometheus
+
+  # Redis 지표 통역기. Redis는 HTTP 지표 주소가 없어서, 이 컨테이너가 INFO 명령 결과를 Prometheus 형식으로 바꿔 9121로 연다
+  # Prometheus만 같은 네트워크에서 가져가므로 호스트 포트는 열지 않는다
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.97.0
+    container_name: bukang-redis-exporter
+    profiles: [ monitoring ]
+    environment:
+      # 컨테이너 안의 localhost는 자기 자신이라, 같은 네트워크의 서비스 이름으로 Redis를 찾는다
+      REDIS_ADDR: redis://bukang-redis:6379
+    depends_on:
+      - bukang-redis

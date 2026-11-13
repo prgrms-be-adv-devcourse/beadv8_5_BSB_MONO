@@ -16,3 +16,14 @@ scrape_configs:
     metrics_path: /actuator/prometheus
     static_configs:
       - targets: [ "host.docker.internal:8081" ]
+  # Redis. Redis는 HTTP 지표 주소가 없어 redis-exporter가 대신 연다
+  # Exporter는 컨테이너라 host.docker.internal이 아니라 같은 Docker 네트워크의 컨테이너 이름으로 접속한다
+  - job_name: redis
+    static_configs:
+      - targets: [ "bukang-redis-exporter:9121" ]
+  # Redpanda(Kafka). 관리 포트 9644에 지표 주소가 들어 있어 Exporter가 필요 없다
+  # /public_metrics는 운영 확인용으로 고른 지표(redpanda_ 접두사), /metrics는 내부 디버깅용이라 양이 많다
+  - job_name: redpanda
+    metrics_path: /public_metrics
+    static_configs:
+      - targets: [ "bukang-kafka:9644" ]
