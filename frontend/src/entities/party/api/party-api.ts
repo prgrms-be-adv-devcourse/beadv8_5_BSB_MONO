@@ -76,6 +76,8 @@ export type PartyCreateBody = {
   raceCourseId: number
   participant: orderModel.ParticipantInfoRequestDto
   thirdPartyConsent: boolean
+  // 초대할 크루원 회원 ID (BUK-182, 선택, 최대 50명). 파티를 만든 뒤 이 사람들에게 초대 알림과 참가 링크가 간다
+  invitedMemberIds?: number[]
 }
 export type PartyJoinBody = {
   joinToken: string

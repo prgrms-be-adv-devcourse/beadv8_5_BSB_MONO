@@ -160,17 +160,33 @@ class ApiV1PartyTest {
 	}
 
 	@Test
-	@DisplayName("고른 크루원을 확인하지 못해도(회원 서비스 503) 파티는 만들어지고 그 사람만 알림에서 빠진다")
+	@DisplayName("회원 서비스가 응답하지 않으면(503) 남은 사람은 묻지 않고 멈춘다. 파티는 그대로 만들어진다")
 	void createInvitesMemberServiceDown() throws Exception {
-		// 파티장 확인은 통과하고, 그다음 초대할 사람 확인에서 회원 서비스가 멈춘 경우
+		// 파티장 확인은 통과하고, 처음 고른 사람(MEMBER) 확인에서 회원 서비스가 멈춘 경우
 		crewPort.beforeNextLookup(() -> crewPort.beforeNextLookup(() -> {
 			throw new ExternalServiceUnavailableException("회원 서비스에 연결하지 못했습니다.");
 		}));
 
+		// 멈추지 않으면 다음 사람(OTHER)은 크루원이라 알림이 간다
 		create(LEADER, COURSE_10K, "[%d, %d]".formatted(MEMBER, OTHER))
 			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.data.invitedMemberIds.length()").value(0));
+		assertThat(partyRepository.count()).isOne();
+		verify(notificationSender, never()).send(any());
+	}
+
+	@Test
+	@DisplayName("앞사람에게 알림을 보낸 뒤 회원 서비스가 멈추면, 보낸 사람까지만 응답에 담는다")
+	void createInvitesStopsAfterFirstUnavailable() throws Exception {
+		// 파티장 → MEMBER(통과) → OTHER(503) → FOURTH(묻지 않음)
+		crewPort.beforeNextLookup(() -> crewPort.beforeNextLookup(() -> crewPort.beforeNextLookup(() -> {
+			throw new ExternalServiceUnavailableException("회원 서비스에 연결하지 못했습니다.");
+		})));
+
+		create(LEADER, COURSE_10K, "[%d, %d, %d]".formatted(MEMBER, OTHER, FOURTH))
+			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.data.invitedMemberIds.length()").value(1))
-			.andExpect(jsonPath("$.data.invitedMemberIds[0]").value(OTHER));
+			.andExpect(jsonPath("$.data.invitedMemberIds[0]").value(MEMBER));
 		verify(notificationSender, times(1)).send(any());
 	}
 

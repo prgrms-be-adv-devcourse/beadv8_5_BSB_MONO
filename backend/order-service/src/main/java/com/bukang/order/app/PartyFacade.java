@@ -22,6 +22,8 @@ public class PartyFacade {
 	private final PartyUseCase partyUseCase;
 	private final PartyApplyUseCase partyApplyUseCase;
 
+	// 파티를 커밋한 뒤 트랜잭션 밖에서 초대할 사람을 확인해 알린다 (BUK-182). 트랜잭션은 PartyUseCase가 연다
+	@Transactional(propagation = Propagation.NOT_SUPPORTED)
 	public PartyCreatedDto create(PartyCreateRequestDto request, long memberId) {
 		PartyUseCase.Created created = partyUseCase.create(memberId, request.getCrewId(), request.getRaceCourseId(),
 			request.getParticipant().toParticipantInfo(), request.getInvitedMemberIds(), LocalDateTime.now());
