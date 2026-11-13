@@ -181,7 +181,7 @@ public class PayoutClaimUseCase {
 		boolean seller = claim.markSellerNotice(today);
 		if (seller) {
 			log.info("[청구 알림] 판매자에게 정산금 반환을 요청합니다. sellerId={}, raceId={}, claimId={}, amount={}, accounts={}",
-				claim.getSellerId(), claim.getRaceId(), claim.getId(), claim.getAmount(), RECOVERY_ACCOUNTS);
+				claim.getSellerId(), claim.getRaceId(), claim.getId(), claim.getAmount(), accountsOf(claim));
 		}
 		boolean admin = claim.markAdminNotice(today, now);
 		if (admin) {
@@ -190,6 +190,14 @@ public class PayoutClaimUseCase {
 				claim.getRaceId(), claim.getId(), claim.getAmount(), claim.getStartDate());
 		}
 		return new Notices(seller, admin);
+	}
+
+	// 판매자에게 알릴 입금 계좌: 청구 전용 가상계좌, 아직 발급 전이면 목업 계좌 (관리자가 입금을 확인한다)
+	static List<String> accountsOf(PayoutClaim claim) {
+		if (claim.getVirtualAccountNumber() == null) {
+			return RECOVERY_ACCOUNTS;
+		}
+		return List.of(claim.getVirtualBankName() + " " + claim.getVirtualAccountNumber());
 	}
 
 	private record Notices(boolean seller, boolean admin) {

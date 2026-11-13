@@ -86,7 +86,7 @@ public class PayoutSellerQueryUseCase {
 		return payoutRecoveryRepository.findSellerClaimedRecoveries(sellerId, from.atStartOfDay(),
 				to.plusDays(1).atStartOfDay(), PayoutRecoveryCompletion.상계)
 			.stream()
-			.map(row -> SellerRecoveryDto.of(row.recovery(), row.claimCode(),
+			.map(row -> SellerRecoveryDto.of(row.recovery(), row.claim(),
 				payoutByRace.computeIfAbsent(row.recovery().getRaceId(), raceId -> payoutOf(sellerId, raceId))))
 			.toList();
 	}

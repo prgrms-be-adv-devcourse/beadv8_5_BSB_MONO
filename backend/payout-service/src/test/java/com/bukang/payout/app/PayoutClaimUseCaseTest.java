@@ -447,8 +447,8 @@ class PayoutClaimUseCaseTest {
 	}
 
 	@Test
-	@DisplayName("TC-VA-1-1 청구가 생기면 청구 ID · 금액 · 입금 기한으로 가상계좌를 발급받아 청구에 저장한다")
-	void issuesVirtualAccountForNewClaim() {
+	@DisplayName("TC-VA-1-1 청구가 생기면 청구 ID · 금액 · 입금 기한으로 가상계좌를 발급받아 청구에 저장하고 판매자 알림에 그 계좌를 남긴다")
+	void issuesVirtualAccountForNewClaim(CapturedOutput output) {
 		List<String> requests = new ArrayList<>();
 		virtualAccountPort = (claimCode, amount, dueDate) -> {
 			requests.add(claimCode + "/" + amount + "/" + dueDate);
@@ -462,6 +462,8 @@ class PayoutClaimUseCaseTest {
 		assertThat(requests).containsExactly(claim.getClaimCode() + "/105500/" + FINAL_CREATED_DATE.plusDays(30));
 		assertThat(claim).extracting(PayoutClaim::getVirtualBankName, PayoutClaim::getVirtualAccountNumber)
 			.containsExactly("신한은행", "56211234567890");
+		assertThat(output).contains("[청구 알림]").contains("accounts=[신한은행 56211234567890]")
+			.doesNotContain("크루런(목업)");
 	}
 
 	@Test

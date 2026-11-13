@@ -148,7 +148,10 @@ final class PayoutSellerApiExamples {
 					"reasonType": "일정_변경",
 					"status": "회수_요청",
 					"requestedAt": "2026-11-01T09:00:00",
-					"completedAt": null
+					"completedAt": null,
+					"virtualBankName": "국민은행",
+					"virtualAccountNumber": "X6000123456789",
+					"dueDate": "2026-12-02"
 				}
 			]
 		}
