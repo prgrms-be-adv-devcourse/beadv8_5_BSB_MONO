@@ -1,11 +1,17 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { productApi } from '@/shared/api'
+import { trackEvent } from '@/shared/lib'
 
 import { errorSections, useRaceFormTracking } from './use-race-form-tracking'
+
+vi.mock('@/shared/lib', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/shared/lib')>()),
+  trackEvent: vi.fn(),
+}))
 
 describe('errorSections', () => {
   it('오류 칸을 화면의 항목 묶음 이름으로 바꾸고, 화면 순서대로 겹치지 않게 돌려준다', () => {
@@ -36,5 +42,23 @@ describe('useRaceFormTracking', () => {
 
     await waitFor(() => expect(client.getQueryState(key)?.status).toBe('success'))
     expect(Array.isArray(client.getQueryData(key))).toBe(true)
+  })
+
+  it('다른 화면이 넣어 둔 빈 대회 목록을 읽어 첫 대회 등록으로 보낸다', () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+    })
+    client.setQueryData(productApi.getFindMineQueryKey(), [])
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    )
+
+    const { result } = renderHook(() => useRaceFormTracking('direct'), { wrapper })
+    result.current.beforeRegister()(7, 2)
+
+    expect(trackEvent).toHaveBeenCalledWith(
+      'seller_race_register',
+      expect.objectContaining({ raceId: '7', courseCount: 2, isFirstRace: true }),
+    )
   })
 })
