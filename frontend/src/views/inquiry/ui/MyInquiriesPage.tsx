@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
 import { LoadErrorBody } from '@/widgets/status-screens'
@@ -14,7 +14,7 @@ import {
   type Inquiry,
   type InquiryStatus,
 } from '@/entities/inquiry'
-import { cn } from '@/shared/lib'
+import { cn, useSearchParamsState } from '@/shared/lib'
 import {
   Badge,
   Button,
@@ -45,7 +45,12 @@ export function InquiryMeta({ inquiry, suffix }: { inquiry: Inquiry; suffix?: st
 // 피그마 문의 · M39 내 문의 (전체 · 답변 대기만 · 비어 있음 · 보낸 직후 · 지운 뒤)
 // notice는 문의를 보내거나 지운 직후 목록으로 올 때 한 번 띄우는 토스트 문구
 export function MyInquiriesPage({ notice }: { notice?: string }) {
-  const [filter, setFilter] = useState<Filter>('ALL')
+  // 거르기는 URL(?filter=)에 담는다
+  const [url, setUrl] = useSearchParamsState(
+    { filter: 'ALL' },
+    { filter: FILTERS.map((f) => f.value) },
+  )
+  const filter = url.filter as Filter
   const inquiries = useMyInquiries()
   const toast = useToast()
 
@@ -73,7 +78,11 @@ export function MyInquiriesPage({ notice }: { notice?: string }) {
       <main className="flex flex-1 flex-col">
         <div className="flex gap-2 px-4 py-4">
           {FILTERS.map((f) => (
-            <Chip key={f.value} selected={filter === f.value} onClick={() => setFilter(f.value)}>
+            <Chip
+              key={f.value}
+              selected={filter === f.value}
+              onClick={() => setUrl({ filter: f.value })}
+            >
               {f.label}
             </Chip>
           ))}

@@ -27,3 +27,6 @@ export {
   postcodeFake,
   type FakePostcodeData,
 } from './postcode-fake'
+
+// 주소 쿼리를 들고 있는 가짜 next/navigation (목록 상태가 URL에 있는 화면 테스트용)
+export { currentSearch, navigationMock, resetNavigationMock } from './navigation-mock'

@@ -17,7 +17,7 @@ import {
   type ManageFilters,
   type ManageRole,
 } from '@/entities/inquiry'
-import { cn } from '@/shared/lib'
+import { cn, useSearchParamsState } from '@/shared/lib'
 import {
   Badge,
   Button,
@@ -69,7 +69,13 @@ export function InquiryBoard({
   renderAnswer: RenderAnswer
 }) {
   const router = useRouter()
-  const [filter, setFilter] = useState<Filter>('WAITING')
+  // 거르기는 URL(?filter=)에 담는다
+  const [url, setUrl] = useSearchParamsState(
+    { filter: 'WAITING' },
+    { filter: ['WAITING', 'ANSWERED', 'SELLER'] },
+  )
+  const filter = url.filter as Filter
+  const setFilter = (next: Filter) => setUrl({ filter: next })
   const [picked, setPicked] = useState<number | null>(initialId ?? null)
   const filters: ManageFilters = {
     status: filter === 'SELLER' ? undefined : filter,
@@ -131,7 +137,10 @@ export function InquiryBoard({
                     aria-pressed={inquiry.id === selectedId}
                     onClick={() => {
                       setPicked(inquiry.id)
-                      router.replace(`/${role}/inquiries/${inquiry.id}`)
+                      // 거르기 탭(?filter=)이 상세 주소로 옮겨도 남게 한다
+                      router.replace(
+                        `/${role}/inquiries/${inquiry.id}${filter === 'WAITING' ? '' : `?filter=${filter}`}`,
+                      )
                     }}
                     className={cn(
                       'flex w-full flex-col items-start gap-1 rounded-lg p-3 text-left',

@@ -2,17 +2,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { productMock, server } from '@/shared/testing'
+import { currentSearch, productMock, resetNavigationMock, server } from '@/shared/testing'
 import { ToastProvider } from '@/shared/ui'
 
 import { RaceListPage } from './RaceListPage'
 
-vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn(), back: vi.fn(), replace: vi.fn() }),
-  usePathname: () => '/races',
-}))
+vi.mock('next/navigation', async () => (await import('@/shared/testing')).navigationMock('/races'))
 
 const base = productMock.getSearchResponseMock().data!.races![0]
 const cheap = { ...base, raceId: 2, title: '싼 대회', minPrice: 10000 }
@@ -30,6 +27,44 @@ function renderPage(state?: 'empty') {
 }
 
 describe('RaceListPage', () => {
+  beforeEach(() => {
+    resetNavigationMock()
+  })
+
+  it('정렬을 고르고 화면을 나갔다 돌아와도 정렬이 유지된다', async () => {
+    const sorts: (string | null)[] = []
+    server.use(
+      http.get('*/api/v1/product/races', ({ request }) => {
+        sorts.push(new URL(request.url).searchParams.get('sort'))
+        return HttpResponse.json({
+          status: 200,
+          message: '대회 목록을 조회했습니다.',
+          data: { races: [soon], page: 0, size: 20, totalElements: 1, totalPages: 1 },
+        })
+      }),
+    )
+    const user = userEvent.setup()
+    const first = renderPage()
+    await user.click(await screen.findByRole('combobox', { name: '대회 정렬' }))
+    await user.click(await screen.findByRole('option', { name: '가격 낮은순' }))
+    await vi.waitFor(() => expect(currentSearch()).toBe('sort=PRICE'))
+
+    first.unmount()
+    sorts.length = 0
+    renderPage()
+    expect(await screen.findByRole('combobox', { name: '대회 정렬' })).toHaveTextContent(
+      '가격 낮은순',
+    )
+    await vi.waitFor(() => expect(sorts.at(-1)).toBe('PRICE'))
+  })
+
+  it('허용되지 않은 정렬 값이 주소에 있으면 기본 정렬을 쓴다', async () => {
+    resetNavigationMock('sort=HACKED')
+    renderPage()
+    expect(await screen.findByRole('combobox', { name: '대회 정렬' })).toHaveTextContent(
+      '마감 임박순',
+    )
+  })
   it('정렬을 바꾸면 요청의 sort가 바뀌고 목록 순서가 바뀐다', async () => {
     const sorts: (string | null)[] = []
     server.use(

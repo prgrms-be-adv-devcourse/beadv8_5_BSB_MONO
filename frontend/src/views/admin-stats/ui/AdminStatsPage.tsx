@@ -8,12 +8,13 @@ import {
   resolveStatsPeriod,
   seoulToday,
   STATS_PERIOD_ITEMS,
+  statsPeriodQuerySchema,
   type DateSpan,
   type StatsPeriodKind,
   type StatsPeriodQuery,
 } from '@/entities/usage-stats'
 import { clientEnv } from '@/shared/config'
-import { formatNumber } from '@/shared/lib'
+import { formatNumber, useSearchParamsState } from '@/shared/lib'
 import {
   Button,
   buttonClassName,
@@ -33,7 +34,16 @@ import { TrendSection } from './TrendSection'
 // GA4 숫자를 사람 수로만 보여 준다. 영역마다 따로 불러와 따로 실패한다.
 
 export function AdminStatsPage() {
-  const [query, setQuery] = useState<StatsPeriodQuery>({ period: '7d' })
+  // 기간은 URL(?period=&start=&end=)에 담는다. 값이 이상하면 지난 7일로 읽는다
+  const [url, setUrl] = useSearchParamsState({ period: '7d', start: '', end: '' })
+  const parsed = statsPeriodQuerySchema.safeParse(url)
+  const query: StatsPeriodQuery = parsed.success ? parsed.data : { period: '7d' }
+  const setQuery = (next: StatsPeriodQuery) =>
+    setUrl(
+      next.period === 'custom'
+        ? { period: 'custom', start: next.start, end: next.end }
+        : { period: next.period, start: '', end: '' },
+    )
   const realtime = useRealtimeStats()
 
   // 키가 없으면 영역마다 같은 안내를 반복하지 않고 화면 전체에 한 번만 보여 준다
@@ -100,7 +110,9 @@ function PeriodPicker({
   onChange: (next: StatsPeriodQuery) => void
 }) {
   const [kind, setKind] = useState<StatsPeriodKind>(query.period)
-  const [custom, setCustom] = useState<DateSpan>({ start: '', end: '' })
+  const [custom, setCustom] = useState<DateSpan>(
+    query.period === 'custom' ? { start: query.start, end: query.end } : { start: '', end: '' },
+  )
   const today = seoulToday()
   const period = resolveStatsPeriod(query, today)
   const customValid = Boolean(custom.start && custom.end && custom.start <= custom.end)

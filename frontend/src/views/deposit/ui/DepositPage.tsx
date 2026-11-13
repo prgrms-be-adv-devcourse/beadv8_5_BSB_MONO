@@ -2,7 +2,6 @@
 
 import { useInfiniteQuery } from '@tanstack/react-query'
 import Link from 'next/link'
-import { useState } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
 import {
@@ -11,7 +10,7 @@ import {
   walletLedgersQueryOptions,
   type WalletLedger,
 } from '@/entities/wallet'
-import { formatNumber } from '@/shared/lib'
+import { formatNumber, useSearchParamsState } from '@/shared/lib'
 import { Alert, BottomCta, Button, buttonClassName, Chip, EmptyState, Skeleton } from '@/shared/ui'
 
 import { chargeRemaining } from '../api/refund-contract'
@@ -36,7 +35,12 @@ const FILTERS: { value: Filter; label: string }[] = [
 
 // 피그마 V2 · M17 예치금 (+ M17-1 돌려받는 중)
 export function DepositPage({ refunding = false }: { refunding?: boolean }) {
-  const [filter, setFilter] = useState<Filter>('all')
+  // 거르기는 URL(?filter=)에 담는다
+  const [url, setUrl] = useSearchParamsState(
+    { filter: 'all' },
+    { filter: FILTERS.map((f) => f.value) },
+  )
+  const filter = url.filter as Filter
   const { balance, isPending, isError, loggedIn } = useMyBalance()
   const ledgers = useInfiniteQuery({
     ...walletLedgersQueryOptions(filter === 'all' ? undefined : filter),
@@ -79,7 +83,11 @@ export function DepositPage({ refunding = false }: { refunding?: boolean }) {
           <h2 className="text-body1-bold">내역</h2>
           <div className="flex flex-wrap gap-2">
             {FILTERS.map((f) => (
-              <Chip key={f.value} selected={filter === f.value} onClick={() => setFilter(f.value)}>
+              <Chip
+                key={f.value}
+                selected={filter === f.value}
+                onClick={() => setUrl({ filter: f.value })}
+              >
                 {f.label}
               </Chip>
             ))}

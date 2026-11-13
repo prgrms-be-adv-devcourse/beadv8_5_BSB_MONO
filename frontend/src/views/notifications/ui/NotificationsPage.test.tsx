@@ -10,10 +10,9 @@ import { ToastProvider } from '@/shared/ui'
 
 import { NotificationsPage } from './NotificationsPage'
 
-vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn(), back: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
-  usePathname: () => '/notifications',
-}))
+vi.mock('next/navigation', async () =>
+  (await import('@/shared/testing')).navigationMock('/notifications'),
+)
 
 const URL = '*/api/v1/notification/notifications'
 
