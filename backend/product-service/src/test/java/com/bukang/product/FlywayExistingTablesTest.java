@@ -46,13 +46,16 @@ class FlywayExistingTablesTest {
 		// given
 		jdbcTemplate.update("insert into product_member (id, nickname) values (1, '러너')");
 
-		// when: dev·운영과 같은 Flyway 설정
+		// when: dev·운영과 같은 Flyway 설정. 기준선(V1)까지만 실행한다
+		// 이 DB는 지금 엔티티로 만들어 V1 뒤에 더한 인덱스·칸도 이미 있다. 실제 update DB에는 V1까지만 있으므로
+		// V1 뒤의 SQL은 이 테스트에서 돌리지 않는다 (빈 DB에서 모든 SQL을 돌리는 것은 FlywayBaselineValidateTest가 본다)
 		MigrateResult result = Flyway.configure()
 			.dataSource(dataSource)
 			.table("flyway_schema_history_product")
 			.baselineOnMigrate(true)
 			.baselineVersion("0")
 			.outOfOrder(true)
+			.target("1")
 			.load()
 			.migrate();
 
