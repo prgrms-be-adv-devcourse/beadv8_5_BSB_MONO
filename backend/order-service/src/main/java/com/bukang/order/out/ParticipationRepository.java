@@ -1,13 +1,16 @@
 package com.bukang.order.out;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.bukang.order.domain.Participation;
 import com.bukang.order.domain.ParticipationStatus;
@@ -16,6 +19,33 @@ import com.bukang.order.domain.ParticipationType;
 import jakarta.persistence.LockModeType;
 
 public interface ParticipationRepository extends JpaRepository<Participation, Long> {
+	/**
+	 * [결제하기]가 잠그기 전에 거르는 값 (BUK-213). 엔티티를 올리지 않아 뒤의 잠금 조회가 옛 상태를 돌려받지 않는다
+	 * 바깥 트랜잭션 없이 불려도 연결을 바로 돌려주도록 짧은 트랜잭션으로 읽는다
+	 */
+	@Transactional(readOnly = true)
+	@Query("select new com.bukang.order.out.ParticipationRepository$CreateTarget(p.memberId, p.raceCourseId, "
+		+ "p.participationType, p.status, p.paymentDueAt) from Participation p where p.id = :id")
+	Optional<CreateTarget> findCreateTarget(@Param("id") long id);
+
+	record CreateTarget(long memberId, long raceCourseId, ParticipationType participationType,
+		ParticipationStatus status, LocalDateTime paymentDueAt) {
+	}
+
+	/**
+	 * [결제하기]가 상품에 자리를 잡으려다 주문을 만들지 못한 채 기한이 지난 개인 신청서 (BUK-213)
+	 * 확보 전(PENDING)인데 결제 기한 칸이 찼으면 자리를 잡으러 갔던 신청서다 (Participation.markHoldRequested)
+	 */
+	@Query("""
+		select p.id from Participation p
+		where p.participationType = com.bukang.order.domain.ParticipationType.INDIVIDUAL
+		and p.status = com.bukang.order.domain.ParticipationStatus.PENDING and p.paymentDueAt <= :now
+		and p.id > :afterId
+		order by p.id
+		""")
+	List<Long> findAbandonedHoldIds(@Param("now") LocalDateTime now, @Param("afterId") long afterId,
+		Pageable pageable);
+
 	// 같은 대회에 살아 있는 신청의 ID (uk_participation_active와 같은 기준). 잠그기 전에 엔티티를 읽지 않으려고 ID만 찾는다
 	@Query("select p.id from Participation p where p.raceId = :raceId and p.memberId = :memberId "
 		+ "and p.activeFlag = true")

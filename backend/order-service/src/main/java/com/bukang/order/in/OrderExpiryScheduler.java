@@ -22,6 +22,8 @@ public class OrderExpiryScheduler {
 
 	@Scheduled(fixedDelay = 60_000, initialDelay = 60_000)
 	public void expireOverdue() {
-		orderExpiryUseCase.expireOverdue(LocalDateTime.now());
+		LocalDateTime now = LocalDateTime.now();
+		orderExpiryUseCase.expireOverdue(now);
+		orderExpiryUseCase.releaseAbandonedHolds(now);
 	}
 }
