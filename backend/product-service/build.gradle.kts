@@ -9,7 +9,7 @@ plugins {
 // dependencies 블록보다 위에 둔다. 아래 QueryDSL 줄이 importedProperties를 읽는 순간 BOM 목록이 정해져, 그 뒤에 더한 BOM은 무시된다
 dependencyManagement {
 	imports {
-		mavenBom("org.springframework.ai:spring-ai-bom:2.0.1")
+		mavenBom("org.springframework.ai:spring-ai-bom:2.0.2")
 	}
 }
 
