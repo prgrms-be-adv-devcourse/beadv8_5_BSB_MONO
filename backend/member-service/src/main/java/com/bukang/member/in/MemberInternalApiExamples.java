@@ -70,6 +70,27 @@ final class MemberInternalApiExamples {
 		{ "status": 400, "code": "INVALID_REQUEST", "message": "요청 값의 형식이 올바르지 않습니다.", "data": null }
 		""";
 
+	static final String REPLICAS = """
+		{
+			"status": 200,
+			"message": "회원 복사본 목록을 조회했습니다.",
+			"data": {
+				"members": [
+					{ "memberId": 1, "nickname": "러너A", "sellerApproved": true, "withdrawn": false,
+						"createDate": "2026-10-01T10:00:00", "modifyDate": "2026-11-10T09:30:00" },
+					{ "memberId": 2, "nickname": "탈퇴한 회원", "sellerApproved": false, "withdrawn": true,
+						"createDate": "2026-09-01T10:00:00", "modifyDate": "2026-11-09T18:00:00" }
+				],
+				"hasNext": true,
+				"nextAfterId": 2
+			}
+		}
+		""";
+
+	static final String REPLICAS_INVALID = """
+		{ "status": 400, "code": "INVALID_REQUEST", "message": "afterId는 0 이상, size는 1~500이어야 합니다.", "data": null }
+		""";
+
 	private MemberInternalApiExamples() {
 	}
 }

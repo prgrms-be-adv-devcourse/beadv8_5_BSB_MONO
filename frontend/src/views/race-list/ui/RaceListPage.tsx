@@ -3,10 +3,11 @@
 import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import Image from 'next/image'
 import Link from 'next/link'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
 import { BottomNav } from '@/widgets/bottom-nav'
+import { RaceShareSheet } from '@/widgets/race-share-sheet'
 import {
   DEFAULT_RACE_SORT,
   raceListQueryOptions,
@@ -15,11 +16,19 @@ import {
   raceSuggestionsQueryOptions,
   toRaceListItem,
   type RaceListItem,
+  type RaceSearchFilters,
 } from '@/entities/race'
-import { cn, formatNumber, useTrackOnce } from '@/shared/lib'
+import {
+  addRecentSearch,
+  clearRecentSearches,
+  cn,
+  formatNumber,
+  loadRecentSearches,
+  removeRecentSearch,
+  useTrackOnce,
+} from '@/shared/lib'
 import {
   Badge,
-  BottomSheet,
   Button,
   Chip,
   EmptyState,
@@ -28,10 +37,11 @@ import {
   IconButton,
   Skeleton,
   SortSelect,
-  useToast,
 } from '@/shared/ui'
 
 import { useDebouncedValue } from '../model/use-debounced-value'
+import { CategoryScreen } from './CategoryScreen'
+import { RecentSearches } from './RecentSearches'
 
 export type RaceListState = 'loading' | 'empty' | 'menu' | 'sort'
 
@@ -44,17 +54,29 @@ const SORTS = [
 
 // 피그마 V2 · M18 대회 찾기 (+ 로딩, 결과 없음, 더보기 메뉴, M18-1 정렬 열림)
 // 검색어 · 정렬은 화면 상태로 들고 있다. URL(?q=&sort=)에 담는 것은 PRO-105.
-// TODO: 종목 · 지역 · 날짜 필터 칩은 아직 API 조건에 붙이지 않았다.
+// 종목 · 지역 칩은 카테고리 화면에서 거리 · 지역을 고르고, 이번 달 칩은 대회일 범위로 건다.
 export function RaceListPage({ state }: { state?: RaceListState }) {
-  const toast = useToast()
   const empty = state === 'empty'
   const [query, setQuery] = useState(empty ? '제주 트레일' : '')
   const [focused, setFocused] = useState(false)
   const [sort, setSort] = useState<RaceSort>(DEFAULT_RACE_SORT)
+  const [category, setCategory] = useState<Filters>({})
+  const [thisMonth, setThisMonth] = useState(false)
+  const [categoryOpen, setCategoryOpen] = useState(false)
+  const [recent, setRecent] = useState<string[]>([])
+  const inputRef = useRef<HTMLInputElement>(null)
   const keyword = useDebouncedValue(query)
+  const now = new Date()
+  const filters: RaceSearchFilters = {
+    keyword,
+    sort,
+    ...category,
+    ...(thisMonth ? monthRange(now) : {}),
+  }
+  const filtered = Object.keys(category).length > 0 || thisMonth
 
   const list = useInfiniteQuery({
-    ...raceListQueryOptions({ keyword, sort }),
+    ...raceListQueryOptions(filters),
     placeholderData: keepPreviousData,
   })
   const suggestions = useQuery(raceSuggestionsQueryOptions(keyword))
@@ -91,24 +113,60 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
   ]
   const showSuggestions = focused && query.trim() !== '' && suggestionItems.length > 0
 
-  function copyLink(race: RaceListItem) {
-    void navigator.clipboard?.writeText(`${window.location.origin}/races/${race.id}`)
-    setMenuRace(null)
-    toast({ message: '링크를 복사했어요', tone: 'success' })
+  function submitSearch(term: string) {
+    setRecent(addRecentSearch(term))
+    inputRef.current?.blur()
+  }
+
+  function resetFilters() {
+    setQuery('')
+    setCategory({})
+    setThisMonth(false)
+  }
+
+  if (categoryOpen) {
+    return (
+      <CategoryScreen
+        onBack={() => setCategoryOpen(false)}
+        onPick={(picked) => {
+          setCategory(picked)
+          setCategoryOpen(false)
+        }}
+      />
+    )
   }
 
   return (
     <>
-      <AppHeader />
+      {!focused && <AppHeader />}
       <main className="flex flex-1 flex-col gap-4 px-4 pt-8 pb-8">
-        <h1 className="text-title1">대회 찾기</h1>
-        <div className="relative">
-          <label className="flex items-center gap-2 rounded-md bg-bg-surface p-4 inset-ring inset-ring-border-default focus-within:inset-ring-2 focus-within:inset-ring-border-focus">
+        {!focused && <h1 className="text-title1">대회 찾기</h1>}
+        <form
+          className="relative flex items-center"
+          onSubmit={(e) => {
+            e.preventDefault()
+            submitSearch(query)
+          }}
+        >
+          {focused && (
+            <IconButton
+              aria-label="뒤로 가기"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => inputRef.current?.blur()}
+            >
+              <Icon name="ChevronLeft" />
+            </IconButton>
+          )}
+          <label className="flex min-w-0 flex-1 items-center gap-2 rounded-md py-4 focus-within:inset-ring-2 focus-within:inset-ring-border-focus">
             <Icon name="Search" className="size-5" />
             <input
+              ref={inputRef}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              onFocus={() => setFocused(true)}
+              onFocus={() => {
+                setRecent(loadRecentSearches())
+                setFocused(true)
+              }}
               onBlur={() => setFocused(false)}
               placeholder="대회 이름이나 지역으로 찾기"
               aria-label="대회 찾기"
@@ -142,29 +200,56 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
               ))}
             </ul>
           )}
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Chip>종목</Chip>
-          <Chip>지역</Chip>
-          <Chip>11월</Chip>
-        </div>
-        <div className="flex items-center justify-between">
-          {loading ? (
-            <Skeleton className="w-12" />
-          ) : (
-            <p className="text-body2-medium text-text-secondary">대회 {formatNumber(total)}개</p>
-          )}
-          <SortSelect
-            items={[...SORTS]}
-            value={sort}
-            onValueChange={setSort}
-            defaultOpen={state === 'sort'}
-            aria-label="대회 정렬"
+        </form>
+        {focused && query.trim() === '' && (
+          <RecentSearches
+            terms={recent}
+            onPick={(term) => {
+              setQuery(term)
+              submitSearch(term)
+            }}
+            onRemove={(term) => setRecent(removeRecentSearch(term))}
+            onClear={() => setRecent(clearRecentSearches())}
           />
-        </div>
+        )}
+        {!focused && (
+          <div className="flex flex-wrap gap-2">
+            <Chip
+              selected={category.courseType !== undefined || category.surface !== undefined}
+              onClick={() => setCategoryOpen(true)}
+            >
+              종목
+            </Chip>
+            <Chip
+              selected={category.regionSido !== undefined}
+              onClick={() => setCategoryOpen(true)}
+            >
+              지역
+            </Chip>
+            <Chip selected={thisMonth} onClick={() => setThisMonth(!thisMonth)}>
+              {now.getMonth() + 1}월
+            </Chip>
+          </div>
+        )}
+        {!focused && (
+          <div className="flex items-center justify-between">
+            {loading ? (
+              <Skeleton className="w-12" />
+            ) : (
+              <p className="text-body2-medium text-text-secondary">대회 {formatNumber(total)}개</p>
+            )}
+            <SortSelect
+              items={[...SORTS]}
+              value={sort}
+              onValueChange={setSort}
+              defaultOpen={state === 'sort'}
+              aria-label="대회 정렬"
+            />
+          </div>
+        )}
 
-        {loading && <ListSkeleton />}
-        {!loading && list.isError && !empty && (
+        {!focused && loading && <ListSkeleton />}
+        {!focused && !loading && list.isError && !empty && (
           <div className="flex flex-1 items-center justify-center">
             <EmptyState
               title="대회를 불러오지 못했어요"
@@ -177,27 +262,29 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
             />
           </div>
         )}
-        {!loading && !list.isError && races.length === 0 && (
-          <div className="flex flex-1 items-center justify-center">
+        {!focused && !loading && !list.isError && races.length === 0 && (
+          <div className="flex flex-1 justify-center">
             <EmptyState
-              title={`'${query}'에 맞는 대회가 없어요`}
-              description="다른 지역이나 종목으로 찾아보세요."
+              icon="Search"
+              title={query.trim() ? `‘${query}’에 맞는 대회가 없어요` : '맞는 대회가 없어요'}
               action={
-                <Button variant="secondary" onClick={() => setQuery('')}>
-                  필터 초기화
-                </Button>
+                (query.trim() !== '' || filtered) && (
+                  <Button variant="secondary" onClick={resetFilters}>
+                    필터 초기화
+                  </Button>
+                )
               }
             />
           </div>
         )}
-        {!loading && races.length > 0 && (
-          <ul className="flex flex-col gap-3">
+        {!focused && !loading && races.length > 0 && (
+          <ul className="flex flex-col">
             {races.map((race) => (
               <li key={race.id} className="relative">
                 <Link
                   href={`/races/${race.id}`}
                   className={cn(
-                    'flex gap-3 rounded-lg bg-bg-surface p-4 pr-12 shadow-sm inset-ring inset-ring-border-default',
+                    'flex gap-3 border border-border-default bg-bg-surface py-4 pr-12',
                     FOCUS_RING,
                   )}
                 >
@@ -205,19 +292,19 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
                     <Image
                       src={race.image}
                       alt=""
-                      width={80}
-                      height={80}
+                      width={96}
+                      height={96}
                       // 사진이 있는 첫 카드의 썸네일이 목록 첫 화면에서 가장 큰 요소(LCP)라 먼저 받는다
                       loading={race.id === firstImageId ? 'eager' : undefined}
                       fetchPriority={race.id === firstImageId ? 'high' : undefined}
-                      className="size-20 shrink-0 rounded-md object-cover"
+                      className="size-24 shrink-0 rounded-md object-cover"
                     />
                   ) : (
                     <RacePoster
                       seed={race.id}
                       title=""
                       label={race.posterLabel}
-                      className="size-20 shrink-0 rounded-md"
+                      className="size-24 shrink-0 rounded-md"
                     />
                   )}
                   <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
@@ -230,7 +317,7 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
                 <IconButton
                   size="s"
                   aria-label={`${race.title} 더보기`}
-                  className="absolute top-2 right-2"
+                  className="absolute top-2.5 right-2"
                   onClick={() => setMenuRace(race)}
                 >
                   <Icon name="MoreVertical" />
@@ -239,7 +326,7 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
             ))}
           </ul>
         )}
-        {!loading && !empty && list.hasNextPage && (
+        {!focused && !loading && !empty && list.hasNextPage && (
           <Button
             variant="secondary"
             onClick={() => void list.fetchNextPage()}
@@ -249,52 +336,28 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
           </Button>
         )}
       </main>
-      <BottomNav />
-      <BottomSheet
+      {!focused && <BottomNav />}
+      <RaceShareSheet
         open={menuTarget !== null}
         onOpenChange={(open) => !open && setMenuRace(null)}
         title={menuTarget?.title ?? ''}
-        footer={
-          <Button variant="secondary" size="l" onClick={() => setMenuRace(null)}>
-            닫기
-          </Button>
-        }
-      >
-        <div className="flex gap-8 px-2 py-2">
-          <SheetAction
-            icon="Copy"
-            label="링크 복사"
-            onClick={() => menuTarget && copyLink(menuTarget)}
-          />
-          {/* TODO: 기기 공유 창(navigator.share) */}
-          <SheetAction icon="Share" label="공유하기" onClick={() => setMenuRace(null)} />
-        </div>
-      </BottomSheet>
+        url={`${typeof window === 'undefined' ? '' : window.location.origin}/races/${menuTarget?.id ?? ''}`}
+      />
     </>
   )
 }
 
-function SheetAction({
-  icon,
-  label,
-  onClick,
-}: {
-  icon: 'Copy' | 'Share'
-  label: string
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn('flex items-center gap-3 rounded-md', FOCUS_RING)}
-    >
-      <span className="flex size-12 items-center justify-center rounded-full bg-bg-subtle">
-        <Icon name={icon} className="size-5" />
-      </span>
-      <span className="text-caption-medium">{label}</span>
-    </button>
-  )
+type Filters = Pick<RaceSearchFilters, 'regionSido' | 'courseType' | 'surface'>
+
+/** 이번 달 1일 ~ 말일 (YYYY-MM-DD) */
+function monthRange(now: Date) {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const y = now.getFullYear()
+  const m = now.getMonth() + 1
+  return {
+    raceDateFrom: `${y}-${pad(m)}-01`,
+    raceDateTo: `${y}-${pad(m)}-${pad(new Date(y, m, 0).getDate())}`,
+  }
 }
 
 // 피그마 M18 · 로딩: 목록 카드 4장 자리

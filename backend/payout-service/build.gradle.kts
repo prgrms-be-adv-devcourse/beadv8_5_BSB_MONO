@@ -26,6 +26,9 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-validation") // @Valid 요청 검증
 	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.0") //swagger and openapi
 	implementation("org.springframework.boot:spring-boot-starter-kafka") // kafka (대회 취소 이벤트 수신)
+	// 서버가 여러 대여도 정산 배치(생성 · 지급)가 한 곳에서만 돌게 DB 행으로 잠근다 (BUK-167)
+	implementation("net.javacrumbs.shedlock:shedlock-spring:7.10.1")
+	implementation("net.javacrumbs.shedlock:shedlock-provider-jdbc-template:7.10.1")
 
 	developmentOnly("org.springframework.boot:spring-boot-devtools") // dev-tools
 	// App 실행시 compose.yml 인프라 자동 실행 (bootRun/IDE 실행에만 포함, 운영 jar에서는 제외)
@@ -38,6 +41,7 @@ dependencies {
 	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-kafka-test")
 	testImplementation("org.springframework.boot:spring-boot-micrometer-metrics-test") // @AutoConfigureMetrics (테스트는 지표 내보내기가 기본으로 꺼져 있다)
+	testImplementation("org.openjdk.jol:jol-core:0.17") // 대사 비교 방식(집합 · 비트맵)의 메모리 크기 측정 (EntryDifferMemoryTest)
 	testImplementation(testFixtures(project(":common"))) // GlobalConfigTestExecutionListener (테스트마다 EventPublisher 재설정)
 
 	// Spring REST Docs: 컨트롤러 테스트가 통과할 때만 API 문서 스니펫이 만들어진다

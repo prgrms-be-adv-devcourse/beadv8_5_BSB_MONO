@@ -3,6 +3,8 @@ package com.bukang.order.dto;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+import com.bukang.order.domain.OrderItemStatus;
+
 import lombok.Getter;
 
 /**
@@ -10,6 +12,7 @@ import lombok.Getter;
  * 참가권은 수량 1이라 price는 참가권 1장 값(실제 결제 금액, 키트 포함)이다
  * raceDate는 주문 때 복사한 대회 날짜다. 정산은 이 날짜로 정산 생성일과 정산 월을 정한다
  * raceCourseId는 참가권의 코스다. 정산은 원장 판매 · 수수료 줄에 적어 판매자가 코스별로 본다 (PRO-231)
+ * status는 결제 완료(PAID) 또는 취소 중(CANCELING)이다. 정산은 취소 중 참가권이 있으면 최종 정산을 미룬다 (BUK-52)
  */
 @Getter
 public class SoldEntryDto {
@@ -19,15 +22,17 @@ public class SoldEntryDto {
 	private final long raceCourseId;
 	private final LocalDate raceDate;
 	private final long price;
+	private final OrderItemStatus status;
 
 	// JPQL 생성자 조회용. 주문 상품의 대회 일시(LocalDateTime)를 날짜로 바꿔 내려준다
 	public SoldEntryDto(long orderItemId, long sellerId, long raceId, long raceCourseId, LocalDateTime raceDateTime,
-		long price) {
+		long price, OrderItemStatus status) {
 		this.orderItemId = orderItemId;
 		this.sellerId = sellerId;
 		this.raceId = raceId;
 		this.raceCourseId = raceCourseId;
 		this.raceDate = raceDateTime.toLocalDate();
 		this.price = price;
+		this.status = status;
 	}
 }

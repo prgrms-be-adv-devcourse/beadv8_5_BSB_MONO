@@ -9,6 +9,8 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.bukang.common.global.json.JsonConverter;
+import com.bukang.common.shared.crew.event.CrewLeaderChangedEvent;
+import com.bukang.common.shared.crew.event.CrewMemberJoinedEvent;
 import com.bukang.common.shared.crew.event.CrewMemberLeftEvent;
 import com.bukang.common.shared.kafka.KafkaTopics;
 import com.bukang.common.shared.member.event.MarketingConsentChangedEvent;
@@ -36,7 +38,8 @@ import lombok.RequiredArgsConstructor;
 public class MemberOutboxAppendUseCase {
 	private static final String MEMBER = Member.class.getSimpleName();
 	private static final String SELLER = Seller.class.getSimpleName();
-	// 크루원 이탈 이벤트는 크루 단위로 순서를 지킨다 (Kafka key = 크루 ID)
+	// 크루원 이탈·가입·크루장 변경 이벤트는 대상이 Crew:크루ID라, 릴레이가 같은 크루의 이벤트를 저장한 순서대로 보낸다.
+	// 다만 토픽이 서로 달라서, 받는 쪽에 도착하는 순서는 토픽 사이에서 보장하지 못한다 (Kafka key = 크루 ID)
 	private static final String CREW = Crew.class.getSimpleName();
 
 	private final MemberOutboxEventRepository memberOutboxEventRepository;
@@ -70,6 +73,16 @@ public class MemberOutboxAppendUseCase {
 	@EventListener
 	public void appendCrewMemberLeft(CrewMemberLeftEvent event) {
 		append(KafkaTopics.CREW_MEMBER_LEFT, CREW, event.crewId(), event.eventId(), event);
+	}
+
+	@EventListener
+	public void appendCrewMemberJoined(CrewMemberJoinedEvent event) {
+		append(KafkaTopics.CREW_MEMBER_JOINED, CREW, event.crewId(), event.eventId(), event);
+	}
+
+	@EventListener
+	public void appendCrewLeaderChanged(CrewLeaderChangedEvent event) {
+		append(KafkaTopics.CREW_LEADER_CHANGED, CREW, event.crewId(), event.eventId(), event);
 	}
 
 	// 이벤트 ID가 비면(받는 쪽용 옛 생성자) 받는 쪽이 중복을 거르지 못하므로 막는다. 예외로 회원 데이터도 롤백된다

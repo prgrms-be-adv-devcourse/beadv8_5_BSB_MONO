@@ -29,7 +29,7 @@ import com.bukang.payout.domain.PayoutItem;
 import com.bukang.payout.domain.PayoutRecordType;
 import com.bukang.payout.domain.PayoutStage;
 import com.bukang.payout.domain.PayoutStatus;
-import com.bukang.payout.domain.SetTicketDiffer;
+import com.bukang.payout.domain.SetEntryDiffer;
 import com.bukang.payout.domain.TwoStagePayoutCalculator;
 import com.bukang.payout.out.PayoutCreateFailureRepository;
 import com.bukang.payout.out.PayoutHoldRepository;
@@ -39,6 +39,7 @@ import com.bukang.payout.out.PayoutRepository;
 import com.bukang.payout.out.RaceSchedule;
 import com.bukang.payout.out.SoldEntry;
 import com.bukang.payout.out.SoldEntryPort;
+import com.bukang.payout.out.SoldEntryStatus;
 import com.bukang.payout.out.SoldSummary;
 import com.bukang.payout.out.SoldSummaryPort;
 import com.bukang.payout.support.StubRacePort;
@@ -99,28 +100,28 @@ class PayoutReconcileUseCaseTest {
 		return new PayoutReconcileUseCase(payoutRepository,
 			new StubRacePort(raceId -> Optional.empty(), List.of(FIRST_RACE, FINAL_RACE), List.of()),
 			soldSummaryPort, soldEntryPort,
-			new PayoutReconcileStepUseCase(payoutRepository, payoutHoldUseCase, ledgerUseCase(), new SetTicketDiffer()),
+			new PayoutReconcileStepUseCase(payoutRepository, payoutHoldUseCase, ledgerUseCase(), new SetEntryDiffer()),
 			new PayoutCreateFailureUseCase(payoutCreateFailureRepository));
 	}
 
-	private Payout saveFirst(long sellerId, long priceSum, int ticketCount) {
+	private Payout saveFirst(long sellerId, long priceSum, int entryCount) {
 		Payout payout = Payout.first(sellerId, FIRST_RACE.raceId(), FIRST_RACE.raceName(), YESTERDAY, NOW, CALENDAR);
-		payout.recordAdvance(COURSE_A, priceSum, ticketCount, TODAY);
+		payout.recordAdvance(COURSE_A, priceSum, entryCount, TODAY);
 		return payoutRepository.save(payout);
 	}
 
 	// 참가권 ID마다 [orderItemId, 코스, 가격]
-	private Payout saveFinal(long sellerId, long[]... tickets) {
+	private Payout saveFinal(long sellerId, long[]... entries) {
 		Payout payout = Payout.finalStage(sellerId, FINAL_RACE.raceId(), FINAL_RACE.raceName(), YESTERDAY, NOW,
 			CALENDAR);
-		for (long[] ticket : tickets) {
-			payout.addItem(ticket[0], ticket[1], ticket[2], TwoStagePayoutCalculator.FEE_RATE,
+		for (long[] entry : entries) {
+			payout.addItem(entry[0], entry[1], entry[2], TwoStagePayoutCalculator.FEE_RATE,
 				PayoutCreateDate.of(YESTERDAY));
 		}
 		return payoutRepository.save(payout);
 	}
 
-	private static long[] ticket(long orderItemId, long courseId, long price) {
+	private static long[] entry(long orderItemId, long courseId, long price) {
 		return new long[] {orderItemId, courseId, price};
 	}
 
@@ -207,7 +208,7 @@ class PayoutReconcileUseCaseTest {
 	@Test
 	@DisplayName("TC-67-7-1 최종 판매 내역(취소 중 포함)과 정산 판매 줄이 같으면 기록하지 않는다")
 	void finalMatches() {
-		saveFinal(2, LongStream.rangeClosed(101, 105).mapToObj(id -> ticket(id, COURSE_A, 10_000))
+		saveFinal(2, LongStream.rangeClosed(101, 105).mapToObj(id -> entry(id, COURSE_A, 10_000))
 			.toArray(long[][]::new));
 
 		useCase(List.of(), soldFiveOfSeller2()).run(TODAY, NOW);
@@ -218,8 +219,8 @@ class PayoutReconcileUseCaseTest {
 	@Test
 	@DisplayName("TC-67-4-1 · 14-1 지급 전 최종 정산에 103번이 빠지면 판매 줄 · 수수료 줄을 추가하고 기록한다")
 	void finalMissingAdds() {
-		Payout payout = saveFinal(2, ticket(101, COURSE_A, 10_000), ticket(102, COURSE_A, 10_000),
-			ticket(104, COURSE_A, 10_000), ticket(105, COURSE_A, 10_000));
+		Payout payout = saveFinal(2, entry(101, COURSE_A, 10_000), entry(102, COURSE_A, 10_000),
+			entry(104, COURSE_A, 10_000), entry(105, COURSE_A, 10_000));
 
 		useCase(List.of(), soldFiveOfSeller2()).run(TODAY, NOW);
 
@@ -253,9 +254,21 @@ class PayoutReconcileUseCaseTest {
 	}
 
 	@Test
+	@DisplayName("BUK-52 취소 중 참가권이 있어 최종 정산을 미룬 판매자 × 대회는 '빠짐'으로 기록하지 않는다")
+	void deferredFinalIsNotMissing() {
+		List<SoldEntry> entries = List.of(sold(101, 2, COURSE_A, 10_000),
+			new SoldEntry(102, 2, FINAL_RACE.raceId(), COURSE_A, YESTERDAY, 10_000, SoldEntryStatus.취소_중));
+
+		useCase(List.of(), entries).run(TODAY, NOW);
+
+		assertThat(mismatches()).isEmpty();
+		assertThat(payoutRepository.findAll()).isEmpty();
+	}
+
+	@Test
 	@DisplayName("TC-67-5-1 정산 판매 줄에만 106번이 있으면 기록하고 대사 불일치로 보류한다")
 	void finalExtraHolds() {
-		Payout payout = saveFinal(2, LongStream.rangeClosed(101, 106).mapToObj(id -> ticket(id, COURSE_A, 10_000))
+		Payout payout = saveFinal(2, LongStream.rangeClosed(101, 106).mapToObj(id -> entry(id, COURSE_A, 10_000))
 			.toArray(long[][]::new));
 
 		useCase(List.of(), soldFiveOfSeller2()).run(TODAY, NOW);
@@ -273,8 +286,8 @@ class PayoutReconcileUseCaseTest {
 	@Test
 	@DisplayName("TC-67-5-2 빠짐과 더 들어감이 함께 있으면 한 줄에 쓰고, 코스가 여럿이면 코스 칸은 비운다")
 	void finalMissingAndExtra() {
-		Payout payout = saveFinal(2, ticket(101, COURSE_A, 10_000), ticket(102, COURSE_A, 10_000),
-			ticket(104, COURSE_A, 10_000), ticket(105, COURSE_A, 10_000), ticket(106, COURSE_B, 20_000));
+		Payout payout = saveFinal(2, entry(101, COURSE_A, 10_000), entry(102, COURSE_A, 10_000),
+			entry(104, COURSE_A, 10_000), entry(105, COURSE_A, 10_000), entry(106, COURSE_B, 20_000));
 
 		useCase(List.of(), soldFiveOfSeller2()).run(TODAY, NOW);
 
@@ -289,8 +302,8 @@ class PayoutReconcileUseCaseTest {
 	@Test
 	@DisplayName("TC-67-6-1 판매 줄 가격이 주문 판매 내역 가격과 다르면 기록한다. 보류는 걸지 않는다")
 	void finalPriceDiffers() {
-		Payout payout = saveFinal(2, ticket(101, COURSE_A, 10_000), ticket(102, COURSE_A, 9_000),
-			ticket(103, COURSE_A, 10_000), ticket(104, COURSE_A, 10_000), ticket(105, COURSE_A, 10_000));
+		Payout payout = saveFinal(2, entry(101, COURSE_A, 10_000), entry(102, COURSE_A, 9_000),
+			entry(103, COURSE_A, 10_000), entry(104, COURSE_A, 10_000), entry(105, COURSE_A, 10_000));
 
 		useCase(List.of(), soldFiveOfSeller2()).run(TODAY, NOW);
 
@@ -303,9 +316,9 @@ class PayoutReconcileUseCaseTest {
 	@Test
 	@DisplayName("TC-67-13-1 판매가 없는 판매자의 최종 정산 내역이 있으면 기록하고 보류한다")
 	void finalSellerOnlyInPayout() {
-		saveFinal(2, LongStream.rangeClosed(101, 105).mapToObj(id -> ticket(id, COURSE_A, 10_000))
+		saveFinal(2, LongStream.rangeClosed(101, 105).mapToObj(id -> entry(id, COURSE_A, 10_000))
 			.toArray(long[][]::new));
-		Payout stray = saveFinal(9, ticket(901, COURSE_A, 10_000), ticket(902, COURSE_A, 10_000));
+		Payout stray = saveFinal(9, entry(901, COURSE_A, 10_000), entry(902, COURSE_A, 10_000));
 
 		useCase(List.of(), soldFiveOfSeller2()).run(TODAY, NOW);
 
@@ -317,7 +330,7 @@ class PayoutReconcileUseCaseTest {
 	@Test
 	@DisplayName("이미 계좌 미등록으로 보류 중이어도 대사 불일치 보류를 더 건다 (H1)")
 	void holdsAlongsideAccountHold() {
-		Payout payout = saveFinal(2, LongStream.rangeClosed(101, 106).mapToObj(id -> ticket(id, COURSE_A, 10_000))
+		Payout payout = saveFinal(2, LongStream.rangeClosed(101, 106).mapToObj(id -> entry(id, COURSE_A, 10_000))
 			.toArray(long[][]::new));
 		payoutHoldRepository.save(payout.hold(PayoutHoldReason.정산_계좌_미등록, null,
 			PayoutHold.SYSTEM_MEMBER_ID, NOW));
@@ -332,7 +345,7 @@ class PayoutReconcileUseCaseTest {
 	@Test
 	@DisplayName("이미 지급 완료된 정산이 더 많으면 기록만 하고 보류는 걸지 않는다 (AC-67-13)")
 	void paidRecordsOnly() {
-		Payout payout = saveFinal(2, LongStream.rangeClosed(101, 106).mapToObj(id -> ticket(id, COURSE_A, 10_000))
+		Payout payout = saveFinal(2, LongStream.rangeClosed(101, 106).mapToObj(id -> entry(id, COURSE_A, 10_000))
 			.toArray(long[][]::new));
 		payout.pay(NOW);
 
@@ -347,7 +360,7 @@ class PayoutReconcileUseCaseTest {
 	@Test
 	@DisplayName("취소된 정산 내역은 비교하지 않는다")
 	void skipsCanceled() {
-		Payout canceled = saveFinal(9, ticket(901, COURSE_A, 10_000));
+		Payout canceled = saveFinal(9, entry(901, COURSE_A, 10_000));
 		canceled.cancel(PayoutHold.SYSTEM_MEMBER_ID, NOW, "대회 취소");
 
 		useCase(List.of(), List.of()).run(TODAY, NOW);
@@ -393,8 +406,8 @@ class PayoutReconcileUseCaseTest {
 		first.recordAdvance(COURSE_A, 50_000, 5, TODAY);
 		payoutRepository.save(first).pay(NOW);
 		ledgerUseCase().recoverScheduleChange(2, FINAL_RACE.raceId(), COURSE_A, 999, 10_000, NOW);
-		Payout payout = saveFinal(2, ticket(101, COURSE_A, 10_000), ticket(102, COURSE_A, 10_000),
-			ticket(104, COURSE_A, 10_000), ticket(105, COURSE_A, 10_000));
+		Payout payout = saveFinal(2, entry(101, COURSE_A, 10_000), entry(102, COURSE_A, 10_000),
+			entry(104, COURSE_A, 10_000), entry(105, COURSE_A, 10_000));
 
 		useCase(List.of(), soldFiveOfSeller2()).run(TODAY, NOW);
 

@@ -31,6 +31,14 @@
           "$ref": "#/components/schemas/PageDtoWalletLedgerItemDto"
         }
       }
+    },
+    "getChargeReviews": {
+      "200": {
+        "wrapper": "RsDataPageDtoChargeReviewDto",
+        "data": {
+          "$ref": "#/components/schemas/PageDtoChargeReviewDto"
+        }
+      }
     }
   },
   "schemas": {
@@ -177,6 +185,80 @@
         "refId": {
           "type": "integer",
           "format": "int32"
+        }
+      }
+    },
+    "PageDtoChargeReviewDto": {
+      "description": "고액 충전 확인 한 페이지. 회원 한 명이 한 줄",
+      "type": "object",
+      "required": [
+        "page",
+        "size",
+        "totalElements",
+        "totalPages",
+        "content"
+      ],
+      "properties": {
+        "content": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/ChargeReviewDto"
+          }
+        },
+        "page": {
+          "type": "integer",
+          "format": "int32",
+          "description": "0부터 센다"
+        },
+        "size": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "totalElements": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "totalPages": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "ChargeReviewDto": {
+      "type": "object",
+      "required": [
+        "memberId",
+        "nickname",
+        "joinedAt",
+        "chargeAmount",
+        "chargedAt",
+        "joinWindowChargeTotal"
+      ],
+      "properties": {
+        "memberId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "nickname": {
+          "type": "string"
+        },
+        "joinedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "한국 시간, 시간대 표시 없음"
+        },
+        "chargeAmount": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "chargedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "joinWindowChargeTotal": {
+          "type": "integer",
+          "format": "int64",
+          "description": "가입 24시간 안 충전 합계"
         }
       }
     }

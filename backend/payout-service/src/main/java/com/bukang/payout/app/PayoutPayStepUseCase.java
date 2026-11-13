@@ -9,9 +9,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.bukang.payout.domain.Payout;
+import com.bukang.payout.domain.PayoutCreateFailure;
 import com.bukang.payout.domain.PayoutStage;
 import com.bukang.payout.domain.PayoutStatus;
 import com.bukang.payout.domain.exception.PayoutNotFoundException;
+import com.bukang.payout.out.PayoutCreateFailureRepository;
 import com.bukang.payout.out.PayoutRepository;
 import com.bukang.payout.out.PayoutTransfer;
 
@@ -32,6 +34,7 @@ public class PayoutPayStepUseCase {
 
 	private final PayoutRepository payoutRepository;
 	private final PayoutRaceCancelUseCase payoutRaceCancelUseCase;
+	private final PayoutCreateFailureRepository payoutCreateFailureRepository;
 
 	@Transactional(readOnly = true)
 	public List<Long> findTargetIds(LocalDate today) {
@@ -61,9 +64,9 @@ public class PayoutPayStepUseCase {
 			// 보류가 안 풀린 1차 때문에 최종이 계속 밀리면 원인을 찾을 수 있게 실행마다 한 줄 남긴다
 			// 1차가 지급 불일치면 사람이 풀기 전까지 계속 밀리므로 warn으로 남긴다 (BUK-62)
 			Payout first = waitingFirst.get();
-			if (first.getStatus() == PayoutStatus.지급_불일치) {
-				log.warn("1차 정산이 지급 불일치라 최종 정산 지급을 미룹니다. 확인이 필요합니다. payoutId={}, firstPayoutId={}",
-					payout.getId(), first.getId());
+			if (first.getStatus() == PayoutStatus.지급_불일치 || first.getStatus() == PayoutStatus.지급_확인_필요) {
+				log.warn("1차 정산이 {}라 최종 정산 지급을 미룹니다. 확인이 필요합니다. payoutId={}, firstPayoutId={}",
+					first.getStatus(), payout.getId(), first.getId());
 			} else {
 				log.info("1차 정산이 지급 완료되지 않아 최종 정산 지급을 미룹니다. payoutId={}, firstPayoutId={}, firstStatus={}",
 					payout.getId(), first.getId(), first.getStatus());
@@ -138,6 +141,19 @@ public class PayoutPayStepUseCase {
 			log.warn("지급 중에 대회가 취소된 정산 내역이 지급 불일치가 됐습니다. 원장 금액으로 회수를 만듭니다. payoutId={}", payoutId);
 			payoutRaceCancelUseCase.recoverAfterPayResult(payout.getSellerId(), payout.getRaceId(), now);
 		}
+	}
+
+	// 지급 결과를 몰랐다(타임아웃 · 5xx). 횟수를 세고, 한도가 차면 지급_확인_필요로 멈춰 관리자 이상 감지에 남긴다 (BUK-166)
+	// 지급_확인_필요가 되면 지급 배치가 더는 고르지 않는다
+	// @return 이번에 지급_확인_필요가 됐으면 true
+	@Transactional
+	public boolean markUnknown(long payoutId, LocalDate today, LocalDateTime now) {
+		Payout payout = payoutRepository.findById(payoutId).orElseThrow(PayoutNotFoundException::new);
+		if (!payout.recordUnknownPay(today, now)) {
+			return false;
+		}
+		payoutCreateFailureRepository.save(PayoutCreateFailure.payCheckRequired(payout, today));
+		return true;
 	}
 
 	/**

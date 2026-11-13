@@ -8,12 +8,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.bukang.common.shared.crew.event.CrewLeaderChangedEvent;
 import com.bukang.common.shared.crew.event.CrewMemberLeftReason;
 import com.bukang.common.shared.member.web.LoginRequiredException;
 import com.bukang.common.shared.notification.NotificationKind;
@@ -49,10 +51,12 @@ import com.bukang.member.crew.dto.CrewJoinedDto;
 import com.bukang.member.crew.dto.CrewMemberCountDto;
 import com.bukang.member.crew.dto.CrewMemberDto;
 import com.bukang.member.crew.dto.CrewMemberStatusDto;
+import com.bukang.member.crew.dto.CrewPenaltyDto;
 import com.bukang.member.crew.dto.MyCrewDto;
 import com.bukang.member.crew.out.CrewInviteRepository;
 import com.bukang.member.crew.out.CrewMemberProfilePort;
 import com.bukang.member.crew.out.CrewMemberRepository;
+import com.bukang.member.crew.out.CrewPenaltyRepository;
 import com.bukang.member.crew.out.CrewRemovalRepository;
 import com.bukang.member.crew.out.CrewRepository;
 
@@ -73,6 +77,7 @@ public class CrewFacade {
 	private final CrewMemberRepository crewMemberRepository;
 	private final CrewInviteRepository crewInviteRepository;
 	private final CrewRemovalRepository crewRemovalRepository;
+	private final CrewPenaltyRepository crewPenaltyRepository;
 	private final CrewMemberProfilePort profilePort;
 	private final Clock clock;
 	private final ApplicationEventPublisher eventPublisher;
@@ -221,18 +226,22 @@ public class CrewFacade {
 			// 쓰임·취소·만료는 되돌릴 수 없으므로 여기에 오지 않는다
 			throw new IllegalStateException("쓸 수 있는 초대인데 가입에 쓰지 못했습니다. inviteId=" + invite.getId());
 		}
+		CrewMember member;
 		try {
-			CrewMember member = crewMemberRepository.saveAndFlush(
+			member = crewMemberRepository.saveAndFlush(
 				CrewMember.invited(crew.getId(), memberId, invite.getId(), now));
-			// 트랜잭션 안에서 낸다. 커밋 뒤에 common이 보내므로 롤백되면 알림도 나가지 않는다
-			eventPublisher.publishEvent(NotificationRequestedEvent.of(memberId, NotificationKind.CREW_JOINED,
-				"크루에 가입했어요", crew.getName() + "의 크루원이 됐어요.", "/crews/" + crew.getId()));
-			return new CrewJoinedDto(crew.getId(), crew.getName(), member.getRole(), member.getJoinedAt());
 		} catch (DataIntegrityViolationException exception) {
 			// 같은 회원이 같은 크루에 동시에 가입하면 uk_crew_member가 두 번째 행을 막는다
 			// (보통은 위의 회원 행 잠금 뒤 크루원 확인이 먼저 「이미 크루원」으로 답한다)
 			throw new CrewAlreadyMemberException();
 		}
+		// 크루원 행을 만든 같은 트랜잭션에서 아웃박스에 남긴다 (MemberOutboxAppendUseCase, BUK-99).
+		// 위 try 밖에 두어, 아웃박스 저장 실패가 「이미 크루원」으로 바뀌지 않게 한다
+		eventPublisher.publishEvent(member.joinedEvent());
+		// 트랜잭션 안에서 낸다. 커밋 뒤에 common이 보내므로 롤백되면 알림도 나가지 않는다
+		eventPublisher.publishEvent(NotificationRequestedEvent.of(memberId, NotificationKind.CREW_JOINED,
+			"크루에 가입했어요", crew.getName() + "의 크루원이 됐어요.", "/crews/" + crew.getId()));
+		return new CrewJoinedDto(crew.getId(), crew.getName(), member.getRole(), member.getJoinedAt());
 	}
 
 	@Transactional
@@ -288,6 +297,9 @@ public class CrewFacade {
 		LocalDateTime now = now();
 		leader.changeRole(CrewRole.MEMBER, now);
 		target.changeRole(CrewRole.LEADER, now);
+		// 역할을 바꾼 같은 트랜잭션에서 아웃박스에 남긴다. 크루장이 바뀌는 곳은 여기뿐이다 (BUK-99)
+		eventPublisher.publishEvent(
+			new CrewLeaderChangedEvent(UUID.randomUUID().toString(), crewId, memberId, targetMemberId, now));
 		return home(crew, memberId);
 	}
 
@@ -328,8 +340,8 @@ public class CrewFacade {
 
 	// 내부 API: 크루장, 운영진, 크루원을 모두 센다
 	public CrewMemberCountDto findMemberCount(long crewId) {
-		findActiveCrew(crewId);
-		return new CrewMemberCountDto(crewId, (int)crewMemberRepository.countByCrewId(crewId));
+		Crew crew = findActiveCrew(crewId);
+		return new CrewMemberCountDto(crewId, (int)crewMemberRepository.countByCrewId(crewId), crew.getCreatedAt());
 	}
 
 	private CrewHomeDto home(Crew crew, long memberId) {
@@ -354,7 +366,13 @@ public class CrewFacade {
 			members.stream()
 				.map(member -> new CrewMemberDto(member.getMemberId(), nicknames.get(member.getMemberId()),
 					member.getRole()))
-				.toList());
+				.toList(),
+			crewPenaltyRepository.findRestrictedUntil(crew.getId(), now()));
+	}
+
+	// 주문 서비스가 파티를 만들 때 묻는다. 크루가 없어도 제한 기록이 없으니 restricted=false다 (BUK-187)
+	public CrewPenaltyDto findPenalty(long crewId) {
+		return CrewPenaltyDto.of(crewPenaltyRepository.findRestrictedUntil(crewId, now()));
 	}
 
 	private Map<Long, Integer> countMembers(List<Long> crewIds) {

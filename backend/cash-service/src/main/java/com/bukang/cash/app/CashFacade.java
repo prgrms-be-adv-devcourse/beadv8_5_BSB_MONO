@@ -17,12 +17,14 @@ import com.bukang.cash.app.recovery.CashRecoveryDepositUseCase;
 import com.bukang.cash.app.recovery.CashRecoveryVirtualAccountUseCase;
 import com.bukang.cash.app.wallet.CashEnsureWalletUseCase;
 import com.bukang.cash.app.wallet.CashWalletLedgerQueryUseCase;
+import com.bukang.cash.app.withdrawal.CashWithdrawalReconcileUseCase;
 import com.bukang.cash.app.withdrawal.CashWithdrawalUseCase;
 import com.bukang.cash.domain.member.CashMember;
 import com.bukang.cash.domain.payout.PayoutStage;
 import com.bukang.cash.domain.seller.CashSeller;
 import com.bukang.cash.domain.wallet.LedgerCategory;
 import com.bukang.cash.domain.wallet.Wallet;
+import com.bukang.cash.domain.withdrawal.WithdrawalItemResolution;
 import com.bukang.cash.dto.PageDto;
 import com.bukang.cash.dto.charge.CashChargeResponseDto;
 import com.bukang.cash.dto.payment.CashPaymentResponseDto;
@@ -33,6 +35,7 @@ import com.bukang.cash.dto.recovery.CashClaimVirtualAccountResponseDto;
 import com.bukang.cash.dto.wallet.CashBalanceResponseDto;
 import com.bukang.cash.dto.wallet.WalletBalanceResponseDto;
 import com.bukang.cash.dto.wallet.WalletLedgerItemDto;
+import com.bukang.cash.dto.withdrawal.CashWithdrawalItemResolveResponseDto;
 import com.bukang.cash.dto.withdrawal.CashWithdrawalResponseDto;
 import com.bukang.common.shared.seller.event.SellerChangedEvent;
 
@@ -49,6 +52,7 @@ public class CashFacade {
 	private final CashRefundPaymentUseCase cashRefundPaymentUseCase;
 	private final CashChargeConfirmUseCase cashChargeConfirmUseCase;
 	private final CashWithdrawalUseCase cashWithdrawalUseCase;
+	private final CashWithdrawalReconcileUseCase cashWithdrawalReconcileUseCase;
 	private final CashPayoutUseCase cashPayoutUseCase;
 	private final CashSyncSellerUseCase cashSyncSellerUseCase;
 	private final CashWalletLedgerQueryUseCase cashWalletLedgerQueryUseCase;
@@ -121,7 +125,14 @@ public class CashFacade {
 			customerId, bankCode, accountNumber, accountHolder, idempotencyKey, now);
 	}
 
-	@Transactional
+	// @Transactional을 일부러 안 붙인다. 유스케이스가 몫을 읽는 트랜잭션과 지갑을 잠그는 트랜잭션을 나눈다
+	public CashWithdrawalItemResolveResponseDto resolveWithdrawalItem(
+		long itemId, WithdrawalItemResolution resolution, LocalDateTime now
+	) {
+		return cashWithdrawalReconcileUseCase.resolveManualCheck(itemId, resolution, now);
+	}
+
+	// @Transactional을 일부러 안 붙인다. 충전 확정과 같은 이유로, 은행 송금을 트랜잭션 밖에서 부른다
 	public CashPayoutResponseDto payout(
 		long payoutId, long sellerId, PayoutStage payoutStage, long settlementAmount, long feeAmount
 	) {

@@ -45,7 +45,7 @@ public class PayoutCreateStepUseCase {
 		Payout payout = Payout.first(source.sellerId(), source.raceId(), source.raceName(),
 			refundDeadline, now, businessDayCalendar);
 		source.courses().forEach(course ->
-			payout.recordAdvance(course.raceCourseId(), course.priceSum(), course.ticketCount(), createDate));
+			payout.recordAdvance(course.raceCourseId(), course.priceSum(), course.entryCount(), createDate));
 
 		save(payout);
 		payoutHoldUseCase.holdNew(payout, source.hasPayoutAccount(), now);
@@ -58,6 +58,8 @@ public class PayoutCreateStepUseCase {
 	 */
 	@Transactional
 	public void createFinal(FinalPayoutSource source, LocalDate raceDate, LocalDateTime now) {
+		// 회수와 겹쳐도 판매자 몫이 두 번 깎이지 않게, 남은 1차 정산금을 읽기 전에 정산 내역을 잠근다 (BUK-52)
+		payoutLedgerUseCase.lockSellerRace(source.sellerId(), source.raceId());
 		LocalDate createDate = PayoutCreateDate.of(raceDate);
 		Optional<Payout> first = payoutRepository.findFirstBySellerIdAndRaceIdAndPayoutStageOrderByIdAsc(
 			source.sellerId(), source.raceId(), PayoutStage.일차_정산);
@@ -94,7 +96,7 @@ public class PayoutCreateStepUseCase {
 	}
 
 	// 코스 하나의 판매 집계 (가격 합 · 장수)
-	public record CourseSale(long raceCourseId, long priceSum, int ticketCount) {
+	public record CourseSale(long raceCourseId, long priceSum, int entryCount) {
 	}
 
 	/**

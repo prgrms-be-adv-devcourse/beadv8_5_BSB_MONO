@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.bukang.common.global.rsdata.RsData;
 import com.bukang.payout.app.PayoutCreateUseCase;
 import com.bukang.payout.app.PayoutPayUseCase;
+import com.bukang.payout.app.PayoutReconcileUseCase;
 import com.bukang.payout.dto.PayoutCreateResultDto;
 import com.bukang.payout.dto.PayoutPayResultDto;
 
@@ -45,6 +46,29 @@ public class DevV1PayoutBatchController {
 
 	private final PayoutCreateUseCase payoutCreateUseCase;
 	private final PayoutPayUseCase payoutPayUseCase;
+	private final PayoutReconcileUseCase payoutReconcileUseCase;
+
+	@PostMapping("/reconcile")
+	@Operation(summary = "정산 대사 실행",
+		description = "today 기준으로 정산 생성일이 된 대회의 주문 판매 값과 정산을 맞춰 본다. 운영에서는 정산 생성 배치 바로 뒤에 "
+			+ "같은 실행에서 돌지만, 부하 테스트에서 대사의 시간 · 메모리만 따로 재려고 나눠 부른다. "
+			+ "생성과 따로 부르므로 그 날짜가 정산 생성일인 대회만 고른다. today를 비우면 오늘(한국 시간)로 돈다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "실행 완료 (불일치는 정산 생성 실패 기록표에 남는다)",
+			content = @Content(examples = @ExampleObject(value = DevPayoutBatchApiExamples.RECONCILE_SUCCESS))),
+		@ApiResponse(responseCode = "400", description = "today 형식 오류",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = DevPayoutBatchApiExamples.INVALID_VALUE_TYPE)))
+	})
+	public ResponseEntity<RsData<LocalDate>> runReconcile(
+		@Parameter(description = "실행 날짜 (yyyy-MM-dd). 비우면 오늘", example = "2026-11-16")
+		@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate today
+	) {
+		LocalDateTime now = LocalDateTime.now(ZONE);
+		LocalDate runDate = today == null ? now.toLocalDate() : today;
+		payoutReconcileUseCase.run(runDate, now);
+		return ResponseEntity.ok().body(RsData.of(HttpStatus.OK, "정산 대사를 실행했습니다.", runDate));
+	}
 
 	@PostMapping("/create")
 	@Operation(summary = "정산 생성일 배치 실행",

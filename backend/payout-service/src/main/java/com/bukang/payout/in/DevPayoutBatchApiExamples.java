@@ -14,6 +14,10 @@ final class DevPayoutBatchApiExamples {
 		}
 		""";
 
+	static final String RECONCILE_SUCCESS = """
+		{ "status": 200, "message": "정산 대사를 실행했습니다.", "data": "2026-11-16" }
+		""";
+
 	static final String PAY_SUCCESS = """
 		{ "status": 200, "message": "지급 배치를 실행했습니다.",
 			"data": { "today": "2026-11-20", "paid": 2, "failed": 0, "unknown": 0, "mismatch": 0 } }

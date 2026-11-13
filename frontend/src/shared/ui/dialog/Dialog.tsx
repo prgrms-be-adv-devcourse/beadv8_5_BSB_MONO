@@ -14,6 +14,8 @@ export type DialogProps = {
   type?: 'confirm' | 'danger' | 'alert'
   confirmLabel: ReactNode
   cancelLabel?: ReactNode
+  /** 취소 버튼을 눌렀을 때만 부른다(Esc · 바깥 클릭으로 닫는 것은 onOpenChange만) */
+  onCancel?: () => void
   onConfirm: () => void
   /** 요청 중이면 확인 버튼에 Spinner를 붙인다. */
   confirming?: boolean
@@ -29,6 +31,7 @@ export function Dialog({
   type = 'confirm',
   confirmLabel,
   cancelLabel = '취소',
+  onCancel,
   onConfirm,
   confirming = false,
 }: DialogProps) {
@@ -53,6 +56,7 @@ export function Dialog({
             {type !== 'alert' && (
               <AlertDialog.Close
                 render={<Button variant="secondary" className="flex-1 tablet:flex-none" />}
+                onClick={onCancel}
               >
                 {cancelLabel}
               </AlertDialog.Close>

@@ -159,7 +159,7 @@ export const PayoutsResponse = zod.object({
   "feeAmount": zod.int(),
   "advanceDeductionAmount": zod.int().describe('1차 정산금 차감 (최종에서 뺀 1차 지급액 − 회수액, 1차는 0)'),
   "payoutAmount": zod.int(),
-  "status": zod.enum(['지급_예정', '지급보류', '지급_중', '지급_완료', '취소', '지급_불일치']).describe('정산 상태 (지급_예정: 지급 예정, 지급보류: 지급보류, 지급_중: 지급 중, 지급_완료: 지급 완료, 취소: 취소, 지급_불일치: 캐시가 이미 다른 금액으로 지급했다고 답해 확인 중)'),
+  "status": zod.enum(['지급_예정', '지급보류', '지급_중', '지급_완료', '취소', '지급_불일치', '지급_확인_필요']).describe('정산 상태 (지급_예정: 지급 예정, 지급보류: 지급보류, 지급_중: 지급 중, 지급_완료: 지급 완료, 취소: 취소, 지급_불일치: 캐시가 이미 다른 금액으로 지급했다고 답해 확인 중, 지급_확인_필요: 지급 결과를 3번 몰라 사람이 확인 중)'),
   "settledAt": zod.iso.datetime({"offset":true}),
   "scheduledPayDate": zod.iso.date(),
   "paidAt": zod.iso.datetime({"offset":true}).nullish()
@@ -197,7 +197,7 @@ export const ItemsResponse = zod.object({
   "payoutCode": zod.string(),
   "raceId": zod.int(),
   "raceName": zod.string(),
-  "payoutStatus": zod.enum(['지급_예정', '지급보류', '지급_중', '지급_완료', '취소', '지급_불일치']).describe('정산 상태 (지급_예정: 지급 예정, 지급보류: 지급보류, 지급_중: 지급 중, 지급_완료: 지급 완료, 취소: 취소, 지급_불일치: 캐시가 이미 다른 금액으로 지급했다고 답해 확인 중)'),
+  "payoutStatus": zod.enum(['지급_예정', '지급보류', '지급_중', '지급_완료', '취소', '지급_불일치', '지급_확인_필요']).describe('정산 상태 (지급_예정: 지급 예정, 지급보류: 지급보류, 지급_중: 지급 중, 지급_완료: 지급 완료, 취소: 취소, 지급_불일치: 캐시가 이미 다른 금액으로 지급했다고 답해 확인 중, 지급_확인_필요: 지급 결과를 3번 몰라 사람이 확인 중)'),
   "scheduledPayDate": zod.iso.date()
 })),
   "page": zod.int(),
@@ -270,7 +270,7 @@ export const createFailuresQuerySizeDefault = 50;
 export const CreateFailuresQueryParams = zod.object({
   "from": zod.iso.date().describe('조회 시작 실행일 (yyyy-MM-dd)'),
   "to": zod.iso.date().describe('조회 끝 실행일 (yyyy-MM-dd, 포함)'),
-  "type": zod.enum(['주문_정산_대회일_불일치', '정산_계좌_조회_실패', '정산_저장_실패', '정산_조회_실패', '알_수_없는_실패', '대회_조회_실패', '주문_조회_실패', '취소_중이라_미룸', '대사_불일치']).optional().describe('실패 종류 (없으면 전체)'),
+  "type": zod.enum(['주문_정산_대회일_불일치', '정산_계좌_조회_실패', '정산_저장_실패', '정산_조회_실패', '알_수_없는_실패', '대회_조회_실패', '주문_조회_실패', '취소_중이라_미룸', '대사_불일치', '지급_확인_필요']).optional().describe('실패 종류 (없으면 전체)'),
   "page": zod.int().default(createFailuresQueryPageDefault).describe('페이지 번호 (0부터)'),
   "size": zod.int().default(createFailuresQuerySizeDefault).describe('페이지 크기 (1 ~ 100)')
 })

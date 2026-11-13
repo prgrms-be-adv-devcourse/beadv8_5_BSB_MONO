@@ -168,7 +168,7 @@ public class PayoutCreateUseCase {
 
 	private static List<CourseSale> toCourseSales(List<SoldSummary> courses) {
 		return courses.stream()
-			.map(course -> new CourseSale(course.raceCourseId(), course.priceSum(), course.ticketCount()))
+			.map(course -> new CourseSale(course.raceCourseId(), course.priceSum(), course.entryCount()))
 			.toList();
 	}
 
@@ -224,6 +224,12 @@ public class PayoutCreateUseCase {
 		checkRaceDate(key, entries, race);
 		if (finalExists(key, race.raceDate())) {
 			counts.skip();
+			return;
+		}
+		// 취소 중 참가권은 판매로 세어져 최종 정산에 들어가는데, 나중에 환불이 끝나면 회수가 거부된다. 그래서 만들지 않고 미룬다
+		// 7일 되돌아보기가 다음 실행에서 다시 본다 (BUK-52)
+		if (entries.stream().anyMatch(SoldEntry::blocksFinalPayout)) {
+			counts.deferFinal(key, entries, race.raceDate());
 			return;
 		}
 		payoutCreateStepUseCase.createFinal(new FinalPayoutSource(key.sellerId(), key.raceId(), race.raceName(),
@@ -367,6 +373,15 @@ public class PayoutCreateUseCase {
 			log.error("정산 내역을 만들지 못했습니다. sellerId={}, raceId={}, 참가권 {}장",
 				key.sellerId(), key.raceId(), entries.size(), exception);
 			recordSellerRaceFailure(PayoutStage.최종_정산, key, raceDate, exception);
+		}
+
+		// 최종 정산 미룸은 실패가 아니라 실패로 세지 않는다. 실행마다 기록표에 한 줄 남겨 며칠째 미뤄지는지 보이게 한다 (BUK-52)
+		private void deferFinal(SellerRace key, List<SoldEntry> entries, LocalDate raceDate) {
+			long blocking = entries.stream().filter(SoldEntry::blocksFinalPayout).count();
+			log.warn("최종 정산을 미룹니다. 취소 중이거나 상태를 모르는 참가권이 있습니다. sellerId={}, raceId={}, 참가권 {}장 중 {}장",
+				key.sellerId(), key.raceId(), entries.size(), blocking);
+			payoutCreateFailureUseCase.record(PayoutCreateFailure.sellerRace(PayoutStage.최종_정산, key.sellerId(),
+				key.raceId(), raceDate, PayoutCreateFailureType.취소_중이라_미룸, null, today));
 		}
 
 		// 다른 서버가 먼저 저장한 건은 호출부가 skipSavedByOther로 먼저 return하므로 여기까지 오지 않는다 (AC-60-6)

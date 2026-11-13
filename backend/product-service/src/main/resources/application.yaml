@@ -20,13 +20,14 @@ spring:
       # 여러 서비스가 같은 인프라를 함께 쓰므로, 한 서비스를 종료해도 컨테이너는 멈추지 않는다
       lifecycle-management: start-only
 
-  # @Scheduled 작업(아웃박스 전송 1초, 검색 문서 동기화 1초, 크루 자리 배치 매시 정각, 판매 상태 배치 5분 정각)이
-  # 저마다 스레드를 쓰게 한다. 기본값 1이면 0시 정각에 크루 자리 배치와 판매 상태 배치가 한 스레드를 나눠 써,
-  # 한쪽이 끝날 때까지 다른 쪽(예: 판매 상태 변경)이 늦어진다 (PR #358 리뷰)
+  # @Scheduled 작업(아웃박스 전송 1초, 검색 문서 동기화 1초, 임베딩 동기화 1초, 검색 문서 맞추기 10분,
+  # 크루 자리 배치 매시 정각, 판매 상태 배치 5분 정각)이 저마다 스레드를 쓰게 한다. 기본값 1이면 0시 정각에
+  # 크루 자리 배치와 판매 상태 배치가 한 스레드를 나눠 써, 한쪽이 끝날 때까지 다른 쪽(예: 판매 상태 변경)이 늦어진다 (PR #358 리뷰)
+  # 임베딩 동기화는 외부 API를 기다리므로 다른 작업과 스레드를 나눠 쓰지 않게 한다 (BUK-162)
   task:
     scheduling:
       pool:
-        size: 4
+        size: 6
 
   # JPA 공통 (ddl-auto와 SQL 출력 형식은 프로파일별 yaml)
   jpa:
@@ -51,6 +52,28 @@ spring:
       properties:
         # 구독한 토픽이 없으면 브로커에 자동 생성을 요청한다 (브로커도 자동 생성을 허용해야 동작)
         "[allow.auto.create.topics]": true
+
+  # AI 추천 임베딩 (Spring AI). 어느 회사 모델을 쓸지는 spring.ai.model.*로 고른다
+  #   기본(prod)은 OpenAI. dev는 application-dev.yaml, 테스트는 application-test.yaml에서 ollama로 바꾼다
+  #   쓰지 않는 기능(이미지·음성·검열)은 none으로 꺼서 빈을 만들지 않는다
+  ai:
+    model:
+      embedding: openai
+      chat: none
+      image: none
+      moderation: none
+      audio:
+        speech: none
+        transcription: none
+    openai:
+      # 운영은 서버 .env의 OPENAI_API_KEY (compose의 env_file로 들어온다)
+      # 키가 없어도 서비스는 뜨도록 임시 값을 둔다. 이때 임베딩을 부르면 401로 실패한다
+      api-key: ${OPENAI_API_KEY:sk-dummy}
+      embedding:
+        # 기본값(ada-002)은 차원 줄이기(dimensions)를 지원하지 않는다
+        model: text-embedding-3-small
+        # 차원(dimensions)은 여기에 적지 않는다. 임베딩을 부를 때 EmbeddingVector.DIMENSIONS를 옵션으로 넘긴다
+        #   (ES dense_vector 차원과 값의 원본을 하나로 두려고. AiConfig.embeddingOptions)
 
 # Swagger / OpenAPI V3 설정 (prod에서는 비활성화)
 springdoc:

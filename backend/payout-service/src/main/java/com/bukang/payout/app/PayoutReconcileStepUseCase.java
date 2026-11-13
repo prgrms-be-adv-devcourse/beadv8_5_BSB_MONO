@@ -25,6 +25,8 @@ import java.util.stream.Stream;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.bukang.payout.domain.EntryDiff;
+import com.bukang.payout.domain.EntryDiffer;
 import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutCreateDate;
 import com.bukang.payout.domain.PayoutCreateFailure;
@@ -34,8 +36,6 @@ import com.bukang.payout.domain.PayoutItem;
 import com.bukang.payout.domain.PayoutRecordType;
 import com.bukang.payout.domain.PayoutStage;
 import com.bukang.payout.domain.PayoutStatus;
-import com.bukang.payout.domain.TicketDiff;
-import com.bukang.payout.domain.TicketDiffer;
 import com.bukang.payout.domain.TwoStagePayoutCalculator;
 import com.bukang.payout.out.PayoutRepository;
 import com.bukang.payout.out.RaceSchedule;
@@ -62,7 +62,7 @@ public class PayoutReconcileStepUseCase {
 	private final PayoutRepository payoutRepository;
 	private final PayoutHoldUseCase payoutHoldUseCase;
 	private final PayoutLedgerUseCase payoutLedgerUseCase;
-	private final TicketDiffer ticketDiffer;
+	private final EntryDiffer entryDiffer;
 
 	/**
 	 * 1차: 판매자마다 판매 합(코스별 집계의 합)과 1차 정산 판매액 합을 비교한다 (AC-67-1 ~ 3)
@@ -117,16 +117,21 @@ public class PayoutReconcileStepUseCase {
 
 		List<PayoutCreateFailure> mismatches = new ArrayList<>();
 		for (long sellerId : sellers(soldBySeller.keySet(), payoutsBySeller.keySet())) {
-			Map<Long, SoldEntry> soldById = soldBySeller.getOrDefault(sellerId, List.of()).stream()
-				.collect(toMap(SoldEntry::orderItemId, Function.identity()));
+			List<SoldEntry> sellerEntries = soldBySeller.getOrDefault(sellerId, List.of());
 			List<Payout> payouts = payoutsBySeller.getOrDefault(sellerId, List.of());
+			// 취소 중 참가권이 있어 생성 배치가 최종 정산을 미룬 판매자 × 대회다. 정산 내역이 없는 게 정상이라 빠짐이 아니다 (BUK-52)
+			if (payouts.isEmpty() && sellerEntries.stream().anyMatch(SoldEntry::blocksFinalPayout)) {
+				continue;
+			}
+			Map<Long, SoldEntry> soldById = sellerEntries.stream()
+				.collect(toMap(SoldEntry::orderItemId, Function.identity()));
 			// 같은 참가권의 판매 줄은 DB 유일 제약으로 하나뿐이다
 			Map<Long, PayoutItem> saleById = payouts.stream()
 				.flatMap(payout -> payout.getItems().stream())
 				.filter(item -> item.getRecordType() == PayoutRecordType.판매)
 				.collect(toMap(PayoutItem::getOrderItemId, Function.identity()));
 
-			TicketDiff diff = ticketDiffer.diff(soldById.keySet(), saleById.keySet());
+			EntryDiff diff = entryDiffer.diff(soldById.keySet(), saleById.keySet());
 			List<Long> priceDiffers = soldById.keySet().stream()
 				.filter(id -> saleById.containsKey(id) && saleById.get(id).getAmount() != soldById.get(id).price())
 				.sorted()

@@ -473,6 +473,7 @@
           "enum": [
             "ORDERED",
             "PAID",
+            "CANCELING",
             "CANCELED"
           ]
         },

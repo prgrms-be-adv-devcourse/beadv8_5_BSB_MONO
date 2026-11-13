@@ -4665,6 +4665,136 @@
           }
         ]
       }
+    },
+    "/api/v1/member/admin/members/identity-review": {
+      "get": {
+        "tags": [
+          "AdminMember"
+        ],
+        "summary": "확인이 필요한 계정 목록 조회",
+        "description": "관리자가 같은 사람으로 보이는 계정 묶음을 확인한다.",
+        "operationId": "findIdentityReview",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "example": 3
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "페이지 번호 (0부터)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0,
+              "minimum": 0
+            },
+            "example": 0
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "페이지 크기 (1~100)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1
+            },
+            "example": 20
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "조회 성공",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "조회 성공": {
+                    "description": "조회 성공",
+                    "value": {
+                      "status": 200,
+                      "message": "확인이 필요한 계정을 조회했습니다.",
+                      "data": {
+                        "groups": [
+                          {
+                            "members": [
+                              {
+                                "id": 12,
+                                "nickname": "러너12",
+                                "maskedName": "홍*동",
+                                "maskedPhone": "010-****-5678",
+                                "maskedEmail": "ho***@crewrun.com",
+                                "ciVerified": false,
+                                "joinedAt": "2026-11-02T09:00:00"
+                              },
+                              {
+                                "id": 13,
+                                "nickname": "러너13",
+                                "maskedName": "홍*동",
+                                "maskedPhone": "010-****-9012",
+                                "maskedEmail": "ho***@gmail.com",
+                                "ciVerified": true,
+                                "joinedAt": "2026-11-02T09:00:00"
+                              }
+                            ]
+                          }
+                        ],
+                        "page": 0,
+                        "size": 20,
+                        "totalElements": 1,
+                        "totalPages": 1
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "관리자가 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 403,
+                  "code": "MEMBER_NOT_ADMIN",
+                  "message": "관리자만 이용할 수 있습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "헤더의 회원이 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 404,
+                  "code": "MEMBER_NOT_FOUND",
+                  "message": "존재하지 않는 회원입니다.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
