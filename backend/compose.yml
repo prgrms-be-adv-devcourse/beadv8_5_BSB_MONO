@@ -517,3 +517,29 @@ services:
       REDIS_ADDR: redis://bukang-redis:6379
     depends_on:
       - bukang-redis
+
+  # 추적 저장소 Tempo. Alloy가 보낸 span을 저장하고, Grafana가 3200으로 조회한다
+  # Alloy·Grafana만 같은 네트워크에서 접속하므로 호스트 포트는 열지 않는다
+  tempo:
+    image: grafana/tempo:3.1.1
+    container_name: bukang-tempo
+    profiles: [ monitoring ]
+    # all: 받기·저장·조회를 한 컨테이너에서 모두 한다 (로컬용 단일 실행)
+    command: [ "-target=all", "-config.file=/etc/tempo.yaml" ]
+    volumes:
+      - ./docker/tempo/tempo.yaml:/etc/tempo.yaml:ro
+
+  # 추적 수집기 Alloy. 맥에서 bootRun으로 띄운 앱이 localhost:4318로 보낸 span을 Tempo로 넘긴다
+  # 앱이 컨테이너 밖에 있어서 4318은 호스트에 연다. 12345는 Alloy 화면(부품 연결 그림)이다
+  alloy:
+    image: grafana/alloy:v1.21.3
+    container_name: bukang-alloy
+    profiles: [ monitoring ]
+    command: [ "run", "--server.http.listen-addr=0.0.0.0:12345", "--storage.path=/var/lib/alloy/data", "/etc/alloy/config.alloy" ]
+    ports:
+      - "4318:4318"
+      - "12345:12345"
+    volumes:
+      - ./docker/alloy/config.alloy:/etc/alloy/config.alloy:ro
+    depends_on:
+      - tempo

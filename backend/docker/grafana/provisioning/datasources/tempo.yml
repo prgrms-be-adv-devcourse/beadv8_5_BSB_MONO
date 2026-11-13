@@ -1,0 +1,12 @@
+# Grafana가 시작할 때 Tempo 데이터 소스를 자동으로 등록한다
+apiVersion: 1
+
+datasources:
+  - name: Tempo
+    type: tempo
+    # 나중에 메트릭·로그에서 trace로 건너가는 링크를 걸 때 이 이름(uid)으로 가리킨다
+    uid: tempo
+    # 같은 compose 네트워크라 컨테이너 이름과 컨테이너 포트(3200)로 접속한다
+    url: http://bukang-tempo:3200
+    access: proxy
+    editable: false

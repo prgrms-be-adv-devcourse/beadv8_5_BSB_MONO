@@ -1,0 +1,28 @@
+// 추적 수집기 Alloy 설정 (로컬 전용). 받기 → 묶기 → Tempo로 보내기
+
+// 1. 앱이 OTLP(HTTP)로 보낸 span을 받는다. 0.0.0.0이라 컨테이너 밖(맥의 bootRun)에서도 들어온다
+otelcol.receiver.otlp "default" {
+  http {
+    endpoint = "0.0.0.0:4318"
+  }
+  output {
+    traces = [otelcol.processor.batch.default.input]
+  }
+}
+
+// 2. span을 하나씩 보내지 않고 모아서 한 번에 넘긴다 (네트워크 요청 수를 줄인다)
+otelcol.processor.batch "default" {
+  output {
+    traces = [otelcol.exporter.otlp.tempo.input]
+  }
+}
+
+// 3. Tempo로 보낸다. 같은 Docker 네트워크라 컨테이너 이름으로, TLS 없이 gRPC(4317)로 보낸다
+otelcol.exporter.otlp "tempo" {
+  client {
+    endpoint = "bukang-tempo:4317"
+    tls {
+      insecure = true
+    }
+  }
+}
