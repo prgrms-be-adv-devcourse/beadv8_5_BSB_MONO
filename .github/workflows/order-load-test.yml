@@ -1,0 +1,100 @@
+name: order-load-test
+
+# 주문 결제 잠금 부하 측정 (docs/measurements/2026-11-13-결제-잠금-판정기준.md). 손으로만 실행한다. 운영·dev 서버에는 닿지 않고
+# 실행 머신 안에서 docker compose(docs/measurements/load/compose.load.yml)로 주문·예치금·상품과 인프라를 띄워 잰다
+# - Actions 탭의 Run workflow (workflow_dispatch): 이 파일이 기본 브랜치에 있어야 버튼이 보인다
+# - 그 전에는 PR에 load-test 라벨을 붙이면 그 PR 커밋을 A로 한 번 잰다 (라벨은 사람이 붙이므로 손으로 실행하는 것과 같다)
+on:
+  workflow_dispatch:
+    inputs:
+      ref_a:
+        description: 'A(변경 전)로 잴 브랜치·커밋. 비우면 이 실행의 커밋'
+        required: false
+        default: ''
+      ref_b:
+        description: 'B(변경 후)로 잴 브랜치·커밋. 비우면 A만 잰다'
+        required: false
+        default: ''
+      repeat:
+        description: '반복 횟수 (A, B를 번갈아 반복)'
+        required: false
+        default: '3'
+      scenarios:
+        description: '돌릴 시나리오 (공백 구분, 비우면 전체: warmup s1-1 s1-5 s2 s3 s4-*-flow/burst s5-flow/burst)'
+        required: false
+        default: ''
+      quick:
+        description: '확인용으로 시간을 줄인다 (1이면 흐름 20초)'
+        required: false
+        default: '0'
+  pull_request:
+    types: [ labeled ]
+
+# 측정끼리 같은 머신 자원을 나눠 쓰지 않게 하나씩만 돈다
+concurrency:
+  group: order-load-test
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  measure:
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'load-test'
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    env:
+      REF_A: ${{ inputs.ref_a || github.event.pull_request.head.sha || github.sha }}
+      REF_B: ${{ inputs.ref_b }}
+      REPEAT: ${{ inputs.repeat || '3' }}
+      SCENARIOS: ${{ inputs.scenarios }}
+      QUICK: ${{ inputs.quick || '0' }}
+      OUT: ${{ github.workspace }}/load-results
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # 측정 도구는 이 커밋의 것을 쓰고, A·B 서비스 코드는 따로 꺼낸다
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: 서비스 이미지 빌드 (A, B)
+        run: |
+          build() {
+            local label=$1 ref=$2 src="$RUNNER_TEMP/src-$1"
+            git worktree add --detach "$src" "$ref"
+            echo "$label = $(git -C "$src" rev-parse HEAD)" | tee -a "$RUNNER_TEMP/refs.txt"
+            for m in order cash product; do
+              docker build -q --build-arg MODULE=$m-service -t orderload-$m:$label "$src/backend"
+            done
+          }
+          build a "$REF_A"
+          if [ -n "$REF_B" ]; then build b "$REF_B"; fi
+          docker compose -f docs/measurements/load/compose.load.yml build elasticsearch
+          for image in grafana/k6:1.0.0 ghcr.io/shopify/toxiproxy:2.12.0 prom/prometheus:v3.5.0 mysql:8.4 \
+            redpandadata/redpanda:v26.2.3 redis:8.2; do docker pull -q "$image"; done
+          pip install -q matplotlib
+
+      - name: 측정 (A, B 번갈아 반복)
+        run: |
+          mkdir -p "$OUT" && cp "$RUNNER_TEMP/refs.txt" "$OUT/"
+          labels=a; if [ -n "$REF_B" ]; then labels="a b"; fi
+          for rep in $(seq 1 "$REPEAT"); do
+            for label in $labels; do
+              LABEL=$label REP=$rep docs/measurements/load/run.sh
+            done
+          done
+
+      - name: 결과 정리
+        if: always()
+        run: |
+          if [ -d "$OUT" ]; then
+            python3 docs/measurements/load/report.py summary "$OUT" "$OUT/report" || true
+            { cat "$OUT/refs.txt" 2>/dev/null; echo; cat "$OUT/report/summary.md" 2>/dev/null; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: order-load-results
+          path: load-results
+          retention-days: 30
