@@ -5,7 +5,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import GlobalError from './global-error'
 
 const track = vi.hoisted(() => vi.fn())
-vi.mock('@/shared/lib', () => ({ trackEvent: track, trackingGtmId: () => undefined }))
+vi.mock('@/shared/lib/analytics/track', async (original) => ({
+  ...(await original<object>()),
+  trackEvent: track,
+  trackingGtmId: () => undefined,
+}))
 
 afterEach(() => vi.restoreAllMocks())
 

@@ -5,7 +5,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { RouteErrorScreen } from './RouteErrorScreen'
 
 const track = vi.hoisted(() => vi.fn())
-vi.mock('@/shared/lib', () => ({ trackEvent: track }))
+vi.mock('@/shared/lib/analytics/track', async (original) => ({
+  ...(await original<object>()),
+  trackEvent: track,
+}))
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }))
 
 afterEach(() => {
