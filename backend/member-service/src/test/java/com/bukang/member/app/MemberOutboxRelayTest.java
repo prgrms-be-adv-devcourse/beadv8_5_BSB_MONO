@@ -49,6 +49,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.common.shared.kafka.KafkaMessageId;
 import com.bukang.common.shared.kafka.KafkaTopics;
+import com.bukang.common.shared.kafka.outbox.OutboxKafkaRelay;
 import com.bukang.common.shared.kafka.outbox.OutboxStatus;
 import com.bukang.common.shared.member.event.MemberJoinedEvent;
 import com.bukang.common.shared.member.event.MemberModifiedEvent;
@@ -356,6 +357,40 @@ class MemberOutboxRelayTest {
 		MemberOutboxEvent row = allRows().get(0);
 		assertThat(row.getStatus()).isEqualTo(OutboxStatus.PENDING);
 		assertThat(row.getRetryCount()).isEqualTo(5);
+	}
+
+	@Test
+	@DisplayName("보내기가 느려 한 번 실행의 시간 한도를 넘기면 거기서 멈추고, 남은 행은 다음 실행에서 저장 순서대로 보낸다")
+	void stopAtRunTimeLimitAndResumeInOrder(CapturedOutput output) {
+		for (long memberId = 2001; memberId <= 2005; memberId++) {
+			joined(memberId);
+		}
+		doAnswer(invocation -> {
+			Thread.sleep(300);
+			return CompletableFuture.completedFuture(null);
+		}).when(kafka()).send(any(ProducerRecord.class));
+		OutboxKafkaRelay<MemberOutboxEvent> limited = new OutboxKafkaRelay<>(memberOutboxEventRepository, kafka()) {
+			@Override
+			protected Duration runTimeLimit() {
+				return Duration.ofMillis(500);
+			}
+		};
+
+		int firstRun = transactionTemplate.execute(status -> limited.relay(now));
+		List<MemberOutboxEvent> afterFirstRun = allRows();
+		int secondRun = relayAt(now.plusSeconds(1));
+
+		// 300ms 뒤(한도 안)에 두 번째를 보내고, 600ms 뒤(한도 넘음)에 멈춘다
+		assertThat(firstRun).isEqualTo(2);
+		assertThat(afterFirstRun).extracting(MemberOutboxEvent::getStatus)
+			.containsExactly(OutboxStatus.SENT, OutboxStatus.SENT, OutboxStatus.PENDING, OutboxStatus.PENDING,
+				OutboxStatus.PENDING);
+		assertThat(afterFirstRun).extracting(MemberOutboxEvent::getRetryCount).containsOnly(0);
+		assertThat(secondRun).isEqualTo(3);
+		assertThat(sentRecords(5)).extracting(ProducerRecord::key)
+			.containsExactly("2001", "2002", "2003", "2004", "2005");
+		assertThat(allRows()).extracting(MemberOutboxEvent::getStatus).containsOnly(OutboxStatus.SENT);
+		assertThat(output).contains("시간 한도");
 	}
 
 	@Test
