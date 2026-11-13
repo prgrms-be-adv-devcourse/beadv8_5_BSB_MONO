@@ -250,7 +250,10 @@ const fmt = n => String(+n.toFixed(2));
 const axisPts = s => !s || s.na ? null : (n => s.cap ? Math.min(n, 1) : n)(s.items.filter(i => i.ok).length);
 const axisGrade = (p, s) => p === null ? "na" : s.cap || p < (R.okMin ?? 2) ? "weak" : p === 4 ? "good" : "ok";
 const SC = {};
-DATA.teams.forEach(t => {
+// scores가 없는 팀은 「채점 전」. 순위·평균·분포는 채점한 팀만으로 계산한다 (rubric.partial일 때만 허용)
+const SCORED = DATA.teams.filter(t => t.scores);
+DATA.teams.filter(t => !t.scores).forEach(t => SC[t.id] = { pending: true, axes: [], total: null });
+SCORED.forEach(t => {
   let got = 0, w = 0;
   const axes = R.axes.map(a => {
     const s = t.scores[a.id], p = axisPts(s);
@@ -259,11 +262,12 @@ DATA.teams.forEach(t => {
   });
   SC[t.id] = { axes, total: w ? Math.round(got / w * 1000) / 10 : 0 };
 });
-DATA.teams.forEach(t => SC[t.id].rank = 1 + DATA.teams.filter(u => SC[u.id].total > SC[t.id].total).length);
-const AVG = DATA.teams.reduce((s, t) => s + SC[t.id].total, 0) / DATA.teams.length;
-const axisVals = i => DATA.teams.map(t => SC[t.id].axes[i].p).filter(p => p !== null);
+SCORED.forEach(t => SC[t.id].rank = 1 + SCORED.filter(u => SC[u.id].total > SC[t.id].total).length);
+const AVG = SCORED.reduce((s, t) => s + SC[t.id].total, 0) / Math.max(SCORED.length, 1);
+const axisVals = i => SCORED.map(t => SC[t.id].axes[i].p).filter(p => p !== null);
 const AXIS_AVG = R.axes.map((_, i) => { const v = axisVals(i); return v.length ? v.reduce((x, y) => x + y, 0) / v.length : 0; });
-const N = DATA.teams.length;
+const N = SCORED.length, PENDING = DATA.teams.length - N;
+const ofN = `${PENDING ? "채점한 " : ""}${N}팀`;
 
 function radar(t) {
   const n = R.axes.length, c = 150, r = 90;
@@ -330,9 +334,9 @@ function axisDetail(x, i) {
 function scoreboard(t) {
   const S = SC[t.id], strong = S.axes.filter(x => x.g === "good");
   return `<section class="score-top">
-      <div class="card"><span class="rank">${N}팀 중 ${S.rank}위 · ${S.total}점</span>
+      <div class="card"><span class="rank">${ofN} 중 ${S.rank}위 · ${S.total}점</span>
         <div class="bar"><i style="width:${S.total}%"></i><u style="left:${AVG}%"></u></div>
-        <div class="bar-scale"><span>0</span><span>세로선은 ${N}팀 평균 ${AVG.toFixed(1)}점</span><span>100</span></div>
+        <div class="bar-scale"><span>0</span><span>세로선은 ${ofN} 평균 ${AVG.toFixed(1)}점</span><span>100</span></div>
         <table class="score"><thead><tr><th>축</th><th>점수</th><th>판정</th></tr></thead><tbody>
         ${S.axes.map(x => `<tr><td>${esc(x.a.name)}</td><td class="num">${x.p === null ? "–" : `${fmt(x.pts)}/${x.a.weight}`}</td><td>${grade(x.g)}${x.s?.cap ? " <small>치명 결함</small>" : ""}</td></tr>`).join("")}
         </tbody></table></div>
@@ -343,7 +347,8 @@ function scoreboard(t) {
 }
 
 function scores() {
-  const sorted = [...DATA.teams].sort((x, y) => SC[x.id].rank - SC[y.id].rank);
+  const sorted = [...SCORED].sort((x, y) => SC[x.id].rank - SC[y.id].rank);
+  const pend = DATA.teams.filter(t => !t.scores);
   return `<div class="page">
     ${header("점수 순위", R.note)}
     ${lead(R.summary)}
@@ -353,7 +358,8 @@ function scores() {
         <td class="num">${S.rank}</td><td class="name"><a href="#${esc(t.id)}">${esc(teamLabel(t))}</a></td>
         <td class="num">${S.total}<span class="mini"><i style="width:${S.total}%"></i></span></td>
         ${S.axes.map(x => `<td class="num ${x.g}">${x.p === null ? "–" : x.p + (x.s.cap ? "*" : "")}</td>`).join("")}</tr>`; }).join("")}
-        <tr><td></td><td>${N}팀 평균</td><td class="num">${AVG.toFixed(1)}</td>${AXIS_AVG.map(v => `<td class="num">${v.toFixed(1)}</td>`).join("")}</tr>
+        ${pend.map(t => `<tr class="${t.ours ? "ours" : ""}"><td class="num">–</td><td class="name"><a href="#${esc(t.id)}">${esc(teamLabel(t))}</a></td><td class="num" colspan="${R.axes.length + 1}">${none("새 기준 채점 전")}</td></tr>`).join("")}
+        <tr><td></td><td>${ofN} 평균</td><td class="num">${AVG.toFixed(1)}</td>${AXIS_AVG.map(v => `<td class="num">${v.toFixed(1)}</td>`).join("")}</tr>
       </tbody></table></div>
     <p class="foot">축 칸은 확인 항목 충족 개수(0~4)입니다. *는 치명 결함이 있어 최대 1점만 받는 축, –는 해당 없는 축입니다.</p>
   </div>`;
@@ -407,7 +413,7 @@ function team(t) {
     `<div class="check"><span class="item">${md(c.item)}</span>${grade(c.grade)}<p>${md(c.text)}</p></div>`).join("")}</div></section>` : "";
   return `<div class="page">
     ${header(teamLabel(t), [t.product, t.kind, t.source].filter(Boolean).join(" · "))}
-    ${scoreboard(t)}
+    ${t.scores ? scoreboard(t) : `<p class="foot">${none("새 기준으로 아직 채점하지 않았습니다. 아래는 이전 기준 판정입니다.")}</p>`}
     <dl class="facts">${(t.facts || []).map(([k, v]) => `<div class="fact"><dt>${esc(k)}</dt><dd>${md(v)}</dd></div>`).join("")}</dl>
     <div class="two">
       <section class="box g"><h2>잘한 점</h2>${list(t.good, "g")}</section>
@@ -520,7 +526,7 @@ function locks() {
     <section><h2>가장 오래 잡는 락 구간</h2><div class="tbl"><table class="wide">${lockHead(true)}<tbody>${lockRows(worst, true)}</tbody></table></div></section>
     ${DATA.teams.map(t => `<section><h2>${esc(teamLabel(t))}</h2>${t.locks?.length
       ? `<div class="tbl"><table class="wide">${lockHead(false)}<tbody>${lockRows(t.locks.map(l => [t, l]), false)}</tbody></table></div>`
-      : `<p class="foot">${none("락 구간 없음")}</p>`}</section>`).join("")}
+      : `<p class="foot">${none(t.scores ? "락 구간 없음" : "새 기준 채점 전")}</p>`}</section>`).join("")}
     <p class="foot">시간은 코드의 타임아웃 설정으로 계산한 최악의 경우입니다. 부하 테스트로 잰 값이 아닙니다.</p>
   </div>`;
 }
@@ -545,7 +551,7 @@ document.getElementById("nav").innerHTML =
    <a href="#apply" data-r="apply">우리 팀 적용안</a>
    ${DATA.strengths ? `<a href="#strengths" data-r="strengths">다른 팀 장점 적용</a>` : ""}
    <div class="group">팀별 상세</div>
-   ${DATA.teams.map(t => `<a href="#${esc(t.id)}" data-r="${esc(t.id)}">${esc(teamLabel(t))}<small>${SC[t.id].total}점</small></a>`).join("")}`;
+   ${DATA.teams.map(t => `<a href="#${esc(t.id)}" data-r="${esc(t.id)}">${esc(teamLabel(t))}<small>${t.scores ? `${SC[t.id].total}점` : "채점 전"}</small></a>`).join("")}`;
 
 function render() {
   const key = (location.hash || "").slice(1);

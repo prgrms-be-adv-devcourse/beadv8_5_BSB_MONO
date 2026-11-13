@@ -162,6 +162,8 @@ def check_rubric(d):
         if not a.get("name") or len(a.get("items") or []) != 4:
             errs.append(f"축 {a.get('id')}: name과 확인 항목 4개가 있어야 함")
     for t in d.get("teams", []):
+        if r.get("partial") and "scores" not in t:
+            continue  # 채점 전 팀. 화면에 「채점 전」으로 보인다
         sc = t.get("scores") or {}
         for a in axes:
             s = sc.get(a["id"])
