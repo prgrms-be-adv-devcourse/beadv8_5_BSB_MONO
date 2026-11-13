@@ -25,8 +25,11 @@ export type UseIdentityVerificationOptions = {
   onVerified: (identity: VerifiedIdentity) => void
   /** 모바일에서 인증을 마친 뒤 돌아올 가입 화면 주소. 비우면 지금 주소로 돌아온다 */
   redirectUrl?: string
-  /** 포트원 창이 페이지를 옮겨 가기 전에 부른다. 가입 단계 입력값을 sessionStorage에 남길 때 쓴다 */
-  onBeforeOpen?: () => void
+  /**
+   * 포트원 창이 페이지를 옮겨 가기 전에 부른다. 가입 단계 입력값을 sessionStorage에 남길 때 쓴다.
+   * 함수를 돌려주면, 페이지를 옮기지 않고(PC 창) 결과가 나왔을 때 부른다. 남긴 값을 지울 때 쓴다
+   */
+  onBeforeOpen?: () => (() => void) | void
   /** 모바일 리디렉션으로 돌아와 결과를 받기 직전에 부른다. 남겨 둔 입력값을 되살릴 때 쓴다 */
   onReturn?: () => void
   /** 이미 가입한 사람이면 부른다(시안 M04-P 3). 화면이 로그인을 안내하는 모달을 띄운다 */
@@ -97,7 +100,7 @@ export function useIdentityVerification({
       setMockOpen(true)
       return
     }
-    onBeforeOpen?.()
+    const discard = onBeforeOpen?.()
     setOpening(true)
     const fresh =
       prepared && Date.now() - prepared.at < PREPARED_MAX_AGE_MS ? prepared.id : undefined
@@ -108,7 +111,10 @@ export function useIdentityVerification({
       identityVerificationId: fresh,
     }).then((outcome) => {
       // 리디렉션이면 페이지가 바뀌므로 버튼을 계속 잠가 둔다
-      if (outcome.status !== 'redirecting') setOpening(false)
+      if (outcome.status !== 'redirecting') {
+        setOpening(false)
+        discard?.()
+      }
       handleOutcome(outcome)
       if (outcome.status === 'failed' || outcome.status === 'cancelled') {
         void prepareIdentityVerification().then((id) => id && setPrepared({ id, at: Date.now() }))

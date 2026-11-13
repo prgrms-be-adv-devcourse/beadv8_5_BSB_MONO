@@ -42,7 +42,7 @@ import {
   signupProfileSchema,
   type SignupProfileValues,
 } from '../model/schemas'
-import { saveSignupDraft, takeSignupDraft } from '../model/signup-draft'
+import { clearSignupDraft, saveSignupDraft, takeSignupDraft } from '../model/signup-draft'
 import { saveSignupNext, signupStartHref, takeSignupNext } from '../model/signup-next'
 import { useSignupStep } from '../model/signup-store'
 import { requiredTermsChecked, SIGNUP_TERMS } from '../model/signup-terms'
@@ -75,7 +75,10 @@ export function SignupIdentityPage({ next }: { next?: string } = {}) {
       setVerification(identity)
       router.push('/signup/account')
     },
-    onBeforeOpen: () => saveSignupDraft({ terms, termsAgreed }),
+    onBeforeOpen: () => {
+      saveSignupDraft({ terms, termsAgreed })
+      return clearSignupDraft
+    },
     onReturn: () => {
       const draft = takeSignupDraft()
       if (draft) {

@@ -122,6 +122,13 @@ function WriteForm({
   const [content, setContent] = useState(initial?.content ?? '')
   const [photos, setPhotos] = useState<Photo[]>(initial?.photos ?? [])
   const fileInput = useRef<HTMLInputElement>(null)
+  // 화면을 떠나면 올리던 사진을 멈춘다
+  const uploads = useRef<AbortController>(null)
+  useEffect(() => {
+    const controller = new AbortController()
+    uploads.current = controller
+    return () => controller.abort()
+  }, [])
   const editing = postId !== undefined
   const uploading = photos.some((p) => p.uploading)
   const pending = create.isPending || update.isPending
@@ -142,11 +149,14 @@ function WriteForm({
     await Promise.all(
       added.map(async ({ file, photo }) => {
         try {
-          const { fileId } = await uploadFile(file, POST_IMAGE)
+          const { fileId } = await uploadFile(file, POST_IMAGE, {
+            signal: uploads.current?.signal,
+          })
           setPhotos((prev) =>
             prev.map((p) => (p.key === photo.key ? { ...p, fileId, uploading: false } : p)),
           )
         } catch (e) {
+          if (e instanceof DOMException && e.name === 'AbortError') return
           setPhotos((prev) => prev.filter((p) => p.key !== photo.key))
           toast({ message: errorMessage(e, '사진을 올리지 못했어요'), tone: 'error' })
         }

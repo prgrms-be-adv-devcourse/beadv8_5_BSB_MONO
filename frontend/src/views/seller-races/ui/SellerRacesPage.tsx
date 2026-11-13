@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ConsoleCard, ConsoleLoading, ConsolePage } from '@/widgets/console-page'
 import { myRacesQueryOptions, toSellerRaceRow } from '@/entities/race'
 import { ApiError } from '@/shared/api'
-import { cn, formatNumber } from '@/shared/lib'
+import { cn, copyText, formatNumber } from '@/shared/lib'
 import {
   Alert,
   Badge,
@@ -43,8 +43,12 @@ export function SellerRacesPage({ registeredRaceId }: { registeredRaceId?: strin
       action: {
         label: '링크 복사',
         onClick: () =>
-          void navigator.clipboard?.writeText(
-            `${window.location.origin}/races/${registeredRaceId}`,
+          void copyText(`${window.location.origin}/races/${registeredRaceId}`).then((copied) =>
+            toast(
+              copied
+                ? { message: '링크를 복사했어요', tone: 'success' }
+                : { message: '복사하지 못했어요. 링크를 길게 눌러 복사해 주세요.', tone: 'error' },
+            ),
           ),
       },
     })

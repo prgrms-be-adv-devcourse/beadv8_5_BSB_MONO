@@ -64,6 +64,15 @@ export function saveLastWithdrawal(withdrawal: LastWithdrawal) {
   }
 }
 
+/** 완료 화면을 떠나면 예금주 · 가린 계좌 · 잔액을 남기지 않는다 */
+export function clearLastWithdrawal() {
+  try {
+    sessionStorage.removeItem(KEY)
+  } catch {
+    // 저장소를 쓸 수 없으면 남은 값도 없다
+  }
+}
+
 /** 저장된 원문. useSyncExternalStore 스냅샷으로 쓰려고 매번 같은 문자열을 돌려준다 */
 export function readLastWithdrawalRaw(): string | null {
   try {
