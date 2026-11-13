@@ -58,6 +58,8 @@ export type RaceDetail = {
   /** 신청하기 버튼은 'open'일 때만 켠다 */
   phase: ApplicationPhase
   startsAt: string
+  /** 대회 일시 원본(시간대 없는 한국 시간). 검색엔진용 구조화 데이터에 쓴다 */
+  raceDate?: string
   place: string
   /** 판매자가 쓴 대회 소개 */
   description?: string
