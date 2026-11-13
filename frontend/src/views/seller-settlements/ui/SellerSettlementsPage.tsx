@@ -3,7 +3,7 @@
 import { keepPreviousData } from '@tanstack/react-query'
 import { useState, type ReactNode } from 'react'
 
-import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
+import { ConsoleCard, ConsoleLoading, ConsolePage } from '@/widgets/console-page'
 import {
   detailPeriods,
   formatMonthDay,
@@ -17,7 +17,7 @@ import {
   type DetailPeriod,
 } from '@/entities/payout'
 import { ApiError, payoutApi, payoutModel, unwrapData } from '@/shared/api'
-import { cn, formatNumber, formatWon, useSearchParamsState } from '@/shared/lib'
+import { cn, formatNumber, formatWon, useNow, useSearchParamsState } from '@/shared/lib'
 import {
   Alert,
   Badge,
@@ -47,8 +47,20 @@ function errorText(error: unknown) {
 
 // 피그마 V2 · S04 정산(월별 정산) · S10 정산 내역 · 지급보류
 export function SellerSettlementsPage({ initialTab = 'monthly' }: { initialTab?: SettlementTab }) {
-  // 화면을 연 날 기준. 기간 목록이 렌더마다 바뀌지 않게 한 번만 잡는다
-  const [today] = useState(() => new Date())
+  // 화면을 연 날 기준. 서버와 브라우저의 날짜가 어긋나지 않게 마운트 뒤에 정하고, 그 전에는 뼈대만 그린다
+  const today = useNow()
+  if (!today) {
+    return (
+      <ConsolePage title="정산">
+        <ConsoleLoading />
+      </ConsolePage>
+    )
+  }
+  return <SettlementsBody initialTab={initialTab} today={today} />
+}
+
+function SettlementsBody({ initialTab, today }: { initialTab: SettlementTab; today: Date }) {
+  // 기간 목록이 렌더마다 바뀌지 않게 한 번만 잡는다
   const [periods] = useState(() => detailPeriods(today))
   // 탭 · 기간은 URL(?tab=&period=)에 담는다. 건별 정산의 쪽(page)은 PayoutItemList가 같은 방식으로 쓴다
   const [url, setUrl] = useSearchParamsState(

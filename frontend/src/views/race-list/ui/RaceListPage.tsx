@@ -26,6 +26,7 @@ import {
   formatNumber,
   loadRecentSearches,
   removeRecentSearch,
+  useNow,
   useSearchParamsState,
   useTrackOnce,
 } from '@/shared/lib'
@@ -70,12 +71,13 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
   const [recent, setRecent] = useState<string[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
   const keyword = useDebouncedValue(query)
-  const [now] = useState(() => new Date())
+  // 서버(UTC)와 브라우저(KST)의 달이 다를 수 있어 마운트 뒤에 정한다
+  const now = useNow()
   const filters: RaceSearchFilters = {
     keyword,
     sort,
     ...category,
-    ...(thisMonth ? monthRange(now) : {}),
+    ...(thisMonth && now ? monthRange(now) : {}),
   }
   const filtered = Object.keys(category).length > 0 || thisMonth
 
@@ -235,7 +237,7 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
               지역
             </Chip>
             <Chip selected={thisMonth} onClick={() => setUrl({ month: thisMonth ? '' : '1' })}>
-              {now.getMonth() + 1}월
+              {now ? `${now.getMonth() + 1}월` : '이번 달'}
             </Chip>
           </div>
         )}
