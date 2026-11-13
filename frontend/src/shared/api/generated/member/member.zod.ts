@@ -197,7 +197,7 @@ export const CheckEmailAvailabilityResponse = zod.object({
 
 
 /**
- * X-Member-Id 헤더의 회원이 판매자 등록을 신청한다. 사업자는 상호·사업자등록번호가 필수이고, 비사업자가 보낸 상호·사업자등록번호는 버린다. 대기·승인 상태 신청이 있으면 막고, 반려만 있으면 새로 신청한다.
+ * X-Member-Id 헤더의 회원이 판매자 등록을 신청한다. 사업자는 상호·사업자등록번호가 필수이고, 비사업자가 보낸 상호·사업자등록번호는 버린다. 대기·승인 상태 신청이 있으면 막고, 반려만 있으면 새로 신청한다. 정산 계좌는 오픈뱅킹 계좌실명조회로 확인한다. 사업자 명의는 사업자등록번호로 조회해 은행이 맞다고 답하면, 본인 명의는 본인인증 생년월일로 조회해 예금주 이름이 본인인증 이름과 같으면(공백 무시) 통과한다. 계좌 확인은 회원 한 명당 하루 5번까지 할 수 있다.
  * @summary 판매자 등록 신청
  */
 export const applyBodyBusinessNameMin = 0;
@@ -209,11 +209,20 @@ export const applyBodyRepresentativeNameMax = 50;
 
 
 
+export const applyBodyBankCodeRegExp = new RegExp('^\\d{3}$');
+
+
+export const applyBodyAccountNumberRegExp = new RegExp('^\\d{6,16}$');
+
+
 export const ApplyBody = zod.object({
   "sellerType": zod.enum(['BUSINESS', 'INDIVIDUAL']).describe('판매자 종류 (BUSINESS: 사업자, INDIVIDUAL: 비사업자)'),
   "businessName": zod.string().min(applyBodyBusinessNameMin).max(applyBodyBusinessNameMax).optional().describe('상호 (사업자만, 100자 이하)'),
   "businessNumber": zod.string().regex(applyBodyBusinessNumberRegExp).optional().describe('사업자등록번호 (사업자만, 숫자 10자리, 하이픈 생략 가능)'),
-  "representativeName": zod.string().min(applyBodyRepresentativeNameMin).max(applyBodyRepresentativeNameMax).describe('대표자 (비사업자는 본인 성명, 50자 이하)')
+  "representativeName": zod.string().min(applyBodyRepresentativeNameMin).max(applyBodyRepresentativeNameMax).describe('대표자 (비사업자는 본인 성명, 50자 이하)'),
+  "bankCode": zod.string().min(1).regex(applyBodyBankCodeRegExp).describe('정산 계좌 은행 표준 코드 (숫자 3자리)'),
+  "accountNumber": zod.string().min(1).regex(applyBodyAccountNumberRegExp).describe('정산 계좌번호 (하이픈 없이 숫자 6~16자리)'),
+  "accountHolderType": zod.enum(['BUSINESS', 'PERSONAL']).describe('계좌 명의 (BUSINESS: 사업자 명의, 사업자만 / PERSONAL: 본인 명의)')
 }).describe('판매자 등록 신청 요청')
 
 export const ApplyResponse = zod.object({

@@ -31,11 +31,13 @@ import com.bukang.common.shared.seller.event.SellerChangedEvent;
 import com.bukang.member.app.MemberFacade;
 import com.bukang.member.app.SellerFacade;
 import com.bukang.member.domain.Member;
+import com.bukang.member.domain.PayoutAccountHolderType;
 import com.bukang.member.domain.Seller;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.SellerRepository;
 import com.bukang.member.out.TermsAgreementRepository;
 import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
+import com.bukang.member.out.payoutaccount.InMemoryPayoutAccountVerifyLimiter;
 import com.bukang.member.support.MemberFixture;
 
 // 관리자의 판매자 신청 목록·승인·반려 (BE-020). 관리자는 회원 역할 칸(ADMIN)으로 알아본다
@@ -43,7 +45,7 @@ import com.bukang.member.support.MemberFixture;
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @RecordApplicationEvents
-@Import(InMemoryIdentityVerificationStore.Config.class)
+@Import({InMemoryIdentityVerificationStore.Config.class, InMemoryPayoutAccountVerifyLimiter.Config.class})
 class ApiV1AdminSellerTest {
 	@Autowired
 	private InMemoryIdentityVerificationStore identityStore;

@@ -144,6 +144,19 @@ member:
     portone:
       api-secret: ${PORTONE_API_SECRET:}
       store-id: ${PORTONE_STORE_ID:}
+  # 판매자 정산 계좌 확인 (PayoutAccountProperties, BUK-50). 금융결제원 오픈뱅킹 계좌실명조회. 키 값은 .env에만 둔다
+  # 키가 없으면 운영을 포함해 가짜 확인(목업)으로 통과시킨다. 오픈뱅킹 이용 승인이 거절되어 운영도 목업이다 (PayoutAccountConfig)
+  payout-account:
+    daily-limit: 5
+    window: 24h
+    openbanking:
+      base-url: ${OPENBANKING_BASE_URL:https://testapi.openbanking.or.kr}
+      client-id: ${OPENBANKING_CLIENT_ID:}
+      client-secret: ${OPENBANKING_CLIENT_SECRET:}
+      # 공식 문서에서 확인하지 못한 값이라 기본값을 두지 않는다. 비면 계좌 확인이 503으로 실패한다
+      use-code: ${OPENBANKING_USE_CODE:}
+      birth-holder-type: ${OPENBANKING_HOLDER_TYPE_BIRTH:}
+      business-holder-type: ${OPENBANKING_HOLDER_TYPE_BUSINESS:}
   # CRM 광고 수신 거부 링크 (MarketingUnsubscribeProperties, BUK-75, BE-039). 서명 키는 .env에만 둔다
   marketing:
     unsubscribe:
