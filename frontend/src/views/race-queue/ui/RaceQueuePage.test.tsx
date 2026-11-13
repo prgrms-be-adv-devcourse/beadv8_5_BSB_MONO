@@ -55,7 +55,7 @@ const mockQueueOpen = () => mockQueue([queueStatus(0, true)])
 
 function renderQueue(props: { previewRemainingSeconds?: number } = {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  render(
+  return render(
     <QueryClientProvider client={client}>
       <RaceQueuePage raceId="1" optionId="2" {...props} />
     </QueryClientProvider>,
@@ -209,6 +209,34 @@ describe('RaceQueuePage', () => {
     await vi.waitFor(() => expect(registered).toBe(4))
     expect(await screen.findByRole('progressbar')).toBeInTheDocument()
     expect(screen.queryByText(/대기열에서 자리를 잃었어요/)).not.toBeInTheDocument()
+  })
+
+  it('다시 등록하는 중에 화면을 떠나면 그 뒤로 등록 · 순번 조회를 보내지 않는다', async () => {
+    let registered = 0
+    let statusAsked = 0
+    let answerRegister: () => void = () => {}
+    server.use(
+      http.post('*/api/v1/queue', async () => {
+        registered += 1
+        // 두 번째(다시 등록)는 화면을 떠난 뒤에 답한다
+        if (registered === 2) await new Promise<void>((resolve) => (answerRegister = resolve))
+        return HttpResponse.json(queueStatus(1))
+      }),
+      http.get('*/api/v1/queue/races/:raceId/racecourses/:raceCourseId', () => {
+        statusAsked += 1
+        return queueFailure(404)
+      }),
+    )
+    const { unmount } = renderQueue()
+    await vi.waitFor(() => expect(registered).toBe(2))
+
+    unmount()
+    const askedBefore = statusAsked
+    answerRegister()
+    await new Promise((resolve) => setTimeout(resolve, 100))
+
+    expect(registered).toBe(2)
+    expect(statusAsked).toBe(askedBefore)
   })
 
   it('대기열 등록이 401이면 로그인 화면으로 보낸다', async () => {

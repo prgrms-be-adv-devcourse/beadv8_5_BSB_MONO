@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import type { productModel } from '@/shared/api'
 import { server } from '@/shared/testing'
@@ -11,12 +11,12 @@ import { ToastProvider } from '@/shared/ui'
 import { SALE_CHANGE_ERRORS } from '../model/sale-change-form'
 import { SellerRacesPage } from './SellerRacesPage'
 
-function renderPage() {
+function renderPage(registeredRaceId?: string) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={client}>
       <ToastProvider>
-        <SellerRacesPage />
+        <SellerRacesPage registeredRaceId={registeredRaceId} />
       </ToastProvider>
     </QueryClientProvider>,
   )
@@ -25,6 +25,21 @@ function renderPage() {
 const saveButton = () => screen.findByRole('button', { name: '변경 저장' })
 
 describe('SellerRacesPage', () => {
+  it('등록 알림의 링크 복사가 막히면 실패를 알린다', async () => {
+    const user = userEvent.setup()
+    const writeText = vi
+      .spyOn(navigator.clipboard, 'writeText')
+      .mockRejectedValue(new Error('denied'))
+    renderPage('7')
+    await user.click(await screen.findByRole('button', { name: '링크 복사' }))
+
+    expect(
+      await screen.findByText('복사하지 못했어요. 링크를 길게 눌러 복사해 주세요.'),
+    ).toBeInTheDocument()
+    expect(writeText).toHaveBeenCalledWith(expect.stringMatching(/\/races\/7$/))
+    writeText.mockRestore()
+  })
+
   it('내 대회 목록을 판매 수 · 정원 · 판매 상태와 함께 보여 준다', async () => {
     renderPage()
     expect(await screen.findByText('대회 1개')).toBeInTheDocument()

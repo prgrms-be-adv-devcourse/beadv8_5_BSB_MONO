@@ -73,6 +73,40 @@ describe('RaceDetailPage 공유 · 일정', () => {
     }
   })
 
+  it('링크 복사가 막히면 성공 대신 실패 안내를 띄운다', async () => {
+    const user = userEvent.setup()
+    const writeText = vi
+      .spyOn(navigator.clipboard, 'writeText')
+      .mockRejectedValue(new Error('denied'))
+    renderPage()
+    await user.click(screen.getByRole('button', { name: '공유하기' }))
+    await user.click(
+      within(await screen.findByRole('dialog')).getByRole('button', { name: '링크 복사' }),
+    )
+
+    expect(
+      await screen.findByText('복사하지 못했어요. 링크를 길게 눌러 복사해 주세요.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('링크를 복사했어요')).not.toBeInTheDocument()
+    writeText.mockRestore()
+  })
+
+  it('링크 복사가 되면 복사했다고 알린다', async () => {
+    const user = userEvent.setup()
+    const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue()
+    renderPage()
+    await user.click(screen.getByRole('button', { name: '공유하기' }))
+    await user.click(
+      within(await screen.findByRole('dialog')).getByRole('button', { name: '링크 복사' }),
+    )
+
+    expect(await screen.findByText('링크를 복사했어요')).toBeInTheDocument()
+    expect(writeText).toHaveBeenCalledWith(
+      expect.stringMatching(new RegExp(`/races/${RACE_DETAIL.id}$`)),
+    )
+    writeText.mockRestore()
+  })
+
   it('접수 일정은 접수 기간과 정보 수정 기한 두 줄이다', () => {
     renderPage()
     expect(screen.getByText('정보 수정 기한')).toBeInTheDocument()

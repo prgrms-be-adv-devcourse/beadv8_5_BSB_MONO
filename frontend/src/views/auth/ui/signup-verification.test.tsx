@@ -189,6 +189,38 @@ describe('본인 확인 단계 (포트원)', () => {
     expect(openPortOne).not.toHaveBeenCalled()
   })
 
+  it('PC에서 창으로 인증을 마치면 남겨 둔 가입 입력값을 지운다', async () => {
+    portOneSucceeds()
+    const user = userEvent.setup()
+    renderIdentityStep()
+
+    await user.click(screen.getByRole('button', { name: '본인 확인하기' }))
+
+    await vi.waitFor(() => expect(push).toHaveBeenCalledWith('/signup/account'))
+    expect(sessionStorage.getItem('crewrun:signup-draft')).toBeNull()
+  })
+
+  it('PC에서 창을 닫아도 남겨 둔 가입 입력값을 지운다', async () => {
+    openPortOne.mockResolvedValue({
+      transactionType: 'IDENTITY_VERIFICATION',
+      identityVerificationId: ID,
+      identityVerificationTxId: 'tx-1',
+      code: 'Cancelled',
+      message: '사용자가 본인인증을 취소했습니다.',
+    })
+    const user = userEvent.setup()
+    renderIdentityStep()
+
+    await user.click(screen.getByRole('button', { name: '본인 확인하기' }))
+
+    await vi.waitFor(() =>
+      expect(screen.getByRole('button', { name: '본인 확인하기' })).not.toHaveAttribute(
+        'aria-busy',
+      ),
+    )
+    expect(sessionStorage.getItem('crewrun:signup-draft')).toBeNull()
+  })
+
   it('모바일에서 포트원 창을 다녀와 돌아오면 남겨 둔 약관 동의를 되살리고 결과를 받는다', async () => {
     sessionStorage.setItem(
       'crewrun:signup-draft',

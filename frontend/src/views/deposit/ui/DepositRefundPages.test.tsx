@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
+import { StrictMode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { setAccessToken } from '@/shared/api'
@@ -780,6 +781,28 @@ describe('예치금 돌려받기 · 환급 완료 (M22-1)', () => {
     renderWithClient(<DepositRefundDonePage />)
 
     expect(screen.getByRole('heading', { name: '환급을 신청했어요' })).toBeInTheDocument()
+  })
+
+  it('완료 화면을 떠나면 예금주 · 계좌 · 잔액을 저장소에서 지운다', async () => {
+    save({})
+    const { unmount } = renderWithClient(<DepositRefundDonePage />)
+    unmount()
+
+    await vi.waitFor(() => expect(sessionStorage.getItem('crewrun:last-withdrawal')).toBeNull())
+  })
+
+  it('개발 모드(Strict Mode)처럼 붙였다 뗐다 다시 붙여도 완료 화면을 그대로 보여 준다', async () => {
+    save({})
+    renderWithClient(
+      <StrictMode>
+        <DepositRefundDonePage />
+      </StrictMode>,
+    )
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(screen.getByText('국민은행 123456-**-***567')).toBeInTheDocument()
+    expect(sessionStorage.getItem('crewrun:last-withdrawal')).not.toBeNull()
+    expect(replace).not.toHaveBeenCalled()
   })
 
   it('넘겨받은 값이 없으면(주소로 바로 들어옴) 예치금 화면으로 보낸다', async () => {

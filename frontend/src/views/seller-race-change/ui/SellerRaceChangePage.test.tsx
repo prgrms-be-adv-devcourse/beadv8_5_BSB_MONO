@@ -1,5 +1,5 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, within } from '@testing-library/react'
+import { focusManager, QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it, vi } from 'vitest'
@@ -80,6 +80,32 @@ describe('SellerRaceChangePage 일정 변경', () => {
     expect(
       await screen.findByText('접수 마감 일시는 대회 일시보다 늦을 수 없습니다.'),
     ).toBeInTheDocument()
+  })
+})
+
+describe('SellerRaceChangePage 입력 유지', () => {
+  it('다른 창에 다녀와도 수정할 대회를 다시 받지 않아 쓰던 날짜가 남는다', async () => {
+    let fetched = 0
+    server.events.on('request:start', ({ request }) => {
+      if (request.method === 'GET' && /\/product\/races\/1$/.test(new URL(request.url).pathname)) {
+        fetched += 1
+      }
+    })
+    renderPage()
+    const field = await screen.findByLabelText('새 대회일')
+    await userEvent.clear(field)
+    await userEvent.type(field, '2026-11-08')
+
+    act(() => {
+      focusManager.setFocused(false)
+      focusManager.setFocused(true)
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    server.events.removeAllListeners()
+    focusManager.setFocused(undefined)
+    expect(fetched).toBe(1)
+    expect(screen.getByLabelText('새 대회일')).toHaveValue('2026-11-08')
   })
 })
 

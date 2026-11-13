@@ -25,7 +25,7 @@ function renderPage(postId?: number, login = true) {
   if (login) setAccessToken('test-token')
   else clearAccessToken()
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  render(
+  return render(
     <QueryClientProvider client={client}>
       <ToastProvider>
         <CommunityWritePage postId={postId} />
@@ -102,6 +102,32 @@ describe('CommunityWritePage', () => {
 
     expect((await screen.findAllByText('잠시 뒤에 다시 써주세요.')).length).toBeGreaterThan(0)
     expect(router.replace).not.toHaveBeenCalled()
+  })
+
+  it('사진을 올리는 중에 화면을 떠나면 올리기를 멈춘다', async () => {
+    const user = userEvent.setup()
+    let putSignal: AbortSignal | undefined
+    server.use(
+      http.put('*/api/mock-s3/files/:fileId', async ({ request }) => {
+        putSignal = request.signal
+        // 취소되거나 0.3초가 지나면 답한다
+        await new Promise((resolve) => {
+          request.signal.addEventListener('abort', resolve)
+          setTimeout(resolve, 300)
+        })
+        return new HttpResponse(null, { status: 200 })
+      }),
+    )
+    const { unmount } = renderPage()
+    await user.upload(
+      await screen.findByTestId('photo-input'),
+      new File(['x'], 'run.png', { type: 'image/png' }),
+    )
+    await waitFor(() => expect(putSignal).toBeDefined())
+
+    unmount()
+
+    expect(putSignal?.aborted).toBe(true)
   })
 
   it('글 수정은 원래 제목·본문이 채워져 있고, 수정 완료를 누르면 글 상세로 돌아간다', async () => {
