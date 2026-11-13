@@ -25,7 +25,7 @@ import {
   unwrapData,
   useIdempotencyKey,
 } from '@/shared/api'
-import { cn, formatNumber } from '@/shared/lib'
+import { cn, formatNumber, useNow } from '@/shared/lib'
 import {
   Avatar,
   Badge,
@@ -101,8 +101,8 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
   const course = race.data?.courses?.find((c) => c.raceCourseId === party.raceCourseId)
   const min = race.data?.crewMinCount ?? 0
   const max = race.data?.crewMaxCount
-  const [now] = useState(() => Date.now())
-  const linkAlive = parseKstDateTime(party.joinTokenExpiresAt) > now
+  const now = useNow()
+  const linkAlive = !!now && parseKstDateTime(party.joinTokenExpiresAt) > now.getTime()
   const stepIndex = PARTY_STEP_INDEX[party.status]
   const toastError = (error: unknown) =>
     toast({
