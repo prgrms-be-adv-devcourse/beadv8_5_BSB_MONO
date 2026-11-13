@@ -5,9 +5,12 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
+import org.springframework.dao.DataAccessException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Service;
@@ -15,8 +18,10 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.bukang.member.config.MarketingUnsubscribeProperties;
+import com.bukang.member.config.auth.LoginAttemptProperties;
 import com.bukang.member.domain.Member;
 import com.bukang.member.domain.SocialProvider;
+import com.bukang.member.domain.exception.LoginLockedException;
 import com.bukang.member.domain.exception.MemberNicknameLookupTooManyException;
 import com.bukang.member.domain.exception.MemberNotFoundException;
 import com.bukang.member.domain.exception.SocialAccountLoginException;
@@ -33,14 +38,18 @@ import com.bukang.member.dto.MemberModifyRequestDto;
 import com.bukang.member.dto.MemberNicknameDto;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.identity.VerifiedIdentity;
+import com.bukang.member.out.loginattempt.LoginAttemptStore;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
 public class MemberFacade {
 	public static final int MAX_NICKNAME_LOOKUP = 100;
+	static final String LOGIN_LOCKED_MESSAGE = "로그인을 5번 실패해 10분 동안 로그인할 수 없습니다. 잠시 뒤 다시 시도해주세요.";
 
 	private final MemberJoinUseCase memberJoinUseCase;
 	private final IdentityVerificationUseCase identityVerificationUseCase;
@@ -55,6 +64,8 @@ public class MemberFacade {
 	private final MarketingConsentUseCase marketingConsentUseCase;
 	private final MarketingUnsubscribeTokens marketingUnsubscribeTokens;
 	private final MarketingUnsubscribeProperties marketingUnsubscribeProperties;
+	private final LoginAttemptStore loginAttemptStore;
+	private final LoginAttemptProperties loginAttemptProperties;
 	private final Clock clock;
 
 	@Transactional
@@ -145,13 +156,23 @@ public class MemberFacade {
 	}
 
 	// bcrypt 비교가 느려서 트랜잭션 밖에서 실행한다. 읽기 전용 트랜잭션이면 비교하는 동안 DB 커넥션을 잡는다 (BUK-184)
-	// 토큰 발급은 Redis만 쓰므로 트랜잭션이 필요 없다. 조회는 각각 짧은 읽기 전용 트랜잭션으로 돈다
+	// 토큰 발급은 Redis만 쓰므로 트랜잭션이 필요 없다. 이메일 조회는 트랜잭션 없이 각각 따로 실행한다
 	@Transactional(propagation = Propagation.NOT_SUPPORTED)
 	public MemberLoginResult login(MemberLoginRequestDto memberLoginRequestDto) {
-		// 비밀번호 없는 소셜 회원이면 가입한 제공자로 로그인하라고 알려 준다 (BE-035)
+		// 비밀번호 없는 소셜 회원이면 가입한 제공자로 로그인하라고 알려 준다 (BE-035). 안내는 횟수를 센 뒤에 한다
 		// 가입 여부는 이메일 중복 확인 API로도 알 수 있어(BE-023) 새로 드러나는 정보가 없다
-		memberRepository.findActiveByEmail(memberLoginRequestDto.getEmail())
-			.filter(member -> !member.hasPassword())
+		Optional<Member> found = memberRepository.findActiveByEmail(memberLoginRequestDto.getEmail());
+
+		// 비밀번호를 비교하기 전에 센다. 동시에 틀린 요청이 와도 비교는 최대 횟수까지만 한다 (BUK-185)
+		// DB가 악센트 등을 무시하고 같은 회원으로 찾아 주므로, 회원을 찾으면 저장된 이메일로 키를 만든다
+		// 가입하지 않은 이메일도 입력으로 똑같이 세어, 응답만 보고 가입 여부를 알 수 없게 한다
+		String emailHash = PasswordResetUseCase.sha256(
+			found.map(Member::getEmail).orElse(memberLoginRequestDto.getEmail()).trim().toLowerCase(Locale.ROOT));
+		if (recordAttempt(emailHash) > loginAttemptProperties.maxFailures()) {
+			throw new LoginLockedException(LOGIN_LOCKED_MESSAGE);
+		}
+
+		found.filter(member -> !member.hasPassword())
 			.ifPresent(member -> {
 				throw new SocialAccountLoginException(socialAccountMessage(member));
 			});
@@ -163,11 +184,31 @@ public class MemberFacade {
 				memberLoginRequestDto.getPassword()
 			)
 		);
+		clearAttempts(emailHash);
 
 		Member member = memberRepository.findActiveByEmail(memberLoginRequestDto.getEmail())
 			.orElseThrow(() -> new MemberNotFoundException("존재하지 않는 회원입니다."));
 
 		return new MemberLoginResult(member.toDto(), tokenIssueUseCase.issue(member.getId()));
+	}
+
+	// Redis 오류로 횟수를 못 세면 차단 없이 로그인을 계속한다. 토큰 발급도 Redis 오류에 로그인을 막지 않는다
+	private long recordAttempt(String emailHash) {
+		try {
+			return loginAttemptStore.record(emailHash, loginAttemptProperties.maxFailures(),
+				loginAttemptProperties.blockDuration());
+		} catch (DataAccessException e) {
+			log.warn("로그인 시도 횟수를 Redis에 기록하지 못했습니다. 이 시도는 차단 없이 진행합니다.", e);
+			return 0;
+		}
+	}
+
+	private void clearAttempts(String emailHash) {
+		try {
+			loginAttemptStore.clear(emailHash);
+		} catch (DataAccessException e) {
+			log.warn("로그인 시도 횟수를 Redis에서 지우지 못했습니다. 로그인은 성공으로 처리합니다.", e);
+		}
 	}
 
 	// 예: "카카오로 가입한 계정입니다. 카카오로 로그인해주세요." 둘 다 연결돼 있으면 "카카오 또는 구글로"

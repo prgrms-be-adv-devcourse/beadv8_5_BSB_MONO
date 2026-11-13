@@ -99,7 +99,11 @@ public class ApiV1AuthController {
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "이메일 또는 비밀번호 불일치", value = AuthApiExamples.LOGIN_FAILED),
 				@ExampleObject(name = "소셜 회원", value = AuthApiExamples.LOGIN_SOCIAL_ACCOUNT)
-			}))
+			})),
+		@ApiResponse(responseCode = "429", description = "같은 이메일로 로그인을 5번 실패해 10분 동안 막힘. 막힌 동안은 비밀번호가 맞아도 거절하고, "
+			+ "가입하지 않은 이메일도 똑같이 막는다",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = AuthApiExamples.LOGIN_LOCKED)))
 	})
 	public ResponseEntity<RsData<MemberLoginResponseDto>> login(
 		@Valid @RequestBody MemberLoginRequestDto memberLoginRequestDto
