@@ -11,12 +11,16 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.bukang.board.app.BoardCommentUseCase;
 import com.bukang.board.app.BoardLikeUseCase;
+import com.bukang.board.app.BoardPostListUseCase;
 import com.bukang.board.app.BoardPostUseCase;
 import com.bukang.board.app.BoardQueryUseCase;
+import com.bukang.board.domain.BoardCategory;
+import com.bukang.board.domain.PostSort;
 import com.bukang.board.dto.CommentDto;
 import com.bukang.board.dto.CommentIdDto;
 import com.bukang.board.dto.CommentSaveRequestDto;
@@ -24,6 +28,7 @@ import com.bukang.board.dto.LikeDto;
 import com.bukang.board.dto.PostDetailDto;
 import com.bukang.board.dto.PostIdDto;
 import com.bukang.board.dto.PostSaveRequestDto;
+import com.bukang.board.dto.PostSummaryDto;
 import com.bukang.common.global.rsdata.RsData;
 import com.bukang.common.shared.member.web.LoginMemberId;
 
@@ -52,6 +57,7 @@ public class ApiV1BoardController {
 	private final BoardCommentUseCase boardCommentUseCase;
 	private final BoardLikeUseCase boardLikeUseCase;
 	private final BoardQueryUseCase boardQueryUseCase;
+	private final BoardPostListUseCase boardPostListUseCase;
 
 	@PostMapping("/posts")
 	@Operation(summary = "글 쓰기",
@@ -79,6 +85,34 @@ public class ApiV1BoardController {
 		long postId = boardPostUseCase.create(memberId, request);
 		return ResponseEntity.status(HttpStatus.CREATED)
 			.body(RsData.of(HttpStatus.CREATED, "글을 등록했습니다.", new PostIdDto(postId)));
+	}
+
+	@GetMapping("/posts")
+	@Operation(summary = "글 목록·검색",
+		description = "보이는 글을 최신순(LATEST) 또는 인기순(POPULAR, 최근 7일 안에 쓴 글의 좋아요 순)으로 준다. "
+			+ "q가 있으면 제목·본문에 q가 들어 있는 글만 준다. 다음 쪽이 있으면 응답 헤더 X-Next-Cursor에 값이 있고, "
+			+ "그 값을 cursor로 보내 이어 부른다. 지운 글과 신고로 숨겨진 글은 나오지 않는다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "조회 성공 (data는 글 배열, 없으면 빈 배열)"),
+		@ApiResponse(responseCode = "400",
+			description = "sort·category 값이 올바르지 않거나 cursor, size(1~50), 검색어(50자 이하)가 올바르지 않음")
+	})
+	public ResponseEntity<RsData<List<PostSummaryDto>>> getPosts(
+		@Parameter(description = "말머리. 없으면 전체", example = "QUESTION")
+		@RequestParam(required = false) BoardCategory category,
+		@Parameter(description = "정렬. 기본 LATEST", example = "LATEST")
+		@RequestParam(defaultValue = "LATEST") PostSort sort,
+		@Parameter(description = "검색어 (제목·본문)", example = "한강")
+		@RequestParam(name = "q", required = false) String query,
+		@Parameter(description = "앞 쪽 응답 헤더 X-Next-Cursor 값") @RequestParam(required = false) String cursor,
+		@Parameter(description = "한 쪽 개수. 기본 20, 최대 50", example = "20")
+		@RequestParam(required = false) Integer size) {
+		BoardPostListUseCase.Page page = boardPostListUseCase.list(category, sort, query, cursor, size);
+		ResponseEntity.BodyBuilder response = ResponseEntity.ok();
+		if (page.nextCursor() != null) {
+			response.header("X-Next-Cursor", page.nextCursor());
+		}
+		return response.body(RsData.of(HttpStatus.OK, "글 목록을 조회했습니다.", page.items()));
 	}
 
 	@GetMapping("/posts/{postId}")
