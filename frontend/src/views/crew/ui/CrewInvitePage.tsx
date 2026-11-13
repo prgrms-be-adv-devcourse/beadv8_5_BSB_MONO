@@ -8,12 +8,11 @@ import { useEffect } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
 import { useAuthStatus } from '@/features/auth'
-import { formatKstDateTime, formatRemaining } from '@/entities/crew'
+import { formatKstDateTime, formatRemaining, partyJoinPath } from '@/entities/crew'
 import { ApiError, memberApi, unwrapData } from '@/shared/api'
 import { Alert, BottomCta, Button, buttonClassName, EmptyState, Skeleton } from '@/shared/ui'
 
 import { inviteFailureOf } from '../model/invite-failure'
-import { partyJoinPath } from '../model/invite-url'
 import { CrewBand, CrewIdentityBand, CrewLoadError } from './CrewBand'
 
 // 피그마 시안v4 · M10 초대 받기 (기본 · 링크 끝남).
