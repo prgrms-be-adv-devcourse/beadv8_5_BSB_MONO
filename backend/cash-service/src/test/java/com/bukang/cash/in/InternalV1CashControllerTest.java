@@ -28,14 +28,19 @@ import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.cash.config.CashWalletProperties;
+import com.bukang.cash.domain.charge.WalletCharge;
 import com.bukang.cash.domain.member.CashMember;
 import com.bukang.cash.domain.payment.PaymentStatus;
 import com.bukang.cash.domain.seller.CashSeller;
 import com.bukang.cash.domain.wallet.LedgerRefType;
 import com.bukang.cash.domain.wallet.LedgerType;
 import com.bukang.cash.domain.wallet.Wallet;
+import com.bukang.cash.domain.withdrawal.WalletWithdrawal;
+import com.bukang.cash.domain.withdrawal.WalletWithdrawalItem;
+import com.bukang.cash.domain.withdrawal.WithdrawalItemStatus;
 import com.bukang.cash.out.bank.BankTransferClient;
 import com.bukang.cash.out.bank.BankTransferResult;
+import com.bukang.cash.out.charge.WalletChargeRepository;
 import com.bukang.cash.out.member.CashMemberRepository;
 import com.bukang.cash.out.payment.PaymentRepository;
 import com.bukang.cash.out.payout.PayoutTransferRepository;
@@ -43,6 +48,8 @@ import com.bukang.cash.out.recovery.RecoveryDepositRepository;
 import com.bukang.cash.out.seller.CashSellerRepository;
 import com.bukang.cash.out.wallet.WalletLedgerRepository;
 import com.bukang.cash.out.wallet.WalletRepository;
+import com.bukang.cash.out.withdrawal.WalletWithdrawalItemRepository;
+import com.bukang.cash.out.withdrawal.WalletWithdrawalRepository;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -70,6 +77,12 @@ class InternalV1CashControllerTest {
 	@Autowired
 	private RecoveryDepositRepository recoveryDepositRepository;
 	@Autowired
+	private WalletChargeRepository walletChargeRepository;
+	@Autowired
+	private WalletWithdrawalRepository walletWithdrawalRepository;
+	@Autowired
+	private WalletWithdrawalItemRepository walletWithdrawalItemRepository;
+	@Autowired
 	private TransactionTemplate transactionTemplate;
 	@MockitoBean
 	private BankTransferClient bankTransferClient;
@@ -88,6 +101,9 @@ class InternalV1CashControllerTest {
 
 	@AfterEach
 	void tearDown() {
+		walletWithdrawalItemRepository.deleteAll();
+		walletWithdrawalRepository.deleteAll();
+		walletChargeRepository.deleteAll();
 		paymentRepository.deleteAll();
 		payoutTransferRepository.deleteAll();
 		walletLedgerRepository.deleteAll();
@@ -409,6 +425,62 @@ class InternalV1CashControllerTest {
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
 			.andExpect(jsonPath("$.message").value("요청 값의 형식이 올바르지 않습니다."));
+	}
+
+	@Test
+	@DisplayName("수동 확인 필요인 환급 카드 몫을 안 나감으로 정리하면 예치금에 되돌리고, 마지막 몫인데 돌려준 몫이 없어 환급이 실패로 끝났다고 돌려준다")
+	void resolveWithdrawalItem() throws Exception {
+		long itemId = createWithdrawalItem(WithdrawalItemStatus.MANUAL_CHECK);
+
+		resolveWithdrawalItem(itemId, "{\"result\": \"NOT_CANCELED\"}")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.message").value("환급 카드 몫을 정리했습니다."))
+			.andExpect(jsonPath("$.data.itemId").value(itemId))
+			.andExpect(jsonPath("$.data.itemStatus").value("REVERTED"))
+			.andExpect(jsonPath("$.data.withdrawalStatus").value("FAILED"));
+
+		assertBalance(CUSTOMER_ID, 15_000);
+	}
+
+	@Test
+	@DisplayName("환급 카드 몫 정리는 결과가 없으면 400, 없는 몫이면 404, 수동 확인 필요가 아닌 몫이면 409로 거절한다")
+	void resolveWithdrawalItemRejects() throws Exception {
+		long itemId = createWithdrawalItem(WithdrawalItemStatus.UNKNOWN);
+
+		resolveWithdrawalItem(itemId, "{}")
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+			.andExpect(jsonPath("$.message").value("정리 결과를 작성해주세요."));
+		resolveWithdrawalItem(itemId + 1, "{\"result\": \"CARD_CANCELED\"}")
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("WITHDRAWAL_ITEM_NOT_FOUND"));
+		resolveWithdrawalItem(itemId, "{\"result\": \"CARD_CANCELED\"}")
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("WITHDRAWAL_ITEM_NOT_MANUAL_CHECK"));
+
+		assertBalance(CUSTOMER_ID, 10_000);
+	}
+
+	// 잔액 10,000원인 고객 지갑에 5,000원 카드 몫이 있는 처리 중 환급을 만든다 (신청 때의 차감 원장 줄은 생략)
+	private long createWithdrawalItem(WithdrawalItemStatus status) {
+		return transactionTemplate.execute(tx -> {
+			Wallet wallet = walletRepository.findById(CUSTOMER_ID).orElseThrow();
+			WalletCharge charge = new WalletCharge(wallet, 5_000, "TOSS", "charge_1");
+			LocalDateTime approvedAt = LocalDateTime.of(2026, 10, 10, 9, 0);
+			charge.markCompleted("toss_key_charge_1", approvedAt, approvedAt);
+			walletChargeRepository.save(charge);
+			WalletWithdrawal withdrawal =
+				walletWithdrawalRepository.save(new WalletWithdrawal(wallet, 5_000, null, null, null, "withdrawal_1"));
+			withdrawal.markInProgress();
+			return walletWithdrawalItemRepository.save(
+				new WalletWithdrawalItem(withdrawal, charge, 5_000, status, "withdrawal_1:" + charge.getId())).getId();
+		});
+	}
+
+	private ResultActions resolveWithdrawalItem(long itemId, String body) throws Exception {
+		return mockMvc.perform(post("/internal/v1/cash/withdrawal-items/{itemId}/resolve", itemId)
+			.contentType(MediaType.APPLICATION_JSON)
+			.content(body));
 	}
 
 	private ResultActions issueClaimVirtualAccount(String claimCode, String body) throws Exception {

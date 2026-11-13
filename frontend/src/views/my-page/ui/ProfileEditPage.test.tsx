@@ -45,7 +45,7 @@ function renderPage() {
 describe('ProfileEditPage', () => {
   beforeEach(() => server.use(memberMock.getFindMeMockHandler(ME)))
 
-  it('닉네임 칸만 있고, 저장하면 닉네임만 보내 캐시를 바꾼 뒤 계정 설정으로 간다', async () => {
+  it('닉네임만 고칠 수 있고, 저장하면 닉네임만 보내 캐시를 바꾼 뒤 계정 설정으로 간다', async () => {
     let body: unknown
     const updated = { ...ME, data: { ...ME.data, nickname: '달리는곰' } }
     server.use(
@@ -59,12 +59,14 @@ describe('ProfileEditPage', () => {
 
     const nickname = await screen.findByLabelText('닉네임')
     expect(nickname).toHaveValue('러너1')
-    expect(screen.queryByLabelText('이름')).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('휴대폰 번호')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /생년월일/ })).not.toBeInTheDocument()
+    // 본인인증으로 확인한 값은 보기만 한다
+    expect(screen.getByLabelText('이름')).toBeDisabled()
+    expect(screen.getByLabelText('이름')).toHaveValue('김러너')
+    expect(screen.getByLabelText('생년월일')).toHaveValue('1995.04.12')
+    expect(screen.getByLabelText('휴대폰 번호')).toHaveValue('010-1234-5678')
     await user.clear(nickname)
     await user.type(nickname, '달리는곰')
-    await user.click(screen.getByRole('button', { name: '저장하기' }))
+    await user.click(screen.getByRole('button', { name: '저장' }))
 
     await vi.waitFor(() => expect(push).toHaveBeenCalledWith('/me/settings'))
     expect(body).toEqual({ nickname: '달리는곰' })
@@ -81,7 +83,7 @@ describe('ProfileEditPage', () => {
     await user.tab()
 
     expect(await screen.findByText(PROFILE_ERRORS.nicknameWidth)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '저장하기' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '저장' })).toBeDisabled()
   })
 
   it('다른 회원이 쓰는 닉네임이면 닉네임 칸에 서버 문구를 띄우고 이동하지 않는다', async () => {
@@ -102,9 +104,33 @@ describe('ProfileEditPage', () => {
     renderPage()
 
     await screen.findByLabelText('닉네임')
-    await user.click(screen.getByRole('button', { name: '저장하기' }))
+    await user.click(screen.getByRole('button', { name: '저장' }))
 
     expect(await screen.findByText('이미 사용 중인 닉네임입니다.')).toBeInTheDocument()
     expect(push).not.toHaveBeenCalled()
+  })
+
+  it('고친 내용이 있을 때 뒤로 가기를 누르면 나가기 확인 창을 띄우고, 계속 고치기로 닫는다', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    const nickname = await screen.findByLabelText('닉네임')
+    await user.type(nickname, '곰')
+    await user.click(screen.getByRole('link', { name: '뒤로 가기' }))
+
+    expect(screen.getByText('고친 내용을 저장하지 않고 나갈까요?')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '계속 고치기' }))
+    expect(push).not.toHaveBeenCalled()
+  })
+
+  it('나가기 확인 창에서 나가기를 누르면 계정 설정으로 간다', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.type(await screen.findByLabelText('닉네임'), '곰')
+    await user.click(screen.getByRole('link', { name: '뒤로 가기' }))
+    await user.click(screen.getByRole('button', { name: '나가기' }))
+
+    expect(push).toHaveBeenCalledWith('/me/settings')
   })
 })

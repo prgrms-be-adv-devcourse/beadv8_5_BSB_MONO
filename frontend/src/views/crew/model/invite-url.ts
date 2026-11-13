@@ -13,7 +13,6 @@ export function inviteUrl(
   return partyJoinToken ? `${url}?party=${encodeURIComponent(partyJoinToken)}` : url
 }
 
-// shortcut: 파티 합류 화면은 BUK-103에서 만든다. 그 전까지 이 경로는 없는 화면이다
 export function partyJoinPath(partyJoinToken: string): Route {
   return `/parties/join/${encodeURIComponent(partyJoinToken)}` as Route
 }

@@ -14,7 +14,7 @@ import {
   type MyTicket,
   type TicketStatus,
 } from '@/entities/ticket'
-import { formatWon } from '@/shared/lib'
+import { formatNumber } from '@/shared/lib'
 
 export type TicketCard = {
   id: string
@@ -73,6 +73,8 @@ export function useTicketCards() {
     past: cards.filter((c) => c.status !== 'confirmed'),
     isPending: tickets.isPending,
     isError: tickets.isError,
+    refetch: () => void tickets.refetch(),
+    isFetching: tickets.isFetching,
   }
 }
 
@@ -90,7 +92,7 @@ function summaryText(
       : status === 'finished'
         ? '대회 종료'
         : refundDeadline && daysUntil(refundDeadline) >= 0
-          ? `${formatRaceDate(refundDeadline)}까지 취소하면 ${formatWon(ticket.amount)} 전액 환불`
+          ? `${formatRaceDate(refundDeadline)}까지 취소하면 ${formatNumber(ticket.amount)}원 전액 환불`
           : ''
   return [date, note].filter(Boolean).join(' · ')
 }

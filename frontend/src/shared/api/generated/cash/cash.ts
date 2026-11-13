@@ -27,10 +27,12 @@ import type {
 import type {
   CashChargeConfirmRequestDto,
   CashWithdrawalRequestDto,
+  GetChargeReviewsParams,
   GetLedgersParams,
   RsData,
   RsDataCashChargeDto,
   RsDataCashWithdrawalDto,
+  RsDataPageDtoChargeReviewDto,
   RsDataPageDtoWalletLedgerItemDto,
   RsDataWalletBalanceDto
 } from './cash.schemas';
@@ -434,6 +436,115 @@ export function useGetLedgers<TData = Awaited<ReturnType<typeof getLedgers>>, TE
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetLedgersQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetChargeReviewsUrl = (params?: GetChargeReviewsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/cash/admin/charge-reviews?${stringifiedParams}` : `/api/v1/cash/admin/charge-reviews`
+}
+
+/**
+ * 관리자가 가입 직후 고액을 충전한 회원을 확인한다.
+ * @summary 고액 충전 확인 목록 조회
+ */
+export const getChargeReviews = async (params?: GetChargeReviewsParams, options?: Parameters<typeof customFetch>[1]): Promise<RsDataPageDtoChargeReviewDto> => {
+
+  return customFetch<RsDataPageDtoChargeReviewDto>(getGetChargeReviewsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetChargeReviewsQueryKey = (params?: GetChargeReviewsParams,) => {
+    return [
+    `/api/v1/cash/admin/charge-reviews`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetChargeReviewsQueryOptions = <TData = Awaited<ReturnType<typeof getChargeReviews>>, TError = RsData>(params?: GetChargeReviewsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getChargeReviews>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetChargeReviewsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getChargeReviews>>> = ({ signal }) => getChargeReviews(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getChargeReviews>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetChargeReviewsQueryResult = NonNullable<Awaited<ReturnType<typeof getChargeReviews>>>
+export type GetChargeReviewsQueryError = RsData
+
+
+export function useGetChargeReviews<TData = Awaited<ReturnType<typeof getChargeReviews>>, TError = RsData>(
+ params: undefined |  GetChargeReviewsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getChargeReviews>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getChargeReviews>>,
+          TError,
+          Awaited<ReturnType<typeof getChargeReviews>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetChargeReviews<TData = Awaited<ReturnType<typeof getChargeReviews>>, TError = RsData>(
+ params?: GetChargeReviewsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getChargeReviews>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getChargeReviews>>,
+          TError,
+          Awaited<ReturnType<typeof getChargeReviews>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetChargeReviews<TData = Awaited<ReturnType<typeof getChargeReviews>>, TError = RsData>(
+ params?: GetChargeReviewsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getChargeReviews>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 고액 충전 확인 목록 조회
+ */
+
+export function useGetChargeReviews<TData = Awaited<ReturnType<typeof getChargeReviews>>, TError = RsData>(
+ params?: GetChargeReviewsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getChargeReviews>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetChargeReviewsQueryOptions(params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

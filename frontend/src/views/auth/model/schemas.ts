@@ -17,6 +17,7 @@ export const AUTH_ERRORS = {
   passwordRequired: '비밀번호를 입력해 주세요.',
   passwordRule: '비밀번호는 10자 이상으로 정해 주세요.',
   passwordMismatch: '비밀번호가 서로 달라요.',
+  passwordTooLong: '비밀번호가 너무 길어요. 조금 줄여 주세요.',
   loginFailed: '이메일 또는 비밀번호가 맞지 않아요.',
   // 시안에 없는 문구. 서버에 닿지 못했거나 서버 문구가 없을 때
   loginUnavailable: '지금은 로그인할 수 없어요. 잠시 후 다시 시도해 주세요.',
@@ -30,7 +31,7 @@ export const AUTH_ERRORS = {
   // 시안에 없는 문구. 본인인증 결과가 15분이 지나 서버에서 사라졌다는 응답
   verificationExpired: '본인인증한 지 15분이 지났어요. 다시 본인인증해 주세요.',
   nameRequired: '이름을 입력해 주세요.',
-  birthFormat: '생년월일을 골라 주세요.',
+  birthFormat: '생년월일을 숫자 8자리로 입력해 주세요.',
   birthUnder14: BIRTH_UNDER_14_MESSAGE,
   phoneFormat: '휴대폰 번호를 010-1234-5678처럼 입력해 주세요.',
   nicknameChars: '닉네임은 한글 · 영문 · 숫자만 쓸 수 있어요.',
@@ -43,16 +44,28 @@ const email = z
   .min(1, AUTH_ERRORS.emailRequired)
   .pipe(z.email(AUTH_ERRORS.emailFormat))
 
-// 10자 이상, 공백만은 안 됨. 백엔드 가입 요청 DTO(@NotBlank, @Size(min = 10))와 같다.
+// 서버는 비밀번호를 UTF-8 72바이트까지만 받는다(BCrypt 한계, 백엔드 @PasswordBytes). 한글은 한 글자가 3바이트라 24자까지다.
+export const PASSWORD_MAX_BYTES = 72
+export const isPasswordTooLong = (value: string) =>
+  new TextEncoder().encode(value).length > PASSWORD_MAX_BYTES
+
+// 10자 이상, 공백만은 안 됨, 72바이트 이하(시안 「비밀번호 · 너무 김」). 백엔드 가입 요청 DTO(@NotBlank, @Size(min = 10), @PasswordBytes)와 같다.
 const newPassword = z
   .string()
   .min(memberZod.joinBodyPasswordMin, AUTH_ERRORS.passwordRule)
   .refine((value) => value.trim().length > 0, AUTH_ERRORS.passwordRule)
+  .refine((value) => !isPasswordTooLong(value), AUTH_ERRORS.passwordTooLong)
 
+// 이메일 찾기의 생년월일은 숫자 8자리(19950302)로 받는다
 const birth = z
   .string()
   .trim()
-  .refine((value) => parseBirth(value) !== null, AUTH_ERRORS.birthFormat)
+  .refine(
+    (value) =>
+      /^\d{8}$/.test(value) &&
+      parseBirth(`${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6)}`) !== null,
+    AUTH_ERRORS.birthFormat,
+  )
 
 const name = z.string().trim().min(1, AUTH_ERRORS.nameRequired)
 
@@ -80,9 +93,15 @@ export const loginSchema = z.object({
 })
 export type LoginValues = z.infer<typeof loginSchema>
 
-export const signupAccountSchema = z
-  .object({ email, password: newPassword, passwordConfirm: z.string() })
-  .refine(confirmMatches, MISMATCH)
+// 가입은 이메일 → 비밀번호 → 닉네임 순서로 한 칸씩 받는다. 비밀번호는 한 번만 적는다.
+export const signupEmailSchema = z.object({ email })
+export const signupPasswordSchema = z.object({
+  password: newPassword,
+})
+export const signupAccountSchema = z.object({
+  email,
+  password: signupPasswordSchema.shape.password,
+})
 export type SignupAccountValues = z.infer<typeof signupAccountSchema>
 
 // 이름 · 생년월일 · 휴대폰 번호는 본인인증으로 받으므로 회원 정보 단계에서는 닉네임과 성별(선택)만 적는다

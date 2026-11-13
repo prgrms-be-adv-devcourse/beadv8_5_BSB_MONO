@@ -7,6 +7,7 @@ import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 
 import com.bukang.payout.app.PayoutPayStepUseCase.Start;
+import com.bukang.payout.domain.Payout;
 import com.bukang.payout.dto.PayoutPayResultDto;
 import com.bukang.payout.out.PayoutTransferMismatchException;
 import com.bukang.payout.out.PayoutTransferPort;
@@ -30,6 +31,7 @@ import lombok.extern.slf4j.Slf4j;
  *    - 불일치(409): 같은 정산 ID가 이미 다른 금액으로 지급됐다. 지급 불일치로 두고 다시 요청하지 않는다 (BUK-62)
  *    - 모름(타임아웃 · 5xx): 돈이 나갔을 수 있으므로 지급 중으로 둔다. 다음 실행에서 같은 정산 ID로 다시 요청하고,
  *      캐시 서비스는 이미 옮겼으면 돈을 다시 옮기지 않고 성공으로 답한다
+ *      3번째 모름이면 다시 요청하지 않고 지급_확인_필요로 멈춰 관리자 이상 감지에 남긴다 (BUK-166)
  * 대금 · 수수료가 둘 다 0원이면 캐시 서비스를 부르지 않고 지급 완료한다 (0원 지급 완료, payout.md Q20)
  */
 @Slf4j
@@ -83,11 +85,11 @@ public class PayoutPayUseCase {
 		return switch (start.outcome()) {
 			case SKIPPED -> Result.SKIPPED;
 			case PAID_WITHOUT_TRANSFER -> Result.PAID;
-			case TRANSFER -> transfer(start, now);
+			case TRANSFER -> transfer(start, today, now);
 		};
 	}
 
-	private Result transfer(Start start, LocalDateTime now) {
+	private Result transfer(Start start, LocalDate today, LocalDateTime now) {
 		long payoutId = start.transfer().payoutId();
 		try {
 			payoutTransferPort.transfer(start.transfer());
@@ -102,11 +104,11 @@ public class PayoutPayUseCase {
 		} catch (PayoutTransferUnknownException exception) {
 			log.error("정산금 이동 결과를 몰라 지급 중으로 두고 다음 실행에서 다시 요청합니다. payoutId={}, cause={}",
 				payoutId, exception.getMessage());
-			return Result.UNKNOWN;
+			return markUnknown(payoutId, today, now);
 		} catch (RuntimeException exception) {
 			// 어댑터 밖의 예상 못 한 오류도 돈이 나갔는지 모르는 것으로 본다
 			log.error("정산금 이동 중 예상 못 한 오류가 나서 지급 중으로 둡니다. payoutId={}", payoutId, exception);
-			return Result.UNKNOWN;
+			return markUnknown(payoutId, today, now);
 		}
 
 		try {
@@ -117,6 +119,19 @@ public class PayoutPayUseCase {
 			log.error("정산금은 옮겼지만 지급 완료로 바꾸지 못해 지급 중으로 둡니다. payoutId={}", payoutId, exception);
 			return Result.UNKNOWN;
 		}
+	}
+
+	// 결과 모름을 센다. 세지 못해도 지급 중으로 남아 다음 실행이 다시 요청하므로 돈은 안전하다
+	private Result markUnknown(long payoutId, LocalDate today, LocalDateTime now) {
+		try {
+			if (payoutPayStepUseCase.markUnknown(payoutId, today, now)) {
+				log.error("정산금 이동 결과를 {}번 몰라 지급 확인 필요로 멈춥니다. 캐시 서비스에서 결과를 확인해야 합니다. payoutId={}",
+					Payout.MAX_UNKNOWN_PAY, payoutId);
+			}
+		} catch (RuntimeException exception) {
+			log.error("결과 모름 횟수를 남기지 못했습니다. 지급 중으로 둡니다. payoutId={}", payoutId, exception);
+		}
+		return Result.UNKNOWN;
 	}
 
 	private Result revert(long payoutId, LocalDateTime now) {

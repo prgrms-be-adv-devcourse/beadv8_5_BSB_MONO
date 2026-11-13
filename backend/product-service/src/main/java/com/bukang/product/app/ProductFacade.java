@@ -36,6 +36,7 @@ import com.bukang.product.dto.RaceSaveDto;
 import com.bukang.product.dto.RaceSaveRequestDto;
 import com.bukang.product.dto.RaceScheduleDto;
 import com.bukang.product.dto.RaceSearchCondition;
+import com.bukang.product.dto.RaceSellerMemberDto;
 import com.bukang.product.dto.RaceSuggestionDto;
 import com.bukang.product.dto.SellerRaceDto;
 
@@ -275,6 +276,11 @@ public class ProductFacade {
 
 	public RaceCourseInfoDto findCourseInfo(long raceCourseId) {
 		return raceQueryUseCase.findCourseInfo(raceCourseId);
+	}
+
+	// 문의 서비스가 문의를 받을 판매자 회원을 확인한다 (내부 API, BUK-159)
+	public RaceSellerMemberDto findRaceSellerMember(long raceId) {
+		return raceQueryUseCase.findSellerMember(raceId);
 	}
 
 	// 정산 서비스의 1차 정산 대상 대회 (내부 API)

@@ -109,3 +109,10 @@ cash:
       base-url: http://localhost:${server.port}
       # 연결·응답에 각각 거는 시간 제한. 넘으면 송금 결과를 모름으로 두고 재확인이 맞춘다
       timeout: 5s
+    # 관리자 API의 관리자 확인. http면 회원 서비스 내부 API를 부른다. 로컬은 fake(누구나 관리자)
+    # mode는 꼭 적는다. 빠지면 가짜로 열리지 않고 앱이 뜨지 않는다
+    member:
+      mode: fake
+      base-url: http://localhost:8080
+      # 연결·응답에 각각 거는 시간 제한 (order-service와 같은 2초). 넘으면 503
+      timeout: 2s
