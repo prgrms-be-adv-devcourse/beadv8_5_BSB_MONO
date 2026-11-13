@@ -21,6 +21,8 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.payout.app.PayoutClaimUseCase.ClaimRunResult;
 import com.bukang.payout.app.PayoutCreateStepUseCase.CourseSale;
@@ -95,6 +97,9 @@ class PayoutClaimUseCaseTest {
 	private PayoutPayUseCase payUseCase;
 	private PayoutRaceCancelUseCase raceCancelUseCase;
 	private PayoutClaimUseCase claimUseCase;
+
+	@Autowired
+	private PlatformTransactionManager transactionManager;
 	// 캐시의 가상계좌 발급 API 대신. 테스트마다 바꿔 끼운다 (기본: 발급 전이라 빈 값)
 	private ClaimVirtualAccountPort virtualAccountPort;
 
@@ -111,7 +116,8 @@ class PayoutClaimUseCaseTest {
 		virtualAccountPort = (claimCode, amount, dueDate) -> Optional.empty();
 		claimUseCase = new PayoutClaimUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository,
 			payoutClaimRepository,
-			(claimCode, amount, dueDate) -> virtualAccountPort.issue(claimCode, amount, dueDate));
+			(claimCode, amount, dueDate) -> virtualAccountPort.issue(claimCode, amount, dueDate),
+			new TransactionTemplate(transactionManager));
 	}
 
 	private void createFirstAndPay() {
