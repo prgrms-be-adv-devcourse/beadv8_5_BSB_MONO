@@ -127,10 +127,16 @@ class PayoutClaimUseCaseTest {
 			PRICE, PayoutRecoveryReason.일정_변경, LocalDateTime.of(2026, 11, 26, 10, 0)));
 	}
 
-	// 대회 취소: 정산이 대회 취소 메시지를 처리하고, 주문이 환불한 101~110번마다 회수를 요청한다 (BUK-76)
+	// 대회 취소: 정산이 대회 취소 메시지를 처리하고, 주문이 환불한 101~110번마다 회수를 요청한 뒤 환불 완료를 알린다 (BUK-76)
 	private void cancelRaceAndRefundAll(LocalDateTime at) {
+		cancelRaceAndRefund(at, 101, 110);
+		raceCancelUseCase.markRefunded(RACE_ID, at);
+	}
+
+	// 대회 취소 뒤 주문이 from~to번만 환불했다. 환불 완료는 아직 알리지 않았다
+	private void cancelRaceAndRefund(LocalDateTime at, int from, int to) {
 		raceCancelUseCase.cancelRace(RACE_ID, at);
-		for (int id = 101; id <= 110; id++) {
+		for (int id = from; id <= to; id++) {
 			ledgerUseCase.recoverRefund(SELLER_ID, RACE_ID, RACE_ID, id, PRICE, PayoutRecoveryReason.대회_취소, at);
 		}
 	}
@@ -256,6 +262,37 @@ class PayoutClaimUseCaseTest {
 		run(LocalDate.of(2026, 12, 1));
 
 		assertThat(claims()).isEmpty();
+	}
+
+	@Test
+	@DisplayName("TC-CLAIM-4-3 주문이 환불 완료를 알리기 전에는 취소 다음 날이 지나도 대회 취소 청구가 생기지 않는다")
+	void raceCancelNoClaimBeforeRefundDone() {
+		createFirstAndPay();
+		cancelRaceAndRefund(LocalDateTime.of(2026, 12, 1, 0, 30), 101, 105);
+
+		run(LocalDate.of(2026, 12, 2));
+		run(LocalDate.of(2026, 12, 3));
+
+		assertThat(claims()).isEmpty();
+	}
+
+	@Test
+	@DisplayName("TC-CLAIM-4-4 늦게 환불된 참가권까지 회수한 뒤 환불 완료가 오면, 다음 배치에서 전체 200,000원 청구가 하나 생긴다")
+	void raceCancelClaimsWholeAmountAfterLateRefunds() {
+		createFirstAndPay();
+		cancelRaceAndRefund(LocalDateTime.of(2026, 12, 1, 0, 30), 101, 105);
+		run(LocalDate.of(2026, 12, 2));
+		LocalDateTime late = LocalDateTime.of(2026, 12, 3, 15, 0);
+		for (int id = 106; id <= 110; id++) {
+			ledgerUseCase.recoverRefund(SELLER_ID, RACE_ID, RACE_ID, id, PRICE, PayoutRecoveryReason.대회_취소, late);
+		}
+		raceCancelUseCase.markRefunded(RACE_ID, late);
+		raceCancelUseCase.markRefunded(RACE_ID, late.plusHours(1));
+
+		run(LocalDate.of(2026, 12, 4));
+
+		assertThat(claims()).extracting(PayoutClaim::getAmount, PayoutClaim::getStartDate)
+			.containsExactly(tuple(200_000L, LocalDate.of(2026, 12, 1)));
 	}
 
 	@Test

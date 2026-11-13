@@ -373,7 +373,8 @@ class PayoutLedgerScenarioTest {
 		assertThat(payoutRecoveryRepository.findAll()).hasSize(10)
 			.extracting(PayoutRecovery::getAmount).containsOnly(20_000L);
 
-		// 대회 취소 회수의 청구는 취소 다음 날 배치에서 만든다
+		// 대회 취소 회수의 청구는 주문이 환불 완료를 알린 뒤, 취소 다음 날 배치에서 만든다
+		raceCancelUseCase.markRefunded(RACE_ID, canceledAt);
 		claimAndConfirm(LocalDate.of(2026, 12, 2), LocalDateTime.of(2026, 12, 5, 10, 0));
 		assertThat(balance(PayoutAccount.갚을_돈)).isZero();
 		assertCompletions(Arrays.stream(range(101, 110))

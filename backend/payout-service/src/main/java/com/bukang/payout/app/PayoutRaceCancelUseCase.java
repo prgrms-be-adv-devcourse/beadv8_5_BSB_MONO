@@ -62,6 +62,17 @@ public class PayoutRaceCancelUseCase {
 	}
 
 	/**
+	 * 주문이 그 대회의 참가권을 모두 환불했다 (queuing.order.racerefund의 환불 완료, PR #467 리뷰)
+	 * 그 대회 정산 내역에 환불 완료 시각을 적는다. 청구 배치는 이 값이 있는 대회만 대회 취소 청구를 만든다
+	 * 환불이 남아 있을 때 청구하면, 늦게 온 환불이 갚을 돈을 늘려 입금 확인이 금액 불일치로 막힌다
+	 * 정산 내역이 없는 대회는 준 돈도 회수도 없어 적을 것이 없다
+	 */
+	@Transactional
+	public void markRefunded(long raceId, LocalDateTime refundedAt) {
+		payoutRepository.findForUpdateByRaceId(raceId).forEach(payout -> payout.markRaceRefunded(refundedAt));
+	}
+
+	/**
 	 * 대회 취소를 표시한 지급 중 정산 내역이 거절돼 취소로 닫힌 뒤 부른다 (PRO-253, PR #284 리뷰)
 	 * 1차가 거절로 닫히면 돈이 나가지 않았으므로 지급 전 대회 취소와 같다. 그 판매자 × 대회의 회수를 되돌린다
 	 * 지급 단계(PayoutPayStepUseCase)의 트랜잭션 안에서 돈다
