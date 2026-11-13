@@ -42,7 +42,10 @@ public class ApiV1AiChatController {
 	@PostMapping(CHAT_PATH)
 	@Operation(summary = "크루런 AI에 질문",
 		description = "그 화면의 역할(승인된 판매자·관리자)을 확인한 뒤, 이 화면의 내 앞 대화와 함께 질문을 모델에 보내 답을 돌려준다. "
-			+ "질문과 답은 대화 기록에 남는다.")
+			+ "질문과 답은 대화 기록에 남는다. "
+			+ "운영 숫자는 화면 종류에 맞는 조회 도구로 가져오고, 부른 도구대로 출처(sources: 기준 화면, 조회 시각 asOf, 버튼 글, 프론트 경로)를 붙인다. "
+			+ "조회에 실패한 출처는 asOf가 null이고, 버튼이 없는 화면은 buttonLabel·path가 null이다. "
+			+ "목록이 필요한 답은 list(rows, moreCount)를 함께 주고 아니면 null이다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "답변 성공",
 			content = @Content(examples = @ExampleObject(value = AiApiExamples.CHAT_SUCCESS))),
@@ -70,8 +73,8 @@ public class ApiV1AiChatController {
 		@PathVariable String screen,
 		@Valid @RequestBody AiChatRequestDto request
 	) {
-		String answer = aiChatUseCase.chat(memberId, toScreen(screen), request.message());
-		return ResponseEntity.ok(RsData.of(HttpStatus.OK, "답변했습니다.", new AiChatDto(answer)));
+		AiChatDto answer = aiChatUseCase.chat(memberId, toScreen(screen), request.message());
+		return ResponseEntity.ok(RsData.of(HttpStatus.OK, "답변했습니다.", answer));
 	}
 
 	@DeleteMapping(CHAT_PATH)
