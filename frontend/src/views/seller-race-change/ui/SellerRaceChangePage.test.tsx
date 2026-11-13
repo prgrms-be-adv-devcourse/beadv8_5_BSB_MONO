@@ -1,4 +1,9 @@
-import { focusManager, QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import {
+  focusManager,
+  onlineManager,
+  QueryClient,
+  QueryClientProvider,
+} from '@tanstack/react-query'
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
@@ -84,7 +89,7 @@ describe('SellerRaceChangePage 일정 변경', () => {
 })
 
 describe('SellerRaceChangePage 입력 유지', () => {
-  it('다른 창에 다녀와도 수정할 대회를 다시 받지 않아 쓰던 날짜가 남는다', async () => {
+  it('다른 창에 다녀오거나 네트워크가 다시 연결돼도 수정할 대회를 다시 받지 않아 쓰던 날짜가 남는다', async () => {
     let fetched = 0
     server.events.on('request:start', ({ request }) => {
       if (request.method === 'GET' && /\/product\/races\/1$/.test(new URL(request.url).pathname)) {
@@ -99,6 +104,8 @@ describe('SellerRaceChangePage 입력 유지', () => {
     act(() => {
       focusManager.setFocused(false)
       focusManager.setFocused(true)
+      onlineManager.setOnline(false)
+      onlineManager.setOnline(true)
     })
     await new Promise((resolve) => setTimeout(resolve, 50))
 

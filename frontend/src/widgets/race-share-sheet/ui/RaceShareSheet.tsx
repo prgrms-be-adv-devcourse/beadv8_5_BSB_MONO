@@ -19,7 +19,7 @@ export function RaceShareSheet({ open, onOpenChange, title, url }: RaceShareShee
   async function copyLink() {
     onOpenChange(false)
     if (await copyText(url)) toast({ message: '링크를 복사했어요', tone: 'success' })
-    else toast({ message: '복사하지 못했어요. 링크를 길게 눌러 복사해 주세요.', tone: 'error' })
+    else toast({ message: '복사하지 못했어요. 잠시 뒤 다시 시도해 주세요.', tone: 'error' })
   }
 
   function share() {

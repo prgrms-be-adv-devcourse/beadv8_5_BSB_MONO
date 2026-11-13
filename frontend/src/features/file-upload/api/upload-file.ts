@@ -30,12 +30,15 @@ export async function uploadFile(
   } = {},
 ): Promise<UploadedFile> {
   const issued = unwrapData(
-    await fileApi.createUploadUrl({
-      fileType,
-      fileName,
-      contentType: file.type,
-      fileSize: file.size,
-    }),
+    await fileApi.createUploadUrl(
+      {
+        fileType,
+        fileName,
+        contentType: file.type,
+        fileSize: file.size,
+      },
+      { signal },
+    ),
   )
   if (issued.fileId === undefined || !issued.uploadUrl) {
     throw new Error('업로드 주소를 받지 못했어요')

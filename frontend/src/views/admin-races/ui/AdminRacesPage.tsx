@@ -138,7 +138,6 @@ export function AdminRacesPage() {
             <KeyValue label="대회일" value="11/1 (일) 08:00" />
             <KeyValue label="접수 기간" value="10/14 (수) 10:00 ~ 10/31 (토) 18:00" />
             <KeyValue label="환불 기한" value="10/31 (토) 23:59" />
-            <KeyValue label="공개 범위" value="전체 공개" />
           </div>
           <p className="text-body2-regular text-text-secondary">판매자</p>
           <div className="flex flex-col gap-3 rounded-md bg-bg-subtle p-4">

@@ -86,7 +86,7 @@ describe('RaceDetailPage 공유 · 일정', () => {
 
     // 오류 Toast는 화면 읽기 프로그램용 알림(role=alert)에도 같은 문구가 한 번 더 그려진다
     expect(
-      await screen.findAllByText('복사하지 못했어요. 링크를 길게 눌러 복사해 주세요.'),
+      await screen.findAllByText('복사하지 못했어요. 잠시 뒤 다시 시도해 주세요.'),
     ).not.toHaveLength(0)
     expect(screen.queryByText('링크를 복사했어요')).not.toBeInTheDocument()
     writeText.mockRestore()

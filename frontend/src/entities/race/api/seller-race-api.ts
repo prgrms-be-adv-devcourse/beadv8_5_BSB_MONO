@@ -44,7 +44,8 @@ export function raceForEditQueryOptions(raceId: number) {
     queryFn: () => fetchRaceForEdit(raceId),
     // 이미지 URL이 30분 뒤 만료되고 판매 상태가 바뀌므로 화면에 들어올 때마다 새로 받는다
     staleTime: 0,
-    // 폼이 받은 시각(dataUpdatedAt)을 key로 쓰므로, 창에 돌아올 때 다시 받으면 쓰던 입력이 사라진다
+    // 폼이 받은 시각(dataUpdatedAt)을 key로 쓰므로, 창에 돌아오거나 다시 연결될 때 다시 받으면 쓰던 입력이 사라진다
     refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   })
 }
