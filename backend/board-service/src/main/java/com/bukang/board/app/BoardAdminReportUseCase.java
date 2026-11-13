@@ -47,6 +47,7 @@ public class BoardAdminReportUseCase {
 	private final BoardReportRepository boardReportRepository;
 	private final BoardMemberRepository boardMemberRepository;
 	private final BoardPostUseCase boardPostUseCase;
+	private final BoardOutboxKafkaAppendUseCase boardOutboxKafkaAppendUseCase;
 
 	// shortcut: 숨겨졌거나 처리한 글·댓글을 모두 읽는다 (페이지 없음). 수백 건을 넘으면 페이지로 나눈다
 	@Transactional(readOnly = true)
@@ -103,6 +104,8 @@ public class BoardAdminReportUseCase {
 				throw new BoardReportNotHandleableException();
 			}
 			post.handle(action, now);
+			// 되살리면 검색에 다시 나오고 지우면 빠지므로 색인 메시지를 같은 트랜잭션으로 남긴다 (BUK-179)
+			boardOutboxKafkaAppendUseCase.appendPostChanged(post.getId());
 			if (action == ReportHandledAction.DELETED) {
 				boardPostUseCase.releaseFiles(post);
 			}

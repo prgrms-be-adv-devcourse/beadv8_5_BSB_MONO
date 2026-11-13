@@ -3,10 +3,10 @@ package com.bukang.board.out.search;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.net.URI;
 import java.nio.file.Path;
 import java.util.List;
 
-import org.apache.hc.core5.http.HttpHost;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -45,12 +45,12 @@ class ElasticBoardPostSearchAdapterTest {
 
 	@BeforeAll
 	static void connect() {
-		client = clientOf(HttpHost.create(ELASTICSEARCH.getHttpHostAddress()));
+		client = clientOf(URI.create("http://" + ELASTICSEARCH.getHttpHostAddress()));
 	}
 
-	private static ElasticsearchClient clientOf(HttpHost host) {
+	private static ElasticsearchClient clientOf(URI uri) {
 		return new ElasticsearchClient(new Rest5ClientTransport(
-			Rest5Client.builder(host).build(), new JacksonJsonpMapper()));
+			Rest5Client.builder(uri).build(), new JacksonJsonpMapper()));
 	}
 
 	@BeforeEach
@@ -113,7 +113,7 @@ class ElasticBoardPostSearchAdapterTest {
 	@DisplayName("Elasticsearch에 연결하지 못하면 503 예외로 알린다 (검색), 색인은 예외를 그대로 던져 다시 시도하게 한다")
 	void unreachable() {
 		ElasticBoardPostSearchAdapter down = new ElasticBoardPostSearchAdapter(
-			clientOf(new HttpHost("http", "localhost", 1)));
+			clientOf(URI.create("http://localhost:1")));
 
 		assertThatThrownBy(() -> down.search("한강", 10)).isInstanceOf(BoardExternalServiceUnavailableException.class);
 		assertThatThrownBy(() -> down.index(doc(1, "제목", "본문"))).isInstanceOf(RuntimeException.class);

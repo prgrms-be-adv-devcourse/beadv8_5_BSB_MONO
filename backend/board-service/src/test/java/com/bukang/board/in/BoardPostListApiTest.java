@@ -20,6 +20,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MvcResult;
 
+import com.bukang.board.app.BoardPostListUseCase;
 import com.bukang.board.domain.exception.BoardExternalServiceUnavailableException;
 import com.bukang.board.support.BoardTestBase;
 

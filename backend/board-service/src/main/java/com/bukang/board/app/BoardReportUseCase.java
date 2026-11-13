@@ -35,6 +35,7 @@ public class BoardReportUseCase {
 	private final BoardCommentRepository boardCommentRepository;
 	private final BoardReportRepository boardReportRepository;
 	private final BoardWriterGuard boardWriterGuard;
+	private final BoardOutboxKafkaAppendUseCase boardOutboxKafkaAppendUseCase;
 
 	// 없는 글, 지운 글, 숨겨진 글은 404 (숨겨진 글이 있다는 사실이 드러나지 않게). 내 글은 400
 	@Transactional
@@ -50,6 +51,8 @@ public class BoardReportUseCase {
 		}
 		if (record(ReportTargetType.POST, postId, memberId, reason, post.getHandledAt()) >= HIDE_THRESHOLD) {
 			post.hide();
+			// 숨겨진 글은 검색에서 빠져야 하므로 색인 메시지를 같은 트랜잭션으로 남긴다 (BUK-179)
+			boardOutboxKafkaAppendUseCase.appendPostChanged(postId);
 		}
 	}
 

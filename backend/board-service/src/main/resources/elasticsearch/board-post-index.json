@@ -1,0 +1,36 @@
+{
+  "settings": {
+    "index": {
+      "number_of_replicas": 0
+    },
+    "analysis": {
+      "tokenizer": {
+        "board_nori_mixed": {
+          "type": "nori_tokenizer",
+          "decompound_mode": "mixed"
+        },
+        "board_nori_discard": {
+          "type": "nori_tokenizer",
+          "decompound_mode": "discard"
+        }
+      },
+      "analyzer": {
+        "board_index_analyzer": {
+          "tokenizer": "board_nori_mixed",
+          "filter": ["nori_part_of_speech", "nori_readingform", "lowercase"]
+        },
+        "board_search_analyzer": {
+          "tokenizer": "board_nori_discard",
+          "filter": ["nori_part_of_speech", "nori_readingform", "lowercase"]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "properties": {
+      "postId": {"type": "long"},
+      "title": {"type": "text", "analyzer": "board_index_analyzer", "search_analyzer": "board_search_analyzer"},
+      "content": {"type": "text", "analyzer": "board_index_analyzer", "search_analyzer": "board_search_analyzer"}
+    }
+  }
+}
