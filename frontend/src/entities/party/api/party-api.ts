@@ -98,6 +98,8 @@ async function call<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 export const partyKeys = {
+  /** 파티 캐시 전체 (아래 키가 모두 이 아래에 있다) */
+  all: ['party'] as const,
   detail: (partyId: number) => ['party', partyId] as const,
   raceStatus: (raceId: number) => ['party', 'race-status', raceId] as const,
   crewActive: (crewId: number) => ['party', 'crew-active', crewId] as const,
@@ -108,7 +110,7 @@ export const partyKeys = {
 /** 파티가 바뀌면 상세 · 내 상태 · 크루 파티 목록이 모두 달라지므로 파티 캐시를 통째로 무효화한다 */
 function useInvalidateParties() {
   const queryClient = useQueryClient()
-  return () => queryClient.invalidateQueries({ queryKey: ['party'] })
+  return () => queryClient.invalidateQueries({ queryKey: partyKeys.all })
 }
 
 export const partyDetailQueryOptions = (partyId: number) =>

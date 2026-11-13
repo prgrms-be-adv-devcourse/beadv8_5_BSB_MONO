@@ -17,6 +17,9 @@ import { ApiError, customFetch } from '@/shared/api'
 
 const STATS_URL = '/admin/stats/data'
 
+// 어드민 통계 API는 openapi 명세에 없어 orval 키 함수가 없다. 키는 이 파일에서만 만든다.
+const statsKey = (...parts: unknown[]) => ['admin-stats', ...parts] as const
+
 /** 실시간 영역을 새로 불러오는 간격 */
 export const REALTIME_REFRESH_MS = 60_000
 
@@ -31,7 +34,7 @@ type SectionData = {
 
 export function useRealtimeStats() {
   return useQuery({
-    queryKey: ['admin-stats', 'realtime'],
+    queryKey: statsKey('realtime'),
     queryFn: () => customFetch<StatsResponse<RealtimeStats>>(`${STATS_URL}?section=realtime`),
     refetchInterval: REALTIME_REFRESH_MS,
     retry: retryUnlessDenied,
@@ -44,7 +47,7 @@ export function usePeriodStats<S extends Exclude<StatsSection, 'realtime'>>(
   query: StatsPeriodQuery,
 ) {
   return useQuery({
-    queryKey: ['admin-stats', section, query],
+    queryKey: statsKey(section, query),
     queryFn: () =>
       customFetch<StatsResponse<SectionData[S]>>(
         `${STATS_URL}?section=${section}&${statsPeriodSearch(query)}`,

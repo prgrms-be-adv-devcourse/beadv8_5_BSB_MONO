@@ -18,7 +18,7 @@ import {
 } from '@/entities/party'
 import { fetchRacePage, RaceSort } from '@/entities/race'
 import { ApiError, memberApi, productApi, productModel, unwrapData } from '@/shared/api'
-import { cn, formatNumber } from '@/shared/lib'
+import { cn, formatNumber, useNow } from '@/shared/lib'
 import {
   Alert,
   Badge,
@@ -44,9 +44,11 @@ import { PartyFailureScreen, PartyLoadError } from './PartyFailureScreen'
 
 const FORM_ID = 'party-new-form'
 
+const CREW_RACES_PARAMS = { sort: RaceSort.DEADLINE, size: 20 }
+
 type RacePhase = 'before' | 'open' | 'ended'
 
-function crewPhase(race: productModel.RaceSummaryDto, now = Date.now()): RacePhase {
+function crewPhase(race: productModel.RaceSummaryDto, now: number): RacePhase {
   if (race.crewSaleStartAt && parseKstDateTime(race.crewSaleStartAt) > now) return 'before'
   if (race.crewSaleEndAt && parseKstDateTime(race.crewSaleEndAt) <= now) return 'ended'
   return 'open'
@@ -56,9 +58,11 @@ function crewPhase(race: productModel.RaceSummaryDto, now = Date.now()): RacePha
 // 파티 만들기 API가 파티장의 참가 정보와 동의를 함께 받아서, 시안의 「파티원 고르기」 자리에 이 입력을 둔다.
 export function PartyNewPage({ crewId }: { crewId?: number }) {
   const router = useRouter()
+  const nowMs = useNow()?.getTime()
   const races = useQuery({
-    queryKey: ['party', 'new', 'races'],
-    queryFn: () => fetchRacePage({ sort: RaceSort.DEADLINE, size: 20 }),
+    // 생성 훅은 응답 전체를, fetchRacePage는 data만 담으므로 같은 키를 쓰지 않게 꼬리를 붙인다
+    queryKey: [...productApi.getSearchQueryKey(CREW_RACES_PARAMS), 'page'],
+    queryFn: () => fetchRacePage(CREW_RACES_PARAMS),
     enabled: crewId !== undefined,
   })
   const [raceId, setRaceId] = useState<number>()
@@ -176,7 +180,7 @@ export function PartyNewPage({ crewId }: { crewId?: number }) {
         ) : (
           <ul className="flex flex-col gap-3">
             {list.map((race) => {
-              const phase = crewPhase(race)
+              const phase = nowMs === undefined ? 'before' : crewPhase(race, nowMs)
               const selected = race.raceId === raceId
               const disabled = phase !== 'open'
               return (

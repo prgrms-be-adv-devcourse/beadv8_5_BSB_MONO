@@ -36,6 +36,8 @@ export type AnalyticsEvents = {
   deposit_charge_start: { amount: number; duringCheckout: boolean }
   deposit_charge_done: { amount: number; duringCheckout: boolean }
   purchase: { orderId: string; items: TrackItem[]; value: number }
+  /** 오류 경계가 보여 준 오류. digest(서버가 붙인 식별 값)만 싣는다 */
+  app_error: { digest?: string }
   seller_apply_start: Record<string, never>
   seller_apply_submit: { isBusiness: boolean }
   seller_race_form_start: { entry: SellerRaceFormEntry }
@@ -142,6 +144,7 @@ const PAYLOADS: { [K in AnalyticsEventName]: (params: AnalyticsEvents[K]) => Dat
     value,
     ecommerce: { transaction_id: orderId, currency: KRW, value, items: ecommerceItems(items) },
   }),
+  app_error: ({ digest }) => (digest ? { digest } : {}),
   seller_apply_start: () => ({}),
   seller_apply_submit: ({ isBusiness }) => ({ is_business: isBusiness }),
   seller_race_form_start: ({ entry }) => ({ entry }),
