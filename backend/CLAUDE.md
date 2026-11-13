@@ -218,7 +218,7 @@ Spring Boot 4의 모듈화된 스타터를 사용합니다. 테스트 지원도 
 
 - `backend/.env`와 `backend/compose.yml`은 `common`의 `global/config/LocalDevEnvironmentPostProcessor`가 실행 위치(working directory)와 상관없이 찾아 적용합니다.
 - 프로파일: `dev`(기본, 로컬 MySQL 등 compose 인프라), `test`(H2, Kafka 리스너 꺼짐), `prod`(값은 `.env` 환경변수).
-- dev/test의 암호화 키와 JWT 키는 개발용으로 yaml에 들어 있습니다. prod 키는 `.env`에만 두고 dev와 다른 값을 씁니다.
+- dev의 암호화 키와 JWT 키는 prod처럼 `.env`에서 읽습니다(`JWT_SECRET`, `CRYPTO_*`, `MARKETING_UNSUBSCRIBE_KEY`). 값이 없으면 dev 서버가 뜨지 않습니다. test 키만 yaml에 있습니다.
 - 인증은 JWT + Redis(Stateless)입니다. Access Token은 게이트웨이가 검사하고, 서비스는 게이트웨이가 넣어 준 `X-Member-Id` 헤더로 회원을 알아봅니다. 서비스는 세션을 만들지 않습니다 (`member-service`의 `security/WebConfig`).
 - 개인정보(휴대폰 번호)는 AES로 암호화해 저장하고 해시 컬럼으로 조회합니다. 암호화한 필드로 직접 조회하지 않습니다 (README 참고).
 

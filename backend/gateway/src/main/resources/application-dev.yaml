@@ -1,5 +1,9 @@
 # 서비스를 bootRun/IDE로 호스트에서 실행할 때의 주소
 spring:
+  # 게이트웨이는 common(LocalDevEnvironmentPostProcessor)을 쓰지 않으므로 backend/.env를 직접 읽는다 (JWT_SECRET)
+  # 실행 위치가 gateway/, backend/, 저장소 루트 중 어디여도 찾도록 세 경로를 모두 적는다
+  config:
+    import: "optional:file:../.env[.properties],optional:file:.env[.properties],optional:file:backend/.env[.properties]"
   data:
     redis:
       host: localhost
@@ -21,7 +25,7 @@ gateway:
 
 # Access Token 검사용 서명 키. member-service가 발급할 때 쓰는 키와 같아야 한다
 jwt:
-  secret: jwt-dev-secret-key-1423-1126-7541-3217
+  secret: ${JWT_SECRET}
 
 logging:
   level:

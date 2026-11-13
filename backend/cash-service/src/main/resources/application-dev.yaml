@@ -42,8 +42,8 @@ logging:
     org.hibernate.SQL: debug
     org.hibernate.orm.jdbc.bind: trace
 
-# 계좌번호·pgPaymentKey 암호화 키 (dev 전용 값, member-service와는 다른 값)
+# 계좌번호·pgPaymentKey 암호화 키 (.env 값, 다른 서비스와 같은 키)
 crypto:
   enabled: true # common global/crypto의 암호화 빈(TextEncryptor, EncryptedStringConverter)을 켠다
-  password: IOqDAv1zFDK/FVo/sIReebOrto+TKARA7gfE8EQCPOA=
-  salt: 25dc6e5c1bc8b786
+  password: ${CRYPTO_PASSWORD}
+  salt: ${CRYPTO_SALT}

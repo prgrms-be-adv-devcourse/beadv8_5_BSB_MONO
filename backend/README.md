@@ -197,12 +197,12 @@ presigned URL은 만료 전까지 여러 번 쓸 수 있어서, 확인을 마친
 
 | 설정 키 | dev / test | prod | 생성 명령 |
 |---|---|---|---|
-| `crypto.password` | `application-dev.yaml`, `application-test.yaml` | `.env`의 `CRYPTO_PASSWORD` | `openssl rand -base64 32` |
+| `crypto.password` | dev: `.env`의 `CRYPTO_PASSWORD`, test: `application-test.yaml` | `.env`의 `CRYPTO_PASSWORD` | `openssl rand -base64 32` |
 | `crypto.salt` | 〃 | `.env`의 `CRYPTO_SALT` | `openssl rand -hex 8` (16진수만 가능) |
 | `crypto.hmac-secret` | 〃 | `.env`의 `CRYPTO_HMAC_KEY` | `openssl rand -base64 32` |
 
-- prod에서는 암호화를 켠 모든 서비스가 `.env`의 같은 `CRYPTO_*` 키를 씁니다. 각 서비스의 `application-prod.yaml`은 `${CRYPTO_PASSWORD}`, `${CRYPTO_SALT}`를 참조합니다.
-- dev/test 키는 개발용이라 서비스마다 yaml에 들어 있습니다(지금은 member와 cash 값이 다릅니다). prod 키는 dev와 **다른 값**으로 만들고 `.env`에만 둡니다.
+- dev와 prod에서는 암호화를 켠 모든 서비스가 `.env`의 같은 `CRYPTO_*` 키를 씁니다. 각 서비스의 `application-dev.yaml`과 `application-prod.yaml`은 `${CRYPTO_PASSWORD}`, `${CRYPTO_SALT}`를 참조합니다.
+- test 키만 개발용으로 `application-test.yaml`에 들어 있습니다. dev는 내 컴퓨터의 `backend/.env`에 넣고, 값이 없으면 dev 서버가 뜨지 않습니다. 로컬 `.env`에는 운영 키를 넣지 않고 따로 만든 값을 씁니다.
 - 세 키는 서로 다른 값이어야 합니다. `JWT_SECRET`과도 같은 값을 쓰지 않습니다.
 - `openssl`은 Windows의 Git Bash와 macOS 터미널에 기본으로 들어 있습니다.
 
