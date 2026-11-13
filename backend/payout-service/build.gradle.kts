@@ -17,6 +17,8 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-restclient")
 	// 부하 테스트 측정용 지표(Micrometer). 웹으로는 기본값대로 /actuator/health만 열린다
 	implementation("org.springframework.boot:spring-boot-starter-actuator")
+	// Actuator 지표를 Prometheus 형식(/actuator/prometheus)으로 내보낸다. 엔드포인트는 dev 프로필에서만 연다
+	runtimeOnly("io.micrometer:micrometer-registry-prometheus")
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa") // dataJpa
 	// 표 변경은 Flyway SQL(db/migration)로만 한다 (PR #265). MySQL 지원은 별도 모듈
 	implementation("org.springframework.boot:spring-boot-starter-flyway")
@@ -38,6 +40,7 @@ dependencies {
 	testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-kafka-test")
+	testImplementation("org.springframework.boot:spring-boot-micrometer-metrics-test") // @AutoConfigureMetrics (테스트는 지표 내보내기가 기본으로 꺼져 있다)
 	testImplementation("org.openjdk.jol:jol-core:0.17") // 대사 비교 방식(집합 · 비트맵)의 메모리 크기 측정 (EntryDifferMemoryTest)
 	testImplementation(testFixtures(project(":common"))) // GlobalConfigTestExecutionListener (테스트마다 EventPublisher 재설정)
 
