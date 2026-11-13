@@ -94,8 +94,9 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
   const regenerate = useRegenerateJoinLink()
   const leave = useLeaveParty()
   const createInvite = memberApi.useCreateCrewInvite()
-  // 초대 토큰은 만들 때 응답에만 오므로, 복사가 실패해도 다시 만들지 않게 만든 링크를 들고 있는다
-  const [friendLink, setFriendLink] = useState<string>()
+  // 초대 토큰은 만들 때 응답에만 오므로, 복사가 실패해도 다시 만들지 않게 만든 링크를 들고 있는다.
+  // 참가 링크를 새로 만들면 옛 토큰이 든 링크가 되므로, 만들 때의 참가 토큰과 같을 때만 다시 쓴다.
+  const [friendLink, setFriendLink] = useState<{ url: string; joinToken: string }>()
   const orderKey = useIdempotencyKey()
   const [confirm, setConfirm] = useState<'regenerate' | 'leave' | null>(null)
 
@@ -140,13 +141,17 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
   function inviteFriend() {
     const joinToken = party.joinToken
     if (!joinToken) return
-    if (friendLink) return void copy(friendLink, '초대 링크를 복사했어요')
+    if (friendLink?.joinToken === joinToken) {
+      return void copy(friendLink.url, '초대 링크를 복사했어요')
+    }
     createInvite.mutate(
       { crewId: party.crewId },
       {
         onSuccess: (res) => {
-          const url = inviteUrl(res.data?.inviteToken ?? '', window.location.origin, joinToken)
-          setFriendLink(url)
+          const inviteToken = res.data?.inviteToken
+          if (!inviteToken) return toastError(undefined)
+          const url = inviteUrl(inviteToken, window.location.origin, joinToken)
+          setFriendLink({ url, joinToken })
           void copy(url, '초대 링크를 복사했어요')
         },
         onError: toastError,

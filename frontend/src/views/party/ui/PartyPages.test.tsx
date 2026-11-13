@@ -206,6 +206,111 @@ describe('파티 상세 · 친구 초대', () => {
   })
 })
 
+describe('파티 상세 · 친구 초대 다시 만들기', () => {
+  const invited = (count: () => void) =>
+    http.post('*/api/v1/member/crews/:crewId/invites', () => {
+      count()
+      return HttpResponse.json({
+        status: 201,
+        message: '성공',
+        data: {
+          inviteId: 3,
+          inviteToken: 'tok',
+          createdAt: '2026-11-13T09:00:00',
+          expiresAt: '2026-11-14T09:00:00',
+        },
+      })
+    })
+  const leaderCrew = memberMock.getFindCrewMockHandler({
+    status: 200,
+    message: '성공',
+    data: {
+      crewId: 7,
+      name: '성수런',
+      createdAt: '2026-10-01T00:00:00',
+      myRole: 'LEADER',
+      memberCount: 3,
+      members: [],
+    },
+  })
+
+  it('참가 링크를 새로 만들면 옛 토큰이 든 초대 링크를 다시 쓰지 않는다', async () => {
+    let token = 'k3Jx9'
+    const created = vi.fn()
+    const detail = () =>
+      HttpResponse.json({
+        status: 200,
+        message: '성공',
+        data: {
+          id: 1,
+          crewId: 7,
+          raceId: 100,
+          raceCourseId: 2,
+          leaderMemberId: 1,
+          status: 'RECRUITING',
+          paymentDueAt: null,
+          joinToken: token,
+          joinTokenExpiresAt: '2099-01-01T00:00:00',
+          memberCount: 3,
+          paidCount: 0,
+          members: [],
+        },
+      })
+    server.use(
+      leaderCrew,
+      invited(created),
+      http.get('*/api/v1/order/parties/1', detail),
+      http.post('*/api/v1/order/parties/1/join-link', () => {
+        token = 'n3w'
+        return detail()
+      }),
+    )
+    const user = userEvent.setup()
+    renderPage(<PartyDetailPage partyId={1} />)
+    await user.click(await screen.findByRole('button', { name: '친구 초대' }))
+    await waitFor(() => expect(created).toHaveBeenCalledTimes(1))
+    await user.click(screen.getByRole('button', { name: '새로 만들기', hidden: true }))
+    await screen.findByRole('dialog', { hidden: true })
+    const buttons = screen.getAllByRole('button', { name: '새로 만들기', hidden: true })
+    await user.click(buttons[buttons.length - 1])
+    await waitFor(() => expect(token).toBe('n3w'))
+    await user.click(await screen.findByRole('button', { name: '친구 초대' }))
+    await waitFor(async () =>
+      expect(await navigator.clipboard.readText()).toBe(
+        `${window.location.origin}/invite/tok?party=n3w`,
+      ),
+    )
+  })
+
+  it('복사에 실패한 뒤 다시 눌러도 초대 링크를 새로 만들지 않는다', async () => {
+    const created = vi.fn()
+    server.use(leaderCrew, invited(created))
+    const user = userEvent.setup()
+    vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValueOnce(new Error('denied'))
+    renderPage(<PartyDetailPage partyId={1} />)
+    await user.click(await screen.findByRole('button', { name: '친구 초대' }))
+    await waitFor(() => expect(created).toHaveBeenCalledTimes(1))
+    await user.click(screen.getByRole('button', { name: '친구 초대' }))
+    await waitFor(async () => expect(await navigator.clipboard.readText()).toContain('/invite/tok'))
+    expect(created).toHaveBeenCalledTimes(1)
+  })
+
+  it('응답에 초대 토큰이 없으면 깨진 링크를 복사하지 않고 오류를 알린다', async () => {
+    server.use(
+      leaderCrew,
+      http.post('*/api/v1/member/crews/:crewId/invites', () =>
+        HttpResponse.json({ status: 201, message: '성공', data: {} }),
+      ),
+    )
+    const user = userEvent.setup()
+    await navigator.clipboard.writeText('처음 값')
+    renderPage(<PartyDetailPage partyId={1} />)
+    await user.click(await screen.findByRole('button', { name: '친구 초대' }))
+    expect((await screen.findAllByText('잠시 후 다시 시도해 주세요.')).length).toBeGreaterThan(0)
+    expect(await navigator.clipboard.readText()).toBe('처음 값')
+  })
+})
+
 describe('파티 합류', () => {
   it.each([
     ['expired', '참가 링크 기간이 끝났어요'],
