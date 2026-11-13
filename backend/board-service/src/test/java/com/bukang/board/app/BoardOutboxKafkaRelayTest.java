@@ -117,6 +117,23 @@ class BoardOutboxKafkaRelayTest extends BoardTestBase {
 	}
 
 	@Test
+	@DisplayName("재시도를 기다리는 글의 뒤 메시지는 막히고, 다른 글의 메시지는 그대로 나간다")
+	void blocksOnlySameKey() {
+		BoardOutboxKafkaEvent waiting = pending(7);
+		waiting.markSendFailed(BoardOutboxKafkaRelayUseCase.MAX_RETRY, NOW.plusMinutes(1));
+		outboxRepository.save(waiting);
+		BoardOutboxKafkaEvent sameKeyLater = pending(7);
+		BoardOutboxKafkaEvent otherKey = pending(8);
+
+		assertThat(relayUseCase.relay(NOW)).isEqualTo(1);
+
+		assertThat(outboxRepository.findById(sameKeyLater.getId()).orElseThrow().getStatus())
+			.isEqualTo(OutboxStatus.PENDING);
+		assertThat(outboxRepository.findById(otherKey.getId()).orElseThrow().getStatus())
+			.isEqualTo(OutboxStatus.SENT);
+	}
+
+	@Test
 	@DisplayName("MAX_RETRY번 실패하면 SEND_FAILED로 바꿔 더는 보내지 않는다")
 	void givesUpAfterMaxRetry() {
 		BoardOutboxKafkaEvent event = pending(7);

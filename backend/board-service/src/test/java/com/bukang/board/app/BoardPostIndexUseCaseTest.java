@@ -80,15 +80,21 @@ class BoardPostIndexUseCaseTest extends BoardTestBase {
 	}
 
 	@Test
-	@DisplayName("숨김 메시지가 되살리기 메시지보다 늦게 와도 DB가 보이는 글이면 인덱스에 남는다")
-	void lateHideAfterRestoreFollowsDb() throws Exception {
+	@DisplayName("숨김→되살리기가 연달아 일어나 메시지가 늦게 와도, 처리하는 순간 DB가 보이는 글이면 인덱스에 넣는다")
+	void followsCurrentDbStateAcrossHideAndRestore() throws Exception {
 		long postId = newPost(ME, "되살아난 글");
+		hidePost(postId);
+		jdbcTemplate.update("update board_post set status = 'VISIBLE' where id = ?", postId);
 
-		indexUseCase.apply("m-restore", postId);
 		indexUseCase.apply("m-hide", postId);
+		indexUseCase.apply("m-restore", postId);
 
 		verify(searchPort, times(2)).index(new BoardPostSearchPort.Document(postId, "되살아난 글", "본문"));
 		verify(searchPort, never()).delete(postId);
+
+		hidePost(postId);
+		indexUseCase.apply("m-hide-again", postId);
+		verify(searchPort).delete(postId);
 	}
 
 	@Test
