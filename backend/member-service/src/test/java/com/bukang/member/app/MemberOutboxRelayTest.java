@@ -360,19 +360,16 @@ class MemberOutboxRelayTest {
 	}
 
 	@Test
-	@DisplayName("보내기가 느려 한 번 실행의 시간 한도를 넘기면 거기서 멈추고, 남은 행은 다음 실행에서 저장 순서대로 보낸다")
+	@DisplayName("한 번 실행의 시간 한도를 넘기면 거기서 멈추되 최소 한 건은 보내고, 남은 행은 다음 실행에서 저장 순서대로 보낸다")
 	void stopAtRunTimeLimitAndResumeInOrder(CapturedOutput output) {
 		for (long memberId = 2001; memberId <= 2005; memberId++) {
 			joined(memberId);
 		}
-		doAnswer(invocation -> {
-			Thread.sleep(300);
-			return CompletableFuture.completedFuture(null);
-		}).when(kafka()).send(any(ProducerRecord.class));
+		// 한도 0: 시간 측정에 기대지 않고 "한도를 이미 넘긴" 상태를 만든다
 		OutboxKafkaRelay<MemberOutboxEvent> limited = new OutboxKafkaRelay<>(memberOutboxEventRepository, kafka()) {
 			@Override
 			protected Duration runTimeLimit() {
-				return Duration.ofMillis(500);
+				return Duration.ZERO;
 			}
 		};
 
@@ -380,13 +377,12 @@ class MemberOutboxRelayTest {
 		List<MemberOutboxEvent> afterFirstRun = allRows();
 		int secondRun = relayAt(now.plusSeconds(1));
 
-		// 300ms 뒤(한도 안)에 두 번째를 보내고, 600ms 뒤(한도 넘음)에 멈춘다
-		assertThat(firstRun).isEqualTo(2);
+		assertThat(firstRun).isEqualTo(1);
 		assertThat(afterFirstRun).extracting(MemberOutboxEvent::getStatus)
-			.containsExactly(OutboxStatus.SENT, OutboxStatus.SENT, OutboxStatus.PENDING, OutboxStatus.PENDING,
+			.containsExactly(OutboxStatus.SENT, OutboxStatus.PENDING, OutboxStatus.PENDING, OutboxStatus.PENDING,
 				OutboxStatus.PENDING);
 		assertThat(afterFirstRun).extracting(MemberOutboxEvent::getRetryCount).containsOnly(0);
-		assertThat(secondRun).isEqualTo(3);
+		assertThat(secondRun).isEqualTo(4);
 		assertThat(sentRecords(5)).extracting(ProducerRecord::key)
 			.containsExactly("2001", "2002", "2003", "2004", "2005");
 		assertThat(allRows()).extracting(MemberOutboxEvent::getStatus).containsOnly(OutboxStatus.SENT);
