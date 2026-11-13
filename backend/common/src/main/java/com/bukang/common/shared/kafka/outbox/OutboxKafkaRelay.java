@@ -38,6 +38,9 @@ import lombok.extern.slf4j.Slf4j;
  * - 순서 단위는 같은 대상(종류 + ID)이다. 토픽 + key로 묶으면 같은 대상의 다른 토픽 이벤트가 앞 이벤트보다 먼저 나갈 수 있다
  * - 다른 서버가 락을 건 앞 행은 SKIP LOCKED로 묶음에서 빠진다. 그래서 대상마다 가장 앞 행을 락 없이 따로 읽어,
  *   그 행이 이번 묶음에 없으면 그 대상의 뒤 행도 보내지 않는다
+ * - 한 번 실행은 RUN_TIME_LIMIT(10초)까지만 돈다. 다음 건을 보내기 직전에 한도를 넘었으면 거기서 멈춘다.
+ *   브로커가 느릴 때 행 락과 DB 커넥션을 오래 쥐지 않게 하려는 것이다. 이미 보낸 건은 "보냄"으로 커밋되고,
+ *   남은 행은 1초 뒤 다음 실행이 저장 순서대로 이어 보낸다
  */
 @Slf4j
 public abstract class OutboxKafkaRelay<E extends BaseOutboxKafkaEvent> {
@@ -49,6 +52,7 @@ public abstract class OutboxKafkaRelay<E extends BaseOutboxKafkaEvent> {
 	private static final Duration STALE_PENDING = Duration.ofMinutes(5);
 	private static final Duration STALE_LOG_INTERVAL = Duration.ofMinutes(1);
 	private static final long SEND_TIMEOUT_SECONDS = 5;
+	private static final Duration RUN_TIME_LIMIT = Duration.ofSeconds(10);
 
 	private final OutboxKafkaEventRepository<E> repository;
 	private final KafkaTemplate<String, String> kafkaTemplate;
@@ -76,6 +80,7 @@ public abstract class OutboxKafkaRelay<E extends BaseOutboxKafkaEvent> {
 		Set<String> blockedTargets = new HashSet<>();
 		Set<String> seenTargets = new HashSet<>();
 		int sent = 0;
+		long startNanos = System.nanoTime();
 		for (E event : events) {
 			String target = event.getRefType() + ":" + event.getRefId();
 			if (blockedTargets.contains(target)) {
@@ -86,6 +91,12 @@ public abstract class OutboxKafkaRelay<E extends BaseOutboxKafkaEvent> {
 				blockedTargets.add(target);
 				continue;
 			}
+			long elapsedNanos = System.nanoTime() - startNanos;
+			if (elapsedNanos >= runTimeLimit().toNanos()) {
+				log.warn("아웃박스 발행이 시간 한도를 넘겨 이번 실행을 멈춥니다. 보낸 건수={}, 경과={}ms",
+					sent, TimeUnit.NANOSECONDS.toMillis(elapsedNanos));
+				break;
+			}
 			Exception failure = send(event);
 			if (failure != null) {
 				markFailed(event, failure, now);
@@ -95,6 +106,11 @@ public abstract class OutboxKafkaRelay<E extends BaseOutboxKafkaEvent> {
 			sent++;
 		}
 		return sent;
+	}
+
+	// 한 번 실행의 시간 한도. 테스트에서 짧게 바꾸려고 열어 둔다
+	protected Duration runTimeLimit() {
+		return RUN_TIME_LIMIT;
 	}
 
 	// failCount번째 실패 뒤 기다릴 시간: 1초, 2초, 4초, … 최대 1분
