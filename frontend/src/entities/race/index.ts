@@ -9,6 +9,7 @@ export {
   raceQueryOptions,
   RaceSort,
   raceSuggestionsQueryOptions,
+  similarRacesQueryOptions,
   type RaceSearchFilters,
 } from './api/race-api'
 export {

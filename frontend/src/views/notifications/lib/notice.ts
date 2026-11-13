@@ -3,13 +3,14 @@ import type { Route } from 'next'
 import type { Notice } from '@/entities/notification'
 import type { IconName } from '@/shared/ui'
 
-export type NoticeCategory = 'race' | 'payment' | 'crew' | 'seller'
+export type NoticeCategory = 'race' | 'payment' | 'crew' | 'seller' | 'inquiry' | 'community'
 
 // 피그마 시나리오 37 · 02 알림 목록의 묶음 순서와 이름. linkLabel은 알림에 이동 주소가 있을 때 버튼 문구
+// tab이 없는 묶음(문의 · 커뮤니티)은 시안(1639:16255, 1645:17527)처럼 전체 목록에만 나온다
 export const NOTICE_CATEGORIES: {
   value: NoticeCategory
   title: string
-  tab: string
+  tab?: string
   icon: IconName
   linkLabel: string
 }[] = [
@@ -22,6 +23,9 @@ export const NOTICE_CATEGORIES: {
     linkLabel: '자세히 보기',
   },
   { value: 'crew', title: '크루 소식', tab: '크루', icon: 'Users', linkLabel: '크루 보러 가기' },
+  // 문의 답변(1639:16255) · 커뮤니티 댓글·답글(1645:17527)
+  { value: 'inquiry', title: '문의', icon: 'Inbox', linkLabel: '답변 보기' },
+  { value: 'community', title: '커뮤니티', icon: 'Inbox', linkLabel: '글 보러 가기' },
   // 시나리오 39 · 판매자 회원에게만 보인다. 버튼 문구는 알림 종류마다 다르다(SELLER_ACTION)
   { value: 'seller', title: '판매 소식', tab: '판매', icon: 'Package', linkLabel: '자세히 보기' },
 ]
@@ -30,7 +34,10 @@ export const NOTICE_CATEGORIES: {
 const KIND_CATEGORY: Record<string, NoticeCategory> = {
   RACE_CANCELED: 'race',
   RACE_SCHEDULE_CHANGED: 'race',
-  INQUIRY_ANSWERED: 'race',
+  INQUIRY_ANSWERED: 'inquiry',
+  // TODO(api): 커뮤니티 알림 종류 이름은 백엔드가 아직 정하지 않았다(NotificationKind에 없음). 정해지면 맞춘다
+  COMMUNITY_COMMENT: 'community',
+  COMMUNITY_REPLY: 'community',
   REFUND_COMPLETED: 'payment',
   WITHDRAWAL_COMPLETED: 'payment',
   CARD_CANCEL_DEADLINE: 'payment',
