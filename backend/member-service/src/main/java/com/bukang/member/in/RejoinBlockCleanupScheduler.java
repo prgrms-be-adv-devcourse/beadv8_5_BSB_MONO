@@ -7,6 +7,8 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
+
 import com.bukang.member.app.RejoinBlockCleanupUseCase;
 
 import lombok.RequiredArgsConstructor;
@@ -25,6 +27,7 @@ public class RejoinBlockCleanupScheduler {
 
 	private final RejoinBlockCleanupUseCase rejoinBlockCleanupUseCase;
 
+	@SchedulerLock(name = "member-rejoin-block-cleanup", lockAtMostFor = "PT30M", lockAtLeastFor = "PT30S")
 	@Scheduled(cron = "0 0 4 * * *", zone = ZONE)
 	public void clearExpired() {
 		int cleared = rejoinBlockCleanupUseCase.clearExpired(LocalDate.now(ZoneId.of(ZONE)));

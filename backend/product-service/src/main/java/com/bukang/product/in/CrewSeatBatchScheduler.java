@@ -6,6 +6,8 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
+
 import com.bukang.product.app.CrewSeatBatchUseCase;
 import com.bukang.product.app.ProductFacade;
 
@@ -26,6 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 public class CrewSeatBatchScheduler {
 	private final ProductFacade productFacade;
 
+	@SchedulerLock(name = "product-crew-seat-batch", lockAtMostFor = "PT30M", lockAtLeastFor = "PT30S")
 	@Scheduled(cron = "0 0 * * * *", zone = "Asia/Seoul")
 	public void runCrewSeatBatch() {
 		CrewSeatBatchUseCase.Result result = productFacade.runCrewSeatBatch(LocalDateTime.now());

@@ -6,6 +6,8 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
+
 import com.bukang.order.app.KitTrackingUseCase;
 
 import lombok.RequiredArgsConstructor;
@@ -25,6 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 public class KitTrackingScheduler {
 	private final KitTrackingUseCase kitTrackingUseCase;
 
+	@SchedulerLock(name = "order-kit-tracking", lockAtMostFor = "PT30M")
 	@Scheduled(fixedDelayString = "${order.kit-tracking.interval:PT30M}", initialDelay = 120_000)
 	public void track() {
 		KitTrackingUseCase.TrackResult result = kitTrackingUseCase.track(LocalDateTime.now());

@@ -4,6 +4,8 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
+
 import com.bukang.product.app.ProductFacade;
 
 import lombok.RequiredArgsConstructor;
@@ -23,6 +25,7 @@ import lombok.extern.slf4j.Slf4j;
 public class RaceSaleStatusScheduler {
 	private final ProductFacade productFacade;
 
+	@SchedulerLock(name = "product-race-sale-status", lockAtMostFor = "PT4M", lockAtLeastFor = "PT30S")
 	@Scheduled(cron = "0 */5 * * * *", zone = "Asia/Seoul")
 	public void refreshSaleStatuses() {
 		int changed = productFacade.refreshSaleStatuses();

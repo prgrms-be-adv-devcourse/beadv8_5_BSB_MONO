@@ -7,6 +7,8 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
+
 import com.bukang.cash.app.withdrawal.CashCardCancelDeadlineNoticeUseCase;
 
 import lombok.RequiredArgsConstructor;
@@ -24,6 +26,7 @@ public class CashCardCancelDeadlineNoticeScheduler {
 
 	private final CashCardCancelDeadlineNoticeUseCase cashCardCancelDeadlineNoticeUseCase;
 
+	@SchedulerLock(name = "cash-card-cancel-deadline-notice", lockAtMostFor = "PT30M", lockAtLeastFor = "PT30S")
 	@Scheduled(cron = "0 0 9 * * *", zone = ZONE)
 	public void notifyDeadlines() {
 		// 기한과 알림 시각이 모두 한국 시간 기준이라 한국 시각을 넣는다
