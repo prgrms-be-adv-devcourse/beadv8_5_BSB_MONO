@@ -14,17 +14,14 @@ dependencyManagement {
 }
 
 dependencies {
+	// webmvc, data-jpa, validation, springdoc, querydsl-jpa(테스트는 webmvc-test)는 common이 넘겨 준다 (common/build.gradle.kts)
 	implementation(project(":common"))
 
-	implementation("org.springframework.boot:spring-boot-starter-webmvc") // spring-web
-	implementation("org.springframework.boot:spring-boot-starter-data-jpa") // dataJpa
 	// 표 변경은 Flyway SQL(db/migration)로만 한다. MySQL 지원은 별도 모듈
 	implementation("org.springframework.boot:spring-boot-starter-flyway")
 	implementation("org.flywaydb:flyway-mysql")
-	implementation("org.springframework.boot:spring-boot-starter-validation") // @Valid 요청 검증
 	implementation("org.springframework.boot:spring-boot-starter-kafka") // kafka (서비스 간 이벤트)
 	implementation("org.springframework.boot:spring-boot-starter-data-elasticsearch") // elastic search (대회 검색)
-	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.0") //swagger and openapi
 	// AI 추천 임베딩 (버전은 아래 spring-ai-bom). dev·test는 Ollama, prod는 OpenAI를 쓴다
 	implementation("org.springframework.ai:spring-ai-starter-model-ollama")
 	implementation("org.springframework.ai:spring-ai-starter-model-openai")
@@ -39,7 +36,6 @@ dependencies {
 	testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-kafka-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-data-elasticsearch-test")
-	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
 	testImplementation(testFixtures(project(":common"))) // GlobalConfigTestExecutionListener (테스트마다 EventPublisher 재설정)
 	// 테스트용 ES(nori 설치 이미지)를 Docker로 띄운다
 	testImplementation("org.springframework.boot:spring-boot-testcontainers") // @ServiceConnection
@@ -49,9 +45,8 @@ dependencies {
 	testImplementation("org.springframework.ai:spring-ai-spring-boot-testcontainers")
 	testImplementation("org.testcontainers:testcontainers-ollama")
 
-	// QueryDSL (Jakarta 버전, 버전은 Spring Boot BOM의 querydsl.version 사용)
+	// QueryDSL Q클래스 생성기 (querydsl-jpa는 common이 넘겨 준다. 처리기는 전달되지 않아 모듈마다 적는다)
 	val querydslVersion = dependencyManagement.importedProperties["querydsl.version"]
-	implementation("com.querydsl:querydsl-jpa:${querydslVersion}:jakarta")
 	annotationProcessor("com.querydsl:querydsl-apt:${querydslVersion}:jakarta")
 	annotationProcessor("jakarta.annotation:jakarta.annotation-api")
 	annotationProcessor("jakarta.persistence:jakarta.persistence-api")
