@@ -170,7 +170,8 @@ class SpringSocialOAuth2ClientTimeoutTest {
 	@Test
 	@DisplayName("구글 ID 토큰이 다른 키로 서명됐으면 소셜 로그인 실패로 처리한다")
 	void googleRejectsForgedSignature() throws Exception {
-		serve("/jwks", json(200, new JWKSet(new RSAKeyGenerator(2048).keyID("k1").generate().toPublicJWK()).toString()));
+		RSAKey otherKey = new RSAKeyGenerator(2048).keyID("k1").generate();
+		serve("/jwks", json(200, new JWKSet(otherKey.toPublicJWK()).toString()));
 		serve("/token", googleToken(IdTokenFlaw.NONE));
 		serve("/userinfo", json(200, GOOGLE_USER));
 

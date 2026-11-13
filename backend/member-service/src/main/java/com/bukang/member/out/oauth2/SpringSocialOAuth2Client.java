@@ -1,35 +1,54 @@
 package com.bukang.member.out.oauth2;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.springframework.http.converter.FormHttpMessageConverter;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.authentication.OAuth2LoginAuthenticationProvider;
 import org.springframework.security.oauth2.client.authentication.OAuth2LoginAuthenticationToken;
 import org.springframework.security.oauth2.client.endpoint.RestClientAuthorizationCodeTokenResponseClient;
+import org.springframework.security.oauth2.client.http.OAuth2ErrorResponseErrorHandler;
 import org.springframework.security.oauth2.client.oidc.authentication.OidcAuthorizationCodeAuthenticationProvider;
+import org.springframework.security.oauth2.client.oidc.authentication.OidcIdTokenDecoderFactory;
+import org.springframework.security.oauth2.client.oidc.authentication.OidcIdTokenValidator;
 import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserService;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizationRequestResolver;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestCustomizers;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
+import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationExchange;
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationResponse;
+import org.springframework.security.oauth2.core.http.converter.OAuth2AccessTokenResponseHttpMessageConverter;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtDecoderFactory;
+import org.springframework.security.oauth2.jwt.JwtTimestampValidator;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.util.StringUtils;
+import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestOperations;
+import org.springframework.web.client.RestTemplate;
 
 import com.bukang.member.domain.SocialProvider;
 import com.bukang.member.domain.exception.SocialLoginFailedException;
+import com.bukang.member.out.InternalHttpClients;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -48,6 +67,9 @@ public class SpringSocialOAuth2Client implements SocialOAuth2Client {
 	// 카카오 메시지 추가 동의용 등록. 키·콜백 주소는 카카오 로그인과 같고 범위만 다르다 (SocialLoginConfig)
 	public static final String KAKAO_MESSAGE_REGISTRATION_ID = "kakao-message";
 
+	// 카카오·구글 응답을 기다리는 시간. 연결 끊기·카카오톡 보내기와 같은 2초다 (SocialLoginConfig.KAKAO_TIMEOUT)
+	private static final Duration TIMEOUT = Duration.ofSeconds(2);
+
 	private final Map<String, ClientRegistration> registrations;
 	private final DefaultOAuth2AuthorizationRequestResolver resolver;
 	private final OAuth2LoginAuthenticationProvider kakaoAuthentication;
@@ -62,10 +84,46 @@ public class SpringSocialOAuth2Client implements SocialOAuth2Client {
 		this.resolver = new DefaultOAuth2AuthorizationRequestResolver(repository, "/oauth2/authorization");
 		// 시크릿이 있는 서버라도 PKCE를 같이 쓴다. 인가 코드가 새어도 검증값 없이는 토큰으로 바꿀 수 없다
 		this.resolver.setAuthorizationRequestCustomizer(OAuth2AuthorizationRequestCustomizers.withPkce());
+		// 라이브러리 기본 클라이언트와 같은 응답 변환기·오류 처리기에 시간 제한만 더한다. 빠지면 제공자의 오류 응답을 못 읽는다
 		RestClientAuthorizationCodeTokenResponseClient tokenClient =
 			new RestClientAuthorizationCodeTokenResponseClient();
-		this.kakaoAuthentication = new OAuth2LoginAuthenticationProvider(tokenClient, new DefaultOAuth2UserService());
-		this.googleAuthentication = new OidcAuthorizationCodeAuthenticationProvider(tokenClient, new OidcUserService());
+		tokenClient.setRestClient(RestClient.builder()
+			.requestFactory(InternalHttpClients.requestFactory(TIMEOUT))
+			.configureMessageConverters(converters -> converters
+				.addCustomConverter(new FormHttpMessageConverter())
+				.addCustomConverter(new OAuth2AccessTokenResponseHttpMessageConverter()))
+			.defaultStatusHandler(new OAuth2ErrorResponseErrorHandler())
+			.build());
+		RestTemplate userInfoClient = new RestTemplate(InternalHttpClients.requestFactory(TIMEOUT));
+		userInfoClient.setErrorHandler(new OAuth2ErrorResponseErrorHandler());
+		DefaultOAuth2UserService userService = new DefaultOAuth2UserService();
+		userService.setRestOperations(userInfoClient);
+		OidcUserService oidcUserService = new OidcUserService();
+		oidcUserService.setOauth2UserService(userService);
+		this.kakaoAuthentication = new OAuth2LoginAuthenticationProvider(tokenClient, userService);
+		this.googleAuthentication = new OidcAuthorizationCodeAuthenticationProvider(tokenClient, oidcUserService);
+		this.googleAuthentication.setJwtDecoderFactory(
+			idTokenDecoderFactory(new RestTemplate(InternalHttpClients.requestFactory(TIMEOUT))));
+	}
+
+	// 기본 OidcIdTokenDecoderFactory는 공개키(JWK)를 받아 올 클라이언트를 바꿀 수 없다. 같은 검증(서명·만료·발급자·대상·nonce)에
+	// 시간 제한이 있는 클라이언트만 끼운다. 기본 팩토리처럼 제공자별로 디코더를 한 번만 만들어 공개키 캐시를 유지한다
+	private static JwtDecoderFactory<ClientRegistration> idTokenDecoderFactory(RestOperations jwkClient) {
+		Map<String, JwtDecoder> decoders = new ConcurrentHashMap<>();
+		return registration -> decoders.computeIfAbsent(registration.getRegistrationId(), id -> {
+			String jwkSetUri = registration.getProviderDetails().getJwkSetUri();
+			if (!StringUtils.hasText(jwkSetUri)) {
+				throw new OAuth2AuthenticationException(new OAuth2Error("missing_signature_verifier"));
+			}
+			NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUri)
+				.jwsAlgorithm(SignatureAlgorithm.RS256)
+				.restOperations(jwkClient)
+				.build();
+			decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(new JwtTimestampValidator(),
+				new OidcIdTokenValidator(registration)));
+			decoder.setClaimSetConverter(OidcIdTokenDecoderFactory.createDefaultClaimTypeConverter());
+			return decoder;
+		});
 	}
 
 	@Override

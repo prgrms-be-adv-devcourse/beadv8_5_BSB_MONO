@@ -15,15 +15,20 @@ public final class InternalHttpClients {
 	}
 
 	public static RestClient create(String baseUrl, Duration timeout) {
+		return RestClient.builder()
+			.baseUrl(baseUrl)
+			.requestFactory(requestFactory(timeout))
+			.build();
+	}
+
+	// 소셜 로그인처럼 라이브러리가 쓸 클라이언트에 시간 제한만 끼울 때도 같은 요청 팩토리를 쓴다
+	public static JdkClientHttpRequestFactory requestFactory(Duration timeout) {
 		HttpClient httpClient = HttpClient.newBuilder()
 			.version(HttpClient.Version.HTTP_1_1)
 			.connectTimeout(timeout)
 			.build();
 		JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
 		requestFactory.setReadTimeout(timeout);
-		return RestClient.builder()
-			.baseUrl(baseUrl)
-			.requestFactory(requestFactory)
-			.build();
+		return requestFactory;
 	}
 }
