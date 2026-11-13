@@ -1,6 +1,7 @@
 package com.bukang.member.in;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -49,6 +50,7 @@ import com.bukang.member.out.TermsAgreementRepository;
 import com.bukang.member.out.cash.CashBalancePort;
 import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
 import com.bukang.member.out.order.ActiveTicketPort;
+import com.bukang.member.out.order.CrewPartyStatusPort;
 import com.bukang.member.support.MemberFixture;
 
 // 크루 관리 (BE-032): 탈퇴, 내보내기, 크루장 넘기기, 없애기, 이름 바꾸기. X-Member-Id 헤더는 테스트에서 직접 넣는다
@@ -94,6 +96,8 @@ class ApiV1CrewManageTest {
 	@MockitoBean
 	private ActiveTicketPort activeTicketPort;
 	@MockitoBean
+	private CrewPartyStatusPort partyStatusPort;
+	@MockitoBean
 	private RefreshTokenRepository refreshTokenRepository;
 	@MockitoBean
 	private Clock clock;
@@ -110,6 +114,9 @@ class ApiV1CrewManageTest {
 	void setUp() {
 		now = Instant.now();
 		given(clock.instant()).willAnswer(invocation -> now);
+		// 이 테스트는 크루 관리 동작을 보므로 막는 파티는 없다고 답한다 (파티 확인은 ApiV1CrewPartyCheckTest)
+		given(partyStatusPort.findStatus(anyLong(), anyLong())).willReturn(
+			new CrewPartyStatusPort.PartyStatus(true, true));
 		leaderId = joinMember();
 		managerId = joinMember();
 		memberId = joinMember();

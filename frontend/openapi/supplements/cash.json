@@ -32,6 +32,14 @@
         }
       }
     },
+    "getRefundableCharges": {
+      "200": {
+        "wrapper": "RsDataRefundableChargesDto",
+        "data": {
+          "$ref": "#/components/schemas/RefundableChargesDto"
+        }
+      }
+    },
     "getChargeReviews": {
       "200": {
         "wrapper": "RsDataPageDtoChargeReviewDto",
@@ -80,19 +88,43 @@
     },
     "CashWithdrawalDto": {
       "type": "object",
-      "description": "예치금 전액 환급 결과",
+      "description": "예치금 전액 환급 결과. 금액은 카드 결제취소 요청·계좌 송금·처리 중·예치금에 되돌림으로 나뉜다. accountRequired가 true면 카드로 돌려줄 수 없는 몫이 계좌 정보가 없어 예치금에 되돌아갔다",
       "required": [
         "withdrawnAmount",
-        "balance"
+        "balance",
+        "cardAmount",
+        "accountAmount",
+        "processingAmount",
+        "revertedAmount",
+        "accountRequired"
       ],
       "properties": {
         "withdrawnAmount": {
           "type": "integer",
-          "format": "int32"
+          "format": "int64"
         },
         "balance": {
           "type": "integer",
-          "format": "int32"
+          "format": "int64"
+        },
+        "cardAmount": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "accountAmount": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "processingAmount": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "revertedAmount": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "accountRequired": {
+          "type": "boolean"
         }
       }
     },
@@ -167,7 +199,9 @@
             "정산수령__상품판매_대금",
             "환불__주문취소",
             "임시보관반환__주문취소",
-            "출금취소__통장입금"
+            "출금취소__통장입금",
+            "출금__PG결제취소_토스페이먼츠",
+            "출금취소__PG결제취소_토스페이먼츠"
           ]
         },
         "amount": {
@@ -185,6 +219,106 @@
         "refId": {
           "type": "integer",
           "format": "int32"
+        },
+        "charge": {
+          "type": "object",
+          "nullable": true,
+          "description": "충전 줄에만 있다(남은 금액·카드 취소 마지막 날). 다른 줄은 null",
+          "required": [
+            "chargeId",
+            "chargedAt",
+            "amount",
+            "remainingAmount",
+            "lastCancelableDate",
+            "expired"
+          ],
+          "properties": {
+            "chargeId": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "chargedAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "amount": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "remainingAmount": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "lastCancelableDate": {
+              "type": "string",
+              "format": "date"
+            },
+            "expired": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "RefundableChargesDto": {
+      "type": "object",
+      "description": "환급 화면용 충전 내역. charges는 최근 충전부터",
+      "required": [
+        "balance",
+        "earliestLastCancelableDate",
+        "charges"
+      ],
+      "properties": {
+        "balance": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "earliestLastCancelableDate": {
+          "type": "string",
+          "format": "date",
+          "nullable": true,
+          "description": "남은 금액이 있고 기한이 지나지 않은 충전 중 가장 빠른 마지막 날. 없으면 null"
+        },
+        "charges": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "description": "환급 화면의 충전 건 한 줄. chargeId는 예치금 내역 충전 줄의 refId와 같다. remainingAmount는 남은 예치금을 최근 충전부터 채운 몫이다",
+            "required": [
+              "chargeId",
+              "chargedAt",
+              "amount",
+              "remainingAmount",
+              "lastCancelableDate",
+              "expired"
+            ],
+            "properties": {
+              "chargeId": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "chargedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "amount": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "remainingAmount": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "lastCancelableDate": {
+                "type": "string",
+                "format": "date",
+                "description": "PG 결제취소를 할 수 있는 마지막 날(이날 24:00까지, 한국 시간)"
+              },
+              "expired": {
+                "type": "boolean"
+              }
+            }
+          }
         }
       }
     },
