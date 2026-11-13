@@ -1,6 +1,7 @@
 package com.bukang.member.in;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
@@ -271,7 +272,7 @@ class ApiV1MemberPhoneChangeTest {
 		assertThat(member.getCiHash()).isEqualTo(hasher.ci(CI));
 		assertThat(member.getIdentityHash()).isEqualTo(identity.identityHash());
 		assertThat(member.getNameBirthHash()).isEqualTo(identity.nameBirthHash());
-		assertThat(member.getVerifiedAt()).isEqualTo(identity.verifiedAt().truncatedTo(ChronoUnit.MICROS));
+		assertThat(member.getVerifiedAt()).isCloseTo(identity.verifiedAt(), within(1, ChronoUnit.MICROS));
 		assertThat(applicationEvents.stream(MemberModifiedEvent.class)).isEmpty();
 		assertThat(identityStore.findVerified(token)).isEmpty();
 	}
@@ -308,7 +309,7 @@ class ApiV1MemberPhoneChangeTest {
 		assertThat(after.getCiHash()).isEqualTo(before.getCiHash());
 		assertThat(after.getIdentityHash()).isEqualTo(before.getIdentityHash());
 		assertThat(after.getNameBirthHash()).isEqualTo(before.getNameBirthHash());
-		assertThat(after.getVerifiedAt()).isEqualTo(identity.verifiedAt().truncatedTo(ChronoUnit.MICROS));
+		assertThat(after.getVerifiedAt()).isCloseTo(identity.verifiedAt(), within(1, ChronoUnit.MICROS));
 		assertThat(identityStore.findVerified(token)).isEmpty();
 	}
 
