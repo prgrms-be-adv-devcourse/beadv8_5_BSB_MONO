@@ -270,7 +270,7 @@ class ApiV1MemberPhoneChangeTest {
 		assertThat(member.getCiHash()).isEqualTo(hasher.ci(CI));
 		assertThat(member.getIdentityHash()).isEqualTo(identity.identityHash());
 		assertThat(member.getNameBirthHash()).isEqualTo(identity.nameBirthHash());
-		assertThat(member.getVerifiedAt()).isNotNull();
+		assertThat(member.getVerifiedAt()).isEqualTo(identity.verifiedAt());
 		assertThat(applicationEvents.stream(MemberModifiedEvent.class)).isEmpty();
 		assertThat(identityStore.findVerified(token)).isEmpty();
 	}
@@ -294,8 +294,10 @@ class ApiV1MemberPhoneChangeTest {
 	@DisplayName("해시가 이미 있는 회원이 지금 번호로 다시 인증하면 같은 값으로 덮이고 번호 표기도 그대로다")
 	void samePhoneKeepsExistingHashes() throws Exception {
 		Member before = memberRepository.findById(memberId).orElseThrow();
+		String token = identityStore.verify(NAME, BIRTH_DATE, "01012345678", hasher.ci(CI));
+		VerifiedIdentity identity = identityStore.findVerified(token).orElseThrow();
 
-		change(memberId, identityStore.verify(NAME, BIRTH_DATE, "01012345678", hasher.ci(CI)))
+		change(memberId, token)
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.phone").value(PHONE));
 
@@ -305,6 +307,16 @@ class ApiV1MemberPhoneChangeTest {
 		assertThat(after.getCiHash()).isEqualTo(before.getCiHash());
 		assertThat(after.getIdentityHash()).isEqualTo(before.getIdentityHash());
 		assertThat(after.getNameBirthHash()).isEqualTo(before.getNameBirthHash());
+		assertThat(after.getVerifiedAt()).isEqualTo(identity.verifiedAt());
+		assertThat(identityStore.findVerified(token)).isEmpty();
+	}
+
+	@Test
+	@DisplayName("CI가 있는 회원이 CI 없는 인증(카카오)으로 지금 번호를 다시 인증해도 CI 해시는 그대로다")
+	void samePhoneWithoutCiKeepsCi() throws Exception {
+		change(memberId, identityStore.verify(NAME, BIRTH_DATE, PHONE, null)).andExpect(status().isOk());
+
+		assertThat(memberRepository.findById(memberId).orElseThrow().getCiHash()).isEqualTo(hasher.ci(CI));
 	}
 
 	@Test
