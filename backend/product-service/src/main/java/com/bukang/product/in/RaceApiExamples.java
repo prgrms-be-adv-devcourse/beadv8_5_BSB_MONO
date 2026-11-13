@@ -513,6 +513,50 @@ final class RaceApiExamples {
 		{ "status": 400, "message": "필수 요청 값(keyword)이 없습니다.", "data": null }
 		""";
 
+	static final String KEYWORD_TOO_LONG = """
+		{ "status": 400, "code": "INVALID_REQUEST", "message": "검색어는 100자 이하로 작성해주세요.", "data": null }
+		""";
+
+	// AI 추천 (BUK-162). 비슷한 순서이고, 카드 모양은 공개 목록(SEARCH_SUCCESS)의 races와 같다
+	static final String RECOMMEND_SUCCESS = """
+		{
+			"status": 200,
+			"message": "AI 추천 대회를 조회했습니다.",
+			"data": [
+				{
+					"raceId": 3,
+					"title": "2026 한강 나이트런",
+					"location": "여의도 한강공원",
+					"regionSido": "서울특별시",
+					"regionSigungu": "영등포구",
+					"raceDate": "2026-12-05T19:00:00",
+					"saleStatus": "ON_SALE",
+					"saleOpenDate": "2026-11-10",
+					"crewSaleStartAt": null,
+					"crewSaleEndAt": null,
+					"individualOpenAt": "2026-11-10T09:00:00",
+					"applicationCloseAt": "2026-11-30T18:00:00",
+					"minPrice": 40000,
+					"courses": [
+						{
+							"raceCourseId": 7,
+							"name": "10K",
+							"courseType": "KM_10",
+							"distanceKm": 10.00,
+							"price": 40000,
+							"status": "OPEN",
+							"individualRemaining": 300
+						}
+					]
+				}
+			]
+		}
+		""";
+
+	static final String RECOMMEND_EMPTY = """
+		{ "status": 200, "message": "AI 추천 대회를 조회했습니다.", "data": [] }
+		""";
+
 	private RaceApiExamples() {
 	}
 }
