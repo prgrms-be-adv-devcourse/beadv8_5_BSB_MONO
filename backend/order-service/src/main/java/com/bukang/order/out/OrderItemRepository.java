@@ -8,6 +8,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.bukang.order.domain.OrderItem;
 import com.bukang.order.dto.CancelingOrderItemDto;
@@ -124,6 +125,9 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
 	Optional<Long> findOrderIdByItemId(@Param("orderItemId") long orderItemId);
 
 	// 결제 전 확인용 (잠그지 않고, 엔티티를 영속성 컨텍스트에 올리지 않으려고 값만 읽는다)
+	// 결제는 바깥 트랜잭션 없이(NOT_SUPPORTED) 부른다. 짧은 트랜잭션이 없으면 이 조회의 연결이 요청 끝까지 붙어 있어
+	// 뒤의 결제 트랜잭션이 연결을 하나 더 잡는다 → 동시 결제가 연결 수만큼 오면 서로 기다리다 실패한다 (BUK-213)
+	@Transactional(readOnly = true)
 	@Query("select i.participationId as participationId, o.buyerId as buyerId, o.status as status,"
 		+ " o.paymentDueAt as paymentDueAt, i.raceId as raceId, i.raceCourseId as raceCourseId, p.partyId as partyId"
 		+ " from OrderItem i join i.order o join Participation p on p.id = i.participationId"

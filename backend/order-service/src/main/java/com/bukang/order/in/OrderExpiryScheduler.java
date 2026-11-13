@@ -22,6 +22,12 @@ public class OrderExpiryScheduler {
 
 	@Scheduled(fixedDelay = 60_000, initialDelay = 60_000)
 	public void expireOverdue() {
-		orderExpiryUseCase.expireOverdue(LocalDateTime.now());
+		LocalDateTime now = LocalDateTime.now();
+		try {
+			orderExpiryUseCase.expireOverdue(now);
+		} finally {
+			// 주문 만료가 DB 오류로 멈춰도 주문 없이 남은 자리는 따로 푼다
+			orderExpiryUseCase.releaseAbandonedHolds(now);
+		}
 	}
 }
