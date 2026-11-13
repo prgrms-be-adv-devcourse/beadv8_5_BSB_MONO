@@ -47,7 +47,7 @@ class CashClaimVirtualAccountAdapterTest {
 				""", true))
 			.andRespond(withSuccess("""
 				{ "status": 200, "message": "가상계좌를 발급했습니다.",
-				  "data": { "bankName": "국민은행", "accountNumber": "X6000123456789" } }
+					"data": { "bankName": "국민은행", "accountNumber": "X6000123456789" } }
 				""", MediaType.APPLICATION_JSON));
 
 		assertThat(adapter.issue("RC-20261214-0A3F", 105_500L, LocalDate.of(2027, 1, 13)))
