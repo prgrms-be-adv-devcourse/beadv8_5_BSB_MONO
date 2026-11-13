@@ -46,7 +46,8 @@ public class ApiV1PartyController {
 	@Operation(operationId = "createParty", summary = "파티 만들기",
 		description = "크루원이 파티를 만든다. 파티장이 고른 종목이 파티 종목이 되어 파티원 모두 그 종목으로 신청하고, 만든 뒤에는 바꿀 수 없다. "
 			+ "파티장도 참가자라 파티원 신청서(결제 전)를 함께 만들고, 참가 링크(24시간)가 함께 만들어진다. "
-			+ "같은 대회에 개인 신청이 남아 있으면 409 ORDER_INDIVIDUAL_PARTICIPATION_EXISTS와 data.participationId를 준다.")
+			+ "같은 대회에 개인 신청이 남아 있으면 409 ORDER_INDIVIDUAL_PARTICIPATION_EXISTS와 data.participationId를 준다. "
+			+ "결제율 미달로 크루가 파티 만들기 제한 중이면 403 ORDER_CREW_PARTY_RESTRICTED와 끝나는 시각 data.endAt을 준다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "201", description = "만들기 성공",
 			content = @Content(examples = @ExampleObject(value = PartyApiExamples.CREATE_SUCCESS))),
@@ -60,9 +61,11 @@ public class ApiV1PartyController {
 		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = PartyApiExamples.LOGIN_REQUIRED))),
-		@ApiResponse(responseCode = "403", description = "이 크루의 크루원이 아님",
-			content = @Content(schema = @Schema(implementation = RsData.class),
-				examples = @ExampleObject(value = PartyApiExamples.CREW_MEMBER_REQUIRED))),
+		@ApiResponse(responseCode = "403", description = "이 크루의 크루원이 아님, 크루가 파티 만들기 제한 중(data.endAt)",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "크루원 아님", value = PartyApiExamples.CREW_MEMBER_REQUIRED),
+				@ExampleObject(name = "파티 만들기 제한 중", value = PartyApiExamples.CREW_PARTY_RESTRICTED)
+			})),
 		@ApiResponse(responseCode = "404", description = "없는 종목 또는 없는 크루",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "없는 종목", value = PartyApiExamples.COURSE_NOT_FOUND),

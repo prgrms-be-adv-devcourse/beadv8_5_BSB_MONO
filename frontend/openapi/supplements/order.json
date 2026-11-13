@@ -1485,6 +1485,20 @@
         "soldOut"
       ]
     },
+    "CrewPartyRestrictedDto": {
+      "type": "object",
+      "description": "크루 파티 만들기 제한 403(ORDER_CREW_PARTY_RESTRICTED)의 data. 결제율 미달로 제한 중인 크루가 파티를 만들 때 준다",
+      "properties": {
+        "endAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "제한이 끝나는 시각. 이때부터 다시 파티를 만들 수 있다"
+        }
+      },
+      "required": [
+        "endAt"
+      ]
+    },
     "MyParticipationDto": {
       "type": "object",
       "description": "이 대회에 살아 있는 내 신청 (개인·파티 모두, 한 사람 한 대회 1건)",
