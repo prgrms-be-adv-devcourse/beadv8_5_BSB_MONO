@@ -59,6 +59,7 @@ import com.bukang.product.out.ProductSellerRepository;
 import com.bukang.product.out.RaceCourseDocumentRepository;
 import com.bukang.product.out.RaceCourseRepository;
 import com.bukang.product.out.RaceDocumentSyncEventRepository;
+import com.bukang.product.out.RaceEmbeddingSyncEventRepository;
 import com.bukang.product.out.RaceRepository;
 
 import jakarta.persistence.EntityManager;
@@ -114,6 +115,8 @@ public abstract class ProductIntegrationTest {
 	@Autowired
 	protected RaceDocumentSyncEventRepository raceDocumentSyncEventRepository;
 	@Autowired
+	protected RaceEmbeddingSyncEventRepository raceEmbeddingSyncEventRepository;
+	@Autowired
 	private RaceDocumentSyncAppendUseCase raceDocumentSyncAppendUseCase;
 	@Autowired
 	private ProductKafkaConsumer productKafkaConsumer;
@@ -152,6 +155,7 @@ public abstract class ProductIntegrationTest {
 		productOutboxKafkaEventRepository.deleteAll();
 		productInboxKafkaEventRepository.deleteAll();
 		raceDocumentSyncEventRepository.deleteAll();
+		raceEmbeddingSyncEventRepository.deleteAll();
 		raceCourseDocumentRepository.deleteAll();
 	}
 
