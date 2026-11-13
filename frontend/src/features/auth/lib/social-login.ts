@@ -33,6 +33,37 @@ export function goToSocialLogin(href: string) {
   window.location.assign(href)
 }
 
+const LINKING_KEY = 'crewrun:social-link-provider'
+
+/**
+ * 계정 연결을 시작한 제공자를 남긴다. 제공자 화면을 다녀온 주소(?error=)에는 어느 제공자인지 없어서,
+ * 돌아와 실패했을 때 안내와 다시 시도를 그 제공자로 하려면 필요하다.
+ */
+export function rememberLinkingProvider(provider: SocialProviderId) {
+  try {
+    sessionStorage.setItem(LINKING_KEY, provider)
+  } catch {
+    // 저장소를 쓸 수 없으면 짐작으로 안내한다
+  }
+}
+
+/** 시작했던 제공자. 없거나 저장소를 쓸 수 없으면 undefined */
+export function linkingProvider(): SocialProviderId | undefined {
+  try {
+    return socialProviderOf(sessionStorage.getItem(LINKING_KEY))?.id
+  } catch {
+    return undefined
+  }
+}
+
+export function forgetLinkingProvider() {
+  try {
+    sessionStorage.removeItem(LINKING_KEY)
+  } catch {
+    // 지울 것이 없다
+  }
+}
+
 /**
  * 소셜 로그인 콜백이 로그인 화면에 붙인 오류(?error=)를 안내 문구로 바꾼다.
  * 같은 이메일이면 자동으로 연결하지 않으므로, 원래 방법으로 로그인한 뒤 계정 연결하는 길을 알려 준다.

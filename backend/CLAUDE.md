@@ -22,11 +22,12 @@
 | `notification-service` | Spring Boot 앱 | 8087 | 내 알림. 다른 서비스가 보낸 `push.notification.requested`를 저장하고 조회·읽음 API를 연다 (BUK-69) |
 | `inquiry-service` | Spring Boot 앱 | 8088 | 대회 문의. 회원이 문의를 남기면 담당(판매자·관리자)이 한 번 답하고, 알림이 간다 (BUK-154) |
 | `board-service` | Spring Boot 앱 | 8089 | 커뮤니티 자유 게시판. 글·댓글·답글·좋아요(읽기는 로그인 없이), 회원 이벤트로 닉네임·판매자 복사본(`BoardMember`) (BUK-156) |
+| `ai-service` | Spring Boot 앱 | 8092 | 판매자·관리자 센터의 챗봇 「크루런 AI」. 질문을 모델에 보내 답하고 대화 기록을 Redis에 둔다. DB·Kafka 없음 (BUK-165, 뼈대) |
 
 인프라(`compose.yml`: MySQL, Kafka, Elasticsearch, Redis, 로컬 S3 대체재 S3Mock)는 모든 서비스가 공용으로 씁니다.
 
 - Java 25 (Gradle toolchain), Spring Boot 4.1.1, Gradle 9.7.1 (Kotlin DSL)
-- 루트 패키지: `com.bukang` (`group`은 `com`). 모듈별 패키지는 `com.bukang.common`, `com.bukang.member`, `com.bukang.cash`, `com.bukang.payout`, `com.bukang.file`, `com.bukang.order`, `com.bukang.product`, `com.bukang.queue`, `com.bukang.notification`, `com.bukang.inquiry`
+- 루트 패키지: `com.bukang` (`group`은 `com`). 모듈별 패키지는 `com.bukang.common`, `com.bukang.member`, `com.bukang.cash`, `com.bukang.payout`, `com.bukang.file`, `com.bukang.order`, `com.bukang.product`, `com.bukang.queue`, `com.bukang.notification`, `com.bukang.inquiry`, `com.bukang.ai`
   (모듈 폴더 이름은 케밥 케이스 `<도메인>-service`, Java 패키지는 하이픈을 쓸 수 없으므로 도메인 한 단어)
 - 공통 빌드 설정(Java 버전, Spring Boot BOM, Lombok, Checkstyle)은 루트 `build.gradle.kts`, 모듈별 의존성은 각 모듈의 `build.gradle.kts`에 있습니다.
 - 운영에서는 Nginx가 HTTP 요청을 받아 `/api`를 `gateway`(8000)로, 나머지를 프론트(`web`, Next.js 3000)로 넘기고, 게이트웨이가 경로를 보고 각 서비스로 보냅니다.
@@ -52,6 +53,7 @@ Windows에서는 `gradlew.bat`, Git Bash에서는 `./gradlew`를 사용합니다
 ./gradlew :notification-service:bootRun  # 알림 서비스 실행 (8087)
 ./gradlew :inquiry-service:bootRun       # 문의 서비스 실행 (8088)
 ./gradlew :board-service:bootRun         # 게시판 서비스 실행 (8089)
+./gradlew :ai-service:bootRun            # 크루런 AI 서비스 실행 (8092, 로컬 모델 Ollama는 README "크루런 AI" 참고)
 ./gradlew test                           # 전체 테스트 (test 프로파일, H2)
 ./gradlew :member-service:test           # 한 모듈만 테스트
 ./gradlew :member-service:test --tests "com.bukang.member.MemberApplicationTests"              # 단일 테스트 클래스
@@ -64,7 +66,7 @@ Windows에서는 `gradlew.bat`, Git Bash에서는 `./gradlew`를 사용합니다
 
 ```
 backend/
-├── settings.gradle.kts        include("common", "jwt", "gateway", "member-service", "cash-service", "payout-service", "file-service", "order-service", "product-service", "queue-service", "notification-service", "inquiry-service", "board-service")
+├── settings.gradle.kts        include("common", "jwt", "gateway", "member-service", "cash-service", "payout-service", "file-service", "order-service", "product-service", "queue-service", "notification-service", "inquiry-service", "board-service", "ai-service")
 ├── build.gradle.kts           모든 모듈 공통 설정
 ├── compose.yml                공용 인프라 (MySQL, Kafka, Elasticsearch, Redis) + 서비스별 앱 컨테이너 + nginx·web(프론트)
 ├── compose.prod.yml           운영(EC2) 덮어쓰기: Nginx HTTPS + certbot (인증서 자동 발급·갱신)
@@ -125,9 +127,15 @@ backend/
 │                              http면 HttpRefundEligibilityAdapter(RestClient, 2초 제한, 실패 시 503)로 부른다 (prod=http, 그 밖=fake)
 ├── product-service/ com.bukang.product
 │   └── ProductApplication     (뼈대만 있음)
-└── queue-service/   com.bukang.queue
-    ├── QueueApplication       (뼈대만 있음)
-    └── in/                    QueueExceptionHandler (헤더 누락·형식 오류를 RsData로 응답)
+├── queue-service/   com.bukang.queue
+│   ├── QueueApplication       (뼈대만 있음)
+│   └── in/                    QueueExceptionHandler (헤더 누락·형식 오류를 RsData로 응답)
+└── ai-service/      com.bukang.ai
+    ├── in/                    ApiV1AiChatController (POST·DELETE /api/v1/ai/{seller|admin}/chat: 질문, 새 대화)
+    ├── app/                   AiChatUseCase (역할 확인 → 앞 대화와 함께 모델 호출. 지시문과, 도구가 붙을 자리가 여기 있다)
+    ├── config/                AiChatConfig (ChatClient + Redis 대화 기록, 최근 10개만)
+    ├── domain/                AiScreen(화면 종류, 대화 번호 = 화면-회원 번호), exception/
+    └── out/member/            MemberRolePort (관리자·승인된 판매자 확인. prod=http, dev=fake)
 ```
 
 - 파일은 브라우저가 presigned PUT으로 S3 `{환경}/uploads/`에 직접 올리고, 완료 API가 `{환경}/files/`로 옮긴 뒤 형식·크기를 확인한다 (README "파일 저장소" 참고).
@@ -136,6 +144,11 @@ backend/
 - 회원에게 알림을 띄우려면 트랜잭션 안에서 `eventPublisher.publish(NotificationRequestedEvent.of(회원 ID, NotificationKind.*, 제목, 내용, 링크))`
   한 줄을 부른다. common의 `NotificationKafkaSender`가 커밋된 뒤에만 Kafka로 보내고(롤백되면 안 보냄), 실패하면 로그만 남긴다
   (알림은 잃어도 되는 메시지라 아웃박스를 쓰지 않는다, 11/04 결정). AFTER_COMMIT 리스너 안에서 부르면 보내지지 않는다.
+- `ai-service`(크루런 AI)는 Spring AI 2.0.2를 쓴다. 코드는 `ChatClient`만 쓰고, 어느 회사 모델인지는 설정 `spring.ai.model.chat`이 정한다
+  (기본·prod는 `openai`, dev·test는 `ollama`). OpenAI 키는 `.env`의 `OPENAI_API_KEY`로만 받고, 비어 있어도 앱은 뜬다(질문하면 503).
+  대화 기록은 Spring AI의 Redis 저장소에 둔다(키 `ai:chats:{화면}-{회원 번호}:{순번}`, 보관 24시간, 검색·JSON 기능을 써서 Redis 8 이상).
+  `ChatMemory`를 빈으로 등록하면 Spring AI가 Redis 저장소를 만들지 않고 메모리 저장소로 바뀌므로 등록하지 않는다(`AiChatConfig`).
+  common은 통째로 스캔하지 않고 오류 응답과 `@LoginMemberId`만 고른다(Kafka·DB가 없다). 테스트는 가짜 모델(`FakeChatModel`)과 Testcontainers Redis로 돈다(Docker 필요).
 - 회원 ID는 `X-Member-Id` 헤더로 받는다. 컨트롤러는 헤더를 직접 읽지 않고 `@LoginMemberId long memberId`로 받는다(int·Integer로는 받지 않는다). 헤더가 없으면 401 `LOGIN_REQUIRED`, 숫자가 아니거나 0 이하면 400 `INVALID_REQUEST`로 common이 응답한다(`shared/member/web`). 게이트웨이의 `auth/JwtAuthenticationFilter`가 클라이언트가 보낸 이 헤더를 지우고, Access Token을 검사해 토큰 속 회원 ID로 다시 넣는다.
   토큰 없이 통과하는 주소는 `gateway`의 `application.yaml` `gateway.auth.public-paths`에 있다. 로그인 전에 쓰는 API를 추가하면 여기에도 추가한다(빠뜨리면 401로 막힌다).
   서비스는 이 헤더를 그대로 믿으므로, `compose.yml`은 서비스 포트를 호스트에 열지 않는다. 서비스를 직접 부르며 확인할 때는 `bootRun`(dev)으로 띄운 서비스 포트(예: 8084)로 부른다.
@@ -146,6 +159,7 @@ backend/
 
 - `common`은 실행 앱이 아니라 jar 라이브러리입니다. 각 서비스는 `implementation(project(":common"))`으로 의존합니다.
   서비스의 `@SpringBootApplication(scanBasePackages = {"com.bukang.<서비스>", "com.bukang.common"})`로 common의 빈도 등록합니다.
+  (DB·Kafka가 없는 `ai-service`만 예외로, 오류 응답과 `@LoginMemberId` 패키지만 고릅니다. common에 모든 서비스가 써야 하는 빈을 새 패키지로 더하면 `AiApplication`에도 더합니다.)
 - **서비스끼리는 서로 의존하지 않습니다.** 다른 서비스의 클래스가 필요하면 `common`에 올릴지(계약: 이벤트, 공개 필드) 먼저 검토합니다.
   `common`에는 특정 서비스 전용 코드(Spring Security 인증·필터, 회원 엔티티 등)를 넣지 않습니다.
   단, 암호화 유틸(`spring-security-crypto`)은 `global/crypto`에 두고, yaml에 `crypto.enabled: true`를 넣은 서비스에서만 빈을 만듭니다(`@ConditionalOnProperty`).

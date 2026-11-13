@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,6 +14,7 @@ import com.bukang.cash.app.CashSupport;
 import com.bukang.cash.app.payment.CashRefundableChargeQueryUseCase;
 import com.bukang.cash.domain.wallet.LedgerCategory;
 import com.bukang.cash.domain.wallet.LedgerRefType;
+import com.bukang.cash.domain.wallet.WalletLedger;
 import com.bukang.cash.dto.PageDto;
 import com.bukang.cash.dto.payment.RefundableChargeDto;
 import com.bukang.cash.dto.wallet.WalletLedgerItemDto;
@@ -36,13 +38,19 @@ public class CashWalletLedgerQueryUseCase {
 		long memberId, LedgerCategory category, int page, int size, LocalDateTime now
 	) {
 		long walletId = cashSupport.findWalletByHolderId(memberId).getId();
-		Map<Long, RefundableChargeDto> chargesById = cashRefundableChargeQueryUseCase
-			.findRefundableCharges(memberId, now)
-			.charges()
-			.stream()
-			.collect(Collectors.toMap(RefundableChargeDto::chargeId, Function.identity()));
+		Page<WalletLedger> ledgers =
+			walletLedgerQueryRepository.findByWallet(walletId, category, PageRequest.of(page, size));
+		// 남은 금액은 충전 줄에만 붙으므로, 이 페이지에 충전 줄이 없으면 충전 내역을 읽지 않는다
+		boolean hasChargeRow = ledgers.stream()
+			.anyMatch(ledger -> ledger.getRefTypeCode() == LedgerRefType.WalletCharge);
+		Map<Long, RefundableChargeDto> chargesById = hasChargeRow
+			? cashRefundableChargeQueryUseCase.findRefundableCharges(memberId, now)
+				.charges()
+				.stream()
+				.collect(Collectors.toMap(RefundableChargeDto::chargeId, Function.identity()))
+			: Map.of();
 		return PageDto.from(
-			walletLedgerQueryRepository.findByWallet(walletId, category, PageRequest.of(page, size)),
+			ledgers,
 			ledger -> WalletLedgerItemDto.from(ledger,
 				ledger.getRefTypeCode() == LedgerRefType.WalletCharge ? chargesById.get(ledger.getRefId()) : null));
 	}

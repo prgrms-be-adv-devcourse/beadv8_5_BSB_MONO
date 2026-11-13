@@ -32,6 +32,7 @@ import type {
   FindMineParams,
   KitShipmentRequestDto,
   OrderCreateRequestDto,
+  OrderPayRequestDto,
   ParticipantInfoRequestDto,
   ParticipationApplyRequestDto,
   RsData,
@@ -532,17 +533,32 @@ export const getPayUrl = (orderId: number,) => {
 }
 
 /**
- * 결제 대기(CREATED) 주문을 예치금으로 결제하고 참가를 확정한다. 순서: 예치금 차감 → 자리 판매 → 주문 PAID·참가 신청 CONFIRMED. 잔액이 부족하면 주문과 자리를 그대로 두므로, 충전한 뒤 같은 주문으로 다시 결제한다. 기한이 지나 자리 판매가 거절되면 차감한 예치금을 돌려주고 409를 돌려준다. 이미 결제한 주문은 다시 차감하지 않고 200으로 돌려준다.
+ * 결제 대기(CREATED) 주문을 예치금으로 결제하고 참가를 확정한다. 순서: 예치금 차감 → 자리 판매 → 주문 PAID·참가 신청 CONFIRMED. 잔액이 부족하면 주문과 자리를 그대로 두므로, 충전한 뒤 같은 주문으로 다시 결제한다. 기한이 지나 자리 판매가 거절되면 차감한 예치금을 돌려주고 409를 돌려준다. 이미 결제한 주문은 다시 차감하지 않고 200으로 돌려준다. 키트 옵션은 결제 화면에서 고른 kitOptionIds로 받는다. 대회에 옵션이 있으면 옵션 이름마다 하나씩 골라야 하고, 옵션이 없는 대회는 비우거나 본문을 보내지 않는다.
  * @summary 예치금 결제
  */
-export const pay = async (orderId: number, options?: Parameters<typeof customFetch>[1]): Promise<RsDataOrderDto> => {
+export const pay = async (orderId: number,
+    orderPayRequestDto?: OrderPayRequestDto, options?: Parameters<typeof customFetch>[1]): Promise<RsDataOrderDto> => {
 
-  return customFetch<RsDataOrderDto>(getPayUrl(orderId),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<RsDataOrderDto>(getPayUrl(orderId),
   {
     ...options,
-    method: 'POST'
-
-
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(orderPayRequestDto)
   }
 );}
 
@@ -567,9 +583,9 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof pay>>, PayMutationVariables> = (props) => {
-          const {orderId} = props ?? {};
+          const {orderId,data} = props ?? {};
 
-          return  pay(orderId,requestOptions)
+          return  pay(orderId,data,requestOptions)
         }
 
 
@@ -580,9 +596,9 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type PayMutationResult = NonNullable<Awaited<ReturnType<typeof pay>>>
-
+    export type PayMutationBody = OrderPayRequestDto | undefined
     export type PayMutationError = RsData
-    export type PayMutationVariables = {orderId: number}
+    export type PayMutationVariables = {orderId: number;data?: OrderPayRequestDto}
 
     /**
  * @summary 예치금 결제

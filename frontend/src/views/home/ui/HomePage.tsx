@@ -5,6 +5,7 @@ import { AppHeader } from '@/widgets/app-header'
 import { BottomNav } from '@/widgets/bottom-nav'
 import { OfflineBody } from '@/widgets/status-screens'
 import { RACE_BANNERS, RaceCard, type RaceSummary } from '@/entities/race'
+import { clientEnv } from '@/shared/config'
 import { cn } from '@/shared/lib'
 import { Carousel, CarouselSlide, FOCUS_RING, Icon, Skeleton } from '@/shared/ui'
 
@@ -18,6 +19,7 @@ const HOME_TABS = [
   { label: '홈', href: '/' },
   { label: '대회 일정', href: '/races' },
   { label: '크루', href: '/crews' },
+  { label: '커뮤니티', href: '/community' },
 ] as const
 
 const SHORTCUTS = [
@@ -118,7 +120,10 @@ export function HomePage({ state, closingSoon }: HomePageProps) {
 function HomeTabs() {
   return (
     <nav aria-label="홈 메뉴" className="flex gap-5 bg-bg-surface px-4">
-      {HOME_TABS.map((tab) => {
+      {HOME_TABS.filter(
+        // shortcut: 백엔드 글 목록 API가 생기면 조건을 지운다. 지금은 실제 API 모드에서 첫 화면이 늘 오류다.
+        (tab) => tab.href !== '/community' || clientEnv.NEXT_PUBLIC_API_MOCKING === 'on',
+      ).map((tab) => {
         const current = tab.href === '/'
         return (
           <Link

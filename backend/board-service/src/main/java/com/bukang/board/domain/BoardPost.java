@@ -3,6 +3,8 @@ package com.bukang.board.domain;
 import static jakarta.persistence.EnumType.STRING;
 import static lombok.AccessLevel.PROTECTED;
 
+import java.time.LocalDateTime;
+
 import org.hibernate.annotations.DynamicUpdate;
 
 import com.bukang.common.global.jpa.entity.BaseIdAndTime;
@@ -59,6 +61,14 @@ public class BoardPost extends BaseIdAndTime {
 	@Column(name = "report_count", nullable = false, updatable = false)
 	private int reportCount;
 
+	// 관리자가 되살리거나 지운 기록. 되살린 뒤에는 handledAt 이후의 신고만 다시 숨김 기준에 센다
+	@Enumerated(STRING)
+	@Column(name = "handled_action", columnDefinition = "varchar(20)")
+	private ReportHandledAction handledAction;
+
+	@Column(name = "handled_at")
+	private LocalDateTime handledAt;
+
 	public static BoardPost create(long memberId, BoardCategory category, String title, String content) {
 		BoardPost post = new BoardPost();
 		post.memberId = memberId;
@@ -90,5 +100,15 @@ public class BoardPost extends BaseIdAndTime {
 
 	public void delete() {
 		this.status = BoardPostStatus.DELETED;
+	}
+
+	public void hide() {
+		this.status = BoardPostStatus.HIDDEN;
+	}
+
+	public void handle(ReportHandledAction action, LocalDateTime now) {
+		this.status = action == ReportHandledAction.RESTORED ? BoardPostStatus.VISIBLE : BoardPostStatus.DELETED;
+		this.handledAction = action;
+		this.handledAt = now;
 	}
 }

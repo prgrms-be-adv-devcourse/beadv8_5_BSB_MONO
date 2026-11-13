@@ -1240,7 +1240,7 @@
           "Order"
         ],
         "summary": "예치금 결제",
-        "description": "결제 대기(CREATED) 주문을 예치금으로 결제하고 참가를 확정한다. 순서: 예치금 차감 → 자리 판매 → 주문 PAID·참가 신청 CONFIRMED. 잔액이 부족하면 주문과 자리를 그대로 두므로, 충전한 뒤 같은 주문으로 다시 결제한다. 기한이 지나 자리 판매가 거절되면 차감한 예치금을 돌려주고 409를 돌려준다. 이미 결제한 주문은 다시 차감하지 않고 200으로 돌려준다.",
+        "description": "결제 대기(CREATED) 주문을 예치금으로 결제하고 참가를 확정한다. 순서: 예치금 차감 → 자리 판매 → 주문 PAID·참가 신청 CONFIRMED. 잔액이 부족하면 주문과 자리를 그대로 두므로, 충전한 뒤 같은 주문으로 다시 결제한다. 기한이 지나 자리 판매가 거절되면 차감한 예치금을 돌려주고 409를 돌려준다. 이미 결제한 주문은 다시 차감하지 않고 200으로 돌려준다. 키트 옵션은 결제 화면에서 고른 kitOptionIds로 받는다. 대회에 옵션이 있으면 옵션 이름마다 하나씩 골라야 하고, 옵션이 없는 대회는 비우거나 본문을 보내지 않는다.",
         "operationId": "pay",
         "parameters": [
           {
@@ -1267,6 +1267,16 @@
             "example": 1
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderPayRequestDto"
+              }
+            }
+          },
+          "required": false
+        },
         "responses": {
           "200": {
             "description": "결제 완료 또는 이미 결제한 주문",
@@ -3836,6 +3846,23 @@
           "carrier",
           "trackingNumber"
         ]
+      },
+      "OrderPayRequestDto": {
+        "type": "object",
+        "description": "예치금 결제 요청. 본문이 없으면 키트 옵션 없이 결제한다",
+        "properties": {
+          "kitOptionIds": {
+            "type": "array",
+            "description": "고른 키트 옵션 ID (상품 GET /api/v1/product/races/{raceId}/kit-options의 kitOptionId). 대회에 옵션이 있으면 이름마다 하나씩 골라야 하고, 옵션 없는 대회는 비운다",
+            "items": {
+              "type": "integer",
+              "format": "int64",
+              "example": 11,
+              "minimum": 1
+            },
+            "maxItems": 20
+          }
+        }
       }
     }
   }

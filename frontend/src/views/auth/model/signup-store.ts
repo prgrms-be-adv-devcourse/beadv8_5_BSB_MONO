@@ -28,9 +28,12 @@ type SignupStepState = {
   setAllTerms: (checked: boolean) => void
   /** 필수 약관을 모두 체크했을 때만 동의로 남기고 결과를 돌려준다. */
   agreeTerms: () => boolean
-  setAccount: (account: SignupAccountValues) => void
+  /** 이메일 · 비밀번호는 다른 화면에서 한 칸씩 받으므로 바뀐 칸만 넘긴다 */
+  setAccount: (account: Partial<SignupAccountValues>) => void
   setProfile: (profile: SignupProfileValues) => void
   setVerification: (verification: memberModel.VerifiedIdentityDto | null) => void
+  /** 가입을 그만둘 때 적은 내용과 본인인증 결과를 모두 지운다 */
+  reset: () => void
   /** 모바일 본인인증 리디렉션으로 돌아왔을 때 남겨 둔 입력값을 되살린다 (signup-draft.ts) */
   restoreDraft: (draft: SignupDraft) => void
 }
@@ -46,7 +49,7 @@ export const { Provider: SignupStepProvider, useStore: useSignupStep } = createS
     createStore<SignupStepState>()((set, get) => ({
       terms: termChecks(false),
       termsAgreed: false,
-      account: { email: '', password: '', passwordConfirm: '' },
+      account: { email: '', password: '' },
       profile: { nickname: '', gender: '' },
       verification: null,
       ...initial,
@@ -62,9 +65,17 @@ export const { Provider: SignupStepProvider, useStore: useSignupStep } = createS
         set({ termsAgreed: agreed })
         return agreed
       },
-      setAccount: (account) => set({ account }),
+      setAccount: (account) => set((s) => ({ account: { ...s.account, ...account } })),
       setProfile: (profile) => set({ profile }),
       setVerification: (verification) => set({ verification }),
+      reset: () =>
+        set({
+          terms: termChecks(false),
+          termsAgreed: false,
+          account: { email: '', password: '' },
+          profile: { nickname: '', gender: '' },
+          verification: null,
+        }),
       restoreDraft: (draft) =>
         set((s) => ({
           terms: draft.terms,

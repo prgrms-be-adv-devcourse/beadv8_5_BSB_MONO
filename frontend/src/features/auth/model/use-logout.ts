@@ -2,6 +2,7 @@ import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-q
 import { useRouter } from 'next/navigation'
 
 import { clearAccessToken, memberApi } from '@/shared/api'
+import { clearRecentSearches } from '@/shared/lib'
 
 import { reloadToLogin } from '../lib/login-redirect'
 
@@ -16,6 +17,8 @@ export function clearOnPageHide(queryClient: QueryClient) {
     () => {
       clearAccessToken()
       queryClient.clear()
+      // 최근 검색어는 이 브라우저에 남으므로, 같은 브라우저의 다음 사람에게 보이지 않게 함께 지운다
+      clearRecentSearches()
     },
     { once: true },
   )
@@ -38,6 +41,7 @@ export function useLogout() {
     },
     onError: () => {
       clearAccessToken()
+      clearRecentSearches()
       queryClient.removeQueries()
       router.replace('/login')
     },

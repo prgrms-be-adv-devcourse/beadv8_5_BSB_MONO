@@ -11,6 +11,7 @@ import java.util.stream.Collectors;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.bukang.member.config.MarketingUnsubscribeProperties;
@@ -143,6 +144,9 @@ public class MemberFacade {
 		return memberRepository.existsByEmail(email);
 	}
 
+	// bcrypt 비교가 느려서 트랜잭션 밖에서 실행한다. 읽기 전용 트랜잭션이면 비교하는 동안 DB 커넥션을 잡는다 (BUK-184)
+	// 토큰 발급은 Redis만 쓰므로 트랜잭션이 필요 없다. 조회는 각각 짧은 읽기 전용 트랜잭션으로 돈다
+	@Transactional(propagation = Propagation.NOT_SUPPORTED)
 	public MemberLoginResult login(MemberLoginRequestDto memberLoginRequestDto) {
 		// 비밀번호 없는 소셜 회원이면 가입한 제공자로 로그인하라고 알려 준다 (BE-035)
 		// 가입 여부는 이메일 중복 확인 API로도 알 수 있어(BE-023) 새로 드러나는 정보가 없다
@@ -182,7 +186,7 @@ public class MemberFacade {
 		return tokenReissueUseCase.reissue(refreshToken);
 	}
 
-	public void logout(String refreshToken) {
-		logoutUseCase.logout(refreshToken);
+	public void logout(String refreshToken, String authorization) {
+		logoutUseCase.logout(refreshToken, authorization);
 	}
 }

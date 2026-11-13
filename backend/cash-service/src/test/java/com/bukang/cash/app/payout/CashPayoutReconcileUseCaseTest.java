@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -141,6 +142,25 @@ class CashPayoutReconcileUseCaseTest {
 		}
 	}
 
+	@Test
+	@DisplayName("한 송금을 처리하다 오류가 나도(은행 조회 실패 포함) 그 송금만 결과 모름으로 두고 나머지 송금은 맞춘다")
+	void unexpectedErrorSkipsOnlyThatTransfer() {
+		given(bankTransferClient.transfer(anyString(), anyLong(), anyLong())).willReturn(BankTransferResult.UNKNOWN);
+		for (long payoutId = PAYOUT_ID; payoutId < PAYOUT_ID + 3; payoutId++) {
+			long id = payoutId;
+			catchThrowable(() -> cashFacade.payout(id, SELLER_APPLICATION_ID, PayoutStage.FIRST, 90_000, 0));
+		}
+		given(bankTransferClient.lookup(anyString())).willReturn(BankTransferResult.COMPLETED);
+		given(bankTransferClient.lookup(settlement(PAYOUT_ID).bankTransferId()))
+			.willThrow(new IllegalStateException("은행 조회 실패"));
+
+		cashPayoutReconcileUseCase.reconcile(LocalDateTime.now());
+
+		assertThat(settlement(PAYOUT_ID).getStatus()).isEqualTo(PayoutTransferStatus.UNKNOWN);
+		assertThat(settlement(PAYOUT_ID + 1).getStatus()).isEqualTo(PayoutTransferStatus.COMPLETED);
+		assertThat(settlement(PAYOUT_ID + 2).getStatus()).isEqualTo(PayoutTransferStatus.COMPLETED);
+	}
+
 	// 결과 모름: 은행이 결과 모름으로 답함. 요청함: 은행을 부르는 중 서버가 멈춘 것처럼 결과 반영 전에 끊김
 	private void leaveTransferIn(PayoutTransferStatus status) {
 		if (status == PayoutTransferStatus.UNKNOWN) {
@@ -155,7 +175,11 @@ class CashPayoutReconcileUseCaseTest {
 	}
 
 	private PayoutTransfer settlement() {
-		return payoutTransferRepository.findByPayoutIdAndTransferType(PAYOUT_ID, PayoutTransferType.SETTLEMENT)
+		return settlement(PAYOUT_ID);
+	}
+
+	private PayoutTransfer settlement(long payoutId) {
+		return payoutTransferRepository.findByPayoutIdAndTransferType(payoutId, PayoutTransferType.SETTLEMENT)
 			.orElseThrow();
 	}
 }
