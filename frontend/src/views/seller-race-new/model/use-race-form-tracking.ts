@@ -1,9 +1,11 @@
 'use client'
 
+import { useQuery } from '@tanstack/react-query'
 import { differenceInCalendarDays, parseISO } from 'date-fns'
 import type { FieldErrors } from 'react-hook-form'
 
-import { memberApi, productApi, unwrapData } from '@/shared/api'
+import { myRacesQueryOptions } from '@/entities/race'
+import { memberApi, unwrapData } from '@/shared/api'
 import { trackEvent, useTrackOnce, type SellerRaceFormEntry } from '@/shared/lib'
 
 import type { RaceFormValues } from './race-form'
@@ -43,7 +45,8 @@ export function errorSections(errors: FieldErrors<RaceFormValues>, imageError: b
 export function useRaceFormTracking(entry: SellerRaceFormEntry) {
   useTrackOnce('seller_race_form_start', { entry })
   const seller = memberApi.useFindMine({ query: { select: unwrapData, retry: false } })
-  const races = productApi.useFindMine({ query: { select: unwrapData } })
+  // 대회 관리 화면들과 같은 키를 쓰므로 같은 조회 설정을 쓴다. 다르면 캐시 모양이 섞인다
+  const races = useQuery(myRacesQueryOptions())
 
   return {
     formError(sections: string[]) {
