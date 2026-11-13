@@ -500,7 +500,7 @@ export interface MyCrewDto {
 }
 
 /**
- * 만든 초대 링크. inviteToken은 이 응답에서만 받는다
+ * 만든 초대 링크
  */
 export interface CrewInviteCreatedDto {
   inviteId: number;
@@ -519,6 +519,11 @@ export interface CrewInviteSenderDto {
  */
 export interface CrewInviteDto {
   inviteId: number;
+  /**
+     * 초대 링크 토큰. 원문을 저장하기 전(BUK-195)에 만든 초대는 null
+     * @nullable
+     */
+  inviteToken?: string | null;
   createdBy: CrewInviteSenderDto;
   createdAt: string;
   expiresAt: string;

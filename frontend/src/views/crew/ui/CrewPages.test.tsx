@@ -253,6 +253,41 @@ describe('CrewInvitesPage (M27)', () => {
   })
 })
 
+describe('CrewInvitesPage 보낸 초대 링크 (BUK-195)', () => {
+  it('링크 아이콘에 마우스를 올리면 초대 링크를 보여 주고, 누르면 복사한다', async () => {
+    const user = userEvent.setup()
+    const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue()
+    renderPage(<CrewInvitesPage crewId={1} />)
+    const linkButton = await screen.findByRole('button', { name: '초대 링크 보기' })
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
+
+    await user.hover(linkButton)
+    expect(screen.getByRole('tooltip')).toHaveTextContent(
+      `${window.location.origin}/invite/q3Xv9kLm2NpR7tYw4ZaB1c`,
+    )
+    await user.unhover(linkButton)
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
+
+    await user.click(linkButton)
+    expect(writeText).toHaveBeenCalledWith(
+      `${window.location.origin}/invite/q3Xv9kLm2NpR7tYw4ZaB1c`,
+    )
+  })
+
+  it('토큰이 없는 옛 초대에는 링크 아이콘이 없다', async () => {
+    const example = memberMock.getFindCrewInvitesResponseMock()
+    server.use(
+      memberMock.getFindCrewInvitesMockHandler({
+        ...example,
+        data: example.data!.map((invite) => ({ ...invite, inviteToken: null })),
+      }),
+    )
+    renderPage(<CrewInvitesPage crewId={1} />)
+    expect(await screen.findByRole('button', { name: '초대 취소' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '초대 링크 보기' })).not.toBeInTheDocument()
+  })
+})
+
 /** 크루 홈 응답의 내 역할만 바꾼다 */
 function mockCrewRole(myRole: 'LEADER' | 'MANAGER' | 'MEMBER') {
   const example = memberMock.getFindCrewResponseMock()

@@ -633,12 +633,12 @@ export const CreateCrewInviteResponse = zod.object({
   "inviteToken": zod.string(),
   "createdAt": zod.iso.datetime({"offset":true}),
   "expiresAt": zod.iso.datetime({"offset":true})
-}).optional().describe('만든 초대 링크. inviteToken은 이 응답에서만 받는다')
+}).optional().describe('만든 초대 링크')
 })
 
 
 /**
- * 아직 쓸 수 있는 초대 링크(24시간 안, 취소·가입 전)를 돌려준다. 보낸 초대를 취소하는 화면에 쓴다. 크루장은 크루의 모든 초대를, 운영진은 자기가 보낸 초대만 받는다. 토큰은 돌려주지 않는다.
+ * 아직 쓸 수 있는 초대 링크(24시간 안, 취소·가입 전)를 돌려준다. 보낸 초대를 취소하는 화면에 쓴다. 크루장은 크루의 모든 초대를, 운영진은 자기가 보낸 초대만 받는다. 링크를 다시 볼 수 있게 토큰도 돌려준다.
  * @summary 보낸 초대 목록
  */
 export const FindCrewInvitesParams = zod.object({
@@ -650,6 +650,7 @@ export const FindCrewInvitesResponse = zod.object({
   "message": zod.string().optional(),
   "data": zod.array(zod.object({
   "inviteId": zod.int(),
+  "inviteToken": zod.string().nullish().describe('초대 링크 토큰. 원문을 저장하기 전(BUK-195)에 만든 초대는 null'),
   "createdBy": zod.object({
   "memberId": zod.int(),
   "nickname": zod.string()
