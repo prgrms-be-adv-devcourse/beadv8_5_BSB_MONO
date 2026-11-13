@@ -107,6 +107,8 @@ def summary(results, out):
              ' 몰림 시나리오는 결제 실패 비율. 연결 대기는 주문 Hikari pending(1초 표본).', '']
     for label_dir in sorted(p for p in results.iterdir() if p.is_dir()):
         reps = sorted(p for p in label_dir.iterdir() if p.is_dir() and p.name.startswith('rep'))
+        if not reps:
+            continue
         names = []
         for rep in reps:
             for line in (rep / 'windows.tsv').read_text().splitlines() if (rep / 'windows.tsv').exists() else []:

@@ -33,7 +33,7 @@ services:
       # 전환 중이라 compose.yml과 같이 update로 둔다 (BUK-29)
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: ${ORDER_POOL:-10}
-      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,prometheus
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: ${ORDER_EXPOSE:-health,prometheus}
       # 예치금은 Toxiproxy를 거쳐 지연을 넣는다. 상품은 바로 부른다
       ORDER_CLIENTS_CASH_BASE_URL: http://toxiproxy:18081
       ORDER_CLIENTS_PRODUCT_BASE_URL: http://product:8085
