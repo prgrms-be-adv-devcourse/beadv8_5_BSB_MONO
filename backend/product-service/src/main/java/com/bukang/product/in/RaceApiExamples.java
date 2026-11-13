@@ -136,7 +136,7 @@ final class RaceApiExamples {
 		""";
 
 	static final String RACE_NOT_FOUND = """
-		{ "status": 404, "message": "존재하지 않는 대회입니다.", "data": null }
+		{ "status": 404, "code": "RACE_NOT_FOUND", "message": "존재하지 않는 대회입니다.", "data": null }
 		""";
 
 	static final String PRICE_CHANGED = """

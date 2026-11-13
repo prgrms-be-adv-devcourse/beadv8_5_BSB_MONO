@@ -627,6 +627,33 @@ export interface KakaoInviteSendResultDto {
   failures: KakaoInviteSendFailure[];
 }
 
+export interface IdentityReviewMemberDto {
+  id: number;
+  nickname: string;
+  maskedName: string;
+  maskedPhone: string;
+  maskedEmail: string;
+  ciVerified: boolean;
+  /** 한국 시간, 시간대 표시 없음 */
+  joinedAt: string;
+}
+
+export interface IdentityReviewGroupDto {
+  members: IdentityReviewMemberDto[];
+}
+
+/**
+ * 확인이 필요한 계정 한 페이지. totalElements는 묶음 수
+ */
+export interface IdentityReviewPageDto {
+  groups: IdentityReviewGroupDto[];
+  /** 0부터 센다 */
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
 export interface RsDataMemberDto {
   status?: number;
   message?: string;
@@ -717,6 +744,12 @@ export interface RsDataKakaoInviteSendResultDto {
   data?: KakaoInviteSendResultDto;
 }
 
+export interface RsDataIdentityReviewPageDto {
+  status?: number;
+  message?: string;
+  data?: IdentityReviewPageDto;
+}
+
 export type CheckEmailAvailabilityParams = {
 /**
  * 확인할 이메일
@@ -756,5 +789,19 @@ state?: string;
  * 사용자가 동의를 취소하면 제공자가 넣는다
  */
 error?: string;
+};
+
+export type FindIdentityReviewParams = {
+/**
+ * 페이지 번호 (0부터)
+ * @minimum 0
+ */
+page?: number;
+/**
+ * 페이지 크기 (1~100)
+ * @minimum 1
+ * @maximum 100
+ */
+size?: number;
 };
 

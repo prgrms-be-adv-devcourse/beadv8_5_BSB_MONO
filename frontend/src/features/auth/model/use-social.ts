@@ -2,7 +2,12 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { memberApi, memberModel, unwrapData } from '@/shared/api'
 
-import { goToSocialLogin, socialAuthorizeHref, type SocialProviderId } from '../lib/social-login'
+import {
+  goToSocialLogin,
+  rememberLinkingProvider,
+  socialAuthorizeHref,
+  type SocialProviderId,
+} from '../lib/social-login'
 import { applyLogin } from './use-login'
 
 /**
@@ -31,6 +36,7 @@ export function useLinkSocial() {
   return useMutation({
     mutationFn: async (provider: SocialProviderId) => {
       await memberApi.issueSocialLinkTicket(provider)
+      rememberLinkingProvider(provider)
       goToSocialLogin(socialAuthorizeHref(provider, { next: '/me/accounts' }))
     },
   })

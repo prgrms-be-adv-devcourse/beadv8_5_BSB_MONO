@@ -41,6 +41,7 @@ import com.bukang.payout.domain.exception.PayoutClaimNotFoundException;
 import com.bukang.payout.out.ClaimVirtualAccount;
 import com.bukang.payout.out.ClaimVirtualAccountPort;
 import com.bukang.payout.out.PayoutClaimRepository;
+import com.bukang.payout.out.PayoutCreateFailureRepository;
 import com.bukang.payout.out.PayoutHoldRepository;
 import com.bukang.payout.out.PayoutItemRepository;
 import com.bukang.payout.out.PayoutRecoveryRepository;
@@ -72,6 +73,9 @@ class PayoutClaimUseCaseTest {
 	private PayoutRepository payoutRepository;
 
 	@Autowired
+	private PayoutCreateFailureRepository payoutCreateFailureRepository;
+
+	@Autowired
 	private PayoutItemRepository payoutItemRepository;
 
 	@Autowired
@@ -101,7 +105,8 @@ class PayoutClaimUseCaseTest {
 		creator = new PayoutCreateStepUseCase(payoutRepository, calendar, ledgerUseCase,
 			new PayoutHoldUseCase(payoutRepository, payoutHoldRepository, calendar));
 		raceCancelUseCase = new PayoutRaceCancelUseCase(payoutRepository, ledgerUseCase);
-		payUseCase = new PayoutPayUseCase(new PayoutPayStepUseCase(payoutRepository, raceCancelUseCase), transfer -> {
+		payUseCase = new PayoutPayUseCase(new PayoutPayStepUseCase(payoutRepository, raceCancelUseCase,
+				payoutCreateFailureRepository), transfer -> {
 		});
 		virtualAccountPort = (claimCode, amount, dueDate) -> Optional.empty();
 		claimUseCase = new PayoutClaimUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository,

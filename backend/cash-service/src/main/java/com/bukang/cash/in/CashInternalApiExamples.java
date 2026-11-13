@@ -195,4 +195,34 @@ final class CashInternalApiExamples {
 
 	private CashInternalApiExamples() {
 	}
+
+	static final String WITHDRAWAL_ITEM_RESOLVED_CARD = """
+		{
+			"status": 200,
+			"message": "환급 카드 몫을 정리했습니다.",
+			"data": { "itemId": 42, "itemStatus": "COMPLETED", "withdrawalId": 7, "withdrawalStatus": "COMPLETED" }
+		}
+		""";
+
+	static final String WITHDRAWAL_ITEM_RESOLVED_NOT_CANCELED = """
+		{
+			"status": 200,
+			"message": "환급 카드 몫을 정리했습니다.",
+			"data": { "itemId": 42, "itemStatus": "REVERTED", "withdrawalId": 7, "withdrawalStatus": "IN_PROGRESS" }
+		}
+		""";
+
+	static final String WITHDRAWAL_ITEM_RESULT_MISSING = """
+		{ "status": 400, "code": "INVALID_REQUEST", "message": "정리 결과를 작성해주세요.", "data": null }
+		""";
+
+	static final String WITHDRAWAL_ITEM_NOT_FOUND = """
+		{ "status": 404, "code": "WITHDRAWAL_ITEM_NOT_FOUND", "message": "존재하지 않는 환급 카드 몫입니다. itemId=42",
+			"data": null }
+		""";
+
+	static final String WITHDRAWAL_ITEM_NOT_MANUAL_CHECK = """
+		{ "status": 409, "code": "WITHDRAWAL_ITEM_NOT_MANUAL_CHECK",
+			"message": "수동 확인 필요인 몫만 정리할 수 있습니다. itemId=42, status=UNKNOWN", "data": null }
+		""";
 }

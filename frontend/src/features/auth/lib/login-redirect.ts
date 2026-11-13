@@ -39,3 +39,9 @@ export function safeNextPath(next: string | null | undefined): Route {
   if (url.origin !== BASE || url.pathname === LOGIN_PATH) return '/'
   return `${url.pathname}${url.search}${url.hash}` as Route
 }
+
+/** 서버·AI가 준 주소를 링크로 쓸 때: 사이트 안 경로(/로 시작)만 돌려주고, 그 밖의 값(https://…, //…)은 null */
+export function safeInternalPath(path: string | null | undefined): Route | null {
+  const safe = safeNextPath(path)
+  return safe === '/' && path !== '/' ? null : safe
+}

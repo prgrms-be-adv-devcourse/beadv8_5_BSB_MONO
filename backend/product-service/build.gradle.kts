@@ -18,6 +18,9 @@ dependencies {
 
 	implementation("org.springframework.boot:spring-boot-starter-webmvc") // spring-web
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa") // dataJpa
+	// 표 변경은 Flyway SQL(db/migration)로만 한다. MySQL 지원은 별도 모듈
+	implementation("org.springframework.boot:spring-boot-starter-flyway")
+	implementation("org.flywaydb:flyway-mysql")
 	implementation("org.springframework.boot:spring-boot-starter-validation") // @Valid 요청 검증
 	implementation("org.springframework.boot:spring-boot-starter-kafka") // kafka (서비스 간 이벤트)
 	implementation("org.springframework.boot:spring-boot-starter-data-elasticsearch") // elastic search (대회 검색)
