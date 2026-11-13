@@ -253,8 +253,46 @@ class ApiV1MemberPhoneChangeTest {
 	}
 
 	@Test
-	@DisplayName("지금과 같은 번호로 인증하면 저장하지 않고 200이다")
-	void samePhoneIsNoop() throws Exception {
+	@DisplayName("해시가 비어 있는 회원이 지금 번호로 다시 인증하면 번호는 그대로 두고 본인인증 해시와 인증 시각을 채운다 (BUK-193)")
+	void samePhoneFillsMissingHashes() throws Exception {
+		clearIdentityHashes(memberId);
+		String token = identityStore.verify(NAME, BIRTH_DATE, "01012345678", hasher.ci(CI));
+		VerifiedIdentity identity = identityStore.findVerified(token).orElseThrow();
+
+		change(memberId, token)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.id").value(memberId))
+			.andExpect(jsonPath("$.data.phone").value(PHONE));
+
+		Member member = memberRepository.findById(memberId).orElseThrow();
+		assertThat(member.getPhone()).isEqualTo(PHONE);
+		assertThat(member.getPhoneHash()).isEqualTo(blindIndexGenerator.generatePhone(PHONE));
+		assertThat(member.getCiHash()).isEqualTo(hasher.ci(CI));
+		assertThat(member.getIdentityHash()).isEqualTo(identity.identityHash());
+		assertThat(member.getNameBirthHash()).isEqualTo(identity.nameBirthHash());
+		assertThat(member.getVerifiedAt()).isNotNull();
+		assertThat(applicationEvents.stream(MemberModifiedEvent.class)).isEmpty();
+		assertThat(identityStore.findVerified(token)).isEmpty();
+	}
+
+	@Test
+	@DisplayName("해시가 비어 있어도 다른 사람이 지금 번호로 인증하면 403이고 해시는 비어 있는 채로 남는다 (BUK-193)")
+	void samePhoneOtherPersonIsRejected() throws Exception {
+		clearIdentityHashes(memberId);
+
+		change(memberId, identityStore.verify("박러너", BIRTH_DATE, PHONE, null))
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.code").value("MEMBER_IDENTITY_MISMATCH"));
+
+		Member member = memberRepository.findById(memberId).orElseThrow();
+		assertThat(member.getIdentityHash()).isNull();
+		assertThat(member.getNameBirthHash()).isNull();
+		assertThat(member.getCiHash()).isNull();
+	}
+
+	@Test
+	@DisplayName("해시가 이미 있는 회원이 지금 번호로 다시 인증하면 같은 값으로 덮이고 번호 표기도 그대로다")
+	void samePhoneKeepsExistingHashes() throws Exception {
 		Member before = memberRepository.findById(memberId).orElseThrow();
 
 		change(memberId, identityStore.verify(NAME, BIRTH_DATE, "01012345678", hasher.ci(CI)))
@@ -263,7 +301,10 @@ class ApiV1MemberPhoneChangeTest {
 
 		Member after = memberRepository.findById(memberId).orElseThrow();
 		assertThat(after.getPhone()).isEqualTo(PHONE);
-		assertThat(after.getModifyDate()).isEqualTo(before.getModifyDate());
+		assertThat(after.getPhoneHash()).isEqualTo(before.getPhoneHash());
+		assertThat(after.getCiHash()).isEqualTo(before.getCiHash());
+		assertThat(after.getIdentityHash()).isEqualTo(before.getIdentityHash());
+		assertThat(after.getNameBirthHash()).isEqualTo(before.getNameBirthHash());
 	}
 
 	@Test
@@ -352,6 +393,13 @@ class ApiV1MemberPhoneChangeTest {
 		MemberJoinRequestDto request = MemberFixture.joinRequest().build(identityStore);
 		return memberFacade.join(new MemberJoinRequestDto(request.getEmail(), request.getPassword(),
 			request.getNickname(), null, List.of(TermsType.SERVICE, TermsType.PRIVACY), token)).getId();
+	}
+
+	// 본인인증 해시가 생기기 전(BUK-33)에 가입한 회원처럼 만든다
+	private void clearIdentityHashes(long id) {
+		Member member = memberRepository.findById(id).orElseThrow();
+		member.recordIdentityVerification(null, null, null, null);
+		memberRepository.saveAndFlush(member);
 	}
 
 	private ResultActions change(long id, String token) throws Exception {
