@@ -271,6 +271,17 @@ describe('DatePicker', () => {
     })
   })
 
+  it('휠의 연·월 항목은 버튼이라 키보드(Enter)로 고른다', async () => {
+    render(<DatePicker mode="single" defaultMonth={day(1)} />)
+    await userEvent.click(screen.getByRole('button', { name: /2026년 10월, 연·월 고르기/ }))
+    const option = screen.getByRole('option', { name: '12월' })
+    expect(option.tagName).toBe('BUTTON')
+    option.focus()
+    await userEvent.keyboard('{Enter}')
+
+    expect(screen.getByRole('button', { name: /2026년 12월, 연·월 고르기/ })).toBeInTheDocument()
+  })
+
   it('연·월을 누르면 휠이 열리고 화살표로 달을 바꾼다', async () => {
     render(<DatePicker mode="single" defaultMonth={day(1)} />)
     await userEvent.click(screen.getByRole('button', { name: /2026년 10월, 연·월 고르기/ }))
