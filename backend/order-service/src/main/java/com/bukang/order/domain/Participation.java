@@ -4,12 +4,14 @@ import static jakarta.persistence.EnumType.STRING;
 import static lombok.AccessLevel.PROTECTED;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import com.bukang.common.global.jpa.entity.BaseIdAndTime;
 import com.bukang.order.domain.event.ParticipationCanceledBeforePaymentEvent;
 import com.bukang.order.domain.exception.ParticipationNotCancelableException;
 import com.bukang.order.domain.exception.ParticipationNotEditableException;
 import com.bukang.order.domain.exception.ParticipationNotPayableException;
+import com.bukang.order.dto.KitOptionChoiceDto;
 import com.bukang.order.dto.ParticipantInfoDto;
 import com.bukang.order.dto.ParticipationDto;
 
@@ -217,6 +219,11 @@ public class Participation extends BaseIdAndTime {
 	}
 
 	public ParticipationDto toDto() {
+		return toDto(List.of());
+	}
+
+	// 고른 키트 옵션을 함께 내보낸다. 옵션은 결제 때만 남으므로 결제 전 응답은 toDto()로 충분하다
+	public ParticipationDto toDto(List<KitOptionChoiceDto> kitOptions) {
 		return new ParticipationDto(
 			getId(),
 			getCreateDate(),
@@ -230,7 +237,8 @@ public class Participation extends BaseIdAndTime {
 			ParticipantInfoDto.from(participant),
 			thirdPartyConsent,
 			consentedAt,
-			paymentDueAt
+			paymentDueAt,
+			kitOptions
 		);
 	}
 }

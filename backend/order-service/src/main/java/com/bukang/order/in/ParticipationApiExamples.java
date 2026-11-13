@@ -36,7 +36,8 @@ final class ParticipationApiExamples {
 				},
 				"thirdPartyConsent": true,
 				"consentedAt": "2026-10-12T10:15:30",
-				"paymentDueAt": null
+				"paymentDueAt": null,
+				"kitOptions": []
 			}
 		}
 		""";
@@ -54,7 +55,7 @@ final class ParticipationApiExamples {
 				"memberId": 1,
 				"participationType": "INDIVIDUAL",
 				"partyId": null,
-				"status": "PENDING",
+				"status": "CONFIRMED",
 				"participant": {
 					"name": "김러너",
 					"birth": "1994-06-25",
@@ -73,7 +74,11 @@ final class ParticipationApiExamples {
 				},
 				"thirdPartyConsent": true,
 				"consentedAt": "2026-10-12T10:15:30",
-				"paymentDueAt": null
+				"paymentDueAt": "2026-10-12T10:30:30",
+				"kitOptions": [
+					{ "kitOptionId": 11, "name": "T-shirt", "value": "L" },
+					{ "kitOptionId": 21, "name": "socks", "value": "FREE" }
+				]
 			}
 		}
 		""";
@@ -110,7 +115,8 @@ final class ParticipationApiExamples {
 				},
 				"thirdPartyConsent": true,
 				"consentedAt": "2026-10-12T10:15:30",
-				"paymentDueAt": null
+				"paymentDueAt": null,
+				"kitOptions": []
 			}
 		}
 		""";
@@ -140,6 +146,85 @@ final class ParticipationApiExamples {
 
 	static final String LATEST_PARTICIPANT_EMPTY = """
 		{ "status": 200, "message": "이전에 신청한 참가자 정보가 없습니다.", "data": null }
+		""";
+
+	static final String MY_TICKETS_SUCCESS = """
+		{
+			"status": 200,
+			"message": "내 참가권 목록을 조회했습니다.",
+			"data": {
+				"tickets": [
+					{
+						"participationId": 12,
+						"createDate": "2026-11-05T11:00:00",
+						"raceId": 100,
+						"raceCourseId": 2,
+						"raceName": "2026 서울 마라톤",
+						"courseName": "10K",
+						"raceDate": "2026-12-20T08:00:00",
+						"refundDeadline": "2026-12-10",
+						"participantName": "김러너",
+						"status": "CONFIRMED",
+						"participationType": "PARTY",
+						"paymentDueAt": "2026-11-07T10:00:00",
+						"orderId": 5,
+						"orderNo": "OD-20261106-0005",
+						"orderStatus": "PAID",
+						"orderItemId": 7,
+						"orderItemStatus": "PAID",
+						"amount": 50000,
+						"kitOptions": [
+							{ "kitOptionId": 11, "name": "T-shirt", "value": "L" }
+						],
+						"kitDeliveryStatus": "SHIPPING",
+						"kitCarrier": "CJ대한통운",
+						"kitTrackingNumber": "123456789012",
+						"partyId": 1,
+						"crewId": 7,
+						"partyStatus": "PAID",
+						"leaderMemberId": 3,
+						"leaderNickname": "러너A"
+					},
+					{
+						"participationId": 9,
+						"createDate": "2026-11-01T09:00:00",
+						"raceId": 200,
+						"raceCourseId": 5,
+						"raceName": "2026 부산 하프",
+						"courseName": "하프",
+						"raceDate": "2026-12-27T08:00:00",
+						"refundDeadline": "2026-12-17",
+						"participantName": "김러너",
+						"status": "PENDING",
+						"participationType": "INDIVIDUAL",
+						"paymentDueAt": null,
+						"orderId": null,
+						"orderNo": null,
+						"orderStatus": null,
+						"orderItemId": null,
+						"orderItemStatus": null,
+						"amount": null,
+						"kitOptions": [],
+						"kitDeliveryStatus": null,
+						"kitCarrier": null,
+						"kitTrackingNumber": null,
+						"partyId": null,
+						"crewId": null,
+						"partyStatus": null,
+						"leaderMemberId": null,
+						"leaderNickname": null
+					}
+				],
+				"page": 0,
+				"size": 20,
+				"totalElements": 2,
+				"totalPages": 1
+			}
+		}
+		""";
+
+	static final String INVALID_TICKET_PAGE = """
+		{ "status": 400, "code": "INVALID_REQUEST", "message": "한 번에 50개까지 조회할 수 있습니다.", "data": null }
 		""";
 
 	static final String INVALID_INPUT = """
@@ -238,7 +323,8 @@ final class ParticipationApiExamples {
 				},
 				"thirdPartyConsent": true,
 				"consentedAt": "2026-10-12T10:15:30",
-				"paymentDueAt": null
+				"paymentDueAt": null,
+				"kitOptions": []
 			}
 		}
 		""";
