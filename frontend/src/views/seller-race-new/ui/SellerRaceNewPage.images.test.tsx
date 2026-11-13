@@ -164,14 +164,15 @@ describe('SellerRaceNewPage 이미지 임시 주소', () => {
     renderPage()
     await addIntro()
     await userEvent.click(screen.getByRole('button', { name: '목록 저장' }))
-    expect(screen.getAllByRole('img', { name: /번째 소개 이미지/ })).toHaveLength(1)
+    const shown = screen.getByRole('img', { name: /번째 소개 이미지/ }).getAttribute('src')
 
     await userEvent.click(screen.getByRole('button', { name: '추가 · 편집' }))
     await userEvent.click(screen.getByRole('button', { name: 'intro.png done 빼기' }))
     await userEvent.click(screen.getByRole('button', { name: '목록 저장' }))
 
     expect(screen.queryByRole('img', { name: /번째 소개 이미지/ })).not.toBeInTheDocument()
-    expect(new Set(revoked)).toEqual(new Set(created))
+    // 목록 창의 미리보기 주소는 목록 훅(useImageList)이 화면을 떠날 때 해제한다. 여기서는 화면이 만든 주소만 본다
+    expect(revoked).toContain(shown)
   })
 
   it('화면을 떠나면 만든 주소를 모두 해제한다', async () => {

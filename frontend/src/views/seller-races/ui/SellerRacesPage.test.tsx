@@ -33,9 +33,10 @@ describe('SellerRacesPage', () => {
     renderPage('7')
     await user.click(await screen.findByRole('button', { name: '링크 복사' }))
 
+    // 오류 Toast는 화면 읽기 프로그램용 알림(role=alert)에도 같은 문구가 한 번 더 그려진다
     expect(
-      await screen.findByText('복사하지 못했어요. 링크를 길게 눌러 복사해 주세요.'),
-    ).toBeInTheDocument()
+      await screen.findAllByText('복사하지 못했어요. 링크를 길게 눌러 복사해 주세요.'),
+    ).not.toHaveLength(0)
     expect(writeText).toHaveBeenCalledWith(expect.stringMatching(/\/races\/7$/))
     writeText.mockRestore()
   })
