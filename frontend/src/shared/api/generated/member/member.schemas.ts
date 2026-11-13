@@ -108,6 +108,17 @@ export const SellerApplyRequestDtoSellerType = {
 } as const;
 
 /**
+ * 계좌 명의 (BUSINESS: 사업자 명의, 사업자만 / PERSONAL: 본인 명의)
+ */
+export type SellerApplyRequestDtoAccountHolderType = typeof SellerApplyRequestDtoAccountHolderType[keyof typeof SellerApplyRequestDtoAccountHolderType];
+
+
+export const SellerApplyRequestDtoAccountHolderType = {
+  BUSINESS: 'BUSINESS',
+  PERSONAL: 'PERSONAL',
+} as const;
+
+/**
  * 판매자 등록 신청 요청
  */
 export interface SellerApplyRequestDto {
@@ -130,6 +141,20 @@ export interface SellerApplyRequestDto {
      * @maxLength 50
      */
   representativeName: string;
+  /**
+     * 정산 계좌 은행 표준 코드 (숫자 3자리)
+     * @minLength 1
+     * @pattern ^\d{3}$
+     */
+  bankCode: string;
+  /**
+     * 정산 계좌번호 (하이픈 없이 숫자 6~16자리)
+     * @minLength 1
+     * @pattern ^\d{6,16}$
+     */
+  accountNumber: string;
+  /** 계좌 명의 (BUSINESS: 사업자 명의, 사업자만 / PERSONAL: 본인 명의) */
+  accountHolderType: SellerApplyRequestDtoAccountHolderType;
 }
 
 /**
@@ -500,7 +525,7 @@ export interface MyCrewDto {
 }
 
 /**
- * 만든 초대 링크. inviteToken은 이 응답에서만 받는다
+ * 만든 초대 링크
  */
 export interface CrewInviteCreatedDto {
   inviteId: number;
@@ -519,6 +544,11 @@ export interface CrewInviteSenderDto {
  */
 export interface CrewInviteDto {
   inviteId: number;
+  /**
+     * 초대 링크 토큰. 원문을 저장하기 전(BUK-195)에 만든 초대는 null
+     * @nullable
+     */
+  inviteToken?: string | null;
   createdBy: CrewInviteSenderDto;
   createdAt: string;
   expiresAt: string;

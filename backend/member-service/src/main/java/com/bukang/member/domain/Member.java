@@ -208,6 +208,13 @@ public class Member extends SourceMember {
 		String nameBirthHash, LocalDateTime verifiedAt) {
 		setPhone(phone);
 		setPhoneHash(phoneHash);
+		refreshIdentityVerification(ciHash, identityHash, nameBirthHash, verifiedAt);
+	}
+
+	// 다시 본인인증한 결과로 본인인증 해시와 인증 시각만 바꾼다. CI 해시는 비어 있을 때만 채운다
+	// 같은 번호로 다시 인증해도 해시가 비어 있던 기존 회원이 채워지게 한다 (BUK-193)
+	public void refreshIdentityVerification(String ciHash, String identityHash, String nameBirthHash,
+		LocalDateTime verifiedAt) {
 		if (getCiHash() == null) {
 			setCiHash(ciHash);
 		}

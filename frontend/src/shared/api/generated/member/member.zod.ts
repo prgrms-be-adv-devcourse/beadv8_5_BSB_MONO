@@ -197,7 +197,7 @@ export const CheckEmailAvailabilityResponse = zod.object({
 
 
 /**
- * X-Member-Id 헤더의 회원이 판매자 등록을 신청한다. 사업자는 상호·사업자등록번호가 필수이고, 비사업자가 보낸 상호·사업자등록번호는 버린다. 대기·승인 상태 신청이 있으면 막고, 반려만 있으면 새로 신청한다.
+ * X-Member-Id 헤더의 회원이 판매자 등록을 신청한다. 사업자는 상호·사업자등록번호가 필수이고, 비사업자가 보낸 상호·사업자등록번호는 버린다. 대기·승인 상태 신청이 있으면 막고, 반려만 있으면 새로 신청한다. 정산 계좌는 오픈뱅킹 계좌실명조회로 확인한다. 사업자 명의는 사업자등록번호로 조회해 은행이 맞다고 답하면, 본인 명의는 본인인증 생년월일로 조회해 예금주 이름이 본인인증 이름과 같으면(공백 무시) 통과한다. 계좌 확인은 회원 한 명당 하루 5번까지 할 수 있다.
  * @summary 판매자 등록 신청
  */
 export const applyBodyBusinessNameMin = 0;
@@ -209,11 +209,20 @@ export const applyBodyRepresentativeNameMax = 50;
 
 
 
+export const applyBodyBankCodeRegExp = new RegExp('^\\d{3}$');
+
+
+export const applyBodyAccountNumberRegExp = new RegExp('^\\d{6,16}$');
+
+
 export const ApplyBody = zod.object({
   "sellerType": zod.enum(['BUSINESS', 'INDIVIDUAL']).describe('판매자 종류 (BUSINESS: 사업자, INDIVIDUAL: 비사업자)'),
   "businessName": zod.string().min(applyBodyBusinessNameMin).max(applyBodyBusinessNameMax).optional().describe('상호 (사업자만, 100자 이하)'),
   "businessNumber": zod.string().regex(applyBodyBusinessNumberRegExp).optional().describe('사업자등록번호 (사업자만, 숫자 10자리, 하이픈 생략 가능)'),
-  "representativeName": zod.string().min(applyBodyRepresentativeNameMin).max(applyBodyRepresentativeNameMax).describe('대표자 (비사업자는 본인 성명, 50자 이하)')
+  "representativeName": zod.string().min(applyBodyRepresentativeNameMin).max(applyBodyRepresentativeNameMax).describe('대표자 (비사업자는 본인 성명, 50자 이하)'),
+  "bankCode": zod.string().min(1).regex(applyBodyBankCodeRegExp).describe('정산 계좌 은행 표준 코드 (숫자 3자리)'),
+  "accountNumber": zod.string().min(1).regex(applyBodyAccountNumberRegExp).describe('정산 계좌번호 (하이픈 없이 숫자 6~16자리)'),
+  "accountHolderType": zod.enum(['BUSINESS', 'PERSONAL']).describe('계좌 명의 (BUSINESS: 사업자 명의, 사업자만 / PERSONAL: 본인 명의)')
 }).describe('판매자 등록 신청 요청')
 
 export const ApplyResponse = zod.object({
@@ -618,7 +627,7 @@ export const UpdateCrewResponse = zod.object({
 
 
 /**
- * 크루장과 운영진이 초대 링크를 만든다. 링크는 만든 때부터 24시간 동안 쓸 수 있다. 응답의 inviteToken으로 프론트가 초대 받기 화면 주소를 만든다. 토큰은 이 응답에서만 받을 수 있다. 초대 링크 하나로는 한 명만 가입한다.
+ * 크루장과 운영진이 초대 링크를 만든다. 링크는 만든 때부터 24시간 동안 쓸 수 있다. 응답의 inviteToken으로 프론트가 초대 받기 화면 주소를 만든다. 토큰은 보낸 초대 목록에서도 다시 받는다. 초대 링크 하나로 24시간 동안 여러 명이 가입할 수 있다. 링크가 퍼지면 초대 취소로 끊는다.
  * @summary 초대 링크 만들기
  */
 export const CreateCrewInviteParams = zod.object({
@@ -633,12 +642,12 @@ export const CreateCrewInviteResponse = zod.object({
   "inviteToken": zod.string(),
   "createdAt": zod.iso.datetime({"offset":true}),
   "expiresAt": zod.iso.datetime({"offset":true})
-}).optional().describe('만든 초대 링크. inviteToken은 이 응답에서만 받는다')
+}).optional().describe('만든 초대 링크')
 })
 
 
 /**
- * 아직 쓸 수 있는 초대 링크(24시간 안, 취소·가입 전)를 돌려준다. 보낸 초대를 취소하는 화면에 쓴다. 크루장은 크루의 모든 초대를, 운영진은 자기가 보낸 초대만 받는다. 토큰은 돌려주지 않는다.
+ * 아직 쓸 수 있는 초대 링크(24시간 안, 취소·가입 전)를 돌려준다. 보낸 초대를 취소하는 화면에 쓴다. 크루장은 크루의 모든 초대를, 운영진은 자기가 보낸 초대만 받는다. 링크를 다시 볼 수 있게 토큰도 돌려준다.
  * @summary 보낸 초대 목록
  */
 export const FindCrewInvitesParams = zod.object({
@@ -650,6 +659,7 @@ export const FindCrewInvitesResponse = zod.object({
   "message": zod.string().optional(),
   "data": zod.array(zod.object({
   "inviteId": zod.int(),
+  "inviteToken": zod.string().nullish().describe('초대 링크 토큰. 원문을 저장하기 전(BUK-195)에 만든 초대는 null'),
   "createdBy": zod.object({
   "memberId": zod.int(),
   "nickname": zod.string()

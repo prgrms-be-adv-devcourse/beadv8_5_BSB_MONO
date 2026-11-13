@@ -28,6 +28,7 @@ import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.SellerRepository;
 import com.bukang.member.out.TermsAgreementRepository;
 import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
+import com.bukang.member.out.payoutaccount.InMemoryPayoutAccountVerifyLimiter;
 import com.bukang.member.support.MemberFixture;
 import com.jayway.jsonpath.JsonPath;
 
@@ -37,7 +38,7 @@ import jakarta.persistence.EntityManagerFactory;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Import(InMemoryIdentityVerificationStore.Config.class)
+@Import({InMemoryIdentityVerificationStore.Config.class, InMemoryPayoutAccountVerifyLimiter.Config.class})
 class InternalV1MemberReplicasTest {
 	private static final String REPLICAS = "/internal/v1/member/members/replicas";
 
