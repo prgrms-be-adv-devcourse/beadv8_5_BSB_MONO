@@ -73,6 +73,7 @@ final class CrewApiExamples {
 			"data": [
 				{
 					"inviteId": 3,
+					"inviteToken": "q3Xv9kLm2NpR7tYw4ZaB1c",
 					"createdBy": { "memberId": 1, "nickname": "새벽러너" },
 					"createdAt": "2026-11-02T20:30:00",
 					"expiresAt": "2026-11-03T20:30:00"
