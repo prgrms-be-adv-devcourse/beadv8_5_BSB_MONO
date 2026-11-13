@@ -21,8 +21,9 @@ const DURATION = __ENV.DURATION || '2m';
 const FLOW_OPTIONS = Number(__ENV.FLOW_OPTIONS || 5);
 // burst
 const BURST = Number(__ENV.BURST || 20);
-const ROUNDS = Number(__ENV.ROUNDS || 5);
-const ROUND_GAP_SECONDS = Number(__ENV.ROUND_GAP_SECONDS || 15);
+const ROUNDS = Number(__ENV.ROUNDS || 3);
+// 앞 라운드가 끝난 뒤 시작하게 연결 대기 제한(30초)보다 길게 둔다. 라운드가 겹치면 동시 결제 수가 20을 넘는다
+const ROUND_GAP_SECONDS = Number(__ENV.ROUND_GAP_SECONDS || 40);
 const SAME_OPTION = __ENV.SAME_OPTION === '1';
 
 const payMs = new Trend('pay_ms', true);
@@ -143,6 +144,7 @@ export function burst(data) {
 
 export function handleSummary(data) {
 	const pick = (name) => (data.metrics[name] ? data.metrics[name].values : null);
-	const line = JSON.stringify({ pay_ms: pick('pay_ms'), pay_failed: pick('pay_failed'), flow_failed: pick('flow_failed') });
+	const line = JSON.stringify({ pay_ms: pick('pay_ms'), pay_failed: pick('pay_failed'), flow_failed: pick('flow_failed'),
+		dropped_iterations: pick('dropped_iterations') });
 	return { [__ENV.SUMMARY || 'summary.json']: JSON.stringify(data, null, 1), stdout: `${line}\n` };
 }

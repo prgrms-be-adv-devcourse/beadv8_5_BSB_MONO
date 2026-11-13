@@ -61,7 +61,14 @@ jobs:
         run: |
           build() {
             local label=$1 ref=$2 src="$RUNNER_TEMP/src-$1"
+            # 브랜치 이름은 origin에서 받아 온다 (checkout은 지금 커밋만 로컬 브랜치로 둔다)
+            git fetch -q origin "$ref" && ref=FETCH_HEAD || git rev-parse --verify -q "$ref^{commit}" >/dev/null
             git worktree add --detach "$src" "$ref"
+            # 연결 대기 지표가 없으면 판정(P1, G1)이 조용히 비므로 빌드 전에 멈춘다
+            if ! grep -q micrometer-registry-prometheus "$src/backend/order-service/build.gradle.kts"; then
+              echo "::error::$label($2)에 주문 Prometheus 지표가 없습니다. 이 측정 PR의 build(order) 커밋을 포함해야 합니다"
+              exit 1
+            fi
             echo "$label = $(git -C "$src" rev-parse HEAD)" | tee -a "$RUNNER_TEMP/refs.txt"
             for m in order cash product; do
               docker build -q --build-arg MODULE=$m-service -t orderload-$m:$label "$src/backend"
@@ -72,7 +79,8 @@ jobs:
           docker compose -f docs/measurements/load/compose.load.yml build elasticsearch
           for image in grafana/k6:1.0.0 ghcr.io/shopify/toxiproxy:2.12.0 prom/prometheus:v3.5.0 mysql:8.4 \
             redpandadata/redpanda:v26.2.3 redis:8.2; do docker pull -q "$image"; done
-          pip install -q matplotlib
+          # 그래프만 못 그릴 뿐 측정은 계속한다
+          pip install -q --break-system-packages matplotlib || echo "::warning::matplotlib 설치 실패, 그래프 없이 진행"
 
       - name: 측정 (A, B 번갈아 반복)
         run: |
@@ -80,7 +88,8 @@ jobs:
           labels=a; if [ -n "$REF_B" ]; then labels="a b"; fi
           for rep in $(seq 1 "$REPEAT"); do
             for label in $labels; do
-              LABEL=$label REP=$rep docs/measurements/load/run.sh
+              # 한 바퀴가 실패해도 남은 반복은 돈다. 실패한 바퀴는 요약에 남긴다
+              LABEL=$label REP=$rep docs/measurements/load/run.sh || echo "$label rep$rep" >> "$OUT/failed-runs.txt"
             done
           done
 
@@ -89,7 +98,9 @@ jobs:
         run: |
           if [ -d "$OUT" ]; then
             python3 docs/measurements/load/report.py summary "$OUT" "$OUT/report" || true
-            { cat "$OUT/refs.txt" 2>/dev/null; echo; cat "$OUT/report/summary.md" 2>/dev/null; } >> "$GITHUB_STEP_SUMMARY"
+            { cat "$OUT/refs.txt" 2>/dev/null; echo
+              if [ -f "$OUT/failed-runs.txt" ]; then echo "실패한 바퀴: $(paste -sd' ' "$OUT/failed-runs.txt")"; echo; fi
+              cat "$OUT/report/summary.md" 2>/dev/null; } >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - uses: actions/upload-artifact@v4

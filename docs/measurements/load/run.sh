@@ -18,12 +18,12 @@ SCENARIOS=${SCENARIOS:-$ALL}
 TOXI="http://127.0.0.1:${TOXIPROXY_API_PORT:-18474}"
 PROM="http://127.0.0.1:${PROMETHEUS_PORT:-19090}"
 K6_IMAGE=grafana/k6:1.0.0
-FLOW_DURATION=2m; WARMUP_DURATION=1m; ROUNDS=5
+FLOW_DURATION=2m; WARMUP_DURATION=1m; ROUNDS=3
 if [ "${QUICK:-0}" = 1 ]; then FLOW_DURATION=20s; WARMUP_DURATION=10s; ROUNDS=2; fi
 
 export LABEL
 compose() { docker compose -f "$HERE/compose.load.yml" "$@"; }
-sql() { compose exec -T mysql mysql -N -s -ubukang2 -pbukang2 bukang-db 2>/dev/null; }
+sql() { compose exec -T mysql mysql -N -s -ubukang2 -pbukang2 bukang-db 2>>"$RUN_DIR/sql.err"; }
 log() { echo "[$(date +%H:%M:%S)] $LABEL rep$REP $*"; }
 
 mkdir -p "$RUN_DIR"
@@ -54,6 +54,7 @@ set_pool() {
 	if [ "$current" != "$1" ]; then
 		log "주문 DB 연결 수 $1 로 다시 띄우기"
 		ORDER_POOL=$1 compose up -d --wait order
+		flow "pool$1-warmup" 1 1 30s # 다시 띄운 직후 JIT가 차가운 구간은 버린다 (표에는 보이지만 판정에 안 쓴다)
 	fi
 }
 
@@ -69,6 +70,8 @@ k6() {
 		-e MEMBER_FROM="$member_from" -e SUMMARY="/out/$name.k6.json" "$@" /scripts/order-pay.js \
 		> "$RUN_DIR/$name.k6.log" 2>&1 || log "$name: k6가 0이 아닌 값으로 끝남 (로그 $name.k6.log)"
 	end=$(date +%s)
+	# k6가 요약을 못 남겼으면(준비 실패 등) 표에서 조용히 빠지지 않게 표시한다
+	[ -f "$RUN_DIR/$name.k6.json" ] || echo "$name" >> "$RUN_DIR/failed.txt"
 	printf '%s\t%s\t%s\n' "$name" "$start" "$end" >> "$RUN_DIR/windows.tsv"
 	log "$name 끝: $(tail -1 "$RUN_DIR/$name.k6.log")"
 	sleep 20 # 연결 대기가 가라앉고 구간이 섞이지 않게
@@ -93,8 +96,14 @@ for s in $SCENARIOS; do
 done
 set_latency 0
 
-log "정확성 확인"
-sleep 5
+log "정확성 확인 (결제가 멈출 때까지 기다린 뒤)"
+previous=""
+for _ in $(seq 1 24); do
+	current=$(echo "select concat((select count(*) from cash_payment), '/', (select count(*) from order_order where status = 'PAID'));" | sql)
+	[ "$current" = "$previous" ] && break
+	previous=$current
+	sleep 5
+done
 { echo "set @money_start = $MONEY_START;"; cat "$HERE/check.sql"; } | sql > "$RUN_DIR/check.txt"
 cat "$RUN_DIR/check.txt"
 

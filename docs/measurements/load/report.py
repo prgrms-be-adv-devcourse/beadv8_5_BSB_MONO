@@ -53,13 +53,14 @@ def read_scenario(rep_dir, name):
     metrics = json.loads(k6_file.read_text())['metrics']
     pay = metrics.get('pay_ms', {}).get('values', {})
     failed = metrics.get('flow_failed') or metrics.get('pay_failed') or {}
+    dropped = metrics.get('dropped_iterations', {}).get('values', {}).get('count', 0)
     prom_file = rep_dir / f'{name}.prom.json'
     series = json.loads(prom_file.read_text()) if prom_file.exists() else {'pending': [], 'active': []}
     pending = pending_stats(series.get('pending', []))
     active = [v for _, v in series.get('active', [])]
     return {
         'p50': pay.get('med'), 'p95': pay.get('p(95)'), 'p99': pay.get('p(99)'), 'count': pay.get('count'),
-        'fail': failed.get('values', {}).get('rate'),
+        'fail': failed.get('values', {}).get('rate'), 'dropped': dropped,
         'pending_max': pending['max'], 'pending_avg': pending['avg'], 'pending_seconds': pending['seconds'],
         'active_max': max(active) if active else None, 'series': series,
     }
@@ -92,6 +93,11 @@ def judge(med):
     ]
 
 
+def failed_names(rep_dir):
+    path = rep_dir / 'failed.txt'
+    return set(path.read_text().split()) if path.exists() else set()
+
+
 def read_check(rep_dir):
     path = rep_dir / 'check.txt'
     if not path.exists():
@@ -116,13 +122,18 @@ def summary(results, out):
                 if name not in names:
                     names.append(name)
         lines += [f'## {label_dir.name}', '',
-                  '| 시나리오 | 결제 p50 | 결제 p95 | 결제 p99 | 건수 | 실패율 | 연결 대기 최대 | 대기 평균 | 대기>0 초 | 활성 연결 최대 |',
-                  '|---|---|---|---|---|---|---|---|---|---|']
+                  '| 시나리오 | 결제 p50 | 결제 p95 | 결제 p99 | 건수 | 실패율 | 건너뜀 | 연결 대기 최대 | 대기 평균 | 대기>0 초 | 활성 연결 최대 |',
+                  '|---|---|---|---|---|---|---|---|---|---|---|']
         med = {}
         for name in names:
             rows = [read_scenario(rep, name) for rep in reps]
+            failed_reps = [rep.name for rep in reps if name in failed_names(rep)]
             rows = [r for r in rows if r]
-            keys = ['p50', 'p95', 'p99', 'count', 'fail', 'pending_max', 'pending_avg', 'pending_seconds', 'active_max']
+            if not rows:
+                lines.append(f'| {name} | 측정 실패 ({", ".join(failed_reps)}) |' + ' |' * 9)
+                continue
+            keys = ['p50', 'p95', 'p99', 'count', 'fail', 'dropped', 'pending_max', 'pending_avg', 'pending_seconds',
+                    'active_max']
             med[name] = {k: median([r[k] for r in rows]) for k in keys}
 
             def cell(key, digits=0, percent=False):
@@ -130,17 +141,20 @@ def summary(results, out):
                 show = (lambda v: '-' if v is None else f'{v:.2%}') if percent else (lambda v: fmt(v, digits))
                 return f'{show(med[name][key])} ({", ".join(show(v) for v in each)})'
             lines.append(f'| {name} | {cell("p50")} | {cell("p95")} | {cell("p99")} | {cell("count")} | '
-                         f'{cell("fail", percent=True)} | {cell("pending_max")} | {cell("pending_avg", 1)} | '
+                         f'{cell("fail", percent=True)} | {cell("dropped")} | {cell("pending_max")} | {cell("pending_avg", 1)} | '
                          f'{cell("pending_seconds")} | {cell("active_max")} |')
             plot(label_dir.name, name, rows, out)
         lines += ['', '판정(변경 전 기준, 중앙값):', '', '| 번호 | 조건 | 값 | 맞음 |', '|---|---|---|---|']
         for code, text, value, hit in judge(med):
             lines.append(f'| {code} | {text} | {fmt(value, 2) if isinstance(value, float) else fmt(value)} | '
                          f'{"예" if hit else "아니오"} |')
-        lines += ['', '정확성(반복마다):', '']
+        lines += ['', '건너뜀은 k6가 VU가 모자라 시작하지 못한 사람 수예요. 0이 아니면 명목 부하보다 덜 걸린 것이에요.',
+                  '', '정확성(반복마다):', '']
         for rep in reps:
             check = read_check(rep)
-            lines.append(f'- {rep.name}: ' + ', '.join(f'{k}={v}' for k, v in check.items()))
+            failed = failed_names(rep)
+            lines.append(f'- {rep.name}: ' + ', '.join(f'{k}={v}' for k, v in check.items())
+                         + (f' / 측정 실패: {", ".join(sorted(failed))}' if failed else ''))
         lines.append('')
     (out / 'summary.md').write_text('\n'.join(lines))
     print('\n'.join(lines))
