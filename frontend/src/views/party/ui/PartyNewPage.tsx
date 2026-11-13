@@ -60,7 +60,8 @@ export function PartyNewPage({ crewId }: { crewId?: number }) {
   const router = useRouter()
   const nowMs = useNow()?.getTime()
   const races = useQuery({
-    queryKey: productApi.getSearchQueryKey(CREW_RACES_PARAMS),
+    // 생성 훅은 응답 전체를, fetchRacePage는 data만 담으므로 같은 키를 쓰지 않게 꼬리를 붙인다
+    queryKey: [...productApi.getSearchQueryKey(CREW_RACES_PARAMS), 'page'],
     queryFn: () => fetchRacePage(CREW_RACES_PARAMS),
     enabled: crewId !== undefined,
   })
