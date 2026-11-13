@@ -59,7 +59,7 @@ class PayoutRecoveryTest {
 
 	@Test
 	@DisplayName("참가권 없는 일정 변경 회수는 만들 수 없다")
-	void scheduleChangedNeedsTicket() {
+	void scheduleChangedNeedsEntry() {
 		assertThatThrownBy(() -> new PayoutRecovery(1, 10, PayoutRecoveryReason.일정_변경, 20_000, REQUESTED_AT))
 			.isInstanceOf(IllegalArgumentException.class);
 	}
