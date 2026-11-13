@@ -36,6 +36,18 @@ final class MemberInternalApiExamples {
 		{ "status": 200, "message": "관리자 여부를 조회했습니다.", "data": { "admin": false } }
 		""";
 
+	static final String PAYOUT_ACCOUNT_REGISTERED = """
+		{ "status": 200, "message": "판매자 정산 계좌 등록 여부를 조회했습니다.", "data": { "registered": true } }
+		""";
+
+	static final String PAYOUT_ACCOUNT_NOT_REGISTERED = """
+		{ "status": 200, "message": "판매자 정산 계좌 등록 여부를 조회했습니다.", "data": { "registered": false } }
+		""";
+
+	static final String SELLER_NOT_FOUND = """
+		{ "status": 404, "code": "SELLER_NOT_FOUND", "message": "존재하지 않는 판매자 신청입니다.", "data": null }
+		""";
+
 	static final String MEMBER_NOT_FOUND = """
 		{ "status": 404, "code": "MEMBER_NOT_FOUND", "message": "존재하지 않는 회원입니다.", "data": null }
 		""";

@@ -134,6 +134,37 @@ final class SellerApiExamples {
 		{ "status": 400, "code": "INVALID_REQUEST", "message": "반려 사유를 작성해주세요.", "data": null }
 		""";
 
+	static final String ACCOUNT_NOT_VERIFIED = """
+		{
+			"status": 400,
+			"code": "SELLER_ACCOUNT_NOT_VERIFIED",
+			"message": "예금주 정보가 맞지 않아요. 계좌번호와 계좌 명의를 확인해 주세요.",
+			"data": null
+		}
+		""";
+
+	static final String IDENTITY_REVERIFY_REQUIRED = """
+		{
+			"status": 400,
+			"code": "SELLER_IDENTITY_REVERIFY_REQUIRED",
+			"message": "본인 명의 계좌는 휴대폰 번호를 다시 인증한 뒤 신청해 주세요.",
+			"data": null
+		}
+		""";
+
+	static final String ACCOUNT_VERIFY_TOO_MANY_REQUESTS = """
+		{
+			"status": 429,
+			"code": "SELLER_ACCOUNT_VERIFY_TOO_MANY_REQUESTS",
+			"message": "계좌 확인은 하루 5번까지 할 수 있어요. 내일 다시 시도해 주세요.",
+			"data": null
+		}
+		""";
+
+	static final String ACCOUNT_VERIFY_UNAVAILABLE = """
+		{ "status": 503, "code": "SELLER_ACCOUNT_VERIFY_UNAVAILABLE", "message": "잠시 뒤 다시 시도해 주세요.", "data": null }
+		""";
+
 	static final String INVALID_BODY = """
 		{ "status": 400, "code": "INVALID_REQUEST", "message": "요청 본문 형식이 올바르지 않습니다.", "data": null }
 		""";

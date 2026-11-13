@@ -3,6 +3,9 @@ package com.bukang.order.dto;
 import java.time.LocalDateTime;
 
 import com.bukang.order.app.PartyUseCase.MyRaceParty;
+import com.bukang.order.domain.Participation;
+import com.bukang.order.domain.ParticipationStatus;
+import com.bukang.order.domain.ParticipationType;
 import com.bukang.order.domain.Party;
 import com.bukang.order.domain.PartyStatus;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -46,8 +49,31 @@ public record PartyRaceStatusDto(
 	@Schema(description = "내가 결제했는지 (내 신청서가 참가 확정)", example = "false")
 	Boolean myPaid,
 	@Schema(description = "내 신청서 ID. [결제하기]에 쓴다", example = "10")
-	Long participationId
+	Long participationId,
+	@Schema(description = "이 대회에 살아 있는 내 신청 (개인·파티 모두, BUK-181). 없으면 칸이 빠진다. "
+		+ "파티가 없어도(role=NONE) 개인 신청이 있으면 나와, 대회 상세가 「이미 신청함」을 고른다")
+	MyParticipation myParticipation
 ) {
+	/**
+	 * 이 대회에 살아 있는 내 신청 하나 (한 사람 한 대회 1건)
+	 */
+	@JsonInclude(JsonInclude.Include.NON_NULL)
+	public record MyParticipation(
+		@Schema(description = "신청서 ID", example = "15")
+		long participationId,
+		@Schema(description = "INDIVIDUAL(개인 신청) / PARTY(파티원 신청)", example = "INDIVIDUAL")
+		ParticipationType participationType,
+		@Schema(description = "PENDING(확보 전) / APPLIED(결제 대기) / CONFIRMED(참가 확정)", example = "CONFIRMED")
+		ParticipationStatus status,
+		@Schema(description = "결제 기한. 자리 확보 전이면 칸이 빠진다", example = "2026-11-05T10:15:00")
+		LocalDateTime paymentDueAt
+	) {
+		public static MyParticipation from(Participation participation) {
+			return new MyParticipation(participation.getId(), participation.getParticipationType(),
+				participation.getStatus(), participation.getPaymentDueAt());
+		}
+	}
+
 	public enum Role {
 		LEADER, MEMBER, NONE
 	}
@@ -56,18 +82,19 @@ public record PartyRaceStatusDto(
 		NO_PARTY, NOT_LEADER, NOT_RECRUITING, RACE_CLOSED, TOO_FEW_MEMBERS, TOO_MANY_MEMBERS
 	}
 
-	public static PartyRaceStatusDto none() {
+	public static PartyRaceStatusDto none(MyParticipation myParticipation) {
 		return new PartyRaceStatusDto(Role.NONE, false, Reason.NO_PARTY, null, null, null, null, null, null, null,
-			null, null, null);
+			null, null, null, myParticipation);
 	}
 
-	public static PartyRaceStatusDto of(MyRaceParty mine, long memberId, int minCount, Integer maxCount) {
+	public static PartyRaceStatusDto of(MyRaceParty mine, long memberId, int minCount, Integer maxCount,
+		MyParticipation myParticipation) {
 		Party party = mine.party();
 		boolean leader = party.isLeader(memberId);
 		Reason reason = reason(leader, party.getStatus(), mine.raceOpen(), mine.memberCount(), minCount, maxCount);
 		return new PartyRaceStatusDto(leader ? Role.LEADER : Role.MEMBER, reason == null, reason, party.getId(),
 			party.getRaceCourseId(), party.getStatus(), mine.memberCount(), minCount, maxCount, mine.paidCount(),
-			party.getPaymentDueAt(), mine.myPaid(), mine.participationId());
+			party.getPaymentDueAt(), mine.myPaid(), mine.participationId(), myParticipation);
 	}
 
 	private static Reason reason(boolean leader, PartyStatus status, boolean raceOpen, int memberCount, int minCount,

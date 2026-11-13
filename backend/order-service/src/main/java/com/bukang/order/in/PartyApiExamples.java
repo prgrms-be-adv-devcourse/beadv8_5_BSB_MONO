@@ -93,7 +93,8 @@ final class PartyApiExamples {
 				},
 				"thirdPartyConsent": true,
 				"consentedAt": "2026-11-05T11:00:00",
-				"paymentDueAt": null
+				"paymentDueAt": null,
+				"kitOptions": []
 			}
 		}
 		""";
@@ -124,7 +125,8 @@ final class PartyApiExamples {
 				},
 				"thirdPartyConsent": true,
 				"consentedAt": "2026-11-05T11:00:00",
-				"paymentDueAt": null
+				"paymentDueAt": null,
+				"kitOptions": []
 			}
 		}
 		""";
@@ -135,7 +137,8 @@ final class PartyApiExamples {
 			"message": "이 대회 내 파티 상태를 조회했습니다.",
 			"data": { "role": "LEADER", "canApply": true, "partyId": 1, "raceCourseId": 2, "partyStatus": "RECRUITING",
 				"memberCount": 4, "minCount": 4, "maxCount": null, "paidCount": 0, "myPaid": false,
-				"participationId": 10 }
+				"participationId": 10,
+				"myParticipation": { "participationId": 10, "participationType": "PARTY", "status": "PENDING" } }
 		}
 		""";
 
@@ -145,7 +148,8 @@ final class PartyApiExamples {
 			"message": "이 대회 내 파티 상태를 조회했습니다.",
 			"data": { "role": "LEADER", "canApply": false, "reason": "TOO_FEW_MEMBERS", "partyId": 1, "raceCourseId": 2,
 				"partyStatus": "RECRUITING", "memberCount": 2, "minCount": 4, "maxCount": null, "paidCount": 0,
-				"myPaid": false, "participationId": 10 }
+				"myPaid": false, "participationId": 10,
+				"myParticipation": { "participationId": 10, "participationType": "PARTY", "status": "PENDING" } }
 		}
 		""";
 
@@ -155,7 +159,8 @@ final class PartyApiExamples {
 			"message": "이 대회 내 파티 상태를 조회했습니다.",
 			"data": { "role": "MEMBER", "canApply": false, "reason": "NOT_LEADER", "partyId": 1, "raceCourseId": 2,
 				"partyStatus": "RECRUITING", "memberCount": 3, "minCount": 4, "maxCount": null, "paidCount": 0,
-				"myPaid": false, "participationId": 10 }
+				"myPaid": false, "participationId": 10,
+				"myParticipation": { "participationId": 10, "participationType": "PARTY", "status": "PENDING" } }
 		}
 		""";
 
@@ -165,7 +170,9 @@ final class PartyApiExamples {
 			"message": "이 대회 내 파티 상태를 조회했습니다.",
 			"data": { "role": "MEMBER", "canApply": false, "reason": "NOT_LEADER", "partyId": 1, "raceCourseId": 2,
 				"partyStatus": "PAYING", "memberCount": 4, "minCount": 4, "maxCount": null, "paidCount": 1,
-				"paymentDueAt": "2026-11-07T10:00:00", "myPaid": false, "participationId": 10 }
+				"paymentDueAt": "2026-11-07T10:00:00", "myPaid": false, "participationId": 10,
+				"myParticipation": { "participationId": 10, "participationType": "PARTY", "status": "APPLIED",
+					"paymentDueAt": "2026-11-07T10:00:00" } }
 		}
 		""";
 
@@ -174,6 +181,16 @@ final class PartyApiExamples {
 			"status": 200,
 			"message": "이 대회 내 파티 상태를 조회했습니다.",
 			"data": { "role": "NONE", "canApply": false, "reason": "NO_PARTY" }
+		}
+		""";
+
+	static final String INDIVIDUAL_CONFIRMED = """
+		{
+			"status": 200,
+			"message": "이 대회 내 파티 상태를 조회했습니다.",
+			"data": { "role": "NONE", "canApply": false, "reason": "NO_PARTY",
+				"myParticipation": { "participationId": 15, "participationType": "INDIVIDUAL", "status": "CONFIRMED",
+					"paymentDueAt": "2026-11-05T10:15:00" } }
 		}
 		""";
 
@@ -213,6 +230,11 @@ final class PartyApiExamples {
 	static final String CREW_MEMBER_REQUIRED = """
 		{ "status": 403, "code": "ORDER_CREW_MEMBER_REQUIRED",
 			"message": "이 크루의 크루원만 파티를 만들거나 합류할 수 있습니다.", "data": null }
+		""";
+
+	static final String CREW_PARTY_RESTRICTED = """
+		{ "status": 403, "code": "ORDER_CREW_PARTY_RESTRICTED", "message": "크루가 파티 만들기 제한 중입니다.",
+			"data": { "endAt": "2026-12-12T04:30:00" } }
 		""";
 
 	static final String LEADER_ONLY = """

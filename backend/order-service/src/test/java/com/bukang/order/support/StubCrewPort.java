@@ -19,6 +19,7 @@ public class StubCrewPort implements CrewPort {
 	private final Set<Long> notCrewMembers = ConcurrentHashMap.newKeySet();
 	private final Map<Long, LocalDateTime> joinedAts = new ConcurrentHashMap<>();
 	private final Set<Long> missingCrews = ConcurrentHashMap.newKeySet();
+	private final Map<Long, LocalDateTime> restrictionEnds = new ConcurrentHashMap<>();
 	// 다음 크루 조회 직전에 한 번 돌릴 일 (조회와 잠금 사이에 다른 요청이 끼어드는 상황을 만든다)
 	private final AtomicReference<Runnable> beforeNextLookup = new AtomicReference<>();
 
@@ -38,6 +39,16 @@ public class StubCrewPort implements CrewPort {
 	@Override
 	public OptionalInt countMembers(long crewId) {
 		return OptionalInt.of(10);
+	}
+
+	@Override
+	public Optional<LocalDateTime> findPartyRestrictionEnd(long crewId) {
+		return Optional.ofNullable(restrictionEnds.get(crewId));
+	}
+
+	// 결제율 미달로 파티 만들기가 제한 중인 크루 (BUK-190)
+	public void restrictParty(long crewId, LocalDateTime endAt) {
+		restrictionEnds.put(crewId, endAt);
 	}
 
 	public void notCrewMember(long memberId) {
@@ -61,6 +72,7 @@ public class StubCrewPort implements CrewPort {
 	public void clear() {
 		beforeNextLookup.set(null);
 		missingCrews.clear();
+		restrictionEnds.clear();
 		notCrewMembers.clear();
 		joinedAts.clear();
 	}

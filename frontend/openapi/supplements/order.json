@@ -275,6 +275,14 @@
           }
         }
       }
+    },
+    "findMyTickets": {
+      "200": {
+        "wrapper": "RsDataMyTicketPageDto",
+        "data": {
+          "$ref": "#/components/schemas/MyTicketPageDto"
+        }
+      }
     }
   },
   "schemas": {
@@ -430,6 +438,13 @@
             "null"
           ],
           "format": "date-time"
+        },
+        "kitOptions": {
+          "type": "array",
+          "description": "결제 때 고른 키트 옵션 (이름·값, 고른 순). 결제 전이거나 옵션이 없는 종목이면 빈 목록",
+          "items": {
+            "$ref": "#/components/schemas/KitOptionChoiceDto"
+          }
         }
       },
       "description": "참가 신청"
@@ -514,6 +529,17 @@
             "null"
           ],
           "format": "date-time"
+        },
+        "kitTracking": {
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/KitTrackingDto"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "키트 배송 조회. 발송 전이거나 자동 조회하지 않는 배송이면 null"
         }
       },
       "description": "주문 상품"
@@ -888,6 +914,17 @@
             "null"
           ],
           "format": "date-time"
+        },
+        "kitTracking": {
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/KitTrackingDto"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "키트 배송 조회. 발송 전이거나 자동 조회하지 않는 배송이면 null"
         }
       }
     },
@@ -1041,12 +1078,18 @@
           "description": "RECRUITING(모집 중) / PAYING(결제 진행 중) / PAID(결제 끝) / CLOSED(종료)"
         },
         "paymentDueAt": {
-          "type": "string",
+          "type": [
+            "string",
+            "null"
+          ],
           "format": "date-time",
           "description": "파티원 결제 기한. 신청 전이면 null"
         },
         "joinToken": {
-          "type": "string",
+          "type": [
+            "string",
+            "null"
+          ],
           "description": "참가 링크 토큰. 파티장에게만 주고 파티원에게는 null"
         },
         "joinTokenExpiresAt": {
@@ -1180,7 +1223,10 @@
           "description": "결제를 마친 파티원 수"
         },
         "paymentDueAt": {
-          "type": "string",
+          "type": [
+            "string",
+            "null"
+          ],
           "format": "date-time",
           "description": "파티원 결제 기한. 신청 전이면 null"
         },
@@ -1335,7 +1381,10 @@
           "description": "신청할 수 있는 최소 인원"
         },
         "maxCount": {
-          "type": "integer",
+          "type": [
+            "integer",
+            "null"
+          ],
           "format": "int32",
           "description": "파티 최대 인원"
         },
@@ -1357,6 +1406,10 @@
           "type": "integer",
           "format": "int64",
           "description": "내 신청서 ID. [결제하기]에 쓴다"
+        },
+        "myParticipation": {
+          "$ref": "#/components/schemas/MyParticipationDto",
+          "description": "이 대회에 살아 있는 내 신청. 없으면 칸이 빠진다. 파티가 없어도(role=NONE) 개인 신청이 있으면 나와 「이미 신청함」을 고른다"
         }
       }
     },
@@ -1439,6 +1492,430 @@
       "required": [
         "soldOut"
       ]
+    },
+    "CrewPartyRestrictedDto": {
+      "type": "object",
+      "description": "크루 파티 만들기 제한 403(ORDER_CREW_PARTY_RESTRICTED)의 data. 결제율 미달로 제한 중인 크루가 파티를 만들 때 준다",
+      "properties": {
+        "endAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "제한이 끝나는 시각. 이때부터 다시 파티를 만들 수 있다"
+        }
+      },
+      "required": [
+        "endAt"
+      ]
+    },
+    "MyParticipationDto": {
+      "type": "object",
+      "description": "이 대회에 살아 있는 내 신청 (개인·파티 모두, 한 사람 한 대회 1건)",
+      "required": [
+        "participationId",
+        "participationType",
+        "status"
+      ],
+      "properties": {
+        "participationId": {
+          "type": "integer",
+          "format": "int64",
+          "description": "신청서 ID"
+        },
+        "participationType": {
+          "type": "string",
+          "enum": [
+            "INDIVIDUAL",
+            "PARTY"
+          ],
+          "description": "INDIVIDUAL(개인 신청) / PARTY(파티원 신청)"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "PENDING",
+            "APPLIED",
+            "CONFIRMED"
+          ],
+          "description": "PENDING(확보 전) / APPLIED(결제 대기) / CONFIRMED(참가 확정)"
+        },
+        "paymentDueAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "결제 기한. 자리 확보 전이면 칸이 빠진다"
+        }
+      }
+    },
+    "MyTicketDto": {
+      "type": "object",
+      "description": "내 참가권 목록의 한 줄. 참가 신청 1건 = 1줄",
+      "required": [
+        "participationId",
+        "createDate",
+        "raceId",
+        "raceCourseId",
+        "participantName",
+        "status",
+        "participationType",
+        "kitOptions"
+      ],
+      "properties": {
+        "participationId": {
+          "type": "integer",
+          "format": "int64",
+          "description": "참가 신청 ID"
+        },
+        "createDate": {
+          "type": "string",
+          "format": "date-time",
+          "description": "신청한 시각"
+        },
+        "raceId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "raceCourseId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "raceName": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "대회 이름. 상품 서비스에 묻지 못하면 null"
+        },
+        "courseName": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "종목 이름. 상품 서비스에 묻지 못하면 주문 당시 이름, 주문도 없으면 null"
+        },
+        "raceDate": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time",
+          "description": "대회 일시. 상품 서비스에 묻지 못하면 주문 당시 값, 주문도 없으면 null"
+        },
+        "refundDeadline": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date",
+          "description": "환불 기한 (그날까지). 상품 서비스에 묻지 못하면 null"
+        },
+        "participantName": {
+          "type": "string",
+          "description": "참가자 이름"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "PENDING",
+            "APPLIED",
+            "CONFIRMED",
+            "RELEASED",
+            "FAILED",
+            "CANCELED"
+          ],
+          "description": "신청 상태"
+        },
+        "participationType": {
+          "type": "string",
+          "enum": [
+            "INDIVIDUAL",
+            "PARTY"
+          ]
+        },
+        "paymentDueAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time",
+          "description": "결제 기한. 자리 확보 전이면 null"
+        },
+        "orderId": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64",
+          "description": "주문 ID. 주문 전이면 null"
+        },
+        "orderNo": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "주문번호. 주문 전이면 null"
+        },
+        "orderStatus": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "CREATED",
+            "PAID",
+            "PARTIAL_CANCELED",
+            "CANCELED",
+            "EXPIRED"
+          ],
+          "description": "주문 상태. 결제하지 않아 만료되면 주문 상품은 ORDERED로 남으니 이 칸(EXPIRED)으로 가른다. 주문 전이면 null"
+        },
+        "orderItemId": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64",
+          "description": "주문 상품 ID. 참가권 취소에 쓴다. 주문 전이면 null"
+        },
+        "orderItemStatus": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "ORDERED",
+            "PAID",
+            "CANCELING",
+            "CANCELED"
+          ],
+          "description": "주문 상품 상태. 주문 전이면 null"
+        },
+        "amount": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64",
+          "description": "결제 금액. 주문 전이면 null"
+        },
+        "kitOptions": {
+          "type": "array",
+          "description": "결제 때 고른 키트 옵션. 결제 전이거나 옵션이 없는 종목이면 빈 목록",
+          "items": {
+            "$ref": "#/components/schemas/KitOptionChoiceDto"
+          }
+        },
+        "kitDeliveryStatus": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "PREPARING",
+            "SHIPPING",
+            "DELIVERED"
+          ],
+          "description": "키트 배송 상태. 결제 전이거나 키트가 없으면 null"
+        },
+        "kitCarrier": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "택배사. 발송 전이면 null"
+        },
+        "kitTrackingNumber": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "송장 번호. 발송 전이면 null"
+        },
+        "partyId": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64",
+          "description": "파티 ID. 개인 신청이면 null"
+        },
+        "crewId": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64",
+          "description": "크루 ID. 크루 이름은 GET /api/v1/member/crews/me에서 찾는다. 개인 신청이면 null"
+        },
+        "partyStatus": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "RECRUITING",
+            "PAYING",
+            "PAID",
+            "CLOSED"
+          ],
+          "description": "파티 상태. 개인 신청이면 null"
+        },
+        "leaderMemberId": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64",
+          "description": "파티장 회원 ID. 개인 신청이면 null"
+        },
+        "leaderNickname": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "파티장 닉네임. 회원 서비스에 없으면 「탈퇴한 회원」, 묻지 못하면 null"
+        }
+      }
+    },
+    "MyTicketPageDto": {
+      "type": "object",
+      "description": "내 참가권 목록 한 페이지",
+      "required": [
+        "tickets",
+        "page",
+        "size",
+        "totalElements",
+        "totalPages"
+      ],
+      "properties": {
+        "tickets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/MyTicketDto"
+          }
+        },
+        "page": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "size": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "totalElements": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "totalPages": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "KitTrackingEventDto": {
+      "type": "object",
+      "description": "이동 기록 한 줄",
+      "properties": {
+        "time": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "NOT_TRACKED",
+            "INFORMATION_RECEIVED",
+            "AT_PICKUP",
+            "IN_TRANSIT",
+            "OUT_FOR_DELIVERY",
+            "ATTEMPT_FAIL",
+            "DELIVERED",
+            "AVAILABLE_FOR_PICKUP",
+            "EXCEPTION",
+            "UNKNOWN"
+          ]
+        },
+        "statusText": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "택배사가 붙인 상태 이름"
+        },
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "location": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "KitTrackingDto": {
+      "type": "object",
+      "description": "키트 배송 조회 (Delivery Tracker에서 받아 저장한 값). 자동 조회하지 않는 배송이면 null",
+      "properties": {
+        "carrierId": {
+          "type": "string",
+          "description": "택배사 ID (Delivery Tracker)"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "NOT_TRACKED",
+            "INFORMATION_RECEIVED",
+            "AT_PICKUP",
+            "IN_TRANSIT",
+            "OUT_FOR_DELIVERY",
+            "ATTEMPT_FAIL",
+            "DELIVERED",
+            "AVAILABLE_FOR_PICKUP",
+            "EXCEPTION",
+            "UNKNOWN"
+          ],
+          "description": "배송 상태. NOT_TRACKED는 아직 조회되지 않음"
+        },
+        "statusLabel": {
+          "type": "string",
+          "description": "배송 상태 이름"
+        },
+        "statusText": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "택배사가 붙인 상태 이름"
+        },
+        "lastEventAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time",
+          "description": "마지막 상태의 시각"
+        },
+        "lastTrackedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time",
+          "description": "마지막으로 조회한 시각. 아직 조회하지 않았으면 null"
+        },
+        "events": {
+          "type": "array",
+          "description": "이동 기록 (오래된 것부터)",
+          "items": {
+            "$ref": "#/components/schemas/KitTrackingEventDto"
+          }
+        }
+      }
     }
   }
 }

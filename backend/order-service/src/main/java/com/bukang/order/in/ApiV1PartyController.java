@@ -48,7 +48,8 @@ public class ApiV1PartyController {
 			+ "파티장도 참가자라 파티원 신청서(결제 전)를 함께 만들고, 참가 링크(24시간)가 함께 만들어진다. "
 			+ "고른 크루원(invitedMemberIds)에게는 초대 알림과 참가 링크를 보낸다. 나 자신·같은 사람 두 번·크루원이 아닌 사람·"
 			+ "파티 예매 시작 7일 전보다 늦게 가입한 사람은 거절하지 않고 건너뛰며, 실제로 보낸 사람은 응답 invitedMemberIds에 담긴다. "
-			+ "같은 대회에 개인 신청이 남아 있으면 409 ORDER_INDIVIDUAL_PARTICIPATION_EXISTS와 data.participationId를 준다.")
+			+ "같은 대회에 개인 신청이 남아 있으면 409 ORDER_INDIVIDUAL_PARTICIPATION_EXISTS와 data.participationId를 준다. "
+			+ "결제율 미달로 크루가 파티 만들기 제한 중이면 403 ORDER_CREW_PARTY_RESTRICTED와 끝나는 시각 data.endAt을 준다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "201", description = "만들기 성공",
 			content = @Content(examples = @ExampleObject(value = PartyApiExamples.CREATE_SUCCESS))),
@@ -63,9 +64,11 @@ public class ApiV1PartyController {
 		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = PartyApiExamples.LOGIN_REQUIRED))),
-		@ApiResponse(responseCode = "403", description = "이 크루의 크루원이 아님",
-			content = @Content(schema = @Schema(implementation = RsData.class),
-				examples = @ExampleObject(value = PartyApiExamples.CREW_MEMBER_REQUIRED))),
+		@ApiResponse(responseCode = "403", description = "이 크루의 크루원이 아님, 크루가 파티 만들기 제한 중(data.endAt)",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "크루원 아님", value = PartyApiExamples.CREW_MEMBER_REQUIRED),
+				@ExampleObject(name = "파티 만들기 제한 중", value = PartyApiExamples.CREW_PARTY_RESTRICTED)
+			})),
 		@ApiResponse(responseCode = "404", description = "없는 종목 또는 없는 크루",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "없는 종목", value = PartyApiExamples.COURSE_NOT_FOUND),
@@ -288,7 +291,9 @@ public class ApiV1PartyController {
 			+ "canApply=false면 reason으로 문구를 고른다. 화면 상태는 role·partyStatus·myPaid로 고른다: "
 			+ "LEADER+RECRUITING(모집 중, 인원 모자라면 TOO_FEW_MEMBERS) / MEMBER+RECRUITING(파티원) / "
 			+ "LEADER+PAYING(결제 진행 중) / PAYING·PAID에서 myPaid=false(결제할 차례, participationId로 결제)·true(결제 완료) / "
-			+ "NONE(파티 없음).")
+			+ "NONE(파티 없음). "
+			+ "myParticipation은 이 대회에 살아 있는 내 신청(개인·파티)이다. 파티가 없어도 개인 신청이 있으면 나와 "
+			+ "「이미 신청함」(INDIVIDUAL)·「파티로 신청 중」(PARTY)을 고르고, 없으면 칸이 빠진다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "조회 성공 (파티가 없어도 200)",
 			content = @Content(examples = {
@@ -296,7 +301,8 @@ public class ApiV1PartyController {
 				@ExampleObject(name = "파티장·인원 모자람", value = PartyApiExamples.LEADER_TOO_FEW),
 				@ExampleObject(name = "파티원·모집 중", value = PartyApiExamples.MEMBER_RECRUITING),
 				@ExampleObject(name = "파티원·결제할 차례", value = PartyApiExamples.MEMBER_PAYING),
-				@ExampleObject(name = "파티 없음", value = PartyApiExamples.NO_PARTY)
+				@ExampleObject(name = "파티 없음", value = PartyApiExamples.NO_PARTY),
+				@ExampleObject(name = "파티 없음·개인 신청 확정", value = PartyApiExamples.INDIVIDUAL_CONFIRMED)
 			})),
 		@ApiResponse(responseCode = "400", description = "대회 ID 없음·형식 오류·0 이하",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {

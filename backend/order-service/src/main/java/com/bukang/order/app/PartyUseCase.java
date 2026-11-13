@@ -29,6 +29,7 @@ import com.bukang.order.domain.PartyMember;
 import com.bukang.order.domain.PartyStatus;
 import com.bukang.order.domain.exception.ApplicationPeriodException;
 import com.bukang.order.domain.exception.CrewNotFoundException;
+import com.bukang.order.domain.exception.CrewPartyRestrictedException;
 import com.bukang.order.domain.exception.DuplicateParticipationException;
 import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
 import com.bukang.order.domain.exception.IndividualParticipationExistsException;
@@ -91,6 +92,10 @@ public class PartyUseCase {
 		Collection<Long> invitedMemberIds, LocalDateTime now) {
 		RaceCourseInfo course = findOpenCourse(raceCourseId, now);
 		LocalDateTime crewJoinedAt = checkCrewMember(crewId, memberId);
+		// 결제율 미달 크루는 파티를 새로 만들 수 없다. 합류·파티 신청은 막지 않는다 (BUK-190)
+		crewPort.findPartyRestrictionEnd(crewId).ifPresent(endAt -> {
+			throw new CrewPartyRestrictedException(endAt);
+		});
 		ParticipantInfo checked = checkParticipant(course, participant);
 		checkNoLiveParticipation(course.raceId(), memberId, null);
 		List<Long> invitees = findInvitees(crewId, memberId, course.crewSale(), invitedMemberIds);
