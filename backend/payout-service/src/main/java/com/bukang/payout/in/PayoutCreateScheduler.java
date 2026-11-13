@@ -7,14 +7,16 @@ import java.time.ZoneId;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import com.bukang.payout.app.PayoutCreateUseCase;
-import com.bukang.payout.app.PayoutReconcileUseCase;
+import com.bukang.payout.app.PayoutBatchUseCase;
+import com.bukang.payout.domain.PayoutBatchTrigger;
+import com.bukang.payout.domain.exception.PayoutBatchRunningException;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
  * 매일 새벽 정산 생성일이 된 대회의 정산 내역을 만들고, 이어서 주문 판매와 대사한다 (payout.md 2-6, BUK-67)
+ * 잠금 · 실행 기록은 PayoutBatchUseCase가 맡는다 (BUK-167). 다른 서버나 관리자가 이미 돌리고 있으면 건너뛴다
  */
 @Slf4j
 @Component
@@ -23,20 +25,15 @@ public class PayoutCreateScheduler {
 	// 서버 시간대와 상관없이 한국 날짜로 정산 생성일을 판단한다
 	private static final String ZONE = "Asia/Seoul";
 
-	private final PayoutCreateUseCase payoutCreateUseCase;
-	private final PayoutReconcileUseCase payoutReconcileUseCase;
+	private final PayoutBatchUseCase payoutBatchUseCase;
 
 	@Scheduled(cron = "0 0 3 * * *", zone = ZONE)
 	public void createPayouts() {
 		LocalDateTime now = LocalDateTime.now(ZoneId.of(ZONE));
-		LocalDate today = LocalDate.from(now);
-		payoutCreateUseCase.run(today, now);
-		// 대사는 같은 실행 시작 시각(now)으로 이번 실행에서 만든 정산을 찾는다. 대사가 실패해도 정산 생성 결과는
-		// 이미 커밋됐으므로 바뀌지 않는다 (AC-67-10)
 		try {
-			payoutReconcileUseCase.run(today, now);
-		} catch (RuntimeException exception) {
-			log.error("정산 대사를 마치지 못했습니다. today={}", today, exception);
+			payoutBatchUseCase.runCreate(PayoutBatchTrigger.스케줄, null, LocalDate.from(now), now);
+		} catch (PayoutBatchRunningException exception) {
+			log.info("정산 생성 배치가 이미 돌고 있어 이번 실행은 건너뜁니다.");
 		}
 	}
 }

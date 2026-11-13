@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 class TwoStagePayoutCalculatorTest {
 	private static final List<Long> NONE = List.of();
 
-	private static List<Long> tickets(long price, int count) {
+	private static List<Long> entries(long price, int count) {
 		return Collections.nCopies(count, price);
 	}
 
@@ -29,7 +29,7 @@ class TwoStagePayoutCalculatorTest {
 		@Test
 		@DisplayName("환불 없음: 1차 40,000 / 수수료 5,500 / 판매자 정산액 94,500 / 최종 54,500")
 		void noRefund() {
-			TwoStageAmounts amounts = TwoStagePayoutCalculator.calculate(tickets(50_000L, 2), NONE, NONE);
+			TwoStageAmounts amounts = TwoStagePayoutCalculator.calculate(entries(50_000L, 2), NONE, NONE);
 
 			assertThat(amounts.firstPayoutAmount()).isEqualTo(40_000L);
 			assertThat(amounts.recoveryAmount()).isZero();
@@ -44,7 +44,7 @@ class TwoStagePayoutCalculatorTest {
 		@Test
 		@DisplayName("R0 마감 전 1장 환불: 판매 내역에서 빠져 1장으로 계산한다 (1차 20,000 / 최종 27,250)")
 		void refundBeforeDeadline() {
-			TwoStageAmounts amounts = TwoStagePayoutCalculator.calculate(tickets(50_000L, 1), NONE, NONE);
+			TwoStageAmounts amounts = TwoStagePayoutCalculator.calculate(entries(50_000L, 1), NONE, NONE);
 
 			assertThat(amounts.firstPayoutAmount()).isEqualTo(20_000L);
 			assertThat(amounts.feeAmount()).isEqualTo(2_750L);
@@ -56,7 +56,7 @@ class TwoStagePayoutCalculatorTest {
 		@Test
 		@DisplayName("R1 1차 지급 전 1장 환불: 1차는 음수 항목을 반영한 20,000, 최종 27,250")
 		void refundBeforeFirstPay() {
-			TwoStageAmounts amounts = TwoStagePayoutCalculator.calculate(tickets(50_000L, 2), List.of(50_000L), NONE);
+			TwoStageAmounts amounts = TwoStagePayoutCalculator.calculate(entries(50_000L, 2), List.of(50_000L), NONE);
 
 			assertThat(amounts.firstPayoutAmount()).isEqualTo(20_000L);
 			assertThat(amounts.recoveryAmount()).isZero();
@@ -69,7 +69,7 @@ class TwoStagePayoutCalculatorTest {
 		@Test
 		@DisplayName("R2 1차 지급 뒤 1장 환불: 1차 40,000 / 회수 20,000 / 최종 27,250")
 		void refundAfterFirstPay() {
-			TwoStageAmounts amounts = TwoStagePayoutCalculator.calculate(tickets(50_000L, 2), NONE, List.of(50_000L));
+			TwoStageAmounts amounts = TwoStagePayoutCalculator.calculate(entries(50_000L, 2), NONE, List.of(50_000L));
 
 			assertThat(amounts.firstPayoutAmount()).isEqualTo(40_000L);
 			assertThat(amounts.recoveryAmount()).isEqualTo(20_000L);
@@ -82,8 +82,8 @@ class TwoStagePayoutCalculatorTest {
 		@Test
 		@DisplayName("R2 1차 지급 뒤 대회 취소: 1차 40,000을 전액 회수하고 최종 0")
 		void raceCanceledAfterFirstPay() {
-			TwoStageAmounts amounts = TwoStagePayoutCalculator.calculate(tickets(50_000L, 2), NONE,
-				tickets(50_000L, 2));
+			TwoStageAmounts amounts = TwoStagePayoutCalculator.calculate(entries(50_000L, 2), NONE,
+				entries(50_000L, 2));
 
 			assertThat(amounts.firstPayoutAmount()).isEqualTo(40_000L);
 			assertThat(amounts.recoveryAmount()).isEqualTo(40_000L);
@@ -96,11 +96,11 @@ class TwoStagePayoutCalculatorTest {
 
 	@Nested
 	@DisplayName("검산 2: 33,333원 × 10장 (장마다 버림)")
-	class PerTicketRounding {
+	class PerEntryRounding {
 		@Test
 		@DisplayName("환불 없음: 1차 133,330 / 수수료 18,330 / 최종 181,670 (지름길 순매출 × 60% − 수수료라면 181,668)")
 		void noRefund() {
-			TwoStageAmounts amounts = TwoStagePayoutCalculator.calculate(tickets(33_333L, 10), NONE, NONE);
+			TwoStageAmounts amounts = TwoStagePayoutCalculator.calculate(entries(33_333L, 10), NONE, NONE);
 
 			assertThat(amounts.firstPayoutAmount()).isEqualTo(133_330L);
 			assertThat(amounts.netSalesAmount()).isEqualTo(333_330L);
@@ -113,7 +113,7 @@ class TwoStagePayoutCalculatorTest {
 		@Test
 		@DisplayName("R1 지급 전 3장: 1차 93,331 / 수수료 12,831 / 최종 127,169")
 		void refundBeforeFirstPay() {
-			TwoStageAmounts amounts = TwoStagePayoutCalculator.calculate(tickets(33_333L, 10), tickets(33_333L, 3),
+			TwoStageAmounts amounts = TwoStagePayoutCalculator.calculate(entries(33_333L, 10), entries(33_333L, 3),
 				NONE);
 
 			assertThat(amounts.firstPayoutAmount()).isEqualTo(93_331L);
@@ -127,8 +127,8 @@ class TwoStagePayoutCalculatorTest {
 		@Test
 		@DisplayName("R2 지급 뒤 3장: 1차 133,330 / 회수 39,999 / 최종 127,169")
 		void refundAfterFirstPay() {
-			TwoStageAmounts amounts = TwoStagePayoutCalculator.calculate(tickets(33_333L, 10), NONE,
-				tickets(33_333L, 3));
+			TwoStageAmounts amounts = TwoStagePayoutCalculator.calculate(entries(33_333L, 10), NONE,
+				entries(33_333L, 3));
 
 			assertThat(amounts.firstPayoutAmount()).isEqualTo(133_330L);
 			assertThat(amounts.recoveryAmount()).isEqualTo(39_999L);
@@ -140,8 +140,8 @@ class TwoStagePayoutCalculatorTest {
 		@Test
 		@DisplayName("R2 대회 취소: 회수도 장마다 계산해 133,330 (합계에 곱한 133,332가 아니다), 최종 0")
 		void raceCanceled() {
-			TwoStageAmounts amounts = TwoStagePayoutCalculator.calculate(tickets(33_333L, 10), NONE,
-				tickets(33_333L, 10));
+			TwoStageAmounts amounts = TwoStagePayoutCalculator.calculate(entries(33_333L, 10), NONE,
+				entries(33_333L, 10));
 
 			assertThat(amounts.recoveryAmount()).isEqualTo(133_330L);
 			assertThat(amounts.sellerSettlementAmount()).isZero();

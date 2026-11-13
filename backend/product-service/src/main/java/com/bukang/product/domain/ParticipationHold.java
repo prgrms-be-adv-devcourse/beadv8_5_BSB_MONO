@@ -36,7 +36,9 @@ import lombok.NoArgsConstructor;
 	indexes = {
 		@Index(name = "idx_participation_hold_status_expires", columnList = "status, expires_at"),
 		// 같은 파티로 다시 확보를 부르면 그 파티가 잡은 자리를 찾는다 (크루 자리 멱등 확인)
-		@Index(name = "idx_participation_hold_party", columnList = "party_id")
+		@Index(name = "idx_participation_hold_party", columnList = "party_id"),
+		// 크루 결제율 미달 집계: 한 달 동안 확보한 크루 자리를 찾는다
+		@Index(name = "idx_participation_hold_crew_held", columnList = "crew_id, held_at")
 	},
 	// 같은 신청으로 두 번 확보해도 자리는 한 번만 잡히게 하는 멱등 키
 	uniqueConstraints = @UniqueConstraint(

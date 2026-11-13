@@ -1,0 +1,9 @@
+# 부하 테스트용 덮어쓰기. dev와 함께 켠다: SPRING_PROFILES_ACTIVE=dev,loadtest
+# dev의 prometheus 엔드포인트와 dev 배치 API(@Profile("dev"))는 그대로 쓰고, 측정을 흔드는 SQL 로그만 끈다
+# DB · Kafka · 다른 서비스 주소는 compose 환경 변수로 덮어쓴다 (예: SPRING_DATASOURCE_URL, PAYOUT_SERVICES_ORDER)
+# 쿼리 수는 Hibernate 통계 대신 MySQL 지표(mysqld-exporter)로 본다. 통계는 세션마다 로그를 남기고 Prometheus로 보내려면 의존성이 더 필요하다
+logging:
+  level:
+    com.bukang: info
+    org.hibernate.SQL: info
+    org.hibernate.orm.jdbc.bind: info

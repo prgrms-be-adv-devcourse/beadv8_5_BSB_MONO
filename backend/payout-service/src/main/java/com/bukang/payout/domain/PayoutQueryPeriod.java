@@ -41,6 +41,11 @@ public final class PayoutQueryPeriod {
 		checkOneMonth(from, to, "이상 감지 기록은 최대 1개월까지 조회할 수 있습니다.");
 	}
 
+	// 관리자 배치 실행 기록은 실행 기준일로 최대 1개월 (BUK-167)
+	public static void checkBatchRunDays(LocalDate from, LocalDate to) {
+		checkOneMonth(from, to, "배치 실행 기록은 최대 1개월까지 조회할 수 있습니다.");
+	}
+
 	private static void checkOneMonth(LocalDate from, LocalDate to, String tooLongMessage) {
 		if (from.isAfter(to)) {
 			throw new PayoutQueryException("조회 시작이 끝보다 늦습니다.");

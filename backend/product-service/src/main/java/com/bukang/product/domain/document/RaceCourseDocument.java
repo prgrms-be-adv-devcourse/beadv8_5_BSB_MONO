@@ -12,6 +12,7 @@ import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 import org.springframework.data.elasticsearch.annotations.InnerField;
+import org.springframework.data.elasticsearch.annotations.KnnSimilarity;
 import org.springframework.data.elasticsearch.annotations.MultiField;
 import org.springframework.data.elasticsearch.annotations.Setting;
 
@@ -29,12 +30,17 @@ import lombok.NoArgsConstructor;
  * 대회 목록은 raceId로 묶어(collapse) 보여 주고, 연관검색어는 raceTitle(대회)과 courseLabel(종목)을 나눠 찾는다.
  * 남은 정원·종목 상태(접수 중·정원 마감)처럼 자주 바뀌는 값은 넣지 않고 DB에서 읽는다.
  * 분석기·동의어는 race-settings.json에 있다. 동의어는 검색할 때만 적용한다 (searchAnalyzer).
+ * alwaysWriteMapping: 인덱스가 이미 있어도 앱이 뜰 때 매핑을 다시 보낸다. 새 칸(raceEmbedding)이 이미 있는 인덱스에도 생긴다
+ *   (ES는 칸 더하기만 받고 바꾸기는 거절하므로, 있는 칸의 타입·분석기를 바꾸면 앱이 뜨지 않는다. 그때는 인덱스를 다시 만든다)
  */
 @Getter
 @NoArgsConstructor(access = PROTECTED)
-@Document(indexName = "race_courses")
+@Document(indexName = "race_courses", alwaysWriteMapping = true)
 @Setting(settingPath = "/elasticsearch/race-settings.json")
 public class RaceCourseDocument extends BaseDocument {
+	// 벡터 칸 이름. 문서 동기화는 이 칸을 빼고 고치고, 임베딩 동기화는 이 칸만 고친다
+	public static final String RACE_EMBEDDING = "raceEmbedding";
+
 	// 분석기 3개 (race-settings.json). 모두 html_strip → nori 토크나이저 → 조사·어미 제거 → 한자를 한글로 → 소문자 순서다
 	// 사용자 사전(키로, 풀코스, 하프마라톤, 트레일러닝, 트레일런, 울트라마라톤)은 쪼개지 않는다
 	// (사전이 없으면 "10키로"가 10, 키, 로로 잘린다)
@@ -157,6 +163,15 @@ public class RaceCourseDocument extends BaseDocument {
 
 	@Field(type = FieldType.Integer)
 	private Integer maxAge;
+
+	// 대회 설명을 숫자 384개로 바꾼 벡터 (AI 추천 KNN이 이 칸으로 가까운 대회를 찾는다, BUK-162)
+	//   대회 기준으로 한 번 만들어 그 대회의 종목 문서 모두에 같은 값을 넣는다
+	//   knnSimilarity COSINE: 두 벡터의 방향이 같을수록 가깝다고 본다
+	//   이 클래스로 문서를 만들 때는 비워 둔다(null). 값은 임베딩 동기화가 이 칸만 따로 채운다
+	//   ES 9.x는 이 칸을 조회 결과(_source)에 돌려주지 않는다. 그래서 문서를 읽어 다시 저장하면 벡터가 지워진다
+	@Field(name = RACE_EMBEDDING, type = FieldType.Dense_Vector, dims = EmbeddingVector.DIMENSIONS,
+		knnSimilarity = KnnSimilarity.COSINE)
+	private float[] raceEmbedding;
 
 	private RaceCourseDocument(RaceCourse course, Race race) {
 		super(String.valueOf(course.getId()), course.getCreateDate());

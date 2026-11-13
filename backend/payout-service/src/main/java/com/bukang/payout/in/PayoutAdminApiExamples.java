@@ -53,6 +53,52 @@ final class PayoutAdminApiExamples {
 		}
 		""";
 
+	static final String BATCH_RUN_SUCCESS = """
+		{
+			"status": 200,
+			"message": "정산 지급 배치를 돌렸습니다.",
+			"data": [
+				{
+					"id": 12, "batchType": "지급", "triggerType": "관리자", "runDate": "2026-11-20", "startedBy": 99,
+					"startedAt": "2026-11-20T10:00:00", "finishedAt": "2026-11-20T10:00:03", "status": "일부_실패",
+					"doneCount": 5, "problemCount": 1, "summary": "지급 완료 5 · 실패 0 · 결과 모름 1 · 불일치 0"
+				},
+				{
+					"id": 13, "batchType": "청구", "triggerType": "관리자", "runDate": "2026-11-20", "startedBy": 99,
+					"startedAt": "2026-11-20T10:00:03", "finishedAt": "2026-11-20T10:00:04", "status": "완료",
+					"doneCount": 1, "problemCount": 0, "summary": "청구 1 · 판매자 알림 1 · 관리자 알림 0"
+				}
+			]
+		}
+		""";
+
+	static final String BATCH_RUNNING = """
+		{ "status": 409, "code": "PAYOUT_BATCH_RUNNING",
+			"message": "정산 지급 배치가 이미 돌고 있거나 막 끝났습니다. 잠시 뒤 다시 돌려주세요.", "data": null }
+		""";
+
+	static final String BATCH_FUTURE_DATE = """
+		{ "status": 400, "code": "PAYOUT_BATCH_FUTURE_DATE", "message": "배치 기준일은 오늘보다 뒤일 수 없습니다.", "data": null }
+		""";
+
+	static final String BATCH_RUNS_SUCCESS = """
+		{
+			"status": 200,
+			"message": "배치 실행 기록을 조회했습니다.",
+			"data": [
+				{
+					"id": 11, "batchType": "생성", "triggerType": "스케줄", "runDate": "2026-11-20", "startedBy": null,
+					"startedAt": "2026-11-20T03:00:00", "finishedAt": "2026-11-20T03:00:08", "status": "완료",
+					"doneCount": 3, "problemCount": 0, "summary": "만듦 3 · 건너뜀 0 · 실패 0"
+				}
+			]
+		}
+		""";
+
+	static final String BATCH_RUN_PERIOD_TOO_LONG = """
+		{ "status": 400, "message": "배치 실행 기록은 최대 1개월까지 조회할 수 있습니다.", "data": null }
+		""";
+
 	static final String FAILURE_PERIOD_TOO_LONG = """
 		{ "status": 400, "message": "이상 감지 기록은 최대 1개월까지 조회할 수 있습니다.", "data": null }
 		""";
