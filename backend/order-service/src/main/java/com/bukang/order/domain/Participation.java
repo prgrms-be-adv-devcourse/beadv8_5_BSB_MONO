@@ -257,7 +257,8 @@ public class Participation extends BaseIdAndTime {
 			ParticipantInfoDto.from(participant),
 			thirdPartyConsent,
 			consentedAt,
-			paymentDueAt
+			// 확보 전(PENDING)의 결제 기한 칸은 「자리 잡으러 감」 표시라 화면에 결제 기한으로 내보내지 않는다 (BUK-213)
+			status == ParticipationStatus.PENDING ? null : paymentDueAt
 		);
 	}
 }

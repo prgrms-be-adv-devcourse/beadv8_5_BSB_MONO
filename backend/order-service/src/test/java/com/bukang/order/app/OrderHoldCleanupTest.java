@@ -134,6 +134,8 @@ class OrderHoldCleanupTest {
 		});
 
 		order(MEMBER_ID, participationId).andExpect(status().isServiceUnavailable());
+		// 표시는 화면에 결제 기한으로 내보내지 않는다
+		assertThat(participationRepository.findById(participationId).orElseThrow().toDto().getPaymentDueAt()).isNull();
 
 		Participation pending = participationRepository.findById(participationId).orElseThrow();
 		assertThat(pending.getStatus()).isEqualTo(ParticipationStatus.PENDING);
@@ -152,6 +154,29 @@ class OrderHoldCleanupTest {
 		assertThat(done.getStatus()).isEqualTo(ParticipationStatus.RELEASED);
 		assertThat(done.getActiveFlag()).isNull();
 		assertThat(released()).containsExactly(participationId);
+	}
+
+	@Test
+	@DisplayName("자리를 잡는 사이 회원이 신청서를 취소하면 주문 없이 409이고, 잡힌 자리를 풀어 달라는 메시지를 다시 남긴다")
+	void releasesSeatWhenCanceledDuringHold() throws Exception {
+		long participationId = apply(MEMBER_ID);
+		seatHoldPort.afterHold(() -> {
+			try {
+				mockMvc.perform(post("/api/v1/order/participations/" + participationId + "/cancel")
+						.header("X-Member-Id", MEMBER_ID))
+					.andExpect(status().isOk());
+			} catch (Exception exception) {
+				throw new IllegalStateException(exception);
+			}
+		});
+
+		order(MEMBER_ID, participationId).andExpect(status().isConflict());
+
+		assertThat(orderRepository.count()).isZero();
+		assertThat(participationRepository.findById(participationId).orElseThrow().getStatus())
+			.isEqualTo(ParticipationStatus.CANCELED);
+		// 취소가 남긴 해제 + 확보 뒤 다시 남긴 해제 (상품의 해제는 참가 신청 ID로 멱등)
+		assertThat(released()).containsExactly(participationId, participationId);
 	}
 
 	@Test

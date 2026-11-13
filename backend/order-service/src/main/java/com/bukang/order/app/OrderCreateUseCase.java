@@ -56,6 +56,7 @@ public class OrderCreateUseCase {
 	private final SeatHoldPort seatHoldPort;
 	private final QueueAdmissionRepository queueAdmissionRepository;
 	private final TransactionTemplate transactionTemplate;
+	private final OrderOutboxKafkaAppendUseCase orderOutboxKafkaAppendUseCase;
 
 	/**
 	 * 상품 HTTP(종목 조회·자리 확보)는 참가 신청을 잠그지 않은 채 부른다 (BUK-213). 순서:
@@ -114,8 +115,13 @@ public class OrderCreateUseCase {
 			return finished;
 		}
 		SeatHoldResult hold = seatHoldPort.hold(course.raceCourseId(), participationId, holdUntil);
-		return transactionTemplate.execute(status -> applyHold(memberId, participationId, idempotencyKey, course,
-			hold));
+		OrderCreateResult result = transactionTemplate.execute(status -> applyHold(memberId, participationId,
+			idempotencyKey, course, hold));
+		if (result == null) {
+			throw new ParticipationNotPayableException(
+				"자리를 잡는 사이 신청서가 끝나 주문을 만들지 않았습니다. 잡은 자리는 다시 풀었습니다.");
+		}
+		return result;
 	}
 
 	/**
@@ -197,9 +203,16 @@ public class OrderCreateUseCase {
 	}
 
 	// 5단계: 상품의 확보 결과를 반영해 주문을 만든다
+	// 자리를 잡는 사이 신청서가 취소·미결제 해제로 끝났으면, 그쪽이 보낸 해제가 확보보다 먼저 닿았을 수 있어 해제를 다시 남기고
+	// null을 돌려준다 (커밋한 뒤 409). 끝난 신청서는 만료 정리 대상이 아니라 여기서 풀지 않으면 자리가 남는다
 	private OrderCreateResult applyHold(long memberId, long participationId, String idempotencyKey,
 		RaceCourseInfo course, SeatHoldResult hold) {
 		Participation participation = lock(participationId);
+		ParticipationStatus current = participation.getStatus();
+		if (hold.held() && (current == ParticipationStatus.CANCELED || current == ParticipationStatus.RELEASED)) {
+			orderOutboxKafkaAppendUseCase.appendSeatRelease(participationId);
+			return null;
+		}
 		Optional<OrderCreateResult> done = finishedResult(participation, memberId, idempotencyKey);
 		if (done.isPresent()) {
 			return done.get();
