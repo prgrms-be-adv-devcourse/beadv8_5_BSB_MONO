@@ -52,7 +52,9 @@ public class FakeRaceCourseAdapter implements RaceCoursePort {
 			null,
 			false,
 			TSHIRT_SIZES,
-			new RaceCourseInfo.CrewSale(now.minusDays(1), now.plusDays(20), 4, 10)
+			new RaceCourseInfo.CrewSale(now.minusDays(1), now.plusDays(20), 4, 10),
+			"가짜 대회 %d".formatted(raceCourseId),
+			"종목"
 		));
 	}
 }

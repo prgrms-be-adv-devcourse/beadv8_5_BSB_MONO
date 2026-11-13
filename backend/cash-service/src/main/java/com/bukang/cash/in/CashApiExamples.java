@@ -1,9 +1,17 @@
 package com.bukang.cash.in;
 
 /**
- * ApiV1CashController의 Swagger 응답 예시 (실제 응답 메시지와 같게 유지한다)
+ * ApiV1CashController, TossWebhookController의 Swagger 응답 예시 (실제 응답 메시지와 같게 유지한다)
  */
 final class CashApiExamples {
+	static final String TOSS_DEPOSIT_RECEIVED = """
+		{ "status": 200, "message": "입금 알림을 받았습니다.", "data": null }
+		""";
+
+	static final String TOSS_DEPOSIT_INVALID_BODY = """
+		{ "status": 400, "code": "INVALID_REQUEST", "message": "요청 본문 형식이 올바르지 않습니다.", "data": null }
+		""";
+
 	static final String GET_BALANCE_SUCCESS = """
 		{
 			"status": 200,
@@ -167,6 +175,7 @@ final class CashApiExamples {
 				"balance": 0,
 				"cardAmount": 30000,
 				"accountAmount": 100000,
+				"switchedToAccountAmount": 0,
 				"processingAmount": 0,
 				"revertedAmount": 0,
 				"accountRequired": false
@@ -183,8 +192,26 @@ final class CashApiExamples {
 				"balance": 10000,
 				"cardAmount": 30000,
 				"accountAmount": 70000,
+				"switchedToAccountAmount": 0,
 				"processingAmount": 20000,
 				"revertedAmount": 10000,
+				"accountRequired": false
+			}
+		}
+		""";
+
+	static final String WITHDRAWAL_SWITCHED_TO_ACCOUNT = """
+		{
+			"status": 200,
+			"message": "환급 신청이 완료되었습니다.",
+			"data": {
+				"withdrawnAmount": 130000,
+				"balance": 0,
+				"cardAmount": 0,
+				"accountAmount": 130000,
+				"switchedToAccountAmount": 30000,
+				"processingAmount": 0,
+				"revertedAmount": 0,
 				"accountRequired": false
 			}
 		}
@@ -199,6 +226,7 @@ final class CashApiExamples {
 				"balance": 30000,
 				"cardAmount": 0,
 				"accountAmount": 0,
+				"switchedToAccountAmount": 0,
 				"processingAmount": 0,
 				"revertedAmount": 30000,
 				"accountRequired": true

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -20,6 +20,10 @@ vi.mock('@/features/auth/lib/login-redirect', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   reloadToLogin,
 }))
+
+// 로그아웃 확인 창의 로그아웃 버튼(마이 아래쪽 글자 버튼은 창이 뜨면 가려진다)
+const confirmLogout = async () =>
+  within(await screen.findByRole('alertdialog')).findByRole('button', { name: '로그아웃' })
 
 beforeEach(() => {
   replace.mockClear()
@@ -47,7 +51,8 @@ describe('MyPage 로그아웃', () => {
       </QueryClientProvider>,
     )
 
-    await user.click(screen.getByRole('button', { name: '로그아웃' }))
+    await user.click(await screen.findByRole('button', { name: '로그아웃' }))
+    await user.click(await confirmLogout())
 
     await vi.waitFor(() => expect(authorization).toBe('Bearer access-token'))
     expect(reloadToLogin).not.toHaveBeenCalled()
@@ -69,7 +74,8 @@ describe('MyPage 로그아웃', () => {
       </QueryClientProvider>,
     )
 
-    await user.click(screen.getByRole('button', { name: '로그아웃' }))
+    await user.click(await screen.findByRole('button', { name: '로그아웃' }))
+    await user.click(await confirmLogout())
 
     await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/login'))
     expect(getAuthStatus()).toBe('anonymous')
@@ -101,11 +107,10 @@ describe('MyPage 회원 정보', () => {
 
     expect(await screen.findByText('달리는곰')).toBeInTheDocument()
     expect(screen.getByText('bear@crewrun.kr')).toBeInTheDocument()
-    expect(screen.getByText('김곰')).toBeInTheDocument()
-    expect(screen.getByText('010-****-5432')).toBeInTheDocument()
-    expect(screen.getByText('1990.01.31')).toBeInTheDocument()
+    // 이름 · 휴대폰 · 생년월일은 계정 설정에서만 보여 준다(피그마 v2 마이)
+    expect(screen.queryByText('010-****-5432')).not.toBeInTheDocument()
     // Clarity 화면 녹화에서 회원 정보 글자를 가린다
-    for (const text of ['달리는곰', 'bear@crewrun.kr', '김곰', '010-****-5432', '1990.01.31']) {
+    for (const text of ['달리는곰', 'bear@crewrun.kr']) {
       expect(screen.getByText(text).closest('[data-clarity-mask="true"]')).not.toBeNull()
     }
   })
@@ -118,7 +123,7 @@ describe('MyPage 회원 정보', () => {
       </QueryClientProvider>,
     )
 
-    expect(await screen.findByRole('link', { name: /계정 설정/ })).toHaveAttribute(
+    expect(await screen.findByRole('link', { name: '계정 설정' })).toHaveAttribute(
       'href',
       '/me/settings',
     )
@@ -126,6 +131,42 @@ describe('MyPage 회원 정보', () => {
     expect(screen.queryByText(/직접 고칠 수 있어요/)).not.toBeInTheDocument()
     expect(document.querySelector('a[href="/me/withdraw"]')).toBeNull()
     expect(document.querySelector('a[href="/me/edit"]')).toBeNull()
+  })
+
+  it('내 정보를 불러오는 동안에는 회색 상자 화면을 보여 준다', () => {
+    setAccessToken('access-token')
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MyPage />
+      </QueryClientProvider>,
+    )
+
+    expect(document.querySelector('[aria-busy="true"]')).not.toBeNull()
+  })
+
+  it('로그아웃 확인 창에서 취소하면 로그아웃하지 않는다', async () => {
+    let called = false
+    server.use(
+      http.post('*/api/v1/auth/logout', () => {
+        called = true
+        return HttpResponse.json({ status: 200, message: '로그아웃 성공', data: null })
+      }),
+    )
+    setAccessToken('access-token')
+    const user = userEvent.setup()
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MyPage />
+      </QueryClientProvider>,
+    )
+
+    await user.click(await screen.findByRole('button', { name: '로그아웃' }))
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', { name: '취소' }),
+    )
+
+    await vi.waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    expect(called).toBe(false)
   })
 
   it('내 정보를 불러오지 못하면 안내 문구를 띄운다', async () => {
@@ -146,7 +187,7 @@ describe('MyPage 회원 정보', () => {
       </QueryClientProvider>,
     )
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('회원 정보를 불러오지 못했어요')
+    expect(await screen.findByRole('alert')).toHaveTextContent('정보를 불러오지 못했어요')
   })
 })
 

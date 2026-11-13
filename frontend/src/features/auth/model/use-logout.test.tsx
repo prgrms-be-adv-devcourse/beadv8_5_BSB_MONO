@@ -5,6 +5,7 @@ import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { getAuthStatus, setAccessToken } from '@/shared/api'
+import { addRecentSearch, loadRecentSearches } from '@/shared/lib'
 import { server } from '@/shared/testing'
 
 import { reloadToLogin } from '../lib/login-redirect'
@@ -29,6 +30,7 @@ function renderLogout() {
 }
 
 beforeEach(() => {
+  localStorage.clear()
   replace.mockClear()
   vi.mocked(reloadToLogin).mockClear()
   setAccessToken('token-a')
@@ -79,5 +81,33 @@ describe('useLogout', () => {
     expect(client.getQueryData(BALANCE_KEY)).toBeUndefined()
     // 서버 쿠키가 남아 있을 수 있어 새로 불러오지 않는다(새로 불러오면 재발급으로 다시 로그인된다)
     expect(reloadToLogin).not.toHaveBeenCalled()
+  })
+
+  // 최근 검색어는 이 브라우저 localStorage에 남는다. 지우지 않으면 같은 브라우저의 다음 사람에게 보인다.
+  it('로그아웃에 성공한 뒤 페이지를 떠나면 최근 검색어도 지운다', async () => {
+    addRecentSearch('서울 하프')
+    const { result } = renderLogout()
+
+    await act(async () => {
+      result.current.mutate()
+    })
+    await waitFor(() => expect(reloadToLogin).toHaveBeenCalledTimes(1))
+    expect(loadRecentSearches()).toEqual(['서울 하프'])
+    window.dispatchEvent(new Event('pagehide'))
+
+    expect(loadRecentSearches()).toEqual([])
+  })
+
+  it('로그아웃 요청이 실패해도 이 브라우저의 최근 검색어를 지운다', async () => {
+    addRecentSearch('서울 하프')
+    server.use(http.post('*/api/v1/auth/logout', () => HttpResponse.error()))
+    const { result } = renderLogout()
+
+    await act(async () => {
+      result.current.mutate()
+    })
+
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/login'))
+    expect(loadRecentSearches()).toEqual([])
   })
 })

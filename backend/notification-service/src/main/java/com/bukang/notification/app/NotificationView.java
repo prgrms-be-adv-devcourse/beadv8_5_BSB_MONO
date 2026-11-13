@@ -49,7 +49,7 @@ final class NotificationView {
 			case CREW_JOINED -> "Users";
 			case PARTY_PAYMENT_REQUESTED, INQUIRY_ANSWERED -> "Bell";
 			case INQUIRY_RECEIVED -> "Inbox";
-			case PARTY_PAYMENT_DEADLINE, KIT_TRACKING_STOPPED, PAYOUT_HELD -> "TriangleAlert";
+			case PARTY_PAYMENT_DEADLINE, CARD_CANCEL_DEADLINE, KIT_TRACKING_STOPPED, PAYOUT_HELD -> "TriangleAlert";
 			case KIT_SHIPMENT_REQUIRED -> "Package";
 		};
 	}

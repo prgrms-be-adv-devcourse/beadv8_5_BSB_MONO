@@ -1,6 +1,8 @@
 package com.bukang.gateway.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -29,16 +31,20 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.bukang.jwt.JwtProperties;
 import com.bukang.jwt.JwtProvider;
+import com.bukang.jwt.TokenType;
 import com.sun.net.httpserver.HttpServer;
 
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import reactor.core.publisher.Mono;
 
 // 모든 서비스 주소를 가짜 서버 하나로 돌려 두고, 게이트웨이가 토큰을 검사해 회원 ID를 넘기는지 확인한다
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -46,7 +52,8 @@ import io.jsonwebtoken.security.Keys;
 class GatewayAuthenticationTest {
 
 	private static final List<String> SERVICES =
-		List.of("member", "cash", "payout", "file", "order", "product", "queue", "notification");
+		List.of("member", "cash", "payout", "file", "order", "product", "queue", "notification", "inquiry", "board",
+			"ai");
 	private static final String MEMBER_ID_HEADER = "X-Member-Id";
 	private static final String LOGIN_REQUIRED = "AUTH_LOGIN_REQUIRED";
 	private static final String TOKEN_EXPIRED = "AUTH_TOKEN_EXPIRED";
@@ -65,6 +72,10 @@ class GatewayAuthenticationTest {
 
 	@Autowired
 	private JwtProvider jwtProvider;
+
+	// 로그아웃한 Access 토큰 표시(access-tokens:{jti}:revoked)를 읽는 Redis. 실제 Redis 없이 답을 정해 준다
+	@MockitoBean
+	private ReactiveStringRedisTemplate redis;
 
 	@DynamicPropertySource
 	static void serviceUris(DynamicPropertyRegistry registry) throws IOException {
@@ -92,6 +103,11 @@ class GatewayAuthenticationTest {
 	@BeforeEach
 	void clearReceived() {
 		RECEIVED_MEMBER_IDS.clear();
+		when(redis.hasKey(anyString())).thenReturn(Mono.just(false));
+	}
+
+	private String jtiOf(String accessToken) {
+		return jwtProvider.parse(accessToken, TokenType.ACCESS).jti();
 	}
 
 	@Test
@@ -185,6 +201,70 @@ class GatewayAuthenticationTest {
 	}
 
 	@Test
+	@DisplayName("로그아웃한 Access Token(Redis에 표시가 있는 jti)이면 서비스로 넘기지 않고 401로 응답한다")
+	void rejectsRevokedAccessToken() throws Exception {
+		String revoked = jwtProvider.issueAccessToken(42L);
+		when(redis.hasKey("access-tokens:" + jtiOf(revoked) + ":revoked")).thenReturn(Mono.just(true));
+
+		HttpResponse<String> response = send(request("/api/v1/order/orders")
+			.header("Authorization", "Bearer " + revoked));
+
+		assertUnauthorized(response, INVALID_TOKEN, "로그아웃된 토큰입니다.");
+		assertThat(RECEIVED_MEMBER_IDS).isEmpty();
+	}
+
+	@Test
+	@DisplayName("한 토큰을 로그아웃해도 같은 회원의 다른 Access Token은 막히지 않는다")
+	void doesNotRejectOtherTokenOfSameMember() throws Exception {
+		String revoked = jwtProvider.issueAccessToken(42L);
+		String other = jwtProvider.issueAccessToken(42L);
+		when(redis.hasKey("access-tokens:" + jtiOf(revoked) + ":revoked")).thenReturn(Mono.just(true));
+
+		HttpResponse<String> response = send(request("/api/v1/order/orders")
+			.header("Authorization", "Bearer " + other));
+
+		assertThat(response.statusCode()).isEqualTo(200);
+		assertThat(RECEIVED_MEMBER_IDS).containsExactly("42");
+	}
+
+	@Test
+	@DisplayName("Redis 확인이 실패하면 요청을 막지 않고 통과시킨다")
+	void passesWhenRedisFails() throws Exception {
+		when(redis.hasKey(anyString())).thenReturn(Mono.error(new IllegalStateException("redis down")));
+
+		HttpResponse<String> response = send(request("/api/v1/order/orders")
+			.header("Authorization", "Bearer " + jwtProvider.issueAccessToken(42L)));
+
+		assertThat(response.statusCode()).isEqualTo(200);
+		assertThat(RECEIVED_MEMBER_IDS).containsExactly("42");
+	}
+
+	@Test
+	@DisplayName("Redis 확인이 끝나지 않고 늦어지면 200ms 뒤 요청을 통과시킨다")
+	void passesWhenRedisIsSlow() throws Exception {
+		when(redis.hasKey(anyString())).thenReturn(Mono.never());
+
+		HttpResponse<String> response = send(request("/api/v1/order/orders")
+			.header("Authorization", "Bearer " + jwtProvider.issueAccessToken(42L)));
+
+		assertThat(response.statusCode()).isEqualTo(200);
+		assertThat(RECEIVED_MEMBER_IDS).containsExactly("42");
+	}
+
+	@Test
+	@DisplayName("공개 주소에서도 로그아웃한 Access Token이면 회원 ID를 넘기지 않고 로그인하지 않은 요청으로 넘긴다")
+	void passesPublicPathWithRevokedTokenAsAnonymous() throws Exception {
+		String revoked = jwtProvider.issueAccessToken(42L);
+		when(redis.hasKey("access-tokens:" + jtiOf(revoked) + ":revoked")).thenReturn(Mono.just(true));
+
+		HttpResponse<String> response = send(request("/api/v1/product/races/1")
+			.header("Authorization", "Bearer " + revoked));
+
+		assertThat(response.statusCode()).isEqualTo(200);
+		assertThat(RECEIVED_MEMBER_IDS).containsExactly("없음");
+	}
+
+	@Test
 	@DisplayName("서명 없는 토큰(alg none)이면 401로 응답한다")
 	void rejectsUnsignedToken() throws Exception {
 		Instant now = Instant.now();
@@ -229,6 +309,25 @@ class GatewayAuthenticationTest {
 
 		assertThat(response.statusCode()).isEqualTo(200);
 		assertThat(RECEIVED_MEMBER_IDS).containsExactly("없음");
+	}
+
+	@Test
+	@DisplayName("토스 가상계좌 입금 알림(POST)은 토큰 없이 통과하고, 클라이언트가 보낸 X-Member-Id는 지운다")
+	void passesTossDepositWebhookWithoutToken() throws Exception {
+		HttpResponse<String> response = send(request("/api/v1/cash/webhooks/toss/deposit")
+			.header(MEMBER_ID_HEADER, "999")
+			.POST(HttpRequest.BodyPublishers.noBody()));
+
+		assertThat(response.statusCode()).isEqualTo(200);
+		assertThat(RECEIVED_MEMBER_IDS).containsExactly("없음");
+	}
+
+	@Test
+	@DisplayName("토스 입금 알림 주소라도 POST가 아니면 토큰이 필요하다")
+	void requiresTokenForTossDepositWebhookNonPost() throws Exception {
+		HttpResponse<String> response = send(request("/api/v1/cash/webhooks/toss/deposit"));
+
+		assertUnauthorized(response, LOGIN_REQUIRED, "로그인이 필요합니다.");
 	}
 
 	@Test
@@ -336,6 +435,37 @@ class GatewayAuthenticationTest {
 	void requiresTokenForProductWrite() throws Exception {
 		HttpResponse<String> response = send(request("/api/v1/product/races")
 			.POST(HttpRequest.BodyPublishers.noBody()));
+
+		assertUnauthorized(response, LOGIN_REQUIRED, "로그인이 필요합니다.");
+	}
+
+	@Test
+	@DisplayName("게시판 GET은 로그인 없이 통과하고, 클라이언트가 보낸 X-Member-Id는 지운다")
+	void passesBoardReadWithoutToken() throws Exception {
+		HttpResponse<String> response = send(request("/api/v1/board/posts/1").header(MEMBER_ID_HEADER, "999"));
+
+		assertThat(response.statusCode()).isEqualTo(200);
+		assertThat(RECEIVED_MEMBER_IDS).containsExactly("없음");
+	}
+
+	@Test
+	@DisplayName("게시판 GET에 유효한 토큰이 있으면 회원 ID를 넘긴다 (내가 누른 좋아요 표시 등에 쓴다)")
+	void forwardsMemberIdForBoardReadWithToken() throws Exception {
+		HttpResponse<String> response = send(request("/api/v1/board/posts/1")
+			.header("Authorization", "Bearer " + jwtProvider.issueAccessToken(42L)));
+
+		assertThat(response.statusCode()).isEqualTo(200);
+		assertThat(RECEIVED_MEMBER_IDS).containsExactly("42");
+	}
+
+	@ParameterizedTest(name = "{0}")
+	@DisplayName("게시판 쓰기(글·댓글 POST, 좋아요 PUT, 지우기 DELETE)는 토큰이 필요하다")
+	@ValueSource(strings = {"POST /api/v1/board/posts", "PUT /api/v1/board/posts/1/like",
+		"DELETE /api/v1/board/posts/1", "POST /api/v1/board/posts/1/comments"})
+	void requiresTokenForBoardWrite(String methodAndPath) throws Exception {
+		String[] parts = methodAndPath.split(" ");
+		HttpResponse<String> response = send(request(parts[1])
+			.method(parts[0], HttpRequest.BodyPublishers.noBody()));
 
 		assertUnauthorized(response, LOGIN_REQUIRED, "로그인이 필요합니다.");
 	}

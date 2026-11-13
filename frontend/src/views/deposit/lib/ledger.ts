@@ -1,5 +1,5 @@
 import type { WalletLedger } from '@/entities/wallet'
-import { formatWon } from '@/shared/lib'
+import { formatNumber } from '@/shared/lib'
 
 /** 내역 한 줄에 보여 줄 제목. 백엔드 장부 유형(ledgerType)마다 시안의 "분류 · 내용" 모양으로 쓴다 */
 export function ledgerTitle({ ledgerType, refId }: WalletLedger) {
@@ -21,9 +21,9 @@ export function ledgerTitle({ ledgerType, refId }: WalletLedger) {
   }
 }
 
-/** 10000 → '+ ₩10,000', -45000 → '− ₩45,000' (시안의 빼기 기호는 U+2212) */
+/** 10000 → '+ 10,000원', -45000 → '− 45,000원' (시안의 빼기 기호는 U+2212) */
 export function formatLedgerAmount(amount: number) {
-  return `${amount < 0 ? '−' : '+'} ${formatWon(Math.abs(amount))}`
+  return `${amount < 0 ? '−' : '+'} ${formatNumber(Math.abs(amount))}원`
 }
 
 /**

@@ -31,6 +31,7 @@ import type {
   CrewLeaderTransferRequestDto,
   CrewUpdateRequestDto,
   FindAllParams,
+  FindIdentityReviewParams,
   KakaoInviteSendRequestDto,
   MemberJoinRequestDto,
   MemberLoginRequestDto,
@@ -45,6 +46,7 @@ import type {
   RsDataCrewInvitePreviewDto,
   RsDataCrewJoinedDto,
   RsDataEmailAvailabilityResponseDto,
+  RsDataIdentityReviewPageDto,
   RsDataIdentityVerificationStartDto,
   RsDataKakaoInviteSendResultDto,
   RsDataListCrewInviteDto,
@@ -3812,4 +3814,113 @@ export const useSendKakaoCrewInvites = <TError = RsData,
       > => {
       return useMutation(getSendKakaoCrewInvitesMutationOptions(options), queryClient);
     }
+
+export const getFindIdentityReviewUrl = (params?: FindIdentityReviewParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/member/admin/members/identity-review?${stringifiedParams}` : `/api/v1/member/admin/members/identity-review`
+}
+
+/**
+ * 관리자가 같은 사람으로 보이는 계정 묶음을 확인한다.
+ * @summary 확인이 필요한 계정 목록 조회
+ */
+export const findIdentityReview = async (params?: FindIdentityReviewParams, options?: Parameters<typeof customFetch>[1]): Promise<RsDataIdentityReviewPageDto> => {
+
+  return customFetch<RsDataIdentityReviewPageDto>(getFindIdentityReviewUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getFindIdentityReviewQueryKey = (params?: FindIdentityReviewParams,) => {
+    return [
+    `/api/v1/member/admin/members/identity-review`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getFindIdentityReviewQueryOptions = <TData = Awaited<ReturnType<typeof findIdentityReview>>, TError = RsData>(params?: FindIdentityReviewParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findIdentityReview>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getFindIdentityReviewQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof findIdentityReview>>> = ({ signal }) => findIdentityReview(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof findIdentityReview>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type FindIdentityReviewQueryResult = NonNullable<Awaited<ReturnType<typeof findIdentityReview>>>
+export type FindIdentityReviewQueryError = RsData
+
+
+export function useFindIdentityReview<TData = Awaited<ReturnType<typeof findIdentityReview>>, TError = RsData>(
+ params: undefined |  FindIdentityReviewParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof findIdentityReview>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findIdentityReview>>,
+          TError,
+          Awaited<ReturnType<typeof findIdentityReview>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindIdentityReview<TData = Awaited<ReturnType<typeof findIdentityReview>>, TError = RsData>(
+ params?: FindIdentityReviewParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findIdentityReview>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findIdentityReview>>,
+          TError,
+          Awaited<ReturnType<typeof findIdentityReview>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindIdentityReview<TData = Awaited<ReturnType<typeof findIdentityReview>>, TError = RsData>(
+ params?: FindIdentityReviewParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findIdentityReview>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 확인이 필요한 계정 목록 조회
+ */
+
+export function useFindIdentityReview<TData = Awaited<ReturnType<typeof findIdentityReview>>, TError = RsData>(
+ params?: FindIdentityReviewParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findIdentityReview>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getFindIdentityReviewQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 

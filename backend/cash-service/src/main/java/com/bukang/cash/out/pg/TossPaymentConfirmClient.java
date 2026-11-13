@@ -97,11 +97,14 @@ class TossPaymentConfirmClient {
 		if (response == null) {
 			throw new PaymentLookupFailedException("Toss 결제 조회 응답이 비어 있습니다. orderId=" + orderId, null);
 		}
-		return switch (TossPaymentStatus.from(response.status()).getLookupStatus()) {
+		TossPaymentStatus tossStatus = TossPaymentStatus.from(response.status());
+		return switch (tossStatus.getLookupStatus()) {
 			case COMPLETED -> PaymentLookupResult.completed(
 				new PaymentApprovalResult(response.totalAmount(), response.paymentKey(), response.approvedAtInKorea()));
 			case NOT_COMPLETED -> PaymentLookupResult.notCompleted();
-			case PENDING -> PaymentLookupResult.pending();
+			// 회수 입금 재확인은 입금 대기만 기한 지남으로 바꿀 수 있어, 일부 취소·모르는 값과 구분해 둔다
+			case PENDING -> tossStatus == TossPaymentStatus.WAITING_FOR_DEPOSIT
+				? PaymentLookupResult.waitingForDeposit() : PaymentLookupResult.pending();
 		};
 	}
 

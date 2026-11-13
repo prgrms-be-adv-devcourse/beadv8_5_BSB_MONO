@@ -16,7 +16,8 @@ final class CrewApiExamples {
 				"memberCount": 1,
 				"members": [
 					{ "memberId": 1, "nickname": "새벽러너", "role": "LEADER" }
-				]
+				],
+				"partyRestrictedUntil": null
 			}
 		}
 		""";
@@ -46,7 +47,8 @@ final class CrewApiExamples {
 					{ "memberId": 1, "nickname": "새벽러너", "role": "LEADER" },
 					{ "memberId": 4, "nickname": "한강페이서", "role": "MANAGER" },
 					{ "memberId": 2, "nickname": "주말10K", "role": "MEMBER" }
-				]
+				],
+				"partyRestrictedUntil": "2026-12-12T04:30:00"
 			}
 		}
 		""";
@@ -186,6 +188,15 @@ final class CrewApiExamples {
 		}
 		""";
 
+	static final String LINK_REMOVED_MEMBER = """
+		{
+			"status": 410,
+			"code": "CREW_INVITE_REMOVED_MEMBER",
+			"message": "크루에서 내보낸 회원은 이 초대 링크로 가입할 수 없습니다. 크루장에게 새 초대 링크를 받아주세요.",
+			"data": null
+		}
+		""";
+
 	static final String LINK_ALREADY_USED = """
 		{
 			"status": 410,
@@ -217,7 +228,8 @@ final class CrewApiExamples {
 					{ "memberId": 2, "nickname": "주말10K", "role": "LEADER" },
 					{ "memberId": 4, "nickname": "한강페이서", "role": "MANAGER" },
 					{ "memberId": 1, "nickname": "새벽러너", "role": "MEMBER" }
-				]
+				],
+				"partyRestrictedUntil": null
 			}
 		}
 		""";
@@ -240,7 +252,8 @@ final class CrewApiExamples {
 					{ "memberId": 1, "nickname": "새벽러너", "role": "LEADER" },
 					{ "memberId": 4, "nickname": "한강페이서", "role": "MANAGER" },
 					{ "memberId": 2, "nickname": "주말10K", "role": "MEMBER" }
-				]
+				],
+				"partyRestrictedUntil": null
 			}
 		}
 		""";

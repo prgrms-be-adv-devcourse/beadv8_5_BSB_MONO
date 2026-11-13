@@ -8,17 +8,22 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.bukang.common.shared.crew.event.CrewLeaderChangedEvent;
 import com.bukang.common.shared.crew.event.CrewMemberLeftReason;
 import com.bukang.common.shared.member.web.LoginRequiredException;
+import com.bukang.common.shared.notification.NotificationKind;
+import com.bukang.common.shared.notification.event.NotificationRequestedEvent;
 import com.bukang.member.crew.domain.Crew;
 import com.bukang.member.crew.domain.CrewInvite;
 import com.bukang.member.crew.domain.CrewMember;
+import com.bukang.member.crew.domain.CrewRemoval;
 import com.bukang.member.crew.domain.CrewRole;
 import com.bukang.member.crew.domain.CrewStatus;
 import com.bukang.member.crew.domain.exception.CrewAlreadyLeaderException;
@@ -31,6 +36,7 @@ import com.bukang.member.crew.domain.exception.CrewInviteCanceledException;
 import com.bukang.member.crew.domain.exception.CrewInviteExpiredException;
 import com.bukang.member.crew.domain.exception.CrewInviteForbiddenException;
 import com.bukang.member.crew.domain.exception.CrewInviteNotFoundException;
+import com.bukang.member.crew.domain.exception.CrewInviteRemovedMemberException;
 import com.bukang.member.crew.domain.exception.CrewLeaderCannotLeaveException;
 import com.bukang.member.crew.domain.exception.CrewLeaderOnlyException;
 import com.bukang.member.crew.domain.exception.CrewMemberNotFoundException;
@@ -45,10 +51,13 @@ import com.bukang.member.crew.dto.CrewJoinedDto;
 import com.bukang.member.crew.dto.CrewMemberCountDto;
 import com.bukang.member.crew.dto.CrewMemberDto;
 import com.bukang.member.crew.dto.CrewMemberStatusDto;
+import com.bukang.member.crew.dto.CrewPenaltyDto;
 import com.bukang.member.crew.dto.MyCrewDto;
 import com.bukang.member.crew.out.CrewInviteRepository;
 import com.bukang.member.crew.out.CrewMemberProfilePort;
 import com.bukang.member.crew.out.CrewMemberRepository;
+import com.bukang.member.crew.out.CrewPenaltyRepository;
+import com.bukang.member.crew.out.CrewRemovalRepository;
 import com.bukang.member.crew.out.CrewRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -67,6 +76,8 @@ public class CrewFacade {
 	private final CrewRepository crewRepository;
 	private final CrewMemberRepository crewMemberRepository;
 	private final CrewInviteRepository crewInviteRepository;
+	private final CrewRemovalRepository crewRemovalRepository;
+	private final CrewPenaltyRepository crewPenaltyRepository;
 	private final CrewMemberProfilePort profilePort;
 	private final Clock clock;
 	private final ApplicationEventPublisher eventPublisher;
@@ -175,6 +186,7 @@ public class CrewFacade {
 		boolean alreadyMember = crewMemberRepository.existsByCrewIdAndMemberId(crew.getId(), memberId);
 		if (!alreadyMember) {
 			throwIfUnusableWhenOpeningLink(invite, now());
+			throwIfRemovedAfterInvite(invite, memberId);
 		}
 		return new CrewInvitePreviewDto(
 			crew.getId(),
@@ -196,35 +208,40 @@ public class CrewFacade {
 		// 없애기가 먼저 끝났으면 링크가 사라진 것으로 보고, 가입이 먼저면 없애기가 「다른 크루원 있음」으로 막힌다
 		Crew crew = crewRepository.findActiveByIdForUpdate(invite.getCrewId())
 			.orElseThrow(CrewInviteNotFoundException::new);
-		// 이미 크루원이면 초대를 소모하지 않는다
+		// 이미 크루원이면 409로 답한다
 		if (crewMemberRepository.existsByCrewIdAndMemberId(crew.getId(), memberId)) {
 			throw new CrewAlreadyMemberException();
 		}
+		// 내보내기와 동시에 와도 다시 가입되지 않는다. 내보내기가 크루 락을 먼저 잡고 커밋하면,
+		// 가입은 크루 락 전에 만든 MySQL 스냅숏으로 위 크루원 확인을 하므로 아직 크루원으로 보고 409로 막힌다
+		throwIfRemovedAfterInvite(invite, memberId);
 
 		LocalDateTime now = now();
-		// 바뀐 행이 1일 때만 가입한다. 같은 링크로 동시에 가입해도 한 명만 1을 받는다
-		if (crewInviteRepository.markUsed(invite.getId(), memberId, now) == 0) {
+		// 링크 하나로 24시간 동안 여러 명이 가입한다 (BUK-135). 취소와 동시에 와도 취소가 커밋된 뒤의 가입은 막는다.
+		// 잠금 순서는 회원 → 크루 → 초대로 크루 없애기와 같다
+		if (crewInviteRepository.lockJoinable(invite.getId(), now) == 0) {
 			CrewInvite current = crewInviteRepository.findByIdForUpdate(invite.getId())
 				.orElseThrow(CrewInviteNotFoundException::new);
-			// 같은 회원이 같은 링크로 두 기기에서 동시에 가입하면 먼저 커밋한 요청이 링크를 쓴다.
-			// 뒤 요청은 「이미 쓰인 링크」가 아니라 「이미 크루원」으로 답한다
-			if (current.getUsedBy() != null && current.getUsedBy() == memberId) {
-				throw new CrewAlreadyMemberException();
-			}
 			throwIfUnusableWhenOpeningLink(current, now);
 			// 쓰임·취소·만료는 되돌릴 수 없으므로 여기에 오지 않는다
 			throw new IllegalStateException("쓸 수 있는 초대인데 가입에 쓰지 못했습니다. inviteId=" + invite.getId());
 		}
+		CrewMember member;
 		try {
-			CrewMember member = crewMemberRepository.saveAndFlush(
+			member = crewMemberRepository.saveAndFlush(
 				CrewMember.invited(crew.getId(), memberId, invite.getId(), now));
-			return new CrewJoinedDto(crew.getId(), crew.getName(), member.getRole(), member.getJoinedAt());
 		} catch (DataIntegrityViolationException exception) {
-			// 같은 회원이 서로 다른 링크로 같은 크루에 동시에 가입하면 uk_crew_member가 두 번째 행을 막는다.
-			// 예외가 나가 트랜잭션이 롤백되므로 두 번째 초대도 쓰이지 않은 채로 남는다
-			// (같은 링크로 동시에 가입하는 경우는 위의 회원 행 잠금과 usedBy 확인이 「이미 크루원」으로 답한다)
+			// 같은 회원이 같은 크루에 동시에 가입하면 uk_crew_member가 두 번째 행을 막는다
+			// (보통은 위의 회원 행 잠금 뒤 크루원 확인이 먼저 「이미 크루원」으로 답한다)
 			throw new CrewAlreadyMemberException();
 		}
+		// 크루원 행을 만든 같은 트랜잭션에서 아웃박스에 남긴다 (MemberOutboxAppendUseCase, BUK-99).
+		// 위 try 밖에 두어, 아웃박스 저장 실패가 「이미 크루원」으로 바뀌지 않게 한다
+		eventPublisher.publishEvent(member.joinedEvent());
+		// 트랜잭션 안에서 낸다. 커밋 뒤에 common이 보내므로 롤백되면 알림도 나가지 않는다
+		eventPublisher.publishEvent(NotificationRequestedEvent.of(memberId, NotificationKind.CREW_JOINED,
+			"크루에 가입했어요", crew.getName() + "의 크루원이 됐어요.", "/crews/" + crew.getId()));
+		return new CrewJoinedDto(crew.getId(), crew.getName(), member.getRole(), member.getJoinedAt());
 	}
 
 	@Transactional
@@ -255,6 +272,8 @@ public class CrewFacade {
 		if (crewMemberRepository.deleteByCrewIdAndMemberId(crewId, targetMemberId) == 0) {
 			throw new CrewMemberNotFoundException();
 		}
+		// 내보내기 전에 만든 초대 링크로 다시 들어오지 못하게 남긴다 (BUK-135)
+		crewRemovalRepository.save(CrewRemoval.of(crewId, targetMemberId, now()));
 		publishLeft(target, CrewMemberLeftReason.REMOVED);
 	}
 
@@ -278,6 +297,9 @@ public class CrewFacade {
 		LocalDateTime now = now();
 		leader.changeRole(CrewRole.MEMBER, now);
 		target.changeRole(CrewRole.LEADER, now);
+		// 역할을 바꾼 같은 트랜잭션에서 아웃박스에 남긴다. 크루장이 바뀌는 곳은 여기뿐이다 (BUK-99)
+		eventPublisher.publishEvent(
+			new CrewLeaderChangedEvent(UUID.randomUUID().toString(), crewId, memberId, targetMemberId, now));
 		return home(crew, memberId);
 	}
 
@@ -292,6 +314,7 @@ public class CrewFacade {
 		// 상태를 먼저 바꾼다. 아래 일괄 삭제가 바뀐 내용을 반영(flush)한 뒤 영속성 컨텍스트를 비운다
 		crew.disband(now());
 		crewInviteRepository.deleteAllByCrewId(crewId);
+		crewRemovalRepository.deleteAllByCrewId(crewId);
 		// 위에서 크루장 혼자인 것을 확인했으므로 빠진 사람은 크루장 한 명이다. 아니면 이벤트가 모자라므로 롤백한다
 		if (crewMemberRepository.deleteAllByCrewId(crewId) != 1) {
 			throw new IllegalStateException("크루를 없앨 때 크루장 말고 다른 크루원 행이 있습니다. crewId=" + crewId);
@@ -317,8 +340,8 @@ public class CrewFacade {
 
 	// 내부 API: 크루장, 운영진, 크루원을 모두 센다
 	public CrewMemberCountDto findMemberCount(long crewId) {
-		findActiveCrew(crewId);
-		return new CrewMemberCountDto(crewId, (int)crewMemberRepository.countByCrewId(crewId));
+		Crew crew = findActiveCrew(crewId);
+		return new CrewMemberCountDto(crewId, (int)crewMemberRepository.countByCrewId(crewId), crew.getCreatedAt());
 	}
 
 	private CrewHomeDto home(Crew crew, long memberId) {
@@ -343,7 +366,13 @@ public class CrewFacade {
 			members.stream()
 				.map(member -> new CrewMemberDto(member.getMemberId(), nicknames.get(member.getMemberId()),
 					member.getRole()))
-				.toList());
+				.toList(),
+			crewPenaltyRepository.findRestrictedUntil(crew.getId(), now()));
+	}
+
+	// 주문 서비스가 파티를 만들 때 묻는다. 크루가 없어도 제한 기록이 없으니 restricted=false다 (BUK-187)
+	public CrewPenaltyDto findPenalty(long crewId) {
+		return CrewPenaltyDto.of(crewPenaltyRepository.findRestrictedUntil(crewId, now()));
 	}
 
 	private Map<Long, Integer> countMembers(List<Long> crewIds) {
@@ -400,6 +429,13 @@ public class CrewFacade {
 		}
 		if (!invite.getExpiresAt().isAfter(now)) {
 			throw CrewInviteExpiredException.whenOpeningLink();
+		}
+	}
+
+	private void throwIfRemovedAfterInvite(CrewInvite invite, long memberId) {
+		if (crewRemovalRepository.existsByCrewIdAndMemberIdAndRemovedAtGreaterThanEqual(
+			invite.getCrewId(), memberId, invite.getCreatedAt())) {
+			throw new CrewInviteRemovedMemberException();
 		}
 	}
 

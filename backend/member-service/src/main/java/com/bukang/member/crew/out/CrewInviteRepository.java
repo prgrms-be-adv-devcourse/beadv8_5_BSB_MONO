@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Limit;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
@@ -26,7 +27,8 @@ public interface CrewInviteRepository extends JpaRepository<CrewInvite, Long> {
 	@Query("select i from CrewInvite i where i.id = :id")
 	Optional<CrewInvite> findByIdForUpdate(@Param("id") long id);
 
-	// 아직 쓸 수 있는 초대: 쓰이지 않음, 취소 안 됨, 끝나는 시각이 지금보다 뒤
+	// 아직 쓸 수 있는 초대: 취소 안 됨, 끝나는 시각이 지금보다 뒤
+	// usedAt은 여러 명 가입(BUK-135) 전에 한 번 쓰고 닫힌 옛 초대에만 있다
 	@Query("""
 		select i from CrewInvite i
 		where i.crewId = :crewId and i.usedAt is null and i.canceledAt is null and i.expiresAt > :now
@@ -43,16 +45,16 @@ public interface CrewInviteRepository extends JpaRepository<CrewInvite, Long> {
 	List<CrewInvite> findUsableByCrewIdAndCreatedBy(
 		@Param("crewId") long crewId, @Param("createdBy") long createdBy, @Param("now") LocalDateTime now);
 
-	// 가입에 쓴다. 바뀐 행이 1일 때만 가입한다. 같은 링크로 동시에 가입해도 한 명만 1을 받는다
+	// 가입 직전에 쓸 수 있는 초대인지 DB에서 확인하고 행을 잠근다 (BUK-135, 여러 명 가입이라 닫지 않는다).
+	// 엔티티를 다시 읽으면 처음 읽은 옛 값(취소 전)이 돌아올 수 있어 조건부 UPDATE로 판단한다. 바뀐 행이 1일 때만 가입한다
 	@Modifying(flushAutomatically = true, clearAutomatically = true)
 	@Query("""
-		update CrewInvite i set i.usedAt = :now, i.usedBy = :memberId, i.updatedAt = :now
+		update CrewInvite i set i.updatedAt = :now
 		where i.id = :inviteId and i.usedAt is null and i.canceledAt is null and i.expiresAt > :now
 		""")
-	int markUsed(
-		@Param("inviteId") long inviteId, @Param("memberId") long memberId, @Param("now") LocalDateTime now);
+	int lockJoinable(@Param("inviteId") long inviteId, @Param("now") LocalDateTime now);
 
-	// 취소한다. 가입과 동시에 일어나도 둘 중 하나만 성공한다
+	// 취소한다. 가입과 같은 행을 조건부 UPDATE로 잠그므로 취소가 커밋된 뒤의 가입은 막힌다
 	@Modifying(flushAutomatically = true, clearAutomatically = true)
 	@Query("""
 		update CrewInvite i set i.canceledAt = :now, i.canceledBy = :memberId, i.updatedAt = :now
@@ -60,6 +62,17 @@ public interface CrewInviteRepository extends JpaRepository<CrewInvite, Long> {
 		""")
 	int markCanceled(
 		@Param("inviteId") long inviteId, @Param("memberId") long memberId, @Param("now") LocalDateTime now);
+
+	// 정리할 초대 ID (BUK-100): 만료되거나 취소된 시각이 before보다 앞이고, 가입에 쓰이지 않은 초대
+	// 가입에 쓰임 = 지금 크루원 행이 가리킴(inviteId) 또는 옛 방식으로 한 번 쓰임(usedAt)
+	// 끝난 지 7일 지난 초대는 가입·취소 조건(expiresAt > now)에 걸리지 않아, 고른 뒤 지우기 전에 크루원이 새로 가리킬 수 없다
+	@Query("""
+		select i.id from CrewInvite i
+		where i.usedAt is null and (i.expiresAt < :before or i.canceledAt < :before)
+			and not exists (select 1 from CrewMember m where m.inviteId = i.id)
+		order by i.id
+		""")
+	List<Long> findCleanableIds(@Param("before") LocalDateTime before, Limit limit);
 
 	// 크루 없애기: 그 크루의 모든 초대 행을 지운다
 	@Modifying(flushAutomatically = true, clearAutomatically = true)

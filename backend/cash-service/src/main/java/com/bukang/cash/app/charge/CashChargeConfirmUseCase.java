@@ -101,8 +101,10 @@ public class CashChargeConfirmUseCase {
 		// 여기까지 왔으면 진짜 새 시도(또는 실패건 재시도)다. 멱등 재확인은 위에서 이미 반환돼 이 줄까지 안 온다.
 		// 쿨다운에 걸리면 여기서 던져 이 트랜잭션 전체가 롤백되므로, 충전 행이 선점된 채로 남지 않는다
 		chargeAbuseGuard.registerNewAttempt(customerId);
-		assertWithinDailyLimit(customerWallet, amount);
-		assertWithinBalanceCap(customerWallet, amount);
+		// 처리 중인 충전은 아직 원장·잔액에 없지만 곧 들어올 수 있는 돈이라 한도에 함께 센다
+		long pendingAmount = walletChargeRepository.sumPendingAmountExcluding(customerWallet, orderId);
+		assertWithinDailyLimit(customerWallet, amount, pendingAmount);
+		assertWithinBalanceCap(customerWallet, amount, pendingAmount);
 		WalletCharge charge = existing != null
 			? existing
 			: walletChargeRepository.save(new WalletCharge(customerWallet, amount, "TOSS", orderId));
@@ -202,21 +204,33 @@ public class CashChargeConfirmUseCase {
 		return CashChargeResponseDto.uncertain(customerWallet.getBalance());
 	}
 
-	// 자정(KST) 기준 오늘 이미 끝난 충전 합계 + 이번 요청액이 일일 한도를 넘으면 거절한다
-	private void assertWithinDailyLimit(Wallet customerWallet, long amount) {
+	// 자정(KST) 기준 오늘 이미 끝난 충전 합계 + 처리 중 금액 + 이번 요청액이 일일 한도를 넘으면 거절한다.
+	// 처리 중 금액은 날짜를 따지지 않는다. 어제 시작한 충전도 오늘 완료되면 오늘 원장에 들어가기 때문이다
+	private void assertWithinDailyLimit(Wallet customerWallet, long amount, long pendingAmount) {
 		LocalDateTime startOfToday = LocalDate.now(KOREA).atStartOfDay();
 		long todayTotal = walletLedgerRepository.sumAmountSince(
 			customerWallet, LedgerType.충전__PG결제_토스페이먼츠, startOfToday);
-		if (todayTotal + amount > CashChargePolicy.MAX_PER_DAY) {
-			throw ChargeAmountTooLargeException.perDay("일일 충전 한도는 1,000,000원입니다.");
+		if (todayTotal + pendingAmount + amount <= CashChargePolicy.MAX_PER_DAY) {
+			return;
 		}
+		if (todayTotal + amount <= CashChargePolicy.MAX_PER_DAY) {
+			throw ChargeAmountTooLargeException.perDay(
+				"처리 중인 충전이 있어 일일 충전 한도(1,000,000원)를 넘습니다. 처리가 끝난 뒤 다시 시도해 주세요.");
+		}
+		throw ChargeAmountTooLargeException.perDay("일일 충전 한도는 1,000,000원입니다.");
 	}
 
-	// 지갑에 평생 쌓인 금액이 아니라 지금 잔액(이번 충전액 더한 값) 기준이라, 환급하면 다시 여유가 생긴다
-	private void assertWithinBalanceCap(Wallet customerWallet, long amount) {
-		if (customerWallet.getBalance() + amount > CashChargePolicy.MAX_BALANCE) {
-			throw ChargeAmountTooLargeException.balance("보유 한도는 10,000,000원입니다.");
+	// 지갑에 평생 쌓인 금액이 아니라 지금 잔액(+ 처리 중 금액 + 이번 충전액) 기준이라, 환급하면 다시 여유가 생긴다
+	private void assertWithinBalanceCap(Wallet customerWallet, long amount, long pendingAmount) {
+		long balance = customerWallet.getBalance();
+		if (balance + pendingAmount + amount <= CashChargePolicy.MAX_BALANCE) {
+			return;
 		}
+		if (balance + amount <= CashChargePolicy.MAX_BALANCE) {
+			throw ChargeAmountTooLargeException.balance(
+				"처리 중인 충전이 있어 보유 한도(10,000,000원)를 넘습니다. 처리가 끝난 뒤 다시 시도해 주세요.");
+		}
+		throw ChargeAmountTooLargeException.balance("보유 한도는 10,000,000원입니다.");
 	}
 
 	private WalletCharge findMatchingCharge(Wallet customerWallet, String orderId) {

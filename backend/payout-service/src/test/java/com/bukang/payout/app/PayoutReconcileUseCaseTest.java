@@ -39,6 +39,7 @@ import com.bukang.payout.out.PayoutRepository;
 import com.bukang.payout.out.RaceSchedule;
 import com.bukang.payout.out.SoldEntry;
 import com.bukang.payout.out.SoldEntryPort;
+import com.bukang.payout.out.SoldEntryStatus;
 import com.bukang.payout.out.SoldSummary;
 import com.bukang.payout.out.SoldSummaryPort;
 import com.bukang.payout.support.StubRacePort;
@@ -249,6 +250,18 @@ class PayoutReconcileUseCaseTest {
 		assertThat(mismatches()).extracting(PayoutCreateFailure::getRaceCourseId, PayoutCreateFailure::getNote)
 			.containsExactly(tuple(COURSE_A, "빠진 5장 (코스 3: 5장)"));
 		assertThat(actions()).containsExactly(PayoutCreateFailureAction.기록만);
+		assertThat(payoutRepository.findAll()).isEmpty();
+	}
+
+	@Test
+	@DisplayName("BUK-52 취소 중 참가권이 있어 최종 정산을 미룬 판매자 × 대회는 '빠짐'으로 기록하지 않는다")
+	void deferredFinalIsNotMissing() {
+		List<SoldEntry> entries = List.of(sold(101, 2, COURSE_A, 10_000),
+			new SoldEntry(102, 2, FINAL_RACE.raceId(), COURSE_A, YESTERDAY, 10_000, SoldEntryStatus.취소_중));
+
+		useCase(List.of(), entries).run(TODAY, NOW);
+
+		assertThat(mismatches()).isEmpty();
 		assertThat(payoutRepository.findAll()).isEmpty();
 	}
 
