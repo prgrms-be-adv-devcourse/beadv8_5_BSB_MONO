@@ -78,10 +78,21 @@ public class OrderSoldEntryAdapter implements SoldEntryPort {
 
 	// 주문 서비스 응답(SoldEntryDto)의 모양. 포트의 SoldEntry가 응답 형식에 묶이지 않도록 따로 둔다
 	// raceCourseId는 주문 서비스가 PRO-231부터 보낸다. 그 전 버전의 주문 서비스와 붙어도 깨지지 않게 없으면 NULL로 받는다
+	// status는 BUK-52부터 보낸다. 없거나 처음 보는 값이면 결제 완료로 짐작하지 않고 모름으로 받는다
 	private record SoldEntryResponse(long orderItemId, long sellerId, long raceId, Long raceCourseId,
-		LocalDate raceDate, long price) {
+		LocalDate raceDate, long price, String status) {
 		SoldEntry toSoldEntry() {
-			return new SoldEntry(orderItemId, sellerId, raceId, raceCourseId, raceDate, price);
+			return new SoldEntry(orderItemId, sellerId, raceId, raceCourseId, raceDate, price, statusOf());
+		}
+
+		private SoldEntryStatus statusOf() {
+			if ("PAID".equals(status)) {
+				return SoldEntryStatus.결제_완료;
+			}
+			if ("CANCELING".equals(status)) {
+				return SoldEntryStatus.취소_중;
+			}
+			return SoldEntryStatus.모름;
 		}
 	}
 }

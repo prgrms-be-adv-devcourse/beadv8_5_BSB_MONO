@@ -8,6 +8,7 @@ export {
   toMyTickets,
   useCancelTicket,
   useChangeParticipant,
+  withdrawTicketsQueryOptions,
 } from './api/ticket-api'
 export { parseTicketId, toTicketId } from './lib/ticket-id'
 export type { MyTicket } from './model/types'

@@ -17,6 +17,7 @@ spring:
 board:
   clients:
     member:
+      mode: http
       base-url: http://bukang-member-service:8080
 
 # 운영에서는 API 구조가 외부에 노출되지 않도록 Swagger 비활성화

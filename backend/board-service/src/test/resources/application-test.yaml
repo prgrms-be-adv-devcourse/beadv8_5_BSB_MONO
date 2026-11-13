@@ -18,6 +18,9 @@ logging:
     com.bukang: debug
 
 board:
+  clients:
+    member:
+      mode: fake
   member-backfill:
     # 테스트에서는 기동 때 자동으로 채우지 않는다 (필요한 테스트가 직접 켠다)
     enabled: false

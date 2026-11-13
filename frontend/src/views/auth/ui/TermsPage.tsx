@@ -1,8 +1,11 @@
+import { Suspense } from 'react'
+
 import { AppHeader } from '@/widgets/app-header'
 
 import { TERMS, TERMS_EFFECTIVE_DATE, TERMS_VERSION, type TermsSlug } from '../model/terms'
+import { TermsAgreeBar } from './TermsAgreeBar'
 
-// 피그마 V2 · M04-T 약관 전문. 조회 전용이다. 동의는 가입 3단계의 약관 동의 시트에서만 받는다.
+// 피그마 V2 · M04-T 약관 전문. 가입 약관 시트에서 열면(?from=signup) 아래에 「동의하기」가 붙고, 그 밖에는 조회 전용이다.
 export function TermsPage({ slug }: { slug: TermsSlug }) {
   const terms = TERMS[slug]
   return (
@@ -22,6 +25,9 @@ export function TermsPage({ slug }: { slug: TermsSlug }) {
           </section>
         ))}
       </main>
+      <Suspense>
+        <TermsAgreeBar slug={slug} />
+      </Suspense>
     </>
   )
 }

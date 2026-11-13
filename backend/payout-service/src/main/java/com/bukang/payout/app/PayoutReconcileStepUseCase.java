@@ -117,9 +117,14 @@ public class PayoutReconcileStepUseCase {
 
 		List<PayoutCreateFailure> mismatches = new ArrayList<>();
 		for (long sellerId : sellers(soldBySeller.keySet(), payoutsBySeller.keySet())) {
-			Map<Long, SoldEntry> soldById = soldBySeller.getOrDefault(sellerId, List.of()).stream()
-				.collect(toMap(SoldEntry::orderItemId, Function.identity()));
+			List<SoldEntry> sellerEntries = soldBySeller.getOrDefault(sellerId, List.of());
 			List<Payout> payouts = payoutsBySeller.getOrDefault(sellerId, List.of());
+			// 취소 중 참가권이 있어 생성 배치가 최종 정산을 미룬 판매자 × 대회다. 정산 내역이 없는 게 정상이라 빠짐이 아니다 (BUK-52)
+			if (payouts.isEmpty() && sellerEntries.stream().anyMatch(SoldEntry::blocksFinalPayout)) {
+				continue;
+			}
+			Map<Long, SoldEntry> soldById = sellerEntries.stream()
+				.collect(toMap(SoldEntry::orderItemId, Function.identity()));
 			// 같은 참가권의 판매 줄은 DB 유일 제약으로 하나뿐이다
 			Map<Long, PayoutItem> saleById = payouts.stream()
 				.flatMap(payout -> payout.getItems().stream())

@@ -32,6 +32,13 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties:
+        # 브로커 연결 대기 3초 (기본 60초). 기다리는 쪽은 회수 입금 릴레이 스케줄러와 알림 발송뿐이고 회원 요청은 기다리지 않는다
+        "[max.block.ms]": 3000
+        # 브로커 응답을 릴레이의 대기(ClaimDepositedSender 5초)보다 먼저 포기한다. 길면 실패로 본 메시지가 버퍼에 남아
+        # 다음 실행에서 다시 보낸 사본과 함께 늦게 나간다 (delivery.timeout.ms는 linger.ms + request.timeout.ms 이상이어야 한다)
+        "[request.timeout.ms]": 3000
+        "[delivery.timeout.ms]": 4000
 
     consumer:
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
@@ -82,6 +89,11 @@ cash:
       # 이 시간이 지나도 못 맞춘 건은 error 로그로 남겨 사람이 확인한다. Toss는 인증 뒤 승인 안 한 결제를 만료시키므로
       # (문서에 10분·30분이 섞여 있어 긴 쪽을 따름) 이 뒤로도 모르면 PG 조회가 계속 실패하거나 부분 취소된 경우다
       alert-after-minutes: 30
+  recovery:
+    reconcile:
+      # 입금 알림이 빠진 회수 입금(입금 대기)을 PG에 다시 조회하는 간격(ms). 이전 실행이 끝난 뒤부터 센다.
+      # 입금 대기 계좌는 90일 동안 남아 있어 건마다 PG를 부르므로 충전 재확인(1분)보다 길게 둔다. 알림이 오면 이 배치를 기다리지 않는다
+      interval-millis: 600000
 
   # PG(Toss페이먼츠) 결제 승인 연동 (PRO-81). mode가 fake면 가짜로 바로 승인하고, http면 실제 Toss API를 부른다
   # 로컬 개발·테스트는 Toss 서버를 안 거쳐도 되게 fake가 기본이고, 운영(prod)은 http다
@@ -92,3 +104,15 @@ cash:
       # 연결·응답에 각각 거는 시간 제한. 승인은 카드사까지 다녀오므로 넉넉히, 조회는 Toss 기록만 읽으므로 짧게 둔다
       confirm-timeout: 5s
       lookup-timeout: 2s
+    # 정산금 송금 (BUK-83). 실제 은행 대신 같은 앱 안의 가짜 은행(/fakebank)을 HTTP로 부른다
+    bank:
+      base-url: http://localhost:${server.port}
+      # 연결·응답에 각각 거는 시간 제한. 넘으면 송금 결과를 모름으로 두고 재확인이 맞춘다
+      timeout: 5s
+    # 관리자 API의 관리자 확인. http면 회원 서비스 내부 API를 부른다. 로컬은 fake(누구나 관리자)
+    # mode는 꼭 적는다. 빠지면 가짜로 열리지 않고 앱이 뜨지 않는다
+    member:
+      mode: fake
+      base-url: http://localhost:8080
+      # 연결·응답에 각각 거는 시간 제한 (order-service와 같은 2초). 넘으면 503
+      timeout: 2s

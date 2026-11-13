@@ -1,0 +1,30 @@
+spring:
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DB}
+    username: ${MYSQL_USER}
+    password: ${MYSQL_PASS}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  kafka:
+    bootstrap-servers:
+      - ${KAFKA_BOOTSTRAP_SERVERS}
+
+# 관리자 확인은 실제 회원 서비스에 묻는다. compose.yml의 앱 컨테이너끼리는 컨테이너 이름으로 접속한다
+# product.mode·order.mode는 일부러 적지 않는다. 상품·주문 서비스 연결(Http 어댑터)이 생기기 전에는 빈이 없어 앱이 뜨지 않는다
+inquiry:
+  clients:
+    member:
+      mode: http
+      base-url: http://bukang-member-service:8080
+
+# 운영에서는 API 구조가 외부에 노출되지 않도록 Swagger 비활성화
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+logging:
+  level:
+    com:
+      bukang: info

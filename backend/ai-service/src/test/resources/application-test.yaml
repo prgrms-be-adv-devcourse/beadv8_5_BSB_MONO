@@ -1,0 +1,11 @@
+# 테스트 전용 설정 (@ActiveProfiles("test")로 활성화)
+# 테스트는 OpenAI를 부르지 않는다. 모델은 테스트가 가짜(FakeChatModel)로 바꿔 쓰고, Redis는 Testcontainers로 띄운다 (Docker 필요)
+# ai.clients.member.mode는 일부러 적지 않는다. 회원 서비스는 테스트가 정한 가짜(Stub)로 바꿔 쓴다
+spring:
+  ai:
+    model:
+      chat: ollama
+
+logging:
+  level:
+    com.bukang: debug

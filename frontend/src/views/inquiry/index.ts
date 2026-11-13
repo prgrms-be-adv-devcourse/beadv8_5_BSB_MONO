@@ -1,0 +1,5 @@
+export { InquiryComposePage } from './ui/InquiryComposePage'
+export { InquiryDetailPage } from './ui/InquiryDetailPage'
+export { InquiryEditPage } from './ui/InquiryEditPage'
+export { MyInquiriesPage } from './ui/MyInquiriesPage'
+export { SupportPage } from './ui/SupportPage'

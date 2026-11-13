@@ -23,9 +23,23 @@ public interface WalletChargeRepository extends JpaRepository<WalletCharge, Long
 
 	boolean existsByWalletAndReviewFlaggedTrue(Wallet wallet);
 
+	// 처리 중·결과 확인 못 한 충전 금액 합. 지금 확정하려는 주문번호는 빼서 자기 금액을 두 번 세지 않는다
+	@Query("select coalesce(sum(c.amount), 0) from WalletCharge c "
+		+ "where c.wallet = :wallet and c.idempotencyKey <> :excludedOrderId "
+		+ "and c.status in (com.bukang.cash.domain.charge.ChargeStatus.IN_PROGRESS, "
+		+ "com.bukang.cash.domain.charge.ChargeStatus.UNCERTAIN)")
+	long sumPendingAmountExcluding(@Param("wallet") Wallet wallet, @Param("excludedOrderId") String excludedOrderId);
+
 	@Query("select coalesce(sum(c.amount), 0) from WalletCharge c "
 		+ "where c.wallet = :wallet and c.status = com.bukang.cash.domain.charge.ChargeStatus.COMPLETED "
 		+ "and c.createDate between :from and :to")
 	long sumCompletedAmountBetween(@Param("wallet") Wallet wallet, @Param("from") LocalDateTime from,
+		@Param("to") LocalDateTime to);
+
+	// 승인 시각(없으면 충전 시각)이 [from, to)인 완료 충전의 지갑 ID(= 회원 ID)
+	@Query("select distinct c.wallet.id from WalletCharge c "
+		+ "where c.status = com.bukang.cash.domain.charge.ChargeStatus.COMPLETED "
+		+ "and coalesce(c.approvedAt, c.chargeDate) >= :from and coalesce(c.approvedAt, c.chargeDate) < :to")
+	List<Long> findWalletIdsWithCompletedChargeApprovedBetween(@Param("from") LocalDateTime from,
 		@Param("to") LocalDateTime to);
 }

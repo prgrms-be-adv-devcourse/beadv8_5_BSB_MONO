@@ -10,9 +10,9 @@ final class OrderInternalApiExamples {
 			"message": "판매 내역을 조회했습니다.",
 			"data": [
 				{ "orderItemId": 1, "sellerId": 3, "raceId": 5, "raceCourseId": 11, "raceDate": "2026-11-09",
-					"price": 50000 },
+					"price": 50000, "status": "PAID" },
 				{ "orderItemId": 4, "sellerId": 8, "raceId": 5, "raceCourseId": 12, "raceDate": "2026-11-09",
-					"price": 50000 }
+					"price": 50000, "status": "CANCELING" }
 			]
 		}
 		""";

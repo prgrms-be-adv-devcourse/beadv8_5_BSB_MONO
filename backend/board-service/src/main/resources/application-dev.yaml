@@ -24,6 +24,7 @@ spring:
 board:
   clients:
     member:
+      mode: fake
       base-url: http://localhost:8080
 
 logging:
