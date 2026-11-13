@@ -139,6 +139,28 @@ public class Participation extends BaseIdAndTime {
 		this.paymentDueAt = paymentDueAt;
 	}
 
+	/**
+	 * [결제하기]가 상품에 자리를 잡으러 가기 직전에 남긴다 (BUK-213). 확보 전(PENDING)이지만 이 시각까지 상품에 자리가 잡혀 있을 수 있다
+	 * 자리를 잡은 뒤 주문 저장이 실패하면(시간 초과·롤백) 이 표시로 만료 정리가 자리를 풀어 준다 (releaseAbandonedHold)
+	 */
+	public void markHoldRequested(LocalDateTime holdUntil) {
+		checkPayable();
+		this.paymentDueAt = holdUntil;
+	}
+
+	/**
+	 * 자리를 잡으러 갔다가 주문을 만들지 못한 채 기한이 지났다. 미결제 해제로 끝내고 바꿨는지 돌려준다 (BUK-213)
+	 * 자리 해제는 부르는 쪽이 아웃박스로 남긴다. 그사이 다시 [결제하기]해 기한이 늘었으면 그대로 둔다
+	 */
+	public boolean releaseAbandonedHold(LocalDateTime releasedAt) {
+		if (status != ParticipationStatus.PENDING || paymentDueAt == null || paymentDueAt.isAfter(releasedAt)) {
+			return false;
+		}
+		changeStatus(ParticipationStatus.RELEASED);
+		this.releasedAt = releasedAt;
+		return true;
+	}
+
 	// 참가를 확정할 수 있는지: 결제 대기(APPLIED)여야 한다. 결제는 예치금을 차감하기 전에 이것부터 확인한다
 	public void checkConfirmable() {
 		if (status != ParticipationStatus.APPLIED) {
@@ -206,6 +228,11 @@ public class Participation extends BaseIdAndTime {
 
 	// [결제하기]는 자리 확보 전(PENDING) 신청만 할 수 있다. 상품 서비스를 부르기 전에 먼저 확인한다
 	public void checkPayable() {
+		checkPayable(status);
+	}
+
+	// 잠그기 전에 값만 읽어 거를 때 쓴다 (OrderCreateUseCase)
+	public static void checkPayable(ParticipationStatus status) {
 		if (status != ParticipationStatus.PENDING) {
 			throw new ParticipationNotPayableException(
 				"결제를 시작할 수 없는 신청입니다(현재 상태: %s).".formatted(status.getLabel()));
@@ -237,7 +264,8 @@ public class Participation extends BaseIdAndTime {
 			ParticipantInfoDto.from(participant),
 			thirdPartyConsent,
 			consentedAt,
-			paymentDueAt,
+			// 확보 전(PENDING)의 결제 기한 칸은 「자리 잡으러 감」 표시라 화면에 결제 기한으로 내보내지 않는다 (BUK-213)
+			status == ParticipationStatus.PENDING ? null : paymentDueAt,
 			kitOptions
 		);
 	}

@@ -21,6 +21,9 @@ public class StubSeatHoldPort implements SeatHoldPort {
 	private final Set<Long> sold = ConcurrentHashMap.newKeySet();
 	// 자리 확보 때 예상하지 못한 오류(타임아웃 등)를 낼 종목
 	private final Set<Long> failingCourses = ConcurrentHashMap.newKeySet();
+	// 자리를 잡은 뒤 답을 돌려주기 전에 할 일 (응답을 잃는 경우, 확보 중 잠금 확인)
+	private volatile Runnable afterHold = () -> {
+	};
 
 	@Override
 	public SeatHoldResult hold(long raceCourseId, long participationId, LocalDateTime requestedExpiresAt) {
@@ -40,6 +43,7 @@ public class StubSeatHoldPort implements SeatHoldPort {
 			return SeatHoldResult.soldOut();
 		}
 		expiresAt.put(participationId, requestedExpiresAt);
+		afterHold.run();
 		return SeatHoldResult.held(requestedExpiresAt);
 	}
 
@@ -71,6 +75,10 @@ public class StubSeatHoldPort implements SeatHoldPort {
 		failingCourses.add(raceCourseId);
 	}
 
+	public void afterHold(Runnable action) {
+		afterHold = action;
+	}
+
 	public void setRemainingSeats(long raceCourseId, int seats) {
 		remainingSeats.put(raceCourseId, seats);
 	}
@@ -85,5 +93,7 @@ public class StubSeatHoldPort implements SeatHoldPort {
 		expiresAt.clear();
 		sold.clear();
 		failingCourses.clear();
+		afterHold = () -> {
+		};
 	}
 }

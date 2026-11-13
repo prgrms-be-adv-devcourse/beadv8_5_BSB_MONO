@@ -96,17 +96,16 @@ public class CartCheckoutUseCase {
 
 	private CartCheckoutItemDto orderOne(long memberId, long participationId, String key, LocalDateTime now) {
 		try {
-			return transactionTemplate.execute(status -> {
-				OrderCreateResult result = orderCreateUseCase.create(memberId, participationId, key, now);
-				return switch (result.outcome()) {
-					case CREATED -> new CartCheckoutItemDto(participationId, Outcome.CREATED, null,
-						OrderCreateResult.CREATED_MESSAGE, result.order());
-					case EXISTING -> new CartCheckoutItemDto(participationId, Outcome.EXISTING, null,
-						OrderCreateResult.EXISTING_MESSAGE, result.order());
-					case SOLD_OUT -> new CartCheckoutItemDto(participationId, Outcome.SOLD_OUT,
-						OrderCreateResult.SOLD_OUT_CODE, OrderCreateResult.SOLD_OUT_MESSAGE, null);
-				};
-			});
+			// 트랜잭션은 OrderCreateUseCase가 단계마다 연다 (상품 HTTP를 잠금 밖에서 부르려고, BUK-213)
+			OrderCreateResult result = orderCreateUseCase.create(memberId, participationId, key, now);
+			return switch (result.outcome()) {
+				case CREATED -> new CartCheckoutItemDto(participationId, Outcome.CREATED, null,
+					OrderCreateResult.CREATED_MESSAGE, result.order());
+				case EXISTING -> new CartCheckoutItemDto(participationId, Outcome.EXISTING, null,
+					OrderCreateResult.EXISTING_MESSAGE, result.order());
+				case SOLD_OUT -> new CartCheckoutItemDto(participationId, Outcome.SOLD_OUT,
+					OrderCreateResult.SOLD_OUT_CODE, OrderCreateResult.SOLD_OUT_MESSAGE, null);
+			};
 		} catch (BusinessException exception) {
 			// 이 항목만 롤백된다. 앞에서 주문한 항목은 이미 커밋되어 그대로 남는다
 			return new CartCheckoutItemDto(participationId, Outcome.FAILED, exception.getCode(), exception.getMessage(),
