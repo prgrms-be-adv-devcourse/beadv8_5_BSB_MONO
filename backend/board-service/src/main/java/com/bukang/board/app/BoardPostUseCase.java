@@ -23,6 +23,7 @@ import lombok.RequiredArgsConstructor;
 /**
  * 글 쓰기·고치기·지우기. 사진 연결 요청은 트랜잭션 안에서 이벤트로 발행하고,
  * BoardFileLinkSender가 커밋된 뒤에만 Kafka로 보낸다 (롤백되면 보내지 않는다)
+ * 검색 색인 메시지는 아웃박스에 글 저장과 같은 트랜잭션으로 남긴다 (BUK-179). 저장되면 색인 메시지가 반드시 남는다
  */
 @Service
 @RequiredArgsConstructor
@@ -32,6 +33,7 @@ public class BoardPostUseCase {
 	private final BoardCooldown boardCooldown;
 	private final EventPublisher eventPublisher;
 	private final BoardWriterGuard boardWriterGuard;
+	private final BoardOutboxKafkaAppendUseCase boardOutboxKafkaAppendUseCase;
 
 	// 입력 검사는 컨트롤러(@Valid)가 끝냈다. 도배 제한은 검사를 통과한 요청에만 센다
 	@Transactional
@@ -42,6 +44,7 @@ public class BoardPostUseCase {
 		}
 		BoardPost post = boardPostRepository.save(
 			BoardPost.create(memberId, request.categoryOrDefault(), request.title(), request.content()));
+		boardOutboxKafkaAppendUseCase.appendPostChanged(post.getId());
 		if (request.fileIds() != null && !request.fileIds().isEmpty()) {
 			requestFileLink(memberId, post, request.fileIds());
 		}
@@ -60,6 +63,7 @@ public class BoardPostUseCase {
 			throw new BoardPostHiddenException();
 		}
 		post.edit(request.categoryOrDefault(), request.title(), request.content());
+		boardOutboxKafkaAppendUseCase.appendPostChanged(post.getId());
 		if (request.fileIds() != null) {
 			requestFileLink(memberId, post, request.fileIds());
 		}
@@ -74,6 +78,7 @@ public class BoardPostUseCase {
 			throw new BoardNotWriterException();
 		}
 		post.delete();
+		boardOutboxKafkaAppendUseCase.appendPostChanged(post.getId());
 		// 빈 목록을 보내야 file-service가 사진 연결을 떼어, 지운 글의 사진이 공개 조회에 남지 않고 정리 배치 대상이 된다
 		requestFileLink(memberId, post, List.of());
 	}

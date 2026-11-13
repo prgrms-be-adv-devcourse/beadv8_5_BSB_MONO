@@ -1,6 +1,11 @@
 package com.bukang.board.in;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -15,6 +20,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MvcResult;
 
+import com.bukang.board.app.BoardPostListUseCase;
+import com.bukang.board.domain.exception.BoardExternalServiceUnavailableException;
 import com.bukang.board.support.BoardTestBase;
 
 /**
@@ -99,6 +106,8 @@ class BoardPostListApiTest extends BoardTestBase {
 
 		assertThat(ids(list(null, ""))).containsExactly((int)visible);
 		assertThat(ids(list(ME, ""))).containsExactly((int)visible);
+		// 인덱스에 옛 문서가 남아 숨긴 글·지운 글 ID가 검색 결과에 섞여 와도 목록에는 나오지 않는다
+		when(searchPort.search("글", BoardPostListUseCase.SEARCH_LIMIT)).thenReturn(List.of(visible, deleted, hidden));
 		assertThat(ids(list(null, "?q=글"))).containsExactly((int)visible);
 	}
 
@@ -130,20 +139,85 @@ class BoardPostListApiTest extends BoardTestBase {
 	}
 
 	@Test
-	@DisplayName("제목이나 본문에 검색어가 들어 있는 글을 찾고, %·_는 글자 그대로 찾는다")
-	void search() throws Exception {
+	@DisplayName("검색어는 Elasticsearch에 묻고, 돌려받은 글 ID를 DB 최신순으로 보여 준다 (응답 모양은 그대로)")
+	void searchUsesElasticsearch() throws Exception {
 		long inTitle = postIn(ME, "FREE", "한강 코스", "본문");
 		long inContent = postIn(ME, "FREE", "제목", "여의도 한강 공원");
 		postIn(ME, "FREE", "다른 글", "관계 없음");
-		long percent = postIn(ME, "QUESTION", "100% 완주", "본문");
-		postIn(ME, "FREE", "100 완주", "본문");
+		when(searchPort.search("한강", BoardPostListUseCase.SEARCH_LIMIT)).thenReturn(List.of(inTitle, inContent));
 
 		assertThat(ids(list(null, "?q=한강"))).containsExactly((int)inContent, (int)inTitle);
-		assertThat(ids(list(null, "?q=" + "%25"))).containsExactly((int)percent);
+		assertThat(ids(list(null, "?q=" + "%20한강%20"))).containsExactly((int)inContent, (int)inTitle);
+		verify(searchPort, org.mockito.Mockito.times(2)).search("한강", BoardPostListUseCase.SEARCH_LIMIT);
+	}
+
+	@Test
+	@DisplayName("%·_·!는 이스케이프 없이 그대로 검색어로 넘기고, 맞는 글이 없으면 빈 목록이다")
+	void specialCharactersPassedAsText() throws Exception {
+		postIn(ME, "FREE", "100% 완주", "본문");
+
+		assertThat(ids(list(null, "?q=" + "%25"))).isEmpty();
 		assertThat(ids(list(null, "?q=" + "_"))).isEmpty();
-		assertThat(ids(list(null, "?q=없는말"))).isEmpty();
-		assertThat(ids(list(null, "?q=한강&category=QUESTION"))).isEmpty();
-		assertThat(ids(list(null, "?q=%20%20"))).hasSize(5);
+		assertThat(ids(list(null, "?q=!"))).isEmpty();
+		verify(searchPort).search("%", BoardPostListUseCase.SEARCH_LIMIT);
+		verify(searchPort).search("_", BoardPostListUseCase.SEARCH_LIMIT);
+		verify(searchPort).search("!", BoardPostListUseCase.SEARCH_LIMIT);
+	}
+
+	@Test
+	@DisplayName("검색어가 비면 Elasticsearch를 부르지 않고 전부 보여 준다")
+	void blankQueryDoesNotCallSearch() throws Exception {
+		for (int i = 0; i < 3; i++) {
+			newPost(ME, "글" + i);
+		}
+
+		assertThat(ids(list(null, "?q=%20%20"))).hasSize(3);
+		assertThat(ids(list(null, "?q="))).hasSize(3);
+		verify(searchPort, never()).search(anyString(), anyInt());
+	}
+
+	@Test
+	@DisplayName("검색에 말머리를 함께 걸면 맞는 말머리만 나온다")
+	void searchWithCategory() throws Exception {
+		long free = postIn(ME, "FREE", "한강", "본문");
+		long question = postIn(ME, "QUESTION", "한강 질문", "본문");
+		when(searchPort.search("한강", BoardPostListUseCase.SEARCH_LIMIT)).thenReturn(List.of(free, question));
+
+		assertThat(ids(list(null, "?q=한강&category=QUESTION"))).containsExactly((int)question);
+	}
+
+	@Test
+	@DisplayName("검색 결과도 최신순·인기순 정렬과 cursor 이어 부르기가 그대로 동작한다")
+	void searchPagingAndSort() throws Exception {
+		List<Long> matched = new ArrayList<>();
+		for (int i = 0; i < 5; i++) {
+			matched.add(newPost(ME, "한강 " + i));
+		}
+		newPost(ME, "검색에 안 걸리는 글");
+		setLikes(matched.get(0), 9);
+		when(searchPort.search("한강", BoardPostListUseCase.SEARCH_LIMIT)).thenReturn(matched);
+
+		MvcResult first = list(null, "?q=한강&size=2");
+		assertThat(ids(first)).containsExactly(matched.get(4).intValue(), matched.get(3).intValue());
+		MvcResult second = list(null, "?q=한강&size=2&cursor=" + first.getResponse().getHeader(NEXT));
+		assertThat(ids(second)).containsExactly(matched.get(2).intValue(), matched.get(1).intValue());
+		MvcResult third = list(null, "?q=한강&size=2&cursor=" + second.getResponse().getHeader(NEXT));
+		assertThat(ids(third)).containsExactly(matched.get(0).intValue());
+		assertThat(third.getResponse().getHeader(NEXT)).isNull();
+
+		assertThat(ids(list(null, "?q=한강&sort=POPULAR")).getFirst()).isEqualTo(matched.get(0).intValue());
+	}
+
+	@Test
+	@DisplayName("Elasticsearch가 멈추면 검색은 503이고, 검색어 없는 목록은 그대로 열린다")
+	void searchDownIs503() throws Exception {
+		newPost(ME, "글");
+		when(searchPort.search(anyString(), anyInt()))
+			.thenThrow(new BoardExternalServiceUnavailableException("검색을 잠시 쓸 수 없습니다."));
+
+		mockMvc.perform(get(POSTS + "?q=글")).andExpect(status().isServiceUnavailable())
+			.andExpect(jsonPath("$.code").value("BOARD_EXTERNAL_SERVICE_UNAVAILABLE"));
+		assertThat(ids(list(null, ""))).hasSize(1);
 	}
 
 	@Test
@@ -237,14 +311,5 @@ class BoardPostListApiTest extends BoardTestBase {
 		postIn(ME, "FREE", "제목", "가".repeat(99) + "🏃🏃");
 
 		mockMvc.perform(get(POSTS)).andExpect(jsonPath("$.data[0].excerpt").value("가".repeat(99) + "🏃"));
-	}
-
-	@Test
-	@DisplayName("검색어의 !도 글자 그대로 찾는다")
-	void searchExclamation() throws Exception {
-		long exclaim = postIn(ME, "FREE", "완주했다!", "본문");
-		postIn(ME, "FREE", "완주했다", "본문");
-
-		assertThat(ids(list(null, "?q=!"))).containsExactly((int)exclaim);
 	}
 }

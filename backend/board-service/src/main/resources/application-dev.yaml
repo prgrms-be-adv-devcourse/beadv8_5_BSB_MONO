@@ -21,6 +21,10 @@ spring:
       host: localhost
       port: 6379
 
+  # 글 검색 인덱스(board_posts). 대회 검색(product)과 같은 Elasticsearch를 쓰고 인덱스 이름만 다르다
+  elasticsearch:
+    uris: http://localhost:9200
+
 board:
   clients:
     member:

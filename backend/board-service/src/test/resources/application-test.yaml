@@ -18,6 +18,10 @@ logging:
     com.bukang: debug
 
 board:
+  search:
+    reindex:
+      # 테스트에서는 기동 때 자동으로 채우지 않는다 (Elasticsearch가 없다)
+      enabled: false
   clients:
     member:
       mode: fake
