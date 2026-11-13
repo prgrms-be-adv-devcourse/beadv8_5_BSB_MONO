@@ -316,21 +316,25 @@ export function CrewInvitesPage({
   )
 }
 
-/** 링크 아이콘. 마우스를 올리거나 포커스하면 링크를 보여 주고, 누르면 복사한다 */
+/** 링크 아이콘. 마우스를 올리거나 포커스하면 링크를 보여 주고(Esc로 닫음), 누르면 복사한다 */
 function InviteLinkHint({ url, onCopy }: { url: string; onCopy: (url: string) => void }) {
   const [open, setOpen] = useState(false)
   const tooltipId = useId()
+  // 마우스를 툴팁 위로 옮겨도 닫히지 않게 바깥 span에서 hover를 받는다
   return (
-    <span className="relative inline-flex">
+    <span
+      className="relative inline-flex"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
       <button
         type="button"
-        aria-label="초대 링크 보기"
+        aria-label="초대 링크 복사"
         aria-describedby={open ? tooltipId : undefined}
         className="rounded-sm p-1 text-text-tertiary hover:text-text-secondary"
-        onMouseEnter={() => setOpen(true)}
-        onMouseLeave={() => setOpen(false)}
         onFocus={() => setOpen(true)}
         onBlur={() => setOpen(false)}
+        onKeyDown={(event) => event.key === 'Escape' && setOpen(false)}
         onClick={() => onCopy(url)}
       >
         <Icon name="Link" className="size-4" />

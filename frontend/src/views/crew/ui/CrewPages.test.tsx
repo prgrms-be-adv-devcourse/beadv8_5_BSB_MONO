@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import type { ReactNode } from 'react'
@@ -258,7 +258,7 @@ describe('CrewInvitesPage 보낸 초대 링크 (BUK-195)', () => {
     const user = userEvent.setup()
     const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue()
     renderPage(<CrewInvitesPage crewId={1} />)
-    const linkButton = await screen.findByRole('button', { name: '초대 링크 보기' })
+    const linkButton = await screen.findByRole('button', { name: '초대 링크 복사' })
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
 
     await user.hover(linkButton)
@@ -266,6 +266,12 @@ describe('CrewInvitesPage 보낸 초대 링크 (BUK-195)', () => {
       `${window.location.origin}/invite/q3Xv9kLm2NpR7tYw4ZaB1c`,
     )
     await user.unhover(linkButton)
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
+
+    // 키보드로 포커스해도 보이고, Esc로 닫는다
+    act(() => linkButton.focus())
+    expect(screen.getByRole('tooltip')).toBeInTheDocument()
+    await user.keyboard('{Escape}')
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
 
     await user.click(linkButton)
@@ -284,7 +290,7 @@ describe('CrewInvitesPage 보낸 초대 링크 (BUK-195)', () => {
     )
     renderPage(<CrewInvitesPage crewId={1} />)
     expect(await screen.findByRole('button', { name: '초대 취소' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '초대 링크 보기' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '초대 링크 복사' })).not.toBeInTheDocument()
   })
 })
 
