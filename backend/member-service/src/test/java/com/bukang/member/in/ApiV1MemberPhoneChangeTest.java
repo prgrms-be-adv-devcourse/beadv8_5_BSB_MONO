@@ -13,6 +13,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
@@ -270,7 +271,7 @@ class ApiV1MemberPhoneChangeTest {
 		assertThat(member.getCiHash()).isEqualTo(hasher.ci(CI));
 		assertThat(member.getIdentityHash()).isEqualTo(identity.identityHash());
 		assertThat(member.getNameBirthHash()).isEqualTo(identity.nameBirthHash());
-		assertThat(member.getVerifiedAt()).isEqualTo(identity.verifiedAt());
+		assertThat(member.getVerifiedAt()).isEqualTo(identity.verifiedAt().truncatedTo(ChronoUnit.MICROS));
 		assertThat(applicationEvents.stream(MemberModifiedEvent.class)).isEmpty();
 		assertThat(identityStore.findVerified(token)).isEmpty();
 	}
@@ -307,7 +308,7 @@ class ApiV1MemberPhoneChangeTest {
 		assertThat(after.getCiHash()).isEqualTo(before.getCiHash());
 		assertThat(after.getIdentityHash()).isEqualTo(before.getIdentityHash());
 		assertThat(after.getNameBirthHash()).isEqualTo(before.getNameBirthHash());
-		assertThat(after.getVerifiedAt()).isEqualTo(identity.verifiedAt());
+		assertThat(after.getVerifiedAt()).isEqualTo(identity.verifiedAt().truncatedTo(ChronoUnit.MICROS));
 		assertThat(identityStore.findVerified(token)).isEmpty();
 	}
 
