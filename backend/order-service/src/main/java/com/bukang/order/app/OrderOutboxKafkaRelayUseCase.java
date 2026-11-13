@@ -14,9 +14,12 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.bukang.common.global.notify.SlackNotifier;
 import com.bukang.common.shared.kafka.KafkaMessageId;
 import com.bukang.order.domain.OrderOutboxKafkaEvent;
 import com.bukang.order.domain.OutboxStatus;
+import com.bukang.order.domain.exception.OutboxEventNotFailedException;
+import com.bukang.order.domain.exception.OutboxEventNotFoundException;
 import com.bukang.order.out.OrderOutboxKafkaEventRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -55,6 +58,7 @@ public class OrderOutboxKafkaRelayUseCase {
 
 	private final OrderOutboxKafkaEventRepository orderOutboxKafkaEventRepository;
 	private final KafkaTemplate<String, String> kafkaTemplate;
+	private final SlackNotifier slackNotifier;
 
 	// 보낸 건수를 돌려준다. 상태 변경은 더티 체킹으로 커밋된다
 	@Transactional
@@ -116,10 +120,49 @@ public class OrderOutboxKafkaRelayUseCase {
 		}
 	}
 
+	// 발행 실패 행을 만든 순서대로 limit건 (내부 API 목록, BUK-180)
+	@Transactional(readOnly = true)
+	public List<OrderOutboxKafkaEvent> findSendFailed(int limit) {
+		return orderOutboxKafkaEventRepository.findByStatusOrderByCreateDateAscIdAsc(OutboxStatus.SEND_FAILED,
+			Limit.of(limit));
+	}
+
+	// 원인을 고친 뒤 발행 실패 행을 PENDING으로 되돌린다 (내부 API, BUK-180). 다음 릴레이(1초 뒤)가 보낸다
+	// 그사이 같은 토픽·같은 신청의 뒤 메시지가 먼저 나갔을 수 있어 받는 쪽에는 순서가 바뀌어 도착한다 (상품의 복구·해제는 멱등)
+	// 조건부 UPDATE라 동시에 두 번 불러도 한 번만 통과하고, 릴레이가 이미 보낸(SENT) 행을 덮지 않는다 (PR #436 리뷰)
+	@Transactional
+	public OrderOutboxKafkaEvent retry(long id, LocalDateTime now) {
+		if (orderOutboxKafkaEventRepository.resetSendFailed(id, now) == 0) {
+			OrderOutboxKafkaEvent current = findOutbox(id);
+			throw new OutboxEventNotFailedException(id, current.getStatus().getLabel());
+		}
+		OrderOutboxKafkaEvent event = findOutbox(id);
+		log.info("발행 실패 아웃박스 메시지를 다시 보내도록 되돌렸습니다. id={}, topic={}, key={}",
+			event.getId(), event.getEventType(), event.getMessageKey());
+		return event;
+	}
+
+	private OrderOutboxKafkaEvent findOutbox(long id) {
+		return orderOutboxKafkaEventRepository.findById(id).orElseThrow(() -> new OutboxEventNotFoundException(id));
+	}
+
 	private void logSendFailure(OrderOutboxKafkaEvent event) {
 		if (event.isFailed()) {
 			log.error("아웃박스 메시지를 {}번 보내지 못해 SEND_FAILED로 바꿨습니다. 원인을 고친 뒤 PENDING으로 되돌려야 합니다. "
 				+ "id={}, topic={}, key={}", MAX_RETRY, event.getId(), event.getEventType(), event.getMessageKey());
+			slackNotifier.sendAfterCommit(sendFailedAlert(event));
 		}
+	}
+
+	// 본문(payload)은 넣지 않는다 (KafkaDltAlert와 같은 이유). 찾아갈 단서와 되돌리는 주소만 넣는다
+	static String sendFailedAlert(OrderOutboxKafkaEvent event) {
+		String api = "/internal/v1/order/outbox-failures/" + event.getId();
+		return """
+			<!channel> :rotating_light: [order] 아웃박스 메시지 발행 실패 (%d번 보내지 못함)
+			• 행 ID: %d
+			• 토픽: %s
+			• key: %s (%s)
+			• 처리: 브로커 등 원인을 고친 뒤 POST %s/retry (다시 보내기)"""
+			.formatted(MAX_RETRY, event.getId(), event.getEventType(), event.getMessageKey(), event.getRefType(), api);
 	}
 }
