@@ -182,7 +182,7 @@ class ApiV1CrewPartyCheckTest {
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("CREW_KICK_PARTY_BLOCKED"))
 			.andExpect(jsonPath("$.message")
-				.value("결제가 진행 중인 파티에 들어 있는 크루원은 내보낼 수 없습니다. 결제가 끝나거나 파티가 끝난 뒤 다시 시도해주세요."));
+				.value("결제가 진행 중이거나 끝난 파티에 들어 있는 크루원은 내보낼 수 없습니다. 파티가 끝난 뒤 다시 시도해주세요."));
 
 		assertThat(crewMemberRepository.existsByCrewIdAndMemberId(crewId, memberId)).isTrue();
 		assertThat(crewRemovalRepository.count()).isZero();
@@ -236,12 +236,11 @@ class ApiV1CrewPartyCheckTest {
 		// outsider는 다른 크루의 크루장이지만 이 크루(crewId)에서는 크루원이 아니다
 		remove(outsiderId, crewId, memberId)
 			.andExpect(status().isForbidden());
-		// 자기 크루 ID로 부르면 대상이 그 크루의 크루원이 아니라 404이고, 이때도 확인은 자기 크루 ID로만 한다
-		given(partyStatusPort.findStatus(otherCrewId, memberId)).willReturn(new PartyStatus(true, true));
+		// 자기 크루 ID로 불러도 대상이 그 크루의 크루원이 아니라 404이고, 주문 서비스는 부르지 않는다
 		remove(outsiderId, otherCrewId, memberId)
 			.andExpect(status().isNotFound());
 
-		verify(partyStatusPort, never()).findStatus(crewId, memberId);
+		verify(partyStatusPort, never()).findStatus(anyLong(), anyLong());
 		assertThat(crewMemberRepository.existsByCrewIdAndMemberId(crewId, memberId)).isTrue();
 	}
 

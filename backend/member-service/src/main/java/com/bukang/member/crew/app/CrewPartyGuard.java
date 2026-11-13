@@ -17,7 +17,9 @@ import lombok.RequiredArgsConstructor;
  * 외부 호출 동안 크루 행 락도 잡지 않는다
  * 요청한 사람이 나갈 수 있는 크루원(나가기)·크루장(내보내기)일 때만 묻는다. 아니면 CrewFacade가 403·404·409로 답하므로
  * 권한 없는 사람에게 다른 크루원의 파티 상태가 드러나지 않는다
- * shortcut: 확인과 삭제 사이에 파티 상태가 바뀌는 경우는 막지 못한다, 주문 서비스가 크루원 이탈 이벤트로 정리한다
+ * 대상이 이 크루의 크루원일 때만 묻는다. 크루원이 아니면 CrewFacade가 404로 답한다
+ * shortcut: 확인과 삭제 사이에 파티 상태나 요청자의 역할이 바뀌는 경우는 막지 못한다 (예: 크루장 넘기기와 나가기를 동시에 보냄),
+ * 필요하면 CrewFacade 락 안에서 역할을 다시 확인한다
  */
 @Service
 @RequiredArgsConstructor
@@ -39,7 +41,9 @@ public class CrewPartyGuard {
 			.map(CrewMember::getRole)
 			.filter(CrewRole.LEADER::equals)
 			.isPresent();
-		if (leader && targetMemberId != memberId && !partyStatusPort.findStatus(crewId, targetMemberId).canKick()) {
+		boolean targetIsMember = leader && crewMemberRepository.existsByCrewIdAndMemberId(crewId, targetMemberId);
+		if (targetIsMember && targetMemberId != memberId
+			&& !partyStatusPort.findStatus(crewId, targetMemberId).canKick()) {
 			throw new CrewKickPartyBlockedException();
 		}
 	}

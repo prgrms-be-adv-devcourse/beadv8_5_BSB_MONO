@@ -97,10 +97,10 @@ public class ApiV1CrewManageController {
 				@ExampleObject(name = "크루 없음", value = CrewApiExamples.CREW_NOT_FOUND),
 				@ExampleObject(name = "대상이 크루원이 아님", value = CrewApiExamples.CREW_MEMBER_NOT_FOUND)
 			})),
-		@ApiResponse(responseCode = "409", description = "크루장 자신을 내보내려 함, 또는 대상이 결제 중인 파티에 들어 있음",
+		@ApiResponse(responseCode = "409", description = "크루장 자신을 내보내려 함, 또는 대상이 결제 중이거나 끝난 파티에 들어 있음",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "크루장 자신", value = CrewApiExamples.CREW_CANNOT_REMOVE_LEADER),
-				@ExampleObject(name = "결제 중인 파티에 들어 있음", value = CrewApiExamples.CREW_KICK_PARTY_BLOCKED)
+				@ExampleObject(name = "결제 중이거나 끝난 파티에 들어 있음", value = CrewApiExamples.CREW_KICK_PARTY_BLOCKED)
 			})),
 		@ApiResponse(responseCode = "503", description = "주문 서비스에 파티 상태를 확인하지 못함 (잠시 뒤 다시 시도)",
 			content = @Content(schema = @Schema(implementation = RsData.class),
