@@ -7,6 +7,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.bukang.common.shared.order.event.OrderItemRefundReason;
 import com.bukang.order.domain.Order;
 import com.bukang.order.domain.OrderItem;
 import com.bukang.order.domain.OrderStatus;
@@ -153,6 +154,11 @@ public class RaceCancelRefundUseCase {
 		}
 		// 주문 하나 = 참가권 하나라 주문 단위 전액 환불이 그 참가권의 환불이다. 실패하면 예외로 이 주문만 롤백된다
 		walletPort.refund(order.getId(), order.getBuyerId());
+		// 정산이 환불한 참가권마다 판매자에게서 1차 몫을 회수한다 (BUK-76). 환불과 같은 트랜잭션이라 환불이 롤백되면 메시지도 없다
+		for (OrderItem item : canceledItems) {
+			orderOutboxKafkaAppendUseCase.appendItemRefunded(item, order.getBuyerId(), now,
+				OrderItemRefundReason.RACE_CANCELED);
+		}
 		return true;
 	}
 }
