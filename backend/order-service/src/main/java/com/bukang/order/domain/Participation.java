@@ -4,12 +4,14 @@ import static jakarta.persistence.EnumType.STRING;
 import static lombok.AccessLevel.PROTECTED;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import com.bukang.common.global.jpa.entity.BaseIdAndTime;
 import com.bukang.order.domain.event.ParticipationCanceledBeforePaymentEvent;
 import com.bukang.order.domain.exception.ParticipationNotCancelableException;
 import com.bukang.order.domain.exception.ParticipationNotEditableException;
 import com.bukang.order.domain.exception.ParticipationNotPayableException;
+import com.bukang.order.dto.KitOptionChoiceDto;
 import com.bukang.order.dto.ParticipantInfoDto;
 import com.bukang.order.dto.ParticipationDto;
 
@@ -244,6 +246,11 @@ public class Participation extends BaseIdAndTime {
 	}
 
 	public ParticipationDto toDto() {
+		return toDto(List.of());
+	}
+
+	// 고른 키트 옵션을 함께 내보낸다. 옵션은 결제 때만 남으므로 결제 전 응답은 toDto()로 충분하다
+	public ParticipationDto toDto(List<KitOptionChoiceDto> kitOptions) {
 		return new ParticipationDto(
 			getId(),
 			getCreateDate(),
@@ -258,7 +265,8 @@ public class Participation extends BaseIdAndTime {
 			thirdPartyConsent,
 			consentedAt,
 			// 확보 전(PENDING)의 결제 기한 칸은 「자리 잡으러 감」 표시라 화면에 결제 기한으로 내보내지 않는다 (BUK-213)
-			status == ParticipationStatus.PENDING ? null : paymentDueAt
+			status == ParticipationStatus.PENDING ? null : paymentDueAt,
+			kitOptions
 		);
 	}
 }
