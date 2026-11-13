@@ -2467,7 +2467,7 @@ export const getCreateCrewInviteUrl = (crewId: number,) => {
 }
 
 /**
- * 크루장과 운영진이 초대 링크를 만든다. 링크는 만든 때부터 24시간 동안 쓸 수 있다. 응답의 inviteToken으로 프론트가 초대 받기 화면 주소를 만든다. 토큰은 이 응답에서만 받을 수 있다. 초대 링크 하나로는 한 명만 가입한다.
+ * 크루장과 운영진이 초대 링크를 만든다. 링크는 만든 때부터 24시간 동안 쓸 수 있다. 응답의 inviteToken으로 프론트가 초대 받기 화면 주소를 만든다. 토큰은 보낸 초대 목록에서도 다시 받는다. 초대 링크 하나로 24시간 동안 여러 명이 가입할 수 있다. 링크가 퍼지면 초대 취소로 끊는다.
  * @summary 초대 링크 만들기
  */
 export const createCrewInvite = async (crewId: number, options?: Parameters<typeof customFetch>[1]): Promise<RsDataCrewInviteCreatedDto> => {
@@ -2542,7 +2542,7 @@ export const getFindCrewInvitesUrl = (crewId: number,) => {
 }
 
 /**
- * 아직 쓸 수 있는 초대 링크(24시간 안, 취소·가입 전)를 돌려준다. 보낸 초대를 취소하는 화면에 쓴다. 크루장은 크루의 모든 초대를, 운영진은 자기가 보낸 초대만 받는다. 토큰은 돌려주지 않는다.
+ * 아직 쓸 수 있는 초대 링크(24시간 안, 취소·가입 전)를 돌려준다. 보낸 초대를 취소하는 화면에 쓴다. 크루장은 크루의 모든 초대를, 운영진은 자기가 보낸 초대만 받는다. 링크를 다시 볼 수 있게 토큰도 돌려준다.
  * @summary 보낸 초대 목록
  */
 export const findCrewInvites = async (crewId: number, options?: Parameters<typeof customFetch>[1]): Promise<RsDataListCrewInviteDto> => {
