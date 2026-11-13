@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 
 import { Button } from '../button/Button'
-import { useToast } from './Toast'
+import { useToast } from './use-toast'
 
 // ToastProvider는 .storybook/preview.tsx에서 모든 스토리를 감싼다(앱의 app/_providers와 같음).
 function ToastDemo() {

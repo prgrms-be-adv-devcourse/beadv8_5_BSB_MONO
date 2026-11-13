@@ -4,4 +4,4 @@ export {
   walletLedgersQueryOptions,
   type WalletLedger,
 } from './api/ledger-api'
-export { useMyBalance } from './api/wallet-api'
+export { useMyBalance } from './api/use-my-balance'

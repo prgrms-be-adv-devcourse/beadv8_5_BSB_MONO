@@ -42,7 +42,7 @@ import {
   type DatePickerSelection,
   type DateRange,
 } from './selection'
-import { useRangeDrag } from './useRangeDrag'
+import { useRangeDrag } from './use-range-drag'
 
 // 한국은 일요일이 주 시작이다.
 const WEEK_STARTS_ON = 0
