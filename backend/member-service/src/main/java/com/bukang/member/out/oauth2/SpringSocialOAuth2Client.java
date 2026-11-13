@@ -10,6 +10,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.http.converter.FormHttpMessageConverter;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.authentication.OAuth2LoginAuthenticationProvider;
@@ -25,7 +26,6 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizationRequestResolver;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestCustomizers;
-import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.OAuth2Error;
@@ -38,7 +38,7 @@ import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtDecoderFactory;
-import org.springframework.security.oauth2.jwt.JwtTimestampValidator;
+import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
@@ -84,17 +84,18 @@ public class SpringSocialOAuth2Client implements SocialOAuth2Client {
 		this.resolver = new DefaultOAuth2AuthorizationRequestResolver(repository, "/oauth2/authorization");
 		// 시크릿이 있는 서버라도 PKCE를 같이 쓴다. 인가 코드가 새어도 검증값 없이는 토큰으로 바꿀 수 없다
 		this.resolver.setAuthorizationRequestCustomizer(OAuth2AuthorizationRequestCustomizers.withPkce());
-		// 라이브러리 기본 클라이언트와 같은 응답 변환기·오류 처리기에 시간 제한만 더한다. 빠지면 제공자의 오류 응답을 못 읽는다
+		// 라이브러리 기본 클라이언트와 같은 응답 변환기·오류 처리기에 시간 제한만 더한다. 오류 처리기가 빠지면 제공자의 오류 코드를 잃는다
+		JdkClientHttpRequestFactory requestFactory = InternalHttpClients.requestFactory(TIMEOUT);
 		RestClientAuthorizationCodeTokenResponseClient tokenClient =
 			new RestClientAuthorizationCodeTokenResponseClient();
 		tokenClient.setRestClient(RestClient.builder()
-			.requestFactory(InternalHttpClients.requestFactory(TIMEOUT))
+			.requestFactory(requestFactory)
 			.configureMessageConverters(converters -> converters
 				.addCustomConverter(new FormHttpMessageConverter())
 				.addCustomConverter(new OAuth2AccessTokenResponseHttpMessageConverter()))
 			.defaultStatusHandler(new OAuth2ErrorResponseErrorHandler())
 			.build());
-		RestTemplate userInfoClient = new RestTemplate(InternalHttpClients.requestFactory(TIMEOUT));
+		RestTemplate userInfoClient = new RestTemplate(requestFactory);
 		userInfoClient.setErrorHandler(new OAuth2ErrorResponseErrorHandler());
 		DefaultOAuth2UserService userService = new DefaultOAuth2UserService();
 		userService.setRestOperations(userInfoClient);
@@ -103,11 +104,11 @@ public class SpringSocialOAuth2Client implements SocialOAuth2Client {
 		this.kakaoAuthentication = new OAuth2LoginAuthenticationProvider(tokenClient, userService);
 		this.googleAuthentication = new OidcAuthorizationCodeAuthenticationProvider(tokenClient, oidcUserService);
 		this.googleAuthentication.setJwtDecoderFactory(
-			idTokenDecoderFactory(new RestTemplate(InternalHttpClients.requestFactory(TIMEOUT))));
+			idTokenDecoderFactory(new RestTemplate(requestFactory)));
 	}
 
 	// 기본 OidcIdTokenDecoderFactory는 공개키(JWK)를 받아 올 클라이언트를 바꿀 수 없다. 같은 검증(서명·만료·발급자·대상·nonce)에
-	// 시간 제한이 있는 클라이언트만 끼운다. 기본 팩토리처럼 제공자별로 디코더를 한 번만 만들어 공개키 캐시를 유지한다
+	// 시간 제한이 있는 클라이언트만 끼운다. 기본 팩토리와 달리 제공자별로 디코더를 한 번만 만들어 공개키 캐시를 유지한다
 	private static JwtDecoderFactory<ClientRegistration> idTokenDecoderFactory(RestOperations jwkClient) {
 		Map<String, JwtDecoder> decoders = new ConcurrentHashMap<>();
 		return registration -> decoders.computeIfAbsent(registration.getRegistrationId(), id -> {
@@ -119,8 +120,7 @@ public class SpringSocialOAuth2Client implements SocialOAuth2Client {
 				.jwsAlgorithm(SignatureAlgorithm.RS256)
 				.restOperations(jwkClient)
 				.build();
-			decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(new JwtTimestampValidator(),
-				new OidcIdTokenValidator(registration)));
+			decoder.setJwtValidator(JwtValidators.createDefaultWithValidators(new OidcIdTokenValidator(registration)));
 			decoder.setClaimSetConverter(OidcIdTokenDecoderFactory.createDefaultClaimTypeConverter());
 			return decoder;
 		});

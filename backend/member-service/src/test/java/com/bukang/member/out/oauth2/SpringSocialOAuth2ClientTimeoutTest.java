@@ -30,6 +30,7 @@ import com.bukang.member.domain.SocialProvider;
 import com.bukang.member.domain.exception.SocialLoginFailedException;
 import com.bukang.member.out.oauth2.SocialOAuth2Client.AuthorizationStart;
 import com.nimbusds.jose.JOSEException;
+import com.nimbusds.jose.JOSEObjectType;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.crypto.RSASSASigner;
@@ -168,6 +169,14 @@ class SpringSocialOAuth2ClientTimeoutTest {
 	}
 
 	@Test
+	@DisplayName("구글 ID 토큰 헤더의 typ이 JWT가 아니면 소셜 로그인 실패로 처리한다")
+	void googleRejectsWrongTokenType() {
+		serveGoogle(IdTokenFlaw.WRONG_TYPE);
+
+		assertFailsFast(SocialProvider.GOOGLE);
+	}
+
+	@Test
 	@DisplayName("구글 ID 토큰이 다른 키로 서명됐으면 소셜 로그인 실패로 처리한다")
 	void googleRejectsForgedSignature() throws Exception {
 		RSAKey otherKey = new RSAKeyGenerator(2048).keyID("k1").generate();
@@ -221,12 +230,20 @@ class SpringSocialOAuth2ClientTimeoutTest {
 			.claim("email_verified", true)
 			.build();
 		try {
-			SignedJWT jwt = new SignedJWT(new JWSHeader.Builder(JWSAlgorithm.RS256).keyID("k1").build(), claims);
+			SignedJWT jwt = new SignedJWT(header(flaw), claims);
 			jwt.sign(new RSASSASigner(signingKey));
 			return jwt.serialize();
 		} catch (JOSEException exception) {
 			throw new IllegalStateException(exception);
 		}
+	}
+
+	private static JWSHeader header(IdTokenFlaw flaw) {
+		JWSHeader.Builder header = new JWSHeader.Builder(JWSAlgorithm.RS256).keyID("k1");
+		if (flaw == IdTokenFlaw.WRONG_TYPE) {
+			header.type(new JOSEObjectType("at+jwt"));
+		}
+		return header.build();
 	}
 
 	private static String nonceHash(String nonce) {
@@ -303,6 +320,6 @@ class SpringSocialOAuth2ClientTimeoutTest {
 	}
 
 	private enum IdTokenFlaw {
-		NONE, WRONG_AUDIENCE, WRONG_NONCE, EXPIRED
+		NONE, WRONG_AUDIENCE, WRONG_NONCE, EXPIRED, WRONG_TYPE
 	}
 }
