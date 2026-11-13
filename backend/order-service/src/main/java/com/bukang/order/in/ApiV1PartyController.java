@@ -288,7 +288,9 @@ public class ApiV1PartyController {
 			+ "canApply=false면 reason으로 문구를 고른다. 화면 상태는 role·partyStatus·myPaid로 고른다: "
 			+ "LEADER+RECRUITING(모집 중, 인원 모자라면 TOO_FEW_MEMBERS) / MEMBER+RECRUITING(파티원) / "
 			+ "LEADER+PAYING(결제 진행 중) / PAYING·PAID에서 myPaid=false(결제할 차례, participationId로 결제)·true(결제 완료) / "
-			+ "NONE(파티 없음).")
+			+ "NONE(파티 없음). "
+			+ "myParticipation은 이 대회에 살아 있는 내 신청(개인·파티)이다. 파티가 없어도 개인 신청이 있으면 나와 "
+			+ "「이미 신청함」(INDIVIDUAL)·「파티로 신청 중」(PARTY)을 고르고, 없으면 칸이 빠진다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "조회 성공 (파티가 없어도 200)",
 			content = @Content(examples = {
@@ -296,7 +298,8 @@ public class ApiV1PartyController {
 				@ExampleObject(name = "파티장·인원 모자람", value = PartyApiExamples.LEADER_TOO_FEW),
 				@ExampleObject(name = "파티원·모집 중", value = PartyApiExamples.MEMBER_RECRUITING),
 				@ExampleObject(name = "파티원·결제할 차례", value = PartyApiExamples.MEMBER_PAYING),
-				@ExampleObject(name = "파티 없음", value = PartyApiExamples.NO_PARTY)
+				@ExampleObject(name = "파티 없음", value = PartyApiExamples.NO_PARTY),
+				@ExampleObject(name = "파티 없음·개인 신청 확정", value = PartyApiExamples.INDIVIDUAL_CONFIRMED)
 			})),
 		@ApiResponse(responseCode = "400", description = "대회 ID 없음·형식 오류·0 이하",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {

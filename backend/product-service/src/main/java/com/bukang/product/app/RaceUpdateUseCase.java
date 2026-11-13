@@ -57,6 +57,9 @@ public class RaceUpdateUseCase {
 		// 종목도 같은 방법으로 종목마다 본다
 		Map<Long, LocalDateTime> courseModifyDatesBefore = race.getCourses().stream()
 			.collect(Collectors.toMap(RaceCourse::getId, RaceCourse::getModifyDate));
+		// AI 추천 벡터를 만들 글은 수정 전후의 글을 직접 비교한다 (BUK-162)
+		// 수정 일시로 보면 가격·날짜만 바꿔도 바뀐 것으로 보여, 쓸데없이 임베딩 API를 부르게 된다
+		String embeddingTextBefore = race.embeddingText();
 
 		// 판매 시작 일시가 요청 값으로 바뀌기 전에, 지금 판매가 시작됐는지 먼저 판단한다
 		LocalDateTime now = LocalDateTime.now();
@@ -117,6 +120,7 @@ public class RaceUpdateUseCase {
 		// 뺀 종목은 삭제 메시지로 알린다. 지운 행에는 수정 일시가 남지 않아 수정을 시작한 시각(now)을 삭제 시각으로 담는다
 		// now는 대회 행을 잠근 뒤 잡은 시각이라, 이 종목으로 앞서 보낸 메시지의 수정 일시보다 늦다
 		removedCourses.forEach(course -> courseChanges.add(course.toDeletedEvent(now)));
-		return new RaceSaveResult(saved.dto(), saved.fileLink(), raceChanged, courseChanges);
+		boolean embeddingTextChanged = !updated.embeddingText().equals(embeddingTextBefore);
+		return new RaceSaveResult(saved.dto(), saved.fileLink(), raceChanged, courseChanges, embeddingTextChanged);
 	}
 }

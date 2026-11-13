@@ -59,10 +59,10 @@ public class BoardCommentUseCase {
 		findWritable(memberId, commentId).delete();
 	}
 
-	// 부모는 같은 글의 지우지 않은 댓글이어야 한다. 답글을 부모로 지정하면 두 단계가 되므로 막는다
+	// 부모는 같은 글의 지우지도 숨기지도 않은 댓글이어야 한다. 답글을 부모로 지정하면 두 단계가 되므로 막는다
 	private void checkParent(long postId, long parentId) {
 		BoardComment parent = boardCommentRepository.findById(parentId)
-			.filter(comment -> comment.getPostId() == postId && !comment.isDeleted())
+			.filter(comment -> comment.getPostId() == postId && comment.isVisible())
 			.orElseThrow(BoardCommentNotFoundException::new);
 		if (parent.getParentId() != null) {
 			throw new BoardReplyDepthException();
@@ -73,7 +73,7 @@ public class BoardCommentUseCase {
 	// 숨겨진 글의 댓글: 글쓴이가 아니면 404(숨겨진 글이 있다는 사실을 드러내지 않음), 글쓴이면 409
 	private BoardComment findWritable(long memberId, long commentId) {
 		BoardComment comment = boardCommentRepository.findById(commentId)
-			.filter(found -> !found.isDeleted())
+			.filter(BoardComment::isVisible)
 			.orElseThrow(BoardCommentNotFoundException::new);
 		BoardPost post = boardPostRepository.findById(comment.getPostId())
 			.filter(found -> !found.isDeleted())

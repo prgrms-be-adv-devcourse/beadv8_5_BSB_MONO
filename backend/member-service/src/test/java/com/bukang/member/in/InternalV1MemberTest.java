@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
@@ -25,6 +26,7 @@ import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.SellerRepository;
 import com.bukang.member.out.TermsAgreementRepository;
 import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
+import com.bukang.member.out.payoutaccount.InMemoryPayoutAccountVerifyLimiter;
 import com.bukang.member.support.MemberFixture;
 
 // 정산 서비스가 부르는 회원 내부 API: 회원 ID로 판매자 ID 찾기, 관리자 여부 조회
@@ -32,13 +34,14 @@ import com.bukang.member.support.MemberFixture;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Import(InMemoryIdentityVerificationStore.Config.class)
+@Import({InMemoryIdentityVerificationStore.Config.class, InMemoryPayoutAccountVerifyLimiter.Config.class})
 class InternalV1MemberTest {
 	@Autowired
 	private InMemoryIdentityVerificationStore identityStore;
 
 	private static final String SELLER_OF_MEMBER = "/internal/v1/member/members/{memberId}/seller";
 	private static final String ADMIN_OF_MEMBER = "/internal/v1/member/members/{memberId}/admin";
+	private static final String PAYOUT_ACCOUNT = "/internal/v1/member/sellers/{sellerId}/payout-account";
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -52,6 +55,8 @@ class InternalV1MemberTest {
 	private SellerRepository sellerRepository;
 	@Autowired
 	private TermsAgreementRepository termsAgreementRepository;
+	@Autowired
+	private JdbcTemplate jdbcTemplate;
 
 	private long memberId;
 	private long adminId;
@@ -193,6 +198,38 @@ class InternalV1MemberTest {
 		mockMvc.perform(get(ADMIN_OF_MEMBER, memberId + 1000))
 			.andExpect(status().isNotFound())
 			.andExpect(jsonPath("$.code").value("MEMBER_NOT_FOUND"));
+	}
+
+	@Test
+	@DisplayName("계좌를 확인하고 신청한 판매자는 정산 계좌 등록 여부가 true다")
+	void payoutAccountRegistered() throws Exception {
+		long sellerId = sellerFacade.apply(memberId, MemberFixture.sellerApplyRequest()).getId();
+
+		mockMvc.perform(get(PAYOUT_ACCOUNT, sellerId))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.message").value("판매자 정산 계좌 등록 여부를 조회했습니다."))
+			.andExpect(jsonPath("$.data.registered").value(true));
+	}
+
+	@Test
+	@DisplayName("계좌 없이 신청된 판매자(이 기능 전에 신청한 판매자)는 정산 계좌 등록 여부가 false다")
+	void payoutAccountNotRegistered() throws Exception {
+		long sellerId = sellerFacade.apply(memberId, MemberFixture.sellerApplyRequest()).getId();
+		jdbcTemplate.update("update member_seller set payout_bank_code = null, payout_account_number = null, "
+			+ "payout_account_holder_name = null, payout_account_holder_type = null, payout_account_verified_at = null "
+			+ "where seller_id = ?", sellerId);
+
+		mockMvc.perform(get(PAYOUT_ACCOUNT, sellerId))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.registered").value(false));
+	}
+
+	@Test
+	@DisplayName("없는 판매자 신청서의 정산 계좌를 물으면 404 SELLER_NOT_FOUND다")
+	void payoutAccountOfUnknownSeller() throws Exception {
+		mockMvc.perform(get(PAYOUT_ACCOUNT, 99999L))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("SELLER_NOT_FOUND"));
 	}
 
 	private ResultActions findSellerOf(long id) throws Exception {

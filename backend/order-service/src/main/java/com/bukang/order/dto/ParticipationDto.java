@@ -1,6 +1,7 @@
 package com.bukang.order.dto;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import com.bukang.order.domain.ParticipationStatus;
 import com.bukang.order.domain.ParticipationType;
@@ -27,4 +28,6 @@ public class ParticipationDto {
 	private final LocalDateTime consentedAt;
 	// 자리 확보 전(PENDING)에는 null
 	private final LocalDateTime paymentDueAt;
+	// 결제 때 고른 키트 옵션 사본 (이름·값, 고른 순). 결제 전이거나 옵션이 없는 종목이면 빈 목록 (BUK-181)
+	private final List<KitOptionChoiceDto> kitOptions;
 }

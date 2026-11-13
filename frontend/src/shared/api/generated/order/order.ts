@@ -28,26 +28,44 @@ import type {
   CartCheckoutRequestDto,
   CartItemAddRequestDto,
   FindAdmissionParams,
+  FindKitOptionSalesParams,
   FindKitsParams,
   FindMineParams,
+  FindMyTicketsParams,
+  FindOrdersParams,
+  FindSoldEntriesParams,
+  GetMyPartiesParams,
+  GetMyRacePartyStatusParams,
   KitShipmentRequestDto,
   OrderCreateRequestDto,
   OrderPayRequestDto,
   ParticipantInfoRequestDto,
   ParticipationApplyRequestDto,
+  PartyCreateRequestDto,
+  PartyJoinRequestDto,
+  PartyPreviewRequestDto,
   RsData,
   RsDataCartCheckoutDto,
   RsDataCartDto,
   RsDataCartItemDto,
+  RsDataListPartySummaryDto,
+  RsDataListSellerKitOptionSaleDto,
+  RsDataMyTicketPageDto,
   RsDataOrderDto,
   RsDataOrderItemDto,
   RsDataOrderPageDto,
   RsDataParticipantInfoDto,
   RsDataParticipationDto,
+  RsDataPartyCreatedDto,
+  RsDataPartyDetailDto,
+  RsDataPartyDto,
+  RsDataPartyPreviewDto,
+  RsDataPartyRaceStatusDto,
   RsDataQueueAdmissionDto,
   RsDataSellerKitPageDto,
   RsDataSellerKitSummaryDto,
-  SummarizeParams
+  SummarizeParams,
+  SummarizeSoldParams
 } from './order.schemas';
 
 import { customFetch } from '../../fetcher';
@@ -71,6 +89,186 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getChangeTrackingUrl = (orderItemId: number,) => {
+
+
+
+
+  return `/api/v1/order/seller/kits/${orderItemId}/shipment`
+}
+
+/**
+ * 보낸 키트의 택배사(목록의 ID)·송장 번호를 고친다. 배송 중일 때만 고친다. 고치면 옛 송장의 배송 상태·이동 기록을 지우고 아직 조회되지 않음부터 다시 조회한다. 보낸 뒤 7일 동안 택배사에서 조회되지 않으면 조회를 멈추고 판매자에게 알리는데, 이때 송장을 고치면 다시 조회한다.
+ * @summary 키트 송장 고치기 (배송 중)
+ */
+export const changeTracking = async (orderItemId: number,
+    kitShipmentRequestDto: KitShipmentRequestDto, options?: Parameters<typeof customFetch>[1]): Promise<RsDataOrderItemDto> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<RsDataOrderItemDto>(getChangeTrackingUrl(orderItemId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(kitShipmentRequestDto)
+  }
+);}
+
+
+
+
+
+export const getChangeTrackingMutationKey = () => ['changeTracking'] as const;
+
+export const getChangeTrackingMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof changeTracking>>, TError,ChangeTrackingMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof changeTracking>>, TError,ChangeTrackingMutationVariables, TContext> => {
+
+const mutationKey = getChangeTrackingMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof changeTracking>>, ChangeTrackingMutationVariables> = (props) => {
+          const {orderItemId,data} = props ?? {};
+
+          return  changeTracking(orderItemId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ChangeTrackingMutationResult = NonNullable<Awaited<ReturnType<typeof changeTracking>>>
+    export type ChangeTrackingMutationBody = KitShipmentRequestDto
+    export type ChangeTrackingMutationError = RsData
+    export type ChangeTrackingMutationVariables = {orderItemId: number;data: KitShipmentRequestDto}
+
+    /**
+ * @summary 키트 송장 고치기 (배송 중)
+ */
+export const useChangeTracking = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof changeTracking>>, TError,ChangeTrackingMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof changeTracking>>,
+        TError,
+        ChangeTrackingMutationVariables,
+        TContext
+      > => {
+      return useMutation(getChangeTrackingMutationOptions(options), queryClient);
+    }
+
+export const getShipUrl = (orderItemId: number,) => {
+
+
+
+
+  return `/api/v1/order/seller/kits/${orderItemId}/shipment`
+}
+
+/**
+ * 택배사(목록의 ID)와 송장 번호를 넣어 배송 중으로 바꾼다. 결제한 참가권의 키트만, 한 번만 보낸다. 배송 상태는 Delivery Tracker에서 배송 단계에 따라 30분~3시간마다 받아 와 kitTracking에 남기고, 택배사가 배송 완료라고 하면 배송 완료로 바꾼다. 정책상 키트는 환불 기한이 지난 뒤 보내므로, 아직 환불할 수 있는 동안(환불 기한 날까지, 일정 변경 뒤 7일, 취소된 대회)은 409다.
+ * @summary 키트 발송 (배송 준비 → 배송 중)
+ */
+export const ship = async (orderItemId: number,
+    kitShipmentRequestDto: KitShipmentRequestDto, options?: Parameters<typeof customFetch>[1]): Promise<RsDataOrderItemDto> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<RsDataOrderItemDto>(getShipUrl(orderItemId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(kitShipmentRequestDto)
+  }
+);}
+
+
+
+
+
+export const getShipMutationKey = () => ['ship'] as const;
+
+export const getShipMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof ship>>, TError,ShipMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof ship>>, TError,ShipMutationVariables, TContext> => {
+
+const mutationKey = getShipMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof ship>>, ShipMutationVariables> = (props) => {
+          const {orderItemId,data} = props ?? {};
+
+          return  ship(orderItemId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ShipMutationResult = NonNullable<Awaited<ReturnType<typeof ship>>>
+    export type ShipMutationBody = KitShipmentRequestDto
+    export type ShipMutationError = RsData
+    export type ShipMutationVariables = {orderItemId: number;data: KitShipmentRequestDto}
+
+    /**
+ * @summary 키트 발송 (배송 준비 → 배송 중)
+ */
+export const useShip = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof ship>>, TError,ShipMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof ship>>,
+        TError,
+        ShipMutationVariables,
+        TContext
+      > => {
+      return useMutation(getShipMutationOptions(options), queryClient);
+    }
 
 export const getChangeParticipantUrl = (participationId: number,) => {
 
@@ -162,6 +360,573 @@ export const useChangeParticipant = <TError = RsData,
       return useMutation(getChangeParticipantMutationOptions(options), queryClient);
     }
 
+export const getCompleteDeliveryUrl = (orderItemId: number,) => {
+
+
+
+
+  return `/api/v1/order/seller/kits/${orderItemId}/delivery`
+}
+
+/**
+ * 보낸 키트를 배송 완료로 바꾼다. 한 번만 바꾼다. 보낸 뒤 취소된 참가권도 키트는 받으므로 바꿀 수 있다.
+ * @summary 키트 배송 완료 (배송 중 → 배송 완료)
+ */
+export const completeDelivery = async (orderItemId: number, options?: Parameters<typeof customFetch>[1]): Promise<RsDataOrderItemDto> => {
+
+  return customFetch<RsDataOrderItemDto>(getCompleteDeliveryUrl(orderItemId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getCompleteDeliveryMutationKey = () => ['completeDelivery'] as const;
+
+export const getCompleteDeliveryMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeDelivery>>, TError,CompleteDeliveryMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof completeDelivery>>, TError,CompleteDeliveryMutationVariables, TContext> => {
+
+const mutationKey = getCompleteDeliveryMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof completeDelivery>>, CompleteDeliveryMutationVariables> = (props) => {
+          const {orderItemId} = props ?? {};
+
+          return  completeDelivery(orderItemId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CompleteDeliveryMutationResult = NonNullable<Awaited<ReturnType<typeof completeDelivery>>>
+
+    export type CompleteDeliveryMutationError = RsData
+    export type CompleteDeliveryMutationVariables = {orderItemId: number}
+
+    /**
+ * @summary 키트 배송 완료 (배송 중 → 배송 완료)
+ */
+export const useCompleteDelivery = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeDelivery>>, TError,CompleteDeliveryMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof completeDelivery>>,
+        TError,
+        CompleteDeliveryMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCompleteDeliveryMutationOptions(options), queryClient);
+    }
+
+export const getCreatePartyUrl = () => {
+
+
+
+
+  return `/api/v1/order/parties`
+}
+
+/**
+ * 크루원이 파티를 만든다. 파티장이 고른 종목이 파티 종목이 되어 파티원 모두 그 종목으로 신청하고, 만든 뒤에는 바꿀 수 없다. 파티장도 참가자라 파티원 신청서(결제 전)를 함께 만들고, 참가 링크(24시간)가 함께 만들어진다. 같은 대회에 개인 신청이 남아 있으면 409 ORDER_INDIVIDUAL_PARTICIPATION_EXISTS와 data.participationId를 준다.
+ * @summary 파티 만들기
+ */
+export const createParty = async (partyCreateRequestDto: PartyCreateRequestDto, options?: Parameters<typeof customFetch>[1]): Promise<RsDataPartyCreatedDto> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<RsDataPartyCreatedDto>(getCreatePartyUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(partyCreateRequestDto)
+  }
+);}
+
+
+
+
+
+export const getCreatePartyMutationKey = () => ['createParty'] as const;
+
+export const getCreatePartyMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createParty>>, TError,CreatePartyMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createParty>>, TError,CreatePartyMutationVariables, TContext> => {
+
+const mutationKey = getCreatePartyMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createParty>>, CreatePartyMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createParty(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreatePartyMutationResult = NonNullable<Awaited<ReturnType<typeof createParty>>>
+    export type CreatePartyMutationBody = PartyCreateRequestDto
+    export type CreatePartyMutationError = RsData
+    export type CreatePartyMutationVariables = {data: PartyCreateRequestDto}
+
+    /**
+ * @summary 파티 만들기
+ */
+export const useCreateParty = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createParty>>, TError,CreatePartyMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createParty>>,
+        TError,
+        CreatePartyMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreatePartyMutationOptions(options), queryClient);
+    }
+
+export const getLeavePartyUrl = (partyId: number,) => {
+
+
+
+
+  return `/api/v1/order/parties/${partyId}/leave`
+}
+
+/**
+ * 신청 전(모집 중)에만 나갈 수 있다. 내 파티원 신청서는 취소되어 그 대회에 다시 신청할 수 있다. 파티장이 나가면 가장 먼저 합류한 파티원이 파티장이 되고, 남은 사람이 없으면 파티가 종료된다.
+ * @summary 파티 나가기
+ */
+export const leaveParty = async (partyId: number, options?: Parameters<typeof customFetch>[1]): Promise<RsDataParticipationDto> => {
+
+  return customFetch<RsDataParticipationDto>(getLeavePartyUrl(partyId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getLeavePartyMutationKey = () => ['leaveParty'] as const;
+
+export const getLeavePartyMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof leaveParty>>, TError,LeavePartyMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof leaveParty>>, TError,LeavePartyMutationVariables, TContext> => {
+
+const mutationKey = getLeavePartyMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof leaveParty>>, LeavePartyMutationVariables> = (props) => {
+          const {partyId} = props ?? {};
+
+          return  leaveParty(partyId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LeavePartyMutationResult = NonNullable<Awaited<ReturnType<typeof leaveParty>>>
+
+    export type LeavePartyMutationError = RsData
+    export type LeavePartyMutationVariables = {partyId: number}
+
+    /**
+ * @summary 파티 나가기
+ */
+export const useLeaveParty = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof leaveParty>>, TError,LeavePartyMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof leaveParty>>,
+        TError,
+        LeavePartyMutationVariables,
+        TContext
+      > => {
+      return useMutation(getLeavePartyMutationOptions(options), queryClient);
+    }
+
+export const getRegeneratePartyJoinLinkUrl = (partyId: number,) => {
+
+
+
+
+  return `/api/v1/order/parties/${partyId}/join-link`
+}
+
+/**
+ * 파티장만, 모집 중일 때 언제든 다시 만든다. 새로 만들면 옛 링크로는 합류할 수 없다(404).
+ * @summary 참가 링크 다시 만들기
+ */
+export const regeneratePartyJoinLink = async (partyId: number, options?: Parameters<typeof customFetch>[1]): Promise<RsDataPartyDto> => {
+
+  return customFetch<RsDataPartyDto>(getRegeneratePartyJoinLinkUrl(partyId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRegeneratePartyJoinLinkMutationKey = () => ['regeneratePartyJoinLink'] as const;
+
+export const getRegeneratePartyJoinLinkMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof regeneratePartyJoinLink>>, TError,RegeneratePartyJoinLinkMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof regeneratePartyJoinLink>>, TError,RegeneratePartyJoinLinkMutationVariables, TContext> => {
+
+const mutationKey = getRegeneratePartyJoinLinkMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof regeneratePartyJoinLink>>, RegeneratePartyJoinLinkMutationVariables> = (props) => {
+          const {partyId} = props ?? {};
+
+          return  regeneratePartyJoinLink(partyId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RegeneratePartyJoinLinkMutationResult = NonNullable<Awaited<ReturnType<typeof regeneratePartyJoinLink>>>
+
+    export type RegeneratePartyJoinLinkMutationError = RsData
+    export type RegeneratePartyJoinLinkMutationVariables = {partyId: number}
+
+    /**
+ * @summary 참가 링크 다시 만들기
+ */
+export const useRegeneratePartyJoinLink = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof regeneratePartyJoinLink>>, TError,RegeneratePartyJoinLinkMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof regeneratePartyJoinLink>>,
+        TError,
+        RegeneratePartyJoinLinkMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRegeneratePartyJoinLinkMutationOptions(options), queryClient);
+    }
+
+export const getApplyPartyUrl = (partyId: number,) => {
+
+
+
+
+  return `/api/v1/order/parties/${partyId}/apply`
+}
+
+/**
+ * 파티장이 [신청]을 누르면 파티원 전원의 크루 자리를 한꺼번에 잡고 파티원 결제 기간을 연다. 확인: 파티장·모집 중, 파티 대기열 입장 중, 대회 취소 아님, 파티 예매 기간(크루 예매 시작~마감)이고 접수 마감 전, 파티원 4명 이상(판매자 최소 인원이 더 크면 그 수)~판매자 최대 인원(비우면 제한 없음), 파티원 모두 크루원이고 파티 예매 시작 7일 전까지 가입. 자리가 모자라면 한 석도 잡지 않고 409 ORDER_PARTY_CREW_SEAT_SHORTAGE(data에 모자란 종목)를 주며 파티는 모집 중으로 남는다. 성공하면 파티는 결제 진행 중(PAYING), 파티원 신청서는 결제 대기(APPLIED)가 되고 결제 기한(paymentDueAt) = 신청 뒤 24시간·크루 예매 마감일 다음 날 0시·접수 마감 중 가장 이른 때이며 (크루 마감 시각 뒤에도 그날 자정까지 결제할 수 있다), 파티원 모두에게 결제 알림을 보낸다. 같은 파티는 다시 신청할 수 없다(409 ORDER_PARTY_NOT_RECRUITING).
+ * @summary 파티 신청 (파티장)
+ */
+export const applyParty = async (partyId: number, options?: Parameters<typeof customFetch>[1]): Promise<RsDataPartyDto> => {
+
+  return customFetch<RsDataPartyDto>(getApplyPartyUrl(partyId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getApplyPartyMutationKey = () => ['applyParty'] as const;
+
+export const getApplyPartyMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof applyParty>>, TError,ApplyPartyMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof applyParty>>, TError,ApplyPartyMutationVariables, TContext> => {
+
+const mutationKey = getApplyPartyMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof applyParty>>, ApplyPartyMutationVariables> = (props) => {
+          const {partyId} = props ?? {};
+
+          return  applyParty(partyId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ApplyPartyMutationResult = NonNullable<Awaited<ReturnType<typeof applyParty>>>
+
+    export type ApplyPartyMutationError = RsData
+    export type ApplyPartyMutationVariables = {partyId: number}
+
+    /**
+ * @summary 파티 신청 (파티장)
+ */
+export const useApplyParty = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof applyParty>>, TError,ApplyPartyMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof applyParty>>,
+        TError,
+        ApplyPartyMutationVariables,
+        TContext
+      > => {
+      return useMutation(getApplyPartyMutationOptions(options), queryClient);
+    }
+
+export const getPreviewPartyUrl = () => {
+
+
+
+
+  return `/api/v1/order/parties/preview`
+}
+
+/**
+ * 참가 링크를 연 순간 부른다(시안 08 합류 확인 위쪽). 로그인한 누구나 볼 수 있고 크루원 확인은 합류 때 한다. 토큰이 없거나 다시 만든 옛 토큰이면 404다. 그 밖에는 200에 파티 상태와 링크가 살아 있는지를 준다. status가 RECRUITING이 아니면 「모집 끝남」, joinLinkAlive=false면 「링크 끝남」 화면으로 보낸다. 토큰은 주소에 남지 않게 본문으로 받는다. 파티원 명단·참가자 정보는 주지 않는다.
+ * @summary 참가 링크로 파티 미리 보기
+ */
+export const previewParty = async (partyPreviewRequestDto: PartyPreviewRequestDto, options?: Parameters<typeof customFetch>[1]): Promise<RsDataPartyPreviewDto> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<RsDataPartyPreviewDto>(getPreviewPartyUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(partyPreviewRequestDto)
+  }
+);}
+
+
+
+
+
+export const getPreviewPartyMutationKey = () => ['previewParty'] as const;
+
+export const getPreviewPartyMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewParty>>, TError,PreviewPartyMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof previewParty>>, TError,PreviewPartyMutationVariables, TContext> => {
+
+const mutationKey = getPreviewPartyMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof previewParty>>, PreviewPartyMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  previewParty(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PreviewPartyMutationResult = NonNullable<Awaited<ReturnType<typeof previewParty>>>
+    export type PreviewPartyMutationBody = PartyPreviewRequestDto
+    export type PreviewPartyMutationError = RsData
+    export type PreviewPartyMutationVariables = {data: PartyPreviewRequestDto}
+
+    /**
+ * @summary 참가 링크로 파티 미리 보기
+ */
+export const usePreviewParty = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewParty>>, TError,PreviewPartyMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof previewParty>>,
+        TError,
+        PreviewPartyMutationVariables,
+        TContext
+      > => {
+      return useMutation(getPreviewPartyMutationOptions(options), queryClient);
+    }
+
+export const getJoinPartyUrl = () => {
+
+
+
+
+  return `/api/v1/order/parties/join`
+}
+
+/**
+ * 그 크루의 크루원이 참가 링크로 들어와 참가자 정보를 넣고 합류를 확정한다. 종목은 고르지 않고 파티 종목으로 파티원 신청서(결제 전)가 만들어진다(나이·티셔츠 확인도 파티 종목 기준). 나갔던 사람도 다시 합류할 수 있다. 같은 대회에 개인 신청이 남아 있으면 409 ORDER_INDIVIDUAL_PARTICIPATION_EXISTS와 data.participationId를 준다(개인 신청을 먼저 취소).
+ * @summary 참가 링크로 합류
+ */
+export const joinParty = async (partyJoinRequestDto: PartyJoinRequestDto, options?: Parameters<typeof customFetch>[1]): Promise<RsDataParticipationDto> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<RsDataParticipationDto>(getJoinPartyUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(partyJoinRequestDto)
+  }
+);}
+
+
+
+
+
+export const getJoinPartyMutationKey = () => ['joinParty'] as const;
+
+export const getJoinPartyMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof joinParty>>, TError,JoinPartyMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof joinParty>>, TError,JoinPartyMutationVariables, TContext> => {
+
+const mutationKey = getJoinPartyMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof joinParty>>, JoinPartyMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  joinParty(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type JoinPartyMutationResult = NonNullable<Awaited<ReturnType<typeof joinParty>>>
+    export type JoinPartyMutationBody = PartyJoinRequestDto
+    export type JoinPartyMutationError = RsData
+    export type JoinPartyMutationVariables = {data: PartyJoinRequestDto}
+
+    /**
+ * @summary 참가 링크로 합류
+ */
+export const useJoinParty = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof joinParty>>, TError,JoinPartyMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof joinParty>>,
+        TError,
+        JoinPartyMutationVariables,
+        TContext
+      > => {
+      return useMutation(getJoinPartyMutationOptions(options), queryClient);
+    }
+
 export const getApplyUrl = () => {
 
 
@@ -171,7 +936,7 @@ export const getApplyUrl = () => {
 }
 
 /**
- * 결제 전에 참가자 정보와 개인정보 제3자 제공 동의를 받아 참가 신청을 자리 확보 전(PENDING) 상태로 저장한다. 종목의 접수 기간, 대회 당일 만 나이 제한, 같은 대회에 살아 있는 신청이 있는지(한 사람 한 대회 1건)를 확인한다. 키트가 있는 종목은 배송 주소가 필수이고, 키트가 없는 종목은 배송 주소를 저장하지 않는다.
+ * 결제 전에 참가자 정보와 개인정보 제3자 제공 동의를 받아 참가 신청을 자리 확보 전(PENDING) 상태로 저장한다. 종목의 접수 기간, 대회 당일 만 나이 제한, 같은 대회에 살아 있는 신청이 있는지(한 사람 한 대회 1건)를 확인한다. 같은 대회에 결제 전(PENDING) 신청서가 남아 있으면 그 신청서를 취소하고 새로 저장한다(다른 종목이어도). 결제 대기·결제 완료 신청이 있으면 409다. 키트가 있는 종목은 배송 주소가 필수이고, 키트가 없는 종목은 배송 주소를 저장하지 않는다.
  * @summary 참가 신청서 작성
  */
 export const apply = async (participationApplyRequestDto: ParticipationApplyRequestDto, options?: Parameters<typeof customFetch>[1]): Promise<RsDataParticipationDto> => {
@@ -444,7 +1209,7 @@ export const getCreateUrl = () => {
 }
 
 /**
- * 대기열에 입장 중인지 확인하고, 자리 확보 전(PENDING) 참가 신청으로 상품 서비스에 자리 1석을 확보받아 입장 끝 시각을 결제 기한으로 하는 주문(CREATED)을 만든다. 입장 중이 아니면 403(ORDER_QUEUE_NOT_ADMITTED). 같은 Idempotency-Key로 다시 보내면 새 주문 없이 처음 주문을 돌려준다. 남은 자리가 없으면 참가 신청이 확보 실패(FAILED)가 되고 주문은 만들지 않는다.
+ * 대기열에 입장 중인지 확인하고, 자리 확보 전(PENDING) 참가 신청으로 상품 서비스에 자리 1석을 확보받아 입장 끝 시각을 결제 기한으로 하는 주문(CREATED)을 만든다. 입장 중이 아니면 403(ORDER_QUEUE_NOT_ADMITTED). 같은 Idempotency-Key로 다시 보내면 새 주문 없이 처음 주문을 돌려준다. 남은 자리가 없으면 참가 신청이 확보 실패(FAILED)가 되고 주문은 만들지 않는다. 파티원 신청서는 파티장이 신청해 크루 자리를 이미 잡았으므로(결제 대기) 대기열·자리 확보 없이 파티 결제 기한을 결제 기한으로 하는 주문을 만든다. 파티장이 신청하기 전이거나 결제 기간이 끝났으면 409다.
  * @summary 바로 결제 예매 ([결제하기])
  */
 export const create = async (orderCreateRequestDto: OrderCreateRequestDto, options?: Parameters<typeof customFetch>[1]): Promise<RsDataOrderDto> => {
@@ -533,7 +1298,7 @@ export const getPayUrl = (orderId: number,) => {
 }
 
 /**
- * 결제 대기(CREATED) 주문을 예치금으로 결제하고 참가를 확정한다. 순서: 예치금 차감 → 자리 판매 → 주문 PAID·참가 신청 CONFIRMED. 잔액이 부족하면 주문과 자리를 그대로 두므로, 충전한 뒤 같은 주문으로 다시 결제한다. 기한이 지나 자리 판매가 거절되면 차감한 예치금을 돌려주고 409를 돌려준다. 이미 결제한 주문은 다시 차감하지 않고 200으로 돌려준다. 키트 옵션은 결제 화면에서 고른 kitOptionIds로 받는다. 대회에 옵션이 있으면 옵션 이름마다 하나씩 골라야 하고, 옵션이 없는 대회는 비우거나 본문을 보내지 않는다.
+ * 결제 대기(CREATED) 주문을 예치금으로 결제하고 참가를 확정한다. 순서: 예치금 차감 → 자리 판매 → 주문 PAID·참가 신청 CONFIRMED. 잔액이 부족하면 주문과 자리를 그대로 두므로, 충전한 뒤 같은 주문으로 다시 결제한다. 기한이 지나 자리 판매가 거절되면 차감한 예치금을 돌려주고 409를 돌려준다. 이미 결제한 주문은 다시 차감하지 않고 200으로 돌려준다. 파티원 주문은 예치금을 빼기 전에 대회 취소와 크루원인지를 다시 본다(크루를 떠났으면 409 ORDER_PARTY_MEMBER_NOT_CREW). 키트 옵션은 결제 화면에서 고른 kitOptionIds로 받는다. 대회에 옵션이 있으면 옵션 이름마다 하나씩 골라야 하고, 옵션이 없는 대회는 비우거나 본문을 보내지 않는다. 예치금을 빼기 전에 옵션별 판매 수를 판매 상한과 견주어, 다 팔린 옵션이 있으면 409 ORDER_KIT_OPTION_SOLD_OUT과 팔린 옵션 목록(data.soldOut)을 돌려준다(자리는 결제 기한까지 그대로라 다른 옵션으로 다시 결제한다). 이미 결제한 주문은 kitOptionIds를 보지 않는다.
  * @summary 예치금 결제
  */
 export const pay = async (orderId: number,
@@ -624,7 +1389,7 @@ export const getCancelItemUrl = (orderId: number,
 }
 
 /**
- * 결제한 주문 상품(참가권, 키트 포함)을 취소하고 예치금으로 전액 돌려준다. 환불 기한 날짜까지(그날 23:59:59 포함)는 자동 승인하고, 판매 시작 뒤 대회 일정이 바뀌었으면 바뀐 날(알린 날)부터 7일 동안은 환불 기한과 상관없이 자동 승인한다. 일부만 취소하면 주문은 PARTIAL_CANCELED, 모두 취소하면 CANCELED가 되고, 참가 신청은 CANCELED가 되어 같은 대회에 다시 신청할 수 있다. 정산 대상일(대회 다음 날)이 지난 참가권은 정산 서비스가 거절한다. 같은 취소를 다시 보내면 409로 막혀 환불은 한 번만 일어난다.
+ * 결제한 주문 상품(참가권, 키트 포함)을 취소하고 예치금으로 전액 돌려준다. 환불 기한 날짜까지(그날 23:59:59 포함)는 자동 승인하고, 판매 시작 뒤 대회 일정이 바뀌었으면 바뀐 날(알린 날)부터 7일 동안은 환불 기한과 상관없이 자동 승인한다. 일부만 취소하면 주문은 PARTIAL_CANCELED, 모두 취소하면 CANCELED가 되고, 참가 신청은 CANCELED가 되어 같은 대회에 다시 신청할 수 있다. 정산 생성일(대회 다음 날)이 지난 참가권은 정산 서비스가 거절한다. 같은 취소를 다시 보내면 409로 막혀 환불은 한 번만 일어난다. 예치금 환불 응답을 받지 못하면(시간 초과·5xx) 202로 답하고 주문 상품은 취소 중(CANCELING)으로 남는다. 1분 뒤부터 재처리가 환불을 다시 확인해 취소로 마무리하므로, 주문 상세를 다시 조회해 상태를 본다. 예치금이 환불을 거절하면(4xx) 결제 완료로 되돌리고 503으로 답한다.
  * @summary 참가권 취소·환불
  */
 export const cancelItem = async (orderId: number,
@@ -869,6 +1634,1069 @@ export const useCheckout = <TError = RsData,
       return useMutation(getCheckoutMutationOptions(options), queryClient);
     }
 
+export const getSummarizeSoldUrl = (params: SummarizeSoldParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/internal/v1/order/sold-summary?${stringifiedParams}` : `/internal/v1/order/sold-summary`
+}
+
+/**
+ * 정산 서비스가 1차 정산 생성 배치에서 부른다. 이 대회의 주문 상품 중 결제 완료이고 취소되지 않은 참가권을 판매자 × 코스로 묶어 결제 금액 합(priceSum)과 장수(ticketCount)를 판매자, 코스 순으로 돌려준다. priceSum은 판매 내역 조회의 price와 같은 금액을 더한 값이다. 판매가 없거나 없는 대회면 빈 목록이다. 필드는 정산 서비스의 SoldSummary와 같다.
+ * @summary 1차 정산용 판매 집계 조회
+ */
+export const summarizeSold = async (params: SummarizeSoldParams, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getSummarizeSoldUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getSummarizeSoldQueryKey = (params?: SummarizeSoldParams,) => {
+    return [
+    `/internal/v1/order/sold-summary`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getSummarizeSoldQueryOptions = <TData = Awaited<ReturnType<typeof summarizeSold>>, TError = RsData>(params: SummarizeSoldParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof summarizeSold>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getSummarizeSoldQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof summarizeSold>>> = ({ signal }) => summarizeSold(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof summarizeSold>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type SummarizeSoldQueryResult = NonNullable<Awaited<ReturnType<typeof summarizeSold>>>
+export type SummarizeSoldQueryError = RsData
+
+
+export function useSummarizeSold<TData = Awaited<ReturnType<typeof summarizeSold>>, TError = RsData>(
+ params: SummarizeSoldParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof summarizeSold>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof summarizeSold>>,
+          TError,
+          Awaited<ReturnType<typeof summarizeSold>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useSummarizeSold<TData = Awaited<ReturnType<typeof summarizeSold>>, TError = RsData>(
+ params: SummarizeSoldParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof summarizeSold>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof summarizeSold>>,
+          TError,
+          Awaited<ReturnType<typeof summarizeSold>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useSummarizeSold<TData = Awaited<ReturnType<typeof summarizeSold>>, TError = RsData>(
+ params: SummarizeSoldParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof summarizeSold>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 1차 정산용 판매 집계 조회
+ */
+
+export function useSummarizeSold<TData = Awaited<ReturnType<typeof summarizeSold>>, TError = RsData>(
+ params: SummarizeSoldParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof summarizeSold>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getSummarizeSoldQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getFindSoldEntriesUrl = (params: FindSoldEntriesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/internal/v1/order/sold-entries?${stringifiedParams}` : `/internal/v1/order/sold-entries`
+}
+
+/**
+ * 정산 서비스가 최종 정산 생성 배치에서 부른다. 이 대회의 주문 상품 중 결제 완료이거나 취소 중인 참가권을 주문 상품 ID 순으로 돌려준다. 판매가 없거나 없는 대회면 빈 목록이다. 필드는 정산 서비스의 SoldEntry와 같고, raceCourseId는 참가권의 코스, raceDate는 주문 때 복사한 대회 날짜, price는 1장 값(키트 포함), status는 결제 완료(PAID) 또는 취소 중(CANCELING)이다.
+ * @summary 정산용 판매 내역 조회
+ */
+export const findSoldEntries = async (params: FindSoldEntriesParams, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getFindSoldEntriesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getFindSoldEntriesQueryKey = (params?: FindSoldEntriesParams,) => {
+    return [
+    `/internal/v1/order/sold-entries`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getFindSoldEntriesQueryOptions = <TData = Awaited<ReturnType<typeof findSoldEntries>>, TError = RsData>(params: FindSoldEntriesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findSoldEntries>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getFindSoldEntriesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof findSoldEntries>>> = ({ signal }) => findSoldEntries(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof findSoldEntries>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type FindSoldEntriesQueryResult = NonNullable<Awaited<ReturnType<typeof findSoldEntries>>>
+export type FindSoldEntriesQueryError = RsData
+
+
+export function useFindSoldEntries<TData = Awaited<ReturnType<typeof findSoldEntries>>, TError = RsData>(
+ params: FindSoldEntriesParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof findSoldEntries>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findSoldEntries>>,
+          TError,
+          Awaited<ReturnType<typeof findSoldEntries>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindSoldEntries<TData = Awaited<ReturnType<typeof findSoldEntries>>, TError = RsData>(
+ params: FindSoldEntriesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findSoldEntries>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findSoldEntries>>,
+          TError,
+          Awaited<ReturnType<typeof findSoldEntries>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindSoldEntries<TData = Awaited<ReturnType<typeof findSoldEntries>>, TError = RsData>(
+ params: FindSoldEntriesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findSoldEntries>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 정산용 판매 내역 조회
+ */
+
+export function useFindSoldEntries<TData = Awaited<ReturnType<typeof findSoldEntries>>, TError = RsData>(
+ params: FindSoldEntriesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findSoldEntries>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getFindSoldEntriesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getFindOrderUrl = (orderId: number,) => {
+
+
+
+
+  return `/internal/v1/order/orders/${orderId}/summary`
+}
+
+/**
+ * 문의 서비스가 부른다. 주문한 회원 ID, 주문번호, 결제 금액, 주문 상태와 주문 상품마다 대회 ID·대회명·종목명·키트 요약·키트 배송 상태를 돌려준다. status는 OrderStatus, deliveryStatus는 KitDeliveryStatus 이름 그대로다. deliveryStatus는 구매자 주문 상세와 같은 값이고, 키트가 없으면 kitSummary·deliveryStatus는 null이다. 대회명·종목명은 상품 서비스에서 받고, 받지 못하면 raceName에 주문 때 남긴 상품명(대회명 종목명)을, courseName에 null을 준다.
+ * @summary 문의용 주문 요약 조회
+ */
+export const findOrder = async (orderId: number, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getFindOrderUrl(orderId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getFindOrderQueryKey = (orderId: number,) => {
+    return [
+    `/internal/v1/order/orders/${orderId}/summary`
+    ] as const;
+    }
+
+
+export const getFindOrderQueryOptions = <TData = Awaited<ReturnType<typeof findOrder>>, TError = RsData>(orderId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findOrder>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getFindOrderQueryKey(orderId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof findOrder>>> = ({ signal }) => findOrder(orderId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orderId !== null && orderId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof findOrder>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type FindOrderQueryResult = NonNullable<Awaited<ReturnType<typeof findOrder>>>
+export type FindOrderQueryError = RsData
+
+
+export function useFindOrder<TData = Awaited<ReturnType<typeof findOrder>>, TError = RsData>(
+ orderId: number, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof findOrder>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findOrder>>,
+          TError,
+          Awaited<ReturnType<typeof findOrder>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindOrder<TData = Awaited<ReturnType<typeof findOrder>>, TError = RsData>(
+ orderId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findOrder>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findOrder>>,
+          TError,
+          Awaited<ReturnType<typeof findOrder>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindOrder<TData = Awaited<ReturnType<typeof findOrder>>, TError = RsData>(
+ orderId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findOrder>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 문의용 주문 요약 조회
+ */
+
+export function useFindOrder<TData = Awaited<ReturnType<typeof findOrder>>, TError = RsData>(
+ orderId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findOrder>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getFindOrderQueryOptions(orderId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCountActiveTicketsUrl = (memberId: number,) => {
+
+
+
+
+  return `/internal/v1/order/members/${memberId}/active-tickets/count`
+}
+
+/**
+ * 회원 탈퇴 확인용. 회원이 산 참가권 중 결제 완료이고 취소·환불되지 않았으며, 대회 날짜(주문 때 복사한 날짜)가 오늘 이후(오늘 포함)인 것의 수를 돌려준다. 결제 대기·기한 만료 주문은 아직 참가권이 아니라 세지 않는다.
+ * @summary 끝나지 않은 참가권 수 조회
+ */
+export const countActiveTickets = async (memberId: number, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getCountActiveTicketsUrl(memberId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getCountActiveTicketsQueryKey = (memberId: number,) => {
+    return [
+    `/internal/v1/order/members/${memberId}/active-tickets/count`
+    ] as const;
+    }
+
+
+export const getCountActiveTicketsQueryOptions = <TData = Awaited<ReturnType<typeof countActiveTickets>>, TError = unknown>(memberId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof countActiveTickets>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getCountActiveTicketsQueryKey(memberId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof countActiveTickets>>> = ({ signal }) => countActiveTickets(memberId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: memberId !== null && memberId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof countActiveTickets>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type CountActiveTicketsQueryResult = NonNullable<Awaited<ReturnType<typeof countActiveTickets>>>
+export type CountActiveTicketsQueryError = unknown
+
+
+export function useCountActiveTickets<TData = Awaited<ReturnType<typeof countActiveTickets>>, TError = unknown>(
+ memberId: number, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof countActiveTickets>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof countActiveTickets>>,
+          TError,
+          Awaited<ReturnType<typeof countActiveTickets>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useCountActiveTickets<TData = Awaited<ReturnType<typeof countActiveTickets>>, TError = unknown>(
+ memberId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof countActiveTickets>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof countActiveTickets>>,
+          TError,
+          Awaited<ReturnType<typeof countActiveTickets>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useCountActiveTickets<TData = Awaited<ReturnType<typeof countActiveTickets>>, TError = unknown>(
+ memberId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof countActiveTickets>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 끝나지 않은 참가권 수 조회
+ */
+
+export function useCountActiveTickets<TData = Awaited<ReturnType<typeof countActiveTickets>>, TError = unknown>(
+ memberId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof countActiveTickets>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getCountActiveTicketsQueryOptions(memberId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getFindCrewPartyStatusUrl = (crewId: number,) => {
+
+
+
+
+  return `/internal/v1/order/crews/${crewId}/party-status`
+}
+
+/**
+ * 회원 서비스가 크루장이 크루를 없애기 전에 부른다 (11/09 결정). 이 크루의 파티 중 모집 중·결제 진행 중·결제 끝인 것을 돌려준다. canDelete는 그런 파티가 하나도 없을 때 true다. 결제 끝 파티는 대회 다음 날 종료된다. 부르기가 실패하면 회원 서비스는 없애기를 거절한다.
+ * @summary 크루의 파티 상태 조회 (크루 없애기 확인)
+ */
+export const findCrewPartyStatus = async (crewId: number, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getFindCrewPartyStatusUrl(crewId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getFindCrewPartyStatusQueryKey = (crewId: number,) => {
+    return [
+    `/internal/v1/order/crews/${crewId}/party-status`
+    ] as const;
+    }
+
+
+export const getFindCrewPartyStatusQueryOptions = <TData = Awaited<ReturnType<typeof findCrewPartyStatus>>, TError = unknown>(crewId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findCrewPartyStatus>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getFindCrewPartyStatusQueryKey(crewId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof findCrewPartyStatus>>> = ({ signal }) => findCrewPartyStatus(crewId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: crewId !== null && crewId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof findCrewPartyStatus>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type FindCrewPartyStatusQueryResult = NonNullable<Awaited<ReturnType<typeof findCrewPartyStatus>>>
+export type FindCrewPartyStatusQueryError = unknown
+
+
+export function useFindCrewPartyStatus<TData = Awaited<ReturnType<typeof findCrewPartyStatus>>, TError = unknown>(
+ crewId: number, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof findCrewPartyStatus>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findCrewPartyStatus>>,
+          TError,
+          Awaited<ReturnType<typeof findCrewPartyStatus>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindCrewPartyStatus<TData = Awaited<ReturnType<typeof findCrewPartyStatus>>, TError = unknown>(
+ crewId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findCrewPartyStatus>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findCrewPartyStatus>>,
+          TError,
+          Awaited<ReturnType<typeof findCrewPartyStatus>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindCrewPartyStatus<TData = Awaited<ReturnType<typeof findCrewPartyStatus>>, TError = unknown>(
+ crewId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findCrewPartyStatus>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 크루의 파티 상태 조회 (크루 없애기 확인)
+ */
+
+export function useFindCrewPartyStatus<TData = Awaited<ReturnType<typeof findCrewPartyStatus>>, TError = unknown>(
+ crewId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findCrewPartyStatus>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getFindCrewPartyStatusQueryOptions(crewId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getFindPartyStatusUrl = (crewId: number,
+    memberId: number,) => {
+
+
+
+
+  return `/internal/v1/order/crews/${crewId}/members/${memberId}/party-status`
+}
+
+/**
+ * 회원 서비스가 크루원이 크루를 나가거나 크루장이 내보내기 전에 부른다 (11/05 회의 C1·C2). 이 크루에서 회원이 아직 들어 있는 파티 중 모집 중·결제 진행 중·결제 끝인 것을 돌려준다. canLeave는 그런 파티가 하나도 없을 때 true, canKick은 결제 진행 중·결제 끝 파티가 없을 때 true다. 결제 끝 파티는 대회 다음 날 종료되면 막지 않는다(11/09 결정). 종료된 파티와 이미 나간 파티는 막지 않는다. 파티가 없으면 둘 다 true다. 부르기가 실패하면 회원 서비스는 나가기·내보내기를 거절한다.
+ * @summary 크루원의 파티 상태 조회 (크루 나가기·내보내기 확인)
+ */
+export const findPartyStatus = async (crewId: number,
+    memberId: number, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getFindPartyStatusUrl(crewId,memberId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getFindPartyStatusQueryKey = (crewId: number,
+    memberId: number,) => {
+    return [
+    `/internal/v1/order/crews/${crewId}/members/${memberId}/party-status`
+    ] as const;
+    }
+
+
+export const getFindPartyStatusQueryOptions = <TData = Awaited<ReturnType<typeof findPartyStatus>>, TError = unknown>(crewId: number,
+    memberId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findPartyStatus>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getFindPartyStatusQueryKey(crewId,memberId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof findPartyStatus>>> = ({ signal }) => findPartyStatus(crewId,memberId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: crewId !== null && crewId !== undefined && memberId !== null && memberId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof findPartyStatus>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type FindPartyStatusQueryResult = NonNullable<Awaited<ReturnType<typeof findPartyStatus>>>
+export type FindPartyStatusQueryError = unknown
+
+
+export function useFindPartyStatus<TData = Awaited<ReturnType<typeof findPartyStatus>>, TError = unknown>(
+ crewId: number,
+    memberId: number, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof findPartyStatus>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findPartyStatus>>,
+          TError,
+          Awaited<ReturnType<typeof findPartyStatus>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindPartyStatus<TData = Awaited<ReturnType<typeof findPartyStatus>>, TError = unknown>(
+ crewId: number,
+    memberId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findPartyStatus>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findPartyStatus>>,
+          TError,
+          Awaited<ReturnType<typeof findPartyStatus>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindPartyStatus<TData = Awaited<ReturnType<typeof findPartyStatus>>, TError = unknown>(
+ crewId: number,
+    memberId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findPartyStatus>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 크루원의 파티 상태 조회 (크루 나가기·내보내기 확인)
+ */
+
+export function useFindPartyStatus<TData = Awaited<ReturnType<typeof findPartyStatus>>, TError = unknown>(
+ crewId: number,
+    memberId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findPartyStatus>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getFindPartyStatusQueryOptions(crewId,memberId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getFindKitsUrl = (params?: FindKitsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/order/seller/kits?${stringifiedParams}` : `/api/v1/order/seller/kits`
+}
+
+/**
+ * 판매자 대회의 키트가 있는 참가권 중 결제했거나 이미 보낸 것을 최근 주문부터 돌려준다. 대회(raceId)·배송 상태(status)로 거를 수 있다. 보낸 뒤 취소된 참가권은 orderItemStatus가 CANCELED로 남는다. 구매자 이름·사이즈·배송지는 참가 신청 때 판매자 제3자 제공에 동의한 범위다.
+ * @summary 내 대회 키트 주문 목록
+ */
+export const findKits = async (params?: FindKitsParams, options?: Parameters<typeof customFetch>[1]): Promise<RsDataSellerKitPageDto> => {
+
+  return customFetch<RsDataSellerKitPageDto>(getFindKitsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getFindKitsQueryKey = (params?: FindKitsParams,) => {
+    return [
+    `/api/v1/order/seller/kits`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getFindKitsQueryOptions = <TData = Awaited<ReturnType<typeof findKits>>, TError = RsData>(params?: FindKitsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findKits>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getFindKitsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof findKits>>> = ({ signal }) => findKits(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof findKits>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type FindKitsQueryResult = NonNullable<Awaited<ReturnType<typeof findKits>>>
+export type FindKitsQueryError = RsData
+
+
+export function useFindKits<TData = Awaited<ReturnType<typeof findKits>>, TError = RsData>(
+ params: undefined |  FindKitsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof findKits>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findKits>>,
+          TError,
+          Awaited<ReturnType<typeof findKits>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindKits<TData = Awaited<ReturnType<typeof findKits>>, TError = RsData>(
+ params?: FindKitsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findKits>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findKits>>,
+          TError,
+          Awaited<ReturnType<typeof findKits>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindKits<TData = Awaited<ReturnType<typeof findKits>>, TError = RsData>(
+ params?: FindKitsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findKits>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 내 대회 키트 주문 목록
+ */
+
+export function useFindKits<TData = Awaited<ReturnType<typeof findKits>>, TError = RsData>(
+ params?: FindKitsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findKits>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getFindKitsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSummarizeUrl = (params?: SummarizeParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/order/seller/kits/summary?${stringifiedParams}` : `/api/v1/order/seller/kits/summary`
+}
+
+/**
+ * 배송 준비·배송 중·배송 완료 건수와, 배송 준비 중 아직 환불할 수 있어 보낼 수 없는(환불 기한 전) 건수를 돌려준다. 목록과 같은 기준으로 센다.
+ * @summary 키트 배송 건수
+ */
+export const summarize = async (params?: SummarizeParams, options?: Parameters<typeof customFetch>[1]): Promise<RsDataSellerKitSummaryDto> => {
+
+  return customFetch<RsDataSellerKitSummaryDto>(getSummarizeUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getSummarizeQueryKey = (params?: SummarizeParams,) => {
+    return [
+    `/api/v1/order/seller/kits/summary`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getSummarizeQueryOptions = <TData = Awaited<ReturnType<typeof summarize>>, TError = RsData>(params?: SummarizeParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof summarize>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getSummarizeQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof summarize>>> = ({ signal }) => summarize(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof summarize>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type SummarizeQueryResult = NonNullable<Awaited<ReturnType<typeof summarize>>>
+export type SummarizeQueryError = RsData
+
+
+export function useSummarize<TData = Awaited<ReturnType<typeof summarize>>, TError = RsData>(
+ params: undefined |  SummarizeParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof summarize>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof summarize>>,
+          TError,
+          Awaited<ReturnType<typeof summarize>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useSummarize<TData = Awaited<ReturnType<typeof summarize>>, TError = RsData>(
+ params?: SummarizeParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof summarize>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof summarize>>,
+          TError,
+          Awaited<ReturnType<typeof summarize>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useSummarize<TData = Awaited<ReturnType<typeof summarize>>, TError = RsData>(
+ params?: SummarizeParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof summarize>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 키트 배송 건수
+ */
+
+export function useSummarize<TData = Awaited<ReturnType<typeof summarize>>, TError = RsData>(
+ params?: SummarizeParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof summarize>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getSummarizeQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getFindKitOptionSalesUrl = (params: FindKitOptionSalesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/order/seller/kits/options?${stringifiedParams}` : `/api/v1/order/seller/kits/options`
+}
+
+/**
+ * 대회의 키트 옵션마다 이름·값·준비 수량(stock)·판매 수(sold)·남은 수량(remaining)을 돌려준다. 옵션과 준비 수량은 상품 서비스의 옵션 목록에서, 판매 수는 주문이 결제 때 센 값(취소하면 줄어듦)이다. 준비 수량(판매 상한)이 null이면 제한이 없어 남은 수량도 null(제한 없음)이다. 옵션이 없는 대회는 빈 목록이다. 이 대회에 다른 판매자의 주문이 있으면 403이다.
+ * @summary 키트 옵션별 판매 현황
+ */
+export const findKitOptionSales = async (params: FindKitOptionSalesParams, options?: Parameters<typeof customFetch>[1]): Promise<RsDataListSellerKitOptionSaleDto> => {
+
+  return customFetch<RsDataListSellerKitOptionSaleDto>(getFindKitOptionSalesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getFindKitOptionSalesQueryKey = (params?: FindKitOptionSalesParams,) => {
+    return [
+    `/api/v1/order/seller/kits/options`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getFindKitOptionSalesQueryOptions = <TData = Awaited<ReturnType<typeof findKitOptionSales>>, TError = RsData>(params: FindKitOptionSalesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findKitOptionSales>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getFindKitOptionSalesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof findKitOptionSales>>> = ({ signal }) => findKitOptionSales(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof findKitOptionSales>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type FindKitOptionSalesQueryResult = NonNullable<Awaited<ReturnType<typeof findKitOptionSales>>>
+export type FindKitOptionSalesQueryError = RsData
+
+
+export function useFindKitOptionSales<TData = Awaited<ReturnType<typeof findKitOptionSales>>, TError = RsData>(
+ params: FindKitOptionSalesParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof findKitOptionSales>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findKitOptionSales>>,
+          TError,
+          Awaited<ReturnType<typeof findKitOptionSales>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindKitOptionSales<TData = Awaited<ReturnType<typeof findKitOptionSales>>, TError = RsData>(
+ params: FindKitOptionSalesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findKitOptionSales>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findKitOptionSales>>,
+          TError,
+          Awaited<ReturnType<typeof findKitOptionSales>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindKitOptionSales<TData = Awaited<ReturnType<typeof findKitOptionSales>>, TError = RsData>(
+ params: FindKitOptionSalesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findKitOptionSales>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 키트 옵션별 판매 현황
+ */
+
+export function useFindKitOptionSales<TData = Awaited<ReturnType<typeof findKitOptionSales>>, TError = RsData>(
+ params: FindKitOptionSalesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findKitOptionSales>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getFindKitOptionSalesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getFindCarriersUrl = () => {
+
+
+
+
+  return `/api/v1/order/seller/kits/carriers`
+}
+
+/**
+ * 발송할 때 고를 수 있는 택배사. 발송 요청의 carrierId에는 이 목록의 id만 넣는다. 개발 설정에서는 가짜 택배사(dev.track.dummy, 운송장 번호는 2026-11-03T12:00:00Z 같은 시각)도 나온다.
+ * @summary 택배사 목록
+ */
+export const findCarriers = async ( options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getFindCarriersUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getFindCarriersQueryKey = () => {
+    return [
+    `/api/v1/order/seller/kits/carriers`
+    ] as const;
+    }
+
+
+export const getFindCarriersQueryOptions = <TData = Awaited<ReturnType<typeof findCarriers>>, TError = RsData>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findCarriers>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getFindCarriersQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof findCarriers>>> = ({ signal }) => findCarriers({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof findCarriers>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type FindCarriersQueryResult = NonNullable<Awaited<ReturnType<typeof findCarriers>>>
+export type FindCarriersQueryError = RsData
+
+
+export function useFindCarriers<TData = Awaited<ReturnType<typeof findCarriers>>, TError = RsData>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof findCarriers>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findCarriers>>,
+          TError,
+          Awaited<ReturnType<typeof findCarriers>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindCarriers<TData = Awaited<ReturnType<typeof findCarriers>>, TError = RsData>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findCarriers>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findCarriers>>,
+          TError,
+          Awaited<ReturnType<typeof findCarriers>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindCarriers<TData = Awaited<ReturnType<typeof findCarriers>>, TError = RsData>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findCarriers>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 택배사 목록
+ */
+
+export function useFindCarriers<TData = Awaited<ReturnType<typeof findCarriers>>, TError = RsData>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findCarriers>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getFindCarriersQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getFindAdmissionUrl = (params: FindAdmissionParams,) => {
   const normalizedParams = new URLSearchParams();
 
@@ -885,7 +2713,7 @@ export const getFindAdmissionUrl = (params: FindAdmissionParams,) => {
 }
 
 /**
- * 이 종목에 대기열로 입장 중인지와 입장 끝 시각, 남은 초를 돌려준다. 입장 끝 시각이 [결제하기]의 결제 기한이다. 타이머는 remainingSeconds로 센다(서버 시각 기준). 입장 중이 아니면 admitted=false이고 [결제하기]가 403이다. 대기열 API(PRO-182)가 나오기 전에는 가짜 대기열이 답한다: 결제 페이지를 처음 열 때 입장해 10분 뒤 끝나고, 끝난 뒤 이 API를 다시 부르면(페이지를 다시 열면) 다시 입장한다.
+ * 이 종목에 대기열로 입장 중인지와 입장 끝 시각, 남은 초를 돌려준다. 신청서에 들어올 때 부른다. 입장 중이면 끝 시각을 저장하고, [결제하기]·장바구니 결제는 대기열에 다시 묻지 않고 이 끝 시각을 결제 기한으로 쓴다. 이 API를 부르지 않고(주소 직접 입력) [결제하기]하면 403이다. 타이머는 remainingSeconds로 센다(서버 시각 기준). 입장 중이 아니면 admitted=false이고 [결제하기]가 403이다. 대기열 API(PRO-182)가 나오기 전에는 가짜 대기열이 답한다: 결제 페이지를 처음 열 때 입장해 15분 뒤 끝나고, 끝난 뒤 이 API를 다시 부르면(페이지를 다시 열면) 다시 입장한다.
  * @summary 대기열 입장 상태 (결제 페이지 타이머)
  */
 export const findAdmission = async (params: FindAdmissionParams, options?: Parameters<typeof customFetch>[1]): Promise<RsDataQueueAdmissionDto> => {
@@ -978,6 +2806,428 @@ export function useFindAdmission<TData = Awaited<ReturnType<typeof findAdmission
 
 
 
+export const getGetPartyUrl = (partyId: number,) => {
+
+
+
+
+  return `/api/v1/order/parties/${partyId}`
+}
+
+/**
+ * 파티원만 본다. 파티원 닉네임·합류 시각·신청서 상태·결제 여부와 인원·결제 인원을 준다. 생년월일·연락처 같은 참가자 정보는 주지 않는다. 참가 링크 토큰은 파티장에게만 주고 파티원에게는 null이다.
+ * @summary 파티 상세
+ */
+export const getParty = async (partyId: number, options?: Parameters<typeof customFetch>[1]): Promise<RsDataPartyDetailDto> => {
+
+  return customFetch<RsDataPartyDetailDto>(getGetPartyUrl(partyId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPartyQueryKey = (partyId: number,) => {
+    return [
+    `/api/v1/order/parties/${partyId}`
+    ] as const;
+    }
+
+
+export const getGetPartyQueryOptions = <TData = Awaited<ReturnType<typeof getParty>>, TError = RsData>(partyId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getParty>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPartyQueryKey(partyId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getParty>>> = ({ signal }) => getParty(partyId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: partyId !== null && partyId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getParty>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetPartyQueryResult = NonNullable<Awaited<ReturnType<typeof getParty>>>
+export type GetPartyQueryError = RsData
+
+
+export function useGetParty<TData = Awaited<ReturnType<typeof getParty>>, TError = RsData>(
+ partyId: number, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getParty>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getParty>>,
+          TError,
+          Awaited<ReturnType<typeof getParty>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetParty<TData = Awaited<ReturnType<typeof getParty>>, TError = RsData>(
+ partyId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getParty>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getParty>>,
+          TError,
+          Awaited<ReturnType<typeof getParty>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetParty<TData = Awaited<ReturnType<typeof getParty>>, TError = RsData>(
+ partyId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getParty>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 파티 상세
+ */
+
+export function useGetParty<TData = Awaited<ReturnType<typeof getParty>>, TError = RsData>(
+ partyId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getParty>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetPartyQueryOptions(partyId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetMyPartiesUrl = (params?: GetMyPartiesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/order/parties/me?${stringifiedParams}` : `/api/v1/order/parties/me`
+}
+
+/**
+ * 내가 지금 들어 있는 파티를 최근 순으로 준다(나간 파티는 빠짐). raceId를 주면 그 대회의 파티만 준다(대회 상세에서 「내 파티 보기」를 띄울 때). 참가 링크 토큰은 넣지 않는다.
+ * @summary 내 파티 목록
+ */
+export const getMyParties = async (params?: GetMyPartiesParams, options?: Parameters<typeof customFetch>[1]): Promise<RsDataListPartySummaryDto> => {
+
+  return customFetch<RsDataListPartySummaryDto>(getGetMyPartiesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMyPartiesQueryKey = (params?: GetMyPartiesParams,) => {
+    return [
+    `/api/v1/order/parties/me`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetMyPartiesQueryOptions = <TData = Awaited<ReturnType<typeof getMyParties>>, TError = RsData>(params?: GetMyPartiesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMyParties>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMyPartiesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMyParties>>> = ({ signal }) => getMyParties(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMyParties>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetMyPartiesQueryResult = NonNullable<Awaited<ReturnType<typeof getMyParties>>>
+export type GetMyPartiesQueryError = RsData
+
+
+export function useGetMyParties<TData = Awaited<ReturnType<typeof getMyParties>>, TError = RsData>(
+ params: undefined |  GetMyPartiesParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMyParties>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getMyParties>>,
+          TError,
+          Awaited<ReturnType<typeof getMyParties>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetMyParties<TData = Awaited<ReturnType<typeof getMyParties>>, TError = RsData>(
+ params?: GetMyPartiesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMyParties>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getMyParties>>,
+          TError,
+          Awaited<ReturnType<typeof getMyParties>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetMyParties<TData = Awaited<ReturnType<typeof getMyParties>>, TError = RsData>(
+ params?: GetMyPartiesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMyParties>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 내 파티 목록
+ */
+
+export function useGetMyParties<TData = Awaited<ReturnType<typeof getMyParties>>, TError = RsData>(
+ params?: GetMyPartiesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMyParties>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetMyPartiesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetMyRacePartyStatusUrl = (params: GetMyRacePartyStatusParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/order/parties/me/race-status?${stringifiedParams}` : `/api/v1/order/parties/me/race-status`
+}
+
+/**
+ * 대회 상세 화면이 [파티로 신청] 버튼 문구를 고를 때 부른다. 이 대회에서 로그인한 회원이 들어가 있는 파티(종료된 파티·나간 파티 제외)를 찾아 역할·인원·결제 현황을 준다. 파티가 없어도 오류가 아니라 200에 role=NONE을 준다. 파티 대기열은 파티장 회원 ID로만 줄을 세우므로 canApply=true(파티장, 모집 중, 접수 중인 대회, 인원이 최소~최대)일 때만 대기열에 넣는다. 안내용이라 대기열 입장·크루 예매 기간·크루원 자격은 신청 때 다시 확인한다(어긋나면 409). 결제 마감은 해제 배치 전에는 지나도 PAYING이니 paymentDueAt과 지금 시각으로 판단한다. canApply=false면 reason으로 문구를 고른다. 화면 상태는 role·partyStatus·myPaid로 고른다: LEADER+RECRUITING(모집 중, 인원 모자라면 TOO_FEW_MEMBERS) / MEMBER+RECRUITING(파티원) / LEADER+PAYING(결제 진행 중) / PAYING·PAID에서 myPaid=false(결제할 차례, participationId로 결제)·true(결제 완료) / NONE(파티 없음). myParticipation은 이 대회에 살아 있는 내 신청(개인·파티)이다. 파티가 없어도 개인 신청이 있으면 나와 「이미 신청함」(INDIVIDUAL)·「파티로 신청 중」(PARTY)을 고르고, 없으면 칸이 빠진다.
+ * @summary 이 대회 내 파티 상태
+ */
+export const getMyRacePartyStatus = async (params: GetMyRacePartyStatusParams, options?: Parameters<typeof customFetch>[1]): Promise<RsDataPartyRaceStatusDto> => {
+
+  return customFetch<RsDataPartyRaceStatusDto>(getGetMyRacePartyStatusUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMyRacePartyStatusQueryKey = (params?: GetMyRacePartyStatusParams,) => {
+    return [
+    `/api/v1/order/parties/me/race-status`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetMyRacePartyStatusQueryOptions = <TData = Awaited<ReturnType<typeof getMyRacePartyStatus>>, TError = RsData>(params: GetMyRacePartyStatusParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMyRacePartyStatus>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMyRacePartyStatusQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMyRacePartyStatus>>> = ({ signal }) => getMyRacePartyStatus(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMyRacePartyStatus>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetMyRacePartyStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getMyRacePartyStatus>>>
+export type GetMyRacePartyStatusQueryError = RsData
+
+
+export function useGetMyRacePartyStatus<TData = Awaited<ReturnType<typeof getMyRacePartyStatus>>, TError = RsData>(
+ params: GetMyRacePartyStatusParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMyRacePartyStatus>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getMyRacePartyStatus>>,
+          TError,
+          Awaited<ReturnType<typeof getMyRacePartyStatus>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetMyRacePartyStatus<TData = Awaited<ReturnType<typeof getMyRacePartyStatus>>, TError = RsData>(
+ params: GetMyRacePartyStatusParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMyRacePartyStatus>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getMyRacePartyStatus>>,
+          TError,
+          Awaited<ReturnType<typeof getMyRacePartyStatus>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetMyRacePartyStatus<TData = Awaited<ReturnType<typeof getMyRacePartyStatus>>, TError = RsData>(
+ params: GetMyRacePartyStatusParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMyRacePartyStatus>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 이 대회 내 파티 상태
+ */
+
+export function useGetMyRacePartyStatus<TData = Awaited<ReturnType<typeof getMyRacePartyStatus>>, TError = RsData>(
+ params: GetMyRacePartyStatusParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMyRacePartyStatus>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetMyRacePartyStatusQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetCrewActivePartiesUrl = (crewId: number,) => {
+
+
+
+
+  return `/api/v1/order/parties/crews/${crewId}/active`
+}
+
+/**
+ * 크루 홈 「진행 중인 파티」(시안 19·M09). 그 크루의 크루원에게 모집 중·결제 진행 중인 파티를 모두 최근 순으로 준다 (11/05 회의 P7: 합류는 링크로만). myParty=true인 카드만 상세로 보낸다. 참가 링크 토큰은 넣지 않는다.
+ * @summary 크루의 진행 중인 파티
+ */
+export const getCrewActiveParties = async (crewId: number, options?: Parameters<typeof customFetch>[1]): Promise<RsDataListPartySummaryDto> => {
+
+  return customFetch<RsDataListPartySummaryDto>(getGetCrewActivePartiesUrl(crewId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCrewActivePartiesQueryKey = (crewId: number,) => {
+    return [
+    `/api/v1/order/parties/crews/${crewId}/active`
+    ] as const;
+    }
+
+
+export const getGetCrewActivePartiesQueryOptions = <TData = Awaited<ReturnType<typeof getCrewActiveParties>>, TError = RsData>(crewId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCrewActiveParties>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCrewActivePartiesQueryKey(crewId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCrewActiveParties>>> = ({ signal }) => getCrewActiveParties(crewId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: crewId !== null && crewId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCrewActiveParties>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetCrewActivePartiesQueryResult = NonNullable<Awaited<ReturnType<typeof getCrewActiveParties>>>
+export type GetCrewActivePartiesQueryError = RsData
+
+
+export function useGetCrewActiveParties<TData = Awaited<ReturnType<typeof getCrewActiveParties>>, TError = RsData>(
+ crewId: number, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCrewActiveParties>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getCrewActiveParties>>,
+          TError,
+          Awaited<ReturnType<typeof getCrewActiveParties>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetCrewActiveParties<TData = Awaited<ReturnType<typeof getCrewActiveParties>>, TError = RsData>(
+ crewId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCrewActiveParties>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getCrewActiveParties>>,
+          TError,
+          Awaited<ReturnType<typeof getCrewActiveParties>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetCrewActiveParties<TData = Awaited<ReturnType<typeof getCrewActiveParties>>, TError = RsData>(
+ crewId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCrewActiveParties>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 크루의 진행 중인 파티
+ */
+
+export function useGetCrewActiveParties<TData = Awaited<ReturnType<typeof getCrewActiveParties>>, TError = RsData>(
+ crewId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCrewActiveParties>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetCrewActivePartiesQueryOptions(crewId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getFindByIdUrl = (participationId: number,) => {
 
 
@@ -987,7 +3237,7 @@ export const getFindByIdUrl = (participationId: number,) => {
 }
 
 /**
- * 본인의 참가 신청과 참가자 정보, 상태를 돌려준다.
+ * 본인의 참가 신청과 참가자 정보, 상태, 결제 때 고른 키트 옵션(kitOptions)을 돌려준다.
  * @summary 참가 신청 조회
  */
 export const findById = async (participationId: number, options?: Parameters<typeof customFetch>[1]): Promise<RsDataParticipationDto> => {
@@ -1068,6 +3318,115 @@ export function useFindById<TData = Awaited<ReturnType<typeof findById>>, TError
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getFindByIdQueryOptions(participationId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getFindMyTicketsUrl = (params?: FindMyTicketsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/order/participations/me?${stringifiedParams}` : `/api/v1/order/participations/me`
+}
+
+/**
+ * 내 참가 신청을 최신순으로 돌려준다. 신청 1건이 한 줄이고, 결제 전 신청과 주문이 아직 없는 파티원 신청도 나온다. 한 줄에 대회·종목·대회일·환불 기한, 참가자, 신청·주문 상태, 고른 키트 옵션, 키트 배송 상태·택배사·송장, 파티(크루 ID·파티장)를 담는다. active=true면 살아 있는 신청(확보 전·결제 대기·참가 확정)만 준다. 대회 이름·환불 기한은 상품 서비스에서 받으므로, 상품 서비스에 묻지 못하면 그 칸만 null이고 종목 이름·대회일은 주문 당시 값으로 채운다. 파티장 닉네임도 회원 서비스에 묻지 못하면 null이다. 크루 이름은 담지 않으니 GET /api/v1/member/crews/me의 크루 ID로 찾는다.
+ * @summary 내 참가권 목록
+ */
+export const findMyTickets = async (params?: FindMyTicketsParams, options?: Parameters<typeof customFetch>[1]): Promise<RsDataMyTicketPageDto> => {
+
+  return customFetch<RsDataMyTicketPageDto>(getFindMyTicketsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getFindMyTicketsQueryKey = (params?: FindMyTicketsParams,) => {
+    return [
+    `/api/v1/order/participations/me`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getFindMyTicketsQueryOptions = <TData = Awaited<ReturnType<typeof findMyTickets>>, TError = RsData>(params?: FindMyTicketsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findMyTickets>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getFindMyTicketsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof findMyTickets>>> = ({ signal }) => findMyTickets(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof findMyTickets>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type FindMyTicketsQueryResult = NonNullable<Awaited<ReturnType<typeof findMyTickets>>>
+export type FindMyTicketsQueryError = RsData
+
+
+export function useFindMyTickets<TData = Awaited<ReturnType<typeof findMyTickets>>, TError = RsData>(
+ params: undefined |  FindMyTicketsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof findMyTickets>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findMyTickets>>,
+          TError,
+          Awaited<ReturnType<typeof findMyTickets>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindMyTickets<TData = Awaited<ReturnType<typeof findMyTickets>>, TError = RsData>(
+ params?: FindMyTicketsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findMyTickets>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findMyTickets>>,
+          TError,
+          Awaited<ReturnType<typeof findMyTickets>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindMyTickets<TData = Awaited<ReturnType<typeof findMyTickets>>, TError = RsData>(
+ params?: FindMyTicketsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findMyTickets>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 내 참가권 목록
+ */
+
+export function useFindMyTickets<TData = Awaited<ReturnType<typeof findMyTickets>>, TError = RsData>(
+ params?: FindMyTicketsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findMyTickets>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getFindMyTicketsQueryOptions(params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 
@@ -1386,6 +3745,115 @@ export function useFindCart<TData = Awaited<ReturnType<typeof findCart>>, TError
 
 
 
+export const getFindOrdersUrl = (params?: FindOrdersParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/order/admin/orders?${stringifiedParams}` : `/api/v1/order/admin/orders`
+}
+
+/**
+ * 관리자가 회원 닉네임 또는 주문번호 하나로 찾은 주문을 결제 대기·기한 만료·취소까지 모두 최신순으로 돌려준다.
+ * @summary 회원·주문 조회 (관리자)
+ */
+export const findOrders = async (params?: FindOrdersParams, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getFindOrdersUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getFindOrdersQueryKey = (params?: FindOrdersParams,) => {
+    return [
+    `/api/v1/order/admin/orders`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getFindOrdersQueryOptions = <TData = Awaited<ReturnType<typeof findOrders>>, TError = RsData>(params?: FindOrdersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findOrders>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getFindOrdersQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof findOrders>>> = ({ signal }) => findOrders(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof findOrders>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type FindOrdersQueryResult = NonNullable<Awaited<ReturnType<typeof findOrders>>>
+export type FindOrdersQueryError = RsData
+
+
+export function useFindOrders<TData = Awaited<ReturnType<typeof findOrders>>, TError = RsData>(
+ params: undefined |  FindOrdersParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof findOrders>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findOrders>>,
+          TError,
+          Awaited<ReturnType<typeof findOrders>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindOrders<TData = Awaited<ReturnType<typeof findOrders>>, TError = RsData>(
+ params?: FindOrdersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findOrders>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findOrders>>,
+          TError,
+          Awaited<ReturnType<typeof findOrders>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindOrders<TData = Awaited<ReturnType<typeof findOrders>>, TError = RsData>(
+ params?: FindOrdersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findOrders>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 회원·주문 조회 (관리자)
+ */
+
+export function useFindOrders<TData = Awaited<ReturnType<typeof findOrders>>, TError = RsData>(
+ params?: FindOrdersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findOrders>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getFindOrdersQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getRemoveItemUrl = (cartItemId: number,) => {
 
 
@@ -1395,7 +3863,7 @@ export const getRemoveItemUrl = (cartItemId: number,) => {
 }
 
 /**
- * 본인 장바구니의 항목을 빼고, 남은 장바구니를 돌려준다. 그 종목으로 저장한 결제 전 신청서(PENDING)도 함께 취소해, 같은 대회에 다시 신청할 수 있게 한다.
+ * 본인 장바구니의 항목을 빼고, 남은 장바구니를 돌려준다. 그 종목으로 저장한 결제 전 신청서(PENDING)는 남기며, 같은 대회에 다시 신청하면 새 신청서로 바뀐다.
  * @summary 장바구니에서 빼기
  */
 export const removeItem = async (cartItemId: number, options?: Parameters<typeof customFetch>[1]): Promise<RsDataCartDto> => {
@@ -1459,388 +3927,5 @@ export const useRemoveItem = <TError = RsData,
         TContext
       > => {
       return useMutation(getRemoveItemMutationOptions(options), queryClient);
-    }
-
-export const getFindKitsUrl = (params?: FindKitsParams,) => {
-  const normalizedParams = new URLSearchParams();
-
-  Object.entries(params || {}).forEach(([key, value]) => {
-
-    if (value !== undefined) {
-      normalizedParams.append(key, value === null ? 'null' : String(value))
-    }
-  });
-
-  const stringifiedParams = normalizedParams.toString();
-
-  return stringifiedParams.length > 0 ? `/api/v1/order/seller/kits?${stringifiedParams}` : `/api/v1/order/seller/kits`
-}
-
-/**
- * 판매자 대회의 키트가 있는 참가권 중 결제했거나 이미 보낸 것을 최근 주문부터 돌려준다. 대회(raceId)·배송 상태(status)로 거를 수 있다. 보낸 뒤 취소된 참가권은 orderItemStatus가 CANCELED로 남는다.
- * @summary 내 대회 키트 주문 목록
- */
-export const findKits = async (params?: FindKitsParams, options?: Parameters<typeof customFetch>[1]): Promise<RsDataSellerKitPageDto> => {
-
-  return customFetch<RsDataSellerKitPageDto>(getFindKitsUrl(params),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
-
-
-
-export const getFindKitsQueryKey = (params?: FindKitsParams,) => {
-    return [
-    `/api/v1/order/seller/kits`, ...(params ? [params] : [])
-    ] as const;
-    }
-
-
-export const getFindKitsQueryOptions = <TData = Awaited<ReturnType<typeof findKits>>, TError = RsData>(params?: FindKitsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findKits>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
-) => {
-
-const {query: queryOptions, request: requestOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getFindKitsQueryKey(params);
-
-
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof findKits>>> = ({ signal }) => findKits(params, { signal, ...requestOptions });
-
-
-
-
-
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof findKits>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
-}
-
-export type FindKitsQueryResult = NonNullable<Awaited<ReturnType<typeof findKits>>>
-export type FindKitsQueryError = RsData
-
-
-export function useFindKits<TData = Awaited<ReturnType<typeof findKits>>, TError = RsData>(
- params: undefined |  FindKitsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof findKits>>, TError, TData>> & Pick<
-        DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof findKits>>,
-          TError,
-          Awaited<ReturnType<typeof findKits>>
-        > , 'initialData'
-      >, request?: SecondParameter<typeof customFetch>}
- , queryClient?: QueryClient
-  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useFindKits<TData = Awaited<ReturnType<typeof findKits>>, TError = RsData>(
- params?: FindKitsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findKits>>, TError, TData>> & Pick<
-        UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof findKits>>,
-          TError,
-          Awaited<ReturnType<typeof findKits>>
-        > , 'initialData'
-      >, request?: SecondParameter<typeof customFetch>}
- , queryClient?: QueryClient
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useFindKits<TData = Awaited<ReturnType<typeof findKits>>, TError = RsData>(
- params?: FindKitsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findKits>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
- , queryClient?: QueryClient
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-/**
- * @summary 내 대회 키트 주문 목록
- */
-
-export function useFindKits<TData = Awaited<ReturnType<typeof findKits>>, TError = RsData>(
- params?: FindKitsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findKits>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
- , queryClient?: QueryClient
- ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
-
-  const queryOptions = getFindKitsQueryOptions(params,options)
-
-  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
-
-  return withQueryKey(query, queryOptions.queryKey);
-}
-
-
-
-
-
-
-
-export const getSummarizeUrl = (params?: SummarizeParams,) => {
-  const normalizedParams = new URLSearchParams();
-
-  Object.entries(params || {}).forEach(([key, value]) => {
-
-    if (value !== undefined) {
-      normalizedParams.append(key, value === null ? 'null' : String(value))
-    }
-  });
-
-  const stringifiedParams = normalizedParams.toString();
-
-  return stringifiedParams.length > 0 ? `/api/v1/order/seller/kits/summary?${stringifiedParams}` : `/api/v1/order/seller/kits/summary`
-}
-
-/**
- * 배송 준비·배송 중·배송 완료 건수와, 배송 준비 중 아직 환불할 수 있어 보낼 수 없는(환불 기한 전) 건수를 돌려준다.
- * @summary 키트 배송 건수
- */
-export const summarize = async (params?: SummarizeParams, options?: Parameters<typeof customFetch>[1]): Promise<RsDataSellerKitSummaryDto> => {
-
-  return customFetch<RsDataSellerKitSummaryDto>(getSummarizeUrl(params),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
-
-
-
-export const getSummarizeQueryKey = (params?: SummarizeParams,) => {
-    return [
-    `/api/v1/order/seller/kits/summary`, ...(params ? [params] : [])
-    ] as const;
-    }
-
-
-export const getSummarizeQueryOptions = <TData = Awaited<ReturnType<typeof summarize>>, TError = RsData>(params?: SummarizeParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof summarize>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
-) => {
-
-const {query: queryOptions, request: requestOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getSummarizeQueryKey(params);
-
-
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof summarize>>> = ({ signal }) => summarize(params, { signal, ...requestOptions });
-
-
-
-
-
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof summarize>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
-}
-
-export type SummarizeQueryResult = NonNullable<Awaited<ReturnType<typeof summarize>>>
-export type SummarizeQueryError = RsData
-
-
-export function useSummarize<TData = Awaited<ReturnType<typeof summarize>>, TError = RsData>(
- params: undefined |  SummarizeParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof summarize>>, TError, TData>> & Pick<
-        DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof summarize>>,
-          TError,
-          Awaited<ReturnType<typeof summarize>>
-        > , 'initialData'
-      >, request?: SecondParameter<typeof customFetch>}
- , queryClient?: QueryClient
-  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useSummarize<TData = Awaited<ReturnType<typeof summarize>>, TError = RsData>(
- params?: SummarizeParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof summarize>>, TError, TData>> & Pick<
-        UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof summarize>>,
-          TError,
-          Awaited<ReturnType<typeof summarize>>
-        > , 'initialData'
-      >, request?: SecondParameter<typeof customFetch>}
- , queryClient?: QueryClient
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useSummarize<TData = Awaited<ReturnType<typeof summarize>>, TError = RsData>(
- params?: SummarizeParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof summarize>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
- , queryClient?: QueryClient
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-/**
- * @summary 키트 배송 건수
- */
-
-export function useSummarize<TData = Awaited<ReturnType<typeof summarize>>, TError = RsData>(
- params?: SummarizeParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof summarize>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
- , queryClient?: QueryClient
- ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
-
-  const queryOptions = getSummarizeQueryOptions(params,options)
-
-  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
-
-  return withQueryKey(query, queryOptions.queryKey);
-}
-
-
-
-
-
-
-
-export const getShipUrl = (orderItemId: number,) => {
-
-
-
-
-  return `/api/v1/order/seller/kits/${orderItemId}/shipment`
-}
-
-/**
- * 택배사와 송장 번호를 넣어 배송 중으로 바꾼다. 결제한 참가권의 키트만, 한 번만 보낸다. 아직 환불할 수 있는 동안은 409다.
- * @summary 키트 발송 (배송 준비 → 배송 중)
- */
-export const ship = async (orderItemId: number,
-    kitShipmentRequestDto: KitShipmentRequestDto, options?: Parameters<typeof customFetch>[1]): Promise<RsDataOrderItemDto> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-return customFetch<RsDataOrderItemDto>(getShipUrl(orderItemId),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(kitShipmentRequestDto)
-  }
-);}
-
-
-
-
-
-export const getShipMutationKey = () => ['ship'] as const;
-
-export const getShipMutationOptions = <TError = RsData,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof ship>>, TError,ShipMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof ship>>, TError,ShipMutationVariables, TContext> => {
-
-const mutationKey = getShipMutationKey();
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof ship>>, ShipMutationVariables> = (props) => {
-          const {orderItemId,data} = props ?? {};
-
-          return  ship(orderItemId,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type ShipMutationResult = NonNullable<Awaited<ReturnType<typeof ship>>>
-    export type ShipMutationBody = KitShipmentRequestDto
-    export type ShipMutationError = RsData
-    export type ShipMutationVariables = {orderItemId: number;data: KitShipmentRequestDto}
-
-    /**
- * @summary 키트 발송 (배송 준비 → 배송 중)
- */
-export const useShip = <TError = RsData,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof ship>>, TError,ShipMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof ship>>,
-        TError,
-        ShipMutationVariables,
-        TContext
-      > => {
-      return useMutation(getShipMutationOptions(options), queryClient);
-    }
-
-export const getCompleteDeliveryUrl = (orderItemId: number,) => {
-
-
-
-
-  return `/api/v1/order/seller/kits/${orderItemId}/delivery`
-}
-
-/**
- * 보낸 키트를 배송 완료로 바꾼다. 한 번만 바꾼다.
- * @summary 키트 배송 완료 (배송 중 → 배송 완료)
- */
-export const completeDelivery = async (orderItemId: number, options?: Parameters<typeof customFetch>[1]): Promise<RsDataOrderItemDto> => {
-
-  return customFetch<RsDataOrderItemDto>(getCompleteDeliveryUrl(orderItemId),
-  {
-    ...options,
-    method: 'POST'
-
-
-  }
-);}
-
-
-
-
-
-export const getCompleteDeliveryMutationKey = () => ['completeDelivery'] as const;
-
-export const getCompleteDeliveryMutationOptions = <TError = RsData,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeDelivery>>, TError,CompleteDeliveryMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof completeDelivery>>, TError,CompleteDeliveryMutationVariables, TContext> => {
-
-const mutationKey = getCompleteDeliveryMutationKey();
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof completeDelivery>>, CompleteDeliveryMutationVariables> = (props) => {
-          const {orderItemId} = props ?? {};
-
-          return  completeDelivery(orderItemId,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type CompleteDeliveryMutationResult = NonNullable<Awaited<ReturnType<typeof completeDelivery>>>
-
-    export type CompleteDeliveryMutationError = RsData
-    export type CompleteDeliveryMutationVariables = {orderItemId: number}
-
-    /**
- * @summary 키트 배송 완료 (배송 중 → 배송 완료)
- */
-export const useCompleteDelivery = <TError = RsData,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeDelivery>>, TError,CompleteDeliveryMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof completeDelivery>>,
-        TError,
-        CompleteDeliveryMutationVariables,
-        TContext
-      > => {
-      return useMutation(getCompleteDeliveryMutationOptions(options), queryClient);
     }
 

@@ -115,4 +115,5 @@ public class OrderOutboxKafkaEvent extends BaseIdAndTime {
 	public boolean isFailed() {
 		return status == OutboxStatus.SEND_FAILED;
 	}
+
 }

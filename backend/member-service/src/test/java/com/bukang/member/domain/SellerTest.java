@@ -58,6 +58,8 @@ class SellerTest {
 	}
 
 	private Seller newSeller() {
-		return new Seller(null, SellerType.INDIVIDUAL, null, null, "김러너", FIRST.minusDays(1));
+		return new Seller(null, SellerType.INDIVIDUAL, null, null, "김러너",
+			new VerifiedPayoutAccount("004", "1101230000678", "김러너", PayoutAccountHolderType.PERSONAL, FIRST),
+			FIRST.minusDays(1));
 	}
 }

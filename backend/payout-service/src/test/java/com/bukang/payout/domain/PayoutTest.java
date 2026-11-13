@@ -71,7 +71,7 @@ class PayoutTest {
 
 	@Test
 	@DisplayName("5만 원 참가권 2장이면 판매액 100,000, 수수료 5,500, 지급액 94,500이다")
-	void amountsForTwoTickets() {
+	void amountsForTwoEntries() {
 		Payout payout = newPayout();
 
 		payout.addItem(100, 50_000L, FEE_RATE, TARGET_DATE);
@@ -85,7 +85,7 @@ class PayoutTest {
 
 	@Test
 	@DisplayName("수수료는 장마다 원 미만을 버리고 합한다 (10,010원 × 10장: 합계로 계산한 5,505가 아니라 5,500)")
-	void feeIsFlooredPerTicket() {
+	void feeIsFlooredPerEntry() {
 		Payout payout = newPayout();
 
 		for (long orderItemId = 1; orderItemId <= 10; orderItemId++) {
@@ -98,7 +98,7 @@ class PayoutTest {
 
 	@Test
 	@DisplayName("1차는 판매 집계로 1장 몫(가격 × 40% 버림) × 장수를 1차 정산금 한 줄로 쓴다 (33,333원 × 10장 → 133,330, 합계에 곱한 133,332가 아니다)")
-	void firstPayoutIsFortyPercentPerTicket() {
+	void firstPayoutIsFortyPercentPerEntry() {
 		Payout first = Payout.first(1, 10, "테스트 대회", LocalDate.of(2026, 9, 30),
 			LocalDateTime.of(2026, 10, 1, 3, 0), CALENDAR);
 

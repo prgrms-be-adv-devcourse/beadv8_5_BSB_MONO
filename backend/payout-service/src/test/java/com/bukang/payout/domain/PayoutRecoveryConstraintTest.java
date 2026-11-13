@@ -44,7 +44,7 @@ class PayoutRecoveryConstraintTest {
 
 	@Test
 	@DisplayName("같은 대회라도 참가권이 다르면 일정 변경 회수를 여러 건 저장할 수 있다")
-	void scheduleChangedPerTicket() {
+	void scheduleChangedPerEntry() {
 		save(PayoutRecovery.scheduleChanged(1, 10, 101, 20_000, REQUESTED_AT));
 
 		assertThatCode(() -> save(PayoutRecovery.scheduleChanged(1, 10, 102, 20_000, REQUESTED_AT)))
