@@ -1,16 +1,17 @@
 package com.bukang.member.domain;
 
-import static jakarta.persistence.EnumType.STRING;
 import static lombok.AccessLevel.PROTECTED;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
-import com.bukang.common.global.jpa.entity.BaseIdAndTime;
-import com.bukang.common.shared.kafka.KafkaMessageId;
+import com.bukang.common.shared.kafka.KafkaEventHeaders;
+import com.bukang.common.shared.kafka.outbox.BaseOutboxKafkaEvent;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
@@ -18,9 +19,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * 보낼 Kafka 메시지 1건 (트랜잭셔널 아웃박스, BUK-41). 주문 서비스 OrderOutboxKafkaEvent와 거의 같은 컬럼이다
+ * 보낼 Kafka 메시지 1건 (트랜잭셔널 아웃박스, BUK-41). 공통 컬럼과 상태 변경은 common BaseOutboxKafkaEvent에 있다 (BUK-200)
  * 회원·판매자 데이터와 같은 트랜잭션에서 저장하므로, 커밋되면 메시지도 반드시 남고 롤백되면 메시지도 없다.
- * 보내는 일은 MemberOutboxRelayUseCase가 따로 한다
+ * 보내는 일은 MemberOutboxRelayUseCase가 따로 한다. 회원 아웃박스만 이벤트 ID·발생 시각 컬럼과 헤더가 더 있다
  */
 @Entity
 @NoArgsConstructor(access = PROTECTED)
@@ -38,63 +39,19 @@ import lombok.NoArgsConstructor;
 		@Index(name = "idx_member_outbox_event_status_sent", columnList = "status, sent_date")
 	}
 )
-public class MemberOutboxEvent extends BaseIdAndTime {
-	// 메시지 ID에 붙일 서비스 이름 (member-outbox-{UUID})
-	private static final String SERVICE = "member";
-
+public class MemberOutboxEvent extends BaseOutboxKafkaEvent {
 	// 이벤트 ID (UUID). Kafka 헤더 eventId와 본문 eventId에 같은 값이 들어간다
 	@Column(name = "event_id", nullable = false, columnDefinition = "char(36)")
 	private String eventId;
 
-	// message-id 헤더로 보낼 값 (member-outbox-{UUID}). 행을 만들 때 한 번 정해 다시 보내도 같은 값이 나간다
-	// 이 컬럼을 더하기 전에 만든 행은 비어 있어(null) 발행 작업이 보내기 전에 채운다
-	@Column(name = "message_id", length = 100)
-	private String messageId;
-
-	// 보낼 토픽 (KafkaTopics 상수). 헤더 eventType 값으로도 쓴다
-	@Column(name = "topic", nullable = false, length = 100)
-	private String topic;
-
-	// 이벤트 대상 종류 (Member, Seller)
-	@Column(name = "ref_type", nullable = false, length = 50)
-	private String refType;
-
-	// 이벤트 대상 ID. 메시지 key로 보낸다. 같은 대상의 행은 저장 순서대로 나간다
-	@Column(name = "ref_id", nullable = false)
-	private long refId;
-
-	@Column(name = "payload", nullable = false, columnDefinition = "text")
-	private String payload;
-
 	@Column(name = "occurred_at", nullable = false)
 	private LocalDateTime occurredAt;
 
-	@Enumerated(STRING)
-	@Column(name = "status", nullable = false, columnDefinition = "varchar(20)")
-	private MemberOutboxStatus status;
-
-	// 보내지 못한 횟수 (다시 보낼 간격을 늘리는 데 쓴다)
-	@Column(name = "retry_count", nullable = false)
-	private int retryCount;
-
-	// 다시 보내도 되는 가장 이른 시각. 한 번도 실패하지 않았으면 null
-	@Column(name = "next_retry_date")
-	private LocalDateTime nextRetryDate;
-
-	// 브로커가 받았다고 응답한 시각
-	@Column(name = "sent_date")
-	private LocalDateTime sentDate;
-
 	private MemberOutboxEvent(String eventId, String topic, String refType, long refId, String payload,
 		LocalDateTime occurredAt) {
+		super(topic, refType, refId, payload);
 		this.eventId = eventId;
-		this.topic = topic;
-		this.refType = refType;
-		this.refId = refId;
-		this.payload = payload;
 		this.occurredAt = occurredAt;
-		this.status = MemberOutboxStatus.PENDING;
-		this.messageId = KafkaMessageId.ofOutbox(SERVICE);
 	}
 
 	public static MemberOutboxEvent pending(String eventId, String topic, String refType, long refId, String payload,
@@ -102,30 +59,21 @@ public class MemberOutboxEvent extends BaseIdAndTime {
 		return new MemberOutboxEvent(eventId, topic, refType, refId, payload, occurredAt);
 	}
 
-	// message_id 컬럼을 더하기 전에 만든 행(값 없음)에 메시지 ID를 한 번 채운다. 이미 있으면 그대로 둔다
-	// 발행 작업 트랜잭션에서 함께 저장되므로, 보내지 못해 다시 보낼 때도 같은 값이 나간다
-	public void assignMessageIdIfAbsent() {
-		if (messageId == null) {
-			this.messageId = KafkaMessageId.ofOutbox(SERVICE);
-		}
+	// 메시지 ID에 붙일 서비스 이름 (member-outbox-{UUID})
+	@Override
+	protected String serviceName() {
+		return "member";
 	}
 
-	public void markSent(LocalDateTime now) {
-		this.status = MemberOutboxStatus.SENT;
-		this.sentDate = now;
-	}
-
-	// 보내지 못한 횟수를 올린다. 포기면 더는 보내지 않고, 아니면 nextRetryDate 전에는 다시 보내지 않는다
-	public void markSendFailed(boolean giveUp, LocalDateTime nextRetryDate) {
-		this.retryCount++;
-		if (giveUp) {
-			this.status = MemberOutboxStatus.SEND_FAILED;
-			return;
-		}
-		this.nextRetryDate = nextRetryDate;
-	}
-
-	public boolean isSendableAt(LocalDateTime now) {
-		return nextRetryDate == null || !nextRetryDate.isAfter(now);
+	// 받는 쪽이 본문을 열지 않고도 이벤트 ID·종류·대상을 알게 헤더로 보낸다. 대상 ID는 Kafka key와 같다
+	@Override
+	public Map<String, String> extraHeaders() {
+		Map<String, String> headers = new LinkedHashMap<>();
+		headers.put(KafkaEventHeaders.EVENT_ID, eventId);
+		headers.put(KafkaEventHeaders.EVENT_TYPE, getTopic());
+		headers.put(KafkaEventHeaders.OCCURRED_AT, occurredAt.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+		headers.put(KafkaEventHeaders.AGGREGATE_TYPE, getRefType());
+		headers.put(KafkaEventHeaders.AGGREGATE_ID, String.valueOf(getRefId()));
+		return headers;
 	}
 }

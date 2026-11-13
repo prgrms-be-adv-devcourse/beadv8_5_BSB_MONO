@@ -46,6 +46,11 @@ class FlywayExistingTablesTest {
 		// 서버 아웃박스 표에는 message_id 칸이 아직 없고(BUK-81 SQL이 더한다), 보내지 않은 행이 남아 있을 수 있다
 		jdbcTemplate.execute("alter table order_outbox_kafka_event drop constraint uk_order_outbox_kafka_message_id");
 		jdbcTemplate.execute("alter table order_outbox_kafka_event drop column message_id");
+		// 서버 아웃박스 표에는 옛 색인(status, create_date)만 있다 (BUK-207 SQL이 바꾼다)
+		jdbcTemplate.execute("drop index idx_order_outbox_kafka_status_id");
+		jdbcTemplate.execute("drop index idx_order_outbox_kafka_status_sent");
+		jdbcTemplate.execute(
+			"create index idx_order_outbox_kafka_status_create on order_outbox_kafka_event (status, create_date)");
 		for (String status : List.of("PENDING", "SEND_FAILED")) {
 			jdbcTemplate.update("insert into order_outbox_kafka_event (ref_type, ref_id, event_type, payload, status,"
 				+ " retry_count) values ('Participation', 1, 'topic', '{}', ?, 0)", status);
