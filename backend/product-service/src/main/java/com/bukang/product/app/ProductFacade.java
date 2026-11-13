@@ -2,6 +2,7 @@ package com.bukang.product.app;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.util.List;
 import java.util.Optional;
 
@@ -23,6 +24,7 @@ import com.bukang.product.domain.ProductDltKafkaEvent;
 import com.bukang.product.domain.RaceSyncType;
 import com.bukang.product.dto.CrewHoldRequestDto;
 import com.bukang.product.dto.CrewHoldResultDto;
+import com.bukang.product.dto.CrewLowPaymentDto;
 import com.bukang.product.dto.HoldRequestDto;
 import com.bukang.product.dto.HoldResultDto;
 import com.bukang.product.dto.HoldSellResult;
@@ -66,6 +68,7 @@ public class ProductFacade {
 	private final RaceSaleStopUseCase raceSaleStopUseCase;
 	private final RaceKitOptionUseCase raceKitOptionUseCase;
 	private final CrewSeatBatchUseCase crewSeatBatchUseCase;
+	private final CrewLowPaymentQueryUseCase crewLowPaymentQueryUseCase;
 	private final TransactionTemplate transactionTemplate;
 	private final ProductOutboxKafkaAppendUseCase productOutboxKafkaAppendUseCase;
 	private final ProductOutboxKafkaRelayUseCase productOutboxKafkaRelayUseCase;
@@ -308,6 +311,12 @@ public class ProductFacade {
 	// 정산 서비스의 최종 정산 대상 대회 (내부 API)
 	public List<RaceScheduleDto> findRacesByRaceDate(LocalDate from, LocalDate to) {
 		return raceScheduleQueryUseCase.findByRaceDate(from, to);
+	}
+
+	// 회원 서비스가 크루 참가 제한을 기록할 때 쓰는 결제율 미달 크루 (내부 API, BUK-176)
+	// 클래스의 읽기 전용 트랜잭션 안에서 센다
+	public List<CrewLowPaymentDto> findLowPaymentCrews(YearMonth month) {
+		return crewLowPaymentQueryUseCase.find(month);
 	}
 
 	// 시각이 지난 대회의 판매 상태를 바꾸고, 바뀐 대회마다 대기열에 보낼 대회 변경 메시지와 검색 문서 동기화 이벤트를 남긴다
