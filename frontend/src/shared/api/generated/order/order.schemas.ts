@@ -6,6 +6,32 @@
  * OpenAPI spec version: v1
  */
 /**
+ * 키트 발송 요청. 택배사와 송장 번호를 넣으면 배송 중이 된다
+ */
+export interface KitShipmentRequestDto {
+  /** 택배사 ID. GET /api/v1/order/seller/kits/carriers 목록의 id만 받는다 (BUK-55) */
+  carrierId?: string;
+  /**
+     * (옛 칸) 택배사 이름. carrierId가 없을 때만 쓴다
+     * @deprecated
+     */
+  carrier?: string;
+  /**
+     * 송장 번호 (50자 이하)
+     * @minLength 0
+     * @maxLength 50
+     */
+  trackingNumber: string;
+}
+
+export interface RsData {
+  status?: number;
+  code?: string;
+  message?: string;
+  data?: unknown;
+}
+
+/**
  * 참가자 성별
  */
 export type ParticipantInfoRequestDtoGender = typeof ParticipantInfoRequestDtoGender[keyof typeof ParticipantInfoRequestDtoGender];
@@ -94,11 +120,49 @@ export interface ParticipantInfoRequestDto {
   shippingAddress?: ShippingAddressRequestDto;
 }
 
-export interface RsData {
-  status?: number;
-  code?: string;
-  message?: string;
-  data?: unknown;
+/**
+ * 파티 만들기 요청. 파티장도 참가자라 파티 종목과 자기 참가자 정보를 함께 보낸다
+ */
+export interface PartyCreateRequestDto {
+  /**
+     * 파티를 만들 크루 ID
+     * @minimum 0
+     */
+  crewId: number;
+  /**
+     * 파티 종목 ID. 파티원 모두 이 종목으로 신청하고, 만든 뒤에는 바꿀 수 없다
+     * @minimum 0
+     */
+  raceCourseId: number;
+  /** 참가자 정보 */
+  participant: ParticipantInfoRequestDto;
+  /** 개인정보 제3자 제공 동의 (필수, true만 받는다) */
+  thirdPartyConsent: boolean;
+}
+
+export interface PartyPreviewRequestDto {
+  /**
+     * 참가 링크 토큰
+     * @minLength 0
+     * @maxLength 64
+     */
+  joinToken: string;
+}
+
+/**
+ * 참가 링크로 파티에 합류하는 요청. 종목은 고르지 않고 파티 종목으로 신청한다
+ */
+export interface PartyJoinRequestDto {
+  /**
+     * 참가 링크 토큰
+     * @minLength 0
+     * @maxLength 64
+     */
+  joinToken: string;
+  /** 참가자 정보 */
+  participant: ParticipantInfoRequestDto;
+  /** 개인정보 제3자 제공 동의 (필수, true만 받는다) */
+  thirdPartyConsent: boolean;
 }
 
 /**
@@ -128,6 +192,19 @@ export interface OrderCreateRequestDto {
 }
 
 /**
+ * 예치금 결제 요청. 본문이 없으면 키트 옵션 없이 결제한다
+ */
+export interface OrderPayRequestDto {
+  /**
+     * 고른 키트 옵션 ID (상품 GET /api/v1/product/races/{raceId}/kit-options의 kitOptionId). 대회에 옵션이 있으면 이름마다 하나씩 골라야 하고, 옵션 없는 대회는 비운다
+     * @minItems 0
+     * @maxItems 20
+     * @items.minimum 0
+     */
+  kitOptionIds?: number[];
+}
+
+/**
  * 장바구니 담기 요청 (참가권만 담고 수량은 1로 고정)
  */
 export interface CartItemAddRequestDto {
@@ -149,36 +226,6 @@ export interface CartCheckoutRequestDto {
      * @items.minimum 0
      */
   participationIds: number[];
-}
-
-/**
- * 키트 발송 요청. 택배사와 송장 번호를 넣으면 배송 중이 된다
- */
-export interface KitShipmentRequestDto {
-  /**
-     * 택배사 (30자 이하)
-     * @minLength 1
-     * @maxLength 30
-     */
-  carrier: string;
-  /**
-     * 송장 번호 (50자 이하)
-     * @minLength 1
-     * @maxLength 50
-     */
-  trackingNumber: string;
-}
-
-/**
- * 예치금 결제 요청. 본문이 없으면 키트 옵션 없이 결제한다
- */
-export interface OrderPayRequestDto {
-  /**
-     * 고른 키트 옵션 ID (상품 GET /api/v1/product/races/{raceId}/kit-options의 kitOptionId). 대회에 옵션이 있으면 이름마다 하나씩 골라야 하고, 옵션 없는 대회는 비운다
-     * @maxItems 20
-     * @items.minimum 1
-     */
-  kitOptionIds?: number[];
 }
 
 /**
@@ -237,6 +284,15 @@ export const ParticipationDtoStatus = {
 } as const;
 
 /**
+ * 참가 신청이 고른 키트 옵션 하나
+ */
+export interface KitOptionChoiceDto {
+  kitOptionId: number;
+  name: string;
+  value: string;
+}
+
+/**
  * 참가 신청
  */
 export interface ParticipationDto {
@@ -260,6 +316,8 @@ export interface ParticipationDto {
   consentedAt?: string | null;
   /** @nullable */
   paymentDueAt?: string | null;
+  /** 결제 때 고른 키트 옵션 (이름·값, 고른 순). 결제 전이거나 옵션이 없는 종목이면 빈 목록 */
+  kitOptions?: KitOptionChoiceDto[];
 }
 
 export type OrderItemDtoStatus = typeof OrderItemDtoStatus[keyof typeof OrderItemDtoStatus];
@@ -285,6 +343,88 @@ export const OrderItemDtoKitDeliveryStatus = {
 } as const;
 
 /**
+ * 배송 상태. NOT_TRACKED는 아직 조회되지 않음
+ */
+export type KitTrackingDtoStatus = typeof KitTrackingDtoStatus[keyof typeof KitTrackingDtoStatus];
+
+
+export const KitTrackingDtoStatus = {
+  NOT_TRACKED: 'NOT_TRACKED',
+  INFORMATION_RECEIVED: 'INFORMATION_RECEIVED',
+  AT_PICKUP: 'AT_PICKUP',
+  IN_TRANSIT: 'IN_TRANSIT',
+  OUT_FOR_DELIVERY: 'OUT_FOR_DELIVERY',
+  ATTEMPT_FAIL: 'ATTEMPT_FAIL',
+  DELIVERED: 'DELIVERED',
+  AVAILABLE_FOR_PICKUP: 'AVAILABLE_FOR_PICKUP',
+  EXCEPTION: 'EXCEPTION',
+  UNKNOWN: 'UNKNOWN',
+} as const;
+
+export type KitTrackingEventDtoStatus = typeof KitTrackingEventDtoStatus[keyof typeof KitTrackingEventDtoStatus];
+
+
+export const KitTrackingEventDtoStatus = {
+  NOT_TRACKED: 'NOT_TRACKED',
+  INFORMATION_RECEIVED: 'INFORMATION_RECEIVED',
+  AT_PICKUP: 'AT_PICKUP',
+  IN_TRANSIT: 'IN_TRANSIT',
+  OUT_FOR_DELIVERY: 'OUT_FOR_DELIVERY',
+  ATTEMPT_FAIL: 'ATTEMPT_FAIL',
+  DELIVERED: 'DELIVERED',
+  AVAILABLE_FOR_PICKUP: 'AVAILABLE_FOR_PICKUP',
+  EXCEPTION: 'EXCEPTION',
+  UNKNOWN: 'UNKNOWN',
+} as const;
+
+/**
+ * 이동 기록 한 줄
+ */
+export interface KitTrackingEventDto {
+  /** @nullable */
+  time?: string | null;
+  status?: KitTrackingEventDtoStatus;
+  /**
+     * 택배사가 붙인 상태 이름
+     * @nullable
+     */
+  statusText?: string | null;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  location?: string | null;
+}
+
+/**
+ * 키트 배송 조회 (Delivery Tracker에서 받아 저장한 값). 자동 조회하지 않는 배송이면 null
+ */
+export interface KitTrackingDto {
+  /** 택배사 ID (Delivery Tracker) */
+  carrierId?: string;
+  /** 배송 상태. NOT_TRACKED는 아직 조회되지 않음 */
+  status?: KitTrackingDtoStatus;
+  /** 배송 상태 이름 */
+  statusLabel?: string;
+  /**
+     * 택배사가 붙인 상태 이름
+     * @nullable
+     */
+  statusText?: string | null;
+  /**
+     * 마지막 상태의 시각
+     * @nullable
+     */
+  lastEventAt?: string | null;
+  /**
+     * 마지막으로 조회한 시각. 아직 조회하지 않았으면 null
+     * @nullable
+     */
+  lastTrackedAt?: string | null;
+  /** 이동 기록 (오래된 것부터) */
+  events?: KitTrackingEventDto[];
+}
+
+/**
  * 주문 상품
  */
 export interface OrderItemDto {
@@ -307,6 +447,8 @@ export interface OrderItemDto {
   kitShippedAt?: string | null;
   /** @nullable */
   kitDeliveredAt?: string | null;
+  /** 키트 배송 조회. 발송 전이거나 자동 조회하지 않는 배송이면 null */
+  kitTracking?: KitTrackingDto | null;
 }
 
 export type OrderDtoStatus = typeof OrderDtoStatus[keyof typeof OrderDtoStatus];
@@ -463,15 +605,6 @@ export const SellerKitDtoKitDeliveryStatus = {
 } as const;
 
 /**
- * 참가 신청이 고른 키트 옵션 하나
- */
-export interface KitOptionChoiceDto {
-  kitOptionId: number;
-  name: string;
-  value: string;
-}
-
-/**
  * 판매자 키트 배송 목록의 한 줄
  */
 export interface SellerKitDto {
@@ -499,6 +632,8 @@ export interface SellerKitDto {
   kitShippedAt?: string | null;
   /** @nullable */
   kitDeliveredAt?: string | null;
+  /** 키트 배송 조회. 발송 전이거나 자동 조회하지 않는 배송이면 null */
+  kitTracking?: KitTrackingDto | null;
 }
 
 /**
@@ -609,10 +744,16 @@ export interface PartyDetailDto {
   leaderMemberId: number;
   /** RECRUITING(모집 중) / PAYING(결제 진행 중) / PAID(결제 끝) / CLOSED(종료) */
   status: PartyDetailDtoStatus;
-  /** 파티원 결제 기한. 신청 전이면 null */
-  paymentDueAt?: string;
-  /** 참가 링크 토큰. 파티장에게만 주고 파티원에게는 null */
-  joinToken?: string;
+  /**
+     * 파티원 결제 기한. 신청 전이면 null
+     * @nullable
+     */
+  paymentDueAt?: string | null;
+  /**
+     * 참가 링크 토큰. 파티장에게만 주고 파티원에게는 null
+     * @nullable
+     */
+  joinToken?: string | null;
   /** 참가 링크 만료 시각 */
   joinTokenExpiresAt: string;
   /** 파티원 수 (파티장 포함) */
@@ -654,8 +795,11 @@ export interface PartySummaryDto {
   memberCount: number;
   /** 결제를 마친 파티원 수 */
   paidCount: number;
-  /** 파티원 결제 기한. 신청 전이면 null */
-  paymentDueAt?: string;
+  /**
+     * 파티원 결제 기한. 신청 전이면 null
+     * @nullable
+     */
+  paymentDueAt?: string | null;
   /** 내가 들어 있는 파티인지. 이 카드만 상세로 보냄 */
   myParty: boolean;
 }
@@ -742,6 +886,43 @@ export const PartyRaceStatusDtoPartyStatus = {
 } as const;
 
 /**
+ * INDIVIDUAL(개인 신청) / PARTY(파티원 신청)
+ */
+export type MyParticipationDtoParticipationType = typeof MyParticipationDtoParticipationType[keyof typeof MyParticipationDtoParticipationType];
+
+
+export const MyParticipationDtoParticipationType = {
+  INDIVIDUAL: 'INDIVIDUAL',
+  PARTY: 'PARTY',
+} as const;
+
+/**
+ * PENDING(확보 전) / APPLIED(결제 대기) / CONFIRMED(참가 확정)
+ */
+export type MyParticipationDtoStatus = typeof MyParticipationDtoStatus[keyof typeof MyParticipationDtoStatus];
+
+
+export const MyParticipationDtoStatus = {
+  PENDING: 'PENDING',
+  APPLIED: 'APPLIED',
+  CONFIRMED: 'CONFIRMED',
+} as const;
+
+/**
+ * 이 대회에 살아 있는 내 신청 (개인·파티 모두, 한 사람 한 대회 1건)
+ */
+export interface MyParticipationDto {
+  /** 신청서 ID */
+  participationId: number;
+  /** INDIVIDUAL(개인 신청) / PARTY(파티원 신청) */
+  participationType: MyParticipationDtoParticipationType;
+  /** PENDING(확보 전) / APPLIED(결제 대기) / CONFIRMED(참가 확정) */
+  status: MyParticipationDtoStatus;
+  /** 결제 기한. 자리 확보 전이면 칸이 빠진다 */
+  paymentDueAt?: string;
+}
+
+/**
  * 이 대회에서 내 파티 상태. 파티가 없으면 role=NONE, canApply=false, reason=NO_PARTY만 온다
  */
 export interface PartyRaceStatusDto {
@@ -761,8 +942,11 @@ export interface PartyRaceStatusDto {
   memberCount?: number;
   /** 신청할 수 있는 최소 인원 */
   minCount?: number;
-  /** 파티 최대 인원 */
-  maxCount?: number;
+  /**
+     * 파티 최대 인원
+     * @nullable
+     */
+  maxCount?: number | null;
   /** 결제를 마친(참가 확정) 파티원 수 */
   paidCount?: number;
   /** 파티원 결제 마감 (파티 신청 뒤에만). 해제 배치 전에는 지나도 PAYING이니 만료는 이 값과 지금 시각으로 판단 */
@@ -771,6 +955,8 @@ export interface PartyRaceStatusDto {
   myPaid?: boolean;
   /** 내 신청서 ID. [결제하기]에 쓴다 */
   participationId?: number;
+  /** 이 대회에 살아 있는 내 신청. 없으면 칸이 빠진다. 파티가 없어도(role=NONE) 개인 신청이 있으면 나와 「이미 신청함」을 고른다 */
+  myParticipation?: MyParticipationDto;
 }
 
 /**
@@ -800,10 +986,238 @@ export interface KitOptionSoldOutDto {
   soldOut: KitOptionChoiceDto[];
 }
 
+/**
+ * 신청 상태
+ */
+export type MyTicketDtoStatus = typeof MyTicketDtoStatus[keyof typeof MyTicketDtoStatus];
+
+
+export const MyTicketDtoStatus = {
+  PENDING: 'PENDING',
+  APPLIED: 'APPLIED',
+  CONFIRMED: 'CONFIRMED',
+  RELEASED: 'RELEASED',
+  FAILED: 'FAILED',
+  CANCELED: 'CANCELED',
+} as const;
+
+export type MyTicketDtoParticipationType = typeof MyTicketDtoParticipationType[keyof typeof MyTicketDtoParticipationType];
+
+
+export const MyTicketDtoParticipationType = {
+  INDIVIDUAL: 'INDIVIDUAL',
+  PARTY: 'PARTY',
+} as const;
+
+/**
+ * 주문 상태. 결제하지 않아 만료되면 주문 상품은 ORDERED로 남으니 이 칸(EXPIRED)으로 가른다. 주문 전이면 null
+ * @nullable
+ */
+export type MyTicketDtoOrderStatus = typeof MyTicketDtoOrderStatus[keyof typeof MyTicketDtoOrderStatus] | null;
+
+
+export const MyTicketDtoOrderStatus = {
+  CREATED: 'CREATED',
+  PAID: 'PAID',
+  PARTIAL_CANCELED: 'PARTIAL_CANCELED',
+  CANCELED: 'CANCELED',
+  EXPIRED: 'EXPIRED',
+} as const;
+
+/**
+ * 주문 상품 상태. 주문 전이면 null
+ * @nullable
+ */
+export type MyTicketDtoOrderItemStatus = typeof MyTicketDtoOrderItemStatus[keyof typeof MyTicketDtoOrderItemStatus] | null;
+
+
+export const MyTicketDtoOrderItemStatus = {
+  ORDERED: 'ORDERED',
+  PAID: 'PAID',
+  CANCELING: 'CANCELING',
+  CANCELED: 'CANCELED',
+} as const;
+
+/**
+ * 키트 배송 상태. 결제 전이거나 키트가 없으면 null
+ * @nullable
+ */
+export type MyTicketDtoKitDeliveryStatus = typeof MyTicketDtoKitDeliveryStatus[keyof typeof MyTicketDtoKitDeliveryStatus] | null;
+
+
+export const MyTicketDtoKitDeliveryStatus = {
+  PREPARING: 'PREPARING',
+  SHIPPING: 'SHIPPING',
+  DELIVERED: 'DELIVERED',
+} as const;
+
+/**
+ * 파티 상태. 개인 신청이면 null
+ * @nullable
+ */
+export type MyTicketDtoPartyStatus = typeof MyTicketDtoPartyStatus[keyof typeof MyTicketDtoPartyStatus] | null;
+
+
+export const MyTicketDtoPartyStatus = {
+  RECRUITING: 'RECRUITING',
+  PAYING: 'PAYING',
+  PAID: 'PAID',
+  CLOSED: 'CLOSED',
+} as const;
+
+/**
+ * 내 참가권 목록의 한 줄. 참가 신청 1건 = 1줄
+ */
+export interface MyTicketDto {
+  /** 참가 신청 ID */
+  participationId: number;
+  /** 신청한 시각 */
+  createDate: string;
+  raceId: number;
+  raceCourseId: number;
+  /**
+     * 대회 이름. 상품 서비스에 묻지 못하면 null
+     * @nullable
+     */
+  raceName?: string | null;
+  /**
+     * 종목 이름. 상품 서비스에 묻지 못하면 주문 당시 이름, 주문도 없으면 null
+     * @nullable
+     */
+  courseName?: string | null;
+  /**
+     * 대회 일시. 상품 서비스에 묻지 못하면 주문 당시 값, 주문도 없으면 null
+     * @nullable
+     */
+  raceDate?: string | null;
+  /**
+     * 환불 기한 (그날까지). 상품 서비스에 묻지 못하면 null
+     * @nullable
+     */
+  refundDeadline?: string | null;
+  /** 참가자 이름 */
+  participantName: string;
+  /** 신청 상태 */
+  status: MyTicketDtoStatus;
+  participationType: MyTicketDtoParticipationType;
+  /**
+     * 결제 기한. 자리 확보 전이면 null
+     * @nullable
+     */
+  paymentDueAt?: string | null;
+  /**
+     * 주문 ID. 주문 전이면 null
+     * @nullable
+     */
+  orderId?: number | null;
+  /**
+     * 주문번호. 주문 전이면 null
+     * @nullable
+     */
+  orderNo?: string | null;
+  /**
+     * 주문 상태. 결제하지 않아 만료되면 주문 상품은 ORDERED로 남으니 이 칸(EXPIRED)으로 가른다. 주문 전이면 null
+     * @nullable
+     */
+  orderStatus?: MyTicketDtoOrderStatus;
+  /**
+     * 주문 상품 ID. 참가권 취소에 쓴다. 주문 전이면 null
+     * @nullable
+     */
+  orderItemId?: number | null;
+  /**
+     * 주문 상품 상태. 주문 전이면 null
+     * @nullable
+     */
+  orderItemStatus?: MyTicketDtoOrderItemStatus;
+  /**
+     * 결제 금액. 주문 전이면 null
+     * @nullable
+     */
+  amount?: number | null;
+  /** 결제 때 고른 키트 옵션. 결제 전이거나 옵션이 없는 종목이면 빈 목록 */
+  kitOptions: KitOptionChoiceDto[];
+  /**
+     * 키트 배송 상태. 결제 전이거나 키트가 없으면 null
+     * @nullable
+     */
+  kitDeliveryStatus?: MyTicketDtoKitDeliveryStatus;
+  /**
+     * 택배사. 발송 전이면 null
+     * @nullable
+     */
+  kitCarrier?: string | null;
+  /**
+     * 송장 번호. 발송 전이면 null
+     * @nullable
+     */
+  kitTrackingNumber?: string | null;
+  /**
+     * 파티 ID. 개인 신청이면 null
+     * @nullable
+     */
+  partyId?: number | null;
+  /**
+     * 크루 ID. 크루 이름은 GET /api/v1/member/crews/me에서 찾는다. 개인 신청이면 null
+     * @nullable
+     */
+  crewId?: number | null;
+  /**
+     * 파티 상태. 개인 신청이면 null
+     * @nullable
+     */
+  partyStatus?: MyTicketDtoPartyStatus;
+  /**
+     * 파티장 회원 ID. 개인 신청이면 null
+     * @nullable
+     */
+  leaderMemberId?: number | null;
+  /**
+     * 파티장 닉네임. 회원 서비스에 없으면 「탈퇴한 회원」, 묻지 못하면 null
+     * @nullable
+     */
+  leaderNickname?: string | null;
+}
+
+/**
+ * 내 참가권 목록 한 페이지
+ */
+export interface MyTicketPageDto {
+  tickets: MyTicketDto[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
+export interface RsDataOrderItemDto {
+  status?: number;
+  message?: string;
+  data?: OrderItemDto;
+}
+
 export interface RsDataParticipationDto {
   status?: number;
   message?: string;
   data?: ParticipationDto;
+}
+
+export interface RsDataPartyCreatedDto {
+  status?: number;
+  message?: string;
+  data?: PartyCreatedDto;
+}
+
+export interface RsDataPartyDto {
+  status?: number;
+  message?: string;
+  data?: PartyDto;
+}
+
+export interface RsDataPartyPreviewDto {
+  status?: number;
+  message?: string;
+  data?: PartyPreviewDto;
 }
 
 export interface RsDataOrderPageDto {
@@ -830,24 +1244,6 @@ export interface RsDataCartCheckoutDto {
   data?: CartCheckoutDto;
 }
 
-export interface RsDataQueueAdmissionDto {
-  status?: number;
-  message?: string;
-  data?: QueueAdmissionDto;
-}
-
-export interface RsDataParticipantInfoDto {
-  status?: number;
-  message?: string;
-  data?: ParticipantInfoDto | null;
-}
-
-export interface RsDataCartDto {
-  status?: number;
-  message?: string;
-  data?: CartDto;
-}
-
 export interface RsDataSellerKitPageDto {
   status?: number;
   message?: string;
@@ -860,10 +1256,52 @@ export interface RsDataSellerKitSummaryDto {
   data?: SellerKitSummaryDto;
 }
 
-export interface RsDataOrderItemDto {
+export interface RsDataListSellerKitOptionSaleDto {
   status?: number;
   message?: string;
-  data?: OrderItemDto;
+  data?: SellerKitOptionSaleDto[];
+}
+
+export interface RsDataQueueAdmissionDto {
+  status?: number;
+  message?: string;
+  data?: QueueAdmissionDto;
+}
+
+export interface RsDataPartyDetailDto {
+  status?: number;
+  message?: string;
+  data?: PartyDetailDto;
+}
+
+export interface RsDataListPartySummaryDto {
+  status?: number;
+  message?: string;
+  data?: PartySummaryDto[];
+}
+
+export interface RsDataPartyRaceStatusDto {
+  status?: number;
+  message?: string;
+  data?: PartyRaceStatusDto;
+}
+
+export interface RsDataMyTicketPageDto {
+  status?: number;
+  message?: string;
+  data?: MyTicketPageDto;
+}
+
+export interface RsDataParticipantInfoDto {
+  status?: number;
+  message?: string;
+  data?: ParticipantInfoDto | null;
+}
+
+export interface RsDataCartDto {
+  status?: number;
+  message?: string;
+  data?: CartDto;
 }
 
 export type FindMineParams = {
@@ -888,17 +1326,18 @@ page?: number;
 size?: number;
 };
 
-export type FindAdmissionParams = {
+export type SummarizeSoldParams = {
 /**
  * 대회 ID
- * @exclusiveMinimum 0
  */
 raceId: number;
+};
+
+export type FindSoldEntriesParams = {
 /**
- * 종목 ID
- * @exclusiveMinimum 0
+ * 대회 ID
  */
-raceCourseId: number;
+raceId: number;
 };
 
 export type FindKitsParams = {
@@ -937,5 +1376,81 @@ export type SummarizeParams = {
  * 대회 ID (생략하면 모든 대회)
  */
 raceId?: number;
+};
+
+export type FindKitOptionSalesParams = {
+/**
+ * 대회 ID
+ */
+raceId: number;
+};
+
+export type FindAdmissionParams = {
+/**
+ * 대회 ID
+ * @exclusiveMinimum 0
+ */
+raceId: number;
+/**
+ * 종목 ID
+ * @exclusiveMinimum 0
+ */
+raceCourseId: number;
+};
+
+export type GetMyPartiesParams = {
+/**
+ * 대회 ID (없으면 모든 대회)
+ * @exclusiveMinimum 0
+ */
+raceId?: number;
+};
+
+export type GetMyRacePartyStatusParams = {
+/**
+ * 대회 ID
+ * @exclusiveMinimum 0
+ */
+raceId: number;
+};
+
+export type FindMyTicketsParams = {
+/**
+ * true면 살아 있는 신청(확보 전·결제 대기·참가 확정)만
+ */
+active?: boolean;
+/**
+ * 페이지 번호 (0부터)
+ * @minimum 0
+ */
+page?: number;
+/**
+ * 페이지 크기 (1~50)
+ * @minimum 1
+ * @maximum 50
+ */
+size?: number;
+};
+
+export type FindOrdersParams = {
+/**
+ * 회원 닉네임 (주문번호와 둘 중 하나)
+ */
+nickname?: string;
+/**
+ * 주문번호 (닉네임과 둘 중 하나, 대소문자 상관없음)
+ */
+orderNo?: string;
+/**
+ * 페이지 번호 (0부터)
+ * @minimum 0
+ */
+page?: number;
+/**
+ * 페이지 크기 (1~100)
+ * @minimum 1
+ * @maximum 100
+ */
+size?: number;
 };
 
