@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 import { useState } from 'react'
 
 import { Button } from '../button/Button'
+import { Textarea } from '../field/Textarea'
 import { Dialog, type DialogProps } from './Dialog'
 
 const meta = {
@@ -67,4 +68,16 @@ export const Danger: Story = {
 export const AlertType: Story = {
   name: 'Alert',
   render: () => <Demo type="alert" title="결제가 완료되었습니다" confirmLabel="확인" />,
+}
+
+/** 본문에 입력칸(반려 사유 등)을 넣을 수 있다. */
+export const WithInput: Story = {
+  render: () => (
+    <Demo
+      type="danger"
+      title="판매자 신청을 반려할까요?"
+      body={<Textarea label="반려 사유" placeholder="신청자에게 보여 줄 사유를 적어 주세요" />}
+      confirmLabel="반려하기"
+    />
+  ),
 }
