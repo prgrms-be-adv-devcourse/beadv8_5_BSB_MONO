@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
 import { useAuthStatus } from '@/features/auth'
 import { memberApi, unwrapData, type memberModel } from '@/shared/api'
+import { useSearchParamsState } from '@/shared/lib'
 import {
   Alert,
   Badge,
@@ -44,7 +45,12 @@ const REASON_MAX_LENGTH = 500
 export function AdminSellersPage({ rejectOpen = false }: { rejectOpen?: boolean }) {
   const queryClient = useQueryClient()
   const authenticated = useAuthStatus() === 'authenticated'
-  const [tab, setTab] = useState<Tab>('pending')
+  // 신청 상태 탭은 URL(?tab=)에 담는다
+  const [url, setUrl] = useSearchParamsState(
+    { tab: 'pending' },
+    { tab: Object.keys(STATUS_BY_TAB) },
+  )
+  const tab = url.tab as Tab
   const [selectedId, setSelectedId] = useState<number>()
   const [dialogOpen, setDialogOpen] = useState(rejectOpen)
   const [reason, setReason] = useState('')
@@ -118,7 +124,7 @@ export function AdminSellersPage({ rejectOpen = false }: { rejectOpen?: boolean 
         size="l"
         value={tab}
         onChange={(next) => {
-          setTab(next)
+          setUrl({ tab: next })
           setSelectedId(undefined)
           resetReviewInput()
         }}

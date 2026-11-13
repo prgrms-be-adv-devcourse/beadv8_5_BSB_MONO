@@ -9,10 +9,9 @@ import { server } from '@/shared/testing'
 
 import { DepositPage } from './DepositPage'
 
-vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn(), back: vi.fn(), replace: vi.fn() }),
-  usePathname: () => '/me/deposit',
-}))
+vi.mock('next/navigation', async () =>
+  (await import('@/shared/testing')).navigationMock('/me/deposit'),
+)
 
 beforeEach(() => setAccessToken('access-token'))
 

@@ -1,11 +1,11 @@
 'use client'
 
 import { keepPreviousData } from '@tanstack/react-query'
-import { useState } from 'react'
 
 import { ConsoleCard } from '@/widgets/console-page'
 import { useAuthStatus } from '@/features/auth'
 import { memberApi, unwrapData } from '@/shared/api'
+import { useSearchParamsState } from '@/shared/lib'
 import { Alert, Badge, DataTable, Pagination } from '@/shared/ui'
 
 import { ADMIN_MEMBER_PAGE_SIZE, loadErrorMessage, toDateTime } from '../model/admin-members-api'
@@ -13,7 +13,8 @@ import { ADMIN_MEMBER_PAGE_SIZE, loadErrorMessage, toDateTime } from '../model/a
 // 확인이 필요한 계정: 같은 사람으로 보이는 계정 묶음. 묶음마다 카드 하나, 표 하나.
 export function IdentityReviewTab() {
   const authenticated = useAuthStatus() === 'authenticated'
-  const [page, setPage] = useState(0)
+  const [url, setUrl] = useSearchParamsState({ identityPage: '0' })
+  const page = Math.max(0, Math.trunc(Number(url.identityPage)) || 0)
   const list = memberApi.useFindIdentityReview(
     { page, size: ADMIN_MEMBER_PAGE_SIZE },
     { query: { select: unwrapData, enabled: authenticated, placeholderData: keepPreviousData } },
@@ -61,7 +62,11 @@ export function IdentityReviewTab() {
         </ConsoleCard>
       ))}
       {totalPages > 1 && (
-        <Pagination page={page + 1} totalPages={totalPages} onPageChange={(p) => setPage(p - 1)} />
+        <Pagination
+          page={page + 1}
+          totalPages={totalPages}
+          onPageChange={(p) => setUrl({ identityPage: String(p - 1) })}
+        />
       )}
     </>
   )

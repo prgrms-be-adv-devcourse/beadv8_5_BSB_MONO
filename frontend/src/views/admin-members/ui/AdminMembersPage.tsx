@@ -1,10 +1,9 @@
 'use client'
 
-import { useState } from 'react'
-
 import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
 import { useAuthStatus } from '@/features/auth'
 import { cashApi, memberApi, unwrapData } from '@/shared/api'
+import { useSearchParamsState } from '@/shared/lib'
 import {
   Alert,
   Badge,
@@ -68,7 +67,9 @@ const KEYS = [
 // 피그마 V2 · A04 회원 · 주문 조회
 export function AdminMembersPage() {
   const authenticated = useAuthStatus() === 'authenticated'
-  const [tab, setTab] = useState<Tab>('all')
+  // 탭은 URL(?tab=)에 담는다
+  const [url, setUrl] = useSearchParamsState({ tab: 'all' }, { tab: ['all', 'identity', 'charge'] })
+  const tab = url.tab as Tab
   // 탭 배지. 탭을 누르기 전에도 개수가 보이도록 첫 페이지를 항상 불러온다(각 탭의 첫 페이지와 같은 요청이라 한 번만 간다).
   const identity = memberApi.useFindIdentityReview(
     { page: 0, size: ADMIN_MEMBER_PAGE_SIZE },
@@ -86,7 +87,7 @@ export function AdminMembersPage() {
         layout="hug"
         size="l"
         value={tab}
-        onChange={setTab}
+        onChange={(next) => setUrl({ tab: next })}
         items={[
           { value: 'all', label: '전체 회원' },
           { value: 'identity', label: '확인이 필요한 계정', count: identity.data?.totalElements },

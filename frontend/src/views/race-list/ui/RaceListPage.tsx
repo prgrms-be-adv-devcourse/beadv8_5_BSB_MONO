@@ -18,6 +18,7 @@ import {
   type RaceListItem,
   type RaceSearchFilters,
 } from '@/entities/race'
+import { productModel } from '@/shared/api'
 import {
   addRecentSearch,
   clearRecentSearches,
@@ -25,6 +26,7 @@ import {
   formatNumber,
   loadRecentSearches,
   removeRecentSearch,
+  useSearchParamsState,
   useTrackOnce,
 } from '@/shared/lib'
 import {
@@ -57,16 +59,18 @@ const SORTS = [
 // 종목 · 지역 칩은 카테고리 화면에서 거리 · 지역을 고르고, 이번 달 칩은 대회일 범위로 건다.
 export function RaceListPage({ state }: { state?: RaceListState }) {
   const empty = state === 'empty'
-  const [query, setQuery] = useState(empty ? '제주 트레일' : '')
+  // 정렬 · 종목 · 지역 · 이번 달은 URL에 담아 상세에 갔다 돌아와도 남긴다. 검색어는 입력 중에는 화면 상태, 보낼 때 URL(q)에 쓴다.
+  const [url, setUrl] = useSearchParamsState(URL_DEFAULTS, { sort: SORT_VALUES, surface: SURFACES })
+  const [query, setQuery] = useState(empty ? '제주 트레일' : url.q)
   const [focused, setFocused] = useState(false)
-  const [sort, setSort] = useState<RaceSort>(DEFAULT_RACE_SORT)
-  const [category, setCategory] = useState<Filters>({})
-  const [thisMonth, setThisMonth] = useState(false)
+  const sort = url.sort as RaceSort
+  const category = toCategory(url)
+  const thisMonth = url.month === '1'
   const [categoryOpen, setCategoryOpen] = useState(false)
   const [recent, setRecent] = useState<string[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
   const keyword = useDebouncedValue(query)
-  const now = new Date()
+  const [now] = useState(() => new Date())
   const filters: RaceSearchFilters = {
     keyword,
     sort,
@@ -114,14 +118,14 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
   const showSuggestions = focused && query.trim() !== '' && suggestionItems.length > 0
 
   function submitSearch(term: string) {
+    setUrl({ q: term.trim() })
     setRecent(addRecentSearch(term))
     inputRef.current?.blur()
   }
 
   function resetFilters() {
     setQuery('')
-    setCategory({})
-    setThisMonth(false)
+    setUrl({ q: '', courseType: '', surface: '', regionSido: '', month: '' })
   }
 
   if (categoryOpen) {
@@ -129,7 +133,11 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
       <CategoryScreen
         onBack={() => setCategoryOpen(false)}
         onPick={(picked) => {
-          setCategory(picked)
+          setUrl({
+            courseType: (picked.courseType ?? []).join(','),
+            surface: picked.surface ?? '',
+            regionSido: picked.regionSido ?? '',
+          })
           setCategoryOpen(false)
         }}
       />
@@ -226,7 +234,7 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
             >
               지역
             </Chip>
-            <Chip selected={thisMonth} onClick={() => setThisMonth(!thisMonth)}>
+            <Chip selected={thisMonth} onClick={() => setUrl({ month: thisMonth ? '' : '1' })}>
               {now.getMonth() + 1}월
             </Chip>
           </div>
@@ -241,7 +249,7 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
             <SortSelect
               items={[...SORTS]}
               value={sort}
-              onValueChange={setSort}
+              onValueChange={(value) => setUrl({ sort: value })}
               defaultOpen={state === 'sort'}
               aria-label="대회 정렬"
             />
@@ -348,6 +356,29 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
 }
 
 type Filters = Pick<RaceSearchFilters, 'regionSido' | 'courseType' | 'surface'>
+
+const URL_DEFAULTS = {
+  q: '',
+  sort: DEFAULT_RACE_SORT as string,
+  courseType: '',
+  surface: '',
+  regionSido: '',
+  month: '',
+}
+const SORT_VALUES: string[] = Object.values(RaceSort)
+const SURFACES = ['', ...Object.values(productModel.SearchSurface)]
+const COURSE_TYPES: string[] = Object.values(productModel.SearchCourseTypeItem)
+
+function toCategory(url: typeof URL_DEFAULTS): Filters {
+  const courseType = url.courseType
+    .split(',')
+    .filter((c): c is productModel.SearchCourseTypeItem => COURSE_TYPES.includes(c))
+  return {
+    ...(courseType.length ? { courseType } : {}),
+    ...(url.surface ? { surface: url.surface as productModel.SearchSurface } : {}),
+    ...(url.regionSido ? { regionSido: url.regionSido } : {}),
+  }
+}
 
 /** 이번 달 1일 ~ 말일 (YYYY-MM-DD) */
 function monthRange(now: Date) {

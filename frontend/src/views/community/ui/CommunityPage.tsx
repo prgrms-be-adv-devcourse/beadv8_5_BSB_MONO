@@ -16,7 +16,7 @@ import {
   type PostSort,
 } from '@/entities/board'
 import { NoticeBellLink } from '@/entities/notification'
-import { cn } from '@/shared/lib'
+import { cn, useSearchParamsState } from '@/shared/lib'
 import {
   BottomSheet,
   BottomSheetOption,
@@ -31,6 +31,8 @@ import {
   Skeleton,
 } from '@/shared/ui'
 
+const URL_DEFAULTS = { category: '', sort: 'LATEST', q: '' }
+
 const TABS = [
   { label: '홈', href: '/' },
   { label: '대회 일정', href: '/races' },
@@ -44,11 +46,16 @@ const ICON_LINK =
 // 피그마 커뮤니티 M34 목록 · M34-1 로그인 전 · M34-2 로그인 안내 시트 · M34-3 글 없음 · M34-4 검색 결과 · M34-5 검색 결과 없음 · M34-6 정렬 시트
 export function CommunityPage() {
   const auth = useAuthStatus()
-  const [category, setCategory] = useState<BoardCategory | null>(null)
-  const [sort, setSort] = useState<PostSort>('LATEST')
-  const [searching, setSearching] = useState(false)
-  const [draft, setDraft] = useState('')
-  const [q, setQ] = useState('')
+  // 분류 · 정렬 · 검색어(보낸 것)는 URL에 담는다. 입력 중인 글자(draft)만 화면 상태.
+  const [url, setUrl] = useSearchParamsState(URL_DEFAULTS, {
+    category: ['', ...BOARD_CATEGORIES.map((c) => c.value)],
+    sort: POST_SORTS.map((s) => s.value),
+  })
+  const category = (url.category || null) as BoardCategory | null
+  const sort = url.sort as PostSort
+  const q = url.q
+  const [searching, setSearching] = useState(q !== '')
+  const [draft, setDraft] = useState(q)
   const [sortOpen, setSortOpen] = useState(false)
   const [loginOpen, setLoginOpen] = useState(false)
 
@@ -62,7 +69,7 @@ export function CommunityPage() {
   const closeSearch = () => {
     setSearching(false)
     setDraft('')
-    setQ('')
+    setUrl({ q: '' })
   }
 
   return (
@@ -73,7 +80,7 @@ export function CommunityPage() {
           className="flex items-center py-2.5 pr-4 pl-0.5"
           onSubmit={(e) => {
             e.preventDefault()
-            setQ(draft.trim())
+            setUrl({ q: draft.trim() })
           }}
         >
           <IconButton type="button" aria-label="뒤로 가기" onClick={closeSearch}>
@@ -96,7 +103,7 @@ export function CommunityPage() {
                 className={cn('rounded-full', FOCUS_RING)}
                 onClick={() => {
                   setDraft('')
-                  setQ('')
+                  setUrl({ q: '' })
                 }}
               >
                 <Icon name="X" className="size-5" />
@@ -152,14 +159,14 @@ export function CommunityPage() {
       <main className="flex flex-1 flex-col">
         {!searching && (
           <div className="flex gap-2 overflow-x-auto px-4 pt-4 pb-2">
-            <Chip selected={category === null} onClick={() => setCategory(null)}>
+            <Chip selected={category === null} onClick={() => setUrl({ category: '' })}>
               전체
             </Chip>
             {BOARD_CATEGORIES.map((c) => (
               <Chip
                 key={c.value}
                 selected={category === c.value}
-                onClick={() => setCategory(c.value)}
+                onClick={() => setUrl({ category: c.value })}
               >
                 {c.label}
               </Chip>
@@ -272,7 +279,7 @@ export function CommunityPage() {
             key={s.value}
             selected={sort === s.value}
             onClick={() => {
-              setSort(s.value)
+              setUrl({ sort: s.value })
               setSortOpen(false)
             }}
           >
