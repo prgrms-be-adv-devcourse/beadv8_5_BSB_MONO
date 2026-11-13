@@ -54,7 +54,16 @@ public class CashChargeReconcileUseCase {
 
 		int consecutiveLookupFailures = 0;
 		for (int i = 0; i < targets.size(); i++) {
-			boolean pgAnswered = reconcileOne(targets.get(i), alertBefore);
+			ChargeTarget target = targets.get(i);
+			boolean pgAnswered;
+			try {
+				pgAnswered = reconcileOne(target, alertBefore);
+			} catch (RuntimeException unexpected) {
+				// 한 건의 우리 서버 오류로 뒤의 건이 막히지 않게 넘어간다. PG 무응답이 아니라 연달아 실패 횟수에는 세지 않는다.
+				// 상태를 그대로 두므로 다음 실행에서 다시 본다
+				log.error("충전 대사: 한 건을 처리하다 오류가 나 다음 실행으로 미룹니다. orderId={}", target.orderId(), unexpected);
+				continue;
+			}
 			consecutiveLookupFailures = pgAnswered ? 0 : consecutiveLookupFailures + 1;
 			if (consecutiveLookupFailures >= MAX_CONSECUTIVE_LOOKUP_FAILURES) {
 				log.warn("충전 대사: PG 조회가 {}번 연달아 실패해 이번 실행을 멈춥니다. 남은 건={}",

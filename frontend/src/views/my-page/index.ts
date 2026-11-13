@@ -1,5 +1,7 @@
+export { EmailInfoPage, TermsConsentPage } from './ui/AccountInfoPages'
 export { AccountLinkPage } from './ui/AccountLinkPage'
 export { AccountSettingsPage } from './ui/AccountSettingsPage'
 export { MyPage } from './ui/MyPage'
+export { NotificationSettingsPage } from './ui/NotificationSettingsPage'
 export { ProfileEditPage } from './ui/ProfileEditPage'
 export { WithdrawDonePage, WithdrawPage } from './ui/WithdrawPages'

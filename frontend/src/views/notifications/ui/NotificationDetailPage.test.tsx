@@ -122,7 +122,7 @@ describe('NotificationDetailPage', () => {
           message: '알림을 조회했습니다.',
           data: [
             notice('r1', 'RACE_CANCELED', '대회 취소', '2026-11-01T10:00:00+09:00'),
-            notice('r2', 'INQUIRY_ANSWERED', '문의 답변', '2026-11-02T10:00:00+09:00'),
+            notice('r2', 'RACE_SCHEDULE_CHANGED', '일정 변경', '2026-11-02T10:00:00+09:00'),
             notice('r3', 'RACE_CANCELED', '읽은 알림', '2026-11-02T11:00:00+09:00', {
               unread: false,
             }),

@@ -76,9 +76,7 @@ export const RACE_DETAIL: RaceDetail = {
   startsAt: '11/1 (일) 08:00 출발',
   place: '서울숲 일대 · 5K / 10K',
   dDay: 'D-12',
-  remaining: 590,
   capacity: 3000,
-  applied: 2410,
   options: [
     { id: '10k', name: '10K', includes: '1인 · 기념 티셔츠 · 완주 메달', price: 45000 },
     { id: '5k', name: '5K', includes: '1인 · 기념 티셔츠', price: 35000 },
@@ -88,6 +86,7 @@ export const RACE_DETAIL: RaceDetail = {
     { label: '정보 수정 기한', value: '10/31 (토) 18:00' },
     { label: '전액 환불 기한', value: '10/31 (토) 23:59' },
   ],
+  infoEditDeadline: '10/31 (토) 18:00',
   refund: refundRows('10/31 (토) 23:59'),
   faq: FAQ_ROWS,
   seller: {

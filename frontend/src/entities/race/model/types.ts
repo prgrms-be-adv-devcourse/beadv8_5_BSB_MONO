@@ -13,7 +13,7 @@ export type RaceSummary = {
   image?: string
   /** 포스터에 크게 쓰는 종목 (예: 10K · 5K) */
   posterLabel: string
-  /** 이미지 위 상태 칩 (예: D-2 · 86자리 남음) */
+  /** 이미지 위 상태 칩 (예: D-2). 빈 문자열이면 칩을 그리지 않는다 */
   status: string
   /** 대회일 · 장소 */
   meta: string
@@ -30,7 +30,6 @@ export type RaceListItem = {
   badge: RaceBadge
   meta: string
   price: string
-  remaining: string
 }
 
 export type RaceOption = {
@@ -64,11 +63,13 @@ export type RaceDetail = {
   description?: string
   /** 접수 마감까지 남은 날 (D-12) */
   dDay: string
-  remaining: number
   capacity: number
-  applied: number
+  /** 크루 전용 자리가 있으면 크루 예매 기간 · 파티 인원. 없으면 크루 신청이 없는 대회 */
+  crew?: { startAt?: string; endAt?: string; minCount?: number; maxCount?: number }
   options: RaceOption[]
   schedule: { label: string; value: string }[]
+  /** 정보 수정 기한 = 접수 마감 일시 */
+  infoEditDeadline: string
   refund: { label: string; value: string }[]
   /** 판매자가 대회 상세에 올리는 자주 묻는 질문 */
   faq: { question: string; answer: string }[]

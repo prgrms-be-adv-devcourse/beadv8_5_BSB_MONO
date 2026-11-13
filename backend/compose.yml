@@ -8,10 +8,10 @@ x-app-healthcheck: &app-healthcheck
   retries: 12
   start_period: 300s
 
-# 표를 만드는 방법 (cash·file·order·product·queue). 이 다섯 서비스는 아직 Flyway가 없어서,
+# 표를 만드는 방법 (file·product·queue). 이 세 서비스는 아직 Flyway가 없어서,
 # application-prod.yaml의 validate 그대로면 빈 DB에서 "missing table"로 뜨지 않는다. 그래서 compose 실행에서만 update로 덮어
 # dev와 같은 방식(Hibernate가 없는 표·칼럼을 만듦)으로 표를 만든다. 서비스에 Flyway가 생기면 그 서비스의 줄을 지운다
-# member-service·payout-service는 Flyway가 표를 만들고 validate로 확인하므로 넣지 않는다. 표만 확인하려면 .env에 JPA_DDL_AUTO=validate
+# member-service·payout-service·cash-service는 Flyway가 표를 만들고 validate로 확인하므로 넣지 않는다. 표만 확인하려면 .env에 JPA_DDL_AUTO=validate
 # order-service는 Flyway가 있지만 전환 중이라 한 번 더 update로 둔다 (BUK-29). V1은 표가 이미 있으면 건너뛰어,
 # 지난 배포 뒤 엔티티에 더한 칸이 서버 표에 없으면 validate로는 뜨지 않기 때문이다. Flyway가 먼저 돌고 Hibernate가 빠진 칸을 채운다.
 # 이 설정으로 서버에 한 번 배포한 뒤 order-service의 줄을 지운다
@@ -118,6 +118,8 @@ services:
         condition: service_healthy
       notification-service:
         condition: service_healthy
+      board-service:
+        condition: service_healthy
 
   member-service:
     build:
@@ -160,7 +162,6 @@ services:
         required: false
     environment:
       SPRING_PROFILES_ACTIVE: prod
-      SPRING_JPA_HIBERNATE_DDL_AUTO: *jpa-ddl-auto
     healthcheck:
       <<: *app-healthcheck
       test: [ "CMD", "bash", "-c", "</dev/tcp/127.0.0.1/8081" ]
@@ -322,6 +323,58 @@ services:
       bukang-kafka:
         condition: service_healthy
 
+  # 커뮤니티 게시판 (BUK-156). 표는 처음부터 Flyway가 만들어 SPRING_JPA_HIBERNATE_DDL_AUTO를 덮지 않는다
+  board-service:
+    build:
+      context: .
+      args:
+        MODULE: board-service
+    image: bukang-board-service:latest
+    container_name: bukang-board-service
+    profiles: [ app ]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+    healthcheck:
+      <<: *app-healthcheck
+      test: [ "CMD", "bash", "-c", "</dev/tcp/127.0.0.1/8089" ]
+    depends_on:
+      bukang-db:
+        condition: service_healthy
+      bukang-kafka:
+        condition: service_healthy
+      bukang-redis:
+        condition: service_healthy
+      # 뜰 때 회원 서비스에서 회원 복사본을 채우므로 회원 서비스가 먼저 떠 있어야 한다 (BUK-161)
+      member-service:
+        condition: service_healthy
+
+  # 크루런 AI (BUK-165). DB·Kafka를 쓰지 않고 대화 기록만 Redis에 둔다. 모델은 OpenAI이고 키는 .env의 OPENAI_API_KEY다 (비어도 뜬다)
+  # gateway의 depends_on에 넣지 않는다. AI가 뜨지 못해도 게이트웨이와 다른 서비스는 떠야 한다
+  # (그래도 배포(app-cd.yml)의 up --wait는 AI가 healthy가 못 되면 실패로 끝난다. AI는 Redis가 없거나 검색 기능이 없으면 뜨지 않는다.
+  #  그때도 배포는 Nginx를 다시 읽어 다른 서비스로 가는 길은 살린다)
+  ai-service:
+    build:
+      context: .
+      args:
+        MODULE: ai-service
+    image: bukang-ai-service:latest
+    container_name: bukang-ai-service
+    profiles: [ app ]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+    healthcheck:
+      <<: *app-healthcheck
+      test: [ "CMD", "bash", "-c", "</dev/tcp/127.0.0.1/8092" ]
+    depends_on:
+      bukang-redis:
+        condition: service_healthy
+
   bukang-db:
     # 팀원 간 버전 차이를 막기 위해 LTS 버전으로 고정
     image: mysql:8.4
@@ -445,3 +498,20 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # 로컬에서 크루런 AI를 실제 모델로 확인할 때만 띄운다 (ai-service의 dev 프로파일이 localhost:11434로 부른다). GPU 없이 CPU로 돈다
+  # 이미지(약 3GB)와 모델(약 2GB)이 커서 profiles로 분리했다. bootRun이 인프라를 띄울 때도, 서버(app 프로파일)에서도 뜨지 않는다
+  # 실행: docker compose --profile ai up -d bukang-ollama
+  # 모델 받기(처음 한 번, 약 2GB): docker exec bukang-ollama ollama pull llama3.2:3b
+  bukang-ollama:
+    image: ollama/ollama:0.40.16
+    container_name: bukang-ollama
+    profiles: [ ai ]
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+
+volumes:
+  # 받은 모델을 컨테이너를 지워도 남긴다
+  ollama-data:

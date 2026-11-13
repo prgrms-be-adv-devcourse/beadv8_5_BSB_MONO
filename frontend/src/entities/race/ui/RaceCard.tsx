@@ -29,9 +29,11 @@ export function RaceCard({ race, className }: RaceCardProps) {
           />
         )}
         {/* 이미지 위 반투명 칩은 피그마에도 변수 없이 쓴 값이다 */}
-        <span className="absolute top-2.5 left-2.5 rounded-sm bg-[rgb(18_23_33/0.72)] px-2 py-0.75 text-caption-medium text-text-on-image">
-          {race.status}
-        </span>
+        {race.status && (
+          <span className="absolute top-2.5 left-2.5 rounded-sm bg-[rgb(18_23_33/0.72)] px-2 py-0.75 text-caption-medium text-text-on-image">
+            {race.status}
+          </span>
+        )}
       </span>
       <span className="flex flex-col gap-1">
         <span className="text-body1-bold break-keep">{race.title}</span>

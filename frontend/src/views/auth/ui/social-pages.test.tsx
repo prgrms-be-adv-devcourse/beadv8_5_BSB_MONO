@@ -12,7 +12,7 @@ import { ToastProvider } from '@/shared/ui'
 import { SignupStepProvider } from '../model/signup-store'
 import { termChecks } from '../model/signup-terms'
 import { LoginPage } from './LoginPage'
-import { SocialSignupPage } from './SocialPages'
+import { SocialCompletePage, SocialSignupPage } from './SocialPages'
 
 const replace = vi.fn()
 vi.mock('next/navigation', () => ({
@@ -78,6 +78,16 @@ describe('LoginPage 소셜 로그인', () => {
       screen.getByText(
         '이메일로 가입한 계정이에요. 이메일로 로그인해 주세요. 마이 > 계정 연결에서 구글을 연결할 수 있어요.',
       ),
+    ).toBeInTheDocument()
+  })
+})
+
+describe('SocialCompletePage', () => {
+  it('로그인 상태가 정해지기 전에는 「소셜 계정을 확인하고 있어요」를 보여 준다 (시안 M03-S1)', () => {
+    render(withProviders(<SocialCompletePage />))
+    expect(screen.getByRole('status')).toHaveTextContent('소셜 계정을 확인하고 있어요')
+    expect(
+      screen.getByText('잠시만 기다려 주세요. 확인이 끝나면 자동으로 이동해요.'),
     ).toBeInTheDocument()
   })
 })
@@ -192,7 +202,7 @@ describe('SocialSignupPage', () => {
     expect(replace).not.toHaveBeenCalled()
   })
 
-  it('가입 대기가 없거나 지났으면 로그인 화면으로 보낸다', async () => {
+  it('가입 대기가 없거나 지났으면 「가입 시간이 지났어요」와 로그인 화면으로 가는 버튼을 보여 준다', async () => {
     server.use(
       http.get('*/api/v1/auth/oauth2/signup', () =>
         HttpResponse.json(
@@ -203,6 +213,27 @@ describe('SocialSignupPage', () => {
     )
     render(withProviders(<SocialSignupPage />))
 
-    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/login?error=AUTH_SOCIAL_FAILED'))
+    expect(await screen.findByText('가입 시간이 지났어요')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '로그인 화면으로' })).toHaveAttribute('href', '/login')
+    expect(replace).not.toHaveBeenCalled()
+  })
+
+  it('가입을 누른 뒤 가입 대기가 지났으면(AUTH_SOCIAL_SIGNUP_EXPIRED) 같은 안내로 바뀐다', async () => {
+    server.use(
+      signupInfo('KAKAO', 'runner@kakao.com'),
+      http.post('*/api/v1/auth/oauth2/join', () =>
+        HttpResponse.json(
+          { status: 401, code: 'AUTH_SOCIAL_SIGNUP_EXPIRED', message: '만료', data: null },
+          { status: 401 },
+        ),
+      ),
+    )
+    const user = userEvent.setup()
+    render(withProviders(<SocialSignupPage />, { verified: true }))
+
+    await user.type(await screen.findByLabelText('닉네임'), '달리는곰')
+    await user.click(screen.getByRole('button', { name: '가입 완료' }))
+
+    expect(await screen.findByText('가입 시간이 지났어요')).toBeInTheDocument()
   })
 })

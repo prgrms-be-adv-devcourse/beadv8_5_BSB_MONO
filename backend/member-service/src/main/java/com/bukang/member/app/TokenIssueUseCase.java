@@ -42,7 +42,7 @@ public class TokenIssueUseCase {
 		// jti는 JwtProvider가 정하므로, Redis에 적으려고 방금 만든 토큰에서 다시 꺼낸다
 		String jti = jwtProvider.parse(refreshToken, TokenType.REFRESH).jti();
 
-		saveFamily(memberId, new NewFamily(familyId, jti, refreshToken, now, tokenExpiresAt, familyExpiresAt));
+		saveFamily(memberId, new NewFamily(familyId, jti, now, tokenExpiresAt, familyExpiresAt));
 
 		return new AuthTokens(accessToken, refreshToken, Duration.between(now, tokenExpiresAt));
 	}

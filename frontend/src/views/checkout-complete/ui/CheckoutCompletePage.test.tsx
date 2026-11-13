@@ -22,7 +22,7 @@ describe('결제 완료', () => {
 
     // 주문 API 명세 예시: OD-20261012-0001, 50,000원, 종목 1 · 받는 사람 김러너
     expect(await screen.findByText('OD-20261012-0001')).toBeInTheDocument()
-    expect(screen.getByText('₩50,000 (예치금)')).toBeInTheDocument()
+    expect(screen.getByText('50,000원 (예치금)')).toBeInTheDocument()
     expect(await screen.findByText('2026 용감한 쿠키RUN in 서울 · 10K')).toBeInTheDocument()
     expect(screen.getByText('김러너 · 10K')).toBeInTheDocument()
     // Clarity 화면 녹화에서 참가자 이름을 가린다

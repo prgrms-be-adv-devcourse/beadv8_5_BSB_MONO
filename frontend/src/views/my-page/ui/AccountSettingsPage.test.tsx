@@ -22,7 +22,7 @@ const renderPage = () => {
 }
 
 describe('AccountSettingsPage', () => {
-  it('닉네임만 수정 버튼이 있고, 본인인증 값은 입력 칸 없이 보기만 한다', async () => {
+  it('본인인증 이름과 정보 보기를 보여 주고, 닉네임 변경은 회원 정보 수정으로 간다', async () => {
     server.use(
       memberMock.getFindMeMockHandler({
         status: 200,
@@ -40,13 +40,24 @@ describe('AccountSettingsPage', () => {
     renderPage()
 
     expect(await screen.findByText('달리는곰')).toBeInTheDocument()
-    expect(screen.getByText('010-****-5432')).toBeInTheDocument()
     expect(screen.getByText('김곰')).toBeInTheDocument()
-    expect(screen.getByText('1990.01.31')).toBeInTheDocument()
-    expect(screen.getByText('본인인증으로 확인한 정보라 바꿀 수 없어요')).toBeInTheDocument()
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
-    expect(screen.getAllByRole('link', { name: /수정/ })).toHaveLength(1)
-    expect(screen.getByRole('link', { name: '닉네임 수정' })).toHaveAttribute('href', '/me/edit')
+    expect(screen.getByRole('link', { name: '정보 보기' })).toHaveAttribute('href', '/me/edit')
+    expect(screen.getByRole('link', { name: /닉네임 변경/ })).toHaveAttribute('href', '/me/edit')
+  })
+
+  it('이메일 정보 · 약관 및 동의 · 고객센터로 들어갈 수 있다', () => {
+    renderPage()
+
+    expect(screen.getByRole('link', { name: /이메일 정보/ })).toHaveAttribute(
+      'href',
+      '/me/settings/email',
+    )
+    expect(screen.getByRole('link', { name: /약관 및 동의/ })).toHaveAttribute(
+      'href',
+      '/me/settings/terms',
+    )
+    expect(screen.getByRole('link', { name: /고객센터/ })).toHaveAttribute('href', '/me/support')
   })
 
   it('계정 연결로 들어갈 수 있다', () => {

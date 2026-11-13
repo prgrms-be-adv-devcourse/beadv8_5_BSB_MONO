@@ -46,8 +46,8 @@ public class PayoutRaceCancelUseCase {
 				payout.cancel(PayoutHold.SYSTEM_MEMBER_ID, now, CANCEL_REASON);
 				canceled++;
 				firstCanceled |= payout.getPayoutStage() == PayoutStage.일차_정산;
-			} else if (payout.getStatus() == PayoutStatus.지급_중) {
-				// 돈이 나갔는지 아직 모른다. 표시만 하고, 회수는 지급 결과가 나온 뒤 만든다 (PRO-253)
+			} else if (payout.getStatus().isAwaitingPayResult()) {
+				// 돈이 나갔는지 아직 모른다(지급 중 · 지급 확인 필요). 표시만 하고, 회수는 지급 결과가 나온 뒤 만든다 (PRO-253, BUK-166)
 				payout.markRaceCanceled(now);
 				paying++;
 			}
@@ -79,7 +79,7 @@ public class PayoutRaceCancelUseCase {
 	@Transactional
 	public boolean recoverAfterPayResult(long sellerId, long raceId, LocalDateTime now) {
 		boolean stillPaying = payoutRepository.findByRaceId(raceId).stream()
-			.anyMatch(payout -> payout.getStatus() == PayoutStatus.지급_중);
+			.anyMatch(payout -> payout.getStatus().isAwaitingPayResult());
 		if (stillPaying) {
 			return false;
 		}

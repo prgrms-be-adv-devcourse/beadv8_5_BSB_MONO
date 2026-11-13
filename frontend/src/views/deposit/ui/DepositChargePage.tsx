@@ -54,11 +54,11 @@ export function DepositChargePage() {
           />
         )}
         {held && <ChargeHeldAlert />}
-        <section className="flex flex-col gap-4 rounded-lg bg-bg-surface p-5 shadow-sm inset-ring inset-ring-border-default">
+        <section className="flex flex-col gap-4">
           <label htmlFor="charge-amount" className="text-body2-medium">
             충전할 금액
           </label>
-          <div className="flex items-baseline justify-end gap-1 rounded-md px-4 py-3 inset-ring inset-ring-border-strong">
+          <div className="flex items-baseline justify-end gap-1 border-b border-border-strong px-1 py-3">
             <input
               id="charge-amount"
               inputMode="numeric"
@@ -68,44 +68,43 @@ export function DepositChargePage() {
             />
             <span className="text-body2-medium">원</span>
           </div>
+          {amount < MIN_CHARGE && (
+            <p className="text-caption-regular text-text-tertiary">1만 원부터 충전할 수 있어요.</p>
+          )}
           <div className="flex gap-2">
             {STEPS.map((step) => (
               <Button
                 key={step}
                 variant="secondary"
-                className="flex-1 justify-start"
+                className="flex-1"
                 onClick={() => setAmount((a) => a + step)}
               >
                 +{step / 10_000}만
               </Button>
             ))}
           </div>
-          <p className="text-caption-regular text-text-tertiary">1만 원부터 충전할 수 있어요.</p>
-          <div className="flex flex-col gap-2 rounded-md bg-bg-subtle p-4">
+          <div className="flex flex-col gap-2 border-t border-border-default pt-4">
             <KeyValue
               label="지금 예치금"
-              value={balance === undefined ? '-' : `₩${won(balance)}`}
+              value={balance === undefined ? '-' : `${won(balance)}원`}
             />
             <div className="flex items-center justify-between">
               <span className="text-body2-regular text-text-tertiary">충전 후 예치금</span>
               <span className="text-body2-bold">
-                {balance === undefined ? '-' : `₩${won(balance + amount)}`}
+                {balance === undefined ? '-' : `${won(balance + amount)}원`}
               </span>
             </div>
           </div>
         </section>
-        <section className="flex flex-col gap-2 rounded-lg bg-bg-surface p-5 shadow-sm inset-ring inset-ring-border-default">
+        <section>
           <KeyValue label="충전 방법" value="토스페이먼츠 (카드 · 계좌이체)" />
-          <p className="text-caption-regular text-text-tertiary">
-            쓰지 않은 예치금은 언제든 전부 돌려받을 수 있어요.
-          </p>
         </section>
       </main>
       <BottomCta
         className="sticky bottom-0 z-10"
         primary={
           <Button size="l" disabled={amount < MIN_CHARGE || charging} onClick={charge}>
-            ₩{won(amount)} 충전하기
+            {won(amount)}원 충전하기
           </Button>
         }
       />

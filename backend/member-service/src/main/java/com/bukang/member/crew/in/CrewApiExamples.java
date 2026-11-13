@@ -16,7 +16,8 @@ final class CrewApiExamples {
 				"memberCount": 1,
 				"members": [
 					{ "memberId": 1, "nickname": "새벽러너", "role": "LEADER" }
-				]
+				],
+				"partyRestrictedUntil": null
 			}
 		}
 		""";
@@ -46,7 +47,8 @@ final class CrewApiExamples {
 					{ "memberId": 1, "nickname": "새벽러너", "role": "LEADER" },
 					{ "memberId": 4, "nickname": "한강페이서", "role": "MANAGER" },
 					{ "memberId": 2, "nickname": "주말10K", "role": "MEMBER" }
-				]
+				],
+				"partyRestrictedUntil": "2026-12-12T04:30:00"
 			}
 		}
 		""";
@@ -226,7 +228,8 @@ final class CrewApiExamples {
 					{ "memberId": 2, "nickname": "주말10K", "role": "LEADER" },
 					{ "memberId": 4, "nickname": "한강페이서", "role": "MANAGER" },
 					{ "memberId": 1, "nickname": "새벽러너", "role": "MEMBER" }
-				]
+				],
+				"partyRestrictedUntil": null
 			}
 		}
 		""";
@@ -249,7 +252,8 @@ final class CrewApiExamples {
 					{ "memberId": 1, "nickname": "새벽러너", "role": "LEADER" },
 					{ "memberId": 4, "nickname": "한강페이서", "role": "MANAGER" },
 					{ "memberId": 2, "nickname": "주말10K", "role": "MEMBER" }
-				]
+				],
+				"partyRestrictedUntil": null
 			}
 		}
 		""";

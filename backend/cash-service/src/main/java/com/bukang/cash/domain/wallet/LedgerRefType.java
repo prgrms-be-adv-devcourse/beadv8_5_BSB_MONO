@@ -9,5 +9,6 @@ public enum LedgerRefType {
 	WalletCharge,
 	Order,
 	Withdrawal,
-	Payout
+	Payout,
+	RecoveryDeposit
 }
