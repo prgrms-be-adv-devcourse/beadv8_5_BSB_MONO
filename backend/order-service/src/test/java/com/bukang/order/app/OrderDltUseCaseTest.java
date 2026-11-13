@@ -1,6 +1,7 @@
 package com.bukang.order.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
@@ -27,6 +28,7 @@ import com.bukang.common.shared.kafka.KafkaMessageId;
 import com.bukang.common.shared.kafka.KafkaTopics;
 import com.bukang.common.shared.kafka.dlt.BaseDltKafkaEvent;
 import com.bukang.common.shared.kafka.dlt.DltKafkaEventStatus;
+import com.bukang.common.shared.kafka.dlt.DltKafkaEventStatusException;
 import com.bukang.common.shared.kafka.dlt.KafkaDltMessage;
 import com.bukang.order.domain.OrderDltKafkaEvent;
 import com.bukang.order.out.OrderDltKafkaEventRepository;
@@ -85,18 +87,21 @@ class OrderDltUseCaseTest {
 	}
 
 	@Test
-	@DisplayName("처리 실패 행을 다시 보내면 다시 보냄 상태가 되고 다시 보낸 시각이 남는다")
+	@DisplayName("다시 보냄 표시는 처리 실패 행만 바꾸는 조건부 UPDATE로 하고, 바뀐 행이 없으면 지금 상태로 409를 낸다")
 	void markResent() {
-		// given
-		OrderDltKafkaEvent failed = failedEvent();
-		given(orderDltKafkaEventRepository.findById(ROW_ID)).willReturn(Optional.of(failed));
+		// given: 상태 확인은 DB가 UPDATE 조건으로 한다 (실제 상태 변화는 InternalV1OrderKafkaFailureControllerTest가 본다)
+		OrderDltKafkaEvent row = failedEvent();
+		row.markResent(NOW);
+		given(orderDltKafkaEventRepository.findById(ROW_ID)).willReturn(Optional.of(row));
+		given(orderDltKafkaEventRepository.markResent(ROW_ID, NOW)).willReturn(1, 0);
 
-		// when
-		OrderDltKafkaEvent resent = orderDltUseCase.markResent(ROW_ID, NOW);
+		// when: 처음은 바뀌어 다시 읽은 행을 돌려준다
+		assertThat(orderDltUseCase.markResent(ROW_ID, NOW)).isSameAs(row);
 
-		// then
-		assertThat(resent.getStatus()).isEqualTo(DltKafkaEventStatus.RESENT);
-		assertThat(resent.getResentDate()).isEqualTo(NOW);
+		// then: 두 번째(이미 다시 보냄)는 바뀐 행이 없어 거절한다
+		assertThatThrownBy(() -> orderDltUseCase.markResent(ROW_ID, NOW))
+			.isInstanceOf(DltKafkaEventStatusException.class)
+			.hasMessage("[order] DLT 메시지 15번은 다시 보냄 상태라 다시 보낼 수 없습니다.");
 	}
 
 	@Test
@@ -104,9 +109,8 @@ class OrderDltUseCaseTest {
 	void failedAgainAfterResend() {
 		// given: 파티션 0, 위치 7에서 처음 실패한 행을 다시 보냈다
 		OrderDltKafkaEvent event = failedEvent();
-		given(orderDltKafkaEventRepository.findById(ROW_ID)).willReturn(Optional.of(event));
 		given(orderDltKafkaEventRepository.findByMessageId(MESSAGE_ID)).willReturn(Optional.of(event));
-		orderDltUseCase.markResent(ROW_ID, NOW);
+		event.markResent(NOW);
 
 		// when: 다시 보낸 메시지가 또 실패해 파티션 1, 위치 12로 들어왔다
 		orderDltUseCase.record(dltMessage(1, 12L,
@@ -123,7 +127,7 @@ class OrderDltUseCaseTest {
 		then(slackNotifier).should().sendAfterCommit(anyString());
 
 		// when: 원인을 고친 뒤 다시 보낸다
-		orderDltUseCase.markResent(ROW_ID, NOW.plusMinutes(10));
+		event.markResent(NOW.plusMinutes(10));
 
 		// then
 		assertThat(event.getStatus()).isEqualTo(DltKafkaEventStatus.RESENT);

@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.bukang.common.global.notify.SlackNotifier;
 import com.bukang.common.shared.kafka.dlt.DltKafkaEventNotFoundException;
 import com.bukang.common.shared.kafka.dlt.DltKafkaEventStatus;
+import com.bukang.common.shared.kafka.dlt.DltKafkaEventStatusException;
 import com.bukang.common.shared.kafka.dlt.DltKafkaResendException;
 import com.bukang.common.shared.kafka.dlt.KafkaDltAlert;
 import com.bukang.common.shared.kafka.dlt.KafkaDltMessage;
@@ -65,11 +66,13 @@ public class OrderDltUseCase {
 
 	// 다시 보내기 1단계: 처리 실패 → 다시 보냄. 이 트랜잭션을 커밋한 뒤 send를 부른다
 	// 먼저 커밋해야, 보낸 메시지를 본 리스너가 곧바로 처리해도 이 행을 다시 보냄으로 보고 처리 완료로 바꾼다
+	// 엔티티의 markResent 대신 조건부 UPDATE를 쓴다. 동시에 두 번 눌러도 한 번만 통과하고 나머지는 409다 (PR #436 리뷰)
 	@Transactional
 	public OrderDltKafkaEvent markResent(long id, LocalDateTime now) {
-		OrderDltKafkaEvent event = findById(id);
-		event.markResent(now);
-		return event;
+		if (orderDltKafkaEventRepository.markResent(id, now) == 0) {
+			throw new DltKafkaEventStatusException(OrderDltKafkaEvent.SERVICE, id, findById(id).getStatus(), "다시 보낼");
+		}
+		return findById(id);
 	}
 
 	// 다시 보내기 2단계: 주문의 첫 재시도 토픽으로 보낸다 (트랜잭션 밖). 같은 토픽을 받는 다른 서비스는 받지 않는다
@@ -89,10 +92,10 @@ public class OrderDltUseCase {
 		log.info("DLT 메시지를 다시 보냈습니다. id={}, topic={}, messageId={}", event.getId(), topic, event.getMessageId());
 	}
 
-	// 다시 보내기 3단계(보내지 못했을 때): 다시 보냄 → 처리 실패
+	// 다시 보내기 3단계(보내지 못했을 때): 다시 보냄 → 처리 실패. 그사이 처리 완료가 됐으면 그대로 둔다
 	@Transactional
 	public void cancelResent(long id) {
-		findById(id).cancelResent();
+		orderDltKafkaEventRepository.cancelResent(id, LocalDateTime.now());
 	}
 
 	// 본 리스너가 메시지를 처리했거나 이미 처리한 메시지라 건너뛸 때 부른다. 다시 보낸 메시지였으면 그 행을 처리 완료로 바꾼다

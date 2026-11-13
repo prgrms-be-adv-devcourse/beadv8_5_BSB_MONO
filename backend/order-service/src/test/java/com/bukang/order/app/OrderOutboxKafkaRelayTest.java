@@ -262,7 +262,7 @@ class OrderOutboxKafkaRelayTest {
 
 		// 원인(브로커)을 고친 뒤 되돌린다
 		succeedSendTo(KafkaTopics.PRODUCT_HOLD_RESTORE, PARTICIPATION_ID);
-		orderOutboxKafkaRelayUseCase.retry(id);
+		orderOutboxKafkaRelayUseCase.retry(id, now);
 
 		OrderOutboxKafkaEvent reset = orderOutboxKafkaEventRepository.findById(id).orElseThrow();
 		assertThat(reset.getStatus()).isEqualTo(OutboxStatus.PENDING);
@@ -279,10 +279,10 @@ class OrderOutboxKafkaRelayTest {
 		restore(PARTICIPATION_ID);
 		long id = allEvents().getFirst().getId();
 
-		assertThatThrownBy(() -> orderOutboxKafkaRelayUseCase.retry(id))
+		assertThatThrownBy(() -> orderOutboxKafkaRelayUseCase.retry(id, now))
 			.isInstanceOf(OutboxEventNotFailedException.class);
 		relayAt(now);
-		assertThatThrownBy(() -> orderOutboxKafkaRelayUseCase.retry(id))
+		assertThatThrownBy(() -> orderOutboxKafkaRelayUseCase.retry(id, now))
 			.isInstanceOf(OutboxEventNotFailedException.class)
 			.hasMessage("아웃박스 메시지 " + id + "번은 발행 완료 상태라 다시 보낼 수 없습니다.");
 	}

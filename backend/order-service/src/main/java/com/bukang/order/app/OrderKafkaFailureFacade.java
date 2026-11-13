@@ -56,6 +56,6 @@ public class OrderKafkaFailureFacade {
 	}
 
 	public OutboxFailureDto retryOutbox(long id) {
-		return OutboxFailureDto.from(orderOutboxKafkaRelayUseCase.retry(id));
+		return OutboxFailureDto.from(orderOutboxKafkaRelayUseCase.retry(id, LocalDateTime.now()));
 	}
 }

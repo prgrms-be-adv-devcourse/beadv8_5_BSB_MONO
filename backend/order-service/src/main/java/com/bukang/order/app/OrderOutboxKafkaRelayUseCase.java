@@ -18,6 +18,7 @@ import com.bukang.common.global.notify.SlackNotifier;
 import com.bukang.common.shared.kafka.KafkaMessageId;
 import com.bukang.order.domain.OrderOutboxKafkaEvent;
 import com.bukang.order.domain.OutboxStatus;
+import com.bukang.order.domain.exception.OutboxEventNotFailedException;
 import com.bukang.order.domain.exception.OutboxEventNotFoundException;
 import com.bukang.order.out.OrderOutboxKafkaEventRepository;
 
@@ -128,14 +129,21 @@ public class OrderOutboxKafkaRelayUseCase {
 
 	// 원인을 고친 뒤 발행 실패 행을 PENDING으로 되돌린다 (내부 API, BUK-180). 다음 릴레이(1초 뒤)가 보낸다
 	// 그사이 같은 토픽·같은 신청의 뒤 메시지가 먼저 나갔을 수 있어 받는 쪽에는 순서가 바뀌어 도착한다 (상품의 복구·해제는 멱등)
+	// 조건부 UPDATE라 동시에 두 번 불러도 한 번만 통과하고, 릴레이가 이미 보낸(SENT) 행을 덮지 않는다 (PR #436 리뷰)
 	@Transactional
-	public OrderOutboxKafkaEvent retry(long id) {
-		OrderOutboxKafkaEvent event = orderOutboxKafkaEventRepository.findById(id)
-			.orElseThrow(() -> new OutboxEventNotFoundException(id));
-		event.resetToPending();
+	public OrderOutboxKafkaEvent retry(long id, LocalDateTime now) {
+		if (orderOutboxKafkaEventRepository.resetSendFailed(id, now) == 0) {
+			OrderOutboxKafkaEvent current = findOutbox(id);
+			throw new OutboxEventNotFailedException(id, current.getStatus().getLabel());
+		}
+		OrderOutboxKafkaEvent event = findOutbox(id);
 		log.info("발행 실패 아웃박스 메시지를 다시 보내도록 되돌렸습니다. id={}, topic={}, key={}",
 			event.getId(), event.getEventType(), event.getMessageKey());
 		return event;
+	}
+
+	private OrderOutboxKafkaEvent findOutbox(long id) {
+		return orderOutboxKafkaEventRepository.findById(id).orElseThrow(() -> new OutboxEventNotFoundException(id));
 	}
 
 	private void logSendFailure(OrderOutboxKafkaEvent event) {
