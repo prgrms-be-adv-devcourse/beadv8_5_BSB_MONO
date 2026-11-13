@@ -2,6 +2,7 @@
 
 import { Dialog } from '@base-ui/react/dialog'
 import { Slider } from '@base-ui/react/slider'
+import Image from 'next/image'
 import {
   useEffect,
   useEffectEvent,
@@ -338,11 +339,14 @@ function Cropper({ file, outputSize, onPickAnother, onCancel, onApply }: Cropper
         {/* 이미지는 틀 왼쪽 위 기준으로 놓고, 그 위에 틀을 겹쳐 바깥을 큰 그림자로 어둡게 덮는다. */}
         <div className="absolute size-65">
           {src && (
-            // eslint-disable-next-line @next/next/no-img-element -- 브라우저 임시 주소(blob:)를 그린다
-            <img
+            // 브라우저 임시 주소(blob:)라 최적화하지 않는다. 실제 크기는 아래 style이 정한다.
+            <Image
               ref={imgRef}
               src={src}
               alt=""
+              width={FRAME}
+              height={FRAME}
+              unoptimized
               draggable={false}
               onLoad={onLoad}
               className="pointer-events-none absolute top-0 left-0 max-w-none"
@@ -390,10 +394,13 @@ function Cropper({ file, outputSize, onPickAnother, onCancel, onApply }: Cropper
       <div className="flex items-center gap-3 rounded-md bg-bg-subtle p-3">
         <div className="relative size-14 shrink-0 overflow-hidden rounded-sm">
           {src && natural && (
-            // eslint-disable-next-line @next/next/no-img-element -- 미리보기도 같은 임시 주소를 쓴다
-            <img
+            // 미리보기도 같은 임시 주소라 최적화하지 않는다. 실제 크기는 아래 style이 정한다.
+            <Image
               src={src}
               alt=""
+              width={FRAME}
+              height={FRAME}
+              unoptimized
               className="absolute top-0 left-0 max-w-none origin-top-left"
               style={{
                 width: natural.width * scale,
@@ -517,11 +524,13 @@ export function ImageListDialog({
                 </div>
               ) : (
                 <>
-                  {/* eslint-disable-next-line @next/next/no-img-element -- 올리기 전 임시 주소도 보여 준다 */}
-                  <img
+                  {/* 올리기 전 임시 주소도 보여 주므로 최적화하지 않는다. */}
+                  <Image
                     src={item.url ?? item.previewUrl}
                     alt={`${order.get(item.id)}번째 소개 이미지`}
-                    className="size-full cursor-grab object-cover"
+                    fill
+                    unoptimized
+                    className="cursor-grab object-cover"
                   />
                   {item.status === 'done' && (
                     <span className="absolute top-1.5 left-1.5 rounded-full bg-bg-inverse px-1.5 py-0.5 text-caption-medium text-text-inverse">
