@@ -53,7 +53,8 @@ def lint(d):
             text(f"{who}.facts", v, LIMITS["fact"])
         for c in t.get("checks", []) or []:
             text(f"{who}.checks {plain(c['item'])}", c.get("text", ""))
-            if len(re.findall(r"[.다요]\s", plain(c.get("text", "")) + " ")) > 2:
+            # 마침표·물음표 뒤가 공백이거나 끝일 때만 문장 끝으로 센다. 「서비스마다 」의 「다 」는 세지 않는다
+            if len(re.findall(r"[.!?](?:\s|$)", plain(c.get("text", "")))) > 2:
                 warns.append(f"{who}.checks {plain(c['item'])}: 두 문장 이내로 덜어냄")
     for s in d.get("apply", {}).get("summary", []):
         text("apply.summary", s, LIMITS["summary"])
@@ -80,23 +81,40 @@ def check(d):
         if who in ids:
             errs.append(f"팀 id 중복: {who}")
         ids.add(who)
+        if any(not isinstance(f, list) or len(f) != 2 for f in t.get("facts") or []):
+            errs.append(f"팀 {who}: `facts`는 [이름, 값] 쌍이어야 함")
         for c in t.get("checks", []):
+            if not c.get("item"):
+                errs.append(f"팀 {who}: 판정 `item`이 비어 있음")
             if c.get("grade") not in GRADES:
                 errs.append(f"팀 {who}: 판정 값 `{c.get('grade')}`는 쓸 수 없음")
     if sum(1 for t in d.get("teams", []) if t.get("ours")) != 1:
         errs.append("`ours: true`인 팀이 정확히 하나여야 함")
-    for s in (d.get("matrix") or {}).get("sections", []):
-        for tid in s["teams"]:
+    for i, s in enumerate((d.get("matrix") or {}).get("sections", []), 1):
+        name = s.get("title") or f"{i}번"
+        for k in ("title", "teams", "rows"):
+            if not s.get(k):
+                errs.append(f"판정표 「{name}」: `{k}`가 비어 있음")
+        teams = s.get("teams") or []
+        for tid in teams:
             if tid not in ids:
-                errs.append(f"판정표 「{s['title']}」: 없는 팀 id {tid}")
-        for r in s["rows"]:
-            if len(r["grades"]) != len(s["teams"]):
-                errs.append(f"판정표 「{s['title']}」 {r['item']}: 판정 {len(r['grades'])}개, 팀 {len(s['teams'])}개")
-            errs += [f"판정표 {r['item']}: 판정 값 `{g}`는 쓸 수 없음" for g in r["grades"] if g not in GRADES]
+                errs.append(f"판정표 「{name}」: 없는 팀 id {tid}")
+        for r in s.get("rows") or []:
+            item, grades = r.get("item", "?"), r.get("grades") or []
+            if len(grades) != len(teams):
+                errs.append(f"판정표 「{name}」 {item}: 판정 {len(grades)}개, 팀 {len(teams)}개")
+            errs += [f"판정표 {item}: 판정 값 `{g}`는 쓸 수 없음" for g in grades if g not in GRADES]
+    n = 0
     for g in d.get("apply", {}).get("groups", []):
-        for a in g["items"]:
+        if not g.get("items"):
+            errs.append("적용안 그룹: `items`가 비어 있음")
+        for a in g.get("items") or []:
+            n += 1
+            for k in ("title", "why"):
+                if not a.get(k):
+                    errs.append(f"적용안 {n}번: `{k}`가 비어 있음")
             if a.get("badge") and a["badge"].get("level") not in BADGES:
-                errs.append(f"적용안 {a['title']}: badge.level `{a['badge'].get('level')}`는 쓸 수 없음")
+                errs.append(f"적용안 {n}번: badge.level `{a['badge'].get('level')}`는 쓸 수 없음")
     return errs
 
 
