@@ -30,7 +30,7 @@ import lombok.RequiredArgsConstructor;
 /**
  * 끝내 보내지 못한(발행 실패) 아웃박스 메시지를 보고 다시 보내게 되돌리는 내부 API (BUK-180).
  * 자리 복구·해제 메시지가 발행 실패로 남으면 정원이 돌아오지 않으므로, 원인(브로커 등)을 고친 뒤 되돌린다.
- * 게이트웨이에 라우팅하지 않는다(/internal/** 경로, Nginx도 404로 막는다). 사람이 Slack 알림을 받고 서버 안에서 curl로 부른다.
+ * 게이트웨이에 라우팅하지 않는다(/internal/** 경로, Nginx도 404로 막는다). 사람이 에러 로그를 보고 서버 안에서 curl로 부른다 (BUK-207부터 Slack 알림 없음).
  * 예) docker compose exec order-service curl -X POST localhost:8084/internal/v1/order/outbox-failures/42/retry
  * 클래스에 @Validated를 붙이지 않는다 (InternalV1OrderDltController와 같은 이유).
  */
@@ -81,7 +81,7 @@ public class InternalV1OrderOutboxController {
 				examples = @ExampleObject(value = OrderOutboxApiExamples.RETRY_INVALID_STATUS)))
 	})
 	public ResponseEntity<RsData<OutboxFailureDto>> retry(
-		@Parameter(description = "아웃박스 행 ID (Slack 알림의 행 ID)", example = "42")
+		@Parameter(description = "아웃박스 행 ID (에러 로그의 id)", example = "42")
 		@PathVariable long id
 	) {
 		OutboxFailureDto event = orderKafkaFailureFacade.retryOutbox(id);
