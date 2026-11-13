@@ -7,11 +7,13 @@
       "tokenizer": {
         "board_nori_mixed": {
           "type": "nori_tokenizer",
-          "decompound_mode": "mixed"
+          "decompound_mode": "mixed",
+          "user_dictionary_rules": ["달리기", "한강", "한강공원", "여의도", "북한산", "마라톤", "하프마라톤", "풀코스", "러닝크루", "트레일러닝"]
         },
         "board_nori_discard": {
           "type": "nori_tokenizer",
-          "decompound_mode": "discard"
+          "decompound_mode": "discard",
+          "user_dictionary_rules": ["달리기", "한강", "한강공원", "여의도", "북한산", "마라톤", "하프마라톤", "풀코스", "러닝크루", "트레일러닝"]
         }
       },
       "analyzer": {

@@ -71,7 +71,7 @@ class ElasticBoardPostSearchAdapterTest {
 	}
 
 	@Test
-	@DisplayName("제목·본문에서 한국어 조사를 뗀 말로 찾고, 제목에 맞은 글이 본문에만 맞은 글보다 앞이 아니라 최신순으로 ID만 돌려준다")
+	@DisplayName("제목·본문에서 한국어 조사를 뗀 말로 찾고, 글 ID만 최신(ID 큰 쪽)부터 돌려준다")
 	void searchesKoreanTitleAndContent() throws Exception {
 		adapter.index(doc(1, "한강 러닝 코스", "여의도에서 시작해요"));
 		adapter.index(doc(2, "제목", "주말에 한강에서 달리기를 했어요"));
