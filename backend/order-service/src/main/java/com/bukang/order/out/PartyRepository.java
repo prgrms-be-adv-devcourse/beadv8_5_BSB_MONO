@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.bukang.order.domain.ParticipationStatus;
 import com.bukang.order.domain.Party;
@@ -30,6 +31,8 @@ public interface PartyRepository extends JpaRepository<Party, Long> {
 	}
 
 	// 파티 신청 때 잠그기 전에 파티장·상태로 먼저 거른다. 상품·회원을 부르기 전에 빨리 거절하려는 것이고, 잠근 뒤 다시 본다
+	// 파티 신청은 바깥 트랜잭션 없이 부른다. 짧은 트랜잭션으로 읽어 연결을 바로 돌려준다 (BUK-213, OrderItemRepository.findPayTargets)
+	@Transactional(readOnly = true)
 	@Query("select new com.bukang.order.out.PartyRepository$ApplyTarget(p.raceCourseId, p.crewId, p.leaderMemberId, "
 		+ "p.status, p.crewHoldRequestedAt) from Party p where p.id = :id")
 	Optional<ApplyTarget> findApplyTarget(@Param("id") long id);
