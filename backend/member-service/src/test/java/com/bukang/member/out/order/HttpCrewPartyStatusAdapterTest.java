@@ -42,8 +42,8 @@ class HttpCrewPartyStatusAdapterTest {
 	void status() {
 		server.expect(requestTo(URL)).andExpect(method(HttpMethod.GET))
 			.andRespond(withSuccess("""
-				{ "status": 200, "message": "조회", "data": { "canLeave": false, "canKick": true,
-				  "blockingParties": [ { "partyId": 7, "status": "RECRUITING" } ] } }
+				{ "status": 200, "message": "조회", "data": { "canLeave": false, "canKick": true, "blockingParties": [
+					{ "partyId": 7, "status": "RECRUITING" } ] } }
 				""", MediaType.APPLICATION_JSON));
 
 		CrewPartyStatusPort.PartyStatus result = adapter.findStatus(2, 3);

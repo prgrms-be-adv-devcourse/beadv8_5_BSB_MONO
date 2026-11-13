@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.bukang.common.global.rsdata.RsData;
 import com.bukang.common.shared.member.web.LoginMemberId;
 import com.bukang.member.crew.app.CrewFacade;
+import com.bukang.member.crew.app.CrewPartyGuard;
 import com.bukang.member.crew.dto.CrewHomeDto;
 import com.bukang.member.crew.dto.CrewLeaderTransferRequestDto;
 import com.bukang.member.crew.dto.CrewUpdateRequestDto;
@@ -35,11 +36,13 @@ import lombok.RequiredArgsConstructor;
 @RequestMapping("/api/v1/member/crews")
 public class ApiV1CrewManageController {
 	private final CrewFacade crewFacade;
+	private final CrewPartyGuard crewPartyGuard;
 
 	@DeleteMapping("/{crewId}/members/me")
 	@Operation(operationId = "leaveCrew", summary = "크루 탈퇴 (2그룹)",
 		description = "크루원과 운영진이 스스로 크루를 떠난다. 크루장은 크루장을 넘긴 뒤에만 탈퇴한다. "
-			+ "이미 결제한 참가권은 남고, 결제하지 않고 임시로 잡아 둔 자리만 풀린다(파티 서비스가 처리).")
+			+ "이미 결제한 참가권은 남고, 결제하지 않고 임시로 잡아 둔 자리만 풀린다(파티 서비스가 처리). "
+			+ "모집 중·결제 진행 중·결제 끝 파티에 들어 있으면 나갈 수 없다(409). 주문 서비스에 확인하지 못해도 나갈 수 없다(503).")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "탈퇴 성공",
 			content = @Content(examples = @ExampleObject(value = CrewApiExamples.LEAVE_SUCCESS))),
@@ -52,14 +55,21 @@ public class ApiV1CrewManageController {
 		@ApiResponse(responseCode = "404", description = "크루가 없거나 없앤 크루",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = CrewApiExamples.CREW_NOT_FOUND))),
-		@ApiResponse(responseCode = "409", description = "크루장은 바로 탈퇴할 수 없음",
+		@ApiResponse(responseCode = "409", description = "크루장은 바로 탈퇴할 수 없음, 또는 들어 있는 파티가 있음",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "크루장은 바로 탈퇴할 수 없음", value = CrewApiExamples.CREW_LEADER_CANNOT_LEAVE),
+				@ExampleObject(name = "들어 있는 파티가 있음", value = CrewApiExamples.CREW_LEAVE_PARTY_BLOCKED)
+			})),
+		@ApiResponse(responseCode = "503", description = "주문 서비스에 파티 상태를 확인하지 못함 (잠시 뒤 다시 시도)",
 			content = @Content(schema = @Schema(implementation = RsData.class),
-				examples = @ExampleObject(value = CrewApiExamples.CREW_LEADER_CANNOT_LEAVE)))
+				examples = @ExampleObject(value = CrewApiExamples.CREW_PARTY_CHECK_FAILED)))
 	})
 	public ResponseEntity<RsData<Void>> leaveCrew(
 		@LoginMemberId long memberId,
 		@Parameter(description = "크루 ID", example = "1") @PathVariable long crewId
 	) {
+		// 파티 확인은 크루원 행을 지우는 트랜잭션보다 먼저 한다
+		crewPartyGuard.checkLeave(memberId, crewId);
 		crewFacade.leave(memberId, crewId);
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "크루를 탈퇴했습니다.", null));
@@ -68,7 +78,9 @@ public class ApiV1CrewManageController {
 	@DeleteMapping("/{crewId}/members/{memberId}")
 	@Operation(operationId = "removeCrewMember", summary = "크루원 내보내기 (2그룹)",
 		description = "크루장이 크루원이나 운영진을 크루에서 내보낸다. 운영진은 내보낼 수 없다(크루장만 한다). "
-			+ "크루장 자신은 내보낼 수 없다. 내보낸 회원은 내보내기 전에 만든 초대 링크로 다시 가입할 수 없다. 결제 기간 중인 파티장·파티원을 막을지는 회의에서 정한다(안건 14).")
+			+ "크루장 자신은 내보낼 수 없다. 내보낸 회원은 내보내기 전에 만든 초대 링크로 다시 가입할 수 없다. "
+			+ "결제 진행 중·결제 끝 파티에 들어 있는 크루원은 내보낼 수 없다(409, 모집 중 파티는 내보낼 수 있다). "
+			+ "주문 서비스에 확인하지 못해도 내보낼 수 없다(503).")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "내보내기 성공",
 			content = @Content(examples = @ExampleObject(value = CrewApiExamples.REMOVE_MEMBER_SUCCESS))),
@@ -85,15 +97,21 @@ public class ApiV1CrewManageController {
 				@ExampleObject(name = "크루 없음", value = CrewApiExamples.CREW_NOT_FOUND),
 				@ExampleObject(name = "대상이 크루원이 아님", value = CrewApiExamples.CREW_MEMBER_NOT_FOUND)
 			})),
-		@ApiResponse(responseCode = "409", description = "크루장 자신을 내보내려 함",
+		@ApiResponse(responseCode = "409", description = "크루장 자신을 내보내려 함, 또는 대상이 결제 중인 파티에 들어 있음",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "크루장 자신", value = CrewApiExamples.CREW_CANNOT_REMOVE_LEADER),
+				@ExampleObject(name = "결제 중인 파티에 들어 있음", value = CrewApiExamples.CREW_KICK_PARTY_BLOCKED)
+			})),
+		@ApiResponse(responseCode = "503", description = "주문 서비스에 파티 상태를 확인하지 못함 (잠시 뒤 다시 시도)",
 			content = @Content(schema = @Schema(implementation = RsData.class),
-				examples = @ExampleObject(value = CrewApiExamples.CREW_CANNOT_REMOVE_LEADER)))
+				examples = @ExampleObject(value = CrewApiExamples.CREW_PARTY_CHECK_FAILED)))
 	})
 	public ResponseEntity<RsData<Void>> removeCrewMember(
 		@LoginMemberId long loginMemberId,
 		@Parameter(description = "크루 ID", example = "1") @PathVariable long crewId,
 		@Parameter(description = "내보낼 크루원의 회원 ID", example = "2") @PathVariable long memberId
 	) {
+		crewPartyGuard.checkKick(loginMemberId, crewId, memberId);
 		crewFacade.removeMember(loginMemberId, crewId, memberId);
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "크루원을 내보냈습니다.", null));

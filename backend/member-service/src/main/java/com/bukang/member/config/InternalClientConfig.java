@@ -10,7 +10,9 @@ import com.bukang.member.out.InternalHttpClients;
 import com.bukang.member.out.cash.CashBalancePort;
 import com.bukang.member.out.cash.HttpCashBalanceAdapter;
 import com.bukang.member.out.order.ActiveTicketPort;
+import com.bukang.member.out.order.CrewPartyStatusPort;
 import com.bukang.member.out.order.HttpActiveTicketAdapter;
+import com.bukang.member.out.order.HttpCrewPartyStatusAdapter;
 
 /**
  * 회원 탈퇴 확인용 내부 API 클라이언트 (BE-022). 주소는 프로파일별 yaml(member.clients.*)에 있다
@@ -33,5 +35,14 @@ public class InternalClientConfig {
 		@Value("${member.clients.timeout}") Duration timeout
 	) {
 		return new HttpActiveTicketAdapter(InternalHttpClients.create(baseUrl, timeout));
+	}
+
+	// 크루 나가기·내보내기 전 파티 확인 (BUK-102). 가짜 어댑터는 두지 않는다
+	@Bean
+	public CrewPartyStatusPort crewPartyStatusPort(
+		@Value("${member.clients.order.base-url}") String baseUrl,
+		@Value("${member.clients.timeout}") Duration timeout
+	) {
+		return new HttpCrewPartyStatusAdapter(InternalHttpClients.create(baseUrl, timeout));
 	}
 }
