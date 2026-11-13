@@ -106,6 +106,8 @@ def check(d):
         for a in g["items"]:
             if a.get("badge") and a["badge"].get("level") not in BADGES:
                 errs.append(f"적용안 {a['title']}: badge.level `{a['badge'].get('level')}`는 쓸 수 없음")
+            if a.get("detail") and not (re.fullmatch(r"[a-z0-9-]+", a.get("id", "")) and a["detail"].get("problem") and a["detail"].get("fix")):
+                errs.append(f"적용안 {a['title']}: detail이 있으면 id(영문 소문자·숫자·-)와 problem·fix가 있어야 함")
     for r in (d.get("strengths") or {}).get("rows", []):
         who = r.get("title", "?")
         for k in ("title", "ref", "asis"):
@@ -185,6 +187,14 @@ def check_rubric(d):
                         errs.append(f"{where} 항목 {k + 1}: 결함이 확인되면 ok는 false")
                     elif it["ok"] and not it.get("ev"):
                         errs.append(f"{where} 항목 {k + 1}: 충족이면 근거 `ev`(파일:줄)가 있어야 함")
+    if d.get("locks"):
+        for t in d.get("teams", []):
+            for k, l in enumerate(t.get("locks") or []):
+                h = l.get("holdSec")
+                if not (l.get("row") and l.get("inside") and l.get("crowd") and l.get("ev")):
+                    errs.append(f"팀 {t.get('id')} 락 {k + 1}: row·inside·crowd·ev가 있어야 함")
+                elif h is not None and (not isinstance(h, (int, float)) or h < 0):
+                    errs.append(f"팀 {t.get('id')} 락 {k + 1}: holdSec은 0 이상 숫자나 null")
     return errs
 
 
