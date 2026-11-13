@@ -1,4 +1,10 @@
 # 서비스를 bootRun/IDE로 호스트에서 실행할 때의 주소
+spring:
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
 gateway:
   services:
     member: http://localhost:8080

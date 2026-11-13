@@ -14,6 +14,7 @@ public record CrewHomeDto(
 	LocalDateTime createdAt,
 	@Schema(description = "요청한 회원의 역할. 크루 역할 (LEADER: 크루장, MANAGER: 운영진, MEMBER: 크루원)") CrewRole myRole,
 	int memberCount,
-	List<CrewMemberDto> members
+	List<CrewMemberDto> members,
+	@Schema(description = "파티 만들기 제한이 끝나는 시각. 제한 중이 아니면 null") LocalDateTime partyRestrictedUntil
 ) {
 }

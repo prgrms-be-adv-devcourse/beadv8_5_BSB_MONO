@@ -1,4 +1,11 @@
 spring:
+  # dev 실행 때 backend/compose.yml의 ai 프로필(Ollama)도 함께 띄운다
+  # 다른 서비스는 이 값을 켜지 않으므로 상품 서비스를 띄울 때만 Ollama가 뜬다
+  docker:
+    compose:
+      profiles:
+        active: ai
+
   # 지금은 member-service와 같은 DB(bukang-db)를 쓴다
   datasource:
     url: jdbc:mysql://localhost:3306/bukang-db
@@ -8,11 +15,22 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
+      # 표는 Flyway가 만들고 바꾼다. Hibernate는 엔티티와 표가 맞는지만 확인한다
+      ddl-auto: validate
     properties:
       hibernate:
         format_sql: true
         highlight_sql: true
+
+  # 표 변경은 Flyway SQL(db/migration)로만 한다
+  # 모든 서비스가 같은 스키마를 쓰므로, 기록 표는 product 전용 이름으로 둔다 (다른 서비스의 flyway_schema_history_*와 섞이지 않게)
+  # 기준선을 0번으로 둬 V1(create table if not exists)은 항상 돈다. product 표가 이미 있는 DB에서는 아무것도 바꾸지 않는다
+  # SQL 번호는 날짜·시각이라 머지 순서와 다를 수 있어 out-of-order를 켠다
+  flyway:
+    table: flyway_schema_history_product
+    baseline-on-migrate: true
+    baseline-version: 0
+    out-of-order: true
 
   kafka:
     bootstrap-servers: localhost:9092
@@ -30,6 +48,20 @@ spring:
         - classpath:/static/
         - classpath:/public/
         - classpath:/dev-static/
+
+  # dev는 OpenAI 대신 compose의 Ollama(bukang-ollama)를 쓴다 (요금 없음)
+  # 모델은 처음 한 번 받아 둔다: docker compose exec bukang-ollama ollama pull nomic-embed-text
+  ai:
+    model:
+      embedding: ollama
+      chat: ollama
+    ollama:
+      base-url: http://localhost:11434
+      embedding:
+        # 기본 768차원. 384차원으로 줄이는 설정은 AiConfig에 있다
+        model: nomic-embed-text
+      chat:
+        model: qwen2.5:0.5b
 
 logging:
   level:

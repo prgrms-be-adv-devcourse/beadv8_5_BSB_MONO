@@ -1,0 +1,88 @@
+{
+  "title": "8기 인프라 비교",
+  "subtitle": "8기 1~8팀 백엔드 저장소 기준 · 2026-11-12 조사",
+  "navCaption": "1~8팀 · 11/12",
+  "kindLabel": "방식",
+  "summary": [
+    "**8팀 중 6팀이 EC2 + Compose**입니다. k3s는 3·4·8팀입니다.",
+    "가장 앞선 팀은 **8팀**(보안·자동화)과 **4팀**(서버 분리·모니터링)입니다.",
+    "우리 팀은 서비스 분리는 상위권이지만 **운영 모니터링이 없습니다**."
+  ],
+  "footer": "각 팀 공개 저장소의 compose·k8s·Terraform·GitHub Actions 파일과 README를 읽었습니다. 서버의 .env와 AWS 콘솔에서 만든 자원은 보지 않았습니다.",
+  "teams": [
+    {
+      "id": "team1", "no": 1, "name": "200 OK", "product": "paldo-gotgan", "kind": "EC2 Compose",
+      "facts": [["구조", "모듈 9개를 앱 하나로 배포"], ["서버", "EC2 (Terraform으로 생성)"], ["배포", "GHCR 이미지 → 서버에서 `deploy.sh`"], ["데이터", "MySQL · Redis · Kafka 3대 · S3"]],
+      "good": ["Terraform으로 VPC·EC2·S3·IAM을 코드로 관리", "Kafka 브로커 3대로 한 대가 죽어도 버팀", "Prometheus + Grafana + exporter로 지표 수집"],
+      "bad": ["앱이 하나라 서비스별 배포·확장 불가", "서버에 들어가 스크립트를 직접 실행하는 수동 배포"],
+      "take": ["Prometheus + Grafana 구성"]
+    },
+    {
+      "id": "team2", "no": 2, "name": "트랜잭션시스터즈", "product": "palette", "kind": "EC2 Compose",
+      "facts": [["구조", "모놀리스 → 서비스 6개로 전환 중"], ["서버", "EC2 1대"], ["배포", "Actions → 배포 전용 SSH 키"], ["데이터", "PostgreSQL · Redis · Kafka · ES"]],
+      "good": ["배포 키가 「deploy 커밋」 명령만 실행 가능", "배포 실패 시 단계·원인을 Slack으로 알림", "Loki + Alloy로 로그를 모아 Grafana에서 검색"],
+      "bad": ["루트 모놀리스가 아직 남아 있음", "지표(CPU·응답 시간) 수집은 없고 로그만 있음"],
+      "take": ["배포 실패 Slack 알림", "명령이 제한된 배포 키"]
+    },
+    {
+      "id": "team3", "no": 3, "name": "안현잘부", "product": "jjinmak", "kind": "k3s",
+      "facts": [["구조", "서비스 13개 (경매·추천·채팅 포함)"], ["서버", "EC2 + k3s"], ["배포", "서버 안 러너가 서비스별 `kubectl`"], ["데이터", "PostgreSQL+pgvector · Kafka · ES"]],
+      "good": ["서비스마다 따로 배포하고 rollout 완료까지 확인", "이미지 태그가 커밋 SHA라 어떤 코드인지 바로 앎"],
+      "bad": ["Compose 구성과 k8s 구성이 함께 있어 무엇이 운영인지 헷갈림", "모니터링 구성을 찾지 못함", "서버 안에 러너가 상주"],
+      "take": ["배포 뒤 정상 기동까지 확인하는 단계"]
+    },
+    {
+      "id": "team4", "no": 4, "name": "블루블랙치킨고양이", "product": "kidly", "kind": "k3s + Compose",
+      "facts": [["구조", "서비스 9개 + gateway"], ["서버", "t3.large(앱) + t3.medium(데이터)"], ["배포", "SSH로 `deploy.sh`, 환경별 프로필"], ["데이터", "PostgreSQL · Redpanda · Redis · ES"]],
+      "good": ["서버 2대 역할 분리: 앱 서버와 데이터·모니터링 서버", "지표·로그·추적·오류 알림(Sentry)까지 모니터링", "이미지를 digest로 고정해 같은 버전을 보장", "이미지 정리·자원 점검 등 운영 자동화"],
+      "bad": ["Compose와 k3s를 섞어 써서 구조가 복잡", "워크플로 17개라 관리 부담이 큼"],
+      "take": ["t3.medium으로 DB·Kafka·ES를 옮기는 역할 분리"]
+    },
+    {
+      "id": "team5", "no": 5, "name": "크루런 (우리)", "product": "beadv8_5_BSB_MONO", "kind": "EC2 Compose", "ours": true,
+      "facts": [["구조", "서비스 8개 + Gateway + Next.js"], ["서버", "EC2 1대 (t3.medium은 미사용)"], ["배포", "GHCR 빌드 → 서버 안 러너가 `compose up`"], ["데이터", "MySQL · Redpanda · Redis · ES · s3mock"]],
+      "good": ["서비스 8개를 실제로 따로 띄워 운영", "서버에서 빌드하지 않는 자동 배포", "검색·대기열·메시지를 모두 운영에 올림"],
+      "bad": ["운영 모니터링 없음", "파일 저장소가 s3mock이고 저장 볼륨 없음", "서버 1대에 앱·DB·프론트가 모두 있음", "서버 안에 러너가 상주"]
+    },
+    {
+      "id": "team6", "no": 6, "name": "일단커밋", "product": "replant", "kind": "EC2 Compose",
+      "facts": [["구조", "Spring Modulith, 앱 하나"], ["서버", "EC2 1대"], ["배포", "서버에서 `deploy.sh` 수동"], ["데이터", "PostgreSQL · Redis · Kafka · S3"]],
+      "good": ["S3를 EC2 IAM 역할로 접근해 키를 서버에 두지 않음", "로컬 S3(RustFS)를 운영과 같은 버킷 구성으로 맞춤", "모든 포트를 127.0.0.1에만 열어 외부 노출 차단"],
+      "bad": ["수동 배포", "모니터링 없음", "앱이 하나라 서비스별 배포 불가"],
+      "take": ["S3를 IAM 역할로 붙이는 방식 (s3mock 대체)"]
+    },
+    {
+      "id": "team7", "no": 7, "name": "CartMate", "product": "cartmate", "kind": "EC2 Compose",
+      "facts": [["구조", "서비스 모듈 6개"], ["서버", "EC2"], ["배포", "main 머지 → Docker Hub → SSH"], ["데이터", "MySQL · Kafka · Redis"]],
+      "good": ["구성이 가장 단순해 이해·유지가 쉬움", "이미지 태그를 골라 다시 배포하는 롤백 버튼"],
+      "bad": ["모니터링 구성을 찾지 못함", "DB 구성이 저장소에 없어 재현 불가", "SSH 서버 지문을 처음 접속 때 그냥 믿음"],
+      "take": ["태그를 골라 재배포하는 롤백 버튼"]
+    },
+    {
+      "id": "team8", "no": 8, "name": "남(은)자들", "product": "hapbang", "kind": "k3s",
+      "facts": [["구조", "앱 7개"], ["서버", "t3.large + t3.medium k3s (Terraform)"], ["배포", "OIDC → AWS SSM → `kubectl`"], ["데이터", "PostgreSQL · Redis · Kafka · ES(ECK)"]],
+      "good": ["SSH·6443 포트를 열지 않고 SSM으로 배포", "Sealed Secrets로 비밀값을 암호화해 저장소에 보관", "Grafana 경보 규칙·연락처까지 코드로 관리", "바뀐 앱만 이미지를 새로 만듦"],
+      "bad": ["서버가 운영 한 벌뿐이라 dev 머지가 곧 운영 반영", "도구가 많아 팀원이 따라오기 어려움"],
+      "take": ["OIDC + SSM 배포"]
+    }
+  ],
+  "apply": {
+    "summary": [
+      "**1번은 바로 확인**해야 합니다. 파일이 사라질 수 있는 문제입니다.",
+      "발표 전에는 **2~4번**까지가 현실적입니다. 4번이 발표 근거가 됩니다."
+    ],
+    "groups": [
+      {
+        "title": "",
+        "items": [
+          { "title": "운영 파일 저장소 확인", "why": "운영에 s3mock이 뜨고 저장 볼륨이 없음 → 서버 .env가 진짜 S3가 아니면 재배포 때 올린 파일이 사라짐", "ref": "6팀", "badge": { "level": "warn", "text": "지금" }, "urgent": true },
+          { "title": "배포 실패 Slack 알림", "why": "실패를 Actions 화면에서만 알 수 있음 → 워크플로 한 단계로 바로 알림", "ref": "2팀", "badge": { "level": "s", "text": "작음" } },
+          { "title": "롤백 버튼", "why": "이미지 태그를 골라 다시 띄우는 수동 실행 워크플로 → 사고 때 1분 안에 되돌림", "ref": "7팀", "badge": { "level": "s", "text": "작음" } },
+          { "title": "Prometheus + Grafana", "why": "지표가 없어 최종 발표에서 「데이터가 어긋나지 않음」을 숫자로 못 보여 줌 → compose에 2개 추가, Actuator 지표 열기", "ref": "1팀 · 4팀", "badge": { "level": "m", "text": "중간" } },
+          { "title": "t3.medium 역할 분리", "why": "앱·DB·ES·프론트가 한 서버에서 메모리를 나눠 씀 → DB·Kafka·ES를 옮겨 앱 서버 여유 확보", "ref": "4팀", "badge": { "level": "m", "text": "중간" } },
+          { "title": "OIDC + SSM 배포", "why": "서버 안 러너와 SSH 키를 없앰 → 공개 저장소에서 서버가 뚫릴 길을 줄임", "ref": "8팀", "badge": { "level": "l", "text": "큼" } }
+        ]
+      }
+    ]
+  }
+}

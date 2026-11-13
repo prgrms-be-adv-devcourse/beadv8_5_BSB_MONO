@@ -36,6 +36,7 @@ import com.bukang.payout.domain.PayoutStage;
 import com.bukang.payout.domain.PayoutStatus;
 import com.bukang.payout.domain.exception.PayoutRecoveryConflictException;
 import com.bukang.payout.out.PayoutClaimRepository;
+import com.bukang.payout.out.PayoutCreateFailureRepository;
 import com.bukang.payout.out.PayoutHoldRepository;
 import com.bukang.payout.out.PayoutItemRepository;
 import com.bukang.payout.out.PayoutRecoveryRepository;
@@ -64,6 +65,9 @@ class PayoutLedgerScenarioTest {
 
 	@Autowired
 	private PayoutRepository payoutRepository;
+
+	@Autowired
+	private PayoutCreateFailureRepository payoutCreateFailureRepository;
 
 	@Autowired
 	private PayoutItemRepository payoutItemRepository;
@@ -95,7 +99,8 @@ class PayoutLedgerScenarioTest {
 		raceCancelUseCase = new PayoutRaceCancelUseCase(payoutRepository, ledgerUseCase);
 		claimUseCase = new PayoutClaimUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository,
 			payoutClaimRepository, (claimCode, amount, dueDate) -> Optional.empty());
-		PayoutPayStepUseCase payStepUseCase = new PayoutPayStepUseCase(payoutRepository, raceCancelUseCase);
+		PayoutPayStepUseCase payStepUseCase = new PayoutPayStepUseCase(payoutRepository, raceCancelUseCase,
+				payoutCreateFailureRepository);
 		payUseCase = new PayoutPayUseCase(payStepUseCase, transfer -> {
 		});
 	}
@@ -465,7 +470,7 @@ class PayoutLedgerScenarioTest {
 		Payout first = payout(PayoutStage.일차_정산);
 		first.startPaying(FIRST_PAY_DATE.atTime(4, 0));
 		raceCancelUseCase.cancelRace(RACE_ID, FIRST_PAY_DATE.atTime(4, 1));
-		new PayoutPayStepUseCase(payoutRepository, raceCancelUseCase)
+		new PayoutPayStepUseCase(payoutRepository, raceCancelUseCase, payoutCreateFailureRepository)
 			.revert(first.getId(), FIRST_PAY_DATE.atTime(4, 2), "캐시 서비스 거절");
 		entityManager.flush();
 		entityManager.clear();
