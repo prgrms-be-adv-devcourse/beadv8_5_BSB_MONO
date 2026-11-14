@@ -1,0 +1,52 @@
+# 로컬(k3d)과 운영(AWS k3s)이 함께 쓰는 매니페스트. 환경마다 다른 값은 overlays/<환경>에서 덮어쓴다
+# 인프라(MySQL·Redis·Kafka·ES·S3Mock)는 k8s 밖(compose)에 있고, 그 주소를 가리키는 Service는 overlay가 만든다
+#
+# nginx 설정은 backend/docker/nginx의 파일을 그대로 읽어 compose와 같은 규칙을 쓴다 (원본 하나)
+# 이 폴더 밖 파일을 읽으므로 빌드할 때 --load-restrictor LoadRestrictionsNone 을 붙인다 (k8s/README.md 참고)
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: crewrun
+
+# base의 모든 객체 맨 위(metadata.labels)에 part-of: crewrun 이름표를 붙인다
+# selector와 Pod 라벨에는 붙이지 않고, overlay에서 더하는 인프라 Service·Secret에도 붙지 않는다
+# 설정에서 읽는 곳은 없고, 우리 객체만 모아 볼 때 쓴다: kubectl get all -n crewrun -l app.kubernetes.io/part-of=crewrun
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: crewrun
+
+resources:
+  - namespace.yaml
+  - app-config.yaml
+  - apps/gateway.yaml
+  - apps/member-service.yaml
+  - apps/cash-service.yaml
+  - apps/payout-service.yaml
+  - apps/file-service.yaml
+  - apps/order-service.yaml
+  - apps/product-service.yaml
+  - apps/queue-service.yaml
+  - apps/notification-service.yaml
+  - apps/board-service.yaml
+  - apps/ai-service.yaml
+  - apps/web.yaml
+  - edge/nginx.yaml
+  - edge/ingress.yaml
+
+configMapGenerator:
+  # 입구 nginx 설정. routes.conf·upstreams.conf는 compose의 nginx와 같은 파일이다
+  # 내용이 바뀌면 이름 뒤 해시가 바뀌어 nginx Pod가 새로 뜨면서 바뀐 설정을 읽는다
+  - name: nginx-config
+    files:
+      - default.conf=edge/nginx-default.conf
+      - routes.conf=../../backend/docker/nginx/routes.conf
+      - upstreams.conf=../../backend/docker/nginx/upstreams.conf
+
+patches:
+  # Spring 앱 11개에 같은 설정(설정 주입·JVM 옵션·메모리·상태 확인)을 한 번에 붙인다
+  - path: patches/spring-common.yaml
+    target:
+      kind: Deployment
+      labelSelector: app.kubernetes.io/component=spring
+  # 메모리를 더 쓰는 서비스만 상한을 올린다 (위 공통 패치 뒤에 적어야 덮어쓴다)
+  - path: patches/spring-memory.yaml

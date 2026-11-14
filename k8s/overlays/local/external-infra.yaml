@@ -1,0 +1,49 @@
+# 앱이 부르는 인프라 이름(bukang-db 등)을 내 PC로 이어 준다
+# 인프라는 compose가 띄우고 내 PC의 포트(3306 등)로 열려 있다. k3d 안에서 내 PC는 host.k3d.internal이다
+# 운영(overlays/aws)은 같은 이름을 보조 EC2의 IP로 잇는다. 앱 설정은 어느 쪽이든 그대로다
+apiVersion: v1
+kind: Service
+metadata:
+  name: bukang-db
+  namespace: crewrun
+spec:
+  type: ExternalName
+  externalName: host.k3d.internal
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bukang-redis
+  namespace: crewrun
+spec:
+  type: ExternalName
+  externalName: host.k3d.internal
+---
+# Redpanda는 앱에 "bukang-kafka:29092로 접속하라"고 알려 준다(internal 리스너)
+# 그래서 내 PC에 29092도 열어야 한다 (compose.k3d.yml)
+apiVersion: v1
+kind: Service
+metadata:
+  name: bukang-kafka
+  namespace: crewrun
+spec:
+  type: ExternalName
+  externalName: host.k3d.internal
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bukang-elasticsearch
+  namespace: crewrun
+spec:
+  type: ExternalName
+  externalName: host.k3d.internal
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bukang-s3mock
+  namespace: crewrun
+spec:
+  type: ExternalName
+  externalName: host.k3d.internal
