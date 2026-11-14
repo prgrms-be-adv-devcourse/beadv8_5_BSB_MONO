@@ -1,0 +1,11 @@
+# 로컬 k3d용. 앱은 k3d에, 인프라는 지금처럼 compose(backend/compose.yml)로 띄운다
+# 적용: kubectl kustomize --load-restrictor LoadRestrictionsNone k8s/overlays/local | kubectl apply -f -
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+  - external-infra.yaml
+  # 앱의 비밀값 (Secret app-secret). secret.yaml.example을 secret.yaml로 복사해 채운다 (secret.yaml은 git에 올라가지 않는다)
+  # 비밀이 아닌 설정은 base의 app-config.yaml(ConfigMap)이 맡는다. 두 곳에 같은 키를 두지 않는다
+  - secret.yaml

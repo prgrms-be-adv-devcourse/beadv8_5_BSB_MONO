@@ -1,0 +1,7 @@
+# k3d 앱이 compose의 Kafka에 붙을 수 있게 internal 리스너(29092)를 내 PC에도 연다
+# Redpanda는 접속한 앱에 "bukang-kafka:29092로 다시 접속하라"고 알려 주는데, compose.yml은 9092(external)만 열어 둔다
+# 사용: docker compose -f backend/compose.yml -f k8s/overlays/local/compose.k3d.yml up -d
+services:
+  bukang-kafka:
+    ports:
+      - "29092:29092"

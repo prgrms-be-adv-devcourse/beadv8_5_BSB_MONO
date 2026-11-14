@@ -1,0 +1,35 @@
+# 비밀이 아닌 공통 설정. Spring 앱은 envFrom으로 모든 키를, web은 SITE_URL 하나만 환경변수로 받는다
+# 값은 compose.yml·.env.example의 컨테이너 기준 값과 같다
+# 인프라 이름(bukang-db 등)은 overlay의 Service가 실제 주소(로컬 PC, 보조 EC2)로 이어 준다
+# 비밀값(계정·키)은 여기 두지 않고 overlay의 Secret(app-secret, secret.yaml)에 둔다. 두 곳에 같은 키를 두지 않는다
+#
+# 값을 바꿔 apply해도 떠 있는 Pod는 옛 값을 쓴다. 바꾼 뒤에는 다시 띄운다
+#   kubectl rollout restart -n crewrun deploy
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  SPRING_PROFILES_ACTIVE: prod
+
+  MYSQL_HOST: bukang-db
+  MYSQL_PORT: "3306"
+  MYSQL_DB: bukang-db
+
+  # Redpanda가 앱에 알려 주는 주소(internal 리스너)와 같아야 한다
+  KAFKA_BOOTSTRAP_SERVERS: bukang-kafka:29092
+
+  ELASTICSEARCH_URIS: http://bukang-elasticsearch:9200
+
+  REDIS_HOST: bukang-redis
+  REDIS_PORT: "6379"
+
+  # 파일 저장소. 앱은 bukang-s3mock으로 접속하고, presigned URL은 브라우저가 쓰는 주소(S3_PUBLIC_ENDPOINT)로 서명한다
+  S3_BUCKET: bukang-file
+  AWS_REGION: ap-northeast-2
+  S3_ENDPOINT: http://bukang-s3mock:9090
+  S3_PUBLIC_ENDPOINT: http://localhost:9090
+  S3_PATH_STYLE: "true"
+
+  # 프론트(web)의 공유 카드 절대 주소. 운영은 overlay에서 https://도메인 으로 바꾼다
+  SITE_URL: http://localhost
