@@ -472,6 +472,29 @@ describe('예치금 돌려받기 (M22, 환급 변경안 11/5)', () => {
     expect(keys[2]).not.toBe(keys[1])
   })
 
+  it('신청 응답의 switchedToAccountAmount를 완료 화면으로 넘긴다', async () => {
+    server.use(
+      planHandler(CARD_ONLY),
+      http.post('*/api/v1/cash/withdrawals', () =>
+        okWithdrawal({
+          withdrawnAmount: 40000,
+          cardAmount: 0,
+          accountAmount: 40000,
+          switchedToAccountAmount: 30000,
+        }),
+      ),
+    )
+    const user = userEvent.setup()
+    renderWithClient(<DepositRefundPage />)
+
+    await user.click(await submit())
+
+    await vi.waitFor(() => expect(push).toHaveBeenCalledWith('/me/deposit/refund/done'))
+    expect(JSON.parse(sessionStorage.getItem('crewrun:last-withdrawal') ?? '{}')).toMatchObject({
+      switchedToAccountAmount: 30000,
+    })
+  })
+
   it('카드로 돌려줄 수 없는 몫이 계좌 정보가 없어 되돌아오면(accountRequired) 계좌를 받고 다시 신청하게 한다', async () => {
     let planCalls = 0
     const bodies: WithdrawalBody[] = []
@@ -819,32 +842,6 @@ describe('예치금 돌려받기 · 환급 완료 (M22-1)', () => {
     renderWithClient(<DepositRefundDonePage />)
 
     await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/me/deposit'))
-  })
-})
-
-describe('환급 신청 결과의 계좌 전환 금액', () => {
-  it('신청 응답의 switchedToAccountAmount를 완료 화면으로 넘긴다', async () => {
-    sessionStorage.clear()
-    server.use(
-      planHandler(CARD_ONLY),
-      http.post('*/api/v1/cash/withdrawals', () =>
-        okWithdrawal({
-          withdrawnAmount: 40000,
-          cardAmount: 0,
-          accountAmount: 40000,
-          switchedToAccountAmount: 30000,
-        }),
-      ),
-    )
-    const user = userEvent.setup()
-    renderWithClient(<DepositRefundPage />)
-
-    await user.click(await submit())
-
-    await vi.waitFor(() => expect(push).toHaveBeenCalledWith('/me/deposit/refund/done'))
-    expect(JSON.parse(sessionStorage.getItem('crewrun:last-withdrawal') ?? '{}')).toMatchObject({
-      switchedToAccountAmount: 30000,
-    })
   })
 })
 
