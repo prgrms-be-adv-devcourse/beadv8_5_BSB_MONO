@@ -22,11 +22,14 @@ inquiry:
     member:
       mode: fake
       base-url: http://localhost:8080
+    # 상품·주문 서비스를 함께 띄웠으면 mode를 http로 바꾼다
     product:
       mode: fake
+      base-url: http://localhost:8085
     # 주문 ID = 회원 ID x 1000 + 대회 ID면 그 회원의 주문이다 (예: 4001). 1000 미만은 없는 주문
     order:
       mode: fake
+      base-url: http://localhost:8084
 
 logging:
   level:

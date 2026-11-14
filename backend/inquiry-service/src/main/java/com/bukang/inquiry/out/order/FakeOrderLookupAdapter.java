@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * 가짜 어댑터: 주문 서비스 내부 API가 생기기 전까지 개발에서 쓴다
+ * 가짜 어댑터: 주문 서비스를 띄우지 않고 개발할 때 쓴다. 운영은 http라 HttpOrderLookupAdapter가 답한다
  * 주문 ID를 「회원 ID × 1000 + 대회 ID」로 읽는다. 예) 4001은 회원 4가 대회 1로 결제한 주문, 7012는 회원 7이 대회 12로 결제한 주문
  * 그래서 로그인한 회원 ID로 주문 ID를 만들어 넣으면 내 주문이 되고, 다른 회원의 주문 ID를 넣으면 404가 된다
  * 주문 ID가 1000 미만이면 없는 주문이다 (대회 ID는 1~999)
