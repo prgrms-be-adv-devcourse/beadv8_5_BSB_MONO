@@ -43,7 +43,8 @@ final class PartyApiExamples {
 					"thirdPartyConsent": true,
 					"consentedAt": "2026-11-05T10:15:30",
 					"paymentDueAt": null
-				}
+				},
+				"invitedMemberIds": [12, 15]
 			}
 		}
 		""";
