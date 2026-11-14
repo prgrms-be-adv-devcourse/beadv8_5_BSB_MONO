@@ -7,7 +7,9 @@
 
 그래프는 matplotlib이 있을 때만 그린다 (pip install matplotlib).
 """
+import gzip
 import json
+import re
 import statistics
 import sys
 import urllib.parse
@@ -66,6 +68,56 @@ def read_scenario(rep_dir, name):
         'pending_max': pending['max'], 'pending_avg': pending['avg'], 'pending_seconds': pending['seconds'],
         'active_max': max(active) if active else None, 'series': series,
     }
+
+
+ACCESS = re.compile(r'^(\w+)-\d+\s+\|\s+ACCESS (\d+) (\w+) (\S+) (\d+) (\d+)')
+# 주문이 부르는 예치금 결제, 상품 자리 판매
+CASH_PAY = re.compile(r'^/internal/v1/cash/payments/\d+$')
+PRODUCT_SELL = re.compile(r'^/internal/v1/product/holds/\d+/sell$')
+
+
+def percentile(values, q):
+    if not values:
+        return None
+    values = sorted(values)
+    return values[min(len(values) - 1, int(q * len(values)))]
+
+
+def access_times(rep_dir):
+    """services.log.gz의 접근 기록 → {(서비스 구분, 시나리오): [ms...]}"""
+    path = rep_dir / 'services.log.gz'
+    windows = [line.split('\t') for line in (rep_dir / 'windows.tsv').read_text().splitlines()] \
+        if (rep_dir / 'windows.tsv').exists() else []
+    times = {}
+    if not path.exists():
+        return times
+    with gzip.open(path, 'rt', errors='replace') as f:
+        for line in f:
+            m = ACCESS.match(line)
+            if not m or m[3] != 'POST':
+                continue
+            kind = 'cash_pay' if CASH_PAY.match(m[4]) else 'product_sell' if PRODUCT_SELL.match(m[4]) else None
+            if not kind:
+                continue
+            at = int(m[2]) / 1000
+            for name, start, end in windows:
+                if float(start) <= at <= float(end):
+                    times.setdefault((kind, name), []).append(int(m[6]))
+                    break
+    return times
+
+
+def lock_row(rep_dir, name, table):
+    """<이름>.locks.tsv에서 그 표를 잠그는 FOR UPDATE 문장 중 가장 많이 기다린 것 (ms)"""
+    path = rep_dir / f'{name}.locks.tsv'
+    if not path.exists():
+        return None
+    for line in path.read_text().splitlines():
+        cols = line.split('\t')
+        if len(cols) == 7 and f'`{table}`' in cols[0].lower():
+            count, avg, p95, p99, max_, lock = cols[1:]
+            return {'count': int(count), 'avg': float(avg), 'p95': float(p95), 'max': float(max_)}
+    return None
 
 
 def median(values):
@@ -146,6 +198,23 @@ def summary(results, out):
                          f'{cell("fail", percent=True)} | {cell("pay_fail", percent=True)} | {cell("dropped")} | {cell("pending_max")} | {cell("pending_avg", 1)} | '
                          f'{cell("pending_seconds")} | {cell("active_max")} |')
             plot(label_dir.name, name, rows, out)
+        lines += ['', '처리 시간·잠금 대기(중앙값, ms). 예치금 결제·상품 자리 판매는 그 서비스가 요청 하나를 처리한 시간(접근 기록),'
+                  ' 잠금은 FOR UPDATE 문장 실행 시간(대부분 줄 잠금을 기다린 시간, performance_schema)', '',
+                  '| 시나리오 | 예치금 결제 p50 | 예치금 결제 p95 | 상품 판매 p50 | 상품 판매 p95 | 판매 수 줄 잠금 건수 | 평균 | p95 | 최대 | 예치금 지갑 잠금 평균 | p95 |',
+                  '|---|---|---|---|---|---|---|---|---|---|---|']
+        access = [access_times(rep) for rep in reps]
+        for name in names:
+            def m(values):
+                return fmt(median(values))
+            cash = [a.get(('cash_pay', name), []) for a in access]
+            sell = [a.get(('product_sell', name), []) for a in access]
+            kit = [lock_row(rep, name, 'order_kit_option_sale') or {} for rep in reps]
+            wallet = [lock_row(rep, name, 'cash_wallet') or {} for rep in reps]
+            lines.append(f'| {name} | {m([percentile(c, .5) for c in cash])} | {m([percentile(c, .95) for c in cash])} | '
+                         f'{m([percentile(c, .5) for c in sell])} | {m([percentile(c, .95) for c in sell])} | '
+                         f'{m([k.get("count") for k in kit])} | {fmt(median([k.get("avg") for k in kit]), 1)} | '
+                         f'{fmt(median([k.get("p95") for k in kit]), 1)} | {fmt(median([k.get("max") for k in kit]), 1)} | '
+                         f'{fmt(median([w.get("avg") for w in wallet]), 1)} | {fmt(median([w.get("p95") for w in wallet]), 1)} |')
         lines += ['', '판정(변경 전 기준, 중앙값):', '', '| 번호 | 조건 | 값 | 맞음 |', '|---|---|---|---|']
         for code, text, value, hit in judge(med):
             lines.append(f'| {code} | {text} | {fmt(value, 2) if isinstance(value, float) else fmt(value)} | '
@@ -192,6 +261,10 @@ def selftest():
                      's2': {'p95': 100}, 's3': {'p95': 300}})
     assert [hit for *_, hit in verdict] == [True, True, False, True]
     assert judge({})[0][3] is False
+    assert percentile([5, 1, 3, 2, 4], .5) == 3 and percentile([], .5) is None
+    assert ACCESS.match('cash-1  | ACCESS 1731550000123 POST /internal/v1/cash/payments/7 200 45').groups() == \
+        ('cash', '1731550000123', 'POST', '/internal/v1/cash/payments/7', '200', '45')
+    assert CASH_PAY.match('/internal/v1/cash/payments/7') and not CASH_PAY.match('/internal/v1/cash/payments/7/cancel')
     print('selftest ok')
 
 

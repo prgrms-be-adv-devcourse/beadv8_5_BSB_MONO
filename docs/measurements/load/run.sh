@@ -24,6 +24,8 @@ if [ "${QUICK:-0}" = 1 ]; then FLOW_DURATION=20s; WARMUP_DURATION=10s; ROUNDS=2;
 export LABEL
 compose() { docker compose -f "$HERE/compose.load.yml" "$@"; }
 sql() { compose exec -T mysql mysql -N -s -ubukang2 -pbukang2 bukang-db 2>>"$RUN_DIR/sql.err"; }
+# performance_schema는 root로만 읽는다 (측정 전용 컨테이너의 개발용 비밀번호)
+rsql() { compose exec -T mysql mysql -N -s -uroot -pbukang-admin 2>>"$RUN_DIR/sql.err"; }
 log() { echo "[$(date +%H:%M:%S)] $LABEL rep$REP $*"; }
 
 mkdir -p "$RUN_DIR"
@@ -64,12 +66,18 @@ k6() {
 	local member_from=$((100001 + INDEX * 10000))
 	INDEX=$((INDEX + 1))
 	local start end
+	# 구간마다 문장 통계를 비우고, 끝나면 FOR UPDATE 문장(잠금 대기 포함 실행 시간)만 남긴다
+	echo "truncate table performance_schema.events_statements_summary_by_digest;" | rsql || true
 	start=$(date +%s)
 	docker run --rm --network orderload_default --cpus 1 --user "$(id -u):$(id -g)" \
 		-v "$HERE:/scripts:ro" -v "$RUN_DIR:/out" "$K6_IMAGE" run --quiet \
 		-e MEMBER_FROM="$member_from" -e SUMMARY="/out/$name.k6.json" "$@" /scripts/order-pay.js \
 		> "$RUN_DIR/$name.k6.log" 2>&1 || log "$name: k6가 0이 아닌 값으로 끝남 (로그 $name.k6.log)"
 	end=$(date +%s)
+	echo "select replace(left(digest_text, 200), '\t', ' '), count_star, round(avg_timer_wait / 1e9, 2),
+		round(quantile_95 / 1e9, 2), round(quantile_99 / 1e9, 2), round(max_timer_wait / 1e9, 2), round(sum_lock_time / 1e9, 2)
+		from performance_schema.events_statements_summary_by_digest where digest_text like '%FOR UPDATE%'
+		order by sum_timer_wait desc;" | rsql > "$RUN_DIR/$name.locks.tsv" || true
 	# k6가 요약을 못 남겼으면(준비 실패 등) 표에서 조용히 빠지지 않게 표시한다
 	[ -f "$RUN_DIR/$name.k6.json" ] || echo "$name" >> "$RUN_DIR/failed.txt"
 	printf '%s\t%s\t%s\n' "$name" "$start" "$end" >> "$RUN_DIR/windows.tsv"
@@ -90,6 +98,9 @@ for s in $SCENARIOS; do
 		s4-*-flow) ms=${s#s4-}; ms=${ms%-flow}; set_pool 10; set_latency "$ms"; flow "$s" 5 4 "$FLOW_DURATION" ;;
 		s4-*-burst) ms=${s#s4-}; ms=${ms%-burst}; set_pool 10; set_latency "$ms"; burst "$s" 0 ;;
 		s5-flow) set_pool 20; set_latency 300; flow s5-flow 5 4 "$FLOW_DURATION" ;;
+		# 인기 옵션 쏠림: 종목 5개 초당 20명이 모두 같은 키트 옵션 하나를 고른다
+		hot-*-flow) ms=${s#hot-}; ms=${ms%-flow}; set_pool 10; set_latency "$ms"
+			k6 "$s" -e MODE=flow -e COURSES=5 -e RATE_PER_COURSE=4 -e DURATION="$FLOW_DURATION" -e FLOW_OPTIONS=1 ;;
 		s5-burst) set_pool 20; set_latency 300; burst s5-burst 0 ;;
 		*) echo "모르는 시나리오: $s" >&2; exit 1 ;;
 	esac

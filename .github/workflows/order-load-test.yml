@@ -47,10 +47,10 @@ jobs:
       group: order-load-test
       cancel-in-progress: false
     env:
-      REF_A: ${{ inputs.ref_a || (github.event_name == 'push' && '452f07d6bb9b010cdcfe54260a3ad42e5f81d4af') || github.event.pull_request.head.sha || github.sha }}
-      REF_B: ${{ inputs.ref_b || (github.event_name == 'push' && github.sha) || '' }}
+      REF_A: ${{ inputs.ref_a || (github.event_name == 'push' && github.sha) || github.event.pull_request.head.sha || github.sha }}
+      REF_B: ${{ inputs.ref_b }}
       REPEAT: ${{ inputs.repeat || (github.event_name == 'push' && '3') || '3' }}
-      SCENARIOS: ${{ inputs.scenarios || (github.event_name == 'push' && 'warmup s1-1 s1-5 s2 s3 s4-100-flow s4-100-burst s4-300-flow s4-300-burst s4-500-flow s4-500-burst s5-flow s5-burst') || '' }}
+      SCENARIOS: ${{ inputs.scenarios || (github.event_name == 'push' && 'warmup s1-5 s2 s4-100-flow s4-300-flow hot-100-flow hot-300-flow') || '' }}
       QUICK: ${{ inputs.quick || (github.event_name == 'push' && '0') || '0' }}
       OUT: ${{ github.workspace }}/load-results
     steps:
