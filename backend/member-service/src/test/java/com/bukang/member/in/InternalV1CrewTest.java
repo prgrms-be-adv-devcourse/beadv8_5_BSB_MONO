@@ -7,6 +7,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -31,7 +33,7 @@ import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
 import com.bukang.member.support.MemberFixture;
 import com.jayway.jsonpath.JsonPath;
 
-// 파티 서비스가 부르는 크루 내부 API: 크루원 여부·가입 시각, 크루원 수
+// 파티 서비스가 부르는 크루 내부 API: 크루원 여부·가입 시각, 크루원 수, 파티 만들기 제한 (BUK-187)
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
@@ -42,6 +44,7 @@ class InternalV1CrewTest {
 
 	private static final String MEMBER_STATUS = "/internal/v1/member/crews/{crewId}/members/{memberId}";
 	private static final String MEMBER_COUNT = "/internal/v1/member/crews/{crewId}/member-count";
+	private static final String PENALTY = "/internal/v1/member/crews/{crewId}/penalty";
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -79,6 +82,7 @@ class InternalV1CrewTest {
 
 	@AfterEach
 	void tearDown() {
+		jdbcTemplate.update("delete from member_crew_penalty");
 		crewInviteRepository.deleteAll();
 		crewMemberRepository.deleteAll();
 		crewRepository.deleteAll();
@@ -158,5 +162,76 @@ class InternalV1CrewTest {
 		String createdAt = JsonPath.read(body, "$.data.crewCreatedAt");
 		assertThat(LocalDateTime.parse(createdAt))
 			.isEqualTo(crewRepository.findById(crewId).orElseThrow().getCreatedAt());
+	}
+
+	@Test
+	@DisplayName("제한 기간 안이면 restricted가 true이고, 기간이 겹치는 행이 여럿이면 가장 늦게 끝나는 시각을 준다")
+	void penaltyRestricted() throws Exception {
+		LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+		insertPenalty(crewId, "2026-10", now.minusDays(20), now.plusDays(10));
+		insertPenalty(crewId, "2026-11", now.minusDays(1), now.plusDays(29));
+
+		mockMvc.perform(get(PENALTY, crewId))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.message").value("크루 파티 만들기 제한을 조회했습니다."))
+			.andExpect(jsonPath("$.data.restricted").value(true))
+			.andExpect(jsonPath("$.data.endAt").value(iso(now.plusDays(29))));
+	}
+
+	@Test
+	@DisplayName("제한 행이 없거나, 끝났거나, 아직 시작 전이면 restricted가 false이고 endAt은 null이다")
+	void penaltyNotRestricted() throws Exception {
+		mockMvc.perform(get(PENALTY, crewId))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.restricted").value(false))
+			.andExpect(jsonPath("$.data.endAt").isEmpty());
+
+		LocalDateTime now = LocalDateTime.now();
+		// 끝나는 시각은 제한에 들지 않는다 (start_at <= 지금 < end_at)
+		insertPenalty(crewId, "2026-09", now.minusDays(40), now.minusDays(10));
+		insertPenalty(crewId, "2026-10", now.minusDays(30), now.minusSeconds(1));
+		insertPenalty(crewId, "2026-11", now.plusDays(1), now.plusDays(31));
+
+		mockMvc.perform(get(PENALTY, crewId))
+			.andExpect(jsonPath("$.data.restricted").value(false))
+			.andExpect(jsonPath("$.data.endAt").isEmpty());
+	}
+
+	@Test
+	@DisplayName("크루가 없어도 404가 아니라 200이고 restricted가 false이다")
+	void penaltyUnknownCrew() throws Exception {
+		mockMvc.perform(get(PENALTY, crewId + 999))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.restricted").value(false))
+			.andExpect(jsonPath("$.data.endAt").isEmpty());
+	}
+
+	@Test
+	@DisplayName("크루 홈의 partyRestrictedUntil은 제한 중이면 끝나는 시각, 아니면 null이다")
+	void crewHomePartyRestrictedUntil() throws Exception {
+		mockMvc.perform(get("/api/v1/member/crews/{crewId}", crewId).header("X-Member-Id", memberId))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.partyRestrictedUntil").isEmpty());
+
+		LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+		insertPenalty(crewId, "2026-11", now.minusDays(1), now.plusDays(29));
+
+		mockMvc.perform(get("/api/v1/member/crews/{crewId}", crewId).header("X-Member-Id", memberId))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.partyRestrictedUntil").value(iso(now.plusDays(29))))
+			.andExpect(jsonPath("$.data.memberCount").value(2));
+	}
+
+	// JSON의 LocalDateTime 형식 (초가 0이어도 초까지 쓴다)
+	private static String iso(LocalDateTime time) {
+		return time.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+	}
+
+	private void insertPenalty(long targetCrewId, String month, LocalDateTime startAt, LocalDateTime endAt) {
+		jdbcTemplate.update("""
+			insert into member_crew_penalty
+			(crew_id, penalty_month, low_payment_count, start_at, end_at, created_at, updated_at)
+			values (?, ?, 3, ?, ?, ?, ?)
+			""", targetCrewId, month, startAt, endAt, startAt, startAt);
 	}
 }

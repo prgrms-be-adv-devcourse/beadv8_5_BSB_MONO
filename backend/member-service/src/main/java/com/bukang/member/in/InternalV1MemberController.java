@@ -16,7 +16,9 @@ import com.bukang.member.app.SellerFacade;
 import com.bukang.member.dto.MarketingUnsubscribeLinkDto;
 import com.bukang.member.dto.MemberAdminDto;
 import com.bukang.member.dto.MemberNicknameDto;
+import com.bukang.member.dto.MemberReplicaPageDto;
 import com.bukang.member.dto.MemberSellerDto;
+import com.bukang.member.dto.SellerPayoutAccountDto;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -33,7 +35,8 @@ import lombok.RequiredArgsConstructor;
  * 회원이 아니라 서비스가 부르므로 회원 ID 헤더를 받지 않는다
  */
 @Tag(name = "MemberInternal",
-	description = "회원의 판매자 ID 조회, 관리자 여부 조회, 광고 수신 거부 링크 발급, 닉네임 여러 명 조회 API (서비스 간 내부 호출 전용)")
+	description = "회원의 판매자 ID 조회, 관리자 여부 조회, 판매자 정산 계좌 등록 여부 조회, 광고 수신 거부 링크 발급, "
+		+ "닉네임 여러 명 조회, 회원 복사본 목록 조회 API (서비스 간 내부 호출 전용)")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/internal/v1/member")
@@ -87,6 +90,28 @@ public class InternalV1MemberController {
 			.body(RsData.of(HttpStatus.OK, "관리자 여부를 조회했습니다.", memberFacade.checkAdmin(memberId)));
 	}
 
+	@GetMapping("/sellers/{sellerId}/payout-account")
+	@Operation(summary = "판매자 정산 계좌 등록 여부 조회",
+		description = "정산 서비스가 계좌 미등록 판매자의 정산을 보류하려고 부른다. 판매자 신청 때 계좌실명조회를 통과한 "
+			+ "정산 계좌가 있으면 registered=true, 없으면(이 기능 전에 신청한 판매자) false를 돌려준다. 계좌번호는 돌려주지 않는다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "조회 성공 (계좌가 없어도 200)",
+			content = @Content(examples = {
+				@ExampleObject(name = "계좌 등록됨", value = MemberInternalApiExamples.PAYOUT_ACCOUNT_REGISTERED),
+				@ExampleObject(name = "계좌 없음", value = MemberInternalApiExamples.PAYOUT_ACCOUNT_NOT_REGISTERED)
+			})),
+		@ApiResponse(responseCode = "404", description = "존재하지 않는 판매자 신청",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = MemberInternalApiExamples.SELLER_NOT_FOUND)))
+	})
+	public ResponseEntity<RsData<SellerPayoutAccountDto>> findPayoutAccount(
+		@Parameter(description = "판매자 ID (판매자 신청서 ID)", example = "3") @PathVariable long sellerId
+	) {
+		return ResponseEntity.ok()
+			.body(RsData.of(HttpStatus.OK, "판매자 정산 계좌 등록 여부를 조회했습니다.",
+				sellerFacade.findPayoutAccount(sellerId)));
+	}
+
 	// CRM이 광고 메시지를 만들 때 회원마다 부른다. 토큰을 만드는 서명 키는 회원 서비스에만 있다 (BUK-75, BE-039)
 	@GetMapping("/members/{memberId}/marketing-unsubscribe-link")
 	@Operation(summary = "광고 수신 거부 링크 발급",
@@ -127,5 +152,32 @@ public class InternalV1MemberController {
 	) {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "회원 닉네임을 조회했습니다.", memberFacade.findNicknames(ids)));
+	}
+
+	// 게시판 등이 뜰 때 Kafka 메시지가 지워진 옛 회원의 복사본을 채우려고 부른다 (BUK-161). 공개 정보 여섯 칸만 내보낸다
+	@GetMapping("/members/replicas")
+	@Operation(summary = "회원 복사본 목록 조회",
+		description = "다른 서비스가 회원 복사본을 처음 채우려고 부른다. 회원 ID가 afterId보다 큰 회원을 회원 ID 순서로 size명까지 돌려주고, "
+			+ "memberId, nickname, sellerApproved, withdrawn, createDate, modifyDate만 담는다. "
+			+ "탈퇴한 회원은 닉네임을 「탈퇴한 회원」으로 돌려준다. "
+			+ "sellerApproved는 가장 최근 판매자 신청이 승인 상태일 때만 true다. "
+			+ "hasNext가 true면 nextAfterId를 afterId로 보내 다음 쪽을 받는다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "조회 성공 (받을 회원이 없으면 members가 빈 목록)",
+			content = @Content(examples = @ExampleObject(value = MemberInternalApiExamples.REPLICAS))),
+		@ApiResponse(responseCode = "400", description = "afterId가 음수, size가 1~500이 아님, 또는 숫자가 아님",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "범위 밖", value = MemberInternalApiExamples.REPLICAS_INVALID),
+				@ExampleObject(name = "숫자가 아님", value = MemberInternalApiExamples.INVALID_ID_FORMAT)
+			}))
+	})
+	public ResponseEntity<RsData<MemberReplicaPageDto>> findReplicas(
+		@Parameter(description = "이 회원 ID보다 큰 회원부터 받는다 (처음은 0)", example = "0")
+		@RequestParam(defaultValue = "0") long afterId,
+		@Parameter(description = "한 번에 받을 회원 수 (1~500)", example = "500")
+		@RequestParam(defaultValue = "500") int size
+	) {
+		return ResponseEntity.ok()
+			.body(RsData.of(HttpStatus.OK, "회원 복사본 목록을 조회했습니다.", memberFacade.findReplicas(afterId, size)));
 	}
 }

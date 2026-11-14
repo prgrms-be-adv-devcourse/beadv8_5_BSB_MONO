@@ -59,6 +59,18 @@ spring:
         # 구독한 토픽이 없으면 브로커에 자동 생성을 요청한다 (브로커도 자동 생성을 허용해야 동작)
         "[allow.auto.create.topics]": true
 
+# 게시판이 뜬 뒤 회원 서비스에서 회원 복사본을 채운다 (BUK-161). 서비스 주소는 프로파일별 yaml에 있다
+# 관리자 확인은 mode가 http면 실제 내부 API(/internal/v1/...)를, fake면 가짜 어댑터를 쓴다
+# mode는 프로파일별 yaml에 꼭 적는다. 빠지면 가짜로 열리지 않고 앱이 뜨지 않는다 (누구나 관리자가 되지 않게)
+board:
+  member-backfill:
+    enabled: true
+  clients:
+    # 연결·응답 시간 제한. 넘으면 관리자 확인은 503, 복사본 채우기는 멈춘다 (게시판은 정상으로 뜬다)
+    timeout: 2s
+    member:
+      base-url: http://localhost:8080
+
 # Swagger / OpenAPI V3 설정 (prod에서는 비활성화)
 springdoc:
   api-docs:
@@ -74,10 +86,3 @@ springdoc:
       title: Bukang Board API
       description: 크루 중심 마라톤 대회 예매·커머스 플랫폼 커뮤니티 게시판 API
       version: v1
-
-# 다른 서비스 호출. mode가 http면 실제 내부 API(/internal/v1/...)를, fake면 가짜 어댑터를 쓴다
-# mode는 프로파일별 yaml에 꼭 적는다. 빠지면 가짜로 열리지 않고 앱이 뜨지 않는다 (누구나 관리자가 되지 않게)
-board:
-  clients:
-    # 연결·응답 시간 제한. 넘으면 503으로 다시 시도하게 한다
-    timeout: 2s

@@ -26,7 +26,7 @@ export const NOTICE_CATEGORIES: {
   // 문의 답변(1639:16255) · 커뮤니티 댓글·답글(1645:17527)
   { value: 'inquiry', title: '문의', icon: 'Inbox', linkLabel: '답변 보기' },
   { value: 'community', title: '커뮤니티', icon: 'Inbox', linkLabel: '글 보러 가기' },
-  // 시나리오 39 · 판매자 회원에게만 보인다. 버튼 문구는 알림 종류마다 다르다(SELLER_ACTION)
+  // 시나리오 39 · 판매자 회원에게만 보인다. 버튼 문구는 알림 종류마다 다르다(KIND_ACTION)
   { value: 'seller', title: '판매 소식', tab: '판매', icon: 'Package', linkLabel: '자세히 보기' },
 ]
 
@@ -44,6 +44,7 @@ const KIND_CATEGORY: Record<string, NoticeCategory> = {
   PARTY_PAYMENT_REQUESTED: 'payment',
   PARTY_PAYMENT_DEADLINE: 'payment',
   CREW_JOINED: 'crew',
+  PARTY_INVITED: 'crew',
   KIT_SHIPMENT_REQUIRED: 'seller',
   KIT_TRACKING_STOPPED: 'seller',
   PAYOUT_HELD: 'seller',
@@ -59,17 +60,19 @@ export function categoryOf(notice: Notice): NoticeCategory | undefined {
   return category && !Number.isNaN(Date.parse(notice.sentAt)) ? category : undefined
 }
 
-// 시나리오 39 · 03-S 판매 소식의 할 일 버튼 문구
-const SELLER_ACTION: Record<string, string> = {
+// 시나리오 39 · 03-S 판매 소식의 할 일 버튼 문구, 묶음 문구와 다른 회원 알림 버튼 문구
+const KIND_ACTION: Record<string, string> = {
+  // 파티 초대는 링크로 합류 화면에 간다 (BUK-182). 묶음 문구 「크루 보러 가기」와 맞지 않는다
+  PARTY_INVITED: '파티 합류하기',
   PAYOUT_HELD: '보류 사유 보기',
   KIT_TRACKING_STOPPED: '송장 번호 확인하기',
   KIT_SHIPMENT_REQUIRED: '송장 입력하기',
   INQUIRY_RECEIVED: '답변하기',
 }
 
-/** 알림 버튼 문구. 판매 알림은 종류마다, 나머지는 묶음마다 정한다 */
+/** 알림 버튼 문구. 판매 알림·파티 초대는 종류마다, 나머지는 묶음마다 정한다 */
 export function actionLabel(notice: Notice, category: (typeof NOTICE_CATEGORIES)[number]) {
-  return Object.hasOwn(SELLER_ACTION, notice.kind) ? SELLER_ACTION[notice.kind] : category.linkLabel
+  return Object.hasOwn(KIND_ACTION, notice.kind) ? KIND_ACTION[notice.kind] : category.linkLabel
 }
 
 export function isNoticeCategory(value: string): value is NoticeCategory {

@@ -29,7 +29,7 @@ nav { background: var(--surface); border-right: 1px solid var(--line); padding: 
 .brand b { display: block; font-size: 16px; line-height: 1.4; }
 .brand span { font-size: 12px; color: var(--muted); }
 .group { font-size: 11px; color: var(--muted); letter-spacing: .06em; padding: 16px 12px 6px; }
-nav a { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 8px; color: var(--fg); text-decoration: none; font-size: 14px; }
+nav a { white-space: nowrap; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 8px; color: var(--fg); text-decoration: none; font-size: 14px; }
 nav a:hover { background: var(--bg); }
 nav a.on { background: var(--accent-bg); color: var(--accent); font-weight: 700; }
 nav a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -112,6 +112,18 @@ ul.pts.b li::before { background: var(--bad); }
 .size.l, .size.warn { background: var(--bad-bg); color: var(--bad); }
 .group-title { font-size: 13px; color: var(--muted); font-weight: 700; margin: 8px 0 0; }
 .foot { color: var(--muted); font-size: 12px; margin: 0; }
+.ab { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 20px; display: grid; gap: 10px; }
+.ab-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ab-head h3 { margin: 0; font-size: 15px; flex: 1 1 auto; min-width: 0; }
+.ab-head small { color: var(--muted); font-size: 13px; font-weight: 400; }
+.ab-row { display: grid; grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr); gap: 8px; align-items: stretch; }
+.ab-cell { border-radius: 8px; padding: 10px 12px; font-size: 14px; min-width: 0; }
+.ab-cell b { display: block; font-size: 11px; letter-spacing: .04em; margin-bottom: 2px; }
+.ab-cell.as { background: var(--bad-bg); } .ab-cell.as b { color: var(--bad); }
+.ab-cell.to { background: var(--good-bg); } .ab-cell.to b { color: var(--good); }
+.ab-arrow { display: grid; place-items: center; color: var(--muted); }
+.ab.have .ab-cell.as { background: var(--bg); } .ab.have .ab-cell.as b { color: var(--muted); }
+@media (max-width: 760px) { .ab-row { grid-template-columns: minmax(0, 1fr); } .ab-arrow { transform: rotate(90deg); } }
 
 @media (max-width: 760px) {
   .app { grid-template-columns: 1fr; }
@@ -208,7 +220,25 @@ function apply() {
   </div>`;
 }
 
+function strengths() {
+  const S = DATA.strengths;
+  const card = r => `<div class="ab ${r.status === "have" ? "have" : ""}">
+    <div class="ab-head"><h3>${md(r.title)} <small>· ${esc(r.ref)}</small></h3>${r.badge ? `<span class="size ${esc(r.badge.level)}">${esc(r.badge.text)}</span>` : ""}</div>
+    ${r.status === "have"
+      ? `<div class="ab-cell as"><b>우리도 있음</b>${md(r.asis)}</div>`
+      : `<div class="ab-row"><div class="ab-cell as"><b>AS IS</b>${md(r.asis)}</div><div class="ab-arrow" aria-hidden="true">→</div><div class="ab-cell to"><b>TO BE</b>${md(r.tobe)}</div></div>`}
+  </div>`;
+  const todo = S.rows.filter(r => r.status !== "have"), have = S.rows.filter(r => r.status === "have");
+  return `<div class="page">
+    ${header("다른 팀 장점 적용", S.note)}
+    ${lead(S.summary)}
+    ${todo.length ? `<p class="group-title">가져올 것 ${todo.length}개</p><div class="steps">${todo.map(card).join("")}</div>` : ""}
+    ${have.length ? `<p class="group-title">이미 갖춘 것 ${have.length}개</p><div class="steps">${have.map(card).join("")}</div>` : ""}
+  </div>`;
+}
+
 const ROUTES = { overview: overview, apply: apply };
+if (DATA.strengths) ROUTES.strengths = strengths;
 if (DATA.matrix) ROUTES.matrix = matrix;
 DATA.teams.forEach(t => ROUTES[t.id] = () => team(t));
 
@@ -218,8 +248,9 @@ document.getElementById("nav").innerHTML =
    <a href="#overview" data-r="overview">한눈에 보기</a>
    ${DATA.matrix ? `<a href="#matrix" data-r="matrix">항목별 판정</a>` : ""}
    <a href="#apply" data-r="apply">우리 팀 적용안</a>
+   ${DATA.strengths ? `<a href="#strengths" data-r="strengths">다른 팀 장점 적용</a>` : ""}
    <div class="group">팀별 상세</div>
-   ${DATA.teams.map(t => `<a href="#${esc(t.id)}" data-r="${esc(t.id)}">${esc(teamLabel(t))}${t.kind ? `<small>${esc(t.kind)}</small>` : ""}</a>`).join("")}`;
+   ${DATA.teams.map(t => `<a href="#${esc(t.id)}" data-r="${esc(t.id)}">${esc(teamLabel(t))}</a>`).join("")}`;
 
 function render() {
   const key = (location.hash || "").slice(1);

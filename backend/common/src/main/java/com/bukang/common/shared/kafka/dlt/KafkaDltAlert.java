@@ -2,8 +2,9 @@ package com.bukang.common.shared.kafka.dlt;
 
 /**
  * DLT 실패 행(BaseDltKafkaEvent)을 Slack 알림 글로 만든다. 보내기는 SlackNotifier.sendAfterCommit으로 한다.
+ * 처리 실패가 되면 text(실패 알림), 처리 완료로 닫히면 completedText(완료 알림)를 쓴다.
  * 메시지 본문(payload)은 넣지 않는다. 회원 정보 같은 값이 채널에 남지 않도록, 찾아갈 단서(행 ID, 토픽, message-id, DLT 위치)만 넣는다.
- * 알림 전용 채널(#crewrun-alert)이라 첫 줄에 @channel을 붙여, 각자의 채널 알림 설정과 관계없이 멤버 모두에게 울리게 한다.
+ * 알림 전용 채널(#crewrun-alert)이라 실패 알림 첫 줄에 @channel을 붙여, 각자의 채널 알림 설정과 관계없이 멤버 모두에게 울리게 한다.
  */
 public final class KafkaDltAlert {
 	// 알림에 넣는 예외 메시지 길이. 테이블에는 전체(최대 1000자)가 있다
@@ -34,6 +35,26 @@ public final class KafkaDltAlert {
 				escape(exceptionSummary(event)),
 				escape(event.getDltTopic()), event.getDltPartition(), event.getDltOffset(),
 				api, api
+			);
+	}
+
+	// 처리 실패였던 행이 처리 완료로 닫혔음을 알린다. 실패 알림을 받은 사람이 끝을 알 수 있게 한다
+	// 어떻게 끝났는지는 메모로 안다. 다시 보낸 메시지가 처리됐으면(completeByResend) "다시 보내 처리됨",
+	// 사람이 닫았으면(completeManually) 그 사람이 적은 메모다
+	// 할 일이 남지 않은 알림이라 <!channel>을 붙이지 않는다
+	public static String completedText(BaseDltKafkaEvent event) {
+		return """
+			:white_check_mark: [%s] Kafka 메시지 처리 완료
+			• 행 ID: %d
+			• 원래 토픽: %s
+			• message-id: %s
+			• 메모: %s"""
+			.formatted(
+				event.serviceName(),
+				event.getId(),
+				escape(event.getOriginalTopic()),
+				event.getMessageId() == null ? "없음" : escape(event.getMessageId()),
+				escape(event.getCompleteMemo())
 			);
 	}
 

@@ -55,6 +55,21 @@ public interface ParticipationHoldRepository extends JpaRepository<Participation
 		+ "and h.status = com.bukang.product.domain.HoldStatus.HELD and h.partyId is not null")
 	List<ParticipationHold> findHeldCrewByRaceCourseId(@Param("raceCourseId") long raceCourseId);
 
+	// 기간 안에 확보한 크루 자리를 파티별로 묶어, 확보한 자리 수와 판매된 자리 수를 센다 (크루 결제율 미달, BUK-176)
+	// 결제한 자리는 판매(SOLD)만 센다. 환불해서 자리가 돌아간 것(RESTORED)은 결제하지 않은 자리로 본다
+	// 결제 대기(HELD) 자리가 남은 파티는 결제 기한이 끝나지 않아 아직 판정하지 않는다
+	// 취소된 대회의 파티는 크루 책임이 아니라 세지 않는다. 파티 자리는 한 대회에서만 잡혀 행 단위로 걸러도 파티째 빠진다
+	// 한 파티의 자리는 한꺼번에 잡혀 확보 일시가 같으므로, 확보 일시로 기간을 나눠도 파티가 두 달에 걸치지 않는다
+	@Query("select h.partyId as partyId, h.crewId as crewId, count(h) as heldCount, "
+		+ "sum(case when h.status = com.bukang.product.domain.HoldStatus.SOLD then 1 else 0 end) as paidCount "
+		+ "from ParticipationHold h "
+		+ "where h.crewId is not null and h.createDate >= :from and h.createDate < :to "
+		+ "and h.raceCourse.race.canceledAt is null "
+		+ "group by h.partyId, h.crewId "
+		+ "having sum(case when h.status = com.bukang.product.domain.HoldStatus.HELD then 1 else 0 end) = 0")
+	List<CrewPartyPaymentRow> findFinishedCrewPartyPayments(@Param("from") LocalDateTime from,
+		@Param("to") LocalDateTime to);
+
 	// 결제 대기 → 판매. 결제 기한(expires_at) 안일 때만 바꾼다
 	@Modifying(clearAutomatically = true)
 	@Query("update ParticipationHold h set h.status = com.bukang.product.domain.HoldStatus.SOLD, "

@@ -42,6 +42,17 @@ describe('ProtectedScreenGuard', () => {
     )
   })
 
+  it.each(['/tickets', '/cart', '/me', '/me/deposit', '/crews'])(
+    '하단 탭·홈 바로가기 화면(%s)을 비로그인으로 열면 돌아올 경로 없이 로그인 화면으로 보낸다 (로그인 뒤 홈)',
+    (path) => {
+      pathname = path
+      window.history.replaceState(null, '', path)
+      clearAccessToken()
+      renderGuard()
+      expect(replace).toHaveBeenCalledWith('/login')
+    },
+  )
+
   it('로그인했으면 내용을 그린다', () => {
     setAccessToken('token')
     renderGuard()

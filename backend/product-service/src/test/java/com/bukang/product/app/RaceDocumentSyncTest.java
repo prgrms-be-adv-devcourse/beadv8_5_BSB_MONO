@@ -4,6 +4,7 @@ import static com.bukang.product.support.RaceRequests.course;
 import static com.bukang.product.support.RaceRequests.race;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doThrow;
@@ -14,7 +15,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.stream.StreamSupport;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -40,7 +40,7 @@ import jakarta.persistence.PersistenceContext;
  * - 대회 저장 API는 이벤트만 남기고, 처리하면 검색 문서를 DB에 맞춘 뒤 COMPLETE로 바꾼다
  * - 같은 대회의 행이 여러 개여도 한 번만 처리하고, DB에 없는 종목의 문서만 지운다
  * - 처리하지 못하면 그 대회만 재시도 시각을 미루고(1초부터 두 배씩) 다른 대회는 계속 처리한다. MAX_RETRY번이면 FAILED
- * 검색 문서 저장소는 spy라 실제 ES에 저장하고, 실패는 대회별로 saveAll이 예외를 내게 바꿔 만든다.
+ * 검색 문서 저장소는 spy라 실제 ES에 저장하고, 실패는 대회별로 upsertAllExceptEmbedding이 예외를 내게 바꿔 만든다.
  * 재시도 시각을 다루는 테스트는 처리에 시각을 직접 넘긴다 (DB가 소수 6자리로 저장하므로 초 단위로 맞춘 시각을 쓴다).
  */
 class RaceDocumentSyncTest extends ProductIntegrationTest {
@@ -102,7 +102,7 @@ class RaceDocumentSyncTest extends ProductIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("같은 대회의 동기화 이벤트가 3행이면 한 번만 처리하고(saveAll 1번) 3행 모두 COMPLETE로 바꾼다")
+	@DisplayName("같은 대회의 동기화 이벤트가 3행이면 한 번만 처리하고(문서 저장 1번) 3행 모두 COMPLETE로 바꾼다")
 	void syncOncePerRace() throws Exception {
 		RegisteredRace registered = registerOnSale(race().build());
 		append(registered.raceId());
@@ -113,7 +113,7 @@ class RaceDocumentSyncTest extends ProductIntegrationTest {
 		int synced = processAt(now);
 
 		assertThat(synced).isEqualTo(1);
-		verify(documentRepositorySpy, times(1)).saveAll(documentsOf(registered.raceId()));
+		verify(documentRepositorySpy, times(1)).upsertAllExceptEmbedding(documentsOf(registered.raceId()), any());
 		assertThat(eventsOf(registered.raceId()))
 			.allSatisfy(event -> assertThat(event.getStatus()).isEqualTo(SyncStatus.COMPLETE));
 	}
@@ -177,7 +177,7 @@ class RaceDocumentSyncTest extends ProductIntegrationTest {
 		RaceDocumentSyncEvent failed = lastEventOf(registered.raceId());
 		assertThat(failed.getStatus()).isEqualTo(SyncStatus.FAILED);
 		assertThat(failed.getRetryCount()).isEqualTo(RaceDocumentSyncProcessUseCase.MAX_RETRY);
-		verify(documentRepositorySpy, never()).saveAll(documentsOf(registered.raceId()));
+		verify(documentRepositorySpy, never()).upsertAllExceptEmbedding(documentsOf(registered.raceId()), any());
 	}
 
 	private void append(long raceId) {
@@ -191,12 +191,13 @@ class RaceDocumentSyncTest extends ProductIntegrationTest {
 
 	// 이 대회의 문서를 저장하면 ES가 거절한 것처럼 예외를 낸다
 	private void failSyncOf(long raceId) {
-		doThrow(new IllegalStateException("ES 응답 없음")).when(documentRepositorySpy).saveAll(documentsOf(raceId));
+		doThrow(new IllegalStateException("ES 응답 없음")).when(documentRepositorySpy)
+			.upsertAllExceptEmbedding(documentsOf(raceId), any());
 	}
 
-	// saveAll에 넘긴 문서가 이 대회의 문서인지
-	private static Iterable<RaceCourseDocument> documentsOf(long raceId) {
-		return argThat(documents -> documents != null && StreamSupport.stream(documents.spliterator(), false)
+	// 저장에 넘긴 문서가 이 대회의 문서인지
+	private static List<RaceCourseDocument> documentsOf(long raceId) {
+		return argThat(documents -> documents != null && !documents.isEmpty() && documents.stream()
 			.allMatch(document -> document.getRaceId().equals(String.valueOf(raceId))));
 	}
 

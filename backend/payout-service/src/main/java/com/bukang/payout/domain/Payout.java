@@ -184,14 +184,14 @@ public class Payout extends BaseIdAndTime {
 	 * 1차 정산금 = DOWN(1장 가격 × 40%) × 장수는 장마다 40%를 버려 더한 값(정책 Q7)과 같다. 회수 몫(1장 × 40%)과도 정확히 맞는다
 	 * 가격 합이 장수로 나누어떨어지지 않으면 가격이 섞인 것이므로 계산하지 않고 실패로 남긴다
 	 */
-	public PayoutItem recordAdvance(long raceCourseId, long priceSum, int ticketCount, LocalDate payoutCreateDate) {
+	public PayoutItem recordAdvance(long raceCourseId, long priceSum, int entryCount, LocalDate payoutCreateDate) {
 		if (payoutStage != PayoutStage.일차_정산) {
 			throw new IllegalStateException("선금은 1차 정산에만 씁니다. payoutStage=%s".formatted(payoutStage));
 		}
-		if (ticketCount <= 0 || priceSum % ticketCount != 0) {
+		if (entryCount <= 0 || priceSum % entryCount != 0) {
 			throw new IllegalStateException(
-				"한 코스의 참가권 가격이 하나가 아닙니다. raceId=%d, raceCourseId=%d, priceSum=%d, ticketCount=%d"
-					.formatted(raceId, raceCourseId, priceSum, ticketCount));
+				"한 코스의 참가권 가격이 하나가 아닙니다. raceId=%d, raceCourseId=%d, priceSum=%d, entryCount=%d"
+					.formatted(raceId, raceCourseId, priceSum, entryCount));
 		}
 		boolean alreadyRecorded = items.stream()
 			.anyMatch(item -> item.getRecordType() == PayoutRecordType.선금
@@ -201,7 +201,7 @@ public class Payout extends BaseIdAndTime {
 				"선금 줄은 코스마다 하나만 씁니다. raceId=%d, raceCourseId=%d".formatted(raceId, raceCourseId));
 		}
 		salesAmount += priceSum;
-		long share = TwoStagePayoutCalculator.firstShare(priceSum / ticketCount) * ticketCount;
+		long share = TwoStagePayoutCalculator.firstShare(priceSum / entryCount) * entryCount;
 		return addLine(PayoutRecordType.선금, null, raceCourseId, share, null, payoutCreateDate);
 	}
 

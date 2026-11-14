@@ -51,10 +51,12 @@ import com.bukang.member.crew.dto.CrewJoinedDto;
 import com.bukang.member.crew.dto.CrewMemberCountDto;
 import com.bukang.member.crew.dto.CrewMemberDto;
 import com.bukang.member.crew.dto.CrewMemberStatusDto;
+import com.bukang.member.crew.dto.CrewPenaltyDto;
 import com.bukang.member.crew.dto.MyCrewDto;
 import com.bukang.member.crew.out.CrewInviteRepository;
 import com.bukang.member.crew.out.CrewMemberProfilePort;
 import com.bukang.member.crew.out.CrewMemberRepository;
+import com.bukang.member.crew.out.CrewPenaltyRepository;
 import com.bukang.member.crew.out.CrewRemovalRepository;
 import com.bukang.member.crew.out.CrewRepository;
 
@@ -75,6 +77,7 @@ public class CrewFacade {
 	private final CrewMemberRepository crewMemberRepository;
 	private final CrewInviteRepository crewInviteRepository;
 	private final CrewRemovalRepository crewRemovalRepository;
+	private final CrewPenaltyRepository crewPenaltyRepository;
 	private final CrewMemberProfilePort profilePort;
 	private final Clock clock;
 	private final ApplicationEventPublisher eventPublisher;
@@ -123,8 +126,8 @@ public class CrewFacade {
 		LocalDateTime now = now();
 		String token = CrewInviteToken.generate();
 		CrewInvite invite = crewInviteRepository.save(
-			CrewInvite.create(crewId, CrewInviteToken.hash(token), memberId, now));
-		// 토큰 원문은 이 응답에만 담고 저장·로그 출력하지 않는다
+			CrewInvite.create(crewId, token, CrewInviteToken.hash(token), memberId, now));
+		// 토큰 원문은 로그에 남기지 않는다
 		return new CrewInviteCreatedDto(invite.getId(), token, invite.getCreatedAt(), invite.getExpiresAt());
 	}
 
@@ -150,6 +153,7 @@ public class CrewFacade {
 		return invites.stream()
 			.map(invite -> new CrewInviteDto(
 				invite.getId(),
+				invite.getInviteToken(),
 				new CrewInviteSenderDto(invite.getCreatedBy(), nicknames.get(invite.getCreatedBy())),
 				invite.getCreatedAt(),
 				invite.getExpiresAt()))
@@ -363,7 +367,13 @@ public class CrewFacade {
 			members.stream()
 				.map(member -> new CrewMemberDto(member.getMemberId(), nicknames.get(member.getMemberId()),
 					member.getRole()))
-				.toList());
+				.toList(),
+			crewPenaltyRepository.findRestrictedUntil(crew.getId(), now()));
+	}
+
+	// 주문 서비스가 파티를 만들 때 묻는다. 크루가 없어도 제한 기록이 없으니 restricted=false다 (BUK-187)
+	public CrewPenaltyDto findPenalty(long crewId) {
+		return CrewPenaltyDto.of(crewPenaltyRepository.findRestrictedUntil(crewId, now()));
 	}
 
 	private Map<Long, Integer> countMembers(List<Long> crewIds) {

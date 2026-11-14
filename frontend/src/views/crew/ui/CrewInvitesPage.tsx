@@ -5,7 +5,7 @@ import type { Route } from 'next'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import Script from 'next/script'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
 import { useAuthStatus } from '@/features/auth'
@@ -23,6 +23,7 @@ import {
   Dialog,
   Divider,
   EmptyState,
+  Icon,
   Skeleton,
   useToast,
 } from '@/shared/ui'
@@ -60,8 +61,7 @@ type KakaoWindow = {
 }
 
 // 피그마 시안v4 · M27 초대 링크 만들기 (만듦 · 취소 확인).
-// 토큰은 만들 때 응답에만 온다(백엔드 결정 BE-028). 그래서 만든 링크는 이 화면에서 바로 복사하게 하고,
-// 보낸 초대 목록에는 링크 대신 만든 시각과 남은 시간만 보여 준다.
+// 보낸 초대 목록은 만든 시각과 남은 시간을 보여 주고, 링크 아이콘에 마우스를 올리면 링크를 보여 준다(BUK-195).
 // 보낸 초대 목록 API는 아직 쓸 수 있는 초대만 돌려준다. 가입 완료 · 취소함 · 기간 끝남 줄은 API가 생기면 더한다.
 export function CrewInvitesPage({
   crewId,
@@ -269,7 +269,15 @@ export function CrewInvitesPage({
                   return (
                     <li key={invite.inviteId} className="flex items-center gap-3">
                       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                        <p className="text-body2-regular">{inviteCreatedLabel(invite.createdAt)}</p>
+                        <div className="flex items-center gap-1">
+                          <p className="text-body2-regular">
+                            {inviteCreatedLabel(invite.createdAt)}
+                          </p>
+                          {/* 원문을 저장하기 전에 만든 옛 초대는 토큰이 없다 */}
+                          {invite.inviteToken && (
+                            <InviteLinkHint url={inviteUrl(invite.inviteToken)} onCopy={copy} />
+                          )}
+                        </div>
                         <p className="text-caption-regular text-text-secondary">
                           {withSubjectParticle(invite.createdBy.nickname)} 보냄
                           {remaining && ` · ${remaining} 남음`}
@@ -305,6 +313,42 @@ export function CrewInvitesPage({
         onConfirm={confirmCancel}
       />
     </>
+  )
+}
+
+/** 링크 아이콘. 마우스를 올리거나 포커스하면 링크를 보여 주고(Esc로 닫음), 누르면 복사한다 */
+function InviteLinkHint({ url, onCopy }: { url: string; onCopy: (url: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const tooltipId = useId()
+  // 마우스를 툴팁 위로 옮겨도 닫히지 않게 바깥 span에서 hover를 받는다
+  return (
+    <span
+      className="relative inline-flex"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      <button
+        type="button"
+        aria-label="초대 링크 복사"
+        aria-describedby={open ? tooltipId : undefined}
+        className="rounded-sm p-1 text-text-tertiary hover:text-text-secondary"
+        onFocus={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
+        onKeyDown={(event) => event.key === 'Escape' && setOpen(false)}
+        onClick={() => onCopy(url)}
+      >
+        <Icon name="Link" className="size-4" />
+      </button>
+      {open && (
+        <span
+          id={tooltipId}
+          role="tooltip"
+          className="absolute top-full left-0 z-10 mt-1 w-max max-w-72 rounded-md bg-bg-inverse px-3 py-2 text-caption-regular break-all text-text-inverse shadow-md"
+        >
+          {url}
+        </span>
+      )}
+    </span>
   )
 }
 

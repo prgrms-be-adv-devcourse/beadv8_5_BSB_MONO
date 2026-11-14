@@ -52,13 +52,24 @@ export function payFromMockWallet(
   return { shortage: 0, next }
 }
 
-type MockLedger = Omit<WalletLedgerItemDto, 'balanceAfter'>
+// shortcut: 충전 줄의 charge가 openapi/cash.json에 아직 없어 덧붙인 타입, 명세를 다시 받으면 지운다
+type LedgerRow = WalletLedgerItemDto & {
+  charge?: {
+    chargeId: number
+    chargedAt: string
+    amount: number
+    remainingAmount: number
+    lastCancelableDate: string
+    expired: boolean
+  } | null
+}
+type MockLedger = Omit<LedgerRow, 'balanceAfter'>
 
 /**
  * 예치금 내역 목. 시안(M17)의 예시를 장부 모양으로 옮기고, 더 보기를 볼 수 있게 지난 충전을 더 붙였다.
  * 최신순이다. 잔액(balanceAfter)은 가장 오래된 줄부터 더해 만든다. 충전·결제를 해도 내역은 늘지 않는다(목 단순화).
  */
-const MOCK_LEDGERS: WalletLedgerItemDto[] = withBalanceAfter([
+const MOCK_LEDGERS: LedgerRow[] = withBalanceAfter([
   {
     category: 'PAYMENT',
     ledgerType: '사용__주문결제',
@@ -72,6 +83,15 @@ const MOCK_LEDGERS: WalletLedgerItemDto[] = withBalanceAfter([
     amount: 10_000,
     createdAt: '2026-10-05T14:21:00',
     refId: 31,
+    // 오래된 충전부터 썼다고 보아 이 충전만 남은 금액이 있다 (시안 M17 환급 변경안)
+    charge: {
+      chargeId: 31,
+      chargedAt: '2026-10-05T14:20:58',
+      amount: 10_000,
+      remainingAmount: 5_000,
+      lastCancelableDate: '2027-10-04',
+      expired: false,
+    },
   },
   {
     category: 'PAYOUT',
@@ -117,7 +137,7 @@ const MOCK_LEDGERS: WalletLedgerItemDto[] = withBalanceAfter([
   })),
 ])
 
-function withBalanceAfter(rows: MockLedger[]): WalletLedgerItemDto[] {
+function withBalanceAfter(rows: MockLedger[]): LedgerRow[] {
   let balanceAfter = 0
   return rows
     .toReversed()
@@ -125,10 +145,85 @@ function withBalanceAfter(rows: MockLedger[]): WalletLedgerItemDto[] {
     .toReversed()
 }
 
+// 돌려받기 화면 조회 목 (GET /wallets/refundable-charges, 백엔드 BUK-21 응답 모양).
+// 화면 주소에 ?case=card(카드만) 또는 ?case=account(계좌만)를 붙이면 그 경우로 답한다(기본은 카드 + 계좌).
+// ?case=seller는 충전 건 없이 정산 대금만 남은 판매자 회원이다(전부 계좌).
+// 금액은 시안 예시라 지갑 잔액과 맞추지 않는다. 충전 건은 최근 충전부터 온다.
+const OLD_CHARGE = {
+  chargeId: 101,
+  chargedAt: '2025-09-01T18:40:00',
+  amount: 85_000,
+  lastCancelableDate: '2026-08-31',
+  expired: true,
+}
+const NEW_CHARGE = {
+  chargeId: 214,
+  chargedAt: '2026-10-13T14:21:00',
+  amount: 60_000,
+  remainingAmount: 60_000,
+  lastCancelableDate: '2027-10-12',
+  expired: false,
+}
+const REFUND_PREVIEW_CASES = {
+  mixed: {
+    balance: 65_000,
+    earliestLastCancelableDate: '2027-10-12',
+    charges: [NEW_CHARGE, { ...OLD_CHARGE, remainingAmount: 5_000 }],
+  },
+  card: {
+    balance: 65_000,
+    earliestLastCancelableDate: '2027-10-09',
+    charges: [
+      NEW_CHARGE,
+      {
+        chargeId: 210,
+        chargedAt: '2026-10-10T09:00:00',
+        amount: 10_000,
+        remainingAmount: 5_000,
+        lastCancelableDate: '2027-10-09',
+        expired: false,
+      },
+    ],
+  },
+  account: {
+    balance: 65_000,
+    earliestLastCancelableDate: null,
+    charges: [{ ...OLD_CHARGE, remainingAmount: 65_000 }],
+  },
+  seller: { balance: 30_000, earliestLastCancelableDate: null, charges: [] },
+}
+
+function refundPreviewCase(referer: string | null) {
+  try {
+    const value = new URL(referer ?? '').searchParams.get('case')
+    return value === 'card' || value === 'account' || value === 'seller' ? value : 'mixed'
+  } catch {
+    return 'mixed'
+  }
+}
+
 /** 환급 결과(Idempotency-Key 헤더 = 멱등키). 같은 키로 다시 오면 처음 결과를 돌려준다 */
-const withdrawals = new Map<string, number>()
+const withdrawals = new Map<string, { amount: number; toAccount: boolean }>()
+
+/** 가짜 응답은 나누지 않는다. 계좌를 보냈으면 전부 계좌로, 아니면 전부 카드 결제취소로 답한다 */
+const withdrawalResult = (amount: number, balance: number, toAccount: boolean) => ({
+  withdrawnAmount: amount,
+  balance,
+  cardAmount: toAccount ? 0 : amount,
+  accountAmount: toAccount ? amount : 0,
+  processingAmount: 0,
+  revertedAmount: 0,
+  accountRequired: false,
+})
 
 export const walletHandlers = [
+  http.get('*/api/v1/cash/wallets/refundable-charges', ({ request }) =>
+    HttpResponse.json({
+      status: 200,
+      message: '환급 화면용 충전 내역을 조회했습니다.',
+      data: REFUND_PREVIEW_CASES[refundPreviewCase(request.headers.get('referer'))],
+    }),
+  ),
   /**
    * 예치금 전액 환급 목. 진짜 서버처럼 신청하면 바로 완료되고, 잔액이 0원이면 400(code 없음)이다.
    */
@@ -139,7 +234,7 @@ export const walletHandlers = [
       return HttpResponse.json({
         status: 200,
         message: '환급 신청이 완료되었습니다.',
-        data: { withdrawnAmount: done, balance: currentBalance(cookies) },
+        data: withdrawalResult(done.amount, currentBalance(cookies), done.toAccount),
       })
     }
     if (currentBalance(cookies) <= 0) {
@@ -150,12 +245,14 @@ export const walletHandlers = [
     }
     const amount = currentBalance(cookies)
     if (!freshMemberOf(cookies)) balance = 0
-    withdrawals.set(key, amount)
+    const body = (await request.json().catch(() => ({}))) as { accountNumber?: string }
+    const toAccount = Boolean(body.accountNumber?.trim())
+    withdrawals.set(key, { amount, toAccount })
     return HttpResponse.json(
       {
         status: 200,
         message: '환급 신청이 완료되었습니다.',
-        data: { withdrawnAmount: amount, balance: 0 },
+        data: withdrawalResult(amount, 0, toAccount),
       },
       { headers: balanceCookieHeaders(cookies, 0) },
     )

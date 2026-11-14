@@ -7,6 +7,10 @@
   },
   "tags": [
     {
+      "name": "CashInternal",
+      "description": "주문 결제, 결제 취소(환원), 환불, 잔액 조회 API (서비스 간 내부 호출 전용)"
+    },
+    {
       "name": "Cash",
       "description": "예치금 지갑 잔액 조회 API"
     }
@@ -18,20 +22,19 @@
           "Cash"
         ],
         "summary": "예치금 전액 환급 신청",
-        "description": "회원이 남은 예치금 전액을 환급 신청하면 한 트랜잭션에서 바로 완료 처리한다. Idempotency-Key 헤더를 멱등키로 써서 같은 요청이 여러 번 와도 한 번만 처리한다.",
+        "description": "회원이 남은 예치금 전액을 환급 신청한다. PG 결제취소 기한 안인 충전 건은 결제한 카드로 결제취소하고, 나머지(기한이 지난 몫, 충전이 아닌 정산 대금)는 계좌로 보낸다. 은행 정보는 계좌로 보낼 몫이 있을 때만 필요하다. 결제취소 결과를 모르는 몫은 처리 중으로 두고 재확인이 맞추며, 거절된 몫은 예치금에 되돌린다. Idempotency-Key 헤더로 같은 요청은 한 번만 처리하고, 같은 키로 다시 오면 지금 처리 상태를 돌려준다.",
         "operationId": "requestWithdrawal",
         "parameters": [
           {
             "name": "X-Member-Id",
             "in": "header",
-            "description": "환급할 회원 ID (게이트웨이가 Access Token에서 넣어준다)",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
             "required": true,
             "schema": {
               "type": "integer",
-              "format": "int32",
-              "exclusiveMinimum": 0
+              "format": "int64"
             },
-            "example": 3
+            "example": 1
           },
           {
             "name": "Idempotency-Key",
@@ -58,22 +61,64 @@
         },
         "responses": {
           "200": {
-            "description": "환급 신청 완료",
+            "description": "환급 신청 완료. 금액은 카드 결제취소 요청·계좌 송금·처리 중·예치금에 되돌림으로 나뉜다. accountRequired가 true면 카드로 돌려줄 수 없는 몫이 계좌 정보가 없어 되돌아갔다",
             "content": {
               "application/json": {
-                "example": {
-                  "status": 200,
-                  "message": "환급 신청이 완료되었습니다.",
-                  "data": {
-                    "withdrawnAmount": 50000,
-                    "balance": 0
+                "examples": {
+                  "카드와 계좌로 나눠 환급": {
+                    "description": "카드와 계좌로 나눠 환급",
+                    "value": {
+                      "status": 200,
+                      "message": "환급 신청이 완료되었습니다.",
+                      "data": {
+                        "withdrawnAmount": 130000,
+                        "balance": 0,
+                        "cardAmount": 30000,
+                        "accountAmount": 100000,
+                        "processingAmount": 0,
+                        "revertedAmount": 0,
+                        "accountRequired": false
+                      }
+                    }
+                  },
+                  "일부 처리 중·되돌림": {
+                    "description": "일부 처리 중·되돌림",
+                    "value": {
+                      "status": 200,
+                      "message": "환급 신청이 완료되었습니다.",
+                      "data": {
+                        "withdrawnAmount": 130000,
+                        "balance": 10000,
+                        "cardAmount": 30000,
+                        "accountAmount": 70000,
+                        "processingAmount": 20000,
+                        "revertedAmount": 10000,
+                        "accountRequired": false
+                      }
+                    }
+                  },
+                  "계좌 정보가 없어 되돌림": {
+                    "description": "계좌 정보가 없어 되돌림",
+                    "value": {
+                      "status": 200,
+                      "message": "환급 신청이 완료되었습니다.",
+                      "data": {
+                        "withdrawnAmount": 30000,
+                        "balance": 30000,
+                        "cardAmount": 0,
+                        "accountAmount": 0,
+                        "processingAmount": 0,
+                        "revertedAmount": 30000,
+                        "accountRequired": true
+                      }
+                    }
                   }
                 }
               }
             }
           },
           "400": {
-            "description": "환급할 잔액 없음, 입력값 검증 실패 또는 요청 본문 형식 오류",
+            "description": "환급할 잔액 없음, 계좌로 보낼 몫이 있는데 계좌 정보 없음, 입력값 검증 실패, 요청 본문 형식 오류, 회원 ID 형식 오류·0 이하 또는 Idempotency-Key 헤더 없음·길이 오류",
             "content": {
               "application/json": {
                 "schema": {
@@ -88,12 +133,21 @@
                       "data": null
                     }
                   },
+                  "계좌 정보 필요": {
+                    "description": "계좌 정보 필요",
+                    "value": {
+                      "status": 400,
+                      "code": "WITHDRAWAL_ACCOUNT_REQUIRED",
+                      "message": "계좌로 돌려드릴 금액이 있어 계좌 정보가 필요합니다.",
+                      "data": null
+                    }
+                  },
                   "입력값 검증 실패": {
                     "description": "입력값 검증 실패",
                     "value": {
                       "status": 400,
                       "code": "INVALID_REQUEST",
-                      "message": "은행 코드를 작성해주세요.",
+                      "message": "은행 코드는 10자 이하여야 합니다.",
                       "data": null
                     }
                   },
@@ -105,7 +159,59 @@
                       "message": "요청 본문 형식이 올바르지 않습니다.",
                       "data": null
                     }
+                  },
+                  "회원 ID 형식 오류": {
+                    "description": "회원 ID 형식 오류",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "요청 값의 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  },
+                  "회원 ID가 0 이하": {
+                    "description": "회원 ID가 0 이하",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "회원 ID가 올바르지 않습니다.",
+                      "data": null
+                    }
+                  },
+                  "Idempotency-Key 헤더 없음": {
+                    "description": "Idempotency-Key 헤더 없음",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "필수 요청 헤더(Idempotency-Key)가 없습니다.",
+                      "data": null
+                    }
+                  },
+                  "Idempotency-Key 길이 오류": {
+                    "description": "Idempotency-Key 길이 오류",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "Idempotency-Key는 1~64자로 보내주세요.",
+                      "data": null
+                    }
                   }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "code": "LOGIN_REQUIRED",
+                  "message": "로그인이 필요합니다.",
+                  "data": null
                 }
               }
             }
@@ -121,6 +227,35 @@
                   "status": 404,
                   "message": "존재하지 않는 지갑입니다.",
                   "data": null
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "처리 중인 환급 있음 또는 다른 회원이 환급 신청에 쓴 Idempotency-Key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "처리 중인 환급 있음": {
+                    "description": "처리 중인 환급 있음",
+                    "value": {
+                      "status": 409,
+                      "code": "WITHDRAWAL_IN_PROGRESS",
+                      "message": "처리 중인 환급이 있어 끝난 뒤에 다시 신청할 수 있습니다.",
+                      "data": null
+                    }
+                  },
+                  "다른 회원의 Idempotency-Key": {
+                    "description": "다른 회원의 Idempotency-Key",
+                    "value": {
+                      "status": 409,
+                      "message": "이 Idempotency-Key로 환급한 회원과 요청한 회원이 다릅니다.",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -140,14 +275,13 @@
           {
             "name": "X-Member-Id",
             "in": "header",
-            "description": "충전할 회원 ID (게이트웨이가 Access Token에서 넣어준다)",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
             "required": true,
             "schema": {
               "type": "integer",
-              "format": "int32",
-              "exclusiveMinimum": 0
+              "format": "int64"
             },
-            "example": 3
+            "example": 1
           }
         ],
         "requestBody": {
@@ -240,6 +374,7 @@
                     "description": "입력값 검증 실패",
                     "value": {
                       "status": 400,
+                      "code": "INVALID_REQUEST",
                       "message": "paymentKey를 작성해주세요.",
                       "data": null
                     }
@@ -252,7 +387,41 @@
                       "message": "요청 본문 형식이 올바르지 않습니다.",
                       "data": null
                     }
+                  },
+                  "회원 ID 형식 오류": {
+                    "description": "회원 ID 형식 오류",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "요청 값의 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  },
+                  "회원 ID가 0 이하": {
+                    "description": "회원 ID가 0 이하",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "회원 ID가 올바르지 않습니다.",
+                      "data": null
+                    }
                   }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "code": "LOGIN_REQUIRED",
+                  "message": "로그인이 필요합니다.",
+                  "data": null
                 }
               }
             }
@@ -275,40 +444,111 @@
         }
       }
     },
-    "/api/v1/cash/wallets/balance": {
+    "/api/v1/cash/wallets/refundable-charges": {
       "get": {
         "tags": [
           "Cash"
         ],
-        "summary": "지갑 잔액 조회",
-        "description": "요청자 본인의 지갑 잔액을 조회한다.",
-        "operationId": "getBalance",
+        "summary": "환급 화면용 충전 내역 조회",
+        "description": "요청자 본인의 완료된 충전을 최근 순으로 조회한다. 남은 예치금을 최근 충전부터 채워 충전 건별 남은 금액을 계산하고, 건마다 카드 취소 마지막 날(승인일 + 1년 − 1일, 이날 24:00까지 한국 시간)과 기한 지남 여부를 붙인다. earliestLastCancelableDate는 남은 금액이 있고 기한이 지나지 않은 충전 중 가장 빠른 마지막 날이며, 없으면 null이다.",
+        "operationId": "getRefundableCharges",
         "parameters": [
           {
             "name": "X-Member-Id",
             "in": "header",
-            "description": "조회할 회원 ID (게이트웨이가 Access Token에서 넣어준다)",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
             "required": true,
             "schema": {
               "type": "integer",
-              "format": "int32",
-              "exclusiveMinimum": 0
+              "format": "int64"
             },
-            "example": 3
+            "example": 1
           }
         ],
         "responses": {
           "200": {
-            "description": "조회 성공",
+            "description": "조회 성공 (충전이 없으면 빈 목록)",
             "content": {
               "application/json": {
                 "example": {
                   "status": 200,
-                  "message": "잔액 조회 성공",
+                  "message": "환급 화면용 충전 내역을 조회했습니다.",
                   "data": {
-                    "holderId": 3,
-                    "balance": 50000
+                    "balance": 25000,
+                    "earliestLastCancelableDate": "2027-10-12",
+                    "charges": [
+                      {
+                        "chargeId": 3,
+                        "chargedAt": "2026-10-13T09:00:00",
+                        "amount": 20000,
+                        "remainingAmount": 20000,
+                        "lastCancelableDate": "2027-10-12",
+                        "expired": false
+                      },
+                      {
+                        "chargeId": 2,
+                        "chargedAt": "2026-10-10T09:00:00",
+                        "amount": 10000,
+                        "remainingAmount": 5000,
+                        "lastCancelableDate": "2027-10-09",
+                        "expired": true
+                      },
+                      {
+                        "chargeId": 1,
+                        "chargedAt": "2026-01-13T09:00:00",
+                        "amount": 15000,
+                        "remainingAmount": 0,
+                        "lastCancelableDate": "2027-01-12",
+                        "expired": true
+                      }
+                    ]
                   }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "회원 ID 형식 오류 또는 0 이하",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "회원 ID 형식 오류": {
+                    "description": "회원 ID 형식 오류",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "요청 값의 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  },
+                  "회원 ID가 0 이하": {
+                    "description": "회원 ID가 0 이하",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "회원 ID가 올바르지 않습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "code": "LOGIN_REQUIRED",
+                  "message": "로그인이 필요합니다.",
+                  "data": null
                 }
               }
             }
@@ -337,20 +577,19 @@
           "Cash"
         ],
         "summary": "예치금 내역 조회",
-        "description": "요청자 본인 지갑의 내역을 최신순으로 조회한다. category로 탭(CHARGE/PAYMENT/REFUND/WITHDRAWAL/PAYOUT)을 필터링할 수 있고, 생략하면 전체를 돌려준다.",
+        "description": "요청자 본인 지갑의 내역을 최신순으로 조회한다. category로 탭(CHARGE/PAYMENT/REFUND/WITHDRAWAL/PAYOUT)을 필터링할 수 있고, 생략하면 전체를 돌려준다. 충전 줄의 charge에는 환급 화면용 충전 내역 조회와 같은 남은 금액·카드 취소 마지막 날이 있고, 다른 줄은 null이다.",
         "operationId": "getLedgers",
         "parameters": [
           {
             "name": "X-Member-Id",
             "in": "header",
-            "description": "조회할 회원 ID (게이트웨이가 Access Token에서 넣어준다)",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
             "required": true,
             "schema": {
               "type": "integer",
-              "format": "int32",
-              "exclusiveMinimum": 0
+              "format": "int64"
             },
-            "example": 3
+            "example": 1
           },
           {
             "name": "category",
@@ -408,17 +647,34 @@
                   "data": {
                     "content": [
                       {
+                        "category": "PAYMENT",
+                        "ledgerType": "사용__주문결제",
+                        "amount": -5000,
+                        "balanceAfter": 5000,
+                        "createdAt": "2026-10-21T11:30:00.102938",
+                        "refId": 100,
+                        "charge": null
+                      },
+                      {
                         "category": "CHARGE",
                         "ledgerType": "충전__PG결제_토스페이먼츠",
                         "amount": 10000,
-                        "balanceAfter": 60000,
+                        "balanceAfter": 10000,
                         "createdAt": "2026-10-20T09:03:03.319058",
-                        "refId": 1
+                        "refId": 1,
+                        "charge": {
+                          "chargeId": 1,
+                          "chargedAt": "2026-10-20T09:03:01",
+                          "amount": 10000,
+                          "remainingAmount": 5000,
+                          "lastCancelableDate": "2027-10-19",
+                          "expired": false
+                        }
                       }
                     ],
                     "page": 0,
                     "size": 20,
-                    "totalElements": 1,
+                    "totalElements": 2,
                     "totalPages": 1
                   }
                 }
@@ -473,6 +729,108 @@
                 },
                 "example": {
                   "status": 401,
+                  "code": "LOGIN_REQUIRED",
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "지갑 없음 (회원 가입 이벤트가 아직 처리되지 않았거나 없는 회원)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 404,
+                  "message": "존재하지 않는 지갑입니다.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cash/wallets/balance": {
+      "get": {
+        "tags": [
+          "Cash"
+        ],
+        "summary": "지갑 잔액 조회",
+        "description": "요청자 본인의 지갑 잔액을 조회한다.",
+        "operationId": "getBalance",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "조회 성공",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "잔액 조회 성공",
+                  "data": {
+                    "holderId": 3,
+                    "balance": 50000
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "회원 ID 형식 오류 또는 0 이하",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "회원 ID 형식 오류": {
+                    "description": "회원 ID 형식 오류",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "요청 값의 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  },
+                  "회원 ID가 0 이하": {
+                    "description": "회원 ID가 0 이하",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "회원 ID가 올바르지 않습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "code": "LOGIN_REQUIRED",
                   "message": "로그인이 필요합니다.",
                   "data": null
                 }
@@ -630,6 +988,48 @@
   },
   "components": {
     "schemas": {
+      "CashPayoutRequestDto": {
+        "type": "object",
+        "description": "정산 지급 요청",
+        "properties": {
+          "sellerId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "정산액을 받을 판매자 ID (판매자 신청서 ID, 회원 ID 아님)",
+            "example": 10,
+            "minimum": 0
+          },
+          "payoutStage": {
+            "type": "string",
+            "description": "정산 단계 (FIRST: 1차, FINAL: 최종)",
+            "enum": [
+              "FIRST",
+              "FINAL"
+            ],
+            "example": "FINAL"
+          },
+          "settlementAmount": {
+            "type": "integer",
+            "format": "int64",
+            "description": "판매자에게 지급할 정산 대금 (최종 정산은 회수 상계로 0원이 될 수 있음)",
+            "example": 90000,
+            "minimum": 0
+          },
+          "feeAmount": {
+            "type": "integer",
+            "format": "int64",
+            "description": "시스템 지갑으로 보낼 수수료 (1차 정산은 0)",
+            "example": 5500,
+            "minimum": 0
+          }
+        },
+        "required": [
+          "feeAmount",
+          "payoutStage",
+          "sellerId",
+          "settlementAmount"
+        ]
+      },
       "RsData": {
         "type": "object",
         "properties": {
@@ -646,37 +1046,88 @@
           "data": {}
         }
       },
+      "CashPaymentRequestDto": {
+        "type": "object",
+        "description": "주문 결제 요청",
+        "properties": {
+          "memberId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "결제할 회원 ID (지갑 주인)",
+            "example": 3,
+            "minimum": 0
+          },
+          "amount": {
+            "type": "integer",
+            "format": "int64",
+            "description": "결제 금액",
+            "example": 10000,
+            "minimum": 0
+          }
+        },
+        "required": [
+          "amount",
+          "memberId"
+        ]
+      },
+      "CashRefundRequestDto": {
+        "type": "object",
+        "description": "참가권 취소에 따른 예치금 환불 요청",
+        "properties": {
+          "memberId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "환불받을 회원 ID (지갑 주인)",
+            "example": 3,
+            "minimum": 0
+          }
+        },
+        "required": [
+          "memberId"
+        ]
+      },
+      "CashCancelPaymentRequestDto": {
+        "type": "object",
+        "description": "결제 취소(환원) 요청",
+        "properties": {
+          "memberId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "결제를 취소할 회원 ID (지갑 주인)",
+            "example": 3,
+            "minimum": 0
+          }
+        },
+        "required": [
+          "memberId"
+        ]
+      },
       "CashWithdrawalRequestDto": {
         "type": "object",
-        "description": "예치금 전액 환급 신청",
+        "description": "예치금 전액 환급 신청. 은행 정보는 계좌로 보낼 몫이 있을 때만 필요하다",
         "properties": {
           "bankCode": {
             "type": "string",
-            "description": "은행 코드",
+            "description": "은행 코드 (계좌로 보낼 몫이 있을 때만)",
             "example": "004",
             "maxLength": 10,
             "minLength": 0
           },
           "accountNumber": {
             "type": "string",
-            "description": "계좌번호",
+            "description": "계좌번호 (계좌로 보낼 몫이 있을 때만)",
             "example": "110123456789",
             "maxLength": 255,
             "minLength": 0
           },
           "accountHolder": {
             "type": "string",
-            "description": "예금주명",
+            "description": "예금주명 (계좌로 보낼 몫이 있을 때만)",
             "example": "홍길동",
             "maxLength": 50,
             "minLength": 0
           }
-        },
-        "required": [
-          "accountHolder",
-          "accountNumber",
-          "bankCode"
-        ]
+        }
       },
       "CashChargeConfirmRequestDto": {
         "type": "object",
@@ -686,17 +1137,19 @@
             "type": "string",
             "description": "Toss 결제 키",
             "example": "5EnNZRJGvaBd3GirPNB6s",
-            "minLength": 1
+            "maxLength": 200,
+            "minLength": 0
           },
           "orderId": {
             "type": "string",
             "description": "충전 요청 고유 ID (멱등키)",
             "example": "charge-1697000000000",
-            "minLength": 1
+            "maxLength": 64,
+            "minLength": 0
           },
           "amount": {
             "type": "integer",
-            "format": "int32",
+            "format": "int64",
             "description": "충전 요청 금액 (최소 10,000원)",
             "example": 10000,
             "minimum": 0
