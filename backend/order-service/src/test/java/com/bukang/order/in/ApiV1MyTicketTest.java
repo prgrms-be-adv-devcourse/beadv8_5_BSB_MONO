@@ -1,5 +1,7 @@
 package com.bukang.order.in;
 
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -284,7 +286,10 @@ class ApiV1MyTicketTest {
 			.andExpect(status().isOk());
 		orderAndPay(MEMBER);
 
-		tickets(MEMBER, false).andExpect(jsonPath("$.data.totalElements").value(2));
+		tickets(MEMBER, false)
+			.andExpect(jsonPath("$.data.totalElements").value(2))
+			// 결제 전에 취소한 신청도 취소 시각이 나온다 (BUK-229)
+			.andExpect(jsonPath("$.data.tickets[?(@.status == 'CANCELED')].canceledAt", hasItem(notNullValue())));
 		tickets(MEMBER, true)
 			.andExpect(jsonPath("$.data.totalElements").value(1))
 			.andExpect(jsonPath("$.data.tickets[0].status").value("CONFIRMED"));

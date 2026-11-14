@@ -43,7 +43,7 @@ public record MyTicketDto(
 		example = "7") Long orderItemId,
 	@Schema(description = "주문 상품 상태 ORDERED(결제 대기) / PAID(결제 완료) / CANCELING(취소 중) / CANCELED(취소). "
 		+ "주문 전이면 null", example = "PAID") OrderItemStatus orderItemStatus,
-	@Schema(description = "취소를 마친 시각 (BUK-229). 취소가 아니면(취소 중 포함) null", example = "2026-11-13T09:30:00")
+	@Schema(description = "신청을 취소한 시각 (BUK-229). 결제 뒤 취소는 환불까지 마친 시각이다. 취소가 아니면(취소 중 포함) null", example = "2026-11-13T09:30:00")
 	LocalDateTime canceledAt,
 	@Schema(description = "결제 금액. 주문 전이면 null", example = "50000") Long amount,
 	@Schema(description = "결제 때 고른 키트 옵션 (이름·값, 고른 순). 결제 전이거나 옵션이 없는 종목이면 빈 목록")
