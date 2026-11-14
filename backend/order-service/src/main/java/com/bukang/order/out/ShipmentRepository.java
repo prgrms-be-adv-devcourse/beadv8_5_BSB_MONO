@@ -125,7 +125,8 @@ public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
 	// 주문들의 배송에 든 주문 상품 (내 참가권 목록, BUK-181). idx_shipment_order로 찾는다
 	// 재발송이 생기면 한 상품이 여러 배송에 들 수 있어, 배송 ID 순으로 돌려주고 부르는 쪽이 마지막 것을 쓴다 (Order.findKitShipment와 같음)
 	@Query("select new com.bukang.order.out.ShipmentRepository$TicketShipment(si.orderItemId, s.status, s.carrier,"
-		+ " s.trackingNumber, s.receivedAt) from ShipmentItem si join si.shipment s where s.order.id in :orderIds order by s.id")
+		+ " s.trackingNumber, s.receivedAt) from ShipmentItem si join si.shipment s"
+		+ " where s.order.id in :orderIds order by s.id")
 	List<TicketShipment> findTicketShipments(@Param("orderIds") Collection<Long> orderIds);
 
 	record TicketShipment(long orderItemId, ShipmentStatus status, String carrier, String trackingNumber,
