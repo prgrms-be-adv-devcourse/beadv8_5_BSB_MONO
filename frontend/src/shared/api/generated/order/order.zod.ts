@@ -1842,3 +1842,39 @@ export const FindSellerPartiesResponse = zod.object({
   "totalPages": zod.int().optional()
 }).optional().describe('판매자 파티별 내역 한 페이지')
 })
+
+
+/**
+ * 대회 당일 확인용 참가자 명단. 결제 완료(참가 확정)인 참가권만 종목·주문 순으로 담는다. 칸: 주문번호, 종목, 참가자 이름, 연락처, 키트 옵션, 파티 번호. 엑셀에서 바로 열리는 CSV(UTF-8 BOM)다. 내려받을 때마다 누가 언제 왜 몇 줄 받았는지 기록한다. 다른 판매자의 대회를 고르면 머리줄만 있는 파일이다.
+ * @summary 참가자 명단 내려받기 (CSV)
+ */
+export const exportRosterBodyReasonMin = 0;
+export const exportRosterBodyReasonMax = 200;
+
+
+
+export const ExportRosterBody = zod.object({
+  "raceId": zod.int().describe('대회 ID'),
+  "raceCourseId": zod.int().optional().describe('종목 ID (생략하면 대회의 모든 종목)'),
+  "reason": zod.string().min(exportRosterBodyReasonMin).max(exportRosterBodyReasonMax).describe('내려받는 사유 (200자 이하)')
+}).describe('참가자 명단 내려받기 요청. 내려받는 사유를 남긴다')
+
+export const ExportRosterResponse = zod.unknown()
+
+
+/**
+ * 키트 배송 관리 목록과 같은 조건(대회·배송 상태)으로 모두 담는다. 칸: 주문번호, 종목, 참가권 상태, 참가자 이름, 받는 분, 받는 분 연락처, 우편번호, 주소, 상세 주소, 키트 옵션, 배송 상태, 택배사, 운송장 번호. 엑셀에서 바로 열리는 CSV(UTF-8 BOM)다. 내려받을 때마다 사유와 함께 기록한다.
+ * @summary 키트 배송 목록 내려받기 (CSV)
+ */
+export const exportKitShipmentsBodyReasonMin = 0;
+export const exportKitShipmentsBodyReasonMax = 200;
+
+
+
+export const ExportKitShipmentsBody = zod.object({
+  "raceId": zod.int().optional().describe('대회 ID (생략하면 모든 대회)'),
+  "status": zod.enum(['PREPARING', 'SHIPPING', 'DELIVERED']).optional().describe('배송 상태 (PREPARING 배송 준비 / SHIPPING 배송 중 / DELIVERED 배송 완료, 생략 가능)'),
+  "reason": zod.string().min(exportKitShipmentsBodyReasonMin).max(exportKitShipmentsBodyReasonMax).describe('내려받는 사유 (200자 이하)')
+}).describe('키트 배송 목록 내려받기 요청. 키트 배송 관리 목록과 같은 조건으로 거르고, 내려받는 사유를 남긴다')
+
+export const ExportKitShipmentsResponse = zod.unknown()
