@@ -21,6 +21,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
@@ -104,6 +105,9 @@ class ApiV1SellerExportTest {
 	@Autowired
 	private TransactionTemplate transactionTemplate;
 
+	@Autowired
+	private JdbcTemplate jdbcTemplate;
+
 	@AfterEach
 	void tearDown() {
 		orderRepository.deleteAll();
@@ -124,6 +128,8 @@ class ApiV1SellerExportTest {
 		paidOrder(BUYER_ID + 1, COURSE_ID, "=CMD()");
 		paidOrder(BUYER_ID + 2, OTHER_COURSE_ID, "남의참가자");
 		createdOrder(BUYER_ID + 3, COURSE_ID, "결제안함");
+		// 파티로 결제한 참가자처럼 신청서에 파티 번호를 붙인다
+		jdbcTemplate.update("update order_participation set party_id = 77 where member_id = ?", BUYER_ID);
 
 		String csv = body(roster(SELLER_MEMBER_ID, RACE_ID, "  현장 접수 확인  ")
 			.andExpect(status().isOk())
@@ -135,7 +141,7 @@ class ApiV1SellerExportTest {
 		assertThat(csv).startsWith("﻿주문번호,종목,참가자 이름,연락처,키트 옵션,파티 번호\r\n");
 		List<String> lines = csv.lines().toList();
 		assertThat(lines).hasSize(3);
-		assertThat(lines.get(1)).contains("김러너,010-1234-5678,티셔츠: L,");
+		assertThat(lines.get(1)).endsWith("김러너,010-1234-5678,티셔츠: L,77");
 		// 참가자가 적은 값이 엑셀 수식으로 실행되지 않는다
 		assertThat(lines.get(2)).contains(",'=CMD(),");
 		assertThat(csv).doesNotContain("남의참가자").doesNotContain("결제안함");
@@ -149,6 +155,15 @@ class ApiV1SellerExportTest {
 		assertThat(logs.getFirst().getReason()).isEqualTo("현장 접수 확인");
 		assertThat(logs.getFirst().getRowCount()).isEqualTo(2);
 		assertThat(logs.getFirst().getCreateDate()).isNotNull();
+
+		// 종목으로 거르면 그 종목만 담는다
+		raceCoursePort.put(StubRaceCoursePort.openCourse(COURSE_ID + 2, RACE_ID, 14, null));
+		paidOrder(BUYER_ID + 4, COURSE_ID + 2, "다른종목");
+		String byCourse = body(mockMvc.perform(post(ROSTER_URL).header("X-Member-Id", SELLER_MEMBER_ID)
+			.contentType(MediaType.APPLICATION_JSON)
+			.content("{\"raceId\": %d, \"raceCourseId\": %d, \"reason\": \"확인\"}".formatted(RACE_ID, COURSE_ID + 2))));
+		assertThat(byCourse.lines().toList()).hasSize(2);
+		assertThat(byCourse).contains("다른종목").doesNotContain("김러너");
 	}
 
 	@Test
