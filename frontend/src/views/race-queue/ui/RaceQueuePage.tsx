@@ -7,7 +7,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
-import { loginHref } from '@/features/auth'
+import { loginHref, useAuthStatus } from '@/features/auth'
 import { skippedNotice, useAdmissionTimer, useQueuePosition } from '@/features/queue-admission'
 import { raceDetailQueryOptions } from '@/entities/race'
 import {
@@ -63,7 +63,10 @@ export function RaceQueuePage({
   // 로그인이 필요하면(401) 로그인 화면으로 보낸다. 로그인 뒤 이 대기열로 돌아오게 지금 주소를 넘긴다.
   const router = useRouter()
   const pathname = usePathname()
-  const unauthorized = timer.errorStatus === 401 || queue.unauthorized
+  // 로그인된 채로 받은 401까지 보내면 로그인 화면이 바로 이곳으로 되돌려 보내 둘 사이를 계속 오간다
+  const authStatus = useAuthStatus()
+  const unauthorized =
+    (timer.errorStatus === 401 || queue.unauthorized) && authStatus === 'anonymous'
   useEffect(() => {
     if (unauthorized) router.replace(loginHref(`${pathname}${window.location.search}`))
   }, [unauthorized, pathname, router])

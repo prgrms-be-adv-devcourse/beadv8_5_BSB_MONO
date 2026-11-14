@@ -119,7 +119,7 @@ export function RaceChangeNoticePage({ ticketId }: { ticketId: string }) {
         className="sticky bottom-0 z-10"
         secondary={
           refundable ? (
-            <Button variant="secondary" size="l" onClick={() => router.push('/tickets')}>
+            <Button variant="secondary" size="l" onClick={() => router.replace('/tickets')}>
               그대로 참가
             </Button>
           ) : undefined
@@ -132,14 +132,14 @@ export function RaceChangeNoticePage({ ticketId }: { ticketId: string }) {
               onClick={() =>
                 cancel.mutate(
                   { orderId: ticket.orderId, orderItemId: ticket.orderItemId },
-                  { onSuccess: () => router.push(`/tickets/${ticket.id}/canceled`) },
+                  { onSuccess: () => router.replace(`/tickets/${ticket.id}/canceled`) },
                 )
               }
             >
               전액 환불받기
             </Button>
           ) : (
-            <Button size="l" onClick={() => router.push('/tickets')}>
+            <Button size="l" onClick={() => router.replace('/tickets')}>
               내 참가권 보기
             </Button>
           )

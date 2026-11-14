@@ -171,7 +171,7 @@ export function TicketDetailPage({
           cancel.mutate(
             { orderId: ticket.orderId, orderItemId: ticket.orderItemId },
             {
-              onSuccess: () => router.push(`/tickets/${ticket.id}/canceled`),
+              onSuccess: () => router.replace(`/tickets/${ticket.id}/canceled`),
               onError: () => setCancelOpen(false),
             },
           )

@@ -26,6 +26,15 @@ export function signupStartHref(): '/signup' | `/signup?next=${string}` {
 }
 
 /** 남겨 둔 값을 꺼내고 지운다. 없으면 null */
+/** 남겨 둔 돌아갈 곳을 지우지 않고 읽는다. effect가 두 번 돌아도 같은 값이 나온다. */
+export function peekSignupNext(): string | null {
+  try {
+    return sessionStorage.getItem(KEY)
+  } catch {
+    return null
+  }
+}
+
 export function takeSignupNext(): string | null {
   try {
     const next = sessionStorage.getItem(KEY)

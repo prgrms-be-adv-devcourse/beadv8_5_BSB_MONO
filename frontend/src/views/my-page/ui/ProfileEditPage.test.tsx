@@ -10,13 +10,13 @@ import { memberMock, server } from '@/shared/testing'
 import { PROFILE_ERRORS } from '../model/profile-schema'
 import { ProfileEditPage } from './ProfileEditPage'
 
-const push = vi.fn()
+const replace = vi.fn()
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push, back: vi.fn(), replace: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), back: vi.fn(), replace }),
   usePathname: () => '/me/edit',
 }))
 
-beforeEach(() => push.mockClear())
+beforeEach(() => replace.mockClear())
 
 const ME = {
   status: 200,
@@ -68,7 +68,7 @@ describe('ProfileEditPage', () => {
     await user.type(nickname, '달리는곰')
     await user.click(screen.getByRole('button', { name: '저장' }))
 
-    await vi.waitFor(() => expect(push).toHaveBeenCalledWith('/me/settings'))
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/me/settings'))
     expect(body).toEqual({ nickname: '달리는곰' })
     expect(client.getQueryData(memberApi.getFindMeQueryKey())).toEqual(updated)
   })
@@ -107,7 +107,7 @@ describe('ProfileEditPage', () => {
     await user.click(screen.getByRole('button', { name: '저장' }))
 
     expect(await screen.findByText('이미 사용 중인 닉네임입니다.')).toBeInTheDocument()
-    expect(push).not.toHaveBeenCalled()
+    expect(replace).not.toHaveBeenCalled()
   })
 
   it('고친 내용이 있을 때 뒤로 가기를 누르면 나가기 확인 창을 띄우고, 계속 고치기로 닫는다', async () => {
@@ -116,11 +116,11 @@ describe('ProfileEditPage', () => {
 
     const nickname = await screen.findByLabelText('닉네임')
     await user.type(nickname, '곰')
-    await user.click(screen.getByRole('link', { name: '뒤로 가기' }))
+    await user.click(screen.getByRole('button', { name: '뒤로 가기' }))
 
     expect(screen.getByText('고친 내용을 저장하지 않고 나갈까요?')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '계속 고치기' }))
-    expect(push).not.toHaveBeenCalled()
+    expect(replace).not.toHaveBeenCalled()
   })
 
   it('나가기 확인 창에서 나가기를 누르면 계정 설정으로 간다', async () => {
@@ -128,9 +128,9 @@ describe('ProfileEditPage', () => {
     renderPage()
 
     await user.type(await screen.findByLabelText('닉네임'), '곰')
-    await user.click(screen.getByRole('link', { name: '뒤로 가기' }))
+    await user.click(screen.getByRole('button', { name: '뒤로 가기' }))
     await user.click(screen.getByRole('button', { name: '나가기' }))
 
-    expect(push).toHaveBeenCalledWith('/me/settings')
+    expect(replace).toHaveBeenCalledWith('/me/settings')
   })
 })

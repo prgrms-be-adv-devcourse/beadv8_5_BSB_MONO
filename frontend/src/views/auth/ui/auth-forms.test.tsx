@@ -5,7 +5,7 @@ import { http, HttpResponse } from 'msw'
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { getAuthStatus } from '@/shared/api'
+import { clearAccessToken, getAuthStatus, setAccessToken } from '@/shared/api'
 import { memberMock, server } from '@/shared/testing'
 import { ToastProvider } from '@/shared/ui'
 
@@ -135,6 +135,31 @@ describe('LoginPage', () => {
     await user.click(screen.getByRole('button', { name: '로그인' }))
 
     await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/races/1/apply?option=2'))
+  })
+
+  it('이미 로그인한 사람이 오면 로그인 화면을 건너뛰고 next(안전한 경로)로 replace한다', () => {
+    setAccessToken('test-token')
+    try {
+      render(withQueryClient(<LoginPage next="/races/1/apply" />))
+      expect(replace).toHaveBeenCalledWith('/races/1/apply')
+    } finally {
+      clearAccessToken()
+    }
+  })
+
+  it('이미 로그인한 사람의 next가 다른 사이트 주소면 홈으로 replace한다', () => {
+    setAccessToken('test-token')
+    try {
+      render(withQueryClient(<LoginPage next="//evil.com" />))
+      expect(replace).toHaveBeenCalledWith('/')
+    } finally {
+      clearAccessToken()
+    }
+  })
+
+  it('로그인 확인 중(pending)이거나 로그아웃 상태면 이동하지 않는다', () => {
+    render(withQueryClient(<LoginPage next="/races/1/apply" />))
+    expect(replace).not.toHaveBeenCalled()
   })
 
   it('next가 다른 사이트 주소면 로그인 뒤 홈으로 간다', async () => {

@@ -3,7 +3,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Fragment, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 
 import { AppHeader } from '@/widgets/app-header'
@@ -16,6 +16,7 @@ import {
   SocialLoginButtons,
   socialLoginErrorMessage,
   socialProviderOf,
+  useAuthStatus,
   useLogin,
 } from '@/features/auth'
 import { ApiError } from '@/shared/api'
@@ -41,6 +42,11 @@ export function LoginPage({
 }) {
   const router = useRouter()
   const login = useLogin()
+  // 이미 로그인한 사람이 로그인 화면에 오면 가려던 곳으로 바로 보낸다
+  const authStatus = useAuthStatus()
+  useEffect(() => {
+    if (authStatus === 'authenticated') router.replace(safeNextPath(next))
+  }, [authStatus, next, router])
   const {
     register,
     handleSubmit,

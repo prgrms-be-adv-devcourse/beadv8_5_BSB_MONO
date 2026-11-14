@@ -47,12 +47,16 @@ export function TicketCanceledPage({ ticketId }: { ticketId: string }) {
       <BottomCta
         className="sticky bottom-0 z-10"
         secondary={
-          <Link href="/me/deposit" className={buttonClassName({ variant: 'secondary', size: 'l' })}>
+          <Link
+            href="/me/deposit"
+            replace
+            className={buttonClassName({ variant: 'secondary', size: 'l' })}
+          >
             예치금 보기
           </Link>
         }
         primary={
-          <Link href="/tickets" className={buttonClassName({ size: 'l' })}>
+          <Link href="/tickets" replace className={buttonClassName({ size: 'l' })}>
             내 참가권 보기
           </Link>
         }

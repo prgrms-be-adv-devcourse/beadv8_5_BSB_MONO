@@ -6,6 +6,7 @@ import type { ReactNode } from 'react'
 
 import { AuthSessionRestorer } from '@/features/auth'
 import { getQueryClient } from '@/shared/api'
+import { InAppHistoryTracker } from '@/shared/lib'
 import { ToastProvider } from '@/shared/ui'
 
 export function Providers({ children }: { children: ReactNode }) {
@@ -13,6 +14,7 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthSessionRestorer />
+      <InAppHistoryTracker />
       <ToastProvider>{children}</ToastProvider>
       <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>

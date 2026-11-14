@@ -2,20 +2,25 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { markInAppHistory, resetInAppHistory } from '@/shared/lib'
+
 import { SignupStepProvider, useSignupStep } from '../model/signup-store'
 import { TERMS_SLUGS } from '../model/terms'
 import { TermsPage } from './TermsPage'
 
 const back = vi.fn()
+const replace = vi.fn()
 let query = ''
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn(), back, replace: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), back, replace }),
   usePathname: () => '/terms/privacy',
   useSearchParams: () => new URLSearchParams(query),
 }))
 
 beforeEach(() => {
   back.mockClear()
+  replace.mockClear()
+  resetInAppHistory()
   query = ''
 })
 
@@ -44,6 +49,20 @@ describe('TermsPage', () => {
     },
   )
 
+  it('앱 안에서 온 기록이 있으면 [동의하기]가 브라우저 뒤로 돌아간다', async () => {
+    markInAppHistory()
+    query = 'from=signup'
+    const user = userEvent.setup()
+    render(
+      <SignupStepProvider>
+        <TermsPage slug="privacy" />
+      </SignupStepProvider>,
+    )
+    await user.click(screen.getByRole('button', { name: '동의하기' }))
+    expect(back).toHaveBeenCalled()
+    expect(replace).not.toHaveBeenCalled()
+  })
+
   it('가입 약관 시트에서 열면(?from=signup) [동의하기]가 그 약관을 체크하고 이전 화면으로 돌아간다', async () => {
     query = 'from=signup'
     const user = userEvent.setup()
@@ -57,7 +76,8 @@ describe('TermsPage', () => {
     expect(screen.getByTestId('privacy')).toHaveTextContent('false')
     await user.click(screen.getByRole('button', { name: '동의하기' }))
 
-    expect(back).toHaveBeenCalled()
+    expect(replace).toHaveBeenCalledWith('/signup')
+    expect(back).not.toHaveBeenCalled()
     expect(screen.getByTestId('privacy')).toHaveTextContent('true')
     expect(screen.getByTestId('service')).toHaveTextContent('false')
   })

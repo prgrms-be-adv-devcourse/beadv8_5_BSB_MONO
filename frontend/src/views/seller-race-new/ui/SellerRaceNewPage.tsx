@@ -151,7 +151,7 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
         {
           onSuccess: (saved) => {
             registered(saved.raceId, values.courses.length)
-            router.push(`/seller/races?registered=${saved.raceId}`)
+            router.replace(`/seller/races?registered=${saved.raceId}`)
           },
         },
       )
