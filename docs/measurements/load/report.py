@@ -73,6 +73,7 @@ def read_scenario(rep_dir, name):
 ACCESS = re.compile(r'^(\w+)-\d+\s+\|\s+ACCESS (\d+) (\w+) (\S+) (\d+) (\d+)')
 # 주문이 부르는 예치금 결제, 상품 자리 판매
 CASH_PAY = re.compile(r'^/internal/v1/cash/payments/\d+$')
+ORDER_PAY = re.compile(r'^/api/v1/order/orders/\d+/payment$')
 PRODUCT_SELL = re.compile(r'^/internal/v1/product/holds/\d+/sell$')
 
 
@@ -105,6 +106,81 @@ def access_times(rep_dir):
                     times.setdefault((kind, name), []).append(int(m[6]))
                     break
     return times
+
+
+BUCKET = 10
+
+
+def timeline(rep_dir, name):
+    """예치금 재시작 시나리오의 10초 구간 표와 회복 시간(재시작부터 결제 p95가 끝까지 기준 안에 든 첫 구간까지, 초)"""
+    windows = {w[0]: w for w in (line.split('\t') for line in (rep_dir / 'windows.tsv').read_text().splitlines())}
+    if name not in windows:
+        return [], None
+    start, end = float(windows[name][1]), float(windows[name][2])
+    events_file = rep_dir / f'{name}.events.tsv'
+    events = dict(line.split('\t') for line in events_file.read_text().splitlines()) if events_file.exists() else {}
+    buckets = {}
+
+    def bucket(at):
+        return int((at - start) // BUCKET) * BUCKET
+    path = rep_dir / 'services.log.gz'
+    with gzip.open(path, 'rt', errors='replace') as f:
+        for line in f:
+            m = ACCESS.match(line)
+            if not m or m[3] != 'POST':
+                continue
+            at = int(m[2]) / 1000
+            if not start <= at <= end:
+                continue
+            b = buckets.setdefault(bucket(at), {'pay': [], 'fail': 0, 'cash': [], 'lock': None, 'pending': 0})
+            if ORDER_PAY.match(m[4]):
+                b['pay'].append(int(m[6]))
+                b['fail'] += not m[5].startswith('2')
+            elif CASH_PAY.match(m[4]):
+                b['cash'].append(int(m[6]))
+    poll_file = rep_dir / f'{name}.lockpoll.tsv'
+    polls = [tuple(map(float, line.split('\t'))) for line in poll_file.read_text().splitlines()
+             if line.count('\t') == 2] if poll_file.exists() else []
+    lock = {}
+    for (t0, c0, s0), (t1, c1, s1) in zip(polls, polls[1:]):
+        if c1 > c0 and start <= t1 <= end:  # 통계를 비운 직후(음수)는 버린다
+            acc = lock.setdefault(bucket(t1), [0, 0])
+            acc[0] += c1 - c0
+            acc[1] += s1 - s0
+    prom_file = rep_dir / f'{name}.prom.json'
+    for t, v in json.loads(prom_file.read_text()).get('pending', []) if prom_file.exists() else []:
+        b = buckets.get(int(t // BUCKET) * BUCKET)
+        if b:
+            b['pending'] = max(b['pending'], v)
+    marks = {bucket(float(at)): kind for kind, at in events.items()}
+    rows = ['| 초 | 결제 수 | 실패 | 결제 p50 | 결제 p95 | 예치금 처리 p50 | p95 | 판매 수 줄 잠금 평균 | 연결 대기 최대 | |',
+            '|---|---|---|---|---|---|---|---|---|---|']
+    empty = {'pay': [], 'fail': 0, 'cash': [], 'pending': 0}
+    keys = sorted(k for k in set(buckets) | set(marks) if k >= 0)
+    for k in keys:
+        b = buckets.setdefault(k, dict(empty, pay=[], cash=[]))
+        avg = lock[k][1] / lock[k][0] if k in lock else None
+        mark = ', '.join(kind for at, kind in marks.items() if at == k)
+        rows.append(f'| {k} | {len(b["pay"])} | {b["fail"]} | {fmt(percentile(b["pay"], .5))} | {fmt(percentile(b["pay"], .95))} | '
+                    f'{fmt(percentile(b["cash"], .5))} | {fmt(percentile(b["cash"], .95))} | {fmt(avg, 1)} | {fmt(b["pending"])} | {mark} |')
+    # 회복 기준: 마지막 1분(끝 구간 빼고)의 결제 p95 중앙값의 2배와 그 값+200ms 중 큰 값
+    tail_keys = [k for k in keys[-7:-1] if buckets[k]['pay']]
+    tail = [percentile(buckets[k]['pay'], .95) for k in tail_keys]
+    if any(buckets[k]['fail'] for k in tail_keys):
+        tail = []  # 끝까지 실패가 있으면 돌아온 상태가 아니다
+    origin = float(events.get('restart', start))
+    recovery = None
+    if tail:
+        base = statistics.median(tail)
+        limit = max(base * 2, base + 200)
+        after = [k for k in keys if start + k + BUCKET > origin]
+        for i, k in enumerate(after):
+            rest = after[i:-1]
+            if rest and buckets[k]['pay'] and all(
+                    buckets[j]['fail'] == 0 and (percentile(buckets[j]['pay'], .95) or 0) <= limit for j in rest):
+                recovery = {'seconds': max(0, start + k - origin), 'base_p95': base, 'limit': limit}
+                break
+    return rows, recovery
 
 
 def lock_row(rep_dir, name, table):
@@ -215,6 +291,16 @@ def summary(results, out):
                          f'{m([k.get("count") for k in kit])} | {fmt(median([k.get("avg") for k in kit]), 1)} | '
                          f'{fmt(median([k.get("p95") for k in kit]), 1)} | {fmt(median([k.get("max") for k in kit]), 1)} | '
                          f'{fmt(median([w.get("avg") for w in wallet]), 1)} | {fmt(median([w.get("p95") for w in wallet]), 1)} |')
+        for name in names:
+            if not name.startswith(('cold-', 'restart-')):
+                continue
+            for rep in reps:
+                rows, recovery = timeline(rep, name)
+                if not rows:
+                    continue
+                note = (f'회복까지 {recovery["seconds"]:.0f}초 (기준 결제 p95 ≤ {recovery["limit"]:,.0f}ms, 끝 1분 p95 {recovery["base_p95"]:,.0f}ms)'
+                        if recovery else '회복 못 함 (끝까지 기준을 넘음)')
+                lines += ['', f'### {name} {rep.name}: 10초 구간 (시각은 흐름 시작부터, 재시작 기준 {note})', ''] + rows
         lines += ['', '판정(변경 전 기준, 중앙값):', '', '| 번호 | 조건 | 값 | 맞음 |', '|---|---|---|---|']
         for code, text, value, hit in judge(med):
             lines.append(f'| {code} | {text} | {fmt(value, 2) if isinstance(value, float) else fmt(value)} | '

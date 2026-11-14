@@ -40,7 +40,7 @@ services:
     cpus: ${ORDER_CPUS:-1.0}
     mem_limit: 1g
     environment:
-      <<: *app-env
+      <<: [ *app-env, *access-log ]
       # 전환 중이라 compose.yml과 같이 update로 둔다 (BUK-29)
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: ${ORDER_POOL:-10}

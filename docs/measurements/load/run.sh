@@ -19,7 +19,8 @@ TOXI="http://127.0.0.1:${TOXIPROXY_API_PORT:-18474}"
 PROM="http://127.0.0.1:${PROMETHEUS_PORT:-19090}"
 K6_IMAGE=grafana/k6:1.0.0
 FLOW_DURATION=2m; WARMUP_DURATION=1m; ROUNDS=3
-if [ "${QUICK:-0}" = 1 ]; then FLOW_DURATION=20s; WARMUP_DURATION=10s; ROUNDS=2; fi
+RESTART_DURATION=4m; RESTART_AFTER=40 # 예치금 재시작 시나리오: 흐름 길이, 흐름 시작 뒤 재시작까지 초
+if [ "${QUICK:-0}" = 1 ]; then FLOW_DURATION=20s; WARMUP_DURATION=10s; ROUNDS=2; RESTART_DURATION=90s; RESTART_AFTER=15; fi
 
 export LABEL
 compose() { docker compose -f "$HERE/compose.load.yml" "$@"; }
@@ -85,6 +86,38 @@ k6() {
 	sleep 20 # 연결 대기가 가라앉고 구간이 섞이지 않게
 }
 
+# 예치금을 다시 띄운다 (JVM이 식은 상태). 재시작한 시각과 다시 받기 시작한 시각을 남긴다
+restart_cash() {
+	printf 'restart\t%s\n' "$(date +%s)" >> "$RUN_DIR/$1.events.tsv"
+	compose restart cash >/dev/null
+	until compose exec -T cash bash -c '</dev/tcp/127.0.0.1/8081' 2>/dev/null; do sleep 1; done
+	printf 'ready\t%s\n' "$(date +%s)" >> "$RUN_DIR/$1.events.tsv"
+	log "$1: 예치금 다시 받기 시작"
+}
+
+# 판매 수 줄 잠금 문장의 누적 건수·시간을 5초마다 남긴다 (10초 구간별 평균을 내려고)
+lock_poll() {
+	while true; do
+		echo "select unix_timestamp(), count_star, round(sum_timer_wait / 1e9, 1) from performance_schema.events_statements_summary_by_digest
+			where digest_text like '%order_kit_option_sale%FOR UPDATE%';" | rsql >> "$RUN_DIR/$1.lockpoll.tsv" || true
+		sleep 5
+	done
+}
+
+# 종목 5개 초당 20명 흐름을 옵션 수($2)만큼 나눠 돌리고, $3초 뒤 예치금을 다시 띄운다(비우면 안 띄움)
+restart_flow() {
+	local name=$1 options=$2 after=${3:-} poll restart=""
+	lock_poll "$name" &
+	poll=$!
+	if [ -n "$after" ]; then
+		(sleep "$after"; restart_cash "$name") &
+		restart=$!
+	fi
+	k6 "$name" -e MODE=flow -e COURSES=5 -e RATE_PER_COURSE=4 -e DURATION="$RESTART_DURATION" -e FLOW_OPTIONS="$options"
+	if [ -n "$restart" ]; then wait "$restart"; fi
+	kill "$poll" 2>/dev/null || true
+}
+
 flow() { k6 "$1" -e MODE=flow -e COURSES="$2" -e RATE_PER_COURSE="$3" -e DURATION="$4"; }
 burst() { k6 "$1" -e MODE=burst -e ROUNDS="$ROUNDS" -e SAME_OPTION="$2"; }
 
@@ -101,6 +134,10 @@ for s in $SCENARIOS; do
 		# 인기 옵션 쏠림: 종목 5개 초당 20명이 모두 같은 키트 옵션 하나를 고른다
 		hot-*-flow) ms=${s#hot-}; ms=${ms%-flow}; set_pool 10; set_latency "$ms"
 			k6 "$s" -e MODE=flow -e COURSES=5 -e RATE_PER_COURSE=4 -e DURATION="$FLOW_DURATION" -e FLOW_OPTIONS=1 ;;
+		# 배포 직후: 예치금을 막 띄우고 바로 쏠림 흐름 / 흐름 중에 예치금 재시작 (쏠림, 옵션 5개)
+		cold-hot) set_pool 10; set_latency 0; restart_cash cold-hot; restart_flow cold-hot 1 ;;
+		restart-hot) set_pool 10; set_latency 0; restart_flow restart-hot 1 "$RESTART_AFTER" ;;
+		restart-flow) set_pool 10; set_latency 0; restart_flow restart-flow 5 "$RESTART_AFTER" ;;
 		s5-burst) set_pool 20; set_latency 300; burst s5-burst 0 ;;
 		*) echo "모르는 시나리오: $s" >&2; exit 1 ;;
 	esac
