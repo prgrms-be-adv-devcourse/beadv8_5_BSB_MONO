@@ -109,4 +109,7 @@ public interface PartyRepository extends JpaRepository<Party, Long> {
 		""")
 	Page<Party> findAppliedByRaceId(@Param("raceId") long raceId, @Param("partyId") Long partyId,
 		@Param("from") LocalDateTime from, @Param("to") LocalDateTime to, Pageable pageable);
+
+	// 대회에 신청한 파티 하나 (판매자 파티별 내역의 대회 소유 확인, BUK-227). idx_party_race로 찾는다
+	Optional<Party> findFirstByRaceIdAndAppliedAtIsNotNull(long raceId);
 }

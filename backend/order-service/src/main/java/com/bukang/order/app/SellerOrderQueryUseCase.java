@@ -34,7 +34,8 @@ import lombok.RequiredArgsConstructor;
 /**
  * 판매자 주문 목록과 파티별 내역 (BUK-227, 시안 S03·S03-1·S05)
  * 주문 목록은 주문 상품의 판매자 ID로 거르므로 자기 대회 것만 나온다
- * 파티에는 판매자 ID가 없어, 파티 종목의 판매자를 상품 서비스에 물어 확인한다(파티는 대회 단위라 한 파티만 물으면 된다)
+ * 파티에는 판매자 ID가 없어, 파티 종목의 판매자를 상품 서비스에 물어 확인한다
+ * (파티는 대회의 종목으로 만들고 종목을 바꾸지 않으므로(PartyUseCase) 한 파티만 물으면 된다. 대회의 종목은 모두 같은 판매자라고 본다)
  * 상품 HTTP가 DB 연결을 쥔 채 일어나지 않게 트랜잭션을 열지 않는다(저장소 호출마다 짧게 읽는다)
  */
 @Service
@@ -76,7 +77,7 @@ public class SellerOrderQueryUseCase {
 
 	/**
 	 * 대회의 파티별 신청·결제 인원 한 페이지 (최근 파티부터). 파티 번호로 찾으면 기간은 보지 않는다
-	 * 인원은 파티들의 신청서를 한 번에 세어 붙인다
+	 * 인원은 파티들의 신청서를 한 번에 세어 붙인다. 결제한 뒤 취소한 신청서(CANCELED)는 세지 않는다(추천값(미확정))
 	 */
 	public SellerPartyPageDto findParties(long sellerId, long raceId, Long partyId, LocalDate from, LocalDate to,
 		int page, int size) {
@@ -85,10 +86,17 @@ public class SellerOrderQueryUseCase {
 			to = null;
 		}
 		checkPeriod(from, to);
+		// 대회 소유는 조회 결과와 상관없이 먼저 본다. 결과가 빌 때 건너뛰면 남의 대회 파티 수(totalElements)와
+		// 파티 ID가 그 대회 것인지가 샌다. 신청한 파티가 하나도 없는 대회는 보여 줄 것이 없어 빈 목록이다
+		Party anyParty = partyRepository.findFirstByRaceIdAndAppliedAtIsNotNull(raceId).orElse(null);
+		if (anyParty == null) {
+			return SellerPartyPageDto.from(Page.<SellerPartyDto>empty(PageRequest.of(page, size)));
+		}
+		checkPartySeller(anyParty, sellerId);
 		Page<Party> parties = partyRepository.findAppliedByRaceId(raceId, partyId, startOf(from), endOf(to),
 			PageRequest.of(page, size));
-		if (!parties.isEmpty()) {
-			checkPartySeller(parties.getContent().getFirst(), sellerId);
+		if (parties.isEmpty()) {
+			return SellerPartyPageDto.from(parties.map(party -> (SellerPartyDto)null));
 		}
 		Map<Long, Map<ParticipationStatus, Long>> counts = new HashMap<>();
 		for (Object[] row : participationRepository.countByPartyIdsAndStatus(

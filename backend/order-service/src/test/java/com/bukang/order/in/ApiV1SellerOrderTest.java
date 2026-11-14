@@ -26,6 +26,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.order.app.OrderCreateResult;
 import com.bukang.order.app.OrderCreateUseCase;
+import com.bukang.order.app.OrderExpiryUseCase;
 import com.bukang.order.app.OrderPayUseCase;
 import com.bukang.order.domain.Gender;
 import com.bukang.order.domain.Order;
@@ -93,6 +94,9 @@ class ApiV1SellerOrderTest {
 
 	@Autowired
 	private OrderPayUseCase orderPayUseCase;
+
+	@Autowired
+	private OrderExpiryUseCase orderExpiryUseCase;
 
 	@Autowired
 	private StubRaceCoursePort raceCoursePort;
@@ -185,6 +189,30 @@ class ApiV1SellerOrderTest {
 	}
 
 	@Test
+	@DisplayName("결제 대기 주문은 결제 대기로 나오고, 기한이 지나 만료되면 빠진다. 키트 없는 참가권도 나온다")
+	void pendingExpiredAndKitless() throws Exception {
+		setUpCourses();
+		raceCoursePort.put(StubRaceCoursePort.courseWithoutKit(COURSE_ID + 2, RACE_ID));
+		long pendingOrderId = createdOrder(BUYER_ID, COURSE_ID);
+		paidOrder(BUYER_ID + 1, COURSE_ID + 2);
+
+		orders(SELLER_MEMBER_ID, "status", "ORDERED")
+			.andExpect(jsonPath("$.data.totalElements").value(1))
+			.andExpect(jsonPath("$.data.orders[0].paidAt").doesNotExist());
+		orders(SELLER_MEMBER_ID, "raceCourseId", String.valueOf(COURSE_ID + 2))
+			.andExpect(jsonPath("$.data.totalElements").value(1))
+			.andExpect(jsonPath("$.data.orders[0].status").value("PAID"))
+			.andExpect(jsonPath("$.data.orders[0].kitOptions.length()").value(0));
+
+		LocalDateTime due = orderRepository.findById(pendingOrderId).orElseThrow().getPaymentDueAt();
+		orderExpiryUseCase.expireOverdue(due.plusSeconds(1));
+
+		orders(SELLER_MEMBER_ID)
+			.andExpect(jsonPath("$.data.totalElements").value(1))
+			.andExpect(jsonPath("$.data.orders[0].raceCourseId").value(COURSE_ID + 2));
+	}
+
+	@Test
 	@DisplayName("기간이 거꾸로거나 12개월을 넘으면 400 ORDER_INVALID_SEARCH_PERIOD다")
 	void invalidPeriod() throws Exception {
 		setUpCourses();
@@ -255,6 +283,15 @@ class ApiV1SellerOrderTest {
 		parties(OTHER_SELLER_MEMBER_ID, "raceId", String.valueOf(RACE_ID))
 			.andExpect(status().isForbidden())
 			.andExpect(jsonPath("$.message").value("본인 대회의 파티만 볼 수 있습니다."));
+		// 결과가 비는 쪽·없는 파티 ID여도 남의 대회면 403이다 (파티 수·파티 ID가 새지 않게)
+		parties(OTHER_SELLER_MEMBER_ID, "raceId", String.valueOf(RACE_ID), "page", "999")
+			.andExpect(status().isForbidden());
+		parties(OTHER_SELLER_MEMBER_ID, "raceId", String.valueOf(RACE_ID), "partyId", "999999")
+			.andExpect(status().isForbidden());
+		// 남의 파티 ID로 주문을 찾아도 자기 주문만 걸러 빈 목록이다
+		orders(OTHER_SELLER_MEMBER_ID, "partyId", "1")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.totalElements").value(0));
 		mockMvc.perform(get(PARTIES_URL).header("X-Member-Id", SELLER_MEMBER_ID))
 			.andExpect(status().isBadRequest());
 		mockMvc.perform(get(ORDERS_URL))
@@ -306,11 +343,15 @@ class ApiV1SellerOrderTest {
 		return mockMvc.perform(request);
 	}
 
-	private long paidOrder(long buyerId, long courseId) throws Exception {
+	private long createdOrder(long buyerId, long courseId) throws Exception {
 		long participationId = apply(buyerId, courseId);
 		OrderCreateResult result = transactionTemplate.execute(status -> orderCreateUseCase.create(buyerId,
 			participationId, UUID.randomUUID().toString(), LocalDateTime.now()));
-		long orderId = result.order().getId();
+		return result.order().getId();
+	}
+
+	private long paidOrder(long buyerId, long courseId) throws Exception {
+		long orderId = createdOrder(buyerId, courseId);
 		transactionTemplate.execute(status -> orderPayUseCase.pay(buyerId, orderId, List.of(), LocalDateTime.now()));
 		return orderId;
 	}
