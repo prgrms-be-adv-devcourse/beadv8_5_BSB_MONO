@@ -9,9 +9,25 @@ export function loginHref(next: string): Route {
   return `${LOGIN_PATH}?next=${encodeURIComponent(next)}` as Route
 }
 
-/** 문서를 새로 불러 로그인 화면으로 간다. 메모리의 토큰과 캐시가 함께 사라진다. 테스트에서 바꿔 끼울 수 있게 따로 둔다. */
-export function reloadToLogin() {
-  window.location.replace(LOGIN_PATH)
+type HistoryNavigation = {
+  entries(): { key: string }[]
+  currentEntry: { key: string } | null
+  traverseTo(key: string): { finished: Promise<unknown> }
+}
+
+/**
+ * 로그아웃한 뒤 문서를 새로 불러 홈으로 간다. 메모리의 토큰과 캐시가 함께 사라진다. 테스트에서 바꿔 끼울 수 있게 따로 둔다.
+ * 지난 회원 화면 기록이 남으면 뒤로 갈 때마다 로그인 확인이 로그인 화면으로 보내므로,
+ * 이 탭에서 앱을 처음 연 기록까지 되감은 뒤 그 자리를 홈으로 바꾼다. 그러면 뒤로 한 번에 앱 밖으로 나간다.
+ * 처음 기록이 다른 문서(중간에 새로 불러온 적이 있음)면 그 화면이 새로 열리고 홈으로 바꾸지는 못하지만, 뒤로는 똑같이 한 번에 나간다.
+ * shortcut: Navigation API가 없는 브라우저는 지금 자리만 홈으로 바꿔 반복이 남는다. 지원 브라우저가 충분히 늘면 이 분기를 지운다.
+ */
+export function reloadAfterLogout() {
+  const goHome = () => window.location.replace('/')
+  const nav = (window as { navigation?: HistoryNavigation }).navigation
+  const first = nav?.entries()[0]
+  if (!nav || !first || first.key === nav.currentEntry?.key) return goHome()
+  nav.traverseTo(first.key).finished.then(goHome, goHome)
 }
 
 /** 문서를 새로 불러 path로 간다 (탈퇴 완료). 테스트에서 바꿔 끼울 수 있게 따로 둔다. */

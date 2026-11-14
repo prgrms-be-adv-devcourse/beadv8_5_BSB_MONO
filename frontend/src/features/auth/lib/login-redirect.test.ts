@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { loginHref, safeInternalPath, safeNextPath } from './login-redirect'
+import { loginHref, reloadAfterLogout, safeInternalPath, safeNextPath } from './login-redirect'
 
 describe('safeNextPath', () => {
   it('앱 내부 경로는 그대로 쓴다', () => {
@@ -47,5 +47,49 @@ describe('safeInternalPath', () => {
     expect(safeInternalPath('https://evil.example')).toBeNull()
     expect(safeInternalPath('//evil.example')).toBeNull()
     expect(safeInternalPath('')).toBeNull()
+  })
+})
+
+describe('reloadAfterLogout', () => {
+  const replace = vi.fn()
+  const setNavigation = (keys: string[], current: string) => {
+    const traverseTo = vi.fn(() => ({ finished: Promise.resolve() }))
+    Object.defineProperty(window, 'navigation', {
+      value: {
+        entries: () => keys.map((key) => ({ key })),
+        currentEntry: { key: current },
+        traverseTo,
+      },
+      configurable: true,
+    })
+    return traverseTo
+  }
+
+  beforeEach(() => {
+    replace.mockClear()
+    vi.spyOn(window, 'location', 'get').mockReturnValue({ ...window.location, replace })
+  })
+  afterEach(() => {
+    vi.restoreAllMocks()
+    Reflect.deleteProperty(window, 'navigation')
+  })
+
+  it('앱 안 기록이 있으면 처음 기록까지 되감은 뒤 홈으로 바꾼다', async () => {
+    const traverseTo = setNavigation(['a', 'b', 'c'], 'c')
+    reloadAfterLogout()
+    expect(traverseTo).toHaveBeenCalledWith('a')
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/'))
+  })
+
+  it('지금이 처음 기록이면 되감지 않고 홈으로 바꾼다', () => {
+    const traverseTo = setNavigation(['a'], 'a')
+    reloadAfterLogout()
+    expect(traverseTo).not.toHaveBeenCalled()
+    expect(replace).toHaveBeenCalledWith('/')
+  })
+
+  it('Navigation API가 없으면 홈으로 바꾼다', () => {
+    reloadAfterLogout()
+    expect(replace).toHaveBeenCalledWith('/')
   })
 })
