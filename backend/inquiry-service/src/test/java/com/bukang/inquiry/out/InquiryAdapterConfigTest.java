@@ -23,8 +23,12 @@ import com.bukang.inquiry.out.member.MemberClientConfig;
 import com.bukang.inquiry.out.member.MemberNicknamesPort;
 import com.bukang.inquiry.out.member.MemberSellerPort;
 import com.bukang.inquiry.out.order.FakeOrderLookupAdapter;
+import com.bukang.inquiry.out.order.HttpOrderLookupAdapter;
+import com.bukang.inquiry.out.order.OrderClientConfig;
 import com.bukang.inquiry.out.order.OrderLookupPort;
 import com.bukang.inquiry.out.race.FakeRaceSellerAdapter;
+import com.bukang.inquiry.out.race.HttpRaceSellerAdapter;
+import com.bukang.inquiry.out.race.ProductClientConfig;
 import com.bukang.inquiry.out.race.RaceSellerPort;
 
 /**
@@ -36,9 +40,12 @@ class InquiryAdapterConfigTest {
 	private final ApplicationContextRunner runner = new ApplicationContextRunner()
 		.withInitializer(context -> context.getBeanFactory()
 			.setConversionService(ApplicationConversionService.getSharedInstance()))
-		.withUserConfiguration(MemberClientConfig.class, FakeMemberAdminAdapter.class, FakeMemberSellerAdapter.class,
-			FakeMemberNicknamesAdapter.class, FakeRaceSellerAdapter.class, FakeOrderLookupAdapter.class)
-		.withPropertyValues("inquiry.clients.timeout=2s", "inquiry.clients.member.base-url=http://localhost:8080");
+		.withUserConfiguration(MemberClientConfig.class, ProductClientConfig.class, OrderClientConfig.class,
+			FakeMemberAdminAdapter.class, FakeMemberSellerAdapter.class, FakeMemberNicknamesAdapter.class,
+			FakeRaceSellerAdapter.class, FakeOrderLookupAdapter.class)
+		.withPropertyValues("inquiry.clients.timeout=2s", "inquiry.clients.member.base-url=http://localhost:8080",
+			"inquiry.clients.product.base-url=http://localhost:8085",
+			"inquiry.clients.order.base-url=http://localhost:8084");
 
 	@Test
 	@DisplayName("관리자 확인: mode가 http면 회원 서비스 어댑터만, fake면 가짜 어댑터만 등록된다")
@@ -56,15 +63,19 @@ class InquiryAdapterConfigTest {
 	}
 
 	@Test
-	@DisplayName("판매자 조회: mode가 fake일 때만 가짜 어댑터가 등록된다")
+	@DisplayName("판매자 조회: mode가 http면 상품 서비스 어댑터만, fake면 가짜 어댑터만 등록된다")
 	void productMode() {
+		runner.withPropertyValues("inquiry.clients.product.mode=http").run(context ->
+			assertThat(context).getBean(RaceSellerPort.class).isInstanceOf(HttpRaceSellerAdapter.class));
 		runner.withPropertyValues("inquiry.clients.product.mode=fake").run(context ->
 			assertThat(context).getBean(RaceSellerPort.class).isInstanceOf(FakeRaceSellerAdapter.class));
 	}
 
 	@Test
-	@DisplayName("주문 조회: mode가 fake일 때만 가짜 어댑터가 등록된다")
+	@DisplayName("주문 조회: mode가 http면 주문 서비스 어댑터만, fake면 가짜 어댑터만 등록된다")
 	void orderMode() {
+		runner.withPropertyValues("inquiry.clients.order.mode=http").run(context ->
+			assertThat(context).getBean(OrderLookupPort.class).isInstanceOf(HttpOrderLookupAdapter.class));
 		runner.withPropertyValues("inquiry.clients.order.mode=fake").run(context ->
 			assertThat(context).getBean(OrderLookupPort.class).isInstanceOf(FakeOrderLookupAdapter.class));
 	}
@@ -81,7 +92,7 @@ class InquiryAdapterConfigTest {
 	}
 
 	@Test
-	@DisplayName("개발(dev) 설정은 회원·상품·주문 모두 fake, 운영(prod) 설정은 회원만 http이고 상품·주문 mode는 일부러 없다")
+	@DisplayName("개발(dev) 설정은 회원·상품·주문 모두 fake, 운영(prod) 설정은 모두 http이고 컨테이너 이름으로 부른다")
 	void profiles() throws Exception {
 		List<PropertySource<?>> dev = new YamlPropertySourceLoader()
 			.load("dev", new ClassPathResource("application-dev.yaml"));
@@ -97,10 +108,12 @@ class InquiryAdapterConfigTest {
 			assertThat(source.getProperty("inquiry.clients.member.mode")).isEqualTo("http");
 			assertThat(source.getProperty("inquiry.clients.member.base-url"))
 				.isEqualTo("http://bukang-member-service:8080");
+			assertThat(source.getProperty("inquiry.clients.product.mode")).isEqualTo("http");
+			assertThat(source.getProperty("inquiry.clients.product.base-url"))
+				.isEqualTo("http://bukang-product-service:8085");
+			assertThat(source.getProperty("inquiry.clients.order.mode")).isEqualTo("http");
+			assertThat(source.getProperty("inquiry.clients.order.base-url"))
+				.isEqualTo("http://bukang-order-service:8084");
 		});
-		assertThat(prod).noneSatisfy(source ->
-			assertThat(source.getProperty("inquiry.clients.product.mode")).isNotNull());
-		assertThat(prod).noneSatisfy(source ->
-			assertThat(source.getProperty("inquiry.clients.order.mode")).isNotNull());
 	}
 }
