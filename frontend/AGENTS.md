@@ -88,11 +88,78 @@ src/
   - 인증 목은 로그인 상태를 쿠키로 흉내 낸다: 가짜 로그인이 `mockRefreshToken` 쿠키(`HttpOnly; SameSite=Lax; Path=/api/v1/auth`, Secure 없음. `shared/mocks/mock-session.ts`)를 심고, 로그아웃이 `Max-Age=0`으로 지운다. 재발급은 요청 쿠키가 있을 때만 성공, 없으면 401. 서버 메모리에 상태를 두지 않는다. Node의 MSW는 쿠키를 저장하지 않으므로 테스트에서 로그인된 채로 요청하려면 `Cookie: MOCK_LOGGED_IN_COOKIE`(`@/shared/testing`)를 직접 붙인다.
 - 서버 데이터는 TanStack Query(초기 데이터는 RSC). Zustand에 서버 데이터를 넣지 않는다.
 
-## 상태·폼
+## 코드 작성 규칙
 
-- Zustand는 UI 상태(모달, 단계별 입력)만. 모듈 전역 스토어 금지 — `shared/lib`의 `createStoreContext`로 요청별 스토어를 만든다.
-- 폼은 react-hook-form + zod. 가능하면 orval이 만든 zod 스키마를 쓴다.
-- 날짜 고르기(`DatePicker`, `DateTimeField`)는 `@/shared/ui`가 아니라 `@/shared/date-picker`에서 가져온다. 달력이 무거워서 모든 화면이 받는 `@/shared/ui` 묶음에서 뺐다.
+새 코드를 쓰거나 고칠 때 아래 8개 영역을 모두 지킨다. 고친 파일 안에서 규칙에 어긋난 곳을 보면 같은 PR에서 맞춘다.
+
+### 1. 컴포넌트
+
+- 컴포넌트는 순수하게 만든다. 같은 props면 같은 화면을 그리고, 렌더 중에 바깥 값을 바꾸지 않는다.
+  현재 시각·난수·`window`는 렌더에서 읽지 않는다. 서버와 브라우저 화면이 달라져 hydration 오류가 난다. 현재 시각은 `@/shared/lib`의 `useNow()`로 마운트 뒤에 정한다.
+- 계산·변환 로직은 컴포넌트 밖 순수 함수로 빼서 슬라이스의 `lib/`에 두고, 옆에 `*.test.ts`를 둔다.
+- props를 두 단계 넘게 내려야 하면 먼저 `children`으로 조립하고, 그래도 안 되면 `createStoreContext`로 나눈다.
+- 폼은 react-hook-form + zod로 만든다(입력값을 ref로 들고 있어 글자마다 다시 그리지 않는다). 가능하면 orval이 만든 zod 스키마를 쓴다.
+- 목록의 `key`는 데이터의 id다.
+- `'use client'`는 클릭·입력이 있는 말단 컴포넌트에만 붙인다. `page.tsx`와 views의 맨 위 컴포넌트는 서버 컴포넌트로 둔다.
+- 라우트 그룹마다 `error.tsx`를 두고(`widgets/status-screens`의 `RouteErrorScreen`), 느린 영역만 `Suspense`·`loading.tsx`로 따로 감싼다.
+- 폴더는 위 「폴더 구조」의 FSD를 따른다.
+
+### 2. 상태
+
+- 서버 데이터는 TanStack Query, UI 상태(모달, 단계별 입력)는 Zustand에 둔다.
+- 스토어는 `shared/lib`의 `createStoreContext`로 요청별로 만든다. 모듈 전역 스토어는 서버에서 사용자끼리 섞인다.
+- `persist`를 쓰면 `partialize`로 꼭 필요한 값만 저장하고, 저장값은 마운트 뒤에 읽는다(`skipHydration`).
+- 자주 바뀌는 값은 Context가 아니라 Zustand selector로 나눠 읽는다. Context 값이 바뀌면 그 아래가 모두 다시 그려진다.
+- 다른 값에서 계산할 수 있는 값은 state로 저장하지 않고 렌더에서 계산한다.
+- 필터·정렬·페이지·탭은 URL `searchParams`에 둔다. 새로고침·공유·뒤로 가기에서 그대로 남는다.
+
+### 3. 훅·비동기
+
+- `useEffect`는 바깥 시스템(구독, 타이머, DOM, 브라우저 API)과 맞출 때만 쓴다. 사용자 행동에 대한 처리는 이벤트 핸들러에 쓴다. effect마다 cleanup을 확인한다.
+- 커스텀 훅은 `use`로 시작하고, 한 가지 일만 하며, 슬라이스의 `model/`에 둔다.
+- 서버 호출은 TanStack Query로 한다(늦게 온 응답 무시·취소·재시도를 맡는다). 직접 `fetch`할 때는 `AbortController`로 이전 요청을 취소하고, 로딩·오류 상태를 화면에 그린다.
+- 메모는 React Compiler(`next.config.ts`의 `reactCompiler`)가 맡는다. 새 코드는 `useMemo`·`useCallback`·`memo` 없이 쓰고, 프로파일러로 느린 곳을 확인했을 때만 넣는다.
+
+### 4. 렌더링·데이터 불러오기
+
+- 로그인 없이 보는 첫 화면 데이터는 `page.tsx`에서 `prefetchQuery` + `HydrationBoundary`로 미리 받는다. 예시는 `app/(shop)/races/page.tsx`.
+- 쿼리는 엔티티의 `queryOptions` 함수나 orval이 만든 훅으로만 부른다. 같은 queryKey에는 언제나 같은 모양의 데이터가 들어가야 한다. 모양이 다르면 다른 화면이 캐시를 읽다가 깨진다.
+- 변경 뒤에는 바뀐 리소스의 queryKey만 invalidate한다.
+- `staleTime` 기본값은 `shared/api/query-client.ts`에 있다. 화면에서 바꾸면 이유를 한 줄 주석으로 남긴다.
+- Next 캐시(`revalidate`, `revalidateTag`, `revalidatePath`)를 쓰면 태그 이름을 상수로 한곳에 모으고, 데이터를 바꾸는 곳에서 같은 태그를 재검증한다.
+- Server Action을 만들면 액션 안에서 zod로 입력을 검증하고 권한을 확인한다. 화면에서 막았다고 서버에서 빼지 않는다.
+
+### 5. 성능·메모리
+
+- 이미지는 `next/image`, 글꼴은 `next/font`(`app/layout.tsx`)로 쓴다.
+- 무거운 컴포넌트(달력, 차트, 에디터)는 `next/dynamic`이나 별도 진입점으로 뺀다. 날짜 고르기(`DatePicker`, `DateTimeField`)는 그래서 `@/shared/ui`가 아니라 `@/shared/date-picker`에서 가져온다.
+- 의존성을 새로 넣기 전에 번들에 얼마나 실리는지 확인한다. 몇 줄로 되는 일에는 의존성을 넣지 않는다.
+- 긴 목록은 페이지·더 보기로 나눠 받는다. 한 화면에 수백 개를 그려야 하면 가상 목록을 쓴다.
+- 이벤트 리스너·타이머·Observer·구독은 cleanup에서 해제한다.
+- 첫 화면 구조를 크게 바꾼 PR은 Lighthouse로 LCP·INP·CLS를 재서 「확인 방법」에 적는다.
+
+### 6. SEO·접근성
+
+- 로그인 없이 보는 화면은 `metadata`·`generateMetadata`로 제목·설명·Open Graph·canonical을 채우고, 새 공개 경로를 `app/sitemap.ts`에 더한다.
+- 대회 상세처럼 검색에 노출할 화면은 JSON-LD 구조화 데이터를 넣는다.
+- 제목은 `h1`부터 순서대로 쓰고, 동작은 `button`, 이동은 `a`(`Link`)로 쓴다.
+- 이미지는 `alt`, 글자 없는 아이콘 버튼은 `aria-label`을 단다. 모든 동작을 키보드로 할 수 있게 하고, 글자 대비는 4.5:1 이상으로 한다.
+
+### 7. 스타일
+
+- className 합치기는 `@/shared/lib`의 `cn()`(clsx + tailwind-merge) 하나로 한다.
+- 색·간격·둥글기는 디자인 토큰(`app/tokens.css`, `pnpm tokens`로 생성)만 쓴다. 토큰에 없는 값이 필요하면 피그마 변수에 먼저 더한다.
+- 한 컴포넌트의 모양 변형(크기·종류·상태)은 cva로 정의한다.
+- 다크 모드는 `.dark` 클래스로만 켠다(`app/globals.css`). 반응형은 Tailwind 기본 breakpoint만 쓴다.
+
+### 8. 코드 품질·보안
+
+- 타입을 모르면 `any` 대신 `unknown`으로 받고 zod로 좁힌다. API 응답 밖에서 오는 값(URL, storage, `postMessage`)은 zod로 검증한다.
+- 사용자가 쓴 글(커뮤니티 글, 문의)은 텍스트로만 그린다. `dangerouslySetInnerHTML`은 쓰지 않는다.
+- 비밀 값에는 `NEXT_PUBLIC_`을 붙이지 않는다. 토큰 저장 위치는 위 「API」의 인증 항목을 따른다.
+- 쓰지 않게 된 코드·파일·의존성은 그 변경을 한 PR에서 지운다.
+- 순수 함수·훅은 Vitest 단위 테스트를 옆에 둔다. 주요 사용자 흐름은 `e2e/`의 Playwright 테스트로 확인하고, 테스트 이름은 피그마 「Test Scenario」 페이지 번호를 따른다(예: `시나리오 22 · 개인 일반 예매`).
+- 실행 중 오류는 서버는 `instrumentation.ts`의 `onRequestError`, 브라우저는 `error.tsx`의 GA4 `app_error` 이벤트로 모은다.
 
 ## 환경변수
 
