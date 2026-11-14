@@ -1,0 +1,33 @@
+# 로그 저장소 Loki 설정 (로컬 전용). 한 컨테이너가 받기·저장·조회를 모두 한다
+# Alloy가 OTLP로 보낸 로그를 /otlp로 받는다 (Loki 3부터 OTLP를 직접 받는다)
+auth_enabled: false              # 사용자 구분(멀티 테넌트)을 쓰지 않는다
+server:
+  http_listen_port: 3100         # 받기와 조회를 모두 이 포트로 한다
+common:
+  instance_addr: 127.0.0.1       # 혼자 도는 Loki라 자기 자신만 가리킨다
+  path_prefix: /loki             # 데이터를 둘 컨테이너 안 폴더
+  storage:
+    filesystem:                  # S3 대신 컨테이너 디스크에 저장한다
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+  replication_factor: 1          # 복제하지 않는다 (한 대)
+  ring:
+    kvstore:
+      store: inmemory            # 여러 대가 서로를 찾는 목록을 메모리에만 둔다
+schema_config:
+  configs:
+    - from: 2024-04-01           # 이 날짜부터 아래 저장 형식을 쓴다 (처음 만드는 저장소라 과거 날짜면 된다)
+      store: tsdb                # Loki 3 권장 색인 형식
+      object_store: filesystem
+      schema: v13                # 구조화 메타데이터(traceId를 넣는 곳)는 v13 이상에서 된다
+      index:
+        prefix: index_
+        period: 24h
+limits_config:
+  retention_period: 72h          # 72시간 지난 로그를 지운다
+compactor:
+  working_directory: /loki/compactor
+  retention_enabled: true        # 이게 켜져야 위 보관 기간대로 실제로 지운다
+  delete_request_store: filesystem
+analytics:
+  reporting_enabled: false       # Grafana로 사용 통계를 보내지 않는다 (tempo.yaml과 같은 이유)

@@ -1,19 +1,21 @@
-// 추적 수집기 Alloy 설정 (로컬 전용). 받기 → 묶기 → Tempo로 보내기
+// 수집기 Alloy 설정 (로컬 전용). 받기 → 묶기 → span은 Tempo로, 로그는 Loki로 보내기
 
-// 1. 앱이 OTLP(HTTP)로 보낸 span을 받는다. 0.0.0.0이라 컨테이너 밖(맥의 bootRun)에서도 들어온다
+// 1. 앱이 OTLP(HTTP)로 보낸 span과 로그를 받는다. 0.0.0.0이라 컨테이너 밖(맥의 bootRun)에서도 들어온다
 otelcol.receiver.otlp "default" {
   http {
     endpoint = "0.0.0.0:4318"
   }
   output {
     traces = [otelcol.processor.batch.default.input]
+    logs   = [otelcol.processor.batch.default.input]
   }
 }
 
-// 2. span을 하나씩 보내지 않고 모아서 한 번에 넘긴다 (네트워크 요청 수를 줄인다)
+// 2. 하나씩 보내지 않고 모아서 한 번에 넘긴다 (네트워크 요청 수를 줄인다)
 otelcol.processor.batch "default" {
   output {
     traces = [otelcol.exporter.otlp.tempo.input]
+    logs   = [otelcol.exporter.otlphttp.loki.input]
   }
 }
 
@@ -24,5 +26,14 @@ otelcol.exporter.otlp "tempo" {
     tls {
       insecure = true
     }
+  }
+}
+
+// 4. Loki로 보낸다. Loki는 OTLP를 HTTP로만 받는다 (gRPC 아님)
+// 주소 뒤에 /v1/logs가 자동으로 붙어 http://bukang-loki:3100/otlp/v1/logs로 간다
+// Loki가 OTLP를 직접 받으면 traceId가 로그 줄이 아니라 trace_id 칸(구조화 메타데이터)에 들어가, 추적과 바로 잇는다
+otelcol.exporter.otlphttp "loki" {
+  client {
+    endpoint = "http://bukang-loki:3100/otlp"
   }
 }

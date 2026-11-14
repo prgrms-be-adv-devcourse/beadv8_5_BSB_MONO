@@ -474,7 +474,7 @@ services:
 
   # 관측 도구 (로컬 전용). profiles를 monitoring으로 묶어 운영(COMPOSE_PROFILES=app)과
   # bootRun의 인프라 자동 실행(프로필 없는 서비스만 띄움)에서는 뜨지 않는다
-  # 실행: docker compose --profile monitoring up -d prometheus grafana redis-exporter tempo alloy
+  # 실행: docker compose --profile monitoring up -d prometheus grafana redis-exporter tempo loki alloy
 
   # 지표 저장소 → http://localhost:9095 (Status → Targets에서 수집 대상 상태 확인)
   # 맥에서 bootRun으로 띄운 서비스의 /actuator/prometheus를 15초마다 가져간다 (설정: docker/prometheus/prometheus.yml)
@@ -529,7 +529,16 @@ services:
     volumes:
       - ./docker/tempo/tempo.yaml:/etc/tempo.yaml:ro
 
-  # 추적 수집기 Alloy. 맥에서 bootRun으로 띄운 앱이 localhost:4318로 보낸 span을 Tempo로 넘긴다
+  # 로그 저장소 (설정: docker/loki/loki.yaml). 호스트 포트를 열지 않는다. Alloy·Grafana가 컨테이너 이름으로 붙는다
+  loki:
+    image: grafana/loki:3.7.9
+    container_name: bukang-loki
+    profiles: [ monitoring ]
+    command: [ "-config.file=/etc/loki/loki.yaml" ]
+    volumes:
+      - ./docker/loki/loki.yaml:/etc/loki/loki.yaml:ro
+
+  # 수집기 Alloy. 맥에서 bootRun으로 띄운 앱이 localhost:4318로 보낸 span은 Tempo로, 로그는 Loki로 넘긴다
   # 앱이 컨테이너 밖에 있어서 4318은 호스트에 연다. 12345는 Alloy 화면(부품 연결 그림)이다
   alloy:
     image: grafana/alloy:v1.21.3
@@ -543,3 +552,4 @@ services:
       - ./docker/alloy/config.alloy:/etc/alloy/config.alloy:ro
     depends_on:
       - tempo
+      - loki
