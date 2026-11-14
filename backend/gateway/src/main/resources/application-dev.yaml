@@ -20,7 +20,7 @@ logging:
   level:
     com.bukang: debug
 
-# 추적 설정 (common의 observability.yaml dev 부분과 같은 내용. gateway는 common을 쓰지 않아 직접 둔다)
+# 추적·로그 설정 (common의 observability.yaml dev 부분과 같은 내용. gateway는 common을 쓰지 않아 직접 둔다)
 management:
   tracing:
     sampling:
@@ -32,3 +32,8 @@ management:
         otlp:
           # 이 주소가 있을 때만 span을 내보낸다. 맥에서 띄운 Alloy로 보낸다
           endpoint: http://localhost:4318/v1/traces
+    logging:
+      export:
+        otlp:
+          # 이 주소가 있을 때만 로그를 내보낸다(observability-dev의 appender도 이 주소를 보고 붙는다)
+          endpoint: http://localhost:4318/v1/logs

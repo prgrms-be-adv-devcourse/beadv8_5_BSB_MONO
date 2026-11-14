@@ -66,6 +66,8 @@ subprojects {
 			"implementation"("org.springframework.boot:spring-boot-starter-actuator")
 			"runtimeOnly"("io.micrometer:micrometer-registry-prometheus")
 			"developmentOnly"("org.springframework.boot:spring-boot-starter-opentelemetry")
+			// Logback 로그를 OTLP로도 보내는 연결 코드. OTel처럼 bootRun에만 들어가고 운영 jar에는 빠진다
+			"developmentOnly"(project(":observability-dev"))
 		}
 	}
 

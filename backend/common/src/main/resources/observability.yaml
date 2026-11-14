@@ -1,4 +1,4 @@
-# 모든 서비스가 같이 쓰는 지표·추적 설정. 각 서비스 application.yaml이 spring.config.import로 불러온다
+# 모든 서비스가 같이 쓰는 지표·추적·로그 설정. 각 서비스 application.yaml이 spring.config.import로 불러온다
 # 부품(actuator, Prometheus 레지스트리, OTel)은 루트 build.gradle.kts가 넣는다
 # 불러온 이 파일의 값이 서비스 application.yaml 값보다 우선한다. 서비스만 다르게 하려면 application-{프로필}.yaml에 적는다
 
@@ -26,7 +26,7 @@ management:
         enabled: false
 
 ---
-# 여기부터는 dev 프로필(bootRun)에서만 적용된다. 운영에는 추적 주소가 들어가지 않고, 운영 jar에는 OTel도 없다
+# 여기부터는 dev 프로필(bootRun)에서만 적용된다. 운영에는 추적·로그 주소가 들어가지 않고, 운영 jar에는 OTel도 없다
 spring:
   config:
     activate:
@@ -49,3 +49,8 @@ management:
         otlp:
           # 이 주소가 있을 때만 span을 내보낸다. 맥에서 띄운 Alloy(compose.yml의 alloy, monitoring 프로필)로 보낸다
           endpoint: http://localhost:4318/v1/traces
+    logging:
+      export:
+        otlp:
+          # 이 주소가 있을 때만 로그를 내보낸다(observability-dev의 appender도 이 주소를 보고 붙는다). 추적과 같은 Alloy로 보낸다
+          endpoint: http://localhost:4318/v1/logs
