@@ -5,6 +5,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -86,4 +88,25 @@ public interface PartyRepository extends JpaRepository<Party, Long> {
 
 	// 크루 없애기 확인 (BUK-125). 막는 파티를 ID 순으로 돌려준다
 	List<Party> findByCrewIdAndStatusInOrderByIdAsc(long crewId, Collection<PartyStatus> statuses);
+
+	/**
+	 * 판매자 파티별 내역 (BUK-227). 대회에 신청한 파티(신청 시각이 있음)를 최근 파티부터. idx_party_race로 찾는다
+	 * partyId가 있으면 그 파티만 찾는다. 신청 시각은 from 이상 to 미만이다(null이면 거르지 않음)
+	 */
+	@Query(value = """
+		select p from Party p
+		where p.raceId = :raceId and p.appliedAt is not null
+			and (:partyId is null or p.id = :partyId)
+			and (:from is null or p.appliedAt >= :from)
+			and (:to is null or p.appliedAt < :to)
+		order by p.id desc
+		""", countQuery = """
+		select count(p) from Party p
+		where p.raceId = :raceId and p.appliedAt is not null
+			and (:partyId is null or p.id = :partyId)
+			and (:from is null or p.appliedAt >= :from)
+			and (:to is null or p.appliedAt < :to)
+		""")
+	Page<Party> findAppliedByRaceId(@Param("raceId") long raceId, @Param("partyId") Long partyId,
+		@Param("from") LocalDateTime from, @Param("to") LocalDateTime to, Pageable pageable);
 }

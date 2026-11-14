@@ -15,6 +15,7 @@ import com.bukang.order.domain.exception.PartyConflictException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import jakarta.persistence.Version;
@@ -34,6 +35,10 @@ import lombok.NoArgsConstructor;
 	uniqueConstraints = {
 		// 참가 링크로 파티를 찾는다
 		@UniqueConstraint(name = "uk_party_join_token", columnNames = "join_token")
+	},
+	indexes = {
+		// 판매자 파티별 내역이 대회로 찾고 최근 파티부터 읽는다 (BUK-227)
+		@Index(name = "idx_party_race", columnList = "race_id, id")
 	}
 )
 public class Party extends BaseIdAndTime {
