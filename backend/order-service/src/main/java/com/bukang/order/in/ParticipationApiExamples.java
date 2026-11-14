@@ -378,4 +378,92 @@ final class ParticipationApiExamples {
 
 	private ParticipationApiExamples() {
 	}
+
+	static final String KIT_OPTION_CHANGE_SUCCESS = """
+		{
+			"status": 200,
+			"message": "키트 옵션을 바꿨습니다.",
+			"data": {
+				"id": 1,
+				"createDate": "2026-10-12T10:15:30",
+				"modifyDate": "2026-10-12T10:20:00",
+				"raceId": 1,
+				"raceCourseId": 1,
+				"memberId": 1,
+				"participationType": "INDIVIDUAL",
+				"partyId": null,
+				"status": "CONFIRMED",
+				"participant": {
+					"name": "김러너",
+					"birth": "1994-06-25",
+					"gender": "MALE",
+					"phone": "010-1234-5678",
+					"emergencyContactName": "김가족",
+					"emergencyContactPhone": "010-9876-5432",
+					"tshirtSize": null,
+					"shippingAddress": {
+						"recipientName": "김러너",
+						"recipientPhone": "010-1234-5678",
+						"zipcode": "04700",
+						"address": "서울 성동구 왕십리로 00",
+						"addressDetail": "101동 1001호"
+					}
+				},
+				"thirdPartyConsent": true,
+				"consentedAt": "2026-10-12T10:15:30",
+				"paymentDueAt": null,
+				"kitOptions": [
+					{ "kitOptionId": 12, "name": "T-shirt", "value": "L" },
+					{ "kitOptionId": 21, "name": "socks", "value": "FREE" }
+				]
+			}
+		}
+		""";
+
+	static final String INVALID_KIT_OPTION_ID = """
+		{ "status": 400, "code": "INVALID_REQUEST", "message": "키트 옵션 ID가 올바르지 않습니다.", "data": null }
+		""";
+
+	static final String KIT_OPTION_NOT_IN_RACE = """
+		{ "status": 400, "code": "ORDER_KIT_OPTION_INVALID", "message": "이 대회의 키트 옵션이 아닙니다. (옵션 ID: 99)", "data": null }
+		""";
+
+	static final String KIT_OPTION_MISSING = """
+		{ "status": 400, "code": "ORDER_KIT_OPTION_INVALID",
+			"message": "키트 옵션을 모두 골라 주세요. (고르지 않은 옵션: T-shirt)", "data": null }
+		""";
+
+	static final String KIT_OPTION_DUPLICATED_NAME = """
+		{ "status": 400, "code": "ORDER_KIT_OPTION_INVALID",
+			"message": "옵션 이름마다 하나만 고를 수 있습니다. (옵션: T-shirt)", "data": null }
+		""";
+
+	static final String KIT_OPTION_APPLICATION_CLOSED = """
+		{ "status": 409, "code": "ORDER_APPLICATION_CLOSED", "message": "접수가 마감되어 키트 옵션을 바꿀 수 없습니다.", "data": null }
+		""";
+
+	static final String RACE_CANCELED = """
+		{ "status": 409, "code": "ORDER_RACE_CANCELED", "message": "취소된 대회입니다.", "data": null }
+		""";
+
+	static final String KIT_OPTION_NOT_CONFIRMED = """
+		{ "status": 409, "code": "ORDER_PARTICIPATION_NOT_EDITABLE",
+			"message": "결제한 참가권만 키트 옵션을 바꿀 수 있습니다.", "data": null }
+		""";
+
+	static final String KIT_OPTION_CANCELING = """
+		{ "status": 409, "code": "ORDER_PARTICIPATION_NOT_EDITABLE",
+			"message": "취소 처리 중인 참가권이라 키트 옵션을 바꿀 수 없습니다.", "data": null }
+		""";
+
+	static final String KIT_OPTION_SOLD_OUT = """
+		{ "status": 409, "code": "ORDER_KIT_OPTION_SOLD_OUT",
+			"message": "선택하신 T-shirt L은(는) 준비된 수량이 모두 팔렸어요. 다른 옵션을 골라 주세요.",
+			"data": { "soldOut": [ { "kitOptionId": 12, "name": "T-shirt", "value": "L" } ] } }
+		""";
+
+	static final String KIT_OPTIONS_UNAVAILABLE = """
+		{ "status": 503, "code": "ORDER_EXTERNAL_SERVICE_UNAVAILABLE",
+			"message": "상품 서비스에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요.", "data": null }
+		""";
 }

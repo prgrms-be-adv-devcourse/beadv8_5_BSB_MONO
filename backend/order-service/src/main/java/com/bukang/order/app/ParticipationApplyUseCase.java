@@ -171,7 +171,7 @@ public class ParticipationApplyUseCase {
 		return participation;
 	}
 
-	private void checkOwner(Participation participation, long memberId) {
+	static void checkOwner(Participation participation, long memberId) {
 		if (!participation.isOwnedBy(memberId)) {
 			throw new ParticipationAccessDeniedException("본인의 참가 신청만 보거나 고칠 수 있습니다.");
 		}

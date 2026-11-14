@@ -94,10 +94,14 @@ public class KitOptionSaleUseCase {
 			}
 		}
 		if (!soldOut.isEmpty()) {
-			throw new KitOptionSoldOutException(soldOut.stream()
-				.map(option -> new KitOptionChoiceDto(option.kitOptionId(), option.name(), option.value()))
-				.toList());
+			throw soldOut(soldOut);
 		}
+	}
+
+	private static KitOptionSoldOutException soldOut(List<KitOption> options) {
+		return new KitOptionSoldOutException(options.stream()
+			.map(option -> new KitOptionChoiceDto(option.kitOptionId(), option.name(), option.value()))
+			.toList());
 	}
 
 	private static List<KitOption> choose(List<KitOption> raceOptions, Set<Long> ids) {
@@ -152,6 +156,39 @@ public class KitOptionSaleUseCase {
 			.map(option -> ParticipationKitOption.of(participationId, option.kitOptionId(), option.name(),
 				option.value()))
 			.toList());
+	}
+
+	/**
+	 * 결제한 참가권의 옵션을 바꾼다 (BUK-226). 주문 → 참가 신청을 잠근 트랜잭션 안에서 부른다
+	 * 옛 옵션·새 옵션 판매 수 줄을 한 번에 옵션 ID 오름차순으로 잠가(결제·취소와 같은 순서) 옛 옵션 -1, 새 옵션 +1 한다
+	 * 그대로인 옵션은 건드리지 않는다. 새 옵션이 판매 상한에 닿았으면 결제와 같은 409를 던지고 모두 되돌린다
+	 */
+	public void change(long participationId, List<KitOption> chosen) {
+		List<ParticipationKitOption> current =
+			participationKitOptionRepository.findByParticipationIdOrderByIdAsc(participationId);
+		Set<Long> oldIds = current.stream().map(ParticipationKitOption::getKitOptionId).collect(Collectors.toSet());
+		Set<Long> newIds = chosen.stream().map(KitOption::kitOptionId).collect(Collectors.toSet());
+		if (oldIds.equals(newIds)) {
+			return;
+		}
+		Set<Long> lockIds = new TreeSet<>(oldIds);
+		lockIds.addAll(newIds);
+		Map<Long, KitOptionSale> sales = kitOptionSaleRepository.findAllByIdForUpdate(lockIds).stream()
+			.collect(Collectors.toMap(KitOptionSale::getId, Function.identity()));
+		if (sales.size() != lockIds.size()) {
+			throw new IllegalStateException("키트 옵션 판매 수 줄이 없습니다. kitOptionIds=" + lockIds + ", 찾은 줄=" + sales.keySet());
+		}
+		oldIds.stream().filter(id -> !newIds.contains(id)).map(sales::get).forEach(KitOptionSale::decrease);
+		List<KitOption> soldOut = chosen.stream()
+			.filter(option -> !oldIds.contains(option.kitOptionId()))
+			.filter(option -> !sales.get(option.kitOptionId()).increase(option.stock()))
+			.toList();
+		if (!soldOut.isEmpty()) {
+			throw soldOut(soldOut);
+		}
+		// 바로 지운다. 저장(flush)은 넣기를 지우기보다 먼저 해, 미루면 같은 옵션 이름 유니크에 걸린다
+		participationKitOptionRepository.deleteAllInBatch(current);
+		saveChoices(participationId, chosen);
 	}
 
 	// 결제한 참가권이 취소됐다. 참가 신청을 확정 → 취소로 바꾸는 트랜잭션 안에서 부른다
