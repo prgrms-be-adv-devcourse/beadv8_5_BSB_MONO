@@ -17,6 +17,7 @@ import {
 } from '@/entities/crew'
 import { ApiError, memberApi, memberModel, unwrapData } from '@/shared/api'
 import { clientEnv } from '@/shared/config'
+import { copyText } from '@/shared/lib'
 import {
   Button,
   buttonClassName,
@@ -124,12 +125,8 @@ export function CrewInvitesPage({
     )
 
   const copy = async (url: string) => {
-    try {
-      await navigator.clipboard.writeText(url)
-      showToast({ tone: 'success', message: '초대 링크를 복사했어요' })
-    } catch {
-      showToast({ tone: 'error', message: '복사하지 못했어요. 링크를 길게 눌러 복사해 주세요.' })
-    }
+    if (await copyText(url)) showToast({ tone: 'success', message: '초대 링크를 복사했어요' })
+    else showToast({ tone: 'error', message: '복사하지 못했어요. 링크를 길게 눌러 복사해 주세요.' })
   }
 
   const confirmCancel = () => {

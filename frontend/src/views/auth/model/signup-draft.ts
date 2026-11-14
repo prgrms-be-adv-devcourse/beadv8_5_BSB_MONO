@@ -22,6 +22,15 @@ export function saveSignupDraft(draft: SignupDraft) {
   }
 }
 
+/** 페이지를 옮기지 않고 인증이 끝났으면(PC 창) 남겨 둔 입력값을 쓰지 않으므로 지운다 */
+export function clearSignupDraft() {
+  try {
+    sessionStorage.removeItem(KEY)
+  } catch {
+    // 저장소를 쓸 수 없으면 남긴 값도 없다
+  }
+}
+
 /** 남겨 둔 입력값을 꺼내고 지운다. 없으면 null */
 export function takeSignupDraft(): SignupDraft | null {
   try {

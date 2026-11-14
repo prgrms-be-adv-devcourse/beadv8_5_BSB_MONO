@@ -29,6 +29,7 @@ import { refundPlanQueryOptions, requestRefund, type RefundPlan } from '../api/r
 import {
   bankName,
   BANKS,
+  clearLastWithdrawal,
   formatKstShort,
   maskAccount,
   parseLastWithdrawal,
@@ -330,6 +331,15 @@ export function DepositRefundDonePage() {
   useEffect(() => {
     if (withdrawal === null) router.replace('/me/deposit')
   }, [withdrawal, router])
+  // 화면을 떠나면 저장 값을 지운다. 개발 모드 Strict Mode는 정리 직후 다시 붙이므로,
+  // 바로 지우지 않고 다음 차례로 미뤘다가 다시 붙으면 취소한다
+  const clearTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  useEffect(() => {
+    clearTimeout(clearTimer.current)
+    return () => {
+      clearTimer.current = setTimeout(clearLastWithdrawal)
+    }
+  }, [])
 
   if (!withdrawal) {
     return (

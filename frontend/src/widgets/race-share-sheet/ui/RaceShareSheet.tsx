@@ -1,6 +1,6 @@
 'use client'
 
-import { cn } from '@/shared/lib'
+import { cn, copyText } from '@/shared/lib'
 import { BottomSheet, FOCUS_RING, Icon, useToast, type IconName } from '@/shared/ui'
 
 export type RaceShareSheetProps = {
@@ -16,14 +16,14 @@ export type RaceShareSheetProps = {
 export function RaceShareSheet({ open, onOpenChange, title, url }: RaceShareSheetProps) {
   const toast = useToast()
 
-  function copyLink() {
-    void navigator.clipboard?.writeText(url)
+  async function copyLink() {
     onOpenChange(false)
-    toast({ message: '링크를 복사했어요', tone: 'success' })
+    if (await copyText(url)) toast({ message: '링크를 복사했어요', tone: 'success' })
+    else toast({ message: '복사하지 못했어요. 잠시 뒤 다시 시도해 주세요.', tone: 'error' })
   }
 
   function share() {
-    if (typeof navigator.share !== 'function') return copyLink()
+    if (typeof navigator.share !== 'function') return void copyLink()
     onOpenChange(false)
     // 사용자가 공유 창을 닫으면 거절로 끝난다. 알릴 일이 아니다
     void navigator.share({ title, url }).catch(() => undefined)
@@ -33,7 +33,7 @@ export function RaceShareSheet({ open, onOpenChange, title, url }: RaceShareShee
     <BottomSheet open={open} onOpenChange={onOpenChange} title="대회 공유하기">
       <div className="flex justify-center gap-8 px-2 py-4">
         <ShareAction icon="Kakao" label="카카오톡" onClick={share} />
-        <ShareAction icon="Copy" label="링크 복사" onClick={copyLink} />
+        <ShareAction icon="Copy" label="링크 복사" onClick={() => void copyLink()} />
         <ShareAction icon="Share" label="다른 앱" onClick={share} />
       </div>
     </BottomSheet>
