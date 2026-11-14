@@ -15,7 +15,6 @@ spring:
         show_sql: false
         format_sql: true
         highlight_sql: true
-        default_batch_fetch_size: 100
     open-in-view: false
 
   # Spring Batch 실행 기록 테이블(BATCH_)을 앱을 켤 때 만든다 (기본값은 H2 같은 내장 DB에서만 만든다)
