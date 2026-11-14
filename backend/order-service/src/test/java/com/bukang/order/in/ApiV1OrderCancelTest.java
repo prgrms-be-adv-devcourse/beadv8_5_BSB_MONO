@@ -170,7 +170,8 @@ class ApiV1OrderCancelTest {
 			.andExpect(jsonPath("$.message").value("취소했습니다. 예치금 %,d원을 돌려드렸습니다.".formatted(TICKET_PRICE)))
 			.andExpect(jsonPath("$.data.status").value("CANCELED"))
 			.andExpect(jsonPath("$.data.canceledAmount").value(TICKET_PRICE))
-			.andExpect(jsonPath("$.data.items[0].status").value("CANCELED"));
+			.andExpect(jsonPath("$.data.items[0].status").value("CANCELED"))
+			.andExpect(jsonPath("$.data.items[0].canceledAt").isNotEmpty());
 
 		assertThat(restoredSeats()).containsExactly(paid.participationId());
 		assertThat(walletPort.refundCalls()).containsExactly(new StubWalletPort.Call(paid.orderId(), MEMBER_ID));

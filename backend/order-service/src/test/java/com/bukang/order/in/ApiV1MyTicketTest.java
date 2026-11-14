@@ -165,7 +165,23 @@ class ApiV1MyTicketTest {
 			.andExpect(jsonPath("$.data.tickets[0].kitOptions[0].name").value("T-shirt"))
 			.andExpect(jsonPath("$.data.tickets[0].kitOptions[0].value").value("L"))
 			.andExpect(jsonPath("$.data.tickets[0].kitDeliveryStatus").value("PREPARING"))
+			.andExpect(jsonPath("$.data.tickets[0].canceledAt").doesNotExist())
 			.andExpect(jsonPath("$.data.tickets[0].partyId").doesNotExist());
+	}
+
+	@Test
+	@DisplayName("취소한 참가권은 취소를 마친 시각이 나온다 (BUK-229)")
+	void canceledTicket() throws Exception {
+		long orderId = orderAndPay(MEMBER);
+		long orderItemId = transactionTemplate.execute(status ->
+			orderRepository.findById(orderId).orElseThrow().getItems().getFirst().getId());
+		mockMvc.perform(post("/api/v1/order/orders/" + orderId + "/items/" + orderItemId + "/cancel")
+				.header("X-Member-Id", MEMBER))
+			.andExpect(status().isOk());
+
+		tickets(MEMBER, false)
+			.andExpect(jsonPath("$.data.tickets[0].orderItemStatus").value("CANCELED"))
+			.andExpect(jsonPath("$.data.tickets[0].canceledAt").isNotEmpty());
 	}
 
 	@Test

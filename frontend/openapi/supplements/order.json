@@ -492,6 +492,13 @@
             "CANCELED"
           ]
         },
+        "canceledAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
         "kitDeliveryStatus": {
           "type": [
             "string",
@@ -1687,6 +1694,13 @@
             "CANCELED"
           ],
           "description": "주문 상품 상태. 주문 전이면 null"
+        },
+        "canceledAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
         },
         "amount": {
           "type": [

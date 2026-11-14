@@ -144,6 +144,7 @@ public class MyTicketQueryFacade {
 			order == null ? null : order.orderStatus(),
 			order == null ? null : order.orderItemId(),
 			order == null ? null : order.status(),
+			order == null ? null : order.canceledAt(),
 			order == null ? null : order.amount(),
 			kitOptions,
 			shipment == null ? null : shipment.status().getKitDeliveryStatus(),

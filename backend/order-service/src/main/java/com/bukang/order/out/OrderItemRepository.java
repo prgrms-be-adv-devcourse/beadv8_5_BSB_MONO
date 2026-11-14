@@ -155,12 +155,13 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
 
 	// 참가 신청들의 주문 상품과 주문 (내 참가권 목록, BUK-181). 신청 하나에 주문 상품은 많아야 하나다 (uk_order_item_participation)
 	@Query("select new com.bukang.order.out.OrderItemRepository$TicketOrder(i.participationId, o.id, o.orderNo,"
-		+ " o.status, i.id, i.status, i.amount, i.itemName, i.raceDate) from OrderItem i join i.order o"
+		+ " o.status, i.id, i.status, i.amount, i.itemName, i.raceDate, i.canceledAt) from OrderItem i join i.order o"
 		+ " where i.participationId in :participationIds")
 	List<TicketOrder> findTicketOrders(@Param("participationIds") Collection<Long> participationIds);
 
 	// itemName·raceDate는 주문 당시 종목 이름·대회 일시 사본. 상품 서비스에 묻지 못할 때 대신 보여 준다
 	record TicketOrder(long participationId, long orderId, String orderNo, OrderStatus orderStatus,
-		long orderItemId, OrderItemStatus status, long amount, String itemName, LocalDateTime raceDate) {
+		long orderItemId, OrderItemStatus status, long amount, String itemName, LocalDateTime raceDate,
+		LocalDateTime canceledAt) {
 	}
 }
