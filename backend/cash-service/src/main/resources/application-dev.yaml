@@ -30,9 +30,6 @@ spring:
   kafka:
     bootstrap-servers:
       - localhost:9092
-    listener:
-      # 받은 메시지의 traceparent 헤더를 읽어, 보낸 쪽 trace에 이어서 span을 만든다
-      observation-enabled: true
 
   data:
     redis:
@@ -50,15 +47,3 @@ crypto:
   enabled: true # common global/crypto의 암호화 빈(TextEncryptor, EncryptedStringConverter)을 켠다
   password: IOqDAv1zFDK/FVo/sIReebOrto+TKARA7gfE8EQCPOA=
   salt: 25dc6e5c1bc8b786
-
-management:
-  tracing:
-    sampling:
-      # 로컬은 요청을 전부 추적한다 (기본 0.1 = 10개 중 1개만)
-      probability: 1.0
-  opentelemetry:
-    tracing:
-      export:
-        otlp:
-          # 이 주소가 있을 때만 span을 내보내는 부품이 만들어진다. dev에만 적어 운영(prod)에서는 아예 보내지 않는다
-          endpoint: http://localhost:4318/v1/traces

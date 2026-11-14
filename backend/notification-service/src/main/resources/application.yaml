@@ -3,6 +3,10 @@ server:
   port: 8087
 
 spring:
+  # 지표·추적 공통 설정 (common의 observability.yaml). 불러온 파일의 값이 이 파일 값보다 우선한다
+  config:
+    import: classpath:observability.yaml
+
   application:
     name: notification-service
 
@@ -50,23 +54,6 @@ spring:
       properties:
         # 구독한 토픽이 없으면 브로커에 자동 생성을 요청한다 (브로커도 자동 생성을 허용해야 동작)
         "[allow.auto.create.topics]": true
-
-# 지표(메트릭). Prometheus가 /actuator/prometheus를 15초마다 가져간다 (backend/docker/prometheus/prometheus.yml)
-management:
-  endpoints:
-    web:
-      exposure:
-        # 웹으로는 상태 확인과 지표만 연다. env·beans처럼 설정값이 보이는 엔드포인트는 열지 않는다
-        include: health, prometheus
-  metrics:
-    tags:
-      # 서비스를 여러 개 모을 때 어느 서비스의 지표인지 나누려고 모든 지표에 서비스 이름을 붙인다
-      application: ${spring.application.name}
-    distribution:
-      percentiles-histogram:
-        # 응답 시간을 구간별 개수(_bucket)로도 내보내, Prometheus의 histogram_quantile로 p95·p99를 계산한다
-        # 이름에 .이 있어 [ ]로 감싼다 (감싸지 않으면 http → server → requests로 나눠 읽는다)
-        "[http.server.requests]": true
 
 # Swagger / OpenAPI V3 설정 (prod에서는 비활성화)
 springdoc:

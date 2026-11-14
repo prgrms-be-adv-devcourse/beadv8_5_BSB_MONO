@@ -103,6 +103,28 @@ spring:
               predicates:
                 - Path=/api/v1/board/**
 
+# 지표 설정. 다른 서비스는 common의 observability.yaml을 불러오지만, gateway는 common을 쓰지 않아 같은 내용을 직접 둔다
+# 바꿀 때는 common/src/main/resources/observability.yaml과 함께 바꾼다
+management:
+  endpoints:
+    web:
+      exposure:
+        # 웹으로는 상태 확인과 지표만 연다. env·beans처럼 설정값이 보이는 엔드포인트는 열지 않는다
+        include: health, prometheus
+  metrics:
+    tags:
+      # 여러 서비스의 지표를 모을 때 어느 서비스 것인지 나누려고 모든 지표에 서비스 이름을 붙인다
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        # 응답 시간을 구간별 개수(_bucket)로도 내보내, p95·p99를 계산한다. 이름에 .이 있어 [ ]로 감싼다
+        "[http.server.requests]": true
+  otlp:
+    metrics:
+      export:
+        # OTel 스타터가 메트릭도 OTLP로 보내려 한다(기본 켜짐). 메트릭은 Prometheus가 가져가므로 끈다
+        enabled: false
+
 gateway:
   auth:
     # 토큰 없이 통과하는 주소 (JwtAuthenticationFilter). 여기 없는 주소는 토큰이 없으면 게이트웨이가 401로 막는다
