@@ -11,9 +11,9 @@ import { ToastProvider } from '@/shared/ui'
 import { RESCHEDULE_ERRORS } from '../model/reschedule-form'
 import { SellerRaceChangePage } from './SellerRaceChangePage'
 
-const push = vi.fn()
+const replace = vi.fn()
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push, back: vi.fn(), replace: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), back: vi.fn(), replace }),
   usePathname: () => '/seller/races/1/change',
 }))
 
@@ -100,7 +100,7 @@ describe('SellerRaceChangePage 대회 취소', () => {
     await userEvent.click(
       await screen.findByRole('button', { name: '대회 취소하기', hidden: false }),
     )
-    await vi.waitFor(() => expect(push).toHaveBeenCalledWith('/seller/races'))
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/seller/races'))
     expect(canceled).toBe(true)
   })
 

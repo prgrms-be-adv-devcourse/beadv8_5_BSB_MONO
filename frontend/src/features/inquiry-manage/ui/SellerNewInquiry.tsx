@@ -1,14 +1,14 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
 import { BODY_MAX, inquiryErrorMessage, TITLE_MAX, useCreateInquiry } from '@/entities/inquiry'
+import { useGoBack } from '@/shared/lib'
 import { Button, Textarea, TextField, useToast } from '@/shared/ui'
 
 // 피그마 S14 크루런에 문의하기: 승인된 판매자가 대회 · 주문 없이 관리자에게 보낸다
 export function SellerNewInquiry() {
-  const router = useRouter()
+  const goBack = useGoBack()
   const toast = useToast()
   const create = useCreateInquiry()
   const [title, setTitle] = useState('')
@@ -20,7 +20,7 @@ export function SellerNewInquiry() {
       {
         onSuccess: () => {
           toast({ message: '문의를 보냈어요' })
-          router.push('/seller/inquiries')
+          goBack('/seller/inquiries')
         },
         onError: (error) => toast({ message: inquiryErrorMessage(error), tone: 'error' }),
       },

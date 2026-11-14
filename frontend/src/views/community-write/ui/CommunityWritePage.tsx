@@ -20,7 +20,7 @@ import {
   type BoardCategory,
 } from '@/entities/board'
 import { ApiError } from '@/shared/api'
-import { cn } from '@/shared/lib'
+import { cn, useGoBack } from '@/shared/lib'
 import {
   BottomCta,
   Button,
@@ -114,6 +114,7 @@ function WriteForm({
   initial?: { category: BoardCategory; title: string; content: string; photos: Photo[] }
 }) {
   const router = useRouter()
+  const goBack = useGoBack()
   const toast = useToast()
   const create = useCreatePost()
   const update = useUpdatePost(postId ?? 0)
@@ -164,7 +165,7 @@ function WriteForm({
     const onError = (e: unknown) =>
       toast({ message: errorMessage(e, '글을 올리지 못했어요'), tone: 'error' })
     if (editing) {
-      update.mutate(data, { onSuccess: () => router.replace(`/community/${postId}`), onError })
+      update.mutate(data, { onSuccess: () => goBack(`/community/${postId}`), onError })
     } else {
       create.mutate(data, {
         onSuccess: ({ postId: id }) => router.replace(`/community/${id}`),

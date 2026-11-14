@@ -222,7 +222,7 @@ function ParticipantForm({
       saveKitOptionIds(orderId, kitStep ? kitGroups.flatMap((g) => picked[g.name] ?? []) : [])
       return orderId
     },
-    onSuccess: (orderId) => router.push(`/checkout?orderId=${orderId}`),
+    onSuccess: (orderId) => router.replace(`/checkout?orderId=${orderId}`),
     // 결제가 대기열 입장 전(입장 시간이 끝남)이라 막히면 입장 시간 만료 화면(M07-1)으로 간다.
     onError: (error) => {
       if (isQueueNotAdmitted(error)) router.replace(admissionExpiredHref(Number(race.id)))

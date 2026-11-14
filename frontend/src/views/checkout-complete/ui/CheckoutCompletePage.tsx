@@ -98,12 +98,12 @@ export function CheckoutCompletePage({ orderId }: { orderId: number }) {
       <BottomCta
         className="sticky bottom-0 z-10"
         secondary={
-          <Link href="/" className={buttonClassName({ variant: 'secondary', size: 'l' })}>
+          <Link href="/" replace className={buttonClassName({ variant: 'secondary', size: 'l' })}>
             홈으로
           </Link>
         }
         primary={
-          <Link href="/tickets" className={buttonClassName({ size: 'l' })}>
+          <Link href="/tickets" replace className={buttonClassName({ size: 'l' })}>
             내 참가권 보기
           </Link>
         }

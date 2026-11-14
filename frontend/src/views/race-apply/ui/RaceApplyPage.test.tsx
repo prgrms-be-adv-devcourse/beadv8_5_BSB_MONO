@@ -142,7 +142,7 @@ describe('참가 신청 · 참가자 정보', () => {
     await agree(user)
     await user.click(screen.getByRole('button', { name: '다음' }))
 
-    await vi.waitFor(() => expect(push).toHaveBeenCalledWith('/checkout?orderId=1'))
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/checkout?orderId=1'))
     expect(bodies[0]).toEqual({
       raceCourseId: 3,
       thirdPartyConsent: true,
@@ -195,7 +195,7 @@ describe('참가 신청 · 참가자 정보', () => {
     expect(await screen.findByText('같은 주문 요청을 처리하고 있습니다.')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '다음' }))
 
-    await vi.waitFor(() => expect(push).toHaveBeenCalledWith('/checkout?orderId=1'))
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/checkout?orderId=1'))
     expect(calls[0].body).toEqual({ participationId: 1 })
     expect(calls[0].key).toBeTruthy()
     expect(calls[1].key).toBe(calls[0].key)
@@ -217,7 +217,7 @@ describe('참가 신청 · 참가자 정보', () => {
     await user.click(screen.getByRole('button', { name: '다음' }))
 
     expect(await screen.findByText(message)).toBeInTheDocument()
-    expect(push).not.toHaveBeenCalled()
+    expect(replace).not.toHaveBeenCalledWith('/checkout?orderId=1')
   })
 
   it('바로 결제가 대기열 입장 전이라 막히면(403) 서버 문구 없이 입장 시간 만료 화면(M07-1)으로 간다', async () => {
@@ -241,7 +241,7 @@ describe('참가 신청 · 참가자 정보', () => {
       expect(replace).toHaveBeenCalledWith('/checkout?result=timeout&raceId=1'),
     )
     expect(screen.queryByText('서버 문구')).not.toBeInTheDocument()
-    expect(push).not.toHaveBeenCalled()
+    expect(replace).not.toHaveBeenCalledWith('/checkout?orderId=1')
   })
 
   it('지난 신청이 없으면 회원 정보의 휴대폰 번호만 채운다', async () => {
@@ -289,7 +289,7 @@ describe('참가 신청 · 참가자 정보', () => {
     expect(payButton).toBeEnabled()
     await user.click(payButton)
 
-    await vi.waitFor(() => expect(push).toHaveBeenCalledWith('/checkout?orderId=1'))
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/checkout?orderId=1'))
     expect(bodies[0]).toMatchObject({ participant: { tshirtSize: 'M' } })
     // 결제가 옵션 이름마다 하나씩 보낼 수 있도록 고른 kitOptionId를 주문에 붙여 남긴다
     expect(readKitOptionIds(1)).toEqual([11, 22])
@@ -357,7 +357,7 @@ describe('참가 신청 · 참가자 정보', () => {
     await user.click(screen.getByRole('button', { name: '다음' }))
 
     expect(await screen.findByText('이미 이 대회에 신청했습니다.')).toBeInTheDocument()
-    expect(push).not.toHaveBeenCalled()
+    expect(replace).not.toHaveBeenCalledWith('/checkout?orderId=1')
   })
 
   it('나이 제한 밖이면(400) 서버 문구를 보여 준다', async () => {
@@ -420,7 +420,7 @@ describe('참가 신청 · 참가자 정보', () => {
     await agree(user)
     await user.click(screen.getByRole('button', { name: '다음' }))
 
-    await vi.waitFor(() => expect(push).toHaveBeenCalledWith('/checkout?orderId=1'))
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/checkout?orderId=1'))
     expect(changedId).toBe('7')
     expect(bodies).toHaveLength(0)
   })

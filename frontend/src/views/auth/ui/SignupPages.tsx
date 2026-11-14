@@ -7,7 +7,13 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { useForm, useWatch, type FieldErrors, type UseFormRegister } from 'react-hook-form'
 
-import { checkEmailAvailable, loginHref, safeNextPath, useLogin } from '@/features/auth'
+import {
+  checkEmailAvailable,
+  loginHref,
+  safeNextPath,
+  useAuthStatus,
+  useLogin,
+} from '@/features/auth'
 import {
   IdentityMockNotice,
   LockedIdentityFields,
@@ -17,7 +23,7 @@ import {
   type RejoinInfo,
 } from '@/features/identity-verification'
 import { memberApi } from '@/shared/api'
-import { cn } from '@/shared/lib'
+import { cn, useGoBack } from '@/shared/lib'
 import {
   BottomCta,
   BottomSheet,
@@ -43,7 +49,12 @@ import {
   type SignupProfileValues,
 } from '../model/schemas'
 import { saveSignupDraft, takeSignupDraft } from '../model/signup-draft'
-import { saveSignupNext, signupStartHref, takeSignupNext } from '../model/signup-next'
+import {
+  peekSignupNext,
+  saveSignupNext,
+  signupStartHref,
+  takeSignupNext,
+} from '../model/signup-next'
 import { useSignupStep } from '../model/signup-store'
 import { requiredTermsChecked, SIGNUP_TERMS } from '../model/signup-terms'
 import { CenterBody, LineField, StatusScreen, StepHeader, StepIntro } from './parts'
@@ -55,6 +66,12 @@ import { CenterBody, LineField, StatusScreen, StepHeader, StepIntro } from './pa
 // next 없이 들어오면 전에 그만둔 가입이 남긴 값을 지운다. 모바일 본인인증은 지금 주소(?next= 포함)로 돌아오므로 지워도 된다.
 export function SignupIdentityPage({ next }: { next?: string } = {}) {
   const router = useRouter()
+  const goBack = useGoBack()
+  // 이미 로그인한 사람이 가입 화면에 오면 가려던 곳으로 바로 보낸다
+  const authStatus = useAuthStatus()
+  useEffect(() => {
+    if (authStatus === 'authenticated') router.replace(safeNextPath(next))
+  }, [authStatus, next, router])
   useEffect(() => {
     if (next) saveSignupNext(next)
     else takeSignupNext()
@@ -93,7 +110,7 @@ export function SignupIdentityPage({ next }: { next?: string } = {}) {
 
   return (
     <>
-      <StepHeader onBack={() => router.back()} />
+      <StepHeader onBack={() => goBack(next ? loginHref(next) : '/login')} />
       <CenterBody center={false}>
         <StepIntro title={'휴대폰으로\n본인 확인을 해 주세요'} />
         {mock && <IdentityMockNotice />}
@@ -124,9 +141,11 @@ export function SignupAccountPage({ invalid = false }: { invalid?: boolean }) {
   const verification = useSignupStep((s) => s.verification)
   const ready = invalid || (termsAgreed && verification !== null)
   const [step, setStep] = useState<'email' | 'password'>(invalid ? 'password' : 'email')
+  const authStatus = useAuthStatus()
   useEffect(() => {
-    if (!ready) router.replace(signupStartHref())
-  }, [ready, router])
+    if (authStatus === 'authenticated') router.replace(safeNextPath(peekSignupNext()))
+    else if (!ready) router.replace(signupStartHref())
+  }, [authStatus, ready, router])
 
   if (!ready) return null
   return step === 'email' ? (
@@ -312,6 +331,7 @@ export function SignupProfilePage() {
 
 function SignupProfileForm({ onDone }: { onDone: (next: Route) => void }) {
   const router = useRouter()
+  const goBack = useGoBack()
   const account = useSignupStep((s) => s.account)
   const terms = useSignupStep((s) => s.terms)
   const profile = useSignupStep((s) => s.profile)
@@ -391,7 +411,7 @@ function SignupProfileForm({ onDone }: { onDone: (next: Route) => void }) {
   return (
     <>
       <form noValidate onSubmit={onSubmit} className="contents">
-        <StepHeader onBack={() => router.back()} />
+        <StepHeader onBack={() => goBack(signupStartHref())} />
         <CenterBody center={false}>
           <StepIntro title={'크루런에서 쓸\n닉네임을 정해 주세요'} />
           <LineField
@@ -570,7 +590,10 @@ export function DuplicateIdentityDialog({
       body="로그인하거나 계정을 연결해 주세요."
       cancelLabel="닫기"
       confirmLabel="로그인하기"
-      onConfirm={() => router.push('/login')}
+      onConfirm={() => {
+        const next = takeSignupNext()
+        router.replace(next ? loginHref(next) : '/login')
+      }}
     />
   )
 }

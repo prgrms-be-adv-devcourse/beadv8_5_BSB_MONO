@@ -1,6 +1,5 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
@@ -15,6 +14,7 @@ import {
   useRaceName,
   type Inquiry,
 } from '@/entities/inquiry'
+import { useGoBack } from '@/shared/lib'
 import { BottomCta, Button, Skeleton, Textarea, TextField, useToast } from '@/shared/ui'
 
 // 피그마 문의 · M44 문의 고치기. 답변 전에만 된다(답변이 달렸으면 서버가 409로 막는다)
@@ -43,7 +43,7 @@ export function InquiryEditPage({ inquiryId }: { inquiryId: number }) {
 }
 
 function EditForm({ inquiry, header }: { inquiry: Inquiry; header: React.ReactNode }) {
-  const router = useRouter()
+  const goBack = useGoBack()
   const toast = useToast()
   const edit = useEditInquiry(inquiry.id)
   const raceName = useRaceName(inquiry.raceId)
@@ -55,7 +55,7 @@ function EditForm({ inquiry, header }: { inquiry: Inquiry; header: React.ReactNo
     edit.mutate(
       { title: title.trim(), body: body.trim() },
       {
-        onSuccess: () => router.replace(`/me/inquiries/${inquiry.id}`),
+        onSuccess: () => goBack(`/me/inquiries/${inquiry.id}`),
         onError: (error) => toast({ message: inquiryErrorMessage(error), tone: 'error' }),
       },
     )

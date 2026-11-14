@@ -195,7 +195,7 @@ export function WithdrawDonePage() {
       <BottomCta
         className="sticky bottom-0 z-10"
         primary={
-          <Link href="/" className={buttonClassName({ size: 'l' })}>
+          <Link href="/" replace className={buttonClassName({ size: 'l' })}>
             홈으로
           </Link>
         }

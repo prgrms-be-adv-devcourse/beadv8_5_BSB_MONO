@@ -160,7 +160,7 @@ export function DepositRefundPage() {
         }),
         at: Date.now(),
       })
-      router.push('/me/deposit/refund/done')
+      router.replace('/me/deposit/refund/done')
     },
     onError: (error) => {
       // 서버가 확실히 거절한 요청(잔액 없음 400, 다른 회원 키 409 등)이면 다음에는 새 키를 쓴다
@@ -414,12 +414,12 @@ export function DepositRefundDonePage() {
       <BottomCta
         className="sticky bottom-0 z-10"
         secondary={
-          <Link href="/" className={buttonClassName({ variant: 'secondary', size: 'l' })}>
+          <Link href="/" replace className={buttonClassName({ variant: 'secondary', size: 'l' })}>
             홈으로
           </Link>
         }
         primary={
-          <Link href="/me/deposit" className={buttonClassName({ size: 'l' })}>
+          <Link href="/me/deposit" replace className={buttonClassName({ size: 'l' })}>
             예치금 보기
           </Link>
         }
