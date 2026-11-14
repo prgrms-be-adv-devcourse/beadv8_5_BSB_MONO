@@ -18,6 +18,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.payout.app.PayoutCreateStepUseCase.CourseSale;
 import com.bukang.payout.app.PayoutCreateStepUseCase.FinalPayoutSource;
@@ -90,6 +92,9 @@ class PayoutLedgerScenarioTest {
 	private PayoutRaceCancelUseCase raceCancelUseCase;
 	private PayoutClaimUseCase claimUseCase;
 
+	@Autowired
+	private PlatformTransactionManager transactionManager;
+
 	@BeforeEach
 	void setUp() {
 		BusinessDayCalendar calendar = new BusinessDayCalendar();
@@ -98,7 +103,8 @@ class PayoutLedgerScenarioTest {
 			new PayoutHoldUseCase(payoutRepository, payoutHoldRepository, calendar));
 		raceCancelUseCase = new PayoutRaceCancelUseCase(payoutRepository, ledgerUseCase);
 		claimUseCase = new PayoutClaimUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository,
-			payoutClaimRepository, (claimCode, amount, dueDate) -> Optional.empty());
+			payoutClaimRepository, (claimCode, amount, dueDate) -> Optional.empty(),
+			new TransactionTemplate(transactionManager));
 		PayoutPayStepUseCase payStepUseCase = new PayoutPayStepUseCase(payoutRepository, raceCancelUseCase,
 				payoutCreateFailureRepository);
 		payUseCase = new PayoutPayUseCase(payStepUseCase, transfer -> {
