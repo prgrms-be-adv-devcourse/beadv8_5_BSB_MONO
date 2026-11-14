@@ -474,7 +474,7 @@ services:
 
   # 관측 도구 (로컬 전용). profiles를 monitoring으로 묶어 운영(COMPOSE_PROFILES=app)과
   # bootRun의 인프라 자동 실행(프로필 없는 서비스만 띄움)에서는 뜨지 않는다
-  # 실행: docker compose --profile monitoring up -d prometheus grafana
+  # 실행: docker compose --profile monitoring up -d prometheus grafana redis-exporter tempo alloy
 
   # 지표 저장소 → http://localhost:9095 (Status → Targets에서 수집 대상 상태 확인)
   # 맥에서 bootRun으로 띄운 서비스의 /actuator/prometheus를 15초마다 가져간다 (설정: docker/prometheus/prometheus.yml)
