@@ -12,7 +12,6 @@ import com.bukang.order.domain.ParticipationStatus;
 import com.bukang.order.domain.exception.ApplicationPeriodException;
 import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
 import com.bukang.order.domain.exception.OrderNotFoundException;
-import com.bukang.order.domain.exception.ParticipationAccessDeniedException;
 import com.bukang.order.domain.exception.ParticipationNotEditableException;
 import com.bukang.order.domain.exception.ParticipationNotFoundException;
 import com.bukang.order.domain.exception.RaceCourseNotFoundException;
@@ -49,7 +48,7 @@ public class KitOptionChangeUseCase {
 		// 잠그기 전 확인. 여기서 읽은 신청은 저장하지 않는다(잠근 뒤 다시 읽는다)
 		Participation found = participationRepository.findById(participationId)
 			.orElseThrow(() -> new ParticipationNotFoundException("존재하지 않는 참가 신청입니다."));
-		checkOwner(found, memberId);
+		ParticipationApplyUseCase.checkOwner(found, memberId);
 		checkConfirmed(found);
 		RaceCourseInfo course = raceCoursePort.findCourse(found.getRaceCourseId())
 			.orElseThrow(() -> new RaceCourseNotFoundException("존재하지 않는 종목입니다."));
@@ -73,21 +72,19 @@ public class KitOptionChangeUseCase {
 			.orElseThrow(() -> new OrderNotFoundException("존재하지 않는 주문입니다."));
 		Participation participation = participationRepository.findByIdForUpdate(participationId)
 			.orElseThrow(() -> new ParticipationNotFoundException("존재하지 않는 참가 신청입니다."));
-		checkOwner(participation, memberId);
+		ParticipationApplyUseCase.checkOwner(participation, memberId);
 		// 잠그기 전 확인 뒤에 취소됐을 수 있다
 		checkConfirmed(participation);
 		// 환불 결과를 기다리는 중이라 곧 취소될 수 있다. 참가자 정보 수정과 같이 막는다
 		if (order.isCanceling(participationId)) {
 			throw new ParticipationNotEditableException("취소 처리 중인 참가권이라 키트 옵션을 바꿀 수 없습니다.");
 		}
+		// 발송은 접수 마감이 아니라 환불 기한으로 막히므로, 환불 기한이 마감보다 이르면 마감 전에 보냈을 수 있다
+		if (order.isKitShipped(participationId)) {
+			throw new ParticipationNotEditableException("이미 발송한 키트라 옵션을 바꿀 수 없습니다.");
+		}
 		kitOptionSaleUseCase.change(participationId, chosen);
 		return participation;
-	}
-
-	private static void checkOwner(Participation participation, long memberId) {
-		if (!participation.isOwnedBy(memberId)) {
-			throw new ParticipationAccessDeniedException("본인의 참가 신청만 보거나 고칠 수 있습니다.");
-		}
 	}
 
 	// 키트 옵션은 결제 때 고르므로 결제한 참가권만 바꾼다. 결제 전이면 결제할 때 고른다

@@ -94,10 +94,14 @@ public class KitOptionSaleUseCase {
 			}
 		}
 		if (!soldOut.isEmpty()) {
-			throw new KitOptionSoldOutException(soldOut.stream()
-				.map(option -> new KitOptionChoiceDto(option.kitOptionId(), option.name(), option.value()))
-				.toList());
+			throw soldOut(soldOut);
 		}
+	}
+
+	private static KitOptionSoldOutException soldOut(List<KitOption> options) {
+		return new KitOptionSoldOutException(options.stream()
+			.map(option -> new KitOptionChoiceDto(option.kitOptionId(), option.name(), option.value()))
+			.toList());
 	}
 
 	private static List<KitOption> choose(List<KitOption> raceOptions, Set<Long> ids) {
@@ -171,15 +175,16 @@ public class KitOptionSaleUseCase {
 		lockIds.addAll(newIds);
 		Map<Long, KitOptionSale> sales = kitOptionSaleRepository.findAllByIdForUpdate(lockIds).stream()
 			.collect(Collectors.toMap(KitOptionSale::getId, Function.identity()));
+		if (sales.size() != lockIds.size()) {
+			throw new IllegalStateException("키트 옵션 판매 수 줄이 없습니다. kitOptionIds=" + lockIds + ", 찾은 줄=" + sales.keySet());
+		}
 		oldIds.stream().filter(id -> !newIds.contains(id)).map(sales::get).forEach(KitOptionSale::decrease);
 		List<KitOption> soldOut = chosen.stream()
 			.filter(option -> !oldIds.contains(option.kitOptionId()))
 			.filter(option -> !sales.get(option.kitOptionId()).increase(option.stock()))
 			.toList();
 		if (!soldOut.isEmpty()) {
-			throw new KitOptionSoldOutException(soldOut.stream()
-				.map(option -> new KitOptionChoiceDto(option.kitOptionId(), option.name(), option.value()))
-				.toList());
+			throw soldOut(soldOut);
 		}
 		// 바로 지운다. 저장(flush)은 넣기를 지우기보다 먼저 해, 미루면 같은 옵션 이름 유니크에 걸린다
 		participationKitOptionRepository.deleteAllInBatch(current);

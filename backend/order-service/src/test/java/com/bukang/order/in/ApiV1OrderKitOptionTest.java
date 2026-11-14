@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -525,6 +526,48 @@ class ApiV1OrderKitOptionTest {
 			.andExpect(jsonPath("$.code").value("ORDER_APPLICATION_CLOSED"))
 			.andExpect(jsonPath("$.message").value("접수가 마감되어 키트 옵션을 바꿀 수 없습니다."));
 
+		assertThat(sold(SHIRT_M)).isEqualTo(1);
+		assertThat(sold(SHIRT_L)).isZero();
+	}
+
+	@Test
+	@DisplayName("환불 기한이 접수 마감보다 일러 마감 전에 키트를 보냈으면 옵션을 바꾸지 못한다")
+	void changeAfterShipped() throws Exception {
+		sellerLookupPort.approve(SELLER_MEMBER_ID, StubRaceCoursePort.SELLER_ID);
+		raceCoursePort.put(StubRaceCoursePort.openCourse(COURSE_ID, RACE_ID, 14, null,
+			LocalDate.now().minusDays(1)));
+		long orderId = orderAndGetId(1, COURSE_ID);
+		pay(1, orderId, SHIRT_M, SOCKS_FREE).andExpect(status().isOk());
+		mockMvc.perform(post("/api/v1/order/seller/kits/" + orderItemIdOf(orderId) + "/shipment")
+				.header("X-Member-Id", SELLER_MEMBER_ID)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"carrierId\": \"kr.cjlogistics\", \"trackingNumber\": \"684912345678\"}"))
+			.andExpect(status().isOk());
+
+		changeOptions(1, participationIdOf(orderId), SHIRT_L, SOCKS_FREE)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("ORDER_PARTICIPATION_NOT_EDITABLE"))
+			.andExpect(jsonPath("$.message").value("이미 발송한 키트라 옵션을 바꿀 수 없습니다."));
+		assertThat(sold(SHIRT_M)).isEqualTo(1);
+		assertThat(sold(SHIRT_L)).isZero();
+	}
+
+	@Test
+	@DisplayName("취소된 대회는 409, 상품이 옵션 목록을 주지 못하면 503이고 판매 수는 그대로다")
+	void changeWhenRaceCanceledOrOptionsMissing() throws Exception {
+		long orderId = orderAndGetId(1, COURSE_ID);
+		pay(1, orderId, SHIRT_M, SOCKS_FREE).andExpect(status().isOk());
+		long participationId = participationIdOf(orderId);
+
+		kitOptionPort.markNotFound(RACE_ID);
+		changeOptions(1, participationId, SHIRT_L, SOCKS_FREE)
+			.andExpect(status().isServiceUnavailable())
+			.andExpect(jsonPath("$.code").value("ORDER_EXTERNAL_SERVICE_UNAVAILABLE"));
+
+		raceCoursePort.put(StubRaceCoursePort.canceled(StubRaceCoursePort.openCourse(COURSE_ID, RACE_ID, 14, null)));
+		changeOptions(1, participationId, SHIRT_L, SOCKS_FREE)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("ORDER_RACE_CANCELED"));
 		assertThat(sold(SHIRT_M)).isEqualTo(1);
 		assertThat(sold(SHIRT_L)).isZero();
 	}
