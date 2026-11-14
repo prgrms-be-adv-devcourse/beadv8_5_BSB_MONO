@@ -131,8 +131,16 @@ class PayoutLedgerScenarioTest {
 	}
 
 	private PayoutRecovery requestRecovery(long orderItemId, LocalDateTime at) {
-		return ledgerUseCase.recoverScheduleChange(SELLER_ID, RACE_ID, RACE_ID, orderItemId, PRICE, at)
-			.orElseThrow();
+		return ledgerUseCase.recoverRefund(SELLER_ID, RACE_ID, RACE_ID, orderItemId, PRICE,
+			PayoutRecoveryReason.일정_변경, at).orElseThrow();
+	}
+
+	// 대회 취소로 주문이 환불한 참가권마다 회수를 요청한다 (BUK-76)
+	private void requestRaceCancelRecoveries(int[] orderItemIds, LocalDateTime at) {
+		for (int orderItemId : orderItemIds) {
+			ledgerUseCase.recoverRefund(SELLER_ID, RACE_ID, RACE_ID, orderItemId, PRICE,
+				PayoutRecoveryReason.대회_취소, at);
+		}
 	}
 
 	// 04:00 배치가 청구를 만들고, 관리자가 그 청구의 입금을 확인한다
@@ -352,21 +360,25 @@ class PayoutLedgerScenarioTest {
 	}
 
 	@Test
-	@DisplayName("대회 취소 (1차 지급 뒤): 회수 200,000, 요청 뒤 선금 0 · 갚을_돈 200,000, 청구 입금 확인 뒤 0, 최종 없음")
+	@DisplayName("대회 취소 (1차 지급 뒤): 환불된 10장마다 회수 20,000, 선금 0 · 갚을_돈 200,000, 청구 입금 확인 뒤 0, 최종 없음")
 	void raceCanceledAfterFirstPay() {
 		createFirst();
 		pay(FIRST_PAY_DATE);
-		raceCancelUseCase.cancelRace(RACE_ID, LocalDateTime.of(2026, 12, 1, 10, 0));
+		LocalDateTime canceledAt = LocalDateTime.of(2026, 12, 1, 10, 0);
+		raceCancelUseCase.cancelRace(RACE_ID, canceledAt);
+		requestRaceCancelRecoveries(range(101, 110), canceledAt);
 
 		assertThat(balance(PayoutAccount.선금)).isZero();
 		assertThat(balance(PayoutAccount.갚을_돈)).isEqualTo(200_000L);
-		PayoutRecovery recovery = payoutRecoveryRepository.findAll().getFirst();
-		assertThat(recovery.getAmount()).isEqualTo(200_000L);
+		assertThat(payoutRecoveryRepository.findAll()).hasSize(10)
+			.extracting(PayoutRecovery::getAmount).containsOnly(20_000L);
 
-		// 대회 취소 회수의 청구는 취소 다음 날 배치에서 만든다
+		// 대회 취소 회수의 청구는 주문이 환불 완료를 알린 뒤, 취소 다음 날 배치에서 만든다
+		raceCancelUseCase.markRefunded(RACE_ID, canceledAt);
 		claimAndConfirm(LocalDate.of(2026, 12, 2), LocalDateTime.of(2026, 12, 5, 10, 0));
 		assertThat(balance(PayoutAccount.갚을_돈)).isZero();
-		assertCompletions(tuple(null, PayoutRecoveryCompletion.입금, ADMIN_ID));
+		assertCompletions(Arrays.stream(range(101, 110))
+			.mapToObj(id -> tuple(Long.valueOf(id), PayoutRecoveryCompletion.입금, ADMIN_ID)).toArray(Tuple[]::new));
 		assertThat(sellerReceived()).isZero();
 		assertThat(payoutRepository.findFirstBySellerIdAndRaceIdAndPayoutStageOrderByIdAsc(SELLER_ID, RACE_ID,
 			PayoutStage.최종_정산)).isEmpty();
@@ -374,7 +386,7 @@ class PayoutLedgerScenarioTest {
 	}
 
 	@Test
-	@DisplayName("최종 지급 뒤 대회 취소: 회수 472,500(남은 1차 정산금 0 + 번 돈 472,500), 회수 두 줄이 생긴다")
+	@DisplayName("최종 지급 뒤 대회 취소 메시지는 회수를 만들지 않는다 (회수는 환불 알림으로만 만든다, BUK-76)")
 	void raceCanceledAfterFinalPay() {
 		createFirst();
 		pay(FIRST_PAY_DATE);
@@ -382,20 +394,8 @@ class PayoutLedgerScenarioTest {
 		pay(FINAL_PAY_DATE);
 		raceCancelUseCase.cancelRace(RACE_ID, LocalDateTime.of(2027, 1, 25, 10, 0));
 
-		// 선금: 1차 +200,000, 최종 차감 −200,000 → 0
-		// 번_돈: 판매 10장 × 50,000 − 수수료 10장 × 2,750 = 472,500 (판매자가 받은 돈 200,000 + 272,500과 같다)
-		PayoutRecovery recovery = payoutRecoveryRepository.findAll().getFirst();
-		assertThat(payoutRecoveryRepository.findAll()).hasSize(1);
-		assertThat(recovery.getReasonType()).isEqualTo(PayoutRecoveryReason.대회_취소);
-		assertThat(recovery.getAmount()).isEqualTo(472_500L);
-		assertThat(payoutItemRepository.findAll())
-			.filteredOn(item -> item.getRecordType() == PayoutRecordType.회수_요청
-				|| item.getRecordType() == PayoutRecordType.갚을_돈_추가)
-			.extracting(PayoutItem::getRecordType, PayoutItem::getAmount)
-			.containsExactlyInAnyOrder(
-				tuple(PayoutRecordType.회수_요청, -472_500L),
-				tuple(PayoutRecordType.갚을_돈_추가, 472_500L));
-		assertThat(balance(PayoutAccount.갚을_돈)).isEqualTo(472_500L);
+		assertThat(payoutRecoveryRepository.findAll()).isEmpty();
+		assertThat(balance(PayoutAccount.갚을_돈)).isZero();
 	}
 
 	@Test
@@ -445,7 +445,7 @@ class PayoutLedgerScenarioTest {
 	@Test
 	@DisplayName("1차 정산이 없으면 일정 변경 회수는 빈 값이고, 원장 줄 · 회수가 생기지 않는다")
 	void recoveryWithoutFirstIsEmpty() {
-		assertThat(ledgerUseCase.recoverScheduleChange(SELLER_ID, RACE_ID, RACE_ID, 108, PRICE,
+		assertThat(ledgerUseCase.recoverRefund(SELLER_ID, RACE_ID, RACE_ID, 108, PRICE, PayoutRecoveryReason.일정_변경,
 			LocalDateTime.of(2026, 10, 20, 10, 0))).isEmpty();
 
 		entityManager.flush();

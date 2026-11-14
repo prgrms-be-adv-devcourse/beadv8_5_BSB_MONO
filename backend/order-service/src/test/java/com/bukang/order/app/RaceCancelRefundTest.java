@@ -41,6 +41,7 @@ import com.bukang.common.global.json.JsonConverter;
 import com.bukang.common.shared.notification.NotificationKafkaSender;
 import com.bukang.common.shared.notification.NotificationKind;
 import com.bukang.common.shared.notification.event.NotificationRequestedEvent;
+import com.bukang.common.shared.order.event.OrderItemRefundReason;
 import com.bukang.common.shared.order.event.OrderItemRefundedEvent;
 import com.bukang.common.shared.order.event.RaceRefundEvent;
 import com.bukang.common.shared.order.event.RaceRefundKind;
@@ -227,8 +228,14 @@ class RaceCancelRefundTest {
 		assertThat(statusOf(otherRace)).isEqualTo(OrderStatus.PAID);
 		// 자리는 되돌리지 않는다 (취소된 대회는 다시 팔지 않는다)
 		assertThat(restoredSeats()).isEmpty();
-		// 정산에는 참가권마다 보내지 않고, 환불 전 보류 한 건과 다 끝난 뒤 완료 한 건(환불한 참가권 수, 결제 대기·다른 대회 제외)을 보낸다
-		assertThat(refunded()).isEmpty();
+		// 정산에는 환불한 참가권마다 환불됨(사유 대회 취소)을 보낸다. 정산이 참가권마다 회수한다 (BUK-76)
+		assertThat(refunded())
+			.extracting(OrderItemRefundedEvent::raceId, OrderItemRefundedEvent::price, OrderItemRefundedEvent::reason,
+				OrderItemRefundedEvent::buyerId)
+			.containsExactlyInAnyOrder(
+				tuple(RACE_ID, StubRaceCoursePort.PRICE, OrderItemRefundReason.RACE_CANCELED, 1L),
+				tuple(RACE_ID, StubRaceCoursePort.PRICE, OrderItemRefundReason.RACE_CANCELED, 2L));
+		// 환불 전 보류 한 건과 다 끝난 뒤 완료 한 건(환불한 참가권 수, 결제 대기·다른 대회 제외)도 보낸다
 		assertThat(raceRefunds()).containsExactly(
 			new RaceRefundEvent(RaceRefundKind.HELD, RACE_ID, 0, now),
 			new RaceRefundEvent(RaceRefundKind.REFUNDED, RACE_ID, 2, now));
@@ -253,6 +260,8 @@ class RaceCancelRefundTest {
 
 		assertThat(again).isEqualTo(new RaceCancelRefundUseCase.RefundResult(0, 0));
 		assertThat(walletPort.refundCalls()).containsExactly(new StubWalletPort.Call(orderId, 1));
+		// 이미 환불한 참가권은 환불됨을 다시 보내지 않는다
+		assertThat(refunded()).hasSize(1);
 		// 다시 처리해도 건수는 DB에서 세므로 1건 그대로다. 같은 완료가 다시 나가므로 정산은 대회별로 한 번만 처리한다
 		assertThat(raceRefunds()).extracting(RaceRefundEvent::kind, RaceRefundEvent::refundedCount)
 			.containsExactly(tuple(RaceRefundKind.HELD, 0L), tuple(RaceRefundKind.REFUNDED, 1L),

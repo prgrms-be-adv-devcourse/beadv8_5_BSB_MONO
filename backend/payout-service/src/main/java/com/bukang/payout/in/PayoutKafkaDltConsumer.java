@@ -25,6 +25,7 @@ public class PayoutKafkaDltConsumer {
 	private static final String GROUP_ID = "payout-dlt";
 	private static final String RACE_CANCEL_DLT = KafkaTopics.ORDER_RACE_CANCEL + PayoutKafkaRetry.DLT_TOPIC_SUFFIX;
 	private static final String ITEM_REFUNDED_DLT = KafkaTopics.ORDER_ITEM_REFUNDED + PayoutKafkaRetry.DLT_TOPIC_SUFFIX;
+	private static final String RACE_REFUND_DLT = KafkaTopics.ORDER_RACE_REFUND + PayoutKafkaRetry.DLT_TOPIC_SUFFIX;
 	private static final String CLAIM_DEPOSITED_DLT = KafkaTopics.CLAIM_DEPOSITED + PayoutKafkaRetry.DLT_TOPIC_SUFFIX;
 
 	private final PayoutDltFacade payoutDltFacade;
@@ -40,6 +41,13 @@ public class PayoutKafkaDltConsumer {
 	@KafkaListener(topics = ITEM_REFUNDED_DLT, groupId = GROUP_ID)
 	public void handleItemRefundedDlt(ConsumerRecord<String, String> record) {
 		log.error("처리하지 못한 참가권 환불 메시지: {}", record.value());
+		record(record);
+	}
+
+	// 환불 완료를 적지 못해 그 대회의 대회 취소 청구가 생기지 않는다. 원인을 고친 뒤 다시 보낸다
+	@KafkaListener(topics = RACE_REFUND_DLT, groupId = GROUP_ID)
+	public void handleRaceRefundDlt(ConsumerRecord<String, String> record) {
+		log.error("처리하지 못한 대회 환불 메시지: {}", record.value());
 		record(record);
 	}
 

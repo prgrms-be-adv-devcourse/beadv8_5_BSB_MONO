@@ -49,8 +49,15 @@ public interface PayoutRepository extends JpaRepository<Payout, Long> {
 		""")
 	List<Long> findRaceIdsSettledSince(PayoutStage stage, LocalDateTime settledAt);
 
-	// 대회 취소 처리 · 정산 대사: 그 대회의 정산 내역 전부 (지급 전은 취소로 닫고, 지급 완료는 회수액에 더한다)
+	// 정산 대사: 그 대회의 정산 내역 전부
 	List<Payout> findByRaceId(long raceId);
+
+	// 대회 취소 처리 · 환불 회수: 그 대회의 정산 내역을 상태와 상관없이 잠가서 읽는다 (BUK-76)
+	// 둘이 겹치면 대회 취소의 회수 되돌리기가 아직 커밋되지 않은 회수를 못 보고 넘어가 받지 않은 돈이 청구된다
+	// 트랜잭션의 첫 문장에서 부른다. 일반 조회가 먼저 나가면 잠금을 기다린 뒤에도 옛 값을 읽을 수 있다
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("select p from Payout p where p.raceId = :raceId order by p.id")
+	List<Payout> findForUpdateByRaceId(long raceId);
 
 	// 정산 ID(ST-)로 찾기 (BUK-109): 관리자는 전체에서, 판매자는 자기 정산 내역 안에서만 찾는다. payout_code는 유일하다
 	Optional<Payout> findByPayoutCode(String payoutCode);
