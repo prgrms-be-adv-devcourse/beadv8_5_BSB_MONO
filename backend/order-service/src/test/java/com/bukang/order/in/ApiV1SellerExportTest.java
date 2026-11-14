@@ -128,6 +128,7 @@ class ApiV1SellerExportTest {
 		String csv = body(roster(SELLER_MEMBER_ID, RACE_ID, "  현장 접수 확인  ")
 			.andExpect(status().isOk())
 			.andExpect(header().string("Content-Type", "text/csv;charset=UTF-8"))
+			.andExpect(header().string("Cache-Control", "no-store"))
 			.andExpect(header().string("Content-Disposition",
 				"attachment; filename=\"roster-%d-%s.csv\"".formatted(RACE_ID, LocalDate.now()))));
 

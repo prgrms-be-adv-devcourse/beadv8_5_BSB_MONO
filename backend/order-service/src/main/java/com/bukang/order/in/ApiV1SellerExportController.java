@@ -2,6 +2,7 @@ package com.bukang.order.in;
 
 import java.nio.charset.StandardCharsets;
 
+import org.springframework.http.CacheControl;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -108,7 +109,9 @@ public class ApiV1SellerExportController {
 	}
 
 	private static ResponseEntity<byte[]> csv(SellerExportFile file) {
+		// 개인정보 파일이라 브라우저·중간 서버가 저장하지 않게 한다
 		return ResponseEntity.ok()
+			.cacheControl(CacheControl.noStore())
 			.contentType(TEXT_CSV)
 			.header(HttpHeaders.CONTENT_DISPOSITION,
 				ContentDisposition.attachment().filename(file.fileName()).build().toString())
