@@ -272,10 +272,13 @@ public class ApiV1OrderController {
 				@ExampleObject(name = "없는 주문", value = OrderApiExamples.ORDER_NOT_FOUND),
 				@ExampleObject(name = "주문에 없는 상품", value = OrderApiExamples.ORDER_ITEM_NOT_FOUND)
 			})),
-		@ApiResponse(responseCode = "409", description = "아직 발송하지 않은 키트, 키트가 없는 참가권",
+		@ApiResponse(responseCode = "409",
+			description = "아직 발송하지 않은 키트, 키트가 없는 참가권, 발송 전에 취소된 키트, 취소 처리 중인 참가권",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "발송 전", value = OrderApiExamples.KIT_NOT_SHIPPED),
-				@ExampleObject(name = "키트 없음", value = OrderApiExamples.KIT_NOT_INCLUDED)
+				@ExampleObject(name = "키트 없음", value = OrderApiExamples.KIT_NOT_INCLUDED),
+				@ExampleObject(name = "발송 전에 취소됨", value = OrderApiExamples.KIT_SHIPMENT_CANCELED),
+				@ExampleObject(name = "취소 처리 중", value = OrderApiExamples.KIT_RECEIPT_CANCELING)
 			}))
 	})
 	public ResponseEntity<RsData<OrderItemDto>> confirmKitReceipt(

@@ -302,6 +302,10 @@ public class Order extends BaseIdAndTime {
 			throw new KitNotShippableException(item.getStatus() == OrderItemStatus.PAID
 				? "키트가 없는 참가권입니다." : "아직 발송하지 않은 키트입니다.");
 		}
+		// 환불 결과를 기다리는 취소 중이면 재처리가 환불을 마무리하므로, 받은 키트와 환불이 함께 남지 않게 막는다
+		if (item.isCanceling()) {
+			throw new KitNotShippableException("취소 처리 중인 참가권입니다. 잠시 뒤 주문 내역에서 확인해주세요.");
+		}
 		shipment.confirmReceipt(receivedAt);
 	}
 

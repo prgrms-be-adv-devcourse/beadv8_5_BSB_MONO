@@ -607,6 +607,36 @@ class KitDeliveryTest {
 	}
 
 	@Test
+	@DisplayName("발송 전에 취소한 키트와, 환불 결과를 기다리는 취소 중 참가권의 키트는 수령 확인을 409로 막는다 (BUK-225)")
+	void confirmReceiptRejectedWhenCanceled() throws Exception {
+		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().plusDays(1)));
+		long readyOrderId = paidOrder(MEMBER_ID);
+		long readyItemId = itemIdOf(readyOrderId);
+		mockMvc.perform(post("/api/v1/order/orders/" + readyOrderId + "/items/" + readyItemId + "/cancel")
+				.header("X-Member-Id", MEMBER_ID))
+			.andExpect(status().isOk());
+		confirmReceipt(MEMBER_ID, readyOrderId, readyItemId)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.message").value("발송 전에 취소된 키트입니다."));
+
+		// 보낸 뒤 일정 변경 환불 기간에 취소했는데 예치금 응답을 받지 못해 취소 중으로 남았다
+		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().minusDays(1)));
+		long orderId = paidOrder(MEMBER_ID + 1);
+		long itemId = itemIdOf(orderId);
+		ship(itemId);
+		raceCoursePort.put(StubRaceCoursePort.openCourse(COURSE_ID, RACE_ID, 14, null, LocalDate.now().minusDays(1),
+			LocalDateTime.now()));
+		walletPort.setRefundFails(true);
+		mockMvc.perform(post("/api/v1/order/orders/" + orderId + "/items/" + itemId + "/cancel")
+				.header("X-Member-Id", MEMBER_ID + 1))
+			.andExpect(status().isAccepted());
+		confirmReceipt(MEMBER_ID + 1, orderId, itemId)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.message").value("취소 처리 중인 참가권입니다. 잠시 뒤 주문 내역에서 확인해주세요."));
+		assertThat(shipmentOf(orderId).getReceivedAt()).isNull();
+	}
+
+	@Test
 	@DisplayName("배송 완료 7일이 지나도록 수령 확인이 없으면 배치가 한 번만 자동으로 확인하고, 7일 전이면 두지 않는다 (BUK-225)")
 	void autoConfirmReceiptAfterSevenDays() throws Exception {
 		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().minusDays(1)));

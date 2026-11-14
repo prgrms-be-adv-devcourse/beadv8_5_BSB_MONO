@@ -515,6 +515,15 @@ final class OrderApiExamples {
 		{ "status": 409, "code": "ORDER_KIT_NOT_SHIPPABLE", "message": "키트가 없는 참가권입니다.", "data": null }
 		""";
 
+	static final String KIT_SHIPMENT_CANCELED = """
+		{ "status": 409, "code": "ORDER_KIT_NOT_SHIPPABLE", "message": "발송 전에 취소된 키트입니다.", "data": null }
+		""";
+
+	static final String KIT_RECEIPT_CANCELING = """
+		{ "status": 409, "code": "ORDER_KIT_NOT_SHIPPABLE",
+			"message": "취소 처리 중인 참가권입니다. 잠시 뒤 주문 내역에서 확인해주세요.", "data": null }
+		""";
+
 	private OrderApiExamples() {
 	}
 }

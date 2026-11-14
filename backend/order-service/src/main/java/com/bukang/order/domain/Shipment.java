@@ -276,6 +276,9 @@ public class Shipment extends BaseIdAndTime {
 	// 구매자가 키트를 받았다고 확인한다 (BUK-225). 보낸 키트만이고 배송 중이어도 된다(택배사 조회보다 먼저 받을 수 있다)
 	// 이미 확인했으면 처음 시각을 그대로 둔다. 두 번 눌러도 같은 결과다
 	void confirmReceipt(LocalDateTime receivedAt) {
+		if (status == ShipmentStatus.CANCELED) {
+			throw new KitNotShippableException("발송 전에 취소된 키트입니다.");
+		}
 		if (!isShipped()) {
 			throw new KitNotShippableException("아직 발송하지 않은 키트입니다.");
 		}
