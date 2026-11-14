@@ -31,6 +31,7 @@ import com.bukang.order.out.race.RaceCourseInfo;
 import com.bukang.order.out.race.RaceCoursePort;
 import com.bukang.order.out.seat.SeatHoldPort;
 import com.bukang.order.out.seat.SeatSellResult;
+import com.bukang.order.out.wallet.WalletBusyException;
 import com.bukang.order.out.wallet.WalletPayResult;
 import com.bukang.order.out.wallet.WalletPort;
 
@@ -71,7 +72,7 @@ public class OrderPayUseCase {
 		if (started.alreadyPaid() != null) {
 			return started.alreadyPaid();
 		}
-		return drive(orderId, memberId, started.amount(), started.participationId(), now);
+		return drive(orderId, memberId, started.amount(), started.participationId(), now, false);
 	}
 
 	/**
@@ -84,7 +85,7 @@ public class OrderPayUseCase {
 			.map(order -> new Started(null, order.getBuyerId(), order.getTotalAmount(), order.participationId()))
 			.orElse(null));
 		if (paying != null) {
-			drive(orderId, paying.memberId(), paying.amount(), paying.participationId(), now);
+			drive(orderId, paying.memberId(), paying.amount(), paying.participationId(), now, true);
 		}
 	}
 
@@ -95,11 +96,18 @@ public class OrderPayUseCase {
 	 * 잠금 밖에서 예치금 결제 → 자리 판매 → 확정. 요청과 결제 재확인 배치가 함께 쓴다
 	 * 거절이 확실하면(잔액 부족, 4xx, 연결 거절, 기한 지남) 판매 수와 결제 중을 되돌린다. 결과를 모르면(시간 초과·5xx) 결제 중으로 남긴다
 	 */
-	private OrderPayResult drive(long orderId, long memberId, long amount, long participationId, LocalDateTime now) {
+	private OrderPayResult drive(long orderId, long memberId, long amount, long participationId, LocalDateTime now,
+		boolean recheck) {
 		WalletPayResult payment;
 		try {
 			payment = walletPort.pay(orderId, memberId, amount);
 		} catch (ExternalServiceUnavailableException exception) {
+			throw exception;
+		} catch (WalletBusyException exception) {
+			// 동시 호출 자리를 못 받아 예치금을 부르지 않았다. 요청이면 되돌리고, 재확인 배치면 결제 중으로 두고 다음에 다시 본다
+			if (!recheck) {
+				revert(orderId);
+			}
 			throw exception;
 		} catch (RuntimeException exception) {
 			revert(orderId);

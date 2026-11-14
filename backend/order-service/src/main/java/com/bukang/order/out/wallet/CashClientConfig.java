@@ -19,8 +19,11 @@ public class CashClientConfig {
 	@Bean
 	public HttpWalletAdapter httpWalletAdapter(
 		@Value("${order.clients.cash.base-url}") String baseUrl,
-		@Value("${order.clients.timeout}") Duration timeout
+		@Value("${order.clients.timeout}") Duration timeout,
+		// C안 시제품 추천값(미확정): 예치금 결제 동시 호출 4개, 자리 기다림 1초
+		@Value("${order.clients.cash.max-concurrent-pays:4}") int maxConcurrentPays,
+		@Value("${order.clients.cash.pay-permit-wait:1s}") Duration payPermitWait
 	) {
-		return new HttpWalletAdapter(InternalHttpClients.create(baseUrl, timeout));
+		return new HttpWalletAdapter(InternalHttpClients.create(baseUrl, timeout), maxConcurrentPays, payPermitWait);
 	}
 }

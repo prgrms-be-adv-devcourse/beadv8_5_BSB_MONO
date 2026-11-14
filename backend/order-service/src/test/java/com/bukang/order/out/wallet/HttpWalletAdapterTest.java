@@ -171,6 +171,30 @@ class HttpWalletAdapterTest {
 	}
 
 	@Test
+	@DisplayName("C안 시제품: 동시 결제 자리가 다 차 있으면 기다린 뒤 예치금을 부르지 않고 확실한 실패로 알린다")
+	void payPermitBusy() throws Exception {
+		try (ServerSocket silentServer = new ServerSocket(0)) {
+			HttpWalletAdapter limited = new HttpWalletAdapter(
+				InternalHttpClients.create("http://localhost:" + silentServer.getLocalPort(), Duration.ofSeconds(2)),
+				1, Duration.ofMillis(100));
+			// 첫 결제가 응답을 기다리며 하나뿐인 자리를 쥔다
+			Thread holder = Thread.ofVirtual().start(() -> {
+				try {
+					limited.pay(ORDER_ID, MEMBER_ID, 50_000);
+				} catch (RuntimeException ignored) {
+					// 시간 초과로 끝나도 된다
+				}
+			});
+			Thread.sleep(300);
+
+			assertThatThrownBy(() -> limited.pay(ORDER_ID + 1, MEMBER_ID, 50_000))
+				.isInstanceOf(WalletBusyException.class)
+				.hasMessage(HttpWalletAdapter.UNAVAILABLE_MESSAGE);
+			holder.join();
+		}
+	}
+
+	@Test
 	@DisplayName("오류 본문은 로그에 앞부분만 남긴다 (D의 dev 오류 응답은 스택 트레이스를 통째로 담는다)")
 	void abbreviateBody() {
 		String longBody = "x".repeat(HttpWalletAdapter.LOGGED_BODY_LIMIT + 50);

@@ -126,6 +126,8 @@ for s in $SCENARIOS; do
 		warmup) set_pool 10; set_latency 0; flow warmup 1 1 "$WARMUP_DURATION" ;;
 		s1-1) set_pool 10; set_latency 0; flow s1-1 1 4 "$FLOW_DURATION" ;;
 		s1-5) set_pool 10; set_latency 0; flow s1-5 5 4 "$FLOW_DURATION" ;;
+		# 같은 s1-5를 뒤쪽에서 한 번 더 (예열 직후 환경 탓인지 보려고)
+		s1-5-late) set_pool 10; set_latency 0; flow s1-5-late 5 4 "$FLOW_DURATION" ;;
 		s2) set_pool 10; set_latency 0; burst s2 0 ;;
 		s3) set_pool 10; set_latency 0; burst s3 1 ;;
 		s4-*-flow) ms=${s#s4-}; ms=${ms%-flow}; set_pool 10; set_latency "$ms"; flow "$s" 5 4 "$FLOW_DURATION" ;;

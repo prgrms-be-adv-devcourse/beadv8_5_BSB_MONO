@@ -1,6 +1,9 @@
 package com.bukang.order.out.wallet;
 
 import java.net.ConnectException;
+import java.time.Duration;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 
 import org.springframework.core.NestedExceptionUtils;
 import org.springframework.core.ParameterizedTypeReference;
@@ -16,7 +19,6 @@ import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
 import com.bukang.order.domain.exception.OrderNotPayableException;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -30,7 +32,6 @@ import lombok.extern.slf4j.Slf4j;
  * 등록은 CashClientConfig가 한다 (order.clients.cash.mode=http)
  */
 @Slf4j
-@RequiredArgsConstructor
 public class HttpWalletAdapter implements WalletPort {
 	static final String PAY_PATH = "/internal/v1/cash/payments/{orderId}";
 	static final String CANCEL_PATH = "/internal/v1/cash/payments/{orderId}/cancel";
@@ -45,9 +46,46 @@ public class HttpWalletAdapter implements WalletPort {
 	};
 
 	private final RestClient restClient;
+	// C안 시제품: 예치금 결제 동시 호출 제한(벌크헤드). 잠금 줄이 없어져 막 뜬 예치금에 결제가 한꺼번에 몰리는 것을 막는다
+	private final Semaphore payPermits;
+	private final long payPermitWaitMillis;
+
+	public HttpWalletAdapter(RestClient restClient) {
+		this(restClient, Integer.MAX_VALUE, Duration.ZERO);
+	}
+
+	public HttpWalletAdapter(RestClient restClient, int maxConcurrentPays, Duration payPermitWait) {
+		this.restClient = restClient;
+		this.payPermits = new Semaphore(maxConcurrentPays);
+		this.payPermitWaitMillis = payPermitWait.toMillis();
+	}
 
 	@Override
 	public WalletPayResult pay(long orderId, long memberId, long amount) {
+		acquirePayPermit(orderId);
+		try {
+			return send(orderId, memberId, amount);
+		} finally {
+			payPermits.release();
+		}
+	}
+
+	// 자리를 기다리다 못 받으면 예치금을 부르지 않은 것이 확실하므로 "결과 모름"이 아니라 확실한 실패로 알린다
+	private void acquirePayPermit(long orderId) {
+		boolean acquired;
+		try {
+			acquired = payPermits.tryAcquire(payPermitWaitMillis, TimeUnit.MILLISECONDS);
+		} catch (InterruptedException exception) {
+			Thread.currentThread().interrupt();
+			acquired = false;
+		}
+		if (!acquired) {
+			log.warn("예치금 결제 동시 호출 자리를 받지 못해 결제를 보내지 않았습니다. orderId={}", orderId);
+			throw new WalletBusyException(UNAVAILABLE_MESSAGE);
+		}
+	}
+
+	private WalletPayResult send(long orderId, long memberId, long amount) {
 		RsData<PayBody> response;
 		try {
 			response = restClient.post()
