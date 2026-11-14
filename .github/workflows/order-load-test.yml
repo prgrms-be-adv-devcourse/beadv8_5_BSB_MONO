@@ -31,7 +31,7 @@ on:
     types: [ labeled ]
   # 임시 측정 브랜치 전용 (머지하지 않음): push하면 A=#478 head, B=이 브랜치로 잰다. 값은 아래 PUSH_* 줄로 바꾼다
   push:
-    branches: [ 'measure/tmp-**' ]
+    branches: [ 'measure/tmp-**', 'measure/c-plan-**' ]
 
 permissions:
   contents: read
@@ -50,7 +50,7 @@ jobs:
       REF_A: ${{ inputs.ref_a || (github.event_name == 'push' && github.sha) || github.event.pull_request.head.sha || github.sha }}
       REF_B: ${{ inputs.ref_b }}
       REPEAT: ${{ inputs.repeat || (github.event_name == 'push' && '3') || '3' }}
-      SCENARIOS: ${{ inputs.scenarios || (github.event_name == 'push' && 'warmup cold-hot restart-hot restart-flow') || '' }}
+      SCENARIOS: ${{ inputs.scenarios || (github.event_name == 'push' && 'warmup s1-5 hot-100-flow cold-hot restart-hot restart-flow') || '' }}
       QUICK: ${{ inputs.quick || (github.event_name == 'push' && '0') || '0' }}
       OUT: ${{ github.workspace }}/load-results
     steps:

@@ -147,8 +147,10 @@ set_latency 0
 log "정확성 확인 (결제가 멈출 때까지 기다린 뒤)"
 previous=""
 for _ in $(seq 1 24); do
-	current=$(echo "select concat((select count(*) from cash_payment), '/', (select count(*) from order_order where status = 'PAID'));" | sql)
-	[ "$current" = "$previous" ] && break
+	# C안 시제품: 결제 재확인 배치가 결제 중(PAYING)을 모두 정리할 때까지도 기다린다
+	current=$(echo "select concat((select count(*) from cash_payment), '/', (select count(*) from order_order where status = 'PAID'),
+		'/', (select count(*) from order_order where status = 'PAYING'));" | sql)
+	[ "$current" = "$previous" ] && [ "${current##*/}" = 0 ] && break
 	previous=$current
 	sleep 5
 done

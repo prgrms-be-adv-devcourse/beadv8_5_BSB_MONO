@@ -61,12 +61,102 @@ public class OrderPayUseCase {
 	private final KitOptionPort kitOptionPort;
 
 	/**
-	 * 바깥 트랜잭션 없이 부른다. 상품 HTTP(종목·키트 옵션)와 판매 수 줄 만들기는 잠그기 전에 끝내고,
-	 * 잠금·차감·확정은 한 트랜잭션(transactionTemplate)으로 묶는다
+	 * 바깥 트랜잭션 없이 부른다. 상품 HTTP(종목·키트 옵션)와 판매 수 줄 만들기는 잠그기 전에 끝낸다
+	 * C안 시제품(측정 브랜치): 판매 수 +1·옵션 사본·결제 중 표시를 짧은 트랜잭션으로 커밋해 잠금을 풀고,
+	 * 예치금·자리 판매는 트랜잭션 밖에서 부른 뒤 다시 잠가 확정한다
 	 */
 	public OrderPayResult pay(long memberId, long orderId, List<Long> kitOptionIds, LocalDateTime now) {
 		Prepared prepared = prepare(memberId, orderId, kitOptionIds, now);
-		return transactionTemplate.execute(status -> payLocked(memberId, orderId, prepared, now));
+		Started started = transactionTemplate.execute(status -> startPaying(memberId, orderId, prepared, now));
+		if (started.alreadyPaid() != null) {
+			return started.alreadyPaid();
+		}
+		return drive(orderId, memberId, started.amount(), started.participationId(), now);
+	}
+
+	/**
+	 * 결제 중으로 오래 남은 주문을 다시 확인한다 (결제 재확인 배치). 예치금 결제·자리 판매가 멱등이라 같은 순서로 다시 부른다
+	 * 결과를 또 모르면 결제 중으로 남고 다음 실행에서 다시 본다
+	 */
+	public void recheck(long orderId, LocalDateTime now) {
+		Started paying = transactionTemplate.execute(status -> orderRepository.findById(orderId)
+			.filter(Order::isPaying)
+			.map(order -> new Started(null, order.getBuyerId(), order.getTotalAmount(), order.participationId()))
+			.orElse(null));
+		if (paying != null) {
+			drive(orderId, paying.memberId(), paying.amount(), paying.participationId(), now);
+		}
+	}
+
+	private record Started(OrderPayResult alreadyPaid, long memberId, long amount, long participationId) {
+	}
+
+	/**
+	 * 잠금 밖에서 예치금 결제 → 자리 판매 → 확정. 요청과 결제 재확인 배치가 함께 쓴다
+	 * 거절이 확실하면(잔액 부족, 4xx, 연결 거절, 기한 지남) 판매 수와 결제 중을 되돌린다. 결과를 모르면(시간 초과·5xx) 결제 중으로 남긴다
+	 */
+	private OrderPayResult drive(long orderId, long memberId, long amount, long participationId, LocalDateTime now) {
+		WalletPayResult payment;
+		try {
+			payment = walletPort.pay(orderId, memberId, amount);
+		} catch (ExternalServiceUnavailableException exception) {
+			throw exception;
+		} catch (RuntimeException exception) {
+			revert(orderId);
+			throw exception;
+		}
+		if (payment.outcome() == WalletPayResult.Outcome.INSUFFICIENT_BALANCE) {
+			// 주문과 자리는 그대로 둔다. 기한 안에 충전하고 같은 주문으로 다시 결제한다 (충전은 D PRO-81·82)
+			revert(orderId);
+			throw new InsufficientBalanceException(payment.shortage());
+		}
+		SeatSellResult sold;
+		try {
+			sold = seatHoldPort.sell(participationId);
+		} catch (ExternalServiceUnavailableException exception) {
+			throw exception;
+		} catch (RuntimeException exception) {
+			walletPort.cancelPayment(orderId, memberId);
+			revert(orderId);
+			throw exception;
+		}
+		if (sold == SeatSellResult.EXPIRED) {
+			// 차감은 됐는데 자리가 기한을 넘겼다. 돈을 돌려주고 결제를 거절한다. 주문은 만료 정리가 EXPIRED로 끝낸다
+			walletPort.cancelPayment(orderId, memberId);
+			revert(orderId);
+			throw OrderNotPayableException.deadlinePassed("결제 기한이 지나 결제하지 못했습니다. 빠져나간 예치금은 돌려드렸습니다.");
+		}
+		return transactionTemplate.execute(status -> confirm(orderId, memberId, now));
+	}
+
+	private OrderPayResult confirm(long orderId, long memberId, LocalDateTime now) {
+		Order order = orderRepository.findByIdForUpdate(orderId)
+			.orElseThrow(() -> new OrderNotFoundException("존재하지 않는 주문입니다."));
+		// 요청과 배치가 함께 확정하면 뒤쪽은 이미 결제한 것으로 돌려준다
+		if (order.isPaid()) {
+			return new OrderPayResult(order.toDto(), true);
+		}
+		if (!order.isPaying()) {
+			// 다른 쪽이 되돌린 뒤에 차감됐다(일어나지 않아야 함). 빠진 돈을 돌려준다
+			walletPort.cancelPayment(orderId, memberId);
+			throw new OrderNotPayableException("결제 상태가 바뀌었습니다. 다시 시도해주세요.");
+		}
+		Participation participation = participationRepository.findByIdForUpdate(order.participationId())
+			.orElseThrow(() -> new ParticipationNotFoundException("존재하지 않는 참가 신청입니다."));
+		// 키트가 있으면 이 때 참가 신청의 배송지로 발송 대기 배송을 만든다 (BUK-6)
+		order.markPaid(now, participation.getParticipant().getShippingAddress());
+		participation.markConfirmed(now);
+		return new OrderPayResult(order.toDto(), false);
+	}
+
+	// 판매 수 -1, 옵션 사본 지우기, 결제 중 → 결제 대기. 이미 확정·되돌린 주문은 그대로 둔다
+	private void revert(long orderId) {
+		transactionTemplate.executeWithoutResult(status -> orderRepository.findByIdForUpdate(orderId)
+			.filter(Order::isPaying)
+			.ifPresent(order -> {
+				kitOptionSaleUseCase.unreserve(order.participationId());
+				order.revertPaying();
+			}));
 	}
 
 	/**
@@ -116,7 +206,7 @@ public class OrderPayUseCase {
 	private record Prepared(RaceCourseInfo course, List<KitOption> kitOptions) {
 	}
 
-	private OrderPayResult payLocked(long memberId, long orderId, Prepared prepared, LocalDateTime now) {
+	private Started startPaying(long memberId, long orderId, Prepared prepared, LocalDateTime now) {
 		// 주문을 먼저 잠근다. 같은 주문의 결제 요청과 만료 정리 배치가 주문 → 참가 신청 순서로 줄을 선다
 		Order order = orderRepository.findByIdForUpdate(orderId)
 			.orElseThrow(() -> new OrderNotFoundException("존재하지 않는 주문입니다."));
@@ -125,7 +215,7 @@ public class OrderPayUseCase {
 		}
 		// 앞 요청이 이미 결제했으면 다시 차감하지 않고 그대로 돌려준다 (같은 결제 요청 두 번)
 		if (order.isPaid()) {
-			return new OrderPayResult(order.toDto(), true);
+			return new Started(new OrderPayResult(order.toDto(), true), memberId, 0, 0);
 		}
 		order.checkPayable(now);
 		// 참가 신청 확인도 차감 전에 끝낸다. 차감 뒤에 실패하면 돈만 빠지고 주문은 CREATED로 남는다
@@ -140,27 +230,11 @@ public class OrderPayUseCase {
 		if (participation.getPartyId() != null) {
 			checkPartyPayable(participation, prepared.course(), memberId);
 		}
-		// 다른 확인을 모두 끝낸 뒤, 예치금 바로 전에 판매 수를 센다. 늘린 판매 수 줄은 이 트랜잭션이 끝날 때까지 잠겨
-		// 같은 옵션의 다른 결제가 기다리므로(예치금·자리 판매 HTTP 동안), 잠그는 시간을 줄이려고 맨 뒤에 둔다
+		// 판매 수를 세고 옵션 사본을 남긴 뒤 결제 중으로 커밋한다. 판매 수 줄 잠금은 예치금 HTTP 전에 풀린다
 		kitOptionSaleUseCase.reserve(prepared.kitOptions());
-
-		WalletPayResult payment = walletPort.pay(order.getId(), memberId, order.getTotalAmount());
-		if (payment.outcome() == WalletPayResult.Outcome.INSUFFICIENT_BALANCE) {
-			// 주문과 자리는 그대로 둔다. 기한 안에 충전하고 같은 주문으로 다시 결제한다 (충전은 D PRO-81·82)
-			throw new InsufficientBalanceException(payment.shortage());
-		}
-
-		if (seatHoldPort.sell(order.participationId()) == SeatSellResult.EXPIRED) {
-			// 차감은 됐는데 자리가 기한을 넘겼다. 돈을 돌려주고 결제를 거절한다. 주문은 만료 정리가 EXPIRED로 끝낸다
-			walletPort.cancelPayment(order.getId(), memberId);
-			throw OrderNotPayableException.deadlinePassed("결제 기한이 지나 결제하지 못했습니다. 빠져나간 예치금은 돌려드렸습니다.");
-		}
-
-		// 키트가 있으면 이 때 참가 신청의 배송지로 발송 대기 배송을 만든다 (BUK-6)
-		order.markPaid(now, participation.getParticipant().getShippingAddress());
-		participation.markConfirmed(now);
 		kitOptionSaleUseCase.saveChoices(participation.getId(), prepared.kitOptions());
-		return new OrderPayResult(order.toDto(), false);
+		order.startPaying();
+		return new Started(null, memberId, order.getTotalAmount(), order.participationId());
 	}
 
 	/**

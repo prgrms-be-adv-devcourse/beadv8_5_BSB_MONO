@@ -185,7 +185,7 @@ public class Order extends BaseIdAndTime {
 	// kitShippingAddress는 참가 신청의 배송지다. 키트가 없는 종목은 신청서에 배송지를 남기지 않아 null이다
 	// (ParticipationApplyUseCase.checkShippingAddress가 신청·수정 때 키트 여부에 맞춰 넣고 뺀다)
 	public void markPaid(LocalDateTime paidAt, ShippingAddress kitShippingAddress) {
-		if (status != OrderStatus.CREATED) {
+		if (status != OrderStatus.PAYING) {
 			throw new OrderNotPayableException(
 				"결제할 수 없는 주문입니다(현재 상태: %s).".formatted(status.getLabel()));
 		}
@@ -195,6 +195,27 @@ public class Order extends BaseIdAndTime {
 		if (kitShippingAddress != null) {
 			shipments.add(Shipment.ready(this, items, kitShippingAddress));
 		}
+	}
+
+	// C안 시제품: 판매 수를 센 트랜잭션에서 결제 중으로 바꾸고 커밋한다. 결제 가능 확인(checkPayable)은 부르는 쪽이 먼저 한다
+	public void startPaying() {
+		if (status != OrderStatus.CREATED) {
+			throw new OrderNotPayableException(
+				"결제할 수 없는 주문입니다(현재 상태: %s).".formatted(status.getLabel()));
+		}
+		this.status = OrderStatus.PAYING;
+	}
+
+	// C안 시제품: 예치금이 거절했거나 자리 기한이 지나 결제 중을 풀고 결제 대기로 되돌린다
+	public void revertPaying() {
+		if (status != OrderStatus.PAYING) {
+			throw new IllegalStateException("결제 중인 주문만 되돌릴 수 있습니다(현재 상태: %s).".formatted(status.getLabel()));
+		}
+		this.status = OrderStatus.CREATED;
+	}
+
+	public boolean isPaying() {
+		return status == OrderStatus.PAYING;
 	}
 
 	public OrderItem findItem(long orderItemId) {

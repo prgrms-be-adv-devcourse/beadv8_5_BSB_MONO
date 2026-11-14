@@ -1,5 +1,8 @@
 package com.bukang.order.out.wallet;
 
+import java.net.ConnectException;
+
+import org.springframework.core.NestedExceptionUtils;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -61,6 +64,11 @@ public class HttpWalletAdapter implements WalletPort {
 			}
 			throw contractError("결제", orderId, exception);
 		} catch (RestClientException exception) {
+			// C안 시제품: 연결 자체가 거절됐으면 D가 받지 않은 것이 확실하다. 결제 중을 바로 되돌리도록 "모름"과 나눈다
+			if (NestedExceptionUtils.getRootCause(exception) instanceof ConnectException) {
+				log.warn("예치금 서비스에 연결하지 못해 결제를 보내지 못했습니다. orderId={}", orderId);
+				throw new ExternalServiceRejectedException(UNAVAILABLE_MESSAGE);
+			}
 			// 응답을 못 받았으니 D가 차감했는지 모른다. 주문은 결제 대기로 남고, 같은 주문 ID로 다시 결제하면 된다
 			log.warn("예치금 서비스에 결제를 요청했지만 결과를 받지 못했습니다. orderId={}, cause={}", orderId, exception.toString());
 			throw new ExternalServiceUnavailableException(PAY_UNKNOWN_MESSAGE);

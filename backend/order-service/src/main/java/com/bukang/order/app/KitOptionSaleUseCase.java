@@ -154,6 +154,12 @@ public class KitOptionSaleUseCase {
 			.toList());
 	}
 
+	// C안 시제품: 결제 중을 되돌린다. 늘린 판매 수를 줄이고 미리 남긴 옵션 사본을 지운다 (주문을 잠근 트랜잭션 안에서)
+	public void unreserve(long participationId) {
+		release(participationId);
+		participationKitOptionRepository.deleteByParticipationId(participationId);
+	}
+
 	// 결제한 참가권이 취소됐다. 참가 신청을 확정 → 취소로 바꾸는 트랜잭션 안에서 부른다
 	public void release(long participationId) {
 		Set<Long> ids = participationKitOptionRepository.findByParticipationIdOrderByIdAsc(participationId).stream()

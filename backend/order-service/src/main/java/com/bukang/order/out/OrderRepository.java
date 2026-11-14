@@ -35,6 +35,14 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 		""")
 	List<Long> findOverdueIds(@Param("now") LocalDateTime now, @Param("afterId") long afterId, Pageable pageable);
 
+	// C안 시제품: 결제 중으로 오래 남은 주문 (응답을 잃은 결제). 결제 재확인 배치가 주문마다 다시 확인한다
+	@Query("""
+		select o.id from Order o
+		where o.status = com.bukang.order.domain.OrderStatus.PAYING and o.modifyDate <= :before
+		order by o.id
+		""")
+	List<Long> findStalePayingIds(@Param("before") LocalDateTime before, Pageable pageable);
+
 	// 취소된 대회의 환불 대상이 될 수 있는 주문 ID (PRO-135). afterId보다 큰 ID를 순서대로 읽어 끝까지 한 번씩 본다
 	// 결제 대기(CREATED)도 넣는다. 결제가 이 주문을 잠근 채 끝나 가는 중이면, 잠근 뒤에 결제 완료로 보고 환불하기 위해서다
 	@Query("""

@@ -12,6 +12,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum OrderStatus {
 	CREATED("결제 대기"),
+	// C안 시제품(측정 브랜치): 판매 수를 센 뒤 잠금을 풀고 예치금·자리 판매를 부르는 동안. 확정하면 PAID, 거절되면 CREATED로 돌아간다
+	PAYING("결제 중"),
 	PAID("결제 완료"),
 	PARTIAL_CANCELED("부분 취소"),
 	CANCELED("취소"),
