@@ -15,9 +15,6 @@ dependencies {
 	implementation("org.flywaydb:flyway-mysql")
 	implementation("org.springframework.boot:spring-boot-starter-kafka") // kafka (알림 요청 받기)
 	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.0") //swagger and openapi
-	// 지표(Micrometer)를 모으고 /actuator/prometheus로 연다. Prometheus가 이 주소를 주기적으로 가져간다(Pull)
-	implementation("org.springframework.boot:spring-boot-starter-actuator")
-	runtimeOnly("io.micrometer:micrometer-registry-prometheus")
 
 	developmentOnly("org.springframework.boot:spring-boot-devtools") // dev-tools
 	// App 실행시 compose.yml 인프라 자동 실행 (bootRun/IDE 실행에만 포함, 운영 jar에서는 제외)
