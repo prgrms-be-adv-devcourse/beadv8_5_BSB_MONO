@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.bukang.order.dto.OrderCreateRequestDto;
 import com.bukang.order.dto.OrderDto;
+import com.bukang.order.dto.OrderItemDto;
 import com.bukang.order.dto.OrderPageDto;
 
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,7 @@ public class OrderFacade {
 	private final OrderQueryUseCase orderQueryUseCase;
 	private final OrderPayUseCase orderPayUseCase;
 	private final OrderCancelUseCase orderCancelUseCase;
+	private final KitDeliveryUseCase kitDeliveryUseCase;
 
 	@Transactional
 	public OrderCreateResult create(OrderCreateRequestDto request, String idempotencyKey, long memberId) {
@@ -48,5 +50,11 @@ public class OrderFacade {
 	@Transactional(propagation = Propagation.NOT_SUPPORTED)
 	public OrderCancelUseCase.CancelResult cancelItem(long orderId, long orderItemId, long memberId) {
 		return orderCancelUseCase.cancel(memberId, orderId, orderItemId, LocalDateTime.now());
+	}
+
+	// 트랜잭션은 KitDeliveryUseCase가 주문을 잠그며 연다
+	@Transactional(propagation = Propagation.NOT_SUPPORTED)
+	public OrderItemDto confirmKitReceipt(long orderId, long orderItemId, long memberId) {
+		return kitDeliveryUseCase.confirmReceipt(memberId, orderId, orderItemId, LocalDateTime.now());
 	}
 }

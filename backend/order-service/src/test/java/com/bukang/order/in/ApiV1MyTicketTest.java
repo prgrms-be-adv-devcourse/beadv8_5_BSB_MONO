@@ -199,7 +199,16 @@ class ApiV1MyTicketTest {
 		tickets(MEMBER, false)
 			.andExpect(jsonPath("$.data.tickets[0].kitDeliveryStatus").value("SHIPPING"))
 			.andExpect(jsonPath("$.data.tickets[0].kitCarrier").value(DeliveryCarrier.CJ_LOGISTICS.getLabel()))
-			.andExpect(jsonPath("$.data.tickets[0].kitTrackingNumber").value("123456789012"));
+			.andExpect(jsonPath("$.data.tickets[0].kitTrackingNumber").value("123456789012"))
+			.andExpect(jsonPath("$.data.tickets[0].kitReceivedAt").doesNotExist());
+
+		// 구매자가 수령을 확인하면 확인 시각이 나온다 (BUK-225)
+		long orderItemId = transactionTemplate.execute(status ->
+			orderRepository.findById(orderId).orElseThrow().getItems().getFirst().getId());
+		mockMvc.perform(post("/api/v1/order/orders/" + orderId + "/items/" + orderItemId + "/kit-receipt")
+				.header("X-Member-Id", MEMBER))
+			.andExpect(status().isOk());
+		tickets(MEMBER, false).andExpect(jsonPath("$.data.tickets[0].kitReceivedAt").isNotEmpty());
 	}
 
 	@Test

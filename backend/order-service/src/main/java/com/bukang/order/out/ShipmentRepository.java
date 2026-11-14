@@ -110,12 +110,25 @@ public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
 		@Param("trackingNumber") String trackingNumber, @Param("trackedAt") LocalDateTime trackedAt,
 		@Param("nextTrackingAt") LocalDateTime nextTrackingAt);
 
+	// 배송 완료한 지 7일이 지나도록 수령 확인이 없는 배송을 확인한 것으로 채운다 (BUK-225 자동 수령 확인)
+	// 비어 있을 때만 채워 한 번만 바뀐다. 이 칸만 고치므로 주문을 잠그지 않는다. 배송 완료 배송은 조회 배치·판매자가 더 바꾸지 않는다
+	@Modifying(clearAutomatically = true)
+	@Query("""
+		update Shipment s set s.receivedAt = :now
+		where s.status = com.bukang.order.domain.ShipmentStatus.DELIVERED
+			and s.receivedAt is null
+			and s.deliveredAt <= :deliveredBefore
+		""")
+	int confirmReceiptDeliveredBefore(@Param("deliveredBefore") LocalDateTime deliveredBefore,
+		@Param("now") LocalDateTime now);
+
 	// 주문들의 배송에 든 주문 상품 (내 참가권 목록, BUK-181). idx_shipment_order로 찾는다
 	// 재발송이 생기면 한 상품이 여러 배송에 들 수 있어, 배송 ID 순으로 돌려주고 부르는 쪽이 마지막 것을 쓴다 (Order.findKitShipment와 같음)
 	@Query("select new com.bukang.order.out.ShipmentRepository$TicketShipment(si.orderItemId, s.status, s.carrier,"
-		+ " s.trackingNumber) from ShipmentItem si join si.shipment s where s.order.id in :orderIds order by s.id")
+		+ " s.trackingNumber, s.receivedAt) from ShipmentItem si join si.shipment s where s.order.id in :orderIds order by s.id")
 	List<TicketShipment> findTicketShipments(@Param("orderIds") Collection<Long> orderIds);
 
-	record TicketShipment(long orderItemId, ShipmentStatus status, String carrier, String trackingNumber) {
+	record TicketShipment(long orderItemId, ShipmentStatus status, String carrier, String trackingNumber,
+		LocalDateTime receivedAt) {
 	}
 }

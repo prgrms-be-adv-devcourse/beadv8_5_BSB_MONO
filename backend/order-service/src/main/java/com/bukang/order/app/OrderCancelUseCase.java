@@ -115,7 +115,7 @@ public class OrderCancelUseCase {
 	private CancelTarget readTarget(long memberId, long orderId, long orderItemId) {
 		Order order = findOwnedOrder(orderRepository.findById(orderId), memberId);
 		OrderItem item = order.findItem(orderItemId);
-		item.checkCancelable();
+		order.checkCancelable(item);
 		return new CancelTarget(item.getRaceCourseId(), item.getRaceDate().toLocalDate());
 	}
 

@@ -1,5 +1,6 @@
 package com.bukang.order.app;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.EnumMap;
@@ -27,6 +28,7 @@ import com.bukang.order.domain.exception.KitNotShippableException;
 import com.bukang.order.domain.exception.KitShippingInfoInvalidException;
 import com.bukang.order.domain.exception.OrderAccessDeniedException;
 import com.bukang.order.domain.exception.OrderItemNotFoundException;
+import com.bukang.order.domain.exception.OrderNotFoundException;
 import com.bukang.order.domain.exception.RaceCourseNotFoundException;
 import com.bukang.order.dto.DeliveryCarrierDto;
 import com.bukang.order.dto.KitOptionChoiceDto;
@@ -57,6 +59,9 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 @RequiredArgsConstructor
 public class KitDeliveryUseCase {
+	// 배송 완료 뒤 이만큼 지나도 구매자가 누르지 않으면 자동으로 수령 확인한다 (시안 M20 11/8 결정)
+	public static final Duration AUTO_RECEIPT_AFTER = Duration.ofDays(7);
+
 	private final OrderRepository orderRepository;
 	private final OrderItemRepository orderItemRepository;
 	private final ShipmentRepository shipmentRepository;
@@ -128,6 +133,26 @@ public class KitDeliveryUseCase {
 			order.completeKitDelivery(item, now);
 			return order.toItemDto(item);
 		});
+	}
+
+	// 구매자가 자기 키트 수령을 확인한다 (BUK-225). 배송 중·배송 완료일 때 되고, 이미 확인했으면 처음 시각 그대로 답한다
+	public OrderItemDto confirmReceipt(long memberId, long orderId, long orderItemId, LocalDateTime now) {
+		return transactionTemplate.execute(status -> {
+			Order order = orderRepository.findByIdForUpdate(orderId)
+				.orElseThrow(() -> new OrderNotFoundException("존재하지 않는 주문입니다."));
+			if (!order.isOwnedBy(memberId)) {
+				throw new OrderAccessDeniedException("본인의 주문만 수령 확인할 수 있습니다.");
+			}
+			OrderItem item = order.findItem(orderItemId);
+			order.confirmKitReceipt(item, now);
+			return order.toItemDto(item);
+		});
+	}
+
+	// 배송 완료 7일이 지난 키트를 자동으로 수령 확인한다 (KitReceiptScheduler). @return 이번에 확인한 배송 수
+	@Transactional
+	public int confirmOverdueReceipts(LocalDateTime now) {
+		return shipmentRepository.confirmReceiptDeliveredBefore(now.minus(AUTO_RECEIPT_AFTER), now);
 	}
 
 	// 판매자의 키트 주문 목록 한 페이지 (최근 주문 상품부터). raceId·status가 null이면 거르지 않는다

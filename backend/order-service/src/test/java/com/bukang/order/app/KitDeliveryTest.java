@@ -573,6 +573,62 @@ class KitDeliveryTest {
 	}
 
 	@Test
+	@DisplayName("구매자는 배송 중에도 키트 수령을 확인할 수 있고, 두 번 눌러도 처음 시각 그대로다. 확인한 참가권은 취소할 수 없다 (BUK-225)")
+	void confirmReceiptWhileShipping() throws Exception {
+		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().minusDays(1)));
+		long orderId = paidOrder();
+		long itemId = itemIdOf(orderId);
+		confirmReceipt(MEMBER_ID, orderId, itemId)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.message").value("아직 발송하지 않은 키트입니다."));
+		ship(itemId);
+		confirmReceipt(MEMBER_ID + 1, orderId, itemId).andExpect(status().isForbidden());
+		findOrder(orderId).andExpect(jsonPath("$.data.items[0].kitReceivedAt").isEmpty());
+
+		confirmReceipt(MEMBER_ID, orderId, itemId)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.kitDeliveryStatus").value("SHIPPING"))
+			.andExpect(jsonPath("$.data.kitReceivedAt").isNotEmpty());
+		LocalDateTime receivedAt = shipmentOf(orderId).getReceivedAt();
+		assertThat(receivedAt).isNotNull();
+		confirmReceipt(MEMBER_ID, orderId, itemId).andExpect(status().isOk());
+		assertThat(shipmentOf(orderId).getReceivedAt()).isEqualTo(receivedAt);
+		findOrder(orderId).andExpect(jsonPath("$.data.items[0].kitReceivedAt").isNotEmpty());
+
+		// 일정이 바뀌어 다시 환불할 수 있는 기간이어도, 수령을 확인했으면 환불을 부르지 않고 409로 막는다
+		raceCoursePort.put(StubRaceCoursePort.openCourse(COURSE_ID, RACE_ID, 14, null, LocalDate.now().minusDays(1),
+			LocalDateTime.now()));
+		mockMvc.perform(post("/api/v1/order/orders/" + orderId + "/items/" + itemId + "/cancel")
+				.header("X-Member-Id", MEMBER_ID))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.message").value("키트 수령을 확인한 참가권은 취소할 수 없습니다."));
+		assertThat(walletPort.refundCalls()).isEmpty();
+		findOrder(orderId).andExpect(jsonPath("$.data.items[0].status").value("PAID"));
+	}
+
+	@Test
+	@DisplayName("배송 완료 7일이 지나도록 수령 확인이 없으면 배치가 한 번만 자동으로 확인하고, 7일 전이면 두지 않는다 (BUK-225)")
+	void autoConfirmReceiptAfterSevenDays() throws Exception {
+		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().minusDays(1)));
+		LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
+		long overdueOrderId = paidOrder(MEMBER_ID);
+		long recentOrderId = paidOrder(MEMBER_ID + 1);
+		long shippingOrderId = paidOrder(MEMBER_ID + 2);
+		for (long orderId : List.of(overdueOrderId, recentOrderId, shippingOrderId)) {
+			ship(itemIdOf(orderId));
+		}
+		kitDeliveryUseCase.completeDelivery(SELLER_ID, itemIdOf(overdueOrderId), now.minusDays(7));
+		kitDeliveryUseCase.completeDelivery(SELLER_ID, itemIdOf(recentOrderId), now.minusDays(7).plusMinutes(1));
+
+		assertThat(kitDeliveryUseCase.confirmOverdueReceipts(now)).isEqualTo(1);
+		assertThat(shipmentOf(overdueOrderId).getReceivedAt()).isEqualTo(now);
+		assertThat(shipmentOf(recentOrderId).getReceivedAt()).isNull();
+		assertThat(shipmentOf(shippingOrderId).getReceivedAt()).isNull();
+		assertThat(kitDeliveryUseCase.confirmOverdueReceipts(now.plusSeconds(30))).isZero();
+		assertThat(shipmentOf(overdueOrderId).getReceivedAt()).isEqualTo(now);
+	}
+
+	@Test
 	@DisplayName("택배사가 비었거나 목록에 없거나, 송장 번호가 비었거나 너무 길면 400으로 막고 배송 준비로 남긴다")
 	void shipWithInvalidShippingInfo() throws Exception {
 		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().minusDays(1)));
@@ -1002,6 +1058,11 @@ class KitDeliveryTest {
 
 	private OrderItemDto ship(long orderItemId) {
 		return kitDeliveryUseCase.ship(SELLER_ID, orderItemId, CARRIER_ID, TRACKING_NUMBER, LocalDateTime.now());
+	}
+
+	private ResultActions confirmReceipt(long memberId, long orderId, long orderItemId) throws Exception {
+		return mockMvc.perform(post("/api/v1/order/orders/" + orderId + "/items/" + orderItemId + "/kit-receipt")
+			.header("X-Member-Id", memberId));
 	}
 
 	private ResultActions findOrder(long orderId) throws Exception {

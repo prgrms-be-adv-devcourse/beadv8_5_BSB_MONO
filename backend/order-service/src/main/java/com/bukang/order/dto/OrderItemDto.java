@@ -31,6 +31,8 @@ public class OrderItemDto {
 	// 키트를 발송한 시각, 배송 완료로 바꾼 시각. 그 단계 전이면 null
 	private final LocalDateTime kitShippedAt;
 	private final LocalDateTime kitDeliveredAt;
+	// 구매자가 키트 수령을 확인한 시각 (BUK-225). 확인 전이면 null. 확인한 참가권은 취소할 수 없다
+	private final LocalDateTime kitReceivedAt;
 	// Delivery Tracker에서 받아 온 배송 상태와 이동 기록 (BUK-55). 발송 전이거나 자동 조회하지 않는 배송이면 null
 	private final KitTrackingDto kitTracking;
 }
