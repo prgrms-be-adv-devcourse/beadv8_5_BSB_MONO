@@ -283,6 +283,22 @@
           "$ref": "#/components/schemas/MyTicketPageDto"
         }
       }
+    },
+    "findSellerOrders": {
+      "200": {
+        "wrapper": "RsDataSellerOrderPageDto",
+        "data": {
+          "$ref": "#/components/schemas/SellerOrderPageDto"
+        }
+      }
+    },
+    "findSellerParties": {
+      "200": {
+        "wrapper": "RsDataSellerPartyPageDto",
+        "data": {
+          "$ref": "#/components/schemas/SellerPartyPageDto"
+        }
+      }
     }
   },
   "schemas": {
@@ -1914,6 +1930,183 @@
           "items": {
             "$ref": "#/components/schemas/KitTrackingEventDto"
           }
+        }
+      }
+    },
+    "SellerOrderDto": {
+      "type": "object",
+      "description": "판매자 주문 목록의 한 줄 (주문 상품 = 참가권 1장). 연락처·배송지는 없다",
+      "properties": {
+        "orderItemId": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "orderId": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "orderNo": {
+          "type": "string"
+        },
+        "orderedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "paidAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time",
+          "description": "결제 전이면 null"
+        },
+        "raceId": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "raceCourseId": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "courseName": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "ORDERED",
+            "PAID",
+            "CANCELING",
+            "CANCELED"
+          ]
+        },
+        "participantName": {
+          "type": "string"
+        },
+        "tshirtSize": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "옛 티셔츠 사이즈. kitOptions가 비어 있을 때만 쓴다"
+        },
+        "kitOptions": {
+          "type": "array",
+          "description": "결제 때 고른 키트 옵션. 키트 옵션이 없으면 빈 목록",
+          "items": {
+            "$ref": "#/components/schemas/KitOptionChoiceDto"
+          }
+        },
+        "partyId": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int32",
+          "description": "파티로 신청했으면 파티 ID, 개인 신청이면 null"
+        }
+      }
+    },
+    "SellerOrderPageDto": {
+      "type": "object",
+      "description": "판매자 주문 목록 한 페이지",
+      "properties": {
+        "orders": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/SellerOrderDto"
+          }
+        },
+        "page": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "size": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "totalElements": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "totalPages": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "SellerPartyDto": {
+      "type": "object",
+      "description": "판매자 파티별 내역의 한 줄. 신청 인원 = 결제 인원 + 결제하지 않은 자리",
+      "properties": {
+        "partyId": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "crewId": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "raceCourseId": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "RECRUITING",
+            "PAYING",
+            "PAID",
+            "CLOSED"
+          ]
+        },
+        "appliedCount": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "paidCount": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "unpaidCount": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "paymentDueAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time",
+          "description": "결제 진행 중(PAYING)일 때만 의미가 있다. 그 밖은 끝남"
+        }
+      }
+    },
+    "SellerPartyPageDto": {
+      "type": "object",
+      "description": "판매자 파티별 내역 한 페이지",
+      "properties": {
+        "parties": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/SellerPartyDto"
+          }
+        },
+        "page": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "size": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "totalElements": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "totalPages": {
+          "type": "integer",
+          "format": "int32"
         }
       }
     }
