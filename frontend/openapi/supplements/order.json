@@ -115,6 +115,14 @@
         }
       }
     },
+    "confirmKitReceipt": {
+      "200": {
+        "wrapper": "RsDataOrderItemDto",
+        "data": {
+          "$ref": "#/components/schemas/OrderItemDto"
+        }
+      }
+    },
     "findById": {
       "200": {
         "wrapper": "RsDataParticipationDto",
@@ -492,6 +500,14 @@
             "CANCELED"
           ]
         },
+        "canceledAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time",
+          "description": "취소를 마친 시각 (BUK-229). 취소가 아니면(취소 중 포함) null"
+        },
         "kitDeliveryStatus": {
           "type": [
             "string",
@@ -529,6 +545,14 @@
             "null"
           ],
           "format": "date-time"
+        },
+        "kitReceivedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time",
+          "description": "키트 수령을 확인한 시각 (BUK-225). 확인 전이면 null. 확인한 참가권은 취소할 수 없다"
         },
         "kitTracking": {
           "anyOf": [
@@ -1688,6 +1712,14 @@
           ],
           "description": "주문 상품 상태. 주문 전이면 null"
         },
+        "canceledAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time",
+          "description": "신청을 취소한 시각 (BUK-229). 결제 뒤 취소는 환불까지 마친 시각이다. 취소가 아니면(취소 중 포함) null"
+        },
         "amount": {
           "type": [
             "integer",
@@ -1728,6 +1760,14 @@
             "null"
           ],
           "description": "송장 번호. 발송 전이면 null"
+        },
+        "kitReceivedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time",
+          "description": "키트 수령을 확인한 시각 (BUK-225). 확인 전이면 null. 확인한 참가권은 취소할 수 없다"
         },
         "partyId": {
           "type": [

@@ -382,7 +382,8 @@ final class OrderApiExamples {
 						"unitPrice": 50000,
 						"quantity": 1,
 						"amount": 50000,
-						"status": "CANCELED"
+						"status": "CANCELED",
+						"canceledAt": "2026-10-12T10:05:00"
 					}
 				]
 			}
@@ -414,7 +415,8 @@ final class OrderApiExamples {
 						"unitPrice": 50000,
 						"quantity": 1,
 						"amount": 50000,
-						"status": "CANCELING"
+						"status": "CANCELING",
+						"canceledAt": null
 					}
 				]
 			}
@@ -468,6 +470,58 @@ final class OrderApiExamples {
 
 	static final String PAYOUT_STARTED = """
 		{ "status": 409, "code": "ORDER_PAYOUT_STARTED", "message": "정산이 시작된 참가권이라 취소할 수 없습니다.", "data": null }
+		""";
+
+	static final String KIT_RECEIVED_CANCEL = """
+		{ "status": 409, "code": "ORDER_ITEM_NOT_CANCELABLE",
+			"message": "키트 수령을 확인한 참가권은 취소할 수 없습니다.", "data": null }
+		""";
+
+	static final String KIT_RECEIPT_SUCCESS = """
+		{
+			"status": 200,
+			"message": "키트 수령을 확인했습니다.",
+			"data": {
+				"id": 1,
+				"participationId": 1,
+				"raceCourseId": 1,
+				"sellerId": 1,
+				"itemName": "2026 서울 하프 마라톤 10K",
+				"unitPrice": 50000,
+				"quantity": 1,
+				"amount": 50000,
+				"status": "PAID",
+				"canceledAt": null,
+				"kitDeliveryStatus": "DELIVERED",
+				"kitCarrier": "CJ대한통운",
+				"kitTrackingNumber": "684912345678",
+				"kitShippedAt": "2026-11-05T10:00:00",
+				"kitDeliveredAt": "2026-11-07T14:20:00",
+				"kitReceivedAt": "2026-11-08T12:00:00",
+				"kitTracking": null
+			}
+		}
+		""";
+
+	static final String KIT_RECEIPT_NOT_OWNER = """
+		{ "status": 403, "code": "ORDER_FORBIDDEN", "message": "본인의 주문만 수령 확인할 수 있습니다.", "data": null }
+		""";
+
+	static final String KIT_NOT_SHIPPED = """
+		{ "status": 409, "code": "ORDER_KIT_NOT_SHIPPABLE", "message": "아직 발송하지 않은 키트입니다.", "data": null }
+		""";
+
+	static final String KIT_NOT_INCLUDED = """
+		{ "status": 409, "code": "ORDER_KIT_NOT_SHIPPABLE", "message": "키트가 없는 참가권입니다.", "data": null }
+		""";
+
+	static final String KIT_SHIPMENT_CANCELED = """
+		{ "status": 409, "code": "ORDER_KIT_NOT_SHIPPABLE", "message": "발송 전에 취소된 키트입니다.", "data": null }
+		""";
+
+	static final String KIT_RECEIPT_CANCELING = """
+		{ "status": 409, "code": "ORDER_KIT_NOT_SHIPPABLE",
+			"message": "취소 처리 중인 참가권입니다. 잠시 뒤 주문 내역에서 확인해주세요.", "data": null }
 		""";
 
 	private OrderApiExamples() {

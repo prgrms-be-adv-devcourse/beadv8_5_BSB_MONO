@@ -98,6 +98,10 @@ public class Shipment extends BaseIdAndTime {
 	@Column(name = "canceled_at")
 	private LocalDateTime canceledAt;
 
+	// 구매자가 키트 수령을 확인한 시각 (BUK-225). 구매자가 누르거나, 배송 완료 7일 뒤 배치가 채운다. 채운 뒤에는 취소할 수 없다
+	@Column(name = "received_at")
+	private LocalDateTime receivedAt;
+
 	// 마지막으로 받아 온 배송 상태와 택배사가 붙인 상태 이름, 그 상태의 시각 (BUK-55). 발송하면 아직 조회되지 않음이다
 	// 화면은 이 값을 보여 주므로 Delivery Tracker가 멈춰도 주문 화면은 뜬다
 	@Enumerated(STRING)
@@ -267,6 +271,24 @@ public class Shipment extends BaseIdAndTime {
 		this.status = ShipmentStatus.DELIVERED;
 		this.deliveredAt = deliveredAt;
 		this.nextTrackingAt = null;
+	}
+
+	// 구매자가 키트를 받았다고 확인한다 (BUK-225). 보낸 키트만이고 배송 중이어도 된다(택배사 조회보다 먼저 받을 수 있다)
+	// 이미 확인했으면 처음 시각을 그대로 둔다. 두 번 눌러도 같은 결과다
+	void confirmReceipt(LocalDateTime receivedAt) {
+		if (status == ShipmentStatus.CANCELED) {
+			throw new KitNotShippableException("발송 전에 취소된 키트입니다.");
+		}
+		if (!isShipped()) {
+			throw new KitNotShippableException("아직 발송하지 않은 키트입니다.");
+		}
+		if (this.receivedAt == null) {
+			this.receivedAt = receivedAt;
+		}
+	}
+
+	public boolean isReceived() {
+		return receivedAt != null;
 	}
 
 	void checkDeliverable() {

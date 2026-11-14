@@ -16,6 +16,7 @@ import com.bukang.common.shared.order.event.OrderItemRefundReason;
 import com.bukang.order.domain.event.OrderExpiredEvent;
 import com.bukang.order.domain.event.OrderRaceCanceledEvent;
 import com.bukang.order.domain.exception.KitNotShippableException;
+import com.bukang.order.domain.exception.OrderItemNotCancelableException;
 import com.bukang.order.domain.exception.OrderItemNotFoundException;
 import com.bukang.order.domain.exception.OrderNotPayableException;
 import com.bukang.order.dto.AdminOrderSummaryDto;
@@ -206,7 +207,17 @@ public class Order extends BaseIdAndTime {
 
 	// 주문 상품 취소를 시작한다(결제 완료 → 취소 중). 주문 상태와 배송은 환불이 확인돼 마무리할 때(cancelItem) 바꾼다 (BUK-9)
 	public void startCancelItem(OrderItem item, LocalDateTime requestedAt, OrderItemRefundReason reason) {
+		checkCancelable(item);
 		item.startCancel(requestedAt, reason);
+	}
+
+	// 구매자가 취소할 수 있는 주문 상품인지. 키트 수령을 확인한 참가권은 취소(환불)할 수 없다 (BUK-225, 시안 M20 11/8 결정)
+	public void checkCancelable(OrderItem item) {
+		item.checkCancelable();
+		Shipment shipment = findKitShipment(item);
+		if (shipment != null && shipment.isReceived()) {
+			throw new OrderItemNotCancelableException("키트 수령을 확인한 참가권은 취소할 수 없습니다.");
+		}
 	}
 
 	// 예치금이 환불을 거절해 취소 중을 결제 완료로 되돌린다. 주문 상태·배송은 시작 때 바꾸지 않았으므로 그대로다
@@ -282,6 +293,20 @@ public class Order extends BaseIdAndTime {
 				? "키트가 없는 참가권입니다." : "아직 발송하지 않은 키트입니다.");
 		}
 		shipment.completeDelivery(deliveredAt);
+	}
+
+	// 구매자가 키트 수령을 확인한다 (BUK-225). 보낸 키트만이고, 참가권 상태는 보지 않는다(보낸 뒤 대회가 취소돼도 키트는 받는다)
+	public void confirmKitReceipt(OrderItem item, LocalDateTime receivedAt) {
+		Shipment shipment = findKitShipment(item);
+		if (shipment == null) {
+			throw new KitNotShippableException(item.getStatus() == OrderItemStatus.PAID
+				? "키트가 없는 참가권입니다." : "아직 발송하지 않은 키트입니다.");
+		}
+		// 환불 결과를 기다리는 취소 중이면 재처리가 환불을 마무리하므로, 받은 키트와 환불이 함께 남지 않게 막는다
+		if (item.isCanceling()) {
+			throw new KitNotShippableException("취소 처리 중인 참가권입니다. 잠시 뒤 주문 내역에서 확인해주세요.");
+		}
+		shipment.confirmReceipt(receivedAt);
 	}
 
 	// 판매자가 보낸 키트의 택배사·송장 번호를 고친다 (BUK-90). 참가권 상태는 보지 않는다(보낸 뒤 취소돼도 키트는 가고 있다)
