@@ -497,7 +497,8 @@
             "string",
             "null"
           ],
-          "format": "date-time"
+          "format": "date-time",
+          "description": "취소를 마친 시각 (BUK-229). 취소가 아니면(취소 중 포함) null"
         },
         "kitDeliveryStatus": {
           "type": [
@@ -1700,7 +1701,8 @@
             "string",
             "null"
           ],
-          "format": "date-time"
+          "format": "date-time",
+          "description": "취소를 마친 시각 (BUK-229). 취소가 아니면(취소 중 포함) null"
         },
         "amount": {
           "type": [
