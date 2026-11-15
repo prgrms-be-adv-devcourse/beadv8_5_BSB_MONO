@@ -40,6 +40,7 @@ import lombok.extern.slf4j.Slf4j;
  * 매일 04:00 지급 배치와 함께 돈다
  * 1. 청구 만들기: 갚을 돈이 남은 판매자 × 대회 중 최종 정산을 만든 곳(상계가 끝남), 대회 취소는 취소 다음 날부터
  *    대회 취소는 주문이 환불을 모두 끝냈다고 알린 대회만 만든다 (PayoutRaceCancelUseCase.markRefunded)
+ *    1차가 지급 결과를 기다리는 동안(지급 중 · 지급 확인 필요)에도 만들지 않는다
  *    최종 정산 전에는 상계로 금액이 바뀌므로 만들지 않는다
  * 2. 판매자 알림: 입금 확인 전까지 매일 한 번, 은행별 입금 계좌와 금액을 알린다
  * 3. 관리자 알림: 상계 실패일을 1일째로 셀 때 30일째에 한 번 알린다
@@ -223,11 +224,14 @@ public class PayoutClaimUseCase {
 		if (finalPayout.isPresent()) {
 			return Optional.of(finalPayout.get().getSettledAt().toLocalDate());
 		}
-		boolean refunded = payoutRepository.findFirstBySellerIdAndRaceIdAndPayoutStageOrderByIdAsc(
+		// 1차가 지급 결과를 기다리는 동안에는 만들지 않는다. 거절되면 회수가 되돌아가 갚을 돈이 0이 되는데,
+		// 청구는 닫을 방법이 없어 받은 적 없는 돈을 갚으라는 알림이 계속 나간다 (PR #467 리뷰)
+		boolean ready = payoutRepository.findFirstBySellerIdAndRaceIdAndPayoutStageOrderByIdAsc(
 				target.sellerId(), target.raceId(), PayoutStage.일차_정산)
 			.filter(Payout::isRaceRefunded)
+			.filter(first -> !first.getStatus().isAwaitingPayResult())
 			.isPresent();
-		if (!refunded) {
+		if (!ready) {
 			return Optional.empty();
 		}
 		return payoutRecoveryRepository.findFirstBySellerIdAndRaceIdAndReasonType(target.sellerId(),

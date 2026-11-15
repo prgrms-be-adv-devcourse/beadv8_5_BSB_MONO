@@ -25,6 +25,7 @@ import com.bukang.payout.app.PayoutCreateStepUseCase.FirstPayoutSource;
 import com.bukang.payout.domain.BusinessDayCalendar;
 import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutAccount;
+import com.bukang.payout.domain.PayoutClaim;
 import com.bukang.payout.domain.PayoutHold;
 import com.bukang.payout.domain.PayoutItem;
 import com.bukang.payout.domain.PayoutRecordType;
@@ -474,6 +475,47 @@ class PayoutLedgerScenarioTest {
 			.revert(first.getId(), FIRST_PAY_DATE.atTime(4, 2), "캐시 서비스 거절");
 		entityManager.flush();
 		entityManager.clear();
+	}
+
+	// 1차가 지급 중일 때 대회가 취소되고, 주문이 10장을 모두 환불하고 환불 완료를 알렸다
+	private Payout firstPayingWhenRaceCanceledAndRefunded() {
+		createFirst();
+		Payout first = payout(PayoutStage.일차_정산);
+		first.startPaying(FIRST_PAY_DATE.atTime(4, 0));
+		LocalDateTime canceledAt = FIRST_PAY_DATE.atTime(10, 0);
+		raceCancelUseCase.cancelRace(RACE_ID, canceledAt);
+		requestRaceCancelRecoveries(range(101, 110), canceledAt);
+		raceCancelUseCase.markRefunded(RACE_ID, canceledAt);
+		entityManager.flush();
+		return first;
+	}
+
+	@Test
+	@DisplayName("TC-CLAIM-8-1 1차가 지급 중이면 환불 완료 다음 날이 지나도 대회 취소 청구가 생기지 않고, 거절로 닫힌 뒤에도 생기지 않는다")
+	void noClaimWhileFirstPayingNorAfterRejected() {
+		Payout first = firstPayingWhenRaceCanceledAndRefunded();
+
+		claimUseCase.run(FIRST_PAY_DATE.plusDays(1), FIRST_PAY_DATE.plusDays(1).atTime(4, 0));
+		assertThat(payoutClaimRepository.findAll()).isEmpty();
+
+		new PayoutPayStepUseCase(payoutRepository, raceCancelUseCase, payoutCreateFailureRepository)
+			.revert(first.getId(), FIRST_PAY_DATE.plusDays(2).atTime(4, 0), "캐시 서비스 거절");
+		claimUseCase.run(FIRST_PAY_DATE.plusDays(3), FIRST_PAY_DATE.plusDays(3).atTime(4, 0));
+
+		assertThat(payoutClaimRepository.findAll()).isEmpty();
+		assertThat(balance(PayoutAccount.갚을_돈)).isZero();
+	}
+
+	@Test
+	@DisplayName("TC-CLAIM-8-2 1차가 지급 중에 대회가 취소돼도 지급이 성공하면 다음 배치에서 200,000원 청구가 생긴다")
+	void claimAfterFirstPayingSucceeds() {
+		Payout first = firstPayingWhenRaceCanceledAndRefunded();
+		new PayoutPayStepUseCase(payoutRepository, raceCancelUseCase, payoutCreateFailureRepository)
+			.complete(first.getId(), FIRST_PAY_DATE.plusDays(1).atTime(4, 0));
+
+		claimUseCase.run(FIRST_PAY_DATE.plusDays(2), FIRST_PAY_DATE.plusDays(2).atTime(4, 0));
+
+		assertThat(payoutClaimRepository.findAll()).extracting(PayoutClaim::getAmount).containsExactly(200_000L);
 	}
 
 	@Test
