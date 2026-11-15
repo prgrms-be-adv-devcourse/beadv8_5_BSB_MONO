@@ -31,7 +31,7 @@ on:
     types: [ labeled ]
   # 임시 측정 브랜치 전용 (머지하지 않음): push하면 A=#478 head, B=이 브랜치로 잰다. 값은 아래 PUSH_* 줄로 바꾼다
   push:
-    branches: [ 'measure/tmp-**' ]
+    branches: [ 'measure/tmp-**', 'measure/c-plan-**' ]
 
 permissions:
   contents: read
