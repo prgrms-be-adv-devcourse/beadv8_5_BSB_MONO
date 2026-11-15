@@ -26,11 +26,13 @@ management:
         enabled: false
 
 ---
-# 여기부터는 dev 프로필(bootRun)에서만 적용된다. 운영에는 추적·로그 주소가 들어가지 않고, 운영 jar에는 OTel도 없다
+# 여기부터는 monitoring 프로필을 켤 때만 적용된다: SPRING_PROFILES_ACTIVE=dev,monitoring
+# 모니터링 컨테이너(Alloy)를 띄우지 않고 이 주소만 있으면 몇 초마다 "Failed to export" 오류가 쌓여, 쓸 때만 켠다
+# 운영에는 이 프로필을 켜지 않고, 운영 jar에는 OTel도 없다
 spring:
   config:
     activate:
-      on-profile: dev
+      on-profile: monitoring
   kafka:
     # 보낼 때 traceparent 헤더를 붙이고 받을 때 읽어, 서비스 사이(Kafka) 추적을 하나로 잇는다
     template:

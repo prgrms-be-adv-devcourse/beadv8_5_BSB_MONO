@@ -1,0 +1,19 @@
+# 모니터링을 쓸 때만 켠다: SPRING_PROFILES_ACTIVE=dev,monitoring
+# common의 observability.yaml monitoring 부분과 같은 내용이다. gateway는 common을 쓰지 않아 직접 둔다
+# 모니터링 컨테이너(Alloy)를 띄우지 않고 이 주소만 있으면 몇 초마다 "Failed to export" 오류가 쌓여, 쓸 때만 켠다
+management:
+  tracing:
+    sampling:
+      # 로컬은 요청을 전부 추적한다 (기본 0.1 = 10개 중 1개만)
+      probability: 1.0
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          # 이 주소가 있을 때만 span을 내보낸다. 맥에서 띄운 Alloy로 보낸다
+          endpoint: http://localhost:4318/v1/traces
+    logging:
+      export:
+        otlp:
+          # 이 주소가 있을 때만 로그를 내보낸다(observability-dev의 appender도 이 주소를 보고 붙는다)
+          endpoint: http://localhost:4318/v1/logs
