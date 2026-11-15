@@ -99,6 +99,7 @@ docker exec bukang-db sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -e "SHOW DATA
 docker exec bukang-elasticsearch curl -s localhost:9200 | grep '"number"'                  # 새 서버는 9.4.5. 이보다 높으면 멈추고 상의
 jq -r '.auths["ghcr.io"].auth' ~/.docker/config.json | base64 -d | cut -d: -f1            # GHCR 토큰 주인 (토큰은 출력하지 않음)
 sudo iptables -t nat -S POSTROUTING | grep MASQUERADE                                      # NAT 규칙
+systemctl is-enabled crewrun                                                               # 부팅 때 compose를 띄우는 서비스 (PR #192). enabled면 4단계에서 끔
 ```
 
 - GHCR 토큰 주인에게 만료일을 묻습니다. 곧 만료되면 새 토큰(`read:packages`)으로 `/crewrun/registry/GHCR_AUTH`를 바꿔 둡니다.
@@ -150,6 +151,10 @@ docker compose --profile app stop                         # 인프라까지 모�
 # 서버·Docker가 다시 시작해도 옛 컨테이너가 살아나지 않게 함 (되돌릴 때 원래대로 바꿈)
 docker inspect --format '{{.Name}} {{.HostConfig.RestartPolicy.Name}}' $(docker ps -aq --filter name=bukang-) > ~/migration/restart-policy.txt
 docker update --restart=no $(docker ps -aq --filter name=bukang-)
+# 부팅 때 docker compose up을 실행하는 systemd 서비스(crewrun.service)도 끔
+# 켜 두면 서버가 재부팅될 때 옛 compose가 다시 떠서 Traefik과 80·443을 다투고, 옛 DB도 다시 뜸
+sudo systemctl disable crewrun
+systemctl is-enabled crewrun                              # disabled (0단계에서 없던 서비스면 not-found)
 sudo ss -ltnp '( sport = :80 or sport = :443 )'           # 아무것도 없어야 함
 ```
 
@@ -239,6 +244,7 @@ sudo iptables -t nat -S POSTROUTING | grep -q -- '-s 10.0.0.0/16.*MASQUERADE' \
 cd ~/workspace/beadv8_1_BSB_MONO/backend
 while read -r name policy; do docker update --restart="$policy" "${name#/}"; done < ~/migration/restart-policy.txt
 docker compose --profile app start
+sudo systemctl enable crewrun                             # 0단계에서 enabled였을 때만
 ```
 
 - 그 뒤 GitHub에서 **app-cd**를 다시 켭니다(Enable workflow).
@@ -248,5 +254,6 @@ docker compose --profile app start
 ## 전환 뒤 (BUK-220 D8)
 
 - `k8s-cd.yml`에 main push 트리거를 켭니다. `app-cd.yml`(compose 배포)과 셀프호스티드 러너를 정리합니다.
+- 메인 EC2의 `crewrun.service`(꺼 둔 상태)를 지우고, 저장소의 `backend/docker/systemd/crewrun.service`를 남길지 정합니다.
 - 메인 EC2 보안 그룹의 22번 등 더는 쓰지 않는 규칙을 정리할지 정합니다(SSM Session Manager로 접속 가능).
 - 옛 compose 컨테이너·볼륨과 `~/migration` 백업은 며칠 운영해 본 뒤 지울지 정합니다.
