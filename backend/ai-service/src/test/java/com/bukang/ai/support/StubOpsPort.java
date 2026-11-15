@@ -17,8 +17,8 @@ public class StubOpsPort implements OpsPort {
 	public long waitingInquiries;
 	public long adminWaitingInquiries;
 	public List<LocalDateTime> pendingRequestedAts = List.of();
-	public LocalDate holdsFrom;
-	public LocalDate holdsTo;
+	// holds를 부른 기간들 (시작 날, 끝 날)
+	public final List<LocalDate[]> holdsCalls = new ArrayList<>();
 	public boolean unavailable;
 
 	public void reset() {
@@ -27,6 +27,7 @@ public class StubOpsPort implements OpsPort {
 		kitPage = new KitPage(List.of(), 0);
 		payoutSummary = new PayoutSummary(null, 0, 0);
 		holds = List.of();
+		holdsCalls.clear();
 		waitingInquiries = 0;
 		adminWaitingInquiries = 0;
 		pendingRequestedAts = List.of();
@@ -54,9 +55,11 @@ public class StubOpsPort implements OpsPort {
 	@Override
 	public List<Hold> holds(long memberId, LocalDate from, LocalDate to) {
 		called(memberId);
-		holdsFrom = from;
-		holdsTo = to;
-		return holds;
+		holdsCalls.add(new LocalDate[] {from, to});
+		// 정산 API처럼 보류한 날이 기간 안인 것만 준다
+		return holds.stream()
+			.filter(hold -> !hold.heldAt().toLocalDate().isBefore(from) && !hold.heldAt().toLocalDate().isAfter(to))
+			.toList();
 	}
 
 	@Override
