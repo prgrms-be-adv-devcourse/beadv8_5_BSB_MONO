@@ -36,6 +36,8 @@ if (!STAGE) {
 // 기다리는 사람 = 대기열에 실제로 들어간 사람. 이들이 3초마다 한 번씩 물으므로 대기열 조회 = 사람 ÷ 3
 STAGE.waiters = STAGE.enterRate * STAGE.enterSec;
 STAGE.pollRate = Math.round(STAGE.waiters / POLL_INTERVAL_SECONDS);
+// 실행할 때 구매 시작 번호를 바꿀 수 있다 (다시 돌릴 때 이미 신청한 회원을 피하려고)
+STAGE.buyerFirstNo = Number(__ENV.BUYER_FIRST_NO || STAGE.buyerFirstNo);
 if (tokens.length < STAGE.buyerFirstNo - 1 + STAGE.buyRate * STAGE.buySec) {
 	throw new Error('토큰 수가 모자랍니다. login.js의 COUNT를 늘리세요');
 }
