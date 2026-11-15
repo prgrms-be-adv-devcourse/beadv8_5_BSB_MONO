@@ -172,6 +172,7 @@ final class ParticipationApiExamples {
 						"orderStatus": "PAID",
 						"orderItemId": 7,
 						"orderItemStatus": "PAID",
+						"canceledAt": null,
 						"amount": 50000,
 						"kitOptions": [
 							{ "kitOptionId": 11, "name": "T-shirt", "value": "L" }
@@ -203,6 +204,7 @@ final class ParticipationApiExamples {
 						"orderStatus": null,
 						"orderItemId": null,
 						"orderItemStatus": null,
+						"canceledAt": null,
 						"amount": null,
 						"kitOptions": [],
 						"kitDeliveryStatus": null,

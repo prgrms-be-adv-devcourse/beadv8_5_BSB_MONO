@@ -492,6 +492,14 @@
             "CANCELED"
           ]
         },
+        "canceledAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time",
+          "description": "취소를 마친 시각 (BUK-229). 취소가 아니면(취소 중 포함) null"
+        },
         "kitDeliveryStatus": {
           "type": [
             "string",
@@ -1687,6 +1695,14 @@
             "CANCELED"
           ],
           "description": "주문 상품 상태. 주문 전이면 null"
+        },
+        "canceledAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time",
+          "description": "신청을 취소한 시각 (BUK-229). 결제 뒤 취소는 환불까지 마친 시각이다. 취소가 아니면(취소 중 포함) null"
         },
         "amount": {
           "type": [
