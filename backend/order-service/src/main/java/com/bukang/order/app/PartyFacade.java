@@ -27,8 +27,9 @@ public class PartyFacade {
 
 	public PartyCreatedDto create(PartyCreateRequestDto request, long memberId) {
 		PartyUseCase.Created created = partyUseCase.create(memberId, request.getCrewId(), request.getRaceCourseId(),
-			request.getParticipant().toParticipantInfo(), LocalDateTime.now());
-		return new PartyCreatedDto(PartyDto.of(created.party()), created.participation().toDto());
+			request.getParticipant().toParticipantInfo(), request.getInvitedMemberIds(), LocalDateTime.now());
+		return new PartyCreatedDto(PartyDto.of(created.party()), created.participation().toDto(),
+			created.invitedMemberIds());
 	}
 
 	public PartyDto regenerateJoinLink(long partyId, long memberId) {

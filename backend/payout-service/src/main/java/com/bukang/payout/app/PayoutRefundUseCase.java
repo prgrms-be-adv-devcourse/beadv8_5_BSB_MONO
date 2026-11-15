@@ -10,6 +10,7 @@ import com.bukang.common.shared.order.event.OrderItemRefundReason;
 import com.bukang.common.shared.order.event.OrderItemRefundedEvent;
 import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutRecovery;
+import com.bukang.payout.domain.PayoutRecoveryReason;
 import com.bukang.payout.domain.PayoutStage;
 import com.bukang.payout.domain.PayoutStatus;
 import com.bukang.payout.out.PayoutRepository;
@@ -37,13 +38,8 @@ public class PayoutRefundUseCase {
 			throw new IllegalArgumentException("환불 사유가 없는 알림입니다. orderItemId=%d, raceId=%d"
 				.formatted(event.orderItemId(), event.raceId()));
 		}
-		// 대회 취소 일괄 환불은 대회 취소 알림(order.race.cancel)으로 대회당 한 번 회수한다. 여기서도 남기면 두 번 청구된다
-		if (event.reason() == OrderItemRefundReason.RACE_CANCELED) {
-			log.info("대회 취소 환불이라 회수를 남기지 않습니다. raceId={}, orderItemId={}", event.raceId(),
-				event.orderItemId());
-			return Optional.empty();
-		}
-		Optional<Payout> first = payoutRepository.findByRaceId(event.raceId()).stream()
+		// 첫 문장에서 그 대회 정산 내역을 잠근다. 대회 취소 처리와 한 번에 하나만 돌고, 잠금 뒤 조회가 최신 값을 읽는다 (BUK-76)
+		Optional<Payout> first = payoutRepository.findForUpdateByRaceId(event.raceId()).stream()
 			.filter(payout -> payout.getPayoutStage() == PayoutStage.일차_정산)
 			.filter(payout -> payout.getStatus() != PayoutStatus.취소)
 			.findFirst();
@@ -52,7 +48,10 @@ public class PayoutRefundUseCase {
 				event.raceId(), event.orderItemId());
 			return Optional.empty();
 		}
-		return payoutLedgerUseCase.recoverScheduleChange(first.get().getSellerId(), event.raceId(),
-			event.raceCourseId(), event.orderItemId(), event.price(), now);
+		PayoutRecoveryReason reason = event.reason() == OrderItemRefundReason.RACE_CANCELED
+			? PayoutRecoveryReason.대회_취소
+			: PayoutRecoveryReason.일정_변경;
+		return payoutLedgerUseCase.recoverRefund(first.get().getSellerId(), event.raceId(),
+			event.raceCourseId(), event.orderItemId(), event.price(), reason, now);
 	}
 }

@@ -1,0 +1,5 @@
+# 크루런 앱은 모두 이 네임스페이스에 둔다. k3s 기본 구성(Traefik 등)은 kube-system에 있다
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: crewrun
