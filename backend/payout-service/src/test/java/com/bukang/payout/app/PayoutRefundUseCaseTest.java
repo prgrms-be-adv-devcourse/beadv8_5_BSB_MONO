@@ -25,11 +25,13 @@ import com.bukang.payout.app.PayoutCreateStepUseCase.FinalPayoutSource;
 import com.bukang.payout.app.PayoutCreateStepUseCase.FirstPayoutSource;
 import com.bukang.payout.domain.BusinessDayCalendar;
 import com.bukang.payout.domain.Payout;
+import com.bukang.payout.domain.PayoutAccount;
 import com.bukang.payout.domain.PayoutRecovery;
 import com.bukang.payout.domain.PayoutRecoveryReason;
 import com.bukang.payout.domain.PayoutRecoveryStatus;
 import com.bukang.payout.domain.PayoutStage;
 import com.bukang.payout.domain.exception.PayoutRecoveryConflictException;
+import com.bukang.payout.out.PayoutCreateFailureRepository;
 import com.bukang.payout.out.PayoutHoldRepository;
 import com.bukang.payout.out.PayoutItemRepository;
 import com.bukang.payout.out.PayoutRecoveryRepository;
@@ -67,21 +69,38 @@ class PayoutRefundUseCaseTest {
 	private PayoutRecoveryRepository payoutRecoveryRepository;
 
 	@Autowired
+	private PayoutCreateFailureRepository payoutCreateFailureRepository;
+
+	@Autowired
 	private EntityManager entityManager;
 
 	private PayoutCreateStepUseCase creator;
 	private PayoutRefundUseCase refundUseCase;
 	private PayoutRaceCancelUseCase raceCancelUseCase;
+	private PayoutLedgerUseCase ledgerUseCase;
+	private PayoutPayStepUseCase payStepUseCase;
 
 	@BeforeEach
 	void setUp() {
 		BusinessDayCalendar calendar = new BusinessDayCalendar();
-		PayoutLedgerUseCase ledgerUseCase = new PayoutLedgerUseCase(payoutRepository, payoutItemRepository,
-			payoutRecoveryRepository);
+		ledgerUseCase = new PayoutLedgerUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository);
 		creator = new PayoutCreateStepUseCase(payoutRepository, calendar, ledgerUseCase,
 			new PayoutHoldUseCase(payoutRepository, payoutHoldRepository, calendar));
 		refundUseCase = new PayoutRefundUseCase(payoutRepository, ledgerUseCase);
 		raceCancelUseCase = new PayoutRaceCancelUseCase(payoutRepository, ledgerUseCase);
+		payStepUseCase = new PayoutPayStepUseCase(payoutRepository, raceCancelUseCase, payoutCreateFailureRepository);
+	}
+
+	// 대회 취소로 주문이 환불한 참가권마다 환불 알림을 받는다 (BUK-76)
+	private void raceCancelRefunds(long from, long to) {
+		for (long orderItemId = from; orderItemId <= to; orderItemId++) {
+			refundUseCase.recordRefund(refunded(orderItemId, PRICE, OrderItemRefundReason.RACE_CANCELED), REFUNDED_AT);
+		}
+	}
+
+	private long balance(PayoutAccount account) {
+		entityManager.flush();
+		return ledgerUseCase.balance(SELLER_ID, RACE_ID, account);
 	}
 
 	private void createFirst() {
@@ -165,21 +184,121 @@ class PayoutRefundUseCaseTest {
 	}
 
 	@Test
-	@DisplayName("TC-REV1-1 대회 취소로 101~110번이 일괄 환불돼 사유가 대회 취소인 알림 10개가 와도 회수는 대회 취소 회수 1건뿐이다")
-	void raceCancelRefundsAreIgnored() {
+	@DisplayName("TC-REV1-1 1차 지급 뒤 대회 취소로 101~110번 환불 알림 10개가 오면 참가권마다 대회 취소 회수 20,000원, 합 200,000원이 생긴다")
+	void raceCancelRefundsAreRecoveredPerTicket() {
 		createFirst();
 		first().pay(REFUNDED_AT.minusDays(20));
 
 		raceCancelUseCase.cancelRace(RACE_ID, REFUNDED_AT);
-		for (long orderItemId = 101; orderItemId <= 110; orderItemId++) {
-			refundUseCase.recordRefund(refunded(orderItemId, PRICE, OrderItemRefundReason.RACE_CANCELED),
-				REFUNDED_AT);
-		}
+		raceCancelRefunds(101, 110);
 
-		// 환불 알림으로 생긴 회수 0건, 대회 취소 알림으로 생긴 회수 1건(남은 1차 정산금 200,000원)
 		assertThat(recoveries())
-			.extracting(PayoutRecovery::getReasonType, PayoutRecovery::getOrderItemId, PayoutRecovery::getAmount)
-			.containsExactly(tuple(PayoutRecoveryReason.대회_취소, null, 200_000L));
+			.extracting(PayoutRecovery::getReasonType, PayoutRecovery::getAmount, PayoutRecovery::getStatus)
+			.hasSize(10)
+			.containsOnly(tuple(PayoutRecoveryReason.대회_취소, 20_000L, PayoutRecoveryStatus.회수_요청));
+		assertThat(recoveries()).extracting(PayoutRecovery::getRecoveryKey).contains("O101:대회_취소");
+		assertThat(balance(PayoutAccount.갚을_돈)).isEqualTo(200_000L);
+	}
+
+	@Test
+	@DisplayName("TC-BUK76-1 환불이 취소 중으로 남은 109·110번은 알림이 오지 않아, 환불된 8장 160,000원만 회수한다")
+	void cancelingTicketsAreNotRecovered() {
+		createFirst();
+		first().pay(REFUNDED_AT.minusDays(20));
+
+		raceCancelUseCase.cancelRace(RACE_ID, REFUNDED_AT);
+		raceCancelRefunds(101, 108);
+
+		assertThat(recoveries()).hasSize(8);
+		assertThat(balance(PayoutAccount.갚을_돈)).isEqualTo(160_000L);
+	}
+
+	@Test
+	@DisplayName("TC-BUK76-2 같은 참가권의 대회 취소 환불 알림이 두 번 와도 회수는 하나다")
+	void duplicateRaceCancelRefundIsRecoveredOnce() {
+		createFirst();
+		first().pay(REFUNDED_AT.minusDays(20));
+
+		raceCancelRefunds(108, 108);
+		raceCancelRefunds(108, 108);
+
+		assertThat(recoveries()).hasSize(1);
+		assertThat(balance(PayoutAccount.갚을_돈)).isEqualTo(20_000L);
+	}
+
+	@Test
+	@DisplayName("TC-BUK76-3 (M1) 일정 변경으로 이미 회수한 참가권에 대회 취소 환불 알림이 와도 회수를 또 만들지 않는다")
+	void scheduleChangeAndRaceCancelDoNotDoubleRecover() {
+		createFirst();
+		first().pay(REFUNDED_AT.minusDays(20));
+		refundUseCase.recordRefund(refunded(108, PRICE, OrderItemRefundReason.SCHEDULE_CHANGED), REFUNDED_AT);
+
+		raceCancelUseCase.cancelRace(RACE_ID, REFUNDED_AT);
+		raceCancelRefunds(101, 110);
+
+		// 108번은 일정 변경 회수 하나뿐이고, 나머지 9장은 대회 취소 회수다. 합은 10장 몫 200,000원 그대로다
+		assertThat(recoveries()).hasSize(10)
+			.filteredOn(recovery -> recovery.getOrderItemId() == 108L)
+			.extracting(PayoutRecovery::getReasonType)
+			.containsExactly(PayoutRecoveryReason.일정_변경);
+		assertThat(balance(PayoutAccount.갚을_돈)).isEqualTo(200_000L);
+	}
+
+	@Test
+	@DisplayName("TC-BUK76-4 1차 지급 전 대회 취소 메시지가 먼저 오면, 뒤에 온 환불 알림은 1차가 닫혀 회수를 만들지 않는다")
+	void refundsAfterFirstClosedAreIgnored() {
+		createFirst();
+
+		raceCancelUseCase.cancelRace(RACE_ID, REFUNDED_AT);
+		raceCancelRefunds(101, 110);
+
+		assertThat(recoveries()).isEmpty();
+		assertThat(balance(PayoutAccount.갚을_돈)).isZero();
+	}
+
+	@Test
+	@DisplayName("TC-BUK76-5 1차 지급 전 환불 알림이 먼저 와 상계로 끝난 뒤 대회 취소로 1차가 닫히면, 회수를 모두 되돌려 청구는 0원이다")
+	void refundsBeforeRaceCancelAreRevertedWhenFirstCloses() {
+		createFirst();
+		raceCancelRefunds(101, 110);
+		assertThat(recoveries()).extracting(PayoutRecovery::getStatus).containsOnly(PayoutRecoveryStatus.회수_완료);
+
+		raceCancelUseCase.cancelRace(RACE_ID, REFUNDED_AT.plusMinutes(1));
+
+		assertThat(recoveries()).extracting(PayoutRecovery::getStatus).containsOnly(PayoutRecoveryStatus.회수_취소);
+		assertThat(balance(PayoutAccount.갚을_돈)).isZero();
+		assertThat(balance(PayoutAccount.선금)).isZero();
+	}
+
+	@Test
+	@DisplayName("TC-BUK76-6 1차 지급 중에 환불 알림으로 회수가 요청 상태로 생긴 뒤 지급이 거절되면, 회수를 되돌려 청구는 0원이다")
+	void requestedRecoveriesAreRevertedWhenPayIsRejected() {
+		createFirst();
+		Payout first = first();
+		first.startPaying(REFUNDED_AT.minusMinutes(2));
+		raceCancelUseCase.cancelRace(RACE_ID, REFUNDED_AT.minusMinutes(1));
+		raceCancelRefunds(101, 110);
+		assertThat(recoveries()).extracting(PayoutRecovery::getStatus).containsOnly(PayoutRecoveryStatus.회수_요청);
+
+		payStepUseCase.revert(first().getId(), REFUNDED_AT.plusMinutes(1), "캐시 서비스 거절");
+
+		assertThat(recoveries()).extracting(PayoutRecovery::getStatus).containsOnly(PayoutRecoveryStatus.회수_취소);
+		assertThat(balance(PayoutAccount.갚을_돈)).isZero();
+		assertThat(balance(PayoutAccount.선금)).isZero();
+	}
+
+	@Test
+	@DisplayName("TC-BUK76-7 1차 지급 중에 생긴 회수는 지급이 성공하면 그대로 남아 200,000원을 청구한다")
+	void requestedRecoveriesStayWhenPaySucceeds() {
+		createFirst();
+		first().startPaying(REFUNDED_AT.minusMinutes(2));
+		raceCancelUseCase.cancelRace(RACE_ID, REFUNDED_AT.minusMinutes(1));
+		raceCancelRefunds(101, 110);
+
+		payStepUseCase.complete(first().getId(), REFUNDED_AT.plusMinutes(1));
+
+		assertThat(recoveries()).extracting(PayoutRecovery::getStatus).containsOnly(PayoutRecoveryStatus.회수_요청);
+		assertThat(balance(PayoutAccount.갚을_돈)).isEqualTo(200_000L);
 	}
 
 	@Test

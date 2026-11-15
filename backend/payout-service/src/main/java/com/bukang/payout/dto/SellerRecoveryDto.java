@@ -1,8 +1,10 @@
 package com.bukang.payout.dto;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import com.bukang.payout.domain.Payout;
+import com.bukang.payout.domain.PayoutClaim;
 import com.bukang.payout.domain.PayoutRecovery;
 import com.bukang.payout.domain.PayoutRecoveryReason;
 import com.bukang.payout.domain.PayoutRecoveryStatus;
@@ -29,12 +31,17 @@ public class SellerRecoveryDto {
 	private final LocalDateTime requestedAt;
 	// 입금 기다리는 중에는 null
 	private final LocalDateTime completedAt;
+	// 청구 전용 가상계좌. 아직 발급 전이면 null (BUK-88)
+	private final String virtualBankName;
+	private final String virtualAccountNumber;
+	// 청구 입금 기한. 가상계좌 유효기간(90일)과 다르다
+	private final LocalDate dueDate;
 
 	// payout: 그 대회의 최종 정산(없으면 1차 정산). 둘 다 없으면 null
-	public static SellerRecoveryDto of(PayoutRecovery recovery, String claimCode, Payout payout) {
+	public static SellerRecoveryDto of(PayoutRecovery recovery, PayoutClaim claim, Payout payout) {
 		return new SellerRecoveryDto(
 			recovery.getId(),
-			claimCode,
+			claim.getClaimCode(),
 			recovery.getRaceId(),
 			payout == null ? null : payout.getRaceName(),
 			payout == null ? null : payout.getPayoutCode(),
@@ -42,7 +49,10 @@ public class SellerRecoveryDto {
 			recovery.getReasonType(),
 			recovery.getStatus(),
 			recovery.getRequestedAt(),
-			recovery.getCompletedAt()
+			recovery.getCompletedAt(),
+			claim.getVirtualBankName(),
+			claim.getVirtualAccountNumber(),
+			claim.getDueDate()
 		);
 	}
 }

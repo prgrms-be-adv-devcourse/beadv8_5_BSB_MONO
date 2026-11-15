@@ -1,16 +1,20 @@
 package com.bukang.order.app;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.bukang.order.domain.ParticipantInfo;
+import com.bukang.order.dto.KitOptionChoiceDto;
 import com.bukang.order.dto.ParticipantInfoDto;
 import com.bukang.order.dto.ParticipantInfoRequestDto;
 import com.bukang.order.dto.ParticipationApplyRequestDto;
 import com.bukang.order.dto.ParticipationDto;
+import com.bukang.order.out.ParticipationKitOptionRepository;
 import com.bukang.order.out.ParticipationRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -20,7 +24,9 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ParticipationFacade {
 	private final ParticipationApplyUseCase participationApplyUseCase;
+	private final KitOptionChangeUseCase kitOptionChangeUseCase;
 	private final ParticipationRepository participationRepository;
+	private final ParticipationKitOptionRepository participationKitOptionRepository;
 
 	@Transactional
 	public ParticipationDto apply(ParticipationApplyRequestDto request, long memberId) {
@@ -39,7 +45,14 @@ public class ParticipationFacade {
 			memberId,
 			request.toParticipantInfo(),
 			LocalDateTime.now()
-		).toDto();
+		).toDto(kitOptions(participationId));
+	}
+
+	// 상품 HTTP를 잠그기 전에 부르고 잠금은 유스케이스가 따로 연다 (결제와 같음)
+	@Transactional(propagation = Propagation.NOT_SUPPORTED)
+	public ParticipationDto changeKitOptions(long participationId, List<Long> kitOptionIds, long memberId) {
+		return kitOptionChangeUseCase.change(participationId, memberId, kitOptionIds, LocalDateTime.now())
+			.toDto(kitOptions(participationId));
 	}
 
 	@Transactional
@@ -48,7 +61,13 @@ public class ParticipationFacade {
 	}
 
 	public ParticipationDto findById(long participationId, long memberId) {
-		return participationApplyUseCase.findOwned(participationId, memberId).toDto();
+		return participationApplyUseCase.findOwned(participationId, memberId).toDto(kitOptions(participationId));
+	}
+
+	private List<KitOptionChoiceDto> kitOptions(long participationId) {
+		return participationKitOptionRepository.findByParticipationIdOrderByIdAsc(participationId).stream()
+			.map(KitOptionChoiceDto::from)
+			.toList();
 	}
 
 	// 다음 신청서에 채울 참가자 정보. 신청한 적이 없으면 빈 값이다 (정책 3장 1-2)

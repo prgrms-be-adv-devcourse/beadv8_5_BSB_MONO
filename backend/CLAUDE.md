@@ -32,7 +32,8 @@
 - 공통 빌드 설정(Java 버전, Spring Boot BOM, Lombok, Checkstyle)은 루트 `build.gradle.kts`, 모듈별 의존성은 각 모듈의 `build.gradle.kts`에 있습니다.
 - 운영에서는 Nginx가 HTTP 요청을 받아 `/api`를 `gateway`(8000)로, 나머지를 프론트(`web`, Next.js 3000)로 넘기고, 게이트웨이가 경로를 보고 각 서비스로 보냅니다.
   Nginx 라우팅은 `docker/nginx/routes.conf`(로컬 `default.conf`와 운영 `*.conf.template`이 include), 컨테이너는 `compose.yml`의 `nginx`·`web`입니다.
-  운영(EC2)은 `compose.prod.yml`이 443과 Let's Encrypt 인증서(certbot 컨테이너)를 덧붙입니다. Nginx도 주소를 자르지 않고 `/internal/`은 404로 막습니다.
+  운영은 2026-11-15부터 k3s입니다(메인 EC2 앱, 보조 EC2 데이터. `infra/README.md`, `k8s/`). 입구는 Traefik(HTTPS) → nginx Pod(같은 `routes.conf`)이고,
+  배포는 `.github/workflows/k8s-cd.yml`입니다. `compose.prod.yml`(443, certbot)은 되돌리기용으로만 남아 있습니다. Nginx도 주소를 자르지 않고 `/internal/`은 404로 막습니다.
   게이트웨이는 주소 앞부분을 자르지 않고(StripPrefix 없음) `/internal/**`는 라우팅하지 않습니다. 새 서비스를 추가하면 `gateway`의 라우팅 규칙도 추가합니다.
   `gateway`는 WebFlux 기반이라 webmvc를 가져오는 `common`에 의존하지 않습니다.
 
@@ -69,7 +70,7 @@ backend/
 ├── settings.gradle.kts        include("common", "jwt", "gateway", "member-service", "cash-service", "payout-service", "file-service", "order-service", "product-service", "queue-service", "notification-service", "inquiry-service", "board-service", "ai-service")
 ├── build.gradle.kts           모든 모듈 공통 설정
 ├── compose.yml                공용 인프라 (MySQL, Kafka, Elasticsearch, Redis) + 서비스별 앱 컨테이너 + nginx·web(프론트)
-├── compose.prod.yml           운영(EC2) 덮어쓰기: Nginx HTTPS + certbot (인증서 자동 발급·갱신)
+├── compose.prod.yml           옛 운영(EC2 compose) 덮어쓰기: Nginx HTTPS + certbot. 2026-11-15 k3s 전환 뒤 되돌리기용
 ├── docker/nginx/              Nginx 설정 (routes.conf 라우팅: /api → gateway, 나머지 → web)
 ├── common/      com.bukang.common
 │   ├── global/                기술 공통 (도메인 지식 없음)
@@ -189,6 +190,7 @@ backend/
     같은 DB를 함께 쓰므로 기록 표 이름을 서비스마다 다르게 둡니다(`flyway_schema_history_<서비스>`). 설정은 `member-service`의 `application-dev.yaml`을 따릅니다.
   - `payout-service`·`cash-service`의 enum 칸은 DB ENUM이라 enum 값을 더할 때도 ENUM 목록을 바꾸는 SQL이 필요합니다
     (`PayoutEnumColumnTest`·`CashEnumColumnTest`가 확인). cash의 Flyway 테스트는 H2가 아니라 MySQL(Testcontainers)로 돌아 Docker가 필요합니다.
+    `order-service`도 동시성 테스트 일부를 `@MySqlContainerTest`로 MySQL에서 다시 돌려 Docker가 필요합니다 (BUK-188).
   - `order-service`는 전환 중입니다(BUK-29). V1은 `create table if not exists`라 표가 이미 있으면 통째로 건너뛰어, 지난 배포 뒤 엔티티에 더한 칸이
     서버·로컬 표에 없으면 `validate`로는 뜨지 않습니다. 그래서 서버에 한 번 배포할 때까지 dev와 compose는 `update`로 둡니다
     (Flyway가 먼저 돌고 Hibernate가 빠진 칸을 채움). 그 뒤 dev는 `validate`로, compose의 `order-service` 줄은 지웁니다.

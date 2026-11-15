@@ -111,6 +111,9 @@ public class Payout extends BaseIdAndTime {
 	// 지급 결과가 나오면 성공은 지급 완료로 바꾼 뒤 회수를 만들고, 거절은 정산 예정으로 되돌리지 않고 취소로 닫는다
 	private LocalDateTime raceCanceledAt;
 
+	// 주문이 그 대회의 참가권을 모두 환불했다고 알린 시각 (BUK-76). 대회 취소 청구는 이 값이 있을 때만 만든다
+	private LocalDateTime raceRefundedAt;
+
 	// 지급 결과를 모른(타임아웃 · 5xx) 날의 수 (BUK-166). MAX_UNKNOWN_PAY번이 되면 다시 요청하지 않고 지급_확인_필요로 멈춘다
 	// 거절(4xx) · 불일치(409)는 세지 않는다. 돈이 나갔는지 아는 결과다
 	// 같은 기준일에는 한 번만 센다. 관리자가 같은 날 지급 배치를 여러 번 돌려도 몇 분 만에 멈추지 않게 한다 (PR #427 리뷰)
@@ -470,6 +473,17 @@ public class Payout extends BaseIdAndTime {
 
 	public boolean isRaceCanceled() {
 		return raceCanceledAt != null;
+	}
+
+	// 같은 환불 완료 메시지를 다시 받아도 처음 시각을 그대로 둔다. 상태와 상관없이 적는다 (닫힌 정산 내역도 기록은 남긴다)
+	public void markRaceRefunded(LocalDateTime refundedAt) {
+		if (raceRefundedAt == null) {
+			this.raceRefundedAt = refundedAt;
+		}
+	}
+
+	public boolean isRaceRefunded() {
+		return raceRefundedAt != null;
 	}
 
 	// 대회 취소를 표시한 지급 중 정산 내역의 지급이 거절됐다. 돈이 나가지 않았으므로 정산 예정으로 되돌리지 않고 취소로 닫는다
