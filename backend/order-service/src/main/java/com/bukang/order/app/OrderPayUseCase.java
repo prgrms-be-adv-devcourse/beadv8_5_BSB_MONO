@@ -5,7 +5,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.TransactionException;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.order.domain.Order;
@@ -114,9 +116,9 @@ public class OrderPayUseCase {
 				return null;
 			}
 			int attempts = order.countPayAttempt();
-			if (attempts > PAY_ATTEMPT_ALERT) {
+			if (attempts == PAY_ATTEMPT_ALERT + 1) {
 				// 예치금이나 상품이 오래 답하지 않는다. 기한 + 여유가 지나면 만료 정리가 끝내지만 사람이 원인을 본다
-				log.error("결제 중 주문을 {}번 다시 확인했지만 끝나지 않았습니다. orderId={}, 결제 시작={}",
+				log.error("결제 중 주문을 {}번 불렀지만 끝나지 않았습니다. orderId={}, 결제 시작={}",
 					attempts, orderId, order.getPayStartedAt());
 			}
 			return Paying.of(order);
@@ -138,7 +140,7 @@ public class OrderPayUseCase {
 		try {
 			payment = walletPort.pay(orderId, paying.memberId(), paying.amount());
 		} catch (OrderNotPayableException | ExternalServiceRejectedException exception) {
-			revert(orderId);
+			revert(paying);
 			throw exception;
 		} catch (RuntimeException exception) {
 			log.warn("예치금 결제 결과를 몰라 결제 중으로 둡니다. orderId={}, cause={}", orderId, exception.toString());
@@ -146,7 +148,7 @@ public class OrderPayUseCase {
 		}
 		if (payment.outcome() == WalletPayResult.Outcome.INSUFFICIENT_BALANCE) {
 			// 주문과 자리는 그대로 둔다. 기한 안에 충전하고 같은 주문으로 다시 결제한다 (충전은 D PRO-81·82)
-			revert(orderId);
+			revert(paying);
 			throw new InsufficientBalanceException(payment.shortage());
 		}
 		SeatSellResult sold;
@@ -166,10 +168,17 @@ public class OrderPayUseCase {
 					orderId, exception.toString());
 				return null;
 			}
-			revert(orderId);
+			revert(paying);
 			throw OrderNotPayableException.deadlinePassed("결제 기한이 지나 결제하지 못했습니다. 빠져나간 예치금은 돌려드렸습니다.");
 		}
-		Confirmed confirmed = transactionTemplate.execute(status -> confirm(paying, now));
+		Confirmed confirmed;
+		try {
+			confirmed = transactionTemplate.execute(status -> confirm(paying, now));
+		} catch (DataAccessException | TransactionException exception) {
+			// 돈도 빠지고 자리도 팔렸는데 확정만 못 했다(잠금 대기 시간 초과 등). 결제 중으로 두면 재확인 배치가 확정한다
+			log.warn("결제 확정을 저장하지 못해 결제 중으로 둡니다. orderId={}, cause={}", orderId, exception.toString());
+			return null;
+		}
 		if (confirmed.rejectMessage() != null) {
 			throw new OrderNotPayableException(confirmed.rejectMessage());
 		}
@@ -185,7 +194,9 @@ public class OrderPayUseCase {
 	private Confirmed confirm(Paying paying, LocalDateTime now) {
 		Order order = orderRepository.findByIdForUpdate(paying.orderId())
 			.orElseThrow(() -> new OrderNotFoundException("존재하지 않는 주문입니다."));
-		if (order.isPaid()) {
+		// 다른 쪽이 먼저 확정했다. 그 뒤 취소됐어도(취소·부분 취소) 결제는 끝난 것이라 무르지 않는다(환불은 취소 쪽이 했다)
+		OrderStatus current = order.getStatus();
+		if (current == OrderStatus.PAID || current == OrderStatus.PARTIAL_CANCELED || current == OrderStatus.CANCELED) {
 			return new Confirmed(OrderPayResult.alreadyPaid(order.toDto()), null);
 		}
 		if (!order.isPaying()) {
@@ -225,9 +236,11 @@ public class OrderPayUseCase {
 	}
 
 	// 판매 수 -1, 옵션 사본 지우기, 결제 중 → 결제 대기. 이미 확정·만료된 주문은 그대로 둔다
-	private void revert(long orderId) {
-		transactionTemplate.executeWithoutResult(status -> orderRepository.findByIdForUpdate(orderId)
+	// 같은 결제 시도일 때만 되돌린다: 오래 멈췄던 요청의 거절이 그 사이 다시 시작한 결제 중을 풀지 않게 한다
+	private void revert(Paying paying) {
+		transactionTemplate.executeWithoutResult(status -> orderRepository.findByIdForUpdate(paying.orderId())
 			.filter(Order::isPaying)
+			.filter(order -> paying.startedAt().equals(order.getPayStartedAt()))
 			.ifPresent(order -> {
 				kitOptionSaleUseCase.unreserve(order.participationId());
 				order.revertPaying();
@@ -275,17 +288,18 @@ public class OrderPayUseCase {
 	}
 
 	// 결제 중이 된 주문 하나. done은 이미 결제한 주문의 응답, alreadyPaying은 다른 요청이 먼저 결제 중으로 만든 것
+	// startedAt은 이 결제 시도의 시작 시각(같은 시도인지 가리는 값)
 	private record Paying(OrderPayResult done, boolean alreadyPaying, long orderId, long memberId, long amount,
-		long participationId) {
-		static final Paying ALREADY_PAYING = new Paying(null, true, 0, 0, 0, 0);
+		long participationId, LocalDateTime startedAt) {
+		static final Paying ALREADY_PAYING = new Paying(null, true, 0, 0, 0, 0, null);
 
 		static Paying done(OrderPayResult result) {
-			return new Paying(result, false, 0, 0, 0, 0);
+			return new Paying(result, false, 0, 0, 0, 0, null);
 		}
 
 		static Paying of(Order order) {
 			return new Paying(null, false, order.getId(), order.getBuyerId(), order.getTotalAmount(),
-				order.participationId());
+				order.participationId(), order.getPayStartedAt());
 		}
 	}
 

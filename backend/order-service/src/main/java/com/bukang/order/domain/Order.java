@@ -7,10 +7,12 @@ import static lombok.AccessLevel.PROTECTED;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
 import org.hibernate.annotations.BatchSize;
+import org.hibernate.annotations.ColumnDefault;
 
 import com.bukang.common.global.jpa.entity.BaseIdAndTime;
 import com.bukang.common.shared.order.event.OrderItemRefundReason;
@@ -105,6 +107,8 @@ public class Order extends BaseIdAndTime {
 	private LocalDateTime payStartedAt;
 
 	// 이번 결제 중에 예치금·자리 판매를 부른 횟수 (요청 1번 + 재확인 배치). 한도를 넘으면 알림 로그를 남긴다
+	// 칸을 더하기 전에 만든 주문과 SQL로 넣는 행이 0을 받게 기본값을 둔다 (Flyway SQL과 같은 값)
+	@ColumnDefault("0")
 	@Column(name = "pay_attempts", nullable = false)
 	private int payAttempts;
 
@@ -198,7 +202,8 @@ public class Order extends BaseIdAndTime {
 				"결제할 수 없는 주문입니다(현재 상태: %s).".formatted(status.getLabel()));
 		}
 		this.status = OrderStatus.PAYING;
-		this.payStartedAt = startedAt;
+		// DB(datetime(6))에 저장된 값과 같게 맞춘다. 되돌리기가 같은 결제 시도인지 이 값으로 가린다
+		this.payStartedAt = startedAt.truncatedTo(ChronoUnit.MICROS);
 		this.payAttempts = 1;
 	}
 

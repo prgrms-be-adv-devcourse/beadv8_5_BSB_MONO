@@ -48,8 +48,8 @@ public class OrderPayRecheckScheduler {
 					paid++;
 				}
 			} catch (BusinessException exception) {
-				// 잔액 부족·자리 기한 지남처럼 확실한 실패. 되돌렸다
-				log.info("결제 중 주문을 되돌렸습니다. orderId={}, cause={}", orderId, exception.getMessage());
+				// 잔액 부족·자리 기한 지남처럼 확실한 실패(되돌렸다)이거나, 확정 때 주문이 이미 끝나 있었다
+				log.info("결제 중 주문이 결제 완료가 아닌 결과로 끝났습니다. orderId={}, cause={}", orderId, exception.getMessage());
 			} catch (RuntimeException exception) {
 				log.warn("결제 중 주문을 다시 확인하지 못했습니다. orderId={}, cause={}", orderId, exception.toString());
 			}
@@ -59,7 +59,7 @@ public class OrderPayRecheckScheduler {
 		if (!orderIds.isEmpty() || summary.getCount() > 0) {
 			long oldestSeconds = summary.getOldestStartedAt() == null
 				? 0 : Duration.between(summary.getOldestStartedAt(), now).toSeconds();
-			log.info("결제 재확인: 다시 본 주문 {}건, 결제 완료 {}건, 남은 결제 중 {}건, 가장 오래 머문 시간 {}초",
+			log.info("결제 재확인: 다시 본 주문 {}건, 결제 완료 확인 {}건, 남은 결제 중 {}건, 가장 오래 머문 시간 {}초",
 				orderIds.size(), paid, summary.getCount(), oldestSeconds);
 		}
 	}

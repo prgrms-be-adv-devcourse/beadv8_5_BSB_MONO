@@ -39,11 +39,12 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 	List<Long> findOverdueIds(@Param("now") LocalDateTime now, @Param("payingDueBefore") LocalDateTime payingDueBefore,
 		@Param("afterId") long afterId, Pageable pageable);
 
-	// 결제를 시작한 지 오래된(before 이전) 결제 중 주문 ID (결제 재확인 배치, BUK-232). 오래된 것부터 읽는다
+	// 결제를 시작한 지 오래된(before 이전) 결제 중 주문 ID (결제 재확인 배치, BUK-232)
+	// 덜 불러 본 것부터 읽는다. 오래 안 끝나는 주문이 앞자리를 차지해 다른 결제 중을 계속 밀어내지 않게 한다
 	@Query("""
 		select o.id from Order o
 		where o.status = com.bukang.order.domain.OrderStatus.PAYING and o.payStartedAt <= :before
-		order by o.payStartedAt, o.id
+		order by o.payAttempts, o.payStartedAt, o.id
 		""")
 	List<Long> findStalePayingIds(@Param("before") LocalDateTime before, Pageable pageable);
 

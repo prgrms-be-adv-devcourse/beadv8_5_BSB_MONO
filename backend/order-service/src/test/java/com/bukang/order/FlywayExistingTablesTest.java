@@ -59,6 +59,10 @@ class FlywayExistingTablesTest {
 		}
 		// 서버 표에는 아직 취소 사유 칸이 없다 (BUK-74)
 		jdbcTemplate.execute("alter table order_order_item drop column cancel_reason");
+		// 서버 표에는 아직 결제 중 칸·인덱스가 없다 (BUK-232)
+		jdbcTemplate.execute("drop index idx_order_paying");
+		jdbcTemplate.execute("alter table order_order drop column pay_started_at");
+		jdbcTemplate.execute("alter table order_order drop column pay_attempts");
 
 		// dev·운영과 같은 Flyway 설정 (BUK-29)
 		MigrateResult result = Flyway.configure()

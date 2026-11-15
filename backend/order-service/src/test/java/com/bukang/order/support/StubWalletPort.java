@@ -39,6 +39,7 @@ public class StubWalletPort implements WalletPort {
 	private final List<Call> refundCalls = new CopyOnWriteArrayList<>();
 	private final List<Long> refundedAmounts = new CopyOnWriteArrayList<>();
 	private boolean payTimesOut;
+	private boolean payRejects;
 	private boolean cancelFails;
 	private boolean refundFails;
 	private boolean refundRejects;
@@ -67,6 +68,10 @@ public class StubWalletPort implements WalletPort {
 		payCalls.add(amount);
 		if (canceledOrders.contains(orderId)) {
 			throw new OrderNotPayableException("이미 끝난 결제라 다시 결제할 수 없습니다.");
+		}
+		if (payRejects) {
+			// HttpWalletAdapter가 D의 4xx 거절(409 제외)을 던지는 예외와 같게 둔다. 차감하지 않는다
+			throw new ExternalServiceRejectedException("예치금 서비스에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요.");
 		}
 		WalletPayResult result = charge(orderId, amount);
 		if (payTimesOut) {
@@ -151,6 +156,11 @@ public class StubWalletPort implements WalletPort {
 		this.payTimesOut = payTimesOut;
 	}
 
+	// 결제를 D가 4xx로 거절하게 한다 (계약 어긋남·지갑 없음)
+	public synchronized void setPayRejects(boolean payRejects) {
+		this.payRejects = payRejects;
+	}
+
 	// 결제 취소가 실패하게 한다 (예치금 서비스 장애)
 	public synchronized void setCancelFails(boolean cancelFails) {
 		this.cancelFails = cancelFails;
@@ -219,6 +229,7 @@ public class StubWalletPort implements WalletPort {
 		refundCalls.clear();
 		refundedAmounts.clear();
 		payTimesOut = false;
+		payRejects = false;
 		cancelFails = false;
 		refundFails = false;
 		refundRejects = false;

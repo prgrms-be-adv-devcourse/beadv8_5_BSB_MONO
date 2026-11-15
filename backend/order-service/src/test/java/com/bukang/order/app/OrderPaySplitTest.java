@@ -146,6 +146,41 @@ class OrderPaySplitTest extends OrderPaySplitTestSupport {
 	}
 
 	@Test
+	@DisplayName("예치금이 4xx로 거절하면 판매 수·옵션을 되돌려 결제 대기로 두고, 결제 취소는 부르지 않는다")
+	void walletRejectedReverts() throws Exception {
+		long orderId = createOrder(1);
+		walletPort.setPayRejects(true);
+
+		pay(1, orderId).andExpect(status().isServiceUnavailable());
+
+		assertThat(statusOf(orderId)).isEqualTo(OrderStatus.CREATED);
+		assertThat(sold(SHIRT_M)).isZero();
+		assertThat(choicesOf(orderId)).isZero();
+		assertThat(walletPort.cancelCalls()).isEmpty();
+	}
+
+	@Test
+	@DisplayName("결제 중에 참가 신청이 결제 대기가 아니게 되면, 확정 대신 결제 취소·자리 복구·판매 수 되돌림 뒤 결제 대기로 돌린다")
+	void participationChangedWhilePaying() throws Exception {
+		long orderId = createOrder(1);
+		long participationId = participationIdOf(orderId);
+		seatHoldPort.setSellFails(true);
+		pay(1, orderId).andExpect(status().isAccepted());
+		transactionTemplate.executeWithoutResult(status ->
+			participationRepository.findByIdForUpdate(participationId).orElseThrow().markReleased(LocalDateTime.now()));
+		seatHoldPort.setSellFails(false);
+
+		assertThatThrownBy(() -> orderPayUseCase.recheck(orderId, LocalDateTime.now()))
+			.isInstanceOf(OrderNotPayableException.class);
+
+		assertThat(statusOf(orderId)).isEqualTo(OrderStatus.CREATED);
+		assertThat(walletPort.chargedOrders()).doesNotContain(orderId);
+		assertThat(sold(SHIRT_M)).isZero();
+		assertThat(choicesOf(orderId)).isZero();
+		assertThat(SeatOutboxMessages.restored(orderOutboxKafkaEventRepository)).containsExactly(participationId);
+	}
+
+	@Test
 	@DisplayName("요청과 재확인 배치가 같은 결제 중 주문을 동시에 확정해도 한 번만 확정된다 (5번 반복)")
 	void requestAndRecheckConfirmOnce() throws Exception {
 		ExecutorService executor = Executors.newFixedThreadPool(2);
