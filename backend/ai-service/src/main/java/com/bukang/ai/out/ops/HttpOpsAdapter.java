@@ -3,10 +3,14 @@ package com.bukang.ai.out.ops;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
 
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 
+import com.bukang.ai.domain.AiScreen;
 import com.bukang.common.global.rsdata.RsData;
 import com.bukang.common.shared.member.web.MemberIdHeader;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -37,6 +41,11 @@ public class HttpOpsAdapter implements OpsPort {
 	private static final ParameterizedTypeReference<RsData<InquiryPageResponse>> INQUIRY_PAGE_TYPE =
 		new ParameterizedTypeReference<>() {
 		};
+	private static final ParameterizedTypeReference<RsData<Inquiry>> INQUIRY_TYPE =
+		new ParameterizedTypeReference<>() {
+		};
+	// 문의 서비스가 「없는 문의」로 답할 때의 코드. 다른 404(경로가 틀림)는 문의 없음으로 읽지 않고 실패로 본다
+	private static final String INQUIRY_NOT_FOUND_CODE = "INQUIRY_NOT_FOUND";
 	private static final ParameterizedTypeReference<RsData<List<SellerResponse>>> SELLERS_TYPE =
 		new ParameterizedTypeReference<>() {
 		};
@@ -83,6 +92,28 @@ public class HttpOpsAdapter implements OpsPort {
 			.toList();
 	}
 
+	@Override
+	public Optional<Inquiry> inquiry(long memberId, AiScreen screen, long inquiryId) {
+		String path = "/api/v1/inquiry/" + screen.name().toLowerCase(Locale.ROOT) + "/inquiries/{inquiryId}";
+		try {
+			return Optional.of(get(inquiryClient, memberId, INQUIRY_TYPE, path, inquiryId));
+		} catch (HttpClientErrorException.NotFound exception) {
+			if (INQUIRY_NOT_FOUND_CODE.equals(errorCode(exception))) {
+				return Optional.empty();
+			}
+			throw exception;
+		}
+	}
+
+	private static String errorCode(HttpClientErrorException exception) {
+		try {
+			ErrorResponse body = exception.getResponseBodyAs(ErrorResponse.class);
+			return body == null ? null : body.code();
+		} catch (RuntimeException parseFailure) {
+			return null;
+		}
+	}
+
 	private static <T> T get(RestClient client, long memberId, ParameterizedTypeReference<RsData<T>> type,
 		String path, Object... uriVariables) {
 		RsData<T> response = client.get().uri(path, uriVariables)
@@ -93,6 +124,10 @@ public class HttpOpsAdapter implements OpsPort {
 			throw new IllegalStateException("응답에 값이 없습니다. path=" + path);
 		}
 		return response.data();
+	}
+
+	@JsonIgnoreProperties(ignoreUnknown = true)
+	record ErrorResponse(String code) {
 	}
 
 	@JsonIgnoreProperties(ignoreUnknown = true)

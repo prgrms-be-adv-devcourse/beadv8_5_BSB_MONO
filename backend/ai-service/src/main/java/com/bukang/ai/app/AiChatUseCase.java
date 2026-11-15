@@ -152,11 +152,7 @@ public class AiChatUseCase {
 	}
 
 	private void checkRole(long memberId, AiScreen screen) {
-		boolean allowed = switch (screen) {
-			case SELLER -> memberRolePort.isApprovedSeller(memberId);
-			case ADMIN -> memberRolePort.isAdmin(memberId);
-		};
-		if (!allowed) {
+		if (!memberRolePort.hasRole(memberId, screen)) {
 			throw new AiForbiddenException(screen);
 		}
 	}

@@ -3,7 +3,9 @@ package com.bukang.ai.out.ops;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
+import com.bukang.ai.domain.AiScreen;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -33,6 +35,10 @@ public interface OpsPort {
 	// 회원: 승인 대기 판매자 신청의 신청 시각들 (이름·사업자 정보는 읽지 않는다)
 	List<LocalDateTime> pendingSellerRequestedAts(long memberId);
 
+	// 문의: 판매자·관리자 문의 상세 (문의 답변 초안이 쓴다). 화면 종류대로 판매자용·관리자용 상세를 부른다
+	// 남의 대회 문의, 판매자 화면에서 연 관리자 담당 문의, 없거나 지운 문의는 문의 서비스가 404로 막고 여기서는 빈 값이다
+	Optional<Inquiry> inquiry(long memberId, AiScreen screen, long inquiryId);
+
 	@JsonIgnoreProperties(ignoreUnknown = true)
 	record KitSummary(@JsonProperty(required = true) long preparing,
 		@JsonProperty(required = true) long beforeRefundDeadline) {
@@ -54,5 +60,21 @@ public interface OpsPort {
 	// releasedAt이 null이면 아직 보류 중이다
 	record Hold(String raceName, @JsonProperty(required = true) long payoutAmount, String reasonType, String reason,
 				LocalDateTime heldAt, LocalDateTime releasedAt) {
+	}
+
+	// 회원 닉네임(memberNickname)은 읽지 않는다. order는 주문이 없거나 주문 서비스를 못 쓰면 null이다
+	@JsonIgnoreProperties(ignoreUnknown = true)
+	record Inquiry(@JsonProperty(required = true) String type, @JsonProperty(required = true) String title,
+		@JsonProperty(required = true) String body, @JsonProperty(required = true) String status,
+		LocalDateTime createDate, InquiryOrder order) {
+	}
+
+	// paymentAmount는 관리자 상세에만 온다
+	@JsonIgnoreProperties(ignoreUnknown = true)
+	record InquiryOrder(String orderNo, Long paymentAmount, String status, List<InquiryOrderItem> items) {
+	}
+
+	@JsonIgnoreProperties(ignoreUnknown = true)
+	record InquiryOrderItem(String raceName, String courseName, String kitSummary, String deliveryStatus) {
 	}
 }
