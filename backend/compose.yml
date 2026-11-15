@@ -505,6 +505,9 @@ services:
     image: prom/prometheus:v3.16.0
     container_name: bukang-prometheus
     profiles: [ monitoring ]
+    # 이미지 기본 명령(설정 파일, 저장 위치)에 remote write 받기를 더한다. k6가 부하 테스트 지표를 밀어 넣는다
+    # 기본 두 개를 빼면 설정 파일을 못 읽으므로 같이 적는다
+    command: [ "--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.path=/prometheus", "--web.enable-remote-write-receiver" ]
     ports:
       # 9090은 S3Mock이 쓰므로 9095 사용
       - "9095:9090"
