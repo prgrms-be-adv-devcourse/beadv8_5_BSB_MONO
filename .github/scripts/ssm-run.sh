@@ -5,7 +5,7 @@
 #
 # 사용: ssm-run.sh <인스턴스 ID> <제한 시간(초)> <명령>
 #   예: ssm-run.sh i-0123... 1800 "bash /opt/crewrun/infra/main-node/deploy.sh <SHA>"
-# 필요: AWS 자격 증명(워크플로의 OIDC 역할), aws CLI, jq (GitHub 러너에 있다)
+# 필요: AWS 자격 증명(워크플로의 액세스 키), aws CLI, jq (GitHub 러너에 있다)
 set -euo pipefail
 
 INSTANCE_ID="${1:?인스턴스 ID를 주세요}"

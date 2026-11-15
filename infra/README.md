@@ -13,7 +13,7 @@
    MySQL · Redis · Redpanda · Elasticsearch                         ← infra/data-node
    (인터넷은 메인 EC2의 NAT로 나감)
 
-GitHub Actions ─(OIDC, 키 없음)→ AWS 역할 ─(SSM Run Command)→ 각 서버의 deploy.sh
+GitHub Actions ─(액세스 키, GitHub Secrets)→ SSM Run Command → 각 서버의 deploy.sh
 메인 EC2 deploy.sh ─(EC2 역할)→ Parameter Store /crewrun/prod/* (비밀값)
 ```
 
@@ -23,7 +23,7 @@ GitHub Actions ─(OIDC, 키 없음)→ AWS 역할 ─(SSM Run Command)→ 각 �
 |---|---|
 | `infra/main-node/` | k3s 설치, Traefik HTTPS, 비밀값 옮기기, 앱 배포 스크립트 |
 | `infra/data-node/` | 데이터 서버 준비(setup.sh), 인프라 배포 스크립트 |
-| `infra/iam/` | AWS 역할에 붙일 정책 JSON 3개 (아래 「AWS 자원」) |
+| `infra/iam/` | 메인 EC2 역할에 붙일 정책 JSON (아래 「AWS 자원」) |
 | `k8s/overlays/aws/` | 운영용 k8s 설정 (GHCR 이미지, 보조 EC2 주소, 운영 공개 설정, 도메인·HTTPS) |
 | `.github/workflows/k8s-cd.yml` | 이미지 빌드 → 메인 EC2 `deploy.sh <SHA>` (지금은 손으로 실행만) |
 | `.github/workflows/data-node-cd.yml` | 보조 EC2 `deploy.sh <main\|SHA>` (손으로 실행만) |
@@ -31,43 +31,56 @@ GitHub Actions ─(OIDC, 키 없음)→ AWS 역할 ─(SSM Run Command)→ 각 �
 
 ## AWS 자원 (BUK-220 D6)
 
-계정 `823315816237`, 리전 `ap-northeast-2`(서울). 계정 번호는 S3 버킷 이름에서 읽은 값이라 콘솔 오른쪽 위에서 한 번 확인합니다.
+계정 `823315816237`(팀들이 함께 쓰는 교육용 계정), 리전 `ap-northeast-2`(서울).
 
-### 역할 3개
+| 서버 | 인스턴스 ID | 보안 그룹 |
+|---|---|---|
+| 메인 EC2 (`team05-bukang-ec2`) | `i-023cc413eb75c4186` | `sg-09d6700bbf0f7348f` |
+| 보조 EC2 | `i-07e5410c1d2dffc0d` | `sg-0f9a0ff371a92e8eb` |
 
-| 역할 (이름 예) | 누가 쓰나 | 붙일 권한 | 신뢰 |
-|---|---|---|---|
-| `crewrun-main-ec2` | 메인 EC2 | AWS 관리형 `AmazonSSMManagedInstanceCore` + `infra/iam/main-ec2-policy.json` | EC2 |
-| `crewrun-data-ec2` | 보조 EC2 | `AmazonSSMManagedInstanceCore`만 | EC2 |
-| `crewrun-github-deploy` | GitHub Actions | `infra/iam/github-deploy-policy.json` | `infra/iam/github-deploy-trust.json` |
+### EC2 역할 2개
 
-- **`AmazonSSMManagedInstanceCore`:** 서버가 SSM에 등록되어 Run Command를 받게 합니다. 지금 두 서버에는 역할이 없어 SSM Agent가 돌아도 등록되지 않습니다(2026-11-14 확인).
-- **`main-ec2-policy.json`:** `/crewrun/prod/*`·`/crewrun/registry/*` **읽기**와, Parameter Store를 거칠 때만 쓰는 `kms:Decrypt`. 쓰기 권한은 없습니다. 보조 EC2는 비밀값을 읽지 않으므로(`.env`를 서버에 둠) 이 정책을 붙이지 않습니다.
-- **`github-deploy-trust.json`:** 이 저장소의 **main 브랜치에서 돈 워크플로만** 역할을 받을 수 있습니다. 다른 브랜치·PR·포크에서는 거부됩니다.
-- **`github-deploy-policy.json`:** 두 서버에 `AWS-RunShellScript`를 보내고 결과를 읽는 것만 됩니다. `<MAIN_INSTANCE_ID>`·`<DATA_INSTANCE_ID>`를 실제 인스턴스 ID(`i-...`)로 바꿔 붙입니다.
-  - 이 역할은 서버에서 root로 아무 명령이나 실행할 수 있는 것과 같습니다. main 브랜치 보호(리뷰 필수)가 곧 이 권한의 보호막입니다.
+| 역할 | 붙는 서버 | 붙일 권한 |
+|---|---|---|
+| `crewrun-main-ec2` | 메인 EC2 | AWS 관리형 `AmazonSSMManagedInstanceCore` + 인라인 `crewrun-read-parameters`(`infra/iam/main-ec2-policy.json`) |
+| `crewrun-data-ec2` | 보조 EC2 | `AmazonSSMManagedInstanceCore`만 |
+
+- **`AmazonSSMManagedInstanceCore`:** 서버가 SSM에 등록되어 Run Command를 받게 합니다. 역할이 없으면 SSM Agent가 돌아도 등록되지 않습니다(2026-11-15 두 서버 모두 역할 없음).
+- **`main-ec2-policy.json`:** `/crewrun/prod/*`·`/crewrun/registry/*` **읽기**와, Parameter Store를 거칠 때만 쓰는 `kms:Decrypt`. 쓰기 권한은 없습니다. 보조 EC2는 비밀값을 읽지 않으므로(`.env`를 서버에 둠) 붙이지 않습니다.
+- 콘솔에서 EC2용 역할을 만들면 같은 이름의 인스턴스 프로파일이 함께 생깁니다. 지우려면 EC2에서 역할을 먼저 뗀 뒤(작업 → 보안 → IAM 역할 수정 → 없음) 역할을 삭제합니다.
+
+### GitHub Actions 인증 (교안 4강 방식)
+
+워크플로는 GitHub Secrets의 액세스 키로 AWS에 들어가 SSM 명령을 보냅니다.
+
+| 저장소 설정 | 이름 | 값 |
+|---|---|---|
+| Secrets | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | 팀 IAM 사용자(`devcos-team05`)의 액세스 키. 키 사용자에게 `ssm:SendCommand`·`ssm:GetCommandInvocation` 권한이 있어야 함 |
+| Variables | `MAIN_INSTANCE_ID`, `DATA_INSTANCE_ID` | 위 표의 인스턴스 ID (비밀값이 아니라 Variables) |
+
+- 이 키는 file-service의 S3 업로드(`S3_ACCESS_KEY`)와 같은 키입니다. 키를 바꾸면 Secrets와 Parameter Store(또는 서버 `.env`) 두 곳을 함께 바꿉니다.
+- 팀 사용자 키라 그 사용자의 모든 권한을 가집니다. 공개 저장소이므로 Secrets를 쓰는 워크플로는 main에서 손으로 실행할 때만 돌게 두었고(외부 PR에는 Secrets가 넘어가지 않음), 키를 로그·명령에 찍지 않습니다.
+- 계정에는 GitHub OIDC 공급자(`token.actions.githubusercontent.com`)가 이미 있습니다. 나중에 키 대신 OIDC 역할로 바꾸려면 워크플로의 인증 단계만 `role-to-assume`으로 바꾸면 됩니다.
 
 ### 그 밖의 자원
 
 | 자원 | 내용 |
 |---|---|
-| GitHub OIDC 공급자 | IAM → 자격 증명 공급자 → OpenID Connect, URL `https://token.actions.githubusercontent.com`, 대상 `sts.amazonaws.com`. 계정에 이미 있으면 그대로 씁니다 |
-| 보조 EC2 보안 그룹 | 인바운드 3306·6379·29092·9200을 **메인 EC2의 보안 그룹에서만** 허용. 아웃바운드는 기본(전체) 유지(SSM·Docker 이미지에 필요) |
-| Parameter Store | `/crewrun/prod/<키>` 22개, `/crewrun/registry/GHCR_AUTH`. `infra/main-node/env-to-parameter-store.sh`로 넣음 |
-| 저장소 Variables | `AWS_DEPLOY_ROLE_ARN`(배포 역할 ARN), `MAIN_INSTANCE_ID`, `DATA_INSTANCE_ID`. 비밀값이 아니라 Secrets가 아닌 Variables에 둡니다 (저장소 관리자 권한 필요) |
+| 보조 EC2 보안 그룹 | 인바운드 3306·6379·29092·9200을 **메인 EC2의 보안 그룹(`sg-09d6700bbf0f7348f`)에서만** 허용. 아웃바운드는 기본(전체) 유지(SSM·Docker 이미지에 필요) |
+| Parameter Store | `/crewrun/prod/<키>` 22개, `/crewrun/registry/GHCR_AUTH`. `infra/main-node/env-to-parameter-store.sh`로 넣음. 같은 계정의 다른 팀도 SSM 읽기 권한이 있으면 볼 수 있다는 점은 알고 씁니다 |
 
 ### D6 순서
 
 서버는 그대로 운영하면서 AWS 쪽만 준비합니다. 사용자 서비스에는 영향이 없습니다.
 
-1. 이 PR이 main에 머지되어 있어야 합니다(서버가 main에서 파일을 받음).
-2. OIDC 공급자 확인·생성 → 역할 3개 생성 → 두 EC2에 역할 연결(EC2 → 작업 → 보안 → IAM 역할 수정, 재시작 필요 없음).
+1. 이 파일들이 main에 머지되어 있어야 합니다(서버가 main에서 파일을 받음).
+2. EC2 역할 2개 생성 → 두 EC2에 역할 연결(EC2 → 작업 → 보안 → IAM 역할 수정, 재시작 필요 없음).
 3. 두 서버에서 SSM Agent를 다시 시작하고 등록을 확인합니다.
    ```bash
    sudo snap restart amazon-ssm-agent      # 각 서버에서
    ```
    ```bash
-   # CloudShell에서. 두 서버가 Online이면 됨
+   # AWS CLI가 있는 곳(PC 또는 메인 EC2)에서. 두 서버가 Online이면 됨
    aws ssm describe-instance-information --query 'InstanceInformationList[].[InstanceId,PingStatus,IPAddress]' --output table
    ```
 4. 보조 EC2 보안 그룹 인바운드 추가.
@@ -82,7 +95,7 @@ GitHub Actions ─(OIDC, 키 없음)→ AWS 역할 ─(SSM Run Command)→ 각 �
    bash infra/main-node/env-to-parameter-store.sh --apply
    exit
    ```
-6. GitHub 저장소 Variables 3개 등록.
+6. GitHub 저장소 Secrets 2개(`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`)와 Variables 2개(`MAIN_INSTANCE_ID`, `DATA_INSTANCE_ID`) 등록.
 
 ## 전환 절차서 (BUK-220 D7)
 
@@ -103,7 +116,7 @@ systemctl is-enabled crewrun                                                    
 ```
 
 - GHCR 토큰 주인에게 만료일을 묻습니다. 곧 만료되면 새 토큰(`read:packages`)으로 `/crewrun/registry/GHCR_AUTH`를 바꿔 둡니다.
-- D6가 끝나 두 서버가 SSM에 Online이고, Parameter Store·Variables가 들어가 있어야 합니다.
+- D6가 끝나 두 서버가 SSM에 Online이고, Parameter Store·Secrets·Variables가 들어가 있어야 합니다.
 - `k8s-cd.yml`을 한 번 돌려 **이미지 빌드만** 성공하는지 봅니다(아직 k3s가 없어 deploy 잡은 실패해도 됨). 전환 당일 빌드 시간을 줄입니다.
 
 ### 1. 옛 배포 막기
