@@ -74,6 +74,7 @@ ACCESS = re.compile(r'^(\w+)-\d+\s+\|\s+ACCESS (\d+) (\w+) (\S+) (\d+) (\d+)')
 # 주문이 부르는 예치금 결제, 상품 자리 판매
 CASH_PAY = re.compile(r'^/internal/v1/cash/payments/\d+$')
 ORDER_PAY = re.compile(r'^/api/v1/order/orders/\d+/payment$')
+CASH_CHARGE = re.compile(r'^/api/v1/cash/charges/confirm$')
 PRODUCT_SELL = re.compile(r'^/internal/v1/product/holds/\d+/sell$')
 
 
@@ -97,7 +98,8 @@ def access_times(rep_dir):
             m = ACCESS.match(line)
             if not m or m[3] != 'POST':
                 continue
-            kind = 'cash_pay' if CASH_PAY.match(m[4]) else 'product_sell' if PRODUCT_SELL.match(m[4]) else None
+            kind = 'cash_pay' if CASH_PAY.match(m[4]) else 'product_sell' if PRODUCT_SELL.match(m[4]) \
+                else 'cash_charge' if CASH_CHARGE.match(m[4]) else None
             if not kind:
                 continue
             at = int(m[2]) / 1000
@@ -291,6 +293,28 @@ def summary(results, out):
                          f'{m([k.get("count") for k in kit])} | {fmt(median([k.get("avg") for k in kit]), 1)} | '
                          f'{fmt(median([k.get("p95") for k in kit]), 1)} | {fmt(median([k.get("max") for k in kit]), 1)} | '
                          f'{fmt(median([w.get("avg") for w in wallet]), 1)} | {fmt(median([w.get("p95") for w in wallet]), 1)} |')
+        charge_names = [n for n in names if n.startswith('charge-')]
+        if charge_names:
+            lines += ['', '충전 몰림(중앙값). 충전 처리는 예치금이 충전 확정 요청 하나를 처리한 시간(접근 기록, 가짜 PG 지연 포함, ms),'
+                      ' 충전 응답은 k6가 본 시간, 실패는 200 + 충전 완료가 아닌 비율', '',
+                      '| 시나리오 | 충전 처리 p50 | p95 | 충전 응답 p50 | p95 | 충전 건수 | 충전 실패율 | 건너뜀 |', '|---|---|---|---|---|---|---|---|']
+            for name in charge_names:
+                ks = []
+                for rep in reps:
+                    f = rep / f'{name}.charge.k6.json'
+                    if f.exists():
+                        mt = json.loads(f.read_text())['metrics']
+                        ks.append({'p50': mt.get('charge_ms', {}).get('values', {}).get('med'),
+                                   'p95': mt.get('charge_ms', {}).get('values', {}).get('p(95)'),
+                                   'count': mt.get('charge_ms', {}).get('values', {}).get('count'),
+                                   'fail': mt.get('charge_failed', {}).get('values', {}).get('rate'),
+                                   'dropped': mt.get('dropped_iterations', {}).get('values', {}).get('count', 0)})
+                ch = [a.get(('cash_charge', name), []) for a in access]
+                fail = median([k['fail'] for k in ks])
+                lines.append(f'| {name} | {fmt(median([percentile(c, .5) for c in ch]))} | {fmt(median([percentile(c, .95) for c in ch]))} | '
+                             f'{fmt(median([k["p50"] for k in ks]))} | {fmt(median([k["p95"] for k in ks]))} | '
+                             f'{fmt(median([k["count"] for k in ks]))} | {"-" if fail is None else f"{fail:.2%}"} | '
+                             f'{fmt(median([k["dropped"] for k in ks]))} |')
         for name in names:
             if not name.startswith(('cold-', 'restart-')):
                 continue

@@ -4,7 +4,9 @@ import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadLocalRandom;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
@@ -23,8 +25,21 @@ public class FakePaymentClient implements PaymentClient {
 		log.warn("PG 결제 승인은 가짜 응답(FakePaymentClient)을 씁니다. 실제 Toss는 cash.clients.pg.mode=http");
 	}
 
+	// 측정 브랜치 전용: 승인 응답을 이 범위(ms)에서 고르게 늦춰 Toss 승인 시간을 흉내 낸다. 기본 0이면 바로 답한다
+	@Value("${cash.clients.pg.fake-approve-delay-min-ms:0}")
+	private long approveDelayMinMillis;
+	@Value("${cash.clients.pg.fake-approve-delay-max-ms:0}")
+	private long approveDelayMaxMillis;
+
 	@Override
 	public PaymentApprovalResult approve(String paymentKey, String orderId, long amount) {
+		if (approveDelayMaxMillis > 0) {
+			try {
+				Thread.sleep(ThreadLocalRandom.current().nextLong(approveDelayMinMillis, approveDelayMaxMillis + 1));
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+			}
+		}
 		return new PaymentApprovalResult(amount, "fake-payment-key-" + paymentKey, LocalDateTime.now());
 	}
 

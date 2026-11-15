@@ -1,7 +1,9 @@
 -- 정확성 확인 C1~C5 (판정 기준 문서 1장). 측정이 끝나고 결제가 모두 멈춘 뒤 돌린다
 -- 결과는 이름=값 한 줄씩. @money_start는 run.sh가 앞에 붙인다 (시드 직후 지갑 잔액 합)
 
-select concat('C1_money_total_diff=', sum(balance) - @money_start) from cash_wallet;
+-- 충전 몰림 측정은 충전으로 돈이 들어오므로 완료된 충전 합을 뺀다
+select concat('C1_money_total_diff=', sum(balance) - @money_start
+	- (select coalesce(sum(amount), 0) from cash_wallet_charge where status = 'COMPLETED')) from cash_wallet;
 
 select concat('C2_double_charge_orders=', count(*)) from (
 	select ref_id from cash_wallet_ledger
@@ -35,3 +37,5 @@ select concat('INFO_orders_by_status=', group_concat(concat(status, ':', c) orde
 from (select status, count(*) c from order_order group by status) t;
 select concat('INFO_payments_by_status=', group_concat(concat(status, ':', c) order by status))
 from (select status, count(*) c from cash_payment group by status) t;
+select concat('INFO_charges_by_status=', coalesce(group_concat(concat(status, ':', c) order by status), '-'))
+from (select status, count(*) c from cash_wallet_charge group by status) t;
