@@ -74,6 +74,11 @@ fi
 # 6. 확인
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 log "노드 준비 기다리기"
+# 설치 직후에는 노드가 아직 등록되지 않아 wait가 바로 실패한다(no matching resources). 등록될 때까지 먼저 기다린다
+for _ in $(seq 1 60); do
+	kubectl get node -o name 2>/dev/null | grep -q . && break
+	sleep 5
+done
 kubectl wait --for=condition=Ready node --all --timeout=300s
 log "Traefik 기다리기"
 for _ in $(seq 1 60); do

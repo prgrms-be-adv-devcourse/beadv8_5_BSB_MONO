@@ -15,12 +15,14 @@ spec:
         externalTrafficPolicy: Local
     ports:
       # HTTP(80)로 온 요청은 HTTPS(443)로 옮긴다. Let's Encrypt 소유 확인(/.well-known/acme-challenge)은 Traefik이 먼저 처리한다
+      # k3s v1.35의 Traefik 차트(39.x)는 ports.<이름>.http.redirections를 쓴다. http: 없이 쓰면 조용히 무시된다
       web:
-        redirections:
-          entryPoint:
-            to: websecure
-            scheme: https
-            permanent: true
+        http:
+          redirections:
+            entryPoint:
+              to: websecure
+              scheme: https
+              permanent: true
     # Let's Encrypt 인증서 발급·갱신. Ingress의 certresolver: letsencrypt가 이 이름을 쓴다
     certificatesResolvers:
       letsencrypt:
