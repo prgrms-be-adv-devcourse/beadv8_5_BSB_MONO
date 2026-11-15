@@ -1,0 +1,30 @@
+# 운영(AWS k3s)에서 base의 ConfigMap app-config에 덮어쓰거나 더하는 값. 비밀이 아니라 git에 커밋한다 (공개 저장소)
+#   비밀값(키·비밀번호·토큰)은 여기 두지 않는다. secret.yaml(Parameter Store에서 만듦)에 둔다
+#   base에 있는 인프라 주소(MYSQL_HOST=bukang-db 등)는 그대로 쓴다. 그 이름이 보조 EC2로 가는 것은 external-infra.yaml이 정한다
+#
+# 값은 운영 메인 EC2의 backend/.env(2026-11-15)와 같게 둔다
+# 이 파일을 고쳐 적용한 뒤에는 앱을 다시 띄운다 (환경변수는 Pod가 시작할 때만 읽는다)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  # 파일 저장소: 운영은 실제 AWS S3를 쓴다 (S3Mock 아님)
+  #   주소를 빈 값으로 두면 file-service가 AWS 기본 주소로 접속하고, presigned URL도 AWS 주소로 만든다
+  S3_BUCKET: "team05-bukang-823315816237-ap-northeast-2-an"
+  AWS_REGION: ap-northeast-2
+  S3_ENDPOINT: ""
+  S3_PUBLIC_ENDPOINT: ""
+  S3_PATH_STYLE: "false"
+
+  # 사이트 주소. 공유 카드(og:image) 절대 주소, 소셜 로그인 콜백 주소 앞부분, 콜백 뒤 보낼 프론트 주소
+  SITE_URL: https://crewrun.duckdns.org
+  OAUTH2_REDIRECT_BASE_URL: https://crewrun.duckdns.org
+  OAUTH2_FRONT_BASE_URL: https://crewrun.duckdns.org
+
+  # 소셜 로그인 앱 ID. 로그인할 때 브라우저 주소창에 그대로 드러나는 값이라 비밀이 아니다 (짝이 되는 SECRET은 secret.yaml)
+  OAUTH2_KAKAO_CLIENT_ID: "d85f793991e5c4dad19101c5976a34b8"
+  OAUTH2_GOOGLE_CLIENT_ID: "773360379514-2qlsie860t7cvm9jtq7mij9v3aj4kcts.apps.googleusercontent.com"
+
+  # 포트원 본인인증 상점 아이디. 프론트 빌드 값(NEXT_PUBLIC_PORTONE_STORE_ID)과 같아 화면 코드에도 드러난다 (API 비밀 키는 secret.yaml)
+  PORTONE_STORE_ID: "store-e71a8c6a-722e-4a25-b2e9-4dbe6f8084cd"
