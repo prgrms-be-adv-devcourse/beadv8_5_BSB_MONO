@@ -19,7 +19,6 @@ import com.bukang.order.domain.DeliveryCarrier;
 import com.bukang.order.domain.KitDeliveryStatus;
 import com.bukang.order.domain.Order;
 import com.bukang.order.domain.OrderItem;
-import com.bukang.order.domain.ParticipationKitOption;
 import com.bukang.order.domain.Shipment;
 import com.bukang.order.domain.ShipmentStatus;
 import com.bukang.order.domain.ShipmentTrackingEvent;
@@ -143,14 +142,9 @@ public class KitDeliveryUseCase {
 				.collect(Collectors.groupingBy(event -> event.getShipment().getId()));
 			kits.forEach(kit -> kit.attachTrackingEvents(events.getOrDefault(kit.getShipmentId(), List.of())));
 		}
-		List<Long> participationIds = kits.stream().map(SellerKitDto::getParticipationId).toList();
-		if (!participationIds.isEmpty()) {
-			Map<Long, List<KitOptionChoiceDto>> options = participationKitOptionRepository
-				.findByParticipationIdInOrderByIdAsc(participationIds).stream()
-				.collect(Collectors.groupingBy(ParticipationKitOption::getParticipationId,
-					Collectors.mapping(KitOptionChoiceDto::from, Collectors.toList())));
-			kits.forEach(kit -> kit.attachKitOptions(options.getOrDefault(kit.getParticipationId(), List.of())));
-		}
+		Map<Long, List<KitOptionChoiceDto>> options = participationKitOptionRepository.findChoicesByParticipationIds(
+			kits.stream().map(SellerKitDto::getParticipationId).toList());
+		kits.forEach(kit -> kit.attachKitOptions(options.getOrDefault(kit.getParticipationId(), List.of())));
 		return SellerKitPageDto.from(kits);
 	}
 

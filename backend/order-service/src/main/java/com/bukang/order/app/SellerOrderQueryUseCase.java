@@ -5,14 +5,12 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import com.bukang.order.domain.OrderItemStatus;
-import com.bukang.order.domain.ParticipationKitOption;
 import com.bukang.order.domain.ParticipationStatus;
 import com.bukang.order.domain.Party;
 import com.bukang.order.domain.exception.OrderSearchPeriodException;
@@ -63,15 +61,9 @@ public class SellerOrderQueryUseCase {
 		checkPeriod(from, to);
 		Page<SellerOrderDto> orders = orderItemRepository.findSellerOrders(sellerId, raceId, raceCourseId, status,
 			partyId, startOf(from), endOf(to), PageRequest.of(page, size));
-		List<Long> participationIds = orders.stream().map(SellerOrderDto::getParticipationId).toList();
-		if (!participationIds.isEmpty()) {
-			Map<Long, List<KitOptionChoiceDto>> options = participationKitOptionRepository
-				.findByParticipationIdInOrderByIdAsc(participationIds).stream()
-				.collect(Collectors.groupingBy(ParticipationKitOption::getParticipationId,
-					Collectors.mapping(KitOptionChoiceDto::from, Collectors.toList())));
-			orders.forEach(order -> order.attachKitOptions(
-				options.getOrDefault(order.getParticipationId(), List.of())));
-		}
+		Map<Long, List<KitOptionChoiceDto>> options = participationKitOptionRepository.findChoicesByParticipationIds(
+			orders.stream().map(SellerOrderDto::getParticipationId).toList());
+		orders.forEach(order -> order.attachKitOptions(options.getOrDefault(order.getParticipationId(), List.of())));
 		return SellerOrderPageDto.from(orders);
 	}
 
