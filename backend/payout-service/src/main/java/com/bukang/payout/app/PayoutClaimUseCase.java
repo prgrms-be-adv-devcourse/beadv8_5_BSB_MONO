@@ -73,6 +73,7 @@ public class PayoutClaimUseCase {
 	 * 하루 한 번 청구를 만들고 알림을 남긴다. 같은 날 다시 돌아도 청구와 알림은 한 번만 남는다
 	 * 가상계좌 발급 HTTP는 트랜잭션 밖에서 부르고, 저장과 알림 표시는 청구마다 행을 잠근 짧은 트랜잭션에서 한다.
 	 * 한 트랜잭션으로 읽고 끝에 쓰면, 그 사이 입금 확인이 커밋된 청구를 '청구 중'으로 되돌려 쓴다 (11/12 조사 H3)
+	 * 그래서 이 메서드와 부르는 쪽(PayoutBatchUseCase)에 @Transactional을 붙이지 않는다. 바깥 트랜잭션에 묶이면 다시 덮어쓴다
 	 */
 	public ClaimRunResult run(LocalDate today, LocalDateTime now) {
 		int created = transactionTemplate.execute(status -> createClaims(today));

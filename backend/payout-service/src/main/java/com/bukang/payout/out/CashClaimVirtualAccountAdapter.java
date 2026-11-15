@@ -26,6 +26,7 @@ public class CashClaimVirtualAccountAdapter implements ClaimVirtualAccountPort {
 	static final String PATH = "/internal/v1/cash/claims/{claimCode}/virtual-account";
 	// 캐시가 PG를 부르고 답하므로 지급보다 읽기 시간을 조금 길게 둔다. 그래도 한 건이 배치를 오래 붙잡지 않게 한다
 	private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(3);
+	// shortcut: 청구 배치가 청구마다 차례로 불러 한 건당 최대 10초가 걸린다. 하루 청구가 많아지면 발급을 병렬로 돌린다
 	private static final Duration READ_TIMEOUT = Duration.ofSeconds(10);
 
 	private final RestClient restClient;
