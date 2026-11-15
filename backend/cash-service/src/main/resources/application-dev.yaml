@@ -47,3 +47,8 @@ crypto:
   enabled: true # common global/crypto의 암호화 빈(TextEncryptor, EncryptedStringConverter)을 켠다
   password: IOqDAv1zFDK/FVo/sIReebOrto+TKARA7gfE8EQCPOA=
   salt: 25dc6e5c1bc8b786
+
+# 서비스끼리 내부 API(/internal/**)를 부를 때 X-Internal-Key 헤더로 보내는 키. 받는 cash와 부르는 서비스가 같은 값을 쓴다
+# 개발용 값이다. 운영 키는 환경 변수 INTERNAL_API_KEY에만 두고 이 값과 다르게 쓴다
+internal:
+  api-key: ${INTERNAL_API_KEY:dev-internal-api-key}

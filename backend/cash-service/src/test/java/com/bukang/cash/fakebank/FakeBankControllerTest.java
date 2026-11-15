@@ -19,10 +19,15 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.bukang.common.global.web.InternalKeyHeader;
+
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class FakeBankControllerTest {
+	// application-test.yaml의 internal.api-key
+	private static final String INTERNAL_KEY = "test-internal-api-key";
+
 	@Autowired
 	private MockMvc mockMvc;
 	@Autowired
@@ -48,6 +53,7 @@ class FakeBankControllerTest {
 		String transferId = "transfer-" + mode;
 
 		var transfer = mockMvc.perform(post("/fakebank/v1/transfers")
+				.header(InternalKeyHeader.NAME, INTERNAL_KEY)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{ "transferId": "%s", "sellerId": 7, "amount": 30000 }
@@ -57,7 +63,8 @@ class FakeBankControllerTest {
 			transfer.andExpect(jsonPath("$.status").value(transferStatus));
 		}
 
-		mockMvc.perform(get("/fakebank/v1/transfers/" + transferId))
+		mockMvc.perform(get("/fakebank/v1/transfers/" + transferId)
+			.header(InternalKeyHeader.NAME, INTERNAL_KEY))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.status").value(lookupStatus));
 	}
@@ -67,6 +74,7 @@ class FakeBankControllerTest {
 	void transferSurvivesRestart() throws Exception {
 		changeMode("DROP");
 		mockMvc.perform(post("/fakebank/v1/transfers")
+				.header(InternalKeyHeader.NAME, INTERNAL_KEY)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{ "transferId": "transfer-restart", "sellerId": 7, "amount": 30000 }
@@ -82,12 +90,14 @@ class FakeBankControllerTest {
 	@Test
 	@DisplayName("은행에 없는 송금 ID를 조회하면 404다")
 	void lookupUnknownTransfer() throws Exception {
-		mockMvc.perform(get("/fakebank/v1/transfers/never-sent"))
+		mockMvc.perform(get("/fakebank/v1/transfers/never-sent")
+			.header(InternalKeyHeader.NAME, INTERNAL_KEY))
 			.andExpect(status().isNotFound());
 	}
 
 	private void changeMode(String mode) throws Exception {
 		mockMvc.perform(put("/fakebank/v1/mode")
+				.header(InternalKeyHeader.NAME, INTERNAL_KEY)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{ "mode": "%s" }

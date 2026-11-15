@@ -39,3 +39,7 @@ logging:
   level:
     com.bukang: debug
     org.hibernate.SQL: debug
+
+# 내부 API 인증 키 (test 전용 값)
+internal:
+  api-key: test-internal-api-key

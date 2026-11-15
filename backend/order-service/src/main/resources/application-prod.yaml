@@ -80,3 +80,8 @@ logging:
   level:
     com:
       bukang: info
+
+# 서비스끼리 내부 API(/internal/**)를 부를 때 X-Internal-Key 헤더로 보내는 키 (openssl rand -base64 32 로 만든 값)
+# 받는 cash와 부르는 서비스(주문·회원·정산)가 같은 값을 써야 한다. 비어 있으면 cash가 뜨지 않는다
+internal:
+  api-key: ${INTERNAL_API_KEY}
