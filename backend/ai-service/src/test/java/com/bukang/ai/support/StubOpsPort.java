@@ -2,6 +2,7 @@ package com.bukang.ai.support;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -13,6 +14,7 @@ public class StubOpsPort implements OpsPort {
 	public KitSummary kitSummary = new KitSummary(0, 0);
 	public KitPage kitPage = new KitPage(List.of(), 0);
 	public PayoutSummary payoutSummary = new PayoutSummary(null, 0, 0);
+	public List<HeldPayout> heldPayouts = List.of();
 	public List<Hold> holds = List.of();
 	public long waitingInquiries;
 	public long adminWaitingInquiries;
@@ -26,6 +28,7 @@ public class StubOpsPort implements OpsPort {
 		kitSummary = new KitSummary(0, 0);
 		kitPage = new KitPage(List.of(), 0);
 		payoutSummary = new PayoutSummary(null, 0, 0);
+		heldPayouts = List.of();
 		holds = List.of();
 		holdsCalls.clear();
 		waitingInquiries = 0;
@@ -50,6 +53,12 @@ public class StubOpsPort implements OpsPort {
 	public PayoutSummary payoutSummary(long memberId) {
 		called(memberId);
 		return payoutSummary;
+	}
+
+	@Override
+	public List<HeldPayout> heldPayouts(long memberId, YearMonth fromMonth, YearMonth toMonth) {
+		called(memberId);
+		return heldPayouts;
 	}
 
 	@Override

@@ -3,7 +3,10 @@ package com.bukang.ai.app;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.annotation.Tool;
@@ -25,7 +28,7 @@ import lombok.RequiredArgsConstructor;
 public class SellerTools {
 	// 목록에 담는 줄 수. 추천값(미확정)
 	static final int LIST_LIMIT = 5;
-	// 지급보류 사유를 찾아 거슬러 볼 달 수 (이번 달 포함). 정산 내역 조회 한도와 같은 12개월. 추천값(미확정)
+	// 보류 중인 정산을 찾는 정산 월 범위 (이번 달 포함). 정산 내역 조회 한도와 같은 12개월
 	static final int HOLD_LOOKBACK_MONTHS = 12;
 
 	private final OpsPort opsPort;
@@ -63,26 +66,36 @@ public class SellerTools {
 	}
 
 	@Tool(description = "마지막 질문이 지급보류된 이유를 물을 때만 부른다. heldPayoutCount: 지금 지급보류 중인 정산 내역 수(전체 기간). "
-		+ "holds: 보류한 날과 상관없이 지금 보류 중인 것의 대회 이름, 보류된 지급액(원), 사유 종류, 사유 글, 보류한 날(최근 것부터). "
-		+ "notListedCount: 찾았지만 여기 담지 않은 나머지 건수. "
-		+ "heldPayoutCount가 holds와 notListedCount의 합보다 크면 나머지는 12개월보다 오래된 보류이니 화면에서 확인하라고 안내한다")
+		+ "holds: 보류한 날과 상관없이 지금 보류 중인 정산의 보류마다 대회 이름, 보류된 지급액(원), 사유 종류, 사유 글, 보류한 날(최근 것부터). "
+		+ "정산 하나에 사유가 다른 보류가 여러 개 걸릴 수 있다. notListedCount: 찾았지만 여기 담지 않은 나머지 보류 수. "
+		+ "olderHeldPayoutCount: 12개월보다 오래되어 사유를 찾지 못한 보류 중 정산 수. 0보다 크면 화면에서 확인하라고 안내한다")
 	public Object sellerPayoutHoldReasons(ToolContext toolContext) {
 		AiToolTrace trace = AiToolTrace.of(toolContext);
 		return trace.run(AiSource.SELLER_HOLDS, () -> {
 			long heldCount = opsPort.payoutSummary(trace.memberId()).heldCount();
-			// 정산 API는 보류한 날로 최대 1개월씩만 준다. 이번 달부터 한 달씩 거슬러, 보류 중인 건수를 다 찾으면 멈춘다
+			if (heldCount == 0) {
+				return new HoldsResult(0, List.of(), 0, 0);
+			}
+			// 정산 내역 조회 한도(12개월) 안에서 지금 보류 중인 정산을 찾는다. 대회 취소로 닫힌 정산의 남은 보류 기록은 여기서 빠진다
+			YearMonth thisMonth = YearMonth.now(AiToolTrace.ZONE);
+			List<OpsPort.HeldPayout> payouts = opsPort.heldPayouts(trace.memberId(),
+				thisMonth.minusMonths(HOLD_LOOKBACK_MONTHS - 1), thisMonth);
+			Set<String> heldCodes = payouts.stream().map(OpsPort.HeldPayout::payoutCode).collect(Collectors.toSet());
+			// 보류 내역 API는 보류한 날로 최대 1개월씩만 준다. 보류는 정산 내역이 생긴 뒤에 걸리므로
+			// 이번 달부터 가장 먼저 생긴 보류 중 정산의 달까지 한 달씩 거슬러 본다
+			YearMonth oldest = payouts.stream().map(payout -> YearMonth.from(payout.settledAt()))
+				.min(Comparator.naturalOrder()).orElse(thisMonth.plusMonths(1));
 			List<HoldLine> held = new ArrayList<>();
-			YearMonth month = YearMonth.now(AiToolTrace.ZONE);
-			for (int i = 0; i < HOLD_LOOKBACK_MONTHS && held.size() < heldCount; i++, month = month.minusMonths(1)) {
-				LocalDate to = i == 0 ? LocalDate.now(AiToolTrace.ZONE) : month.atEndOfMonth();
+			for (YearMonth month = thisMonth; !month.isBefore(oldest); month = month.minusMonths(1)) {
+				LocalDate to = month.equals(thisMonth) ? LocalDate.now(AiToolTrace.ZONE) : month.atEndOfMonth();
 				opsPort.holds(trace.memberId(), month.atDay(1), to).stream()
-					.filter(hold -> hold.releasedAt() == null)
+					.filter(hold -> hold.releasedAt() == null && heldCodes.contains(hold.payoutCode()))
 					.map(hold -> new HoldLine(hold.raceName(), hold.payoutAmount(), hold.reasonType(), hold.reason(),
 						hold.heldAt() == null ? null : hold.heldAt().toLocalDate()))
 					.forEach(held::add);
 			}
 			return new HoldsResult(heldCount, held.stream().limit(LIST_LIMIT).toList(),
-				Math.max(0, held.size() - LIST_LIMIT));
+				Math.max(0, held.size() - LIST_LIMIT), Math.max(0, heldCount - heldCodes.size()));
 		});
 	}
 
@@ -90,7 +103,7 @@ public class SellerTools {
 		long notListedCount) {
 	}
 
-	record HoldsResult(long heldPayoutCount, List<HoldLine> holds, int notListedCount) {
+	record HoldsResult(long heldPayoutCount, List<HoldLine> holds, int notListedCount, long olderHeldPayoutCount) {
 	}
 
 	record HoldLine(String raceName, long payoutAmount, String reasonType, String reason, LocalDate heldDate) {

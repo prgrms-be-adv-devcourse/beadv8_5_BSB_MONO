@@ -2,6 +2,7 @@ package com.bukang.ai.out.ops;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -23,6 +24,9 @@ public interface OpsPort {
 
 	// 정산: 다음 정산일(없으면 null), 정산 예정액, 지급보류 건수
 	PayoutSummary payoutSummary(long memberId);
+
+	// 정산: 정산 월이 기간 안인 정산 내역 중 지금 지급보류인 것 (기간은 최대 12개월)
+	List<HeldPayout> heldPayouts(long memberId, YearMonth fromMonth, YearMonth toMonth);
 
 	// 정산: 보류한 날이 기간 안인 지급보류 (해제된 것 포함, 기간은 최대 1개월)
 	List<Hold> holds(long memberId, LocalDate from, LocalDate to);
@@ -50,9 +54,14 @@ public interface OpsPort {
 		@JsonProperty(required = true) long heldCount) {
 	}
 
+	// settledAt: 정산 내역이 생긴 때. 보류는 그 뒤에만 걸린다
+	record HeldPayout(String payoutCode, LocalDateTime settledAt) {
+	}
+
 	@JsonIgnoreProperties(ignoreUnknown = true)
-	// releasedAt이 null이면 아직 보류 중이다
-	record Hold(String raceName, @JsonProperty(required = true) long payoutAmount, String reasonType, String reason,
-				LocalDateTime heldAt, LocalDateTime releasedAt) {
+	// releasedAt이 null이어도 대회 취소로 닫힌 정산 내역의 보류일 수 있다. 보류 중인지는 heldPayouts로 가린다
+	record Hold(@JsonProperty(required = true) String payoutCode, String raceName,
+		@JsonProperty(required = true) long payoutAmount, String reasonType, String reason,
+		LocalDateTime heldAt, LocalDateTime releasedAt) {
 	}
 }
