@@ -29,7 +29,7 @@ jobs:
       contents: read
       id-token: write   # OIDC 토큰을 받아 AWS 역할로 바꾼다
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # 입력값은 명령에 넣기 전에 형식을 확인한다 (명령 주입 방지). main에 들어간 커밋인지는 deploy.sh가 확인한다
       - name: 입력 확인
@@ -41,7 +41,7 @@ jobs:
             exit 1
           fi
 
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ap-northeast-2

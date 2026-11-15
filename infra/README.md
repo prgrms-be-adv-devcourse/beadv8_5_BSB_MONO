@@ -25,7 +25,7 @@ GitHub Actions ─(OIDC, 키 없음)→ 배포 역할 ─(SSM Run Command)→ �
 | `infra/data-node/` | 데이터 서버 준비(setup.sh), 인프라 배포 스크립트 |
 | `infra/iam/` | 역할에 붙일 정책 JSON 3개 (아래 「AWS 자원」) |
 | `k8s/overlays/aws/` | 운영용 k8s 설정 (GHCR 이미지, 보조 EC2 주소, 운영 공개 설정, 도메인·HTTPS) |
-| `.github/workflows/k8s-cd.yml` | 이미지 빌드 → 메인 EC2 `deploy.sh <SHA>` (지금은 손으로 실행만) |
+| `.github/workflows/k8s-cd.yml` | 이미지 빌드 → 메인 EC2 `deploy.sh <SHA>` (main push 때 자동, 손으로도 실행 가능) |
 | `.github/workflows/data-node-cd.yml` | 보조 EC2 `deploy.sh <main\|SHA>` (손으로 실행만) |
 | `.github/scripts/ssm-run.sh` | 두 워크플로가 SSM으로 명령을 보내고 결과를 기다리는 스크립트 |
 
@@ -272,9 +272,13 @@ sudo systemctl enable crewrun                             # 0단계에서 enable
 - 옛 DB는 2단계 시점 그대로입니다. k3s로 운영한 사이에 생긴 주문·가입은 옛 DB에 없습니다. 오래 운영한 뒤라면 되돌리기 전에 보조 EC2에서 덤프해 옛 DB로 거꾸로 옮길지 정합니다.
 - 보조 EC2의 데이터는 지우지 않고 둡니다. 원인을 고친 뒤 3단계부터 다시 합니다(보조 EC2 볼륨은 `docker compose ... down -v`가 아니라 볼륨을 직접 지우고 다시 복원).
 
-## 전환 뒤 (BUK-220 D8)
+## 전환 기록과 그 뒤 (BUK-220 D7·D8)
 
-- `k8s-cd.yml`에 main push 트리거를 켭니다. `app-cd.yml`(compose 배포)과 셀프호스티드 러너를 정리합니다.
-- 메인 EC2의 `crewrun.service`(꺼 둔 상태)를 지우고, 저장소의 `backend/docker/systemd/crewrun.service`를 남길지 정합니다.
-- 메인 EC2 보안 그룹의 22번 등 더는 쓰지 않는 규칙을 정리할지 정합니다(SSM Session Manager로 접속 가능).
-- 옛 compose 컨테이너·볼륨과 `~/migration` 백업은 며칠 운영해 본 뒤 지울지 정합니다.
+**2026-11-15 전환:** 사이트 중단 18:44~19:00 KST(약 16분). 보조 EC2 준비(setup·이미지 받기·ES 빌드)를 중단 전에 미리 해서 짧아졌습니다.
+데이터 수(MySQL 표 92, ES 29건, Redis 4키)가 옛 서버와 같았고, 메인 EC2 메모리는 6.9Gi+swap 1.7Gi → 5.2Gi+swap 0.2Gi가 되었습니다.
+전환 중 고친 것: Traefik 차트 39.x의 리다이렉트 키(`ports.web.http.redirections`), `install-k3s.sh`의 노드 등록 대기.
+
+**정리 (D8):**
+- `k8s-cd.yml`을 main push 때 자동으로 돌게 했고, `app-cd.yml`(compose 배포)은 지웠습니다. 메인 EC2의 셀프호스티드 러너는 서비스를 멈추고 GitHub에서 등록을 지웁니다.
+- 옛 compose 컨테이너·볼륨, `~/migration` 백업, 꺼 둔 `crewrun.service`는 되돌리기용으로 며칠 남겼다가 지울지 정합니다(`backend/compose.prod.yml`도 같음).
+- 보조 EC2 보안 그룹의 22번은 메인 SG에서만 받도록 좁힙니다(80·443은 지움). 메인 EC2의 22번은 SSM Session Manager로 접속할 수 있으니 좁힐지 정합니다.
