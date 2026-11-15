@@ -1,8 +1,11 @@
-# 운영(EC2)에서만 compose.yml 위에 덮어쓰는 설정. Nginx에 HTTPS(Let's Encrypt 인증서)를 붙인다
+# [옛 운영 방식] 2026-11-15 운영은 k3s로 옮겼다(BUK-220, infra/README.md). 이 파일은 되돌리기(전환 절차서 9단계)용으로 남긴다
+#   지금 운영 배포는 .github/workflows/k8s-cd.yml, 옛 배포 워크플로 app-cd.yml은 지웠다
+#
+# 운영(EC2)에서만 compose.yml 위에 덮어쓰던 설정. Nginx에 HTTPS(Let's Encrypt 인증서)를 붙인다
 # 로컬은 이 파일을 쓰지 않으므로 지금처럼 HTTP(80)로만 뜬다
 #
-# 앱 이미지 12개(gateway·서비스 10개·web)는 EC2에서 빌드하지 않고, GitHub Actions(app-cd.yml)가 빌드해 GHCR에 올린 것을 받는다
-# 배포는 app-cd.yml이 한다 (main push 또는 Actions에서 직접 실행). 서버에서 직접 띄울 때는:
+# 앱 이미지 12개(gateway·서비스 10개·web)는 EC2에서 빌드하지 않고, GHCR에 올라간 커밋 SHA 이미지를 받는다
+# 서버에서 직접 띄울 때는:
 #   docker compose pull gateway member-service cash-service payout-service file-service order-service product-service queue-service notification-service board-service ai-service web
 #   docker compose up -d --no-build
 # (--build를 붙이면 EC2에서 빌드한 이미지가 GHCR 이름으로 덮어써진다)
