@@ -390,7 +390,8 @@ final class OrderApiExamples {
 						"unitPrice": 50000,
 						"quantity": 1,
 						"amount": 50000,
-						"status": "CANCELED"
+						"status": "CANCELED",
+						"canceledAt": "2026-10-12T10:05:00"
 					}
 				]
 			}
@@ -422,7 +423,8 @@ final class OrderApiExamples {
 						"unitPrice": 50000,
 						"quantity": 1,
 						"amount": 50000,
-						"status": "CANCELING"
+						"status": "CANCELING",
+						"canceledAt": null
 					}
 				]
 			}
