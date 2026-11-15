@@ -15,12 +15,14 @@ class PersonalInfoMaskerTest {
 			.isEqualTo("메일 ru***@*** 로 주세요");
 		assertThat(PersonalInfoMasker.mask("계좌 110-123-456789 국민 1234567890"))
 			.isEqualTo("계좌 (숫자 가림) 국민 (숫자 가림)");
+		// 01로 시작하는 부분이 들어 있는 긴 숫자도 휴대폰으로 보지 않고 통째로 가린다
+		assertThat(PersonalInfoMasker.mask("계좌 3020101234567890")).isEqualTo("계좌 (숫자 가림)");
 	}
 
 	@Test
 	@DisplayName("주문번호, 날짜, 짧은 숫자는 그대로 둔다")
 	void keep() {
-		String text = "주문 OD-20261030-0217, 11/3 10K 45,000원 2026-11-03";
+		String text = "주문 OD-20261030-0217, od-20261030-0218, 11/3 10K 45,000원 2026-11-03";
 		assertThat(PersonalInfoMasker.mask(text)).isEqualTo(text);
 		assertThat(PersonalInfoMasker.mask(null)).isNull();
 	}

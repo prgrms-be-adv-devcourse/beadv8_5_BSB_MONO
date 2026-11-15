@@ -93,6 +93,19 @@ class ApiV1AiInquiryDraftTest extends AiTestBase {
 	}
 
 	@Test
+	@DisplayName("모델이 비운 missing 항목은 응답에서 뺀다")
+	void blankMissing() throws Exception {
+		opsPort.inquiry = inquiry("WAITING", "본문", ORDER);
+		chatModel.answerWith("{\"draft\": \"초안\", "
+			+ "\"missing\": [null, {\"title\": \" \"}, {\"title\": \"날짜를 넣지 못했어요\"}]}");
+
+		draft("admin", ADMIN, 12)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.missing.length()").value(1))
+			.andExpect(jsonPath("$.data.missing[0].title").value("날짜를 넣지 못했어요"));
+	}
+
+	@Test
 	@DisplayName("그 화면의 역할이 없으면 403이고 문의를 읽지 않는다")
 	void forbidden() throws Exception {
 		draft("admin", SELLER, 12).andExpect(status().isForbidden());

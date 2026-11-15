@@ -8,9 +8,9 @@ import java.util.regex.Pattern;
  */
 final class PersonalInfoMasker {
 	private static final Pattern EMAIL = Pattern.compile("([A-Za-z0-9._%+-]{1,2})[A-Za-z0-9._%+-]*@[A-Za-z0-9.-]+");
-	private static final Pattern PHONE = Pattern.compile("01[016789][-. ]?\\d{3,4}[-. ]?(\\d{4})");
-	// 계좌·카드처럼 숫자 10개 이상이 이어진 것 (사이 붙임표 허용). 주문번호(OD-날짜-번호)는 남긴다
-	private static final Pattern LONG_NUMBER = Pattern.compile("(?<!OD-)(?<![\\d-])\\d(?:-?\\d){9,}");
+	private static final Pattern PHONE = Pattern.compile("(?<!\\d)01[016789][-. ]?\\d{3,4}[-. ]?(\\d{4})(?!\\d)");
+	// 계좌·카드처럼 숫자 10개 이상이 이어진 것 (사이 붙임표 허용). 주문번호(OD-날짜-번호, 소문자로 써도)는 남긴다
+	private static final Pattern LONG_NUMBER = Pattern.compile("(?<![Oo][Dd]-)(?<![\\d-])\\d(?:-?\\d){9,}");
 
 	private PersonalInfoMasker() {
 	}
