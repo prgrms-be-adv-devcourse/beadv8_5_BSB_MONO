@@ -43,7 +43,8 @@ final class PartyApiExamples {
 					"thirdPartyConsent": true,
 					"consentedAt": "2026-11-05T10:15:30",
 					"paymentDueAt": null
-				}
+				},
+				"invitedMemberIds": [12, 15]
 			}
 		}
 		""";
@@ -229,6 +230,11 @@ final class PartyApiExamples {
 	static final String CREW_MEMBER_REQUIRED = """
 		{ "status": 403, "code": "ORDER_CREW_MEMBER_REQUIRED",
 			"message": "이 크루의 크루원만 파티를 만들거나 합류할 수 있습니다.", "data": null }
+		""";
+
+	static final String CREW_PARTY_RESTRICTED = """
+		{ "status": 403, "code": "ORDER_CREW_PARTY_RESTRICTED", "message": "크루가 파티 만들기 제한 중입니다.",
+			"data": { "endAt": "2026-12-12T04:30:00" } }
 		""";
 
 	static final String LEADER_ONLY = """

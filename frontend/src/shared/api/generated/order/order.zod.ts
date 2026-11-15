@@ -373,8 +373,9 @@ export const CreatePartyResponse = zod.object({
   "name": zod.string(),
   "value": zod.string()
 }).describe('참가 신청이 고른 키트 옵션 하나')).optional().describe('결제 때 고른 키트 옵션 (이름·값, 고른 순). 결제 전이거나 옵션이 없는 종목이면 빈 목록')
-}).optional().describe('참가 신청')
-}).optional().describe('파티 만들기 응답: 파티와 파티장의 신청서')
+}).optional().describe('참가 신청'),
+  "invitedMemberIds": zod.array(zod.int()).optional().describe('초대 알림과 참가 링크를 보낸 회원 ID. 고른 사람 중 나 자신·크루원이 아닌 사람·파티 예매 시작 7일 전보다 늦게 가입한 사람은 빠진다')
+}).optional().describe('파티 만들기 응답: 파티, 파티장의 신청서, 초대 알림을 보낸 크루원')
 })
 
 

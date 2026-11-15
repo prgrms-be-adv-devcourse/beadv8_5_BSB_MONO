@@ -839,11 +839,13 @@ export interface PartyPreviewDto {
 }
 
 /**
- * 파티 만들기 응답: 파티와 파티장의 신청서
+ * 파티 만들기 응답: 파티, 파티장의 신청서, 초대 알림을 보낸 크루원
  */
 export interface PartyCreatedDto {
   party?: PartyDto;
   participation?: ParticipationDto;
+  /** 초대 알림과 참가 링크를 보낸 회원 ID. 고른 사람 중 나 자신·크루원이 아닌 사람·파티 예매 시작 7일 전보다 늦게 가입한 사람은 빠진다 */
+  invitedMemberIds?: number[];
 }
 
 /**
@@ -984,6 +986,14 @@ export interface SellerKitOptionSaleDto {
  */
 export interface KitOptionSoldOutDto {
   soldOut: KitOptionChoiceDto[];
+}
+
+/**
+ * 크루 파티 만들기 제한 403(ORDER_CREW_PARTY_RESTRICTED)의 data. 결제율 미달로 제한 중인 크루가 파티를 만들 때 준다
+ */
+export interface CrewPartyRestrictedDto {
+  /** 제한이 끝나는 시각. 이때부터 다시 파티를 만들 수 있다 */
+  endAt: string;
 }
 
 /**
