@@ -1,0 +1,96 @@
+# 앱이 부르는 인프라 이름(bukang-db 등)을 보조 EC2(10.0.2.222)로 잇는다
+#   보조 EC2는 compose로 인프라를 띄우고 사설 IP에 포트를 연다 (infra/data-node)
+#   로컬(overlays/local)은 같은 이름을 내 PC(ExternalName host.k3d.internal)로 잇는다. 앱 설정은 어느 쪽이든 그대로다
+#
+# IP로 이어야 해서 ExternalName(이름만 됨) 대신 셀렉터 없는 Service + EndpointSlice를 쓴다
+#   Service에 selector가 없으면 k8s가 Pod를 찾지 않고, 같은 이름 라벨(kubernetes.io/service-name)의 EndpointSlice 주소로 보낸다
+#   Service와 EndpointSlice의 포트 이름(name)이 같아야 이어진다
+# S3는 실제 AWS S3를 써서 bukang-s3mock은 만들지 않는다
+apiVersion: v1
+kind: Service
+metadata:
+  name: bukang-db
+spec:
+  ports:
+    - name: mysql
+      port: 3306
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: bukang-db
+  labels:
+    kubernetes.io/service-name: bukang-db
+addressType: IPv4
+ports:
+  - name: mysql
+    port: 3306
+endpoints:
+  - addresses: ["10.0.2.222"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bukang-redis
+spec:
+  ports:
+    - name: redis
+      port: 6379
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: bukang-redis
+  labels:
+    kubernetes.io/service-name: bukang-redis
+addressType: IPv4
+ports:
+  - name: redis
+    port: 6379
+endpoints:
+  - addresses: ["10.0.2.222"]
+---
+# Redpanda internal 리스너. Redpanda가 앱에 "bukang-kafka:29092로 다시 접속하라"고 알려 주므로 포트도 29092로 같게 둔다
+apiVersion: v1
+kind: Service
+metadata:
+  name: bukang-kafka
+spec:
+  ports:
+    - name: kafka
+      port: 29092
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: bukang-kafka
+  labels:
+    kubernetes.io/service-name: bukang-kafka
+addressType: IPv4
+ports:
+  - name: kafka
+    port: 29092
+endpoints:
+  - addresses: ["10.0.2.222"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bukang-elasticsearch
+spec:
+  ports:
+    - name: http
+      port: 9200
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: bukang-elasticsearch
+  labels:
+    kubernetes.io/service-name: bukang-elasticsearch
+addressType: IPv4
+ports:
+  - name: http
+    port: 9200
+endpoints:
+  - addresses: ["10.0.2.222"]

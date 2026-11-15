@@ -29,6 +29,7 @@ class NotificationViewTest {
 	@DisplayName("문의 알림은 받은 문의는 Inbox, 답변은 Bell 아이콘이다")
 	void inquiryIcons() {
 		assertThat(NotificationView.icon(NotificationKind.INQUIRY_RECEIVED)).isEqualTo("Inbox");
+		assertThat(NotificationView.icon(NotificationKind.PARTY_INVITED)).isEqualTo("Users");
 		assertThat(NotificationView.icon(NotificationKind.INQUIRY_ANSWERED)).isEqualTo("Bell");
 	}
 

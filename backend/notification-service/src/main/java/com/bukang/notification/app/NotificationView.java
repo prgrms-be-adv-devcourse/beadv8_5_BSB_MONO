@@ -46,7 +46,7 @@ final class NotificationView {
 			case REFUND_COMPLETED, WITHDRAWAL_COMPLETED -> "CircleCheck";
 			case RACE_CANCELED -> "CircleAlert";
 			case RACE_SCHEDULE_CHANGED -> "Calendar";
-			case CREW_JOINED -> "Users";
+			case CREW_JOINED, PARTY_INVITED -> "Users";
 			case PARTY_PAYMENT_REQUESTED, INQUIRY_ANSWERED -> "Bell";
 			case INQUIRY_RECEIVED -> "Inbox";
 			case PARTY_PAYMENT_DEADLINE, CARD_CANCEL_DEADLINE, KIT_TRACKING_STOPPED, PAYOUT_HELD -> "TriangleAlert";

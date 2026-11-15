@@ -17,6 +17,7 @@ import com.bukang.common.global.rsdata.RsData;
 import com.bukang.common.shared.member.web.LoginMemberId;
 import com.bukang.order.app.MyTicketQueryFacade;
 import com.bukang.order.app.ParticipationFacade;
+import com.bukang.order.dto.KitOptionChangeRequestDto;
 import com.bukang.order.dto.MyTicketPageDto;
 import com.bukang.order.dto.ParticipantInfoDto;
 import com.bukang.order.dto.ParticipantInfoRequestDto;
@@ -36,7 +37,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 
-@Tag(name = "Participation", description = "참가 신청서 작성·취소, 참가 신청 조회, 내 참가권 목록, 참가자 정보 수정, "
+@Tag(name = "Participation", description = "참가 신청서 작성·취소, 참가 신청 조회, 내 참가권 목록, 참가자 정보·키트 옵션 수정, "
 	+ "최근 참가자 정보 조회 API")
 @RestController
 @RequiredArgsConstructor
@@ -285,5 +286,59 @@ public class ApiV1ParticipationController {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "참가자 정보를 수정했습니다.",
 				participationFacade.changeParticipant(participationId, request, memberId)));
+	}
+
+	@PutMapping("/{participationId}/kit-options")
+	@Operation(summary = "키트 옵션 바꾸기",
+		description = "결제한 본인 참가권의 키트 옵션(예: 티셔츠 M → L)을 접수 마감 전까지 바꾼다. 결제 때처럼 바꾼 뒤의 옵션을 "
+			+ "모두 보내고, 옵션 이름마다 하나씩 골라야 한다. 옛 옵션의 판매 수는 1 줄고 새 옵션의 판매 수는 1 는다. "
+			+ "새 옵션이 준비된 수량만큼 팔렸으면 409(data.soldOut, 결제 품절과 같은 모양)이고 아무것도 바뀌지 않는다. "
+			+ "바꾼 옵션은 내 참가권 목록과 판매자 키트 목록에 바로 보인다. 결제 전 신청·취소 중·취소된 참가권은 바꿀 수 없다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "바꾸기 성공 (같은 옵션을 보내면 그대로 200)",
+			content = @Content(examples = @ExampleObject(value = ParticipationApiExamples.KIT_OPTION_CHANGE_SUCCESS))),
+		@ApiResponse(responseCode = "400", description = "입력값 검증 실패, 요청 본문 형식 오류, 고른 옵션이 대회 옵션과 맞지 않음 "
+			+ "또는 참가 신청 ID·회원 ID 오류",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "옵션 ID 형식 오류", value = ParticipationApiExamples.INVALID_KIT_OPTION_ID),
+				@ExampleObject(name = "요청 본문 형식 오류", value = ParticipationApiExamples.INVALID_BODY),
+				@ExampleObject(name = "이 대회 옵션이 아님", value = ParticipationApiExamples.KIT_OPTION_NOT_IN_RACE),
+				@ExampleObject(name = "고르지 않은 옵션 이름", value = ParticipationApiExamples.KIT_OPTION_MISSING),
+				@ExampleObject(name = "한 이름에서 둘을 고름", value = ParticipationApiExamples.KIT_OPTION_DUPLICATED_NAME),
+				@ExampleObject(name = "참가 신청 ID·회원 ID 형식 오류", value = ParticipationApiExamples.INVALID_VALUE_TYPE),
+				@ExampleObject(name = "회원 ID가 0 이하", value = ParticipationApiExamples.INVALID_MEMBER_ID)
+			})),
+		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = ParticipationApiExamples.LOGIN_REQUIRED))),
+		@ApiResponse(responseCode = "403", description = "다른 회원의 참가 신청",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = ParticipationApiExamples.NOT_OWNER))),
+		@ApiResponse(responseCode = "404", description = "없는 참가 신청 또는 없는 종목",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "없는 참가 신청", value = ParticipationApiExamples.PARTICIPATION_NOT_FOUND),
+				@ExampleObject(name = "없는 종목", value = ParticipationApiExamples.COURSE_NOT_FOUND)
+			})),
+		@ApiResponse(responseCode = "409", description = "접수 마감 뒤, 취소된 대회, 바꿀 수 없는 참가권 또는 새 옵션 품절",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "접수 마감 뒤", value = ParticipationApiExamples.KIT_OPTION_APPLICATION_CLOSED),
+				@ExampleObject(name = "취소된 대회", value = ParticipationApiExamples.RACE_CANCELED),
+				@ExampleObject(name = "결제 전 참가 신청", value = ParticipationApiExamples.KIT_OPTION_NOT_CONFIRMED),
+				@ExampleObject(name = "취소 처리 중", value = ParticipationApiExamples.KIT_OPTION_CANCELING),
+				@ExampleObject(name = "새 옵션 품절", value = ParticipationApiExamples.KIT_OPTION_SOLD_OUT)
+			})),
+		@ApiResponse(responseCode = "503", description = "상품 서비스에서 키트 옵션을 받지 못함",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = ParticipationApiExamples.KIT_OPTIONS_UNAVAILABLE)))
+	})
+	public ResponseEntity<RsData<ParticipationDto>> changeKitOptions(
+		@LoginMemberId long memberId,
+		@Parameter(description = "참가 신청 ID", example = "1")
+		@PathVariable long participationId,
+		@Valid @RequestBody KitOptionChangeRequestDto request
+	) {
+		return ResponseEntity.ok()
+			.body(RsData.of(HttpStatus.OK, "키트 옵션을 바꿨습니다.",
+				participationFacade.changeKitOptions(participationId, request.getKitOptionIds(), memberId)));
 	}
 }

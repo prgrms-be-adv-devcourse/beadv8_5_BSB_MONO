@@ -839,11 +839,13 @@ export interface PartyPreviewDto {
 }
 
 /**
- * 파티 만들기 응답: 파티와 파티장의 신청서
+ * 파티 만들기 응답: 파티, 파티장의 신청서, 초대 알림을 보낸 크루원
  */
 export interface PartyCreatedDto {
   party?: PartyDto;
   participation?: ParticipationDto;
+  /** 초대 알림과 참가 링크를 보낸 회원 ID. 고른 사람 중 나 자신·크루원이 아닌 사람·파티 예매 시작 7일 전보다 늦게 가입한 사람은 빠진다 */
+  invitedMemberIds?: number[];
 }
 
 /**
@@ -984,6 +986,14 @@ export interface SellerKitOptionSaleDto {
  */
 export interface KitOptionSoldOutDto {
   soldOut: KitOptionChoiceDto[];
+}
+
+/**
+ * 크루 파티 만들기 제한 403(ORDER_CREW_PARTY_RESTRICTED)의 data. 결제율 미달로 제한 중인 크루가 파티를 만들 때 준다
+ */
+export interface CrewPartyRestrictedDto {
+  /** 제한이 끝나는 시각. 이때부터 다시 파티를 만들 수 있다 */
+  endAt: string;
 }
 
 /**
@@ -1190,6 +1200,98 @@ export interface MyTicketPageDto {
   totalPages: number;
 }
 
+export type SellerOrderDtoStatus = typeof SellerOrderDtoStatus[keyof typeof SellerOrderDtoStatus];
+
+
+export const SellerOrderDtoStatus = {
+  ORDERED: 'ORDERED',
+  PAID: 'PAID',
+  CANCELING: 'CANCELING',
+  CANCELED: 'CANCELED',
+} as const;
+
+/**
+ * 판매자 주문 목록의 한 줄 (주문 상품 = 참가권 1장). 연락처·배송지는 없다
+ */
+export interface SellerOrderDto {
+  orderItemId?: number;
+  orderId?: number;
+  orderNo?: string;
+  orderedAt?: string;
+  /**
+     * 결제 전이면 null
+     * @nullable
+     */
+  paidAt?: string | null;
+  raceId?: number;
+  raceCourseId?: number;
+  courseName?: string;
+  status?: SellerOrderDtoStatus;
+  participantName?: string;
+  /**
+     * 옛 티셔츠 사이즈. kitOptions가 비어 있을 때만 쓴다
+     * @nullable
+     */
+  tshirtSize?: string | null;
+  /** 결제 때 고른 키트 옵션. 키트 옵션이 없으면 빈 목록 */
+  kitOptions?: KitOptionChoiceDto[];
+  /**
+     * 파티로 신청했으면 파티 ID, 개인 신청이면 null
+     * @nullable
+     */
+  partyId?: number | null;
+}
+
+/**
+ * 판매자 주문 목록 한 페이지
+ */
+export interface SellerOrderPageDto {
+  orders?: SellerOrderDto[];
+  page?: number;
+  size?: number;
+  totalElements?: number;
+  totalPages?: number;
+}
+
+export type SellerPartyDtoStatus = typeof SellerPartyDtoStatus[keyof typeof SellerPartyDtoStatus];
+
+
+export const SellerPartyDtoStatus = {
+  RECRUITING: 'RECRUITING',
+  PAYING: 'PAYING',
+  PAID: 'PAID',
+  CLOSED: 'CLOSED',
+} as const;
+
+/**
+ * 판매자 파티별 내역의 한 줄. 신청 인원 = 결제 인원 + 결제하지 않은 자리
+ */
+export interface SellerPartyDto {
+  partyId?: number;
+  crewId?: number;
+  raceCourseId?: number;
+  status?: SellerPartyDtoStatus;
+  appliedCount?: number;
+  paidCount?: number;
+  unpaidCount?: number;
+  /**
+     * 결제 진행 중(PAYING)일 때만 의미가 있다. 그 밖은 끝남
+     * @nullable
+     */
+  paymentDueAt?: string | null;
+}
+
+/**
+ * 판매자 파티별 내역 한 페이지
+ */
+export interface SellerPartyPageDto {
+  parties?: SellerPartyDto[];
+  page?: number;
+  size?: number;
+  totalElements?: number;
+  totalPages?: number;
+}
+
 export interface RsDataOrderItemDto {
   status?: number;
   message?: string;
@@ -1302,6 +1404,18 @@ export interface RsDataCartDto {
   status?: number;
   message?: string;
   data?: CartDto;
+}
+
+export interface RsDataSellerOrderPageDto {
+  status?: number;
+  message?: string;
+  data?: SellerOrderPageDto;
+}
+
+export interface RsDataSellerPartyPageDto {
+  status?: number;
+  message?: string;
+  data?: SellerPartyPageDto;
 }
 
 export type FindMineParams = {
@@ -1441,6 +1555,84 @@ nickname?: string;
  * 주문번호 (닉네임과 둘 중 하나, 대소문자 상관없음)
  */
 orderNo?: string;
+/**
+ * 페이지 번호 (0부터)
+ * @minimum 0
+ */
+page?: number;
+/**
+ * 페이지 크기 (1~100)
+ * @minimum 1
+ * @maximum 100
+ */
+size?: number;
+};
+
+export type FindSellerOrdersParams = {
+/**
+ * 대회 ID (생략하면 모든 대회)
+ */
+raceId?: number;
+/**
+ * 종목 ID (생략 가능)
+ */
+raceCourseId?: number;
+/**
+ * 주문 상품 상태 (ORDERED 결제 대기 / PAID 결제 완료 / CANCELING 취소 중 / CANCELED 취소, 생략 가능)
+ */
+status?: FindSellerOrdersStatus;
+/**
+ * 파티 ID로 찾기 (있으면 주문일은 보지 않음)
+ */
+partyId?: number;
+/**
+ * 조회 시작일 (주문일, 생략 가능)
+ */
+from?: string;
+/**
+ * 조회 종료일 (이날 주문까지 포함, 생략 가능)
+ */
+to?: string;
+/**
+ * 페이지 번호 (0부터)
+ * @minimum 0
+ */
+page?: number;
+/**
+ * 페이지 크기 (1~100)
+ * @minimum 1
+ * @maximum 100
+ */
+size?: number;
+};
+
+export type FindSellerOrdersStatus = typeof FindSellerOrdersStatus[keyof typeof FindSellerOrdersStatus];
+
+
+export const FindSellerOrdersStatus = {
+  ORDERED: 'ORDERED',
+  PAID: 'PAID',
+  CANCELING: 'CANCELING',
+  CANCELED: 'CANCELED',
+} as const;
+
+export type FindSellerPartiesParams = {
+/**
+ * 대회 ID
+ */
+raceId: number;
+/**
+ * 파티 ID로 찾기 (있으면 기간은 보지 않음)
+ */
+partyId?: number;
+/**
+ * 조회 시작일 (파티 신청일, 생략 가능)
+ */
+from?: string;
+/**
+ * 조회 종료일 (이날 신청까지 포함, 생략 가능)
+ */
+to?: string;
 /**
  * 페이지 번호 (0부터)
  * @minimum 0
