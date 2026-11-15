@@ -1,6 +1,7 @@
 package com.bukang.order.support;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -38,6 +39,7 @@ public class StubWalletPort implements WalletPort {
 	private final List<Call> cancelCalls = new CopyOnWriteArrayList<>();
 	private final List<Call> refundCalls = new CopyOnWriteArrayList<>();
 	private final List<Long> refundedAmounts = new CopyOnWriteArrayList<>();
+	private final Set<Long> payFailingOrders = new HashSet<>();
 	private boolean payTimesOut;
 	private boolean payRejects;
 	private boolean cancelFails;
@@ -68,6 +70,9 @@ public class StubWalletPort implements WalletPort {
 		payCalls.add(amount);
 		if (canceledOrders.contains(orderId)) {
 			throw new OrderNotPayableException("이미 끝난 결제라 다시 결제할 수 없습니다.");
+		}
+		if (payFailingOrders.contains(orderId)) {
+			throw new ExternalServiceUnavailableException(TIMEOUT_MESSAGE);
 		}
 		if (payRejects) {
 			// HttpWalletAdapter가 D의 4xx 거절(409 제외)을 던지는 예외와 같게 둔다. 차감하지 않는다
@@ -157,6 +162,11 @@ public class StubWalletPort implements WalletPort {
 	}
 
 	// 결제를 D가 4xx로 거절하게 한다 (계약 어긋남·지갑 없음)
+	// 이 주문의 결제만 연결 실패로 둔다 (차감하지 않는다)
+	public synchronized void failPayFor(long orderId) {
+		payFailingOrders.add(orderId);
+	}
+
 	public synchronized void setPayRejects(boolean payRejects) {
 		this.payRejects = payRejects;
 	}
@@ -228,6 +238,7 @@ public class StubWalletPort implements WalletPort {
 		cancelCalls.clear();
 		refundCalls.clear();
 		refundedAmounts.clear();
+		payFailingOrders.clear();
 		payTimesOut = false;
 		payRejects = false;
 		cancelFails = false;
