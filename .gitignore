@@ -12,6 +12,8 @@
 .env
 .env.*
 !.env.example
+# k8s Secret (실제 비밀값). 키 목록은 secret.yaml.example
+k8s/overlays/*/secret.yaml
 
 ### MCP ###
 /.shrimp_data/
