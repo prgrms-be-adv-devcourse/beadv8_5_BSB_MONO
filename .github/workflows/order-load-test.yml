@@ -50,7 +50,7 @@ jobs:
       REF_A: ${{ inputs.ref_a || (github.event_name == 'push' && github.sha) || github.event.pull_request.head.sha || github.sha }}
       REF_B: ${{ inputs.ref_b }}
       REPEAT: ${{ inputs.repeat || (github.event_name == 'push' && '3') || '3' }}
-      SCENARIOS: ${{ inputs.scenarios || (github.event_name == 'push' && 'warmup cold-hot restart-hot restart-flow') || '' }}
+      SCENARIOS: ${{ inputs.scenarios || (github.event_name == 'push' && 'warmup hot-0-flow charge-10 charge-30 charge-60') || '' }}
       QUICK: ${{ inputs.quick || (github.event_name == 'push' && '0') || '0' }}
       OUT: ${{ github.workspace }}/load-results
     steps:

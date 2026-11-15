@@ -118,6 +118,20 @@ restart_flow() {
 	kill "$poll" 2>/dev/null || true
 }
 
+# 충전 몰림: 쏠림 흐름(종목 5개 초당 20명, 옵션 하나, 지연 없음)과 같은 시간에 예치금 충전을 초당 $2건 보낸다
+CHARGE_INDEX=0
+charge_flow() {
+	local name=$1 rate=$2 charge_from=$((500001 + CHARGE_INDEX * 10000)) charger
+	CHARGE_INDEX=$((CHARGE_INDEX + 1))
+	docker run --rm --network orderload_default --cpus 1 --user "$(id -u):$(id -g)" \
+		-v "$HERE:/scripts:ro" -v "$RUN_DIR:/out" "$K6_IMAGE" run --quiet \
+		-e RATE="$rate" -e DURATION="$FLOW_DURATION" -e CHARGE_FROM="$charge_from" -e SUMMARY="/out/$name.charge.k6.json" \
+		/scripts/charge.js > "$RUN_DIR/$name.charge.k6.log" 2>&1 &
+	charger=$!
+	k6 "$name" -e MODE=flow -e COURSES=5 -e RATE_PER_COURSE=4 -e DURATION="$FLOW_DURATION" -e FLOW_OPTIONS=1
+	wait "$charger" || log "$name: 충전 k6가 0이 아닌 값으로 끝남"
+}
+
 flow() { k6 "$1" -e MODE=flow -e COURSES="$2" -e RATE_PER_COURSE="$3" -e DURATION="$4"; }
 burst() { k6 "$1" -e MODE=burst -e ROUNDS="$ROUNDS" -e SAME_OPTION="$2"; }
 
@@ -138,6 +152,7 @@ for s in $SCENARIOS; do
 		cold-hot) set_pool 10; set_latency 0; restart_cash cold-hot; restart_flow cold-hot 1 ;;
 		restart-hot) set_pool 10; set_latency 0; restart_flow restart-hot 1 "$RESTART_AFTER" ;;
 		restart-flow) set_pool 10; set_latency 0; restart_flow restart-flow 5 "$RESTART_AFTER" ;;
+		charge-*) set_pool 10; set_latency 0; charge_flow "$s" "${s#charge-}" ;;
 		s5-burst) set_pool 20; set_latency 300; burst s5-burst 0 ;;
 		*) echo "모르는 시나리오: $s" >&2; exit 1 ;;
 	esac

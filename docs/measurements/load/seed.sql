@@ -43,6 +43,15 @@ insert into cash_wallet (id, holder_id, balance, version, create_date, modify_da
 with recursive seq (n) as (select 100001 union all select n + 1 from seq where n < 100000 + @members)
 select n, n, 10000000, 0, now(), now() from seq;
 
+-- 3) 충전 몰림 측정용 회원: 500001~530000, 잔액 0 (충전 한도·쿨다운에 걸리지 않게 한 사람이 한 번만 충전한다)
+insert into cash_member (id, nickname, create_date, modify_date)
+with recursive seq (n) as (select 500001 union all select n + 1 from seq where n < 530000)
+select n, concat('charge', n), now(), now() from seq;
+
+insert into cash_wallet (id, holder_id, balance, version, create_date, modify_date)
+with recursive seq (n) as (select 500001 union all select n + 1 from seq where n < 530000)
+select n, n, 0, 0, now(), now() from seq;
+
 select (select count(*) from race_course where race_id = 900001) as courses,
 	(select count(*) from product_kit_option where race_id = 900001) as kit_options,
 	(select count(*) from cash_wallet where id > 100000) as load_wallets,
