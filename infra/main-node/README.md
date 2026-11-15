@@ -43,7 +43,7 @@
 
 - 모두 SecureString(KMS로 암호화)입니다. 값은 서버 안에서 옮기고 PC·채팅으로 가져오지 않습니다.
 - Parameter Store는 빈 값을 저장할 수 없습니다. 운영 `.env`에서 빈 키(예: `ELASTICSEARCH_USERNAME`)는 건너뛰고, deploy.sh가 빈 값으로 넣습니다.
-- 메인 EC2 역할에는 **읽기만** 줍니다(BUK-220 D5 `infra/iam`). 옮기는 스크립트는 그 셸에서만 쓰는 사용자 자격 증명으로 한 번 실행합니다.
+- 메인 EC2 역할(`team05-bukang-main-ec2-role`)에는 **읽기만** 줍니다(`infra/iam/main-ec2-policy.json`). 옮길 때만 임시 쓰기 정책을 붙였다가 지웁니다(`infra/README.md` D6 순서 5).
 - 공개해도 되는 운영 값(버킷 이름, 사이트 주소, 소셜 로그인 앱 ID, 포트원 상점 ID)은 `k8s/overlays/aws/app-config.yaml`에 커밋되어 있습니다.
 
 ## HTTPS

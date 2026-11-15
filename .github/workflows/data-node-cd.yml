@@ -5,7 +5,7 @@ name: data-node-cd
 # 운영 DB가 다시 시작될 수 있어 자동으로 돌지 않는다. 인프라 설정을 바꾼 PR이 main에 머지된 뒤 손으로 실행한다
 #   Actions → data-node-cd → Run workflow (브랜치는 main)
 #
-# 저장소 Secrets: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY / Variables: DATA_INSTANCE_ID(보조 EC2). 만드는 법은 infra/README.md
+# 저장소 Variables: AWS_DEPLOY_ROLE_ARN(배포 역할), DATA_INSTANCE_ID(보조 EC2). 만드는 법은 infra/README.md
 on:
   workflow_dispatch:
     inputs:
@@ -27,6 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      id-token: write   # OIDC 토큰을 받아 AWS 역할로 바꾼다
     steps:
       - uses: actions/checkout@v4
 
@@ -40,11 +41,9 @@ jobs:
             exit 1
           fi
 
-      # 교안(slog 14710 4강)처럼 액세스 키를 GitHub Secrets에 둔다
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ap-northeast-2
 
       # ES 이미지를 서버에서 빌드하는 경우가 있어 15분
