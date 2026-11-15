@@ -32,7 +32,7 @@
 ```
 
 - **설정 표시(config-hash):** `app-config.yaml`·Secret 값이 바뀌면 Pod 템플릿의 표시가 바뀌어 Pod가 다시 뜹니다. 같은 커밋을 다시 배포해도 비밀값만 바뀌었으면 반영됩니다.
-- **이미지:** GitHub Actions가 커밋 SHA 태그로 GHCR에 먼저 올립니다(`app-cd.yml`의 build 잡과 같음). 그 커밋의 이미지가 없으면 ImagePullBackOff가 납니다.
+- **이미지:** GitHub Actions(`k8s-cd.yml`의 build 잡)가 커밋 SHA 태그로 GHCR에 먼저 올립니다. 그 커밋의 이미지가 없으면 ImagePullBackOff가 납니다.
 
 ## 비밀값 (SSM Parameter Store)
 
@@ -59,4 +59,5 @@
 - **80·443:** install-k3s.sh는 compose의 nginx가 떠 있으면 멈춥니다. 전환 절차서 순서대로 compose를 먼저 내립니다.
 - **NAT:** 이 서버는 보조 EC2가 인터넷에 나가는 NAT입니다. k3s가 방화벽 규칙을 더해도 `10.0.0.0/16 MASQUERADE`가 남는지 설치 전후로 확인합니다.
 - **GHCR 토큰:** 지금 서버의 docker 로그인 토큰이 누구 것인지, 언제 만료되는지 전환 전에 확인합니다. 만료되면 이미지를 받지 못해 배포가 멈춥니다.
-- **스크립트는 서버에 아직 적용하지 않았습니다.** 전환(BUK-220 D7)은 `infra/README.md`의 절차서를 따릅니다(D5에서 작성).
+- **2026-11-15 전환을 마쳤습니다**(BUK-220 D7). 다시 설치하거나 되돌릴 때는 `infra/README.md`의 절차서를 따릅니다.
+- `install-k3s.sh`는 다시 실행해도 됩니다. k3s가 있으면 설치를 건너뛰고 Traefik 설정만 다시 둡니다(설정을 바꿨을 때 이렇게 반영).
