@@ -410,6 +410,22 @@ class CashChargeConfirmUseCaseTest {
 	}
 
 	@Test
+	@DisplayName("승인 응답이 가상계좌 입금 대기라 결과를 모르고, 재조회해도 입금 대기면 예치금을 늘리지 않고 UNCERTAIN으로 남긴다")
+	void waitingForDepositLeavesUncertainWithoutCredit() {
+		createCustomerWallet(0);
+		given(paymentClient.approve(anyString(), anyString(), anyLong()))
+			.willThrow(new PaymentApprovalFailedException("PG 서버 응답이 올바르지 않습니다."));
+		given(paymentClient.lookupByOrderId("order_1")).willReturn(PaymentLookupResult.waitingForDeposit());
+
+		CashChargeResponseDto response = cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 10_000);
+
+		assertThat(response.outcome()).isEqualTo(CashChargeResponseDto.Outcome.UNCERTAIN);
+		assertThat(walletChargeRepository.findByIdempotencyKey("order_1").orElseThrow().getStatus())
+			.isEqualTo(ChargeStatus.UNCERTAIN);
+		assertBalance(CUSTOMER_ID, 0);
+	}
+
+	@Test
 	@DisplayName("ALREADY_PROCESSING_REQUEST(다른 요청이 처리 중)면 재조회하고, 처음엔 처리 중이어도 "
 		+ "바로 다시 조회해서 승인됐으면 COMPLETED로 반영한다")
 	void alreadyProcessingThenPendingThenCompletedOnImmediateRetry() {
