@@ -10,7 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * 가짜 어댑터: 판매자 ID 조회를 실제로 붙이기 전까지 개발용으로 답한다 (PRO-197)
  * 회원 ID를 그대로 판매자 ID로 본다. 상품·정산의 시작 데이터 판매자(판매자 ID 7)가 회원 7이라 dev에서 그대로 맞는다
- * 누구나 판매자가 되므로 운영(prod)에서는 쓰지 않는다 (order.clients.seller.mode=disabled, DisabledSellerLookupAdapter)
+ * 누구나 판매자가 되므로 운영(prod)에서는 쓰지 않는다 (운영은 order.clients.seller.mode=http, HttpSellerLookupAdapter)
  */
 @Slf4j
 @Component
@@ -24,10 +24,5 @@ public class FakeSellerLookupAdapter implements SellerLookupPort {
 	@Override
 	public Optional<Long> findApprovedSellerId(long memberId) {
 		return Optional.of(memberId);
-	}
-
-	@Override
-	public Optional<Long> findSellerMemberId(long sellerId) {
-		return Optional.of(sellerId);
 	}
 }
