@@ -7,6 +7,7 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
+import com.bukang.payout.domain.PayoutClaim;
 import com.bukang.payout.domain.PayoutRecovery;
 import com.bukang.payout.domain.PayoutRecoveryCompletion;
 import com.bukang.payout.domain.PayoutRecoveryReason;
@@ -32,7 +33,7 @@ public interface PayoutRecoveryRepository extends JpaRepository<PayoutRecovery, 
 	// 판매자 회수 내역 (BUK-106): 청구가 있는 판매자 x 대회의 회수만, 회수 요청일 최근 순
 	// 청구 전에 상계로 끝난 회수는 청구 금액에 들어가지 않았으므로 뺀다
 	@Query("""
-		select new com.bukang.payout.out.PayoutRecoveryRepository$ClaimedRecovery(r, c.claimCode)
+		select new com.bukang.payout.out.PayoutRecoveryRepository$ClaimedRecovery(r, c)
 		from PayoutRecovery r
 		join PayoutClaim c on c.sellerId = r.sellerId and c.raceId = r.raceId
 		where r.sellerId = :sellerId and r.requestedAt >= :start and r.requestedAt < :end
@@ -42,6 +43,6 @@ public interface PayoutRecoveryRepository extends JpaRepository<PayoutRecovery, 
 	List<ClaimedRecovery> findSellerClaimedRecoveries(long sellerId, LocalDateTime start, LocalDateTime end,
 		PayoutRecoveryCompletion offset);
 
-	record ClaimedRecovery(PayoutRecovery recovery, String claimCode) {
+	record ClaimedRecovery(PayoutRecovery recovery, PayoutClaim claim) {
 	}
 }
