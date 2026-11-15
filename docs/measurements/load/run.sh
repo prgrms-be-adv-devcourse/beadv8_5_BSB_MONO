@@ -162,9 +162,22 @@ done
 set_latency 0
 
 log "정확성 확인 (결제가 멈출 때까지 기다린 뒤)"
+# 부하가 끝난 때 「돈은 빠졌는데 결제 중」과 결제 중 건수를 남기고, 둘이 0이 되기까지 걸린 초를 잰다 (최대 10분)
+stuck_sql="select concat((select count(*) from cash_payment p join order_order o on o.id = p.order_id
+	where p.status = 'COMPLETED' and o.status = 'PAYING'), '/', (select count(*) from order_order where status = 'PAYING'));"
+drain_start=$(date +%s)
+at_end=$(echo "$stuck_sql" | sql)
+drain_seconds=-1
+for _ in $(seq 1 120); do
+	current=$(echo "$stuck_sql" | sql)
+	if [ "$current" = "0/0" ]; then
+		drain_seconds=$(( $(date +%s) - drain_start ))
+		break
+	fi
+	sleep 5
+done
 previous=""
 for _ in $(seq 1 24); do
-	# C안 시제품: 결제 재확인 배치가 결제 중(PAYING)을 모두 정리할 때까지도 기다린다
 	current=$(echo "select concat((select count(*) from cash_payment), '/', (select count(*) from order_order where status = 'PAID'),
 		'/', (select count(*) from order_order where status = 'PAYING'));" | sql)
 	[ "$current" = "$previous" ] && [ "${current##*/}" = 0 ] && break
@@ -172,6 +185,8 @@ for _ in $(seq 1 24); do
 	sleep 5
 done
 { echo "set @money_start = $MONEY_START;"; cat "$HERE/check.sql"; } | sql > "$RUN_DIR/check.txt"
+{ echo "DRAIN_stuck_paying_at_end=${at_end%%/*}"; echo "DRAIN_paying_at_end=${at_end##*/}";
+	echo "DRAIN_seconds_to_zero=$drain_seconds"; } >> "$RUN_DIR/check.txt"
 cat "$RUN_DIR/check.txt"
 
 log "Prometheus 구간 지표 받기"
