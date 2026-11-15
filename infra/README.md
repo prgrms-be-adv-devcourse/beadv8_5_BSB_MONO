@@ -13,7 +13,7 @@
    MySQL · Redis · Redpanda · Elasticsearch                         ← infra/data-node
    (인터넷은 메인 EC2의 NAT로 나감)
 
-GitHub Actions ─(액세스 키, GitHub Secrets)→ SSM Run Command → 각 서버의 deploy.sh
+GitHub Actions ─(OIDC, 키 없음)→ 배포 역할 ─(SSM Run Command)→ 각 서버의 deploy.sh
 메인 EC2 deploy.sh ─(EC2 역할)→ Parameter Store /crewrun/prod/* (비밀값)
 ```
 
@@ -23,7 +23,7 @@ GitHub Actions ─(액세스 키, GitHub Secrets)→ SSM Run Command → 각 서
 |---|---|
 | `infra/main-node/` | k3s 설치, Traefik HTTPS, 비밀값 옮기기, 앱 배포 스크립트 |
 | `infra/data-node/` | 데이터 서버 준비(setup.sh), 인프라 배포 스크립트 |
-| `infra/iam/` | 메인 EC2 역할에 붙일 정책 JSON (아래 「AWS 자원」) |
+| `infra/iam/` | 역할에 붙일 정책 JSON 3개 (아래 「AWS 자원」) |
 | `k8s/overlays/aws/` | 운영용 k8s 설정 (GHCR 이미지, 보조 EC2 주소, 운영 공개 설정, 도메인·HTTPS) |
 | `.github/workflows/k8s-cd.yml` | 이미지 빌드 → 메인 EC2 `deploy.sh <SHA>` (지금은 손으로 실행만) |
 | `.github/workflows/data-node-cd.yml` | 보조 EC2 `deploy.sh <main\|SHA>` (손으로 실행만) |
@@ -38,29 +38,38 @@ GitHub Actions ─(액세스 키, GitHub Secrets)→ SSM Run Command → 각 서
 | 메인 EC2 (`team05-bukang-ec2`) | `i-023cc413eb75c4186` | `sg-09d6700bbf0f7348f` |
 | 보조 EC2 | `i-07e5410c1d2dffc0d` | `sg-0f9a0ff371a92e8eb` |
 
-### EC2 역할 2개
+팀 IAM 사용자(`devcos-teamNN`, 그룹 `kdt-adv-be-project`)에는 EC2·S3·IAM 권한은 있지만 **SSM 권한이 없습니다**(2026-11-15 확인). 그래서 팀 사용자 키로는 SSM 명령을 보낼 수 없고, 8팀(`team08-hapbang-github-deploy`)처럼 SSM 권한을 가진 역할을 만들어 GitHub Actions가 OIDC로 받게 합니다. 역할 이름은 다른 팀처럼 `teamNN-<서비스>-...`로 짓습니다.
+
+### EC2 역할 2개 (만듦, 2026-11-15)
 
 | 역할 | 붙는 서버 | 붙일 권한 |
 |---|---|---|
-| `crewrun-main-ec2` | 메인 EC2 | AWS 관리형 `AmazonSSMManagedInstanceCore` + 인라인 `crewrun-read-parameters`(`infra/iam/main-ec2-policy.json`) |
-| `crewrun-data-ec2` | 보조 EC2 | `AmazonSSMManagedInstanceCore`만 |
+| `team05-bukang-main-ec2-role` | 메인 EC2 | AWS 관리형 `AmazonSSMManagedInstanceCore` + 인라인 `crewrun-read-parameters`(`infra/iam/main-ec2-policy.json`) |
+| `team05-bukang-data-ec2-role` | 보조 EC2 | `AmazonSSMManagedInstanceCore`만 |
+
+콘솔: 역할 생성 → AWS 서비스 → EC2 → 「EC2 Role for AWS Systems Manager」(관리형 정책이 자동으로 붙음) → 이름 → 생성. 인라인 정책은 역할 → 권한 추가 → 인라인 정책 생성 → JSON.
 
 - **`AmazonSSMManagedInstanceCore`:** 서버가 SSM에 등록되어 Run Command를 받게 합니다. 역할이 없으면 SSM Agent가 돌아도 등록되지 않습니다(2026-11-15 두 서버 모두 역할 없음).
 - **`main-ec2-policy.json`:** `/crewrun/prod/*`·`/crewrun/registry/*` **읽기**와, Parameter Store를 거칠 때만 쓰는 `kms:Decrypt`. 쓰기 권한은 없습니다. 보조 EC2는 비밀값을 읽지 않으므로(`.env`를 서버에 둠) 붙이지 않습니다.
 - 콘솔에서 EC2용 역할을 만들면 같은 이름의 인스턴스 프로파일이 함께 생깁니다. 지우려면 EC2에서 역할을 먼저 뗀 뒤(작업 → 보안 → IAM 역할 수정 → 없음) 역할을 삭제합니다.
 
-### GitHub Actions 인증 (교안 4강 방식)
+### GitHub Actions 배포 역할: `team05-bukang-github-deploy`
 
-워크플로는 GitHub Secrets의 액세스 키로 AWS에 들어가 SSM 명령을 보냅니다.
+| 항목 | 내용 |
+|---|---|
+| 신뢰 | `infra/iam/github-deploy-trust.json`: 계정에 이미 있는 GitHub OIDC 공급자(`token.actions.githubusercontent.com`)로, **이 저장소의 main 브랜치에서 돈 워크플로만** 역할을 받음 |
+| 권한 | `infra/iam/github-deploy-policy.json`(인라인 `crewrun-run-deploy`): 두 서버에 `AWS-RunShellScript`를 보내고 결과를 읽는 것만 |
+| 콘솔 | 역할 생성 → **사용자 지정 신뢰 정책** → 신뢰 JSON → 권한은 고르지 않고 다음 → 이름 → 생성 → 인라인 정책으로 권한 JSON |
 
-| 저장소 설정 | 이름 | 값 |
-|---|---|---|
-| Secrets | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | 팀 IAM 사용자(`devcos-team05`)의 액세스 키. 키 사용자에게 `ssm:SendCommand`·`ssm:GetCommandInvocation` 권한이 있어야 함 |
-| Variables | `MAIN_INSTANCE_ID`, `DATA_INSTANCE_ID` | 위 표의 인스턴스 ID (비밀값이 아니라 Variables) |
+- **`sub` 값이 두 개인 이유:** 이 GitHub 조직은 OIDC 토큰의 `sub`에 이름과 함께 바뀌지 않는 ID(조직 `@227967906`, 저장소 `@1406664700`)를 넣습니다(8팀 역할의 신뢰 정책에서 확인). 조직 설정이 바뀌어도 동작하게 ID가 붙은 모양과 이름만 있는 모양을 함께 둡니다. 둘 다 이 저장소 main만 가리킵니다.
+- 이 역할은 서버에서 root로 아무 명령이나 실행할 수 있는 것과 같습니다. main 브랜치 보호(리뷰 필수)가 곧 이 권한의 보호막입니다.
 
-- 이 키는 file-service의 S3 업로드(`S3_ACCESS_KEY`)와 같은 키입니다. 키를 바꾸면 Secrets와 Parameter Store(또는 서버 `.env`) 두 곳을 함께 바꿉니다.
-- 팀 사용자 키라 그 사용자의 모든 권한을 가집니다. 공개 저장소이므로 Secrets를 쓰는 워크플로는 main에서 손으로 실행할 때만 돌게 두었고(외부 PR에는 Secrets가 넘어가지 않음), 키를 로그·명령에 찍지 않습니다.
-- 계정에는 GitHub OIDC 공급자(`token.actions.githubusercontent.com`)가 이미 있습니다. 나중에 키 대신 OIDC 역할로 바꾸려면 워크플로의 인증 단계만 `role-to-assume`으로 바꾸면 됩니다.
+| 저장소 Variables | 값 |
+|---|---|
+| `AWS_DEPLOY_ROLE_ARN` | `arn:aws:iam::823315816237:role/team05-bukang-github-deploy` |
+| `MAIN_INSTANCE_ID`, `DATA_INSTANCE_ID` | 위 표의 인스턴스 ID |
+
+AWS 키는 GitHub Secrets에 두지 않습니다.
 
 ### 그 밖의 자원
 
@@ -74,7 +83,7 @@ GitHub Actions ─(액세스 키, GitHub Secrets)→ SSM Run Command → 각 서
 서버는 그대로 운영하면서 AWS 쪽만 준비합니다. 사용자 서비스에는 영향이 없습니다.
 
 1. 이 파일들이 main에 머지되어 있어야 합니다(서버가 main에서 파일을 받음).
-2. EC2 역할 2개 생성 → 두 EC2에 역할 연결(EC2 → 작업 → 보안 → IAM 역할 수정, 재시작 필요 없음).
+2. EC2 역할 2개와 배포 역할 생성 → 두 EC2에 EC2 역할 연결(EC2 → 작업 → 보안 → IAM 역할 수정, 재시작 필요 없음).
 3. 두 서버에서 SSM Agent를 다시 시작하고 등록을 확인합니다.
    ```bash
    sudo snap restart amazon-ssm-agent      # 각 서버에서
@@ -89,13 +98,12 @@ GitHub Actions ─(액세스 키, GitHub Secrets)→ SSM Run Command → 각 서
    sudo git clone https://github.com/prgrms-be-adv-devcourse/beadv8_5_BSB_MONO.git /opt/crewrun
    sudo snap install aws-cli --classic; sudo apt-get install -y jq
    cd /opt/crewrun
-   # 쓰기 권한이 있는 사용자 키를 이 셸에서만 씀 (끝나면 exit)
-   export AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=... AWS_DEFAULT_REGION=ap-northeast-2
    bash infra/main-node/env-to-parameter-store.sh           # 미리보기: 키 이름과 길이만
+   # 쓰기는 메인 EC2 역할에 임시 인라인 정책(/crewrun/* 에 ssm:PutParameter, ViaService 조건의 kms:Encrypt·GenerateDataKey)을 붙이고 실행한 뒤 정책을 지운다
+   # (팀 사용자에는 SSM 권한이 없고, 키를 서버에 입력하지 않기 위해서). 정책을 붙인 직후 몇 분은 거부가 섞여 나올 수 있어 다시 실행한다
    bash infra/main-node/env-to-parameter-store.sh --apply
-   exit
    ```
-6. GitHub 저장소 Secrets 2개(`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`)와 Variables 2개(`MAIN_INSTANCE_ID`, `DATA_INSTANCE_ID`) 등록.
+6. GitHub 저장소 Variables 3개(`AWS_DEPLOY_ROLE_ARN`, `MAIN_INSTANCE_ID`, `DATA_INSTANCE_ID`) 등록.
 
 ## 전환 절차서 (BUK-220 D7)
 
@@ -116,7 +124,7 @@ systemctl is-enabled crewrun                                                    
 ```
 
 - GHCR 토큰 주인에게 만료일을 묻습니다. 곧 만료되면 새 토큰(`read:packages`)으로 `/crewrun/registry/GHCR_AUTH`를 바꿔 둡니다.
-- D6가 끝나 두 서버가 SSM에 Online이고, Parameter Store·Secrets·Variables가 들어가 있어야 합니다.
+- D6가 끝나 두 서버가 SSM에 Online이고, Parameter Store·Variables가 들어가 있어야 합니다.
 - `k8s-cd.yml`을 한 번 돌려 **이미지 빌드만** 성공하는지 봅니다(아직 k3s가 없어 deploy 잡은 실패해도 됨). 전환 당일 빌드 시간을 줄입니다.
 
 ### 1. 옛 배포 막기
