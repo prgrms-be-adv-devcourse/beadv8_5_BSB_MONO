@@ -50,8 +50,10 @@ class HttpSellerLookupAdapterTest {
 	@Test
 	@DisplayName("승인 대기·반려·신청 없음이면 판매자가 아니다 (빈 값 → 주문이 403)")
 	void notApproved() {
-		server.expect(requestTo(URL)).andRespond(withSuccess(response("21", "\"PENDING\""), MediaType.APPLICATION_JSON));
-		server.expect(requestTo(URL)).andRespond(withSuccess(response("21", "\"REJECTED\""), MediaType.APPLICATION_JSON));
+		server.expect(requestTo(URL))
+			.andRespond(withSuccess(response("21", "\"PENDING\""), MediaType.APPLICATION_JSON));
+		server.expect(requestTo(URL))
+			.andRespond(withSuccess(response("21", "\"REJECTED\""), MediaType.APPLICATION_JSON));
 		server.expect(requestTo(URL)).andRespond(withSuccess(response("null", "null"), MediaType.APPLICATION_JSON));
 
 		for (int i = 0; i < 3; i++) {

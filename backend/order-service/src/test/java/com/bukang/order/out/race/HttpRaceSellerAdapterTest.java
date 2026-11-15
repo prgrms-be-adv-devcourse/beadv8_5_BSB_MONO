@@ -49,11 +49,22 @@ class HttpRaceSellerAdapterTest {
 	}
 
 	@Test
-	@DisplayName("없는 대회(404)면 빈 값이다")
+	@DisplayName("없는 대회(404 RACE_NOT_FOUND)면 빈 값이다")
 	void notFound() {
-		server.expect(requestTo(URL)).andRespond(withStatus(HttpStatus.NOT_FOUND));
+		server.expect(requestTo(URL)).andRespond(withStatus(HttpStatus.NOT_FOUND)
+			.contentType(MediaType.APPLICATION_JSON)
+			.body("{ \"status\": 404, \"code\": \"RACE_NOT_FOUND\", \"message\": \"대회를 찾을 수 없습니다.\" }"));
 
 		assertThat(adapter.findSellerMemberId(RACE_ID)).isEmpty();
+	}
+
+	@Test
+	@DisplayName("대회 없음이 아닌 404(경로가 어긋남)는 빈 값으로 보지 않고 503 예외로 알린다")
+	void notFoundWithoutRaceCode() {
+		server.expect(requestTo(URL)).andRespond(withStatus(HttpStatus.NOT_FOUND));
+
+		assertThatThrownBy(() -> adapter.findSellerMemberId(RACE_ID))
+			.isInstanceOf(ExternalServiceUnavailableException.class);
 	}
 
 	@Test

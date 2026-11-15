@@ -72,6 +72,7 @@ import com.bukang.order.out.QueueAdmissionRepository;
 import com.bukang.order.out.ShipmentRepository;
 import com.bukang.order.out.delivery.DeliveryTrackingResult;
 import com.bukang.order.out.race.RaceCourseInfo;
+import com.bukang.order.out.race.RaceSellerPort;
 import com.bukang.order.support.QueueEntry;
 import com.bukang.order.support.StubDeliveryTrackingPort;
 import com.bukang.order.support.StubDeliveryTrackingPortConfig;
@@ -158,6 +159,9 @@ class KitDeliveryTest {
 
 	@MockitoSpyBean
 	private NotificationKafkaSender notificationSender;
+
+	@MockitoSpyBean
+	private RaceSellerPort raceSellerPort;
 
 	@Autowired
 	private KitShipNoticeUseCase kitShipNoticeUseCase;
@@ -340,6 +344,8 @@ class KitDeliveryTest {
 		verify(notificationSender, times(1)).send(sent.capture());
 		assertThat(sent.getValue().memberId()).isEqualTo(SELLER_ID);
 		assertThat(sent.getValue().kind()).isEqualTo(NotificationKind.KIT_TRACKING_STOPPED);
+		// 판매자 ID가 아니라 주문의 대회 ID로 판매자를 찾는다 (BUK-237)
+		verify(raceSellerPort).findSellerMemberId(RACE_ID);
 
 		// 멈춘 뒤에는 부르지 않고 다시 알리지도 않는다
 		int calls = deliveryTrackingPort.calls().size();
