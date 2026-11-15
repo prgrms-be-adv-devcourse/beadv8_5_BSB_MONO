@@ -8,9 +8,11 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.bukang.member.config.MarketingUnsubscribeProperties;
@@ -18,6 +20,7 @@ import com.bukang.member.domain.Member;
 import com.bukang.member.domain.SocialProvider;
 import com.bukang.member.domain.exception.MemberNicknameLookupTooManyException;
 import com.bukang.member.domain.exception.MemberNotFoundException;
+import com.bukang.member.domain.exception.MemberReplicaPageInvalidException;
 import com.bukang.member.domain.exception.SocialAccountLoginException;
 import com.bukang.member.dto.AuthTokens;
 import com.bukang.member.dto.EmailAvailabilityResponseDto;
@@ -30,6 +33,8 @@ import com.bukang.member.dto.MemberLoginRequestDto;
 import com.bukang.member.dto.MemberLoginResult;
 import com.bukang.member.dto.MemberModifyRequestDto;
 import com.bukang.member.dto.MemberNicknameDto;
+import com.bukang.member.dto.MemberReplicaDto;
+import com.bukang.member.dto.MemberReplicaPageDto;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.identity.VerifiedIdentity;
 
@@ -40,6 +45,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class MemberFacade {
 	public static final int MAX_NICKNAME_LOOKUP = 100;
+	public static final int MAX_REPLICA_PAGE_SIZE = 500;
 
 	private final MemberJoinUseCase memberJoinUseCase;
 	private final IdentityVerificationUseCase identityVerificationUseCase;
@@ -135,6 +141,18 @@ public class MemberFacade {
 		return memberRepository.findNicknamesByIdIn(distinctIds);
 	}
 
+	// 다른 서비스가 회원 복사본을 처음 채운다 (BUK-161). 한 명 더 읽어 다음 쪽이 있는지 알린다
+	public MemberReplicaPageDto findReplicas(long afterId, int size) {
+		if (afterId < 0 || size < 1 || size > MAX_REPLICA_PAGE_SIZE) {
+			throw new MemberReplicaPageInvalidException(MAX_REPLICA_PAGE_SIZE);
+		}
+		List<MemberReplicaDto> rows = memberRepository.findReplicasAfter(afterId, PageRequest.of(0, size + 1));
+		boolean hasNext = rows.size() > size;
+		List<MemberReplicaDto> members = hasNext ? rows.subList(0, size) : rows;
+		long nextAfterId = members.isEmpty() ? afterId : members.get(members.size() - 1).memberId();
+		return new MemberReplicaPageDto(members, hasNext, nextAfterId);
+	}
+
 	public MemberAdminDto checkAdmin(long memberId) {
 		return new MemberAdminDto(adminVerifyUseCase.isAdmin(memberId));
 	}
@@ -143,6 +161,9 @@ public class MemberFacade {
 		return memberRepository.existsByEmail(email);
 	}
 
+	// bcrypt 비교가 느려서 트랜잭션 밖에서 실행한다. 읽기 전용 트랜잭션이면 비교하는 동안 DB 커넥션을 잡는다 (BUK-184)
+	// 토큰 발급은 Redis만 쓰므로 트랜잭션이 필요 없다. 조회는 각각 짧은 읽기 전용 트랜잭션으로 돈다
+	@Transactional(propagation = Propagation.NOT_SUPPORTED)
 	public MemberLoginResult login(MemberLoginRequestDto memberLoginRequestDto) {
 		// 비밀번호 없는 소셜 회원이면 가입한 제공자로 로그인하라고 알려 준다 (BE-035)
 		// 가입 여부는 이메일 중복 확인 API로도 알 수 있어(BE-023) 새로 드러나는 정보가 없다
@@ -182,7 +203,7 @@ public class MemberFacade {
 		return tokenReissueUseCase.reissue(refreshToken);
 	}
 
-	public void logout(String refreshToken) {
-		logoutUseCase.logout(refreshToken);
+	public void logout(String refreshToken, String authorization) {
+		logoutUseCase.logout(refreshToken, authorization);
 	}
 }

@@ -46,6 +46,10 @@ cash:
     pg:
       mode: http
       secret-key: ${TOSS_SECRET_KEY}
+    # 관리자 확인은 실제 회원 서비스에 묻는다
+    member:
+      mode: http
+      base-url: http://bukang-member-service:8080
 
 # 계좌번호·pgPaymentKey 암호화 키
 crypto:

@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, within } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { RACE_BANNERS, type RaceSummary } from '@/entities/race'
 
@@ -10,6 +10,13 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), back: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
   usePathname: () => '/',
 }))
+
+// 커뮤니티 탭은 가짜 응답 모드에서만 보인다(백엔드에 글 목록 API가 아직 없다)
+const env = vi.hoisted(() => ({ NEXT_PUBLIC_API_MOCKING: 'on' as 'on' | 'off' }))
+vi.mock('@/shared/config', async (importOriginal) => {
+  const original = await importOriginal<typeof import('@/shared/config')>()
+  return { ...original, clientEnv: env }
+})
 
 const RACE: RaceSummary = {
   id: '1',
@@ -30,6 +37,27 @@ function renderHome(closingSoon: RaceSummary[] = []) {
 }
 
 describe('HomePage', () => {
+  beforeEach(() => {
+    env.NEXT_PUBLIC_API_MOCKING = 'on'
+  })
+
+  it('실제 API 모드에서는 커뮤니티 탭을 숨긴다', () => {
+    env.NEXT_PUBLIC_API_MOCKING = 'off'
+    renderHome()
+    const menu = screen.getByRole('navigation', { name: '홈 메뉴' })
+    expect(within(menu).queryByRole('link', { name: '커뮤니티' })).not.toBeInTheDocument()
+    expect(within(menu).getByRole('link', { name: '크루' })).toBeInTheDocument()
+  })
+
+  it('홈 메뉴에 커뮤니티 탭이 있다', () => {
+    renderHome()
+    const menu = screen.getByRole('navigation', { name: '홈 메뉴' })
+    expect(within(menu).getByRole('link', { name: '커뮤니티' })).toHaveAttribute(
+      'href',
+      '/community',
+    )
+  })
+
   it('배너 첫 장만 먼저 불러오고 나머지는 늦게 불러온다', () => {
     renderHome()
     const banner = screen.getByRole('region', { name: '접수 중인 대회' })

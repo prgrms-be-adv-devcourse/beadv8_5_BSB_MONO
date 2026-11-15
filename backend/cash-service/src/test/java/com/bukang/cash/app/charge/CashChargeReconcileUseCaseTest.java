@@ -3,6 +3,7 @@ package com.bukang.cash.app.charge;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willReturn;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -160,6 +161,28 @@ class CashChargeReconcileUseCaseTest {
 		cashChargeReconcileUseCase.reconcile(LocalDateTime.now());
 
 		verify(paymentClient, times(3)).lookupByOrderId(anyString());
+	}
+
+	@Test
+	@DisplayName("한 건을 처리하다 우리 서버 오류가 나도 다음 건으로 넘어가고, 그 오류는 PG 조회 실패로 세지 않는다")
+	void unexpectedErrorSkipsOnlyThatCharge() {
+		createCustomerWallet(0);
+		LocalDateTime now = LocalDateTime.now();
+		createCharge("order_1", ChargeStatus.UNCERTAIN, now.minusMinutes(4));
+		createCharge("order_2", ChargeStatus.UNCERTAIN, now.minusMinutes(3));
+		createCharge("order_3", ChargeStatus.UNCERTAIN, now.minusMinutes(2));
+		createCharge("order_4", ChargeStatus.UNCERTAIN, now.minusMinutes(1));
+		willThrow(new IllegalStateException("예상 못 한 오류")).given(paymentClient).lookupByOrderId(anyString());
+		willReturn(PaymentLookupResult.completed(new PaymentApprovalResult(10_000, "toss_key_4", null)))
+			.given(paymentClient).lookupByOrderId("order_4");
+
+		cashChargeReconcileUseCase.reconcile(now);
+
+		assertThat(walletChargeRepository.findByIdempotencyKey("order_1").orElseThrow().getStatus())
+			.isEqualTo(ChargeStatus.UNCERTAIN);
+		assertThat(walletChargeRepository.findByIdempotencyKey("order_4").orElseThrow().getStatus())
+			.isEqualTo(ChargeStatus.COMPLETED);
+		assertBalance(CUSTOMER_ID, 10_000);
 	}
 
 	@Test

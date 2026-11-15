@@ -1,5 +1,5 @@
 import type { fileModel, productModel } from '@/shared/api'
-import { formatNumber, formatWon } from '@/shared/lib'
+import { formatNumber } from '@/shared/lib'
 
 import {
   daysUntil,
@@ -81,7 +81,7 @@ export function toRaceListItem(race: SummaryDto, now: Date = new Date()): RaceLi
     posterLabel: courseNames(race.courses).join(' · '),
     badge: raceBadge(race, now),
     meta: race.raceDate ? `${formatRaceDate(race.raceDate)} · ${place}` : place,
-    price: `${formatWon(race.minPrice ?? 0)}~`,
+    price: `${formatNumber(race.minPrice ?? 0)}원부터`,
   }
 }
 
@@ -167,6 +167,15 @@ export function toRaceDetail(
     description: race.description ?? undefined,
     dDay: closeAt ? formatDDay(closeAt, now) : '-',
     capacity,
+    // 크루 전용 자리가 있는 대회는 신청하기가 「어떻게 신청할까요?」 시트를 연다
+    crew: courses.some((c) => (c.crewQuota ?? 0) > 0)
+      ? {
+          startAt: race.crewSaleStartAt ?? undefined,
+          endAt: race.crewSaleEndAt ?? undefined,
+          minCount: race.crewMinCount,
+          maxCount: race.crewMaxCount ?? undefined,
+        }
+      : undefined,
     options,
     schedule: [
       {
@@ -178,6 +187,7 @@ export function toRaceDetail(
       },
       { label: '전액 환불 기한', value: refundDeadline },
     ],
+    infoEditDeadline: closeAt ? formatRaceDateTime(closeAt) : '-',
     refund: refundRows(refundDeadline),
     faq: [],
     seller: {

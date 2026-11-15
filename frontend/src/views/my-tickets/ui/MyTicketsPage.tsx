@@ -1,161 +1,102 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
 import { BottomNav } from '@/widgets/bottom-nav'
-import { useAuthStatus } from '@/features/auth'
+import { LoadErrorBody } from '@/widgets/status-screens'
 import { TICKET_STATUS } from '@/entities/ticket'
-import { useMyBalance } from '@/entities/wallet'
-import { memberApi, unwrapData } from '@/shared/api'
-import { cn, formatWon } from '@/shared/lib'
-import {
-  Alert,
-  Badge,
-  BibCard,
-  buttonClassName,
-  EmptyState,
-  FOCUS_RING,
-  Segmented,
-  Skeleton,
-} from '@/shared/ui'
+import { cn } from '@/shared/lib'
+import { Badge, BibCard, buttonClassName, EmptyState, FOCUS_RING, Skeleton } from '@/shared/ui'
 
-import { useTicketCards } from '../model/use-ticket-cards'
+import { useTicketCards, type TicketCard } from '../model/use-ticket-cards'
 
 export type MyTicketsState = 'loading' | 'empty'
 
-// 피그마 V2 · M15 내 참가 대회 (+ 로딩, 없음)
+// 피그마 v2 · 내 참가권(1333:26919) · 참가권 없음(1333:26995) · 불러오지 못함(1333:27000).
+// 참가권 없음 · 불러오지 못함은 시안처럼 뒤로 가기 머리말이고 아래 탭은 없다.
+// 크루 신청 줄은 참가권에 크루 정보가 없어 아직 없다.
 // state는 시안 미리보기(?preview=loading|empty)용. 없으면 주문 API로 불러온다.
-// 닉네임 · 이름은 내 정보 조회(GET /api/v1/member/members/me)로 불러온다.
 export function MyTicketsPage({ state }: { state?: MyTicketsState }) {
-  const [tab, setTab] = useState<'upcoming' | 'past'>('upcoming')
   const cards = useTicketCards()
   const loading = state === 'loading' || (state === undefined && cards.isPending)
   const upcoming = state === 'empty' ? [] : cards.upcoming
   const past = state === 'empty' ? [] : cards.past
-  const tickets = tab === 'upcoming' ? upcoming : past
   const failed = state === undefined && cards.isError
-  const wallet = useMyBalance()
-  const me = memberApi.useFindMe({
-    // 로그인 확인(재발급)이 끝난 뒤에만 부른다 (마이페이지와 같은 방식)
-    query: { select: unwrapData, enabled: useAuthStatus() === 'authenticated' },
-  })
-  const member = me.data
+
+  if (failed) {
+    return (
+      <>
+        <AppHeader type="sub" title="내 참가권" backHref="/me" />
+        <LoadErrorBody onRetry={cards.refetch} retrying={cards.isFetching} />
+      </>
+    )
+  }
+  if (!loading && upcoming.length === 0 && past.length === 0) {
+    return (
+      <>
+        <AppHeader type="sub" title="내 참가권" backHref="/me" />
+        <main className="flex flex-1 items-center justify-center px-4 pb-16">
+          <EmptyState
+            title="아직 참가 예정인 대회가 없어요"
+            description="대회를 둘러보고 참가 신청을 해 보세요."
+            action={
+              <Link href="/races" className={buttonClassName({ variant: 'secondary' })}>
+                대회 보러 가기
+              </Link>
+            }
+          />
+        </main>
+      </>
+    )
+  }
 
   return (
     <>
       <AppHeader />
       <main className="flex flex-1 flex-col gap-6 px-4 pt-(--layout-content-start) pb-6">
-        <div className="flex items-center gap-3">
-          <div className="size-12 shrink-0 rounded-full bg-bg-subtle" />
-          <div className="flex min-w-0 flex-1 flex-col gap-1">
-            {loading || (state === undefined && me.isPending) ? (
-              <>
-                <Skeleton className="h-4 w-48" />
-                <Skeleton className="w-32" />
-              </>
-            ) : (
-              <>
-                <p className="text-title3">{member?.nickname ?? '-'}</p>
-                {/* 실명은 Clarity 화면 녹화에서 가린다 */}
-                <p className="text-body2-regular text-text-secondary" data-clarity-mask="true">
-                  {member?.name ?? '-'}
-                </p>
-              </>
-            )}
-          </div>
-          <Link href="/me/edit" className={buttonClassName({ variant: 'secondary', size: 's' })}>
-            정보 수정
-          </Link>
-        </div>
-
-        <div className="flex flex-col gap-3 rounded-lg bg-bg-brand-subtle p-5">
-          <div className="flex items-center justify-between gap-2">
-            <Link
-              href="/me/deposit"
-              className={cn('rounded-sm text-body2-medium text-text-secondary', FOCUS_RING)}
-            >
-              예치금
-            </Link>
-            {loading || wallet.isPending ? (
-              <Skeleton className="h-5 w-16" />
-            ) : (
-              <p className="text-title2">
-                {wallet.balance === undefined ? '-' : formatWon(wallet.balance)}
-              </p>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <Link
-              href="/me/deposit/charge"
-              className={buttonClassName({ variant: 'secondary', size: 's', className: 'flex-1' })}
-            >
-              충전
-            </Link>
-            <Link
-              href="/me/deposit/refund"
-              className={buttonClassName({ variant: 'secondary', size: 's', className: 'flex-1' })}
-            >
-              돌려받기
-            </Link>
-          </div>
-        </div>
-
-        <div className="flex flex-1 flex-col gap-3">
-          <Segmented
-            label="참가 대회"
-            value={tab}
-            onChange={setTab}
-            items={[
-              { value: 'upcoming', label: '참가 예정', count: upcoming.length },
-              { value: 'past', label: '지난 대회', count: past.length },
-            ]}
-          />
-          {loading && <TicketSkeletons />}
-          {failed && <Alert tone="danger" title="참가권을 불러오지 못했어요" />}
-          {!loading && !failed && tickets.length === 0 && (
-            <div className="flex flex-1 items-center justify-center">
-              <EmptyState
-                title="아직 신청한 대회가 없어요"
-                description="대회를 찾아 첫 참가권을 받아 보세요."
-                action={
-                  <Link href="/races" className={buttonClassName({ variant: 'secondary' })}>
-                    대회 찾기
-                  </Link>
-                }
-              />
-            </div>
-          )}
-          {!loading &&
-            tickets.map((ticket) => (
-              <Link
-                key={ticket.id}
-                href={`/tickets/${ticket.id}`}
-                className={cn('rounded-lg', FOCUS_RING)}
-                // 카드 제목에 참가자 이름이 있어 Clarity 화면 녹화에서 가린다
-                data-clarity-mask="true"
-              >
-                <BibCard
-                  image={ticket.image}
-                  imagePosition="50% 12%"
-                  eyebrow={ticket.eyebrow}
-                  status={
-                    <Badge tone={TICKET_STATUS[ticket.status].tone}>
-                      {TICKET_STATUS[ticket.status].label}
-                    </Badge>
-                  }
-                  unit="No."
-                  number={ticket.number}
-                  title={ticket.title}
-                  meta={ticket.summary}
-                />
-              </Link>
-            ))}
-        </div>
+        {loading && <TicketSkeletons />}
+        {!loading && <TicketGroup title="참가 예정" tickets={upcoming} />}
+        {!loading && <TicketGroup title="지난 대회" tickets={past} />}
       </main>
       <BottomNav />
     </>
+  )
+}
+
+// 피그마 v2 · 내 참가권(1333:26919): 제목 + 개수, 아래에 참가권 카드
+function TicketGroup({ title, tickets }: { title: string; tickets: TicketCard[] }) {
+  if (tickets.length === 0) return null
+  return (
+    <section className="flex flex-col gap-3">
+      <h2 className="text-title3">
+        {title} {tickets.length}
+      </h2>
+      {tickets.map((ticket) => (
+        <Link
+          key={ticket.id}
+          href={`/tickets/${ticket.id}`}
+          className={cn('rounded-lg', FOCUS_RING)}
+          // 카드 제목에 참가자 이름이 있어 Clarity 화면 녹화에서 가린다
+          data-clarity-mask="true"
+        >
+          <BibCard
+            image={ticket.image}
+            imagePosition="50% 12%"
+            eyebrow={ticket.eyebrow}
+            status={
+              <Badge tone={TICKET_STATUS[ticket.status].tone}>
+                {TICKET_STATUS[ticket.status].label}
+              </Badge>
+            }
+            unit="No."
+            number={ticket.number}
+            title={ticket.title}
+            meta={ticket.summary}
+          />
+        </Link>
+      ))}
+    </section>
   )
 }
 

@@ -1,6 +1,14 @@
 import { infiniteQueryOptions, queryOptions } from '@tanstack/react-query'
 
-import { ApiError, fileApi, productApi, productModel, unwrapData } from '@/shared/api'
+import {
+  ApiError,
+  customFetch,
+  fileApi,
+  productApi,
+  productModel,
+  unwrapData,
+  type RsData,
+} from '@/shared/api'
 
 import { courseImage, toRaceDetail } from '../model/mappers'
 import type { RaceDetail } from '../model/types'
@@ -13,6 +21,13 @@ export const RaceSort = productModel.SearchSort
 export type RaceSearchFilters = {
   keyword?: string
   sort?: RaceSort
+  /** 카테고리에서 고른 지역(시·도)과 거리 */
+  regionSido?: string
+  courseType?: productModel.SearchCourseTypeItem[]
+  surface?: productModel.SearchSurface
+  /** 대회 날짜 범위 (YYYY-MM-DD, 양 끝 포함) */
+  raceDateFrom?: string
+  raceDateTo?: string
 }
 
 export const RACE_PAGE_SIZE = 20
@@ -30,6 +45,11 @@ function searchParams(filters: RaceSearchFilters, page: number): productModel.Se
   return {
     ...(keyword ? { keyword } : {}),
     ...(filters.sort ? { sort: filters.sort } : {}),
+    ...(filters.regionSido ? { regionSido: filters.regionSido } : {}),
+    ...(filters.courseType?.length ? { courseType: filters.courseType } : {}),
+    ...(filters.surface ? { surface: filters.surface } : {}),
+    ...(filters.raceDateFrom ? { raceDateFrom: filters.raceDateFrom } : {}),
+    ...(filters.raceDateTo ? { raceDateTo: filters.raceDateTo } : {}),
     page,
     size: RACE_PAGE_SIZE,
   }
@@ -123,6 +143,26 @@ export function raceDetailQueryOptions(raceId: string) {
   return queryOptions({
     queryKey: [...productApi.getFindRaceQueryKey(Number(raceId)), 'detail'],
     queryFn: () => fetchRaceDetail(raceId),
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+/**
+ * 비슷한 대회 (AI 추천, 최대 3개). 백엔드 추천 API(`GET /races/{raceId}/similar`)가 아직 명세(openapi)에 없어 직접 부른다.
+ * 보조 기능이라 실패하거나 비어 있으면 화면에서 영역을 숨긴다.
+ */
+export function similarRacesQueryOptions(raceId: string) {
+  return queryOptions({
+    queryKey: ['race', 'similar', raceId],
+    queryFn: async () => {
+      const data = unwrapData(
+        await customFetch<
+          RsData<productModel.RaceSummaryDto[] | { races?: productModel.RaceSummaryDto[] }>
+        >(`/api/v1/product/races/${raceId}/similar`),
+      )
+      return (Array.isArray(data) ? data : (data?.races ?? [])).slice(0, 3)
+    },
+    retry: false,
     staleTime: 5 * 60 * 1000,
   })
 }

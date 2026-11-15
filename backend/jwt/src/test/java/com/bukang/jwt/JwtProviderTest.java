@@ -89,6 +89,33 @@ class JwtProviderTest {
 	}
 
 	@Test
+	@DisplayName("지정한 jti·familyId·만료 시각으로 다시 서명한 Refresh Token은 검증을 통과하고 그 값을 담는다")
+	void reissuedRefreshTokenCarriesGivenJtiFamilyAndExpiry() {
+		Instant expiresAt = NOW.plus(Duration.ofDays(3));
+
+		String token = provider.reissueRefreshToken(42L, "family-1", "jti-1", expiresAt);
+		JwtClaims claims = provider.parse(token, TokenType.REFRESH);
+
+		assertThat(claims.memberId()).isEqualTo(42L);
+		assertThat(claims.familyId()).isEqualTo("family-1");
+		assertThat(claims.jti()).isEqualTo("jti-1");
+		assertThat(claims.expiresAt()).isEqualTo(expiresAt);
+	}
+
+	@Test
+	@DisplayName("다시 서명할 때 jti·familyId가 비었거나 만료 시각이 지금 이전이면 발급하지 않는다")
+	void rejectsReissueWithInvalidArguments() {
+		Instant later = NOW.plus(Duration.ofDays(1));
+
+		assertThatThrownBy(() -> provider.reissueRefreshToken(42L, "family-1", " ", later))
+			.isInstanceOf(IllegalArgumentException.class);
+		assertThatThrownBy(() -> provider.reissueRefreshToken(42L, null, "jti-1", later))
+			.isInstanceOf(IllegalArgumentException.class);
+		assertThatThrownBy(() -> provider.reissueRefreshToken(42L, "family-1", "jti-1", NOW))
+			.isInstanceOf(IllegalArgumentException.class);
+	}
+
+	@Test
 	@DisplayName("만료된 토큰은 EXPIRED로 거절한다")
 	void rejectsExpiredTokenAsExpired() {
 		String token = provider.issueAccessToken(42L);

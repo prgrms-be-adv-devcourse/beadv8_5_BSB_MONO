@@ -40,13 +40,18 @@ export function NotificationsPage({ empty = false }: { empty?: boolean }) {
   const categories = NOTICE_CATEGORIES.filter((c) => c.value !== 'seller' || isSeller)
 
   // 판매 소식은 판매자에게 가장 먼저 볼 일이라 묶음 줄 맨 위에 둔다(탭은 맨 뒤)
-  const groups = [...categories]
-    .sort((a, b) => Number(b.value === 'seller') - Number(a.value === 'seller'))
+  // 나머지는 시안처럼 가장 최근 알림이 있는 묶음부터 보여 준다
+  const groups = categories
     .map((category) => {
       const items = all.filter((n) => categoryOf(n) === category.value).sort(byOldest)
       return { ...category, latest: items.at(-1), unread: items.filter((n) => n.unread).length }
     })
     .filter((group): group is typeof group & { latest: Notice } => group.latest !== undefined)
+    .sort(
+      (a, b) =>
+        Number(b.value === 'seller') - Number(a.value === 'seller') ||
+        Date.parse(b.latest.sentAt) - Date.parse(a.latest.sentAt),
+    )
   const totalUnread = groups.reduce((sum, group) => sum + group.unread, 0)
   const visible = groups.filter((group) => filter === 'all' || group.value === filter)
 
@@ -59,12 +64,14 @@ export function NotificationsPage({ empty = false }: { empty?: boolean }) {
       />
       {loading ? (
         <main role="status" aria-label="알림 불러오는 중" className="flex flex-col">
-          {categories.map((category) => (
-            <div key={category.value} className="flex items-center gap-3 px-4 py-3.5">
-              <Skeleton shape="circle" className="size-12" />
-              <Skeleton className="w-32" />
-            </div>
-          ))}
+          {categories
+            .filter((category) => category.tab)
+            .map((category) => (
+              <div key={category.value} className="flex items-center gap-3 px-4 py-3.5">
+                <Skeleton shape="circle" className="size-12" />
+                <Skeleton className="w-32" />
+              </div>
+            ))}
         </main>
       ) : failed ? (
         <LoadErrorBody
@@ -85,11 +92,13 @@ export function NotificationsPage({ empty = false }: { empty?: boolean }) {
               >
                 전체
               </Tab>
-              {categories.map((category) => (
-                <Tab key={category.value} value={category.value}>
-                  {category.tab}
-                </Tab>
-              ))}
+              {categories
+                .filter((category) => category.tab)
+                .map((category) => (
+                  <Tab key={category.value} value={category.value}>
+                    {category.tab}
+                  </Tab>
+                ))}
             </TabBar>
           </Tabs>
           {visible.length === 0 ? (

@@ -58,12 +58,7 @@ export function CrewNewPage() {
       <AppHeader type="sub" title="크루 만들기" />
       <main className="flex flex-1 flex-col">
         <CrewBand>
-          <div className="flex flex-col gap-2">
-            <h2 className="text-title3">크루 이름을 정해 주세요</h2>
-            <p className="text-body2-regular text-text-secondary">
-              크루원에게 보이는 이름이에요. 크루를 만들면 내가 크루장이 돼요.
-            </p>
-          </div>
+          <h2 className="text-title3">크루 이름을 정해 주세요</h2>
           <form id={FORM_ID} onSubmit={onSubmit} noValidate>
             <TextField
               label="크루 이름"

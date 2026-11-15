@@ -31,6 +31,13 @@ spring:
     bootstrap-servers:
       - localhost:9092
 
+# 부하 테스트에서 Prometheus가 지표를 모으도록 dev에서만 prometheus 엔드포인트를 연다 (prod는 기본값 health만)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+
 logging:
   level:
     com.bukang: debug

@@ -46,6 +46,8 @@ public class Payout extends BaseIdAndTime {
 	private static final int PAY_DAY_OF_MONTH = 20;
 	// 보류를 풀면 해제일 다음 날 지급한다 (원래 지급 예정일보다 앞당기지는 않는다)
 	private static final int PAY_DAYS_AFTER_RELEASE = 1;
+	// 지급 결과를 이만큼 모르면 다시 요청하지 않고 지급_확인_필요로 멈춘다 (BUK-166, 11/11 결정)
+	public static final int MAX_UNKNOWN_PAY = 3;
 
 	// 정산 ID: ST-정산 내역을 만든 날-16진수 4자리 (예: ST-20261029-0A3F)
 	// 정산 생성일이 아니라 만든 날이다. 놓친 날을 따라잡아 만든 정산 내역은 만든 날이 정산 생성일보다 늦다 (PRO-120)
@@ -108,6 +110,15 @@ public class Payout extends BaseIdAndTime {
 	// 지급 중에 대회가 취소된 시각 (PRO-253). 지급 중에는 돈이 이미 나갔을 수 있어 바로 닫지 못하므로 표시만 남긴다
 	// 지급 결과가 나오면 성공은 지급 완료로 바꾼 뒤 회수를 만들고, 거절은 정산 예정으로 되돌리지 않고 취소로 닫는다
 	private LocalDateTime raceCanceledAt;
+
+	// 지급 결과를 모른(타임아웃 · 5xx) 날의 수 (BUK-166). MAX_UNKNOWN_PAY번이 되면 다시 요청하지 않고 지급_확인_필요로 멈춘다
+	// 거절(4xx) · 불일치(409)는 세지 않는다. 돈이 나갔는지 아는 결과다
+	// 같은 기준일에는 한 번만 센다. 관리자가 같은 날 지급 배치를 여러 번 돌려도 몇 분 만에 멈추지 않게 한다 (PR #427 리뷰)
+	@Column(nullable = false)
+	private int unknownPayCount;
+
+	// 마지막으로 결과 모름을 센 기준일. 같은 날 다시 모르면 세지 않는다
+	private LocalDate lastUnknownPayDate;
 
 	// 낙관적 락: 지급 배치와 보류 API가 같은 정산 내역을 동시에 바꾸면 늦게 커밋한 쪽이 실패한다
 	// 없으면 배치가 읽은 지급_예정을 근거로, 그 사이 걸린 지급보류를 지급_완료로 덮어쓸 수 있다
@@ -173,14 +184,14 @@ public class Payout extends BaseIdAndTime {
 	 * 1차 정산금 = DOWN(1장 가격 × 40%) × 장수는 장마다 40%를 버려 더한 값(정책 Q7)과 같다. 회수 몫(1장 × 40%)과도 정확히 맞는다
 	 * 가격 합이 장수로 나누어떨어지지 않으면 가격이 섞인 것이므로 계산하지 않고 실패로 남긴다
 	 */
-	public PayoutItem recordAdvance(long raceCourseId, long priceSum, int ticketCount, LocalDate payoutCreateDate) {
+	public PayoutItem recordAdvance(long raceCourseId, long priceSum, int entryCount, LocalDate payoutCreateDate) {
 		if (payoutStage != PayoutStage.일차_정산) {
 			throw new IllegalStateException("선금은 1차 정산에만 씁니다. payoutStage=%s".formatted(payoutStage));
 		}
-		if (ticketCount <= 0 || priceSum % ticketCount != 0) {
+		if (entryCount <= 0 || priceSum % entryCount != 0) {
 			throw new IllegalStateException(
-				"한 코스의 참가권 가격이 하나가 아닙니다. raceId=%d, raceCourseId=%d, priceSum=%d, ticketCount=%d"
-					.formatted(raceId, raceCourseId, priceSum, ticketCount));
+				"한 코스의 참가권 가격이 하나가 아닙니다. raceId=%d, raceCourseId=%d, priceSum=%d, entryCount=%d"
+					.formatted(raceId, raceCourseId, priceSum, entryCount));
 		}
 		boolean alreadyRecorded = items.stream()
 			.anyMatch(item -> item.getRecordType() == PayoutRecordType.선금
@@ -190,7 +201,7 @@ public class Payout extends BaseIdAndTime {
 				"선금 줄은 코스마다 하나만 씁니다. raceId=%d, raceCourseId=%d".formatted(raceId, raceCourseId));
 		}
 		salesAmount += priceSum;
-		long share = TwoStagePayoutCalculator.firstShare(priceSum / ticketCount) * ticketCount;
+		long share = TwoStagePayoutCalculator.firstShare(priceSum / entryCount) * entryCount;
 		return addLine(PayoutRecordType.선금, null, raceCourseId, share, null, payoutCreateDate);
 	}
 
@@ -292,6 +303,33 @@ public class Payout extends BaseIdAndTime {
 				.formatted(getId(), status));
 		}
 		changeStatus(PayoutStatus.지급_예정, PayoutHold.SYSTEM_MEMBER_ID, revertedAt, reason);
+		// 거절은 돈이 안 나간 것이 확실한 결과다. 다음 지급은 결과 모름을 처음부터 다시 센다 (PR #427 리뷰, 11/12 결정)
+		unknownPayCount = 0;
+		lastUnknownPayDate = null;
+	}
+
+	/**
+	 * 지급 결과를 몰랐다고 센다 (BUK-166). 같은 기준일에는 한 번만 센다. MAX_UNKNOWN_PAY번째면 지급_확인_필요로 바꿔 지급 배치가 더는 고르지 않게 한다
+	 * 그 전에는 지급_중으로 두고 다음 실행에서 같은 금액으로 다시 요청한다
+	 *
+	 * @return 이번에 지급_확인_필요로 바뀌었으면 true
+	 */
+	public boolean recordUnknownPay(LocalDate runDate, LocalDateTime recordedAt) {
+		if (status != PayoutStatus.지급_중) {
+			throw new IllegalStateException("지급 중 상태가 아니라 결과 모름을 셀 수 없습니다. payoutId=%d, status=%s"
+				.formatted(getId(), status));
+		}
+		if (runDate.equals(lastUnknownPayDate)) {
+			return false;
+		}
+		lastUnknownPayDate = runDate;
+		unknownPayCount++;
+		if (unknownPayCount < MAX_UNKNOWN_PAY) {
+			return false;
+		}
+		changeStatus(PayoutStatus.지급_확인_필요, PayoutHold.SYSTEM_MEMBER_ID, recordedAt,
+			"지급 결과를 %d번 모름".formatted(unknownPayCount));
+		return true;
 	}
 
 	// 지급 불일치: 캐시 서비스가 같은 정산 ID를 이미 다른 판매자 · 금액으로 처리했다고 답했다(409, BUK-62)
@@ -335,6 +373,10 @@ public class Payout extends BaseIdAndTime {
 		// 돈은 이미 나갔다. 보류했다가 풀면 정산 예정으로 돌아가 다시 지급 요청을 하게 된다 (BUK-62)
 		if (status == PayoutStatus.지급_불일치) {
 			throw new PayoutHoldConflictException("지급 금액이 맞지 않아 확인 중인 정산 내역입니다.");
+		}
+		// 돈이 나갔는지 모른다. 지급 중과 같다 (BUK-166)
+		if (status == PayoutStatus.지급_확인_필요) {
+			throw new PayoutHoldConflictException("지급 결과를 확인 중인 정산 내역입니다.");
 		}
 		if (status == PayoutStatus.취소) {
 			throw new PayoutHoldConflictException("취소된 정산 내역입니다.");
@@ -415,8 +457,8 @@ public class Payout extends BaseIdAndTime {
 	 * @return 이번에 처음 표시했으면 true
 	 */
 	public boolean markRaceCanceled(LocalDateTime canceledAt) {
-		if (status != PayoutStatus.지급_중) {
-			throw new IllegalStateException("지급 중 정산 내역만 대회 취소를 표시합니다. payoutId=%d, status=%s"
+		if (!status.isAwaitingPayResult()) {
+			throw new IllegalStateException("지급 결과를 기다리는 정산 내역만 대회 취소를 표시합니다. payoutId=%d, status=%s"
 				.formatted(getId(), status));
 		}
 		if (raceCanceledAt != null) {

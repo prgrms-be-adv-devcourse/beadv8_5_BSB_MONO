@@ -133,7 +133,7 @@ class PayoutRefundUseCaseTest {
 
 	@Test
 	@DisplayName("TC-RECOV-1-3 가격 33,334원 참가권 3장이 환불되면 장마다 버린 뒤 더해 회수 합은 39,999원이다")
-	void refundAmountsSumAfterRoundingEachTicket() {
+	void refundAmountsSumAfterRoundingEachEntry() {
 		createFirst();
 
 		for (long orderItemId = 101; orderItemId <= 103; orderItemId++) {

@@ -76,22 +76,32 @@ public class CashRecoveryDepositUseCase {
 		List<RecoveryDeposit> waiting =
 			recoveryDepositRepository.findByStatusOrderByIdAsc(RecoveryDepositStatus.WAITING);
 		for (RecoveryDeposit deposit : waiting) {
-			PaymentLookupResult lookup;
 			try {
-				lookup = confirmWithPg(deposit);
-			} catch (PaymentLookupFailedException lookupFailure) {
-				log.warn("회수 입금 재확인: PG 조회에 실패해 다음 실행으로 미룹니다. claimCode={}", deposit.getClaimCode());
-				continue;
+				reconcileOne(deposit, now);
+			} catch (RuntimeException unexpected) {
+				// 한 건의 오류로 뒤의 입금이 기록되지 않는 일이 없게 넘어간다. 입금 대기로 남아 다음 실행에서 다시 본다
+				log.error("회수 입금 재확인: 한 건을 처리하다 오류가 나 다음 실행으로 미룹니다. claimCode={}",
+					deposit.getClaimCode(), unexpected);
 			}
-			if (lookup.status() == PaymentLookupResult.Status.COMPLETED || !deposit.getDueDate().isBefore(now)) {
-				continue;
-			}
-			if (lookup.status() == PaymentLookupResult.Status.NOT_COMPLETED || lookup.awaitingDeposit()) {
-				transactionTemplate.executeWithoutResult(status -> expire(deposit.getId()));
-			} else {
-				log.warn("회수 입금 기한이 지났지만 PG 상태가 정해지지 않아 입금 대기로 둡니다. 사람이 확인해야 합니다. claimCode={}",
-					deposit.getClaimCode());
-			}
+		}
+	}
+
+	private void reconcileOne(RecoveryDeposit deposit, LocalDateTime now) {
+		PaymentLookupResult lookup;
+		try {
+			lookup = confirmWithPg(deposit);
+		} catch (PaymentLookupFailedException lookupFailure) {
+			log.warn("회수 입금 재확인: PG 조회에 실패해 다음 실행으로 미룹니다. claimCode={}", deposit.getClaimCode());
+			return;
+		}
+		if (lookup.status() == PaymentLookupResult.Status.COMPLETED || !deposit.getDueDate().isBefore(now)) {
+			return;
+		}
+		if (lookup.status() == PaymentLookupResult.Status.NOT_COMPLETED || lookup.awaitingDeposit()) {
+			transactionTemplate.executeWithoutResult(status -> expire(deposit.getId()));
+		} else {
+			log.warn("회수 입금 기한이 지났지만 PG 상태가 정해지지 않아 입금 대기로 둡니다. 사람이 확인해야 합니다. claimCode={}",
+				deposit.getClaimCode());
 		}
 	}
 

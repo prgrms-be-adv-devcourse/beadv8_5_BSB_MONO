@@ -61,6 +61,24 @@ function renderPage() {
 }
 
 describe('NotificationsPage', () => {
+  it('문의 답변은 문의 묶음으로 가장 최근인 것이 위에 오고, 탭은 따로 없다', async () => {
+    server.use(
+      list([
+        notice('a1', 'RACE_CANCELED', '대회 취소', '2026-11-02T10:00:00+09:00', true),
+        notice('a2', 'INQUIRY_ANSWERED', '답변이 달렸어요', '2026-11-10T10:00:00+09:00', true),
+      ]),
+    )
+    renderPage()
+
+    const inquiry = await screen.findByRole('link', { name: /문의/ })
+    expect(inquiry).toHaveAttribute('href', '/notifications/inquiry')
+    const links = screen.getAllByRole('link')
+    expect(links.indexOf(inquiry)).toBeLessThan(
+      links.indexOf(screen.getByRole('link', { name: /대회 소식/ })),
+    )
+    expect(screen.queryByRole('tab', { name: '문의' })).not.toBeInTheDocument()
+  })
+
   it('알림을 종류별 묶음으로 보여 주고, 묶음마다 마지막 날짜와 안 읽은 수를 단다', async () => {
     renderPage()
 

@@ -211,6 +211,14 @@
           "$ref": "#/components/schemas/KakaoInviteSendResultDto"
         }
       }
+    },
+    "findIdentityReview": {
+      "200": {
+        "wrapper": "RsDataIdentityReviewPageDto",
+        "data": {
+          "$ref": "#/components/schemas/IdentityReviewPageDto"
+        }
+      }
     }
   },
   "schemas": {
@@ -503,7 +511,7 @@
     },
     "CrewInviteCreatedDto": {
       "type": "object",
-      "description": "만든 초대 링크. inviteToken은 이 응답에서만 받는다",
+      "description": "만든 초대 링크",
       "properties": {
         "inviteId": {
           "type": "integer",
@@ -551,6 +559,12 @@
         "inviteId": {
           "type": "integer",
           "format": "int64"
+        },
+        "inviteToken": {
+          "type": "string",
+          "nullable": true,
+          "description": "초대 링크 토큰. 원문을 저장하기 전(BUK-195)에 만든 초대는 null",
+          "example": "q3Xv9kLm2NpR7tYw4ZaB1c"
         },
         "createdBy": {
           "$ref": "#/components/schemas/CrewInviteSenderDto"
@@ -759,6 +773,94 @@
         "sentUuids",
         "failures"
       ]
+    },
+    "IdentityReviewPageDto": {
+      "description": "확인이 필요한 계정 한 페이지. totalElements는 묶음 수",
+      "type": "object",
+      "required": [
+        "page",
+        "size",
+        "totalElements",
+        "totalPages",
+        "groups"
+      ],
+      "properties": {
+        "groups": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/IdentityReviewGroupDto"
+          }
+        },
+        "page": {
+          "type": "integer",
+          "format": "int32",
+          "description": "0부터 센다"
+        },
+        "size": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "totalElements": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "totalPages": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "IdentityReviewGroupDto": {
+      "type": "object",
+      "required": [
+        "members"
+      ],
+      "properties": {
+        "members": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/IdentityReviewMemberDto"
+          }
+        }
+      }
+    },
+    "IdentityReviewMemberDto": {
+      "type": "object",
+      "required": [
+        "id",
+        "nickname",
+        "maskedName",
+        "maskedPhone",
+        "maskedEmail",
+        "ciVerified",
+        "joinedAt"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "nickname": {
+          "type": "string"
+        },
+        "maskedName": {
+          "type": "string"
+        },
+        "maskedPhone": {
+          "type": "string"
+        },
+        "maskedEmail": {
+          "type": "string"
+        },
+        "ciVerified": {
+          "type": "boolean"
+        },
+        "joinedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "한국 시간, 시간대 표시 없음"
+        }
+      }
     }
   },
   "paths": {

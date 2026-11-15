@@ -10,11 +10,14 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.bukang.common.global.rsdata.RsData;
 import com.bukang.common.shared.member.web.LoginMemberId;
+import com.bukang.order.app.MyTicketQueryFacade;
 import com.bukang.order.app.ParticipationFacade;
+import com.bukang.order.dto.MyTicketPageDto;
 import com.bukang.order.dto.ParticipantInfoDto;
 import com.bukang.order.dto.ParticipantInfoRequestDto;
 import com.bukang.order.dto.ParticipationApplyRequestDto;
@@ -29,14 +32,21 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 
-@Tag(name = "Participation", description = "참가 신청서 작성·취소, 참가 신청 조회, 참가자 정보 수정, 최근 참가자 정보 조회 API")
+@Tag(name = "Participation", description = "참가 신청서 작성·취소, 참가 신청 조회, 내 참가권 목록, 참가자 정보 수정, "
+	+ "최근 참가자 정보 조회 API")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/order/participations")
 public class ApiV1ParticipationController {
+	// 한 페이지에 다른 종목이 많으면 상품 서비스를 그만큼 부르므로 주문 목록(100)보다 작게 둔다
+	private static final int MAX_TICKET_PAGE_SIZE = 50;
+
 	private final ParticipationFacade participationFacade;
+	private final MyTicketQueryFacade myTicketQueryFacade;
 
 	// ResponseEntity.created()의 201은 springdoc이 추론하지 못하므로 응답 코드를 직접 명시한다
 	// 에러 응답은 GlobalExceptionHandler, OrderExceptionHandler가 RsData(data: null) 형식으로 반환한다
@@ -120,8 +130,45 @@ public class ApiV1ParticipationController {
 				.body(RsData.of(HttpStatus.OK, "이전에 신청한 참가자 정보가 없습니다.", null)));
 	}
 
+	@GetMapping("/me")
+	@Operation(summary = "내 참가권 목록",
+		description = "내 참가 신청을 최신순으로 돌려준다. 신청 1건이 한 줄이고, 결제 전 신청과 주문이 아직 없는 파티원 신청도 나온다. "
+			+ "한 줄에 대회·종목·대회일·환불 기한, 참가자, 신청·주문 상태, 고른 키트 옵션, 키트 배송 상태·택배사·송장, "
+			+ "파티(크루 ID·파티장)를 담는다. active=true면 살아 있는 신청(확보 전·결제 대기·참가 확정)만 준다. "
+			+ "대회 이름·환불 기한은 상품 서비스에서 받으므로, 상품 서비스에 묻지 못하면 그 칸만 null이고 "
+			+ "종목 이름·대회일은 주문 당시 값으로 채운다. 파티장 닉네임도 회원 서비스에 묻지 못하면 null이다. "
+			+ "크루 이름은 담지 않으니 GET /api/v1/member/crews/me의 크루 ID로 찾는다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "조회 성공 (신청이 없으면 빈 목록)",
+			content = @Content(examples = @ExampleObject(value = ParticipationApiExamples.MY_TICKETS_SUCCESS))),
+		@ApiResponse(responseCode = "400", description = "페이지·회원 ID 오류",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "페이지 크기 초과", value = ParticipationApiExamples.INVALID_TICKET_PAGE),
+				@ExampleObject(name = "숫자 형식 오류", value = ParticipationApiExamples.INVALID_VALUE_TYPE),
+				@ExampleObject(name = "회원 ID가 0 이하", value = ParticipationApiExamples.INVALID_MEMBER_ID)
+			})),
+		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = ParticipationApiExamples.LOGIN_REQUIRED)))
+	})
+	public ResponseEntity<RsData<MyTicketPageDto>> findMyTickets(
+		@LoginMemberId long memberId,
+		@Parameter(description = "true면 살아 있는 신청(확보 전·결제 대기·참가 확정)만", example = "false")
+		@RequestParam(defaultValue = "false") boolean active,
+		@Parameter(description = "페이지 번호 (0부터)", example = "0")
+		@RequestParam(defaultValue = "0") @Min(value = 0, message = "페이지 번호는 0 이상이어야 합니다.") int page,
+		@Parameter(description = "페이지 크기 (1~50)", example = "20")
+		@RequestParam(defaultValue = "20") @Min(value = 1, message = "페이지 크기는 1 이상이어야 합니다.")
+		@Max(value = MAX_TICKET_PAGE_SIZE, message = "한 번에 50개까지 조회할 수 있습니다.") int size
+	) {
+		return ResponseEntity.ok()
+			.body(RsData.of(HttpStatus.OK, "내 참가권 목록을 조회했습니다.",
+				myTicketQueryFacade.findMine(memberId, active, page, size)));
+	}
+
 	@GetMapping("/{participationId}")
-	@Operation(summary = "참가 신청 조회", description = "본인의 참가 신청과 참가자 정보, 상태를 돌려준다.")
+	@Operation(summary = "참가 신청 조회",
+		description = "본인의 참가 신청과 참가자 정보, 상태, 결제 때 고른 키트 옵션(kitOptions)을 돌려준다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "조회 성공",
 			content = @Content(examples = @ExampleObject(value = ParticipationApiExamples.FIND_SUCCESS))),

@@ -116,6 +116,15 @@ public class PayoutCreateFailure extends BaseIdAndTime {
 			exceptionName, runDate);
 	}
 
+	// 지급 결과를 여러 번 몰라 지급_확인_필요로 멈췄다 (BUK-166). 관리자 이상 감지 목록에 보이게 남긴다
+	// 정산 대상일은 정산 내역이 갖지 않으므로 비운다
+	public static PayoutCreateFailure payCheckRequired(Payout payout, LocalDate runDate) {
+		String note = "정산 %d(%s) 지급액 %d원 · 수수료 %d원, 결과 모름 %d번".formatted(payout.getId(),
+			payout.getPayoutCode(), payout.getPayoutAmount(), payout.getFeeAmount(), payout.getUnknownPayCount());
+		return new PayoutCreateFailure(payout.getPayoutStage(), payout.getSellerId(), payout.getRaceId(), null,
+			PayoutCreateFailureType.지급_확인_필요, note, runDate);
+	}
+
 	// 정산 대사가 판매자 × 대회의 어긋남을 찾았다 (BUK-67). 비고에는 장수 · 금액만 쓰고 참가권 ID는 로그에 남긴다
 	// 장수 · 보류 ID는 관리자 이상 감지 상세에 보인다 (BUK-108)
 	public static PayoutCreateFailure reconcileMismatch(PayoutStage stage, long sellerId, long raceId,

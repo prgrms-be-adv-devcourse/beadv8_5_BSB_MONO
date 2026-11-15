@@ -29,18 +29,18 @@ export function CrewMemberList({
   return (
     <>
       {/* 닉네임 칸 폭을 고정해 닉네임 길이와 상관없이 역할 뱃지가 늘 같은 자리에 온다.
-          9rem은 가장 긴 한글 닉네임(8자)이 들어가는 폭이다. 더 긴 영문 닉네임은 말줄임으로 자르고 전체 이름은 title로 보여 준다. */}
+          8rem(시안 128px)은 한글 닉네임 7자가 들어가는 폭이다. 더 긴 영문 닉네임은 말줄임으로 자르고 전체 이름은 title로 보여 준다. */}
       <ul className="flex flex-col gap-3">
         {shown.map((member) => (
           <li
             key={member.memberId}
-            className="grid grid-cols-[auto_9rem_auto_1fr] items-center gap-3"
+            className="grid grid-cols-[auto_8rem_auto_1fr] items-center gap-3"
           >
             <Avatar size="m" name={member.nickname} />
             <span
               id={labelId?.(member)}
               title={member.nickname}
-              className="min-w-0 truncate text-body2-regular"
+              className="min-w-0 truncate text-body2-medium"
             >
               {member.nickname}
             </span>
@@ -50,7 +50,7 @@ export function CrewMemberList({
         ))}
       </ul>
       {hidden > 0 && (
-        <Button variant="text" size="m" onClick={() => setExpanded(true)}>
+        <Button variant="ghost" size="m" onClick={() => setExpanded(true)}>
           크루원 {hidden}명 더 보기
         </Button>
       )}

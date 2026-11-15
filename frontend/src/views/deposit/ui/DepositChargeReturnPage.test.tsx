@@ -17,6 +17,8 @@ vi.mock('next/navigation', () => ({
 }))
 
 const PENDING_KEY = 'crewrun:pending-charge'
+// 목의 대회 1은 키트 옵션이 있어 티셔츠 · 양말을 하나씩 골라야 결제된다
+const KIT_CHOICE = { kitOptionIds: [110, 120] }
 const ORDER_ID = 'charge-11111111-2222-3333-4444-555555555555'
 
 function savePending(pending: {
@@ -316,7 +318,7 @@ describe('충전 결과 화면 (토스 결제창에서 돌아옴)', () => {
 
   it('가짜 응답 모드에서 잔액 부족 → 충전 → 같은 주문으로 다시 결제까지 이어진다', async () => {
     // 목 잔액 5,000원, 주문 50,000원
-    const firstPay = await orderApi.pay(1).catch((error: unknown) => error)
+    const firstPay = await orderApi.pay(1, KIT_CHOICE).catch((error: unknown) => error)
     expect(firstPay).toBeInstanceOf(ApiError)
     expect((firstPay as ApiError).code).toBe('ORDER_INSUFFICIENT_BALANCE')
     const shortage = ((firstPay as ApiError).body as { data: { shortage: number } }).data.shortage
@@ -336,7 +338,7 @@ describe('충전 결과 화면 (토스 결제창에서 돌아옴)', () => {
     })
     await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/checkout?orderId=1&charged=1'))
 
-    const secondPay = await orderApi.pay(1)
+    const secondPay = await orderApi.pay(1, KIT_CHOICE)
     expect(secondPay.data?.status).toBe('PAID')
   })
 

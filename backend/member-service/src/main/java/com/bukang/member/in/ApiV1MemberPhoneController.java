@@ -75,7 +75,8 @@ public class ApiV1MemberPhoneController {
 	@PutMapping("/phone")
 	@Operation(summary = "휴대폰 번호 바꾸기",
 		description = "회원 전용 본인인증 확인에서 받은 토큰의 휴대폰 번호로 바꾼다. 인증한 사람이 로그인한 회원 본인인지 다시 확인하고, "
-			+ "다른 회원이 쓰는 번호인지 검사한다. 본인인증 해시도 새 번호 기준으로 바꾼다. 지금과 같은 번호면 저장하지 않는다. "
+			+ "다른 회원이 쓰는 번호인지 검사한다. 본인인증 해시도 새 번호 기준으로 바꾼다. 지금과 같은 번호면 번호는 그대로 두고 "
+			+ "본인인증 해시와 인증 시각만 채운다. "
 			+ "쓴 토큰은 지워져 다시 쓸 수 없다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "변경 성공 (같은 번호여도 200)",

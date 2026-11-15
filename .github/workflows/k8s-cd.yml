@@ -1,0 +1,132 @@
+name: k8s-cd
+
+# 메인 EC2의 k3s에 앱을 배포한다 (app-cd.yml의 compose 배포를 대신한다. BUK-220)
+# 1) build: GitHub 러너에서 앱 이미지 12개를 빌드해 GHCR에 커밋 SHA 태그로 올린다 (app-cd.yml의 build와 같다)
+# 2) deploy: AWS 액세스 키(GitHub Secrets)로 SSM에 명령을 보내 메인 EC2에서 deploy.sh <SHA>를 실행시키고 끝날 때까지 기다린다
+#    서버에 셀프호스티드 러너가 필요 없고, 22번 포트도 쓰지 않는다
+#
+# 지금은 손으로 실행할 때만 돈다 (Actions → k8s-cd → Run workflow, 브랜치는 main)
+# 전환(BUK-220 D7)을 확인한 뒤 main push 트리거를 켜고 app-cd.yml을 정리한다 (D8)
+#
+# 저장소 Secrets: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY / Variables: MAIN_INSTANCE_ID(메인 EC2). 만드는 법은 infra/README.md
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: '되돌릴 때만: 이미 빌드된 main 커밋 SHA. 비우면 지금 main 커밋을 빌드해 배포'
+        required: false
+        default: ''
+
+# 배포가 겹치면 서버에서 kubectl apply가 동시에 돈다. 앞 배포를 끊지 않고 끝날 때까지 기다린다
+concurrency:
+  group: k8s-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: ghcr.io/prgrms-be-adv-devcourse
+
+jobs:
+  build:
+    # 되돌리기(sha를 준 경우)는 이미 있는 이미지를 쓰므로 빌드하지 않는다
+    if: inputs.sha == ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      # 하나라도 실패하면 배포하지 않는다 (일부 서비스만 새 버전이 되는 것을 막는다)
+      fail-fast: true
+      matrix:
+        include:
+          - { name: gateway, context: backend, module: gateway }
+          - { name: member-service, context: backend, module: member-service }
+          - { name: cash-service, context: backend, module: cash-service }
+          - { name: payout-service, context: backend, module: payout-service }
+          - { name: file-service, context: backend, module: file-service }
+          - { name: order-service, context: backend, module: order-service }
+          - { name: product-service, context: backend, module: product-service }
+          - { name: queue-service, context: backend, module: queue-service }
+          - { name: notification-service, context: backend, module: notification-service }
+          - { name: board-service, context: backend, module: board-service }
+          - { name: ai-service, context: backend, module: ai-service }
+          # web은 공개 설정(NEXT_PUBLIC_* 등)을 빌드할 때 이미지에 고정한다 (저장소 Variables에서 읽음, app-cd.yml과 같음)
+          - { name: web, context: frontend, module: '' }
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 태그는 커밋 SHA 하나만 쓴다. deploy.sh가 같은 SHA의 설정(git)과 이미지를 함께 맞춘다
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          build-args: |
+            MODULE=${{ matrix.module }}
+            ${{ matrix.name == 'web' && format('SITE_URL={0}', vars.SITE_URL) || '' }}
+            ${{ matrix.name == 'web' && format('NEXT_PUBLIC_TOSS_CLIENT_KEY={0}', vars.NEXT_PUBLIC_TOSS_CLIENT_KEY) || '' }}
+            ${{ matrix.name == 'web' && format('NEXT_PUBLIC_GTM_ID={0}', vars.NEXT_PUBLIC_GTM_ID) || '' }}
+            ${{ matrix.name == 'web' && format('NEXT_PUBLIC_CLARITY_ID={0}', vars.NEXT_PUBLIC_CLARITY_ID) || '' }}
+            ${{ matrix.name == 'web' && format('NEXT_PUBLIC_KAKAO_JS_KEY={0}', vars.NEXT_PUBLIC_KAKAO_JS_KEY) || '' }}
+            ${{ matrix.name == 'web' && format('IMAGE_REMOTE_HOSTS={0}', vars.IMAGE_REMOTE_HOSTS) || '' }}
+            ${{ matrix.name == 'web' && format('NEXT_PUBLIC_PORTONE_STORE_ID={0}', vars.NEXT_PUBLIC_PORTONE_STORE_ID) || '' }}
+            ${{ matrix.name == 'web' && format('NEXT_PUBLIC_PORTONE_IDENTITY_CHANNEL_KEY={0}', vars.NEXT_PUBLIC_PORTONE_IDENTITY_CHANNEL_KEY) || '' }}
+            ${{ matrix.name == 'web' && format('NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION={0}', vars.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION) || '' }}
+            ${{ matrix.name == 'web' && format('NEXT_PUBLIC_NAVER_SITE_VERIFICATION={0}', vars.NEXT_PUBLIC_NAVER_SITE_VERIFICATION) || '' }}
+          push: true
+          tags: ${{ env.REGISTRY }}/bukang-${{ matrix.name }}:${{ github.sha }}
+          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+  deploy:
+    needs: build
+    # 빌드가 성공했거나, 되돌리기라 빌드를 건너뛴 경우에만. main에서 실행했을 때만
+    if: >-
+      !cancelled()
+      && github.ref == 'refs/heads/main'
+      && (needs.build.result == 'success' || needs.build.result == 'skipped')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      # 입력값은 명령에 넣기 전에 형식을 확인한다 (명령 주입 방지). 실제로 main에 들어간 커밋인지는 deploy.sh가 확인한다
+      - name: 배포할 커밋 정하기
+        id: target
+        env:
+          INPUT_SHA: ${{ inputs.sha }}
+        run: |
+          if [ -z "$INPUT_SHA" ]; then
+            SHA="$GITHUB_SHA"
+          elif [[ "$INPUT_SHA" =~ ^[0-9a-f]{7,40}$ ]]; then
+            SHA="$INPUT_SHA"
+          else
+            echo "::error::sha는 커밋 SHA(소문자 16진수 7~40자리)만 받습니다"
+            exit 1
+          fi
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "배포 커밋: $SHA"
+
+      # 교안(slog 14710 4강)처럼 액세스 키를 GitHub Secrets에 둔다
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-2
+
+      # Spring 앱 11개가 CPU 2개에서 함께 뜨므로 넉넉히 30분
+      - name: 메인 EC2에서 deploy.sh 실행
+        env:
+          INSTANCE_ID: ${{ vars.MAIN_INSTANCE_ID }}
+          SHA: ${{ steps.target.outputs.sha }}
+        run: bash .github/scripts/ssm-run.sh "$INSTANCE_ID" 1800 "bash /opt/crewrun/infra/main-node/deploy.sh $SHA"

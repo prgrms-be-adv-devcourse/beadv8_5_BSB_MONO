@@ -19,7 +19,7 @@ importers:
         version: 5.9.1(@standard-schema/spec@1.1.0)(ajv@8.20.0)(react-hook-form@7.89.0(@types/react@19.3.0)(react@19.2.8))(zod@4.6.5)
       '@next/third-parties':
         specifier: 16.3.8
-        version: 16.3.8(next@16.3.8(@babel/core@7.29.7)(@opentelemetry/api@1.10.0)(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)
+        version: 16.3.8(next@16.3.8(@babel/core@7.29.7)(@opentelemetry/api@1.10.0)(@playwright/test@1.65.0)(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)
       '@portone/browser-sdk':
         specifier: 0.1.13
         version: 0.1.13
@@ -37,7 +37,7 @@ importers:
         version: 4.4.0
       next:
         specifier: 16.3.8
-        version: 16.3.8(@babel/core@7.29.7)(@opentelemetry/api@1.10.0)(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        version: 16.3.8(@babel/core@7.29.7)(@opentelemetry/api@1.10.0)(@playwright/test@1.65.0)(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       react:
         specifier: 19.2.8
         version: 19.2.8
@@ -78,6 +78,9 @@ importers:
       '@ianvs/prettier-plugin-sort-imports':
         specifier: ^4.7.1
         version: 4.7.1(prettier@3.9.9)
+      '@playwright/test':
+        specifier: ^1.65.0
+        version: 1.65.0
       '@storybook/addon-docs':
         specifier: ^10.6.1
         version: 10.6.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(storybook@10.6.1(@types/react@19.3.0)(prettier@3.9.9)(react@19.2.8))
@@ -86,7 +89,7 @@ importers:
         version: 10.6.1(storybook@10.6.1(@types/react@19.3.0)(prettier@3.9.9)(react@19.2.8))
       '@storybook/nextjs-vite':
         specifier: ^10.6.1
-        version: 10.6.1(@babel/core@7.29.7)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(next@16.3.8(@babel/core@7.29.7)(@opentelemetry/api@1.10.0)(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(storybook@10.6.1(@types/react@19.3.0)(prettier@3.9.9)(react@19.2.8))(typescript@5.9.3)(vite@8.3.2(@types/node@20.19.43)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1))
+        version: 10.6.1(@babel/core@7.29.7)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(next@16.3.8(@babel/core@7.29.7)(@opentelemetry/api@1.10.0)(@playwright/test@1.65.0)(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(storybook@10.6.1(@types/react@19.3.0)(prettier@3.9.9)(react@19.2.8))(typescript@5.9.3)(vite@8.3.2(@types/node@20.19.43)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1))
       '@tailwindcss/postcss':
         specifier: ^4
         version: 4.3.3
@@ -1450,6 +1453,11 @@ packages:
     resolution: {integrity: sha512-VPoCAhKvCQTlG7vxqaBXcmuvbh77BfnGXj8g0pbvVXpm1F/R8rDVwqIWcEbMzrI1JvJlm8v7T9uMVQb6UctMRg==}
     cpu: [x64]
     os: [win32]
+
+  '@playwright/test@1.65.0':
+    resolution: {integrity: sha512-iGURLGuKDLakSEl7Pgfv8h7f+XLT+V861Wfhz0zlEl5nyFuKUopdkFBPKqTllTUp06aOwPuH8iuUEb3yp3MpbQ==}
+    engines: {node: '>=20'}
+    hasBin: true
 
   '@portone/browser-sdk@0.1.13':
     resolution: {integrity: sha512-zC94/gmMeh5O44iRx/SiIyt8p+1YXxEVRQu+Fhi7WKMlzbERBViwCxY6B6MVO2QprGJS5iQG2bf6e7KoXln5Kg==}
@@ -4006,6 +4014,16 @@ packages:
     resolution: {integrity: sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==}
     engines: {node: '>=12'}
 
+  playwright-core@1.65.0:
+    resolution: {integrity: sha512-vNSKgH6YqtN7cdT/L334zo0a+YwkrpicyrHJlWWPIm/Q+Nn2SWInil01oT0mbu96U4GgoRtCYQD9CzJQgju+lA==}
+    engines: {node: '>=20'}
+    hasBin: true
+
+  playwright@1.65.0:
+    resolution: {integrity: sha512-F3AMWcR44qMBt4kq+6Kb6mX7bjGXshktKFOPULd7reED6ZJWevjbNRqysP7q+AATE9kdPEZBibex1BYsvpVoeA==}
+    engines: {node: '>=20'}
+    hasBin: true
+
   possible-typed-array-names@1.1.0:
     resolution: {integrity: sha512-/+5VFTchJDoVj3bhoqi6UeymcD00DAwb1nJwamzPvHEszJ4FpF6SNNbUbOS8yI56qHzdV8eK0qEfOSiodkTdxg==}
     engines: {node: '>= 0.4'}
@@ -5794,9 +5812,9 @@ snapshots:
   '@next/swc-win32-x64-msvc@16.3.8':
     optional: true
 
-  '@next/third-parties@16.3.8(next@16.3.8(@babel/core@7.29.7)(@opentelemetry/api@1.10.0)(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)':
+  '@next/third-parties@16.3.8(next@16.3.8(@babel/core@7.29.7)(@opentelemetry/api@1.10.0)(@playwright/test@1.65.0)(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)':
     dependencies:
-      next: 16.3.8(@babel/core@7.29.7)(@opentelemetry/api@1.10.0)(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      next: 16.3.8(@babel/core@7.29.7)(@opentelemetry/api@1.10.0)(@playwright/test@1.65.0)(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       react: 19.2.8
       third-party-capital: 1.0.20
 
@@ -6048,6 +6066,10 @@ snapshots:
 
   '@oxc-resolver/binding-win32-x64-msvc@11.21.2':
     optional: true
+
+  '@playwright/test@1.65.0':
+    dependencies:
+      playwright: 1.65.0
 
   '@portone/browser-sdk@0.1.13': {}
 
@@ -6301,18 +6323,18 @@ snapshots:
     dependencies:
       react: 19.2.8
 
-  '@storybook/nextjs-vite@10.6.1(@babel/core@7.29.7)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(next@16.3.8(@babel/core@7.29.7)(@opentelemetry/api@1.10.0)(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(storybook@10.6.1(@types/react@19.3.0)(prettier@3.9.9)(react@19.2.8))(typescript@5.9.3)(vite@8.3.2(@types/node@20.19.43)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1))':
+  '@storybook/nextjs-vite@10.6.1(@babel/core@7.29.7)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(next@16.3.8(@babel/core@7.29.7)(@opentelemetry/api@1.10.0)(@playwright/test@1.65.0)(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(storybook@10.6.1(@types/react@19.3.0)(prettier@3.9.9)(react@19.2.8))(typescript@5.9.3)(vite@8.3.2(@types/node@20.19.43)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1))':
     dependencies:
       '@storybook/builder-vite': 10.6.1(storybook@10.6.1(@types/react@19.3.0)(prettier@3.9.9)(react@19.2.8))(vite@8.3.2(@types/node@20.19.43)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1))
       '@storybook/react': 10.6.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(storybook@10.6.1(@types/react@19.3.0)(prettier@3.9.9)(react@19.2.8))(typescript@5.9.3)
       '@storybook/react-vite': 10.6.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(storybook@10.6.1(@types/react@19.3.0)(prettier@3.9.9)(react@19.2.8))(typescript@5.9.3)(vite@8.3.2(@types/node@20.19.43)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1))
-      next: 16.3.8(@babel/core@7.29.7)(@opentelemetry/api@1.10.0)(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      next: 16.3.8(@babel/core@7.29.7)(@opentelemetry/api@1.10.0)(@playwright/test@1.65.0)(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       react: 19.2.8
       react-dom: 19.2.8(react@19.2.8)
       storybook: 10.6.1(@types/react@19.3.0)(prettier@3.9.9)(react@19.2.8)
       styled-jsx: 5.1.6(@babel/core@7.29.7)(react@19.2.8)
       vite: 8.3.2(@types/node@20.19.43)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1)
-      vite-plugin-storybook-nextjs: 10.6.1(next@16.3.8(@babel/core@7.29.7)(@opentelemetry/api@1.10.0)(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(storybook@10.6.1(@types/react@19.3.0)(prettier@3.9.9)(react@19.2.8))(typescript@5.9.3)(vite@8.3.2(@types/node@20.19.43)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1))
+      vite-plugin-storybook-nextjs: 10.6.1(next@16.3.8(@babel/core@7.29.7)(@opentelemetry/api@1.10.0)(@playwright/test@1.65.0)(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(storybook@10.6.1(@types/react@19.3.0)(prettier@3.9.9)(react@19.2.8))(typescript@5.9.3)(vite@8.3.2(@types/node@20.19.43)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1))
     optionalDependencies:
       '@types/react': 19.3.0
       '@types/react-dom': 19.3.0(@types/react@19.3.0)
@@ -8501,7 +8523,7 @@ snapshots:
 
   neo-async@2.6.2: {}
 
-  next@16.3.8(@babel/core@7.29.7)(@opentelemetry/api@1.10.0)(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
+  next@16.3.8(@babel/core@7.29.7)(@opentelemetry/api@1.10.0)(@playwright/test@1.65.0)(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
     dependencies:
       '@next/env': 16.3.8
       '@swc/helpers': 0.5.23
@@ -8521,6 +8543,7 @@ snapshots:
       '@next/swc-win32-arm64-msvc': 16.3.8
       '@next/swc-win32-x64-msvc': 16.3.8
       '@opentelemetry/api': 1.10.0
+      '@playwright/test': 1.65.0
       sharp: 0.35.5(@types/node@20.19.43)
     transitivePeerDependencies:
       - '@babel/core'
@@ -8762,6 +8785,12 @@ snapshots:
   picomatch@2.3.2: {}
 
   picomatch@4.0.7: {}
+
+  playwright-core@1.65.0: {}
+
+  playwright@1.65.0:
+    dependencies:
+      playwright-core: 1.65.0
 
   possible-typed-array-names@1.1.0: {}
 
@@ -9548,13 +9577,13 @@ snapshots:
       d3-time: 3.1.0
       d3-timer: 3.0.1
 
-  vite-plugin-storybook-nextjs@10.6.1(next@16.3.8(@babel/core@7.29.7)(@opentelemetry/api@1.10.0)(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(storybook@10.6.1(@types/react@19.3.0)(prettier@3.9.9)(react@19.2.8))(typescript@5.9.3)(vite@8.3.2(@types/node@20.19.43)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1)):
+  vite-plugin-storybook-nextjs@10.6.1(next@16.3.8(@babel/core@7.29.7)(@opentelemetry/api@1.10.0)(@playwright/test@1.65.0)(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(storybook@10.6.1(@types/react@19.3.0)(prettier@3.9.9)(react@19.2.8))(typescript@5.9.3)(vite@8.3.2(@types/node@20.19.43)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1)):
     dependencies:
       '@next/env': 16.3.8
       '@rollup/pluginutils': 5.4.0
       magic-string: 0.30.21
       module-alias: 2.3.4
-      next: 16.3.8(@babel/core@7.29.7)(@opentelemetry/api@1.10.0)(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      next: 16.3.8(@babel/core@7.29.7)(@opentelemetry/api@1.10.0)(@playwright/test@1.65.0)(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       pathe: 2.0.3
       probe-image-size: 7.4.0
       semver: 7.8.5

@@ -40,11 +40,11 @@ describe('예치금 충전 (M21)', () => {
     renderPage()
 
     await user.click(screen.getByRole('button', { name: '+5만' }))
-    await user.click(screen.getByRole('button', { name: '₩60,000 충전하기' }))
+    await user.click(screen.getByRole('button', { name: '60,000원 충전하기' }))
 
     expect(requestCharge).toHaveBeenCalledWith({ amount: 60_000 })
     // 결제창으로 떠나는 동안 다시 누르지 못한다
-    expect(screen.getByRole('button', { name: '₩60,000 충전하기' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '60,000원 충전하기' })).toBeDisabled()
   })
 
   it('1만 원보다 적으면 충전 버튼을 막는다', async () => {
@@ -55,7 +55,7 @@ describe('예치금 충전 (M21)', () => {
     await user.clear(input)
     await user.type(input, '9000')
 
-    expect(screen.getByRole('button', { name: '₩9,000 충전하기' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '9,000원 충전하기' })).toBeDisabled()
   })
 
   it('결제창을 띄우지 못하면 결제 실패 문구를 보이고 다시 누를 수 있다', async () => {
@@ -63,10 +63,10 @@ describe('예치금 충전 (M21)', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await user.click(screen.getByRole('button', { name: '₩10,000 충전하기' }))
+    await user.click(screen.getByRole('button', { name: '10,000원 충전하기' }))
 
     expect(await screen.findByText('결제하지 못했어요')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '₩10,000 충전하기' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: '10,000원 충전하기' })).toBeEnabled()
   })
 
   it('앞선 충전 결과를 아직 모르면 결제창을 띄우지 않고 기다리라고 안내한다', async () => {
@@ -74,12 +74,12 @@ describe('예치금 충전 (M21)', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await user.click(screen.getByRole('button', { name: '₩10,000 충전하기' }))
+    await user.click(screen.getByRole('button', { name: '10,000원 충전하기' }))
 
     expect(await screen.findByText('앞선 충전 결과를 확인하고 있어요')).toBeInTheDocument()
     // 예치금 결제와 헷갈리지 않게 카드 결제라고 쓴다
     expect(screen.getByText(/카드 결제가 됐다면/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '₩10,000 충전하기' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: '10,000원 충전하기' })).toBeEnabled()
   })
 
   it('충전이 막히면 잔액을 다시 불러, 앞선 충전이 이미 들어갔으면 늘어난 잔액을 보여 준다', async () => {
@@ -101,10 +101,10 @@ describe('예치금 충전 (M21)', () => {
     })
     const user = userEvent.setup()
     renderPage()
-    expect(await screen.findByText('₩5,000')).toBeInTheDocument()
+    expect(await screen.findByText('5,000원')).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: '₩10,000 충전하기' }))
+    await user.click(screen.getByRole('button', { name: '10,000원 충전하기' }))
 
-    expect(await screen.findByText('₩17,000')).toBeInTheDocument()
+    expect(await screen.findByText('17,000원')).toBeInTheDocument()
   })
 })

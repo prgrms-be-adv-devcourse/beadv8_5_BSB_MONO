@@ -153,7 +153,7 @@ class CrewInviteCleanupTest {
 		LocalDateTime createdAt = expiresAt(NOW.minusDays(8));
 		List<CrewInvite> invites = new ArrayList<>();
 		for (int i = 0; i < total; i++) {
-			invites.add(CrewInvite.create(crewId, hash(), LEADER_ID, createdAt));
+			invites.add(CrewInvite.create(crewId, null, hash(), LEADER_ID, createdAt));
 		}
 		crewInviteRepository.saveAll(invites);
 
@@ -169,7 +169,7 @@ class CrewInviteCleanupTest {
 	}
 
 	private long invite(LocalDateTime createdAt) {
-		return crewInviteRepository.save(CrewInvite.create(crewId, hash(), LEADER_ID, createdAt)).getId();
+		return crewInviteRepository.save(CrewInvite.create(crewId, null, hash(), LEADER_ID, createdAt)).getId();
 	}
 
 	// canceledAt에 취소된 초대. 취소는 끝나기 전에만 되므로 취소 1시간 전에 만든다

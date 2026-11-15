@@ -36,6 +36,7 @@ import com.bukang.product.dto.RaceSaveRequestDto;
 import com.bukang.product.dto.RaceSearchCondition;
 import com.bukang.product.dto.RaceSort;
 import com.bukang.product.dto.RaceSuggestionDto;
+import com.bukang.product.dto.RaceSummaryDto;
 import com.bukang.product.dto.SellerRaceDto;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -432,6 +433,38 @@ public class ApiV1RaceController {
 			.body(RsData.of(HttpStatus.OK, "연관검색어를 조회했습니다.", productFacade.suggestRaces(keyword)));
 	}
 
+	@GetMapping("/recommendations")
+	@Operation(summary = "AI 추천 대회 (검색어)",
+		description = "검색어와 뜻이 비슷한 대회를 비슷한 순서로 6개까지 돌려준다(벡터 검색). 로그인하지 않아도 된다. "
+			+ "연관검색어가 글자가 같은 대회를 찾는다면, 이 API는 글자가 달라도 뜻이 가까운 대회를 찾는다 "
+			+ "(예: '밤에 강변 달리기' → 야간 한강 대회). "
+			+ "판매 예정·판매 중이고 접수 마감 전인 대회만 권한다(공개 목록과 달리 판매 중지 대회는 뺀다). "
+			+ "검색어가 2글자보다 짧거나, AI 추천을 하지 못하면(임베딩 서비스 장애 등) 빈 목록을 돌려준다. "
+			+ "빈 목록이면 화면에서 AI 추천 영역을 숨긴다. 카드 모양은 공개 목록과 같다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "조회 성공 (추천할 대회가 없으면 빈 목록)",
+			content = @Content(examples = {
+				@ExampleObject(name = "추천 있음", value = RaceApiExamples.RECOMMEND_SUCCESS),
+				@ExampleObject(name = "추천 없음", value = RaceApiExamples.RECOMMEND_EMPTY)
+			})),
+		@ApiResponse(responseCode = "400", description = "검색어 없음 또는 100자 초과",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "검색어 빈 값", value = RaceApiExamples.KEYWORD_BLANK),
+				@ExampleObject(name = "검색어 파라미터 없음", value = RaceApiExamples.KEYWORD_MISSING),
+				@ExampleObject(name = "검색어 100자 초과", value = RaceApiExamples.KEYWORD_TOO_LONG)
+			}))
+	})
+	public ResponseEntity<RsData<List<RaceSummaryDto>>> recommend(
+		@Parameter(description = "검색어 (2~100자)", example = "밤에 강변 달리기")
+		@RequestParam
+		@NotBlank(message = "검색어를 작성해주세요.")
+		@Size(max = 100, message = "검색어는 100자 이하로 작성해주세요.")
+		String keyword
+	) {
+		return ResponseEntity.ok()
+			.body(RsData.of(HttpStatus.OK, "AI 추천 대회를 조회했습니다.", productFacade.recommendRaces(keyword)));
+	}
+
 	@GetMapping("/mine")
 	@Operation(summary = "판매자 내 대회 목록",
 		description = "승인된 판매자가 등록한 대회를 최근 등록 순으로 모두 돌려준다(취소된 대회 포함). "
@@ -487,6 +520,30 @@ public class ApiV1RaceController {
 	) {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "대회를 조회했습니다.", productFacade.findRace(raceId, memberId)));
+	}
+
+	@GetMapping("/{raceId}/similar")
+	@Operation(summary = "AI 추천 대회 (비슷한 대회)",
+		description = "보고 있는 대회와 뜻이 비슷한 대회를 비슷한 순서로 6개까지 돌려준다(벡터 검색). 보고 있는 대회는 뺀다. "
+			+ "로그인하지 않아도 된다. 판매 예정·판매 중이고 접수 마감 전인 대회만 권한다(판매 중지 대회는 뺀다). "
+			+ "대회의 AI 추천 벡터가 아직 없거나(등록 직후 몇 초), 없는 대회이거나, 추천을 하지 못하면 빈 목록을 돌려준다. "
+			+ "빈 목록이면 화면에서 AI 추천 영역을 숨긴다. 카드 모양은 공개 목록과 같다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "조회 성공 (추천할 대회가 없으면 빈 목록)",
+			content = @Content(examples = {
+				@ExampleObject(name = "추천 있음", value = RaceApiExamples.RECOMMEND_SUCCESS),
+				@ExampleObject(name = "추천 없음", value = RaceApiExamples.RECOMMEND_EMPTY)
+			})),
+		@ApiResponse(responseCode = "400", description = "대회 ID 형식 오류",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = RaceApiExamples.INVALID_VALUE_TYPE)))
+	})
+	public ResponseEntity<RsData<List<RaceSummaryDto>>> findSimilar(
+		@Parameter(description = "보고 있는 대회 ID", example = "1")
+		@PathVariable long raceId
+	) {
+		return ResponseEntity.ok()
+			.body(RsData.of(HttpStatus.OK, "AI 추천 대회를 조회했습니다.", productFacade.findSimilarRaces(raceId)));
 	}
 
 	@GetMapping("/{raceId}/kit-options")

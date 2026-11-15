@@ -8,16 +8,15 @@ import { Controller, useForm } from 'react-hook-form'
 
 import { AppHeader } from '@/widgets/app-header'
 import { AddressSearch, type AddressSearchResult } from '@/features/address-search'
-import { formatDDay, formatRaceDate, formatRaceDateTime } from '@/entities/race'
+import { formatDDay } from '@/entities/race'
 import { ticketErrorMessage, useChangeParticipant } from '@/entities/ticket'
 import type { orderModel } from '@/shared/api'
-import { cn } from '@/shared/lib'
 import {
   Alert,
   BottomCta,
   Button,
+  buttonClassName,
   Divider,
-  FOCUS_RING,
   KeyValue,
   PhoneField,
   Radio,
@@ -59,7 +58,6 @@ export function TicketEditPage({ ticketId }: { ticketId: string }) {
           participant={participant}
           title={[race.title, course?.name].filter(Boolean).join(' · ')}
           closeAt={race.applicationCloseAt}
-          refundDeadline={race.refundDeadline}
           sizes={course?.tshirtSizeOption ?? []}
         />
       )}
@@ -75,7 +73,6 @@ function ParticipantForm({
   participant,
   title,
   closeAt,
-  refundDeadline,
   sizes,
 }: {
   ticketId: string
@@ -83,7 +80,6 @@ function ParticipantForm({
   participant: orderModel.ParticipantInfoDto
   title: string
   closeAt?: string
-  refundDeadline?: string
   sizes: string[]
 }) {
   const router = useRouter()
@@ -123,9 +119,6 @@ function ParticipantForm({
                   <span className="font-display text-number-s">{formatDDay(closeAt)}</span>
                   <span className="text-body2-medium text-text-secondary">접수 마감까지</span>
                 </p>
-                <p className="text-body2-regular text-text-secondary">
-                  {formatRaceDateTime(closeAt)} 접수 마감 전까지 수정할 수 있어요.
-                </p>
               </>
             )}
           </div>
@@ -145,11 +138,8 @@ function ParticipantForm({
           <Section
             title="참가자 정보"
             aside={
-              <Link
-                href="/me/edit"
-                className={cn('rounded-sm text-body2-medium text-text-brand', FOCUS_RING)}
-              >
-                회원 정보에서 바꾸기 ›
+              <Link href="/me/edit" className={buttonClassName({ variant: 'ghost', size: 's' })}>
+                회원 정보에서 바꾸기
               </Link>
             }
           >
@@ -196,9 +186,6 @@ function ParticipantForm({
           </Section>
 
           <Section title="비상 연락처">
-            <p className="text-body2-regular text-text-secondary">
-              연락받을 분께 먼저 알린 뒤 입력해 주세요. 대회 중 사고가 나면 주최 측이 연락해요.
-            </p>
             <TextField
               label="이름"
               error={errors.emergencyContactName?.message}
@@ -215,11 +202,6 @@ function ParticipantForm({
 
           {hasKit && (
             <Section title="키트 배송 주소">
-              {refundDeadline && (
-                <p className="text-body2-regular text-text-secondary">
-                  환불 기한({formatRaceDate(refundDeadline)})이 지난 뒤 이 주소로 키트를 보내요.
-                </p>
-              )}
               <TextField
                 label="우편번호"
                 inputMode="numeric"
@@ -252,10 +234,6 @@ function ParticipantForm({
             />
           </div>
         )}
-
-        <p className="px-4 pt-2 pb-6 text-caption-regular text-text-tertiary">
-          참가자 정보는 대회 주최자에게 전달돼요.
-        </p>
       </main>
       <BottomCta
         className="sticky bottom-0 z-10"

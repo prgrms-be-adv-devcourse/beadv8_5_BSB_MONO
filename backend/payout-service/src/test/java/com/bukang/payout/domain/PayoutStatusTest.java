@@ -17,7 +17,8 @@ class PayoutStatusTest {
 		"지급_중, false",
 		"지급_완료, false",
 		"취소, false",
-		"지급_불일치, false"
+		"지급_불일치, false",
+		"지급_확인_필요, false"
 	})
 	@DisplayName("지급 전 상태는 정산 예정과 지급보류뿐이다. 지급 중은 돈이 나갔을 수 있어 지급 전이 아니다")
 	void isBeforePayment(PayoutStatus status, boolean expected) {
@@ -30,10 +31,18 @@ class PayoutStatusTest {
 		EnumSet<PayoutStatus> all = EnumSet.allOf(PayoutStatus.class);
 
 		assertThat(all).containsExactlyInAnyOrder(PayoutStatus.지급_예정, PayoutStatus.지급보류,
-			PayoutStatus.지급_중, PayoutStatus.지급_완료, PayoutStatus.취소, PayoutStatus.지급_불일치);
+			PayoutStatus.지급_중, PayoutStatus.지급_완료, PayoutStatus.취소, PayoutStatus.지급_불일치,
+			PayoutStatus.지급_확인_필요);
 		assertThat(all.stream().filter(PayoutStatus::isBeforePayment))
 			.containsExactlyInAnyOrder(PayoutStatus.지급_예정, PayoutStatus.지급보류);
 		assertThat(PayoutStatus.BEFORE_PAYMENT)
 			.containsExactlyInAnyOrder(PayoutStatus.지급_예정, PayoutStatus.지급보류);
+	}
+
+	@Test
+	@DisplayName("지급 결과를 기다리는 상태는 지급 중 · 지급 확인 필요다. 대회 취소가 오면 회수를 미룬다 (BUK-166)")
+	void awaitingPayResultIsPayingAndCheckRequired() {
+		assertThat(EnumSet.allOf(PayoutStatus.class).stream().filter(PayoutStatus::isAwaitingPayResult))
+			.containsExactlyInAnyOrder(PayoutStatus.지급_중, PayoutStatus.지급_확인_필요);
 	}
 }

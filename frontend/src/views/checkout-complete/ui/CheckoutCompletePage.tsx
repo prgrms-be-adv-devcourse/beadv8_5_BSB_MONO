@@ -5,6 +5,7 @@ import Link from 'next/link'
 
 import { AppHeader } from '@/widgets/app-header'
 import { raceDetailQueryOptions } from '@/entities/race'
+import { useMyBalance } from '@/entities/wallet'
 import { orderApi, unwrapData } from '@/shared/api'
 import { formatNumber, orderTrackItems, useTrackOnce } from '@/shared/lib'
 import { Badge, BibCard, BottomCta, buttonClassName, KeyValue, Skeleton } from '@/shared/ui'
@@ -20,6 +21,7 @@ export function CheckoutCompletePage({ orderId }: { orderId: number }) {
     enabled: raceId !== undefined,
   })
   const item = order.data?.items?.[0]
+  const { balance } = useMyBalance()
   // 새로고침으로 다시 보내도 GA4가 같은 주문 번호(transaction_id)를 한 번으로 센다
   const paid = order.data?.status === 'PAID' ? order.data : undefined
   useTrackOnce(
@@ -42,7 +44,7 @@ export function CheckoutCompletePage({ orderId }: { orderId: number }) {
   return (
     <>
       <AppHeader type="sub" title="참가 확정" close backHref="/" />
-      <main className="flex flex-1 flex-col justify-center-safe gap-8 px-4 pt-16 pb-8">
+      <main className="flex flex-1 flex-col gap-8 px-4 pt-16 pb-8">
         {order.data ? (
           <>
             <div className="flex flex-col gap-2 pb-2">
@@ -66,7 +68,7 @@ export function CheckoutCompletePage({ orderId }: { orderId: number }) {
                 meta={race.data ? `${race.data.startsAt} · ${race.data.place}` : undefined}
               />
             </div>
-            <div className="flex flex-col gap-3 rounded-lg bg-bg-surface p-5 shadow-sm inset-ring inset-ring-border-default">
+            <div className="flex flex-col gap-3">
               <KeyValue label="주문번호" value={order.data.orderNo ?? '-'} />
               {participant && (
                 <div data-clarity-mask="true">
@@ -75,8 +77,11 @@ export function CheckoutCompletePage({ orderId }: { orderId: number }) {
               )}
               <KeyValue
                 label="결제"
-                value={`₩${formatNumber(order.data.totalAmount ?? 0)} (예치금)`}
+                value={`${formatNumber(order.data.totalAmount ?? 0)}원 (예치금)`}
               />
+              {balance !== undefined && (
+                <KeyValue label="남은 예치금" value={`${formatNumber(balance)}원`} />
+              )}
               {order.data.shippingAddress && refundDeadline && (
                 <KeyValue label="키트 배송" value={`환불 기한(${refundDeadline}) 지난 뒤 배송`} />
               )}

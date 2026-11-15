@@ -18,7 +18,7 @@ class PayoutKafkaConsumerRetryTest {
 	@Test
 	@DisplayName("TC-REV3-1 최종 정산 뒤 환불(회수 충돌)과 잘못된 메시지는 재시도 없이 바로 DLT로 보낸다")
 	void refundConflictIsNotRetried() throws NoSuchMethodException {
-		RetryableTopic retry = PayoutKafkaConsumer.class.getMethod("handleItemRefunded", String.class)
+		RetryableTopic retry = PayoutKafkaConsumer.class.getMethod("handleItemRefunded", String.class, String.class)
 			.getAnnotation(RetryableTopic.class);
 
 		assertThat(retry.exclude())
@@ -28,7 +28,7 @@ class PayoutKafkaConsumerRetryTest {
 	@Test
 	@DisplayName("TC-DEPOSIT-6-1 입금액이 다른 청구 · 없는 청구 · 잘못된 입금 메시지는 재시도 없이 바로 DLT로 보낸다")
 	void claimDepositFailuresAreNotRetried() throws NoSuchMethodException {
-		RetryableTopic retry = PayoutKafkaConsumer.class.getMethod("handleClaimDeposited", String.class)
+		RetryableTopic retry = PayoutKafkaConsumer.class.getMethod("handleClaimDeposited", String.class, String.class)
 			.getAnnotation(RetryableTopic.class);
 
 		assertThat(retry.exclude()).contains(PayoutClaimConflictException.class,

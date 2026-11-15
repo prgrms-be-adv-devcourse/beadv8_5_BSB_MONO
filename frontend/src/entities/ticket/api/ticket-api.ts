@@ -28,9 +28,12 @@ async function fetchOrder(orderId: number, signal?: AbortSignal) {
 }
 
 /** 주문 상세의 주문 상품 → 참가권 */
-export function toMyTickets(order: orderModel.OrderDto): MyTicket[] {
+export function toMyTickets(
+  order: orderModel.OrderDto,
+  statuses: orderModel.OrderItemDtoStatus[] = TICKET_ITEM_STATUSES,
+): MyTicket[] {
   return (order.items ?? [])
-    .filter((item) => item.status && TICKET_ITEM_STATUSES.includes(item.status))
+    .filter((item) => item.status && statuses.includes(item.status))
     .map((item) => ({
       id: toTicketId(order.id ?? 0, item.id ?? 0),
       orderId: order.id ?? 0,
@@ -59,7 +62,50 @@ export function myTicketsQueryOptions() {
         (o) => o.id !== undefined && o.status && TICKET_ORDER_STATUSES.includes(o.status),
       )
       const details = await Promise.all(orders.map((o) => fetchOrder(o.id ?? 0, signal)))
-      return details.flatMap(toMyTickets)
+      return details.flatMap((order) => toMyTickets(order))
+    },
+  })
+}
+
+/**
+ * 회원 탈퇴 미리 확인용 참가권. 서버(OrderItemRepository.countActiveTickets)와 같은 기준으로 모은다.
+ * 결제 완료 · 취소 중인 상품과, 결제 기한 전인 결제 대기 주문의 상품이다. 취소 · 기한 지난 결제 대기 · 만료는 뺀다.
+ * 주문은 100건씩 끝 쪽까지 받는다. 한 번이라도 실패하면 빈 목록으로 보지 않고 실패로 둔다.
+ */
+export function withdrawTicketsQueryOptions() {
+  return queryOptions({
+    queryKey: [
+      ...orderApi.getFindMineQueryKey({ page: 0, size: ORDER_PAGE_SIZE }),
+      'withdraw-tickets',
+    ],
+    queryFn: async ({ signal }) => {
+      const now = Date.now()
+      const summaries: orderModel.OrderSummaryDto[] = []
+      for (let page = 0; ; page += 1) {
+        const result = unwrapData(
+          await orderApi.findMine({ page, size: ORDER_PAGE_SIZE }, { signal }),
+        )
+        summaries.push(...(result.orders ?? []))
+        if (page + 1 >= (result.totalPages ?? 0)) break
+      }
+      const stillPayable = (dueAt?: string | null) =>
+        !!dueAt && new Date(`${dueAt}+09:00`).getTime() > now
+      const orders = summaries.filter(
+        (o) =>
+          o.id !== undefined &&
+          o.status !== orderModel.OrderSummaryDtoStatus.EXPIRED &&
+          (o.status !== orderModel.OrderSummaryDtoStatus.CREATED || stillPayable(o.paymentDueAt)),
+      )
+      const details = await Promise.all(orders.map((o) => fetchOrder(o.id ?? 0, signal)))
+      return details.flatMap((order) =>
+        toMyTickets(order, [
+          orderModel.OrderItemDtoStatus.PAID,
+          orderModel.OrderItemDtoStatus.CANCELING,
+          ...(order.status === orderModel.OrderSummaryDtoStatus.CREATED
+            ? [orderModel.OrderItemDtoStatus.ORDERED]
+            : []),
+        ]),
+      )
     },
   })
 }

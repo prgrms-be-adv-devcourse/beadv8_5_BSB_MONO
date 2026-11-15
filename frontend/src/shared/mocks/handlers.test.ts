@@ -495,7 +495,7 @@ describe('새 회원 쿠키 저장소가 둘일 때', () => {
       orderId: 'order-c',
       amount: 60_000,
     })
-    const pay = await a.call('POST', '/api/v1/order/orders/1/payment')
+    const pay = await a.call('POST', '/api/v1/order/orders/1/payment', { kitOptionIds: [110, 120] })
     expect(pay.status).toBe(200)
     expect((await a.data('GET', '/api/v1/cash/wallets/balance')).balance).toBe(10_000)
 
@@ -507,6 +507,25 @@ describe('새 회원 쿠키 저장소가 둘일 때', () => {
     )
     expect(refund.withdrawnAmount).toBe(10_000)
     expect((await a.data('GET', '/api/v1/cash/wallets/balance')).balance).toBe(0)
+  })
+
+  it('키트 옵션이 있는 대회는 옵션 이름마다 하나씩 보내지 않으면 결제가 400이고 예치금은 그대로다', async () => {
+    const a = browser()
+    await signUp(a, 'k@example.com', '케이')
+    await a.call('POST', '/api/v1/cash/charges/confirm', {
+      paymentKey: 'pk',
+      orderId: 'order-k',
+      amount: 60_000,
+    })
+    const pay = (body?: unknown) => a.call('POST', '/api/v1/order/orders/1/payment', body)
+
+    expect((await pay()).status).toBe(400)
+    // 티셔츠만 고르고 양말을 빠뜨림 · 같은 이름에서 둘을 고름 · 이 대회에 없는 옵션
+    expect((await pay({ kitOptionIds: [110] })).status).toBe(400)
+    expect((await pay({ kitOptionIds: [110, 111, 120] })).status).toBe(400)
+    expect((await pay({ kitOptionIds: [110, 120, 999] })).status).toBe(400)
+    expect((await a.data('GET', '/api/v1/cash/wallets/balance')).balance).toBe(60_000)
+    expect((await pay({ kitOptionIds: [110, 120] })).status).toBe(200)
   })
 
   it('정보를 고친 뒤 로그아웃하고 다시 로그인해도 고친 값이 남는다', async () => {

@@ -1,6 +1,7 @@
 package com.bukang.cash.in;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
@@ -21,6 +22,18 @@ class CashChargeReconcileSchedulerTest {
 		new CashChargeReconcileScheduler(chargeReconcile, withdrawalReconcile).reconcile();
 
 		verify(chargeReconcile).reconcile(any());
+		verify(withdrawalReconcile).reconcile(any());
+	}
+
+	@Test
+	@DisplayName("충전 재확인이 예외로 끝나도 같은 실행에서 환급 재확인을 부른다")
+	void withdrawalReconcileRunsEvenIfChargeReconcileFails() {
+		CashChargeReconcileUseCase chargeReconcile = mock(CashChargeReconcileUseCase.class);
+		CashWithdrawalReconcileUseCase withdrawalReconcile = mock(CashWithdrawalReconcileUseCase.class);
+		willThrow(new IllegalStateException("예상 못 한 오류")).given(chargeReconcile).reconcile(any());
+
+		new CashChargeReconcileScheduler(chargeReconcile, withdrawalReconcile).reconcile();
+
 		verify(withdrawalReconcile).reconcile(any());
 	}
 }

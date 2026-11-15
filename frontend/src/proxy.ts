@@ -35,6 +35,9 @@ export const config = {
     '/notifications/:path*',
     '/crews/:path*',
     '/invite/:path*',
+    '/parties/:path*',
     '/races/:raceId/apply/:path*',
+    '/community/write',
+    '/community/:postId/edit',
   ],
 }

@@ -43,7 +43,7 @@ describe('DepositPage 잔액', () => {
     )
     renderPage()
 
-    expect(await screen.findByText('₩12,000')).toBeInTheDocument()
+    expect(await screen.findByText('12,000원')).toBeInTheDocument()
     expect(balanceCalls).toBe(1)
   })
 
@@ -63,7 +63,10 @@ describe('DepositPage 잔액', () => {
   })
 })
 
+type LedgerCharge = { remainingAmount: number; lastCancelableDate: string; expired: boolean }
+
 type Ledger = {
+  charge?: LedgerCharge | null
   category: string
   ledgerType: string
   amount: number
@@ -103,10 +106,10 @@ describe('DepositPage 내역', () => {
 
     const items = await screen.findAllByRole('listitem')
     expect(within(items[0]).getByText('결제 · 주문 #12')).toBeInTheDocument()
-    expect(within(items[0]).getByText('− ₩45,000')).toBeInTheDocument()
+    expect(within(items[0]).getByText('− 45,000원')).toBeInTheDocument()
     expect(within(items[0]).getByText('10/5 14:22')).toBeInTheDocument()
     expect(within(items[1]).getByText('충전 · 토스페이먼츠')).toBeInTheDocument()
-    expect(within(items[1]).getByText('+ ₩10,000')).toBeInTheDocument()
+    expect(within(items[1]).getByText('+ 10,000원')).toBeInTheDocument()
   })
 
   it('전체 탭은 category 없이, 다른 탭은 그 category로 부른다', async () => {
@@ -126,6 +129,42 @@ describe('DepositPage 내역', () => {
     }
     await vi.waitFor(() => expect(categories).toHaveLength(5))
     expect(categories).toEqual([null, 'CHARGE', 'PAYMENT', 'REFUND', 'WITHDRAWAL'])
+  })
+
+  it('남은 금액이 있는 충전 줄에만 남은 금액과 카드 취소 기한을 서버 값(charge) 그대로 붙인다', async () => {
+    const detail = (remainingAmount: number, lastCancelableDate: string, expired = false) => ({
+      remainingAmount,
+      lastCancelableDate,
+      expired,
+    })
+    const left: Ledger = { ...charge, charge: detail(5000, '2027-10-04') }
+    const used: Ledger = { ...charge, refId: 2, charge: null }
+    const zero: Ledger = { ...charge, refId: 3, charge: detail(0, '2027-09-01') }
+    const expired: Ledger = { ...charge, refId: 4, charge: detail(3000, '2025-10-01', true) }
+    server.use(
+      http.get('*/api/v1/cash/wallets/ledgers', () => ledgerPage([left, used, zero, expired])),
+    )
+    renderPage()
+
+    const items = await screen.findAllByRole('listitem')
+    expect(
+      within(items[0]).getByText(/남은 금액 5,000원 · 카드 취소 2027-10-04까지/),
+    ).toBeInTheDocument()
+    expect(
+      within(items[3]).getByText(/남은 금액 3,000원 · 카드 취소 기한\(2025-10-01\)이 지났어요/),
+    ).toBeInTheDocument()
+    expect(screen.getAllByText(/남은 금액/)).toHaveLength(2)
+  })
+
+  it('돌려받는 방법은 카드 먼저, 기한 지난 몫만 계좌라고 안내한다', async () => {
+    renderPage()
+
+    expect(
+      await screen.findByText(
+        '결제한 카드로 먼저 돌려드리고, 카드 취소 기한이 지난 몫만 계좌로 보내 드려요.',
+      ),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('관리자가 확인한 뒤 계좌로 보내 드려요.')).not.toBeInTheDocument()
   })
 
   it('내역이 없으면 빈 목록 안내를 보여 준다', async () => {
@@ -188,7 +227,7 @@ describe('DepositPage 내역', () => {
     renderPage()
 
     expect(await screen.findByText('정산 · 판매 대금 입금')).toBeInTheDocument()
-    expect(screen.getByText('+ ₩40,000')).toBeInTheDocument()
+    expect(screen.getByText('+ 40,000원')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '더 보기' })).toBeInTheDocument()
   })
 
@@ -205,5 +244,18 @@ describe('DepositPage 내역', () => {
 
     expect(await screen.findByText('내역을 불러오지 못했어요')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '다시 불러오기' })).toBeInTheDocument()
+  })
+})
+
+describe('DepositPage 돌려받는 중 (M17-1)', () => {
+  it('돌려받는 중이면 다시 신청할 수 없다는 안내를 보여 준다', () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={client}>
+        <DepositPage refunding />
+      </QueryClientProvider>,
+    )
+
+    expect(screen.getByText('돌려받는 중에는 다시 신청할 수 없어요.')).toBeInTheDocument()
   })
 })

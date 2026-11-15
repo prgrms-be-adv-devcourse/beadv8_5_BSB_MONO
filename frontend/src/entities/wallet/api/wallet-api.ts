@@ -26,5 +26,6 @@ export function useMyBalance() {
     /** 로그인하지 않았으면 false (불러오지 않는다) */
     loggedIn,
     isError,
+    refetch: balance.refetch,
   }
 }

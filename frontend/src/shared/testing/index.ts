@@ -5,6 +5,8 @@ export { server } from '@/shared/mocks/node'
 export { MOCK_LOGGED_IN_COOKIE } from '@/shared/mocks/mock-session'
 // 가짜 응답 모드의 GA4 이용 통계 예시 (서버 코드 테스트용)
 export { mockGa4Reporter } from '@/shared/mocks/ga4-stats'
+// 커뮤니티 게시판 가짜 응답과 초기화
+export { boardHandlers, resetBoardMock } from '@/shared/mocks/board'
 
 // orval이 만든 응답 예시 목: productMock.getSearchResponseMock() 등
 export * as cashMock from '@/shared/api/generated/cash/cash.msw'

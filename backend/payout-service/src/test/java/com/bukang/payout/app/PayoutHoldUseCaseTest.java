@@ -22,6 +22,7 @@ import com.bukang.payout.domain.PayoutStatus;
 import com.bukang.payout.domain.exception.PayoutHoldNotFoundException;
 import com.bukang.payout.domain.exception.PayoutNotFoundException;
 import com.bukang.payout.dto.PayoutHoldDto;
+import com.bukang.payout.out.PayoutCreateFailureRepository;
 import com.bukang.payout.out.PayoutHoldRepository;
 import com.bukang.payout.out.PayoutItemRepository;
 import com.bukang.payout.out.PayoutRecoveryRepository;
@@ -37,6 +38,9 @@ class PayoutHoldUseCaseTest {
 
 	@Autowired
 	private PayoutRepository payoutRepository;
+
+	@Autowired
+	private PayoutCreateFailureRepository payoutCreateFailureRepository;
 
 	@Autowired
 	private PayoutHoldRepository payoutHoldRepository;
@@ -61,7 +65,8 @@ class PayoutHoldUseCaseTest {
 	}
 
 	private PayoutPayUseCase payUseCase() {
-		return new PayoutPayUseCase(new PayoutPayStepUseCase(payoutRepository, raceCancelUseCase()), transfer -> {
+		return new PayoutPayUseCase(new PayoutPayStepUseCase(payoutRepository, raceCancelUseCase(),
+				payoutCreateFailureRepository), transfer -> {
 		});
 	}
 

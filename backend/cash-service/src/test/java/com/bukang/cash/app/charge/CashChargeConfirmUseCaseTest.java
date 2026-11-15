@@ -152,6 +152,76 @@ class CashChargeConfirmUseCaseTest {
 	}
 
 	@Test
+	@DisplayName("다른 주문번호의 충전이 처리 중이면 그 금액까지 더해 하루 한도를 넘을 때 처리 중 안내로 거절하고 PG를 부르지 않는다")
+	void rejectsWhenInProgressChargePushesDailyTotalOverLimit() {
+		Wallet wallet = createCustomerWalletWithTodayCharge(850_000);
+		saveCharge(wallet, "order_other", 100_000, ChargeStatus.IN_PROGRESS);
+
+		assertThatThrownBy(() -> cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 100_000))
+			.isInstanceOf(ChargeAmountTooLargeException.class)
+			.hasMessageContaining("처리 중인 충전이 있어")
+			.extracting(e -> ((BusinessException)e).getCode())
+			.isEqualTo(ChargeAmountTooLargeException.PER_DAY_CODE);
+
+		assertThat(walletChargeRepository.findByIdempotencyKey("order_1")).isEmpty();
+		verify(paymentClient, never()).approve(anyString(), anyString(), anyLong());
+	}
+
+	@Test
+	@DisplayName("결과를 확인 못 한 충전도 보유 한도에 세어, 그 금액까지 더해 넘으면 처리 중 안내로 거절한다")
+	void rejectsWhenUncertainChargePushesBalanceOverCap() {
+		Wallet wallet = createCustomerWalletWithBalance(9_850_000);
+		saveCharge(wallet, "order_other", 100_000, ChargeStatus.UNCERTAIN);
+
+		assertThatThrownBy(() -> cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 100_000))
+			.isInstanceOf(ChargeAmountTooLargeException.class)
+			.hasMessageContaining("처리 중인 충전이 있어")
+			.extracting(e -> ((BusinessException)e).getCode())
+			.isEqualTo(ChargeAmountTooLargeException.BALANCE_CODE);
+
+		verify(paymentClient, never()).approve(anyString(), anyString(), anyLong());
+	}
+
+	@Test
+	@DisplayName("처리 중 금액을 빼도 하루 한도를 넘으면 처리 중 안내가 아니라 원래 한도 문구로 거절한다")
+	void rejectsWithPlainMessageWhenOverLimitEvenWithoutPending() {
+		Wallet wallet = createCustomerWalletWithTodayCharge(950_000);
+		saveCharge(wallet, "order_other", 100_000, ChargeStatus.IN_PROGRESS);
+
+		assertThatThrownBy(() -> cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 60_000))
+			.isInstanceOf(ChargeAmountTooLargeException.class)
+			.hasMessage("일일 충전 한도는 1,000,000원입니다.");
+	}
+
+	@Test
+	@DisplayName("완료된 충전은 원장에만 세고 처리 중 금액으로 다시 세지 않는다")
+	void completedChargeIsNotCountedTwice() {
+		Wallet wallet = createCustomerWalletWithTodayCharge(950_000);
+		saveCharge(wallet, "order_done", 100_000, ChargeStatus.COMPLETED);
+		given(paymentClient.approve(anyString(), anyString(), anyLong()))
+			.willReturn(new PaymentApprovalResult(50_000, "toss_key_1", null));
+
+		CashChargeResponseDto response = cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 50_000);
+
+		assertThat(response.outcome()).isEqualTo(CashChargeResponseDto.Outcome.COMPLETED);
+		assertBalance(CUSTOMER_ID, 1_000_000);
+	}
+
+	@Test
+	@DisplayName("결과를 확인 못 한 충전을 같은 주문번호로 다시 확정하면 자기 금액은 처리 중 금액에서 빼고 검사한다")
+	void retryingUncertainChargeDoesNotCountItselfAsPending() {
+		Wallet wallet = createCustomerWalletWithTodayCharge(850_000);
+		saveCharge(wallet, "order_1", 100_000, ChargeStatus.UNCERTAIN);
+		given(paymentClient.approve("pay_1", "order_1", 100_000))
+			.willReturn(new PaymentApprovalResult(100_000, "toss_key_1", null));
+
+		CashChargeResponseDto response = cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 100_000);
+
+		assertThat(response.outcome()).isEqualTo(CashChargeResponseDto.Outcome.COMPLETED);
+		assertBalance(CUSTOMER_ID, 950_000);
+	}
+
+	@Test
 	@DisplayName("1회 정확히 30만 원은 한도 초과가 아니라서 그대로 승인까지 진행된다")
 	void acceptsExactlyMaxPerCharge() {
 		createCustomerWallet(0);
@@ -550,6 +620,12 @@ class CashChargeConfirmUseCaseTest {
 			}
 			return wallet;
 		});
+	}
+
+	private void saveCharge(Wallet wallet, String orderId, long amount, ChargeStatus status) {
+		WalletCharge charge = walletChargeRepository.save(new WalletCharge(wallet, amount, "TOSS", orderId));
+		ReflectionTestUtils.setField(charge, "status", status);
+		walletChargeRepository.saveAndFlush(charge);
 	}
 
 	private void assertBalance(long holderId, int expected) {

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import type { ReactNode } from 'react'
@@ -14,7 +14,7 @@ import { SignupStepProvider } from '../model/signup-store'
 import { termChecks } from '../model/signup-terms'
 import { PasswordNewPage, PasswordResetPage } from './FindAccountPages'
 import { LoginPage } from './LoginPage'
-import { SignupAccountPage, SignupProfilePage } from './SignupPages'
+import { SignupProfilePage } from './SignupPages'
 
 const push = vi.fn()
 const replace = vi.fn()
@@ -35,7 +35,6 @@ const VERIFIED = {
   birthDate: '1995-03-02',
   phone: '010-1234-5678',
 }
-const IDENTITY_DONE = { termsAgreed: true, terms: termChecks(true), verification: VERIFIED }
 
 function withQueryClient(ui: ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -164,6 +163,44 @@ describe('LoginPage', () => {
     expect(screen.getByRole('link', { name: '회원가입' })).toHaveAttribute('href', '/signup')
   })
 
+  it('소셜로 가입한 계정이면(AUTH_SOCIAL_ACCOUNT) 칸 문구 대신 모달로 가입한 제공자를 알려 주고, 닫을 수 있다', async () => {
+    server.use(
+      http.post('*/api/v1/auth/login', () =>
+        HttpResponse.json(
+          {
+            status: 400,
+            code: 'AUTH_SOCIAL_ACCOUNT',
+            message: '카카오로 가입한 계정이에요. 카카오로 로그인해 주세요.',
+            data: null,
+          },
+          { status: 400 },
+        ),
+      ),
+    )
+    const user = userEvent.setup()
+    render(withQueryClient(<LoginPage />))
+
+    await fillLogin(user)
+    await user.click(screen.getByRole('button', { name: '로그인' }))
+
+    expect(await screen.findByText('카카오로 가입한 계정이에요')).toBeInTheDocument()
+    expect(
+      within(screen.getByRole('alertdialog')).getByRole('button', { name: '카카오로 시작하기' }),
+    ).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '닫기' }))
+    await vi.waitFor(() =>
+      expect(screen.queryByText('카카오로 가입한 계정이에요')).not.toBeInTheDocument(),
+    )
+  })
+
+  it('소셜 로그인을 마치지 못하고 돌아오면(?error=) 다시 시도하기 모달을 띄운다', () => {
+    render(
+      withQueryClient(<LoginPage social={{ error: 'AUTH_SOCIAL_FAILED', provider: 'kakao' }} />),
+    )
+    expect(screen.getByText('카카오 로그인을 마치지 못했어요')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '다시 시도하기' })).toBeInTheDocument()
+  })
+
   it('시안 미리보기(failed)는 로그인 실패 문구를 보여 준다', () => {
     render(withQueryClient(<LoginPage failed />))
     expect(screen.getByText(AUTH_ERRORS.loginFailed)).toBeInTheDocument()
@@ -180,11 +217,7 @@ describe('SignupProfilePage', () => {
             termsAgreed: true,
             terms: termChecks(true),
             verification: VERIFIED,
-            account: {
-              email: 'runner@crewrun.kr',
-              password: 'password123',
-              passwordConfirm: 'password123',
-            },
+            account: { email: 'runner@crewrun.kr', password: 'password123' },
           }}
         >
           <SignupProfilePage />
@@ -192,14 +225,13 @@ describe('SignupProfilePage', () => {
       ),
     )
 
-    // 이름 · 생년월일 · 휴대폰 번호는 본인인증 결과로 잠겨 있다
-    expect(screen.getByLabelText('이름')).toHaveValue('김러너')
-    expect(screen.getByLabelText('이름')).toBeDisabled()
+    // 닉네임 단계(시안)에는 본인인증 결과 칸이 없고 닉네임만 적는다
+    expect(screen.queryByLabelText('이름')).not.toBeInTheDocument()
     await user.type(screen.getByLabelText('닉네임'), '곰')
     await user.tab()
 
     expect(await screen.findByText(AUTH_ERRORS.nicknameLength)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '가입 완료' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '가입 완료하기' })).toBeDisabled()
   })
 })
 
@@ -215,7 +247,7 @@ describe('PasswordResetPage', () => {
     )
     render(withQueryClient(<PasswordResetPage />))
 
-    const button = screen.getByRole('button', { name: '재설정 링크 보내기' })
+    const button = screen.getByRole('button', { name: '비밀번호 재설정 링크 보내기' })
     expect(button).toBeDisabled()
 
     await user.type(screen.getByLabelText('이메일'), 'runner@crewrun.kr')
@@ -239,7 +271,7 @@ describe('PasswordResetPage', () => {
     render(withQueryClient(<PasswordResetPage />))
 
     await user.type(screen.getByLabelText('이메일'), 'runner@crewrun.kr')
-    await user.click(screen.getByRole('button', { name: '재설정 링크 보내기' }))
+    await user.click(screen.getByRole('button', { name: '비밀번호 재설정 링크 보내기' }))
 
     expect(await screen.findByText(/잠시 뒤 다시 요청해 주세요/)).toBeInTheDocument()
     expect(screen.queryByText('메일을 보냈어요')).not.toBeInTheDocument()
@@ -253,7 +285,7 @@ function openResetLink(token: string) {
 }
 
 describe('PasswordNewPage', () => {
-  it('링크의 토큰을 읽어 주소에서 지우고, 새 비밀번호와 함께 보낸 뒤 로그인 화면으로 간다', async () => {
+  it('링크의 토큰을 읽어 주소에서 지우고, 새 비밀번호와 함께 보낸 뒤 「바꿨어요」 완료 화면에서 로그인으로 안내한다', async () => {
     const user = userEvent.setup()
     let sent: unknown
     server.use(
@@ -269,7 +301,8 @@ describe('PasswordNewPage', () => {
     expect(window.location.hash).toBe('')
     await user.click(screen.getByRole('button', { name: '비밀번호 바꾸기' }))
 
-    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/login'))
+    expect(await screen.findByText('비밀번호를 바꿨어요')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '로그인하기' })).toHaveAttribute('href', '/login')
     expect(sent).toEqual({ token: 'link-token', password: 'newpassword1' })
     expect(getAuthStatus()).toBe('anonymous')
   })
@@ -277,8 +310,8 @@ describe('PasswordNewPage', () => {
   it('만료됐거나 이미 쓴 링크면 다시 받기 안내를 보여 준다', async () => {
     openResetLink('expired')
 
-    expect(await screen.findByText('링크를 쓸 수 없어요')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '재설정 링크 다시 받기' })).toHaveAttribute(
+    expect(await screen.findByText('링크가 만료됐어요')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '링크 다시 받기' })).toHaveAttribute(
       'href',
       '/password-reset',
     )
@@ -304,7 +337,7 @@ describe('PasswordNewPage', () => {
     openResetLink('link-token')
 
     expect(await screen.findByText('링크를 확인하지 못했어요')).toBeInTheDocument()
-    expect(screen.queryByText('링크를 쓸 수 없어요')).not.toBeInTheDocument()
+    expect(screen.queryByText('링크가 만료됐어요')).not.toBeInTheDocument()
     fail = false
     await user.click(screen.getByRole('button', { name: '다시 시도' }))
 
@@ -316,7 +349,7 @@ describe('PasswordNewPage', () => {
     window.history.replaceState(null, '', '/password-reset/new')
     render(withQueryClient(<PasswordNewPage />))
 
-    expect(await screen.findByText('링크를 쓸 수 없어요')).toBeInTheDocument()
+    expect(await screen.findByText('링크가 만료됐어요')).toBeInTheDocument()
   })
 
   it('입력하는 사이 링크가 무효가 되면 바꾸기를 눌렀을 때 다시 받기 안내로 바뀐다', async () => {
@@ -335,7 +368,7 @@ describe('PasswordNewPage', () => {
     await user.type(screen.getByLabelText('새 비밀번호 확인'), 'newpassword1')
     await user.click(screen.getByRole('button', { name: '비밀번호 바꾸기' }))
 
-    expect(await screen.findByText('링크를 쓸 수 없어요')).toBeInTheDocument()
+    expect(await screen.findByText('링크가 만료됐어요')).toBeInTheDocument()
     expect(replace).not.toHaveBeenCalled()
   })
 })
@@ -357,32 +390,5 @@ describe('비밀번호 확인 칸', () => {
     await user.clear(screen.getByLabelText('새 비밀번호'))
     await user.type(screen.getByLabelText('새 비밀번호'), 'password1232')
     expect(screen.queryByText(AUTH_ERRORS.passwordMismatch)).not.toBeInTheDocument()
-  })
-
-  it('확인 칸이 비어 있으면 비밀번호를 입력해도 다르다는 오류를 먼저 띄우지 않는다', async () => {
-    const user = userEvent.setup()
-    render(
-      <SignupStepProvider initialState={IDENTITY_DONE}>
-        <SignupAccountPage />
-      </SignupStepProvider>,
-    )
-
-    await user.type(screen.getByLabelText('비밀번호'), 'password123')
-    expect(screen.queryByText(AUTH_ERRORS.passwordMismatch)).not.toBeInTheDocument()
-  })
-
-  it('가입 계정 화면에서도 비밀번호를 고치면 확인 칸 오류가 바로 뜬다', async () => {
-    const user = userEvent.setup()
-    render(
-      <SignupStepProvider initialState={IDENTITY_DONE}>
-        <SignupAccountPage />
-      </SignupStepProvider>,
-    )
-
-    await user.type(screen.getByLabelText('비밀번호'), 'password123')
-    await user.type(screen.getByLabelText('비밀번호 확인'), 'password123')
-    await user.tab()
-    await user.type(screen.getByLabelText('비밀번호'), '2')
-    expect(await screen.findByText(AUTH_ERRORS.passwordMismatch)).toBeInTheDocument()
   })
 })

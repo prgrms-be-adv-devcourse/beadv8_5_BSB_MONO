@@ -12,8 +12,10 @@ import java.util.stream.Collectors;
 import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
 
+import com.bukang.common.global.notify.SlackNotifier;
 import com.bukang.product.domain.Race;
 import com.bukang.product.domain.RaceDocumentSyncEvent;
+import com.bukang.product.domain.RaceSyncType;
 import com.bukang.product.domain.SyncStatus;
 import com.bukang.product.domain.document.RaceCourseDocument;
 import com.bukang.product.out.RaceCourseDocumentRepository;
@@ -26,11 +28,13 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * 미처리(PENDING) 동기화 이벤트를 대회별로 묶어 검색 문서(race_courses)를 DB에 맞춘다.
  * DB의 최신 대회·종목으로 문서를 맞추므로 같은 대회의 행이 여러 개여도 한 번만 처리하고, 그 행을 모두 COMPLETE로 바꾼다.
- * 1. DB에서 대회와 종목을 다시 읽어 종목마다 문서를 덮어쓴다
+ * 1. DB에서 대회와 종목을 다시 읽어 종목마다 문서를 고친다 (없으면 만든다)
+ *    벡터 칸(raceEmbedding)은 빼고 고친다. 통째로 덮어쓰면 임베딩 동기화가 채운 벡터가 지워지기 때문이다 (BUK-162)
  * 2. ES에 있던 이 대회의 문서 중 DB에 없는 종목(수정 때 뺀 종목)의 문서만 지운다
  * 모두 지우고 다시 넣지 않으므로, 처리하는 동안에도 검색 결과에서 대회가 사라지지 않는다.
  * 순서가 상관없으므로 한 대회가 실패해도 다른 대회는 계속 처리한다 (Kafka 아웃박스처럼 key를 막지 않는다).
  * 실패한 대회의 행은 다시 처리할 때까지 간격을 1초 → 2초 → 4초 …로 늘리고(최대 1분), MAX_RETRY번 실패하면 FAILED로 바꾼다.
+ * FAILED가 되면 Slack으로 알리고, 그 행을 사람이 되돌려 처리되면 완료도 알린다 (RaceSyncAlert, BUK-162).
  * 재시도 시각이 안 된 대회도 그 사이 새로 바뀌어 행이 생겼으면 바로 처리한다 (새 행은 재시도 시각이 없다).
  * 한 트랜잭션에서 처리하므로, 행을 읽은 뒤 커밋된 대회 변경은 이번 처리에 빠질 수 있다. 그 변경이 남긴 행이 다음 실행에 다시 처리한다.
  * 앱을 여러 대 띄우면 같은 행을 함께 처리할 수 있다. 결과가 같아 문제는 없고, 지금은 한 대만 띄우므로 행을 잠그지 않는다.
@@ -51,6 +55,7 @@ public class RaceDocumentSyncProcessUseCase {
 	private final RaceDocumentSyncEventRepository raceDocumentSyncEventRepository;
 	private final RaceRepository raceRepository;
 	private final RaceCourseDocumentRepository raceCourseDocumentRepository;
+	private final SlackNotifier slackNotifier;
 
 	// 문서를 맞춘 대회 수를 돌려준다. 트랜잭션은 ProductFacade가 연다 (상태 변경은 더티 체킹으로 커밋된다)
 	public int process(LocalDateTime now) {
@@ -67,11 +72,11 @@ public class RaceDocumentSyncProcessUseCase {
 			if (raceEvents.stream().noneMatch(event -> event.isProcessableAt(now))) {
 				continue;
 			}
-			if (!sync(entry.getKey())) {
+			if (!sync(entry.getKey(), now)) {
 				raceEvents.forEach(event -> markFailed(event, now));
 				continue;
 			}
-			raceEvents.forEach(event -> event.markComplete(now));
+			raceEvents.forEach(event -> markComplete(event, now));
 			synced++;
 		}
 		return synced;
@@ -86,7 +91,7 @@ public class RaceDocumentSyncProcessUseCase {
 
 	// 대회 1개의 검색 문서를 DB의 최신 대회·종목에 맞춘다. 성공하면 true
 	// 예외를 잡아 false로 돌려준다. 잡지 않으면 process의 트랜잭션이 롤백되어 실패 기록(재시도 횟수)도 저장되지 않는다
-	private boolean sync(long raceId) {
+	private boolean sync(long raceId, LocalDateTime now) {
 		try {
 			// 대회가 없으면(지워진 대회) 종목도 없는 것으로 보고 남은 문서를 모두 지운다
 			List<RaceCourseDocument> documents = raceRepository.findWithCoursesById(raceId)
@@ -95,9 +100,8 @@ public class RaceDocumentSyncProcessUseCase {
 				.stream()
 				.map(RaceCourseDocument::from)
 				.toList();
-			if (!documents.isEmpty()) {
-				raceCourseDocumentRepository.saveAll(documents);
-			}
+			// saveAll(통째로 덮어쓰기)을 쓰지 않는다. 벡터 칸을 지우지 않게 나머지 칸만 고친다
+			raceCourseDocumentRepository.upsertAllExceptEmbedding(documents, now);
 
 			Set<String> currentIds = documents.stream().map(RaceCourseDocument::getId).collect(Collectors.toSet());
 			List<String> staleIds = raceCourseDocumentRepository.findByRaceId(String.valueOf(raceId)).stream()
@@ -114,11 +118,23 @@ public class RaceDocumentSyncProcessUseCase {
 		}
 	}
 
+	// 실패 알림이 간 행(재처리 API나 DB로 되돌린 행)이 처리되면 커밋 뒤 Slack으로 완료를 알린다 (BUK-162)
+	private void markComplete(RaceDocumentSyncEvent event, LocalDateTime now) {
+		event.markComplete(now);
+		if (event.hasFailed()) {
+			slackNotifier.sendAfterCommit(RaceSyncAlert.completedText(RaceSyncType.DOCUMENT, event,
+				RaceSyncAlert.AUTO_COMPLETE_MEMO));
+		}
+	}
+
+	// FAILED가 되면 커밋 뒤 Slack으로 알린다 (BUK-162)
 	private void markFailed(RaceDocumentSyncEvent event, LocalDateTime now) {
-		event.markFailed(MAX_RETRY, now.plus(retryDelay(event.getRetryCount() + 1)));
+		boolean failedBefore = event.hasFailed();
+		event.markFailed(MAX_RETRY, now.plus(retryDelay(event.getRetryCount() + 1)), now);
 		if (event.isFailed()) {
-			log.error("대회 검색 문서를 {}번 맞추지 못해 FAILED로 바꿨습니다. 원인을 고친 뒤 PENDING으로 되돌려야 합니다. "
+			log.error("대회 검색 문서를 {}번 맞추지 못해 FAILED로 바꿨습니다. 원인을 고친 뒤 재처리 API로 PENDING으로 되돌려야 합니다. "
 				+ "id={}, raceId={}", MAX_RETRY, event.getId(), event.getRaceId());
+			slackNotifier.sendAfterCommit(RaceSyncAlert.failedText(RaceSyncType.DOCUMENT, event, failedBefore));
 		}
 	}
 }

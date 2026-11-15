@@ -65,4 +65,8 @@ public class WalletWithdrawalItem extends BaseIdAndTime {
 	public void markTransferredToAccount() {
 		this.status = WithdrawalItemStatus.TRANSFERRED_TO_ACCOUNT;
 	}
+
+	public void markManualCheck() {
+		this.status = WithdrawalItemStatus.MANUAL_CHECK;
+	}
 }

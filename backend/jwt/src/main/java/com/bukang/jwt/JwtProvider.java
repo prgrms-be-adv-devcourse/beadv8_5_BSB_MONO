@@ -44,7 +44,8 @@ public class JwtProvider {
 	}
 
 	public String issueAccessToken(long memberId) {
-		return issue(memberId, TokenType.ACCESS, clock.instant().plus(accessTokenExpiration), null);
+		return issue(memberId, TokenType.ACCESS, clock.instant().plus(accessTokenExpiration), null,
+			UUID.randomUUID().toString());
 	}
 
 	/**
@@ -61,7 +62,21 @@ public class JwtProvider {
 		if (!expiresAt.isAfter(clock.instant())) {
 			throw new IllegalArgumentException("만료 시각은 지금보다 뒤여야 합니다: " + expiresAt);
 		}
-		return issue(memberId, TokenType.REFRESH, expiresAt, familyId);
+		return issue(memberId, TokenType.REFRESH, expiresAt, familyId, UUID.randomUUID().toString());
+	}
+
+	/**
+	 * 이미 발급한 Refresh Token을 같은 jti·familyId·만료 시각으로 다시 서명한다.
+	 * Redis에는 토큰 원문 대신 jti와 만료 시각만 남기므로, 유예(GRACE) 때 지금 토큰을 이 메서드로 되살린다.
+	 */
+	public String reissueRefreshToken(long memberId, String familyId, String jti, Instant expiresAt) {
+		if (familyId == null || familyId.isBlank() || jti == null || jti.isBlank()) {
+			throw new IllegalArgumentException("familyId와 jti는 비어 있을 수 없습니다");
+		}
+		if (!expiresAt.isAfter(clock.instant())) {
+			throw new IllegalArgumentException("만료 시각은 지금보다 뒤여야 합니다: " + expiresAt);
+		}
+		return issue(memberId, TokenType.REFRESH, expiresAt, familyId, jti);
 	}
 
 	/**
@@ -93,9 +108,9 @@ public class JwtProvider {
 		}
 	}
 
-	private String issue(long memberId, TokenType type, Instant expiresAt, String familyId) {
+	private String issue(long memberId, TokenType type, Instant expiresAt, String familyId, String jti) {
 		JwtBuilder builder = Jwts.builder()
-			.id(UUID.randomUUID().toString())
+			.id(jti)
 			.subject(String.valueOf(memberId))
 			.claim(TYPE_CLAIM, type.name())
 			.issuedAt(Date.from(clock.instant()))

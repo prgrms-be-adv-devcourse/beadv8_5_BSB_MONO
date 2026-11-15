@@ -28,11 +28,6 @@ export function IdentityVerificationBand({
           본인 확인
         </h2>
         {verification && <Badge tone="success">본인인증 완료</Badge>}
-        <p className="text-body2-regular text-text-secondary">
-          {verification
-            ? '본인인증으로 확인한 이름·생년월일·휴대폰 번호를 채웠어요.'
-            : '본인인증을 하면 이름·생년월일·휴대폰 번호가 채워져요.'}
-        </p>
       </div>
       {!verification && (
         <Button variant="secondary" size="l" loading={opening} onClick={start}>

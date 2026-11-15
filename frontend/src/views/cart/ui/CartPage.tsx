@@ -10,20 +10,13 @@ import { AppHeader } from '@/widgets/app-header'
 import { useBookingFlow } from '@/features/booking'
 import { isQueueNotAdmitted, QUEUE_NOT_ADMITTED_CODE } from '@/features/queue-admission'
 import { ApiError, orderApi, unwrapData, useIdempotencyKey, type orderModel } from '@/shared/api'
-import { formatWon } from '@/shared/lib'
-import {
-  Alert,
-  Badge,
-  BottomCta,
-  Button,
-  buttonClassName,
-  EmptyState,
-  KeyValue,
-  Skeleton,
-} from '@/shared/ui'
+import { formatNumber } from '@/shared/lib'
+import { Alert, Badge, BottomCta, Button, buttonClassName, EmptyState, Skeleton } from '@/shared/ui'
 
 import { useCartLines, type CartLine } from '../model/use-cart-lines'
 import { QueueRequiredDialog } from './QueueRequiredDialog'
+
+const won = (amount: number) => `${formatNumber(amount)}원`
 
 type CheckoutResult = orderModel.CartCheckoutItemDto
 
@@ -53,6 +46,7 @@ function EmptyCart() {
   return (
     <main className="flex flex-1 items-center justify-center px-4 py-6">
       <EmptyState
+        icon="Cart"
         title="장바구니가 비어 있어요"
         description="마음에 드는 대회를 찾아 참가권을 담아 보세요."
         action={
@@ -140,7 +134,6 @@ function CartContent({ initialQueueDialogOpen }: { initialQueueDialogOpen: boole
 
   // 결제할 참가권. 한 종목만 담기므로 결제할 수 있는 첫 줄 하나다.
   const payable = lines.find((l) => l.application && l.option)
-  const total = payable?.option?.price ?? 0
 
   const startCheckout = () => {
     const participationId = payable?.application?.participationId
@@ -183,13 +176,6 @@ function CartContent({ initialQueueDialogOpen }: { initialQueueDialogOpen: boole
             />
           ))}
         </ul>
-        <div className="flex flex-col gap-3 rounded-lg bg-bg-subtle p-5">
-          <KeyValue label={`참가권 ${payable ? 1 : 0}개`} value={formatWon(total)} />
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-body2-bold text-text-secondary">합계</span>
-            <span className="text-body1-bold">{formatWon(total)}</span>
-          </div>
-        </div>
         {checkoutFailed && (
           <Alert
             tone="danger"
@@ -200,7 +186,6 @@ function CartContent({ initialQueueDialogOpen }: { initialQueueDialogOpen: boole
       </main>
       <BottomCta
         className="sticky bottom-0 z-10"
-        price={{ label: '총 결제 금액', amount: formatWon(total) }}
         primary={
           <Button size="l" disabled={!payable || checkout.isPending} onClick={startCheckout}>
             결제하기
@@ -230,7 +215,7 @@ function CartLineCard({
   const { race, option, application } = line
   const failed = result && !isOrdered(result)
   return (
-    <li className="flex gap-4 rounded-lg bg-bg-surface px-5 py-4 shadow-sm inset-ring inset-ring-border-default">
+    <li className="flex gap-4 py-4">
       {race?.images[0] ? (
         <Image
           src={race.images[0]}
@@ -268,10 +253,10 @@ function CartLineCard({
         )}
         {failed && <p className="text-body2-regular text-text-danger">{result.message}</p>}
         <div className="flex items-center justify-between gap-2">
-          <Button variant="text" size="s" disabled={removing} onClick={onRemove}>
+          <Button variant="secondary" size="s" disabled={removing} onClick={onRemove}>
             삭제
           </Button>
-          {option && <p className="text-body1-bold">{formatWon(option.price)}</p>}
+          {option && <p className="text-body1-bold">{won(option.price)}</p>}
         </div>
       </div>
     </li>

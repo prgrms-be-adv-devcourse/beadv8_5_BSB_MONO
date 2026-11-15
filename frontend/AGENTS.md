@@ -23,6 +23,9 @@ pnpm lint           # ESLint (FSD 층 규칙 포함)
 pnpm format         # Prettier
 pnpm typecheck      # next typegen + tsc
 pnpm test           # Vitest
+pnpm test:e2e       # Playwright (e2e/). 가짜 응답 모드 서버를 직접 띄운다. E2E_BASE_URL을 주면 그 서버를 테스트
+                    # 처음에는 pnpm exec playwright install chromium 으로 브라우저를 받는다
+                    # pnpm dev가 이미 떠 있어 서버 시작에서 멈추면 E2E_BASE_URL=http://localhost:3000 으로 그 서버를 쓴다
 pnpm storybook      # 시안 컴포넌트 확인 (localhost:6006). 스토리는 컴포넌트 옆 *.stories.tsx
 pnpm build
 pnpm api:generate   # orval. openapi/<서비스>.json → src/shared/api/generated/<서비스>/

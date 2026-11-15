@@ -4,14 +4,14 @@ import Link from 'next/link'
 
 import { AppHeader } from '@/widgets/app-header'
 import { useMyBalance } from '@/entities/wallet'
-import { formatWon } from '@/shared/lib'
+import { formatNumber } from '@/shared/lib'
 import { BottomCta, buttonClassName, KeyValue } from '@/shared/ui'
 
 import { useTicket } from '../model/use-ticket'
 import { TicketStateView, ticketViewState } from './TicketStateView'
 
-// 피그마 V2 · M16-2 참가 취소 완료
-// 취소 일시는 API가 주지 않아 보여 주지 않는다.
+// 피그마 V2 · M16-2 참가 취소 완료(1333:21935)
+// TODO(api): 시안의 「취소 일시」는 주문 API가 취소한 시각을 주지 않아 보여 주지 않는다.
 export function TicketCanceledPage({ ticketId }: { ticketId: string }) {
   const data = useTicket(ticketId)
   const wallet = useMyBalance()
@@ -32,12 +32,12 @@ export function TicketCanceledPage({ ticketId }: { ticketId: string }) {
                 {race?.title && course?.name ? `${race.title} · ${course.name}` : ticket.itemName}
               </p>
             </div>
-            <div className="flex flex-col gap-3 rounded-lg bg-bg-surface p-5 shadow-sm inset-ring inset-ring-border-default">
+            <div className="flex flex-col gap-3">
               <KeyValue label="주문번호" value={ticket.orderNo} />
-              <KeyValue label="돌려받은 금액" value={`${formatWon(ticket.amount)} (예치금)`} />
+              <KeyValue label="돌려받은 금액" value={`${formatNumber(ticket.amount)}원 (예치금)`} />
               <KeyValue
                 label="지금 예치금"
-                value={wallet.balance === undefined ? '-' : formatWon(wallet.balance)}
+                value={wallet.balance === undefined ? '-' : `${formatNumber(wallet.balance)}원`}
               />
               {course?.kitIncluded && <KeyValue label="키트" value="함께 취소됨" />}
             </div>

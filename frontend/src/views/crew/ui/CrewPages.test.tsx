@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import type { ReactNode } from 'react'
@@ -70,7 +70,7 @@ describe('MyCrewsPage (M09-0)', () => {
   it('불러오지 못하면 다시 불러오기를 보여 준다', async () => {
     server.use(http.get('*/api/v1/member/crews/me', () => failWith(500, 'INTERNAL_ERROR')))
     renderPage(<MyCrewsPage />)
-    expect(await screen.findByRole('button', { name: '다시 불러오기' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: '다시 시도' })).toBeInTheDocument()
   })
 })
 
@@ -109,7 +109,7 @@ describe('CrewNewPage (M26)', () => {
 describe('CrewHomePage (M09)', () => {
   it('크루장은 크루원 목록과 초대 링크 만들기를 본다', async () => {
     renderPage(<CrewHomePage crewId={1} />)
-    expect(await screen.findByText('크루원 3명 · 나는 크루장')).toBeInTheDocument()
+    expect(await screen.findByText('나는 크루장')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '초대 링크 만들기' })).toHaveAttribute(
       'href',
       '/crews/1/invites',
@@ -119,9 +119,72 @@ describe('CrewHomePage (M09)', () => {
     expect(screen.getByText('한강페이서')).toBeInTheDocument()
   })
 
+  it('진행 중인 파티를 카드로 보여 주고 파티 만들기로 이어 준다', async () => {
+    server.use(
+      http.get('*/api/v1/order/parties/crews/:crewId/active', () =>
+        HttpResponse.json({
+          status: 200,
+          message: '조회',
+          data: [
+            {
+              id: 9,
+              crewId: 1,
+              raceId: 100,
+              raceCourseId: 2,
+              status: 'RECRUITING',
+              leaderMemberId: 1,
+              memberCount: 3,
+              paidCount: 0,
+              paymentDueAt: null,
+              leaderNickname: '달리는곰',
+              myParty: true,
+            },
+          ],
+        }),
+      ),
+    )
+    renderPage(<CrewHomePage crewId={1} />)
+    expect(await screen.findByText(/파티장 달리는곰 · 3명/)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '진행 중인 파티 1개' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '파티 보기' })).toHaveAttribute('href', '/parties/9')
+    expect(screen.getByRole('link', { name: '파티 만들기' })).toHaveAttribute(
+      'href',
+      '/parties/new?crewId=1',
+    )
+  })
+
+  it('내 파티가 아닌 파티 카드는 링크 없이 보여 준다(남의 파티는 403이다)', async () => {
+    server.use(
+      http.get('*/api/v1/order/parties/crews/:crewId/active', () =>
+        HttpResponse.json({
+          status: 200,
+          message: '조회',
+          data: [
+            {
+              id: 9,
+              crewId: 1,
+              raceId: 100,
+              raceCourseId: 2,
+              status: 'RECRUITING',
+              leaderMemberId: 2,
+              memberCount: 3,
+              paidCount: 0,
+              paymentDueAt: null,
+              leaderNickname: '남의곰',
+              myParty: false,
+            },
+          ],
+        }),
+      ),
+    )
+    renderPage(<CrewHomePage crewId={1} />)
+    expect(await screen.findByText(/파티장 남의곰/)).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: '파티 보기' })).not.toBeInTheDocument()
+  })
+
   it('크루원은 초대 링크 만들기를 보지 못한다', async () => {
     renderPage(<CrewHomePage crewId={5} />)
-    expect(await screen.findByText('크루원 3명 · 나는 크루원')).toBeInTheDocument()
+    expect(await screen.findByText('나는 크루원')).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: '초대 링크 만들기' })).not.toBeInTheDocument()
   })
 
@@ -187,6 +250,47 @@ describe('CrewInvitesPage (M27)', () => {
     expect(within(dialog).getByText('이 초대를 취소할까요?')).toBeInTheDocument()
     await user.click(within(dialog).getByRole('button', { name: '초대 취소하기' }))
     await vi.waitFor(() => expect(canceled).toBe('/api/v1/member/crews/1/invites/3'))
+  })
+})
+
+describe('CrewInvitesPage 보낸 초대 링크 (BUK-195)', () => {
+  it('링크 아이콘에 마우스를 올리면 초대 링크를 보여 주고, 누르면 복사한다', async () => {
+    const user = userEvent.setup()
+    const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue()
+    renderPage(<CrewInvitesPage crewId={1} />)
+    const linkButton = await screen.findByRole('button', { name: '초대 링크 복사' })
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
+
+    await user.hover(linkButton)
+    expect(screen.getByRole('tooltip')).toHaveTextContent(
+      `${window.location.origin}/invite/q3Xv9kLm2NpR7tYw4ZaB1c`,
+    )
+    await user.unhover(linkButton)
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
+
+    // 키보드로 포커스해도 보이고, Esc로 닫는다
+    act(() => linkButton.focus())
+    expect(screen.getByRole('tooltip')).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
+
+    await user.click(linkButton)
+    expect(writeText).toHaveBeenCalledWith(
+      `${window.location.origin}/invite/q3Xv9kLm2NpR7tYw4ZaB1c`,
+    )
+  })
+
+  it('토큰이 없는 옛 초대에는 링크 아이콘이 없다', async () => {
+    const example = memberMock.getFindCrewInvitesResponseMock()
+    server.use(
+      memberMock.getFindCrewInvitesMockHandler({
+        ...example,
+        data: example.data!.map((invite) => ({ ...invite, inviteToken: null })),
+      }),
+    )
+    renderPage(<CrewInvitesPage crewId={1} />)
+    expect(await screen.findByRole('button', { name: '초대 취소' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '초대 링크 복사' })).not.toBeInTheDocument()
   })
 })
 
@@ -283,10 +387,23 @@ describe('CrewInvitePage (M10)', () => {
     await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/crews/1'))
   })
 
-  it('이미 크루원이면 바로 크루 홈으로 보낸다', async () => {
+  it('이미 크루원이면 안내 창을 띄우고, 확인하면 크루 홈으로 보낸다', async () => {
+    const user = userEvent.setup()
     renderPage(<CrewInvitePage inviteToken="member" />)
-    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/crews/1'))
+    const dialog = await screen.findByRole('alertdialog')
+    expect(dialog).toHaveTextContent('이미 가입한 크루의 초대 링크예요!')
     expect(screen.queryByRole('button', { name: /가입하기/ })).not.toBeInTheDocument()
+    expect(replace).not.toHaveBeenCalled()
+    await user.click(within(dialog).getByRole('button', { name: '크루 홈으로 가기' }))
+    expect(replace).toHaveBeenCalledWith('/crews/1')
+  })
+
+  it('이미 크루원 안내 창을 Esc로 닫아도 크루 홈으로 보낸다', async () => {
+    const user = userEvent.setup()
+    renderPage(<CrewInvitePage inviteToken="member" />)
+    await screen.findByRole('alertdialog')
+    await user.keyboard('{Escape}')
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/crews/1'))
   })
 
   it.each([
@@ -339,6 +456,7 @@ describe('CrewInvitePage 파티 참가 링크가 함께 온 초대 (BUK-98)', ()
     renderPage(<CrewInvitePage inviteToken="member" partyJoinToken="pJ0in" />)
     await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/parties/join/pJ0in'))
     expect(replace).not.toHaveBeenCalledWith('/crews/1')
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
   })
 
   it('가입하는 사이 이미 크루원이 됐어도(409) 파티 합류 화면으로 보낸다', async () => {

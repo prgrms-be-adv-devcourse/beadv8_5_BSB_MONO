@@ -1,5 +1,5 @@
 export { checkEmailAvailable } from './model/check-email-availability'
-export { loginHref, safeNextPath } from './lib/login-redirect'
+export { loginHref, safeInternalPath, safeNextPath } from './lib/login-redirect'
 export { useAuthStatus } from './model/use-auth-status'
 export { useLogin } from './model/use-login'
 export { useLogout } from './model/use-logout'
@@ -7,7 +7,10 @@ export { useWithdraw, withdrawFailure, type WithdrawFailure } from './model/use-
 export { AuthSessionRestorer } from './ui/AuthSessionRestorer'
 export { ProtectedScreenGuard } from './ui/ProtectedScreenGuard'
 export {
+  forgetLinkingProvider,
   goToSocialLogin,
+  linkingProvider,
+  rememberLinkingProvider,
   socialAuthorizeHref,
   socialLinkResultMessage,
   socialLoginErrorMessage,
@@ -17,4 +20,4 @@ export {
 } from './lib/social-login'
 export { applyLogin } from './model/use-login'
 export { useLinkSocial, useSocialJoin, useUnlinkSocial } from './model/use-social'
-export { SocialLoginButtons } from './ui/SocialLoginButtons'
+export { SocialLoginButtons, SocialMark } from './ui/SocialLoginButtons'

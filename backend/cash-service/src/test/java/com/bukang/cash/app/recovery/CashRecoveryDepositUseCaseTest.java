@@ -251,6 +251,24 @@ class CashRecoveryDepositUseCaseTest {
 			.isEqualTo(RecoveryDepositStatus.WAITING);
 	}
 
+	@Test
+	@DisplayName("재확인 중 첫 건에서 우리 서버 오류가 나도 오류 로그를 남기고 뒤의 입금 대기 건은 계속 확인하며, 그 건은 입금 대기로 남는다")
+	void reconcileContinuesAfterUnexpectedError(CapturedOutput output) {
+		RecoveryDeposit next = recoveryDepositRepository.save(new RecoveryDeposit(
+			"RC-20261215-0002", 100_000, "국민은행", "X6000000000002", LocalDateTime.of(2027, 3, 15, 10, 0), "s"));
+		given(paymentClient.lookupByOrderId(CLAIM_CODE)).willThrow(new IllegalStateException("예상 못 한 오류"));
+		given(paymentClient.lookupByOrderId(next.getClaimCode())).willReturn(
+			PaymentLookupResult.completed(new PaymentApprovalResult(100_000, "pay_key_2", DEPOSITED_AT)));
+
+		cashRecoveryDepositUseCase.reconcile(BEFORE_DUE);
+
+		assertThat(recoveryDepositRepository.findById(deposit.getId()).orElseThrow().getStatus())
+			.isEqualTo(RecoveryDepositStatus.WAITING);
+		assertThat(recoveryDepositRepository.findById(next.getId()).orElseThrow().getStatus())
+			.isEqualTo(RecoveryDepositStatus.DEPOSITED);
+		assertThat(output).contains("한 건을 처리하다 오류가 나 다음 실행으로 미룹니다");
+	}
+
 	@ParameterizedTest(name = "{0}")
 	@MethodSource("overdueLookups")
 	@DisplayName("입금 기한이 지난 뒤 재확인은 PG가 승인 안 됨·입금 대기라고 할 때만 기한 지남으로 바꾸고, 기록은 하지 않는다")
