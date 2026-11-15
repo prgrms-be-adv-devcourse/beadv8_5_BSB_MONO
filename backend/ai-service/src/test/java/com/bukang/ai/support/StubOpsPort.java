@@ -25,6 +25,7 @@ public class StubOpsPort implements OpsPort {
 	// 문의 상세: 없으면 문의 서비스의 404와 같다. 어느 화면용 상세로 불렸는지 남긴다
 	public Inquiry inquiry;
 	public AiScreen inquiryScreen;
+	public Long inquiryId;
 
 	public void reset() {
 		calledMemberIds.clear();
@@ -38,6 +39,7 @@ public class StubOpsPort implements OpsPort {
 		unavailable = false;
 		inquiry = null;
 		inquiryScreen = null;
+		inquiryId = null;
 	}
 
 	@Override
@@ -82,6 +84,7 @@ public class StubOpsPort implements OpsPort {
 	public Optional<Inquiry> inquiry(long memberId, AiScreen screen, long inquiryId) {
 		called(memberId);
 		inquiryScreen = screen;
+		this.inquiryId = inquiryId;
 		return Optional.ofNullable(inquiry);
 	}
 

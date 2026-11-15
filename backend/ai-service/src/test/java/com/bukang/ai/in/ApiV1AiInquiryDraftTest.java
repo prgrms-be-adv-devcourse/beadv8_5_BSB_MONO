@@ -45,6 +45,7 @@ class ApiV1AiInquiryDraftTest extends AiTestBase {
 
 		assertThat(opsPort.calledMemberIds).containsExactly(ADMIN);
 		assertThat(opsPort.inquiryScreen).isEqualTo(AiScreen.ADMIN);
+		assertThat(opsPort.inquiryId).isEqualTo(12L);
 		String sent = chatModel.lastPrompt().getContents();
 		assertThat(sent).contains("관리자 센터", "OD-20261030-0217", "45000원", "춘천 호수 하프마라톤 10K", "***-****-5678")
 			.doesNotContain("010-1234-5678");
@@ -169,6 +170,9 @@ class ApiV1AiInquiryDraftTest extends AiTestBase {
 	void wrongPath() throws Exception {
 		draft("member", ADMIN, 12).andExpect(status().isNotFound());
 		mockMvc.perform(post("/api/v1/ai/admin/inquiries/abc/draft").header(MemberIdHeader.NAME, ADMIN))
+			.andExpect(status().isNotFound());
+		mockMvc.perform(post("/api/v1/ai/admin/inquiries/99999999999999999999/draft")
+				.header(MemberIdHeader.NAME, ADMIN))
 			.andExpect(status().isNotFound());
 	}
 

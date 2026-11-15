@@ -54,6 +54,8 @@ public class HttpOpsAdapter implements OpsPort {
 	private final RestClient payoutClient;
 	private final RestClient inquiryClient;
 	private final RestClient memberClient;
+	// 문의 상세(답변 초안)용. 시간 제한만 다르다 (OpsClientConfig)
+	private final RestClient inquiryDetailClient;
 
 	@Override
 	public KitSummary kitSummary(long memberId) {
@@ -96,7 +98,7 @@ public class HttpOpsAdapter implements OpsPort {
 	public Optional<Inquiry> inquiry(long memberId, AiScreen screen, long inquiryId) {
 		String path = "/api/v1/inquiry/" + screen.name().toLowerCase(Locale.ROOT) + "/inquiries/{inquiryId}";
 		try {
-			return Optional.of(get(inquiryClient, memberId, INQUIRY_TYPE, path, inquiryId));
+			return Optional.of(get(inquiryDetailClient, memberId, INQUIRY_TYPE, path, inquiryId));
 		} catch (HttpClientErrorException.NotFound exception) {
 			if (INQUIRY_NOT_FOUND_CODE.equals(errorCode(exception))) {
 				return Optional.empty();

@@ -17,6 +17,8 @@ class PersonalInfoMaskerTest {
 			.isEqualTo("계좌 (숫자 가림) 국민 (숫자 가림)");
 		// 01로 시작하는 부분이 들어 있는 긴 숫자도 휴대폰으로 보지 않고 통째로 가린다
 		assertThat(PersonalInfoMasker.mask("계좌 3020101234567890")).isEqualTo("계좌 (숫자 가림)");
+		// 붙임표 바로 뒤에 붙여 써도 가린다
+		assertThat(PersonalInfoMasker.mask("국민-110123456789")).isEqualTo("국민-(숫자 가림)");
 	}
 
 	@Test

@@ -38,7 +38,7 @@ class HttpOpsAdapterTest {
 		RestClient.Builder builder = RestClient.builder().baseUrl("http://svc");
 		server = MockRestServiceServer.bindTo(builder).build();
 		RestClient client = builder.build();
-		adapter = new HttpOpsAdapter(client, client, client, client);
+		adapter = new HttpOpsAdapter(client, client, client, client, client);
 	}
 
 	@Test

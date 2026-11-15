@@ -31,8 +31,8 @@ import lombok.RequiredArgsConstructor;
 public class ApiV1AiInquiryDraftController {
 	private final AiInquiryDraftUseCase aiInquiryDraftUseCase;
 
-	// 화면 종류는 seller·admin, 문의 ID는 숫자만 맞는 주소가 있다 (아니면 404)
-	@PostMapping("/{screen:seller|admin}/inquiries/{inquiryId:\\d+}/draft")
+	// 화면 종류는 seller·admin, 문의 ID는 18자리까지 숫자만 맞는 주소가 있다 (아니면 404. long을 넘는 수가 500이 되지 않게)
+	@PostMapping("/{screen:seller|admin}/inquiries/{inquiryId:\\d{1,18}}/draft")
 	@Operation(summary = "문의 답변 초안 만들기",
 		description = "그 화면의 역할을 확인한 뒤, 문의 서비스에서 문의와 주문 정보를 읽어 답변 초안을 만든다. 보내지는 않고 저장하지도 않는다. "
 			+ "판매자 화면은 자기 대회의 판매자 담당 문의만, 관리자 화면은 모든 문의를 쓸 수 있다(문의 서비스가 확인). "
