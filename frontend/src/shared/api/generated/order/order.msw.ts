@@ -36,7 +36,9 @@ import type {
   RsDataPartyRaceStatusDto,
   RsDataQueueAdmissionDto,
   RsDataSellerKitPageDto,
-  RsDataSellerKitSummaryDto
+  RsDataSellerKitSummaryDto,
+  RsDataSellerOrderPageDto,
+  RsDataSellerPartyPageDto
 } from './order.schemas';
 
 
@@ -103,6 +105,10 @@ export const getFindById1ResponseMock = (): RsDataOrderDto => ({"status":200,"me
 export const getFindCartResponseMock = (): RsDataCartDto => ({"status":200,"message":"장바구니를 조회했습니다.","data":{"memberId":1,"items":[{"id":1,"createDate":"2026-10-12T10:15:30","raceCourseId":1,"participationId":5,"raceId":1,"participantName":"김러너"}]}})
 
 export const getRemoveItemResponseMock = (): RsDataCartDto => ({"status":200,"message":"장바구니에서 뺐습니다.","data":{"memberId":1,"items":[]}})
+
+export const getFindSellerOrdersResponseMock = (): RsDataSellerOrderPageDto => ({"status":200,"message":"주문 목록을 조회했습니다.","data":{"orders":[{"orderItemId":12,"orderId":10,"orderNo":"OD-20261016-000C","orderedAt":"2026-10-16T10:15:00","paidAt":"2026-10-16T10:17:30","raceId":1,"raceCourseId":1,"courseName":"10K","status":"PAID","participantName":"김러너","tshirtSize":null,"kitOptions":[{"kitOptionId":12,"name":"T-shirt","value":"L"}],"partyId":3}],"page":0,"size":20,"totalElements":1,"totalPages":1}})
+
+export const getFindSellerPartiesResponseMock = (): RsDataSellerPartyPageDto => ({"status":200,"message":"파티별 내역을 조회했습니다.","data":{"parties":[{"partyId":3,"crewId":2,"raceCourseId":1,"status":"PAYING","appliedCount":5,"paidCount":4,"unpaidCount":1,"paymentDueAt":"2026-10-28T18:00:00"}],"page":0,"size":20,"totalElements":1,"totalPages":1}})
 
 
 export const getChangeTrackingMockHandler = (overrideResponse?: RsDataOrderItemDto | ((info: Parameters<Parameters<typeof http.put>[1]>[0]) => Promise<RsDataOrderItemDto> | RsDataOrderItemDto), options?: RequestHandlerOptions) => {
@@ -568,6 +574,30 @@ export const getRemoveItemMockHandler = (overrideResponse?: RsDataCartDto | ((in
       })
   }, options)
 }
+
+export const getFindSellerOrdersMockHandler = (overrideResponse?: RsDataSellerOrderPageDto | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<RsDataSellerOrderPageDto> | RsDataSellerOrderPageDto), options?: RequestHandlerOptions) => {
+  return http.get('*/api/v1/order/seller/orders', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getFindSellerOrdersResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
+export const getFindSellerPartiesMockHandler = (overrideResponse?: RsDataSellerPartyPageDto | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<RsDataSellerPartyPageDto> | RsDataSellerPartyPageDto), options?: RequestHandlerOptions) => {
+  return http.get('*/api/v1/order/seller/parties', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getFindSellerPartiesResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
 export const getBukangOrderAPIMock = () => [
   getChangeTrackingMockHandler(),
   getShipMockHandler(),
@@ -608,5 +638,7 @@ export const getBukangOrderAPIMock = () => [
   getFindById1MockHandler(),
   getFindCartMockHandler(),
   getFindOrdersMockHandler(),
-  getRemoveItemMockHandler()
+  getRemoveItemMockHandler(),
+  getFindSellerOrdersMockHandler(),
+  getFindSellerPartiesMockHandler()
 ]

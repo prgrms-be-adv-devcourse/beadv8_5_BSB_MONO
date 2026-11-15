@@ -68,7 +68,7 @@ public class OrderOutboxKafkaAppendUseCase {
 			new RaceRefundEvent(RaceRefundKind.HELD, raceId, 0, heldAt));
 	}
 
-	// 대회의 결제한 참가권을 실패 없이 모두 환불했다고 정산에 알린다. 정산은 보류를 풀고 닫기·회수를 한다
+	// 대회의 결제한 참가권을 실패 없이 모두 환불했다고 정산에 알린다. 정산은 보류를 푼다. 회수는 참가권마다 appendItemRefunded로 한다 (BUK-76)
 	public void appendRaceRefunded(long raceId, long refundedCount, LocalDateTime refundedAt) {
 		append(KafkaTopics.ORDER_RACE_REFUND, RACE_REF_TYPE, raceId,
 			new RaceRefundEvent(RaceRefundKind.REFUNDED, raceId, refundedCount, refundedAt));
