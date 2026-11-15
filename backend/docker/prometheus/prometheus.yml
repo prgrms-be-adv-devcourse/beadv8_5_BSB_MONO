@@ -6,7 +6,7 @@ global:
   scrape_interval: 15s
 
 scrape_configs:
-  # 앱(gateway, 서비스 10개). 맥에서 bootRun(dev)으로 띄우고 Prometheus는 컨테이너라서,
+  # 앱(gateway, 서비스 11개). 맥에서 bootRun(dev)으로 띄우고 Prometheus는 컨테이너라서,
   # 컨테이너 안에서 맥을 가리키는 host.docker.internal로 접속한다 (localhost는 컨테이너 자신이다)
   # 띄우지 않은 앱은 Targets에서 DOWN으로 보인다
   - job_name: gateway
@@ -53,6 +53,10 @@ scrape_configs:
     metrics_path: /actuator/prometheus
     static_configs:
       - targets: [ "host.docker.internal:8089" ]
+  - job_name: ai-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: [ "host.docker.internal:8092" ]
   # Redis. Redis는 HTTP 지표 주소가 없어 redis-exporter가 대신 연다
   # Exporter는 컨테이너라 host.docker.internal이 아니라 같은 Docker 네트워크의 컨테이너 이름으로 접속한다
   - job_name: redis
