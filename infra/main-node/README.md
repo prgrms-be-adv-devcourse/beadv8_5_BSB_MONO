@@ -50,7 +50,8 @@
 
 - Traefik이 443을 받고 Let's Encrypt 인증서를 받아 갱신합니다. certbot과 nginx의 HTTPS 템플릿은 쓰지 않습니다.
 - 인증서는 Traefik 볼륨(`/data/acme.json`)에 남아, Traefik이 다시 떠도 새로 받지 않습니다.
-- 처음 설치할 때는 `ACME_STAGING=1`로 시험 인증서를 받아 흐름을 확인한 뒤, 빼고 다시 설치합니다. Let's Encrypt는 같은 도메인 발급을 주 5회로 제한합니다.
+- Let's Encrypt는 같은 도메인 발급을 주 5회로 제한합니다. 인증서가 거듭 실패할 때는 `ACME_STAGING=1`(시험 서버)로 원인을 찾습니다.
+  시험 인증서에서 실제로 바꿀 때는 `ACME_STAGING` 없이 install-k3s.sh를 다시 실행하고, `/data/acme.json`을 지운 뒤 Traefik을 다시 띄웁니다(명령은 `infra/README.md` 6단계).
 - Traefik이 HTTPS를 풀고 nginx에는 HTTP로 넘깁니다. 앱은 `X-Forwarded-Proto`를 읽지 않아 nginx 설정은 그대로 둡니다(로그인 쿠키는 항상 Secure, 소셜 로그인 콜백 주소는 `OAUTH2_REDIRECT_BASE_URL`).
 
 ## 주의
