@@ -15,7 +15,8 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
-// 부하 테스트 지표: prometheus 엔드포인트를 열면 JVM · 커넥션 풀 지표가 나오고, 열지 않으면(prod 기본값) 없다
+// 부하 테스트 지표: prometheus 엔드포인트를 열면 JVM · 커넥션 풀 지표가 나온다
+// 공통 설정(common의 observability.yaml)이 모든 프로필에서 열므로, 닫혀 있는 경우는 따로 확인하지 않는다
 class PayoutPrometheusEndpointTest {
 	@Nested
 	@SpringBootTest(properties = "management.endpoints.web.exposure.include=health,prometheus")
@@ -33,23 +34,6 @@ class PayoutPrometheusEndpointTest {
 				.andExpect(status().isOk())
 				.andExpect(content().string(Matchers.containsString("jvm_memory_used_bytes")))
 				.andExpect(content().string(Matchers.containsString("hikaricp_connections")));
-		}
-	}
-
-	@Nested
-	@SpringBootTest
-	@ActiveProfiles("test")
-	@AutoConfigureMetrics
-	@AutoConfigureMockMvc
-	class NotExposed {
-		@Autowired
-		private MockMvc mockMvc;
-
-		@Test
-		@DisplayName("열지 않으면(prod 기본값) prometheus 엔드포인트가 없다")
-		void hidden() throws Exception {
-			mockMvc.perform(get("/actuator/prometheus"))
-				.andExpect(status().isNotFound());
 		}
 	}
 }
