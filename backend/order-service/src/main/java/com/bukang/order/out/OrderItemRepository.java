@@ -57,6 +57,7 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
 	 * 결제 대기를 세는 이유: 탈퇴 뒤에도 남은 Access Token으로 결제하면 탈퇴한 회원에게 참가권이 생긴다.
 	 * 취소 중을 세는 이유: 환불이 아직 끝나지 않았다. 재처리가 환불하기 전에 탈퇴하면 탈퇴한 회원의 예치금으로 돈이 들어가고,
 	 * 환불이 거절되면 결제 완료로 돌아와 탈퇴한 회원에게 참가권이 남는다 (BUK-9). 재처리가 끝나는 몇 분만 탈퇴를 미룬다
+	 * 결제 중(BUK-232)은 기한과 상관없이 센다. 예치금이 이미 차감했을 수 있고, 재확인 배치가 결제 완료로 끝낼 수 있다
 	 * 취소·환불(CANCELED), 기한이 지난 결제 대기·만료된 주문의 상품은 빠진다
 	 */
 	@Query("""
@@ -68,7 +69,9 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
 					com.bukang.order.domain.OrderItemStatus.CANCELING)
 				or (i.status = com.bukang.order.domain.OrderItemStatus.ORDERED
 					and i.order.status = com.bukang.order.domain.OrderStatus.CREATED
-					and i.order.paymentDueAt > :now))
+					and i.order.paymentDueAt > :now)
+				or (i.status = com.bukang.order.domain.OrderItemStatus.ORDERED
+					and i.order.status = com.bukang.order.domain.OrderStatus.PAYING))
 		""")
 	long countActiveTickets(@Param("memberId") long memberId, @Param("from") LocalDateTime from,
 		@Param("now") LocalDateTime now);
@@ -91,12 +94,15 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
 
 	// 대회에 환불이 끝나지 않은 참가권 수: 결제 완료(PAID)와 취소 중(CANCELING). 0이어야 대회 환불 완료를 보낸다 (11/05 회의 R1)
 	// 취소 중은 개인 취소의 환불 결과를 기다리는 중이라 아직 끝나지 않은 것으로 센다
+	// 결제 중 주문의 주문 상품(ORDERED)도 센다 (BUK-232). 곧 결제 완료가 될 수 있어, 빼면 환불 완료가 먼저 나가 정산 보류가 풀린다
 	@Query("""
 		select count(i)
 		from OrderItem i
 		where i.raceId = :raceId
-			and i.status in (com.bukang.order.domain.OrderItemStatus.PAID,
-				com.bukang.order.domain.OrderItemStatus.CANCELING)
+			and (i.status in (com.bukang.order.domain.OrderItemStatus.PAID,
+					com.bukang.order.domain.OrderItemStatus.CANCELING)
+				or (i.status = com.bukang.order.domain.OrderItemStatus.ORDERED
+					and i.order.status = com.bukang.order.domain.OrderStatus.PAYING))
 		""")
 	long countNotRefunded(@Param("raceId") long raceId);
 

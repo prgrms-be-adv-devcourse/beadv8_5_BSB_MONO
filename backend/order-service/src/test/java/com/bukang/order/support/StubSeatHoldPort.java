@@ -6,6 +6,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
 import com.bukang.order.out.seat.SeatHoldPort;
 import com.bukang.order.out.seat.SeatHoldResult;
 import com.bukang.order.out.seat.SeatSellResult;
@@ -23,6 +24,11 @@ public class StubSeatHoldPort implements SeatHoldPort {
 	private final Set<Long> failingCourses = ConcurrentHashMap.newKeySet();
 	// 자리를 잡은 뒤 답을 돌려주기 전에 할 일 (응답을 잃는 경우, 확보 중 잠금 확인)
 	private volatile Runnable afterHold = () -> {
+	};
+	// 자리 판매가 연결 거절·시간 초과로 결과를 주지 못하게 한다 (HttpSeatHoldAdapter가 던지는 예외와 같게)
+	private volatile boolean sellFails;
+	// 판매한 뒤 답을 돌려주기 전에 할 일 (판매와 확정 사이에 만료 정리가 끼어드는 경우)
+	private volatile Runnable afterSell = () -> {
 	};
 
 	@Override
@@ -49,6 +55,15 @@ public class StubSeatHoldPort implements SeatHoldPort {
 
 	@Override
 	public SeatSellResult sell(long participationId) {
+		if (sellFails) {
+			throw new ExternalServiceUnavailableException("상품 서비스에 연결하지 못했습니다. (테스트)");
+		}
+		SeatSellResult result = sellNow(participationId);
+		afterSell.run();
+		return result;
+	}
+
+	private SeatSellResult sellNow(long participationId) {
 		// 이미 판매한 자리는 기한과 상관없이 SOLD (SeatHoldPort.sell의 멱등 계약)
 		if (sold.contains(participationId)) {
 			return SeatSellResult.SOLD;
@@ -69,6 +84,14 @@ public class StubSeatHoldPort implements SeatHoldPort {
 	// 판매(HELD → SOLD)까지 끝난 자리인지
 	public boolean isSold(long participationId) {
 		return sold.contains(participationId);
+	}
+
+	public void setSellFails(boolean sellFails) {
+		this.sellFails = sellFails;
+	}
+
+	public void afterSell(Runnable action) {
+		afterSell = action;
 	}
 
 	public void failHold(long raceCourseId) {
@@ -94,6 +117,9 @@ public class StubSeatHoldPort implements SeatHoldPort {
 		sold.clear();
 		failingCourses.clear();
 		afterHold = () -> {
+		};
+		sellFails = false;
+		afterSell = () -> {
 		};
 	}
 }

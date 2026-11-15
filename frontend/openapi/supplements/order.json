@@ -59,6 +59,12 @@
         "data": {
           "$ref": "#/components/schemas/OrderDto"
         }
+      },
+      "202": {
+        "wrapper": "RsDataOrderDto",
+        "data": {
+          "$ref": "#/components/schemas/OrderDto"
+        }
       }
     },
     "findCart": {
@@ -570,6 +576,7 @@
           "type": "string",
           "enum": [
             "CREATED",
+            "PAYING",
             "PAID",
             "PARTIAL_CANCELED",
             "CANCELED",
@@ -754,6 +761,7 @@
           "type": "string",
           "enum": [
             "CREATED",
+            "PAYING",
             "PAID",
             "PARTIAL_CANCELED",
             "CANCELED",
@@ -1660,6 +1668,7 @@
           ],
           "enum": [
             "CREATED",
+            "PAYING",
             "PAID",
             "PARTIAL_CANCELED",
             "CANCELED",
