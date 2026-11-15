@@ -6,8 +6,8 @@
 #   GHCR 로그인 정보도 옮긴다: 서버 docker 로그인(~/.docker/config.json)의 ghcr.io → /crewrun/registry/GHCR_AUTH
 #
 # 기본은 미리보기다. 키 이름과 값 길이만 찍고 아무것도 쓰지 않는다. --apply를 붙여야 실제로 쓴다
-#   Parameter Store에 쓰는 권한이 필요하다. 메인 EC2 역할은 읽기만 되므로, 이 셸에서만 쓸 사용자 자격 증명으로 실행한다
-#   (aws configure 대신 환경변수 AWS_ACCESS_KEY_ID·AWS_SECRET_ACCESS_KEY로 넘기고, 끝나면 셸을 닫는다)
+#   Parameter Store에 쓰는 권한이 필요하다. 메인 EC2 역할은 읽기만 되므로, 실행하는 동안만 역할에 임시 쓰기 정책을 붙였다가 지운다
+#   (infra/README.md D6 순서 5. 정책을 붙인 직후 몇 분은 거부가 섞여 나올 수 있어 다시 실행한다)
 #
 # 사용 (메인 EC2, 저장소 루트 /opt/crewrun)
 #   bash infra/main-node/env-to-parameter-store.sh            # 미리보기

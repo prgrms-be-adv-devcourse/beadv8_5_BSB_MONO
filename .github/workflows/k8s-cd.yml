@@ -2,13 +2,13 @@ name: k8s-cd
 
 # 메인 EC2의 k3s에 앱을 배포한다 (app-cd.yml의 compose 배포를 대신한다. BUK-220)
 # 1) build: GitHub 러너에서 앱 이미지 12개를 빌드해 GHCR에 커밋 SHA 태그로 올린다 (app-cd.yml의 build와 같다)
-# 2) deploy: AWS 액세스 키(GitHub Secrets)로 SSM에 명령을 보내 메인 EC2에서 deploy.sh <SHA>를 실행시키고 끝날 때까지 기다린다
+# 2) deploy: AWS에 OIDC로 들어가(키를 저장하지 않음) SSM으로 메인 EC2에 deploy.sh <SHA>를 실행시키고 끝날 때까지 기다린다
 #    서버에 셀프호스티드 러너가 필요 없고, 22번 포트도 쓰지 않는다
 #
 # 지금은 손으로 실행할 때만 돈다 (Actions → k8s-cd → Run workflow, 브랜치는 main)
 # 전환(BUK-220 D7)을 확인한 뒤 main push 트리거를 켜고 app-cd.yml을 정리한다 (D8)
 #
-# 저장소 Secrets: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY / Variables: MAIN_INSTANCE_ID(메인 EC2). 만드는 법은 infra/README.md
+# 저장소 Variables: AWS_DEPLOY_ROLE_ARN(배포 역할), MAIN_INSTANCE_ID(메인 EC2). 만드는 법은 infra/README.md
 on:
   workflow_dispatch:
     inputs:
@@ -89,7 +89,7 @@ jobs:
 
   deploy:
     needs: build
-    # 빌드가 성공했거나, 되돌리기라 빌드를 건너뛴 경우에만. main에서 실행했을 때만
+    # 빌드가 성공했거나, 되돌리기라 빌드를 건너뛴 경우에만. main에서 실행했을 때만 (AWS 역할도 main만 믿는다)
     if: >-
       !cancelled()
       && github.ref == 'refs/heads/main'
@@ -97,6 +97,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      id-token: write   # OIDC 토큰을 받아 AWS 역할로 바꾼다
     steps:
       - uses: actions/checkout@v4
 
@@ -117,11 +118,9 @@ jobs:
           echo "sha=$SHA" >> "$GITHUB_OUTPUT"
           echo "배포 커밋: $SHA"
 
-      # 교안(slog 14710 4강)처럼 액세스 키를 GitHub Secrets에 둔다
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ap-northeast-2
 
       # Spring 앱 11개가 CPU 2개에서 함께 뜨므로 넉넉히 30분
