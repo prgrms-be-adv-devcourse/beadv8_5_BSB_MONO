@@ -73,6 +73,8 @@ services:
       REDIS_PORT: "6379"
       TOSS_SECRET_KEY: test_sk_dummy
       # 충전 몰림 측정: 가짜 PG 승인을 100~300ms 늦춘다 (추천값, 미확정. Toss 승인 시간 흉내)
+      # prod 프로필은 실제 Toss(http)를 부르므로 측정에서는 가짜 PG로 바꾼다
+      CASH_CLIENTS_PG_MODE: fake
       CASH_CLIENTS_PG_FAKE_APPROVE_DELAY_MIN_MS: "100"
       CASH_CLIENTS_PG_FAKE_APPROVE_DELAY_MAX_MS: "300"
     healthcheck: { test: [ "CMD", "bash", "-c", "</dev/tcp/127.0.0.1/8081" ], interval: 5s, timeout: 3s, retries: 60, start_period: 300s }
