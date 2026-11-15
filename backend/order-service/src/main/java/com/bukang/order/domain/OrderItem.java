@@ -41,7 +41,9 @@ import lombok.NoArgsConstructor;
 		// 정산 배치가 대회 날짜로 결제된 참가권을 찾는다 (정산용 판매 내역 조회)
 		// 같음 조건(status = PAID)을 앞에, 범위 조건(race_date)을 뒤에 둬야 두 조건을 모두 인덱스로 좁힌다
 		// 이름을 바꾼 건 dev(ddl-auto: update)가 같은 이름의 옛 인덱스를 고치지 않아서다
-		@Index(name = "idx_order_item_status_race_date", columnList = "status, race_date")
+		@Index(name = "idx_order_item_status_race_date", columnList = "status, race_date"),
+		// 판매자 주문 목록이 판매자 ID로 찾고 최근 것부터 읽는다 (BUK-227)
+		@Index(name = "idx_order_item_seller", columnList = "seller_id, id")
 	}
 )
 public class OrderItem extends BaseIdAndTime {
