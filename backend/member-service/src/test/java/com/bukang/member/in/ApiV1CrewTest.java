@@ -22,6 +22,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -532,23 +533,38 @@ class ApiV1CrewTest {
 		joinWithNewInvite(crewId, leaderId, otherId);
 		jdbcTemplate.update("update member_crew_member set role = 'MANAGER' where member_id = ?", otherId);
 		createInvite(crewId, leaderId);
-		createInvite(crewId, otherId);
+		String managerToken = createInvite(crewId, otherId);
 
 		mockMvc.perform(get(INVITES, crewId).header(MemberIdHeader.NAME, leaderId))
 			.andExpect(status().isOk())
 			// 가입에 쓴 초대도 24시간 안이면 목록에 남아 취소할 수 있다
 			.andExpect(jsonPath("$.data.length()").value(3))
 			.andExpect(jsonPath("$.data[0].inviteId").isNumber())
-			.andExpect(jsonPath("$.data[0].inviteToken").doesNotExist());
+			.andExpect(jsonPath("$.data[*].inviteToken").value(Matchers.hasItem(managerToken)));
 		mockMvc.perform(get(INVITES, crewId).header(MemberIdHeader.NAME, otherId))
 			.andExpect(jsonPath("$.data.length()").value(1))
 			.andExpect(jsonPath("$.data[0].createdBy.memberId").value(otherId))
-			.andExpect(jsonPath("$.data[0].createdBy.nickname").value("주말10K"));
+			.andExpect(jsonPath("$.data[0].createdBy.nickname").value("주말10K"))
+			// 만든 사람이 목록에서 링크를 다시 볼 수 있다 (BUK-195)
+			.andExpect(jsonPath("$.data[0].inviteToken").value(managerToken));
 	}
 
 	@Test
-	@DisplayName("DB에는 토큰 원문이 없고 SHA-256 값(64자)만 있으며, 없는 토큰은 404이다")
-	void storesOnlyTokenHash() throws Exception {
+	@DisplayName("토큰 원문이 없는 옛 초대는 목록에 inviteToken이 null로 나간다")
+	void legacyInviteWithoutRawToken() throws Exception {
+		long crewId = createCrew(leaderId, "새벽한강크루");
+		createInvite(crewId, leaderId);
+		jdbcTemplate.update("update member_crew_invite set invite_token = null");
+
+		mockMvc.perform(get(INVITES, crewId).header(MemberIdHeader.NAME, leaderId))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.length()").value(1))
+			.andExpect(jsonPath("$.data[0].inviteToken").doesNotExist());
+	}
+
+	@Test
+	@DisplayName("토큰은 SHA-256 값(64자)으로 찾고 원문도 함께 저장하며, 없는 토큰은 404이다")
+	void storesTokenHashAndRawToken() throws Exception {
 		long crewId = createCrew(leaderId, "새벽한강크루");
 		String token = createInvite(crewId, leaderId);
 
@@ -559,6 +575,8 @@ class ApiV1CrewTest {
 		Long rawMatches = jdbcTemplate.queryForObject(
 			"select count(*) from member_crew_invite where token_hash = ?", Long.class, token);
 		assertThat(rawMatches).isZero();
+		assertThat(jdbcTemplate.queryForObject("select invite_token from member_crew_invite", String.class))
+			.isEqualTo(token);
 
 		mockMvc.perform(get(INVITE_BY_TOKEN, "없는토큰").header(MemberIdHeader.NAME, otherId))
 			.andExpect(status().isNotFound())

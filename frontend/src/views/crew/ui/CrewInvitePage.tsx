@@ -10,7 +10,15 @@ import { AppHeader } from '@/widgets/app-header'
 import { useAuthStatus } from '@/features/auth'
 import { formatKstDateTime, formatRemaining } from '@/entities/crew'
 import { ApiError, memberApi, unwrapData } from '@/shared/api'
-import { Alert, BottomCta, Button, buttonClassName, EmptyState, Skeleton } from '@/shared/ui'
+import {
+  Alert,
+  BottomCta,
+  Button,
+  buttonClassName,
+  Dialog,
+  EmptyState,
+  Skeleton,
+} from '@/shared/ui'
 
 import { inviteFailureOf } from '../model/invite-failure'
 import { partyJoinPath } from '../model/invite-url'
@@ -19,7 +27,7 @@ import { CrewBand, CrewIdentityBand, CrewLoadError } from './CrewBand'
 // 피그마 시안v4 · M10 초대 받기 (기본 · 링크 끝남).
 // 초대 링크 정보 조회와 가입 모두 로그인이 필요하다(백엔드 결정 BE-028). 로그인하지 않았으면
 // ProtectedScreenGuard가 로그인 화면으로 보내고, 로그인을 마치면 같은 초대 주소로 돌아온다.
-// 이미 그 크루의 크루원이면 이 화면 없이 크루 홈으로 보낸다.
+// 이미 그 크루의 크루원이면 안내 창(시안 M10 「이미 가입한 크루」)을 띄우고, 닫으면 크루 홈으로 보낸다.
 // 파티 참가 토큰이 함께 오면(?party=, BUK-98) 크루 홈 대신 그 파티 합류 화면으로 보낸다.
 export function CrewInvitePage({
   inviteToken,
@@ -46,9 +54,10 @@ export function CrewInvitePage({
     router.replace(partyJoinToken ? partyJoinPath(partyJoinToken) : (`/crews/${id}` as Route))
   }
 
+  // 파티 참가 링크는 크루원이어도 파티 합류가 목적이라 안내 없이 바로 보낸다
   useEffect(() => {
-    if (alreadyMember && crewId !== undefined) {
-      router.replace(partyJoinToken ? partyJoinPath(partyJoinToken) : (`/crews/${crewId}` as Route))
+    if (alreadyMember && crewId !== undefined && partyJoinToken) {
+      router.replace(partyJoinPath(partyJoinToken))
     }
   }, [alreadyMember, crewId, partyJoinToken, router])
 
@@ -93,7 +102,7 @@ export function CrewInvitePage({
     <>
       <AppHeader type="sub" title="크루 초대" />
       <main className="flex flex-1 flex-col">
-        {invite.isPending || alreadyMember ? (
+        {invite.isPending || (alreadyMember && partyJoinToken) ? (
           <InviteSkeleton />
         ) : !data ? (
           <CrewLoadError onRetry={() => invite.refetch()} />
@@ -119,6 +128,22 @@ export function CrewInvitePage({
           </>
         )}
       </main>
+      {data && alreadyMember && !partyJoinToken && (
+        <Dialog
+          open
+          type="alert"
+          title={
+            <>
+              이미 가입한 크루의 <br />
+              초대 링크예요!
+            </>
+          }
+          confirmLabel="크루 홈으로 가기"
+          onConfirm={() => router.replace(`/crews/${data.crewId}` as Route)}
+          // Esc로 닫아도 남을 화면이 없으니 크루 홈으로 보낸다
+          onOpenChange={(open) => !open && router.replace(`/crews/${data.crewId}` as Route)}
+        />
+      )}
       {data && !alreadyMember && (
         <BottomCta
           className="sticky bottom-0 z-10"

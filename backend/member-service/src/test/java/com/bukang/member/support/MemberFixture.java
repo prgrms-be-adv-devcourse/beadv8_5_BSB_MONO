@@ -6,6 +6,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import com.bukang.common.shared.seller.domain.SellerType;
 import com.bukang.member.domain.Gender;
+import com.bukang.member.domain.PayoutAccountHolderType;
 import com.bukang.member.domain.TermsType;
 import com.bukang.member.dto.MemberJoinRequestDto;
 import com.bukang.member.dto.SellerApplyRequestDto;
@@ -27,8 +28,10 @@ public final class MemberFixture {
 		return new JoinRequestBuilder(SEQUENCE.incrementAndGet());
 	}
 
+	// 본인 명의 계좌라, 가입 이름(김러너)과 같은 예금주를 돌려주는 테스트 확인을 통과한다
 	public static SellerApplyRequestDto sellerApplyRequest() {
-		return new SellerApplyRequestDto(SellerType.BUSINESS, "크루런 스포츠", "123-45-67890", "김러너");
+		return new SellerApplyRequestDto(SellerType.BUSINESS, "크루런 스포츠", "123-45-67890", "김러너",
+			"004", "1101230000678", PayoutAccountHolderType.PERSONAL);
 	}
 
 	public static final class JoinRequestBuilder {

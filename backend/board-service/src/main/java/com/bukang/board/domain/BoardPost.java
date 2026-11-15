@@ -28,7 +28,7 @@ import lombok.NoArgsConstructor;
 @Getter
 @Table(name = "BOARD_POST", indexes = {
 	@Index(name = "idx_board_post_latest", columnList = "status, create_date, id"),
-	@Index(name = "idx_board_post_popular", columnList = "status, like_count, id")
+	@Index(name = "idx_board_post_popular", columnList = "status, create_date, like_count, id")
 })
 public class BoardPost extends BaseIdAndTime {
 	public static final int TITLE_MAX = 50;

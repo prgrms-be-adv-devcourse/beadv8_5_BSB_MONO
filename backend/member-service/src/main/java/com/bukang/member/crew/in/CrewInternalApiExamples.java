@@ -34,6 +34,22 @@ final class CrewInternalApiExamples {
 		}
 		""";
 
+	static final String PENALTY_RESTRICTED = """
+		{
+			"status": 200,
+			"message": "크루 파티 만들기 제한을 조회했습니다.",
+			"data": { "restricted": true, "endAt": "2026-12-12T04:30:00" }
+		}
+		""";
+
+	static final String PENALTY_NOT_RESTRICTED = """
+		{
+			"status": 200,
+			"message": "크루 파티 만들기 제한을 조회했습니다.",
+			"data": { "restricted": false, "endAt": null }
+		}
+		""";
+
 	static final String CREW_NOT_FOUND = """
 		{ "status": 404, "code": "CREW_NOT_FOUND", "message": "존재하지 않는 크루입니다.", "data": null }
 		""";

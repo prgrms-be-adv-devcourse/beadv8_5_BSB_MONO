@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Service;
@@ -19,6 +20,7 @@ import com.bukang.member.domain.Member;
 import com.bukang.member.domain.SocialProvider;
 import com.bukang.member.domain.exception.MemberNicknameLookupTooManyException;
 import com.bukang.member.domain.exception.MemberNotFoundException;
+import com.bukang.member.domain.exception.MemberReplicaPageInvalidException;
 import com.bukang.member.domain.exception.SocialAccountLoginException;
 import com.bukang.member.dto.AuthTokens;
 import com.bukang.member.dto.EmailAvailabilityResponseDto;
@@ -31,6 +33,8 @@ import com.bukang.member.dto.MemberLoginRequestDto;
 import com.bukang.member.dto.MemberLoginResult;
 import com.bukang.member.dto.MemberModifyRequestDto;
 import com.bukang.member.dto.MemberNicknameDto;
+import com.bukang.member.dto.MemberReplicaDto;
+import com.bukang.member.dto.MemberReplicaPageDto;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.identity.VerifiedIdentity;
 
@@ -41,6 +45,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class MemberFacade {
 	public static final int MAX_NICKNAME_LOOKUP = 100;
+	public static final int MAX_REPLICA_PAGE_SIZE = 500;
 
 	private final MemberJoinUseCase memberJoinUseCase;
 	private final IdentityVerificationUseCase identityVerificationUseCase;
@@ -134,6 +139,18 @@ public class MemberFacade {
 			return List.of();
 		}
 		return memberRepository.findNicknamesByIdIn(distinctIds);
+	}
+
+	// 다른 서비스가 회원 복사본을 처음 채운다 (BUK-161). 한 명 더 읽어 다음 쪽이 있는지 알린다
+	public MemberReplicaPageDto findReplicas(long afterId, int size) {
+		if (afterId < 0 || size < 1 || size > MAX_REPLICA_PAGE_SIZE) {
+			throw new MemberReplicaPageInvalidException(MAX_REPLICA_PAGE_SIZE);
+		}
+		List<MemberReplicaDto> rows = memberRepository.findReplicasAfter(afterId, PageRequest.of(0, size + 1));
+		boolean hasNext = rows.size() > size;
+		List<MemberReplicaDto> members = hasNext ? rows.subList(0, size) : rows;
+		long nextAfterId = members.isEmpty() ? afterId : members.get(members.size() - 1).memberId();
+		return new MemberReplicaPageDto(members, hasNext, nextAfterId);
 	}
 
 	public MemberAdminDto checkAdmin(long memberId) {

@@ -144,7 +144,7 @@ class ApiV1PayoutSellerControllerTest {
 	}
 
 	// 회수 내역: 청구가 있는 판매자 x 대회의 회수만 나온다
-	// 판매자 1 · 대회 10: 청구 중. 일정 변경 회수 2건(10/1, 10/2)과 그 전에 상계로 끝난 회수 1건(9/20, 청구에 안 들어감)
+	// 판매자 1 · 대회 10: 청구 중, 가상계좌 발급됨. 일정 변경 회수 2건(10/1, 10/2)과 그 전에 상계로 끝난 회수 1건(9/20, 청구에 안 들어감)
 	// 판매자 1 · 대회 12: 입금 확인. 대회 취소 회수 1건(9/16)이 입금으로 끝남
 	// 판매자 1 · 대회 11: 회수는 있지만 청구 전 (안 나온다)
 	// 판매자 2 · 대회 10: 청구 중 (판매자 1의 조회에 나오면 안 된다)
@@ -156,7 +156,7 @@ class ApiV1PayoutSellerControllerTest {
 			LocalDateTime.of(2026, 10, 1, 9, 0)));
 		payoutRecoveryRepository.save(PayoutRecovery.scheduleChanged(SELLER_ID, 10, 101, 20_000,
 			LocalDateTime.of(2026, 10, 2, 9, 0)));
-		saveClaim(SELLER_ID, 10, 40_000, LocalDate.of(2026, 10, 3));
+		saveClaim(SELLER_ID, 10, 40_000, LocalDate.of(2026, 10, 3)).assignVirtualAccount("국민은행", "X6000123456789");
 
 		PayoutRecovery canceled = payoutRecoveryRepository.save(new PayoutRecovery(SELLER_ID, 12,
 			PayoutRecoveryReason.대회_취소, 30_000, LocalDateTime.of(2026, 9, 16, 9, 0)));
@@ -465,6 +465,10 @@ class ApiV1PayoutSellerControllerTest {
 			.andExpect(jsonPath("$.data[0].reasonType").value("일정_변경"))
 			.andExpect(jsonPath("$.data[0].status").value("회수_요청"))
 			.andExpect(jsonPath("$.data[0].completedAt").value(nullValue()))
+			.andExpect(jsonPath("$.data[0].virtualBankName").value("국민은행"))
+			.andExpect(jsonPath("$.data[0].virtualAccountNumber").value("X6000123456789"))
+			.andExpect(jsonPath("$.data[0].dueDate").value("2026-11-02"))
+			.andExpect(jsonPath("$.data[2].virtualAccountNumber").value(nullValue()))
 			.andExpect(jsonPath("$.data[2].reasonType").value("대회_취소"))
 			.andExpect(jsonPath("$.data[2].status").value("회수_완료"))
 			.andExpect(jsonPath("$.data[2].completedAt").value("2026-10-05T14:00:00"))
@@ -490,7 +494,13 @@ class ApiV1PayoutSellerControllerTest {
 					fieldWithPath("data[].status").description("회수 상태 (회수_요청: 입금 기다림, 회수_완료: 회수 완료)"),
 					fieldWithPath("data[].requestedAt").description("회수 요청 일시"),
 					fieldWithPath("data[].completedAt").description("회수 완료 일시 (입금 기다리는 중에는 null)")
-						.optional().type(JsonFieldType.STRING)
+						.optional().type(JsonFieldType.STRING),
+					fieldWithPath("data[].virtualBankName").description("청구 전용 가상계좌의 은행 이름 (아직 발급 전이면 null)")
+						.optional().type(JsonFieldType.STRING),
+					fieldWithPath("data[].virtualAccountNumber").description("청구 전용 가상계좌 번호. 판매자는 청구 금액을 "
+						+ "이 계좌로 보낸다 (아직 발급 전이면 null)").optional().type(JsonFieldType.STRING),
+					fieldWithPath("data[].dueDate").description("청구 입금 기한 (상계 실패일 + 30일, yyyy-MM-dd). "
+						+ "가상계좌 유효기간과 다르다")
 				)));
 	}
 

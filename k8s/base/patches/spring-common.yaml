@@ -1,0 +1,53 @@
+# Spring 앱 11개에 함께 붙이는 설정. kustomization.yaml의 target(라벨 component=spring)으로 고르므로 아래 이름은 쓰이지 않는다
+# 각 앱 파일에는 이름·이미지·포트만 두고, 나머지는 여기 한곳에서 고친다
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spring-common
+spec:
+  template:
+    spec:
+      containers:
+        - name: app
+          # 로컬은 k3d에 직접 넣은 이미지, 운영은 커밋 SHA 태그라 이미 받은 이미지를 다시 받지 않는다
+          imagePullPolicy: IfNotPresent
+          # Secret(비밀값)과 ConfigMap(인프라 주소 등)을 모두 환경변수로 받는다. 두 곳의 키는 겹치지 않는다
+          envFrom:
+            - secretRef:
+                name: app-secret
+            - configMapRef:
+                name: app-config
+          env:
+            # 힙은 컨테이너 메모리 상한의 60%만 쓰고 나머지는 메타스페이스·스레드 등 힙 밖 메모리에 남긴다 (compose의 ai-service와 같은 값)
+            # CPU가 2개인 서버에서는 GC 스레드가 적은 SerialGC가 메모리를 덜 쓴다. 스레드 스택은 기본 1MB에서 512KB로 줄인다
+            - name: JAVA_TOOL_OPTIONS
+              value: "-XX:MaxRAMPercentage=60 -XX:+UseSerialGC -Xss512k"
+          # requests: 노드에 이만큼 자리가 있어야 Pod를 둔다. limits: 넘으면 이 Pod만 다시 시작된다 (다른 서비스는 그대로)
+          # CPU 상한은 두지 않는다. 걸면 시작할 때 CPU를 못 받아 뜨는 시간이 길어진다
+          resources:
+            requests:
+              cpu: 50m
+              memory: 384Mi
+            limits:
+              memory: 512Mi
+          # actuator가 들어오기 전까지는 compose의 healthcheck처럼 포트가 열렸는지만 본다
+          # (actuator가 머지되면 httpGet /actuator/health 로 바꾼다)
+          # startupProbe: CPU 2개 서버에서 서비스가 한꺼번에 뜨면 하나당 150~180초가 걸려서, 최대 6분(10초 × 36번)까지 기다린다
+          #   통과하기 전에는 아래 두 확인을 하지 않는다
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+            failureThreshold: 36
+          # readinessProbe: 실패하면 Service가 이 Pod로 요청을 보내지 않는다
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+            failureThreshold: 3
+          # livenessProbe: 1분(20초 × 3번) 동안 응답이 없으면 컨테이너를 다시 시작한다
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 20
+            failureThreshold: 3

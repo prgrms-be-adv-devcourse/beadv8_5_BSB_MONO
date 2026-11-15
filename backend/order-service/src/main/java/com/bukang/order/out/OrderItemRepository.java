@@ -1,16 +1,21 @@
 package com.bukang.order.out;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.bukang.order.domain.OrderItem;
+import com.bukang.order.domain.OrderItemStatus;
+import com.bukang.order.domain.OrderStatus;
 import com.bukang.order.dto.CancelingOrderItemDto;
+import com.bukang.order.dto.SellerOrderDto;
 import com.bukang.order.dto.SoldEntryDto;
 import com.bukang.order.dto.SoldSummaryDto;
 
@@ -149,4 +154,54 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
 
 	// 이 대회에 다른 판매자의 주문 상품이 있는지 (판매자 키트 옵션 판매 현황의 본인 대회 확인)
 	boolean existsByRaceIdAndSellerIdNot(long raceId, long sellerId);
+
+	// 참가 신청들의 주문 상품과 주문 (내 참가권 목록, BUK-181). 신청 하나에 주문 상품은 많아야 하나다 (uk_order_item_participation)
+	@Query("select new com.bukang.order.out.OrderItemRepository$TicketOrder(i.participationId, o.id, o.orderNo,"
+		+ " o.status, i.id, i.status, i.amount, i.itemName, i.raceDate) from OrderItem i join i.order o"
+		+ " where i.participationId in :participationIds")
+	List<TicketOrder> findTicketOrders(@Param("participationIds") Collection<Long> participationIds);
+
+	// itemName·raceDate는 주문 당시 종목 이름·대회 일시 사본. 상품 서비스에 묻지 못할 때 대신 보여 준다
+	record TicketOrder(long participationId, long orderId, String orderNo, OrderStatus orderStatus,
+		long orderItemId, OrderItemStatus status, long amount, String itemName, LocalDateTime raceDate) {
+	}
+
+	/**
+	 * 판매자의 주문 목록 (BUK-227). 주문 상품(참가권 1장)마다 한 줄, 최근 주문 상품부터. 키트 없는 참가권도 나온다
+	 * 기한이 지나 만료된 주문은 판 적이 없으므로 빠진다. 다른 조건은 null이면 거르지 않는다
+	 * 주문일(o.createDate)은 from 이상 to 미만이다. idx_order_item_seller(seller_id, id)로 찾는다
+	 */
+	@Query(value = """
+		select new com.bukang.order.dto.SellerOrderDto(i.id, o.id, o.orderNo, o.createDate, o.paidAt, i.raceId,
+			i.raceCourseId, i.itemName, i.status, p.participant.name, p.participant.tshirtSize, p.partyId, p.id)
+		from OrderItem i
+			join i.order o
+			join Participation p on p.id = i.participationId
+		where i.sellerId = :sellerId
+			and o.status <> com.bukang.order.domain.OrderStatus.EXPIRED
+			and (:raceId is null or i.raceId = :raceId)
+			and (:raceCourseId is null or i.raceCourseId = :raceCourseId)
+			and (:status is null or i.status = :status)
+			and (:partyId is null or p.partyId = :partyId)
+			and (:from is null or o.createDate >= :from)
+			and (:to is null or o.createDate < :to)
+		order by i.id desc
+		""", countQuery = """
+		select count(i)
+		from OrderItem i
+			join i.order o
+			join Participation p on p.id = i.participationId
+		where i.sellerId = :sellerId
+			and o.status <> com.bukang.order.domain.OrderStatus.EXPIRED
+			and (:raceId is null or i.raceId = :raceId)
+			and (:raceCourseId is null or i.raceCourseId = :raceCourseId)
+			and (:status is null or i.status = :status)
+			and (:partyId is null or p.partyId = :partyId)
+			and (:from is null or o.createDate >= :from)
+			and (:to is null or o.createDate < :to)
+		""")
+	Page<SellerOrderDto> findSellerOrders(@Param("sellerId") long sellerId, @Param("raceId") Long raceId,
+		@Param("raceCourseId") Long raceCourseId, @Param("status") OrderItemStatus status,
+		@Param("partyId") Long partyId, @Param("from") LocalDateTime from, @Param("to") LocalDateTime to,
+		Pageable pageable);
 }

@@ -8,10 +8,8 @@ x-app-healthcheck: &app-healthcheck
   retries: 12
   start_period: 300s
 
-# 표를 만드는 방법 (file·product·queue). 이 세 서비스는 아직 Flyway가 없어서,
-# application-prod.yaml의 validate 그대로면 빈 DB에서 "missing table"로 뜨지 않는다. 그래서 compose 실행에서만 update로 덮어
-# dev와 같은 방식(Hibernate가 없는 표·칼럼을 만듦)으로 표를 만든다. 서비스에 Flyway가 생기면 그 서비스의 줄을 지운다
-# member-service·payout-service·cash-service는 Flyway가 표를 만들고 validate로 확인하므로 넣지 않는다. 표만 확인하려면 .env에 JPA_DDL_AUTO=validate
+# 표를 만드는 방법. Flyway가 있는 서비스는 Flyway가 표를 만들고 validate로 확인하므로 아래 update 덮어쓰기를 넣지 않는다
+# (member·payout·cash·file·product·queue·notification·inquiry·board. file·product·queue는 BUK-173에서 Flyway로 바꿨다). 표만 확인하려면 .env에 JPA_DDL_AUTO=validate
 # order-service는 Flyway가 있지만 전환 중이라 한 번 더 update로 둔다 (BUK-29). V1은 표가 이미 있으면 건너뛰어,
 # 지난 배포 뒤 엔티티에 더한 칸이 서버 표에 없으면 validate로는 뜨지 않기 때문이다. Flyway가 먼저 돌고 Hibernate가 빠진 칸을 채운다.
 # 이 설정으로 서버에 한 번 배포한 뒤 order-service의 줄을 지운다
@@ -206,7 +204,6 @@ services:
         required: false
     environment:
       SPRING_PROFILES_ACTIVE: prod
-      SPRING_JPA_HIBERNATE_DDL_AUTO: *jpa-ddl-auto
       # 기본은 compose의 S3Mock. .env에서 S3_ENDPOINT·S3_PUBLIC_ENDPOINT를 빈 값으로 두면 실제 AWS S3를 쓴다
       # 앱은 컨테이너 주소(bukang-s3mock)로 접속하고, presigned URL은 브라우저가 쓰는 주소(localhost)로 서명한다
       S3_BUCKET: ${S3_BUCKET:-bukang-file}
@@ -264,7 +261,6 @@ services:
         required: false
     environment:
       SPRING_PROFILES_ACTIVE: prod
-      SPRING_JPA_HIBERNATE_DDL_AUTO: *jpa-ddl-auto
     healthcheck:
       <<: *app-healthcheck
       test: [ "CMD", "bash", "-c", "</dev/tcp/127.0.0.1/8085" ]
@@ -289,7 +285,6 @@ services:
         required: false
     environment:
       SPRING_PROFILES_ACTIVE: prod
-      SPRING_JPA_HIBERNATE_DDL_AUTO: *jpa-ddl-auto
     healthcheck:
       <<: *app-healthcheck
       test: [ "CMD", "bash", "-c", "</dev/tcp/127.0.0.1/8086" ]
@@ -346,6 +341,9 @@ services:
       bukang-kafka:
         condition: service_healthy
       bukang-redis:
+        condition: service_healthy
+      # 뜰 때 회원 서비스에서 회원 복사본을 채우므로 회원 서비스가 먼저 떠 있어야 한다 (BUK-161)
+      member-service:
         condition: service_healthy
 
   # 크루런 AI (BUK-165). DB·Kafka를 쓰지 않고 대화 기록만 Redis에 둔다. 모델은 OpenAI이고 키는 .env의 OPENAI_API_KEY다 (비어도 뜬다)

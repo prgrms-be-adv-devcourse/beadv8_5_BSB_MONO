@@ -21,6 +21,8 @@ public class OrderItemDto {
 	private final int quantity;
 	private final long amount;
 	private final OrderItemStatus status;
+	// 취소를 마친 시각 (BUK-229). 취소가 아니면(취소 중 포함) null
+	private final LocalDateTime canceledAt;
 	// 키트 배송 상태 (PREPARING 배송 준비 / SHIPPING 배송 중 / DELIVERED 배송 완료). 키트가 없는 참가권은 null
 	private final KitDeliveryStatus kitDeliveryStatus;
 	// 판매자가 발송할 때 넣은 택배사·송장 번호. 발송 전이면 null

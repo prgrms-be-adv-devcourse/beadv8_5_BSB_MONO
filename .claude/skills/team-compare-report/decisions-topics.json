@@ -1,0 +1,13 @@
+{
+  "note": "고민한 선택지 → 고른 것 → 이유 · 저장소와 PR에 남은 글만 근거로 씀",
+  "topics": [
+    { "id": "event", "name": "이벤트 발행", "options": ["아웃박스", "커밋 뒤 발행", "바로 발행", "직접 호출만"] },
+    { "id": "lock", "name": "재고·잔액 동시성", "options": ["비관적 락", "낙관적 락", "분산 락", "조건부 UPDATE"] },
+    { "id": "idem", "name": "중복 요청 막기", "options": ["멱등 키", "유니크 제약", "없음"] },
+    { "id": "split", "name": "서비스 나누기", "options": ["MSA", "모놀리스", "모듈 모놀리스"] },
+    { "id": "db", "name": "DB 나누기", "options": ["서비스마다 DB", "DB 하나 공유"] },
+    { "id": "auth", "name": "인증 위치", "options": ["게이트웨이", "서비스마다", "둘 다"] },
+    { "id": "comm", "name": "서비스 간 통신", "options": ["Kafka", "HTTP", "섞어 씀"] },
+    { "id": "deploy", "name": "배포 방식", "options": ["EC2와 Compose", "k3s·k8s", "그 밖"] }
+  ]
+}

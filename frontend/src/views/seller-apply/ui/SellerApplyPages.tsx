@@ -11,6 +11,7 @@ import { ConsoleCard } from '@/widgets/console-page'
 import { loginHref, useAuthStatus } from '@/features/auth'
 import { formatSellerDate, isNoApplication, SELLER_STATUS } from '@/entities/member'
 import { memberApi, unwrapData, type memberModel } from '@/shared/api'
+import { BANKS } from '@/shared/config'
 import { cn, trackEvent, useTrackOnce } from '@/shared/lib'
 import {
   Alert,
@@ -21,6 +22,7 @@ import {
   FOCUS_RING,
   Radio,
   RadioGroup,
+  Select,
   Skeleton,
   TextField,
   type BadgeTone,
@@ -85,6 +87,7 @@ export function SellerApplyPage() {
     register,
     control,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<SellerApplyFormValues>({
     resolver: zodResolver(sellerApplyFormSchema),
@@ -95,6 +98,10 @@ export function SellerApplyPage() {
   })
   const business = useWatch({ control, name: 'business' })
   const agreed = useWatch({ control, name: 'agreed' })
+  // 사업자 명의는 사업자만 고른다. 사업자가 아니라고 바꾸면 본인 명의로 돌린다
+  useEffect(() => {
+    if (business !== 'business') setValue('accountHolder', 'personal')
+  }, [business, setValue])
 
   const onSubmit = handleSubmit((values) => {
     setFormError(undefined)
@@ -179,7 +186,46 @@ export function SellerApplyPage() {
         </ConsoleCard>
 
         <ConsoleCard title="정산 계좌">
-          <SettlementAccountNotice />
+          <div className="flex gap-4">
+            <Controller
+              control={control}
+              name="bankCode"
+              render={({ field }) => (
+                <Select
+                  label="은행"
+                  className="flex-1"
+                  items={[...BANKS]}
+                  value={field.value}
+                  onValueChange={(value) => value && field.onChange(value)}
+                />
+              )}
+            />
+            <TextField
+              label="계좌번호"
+              inputMode="numeric"
+              className="flex-1"
+              error={errors.accountNumber?.message}
+              {...register('accountNumber')}
+            />
+          </div>
+          <Controller
+            control={control}
+            name="accountHolder"
+            render={({ field }) => (
+              <RadioGroup
+                value={field.value}
+                onValueChange={(value) => field.onChange(value)}
+                className="flex-row gap-6"
+              >
+                <Radio value="personal" label="본인 명의" />
+                <Radio value="business" label="사업자 명의" disabled={business !== 'business'} />
+              </RadioGroup>
+            )}
+          />
+          <p className="text-caption text-text-tertiary">
+            본인 명의는 본인인증한 이름과 예금주가 같아야 해요. 사업자 명의는 사업자등록번호로
+            확인해요. 계좌 확인은 하루 5번까지 할 수 있어요.
+          </p>
         </ConsoleCard>
 
         <ConsoleCard title="약관 동의">
@@ -354,18 +400,8 @@ function ResultSection({ card }: { card: ResultCard }) {
   )
 }
 
-// 신청 때는 계좌를 받지 않는다(서버가 저장하지 않음). 승인 뒤 판매자 설정(S11)에서 등록한다.
-function SettlementAccountNotice() {
-  return (
-    <Alert
-      title="정산 계좌는 판매자 설정에서 등록해요"
-      description="승인된 뒤 판매자 설정에서 등록해요. 등록 전까지는 정산금 지급이 보류돼요."
-    />
-  )
-}
-
 // 피그마 V2 · S01-2 신청 내용 보기: 내가 낸 신청(GET /api/v1/member/sellers/me)을 S01 폼에 채우고 모든 칸을 잠근다.
-// 서버가 받지 않는 연락처 · 정산 계좌는 빈 칸으로 두지 않고 뺀다.
+// 서버가 받지 않는 연락처와 돌려주지 않는 정산 계좌는 빈 칸으로 두지 않고 뺀다.
 export function SellerApplicationPage() {
   const auth = useAuthStatus()
   const mine = memberApi.useFindMine({
@@ -457,10 +493,6 @@ function LockedApplication({ seller }: { seller: memberModel.SellerDto }) {
             ? '사업자등록번호 · 상호 · 대표자를 심사해요.'
             : '비사업자는 성명만 보여요. 연락처는 아직 서버에 저장하지 않아요.'}
         </p>
-      </ConsoleCard>
-
-      <ConsoleCard title="정산 계좌">
-        <SettlementAccountNotice />
       </ConsoleCard>
 
       <div className="flex justify-end gap-2">

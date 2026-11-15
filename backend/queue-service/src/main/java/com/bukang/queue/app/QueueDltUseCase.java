@@ -93,20 +93,24 @@ public class QueueDltUseCase {
 
 	// 본 리스너가 메시지를 처리한 트랜잭션에서 부른다. 다시 보낸 메시지였으면 그 행을 처리 완료로 바꾼다
 	// 다시 보낸 메시지가 아니면(행이 없거나 다시 보냄이 아님) 아무것도 하지 않는다. 본 처리를 롤백시키지 않도록 예외를 내지 않는다
+	// 처리 완료로 바꿨으면 본 처리가 커밋된 뒤 Slack으로 알린다 (롤백되면 보내지 않는다)
 	public void completeByResend(String messageId, LocalDateTime now) {
 		if (messageId == null) {
 			return;
 		}
 		queueDltKafkaEventRepository.findByMessageId(messageId)
 			.filter(event -> event.completeByResend(now))
-			.ifPresent(event -> log.info("다시 보낸 메시지를 처리해 처리 완료로 바꿨습니다. id={}, messageId={}",
-				event.getId(), messageId));
+			.ifPresent(event -> {
+				log.info("다시 보낸 메시지를 처리해 처리 완료로 바꿨습니다. id={}, messageId={}", event.getId(), messageId);
+				slackNotifier.sendAfterCommit(KafkaDltAlert.completedText(event));
+			});
 	}
 
-	// 사람이 원인을 고친 뒤 메모와 함께 닫는다
+	// 사람이 원인을 고친 뒤 메모와 함께 닫고, 커밋 뒤 Slack으로 알린다
 	public QueueDltKafkaEvent completeManually(long id, String memo, LocalDateTime now) {
 		QueueDltKafkaEvent event = findById(id);
 		event.completeManually(now, memo);
+		slackNotifier.sendAfterCommit(KafkaDltAlert.completedText(event));
 		return event;
 	}
 
