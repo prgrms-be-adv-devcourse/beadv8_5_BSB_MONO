@@ -31,6 +31,7 @@ import com.bukang.payout.out.NoClaimVirtualAccountAdapter;
 import com.bukang.payout.out.PayoutClaimRepository;
 import com.bukang.payout.out.PayoutItemRepository;
 import com.bukang.payout.out.PayoutRecoveryRepository;
+import com.bukang.payout.support.MySqlContainerTest;
 
 /**
  * 같은 청구에 입금 메시지가 동시에 두 번 와도 회수는 한 번만 끝나는지 확인한다 (BUK-134 완료 기준)
@@ -38,6 +39,7 @@ import com.bukang.payout.out.PayoutRecoveryRepository;
  */
 @DataJpaTest
 @ActiveProfiles("test")
+@MySqlContainerTest
 @Import({PayoutClaimUseCase.class, NoClaimVirtualAccountAdapter.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class PayoutClaimDepositConcurrencyTest {

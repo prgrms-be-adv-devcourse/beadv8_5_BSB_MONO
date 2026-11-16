@@ -35,6 +35,7 @@ import com.bukang.payout.out.PayoutHoldRepository;
 import com.bukang.payout.out.PayoutItemRepository;
 import com.bukang.payout.out.PayoutRecoveryRepository;
 import com.bukang.payout.out.PayoutRepository;
+import com.bukang.payout.support.MySqlContainerTest;
 
 /**
  * 대회 취소 처리와 대회 취소 환불 회수가 겹쳐도 판매자에게 받지 않은 돈을 청구하지 않는지 확인한다 (BUK-76)
@@ -45,6 +46,7 @@ import com.bukang.payout.out.PayoutRepository;
  */
 @DataJpaTest
 @ActiveProfiles("test")
+@MySqlContainerTest
 @Import({PayoutLedgerUseCase.class, PayoutCreateStepUseCase.class, PayoutHoldUseCase.class,
 	PayoutRefundUseCase.class, PayoutRaceCancelUseCase.class, BusinessDayCalendar.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)

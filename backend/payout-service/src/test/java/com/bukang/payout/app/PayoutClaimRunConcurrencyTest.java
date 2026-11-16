@@ -33,6 +33,7 @@ import com.bukang.payout.out.ClaimVirtualAccountPort;
 import com.bukang.payout.out.PayoutClaimRepository;
 import com.bukang.payout.out.PayoutItemRepository;
 import com.bukang.payout.out.PayoutRecoveryRepository;
+import com.bukang.payout.support.MySqlContainerTest;
 
 /**
  * 청구 배치가 가상계좌를 발급받는 사이에 입금 메시지가 그 청구를 입금 확인으로 커밋해도,
@@ -41,6 +42,7 @@ import com.bukang.payout.out.PayoutRecoveryRepository;
  */
 @DataJpaTest
 @ActiveProfiles("test")
+@MySqlContainerTest
 @Import({PayoutClaimUseCase.class, PayoutClaimRunConcurrencyTest.DepositDuringIssue.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class PayoutClaimRunConcurrencyTest {
