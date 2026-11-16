@@ -20,7 +20,10 @@ import lombok.extern.slf4j.Slf4j;
 @Component
 @ConditionalOnProperty(prefix = "cash.clients.pg", name = "mode", havingValue = "fake", matchIfMissing = true)
 public class FakePaymentClient implements PaymentClient {
-	// 부하 테스트에서 실제 PG처럼 결제취소가 시간이 걸리게 한다. 기본 0이라 평소에는 바로 답한다
+	// 부하 테스트에서 실제 PG처럼 승인·결제취소가 시간이 걸리게 한다. 기본 0이라 평소에는 바로 답한다
+	@Value("${cash.clients.pg.fake-confirm-delay:0ms}")
+	private Duration confirmDelay = Duration.ZERO;
+
 	@Value("${cash.clients.pg.fake-cancel-delay:0ms}")
 	private Duration cancelDelay = Duration.ZERO;
 
@@ -31,6 +34,7 @@ public class FakePaymentClient implements PaymentClient {
 
 	@Override
 	public PaymentApprovalResult approve(String paymentKey, String orderId, long amount) {
+		sleep(confirmDelay);
 		return new PaymentApprovalResult(amount, "fake-payment-key-" + paymentKey, LocalDateTime.now());
 	}
 
@@ -54,7 +58,7 @@ public class FakePaymentClient implements PaymentClient {
 	public PaymentCancelResult cancel(
 		String paymentKey, String cancelReason, long cancelAmount, String idempotencyKey
 	) {
-		sleepForCancelDelay();
+		sleep(cancelDelay);
 		return new PaymentCancelResult(cancelAmount, "fake-cancel-" + paymentKey);
 	}
 
@@ -72,12 +76,12 @@ public class FakePaymentClient implements PaymentClient {
 		return Optional.empty();
 	}
 
-	private void sleepForCancelDelay() {
-		if (cancelDelay.isZero()) {
+	private void sleep(Duration delay) {
+		if (delay.isZero()) {
 			return;
 		}
 		try {
-			Thread.sleep(cancelDelay);
+			Thread.sleep(delay);
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
 		}
