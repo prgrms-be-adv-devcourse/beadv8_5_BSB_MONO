@@ -2,11 +2,10 @@
 
 import type { Route } from 'next'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import type { ReactNode } from 'react'
 
 import { NoticeBellLink } from '@/entities/notification'
-import { cn } from '@/shared/lib'
+import { cn, useGoBack } from '@/shared/lib'
 import { FOCUS_RING, Icon, IconButton, Logo } from '@/shared/ui'
 
 // IconButton(M 44, ghost)과 같은 모양의 링크
@@ -23,7 +22,7 @@ type MainProps = {
 type SubProps = {
   type: 'sub'
   title: string
-  /** 뒤로 가기 대상. 없으면 브라우저 뒤로 가기 */
+  /** 앱 안에서 온 기록이 없을 때 뒤로 가기가 갈 곳. 없으면 홈 */
   backHref?: Route
   /** 흐름을 끝내는 화면(결제 결과 등)은 뒤로 가기 대신 닫기(X)를 쓴다 */
   close?: boolean
@@ -69,18 +68,12 @@ export function AppHeader(props: AppHeaderProps) {
 }
 
 function BackButton({ href, close }: { href?: Route; close?: boolean }) {
-  const router = useRouter()
+  const goBack = useGoBack()
   const label = close ? '닫기' : '뒤로 가기'
   const icon = <Icon name={close ? 'X' : 'ChevronLeft'} />
-  if (href) {
-    return (
-      <Link href={href} aria-label={label} className={ICON_LINK}>
-        {icon}
-      </Link>
-    )
-  }
+  // 닫기도 뒤로 간다. 끝난 화면은 폼을 replace해 들어왔으므로 출발한 화면으로 돌아가고, 같은 화면이 기록에 겹치지 않는다
   return (
-    <IconButton aria-label={label} onClick={() => router.back()}>
+    <IconButton aria-label={label} onClick={() => goBack(href ?? '/')}>
       {icon}
     </IconButton>
   )

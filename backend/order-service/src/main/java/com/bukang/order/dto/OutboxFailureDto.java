@@ -2,8 +2,8 @@ package com.bukang.order.dto;
 
 import java.time.LocalDateTime;
 
+import com.bukang.common.shared.kafka.outbox.OutboxStatus;
 import com.bukang.order.domain.OrderOutboxKafkaEvent;
-import com.bukang.order.domain.OutboxStatus;
 
 // 발행 실패 아웃박스 행 응답 (내부 API /internal/v1/order/outbox-failures, BUK-180)
 // 내부 API라 본문(payload)도 그대로 돌려준다. 원인을 찾고 되돌릴지 정하는 데 필요하다
@@ -23,7 +23,7 @@ public record OutboxFailureDto(
 			event.getId(),
 			event.getStatus(),
 			event.getMessageId(),
-			event.getEventType(),
+			event.getTopic(),
 			event.getRefType(),
 			event.getRefId(),
 			event.getPayload(),

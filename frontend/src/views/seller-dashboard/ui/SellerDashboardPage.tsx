@@ -5,6 +5,7 @@ import type { Route } from 'next'
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 
+import { AxBriefing } from '@/widgets/ax-briefing'
 import {
   CONSOLE_BOX,
   ConsoleCard,
@@ -117,6 +118,7 @@ function DashboardBody() {
 
   return (
     <>
+      <AxBriefing screen="seller" askHref="/seller/ai" basisHref="/seller/settlements" />
       <div className="flex gap-4">
         {summary.data ? (
           <>

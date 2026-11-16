@@ -17,7 +17,7 @@ final class OrderOutboxApiExamples {
 					"refType": "Participation",
 					"refId": 1001,
 					"payload": "{\\"participationId\\":1001}",
-					"retryCount": 66,
+					"retryCount": 3,
 					"createDate": "2026-11-12T10:15:30"
 				}
 			]

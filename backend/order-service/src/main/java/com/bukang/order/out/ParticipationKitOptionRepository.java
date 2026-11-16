@@ -13,6 +13,9 @@ import com.bukang.order.dto.KitOptionChoiceDto;
 public interface ParticipationKitOptionRepository extends JpaRepository<ParticipationKitOption, Long> {
 	List<ParticipationKitOption> findByParticipationIdOrderByIdAsc(long participationId);
 
+	// 결제 중을 되돌릴 때 미리 남긴 옵션 사본을 지운다 (BUK-232)
+	void deleteByParticipationId(long participationId);
+
 	List<ParticipationKitOption> findByParticipationIdInOrderByIdAsc(Collection<Long> participationIds);
 
 	// 참가 신청마다 고른 키트 옵션 사본 (고른 순). 목록 화면·내려받기가 한 번에 읽어 붙인다
