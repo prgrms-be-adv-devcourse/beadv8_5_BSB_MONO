@@ -48,15 +48,13 @@ public class RaceScheduleNoticeUseCase {
 		if (notice != null && notice.alreadyNotified(scheduleChangedAt)) {
 			return 0;
 		}
-		// RaceCourseInfo.scheduleChangeRefundLastDay와 같은 셈: 바뀐 날을 1일째로 7일째 날까지
-		LocalDate refundLastDay = scheduleChangedAt.toLocalDate()
-			.plusDays(RaceCourseInfo.SCHEDULE_CHANGE_REFUND_DAYS - 1);
+		LocalDate refundLastDay = RaceCourseInfo.scheduleChangeRefundLastDay(scheduleChangedAt);
 		if (notice == null) {
 			raceScheduleNoticeRepository.saveAndFlush(RaceScheduleNotice.of(raceId, scheduleChangedAt));
 		} else {
 			notice.markNotified(scheduleChangedAt);
 		}
-		// 처음 배포할 때 이미 지난 변경까지 알리지 않는다. 기록은 남겨 다음 메시지에서도 건너뛴다
+		// 처음 배포할 때나 DLT에서 늦게 다시 보낸 메시지로 환불 기간이 지난 변경을 알리지 않는다. 기록은 남겨 다음 메시지에서도 건너뛴다
 		if (today.isAfter(refundLastDay)) {
 			return 0;
 		}
@@ -77,7 +75,8 @@ public class RaceScheduleNoticeUseCase {
 		return targets.size();
 	}
 
-	// 상품이 대회명을 주지 않으면 주문 당시 종목 이름으로 대신한다
+	// 상품이 대회명을 주지 않으면 주문 당시 종목 이름(「대회명 종목명」)으로 대신한다
+	// shortcut: 줄을 잠근 채 상품을 부른다(시간 제한 2초). 일정 변경은 드물어 그대로 두고, 잠금 대기가 보이면 조회를 잠금 앞으로 옮긴다
 	private String raceName(OrderItemRepository.ScheduleNoticeTarget target) {
 		return raceCoursePort.findCourse(target.raceCourseId())
 			.map(RaceCourseInfo::raceName)

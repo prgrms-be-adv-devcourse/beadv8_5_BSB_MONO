@@ -1,6 +1,7 @@
 package com.bukang.order.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
@@ -33,6 +34,7 @@ import com.bukang.common.shared.notification.NotificationKafkaSender;
 import com.bukang.common.shared.notification.NotificationKind;
 import com.bukang.common.shared.notification.event.NotificationRequestedEvent;
 import com.bukang.order.domain.Order;
+import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
 import com.bukang.order.in.OrderKafkaConsumer;
 import com.bukang.order.out.OrderInboxKafkaEventRepository;
 import com.bukang.order.out.OrderOutboxKafkaEventRepository;
@@ -40,6 +42,7 @@ import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationRepository;
 import com.bukang.order.out.QueueAdmissionRepository;
 import com.bukang.order.out.RaceScheduleNoticeRepository;
+import com.bukang.order.out.race.RaceCourseInfo;
 import com.bukang.order.support.QueueEntry;
 import com.bukang.order.support.StubRaceCoursePort;
 import com.bukang.order.support.StubRaceCoursePortConfig;
@@ -188,6 +191,43 @@ class RaceScheduleNoticeTest {
 		orderKafkaConsumer.handleRaceChanged(payload(RACE_ID, raceDate, LocalDateTime.now().minusDays(7)), "m-2");
 
 		verify(notificationSender, never()).send(any());
+	}
+
+	@Test
+	@DisplayName("상품이 대회명을 주면 문구에 대회명을 쓴다")
+	void usesRaceNameFromProduct() throws Exception {
+		paidOrder(1, COURSE_ID);
+		RaceCourseInfo course = StubRaceCoursePort.openCourse(COURSE_ID, RACE_ID, 14, null);
+		raceCoursePort.put(new RaceCourseInfo(course.raceCourseId(), course.raceId(), course.raceDate(),
+			course.applicationOpenAt(), course.applicationCloseAt(), course.minAge(), course.maxAge(),
+			course.sellerId(), course.courseName(), course.price(), course.kitIncluded(), course.refundDeadline(),
+			course.scheduleChangedAt(), false, course.tshirtSizeOption(), null, "서울 마라톤", "10K"));
+
+		orderKafkaConsumer.handleRaceChanged(
+			payload(RACE_ID, LocalDateTime.of(2027, 3, 1, 8, 30), LocalDateTime.now().withNano(0)), "m-1");
+
+		ArgumentCaptor<NotificationRequestedEvent> sent = ArgumentCaptor.forClass(NotificationRequestedEvent.class);
+		verify(notificationSender).send(sent.capture());
+		assertThat(sent.getValue().body()).startsWith("서울 마라톤 3월 1일 08:30.");
+	}
+
+	@Test
+	@DisplayName("상품 조회가 실패하면 알린 기록도 남기지 않아, 다시 처리할 때 한 번만 알린다")
+	void retriesAfterProductFailure() throws Exception {
+		paidOrder(1, COURSE_ID);
+		LocalDateTime changedAt = LocalDateTime.now().withNano(0);
+		String payload = payload(RACE_ID, LocalDateTime.of(2027, 3, 1, 8, 30), changedAt);
+		raceCoursePort.setUnavailable(true);
+
+		assertThatThrownBy(() -> orderKafkaConsumer.handleRaceChanged(payload, "m-1"))
+			.isInstanceOf(ExternalServiceUnavailableException.class);
+		assertThat(raceScheduleNoticeRepository.count()).isZero();
+		verify(notificationSender, never()).send(any());
+
+		raceCoursePort.setUnavailable(false);
+		orderKafkaConsumer.handleRaceChanged(payload, "m-1");
+		orderKafkaConsumer.handleRaceChanged(payload, "m-1");
+		verify(notificationSender, times(1)).send(any());
 	}
 
 	// 상품 RaceChangedEvent 모양 그대로 (주문이 읽지 않는 칸도 넣는다)
