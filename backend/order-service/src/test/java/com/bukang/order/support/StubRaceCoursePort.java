@@ -6,6 +6,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
 import com.bukang.order.out.race.RaceCourseInfo;
@@ -23,9 +26,14 @@ public class StubRaceCoursePort implements RaceCoursePort {
 	private final Map<Long, RaceCourseInfo> courses = new HashMap<>();
 	// 상품 서비스가 멈춘 상황 (HTTP 어댑터는 연결 실패를 503 예외로 바꾼다)
 	private volatile boolean unavailable;
+	// 상품 서비스를 트랜잭션 안에서 부른 적이 있는지 (DB 연결을 쥔 채 HTTP를 기다리면 안 된다, BUK-248)
+	private final AtomicBoolean calledInTransaction = new AtomicBoolean();
 
 	@Override
 	public Optional<RaceCourseInfo> findCourse(long raceCourseId) {
+		if (TransactionSynchronizationManager.isActualTransactionActive()) {
+			calledInTransaction.set(true);
+		}
 		if (unavailable) {
 			throw new ExternalServiceUnavailableException("상품 서비스에 연결하지 못했습니다.");
 		}
@@ -40,7 +48,12 @@ public class StubRaceCoursePort implements RaceCoursePort {
 		courses.put(course.raceCourseId(), course);
 	}
 
+	public boolean calledInTransaction() {
+		return calledInTransaction.get();
+	}
+
 	public void clear() {
+		calledInTransaction.set(false);
 		courses.clear();
 		unavailable = false;
 	}
