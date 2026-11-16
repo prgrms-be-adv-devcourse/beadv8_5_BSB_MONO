@@ -77,7 +77,7 @@ function DashboardBody() {
       <AxBriefing screen="seller" askHref="/seller/ai" basisHref="/seller/settlements" />
       <div className="flex items-stretch gap-6">
         <TodoCard />
-        <PayoutCard races={races.data} />
+        <PayoutCard races={races.data} racesFailed={races.isError} />
       </div>
       <KitCard races={races.data} />
       <CourseSalesCard races={races.data} error={races.isError ? races.error : null} />
@@ -151,7 +151,13 @@ function TodoRow({
   )
 }
 
-function PayoutCard({ races }: { races: productModel.SellerRaceDto[] | undefined }) {
+function PayoutCard({
+  races,
+  racesFailed,
+}: {
+  races: productModel.SellerRaceDto[] | undefined
+  racesFailed: boolean
+}) {
   const summary = payoutApi.useSummary({ query: { select: unwrapData } })
   const courses = races?.flatMap((race) => race.courses ?? [])
   const sold = courses?.reduce((sum, c) => sum + (c.sold ?? 0), 0)
@@ -212,6 +218,8 @@ function PayoutCard({ races }: { races: productModel.SellerRaceDto[] | undefined
               정원의 {soldRate(sold, capacity)}%
             </p>
           </>
+        ) : racesFailed ? (
+          <p className="text-title2">-</p>
         ) : (
           <Skeleton className="h-12 w-32" />
         )}
@@ -258,8 +266,9 @@ function KitCard({ races }: { races: productModel.SellerRaceDto[] | undefined })
         items={KIT_TABS.map((value) => ({
           value,
           label: KIT_TAB_LABEL[value],
-          // 송장 입력 대기만 건수를 붙인다 (시안: 배송 중 · 배송 완료는 숫자 없음)
-          count: value === 'PREPARING' && summary.data ? shippableCount(summary.data) : undefined,
+          // 송장 입력 대기만 건수를 붙인다 (시안: 배송 중 · 배송 완료는 숫자 없음).
+          // 표가 배송 준비 전체를 보여 주므로 탭 숫자도 배송 준비 전체로 맞춘다
+          count: value === 'PREPARING' ? summary.data?.preparing : undefined,
         }))}
       />
       {kits.isError ? (
@@ -383,7 +392,7 @@ function CourseSalesCard({
           >
             {sales.bars.map((bar) => (
               <li
-                key={bar.id}
+                key={`${bar.id}-${bar.name}`}
                 className="flex h-full flex-1 flex-col items-center justify-end gap-2"
               >
                 <span className="text-caption-medium text-text-secondary">
@@ -391,7 +400,8 @@ function CourseSalesCard({
                 </span>
                 <span
                   className="relative w-9 overflow-hidden rounded-full bg-bg-track"
-                  style={{ height: `${bar.quotaPct * 0.8}%` }}
+                  // 막대 위 숫자 · 아래 코스 이름 자리를 남기려고 칸 높이의 70%까지만 쓴다
+                  style={{ height: `${bar.quotaPct * 0.7}%` }}
                 >
                   <span
                     className={cn(

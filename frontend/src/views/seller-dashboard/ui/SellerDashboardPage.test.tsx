@@ -83,6 +83,9 @@ describe('SellerDashboardPage', () => {
     expect(screen.getByText('정산 요약을 볼 수 없습니다.')).toBeInTheDocument()
     expect(await screen.findByText('대회 목록을 불러오지 못했어요')).toBeInTheDocument()
     expect(screen.getByText('승인된 판매자만 볼 수 있습니다.')).toBeInTheDocument()
+    // 판매한 참가권은 로딩 칸으로 남지 않고 - 로 바뀐다
+    const payout = await card('다음 정산')
+    expect(within(payout).getByText('-')).toBeInTheDocument()
   })
 
   it('처리할 일은 송장 입력 대기와 지급보류 건수를 더하고 각 메뉴로 연결한다', async () => {
