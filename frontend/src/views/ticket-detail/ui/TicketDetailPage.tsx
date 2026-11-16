@@ -115,7 +115,7 @@ export function TicketDetailPage({
           </div>
         </section>
 
-        {refundDeadline && (
+        {refundDeadline && status !== 'paying' && (
           <section className="flex flex-col gap-3 border-t-8 border-bg-subtle px-4 py-6">
             <h2 className="text-[18px] leading-6.5 font-bold tracking-[-0.015em]">환불 기준</h2>
             <div className="flex flex-col gap-2">

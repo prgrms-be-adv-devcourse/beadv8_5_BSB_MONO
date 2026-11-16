@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { http, HttpResponse } from 'msw'
+import { delay, http, HttpResponse } from 'msw'
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -12,6 +12,7 @@ import { ToastProvider } from '@/shared/ui'
 import { CrewHomePage } from './CrewHomePage'
 import { CrewInvitePage } from './CrewInvitePage'
 import { CrewInvitesPage } from './CrewInvitesPage'
+import { CrewMembersPage } from './CrewMembersPage'
 import { CrewNewPage } from './CrewNewPage'
 import { MyCrewsPage } from './MyCrewsPage'
 
@@ -200,7 +201,7 @@ describe('CrewHomePage (M09)', () => {
     expect(screen.getByRole('link', { name: '내 크루로 가기' })).toHaveAttribute('href', '/crews')
   })
 
-  it('크루원이 5명을 넘으면 나머지는 더 보기로 펼친다', async () => {
+  it('크루원이 5명을 넘으면 나머지는 크루원 목록 화면으로 이어 준다', async () => {
     const members = Array.from({ length: 7 }, (_, i) => ({
       memberId: i + 1,
       nickname: `러너${i + 1}`,
@@ -213,10 +214,75 @@ describe('CrewHomePage (M09)', () => {
         data: { ...example.data!, memberCount: 7, members },
       }),
     )
-    const user = userEvent.setup()
     renderPage(<CrewHomePage crewId={1} />)
-    await user.click(await screen.findByRole('button', { name: '크루원 2명 더 보기' }))
-    expect(screen.getByText('러너7')).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: '크루원 2명 더 보기' })).toHaveAttribute(
+      'href',
+      '/crews/1/members',
+    )
+    expect(screen.queryByText('러너7')).not.toBeInTheDocument()
+  })
+})
+
+describe('CrewMembersPage 크루원 목록', () => {
+  it('나와 다른 크루원을 나눠 보여 주고, 화살표는 그리지 않는다', async () => {
+    const crew = memberMock.getFindCrewResponseMock()
+    const members = [
+      { memberId: 1, nickname: '새벽곰', role: 'LEADER' as const },
+      { memberId: 7, nickname: '나의닉네임', role: 'MEMBER' as const },
+      ...Array.from({ length: 5 }, (_, i) => ({
+        memberId: 20 + i,
+        nickname: `러너${i}`,
+        role: 'MEMBER' as const,
+      })),
+    ]
+    server.use(
+      memberMock.getFindCrewMockHandler({
+        ...crew,
+        data: { ...crew.data!, name: '새벽한강크루', memberCount: 7, members },
+      }),
+      memberMock.getFindMeMockHandler({
+        ...memberMock.getFindMeResponseMock(),
+        data: { ...memberMock.getFindMeResponseMock().data!, id: 7 },
+      }),
+    )
+    renderPage(<CrewMembersPage crewId={1} />)
+    expect(
+      await screen.findByRole('heading', { name: '새벽한강크루 크루원 7명' }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '나' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '크루원 6명' })).toBeInTheDocument()
+    expect(screen.getByText('나의닉네임')).toBeInTheDocument()
+    expect(screen.getByText('러너4')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /크루원 .*더 보기/ })).not.toBeInTheDocument()
+  })
+})
+
+describe('CrewMembersPage 내 정보가 늦게 올 때', () => {
+  it('내 정보가 올 때까지 목록을 보여 주지 않아 「나」가 크루원에 섞이지 않는다', async () => {
+    const crew = memberMock.getFindCrewResponseMock()
+    const members = [
+      { memberId: 1, nickname: '새벽곰', role: 'LEADER' as const },
+      { memberId: 7, nickname: '나의닉네임', role: 'MEMBER' as const },
+    ]
+    server.use(
+      memberMock.getFindCrewMockHandler({
+        ...crew,
+        data: { ...crew.data!, name: '새벽한강크루', memberCount: 2, members },
+      }),
+      http.get('*/api/v1/member/members/me', async () => {
+        await delay(150)
+        return HttpResponse.json({
+          ...memberMock.getFindMeResponseMock(),
+          data: { ...memberMock.getFindMeResponseMock().data!, id: 7 },
+        })
+      }),
+    )
+    renderPage(<CrewMembersPage crewId={1} />)
+    await act(() => delay(50))
+    expect(screen.getByRole('status')).toHaveTextContent('크루원을 불러오는 중')
+    expect(screen.queryByText('나의닉네임')).not.toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '나' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '크루원 1명' })).toBeInTheDocument()
   })
 })
 

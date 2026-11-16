@@ -2,7 +2,7 @@
 
 import { Fragment, useState } from 'react'
 
-import { ConsolePage } from '@/widgets/console-page'
+import { CONSOLE_BOX, ConsolePage } from '@/widgets/console-page'
 import {
   formatStatsDayWithWeekday,
   resolveStatsPeriod,
@@ -14,7 +14,7 @@ import {
   type StatsPeriodQuery,
 } from '@/entities/usage-stats'
 import { clientEnv } from '@/shared/config'
-import { formatNumber, useSearchParamsState } from '@/shared/lib'
+import { cn, formatNumber, useSearchParamsState } from '@/shared/lib'
 import {
   Button,
   buttonClassName,
@@ -174,7 +174,12 @@ function RealtimeSection({ result }: { result: ReturnType<typeof useRealtimeStat
       <SectionState result={result} name="지금 접속 중을">
         {(data) => (
           <div className="flex items-start gap-4">
-            <div className="flex w-80 shrink-0 flex-col items-center gap-1 rounded-lg bg-bg-subtle p-4">
+            <div
+              className={cn(
+                'flex w-80 shrink-0 flex-col items-center gap-1 rounded-lg p-4',
+                CONSOLE_BOX,
+              )}
+            >
               <span className="text-caption-medium text-text-secondary">최근 30분 접속자</span>
               <span className="flex items-baseline gap-1">
                 <span className="text-title2">{formatNumber(data.activeUsers)}</span>

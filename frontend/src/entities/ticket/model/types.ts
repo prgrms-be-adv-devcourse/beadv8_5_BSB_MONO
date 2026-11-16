@@ -17,6 +17,8 @@ export type MyTicket = {
   itemName: string
   /** 결제 금액 (취소하면 돌려받는 금액) */
   amount: number
-  /** PAID(결제 완료) 또는 CANCELED(취소) */
+  /** PAID(결제 완료) 또는 CANCELED(취소). 결제 확인 중 주문이면 ORDERED */
   itemStatus: orderModel.OrderItemDtoStatus
+  /** 주문이 결제 확인 중(PAYING)이다. 결과가 나오기 전이라 취소·수정할 수 없다 */
+  paying: boolean
 }
