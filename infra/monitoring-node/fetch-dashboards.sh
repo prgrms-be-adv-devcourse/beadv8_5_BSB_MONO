@@ -28,10 +28,13 @@ for item in "${DASHBOARDS[@]}"; do
 	#   1번째 줄: 옛 대시보드(JVM 4701)는 "datasource": "${DS_PROMETHEUS}"처럼 글자 하나로 적는데, Grafana는 이걸 이름으로 찾는다.
 	#            데이터 소스 이름은 Prometheus(대문자)라 못 찾아 목록·그래프가 비므로, uid로 찾는 모양으로 바꾼다
 	#   2번째 줄: 새 대시보드의 {"uid": "${DS_PROMETHEUS}"} 같은 나머지 자리
+	#   3번째 줄: MySQL(14057)·ES(14191)는 "$datasource" 변수로 데이터 소스를 고르는데, 변수 저장값이 만든 사람 환경 그대로라
+	#            그래프가 비었다. 데이터 소스가 하나뿐이라 변수를 거치지 않고 uid로 바로 찾게 바꾼다
 	# ES 대시보드(14191 rev 1) 원본에는 지표 이름 오타(get_tota)가 있어 GET 요청 수 패널이 비므로 바른 이름으로 고친다
 	curl -fsSL "$url" \
 		| sed -e 's/"datasource": *"\${DS_PROMETHEUS}"/"datasource": {"type": "prometheus", "uid": "prometheus"}/g' \
 			-e 's/\${DS_PROMETHEUS}/prometheus/g' \
+			-e 's/"datasource": *"\$datasource"/"datasource": {"type": "prometheus", "uid": "prometheus"}/g' \
 			-e 's/elasticsearch_indices_get_tota{/elasticsearch_indices_get_total{/g' \
 		>"${OUT_DIR}/${name}.json"
 done
