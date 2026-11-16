@@ -138,7 +138,7 @@ public class MyTicketQueryFacade {
 			participation.getParticipant().getName(),
 			participation.getStatus(),
 			participation.getParticipationType(),
-			participation.getPaymentDueAt(),
+			participation.visiblePaymentDueAt(),
 			order == null ? null : order.orderId(),
 			order == null ? null : order.orderNo(),
 			order == null ? null : order.orderStatus(),
