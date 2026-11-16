@@ -68,6 +68,12 @@ class TossPaymentConfirmClient {
 			log.error("Toss 결제 승인 응답이 비어 있습니다. paymentKey={}, orderId={}", paymentKey, orderId);
 			throw new PaymentApprovalFailedException("PG 서버 응답이 올바르지 않습니다.");
 		}
+		// 200이어도 승인 완료가 아닐 수 있다(가상계좌 입금 대기 등). 충전하지 않고 결과 모름으로 넘겨 재조회·재확인 배치가 맞춘다
+		if (TossPaymentStatus.from(response.status()) != TossPaymentStatus.DONE) {
+			log.error("Toss 결제 승인 응답이 승인 완료가 아닙니다. paymentKey={}, orderId={}, status={}",
+				paymentKey, orderId, response.status());
+			throw new PaymentApprovalFailedException("결제 승인을 확인하지 못했습니다. 잠시 후 다시 확인해주세요.");
+		}
 		return new PaymentApprovalResult(response.totalAmount(), response.paymentKey(), response.approvedAtInKorea());
 	}
 
@@ -119,7 +125,7 @@ class TossPaymentConfirmClient {
 	private record ConfirmRequest(String paymentKey, String orderId, long amount) {
 	}
 
-	// Toss 응답(Payment 객체)엔 필드가 훨씬 많지만, 지갑에 반영할 때 쓰는 값만 받는다. status는 조회 응답에서만 쓴다
+	// Toss 응답(Payment 객체)엔 필드가 훨씬 많지만, 지갑에 반영할 때 쓰는 값과 승인 완료인지 볼 status만 받는다
 	// approvedAt은 PG 결제취소 기한의 기준이라 받는다 (Toss는 "2026-10-15T10:00:00+09:00" 형식으로 준다)
 	@JsonIgnoreProperties(ignoreUnknown = true)
 	private record PaymentResponse(String paymentKey, long totalAmount, String status, OffsetDateTime approvedAt) {
