@@ -3,6 +3,10 @@ server:
   port: 8083
 
 spring:
+  # 지표·추적 공통 설정 (common의 observability.yaml). 불러온 파일의 값이 이 파일 값보다 우선한다
+  config:
+    import: classpath:observability.yaml
+
   application:
     name: file-service
 
