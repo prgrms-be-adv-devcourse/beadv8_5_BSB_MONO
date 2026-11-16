@@ -41,7 +41,7 @@ public class PayoutHoldUseCase {
 	@Transactional
 	public PayoutHoldDto hold(long payoutId, PayoutHoldReason reasonType, String reason, long heldBy,
 		LocalDateTime now) {
-		Payout payout = payoutRepository.findById(payoutId).orElseThrow(PayoutNotFoundException::new);
+		Payout payout = payoutRepository.findByIdForUpdate(payoutId).orElseThrow(PayoutNotFoundException::new);
 		return PayoutHoldDto.from(save(payout.hold(reasonType, reason, heldBy, now)));
 	}
 
@@ -55,8 +55,11 @@ public class PayoutHoldUseCase {
 
 	@Transactional
 	public PayoutHoldDto release(long holdId, long releasedBy, LocalDateTime now) {
+		// 정산 내역부터 잠근다. 보류를 먼저 읽으면 MySQL(REPEATABLE READ)은 그 시점 스냅숏으로 다른 보류를 읽어
+		// 동시에 풀린 보류를 아직 걸린 것으로 본다
+		Payout payout = payoutRepository.findByHoldIdForUpdate(holdId).orElseThrow(PayoutHoldNotFoundException::new);
 		PayoutHold hold = payoutHoldRepository.findById(holdId).orElseThrow(PayoutHoldNotFoundException::new);
-		hold.getPayout().release(hold, releasedBy, now, businessDayCalendar);
+		payout.release(hold, releasedBy, now, businessDayCalendar);
 		return PayoutHoldDto.from(hold);
 	}
 
