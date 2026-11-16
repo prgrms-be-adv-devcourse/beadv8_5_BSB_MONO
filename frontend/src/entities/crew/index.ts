@@ -5,5 +5,6 @@ export {
   parseKstDateTime,
 } from './lib/crew-time'
 export { withObjectParticle, withSubjectParticle } from './lib/subject-particle'
+export { inviteUrl, partyJoinPath } from './model/invite-url'
 export { canInvite, CREW_ROLE_LABEL, CREW_ROLE_TONE, type CrewRole } from './model/crew-role'
 export { CrewHero, type CrewHeroProps } from './ui/CrewHero'

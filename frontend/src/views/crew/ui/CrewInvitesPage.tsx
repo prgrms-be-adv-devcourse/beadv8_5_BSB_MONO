@@ -13,6 +13,7 @@ import {
   canInvite,
   formatRemaining,
   inviteCreatedLabel,
+  inviteUrl,
   withSubjectParticle,
 } from '@/entities/crew'
 import { ApiError, memberApi, memberModel, unwrapData } from '@/shared/api'
@@ -28,7 +29,6 @@ import {
   useToast,
 } from '@/shared/ui'
 
-import { inviteUrl } from '../model/invite-url'
 import { CrewBand, CrewLoadError } from './CrewBand'
 import { KakaoInviteSheet } from './KakaoInviteSheet'
 
