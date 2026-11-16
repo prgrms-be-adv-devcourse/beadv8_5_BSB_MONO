@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 
-import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
+import { CONSOLE_BOX, ConsoleCard, ConsolePage } from '@/widgets/console-page'
 import { usePlaceHold } from '@/features/payout-hold'
 import { HOLD_REASON_ITEMS } from '@/entities/payout'
 import type { payoutModel } from '@/shared/api'
@@ -149,7 +149,7 @@ export function AdminHoldsPage() {
       </ConsoleCard>
 
       <ConsoleCard title="보류 처리">
-        <div className="flex flex-col gap-3 rounded-md bg-bg-subtle p-4">
+        <div className={cn('flex flex-col gap-3 rounded-md p-4', CONSOLE_BOX)}>
           <p className="text-body2-medium">
             {hold.id} · {hold.seller}
           </p>

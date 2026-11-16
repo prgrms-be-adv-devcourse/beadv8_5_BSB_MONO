@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Controller, useForm, useWatch } from 'react-hook-form'
 
-import { ConsoleCard } from '@/widgets/console-page'
+import { CONSOLE_BOX, ConsoleCard } from '@/widgets/console-page'
 import { loginHref, useAuthStatus } from '@/features/auth'
 import { formatSellerDate, isNoApplication, SELLER_STATUS } from '@/entities/member'
 import { memberApi, unwrapData, type memberModel } from '@/shared/api'
@@ -257,6 +257,7 @@ export function SellerApplyPage() {
         </ConsoleCard>
 
         <Alert
+          className={CONSOLE_BOX}
           title="크루런은 통신판매중개자예요"
           description="거래 당사자는 판매자님이에요. 판매자 정보는 대회 상세 화면에서 구매자에게 보여요."
         />
