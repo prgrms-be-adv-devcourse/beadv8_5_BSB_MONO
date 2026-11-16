@@ -71,6 +71,7 @@ k6 run -e RUN=3 loadtest/scenario-b/b2-payment-with-payout.js && ./loadtest/scen
 |---|---|
 | `container/compose.load.yml` | 예치금 + MySQL·Kafka·Redis·mysqld-exporter·Prometheus (프로젝트 이름 `cashload`, 자원 제한 포함) |
 | `container/run.sh` | 한 바퀴: 빈 DB로 띄우기 → 시드 → 예열·B-0~B-5 → 시나리오마다 돈 확인 → 락 통계·그래프 → 내리기 |
+| `container/report.py` | 회차를 모아 3회 중앙값 표와 판정(P1~P8, 돈 확인 C)을 `summary.md`로 만든다 (`report.py summary <결과> <내보낼 폴더>`) |
 | `b1-payment-concurrency.js` | B-1 결제 동시 4·8개 (주문이 보내는 모양) |
 | `b5-charge.js`, `seed-charge.sh` | B-5 충전 승인 초당 48건, 1,000명 동시 |
 | `sql/12-verify-charge.sql` | 중복 충전 확인 (C6) |

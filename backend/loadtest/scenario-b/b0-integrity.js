@@ -35,6 +35,8 @@ export const options = {
 	thresholds: {
 		http_req_failed: ['rate==0'],
 		checks: ['rate==1'],
+		// 판정 P8(결제 p95 2초)용. 기준을 걸어야 요약 파일에 결제만의 응답 시간이 따로 남는다
+		'http_req_duration{api:pay}': ['p(95)<2000'],
 	},
 };
 

@@ -37,6 +37,8 @@ log() { echo "[$(date +%H:%M:%S)] $LABEL rep$REP $*"; }
 
 mkdir -p "$RUN_DIR"
 : > "$RUN_DIR/windows.tsv"
+# 결과 정리(report.py)가 처리량을 계산할 때 쓴다
+printf 'STAGE_SEC=%s\nPHASE_SEC=%s\nDURATION_SEC=%s\n' "$STAGE_SEC" "$PHASE_SEC" "$DURATION_SEC" > "$RUN_DIR/params.txt"
 
 log "환경 띄우기 (빈 DB)"
 compose down -v --remove-orphans >/dev/null 2>&1 || true
