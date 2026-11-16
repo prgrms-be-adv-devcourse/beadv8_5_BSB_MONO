@@ -18,6 +18,12 @@ export function formatKstDateTime(value: string): string {
   return `${kst.getUTCMonth() + 1}/${kst.getUTCDate()} (${WEEKDAYS[kst.getUTCDay()]}) ${pad(kst.getUTCHours())}:${pad(kst.getUTCMinutes())}`
 }
 
+/** 11월 20일 */
+export function formatKstMonthDay(value: string): string {
+  const kst = new Date(parseKstDateTime(value) + KST_OFFSET_MS)
+  return `${kst.getUTCMonth() + 1}월 ${kst.getUTCDate()}일`
+}
+
 /** 남은 시간을 「23시간 12분」처럼 쓴다. 1분이 안 남았으면 「1분」, 이미 지났으면 null. */
 export function formatRemaining(expiresAt: string, now: number = Date.now()): string | null {
   const left = parseKstDateTime(expiresAt) - now

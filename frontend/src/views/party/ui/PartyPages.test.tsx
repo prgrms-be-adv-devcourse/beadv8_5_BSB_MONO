@@ -455,6 +455,56 @@ describe('파티 만들기', () => {
     ).toBeInTheDocument()
   })
 
+  it('크루가 참가 제한 중이면(403) 제한이 끝나는 날을 알리고 크루 홈으로 보낸다', async () => {
+    const user = userEvent.setup()
+    server.use(
+      productMock.getSearchMockHandler({
+        status: 200,
+        message: '성공',
+        data: {
+          races: [
+            {
+              raceId: 100,
+              title: '2026 용감한 쿠키RUN in 서울',
+              crewSaleStartAt: '2020-01-01T00:00:00',
+              crewSaleEndAt: '2099-01-01T18:00:00',
+            },
+          ],
+          page: 0,
+          size: 20,
+          totalElements: 1,
+          totalPages: 1,
+        },
+      }),
+      http.post('*/api/v1/order/parties', () =>
+        HttpResponse.json(
+          {
+            status: 403,
+            code: 'ORDER_CREW_PARTY_RESTRICTED',
+            message: '제한 중',
+            data: { endAt: '2026-11-20T10:00:00' },
+          },
+          { status: 403 },
+        ),
+      ),
+    )
+    renderPage(<PartyNewPage crewId={7} />)
+    await user.click(await screen.findByRole('button', { name: /2026 용감한 쿠키RUN in 서울/ }))
+    await user.click(await screen.findByRole('radio', { name: /10K/ }))
+    await user.click(screen.getByRole('button', { name: '10K로 참가 정보 적기' }))
+    await user.click(await screen.findByRole('checkbox'))
+    await user.type(screen.getByLabelText('참가자 이름'), '김러너')
+    fireEvent.change(screen.getByLabelText('생년월일'), { target: { value: '1994-06-25' } })
+    await user.click(screen.getByRole('radio', { name: '남성' }))
+    await user.type(screen.getByLabelText('휴대폰 번호'), '01012345678')
+    await user.type(screen.getByLabelText('비상 연락처 이름'), '박보호')
+    await user.type(screen.getByLabelText('비상 연락처 번호'), '01098765432')
+    await user.click(screen.getByRole('button', { name: '파티 만들기' }))
+    expect(await screen.findByText('파티를 만들 수 없어요')).toBeInTheDocument()
+    expect(screen.getByText('11월 20일까지 파티 만들기가 제한돼요.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '크루 홈으로' })).toBeInTheDocument()
+  })
+
   it('크루 없이 들어오면 크루 홈으로 안내한다', () => {
     renderPage(<PartyNewPage />)
     expect(screen.getByText('크루 홈에서 파티를 만들 수 있어요')).toBeInTheDocument()

@@ -9,8 +9,9 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 
 import { AppHeader } from '@/widgets/app-header'
-import { formatKstDateTime, parseKstDateTime } from '@/entities/crew'
+import { formatKstDateTime, formatKstMonthDay, parseKstDateTime } from '@/entities/crew'
 import {
+  crewPartyRestrictedEndAt,
   individualParticipationId,
   partyFailureOf,
   useCreateParty,
@@ -25,6 +26,7 @@ import {
   BottomCta,
   Button,
   buttonClassName,
+  Dialog,
   EmptyState,
   Radio,
   RadioGroup,
@@ -71,6 +73,8 @@ export function PartyNewPage({ crewId }: { crewId?: number }) {
   const [blocked, setBlocked] = useState<PartyFailure>()
   const [individualId, setIndividualId] = useState<number>()
   const [serverMessage, setServerMessage] = useState<string>()
+  // 결제율 미달로 크루의 파티 만들기가 제한된 경우, 제한이 끝나는 시각
+  const [restrictedEnd, setRestrictedEnd] = useState<string>()
   const detail = productApi.useFindRace(raceId ?? 0, {
     query: { enabled: raceId !== undefined, select: unwrapData },
   })
@@ -97,7 +101,10 @@ export function PartyNewPage({ crewId }: { crewId?: number }) {
         onSuccess: ({ party }) => router.replace(`/parties/${party.id}` as Route),
         onError: (error) => {
           const failure = partyFailureOf(error)
-          if (failure === 'INDIVIDUAL_EXISTS') setIndividualId(individualParticipationId(error))
+          const restricted = crewPartyRestrictedEndAt(error)
+          if (restricted) setRestrictedEnd(restricted)
+          else if (failure === 'INDIVIDUAL_EXISTS')
+            setIndividualId(individualParticipationId(error))
           else if (failure) setBlocked(failure)
           else
             setServerMessage(
@@ -272,6 +279,17 @@ export function PartyNewPage({ crewId }: { crewId?: number }) {
           }
         />
       )}
+      <Dialog
+        open={restrictedEnd !== undefined}
+        onOpenChange={(open) => !open && setRestrictedEnd(undefined)}
+        type="alert"
+        title="파티를 만들 수 없어요"
+        body={
+          restrictedEnd ? `${formatKstMonthDay(restrictedEnd)}까지 파티 만들기가 제한돼요.` : ''
+        }
+        confirmLabel="크루 홈으로"
+        onConfirm={() => router.push(`/crews/${crewId}` as Route)}
+      />
       {individualId !== undefined && (
         <IndividualExistsDialog
           participationId={individualId}
