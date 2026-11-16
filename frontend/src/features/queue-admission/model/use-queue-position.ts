@@ -67,9 +67,19 @@ export function useQueuePosition(raceId: number | undefined, raceCourseId: numbe
   const lost = statusOf(position.error) === 404
   const attempts = useRef(0)
   const [exhausted, setExhausted] = useState(false)
+  // 화면을 떠난 뒤에는 다시 등록하지 않는다
+  const alive = useRef(true)
+  useEffect(() => {
+    alive.current = true
+    return () => {
+      alive.current = false
+    }
+  }, [])
   const reregister = () => {
+    if (!alive.current) return
     attempts.current += 1
     void register.refetch().then(async (result) => {
+      if (!alive.current) return
       const again = result.isSuccess ? await position.refetch() : undefined
       if (again?.isSuccess === true) return
       // 아직 줄에 서지 못했다. 횟수가 남았으면 다시 등록하고, 다 썼으면 failed로 알린다.

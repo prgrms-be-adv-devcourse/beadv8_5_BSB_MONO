@@ -14,7 +14,7 @@ cd "$(dirname "$0")/../.."
 
 CLUSTER="${CLUSTER:-crewrun}"
 ALL=(gateway member-service cash-service payout-service file-service order-service
-	product-service queue-service notification-service board-service ai-service web)
+	product-service queue-service notification-service inquiry-service board-service ai-service web)
 
 if [ "$#" -gt 0 ]; then
 	SERVICES=("$@")

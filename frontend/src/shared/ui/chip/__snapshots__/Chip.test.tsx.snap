@@ -1,0 +1,5 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Chip > selected=false 일 때 className 1`] = `"relative inline-flex h-8 shrink-0 items-center gap-1 rounded-full px-3 whitespace-nowrap before:absolute before:inset-x-0 before:-inset-y-1.5 disabled:cursor-not-allowed disabled:opacity-50 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus bg-bg-surface text-body2-medium text-text-secondary inset-ring inset-ring-border-default enabled:hover:bg-bg-subtle disabled:inset-ring-border-disabled"`;
+
+exports[`Chip > selected=true 일 때 className 1`] = `"relative inline-flex h-8 shrink-0 items-center gap-1 rounded-full px-3 whitespace-nowrap before:absolute before:inset-x-0 before:-inset-y-1.5 disabled:cursor-not-allowed disabled:opacity-50 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus bg-bg-inverse text-body2-bold text-text-inverse"`;

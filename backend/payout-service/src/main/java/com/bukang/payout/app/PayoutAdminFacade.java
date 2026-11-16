@@ -12,6 +12,7 @@ import com.bukang.payout.domain.PayoutBatchTrigger;
 import com.bukang.payout.domain.PayoutClaimStatus;
 import com.bukang.payout.domain.PayoutCreateFailureType;
 import com.bukang.payout.domain.PayoutHoldReason;
+import com.bukang.payout.domain.PayoutPayCheckResult;
 import com.bukang.payout.domain.PayoutQueryPeriod;
 import com.bukang.payout.domain.exception.PayoutBatchFutureDateException;
 import com.bukang.payout.dto.PayoutAdminClaimsDto;
@@ -41,6 +42,7 @@ public class PayoutAdminFacade {
 	private final PayoutClaimQueryUseCase payoutClaimQueryUseCase;
 	private final PayoutAdminQueryUseCase payoutAdminQueryUseCase;
 	private final PayoutBatchUseCase payoutBatchUseCase;
+	private final PayoutPayCheckUseCase payoutPayCheckUseCase;
 	private final PayoutBatchRunRepository payoutBatchRunRepository;
 
 	public PayoutHoldDto hold(long memberId, long payoutId, PayoutHoldReason reasonType, String reason,
@@ -92,6 +94,13 @@ public class PayoutAdminFacade {
 		payoutAdminVerifyUseCase.verify(memberId);
 		checkNotFuture(today, now);
 		return payoutBatchUseCase.runPay(PayoutBatchTrigger.관리자, memberId, today, now);
+	}
+
+	// 지급 확인 필요 정산 내역을 관리자가 캐시 서비스에서 확인한 결과대로 닫는다 (BUK-174)
+	public PayoutDto closePayCheck(long memberId, long payoutId, PayoutPayCheckResult result, String memo,
+		LocalDateTime now) {
+		payoutAdminVerifyUseCase.verify(memberId);
+		return payoutPayCheckUseCase.close(payoutId, result, memberId, memo, now);
 	}
 
 	// 미래 기준일로 지급하면 지급일이 안 된 정산이 오늘 나간다 (BUK-167 리뷰). 생성도 같은 이유로 막는다

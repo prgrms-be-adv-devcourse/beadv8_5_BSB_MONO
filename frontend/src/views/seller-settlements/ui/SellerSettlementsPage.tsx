@@ -3,7 +3,7 @@
 import { keepPreviousData } from '@tanstack/react-query'
 import { useState, type ReactNode } from 'react'
 
-import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
+import { ConsoleCard, ConsoleLoading, ConsolePage } from '@/widgets/console-page'
 import {
   detailPeriods,
   formatMonthDay,
@@ -17,7 +17,7 @@ import {
   type DetailPeriod,
 } from '@/entities/payout'
 import { ApiError, payoutApi, payoutModel, unwrapData } from '@/shared/api'
-import { cn, formatNumber, formatWon } from '@/shared/lib'
+import { cn, formatNumber, formatWon, useNow, useSearchParamsState } from '@/shared/lib'
 import {
   Alert,
   Badge,
@@ -47,13 +47,29 @@ function errorText(error: unknown) {
 
 // 피그마 V2 · S04 정산(월별 정산) · S10 정산 내역 · 지급보류
 export function SellerSettlementsPage({ initialTab = 'monthly' }: { initialTab?: SettlementTab }) {
-  const [tab, setTab] = useState<SettlementTab>(initialTab)
-  const isHolds = tab === 'holds'
-  // 화면을 연 날 기준. 기간 목록이 렌더마다 바뀌지 않게 한 번만 잡는다
-  const [today] = useState(() => new Date())
+  // 화면을 연 날 기준. 서버와 브라우저의 날짜가 어긋나지 않게 마운트 뒤에 정하고, 그 전에는 뼈대만 그린다
+  const today = useNow()
+  if (!today) {
+    return (
+      <ConsolePage title="정산">
+        <ConsoleLoading />
+      </ConsolePage>
+    )
+  }
+  return <SettlementsBody initialTab={initialTab} today={today} />
+}
+
+function SettlementsBody({ initialTab, today }: { initialTab: SettlementTab; today: Date }) {
+  // 기간 목록이 렌더마다 바뀌지 않게 한 번만 잡는다
   const [periods] = useState(() => detailPeriods(today))
-  const [periodValue, setPeriodValue] = useState(periods[0].value)
-  const period = periods.find((p) => p.value === periodValue) ?? periods[0]
+  // 탭 · 기간은 URL(?tab=&period=)에 담는다. 건별 정산의 쪽(page)은 PayoutItemList가 같은 방식으로 쓴다
+  const [url, setUrl] = useSearchParamsState(
+    { tab: initialTab as string, period: periods[0].value, page: '0' },
+    { tab: ['monthly', 'orders', 'holds'], period: periods.map((p) => p.value) },
+  )
+  const tab = url.tab as SettlementTab
+  const isHolds = tab === 'holds'
+  const period = periods.find((p) => p.value === url.period) ?? periods[0]
 
   const summary = payoutApi.useSummary({ query: { select: unwrapData } })
 
@@ -104,7 +120,7 @@ export function SellerSettlementsPage({ initialTab = 'monthly' }: { initialTab?:
         label="정산 보기"
         layout="hug"
         value={tab}
-        onChange={setTab}
+        onChange={(next) => setUrl({ tab: next })}
         items={[
           { value: 'monthly', label: '월별 정산' },
           { value: 'orders', label: '건별 정산' },
@@ -121,8 +137,8 @@ export function SellerSettlementsPage({ initialTab = 'monthly' }: { initialTab?:
               label="조회 기간"
               helper="건별 정산·지급보류는 한 번에 최대 1개월까지"
               items={periods}
-              value={periodValue}
-              onValueChange={(next) => next && setPeriodValue(next)}
+              value={period.value}
+              onValueChange={(next) => next && setUrl({ period: next, page: '0' })}
               className="flex-1"
             />
             {/* TODO(api): ID로 찾기 API가 아직 없어 막아 둔다 */}
@@ -235,9 +251,9 @@ function MonthlyPayouts({ today }: { today: Date }) {
 }
 
 function PayoutItemList({ period }: { period: DetailPeriod }) {
-  // 기간이 바뀌면 첫 페이지로 돌아간다
-  const [pageState, setPageState] = useState({ key: period.value, page: 0 })
-  const page = pageState.key === period.value ? pageState.page : 0
+  // 쪽은 URL(?page=)에 담는다. 기간을 바꿀 때 위에서 첫 쪽으로 돌린다
+  const [url, setUrl] = useSearchParamsState({ page: '0' })
+  const page = Math.max(0, Math.trunc(Number(url.page)) || 0)
   const items = payoutApi.useItems(
     { from: period.from, to: period.to, page, size: ITEM_PAGE_SIZE },
     { query: { select: unwrapData, placeholderData: keepPreviousData } },
@@ -295,7 +311,7 @@ function PayoutItemList({ period }: { period: DetailPeriod }) {
               className="self-center"
               page={page + 1}
               totalPages={items.data?.totalPages ?? 1}
-              onPageChange={(next) => setPageState({ key: period.value, page: next - 1 })}
+              onPageChange={(next) => setUrl({ page: String(next - 1) })}
             />
           )}
         </>

@@ -613,6 +613,26 @@ export const getFindSellerPartiesMockHandler = (overrideResponse?: RsDataSellerP
       })
   }, options)
 }
+
+export const getExportRosterMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
+  return http.post('*/api/v1/order/seller/orders/roster-export', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+
+    return new HttpResponse(null,
+      { status: 200
+      })
+  }, options)
+}
+
+export const getExportKitShipmentsMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
+  return http.post('*/api/v1/order/seller/kits/export', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+
+    return new HttpResponse(null,
+      { status: 200
+      })
+  }, options)
+}
 export const getBukangOrderAPIMock = () => [
   getChangeTrackingMockHandler(),
   getShipMockHandler(),
@@ -656,5 +676,7 @@ export const getBukangOrderAPIMock = () => [
   getRemoveItemMockHandler(),
   getSummarizeSellerSalesMockHandler(),
   getFindSellerOrdersMockHandler(),
-  getFindSellerPartiesMockHandler()
+  getFindSellerPartiesMockHandler(),
+  getExportRosterMockHandler(),
+  getExportKitShipmentsMockHandler()
 ]

@@ -45,6 +45,7 @@ export const ChangeTrackingResponse = zod.object({
   "kitTrackingNumber": zod.string().nullish(),
   "kitShippedAt": zod.iso.datetime({"offset":true}).nullish(),
   "kitDeliveredAt": zod.iso.datetime({"offset":true}).nullish(),
+  "kitReceivedAt": zod.iso.datetime({"offset":true}).nullish().describe('키트 수령을 확인한 시각 (BUK-225). 확인 전이면 null. 확인한 참가권은 취소할 수 없다'),
   "kitTracking": zod.union([zod.object({
   "carrierId": zod.string().optional().describe('택배사 ID (Delivery Tracker)'),
   "status": zod.enum(['NOT_TRACKED', 'INFORMATION_RECEIVED', 'AT_PICKUP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'ATTEMPT_FAIL', 'DELIVERED', 'AVAILABLE_FOR_PICKUP', 'EXCEPTION', 'UNKNOWN']).optional().describe('배송 상태. NOT_TRACKED는 아직 조회되지 않음'),
@@ -102,6 +103,7 @@ export const ShipResponse = zod.object({
   "kitTrackingNumber": zod.string().nullish(),
   "kitShippedAt": zod.iso.datetime({"offset":true}).nullish(),
   "kitDeliveredAt": zod.iso.datetime({"offset":true}).nullish(),
+  "kitReceivedAt": zod.iso.datetime({"offset":true}).nullish().describe('키트 수령을 확인한 시각 (BUK-225). 확인 전이면 null. 확인한 참가권은 취소할 수 없다'),
   "kitTracking": zod.union([zod.object({
   "carrierId": zod.string().optional().describe('택배사 ID (Delivery Tracker)'),
   "status": zod.enum(['NOT_TRACKED', 'INFORMATION_RECEIVED', 'AT_PICKUP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'ATTEMPT_FAIL', 'DELIVERED', 'AVAILABLE_FOR_PICKUP', 'EXCEPTION', 'UNKNOWN']).optional().describe('배송 상태. NOT_TRACKED는 아직 조회되지 않음'),
@@ -246,6 +248,7 @@ export const CompleteDeliveryResponse = zod.object({
   "kitTrackingNumber": zod.string().nullish(),
   "kitShippedAt": zod.iso.datetime({"offset":true}).nullish(),
   "kitDeliveredAt": zod.iso.datetime({"offset":true}).nullish(),
+  "kitReceivedAt": zod.iso.datetime({"offset":true}).nullish().describe('키트 수령을 확인한 시각 (BUK-225). 확인 전이면 null. 확인한 참가권은 취소할 수 없다'),
   "kitTracking": zod.union([zod.object({
   "carrierId": zod.string().optional().describe('택배사 ID (Delivery Tracker)'),
   "status": zod.enum(['NOT_TRACKED', 'INFORMATION_RECEIVED', 'AT_PICKUP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'ATTEMPT_FAIL', 'DELIVERED', 'AVAILABLE_FOR_PICKUP', 'EXCEPTION', 'UNKNOWN']).optional().describe('배송 상태. NOT_TRACKED는 아직 조회되지 않음'),
@@ -859,6 +862,7 @@ export const CreateResponse = zod.object({
   "kitTrackingNumber": zod.string().nullish(),
   "kitShippedAt": zod.iso.datetime({"offset":true}).nullish(),
   "kitDeliveredAt": zod.iso.datetime({"offset":true}).nullish(),
+  "kitReceivedAt": zod.iso.datetime({"offset":true}).nullish().describe('키트 수령을 확인한 시각 (BUK-225). 확인 전이면 null. 확인한 참가권은 취소할 수 없다'),
   "kitTracking": zod.union([zod.object({
   "carrierId": zod.string().optional().describe('택배사 ID (Delivery Tracker)'),
   "status": zod.enum(['NOT_TRACKED', 'INFORMATION_RECEIVED', 'AT_PICKUP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'ATTEMPT_FAIL', 'DELIVERED', 'AVAILABLE_FOR_PICKUP', 'EXCEPTION', 'UNKNOWN']).optional().describe('배송 상태. NOT_TRACKED는 아직 조회되지 않음'),
@@ -935,6 +939,7 @@ export const PayResponse = zod.object({
   "kitTrackingNumber": zod.string().nullish(),
   "kitShippedAt": zod.iso.datetime({"offset":true}).nullish(),
   "kitDeliveredAt": zod.iso.datetime({"offset":true}).nullish(),
+  "kitReceivedAt": zod.iso.datetime({"offset":true}).nullish().describe('키트 수령을 확인한 시각 (BUK-225). 확인 전이면 null. 확인한 참가권은 취소할 수 없다'),
   "kitTracking": zod.union([zod.object({
   "carrierId": zod.string().optional().describe('택배사 ID (Delivery Tracker)'),
   "status": zod.enum(['NOT_TRACKED', 'INFORMATION_RECEIVED', 'AT_PICKUP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'ATTEMPT_FAIL', 'DELIVERED', 'AVAILABLE_FOR_PICKUP', 'EXCEPTION', 'UNKNOWN']).optional().describe('배송 상태. NOT_TRACKED는 아직 조회되지 않음'),
@@ -1001,6 +1006,7 @@ export const CancelItemResponse = zod.object({
   "kitTrackingNumber": zod.string().nullish(),
   "kitShippedAt": zod.iso.datetime({"offset":true}).nullish(),
   "kitDeliveredAt": zod.iso.datetime({"offset":true}).nullish(),
+  "kitReceivedAt": zod.iso.datetime({"offset":true}).nullish().describe('키트 수령을 확인한 시각 (BUK-225). 확인 전이면 null. 확인한 참가권은 취소할 수 없다'),
   "kitTracking": zod.union([zod.object({
   "carrierId": zod.string().optional().describe('택배사 ID (Delivery Tracker)'),
   "status": zod.enum(['NOT_TRACKED', 'INFORMATION_RECEIVED', 'AT_PICKUP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'ATTEMPT_FAIL', 'DELIVERED', 'AVAILABLE_FOR_PICKUP', 'EXCEPTION', 'UNKNOWN']).optional().describe('배송 상태. NOT_TRACKED는 아직 조회되지 않음'),
@@ -1114,6 +1120,7 @@ export const CheckoutResponse = zod.object({
   "kitTrackingNumber": zod.string().nullish(),
   "kitShippedAt": zod.iso.datetime({"offset":true}).nullish(),
   "kitDeliveredAt": zod.iso.datetime({"offset":true}).nullish(),
+  "kitReceivedAt": zod.iso.datetime({"offset":true}).nullish().describe('키트 수령을 확인한 시각 (BUK-225). 확인 전이면 null. 확인한 참가권은 취소할 수 없다'),
   "kitTracking": zod.union([zod.object({
   "carrierId": zod.string().optional().describe('택배사 ID (Delivery Tracker)'),
   "status": zod.enum(['NOT_TRACKED', 'INFORMATION_RECEIVED', 'AT_PICKUP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'ATTEMPT_FAIL', 'DELIVERED', 'AVAILABLE_FOR_PICKUP', 'EXCEPTION', 'UNKNOWN']).optional().describe('배송 상태. NOT_TRACKED는 아직 조회되지 않음'),
@@ -1583,6 +1590,7 @@ export const FindMyTicketsResponse = zod.object({
   "kitDeliveryStatus": zod.union([zod.literal('PREPARING'),zod.literal('SHIPPING'),zod.literal('DELIVERED'),zod.literal(null)]).nullish().describe('키트 배송 상태. 결제 전이거나 키트가 없으면 null'),
   "kitCarrier": zod.string().nullish().describe('택배사. 발송 전이면 null'),
   "kitTrackingNumber": zod.string().nullish().describe('송장 번호. 발송 전이면 null'),
+  "kitReceivedAt": zod.iso.datetime({"offset":true}).nullish().describe('키트 수령을 확인한 시각 (BUK-225). 확인 전이면 null. 확인한 참가권은 취소할 수 없다'),
   "partyId": zod.int().nullish().describe('파티 ID. 개인 신청이면 null'),
   "crewId": zod.int().nullish().describe('크루 ID. 크루 이름은 GET /api/v1/member/crews/me에서 찾는다. 개인 신청이면 null'),
   "partyStatus": zod.union([zod.literal('RECRUITING'),zod.literal('PAYING'),zod.literal('PAID'),zod.literal('CLOSED'),zod.literal(null)]).nullish().describe('파티 상태. 개인 신청이면 null'),
@@ -1668,6 +1676,7 @@ export const FindById1Response = zod.object({
   "kitTrackingNumber": zod.string().nullish(),
   "kitShippedAt": zod.iso.datetime({"offset":true}).nullish(),
   "kitDeliveredAt": zod.iso.datetime({"offset":true}).nullish(),
+  "kitReceivedAt": zod.iso.datetime({"offset":true}).nullish().describe('키트 수령을 확인한 시각 (BUK-225). 확인 전이면 null. 확인한 참가권은 취소할 수 없다'),
   "kitTracking": zod.union([zod.object({
   "carrierId": zod.string().optional().describe('택배사 ID (Delivery Tracker)'),
   "status": zod.enum(['NOT_TRACKED', 'INFORMATION_RECEIVED', 'AT_PICKUP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'ATTEMPT_FAIL', 'DELIVERED', 'AVAILABLE_FOR_PICKUP', 'EXCEPTION', 'UNKNOWN']).optional().describe('배송 상태. NOT_TRACKED는 아직 조회되지 않음'),
@@ -1870,3 +1879,39 @@ export const FindSellerPartiesResponse = zod.object({
   "totalPages": zod.int().optional()
 }).optional().describe('판매자 파티별 내역 한 페이지')
 })
+
+
+/**
+ * 대회 당일 확인용 참가자 명단. 결제 완료(참가 확정)인 참가권만 종목·주문 순으로 담는다. 칸: 주문번호, 종목, 참가자 이름, 연락처, 키트 옵션, 파티 번호. 엑셀에서 바로 열리는 CSV(UTF-8 BOM)다. 내려받을 때마다 누가 언제 왜 몇 줄 받았는지 기록한다. 다른 판매자의 대회를 고르면 머리줄만 있는 파일이다.
+ * @summary 참가자 명단 내려받기 (CSV)
+ */
+export const exportRosterBodyReasonMin = 0;
+export const exportRosterBodyReasonMax = 200;
+
+
+
+export const ExportRosterBody = zod.object({
+  "raceId": zod.int().describe('대회 ID'),
+  "raceCourseId": zod.int().optional().describe('종목 ID (생략하면 대회의 모든 종목)'),
+  "reason": zod.string().min(exportRosterBodyReasonMin).max(exportRosterBodyReasonMax).describe('내려받는 사유 (200자 이하)')
+}).describe('참가자 명단 내려받기 요청. 내려받는 사유를 남긴다')
+
+export const ExportRosterResponse = zod.unknown()
+
+
+/**
+ * 키트 배송 관리 목록과 같은 조건(대회·배송 상태)으로 모두 담는다. 칸: 주문번호, 종목, 참가권 상태, 참가자 이름, 받는 분, 받는 분 연락처, 우편번호, 주소, 상세 주소, 키트 옵션, 배송 상태, 택배사, 운송장 번호. 엑셀에서 바로 열리는 CSV(UTF-8 BOM)다. 내려받을 때마다 사유와 함께 기록한다.
+ * @summary 키트 배송 목록 내려받기 (CSV)
+ */
+export const exportKitShipmentsBodyReasonMin = 0;
+export const exportKitShipmentsBodyReasonMax = 200;
+
+
+
+export const ExportKitShipmentsBody = zod.object({
+  "raceId": zod.int().optional().describe('대회 ID (생략하면 모든 대회)'),
+  "status": zod.enum(['PREPARING', 'SHIPPING', 'DELIVERED']).optional().describe('배송 상태 (PREPARING 배송 준비 / SHIPPING 배송 중 / DELIVERED 배송 완료, 생략 가능)'),
+  "reason": zod.string().min(exportKitShipmentsBodyReasonMin).max(exportKitShipmentsBodyReasonMax).describe('내려받는 사유 (200자 이하)')
+}).describe('키트 배송 목록 내려받기 요청. 키트 배송 관리 목록과 같은 조건으로 거르고, 내려받는 사유를 남긴다')
+
+export const ExportKitShipmentsResponse = zod.unknown()
