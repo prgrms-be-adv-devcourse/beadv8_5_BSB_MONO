@@ -23,7 +23,7 @@ Service 이름은 compose의 컨테이너 이름(`bukang-*`)과 같습니다. �
 | `base/kustomization.yaml` | 공통 목록. nginx 설정 파일로 ConfigMap `nginx-config`를 만들고 패치를 붙인다 |
 | `base/app-config.yaml` | ConfigMap `app-config`: 비밀이 아닌 공통 설정 (인프라 주소, 프로파일, S3) |
 | `base/apps/*.yaml` | 앱마다 Deployment + Service. 이름·이미지·포트만 있다 |
-| `base/patches/spring-common.yaml` | Spring 앱 11개 공통: 설정 주입, JVM 옵션, 메모리, 상태 확인 |
+| `base/patches/spring-common.yaml` | Spring 앱 12개 공통: 설정 주입, JVM 옵션, 메모리, 상태 확인 |
 | `base/patches/spring-memory.yaml` | 메모리를 더 쓰는 서비스(order, product, member, payout)의 상한 |
 | `base/edge/` | 입구 nginx(Deployment·Service·k8s용 default.conf)와 Ingress |
 | `overlays/local/` | k3d용: 인프라 이름을 내 PC로 잇는 Service, Secret(`secret.yaml`, git 제외), Kafka 포트를 여는 compose 덮어쓰기 |
@@ -146,6 +146,7 @@ http://localhost 로 화면(200), 가입(201) → 로그인(200) → 내 정보(
 | product-service | 459Mi | 640Mi | 512Mi |
 | queue-service | 337Mi | 512Mi | 384Mi |
 | notification-service | 280Mi | 512Mi | 384Mi |
+| inquiry-service | 미측정(공통 값) | 512Mi | 384Mi |
 | board-service | 366Mi | 512Mi | 384Mi |
 | ai-service | 222Mi | 512Mi | 384Mi |
 | web | 55Mi | 256Mi | 128Mi |
@@ -239,7 +240,7 @@ k3d cluster delete crewrun
 - **상태 확인은 포트 연결만 봅니다.** actuator가 들어오면 `patches/spring-common.yaml`의 프로브를 `httpGet /actuator/health`로 바꿉니다.
 - **Pod는 서비스마다 1개입니다.** 스케줄 작업 분산 락(BUK-206)이 머지되기 전에 늘리면 스케줄 작업이 겹쳐 돕니다.
 - **메모리:** 힙은 상한의 60%(`MaxRAMPercentage=60`), 공통 상한 512Mi, order 768Mi, product·member·payout 640Mi (위 메모리 표).
-- **inquiry-service는 띄우지 않습니다.** compose 운영에서도 띄우지 않고 있습니다(게이트웨이 라우팅만 있음).
+- **inquiry-service는 회원·주문·상품 서비스가 떠 있어야 문의가 동작합니다.** 주소는 `application-prod.yaml`에 있습니다(BUK-230, PR #492가 주문·상품 연결을 넣습니다).
 - **설정은 두 곳으로 나눕니다.** 비밀이 아닌 값(인프라 주소·프로파일)은 ConfigMap `app-config`(`base/app-config.yaml`, 커밋), 비밀값은 Secret `app-secret`(`overlays/<환경>/secret.yaml`, git 제외)에 둡니다. 같은 키를 두 곳에 두지 않습니다.
 - **`app-config.yaml`·`secret.yaml`을 고친 뒤에는 Pod를 다시 띄웁니다** (`kubectl rollout restart -n crewrun deploy`). apply만 하면 떠 있는 Pod는 옛 값을 씁니다.
 - **nginx 설정(`nginx-config`)만 kustomize configMapGenerator로 만듭니다.** `routes.conf`·`upstreams.conf`를 복사하지 않고 compose와 같은 파일을 읽으려는 것입니다. 내용이 바뀌면 이름 뒤 해시가 바뀌어 nginx Pod가 저절로 새로 뜹니다.
