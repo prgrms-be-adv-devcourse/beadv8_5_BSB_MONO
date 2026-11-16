@@ -13,7 +13,8 @@ set -euo pipefail
 
 REF="${1:?배포할 main 또는 main에 들어간 커밋 SHA를 주세요. 예: deploy.sh main}"
 APP_DIR="${APP_DIR:-/opt/crewrun}"
-SERVICES=(bukang-db bukang-redis bukang-kafka bukang-elasticsearch)
+# 뒤의 3개는 지표 exporter (BUK-257). 메인 k3s의 수집기가 가져간다
+SERVICES=(bukang-db bukang-redis bukang-kafka bukang-elasticsearch redis-exporter mysqld-exporter node-exporter)
 
 log() { echo "[data-deploy] $*"; }
 
