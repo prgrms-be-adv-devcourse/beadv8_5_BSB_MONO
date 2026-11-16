@@ -37,6 +37,10 @@ services:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:?}
     volumes:
       - bukang-db-data:/var/lib/mysql
+      # 운영은 서비스마다 DB를 따로 쓴다(crewrun_<서비스>, BUK-238). 볼륨을 처음 만들 때 DB를 만들고 MYSQL_USER에 권한을 준다
+      # 경로는 compose 프로젝트 폴더(backend/) 기준이다. 로컬 compose.yml에는 붙이지 않아 로컬은 bukang-db 하나를 쓴다
+      # 이미 데이터가 있는 볼륨에서는 돌지 않는다. 그때는 backend/scripts/split-bukang-db.sh로 옮긴다 (README.md 「서비스별 DB로 옮기기」)
+      - ./docker/mysql/initdb:/docker-entrypoint-initdb.d:ro
 
   bukang-redis:
     restart: unless-stopped

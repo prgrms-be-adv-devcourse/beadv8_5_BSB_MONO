@@ -46,6 +46,23 @@ IntelliJ에서는 `MemberApplication`, `CashApplication`, `PayoutApplication`, `
 
 `docker/elasticsearch/Dockerfile`을 수정했다면 `docker compose up -d --build`로 이미지를 다시 만듭니다.
 
+### 서비스별 DB
+
+**로컬은 지금처럼 `bukang-db` 하나를 모든 서비스가 함께 씁니다. 운영만 서비스마다 DB를 나눕니다**(BUK-238).
+
+| 어디서 | 쓰는 DB | 정하는 곳 |
+|---|---|---|
+| bootRun (dev) | `bukang-db` | 서비스의 `application-dev.yaml` |
+| compose 앱 컨테이너 (`--profile app`), 부하 측정 | `bukang-db` | `.env`·`compose.load.yml`의 `MYSQL_DB` |
+| 로컬 k3d | `bukang-db` | `k8s/overlays/local`의 `MYSQL_DB` |
+| 운영 k3s | `crewrun_<서비스>` | `MYSQL_DB`가 없어 `application-prod.yaml`의 기본값 `${MYSQL_DB:crewrun_<서비스>}` |
+
+- 운영 MySQL(보조 EC2) 안에는 `crewrun_member`, `crewrun_cash`, `crewrun_payout`, `crewrun_file`, `crewrun_order`, `crewrun_product`, `crewrun_queue`,
+  `crewrun_notification`, `crewrun_inquiry`, `crewrun_board`가 있고, 앱 계정 하나가 모든 DB 권한을 가집니다.
+  DB 목록과 권한은 `docker/mysql/initdb/service-dbs.sh`, 표는 각 서비스의 Flyway가 만듭니다. 처음 옮기는 절차는 `infra/data-node/README.md` 「서비스별 DB로 옮기기」에 있습니다.
+- 로컬은 한 DB라서 다른 서비스 표를 읽는 SQL도 돌아갑니다. 운영에서는 DB가 달라 실패하므로 그런 SQL은 쓰지 않습니다.
+- 커넥션 풀은 DB가 아니라 서비스마다 하나라서(`spring.datasource.hikari.*`), 로컬과 운영에 같은 값을 주면 같은 조건으로 시험할 수 있습니다.
+
 ### 운영(prod) 앱 컨테이너 실행
 
 앱을 운영용 이미지로 빌드해서 인프라와 함께 컨테이너로 실행합니다.
@@ -61,7 +78,7 @@ IntelliJ에서는 `MemberApplication`, `CashApplication`, `PayoutApplication`, `
    | `CRYPTO_HMAC_KEY` | `openssl rand -base64 32`로 생성 (아래 [민감정보 암호화](#민감정보-암호화) 참고) |
    | `CRYPTO_PASSWORD` | `openssl rand -base64 32`로 생성 (암호화를 켠 모든 서비스가 같은 키를 씀) |
    | `CRYPTO_SALT` | `openssl rand -hex 8`로 생성 |
-   | `MYSQL_USER` / `MYSQL_PASS` / `MYSQL_DB` | `compose.yml`의 `bukang-db` 값과 동일 |
+   | `MYSQL_USER` / `MYSQL_PASS` | `compose.yml`의 `bukang-db` 값과 동일 (DB 이름은 서비스마다 `crewrun_<서비스>`로 정해져 있어 넣지 않음) |
    | `JWT_SECRET` | 32자 이상의 임의 문자열 |
 
 2. IDE나 `bootRun`으로 실행 중인 게이트웨이가 있으면 종료합니다. 같은 포트(8000)를 사용합니다. 서비스 컨테이너는 호스트 포트를 쓰지 않아 `bootRun` 서비스와 겹치지 않습니다.
@@ -108,8 +125,8 @@ IntelliJ에서는 `MemberApplication`, `CashApplication`, `PayoutApplication`, `
 docker compose --profile app ps -a                          # 어느 컨테이너가 unhealthy·Exited인지
 docker compose logs --tail=200 <서비스>                      # 예: member-service, order-service, gateway, web, nginx
 docker compose logs <서비스> 2>&1 | grep -iE "missing table|Schema-validation|Flyway|APPLICATION FAILED|Caused by"
-docker compose exec bukang-db mysql -ubukang2 -pbukang2 bukang-db -e "show tables;"
-docker compose exec bukang-db mysql -ubukang2 -pbukang2 bukang-db -e "select version, description, success from flyway_schema_history_member;"
+docker compose exec bukang-db mysql -ubukang2 -pbukang2 crewrun_member -e "show tables;"   # DB는 서비스마다 crewrun_<서비스>
+docker compose exec bukang-db mysql -ubukang2 -pbukang2 crewrun_member -e "select version, description, success from flyway_schema_history_member;"
 ```
 
 `member-service` Flyway(`flyway_schema_history_member`, 기준선 0)는 실제 MySQL에서 아래 세 경우를 확인합니다.
