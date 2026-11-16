@@ -23,6 +23,7 @@ import com.bukang.payout.domain.PayoutHold;
 import com.bukang.payout.domain.PayoutHoldStatus;
 import com.bukang.payout.domain.PayoutStage;
 import com.bukang.payout.domain.PayoutStatus;
+import com.bukang.payout.out.PayoutCreateFailureRepository;
 import com.bukang.payout.out.PayoutHoldRepository;
 import com.bukang.payout.out.PayoutItemRepository;
 import com.bukang.payout.out.PayoutRecoveryRepository;
@@ -44,6 +45,9 @@ class PayoutDataInitTest {
 
 	@Autowired
 	private PayoutRepository payoutRepository;
+
+	@Autowired
+	private PayoutCreateFailureRepository payoutCreateFailureRepository;
 
 	@Autowired
 	private PayoutHoldRepository payoutHoldRepository;
@@ -153,7 +157,8 @@ class PayoutDataInitTest {
 		dataInit().makeSamplePayouts(today);
 		flushAndClear();
 
-		new PayoutPayUseCase(new PayoutPayStepUseCase(payoutRepository, raceCancelUseCase()), transfer -> {
+		new PayoutPayUseCase(new PayoutPayStepUseCase(payoutRepository, raceCancelUseCase(),
+				payoutCreateFailureRepository), transfer -> {
 		}).run(today, today.atTime(4, 0));
 		flushAndClear();
 

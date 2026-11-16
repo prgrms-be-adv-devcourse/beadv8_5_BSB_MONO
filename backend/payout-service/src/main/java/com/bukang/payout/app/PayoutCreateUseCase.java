@@ -168,7 +168,7 @@ public class PayoutCreateUseCase {
 
 	private static List<CourseSale> toCourseSales(List<SoldSummary> courses) {
 		return courses.stream()
-			.map(course -> new CourseSale(course.raceCourseId(), course.priceSum(), course.ticketCount()))
+			.map(course -> new CourseSale(course.raceCourseId(), course.priceSum(), course.entryCount()))
 			.toList();
 	}
 

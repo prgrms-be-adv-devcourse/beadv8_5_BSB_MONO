@@ -62,6 +62,7 @@ async function fillBusinessForm(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText('사업자등록번호'), '123-45-67890')
   await user.type(screen.getByLabelText('상호'), '크루런 스포츠')
   await user.type(screen.getByLabelText('대표자'), '김러너')
+  await user.type(screen.getByLabelText('계좌번호'), '110-123-000678')
   await user.click(screen.getByRole('checkbox', { name: /판매자 이용약관/ }))
 }
 
@@ -122,7 +123,7 @@ describe('SellerApplyPage 신청 폼 검사', () => {
 })
 
 describe('SellerApplyPage 신청 보내기', () => {
-  it('사업자는 4칸을 보내고 결과 화면으로 간다 (정산 계좌는 비워도 된다)', async () => {
+  it('사업자는 판매자 정보와 정산 계좌를 보내고 결과 화면으로 간다', async () => {
     let body: unknown
     server.use(
       http.post('*/api/v1/member/sellers', async ({ request }) => {
@@ -141,6 +142,10 @@ describe('SellerApplyPage 신청 보내기', () => {
       businessName: '크루런 스포츠',
       businessNumber: '123-45-67890',
       representativeName: '김러너',
+      bankCode: '004',
+      // 하이픈은 빼고 숫자만 보낸다
+      accountNumber: '110123000678',
+      accountHolderType: 'PERSONAL',
     })
     // 결과 화면이 다시 부르지 않고 쓰도록 응답을 내 신청 캐시에 넣는다
     expect(client.getQueryData(memberApi.getFindMineQueryKey())).toMatchObject({
@@ -161,11 +166,18 @@ describe('SellerApplyPage 신청 보내기', () => {
     await user.click(screen.getByRole('radio', { name: '사업자가 아니에요' }))
     await user.type(screen.getByLabelText('성명'), '이춘천')
     await user.type(screen.getByLabelText('연락처'), '010-1111-2222')
+    await user.type(screen.getByLabelText('계좌번호'), '110123000678')
     await user.click(screen.getByRole('checkbox', { name: /판매자 이용약관/ }))
     await user.click(screen.getByRole('button', { name: '신청하기' }))
 
     await waitFor(() => expect(push).toHaveBeenCalledWith('/seller-apply/result'))
-    expect(body).toEqual({ sellerType: 'INDIVIDUAL', representativeName: '이춘천' })
+    expect(body).toEqual({
+      sellerType: 'INDIVIDUAL',
+      representativeName: '이춘천',
+      bankCode: '004',
+      accountNumber: '110123000678',
+      accountHolderType: 'PERSONAL',
+    })
   })
 
   it('409 SELLER_ALREADY_APPLIED는 이미 신청했다고 안내하고 이동하지 않는다', async () => {
@@ -386,11 +398,89 @@ describe('SellerApplyResultPage 결과 확인 기록', () => {
 })
 
 describe('SellerApplyPage 정산 계좌', () => {
-  it('서버가 받지 않는 계좌 칸 대신 판매자 설정에서 등록한다고 안내한다', () => {
+  it('신청 때 은행 · 계좌번호 · 계좌 명의를 받고, 판매자 설정에서 등록한다는 안내는 없다', () => {
     renderWithClient(<SellerApplyPage />)
-    expect(screen.getByText('정산 계좌는 판매자 설정에서 등록해요')).toBeInTheDocument()
-    expect(screen.queryByLabelText('계좌번호')).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('예금주')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('계좌번호')).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: '본인 명의' })).toBeChecked()
+    expect(screen.getByRole('radio', { name: '사업자 명의' })).toBeInTheDocument()
+    expect(screen.queryByText('정산 계좌는 판매자 설정에서 등록해요')).not.toBeInTheDocument()
+  })
+
+  it('계좌번호를 비우거나 형식이 틀리면 막는다', async () => {
+    const user = userEvent.setup()
+    renderWithClient(<SellerApplyPage />)
+    await user.click(screen.getByRole('radio', { name: '사업자가 아니에요' }))
+    await user.type(screen.getByLabelText('성명'), '이춘천')
+    await user.type(screen.getByLabelText('연락처'), '010-1111-2222')
+    await user.click(screen.getByRole('checkbox', { name: /판매자 이용약관/ }))
+    await user.click(screen.getByRole('button', { name: '신청하기' }))
+    expect(await screen.findByText('계좌번호를 입력해 주세요.')).toBeInTheDocument()
+
+    await user.type(screen.getByLabelText('계좌번호'), '12345')
+    await user.click(screen.getByRole('button', { name: '신청하기' }))
+    expect(await screen.findByText('계좌번호는 숫자 6~16자리로 입력해 주세요.')).toBeInTheDocument()
+    expect(push).not.toHaveBeenCalled()
+  })
+
+  it('사업자가 아니면 사업자 명의를 고를 수 없다', async () => {
+    const user = userEvent.setup()
+    renderWithClient(<SellerApplyPage />)
+    await user.click(screen.getByRole('radio', { name: '사업자 명의' }))
+    expect(screen.getByRole('radio', { name: '사업자 명의' })).toBeChecked()
+
+    await user.click(screen.getByRole('radio', { name: '사업자가 아니에요' }))
+    // Base UI 라디오는 disabled 속성 대신 aria-disabled로 잠근다
+    expect(screen.getByRole('radio', { name: '사업자 명의' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
+    expect(screen.getByRole('radio', { name: '본인 명의' })).toBeChecked()
+  })
+
+  it('사업자 명의를 고르면 BUSINESS로 보낸다', async () => {
+    let body: unknown
+    server.use(
+      http.post('*/api/v1/member/sellers', async ({ request }) => {
+        body = await request.json()
+        return HttpResponse.json(sellerResponse({}, 201), { status: 201 })
+      }),
+    )
+    const user = userEvent.setup()
+    renderWithClient(<SellerApplyPage />)
+    await fillBusinessForm(user)
+    await user.click(screen.getByRole('radio', { name: '사업자 명의' }))
+    await user.click(screen.getByRole('button', { name: '신청하기' }))
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/seller-apply/result'))
+    expect(body).toMatchObject({ accountHolderType: 'BUSINESS' })
+  })
+
+  it.each([
+    [
+      400,
+      'SELLER_ACCOUNT_NOT_VERIFIED',
+      '예금주 정보가 맞지 않아요. 계좌번호와 계좌 명의를 확인해 주세요.',
+    ],
+    [
+      429,
+      'SELLER_ACCOUNT_VERIFY_TOO_MANY_REQUESTS',
+      '계좌 확인은 하루 5번까지 할 수 있어요. 내일 다시 시도해 주세요.',
+    ],
+    [503, 'SELLER_ACCOUNT_VERIFY_UNAVAILABLE', '잠시 뒤 다시 시도해 주세요.'],
+    [
+      400,
+      'SELLER_IDENTITY_REVERIFY_REQUIRED',
+      '본인 명의 계좌는 휴대폰 번호를 다시 인증한 뒤 신청해 주세요.',
+    ],
+  ])('%i %s는 서버 문구를 그대로 보여 주고 이동하지 않는다', async (status, code, message) => {
+    server.use(http.post('*/api/v1/member/sellers', () => errorResponse(status, code, message)))
+    const user = userEvent.setup()
+    renderWithClient(<SellerApplyPage />)
+    await fillBusinessForm(user)
+    await user.click(screen.getByRole('button', { name: '신청하기' }))
+
+    expect(await screen.findByText(message)).toBeInTheDocument()
+    expect(push).not.toHaveBeenCalled()
   })
 })
 
@@ -447,7 +537,7 @@ describe('SellerApplicationPage 잠근 신청 내용', () => {
     expect(await screen.findByLabelText('성명')).toHaveValue('이춘천')
     expect(screen.queryByLabelText('연락처')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('계좌번호')).not.toBeInTheDocument()
-    expect(screen.getByText('정산 계좌는 판매자 설정에서 등록해요')).toBeInTheDocument()
+    expect(screen.queryByText('정산 계좌는 판매자 설정에서 등록해요')).not.toBeInTheDocument()
   })
 
   it('반려된 신청은 상태에 맞는 안내와 다시 신청하는 링크를 보여 준다', async () => {

@@ -46,7 +46,6 @@ class TokenIssueUseCaseTest {
 		NewFamily family = savedFamily();
 		assertThat(family.familyId()).isEqualTo(claims.familyId());
 		assertThat(family.jti()).isEqualTo(claims.jti());
-		assertThat(family.token()).isEqualTo(tokens.refreshToken());
 		assertThat(family.issuedAt()).isEqualTo(NOW);
 		assertThat(family.tokenExpiresAt()).isEqualTo(NOW.plus(Duration.ofDays(14)));
 		assertThat(family.familyExpiresAt()).isEqualTo(NOW.plus(Duration.ofDays(30)));

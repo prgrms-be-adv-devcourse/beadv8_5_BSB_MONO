@@ -1,3 +1,10 @@
+# member-service와 같은 .env의 REDIS_HOST·REDIS_PORT로 같은 Redis에 붙는다
+spring:
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+
 # compose.yml의 앱 컨테이너끼리는 컨테이너 이름으로 접속한다
 gateway:
   services:

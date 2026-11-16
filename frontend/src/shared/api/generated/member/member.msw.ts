@@ -79,7 +79,7 @@ export const getUpdateCrewResponseMock = (): RsDataCrewHomeDto => ({"status":200
 
 export const getCreateCrewInviteResponseMock = (): RsDataCrewInviteCreatedDto => ({"status":201,"message":"초대 링크를 만들었습니다.","data":{"inviteId":3,"inviteToken":"q7Xk2LmZ9vBn4RtW8yCp1A","createdAt":"2026-11-02T20:30:00","expiresAt":"2026-11-03T20:30:00"}})
 
-export const getFindCrewInvitesResponseMock = (): RsDataListCrewInviteDto => ({"status":200,"message":"초대 목록을 조회했습니다.","data":[{"inviteId":3,"createdBy":{"memberId":1,"nickname":"새벽러너"},"createdAt":"2026-11-02T20:30:00","expiresAt":"2026-11-03T20:30:00"}]})
+export const getFindCrewInvitesResponseMock = (): RsDataListCrewInviteDto => ({"status":200,"message":"초대 목록을 조회했습니다.","data":[{"inviteId":3,"inviteToken":"q3Xv9kLm2NpR7tYw4ZaB1c","createdBy":{"memberId":1,"nickname":"새벽러너"},"createdAt":"2026-11-02T20:30:00","expiresAt":"2026-11-03T20:30:00"}]})
 
 export const getFindCrewInviteResponseMock = (): RsDataCrewInvitePreviewDto => ({"status":200,"message":"초대 링크를 조회했습니다.","data":{"crewId":1,"crewName":"새벽한강크루","memberCount":3,"expiresAt":"2026-11-03T20:30:00","alreadyMember":false}})
 

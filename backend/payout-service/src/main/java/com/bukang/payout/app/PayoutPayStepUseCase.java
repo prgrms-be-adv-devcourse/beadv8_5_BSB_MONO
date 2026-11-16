@@ -9,9 +9,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.bukang.payout.domain.Payout;
+import com.bukang.payout.domain.PayoutCreateFailure;
 import com.bukang.payout.domain.PayoutStage;
 import com.bukang.payout.domain.PayoutStatus;
 import com.bukang.payout.domain.exception.PayoutNotFoundException;
+import com.bukang.payout.out.PayoutCreateFailureRepository;
 import com.bukang.payout.out.PayoutRepository;
 import com.bukang.payout.out.PayoutTransfer;
 
@@ -32,6 +34,7 @@ public class PayoutPayStepUseCase {
 
 	private final PayoutRepository payoutRepository;
 	private final PayoutRaceCancelUseCase payoutRaceCancelUseCase;
+	private final PayoutCreateFailureRepository payoutCreateFailureRepository;
 
 	@Transactional(readOnly = true)
 	public List<Long> findTargetIds(LocalDate today) {
@@ -61,9 +64,9 @@ public class PayoutPayStepUseCase {
 			// 보류가 안 풀린 1차 때문에 최종이 계속 밀리면 원인을 찾을 수 있게 실행마다 한 줄 남긴다
 			// 1차가 지급 불일치면 사람이 풀기 전까지 계속 밀리므로 warn으로 남긴다 (BUK-62)
 			Payout first = waitingFirst.get();
-			if (first.getStatus() == PayoutStatus.지급_불일치) {
-				log.warn("1차 정산이 지급 불일치라 최종 정산 지급을 미룹니다. 확인이 필요합니다. payoutId={}, firstPayoutId={}",
-					payout.getId(), first.getId());
+			if (first.getStatus() == PayoutStatus.지급_불일치 || first.getStatus() == PayoutStatus.지급_확인_필요) {
+				log.warn("1차 정산이 {}라 최종 정산 지급을 미룹니다. 확인이 필요합니다. payoutId={}, firstPayoutId={}",
+					first.getStatus(), payout.getId(), first.getId());
 			} else {
 				log.info("1차 정산이 지급 완료되지 않아 최종 정산 지급을 미룹니다. payoutId={}, firstPayoutId={}, firstStatus={}",
 					payout.getId(), first.getId(), first.getStatus());
@@ -97,7 +100,6 @@ public class PayoutPayStepUseCase {
 
 	// 캐시 서비스가 돈을 옮긴 뒤 지급 완료로 바꾼다
 	// 다른 배치가 같은 지급 중 건을 다시 요청해 먼저 지급 완료했으면 바꾸지 않는다 (캐시 서비스는 돈을 한 번만 옮겼다)
-	// 지급 중에 대회가 취소됐으면, 지급 완료와 같은 트랜잭션에서 그 대회의 회수를 만든다 (PRO-253)
 	@Transactional
 	public boolean complete(long payoutId, LocalDateTime now) {
 		Payout payout = payoutRepository.findById(payoutId).orElseThrow(PayoutNotFoundException::new);
@@ -105,9 +107,6 @@ public class PayoutPayStepUseCase {
 			return false;
 		}
 		payout.pay(now);
-		if (payout.isRaceCanceled()) {
-			payoutRaceCancelUseCase.recoverAfterPayResult(payout.getSellerId(), payout.getRaceId(), now);
-		}
 		return true;
 	}
 
@@ -122,22 +121,29 @@ public class PayoutPayStepUseCase {
 		}
 		log.info("지급 중에 대회가 취소돼, 거절된 정산 내역을 정산 예정으로 되돌리지 않고 취소로 닫습니다. payoutId={}", payoutId);
 		payout.cancelRejected(now, RACE_CANCELED_REASON);
-		// 1차가 거절로 닫히면 지급 전 취소와 같으므로 상계로 끝난 회수도 되돌린다 (R9, PR #284 리뷰)
-		payoutRaceCancelUseCase.recoverAfterRejectedCancel(payout, now);
+		// 1차가 거절로 닫히면 지급 전 취소와 같으므로 그 판매자 × 대회의 회수를 되돌린다 (R9, BUK-76)
+		payoutRaceCancelUseCase.revertAfterRejectedCancel(payout);
 	}
 
 	// 캐시 서비스가 같은 정산 ID를 이미 다른 금액으로 지급했다고 답했다(409). 다시 요청해도 같으므로 지급 불일치로 멈춘다 (BUK-62)
 	// 지급 대상(정산 예정 · 지급 중)이 아니게 되므로 다음 지급 배치가 고르지 않는다
-	// 지급 중에 대회가 취소됐으면 지급 완료(complete)와 같이 회수를 만든다. 돈은 나갔고, 회수가 미뤄진 1차 정산금도 받아야 한다
-	// 회수 금액은 정산 원장 기준이다. 캐시가 말한 저장 금액과 다를 수 있어 경고를 남긴다
 	@Transactional
 	public void markMismatch(long payoutId, LocalDateTime now, String reason) {
 		Payout payout = payoutRepository.findById(payoutId).orElseThrow(PayoutNotFoundException::new);
 		payout.markPayMismatch(now, reason);
-		if (payout.isRaceCanceled()) {
-			log.warn("지급 중에 대회가 취소된 정산 내역이 지급 불일치가 됐습니다. 원장 금액으로 회수를 만듭니다. payoutId={}", payoutId);
-			payoutRaceCancelUseCase.recoverAfterPayResult(payout.getSellerId(), payout.getRaceId(), now);
+	}
+
+	// 지급 결과를 몰랐다(타임아웃 · 5xx). 횟수를 세고, 한도가 차면 지급_확인_필요로 멈춰 관리자 이상 감지에 남긴다 (BUK-166)
+	// 지급_확인_필요가 되면 지급 배치가 더는 고르지 않는다
+	// @return 이번에 지급_확인_필요가 됐으면 true
+	@Transactional
+	public boolean markUnknown(long payoutId, LocalDate today, LocalDateTime now) {
+		Payout payout = payoutRepository.findById(payoutId).orElseThrow(PayoutNotFoundException::new);
+		if (!payout.recordUnknownPay(today, now)) {
+			return false;
 		}
+		payoutCreateFailureRepository.save(PayoutCreateFailure.payCheckRequired(payout, today));
+		return true;
 	}
 
 	/**

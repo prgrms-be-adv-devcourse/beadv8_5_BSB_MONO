@@ -43,9 +43,10 @@ public record CommentDto(
 			writer, mine, comment.isEdited(), comment.getCreateDate(), replies);
 	}
 
-	// 지운 댓글은 내용과 글쓴이를 내보내지 않는다
+	// 지운 댓글과 신고로 숨긴 댓글은 내용과 글쓴이를 내보내지 않고, 둘 다 DELETED로 보여 준다
 	public static CommentDto deleted(BoardComment comment, List<CommentDto> replies) {
-		return new CommentDto(comment.getId(), comment.getParentId(), comment.getStatus(), null, null, false, false,
+		return new CommentDto(comment.getId(), comment.getParentId(), BoardCommentStatus.DELETED, null, null, false,
+			false,
 			comment.getCreateDate(), replies);
 	}
 }

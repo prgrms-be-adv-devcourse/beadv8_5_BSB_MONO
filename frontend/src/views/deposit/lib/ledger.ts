@@ -12,7 +12,10 @@ export function ledgerTitle({ ledgerType, refId }: WalletLedger) {
       return `환불 · 주문 #${refId} 취소`
     case '출금__통장입금':
       return '환급 · 계좌로 돌려받기'
+    case '출금__PG결제취소_토스페이먼츠':
+      return '환급 · 결제한 카드로 결제취소'
     case '출금취소__통장입금':
+    case '출금취소__PG결제취소_토스페이먼츠':
       return '환급 취소 · 예치금으로 되돌림'
     case '정산수령__상품판매_대금':
       return '정산 · 판매 대금 입금'

@@ -100,6 +100,35 @@
   </div>
 
   <div class="panel">
+    <h2>AI 추천 (BUK-162)</h2>
+    <p class="hint">
+      검색어 추천: GET /api/v1/product/races/recommendations?keyword= — 위 검색어 칸의 글을 임베딩해 뜻이 비슷한 대회를 비슷한 순서로 6개까지 찾습니다.
+      비슷한 대회: GET /api/v1/product/races/{raceId}/similar — 그 대회의 저장된 벡터로 찾고, 그 대회는 뺍니다(임베딩 API를 부르지 않음).
+      둘 다 판매 예정·판매 중이고 접수 마감 전인 대회만 나오고(판매 중지는 공개 목록과 달리 빠짐), 추천하지 못하면 빈 목록(200)입니다.
+      검색어가 2글자보다 짧아도 빈 목록입니다. 행을 누르면 대회 상세를 조회합니다.
+    </p>
+    <div class="form">
+      <label>비슷한 대회의 기준 대회 ID (raceId)<input id="similarRaceId" type="number" min="1"></label>
+    </div>
+    <div class="actions">
+      <button type="button" id="recommendRaces">검색어로 AI 추천</button>
+      <button type="button" id="similarRaces">비슷한 대회</button>
+    </div>
+    <p id="recommendResult" class="result"></p>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>순위</th><th>raceId</th><th>대회명 · 장소</th><th>지역</th><th>대회일</th><th>판매 상태 · 예매 오픈</th>
+            <th>접수 마감</th><th>minPrice</th><th>종목 요약 (이름 · 구분 · 거리 · 참가비 · 남은 개인 자리 · 상태 · 종목 ID)</th>
+          </tr>
+        </thead>
+        <tbody id="recommendRows"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
     <h2>공개 대회 목록</h2>
     <p class="hint">
       GET /api/v1/product/races. 판매 예정·판매 중·판매 중지이고 접수 마감 전인 대회만 나옵니다(판매 종료·취소 대회는 안 나옴). 빈 칸은 보내지 않습니다.
@@ -606,8 +635,15 @@
       }
       tbody.innerHTML = pageData.races.length === 0
         ? '<tr><td colspan="8" class="hint">조건에 맞는 대회가 없습니다</td></tr>'
-        : pageData.races.map((race) => `
+        : pageData.races.map((race) => raceRowHtml(race)).join('');
+      updatePager();
+    }
+
+    // 공개 목록·AI 추천이 함께 쓰는 대회 카드 한 줄 (rank가 있으면 맨 앞에 순위 칸을 더한다)
+    function raceRowHtml(race, rank) {
+      return `
           <tr class="clickable" data-race-id="${race.raceId}">
+            ${rank === undefined ? '' : `<td>${rank}</td>`}
             <td>${race.raceId}</td>
             <td>${escapeHtml(race.title)}<div class="hint">${escapeHtml(race.location)}</div></td>
             <td>${escapeHtml(race.regionSido)} ${escapeHtml(race.regionSigungu)}</td>
@@ -617,8 +653,33 @@
             <td>${formatDateTime(race.applicationCloseAt)}</td>
             <td>${won(race.minPrice)}</td>
             <td>${race.courses.map(courseSummary).join('<br>')}</td>
-          </tr>`).join('');
-      updatePager();
+          </tr>`;
+    }
+
+    // ---------- AI 추천 (BUK-162) ----------
+
+    async function recommendRaces() {
+      const keyword = $('keyword').value;
+      const result = await callApi('AI 추천 (검색어)', 'GET', `${RACES_PATH}/recommendations`, { query: { keyword } });
+      renderRecommendations(result);
+    }
+
+    async function similarRaces() {
+      const raceId = $('similarRaceId').value.trim();
+      if (raceId === '') {
+        showMessage($('recommendResult'), false, '기준 대회 ID를 채우세요');
+        return;
+      }
+      const result = await callApi('AI 추천 (비슷한 대회)', 'GET', `${RACES_PATH}/${raceId}/similar`);
+      renderRecommendations(result);
+    }
+
+    function renderRecommendations(result) {
+      const ok = showResult($('recommendResult'), result, result.body?.data ? `${result.body.data.length}개` : '');
+      const races = ok ? result.body.data : [];
+      $('recommendRows').innerHTML = races.length === 0
+        ? '<tr><td colspan="9" class="hint">추천할 대회가 없습니다 (화면에서는 AI 추천 영역을 숨기는 경우)</td></tr>'
+        : races.map((race, index) => raceRowHtml(race, index + 1)).join('');
     }
 
     function updatePager() {
@@ -894,6 +955,8 @@
     });
 
     bindAction('searchRaces', searchRaces);
+    bindAction('recommendRaces', recommendRaces);
+    bindAction('similarRaces', similarRaces);
     // 이전·다음은 응답의 totalPages로 켜고 끄므로(updatePager) bindAction으로 잠그지 않는다
     $('prevPage').addEventListener('click', () => movePage(-1));
     $('nextPage').addEventListener('click', () => movePage(1));

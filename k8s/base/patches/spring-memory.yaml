@@ -1,0 +1,64 @@
+# 공통 상한(512Mi)으로는 모자라는 서비스
+#   order·product: 운영 EC2에서 compose로 잰 값(2026-11-14) order 889MB, product 535MB (상한이 없던 때라 힙이 커진 값)
+#   member·payout: 로컬 k3d에서 뜬 직후 잰 프로세스 메모리(2026-11-15)가 member 414Mi, payout 452Mi로 512Mi에 가까웠다
+#     힙이 상한의 60%까지 차면 512Mi를 넘어 다시 시작될 수 있어 product와 같은 640Mi로 올린다
+# 잰 값 전체는 k8s/README.md의 메모리 표에 있다
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bukang-order-service
+spec:
+  template:
+    spec:
+      containers:
+        - name: app
+          resources:
+            requests:
+              memory: 512Mi
+            limits:
+              memory: 768Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bukang-product-service
+spec:
+  template:
+    spec:
+      containers:
+        - name: app
+          resources:
+            requests:
+              memory: 512Mi
+            limits:
+              memory: 640Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bukang-member-service
+spec:
+  template:
+    spec:
+      containers:
+        - name: app
+          resources:
+            requests:
+              memory: 512Mi
+            limits:
+              memory: 640Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bukang-payout-service
+spec:
+  template:
+    spec:
+      containers:
+        - name: app
+          resources:
+            requests:
+              memory: 512Mi
+            limits:
+              memory: 640Mi

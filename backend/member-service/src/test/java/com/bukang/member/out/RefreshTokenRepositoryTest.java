@@ -53,16 +53,18 @@ class RefreshTokenRepositoryTest {
 	@BeforeEach
 	void login() {
 		redisTemplate.delete(KEY);
-		repository.create(MEMBER_ID, new NewFamily("F1", "J1", "token-1",
+		repository.create(MEMBER_ID, new NewFamily("F1", "J1",
 			LOGIN_AT, LOGIN_AT.plus(Duration.ofDays(14)), LOGIN_AT.plus(Duration.ofDays(30))));
 	}
 
 	@Test
-	@DisplayName("로그인하면 Hash 6칸을 쓰고, 키 TTL을 토큰 만료에 맞춘다")
+	@DisplayName("로그인하면 Hash 6칸을 쓰고 토큰 원문 칸은 없으며, 키 TTL을 토큰 만료에 맞춘다")
 	void createWritesHashAndExpiry() {
 		assertThat(redisTemplate.opsForHash().entries(KEY)).containsOnlyKeys(
-			"familyId", "currentJti", "currentToken", "previousJti", "rotatedAt", "familyExpiresAt");
+			"familyId", "currentJti", "currentExpiresAt", "previousJti", "rotatedAt", "familyExpiresAt");
 		assertThat(redisTemplate.opsForHash().get(KEY, "currentJti")).isEqualTo("J1");
+		assertThat(redisTemplate.opsForHash().get(KEY, "currentExpiresAt"))
+			.isEqualTo(String.valueOf(LOGIN_AT.plus(Duration.ofDays(14)).getEpochSecond()));
 		assertThat(redisTemplate.getExpire(KEY)).isPositive();
 		assertThat(repository.findFamilyExpiresAt(MEMBER_ID)).contains(LOGIN_AT.plus(Duration.ofDays(30)));
 	}
@@ -70,7 +72,7 @@ class RefreshTokenRepositoryTest {
 	@Test
 	@DisplayName("다시 로그인하면 이전 family를 통째로 덮어쓴다")
 	void createOverwritesPreviousFamily() {
-		repository.create(MEMBER_ID, new NewFamily("F2", "K1", "token-k1",
+		repository.create(MEMBER_ID, new NewFamily("F2", "K1",
 			LOGIN_AT, LOGIN_AT.plus(Duration.ofDays(14)), LOGIN_AT.plus(Duration.ofDays(30))));
 
 		assertThat(redisTemplate.opsForHash().get(KEY, "familyId")).isEqualTo("F2");
@@ -84,8 +86,27 @@ class RefreshTokenRepositoryTest {
 
 		assertThat(result.outcome()).isEqualTo(RotationOutcome.ROTATED);
 		assertThat(redisTemplate.opsForHash().get(KEY, "currentJti")).isEqualTo("J2");
-		assertThat(redisTemplate.opsForHash().get(KEY, "currentToken")).isEqualTo("token-J2");
+		assertThat(redisTemplate.opsForHash().get(KEY, "currentExpiresAt"))
+			.isEqualTo(String.valueOf(LOGIN_AT.plusSeconds(60).plus(Duration.ofDays(14)).getEpochSecond()));
 		assertThat(redisTemplate.opsForHash().get(KEY, "previousJti")).isEqualTo("J1");
+	}
+
+	@Test
+	@DisplayName("회전해도 Hash에 토큰 원문 칸이 없다")
+	void rotationLeavesNoRawTokenField() {
+		repository.rotate(MEMBER_ID, rotation("F1", "J1", "J2", LOGIN_AT.plusSeconds(60)));
+
+		assertThat(redisTemplate.opsForHash().keys(KEY)).doesNotContain("currentToken");
+	}
+
+	@Test
+	@DisplayName("배포 전에 저장된 옛 currentToken 칸은 회전할 때 지워진다")
+	void rotationDeletesLegacyCurrentTokenField() {
+		redisTemplate.opsForHash().put(KEY, "currentToken", "raw-legacy-jwt");
+
+		repository.rotate(MEMBER_ID, rotation("F1", "J1", "J2", LOGIN_AT.plusSeconds(60)));
+
+		assertThat(redisTemplate.opsForHash().hasKey(KEY, "currentToken")).isFalse();
 	}
 
 	@Test
@@ -101,7 +122,7 @@ class RefreshTokenRepositoryTest {
 	}
 
 	@Test
-	@DisplayName("GRACE: 방금 바뀐 토큰이 유예 안에 오면 바꾸지 않고 지금 토큰 원본을 돌려준다")
+	@DisplayName("GRACE: 방금 바뀐 토큰이 유예 안에 오면 바꾸지 않고 지금 토큰의 jti와 만료 시각을 돌려준다")
 	void returnsCurrentTokenWithinGrace() {
 		Instant rotatedAt = LOGIN_AT.plusSeconds(60);
 		repository.rotate(MEMBER_ID, rotation("F1", "J1", "J2", rotatedAt));
@@ -109,7 +130,35 @@ class RefreshTokenRepositoryTest {
 		RotationResult result = repository.rotate(MEMBER_ID, rotation("F1", "J1", "J3", rotatedAt.plusSeconds(5)));
 
 		assertThat(result.outcome()).isEqualTo(RotationOutcome.GRACE);
-		assertThat(result.currentToken()).isEqualTo("token-J2");
+		assertThat(result.currentJti()).isEqualTo("J2");
+		assertThat(result.currentExpiresAt()).isEqualTo(rotatedAt.plus(Duration.ofDays(14)));
+	}
+
+	@Test
+	@DisplayName("GRACE에서 돌려준 토큰(J2)으로 다음 재발급이 오면 정상 회전한다")
+	void tokenReturnedByGraceRotatesNormally() {
+		Instant rotatedAt = LOGIN_AT.plusSeconds(60);
+		repository.rotate(MEMBER_ID, rotation("F1", "J1", "J2", rotatedAt));
+		repository.rotate(MEMBER_ID, rotation("F1", "J1", "J3", rotatedAt.plusSeconds(1)));
+
+		RotationResult result = repository.rotate(MEMBER_ID, rotation("F1", "J2", "J4", rotatedAt.plusSeconds(2)));
+
+		assertThat(result.outcome()).isEqualTo(RotationOutcome.ROTATED);
+		assertThat(redisTemplate.opsForHash().get(KEY, "currentJti")).isEqualTo("J4");
+	}
+
+	@Test
+	@DisplayName("배포 직후 currentExpiresAt이 없는 옛 기록에서 유예가 오면 MISSING처럼 거절하고 원문을 돌려주지 않는다")
+	void graceOnLegacyRecordIsMissing() {
+		Instant rotatedAt = LOGIN_AT.plusSeconds(60);
+		repository.rotate(MEMBER_ID, rotation("F1", "J1", "J2", rotatedAt));
+		redisTemplate.opsForHash().delete(KEY, "currentExpiresAt");
+		redisTemplate.opsForHash().put(KEY, "currentToken", "raw-legacy-jwt");
+
+		RotationResult result = repository.rotate(MEMBER_ID, rotation("F1", "J1", "J3", rotatedAt.plusSeconds(1)));
+
+		assertThat(result.outcome()).isEqualTo(RotationOutcome.MISSING);
+		assertThat(result.currentJti()).isNull();
 	}
 
 	@Test
@@ -166,7 +215,7 @@ class RefreshTokenRepositoryTest {
 	}
 
 	private static Rotation rotation(String familyId, String presentedJti, String newJti, Instant now) {
-		return new Rotation(familyId, presentedJti, newJti, "token-" + newJti,
+		return new Rotation(familyId, presentedJti, newJti,
 			now, GRACE, now.plus(Duration.ofDays(14)));
 	}
 }
