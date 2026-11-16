@@ -95,7 +95,7 @@ export function RaceApplyPage({
       <AppHeader type="sub" title="참가 신청" />
       {remaining !== null && (
         <TimerBar
-          message="내 차례예요. 시간 안에 신청과 결제를 마쳐 주세요"
+          message="차례가 됐어요. 시간 안에 신청과 결제를 마쳐 주세요"
           remainingSeconds={remaining}
         />
       )}
