@@ -164,6 +164,14 @@ class ApiV1AuthLoginLockTest {
 	}
 
 	@Test
+	@DisplayName("가입하지 않은 이메일도 악센트만 다른 표기는 같은 이메일로 세어, 차단 응답으로 가입 여부가 드러나지 않는다")
+	void unknownEmailCountsAccentVariantsTogether() throws Exception {
+		failTimes("nóbody@crewrun.com", 5);
+
+		login("nobody@crewrun.com", PASSWORD).andExpect(status().isTooManyRequests());
+	}
+
+	@Test
 	@DisplayName("횟수를 올릴 때 Redis 오류가 나면 차단 없이 로그인을 계속한다")
 	void continuesWhenRecordFails() throws Exception {
 		doThrow(new RedisConnectionFailureException("Redis 연결 실패"))
