@@ -13,6 +13,8 @@ import com.bukang.cash.domain.withdrawal.WithdrawalItemStatus;
 public interface WalletWithdrawalItemRepository extends JpaRepository<WalletWithdrawalItem, Long> {
 	List<WalletWithdrawalItem> findByStatus(WithdrawalItemStatus status);
 
+	long countByStatus(WithdrawalItemStatus status);
+
 	List<WalletWithdrawalItem> findByWithdrawal(WalletWithdrawal withdrawal);
 
 	List<WalletWithdrawalItem> findByStatusAndCreateDateBefore(WithdrawalItemStatus status, LocalDateTime threshold);
