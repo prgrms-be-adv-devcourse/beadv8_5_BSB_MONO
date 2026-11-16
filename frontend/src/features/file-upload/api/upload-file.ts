@@ -20,15 +20,25 @@ const FORBIDDEN_HEADERS = new Set(['content-length', 'host'])
 export async function uploadFile(
   file: Blob,
   fileType: FileType,
-  fileName = file instanceof File ? file.name : 'upload',
+  {
+    fileName = file instanceof File ? file.name : 'upload',
+    signal,
+  }: {
+    fileName?: string
+    /** 화면을 떠날 때 S3 PUT을 멈춘다. 멈추면 AbortError를 던진다 */
+    signal?: AbortSignal
+  } = {},
 ): Promise<UploadedFile> {
   const issued = unwrapData(
-    await fileApi.createUploadUrl({
-      fileType,
-      fileName,
-      contentType: file.type,
-      fileSize: file.size,
-    }),
+    await fileApi.createUploadUrl(
+      {
+        fileType,
+        fileName,
+        contentType: file.type,
+        fileSize: file.size,
+      },
+      { signal },
+    ),
   )
   if (issued.fileId === undefined || !issued.uploadUrl) {
     throw new Error('업로드 주소를 받지 못했어요')
@@ -43,6 +53,7 @@ export async function uploadFile(
     method: issued.method ?? 'PUT',
     headers,
     body: file,
+    signal,
   })
   if (!put.ok) {
     throw new Error(`파일을 올리지 못했어요 (${put.status})`)

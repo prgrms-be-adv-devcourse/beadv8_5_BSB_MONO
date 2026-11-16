@@ -52,6 +52,7 @@ jobs:
           - { name: product-service, context: backend, module: product-service }
           - { name: queue-service, context: backend, module: queue-service }
           - { name: notification-service, context: backend, module: notification-service }
+          - { name: inquiry-service, context: backend, module: inquiry-service }
           - { name: board-service, context: backend, module: board-service }
           - { name: ai-service, context: backend, module: ai-service }
           # web은 공개 설정(NEXT_PUBLIC_* 등)을 빌드할 때 이미지에 고정한다 (저장소 Variables에서 읽음)

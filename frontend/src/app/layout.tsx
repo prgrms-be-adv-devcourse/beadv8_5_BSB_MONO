@@ -3,7 +3,7 @@ import type { Metadata, Viewport } from 'next'
 import { Barlow_Condensed, Noto_Sans_KR } from 'next/font/google'
 
 import { BASE_OPEN_GRAPH, siteVerification } from '@/shared/config'
-import { ClarityTag, trackingClarityId, trackingGtmId } from '@/shared/lib'
+import { ClarityTag, cn, trackingClarityId, trackingGtmId } from '@/shared/lib'
 import { siteUrl } from '@/shared/server-env'
 
 import { Providers } from './_providers'
@@ -29,6 +29,8 @@ const DESCRIPTION = '러닝 대회 참가권 마켓플레이스'
 // app/ 폴더의 파일 규칙으로 Next가 태그를 자동으로 붙인다.
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl()),
+  // './'는 페이지마다 자기 주소가 된다. 화면이 자체 canonical을 정하면 그쪽이 우선한다
+  alternates: { canonical: './' },
   title: { default: SITE_NAME, template: `%s | ${SITE_NAME}` },
   description: DESCRIPTION,
   applicationName: SITE_NAME,
@@ -49,7 +51,7 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
     <html
       lang="ko"
-      className={`${notoSansKr.variable} ${barlowCondensed.variable} h-full antialiased`}
+      className={cn(notoSansKr.variable, barlowCondensed.variable, 'h-full antialiased')}
     >
       {gtmId && <GoogleTagManager gtmId={gtmId} />}
       <body className="flex min-h-full flex-col">
