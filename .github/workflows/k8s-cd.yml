@@ -39,8 +39,12 @@ jobs:
       contents: read
       packages: write
     strategy:
-      # 하나라도 실패하면 배포하지 않는다 (일부 서비스만 새 버전이 되는 것을 막는다)
-      fail-fast: true
+      # 하나라도 실패하면 배포하지 않는다 (아래 deploy가 build 전체 성공일 때만 돈다 → 일부 서비스만 새 버전이 되지 않는다)
+      # 하나가 실패해도 나머지는 끝까지 빌드한다. 성공한 이미지는 캐시에 남아, 실패한 것만 다시 돌리면 된다
+      fail-fast: false
+      # 한 번에 4개씩만 빌드한다. Dockerfile이 바뀌어 캐시가 무효가 되면 13개가 동시에 라이브러리를 처음부터 받다가
+      # Maven 중앙 저장소의 요청 제한(429 Too Many Requests)에 걸려 배포가 멈췄다 (2026-11-16)
+      max-parallel: 4
       matrix:
         include:
           - { name: gateway, context: backend, module: gateway }
