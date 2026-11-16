@@ -17,6 +17,7 @@ import com.bukang.order.domain.OrderItemStatus;
 import com.bukang.order.domain.OrderStatus;
 import com.bukang.order.dto.CancelingOrderItemDto;
 import com.bukang.order.dto.SellerOrderDto;
+import com.bukang.order.dto.SellerSalesSummaryDto;
 import com.bukang.order.dto.SoldEntryDto;
 import com.bukang.order.dto.SoldSummaryDto;
 
@@ -59,6 +60,7 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
 	 * 결제 대기를 세는 이유: 탈퇴 뒤에도 남은 Access Token으로 결제하면 탈퇴한 회원에게 참가권이 생긴다.
 	 * 취소 중을 세는 이유: 환불이 아직 끝나지 않았다. 재처리가 환불하기 전에 탈퇴하면 탈퇴한 회원의 예치금으로 돈이 들어가고,
 	 * 환불이 거절되면 결제 완료로 돌아와 탈퇴한 회원에게 참가권이 남는다 (BUK-9). 재처리가 끝나는 몇 분만 탈퇴를 미룬다
+	 * 결제 중(BUK-232)은 기한과 상관없이 센다. 예치금이 이미 차감했을 수 있고, 재확인 배치가 결제 완료로 끝낼 수 있다
 	 * 취소·환불(CANCELED), 기한이 지난 결제 대기·만료된 주문의 상품은 빠진다
 	 */
 	@Query("""
@@ -70,7 +72,9 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
 					com.bukang.order.domain.OrderItemStatus.CANCELING)
 				or (i.status = com.bukang.order.domain.OrderItemStatus.ORDERED
 					and i.order.status = com.bukang.order.domain.OrderStatus.CREATED
-					and i.order.paymentDueAt > :now))
+					and i.order.paymentDueAt > :now)
+				or (i.status = com.bukang.order.domain.OrderItemStatus.ORDERED
+					and i.order.status = com.bukang.order.domain.OrderStatus.PAYING))
 		""")
 	long countActiveTickets(@Param("memberId") long memberId, @Param("from") LocalDateTime from,
 		@Param("now") LocalDateTime now);
@@ -93,12 +97,15 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
 
 	// 대회에 환불이 끝나지 않은 참가권 수: 결제 완료(PAID)와 취소 중(CANCELING). 0이어야 대회 환불 완료를 보낸다 (11/05 회의 R1)
 	// 취소 중은 개인 취소의 환불 결과를 기다리는 중이라 아직 끝나지 않은 것으로 센다
+	// 결제 중 주문의 주문 상품(ORDERED)도 센다 (BUK-232). 곧 결제 완료가 될 수 있어, 빼면 환불 완료가 먼저 나가 정산 보류가 풀린다
 	@Query("""
 		select count(i)
 		from OrderItem i
 		where i.raceId = :raceId
-			and i.status in (com.bukang.order.domain.OrderItemStatus.PAID,
-				com.bukang.order.domain.OrderItemStatus.CANCELING)
+			and (i.status in (com.bukang.order.domain.OrderItemStatus.PAID,
+					com.bukang.order.domain.OrderItemStatus.CANCELING)
+				or (i.status = com.bukang.order.domain.OrderItemStatus.ORDERED
+					and i.order.status = com.bukang.order.domain.OrderStatus.PAYING))
 		""")
 	long countNotRefunded(@Param("raceId") long raceId);
 
@@ -158,6 +165,15 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
 
 	// 이 대회에 다른 판매자의 주문 상품이 있는지 (판매자 키트 옵션 판매 현황의 본인 대회 확인)
 	boolean existsByRaceIdAndSellerIdNot(long raceId, long sellerId);
+
+	// 대회 일정 변경을 알릴 결제한 참가권 (BUK-82). 주문 하나에 참가권 하나라 참가권마다 한 건이다
+	@Query("select new com.bukang.order.out.OrderItemRepository$ScheduleNoticeTarget(o.id, i.id, o.buyerId,"
+		+ " i.raceCourseId, i.itemName) from OrderItem i join i.order o"
+		+ " where i.raceId = :raceId and i.status = com.bukang.order.domain.OrderItemStatus.PAID order by i.id")
+	List<ScheduleNoticeTarget> findScheduleNoticeTargets(@Param("raceId") long raceId);
+
+	record ScheduleNoticeTarget(long orderId, long orderItemId, long buyerId, long raceCourseId, String itemName) {
+	}
 
 	// 참가 신청들의 주문 상품과 주문 (내 참가권 목록, BUK-181). 신청 하나에 주문 상품은 많아야 하나다 (uk_order_item_participation)
 	@Query("select new com.bukang.order.out.OrderItemRepository$TicketOrder(i.participationId, o.id, o.orderNo,"
@@ -231,4 +247,22 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
 	record RosterRow(String orderNo, String courseName, String participantName, String phone, String tshirtSize,
 		Long partyId, long participationId) {
 	}
+
+	/**
+	 * 판매자의 결제일(o.paidAt)이 from 이상 to 미만인 주문 상품 중 결제 완료(PAID)·취소 중(CANCELING)의 장수와 금액(amount) 합 (BUK-247)
+	 * 상태 기준은 정산 판매 집계(findSoldEntries·summarizeSold)와 같다: 취소 중은 환불이 거절되면 결제 완료로 돌아오므로 판매로 센다
+	 * 취소(CANCELED)·결제 전(ORDERED)은 빠진다. idx_order_item_seller(seller_id, id)로 판매자 줄만 읽고 주문은 기본 키로 붙는다
+	 */
+	@Query("""
+		select new com.bukang.order.dto.SellerSalesSummaryDto(count(i), sum(i.amount))
+		from OrderItem i
+			join i.order o
+		where i.sellerId = :sellerId
+			and i.status in (com.bukang.order.domain.OrderItemStatus.PAID,
+				com.bukang.order.domain.OrderItemStatus.CANCELING)
+			and o.paidAt >= :from
+			and o.paidAt < :to
+		""")
+	SellerSalesSummaryDto summarizeSellerSales(@Param("sellerId") long sellerId, @Param("from") LocalDateTime from,
+		@Param("to") LocalDateTime to);
 }

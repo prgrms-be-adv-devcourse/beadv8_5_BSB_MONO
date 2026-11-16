@@ -3,6 +3,10 @@ server:
   port: 8083
 
 spring:
+  # 지표·추적 공통 설정 (common의 observability.yaml). 불러온 파일의 값이 이 파일 값보다 우선한다
+  config:
+    import: classpath:observability.yaml
+
   application:
     name: file-service
 
@@ -62,6 +66,12 @@ file:
       # 업로드 URL은 바로 쓰므로 짧게, 이미지 URL은 화면을 보는 동안 열려야 하므로 길게 둔다
       upload-url-expiration: 10m
       download-url-expiration: 30m
+
+# 스케줄 작업 잠금 (common global/schedulerlock, BUK-206). pod가 여러 개여도 같은 작업은 한 곳에서만 돈다
+# 모든 서비스가 같은 DB를 쓰므로 잠금 표 이름에 서비스 접두사를 붙인다 (Flyway SQL로 만든다)
+scheduler-lock:
+  enabled: true
+  table: file_shedlock
 
 # Swagger / OpenAPI V3 설정 (prod에서는 비활성화)
 springdoc:

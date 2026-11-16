@@ -12,7 +12,7 @@ import { ConsoleSidebar } from './ConsoleSidebar'
 const replace = vi.fn()
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), back: vi.fn(), replace }),
-  usePathname: () => '/seller',
+  usePathname: () => '/seller/ai',
 }))
 
 const reloadAfterLogout = vi.hoisted(() => vi.fn())
@@ -79,4 +79,30 @@ describe('ConsoleSidebar 크루런 홈으로', () => {
       expect(home.compareDocumentPosition(logout) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     },
   )
+})
+
+describe('ConsoleSidebar 크루런 AI', () => {
+  it.each([
+    ['seller', '/seller/ai'],
+    ['admin', '/admin/ai'],
+  ] as const)('%s 콘솔 메뉴에 크루런 AI 링크가 있다', (role, href) => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ConsoleSidebar role={role} />
+      </QueryClientProvider>,
+    )
+
+    expect(screen.getByRole('link', { name: '크루런 AI' })).toHaveAttribute('href', href)
+  })
+
+  it('/seller/ai에서는 크루런 AI만 선택 표시되고 대시보드는 선택되지 않는다', () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ConsoleSidebar role="seller" />
+      </QueryClientProvider>,
+    )
+
+    expect(screen.getByRole('link', { name: '크루런 AI' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('link', { name: '대시보드' })).not.toHaveAttribute('aria-current')
+  })
 })

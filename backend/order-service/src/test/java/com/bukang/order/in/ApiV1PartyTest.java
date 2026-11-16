@@ -161,6 +161,21 @@ class ApiV1PartyTest {
 	}
 
 	@Test
+	@DisplayName("파티 만들기·합류는 상품·회원 서비스를 트랜잭션 밖에서 부른다 (DB 연결을 쥔 채 기다리지 않음)")
+	void externalCallsOutsideTransaction() throws Exception {
+		// 같은 컨텍스트를 쓰는 다른 테스트가 남긴 기록을 지운다
+		crewPort.clear();
+		raceCoursePort.clear();
+		raceCoursePort.put(StubRaceCoursePort.openCourse(COURSE_10K, RACE_ID, 14, null));
+		String token = token(create(LEADER, COURSE_10K, "[%d, %d]".formatted(MEMBER, OTHER))
+			.andExpect(status().isCreated()));
+		join(MEMBER, token).andExpect(status().isCreated());
+
+		assertThat(raceCoursePort.calledInTransaction()).isFalse();
+		assertThat(crewPort.calledInTransaction()).isFalse();
+	}
+
+	@Test
 	@DisplayName("회원 서비스가 응답하지 않으면(503) 남은 사람은 묻지 않고 멈춘다. 파티는 그대로 만들어진다")
 	void createInvitesMemberServiceDown() throws Exception {
 		// 파티장 확인은 통과하고, 처음 고른 사람(MEMBER) 확인에서 회원 서비스가 멈춘 경우

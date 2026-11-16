@@ -1,0 +1,3 @@
+# 실행 직전에 login.js가 만드는 토큰 파일. 30분짜리 로그인 토큰이라 커밋하지 않는다
+.tokens.json
+.tokens-issued-at.txt

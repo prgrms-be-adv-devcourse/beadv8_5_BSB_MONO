@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.order.domain.Order;
+import com.bukang.order.domain.Participation;
 import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationRepository;
 import com.bukang.order.out.wallet.WalletPort;
@@ -26,6 +27,8 @@ import lombok.extern.slf4j.Slf4j;
  * (B는 기한 지난 자리를 스스로 풀지 않는다, 10/14 김호빈님과 정함, PRO-166). 두 메시지 모두 만료 트랜잭션 안에서
  * 아웃박스에 저장하고 커밋 뒤 보낸다 (PRO-270). 만료가 롤백되면 메시지도 없고, 커밋되면 Kafka가 잠시 멈춰도 다시 보낸다
  * 여기의 payment_due_at은 화면·정리용 사본이라, 정리가 몇 분 늦어도 결제 판정에는 영향이 없다 (판정 원본은 B)
+ * 결제 중(BUK-232)으로 기한 + 여유(Order.PAYING_GRACE)가 지난 주문도 같은 순서·잠금으로 끝낸다. 결제 중은 판매 수를 늘리고
+ * 옵션 사본을 남겼으므로 그것도 되돌린다. 재확인 배치가 끝내지 못한 결제(예치금·상품이 오래 답하지 않음)를 여기서 마무리한다
  */
 @Slf4j
 @Service
@@ -40,6 +43,7 @@ public class OrderExpiryUseCase {
 	private final WalletPort walletPort;
 	private final OrderOutboxKafkaAppendUseCase orderOutboxKafkaAppendUseCase;
 	private final TransactionTemplate transactionTemplate;
+	private final KitOptionSaleUseCase kitOptionSaleUseCase;
 
 	/**
 	 * @param releasedParticipations 미결제 해제한 참가 신청 수
@@ -60,7 +64,8 @@ public class OrderExpiryUseCase {
 		int retry = 0;
 		long afterId = 0;
 		while (true) {
-			List<Long> overdueOrderIds = orderRepository.findOverdueIds(now, afterId, PageRequest.of(0, BATCH_SIZE));
+			List<Long> overdueOrderIds = orderRepository.findOverdueIds(now, now.minus(Order.PAYING_GRACE), afterId,
+				PageRequest.of(0, BATCH_SIZE));
 			int failed = 0;
 			for (long orderId : overdueOrderIds) {
 				try {
@@ -148,14 +153,20 @@ public class OrderExpiryUseCase {
 		if (order == null || !order.isOverdue(now)) {
 			return new Expired(false, false);
 		}
+		boolean paying = order.isPaying();
 		walletPort.cancelPayment(order.getId(), order.getBuyerId());
 		// 결제·판매 뒤 주문 저장이 롤백돼 판매된 채 남은 자리를 되돌린다. 판매되지 않은 자리면 B가 아무것도 하지 않는다
 		// 결제하지 않은 자리(HELD)는 해제 메시지로 푼다 (Order.expire → OrderExpiredEventListener)
 		orderOutboxKafkaAppendUseCase.appendSeatRestore(order.participationId());
+		// 주문 → 참가 신청 → 판매 수 줄 순서로 잠근다 (결제와 같은 순서)
+		Participation participation = participationRepository.findByIdForUpdate(order.participationId()).orElse(null);
+		if (paying) {
+			kitOptionSaleUseCase.unreserve(order.participationId());
+			log.warn("결제 중으로 기한 + 여유가 지난 주문을 만료했습니다. orderId={}, 결제 시작={}, 시도={}",
+				order.getId(), order.getPayStartedAt(), order.getPayAttempts());
+		}
 		order.expire(now);
-		boolean participationReleased = participationRepository.findByIdForUpdate(order.participationId())
-			.map(participation -> participation.markReleased(now))
-			.orElse(false);
+		boolean participationReleased = participation != null && participation.markReleased(now);
 		return new Expired(true, participationReleased);
 	}
 

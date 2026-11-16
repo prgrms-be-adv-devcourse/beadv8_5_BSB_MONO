@@ -6,6 +6,8 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
+
 import com.bukang.order.app.OrderOutboxKafkaRelayUseCase;
 
 import lombok.RequiredArgsConstructor;
@@ -23,6 +25,7 @@ import lombok.extern.slf4j.Slf4j;
 public class OrderOutboxKafkaRelayScheduler {
 	private final OrderOutboxKafkaRelayUseCase orderOutboxKafkaRelayUseCase;
 
+	@SchedulerLock(name = "order-outbox-relay", lockAtMostFor = "PT1M")
 	@Scheduled(fixedDelay = 1_000, initialDelay = 5_000)
 	public void relay() {
 		int sent = orderOutboxKafkaRelayUseCase.relay(LocalDateTime.now());
