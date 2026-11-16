@@ -30,6 +30,7 @@ import com.bukang.payout.domain.PayoutStatus;
 import com.bukang.payout.out.PayoutHoldRepository;
 import com.bukang.payout.out.PayoutRepository;
 import com.bukang.payout.out.PayoutStatusHistoryRepository;
+import com.bukang.payout.support.MySqlContainerTest;
 
 /**
  * 지급보류 걸기 · 풀기가 같은 정산 내역에서 겹쳐도 보류 상태가 맞는지 확인한다 (BUK-242, 11/12 조사 H1)
@@ -37,6 +38,7 @@ import com.bukang.payout.out.PayoutStatusHistoryRepository;
  */
 @DataJpaTest
 @ActiveProfiles("test")
+@MySqlContainerTest
 @Import({PayoutHoldUseCase.class, BusinessDayCalendar.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class PayoutHoldConcurrencyTest {

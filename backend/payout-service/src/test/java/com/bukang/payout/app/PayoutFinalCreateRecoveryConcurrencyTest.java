@@ -36,6 +36,7 @@ import com.bukang.payout.out.PayoutItemRepository;
 import com.bukang.payout.out.PayoutRecoveryRepository;
 import com.bukang.payout.out.PayoutRepository;
 import com.bukang.payout.out.SoldEntry;
+import com.bukang.payout.support.MySqlContainerTest;
 
 /**
  * 회수와 최종 정산 생성이 겹쳐도 판매자 몫이 한 번만 깎이는지 확인한다 (BUK-52, 판매자 × 대회의 1차 정산 내역 잠금)
@@ -45,6 +46,7 @@ import com.bukang.payout.out.SoldEntry;
  */
 @DataJpaTest
 @ActiveProfiles("test")
+@MySqlContainerTest
 @Import({PayoutLedgerUseCase.class, PayoutCreateStepUseCase.class, PayoutHoldUseCase.class,
 	BusinessDayCalendar.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)

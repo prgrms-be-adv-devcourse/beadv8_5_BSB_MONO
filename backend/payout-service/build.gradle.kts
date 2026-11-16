@@ -43,6 +43,8 @@ dependencies {
 	testImplementation("org.springframework.boot:spring-boot-micrometer-metrics-test") // @AutoConfigureMetrics (테스트는 지표 내보내기가 기본으로 꺼져 있다)
 	testImplementation("org.openjdk.jol:jol-core:0.17") // 대사 비교 방식(집합 · 비트맵)의 메모리 크기 측정 (EntryDifferMemoryTest)
 	testImplementation(testFixtures(project(":common"))) // GlobalConfigTestExecutionListener (테스트마다 EventPublisher 재설정)
+	testImplementation("org.springframework.boot:spring-boot-testcontainers") // @ServiceConnection
+	testImplementation("org.testcontainers:testcontainers-mysql") // 잠금에 기대는 동시성은 진짜 MySQL로 확인한다 (BUK-242)
 
 	// Spring REST Docs: 컨트롤러 테스트가 통과할 때만 API 문서 스니펫이 만들어진다
 	testImplementation("org.springframework.boot:spring-boot-restdocs") // @AutoConfigureRestDocs (Boot 4에서 분리된 모듈)
