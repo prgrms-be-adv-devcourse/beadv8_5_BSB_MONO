@@ -62,9 +62,9 @@ function renderPage(ui: ReactNode) {
 describe('파티 상세', () => {
   it('파티장이 모집 중이면 더 필요한 인원을 알리고 신청 버튼을 막는다', async () => {
     renderPage(<PartyDetailPage partyId={1} />)
-    expect(await screen.findByText('1명 더 모이면 신청할 수 있어요')).toBeInTheDocument()
+    expect(await screen.findByText('1명 더 모이면 참가할 수 있어요')).toBeInTheDocument()
     expect(screen.getByText('3명 / 최소 4명 · 최대 10명')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '파티 신청하기' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '파티 참가하기' })).toHaveAttribute(
       'aria-disabled',
       'true',
     )
@@ -72,8 +72,8 @@ describe('파티 상세', () => {
 
   it('4명이 모이면 신청 버튼이 켜진다', async () => {
     renderPage(<PartyDetailPage partyId={4} />)
-    expect(await screen.findByText('파티를 신청할 수 있어요')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '파티 신청하기' })).toHaveAttribute(
+    expect(await screen.findByText('파티로 참가할 수 있어요')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '파티 참가하기' })).toHaveAttribute(
       'aria-disabled',
       'false',
     )
@@ -84,6 +84,27 @@ describe('파티 상세', () => {
     expect(await screen.findByText('결제 완료 1 / 3명')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '파티원' })).toBeInTheDocument()
     expect(screen.getAllByText('결제 전').length).toBeGreaterThan(0)
+  })
+
+  it('결제를 마친 파티장에게는 결제 기간 끝까지 남은 시간을, 파티원에게는 결제 인원을 보여 준다', async () => {
+    const status = (role: string) =>
+      http.get('*/api/v1/order/parties/me/race-status', () =>
+        HttpResponse.json({
+          status: 200,
+          message: '성공',
+          data: { role, partyId: 3, partyStatus: 'PAYING', myPaid: true },
+        }),
+      )
+    server.use(status('LEADER'))
+    const leader = renderPage(<PartyDetailPage partyId={3} />)
+    expect(await screen.findByText('파티원 결제를 기다리고 있어요')).toBeInTheDocument()
+    expect(screen.getByRole('timer')).toHaveTextContent('남은 시간')
+    leader.unmount()
+
+    server.use(status('MEMBER'))
+    renderPage(<PartyDetailPage partyId={3} />)
+    expect(await screen.findByText('3명 중 1명 결제했어요')).toBeInTheDocument()
+    expect(screen.queryByRole('timer')).not.toBeInTheDocument()
   })
 
   it('없는 파티면 불러오지 못했다는 화면을 보여 준다', async () => {
@@ -149,7 +170,7 @@ describe('파티 상세 · 친구 초대', () => {
     )
     const user = userEvent.setup()
     renderPage(<PartyDetailPage partyId={1} />)
-    await screen.findByText('1명 더 모이면 신청할 수 있어요')
+    await screen.findByText('1명 더 모이면 참가할 수 있어요')
     expect(screen.queryByRole('button', { name: '친구 초대' })).not.toBeInTheDocument()
     await user.click(await screen.findByRole('button', { name: '링크 복사' }))
     await waitFor(async () =>
@@ -329,14 +350,13 @@ describe('파티 합류', () => {
 
   async function fillAndSubmit(user: ReturnType<typeof userEvent.setup>) {
     await user.click(await screen.findByRole('checkbox'))
-    const [name, emergencyName] = screen.getAllByLabelText('이름')
-    await user.type(name, '김러너')
+    await user.type(screen.getByLabelText('참가자 이름'), '김러너')
     fireEvent.change(screen.getByLabelText('생년월일'), { target: { value: '1994-06-25' } })
     await user.click(screen.getByRole('radio', { name: '남성' }))
     await user.type(screen.getByLabelText('휴대폰 번호'), '01012345678')
-    await user.type(emergencyName, '박보호')
-    await user.type(screen.getByLabelText('전화번호'), '01098765432')
-    await user.click(screen.getByRole('button', { name: '파티에 합류하기' }))
+    await user.type(screen.getByLabelText('비상 연락처 이름'), '박보호')
+    await user.type(screen.getByLabelText('비상 연락처 번호'), '01098765432')
+    await user.click(screen.getByRole('button', { name: '합류하기' }))
   }
 
   it('정보를 적고 합류하면 파티 상세로 간다', async () => {
