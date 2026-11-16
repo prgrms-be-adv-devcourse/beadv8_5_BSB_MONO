@@ -63,7 +63,9 @@ final class SellerOrderApiExamples {
 			"message": "판매 합계를 조회했습니다.",
 			"data": {
 				"soldCount": 42,
-				"soldAmount": 2310000
+				"soldAmount": 2310000,
+				"canceledCount": 3,
+				"refundedAmount": 165000
 			}
 		}
 		""";

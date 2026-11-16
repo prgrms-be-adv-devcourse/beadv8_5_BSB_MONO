@@ -19,8 +19,10 @@ public class CashClientConfig {
 	@Bean
 	public HttpWalletAdapter httpWalletAdapter(
 		@Value("${order.clients.cash.base-url}") String baseUrl,
-		@Value("${order.clients.timeout}") Duration timeout
+		@Value("${order.clients.timeout}") Duration timeout,
+		@Value("${order.clients.cash.max-concurrent-pay}") int maxConcurrentPay,
+		@Value("${order.clients.cash.pay-acquire-timeout}") Duration payAcquireTimeout
 	) {
-		return new HttpWalletAdapter(InternalHttpClients.create(baseUrl, timeout));
+		return new HttpWalletAdapter(InternalHttpClients.create(baseUrl, timeout), maxConcurrentPay, payAcquireTimeout);
 	}
 }

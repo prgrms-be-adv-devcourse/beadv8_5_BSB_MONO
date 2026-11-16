@@ -249,19 +249,32 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
 	}
 
 	/**
-	 * 판매자의 결제일(o.paidAt)이 from 이상 to 미만인 주문 상품 중 결제 완료(PAID)·취소 중(CANCELING)의 장수와 금액(amount) 합 (BUK-247)
-	 * 상태 기준은 정산 판매 집계(findSoldEntries·summarizeSold)와 같다: 취소 중은 환불이 거절되면 결제 완료로 돌아오므로 판매로 센다
-	 * 취소(CANCELED)·결제 전(ORDERED)은 빠진다. idx_order_item_seller(seller_id, id)로 판매자 줄만 읽고 주문은 기본 키로 붙는다
+	 * 판매자의 기간 판매·취소 합계 (BUK-247, 취소 BUK-264). 기간은 from 이상 to 미만이다
+	 * - 판매: 결제일(o.paidAt)이 기간 안인 결제 완료(PAID)·취소 중(CANCELING)의 장수와 금액(amount) 합.
+	 *   상태 기준은 정산 판매 집계(findSoldEntries·summarizeSold)와 같다: 취소 중은 환불이 거절되면 결제 완료로 돌아오므로 판매로 센다
+	 * - 취소: 취소를 마친 시각(i.canceledAt)이 기간 안인 취소(CANCELED)의 장수와 환불액(canceledAmount) 합. 대회 취소 일괄 환불도 들어간다.
+	 *   취소 중은 환불 결과를 모르므로 아직 세지 않는다
+	 * 결제 전(ORDERED)은 어디에도 들지 않는다. idx_order_item_seller(seller_id, id)로 판매자 줄만 한 번 읽고 주문은 기본 키로 붙는다
 	 */
 	@Query("""
-		select new com.bukang.order.dto.SellerSalesSummaryDto(count(i), sum(i.amount))
+		select new com.bukang.order.dto.SellerSalesSummaryDto(
+			sum(case when i.status in (com.bukang.order.domain.OrderItemStatus.PAID,
+				com.bukang.order.domain.OrderItemStatus.CANCELING) and o.paidAt >= :from and o.paidAt < :to
+				then 1 else 0 end),
+			sum(case when i.status in (com.bukang.order.domain.OrderItemStatus.PAID,
+				com.bukang.order.domain.OrderItemStatus.CANCELING) and o.paidAt >= :from and o.paidAt < :to
+				then i.amount else 0 end),
+			sum(case when i.status = com.bukang.order.domain.OrderItemStatus.CANCELED
+				and i.canceledAt >= :from and i.canceledAt < :to then 1 else 0 end),
+			sum(case when i.status = com.bukang.order.domain.OrderItemStatus.CANCELED
+				and i.canceledAt >= :from and i.canceledAt < :to then i.canceledAmount else 0 end))
 		from OrderItem i
 			join i.order o
 		where i.sellerId = :sellerId
-			and i.status in (com.bukang.order.domain.OrderItemStatus.PAID,
-				com.bukang.order.domain.OrderItemStatus.CANCELING)
-			and o.paidAt >= :from
-			and o.paidAt < :to
+			and ((i.status in (com.bukang.order.domain.OrderItemStatus.PAID,
+					com.bukang.order.domain.OrderItemStatus.CANCELING) and o.paidAt >= :from and o.paidAt < :to)
+				or (i.status = com.bukang.order.domain.OrderItemStatus.CANCELED
+					and i.canceledAt >= :from and i.canceledAt < :to))
 		""")
 	SellerSalesSummaryDto summarizeSellerSales(@Param("sellerId") long sellerId, @Param("from") LocalDateTime from,
 		@Param("to") LocalDateTime to);

@@ -453,6 +453,11 @@ final class OrderApiExamples {
 			"message": "예치금 서비스에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요.", "data": null }
 		""";
 
+	static final String PAY_BUSY = """
+		{ "status": 503, "code": "ORDER_PAYMENT_BUSY",
+			"message": "결제 요청이 몰려 있습니다. 잠시 후 다시 시도해주세요.", "data": null }
+		""";
+
 	static final String NOT_PAID_ITEM = """
 		{ "status": 409, "code": "ORDER_ITEM_NOT_CANCELABLE",
 			"message": "결제한 상품만 취소할 수 있습니다(현재 상태: 결제 대기).", "data": null }

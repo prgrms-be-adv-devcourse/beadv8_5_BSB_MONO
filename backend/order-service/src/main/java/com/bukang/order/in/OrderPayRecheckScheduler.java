@@ -7,6 +7,8 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
+
 import com.bukang.order.app.OrderPayRecheckUseCase;
 import com.bukang.order.app.OrderPayRecheckUseCase.Run;
 import com.bukang.order.out.OrderRepository;
@@ -20,7 +22,7 @@ import lombok.extern.slf4j.Slf4j;
  * 한 회차가 남은 결제 중을 다 볼 때까지 반복하되, 10초 상한·예치금 장애에서 멈춘다 (OrderPayRecheckUseCase)
  * 결제 나누기 스위치(order.pay.split.enabled)와 상관없이 돈다. 스위치를 끈 뒤에도 남은 결제 중을 끝내야 하기 때문이다
  * 여러 서버가 같은 주문을 함께 맞춰도 주문 잠금과 예치금·자리 판매의 멱등으로 한 번만 확정된다
- * shortcut: 분산 락이 없다. #474(ShedLock)가 머지되면 @SchedulerLock(name = "order-pay-recheck", lockAtMostFor = "PT2M")을 단다
+ * 서버가 여러 대면 ShedLock(BUK-206)으로 한 서버만 돈다. 한 회차는 10초 상한이라 잠금은 2분이면 넉넉하다
  * 테스트에서는 등록하지 않는다. 테스트는 OrderPayRecheckUseCase.recheckStale에 시각을 넣어 직접 부른다
  */
 @Slf4j
@@ -36,6 +38,7 @@ public class OrderPayRecheckScheduler {
 	private final OrderRepository orderRepository;
 	private final OrderPayRecheckUseCase orderPayRecheckUseCase;
 
+	@SchedulerLock(name = "order-pay-recheck", lockAtMostFor = "PT2M")
 	@Scheduled(fixedDelay = 15_000, initialDelay = 15_000)
 	public void recheck() {
 		LocalDateTime now = LocalDateTime.now();
