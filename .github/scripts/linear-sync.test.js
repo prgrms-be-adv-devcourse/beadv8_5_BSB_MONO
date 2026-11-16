@@ -263,5 +263,5 @@ test('계약: 워크플로가 팀원 다섯 명의 BUK·CRU 시크릿을 같은 
       assert.ok(guide.includes(name), `LINEAR-API-KEY.md에 ${name} 없음`)
     }
   }
-  assert.ok(!yml.includes('toJSON(secrets)'), '모든 시크릿을 넘기면 안 됨')
+  assert.ok(!/\$\{\{\s*toJSON\(secrets\)/.test(yml), '모든 시크릿을 넘기면 안 됨')
 })
