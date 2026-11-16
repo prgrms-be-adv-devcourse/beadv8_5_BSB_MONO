@@ -1,5 +1,6 @@
 package com.bukang.order.in;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import org.springframework.kafka.annotation.BackOff;
@@ -17,6 +18,7 @@ import com.bukang.order.app.OrderDltUseCase;
 import com.bukang.order.app.OrderInboxUseCase;
 import com.bukang.order.app.OrderKafkaRetry;
 import com.bukang.order.app.RaceCancelRefundUseCase;
+import com.bukang.order.app.RaceScheduleNoticeUseCase;
 
 import lombok.RequiredArgsConstructor;
 
@@ -48,6 +50,7 @@ public class OrderKafkaConsumer {
 	private final OrderInboxUseCase orderInboxUseCase;
 	private final CrewMemberLeftUseCase crewMemberLeftUseCase;
 	private final OrderDltUseCase orderDltUseCase;
+	private final RaceScheduleNoticeUseCase raceScheduleNoticeUseCase;
 	private final JsonConverter jsonConverter;
 
 	// 판매자가 대회를 취소했다 (상품 서비스가 발행, key는 대회 ID). 결제한 참가권을 모두 환불한다
@@ -112,6 +115,40 @@ public class OrderKafkaConsumer {
 			LocalDateTime.now());
 		orderInboxUseCase.record(messageId, GROUP_ID, KafkaTopics.CREW_MEMBER_LEFT, LocalDateTime.now());
 		orderDltUseCase.completeByResend(messageId, LocalDateTime.now());
+	}
+
+	// 대회가 바뀌었다 (상품 서비스가 발행, key는 대회 ID, 본문 RaceChangedEvent). 대기열과 다른 그룹(order)으로 따로 받는다
+	// 판매 시작 뒤 일정·장소가 바뀌었으면 결제한 참가권의 구매자에게 알린다 (BUK-82)
+	@KafkaListener(topics = KafkaTopics.RACE_CHANGED, groupId = GROUP_ID)
+	@RetryableTopic(
+		attempts = RETRY_ATTEMPTS,
+		backOff = @BackOff(delay = RETRY_DELAY_MILLIS, multiplier = RETRY_MULTIPLIER),
+		exclude = IllegalArgumentException.class,
+		numPartitions = PARTITIONS,
+		retryTopicSuffix = RETRY_TOPIC_SUFFIX,
+		dltTopicSuffix = DLT_TOPIC_SUFFIX,
+		autoStartDltHandler = AUTO_START_DEFAULT_DLT_HANDLER
+	)
+	public void handleRaceChanged(
+		String payload,
+		@Header(name = KafkaMessageId.HEADER, required = false) String messageId
+	) {
+		if (orderInboxUseCase.alreadyProcessed(messageId, GROUP_ID, KafkaTopics.RACE_CHANGED)) {
+			orderDltUseCase.completeByResend(messageId, LocalDateTime.now());
+			return;
+		}
+		RaceChanged event = jsonConverter.fromJson(payload, RaceChanged.class);
+		if (event.raceId() <= 0 || (event.scheduleChangedAt() != null && event.raceDate() == null)) {
+			throw new IllegalArgumentException("대회 변경 메시지에 raceId·raceDate가 없습니다. payload=" + payload);
+		}
+		raceScheduleNoticeUseCase.notifyChanged(event.raceId(), event.raceDate(), event.scheduleChangedAt(),
+			LocalDate.now());
+		orderInboxUseCase.record(messageId, GROUP_ID, KafkaTopics.RACE_CHANGED, LocalDateTime.now());
+		orderDltUseCase.completeByResend(messageId, LocalDateTime.now());
+	}
+
+	// RaceChangedEvent 중 쓰는 칸만 읽는다. 판매 상태 등 대기열용 칸은 읽지 않아 값이 늘어도 실패하지 않는다
+	record RaceChanged(long raceId, LocalDateTime raceDate, LocalDateTime scheduleChangedAt) {
 	}
 
 	// CrewMemberLeftEvent 중 쓰는 칸만 읽는다. 이유(reason)는 늘어날 수 있어 읽지 않는다. 모르는 값이 와도 실패하지 않게 (#311 계약)

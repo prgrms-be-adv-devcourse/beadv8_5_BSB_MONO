@@ -20,6 +20,7 @@ import com.bukang.order.app.CrewMemberLeftUseCase;
 import com.bukang.order.app.OrderDltUseCase;
 import com.bukang.order.app.OrderInboxUseCase;
 import com.bukang.order.app.RaceCancelRefundUseCase;
+import com.bukang.order.app.RaceScheduleNoticeUseCase;
 
 import tools.jackson.databind.json.JsonMapper;
 
@@ -35,8 +36,9 @@ class OrderKafkaConsumerTest {
 	private final OrderInboxUseCase inbox = mock();
 	private final CrewMemberLeftUseCase crewMemberLeftUseCase = mock();
 	private final OrderDltUseCase dlt = mock();
+	private final RaceScheduleNoticeUseCase raceScheduleNoticeUseCase = mock();
 	private final OrderKafkaConsumer consumer = new OrderKafkaConsumer(useCase, inbox, crewMemberLeftUseCase, dlt,
-		new JsonConverter(JsonMapper.builder().build()));
+		raceScheduleNoticeUseCase, new JsonConverter(JsonMapper.builder().build()));
 
 	@Test
 	@DisplayName("대회 취소 메시지(RaceCancelEvent)를 받으면 그 대회 ID로 일괄 환불한다")

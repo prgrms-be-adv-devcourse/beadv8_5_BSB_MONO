@@ -155,6 +155,15 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
 	// 이 대회에 다른 판매자의 주문 상품이 있는지 (판매자 키트 옵션 판매 현황의 본인 대회 확인)
 	boolean existsByRaceIdAndSellerIdNot(long raceId, long sellerId);
 
+	// 대회 일정 변경을 알릴 결제한 참가권 (BUK-82). 주문 하나에 참가권 하나라 참가권마다 한 건이다
+	@Query("select new com.bukang.order.out.OrderItemRepository$ScheduleNoticeTarget(o.id, i.id, o.buyerId,"
+		+ " i.raceCourseId, i.itemName) from OrderItem i join i.order o"
+		+ " where i.raceId = :raceId and i.status = com.bukang.order.domain.OrderItemStatus.PAID order by i.id")
+	List<ScheduleNoticeTarget> findScheduleNoticeTargets(@Param("raceId") long raceId);
+
+	record ScheduleNoticeTarget(long orderId, long orderItemId, long buyerId, long raceCourseId, String itemName) {
+	}
+
 	// 참가 신청들의 주문 상품과 주문 (내 참가권 목록, BUK-181). 신청 하나에 주문 상품은 많아야 하나다 (uk_order_item_participation)
 	@Query("select new com.bukang.order.out.OrderItemRepository$TicketOrder(i.participationId, o.id, o.orderNo,"
 		+ " o.status, i.id, i.status, i.amount, i.itemName, i.raceDate) from OrderItem i join i.order o"
