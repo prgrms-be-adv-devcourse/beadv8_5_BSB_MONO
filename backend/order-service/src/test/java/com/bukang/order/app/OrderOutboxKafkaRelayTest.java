@@ -2,7 +2,6 @@ package com.bukang.order.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.inOrder;
@@ -18,6 +17,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.errors.RecordTooLargeException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -32,13 +32,13 @@ import org.springframework.transaction.IllegalTransactionStateException;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.common.global.json.JsonConverter;
-import com.bukang.common.global.notify.SlackNotifier;
 import com.bukang.common.shared.kafka.KafkaMessageId;
 import com.bukang.common.shared.kafka.KafkaTopics;
+import com.bukang.common.shared.kafka.outbox.OutboxKafkaRelay;
+import com.bukang.common.shared.kafka.outbox.OutboxStatus;
 import com.bukang.common.shared.race.event.HoldCancelEvent;
 import com.bukang.common.shared.race.event.HoldRestoreEvent;
 import com.bukang.order.domain.OrderOutboxKafkaEvent;
-import com.bukang.order.domain.OutboxStatus;
 import com.bukang.order.domain.exception.OutboxEventNotFailedException;
 import com.bukang.order.out.OrderOutboxKafkaEventRepository;
 
@@ -46,8 +46,9 @@ import com.bukang.order.out.OrderOutboxKafkaEventRepository;
  * 주문 아웃박스 저장(OrderOutboxKafkaAppendUseCase)과 릴레이(OrderOutboxKafkaRelayUseCase)를 확인한다.
  * - 저장은 취소·만료 트랜잭션 안에서만 할 수 있고, 그 트랜잭션이 롤백되면 행도 남지 않는다
  * - 릴레이는 미발행 행을 만든 순서대로 key(참가 신청 ID)를 붙여 보내고, 브로커가 받으면 SENT로 바꾼다
- * - 보내지 못하면 이번 릴레이를 멈추고, 재시도 시각까지는 그 토픽·신청만 막아 다른 토픽이나 다른 신청은 다음 릴레이에서 보낸다
- * - 재시도 간격은 1초부터 두 배씩 늘리고, MAX_RETRY번 실패하면 SEND_FAILED로 바꾼다
+ * - 보내지 못하면 이번 릴레이를 멈추고, 재시도 시각까지는 그 대상(참가 신청)만 막아 다른 신청은 다음 릴레이에서 보낸다
+ * - 재시도 간격은 1초부터 두 배씩 늘린다. Kafka 연결 장애로는 포기하지 않고, 메시지 자체의 문제만 3번째에 SEND_FAILED로 바꾼다
+ * 보내는 방식은 common OutboxKafkaRelay에 있다 (BUK-207). 여기서는 주문 메시지로 그 동작이 그대로인지 본다.
  * KafkaTemplate은 spy라 브로커 없이 바로 성공을 돌려준다. 실패는 토픽·key별로 실패한 결과를 돌려주게 바꿔 만든다.
  * 재시도 시각을 확인하는 테스트는 릴레이에 시각을 직접 넘긴다 (DB가 소수 6자리로 저장하므로 초 단위로 맞춘 시각을 쓴다).
  */
@@ -74,9 +75,6 @@ class OrderOutboxKafkaRelayTest {
 	// 실제 KafkaTemplate을 감싼다. 자동 설정 빈의 타입이 KafkaTemplate<?, ?>라 같은 타입으로 받는다
 	@MockitoSpyBean
 	private KafkaTemplate<?, ?> kafkaTemplate;
-	// 발행 실패 알림을 보냈는지 본다. 테스트는 webhook 주소가 비어 실제로는 로그만 남는다
-	@MockitoSpyBean
-	private SlackNotifier slackNotifier;
 
 	private final LocalDateTime now = LocalDateTime.now().withNano(0);
 
@@ -167,9 +165,9 @@ class OrderOutboxKafkaRelayTest {
 	}
 
 	@Test
-	@DisplayName("재시도 시각 전의 다음 릴레이는 신청 1001의 복구 메시지와 같은 토픽·같은 신청의 뒤 메시지는 건너뛰고(순서 유지), "
-		+ "다른 신청 1002의 복구와 같은 신청 1001의 해제(다른 토픽)는 보낸다")
-	void skipOnlyBlockedTopicAndParticipationUntilRetryDate() {
+	@DisplayName("재시도 시각 전의 다음 릴레이는 신청 1001의 뒤 메시지를 토픽이 달라도(해제) 건너뛰고(순서 유지), "
+		+ "다른 신청 1002의 복구는 보낸다")
+	void skipOnlyBlockedParticipationUntilRetryDate() {
 		failSendTo(KafkaTopics.PRODUCT_HOLD_RESTORE, PARTICIPATION_ID);
 		restore(PARTICIPATION_ID);
 		restore(PARTICIPATION_ID);
@@ -179,12 +177,12 @@ class OrderOutboxKafkaRelayTest {
 
 		int sent = relayAt(now.plusNanos(Duration.ofMillis(500).toNanos()));
 
-		assertThat(sent).isEqualTo(2);
+		assertThat(sent).isEqualTo(1);
 		List<OrderOutboxKafkaEvent> events = allEvents();
 		assertThat(events.get(0).getStatus()).isEqualTo(OutboxStatus.PENDING);
 		assertThat(events.get(1).getStatus()).isEqualTo(OutboxStatus.PENDING);
 		assertThat(events.get(2).getStatus()).isEqualTo(OutboxStatus.SENT);
-		assertThat(events.get(3).getStatus()).isEqualTo(OutboxStatus.SENT);
+		assertThat(events.get(3).getStatus()).isEqualTo(OutboxStatus.PENDING);
 		verify(kafka(), times(1))
 			.send(record(KafkaTopics.PRODUCT_HOLD_RESTORE, "1001", restorePayload(PARTICIPATION_ID)));
 	}
@@ -211,56 +209,75 @@ class OrderOutboxKafkaRelayTest {
 	@Test
 	@DisplayName("재시도 간격은 실패할 때마다 1초, 2초, 4초 …로 두 배씩 늘고 1분을 넘지 않는다")
 	void doubleRetryDelayUpToOneMinute() {
-		assertThat(OrderOutboxKafkaRelayUseCase.retryDelay(1)).isEqualTo(Duration.ofSeconds(1));
-		assertThat(OrderOutboxKafkaRelayUseCase.retryDelay(2)).isEqualTo(Duration.ofSeconds(2));
-		assertThat(OrderOutboxKafkaRelayUseCase.retryDelay(3)).isEqualTo(Duration.ofSeconds(4));
-		assertThat(OrderOutboxKafkaRelayUseCase.retryDelay(6)).isEqualTo(Duration.ofSeconds(32));
-		assertThat(OrderOutboxKafkaRelayUseCase.retryDelay(7)).isEqualTo(Duration.ofMinutes(1));
-		assertThat(OrderOutboxKafkaRelayUseCase.retryDelay(100)).isEqualTo(Duration.ofMinutes(1));
+		assertThat(OutboxKafkaRelay.retryDelay(1)).isEqualTo(Duration.ofSeconds(1));
+		assertThat(OutboxKafkaRelay.retryDelay(2)).isEqualTo(Duration.ofSeconds(2));
+		assertThat(OutboxKafkaRelay.retryDelay(3)).isEqualTo(Duration.ofSeconds(4));
+		assertThat(OutboxKafkaRelay.retryDelay(6)).isEqualTo(Duration.ofSeconds(32));
+		assertThat(OutboxKafkaRelay.retryDelay(7)).isEqualTo(Duration.ofMinutes(1));
+		assertThat(OutboxKafkaRelay.retryDelay(100)).isEqualTo(Duration.ofMinutes(1));
 	}
 
 	@Test
-	@DisplayName("MAX_RETRY번 보내지 못하면 SEND_FAILED로 바꾸고 더는 보내지 않으며, "
-		+ "다음 릴레이부터는 같은 토픽·같은 신청의 뒤 메시지를 보낸다")
-	void markFailedAfterMaxRetry() {
+	@DisplayName("Kafka 연결 장애로는 몇 번을 보내지 못해도 포기하지 않고, 같은 신청의 뒤 메시지도 기다리다가 브로커가 돌아오면 순서대로 보낸다")
+	void neverGiveUpOnConnectionFailure() {
 		failSendTo(KafkaTopics.PRODUCT_HOLD_RESTORE, PARTICIPATION_ID);
 		restore(PARTICIPATION_ID);
 		release(PARTICIPATION_ID);
-		restore(PARTICIPATION_ID);
 
-		// 재시도 간격(최대 1분)이 늘 지나도록 한 시간씩 뒤의 시각으로 릴레이를 돌린다
-		for (int i = 0; i < OrderOutboxKafkaRelayUseCase.MAX_RETRY; i++) {
+		// 재시도 간격(최대 1분)이 늘 지나도록 한 시간씩 뒤의 시각으로 릴레이를 돌린다. 옛 주문 규칙(66번이면 포기)보다 많이 돌린다
+		int failures = 100;
+		for (int i = 0; i < failures; i++) {
 			relayAt(now.plusHours(i));
 		}
-		succeedSendTo(KafkaTopics.PRODUCT_HOLD_RESTORE, PARTICIPATION_ID);
-		int sent = relayAt(now.plusHours(OrderOutboxKafkaRelayUseCase.MAX_RETRY));
-		int sentAfterFailed = relayAt(now.plusHours(OrderOutboxKafkaRelayUseCase.MAX_RETRY + 1));
+		List<OrderOutboxKafkaEvent> beforeRecovery = allEvents();
+		assertThat(beforeRecovery.get(0).getStatus()).isEqualTo(OutboxStatus.PENDING);
+		assertThat(beforeRecovery.get(0).getRetryCount()).isEqualTo(failures);
+		assertThat(beforeRecovery.get(1).getStatus()).isEqualTo(OutboxStatus.PENDING);
+		verify(kafka(), never()).send(record(KafkaTopics.PRODUCT_HOLD_CANCEL, null, null));
 
-		// 실패할 때마다 릴레이가 멈춰 해제(둘째 행)도 기다렸다가, 첫 행이 SEND_FAILED가 된 뒤 둘째·셋째 행이 나간다
+		succeedSendTo(KafkaTopics.PRODUCT_HOLD_RESTORE, PARTICIPATION_ID);
+		int sent = relayAt(now.plusHours(failures));
+
 		assertThat(sent).isEqualTo(2);
+		assertThat(allEvents()).allSatisfy(event -> assertThat(event.getStatus()).isEqualTo(OutboxStatus.SENT));
+	}
+
+	@Test
+	@DisplayName("메시지 자체의 문제(크기 초과)는 3번째 실패에 SEND_FAILED로 바꾸고 더는 보내지 않으며, "
+		+ "다음 릴레이부터는 같은 신청의 뒤 메시지를 보낸다")
+	void giveUpOnMessageProblem() {
+		failSendTo(KafkaTopics.PRODUCT_HOLD_RESTORE, PARTICIPATION_ID, new RecordTooLargeException("너무 큼"));
+		restore(PARTICIPATION_ID);
+		release(PARTICIPATION_ID);
+
+		for (int i = 0; i < OutboxKafkaRelay.MAX_MESSAGE_FAILURES; i++) {
+			relayAt(now.plusHours(i));
+		}
+		int sent = relayAt(now.plusHours(OutboxKafkaRelay.MAX_MESSAGE_FAILURES));
+		int sentAfterFailed = relayAt(now.plusHours(OutboxKafkaRelay.MAX_MESSAGE_FAILURES + 1));
+
+		assertThat(sent).isEqualTo(1);
 		assertThat(sentAfterFailed).isZero();
 		List<OrderOutboxKafkaEvent> events = allEvents();
 		assertThat(events.get(0).getStatus()).isEqualTo(OutboxStatus.SEND_FAILED);
-		assertThat(events.get(0).getRetryCount()).isEqualTo(OrderOutboxKafkaRelayUseCase.MAX_RETRY);
+		assertThat(events.get(0).getRetryCount()).isEqualTo(OutboxKafkaRelay.MAX_MESSAGE_FAILURES);
 		assertThat(events.get(1).getStatus()).isEqualTo(OutboxStatus.SENT);
-		assertThat(events.get(2).getStatus()).isEqualTo(OutboxStatus.SENT);
-		// 첫 행 MAX_RETRY번 + 셋째 행 1번
-		verify(kafka(), times(OrderOutboxKafkaRelayUseCase.MAX_RETRY + 1))
+		verify(kafka(), times(OutboxKafkaRelay.MAX_MESSAGE_FAILURES))
 			.send(record(KafkaTopics.PRODUCT_HOLD_RESTORE, "1001", restorePayload(PARTICIPATION_ID)));
 	}
 
 	@Test
-	@DisplayName("발행 실패가 되면 Slack으로 한 번 알리고, 되돌리면 재시도 횟수·다음 시도 시각이 비워져 다음 릴레이가 다시 보낸다 (BUK-180)")
+	@DisplayName("발행 실패 행을 되돌리면 재시도 횟수·다음 시도 시각이 비워져 다음 릴레이가 다시 보낸다 (BUK-180)")
 	void retrySendFailed() {
-		failSendTo(KafkaTopics.PRODUCT_HOLD_RESTORE, PARTICIPATION_ID);
+		failSendTo(KafkaTopics.PRODUCT_HOLD_RESTORE, PARTICIPATION_ID, new RecordTooLargeException("너무 큼"));
 		restore(PARTICIPATION_ID);
-		for (int i = 0; i < OrderOutboxKafkaRelayUseCase.MAX_RETRY; i++) {
+		for (int i = 0; i < OutboxKafkaRelay.MAX_MESSAGE_FAILURES; i++) {
 			relayAt(now.plusHours(i));
 		}
 		long id = allEvents().getFirst().getId();
-		verify(slackNotifier, times(1)).sendAfterCommit(anyString());
+		assertThat(allEvents().getFirst().getStatus()).isEqualTo(OutboxStatus.SEND_FAILED);
 
-		// 원인(브로커)을 고친 뒤 되돌린다
+		// 원인을 고친 뒤 되돌린다
 		succeedSendTo(KafkaTopics.PRODUCT_HOLD_RESTORE, PARTICIPATION_ID);
 		orderOutboxKafkaRelayUseCase.retry(id, now);
 
@@ -294,7 +311,7 @@ class OrderOutboxKafkaRelayTest {
 		failSendTo(KafkaTopics.PRODUCT_HOLD_RESTORE, PARTICIPATION_ID);
 		relayAt(now);
 		succeedSendTo(KafkaTopics.PRODUCT_HOLD_RESTORE, PARTICIPATION_ID);
-		relayAt(now.plus(OrderOutboxKafkaRelayUseCase.FIRST_RETRY_DELAY));
+		relayAt(now.plus(OutboxKafkaRelay.FIRST_RETRY_DELAY));
 
 		String messageId = allEvents().getFirst().getMessageId();
 		assertThat(messageId).matches(OUTBOX_MESSAGE_ID_FORMAT);
@@ -337,7 +354,11 @@ class OrderOutboxKafkaRelayTest {
 
 	// 이 토픽·신청(key)의 메시지를 보내면 브로커가 거절한 것처럼 실패한 결과를 돌려준다
 	private void failSendTo(String topic, long participationId) {
-		doReturn(CompletableFuture.failedFuture(new IllegalStateException("브로커 응답 없음")))
+		failSendTo(topic, participationId, new IllegalStateException("브로커 응답 없음"));
+	}
+
+	private void failSendTo(String topic, long participationId, Exception cause) {
+		doReturn(CompletableFuture.failedFuture(cause))
 			.when(kafka()).send(record(topic, String.valueOf(participationId), null));
 	}
 

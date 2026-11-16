@@ -34,9 +34,9 @@ import com.bukang.common.global.notify.SlackNotifier;
 import com.bukang.common.shared.kafka.KafkaTopics;
 import com.bukang.common.shared.kafka.dlt.DltKafkaEventStatus;
 import com.bukang.common.shared.kafka.dlt.KafkaDltMessage;
+import com.bukang.common.shared.kafka.outbox.OutboxStatus;
 import com.bukang.order.domain.OrderDltKafkaEvent;
 import com.bukang.order.domain.OrderOutboxKafkaEvent;
-import com.bukang.order.domain.OutboxStatus;
 import com.bukang.order.out.OrderDltKafkaEventRepository;
 import com.bukang.order.out.OrderOutboxKafkaEventRepository;
 
@@ -146,15 +146,13 @@ class OrderKafkaFailureConcurrencyTest {
 		return orderDltKafkaEventRepository.save(new OrderDltKafkaEvent(message)).getId();
 	}
 
-	// 자리 복구 아웃박스 행을 만들고 66번 보내지 못한 것처럼 발행 실패로 바꾼다
+	// 자리 복구 아웃박스 행을 만들고 메시지 문제로 포기한 것처럼 발행 실패로 바꾼다
 	private long saveSendFailedOutbox(int round) {
 		transactionTemplate.executeWithoutResult(status ->
 			orderOutboxKafkaAppendUseCase.appendSeatRestore(5000 + round));
 		OrderOutboxKafkaEvent event = orderOutboxKafkaEventRepository.findAll().stream()
 			.filter(row -> row.getRefId() == 5000 + round).findFirst().orElseThrow();
-		for (int i = 0; i < OrderOutboxKafkaRelayUseCase.MAX_RETRY; i++) {
-			event.markSendFailed(OrderOutboxKafkaRelayUseCase.MAX_RETRY, LocalDateTime.now());
-		}
+		event.markSendFailed(true, LocalDateTime.now());
 		return orderOutboxKafkaEventRepository.save(event).getId();
 	}
 
