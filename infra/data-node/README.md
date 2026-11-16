@@ -34,6 +34,7 @@ k3s agent로 묶지 않은 이유: 데이터는 자주 바뀌지 않고, 앱을 
 | Redpanda 관리·지표 | 9644 | 수집기가 `/public_metrics`를 가져감 |
 | redis-exporter | 9121 | 수집기 (job `redis`) |
 | mysqld-exporter | 9104 | 수집기 (job `mysql`) |
+| elasticsearch-exporter | 9114 | 수집기 (job `elasticsearch`) |
 | node-exporter | 9100 | 수집기 (job `node`) |
 
 - Redpanda는 접속한 앱에 `bukang-kafka:29092`로 다시 접속하라고 알려 줍니다. 메인 k3s의 Service `bukang-kafka`가 이 서버의 29092로 이어 주므로 이 포트를 엽니다. external 리스너(9092)는 열지 않습니다.
@@ -50,6 +51,7 @@ k3s agent로 묶지 않은 이유: 데이터는 자주 바뀌지 않고, 앱을 
 |---|---|---|
 | redis-exporter | Redis 메모리, 키 수, 명령 수 | 정의는 `backend/compose.yml`(로컬과 같음), 여기서는 포트만 엶 |
 | mysqld-exporter | 접속 수, 쿼리 수, 느린 쿼리, 표별 읽기·쓰기 | 전용 계정 `exporter`(앱 데이터는 못 읽음). DB를 서비스별로 나눠도 하나면 됨 |
+| elasticsearch-exporter | ES 힙·GC, 검색 지연, 거부된 요청, 인덱스별 문서 수 | ES에 비밀번호가 없어 계정 준비 없음 |
 | node-exporter | 서버 CPU·메모리·디스크·네트워크 | 서버 네트워크를 그대로 쓰고(host) 사설 IP에서만 들음 |
 | (Redpanda) | 처리량, 지연, 파티션 | exporter 없이 관리 포트 9644의 `/public_metrics` |
 
@@ -57,7 +59,7 @@ Redpanda 관리 포트 9644는 설정을 바꾸는 관리 API도 함께 엽니�
 
 처음 한 번 (main에 머지된 뒤):
 
-1. 보안 그룹 `sg-0f9a0ff371a92e8eb` 인바운드에 9644·9121·9104·9100을 **메인 EC2 보안 그룹(`sg-09d6700bbf0f7348f`)에서만** 허용합니다.
+1. 보안 그룹 `sg-0f9a0ff371a92e8eb` 인바운드에 9644·9121·9104·9114·9100을 **메인 EC2 보안 그룹(`sg-09d6700bbf0f7348f`)에서만** 허용합니다.
 2. 보조 EC2에서 `.env`에 비밀번호를 넣고 MySQL 계정을 만듭니다.
    ```bash
    cd /opt/crewrun
@@ -67,10 +69,10 @@ Redpanda 관리 포트 9644는 설정을 바꾸는 관리 API도 함께 엽니�
      | sudo docker exec -i bukang-db sh -c 'exec mysql -uroot -p"$MYSQL_ROOT_PASSWORD"'
    unset PW
    ```
-3. GitHub Actions → **data-node-cd** 실행(main). exporter 3개가 새로 뜨고, Redpanda는 포트가 늘어 다시 만들어집니다(몇 초 끊김, 데이터는 볼륨에 남음).
+3. GitHub Actions → **data-node-cd** 실행(main). exporter 4개가 새로 뜨고, Redpanda는 포트가 늘어 다시 만들어집니다(몇 초 끊김, 데이터는 볼륨에 남음).
 4. 메인 EC2에서 응답을 확인합니다.
    ```bash
-   for p in 9644/public_metrics 9121/metrics 9104/metrics 9100/metrics; do
+   for p in 9644/public_metrics 9121/metrics 9104/metrics 9114/metrics 9100/metrics; do
      echo "$p $(curl -s -o /dev/null -w '%{http_code}' http://10.0.2.222:$p)"
    done
    curl -s http://10.0.2.222:9104/metrics | grep '^mysql_up'      # 1이면 MySQL 계정 정상
