@@ -24,6 +24,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -406,6 +411,44 @@ class KitDeliveryTest {
 		assertThat(applyKitTracking(orderId, shipmentId, "999", DeliveryTrackingResult.notTracked(),
 			later.plusDays(8))).isEqualTo(Shipment.TrackingOutcome.TRACKED);
 		assertThat(shipmentOf(orderId).getNextTrackingAt()).isNull();
+	}
+
+	/**
+	 * BUK-234 재현: 배포 중 주문 서버 두 대가 같은 시각에 조회 배치를 돌리면 조회 멈춤 알림이 두 번 나간다
+	 * 두 쓰레드가 조회 대상을 다 읽은 뒤에 Delivery Tracker를 부르게 맞춘다. 결과를 남길 때 주문을 잠그지만,
+	 * Shipment.applyTracking이 이미 멈춘 배송(다음 조회 시각 없음)에도 다시 STOPPED를 돌려줘 두 번째 서버도 알린다
+	 * 고치면(이미 멈췄으면 TRACKED) times(2)를 times(1)로 바꾼다
+	 */
+	@Test
+	@DisplayName("[BUK-234 문제] 두 서버가 함께 조회 배치를 돌리면 조회 멈춤 알림이 판매자에게 두 번 나간다")
+	void twoServersNotifyTrackingStoppedTwice() throws Exception {
+		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().minusDays(1)));
+		long orderId = paidOrder();
+		ship(itemIdOf(orderId));
+		LocalDateTime shippedAt = shipmentOf(orderId).getShippedAt();
+		kitTrackingUseCase.track(LocalDateTime.now().truncatedTo(ChronoUnit.MICROS).plusSeconds(1));
+		LocalDateTime stopAt = shippedAt.plusDays(7).plusHours(3);
+
+		CyclicBarrier bothRead = new CyclicBarrier(2);
+		deliveryTrackingPort.beforeTrack(() -> {
+			try {
+				bothRead.await(10, TimeUnit.SECONDS);
+			} catch (Exception exception) {
+				throw new IllegalStateException(exception);
+			}
+		});
+		ExecutorService executor = Executors.newFixedThreadPool(2);
+		try {
+			Future<KitTrackingUseCase.TrackResult> first = executor.submit(() -> kitTrackingUseCase.track(stopAt));
+			Future<KitTrackingUseCase.TrackResult> second = executor.submit(() -> kitTrackingUseCase.track(stopAt));
+			first.get(30, TimeUnit.SECONDS);
+			second.get(30, TimeUnit.SECONDS);
+		} finally {
+			executor.shutdownNow();
+		}
+
+		assertThat(shipmentOf(orderId).getNextTrackingAt()).isNull();
+		verify(notificationSender, times(2)).send(any());
 	}
 
 	private Shipment.TrackingOutcome applyKitTracking(long orderId, long shipmentId, String trackingNumber,

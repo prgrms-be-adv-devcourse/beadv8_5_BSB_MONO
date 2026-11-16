@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
@@ -16,6 +17,12 @@ import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.junit.jupiter.api.AfterEach;
@@ -311,6 +318,41 @@ class OrderOutboxKafkaRelayTest {
 			.hasSize(2)
 			.doesNotHaveDuplicates()
 			.allMatch(messageId -> messageId.matches(OUTBOX_MESSAGE_ID_FORMAT));
+	}
+
+	/**
+	 * BUK-234: 배포 중 주문 서버 두 대가 같은 시각에 릴레이를 돌리면 같은 행을 둘 다 보낸다 (행을 잠그지 않는다)
+	 * 두 메시지는 같은 메시지 ID를 달고 나가므로, 받는 쪽 인박스(상품)·멱등 처리(정산)가 두 번째를 건너뛴다
+	 * 두 쓰레드가 행을 다 읽은 뒤에 보내게 맞춘다. 커밋은 한쪽이 기다리거나 실패해도 행은 SENT로 끝난다
+	 */
+	@Test
+	@DisplayName("[BUK-234] 두 서버가 함께 릴레이를 돌리면 같은 메시지를 같은 메시지 ID로 두 번 보내고, 행은 SENT로 끝난다")
+	void twoServersSendSameRowTwiceWithSameMessageId() throws Exception {
+		restore(PARTICIPATION_ID);
+		String messageId = allEvents().getFirst().getMessageId();
+		CyclicBarrier bothRead = new CyclicBarrier(2);
+		doAnswer(invocation -> {
+			bothRead.await(10, TimeUnit.SECONDS);
+			return CompletableFuture.completedFuture(null);
+		}).when(kafka()).send(record(null, null, null));
+
+		ExecutorService executor = Executors.newFixedThreadPool(2);
+		try {
+			List<Future<Integer>> runs = List.of(executor.submit(() -> relayAt(now)),
+				executor.submit(() -> relayAt(now)));
+			for (Future<Integer> run : runs) {
+				try {
+					run.get(30, TimeUnit.SECONDS);
+				} catch (ExecutionException exception) {
+					// 뒤에 커밋한 쪽이 행 잠금에서 실패할 수 있다. 메시지는 이미 나갔다
+				}
+			}
+		} finally {
+			executor.shutdownNow();
+		}
+
+		verify(kafka(), times(2)).send(withMessageId(messageId));
+		assertThat(allEvents()).extracting(OrderOutboxKafkaEvent::getStatus).containsOnly(OutboxStatus.SENT);
 	}
 
 	private void restore(long participationId) {
