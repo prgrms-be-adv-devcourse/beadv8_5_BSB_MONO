@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.tuple;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
@@ -68,7 +69,7 @@ class AiBriefingUseCaseTest {
 
 		AiBriefingDto briefing = useCase.briefing(SELLER, AiScreen.SELLER);
 
-		assertThat(briefing.headline()).isEqualTo("오늘 먼저 처리할 일이 없어요.");
+		assertThat(briefing.headline()).isEqualTo("환불 기한이 지나면 보낼 키트가 3건 있어요.");
 		assertThat(briefing.todos()).extracting(Todo::title).containsExactly("환불 기한 뒤 보낼 키트 3건");
 	}
 
@@ -87,7 +88,7 @@ class AiBriefingUseCaseTest {
 
 		AiBriefingDto briefing = failing.briefing(SELLER, AiScreen.SELLER);
 
-		assertThat(briefing.headline()).isEqualTo("지급보류 2건의 사유를 확인해 주세요.");
+		assertThat(briefing.headline()).isEqualTo("지급보류 2건의 사유를 확인해 주세요. 일부 숫자는 불러오지 못했어요.");
 		assertThat(briefing.todos()).extracting(Todo::title, Todo::description).containsExactly(
 			tuple("송장 입력 대기", AiBriefingUseCase.FAILED),
 			tuple("지급보류 2건", "보류가 풀려야 그 정산이 지급돼요"));
@@ -123,6 +124,17 @@ class AiBriefingUseCaseTest {
 		assertThat(briefing.metrics()).containsExactly(
 			new Metric("판매자 승인 대기", "2건", "가장 오래된 신청 5일째", null),
 			new Metric("답변 대기 문의 · 전체", "7건", "관리자 담당 2건", null));
+	}
+
+	@Test
+	@DisplayName("관리자: 신청 시각이 비어 있어도 실패하지 않는다")
+	void adminNullRequestedAt() {
+		opsPort.pendingRequestedAts = Arrays.asList((LocalDateTime)null);
+
+		AiBriefingDto briefing = useCase.briefing(ADMIN, AiScreen.ADMIN);
+
+		assertThat(briefing.todos()).extracting(Todo::description).containsExactly("신청 목록을 확인해 주세요");
+		assertThat(briefing.metrics().getFirst().note()).isEqualTo("신청일 확인 필요");
 	}
 
 	@Test

@@ -8,6 +8,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.function.Supplier;
 
 import org.springframework.stereotype.Service;
@@ -68,6 +69,7 @@ public class AiBriefingUseCase {
 					later > 0 ? "환불 기한이 지나면 %d건을 더 보낼 수 있어요".formatted(later) : "송장 번호를 넣으면 배송 중으로 바뀌어요",
 					"키트 배송 관리", "/seller/kits"));
 			} else if (later > 0) {
+				sentences.add("환불 기한이 지나면 보낼 키트가 %d건 있어요.".formatted(later));
 				todos.add(new Todo("환불 기한 뒤 보낼 키트 %d건".formatted(later), "지금 보낼 키트는 없어요. 환불 기한이 지나면 송장을 넣을 수 있어요",
 					"키트 배송 관리", "/seller/kits"));
 			}
@@ -93,9 +95,11 @@ public class AiBriefingUseCase {
 			todos, metrics);
 	}
 
+	// shortcut: 조회를 차례로 부른다(조회마다 시간 초과 ai.clients.timeout 2초). 카드가 느려지면 병렬로 바꾼다
 	private AiBriefingDto admin(long memberId, LocalDateTime now) {
 		List<LocalDateTime> requestedAts =
 			fetch("sellers", memberId, () -> opsPort.pendingSellerRequestedAts(memberId));
+		// 두 숫자 모두 같은 문의 API라 함께 성공하거나 함께 실패한다
 		long[] inquiries = fetch("inquiries", memberId, () -> new long[] {
 			opsPort.waitingInquiryCount(memberId, false), opsPort.waitingInquiryCount(memberId, true)});
 		List<String> sentences = new ArrayList<>();
@@ -107,15 +111,16 @@ public class AiBriefingUseCase {
 			metrics.add(new Metric("판매자 승인 대기", "-", "불러오지 못했어요", null));
 		} else {
 			int pending = requestedAts.size();
-			LocalDate oldest = requestedAts.stream().min(LocalDateTime::compareTo).map(LocalDateTime::toLocalDate)
-				.orElse(null);
-			// 신청한 날이 1일째
-			String waited = oldest == null ? "대기 없음"
-				: "가장 오래된 신청 %d일째".formatted(ChronoUnit.DAYS.between(oldest, now.toLocalDate()) + 1);
+			LocalDate oldest = requestedAts.stream().filter(Objects::nonNull).min(LocalDateTime::compareTo)
+				.map(LocalDateTime::toLocalDate).orElse(null);
+			// 신청한 날이 1일째. 신청 시각이 서버 오늘보다 뒤여도(시계 차이) 1일째로 둔다
+			String waited = oldest == null ? (pending > 0 ? "신청일 확인 필요" : "대기 없음") : "가장 오래된 신청 %d일째"
+				.formatted(Math.max(1, ChronoUnit.DAYS.between(oldest, now.toLocalDate()) + 1));
 			if (pending > 0) {
 				sentences.add("판매자 승인 대기가 %d건 있어요.".formatted(pending));
 				todos.add(new Todo("판매자 승인 대기 %d건".formatted(pending),
-					"%s 신청부터 확인해 주세요".formatted(oldest.format(MONTH_DAY)), "판매자 승인", "/admin/sellers"));
+					oldest == null ? "신청 목록을 확인해 주세요" : "%s 신청부터 확인해 주세요".formatted(oldest.format(MONTH_DAY)),
+					"판매자 승인", "/admin/sellers"));
 			}
 			metrics.add(new Metric("판매자 승인 대기", "%d건".formatted(pending), waited, null));
 		}
@@ -138,10 +143,11 @@ public class AiBriefingUseCase {
 	}
 
 	private static String headline(List<String> sentences, boolean anyFailed) {
-		if (!sentences.isEmpty()) {
-			return String.join(" ", sentences);
+		if (sentences.isEmpty()) {
+			return anyFailed ? "일부 숫자를 불러오지 못했어요. 아래 화면에서 확인해 주세요." : "오늘 먼저 처리할 일이 없어요.";
 		}
-		return anyFailed ? "일부 숫자를 불러오지 못했어요. 아래 화면에서 확인해 주세요." : "오늘 먼저 처리할 일이 없어요.";
+		// 실패한 칸이 있으면 headline만 보고 「그것뿐」이라고 읽지 않게 알린다
+		return String.join(" ", sentences) + (anyFailed ? " 일부 숫자는 불러오지 못했어요." : "");
 	}
 
 	private static String won(long amount) {
