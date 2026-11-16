@@ -5,12 +5,16 @@ Claude는 Linear 이슈를 만들거나 고칠 때, 이슈 작업을 시작할 �
 
 ## 기본 정보
 
-- 워크스페이스: <https://linear.app/bukang-final/team/BUK> (최종 프로젝트부터. 세미 때 쓰던 `programmers-05` 워크스페이스의 `PRO` 이슈는 이전 워크스페이스에 남아 있다)
-- 팀: (회의 후 채움), 이슈 키 `BUK` (예: `BUK-12`)
+- 워크스페이스: 새 이슈는 **`CRU` 워크스페이스**에 만든다. 이슈 키는 `CRU`다(예: `CRU-12`). 주소는 (워크스페이스를 만든 뒤 채움)
+- 기존 이슈: <https://linear.app/bukang-final/team/BUK>. 무료 한도(이슈 250개)가 차서 새 이슈를 만들 수 없다.
+  이미 열린 `BUK` 이슈와 그 PR은 끝날 때까지 `BUK` 번호를 그대로 쓴다.
+- 세미 때 쓰던 `programmers-05` 워크스페이스의 `PRO` 이슈는 그 워크스페이스에 남아 있다.
+- 팀: (회의 후 채움)
 - 프로젝트: (회의 후 채움)
 - 상태: Backlog → Todo → In Progress → In Review(PR 열림) → Done (안 할 일은 Canceled, 중복은 Duplicate)
 - 라벨: `Feature`(새 기능), `Bug`(고장), `Improvement`(기존 기능 개선) 중 하나
 - Claude는 레포 루트의 `.mcp.json`으로 Linear에 연결된다. 처음 한 번 각자 인증한다.
+  Linear 연결은 인증할 때 고른 워크스페이스 하나만 본다. 새 이슈를 다루려면 `CRU` 워크스페이스로 다시 인증한다.
 
 ## 일정과 사이클
 
@@ -38,7 +42,7 @@ Claude는 Linear 이슈를 만들거나 고칠 때, 이슈 작업을 시작할 �
 
 ## 처음 설정 (사람)
 
-1. Linear 초대를 수락한다.
+1. Linear 초대를 수락한다. `CRU` 워크스페이스와 기존 `BUK` 워크스페이스 둘 다 수락한다.
 2. Claude Code에서 Linear 연결을 인증한다. 터미널이면 `claude` 실행 후 `/mcp`, 데스크톱 앱이면 커넥터 설정에서 Linear를 연결한다.
 3. 단축키 세 개만 먼저 익힌다: `C` 새 이슈, `Cmd+K` 명령창, `/` 검색.
 
@@ -71,30 +75,33 @@ Claude는 Linear 이슈를 만들거나 고칠 때, 이슈 작업을 시작할 �
 
 1. **시작**: 이슈를 나에게 배정하고 In Progress로 옮긴다. Claude로 작업하면 아래 "작업 시작 체크"를 Claude가 한다.
    PR을 열 때 아직 Backlog·Todo면 `linear-sync`가 In Review로 바로 옮긴다.
-2. **브랜치**: `<type>/BUK-<번호>-<짧은-설명>`. type은 커밋과 같은 Conventional Commits 종류다. 예: `feat/BUK-12-crew-invite-accept`
+2. **브랜치**: `<type>/CRU-<번호>-<짧은-설명>`. type은 커밋과 같은 Conventional Commits 종류다. 예: `feat/CRU-12-crew-invite-accept`
+   기존 `BUK` 이슈를 이어서 하면 `BUK-<번호>`로 짓는다.
    이슈에서 `Cmd+Shift+.`로 브랜치 이름을 복사할 수 있지만, 앞의 `<type>/`은 직접 붙인다.
-3. **PR**: 제목은 커밋 규칙을 따르고, 본문에 `Closes BUK-12`를 넣는다.
+3. **PR**: 제목은 커밋 규칙을 따르고, 본문에 `Closes CRU-12`를 넣는다(기존 이슈면 `Closes BUK-12`).
    본문은 `.github/pull_request_template.md`의 6개 섹션(배경·의도·구현·중점 리뷰 사항·확인 방법·기타)을 채운다. CI `pr-body`가 섹션 제목이 다 있는지 검사한다.
 4. **끝**: PR이 머지되면 연결된 이슈가 Done으로 옮겨진다. PR이 없는 일(기획, 디자인)은 결과물 링크를 댓글로 남기고 직접 Done으로 바꾼다.
 
 ### PR 자동 연결 (`linear-sync` 워크플로)
 
 Linear 공식 GitHub 연동이 동작하지 않아, `linear-sync.yml`이 Linear API로 이슈를 직접 갱신한다.
-브랜치 이름, PR 제목·본문에 있는 `BUK-<번호>`로 이미 있는 이슈를 찾는다. 이슈를 새로 만들지는 않는다. `PRO-<번호>`는 이전 워크스페이스의 이슈라 찾지 못하므로 연결하지 않는다.
+브랜치 이름, PR 제목·본문에 있는 `CRU-<번호>`와 `BUK-<번호>`로 이미 있는 이슈를 찾는다. 이슈를 새로 만들지는 않는다. `PRO-<번호>`는 이전 워크스페이스의 이슈라 찾지 못하므로 연결하지 않는다.
+`CRU` 이슈는 `CRU` 워크스페이스 키로, `BUK` 이슈는 `BUK` 워크스페이스 키로 처리한다. 한 PR에 두 키가 섞여 있어도 각각 처리한다.
 찾지 못한 번호는 건너뛰고 체크는 실패로 만들지 않는다. 대신 실행 기록에 경고로 남는다.
 Linear 팀에 In Review 상태가 없으면 옮기지 않고 실행 기록에 경고만 남긴다. In Review 상태(In Progress와 같은 started 종류, 이름은 `In Review` 그대로)를 팀 설정에서 만들어 두어야 한다.
 
 | PR 상황 | 하는 일 |
 | --- | --- |
-| PR 열림, 본문 수정, 초안 해제 | 이슈에 PR 링크를 붙이고, 브랜치 이름·제목의 이슈와 `Closes BUK-12`로 적은 이슈 중 Backlog·Todo·In Progress를 In Review로 옮긴다. 이미 In Review·Done인 이슈는 그대로 둔다. 본문만 수정했을 때는 Backlog·Todo만 옮긴다 |
+| PR 열림, 본문 수정, 초안 해제 | 이슈에 PR 링크를 붙이고, 브랜치 이름·제목의 이슈와 `Closes CRU-12`로 적은 이슈 중 Backlog·Todo·In Progress를 In Review로 옮긴다. 이미 In Review·Done인 이슈는 그대로 둔다. 본문만 수정했을 때는 Backlog·Todo만 옮긴다 |
 | 초안 PR | 이슈에 PR 링크를 붙이고, Backlog·Todo 이슈를 In Progress까지만 옮긴다 |
-| 머지됨 | 브랜치 이름·제목에 있는 이슈와 본문에 `Closes BUK-12`로 적은 이슈를 Done으로 옮긴다 |
+| 머지됨 | 브랜치 이름·제목에 있는 이슈와 본문에 `Closes CRU-12`로 적은 이슈를 Done으로 옮긴다 |
 | 머지 없이 닫힘 | 아무것도 바꾸지 않는다 |
 
-- `Refs BUK-12`로만 적은 이슈는 링크만 붙고 상태는 바뀌지 않는다.
-- Done으로 옮기지 않고 연결만 하려면 브랜치·제목에서 번호를 빼고 본문에 `Refs BUK-12`로 쓴다.
-- 팀원마다 자기 Linear 개인 API 키를 저장소 시크릿 `LINEAR_API_KEY_<GitHub 아이디>`로 등록한다. 방법은 [LINEAR-API-KEY.md](LINEAR-API-KEY.md).
-  이벤트를 일으킨 사람(머지한 사람 등)의 키를 쓰고, 없으면 PR 작성자 키를 쓴다. 둘 다 없으면 아무것도 하지 않고 넘어간다.
+- `Refs CRU-12`로만 적은 이슈는 링크만 붙고 상태는 바뀌지 않는다.
+- Done으로 옮기지 않고 연결만 하려면 브랜치·제목에서 번호를 빼고 본문에 `Refs CRU-12`로 쓴다.
+- 팀원마다 자기 Linear 개인 API 키를 워크스페이스마다 하나씩 저장소 시크릿으로 등록한다. 방법은 [LINEAR-API-KEY.md](LINEAR-API-KEY.md).
+  `CRU` 워크스페이스 키는 `LINEAR_API_KEY_CRU_<GitHub 아이디>`, 기존 `BUK` 워크스페이스 키는 `LINEAR_API_KEY_<GitHub 아이디>`다.
+  이벤트를 일으킨 사람(머지한 사람 등)의 키를 쓰고, 없으면 PR 작성자 키를 쓴다. 둘 다 없으면 그 워크스페이스의 이슈만 건너뛰고 실행 기록에 경고를 남긴다.
   Linear에는 그 키 주인이 바꾼 것으로 기록된다.
 - 워크플로는 PR의 base 브랜치와 상관없이 **기본 브랜치(main)에 있는 파일로만** 돈다(`pull_request_target`, GitHub 2025-12 변경).
   main에 이 워크플로·스크립트가 없으면 dev로 가는 PR에서도 아예 실행되지 않는다. 고친 내용은 main에 들어가야 반영된다.
@@ -115,9 +122,9 @@ main에는 직접 푸시할 수 없고 PR로만 들어간다. 팀원 1명의 승
 | `backend` | `backend-ci.yml` | `./gradlew build` (backend/ 변경이 없으면 건너뛰고 통과) |
 | `frontend` | `frontend-ci.yml` | lint, format, typecheck, test, build (frontend/ 변경이 없으면 건너뛰고 통과) |
 | `pr-title` | `pr-rules.yml` | PR 제목이 커밋 규칙(commitlint)에 맞는지 |
-| `pr-branch` | `pr-rules.yml` | 브랜치 이름이 `<type>/BUK-<번호>-<짧은-설명>`인지 |
+| `pr-branch` | `pr-rules.yml` | 브랜치 이름이 `<type>/CRU-<번호>-<짧은-설명>`인지 |
 
-- 세미 때 열어 둔 PR이 있어 `PRO-<번호>` 브랜치도 당분간 통과시킨다. 새 브랜치는 `BUK-<번호>`로 짓는다.
+- 기존 이슈의 `BUK-<번호>` 브랜치와 세미 때의 `PRO-<번호>` 브랜치도 당분간 통과시킨다. 새 브랜치는 `CRU-<번호>`로 짓는다.
 - Linear 이슈가 없는 작업(설정 정리 등)은 PR에 `no-issue` 라벨을 붙이면 브랜치 이름 검사를 건너뛴다.
 - 제목 설명을 영어 대문자로 시작하면 commitlint가 막는다(`subject-case`). `ci: GitHub 설정 추가` ✗ → `ci: 저장소 설정 추가` ✓
 - 필수 체크 이름은 job 이름이다. job 이름을 바꾸면 브랜치 보호 규칙도 같이 바꾼다.
@@ -138,8 +145,8 @@ GitHub 마일스톤은 Linear 마일스톤과 같은 이름·날짜로 둔다: �
 
 코드·문서를 고치는 작업을 시작할 때, 첫 수정 전에 한 번 한다. 질문에 답만 하는 일에는 하지 않는다.
 
-1. **이슈 번호 찾기**: 사용자가 말한 `BUK-<번호>`, 없으면 현재 브랜치 이름(`git branch --show-current`)에서 찾는다.
-   둘 다 없으면 Linear에서 비슷한 이슈를 검색해 후보를 보여 주고, 없으면 새 이슈 초안을 제안한다.
+1. **이슈 번호 찾기**: 사용자가 말한 `CRU-<번호>`나 `BUK-<번호>`, 없으면 현재 브랜치 이름(`git branch --show-current`)에서 찾는다.
+   둘 다 없으면 Linear에서 비슷한 이슈를 검색해 후보를 보여 주고, 없으면 `CRU` 워크스페이스에 만들 새 이슈 초안을 제안한다.
 2. **이슈 조회**: Linear MCP로 상태·담당자·사이클·마일스톤을 읽는다.
    Linear MCP가 연결되어 있지 않으면 "Linear 연결이 없어 이슈 상태를 맞추지 못했다"고 알리고 작업은 계속한다.
 3. **어긋난 것 고치기**: 아래 표에서 걸리는 것을 한 번에 묶어 한 줄로 확인받고 고친다.
@@ -153,7 +160,7 @@ GitHub 마일스톤은 Linear 마일스톤과 같은 이름·날짜로 둔다: �
 | 사이클이 비어 있음 | 지금 사이클에 넣는다 |
 | 마일스톤이 비어 있음 | 세미 제출 / 최종 발표 중 어느 쪽인지 묻는다 |
 
-- 이미 맞으면 아무것도 묻지 않고 한 줄로만 알린다. 예: `BUK-12 In Progress · 이번 사이클 확인`
+- 이미 맞으면 아무것도 묻지 않고 한 줄로만 알린다. 예: `CRU-12 In Progress · 이번 사이클 확인`
 - 사용자가 "Linear 맞춰줘"처럼 여러 이슈를 맞춰 달라고 하면 같은 표로 이슈마다 점검한다.
   PR이 머지됐는데 Done이 아니면 Done으로, PR이 열려 있는데 Backlog·Todo면 In Review로 옮기는 것도 함께 제안한다.
 
