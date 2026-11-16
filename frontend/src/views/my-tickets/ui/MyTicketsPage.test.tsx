@@ -5,7 +5,7 @@ import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { clearAccessToken } from '@/shared/api'
-import { server } from '@/shared/testing'
+import { orderMock, server } from '@/shared/testing'
 
 import { MyTicketsPage } from './MyTicketsPage'
 
@@ -55,6 +55,41 @@ describe('MyTicketsPage', () => {
     )
     // 결제 대기 · 기한 만료 주문은 상세를 부르지 않는다
     expect(detailIds).toEqual(['1'])
+  })
+
+  it('결제 확인 중인 주문은 참가 예정에 「결제 확인 중」 배지로 보여 주고 환불 안내는 붙이지 않는다', async () => {
+    server.use(
+      http.get('*/api/v1/order/orders', () =>
+        HttpResponse.json({
+          status: 200,
+          message: '주문 내역을 조회했습니다.',
+          data: {
+            orders: [{ id: 1, status: 'PAYING' }],
+            page: 0,
+            size: 100,
+            totalElements: 1,
+            totalPages: 1,
+          },
+        }),
+      ),
+      http.get('*/api/v1/order/orders/1', () => {
+        const example = orderMock.getFindById1ResponseMock()
+        return HttpResponse.json({
+          ...example,
+          data: {
+            ...example.data,
+            status: 'PAYING',
+            items: example.data?.items?.map((item) => ({ ...item, status: 'ORDERED' })),
+          },
+        })
+      }),
+    )
+    renderPage()
+
+    expect(await screen.findByText('김러너 · 10K')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '참가 예정 1' })).toBeInTheDocument()
+    expect(screen.getByText('결제 확인 중')).toBeInTheDocument()
+    expect(screen.queryByText(/전액 환불/)).not.toBeInTheDocument()
   })
 
   it('결제한 주문이 없으면 빈 화면을 보여 준다', async () => {

@@ -273,6 +273,33 @@ describe('문의 쓰기', () => {
     ).toBeInTheDocument()
   })
 
+  it('결제 확인 중인 주문도 참가권으로 고를 수 있고 「결제 확인 중」으로 보여 준다', async () => {
+    server.use(
+      http.get('*/api/v1/order/orders', () =>
+        ok({
+          orders: [{ id: 1, status: 'PAYING' }],
+          page: 0,
+          size: 100,
+          totalElements: 1,
+          totalPages: 1,
+        }),
+      ),
+      http.get('*/api/v1/order/orders/1', () =>
+        ok({
+          id: 1,
+          orderNo: 'OD-20261030-0217',
+          raceId: 1,
+          status: 'PAYING',
+          items: [{ id: 10, itemName: '춘천 호수 하프마라톤 10K', status: 'ORDERED' }],
+        }),
+      ),
+    )
+    renderUi(<InquiryComposePage />)
+
+    expect(await screen.findByText('춘천 호수 하프마라톤 · 10K')).toBeInTheDocument()
+    expect(await screen.findByText(/결제 확인 중/)).toBeInTheDocument()
+  })
+
   it('서버가 거절하면 문구를 알리고 이동하지 않는다', async () => {
     const user = userEvent.setup()
     server.use(
