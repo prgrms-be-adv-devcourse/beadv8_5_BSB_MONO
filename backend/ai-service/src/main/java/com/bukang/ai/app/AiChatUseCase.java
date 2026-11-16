@@ -51,7 +51,7 @@ public class AiChatUseCase {
 		""";
 	// 화면별로 덧붙이는 지시. 관리자 쪽은 아직 조회할 API가 없는 질문이다 (BUK-170). 도구가 생기면 그 문장을 뺀다
 	private static final Map<AiScreen, String> SCREEN_NOTE = Map.of(
-		AiScreen.SELLER, "판매액을 물으면 조회한 기간과 함께 말하고, 정산 예정액과 섞지 않는다.",
+		AiScreen.SELLER, "판매액은 도구로 조회한 숫자만 말한다. 결제일 기준 조회 기간과 함께 말하고, 정산 예정액과 섞지 않는다.",
 		AiScreen.ADMIN, "예치금 환급 요청, 지급보류 중인 정산 합계는 아직 조회할 수 없다. "
 			+ "숫자를 말하지 말고 '정산 · 환급 처리' 화면에서 확인하라고 안내한다.");
 

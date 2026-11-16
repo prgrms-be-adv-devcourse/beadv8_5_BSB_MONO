@@ -337,6 +337,9 @@ class ApiV1SellerOrderTest {
 		sales(SELLER_MEMBER_ID, "2026-11-16", "2026-11-01")
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("ORDER_INVALID_SEARCH_PERIOD"));
+		sales(SELLER_MEMBER_ID, "2025-11-01", "2026-11-02")
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message").value("조회 기간은 한 번에 12개월까지입니다."));
 		sales(NOT_SELLER_MEMBER_ID, "2026-11-01", "2026-11-16")
 			.andExpect(status().isForbidden())
 			.andExpect(jsonPath("$.code").value("ORDER_SELLER_FORBIDDEN"));
