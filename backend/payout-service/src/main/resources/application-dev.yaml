@@ -15,7 +15,6 @@ spring:
         show_sql: false
         format_sql: true
         highlight_sql: true
-    open-in-view: false
 
   # 표 변경은 Flyway SQL(db/migration)로만 한다 (PR #265, member-service와 같은 방식)
   # 모든 서비스가 같은 스키마를 쓰므로, 기록 표는 payout 전용 이름으로 둔다 (다른 서비스의 기록 표와 섞이지 않게)
@@ -53,3 +52,7 @@ payout:
     # 판매자 정산 조회에서 회원 ID를 판매자 ID로 바꿀 때(MemberSellerLookupAdapter), 관리자 API에서 관리자인지 물을 때(MemberAdminAdapter),
     # 정산 생성 때 판매자 정산 계좌 등록 여부를 물을 때(MemberSellerAccountAdapter) 부른다
     member: http://localhost:8080
+
+# 서비스끼리 내부 API(/internal/**)를 부를 때 X-Internal-Key 헤더로 보내는 키 (.env 값, 받는 cash와 부르는 서비스가 같은 키)
+internal:
+  api-key: ${INTERNAL_API_KEY}

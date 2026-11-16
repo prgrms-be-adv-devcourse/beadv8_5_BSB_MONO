@@ -1,0 +1,18 @@
+# 운영 지표 수집 (BUK-258). overlays/aws/kustomization.yaml의 resources에서 이 폴더를 읽는다
+#   metrics-agent: Prometheus 에이전트 모드. Spring 앱·보조 EC2 exporter·서버·Pod 지표를 모아 개인 AWS EC2로 보낸다
+#   node-exporter: 메인 EC2 서버 지표
+#   rbac: 수집기가 Pod·노드를 찾고 kubelet 지표를 읽는 권한 (읽기만)
+# namespace(crewrun)는 위쪽 overlays/aws가 채운다
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - rbac.yaml
+  - node-exporter.yaml
+  - metrics-agent.yaml
+
+configMapGenerator:
+  # 내용이 바뀌면 이름 뒤 해시가 바뀌어 수집기 Pod가 새로 뜨면서 바뀐 설정을 읽는다
+  - name: metrics-agent-config
+    files:
+      - prometheus.yml

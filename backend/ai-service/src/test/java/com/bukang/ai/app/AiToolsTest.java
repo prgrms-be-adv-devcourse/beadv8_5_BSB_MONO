@@ -217,14 +217,15 @@ class AiToolsTest {
 	}
 
 	@Test
-	@DisplayName("이번 달 판매액은 그달 1일부터 오늘까지 주문의 판매 합계를 그대로 담고, 주문·참가자 화면을 출처로 남긴다")
+	@DisplayName("이번 달 판매액은 그달 1일부터 오늘까지 주문의 판매·취소 합계를 그대로 담고, 주문·참가자 화면을 출처로 남긴다")
 	void monthlySales() {
-		ops.salesSummary = new OpsPort.SalesSummary(42, 2310000);
+		ops.salesSummary = new OpsPort.SalesSummary(42, 2310000, 3, 165000);
 
 		Object result = sellerTools.monthlySales(trace, LocalDate.of(2026, 11, 16));
 
+		// 취소 건수·환불액도 같은 기간으로 함께 담는다 (BUK-264)
 		assertThat(result).isEqualTo(new SellerTools.SalesResult(LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 16),
-			42, 2310000));
+			42, 2310000, 3, 165000));
 		assertThat(ops.salesCall).containsExactly(LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 16));
 		assertThat(trace.sources()).singleElement().satisfies(source -> {
 			assertThat(source.screen()).isEqualTo(AiSource.SELLER_SALES.getScreen());

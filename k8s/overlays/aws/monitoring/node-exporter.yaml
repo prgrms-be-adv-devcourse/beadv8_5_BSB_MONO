@@ -1,0 +1,51 @@
+# 메인 EC2 서버 지표(CPU·메모리·디스크·네트워크) (BUK-258)
+# DaemonSet: 노드마다 하나씩 뜬다. 지금은 노드가 메인 EC2 하나라 Pod도 하나다
+# 컨테이너가 아니라 서버 전체를 봐야 해서 서버 네트워크·프로세스 목록을 그대로 쓰고, 서버 파일 시스템을 읽기 전용으로 붙인다
+# 보조 EC2의 node-exporter는 compose에 있다 (infra/data-node/compose.data.yml)
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-exporter
+  labels:
+    app.kubernetes.io/name: node-exporter
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: node-exporter
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: node-exporter
+    spec:
+      hostNetwork: true
+      hostPID: true
+      containers:
+        - name: node-exporter
+          image: prom/node-exporter:v1.12.1
+          args:
+            - --path.rootfs=/host
+            # 서버 네트워크를 그대로 쓰므로 0.0.0.0으로 들으면 공인 IP에도 열린다. 사설 IP에서만 듣는다
+            - --web.listen-address=$(HOST_IP):9100
+          env:
+            - name: HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+          ports:
+            - name: metrics
+              containerPort: 9100
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 64Mi
+          volumeMounts:
+            - name: root
+              mountPath: /host
+              readOnly: true
+              mountPropagation: HostToContainer
+      volumes:
+        - name: root
+          hostPath:
+            path: /

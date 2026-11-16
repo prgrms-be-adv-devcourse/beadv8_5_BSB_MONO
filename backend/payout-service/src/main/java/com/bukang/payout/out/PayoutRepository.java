@@ -59,6 +59,18 @@ public interface PayoutRepository extends JpaRepository<Payout, Long> {
 	@Query("select p from Payout p where p.raceId = :raceId order by p.id")
 	List<Payout> findForUpdateByRaceId(long raceId);
 
+	// 지급보류 걸기 · 풀기: 정산 내역 하나를 잠가서 읽는다 (BUK-242)
+	// 겹친 두 요청이 서로의 보류를 못 본 채 상태를 정하면, 보류가 남았는데 지급 예정이 되거나 보류가 없는데 지급보류로 남는다
+	// 트랜잭션의 첫 문장에서 부른다. 일반 조회가 먼저 나가면 잠금을 기다린 뒤에도 옛 보류 목록을 읽을 수 있다
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("select p from Payout p where p.id = :id")
+	Optional<Payout> findByIdForUpdate(long id);
+
+	// 지급보류 풀기: 보류가 걸린 정산 내역을 잠가서 읽는다. 보류 행을 먼저 일반 조회하지 않으려고 한 번에 찾는다 (BUK-242)
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("select p from Payout p join PayoutHold h on h.payout = p where h.id = :holdId")
+	Optional<Payout> findByHoldIdForUpdate(long holdId);
+
 	// 정산 ID(ST-)로 찾기 (BUK-109): 관리자는 전체에서, 판매자는 자기 정산 내역 안에서만 찾는다. payout_code는 유일하다
 	Optional<Payout> findByPayoutCode(String payoutCode);
 

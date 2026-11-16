@@ -300,7 +300,7 @@ class ApiV1SellerOrderTest {
 	}
 
 	@Test
-	@DisplayName("판매 합계는 결제일이 기간 안(시작일 0시~종료일 끝)인 결제 완료·취소 중만 세고, 취소·결제 전·다른 판매자·기간 밖은 뺀다")
+	@DisplayName("판매는 결제일이 기간 안인 결제 완료·취소 중만, 취소는 취소를 마친 시각이 기간 안인 것만 센다. 결제 전·다른 판매자·기간 밖은 뺀다")
 	void salesSummary() throws Exception {
 		setUpCourses();
 		long monthStart = paidOrder(BUYER_ID, COURSE_ID);
@@ -310,14 +310,21 @@ class ApiV1SellerOrderTest {
 		long lastMonth = paidOrder(BUYER_ID + 4, COURSE_ID);
 		createdOrder(BUYER_ID + 5, COURSE_ID);
 		long otherSeller = paidOrder(BUYER_ID + 6, OTHER_COURSE_ID);
+		long paidOctCanceledNov = paidOrder(BUYER_ID + 7, COURSE_ID);
+		long canceledLastMonth = paidOrder(BUYER_ID + 8, COURSE_ID);
 		paidAt(monthStart, "2026-11-01T00:00:00");
 		paidAt(lastMoment, "2026-11-16T23:59:59");
 		paidAt(canceling, "2026-11-10T12:00:00");
 		paidAt(canceled, "2026-11-10T12:00:00");
 		paidAt(lastMonth, "2026-10-31T23:59:59");
 		paidAt(otherSeller, "2026-11-10T12:00:00");
+		paidAt(paidOctCanceledNov, "2026-10-20T12:00:00");
+		paidAt(canceledLastMonth, "2026-10-05T12:00:00");
 		itemStatus(canceling, "CANCELING");
-		itemStatus(canceled, "CANCELED");
+		// 취소는 결제일이 아니라 취소를 마친 시각으로 센다. 월초 0시는 들고, 지난달 말일 끝은 지난달이다
+		canceledAt(canceled, "2026-11-12T09:00:00");
+		canceledAt(paidOctCanceledNov, "2026-11-01T00:00:00");
+		canceledAt(canceledLastMonth, "2026-10-31T23:59:59");
 		long price = jdbcTemplate.queryForObject("select amount from order_order_item where order_id = ?", Long.class,
 			monthStart);
 
@@ -325,15 +332,23 @@ class ApiV1SellerOrderTest {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.message").value("판매 합계를 조회했습니다."))
 			.andExpect(jsonPath("$.data.soldCount").value(3))
-			.andExpect(jsonPath("$.data.soldAmount").value(price * 3));
+			.andExpect(jsonPath("$.data.soldAmount").value(price * 3))
+			// 취소 중은 아직 취소로 세지 않는다
+			.andExpect(jsonPath("$.data.canceledCount").value(2))
+			.andExpect(jsonPath("$.data.refundedAmount").value(price * 2));
 		sales(SELLER_MEMBER_ID, "2026-10-01", "2026-10-31")
 			.andExpect(jsonPath("$.data.soldCount").value(1))
-			.andExpect(jsonPath("$.data.soldAmount").value(price));
+			.andExpect(jsonPath("$.data.soldAmount").value(price))
+			.andExpect(jsonPath("$.data.canceledCount").value(1))
+			.andExpect(jsonPath("$.data.refundedAmount").value(price));
 		sales(SELLER_MEMBER_ID, "2026-09-01", "2026-09-30")
 			.andExpect(jsonPath("$.data.soldCount").value(0))
-			.andExpect(jsonPath("$.data.soldAmount").value(0));
+			.andExpect(jsonPath("$.data.soldAmount").value(0))
+			.andExpect(jsonPath("$.data.canceledCount").value(0))
+			.andExpect(jsonPath("$.data.refundedAmount").value(0));
 		sales(OTHER_SELLER_MEMBER_ID, "2026-11-01", "2026-11-16")
-			.andExpect(jsonPath("$.data.soldCount").value(1));
+			.andExpect(jsonPath("$.data.soldCount").value(1))
+			.andExpect(jsonPath("$.data.canceledCount").value(0));
 		sales(SELLER_MEMBER_ID, "2026-11-16", "2026-11-01")
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("ORDER_INVALID_SEARCH_PERIOD"));
@@ -350,6 +365,11 @@ class ApiV1SellerOrderTest {
 
 	private void paidAt(long orderId, String paidAt) {
 		jdbcTemplate.update("update order_order set paid_at = ? where id = ?", LocalDateTime.parse(paidAt), orderId);
+	}
+
+	private void canceledAt(long orderId, String canceledAt) {
+		jdbcTemplate.update("update order_order_item set status = 'CANCELED', canceled_amount = amount, "
+			+ "canceled_at = ? where order_id = ?", LocalDateTime.parse(canceledAt), orderId);
 	}
 
 	private void itemStatus(long orderId, String itemStatus) {

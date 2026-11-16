@@ -104,6 +104,38 @@ describe('WithdrawPage 최종 확인 창', () => {
     expect(screen.getByRole('button', { name: '탈퇴하기' })).toBeDisabled()
   })
 
+  it('결제 확인 중인 주문도 끝나지 않은 참가권으로 세어 탈퇴를 막는다', async () => {
+    remaining({
+      balance: 0,
+      orders: [{ id: 1, status: 'PAYING', paymentDueAt: '2026-10-01T10:10:00' }],
+    })
+    server.use(
+      http.get('*/api/v1/order/orders/1', () =>
+        HttpResponse.json({
+          status: 200,
+          message: '주문을 조회했습니다.',
+          data: {
+            id: 1,
+            orderNo: 'OD-20261001-0001',
+            raceId: 1,
+            status: 'PAYING',
+            items: [{ id: 10, itemName: '용감한 쿠키RUN 10K', status: 'ORDERED', amount: 45000 }],
+          },
+        }),
+      ),
+      http.get('*/api/v1/product/races/:raceId', () =>
+        HttpResponse.json({
+          status: 200,
+          message: '대회를 조회했습니다.',
+          data: { id: 1, title: '용감한 쿠키RUN', raceDate: '2099-11-01' },
+        }),
+      ),
+    )
+    renderPage()
+
+    expect(await screen.findByText('끝나지 않은 참가권 1장')).toBeInTheDocument()
+  })
+
   it('남은 일이 없으면 이제 탈퇴할 수 있다고 알린다', async () => {
     remaining({ balance: 0, orders: [] })
     renderPage()

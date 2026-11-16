@@ -15,8 +15,8 @@ import {
 } from '@/features/deposit-charge'
 import { useQueueAdmission } from '@/features/queue-admission'
 import { parseKstDateTime, RACE_DETAIL, raceDetailQueryOptions } from '@/entities/race'
-import { invalidateTicketQueries } from '@/entities/ticket'
-import { orderApi, unwrapData, type orderModel } from '@/shared/api'
+import { invalidateTicketQueries, orderQueryOptions } from '@/entities/ticket'
+import { orderApi, orderModel, unwrapData } from '@/shared/api'
 import { cn, formatNumber, orderTrackItems, useNow, useTrackOnce } from '@/shared/lib'
 import {
   Alert,
@@ -95,6 +95,10 @@ const RESULT: Record<
     href: '/checkout',
   },
 }
+
+// 결제 확인 중(M07-4)을 「내 참가권에서 결과를 보라」(M07-4-1)로 바꾸는 때.
+// 서버의 결제 재확인은 15초마다 돌고, 결제 중 주문은 기한 + 2분이 지나야 만료 정리 대상이 된다.
+const PAYING_LATE_MS = 2 * 60 * 1000
 
 // ?preview=offline 시안에서 보여 주는 예치금 잔액과 남은 시간 (5분 10초)
 const OFFLINE_PREVIEW_BALANCE = 40_000
@@ -176,6 +180,40 @@ function CheckoutResult({
   )
 }
 
+// 피그마 V3 · M07-4 결제 · 확인 중 / M07-4-1 확인이 늦어짐.
+// 결제가 끝나지 않았으므로 다시 결제하는 버튼은 두지 않는다. 2분이 지나면 결과를 볼 곳(내 참가권)만 알려 준다.
+function PayingResult() {
+  const [late, setLate] = useState(false)
+  useEffect(() => {
+    const id = setTimeout(() => setLate(true), PAYING_LATE_MS)
+    return () => clearTimeout(id)
+  }, [])
+  return (
+    <>
+      <AppHeader type="sub" title="결제" close backHref="/" />
+      <main className="flex flex-1 items-center justify-center px-4 py-6" aria-live="polite">
+        <EmptyState
+          icon="Clock"
+          title={late ? '결제 확인이 늦어지고 있어요' : '결제를 확인하고 있어요'}
+          description={
+            late ? '결과는 내 참가권에서 볼 수 있어요.' : '이 화면을 나가도 결제는 계속 진행돼요.'
+          }
+        />
+      </main>
+      {late && (
+        <BottomCta
+          className="sticky bottom-0 z-10"
+          primary={
+            <Link href="/tickets" className={buttonClassName({ size: 'l' })}>
+              내 참가권 보기
+            </Link>
+          }
+        />
+      )}
+    </>
+  )
+}
+
 /** 연결 끊김 시안 (M07 오프라인). 결제를 누른 뒤라 동의는 체크된 채로 둔다. */
 function OfflinePreview() {
   const now = useNow()
@@ -221,7 +259,8 @@ function OrderCheckout({
   const router = useRouter()
   const queryClient = useQueryClient()
   const completeHref = `/checkout/complete?orderId=${orderId}` as const
-  const order = orderApi.useFindById1(orderId, { query: { select: unwrapData } })
+  // 결제 확인 중(PAYING)이면 결과가 나올 때까지 주문을 다시 조회한다 (참가권 상세 orderQueryOptions와 같은 캐시)
+  const order = useQuery(orderQueryOptions(orderId))
   const raceId = order.data?.raceId
   const race = useQuery({
     ...raceDetailQueryOptions(String(raceId)),
@@ -287,13 +326,21 @@ function OrderCheckout({
     // 잔액 · 참가 신청 등은 무효로만 표시한다. 다 기다리면 그중 하나가 실패해 재시도가 끝난 몇 초 뒤에야
     // 넘어가는데, 그때 사용자가 다른 화면에 가 있어도 완료 화면으로 다시 보낸다.
     // 다시 받은 주문이 PAID라 아래 effect도 완료 화면으로 보내므로, 같은 replace로 맞춰 기록이 두 번 남지 않게 한다.
-    onSuccess: async () => {
+    // 202(결제 확인 중)면 주문을 다시 받아 결제 확인 중 화면(M07-4)을 보여 주고, 결과는 주문 재조회가 맞춘다.
+    // 거절되면 결제 대기로 돌아와 다시 결제하므로 고른 키트 옵션은 지우지 않는다.
+    onSuccess: async (result) => {
+      const queryKey = orderApi.getFindById1QueryKey(orderId)
+      if (result.status === orderModel.OrderDtoStatus.PAYING) {
+        // 진행 중이던 옛 조회 결과(결제 대기)를 다시 쓰지 않도록 받은 주문을 캐시에 바로 넣는다
+        await queryClient.cancelQueries({ queryKey })
+        queryClient.setQueryData<orderModel.RsDataOrderDto>(queryKey, (old) =>
+          old ? { ...old, data: result } : old,
+        )
+        return
+      }
       forgetKitOptionIds(orderId)
       void invalidateTicketQueries(queryClient)
-      await queryClient.refetchQueries(
-        { queryKey: orderApi.getFindById1QueryKey(orderId) },
-        { cancelRefetch: false },
-      )
+      await queryClient.refetchQueries({ queryKey }, { cancelRefetch: false })
       router.replace(completeHref)
     },
     onError: (error, { auto }) => {
@@ -308,6 +355,12 @@ function OrderCheckout({
   })
 
   const status = order.data?.status
+  // 결제 확인 중이던 주문이 결제 대기로 돌아오면 서버가 결제를 거절한 것이다 → 결제 실패(M07-3)
+  const [prevStatus, setPrevStatus] = useState(status)
+  if (status !== prevStatus) {
+    setPrevStatus(status)
+    if (prevStatus === 'PAYING' && status === 'CREATED') setFailure({ kind: 'failed' })
+  }
   // 결제할 수 있는 주문이 보일 때 한 번. 모자란 금액은 잔액을 받은 뒤 화면 계산과 같은 값으로 보낸다
   const payable = status === 'CREATED' ? order.data : undefined
   // 충전을 다녀와 다시 열린 화면(charged)은 같은 주문의 결제 시작을 한 번 더 세지 않는다
@@ -330,13 +383,24 @@ function OrderCheckout({
     resumed.current = true
     pay.mutate({ auto: true })
   }, [canResume, pay])
-  // 이미 결제한 주문이면 완료 화면으로 보낸다 (뒤로 가기 · 새로고침).
+  // 이미 결제한 주문이면 완료 화면으로 보낸다 (뒤로 가기 · 새로고침 · 결제 확인 중 재조회로 완료됨).
+  // 결제 확인 중을 거쳐 완료되면 결제 요청의 onSuccess가 지우지 못한 키트 옵션 · 잔액 · 참가권 캐시를 여기서 지운다.
+  // 무효화가 다시 그리기를 부르므로 한 번만 한다
+  const finished = useRef(false)
   useEffect(() => {
-    if (status === 'PAID') router.replace(completeHref)
-  }, [status, completeHref, router])
+    if (status !== 'PAID' || finished.current) return
+    finished.current = true
+    forgetKitOptionIds(orderId)
+    void invalidateTicketQueries(queryClient)
+    router.replace(completeHref)
+  }, [status, orderId, queryClient, completeHref, router])
 
-  if (order.isError) return <CheckoutResult view="failed" onRetry={() => void order.refetch()} />
+  // 처음 불러오기 실패만 실패 화면이다. 결제 확인 중 재조회가 실패하면 받아 둔 주문으로 계속 기다린다
+  if (order.isError && !order.data)
+    return <CheckoutResult view="failed" onRetry={() => void order.refetch()} />
   if (!order.data || status === 'PAID') return <CheckoutSkeleton />
+  // 결제 중이면 결제 기한이 지나도 결과를 기다린다 (서버는 기한 + 2분까지 결제를 끝낸다)
+  if (status === 'PAYING') return <PayingResult />
   if (status === 'EXPIRED' || remaining === 0 || failure?.kind === 'timeout') {
     return <CheckoutResult view="timeout" raceId={raceId} />
   }

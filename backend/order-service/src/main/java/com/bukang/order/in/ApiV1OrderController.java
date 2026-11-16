@@ -176,6 +176,13 @@ public class ApiV1OrderController {
 				@ExampleObject(name = "파티원이 크루를 떠남", value = OrderApiExamples.PARTY_PAYER_NOT_CREW),
 				@ExampleObject(name = "대회 취소", value = OrderApiExamples.PAY_RACE_CANCELED),
 				@ExampleObject(name = "키트 옵션 품절", value = OrderApiExamples.KIT_OPTION_SOLD_OUT)
+			})),
+		@ApiResponse(responseCode = "503",
+			description = "결제 요청이 몰려 예치금에 보내지 못함(돈은 빠지지 않음, 주문은 결제 대기 그대로), 예치금이 결제를 거절함(4xx). "
+				+ "잠시 뒤 같은 주문으로 다시 결제한다",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "결제 몰림", value = OrderApiExamples.PAY_BUSY),
+				@ExampleObject(name = "예치금 연결 실패", value = OrderApiExamples.WALLET_UNAVAILABLE)
 			}))
 	})
 	public ResponseEntity<RsData<OrderDto>> pay(
