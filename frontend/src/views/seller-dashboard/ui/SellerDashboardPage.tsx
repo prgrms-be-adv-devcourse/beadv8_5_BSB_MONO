@@ -85,7 +85,7 @@ function DashboardBody() {
   )
 }
 
-// 처리할 일 = 송장 입력 대기 + 지급보류 (11/4 결정)
+// 처리할 일 = 지금 보낼 수 있는 키트 + 지급보류 (11/4 결정). 아래 탭의 「송장 입력 대기」는 환불 기한 전 키트도 세서 이름을 다르게 둔다
 function TodoCard() {
   const kits = useSellerKitSummary()
   const summary = payoutApi.useSummary({ query: { select: unwrapData } })
@@ -104,7 +104,7 @@ function TodoCard() {
         href="/seller/kits"
         icon="Truck"
         iconClass="bg-bg-badge-warning"
-        label={countLabel('송장 입력 대기', shippable, isFailing(kits))}
+        label={countLabel('지금 보낼 수 있는 키트', shippable, isFailing(kits))}
         menu="주문 관리"
       />
       <TodoRow

@@ -88,12 +88,12 @@ describe('SellerDashboardPage', () => {
     expect(within(payout).getByText('-')).toBeInTheDocument()
   })
 
-  it('처리할 일은 송장 입력 대기와 지급보류 건수를 더하고 각 메뉴로 연결한다', async () => {
+  it('처리할 일은 지금 보낼 수 있는 키트와 지급보류 건수를 더하고 각 메뉴로 연결한다', async () => {
     renderPage()
 
     // 배송 준비 3건 중 환불 기한 전 1건은 아직 보낼 수 없어 2건
     const todo = await card(/처리할 일/)
-    const kit = await within(todo).findByRole('link', { name: /송장 입력 대기 2건/ })
+    const kit = await within(todo).findByRole('link', { name: /지금 보낼 수 있는 키트 2건/ })
     expect(kit).toHaveAttribute('href', '/seller/kits')
     const hold = await within(todo).findByRole('link', { name: /지급보류 1건/ })
     expect(hold).toHaveAttribute('href', '/seller/settlements')
@@ -104,7 +104,9 @@ describe('SellerDashboardPage', () => {
     server.use(kitSummaryUnavailable())
     renderPage()
 
-    expect(await screen.findByRole('link', { name: /송장 입력 대기 -/ })).toBeInTheDocument()
+    expect(
+      await screen.findByRole('link', { name: /지금 보낼 수 있는 키트 -/ }),
+    ).toBeInTheDocument()
   })
 
   it('키트 건수 요청이 재시도 중이어도 첫 실패부터 - 를 보여 준다', async () => {
@@ -112,7 +114,9 @@ describe('SellerDashboardPage', () => {
     // 재시도 간격을 길게 줘서, 재시도가 끝나기 전에 - 가 먼저 보이는지 본다
     renderPage({ retry: 3, retryDelay: 60_000 })
 
-    expect(await screen.findByRole('link', { name: /송장 입력 대기 -/ })).toBeInTheDocument()
+    expect(
+      await screen.findByRole('link', { name: /지금 보낼 수 있는 키트 -/ }),
+    ).toBeInTheDocument()
   })
 
   it('키트 배송 현황 표는 송장 입력 대기부터 보여 주고 탭으로 배송 중을 볼 수 있다', async () => {
