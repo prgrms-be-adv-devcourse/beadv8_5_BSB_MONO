@@ -150,6 +150,7 @@ public class MyTicketQueryFacade {
 			shipment == null ? null : shipment.status().getKitDeliveryStatus(),
 			shipment == null ? null : shipment.carrier(),
 			shipment == null ? null : shipment.trackingNumber(),
+			shipment == null ? null : shipment.receivedAt(),
 			party == null ? null : party.getId(),
 			party == null ? null : party.getCrewId(),
 			party == null ? null : party.getStatus(),

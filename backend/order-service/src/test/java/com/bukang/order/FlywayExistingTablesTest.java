@@ -63,6 +63,8 @@ class FlywayExistingTablesTest {
 		jdbcTemplate.execute("drop index idx_order_paying");
 		jdbcTemplate.execute("alter table order_order drop column pay_started_at");
 		jdbcTemplate.execute("alter table order_order drop column pay_attempts");
+		// 서버 표에는 아직 키트 수령 확인 칸이 없다 (BUK-225)
+		jdbcTemplate.execute("alter table order_shipment drop column received_at");
 		// 서버 표에는 아직 판매자 주문 목록 인덱스가 없다 (BUK-227)
 		jdbcTemplate.execute("drop index idx_order_item_seller");
 
