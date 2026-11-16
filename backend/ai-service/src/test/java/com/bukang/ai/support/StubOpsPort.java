@@ -16,6 +16,9 @@ public class StubOpsPort implements OpsPort {
 	public KitSummary kitSummary = new KitSummary(0, 0);
 	public KitPage kitPage = new KitPage(List.of(), 0);
 	public PayoutSummary payoutSummary = new PayoutSummary(null, 0, 0);
+	public SalesSummary salesSummary = new SalesSummary(0, 0);
+	// salesSummary를 부른 기간 (시작 날, 끝 날)
+	public LocalDate[] salesCall;
 	public List<HeldPayout> heldPayouts = List.of();
 	public List<Hold> holds = List.of();
 	public long waitingInquiries;
@@ -34,6 +37,8 @@ public class StubOpsPort implements OpsPort {
 		kitSummary = new KitSummary(0, 0);
 		kitPage = new KitPage(List.of(), 0);
 		payoutSummary = new PayoutSummary(null, 0, 0);
+		salesSummary = new SalesSummary(0, 0);
+		salesCall = null;
 		heldPayouts = List.of();
 		holds = List.of();
 		holdsCalls.clear();
@@ -56,6 +61,13 @@ public class StubOpsPort implements OpsPort {
 	public KitPage preparingKits(long memberId, int size) {
 		called(memberId);
 		return kitPage;
+	}
+
+	@Override
+	public SalesSummary salesSummary(long memberId, LocalDate from, LocalDate to) {
+		called(memberId);
+		salesCall = new LocalDate[] {from, to};
+		return salesSummary;
 	}
 
 	@Override

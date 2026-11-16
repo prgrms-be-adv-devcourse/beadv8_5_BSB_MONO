@@ -37,7 +37,7 @@ public class SellerTools {
 		+ "sendableNowCount: 환불 기한이 지나 지금 송장을 입력할 수 있는 건수, "
 		+ "sendableAfterRefundDeadlineCount: 배송 준비 중이지만 환불 기한 전이라 기한이 지나면 보낼 수 있는 건수. "
 		+ "sendableNowCount가 0이어도 sendableAfterRefundDeadlineCount가 있으면 「지금 보낼 키트는 없고, 환불 기한이 지나면 N건을 보낼 수 있다」처럼 답한다. "
-		+ "listedCount: 답 아래 목록 카드에 화면이 따로 보여 주는 줄 수(목록 내용은 말하지 않는다), notListedCount: 목록에 없는 나머지 건수")
+		+ "listedCount·notListedCount: 화면 목록 카드용 값이라 답에 쓰지 않는다")
 	public Object sellerKitsWaitingForTracking(ToolContext toolContext) {
 		AiToolTrace trace = AiToolTrace.of(toolContext);
 		trace.clearList();
@@ -55,6 +55,22 @@ public class SellerTools {
 			long notListed = Math.max(0, page.totalElements() - rows.size());
 			trace.list(rows, notListed);
 			return new KitsResult(waiting, 0, rows.size(), notListed);
+		});
+	}
+
+	@Tool(description = "마지막 질문이 이번 달 판매액·판매 장수를 물을 때만 부른다. from~to: 이번 달 1일부터 오늘까지(한국 날짜, 결제일 기준). "
+		+ "soldCount: 그동안 결제된 참가권 장수, soldAmount: 그 결제 금액 합(원). "
+		+ "취소된 참가권은 빠지고, 환불을 처리 중인 참가권은 정산처럼 판매로 센다. 정산 예정액이나 입금액이 아니다")
+	public Object sellerMonthlySales(ToolContext toolContext) {
+		return monthlySales(AiToolTrace.of(toolContext), LocalDate.now(AiToolTrace.ZONE));
+	}
+
+	// 오늘(한국 날짜)이 속한 달의 1일부터 오늘까지. 1일이면 그날 하루만 본다
+	Object monthlySales(AiToolTrace trace, LocalDate today) {
+		return trace.run(AiSource.SELLER_SALES, () -> {
+			LocalDate from = today.withDayOfMonth(1);
+			OpsPort.SalesSummary sales = opsPort.salesSummary(trace.memberId(), from, today);
+			return new SalesResult(from, today, sales.soldCount(), sales.soldAmount());
 		});
 	}
 
@@ -101,6 +117,9 @@ public class SellerTools {
 
 	record KitsResult(long sendableNowCount, long sendableAfterRefundDeadlineCount, int listedCount,
 		long notListedCount) {
+	}
+
+	record SalesResult(LocalDate from, LocalDate to, long soldCount, long soldAmount) {
 	}
 
 	record HoldsResult(long heldPayoutCount, List<HoldLine> holds, int notListedCount, long olderHeldPayoutCount) {
