@@ -58,6 +58,8 @@ class ApiV1AiChatTest extends AiTestBase {
 			.contains("모르면 지어내지 않고 해당 화면에서 확인하라고 안내한다")
 			.contains("본인 정보를 권한 문제로 거절하지 않는다")
 			.contains("아직 크루런 AI로는 조회할 수 없다")
+			.contains("되묻지 말고 해당 도구를 불러 답한다")
+			.contains("도구를 부르지 않고 그 정보는 확인해 드릴 수 없다고만 답한다")
 			.contains("칸 이름과 칸 설명, 화면이 따로 쓰는 값(목록 줄 수 등)은 답에 쓰지 않는다");
 		assertThat(types(stored("admin-20"))).containsExactly(MessageType.USER, MessageType.ASSISTANT);
 	}

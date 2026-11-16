@@ -33,7 +33,7 @@ public class SellerTools {
 
 	private final OpsPort opsPort;
 
-	@Tool(description = "마지막 질문이 송장 입력 대기 키트(보낼 키트)를 물을 때만 부른다. 답에는 두 숫자를 함께 말한다. "
+	@Tool(description = "마지막 질문이 송장 입력 대기 키트(보낼 키트)를 물을 때만 부른다(예: 「보낼 키트 있어?」). 답에는 두 숫자를 함께 말한다. "
 		+ "sendableNowCount: 환불 기한이 지나 지금 송장을 입력할 수 있는 건수, "
 		+ "sendableAfterRefundDeadlineCount: 배송 준비 중이지만 환불 기한 전이라 기한이 지나면 보낼 수 있는 건수. "
 		+ "sendableNowCount가 0이어도 sendableAfterRefundDeadlineCount가 있으면 「지금 보낼 키트는 없고, 환불 기한이 지나면 N건을 보낼 수 있다」처럼 답한다. "
@@ -58,7 +58,8 @@ public class SellerTools {
 		});
 	}
 
-	@Tool(description = "마지막 질문이 이번 달 판매액·판매 장수를 물을 때만 부른다. from~to: 이번 달 1일부터 오늘까지(한국 날짜, 결제일 기준). "
+	@Tool(description = "마지막 질문이 이번 달 판매액·판매 장수를 물을 때만 부른다(예: 「이번 달 얼마 팔았어?」). "
+		+ "참가자 수·신청자 명단이 아니므로 「참가자 몇 명이 신청했어?」에는 부르지 않는다. from~to: 이번 달 1일부터 오늘까지(한국 날짜, 결제일 기준). "
 		+ "soldCount: 그동안 결제된 참가권 장수, soldAmount: 그 결제 금액 합(원). "
 		+ "취소된 참가권은 빠지고, 환불을 처리 중인 참가권은 정산처럼 판매로 센다. 정산 예정액이나 입금액이 아니다")
 	public Object sellerMonthlySales(ToolContext toolContext) {
@@ -74,14 +75,16 @@ public class SellerTools {
 		});
 	}
 
-	@Tool(description = "마지막 질문이 다음 정산일·정산 예정액·지급보류 건수를 물을 때만 부른다. nextPayDate: 다음 정산일(null이면 지급 예정 정산이 없다), "
+	@Tool(description = "마지막 질문이 다음 정산일·정산 예정액·지급보류 건수를 물을 때만 부른다"
+		+ "(예: 「돈 언제 들어와?」, 「정산 언제야?」, 「보류된 정산이 있어?」). nextPayDate: 다음 정산일(null이면 지급 예정 정산이 없다), "
 		+ "scheduledPayoutAmount: 그날 받을 정산 예정액(원, 지급보류 제외), heldCount: 지급보류 중인 정산 내역 수")
 	public Object sellerNextPayout(ToolContext toolContext) {
 		AiToolTrace trace = AiToolTrace.of(toolContext);
 		return trace.run(AiSource.SELLER_PAYOUT, () -> opsPort.payoutSummary(trace.memberId()));
 	}
 
-	@Tool(description = "마지막 질문이 지급보류된 이유를 물을 때만 부른다. heldPayoutCount: 지금 지급보류 중인 정산 내역 수(전체 기간). "
+	@Tool(description = "마지막 질문이 지급보류된 이유나 지급보류 내역을 물을 때만 부른다(예: 「지급보류 내역 보여줘」, 「왜 보류됐어?」). "
+		+ "heldPayoutCount: 지금 지급보류 중인 정산 내역 수(전체 기간). "
 		+ "holds: 보류한 날과 상관없이 지금 보류 중인 정산의 보류마다 대회 이름, 보류된 지급액(원), 사유 종류, 사유 글, 보류한 날(최근 것부터). "
 		+ "정산 하나에 사유가 다른 보류가 여러 개 걸릴 수 있다. notListedCount: 찾았지만 여기 담지 않은 나머지 보류 수. "
 		+ "olderHeldPayoutCount: 12개월보다 오래되어 사유를 찾지 못한 보류 중 정산 수. 0보다 크면 화면에서 확인하라고 안내한다")
