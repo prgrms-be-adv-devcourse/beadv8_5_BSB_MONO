@@ -1,5 +1,6 @@
 package com.bukang.member.app;
 
+import java.text.Normalizer;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -183,8 +184,9 @@ public class MemberFacade {
 		// 비밀번호를 비교하기 전에 센다. 동시에 틀린 요청이 와도 비교는 최대 횟수까지만 한다 (BUK-185)
 		// DB가 악센트 등을 무시하고 같은 회원으로 찾아 주므로, 회원을 찾으면 저장된 이메일로 키를 만든다
 		// 가입하지 않은 이메일도 입력으로 똑같이 세어, 응답만 보고 가입 여부를 알 수 없게 한다
-		String emailHash = Sha256.hex(
-			found.map(Member::getEmail).orElse(memberLoginRequestDto.getEmail()).trim().toLowerCase(Locale.ROOT));
+		// 키는 악센트를 빼고 소문자로 맞춘다. 가입 여부와 상관없이 DB가 같다고 보는 표기는 같은 키가 된다
+		// shortcut: ß=ss처럼 악센트 말고도 MySQL 정렬이 같다고 보는 글자는 맞추지 못함, 그런 우회가 보이면 DB 정렬로 키를 만든다
+		String emailHash = Sha256.hex(attemptKey(found.map(Member::getEmail).orElse(memberLoginRequestDto.getEmail())));
 		if (recordAttempt(emailHash) > loginAttemptProperties.maxFailures()) {
 			throw new LoginLockedException(LOGIN_LOCKED_MESSAGE);
 		}
@@ -207,6 +209,12 @@ public class MemberFacade {
 			.orElseThrow(() -> new MemberNotFoundException("존재하지 않는 회원입니다."));
 
 		return new MemberLoginResult(member.toDto(), tokenIssueUseCase.issue(member.getId()));
+	}
+
+	private static String attemptKey(String email) {
+		return Normalizer.normalize(email.trim(), Normalizer.Form.NFKD)
+			.replaceAll("\\p{M}", "")
+			.toLowerCase(Locale.ROOT);
 	}
 
 	// Redis 오류로 횟수를 못 세면 차단 없이 로그인을 계속한다. 토큰 발급도 Redis 오류에 로그인을 막지 않는다
