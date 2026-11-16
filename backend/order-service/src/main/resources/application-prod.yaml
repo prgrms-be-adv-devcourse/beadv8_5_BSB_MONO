@@ -1,6 +1,7 @@
 spring:
   datasource:
-    url: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DB}
+    # 운영(k8s)은 MYSQL_DB를 주지 않아 이 서비스 DB(crewrun_order)를 쓴다. 로컬 compose·부하 측정은 MYSQL_DB=bukang-db로 한 DB를 쓴다 (BUK-238)
+    url: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DB:crewrun_order}
     username: ${MYSQL_USER}
     password: ${MYSQL_PASS}
     driver-class-name: com.mysql.cj.jdbc.Driver

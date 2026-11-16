@@ -104,6 +104,44 @@ sudo bash /opt/crewrun/infra/data-node/deploy.sh <커밋 SHA>   # main에 머지
 
 GitHub Actions의 `data-node-cd.yml`(손으로 실행)이 SSM으로 이 명령을 보냅니다(BUK-220 D5).
 
+## 서비스별 DB로 옮기기 (BUK-238, 한 번)
+
+서비스마다 자기 DB(`crewrun_<서비스>`)를 쓰도록 바뀌었습니다. 앱 계정(`.env`의 `MYSQL_USER`) 하나가 모든 서비스 DB 권한을 가집니다.
+새 앱은 `crewrun_<서비스>`에, 옛 앱은 `bukang-db`에 접속하므로 **표를 옮기는 것과 새 앱 배포가 함께 일어나야 합니다.**
+main에 머지하면 k8s-cd가 바로 배포하므로, 머지 전에 앱을 멈추고 표를 옮깁니다. 사이트는 옮기기부터 새 앱이 뜰 때까지 멈춥니다(배포 15~30분).
+
+1. 메인 EC2에서 앱을 멈춥니다. 옛 앱이 옮긴 뒤 빈 `bukang-db`에 표를 새로 만들지 않게 합니다.
+   ```bash
+   sudo k3s kubectl -n crewrun scale deploy -l app.kubernetes.io/component=spring --replicas=0
+   ```
+2. 보조 EC2에서 dev에 들어간 스크립트만 꺼내 미리 보고, 옮깁니다. 서버 저장소(`/opt/crewrun`)는 main 커밋 그대로 둡니다(deploy.sh가 고친 파일이 있으면 멈춤).
+   ```bash
+   cd /opt/crewrun && git fetch origin dev
+   rm -rf /tmp/split && mkdir /tmp/split
+   git archive origin/dev backend/scripts/split-bukang-db.sh backend/docker/mysql | tar -x -C /tmp/split
+   sudo bash /tmp/split/backend/scripts/split-bukang-db.sh --dry-run   # 표 92개 정도가 서비스별로 나뉘는지 본다
+   sudo bash /tmp/split/backend/scripts/split-bukang-db.sh
+   ```
+3. dev → main PR을 머지하고 k8s-cd가 끝나기를 기다린 뒤, 메인 EC2에서 앱을 다시 켭니다.
+   매니페스트의 replicas(1)가 바뀌지 않아 `kubectl apply`는 1단계에서 줄인 0을 되돌리지 않습니다. 그래서 손으로 켭니다.
+   ```bash
+   sudo k3s kubectl -n crewrun scale deploy -l app.kubernetes.io/component=spring --replicas=1
+   sudo k3s kubectl -n crewrun get pods -w   # 모두 Running·1/1이 될 때까지 (몇 분)
+   ```
+4. 확인: 로그인, 대회 목록·검색, 예치금, 주문. `bukang-db`에는 표가 남지 않습니다.
+   ```bash
+   sudo docker exec bukang-db sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -N -e "SELECT table_schema, COUNT(*) FROM information_schema.tables WHERE table_schema LIKE \"crewrun%\" OR table_schema = \"bukang-db\" GROUP BY 1"'
+   ```
+5. 나중에 data-node-cd를 돌리면 MySQL 컨테이너가 새 설정(initdb 폴더)으로 다시 만들어집니다(몇 초 끊김, 데이터는 볼륨에 남음).
+   initdb는 빈 볼륨에서만 돌아 지금 데이터에는 영향이 없습니다.
+
+되돌리기(새 앱을 옛 커밋으로 되돌릴 때): 앱을 멈추고 표를 `bukang-db`로 다시 옮긴 뒤 옛 커밋을 배포합니다.
+
+```bash
+sudo docker exec bukang-db sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -N -e "SET SESSION group_concat_max_len = 1000000; SELECT CONCAT(\"RENAME TABLE \", GROUP_CONCAT(CONCAT(\"\`\", table_schema, \"\`.\`\", table_name, \"\` TO \`bukang-db\`.\`\", table_name, \"\`\")), \";\") FROM information_schema.tables WHERE table_schema LIKE \"crewrun%\""' \
+  | sudo docker exec -i bukang-db sh -c 'exec mysql -uroot -p"$MYSQL_ROOT_PASSWORD"'
+```
+
 ## 메모리
 
 메인 EC2 compose에서 잰 값(2026-11-14): MySQL 244MB, ES 747MB(힙 512MB 고정), Redpanda 27MB(최대 512MB로 제한), Redis 5MB. 합계 약 1GB로, 3.7GB 서버에 여유가 있습니다.
