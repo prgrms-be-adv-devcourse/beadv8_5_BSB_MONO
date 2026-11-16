@@ -2,9 +2,12 @@
 export const SIGNUP_TERMS = [
   { id: 'service', label: '[필수] 서비스 이용약관', required: true, href: '/terms/service' },
   { id: 'privacy', label: '[필수] 개인정보 수집 · 이용', required: true, href: '/terms/privacy' },
-  { id: 'age', label: '[필수] 만 14세 이상이에요', required: true },
+  { id: 'age', label: '[필수] 본인은 만 14세 이상이에요', required: true },
   { id: 'marketing', label: '[선택] 마케팅 정보 받기', required: false, href: '/terms/marketing' },
 ] as const
+
+/** 시트에서는 「이용약관과 개인정보 동의」 한 줄로 묶어 보이고, 상태·가입 요청은 약관마다 따로 둔다 */
+export const BUNDLED_TERM_IDS = ['service', 'privacy'] as const
 
 export type SignupTermId = (typeof SIGNUP_TERMS)[number]['id']
 export type SignupTermChecks = Record<SignupTermId, boolean>

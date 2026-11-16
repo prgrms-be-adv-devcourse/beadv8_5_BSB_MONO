@@ -22,6 +22,13 @@ describe('ticket-display', () => {
     expect(ticketStatus({ itemStatus: 'PAID' }, { raceOver: false })).toBe('confirmed')
   })
 
+  it('결제 중인 주문의 참가권은 대회 날짜와 상관없이 결제 확인 중이다', () => {
+    expect(ticketStatus({ itemStatus: 'ORDERED', paying: true }, { raceOver: false })).toBe(
+      'paying',
+    )
+    expect(ticketStatus({ itemStatus: 'ORDERED', paying: true }, { raceOver: true })).toBe('paying')
+  })
+
   it('주문번호 끝자리를 번호로 쓴다', () => {
     expect(ticketNumber('OD-20261012-0001')).toBe('0001')
   })

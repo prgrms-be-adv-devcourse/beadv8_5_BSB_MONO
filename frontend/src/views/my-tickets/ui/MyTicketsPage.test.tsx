@@ -1,11 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { clearAccessToken } from '@/shared/api'
-import { server } from '@/shared/testing'
+import { orderMock, server } from '@/shared/testing'
 
 import { MyTicketsPage } from './MyTicketsPage'
 
@@ -55,6 +55,85 @@ describe('MyTicketsPage', () => {
     )
     // 결제 대기 · 기한 만료 주문은 상세를 부르지 않는다
     expect(detailIds).toEqual(['1'])
+  })
+
+  it('결제 확인 중인 주문은 참가 예정에 「결제 확인 중」 배지로 보여 주고 환불 안내는 붙이지 않는다', async () => {
+    server.use(
+      http.get('*/api/v1/order/orders', () =>
+        HttpResponse.json({
+          status: 200,
+          message: '주문 내역을 조회했습니다.',
+          data: {
+            orders: [{ id: 1, status: 'PAYING' }],
+            page: 0,
+            size: 100,
+            totalElements: 1,
+            totalPages: 1,
+          },
+        }),
+      ),
+      http.get('*/api/v1/order/orders/1', () => {
+        const example = orderMock.getFindById1ResponseMock()
+        return HttpResponse.json({
+          ...example,
+          data: {
+            ...example.data,
+            status: 'PAYING',
+            items: example.data?.items?.map((item) => ({ ...item, status: 'ORDERED' })),
+          },
+        })
+      }),
+    )
+    renderPage()
+
+    expect(await screen.findByText('김러너 · 10K')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '참가 예정 1' })).toBeInTheDocument()
+    expect(screen.getByText('결제 확인 중')).toBeInTheDocument()
+    expect(screen.queryByText(/전액 환불/)).not.toBeInTheDocument()
+  })
+
+  it('결제 확인 중 참가권이 있으면 다시 조회해 결과가 나오면 참가 확정으로 바꾼다', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(new Date('2026-10-15T12:00:00+09:00'))
+    let paid = false
+    server.use(
+      http.get('*/api/v1/order/orders', () =>
+        HttpResponse.json({
+          status: 200,
+          message: '주문 내역을 조회했습니다.',
+          data: {
+            orders: [{ id: 1, status: paid ? 'PAID' : 'PAYING' }],
+            page: 0,
+            size: 100,
+            totalElements: 1,
+            totalPages: 1,
+          },
+        }),
+      ),
+      http.get('*/api/v1/order/orders/1', () => {
+        const example = orderMock.getFindById1ResponseMock()
+        if (paid) return HttpResponse.json(example)
+        return HttpResponse.json({
+          ...example,
+          data: {
+            ...example.data,
+            status: 'PAYING',
+            items: example.data?.items?.map((item) => ({ ...item, status: 'ORDERED' })),
+          },
+        })
+      }),
+    )
+    renderPage()
+    expect(await screen.findByText('결제 확인 중')).toBeInTheDocument()
+
+    paid = true
+    // 목록은 주문 수만큼 상세를 다시 부르므로 3초가 아니라 15초마다 다시 받는다
+    await act(() => vi.advanceTimersByTimeAsync(3000))
+    expect(screen.getByText('결제 확인 중')).toBeInTheDocument()
+    await act(() => vi.advanceTimersByTimeAsync(12_000))
+
+    expect(await screen.findByText('참가 확정')).toBeInTheDocument()
+    expect(screen.queryByText('결제 확인 중')).not.toBeInTheDocument()
   })
 
   it('결제한 주문이 없으면 빈 화면을 보여 준다', async () => {

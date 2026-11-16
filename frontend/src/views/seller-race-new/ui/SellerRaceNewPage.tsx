@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { Controller, useFieldArray, useForm, useWatch, type Resolver } from 'react-hook-form'
 
-import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
+import { CONSOLE_BOX, ConsoleCard, ConsolePage } from '@/widgets/console-page'
 import { AddressSearch } from '@/features/address-search'
 import { parseRaceDateInput } from '@/entities/race'
 import { ApiError } from '@/shared/api'
@@ -391,6 +391,7 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
             <p className="text-body2-regular text-text-danger">{errors.courses.message}</p>
           )}
           <Alert
+            className={CONSOLE_BOX}
             title="다른 곳에서도 함께 팔 수 있어요"
             description="정원에는 크루런에 배정할 수량만 적어 주세요. 한 사람 한 대회 1건 규칙은 크루런 안에서만 지켜져요."
           />

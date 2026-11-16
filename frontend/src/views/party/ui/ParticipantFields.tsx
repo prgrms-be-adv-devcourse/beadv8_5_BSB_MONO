@@ -57,13 +57,18 @@ export function ParticipantFields({
       {course && (
         <section className="flex flex-col gap-3">
           <h3 className="text-body1-medium">종목</h3>
-          <TextField label="파티 종목" value={course} readOnly />
+          <TextField
+            label="파티 종목"
+            value={course}
+            readOnly
+            helper="파티장이 정한 종목이에요. 파티원은 모두 이 종목으로 신청해요."
+          />
         </section>
       )}
       <section className="flex flex-col gap-4">
         <h3 className="text-body1-medium">참가자 정보</h3>
         <TextField
-          label="이름"
+          label="참가자 이름"
           autoComplete="name"
           error={errors.name?.message}
           {...register('name')}
@@ -101,12 +106,13 @@ export function ParticipantFields({
       <section className="flex flex-col gap-4">
         <h3 className="text-body1-medium">비상 연락처</h3>
         <TextField
-          label="이름"
+          label="비상 연락처 이름"
+          helper="연락받을 분께 먼저 알려 주세요"
           error={errors.emergencyContactName?.message}
           {...register('emergencyContactName')}
         />
         <PhoneField
-          label="전화번호"
+          label="비상 연락처 번호"
           error={errors.emergencyContactPhone?.message}
           {...register('emergencyContactPhone')}
         />
