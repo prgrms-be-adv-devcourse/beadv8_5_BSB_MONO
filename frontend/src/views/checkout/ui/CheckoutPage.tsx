@@ -17,7 +17,7 @@ import { useQueueAdmission } from '@/features/queue-admission'
 import { parseKstDateTime, RACE_DETAIL, raceDetailQueryOptions } from '@/entities/race'
 import { invalidateTicketQueries, orderQueryOptions } from '@/entities/ticket'
 import { orderApi, orderModel, unwrapData } from '@/shared/api'
-import { formatNumber, orderTrackItems, useTrackOnce } from '@/shared/lib'
+import { cn, formatNumber, orderTrackItems, useNow, useTrackOnce } from '@/shared/lib'
 import {
   Alert,
   Badge,
@@ -34,7 +34,7 @@ import {
   type IconName,
 } from '@/shared/ui'
 
-import { useDepositBalance } from '../api/deposit-balance'
+import { useDepositBalance } from '../api/use-deposit-balance'
 import { splitPayment } from '../lib/deposit'
 import { toPayFailure, type PayFailure } from '../lib/pay-error'
 import { useHoldCountdown } from '../model/use-hold-countdown'
@@ -216,7 +216,13 @@ function PayingResult() {
 
 /** 연결 끊김 시안 (M07 오프라인). 결제를 누른 뒤라 동의는 체크된 채로 둔다. */
 function OfflinePreview() {
-  const [expiresAt] = useState(() => Date.now() + OFFLINE_PREVIEW_SECONDS * 1000)
+  const now = useNow()
+  return now ? (
+    <OfflinePreviewBody expiresAt={now.getTime() + OFFLINE_PREVIEW_SECONDS * 1000} />
+  ) : null
+}
+
+function OfflinePreviewBody({ expiresAt }: { expiresAt: number }) {
   const remaining = useHoldCountdown(expiresAt)
   const [agreed, setAgreed] = useState(true)
   const race = RACE_DETAIL
@@ -482,9 +488,11 @@ function StepBars({ steps, current }: { steps: string[]; current: number }) {
         <li
           key={label}
           aria-current={i === current ? 'step' : undefined}
-          className={`flex flex-1 flex-col gap-2 border-t-4 pt-2 text-body2-regular ${
-            i <= current ? 'border-border-brand' : 'border-border-default'
-          } ${i === current ? 'font-bold text-text-primary' : 'text-text-secondary'}`}
+          className={cn(
+            'flex flex-1 flex-col gap-2 border-t-4 pt-2 text-body2-regular',
+            i <= current ? 'border-border-brand' : 'border-border-default',
+            i === current ? 'font-bold text-text-primary' : 'text-text-secondary',
+          )}
         >
           {label}
         </li>

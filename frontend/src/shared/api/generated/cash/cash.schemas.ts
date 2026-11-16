@@ -164,6 +164,8 @@ export interface CashWithdrawalDto {
   balance: number;
   cardAmount: number;
   accountAmount: number;
+  /** 카드 결제취소가 거절돼 계좌로 바꿔 보낸 금액. accountAmount에 포함 */
+  switchedToAccountAmount: number;
   processingAmount: number;
   revertedAmount: number;
   accountRequired: boolean;

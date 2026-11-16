@@ -151,9 +151,12 @@ export function raceDetailQueryOptions(raceId: string) {
  * 비슷한 대회 (AI 추천, 최대 3개). 백엔드 추천 API(`GET /races/{raceId}/similar`)가 아직 명세(openapi)에 없어 직접 부른다.
  * 보조 기능이라 실패하거나 비어 있으면 화면에서 영역을 숨긴다.
  */
+// 추천 API가 명세에 없어 orval 키 함수가 없다. 명세가 들어오면 생성된 키로 바꾼다.
+const SIMILAR_RACES_KEY = ['race', 'similar'] as const
+
 export function similarRacesQueryOptions(raceId: string) {
   return queryOptions({
-    queryKey: ['race', 'similar', raceId],
+    queryKey: [...SIMILAR_RACES_KEY, raceId],
     queryFn: async () => {
       const data = unwrapData(
         await customFetch<

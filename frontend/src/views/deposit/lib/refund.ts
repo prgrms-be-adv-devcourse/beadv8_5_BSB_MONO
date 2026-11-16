@@ -42,6 +42,8 @@ const LastWithdrawal = z.object({
   /** 서버가 나눈 몫: 카드 결제취소 요청 · 계좌로 보냄 · 결과 확인 중 · 카드 결제취소가 거절돼 예치금에 되돌림 */
   cardAmount: z.number(),
   accountAmount: z.number(),
+  /** 계좌로 보낸 금액 중 카드 결제취소가 거절돼 계좌로 바꾼 몫. 이 값이 없던 때 저장된 것도 읽으려고 기본값 0 */
+  switchedToAccountAmount: z.number().default(0),
   processingAmount: z.number(),
   revertedAmount: z.number(),
   /** 계좌로 보낼 몫이 없어 계좌 없이 신청했으면 세 값 모두 없다 */

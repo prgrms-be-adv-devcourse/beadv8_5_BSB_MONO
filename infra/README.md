@@ -143,7 +143,7 @@ docker exec bukang-kafka rpk group list
 docker exec bukang-kafka rpk group describe <그룹 이름>   # 그룹마다 TOTAL-LAG 0 확인. 0이 아니면 잠시 기다림
 # 앱만 멈춤 (인프라는 3단계 백업에 필요해 그대로. 컨테이너는 지우지 않고 되돌릴 때 씀)
 docker compose stop web gateway member-service cash-service payout-service file-service \
-	order-service product-service queue-service notification-service board-service ai-service
+	order-service product-service queue-service notification-service inquiry-service board-service ai-service
 ```
 
 Redpanda 메시지는 옮기지 않습니다. 남은 메시지가 없는 것을 확인하고 멈추면 잃는 것이 없습니다.
