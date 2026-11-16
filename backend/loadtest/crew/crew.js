@@ -23,14 +23,14 @@ export function setup() {
 	const crews = [];
 	for (let i = 0; i < accounts.length; i++) {
 		const token = accounts[i].accessToken;
-		const mine = http.get(`${API}/member/crews/me`, params(token, 'setup', 'GET /member/crews/me'));
+		const mine = http.get(`${API}/member/crews/me`, params(token, 'setup', 'setup GET /member/crews/me'));
 		const existing = mine.status === 200 ? mine.json('data') : [];
 		if (existing.length > 0) {
 			crews.push(existing[0].crewId);
 			continue;
 		}
 		const created = http.post(`${API}/member/crews`, JSON.stringify({ name: `부하${i + 1}` }),
-			params(token, 'setup', 'POST /member/crews', [201]));
+			params(token, 'setup', 'setup POST /member/crews', [201]));
 		check(created, { '크루 만듦': (r) => r.status === 201 });
 		crews.push(created.status === 201 ? created.json('data.crewId') : null);
 	}

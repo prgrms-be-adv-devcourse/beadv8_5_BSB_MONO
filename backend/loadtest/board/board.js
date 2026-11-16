@@ -38,11 +38,11 @@ function postBody(no) {
 // 글이 SEED_POSTS개보다 적으면 뒤쪽 계정들로 채운다. 글 쓰기 시나리오는 앞쪽 계정부터 써서 1분 간격에 걸리지 않는다
 // 돌려주는 값: posts = 상세·댓글·좋아요에 쓸 글 id
 export function setup() {
-	const list = http.get(`${API}/board/posts?size=50`, params(null, 'setup', 'GET /board/posts'));
+	const list = http.get(`${API}/board/posts?size=50`, params(null, 'setup', 'setup GET /board/posts'));
 	const posts = list.status === 200 ? list.json('data').map((p) => p.postId) : [];
 	for (let i = accounts.length - 1; posts.length < SEED_POSTS; i--) {
 		const res = http.post(`${API}/board/posts`, postBody(`준비 ${posts.length + 1}`),
-			params(accounts[i].accessToken, 'setup', 'POST /board/posts', [201]));
+			params(accounts[i].accessToken, 'setup', 'setup POST /board/posts', [201]));
 		if (!check(res, { '준비 글 201': (r) => r.status === 201 })) {
 			throw new Error(`준비 글을 쓰지 못했습니다: ${res.status} ${res.body}`);
 		}

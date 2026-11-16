@@ -28,13 +28,13 @@ export function setup() {
 	const inquiries = [];
 	for (let i = 0; i < accounts.length; i++) {
 		const token = accounts[i].accessToken;
-		const mine = http.get(`${API}/inquiry/inquiries/me?page=0&size=1`, params(token, 'setup', 'GET /inquiry/inquiries/me'));
+		const mine = http.get(`${API}/inquiry/inquiries/me?page=0&size=1`, params(token, 'setup', 'setup GET /inquiry/inquiries/me'));
 		const existing = mine.status === 200 ? mine.json('data.inquiries') : [];
 		if (existing.length > 0) {
 			inquiries.push(existing[0].id);
 			continue;
 		}
-		const created = http.post(`${API}/inquiry/inquiries`, body(0), params(token, 'setup', 'POST /inquiry/inquiries', [201]));
+		const created = http.post(`${API}/inquiry/inquiries`, body(0), params(token, 'setup', 'setup POST /inquiry/inquiries', [201]));
 		check(created, { '문의 남김': (r) => r.status === 201 });
 		inquiries.push(created.status === 201 ? created.json('data.id') : null);
 	}
