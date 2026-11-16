@@ -108,14 +108,21 @@ export function CrewHomePage({ crewId }: { crewId: number }) {
                   </Link>
                 )}
               </div>
-              <CrewMemberList members={crew.data.members} />
+              <CrewMemberList
+                members={crew.data.members}
+                moreHref={`/crews/${crewId}/members` as Route}
+              />
             </CrewBand>
-            <Divider type="section" />
-            <LeaveCrew
-              crew={crew.data}
-              joinedParty={parties.data?.find((party) => party.myParty)}
-              onStale={() => void crew.refetch()}
-            />
+            {crew.data.myRole !== 'LEADER' && (
+              <>
+                <Divider type="section" />
+                <LeaveCrew
+                  crew={crew.data}
+                  joinedParty={parties.data?.find((party) => party.myParty)}
+                  onStale={() => void crew.refetch()}
+                />
+              </>
+            )}
           </>
         )}
       </main>
@@ -268,17 +275,28 @@ function CrewHomeSkeleton() {
       <CrewBand>
         <Skeleton className="w-1/3" />
         <Skeleton shape="rect" className="h-34 w-full" />
+        <CircleLines />
       </CrewBand>
       <Divider type="section" />
       <CrewBand>
         <Skeleton className="w-1/4" />
         {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="flex items-center gap-3">
-            <Skeleton shape="circle" className="size-8" />
-            <Skeleton className="flex-1" />
-          </div>
+          <CircleLines key={i} />
         ))}
       </CrewBand>
     </>
+  )
+}
+
+// 시안 1333:25728: 동그라미 하나와 긴 줄 · 짧은 줄 두 줄
+function CircleLines() {
+  return (
+    <div className="flex items-center gap-3">
+      <Skeleton shape="circle" className="size-8 shrink-0" />
+      <div className="flex flex-1 flex-col gap-2">
+        <Skeleton className="w-full" />
+        <Skeleton className="w-1/3" />
+      </div>
+    </div>
   )
 }

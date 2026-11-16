@@ -7,11 +7,21 @@ import type { MyTicket } from '../model/types'
 
 // 주문 · 참가 신청 API는 로그인한 회원 것만 돌려준다. 클라이언트(TanStack Query)에서 부른다.
 
+/** 결제 확인 중(PAYING) 주문을 다시 조회하는 간격. 결제 화면 · 참가권 상세처럼 주문 하나만 부를 때 쓴다 */
+export const PAYING_POLL_MS = 3000
+
+/**
+ * 내 참가권 목록을 다시 받는 간격. 한 번에 주문 목록 1번 + 주문 상세를 주문 수만큼 부르므로 길게 잡는다.
+ * 서버 결제 재확인은 결제 시작 30초 뒤부터 15초마다 돌아서 더 자주 받아도 결과가 빨리 나오지 않는다.
+ */
+const PAYING_LIST_POLL_MS = 15_000
+
 /** 한 번에 받는 주문 수 (API 최대 100) */
 const ORDER_PAGE_SIZE = 100
 
-/** 참가권으로 보여 줄 주문 상태: 결제했던 주문 (결제 대기 · 기한 만료는 빼고) */
+/** 참가권으로 보여 줄 주문 상태: 결제했거나 결제 확인 중인 주문 (결제 대기 · 기한 만료는 빼고) */
 const TICKET_ORDER_STATUSES: orderModel.OrderSummaryDtoStatus[] = [
+  orderModel.OrderSummaryDtoStatus.PAYING,
   orderModel.OrderSummaryDtoStatus.PAID,
   orderModel.OrderSummaryDtoStatus.PARTIAL_CANCELED,
   orderModel.OrderSummaryDtoStatus.CANCELED,
@@ -27,13 +37,15 @@ async function fetchOrder(orderId: number, signal?: AbortSignal) {
   return unwrapData(await orderApi.findById1(orderId, { signal }))
 }
 
-/** 주문 상세의 주문 상품 → 참가권 */
+/** 주문 상세의 주문 상품 → 참가권. 결제 확인 중 주문의 상품(ORDERED)은 결제 확인 중 참가권으로 넣는다 */
 export function toMyTickets(
   order: orderModel.OrderDto,
   statuses: orderModel.OrderItemDtoStatus[] = TICKET_ITEM_STATUSES,
 ): MyTicket[] {
+  const paying = order.status === orderModel.OrderDtoStatus.PAYING
+  const allowed = paying ? [...statuses, orderModel.OrderItemDtoStatus.ORDERED] : statuses
   return (order.items ?? [])
-    .filter((item) => item.status && statuses.includes(item.status))
+    .filter((item) => item.status && allowed.includes(item.status))
     .map((item) => ({
       id: toTicketId(order.id ?? 0, item.id ?? 0),
       orderId: order.id ?? 0,
@@ -45,6 +57,7 @@ export function toMyTickets(
       itemName: item.itemName ?? '',
       amount: item.amount ?? 0,
       itemStatus: item.status ?? orderModel.OrderItemDtoStatus.PAID,
+      paying,
     }))
 }
 
@@ -64,6 +77,9 @@ export function myTicketsQueryOptions() {
       const details = await Promise.all(orders.map((o) => fetchOrder(o.id ?? 0, signal)))
       return details.flatMap((order) => toMyTickets(order))
     },
+    // 결제 확인 중 참가권이 있으면 결과가 나올 때까지 다시 받는다
+    refetchInterval: (query) =>
+      query.state.data?.some((t) => t.paying) ? PAYING_LIST_POLL_MS : false,
   })
 }
 
@@ -111,7 +127,7 @@ export function withdrawTicketsQueryOptions() {
 }
 
 /**
- * 내 참가 대회 수(마이 화면). 내 참가권 화면과 같은 목록에서 취소한 참가권만 빼고 센다 (참가 확정 + 끝난 대회).
+ * 내 참가 대회 수(마이 화면). 내 참가권 화면과 같은 목록에서 취소한 참가권과 결제 확인 중 참가권을 빼고 센다 (참가 확정 + 끝난 대회).
  * 결제 대기 · 기한 만료 주문은 목록에 처음부터 없다. 같은 쿼리 키라 두 화면이 같은 데이터를 쓴다.
  * enabled가 false면 부르지 않는다.
  */
@@ -119,7 +135,8 @@ export function myTicketCountQueryOptions(enabled: boolean) {
   return queryOptions({
     ...myTicketsQueryOptions(),
     select: (tickets: MyTicket[]) =>
-      tickets.filter((t) => t.itemStatus !== orderModel.OrderItemDtoStatus.CANCELED).length,
+      tickets.filter((t) => !t.paying && t.itemStatus !== orderModel.OrderItemDtoStatus.CANCELED)
+        .length,
     enabled,
   })
 }
@@ -132,7 +149,14 @@ export function myTicketCountQueryOptions(enabled: boolean) {
 export function orderQueryOptions(orderId: number) {
   return queryOptions({
     ...orderApi.getFindById1QueryOptions<orderModel.OrderDto, Error>(orderId, {
-      query: { select: unwrapData },
+      query: {
+        select: unwrapData,
+        // 결제 확인 중이면 결과가 나올 때까지 다시 받는다. 캐시에는 응답 그대로(RsData)가 있다
+        refetchInterval: (query) =>
+          query.state.data?.data?.status === orderModel.OrderDtoStatus.PAYING
+            ? PAYING_POLL_MS
+            : false,
+      },
     }),
   })
 }

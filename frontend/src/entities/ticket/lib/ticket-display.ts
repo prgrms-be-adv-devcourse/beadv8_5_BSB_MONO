@@ -1,18 +1,24 @@
 import type { MyTicket } from '../model/types'
 
-export type TicketStatus = 'confirmed' | 'finished' | 'canceled'
+export type TicketStatus = 'paying' | 'confirmed' | 'finished' | 'canceled'
 
-export const TICKET_STATUS: Record<TicketStatus, { label: string; tone: 'live' | 'onHero' }> = {
+export const TICKET_STATUS: Record<
+  TicketStatus,
+  { label: string; tone: 'info' | 'live' | 'onHero' }
+> = {
+  // 피그마 V3 · M20 주문 내역 · 결제 확인 중 배지 (결제 대기와 같은 정보 톤)
+  paying: { label: '결제 확인 중', tone: 'info' },
   confirmed: { label: '참가 확정', tone: 'live' },
   finished: { label: '종료', tone: 'onHero' },
   canceled: { label: '취소', tone: 'onHero' },
 }
 
-/** 취소한 주문 상품이면 취소, 대회 날짜가 지났으면 종료, 아니면 참가 확정 */
+/** 결제 확인 중 주문이면 결제 확인 중, 취소한 주문 상품이면 취소, 대회 날짜가 지났으면 종료, 아니면 참가 확정 */
 export function ticketStatus(
-  ticket: Pick<MyTicket, 'itemStatus'>,
+  ticket: Pick<MyTicket, 'itemStatus'> & { paying?: boolean },
   { raceOver }: { raceOver: boolean },
 ): TicketStatus {
+  if (ticket.paying) return 'paying'
   if (ticket.itemStatus === 'CANCELED') return 'canceled'
   return raceOver ? 'finished' : 'confirmed'
 }

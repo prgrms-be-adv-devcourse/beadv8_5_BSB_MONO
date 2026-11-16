@@ -102,7 +102,9 @@ describe('회원가입 단계', () => {
     const agree = await screen.findByRole('button', { name: '동의하고 본인 확인하기' })
     expect(agree).toBeDisabled()
 
-    await user.click(screen.getByRole('checkbox', { name: '[필수] 서비스 이용약관' }))
+    await user.click(
+      screen.getByRole('checkbox', { name: '[필수] 크루런 이용약관과 개인정보 동의' }),
+    )
     await user.click(screen.getByRole('checkbox', { name: '[선택] 마케팅 정보 받기' }))
     expect(agree).toBeDisabled()
   })
