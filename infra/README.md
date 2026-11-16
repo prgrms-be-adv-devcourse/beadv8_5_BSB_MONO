@@ -77,7 +77,7 @@ AWS 키는 GitHub Secrets에 두지 않습니다.
 | 자원 | 내용 |
 |---|---|
 | 보조 EC2 보안 그룹 | 인바운드 3306·6379·29092·9200을 **메인 EC2의 보안 그룹(`sg-09d6700bbf0f7348f`)에서만** 허용. 아웃바운드는 기본(전체) 유지(SSM·Docker 이미지에 필요) |
-| Parameter Store | `/crewrun/prod/<키>` 22개, `/crewrun/registry/GHCR_AUTH`. `infra/main-node/env-to-parameter-store.sh`로 넣음. 같은 계정의 다른 팀도 SSM 읽기 권한이 있으면 볼 수 있다는 점은 알고 씁니다 |
+| Parameter Store | `/crewrun/prod/<키>` 22개(앱) + `MONITORING_RW_PASSWORD`(지표 수집기, BUK-258), `/crewrun/registry/GHCR_AUTH`. `infra/main-node/env-to-parameter-store.sh`로 넣음. 같은 계정의 다른 팀도 SSM 읽기 권한이 있으면 볼 수 있다는 점은 알고 씁니다 |
 
 ### D6 순서
 
