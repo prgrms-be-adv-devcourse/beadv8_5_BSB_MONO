@@ -6,7 +6,7 @@
 #
 # 앱 이미지 12개(gateway·서비스 10개·web)는 EC2에서 빌드하지 않고, GHCR에 올라간 커밋 SHA 이미지를 받는다
 # 서버에서 직접 띄울 때는:
-#   docker compose pull gateway member-service cash-service payout-service file-service order-service product-service queue-service notification-service board-service ai-service web
+#   docker compose pull gateway member-service cash-service payout-service file-service order-service product-service queue-service notification-service inquiry-service board-service ai-service web
 #   docker compose up -d --no-build
 # (--build를 붙이면 EC2에서 빌드한 이미지가 GHCR 이름으로 덮어써진다)
 #
@@ -89,6 +89,9 @@ services:
     restart: unless-stopped
   notification-service:
     image: ghcr.io/prgrms-be-adv-devcourse/bukang-notification-service:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+  inquiry-service:
+    image: ghcr.io/prgrms-be-adv-devcourse/bukang-inquiry-service:${IMAGE_TAG:-latest}
     restart: unless-stopped
   board-service:
     image: ghcr.io/prgrms-be-adv-devcourse/bukang-board-service:${IMAGE_TAG:-latest}
