@@ -23,6 +23,9 @@ class InquiryDraftPolicyTest {
 		assertThat(InquiryPolicy.of("ETC", "충전해 둔 예치금이 남았는데 내 은행 계좌로 돌려받고 싶어요"))
 			.containsExactly(InquiryPolicy.WITHDRAWAL);
 		assertThat(InquiryPolicy.of("ETC", "예치금을 돌려받을 때 수수료를 떼나요?")).containsExactly(InquiryPolicy.WITHDRAWAL);
+		// 환급 처리 중·실패·알림은 그것을 물을 때만 붙는다 (기본 환급 답을 짧게)
+		assertThat(InquiryPolicy.of("ETC", "환급 신청했는데 일부만 들어왔어요"))
+			.containsExactly(InquiryPolicy.WITHDRAWAL, InquiryPolicy.WITHDRAWAL_DETAIL);
 		// 대회 취소(123)
 		assertThat(InquiryPolicy.of("RACE_VENUE", "공지로 대회가 취소됐다고 봤어요")).containsExactly(InquiryPolicy.RACE_CANCEL);
 		// 정해지지 않은 일(117 일정 변경, 118 환불 기한 뒤 취소, 122 파티 결제 기한, 124 참가자 변경, 126 주차)에는 붙이지 않는다
@@ -83,14 +86,18 @@ class InquiryDraftPolicyTest {
 	}
 
 	@Test
-	@DisplayName("지시문: [정책] 규칙은 그대로 안내하고, 없는 서류·절차는 지어내지 않는다")
+	@DisplayName("지시문: 정해진 규칙은 안내, 없는 일은 「정해진 기준이 없어요」, 되묻지 않고 짧게 (사용자 채점 120·123·124·121·125)")
 	void systemPrompt() {
 		assertThat(AiInquiryDraftUseCase.SYSTEM_PROMPT)
 			.contains("[문의], [주문], [정책], [용어]에 있는 내용만 근거로 쓴다")
-			.contains("[정책]의 일반 규칙", "그대로 안내한다")
-			.contains("[정책]·[용어]에 없는 서류·절차·결제 방식·메뉴 이름은 쓰지 않는다")
+			.contains("[정책]의 규칙이 묻는 일을 다루면 그대로 안내한다")
+			.contains("아직 정해지지 않았어요.\"라고 분명히 쓰고", "주문 정보가 없다는 것을 이유로 돌리지 않는다")
+			.contains("빠진 부분은 \"아직 정해지지 않았어요\"")
+			.contains("참가권 취소 뜻으로 참가자 변경을")
+			.contains("회원에게 되묻지 않는다", "인사 뒤 2~4문장, 250자 안")
+			.contains("판매자가 확인한 뒤 다시 안내드릴게요.", "단정하지 않는다")
 			.contains("이 주문에 얼마가 언제 들어가는지, 이 주문을 취소할 수 있는지는 약속하지 않는다")
-			.contains("[정책]의 규칙은 그 규칙이 다루는 상황에만 쓴다", "\"일반적으로\"", "약속하지 않는다");
+			.doesNotContain("확인 후 안내해 드릴게요");
 	}
 
 	private static OpsPort.Inquiry inquiry(String type, String body) {
