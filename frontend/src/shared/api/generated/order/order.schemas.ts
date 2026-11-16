@@ -437,6 +437,11 @@ export interface OrderItemDto {
   quantity?: number;
   amount?: number;
   status?: OrderItemDtoStatus;
+  /**
+     * 취소를 마친 시각 (BUK-229). 취소가 아니면(취소 중 포함) null
+     * @nullable
+     */
+  canceledAt?: string | null;
   /** @nullable */
   kitDeliveryStatus?: OrderItemDtoKitDeliveryStatus;
   /** @nullable */
@@ -982,7 +987,7 @@ export interface SellerKitOptionSaleDto {
 }
 
 /**
- * 키트 옵션 품절 409(ORDER_KIT_OPTION_SOLD_OUT)의 data. 판매 상한에 닿은 옵션을 모두 담는다
+ * 키트 옵션 품절 409(ORDER_KIT_OPTION_SOLD_OUT)의 data. 결제와 키트 옵션 바꾸기(PUT /participations/{id}/kit-options)가 함께 쓴다. 판매 상한에 닿은 옵션을 모두 담는다
  */
 export interface KitOptionSoldOutDto {
   soldOut: KitOptionChoiceDto[];
@@ -1141,6 +1146,11 @@ export interface MyTicketDto {
      */
   orderItemStatus?: MyTicketDtoOrderItemStatus;
   /**
+     * 신청을 취소한 시각 (BUK-229). 결제 뒤 취소는 환불까지 마친 시각이다. 취소가 아니면(취소 중 포함) null
+     * @nullable
+     */
+  canceledAt?: string | null;
+  /**
      * 결제 금액. 주문 전이면 null
      * @nullable
      */
@@ -1292,6 +1302,16 @@ export interface SellerPartyPageDto {
   totalPages?: number;
 }
 
+/**
+ * 기간 판매 합계. 결제일이 기간 안인 결제 완료·취소 중 참가권
+ */
+export interface SellerSalesSummaryDto {
+  /** 판매 장수 */
+  soldCount: number;
+  /** 결제 금액 합(원) */
+  soldAmount: number;
+}
+
 export interface RsDataOrderItemDto {
   status?: number;
   message?: string;
@@ -1404,6 +1424,12 @@ export interface RsDataCartDto {
   status?: number;
   message?: string;
   data?: CartDto;
+}
+
+export interface RsDataSellerSalesSummaryDto {
+  status?: number;
+  message?: string;
+  data?: SellerSalesSummaryDto;
 }
 
 export interface RsDataSellerOrderPageDto {
@@ -1566,6 +1592,17 @@ page?: number;
  * @maximum 100
  */
 size?: number;
+};
+
+export type SummarizeSellerSalesParams = {
+/**
+ * 조회 시작일 (결제일)
+ */
+from: string;
+/**
+ * 조회 종료일 (이날 결제까지 포함)
+ */
+to: string;
 };
 
 export type FindSellerOrdersParams = {

@@ -307,6 +307,14 @@
           "$ref": "#/components/schemas/SellerPartyPageDto"
         }
       }
+    },
+    "summarizeSellerSales": {
+      "200": {
+        "wrapper": "RsDataSellerSalesSummaryDto",
+        "data": {
+          "$ref": "#/components/schemas/SellerSalesSummaryDto"
+        }
+      }
     }
   },
   "schemas": {
@@ -2131,6 +2139,26 @@
         "totalPages": {
           "type": "integer",
           "format": "int32"
+        }
+      }
+    },
+    "SellerSalesSummaryDto": {
+      "type": "object",
+      "description": "기간 판매 합계. 결제일이 기간 안인 결제 완료·취소 중 참가권",
+      "required": [
+        "soldCount",
+        "soldAmount"
+      ],
+      "properties": {
+        "soldCount": {
+          "type": "integer",
+          "format": "int64",
+          "description": "판매 장수"
+        },
+        "soldAmount": {
+          "type": "integer",
+          "format": "int64",
+          "description": "결제 금액 합(원)"
         }
       }
     }
