@@ -17,6 +17,8 @@ public interface WalletChargeRepository extends JpaRepository<WalletCharge, Long
 
 	List<WalletCharge> findByStatus(ChargeStatus status);
 
+	long countByStatus(ChargeStatus status);
+
 	List<WalletCharge> findByWalletAndStatus(Wallet wallet, ChargeStatus status);
 
 	List<WalletCharge> findByStatusAndModifyDateBefore(ChargeStatus status, LocalDateTime threshold);
