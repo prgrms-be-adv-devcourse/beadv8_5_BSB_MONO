@@ -1,18 +1,6 @@
 import { z } from 'zod'
 
-/** 환급 API는 은행 이름이 아니라 금융결제원 은행 코드를 받는다 */
-export const BANKS = [
-  { value: '004', label: '국민은행' },
-  { value: '088', label: '신한은행' },
-  { value: '020', label: '우리은행' },
-  { value: '081', label: '하나은행' },
-  { value: '090', label: '카카오뱅크' },
-  { value: '092', label: '토스뱅크' },
-] as const
-
-export type BankCode = (typeof BANKS)[number]['value']
-
-export const bankName = (code: string) => BANKS.find((b) => b.value === code)?.label ?? code
+export { BANKS, bankName, type BankCode } from '@/shared/config'
 
 /**
  * 계좌번호 가운데를 가린다. 앞 6자리와 끝 3자리 숫자만 남기고 입력한 하이픈은 그대로 둔다.
@@ -51,9 +39,17 @@ export function formatKstShort(ms: number) {
 const LastWithdrawal = z.object({
   amount: z.number(),
   balance: z.number(),
-  bankName: z.string(),
-  maskedAccount: z.string(),
-  accountHolder: z.string(),
+  /** 서버가 나눈 몫: 카드 결제취소 요청 · 계좌로 보냄 · 결과 확인 중 · 카드 결제취소가 거절돼 예치금에 되돌림 */
+  cardAmount: z.number(),
+  accountAmount: z.number(),
+  /** 계좌로 보낸 금액 중 카드 결제취소가 거절돼 계좌로 바꾼 몫. 이 값이 없던 때 저장된 것도 읽으려고 기본값 0 */
+  switchedToAccountAmount: z.number().default(0),
+  processingAmount: z.number(),
+  revertedAmount: z.number(),
+  /** 계좌로 보낼 몫이 없어 계좌 없이 신청했으면 세 값 모두 없다 */
+  bankName: z.string().optional(),
+  maskedAccount: z.string().optional(),
+  accountHolder: z.string().optional(),
   /** 신청한 시각(ms). 서버 응답에 시각이 없어 브라우저 시각을 쓴다 */
   at: z.number(),
 })
@@ -67,6 +63,15 @@ export function saveLastWithdrawal(withdrawal: LastWithdrawal) {
     sessionStorage.setItem(KEY, JSON.stringify(withdrawal))
   } catch {
     // 저장이 막혀 있으면 완료 화면이 예치금 화면으로 보낸다
+  }
+}
+
+/** 완료 화면을 떠나면 예금주 · 가린 계좌 · 잔액을 남기지 않는다 */
+export function clearLastWithdrawal() {
+  try {
+    sessionStorage.removeItem(KEY)
+  } catch {
+    // 저장소를 쓸 수 없으면 남은 값도 없다
   }
 }
 

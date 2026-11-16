@@ -9,6 +9,7 @@ import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutAccount;
@@ -24,6 +25,7 @@ import com.bukang.payout.domain.PayoutStage;
 import com.bukang.payout.domain.PayoutStatus;
 import com.bukang.payout.domain.exception.PayoutClaimConflictException;
 import com.bukang.payout.domain.exception.PayoutClaimNotFoundException;
+import com.bukang.payout.out.ClaimVirtualAccount;
 import com.bukang.payout.out.ClaimVirtualAccountPort;
 import com.bukang.payout.out.PayoutClaimRepository;
 import com.bukang.payout.out.PayoutItemRepository;
@@ -39,6 +41,8 @@ import lombok.extern.slf4j.Slf4j;
  *
  * 매일 04:00 지급 배치와 함께 돈다
  * 1. 청구 만들기: 갚을 돈이 남은 판매자 × 대회 중 최종 정산을 만든 곳(상계가 끝남), 대회 취소는 취소 다음 날부터
+ *    대회 취소는 주문이 환불을 모두 끝냈다고 알린 대회만 만든다 (PayoutRaceCancelUseCase.markRefunded)
+ *    1차가 지급 결과를 기다리는 동안(지급 중 · 지급 확인 필요)에도 만들지 않는다
  *    최종 정산 전에는 상계로 금액이 바뀌므로 만들지 않는다
  * 2. 판매자 알림: 입금 확인 전까지 매일 한 번, 은행별 입금 계좌와 금액을 알린다
  * 3. 관리자 알림: 상계 실패일을 1일째로 셀 때 30일째에 한 번 알린다
@@ -65,28 +69,25 @@ public class PayoutClaimUseCase {
 	private final PayoutRecoveryRepository payoutRecoveryRepository;
 	private final PayoutClaimRepository payoutClaimRepository;
 	private final ClaimVirtualAccountPort claimVirtualAccountPort;
+	private final TransactionTemplate transactionTemplate;
 
 	/**
 	 * 하루 한 번 청구를 만들고 알림을 남긴다. 같은 날 다시 돌아도 청구와 알림은 한 번만 남는다
+	 * 가상계좌 발급 HTTP는 트랜잭션 밖에서 부르고, 저장과 알림 표시는 청구마다 행을 잠근 짧은 트랜잭션에서 한다.
+	 * 한 트랜잭션으로 읽고 끝에 쓰면, 그 사이 입금 확인이 커밋된 청구를 '청구 중'으로 되돌려 쓴다 (11/12 조사 H3)
+	 * 그래서 이 메서드와 부르는 쪽(PayoutBatchUseCase)에 @Transactional을 붙이지 않는다. 바깥 트랜잭션에 묶이면 다시 덮어쓴다
 	 */
-	@Transactional
 	public ClaimRunResult run(LocalDate today, LocalDateTime now) {
-		int created = createClaims(today);
+		int created = transactionTemplate.execute(status -> createClaims(today));
 		int sellerNotices = 0;
 		int adminNotices = 0;
-		for (PayoutClaim claim : payoutClaimRepository.findByStatusOrderByIdAsc(PayoutClaimStatus.청구_중)) {
-			issueVirtualAccount(claim);
-			if (claim.markSellerNotice(today)) {
-				sellerNotices++;
-				log.info("[청구 알림] 판매자에게 정산금 반환을 요청합니다. sellerId={}, raceId={}, claimId={}, amount={}, accounts={}",
-					claim.getSellerId(), claim.getRaceId(), claim.getId(), claim.getAmount(), RECOVERY_ACCOUNTS);
-			}
-			if (claim.markAdminNotice(today, now)) {
-				adminNotices++;
-				log.warn("[관리자 알림] 청구하고 30일이 지나도 판매자가 돌려주지 않았습니다. "
-					+ "sellerId={}, raceId={}, claimId={}, amount={}, startDate={}", claim.getSellerId(),
-					claim.getRaceId(), claim.getId(), claim.getAmount(), claim.getStartDate());
-			}
+		List<PayoutClaim> claims = transactionTemplate.execute(
+			status -> payoutClaimRepository.findByStatusOrderByIdAsc(PayoutClaimStatus.청구_중));
+		for (PayoutClaim found : claims) {
+			Optional<ClaimVirtualAccount> account = issueVirtualAccount(found);
+			Notices notices = transactionTemplate.execute(status -> notify(found.getId(), account, today, now));
+			sellerNotices += notices.seller() ? 1 : 0;
+			adminNotices += notices.admin() ? 1 : 0;
 		}
 		log.info("청구 배치: 새 청구 {}건, 판매자 알림 {}건, 관리자 알림 {}건", created, sellerNotices, adminNotices);
 		return new ClaimRunResult(created, sellerNotices, adminNotices);
@@ -157,20 +158,52 @@ public class PayoutClaimUseCase {
 			.forEach(recovery -> recovery.complete(confirmedBy, confirmedAt));
 	}
 
-	// 아직 가상계좌가 없는 청구에 발급을 요청한다. 실패하면 로그만 남기고 다음 배치에서 다시 요청한다
+	// 아직 가상계좌가 없는 청구에 발급을 요청한다 (트랜잭션 밖). 실패하면 로그만 남기고 다음 배치에서 다시 요청한다
 	// 청구 ID가 없는 예전 청구는 캐시가 입금을 맞출 키가 없어 발급하지 않는다 (관리자 확인으로 끝낸다)
-	// shortcut: 배치 트랜잭션 안에서 발급 포트를 부른다. 진짜 어댑터는 @Transactional 없이 HTTP만 부르고
-	// 응답 제한 시간을 짧게 둔다. 청구가 많아 배치가 길어지면 지급처럼 호출을 트랜잭션 밖으로 뺀다
-	private void issueVirtualAccount(PayoutClaim claim) {
+	private Optional<ClaimVirtualAccount> issueVirtualAccount(PayoutClaim claim) {
 		if (claim.getVirtualAccountNumber() != null || claim.getClaimCode() == null) {
-			return;
+			return Optional.empty();
 		}
 		try {
-			claimVirtualAccountPort.issue(claim.getClaimCode(), claim.getAmount(), claim.getDueDate())
-				.ifPresent(account -> claim.assignVirtualAccount(account.bankName(), account.accountNumber()));
+			return claimVirtualAccountPort.issue(claim.getClaimCode(), claim.getAmount(), claim.getDueDate());
 		} catch (RuntimeException e) {
 			log.warn("가상계좌 발급에 실패했습니다. 다음 배치에서 다시 요청합니다. claimCode={}", claim.getClaimCode(), e);
+			return Optional.empty();
 		}
+	}
+
+	// 청구를 잠그고 다시 읽어, 아직 '청구 중'일 때만 받은 계좌를 저장하고 알림을 남긴다
+	private Notices notify(long claimId, Optional<ClaimVirtualAccount> account, LocalDate today, LocalDateTime now) {
+		PayoutClaim claim = payoutClaimRepository.findByIdForUpdate(claimId).orElseThrow();
+		if (claim.getStatus() != PayoutClaimStatus.청구_중) {
+			return new Notices(false, false);
+		}
+		if (claim.getVirtualAccountNumber() == null) {
+			account.ifPresent(issued -> claim.assignVirtualAccount(issued.bankName(), issued.accountNumber()));
+		}
+		boolean seller = claim.markSellerNotice(today);
+		if (seller) {
+			log.info("[청구 알림] 판매자에게 정산금 반환을 요청합니다. sellerId={}, raceId={}, claimId={}, amount={}, accounts={}",
+				claim.getSellerId(), claim.getRaceId(), claim.getId(), claim.getAmount(), accountsOf(claim));
+		}
+		boolean admin = claim.markAdminNotice(today, now);
+		if (admin) {
+			log.warn("[관리자 알림] 청구하고 30일이 지나도 판매자가 돌려주지 않았습니다. "
+				+ "sellerId={}, raceId={}, claimId={}, amount={}, startDate={}", claim.getSellerId(),
+				claim.getRaceId(), claim.getId(), claim.getAmount(), claim.getStartDate());
+		}
+		return new Notices(seller, admin);
+	}
+
+	// 판매자에게 알릴 입금 계좌: 청구 전용 가상계좌, 아직 발급 전이면 목업 계좌 (관리자가 입금을 확인한다)
+	static List<String> accountsOf(PayoutClaim claim) {
+		if (claim.getVirtualAccountNumber() == null) {
+			return RECOVERY_ACCOUNTS;
+		}
+		return List.of(claim.getVirtualBankName() + " " + claim.getVirtualAccountNumber());
+	}
+
+	private record Notices(boolean seller, boolean admin) {
 	}
 
 	private void checkReceivableMatches(PayoutClaim claim) {
@@ -211,13 +244,26 @@ public class PayoutClaimUseCase {
 
 	// 청구를 시작하는 날(상계 실패일). 아직 청구할 때가 아니면 빈 값
 	// - 최종 정산을 만들었으면 그날: 상계가 끝나 더는 금액이 바뀌지 않는다
-	// - 대회가 취소됐으면 취소일. 단 취소 다음 날 배치부터 만든다
+	// - 대회가 취소됐으면 취소일. 단 취소 다음 날 배치부터, 주문이 환불을 모두 끝냈다고 알린 뒤에만 만든다
+	//   환불이 남았을 때 만들면 늦게 온 환불이 갚을 돈을 늘려 청구 금액과 달라진다 (PR #467 리뷰)
+	// shortcut: 환불 완료와 참가권 환불 알림은 토픽이 달라 순서가 보장되지 않는다. 참가권 알림이 DLT에 남은 채
+	// 환불 완료가 먼저 오면 청구 뒤에 회수가 늘 수 있다. 그때는 입금 확인이 거부하고 사람이 맞춘다 (checkReceivableMatches)
 	private Optional<LocalDate> claimStartDate(SellerRace target, LocalDate today) {
 		Optional<Payout> finalPayout = payoutRepository.findFirstBySellerIdAndRaceIdAndPayoutStageOrderByIdAsc(
 				target.sellerId(), target.raceId(), PayoutStage.최종_정산)
 			.filter(payout -> payout.getStatus() != PayoutStatus.취소);
 		if (finalPayout.isPresent()) {
 			return Optional.of(finalPayout.get().getSettledAt().toLocalDate());
+		}
+		// 1차가 지급 결과를 기다리는 동안에는 만들지 않는다. 거절되면 회수가 되돌아가 갚을 돈이 0이 되는데,
+		// 청구는 닫을 방법이 없어 받은 적 없는 돈을 갚으라는 알림이 계속 나간다 (PR #467 리뷰)
+		boolean ready = payoutRepository.findFirstBySellerIdAndRaceIdAndPayoutStageOrderByIdAsc(
+				target.sellerId(), target.raceId(), PayoutStage.일차_정산)
+			.filter(Payout::isRaceRefunded)
+			.filter(first -> !first.getStatus().isAwaitingPayResult())
+			.isPresent();
+		if (!ready) {
+			return Optional.empty();
 		}
 		return payoutRecoveryRepository.findFirstBySellerIdAndRaceIdAndReasonType(target.sellerId(),
 				target.raceId(), PayoutRecoveryReason.대회_취소)

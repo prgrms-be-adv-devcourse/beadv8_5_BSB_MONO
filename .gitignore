@@ -12,6 +12,10 @@
 .env
 .env.*
 !.env.example
+# k8s Secret (실제 비밀값). 키 목록은 secret.yaml.example
+k8s/overlays/*/secret.yaml
+# 운영 deploy.sh가 배포 중에 잠깐 만드는 임시 폴더
+k8s/overlays/deploy.*/
 
 ### MCP ###
 /.shrimp_data/

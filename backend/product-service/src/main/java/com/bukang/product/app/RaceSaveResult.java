@@ -21,10 +21,19 @@ public record RaceSaveResult(
 	// 대기열에 보낼 대회 변경 메시지. 대회 칸이 바뀌지 않은 수정이면 null
 	RaceChangedEvent raceChanged,
 	// 대기열에 보낼 종목 변경 메시지 (뺀 종목의 삭제 메시지 포함). 보낼 종목이 없으면 빈 목록
-	List<RaceCourseChangedEvent> courseChanges
+	List<RaceCourseChangedEvent> courseChanges,
+	// AI 추천 벡터를 만들 글(Race.embeddingText)이 바뀌었는지 (BUK-162). true면 임베딩 동기화 이벤트를 남긴다
+	// 등록은 늘 true, 수정은 수정 전후 글이 다를 때만 true, 취소·판매 중지·재개는 false
+	boolean embeddingTextChanged
 ) {
+	// 임베딩할 글이 바뀌지 않는 저장 (취소, 판매 중지·재개)
 	public static RaceSaveResult of(Race race, FileLinkRequestedEvent fileLink,
 		List<RaceCourseChangedEvent> courseChanges) {
+		return of(race, fileLink, courseChanges, false);
+	}
+
+	public static RaceSaveResult of(Race race, FileLinkRequestedEvent fileLink,
+		List<RaceCourseChangedEvent> courseChanges, boolean embeddingTextChanged) {
 		List<RaceCourse> courses = race.getCourses();
 		RaceSaveDto dto = new RaceSaveDto(
 			race.getId(),
@@ -36,7 +45,8 @@ public record RaceSaveResult(
 			dto,
 			fileLink,
 			race.toChangedEvent(),
-			courseChanges
+			courseChanges,
+			embeddingTextChanged
 		);
 	}
 

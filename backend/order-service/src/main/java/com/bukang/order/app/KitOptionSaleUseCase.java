@@ -35,6 +35,7 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * 키트 옵션 고르기와 판매 수 세기 (11/07·11/09 결정). 상품은 준비 수량(stock)만 주고 판매 수는 주문이 센다
  * - 결제: 잠그기 전에 고른 옵션을 확인하고(choose), 예치금 결제 전에 판매 수를 +1 한다(reserve). 결제가 실패하면 함께 되돌아간다
+ *   결제 나누기(BUK-232)는 +1과 옵션 사본을 먼저 커밋하므로, 확실히 실패하면 unreserve로 되돌린다
  * - 결제한 참가권 취소: 고른 옵션의 판매 수를 -1 한다(release). 참가 확정 → 취소와 같은 트랜잭션에서 부르므로 한 번만 줄어든다
  * 잠금 순서: 주문 → 참가 신청 → 판매 수 줄(옵션 ID 오름차순). 결제·취소가 같은 순서라 서로 막혀 멈추지 않는다
  */
@@ -94,10 +95,14 @@ public class KitOptionSaleUseCase {
 			}
 		}
 		if (!soldOut.isEmpty()) {
-			throw new KitOptionSoldOutException(soldOut.stream()
-				.map(option -> new KitOptionChoiceDto(option.kitOptionId(), option.name(), option.value()))
-				.toList());
+			throw soldOut(soldOut);
 		}
+	}
+
+	private static KitOptionSoldOutException soldOut(List<KitOption> options) {
+		return new KitOptionSoldOutException(options.stream()
+			.map(option -> new KitOptionChoiceDto(option.kitOptionId(), option.name(), option.value()))
+			.toList());
 	}
 
 	private static List<KitOption> choose(List<KitOption> raceOptions, Set<Long> ids) {
@@ -152,6 +157,48 @@ public class KitOptionSaleUseCase {
 			.map(option -> ParticipationKitOption.of(participationId, option.kitOptionId(), option.name(),
 				option.value()))
 			.toList());
+	}
+
+	/**
+	 * 결제 중을 되돌린다 (BUK-232). 늘린 판매 수를 줄이고 미리 남긴 옵션 사본을 지운다. 주문을 잠근 트랜잭션 안에서 부른다
+	 * 사본이 없으면(되돌린 뒤 다시 불림) 아무것도 하지 않아 판매 수가 두 번 줄지 않는다
+	 */
+	public void unreserve(long participationId) {
+		release(participationId);
+		participationKitOptionRepository.deleteByParticipationId(participationId);
+	}
+
+	/**
+	 * 결제한 참가권의 옵션을 바꾼다 (BUK-226). 주문 → 참가 신청을 잠근 트랜잭션 안에서 부른다
+	 * 옛 옵션·새 옵션 판매 수 줄을 한 번에 옵션 ID 오름차순으로 잠가(결제·취소와 같은 순서) 옛 옵션 -1, 새 옵션 +1 한다
+	 * 그대로인 옵션은 건드리지 않는다. 새 옵션이 판매 상한에 닿았으면 결제와 같은 409를 던지고 모두 되돌린다
+	 */
+	public void change(long participationId, List<KitOption> chosen) {
+		List<ParticipationKitOption> current =
+			participationKitOptionRepository.findByParticipationIdOrderByIdAsc(participationId);
+		Set<Long> oldIds = current.stream().map(ParticipationKitOption::getKitOptionId).collect(Collectors.toSet());
+		Set<Long> newIds = chosen.stream().map(KitOption::kitOptionId).collect(Collectors.toSet());
+		if (oldIds.equals(newIds)) {
+			return;
+		}
+		Set<Long> lockIds = new TreeSet<>(oldIds);
+		lockIds.addAll(newIds);
+		Map<Long, KitOptionSale> sales = kitOptionSaleRepository.findAllByIdForUpdate(lockIds).stream()
+			.collect(Collectors.toMap(KitOptionSale::getId, Function.identity()));
+		if (sales.size() != lockIds.size()) {
+			throw new IllegalStateException("키트 옵션 판매 수 줄이 없습니다. kitOptionIds=" + lockIds + ", 찾은 줄=" + sales.keySet());
+		}
+		oldIds.stream().filter(id -> !newIds.contains(id)).map(sales::get).forEach(KitOptionSale::decrease);
+		List<KitOption> soldOut = chosen.stream()
+			.filter(option -> !oldIds.contains(option.kitOptionId()))
+			.filter(option -> !sales.get(option.kitOptionId()).increase(option.stock()))
+			.toList();
+		if (!soldOut.isEmpty()) {
+			throw soldOut(soldOut);
+		}
+		// 바로 지운다. 저장(flush)은 넣기를 지우기보다 먼저 해, 미루면 같은 옵션 이름 유니크에 걸린다
+		participationKitOptionRepository.deleteAllInBatch(current);
+		saveChoices(participationId, chosen);
 	}
 
 	// 결제한 참가권이 취소됐다. 참가 신청을 확정 → 취소로 바꾸는 트랜잭션 안에서 부른다

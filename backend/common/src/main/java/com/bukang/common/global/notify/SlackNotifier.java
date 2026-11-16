@@ -31,6 +31,11 @@ import lombok.extern.slf4j.Slf4j;
  *  → KafkaDltMessage.firstRetryTopic / resendRecord   보낼 곳·메시지 만들기
  *  → kafkaTemplate.send                               보내기
  *  → BaseDltKafkaEvent.markResent                     상태 바꾸기
+ *
+ *  처리 완료 (다시 보낸 메시지를 본 리스너가 처리함 / 메모와 함께 닫기 API)
+ *  → BaseDltKafkaEvent.completeByResend / completeManually   처리 완료로 바꾸기
+ *  → KafkaDltAlert.completedText(행)                          완료 알림 글 만들기
+ *  → SlackNotifier.sendAfterCommit(글)                        커밋 뒤 Slack으로 보내기
  */
 @Slf4j
 @Component

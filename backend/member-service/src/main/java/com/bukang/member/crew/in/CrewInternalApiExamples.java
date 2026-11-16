@@ -30,7 +30,23 @@ final class CrewInternalApiExamples {
 		{
 			"status": 200,
 			"message": "크루원 수를 조회했습니다.",
-			"data": { "crewId": 1, "memberCount": 5 }
+			"data": { "crewId": 1, "memberCount": 5, "crewCreatedAt": "2026-10-01T09:00:00" }
+		}
+		""";
+
+	static final String PENALTY_RESTRICTED = """
+		{
+			"status": 200,
+			"message": "크루 파티 만들기 제한을 조회했습니다.",
+			"data": { "restricted": true, "endAt": "2026-12-12T04:30:00" }
+		}
+		""";
+
+	static final String PENALTY_NOT_RESTRICTED = """
+		{
+			"status": 200,
+			"message": "크루 파티 만들기 제한을 조회했습니다.",
+			"data": { "restricted": false, "endAt": null }
 		}
 		""";
 

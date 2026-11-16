@@ -17,8 +17,9 @@ import lombok.RequiredArgsConstructor;
  * 회원별 Refresh Token 기록 저장소 (Redis Hash).
  * 회원당 한 family만 보관하므로, 다시 로그인하면 이전 family는 덮어써진다.
  *
- * <p>Hash 칸: familyId, currentJti, currentToken, previousJti, rotatedAt(초), familyExpiresAt(초).
+ * <p>Hash 칸: familyId, currentJti, currentExpiresAt(초), previousJti, rotatedAt(초), familyExpiresAt(초).
  * 키 TTL은 지금 토큰의 만료 시각이라, 그동안 재발급이 없으면 기록이 저절로 사라진다.
+ * 토큰 원문은 저장하지 않는다.
  * 확인하고 바꾸는 일은 src/main/resources/redis/의 Lua 스크립트가 Redis 안에서 한 번에 한다.
  */
 @Repository
@@ -45,7 +46,6 @@ public class RefreshTokenRepository {
 		redisTemplate.execute(CREATE, List.of(key(memberId)),
 			family.familyId(),
 			family.jti(),
-			family.token(),
 			seconds(family.issuedAt()),
 			seconds(family.familyExpiresAt()),
 			seconds(family.tokenExpiresAt()));
@@ -53,20 +53,22 @@ public class RefreshTokenRepository {
 
 	/**
 	 * 재발급: 들어온 토큰을 판정하고, 지금 토큰이면 새 토큰으로 바꾼다.
-	 * 새 토큰은 판정 전에 미리 만들어 넘긴다. ROTATED가 아니면 그 토큰은 쓰이지 않는다.
+	 * 새 토큰의 jti와 만료 시각만 넘긴다. 토큰 원문은 Redis에 가지 않는다.
 	 */
 	public RotationResult rotate(long memberId, Rotation rotation) {
 		List<?> result = redisTemplate.execute(ROTATE, List.of(key(memberId)),
 			rotation.familyId(),
 			rotation.presentedJti(),
 			rotation.newJti(),
-			rotation.newToken(),
 			seconds(rotation.now()),
 			String.valueOf(rotation.reuseGrace().toSeconds()),
 			seconds(rotation.newTokenExpiresAt()));
 		RotationOutcome outcome = RotationOutcome.valueOf((String)result.get(0));
-		String currentToken = outcome == RotationOutcome.GRACE ? (String)result.get(1) : null;
-		return new RotationResult(outcome, currentToken);
+		if (outcome != RotationOutcome.GRACE) {
+			return RotationResult.of(outcome);
+		}
+		return new RotationResult(outcome, (String)result.get(1),
+			Instant.ofEpochSecond(Long.parseLong((String)result.get(2))));
 	}
 
 	/**
@@ -112,12 +114,8 @@ public class RefreshTokenRepository {
 	 * 로그인 때 만드는 family 기록.
 	 */
 	public record NewFamily(
-		String familyId, String jti, String token, Instant issuedAt, Instant tokenExpiresAt, Instant familyExpiresAt
+		String familyId, String jti, Instant issuedAt, Instant tokenExpiresAt, Instant familyExpiresAt
 	) {
-		@Override
-		public String toString() {
-			return "NewFamily[familyId=" + familyId + ", jti=" + jti + ", token=***]";
-		}
 	}
 
 	/**
@@ -126,16 +124,10 @@ public class RefreshTokenRepository {
 	 * @param familyId 들어온 토큰의 familyId
 	 * @param presentedJti 들어온 토큰의 jti
 	 * @param newJti 정상일 때 저장할 새 토큰의 jti
-	 * @param newToken 정상일 때 저장할 새 토큰 원본
 	 */
 	public record Rotation(
-		String familyId, String presentedJti, String newJti, String newToken,
+		String familyId, String presentedJti, String newJti,
 		Instant now, Duration reuseGrace, Instant newTokenExpiresAt
 	) {
-		@Override
-		public String toString() {
-			return "Rotation[familyId=" + familyId + ", presentedJti=" + presentedJti + ", newJti=" + newJti
-				+ ", newToken=***]";
-		}
 	}
 }

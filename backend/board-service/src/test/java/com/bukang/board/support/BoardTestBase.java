@@ -36,8 +36,10 @@ import com.bukang.board.domain.BoardMember;
 import com.bukang.board.out.BoardCommentRepository;
 import com.bukang.board.out.BoardInboxKafkaEventRepository;
 import com.bukang.board.out.BoardMemberRepository;
+import com.bukang.board.out.BoardOutboxKafkaEventRepository;
 import com.bukang.board.out.BoardPostLikeRepository;
 import com.bukang.board.out.BoardPostRepository;
+import com.bukang.board.out.search.BoardPostSearchPort;
 import com.bukang.common.global.json.JsonConverter;
 import com.bukang.common.shared.member.web.MemberIdHeader;
 
@@ -70,17 +72,24 @@ public abstract class BoardTestBase {
 	protected BoardMemberRepository memberRepository;
 	@Autowired
 	protected BoardInboxKafkaEventRepository inboxRepository;
+	@Autowired
+	protected BoardOutboxKafkaEventRepository outboxRepository;
 
 	@MockitoBean
 	protected StringRedisTemplate redisTemplate;
 	@MockitoBean
 	protected KafkaTemplate<String, String> kafkaTemplate;
+	// Elasticsearch는 도커 없이 쓸 수 없어 가짜로 바꾼다. 실제 Elasticsearch 확인은 ElasticBoardPostSearchAdapterTest가 한다
+	@MockitoBean
+	protected BoardPostSearchPort searchPort;
 
 	protected ValueOperations<String, String> valueOperations;
 
 	@SuppressWarnings("unchecked")
 	@BeforeEach
 	void resetBoard() {
+		jdbcTemplate.update("delete from board_report");
+		outboxRepository.deleteAll();
 		likeRepository.deleteAll();
 		commentRepository.deleteAll();
 		postRepository.deleteAll();
@@ -168,6 +177,15 @@ public abstract class BoardTestBase {
 
 	protected ResultActions deleteLike(Long memberId, long postId) throws Exception {
 		return mockMvc.perform(as(delete(POSTS + "/" + postId + "/like"), memberId));
+	}
+
+	protected ResultActions reportPost(Long memberId, long postId, String reason) throws Exception {
+		return mockMvc.perform(json(as(post(POSTS + "/" + postId + "/report"), memberId), body("reason", reason)));
+	}
+
+	protected ResultActions reportComment(Long memberId, long commentId, String reason) throws Exception {
+		return mockMvc.perform(
+			json(as(post(COMMENTS + "/" + commentId + "/report"), memberId), body("reason", reason)));
 	}
 
 	/** 신고 자동 숨김(다음 이슈)이 하는 일을 흉내 낸다 */

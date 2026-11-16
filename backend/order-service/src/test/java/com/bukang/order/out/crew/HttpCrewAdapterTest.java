@@ -28,6 +28,7 @@ class HttpCrewAdapterTest {
 	private static final String BASE_URL = "http://member";
 	private static final String MEMBERSHIP_URL = BASE_URL + "/internal/v1/member/crews/7/members/3";
 	private static final String COUNT_URL = BASE_URL + "/internal/v1/member/crews/7/member-count";
+	private static final String PENALTY_URL = BASE_URL + "/internal/v1/member/crews/7/penalty";
 	private static final String CREW_NOT_FOUND =
 		"{ \"status\": 404, \"code\": \"CREW_NOT_FOUND\", \"message\": \"존재하지 않는 크루입니다.\", \"data\": null }";
 
@@ -94,6 +95,35 @@ class HttpCrewAdapterTest {
 				.isInstanceOf(ExternalServiceUnavailableException.class);
 		}
 		assertThatThrownBy(() -> adapter.countMembers(7L)).isInstanceOf(ExternalServiceUnavailableException.class);
+	}
+
+	@Test
+	@DisplayName("파티 만들기 제한 중이면 끝나는 시각을, 아니면 빈 값을 돌려준다")
+	void partyRestriction() {
+		server.expect(requestTo(PENALTY_URL)).andExpect(method(HttpMethod.GET))
+			.andRespond(withSuccess(data("{ \"restricted\": true, \"endAt\": \"2026-12-12T04:30:00\" }"),
+				MediaType.APPLICATION_JSON));
+		server.expect(requestTo(PENALTY_URL))
+			.andRespond(withSuccess(data("{ \"restricted\": false, \"endAt\": null }"), MediaType.APPLICATION_JSON));
+
+		assertThat(adapter.findPartyRestrictionEnd(7L)).contains(LocalDateTime.of(2026, 12, 12, 4, 30));
+		assertThat(adapter.findPartyRestrictionEnd(7L)).isEmpty();
+		server.verify();
+	}
+
+	@Test
+	@DisplayName("제한을 묻지 못하거나(아직 배포 안 된 404, 5xx) 응답에 값이 없으면 503 대신 제한 없음으로 본다")
+	void partyRestrictionUnavailable() {
+		server.expect(requestTo(PENALTY_URL)).andRespond(notFound("{ \"status\": 404, \"error\": \"Not Found\" }"));
+		server.expect(requestTo(PENALTY_URL)).andRespond(withServerError());
+		server.expect(requestTo(PENALTY_URL)).andRespond(withSuccess(data("{}"), MediaType.APPLICATION_JSON));
+		server.expect(requestTo(PENALTY_URL))
+			.andRespond(withSuccess(data("{ \"restricted\": true, \"endAt\": null }"), MediaType.APPLICATION_JSON));
+
+		for (int i = 0; i < 4; i++) {
+			assertThat(adapter.findPartyRestrictionEnd(7L)).isEmpty();
+		}
+		server.verify();
 	}
 
 	private static String data(String body) {

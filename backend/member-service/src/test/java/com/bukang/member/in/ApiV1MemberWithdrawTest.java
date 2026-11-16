@@ -48,6 +48,7 @@ import com.bukang.member.app.SellerFacade;
 import com.bukang.member.domain.Gender;
 import com.bukang.member.domain.Member;
 import com.bukang.member.domain.MemberStatus;
+import com.bukang.member.domain.PayoutAccountHolderType;
 import com.bukang.member.domain.Seller;
 import com.bukang.member.domain.exception.WithdrawCheckFailedException;
 import com.bukang.member.out.MemberRepository;
@@ -59,6 +60,7 @@ import com.bukang.member.out.cash.HttpCashBalanceAdapter;
 import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
 import com.bukang.member.out.order.ActiveTicketPort;
 import com.bukang.member.out.order.HttpActiveTicketAdapter;
+import com.bukang.member.out.payoutaccount.InMemoryPayoutAccountVerifyLimiter;
 import com.bukang.member.support.MemberFixture;
 
 // 예치금·주문 서비스와 Redis는 띄우지 않으므로 포트와 Refresh Token 저장소를 목으로 바꾼다
@@ -67,7 +69,7 @@ import com.bukang.member.support.MemberFixture;
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @RecordApplicationEvents
-@Import(InMemoryIdentityVerificationStore.Config.class)
+@Import({InMemoryIdentityVerificationStore.Config.class, InMemoryPayoutAccountVerifyLimiter.Config.class})
 class ApiV1MemberWithdrawTest {
 	@Autowired
 	private InMemoryIdentityVerificationStore identityStore;

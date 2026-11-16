@@ -11,6 +11,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.dao.DataAccessException;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,7 @@ import com.bukang.member.domain.SocialProvider;
 import com.bukang.member.domain.exception.LoginLockedException;
 import com.bukang.member.domain.exception.MemberNicknameLookupTooManyException;
 import com.bukang.member.domain.exception.MemberNotFoundException;
+import com.bukang.member.domain.exception.MemberReplicaPageInvalidException;
 import com.bukang.member.domain.exception.SocialAccountLoginException;
 import com.bukang.member.dto.AuthTokens;
 import com.bukang.member.dto.EmailAvailabilityResponseDto;
@@ -36,6 +38,8 @@ import com.bukang.member.dto.MemberLoginRequestDto;
 import com.bukang.member.dto.MemberLoginResult;
 import com.bukang.member.dto.MemberModifyRequestDto;
 import com.bukang.member.dto.MemberNicknameDto;
+import com.bukang.member.dto.MemberReplicaDto;
+import com.bukang.member.dto.MemberReplicaPageDto;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.identity.VerifiedIdentity;
 import com.bukang.member.out.loginattempt.LoginAttemptStore;
@@ -50,6 +54,7 @@ import lombok.extern.slf4j.Slf4j;
 public class MemberFacade {
 	public static final int MAX_NICKNAME_LOOKUP = 100;
 	static final String LOGIN_LOCKED_MESSAGE = "로그인을 5번 실패해 10분 동안 로그인할 수 없습니다. 잠시 뒤 다시 시도해주세요.";
+	public static final int MAX_REPLICA_PAGE_SIZE = 500;
 
 	private final MemberJoinUseCase memberJoinUseCase;
 	private final IdentityVerificationUseCase identityVerificationUseCase;
@@ -147,6 +152,18 @@ public class MemberFacade {
 		return memberRepository.findNicknamesByIdIn(distinctIds);
 	}
 
+	// 다른 서비스가 회원 복사본을 처음 채운다 (BUK-161). 한 명 더 읽어 다음 쪽이 있는지 알린다
+	public MemberReplicaPageDto findReplicas(long afterId, int size) {
+		if (afterId < 0 || size < 1 || size > MAX_REPLICA_PAGE_SIZE) {
+			throw new MemberReplicaPageInvalidException(MAX_REPLICA_PAGE_SIZE);
+		}
+		List<MemberReplicaDto> rows = memberRepository.findReplicasAfter(afterId, PageRequest.of(0, size + 1));
+		boolean hasNext = rows.size() > size;
+		List<MemberReplicaDto> members = hasNext ? rows.subList(0, size) : rows;
+		long nextAfterId = members.isEmpty() ? afterId : members.get(members.size() - 1).memberId();
+		return new MemberReplicaPageDto(members, hasNext, nextAfterId);
+	}
+
 	public MemberAdminDto checkAdmin(long memberId) {
 		return new MemberAdminDto(adminVerifyUseCase.isAdmin(memberId));
 	}
@@ -166,7 +183,7 @@ public class MemberFacade {
 		// 비밀번호를 비교하기 전에 센다. 동시에 틀린 요청이 와도 비교는 최대 횟수까지만 한다 (BUK-185)
 		// DB가 악센트 등을 무시하고 같은 회원으로 찾아 주므로, 회원을 찾으면 저장된 이메일로 키를 만든다
 		// 가입하지 않은 이메일도 입력으로 똑같이 세어, 응답만 보고 가입 여부를 알 수 없게 한다
-		String emailHash = PasswordResetUseCase.sha256(
+		String emailHash = Sha256.hex(
 			found.map(Member::getEmail).orElse(memberLoginRequestDto.getEmail()).trim().toLowerCase(Locale.ROOT));
 		if (recordAttempt(emailHash) > loginAttemptProperties.maxFailures()) {
 			throw new LoginLockedException(LOGIN_LOCKED_MESSAGE);
@@ -227,7 +244,7 @@ public class MemberFacade {
 		return tokenReissueUseCase.reissue(refreshToken);
 	}
 
-	public void logout(String refreshToken) {
-		logoutUseCase.logout(refreshToken);
+	public void logout(String refreshToken, String authorization) {
+		logoutUseCase.logout(refreshToken, authorization);
 	}
 }

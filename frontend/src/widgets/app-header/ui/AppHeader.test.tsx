@@ -1,19 +1,24 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { clearAccessToken, setAccessToken } from '@/shared/api'
+import { markInAppHistory, resetInAppHistory } from '@/shared/lib'
 import { server } from '@/shared/testing'
 
 import { AppHeader } from './AppHeader'
 
-vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn(), back: vi.fn(), replace: vi.fn() }),
-}))
+const router = vi.hoisted(() => ({ push: vi.fn(), back: vi.fn(), replace: vi.fn() }))
+vi.mock('next/navigation', () => ({ useRouter: () => router }))
 
-afterEach(() => clearAccessToken())
+afterEach(() => {
+  clearAccessToken()
+  resetInAppHistory()
+  vi.clearAllMocks()
+})
 
 function withQuery(ui: ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -82,5 +87,36 @@ describe('AppHeader', () => {
     await vi.waitFor(() => expect(called).toBe(true))
     const bell = screen.getByRole('link', { name: '알림' })
     expect(bell.querySelector('[data-unread-dot]')).toBeNull()
+  })
+
+  describe('뒤로 가기', () => {
+    it('앱 안 이동 기록이 있으면 backHref가 있어도 브라우저 뒤로 간다', async () => {
+      markInAppHistory()
+      render(withQuery(<AppHeader type="sub" title="t" backHref="/tickets" />))
+      await userEvent.click(screen.getByRole('button', { name: '뒤로 가기' }))
+      expect(router.back).toHaveBeenCalled()
+    })
+
+    it('기록이 없으면 backHref로 replace한다', async () => {
+      render(withQuery(<AppHeader type="sub" title="t" backHref="/tickets" />))
+      await userEvent.click(screen.getByRole('button', { name: '뒤로 가기' }))
+      expect(router.replace).toHaveBeenCalledWith('/tickets')
+      expect(router.back).not.toHaveBeenCalled()
+    })
+
+    it('backHref가 없고 기록도 없으면 홈으로 replace한다', async () => {
+      render(withQuery(<AppHeader type="sub" title="t" />))
+      await userEvent.click(screen.getByRole('button', { name: '뒤로 가기' }))
+      expect(router.replace).toHaveBeenCalledWith('/')
+    })
+
+    it('close도 기록이 있으면 뒤로, 없으면 backHref로 replace한다', async () => {
+      render(withQuery(<AppHeader type="sub" title="t" close backHref="/tickets" />))
+      await userEvent.click(screen.getByRole('button', { name: '닫기' }))
+      expect(router.replace).toHaveBeenCalledWith('/tickets')
+      markInAppHistory()
+      await userEvent.click(screen.getByRole('button', { name: '닫기' }))
+      expect(router.back).toHaveBeenCalled()
+    })
   })
 })

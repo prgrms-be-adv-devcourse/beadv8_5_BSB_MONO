@@ -12,6 +12,8 @@ export const PAYOUT_STATUS: Record<payoutModel.PayoutStatus, Label> = {
   지급_완료: { label: '지급 완료', tone: 'success' },
   취소: { label: '취소', tone: 'neutral' },
   지급_불일치: { label: '지급 불일치', tone: 'warning' },
+  // 지급 결과를 3번 몰라 사람이 확인 중이다(BUK-166). 판매자에게는 지급이 아직 진행 중인 것과 같아 이 문구로 보여 준다(11/12 결정)
+  지급_확인_필요: { label: '지급 처리 중', tone: 'neutral' },
 }
 
 /**

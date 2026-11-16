@@ -30,11 +30,13 @@ import com.bukang.common.shared.seller.event.SellerChangedEvent;
 import com.bukang.member.app.MemberFacade;
 import com.bukang.member.app.SellerFacade;
 import com.bukang.member.domain.Member;
+import com.bukang.member.domain.PayoutAccountHolderType;
 import com.bukang.member.domain.Seller;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.SellerRepository;
 import com.bukang.member.out.TermsAgreementRepository;
 import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
+import com.bukang.member.out.payoutaccount.InMemoryPayoutAccountVerifyLimiter;
 import com.bukang.member.support.MemberFixture;
 
 // 판매자 등록 신청과 내 신청 조회 (BE-020). X-Member-Id 헤더는 테스트에서 직접 넣는다
@@ -42,7 +44,7 @@ import com.bukang.member.support.MemberFixture;
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @RecordApplicationEvents
-@Import(InMemoryIdentityVerificationStore.Config.class)
+@Import({InMemoryIdentityVerificationStore.Config.class, InMemoryPayoutAccountVerifyLimiter.Config.class})
 class ApiV1SellerTest {
 	@Autowired
 	private InMemoryIdentityVerificationStore identityStore;
@@ -368,7 +370,10 @@ class ApiV1SellerTest {
 				"sellerType": %s,
 				"businessName": %s,
 				"businessNumber": %s,
-				"representativeName": %s
+				"representativeName": %s,
+				"bankCode": "004",
+				"accountNumber": "1101230000678",
+				"accountHolderType": "PERSONAL"
 			}
 			""".formatted(json(sellerType), json(businessName), json(businessNumber), json(representativeName));
 	}

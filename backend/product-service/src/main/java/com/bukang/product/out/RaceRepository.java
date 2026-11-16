@@ -53,6 +53,11 @@ public interface RaceRepository extends JpaRepository<Race, Long> {
 	@Query("select r from Race r left join fetch r.courses where r.id = :id")
 	Optional<Race> findWithCoursesById(@Param("id") long id);
 
+	// 여러 대회와 그 종목을 쿼리 한 번으로 읽는다 (AI 추천 카드, RaceRecommendUseCase, BUK-162)
+	// 추천은 임베딩 API를 트랜잭션 밖에서 부르므로, 카드의 종목을 지연 로딩하지 않게 함께 읽는다
+	@Query("select distinct r from Race r left join fetch r.courses where r.id in :ids")
+	List<Race> findAllWithCoursesByIdIn(@Param("ids") Collection<Long> ids);
+
 	// 정산 대상 대회 조회는 거르는 날짜 칸(환불 마감일 LocalDate / 대회 일시 LocalDateTime)과 경계 · 정렬이 달라 두 쿼리로 둔다
 	// QueryDSL로 날짜 조건만 바꿔 끼우면 쿼리 2개치고 코드(커스텀 리포지토리)가 늘고,
 	// JPQL 하나로 합치면 날짜 인자를 4개나 받아야 해서 지금처럼 둔다. 필요하면 그때 리팩토링한다 (PRO-230)
@@ -84,6 +89,19 @@ public interface RaceRepository extends JpaRepository<Race, Long> {
 	@Query("select r.id from Race r where r.saleStatus in :statuses and r.raceDate < :before")
 	List<Long> findIdsToClose(@Param("statuses") Collection<RaceSaleStatus> statuses,
 		@Param("before") LocalDateTime before);
+
+	// 검색 문서 맞추기 대상 대회와 종목 수 (RaceSearchReconcileUseCase, BUK-162)
+	// 종목이 없는 대회도 0으로 나오게 left join한다
+	@Query("select r.id as raceId, count(c) as courseCount from Race r left join r.courses c "
+		+ "where r.saleStatus in :statuses group by r.id")
+	List<RaceCourseCount> countCoursesBySaleStatusIn(@Param("statuses") Collection<RaceSaleStatus> statuses);
+
+	// 대회 ID와 그 대회의 종목 수
+	interface RaceCourseCount {
+		long getRaceId();
+
+		long getCourseCount();
+	}
 
 	// 아래 두 UPDATE는 ID를 읽을 때의 조건을 UPDATE에서 한 번 더 확인한다 (조건부 UPDATE)
 	// ID를 읽은 뒤 판매자가 대회일·판매 시작일을 미뤘거나 상태를 바꿨으면 그 대회는 건너뛴다

@@ -36,6 +36,18 @@ final class MemberInternalApiExamples {
 		{ "status": 200, "message": "관리자 여부를 조회했습니다.", "data": { "admin": false } }
 		""";
 
+	static final String PAYOUT_ACCOUNT_REGISTERED = """
+		{ "status": 200, "message": "판매자 정산 계좌 등록 여부를 조회했습니다.", "data": { "registered": true } }
+		""";
+
+	static final String PAYOUT_ACCOUNT_NOT_REGISTERED = """
+		{ "status": 200, "message": "판매자 정산 계좌 등록 여부를 조회했습니다.", "data": { "registered": false } }
+		""";
+
+	static final String SELLER_NOT_FOUND = """
+		{ "status": 404, "code": "SELLER_NOT_FOUND", "message": "존재하지 않는 판매자 신청입니다.", "data": null }
+		""";
+
 	static final String MEMBER_NOT_FOUND = """
 		{ "status": 404, "code": "MEMBER_NOT_FOUND", "message": "존재하지 않는 회원입니다.", "data": null }
 		""";
@@ -68,6 +80,27 @@ final class MemberInternalApiExamples {
 
 	static final String INVALID_ID_FORMAT = """
 		{ "status": 400, "code": "INVALID_REQUEST", "message": "요청 값의 형식이 올바르지 않습니다.", "data": null }
+		""";
+
+	static final String REPLICAS = """
+		{
+			"status": 200,
+			"message": "회원 복사본 목록을 조회했습니다.",
+			"data": {
+				"members": [
+					{ "memberId": 1, "nickname": "러너A", "sellerApproved": true, "withdrawn": false,
+						"createDate": "2026-10-01T10:00:00", "modifyDate": "2026-11-10T09:30:00" },
+					{ "memberId": 2, "nickname": "탈퇴한 회원", "sellerApproved": false, "withdrawn": true,
+						"createDate": "2026-09-01T10:00:00", "modifyDate": "2026-11-09T18:00:00" }
+				],
+				"hasNext": true,
+				"nextAfterId": 2
+			}
+		}
+		""";
+
+	static final String REPLICAS_INVALID = """
+		{ "status": 400, "code": "INVALID_REQUEST", "message": "afterId는 0 이상, size는 1~500이어야 합니다.", "data": null }
 		""";
 
 	private MemberInternalApiExamples() {
