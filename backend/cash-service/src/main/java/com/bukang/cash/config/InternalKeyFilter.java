@@ -14,11 +14,13 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * 내부 API는 게이트웨이·Nginx가 밖으로 넘기지 않지만, 서비스 포트에 직접 닿으면 누구나 결제·환불·정산 지급을 부를 수 있다.
  * 그래서 서비스끼리 나눠 가진 키를 헤더로 받아 확인한다. 어느 주소에 거는지는 InternalKeyFilterConfig에 있다
  */
+@Slf4j
 public class InternalKeyFilter extends OncePerRequestFilter {
 	private static final String UNAUTHORIZED_BODY = """
 		{"status":401,"code":"CASH_INTERNAL_KEY_INVALID","message":"내부 API 인증 키가 없거나 맞지 않습니다.","data":null}""";
@@ -42,6 +44,9 @@ public class InternalKeyFilter extends OncePerRequestFilter {
 			chain.doFilter(request, response);
 			return;
 		}
+		// 배포 뒤 어느 서비스가 키를 빠뜨렸는지(없음) 또는 키 값이 어긋났는지(다름) 찾으려고 남긴다. 키 값은 남기지 않는다
+		log.warn("내부 API 인증 실패. path={}, remote={}, key={}",
+			request.getRequestURI(), request.getRemoteAddr(), given == null ? "없음" : "다름");
 		response.setStatus(HttpStatus.UNAUTHORIZED.value());
 		response.setContentType(MediaType.APPLICATION_JSON_VALUE);
 		response.setCharacterEncoding(StandardCharsets.UTF_8.name());
