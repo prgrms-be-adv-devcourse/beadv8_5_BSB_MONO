@@ -26,6 +26,7 @@ import com.bukang.payout.dto.PayoutBatchRunDto;
 import com.bukang.payout.dto.PayoutCreateFailuresDto;
 import com.bukang.payout.dto.PayoutDto;
 import com.bukang.payout.dto.PayoutPayCheckRequestDto;
+import com.bukang.payout.dto.PayoutQuarterSalesReportDto;
 import com.bukang.payout.dto.PayoutTaxInvoiceDto;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -310,5 +311,42 @@ public class ApiV1PayoutAdminController {
 	) {
 		List<PayoutTaxInvoiceDto> invoices = payoutAdminFacade.taxInvoices(memberId, month);
 		return ResponseEntity.ok(RsData.of(HttpStatus.OK, "세금계산서 발행 현황을 조회했습니다.", invoices));
+	}
+
+	@GetMapping("/tax-reports/quarterly")
+	@Operation(summary = "통신판매중개자 분기 판매 자료 조회 (BUK-246)",
+		description = "부가가치세법 75조에 따라 분기마다 국세청에 내는 판매자별 판매 건수 · 금액을 돌려준다. "
+			+ "정산 생성일(대회 다음 날)이 분기 안인 판매 줄에서 판매 취소 줄을 뺀다. 제출 기한은 분기 말일의 다음 달 15일이다. "
+			+ "판매자 상호 · 사업자번호는 판매자 목록과 합쳐서 보여 준다. 판매가 없는 판매자는 목록에 없다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "조회 성공 (판매가 없으면 빈 목록)",
+			content = @Content(examples = @ExampleObject(value = PayoutAdminApiExamples.QUARTER_SALES_REPORT_SUCCESS))),
+		@ApiResponse(responseCode = "400", description = "분기가 1 ~ 4가 아님, 값 없음, 값 형식 오류 또는 회원 ID가 0 이하",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "분기 범위 밖", value = PayoutAdminApiExamples.INVALID_QUARTER),
+				@ExampleObject(name = "값 없음", value = PayoutAdminApiExamples.MISSING_PARAMETER),
+				@ExampleObject(name = "값 · 회원 ID 형식 오류", value = PayoutApiExamples.INVALID_VALUE_TYPE),
+				@ExampleObject(name = "회원 ID가 0 이하", value = PayoutApiExamples.INVALID_MEMBER_ID)
+			})),
+		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = PayoutApiExamples.LOGIN_REQUIRED))),
+		@ApiResponse(responseCode = "403", description = "관리자가 아님",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = PayoutApiExamples.NOT_ADMIN))),
+		@ApiResponse(responseCode = "404", description = "헤더의 회원이 없거나 탈퇴함",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = PayoutApiExamples.MEMBER_NOT_FOUND))),
+		@ApiResponse(responseCode = "503", description = "회원 서비스가 응답하지 않아 관리자인지 확인하지 못함",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = PayoutApiExamples.MEMBER_UNAVAILABLE)))
+	})
+	public ResponseEntity<RsData<PayoutQuarterSalesReportDto>> quarterSalesReport(
+		@LoginMemberId long memberId,
+		@Parameter(description = "연도", example = "2026") @RequestParam int year,
+		@Parameter(description = "분기 (1 ~ 4)", example = "4") @RequestParam int quarter
+	) {
+		PayoutQuarterSalesReportDto report = payoutAdminFacade.quarterSalesReport(memberId, year, quarter);
+		return ResponseEntity.ok(RsData.of(HttpStatus.OK, "분기 판매 자료를 조회했습니다.", report));
 	}
 }

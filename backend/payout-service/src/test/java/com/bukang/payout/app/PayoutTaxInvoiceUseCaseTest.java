@@ -1,6 +1,8 @@
 package com.bukang.payout.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -25,6 +27,9 @@ import com.bukang.payout.domain.PayoutCreateFailure;
 import com.bukang.payout.domain.PayoutCreateFailureType;
 import com.bukang.payout.domain.PayoutTaxInvoice;
 import com.bukang.payout.domain.PayoutTaxInvoiceStatus;
+import com.bukang.payout.domain.PayoutTaxQuarter;
+import com.bukang.payout.domain.exception.PayoutQueryException;
+import com.bukang.payout.dto.PayoutQuarterSalesReportDto;
 import com.bukang.payout.out.PayoutCreateFailureRepository;
 import com.bukang.payout.out.PayoutItemRepository;
 import com.bukang.payout.out.PayoutRepository;
@@ -214,5 +219,32 @@ class PayoutTaxInvoiceUseCaseTest {
 		assertThat(report.salesAmount()).isEqualTo(110_000);
 		assertThat(report.taxableTaxAmount()).isEqualTo(10_000);
 		assertThat(report.taxableSupplyAmount()).isEqualTo(100_000);
+	}
+
+	@Test
+	@DisplayName("분기 판매 자료는 판매자마다 판매 건수 · 금액에서 판매 취소를 빼고, 제출 기한은 분기 말일의 다음 달 15일이다")
+	void quarterSalesReportPerSeller() {
+		// 정산 생성일 9/21 → 3분기
+		savePayout(SELLER_ID, 110_000);
+		savePayout(SELLER_ID, 55_000).cancel(99, NOW, "환불");
+		savePayout(2, 30_000);
+		payoutRepository.flush();
+
+		PayoutQuarterSalesReportDto report = new PayoutTaxInvoiceQueryUseCase(payoutTaxInvoiceRepository,
+			payoutItemRepository).quarterSalesReport(new PayoutTaxQuarter(2026, 3));
+
+		assertThat(report.dueDate()).isEqualTo(LocalDate.of(2026, 10, 15));
+		assertThat(report.sellers())
+			.extracting(PayoutQuarterSalesReportDto.SellerSalesDto::sellerId,
+				PayoutQuarterSalesReportDto.SellerSalesDto::salesCount,
+				PayoutQuarterSalesReportDto.SellerSalesDto::salesAmount)
+			.containsExactly(tuple(SELLER_ID, 1L, 110_000L), tuple(2L, 1L, 30_000L));
+		assertThat(report.totalAmount()).isEqualTo(140_000);
+	}
+
+	@Test
+	@DisplayName("분기가 1 ~ 4가 아니면 400이다")
+	void invalidQuarter() {
+		assertThatThrownBy(() -> new PayoutTaxQuarter(2026, 5)).isInstanceOf(PayoutQueryException.class);
 	}
 }

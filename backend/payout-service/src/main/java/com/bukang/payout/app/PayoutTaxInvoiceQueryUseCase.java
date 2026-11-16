@@ -6,6 +6,8 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.bukang.payout.domain.PayoutTaxQuarter;
+import com.bukang.payout.dto.PayoutQuarterSalesReportDto;
 import com.bukang.payout.dto.PayoutTaxInvoiceDto;
 import com.bukang.payout.dto.SellerSalesReportDto;
 import com.bukang.payout.out.PayoutItemRepository;
@@ -36,5 +38,10 @@ public class PayoutTaxInvoiceQueryUseCase {
 	public SellerSalesReportDto salesReport(long sellerId, YearMonth month) {
 		long sales = payoutItemRepository.sumSales(sellerId, month.atDay(1), month.atEndOfMonth());
 		return SellerSalesReportDto.of(month, sales);
+	}
+
+	public PayoutQuarterSalesReportDto quarterSalesReport(PayoutTaxQuarter quarter) {
+		return PayoutQuarterSalesReportDto.of(quarter,
+			payoutItemRepository.sumSalesBySeller(quarter.from(), quarter.to()));
 	}
 }

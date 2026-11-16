@@ -180,6 +180,25 @@ final class PayoutAdminApiExamples {
 		}
 		""";
 
+	static final String QUARTER_SALES_REPORT_SUCCESS = """
+		{
+			"status": 200,
+			"message": "분기 판매 자료를 조회했습니다.",
+			"data": {
+				"year": 2026, "quarter": 4, "from": "2026-10-01", "to": "2026-12-31", "dueDate": "2027-01-15",
+				"totalCount": 182, "totalAmount": 23350000,
+				"sellers": [
+					{ "sellerId": 3, "salesCount": 120, "salesAmount": 18310000 },
+					{ "sellerId": 5, "salesCount": 62, "salesAmount": 5040000 }
+				]
+			}
+		}
+		""";
+
+	static final String INVALID_QUARTER = """
+		{ "status": 400, "code": "INVALID_REQUEST", "message": "분기는 1 이상 4 이하여야 합니다.", "data": null }
+		""";
+
 	private PayoutAdminApiExamples() {
 	}
 }

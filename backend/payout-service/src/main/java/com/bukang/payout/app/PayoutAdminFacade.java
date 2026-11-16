@@ -15,6 +15,7 @@ import com.bukang.payout.domain.PayoutCreateFailureType;
 import com.bukang.payout.domain.PayoutHoldReason;
 import com.bukang.payout.domain.PayoutPayCheckResult;
 import com.bukang.payout.domain.PayoutQueryPeriod;
+import com.bukang.payout.domain.PayoutTaxQuarter;
 import com.bukang.payout.domain.exception.PayoutBatchFutureDateException;
 import com.bukang.payout.dto.PayoutAdminClaimsDto;
 import com.bukang.payout.dto.PayoutBatchRunDto;
@@ -22,6 +23,7 @@ import com.bukang.payout.dto.PayoutClaimDto;
 import com.bukang.payout.dto.PayoutCreateFailuresDto;
 import com.bukang.payout.dto.PayoutDto;
 import com.bukang.payout.dto.PayoutHoldDto;
+import com.bukang.payout.dto.PayoutQuarterSalesReportDto;
 import com.bukang.payout.dto.PayoutTaxInvoiceDto;
 import com.bukang.payout.out.PayoutBatchRunRepository;
 
@@ -126,5 +128,11 @@ public class PayoutAdminFacade {
 	public List<PayoutTaxInvoiceDto> taxInvoices(long memberId, YearMonth month) {
 		payoutAdminVerifyUseCase.verify(memberId);
 		return payoutTaxInvoiceQueryUseCase.monthInvoices(month);
+	}
+
+	// 통신판매중개자 분기 판매 자료 (BUK-246, 부가가치세법 75조). 분기 범위 검사는 PayoutTaxQuarter가 한다
+	public PayoutQuarterSalesReportDto quarterSalesReport(long memberId, int year, int quarter) {
+		payoutAdminVerifyUseCase.verify(memberId);
+		return payoutTaxInvoiceQueryUseCase.quarterSalesReport(new PayoutTaxQuarter(year, quarter));
 	}
 }
