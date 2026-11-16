@@ -15,7 +15,7 @@ import {
 } from '@/features/deposit-charge'
 import { useQueueAdmission } from '@/features/queue-admission'
 import { parseKstDateTime, RACE_DETAIL, raceDetailQueryOptions } from '@/entities/race'
-import { invalidateTicketQueries } from '@/entities/ticket'
+import { invalidateTicketQueries, orderQueryOptions } from '@/entities/ticket'
 import { orderApi, orderModel, unwrapData } from '@/shared/api'
 import { formatNumber, orderTrackItems, useTrackOnce } from '@/shared/lib'
 import {
@@ -96,9 +96,8 @@ const RESULT: Record<
   },
 }
 
-// 결제 확인 중(M07-4)에 주문을 다시 조회하는 간격과, 「내 참가권에서 결과를 보라」로 바꾸는 때(M07-4-1).
+// 결제 확인 중(M07-4)을 「내 참가권에서 결과를 보라」(M07-4-1)로 바꾸는 때.
 // 서버의 결제 재확인은 15초마다 돌고, 결제 중 주문은 기한 + 2분이 지나야 만료 정리 대상이 된다.
-const PAYING_POLL_MS = 3000
 const PAYING_LATE_MS = 2 * 60 * 1000
 
 // ?preview=offline 시안에서 보여 주는 예치금 잔액과 남은 시간 (5분 10초)
@@ -254,16 +253,8 @@ function OrderCheckout({
   const router = useRouter()
   const queryClient = useQueryClient()
   const completeHref = `/checkout/complete?orderId=${orderId}` as const
-  // 결제 확인 중(PAYING)이면 결과가 나올 때까지 주문을 다시 조회한다. 캐시에는 응답 그대로(RsData)가 있다
-  const order = orderApi.useFindById1(orderId, {
-    query: {
-      select: unwrapData,
-      refetchInterval: (query) =>
-        query.state.data?.data?.status === orderModel.OrderDtoStatus.PAYING
-          ? PAYING_POLL_MS
-          : false,
-    },
-  })
+  // 결제 확인 중(PAYING)이면 결과가 나올 때까지 주문을 다시 조회한다 (참가권 상세 orderQueryOptions와 같은 캐시)
+  const order = useQuery(orderQueryOptions(orderId))
   const raceId = order.data?.raceId
   const race = useQuery({
     ...raceDetailQueryOptions(String(raceId)),
@@ -332,14 +323,19 @@ function OrderCheckout({
     // 202(결제 확인 중)면 주문을 다시 받아 결제 확인 중 화면(M07-4)을 보여 주고, 결과는 주문 재조회가 맞춘다.
     // 거절되면 결제 대기로 돌아와 다시 결제하므로 고른 키트 옵션은 지우지 않는다.
     onSuccess: async (result) => {
-      const paying = result.status === orderModel.OrderDtoStatus.PAYING
-      if (!paying) forgetKitOptionIds(orderId)
+      const queryKey = orderApi.getFindById1QueryKey(orderId)
+      if (result.status === orderModel.OrderDtoStatus.PAYING) {
+        // 진행 중이던 옛 조회 결과(결제 대기)를 다시 쓰지 않도록 받은 주문을 캐시에 바로 넣는다
+        await queryClient.cancelQueries({ queryKey })
+        queryClient.setQueryData<orderModel.RsDataOrderDto>(queryKey, (old) =>
+          old ? { ...old, data: result } : old,
+        )
+        return
+      }
+      forgetKitOptionIds(orderId)
       void invalidateTicketQueries(queryClient)
-      await queryClient.refetchQueries(
-        { queryKey: orderApi.getFindById1QueryKey(orderId) },
-        { cancelRefetch: false },
-      )
-      if (!paying) router.replace(completeHref)
+      await queryClient.refetchQueries({ queryKey }, { cancelRefetch: false })
+      router.replace(completeHref)
     },
     onError: (error, { auto }) => {
       const next = toPayFailure(error)
@@ -381,12 +377,21 @@ function OrderCheckout({
     resumed.current = true
     pay.mutate({ auto: true })
   }, [canResume, pay])
-  // 이미 결제한 주문이면 완료 화면으로 보낸다 (뒤로 가기 · 새로고침).
+  // 이미 결제한 주문이면 완료 화면으로 보낸다 (뒤로 가기 · 새로고침 · 결제 확인 중 재조회로 완료됨).
+  // 결제 확인 중을 거쳐 완료되면 결제 요청의 onSuccess가 지우지 못한 키트 옵션 · 잔액 · 참가권 캐시를 여기서 지운다.
+  // 무효화가 다시 그리기를 부르므로 한 번만 한다
+  const finished = useRef(false)
   useEffect(() => {
-    if (status === 'PAID') router.replace(completeHref)
-  }, [status, completeHref, router])
+    if (status !== 'PAID' || finished.current) return
+    finished.current = true
+    forgetKitOptionIds(orderId)
+    void invalidateTicketQueries(queryClient)
+    router.replace(completeHref)
+  }, [status, orderId, queryClient, completeHref, router])
 
-  if (order.isError) return <CheckoutResult view="failed" onRetry={() => void order.refetch()} />
+  // 처음 불러오기 실패만 실패 화면이다. 결제 확인 중 재조회가 실패하면 받아 둔 주문으로 계속 기다린다
+  if (order.isError && !order.data)
+    return <CheckoutResult view="failed" onRetry={() => void order.refetch()} />
   if (!order.data || status === 'PAID') return <CheckoutSkeleton />
   // 결제 중이면 결제 기한이 지나도 결과를 기다린다 (서버는 기한 + 2분까지 결제를 끝낸다)
   if (status === 'PAYING') return <PayingResult />

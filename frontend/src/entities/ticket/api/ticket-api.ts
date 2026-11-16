@@ -7,6 +7,9 @@ import type { MyTicket } from '../model/types'
 
 // 주문 · 참가 신청 API는 로그인한 회원 것만 돌려준다. 클라이언트(TanStack Query)에서 부른다.
 
+/** 결제 확인 중(PAYING) 주문을 다시 조회하는 간격. 결제 화면 · 내 참가권 · 참가권 상세가 같이 쓴다 */
+export const PAYING_POLL_MS = 3000
+
 /** 한 번에 받는 주문 수 (API 최대 100) */
 const ORDER_PAGE_SIZE = 100
 
@@ -68,6 +71,8 @@ export function myTicketsQueryOptions() {
       const details = await Promise.all(orders.map((o) => fetchOrder(o.id ?? 0, signal)))
       return details.flatMap((order) => toMyTickets(order))
     },
+    // 결제 확인 중 참가권이 있으면 결과가 나올 때까지 다시 받는다
+    refetchInterval: (query) => (query.state.data?.some((t) => t.paying) ? PAYING_POLL_MS : false),
   })
 }
 
@@ -137,7 +142,14 @@ export function myTicketCountQueryOptions(enabled: boolean) {
 export function orderQueryOptions(orderId: number) {
   return queryOptions({
     ...orderApi.getFindById1QueryOptions<orderModel.OrderDto, Error>(orderId, {
-      query: { select: unwrapData },
+      query: {
+        select: unwrapData,
+        // 결제 확인 중이면 결과가 나올 때까지 다시 받는다. 캐시에는 응답 그대로(RsData)가 있다
+        refetchInterval: (query) =>
+          query.state.data?.data?.status === orderModel.OrderDtoStatus.PAYING
+            ? PAYING_POLL_MS
+            : false,
+      },
     }),
   })
 }

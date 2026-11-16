@@ -2,7 +2,7 @@ import { useQueries, useQuery } from '@tanstack/react-query'
 
 import { useAuthStatus } from '@/features/auth'
 import { daysUntil, raceQueryOptions } from '@/entities/race'
-import { ticketStatus, withdrawTicketsQueryOptions } from '@/entities/ticket'
+import { withdrawTicketsQueryOptions } from '@/entities/ticket'
 import { useMyBalance } from '@/entities/wallet'
 import { memberApi, unwrapData } from '@/shared/api'
 
@@ -42,8 +42,8 @@ export function useWithdrawBlockers(): WithdrawBlockers {
   const open = list.filter((t) => {
     const date = raceById.get(t.raceId)?.raceDate
     // 대회 날짜를 못 받았으면 끝나지 않은 것으로 보고 막는다(서버가 최종 확인한다)
-    // 결제 확인 중 주문도 서버가 끝나지 않은 참가권으로 센다
-    return ticketStatus(t, { raceOver: date ? daysUntil(date) < 0 : false }) !== 'finished'
+    // 취소한 참가권은 위에서 뺐다. 결제 확인 중 주문도 서버처럼 대회 날짜가 안 지났으면 센다
+    return !(date && daysUntil(date) < 0)
   })
   const first = raceById.get(open[0]?.raceId ?? 0)
   const firstDate = first?.raceDate?.slice(5, 10).split('-').map(Number)

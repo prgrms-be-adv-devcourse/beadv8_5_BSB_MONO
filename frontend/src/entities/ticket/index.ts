@@ -4,6 +4,7 @@ export {
   myTicketsQueryOptions,
   orderQueryOptions,
   participationQueryOptions,
+  PAYING_POLL_MS,
   ticketErrorMessage,
   toMyTickets,
   useCancelTicket,
