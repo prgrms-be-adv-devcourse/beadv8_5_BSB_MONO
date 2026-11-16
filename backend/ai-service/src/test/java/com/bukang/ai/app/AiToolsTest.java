@@ -35,6 +35,7 @@ class AiToolsTest {
 		sellerTools.sellerKitsWaitingForTracking(toolContext);
 		sellerTools.sellerNextPayout(toolContext);
 		sellerTools.sellerPayoutHoldReasons(toolContext);
+		sellerTools.sellerMonthlySales(toolContext);
 		adminTools.adminWaitingInquiries(toolContext);
 		adminTools.adminPendingSellers(toolContext);
 
@@ -213,6 +214,53 @@ class AiToolsTest {
 		ops.adminWaitingInquiries = 2;
 
 		assertThat(adminTools.adminWaitingInquiries(toolContext)).isEqualTo(new AdminTools.InquiriesResult(5, 2));
+	}
+
+	@Test
+	@DisplayName("이번 달 판매액은 그달 1일부터 오늘까지 주문의 판매 합계를 그대로 담고, 주문·참가자 화면을 출처로 남긴다")
+	void monthlySales() {
+		ops.salesSummary = new OpsPort.SalesSummary(42, 2310000);
+
+		Object result = sellerTools.monthlySales(trace, LocalDate.of(2026, 11, 16));
+
+		assertThat(result).isEqualTo(new SellerTools.SalesResult(LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 16),
+			42, 2310000));
+		assertThat(ops.salesCall).containsExactly(LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 16));
+		assertThat(trace.sources()).singleElement().satisfies(source -> {
+			assertThat(source.screen()).isEqualTo(AiSource.SELLER_SALES.getScreen());
+			assertThat(source.path()).isEqualTo("/seller/sales");
+			assertThat(source.asOf()).isNotNull();
+		});
+	}
+
+	@Test
+	@DisplayName("월초(1일)에는 그날 하루만, 말일에는 그달 전체를 묻는다. 지난달로 넘어가지 않는다")
+	void monthlySalesBoundary() {
+		sellerTools.monthlySales(trace, LocalDate.of(2026, 12, 1));
+		assertThat(ops.salesCall).containsExactly(LocalDate.of(2026, 12, 1), LocalDate.of(2026, 12, 1));
+
+		sellerTools.monthlySales(trace, LocalDate.of(2026, 2, 28));
+		assertThat(ops.salesCall).containsExactly(LocalDate.of(2026, 2, 1), LocalDate.of(2026, 2, 28));
+	}
+
+	@Test
+	@DisplayName("도구는 한국 날짜의 이번 달을 본다 (서버 시간대와 상관없이)")
+	void monthlySalesUsesKoreanDate() {
+		LocalDate today = LocalDate.now(AiToolTrace.ZONE);
+
+		sellerTools.sellerMonthlySales(toolContext);
+
+		assertThat(ops.salesCall[1]).isIn(today, LocalDate.now(AiToolTrace.ZONE));
+		assertThat(ops.salesCall[0]).isEqualTo(ops.salesCall[1].withDayOfMonth(1));
+	}
+
+	@Test
+	@DisplayName("판매 합계를 가져오지 못하면 숫자 없이 주문·참가자 화면에서 확인하라고 한다")
+	void monthlySalesFailure() {
+		ops.unavailable = true;
+
+		assertThat(sellerTools.sellerMonthlySales(toolContext)).isInstanceOfSatisfying(Map.class,
+			map -> assertThat((String)map.get("error")).contains(AiSource.SELLER_SALES.getScreen()));
 	}
 
 	@Test

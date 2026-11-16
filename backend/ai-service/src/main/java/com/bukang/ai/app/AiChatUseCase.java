@@ -49,9 +49,9 @@ public class AiChatUseCase {
 		- 메뉴 경로와 화면 이름을 지어내지 않는다. 화면으로 가는 버튼과 목록 카드는 화면이 답 아래에 따로 붙이므로 답에 적지 않는다.
 		- %s
 		""";
-	// 아직 조회할 API가 없는 질문 (BUK-170). 도구가 생기면 이 줄에서 뺀다
-	private static final Map<AiScreen, String> NOT_YET = Map.of(
-		AiScreen.SELLER, "이번 달 판매액은 아직 조회할 수 없다. 숫자를 말하지 말고 '주문 · 참가자' 화면에서 확인하라고 안내한다.",
+	// 화면별로 덧붙이는 지시. 관리자 쪽은 아직 조회할 API가 없는 질문이다 (BUK-170). 도구가 생기면 그 문장을 뺀다
+	private static final Map<AiScreen, String> SCREEN_NOTE = Map.of(
+		AiScreen.SELLER, "판매액을 물으면 조회한 기간과 함께 말하고, 정산 예정액과 섞지 않는다.",
 		AiScreen.ADMIN, "예치금 환급 요청, 지급보류 중인 정산 합계는 아직 조회할 수 없다. "
 			+ "숫자를 말하지 말고 '정산 · 환급 처리' 화면에서 확인하라고 안내한다.");
 
@@ -71,7 +71,7 @@ public class AiChatUseCase {
 			// 지시문과 질문은 문자열이 아니라 메시지로 넘긴다. 문자열로 넘기면 템플릿으로 읽혀 질문 속 중괄호가 변수로 풀린다
 			// 도구는 화면 종류에 맞는 묶음만 붙인다. 판매자 화면에서는 관리자 도구가 모델에 아예 보이지 않는다
 			ChatResponse response = chatClient.prompt()
-				.messages(new SystemMessage(SYSTEM_PROMPT.formatted(screen.getLabel(), NOT_YET.get(screen))),
+				.messages(new SystemMessage(SYSTEM_PROMPT.formatted(screen.getLabel(), SCREEN_NOTE.get(screen))),
 					new UserMessage(message))
 				.advisors(advisor -> advisor.param(ChatMemory.CONVERSATION_ID, conversationId))
 				.tools(toolsOf(screen))
