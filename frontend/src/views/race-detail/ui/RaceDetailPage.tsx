@@ -2,7 +2,7 @@
 
 import type { Route } from 'next'
 import Image from 'next/image'
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
@@ -14,6 +14,7 @@ import { cn, formatNumber, formatWon, useTrackOnce } from '@/shared/lib'
 import {
   Alert,
   Badge,
+  Button,
   FOCUS_RING,
   Icon,
   IconButton,
@@ -53,6 +54,7 @@ export function RaceDetailPage({
   reapplyBlocked = false,
 }: RaceDetailPageProps) {
   const authStatus = useAuthStatus()
+  const router = useRouter()
   useTrackOnce('view_item', {
     raceId: race.id,
     raceName: race.title,
@@ -172,6 +174,15 @@ export function RaceDetailPage({
           <Segmented label="바로 가기" items={[...ANCHORS]} value={anchor} onChange={jumpTo} />
         </div>
 
+        {reapplyBlocked && !alreadyApplied && (
+          <div className="bg-bg-surface px-4 pt-4">
+            <Alert
+              title="이 대회는 다시 신청할 수 없어요"
+              description="파티 결제를 마치지 못해 신청이 취소된 대회예요."
+            />
+          </div>
+        )}
+
         <Section title="종목 선택" className="scroll-mt-32">
           <div id="race-options" className="flex flex-col gap-4">
             {race.options.map((option) => (
@@ -268,17 +279,20 @@ export function RaceDetailPage({
 
         <SimilarRaces raceId={race.id} />
 
+        <Section title="문의">
+          <Button
+            variant="secondary"
+            onClick={() => router.push(`/me/inquiries/new?raceId=${race.id}` as Route)}
+          >
+            이 대회에 문의하기
+          </Button>
+        </Section>
+
         <section className="flex flex-col gap-2 bg-bg-surface px-4 py-6">
           <p className="text-body2-medium">{race.seller.name}</p>
           <p className="text-caption-regular text-text-tertiary">{race.seller.businessNo}</p>
           <p className="text-caption-regular text-text-tertiary">{race.seller.mailOrderNo}</p>
         </section>
-        <Link
-          href={`/me/inquiries/new?raceId=${race.id}` as Route}
-          className="self-start px-4 pt-2 pb-6 text-caption-regular text-text-tertiary underline"
-        >
-          이 대회에 문의하기
-        </Link>
       </main>
       <ApplyCta
         race={race}
