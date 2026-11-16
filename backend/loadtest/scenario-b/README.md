@@ -59,4 +59,5 @@ k6 run -e RUN=3 loadtest/scenario-b/b2-payment-with-payout.js && ./loadtest/scen
 
 - 정리한 결과는 `docs/measurements/`에 남겨요(첫 결과: `docs/measurements/2026-11-16-예치금-부하.md`). 실행 조건(맥, Docker 메모리, 로그·추적 설정)과 Grafana 「예치금(cash)」 대시보드 숫자를 같이 적어요.
 - k6 요약(`--summary-export`)·확인 SQL 출력·맥 기록 같은 원본은 `results/`에 둬요.
+- 그래프는 `graph.py`로 만들어요(matplotlib 필요, 사용법은 파일 맨 위). 시간별 그래프는 로컬 Prometheus에서 읽어서 측정 시작 시각을 적어 둬야 해요.
 - cash 내부 API 키 검사가 들어오면 `k6 run -e INTERNAL_API_KEY=...`로 `.env`의 값을 넘겨요.
