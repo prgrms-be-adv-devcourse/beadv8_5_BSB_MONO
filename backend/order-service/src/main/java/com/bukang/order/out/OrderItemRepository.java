@@ -17,6 +17,7 @@ import com.bukang.order.domain.OrderItemStatus;
 import com.bukang.order.domain.OrderStatus;
 import com.bukang.order.dto.CancelingOrderItemDto;
 import com.bukang.order.dto.SellerOrderDto;
+import com.bukang.order.dto.SellerSalesSummaryDto;
 import com.bukang.order.dto.SoldEntryDto;
 import com.bukang.order.dto.SoldSummaryDto;
 
@@ -237,4 +238,22 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
 	record RosterRow(String orderNo, String courseName, String participantName, String phone, String tshirtSize,
 		Long partyId, long participationId) {
 	}
+
+	/**
+	 * 판매자의 결제일(o.paidAt)이 from 이상 to 미만인 주문 상품 중 결제 완료(PAID)·취소 중(CANCELING)의 장수와 금액(amount) 합 (BUK-247)
+	 * 상태 기준은 정산 판매 집계(findSoldEntries·summarizeSold)와 같다: 취소 중은 환불이 거절되면 결제 완료로 돌아오므로 판매로 센다
+	 * 취소(CANCELED)·결제 전(ORDERED)은 빠진다. idx_order_item_seller(seller_id, id)로 판매자 줄만 읽고 주문은 기본 키로 붙는다
+	 */
+	@Query("""
+		select new com.bukang.order.dto.SellerSalesSummaryDto(count(i), sum(i.amount))
+		from OrderItem i
+			join i.order o
+		where i.sellerId = :sellerId
+			and i.status in (com.bukang.order.domain.OrderItemStatus.PAID,
+				com.bukang.order.domain.OrderItemStatus.CANCELING)
+			and o.paidAt >= :from
+			and o.paidAt < :to
+		""")
+	SellerSalesSummaryDto summarizeSellerSales(@Param("sellerId") long sellerId, @Param("from") LocalDateTime from,
+		@Param("to") LocalDateTime to);
 }

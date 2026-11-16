@@ -33,6 +33,9 @@ public class HttpOpsAdapter implements OpsPort {
 	private static final ParameterizedTypeReference<RsData<KitPageResponse>> KIT_PAGE_TYPE =
 		new ParameterizedTypeReference<>() {
 		};
+	private static final ParameterizedTypeReference<RsData<SalesSummary>> SALES_SUMMARY_TYPE =
+		new ParameterizedTypeReference<>() {
+		};
 	private static final ParameterizedTypeReference<RsData<PayoutSummary>> PAYOUT_SUMMARY_TYPE =
 		new ParameterizedTypeReference<>() {
 		};
@@ -74,6 +77,12 @@ public class HttpOpsAdapter implements OpsPort {
 		KitPageResponse page = get(orderClient, memberId, KIT_PAGE_TYPE,
 			"/api/v1/order/seller/kits?status=PREPARING&page=0&size={size}", size);
 		return new KitPage(page.kits(), page.totalElements());
+	}
+
+	@Override
+	public SalesSummary salesSummary(long memberId, LocalDate from, LocalDate to) {
+		return get(orderClient, memberId, SALES_SUMMARY_TYPE, "/api/v1/order/seller/orders/summary?from={from}&to={to}",
+			from, to);
 	}
 
 	@Override

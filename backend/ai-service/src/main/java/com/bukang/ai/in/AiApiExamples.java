@@ -31,7 +31,7 @@ final class AiApiExamples {
 		{
 			"status": 200,
 			"message": "답변했습니다.",
-			"data": { "answer": "이번 달 판매액은 주문 · 참가자 화면에서 확인해 주세요.", "sources": [], "list": null }
+			"data": { "answer": "안녕하세요. 정산·키트·판매액처럼 판매자 센터의 숫자를 물어보세요.", "sources": [], "list": null }
 		}
 		""";
 	static final String CHAT_SUCCESS_TOOL_FAILED = """
