@@ -8,7 +8,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 /**
- * 문의 답변 초안에 [정책]으로 넘기는 정해진 규칙. 문의 종류마다 관련 항목만 고른다 (BUK-266)
+ * 문의 답변 초안에 [정책]으로 넘기는 정해진 규칙. 문의 종류와 제목·본문의 낱말로 관련 항목만 고른다 (BUK-266)
  * docs/policy 장별 문서에서 「(회의 후 채움)」이 아닌 항목만 옮겼다. 원본 문서가 바뀌면 같이 고친다
  * 예치금 환급(5장 2차 1)은 담당이 정해 문서에 적은 내용이다(피그잼 원본에는 아직 없음). 원본이 정해지면 그쪽을 따른다
  * 정산 상세안(payout.md)의 「함께 바꿀 다른 장」(일정 변경 뒤 7일 전액 환불 등)은 5장 원본에 아직 없어 넣지 않았다
@@ -18,7 +18,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 enum InquiryPolicy {
 	// docs/policy/05-취소환불.md 2차 1 「PG 결제취소와 기한」·「신청과 결과」·「알림」
-	WITHDRAWAL("정책 5장 2차 1 예치금 환급", Set.of("APPLY_PAYMENT", "ETC"), """
+	WITHDRAWAL("정책 5장 2차 1 예치금 환급", Set.of("APPLY_PAYMENT", "ETC"),
+		List.of("환급", "계좌로", "예치금을 돌려", "남은 예치금", "현금"), """
 		- 환급은 남은 예치금 전부만 신청할 수 있다. 일부만 신청할 수는 없다.
 		- 충전 건마다 카드 결제취소 기한(결제사 승인일 + 1년 − 1일의 24:00, 한국 시간) 안이면 충전한 카드·간편결제로 결제취소해 돌려준다. \
 		기한이 지난 몫만 회원이 입력한 계좌로 보낸다.
@@ -30,7 +31,8 @@ enum InquiryPolicy {
 		- 남은 금액이 있는 충전 건은 카드 결제취소 기한 3일 전과 1일 전에 알림을 보낸다.
 		"""),
 	// docs/policy/04-장바구니결제.md 2차 2 「금액 한도」·「이상 충전 감지」
-	CHARGE("정책 4장 2차 2 예치금 충전", Set.of("APPLY_PAYMENT", "ETC"), """
+	CHARGE("정책 4장 2차 2 예치금 충전", Set.of("APPLY_PAYMENT", "ETC"),
+		List.of("충전이", "충전을", "충전할", "충전 한도"), """
 		- 충전은 1회 30만 원, 하루 합계 100만 원(한국 시간 자정 기준), 지갑 잔액 1,000만 원까지다. \
 		넘으면 그 충전 전체를 거절한다. 한도까지 줄여서 받지 않는다.
 		- 하루 한도와 잔액 한도에는 결제사 승인을 기다리거나 결과를 확인하지 못한 충전 금액도 더한다. \
@@ -40,16 +42,19 @@ enum InquiryPolicy {
 		- 막힌 충전은 시간이 지나면 저절로 풀린다.
 		"""),
 	// docs/policy/05-취소환불.md 2차 2-1
-	PARTY_CANCEL("정책 5장 2차 2-1 파티원 취소", Set.of("APPLY_PAYMENT"), """
+	PARTY_CANCEL("정책 5장 2차 2-1 파티원 취소", Set.of("APPLY_PAYMENT"),
+		List.of("파티+취소"), """
 		- 파티원은 파티 전체가 아니라 자기 참가권만 따로 취소할 수 있다.
 		"""),
 	// docs/policy/05-취소환불.md 2차 2-3·2-5 (회원에게 필요한 부분)
-	RACE_CANCEL("정책 5장 2차 2-3·2-5 대회 취소", Set.of("APPLY_PAYMENT", "RACE_VENUE"), """
+	RACE_CANCEL("정책 5장 2차 2-3·2-5 대회 취소", Set.of("APPLY_PAYMENT", "RACE_VENUE"),
+		List.of("대회가 취소", "대회 취소", "대회를 취소"), """
 		- 대회 취소는 판매자가 요청하고 관리자가 승인한다. 요청하면 판매가 바로 멈추고, 환불과 공지는 승인 뒤에 나간다.
 		- 관리자가 승인하면 참가자 공지와 전액 환불이 한 번에 시작된다.
 		"""),
 	// docs/policy/05-취소환불.md 2차 2-3~2-6
-	RACE_CANCEL_REQUEST("정책 5장 2차 2-3~2-6 대회 취소 요청", Set.of("SELLER_SUPPORT"), """
+	RACE_CANCEL_REQUEST("정책 5장 2차 2-3~2-6 대회 취소 요청", Set.of("SELLER_SUPPORT"),
+		List.of("취소"), """
 		- 대회 취소는 판매자가 요청하고 관리자가 승인한다. 요청하면 판매가 바로 멈추고, 환불과 공지는 승인 뒤에 나간다.
 		- 요청할 때 사유(날씨·재난, 참가 인원 부족, 장소·허가, 기타)와 자세한 사유, 참가자에게 보낼 공지를 적는다. 자세한 사유는 관리자만 본다.
 		- 관리자가 승인하면 공지, 전액 환불, 정산 「대회 취소 처리 중」 지급보류가 한 번에 시작된다.
@@ -57,7 +62,8 @@ enum InquiryPolicy {
 		판매자는 검토 중에 요청을 거둘 수 있고, 거두거나 반려된 뒤에는 판매를 다시 열 수 있다.
 		"""),
 	// docs/policy/06-판매자정산.md 2차 4 「1차 정산 뒤 회수」
-	RECOVERY("정책 6장 2차 4 1차 정산 뒤 회수", Set.of("SELLER_SUPPORT"), """
+	RECOVERY("정책 6장 2차 4 1차 정산 뒤 회수", Set.of("SELLER_SUPPORT"),
+		List.of("회수", "청구", "가상계좌", "입금"), """
 		- 판매자가 돌려줄 돈(청구)마다 국민은행 가상계좌를 하나 발급한다. 판매자가 그 계좌로 청구 금액과 같은 금액을 입금하면 회수가 자동으로 끝난다.
 		- 입금 기한은 청구 30일이다. 가상계좌 유효기간(발급일부터 90일)과 다르며, 입금 기한을 넘겨도 90일 안에 입금하면 자동으로 기록된다.
 		- 가상계좌는 다시 발급하지 않는다. 90일이 지나면 계좌가 닫히고 관리자가 판매자와 직접 맞춘다.
@@ -66,9 +72,18 @@ enum InquiryPolicy {
 
 	private final String source;
 	private final Set<String> inquiryTypes;
+	// 제목·본문에 하나라도 있으면 붙인다. 「파티+취소」는 둘 다 있어야 한다
+	// 문의와 상관없는 정책을 붙이면 모델이 다른 상황의 규칙으로 정해지지 않은 일을 채운다 (BUK-266 검수 117·122·124)
+	private final List<String> keywords;
 	private final String rules;
 
-	static List<InquiryPolicy> of(String inquiryType) {
-		return Arrays.stream(values()).filter(policy -> policy.inquiryTypes.contains(inquiryType)).toList();
+	// shortcut: 낱말로 고른다. 낱말이 빠진 문의는 정책 없이 [확인 필요]로 남는다, 놓치는 문의가 많으면 모델 분류로 바꾼다
+	static List<InquiryPolicy> of(String inquiryType, String text) {
+		String target = text == null ? "" : text;
+		return Arrays.stream(values())
+			.filter(policy -> policy.inquiryTypes.contains(inquiryType))
+			.filter(policy -> policy.keywords.stream()
+				.anyMatch(keyword -> Arrays.stream(keyword.split("\\+")).allMatch(target::contains)))
+			.toList();
 	}
 }

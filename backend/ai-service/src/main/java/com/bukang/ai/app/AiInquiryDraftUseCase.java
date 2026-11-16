@@ -37,11 +37,16 @@ public class AiInquiryDraftUseCase {
 	static final int MAX_DRAFT_LENGTH = 2000;
 	static final String GLOSSARY_REFERENCE = "용어 「취소」·「환불」·「환급」 뜻";
 
-	// 용어는 CONTEXT.md 「돈의 흐름」에서 옮겼다. 그쪽이 바뀌면 같이 고친다
+	// 용어는 CONTEXT.md 「돈의 흐름」에서 옮겼다(「참가권은 접수 기간에만 취소」는 용어 「취소」의 뜻). 그쪽이 바뀌면 같이 고친다
 	static final String SYSTEM_PROMPT = """
 		너는 러닝 대회 참가권·키트 마켓플레이스 '크루런'의 %s에서 문의 답변 초안을 쓰는 도우미다. 초안은 담당자가 읽고 고친 뒤 보낸다.
 		- [문의], [주문], [정책], [용어]에 있는 내용만 근거로 쓴다. 자료에 없는 날짜·금액·일정·정책·절차는 지어내지 않는다.
 		- [정책]의 일반 규칙(환급 방법, 수수료, 충전 한도, 대회 취소 순서 등)은 그대로 안내한다. "확인 후 안내"로 미루지 않는다.
+		- [정책]의 규칙은 그 규칙이 다루는 상황에만 쓴다. 문의와 직접 관련된 규칙만 쓰고, 다른 상황의 규칙을 끌어와 정해지지 않은 일을 채우거나 단정하지 않는다.
+		- 예: 대회 취소 규칙으로 일정 변경을, 파티원 취소 규칙으로 결제 기한을, 카드 결제취소 기한(예치금 환급)으로 대회의 환불 기한을 설명하지 않는다.
+		- [용어]의 일반 설명과 [정책]의 구체 규칙이 다르면 [정책]을 따른다. 예: 대회 취소는 전액 환불이라 취소 수수료를 말하지 않는다.
+		- 자료에 없는 일은 추측하지 않는다. "일반적으로", "가능성이 크다", "보통은" 같은 말로 절차나 상황을 짐작해 쓰지 않고 [확인 필요]로 둔다.
+		- 담당자나 크루런이 대신 해 줄 수 있다고 자료에 없는 일(주최 측에 대신 묻기, 대신 바꾸기 등)은 약속하지 않는다.
 		- [정책]·[용어]에 없는 서류·절차·결제 방식·메뉴 이름은 쓰지 않는다.
 		- 자료로 채울 수 없는 곳은 그 자리에 [확인 필요: 무엇]을 넣고, missing에 한 줄씩 더한다.
 		- missing의 title은 「○○을 넣지 못했어요」, reason은 왜 못 넣었는지 한 문장이다. 비운 곳이 없으면 빈 목록이다.
@@ -148,7 +153,7 @@ public class AiInquiryDraftUseCase {
 			}
 		}
 		text.append("\n[정책]\n");
-		List<InquiryPolicy> policies = InquiryPolicy.of(inquiry.type());
+		List<InquiryPolicy> policies = policies(inquiry);
 		if (policies.isEmpty()) {
 			text.append("이 문의 종류에 맞는 정해진 정책이 없음\n");
 		}
@@ -171,6 +176,10 @@ public class AiInquiryDraftUseCase {
 		return masked == null ? null : masked.replaceAll("\\[(주문|정책|문의|용어)\\]", "($1)");
 	}
 
+	static List<InquiryPolicy> policies(Inquiry inquiry) {
+		return InquiryPolicy.of(inquiry.type(), inquiry.title() + "\n" + inquiry.body());
+	}
+
 	// 「참고한 정보」: 모델에 실제로 준 자료만 적는다. 모델이 고르지 않는다
 	static List<String> references(Inquiry inquiry) {
 		List<String> references = new ArrayList<>();
@@ -186,7 +195,7 @@ public class AiInquiryDraftUseCase {
 				references.add("키트 배송 상태");
 			}
 		}
-		InquiryPolicy.of(inquiry.type()).forEach(policy -> references.add(policy.getSource()));
+		policies(inquiry).forEach(policy -> references.add(policy.getSource()));
 		references.add(GLOSSARY_REFERENCE);
 		return references;
 	}
