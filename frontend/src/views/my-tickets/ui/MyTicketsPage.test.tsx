@@ -127,7 +127,10 @@ describe('MyTicketsPage', () => {
     expect(await screen.findByText('결제 확인 중')).toBeInTheDocument()
 
     paid = true
+    // 목록은 주문 수만큼 상세를 다시 부르므로 3초가 아니라 15초마다 다시 받는다
     await act(() => vi.advanceTimersByTimeAsync(3000))
+    expect(screen.getByText('결제 확인 중')).toBeInTheDocument()
+    await act(() => vi.advanceTimersByTimeAsync(12_000))
 
     expect(await screen.findByText('참가 확정')).toBeInTheDocument()
     expect(screen.queryByText('결제 확인 중')).not.toBeInTheDocument()

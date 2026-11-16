@@ -7,8 +7,14 @@ import type { MyTicket } from '../model/types'
 
 // 주문 · 참가 신청 API는 로그인한 회원 것만 돌려준다. 클라이언트(TanStack Query)에서 부른다.
 
-/** 결제 확인 중(PAYING) 주문을 다시 조회하는 간격. 결제 화면 · 내 참가권 · 참가권 상세가 같이 쓴다 */
+/** 결제 확인 중(PAYING) 주문을 다시 조회하는 간격. 결제 화면 · 참가권 상세처럼 주문 하나만 부를 때 쓴다 */
 export const PAYING_POLL_MS = 3000
+
+/**
+ * 내 참가권 목록을 다시 받는 간격. 한 번에 주문 목록 1번 + 주문 상세를 주문 수만큼 부르므로 길게 잡는다.
+ * 서버 결제 재확인은 결제 시작 30초 뒤부터 15초마다 돌아서 더 자주 받아도 결과가 빨리 나오지 않는다.
+ */
+const PAYING_LIST_POLL_MS = 15_000
 
 /** 한 번에 받는 주문 수 (API 최대 100) */
 const ORDER_PAGE_SIZE = 100
@@ -72,7 +78,8 @@ export function myTicketsQueryOptions() {
       return details.flatMap((order) => toMyTickets(order))
     },
     // 결제 확인 중 참가권이 있으면 결과가 나올 때까지 다시 받는다
-    refetchInterval: (query) => (query.state.data?.some((t) => t.paying) ? PAYING_POLL_MS : false),
+    refetchInterval: (query) =>
+      query.state.data?.some((t) => t.paying) ? PAYING_LIST_POLL_MS : false,
   })
 }
 
