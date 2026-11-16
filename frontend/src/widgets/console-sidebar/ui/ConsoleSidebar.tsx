@@ -29,7 +29,7 @@ const MENU: Record<
       { href: '/seller/sales', label: '주문 관리', icon: 'Orders' },
       { href: '/seller/settlements', label: '정산 관리', icon: 'Inbox' },
       { href: '/seller/inquiries', label: '문의', icon: 'Help' },
-      { href: '/seller/ai', label: '크루런 AI', icon: 'Search' },
+      { href: '/seller/ai', label: '크루런 AI', icon: 'Message' },
     ],
   },
   admin: {
@@ -45,7 +45,7 @@ const MENU: Record<
       { href: '/admin/claims', label: '회수 관리', icon: 'Inbox' },
       { href: '/admin/races', label: '대회 관리', icon: 'Calendar' },
       { href: '/admin/inquiries', label: '문의', icon: 'Help' },
-      { href: '/admin/ai', label: '크루런 AI', icon: 'Search' },
+      { href: '/admin/ai', label: '크루런 AI', icon: 'Message' },
       { href: '/admin/stats', label: '이용 통계', icon: 'Chart' },
     ],
   },

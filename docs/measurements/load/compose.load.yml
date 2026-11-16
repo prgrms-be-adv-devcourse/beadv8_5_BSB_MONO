@@ -1,0 +1,138 @@
+# 주문 결제 잠금 부하 측정용 환경 (docs/measurements/2026-11-13-결제-잠금-판정기준.md)
+# 개발용 compose.yml과 겹치지 않게 프로젝트 이름(orderload)·포트를 따로 쓴다. 실행은 run.sh가 한다
+# 서비스 이미지는 LABEL(a, b, local)마다 따로 둔다: orderload-<서비스>:<LABEL>. 없으면 지금 코드로 빌드한다
+# 자원 제한은 운영(EC2 라지 1대 서비스 + 미디움 1대 DB)을 GitHub 실행 머신(CPU 4개) 안에서 비율로 흉내 낸 추천값(미확정)이다
+name: orderload
+
+x-app: &app
+  restart: "no"
+
+x-app-env: &app-env
+  SPRING_PROFILES_ACTIVE: prod
+  MYSQL_HOST: mysql
+  MYSQL_PORT: "3306"
+  MYSQL_DB: bukang-db
+  MYSQL_USER: bukang2
+  MYSQL_PASS: bukang2
+  KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+  # 측정 전용 키 (개발용 값, 운영 키 아님)
+  CRYPTO_PASSWORD: brH8W0e5axggiZDMxLeEcRiYSf5qght3KtDgWC+dT48=
+  CRYPTO_SALT: d4cc93043cca7c91
+  # 기본은 컨테이너 메모리의 25%만 힙으로 쓴다. 제한 안에서 운영처럼 쓰게 늘린다
+  JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=70
+
+services:
+  order:
+    <<: *app
+    build: { context: ../../../backend, args: { MODULE: order-service } }
+    image: orderload-order:${LABEL:-local}
+    cpus: ${ORDER_CPUS:-1.0}
+    mem_limit: 1g
+    environment:
+      <<: *app-env
+      # 전환 중이라 compose.yml과 같이 update로 둔다 (BUK-29)
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: ${ORDER_POOL:-10}
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: ${ORDER_EXPOSE:-health,prometheus}
+      # 예치금은 Toxiproxy를 거쳐 지연을 넣는다. 상품은 바로 부른다
+      ORDER_CLIENTS_CASH_BASE_URL: http://toxiproxy:18081
+      ORDER_CLIENTS_PRODUCT_BASE_URL: http://product:8085
+      # 대기열·회원·크루·정산·배송은 측정 대상이 아니라 가짜를 쓴다 (입장 확인은 처음 부를 때 15분 입장)
+      ORDER_CLIENTS_QUEUE_MODE: fake
+      ORDER_CLIENTS_MEMBER_MODE: fake
+      ORDER_CLIENTS_CREW_MODE: fake
+      ORDER_CLIENTS_PAYOUT_MODE: fake
+      ORDER_CLIENTS_DELIVERY_TRACKER_MODE: fake
+    healthcheck: { test: [ "CMD", "bash", "-c", "</dev/tcp/127.0.0.1/8084" ], interval: 5s, timeout: 3s, retries: 60, start_period: 300s }
+    depends_on:
+      mysql: { condition: service_healthy }
+      kafka: { condition: service_healthy }
+      cash: { condition: service_healthy }
+      product: { condition: service_healthy }
+
+  cash:
+    <<: *app
+    build: { context: ../../../backend, args: { MODULE: cash-service } }
+    image: orderload-cash:${LABEL:-local}
+    cpus: 0.5
+    mem_limit: 768m
+    environment:
+      <<: *app-env
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      TOSS_SECRET_KEY: test_sk_dummy
+    healthcheck: { test: [ "CMD", "bash", "-c", "</dev/tcp/127.0.0.1/8081" ], interval: 5s, timeout: 3s, retries: 60, start_period: 300s }
+    depends_on:
+      mysql: { condition: service_healthy }
+      kafka: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  product:
+    <<: *app
+    build: { context: ../../../backend, args: { MODULE: product-service } }
+    image: orderload-product:${LABEL:-local}
+    cpus: 0.5
+    mem_limit: 1g
+    environment:
+      <<: *app-env
+      ELASTICSEARCH_URIS: http://elasticsearch:9200
+      ELASTICSEARCH_USERNAME: elastic
+      ELASTICSEARCH_PASSWORD: unused
+    healthcheck: { test: [ "CMD", "bash", "-c", "</dev/tcp/127.0.0.1/8085" ], interval: 5s, timeout: 3s, retries: 60, start_period: 300s }
+    depends_on:
+      mysql: { condition: service_healthy }
+      kafka: { condition: service_healthy }
+      elasticsearch: { condition: service_healthy }
+
+  # 주문 → 예치금 사이에 지연을 넣는다 (run.sh가 API 8474로 프록시·지연을 만든다)
+  toxiproxy:
+    image: ghcr.io/shopify/toxiproxy:2.12.0
+    cpus: 0.25
+    ports: [ "127.0.0.1:${TOXIPROXY_API_PORT:-18474}:8474" ]
+
+  mysql:
+    image: mysql:8.4
+    cpus: 1.0
+    mem_limit: 2g
+    command: [ --character-set-server=utf8mb4, --collation-server=utf8mb4_0900_ai_ci, --max-connections=300 ]
+    environment:
+      MYSQL_ROOT_PASSWORD: bukang-admin
+      MYSQL_DATABASE: bukang-db
+      MYSQL_USER: bukang2
+      MYSQL_PASSWORD: bukang2
+      TZ: Asia/Seoul
+    healthcheck: { test: [ "CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD" ], interval: 5s, timeout: 5s, retries: 30 }
+
+  kafka:
+    image: redpandadata/redpanda:v26.2.3
+    cpus: 0.25
+    command: [ redpanda, start, --mode=dev-container, --smp=1, --memory=512M,
+      "--kafka-addr=internal://0.0.0.0:29092", "--advertise-kafka-addr=internal://kafka:29092" ]
+    healthcheck: { test: [ "CMD-SHELL", "rpk cluster health | grep -E 'Healthy:.+true'" ], interval: 5s, timeout: 5s, retries: 30 }
+
+  redis:
+    image: redis:8.2
+    cpus: 0.1
+    healthcheck: { test: [ "CMD", "redis-cli", "ping" ], interval: 5s, timeout: 5s, retries: 30 }
+
+  elasticsearch:
+    build: ../../../backend/docker/elasticsearch
+    image: bukang-elasticsearch:9.4.5-nori
+    cpus: 0.5
+    mem_limit: 1536m
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -fs 'localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s' || exit 1" ]
+      interval: 5s
+      timeout: 10s
+      retries: 40
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    cpus: 0.25
+    command: [ --config.file=/etc/prometheus/prometheus.yml, --storage.tsdb.retention.time=1d ]
+    volumes: [ "./prometheus.yml:/etc/prometheus/prometheus.yml:ro" ]
+    ports: [ "127.0.0.1:${PROMETHEUS_PORT:-19090}:9090" ]

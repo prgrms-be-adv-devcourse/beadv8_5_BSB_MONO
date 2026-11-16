@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useState } from 'react'
 
-import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
+import { CONSOLE_BOX, ConsoleCard, ConsolePage } from '@/widgets/console-page'
 import {
   formatDDay,
   formatRaceDateTime,
@@ -158,6 +158,7 @@ function SalesBody({ race, raceId }: { race: productModel.SellerRaceDto; raceId:
 
       {refundDeadline && (
         <Alert
+          className={CONSOLE_BOX}
           title={`환불 기한(${formatRaceDateTime(refundDeadline)})까지는 취소가 생길 수 있어요`}
           description="취소로 풀린 자리는 남은 자리로 자동으로 돌아가 다시 판매돼요."
         />
@@ -179,6 +180,7 @@ function SalesBody({ race, raceId }: { race: productModel.SellerRaceDto; raceId:
         {/* TODO(api): 명단 파일 API가 생기면 사유를 남기고 엑셀 파일을 받는다 */}
         <ConsoleCard title="명단 내려받기">
           <Alert
+            className={CONSOLE_BOX}
             title="엑셀 내려받기는 준비 중이에요"
             description="명단 파일 기능이 열리면 사유를 남기고 내려받을 수 있어요."
           />

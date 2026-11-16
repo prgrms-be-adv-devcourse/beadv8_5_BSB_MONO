@@ -112,6 +112,25 @@ describe('SocialSignupPage', () => {
     expect(screen.getByText('카카오 계정으로 가입하고 있어요')).toBeInTheDocument()
   })
 
+  it('소셜 가입도 같은 약관 시트를 쓴다: 묶은 줄과 만 14세 줄을 체크하면 동의 버튼이 켜지고, 펼치면 약관 링크 둘이 보인다', async () => {
+    server.use(signupInfo('KAKAO', 'runner@kakao.com'))
+    const user = userEvent.setup()
+    render(withProviders(<SocialSignupPage />, { termsAgreed: false }))
+
+    const agree = await screen.findByRole('button', { name: '동의하고 본인 확인하기' })
+    expect(agree).toBeDisabled()
+    await user.click(
+      screen.getByRole('checkbox', { name: '[필수] 크루런 이용약관과 개인정보 동의' }),
+    )
+    expect(agree).toBeDisabled()
+    await user.click(screen.getByRole('checkbox', { name: '[필수] 본인은 만 14세 이상이에요' }))
+    expect(agree).toBeEnabled()
+
+    await user.click(screen.getByRole('button', { name: '약관 보기 펼치기' }))
+    expect(screen.getByRole('link', { name: '서비스 이용약관 보기' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '개인정보 수집 · 이용 보기' })).toBeInTheDocument()
+  })
+
   it('본인인증을 마쳤으면 인증된 이름으로 바꿔 잠그고, 가입하면 인증 토큰을 보내 로그인 상태로 next에 간다', async () => {
     let body: Record<string, unknown> | undefined
     server.use(

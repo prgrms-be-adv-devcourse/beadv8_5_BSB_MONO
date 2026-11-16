@@ -202,7 +202,7 @@ function OfflinePreviewBody({ expiresAt }: { expiresAt: number }) {
       onAgreedChange={setAgreed}
       action={
         <Button size="l" disabled={!agreed}>
-          다시 시도하기
+          다시 결제하기
         </Button>
       }
     />

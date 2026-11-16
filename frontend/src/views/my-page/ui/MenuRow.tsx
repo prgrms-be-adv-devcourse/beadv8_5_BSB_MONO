@@ -9,17 +9,33 @@ import { FOCUS_RING, Icon, type IconName } from '@/shared/ui'
 export const EMPTY = '-'
 
 // 피그마 마이 · 계정 설정의 메뉴 묶음: 작은 제목 아래 줄을 늘어놓는다
-export function MenuGroup({ title, children }: { title: string; children: ReactNode }) {
+export function MenuGroup({
+  title,
+  brand,
+  children,
+}: {
+  title: string
+  /** 계정 설정은 제목을 파란색으로 */
+  brand?: boolean
+  children: ReactNode
+}) {
   return (
     <section className="flex flex-col px-4 pt-6 pb-2">
-      <h2 className="pb-1 text-caption-regular text-text-secondary">{title}</h2>
+      <h2
+        className={cn(
+          'pb-1 text-caption-regular',
+          brand ? 'text-text-brand' : 'text-text-secondary',
+        )}
+      >
+        {title}
+      </h2>
       {children}
     </section>
   )
 }
 
 type MenuRowProps = {
-  icon: IconName
+  icon?: IconName
   label: string
   value?: string
   description?: string
@@ -29,7 +45,7 @@ type MenuRowProps = {
 export function MenuRow({ icon, label, value, description, ...action }: MenuRowProps) {
   const content = (
     <>
-      <Icon name={icon} className="size-5 shrink-0" />
+      {icon && <Icon name={icon} className="size-5 shrink-0" />}
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="text-body1-medium">{label}</span>
         {description && (

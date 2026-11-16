@@ -41,7 +41,7 @@ export function HomePage({ state, closingSoon }: HomePageProps) {
         </>
       ) : (
         <>
-          <AppHeader search={false} className="border-b-0" />
+          <AppHeader search={false} loginWhenGuest className="border-b-0" />
           <HomeTabs />
           <main className="flex-1">
             <Carousel label="접수 중인 대회" className="pt-4 pb-2">
