@@ -111,7 +111,7 @@ public class CashPayoutUseCase {
 		if (feeTransferred) {
 			PayoutTransfer fee = payoutTransferRepository.save(
 				new PayoutTransfer(payoutId, sellerId, PayoutTransferType.FEE, feeAmount));
-			walletLedgerRepository.save(holdingWallet.debit(
+			walletLedgerRepository.save(holdingWallet.debitAllowingNegative(
 				feeAmount, LedgerType.정산지급__상품판매_수수료, LedgerRefType.Payout, fee.getId()));
 			walletLedgerRepository.save(wallets.get(systemMemberId).credit(
 				feeAmount, LedgerType.정산수령__상품판매_수수료, LedgerRefType.Payout, fee.getId()));
@@ -144,7 +144,7 @@ public class CashPayoutUseCase {
 			})
 			.orElseGet(() -> payoutTransferRepository.save(
 				new PayoutTransfer(payoutId, sellerId, PayoutTransferType.SETTLEMENT, settlementAmount)));
-		walletLedgerRepository.save(holdingWallet.debit(
+		walletLedgerRepository.save(holdingWallet.debitAllowingNegative(
 			settlementAmount, LedgerType.정산지급__상품판매_대금, LedgerRefType.Payout, settlement.getId()));
 		return new Requested(
 			settlement.getId(), settlement.bankTransferId(), settlementAmount, paidFeeAmount, null, false);
