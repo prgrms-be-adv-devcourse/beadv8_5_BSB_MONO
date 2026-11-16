@@ -7,7 +7,13 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
-import { canInvite, formatKstDateTime, inviteUrl, parseKstDateTime } from '@/entities/crew'
+import {
+  canInvite,
+  formatKstDateTime,
+  formatKstMonthDayTime,
+  inviteUrl,
+  parseKstDateTime,
+} from '@/entities/crew'
 import {
   partyKeys,
   useLeaveParty,
@@ -33,7 +39,6 @@ import {
   buttonClassName,
   Dialog,
   Skeleton,
-  TimerBar,
   useToast,
   type BadgeTone,
 } from '@/shared/ui'
@@ -200,11 +205,8 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
     return { title: rest > 0 ? `${rest}명 더 모이면 참가할 수 있어요` : '파티로 참가할 수 있어요' }
   })()
 
-  // 결제 기간 끝까지 남은 시간. 응답에 결제 기한이 있을 때만 파티장 화면에 보여 준다.
-  const payRemaining =
-    party.status === 'PAYING' && isLeader && myPaid && party.paymentDueAt && now
-      ? (parseKstDateTime(party.paymentDueAt) - now.getTime()) / 1000
-      : undefined
+  // 응답에 결제 기한이 있을 때만 파티장 화면에 마감 시각을 보여 준다.
+  const payDueAt = party.status === 'PAYING' && isLeader && myPaid ? party.paymentDueAt : undefined
 
   const canApply = isLeader && recruiting && min > 0 && party.memberCount >= min
 
@@ -247,12 +249,10 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
             {party.memberCount}명 중 {party.paidCount}명 결제했어요
           </p>
         )}
-        {payRemaining !== undefined && (
-          <TimerBar
-            className="static px-0 py-0"
-            message="파티원이 결제할 수 있는 시간이에요"
-            remainingSeconds={payRemaining}
-          />
+        {payDueAt && (
+          <p className="text-body2-regular text-text-secondary">
+            {formatKstMonthDayTime(payDueAt)}까지 파티원이 결제할 수 있어요
+          </p>
         )}
         {recruiting && isLeader && linkAlive && (
           <Link

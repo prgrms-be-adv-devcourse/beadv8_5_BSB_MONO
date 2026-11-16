@@ -9,7 +9,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 
 import { AppHeader } from '@/widgets/app-header'
-import { formatKstDateTime, formatKstMonthDay, parseKstDateTime } from '@/entities/crew'
+import { formatKstDateTime, formatKstLastDay, parseKstDateTime } from '@/entities/crew'
 import {
   crewPartyRestrictedEndAt,
   individualParticipationId,
@@ -284,9 +284,7 @@ export function PartyNewPage({ crewId }: { crewId?: number }) {
         onOpenChange={(open) => !open && setRestrictedEnd(undefined)}
         type="alert"
         title="파티를 만들 수 없어요"
-        body={
-          restrictedEnd ? `${formatKstMonthDay(restrictedEnd)}까지 파티 만들기가 제한돼요.` : ''
-        }
+        body={restrictedEnd ? `${formatKstLastDay(restrictedEnd)}까지 파티 만들기가 제한돼요.` : ''}
         confirmLabel="크루 홈으로"
         onConfirm={() => router.push(`/crews/${crewId}` as Route)}
       />

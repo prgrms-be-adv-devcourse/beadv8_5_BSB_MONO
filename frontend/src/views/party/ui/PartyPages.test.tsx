@@ -86,7 +86,7 @@ describe('파티 상세', () => {
     expect(screen.getAllByText('결제 전').length).toBeGreaterThan(0)
   })
 
-  it('결제를 마친 파티장에게는 결제 기간 끝까지 남은 시간을, 파티원에게는 결제 인원을 보여 준다', async () => {
+  it('결제를 마친 파티장에게는 결제 마감 시각을, 파티원에게는 결제 인원을 보여 준다', async () => {
     const status = (role: string) =>
       http.get('*/api/v1/order/parties/me/race-status', () =>
         HttpResponse.json({
@@ -98,13 +98,13 @@ describe('파티 상세', () => {
     server.use(status('LEADER'))
     const leader = renderPage(<PartyDetailPage partyId={3} />)
     expect(await screen.findByText('파티원 결제를 기다리고 있어요')).toBeInTheDocument()
-    expect(screen.getByRole('timer')).toHaveTextContent('남은 시간')
+    expect(screen.getByText('1월 1일 00:00까지 파티원이 결제할 수 있어요')).toBeInTheDocument()
     leader.unmount()
 
     server.use(status('MEMBER'))
     renderPage(<PartyDetailPage partyId={3} />)
     expect(await screen.findByText('3명 중 1명 결제했어요')).toBeInTheDocument()
-    expect(screen.queryByRole('timer')).not.toBeInTheDocument()
+    expect(screen.queryByText(/까지 파티원이 결제할 수 있어요/)).not.toBeInTheDocument()
   })
 
   it('없는 파티면 불러오지 못했다는 화면을 보여 준다', async () => {
@@ -503,6 +503,54 @@ describe('파티 만들기', () => {
     expect(await screen.findByText('파티를 만들 수 없어요')).toBeInTheDocument()
     expect(screen.getByText('11월 20일까지 파티 만들기가 제한돼요.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '크루 홈으로' })).toBeInTheDocument()
+  })
+
+  it('제한이 끝나는 시각이 자정이면 전날까지 제한된다고 알린다', async () => {
+    const user = userEvent.setup()
+    server.use(
+      productMock.getSearchMockHandler({
+        status: 200,
+        message: '성공',
+        data: {
+          races: [
+            {
+              raceId: 100,
+              title: '2026 용감한 쿠키RUN in 서울',
+              crewSaleStartAt: '2020-01-01T00:00:00',
+              crewSaleEndAt: '2099-01-01T18:00:00',
+            },
+          ],
+          page: 0,
+          size: 20,
+          totalElements: 1,
+          totalPages: 1,
+        },
+      }),
+      http.post('*/api/v1/order/parties', () =>
+        HttpResponse.json(
+          {
+            status: 403,
+            code: 'ORDER_CREW_PARTY_RESTRICTED',
+            message: '제한 중',
+            data: { endAt: '2026-12-12T00:00:00+09:00' },
+          },
+          { status: 403 },
+        ),
+      ),
+    )
+    renderPage(<PartyNewPage crewId={7} />)
+    await user.click(await screen.findByRole('button', { name: /2026 용감한 쿠키RUN in 서울/ }))
+    await user.click(await screen.findByRole('radio', { name: /10K/ }))
+    await user.click(screen.getByRole('button', { name: '10K로 참가 정보 적기' }))
+    await user.click(await screen.findByRole('checkbox'))
+    await user.type(screen.getByLabelText('참가자 이름'), '김러너')
+    fireEvent.change(screen.getByLabelText('생년월일'), { target: { value: '1994-06-25' } })
+    await user.click(screen.getByRole('radio', { name: '남성' }))
+    await user.type(screen.getByLabelText('휴대폰 번호'), '01012345678')
+    await user.type(screen.getByLabelText('비상 연락처 이름'), '박보호')
+    await user.type(screen.getByLabelText('비상 연락처 번호'), '01098765432')
+    await user.click(screen.getByRole('button', { name: '파티 만들기' }))
+    expect(await screen.findByText('12월 11일까지 파티 만들기가 제한돼요.')).toBeInTheDocument()
   })
 
   it('크루 없이 들어오면 크루 홈으로 안내한다', () => {
