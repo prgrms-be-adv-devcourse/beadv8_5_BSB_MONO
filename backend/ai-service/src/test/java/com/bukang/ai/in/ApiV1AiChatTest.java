@@ -62,7 +62,7 @@ class ApiV1AiChatTest extends AiTestBase {
 			.contains("답변 대기 문의(문의 대기 현황)와 승인 대기 판매자 질문은 해당 도구를 불러")
 			.contains("칸 이름과 칸 설명, 화면이 따로 쓰는 값(목록 줄 수 등)은 답에 쓰지 않는다")
 			// 판매자 화면 전용 지시는 관리자 지시문에 섞이지 않는다 (BUK-254 관리자 문의 회귀)
-			.doesNotContain("지급보류·보낼 키트·판매액")
+			.doesNotContain("키트 배송(송장 입력 대기 포함)")
 			.doesNotContain("seller2");
 		assertThat(types(stored("admin-20"))).containsExactly(MessageType.USER, MessageType.ASSISTANT);
 	}
@@ -74,7 +74,8 @@ class ApiV1AiChatTest extends AiTestBase {
 
 		assertThat(chatModel.lastPrompt().getInstructions().getFirst().getText())
 			.contains("판매자 센터")
-			.contains("정산(돈이 언제 들어오는지 포함)·지급보류·보낼 키트·판매액 질문은 해당 도구를 불러 답한다")
+			.contains("「조회할 수 없다」고 하지 말고 해당 도구를 불러 답한다")
+			.contains("말만 하고 끝내지 않는다. 바로 도구를 부르고, 도구 결과로 답을 마친다")
 			.contains("도구를 부르지 않고 그 정보는 확인해 드릴 수 없다고만 답한다")
 			.contains("「김러너 판매자의 지급보류 이유」")
 			.doesNotContain("답변 대기 문의(문의 대기 현황)");

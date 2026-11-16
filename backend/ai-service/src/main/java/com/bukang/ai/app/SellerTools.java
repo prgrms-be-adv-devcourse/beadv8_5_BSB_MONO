@@ -33,7 +33,8 @@ public class SellerTools {
 
 	private final OpsPort opsPort;
 
-	@Tool(description = "마지막 질문이 송장 입력 대기 키트(보낼 키트)를 물을 때만 부른다(예: 「보낼 키트 있어?」). 답에는 두 숫자를 함께 말한다. "
+	@Tool(description = "마지막 질문이 송장 입력 대기 키트(보낼 키트)를 물을 때만 부른다"
+		+ "(예: 「보낼 키트 있어?」, 「배송 준비 중인 키트 현황 좀」, 「아직 송장 안 넣은 거 있어?」). 답에는 두 숫자를 함께 말한다. "
 		+ "sendableNowCount: 환불 기한이 지나 지금 송장을 입력할 수 있는 건수, "
 		+ "sendableAfterRefundDeadlineCount: 배송 준비 중이지만 환불 기한 전이라 기한이 지나면 보낼 수 있는 건수. "
 		+ "sendableNowCount가 0이어도 sendableAfterRefundDeadlineCount가 있으면 「지금 보낼 키트는 없고, 환불 기한이 지나면 N건을 보낼 수 있다」처럼 답한다. "
@@ -76,7 +77,8 @@ public class SellerTools {
 	}
 
 	@Tool(description = "마지막 질문이 다음 정산일·정산 예정액·지급보류 건수를 물을 때만 부른다"
-		+ "(예: 「돈 언제 들어와?」, 「정산 언제야?」, 「보류된 정산이 있어?」). nextPayDate: 다음 정산일(null이면 지급 예정 정산이 없다), "
+		+ "(예: 「돈 언제 들어와?」, 「나 돈 얼마 받을 수 있어?」, 「정산 일정 알려주세요」, "
+		+ "「보류된 정산이 있어?」). nextPayDate: 다음 정산일(null이면 지급 예정 정산이 없다), "
 		+ "scheduledPayoutAmount: 그날 받을 정산 예정액(원, 지급보류 제외), heldCount: 지급보류 중인 정산 내역 수")
 	public Object sellerNextPayout(ToolContext toolContext) {
 		AiToolTrace trace = AiToolTrace.of(toolContext);
