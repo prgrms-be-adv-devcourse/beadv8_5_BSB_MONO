@@ -115,7 +115,7 @@ class InternalV1OrderControllerTest {
 	}
 
 	@Test
-	@DisplayName("11/15 대회 참가권 3장 중 1장을 취소하면 그 대회 조회에 2장만 정산 필드로 나온다")
+	@DisplayName("11/15 대회 참가권 3장 중 1장을 취소하면 그 대회 조회에 2장만 코스 묶음의 결제 완료 ID로 나온다")
 	void soldEntriesExcludeCanceled() throws Exception {
 		long first = paidOrderItem(1, COURSE_1115);
 		long canceled = paidOrderItem(2, COURSE_1115);
@@ -126,15 +126,38 @@ class InternalV1OrderControllerTest {
 		findSoldEntries(100)
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.message").value("판매 내역을 조회했습니다."))
-			.andExpect(jsonPath("$.data.length()").value(2))
-			.andExpect(jsonPath("$.data[0].orderItemId").value(first))
-			.andExpect(jsonPath("$.data[0].sellerId").value(StubRaceCoursePort.SELLER_ID))
-			.andExpect(jsonPath("$.data[0].raceId").value(100))
-			.andExpect(jsonPath("$.data[0].raceCourseId").value(COURSE_1115))
-			.andExpect(jsonPath("$.data[0].raceDate").value("2026-11-15"))
-			.andExpect(jsonPath("$.data[0].price").value(TICKET_PRICE))
-			.andExpect(jsonPath("$.data[0].status").value("PAID"))
-			.andExpect(jsonPath("$.data[1].orderItemId").value(third));
+			.andExpect(jsonPath("$.data.raceId").value(100))
+			.andExpect(jsonPath("$.data.raceDate").value("2026-11-15"))
+			.andExpect(jsonPath("$.data.sellerId").value(StubRaceCoursePort.SELLER_ID))
+			.andExpect(jsonPath("$.data.courses.length()").value(1))
+			.andExpect(jsonPath("$.data.courses[0].raceCourseId").value(COURSE_1115))
+			.andExpect(jsonPath("$.data.courses[0].price").value(TICKET_PRICE))
+			.andExpect(jsonPath("$.data.courses[0].paidIds.length()").value(2))
+			.andExpect(jsonPath("$.data.courses[0].paidIds[0]").value(first))
+			.andExpect(jsonPath("$.data.courses[0].paidIds[1]").value(third))
+			.andExpect(jsonPath("$.data.courses[0].blockingIds.length()").value(0));
+	}
+
+	@Test
+	@DisplayName("코스 2개에 결제 완료와 취소 중이 섞이면, 코스 ID 순 묶음마다 결제 완료와 취소 중 ID를 나눠 준다")
+	void soldEntriesGroupByCourse() throws Exception {
+		raceCoursePort.put(courseOn(COURSE_1115_HALF, 100, LocalDateTime.of(2026, 11, 15, 8, 0)));
+		long halfPaid = paidOrderItem(1, COURSE_1115_HALF);
+		long fullPaid = paidOrderItem(2, COURSE_1115);
+		long fullCanceling = paidOrderItem(3, COURSE_1115);
+		long halfCanceling = paidOrderItem(4, COURSE_1115_HALF);
+		markStatus(fullCanceling, OrderItemStatus.CANCELING);
+		markStatus(halfCanceling, OrderItemStatus.CANCELING);
+
+		findSoldEntries(100)
+			.andExpect(jsonPath("$.data.courses.length()").value(2))
+			.andExpect(jsonPath("$.data.courses[0].raceCourseId").value(COURSE_1115))
+			.andExpect(jsonPath("$.data.courses[0].paidIds[0]").value(fullPaid))
+			.andExpect(jsonPath("$.data.courses[0].blockingIds[0]").value(fullCanceling))
+			.andExpect(jsonPath("$.data.courses[1].raceCourseId").value(COURSE_1115_HALF))
+			.andExpect(jsonPath("$.data.courses[1].price").value(TICKET_PRICE))
+			.andExpect(jsonPath("$.data.courses[1].paidIds[0]").value(halfPaid))
+			.andExpect(jsonPath("$.data.courses[1].blockingIds[0]").value(halfCanceling));
 	}
 
 	@Test
@@ -148,15 +171,22 @@ class InternalV1OrderControllerTest {
 		long otherRace = paidOrderItem(1, COURSE_1116);
 
 		findSoldEntries(100)
-			.andExpect(jsonPath("$.data.length()").value(1))
-			.andExpect(jsonPath("$.data[0].orderItemId").value(paid));
+			.andExpect(jsonPath("$.data.courses.length()").value(1))
+			.andExpect(jsonPath("$.data.courses[0].paidIds.length()").value(1))
+			.andExpect(jsonPath("$.data.courses[0].paidIds[0]").value(paid));
 		findSoldEntries(101)
-			.andExpect(jsonPath("$.data.length()").value(1))
-			.andExpect(jsonPath("$.data[0].orderItemId").value(otherRace));
-		// 판매가 없거나 없는 대회는 빈 목록이다
+			.andExpect(jsonPath("$.data.courses[0].paidIds.length()").value(1))
+			.andExpect(jsonPath("$.data.courses[0].paidIds[0]").value(otherRace));
+	}
+
+	@Test
+	@DisplayName("판매가 없거나 없는 대회는 courses가 null이 아닌 빈 배열이다")
+	void soldEntriesEmpty() throws Exception {
 		findSoldEntries(999)
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.length()").value(0));
+			.andExpect(jsonPath("$.data.raceId").value(999))
+			.andExpect(jsonPath("$.data.courses").isArray())
+			.andExpect(jsonPath("$.data.courses.length()").value(0));
 	}
 
 	@Test
@@ -166,9 +196,8 @@ class InternalV1OrderControllerTest {
 		changeRaceDate(moved, LocalDateTime.of(2026, 11, 22, 8, 0));
 
 		findSoldEntries(100)
-			.andExpect(jsonPath("$.data.length()").value(1))
-			.andExpect(jsonPath("$.data[0].orderItemId").value(moved))
-			.andExpect(jsonPath("$.data[0].raceDate").value("2026-11-22"));
+			.andExpect(jsonPath("$.data.raceDate").value("2026-11-22"))
+			.andExpect(jsonPath("$.data.courses[0].paidIds[0]").value(moved));
 	}
 
 	@Test
@@ -408,14 +437,12 @@ class InternalV1OrderControllerTest {
 	}
 
 	private void markCanceled(long orderItemId) {
-		transactionTemplate.executeWithoutResult(status -> {
-			OrderItem item = orderRepository.findAll().stream()
-				.flatMap(order -> order.getItems().stream())
-				.filter(candidate -> candidate.getId() == orderItemId)
-				.findFirst()
-				.orElseThrow();
-			ReflectionTestUtils.setField(item, "status", OrderItemStatus.CANCELED);
-		});
+		markStatus(orderItemId, OrderItemStatus.CANCELED);
+	}
+
+	private void markStatus(long orderItemId, OrderItemStatus itemStatus) {
+		transactionTemplate.executeWithoutResult(status -> ReflectionTestUtils.setField(
+			findOrderItem(orderItemId), "status", itemStatus));
 	}
 
 	// 신청서 → [결제하기] → 결제까지 마친 주문의 주문 상품 ID

@@ -2,7 +2,9 @@ package com.bukang.payout.out;
 
 import java.time.Duration;
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Stream;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,7 +19,8 @@ import com.bukang.payout.domain.exception.PayoutOrderLookupUnavailableException;
 
 /**
  * 주문 서비스의 정산용 판매 내역 내부 API를 HTTP로 부르는 어댑터 (PRO-62)
- * GET {주문 서비스}/internal/v1/order/sold-entries?raceId= → RsData.data 배열을 SoldEntry로 바꾼다
+ * GET {주문 서비스}/internal/v1/order/sold-entries?raceId= → RsData.data의 코스 묶음을 풀어 SoldEntry 목록으로 바꾼다
+ * 응답은 참가권마다 칸을 반복하지 않고 대회 · 코스로 묶어 줄였다 (BUK-244). 포트의 SoldEntry 모양은 그대로다
  *
  * 주문 서비스가 멈추거나 오류로 응답하면 예외를 던진다. 배치는 그 대회를 실패로 남기고,
  * 다음 실행이 되돌아보기(7일)로 따라잡는다 (PRO-61). 빈 목록으로 바꾸면 그 대회 정산을 조용히 건너뛴 것처럼 보이므로 삼키지 않는다
@@ -49,7 +52,7 @@ public class OrderSoldEntryAdapter implements SoldEntryPort {
 
 	@Override
 	public List<SoldEntry> findSoldEntries(long raceId) {
-		RsData<List<SoldEntryResponse>> body;
+		RsData<SoldEntriesResponse> body;
 		try {
 			body = restClient.get()
 				.uri(PATH, raceId)
@@ -60,12 +63,19 @@ public class OrderSoldEntryAdapter implements SoldEntryPort {
 			throw new PayoutOrderLookupUnavailableException(raceId, exception);
 		}
 
-		if (body == null || body.data() == null) {
+		if (body == null || body.data() == null || body.data().courses() == null) {
 			throw new PayoutOrderLookupUnavailableException(raceId,
 				new IllegalStateException("주문 서비스의 판매 내역 응답이 비어 있습니다."));
 		}
-		return body.data().stream()
-			.map(SoldEntryResponse::toSoldEntry)
+		SoldEntriesResponse data = body.data();
+		if (!data.courses().isEmpty() && (data.sellerId() == null || data.raceDate() == null)) {
+			throw new PayoutOrderLookupUnavailableException(raceId,
+				new IllegalStateException("주문 서비스의 판매 내역에 판매자나 대회일이 없습니다."));
+		}
+		// 묶기 전처럼 주문 상품 ID 순으로 돌려준다
+		return data.courses().stream()
+			.flatMap(course -> course.toSoldEntries(raceId, data.sellerId(), data.raceDate()))
+			.sorted(Comparator.comparingLong(SoldEntry::orderItemId))
 			.toList();
 	}
 
@@ -76,23 +86,19 @@ public class OrderSoldEntryAdapter implements SoldEntryPort {
 		return factory;
 	}
 
-	// 주문 서비스 응답(SoldEntryDto)의 모양. 포트의 SoldEntry가 응답 형식에 묶이지 않도록 따로 둔다
-	// raceCourseId는 주문 서비스가 PRO-231부터 보낸다. 그 전 버전의 주문 서비스와 붙어도 깨지지 않게 없으면 NULL로 받는다
-	// status는 BUK-52부터 보낸다. 없거나 처음 보는 값이면 결제 완료로 짐작하지 않고 모름으로 받는다
-	private record SoldEntryResponse(long orderItemId, long sellerId, long raceId, Long raceCourseId,
-		LocalDate raceDate, long price, String status) {
-		SoldEntry toSoldEntry() {
-			return new SoldEntry(orderItemId, sellerId, raceId, raceCourseId, raceDate, price, statusOf());
-		}
+	// 주문 서비스 응답(SoldEntriesDto)의 모양. 포트의 SoldEntry가 응답 형식에 묶이지 않도록 따로 둔다
+	// 판매가 없으면 courses는 빈 배열이고 sellerId · raceDate는 null이다
+	private record SoldEntriesResponse(LocalDate raceDate, Long sellerId, List<CourseResponse> courses) {
+	}
 
-		private SoldEntryStatus statusOf() {
-			if ("PAID".equals(status)) {
-				return SoldEntryStatus.결제_완료;
-			}
-			if ("CANCELING".equals(status)) {
-				return SoldEntryStatus.취소_중;
-			}
-			return SoldEntryStatus.모름;
+	// blockingIds는 결제 완료가 아닌 판매(지금은 취소 중뿐)다. 있으면 그 판매자 × 대회의 최종 정산을 미룬다 (BUK-52)
+	private record CourseResponse(Long raceCourseId, long price, List<Long> paidIds, List<Long> blockingIds) {
+		Stream<SoldEntry> toSoldEntries(long raceId, long sellerId, LocalDate raceDate) {
+			return Stream.concat(
+				paidIds.stream().map(id ->
+					new SoldEntry(id, sellerId, raceId, raceCourseId, raceDate, price, SoldEntryStatus.결제_완료)),
+				blockingIds.stream().map(id ->
+					new SoldEntry(id, sellerId, raceId, raceCourseId, raceDate, price, SoldEntryStatus.취소_중)));
 		}
 	}
 }
