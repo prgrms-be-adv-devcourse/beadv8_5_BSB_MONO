@@ -69,8 +69,8 @@ export function useTicketCards() {
   })
 
   return {
-    upcoming: cards.filter((c) => c.status === 'confirmed'),
-    past: cards.filter((c) => c.status !== 'confirmed'),
+    upcoming: cards.filter((c) => c.status === 'confirmed' || c.status === 'paying'),
+    past: cards.filter((c) => c.status === 'finished' || c.status === 'canceled'),
     isPending: tickets.isPending,
     isError: tickets.isError,
     refetch: () => void tickets.refetch(),
@@ -91,7 +91,7 @@ function summaryText(
       ? '참가 취소'
       : status === 'finished'
         ? '대회 종료'
-        : refundDeadline && daysUntil(refundDeadline) >= 0
+        : status === 'confirmed' && refundDeadline && daysUntil(refundDeadline) >= 0
           ? `${formatRaceDate(refundDeadline)}까지 취소하면 ${formatNumber(ticket.amount)}원 전액 환불`
           : ''
   return [date, note].filter(Boolean).join(' · ')

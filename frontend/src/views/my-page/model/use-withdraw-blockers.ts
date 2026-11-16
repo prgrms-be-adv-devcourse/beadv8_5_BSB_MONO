@@ -42,7 +42,8 @@ export function useWithdrawBlockers(): WithdrawBlockers {
   const open = list.filter((t) => {
     const date = raceById.get(t.raceId)?.raceDate
     // 대회 날짜를 못 받았으면 끝나지 않은 것으로 보고 막는다(서버가 최종 확인한다)
-    return ticketStatus(t, { raceOver: date ? daysUntil(date) < 0 : false }) === 'confirmed'
+    // 결제 확인 중 주문도 서버가 끝나지 않은 참가권으로 센다
+    return ticketStatus(t, { raceOver: date ? daysUntil(date) < 0 : false }) !== 'finished'
   })
   const first = raceById.get(open[0]?.raceId ?? 0)
   const firstDate = first?.raceDate?.slice(5, 10).split('-').map(Number)

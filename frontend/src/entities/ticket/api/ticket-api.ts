@@ -10,8 +10,9 @@ import type { MyTicket } from '../model/types'
 /** 한 번에 받는 주문 수 (API 최대 100) */
 const ORDER_PAGE_SIZE = 100
 
-/** 참가권으로 보여 줄 주문 상태: 결제했던 주문 (결제 대기 · 기한 만료는 빼고) */
+/** 참가권으로 보여 줄 주문 상태: 결제했거나 결제 확인 중인 주문 (결제 대기 · 기한 만료는 빼고) */
 const TICKET_ORDER_STATUSES: orderModel.OrderSummaryDtoStatus[] = [
+  orderModel.OrderSummaryDtoStatus.PAYING,
   orderModel.OrderSummaryDtoStatus.PAID,
   orderModel.OrderSummaryDtoStatus.PARTIAL_CANCELED,
   orderModel.OrderSummaryDtoStatus.CANCELED,
@@ -27,13 +28,15 @@ async function fetchOrder(orderId: number, signal?: AbortSignal) {
   return unwrapData(await orderApi.findById1(orderId, { signal }))
 }
 
-/** 주문 상세의 주문 상품 → 참가권 */
+/** 주문 상세의 주문 상품 → 참가권. 결제 확인 중 주문의 상품(ORDERED)은 결제 확인 중 참가권으로 넣는다 */
 export function toMyTickets(
   order: orderModel.OrderDto,
   statuses: orderModel.OrderItemDtoStatus[] = TICKET_ITEM_STATUSES,
 ): MyTicket[] {
+  const paying = order.status === orderModel.OrderDtoStatus.PAYING
+  const allowed = paying ? [...statuses, orderModel.OrderItemDtoStatus.ORDERED] : statuses
   return (order.items ?? [])
-    .filter((item) => item.status && statuses.includes(item.status))
+    .filter((item) => item.status && allowed.includes(item.status))
     .map((item) => ({
       id: toTicketId(order.id ?? 0, item.id ?? 0),
       orderId: order.id ?? 0,
@@ -45,6 +48,7 @@ export function toMyTickets(
       itemName: item.itemName ?? '',
       amount: item.amount ?? 0,
       itemStatus: item.status ?? orderModel.OrderItemDtoStatus.PAID,
+      paying,
     }))
 }
 
@@ -111,7 +115,7 @@ export function withdrawTicketsQueryOptions() {
 }
 
 /**
- * 내 참가 대회 수(마이 화면). 내 참가권 화면과 같은 목록에서 취소한 참가권만 빼고 센다 (참가 확정 + 끝난 대회).
+ * 내 참가 대회 수(마이 화면). 내 참가권 화면과 같은 목록에서 취소한 참가권과 결제 확인 중 참가권을 빼고 센다 (참가 확정 + 끝난 대회).
  * 결제 대기 · 기한 만료 주문은 목록에 처음부터 없다. 같은 쿼리 키라 두 화면이 같은 데이터를 쓴다.
  * enabled가 false면 부르지 않는다.
  */
@@ -119,7 +123,8 @@ export function myTicketCountQueryOptions(enabled: boolean) {
   return queryOptions({
     ...myTicketsQueryOptions(),
     select: (tickets: MyTicket[]) =>
-      tickets.filter((t) => t.itemStatus !== orderModel.OrderItemDtoStatus.CANCELED).length,
+      tickets.filter((t) => !t.paying && t.itemStatus !== orderModel.OrderItemDtoStatus.CANCELED)
+        .length,
     enabled,
   })
 }
