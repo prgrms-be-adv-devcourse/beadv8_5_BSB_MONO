@@ -1,8 +1,8 @@
 name: linear-sync
 
 # Linear 공식 GitHub 연동이 동작하지 않아, PR 이벤트로 Linear 이슈를 직접 갱신한다.
-# 팀원마다 자기 Linear 개인 API 키를 저장소 시크릿 LINEAR_API_KEY_<GitHub 아이디>로 등록한다
-# (대문자, '-'는 '_'로). 등록 방법은 docs/LINEAR-API-KEY.md. 팀원이 바뀌면 아래 env도 같이 고친다.
+# 팀원마다 자기 Linear 개인 API 키를 저장소 시크릿으로 등록한다 (GitHub 아이디는 대문자, '-'는 '_'로).
+# 워크스페이스가 두 개라 키도 두 개다: BUK(기존 이슈)는 LINEAR_API_KEY_<아이디>, CRU(새 이슈)는 LINEAR_API_KEY_CRU_<아이디>. 등록 방법은 docs/LINEAR-API-KEY.md. 팀원이 바뀌면 아래 env도 같이 고친다.
 #
 # pull_request_target은 base 브랜치와 상관없이 기본 브랜치(main)의 워크플로·스크립트로만 돈다(GitHub 2025-12 변경).
 # 그래서 이 파일과 .github/scripts/linear-sync.js가 main에 없으면 dev로 가는 PR에서도 실행되지 않는다.
@@ -33,6 +33,11 @@ jobs:
           LINEAR_API_KEY_BBANGHO: ${{ secrets.LINEAR_API_KEY_BBANGHO }}
           LINEAR_API_KEY_KSOHEEE: ${{ secrets.LINEAR_API_KEY_KSOHEEE }}
           LINEAR_API_KEY_DAWIT_LEE: ${{ secrets.LINEAR_API_KEY_DAWIT_LEE }}
+          LINEAR_API_KEY_CRU_JIEUNSSE: ${{ secrets.LINEAR_API_KEY_CRU_JIEUNSSE }}
+          LINEAR_API_KEY_CRU_KHB3025: ${{ secrets.LINEAR_API_KEY_CRU_KHB3025 }}
+          LINEAR_API_KEY_CRU_BBANGHO: ${{ secrets.LINEAR_API_KEY_CRU_BBANGHO }}
+          LINEAR_API_KEY_CRU_KSOHEEE: ${{ secrets.LINEAR_API_KEY_CRU_KSOHEEE }}
+          LINEAR_API_KEY_CRU_DAWIT_LEE: ${{ secrets.LINEAR_API_KEY_CRU_DAWIT_LEE }}
         with:
           script: |
             const sync = require('./.github/scripts/linear-sync.js')
