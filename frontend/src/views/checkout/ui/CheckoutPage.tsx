@@ -34,7 +34,7 @@ import {
   type IconName,
 } from '@/shared/ui'
 
-import { useDepositBalance } from '../api/deposit-balance'
+import { useDepositBalance } from '../api/use-deposit-balance'
 import { splitPayment } from '../lib/deposit'
 import { toPayFailure, type PayFailure } from '../lib/pay-error'
 import { useHoldCountdown } from '../model/use-hold-countdown'
