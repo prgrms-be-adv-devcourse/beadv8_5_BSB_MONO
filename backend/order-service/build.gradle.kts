@@ -44,3 +44,9 @@ tasks.compileJava {
 tasks.clean {
 	delete(querydslDir)
 }
+
+// 주문 테스트는 설정이 다른 Spring 컨텍스트를 여러 개 캐시해 둔다. 지표 부품(#504)이 붙은 뒤 기본 힙 512MB로는
+// 모자라 테스트 JVM이 OutOfMemoryError로 멈췄다(dev backend-ci 11/16). 테스트 JVM 힙만 1GB로 늘린다
+tasks.test {
+	maxHeapSize = "1g"
+}
