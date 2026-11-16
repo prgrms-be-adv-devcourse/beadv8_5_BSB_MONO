@@ -75,5 +75,7 @@ subprojects {
 		useJUnitPlatform()
 		// 운영 컨테이너(Dockerfile의 TZ=Asia/Seoul)와 같은 시계로 테스트한다. CI 러너는 UTC라 한국 0~9시엔 날짜가 하루 어긋난다
 		systemProperty("user.timezone", "Asia/Seoul")
+		// 기본 512MB로는 Spring 테스트 컨텍스트를 여럿 붙잡는 order-service 테스트가 OutOfMemoryError로 죽는다
+		maxHeapSize = "1g"
 	}
 }
