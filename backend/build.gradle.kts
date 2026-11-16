@@ -1,4 +1,5 @@
 import io.spring.gradle.dependencymanagement.dsl.DependencyManagementExtension
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.springframework.boot.gradle.plugin.SpringBootPlugin
 
 // 루트 프로젝트에는 코드가 없고, 모든 모듈에 공통으로 적용할 설정만 둔다
@@ -77,5 +78,10 @@ subprojects {
 		systemProperty("user.timezone", "Asia/Seoul")
 		// 기본 512MB로는 Spring 테스트 컨텍스트를 여럿 붙잡는 order-service 테스트가 OutOfMemoryError로 죽는다
 		maxHeapSize = "1g"
+		// CI에는 테스트 보고서가 남지 않으므로, 실패한 테스트는 예외 메시지와 원인(Caused by)까지 로그에 찍는다
+		testLogging {
+			events("failed")
+			exceptionFormat = TestExceptionFormat.FULL
+		}
 	}
 }
