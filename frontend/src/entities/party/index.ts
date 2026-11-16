@@ -23,6 +23,7 @@ export {
   type PartySummary,
 } from './api/party-api'
 export {
+  crewPartyRestrictedEndAt,
   individualParticipationId,
   isCrewSeatShortage,
   partyFailureOf,

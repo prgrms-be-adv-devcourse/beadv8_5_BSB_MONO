@@ -106,7 +106,7 @@ export function PartyJoinPage({ token }: { token: string }) {
               crew.data && `${crew.data.name} 크루`,
               course?.name,
               `파티장 ${data.leaderNickname}`,
-              `지금 ${data.memberCount}명`,
+              `지금 ${data.memberCount}명${race.data?.crewMaxCount ? ` / 최대 ${race.data.crewMaxCount}명` : ''}`,
             ]
               .filter(Boolean)
               .join(' · ')}
@@ -141,7 +141,7 @@ export function PartyJoinPage({ token }: { token: string }) {
           className="sticky bottom-0 z-10"
           primary={
             <Button size="l" type="submit" form={FORM_ID} loading={join.isPending}>
-              파티에 합류하기
+              합류하기
             </Button>
           }
         />

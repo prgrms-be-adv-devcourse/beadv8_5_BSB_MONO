@@ -8,7 +8,7 @@ const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
  * 지금 compose.yml은 DB 컨테이너에만 TZ를 지정해서, member-service가 UTC로 돌면 9시간 어긋난다(백엔드에 확인 요청).
  */
 export function parseKstDateTime(value: string): number {
-  return new Date(`${value}+09:00`).getTime()
+  return new Date(/(Z|[+-]\d\d:\d\d)$/.test(value) ? value : `${value}+09:00`).getTime()
 }
 
 /** 10/31 (토) 14:20 */
@@ -16,6 +16,25 @@ export function formatKstDateTime(value: string): string {
   const kst = new Date(parseKstDateTime(value) + KST_OFFSET_MS)
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${kst.getUTCMonth() + 1}/${kst.getUTCDate()} (${WEEKDAYS[kst.getUTCDay()]}) ${pad(kst.getUTCHours())}:${pad(kst.getUTCMinutes())}`
+}
+
+/** 11월 20일 */
+export function formatKstMonthDay(value: string): string {
+  const kst = new Date(parseKstDateTime(value) + KST_OFFSET_MS)
+  return `${kst.getUTCMonth() + 1}월 ${kst.getUTCDate()}일`
+}
+
+/** 11월 20일 14:20 */
+export function formatKstMonthDayTime(value: string): string {
+  const kst = new Date(parseKstDateTime(value) + KST_OFFSET_MS)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${formatKstMonthDay(value)} ${pad(kst.getUTCHours())}:${pad(kst.getUTCMinutes())}`
+}
+
+/** 「이 시각부터」인 끝 시각의 마지막 날. 자정(12/12 00:00)이면 「12월 11일」 */
+export function formatKstLastDay(endAt: string): string {
+  const kst = new Date(parseKstDateTime(endAt) - 1 + KST_OFFSET_MS)
+  return `${kst.getUTCMonth() + 1}월 ${kst.getUTCDate()}일`
 }
 
 /** 남은 시간을 「23시간 12분」처럼 쓴다. 1분이 안 남았으면 「1분」, 이미 지났으면 null. */
