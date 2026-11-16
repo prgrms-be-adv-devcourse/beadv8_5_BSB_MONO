@@ -1,14 +1,20 @@
 #!/usr/bin/env python3
-"""시나리오 B 결과 그래프를 PNG로 만든다 (로컬 Prometheus와 results/ 파일을 읽음)
+"""시나리오 B 결과 그래프를 PNG로 만든다 (Prometheus와 결과 파일을 읽음)
 
 필요한 것: matplotlib (python3 -m venv .venv && .venv/bin/pip install matplotlib)
 실행(backend/에서):
-  python3 loadtest/scenario-b/graph.py b1 "2026-11-16 15:48:31" <출력 폴더>   # B-1 시작 시각
+  python3 loadtest/scenario-b/graph.py b1 "2026-11-16 15:48:31" <출력 폴더>   # B-1 한계(도착 속도 올림) 시작 시각
+  python3 loadtest/scenario-b/graph.py b1c "2026-11-17 10:00:00" <출력 폴더>  # B-1 동시 4·8개 시작 시각
   python3 loadtest/scenario-b/graph.py b2 "2026-11-16 17:29:45" <출력 폴더>   # B-2 시작 시각
-  python3 loadtest/scenario-b/graph.py b3 loadtest/scenario-b/results/2026-11-16 <출력 폴더>   # b3-1·2·3.txt 앞부분
+  python3 loadtest/scenario-b/graph.py b3 loadtest/scenario-b/results/2026-11-16 <출력 폴더>   # b3-*.json 앞부분
   python3 loadtest/scenario-b/graph.py b4 loadtest/scenario-b/results/2026-11-16 <출력 폴더>   # b4-*.txt 앞부분
+  python3 loadtest/scenario-b/graph.py b5 "2026-11-17 10:30:00" <출력 폴더>   # B-5 충전 시작 시각
 
-Prometheus 기본 보관 기간(15일)이 지나면 b1·b2는 다시 그릴 수 없다.
+환경 변수
+  PROM_URL     Prometheus 주소 (기본 http://localhost:9095)
+  PROM_WINDOW  rate 구간 (기본 30s. 15초마다 모으면 그 두 배는 돼야 값이 나온다. 1초마다 모으는 측정 컨테이너는 5s)
+  STAGE_SEC    b1c 단계 길이 (기본 120), PHASE_SEC b2 구간 길이 (기본 60), DURATION_SEC b5 길이 (기본 600)
+Prometheus 기본 보관 기간(15일)이 지나면 b1·b1c·b2·b5는 다시 그릴 수 없다.
 """
 import glob
 import json
@@ -27,17 +33,31 @@ import matplotlib.pyplot as plt  # noqa: E402
 from matplotlib import font_manager  # noqa: E402
 
 PROM = os.environ.get("PROM_URL", "http://localhost:9095")
+W = os.environ.get("PROM_WINDOW", "30s")
 APP = 'application="cash-service"'
 PAY = APP + ',uri="/internal/v1/cash/payments/{orderId}"'
 PAYOUT = APP + ',uri="/internal/v1/cash/payouts/{payoutId}"'
 BANK = APP + ',uri="/fakebank/v1/transfers"'
+CHARGE = APP + ',uri="/api/v1/cash/charges/confirm"'
+ROW_LOCK_WAITS = f"rate(mysql_global_status_innodb_row_lock_waits[{W}])"
+DB_ACTIVE = f"hikaricp_connections_active{{{APP}}}"
+DB_PENDING = f"hikaricp_connections_pending{{{APP}}}"
 
-# 맥 기본 한글 글꼴. 없으면 기본 글꼴로 그린다(한글이 네모로 보일 수 있음)
-for path in ["/System/Library/Fonts/AppleSDGothicNeo.ttc"]:
+# 맥 기본 한글 글꼴, 리눅스(Actions)는 Noto CJK. 없으면 기본 글꼴로 그린다(한글이 네모로 보일 수 있음)
+for path in ["/System/Library/Fonts/AppleSDGothicNeo.ttc", "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"]:
     if os.path.exists(path):
         font_manager.fontManager.addfont(path)
         plt.rcParams["font.family"] = font_manager.FontProperties(fname=path).get_name()
+        break
 plt.rcParams["axes.unicode_minus"] = False
+
+
+def rate(selector):
+    return f"sum(rate(http_server_requests_seconds_count{{{selector}}}[{W}]))"
+
+
+def quantile(selector, q):
+    return f"histogram_quantile({q}, sum by (le) (rate(http_server_requests_seconds_bucket{{{selector}}}[{W}]))) * 1000"
 
 
 def series(query, start, end, step=5):
@@ -52,10 +72,6 @@ def series(query, start, end, step=5):
     return xs, ys
 
 
-def p95(selector):
-    return f"histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{{{selector}}}[30s]))) * 1000"
-
-
 def mark(ax, edges, labels):
     for x in edges:
         ax.axvline(x, color="gray", linewidth=0.6, linestyle=":")
@@ -64,78 +80,87 @@ def mark(ax, edges, labels):
                 color="dimgray")
 
 
-def b1(start_text, out):
+def timeline(start_text, edges, labels, panels, title, name, out, log_panels=(), from_zero=False):
+    """panels: [(제목, [(쿼리, 선 이름), ...]), ...] 를 시작 시각부터 edges[-1]초까지 위아래로 그린다"""
     start = datetime.strptime(start_text, "%Y-%m-%d %H:%M:%S").timestamp()
-    edges = [0, 30, 150, 270, 390, 510, 630]
-    labels = ["워밍업", "초당 20", "50", "100", "200", "400"]
     end = start + edges[-1]
-    fig, axes = plt.subplots(4, 1, figsize=(10, 11), sharex=True)
-    panels = [
-        ("결제 처리 (초당)", [(f"sum(rate(http_server_requests_seconds_count{{{PAY}}}[30s]))", "처리", None)]),
-        ("서버 결제 응답 p95 (ms, 로그)", [(p95(PAY), "p95", None)]),
-        ("DB 연결 (개)", [(f"hikaricp_connections_active{{{APP}}}", "사용 중", None),
-                         (f"hikaricp_connections_pending{{{APP}}}", "기다리는 요청", None)]),
-        ("MySQL 행 락 대기 (초당)", [("rate(mysql_global_status_innodb_row_lock_waits[30s])", "대기", None)]),
-    ]
-    for ax, (title, lines) in zip(axes, panels):
-        for query, label, _ in lines:
-            xs, ys = series(query, start, end)
-            ax.plot(xs, ys, label=label)
-        ax.set_title(title, loc="left", fontsize=10)
-        mark(ax, edges, labels)
-        if len(lines) > 1:
-            ax.legend(fontsize=8, loc="upper left")
-    axes[1].set_yscale("log")
-    axes[-1].set_xlabel("시작 뒤 (초)")
-    fig.suptitle("B-1 결제 처리량 한계: 초당 결제를 단계마다 올림", fontsize=12)
-    fig.tight_layout()
-    save(fig, out, "b1-payment-ramp.png")
-
-
-def b2(start_text, out):
-    start = datetime.strptime(start_text, "%Y-%m-%d %H:%M:%S").timestamp()
-    edges = [0, 30, 90, 150, 210]
-    labels = ["워밍업", "앞", "가운데 (정산 섞음)", "뒤"]
-    end = start + edges[-1]
-    fig, axes = plt.subplots(4, 1, figsize=(10, 11), sharex=True)
-    rate = "sum(rate(http_server_requests_seconds_count{{{0}}}[30s]))"
-    avg_ms = ("sum(rate(http_client_requests_seconds_sum{{{0}}}[30s])) / "
-              "sum(rate(http_client_requests_seconds_count{{{0}}}[30s])) * 1000")
-    panels = [
-        ("처리 (초당)", [(rate.format(PAY), "결제"), (rate.format(PAYOUT), "정산 지급")]),
-        ("서버 응답 p95 (ms)", [(p95(PAY), "결제"), (p95(PAYOUT), "정산 지급")]),
-        ("cash → 가짜 은행 호출 평균 (ms)", [(avg_ms.format(BANK), "은행 호출")]),
-        ("MySQL 행 락 대기 (초당)", [("rate(mysql_global_status_innodb_row_lock_waits[30s])", "대기")]),
-    ]
-    for ax, (title, lines) in zip(axes, panels):
+    fig, axes = plt.subplots(len(panels), 1, figsize=(10, 2.75 * len(panels)), sharex=True)
+    for i, (ax, (panel_title, lines)) in enumerate(zip(axes, panels)):
         for query, label in lines:
             xs, ys = series(query, start, end)
             ax.plot(xs, ys, label=label)
-        ax.set_title(title, loc="left", fontsize=10)
+        ax.set_title(panel_title, loc="left", fontsize=10)
         mark(ax, edges, labels)
         if len(lines) > 1:
             ax.legend(fontsize=8, loc="upper left")
-    for ax in axes:
-        ax.set_ylim(bottom=0)
+        if i in log_panels:
+            ax.set_yscale("log")
+        elif from_zero:
+            ax.set_ylim(bottom=0)
     axes[-1].set_xlabel("시작 뒤 (초)")
-    fig.suptitle("B-2 결제 중 정산 지급 몰림: 가운데 1분만 정산 초당 20건", fontsize=12)
+    fig.suptitle(title, fontsize=12)
     fig.tight_layout()
-    save(fig, out, "b2-payment-with-payout.png")
+    save(fig, out, name)
 
 
-def to_ms(text):
-    return float(text[:-2]) if text.endswith("ms") else float(text[:-1]) * 1000
+def b1(start_text, out):
+    timeline(start_text, [0, 30, 150, 270, 390, 510, 630], ["워밍업", "초당 20", "50", "100", "200", "400"], [
+        ("결제 처리 (초당)", [(rate(PAY), "처리")]),
+        ("서버 결제 응답 p95 (ms, 로그)", [(quantile(PAY, 0.95), "p95")]),
+        ("DB 연결 (개)", [(DB_ACTIVE, "사용 중"), (DB_PENDING, "기다리는 요청")]),
+        ("MySQL 행 락 대기 (초당)", [(ROW_LOCK_WAITS, "대기")]),
+    ], "B-1 한계: 초당 결제를 단계마다 올림", "b1-payment-ramp.png", out, log_panels=(1,))
+
+
+def b1c(start_text, out):
+    stage = int(os.environ.get("STAGE_SEC", 120))
+    timeline(start_text, [0, stage, stage * 2], ["동시 4개 (주문 1대)", "동시 8개 (주문 2대)"], [
+        ("결제 처리 (초당, 필요량 48)", [(rate(PAY), "처리")]),
+        ("서버 결제 응답 (ms)", [(quantile(PAY, 0.95), "p95"), (quantile(PAY, 0.99), "p99")]),
+        ("DB 연결 (개)", [(DB_ACTIVE, "사용 중"), (DB_PENDING, "기다리는 요청")]),
+        ("MySQL 행 락 대기 (초당)", [(ROW_LOCK_WAITS, "대기")]),
+    ], "B-1 주문이 보내는 모양 그대로 결제: 동시 N개가 쉬지 않고 부름", "b1-payment-concurrency.png", out,
+        from_zero=True)
+
+
+def b2(start_text, out):
+    phase = int(os.environ.get("PHASE_SEC", 60))
+    warmup = min(30, phase)
+    avg_ms = (f"sum(rate(http_client_requests_seconds_sum{{{BANK}}}[{W}])) / "
+              f"sum(rate(http_client_requests_seconds_count{{{BANK}}}[{W}])) * 1000")
+    timeline(start_text, [0, warmup, warmup + phase, warmup + phase * 2, warmup + phase * 3],
+             ["워밍업", "앞", "가운데 (정산 섞음)", "뒤"], [
+                 ("처리 (초당)", [(rate(PAY), "결제"), (rate(PAYOUT), "정산 지급")]),
+                 ("서버 응답 p95 (ms)", [(quantile(PAY, 0.95), "결제"), (quantile(PAYOUT, 0.95), "정산 지급")]),
+                 ("cash → 가짜 은행 호출 평균 (ms)", [(avg_ms, "은행 호출")]),
+                 ("MySQL 행 락 대기 (초당)", [(ROW_LOCK_WAITS, "대기")]),
+             ], "B-2 결제 중 정산 지급 몰림: 가운데 구간만 정산 섞음", "b2-payment-with-payout.png", out, from_zero=True)
+
+
+def b5(start_text, out):
+    duration = int(os.environ.get("DURATION_SEC", 600))
+    active = f"sum(http_server_requests_active_seconds_active_count{{{APP}}})"
+    timeline(start_text, [0, duration], ["충전 승인 초당 48건 (가짜 PG 승인 1초)"], [
+        ("충전 처리 (초당)", [(rate(CHARGE), "처리")]),
+        ("서버 충전 응답 (ms)", [(quantile(CHARGE, 0.95), "p95"), (quantile(CHARGE, 0.99), "p99")]),
+        ("처리 중인 요청 (개, 스레드 200개까지)", [(active, "처리 중")]),
+        ("DB 연결 (개)", [(DB_ACTIVE, "사용 중"), (DB_PENDING, "기다리는 요청")]),
+    ], "B-5 접수가 열렸을 때 충전 승인", "b5-charge.png", out, from_zero=True)
 
 
 def b3(prefix, out):
+    # k6 --summary-export 파일에서 장수별 p95를 읽는다 (회차마다 한 파일)
     runs = {}
-    for path in sorted(glob.glob(prefix + "-b3-*.txt")):
-        for cards, value in re.findall(r"\{ cards:(\d) \}\.+: .*?p\(95\)=([\d.]+m?s)", open(path).read()):
-            runs.setdefault(int(cards), []).append(to_ms(value))
+    for path in sorted(glob.glob(prefix + "-b3-*.json")):
+        metrics = json.load(open(path))["metrics"]
+        for key, values in metrics.items():
+            found = re.fullmatch(r"http_req_duration\{cards:(\d)\}", key)
+            if found:
+                runs.setdefault(int(found.group(1)), []).append(values["p(95)"])
     cards = sorted(runs)
     medians = [statistics.median(runs[c]) for c in cards]
     fig, ax = plt.subplots(figsize=(7, 4.5))
-    ax.bar([str(c) + "장" for c in cards], medians, color="#4c72b0", label="p95 중앙값 (3회)")
+    ax.bar([str(c) + "장" for c in cards], medians, color="#4c72b0", label=f"p95 중앙값 ({len(runs[cards[0]])}회)")
     for i, c in enumerate(cards):
         ax.scatter([i] * len(runs[c]), runs[c], color="black", s=12, zorder=3,
                    label="회차별 p95" if i == 0 else None)
@@ -172,7 +197,7 @@ def b4(prefix, out):
     right.bar(labels, [t - d for t, d in zip(took, db)], bottom=db, color="#c44e52", label="DB 밖 시간")
     for i, v in enumerate(took):
         right.text(i, v, f"{v:.2f}초", ha="center", va="bottom", fontsize=9)
-    right.set_title("걸린 시간 (10,000명은 3회 중앙값)", fontsize=10)
+    right.set_title("걸린 시간 (같은 대상 수를 여러 번 쟀으면 중앙값)", fontsize=10)
     right.legend(fontsize=8)
     fig.suptitle("B-4 카드 취소 기한 알림 배치", fontsize=12)
     fig.tight_layout()
@@ -187,7 +212,7 @@ def save(fig, out, name):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 4 or sys.argv[1] not in ("b1", "b2", "b3", "b4"):
+    if len(sys.argv) != 4 or sys.argv[1] not in ("b1", "b1c", "b2", "b3", "b4", "b5"):
         print(__doc__)
         sys.exit(1)
     globals()[sys.argv[1]](sys.argv[2], sys.argv[3])

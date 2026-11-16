@@ -4,17 +4,25 @@
 // 판정(README 「판정 기준」): 정산이 섞인 동안(during) 결제가 p99 1초·p95 2초(근거 있음), p95 200ms(추천값) 안인지,
 // 앞뒤(before·after)와 나란히 비교한다
 // 결제 초당 PAY_RATE(기본 50), 정산 초당 PAYOUT_RATE(기본 20). 결제 결과는 phase(before·during·after)로 나눠 본다
+// PAY_VUS를 주면 결제를 초당 몇 건 대신 동시 PAY_VUS개로 쉬지 않고 부른다 (측정 컨테이너, 판정 기준 문서 2장 B-2)
 import http from 'k6/http';
 import { check } from 'k6';
 import { INTERNAL, JSON_HEADERS, PAYMENT_AMOUNT, payerId, refId, sellerId } from './lib.js';
 
 const PAY_RATE = Number(__ENV.PAY_RATE || 50);
+const PAY_VUS = Number(__ENV.PAY_VUS || 0);
 const PAYOUT_RATE = Number(__ENV.PAYOUT_RATE || 20);
 // 구간 길이는 -e PHASE_SEC=60 (기본 60초, 스모크는 줄여서)
 const PHASE_SEC = Number(__ENV.PHASE_SEC || 60);
 const WARMUP_SEC = Math.min(30, PHASE_SEC);
 
 function payScenario(phase, startSec) {
+	if (PAY_VUS > 0) {
+		return {
+			executor: 'constant-vus', vus: PAY_VUS, duration: `${PHASE_SEC}s`, startTime: `${startSec}s`,
+			gracefulStop: '5s', exec: 'pay', tags: { phase },
+		};
+	}
 	return {
 		executor: 'constant-arrival-rate', rate: PAY_RATE, timeUnit: '1s', duration: `${PHASE_SEC}s`,
 		preAllocatedVUs: PAY_RATE * 2, maxVUs: PAY_RATE * 8, startTime: `${startSec}s`,
@@ -41,6 +49,10 @@ export const options = {
 		'http_req_failed{api:pay}': ['rate<0.01'],
 		'http_req_failed{api:payout}': ['rate<0.01'],
 		dropped_iterations: ['count==0'],
+		// 늘 통과하는 기준이지만, 이렇게 걸어야 요약 파일에 구간별 결제 건수가 따로 남는다 (처리량 비교용, P3)
+		'iterations{phase:before}': ['count>=0'],
+		'iterations{phase:during}': ['count>=0'],
+		'iterations{phase:after}': ['count>=0'],
 	},
 	summaryTrendStats: ['avg', 'med', 'p(95)', 'p(99)', 'max'],
 };

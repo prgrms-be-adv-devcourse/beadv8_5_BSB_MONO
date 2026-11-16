@@ -1,9 +1,10 @@
 // 시나리오 B 공통: 주소 검사, 헤더, 번호대
 import exec from 'k6/execution';
 
-// 운영 서버로는 절대 보내지 않는다. 로컬 주소가 아니면 VU가 시작하기 전(초기화 단계)에 멈춘다
+// 운영 서버로는 절대 보내지 않는다. 로컬 주소나 측정 컨테이너(container/compose.load.yml의 cash)가 아니면
+// VU가 시작하기 전(초기화 단계)에 멈춘다
 export const CASH_URL = __ENV.CASH_URL || 'http://localhost:8081';
-if (!/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(CASH_URL)) {
+if (!/^http:\/\/(localhost|127\.0\.0\.1|cash)(:\d+)?$/.test(CASH_URL)) {
 	throw new Error(`로컬 주소가 아니라 멈춥니다: ${CASH_URL}`);
 }
 export const INTERNAL = `${CASH_URL}/internal/v1/cash`;
@@ -15,15 +16,17 @@ if (!(RUN >= 1 && RUN <= 99)) {
 }
 const REF_BASE = 900000000 + RUN * 1000000;
 
-// 반복 번호는 시나리오마다 0부터 다시 세므로, 시나리오마다 10만 칸씩 나눠 겹치지 않게 한다 (9개까지)
-// 999,999는 같은 주문·같은 정산 동시 요청용
+// 반복 번호는 시나리오마다 0부터 다시 세므로, 시나리오 수만큼 칸을 똑같이 나눠 겹치지 않게 한다
+// (시나리오 2개면 칸마다 약 50만 개). 999,999는 같은 주문·같은 정산 동시 요청용
 export function refId() {
-	const slot = Object.keys(exec.test.options.scenarios).indexOf(exec.scenario.name);
+	const names = Object.keys(exec.test.options.scenarios);
+	const width = Math.floor(999999 / names.length);
+	const slot = names.indexOf(exec.scenario.name);
 	const iteration = exec.scenario.iterationInTest;
-	if (slot > 8 || iteration >= 100000) {
+	if (iteration >= width) {
 		throw new Error(`번호 칸을 넘었어요: 시나리오 ${slot}, 반복 ${iteration}`);
 	}
-	return REF_BASE + slot * 100000 + iteration;
+	return REF_BASE + slot * width + iteration;
 }
 export const SAME_REF_ID = REF_BASE + 999999;
 

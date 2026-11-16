@@ -6,13 +6,14 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 N="${1:?회원 수를 넣어 주세요. 예: ./seed-notice.sh 1000}"
-if (( N < 1 || N > 70000 )); then echo "1 ~ 70000명만 만들 수 있어요"; exit 1; fi
+# 920001 ~ 939999만 쓴다. 그 위는 충전 회원(seed-charge.sh) 번호대
+if (( N < 1 || N > 19999 )); then echo "1 ~ 19999명만 만들 수 있어요"; exit 1; fi
 
 ./db.sh <<SQL
 SET SESSION cte_max_recursion_depth = 100000;
-DELETE FROM cash_wallet_charge WHERE wallet_id BETWEEN 920001 AND 999999;
-DELETE FROM cash_wallet WHERE id BETWEEN 920001 AND 999999;
-DELETE FROM cash_member WHERE id BETWEEN 920001 AND 999999;
+DELETE FROM cash_wallet_charge WHERE wallet_id BETWEEN 920001 AND 939999;
+DELETE FROM cash_wallet WHERE id BETWEEN 920001 AND 939999;
+DELETE FROM cash_member WHERE id BETWEEN 920001 AND 939999;
 
 INSERT INTO cash_member (id, nickname, create_date, modify_date)
 WITH RECURSIVE seq (n) AS (SELECT 920001 UNION ALL SELECT n + 1 FROM seq WHERE n < 920000 + ${N})
@@ -28,8 +29,8 @@ FROM seq, (SELECT TIMESTAMP(CURDATE() + INTERVAL 4 DAY - INTERVAL 1 YEAR, '10:00
 
 -- 시나리오 B 밖의 회원 중 같은 날 대상인 사람도 배치가 함께 본다. 결과 문서에 같이 적는다
 SELECT
-	SUM(wallet_id BETWEEN 920001 AND 999999) AS 시나리오_대상,
-	SUM(wallet_id NOT BETWEEN 920001 AND 999999) AS 그_밖의_대상
+	SUM(wallet_id BETWEEN 920001 AND 939999) AS 시나리오_대상,
+	SUM(wallet_id NOT BETWEEN 920001 AND 939999) AS 그_밖의_대상
 FROM cash_wallet_charge
 WHERE status = 'COMPLETED'
 	AND approved_at >= CURDATE() + INTERVAL 1 DAY - INTERVAL 1 YEAR

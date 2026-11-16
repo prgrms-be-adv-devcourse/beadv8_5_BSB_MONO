@@ -61,3 +61,28 @@ k6 run -e RUN=3 loadtest/scenario-b/b2-payment-with-payout.js && ./loadtest/scen
 - k6 요약(`--summary-export`)·확인 SQL 출력·맥 기록 같은 원본은 `results/`에 둬요.
 - 그래프는 `graph.py`로 만들어요(matplotlib 필요, 사용법은 파일 맨 위). 시간별 그래프는 로컬 Prometheus에서 읽어서 측정 시작 시각을 적어 둬야 해요.
 - cash 내부 API 키 검사가 들어오면 `k6 run -e INTERNAL_API_KEY=...`로 `.env`의 값을 넘겨요.
+
+## 자원을 묶은 컨테이너에서 재기 (본 측정)
+
+맥에서 잰 위 측정은 연습이에요. 판정에 쓰는 측정은 자원을 묶은 컨테이너에서 해요.
+판정 기준과 시나리오는 `docs/measurements/2026-11-16-예치금-부하-판정기준.md`에 있어요.
+
+| 파일 | 하는 일 |
+|---|---|
+| `container/compose.load.yml` | 예치금 + MySQL·Kafka·Redis·mysqld-exporter·Prometheus (프로젝트 이름 `cashload`, 자원 제한 포함) |
+| `container/run.sh` | 한 바퀴: 빈 DB로 띄우기 → 시드 → 예열·B-0~B-5 → 시나리오마다 돈 확인 → 락 통계·그래프 → 내리기 |
+| `b1-payment-concurrency.js` | B-1 결제 동시 4·8개 (주문이 보내는 모양) |
+| `b5-charge.js`, `seed-charge.sh` | B-5 충전 승인 초당 48건, 1,000명 동시 |
+| `sql/12-verify-charge.sql` | 중복 충전 확인 (C6) |
+| `.github/workflows/cash-load-test.yml` | GitHub Actions에서 A만 3번, 또는 A·B를 번갈아 3번 |
+
+```bash
+# 확인용으로 짧게 (지금 코드를 LABEL=local로 빌드, 약 10분)
+QUICK=1 OUT=/tmp/cashload loadtest/scenario-b/container/run.sh
+# 전체 한 바퀴 (약 40분). B-1 한계는 넣을 때만 돈다
+LABEL=local REP=1 OUT=/tmp/cashload SCENARIOS="warmup b0 b1 b2 b3 b4 b5 b5-limit b1-limit" loadtest/scenario-b/container/run.sh
+```
+
+- 결과는 `$OUT/<LABEL>/rep<N>/`에 쌓여요: k6 요약(`*.json`, `*.txt`), 돈 확인(`*.verify.txt`), 락 통계, 그래프 PNG, 예치금 로그.
+- 그래프는 `PYTHON`(기본 `python3`)에 matplotlib이 있을 때만 그려요.
+- GitHub Actions: 기본 브랜치에 들어간 뒤에는 Actions → `cash-load-test` → Run workflow. 그 전에는 PR에 `cash-load-test` 라벨을 붙이면 그 PR 커밋을 A로 3번 재요.
