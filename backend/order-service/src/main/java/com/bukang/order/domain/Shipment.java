@@ -206,9 +206,10 @@ public class Shipment extends BaseIdAndTime {
 	// 다음 조회 시각은 남긴 상태로 정하고, 7일 동안 아직 조회되지 않음이면 조회를 멈춘다 (BUK-90)
 	// carrierId·trackingNumber는 조회한 송장이다. 그 사이 판매자가 송장을 고쳤거나 배송 완료로 바꿨으면 남기지 않는다
 	// (배송 완료된 키트에 조회 중단 알림이 가지 않게 한다)
+	// 이미 멈춘 배송(다음 조회 시각 없음)도 남기지 않는다. 서버 두 대가 같은 배송을 함께 조회해도 멈춤 알림은 한 번이다 (BUK-234)
 	TrackingOutcome applyTracking(String carrierId, String trackingNumber, DeliveryTrackingResult result,
 		LocalDateTime trackedAt) {
-		if (status != ShipmentStatus.SHIPPING
+		if (status != ShipmentStatus.SHIPPING || nextTrackingAt == null
 			|| !carrierId.equals(this.carrierId) || !trackingNumber.equals(this.trackingNumber)) {
 			return TrackingOutcome.TRACKED;
 		}
