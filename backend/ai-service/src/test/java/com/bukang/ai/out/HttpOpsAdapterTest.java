@@ -9,6 +9,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -60,10 +61,15 @@ class HttpOpsAdapterTest {
 	}
 
 	@Test
-	@DisplayName("정산: 요약과 지급보류 내역")
+	@DisplayName("정산: 요약, 보류 중인 정산 내역, 지급보류 내역")
 	void payout() {
 		server.expect(requestTo("http://svc/api/v1/payout/seller/summary")).andExpect(header("X-Member-Id", "3"))
 			.andRespond(ok("{\"nextPayDate\":\"2026-11-20\",\"scheduledPayoutAmount\":1250000,\"heldCount\":1}"));
+		server.expect(requestTo("http://svc/api/v1/payout/seller/payouts?fromMonth=2025-12&toMonth=2026-11"))
+			.andExpect(header("X-Member-Id", "3"))
+			.andRespond(ok("[{\"id\":9,\"payoutCode\":\"P-9\",\"status\":\"지급보류\","
+				+ "\"settledAt\":\"2026-10-01T03:00:00\",\"payoutAmount\":120000},"
+				+ "{\"id\":8,\"payoutCode\":\"P-8\",\"status\":\"지급_예정\",\"settledAt\":\"2026-10-01T03:00:00\"}]"));
 		server.expect(requestTo("http://svc/api/v1/payout/seller/holds?from=2026-10-12&to=2026-11-11"))
 			.andExpect(header("X-Member-Id", "3"))
 			.andRespond(ok("[{\"id\":1,\"holdCode\":\"H-1\",\"payoutId\":9,\"payoutCode\":\"P-9\",\"raceId\":4,"
@@ -73,8 +79,11 @@ class HttpOpsAdapterTest {
 
 		assertThat(adapter.payoutSummary(3L))
 			.isEqualTo(new OpsPort.PayoutSummary(LocalDate.of(2026, 11, 20), 1250000, 1));
+		// 지급보류 상태인 정산만 남긴다
+		assertThat(adapter.heldPayouts(3L, YearMonth.of(2025, 12), YearMonth.of(2026, 11)))
+			.containsExactly(new OpsPort.HeldPayout("P-9", LocalDateTime.of(2026, 10, 1, 3, 0)));
 		assertThat(adapter.holds(3L, LocalDate.of(2026, 10, 12), LocalDate.of(2026, 11, 11))).containsExactly(
-			new OpsPort.Hold("한강 나이트런", 120000, "정산_계좌_미등록", "계좌를 등록해 주세요",
+			new OpsPort.Hold("P-9", "한강 나이트런", 120000, "정산_계좌_미등록", "계좌를 등록해 주세요",
 				LocalDateTime.of(2026, 11, 3, 9, 0), null));
 		server.verify();
 	}

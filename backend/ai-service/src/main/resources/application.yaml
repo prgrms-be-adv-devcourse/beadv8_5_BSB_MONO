@@ -53,6 +53,10 @@ spring:
       chat:
         # 추천값(미확정): Spring AI 2.0.2의 기본 모델
         model: gpt-5-mini
+        options:
+          # 생각 양 최소: 11/16 로컬 측정(질문 6개×2번) 기본 3.9~12.1초 → minimal 0.8~3.6초, 답의 숫자는 같음
+          # 숫자 조회만 하는 지금 도구 기준이다. 분석 질문을 더하면 그 질문만 높인다. 추천값(미확정)
+          reasoning-effort: minimal
     chat:
       memory:
         repository:

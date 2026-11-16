@@ -2,6 +2,7 @@ package com.bukang.ai.out.ops;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -35,6 +36,9 @@ public class HttpOpsAdapter implements OpsPort {
 	private static final ParameterizedTypeReference<RsData<PayoutSummary>> PAYOUT_SUMMARY_TYPE =
 		new ParameterizedTypeReference<>() {
 		};
+	private static final ParameterizedTypeReference<RsData<List<PayoutResponse>>> PAYOUTS_TYPE =
+		new ParameterizedTypeReference<>() {
+		};
 	private static final ParameterizedTypeReference<RsData<List<Hold>>> HOLDS_TYPE =
 		new ParameterizedTypeReference<>() {
 		};
@@ -49,6 +53,9 @@ public class HttpOpsAdapter implements OpsPort {
 	private static final ParameterizedTypeReference<RsData<List<SellerResponse>>> SELLERS_TYPE =
 		new ParameterizedTypeReference<>() {
 		};
+
+	// 정산 내역 상태 이름 (정산 서비스 PayoutStatus.지급보류)
+	private static final String HELD = "지급보류";
 
 	private final RestClient orderClient;
 	private final RestClient payoutClient;
@@ -72,6 +79,15 @@ public class HttpOpsAdapter implements OpsPort {
 	@Override
 	public PayoutSummary payoutSummary(long memberId) {
 		return get(payoutClient, memberId, PAYOUT_SUMMARY_TYPE, "/api/v1/payout/seller/summary");
+	}
+
+	@Override
+	public List<HeldPayout> heldPayouts(long memberId, YearMonth fromMonth, YearMonth toMonth) {
+		return get(payoutClient, memberId, PAYOUTS_TYPE,
+			"/api/v1/payout/seller/payouts?fromMonth={fromMonth}&toMonth={toMonth}", fromMonth, toMonth).stream()
+			.filter(payout -> HELD.equals(payout.status()))
+			.map(payout -> new HeldPayout(payout.payoutCode(), payout.settledAt()))
+			.toList();
 	}
 
 	@Override
@@ -135,6 +151,11 @@ public class HttpOpsAdapter implements OpsPort {
 	@JsonIgnoreProperties(ignoreUnknown = true)
 	record KitPageResponse(@JsonProperty(required = true) List<Kit> kits,
 		@JsonProperty(required = true) long totalElements) {
+	}
+
+	@JsonIgnoreProperties(ignoreUnknown = true)
+	record PayoutResponse(@JsonProperty(required = true) String payoutCode,
+		@JsonProperty(required = true) String status, @JsonProperty(required = true) LocalDateTime settledAt) {
 	}
 
 	@JsonIgnoreProperties(ignoreUnknown = true)
