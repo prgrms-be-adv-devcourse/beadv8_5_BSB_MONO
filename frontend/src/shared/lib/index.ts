@@ -11,6 +11,7 @@ export {
 export { useTrackOnce } from './analytics/use-track-once'
 export { trackingClarityId } from './analytics/clarity'
 export { ClarityTag } from './analytics/clarity-tag'
+export { copyText } from './clipboard/copy-text'
 export { cn } from './cn/cn'
 export {
   addRecentSearch,
@@ -24,3 +25,4 @@ export { createStoreContext } from './zustand/create-store-context'
 export { formatNumber, formatWon } from './format/money'
 export { formatPhoneInput, formatPhoneNumber, PHONE_MAX_DIGITS } from './format/phone'
 export { useSearchParamsState } from './search-params/use-search-params-state'
+export { useReportAppError } from './analytics/use-report-app-error'

@@ -1,0 +1,90 @@
+# 프론트엔드 Next.js (3000). 화면 요청은 nginx가 넘겨 주고, 서버 컴포넌트는 BACKEND_URL(게이트웨이)로 API를 직접 부른다
+# NEXT_PUBLIC_* 같은 빌드 인자는 이미지에 이미 고정돼 있다. 여기서는 실행할 때 읽는 값만 넘긴다
+# 백엔드 비밀값을 받지 않도록 Spring 앱과 달리 envFrom을 쓰지 않는다
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bukang-web
+  # Deployment 자체에 붙는 라벨
+  #   name: 이 앱의 이름표. 설정에서 읽는 곳은 없다 (kubectl get deploy -l app.kubernetes.io/name=... 로 고를 때 쓴다)
+  labels:
+    app.kubernetes.io/name: web
+spec:
+  replicas: 1
+  selector:
+    # 이 Deployment가 "내 Pod"로 보는 기준. 아래 template의 Pod 라벨에 같은 값이 있어야 한다
+    # (template에는 라벨이 더 있어도 된다. 한 번 만든 뒤에는 이 값을 바꿀 수 없다)
+    matchLabels:
+      app.kubernetes.io/name: web
+  template:
+    metadata:
+      # Deployment가 만드는 Pod에 붙는 라벨
+      #   name: 위 selector와 아래 Service의 selector가 이 값으로 Pod를 찾는다 (필수)
+      labels:
+        app.kubernetes.io/name: web
+    spec:
+      containers:
+        - name: app
+          image: bukang-web
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3000
+          env:
+            - name: BACKEND_URL
+              value: http://bukang-gateway:8000
+            # 실행 중에 새로 그리는 페이지도 빌드 때와 같은 주소를 쓰게 한다
+            - name: SITE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: SITE_URL
+            # 어드민 이용 통계(GA4). 실행할 때 읽는다. .env에 없으면 비운 채로 뜬다
+            - name: GA4_PROPERTY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: app-secret
+                  key: GA4_PROPERTY_ID
+                  optional: true
+            - name: GA4_SERVICE_ACCOUNT_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: app-secret
+                  key: GA4_SERVICE_ACCOUNT_KEY
+                  optional: true
+          resources:
+            requests:
+              cpu: 20m
+              memory: 128Mi
+            limits:
+              memory: 256Mi
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+            failureThreshold: 24
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 20
+---
+# nginx의 upstreams.conf가 bukang-web:3000으로 부른다
+apiVersion: v1
+kind: Service
+metadata:
+  name: bukang-web
+  # Service 자체에 붙는 이름표. 설정에서 읽는 곳은 없다
+  labels:
+    app.kubernetes.io/name: web
+spec:
+  # 이 라벨이 붙은 Pod(위 Deployment의 template 라벨)로 요청을 보낸다
+  selector:
+    app.kubernetes.io/name: web
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http

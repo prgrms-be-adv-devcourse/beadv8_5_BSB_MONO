@@ -1,6 +1,10 @@
 package com.bukang.order.in;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -14,24 +18,33 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.LongStream;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
+import com.bukang.common.shared.notification.NotificationKafkaSender;
+import com.bukang.common.shared.notification.NotificationKind;
+import com.bukang.common.shared.notification.event.NotificationRequestedEvent;
 import com.bukang.order.domain.ParticipationStatus;
 import com.bukang.order.domain.Party;
 import com.bukang.order.domain.PartyStatus;
+import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
 import com.bukang.order.out.OrderOutboxKafkaEventRepository;
 import com.bukang.order.out.ParticipationRepository;
 import com.bukang.order.out.PartyMemberRepository;
@@ -82,6 +95,9 @@ class ApiV1PartyTest {
 	@Autowired
 	private StubCrewPort crewPort;
 
+	@MockitoSpyBean
+	private NotificationKafkaSender notificationSender;
+
 	@BeforeEach
 	void setUp() {
 		raceCoursePort.put(StubRaceCoursePort.openCourse(COURSE_10K, RACE_ID, 14, null));
@@ -116,6 +132,73 @@ class ApiV1PartyTest {
 		assertThat(party.getJoinTokenExpiresAt()).isAfter(LocalDateTime.now().plusHours(23));
 		assertThat(participationRepository.findAll().getFirst().getPartyId()).isEqualTo(party.getId());
 		assertThat(partyMemberRepository.findByPartyIdAndMemberId(party.getId(), LEADER)).isPresent();
+		verify(notificationSender, never()).send(any());
+	}
+
+	@Test
+	@DisplayName("고른 크루원에게만 참가 링크를 담은 초대 알림을 한 번 보낸다. 같은 요청이 다시 오면 409라 다시 보내지 않는다")
+	void createInvites() throws Exception {
+		LocalDateTime now = LocalDateTime.now();
+		raceCoursePort.put(StubRaceCoursePort.withCrewSale(StubRaceCoursePort.openCourse(COURSE_10K, RACE_ID, 14, null),
+			now.minusDays(1), now.plusDays(5), 4, null));
+		crewPort.notCrewMember(OTHER);
+		// 파티 예매 시작 7일 전보다 늦게 가입해 합류가 막히는 사람 (P4)
+		crewPort.rejoinedCrewAt(FOURTH, now.minusDays(2));
+		String invited = "[%d, %d, %d, %d, %d]".formatted(LEADER, MEMBER, MEMBER, OTHER, FOURTH);
+
+		String token = token(create(LEADER, COURSE_10K, invited)
+			.andExpect(jsonPath("$.data.invitedMemberIds.length()").value(1))
+			.andExpect(jsonPath("$.data.invitedMemberIds[0]").value(MEMBER)));
+
+		ArgumentCaptor<NotificationRequestedEvent> sent = ArgumentCaptor.forClass(NotificationRequestedEvent.class);
+		verify(notificationSender, times(1)).send(sent.capture());
+		assertThat(sent.getValue().memberId()).isEqualTo(MEMBER);
+		assertThat(sent.getValue().kind()).isEqualTo(NotificationKind.PARTY_INVITED);
+		assertThat(sent.getValue().href()).isEqualTo("/parties/join/" + token);
+
+		create(LEADER, COURSE_10K, invited).andExpect(status().isConflict());
+		verify(notificationSender, times(1)).send(any());
+	}
+
+	@Test
+	@DisplayName("회원 서비스가 응답하지 않으면(503) 남은 사람은 묻지 않고 멈춘다. 파티는 그대로 만들어진다")
+	void createInvitesMemberServiceDown() throws Exception {
+		// 파티장 확인은 통과하고, 처음 고른 사람(MEMBER) 확인에서 회원 서비스가 멈춘 경우
+		crewPort.beforeNextLookup(() -> crewPort.beforeNextLookup(() -> {
+			throw new ExternalServiceUnavailableException("회원 서비스에 연결하지 못했습니다.");
+		}));
+
+		// 멈추지 않으면 다음 사람(OTHER)은 크루원이라 알림이 간다
+		create(LEADER, COURSE_10K, "[%d, %d]".formatted(MEMBER, OTHER))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.data.invitedMemberIds.length()").value(0));
+		assertThat(partyRepository.count()).isOne();
+		verify(notificationSender, never()).send(any());
+	}
+
+	@Test
+	@DisplayName("앞사람에게 알림을 보낸 뒤 회원 서비스가 멈추면, 보낸 사람까지만 응답에 담는다")
+	void createInvitesStopsAfterFirstUnavailable() throws Exception {
+		// 파티장 → MEMBER(통과) → OTHER(503) → FOURTH(묻지 않음)
+		crewPort.beforeNextLookup(() -> crewPort.beforeNextLookup(() -> crewPort.beforeNextLookup(() -> {
+			throw new ExternalServiceUnavailableException("회원 서비스에 연결하지 못했습니다.");
+		})));
+
+		create(LEADER, COURSE_10K, "[%d, %d, %d]".formatted(MEMBER, OTHER, FOURTH))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.data.invitedMemberIds.length()").value(1))
+			.andExpect(jsonPath("$.data.invitedMemberIds[0]").value(MEMBER));
+		verify(notificationSender, times(1)).send(any());
+	}
+
+	@Test
+	@DisplayName("초대는 한 번에 50명까지이고, 빈 회원 ID는 받지 않는다 (400)")
+	void createInvitesInvalid() throws Exception {
+		String fiftyOne = LongStream.rangeClosed(1, 51).mapToObj(String::valueOf)
+			.collect(Collectors.joining(", ", "[", "]"));
+		create(LEADER, COURSE_10K, fiftyOne).andExpect(status().isBadRequest());
+		create(LEADER, COURSE_10K, "[2, null]").andExpect(status().isBadRequest());
+		assertThat(partyRepository.count()).isZero();
 	}
 
 	@Test
@@ -354,6 +437,44 @@ class ApiV1PartyTest {
 	}
 
 	@Test
+	@DisplayName("남은 자리가 1개인 파티에 여러 명이 동시에 합류하면 한 명만 합류되고 나머지는 정원 참(409)이다")
+	void concurrentJoinsOverLastSeat() throws Exception {
+		LocalDateTime now = LocalDateTime.now();
+		// 최대 2명: 파티장 + 1자리
+		raceCoursePort.put(StubRaceCoursePort.withCrewSale(StubRaceCoursePort.openCourse(COURSE_10K, RACE_ID, 14, null),
+			now.minusDays(1), now.plusDays(1), 1, 2));
+		String token = token(create(LEADER, COURSE_10K));
+		int joiners = 5;
+		ExecutorService pool = Executors.newFixedThreadPool(joiners);
+		CountDownLatch start = new CountDownLatch(1);
+		List<Future<String>> results = new ArrayList<>();
+		for (int i = 0; i < joiners; i++) {
+			long memberId = 10 + i;
+			results.add(pool.submit(() -> {
+				start.await();
+				MockHttpServletResponse response = join(memberId, token).andReturn().getResponse();
+				return response.getStatus() == 201 ? "201"
+					: response.getStatus() + " " + JsonPath.read(response.getContentAsString(), "$.code");
+			}));
+		}
+		start.countDown();
+		List<String> outcomes = new ArrayList<>();
+		try {
+			for (Future<String> result : results) {
+				outcomes.add(result.get(30, TimeUnit.SECONDS));
+			}
+		} finally {
+			// 잠금 대기로 시간이 넘어도 스레드가 남아 다음 테스트의 정리를 막지 않게 한다
+			pool.shutdownNow();
+		}
+
+		assertThat(outcomes).containsOnlyOnce("201")
+			.filteredOn(outcome -> !outcome.equals("201")).containsOnly("409 ORDER_PARTY_FULL");
+		assertThat(partyMemberRepository.findAll()).filteredOn(row -> row.getLeftAt() == null).hasSize(2);
+		assertThat(participationRepository.findAll()).filteredOn(row -> row.getStatus().isActive()).hasSize(2);
+	}
+
+	@Test
 	@DisplayName("내 파티 상태: 파티장은 4명 이상 모집 중일 때만 신청할 수 있고, 파티원도 자기 파티를 보며, 결제 현황을 알려 준다")
 	void raceStatus() throws Exception {
 		raceStatus(LEADER, RACE_ID)
@@ -460,12 +581,17 @@ class ApiV1PartyTest {
 	}
 
 	private ResultActions create(long memberId, long raceCourseId) throws Exception {
+		return create(memberId, raceCourseId, "null");
+	}
+
+	private ResultActions create(long memberId, long raceCourseId, String invitedMemberIds) throws Exception {
 		return mockMvc.perform(post(BASE_URL)
 			.header("X-Member-Id", memberId)
 			.contentType(MediaType.APPLICATION_JSON)
 			.content("""
-				{ "crewId": %d, "raceCourseId": %d, "participant": %s, "thirdPartyConsent": true }
-				""".formatted(CREW_ID, raceCourseId, participant())));
+				{ "crewId": %d, "raceCourseId": %d, "participant": %s, "thirdPartyConsent": true,
+					"invitedMemberIds": %s }
+				""".formatted(CREW_ID, raceCourseId, participant(), invitedMemberIds)));
 	}
 
 	private ResultActions join(long memberId, String token) throws Exception {
