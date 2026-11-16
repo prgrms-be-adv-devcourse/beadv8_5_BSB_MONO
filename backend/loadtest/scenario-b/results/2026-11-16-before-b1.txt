@@ -1,0 +1,102 @@
+  █ THRESHOLDS 
+
+    dropped_iterations{stage:100}
+    ✓ 'count==0' count=0
+
+    dropped_iterations{stage:20}
+    ✓ 'count==0' count=0
+
+    dropped_iterations{stage:200}
+    ✓ 'count==0' count=0
+
+    dropped_iterations{stage:400}
+    ✓ 'count==0' count=0
+
+    dropped_iterations{stage:50}
+    ✓ 'count==0' count=0
+
+    http_req_duration{stage:100}
+    ✓ 'p(95)<200' p(95)=8.65ms
+    ✓ 'p(99)<1000' p(99)=15.99ms
+    ✓ 'p(95)<2000' p(95)=8.65ms
+
+    http_req_duration{stage:20}
+    ✓ 'p(95)<200' p(95)=18.68ms
+    ✓ 'p(99)<1000' p(99)=56.39ms
+    ✓ 'p(95)<2000' p(95)=18.68ms
+
+    http_req_duration{stage:200}
+    ✗ 'p(95)<200' p(95)=4.4s
+    ✗ 'p(99)<1000' p(99)=5.17s
+    ✗ 'p(95)<2000' p(95)=4.4s
+
+    http_req_duration{stage:400}
+    ✗ 'p(95)<200' p(95)=10.26s
+    ✗ 'p(99)<1000' p(99)=10.33s
+    ✗ 'p(95)<2000' p(95)=10.26s
+
+    http_req_duration{stage:50}
+    ✓ 'p(95)<200' p(95)=11.61ms
+    ✓ 'p(99)<1000' p(99)=73.72ms
+    ✓ 'p(95)<2000' p(95)=11.61ms
+
+    http_req_failed{stage:100}
+    ✓ 'rate<0.01' rate=0.00%
+
+    http_req_failed{stage:20}
+    ✓ 'rate<0.01' rate=0.00%
+
+    http_req_failed{stage:200}
+    ✓ 'rate<0.01' rate=0.00%
+
+    http_req_failed{stage:400}
+    ✓ 'rate<0.01' rate=0.00%
+
+    http_req_failed{stage:50}
+    ✓ 'rate<0.01' rate=0.00%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 65423   102.284603/s
+    checks_succeeded...: 100.00% 65423 out of 65423
+    checks_failed......: 0.00%   0 out of 65423
+
+    ✓ 결제 200·결제됨
+
+    HTTP
+    http_req_duration..............: avg=3.29s    med=34.37ms p(95)=9.98s   p(99)=10.31s  max=10.41s  
+      { expected_response:true }...: avg=3.29s    med=34.37ms p(95)=9.98s   p(99)=10.31s  max=10.41s  
+      { stage:100 }................: avg=6.91ms   med=6.6ms   p(95)=8.65ms  p(99)=15.99ms max=54.83ms 
+      { stage:20 }.................: avg=13.18ms  med=11.35ms p(95)=18.68ms p(99)=56.39ms max=316.78ms
+      { stage:200 }................: avg=855.44ms med=17.98ms p(95)=4.4s    p(99)=5.17s   max=5.69s   
+      { stage:400 }................: avg=9.15s    med=9.38s   p(95)=10.26s  p(99)=10.33s  max=10.41s  
+      { stage:50 }.................: avg=10.25ms  med=8.3ms   p(95)=11.61ms p(99)=73.72ms max=317.53ms
+    http_req_failed................: 0.00% 0 out of 65423
+      { stage:100 }................: 0.00% 0 out of 12001
+      { stage:20 }.................: 0.00% 0 out of 2401
+      { stage:200 }................: 0.00% 0 out of 23362
+      { stage:400 }................: 0.00% 0 out of 21358
+      { stage:50 }.................: 0.00% 0 out of 6001
+    http_reqs......................: 65423 102.284603/s
+
+    EXECUTION
+    dropped_iterations.............: 27282 42.653631/s
+      { stage:100 }................: 0     0/s
+      { stage:20 }.................: 0     0/s
+      { stage:200 }................: 0     0/s
+      { stage:400 }................: 0     0/s
+      { stage:50 }.................: 0     0/s
+    iteration_duration.............: avg=3.29s    med=35.21ms p(95)=9.98s   p(99)=10.31s  max=10.42s  
+    iterations.....................: 65423 102.284603/s
+    vus............................: 119   min=0          max=1600
+    vus_max........................: 2400  min=1200       max=2400
+
+    NETWORK
+    data_received..................: 14 MB 22 kB/s
+    data_sent......................: 13 MB 20 kB/s
+
+
+
+
+time="2026-11-16T15:59:12+09:00" level=error msg="thresholds on metrics 'http_req_duration{stage:200}, http_req_duration{stage:400}' have been crossed"
