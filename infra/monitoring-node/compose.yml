@@ -1,0 +1,76 @@
+# 모니터링 서버(개인 AWS EC2) compose (BUK-259)
+# 메인 EC2의 수집기(에이전트 모드)와 k6가 보낸 지표를 받아 저장하고 Grafana로 보여 준다
+# 바깥에는 Caddy만 80·443을 연다. Prometheus·Grafana는 같은 compose 네트워크 안에서만 접속한다
+#
+# 사용 (이 폴더에서)
+#   sudo bash setup.sh          # 처음 한 번: .env, Prometheus 비밀번호, 대시보드 받기
+#   docker compose up -d
+
+# 폴더를 옮겨도 같은 볼륨을 쓰도록 프로젝트 이름을 고정한다
+name: monitoring
+
+services:
+  # 입구. https 인증서(Let's Encrypt)를 받고 갱신하며, 주소별로 Grafana·Prometheus에 넘긴다
+  caddy:
+    image: caddy:2.11.9-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN:?DOMAIN을 .env에 적으세요}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Prometheus 비밀번호 해시 (setup.sh가 만든다, git 제외)
+      - ./secrets:/etc/caddy/secrets:ro
+      # 받은 인증서. 지우면 다시 받는데, Let's Encrypt는 같은 주소에 주 5회까지만 내준다
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - prometheus
+      - grafana
+
+  # 지표 저장소. 스스로 가져가지(Pull) 않고, 수집기·k6가 보내는(remote write) 지표를 받아 저장한다
+  prometheus:
+    image: prom/prometheus:v3.16.0
+    restart: unless-stopped
+    # 이미지 기본 명령(설정 파일, 저장 위치)에 받기 기능과 보관 한도를 더한다
+    # 보관은 15일 또는 6GB 중 먼저 닿는 쪽까지. 디스크가 20GB라 끝없이 쌓이지 않게 막는다
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-remote-write-receiver
+      - --storage.tsdb.retention.time=15d
+      - --storage.tsdb.retention.size=6GB
+      - --web.external-url=https://prom.${DOMAIN}
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+
+  # 지표 화면. 데이터 소스와 대시보드는 시작할 때 grafana/ 폴더에서 자동으로 등록된다
+  grafana:
+    image: grafana/grafana:13.3.1
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD를 .env에 적으세요}
+      GF_SERVER_ROOT_URL: https://grafana.${DOMAIN}
+      # 계정은 관리자가 만든다. 아무나 가입하거나 로그인 없이 보지 못하게 한다
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      # fetch-dashboards.sh가 받아 둔 대시보드 JSON
+      - ./grafana/dashboards:/etc/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
+volumes:
+  caddy-data:
+  caddy-config:
+  prometheus-data:
+  grafana-data:

@@ -23,6 +23,7 @@ GitHub Actions ─(OIDC, 키 없음)→ 배포 역할 ─(SSM Run Command)→ �
 |---|---|
 | `infra/main-node/` | k3s 설치, Traefik HTTPS, 비밀값 옮기기, 앱 배포 스크립트 |
 | `infra/data-node/` | 데이터 서버 준비(setup.sh), 인프라 배포 스크립트 |
+| `infra/monitoring-node/` | 운영 지표 저장·화면 서버(개인 AWS EC2): Caddy·Prometheus·Grafana compose (BUK-259) |
 | `infra/iam/` | 역할에 붙일 정책 JSON 3개 (아래 「AWS 자원」) |
 | `k8s/overlays/aws/` | 운영용 k8s 설정 (GHCR 이미지, 보조 EC2 주소, 운영 공개 설정, 도메인·HTTPS) |
 | `.github/workflows/k8s-cd.yml` | 이미지 빌드 → 메인 EC2 `deploy.sh <SHA>` (main push 때 자동, 손으로도 실행 가능) |
