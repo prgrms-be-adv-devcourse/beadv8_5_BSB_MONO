@@ -261,7 +261,7 @@ function ChangeContent({
           cancel.mutate(undefined, {
             onSuccess: () => {
               toast({ message: '대회를 취소했어요', tone: 'success' })
-              router.push('/seller/races')
+              router.replace('/seller/races')
             },
             onSettled: () => setCancelOpen(false),
           })

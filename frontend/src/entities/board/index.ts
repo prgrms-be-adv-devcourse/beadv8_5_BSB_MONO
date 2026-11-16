@@ -14,7 +14,7 @@ export {
   useUpdateComment,
   useUpdatePost,
   type PostListParams,
-} from './api/board'
+} from './api/use-board'
 export {
   BOARD_CATEGORIES,
   COMMENT_MAX,

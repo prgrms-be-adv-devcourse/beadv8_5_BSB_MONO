@@ -1,3 +1,4 @@
+import { cva } from 'class-variance-authority'
 import type { ButtonHTMLAttributes, MouseEvent } from 'react'
 
 import { cn } from '@/shared/lib'
@@ -12,23 +13,30 @@ export type ButtonSize = 's' | 'm' | 'l'
 // 테두리는 피그마처럼 안쪽 선(inset-ring)이라 크기가 바뀌지 않는다.
 // Accent는 v2에서 Primary와 같은 파랑이다(옛 화면 호환으로 이름만 남김).
 const BRAND_DISABLED = 'disabled:bg-bg-brand-disabled disabled:text-text-on-brand'
-const VARIANT: Record<ButtonVariant, string> = {
-  primary: `bg-bg-brand text-text-on-brand enabled:hover:bg-bg-brand-hover ${BRAND_DISABLED}`,
-  secondary:
-    'bg-bg-subtle text-text-primary enabled:hover:bg-bg-subtle-hover disabled:bg-bg-disabled disabled:text-text-disabled',
-  ghost:
-    'text-text-primary inset-ring inset-ring-border-default enabled:hover:bg-bg-subtle focus-visible:inset-ring-border-strong disabled:text-text-disabled disabled:inset-ring-border-disabled',
-  text: 'text-text-secondary enabled:hover:bg-bg-subtle focus-visible:text-text-primary disabled:text-text-disabled',
-  danger:
-    'bg-bg-danger text-text-on-danger enabled:hover:bg-bg-danger-hover disabled:bg-bg-disabled disabled:text-text-disabled',
-  accent: `bg-bg-accent text-text-on-accent enabled:hover:bg-bg-accent-hover ${BRAND_DISABLED}`,
-}
 
-const SIZE: Record<ButtonSize, string> = {
-  s: 'gap-1 px-3 py-2 text-body2-medium',
-  m: 'gap-2 px-4 py-3 text-body2-medium',
-  l: 'h-13 gap-2 px-5 text-body1-medium',
-}
+const button = cva(
+  `inline-flex shrink-0 items-center justify-center rounded-sm whitespace-nowrap select-none disabled:cursor-not-allowed ${FOCUS_RING}`,
+  {
+    variants: {
+      variant: {
+        primary: `bg-bg-brand text-text-on-brand enabled:hover:bg-bg-brand-hover ${BRAND_DISABLED}`,
+        secondary:
+          'bg-bg-subtle text-text-primary enabled:hover:bg-bg-subtle-hover disabled:bg-bg-disabled disabled:text-text-disabled',
+        ghost:
+          'text-text-primary inset-ring inset-ring-border-default enabled:hover:bg-bg-subtle focus-visible:inset-ring-border-strong disabled:text-text-disabled disabled:inset-ring-border-disabled',
+        text: 'text-text-secondary enabled:hover:bg-bg-subtle focus-visible:text-text-primary disabled:text-text-disabled',
+        danger:
+          'bg-bg-danger text-text-on-danger enabled:hover:bg-bg-danger-hover disabled:bg-bg-disabled disabled:text-text-disabled',
+        accent: `bg-bg-accent text-text-on-accent enabled:hover:bg-bg-accent-hover ${BRAND_DISABLED}`,
+      } satisfies Record<ButtonVariant, string>,
+      size: {
+        s: 'gap-1 px-3 py-2 text-body2-medium',
+        m: 'gap-2 px-4 py-3 text-body2-medium',
+        l: 'h-13 gap-2 px-5 text-body1-medium',
+      } satisfies Record<ButtonSize, string>,
+    },
+  },
+)
 
 // 피그마 Loading 상태의 Spinner 색
 const SPINNER_COLOR: Record<ButtonVariant, string> = {
@@ -46,13 +54,7 @@ export function buttonClassName({
   size = 'm',
   className,
 }: { variant?: ButtonVariant; size?: ButtonSize; className?: string } = {}) {
-  return cn(
-    'inline-flex shrink-0 items-center justify-center rounded-sm whitespace-nowrap select-none disabled:cursor-not-allowed',
-    FOCUS_RING,
-    VARIANT[variant],
-    SIZE[size],
-    className,
-  )
+  return cn(button({ variant, size }), className)
 }
 
 export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {

@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.ollama.OllamaChatModel;
 import org.springframework.ai.openai.OpenAiChatModel;
+import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationContext;
@@ -56,6 +57,14 @@ class AiModelConfigTest {
 		void startsWithoutKey() {
 			assertThat(context.getBean(ChatModel.class)).isInstanceOf(OpenAiChatModel.class);
 			assertThat(context.getBeansOfType(OllamaChatModel.class)).isEmpty();
+		}
+
+		@Test
+		@DisplayName("모델과 생각 양 최소 설정이 OpenAI 기본 옵션에 들어간다")
+		void defaultOptions() {
+			OpenAiChatOptions options = (OpenAiChatOptions)context.getBean(OpenAiChatModel.class).getDefaultOptions();
+			assertThat(options.getModel()).isEqualTo("gpt-5-mini");
+			assertThat(options.getReasoningEffort()).isEqualTo("minimal");
 		}
 	}
 }

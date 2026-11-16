@@ -33,7 +33,7 @@ public final class SeatOutboxMessages {
 	public static List<OrderItemRefundedEvent> refunded(OrderOutboxKafkaEventRepository repository,
 		JsonConverter jsonConverter) {
 		return repository.findAll().stream()
-			.filter(event -> KafkaTopics.ORDER_ITEM_REFUNDED.equals(event.getEventType()))
+			.filter(event -> KafkaTopics.ORDER_ITEM_REFUNDED.equals(event.getTopic()))
 			.sorted(Comparator.comparing(OrderOutboxKafkaEvent::getId))
 			.map(event -> jsonConverter.fromJson(event.getPayload(), OrderItemRefundedEvent.class))
 			.toList();
@@ -43,7 +43,7 @@ public final class SeatOutboxMessages {
 	public static List<RaceRefundEvent> raceRefunds(OrderOutboxKafkaEventRepository repository,
 		JsonConverter jsonConverter) {
 		return repository.findAll().stream()
-			.filter(event -> KafkaTopics.ORDER_RACE_REFUND.equals(event.getEventType()))
+			.filter(event -> KafkaTopics.ORDER_RACE_REFUND.equals(event.getTopic()))
 			.sorted(Comparator.comparing(OrderOutboxKafkaEvent::getId))
 			.map(event -> jsonConverter.fromJson(event.getPayload(), RaceRefundEvent.class))
 			.toList();
@@ -51,7 +51,7 @@ public final class SeatOutboxMessages {
 
 	private static List<Long> participationIds(OrderOutboxKafkaEventRepository repository, String topic) {
 		return repository.findAll().stream()
-			.filter(event -> topic.equals(event.getEventType()))
+			.filter(event -> topic.equals(event.getTopic()))
 			.sorted(Comparator.comparing(OrderOutboxKafkaEvent::getId))
 			.map(OrderOutboxKafkaEvent::getRefId)
 			.toList();

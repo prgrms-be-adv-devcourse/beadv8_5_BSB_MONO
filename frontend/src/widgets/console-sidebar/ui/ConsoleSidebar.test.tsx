@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -12,18 +12,18 @@ import { ConsoleSidebar } from './ConsoleSidebar'
 const replace = vi.fn()
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), back: vi.fn(), replace }),
-  usePathname: () => '/seller',
+  usePathname: () => '/seller/ai',
 }))
 
-const reloadToLogin = vi.hoisted(() => vi.fn())
+const reloadAfterLogout = vi.hoisted(() => vi.fn())
 vi.mock('@/features/auth/lib/login-redirect', async (importOriginal) => ({
   ...(await importOriginal<object>()),
-  reloadToLogin,
+  reloadAfterLogout,
 }))
 
 beforeEach(() => {
   replace.mockClear()
-  reloadToLogin.mockClear()
+  reloadAfterLogout.mockClear()
 })
 
 describe('ConsoleSidebar 로그아웃', () => {
@@ -50,9 +50,9 @@ describe('ConsoleSidebar 로그아웃', () => {
     await user.click(screen.getByRole('button', { name: '로그아웃' }))
 
     await vi.waitFor(() => expect(called).toBe(true))
-    expect(reloadToLogin).not.toHaveBeenCalled()
+    expect(reloadAfterLogout).not.toHaveBeenCalled()
     release()
-    await vi.waitFor(() => expect(reloadToLogin).toHaveBeenCalledTimes(1))
+    await vi.waitFor(() => expect(reloadAfterLogout).toHaveBeenCalledTimes(1))
     expect(called).toBe(true)
     expect(replace).not.toHaveBeenCalled()
     // 새로 불러오기 전까지 토큰을 그대로 두어 「로그인이 필요해요」 안내가 잠깐 보이지 않는다
@@ -82,17 +82,27 @@ describe('ConsoleSidebar 크루런 홈으로', () => {
 })
 
 describe('ConsoleSidebar 크루런 AI', () => {
-  it.each(['seller', 'admin'] as const)('%s 메뉴에 크루런 AI로 가는 링크가 있다', (role) => {
+  it.each([
+    ['seller', '/seller/ai'],
+    ['admin', '/admin/ai'],
+  ] as const)('%s 콘솔 메뉴에 크루런 AI 링크가 있다', (role, href) => {
     render(
       <QueryClientProvider client={new QueryClient()}>
         <ConsoleSidebar role={role} />
       </QueryClientProvider>,
     )
 
-    const nav = screen.getByRole('navigation')
-    expect(within(nav).getByRole('link', { name: '크루런 AI' })).toHaveAttribute(
-      'href',
-      `/${role}/ai`,
+    expect(screen.getByRole('link', { name: '크루런 AI' })).toHaveAttribute('href', href)
+  })
+
+  it('/seller/ai에서는 크루런 AI만 선택 표시되고 대시보드는 선택되지 않는다', () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ConsoleSidebar role="seller" />
+      </QueryClientProvider>,
     )
+
+    expect(screen.getByRole('link', { name: '크루런 AI' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('link', { name: '대시보드' })).not.toHaveAttribute('aria-current')
   })
 })

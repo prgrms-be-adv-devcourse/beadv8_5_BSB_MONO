@@ -53,6 +53,10 @@ spring:
       chat:
         # 추천값(미확정): Spring AI 2.0.2의 기본 모델
         model: gpt-5-mini
+        options:
+          # 생각 양 최소: 11/16 로컬 측정(질문 6개×2번) 기본 3.9~12.1초 → minimal 0.8~3.6초, 답의 숫자는 같음
+          # 숫자 조회만 하는 지금 도구 기준이다. 분석 질문을 더하면 그 질문만 높인다. 추천값(미확정)
+          reasoning-effort: minimal
     chat:
       memory:
         repository:
@@ -106,3 +110,6 @@ ai:
       base-url: http://localhost:8084
     inquiry:
       base-url: http://localhost:8088
+      # 문의 상세(답변 초안)만 따로 길게 둔다. 문의 서비스가 회원(관리자 확인)·회원(닉네임)·주문을 차례로 각 2초 제한으로 부르므로
+      # 2초로 끊으면 문의 서비스는 답할 수 있는데도 503이 난다. 추천값(미확정)
+      detail-timeout: 7s

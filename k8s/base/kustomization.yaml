@@ -27,6 +27,7 @@ resources:
   - apps/product-service.yaml
   - apps/queue-service.yaml
   - apps/notification-service.yaml
+  - apps/inquiry-service.yaml
   - apps/board-service.yaml
   - apps/ai-service.yaml
   - apps/web.yaml
@@ -43,7 +44,7 @@ configMapGenerator:
       - upstreams.conf=../../backend/docker/nginx/upstreams.conf
 
 patches:
-  # Spring 앱 11개에 같은 설정(설정 주입·JVM 옵션·메모리·상태 확인)을 한 번에 붙인다
+  # Spring 앱 12개에 같은 설정(설정 주입·JVM 옵션·메모리·상태 확인)을 한 번에 붙인다
   - path: patches/spring-common.yaml
     target:
       kind: Deployment

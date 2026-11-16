@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
+import { useState } from 'react'
 
 import { Badge } from '../badge/Badge'
+import { DataTable, type DataTableColumn } from './DataTable'
 import { TableCell, TableHeaderCell } from './Table'
 
 const meta = {
@@ -77,4 +79,32 @@ export const Orders: Story = {
       </tbody>
     </table>
   ),
+}
+
+type Order = (typeof ORDERS)[number]
+
+const COLUMNS: DataTableColumn<Order>[] = [
+  { key: 'id', header: '주문번호', width: 'w-28', render: (order) => order.id },
+  { key: 'name', header: '상품', render: (order) => order.name },
+  { key: 'buyer', header: '구매자', width: 'w-28', render: (order) => order.buyer },
+  { key: 'amount', header: '금액', align: 'right', width: 'w-28', render: (order) => order.amount },
+]
+
+/** 판매자·관리자 화면의 표. 줄을 누르면 고른 줄에 옅은 브랜드 바탕이 깔린다. */
+export const DataTableSelectable: Story = {
+  name: 'DataTable',
+  render: function Render() {
+    const [selected, setSelected] = useState<string>()
+    return (
+      <DataTable
+        className="max-w-3xl"
+        label="주문 목록"
+        columns={COLUMNS}
+        rows={ORDERS}
+        rowKey={(order) => order.id}
+        selected={selected}
+        onRowClick={(order) => setSelected(order.id)}
+      />
+    )
+  },
 }

@@ -5,6 +5,7 @@ import type { Route } from 'next'
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 
+import { AxBriefing } from '@/widgets/ax-briefing'
 import { ConsoleCard, ConsoleLoading, ConsoleOffline, ConsolePage } from '@/widgets/console-page'
 import { detailPeriods, formatMonthDay, formatWeekday, HOLD_REASON } from '@/entities/payout'
 import {
@@ -17,7 +18,7 @@ import {
 } from '@/entities/race'
 import { shippableCount, useSellerKitSummary } from '@/entities/seller-kit'
 import { ApiError, payoutApi, unwrapData, type productModel } from '@/shared/api'
-import { cn, formatNumber } from '@/shared/lib'
+import { cn, formatNumber, useNow } from '@/shared/lib'
 import {
   Alert,
   Badge,
@@ -111,6 +112,7 @@ function DashboardBody() {
 
   return (
     <>
+      <AxBriefing screen="seller" askHref="/seller/ai" basisHref="/seller/settlements" />
       <div className="flex gap-4">
         {summary.data ? (
           <>
@@ -276,10 +278,11 @@ function ClosingSoonRow({
 
 // 건수는 정산 요약의 heldCount, 설명은 최근 1개월 지급보류 중 아직 보류 중인 가장 최근 것
 function HoldRow({ heldCount, failed }: { heldCount: number | undefined; failed: boolean }) {
-  const [period] = detailPeriods(new Date(), 1)
+  const now = useNow()
+  const [period] = now ? detailPeriods(now, 1) : []
   const holds = payoutApi.useHolds(
-    { from: period.from, to: period.to },
-    { query: { select: unwrapData, enabled: (heldCount ?? 0) > 0 } },
+    { from: period?.from ?? '', to: period?.to ?? '' },
+    { query: { select: unwrapData, enabled: !!period && (heldCount ?? 0) > 0 } },
   )
   const latest = holds.data?.find((hold) => hold.status === '지급보류')
   const description =

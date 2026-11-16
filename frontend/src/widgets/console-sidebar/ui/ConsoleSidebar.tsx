@@ -17,10 +17,10 @@ const MENU: Record<ConsoleRole, { label: string; home: Route; settings: Route; i
     settings: '/seller/settings',
     items: [
       { href: '/seller', label: '대시보드', icon: 'Dashboard' },
+      { href: '/seller/ai', label: '크루런 AI', icon: 'Message' },
       { href: '/seller/races', label: '대회 관리', icon: 'Calendar' },
       { href: '/seller/sales', label: '주문 · 참가자', icon: 'Orders' },
       { href: '/seller/settlements', label: '정산', icon: 'Inbox' },
-      { href: '/seller/ai', label: '크루런 AI', icon: 'Message' },
     ],
   },
   admin: {
@@ -29,13 +29,13 @@ const MENU: Record<ConsoleRole, { label: string; home: Route; settings: Route; i
     settings: '/admin/settings',
     items: [
       { href: '/admin', label: '대시보드', icon: 'Dashboard' },
+      { href: '/admin/ai', label: '크루런 AI', icon: 'Message' },
       { href: '/admin/sellers', label: '판매자 승인', icon: 'Users' },
       { href: '/admin/members', label: '회원 · 주문', icon: 'Orders' },
       { href: '/admin/settlements', label: '정산 · 환급 처리', icon: 'Inbox' },
       { href: '/admin/claims', label: '회수 관리', icon: 'Inbox' },
       { href: '/admin/races', label: '대회 관리', icon: 'Calendar' },
       { href: '/admin/stats', label: '이용 통계', icon: 'Chart' },
-      { href: '/admin/ai', label: '크루런 AI', icon: 'Message' },
     ],
   },
 }

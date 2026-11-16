@@ -8,6 +8,7 @@ import { useState, type ReactNode } from 'react'
 import { loginHref, useAuthStatus } from '@/features/auth'
 import { type PartyRaceStatus } from '@/entities/party'
 import { formatRaceDateTime, parseKstDateTime, type RaceDetail } from '@/entities/race'
+import { useNow } from '@/shared/lib'
 import {
   BottomCta,
   BottomSheet,
@@ -125,10 +126,13 @@ function PartyRow({
   party: PartyRaceStatus
   go: (href: string) => void
 }) {
-  const now = new Date()
+  const now = useNow()
   const { startAt, endAt } = race.crew ?? {}
+  // 시각을 읽기 전에는 기간 밖으로 보고 누를 수 없게 둔다
   const outOfWindow =
-    (!!startAt && now < parseKstDateTime(startAt)) || (!!endAt && now >= parseKstDateTime(endAt))
+    !now ||
+    (!!startAt && now < parseKstDateTime(startAt)) ||
+    (!!endAt && now >= parseKstDateTime(endAt))
 
   if (party.role === 'NONE') {
     // ⑧ 크루 예매 기간 밖: 누를 수 없다. ⑦ 파티 없음: 크루 홈에서 만든다
