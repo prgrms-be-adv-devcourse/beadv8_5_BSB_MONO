@@ -1,0 +1,13 @@
+# Grafana가 시작할 때 Prometheus 데이터 소스를 자동으로 등록한다 (화면에서 손으로 추가하지 않아도 된다)
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    # 같은 compose 네트워크 안이라 컨테이너 이름과 컨테이너 포트(9090)로 접속한다. 호스트 포트 9095는 브라우저용이다
+    url: http://bukang-prometheus:9090
+    # Grafana 서버가 대신 조회한다 (브라우저가 Prometheus에 직접 붙지 않는다)
+    access: proxy
+    isDefault: true
+    # 화면에서 고쳐도 다시 시작하면 이 파일 값으로 돌아오므로, 바꿀 때는 이 파일을 고친다
+    editable: false

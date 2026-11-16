@@ -5,14 +5,12 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import com.bukang.order.domain.OrderItemStatus;
-import com.bukang.order.domain.ParticipationKitOption;
 import com.bukang.order.domain.ParticipationStatus;
 import com.bukang.order.domain.Party;
 import com.bukang.order.domain.exception.OrderSearchPeriodException;
@@ -23,6 +21,7 @@ import com.bukang.order.dto.SellerOrderDto;
 import com.bukang.order.dto.SellerOrderPageDto;
 import com.bukang.order.dto.SellerPartyDto;
 import com.bukang.order.dto.SellerPartyPageDto;
+import com.bukang.order.dto.SellerSalesSummaryDto;
 import com.bukang.order.out.OrderItemRepository;
 import com.bukang.order.out.ParticipationKitOptionRepository;
 import com.bukang.order.out.ParticipationRepository;
@@ -63,15 +62,9 @@ public class SellerOrderQueryUseCase {
 		checkPeriod(from, to);
 		Page<SellerOrderDto> orders = orderItemRepository.findSellerOrders(sellerId, raceId, raceCourseId, status,
 			partyId, startOf(from), endOf(to), PageRequest.of(page, size));
-		List<Long> participationIds = orders.stream().map(SellerOrderDto::getParticipationId).toList();
-		if (!participationIds.isEmpty()) {
-			Map<Long, List<KitOptionChoiceDto>> options = participationKitOptionRepository
-				.findByParticipationIdInOrderByIdAsc(participationIds).stream()
-				.collect(Collectors.groupingBy(ParticipationKitOption::getParticipationId,
-					Collectors.mapping(KitOptionChoiceDto::from, Collectors.toList())));
-			orders.forEach(order -> order.attachKitOptions(
-				options.getOrDefault(order.getParticipationId(), List.of())));
-		}
+		Map<Long, List<KitOptionChoiceDto>> options = participationKitOptionRepository.findChoicesByParticipationIds(
+			orders.stream().map(SellerOrderDto::getParticipationId).toList());
+		orders.forEach(order -> order.attachKitOptions(options.getOrDefault(order.getParticipationId(), List.of())));
 		return SellerOrderPageDto.from(orders);
 	}
 
@@ -111,6 +104,14 @@ public class SellerOrderQueryUseCase {
 			return new SellerPartyDto(party.getId(), party.getCrewId(), party.getRaceCourseId(), party.getStatus(),
 				paid + unpaid, paid, unpaid, party.getPaymentDueAt());
 		}));
+	}
+
+	/**
+	 * 결제일이 from~to(종료일 포함)인 판매 장수와 금액 합 (BUK-247). 기간은 주문 목록과 같이 한 번에 12개월까지
+	 */
+	public SellerSalesSummaryDto summarizeSales(long sellerId, LocalDate from, LocalDate to) {
+		checkPeriod(from, to);
+		return orderItemRepository.summarizeSellerSales(sellerId, startOf(from), endOf(to));
 	}
 
 	private void checkPartySeller(Party party, long sellerId) {

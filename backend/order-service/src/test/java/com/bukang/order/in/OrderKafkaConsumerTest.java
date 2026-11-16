@@ -1,5 +1,6 @@
 package com.bukang.order.in;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -9,17 +10,24 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.TimeZone;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import com.bukang.common.global.json.JsonConverter;
+import com.bukang.common.shared.crew.event.CrewMemberLeftEvent;
+import com.bukang.common.shared.crew.event.CrewMemberLeftReason;
 import com.bukang.common.shared.kafka.KafkaTopics;
 import com.bukang.order.app.CrewMemberLeftUseCase;
 import com.bukang.order.app.OrderDltUseCase;
 import com.bukang.order.app.OrderInboxUseCase;
 import com.bukang.order.app.RaceCancelRefundUseCase;
+import com.bukang.order.app.RaceScheduleNoticeUseCase;
 
 import tools.jackson.databind.json.JsonMapper;
 
@@ -35,8 +43,10 @@ class OrderKafkaConsumerTest {
 	private final OrderInboxUseCase inbox = mock();
 	private final CrewMemberLeftUseCase crewMemberLeftUseCase = mock();
 	private final OrderDltUseCase dlt = mock();
+	private final RaceScheduleNoticeUseCase raceScheduleNoticeUseCase = mock();
+	private final JsonConverter jsonConverter = new JsonConverter(JsonMapper.builder().build());
 	private final OrderKafkaConsumer consumer = new OrderKafkaConsumer(useCase, inbox, crewMemberLeftUseCase, dlt,
-		new JsonConverter(JsonMapper.builder().build()));
+		raceScheduleNoticeUseCase, jsonConverter);
 
 	@Test
 	@DisplayName("대회 취소 메시지(RaceCancelEvent)를 받으면 그 대회 ID로 일괄 환불한다")
@@ -99,6 +109,18 @@ class OrderKafkaConsumerTest {
 	}
 
 	@Test
+	@DisplayName("회원 서비스가 보내는 공통 이벤트(CrewMemberLeftEvent)를 직렬화한 JSON을 그대로 읽는다 (칸 이름이 바뀌면 실패)")
+	void crewMemberLeftFromCommonEvent() {
+		LocalDateTime joinedAt = LocalDateTime.of(2026, 11, 1, 9, 0);
+		String payload = jsonConverter.toJson(new CrewMemberLeftEvent("3f1c", 7L, 2L,
+			CrewMemberLeftReason.MEMBER_WITHDRAWN, joinedAt, LocalDateTime.of(2026, 11, 4, 12, 0)));
+
+		consumer.handleCrewMemberLeft(payload, MESSAGE_ID);
+
+		verify(crewMemberLeftUseCase).removeFromParties(eq(7L), eq(2L), eq(joinedAt), any(LocalDateTime.class));
+	}
+
+	@Test
 	@DisplayName("이미 처리한 크루 떠남 메시지는 건너뛴다")
 	void crewMemberLeftSkipsProcessed() {
 		given(inbox.alreadyProcessed(MESSAGE_ID, "order", KafkaTopics.CREW_MEMBER_LEFT)).willReturn(true);
@@ -118,5 +140,28 @@ class OrderKafkaConsumerTest {
 			"{\"crewId\":7,\"joinedAt\":\"2026-11-01T09:00:00\"}", MESSAGE_ID))
 			.isInstanceOf(IllegalArgumentException.class);
 		verifyNoInteractions(crewMemberLeftUseCase);
+	}
+
+	@Test
+	@DisplayName("일정 변경 알림의 「오늘」은 서버 시간대와 상관없이 한국 날짜로 넘긴다 (UTC 서버의 한국 0~9시)")
+	void passesKoreanToday() {
+		ZoneId korea = ZoneId.of("Asia/Seoul");
+		LocalDate koreanToday = LocalDate.now(korea);
+		// 지금 한국 날짜와 다른 날짜가 되는 시간대를 서버 시간대로 둔다 (UTC-12는 한국 0~20시, UTC+14는 19~23시에 다르다)
+		ZoneId behind = ZoneId.of("Etc/GMT+12");
+		ZoneId serverZone = LocalDate.now(behind).equals(koreanToday) ? ZoneId.of("Etc/GMT-14") : behind;
+		TimeZone original = TimeZone.getDefault();
+		TimeZone.setDefault(TimeZone.getTimeZone(serverZone));
+		try {
+			consumer.handleRaceChanged("{\"raceId\":300,\"raceDate\":\"2027-03-01T08:30:00\","
+				+ "\"scheduleChangedAt\":\"2026-11-16T10:00:00\"}", MESSAGE_ID);
+		} finally {
+			TimeZone.setDefault(original);
+		}
+
+		ArgumentCaptor<LocalDate> today = ArgumentCaptor.forClass(LocalDate.class);
+		verify(raceScheduleNoticeUseCase).notifyChanged(eq(300L), eq(LocalDateTime.of(2027, 3, 1, 8, 30)),
+			eq(LocalDateTime.of(2026, 11, 16, 10, 0)), today.capture());
+		assertThat(today.getValue()).isEqualTo(koreanToday);
 	}
 }

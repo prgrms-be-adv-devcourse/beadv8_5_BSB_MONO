@@ -6,6 +6,8 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
+
 import com.bukang.member.crew.app.CrewPenaltyRecordUseCase;
 
 import lombok.RequiredArgsConstructor;
@@ -25,6 +27,7 @@ public class CrewPenaltyScheduler {
 	private final CrewPenaltyRecordUseCase crewPenaltyRecordUseCase;
 	private final Clock clock;
 
+	@SchedulerLock(name = "member-crew-penalty", lockAtMostFor = "PT30M", lockAtLeastFor = "PT30S")
 	@Scheduled(cron = "0 30 4 * * *", zone = ZONE)
 	public void record() {
 		int saved = crewPenaltyRecordUseCase.record(clock.instant());

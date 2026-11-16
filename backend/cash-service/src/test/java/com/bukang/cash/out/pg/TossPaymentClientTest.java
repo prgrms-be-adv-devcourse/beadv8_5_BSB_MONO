@@ -88,7 +88,8 @@ class TossPaymentClientTest {
 	@DisplayName("승인 성공 시 응답의 승인 시각(approvedAt)을 한국 시간으로 돌려준다")
 	void approveReturnsApprovedAt() {
 		String response = """
-			{ "paymentKey": "pay_123", "totalAmount": 10000, "approvedAt": "2026-10-15T10:00:00+09:00" }
+			{ "paymentKey": "pay_123", "totalAmount": 10000, "status": "DONE",
+				"approvedAt": "2026-10-15T10:00:00+09:00" }
 			""";
 		server.expect(requestTo(URL)).andRespond(withSuccess(response, MediaType.APPLICATION_JSON));
 
@@ -101,7 +102,7 @@ class TossPaymentClientTest {
 	@DisplayName("응답에 우리가 안 쓰는 필드가 더 있어도 무시하고 파싱한다")
 	void ignoresUnknownResponseFields() {
 		String responseWithExtraFields = """
-			{ "paymentKey": "pay_123", "totalAmount": 10000, "method": "카드", "mId": "tosspayments",
+			{ "paymentKey": "pay_123", "totalAmount": 10000, "status": "DONE", "method": "카드", "mId": "tosspayments",
 				"approvedAt": "2026-10-15T10:00:00+09:00" }
 			""";
 		server.expect(requestTo(URL)).andRespond(withSuccess(responseWithExtraFields, MediaType.APPLICATION_JSON));
@@ -110,6 +111,27 @@ class TossPaymentClientTest {
 
 		assertThat(result.approvedAmount()).isEqualTo(10_000);
 		assertThat(result.pgPaymentKey()).isEqualTo("pay_123");
+	}
+
+	@ParameterizedTest(name = "status={0}")
+	@CsvSource({"WAITING_FOR_DEPOSIT", "IN_PROGRESS", "READY", "SOMETHING_NEW"})
+	@DisplayName("승인 응답이 200이어도 승인 완료(DONE)가 아니면(가상계좌 입금 대기 등) 충전하지 않게 승인됐는지 알 수 없다고 알린다")
+	void approveWithNotDoneStatusIsResultUnknown(String tossStatus) {
+		server.expect(requestTo(URL))
+			.andRespond(withSuccess(paymentResponse("pay_123", 10_000, tossStatus), MediaType.APPLICATION_JSON));
+
+		assertThat(approveFailure().isResultUnknown()).isTrue();
+	}
+
+	@Test
+	@DisplayName("승인 응답에 결제 상태가 없으면 승인 완료로 보지 않고 승인됐는지 알 수 없다고 알린다")
+	void approveWithoutStatusIsResultUnknown() {
+		String response = """
+			{ "paymentKey": "pay_123", "totalAmount": 10000 }
+			""";
+		server.expect(requestTo(URL)).andRespond(withSuccess(response, MediaType.APPLICATION_JSON));
+
+		assertThat(approveFailure().isResultUnknown()).isTrue();
 	}
 
 	@Test
@@ -555,7 +577,7 @@ class TossPaymentClientTest {
 	// Toss 결제 승인·조회 응답의 모양 (우리가 실제로 쓰는 필드만)
 	private String confirmResponse(String paymentKey, long totalAmount) {
 		return """
-			{ "paymentKey": "%s", "totalAmount": %d }
+			{ "paymentKey": "%s", "totalAmount": %d, "status": "DONE" }
 			""".formatted(paymentKey, totalAmount);
 	}
 

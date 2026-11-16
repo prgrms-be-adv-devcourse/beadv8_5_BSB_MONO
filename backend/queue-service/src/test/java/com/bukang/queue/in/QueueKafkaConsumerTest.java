@@ -148,7 +148,8 @@ class QueueKafkaConsumerTest extends QueueIntegrationTest {
 	// 상품이 보내는 대회 메시지 (접수 마감은 모든 테스트에서 같다)
 	private String raceMessage(RaceSaleStatus saleStatus, LocalDateTime individualOpenAt, LocalDateTime updatedAt) {
 		return jsonConverter.toJson(
-			new RaceChangedEvent(RACE_ID, saleStatus, individualOpenAt, APPLICATION_CLOSE_AT, null, null, updatedAt));
+			new RaceChangedEvent(RACE_ID, saleStatus, individualOpenAt, APPLICATION_CLOSE_AT, null, null, updatedAt,
+				null, null));
 	}
 
 	// 상품이 보내는 종목 메시지 (대회 RACE_ID의 종목 RACE_COURSE_ID)

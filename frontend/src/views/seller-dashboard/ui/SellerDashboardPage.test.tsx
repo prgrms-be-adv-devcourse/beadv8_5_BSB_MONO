@@ -27,6 +27,21 @@ describe('SellerDashboardPage', () => {
     expect(screen.getByText('판매 중 대회')).toBeInTheDocument()
   })
 
+  it('제목 아래에 크루런 AI 브리핑 카드를 붙인다', async () => {
+    renderPage()
+
+    const card = await screen.findByRole('region', { name: '크루런 AI 브리핑' })
+    expect(
+      within(card).getByText(
+        '송장 입력 대기 키트가 4건 있어요. 지급보류 1건의 사유를 확인해 주세요.',
+      ),
+    ).toBeInTheDocument()
+    expect(within(card).getByRole('link', { name: '크루런 AI에 물어보기' })).toHaveAttribute(
+      'href',
+      '/seller/ai',
+    )
+  })
+
   it('지급 예정 정산이 없어 다음 정산일이 null이면 - 를 보여 준다', async () => {
     server.use(
       http.get('*/api/v1/payout/seller/summary', () =>

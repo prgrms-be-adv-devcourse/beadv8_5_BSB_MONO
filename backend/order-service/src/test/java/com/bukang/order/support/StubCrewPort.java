@@ -6,7 +6,10 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.bukang.order.out.crew.CrewPort;
 
@@ -22,9 +25,12 @@ public class StubCrewPort implements CrewPort {
 	private final Map<Long, LocalDateTime> restrictionEnds = new ConcurrentHashMap<>();
 	// 다음 크루 조회 직전에 한 번 돌릴 일 (조회와 잠금 사이에 다른 요청이 끼어드는 상황을 만든다)
 	private final AtomicReference<Runnable> beforeNextLookup = new AtomicReference<>();
+	// 회원 서비스를 트랜잭션 안에서 부른 적이 있는지 (DB 연결을 쥔 채 HTTP를 기다리면 안 된다, BUK-248)
+	private final AtomicBoolean calledInTransaction = new AtomicBoolean();
 
 	@Override
 	public Optional<CrewMembership> findMembership(long crewId, long memberId) {
+		recordTransaction();
 		Runnable hook = beforeNextLookup.getAndSet(null);
 		if (hook != null) {
 			hook.run();
@@ -43,6 +49,7 @@ public class StubCrewPort implements CrewPort {
 
 	@Override
 	public Optional<LocalDateTime> findPartyRestrictionEnd(long crewId) {
+		recordTransaction();
 		return Optional.ofNullable(restrictionEnds.get(crewId));
 	}
 
@@ -69,7 +76,18 @@ public class StubCrewPort implements CrewPort {
 		beforeNextLookup.set(hook);
 	}
 
+	public boolean calledInTransaction() {
+		return calledInTransaction.get();
+	}
+
+	private void recordTransaction() {
+		if (TransactionSynchronizationManager.isActualTransactionActive()) {
+			calledInTransaction.set(true);
+		}
+	}
+
 	public void clear() {
+		calledInTransaction.set(false);
 		beforeNextLookup.set(null);
 		missingCrews.clear();
 		restrictionEnds.clear();

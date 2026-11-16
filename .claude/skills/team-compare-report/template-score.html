@@ -106,6 +106,16 @@ ul.pts.b li::before { background: var(--bad); }
 .step h3 small { font-weight: 400; color: var(--muted); font-size: 13px; }
 .step p { margin: 0; color: var(--muted); font-size: 14px; grid-column: 2 / 4; }
 .step.urgent { border-color: var(--bad); }
+a.step { color: inherit; text-decoration: none; }
+a.step:hover { border-color: var(--accent); }
+a.step:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.step .more { grid-column: 2 / 4; font-size: 13px; color: var(--accent); }
+.dsec { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; }
+.dsec h2 { font-size: 15px; margin: 0 0 8px; }
+.dsec p { margin: 0; }
+.dsec ol, .dsec ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+.dsec.bad { background: var(--bad-bg); border-color: transparent; }
+.back { color: var(--accent); text-decoration: none; font-size: 14px; }
 .size { font-size: 12px; padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
 .size.s { background: var(--good-bg); color: var(--good); }
 .size.m { background: var(--accent-bg); color: var(--accent); }
@@ -238,9 +248,12 @@ const teamById = id => DATA.teams.find(t => t.id === id);
 const R = DATA.rubric;
 const fmt = n => String(+n.toFixed(2));
 const axisPts = s => !s || s.na ? null : (n => s.cap ? Math.min(n, 1) : n)(s.items.filter(i => i.ok).length);
-const axisGrade = (p, s) => p === null ? "na" : s.cap || p <= 1 ? "weak" : p === 4 ? "good" : "ok";
+const axisGrade = (p, s) => p === null ? "na" : s.cap || p < (R.okMin ?? 2) ? "weak" : p === 4 ? "good" : "ok";
 const SC = {};
-DATA.teams.forEach(t => {
+// scores가 없는 팀은 「채점 전」. 순위·평균·분포는 채점한 팀만으로 계산한다 (rubric.partial일 때만 허용)
+const SCORED = DATA.teams.filter(t => t.scores);
+DATA.teams.filter(t => !t.scores).forEach(t => SC[t.id] = { pending: true, axes: [], total: null });
+SCORED.forEach(t => {
   let got = 0, w = 0;
   const axes = R.axes.map(a => {
     const s = t.scores[a.id], p = axisPts(s);
@@ -249,11 +262,12 @@ DATA.teams.forEach(t => {
   });
   SC[t.id] = { axes, total: w ? Math.round(got / w * 1000) / 10 : 0 };
 });
-DATA.teams.forEach(t => SC[t.id].rank = 1 + DATA.teams.filter(u => SC[u.id].total > SC[t.id].total).length);
-const AVG = DATA.teams.reduce((s, t) => s + SC[t.id].total, 0) / DATA.teams.length;
-const axisVals = i => DATA.teams.map(t => SC[t.id].axes[i].p).filter(p => p !== null);
+SCORED.forEach(t => SC[t.id].rank = 1 + SCORED.filter(u => SC[u.id].total > SC[t.id].total).length);
+const AVG = SCORED.reduce((s, t) => s + SC[t.id].total, 0) / Math.max(SCORED.length, 1);
+const axisVals = i => SCORED.map(t => SC[t.id].axes[i].p).filter(p => p !== null);
 const AXIS_AVG = R.axes.map((_, i) => { const v = axisVals(i); return v.length ? v.reduce((x, y) => x + y, 0) / v.length : 0; });
-const N = DATA.teams.length;
+const N = SCORED.length, PENDING = DATA.teams.length - N;
+const ofN = `${PENDING ? "채점한 " : ""}${N}팀`;
 
 function radar(t) {
   const n = R.axes.length, c = 150, r = 90;
@@ -320,9 +334,9 @@ function axisDetail(x, i) {
 function scoreboard(t) {
   const S = SC[t.id], strong = S.axes.filter(x => x.g === "good");
   return `<section class="score-top">
-      <div class="card"><span class="rank">${N}팀 중 ${S.rank}위 · ${S.total}점</span>
+      <div class="card"><span class="rank">${ofN} 중 ${S.rank}위 · ${S.total}점</span>
         <div class="bar"><i style="width:${S.total}%"></i><u style="left:${AVG}%"></u></div>
-        <div class="bar-scale"><span>0</span><span>세로선은 ${N}팀 평균 ${AVG.toFixed(1)}점</span><span>100</span></div>
+        <div class="bar-scale"><span>0</span><span>세로선은 ${ofN} 평균 ${AVG.toFixed(1)}점</span><span>100</span></div>
         <table class="score"><thead><tr><th>축</th><th>점수</th><th>판정</th></tr></thead><tbody>
         ${S.axes.map(x => `<tr><td>${esc(x.a.name)}</td><td class="num">${x.p === null ? "–" : `${fmt(x.pts)}/${x.a.weight}`}</td><td>${grade(x.g)}${x.s?.cap ? " <small>치명 결함</small>" : ""}</td></tr>`).join("")}
         </tbody></table></div>
@@ -333,7 +347,8 @@ function scoreboard(t) {
 }
 
 function scores() {
-  const sorted = [...DATA.teams].sort((x, y) => SC[x.id].rank - SC[y.id].rank);
+  const sorted = [...SCORED].sort((x, y) => SC[x.id].rank - SC[y.id].rank);
+  const pend = DATA.teams.filter(t => !t.scores);
   return `<div class="page">
     ${header("점수 순위", R.note)}
     ${lead(R.summary)}
@@ -343,7 +358,8 @@ function scores() {
         <td class="num">${S.rank}</td><td class="name"><a href="#${esc(t.id)}">${esc(teamLabel(t))}</a></td>
         <td class="num">${S.total}<span class="mini"><i style="width:${S.total}%"></i></span></td>
         ${S.axes.map(x => `<td class="num ${x.g}">${x.p === null ? "–" : x.p + (x.s.cap ? "*" : "")}</td>`).join("")}</tr>`; }).join("")}
-        <tr><td></td><td>${N}팀 평균</td><td class="num">${AVG.toFixed(1)}</td>${AXIS_AVG.map(v => `<td class="num">${v.toFixed(1)}</td>`).join("")}</tr>
+        ${pend.map(t => `<tr class="${t.ours ? "ours" : ""}"><td class="num">–</td><td class="name"><a href="#${esc(t.id)}">${esc(teamLabel(t))}</a></td><td class="num" colspan="${R.axes.length + 1}">${none("새 기준 채점 전")}</td></tr>`).join("")}
+        <tr><td></td><td>${ofN} 평균</td><td class="num">${AVG.toFixed(1)}</td>${AXIS_AVG.map(v => `<td class="num">${v.toFixed(1)}</td>`).join("")}</tr>
       </tbody></table></div>
     <p class="foot">축 칸은 확인 항목 충족 개수(0~4)입니다. *는 치명 결함이 있어 최대 1점만 받는 축, –는 해당 없는 축입니다.</p>
   </div>`;
@@ -397,7 +413,7 @@ function team(t) {
     `<div class="check"><span class="item">${md(c.item)}</span>${grade(c.grade)}<p>${md(c.text)}</p></div>`).join("")}</div></section>` : "";
   return `<div class="page">
     ${header(teamLabel(t), [t.product, t.kind, t.source].filter(Boolean).join(" · "))}
-    ${scoreboard(t)}
+    ${t.scores ? scoreboard(t) : `<p class="foot">${none("새 기준으로 아직 채점하지 않았습니다. 아래는 이전 기준 판정입니다.")}</p>`}
     <dl class="facts">${(t.facts || []).map(([k, v]) => `<div class="fact"><dt>${esc(k)}</dt><dd>${md(v)}</dd></div>`).join("")}</dl>
     <div class="two">
       <section class="box g"><h2>잘한 점</h2>${list(t.good, "g")}</section>
@@ -415,11 +431,29 @@ function apply() {
   return `<div class="page">
     ${header("우리 팀 적용안", "작고 급한 것부터 순서대로")}
     ${lead(DATA.apply.summary)}
-    ${DATA.apply.groups.map(g => `${g.title ? `<p class="group-title">${esc(g.title)}</p>` : ""}<div class="steps">${g.items.map(a => `<div class="step ${a.urgent ? "urgent" : ""}">
+    ${DATA.apply.groups.map(g => `${g.title ? `<p class="group-title">${esc(g.title)}</p>` : ""}<div class="steps">${g.items.map(a => `<${a.detail ? `a href="#apply-${esc(a.id)}"` : "div"} class="step ${a.urgent ? "urgent" : ""}">
       <div class="n">${++n}</div>
       <h3>${md(a.title)}${a.ref ? ` <small>· 참고 ${esc(a.ref)}</small>` : ""}</h3>
       ${a.badge ? `<span class="size ${esc(a.badge.level)}">${esc(a.badge.text)}</span>` : "<span></span>"}
-      <p>${md(a.why)}</p></div>`).join("")}</div>`).join("")}
+      <p>${md(a.why)}</p>${a.detail ? `<span class="more">자세히 보기 →</span></a>` : "</div>"}`).join("")}</div>`).join("")}
+  </div>`;
+}
+
+// 적용안 상세: 무엇이 문제 → 어디 → 그대로 두면 → 고치는 방법 → 확인 방법. 근거 경로는 code로 보인다
+function applyDetail(a, n) {
+  const D = a.detail, sec = (title, body, cls = "") => body ? `<section class="dsec ${cls}"><h2>${title}</h2>${body}</section>` : "";
+  const ol = arr => arr?.length ? `<ol>${arr.map(x => `<li>${md(x)}</li>`).join("")}</ol>` : "";
+  const ul = arr => arr?.length ? `<ul>${arr.map(x => `<li>${md(x)}</li>`).join("")}</ul>` : "";
+  return `<div class="page">
+    <a class="back" href="#apply">← 우리 팀 적용안</a>
+    ${header(`${n}. ${a.title}`, [a.ref ? `참고 ${a.ref}` : "", a.badge?.text].filter(Boolean).join(" · "))}
+    ${sec("무엇이 문제인지", D.problem ? `<p>${md(D.problem)}</p>` : "", "bad")}
+    ${sec("그대로 두면", D.impact ? `<p>${md(D.impact)}</p>` : "")}
+    ${sec("어디에 있는지", ul((D.where || []).map(w => "`" + w + "`")))}
+    ${sec("고치는 방법", ol(D.fix))}
+    ${sec("참고한 팀", D.refNote ? `<p>${md(D.refNote)}</p>` : "")}
+    ${sec("고친 뒤 확인", ul(D.done))}
+    ${sec("관련 기준", ul(D.rubric))}
   </div>`;
 }
 
@@ -475,11 +509,35 @@ function decisions() {
   </div>`;
 }
 
+// 락 속도: 팀마다 락 구간. holdSec이 null이면 기다리는 시간 상한이 없어 가장 위험한 쪽으로 정렬한다
+const holdText = l => l.holdSec == null ? "상한 없음" : `최대 ${fmt(l.holdSec)}초`;
+const lockRows = (rows, withTeam) => rows.map(([t, l]) => `<tr class="${t.ours ? "ours" : ""}">
+  ${withTeam ? `<td class="name"><a href="#${esc(t.id)}">${esc(teamLabel(t))}</a></td>` : ""}
+  <td>${md(l.row)}</td><td>${md(l.inside)}</td>
+  <td><b>${holdText(l)}</b>${l.basis ? `<br><small class="src">${md(l.basis)}</small>` : ""}</td>
+  <td>${md(l.crowd)}${l.ev ? `<br><small class="src">${esc(l.ev)}</small>` : ""}</td></tr>`).join("");
+const lockHead = withTeam => `<thead><tr>${withTeam ? `<th style="width:150px">팀</th>` : ""}<th>잠그는 행</th><th>락 안에서 하는 일</th><th style="width:150px">가장 오래 잡는 시간</th><th>요청이 몰리면</th></tr></thead>`;
+function locks() {
+  const L = DATA.locks, all = DATA.teams.flatMap(t => (t.locks || []).map(l => [t, l]));
+  const worst = [...all].sort(([, a], [, b]) => (b.holdSec ?? Infinity) - (a.holdSec ?? Infinity)).slice(0, L.top || 10);
+  return `<div class="page">
+    ${header("락 속도", L.note)}
+    ${lead(L.summary)}
+    <section><h2>가장 오래 잡는 락 구간</h2><div class="tbl"><table class="wide">${lockHead(true)}<tbody>${lockRows(worst, true)}</tbody></table></div></section>
+    ${DATA.teams.map(t => `<section><h2>${esc(teamLabel(t))}</h2>${t.locks?.length
+      ? `<div class="tbl"><table class="wide">${lockHead(false)}<tbody>${lockRows(t.locks.map(l => [t, l]), false)}</tbody></table></div>`
+      : `<p class="foot">${none(t.scores ? "락 구간 없음" : "새 기준 채점 전")}</p>`}</section>`).join("")}
+    <p class="foot">시간은 코드의 타임아웃 설정으로 계산한 최악의 경우입니다. 부하 테스트로 잰 값이 아닙니다.</p>
+  </div>`;
+}
+
 const ROUTES = { overview: overview, scores: scores, rubric: rubric, apply: apply };
 if (DATA.decisions) ROUTES.decisions = decisions;
 if (DATA.strengths) ROUTES.strengths = strengths;
 if (DATA.matrix) ROUTES.matrix = matrix;
+if (DATA.locks) ROUTES.locks = locks;
 DATA.teams.forEach(t => ROUTES[t.id] = () => team(t));
+DATA.apply.groups.flatMap(g => g.items).forEach((a, i) => { if (a.detail) ROUTES[`apply-${a.id}`] = () => applyDetail(a, i + 1); });
 
 document.getElementById("nav").innerHTML =
   `<div class="brand"><b>${esc(DATA.title)}</b><span>${esc(DATA.navCaption || "")}</span></div>
@@ -489,16 +547,17 @@ document.getElementById("nav").innerHTML =
    <a href="#rubric" data-r="rubric">채점 기준</a>
    ${DATA.decisions ? `<a href="#decisions" data-r="decisions">설계 선택</a>` : ""}
    ${DATA.matrix ? `<a href="#matrix" data-r="matrix">항목별 판정</a>` : ""}
+   ${DATA.locks ? `<a href="#locks" data-r="locks">락 속도</a>` : ""}
    <a href="#apply" data-r="apply">우리 팀 적용안</a>
    ${DATA.strengths ? `<a href="#strengths" data-r="strengths">다른 팀 장점 적용</a>` : ""}
    <div class="group">팀별 상세</div>
-   ${DATA.teams.map(t => `<a href="#${esc(t.id)}" data-r="${esc(t.id)}">${esc(teamLabel(t))}<small>${SC[t.id].total}점</small></a>`).join("")}`;
+   ${DATA.teams.map(t => `<a href="#${esc(t.id)}" data-r="${esc(t.id)}">${esc(teamLabel(t))}<small>${t.scores ? `${SC[t.id].total}점` : "채점 전"}</small></a>`).join("")}`;
 
 function render() {
   const key = (location.hash || "").slice(1);
   const r = ROUTES[key] ? key : "overview";
   document.getElementById("main").innerHTML = ROUTES[r]();
-  document.querySelectorAll("nav a[data-r]").forEach(a => a.classList.toggle("on", a.dataset.r === r));
+  document.querySelectorAll("nav a[data-r]").forEach(a => a.classList.toggle("on", a.dataset.r === r.replace(/^apply-.+/, "apply")));
   document.querySelector("nav a.on")?.scrollIntoView({ block: "nearest", inline: "nearest" });
   window.scrollTo(0, 0);
 }

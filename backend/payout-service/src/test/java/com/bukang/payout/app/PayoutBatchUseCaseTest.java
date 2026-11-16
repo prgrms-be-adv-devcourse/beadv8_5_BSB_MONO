@@ -30,6 +30,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.bukang.common.global.schedulerlock.SchedulerLockConfig;
 import com.bukang.payout.app.PayoutClaimUseCase.ClaimRunResult;
 import com.bukang.payout.domain.PayoutBatchRun;
 import com.bukang.payout.domain.PayoutBatchRunStatus;
@@ -39,7 +40,6 @@ import com.bukang.payout.domain.exception.PayoutBatchRunningException;
 import com.bukang.payout.dto.PayoutBatchRunDto;
 import com.bukang.payout.dto.PayoutCreateResultDto;
 import com.bukang.payout.dto.PayoutPayResultDto;
-import com.bukang.payout.global.config.PayoutSchedulerLockConfig;
 import com.bukang.payout.out.PayoutBatchRunRepository;
 
 /**
@@ -67,9 +67,9 @@ class PayoutBatchUseCaseTest {
 
 	@BeforeEach
 	void setUp() {
-		PayoutSchedulerLockConfig lockConfig = new PayoutSchedulerLockConfig();
+		SchedulerLockConfig lockConfig = new SchedulerLockConfig();
 		useCase = new PayoutBatchUseCase(
-			lockConfig.payoutLockingTaskExecutor(lockConfig.payoutLockProvider(dataSource)),
+			lockConfig.lockingTaskExecutor(lockConfig.lockProvider(dataSource, "payout_shedlock")),
 			createUseCase, reconcileUseCase, payUseCase, claimUseCase, payoutBatchRunRepository);
 		given(createUseCase.run(any(), any())).willReturn(new PayoutCreateResultDto(TODAY, TODAY, 3, 1, 0));
 		given(payUseCase.run(any(), any())).willReturn(new PayoutPayResultDto(TODAY, 5, 0, 0, 0));

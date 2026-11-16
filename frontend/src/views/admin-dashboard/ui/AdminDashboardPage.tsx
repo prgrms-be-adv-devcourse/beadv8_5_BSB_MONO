@@ -1,5 +1,6 @@
 import Link from 'next/link'
 
+import { AxBriefing } from '@/widgets/ax-briefing'
 import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
 import { cn } from '@/shared/lib'
 import {
@@ -59,6 +60,7 @@ export function AdminDashboardPage() {
         </Link>
       }
     >
+      <AxBriefing screen="admin" askHref="/admin/ai" basisHref="/admin/sellers" />
       <div className="flex gap-4">
         <StatTile label="판매자 승인 대기" value="3" unit="건" />
         <StatTile label="예치금 환급 요청" value="2" unit="건" />

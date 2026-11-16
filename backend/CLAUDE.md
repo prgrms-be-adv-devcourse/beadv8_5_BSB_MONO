@@ -11,6 +11,7 @@
 |---|---|---|---|
 | `common` | 라이브러리(jar) | - | 모든 서비스가 함께 쓰는 코드 (응답 형식, 예외, JPA 부모 클래스, 서비스 간 이벤트) |
 | `jwt` | 라이브러리(jar) | - | JWT 발급·검증 (`JwtProvider`). 웹·JPA 의존성이 없어 게이트웨이(WebFlux)에서도 쓴다 |
+| `observability-dev` | 라이브러리(jar), bootRun 전용 | - | dev에서 Logback 로그를 OTLP로도 내보내는 appender를 붙인다. 루트 `build.gradle.kts`가 모든 실행 앱에 `developmentOnly`로 넣어 운영 jar와 테스트에는 없다 |
 | `gateway` | Spring Boot 앱 (WebFlux) | 8000 | API 게이트웨이. Access Token을 검사하고 `/api/v1/<도메인>/**`를 경로에 맞는 서비스로 넘긴다 (Spring Cloud Gateway) |
 | `member-service` | Spring Boot 앱 | 8080 | 회원가입, 로그인, 인증 |
 | `cash-service` | Spring Boot 앱 | 8081 | 회원 복제본(`CashMember`), 캐시 (뼈대만 있음) |
@@ -22,7 +23,7 @@
 | `notification-service` | Spring Boot 앱 | 8087 | 내 알림. 다른 서비스가 보낸 `push.notification.requested`를 저장하고 조회·읽음 API를 연다 (BUK-69) |
 | `inquiry-service` | Spring Boot 앱 | 8088 | 대회 문의. 회원이 문의를 남기면 담당(판매자·관리자)이 한 번 답하고, 알림이 간다 (BUK-154) |
 | `board-service` | Spring Boot 앱 | 8089 | 커뮤니티 자유 게시판. 글·댓글·답글·좋아요(읽기는 로그인 없이), 회원 이벤트로 닉네임·판매자 복사본(`BoardMember`) (BUK-156) |
-| `ai-service` | Spring Boot 앱 | 8092 | 판매자·관리자 센터의 챗봇 「크루런 AI」. 질문을 모델에 보내 답하고 운영 숫자는 도구로 각 서비스 API에서 가져오고 출처를 붙인다. 대화 기록은 Redis. DB·Kafka 없음 (BUK-165, BUK-170) |
+| `ai-service` | Spring Boot 앱 | 8092 | 판매자·관리자 센터의 챗봇 「크루런 AI」. 질문을 모델에 보내 답하고 운영 숫자는 도구로 각 서비스 API에서 가져오고 출처를 붙인다. 대화 기록은 Redis. DB·Kafka 없음 (BUK-165, BUK-170). 문의 답변 초안도 만든다(BUK-191) |
 
 인프라(`compose.yml`: MySQL, Kafka, Elasticsearch, Redis, 로컬 S3 대체재 S3Mock)는 모든 서비스가 공용으로 씁니다.
 
@@ -67,7 +68,7 @@ Windows에서는 `gradlew.bat`, Git Bash에서는 `./gradlew`를 사용합니다
 
 ```
 backend/
-├── settings.gradle.kts        include("common", "jwt", "gateway", "member-service", "cash-service", "payout-service", "file-service", "order-service", "product-service", "queue-service", "notification-service", "inquiry-service", "board-service", "ai-service")
+├── settings.gradle.kts        include("common", "jwt", "gateway", "member-service", "cash-service", "payout-service", "file-service", "order-service", "product-service", "queue-service", "notification-service", "inquiry-service", "board-service", "ai-service", "observability-dev")
 ├── build.gradle.kts           모든 모듈 공통 설정
 ├── compose.yml                공용 인프라 (MySQL, Kafka, Elasticsearch, Redis) + 서비스별 앱 컨테이너 + nginx·web(프론트)
 ├── compose.prod.yml           옛 운영(EC2 compose) 덮어쓰기: Nginx HTTPS + certbot. 2026-11-15 k3s 전환 뒤 되돌리기용
@@ -91,6 +92,7 @@ backend/
 │       ├── modeltype/         HasModelTypeCode
 │       └── resulttype/        ResultType
 ├── jwt/         com.bukang.jwt     JwtProvider, JwtProperties(jwt.*), JwtAutoConfiguration(빈 자동 등록)
+├── observability-dev/ com.bukang.observability  OtelLogbackAppenderAutoConfiguration (로그 주소가 있을 때만 appender를 붙임, bootRun 전용)
 ├── gateway/     com.bukang.gateway GatewayApplication, auth/(JwtAuthenticationFilter, PublicPaths). 라우팅 규칙·공개 주소(gateway.auth.*)는 application.yaml, 서비스 주소는 프로파일별 yaml(gateway.services.*)
 ├── member-service/  com.bukang.member
 │   ├── in/ app/ domain/ out/  컨트롤러 / Facade·UseCase / 엔티티·도메인 예외 / Repository
@@ -132,13 +134,15 @@ backend/
 │   ├── QueueApplication       (뼈대만 있음)
 │   └── in/                    QueueExceptionHandler (헤더 누락·형식 오류를 RsData로 응답)
 └── ai-service/      com.bukang.ai
-    ├── in/                    ApiV1AiChatController (POST·DELETE /api/v1/ai/{seller|admin}/chat: 질문, 새 대화)
+    ├── in/                    ApiV1AiChatController (POST·DELETE /api/v1/ai/{seller|admin}/chat: 질문, 새 대화),
+    │                          ApiV1AiInquiryDraftController (POST /api/v1/ai/{seller|admin}/inquiries/{id}/draft: 문의 답변 초안, BUK-191)
     ├── app/                   AiChatUseCase (역할 확인 → 화면에 맞는 도구를 붙여 앞 대화와 함께 모델 호출 → 답 + 출처 + 목록),
-    │                          SellerTools·AdminTools (운영 숫자 조회 도구, BUK-170), AiToolTrace (도구에 넘기는 회원 번호 + 부른 도구 기록)
+    │                          SellerTools·AdminTools (운영 숫자 조회 도구, BUK-170), AiToolTrace (도구에 넘기는 회원 번호 + 부른 도구 기록),
+    │                          AiInquiryDraftUseCase (문의 상세를 읽어 초안 한 번 쓰기, 대화 기록·도구 없음), PersonalInfoMasker (본문 속 연락처·계좌 가리기)
     ├── config/                AiChatConfig (ChatClient + Redis 대화 기록, 최근 10개만)
     ├── domain/                AiScreen(화면 종류, 대화 번호 = 화면-회원 번호), AiSource(도구별 출처 화면·버튼·프론트 경로), exception/
     ├── out/member/            MemberRolePort (관리자·승인된 판매자 확인. prod=http, dev=fake)
-    └── out/ops/               OpsPort·HttpOpsAdapter (도구가 주문·정산·문의·회원의 화면용 API를 X-Member-Id로 직접 부른다. 가짜 모드 없음)
+    └── out/ops/               OpsPort·HttpOpsAdapter (도구와 문의 초안이 주문·정산·문의·회원의 화면용 API를 X-Member-Id로 직접 부른다. 가짜 모드 없음)
 ```
 
 - 파일은 브라우저가 presigned PUT으로 S3 `{환경}/uploads/`에 직접 올리고, 완료 API가 `{환경}/files/`로 옮긴 뒤 형식·크기를 확인한다 (README "파일 저장소" 참고).
@@ -226,7 +230,7 @@ Spring Boot 4의 모듈화된 스타터를 사용합니다. 테스트 지원도 
 
 - `backend/.env`와 `backend/compose.yml`은 `common`의 `global/config/LocalDevEnvironmentPostProcessor`가 실행 위치(working directory)와 상관없이 찾아 적용합니다.
 - 프로파일: `dev`(기본, 로컬 MySQL 등 compose 인프라), `test`(H2, Kafka 리스너 꺼짐), `prod`(값은 `.env` 환경변수).
-- dev/test의 암호화 키와 JWT 키는 개발용으로 yaml에 들어 있습니다. prod 키는 `.env`에만 두고 dev와 다른 값을 씁니다.
+- dev의 암호화 키와 JWT 키는 prod처럼 `.env`에서 읽습니다(`JWT_SECRET`, `CRYPTO_*`, `MARKETING_UNSUBSCRIBE_KEY`). 값이 없으면 dev 서버가 뜨지 않습니다. test 키만 yaml에 있습니다.
 - 인증은 JWT + Redis(Stateless)입니다. Access Token은 게이트웨이가 검사하고, 서비스는 게이트웨이가 넣어 준 `X-Member-Id` 헤더로 회원을 알아봅니다. 서비스는 세션을 만들지 않습니다 (`member-service`의 `security/WebConfig`).
 - 개인정보(휴대폰 번호)는 AES로 암호화해 저장하고 해시 컬럼으로 조회합니다. 암호화한 필드로 직접 조회하지 않습니다 (README 참고).
 
