@@ -27,6 +27,9 @@ public final class KafkaTopics {
 	// 종목이 바뀌었다 (등록한 종목, 수정 때 바뀐·새·뺀 종목). 대기열 서비스가 종목 복제본에 저장한다
 	public static final String RACE_COURSE_CHANGED = "queuing.racecourse.changed";
 
+	// 게시판 글이 바뀌었다 (쓰기·고치기·지우기·숨김·되살리기). 게시판 서비스가 보내고 자기가 받아 검색 인덱스를 맞춘다 (BUK-179, key 글 ID)
+	public static final String BOARD_POST_CHANGED = "queuing.post.changed";
+
 	// 대회·종목을 저장한 뒤 이미지 연결을 요청한다 (product → file)
 	public static final String RACE_FILE_LINK_REQUESTED = "race.filelink.requested";
 	// 대기열 활성 시간이 끝나 임시 확보한 자리를 해제한다 (order → product)
