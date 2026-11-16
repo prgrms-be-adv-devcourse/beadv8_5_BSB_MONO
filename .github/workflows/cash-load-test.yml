@@ -99,17 +99,16 @@ jobs:
             done
           done
 
-      - name: 결과 요약
+      # 3회 중앙값 표와 판정(P1~P8, 돈 확인 C)을 실행 요약 화면과 아티팩트(report/summary.md)에 남긴다
+      - name: 결과 정리 (3회 중앙값, 판정)
         if: always()
         run: |
           [ -d "$OUT" ] || exit 0
+          python3 backend/loadtest/scenario-b/container/report.py summary "$OUT" "$OUT/report" \
+            || echo "::warning::결과 정리 실패 (원본은 아티팩트에 있음)"
           {
-            echo '## 예치금 부하 측정'; echo; echo '```'; cat "$OUT/refs.txt" 2>/dev/null; echo '```'
             if [ -f "$OUT/failed-runs.txt" ]; then echo "실패한 바퀴: $(paste -sd' ' "$OUT/failed-runs.txt")"; echo; fi
-            # 돈 확인에서 0이 아닌 줄만 모은다 (어긋난 금액·건수). 비어 있으면 모두 통과
-            echo '### 돈 확인에서 0이 아닌 줄'; echo; echo '```'
-            grep -H -E '\| +-?[1-9][0-9]* +\|$' "$OUT"/*/rep*/*.verify.txt | grep -E '(0이어야 함)' || echo '(없음)'
-            echo '```'
+            cat "$OUT/report/summary.md" 2>/dev/null || echo '결과 정리 파일이 없어요'
           } >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v4
