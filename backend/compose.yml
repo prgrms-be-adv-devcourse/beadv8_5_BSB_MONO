@@ -525,6 +525,93 @@ services:
       timeout: 5s
       retries: 5
 
+  # 관측 도구 (로컬 전용). profiles를 monitoring으로 묶어 운영(COMPOSE_PROFILES=app)과
+  # bootRun의 인프라 자동 실행(프로필 없는 서비스만 띄움)에서는 뜨지 않는다
+  # 실행: docker compose --profile monitoring up -d prometheus grafana redis-exporter tempo loki alloy
+  # 앱의 추적·로그도 보려면 앱을 SPRING_PROFILES_ACTIVE=dev,monitoring으로 띄운다 (지표는 프로필 없이도 Prometheus가 가져간다)
+  # 호스트 포트는 127.0.0.1에만 연다. 인증 없이 지표·로그를 받고 Grafana 첫 비밀번호가 admin이라, 같은 Wi-Fi의 다른 컴퓨터는 못 들어오게 한다
+
+  # 지표 저장소 → http://localhost:9095 (Status → Targets에서 수집 대상 상태 확인)
+  # 맥에서 bootRun으로 띄운 서비스의 /actuator/prometheus를 15초마다 가져간다 (설정: docker/prometheus/prometheus.yml)
+  # 데이터는 컨테이너 안에만 두어, 컨테이너를 지우면 쌓인 지표도 지워진다
+  prometheus:
+    image: prom/prometheus:v3.16.0
+    container_name: bukang-prometheus
+    profiles: [ monitoring ]
+    # 이미지 기본 명령(설정 파일, 저장 위치)에 remote write 받기를 더한다. k6가 부하 테스트 지표를 밀어 넣는다
+    # 기본 두 개를 빼면 설정 파일을 못 읽으므로 같이 적는다
+    command: [ "--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.path=/prometheus", "--web.enable-remote-write-receiver" ]
+    ports:
+      # 9090은 S3Mock이 쓰므로 9095 사용
+      - "127.0.0.1:9095:9090"
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    # 맥·윈도우의 Docker Desktop은 host.docker.internal을 알아서 맞춰 주지만, 리눅스는 이 줄이 있어야 호스트를 찾는다
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # 지표 그래프 화면 → http://localhost:3001 (처음 로그인 admin / admin, 로그인하면 비밀번호를 바꾸라고 한다)
+  # Prometheus 데이터 소스는 시작할 때 자동으로 등록된다 (docker/grafana/provisioning/datasources/prometheus.yml)
+  grafana:
+    image: grafana/grafana:13.3.1
+    container_name: bukang-grafana
+    profiles: [ monitoring ]
+    ports:
+      # 3000은 프론트(Next.js)가 쓰므로 3001 사용
+      - "127.0.0.1:3001:3000"
+    volumes:
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+
+  # Redis 지표 통역기. Redis는 HTTP 지표 주소가 없어서, 이 컨테이너가 INFO 명령 결과를 Prometheus 형식으로 바꿔 9121로 연다
+  # Prometheus만 같은 네트워크에서 가져가므로 호스트 포트는 열지 않는다
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.97.0
+    container_name: bukang-redis-exporter
+    profiles: [ monitoring ]
+    environment:
+      # 컨테이너 안의 localhost는 자기 자신이라, 같은 네트워크의 서비스 이름으로 Redis를 찾는다
+      REDIS_ADDR: redis://bukang-redis:6379
+    depends_on:
+      - bukang-redis
+
+  # 추적 저장소 Tempo. Alloy가 보낸 span을 저장하고, Grafana가 3200으로 조회한다
+  # Alloy·Grafana만 같은 네트워크에서 접속하므로 호스트 포트는 열지 않는다
+  tempo:
+    image: grafana/tempo:3.1.1
+    container_name: bukang-tempo
+    profiles: [ monitoring ]
+    # all: 받기·저장·조회를 한 컨테이너에서 모두 한다 (로컬용 단일 실행)
+    command: [ "-target=all", "-config.file=/etc/tempo.yaml" ]
+    volumes:
+      - ./docker/tempo/tempo.yaml:/etc/tempo.yaml:ro
+
+  # 로그 저장소 (설정: docker/loki/loki.yaml). 호스트 포트를 열지 않는다. Alloy·Grafana가 컨테이너 이름으로 붙는다
+  loki:
+    image: grafana/loki:3.7.9
+    container_name: bukang-loki
+    profiles: [ monitoring ]
+    command: [ "-config.file=/etc/loki/loki.yaml" ]
+    volumes:
+      - ./docker/loki/loki.yaml:/etc/loki/loki.yaml:ro
+
+  # 수집기 Alloy. 맥에서 bootRun으로 띄운 앱이 localhost:4318로 보낸 span은 Tempo로, 로그는 Loki로 넘긴다
+  # 앱이 컨테이너 밖에 있어서 4318은 호스트에 연다. 12345는 Alloy 화면(부품 연결 그림)이다
+  alloy:
+    image: grafana/alloy:v1.21.3
+    container_name: bukang-alloy
+    profiles: [ monitoring ]
+    command: [ "run", "--server.http.listen-addr=0.0.0.0:12345", "--storage.path=/var/lib/alloy/data", "/etc/alloy/config.alloy" ]
+    ports:
+      - "127.0.0.1:4318:4318"
+      - "127.0.0.1:12345:12345"
+    volumes:
+      - ./docker/alloy/config.alloy:/etc/alloy/config.alloy:ro
+    depends_on:
+      - tempo
+      - loki
+
   # 로컬에서 크루런 AI를 실제 모델로 확인할 때만 띄운다 (ai-service의 dev 프로파일이 localhost:11434로 부른다). GPU 없이 CPU로 돈다
   # 이미지(약 3GB)와 모델(약 2GB)이 커서 profiles로 분리했다. bootRun이 인프라를 띄울 때도, 서버(app 프로파일)에서도 뜨지 않는다
   # 실행: docker compose --profile ai up -d bukang-ollama
