@@ -37,7 +37,7 @@ public class SellerTools {
 		+ "sendableNowCount: 환불 기한이 지나 지금 송장을 입력할 수 있는 건수, "
 		+ "sendableAfterRefundDeadlineCount: 배송 준비 중이지만 환불 기한 전이라 기한이 지나면 보낼 수 있는 건수. "
 		+ "sendableNowCount가 0이어도 sendableAfterRefundDeadlineCount가 있으면 「지금 보낼 키트는 없고, 환불 기한이 지나면 N건을 보낼 수 있다」처럼 답한다. "
-		+ "listedCount: 답 아래 목록 카드에 화면이 따로 보여 주는 줄 수(목록 내용은 말하지 않는다), notListedCount: 목록에 없는 나머지 건수")
+		+ "listedCount·notListedCount: 화면 목록 카드용 값이라 답에 쓰지 않는다")
 	public Object sellerKitsWaitingForTracking(ToolContext toolContext) {
 		AiToolTrace trace = AiToolTrace.of(toolContext);
 		trace.clearList();
