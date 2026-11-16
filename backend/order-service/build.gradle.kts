@@ -23,6 +23,8 @@ dependencies {
 
 	testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-kafka-test")
+	testImplementation("org.springframework.boot:spring-boot-testcontainers") // @ServiceConnection
+	testImplementation("org.testcontainers:testcontainers-mysql") // H2와 잠금이 다른 동시성은 진짜 MySQL로 확인한다 (BUK-188)
 	testImplementation(testFixtures(project(":common"))) // GlobalConfigTestExecutionListener (테스트마다 EventPublisher 재설정)
 
 	// QueryDSL Q클래스 생성기 (querydsl-jpa는 common이 넘겨 준다. 처리기는 전달되지 않아 모듈마다 적는다)

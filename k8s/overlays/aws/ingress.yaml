@@ -1,0 +1,25 @@
+# 운영 입구: 도메인 crewrun.duckdns.org를 HTTPS(443)로만 받는다 (base ingress.yaml에 덧붙인다)
+#   HTTP(80)로 오면 Traefik이 HTTPS로 옮긴다 (infra/main-node/traefik-config.yaml의 redirections)
+#   인증서는 Traefik이 Let's Encrypt에서 받아 갱신한다 (certresolver letsencrypt). certbot은 쓰지 않는다
+# Traefik이 HTTPS를 풀고 nginx에는 HTTP로 넘긴다. 앱은 X-Forwarded-Proto를 읽지 않아 nginx 설정은 그대로 둔다
+#   (로그인 쿠키는 항상 Secure로 내리고, 소셜 로그인 콜백 주소는 OAUTH2_REDIRECT_BASE_URL로 정해져 있다)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: crewrun
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    traefik.ingress.kubernetes.io/router.tls.certresolver: letsencrypt
+spec:
+  rules:
+    - host: crewrun.duckdns.org
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: bukang-nginx
+                port:
+                  name: http

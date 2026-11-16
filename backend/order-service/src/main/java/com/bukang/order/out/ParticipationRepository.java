@@ -4,6 +4,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -20,6 +22,17 @@ public interface ParticipationRepository extends JpaRepository<Participation, Lo
 	@Query("select p.id from Participation p where p.raceId = :raceId and p.memberId = :memberId "
 		+ "and p.activeFlag = true")
 	Optional<Long> findActiveIdByRaceIdAndMemberId(@Param("raceId") long raceId, @Param("memberId") long memberId);
+
+	// 이 대회에 살아 있는 내 신청 (대회 상세의 「이미 신청함」, BUK-181). 읽기만 하는 화면용이라 잠그지 않는다
+	@Query("select p from Participation p where p.raceId = :raceId and p.memberId = :memberId and p.activeFlag = true")
+	Optional<Participation> findActiveByRaceIdAndMemberId(@Param("raceId") long raceId,
+		@Param("memberId") long memberId);
+
+	// 내 참가권 목록 (BUK-181). 최신순이고 idx_participation_member(member_id, id)를 탄다
+	Page<Participation> findByMemberIdOrderByIdDesc(long memberId, Pageable pageable);
+
+	// 내 참가권 목록 중 살아 있는 신청만 (확보 전·결제 대기·참가 확정). 끝난 신청은 active_flag가 NULL이다
+	Page<Participation> findByMemberIdAndActiveFlagTrueOrderByIdDesc(long memberId, Pageable pageable);
 
 	// 파티에서 나갈 때 끝낼 그 사람의 파티원 신청서
 	@Query("select p.id from Participation p where p.partyId = :partyId and p.memberId = :memberId "
@@ -58,4 +71,15 @@ public interface ParticipationRepository extends JpaRepository<Participation, Lo
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	@Query("select p from Participation p where p.id = :id")
 	Optional<Participation> findByIdForUpdate(@Param("id") long id);
+
+	// 파티들의 신청서를 [파티 ID, 상태, 건수]로 센다 (판매자 파티별 내역, BUK-227). 파티 신청 뒤의 상태만 센다
+	@Query("""
+		select p.partyId, p.status, count(p) from Participation p
+		where p.partyId in :partyIds
+			and p.status in (com.bukang.order.domain.ParticipationStatus.APPLIED,
+				com.bukang.order.domain.ParticipationStatus.CONFIRMED,
+				com.bukang.order.domain.ParticipationStatus.RELEASED)
+		group by p.partyId, p.status
+		""")
+	List<Object[]> countByPartyIdsAndStatus(@Param("partyIds") Collection<Long> partyIds);
 }

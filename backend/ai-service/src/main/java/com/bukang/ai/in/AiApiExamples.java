@@ -9,7 +9,41 @@ final class AiApiExamples {
 			"status": 200,
 			"message": "답변했습니다.",
 			"data": {
-				"answer": "송장 입력 대기 키트는 주문 관리 화면에서 확인해 주세요."
+				"answer": "송장 입력 대기 키트는 7건이에요. 5건은 아래 목록에 있고, 나머지 2건은 키트 배송 관리에서 확인해 주세요.",
+				"sources": [
+					{
+						"screen": "주문 관리 · 키트 배송 현황",
+						"asOf": "2026-11-11T14:03:00",
+						"buttonLabel": "키트 배송 관리로 가기",
+						"path": "/seller/kits"
+					}
+				],
+				"list": {
+					"rows": [
+						{ "orderNo": "ORD-20261103-0012", "name": "김민지", "detail": "10km" }
+					],
+					"moreCount": 2
+				}
+			}
+		}
+		""";
+	static final String CHAT_SUCCESS_NO_TOOL = """
+		{
+			"status": 200,
+			"message": "답변했습니다.",
+			"data": { "answer": "이번 달 판매액은 주문 · 참가자 화면에서 확인해 주세요.", "sources": [], "list": null }
+		}
+		""";
+	static final String CHAT_SUCCESS_TOOL_FAILED = """
+		{
+			"status": 200,
+			"message": "답변했습니다.",
+			"data": {
+				"answer": "지금은 답변 대기 문의를 불러오지 못했어요. 문의 관리 화면에서 확인해 주세요.",
+				"sources": [
+					{ "screen": "문의 관리 · 답변 대기", "asOf": null, "buttonLabel": null, "path": null }
+				],
+				"list": null
 			}
 		}
 		""";

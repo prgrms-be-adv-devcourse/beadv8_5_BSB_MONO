@@ -10,11 +10,15 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.bukang.common.global.rsdata.RsData;
 import com.bukang.common.shared.member.web.LoginMemberId;
+import com.bukang.order.app.MyTicketQueryFacade;
 import com.bukang.order.app.ParticipationFacade;
+import com.bukang.order.dto.KitOptionChangeRequestDto;
+import com.bukang.order.dto.MyTicketPageDto;
 import com.bukang.order.dto.ParticipantInfoDto;
 import com.bukang.order.dto.ParticipantInfoRequestDto;
 import com.bukang.order.dto.ParticipationApplyRequestDto;
@@ -29,14 +33,21 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 
-@Tag(name = "Participation", description = "참가 신청서 작성·취소, 참가 신청 조회, 참가자 정보 수정, 최근 참가자 정보 조회 API")
+@Tag(name = "Participation", description = "참가 신청서 작성·취소, 참가 신청 조회, 내 참가권 목록, 참가자 정보·키트 옵션 수정, "
+	+ "최근 참가자 정보 조회 API")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/order/participations")
 public class ApiV1ParticipationController {
+	// 한 페이지에 다른 종목이 많으면 상품 서비스를 그만큼 부르므로 주문 목록(100)보다 작게 둔다
+	private static final int MAX_TICKET_PAGE_SIZE = 50;
+
 	private final ParticipationFacade participationFacade;
+	private final MyTicketQueryFacade myTicketQueryFacade;
 
 	// ResponseEntity.created()의 201은 springdoc이 추론하지 못하므로 응답 코드를 직접 명시한다
 	// 에러 응답은 GlobalExceptionHandler, OrderExceptionHandler가 RsData(data: null) 형식으로 반환한다
@@ -120,8 +131,45 @@ public class ApiV1ParticipationController {
 				.body(RsData.of(HttpStatus.OK, "이전에 신청한 참가자 정보가 없습니다.", null)));
 	}
 
+	@GetMapping("/me")
+	@Operation(summary = "내 참가권 목록",
+		description = "내 참가 신청을 최신순으로 돌려준다. 신청 1건이 한 줄이고, 결제 전 신청과 주문이 아직 없는 파티원 신청도 나온다. "
+			+ "한 줄에 대회·종목·대회일·환불 기한, 참가자, 신청·주문 상태, 고른 키트 옵션, 키트 배송 상태·택배사·송장, "
+			+ "파티(크루 ID·파티장)를 담는다. active=true면 살아 있는 신청(확보 전·결제 대기·참가 확정)만 준다. "
+			+ "대회 이름·환불 기한은 상품 서비스에서 받으므로, 상품 서비스에 묻지 못하면 그 칸만 null이고 "
+			+ "종목 이름·대회일은 주문 당시 값으로 채운다. 파티장 닉네임도 회원 서비스에 묻지 못하면 null이다. "
+			+ "크루 이름은 담지 않으니 GET /api/v1/member/crews/me의 크루 ID로 찾는다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "조회 성공 (신청이 없으면 빈 목록)",
+			content = @Content(examples = @ExampleObject(value = ParticipationApiExamples.MY_TICKETS_SUCCESS))),
+		@ApiResponse(responseCode = "400", description = "페이지·회원 ID 오류",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "페이지 크기 초과", value = ParticipationApiExamples.INVALID_TICKET_PAGE),
+				@ExampleObject(name = "숫자 형식 오류", value = ParticipationApiExamples.INVALID_VALUE_TYPE),
+				@ExampleObject(name = "회원 ID가 0 이하", value = ParticipationApiExamples.INVALID_MEMBER_ID)
+			})),
+		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = ParticipationApiExamples.LOGIN_REQUIRED)))
+	})
+	public ResponseEntity<RsData<MyTicketPageDto>> findMyTickets(
+		@LoginMemberId long memberId,
+		@Parameter(description = "true면 살아 있는 신청(확보 전·결제 대기·참가 확정)만", example = "false")
+		@RequestParam(defaultValue = "false") boolean active,
+		@Parameter(description = "페이지 번호 (0부터)", example = "0")
+		@RequestParam(defaultValue = "0") @Min(value = 0, message = "페이지 번호는 0 이상이어야 합니다.") int page,
+		@Parameter(description = "페이지 크기 (1~50)", example = "20")
+		@RequestParam(defaultValue = "20") @Min(value = 1, message = "페이지 크기는 1 이상이어야 합니다.")
+		@Max(value = MAX_TICKET_PAGE_SIZE, message = "한 번에 50개까지 조회할 수 있습니다.") int size
+	) {
+		return ResponseEntity.ok()
+			.body(RsData.of(HttpStatus.OK, "내 참가권 목록을 조회했습니다.",
+				myTicketQueryFacade.findMine(memberId, active, page, size)));
+	}
+
 	@GetMapping("/{participationId}")
-	@Operation(summary = "참가 신청 조회", description = "본인의 참가 신청과 참가자 정보, 상태를 돌려준다.")
+	@Operation(summary = "참가 신청 조회",
+		description = "본인의 참가 신청과 참가자 정보, 상태, 결제 때 고른 키트 옵션(kitOptions)을 돌려준다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "조회 성공",
 			content = @Content(examples = @ExampleObject(value = ParticipationApiExamples.FIND_SUCCESS))),
@@ -238,5 +286,59 @@ public class ApiV1ParticipationController {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "참가자 정보를 수정했습니다.",
 				participationFacade.changeParticipant(participationId, request, memberId)));
+	}
+
+	@PutMapping("/{participationId}/kit-options")
+	@Operation(summary = "키트 옵션 바꾸기",
+		description = "결제한 본인 참가권의 키트 옵션(예: 티셔츠 M → L)을 접수 마감 전까지 바꾼다. 결제 때처럼 바꾼 뒤의 옵션을 "
+			+ "모두 보내고, 옵션 이름마다 하나씩 골라야 한다. 옛 옵션의 판매 수는 1 줄고 새 옵션의 판매 수는 1 는다. "
+			+ "새 옵션이 준비된 수량만큼 팔렸으면 409(data.soldOut, 결제 품절과 같은 모양)이고 아무것도 바뀌지 않는다. "
+			+ "바꾼 옵션은 내 참가권 목록과 판매자 키트 목록에 바로 보인다. 결제 전 신청·취소 중·취소된 참가권은 바꿀 수 없다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "바꾸기 성공 (같은 옵션을 보내면 그대로 200)",
+			content = @Content(examples = @ExampleObject(value = ParticipationApiExamples.KIT_OPTION_CHANGE_SUCCESS))),
+		@ApiResponse(responseCode = "400", description = "입력값 검증 실패, 요청 본문 형식 오류, 고른 옵션이 대회 옵션과 맞지 않음 "
+			+ "또는 참가 신청 ID·회원 ID 오류",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "옵션 ID 형식 오류", value = ParticipationApiExamples.INVALID_KIT_OPTION_ID),
+				@ExampleObject(name = "요청 본문 형식 오류", value = ParticipationApiExamples.INVALID_BODY),
+				@ExampleObject(name = "이 대회 옵션이 아님", value = ParticipationApiExamples.KIT_OPTION_NOT_IN_RACE),
+				@ExampleObject(name = "고르지 않은 옵션 이름", value = ParticipationApiExamples.KIT_OPTION_MISSING),
+				@ExampleObject(name = "한 이름에서 둘을 고름", value = ParticipationApiExamples.KIT_OPTION_DUPLICATED_NAME),
+				@ExampleObject(name = "참가 신청 ID·회원 ID 형식 오류", value = ParticipationApiExamples.INVALID_VALUE_TYPE),
+				@ExampleObject(name = "회원 ID가 0 이하", value = ParticipationApiExamples.INVALID_MEMBER_ID)
+			})),
+		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = ParticipationApiExamples.LOGIN_REQUIRED))),
+		@ApiResponse(responseCode = "403", description = "다른 회원의 참가 신청",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = ParticipationApiExamples.NOT_OWNER))),
+		@ApiResponse(responseCode = "404", description = "없는 참가 신청 또는 없는 종목",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "없는 참가 신청", value = ParticipationApiExamples.PARTICIPATION_NOT_FOUND),
+				@ExampleObject(name = "없는 종목", value = ParticipationApiExamples.COURSE_NOT_FOUND)
+			})),
+		@ApiResponse(responseCode = "409", description = "접수 마감 뒤, 취소된 대회, 바꿀 수 없는 참가권 또는 새 옵션 품절",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "접수 마감 뒤", value = ParticipationApiExamples.KIT_OPTION_APPLICATION_CLOSED),
+				@ExampleObject(name = "취소된 대회", value = ParticipationApiExamples.RACE_CANCELED),
+				@ExampleObject(name = "결제 전 참가 신청", value = ParticipationApiExamples.KIT_OPTION_NOT_CONFIRMED),
+				@ExampleObject(name = "취소 처리 중", value = ParticipationApiExamples.KIT_OPTION_CANCELING),
+				@ExampleObject(name = "새 옵션 품절", value = ParticipationApiExamples.KIT_OPTION_SOLD_OUT)
+			})),
+		@ApiResponse(responseCode = "503", description = "상품 서비스에서 키트 옵션을 받지 못함",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = ParticipationApiExamples.KIT_OPTIONS_UNAVAILABLE)))
+	})
+	public ResponseEntity<RsData<ParticipationDto>> changeKitOptions(
+		@LoginMemberId long memberId,
+		@Parameter(description = "참가 신청 ID", example = "1")
+		@PathVariable long participationId,
+		@Valid @RequestBody KitOptionChangeRequestDto request
+	) {
+		return ResponseEntity.ok()
+			.body(RsData.of(HttpStatus.OK, "키트 옵션을 바꿨습니다.",
+				participationFacade.changeKitOptions(participationId, request.getKitOptionIds(), memberId)));
 	}
 }
