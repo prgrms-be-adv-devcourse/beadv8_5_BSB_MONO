@@ -27,6 +27,8 @@ COPY notification-service notification-service
 COPY inquiry-service inquiry-service
 COPY board-service board-service
 COPY ai-service ai-service
+# bootRun 전용(developmentOnly) 모듈. jar에는 빠지지만 Gradle 설정 단계를 통과하려면 폴더가 있어야 한다
+COPY observability-dev observability-dev
 
 # Gradle 캐시(~/.gradle)를 빌드 간에 유지해서, 의존성은 변경된 것만 새로 받는다
 # :<모듈>:bootJar 는 그 서비스와 의존하는 라이브러리 모듈(common, jwt)만 빌드한다

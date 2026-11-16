@@ -78,3 +78,7 @@ member:
     password-reset:
       front-base-url: http://localhost:3000
       retry-delays: 0s, 0s, 0s
+
+# 내부 API 인증 키 (test 전용 값)
+internal:
+  api-key: test-internal-api-key

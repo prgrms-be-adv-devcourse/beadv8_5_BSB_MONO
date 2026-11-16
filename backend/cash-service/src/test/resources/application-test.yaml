@@ -63,3 +63,7 @@ cash:
     reconcile:
       stale-in-progress-minutes: 5
       alert-after-minutes: 30
+
+# 내부 API 인증 키 (test 전용 값)
+internal:
+  api-key: test-internal-api-key
