@@ -41,6 +41,14 @@
     {
       "name": "AdminOrder",
       "description": "관리자 회원·주문 조회 API (관리자 전용)"
+    },
+    {
+      "name": "SellerOrder",
+      "description": "판매자 주문 API (대회별 주문·참가자 목록, 파티별 신청·결제 인원)"
+    },
+    {
+      "name": "SellerExport",
+      "description": "판매자 목록 내려받기 API (참가자 명단, 키트 배송 목록). 사유를 받아 기록한다"
     }
   ],
   "paths": {
@@ -7440,6 +7448,829 @@
           }
         }
       }
+    },
+    "/api/v1/order/seller/orders": {
+      "get": {
+        "tags": [
+          "SellerOrder"
+        ],
+        "summary": "내 대회 주문 목록",
+        "description": "판매자 대회의 주문 상품(참가권 1장)을 최근 주문부터 돌려준다. 키트 없는 참가권도 나오고, 기한이 지나 만료된 주문은 빠진다. 대회·종목·상태·주문일(from~to, 한 번에 12개월까지)로 거른다. 파티 번호(partyId)로 찾으면 주문일은 보지 않는다. 대시보드 최근 주문은 size를 작게 줘서 같은 목록을 쓴다. 참가자 연락처·생년월일·배송지는 넣지 않는다.",
+        "operationId": "findSellerOrders",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          },
+          {
+            "name": "raceId",
+            "in": "query",
+            "description": "대회 ID (생략하면 모든 대회)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          },
+          {
+            "name": "raceCourseId",
+            "in": "query",
+            "description": "종목 ID (생략 가능)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "주문 상품 상태 (ORDERED 결제 대기 / PAID 결제 완료 / CANCELING 취소 중 / CANCELED 취소, 생략 가능)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ORDERED",
+                "PAID",
+                "CANCELING",
+                "CANCELED"
+              ]
+            }
+          },
+          {
+            "name": "partyId",
+            "in": "query",
+            "description": "파티 ID로 찾기 (있으면 주문일은 보지 않음)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 3
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "조회 시작일 (주문일, 생략 가능)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-10-01"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "조회 종료일 (이날 주문까지 포함, 생략 가능)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-10-31"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "페이지 번호 (0부터)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0,
+              "minimum": 0
+            },
+            "example": 0
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "페이지 크기 (1~100)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1
+            },
+            "example": 20
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "조회 성공 (없으면 빈 목록)",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "주문 목록을 조회했습니다.",
+                  "data": {
+                    "orders": [
+                      {
+                        "orderItemId": 12,
+                        "orderId": 10,
+                        "orderNo": "OD-20261016-000C",
+                        "orderedAt": "2026-10-16T10:15:00",
+                        "paidAt": "2026-10-16T10:17:30",
+                        "raceId": 1,
+                        "raceCourseId": 1,
+                        "courseName": "10K",
+                        "status": "PAID",
+                        "participantName": "김러너",
+                        "tshirtSize": null,
+                        "kitOptions": [
+                          {
+                            "kitOptionId": 12,
+                            "name": "T-shirt",
+                            "value": "L"
+                          }
+                        ],
+                        "partyId": 3
+                      }
+                    ],
+                    "page": 0,
+                    "size": 20,
+                    "totalElements": 1,
+                    "totalPages": 1
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "페이지·상태·기간·회원 ID 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "페이지 크기 초과": {
+                    "description": "페이지 크기 초과",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "한 번에 100개까지 조회할 수 있습니다.",
+                      "data": null
+                    }
+                  },
+                  "없는 상태·숫자 아닌 값·날짜 형식": {
+                    "description": "없는 상태·숫자 아닌 값·날짜 형식",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "요청 값의 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  },
+                  "시작일이 종료일보다 늦음": {
+                    "description": "시작일이 종료일보다 늦음",
+                    "value": {
+                      "status": 400,
+                      "code": "ORDER_INVALID_SEARCH_PERIOD",
+                      "message": "조회 시작일이 종료일보다 늦습니다.",
+                      "data": null
+                    }
+                  },
+                  "기간이 12개월 넘음": {
+                    "description": "기간이 12개월 넘음",
+                    "value": {
+                      "status": 400,
+                      "code": "ORDER_INVALID_SEARCH_PERIOD",
+                      "message": "조회 기간은 한 번에 12개월까지입니다.",
+                      "data": null
+                    }
+                  },
+                  "회원 ID가 0 이하": {
+                    "description": "회원 ID가 0 이하",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "회원 ID가 올바르지 않습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "code": "LOGIN_REQUIRED",
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "승인된 판매자가 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 403,
+                  "code": "ORDER_SELLER_FORBIDDEN",
+                  "message": "승인된 판매자만 쓸 수 있습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "판매자 확인을 아직 쓸 수 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 503,
+                  "code": "ORDER_EXTERNAL_SERVICE_UNAVAILABLE",
+                  "message": "판매자 기능을 아직 쓸 수 없습니다. 잠시 뒤 다시 시도해주세요.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/order/seller/parties": {
+      "get": {
+        "tags": [
+          "SellerOrder"
+        ],
+        "summary": "대회 파티별 내역",
+        "description": "대회에 신청한 파티마다 신청 인원·결제 인원·결제하지 않은 자리·결제 기한을 최근 파티부터 돌려준다. 신청 인원 = 결제 인원 + 결제하지 않은 자리(결제 중인 자리와 기한이 지나 풀린 자리). 결제 기한은 결제 진행 중(PAYING)일 때만 의미가 있고, 결제 끝(PAID)·종료(CLOSED)는 화면이 「끝남」으로 보여 준다. 파티 신청일(from~to, 한 번에 12개월까지)로 거르고, 파티 번호(partyId)로 찾으면 기간은 보지 않는다. 크루 이름은 아직 주지 않고 크루 ID만 준다.",
+        "operationId": "findSellerParties",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          },
+          {
+            "name": "raceId",
+            "in": "query",
+            "description": "대회 ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          },
+          {
+            "name": "partyId",
+            "in": "query",
+            "description": "파티 ID로 찾기 (있으면 기간은 보지 않음)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 3
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "조회 시작일 (파티 신청일, 생략 가능)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-10-01"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "조회 종료일 (이날 신청까지 포함, 생략 가능)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-10-31"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "페이지 번호 (0부터)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0,
+              "minimum": 0
+            },
+            "example": 0
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "페이지 크기 (1~100)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1
+            },
+            "example": 20
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "조회 성공 (없으면 빈 목록)",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "파티별 내역을 조회했습니다.",
+                  "data": {
+                    "parties": [
+                      {
+                        "partyId": 3,
+                        "crewId": 2,
+                        "raceCourseId": 1,
+                        "status": "PAYING",
+                        "appliedCount": 5,
+                        "paidCount": 4,
+                        "unpaidCount": 1,
+                        "paymentDueAt": "2026-10-28T18:00:00"
+                      }
+                    ],
+                    "page": 0,
+                    "size": 20,
+                    "totalElements": 1,
+                    "totalPages": 1
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "대회 ID 없음, 페이지·기간·회원 ID 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "대회 ID 없음": {
+                    "description": "대회 ID 없음",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "필수 요청 값(raceId)이 없습니다.",
+                      "data": null
+                    }
+                  },
+                  "페이지 크기 초과": {
+                    "description": "페이지 크기 초과",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "한 번에 100개까지 조회할 수 있습니다.",
+                      "data": null
+                    }
+                  },
+                  "숫자 아닌 값·날짜 형식": {
+                    "description": "숫자 아닌 값·날짜 형식",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "요청 값의 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  },
+                  "시작일이 종료일보다 늦음": {
+                    "description": "시작일이 종료일보다 늦음",
+                    "value": {
+                      "status": 400,
+                      "code": "ORDER_INVALID_SEARCH_PERIOD",
+                      "message": "조회 시작일이 종료일보다 늦습니다.",
+                      "data": null
+                    }
+                  },
+                  "기간이 12개월 넘음": {
+                    "description": "기간이 12개월 넘음",
+                    "value": {
+                      "status": 400,
+                      "code": "ORDER_INVALID_SEARCH_PERIOD",
+                      "message": "조회 기간은 한 번에 12개월까지입니다.",
+                      "data": null
+                    }
+                  },
+                  "회원 ID가 0 이하": {
+                    "description": "회원 ID가 0 이하",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "회원 ID가 올바르지 않습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "code": "LOGIN_REQUIRED",
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "승인된 판매자가 아님, 다른 판매자의 대회",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "승인된 판매자가 아님": {
+                    "description": "승인된 판매자가 아님",
+                    "value": {
+                      "status": 403,
+                      "code": "ORDER_SELLER_FORBIDDEN",
+                      "message": "승인된 판매자만 쓸 수 있습니다.",
+                      "data": null
+                    }
+                  },
+                  "다른 판매자의 대회": {
+                    "description": "다른 판매자의 대회",
+                    "value": {
+                      "status": 403,
+                      "code": "ORDER_SELLER_FORBIDDEN",
+                      "message": "본인 대회의 파티만 볼 수 있습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "파티의 종목을 상품 서비스에서 찾지 못함",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 404,
+                  "code": "ORDER_COURSE_NOT_FOUND",
+                  "message": "존재하지 않는 종목입니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "판매자 확인 또는 상품 서비스(종목 조회)를 쓸 수 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 503,
+                  "code": "ORDER_EXTERNAL_SERVICE_UNAVAILABLE",
+                  "message": "판매자 기능을 아직 쓸 수 없습니다. 잠시 뒤 다시 시도해주세요.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/order/seller/orders/roster-export": {
+      "post": {
+        "tags": [
+          "SellerExport"
+        ],
+        "summary": "참가자 명단 내려받기 (CSV)",
+        "description": "대회 당일 확인용 참가자 명단. 결제 완료(참가 확정)인 참가권만 종목·주문 순으로 담는다. 칸: 주문번호, 종목, 참가자 이름, 연락처, 키트 옵션, 파티 번호. 엑셀에서 바로 열리는 CSV(UTF-8 BOM)다. 내려받을 때마다 누가 언제 왜 몇 줄 받았는지 기록한다. 다른 판매자의 대회를 고르면 머리줄만 있는 파일이다.",
+        "operationId": "exportRoster",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SellerRosterExportRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "CSV 파일",
+            "content": {
+              "text/csv": {
+                "example": "주문번호,종목,참가자 이름,연락처,키트 옵션,파티 번호\nOD-20261016-000C,10K,김러너,010-1234-5678,T-shirt: L,3\n"
+              }
+            }
+          },
+          "400": {
+            "description": "대회·사유 없음, 사유가 김, 형식·회원 ID 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "대회 없음": {
+                    "description": "대회 없음",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "대회를 골라주세요.",
+                      "data": null
+                    }
+                  },
+                  "사유 없음": {
+                    "description": "사유 없음",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "내려받는 사유를 입력해주세요.",
+                      "data": null
+                    }
+                  },
+                  "사유가 200자 넘음": {
+                    "description": "사유가 200자 넘음",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "사유는 200자 이하로 입력해주세요.",
+                      "data": null
+                    }
+                  },
+                  "숫자 아닌 값": {
+                    "description": "숫자 아닌 값",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "요청 값의 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  },
+                  "회원 ID가 0 이하": {
+                    "description": "회원 ID가 0 이하",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "회원 ID가 올바르지 않습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "code": "LOGIN_REQUIRED",
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "승인된 판매자가 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 403,
+                  "code": "ORDER_SELLER_FORBIDDEN",
+                  "message": "승인된 판매자만 쓸 수 있습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "판매자 확인을 아직 쓸 수 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 503,
+                  "code": "ORDER_EXTERNAL_SERVICE_UNAVAILABLE",
+                  "message": "판매자 기능을 아직 쓸 수 없습니다. 잠시 뒤 다시 시도해주세요.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/order/seller/kits/export": {
+      "post": {
+        "tags": [
+          "SellerExport"
+        ],
+        "summary": "키트 배송 목록 내려받기 (CSV)",
+        "description": "키트 배송 관리 목록과 같은 조건(대회·배송 상태)으로 모두 담는다. 칸: 주문번호, 종목, 참가권 상태, 참가자 이름, 받는 분, 받는 분 연락처, 우편번호, 주소, 상세 주소, 키트 옵션, 배송 상태, 택배사, 운송장 번호. 엑셀에서 바로 열리는 CSV(UTF-8 BOM)다. 내려받을 때마다 사유와 함께 기록한다.",
+        "operationId": "exportKitShipments",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SellerKitExportRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "CSV 파일",
+            "content": {
+              "text/csv": {
+                "example": "주문번호,종목,참가권 상태,참가자 이름,받는 분,받는 분 연락처,우편번호,주소,상세 주소,키트 옵션,배송 상태,택배사,운송장 번호\nOD-20261016-000C,10K,결제 완료,김러너,김러너,010-1234-5678,04700,서울 성동구 왕십리로 00,101동 1001호,T-shirt: L,배송 준비,,\n"
+              }
+            }
+          },
+          "400": {
+            "description": "사유 없음, 사유가 김, 없는 배송 상태, 회원 ID 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "사유 없음": {
+                    "description": "사유 없음",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "내려받는 사유를 입력해주세요.",
+                      "data": null
+                    }
+                  },
+                  "사유가 200자 넘음": {
+                    "description": "사유가 200자 넘음",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "사유는 200자 이하로 입력해주세요.",
+                      "data": null
+                    }
+                  },
+                  "없는 배송 상태·숫자 아닌 값": {
+                    "description": "없는 배송 상태·숫자 아닌 값",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "요청 값의 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  },
+                  "회원 ID가 0 이하": {
+                    "description": "회원 ID가 0 이하",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "회원 ID가 올바르지 않습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "code": "LOGIN_REQUIRED",
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "승인된 판매자가 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 403,
+                  "code": "ORDER_SELLER_FORBIDDEN",
+                  "message": "승인된 판매자만 쓸 수 있습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "판매자 확인을 아직 쓸 수 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 503,
+                  "code": "ORDER_EXTERNAL_SERVICE_UNAVAILABLE",
+                  "message": "판매자 기능을 아직 쓸 수 없습니다. 잠시 뒤 다시 시도해주세요.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -7775,6 +8606,67 @@
         },
         "required": [
           "participationIds"
+        ]
+      },
+      "SellerRosterExportRequestDto": {
+        "type": "object",
+        "description": "참가자 명단 내려받기 요청. 내려받는 사유를 남긴다",
+        "properties": {
+          "raceId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "대회 ID",
+            "example": 1
+          },
+          "raceCourseId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "종목 ID (생략하면 대회의 모든 종목)",
+            "example": 1
+          },
+          "reason": {
+            "type": "string",
+            "description": "내려받는 사유 (200자 이하)",
+            "example": "대회 당일 현장 접수 확인",
+            "maxLength": 200,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "raceId",
+          "reason"
+        ]
+      },
+      "SellerKitExportRequestDto": {
+        "type": "object",
+        "description": "키트 배송 목록 내려받기 요청. 키트 배송 관리 목록과 같은 조건으로 거르고, 내려받는 사유를 남긴다",
+        "properties": {
+          "raceId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "대회 ID (생략하면 모든 대회)",
+            "example": 1
+          },
+          "status": {
+            "type": "string",
+            "description": "배송 상태 (PREPARING 배송 준비 / SHIPPING 배송 중 / DELIVERED 배송 완료, 생략 가능)",
+            "enum": [
+              "PREPARING",
+              "SHIPPING",
+              "DELIVERED"
+            ],
+            "example": "PREPARING"
+          },
+          "reason": {
+            "type": "string",
+            "description": "내려받는 사유 (200자 이하)",
+            "example": "택배사 일괄 접수",
+            "maxLength": 200,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "reason"
         ]
       }
     }

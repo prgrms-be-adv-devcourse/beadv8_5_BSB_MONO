@@ -211,6 +211,7 @@ const withdrawalResult = (amount: number, balance: number, toAccount: boolean) =
   balance,
   cardAmount: toAccount ? 0 : amount,
   accountAmount: toAccount ? amount : 0,
+  switchedToAccountAmount: 0,
   processingAmount: 0,
   revertedAmount: 0,
   accountRequired: false,

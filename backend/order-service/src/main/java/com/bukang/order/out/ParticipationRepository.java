@@ -71,4 +71,15 @@ public interface ParticipationRepository extends JpaRepository<Participation, Lo
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	@Query("select p from Participation p where p.id = :id")
 	Optional<Participation> findByIdForUpdate(@Param("id") long id);
+
+	// 파티들의 신청서를 [파티 ID, 상태, 건수]로 센다 (판매자 파티별 내역, BUK-227). 파티 신청 뒤의 상태만 센다
+	@Query("""
+		select p.partyId, p.status, count(p) from Participation p
+		where p.partyId in :partyIds
+			and p.status in (com.bukang.order.domain.ParticipationStatus.APPLIED,
+				com.bukang.order.domain.ParticipationStatus.CONFIRMED,
+				com.bukang.order.domain.ParticipationStatus.RELEASED)
+		group by p.partyId, p.status
+		""")
+	List<Object[]> countByPartyIdsAndStatus(@Param("partyIds") Collection<Long> partyIds);
 }

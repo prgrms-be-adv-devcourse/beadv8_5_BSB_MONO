@@ -40,14 +40,14 @@ spring:
       port: 6379
 
 jwt:
-  secret: jwt-dev-secret-key-1423-1126-7541-3217
+  secret: ${JWT_SECRET}
 
 # 민감 정보 변환 정보
 crypto:
   enabled: true # common global/crypto의 암호화 빈(TextEncryptor, EncryptedStringConverter)을 켠다
-  hmac-secret: 5iXOaGlN4SRsdZBruRwXESrPF3qrRAiVpoRGyhCngqo=
-  password: brH8W0e5axggiZDMxLeEcRiYSf5qght3KtDgWC+dT48=
-  salt: d4cc93043cca7c91
+  hmac-secret: ${CRYPTO_HMAC_KEY}
+  password: ${CRYPTO_PASSWORD}
+  salt: ${CRYPTO_SALT}
 
 logging:
   level:
@@ -67,6 +67,5 @@ member:
       front-base-url: ${FRONT_PUBLIC_BASE_URL:http://localhost:3000}
   marketing:
     unsubscribe:
-      # 개발용 서명 키. 운영 키는 .env의 MARKETING_UNSUBSCRIBE_KEY에만 두고 이 값과 다르게 쓴다
-      secret-key: ${MARKETING_UNSUBSCRIBE_KEY:Qm9vS3VuWkRldk1hcmtldGluZ1Vuc3Vic2NyaWJlS2V5}
+      secret-key: ${MARKETING_UNSUBSCRIBE_KEY}
       front-base-url: ${FRONT_PUBLIC_BASE_URL:http://localhost:3000}

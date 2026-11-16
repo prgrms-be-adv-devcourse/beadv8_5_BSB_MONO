@@ -12,6 +12,10 @@ final class MemberApiExamples {
 		{ "status": 400, "code": "INVALID_REQUEST", "message": "이메일 형식에 맞게 작성해주세요.", "data": null }
 		""";
 
+	static final String EMAIL_AVAILABILITY_TOO_MANY = """
+		{ "status": 429, "code": "EMAIL_CHECK_TOO_MANY", "message": "요청이 너무 많습니다. 잠시 뒤 다시 시도해주세요.", "data": null }
+		""";
+
 	static final String FIND_ME_SUCCESS = """
 		{
 			"status": 200,

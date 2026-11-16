@@ -10,7 +10,22 @@ import { ToastProvider } from '@/shared/ui'
 import { InquiryBoard, type RenderAnswer } from './InquiryBoard'
 
 const replace = vi.fn()
-vi.mock('next/navigation', () => ({ useRouter: () => ({ replace }) }))
+// 거르기 탭이 URL에 있어 쿼리를 들고 있는 가짜 라우터를 쓰고, replace 호출은 따로 기록한다
+vi.mock('next/navigation', async () => {
+  const base = (await import('@/shared/testing')).navigationMock('/seller/inquiries')
+  return {
+    ...base,
+    useRouter: () => {
+      const router = base.useRouter()
+      return {
+        replace: (url: string) => {
+          replace(url)
+          router.replace(url)
+        },
+      }
+    },
+  }
+})
 
 // 답변칸은 판매자 · 관리자 화면이 AI 초안 부품을 끼워 넣는다. 여기서는 글만 쓰는 간단한 답변칸으로 갈음한다
 const renderAnswer: RenderAnswer = ({ onSend }) => {

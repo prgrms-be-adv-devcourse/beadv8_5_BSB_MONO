@@ -27,6 +27,7 @@ import com.bukang.payout.domain.PayoutHoldReason;
 import com.bukang.payout.domain.PayoutHoldStatus;
 import com.bukang.payout.domain.PayoutItem;
 import com.bukang.payout.domain.PayoutRecordType;
+import com.bukang.payout.domain.PayoutRecoveryReason;
 import com.bukang.payout.domain.PayoutStage;
 import com.bukang.payout.domain.PayoutStatus;
 import com.bukang.payout.domain.SetEntryDiffer;
@@ -405,7 +406,8 @@ class PayoutReconcileUseCaseTest {
 			CALENDAR);
 		first.recordAdvance(COURSE_A, 50_000, 5, TODAY);
 		payoutRepository.save(first).pay(NOW);
-		ledgerUseCase().recoverScheduleChange(2, FINAL_RACE.raceId(), COURSE_A, 999, 10_000, NOW);
+		ledgerUseCase().recoverRefund(2, FINAL_RACE.raceId(), COURSE_A, 999, 10_000, PayoutRecoveryReason.일정_변경,
+			NOW);
 		Payout payout = saveFinal(2, entry(101, COURSE_A, 10_000), entry(102, COURSE_A, 10_000),
 			entry(104, COURSE_A, 10_000), entry(105, COURSE_A, 10_000));
 

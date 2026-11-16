@@ -21,7 +21,7 @@ import {
 } from '@/entities/inquiry'
 import { formatRaceDate } from '@/entities/race'
 import { myTicketsQueryOptions, type MyTicket } from '@/entities/ticket'
-import { cn } from '@/shared/lib'
+import { cn, useNow } from '@/shared/lib'
 import { BottomCta, Button, FOCUS_RING, Skeleton, Textarea, TextField, useToast } from '@/shared/ui'
 
 const CARD = 'flex w-full items-center gap-3 rounded-lg p-4 text-left inset-ring'
@@ -46,10 +46,11 @@ function TicketOption({
   onSelect: () => void
 }) {
   const raceDate = useRaceDate(ticket.raceId)
+  const now = useNow()
   const done =
     ticket.itemStatus === 'CANCELED'
       ? '취소'
-      : raceDate && raceDate.slice(0, 10) < today()
+      : raceDate && now && raceDate.slice(0, 10) < today(now)
         ? '참가 완료'
         : '신청 완료'
   return (
@@ -67,7 +68,7 @@ function TicketOption({
   )
 }
 
-const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' })
+const today = (now: Date) => now.toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' })
 
 /**
  * 피그마 문의 · 문의 쓰기 두 갈래.

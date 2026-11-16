@@ -29,6 +29,7 @@ import { refundPlanQueryOptions, requestRefund, type RefundPlan } from '../api/r
 import {
   bankName,
   BANKS,
+  clearLastWithdrawal,
   formatKstShort,
   maskAccount,
   parseLastWithdrawal,
@@ -142,7 +143,7 @@ export function DepositRefundPage() {
         const retry =
           result.processingAmount > 0
             ? `확인 중인 ${wonText(result.processingAmount)}이 정해진 뒤 다시 신청할 수 있어요.`
-            : '계좌를 입력하고 다시 신청해 주세요.'
+            : '계좌 정보를 넣고 다시 신청해 주세요.'
         setNotice(`${card}남은 금액은 계좌로 보내야 해요. ${retry}`)
         return
       }
@@ -151,6 +152,7 @@ export function DepositRefundPage() {
         balance: result.balance,
         cardAmount: result.cardAmount,
         accountAmount: result.accountAmount,
+        switchedToAccountAmount: result.switchedToAccountAmount,
         processingAmount: result.processingAmount,
         revertedAmount: result.revertedAmount,
         ...(values && {
@@ -330,6 +332,15 @@ export function DepositRefundDonePage() {
   useEffect(() => {
     if (withdrawal === null) router.replace('/me/deposit')
   }, [withdrawal, router])
+  // 화면을 떠나면 저장 값을 지운다. 개발 모드 Strict Mode는 정리 직후 다시 붙이므로,
+  // 바로 지우지 않고 다음 차례로 미뤘다가 다시 붙으면 취소한다
+  const clearTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  useEffect(() => {
+    clearTimeout(clearTimer.current)
+    return () => {
+      clearTimer.current = setTimeout(clearLastWithdrawal)
+    }
+  }, [])
 
   if (!withdrawal) {
     return (
@@ -386,6 +397,12 @@ export function DepositRefundDonePage() {
           {withdrawal.accountAmount > 0 && (
             <KeyValue label="계좌로 보낸 금액" value={won(withdrawal.accountAmount)} />
           )}
+          {withdrawal.switchedToAccountAmount > 0 && (
+            <p className="text-caption-regular text-text-tertiary">
+              {wonText(withdrawal.switchedToAccountAmount)}은 카드 결제취소가 되지 않아 입력하신
+              계좌로 보냈어요.
+            </p>
+          )}
           {withdrawal.processingAmount > 0 && (
             <KeyValue label="확인 중인 금액" value={won(withdrawal.processingAmount)} />
           )}
@@ -393,7 +410,8 @@ export function DepositRefundDonePage() {
             <>
               <KeyValue label="예치금으로 되돌린 금액" value={won(withdrawal.revertedAmount)} />
               <p className="text-caption-regular text-text-tertiary">
-                카드 결제취소가 거절돼 예치금으로 되돌렸어요. 다시 신청할 수 있어요.
+                일부 금액은 결제사 사정으로 카드 취소가 되지 않아 예치금으로 돌려드렸어요. 잠시 후
+                다시 신청해 주세요.
               </p>
             </>
           )}

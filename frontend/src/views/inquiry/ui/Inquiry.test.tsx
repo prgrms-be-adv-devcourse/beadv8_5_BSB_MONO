@@ -12,10 +12,23 @@ import { InquiryDetailPage } from './InquiryDetailPage'
 import { MyInquiriesPage } from './MyInquiriesPage'
 
 const replace = vi.fn()
-vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn(), back: vi.fn(), replace, refresh: vi.fn() }),
-  usePathname: () => '/me/inquiries',
-}))
+// 거르기 칩이 URL에 있어 쿼리를 들고 있는 가짜 라우터를 쓰고, replace 호출은 따로 기록한다
+vi.mock('next/navigation', async () => {
+  const base = (await import('@/shared/testing')).navigationMock('/me/inquiries')
+  return {
+    ...base,
+    useRouter: () => {
+      const router = base.useRouter()
+      return {
+        ...router,
+        replace: (url: string) => {
+          replace(url)
+          router.replace(url)
+        },
+      }
+    },
+  }
+})
 
 function renderUi(ui: React.ReactElement) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
