@@ -44,7 +44,6 @@ logging:
     org.hibernate.SQL: debug
     org.hibernate.orm.jdbc.bind: trace
 
-# 서비스끼리 내부 API(/internal/**)를 부를 때 X-Internal-Key 헤더로 보내는 키. 받는 cash와 부르는 서비스가 같은 값을 쓴다
-# 개발용 값이다. 운영 키는 환경 변수 INTERNAL_API_KEY에만 두고 이 값과 다르게 쓴다
+# 서비스끼리 내부 API(/internal/**)를 부를 때 X-Internal-Key 헤더로 보내는 키 (.env 값, 받는 cash와 부르는 서비스가 같은 키)
 internal:
-  api-key: ${INTERNAL_API_KEY:dev-internal-api-key}
+  api-key: ${INTERNAL_API_KEY}
