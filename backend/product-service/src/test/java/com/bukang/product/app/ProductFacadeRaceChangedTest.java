@@ -47,7 +47,8 @@ class ProductFacadeRaceChangedTest extends ProductIntegrationTest {
 
 	@Test
 	@DisplayName("registerRace: 대회를 등록하면 queuing.race.changed로 대회 ID를 key로 1건을 보내고, "
-		+ "판매 예정(SCHEDULED)·개인 예매 오픈(이틀 뒤)·접수 마감(10일 뒤)·대회 행의 수정 일시 5개 칸만 담는다")
+		+ "판매 예정(SCHEDULED)·개인 예매 오픈(이틀 뒤)·접수 마감(10일 뒤)·대회 행의 수정 일시·대회 일시를 담고, "
+		+ "일정 변경 일시는 비어 있다")
 	void publishRaceChangedOnRegister() {
 		RaceSaveDto saved = productFacade.registerRace(SELLER_MEMBER_ID, newIdempotencyKey(), scheduledRace().build())
 			.race();
@@ -58,13 +59,15 @@ class ProductFacadeRaceChangedTest extends ProductIntegrationTest {
 		Map<String, Object> body = JsonPath.read(raceChangedMessages().getFirst(), "$");
 		assertThat(body)
 			.containsOnlyKeys("raceId", "saleStatus", "individualOpenAt", "applicationCloseAt",
-				"crewSaleStartAt", "crewSaleEndAt", "updatedAt");
+				"crewSaleStartAt", "crewSaleEndAt", "updatedAt", "raceDate", "scheduleChangedAt");
 		assertThat(body).containsEntry("saleStatus", "SCHEDULED");
 		RaceChangedEvent event = lastRaceChanged();
 		assertThat(event.raceId()).isEqualTo(saved.getRaceId());
 		assertThat(event.saleStatus()).isEqualTo(RaceSaleStatus.SCHEDULED);
 		assertThat(event.individualOpenAt()).isEqualTo(now.plusDays(2));
 		assertThat(event.applicationCloseAt()).isEqualTo(now.plusDays(10));
+		// 등록한 대회는 일정이 바뀐 적이 없어 일정 변경 일시가 없다
+		assertThat(event.scheduleChangedAt()).isNull();
 		// 등록 메시지는 DB에서 다시 읽지 않은 엔티티의 시각이라, DB가 소수 6자리로 맞춘 값과 1밀리초 안에서 같다
 		assertThat(event.updatedAt())
 			.isCloseTo(findRace(saved.getRaceId()).getModifyDate(), within(1, ChronoUnit.MILLIS));
@@ -88,7 +91,8 @@ class ProductFacadeRaceChangedTest extends ProductIntegrationTest {
 		assertThat(raceChangedKeys()).containsExactly(raceKey, raceKey); // key가 2번 나갔냐? 확인
 		Race updated = findRace(registered.raceId());
 		assertThat(lastRaceChanged()).isEqualTo(new RaceChangedEvent(registered.raceId(), RaceSaleStatus.SCHEDULED,
-			now.plusDays(2), now.plusDays(9), null, null, updated.getModifyDate()));
+			now.plusDays(2), now.plusDays(9), null, null, updated.getModifyDate(),
+			updated.getRaceDate(), updated.getScheduleChangedAt()));
 		assertThat(updated.getModifyDate()).isAfter(registeredEvent.updatedAt());
 	}
 
@@ -107,7 +111,8 @@ class ProductFacadeRaceChangedTest extends ProductIntegrationTest {
 		Race canceled = findRace(onSale.raceId());
 		assertThat(canceled.getModifyDate()).isEqualTo(canceled.getCanceledAt());
 		assertThat(lastRaceChanged()).isEqualTo(new RaceChangedEvent(onSale.raceId(), RaceSaleStatus.CANCELED,
-			canceled.getIndividualOpenAt(), canceled.getApplicationCloseAt(), null, null, canceled.getModifyDate()));
+			canceled.getIndividualOpenAt(), canceled.getApplicationCloseAt(), null, null, canceled.getModifyDate(),
+			canceled.getRaceDate(), canceled.getScheduleChangedAt()));
 	}
 
 	@Test
@@ -125,7 +130,8 @@ class ProductFacadeRaceChangedTest extends ProductIntegrationTest {
 		assertThat(raceChangedKeys()).containsExactly(raceKey, raceKey);
 		Race opened = findRace(registered.raceId());
 		assertThat(lastRaceChanged()).isEqualTo(new RaceChangedEvent(registered.raceId(), RaceSaleStatus.ON_SALE,
-			now.plusDays(2), now.plusDays(10), null, null, opened.getModifyDate()));
+			now.plusDays(2), now.plusDays(10), null, null, opened.getModifyDate(),
+			opened.getRaceDate(), opened.getScheduleChangedAt()));
 	}
 
 	// 판매 예정 대회의 일정 (대회 15일 뒤, 개인 예매 이틀 뒤 오픈, 접수 마감 10일 뒤)
