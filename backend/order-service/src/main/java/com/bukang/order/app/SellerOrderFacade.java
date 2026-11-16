@@ -10,6 +10,7 @@ import com.bukang.order.domain.OrderItemStatus;
 import com.bukang.order.domain.exception.SellerAccessDeniedException;
 import com.bukang.order.dto.SellerOrderPageDto;
 import com.bukang.order.dto.SellerPartyPageDto;
+import com.bukang.order.dto.SellerSalesSummaryDto;
 import com.bukang.order.out.seller.SellerLookupPort;
 
 import lombok.RequiredArgsConstructor;
@@ -34,6 +35,10 @@ public class SellerOrderFacade {
 	public SellerPartyPageDto findParties(long memberId, long raceId, Long partyId, LocalDate from, LocalDate to,
 		int page, int size) {
 		return sellerOrderQueryUseCase.findParties(sellerIdOf(memberId), raceId, partyId, from, to, page, size);
+	}
+
+	public SellerSalesSummaryDto summarizeSales(long memberId, LocalDate from, LocalDate to) {
+		return sellerOrderQueryUseCase.summarizeSales(sellerIdOf(memberId), from, to);
 	}
 
 	private long sellerIdOf(long memberId) {

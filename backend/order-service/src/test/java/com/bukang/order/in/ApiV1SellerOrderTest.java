@@ -52,7 +52,7 @@ import com.bukang.order.support.StubWalletPortConfig;
 import com.jayway.jsonpath.JsonPath;
 
 /**
- * 판매자 주문 목록·파티별 내역 API (BUK-227). 승인된 판매자만 쓰고, 자기 대회 것만 보인다
+ * 판매자 주문 목록·파티별 내역 API (BUK-227), 기간 판매 합계 (BUK-247). 승인된 판매자만 쓰고, 자기 대회 것만 보인다
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -62,6 +62,7 @@ import com.jayway.jsonpath.JsonPath;
 class ApiV1SellerOrderTest {
 	private static final String ORDERS_URL = "/api/v1/order/seller/orders";
 	private static final String PARTIES_URL = "/api/v1/order/seller/parties";
+	private static final String SALES_URL = "/api/v1/order/seller/orders/summary";
 	private static final long COURSE_ID = 80;
 	private static final long RACE_ID = 800;
 	private static final long OTHER_COURSE_ID = 81;
@@ -296,6 +297,64 @@ class ApiV1SellerOrderTest {
 			.andExpect(status().isBadRequest());
 		mockMvc.perform(get(ORDERS_URL))
 			.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	@DisplayName("판매 합계는 결제일이 기간 안(시작일 0시~종료일 끝)인 결제 완료·취소 중만 세고, 취소·결제 전·다른 판매자·기간 밖은 뺀다")
+	void salesSummary() throws Exception {
+		setUpCourses();
+		long monthStart = paidOrder(BUYER_ID, COURSE_ID);
+		long lastMoment = paidOrder(BUYER_ID + 1, COURSE_ID);
+		long canceling = paidOrder(BUYER_ID + 2, COURSE_ID);
+		long canceled = paidOrder(BUYER_ID + 3, COURSE_ID);
+		long lastMonth = paidOrder(BUYER_ID + 4, COURSE_ID);
+		createdOrder(BUYER_ID + 5, COURSE_ID);
+		long otherSeller = paidOrder(BUYER_ID + 6, OTHER_COURSE_ID);
+		paidAt(monthStart, "2026-11-01T00:00:00");
+		paidAt(lastMoment, "2026-11-16T23:59:59");
+		paidAt(canceling, "2026-11-10T12:00:00");
+		paidAt(canceled, "2026-11-10T12:00:00");
+		paidAt(lastMonth, "2026-10-31T23:59:59");
+		paidAt(otherSeller, "2026-11-10T12:00:00");
+		itemStatus(canceling, "CANCELING");
+		itemStatus(canceled, "CANCELED");
+		long price = jdbcTemplate.queryForObject("select amount from order_order_item where order_id = ?", Long.class,
+			monthStart);
+
+		sales(SELLER_MEMBER_ID, "2026-11-01", "2026-11-16")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.message").value("판매 합계를 조회했습니다."))
+			.andExpect(jsonPath("$.data.soldCount").value(3))
+			.andExpect(jsonPath("$.data.soldAmount").value(price * 3));
+		sales(SELLER_MEMBER_ID, "2026-10-01", "2026-10-31")
+			.andExpect(jsonPath("$.data.soldCount").value(1))
+			.andExpect(jsonPath("$.data.soldAmount").value(price));
+		sales(SELLER_MEMBER_ID, "2026-09-01", "2026-09-30")
+			.andExpect(jsonPath("$.data.soldCount").value(0))
+			.andExpect(jsonPath("$.data.soldAmount").value(0));
+		sales(OTHER_SELLER_MEMBER_ID, "2026-11-01", "2026-11-16")
+			.andExpect(jsonPath("$.data.soldCount").value(1));
+		sales(SELLER_MEMBER_ID, "2026-11-16", "2026-11-01")
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("ORDER_INVALID_SEARCH_PERIOD"));
+		sales(NOT_SELLER_MEMBER_ID, "2026-11-01", "2026-11-16")
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.code").value("ORDER_SELLER_FORBIDDEN"));
+		mockMvc.perform(get(SALES_URL).header("X-Member-Id", SELLER_MEMBER_ID).param("to", "2026-11-16"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message").value("필수 요청 값(from)이 없습니다."));
+	}
+
+	private void paidAt(long orderId, String paidAt) {
+		jdbcTemplate.update("update order_order set paid_at = ? where id = ?", LocalDateTime.parse(paidAt), orderId);
+	}
+
+	private void itemStatus(long orderId, String itemStatus) {
+		jdbcTemplate.update("update order_order_item set status = ? where order_id = ?", itemStatus, orderId);
+	}
+
+	private ResultActions sales(long memberId, String from, String to) throws Exception {
+		return mockMvc.perform(get(SALES_URL).header("X-Member-Id", memberId).param("from", from).param("to", to));
 	}
 
 	private void setUpCourses() {

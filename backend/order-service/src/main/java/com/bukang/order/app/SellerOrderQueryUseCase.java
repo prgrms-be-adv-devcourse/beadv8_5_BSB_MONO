@@ -23,6 +23,7 @@ import com.bukang.order.dto.SellerOrderDto;
 import com.bukang.order.dto.SellerOrderPageDto;
 import com.bukang.order.dto.SellerPartyDto;
 import com.bukang.order.dto.SellerPartyPageDto;
+import com.bukang.order.dto.SellerSalesSummaryDto;
 import com.bukang.order.out.OrderItemRepository;
 import com.bukang.order.out.ParticipationKitOptionRepository;
 import com.bukang.order.out.ParticipationRepository;
@@ -111,6 +112,14 @@ public class SellerOrderQueryUseCase {
 			return new SellerPartyDto(party.getId(), party.getCrewId(), party.getRaceCourseId(), party.getStatus(),
 				paid + unpaid, paid, unpaid, party.getPaymentDueAt());
 		}));
+	}
+
+	/**
+	 * 결제일이 from~to(종료일 포함)인 판매 장수와 금액 합 (BUK-247). 기간은 주문 목록과 같이 한 번에 12개월까지
+	 */
+	public SellerSalesSummaryDto summarizeSales(long sellerId, LocalDate from, LocalDate to) {
+		checkPeriod(from, to);
+		return orderItemRepository.summarizeSellerSales(sellerId, startOf(from), endOf(to));
 	}
 
 	private void checkPartySeller(Party party, long sellerId) {
