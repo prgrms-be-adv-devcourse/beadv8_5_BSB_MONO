@@ -44,6 +44,18 @@ final class MemberInternalApiExamples {
 		{ "status": 200, "message": "판매자 정산 계좌 등록 여부를 조회했습니다.", "data": { "registered": false } }
 		""";
 
+	static final String BUSINESS_INFO_BUSINESS = """
+		{ "status": 200, "message": "판매자 사업자 정보를 조회했습니다.",
+			"data": { "sellerType": "BUSINESS", "businessName": "크루런 스포츠", "businessNumber": "123-45-67890",
+				"representativeName": "김러너" } }
+		""";
+
+	static final String BUSINESS_INFO_INDIVIDUAL = """
+		{ "status": 200, "message": "판매자 사업자 정보를 조회했습니다.",
+			"data": { "sellerType": "INDIVIDUAL", "businessName": null, "businessNumber": null,
+				"representativeName": "김러너" } }
+		""";
+
 	static final String SELLER_NOT_FOUND = """
 		{ "status": 404, "code": "SELLER_NOT_FOUND", "message": "존재하지 않는 판매자 신청입니다.", "data": null }
 		""";
