@@ -4,6 +4,8 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
+
 import com.bukang.product.app.ProductFacade;
 import com.bukang.product.app.RaceSearchReconcileUseCase;
 
@@ -23,6 +25,7 @@ import lombok.extern.slf4j.Slf4j;
 public class RaceSearchReconcileScheduler {
 	private final ProductFacade productFacade;
 
+	@SchedulerLock(name = "product-race-search-reconcile", lockAtMostFor = "PT10M")
 	@Scheduled(fixedDelay = 600_000, initialDelay = 30_000)
 	public void reconcile() {
 		RaceSearchReconcileUseCase.Result result = productFacade.reconcileRaceSearch();

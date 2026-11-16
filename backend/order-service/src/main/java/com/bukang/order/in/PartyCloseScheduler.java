@@ -6,6 +6,8 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
+
 import com.bukang.order.app.PartyCloseUseCase;
 
 import lombok.RequiredArgsConstructor;
@@ -21,6 +23,7 @@ import lombok.RequiredArgsConstructor;
 public class PartyCloseScheduler {
 	private final PartyCloseUseCase partyCloseUseCase;
 
+	@SchedulerLock(name = "order-party-close", lockAtMostFor = "PT30M", lockAtLeastFor = "PT30S")
 	@Scheduled(cron = "0 0 * * * *")
 	public void closeFinishedRaces() {
 		partyCloseUseCase.closeFinishedRaces(LocalDateTime.now());

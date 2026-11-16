@@ -24,6 +24,10 @@ dependencies {
 	api("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.0")
 	// 민감정보 암호화(global/crypto) → TextEncryptor. 인증·필터 없이 암호화 유틸만 있는 모듈이라 보안 설정이 켜지지 않는다
 	api("org.springframework.security:spring-security-crypto")
+	// 여러 pod가 떠도 스케줄 작업이 한 곳에서만 돌게 DB 행으로 잠근다 (global/schedulerlock, BUK-206)
+	// scheduler-lock.enabled: true로 켠 서비스에서만 잠금 설정이 만들어진다
+	api("net.javacrumbs.shedlock:shedlock-spring:7.10.1")
+	api("net.javacrumbs.shedlock:shedlock-provider-jdbc-template:7.10.1")
 	// KafkaMessageId가 ProducerRecord를 쓴다. 실행 시에는 각 서비스의 spring-boot-starter-kafka가 같은 jar를 가져온다 (버전은 Boot BOM)
 	compileOnly("org.apache.kafka:kafka-clients")
 	// 알림 보내기(NotificationKafkaSender). 서비스마다 spring-boot-starter-kafka가 있어 실행 때는 서비스의 jar를 쓴다
@@ -43,6 +47,7 @@ dependencies {
 	testFixturesApi("org.springframework.boot:spring-boot-starter-webmvc-test")
 
 	testImplementation("org.springframework.kafka:spring-kafka") // NotificationKafkaSender 단위 테스트
+	testRuntimeOnly("com.h2database:h2") // 스케줄 작업 잠금 테스트의 잠금 표 (SchedulerLockConfigTest)
 }
 
 // QueryDSL Q클래스 생성 위치 (서비스 모듈과 같은 방식)
