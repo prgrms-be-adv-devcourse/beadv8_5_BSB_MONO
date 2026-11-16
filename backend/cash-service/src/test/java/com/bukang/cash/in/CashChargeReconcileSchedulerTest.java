@@ -6,6 +6,8 @@ import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
+import java.time.Instant;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -41,18 +43,40 @@ class CashChargeReconcileSchedulerTest {
 	}
 
 	@Test
-	@DisplayName("단계가 실패하면 실패 횟수를 올리고, 성공한 단계만 마지막 성공 시각을 남긴다")
+	@DisplayName("서버가 뜨면 배치가 한 번도 돌지 않아도 두 단계의 성공 시각(시작 시각)과 실패 횟수(0)가 지표에 있다")
+	void registersBothStepsAtStartup() {
+		SimpleMeterRegistry registry = new SimpleMeterRegistry();
+		long before = Instant.now().getEpochSecond();
+
+		new CashChargeReconcileScheduler(
+			mock(CashChargeReconcileUseCase.class), mock(CashWithdrawalReconcileUseCase.class), registry);
+
+		for (String step : new String[] {"charge", "withdrawal"}) {
+			assertThat(lastSuccess(registry, step)).isGreaterThanOrEqualTo(before);
+			assertThat(registry.get("cash.reconcile.failures").tag("step", step).counter().count()).isZero();
+		}
+	}
+
+	@Test
+	@DisplayName("단계가 실패하면 실패 횟수를 올리고 성공 시각은 그대로 두며, 성공한 단계만 성공 시각을 새로 남긴다")
 	void recordsFailureAndLastSuccessPerStep() {
 		CashChargeReconcileUseCase chargeReconcile = mock(CashChargeReconcileUseCase.class);
 		CashWithdrawalReconcileUseCase withdrawalReconcile = mock(CashWithdrawalReconcileUseCase.class);
 		willThrow(new IllegalStateException("DB 오류")).given(chargeReconcile).reconcile(any());
 		SimpleMeterRegistry registry = new SimpleMeterRegistry();
+		CashChargeReconcileScheduler scheduler =
+			new CashChargeReconcileScheduler(chargeReconcile, withdrawalReconcile, registry);
+		double startedAt = lastSuccess(registry, "charge");
 
-		new CashChargeReconcileScheduler(chargeReconcile, withdrawalReconcile, registry).reconcile();
+		scheduler.reconcile();
 
 		assertThat(registry.get("cash.reconcile.failures").tag("step", "charge").counter().count()).isEqualTo(1);
-		assertThat(registry.find("cash.reconcile.last.success").tag("step", "charge").gauge()).isNull();
-		assertThat(registry.get("cash.reconcile.last.success").tag("step", "withdrawal").gauge().value())
-			.isPositive();
+		assertThat(registry.get("cash.reconcile.failures").tag("step", "withdrawal").counter().count()).isZero();
+		assertThat(lastSuccess(registry, "charge")).isEqualTo(startedAt);
+		assertThat(lastSuccess(registry, "withdrawal")).isGreaterThanOrEqualTo(startedAt);
+	}
+
+	private static double lastSuccess(SimpleMeterRegistry registry, String step) {
+		return registry.get("cash.reconcile.last.success").tag("step", step).gauge().value();
 	}
 }
