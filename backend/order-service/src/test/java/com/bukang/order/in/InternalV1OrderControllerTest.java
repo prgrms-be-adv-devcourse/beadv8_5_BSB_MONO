@@ -189,11 +189,12 @@ class InternalV1OrderControllerTest {
 	void countActiveTickets() throws Exception {
 		LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul")); // 컨트롤러가 한국 날짜로 「오늘」을 잡는다
 		// 지난 대회는 신청·결제가 막히므로, 앞날 종목으로 결제한 뒤 주문 상품의 대회 일시 사본만 바꾼다
-		raceCoursePort.put(courseOn(COURSE_TODAY, 102, LocalDateTime.of(2026, 11, 20, 8, 0)));
-		raceCoursePort.put(courseOn(COURSE_YESTERDAY, 103, LocalDateTime.of(2026, 11, 21, 8, 0)));
-		raceCoursePort.put(courseOn(COURSE_UNPAID, 104, LocalDateTime.of(2026, 11, 22, 8, 0)));
-		raceCoursePort.put(courseOn(COURSE_OVERDUE, 105, LocalDateTime.of(2026, 11, 23, 8, 0)));
-		paidOrderItem(1, COURSE_1115);
+		raceCoursePort.put(courseOn(COURSE_TODAY, 102, today.plusDays(30).atTime(8, 0)));
+		raceCoursePort.put(courseOn(COURSE_YESTERDAY, 103, today.plusDays(31).atTime(8, 0)));
+		raceCoursePort.put(courseOn(COURSE_UNPAID, 104, today.plusDays(32).atTime(8, 0)));
+		raceCoursePort.put(courseOn(COURSE_OVERDUE, 105, today.plusDays(33).atTime(8, 0)));
+		// 날짜가 지나도 깨지지 않게, 고정 날짜 종목으로 결제한 참가권도 대회 일시 사본을 앞날로 둔다
+		changeRaceDate(paidOrderItem(1, COURSE_1115), today.plusDays(1).atStartOfDay());
 		changeRaceDate(paidOrderItem(1, COURSE_TODAY), today.atStartOfDay());
 		// 결제 기한 안의 결제 대기 주문도 센다 (탈퇴 뒤 남은 Access Token으로 결제하는 것을 막기 위해)
 		createdOrder(1, COURSE_UNPAID);
