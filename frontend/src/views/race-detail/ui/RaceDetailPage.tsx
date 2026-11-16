@@ -2,7 +2,7 @@
 
 import type { Route } from 'next'
 import Image from 'next/image'
-import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { useState } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
@@ -14,7 +14,7 @@ import { cn, formatNumber, formatWon, useTrackOnce } from '@/shared/lib'
 import {
   Alert,
   Badge,
-  Button,
+  buttonClassName,
   FOCUS_RING,
   Icon,
   IconButton,
@@ -54,7 +54,6 @@ export function RaceDetailPage({
   reapplyBlocked = false,
 }: RaceDetailPageProps) {
   const authStatus = useAuthStatus()
-  const router = useRouter()
   useTrackOnce('view_item', {
     raceId: race.id,
     raceName: race.title,
@@ -174,15 +173,6 @@ export function RaceDetailPage({
           <Segmented label="바로 가기" items={[...ANCHORS]} value={anchor} onChange={jumpTo} />
         </div>
 
-        {reapplyBlocked && !alreadyApplied && (
-          <div className="bg-bg-surface px-4 pt-4">
-            <Alert
-              title="이 대회는 다시 신청할 수 없어요"
-              description="파티 결제를 마치지 못해 신청이 취소된 대회예요."
-            />
-          </div>
-        )}
-
         <Section title="종목 선택" className="scroll-mt-32">
           <div id="race-options" className="flex flex-col gap-4">
             {race.options.map((option) => (
@@ -280,12 +270,12 @@ export function RaceDetailPage({
         <SimilarRaces raceId={race.id} />
 
         <Section title="문의">
-          <Button
-            variant="secondary"
-            onClick={() => router.push(`/me/inquiries/new?raceId=${race.id}` as Route)}
+          <Link
+            href={`/me/inquiries/new?raceId=${race.id}` as Route}
+            className={buttonClassName({ variant: 'secondary' })}
           >
             이 대회에 문의하기
-          </Button>
+          </Link>
         </Section>
 
         <section className="flex flex-col gap-2 bg-bg-surface px-4 py-6">

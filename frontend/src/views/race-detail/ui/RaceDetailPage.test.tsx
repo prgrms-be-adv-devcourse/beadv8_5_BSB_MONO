@@ -11,10 +11,8 @@ import { ToastProvider } from '@/shared/ui'
 
 import { RaceDetailPage, type RaceDetailPageProps } from './RaceDetailPage'
 
-const push = vi.hoisted(() => vi.fn())
-
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push, back: vi.fn(), replace: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), back: vi.fn(), replace: vi.fn() }),
   usePathname: () => '/races/1',
 }))
 
@@ -58,15 +56,16 @@ describe('RaceDetailPage 신청하기', () => {
     expect(screen.getByText('이 대회에 이미 신청했어요')).toBeInTheDocument()
   })
 
-  it('문의하기 버튼은 이 대회의 문의 작성 화면으로 보낸다 (M02-7)', async () => {
+  it('문의하기 링크는 이 대회의 문의 작성 화면으로 보낸다 (M02-7)', () => {
     renderPage()
-    await userEvent.click(screen.getByRole('button', { name: '이 대회에 문의하기' }))
-    expect(push).toHaveBeenCalledWith(`/me/inquiries/new?raceId=${RACE_DETAIL.id}`)
+    expect(screen.getByRole('link', { name: '이 대회에 문의하기' })).toHaveAttribute(
+      'href',
+      `/me/inquiries/new?raceId=${RACE_DETAIL.id}`,
+    )
   })
 
-  it('다시 신청할 수 없는 대회는 버튼을 끄고 안내 상자를 보여 준다 (M02-4)', () => {
+  it('다시 신청할 수 없는 대회는 버튼을 끈다 (M02-4)', () => {
     renderPage({ reapplyBlocked: true })
-    expect(screen.getByText('이 대회는 다시 신청할 수 없어요')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '다시 신청할 수 없는 대회예요' })).toBeDisabled()
   })
 })
