@@ -19,7 +19,7 @@ import {
   type KitStatus,
 } from '@/entities/seller-kit'
 import { orderModel } from '@/shared/api'
-import { cn } from '@/shared/lib'
+import { cn, useSearchParamsState } from '@/shared/lib'
 import {
   Alert,
   Badge,
@@ -79,9 +79,18 @@ function trackingLines(text: string) {
 
 // 피그마 V2 · S08 키트 배송 관리
 export function SellerKitsPage() {
-  const [raceDraft, setRaceDraft] = useState(ALL)
-  const [statusDraft, setStatusDraft] = useState(ALL)
-  const [filters, setFilters] = useState<KitFilters>({})
+  // 조회에 건 대회 · 상태는 URL에 담는다. 고르는 중인 값(draft)은 화면 상태이고 「조회」를 누르면 URL에 쓴다.
+  const [url, setUrl] = useSearchParamsState(
+    { race: ALL, status: ALL },
+    { status: STATUS_ITEMS.map((item) => item.value) },
+  )
+  const [raceDraft, setRaceDraft] = useState(url.race)
+  const [statusDraft, setStatusDraft] = useState(url.status)
+  const raceId = Number(url.race)
+  const filters: KitFilters = {
+    raceId: url.race !== ALL && Number.isInteger(raceId) ? raceId : undefined,
+    status: url.status === ALL ? undefined : (url.status as orderModel.FindKitsStatus),
+  }
 
   const races = useQuery(myRacesQueryOptions())
   const kits = useSellerKits(filters)
@@ -108,10 +117,7 @@ export function SellerKitsPage() {
     setChecked((prev) => (on ? [...prev, id] : prev.filter((key) => key !== id)))
 
   const search = () => {
-    setFilters({
-      raceId: raceDraft === ALL ? undefined : Number(raceDraft),
-      status: statusDraft === ALL ? undefined : (statusDraft as orderModel.FindKitsStatus),
-    })
+    setUrl({ race: raceDraft, status: statusDraft })
     setChecked([])
     setResult(null)
   }

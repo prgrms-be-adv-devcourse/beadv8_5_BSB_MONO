@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { clearAccessToken, memberApi } from '@/shared/api'
 import { clearRecentSearches } from '@/shared/lib'
 
-import { reloadToLogin } from '../lib/login-redirect'
+import { reloadAfterLogout } from '../lib/login-redirect'
 
 /**
  * 문서를 새로 불러 떠나기 직전에 건다. 페이지를 떠날 때 토큰과 캐시를 지운다.
@@ -26,7 +26,7 @@ export function clearOnPageHide(queryClient: QueryClient) {
 
 /**
  * 로그아웃한다 (POST /api/v1/auth/logout). 서버가 Refresh Token을 지우고 쿠키를 만료시킨다.
- * 성공하면 문서를 새로 불러 로그인 화면으로 간다. 토큰을 여기서 비우면 지금 화면이 로그아웃 상태로
+ * 성공하면 문서를 새로 불러 홈으로 간다(reloadAfterLogout). 토큰을 여기서 비우면 지금 화면이 로그아웃 상태로
  * 잠깐 다시 그려지기 때문이다. 새로 불러오면 메모리의 토큰과 서버 데이터 캐시가 함께 사라진다.
  * 요청이 실패하면 서버 쿠키가 남아 새로 불러올 때 다시 로그인되므로, 이 브라우저에서 토큰과 캐시를 직접 지운다.
  */
@@ -37,13 +37,13 @@ export function useLogout() {
     mutationFn: () => memberApi.logout(),
     onSuccess: () => {
       clearOnPageHide(queryClient)
-      reloadToLogin()
+      reloadAfterLogout()
     },
     onError: () => {
       clearAccessToken()
       clearRecentSearches()
       queryClient.removeQueries()
-      router.replace('/login')
+      router.replace('/')
     },
   })
 }

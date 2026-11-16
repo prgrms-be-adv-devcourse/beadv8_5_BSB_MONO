@@ -37,6 +37,11 @@ public class ProductClientConfig {
 	}
 
 	@Bean
+	public HttpRaceSellerAdapter httpRaceSellerAdapter() {
+		return new HttpRaceSellerAdapter(restClient);
+	}
+
+	@Bean
 	public HttpKitOptionAdapter httpKitOptionAdapter() {
 		return new HttpKitOptionAdapter(restClient);
 	}

@@ -270,7 +270,7 @@ class ApiV1CartCheckoutTest {
 	}
 
 	@Test
-	@DisplayName("같은 Idempotency-Key로 동시에 두 번 보내도 주문은 1건이고 자리도 한 번만 잡는다")
+	@DisplayName("같은 Idempotency-Key로 동시에 두 번 보내도 주문은 1건이다")
 	void checkoutTwiceTogether() throws Exception {
 		addToCart(MEMBER_ID, COURSE_ID);
 		long participationId = apply(MEMBER_ID, COURSE_ID);
@@ -295,7 +295,8 @@ class ApiV1CartCheckoutTest {
 			assertThat((Integer)JsonPath.read(body, "$.data.orderedCount")).isEqualTo(1);
 		}
 		assertThat(orderRepository.count()).isEqualTo(1);
-		assertThat(seatHoldPort.holdCalls()).isEqualTo(1);
+		// 자리 확보를 잠금 밖에서 부르므로(BUK-213) 두 요청이 모두 부를 수 있다. 상품은 같은 참가 신청 ID면 처음 자리를 돌려준다
+		assertThat(seatHoldPort.holdCalls()).isBetween(1, 2);
 		assertThat(cartCourseIds(MEMBER_ID)).isEmpty();
 	}
 

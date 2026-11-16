@@ -20,7 +20,7 @@ import com.bukang.order.out.ShipmentRepository;
 import com.bukang.order.out.ShipmentTrackingTarget;
 import com.bukang.order.out.delivery.DeliveryTrackingPort;
 import com.bukang.order.out.delivery.DeliveryTrackingResult;
-import com.bukang.order.out.seller.SellerLookupPort;
+import com.bukang.order.out.race.RaceSellerPort;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,7 +43,7 @@ public class KitTrackingUseCase {
 	private final OrderRepository orderRepository;
 	private final DeliveryTrackingPort deliveryTrackingPort;
 	private final TransactionTemplate transactionTemplate;
-	private final SellerLookupPort sellerLookupPort;
+	private final RaceSellerPort raceSellerPort;
 	private final EventPublisher eventPublisher;
 
 	@Value("${order.kit-tracking.batch-size:100}")
@@ -84,9 +84,8 @@ public class KitTrackingUseCase {
 					Order order = orderRepository.findByIdForUpdate(target.orderId()).orElseThrow();
 					Shipment.TrackingOutcome outcome = order.applyKitTracking(target.shipmentId(), target.carrierId(),
 						target.trackingNumber(), result, now);
-					// 판매자 ID는 알릴 때(조회 중단)만 쓴다
-					return new Applied(outcome,
-						outcome == Shipment.TrackingOutcome.STOPPED ? order.kitSellerId(target.shipmentId()) : 0);
+					// 대회 ID는 판매자에게 알릴 때(조회 중단)만 쓴다. 한 주문은 한 대회의 것이다
+					return new Applied(outcome, order.getRaceId());
 				});
 			} catch (RuntimeException exception) {
 				// 한 배송을 남기지 못해도 나머지는 계속한다. 조회 시각을 바꿔 계속 실패하는 배송이 앞줄을 막지 않게 한다
@@ -100,13 +99,13 @@ public class KitTrackingUseCase {
 				delivered++;
 			}
 			if (applied.outcome() == Shipment.TrackingOutcome.STOPPED) {
-				notifyStopped(target.shipmentId(), applied.sellerId());
+				notifyStopped(target.shipmentId(), applied.raceId());
 			}
 		}
 		return new TrackResult(tracked, delivered, failed);
 	}
 
-	private record Applied(Shipment.TrackingOutcome outcome, long sellerId) {
+	private record Applied(Shipment.TrackingOutcome outcome, long raceId) {
 	}
 
 	// 조회 시각과 다음 조회 시각(지난 상태로 정함)만 바꾼다. 이것마저 실패해도 나머지 배송은 계속 조회한다
@@ -122,11 +121,11 @@ public class KitTrackingUseCase {
 
 	// 조회를 멈춘 커밋 뒤에 판매자에게 알린다. 멈춤은 한 번만 일어나므로(다음 조회 시각을 비움) 알림도 한 번이다
 	// 알림은 잃어도 되는 메시지라(11/04 결정) 판매자를 찾지 못해도 조회는 멈춘 채로 두고 로그만 남긴다
-	private void notifyStopped(long shipmentId, long sellerId) {
+	private void notifyStopped(long shipmentId, long raceId) {
 		try {
-			Long memberId = sellerLookupPort.findSellerMemberId(sellerId).orElse(null);
+			Long memberId = raceSellerPort.findSellerMemberId(raceId).orElse(null);
 			if (memberId == null) {
-				log.warn("조회를 멈춘 키트의 판매자를 찾지 못해 알리지 못했습니다. shipmentId={}, sellerId={}", shipmentId, sellerId);
+				log.warn("조회를 멈춘 키트의 판매자를 찾지 못해 알리지 못했습니다. shipmentId={}, raceId={}", shipmentId, raceId);
 				return;
 			}
 			eventPublisher.publish(NotificationRequestedEvent.of(memberId, NotificationKind.KIT_TRACKING_STOPPED,
@@ -135,7 +134,7 @@ public class KitTrackingUseCase {
 					.formatted(Shipment.NOT_TRACKED_LIMIT.toDays()),
 				"/seller/kits"));
 		} catch (ExternalServiceUnavailableException exception) {
-			// 판매자 조회가 꺼졌거나(운영 disabled) 내려갔다. 예상한 실패라 스택 없이 남긴다
+			// 상품 서비스가 내려갔다. 예상한 실패라 스택 없이 남긴다
 			log.warn("조회를 멈춘 키트를 판매자에게 알리지 못했습니다. shipmentId={}, cause={}", shipmentId,
 				exception.getMessage());
 		} catch (RuntimeException exception) {

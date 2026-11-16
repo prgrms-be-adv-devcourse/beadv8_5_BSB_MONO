@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
+import { StrictMode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { setAccessToken } from '@/shared/api'
@@ -149,7 +150,7 @@ describe('예치금 돌려받기 (M22, 환급 변경안 11/5)', () => {
     await fillAccount(user)
     await user.click(button)
 
-    await vi.waitFor(() => expect(push).toHaveBeenCalledWith('/me/deposit/refund/done'))
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/me/deposit/refund/done'))
     expect(bodies).toHaveLength(1)
     expect(bodies[0]).toEqual({
       bankCode: '004',
@@ -180,7 +181,7 @@ describe('예치금 돌려받기 (M22, 환급 변경안 11/5)', () => {
     expect(button).toBeEnabled()
     await user.click(button)
 
-    await vi.waitFor(() => expect(push).toHaveBeenCalledWith('/me/deposit/refund/done'))
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/me/deposit/refund/done'))
     expect(bodies[0]).not.toHaveProperty('bankCode')
     expect(bodies[0]).not.toHaveProperty('accountNumber')
     expect(bodies[0]).not.toHaveProperty('accountHolder')
@@ -338,7 +339,7 @@ describe('예치금 돌려받기 (M22, 환급 변경안 11/5)', () => {
     expect(button).toBeDisabled()
     release()
 
-    await vi.waitFor(() => expect(push).toHaveBeenCalledWith('/me/deposit/refund/done'))
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/me/deposit/refund/done'))
     expect(keys).toHaveLength(1)
   })
 
@@ -360,7 +361,7 @@ describe('예치금 돌려받기 (M22, 환급 변경안 11/5)', () => {
     expect(await screen.findByText('잠시 뒤 다시 시도해 주세요.')).toBeInTheDocument()
     await user.click(button)
 
-    await vi.waitFor(() => expect(push).toHaveBeenCalledWith('/me/deposit/refund/done'))
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/me/deposit/refund/done'))
     expect(keys).toHaveLength(2)
     expect(keys[1]).toBe(keys[0])
   })
@@ -389,7 +390,7 @@ describe('예치금 돌려받기 (M22, 환급 변경안 11/5)', () => {
     expect(account).toHaveValue('123456-01-234567')
 
     await user.click(button)
-    await vi.waitFor(() => expect(push).toHaveBeenCalledWith('/me/deposit/refund/done'))
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/me/deposit/refund/done'))
     expect(bodies[1]).toEqual(bodies[0])
     expect(JSON.parse(sessionStorage.getItem('crewrun:last-withdrawal') ?? '{}')).toMatchObject({
       maskedAccount: '123456-**-***567',
@@ -421,7 +422,7 @@ describe('예치금 돌려받기 (M22, 환급 변경안 11/5)', () => {
     expect(again).toBeEnabled()
     await user.click(again)
 
-    await vi.waitFor(() => expect(push).toHaveBeenCalledWith('/me/deposit/refund/done'))
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/me/deposit/refund/done'))
     expect(keys[1]).toBe(keys[0])
   })
 
@@ -467,7 +468,7 @@ describe('예치금 돌려받기 (M22, 환급 변경안 11/5)', () => {
     await vi.waitFor(() => expect(button).toBeEnabled())
     await user.click(button)
 
-    await vi.waitFor(() => expect(push).toHaveBeenCalledWith('/me/deposit/refund/done'))
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/me/deposit/refund/done'))
     expect(keys[1]).toBe(keys[0])
     expect(keys[2]).not.toBe(keys[1])
   })
@@ -489,7 +490,7 @@ describe('예치금 돌려받기 (M22, 환급 변경안 11/5)', () => {
 
     await user.click(await submit())
 
-    await vi.waitFor(() => expect(push).toHaveBeenCalledWith('/me/deposit/refund/done'))
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/me/deposit/refund/done'))
     expect(JSON.parse(sessionStorage.getItem('crewrun:last-withdrawal') ?? '{}')).toMatchObject({
       switchedToAccountAmount: 30000,
     })
@@ -532,14 +533,14 @@ describe('예치금 돌려받기 (M22, 환급 변경안 11/5)', () => {
       screen.getByText('계좌 정보를 넣고 다시 신청해 주세요.', { exact: false }),
     ).toBeInTheDocument()
     expect(screen.getByLabelText('계좌번호')).toBeInTheDocument()
-    expect(push).not.toHaveBeenCalled()
+    expect(replace).not.toHaveBeenCalledWith('/me/deposit/refund/done')
     await vi.waitFor(() => expect(planCalls).toBe(2))
     // 알림과 어긋나게 「전부 결제한 카드로 돌아가요」를 보여 주지 않는다
     expect(screen.queryByText('결제한 카드로 돌아가요', { exact: false })).not.toBeInTheDocument()
     await fillAccount(user)
     await user.click(await submit())
 
-    await vi.waitFor(() => expect(push).toHaveBeenCalledWith('/me/deposit/refund/done'))
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/me/deposit/refund/done'))
     expect(bodies[1]).toEqual({
       bankCode: '004',
       accountNumber: '12345601234567',
@@ -606,7 +607,7 @@ describe('예치금 돌려받기 (M22, 환급 변경안 11/5)', () => {
     expect(screen.getByLabelText('계좌번호')).toBeInTheDocument()
     await vi.waitFor(() => expect(planCalls).toBe(2))
     expect(await submit()).toBeDisabled()
-    expect(push).not.toHaveBeenCalled()
+    expect(replace).not.toHaveBeenCalledWith('/me/deposit/refund/done')
   })
 
   it('409 WITHDRAWAL_IN_PROGRESS면 처리 중인 환급이 끝난 뒤 다시 신청하라고 안내한다', async () => {
@@ -630,7 +631,7 @@ describe('예치금 돌려받기 (M22, 환급 변경안 11/5)', () => {
       await screen.findByText('처리 중인 환급이 끝난 뒤 다시 신청할 수 있어요.'),
     ).toBeInTheDocument()
     expect(screen.queryByText('잠시 뒤 다시 시도해 주세요.')).not.toBeInTheDocument()
-    expect(push).not.toHaveBeenCalled()
+    expect(replace).not.toHaveBeenCalledWith('/me/deposit/refund/done')
     // 거절된 요청이라 나중에 다시 신청하면 새 키로 보낸다
     await user.click(await submit())
     await vi.waitFor(() => expect(keys).toHaveLength(2))
@@ -810,6 +811,28 @@ describe('예치금 돌려받기 · 환급 완료 (M22-1)', () => {
     renderWithClient(<DepositRefundDonePage />)
 
     expect(screen.getByRole('heading', { name: '환급을 신청했어요' })).toBeInTheDocument()
+  })
+
+  it('완료 화면을 떠나면 예금주 · 계좌 · 잔액을 저장소에서 지운다', async () => {
+    save({})
+    const { unmount } = renderWithClient(<DepositRefundDonePage />)
+    unmount()
+
+    await vi.waitFor(() => expect(sessionStorage.getItem('crewrun:last-withdrawal')).toBeNull())
+  })
+
+  it('개발 모드(Strict Mode)처럼 붙였다 뗐다 다시 붙여도 완료 화면을 그대로 보여 준다', async () => {
+    save({})
+    renderWithClient(
+      <StrictMode>
+        <DepositRefundDonePage />
+      </StrictMode>,
+    )
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(screen.getByText('국민은행 123456-**-***567')).toBeInTheDocument()
+    expect(sessionStorage.getItem('crewrun:last-withdrawal')).not.toBeNull()
+    expect(replace).not.toHaveBeenCalled()
   })
 
   it('계좌로 바꿔 보낸 금액이 있으면 그 금액을 넣어 안내하고, 없으면 보여 주지 않는다', () => {

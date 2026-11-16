@@ -10,6 +10,7 @@ import { AppHeader } from '@/widgets/app-header'
 import { useAuthStatus } from '@/features/auth'
 import { CREW_ROLE_LABEL, withObjectParticle } from '@/entities/crew'
 import { memberApi, unwrapData, type memberModel } from '@/shared/api'
+import { useGoBack } from '@/shared/lib'
 import {
   BottomSheet,
   BottomSheetOption,
@@ -37,6 +38,7 @@ type Pending = { kind: 'remove' | 'transfer'; member: Member } | { kind: 'disban
 // 확인 창은 내보내기 확인과 같은 모양, 이름 바꾸기는 크루 만들기(M26)의 이름 칸을 아래 창에 담는다.
 export function CrewManagePage({ crewId }: { crewId: number }) {
   const router = useRouter()
+  const goBack = useGoBack()
   const queryClient = useQueryClient()
   const showToast = useToast()
   const crew = memberApi.useFindCrew(crewId, {
@@ -102,7 +104,7 @@ export function CrewManagePage({ crewId }: { crewId: number }) {
             queryClient.setQueryData(crewKey, response)
             void refreshCrew()
             void queryClient.invalidateQueries({ queryKey: myCrewsKey })
-            router.replace(`/crews/${crewId}` as Route)
+            goBack(`/crews/${crewId}`)
           },
           onError: fail,
         },

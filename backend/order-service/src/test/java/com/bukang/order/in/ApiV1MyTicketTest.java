@@ -330,6 +330,25 @@ class ApiV1MyTicketTest {
 			.andExpect(jsonPath("$.data.myParticipation").doesNotExist());
 	}
 
+	@Test
+	@DisplayName("자리를 잡으러 갔다가 주문을 못 만든 확보 전 신청서는 참가권 목록·대회 상세 상태에 결제 기한이 나가지 않는다 (BUK-213)")
+	void pendingHidesHoldMarker() throws Exception {
+		transactionTemplate.executeWithoutResult(status -> {
+			Participation pending = Participation.individual(MEMBER, RACE_ID, COURSE_ID, PARTICIPANT,
+				LocalDateTime.now());
+			pending.markHoldRequested(LocalDateTime.now().plusMinutes(15));
+			participationRepository.save(pending);
+		});
+
+		tickets(MEMBER, false)
+			.andExpect(jsonPath("$.data.tickets[0].status").value("PENDING"))
+			.andExpect(jsonPath("$.data.tickets[0].paymentDueAt").doesNotExist());
+		mockMvc.perform(get("/api/v1/order/parties/me/race-status").header("X-Member-Id", MEMBER)
+				.param("raceId", String.valueOf(RACE_ID)))
+			.andExpect(jsonPath("$.data.myParticipation.status").value("PENDING"))
+			.andExpect(jsonPath("$.data.myParticipation.paymentDueAt").doesNotExist());
+	}
+
 	private ResultActions tickets(long memberId, boolean active) throws Exception {
 		return mockMvc.perform(get(TICKETS_URL).header("X-Member-Id", memberId)
 			.param("active", String.valueOf(active)));

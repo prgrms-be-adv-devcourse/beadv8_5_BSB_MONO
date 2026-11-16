@@ -29,6 +29,7 @@ import { refundPlanQueryOptions, requestRefund, type RefundPlan } from '../api/r
 import {
   bankName,
   BANKS,
+  clearLastWithdrawal,
   formatKstShort,
   maskAccount,
   parseLastWithdrawal,
@@ -161,7 +162,7 @@ export function DepositRefundPage() {
         }),
         at: Date.now(),
       })
-      router.push('/me/deposit/refund/done')
+      router.replace('/me/deposit/refund/done')
     },
     onError: (error) => {
       // 서버가 확실히 거절한 요청(잔액 없음 400, 다른 회원 키 409 등)이면 다음에는 새 키를 쓴다
@@ -331,6 +332,15 @@ export function DepositRefundDonePage() {
   useEffect(() => {
     if (withdrawal === null) router.replace('/me/deposit')
   }, [withdrawal, router])
+  // 화면을 떠나면 저장 값을 지운다. 개발 모드 Strict Mode는 정리 직후 다시 붙이므로,
+  // 바로 지우지 않고 다음 차례로 미뤘다가 다시 붙으면 취소한다
+  const clearTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  useEffect(() => {
+    clearTimeout(clearTimer.current)
+    return () => {
+      clearTimer.current = setTimeout(clearLastWithdrawal)
+    }
+  }, [])
 
   if (!withdrawal) {
     return (
@@ -422,12 +432,12 @@ export function DepositRefundDonePage() {
       <BottomCta
         className="sticky bottom-0 z-10"
         secondary={
-          <Link href="/" className={buttonClassName({ variant: 'secondary', size: 'l' })}>
+          <Link href="/" replace className={buttonClassName({ variant: 'secondary', size: 'l' })}>
             홈으로
           </Link>
         }
         primary={
-          <Link href="/me/deposit" className={buttonClassName({ size: 'l' })}>
+          <Link href="/me/deposit" replace className={buttonClassName({ size: 'l' })}>
             예치금 보기
           </Link>
         }
