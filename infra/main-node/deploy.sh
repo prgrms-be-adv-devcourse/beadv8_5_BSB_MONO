@@ -20,7 +20,7 @@ PARAM_PATH=/crewrun/prod
 REGISTRY_PARAM=/crewrun/registry/GHCR_AUTH
 REGISTRY=ghcr.io/prgrms-be-adv-devcourse
 APPS=(gateway member-service cash-service payout-service file-service order-service
-	product-service queue-service notification-service board-service ai-service web)
+	product-service queue-service notification-service inquiry-service board-service ai-service web)
 # 비면 앱이 뜨지 않거나 저장된 데이터를 읽지 못하는 키
 REQUIRED=(MYSQL_USER MYSQL_PASS JWT_SECRET CRYPTO_HMAC_KEY CRYPTO_PASSWORD CRYPTO_SALT INTERNAL_API_KEY)
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml

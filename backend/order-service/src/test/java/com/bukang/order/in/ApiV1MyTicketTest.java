@@ -199,7 +199,16 @@ class ApiV1MyTicketTest {
 		tickets(MEMBER, false)
 			.andExpect(jsonPath("$.data.tickets[0].kitDeliveryStatus").value("SHIPPING"))
 			.andExpect(jsonPath("$.data.tickets[0].kitCarrier").value(DeliveryCarrier.CJ_LOGISTICS.getLabel()))
-			.andExpect(jsonPath("$.data.tickets[0].kitTrackingNumber").value("123456789012"));
+			.andExpect(jsonPath("$.data.tickets[0].kitTrackingNumber").value("123456789012"))
+			.andExpect(jsonPath("$.data.tickets[0].kitReceivedAt").doesNotExist());
+
+		// 구매자가 수령을 확인하면 확인 시각이 나온다 (BUK-225)
+		long orderItemId = transactionTemplate.execute(status ->
+			orderRepository.findById(orderId).orElseThrow().getItems().getFirst().getId());
+		mockMvc.perform(post("/api/v1/order/orders/" + orderId + "/items/" + orderItemId + "/kit-receipt")
+				.header("X-Member-Id", MEMBER))
+			.andExpect(status().isOk());
+		tickets(MEMBER, false).andExpect(jsonPath("$.data.tickets[0].kitReceivedAt").isNotEmpty());
 	}
 
 	@Test
@@ -319,6 +328,25 @@ class ApiV1MyTicketTest {
 				.param("raceId", String.valueOf(PARTY_RACE_ID)))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.myParticipation").doesNotExist());
+	}
+
+	@Test
+	@DisplayName("자리를 잡으러 갔다가 주문을 못 만든 확보 전 신청서는 참가권 목록·대회 상세 상태에 결제 기한이 나가지 않는다 (BUK-213)")
+	void pendingHidesHoldMarker() throws Exception {
+		transactionTemplate.executeWithoutResult(status -> {
+			Participation pending = Participation.individual(MEMBER, RACE_ID, COURSE_ID, PARTICIPANT,
+				LocalDateTime.now());
+			pending.markHoldRequested(LocalDateTime.now().plusMinutes(15));
+			participationRepository.save(pending);
+		});
+
+		tickets(MEMBER, false)
+			.andExpect(jsonPath("$.data.tickets[0].status").value("PENDING"))
+			.andExpect(jsonPath("$.data.tickets[0].paymentDueAt").doesNotExist());
+		mockMvc.perform(get("/api/v1/order/parties/me/race-status").header("X-Member-Id", MEMBER)
+				.param("raceId", String.valueOf(RACE_ID)))
+			.andExpect(jsonPath("$.data.myParticipation.status").value("PENDING"))
+			.andExpect(jsonPath("$.data.myParticipation.paymentDueAt").doesNotExist());
 	}
 
 	private ResultActions tickets(long memberId, boolean active) throws Exception {

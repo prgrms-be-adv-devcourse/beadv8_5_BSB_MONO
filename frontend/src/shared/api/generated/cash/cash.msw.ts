@@ -23,7 +23,7 @@ import type {
 } from './cash.schemas';
 
 
-export const getRequestWithdrawalResponseMock = (): RsDataCashWithdrawalDto => ({"status":200,"message":"환급 신청이 완료되었습니다.","data":{"withdrawnAmount":130000,"balance":0,"cardAmount":30000,"accountAmount":100000,"processingAmount":0,"revertedAmount":0,"accountRequired":false}})
+export const getRequestWithdrawalResponseMock = (): RsDataCashWithdrawalDto => ({"status":200,"message":"환급 신청이 완료되었습니다.","data":{"withdrawnAmount":130000,"balance":0,"cardAmount":30000,"accountAmount":100000,"switchedToAccountAmount":0,"processingAmount":0,"revertedAmount":0,"accountRequired":false}})
 
 export const getConfirmWalletChargeResponseMock = (): RsDataCashChargeDto => ({"status":200,"message":"충전했습니다.","data":{"outcome":"COMPLETED","balance":60000}})
 

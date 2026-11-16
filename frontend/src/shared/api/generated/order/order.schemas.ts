@@ -229,6 +229,50 @@ export interface CartCheckoutRequestDto {
 }
 
 /**
+ * 참가자 명단 내려받기 요청. 내려받는 사유를 남긴다
+ */
+export interface SellerRosterExportRequestDto {
+  /** 대회 ID */
+  raceId: number;
+  /** 종목 ID (생략하면 대회의 모든 종목) */
+  raceCourseId?: number;
+  /**
+     * 내려받는 사유 (200자 이하)
+     * @minLength 0
+     * @maxLength 200
+     */
+  reason: string;
+}
+
+/**
+ * 배송 상태 (PREPARING 배송 준비 / SHIPPING 배송 중 / DELIVERED 배송 완료, 생략 가능)
+ */
+export type SellerKitExportRequestDtoStatus = typeof SellerKitExportRequestDtoStatus[keyof typeof SellerKitExportRequestDtoStatus];
+
+
+export const SellerKitExportRequestDtoStatus = {
+  PREPARING: 'PREPARING',
+  SHIPPING: 'SHIPPING',
+  DELIVERED: 'DELIVERED',
+} as const;
+
+/**
+ * 키트 배송 목록 내려받기 요청. 키트 배송 관리 목록과 같은 조건으로 거르고, 내려받는 사유를 남긴다
+ */
+export interface SellerKitExportRequestDto {
+  /** 대회 ID (생략하면 모든 대회) */
+  raceId?: number;
+  /** 배송 상태 (PREPARING 배송 준비 / SHIPPING 배송 중 / DELIVERED 배송 완료, 생략 가능) */
+  status?: SellerKitExportRequestDtoStatus;
+  /**
+     * 내려받는 사유 (200자 이하)
+     * @minLength 0
+     * @maxLength 200
+     */
+  reason: string;
+}
+
+/**
  * 키트 배송지 응답
  */
 export interface ShippingAddressDto {
@@ -456,6 +500,7 @@ export type OrderDtoStatus = typeof OrderDtoStatus[keyof typeof OrderDtoStatus];
 
 export const OrderDtoStatus = {
   CREATED: 'CREATED',
+  PAYING: 'PAYING',
   PAID: 'PAID',
   PARTIAL_CANCELED: 'PARTIAL_CANCELED',
   CANCELED: 'CANCELED',
@@ -547,6 +592,7 @@ export type OrderSummaryDtoStatus = typeof OrderSummaryDtoStatus[keyof typeof Or
 
 export const OrderSummaryDtoStatus = {
   CREATED: 'CREATED',
+  PAYING: 'PAYING',
   PAID: 'PAID',
   PARTIAL_CANCELED: 'PARTIAL_CANCELED',
   CANCELED: 'CANCELED',
@@ -1028,6 +1074,7 @@ export type MyTicketDtoOrderStatus = typeof MyTicketDtoOrderStatus[keyof typeof 
 
 export const MyTicketDtoOrderStatus = {
   CREATED: 'CREATED',
+  PAYING: 'PAYING',
   PAID: 'PAID',
   PARTIAL_CANCELED: 'PARTIAL_CANCELED',
   CANCELED: 'CANCELED',
