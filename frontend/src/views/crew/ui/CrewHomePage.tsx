@@ -11,6 +11,7 @@ import { useAuthStatus } from '@/features/auth'
 import { canInvite, CREW_ROLE_LABEL } from '@/entities/crew'
 import { useCrewActiveParties, type PartySummary } from '@/entities/party'
 import { ApiError, memberApi, productApi, unwrapData, type memberModel } from '@/shared/api'
+import { useSearchParamsState } from '@/shared/lib'
 import {
   Avatar,
   Badge,
@@ -44,6 +45,8 @@ export function CrewHomePage({ crewId }: { crewId: number }) {
   })
 
   const parties = useCrewActiveParties(crewId)
+  // 고른 탭은 주소(?tab=)에 둔다. 크루 관리 · 크루원 목록에서 뒤로 와도 보던 탭이 열린다
+  const [url, setUrl] = useSearchParamsState({ tab: 'parties' }, { tab: ['parties', 'members'] })
 
   return (
     <>
@@ -88,7 +91,7 @@ export function CrewHomePage({ crewId }: { crewId: number }) {
                 )}
               </div>
             </CrewBand>
-            <Tabs defaultValue="parties">
+            <Tabs value={url.tab} onValueChange={(tab) => setUrl({ tab: String(tab) })}>
               <TabBar>
                 <Tab value="parties">
                   파티{parties.data?.length ? ` ${parties.data.length}` : ''}

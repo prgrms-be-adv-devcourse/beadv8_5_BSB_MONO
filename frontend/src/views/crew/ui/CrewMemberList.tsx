@@ -37,19 +37,19 @@ export function CrewMemberList({
   const hidden = members.length - shown.length
   return (
     <>
-      {/* 닉네임 칸이 남는 폭을 채워 역할 뱃지가 늘 줄 오른쪽 끝(줄 버튼이 있으면 그 앞)에 온다.
+      {/* 목록 하나가 칸을 나누고 줄은 그 칸을 나눠 쓴다(subgrid). 닉네임 칸이 남는 폭을 채워 역할 뱃지가 오른쪽 끝에 오고,
+          줄 버튼 칸은 가장 넓은 버튼에 맞춰져 버튼이 없는 줄(크루장)도 뱃지가 같은 세로선에 선다.
           남는 폭보다 긴 닉네임은 말줄임으로 자르고 전체 이름은 title로 보여 준다. */}
-      <ul className="flex flex-col gap-3">
+      <ul
+        className={cn(
+          'grid items-center gap-3',
+          action
+            ? 'grid-cols-[auto_minmax(0,1fr)_auto_auto]'
+            : 'grid-cols-[auto_minmax(0,1fr)_auto]',
+        )}
+      >
         {shown.map((member) => (
-          <li
-            key={member.memberId}
-            className={cn(
-              'grid items-center gap-3',
-              action
-                ? 'grid-cols-[auto_minmax(0,1fr)_auto_auto]'
-                : 'grid-cols-[auto_minmax(0,1fr)_auto]',
-            )}
-          >
+          <li key={member.memberId} className="col-span-full grid grid-cols-subgrid items-center">
             <Avatar size="m" name={member.nickname} />
             <span
               id={labelId?.(member)}
