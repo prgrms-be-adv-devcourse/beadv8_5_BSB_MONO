@@ -1,0 +1,120 @@
+name: cash-load-test
+
+# 예치금 부하 측정 (docs/measurements/2026-11-16-예치금-부하-판정기준.md). 손으로만 실행한다. 운영·dev 서버에는 닿지 않고
+# 실행 머신 안에서 docker compose(backend/loadtest/scenario-b/container/compose.load.yml)로 예치금과 인프라를 띄워 잰다
+# - Actions 탭의 Run workflow (workflow_dispatch): 이 파일이 기본 브랜치에 있어야 버튼이 보인다
+# - 그 전에는 PR에 cash-load-test 라벨을 붙이면 그 PR 커밋을 A로 3번 잰다 (주문 측정의 load-test 라벨과 따로)
+on:
+  workflow_dispatch:
+    inputs:
+      ref_a:
+        description: 'A(지금 코드)로 잴 브랜치·커밋. 비우면 이 실행의 커밋'
+        required: false
+        default: ''
+      ref_b:
+        description: 'B(고친 코드)로 잴 브랜치·커밋. 비우면 A만 잰다'
+        required: false
+        default: ''
+      repeat:
+        description: '반복 횟수 (A, B를 번갈아 반복)'
+        required: false
+        default: '3'
+      scenarios:
+        description: '돌릴 시나리오 (공백 구분, 비우면 warmup b0 b1 b2 b3 b4 b5 b5-limit)'
+        required: false
+        default: ''
+      limit:
+        description: '첫 A에서 B-1 한계(약 11분, 판정 안 함)도 돈다 (1이면)'
+        required: false
+        default: '1'
+      quick:
+        description: '확인용으로 시간을 줄인다 (1이면 단계 15초)'
+        required: false
+        default: '0'
+  pull_request:
+    types: [ labeled ]
+
+permissions:
+  contents: read
+
+jobs:
+  measure:
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'cash-load-test'
+    runs-on: ubuntu-latest
+    # 한 바퀴 약 40분. A·B 번갈아 3번이면 약 4시간
+    timeout-minutes: 350
+    # 측정끼리 같은 머신 자원을 나눠 쓰지 않게 하나씩만 돈다 (주문 측정과는 다른 실행 머신이라 따로 둔다)
+    concurrency:
+      group: cash-load-test
+      cancel-in-progress: false
+    env:
+      REF_A: ${{ inputs.ref_a || github.event.pull_request.head.sha || github.sha }}
+      REF_B: ${{ inputs.ref_b }}
+      REPEAT: ${{ inputs.repeat || '3' }}
+      SCENARIOS: ${{ inputs.scenarios }}
+      LIMIT: ${{ inputs.limit || '1' }}
+      QUICK: ${{ inputs.quick || '0' }}
+      OUT: ${{ github.workspace }}/cash-load-results
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # 측정 도구는 이 커밋의 것을 쓰고, A·B 예치금 코드는 따로 꺼낸다
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: 예치금 이미지 빌드 (A, B)
+        run: |
+          build() {
+            local label=$1 ref=$2 src="$RUNNER_TEMP/src-$1"
+            git fetch -q origin "$ref" && ref=FETCH_HEAD || git rev-parse --verify -q "$ref^{commit}" >/dev/null
+            git worktree add --detach "$src" "$ref"
+            # B-5는 가짜 PG 승인 지연으로 잰다. 이 설정이 없는 코드면 승인이 바로 끝나 숫자가 달라지므로 빌드 전에 멈춘다
+            if ! grep -q fake-confirm-delay "$src/backend/cash-service/src/main/resources/application.yaml"; then
+              echo "::error::$label($2)에 가짜 PG 승인 지연 설정이 없습니다. 이 측정 도구 커밋을 포함해야 합니다"
+              exit 1
+            fi
+            echo "$label = $(git -C "$src" rev-parse HEAD)" | tee -a "$RUNNER_TEMP/refs.txt"
+            docker build -q --build-arg MODULE=cash-service -t cashload-cash:$label "$src/backend"
+          }
+          build a "$REF_A"
+          if [ -n "$REF_B" ]; then build b "$REF_B"; fi
+          for image in grafana/k6:1.0.0 prom/prometheus:v3.5.0 prom/mysqld-exporter:v0.21.0 mysql:8.4 \
+            redpandadata/redpanda:v26.2.3 redis:8.2; do docker pull -q "$image"; done
+          # 그래프만 못 그릴 뿐 측정은 계속한다. 한글 글꼴이 없으면 그래프 글자가 네모로 나온다
+          sudo apt-get install -y -qq fonts-noto-cjk >/dev/null || echo "::warning::한글 글꼴 설치 실패"
+          pip install -q --break-system-packages matplotlib || echo "::warning::matplotlib 설치 실패, 그래프 없이 진행"
+
+      - name: 측정 (A, B 번갈아 반복)
+        run: |
+          mkdir -p "$OUT" && cp "$RUNNER_TEMP/refs.txt" "$OUT/"
+          labels=a; if [ -n "$REF_B" ]; then labels="a b"; fi
+          base="${SCENARIOS:-warmup b0 b1 b2 b3 b4 b5 b5-limit}"
+          for rep in $(seq 1 "$REPEAT"); do
+            for label in $labels; do
+              scenarios="$base"
+              if [ "$rep" = 1 ] && [ "$label" = a ] && [ "$LIMIT" = 1 ]; then scenarios="$base b1-limit"; fi
+              # 한 바퀴가 실패해도 남은 반복은 돈다. 실패한 바퀴는 요약에 남긴다
+              LABEL=$label REP=$rep SCENARIOS="$scenarios" backend/loadtest/scenario-b/container/run.sh \
+                || echo "$label rep$rep" >> "$OUT/failed-runs.txt"
+            done
+          done
+
+      - name: 결과 요약
+        if: always()
+        run: |
+          [ -d "$OUT" ] || exit 0
+          {
+            echo '## 예치금 부하 측정'; echo; echo '```'; cat "$OUT/refs.txt" 2>/dev/null; echo '```'
+            if [ -f "$OUT/failed-runs.txt" ]; then echo "실패한 바퀴: $(paste -sd' ' "$OUT/failed-runs.txt")"; echo; fi
+            # 돈 확인에서 0이 아닌 줄만 모은다 (어긋난 금액·건수). 비어 있으면 모두 통과
+            echo '### 돈 확인에서 0이 아닌 줄'; echo; echo '```'
+            grep -H -E '\| +-?[1-9][0-9]* +\|$' "$OUT"/*/rep*/*.verify.txt | grep -E '(0이어야 함)' || echo '(없음)'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cash-load-results
+          path: cash-load-results
+          retention-days: 30
