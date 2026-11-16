@@ -24,6 +24,7 @@ import com.bukang.order.domain.exception.OrderNotPayableException;
 import com.bukang.order.domain.exception.ParticipationNotFoundException;
 import com.bukang.order.domain.exception.PartyConflictException;
 import com.bukang.order.domain.exception.PartyNotFoundException;
+import com.bukang.order.domain.exception.PaymentBusyException;
 import com.bukang.order.domain.exception.RaceCourseNotFoundException;
 import com.bukang.order.out.OrderItemRepository;
 import com.bukang.order.out.OrderRepository;
@@ -99,7 +100,7 @@ public class OrderPayUseCase {
 		if (paying.alreadyPaying()) {
 			return pending(memberId, orderId);
 		}
-		OrderPayResult result = drive(paying, now);
+		OrderPayResult result = drive(paying, now, false);
 		return result != null ? result : pending(memberId, orderId);
 	}
 
@@ -123,7 +124,7 @@ public class OrderPayUseCase {
 			}
 			return Paying.of(order);
 		});
-		return paying != null && drive(paying, now) != null;
+		return paying != null && drive(paying, now, true) != null;
 	}
 
 	/**
@@ -133,12 +134,21 @@ public class OrderPayUseCase {
 	 * 예치금 거절(잔액 부족, 4xx) → 결제 취소는 부르지 않는다(차감되지 않았다)
 	 * 자리 기한 지남 → 결제 취소 뒤 되돌린다. 주문은 결제 대기로 돌아가 만료 정리가 기존처럼 끝낸다
 	 * (예치금 결제 취소는 같은 주문의 결제를 영구히 막으므로, 결과를 모를 때는 부르지 않는다)
+	 * 예치금 결제 동시 호출 자리를 못 받으면(PaymentBusyException, 예치금을 부르지 않음) 요청은 되돌리고 503,
+	 * 재확인 배치(recheck=true)는 결제 중으로 둔다: 앞선 시도의 결과를 아직 모르므로 돈이 빠졌을 수 있다
 	 */
-	private OrderPayResult drive(Paying paying, LocalDateTime now) {
+	private OrderPayResult drive(Paying paying, LocalDateTime now, boolean recheck) {
 		long orderId = paying.orderId();
 		WalletPayResult payment;
 		try {
 			payment = walletPort.pay(orderId, paying.memberId(), paying.amount());
+		} catch (PaymentBusyException exception) {
+			if (recheck) {
+				log.warn("예치금 결제 동시 호출 자리를 받지 못해 결제 중으로 두고 다음 회차에 다시 봅니다. orderId={}", orderId);
+				return null;
+			}
+			revert(paying);
+			throw exception;
 		} catch (OrderNotPayableException | ExternalServiceRejectedException exception) {
 			revert(paying);
 			throw exception;
