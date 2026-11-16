@@ -38,19 +38,21 @@ export function consent() {
 }
 
 // VU마다 처음 받은 순번으로 계정을 고른다. constant-vus는 VU들이 동시에 시작해서 처음 순번 0..VU수-1이 VU마다 하나씩 간다
-let mine = null;
+// 토큰은 VU 변수로 들고 다닌다. k6는 반복이 끝날 때마다 쿠키 저장소를 비워서 저장소에 두면 두 번째 반복부터 쿠키가 빠진다
+let refreshToken = null;
 export function reissue() {
-	if (mine === null) {
-		mine = exec.scenario.iterationInTest;
-		const account = accounts[reissueFirst + mine];
-		if (!account || !account.refreshToken) {
-			throw new Error(`재발급용 계정 ${reissueFirst + mine}에 Refresh Token이 없습니다`);
+	if (refreshToken === null) {
+		const no = reissueFirst + exec.scenario.iterationInTest;
+		refreshToken = accounts[no] && accounts[no].refreshToken;
+		if (!refreshToken) {
+			throw new Error(`재발급용 계정 ${no}에 Refresh Token이 없습니다`);
 		}
-		// 처음 한 번만 파일의 토큰을 쿠키에 넣는다. 그 뒤로는 응답이 준 새 쿠키를 VU의 쿠키 저장소가 들고 간다
-		http.cookieJar().set(`${API}/auth/reissue`, 'refreshToken', account.refreshToken,
-			{ path: '/api/v1/auth', secure: true, http_only: true });
 	}
-	const res = http.post(`${API}/auth/reissue`, null, params(null, 'write', 'POST /auth/reissue'));
-	check(res, { '재발급 200': (r) => r.status === 200 && Boolean(r.json('data.accessToken')) });
+	const res = http.post(`${API}/auth/reissue`, null,
+		params(null, 'write', 'POST /auth/reissue', [200], { Cookie: `refreshToken=${refreshToken}` }));
+	const rotated = res.cookies.refreshToken;
+	if (check(res, { '재발급 200': (r) => r.status === 200 && Boolean(r.json('data.accessToken')) && Boolean(rotated) })) {
+		refreshToken = rotated[0].value;
+	}
 	sleep(1);
 }

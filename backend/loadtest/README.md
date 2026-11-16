@@ -36,6 +36,22 @@
    k6 run -e STAGE=load --summary-export loadtest/board/results/$(date +%F)-load.json loadtest/board/board.js
    ```
 
+## 지표 보기
+
+- **k6 쪽 (응답 시간·실패율·초당 요청 수):** k6에 들어 있는 웹 대시보드를 켭니다. 실행하는 동안 `http://localhost:5665`에서 그래프로 보이고, 끝나면 HTML 리포트가 파일로 남습니다.
+
+  ```bash
+  K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=loadtest/board/results/$(date +%F)-load.html \
+    k6 run -e STAGE=load loadtest/board/board.js
+  ```
+
+- **서버 쪽 (CPU·메모리):** 운영에는 아직 Prometheus·Grafana도, `kubectl top`에 필요한 metrics-server도 없습니다.
+  실행하는 동안 메인 서버에서 컨테이너별 사용량과 서버 메모리를 봅니다. 컨테이너 이름이 모두 `app`으로 나오므로 어느 서비스인지는 `sudo k3s crictl ps`의 POD 칸으로 맞춰 봅니다.
+
+  ```bash
+  ssh -t <메인 서버> "watch -n 5 'sudo k3s crictl stats; free -m'"
+  ```
+
 ## 단계
 
 | 단계 | 하는 일 | 시간 |
