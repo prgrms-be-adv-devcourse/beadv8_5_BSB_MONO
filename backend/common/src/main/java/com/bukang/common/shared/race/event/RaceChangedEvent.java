@@ -20,6 +20,10 @@ public record RaceChangedEvent(
 	LocalDateTime crewSaleStartAt,
 	LocalDateTime crewSaleEndAt,
 	// 대회 행의 수정 일시(race.updated_at). 받는 쪽은 저장된 값보다 늦은 메시지만 반영해 늦게 온 옛 메시지를 건너뛴다
-	LocalDateTime updatedAt
+	LocalDateTime updatedAt,
+	// 대회 일시. 주문이 일정 변경 알림 문구에 쓴다 (BUK-82)
+	LocalDateTime raceDate,
+	// 판매 시작 뒤 대회 일시·장소가 바뀐 일시. 없으면 null. 이날부터 7일 동안 전액 환불된다
+	LocalDateTime scheduleChangedAt
 ) {
 }
