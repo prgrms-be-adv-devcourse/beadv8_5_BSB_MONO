@@ -229,6 +229,50 @@ export interface CartCheckoutRequestDto {
 }
 
 /**
+ * 참가자 명단 내려받기 요청. 내려받는 사유를 남긴다
+ */
+export interface SellerRosterExportRequestDto {
+  /** 대회 ID */
+  raceId: number;
+  /** 종목 ID (생략하면 대회의 모든 종목) */
+  raceCourseId?: number;
+  /**
+     * 내려받는 사유 (200자 이하)
+     * @minLength 0
+     * @maxLength 200
+     */
+  reason: string;
+}
+
+/**
+ * 배송 상태 (PREPARING 배송 준비 / SHIPPING 배송 중 / DELIVERED 배송 완료, 생략 가능)
+ */
+export type SellerKitExportRequestDtoStatus = typeof SellerKitExportRequestDtoStatus[keyof typeof SellerKitExportRequestDtoStatus];
+
+
+export const SellerKitExportRequestDtoStatus = {
+  PREPARING: 'PREPARING',
+  SHIPPING: 'SHIPPING',
+  DELIVERED: 'DELIVERED',
+} as const;
+
+/**
+ * 키트 배송 목록 내려받기 요청. 키트 배송 관리 목록과 같은 조건으로 거르고, 내려받는 사유를 남긴다
+ */
+export interface SellerKitExportRequestDto {
+  /** 대회 ID (생략하면 모든 대회) */
+  raceId?: number;
+  /** 배송 상태 (PREPARING 배송 준비 / SHIPPING 배송 중 / DELIVERED 배송 완료, 생략 가능) */
+  status?: SellerKitExportRequestDtoStatus;
+  /**
+     * 내려받는 사유 (200자 이하)
+     * @minLength 0
+     * @maxLength 200
+     */
+  reason: string;
+}
+
+/**
  * 키트 배송지 응답
  */
 export interface ShippingAddressDto {
@@ -437,6 +481,11 @@ export interface OrderItemDto {
   quantity?: number;
   amount?: number;
   status?: OrderItemDtoStatus;
+  /**
+     * 취소를 마친 시각 (BUK-229). 취소가 아니면(취소 중 포함) null
+     * @nullable
+     */
+  canceledAt?: string | null;
   /** @nullable */
   kitDeliveryStatus?: OrderItemDtoKitDeliveryStatus;
   /** @nullable */
@@ -447,6 +496,11 @@ export interface OrderItemDto {
   kitShippedAt?: string | null;
   /** @nullable */
   kitDeliveredAt?: string | null;
+  /**
+     * 키트 수령을 확인한 시각 (BUK-225). 확인 전이면 null. 확인한 참가권은 취소할 수 없다
+     * @nullable
+     */
+  kitReceivedAt?: string | null;
   /** 키트 배송 조회. 발송 전이거나 자동 조회하지 않는 배송이면 null */
   kitTracking?: KitTrackingDto | null;
 }
@@ -456,6 +510,7 @@ export type OrderDtoStatus = typeof OrderDtoStatus[keyof typeof OrderDtoStatus];
 
 export const OrderDtoStatus = {
   CREATED: 'CREATED',
+  PAYING: 'PAYING',
   PAID: 'PAID',
   PARTIAL_CANCELED: 'PARTIAL_CANCELED',
   CANCELED: 'CANCELED',
@@ -547,6 +602,7 @@ export type OrderSummaryDtoStatus = typeof OrderSummaryDtoStatus[keyof typeof Or
 
 export const OrderSummaryDtoStatus = {
   CREATED: 'CREATED',
+  PAYING: 'PAYING',
   PAID: 'PAID',
   PARTIAL_CANCELED: 'PARTIAL_CANCELED',
   CANCELED: 'CANCELED',
@@ -982,7 +1038,7 @@ export interface SellerKitOptionSaleDto {
 }
 
 /**
- * 키트 옵션 품절 409(ORDER_KIT_OPTION_SOLD_OUT)의 data. 판매 상한에 닿은 옵션을 모두 담는다
+ * 키트 옵션 품절 409(ORDER_KIT_OPTION_SOLD_OUT)의 data. 결제와 키트 옵션 바꾸기(PUT /participations/{id}/kit-options)가 함께 쓴다. 판매 상한에 닿은 옵션을 모두 담는다
  */
 export interface KitOptionSoldOutDto {
   soldOut: KitOptionChoiceDto[];
@@ -1028,6 +1084,7 @@ export type MyTicketDtoOrderStatus = typeof MyTicketDtoOrderStatus[keyof typeof 
 
 export const MyTicketDtoOrderStatus = {
   CREATED: 'CREATED',
+  PAYING: 'PAYING',
   PAID: 'PAID',
   PARTIAL_CANCELED: 'PARTIAL_CANCELED',
   CANCELED: 'CANCELED',
@@ -1141,6 +1198,11 @@ export interface MyTicketDto {
      */
   orderItemStatus?: MyTicketDtoOrderItemStatus;
   /**
+     * 신청을 취소한 시각 (BUK-229). 결제 뒤 취소는 환불까지 마친 시각이다. 취소가 아니면(취소 중 포함) null
+     * @nullable
+     */
+  canceledAt?: string | null;
+  /**
      * 결제 금액. 주문 전이면 null
      * @nullable
      */
@@ -1162,6 +1224,11 @@ export interface MyTicketDto {
      * @nullable
      */
   kitTrackingNumber?: string | null;
+  /**
+     * 키트 수령을 확인한 시각 (BUK-225). 확인 전이면 null. 확인한 참가권은 취소할 수 없다
+     * @nullable
+     */
+  kitReceivedAt?: string | null;
   /**
      * 파티 ID. 개인 신청이면 null
      * @nullable
@@ -1198,6 +1265,112 @@ export interface MyTicketPageDto {
   size: number;
   totalElements: number;
   totalPages: number;
+}
+
+export type SellerOrderDtoStatus = typeof SellerOrderDtoStatus[keyof typeof SellerOrderDtoStatus];
+
+
+export const SellerOrderDtoStatus = {
+  ORDERED: 'ORDERED',
+  PAID: 'PAID',
+  CANCELING: 'CANCELING',
+  CANCELED: 'CANCELED',
+} as const;
+
+/**
+ * 판매자 주문 목록의 한 줄 (주문 상품 = 참가권 1장). 연락처·배송지는 없다
+ */
+export interface SellerOrderDto {
+  orderItemId?: number;
+  orderId?: number;
+  orderNo?: string;
+  orderedAt?: string;
+  /**
+     * 결제 전이면 null
+     * @nullable
+     */
+  paidAt?: string | null;
+  raceId?: number;
+  raceCourseId?: number;
+  courseName?: string;
+  status?: SellerOrderDtoStatus;
+  participantName?: string;
+  /**
+     * 옛 티셔츠 사이즈. kitOptions가 비어 있을 때만 쓴다
+     * @nullable
+     */
+  tshirtSize?: string | null;
+  /** 결제 때 고른 키트 옵션. 키트 옵션이 없으면 빈 목록 */
+  kitOptions?: KitOptionChoiceDto[];
+  /**
+     * 파티로 신청했으면 파티 ID, 개인 신청이면 null
+     * @nullable
+     */
+  partyId?: number | null;
+}
+
+/**
+ * 판매자 주문 목록 한 페이지
+ */
+export interface SellerOrderPageDto {
+  orders?: SellerOrderDto[];
+  page?: number;
+  size?: number;
+  totalElements?: number;
+  totalPages?: number;
+}
+
+export type SellerPartyDtoStatus = typeof SellerPartyDtoStatus[keyof typeof SellerPartyDtoStatus];
+
+
+export const SellerPartyDtoStatus = {
+  RECRUITING: 'RECRUITING',
+  PAYING: 'PAYING',
+  PAID: 'PAID',
+  CLOSED: 'CLOSED',
+} as const;
+
+/**
+ * 판매자 파티별 내역의 한 줄. 신청 인원 = 결제 인원 + 결제하지 않은 자리
+ */
+export interface SellerPartyDto {
+  partyId?: number;
+  crewId?: number;
+  raceCourseId?: number;
+  status?: SellerPartyDtoStatus;
+  appliedCount?: number;
+  paidCount?: number;
+  unpaidCount?: number;
+  /**
+     * 결제 진행 중(PAYING)일 때만 의미가 있다. 그 밖은 끝남
+     * @nullable
+     */
+  paymentDueAt?: string | null;
+}
+
+/**
+ * 판매자 파티별 내역 한 페이지
+ */
+export interface SellerPartyPageDto {
+  parties?: SellerPartyDto[];
+  page?: number;
+  size?: number;
+  totalElements?: number;
+  totalPages?: number;
+}
+
+/**
+ * 기간 판매·취소 합계. 판매는 결제일 기준 결제 완료·취소 중, 취소는 취소를 마친 시각 기준
+ */
+export interface SellerSalesSummaryDto {
+  /** 판매 장수 */
+  soldCount: number;
+  /** 결제 금액 합(원) */
+  soldAmount: number;
+  /** 취소를 마친 참가권 수(대회 취소 환불 포함) */
+  canceledCount: number;
+  /** 그 환불액 합(원) */
+  refundedAmount: number;
 }
 
 export interface RsDataOrderItemDto {
@@ -1312,6 +1485,24 @@ export interface RsDataCartDto {
   status?: number;
   message?: string;
   data?: CartDto;
+}
+
+export interface RsDataSellerSalesSummaryDto {
+  status?: number;
+  message?: string;
+  data?: SellerSalesSummaryDto;
+}
+
+export interface RsDataSellerOrderPageDto {
+  status?: number;
+  message?: string;
+  data?: SellerOrderPageDto;
+}
+
+export interface RsDataSellerPartyPageDto {
+  status?: number;
+  message?: string;
+  data?: SellerPartyPageDto;
 }
 
 export type FindMineParams = {
@@ -1451,6 +1642,95 @@ nickname?: string;
  * 주문번호 (닉네임과 둘 중 하나, 대소문자 상관없음)
  */
 orderNo?: string;
+/**
+ * 페이지 번호 (0부터)
+ * @minimum 0
+ */
+page?: number;
+/**
+ * 페이지 크기 (1~100)
+ * @minimum 1
+ * @maximum 100
+ */
+size?: number;
+};
+
+export type SummarizeSellerSalesParams = {
+/**
+ * 조회 시작일 (결제일)
+ */
+from: string;
+/**
+ * 조회 종료일 (이날 결제까지 포함)
+ */
+to: string;
+};
+
+export type FindSellerOrdersParams = {
+/**
+ * 대회 ID (생략하면 모든 대회)
+ */
+raceId?: number;
+/**
+ * 종목 ID (생략 가능)
+ */
+raceCourseId?: number;
+/**
+ * 주문 상품 상태 (ORDERED 결제 대기 / PAID 결제 완료 / CANCELING 취소 중 / CANCELED 취소, 생략 가능)
+ */
+status?: FindSellerOrdersStatus;
+/**
+ * 파티 ID로 찾기 (있으면 주문일은 보지 않음)
+ */
+partyId?: number;
+/**
+ * 조회 시작일 (주문일, 생략 가능)
+ */
+from?: string;
+/**
+ * 조회 종료일 (이날 주문까지 포함, 생략 가능)
+ */
+to?: string;
+/**
+ * 페이지 번호 (0부터)
+ * @minimum 0
+ */
+page?: number;
+/**
+ * 페이지 크기 (1~100)
+ * @minimum 1
+ * @maximum 100
+ */
+size?: number;
+};
+
+export type FindSellerOrdersStatus = typeof FindSellerOrdersStatus[keyof typeof FindSellerOrdersStatus];
+
+
+export const FindSellerOrdersStatus = {
+  ORDERED: 'ORDERED',
+  PAID: 'PAID',
+  CANCELING: 'CANCELING',
+  CANCELED: 'CANCELED',
+} as const;
+
+export type FindSellerPartiesParams = {
+/**
+ * 대회 ID
+ */
+raceId: number;
+/**
+ * 파티 ID로 찾기 (있으면 기간은 보지 않음)
+ */
+partyId?: number;
+/**
+ * 조회 시작일 (파티 신청일, 생략 가능)
+ */
+from?: string;
+/**
+ * 조회 종료일 (이날 신청까지 포함, 생략 가능)
+ */
+to?: string;
 /**
  * 페이지 번호 (0부터)
  * @minimum 0

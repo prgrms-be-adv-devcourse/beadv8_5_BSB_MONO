@@ -14,6 +14,8 @@ import com.bukang.common.shared.cash.event.ClaimDepositedEvent;
 import com.bukang.common.shared.kafka.KafkaMessageId;
 import com.bukang.common.shared.kafka.KafkaTopics;
 import com.bukang.common.shared.order.event.OrderItemRefundedEvent;
+import com.bukang.common.shared.order.event.RaceRefundEvent;
+import com.bukang.common.shared.order.event.RaceRefundKind;
 import com.bukang.common.shared.race.event.RaceCancelEvent;
 import com.bukang.payout.app.PayoutClaimUseCase;
 import com.bukang.payout.app.PayoutDltFacade;
@@ -97,6 +99,29 @@ public class PayoutKafkaConsumer {
 		@Header(name = KafkaMessageId.HEADER, required = false) String messageId) {
 		OrderItemRefundedEvent event = jsonConverter.fromJson(payload, OrderItemRefundedEvent.class);
 		payoutRefundUseCase.recordRefund(event, LocalDateTime.now(ZONE));
+		payoutDltFacade.completeByResend(messageId);
+	}
+
+	// 주문이 대회 취소 환불을 시작했거나(보류) 모두 끝냈다(환불 완료) (주문 서비스가 발행, key는 대회 ID)
+	// 환불 완료만 처리한다. 그 대회에 환불 완료 시각을 적어 청구 배치가 대회 취소 청구를 만들 수 있게 한다 (PR #467 리뷰)
+	// 보류로 지급을 막는 일은 아직 하지 않는다 (BUK-66). 이미 적은 대회는 처음 시각을 두므로 다시 처리해도 안전하다
+	@KafkaListener(topics = KafkaTopics.ORDER_RACE_REFUND, groupId = GROUP_ID)
+	@RetryableTopic(
+		attempts = RETRY_ATTEMPTS,
+		backOff = @BackOff(delay = RETRY_DELAY_MILLIS, multiplier = RETRY_MULTIPLIER),
+		// 깨진 JSON은 다시 해도 실패하므로 재시도 없이 바로 DLT로 보낸다
+		exclude = IllegalArgumentException.class,
+		numPartitions = PARTITIONS,
+		retryTopicSuffix = RETRY_TOPIC_SUFFIX,
+		dltTopicSuffix = DLT_TOPIC_SUFFIX,
+		autoStartDltHandler = AUTO_START_DEFAULT_DLT_HANDLER
+	)
+	public void handleRaceRefund(String payload,
+		@Header(name = KafkaMessageId.HEADER, required = false) String messageId) {
+		RaceRefundEvent event = jsonConverter.fromJson(payload, RaceRefundEvent.class);
+		if (event.kind() == RaceRefundKind.REFUNDED) {
+			payoutRaceCancelUseCase.markRefunded(event.raceId(), event.occurredAt());
+		}
 		payoutDltFacade.completeByResend(messageId);
 	}
 

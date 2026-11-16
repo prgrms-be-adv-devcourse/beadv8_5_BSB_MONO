@@ -328,6 +328,14 @@ final class OrderApiExamples {
 		}
 		""";
 
+	static final String PAY_PENDING = """
+		{
+			"status": 202,
+			"message": "결제를 확인하고 있습니다. 잠시 뒤 주문 상세에서 결과를 확인해주세요.",
+			"data": { "id": 1, "orderNo": "OD-20261012-0001", "status": "PAYING", "paidAt": null }
+		}
+		""";
+
 	static final String PAY_NOT_OWNER = """
 		{ "status": 403, "code": "ORDER_FORBIDDEN", "message": "본인의 주문만 결제할 수 있습니다.", "data": null }
 		""";
@@ -382,7 +390,8 @@ final class OrderApiExamples {
 						"unitPrice": 50000,
 						"quantity": 1,
 						"amount": 50000,
-						"status": "CANCELED"
+						"status": "CANCELED",
+						"canceledAt": "2026-10-12T10:05:00"
 					}
 				]
 			}
@@ -414,7 +423,8 @@ final class OrderApiExamples {
 						"unitPrice": 50000,
 						"quantity": 1,
 						"amount": 50000,
-						"status": "CANCELING"
+						"status": "CANCELING",
+						"canceledAt": null
 					}
 				]
 			}
@@ -443,6 +453,11 @@ final class OrderApiExamples {
 			"message": "예치금 서비스에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요.", "data": null }
 		""";
 
+	static final String PAY_BUSY = """
+		{ "status": 503, "code": "ORDER_PAYMENT_BUSY",
+			"message": "결제 요청이 몰려 있습니다. 잠시 후 다시 시도해주세요.", "data": null }
+		""";
+
 	static final String NOT_PAID_ITEM = """
 		{ "status": 409, "code": "ORDER_ITEM_NOT_CANCELABLE",
 			"message": "결제한 상품만 취소할 수 있습니다(현재 상태: 결제 대기).", "data": null }
@@ -468,6 +483,58 @@ final class OrderApiExamples {
 
 	static final String PAYOUT_STARTED = """
 		{ "status": 409, "code": "ORDER_PAYOUT_STARTED", "message": "정산이 시작된 참가권이라 취소할 수 없습니다.", "data": null }
+		""";
+
+	static final String KIT_RECEIVED_CANCEL = """
+		{ "status": 409, "code": "ORDER_ITEM_NOT_CANCELABLE",
+			"message": "키트 수령을 확인한 참가권은 취소할 수 없습니다.", "data": null }
+		""";
+
+	static final String KIT_RECEIPT_SUCCESS = """
+		{
+			"status": 200,
+			"message": "키트 수령을 확인했습니다.",
+			"data": {
+				"id": 1,
+				"participationId": 1,
+				"raceCourseId": 1,
+				"sellerId": 1,
+				"itemName": "2026 서울 하프 마라톤 10K",
+				"unitPrice": 50000,
+				"quantity": 1,
+				"amount": 50000,
+				"status": "PAID",
+				"canceledAt": null,
+				"kitDeliveryStatus": "DELIVERED",
+				"kitCarrier": "CJ대한통운",
+				"kitTrackingNumber": "684912345678",
+				"kitShippedAt": "2026-11-05T10:00:00",
+				"kitDeliveredAt": "2026-11-07T14:20:00",
+				"kitReceivedAt": "2026-11-08T12:00:00",
+				"kitTracking": null
+			}
+		}
+		""";
+
+	static final String KIT_RECEIPT_NOT_OWNER = """
+		{ "status": 403, "code": "ORDER_FORBIDDEN", "message": "본인의 주문만 수령 확인할 수 있습니다.", "data": null }
+		""";
+
+	static final String KIT_NOT_SHIPPED = """
+		{ "status": 409, "code": "ORDER_KIT_NOT_SHIPPABLE", "message": "아직 발송하지 않은 키트입니다.", "data": null }
+		""";
+
+	static final String KIT_NOT_INCLUDED = """
+		{ "status": 409, "code": "ORDER_KIT_NOT_SHIPPABLE", "message": "키트가 없는 참가권입니다.", "data": null }
+		""";
+
+	static final String KIT_SHIPMENT_CANCELED = """
+		{ "status": 409, "code": "ORDER_KIT_NOT_SHIPPABLE", "message": "발송 전에 취소된 키트입니다.", "data": null }
+		""";
+
+	static final String KIT_RECEIPT_CANCELING = """
+		{ "status": 409, "code": "ORDER_KIT_NOT_SHIPPABLE",
+			"message": "취소 처리 중인 참가권입니다. 잠시 뒤 주문 내역에서 확인해주세요.", "data": null }
 		""";
 
 	private OrderApiExamples() {

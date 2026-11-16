@@ -98,6 +98,10 @@ public class Shipment extends BaseIdAndTime {
 	@Column(name = "canceled_at")
 	private LocalDateTime canceledAt;
 
+	// 구매자가 키트 수령을 확인한 시각 (BUK-225). 구매자가 누르거나, 배송 완료 7일 뒤 배치가 채운다. 채운 뒤에는 취소할 수 없다
+	@Column(name = "received_at")
+	private LocalDateTime receivedAt;
+
 	// 마지막으로 받아 온 배송 상태와 택배사가 붙인 상태 이름, 그 상태의 시각 (BUK-55). 발송하면 아직 조회되지 않음이다
 	// 화면은 이 값을 보여 주므로 Delivery Tracker가 멈춰도 주문 화면은 뜬다
 	@Enumerated(STRING)
@@ -202,9 +206,10 @@ public class Shipment extends BaseIdAndTime {
 	// 다음 조회 시각은 남긴 상태로 정하고, 7일 동안 아직 조회되지 않음이면 조회를 멈춘다 (BUK-90)
 	// carrierId·trackingNumber는 조회한 송장이다. 그 사이 판매자가 송장을 고쳤거나 배송 완료로 바꿨으면 남기지 않는다
 	// (배송 완료된 키트에 조회 중단 알림이 가지 않게 한다)
+	// 이미 멈춘 배송(다음 조회 시각 없음)도 남기지 않는다. 서버 두 대가 같은 배송을 함께 조회해도 멈춤 알림은 한 번이다 (BUK-234)
 	TrackingOutcome applyTracking(String carrierId, String trackingNumber, DeliveryTrackingResult result,
 		LocalDateTime trackedAt) {
-		if (status != ShipmentStatus.SHIPPING
+		if (status != ShipmentStatus.SHIPPING || nextTrackingAt == null
 			|| !carrierId.equals(this.carrierId) || !trackingNumber.equals(this.trackingNumber)) {
 			return TrackingOutcome.TRACKED;
 		}
@@ -267,6 +272,24 @@ public class Shipment extends BaseIdAndTime {
 		this.status = ShipmentStatus.DELIVERED;
 		this.deliveredAt = deliveredAt;
 		this.nextTrackingAt = null;
+	}
+
+	// 구매자가 키트를 받았다고 확인한다 (BUK-225). 보낸 키트만이고 배송 중이어도 된다(택배사 조회보다 먼저 받을 수 있다)
+	// 이미 확인했으면 처음 시각을 그대로 둔다. 두 번 눌러도 같은 결과다
+	void confirmReceipt(LocalDateTime receivedAt) {
+		if (status == ShipmentStatus.CANCELED) {
+			throw new KitNotShippableException("발송 전에 취소된 키트입니다.");
+		}
+		if (!isShipped()) {
+			throw new KitNotShippableException("아직 발송하지 않은 키트입니다.");
+		}
+		if (this.receivedAt == null) {
+			this.receivedAt = receivedAt;
+		}
+	}
+
+	public boolean isReceived() {
+		return receivedAt != null;
 	}
 
 	void checkDeliverable() {

@@ -8,7 +8,7 @@ import type { FailureCopy } from '../lib/party-copy'
 const ACTION = {
   crew: (crewId?: number) => ({
     href: crewId ? `/crews/${crewId}` : '/crews',
-    label: '크루 홈으로 가기',
+    label: '내 크루로 가기',
   }),
   crews: () => ({ href: '/', label: '홈으로 가기' }),
   races: () => ({ href: '/parties/new', label: '다른 대회 고르기' }),

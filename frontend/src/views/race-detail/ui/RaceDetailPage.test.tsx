@@ -56,6 +56,14 @@ describe('RaceDetailPage 신청하기', () => {
     expect(screen.getByText('이 대회에 이미 신청했어요')).toBeInTheDocument()
   })
 
+  it('문의하기 링크는 이 대회의 문의 작성 화면으로 보낸다 (M02-7)', () => {
+    renderPage()
+    expect(screen.getByRole('link', { name: '이 대회에 문의하기' })).toHaveAttribute(
+      'href',
+      `/me/inquiries/new?raceId=${RACE_DETAIL.id}`,
+    )
+  })
+
   it('다시 신청할 수 없는 대회는 버튼을 끈다 (M02-4)', () => {
     renderPage({ reapplyBlocked: true })
     expect(screen.getByRole('button', { name: '다시 신청할 수 없는 대회예요' })).toBeDisabled()
@@ -71,6 +79,41 @@ describe('RaceDetailPage 공유 · 일정', () => {
     for (const name of ['카카오톡', '링크 복사', '다른 앱']) {
       expect(within(sheet).getByRole('button', { name })).toBeInTheDocument()
     }
+  })
+
+  it('링크 복사가 막히면 성공 대신 실패 안내를 띄운다', async () => {
+    const user = userEvent.setup()
+    const writeText = vi
+      .spyOn(navigator.clipboard, 'writeText')
+      .mockRejectedValue(new Error('denied'))
+    renderPage()
+    await user.click(screen.getByRole('button', { name: '공유하기' }))
+    await user.click(
+      within(await screen.findByRole('dialog')).getByRole('button', { name: '링크 복사' }),
+    )
+
+    // 오류 Toast는 화면 읽기 프로그램용 알림(role=alert)에도 같은 문구가 한 번 더 그려진다
+    expect(
+      await screen.findAllByText('복사하지 못했어요. 잠시 뒤 다시 시도해 주세요.'),
+    ).not.toHaveLength(0)
+    expect(screen.queryByText('링크를 복사했어요')).not.toBeInTheDocument()
+    writeText.mockRestore()
+  })
+
+  it('링크 복사가 되면 복사했다고 알린다', async () => {
+    const user = userEvent.setup()
+    const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue()
+    renderPage()
+    await user.click(screen.getByRole('button', { name: '공유하기' }))
+    await user.click(
+      within(await screen.findByRole('dialog')).getByRole('button', { name: '링크 복사' }),
+    )
+
+    expect(await screen.findByText('링크를 복사했어요')).toBeInTheDocument()
+    expect(writeText).toHaveBeenCalledWith(
+      expect.stringMatching(new RegExp(`/races/${RACE_DETAIL.id}$`)),
+    )
+    writeText.mockRestore()
   })
 
   it('접수 일정은 접수 기간과 정보 수정 기한 두 줄이다', () => {

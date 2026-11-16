@@ -10,6 +10,8 @@ const nextConfig: NextConfig = {
   // AWS(Docker)용. Vercel은 이 값을 무시하므로 그대로 둬도 된다.
   output: 'standalone',
   typedRoutes: true,
+  // 렌더 최적화를 컴파일러가 자동으로 한다(babel-plugin-react-compiler). 수동 useMemo·useCallback은 그대로 둔다
+  reactCompiler: true,
   // GA4 Data API 패키지는 gRPC와 .proto 파일을 경로로 읽어서 번들하지 않고 node_modules에서 그대로 불러온다
   serverExternalPackages: ['@google-analytics/data'],
 

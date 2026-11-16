@@ -5,14 +5,17 @@ import java.util.Locale;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.bukang.ai.app.AiBriefingUseCase;
 import com.bukang.ai.app.AiChatUseCase;
 import com.bukang.ai.domain.AiScreen;
+import com.bukang.ai.dto.AiBriefingDto;
 import com.bukang.ai.dto.AiChatDto;
 import com.bukang.ai.dto.AiChatRequestDto;
 import com.bukang.common.global.rsdata.RsData;
@@ -29,7 +32,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
-@Tag(name = "Ai", description = "판매자·관리자 센터의 크루런 AI 질문, 새 대화 API")
+@Tag(name = "Ai", description = "판매자·관리자 센터의 크루런 AI 질문, 새 대화, 대시보드 브리핑 API")
 @RestController
 @RequestMapping("/api/v1/ai")
 @RequiredArgsConstructor
@@ -38,11 +41,15 @@ public class ApiV1AiChatController {
 	private static final String CHAT_PATH = "/{screen:seller|admin}/chat";
 
 	private final AiChatUseCase aiChatUseCase;
+	private final AiBriefingUseCase aiBriefingUseCase;
 
 	@PostMapping(CHAT_PATH)
 	@Operation(summary = "크루런 AI에 질문",
 		description = "그 화면의 역할(승인된 판매자·관리자)을 확인한 뒤, 이 화면의 내 앞 대화와 함께 질문을 모델에 보내 답을 돌려준다. "
-			+ "질문과 답은 대화 기록에 남는다.")
+			+ "질문과 답은 대화 기록에 남는다. "
+			+ "운영 숫자는 화면 종류에 맞는 조회 도구로 가져오고, 부른 도구대로 출처(sources: 기준 화면, 조회 시각 asOf, 버튼 글, 프론트 경로)를 붙인다. "
+			+ "조회에 실패한 출처는 asOf가 null이고, 버튼이 없는 화면은 buttonLabel·path가 null이다. "
+			+ "목록이 필요한 답은 list(rows, moreCount)를 함께 주고 아니면 null이다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "답변 성공",
 			content = @Content(examples = @ExampleObject(value = AiApiExamples.CHAT_SUCCESS))),
@@ -70,8 +77,8 @@ public class ApiV1AiChatController {
 		@PathVariable String screen,
 		@Valid @RequestBody AiChatRequestDto request
 	) {
-		String answer = aiChatUseCase.chat(memberId, toScreen(screen), request.message());
-		return ResponseEntity.ok(RsData.of(HttpStatus.OK, "답변했습니다.", new AiChatDto(answer)));
+		AiChatDto answer = aiChatUseCase.chat(memberId, toScreen(screen), request.message());
+		return ResponseEntity.ok(RsData.of(HttpStatus.OK, "답변했습니다.", answer));
 	}
 
 	@DeleteMapping(CHAT_PATH)
@@ -102,6 +109,43 @@ public class ApiV1AiChatController {
 	) {
 		aiChatUseCase.clear(memberId, toScreen(screen));
 		return ResponseEntity.ok(RsData.of(HttpStatus.OK, "새 대화를 시작합니다.", null));
+	}
+
+	@GetMapping("/{screen:seller|admin}/briefing")
+	@Operation(summary = "대시보드 브리핑",
+		description = "그 화면의 역할(승인된 판매자·관리자)을 확인한 뒤, 대시보드 「크루런 AI 브리핑」 카드에 넣을 한 문장 요약(headline), "
+			+ "기준 시각 문구(basis), 먼저 할 일(todos), 지표(metrics)를 돌려준다. "
+			+ "모델을 부르지 않고 조회한 숫자로 정해진 문장을 만든다. "
+			+ "판매자는 보낼 키트·다음 정산·지급보류, 관리자는 판매자 승인 대기·답변 대기 문의를 본다. "
+			+ "조회 하나가 실패해도 200이고, 그 할 일은 description에 「불러오지 못했어요」, 그 지표는 value가 「-」다. "
+			+ "할 일이 없으면 todos가 빈 목록이다. noteTone은 없으면 응답에 없다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "브리핑 성공",
+			content = @Content(examples = {
+				@ExampleObject(name = "판매자", value = AiApiExamples.BRIEFING_SELLER),
+				@ExampleObject(name = "조회 일부 실패(관리자)", value = AiApiExamples.BRIEFING_PARTLY_FAILED)
+			})),
+		@ApiResponse(responseCode = "400", description = "회원 ID가 0 이하이거나 숫자가 아님",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = AiApiExamples.INVALID_MEMBER_ID))),
+		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = AiApiExamples.LOGIN_REQUIRED))),
+		@ApiResponse(responseCode = "403", description = "그 화면의 역할이 없는 회원",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = AiApiExamples.FORBIDDEN))),
+		@ApiResponse(responseCode = "503", description = "회원 서비스에 연결하지 못해 역할을 확인할 수 없음",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = AiApiExamples.MEMBER_UNAVAILABLE)))
+	})
+	public ResponseEntity<RsData<AiBriefingDto>> briefing(
+		@LoginMemberId long memberId,
+		@Parameter(description = "화면 종류 (seller: 판매자 센터, admin: 관리자 센터)", example = "seller",
+			schema = @Schema(allowableValues = {"seller", "admin"}))
+		@PathVariable String screen
+	) {
+		AiBriefingDto briefing = aiBriefingUseCase.briefing(memberId, toScreen(screen));
+		return ResponseEntity.ok(RsData.of(HttpStatus.OK, "브리핑을 만들었습니다.", briefing));
 	}
 
 	private static AiScreen toScreen(String screen) {

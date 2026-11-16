@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 
-import { ConsoleCard, ConsoleLoading, ConsolePage } from '@/widgets/console-page'
+import { CONSOLE_BOX, ConsoleCard, ConsoleLoading, ConsolePage } from '@/widgets/console-page'
 import { useCancelRace, useUpdateRace } from '@/features/seller-race'
 import {
   formatRaceDate,
@@ -214,7 +214,7 @@ function ChangeContent({
 
         <ConsoleCard title="영향 요약" className="w-100 shrink-0">
           <StatTile label="알림 받을 참가자" value={n(sold)} unit="명" className="flex-none" />
-          <div className="flex flex-col gap-3 rounded-md bg-bg-subtle p-4">
+          <div className={cn('flex flex-col gap-3 rounded-md p-4', CONSOLE_BOX)}>
             <KeyValue label="전액 환불 허용" value={`알린 날부터 7일 (~${refundUntil()})`} />
             <KeyValue label="정산 대상일" value="바뀐 대회일로 다시 잡혀요" />
           </div>
@@ -229,7 +229,7 @@ function ChangeContent({
           {cancelSummary(sold).map((item) => (
             <div
               key={item.label}
-              className="flex flex-1 flex-col gap-1 rounded-md bg-bg-subtle p-4"
+              className={cn('flex flex-1 flex-col gap-1 rounded-md p-4', CONSOLE_BOX)}
             >
               <p className="text-caption-regular text-text-secondary">{item.label}</p>
               <p className="text-body1-medium">{item.title}</p>
@@ -261,7 +261,7 @@ function ChangeContent({
           cancel.mutate(undefined, {
             onSuccess: () => {
               toast({ message: '대회를 취소했어요', tone: 'success' })
-              router.push('/seller/races')
+              router.replace('/seller/races')
             },
             onSettled: () => setCancelOpen(false),
           })

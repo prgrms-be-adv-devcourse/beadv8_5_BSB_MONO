@@ -3,10 +3,10 @@
 import { keepPreviousData, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 
-import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
+import { CONSOLE_BOX, ConsoleCard, ConsolePage } from '@/widgets/console-page'
 import { formatMonthDay } from '@/entities/payout'
 import { ApiError, memberApi, payoutApi, unwrapData, type payoutModel } from '@/shared/api'
-import { formatNumber, formatWon } from '@/shared/lib'
+import { cn, formatNumber, formatWon, useSearchParamsState } from '@/shared/lib'
 import {
   Alert,
   Badge,
@@ -48,10 +48,15 @@ function useSellerNames() {
 
 // 관리자 회수 관리 (BUK-107). 판매자가 청구 금액을 회사 계좌로 보냈는지 확인하고 회수 완료로 바꾼다
 export function AdminClaimsPage() {
-  const [status, setStatus] = useState<Status>('청구_중')
-  const [codeText, setCodeText] = useState('')
-  const [code, setCode] = useState<string>()
-  const [page, setPage] = useState(0)
+  // 상태 · 찾은 청구 ID · 쪽은 URL에 담는다. 입력 중인 청구 ID(codeText)만 화면 상태.
+  const [url, setUrl] = useSearchParamsState(
+    { status: '청구_중', code: '', page: '0' },
+    { status: Object.keys(STATUS_LABEL) },
+  )
+  const status = url.status as Status
+  const code = url.code || undefined
+  const page = Math.max(0, Math.trunc(Number(url.page)) || 0)
+  const [codeText, setCodeText] = useState(url.code)
   const [selectedId, setSelectedId] = useState<number>()
   const sellerNames = useSellerNames()
 
@@ -64,14 +69,12 @@ export function AdminClaimsPage() {
   const sellerName = (c: Claim) => sellerNames.get(c.sellerId) ?? `판매자 #${c.sellerId}`
 
   const changeStatus = (next: Status) => {
-    setStatus(next)
-    setPage(0)
-    setCode(undefined)
+    setUrl({ status: next, page: '0', code: '' })
   }
-  const search = () => setCode(codeText.trim() || undefined)
+  const search = () => setUrl({ code: codeText.trim() })
   const clearSearch = () => {
     setCodeText('')
-    setCode(undefined)
+    setUrl({ code: '' })
   }
 
   const summary = claims.data?.summary
@@ -187,7 +190,7 @@ export function AdminClaimsPage() {
                 className="self-center"
                 page={page + 1}
                 totalPages={claims.data.claims.totalPages}
-                onPageChange={(next) => setPage(next - 1)}
+                onPageChange={(next) => setUrl({ page: String(next - 1) })}
               />
             )}
           </>
@@ -217,7 +220,7 @@ function ClaimPanel({ claim, sellerName }: { claim: Claim; sellerName: string })
 
   return (
     <ConsoleCard title="회수 처리">
-      <div className="flex flex-col gap-3 rounded-md bg-bg-subtle p-4">
+      <div className={cn('flex flex-col gap-3 rounded-md p-4', CONSOLE_BOX)}>
         <p className="text-label-m">
           {claim.claimCode} · {sellerName}
         </p>

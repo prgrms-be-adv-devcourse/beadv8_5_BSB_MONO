@@ -9,13 +9,18 @@ spring:
     bootstrap-servers:
       - ${KAFKA_BOOTSTRAP_SERVERS}
 
-# 관리자 확인은 실제 회원 서비스에 묻는다. compose.yml의 앱 컨테이너끼리는 컨테이너 이름으로 접속한다
-# product.mode·order.mode는 일부러 적지 않는다. 상품·주문 서비스 연결(Http 어댑터)이 생기기 전에는 빈이 없어 앱이 뜨지 않는다
+# 회원·상품·주문 모두 실제 서비스에 묻는다. compose.yml의 앱 컨테이너끼리는 컨테이너 이름으로 접속한다
 inquiry:
   clients:
     member:
       mode: http
       base-url: http://bukang-member-service:8080
+    product:
+      mode: http
+      base-url: http://bukang-product-service:8085
+    order:
+      mode: http
+      base-url: http://bukang-order-service:8084
 
 # 운영에서는 API 구조가 외부에 노출되지 않도록 Swagger 비활성화
 springdoc:

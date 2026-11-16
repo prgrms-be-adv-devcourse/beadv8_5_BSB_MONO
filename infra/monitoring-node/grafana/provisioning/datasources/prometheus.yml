@@ -1,0 +1,14 @@
+# Grafana가 시작할 때 Prometheus 데이터 소스를 자동으로 등록한다
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    # 대시보드 JSON이 이 uid로 데이터 소스를 찾는다 (fetch-dashboards.sh가 ${DS_PROMETHEUS}를 이 값으로 바꾼다)
+    uid: prometheus
+    # 같은 compose 네트워크 안이라 서비스 이름으로 접속한다. Caddy 비밀번호를 거치지 않는다
+    url: http://prometheus:9090
+    access: proxy
+    isDefault: true
+    # 화면에서 고쳐도 다시 시작하면 이 파일 값으로 돌아오므로, 바꿀 때는 이 파일을 고친다
+    editable: false

@@ -6,6 +6,8 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
+
 import com.bukang.cash.app.payout.CashPayoutReconcileUseCase;
 
 import lombok.RequiredArgsConstructor;
@@ -24,6 +26,7 @@ public class CashPayoutReconcileScheduler {
 
 	private final CashPayoutReconcileUseCase cashPayoutReconcileUseCase;
 
+	@SchedulerLock(name = "cash-payout-reconcile", lockAtMostFor = "PT30M", lockAtLeastFor = "PT30S")
 	@Scheduled(cron = "0 30 3 * * *", zone = ZONE)
 	public void reconcile() {
 		// 실행 시각만 한국 시각으로 정한다. 기준 시각은 송금 기록의 수정 시각(JPA가 서버 기본 시간대로 찍음)과 비교하므로

@@ -18,6 +18,7 @@ import {
   type RaceListItem,
   type RaceSearchFilters,
 } from '@/entities/race'
+import { productModel } from '@/shared/api'
 import {
   addRecentSearch,
   clearRecentSearches,
@@ -25,6 +26,8 @@ import {
   formatNumber,
   loadRecentSearches,
   removeRecentSearch,
+  useNow,
+  useSearchParamsState,
   useTrackOnce,
 } from '@/shared/lib'
 import {
@@ -57,21 +60,24 @@ const SORTS = [
 // 종목 · 지역 칩은 카테고리 화면에서 거리 · 지역을 고르고, 이번 달 칩은 대회일 범위로 건다.
 export function RaceListPage({ state }: { state?: RaceListState }) {
   const empty = state === 'empty'
-  const [query, setQuery] = useState(empty ? '제주 트레일' : '')
+  // 정렬 · 종목 · 지역 · 이번 달은 URL에 담아 상세에 갔다 돌아와도 남긴다. 검색어는 입력 중에는 화면 상태, 보낼 때 URL(q)에 쓴다.
+  const [url, setUrl] = useSearchParamsState(URL_DEFAULTS, { sort: SORT_VALUES, surface: SURFACES })
+  const [query, setQuery] = useState(empty ? '제주 트레일' : url.q)
   const [focused, setFocused] = useState(false)
-  const [sort, setSort] = useState<RaceSort>(DEFAULT_RACE_SORT)
-  const [category, setCategory] = useState<Filters>({})
-  const [thisMonth, setThisMonth] = useState(false)
+  const sort = url.sort as RaceSort
+  const category = toCategory(url)
+  const thisMonth = url.month === '1'
   const [categoryOpen, setCategoryOpen] = useState(false)
   const [recent, setRecent] = useState<string[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
   const keyword = useDebouncedValue(query)
-  const now = new Date()
+  // 서버(UTC)와 브라우저(KST)의 달이 다를 수 있어 마운트 뒤에 정한다
+  const now = useNow()
   const filters: RaceSearchFilters = {
     keyword,
     sort,
     ...category,
-    ...(thisMonth ? monthRange(now) : {}),
+    ...(thisMonth && now ? monthRange(now) : {}),
   }
   const filtered = Object.keys(category).length > 0 || thisMonth
 
@@ -114,14 +120,14 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
   const showSuggestions = focused && query.trim() !== '' && suggestionItems.length > 0
 
   function submitSearch(term: string) {
+    setUrl({ q: term.trim() })
     setRecent(addRecentSearch(term))
     inputRef.current?.blur()
   }
 
   function resetFilters() {
     setQuery('')
-    setCategory({})
-    setThisMonth(false)
+    setUrl({ q: '', courseType: '', surface: '', regionSido: '', month: '' })
   }
 
   if (categoryOpen) {
@@ -129,7 +135,11 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
       <CategoryScreen
         onBack={() => setCategoryOpen(false)}
         onPick={(picked) => {
-          setCategory(picked)
+          setUrl({
+            courseType: (picked.courseType ?? []).join(','),
+            surface: picked.surface ?? '',
+            regionSido: picked.regionSido ?? '',
+          })
           setCategoryOpen(false)
         }}
       />
@@ -226,8 +236,8 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
             >
               지역
             </Chip>
-            <Chip selected={thisMonth} onClick={() => setThisMonth(!thisMonth)}>
-              {now.getMonth() + 1}월
+            <Chip selected={thisMonth} onClick={() => setUrl({ month: thisMonth ? '' : '1' })}>
+              {now ? `${now.getMonth() + 1}월` : '이번 달'}
             </Chip>
           </div>
         )}
@@ -241,7 +251,7 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
             <SortSelect
               items={[...SORTS]}
               value={sort}
-              onValueChange={setSort}
+              onValueChange={(value) => setUrl({ sort: value })}
               defaultOpen={state === 'sort'}
               aria-label="대회 정렬"
             />
@@ -349,6 +359,29 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
 
 type Filters = Pick<RaceSearchFilters, 'regionSido' | 'courseType' | 'surface'>
 
+const URL_DEFAULTS = {
+  q: '',
+  sort: DEFAULT_RACE_SORT as string,
+  courseType: '',
+  surface: '',
+  regionSido: '',
+  month: '',
+}
+const SORT_VALUES: string[] = Object.values(RaceSort)
+const SURFACES = ['', ...Object.values(productModel.SearchSurface)]
+const COURSE_TYPES: string[] = Object.values(productModel.SearchCourseTypeItem)
+
+function toCategory(url: typeof URL_DEFAULTS): Filters {
+  const courseType = url.courseType
+    .split(',')
+    .filter((c): c is productModel.SearchCourseTypeItem => COURSE_TYPES.includes(c))
+  return {
+    ...(courseType.length ? { courseType } : {}),
+    ...(url.surface ? { surface: url.surface as productModel.SearchSurface } : {}),
+    ...(url.regionSido ? { regionSido: url.regionSido } : {}),
+  }
+}
+
 /** 이번 달 1일 ~ 말일 (YYYY-MM-DD) */
 function monthRange(now: Date) {
   const pad = (n: number) => String(n).padStart(2, '0')
@@ -360,21 +393,18 @@ function monthRange(now: Date) {
   }
 }
 
-// 피그마 M18 · 로딩: 목록 카드 4장 자리
+// 피그마 M18 · 로딩: 실제 목록 줄과 같은 평평한 줄 4개
 function ListSkeleton() {
   return (
-    <div role="status" aria-label="불러오는 중" className="flex flex-col gap-3">
+    <div role="status" aria-label="불러오는 중" className="flex flex-col">
       {[0, 1, 2, 3].map((i) => (
-        <div
-          key={i}
-          className="flex gap-3 rounded-lg bg-bg-surface p-4 shadow-sm inset-ring inset-ring-border-default"
-        >
-          <Skeleton shape="rect" className="size-20 shrink-0" />
-          <div className="flex flex-1 flex-col gap-3 pt-1">
+        <div key={i} className="flex gap-3 border border-border-default bg-bg-surface py-4 pr-12">
+          <Skeleton shape="rect" className="size-24 shrink-0" />
+          <div className="flex flex-1 flex-col items-start gap-2">
             <Skeleton shape="rect" className="h-4 w-12" />
             <Skeleton className="w-11/12" />
             <Skeleton className="w-4/5" />
-            <div className="flex justify-between">
+            <div className="flex w-full justify-between pt-1">
               <Skeleton className="w-10" />
               <Skeleton className="w-14" />
             </div>

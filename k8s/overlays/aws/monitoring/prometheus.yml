@@ -1,0 +1,108 @@
+# 운영 지표 수집기 설정 (BUK-258). Prometheus 에이전트 모드가 읽는다 (metrics-agent.yaml)
+# 에이전트 모드: 가져온 지표를 이 서버에 저장하지 않고(잠깐 버퍼만) 개인 AWS EC2의 Prometheus로 보낸다
+#   메인 EC2 메모리 여유가 약 2GB라 저장·화면은 그쪽(infra/monitoring-node)에 둔다
+# job 이름은 로컬 backend/docker/prometheus/prometheus.yml과 같게 둔다. 로컬에서 만든 Grafana 화면을 운영에서도 그대로 쓰려고
+# 운영에만 있는 job: mysql, elasticsearch, node, cadvisor
+
+global:
+  scrape_interval: 15s
+  # 모든 지표에 붙는 이름표. 나중에 로컬 k6 지표 등과 섞여도 운영 것을 고를 수 있게
+  external_labels:
+    env: prod
+
+scrape_configs:
+  # ── Spring 앱 (gateway, 서비스 11개) ──
+  # k3s에 떠 있는 Pod를 찾아 /actuator/prometheus를 가져간다. Pod가 다시 떠서 IP가 바뀌어도 알아서 따라간다
+  # 고르는 기준: crewrun 네임스페이스, 라벨 component=spring, 포트 이름 http (k8s/base/apps/*.yaml)
+  # job 이름은 Pod 라벨 app.kubernetes.io/name을 쓴다 (gateway, member-service, ... 로컬 job 이름과 같다)
+  - job_name: spring
+    metrics_path: /actuator/prometheus
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names: [ crewrun ]
+    relabel_configs:
+      - source_labels: [ __meta_kubernetes_pod_label_app_kubernetes_io_component ]
+        regex: spring
+        action: keep
+      - source_labels: [ __meta_kubernetes_pod_container_port_name ]
+        regex: http
+        action: keep
+      - source_labels: [ __meta_kubernetes_pod_label_app_kubernetes_io_name ]
+        target_label: job
+      - source_labels: [ __meta_kubernetes_pod_name ]
+        target_label: pod
+
+  # ── 보조 EC2(10.0.2.222)의 인프라. exporter는 infra/data-node/compose.data.yml ──
+  - job_name: redis
+    static_configs:
+      - targets: [ "10.0.2.222:9121" ]
+  # Redpanda는 관리 포트에 지표 주소가 있어 exporter가 없다. /public_metrics는 운영 확인용으로 고른 지표
+  - job_name: redpanda
+    metrics_path: /public_metrics
+    static_configs:
+      - targets: [ "10.0.2.222:9644" ]
+  - job_name: mysql
+    static_configs:
+      - targets: [ "10.0.2.222:9104" ]
+  - job_name: elasticsearch
+    static_configs:
+      - targets: [ "10.0.2.222:9114" ]
+
+  # ── 서버 지표 (CPU·메모리·디스크·네트워크) ──
+  # 메인 EC2는 node-exporter.yaml(DaemonSet), 보조 EC2는 compose의 node-exporter
+  # server 이름표로 두 서버를 나눠 본다
+  - job_name: node
+    kubernetes_sd_configs:
+      - role: node
+    relabel_configs:
+      # k3s 노드(메인 EC2)의 사설 IP:9100. node-exporter가 사설 IP에서만 듣는다
+      - source_labels: [ __meta_kubernetes_node_address_InternalIP ]
+        replacement: "${1}:9100"
+        target_label: __address__
+      - target_label: server
+        replacement: main
+  - job_name: node-data
+    static_configs:
+      - targets: [ "10.0.2.222:9100" ]
+        labels:
+          server: data
+    relabel_configs:
+      # 두 서버를 같은 job(node)으로 묶어야 Node Exporter Full 대시보드에서 서버를 골라 볼 수 있다
+      - target_label: job
+        replacement: node
+
+  # ── Pod별 CPU·메모리 (kubelet 안의 cAdvisor) ──
+  # kubelet에 직접 붙지 않고 API 서버를 거쳐 가져간다 (권한은 rbac.yaml의 nodes/proxy)
+  - job_name: cadvisor
+    scheme: https
+    authorization:
+      credentials_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+    tls_config:
+      ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+    kubernetes_sd_configs:
+      - role: node
+    relabel_configs:
+      - target_label: __address__
+        replacement: kubernetes.default.svc:443
+      - source_labels: [ __meta_kubernetes_node_name ]
+        target_label: __metrics_path__
+        replacement: /api/v1/nodes/${1}/proxy/metrics/cadvisor
+    metric_relabel_configs:
+      # cAdvisor는 지표 종류가 많다. Pod 화면에 쓰는 것만 남겨 보내는 양과 개인 EC2 저장량을 줄인다
+      - source_labels: [ __name__ ]
+        regex: container_(cpu_usage_seconds_total|memory_working_set_bytes|memory_rss|spec_memory_limit_bytes|oom_events_total|network_receive_bytes_total|network_transmit_bytes_total|cpu_cfs_throttled_periods_total)
+        action: keep
+      # 컨테이너가 아닌 묶음(cgroup) 줄은 빼고, 이름이 있는 컨테이너만 남긴다
+      - source_labels: [ container ]
+        regex: ""
+        action: drop
+
+remote_write:
+  # 개인 AWS EC2의 Prometheus (infra/monitoring-node). Caddy가 https와 비밀번호를 처리한다
+  - url: https://prom.bukang-devops.duckdns.org/api/v1/write
+    basic_auth:
+      username: crewrun
+      # Secret monitoring-remote-write의 password (infra/main-node/deploy.sh가 Parameter Store에서 만든다)
+      # 파일이 없으면 보내기만 실패하고 수집기와 앱은 그대로 돈다
+      password_file: /etc/remote-write/password

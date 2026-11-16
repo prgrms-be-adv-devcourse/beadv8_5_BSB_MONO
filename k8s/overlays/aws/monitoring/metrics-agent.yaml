@@ -1,0 +1,68 @@
+# 운영 지표 수집기 (BUK-258)
+# Prometheus를 에이전트 모드로 띄운다: 15초마다 지표를 가져와 개인 AWS EC2의 Prometheus로 보내고, 이 서버에는 저장하지 않는다
+# 무엇을 가져와 어디로 보내는지는 prometheus.yml (kustomization.yaml이 ConfigMap으로 만든다)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metrics-agent
+  labels:
+    app.kubernetes.io/name: metrics-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: metrics-agent
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: metrics-agent
+    spec:
+      # rbac.yaml의 계정. Pod·노드를 찾고 kubelet 지표를 읽는 권한만 있다
+      serviceAccountName: metrics-agent
+      containers:
+        - name: prometheus
+          # 로컬·개인 EC2와 같은 버전
+          image: prom/prometheus:v3.16.0
+          args:
+            - --agent
+            - --config.file=/etc/prometheus/prometheus.yml
+            # 보내기 전에 잠깐 쌓아 두는 곳(WAL). 개인 EC2에 닿지 않을 때 여기 쌓였다가 다시 보낸다
+            - --storage.agent.path=/prometheus
+          ports:
+            - name: http
+              containerPort: 9090
+          # 메인 EC2 메모리 여유가 약 2GB라 상한을 둔다. 넘으면 이 Pod만 다시 시작되고 앱은 그대로다
+          resources:
+            requests:
+              cpu: 20m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: http
+            periodSeconds: 10
+          volumeMounts:
+            - name: config
+              mountPath: /etc/prometheus
+              readOnly: true
+            - name: remote-write
+              mountPath: /etc/remote-write
+              readOnly: true
+            - name: wal
+              mountPath: /prometheus
+      volumes:
+        - name: config
+          configMap:
+            name: metrics-agent-config
+        # 개인 EC2 Prometheus 비밀번호. deploy.sh가 Parameter Store /crewrun/prod/MONITORING_RW_PASSWORD로 만든다
+        # optional: Secret이 없어도 Pod는 뜬다 (보내기만 실패). 그래야 비밀번호를 넣기 전에도 앱 배포가 멈추지 않는다
+        - name: remote-write
+          secret:
+            secretName: monitoring-remote-write
+            optional: true
+        # Pod가 다시 뜨면 비워진다. 보내지 못한 지표가 조금 사라질 수 있지만 운영에는 영향이 없다
+        - name: wal
+          emptyDir:
+            sizeLimit: 1Gi

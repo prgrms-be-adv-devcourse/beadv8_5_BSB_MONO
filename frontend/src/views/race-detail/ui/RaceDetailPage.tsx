@@ -14,6 +14,7 @@ import { cn, formatNumber, formatWon, useTrackOnce } from '@/shared/lib'
 import {
   Alert,
   Badge,
+  buttonClassName,
   FOCUS_RING,
   Icon,
   IconButton,
@@ -106,13 +107,13 @@ export function RaceDetailPage({
             ) : (
               <RacePoster seed={race.id} title="" label="" className="absolute inset-0" />
             )}
-            <div className="absolute inset-x-0 bottom-0 h-35 bg-linear-to-b from-[rgb(0_0_0/0)] to-[rgb(0_0_0/0.55)]" />
+            <div className="absolute inset-x-0 bottom-0 h-35 bg-linear-to-b from-bg-overlay/0 to-bg-overlay/55" />
             <div className="absolute bottom-5.5 left-5.5 flex flex-col gap-1.5 text-text-on-hero">
               <p className="text-title3">{race.heroTitle}</p>
               <p className="text-body2-medium whitespace-pre opacity-85">{race.heroTags}</p>
             </div>
             {race.images.length > 0 && (
-              <span className="absolute right-4 bottom-4.5 rounded-full bg-[rgb(0_0_0/0.4)] px-3 py-1 text-caption-medium text-text-on-hero">
+              <span className="absolute right-4 bottom-4.5 rounded-full bg-bg-overlay/40 px-3 py-1 text-caption-medium text-text-on-hero">
                 1 / {race.images.length}
               </span>
             )}
@@ -268,17 +269,20 @@ export function RaceDetailPage({
 
         <SimilarRaces raceId={race.id} />
 
+        <Section title="문의">
+          <Link
+            href={`/me/inquiries/new?raceId=${race.id}` as Route}
+            className={buttonClassName({ variant: 'secondary' })}
+          >
+            이 대회에 문의하기
+          </Link>
+        </Section>
+
         <section className="flex flex-col gap-2 bg-bg-surface px-4 py-6">
           <p className="text-body2-medium">{race.seller.name}</p>
           <p className="text-caption-regular text-text-tertiary">{race.seller.businessNo}</p>
           <p className="text-caption-regular text-text-tertiary">{race.seller.mailOrderNo}</p>
         </section>
-        <Link
-          href={`/me/inquiries/new?raceId=${race.id}` as Route}
-          className="self-start px-4 pt-2 pb-6 text-caption-regular text-text-tertiary underline"
-        >
-          이 대회에 문의하기
-        </Link>
       </main>
       <ApplyCta
         race={race}

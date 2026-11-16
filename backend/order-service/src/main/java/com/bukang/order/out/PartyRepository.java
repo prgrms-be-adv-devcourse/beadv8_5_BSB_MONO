@@ -5,10 +5,13 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.bukang.order.domain.ParticipationStatus;
 import com.bukang.order.domain.Party;
@@ -17,19 +20,18 @@ import com.bukang.order.domain.PartyStatus;
 import jakarta.persistence.LockModeType;
 
 public interface PartyRepository extends JpaRepository<Party, Long> {
-	// 참가 링크로 파티 ID만 찾는다. 잠그기 전에 엔티티를 읽지 않으려고 ID만 돌려준다 (uk_party_join_token)
-	@Query("select p.id from Party p where p.joinToken = :joinToken")
-	Optional<Long> findIdByJoinToken(@Param("joinToken") String joinToken);
+	// 합류 때 참가 링크로 잠그기 전에 확인할 파티·종목·크루를 찾는다 (uk_party_join_token)
+	// 엔티티를 읽으면 뒤에서 잠가 읽을 때 옛 상태가 그대로 돌아오므로 값만 읽는다
+	@Query("select new com.bukang.order.out.PartyRepository$JoinTarget(p.id, p.raceCourseId, p.crewId) from Party p "
+		+ "where p.joinToken = :joinToken")
+	Optional<JoinTarget> findJoinTarget(@Param("joinToken") String joinToken);
 
-	// 합류 때 잠그기 전에 확인할 종목·크루. 엔티티를 읽으면 뒤에서 잠가 읽을 때 옛 상태가 그대로 돌아오므로 값만 읽는다
-	@Query("select new com.bukang.order.out.PartyRepository$JoinTarget(p.raceCourseId, p.crewId) from Party p "
-		+ "where p.id = :id")
-	Optional<JoinTarget> findJoinTarget(@Param("id") long id);
-
-	record JoinTarget(long raceCourseId, long crewId) {
+	record JoinTarget(long partyId, long raceCourseId, long crewId) {
 	}
 
 	// 파티 신청 때 잠그기 전에 파티장·상태로 먼저 거른다. 상품·회원을 부르기 전에 빨리 거절하려는 것이고, 잠근 뒤 다시 본다
+	// 파티 신청은 바깥 트랜잭션 없이 부른다. 짧은 트랜잭션으로 읽어 연결을 바로 돌려준다 (BUK-213, OrderItemRepository.findPayTargets)
+	@Transactional(readOnly = true)
 	@Query("select new com.bukang.order.out.PartyRepository$ApplyTarget(p.raceCourseId, p.crewId, p.leaderMemberId, "
 		+ "p.status, p.crewHoldRequestedAt) from Party p where p.id = :id")
 	Optional<ApplyTarget> findApplyTarget(@Param("id") long id);
@@ -86,4 +88,28 @@ public interface PartyRepository extends JpaRepository<Party, Long> {
 
 	// 크루 없애기 확인 (BUK-125). 막는 파티를 ID 순으로 돌려준다
 	List<Party> findByCrewIdAndStatusInOrderByIdAsc(long crewId, Collection<PartyStatus> statuses);
+
+	/**
+	 * 판매자 파티별 내역 (BUK-227). 대회에 신청한 파티(신청 시각이 있음)를 최근 파티부터. idx_party_race로 찾는다
+	 * partyId가 있으면 그 파티만 찾는다. 신청 시각은 from 이상 to 미만이다(null이면 거르지 않음)
+	 */
+	@Query(value = """
+		select p from Party p
+		where p.raceId = :raceId and p.appliedAt is not null
+			and (:partyId is null or p.id = :partyId)
+			and (:from is null or p.appliedAt >= :from)
+			and (:to is null or p.appliedAt < :to)
+		order by p.id desc
+		""", countQuery = """
+		select count(p) from Party p
+		where p.raceId = :raceId and p.appliedAt is not null
+			and (:partyId is null or p.id = :partyId)
+			and (:from is null or p.appliedAt >= :from)
+			and (:to is null or p.appliedAt < :to)
+		""")
+	Page<Party> findAppliedByRaceId(@Param("raceId") long raceId, @Param("partyId") Long partyId,
+		@Param("from") LocalDateTime from, @Param("to") LocalDateTime to, Pageable pageable);
+
+	// 대회에 신청한 파티 하나 (판매자 파티별 내역의 대회 소유 확인, BUK-227). idx_party_race로 찾는다
+	Optional<Party> findFirstByRaceIdAndAppliedAtIsNotNull(long raceId);
 }

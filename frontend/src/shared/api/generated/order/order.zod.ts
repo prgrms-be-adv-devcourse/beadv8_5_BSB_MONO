@@ -39,11 +39,13 @@ export const ChangeTrackingResponse = zod.object({
   "quantity": zod.int().optional(),
   "amount": zod.int().optional(),
   "status": zod.enum(['ORDERED', 'PAID', 'CANCELING', 'CANCELED']).optional(),
+  "canceledAt": zod.iso.datetime({"offset":true}).nullish().describe('취소를 마친 시각 (BUK-229). 취소가 아니면(취소 중 포함) null'),
   "kitDeliveryStatus": zod.union([zod.literal('PREPARING'),zod.literal('SHIPPING'),zod.literal('DELIVERED'),zod.literal(null)]).nullish(),
   "kitCarrier": zod.string().nullish(),
   "kitTrackingNumber": zod.string().nullish(),
   "kitShippedAt": zod.iso.datetime({"offset":true}).nullish(),
   "kitDeliveredAt": zod.iso.datetime({"offset":true}).nullish(),
+  "kitReceivedAt": zod.iso.datetime({"offset":true}).nullish().describe('키트 수령을 확인한 시각 (BUK-225). 확인 전이면 null. 확인한 참가권은 취소할 수 없다'),
   "kitTracking": zod.union([zod.object({
   "carrierId": zod.string().optional().describe('택배사 ID (Delivery Tracker)'),
   "status": zod.enum(['NOT_TRACKED', 'INFORMATION_RECEIVED', 'AT_PICKUP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'ATTEMPT_FAIL', 'DELIVERED', 'AVAILABLE_FOR_PICKUP', 'EXCEPTION', 'UNKNOWN']).optional().describe('배송 상태. NOT_TRACKED는 아직 조회되지 않음'),
@@ -95,11 +97,13 @@ export const ShipResponse = zod.object({
   "quantity": zod.int().optional(),
   "amount": zod.int().optional(),
   "status": zod.enum(['ORDERED', 'PAID', 'CANCELING', 'CANCELED']).optional(),
+  "canceledAt": zod.iso.datetime({"offset":true}).nullish().describe('취소를 마친 시각 (BUK-229). 취소가 아니면(취소 중 포함) null'),
   "kitDeliveryStatus": zod.union([zod.literal('PREPARING'),zod.literal('SHIPPING'),zod.literal('DELIVERED'),zod.literal(null)]).nullish(),
   "kitCarrier": zod.string().nullish(),
   "kitTrackingNumber": zod.string().nullish(),
   "kitShippedAt": zod.iso.datetime({"offset":true}).nullish(),
   "kitDeliveredAt": zod.iso.datetime({"offset":true}).nullish(),
+  "kitReceivedAt": zod.iso.datetime({"offset":true}).nullish().describe('키트 수령을 확인한 시각 (BUK-225). 확인 전이면 null. 확인한 참가권은 취소할 수 없다'),
   "kitTracking": zod.union([zod.object({
   "carrierId": zod.string().optional().describe('택배사 ID (Delivery Tracker)'),
   "status": zod.enum(['NOT_TRACKED', 'INFORMATION_RECEIVED', 'AT_PICKUP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'ATTEMPT_FAIL', 'DELIVERED', 'AVAILABLE_FOR_PICKUP', 'EXCEPTION', 'UNKNOWN']).optional().describe('배송 상태. NOT_TRACKED는 아직 조회되지 않음'),
@@ -238,11 +242,13 @@ export const CompleteDeliveryResponse = zod.object({
   "quantity": zod.int().optional(),
   "amount": zod.int().optional(),
   "status": zod.enum(['ORDERED', 'PAID', 'CANCELING', 'CANCELED']).optional(),
+  "canceledAt": zod.iso.datetime({"offset":true}).nullish().describe('취소를 마친 시각 (BUK-229). 취소가 아니면(취소 중 포함) null'),
   "kitDeliveryStatus": zod.union([zod.literal('PREPARING'),zod.literal('SHIPPING'),zod.literal('DELIVERED'),zod.literal(null)]).nullish(),
   "kitCarrier": zod.string().nullish(),
   "kitTrackingNumber": zod.string().nullish(),
   "kitShippedAt": zod.iso.datetime({"offset":true}).nullish(),
   "kitDeliveredAt": zod.iso.datetime({"offset":true}).nullish(),
+  "kitReceivedAt": zod.iso.datetime({"offset":true}).nullish().describe('키트 수령을 확인한 시각 (BUK-225). 확인 전이면 null. 확인한 참가권은 취소할 수 없다'),
   "kitTracking": zod.union([zod.object({
   "carrierId": zod.string().optional().describe('택배사 ID (Delivery Tracker)'),
   "status": zod.enum(['NOT_TRACKED', 'INFORMATION_RECEIVED', 'AT_PICKUP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'ATTEMPT_FAIL', 'DELIVERED', 'AVAILABLE_FOR_PICKUP', 'EXCEPTION', 'UNKNOWN']).optional().describe('배송 상태. NOT_TRACKED는 아직 조회되지 않음'),
@@ -785,7 +791,7 @@ export const FindMineResponse = zod.object({
   "id": zod.int().optional(),
   "createDate": zod.iso.datetime({"offset":true}).optional(),
   "orderNo": zod.string().optional(),
-  "status": zod.enum(['CREATED', 'PAID', 'PARTIAL_CANCELED', 'CANCELED', 'EXPIRED']).optional(),
+  "status": zod.enum(['CREATED', 'PAYING', 'PAID', 'PARTIAL_CANCELED', 'CANCELED', 'EXPIRED']).optional(),
   "totalAmount": zod.int().optional(),
   "paymentDueAt": zod.iso.datetime({"offset":true}).nullish(),
   "itemName": zod.string().optional(),
@@ -828,7 +834,7 @@ export const CreateResponse = zod.object({
   "orderNo": zod.string().optional(),
   "buyerId": zod.int().optional(),
   "raceId": zod.int().optional(),
-  "status": zod.enum(['CREATED', 'PAID', 'PARTIAL_CANCELED', 'CANCELED', 'EXPIRED']).optional(),
+  "status": zod.enum(['CREATED', 'PAYING', 'PAID', 'PARTIAL_CANCELED', 'CANCELED', 'EXPIRED']).optional(),
   "totalAmount": zod.int().optional(),
   "canceledAmount": zod.int().optional(),
   "paymentDueAt": zod.iso.datetime({"offset":true}).nullish(),
@@ -850,11 +856,13 @@ export const CreateResponse = zod.object({
   "quantity": zod.int().optional(),
   "amount": zod.int().optional(),
   "status": zod.enum(['ORDERED', 'PAID', 'CANCELING', 'CANCELED']).optional(),
+  "canceledAt": zod.iso.datetime({"offset":true}).nullish().describe('취소를 마친 시각 (BUK-229). 취소가 아니면(취소 중 포함) null'),
   "kitDeliveryStatus": zod.union([zod.literal('PREPARING'),zod.literal('SHIPPING'),zod.literal('DELIVERED'),zod.literal(null)]).nullish(),
   "kitCarrier": zod.string().nullish(),
   "kitTrackingNumber": zod.string().nullish(),
   "kitShippedAt": zod.iso.datetime({"offset":true}).nullish(),
   "kitDeliveredAt": zod.iso.datetime({"offset":true}).nullish(),
+  "kitReceivedAt": zod.iso.datetime({"offset":true}).nullish().describe('키트 수령을 확인한 시각 (BUK-225). 확인 전이면 null. 확인한 참가권은 취소할 수 없다'),
   "kitTracking": zod.union([zod.object({
   "carrierId": zod.string().optional().describe('택배사 ID (Delivery Tracker)'),
   "status": zod.enum(['NOT_TRACKED', 'INFORMATION_RECEIVED', 'AT_PICKUP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'ATTEMPT_FAIL', 'DELIVERED', 'AVAILABLE_FOR_PICKUP', 'EXCEPTION', 'UNKNOWN']).optional().describe('배송 상태. NOT_TRACKED는 아직 조회되지 않음'),
@@ -903,7 +911,7 @@ export const PayResponse = zod.object({
   "orderNo": zod.string().optional(),
   "buyerId": zod.int().optional(),
   "raceId": zod.int().optional(),
-  "status": zod.enum(['CREATED', 'PAID', 'PARTIAL_CANCELED', 'CANCELED', 'EXPIRED']).optional(),
+  "status": zod.enum(['CREATED', 'PAYING', 'PAID', 'PARTIAL_CANCELED', 'CANCELED', 'EXPIRED']).optional(),
   "totalAmount": zod.int().optional(),
   "canceledAmount": zod.int().optional(),
   "paymentDueAt": zod.iso.datetime({"offset":true}).nullish(),
@@ -925,11 +933,13 @@ export const PayResponse = zod.object({
   "quantity": zod.int().optional(),
   "amount": zod.int().optional(),
   "status": zod.enum(['ORDERED', 'PAID', 'CANCELING', 'CANCELED']).optional(),
+  "canceledAt": zod.iso.datetime({"offset":true}).nullish().describe('취소를 마친 시각 (BUK-229). 취소가 아니면(취소 중 포함) null'),
   "kitDeliveryStatus": zod.union([zod.literal('PREPARING'),zod.literal('SHIPPING'),zod.literal('DELIVERED'),zod.literal(null)]).nullish(),
   "kitCarrier": zod.string().nullish(),
   "kitTrackingNumber": zod.string().nullish(),
   "kitShippedAt": zod.iso.datetime({"offset":true}).nullish(),
   "kitDeliveredAt": zod.iso.datetime({"offset":true}).nullish(),
+  "kitReceivedAt": zod.iso.datetime({"offset":true}).nullish().describe('키트 수령을 확인한 시각 (BUK-225). 확인 전이면 null. 확인한 참가권은 취소할 수 없다'),
   "kitTracking": zod.union([zod.object({
   "carrierId": zod.string().optional().describe('택배사 ID (Delivery Tracker)'),
   "status": zod.enum(['NOT_TRACKED', 'INFORMATION_RECEIVED', 'AT_PICKUP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'ATTEMPT_FAIL', 'DELIVERED', 'AVAILABLE_FOR_PICKUP', 'EXCEPTION', 'UNKNOWN']).optional().describe('배송 상태. NOT_TRACKED는 아직 조회되지 않음'),
@@ -968,7 +978,7 @@ export const CancelItemResponse = zod.object({
   "orderNo": zod.string().optional(),
   "buyerId": zod.int().optional(),
   "raceId": zod.int().optional(),
-  "status": zod.enum(['CREATED', 'PAID', 'PARTIAL_CANCELED', 'CANCELED', 'EXPIRED']).optional(),
+  "status": zod.enum(['CREATED', 'PAYING', 'PAID', 'PARTIAL_CANCELED', 'CANCELED', 'EXPIRED']).optional(),
   "totalAmount": zod.int().optional(),
   "canceledAmount": zod.int().optional(),
   "paymentDueAt": zod.iso.datetime({"offset":true}).nullish(),
@@ -990,11 +1000,13 @@ export const CancelItemResponse = zod.object({
   "quantity": zod.int().optional(),
   "amount": zod.int().optional(),
   "status": zod.enum(['ORDERED', 'PAID', 'CANCELING', 'CANCELED']).optional(),
+  "canceledAt": zod.iso.datetime({"offset":true}).nullish().describe('취소를 마친 시각 (BUK-229). 취소가 아니면(취소 중 포함) null'),
   "kitDeliveryStatus": zod.union([zod.literal('PREPARING'),zod.literal('SHIPPING'),zod.literal('DELIVERED'),zod.literal(null)]).nullish(),
   "kitCarrier": zod.string().nullish(),
   "kitTrackingNumber": zod.string().nullish(),
   "kitShippedAt": zod.iso.datetime({"offset":true}).nullish(),
   "kitDeliveredAt": zod.iso.datetime({"offset":true}).nullish(),
+  "kitReceivedAt": zod.iso.datetime({"offset":true}).nullish().describe('키트 수령을 확인한 시각 (BUK-225). 확인 전이면 null. 확인한 참가권은 취소할 수 없다'),
   "kitTracking": zod.union([zod.object({
   "carrierId": zod.string().optional().describe('택배사 ID (Delivery Tracker)'),
   "status": zod.enum(['NOT_TRACKED', 'INFORMATION_RECEIVED', 'AT_PICKUP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'ATTEMPT_FAIL', 'DELIVERED', 'AVAILABLE_FOR_PICKUP', 'EXCEPTION', 'UNKNOWN']).optional().describe('배송 상태. NOT_TRACKED는 아직 조회되지 않음'),
@@ -1080,7 +1092,7 @@ export const CheckoutResponse = zod.object({
   "orderNo": zod.string().optional(),
   "buyerId": zod.int().optional(),
   "raceId": zod.int().optional(),
-  "status": zod.enum(['CREATED', 'PAID', 'PARTIAL_CANCELED', 'CANCELED', 'EXPIRED']).optional(),
+  "status": zod.enum(['CREATED', 'PAYING', 'PAID', 'PARTIAL_CANCELED', 'CANCELED', 'EXPIRED']).optional(),
   "totalAmount": zod.int().optional(),
   "canceledAmount": zod.int().optional(),
   "paymentDueAt": zod.iso.datetime({"offset":true}).nullish(),
@@ -1102,11 +1114,13 @@ export const CheckoutResponse = zod.object({
   "quantity": zod.int().optional(),
   "amount": zod.int().optional(),
   "status": zod.enum(['ORDERED', 'PAID', 'CANCELING', 'CANCELED']).optional(),
+  "canceledAt": zod.iso.datetime({"offset":true}).nullish().describe('취소를 마친 시각 (BUK-229). 취소가 아니면(취소 중 포함) null'),
   "kitDeliveryStatus": zod.union([zod.literal('PREPARING'),zod.literal('SHIPPING'),zod.literal('DELIVERED'),zod.literal(null)]).nullish(),
   "kitCarrier": zod.string().nullish(),
   "kitTrackingNumber": zod.string().nullish(),
   "kitShippedAt": zod.iso.datetime({"offset":true}).nullish(),
   "kitDeliveredAt": zod.iso.datetime({"offset":true}).nullish(),
+  "kitReceivedAt": zod.iso.datetime({"offset":true}).nullish().describe('키트 수령을 확인한 시각 (BUK-225). 확인 전이면 null. 확인한 참가권은 취소할 수 없다'),
   "kitTracking": zod.union([zod.object({
   "carrierId": zod.string().optional().describe('택배사 ID (Delivery Tracker)'),
   "status": zod.enum(['NOT_TRACKED', 'INFORMATION_RECEIVED', 'AT_PICKUP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'ATTEMPT_FAIL', 'DELIVERED', 'AVAILABLE_FOR_PICKUP', 'EXCEPTION', 'UNKNOWN']).optional().describe('배송 상태. NOT_TRACKED는 아직 조회되지 않음'),
@@ -1563,9 +1577,10 @@ export const FindMyTicketsResponse = zod.object({
   "paymentDueAt": zod.iso.datetime({"offset":true}).nullish().describe('결제 기한. 자리 확보 전이면 null'),
   "orderId": zod.int().nullish().describe('주문 ID. 주문 전이면 null'),
   "orderNo": zod.string().nullish().describe('주문번호. 주문 전이면 null'),
-  "orderStatus": zod.union([zod.literal('CREATED'),zod.literal('PAID'),zod.literal('PARTIAL_CANCELED'),zod.literal('CANCELED'),zod.literal('EXPIRED'),zod.literal(null)]).nullish().describe('주문 상태. 결제하지 않아 만료되면 주문 상품은 ORDERED로 남으니 이 칸(EXPIRED)으로 가른다. 주문 전이면 null'),
+  "orderStatus": zod.union([zod.literal('CREATED'),zod.literal('PAYING'),zod.literal('PAID'),zod.literal('PARTIAL_CANCELED'),zod.literal('CANCELED'),zod.literal('EXPIRED'),zod.literal(null)]).nullish().describe('주문 상태. 결제하지 않아 만료되면 주문 상품은 ORDERED로 남으니 이 칸(EXPIRED)으로 가른다. 주문 전이면 null'),
   "orderItemId": zod.int().nullish().describe('주문 상품 ID. 참가권 취소에 쓴다. 주문 전이면 null'),
   "orderItemStatus": zod.union([zod.literal('ORDERED'),zod.literal('PAID'),zod.literal('CANCELING'),zod.literal('CANCELED'),zod.literal(null)]).nullish().describe('주문 상품 상태. 주문 전이면 null'),
+  "canceledAt": zod.iso.datetime({"offset":true}).nullish().describe('신청을 취소한 시각 (BUK-229). 결제 뒤 취소는 환불까지 마친 시각이다. 취소가 아니면(취소 중 포함) null'),
   "amount": zod.int().nullish().describe('결제 금액. 주문 전이면 null'),
   "kitOptions": zod.array(zod.object({
   "kitOptionId": zod.int(),
@@ -1575,6 +1590,7 @@ export const FindMyTicketsResponse = zod.object({
   "kitDeliveryStatus": zod.union([zod.literal('PREPARING'),zod.literal('SHIPPING'),zod.literal('DELIVERED'),zod.literal(null)]).nullish().describe('키트 배송 상태. 결제 전이거나 키트가 없으면 null'),
   "kitCarrier": zod.string().nullish().describe('택배사. 발송 전이면 null'),
   "kitTrackingNumber": zod.string().nullish().describe('송장 번호. 발송 전이면 null'),
+  "kitReceivedAt": zod.iso.datetime({"offset":true}).nullish().describe('키트 수령을 확인한 시각 (BUK-225). 확인 전이면 null. 확인한 참가권은 취소할 수 없다'),
   "partyId": zod.int().nullish().describe('파티 ID. 개인 신청이면 null'),
   "crewId": zod.int().nullish().describe('크루 ID. 크루 이름은 GET /api/v1/member/crews/me에서 찾는다. 개인 신청이면 null'),
   "partyStatus": zod.union([zod.literal('RECRUITING'),zod.literal('PAYING'),zod.literal('PAID'),zod.literal('CLOSED'),zod.literal(null)]).nullish().describe('파티 상태. 개인 신청이면 null'),
@@ -1632,7 +1648,7 @@ export const FindById1Response = zod.object({
   "orderNo": zod.string().optional(),
   "buyerId": zod.int().optional(),
   "raceId": zod.int().optional(),
-  "status": zod.enum(['CREATED', 'PAID', 'PARTIAL_CANCELED', 'CANCELED', 'EXPIRED']).optional(),
+  "status": zod.enum(['CREATED', 'PAYING', 'PAID', 'PARTIAL_CANCELED', 'CANCELED', 'EXPIRED']).optional(),
   "totalAmount": zod.int().optional(),
   "canceledAmount": zod.int().optional(),
   "paymentDueAt": zod.iso.datetime({"offset":true}).nullish(),
@@ -1654,11 +1670,13 @@ export const FindById1Response = zod.object({
   "quantity": zod.int().optional(),
   "amount": zod.int().optional(),
   "status": zod.enum(['ORDERED', 'PAID', 'CANCELING', 'CANCELED']).optional(),
+  "canceledAt": zod.iso.datetime({"offset":true}).nullish().describe('취소를 마친 시각 (BUK-229). 취소가 아니면(취소 중 포함) null'),
   "kitDeliveryStatus": zod.union([zod.literal('PREPARING'),zod.literal('SHIPPING'),zod.literal('DELIVERED'),zod.literal(null)]).nullish(),
   "kitCarrier": zod.string().nullish(),
   "kitTrackingNumber": zod.string().nullish(),
   "kitShippedAt": zod.iso.datetime({"offset":true}).nullish(),
   "kitDeliveredAt": zod.iso.datetime({"offset":true}).nullish(),
+  "kitReceivedAt": zod.iso.datetime({"offset":true}).nullish().describe('키트 수령을 확인한 시각 (BUK-225). 확인 전이면 null. 확인한 참가권은 취소할 수 없다'),
   "kitTracking": zod.union([zod.object({
   "carrierId": zod.string().optional().describe('택배사 ID (Delivery Tracker)'),
   "status": zod.enum(['NOT_TRACKED', 'INFORMATION_RECEIVED', 'AT_PICKUP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'ATTEMPT_FAIL', 'DELIVERED', 'AVAILABLE_FOR_PICKUP', 'EXCEPTION', 'UNKNOWN']).optional().describe('배송 상태. NOT_TRACKED는 아직 조회되지 않음'),
@@ -1745,3 +1763,157 @@ export const RemoveItemResponse = zod.object({
 }).describe('장바구니 항목')).optional()
 }).optional().describe('장바구니')
 })
+
+
+/**
+ * 기간은 from~to(종료일 포함, 한 번에 12개월까지)다. 판매(soldCount·soldAmount): 결제일이 기간 안인 판매자 대회 참가권 중 결제 완료·취소 중인 것의 장수와 결제 금액 합. 정산이 판매를 세는 기준과 같다(취소 중은 환불이 거절되면 결제 완료로 돌아오므로 판매로 센다). 취소(canceledCount·refundedAmount): 취소를 마친 시각이 기간 안인 참가권의 장수와 환불액 합(대회 취소 일괄 환불 포함, 취소 중은 아직 안 셈). 결제 전 주문은 빠진다. 판매자 AI 「이번 달 판매액」이 쓴다.
+ * @summary 기간 판매·취소 합계
+ */
+export const SummarizeSellerSalesQueryParams = zod.object({
+  "from": zod.iso.date().describe('조회 시작일 (결제일)'),
+  "to": zod.iso.date().describe('조회 종료일 (이날 결제까지 포함)')
+})
+
+export const SummarizeSellerSalesResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.object({
+  "soldCount": zod.int().describe('판매 장수'),
+  "soldAmount": zod.int().describe('결제 금액 합(원)'),
+  "canceledCount": zod.int().describe('취소를 마친 참가권 수(대회 취소 환불 포함)'),
+  "refundedAmount": zod.int().describe('그 환불액 합(원)')
+}).optional().describe('기간 판매·취소 합계. 판매는 결제일 기준 결제 완료·취소 중, 취소는 취소를 마친 시각 기준')
+})
+
+
+/**
+ * 판매자 대회의 주문 상품(참가권 1장)을 최근 주문부터 돌려준다. 키트 없는 참가권도 나오고, 기한이 지나 만료된 주문은 빠진다. 대회·종목·상태·주문일(from~to, 한 번에 12개월까지)로 거른다. 파티 번호(partyId)로 찾으면 주문일은 보지 않는다. 대시보드 최근 주문은 size를 작게 줘서 같은 목록을 쓴다. 참가자 연락처·생년월일·배송지는 넣지 않는다.
+ * @summary 내 대회 주문 목록
+ */
+export const findSellerOrdersQueryPageDefault = 0;
+export const findSellerOrdersQueryPageMin = 0;
+
+export const findSellerOrdersQuerySizeDefault = 20;
+export const findSellerOrdersQuerySizeMax = 100;
+
+
+
+export const FindSellerOrdersQueryParams = zod.object({
+  "raceId": zod.int().optional().describe('대회 ID (생략하면 모든 대회)'),
+  "raceCourseId": zod.int().optional().describe('종목 ID (생략 가능)'),
+  "status": zod.enum(['ORDERED', 'PAID', 'CANCELING', 'CANCELED']).optional().describe('주문 상품 상태 (ORDERED 결제 대기 / PAID 결제 완료 / CANCELING 취소 중 / CANCELED 취소, 생략 가능)'),
+  "partyId": zod.int().optional().describe('파티 ID로 찾기 (있으면 주문일은 보지 않음)'),
+  "from": zod.iso.date().optional().describe('조회 시작일 (주문일, 생략 가능)'),
+  "to": zod.iso.date().optional().describe('조회 종료일 (이날 주문까지 포함, 생략 가능)'),
+  "page": zod.int().min(findSellerOrdersQueryPageMin).default(findSellerOrdersQueryPageDefault).describe('페이지 번호 (0부터)'),
+  "size": zod.int().min(1).max(findSellerOrdersQuerySizeMax).default(findSellerOrdersQuerySizeDefault).describe('페이지 크기 (1~100)')
+})
+
+export const FindSellerOrdersResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.object({
+  "orders": zod.array(zod.object({
+  "orderItemId": zod.int().optional(),
+  "orderId": zod.int().optional(),
+  "orderNo": zod.string().optional(),
+  "orderedAt": zod.iso.datetime({"offset":true}).optional(),
+  "paidAt": zod.iso.datetime({"offset":true}).nullish().describe('결제 전이면 null'),
+  "raceId": zod.int().optional(),
+  "raceCourseId": zod.int().optional(),
+  "courseName": zod.string().optional(),
+  "status": zod.enum(['ORDERED', 'PAID', 'CANCELING', 'CANCELED']).optional(),
+  "participantName": zod.string().optional(),
+  "tshirtSize": zod.string().nullish().describe('옛 티셔츠 사이즈. kitOptions가 비어 있을 때만 쓴다'),
+  "kitOptions": zod.array(zod.object({
+  "kitOptionId": zod.int(),
+  "name": zod.string(),
+  "value": zod.string()
+}).describe('참가 신청이 고른 키트 옵션 하나')).optional().describe('결제 때 고른 키트 옵션. 키트 옵션이 없으면 빈 목록'),
+  "partyId": zod.int().nullish().describe('파티로 신청했으면 파티 ID, 개인 신청이면 null')
+}).describe('판매자 주문 목록의 한 줄 (주문 상품 = 참가권 1장). 연락처·배송지는 없다')).optional(),
+  "page": zod.int().optional(),
+  "size": zod.int().optional(),
+  "totalElements": zod.int().optional(),
+  "totalPages": zod.int().optional()
+}).optional().describe('판매자 주문 목록 한 페이지')
+})
+
+
+/**
+ * 대회에 신청한 파티마다 신청 인원·결제 인원·결제하지 않은 자리·결제 기한을 최근 파티부터 돌려준다. 신청 인원 = 결제 인원 + 결제하지 않은 자리(결제 중인 자리와 기한이 지나 풀린 자리). 결제 기한은 결제 진행 중(PAYING)일 때만 의미가 있고, 결제 끝(PAID)·종료(CLOSED)는 화면이 「끝남」으로 보여 준다. 파티 신청일(from~to, 한 번에 12개월까지)로 거르고, 파티 번호(partyId)로 찾으면 기간은 보지 않는다. 크루 이름은 아직 주지 않고 크루 ID만 준다.
+ * @summary 대회 파티별 내역
+ */
+export const findSellerPartiesQueryPageDefault = 0;
+export const findSellerPartiesQueryPageMin = 0;
+
+export const findSellerPartiesQuerySizeDefault = 20;
+export const findSellerPartiesQuerySizeMax = 100;
+
+
+
+export const FindSellerPartiesQueryParams = zod.object({
+  "raceId": zod.int().describe('대회 ID'),
+  "partyId": zod.int().optional().describe('파티 ID로 찾기 (있으면 기간은 보지 않음)'),
+  "from": zod.iso.date().optional().describe('조회 시작일 (파티 신청일, 생략 가능)'),
+  "to": zod.iso.date().optional().describe('조회 종료일 (이날 신청까지 포함, 생략 가능)'),
+  "page": zod.int().min(findSellerPartiesQueryPageMin).default(findSellerPartiesQueryPageDefault).describe('페이지 번호 (0부터)'),
+  "size": zod.int().min(1).max(findSellerPartiesQuerySizeMax).default(findSellerPartiesQuerySizeDefault).describe('페이지 크기 (1~100)')
+})
+
+export const FindSellerPartiesResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.object({
+  "parties": zod.array(zod.object({
+  "partyId": zod.int().optional(),
+  "crewId": zod.int().optional(),
+  "raceCourseId": zod.int().optional(),
+  "status": zod.enum(['RECRUITING', 'PAYING', 'PAID', 'CLOSED']).optional(),
+  "appliedCount": zod.int().optional(),
+  "paidCount": zod.int().optional(),
+  "unpaidCount": zod.int().optional(),
+  "paymentDueAt": zod.iso.datetime({"offset":true}).nullish().describe('결제 진행 중(PAYING)일 때만 의미가 있다. 그 밖은 끝남')
+}).describe('판매자 파티별 내역의 한 줄. 신청 인원 = 결제 인원 + 결제하지 않은 자리')).optional(),
+  "page": zod.int().optional(),
+  "size": zod.int().optional(),
+  "totalElements": zod.int().optional(),
+  "totalPages": zod.int().optional()
+}).optional().describe('판매자 파티별 내역 한 페이지')
+})
+
+
+/**
+ * 대회 당일 확인용 참가자 명단. 결제 완료(참가 확정)인 참가권만 종목·주문 순으로 담는다. 칸: 주문번호, 종목, 참가자 이름, 연락처, 키트 옵션, 파티 번호. 엑셀에서 바로 열리는 CSV(UTF-8 BOM)다. 내려받을 때마다 누가 언제 왜 몇 줄 받았는지 기록한다. 다른 판매자의 대회를 고르면 머리줄만 있는 파일이다.
+ * @summary 참가자 명단 내려받기 (CSV)
+ */
+export const exportRosterBodyReasonMin = 0;
+export const exportRosterBodyReasonMax = 200;
+
+
+
+export const ExportRosterBody = zod.object({
+  "raceId": zod.int().describe('대회 ID'),
+  "raceCourseId": zod.int().optional().describe('종목 ID (생략하면 대회의 모든 종목)'),
+  "reason": zod.string().min(exportRosterBodyReasonMin).max(exportRosterBodyReasonMax).describe('내려받는 사유 (200자 이하)')
+}).describe('참가자 명단 내려받기 요청. 내려받는 사유를 남긴다')
+
+export const ExportRosterResponse = zod.unknown()
+
+
+/**
+ * 키트 배송 관리 목록과 같은 조건(대회·배송 상태)으로 모두 담는다. 칸: 주문번호, 종목, 참가권 상태, 참가자 이름, 받는 분, 받는 분 연락처, 우편번호, 주소, 상세 주소, 키트 옵션, 배송 상태, 택배사, 운송장 번호. 엑셀에서 바로 열리는 CSV(UTF-8 BOM)다. 내려받을 때마다 사유와 함께 기록한다.
+ * @summary 키트 배송 목록 내려받기 (CSV)
+ */
+export const exportKitShipmentsBodyReasonMin = 0;
+export const exportKitShipmentsBodyReasonMax = 200;
+
+
+
+export const ExportKitShipmentsBody = zod.object({
+  "raceId": zod.int().optional().describe('대회 ID (생략하면 모든 대회)'),
+  "status": zod.enum(['PREPARING', 'SHIPPING', 'DELIVERED']).optional().describe('배송 상태 (PREPARING 배송 준비 / SHIPPING 배송 중 / DELIVERED 배송 완료, 생략 가능)'),
+  "reason": zod.string().min(exportKitShipmentsBodyReasonMin).max(exportKitShipmentsBodyReasonMax).describe('내려받는 사유 (200자 이하)')
+}).describe('키트 배송 목록 내려받기 요청. 키트 배송 관리 목록과 같은 조건으로 거르고, 내려받는 사유를 남긴다')
+
+export const ExportKitShipmentsResponse = zod.unknown()

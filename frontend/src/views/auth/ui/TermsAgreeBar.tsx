@@ -1,9 +1,11 @@
 'use client'
 
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 
+import { useGoBack } from '@/shared/lib'
 import { BottomCta, Button } from '@/shared/ui'
 
+import { signupStartHref } from '../model/signup-next'
 import { useSignupStep } from '../model/signup-store'
 import type { TermsSlug } from '../model/terms'
 
@@ -15,7 +17,7 @@ export function TermsAgreeBar({ slug }: { slug: TermsSlug }) {
 }
 
 function AgreeButton({ slug }: { slug: TermsSlug }) {
-  const router = useRouter()
+  const goBack = useGoBack()
   const setTerm = useSignupStep((s) => s.setTerm)
   return (
     <BottomCta
@@ -25,7 +27,7 @@ function AgreeButton({ slug }: { slug: TermsSlug }) {
           size="l"
           onClick={() => {
             setTerm(slug, true)
-            router.back()
+            goBack(signupStartHref())
           }}
         >
           동의하기

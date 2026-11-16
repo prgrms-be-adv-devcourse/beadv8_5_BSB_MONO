@@ -9,8 +9,9 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 
 import { AppHeader } from '@/widgets/app-header'
-import { formatKstDateTime, parseKstDateTime } from '@/entities/crew'
+import { formatKstDateTime, formatKstLastDay, parseKstDateTime } from '@/entities/crew'
 import {
+  crewPartyRestrictedEndAt,
   individualParticipationId,
   partyFailureOf,
   useCreateParty,
@@ -18,13 +19,14 @@ import {
 } from '@/entities/party'
 import { fetchRacePage, RaceSort } from '@/entities/race'
 import { ApiError, memberApi, productApi, productModel, unwrapData } from '@/shared/api'
-import { cn, formatNumber } from '@/shared/lib'
+import { cn, formatNumber, useNow } from '@/shared/lib'
 import {
   Alert,
   Badge,
   BottomCta,
   Button,
   buttonClassName,
+  Dialog,
   EmptyState,
   Radio,
   RadioGroup,
@@ -44,9 +46,11 @@ import { PartyFailureScreen, PartyLoadError } from './PartyFailureScreen'
 
 const FORM_ID = 'party-new-form'
 
+const CREW_RACES_PARAMS = { sort: RaceSort.DEADLINE, size: 20 }
+
 type RacePhase = 'before' | 'open' | 'ended'
 
-function crewPhase(race: productModel.RaceSummaryDto, now = Date.now()): RacePhase {
+function crewPhase(race: productModel.RaceSummaryDto, now: number): RacePhase {
   if (race.crewSaleStartAt && parseKstDateTime(race.crewSaleStartAt) > now) return 'before'
   if (race.crewSaleEndAt && parseKstDateTime(race.crewSaleEndAt) <= now) return 'ended'
   return 'open'
@@ -56,9 +60,11 @@ function crewPhase(race: productModel.RaceSummaryDto, now = Date.now()): RacePha
 // 파티 만들기 API가 파티장의 참가 정보와 동의를 함께 받아서, 시안의 「파티원 고르기」 자리에 이 입력을 둔다.
 export function PartyNewPage({ crewId }: { crewId?: number }) {
   const router = useRouter()
+  const nowMs = useNow()?.getTime()
   const races = useQuery({
-    queryKey: ['party', 'new', 'races'],
-    queryFn: () => fetchRacePage({ sort: RaceSort.DEADLINE, size: 20 }),
+    // 생성 훅은 응답 전체를, fetchRacePage는 data만 담으므로 같은 키를 쓰지 않게 꼬리를 붙인다
+    queryKey: [...productApi.getSearchQueryKey(CREW_RACES_PARAMS), 'page'],
+    queryFn: () => fetchRacePage(CREW_RACES_PARAMS),
     enabled: crewId !== undefined,
   })
   const [raceId, setRaceId] = useState<number>()
@@ -67,6 +73,8 @@ export function PartyNewPage({ crewId }: { crewId?: number }) {
   const [blocked, setBlocked] = useState<PartyFailure>()
   const [individualId, setIndividualId] = useState<number>()
   const [serverMessage, setServerMessage] = useState<string>()
+  // 결제율 미달로 크루의 파티 만들기가 제한된 경우, 제한이 끝나는 시각
+  const [restrictedEnd, setRestrictedEnd] = useState<string>()
   const detail = productApi.useFindRace(raceId ?? 0, {
     query: { enabled: raceId !== undefined, select: unwrapData },
   })
@@ -93,7 +101,10 @@ export function PartyNewPage({ crewId }: { crewId?: number }) {
         onSuccess: ({ party }) => router.replace(`/parties/${party.id}` as Route),
         onError: (error) => {
           const failure = partyFailureOf(error)
-          if (failure === 'INDIVIDUAL_EXISTS') setIndividualId(individualParticipationId(error))
+          const restricted = crewPartyRestrictedEndAt(error)
+          if (restricted) setRestrictedEnd(restricted)
+          else if (failure === 'INDIVIDUAL_EXISTS')
+            setIndividualId(individualParticipationId(error))
           else if (failure) setBlocked(failure)
           else
             setServerMessage(
@@ -176,7 +187,7 @@ export function PartyNewPage({ crewId }: { crewId?: number }) {
         ) : (
           <ul className="flex flex-col gap-3">
             {list.map((race) => {
-              const phase = crewPhase(race)
+              const phase = nowMs === undefined ? 'before' : crewPhase(race, nowMs)
               const selected = race.raceId === raceId
               const disabled = phase !== 'open'
               return (
@@ -268,6 +279,15 @@ export function PartyNewPage({ crewId }: { crewId?: number }) {
           }
         />
       )}
+      <Dialog
+        open={restrictedEnd !== undefined}
+        onOpenChange={(open) => !open && setRestrictedEnd(undefined)}
+        type="alert"
+        title="파티를 만들 수 없어요"
+        body={restrictedEnd ? `${formatKstLastDay(restrictedEnd)}까지 파티 만들기가 제한돼요.` : ''}
+        confirmLabel="크루 홈으로"
+        onConfirm={() => router.push(`/crews/${crewId}` as Route)}
+      />
       {individualId !== undefined && (
         <IndividualExistsDialog
           participationId={individualId}
