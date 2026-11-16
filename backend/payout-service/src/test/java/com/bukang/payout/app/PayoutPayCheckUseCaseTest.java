@@ -16,7 +16,6 @@ import org.springframework.test.context.ActiveProfiles;
 import com.bukang.payout.domain.BusinessDayCalendar;
 import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutPayCheckResult;
-import com.bukang.payout.domain.PayoutRecovery;
 import com.bukang.payout.domain.PayoutStatus;
 import com.bukang.payout.domain.PayoutStatusHistory;
 import com.bukang.payout.domain.exception.PayoutPayCheckConflictException;
@@ -111,18 +110,15 @@ class PayoutPayCheckUseCaseTest {
 	}
 
 	@Test
-	@DisplayName("대회 취소 표시가 있는 건을 지급됨으로 닫으면, 미뤄 둔 대회 취소 회수를 이때 만든다")
-	void paidAfterRaceCancelCreatesRecovery() {
+	@DisplayName("대회 취소 표시가 있는 건을 지급됨으로 닫으면 지급 완료가 되고, 회수는 만들지 않는다 (환불 알림이 만든다, BUK-76)")
+	void paidAfterRaceCancelCreatesNoRecovery() {
 		Payout payout = saveCheckRequired(YearMonth.of(2026, 9), 50_000);
 		raceCancelUseCase().cancelRace(RACE_ID, NOW.minusHours(1));
-		assertThat(payoutRecoveryRepository.count()).isZero();
 
 		useCase().close(payout.getId(), PayoutPayCheckResult.지급됨, ADMIN_ID, MEMO, NOW);
 
 		assertThat(reload(payout).getStatus()).isEqualTo(PayoutStatus.지급_완료);
-		// 지급액: 50,000 − 2,750(5.5%) = 47,250
-		assertThat(payoutRecoveryRepository.findAll()).singleElement()
-			.extracting(PayoutRecovery::getAmount).isEqualTo(47_250L);
+		assertThat(payoutRecoveryRepository.count()).isZero();
 	}
 
 	@Test
