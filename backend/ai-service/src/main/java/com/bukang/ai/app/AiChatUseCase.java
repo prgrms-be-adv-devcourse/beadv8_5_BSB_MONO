@@ -81,7 +81,7 @@ public class AiChatUseCase {
 	static final String RETRY_NOTE = "\n\n숫자는 반드시 도구로 조회한 값만 쓴다. 지금 맞는 도구를 불러라.";
 	static final String NOT_QUERIED = "지금은 조회하지 못했어요. 잠시 뒤 다시 물어봐 주세요.";
 	private static final Pattern DIGIT = Pattern.compile("\\d");
-	private static final Pattern DIGIT_TOKEN = Pattern.compile("[A-Za-z0-9@._-]*\\d[A-Za-z0-9@._-]*");
+	private static final Pattern DIGIT_TOKEN = Pattern.compile("[A-Za-z0-9]*\\d[A-Za-z0-9]*");
 	private static final Pattern ONLY_PROMISE = Pattern.compile("(조회|확인)(할게|하겠|해 ?볼게)");
 
 	private final ChatClient chatClient;
@@ -153,7 +153,7 @@ public class AiChatUseCase {
 		return answer;
 	}
 
-	// 질문에 있던 아이디·이메일 속 숫자(seller2 등)는 빼고 본다. 거절 답이 그 이름을 되풀이하는 것은 지어낸 숫자가 아니다
+	// 질문에 있던 아이디·이메일 속 숫자 조각(seller2 등)은 빼고 본다. 거절 답이 그 이름을 되풀이하는 것은 지어낸 숫자가 아니다
 	static boolean madeUp(String answer, String message, AiToolTrace trace) {
 		if (!trace.sources().isEmpty()) {
 			return false;

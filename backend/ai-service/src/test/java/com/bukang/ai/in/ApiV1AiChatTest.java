@@ -274,6 +274,11 @@ class ApiV1AiChatTest extends AiTestBase {
 		chat("seller", SELLER, "seller2 정산 알려줘").andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.answer").value("seller2 정보는 확인해 드릴 수 없어요."));
 		assertThat(chatModel.prompts()).hasSize(1);
+
+		chatModel.answerInOrder("seller1 판매자의 정보는 확인해 드릴 수 없어요.");
+		chat("seller", SELLER, "seller1@crewrun.com 판매자의 지급보류 이유 알려줘").andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.answer").value("seller1 판매자의 정보는 확인해 드릴 수 없어요."));
+		assertThat(chatModel.prompts()).hasSize(2);
 	}
 
 	@Test
