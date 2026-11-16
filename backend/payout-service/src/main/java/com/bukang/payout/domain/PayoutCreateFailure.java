@@ -28,6 +28,7 @@ import lombok.NoArgsConstructor;
 @Table(name = "PAYOUT_PAYOUT_CREATE_FAILURE")
 public class PayoutCreateFailure extends BaseIdAndTime {
 	private static final DateTimeFormatter NOTE_DATE = DateTimeFormatter.ofPattern("yyyy/M/d");
+	private static final int NOTE_MAX_LENGTH = 255;
 
 	@Enumerated(STRING)
 	@Column(nullable = false, length = 10)
@@ -123,6 +124,19 @@ public class PayoutCreateFailure extends BaseIdAndTime {
 			payout.getPayoutCode(), payout.getPayoutAmount(), payout.getFeeAmount(), payout.getUnknownPayCount());
 		return new PayoutCreateFailure(payout.getPayoutStage(), payout.getSellerId(), payout.getRaceId(), null,
 			PayoutCreateFailureType.지급_확인_필요, note, runDate);
+	}
+
+	// 수수료 세금계산서를 발행하지 못했다 (BUK-246). 수수료는 최종 정산에서만 떼므로 단계는 최종이고, 대회 칸은 비운다
+	public static PayoutCreateFailure taxInvoice(PayoutCreateFailureType failureType, PayoutTaxInvoice invoice,
+		LocalDate runDate) {
+		String note = "%s 수수료 %d원: %s".formatted(invoice.getSupplyMonth(), invoice.getTotalAmount(),
+			invoice.getFailReason());
+		// 비고 칸은 varchar(255)다. 실패 사유가 길어도 이 기록 저장이 실패해 배치가 멈추지 않게 자른다 (PR 531 리뷰)
+		if (note.length() > NOTE_MAX_LENGTH) {
+			note = note.substring(0, NOTE_MAX_LENGTH);
+		}
+		return new PayoutCreateFailure(PayoutStage.최종_정산, invoice.getSellerId(), null, null, failureType, note,
+			runDate);
 	}
 
 	// 정산 대사가 판매자 × 대회의 어긋남을 찾았다 (BUK-67). 비고에는 장수 · 금액만 쓰고 참가권 ID는 로그에 남긴다
