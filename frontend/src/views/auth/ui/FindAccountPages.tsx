@@ -70,7 +70,7 @@ export function PasswordResetPage() {
       <AccountTabs current="password" />
       <form noValidate onSubmit={onSubmit} className="contents">
         <CenterBody center={false}>
-          <h2 className="text-title3">
+          <h2 className="text-title2">
             가입한 이메일 주소를
             <br />
             입력해 주세요.
@@ -292,7 +292,7 @@ export function FindEmailPage() {
       <AccountTabs current="email" />
       <form noValidate onSubmit={onSubmit} className="contents">
         <CenterBody center={false}>
-          <h2 className="text-title3">
+          <h2 className="text-title2">
             가입할 때 적은 정보를
             <br />
             입력해 주세요.

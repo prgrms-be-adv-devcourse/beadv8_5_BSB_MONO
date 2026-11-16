@@ -14,6 +14,7 @@ import { cn, formatNumber, formatWon, useTrackOnce } from '@/shared/lib'
 import {
   Alert,
   Badge,
+  buttonClassName,
   FOCUS_RING,
   Icon,
   IconButton,
@@ -268,17 +269,20 @@ export function RaceDetailPage({
 
         <SimilarRaces raceId={race.id} />
 
+        <Section title="문의">
+          <Link
+            href={`/me/inquiries/new?raceId=${race.id}` as Route}
+            className={buttonClassName({ variant: 'secondary' })}
+          >
+            이 대회에 문의하기
+          </Link>
+        </Section>
+
         <section className="flex flex-col gap-2 bg-bg-surface px-4 py-6">
           <p className="text-body2-medium">{race.seller.name}</p>
           <p className="text-caption-regular text-text-tertiary">{race.seller.businessNo}</p>
           <p className="text-caption-regular text-text-tertiary">{race.seller.mailOrderNo}</p>
         </section>
-        <Link
-          href={`/me/inquiries/new?raceId=${race.id}` as Route}
-          className="self-start px-4 pt-2 pb-6 text-caption-regular text-text-tertiary underline"
-        >
-          이 대회에 문의하기
-        </Link>
       </main>
       <ApplyCta
         race={race}

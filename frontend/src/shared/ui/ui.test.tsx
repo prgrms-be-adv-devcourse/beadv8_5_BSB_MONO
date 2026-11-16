@@ -202,9 +202,9 @@ describe('ProgressBar', () => {
 
 describe('TimerBar', () => {
   it('남은 초를 mm:ss로 보여 준다', () => {
-    render(<TimerBar message="남은 시간" remainingSeconds={583} />)
+    render(<TimerBar message="시간 안에 결제해 주세요" remainingSeconds={583} />)
 
-    expect(screen.getByRole('timer')).toHaveTextContent('남은 시간09:43')
+    expect(screen.getByRole('timer')).toHaveTextContent('남은 시간시간 안에 결제해 주세요09:43')
   })
 
   it('0초 아래는 00:00으로 보여 준다', () => {

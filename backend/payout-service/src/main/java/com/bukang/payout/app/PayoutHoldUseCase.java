@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.Locale;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,7 +42,7 @@ public class PayoutHoldUseCase {
 	@Transactional
 	public PayoutHoldDto hold(long payoutId, PayoutHoldReason reasonType, String reason, long heldBy,
 		LocalDateTime now) {
-		Payout payout = payoutRepository.findById(payoutId).orElseThrow(PayoutNotFoundException::new);
+		Payout payout = payoutRepository.findByIdForUpdate(payoutId).orElseThrow(PayoutNotFoundException::new);
 		return PayoutHoldDto.from(save(payout.hold(reasonType, reason, heldBy, now)));
 	}
 
@@ -53,10 +54,15 @@ public class PayoutHoldUseCase {
 		return PayoutDto.from(payoutRepository.findByPayoutCode(code).orElseThrow(PayoutNotFoundException::new));
 	}
 
-	@Transactional
+	// 잠금 쿼리는 보류 ID로 찾으려고 보류 표를 함께 읽는데, Hibernate가 정산 내역만 잠가(for update of) 보류 표는 일반 조회가 된다
+	// REPEATABLE READ면 그 일반 조회가 잠금을 기다리기 전에 스냅숏을 잡아, 잠금을 얻은 뒤에도 동시에 풀린 보류를 걸린 것으로 본다.
+	// 그래서 READ COMMITTED로 돌려 잠금 뒤의 읽기가 먼저 커밋한 해제를 보게 한다 (BUK-242, MySQL 동시성 테스트로 확인)
+	@Transactional(isolation = Isolation.READ_COMMITTED)
 	public PayoutHoldDto release(long holdId, long releasedBy, LocalDateTime now) {
+		// 정산 내역부터 잠그고, 보류는 잠금 뒤에 읽는다. 같은 보류를 두 번 풀어도 늦은 쪽이 이미 풀린 상태를 본다
+		Payout payout = payoutRepository.findByHoldIdForUpdate(holdId).orElseThrow(PayoutHoldNotFoundException::new);
 		PayoutHold hold = payoutHoldRepository.findById(holdId).orElseThrow(PayoutHoldNotFoundException::new);
-		hold.getPayout().release(hold, releasedBy, now, businessDayCalendar);
+		payout.release(hold, releasedBy, now, businessDayCalendar);
 		return PayoutHoldDto.from(hold);
 	}
 

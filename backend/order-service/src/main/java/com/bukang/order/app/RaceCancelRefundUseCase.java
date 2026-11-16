@@ -57,6 +57,7 @@ public class RaceCancelRefundUseCase {
 	 * @param failedOrders   환불(D 장애 등)에 실패해 결제 완료로 남긴 주문 수. 같은 대회 취소를 다시 처리하면 이어서 환불한다
 	 *                       예치금 장애로 중간에 멈추면 1 이상이다 (보지 못한 주문은 세지 않는다)
 	 *                       결제 대기 주문의 결제 취소에 실패한 것도 센다. 종료하지 못한 파티 수(BUK-155)도 더한다
+	 *                       결제 중인 주문(BUK-232)도 센다. 결제가 끝난 뒤 다시 처리해 환불한다
 	 */
 	public record RefundResult(int refundedOrders, int failedOrders) {
 	}
@@ -87,8 +88,14 @@ public class RaceCancelRefundUseCase {
 			for (long orderId : orderIds) {
 				afterId = orderId;
 				try {
-					if (Boolean.TRUE.equals(transactionTemplate.execute(status -> refundLocked(orderId, now)))) {
+					Refund refund = transactionTemplate.execute(status -> refundLocked(orderId, now));
+					if (refund == Refund.REFUNDED) {
 						refunded++;
+					} else if (refund == Refund.PAYING) {
+						// 결제 중은 건너뛰되 실패로 센다. 환불 완료를 보내지 않고 메시지를 다시 처리해, 결제가 끝난 뒤 환불한다 (BUK-232)
+						failed++;
+						log.warn("취소된 대회의 주문이 결제 중이라 결제가 끝난 뒤 다시 환불합니다. raceId={}, orderId={}",
+							raceId, orderId);
 					}
 					consecutiveFailures = 0;
 				} catch (ExternalServiceUnavailableException exception) {
@@ -130,20 +137,29 @@ public class RaceCancelRefundUseCase {
 		orderOutboxKafkaAppendUseCase.appendRaceRefunded(raceId, orderItemRepository.countRaceCanceled(raceId), now);
 	}
 
-	// 주문 → 참가 신청 순서로 잠근다 (결제·취소·만료 정리와 같은 순서). 결제 중인 주문이면 결제가 끝날 때까지 기다린다
-	private boolean refundLocked(long orderId, LocalDateTime now) {
+	private enum Refund {
+		REFUNDED, SKIPPED, PAYING
+	}
+
+	// 주문 → 참가 신청 순서로 잠근다 (결제·취소·만료 정리와 같은 순서). 결제 트랜잭션이 주문을 잡고 있으면 끝날 때까지 기다린다
+	private Refund refundLocked(long orderId, LocalDateTime now) {
 		Order order = orderRepository.findByIdForUpdate(orderId).orElse(null);
 		if (order == null) {
-			return false;
+			return Refund.SKIPPED;
 		}
 		if (order.getStatus() == OrderStatus.CREATED) {
 			// 결제 대기 주문: 뒤늦은 결제를 막고, 응답을 못 받아 빠져나간 돈이 있으면 돌려받는다
 			walletPort.cancelPayment(order.getId(), order.getBuyerId());
-			return false;
+			return Refund.SKIPPED;
+		}
+		// 결제 중(BUK-232): 결제 취소로 막으면 이미 차감·판매한 결제가 돈만 돌려받고 자리가 남을 수 있어 건드리지 않는다.
+		// 결제 완료가 되면 다시 처리할 때 환불하고, 확실히 실패하면 결제 대기로 돌아가 위처럼 막는다
+		if (order.isPaying()) {
+			return Refund.PAYING;
 		}
 		List<OrderItem> canceledItems = order.cancelPaidItems(now);
 		if (canceledItems.isEmpty()) {
-			return false;
+			return Refund.SKIPPED;
 		}
 		for (OrderItem item : canceledItems) {
 			Participation participation = participationRepository.findByIdForUpdate(item.getParticipationId())
@@ -159,6 +175,6 @@ public class RaceCancelRefundUseCase {
 			orderOutboxKafkaAppendUseCase.appendItemRefunded(item, order.getBuyerId(), now,
 				OrderItemRefundReason.RACE_CANCELED);
 		}
-		return true;
+		return Refund.REFUNDED;
 	}
 }

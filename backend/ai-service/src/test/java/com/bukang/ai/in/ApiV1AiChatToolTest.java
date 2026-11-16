@@ -23,7 +23,7 @@ import tools.jackson.databind.ObjectMapper;
 class ApiV1AiChatToolTest extends AiTestBase {
 	private final ObjectMapper objectMapper = new ObjectMapper();
 	private static final List<String> SELLER_TOOLS =
-		List.of("sellerKitsWaitingForTracking", "sellerNextPayout", "sellerPayoutHoldReasons");
+		List.of("sellerKitsWaitingForTracking", "sellerNextPayout", "sellerPayoutHoldReasons", "sellerMonthlySales");
 	private static final List<String> ADMIN_TOOLS = List.of("adminWaitingInquiries", "adminPendingSellers");
 
 	@Test
@@ -90,7 +90,7 @@ class ApiV1AiChatToolTest extends AiTestBase {
 			.andExpect(jsonPath("$.data.list.moreCount").value(2));
 
 		assertThat(chatModel.toolResults()).singleElement().asString()
-			.contains("\"waitingCount\":3").doesNotContain("김민지");
+			.contains("\"sendableNowCount\":3").doesNotContain("김민지");
 		// 대화 기록(Redis)에는 질문과 마지막 답만 남는다. 도구 결과와 목록은 남지 않는다
 		assertThat(chatMemoryRepository.findByConversationId("seller-3")).hasSize(2)
 			.noneMatch(message -> message.getText().contains("김민지") || message.getText().contains("ORD-1"));

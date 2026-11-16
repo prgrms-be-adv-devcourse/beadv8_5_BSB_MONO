@@ -68,9 +68,11 @@ import type {
   RsDataSellerKitSummaryDto,
   RsDataSellerOrderPageDto,
   RsDataSellerPartyPageDto,
+  RsDataSellerSalesSummaryDto,
   SellerKitExportRequestDto,
   SellerRosterExportRequestDto,
   SummarizeParams,
+  SummarizeSellerSalesParams,
   SummarizeSoldParams
 } from './order.schemas';
 
@@ -3934,6 +3936,115 @@ export const useRemoveItem = <TError = RsData,
       > => {
       return useMutation(getRemoveItemMutationOptions(options), queryClient);
     }
+
+export const getSummarizeSellerSalesUrl = (params: SummarizeSellerSalesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/order/seller/orders/summary?${stringifiedParams}` : `/api/v1/order/seller/orders/summary`
+}
+
+/**
+ * 기간은 from~to(종료일 포함, 한 번에 12개월까지)다. 판매(soldCount·soldAmount): 결제일이 기간 안인 판매자 대회 참가권 중 결제 완료·취소 중인 것의 장수와 결제 금액 합. 정산이 판매를 세는 기준과 같다(취소 중은 환불이 거절되면 결제 완료로 돌아오므로 판매로 센다). 취소(canceledCount·refundedAmount): 취소를 마친 시각이 기간 안인 참가권의 장수와 환불액 합(대회 취소 일괄 환불 포함, 취소 중은 아직 안 셈). 결제 전 주문은 빠진다. 판매자 AI 「이번 달 판매액」이 쓴다.
+ * @summary 기간 판매·취소 합계
+ */
+export const summarizeSellerSales = async (params: SummarizeSellerSalesParams, options?: Parameters<typeof customFetch>[1]): Promise<RsDataSellerSalesSummaryDto> => {
+
+  return customFetch<RsDataSellerSalesSummaryDto>(getSummarizeSellerSalesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getSummarizeSellerSalesQueryKey = (params?: SummarizeSellerSalesParams,) => {
+    return [
+    `/api/v1/order/seller/orders/summary`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getSummarizeSellerSalesQueryOptions = <TData = Awaited<ReturnType<typeof summarizeSellerSales>>, TError = RsData>(params: SummarizeSellerSalesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof summarizeSellerSales>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getSummarizeSellerSalesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof summarizeSellerSales>>> = ({ signal }) => summarizeSellerSales(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof summarizeSellerSales>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type SummarizeSellerSalesQueryResult = NonNullable<Awaited<ReturnType<typeof summarizeSellerSales>>>
+export type SummarizeSellerSalesQueryError = RsData
+
+
+export function useSummarizeSellerSales<TData = Awaited<ReturnType<typeof summarizeSellerSales>>, TError = RsData>(
+ params: SummarizeSellerSalesParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof summarizeSellerSales>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof summarizeSellerSales>>,
+          TError,
+          Awaited<ReturnType<typeof summarizeSellerSales>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useSummarizeSellerSales<TData = Awaited<ReturnType<typeof summarizeSellerSales>>, TError = RsData>(
+ params: SummarizeSellerSalesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof summarizeSellerSales>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof summarizeSellerSales>>,
+          TError,
+          Awaited<ReturnType<typeof summarizeSellerSales>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useSummarizeSellerSales<TData = Awaited<ReturnType<typeof summarizeSellerSales>>, TError = RsData>(
+ params: SummarizeSellerSalesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof summarizeSellerSales>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 기간 판매·취소 합계
+ */
+
+export function useSummarizeSellerSales<TData = Awaited<ReturnType<typeof summarizeSellerSales>>, TError = RsData>(
+ params: SummarizeSellerSalesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof summarizeSellerSales>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getSummarizeSellerSalesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getFindSellerOrdersUrl = (params?: FindSellerOrdersParams,) => {
   const normalizedParams = new URLSearchParams();

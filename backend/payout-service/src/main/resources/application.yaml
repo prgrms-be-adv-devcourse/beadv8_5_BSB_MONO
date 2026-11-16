@@ -3,6 +3,10 @@ server:
   port: 8082
 
 spring:
+  # 지표·추적 공통 설정 (common의 observability.yaml). 불러온 파일의 값이 이 파일 값보다 우선한다
+  config:
+    import: classpath:observability.yaml
+
   application:
     name: payout-service
 
@@ -12,6 +16,10 @@ spring:
   output:
     ansi:
       enabled: always
+
+  # 트랜잭션 밖에서 LAZY를 읽지 않도록 OSIV를 끈다. DTO 변환은 유스케이스 트랜잭션 안에서 한다 (BUK-261, 모든 프로파일 공통)
+  jpa:
+    open-in-view: false
 
   # 개발 실행(bootRun/IDE) 시 backend/compose.yml의 인프라를 자동으로 띄운다
   # compose.yml과 .env 경로는 common의 LocalDevEnvironmentPostProcessor가 실행 위치와 상관없이 찾아 준다
@@ -34,6 +42,12 @@ spring:
       properties:
         # 구독한 토픽이 없으면 브로커에 자동 생성을 요청한다 (브로커도 자동 생성을 허용해야 동작)
         "[allow.auto.create.topics]": true
+
+# 스케줄 작업 잠금 (common global/schedulerlock, BUK-206). pod가 여러 개여도 같은 작업은 한 곳에서만 돈다
+# 모든 서비스가 같은 DB를 쓰므로 잠금 표 이름에 서비스 접두사를 붙인다 (Flyway SQL로 만든다)
+scheduler-lock:
+  enabled: true
+  table: payout_shedlock
 
 # Swagger / OpenAPI V3 설정 (prod에서는 비활성화)
 springdoc:

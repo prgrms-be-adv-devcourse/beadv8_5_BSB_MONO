@@ -35,6 +35,7 @@ class AiToolsTest {
 		sellerTools.sellerKitsWaitingForTracking(toolContext);
 		sellerTools.sellerNextPayout(toolContext);
 		sellerTools.sellerPayoutHoldReasons(toolContext);
+		sellerTools.sellerMonthlySales(toolContext);
 		adminTools.adminWaitingInquiries(toolContext);
 		adminTools.adminPendingSellers(toolContext);
 
@@ -88,24 +89,110 @@ class AiToolsTest {
 	}
 
 	@Test
-	@DisplayName("지급보류 이유는 최근 1개월의 아직 풀리지 않은 보류만, 상한까지만 돌려준다")
+	@DisplayName("배송 준비 6건이 모두 환불 기한 전이면 지금 보낼 0건과 기한 뒤 보낼 6건을 함께 돌려준다")
+	void kitsAllBeforeRefundDeadline() {
+		ops.kitSummary = new OpsPort.KitSummary(6, 6);
+
+		assertThat(sellerTools.sellerKitsWaitingForTracking(toolContext))
+			.isEqualTo(new SellerTools.KitsResult(0, 6, 0, 0));
+		assertThat(trace.list()).isNull();
+	}
+
+	@Test
+	@DisplayName("지급보류 이유는 보류 중인 정산의 풀리지 않은 보류만, 상한까지만 돌려준다")
 	void holds() {
-		OpsPort.Hold held = new OpsPort.Hold("한강 나이트런", 120000, "정산_계좌_미등록", "계좌를 등록해 주세요",
-			LocalDateTime.of(2026, 11, 3, 9, 0), null);
-		OpsPort.Hold released = new OpsPort.Hold("봄 마라톤", 50000, "대사_불일치", "확인 끝",
-			LocalDateTime.of(2026, 10, 20, 9, 0), LocalDateTime.of(2026, 10, 25, 9, 0));
+		LocalDateTime recent = LocalDateTime.now(AiToolTrace.ZONE).minusDays(1);
+		OpsPort.Hold held = new OpsPort.Hold("ST-1", "한강 나이트런", 120000, "정산_계좌_미등록", "계좌를 등록해 주세요",
+			recent, null);
+		OpsPort.Hold released = new OpsPort.Hold("ST-1", "봄 마라톤", 50000, "대사_불일치", "확인 끝",
+			recent, recent);
+		ops.heldPayouts = List.of(new OpsPort.HeldPayout("ST-1", recent.minusDays(1)));
 		ops.holds = List.of(held, released, held, held, held, held, held);
-		ops.payoutSummary = new OpsPort.PayoutSummary(null, 0, 8);
+		ops.payoutSummary = new OpsPort.PayoutSummary(null, 0, 1);
 
 		SellerTools.HoldsResult result = (SellerTools.HoldsResult)sellerTools.sellerPayoutHoldReasons(toolContext);
 
 		assertThat(result.holds()).hasSize(SellerTools.LIST_LIMIT).containsOnly(new SellerTools.HoldLine(
-			"한강 나이트런", 120000, "정산_계좌_미등록", "계좌를 등록해 주세요", LocalDate.of(2026, 11, 3)));
+			"한강 나이트런", 120000, "정산_계좌_미등록", "계좌를 등록해 주세요", recent.toLocalDate()));
 		assertThat(result.notListedCount()).isEqualTo(1);
-		// 1개월보다 오래된 보류가 있는지 모델이 알 수 있게 전체 보류 건수를 함께 준다
-		assertThat(result.heldPayoutCount()).isEqualTo(8);
-		// 정산 API의 기간 한도: 끝 날 < 시작 날 + 1개월
-		assertThat(ops.holdsTo).isBefore(ops.holdsFrom.plusMonths(1));
+		assertThat(result.heldPayoutCount()).isEqualTo(1);
+		assertThat(result.olderHeldPayoutCount()).isZero();
+	}
+
+	@Test
+	@DisplayName("2개월 전에 보류한 정산도 사유를 찾고, 그 정산이 생긴 달까지만 거슬러 본다")
+	void oldHold() {
+		LocalDateTime twoMonthsAgo = LocalDateTime.now(AiToolTrace.ZONE).minusMonths(2);
+		OpsPort.Hold old = new OpsPort.Hold("ST-9", "가을 하프", 300000, "기타", "기상 악화로 하프 종목 중단",
+			twoMonthsAgo, null);
+		ops.heldPayouts = List.of(new OpsPort.HeldPayout("ST-9", twoMonthsAgo.minusHours(1)));
+		ops.holds = List.of(old);
+		ops.payoutSummary = new OpsPort.PayoutSummary(null, 0, 1);
+
+		SellerTools.HoldsResult result = (SellerTools.HoldsResult)sellerTools.sellerPayoutHoldReasons(toolContext);
+
+		assertThat(result.holds()).containsExactly(new SellerTools.HoldLine(
+			"가을 하프", 300000, "기타", "기상 악화로 하프 종목 중단", twoMonthsAgo.toLocalDate()));
+		assertThat(result.olderHeldPayoutCount()).isZero();
+		// 이번 달, 지난달, 정산이 생긴 2개월 전 달까지 세 번만 부른다
+		assertThat(ops.holdsCalls).hasSize(3);
+		// 정산 API의 기간 한도(끝 날 < 시작 날 + 1개월)를 지키고, 달 사이에 빈 날이 없다
+		for (int i = 0; i < ops.holdsCalls.size(); i++) {
+			LocalDate[] call = ops.holdsCalls.get(i);
+			assertThat(call[1]).isBefore(call[0].plusMonths(1));
+			if (i > 0) {
+				assertThat(call[1].plusDays(1)).isEqualTo(ops.holdsCalls.get(i - 1)[0]);
+			}
+		}
+	}
+
+	@Test
+	@DisplayName("한 정산에 사유가 다른 보류가 두 개면 새 보류를 찾은 뒤에도 거슬러 봐 옛 사유까지 돌려준다")
+	void twoHoldsOnOnePayout() {
+		LocalDateTime now = LocalDateTime.now(AiToolTrace.ZONE);
+		OpsPort.Hold weather = new OpsPort.Hold("ST-9", "가을 하프", 300000, "기타", "기상 악화로 하프 종목 중단",
+			now.minusMonths(2), null);
+		OpsPort.Hold account = new OpsPort.Hold("ST-9", "가을 하프", 300000, "정산_계좌_미등록", "계좌를 등록해 주세요",
+			now.minusMinutes(1), null);
+		ops.heldPayouts = List.of(new OpsPort.HeldPayout("ST-9", now.minusMonths(2).minusHours(1)));
+		ops.holds = List.of(weather, account);
+		ops.payoutSummary = new OpsPort.PayoutSummary(null, 0, 1);
+
+		SellerTools.HoldsResult result = (SellerTools.HoldsResult)sellerTools.sellerPayoutHoldReasons(toolContext);
+
+		assertThat(result.holds()).extracting(SellerTools.HoldLine::reason)
+			.containsExactly("계좌를 등록해 주세요", "기상 악화로 하프 종목 중단");
+	}
+
+	@Test
+	@DisplayName("대회 취소로 닫힌 정산에 남은 보류 기록은 보류 중으로 말하지 않는다")
+	void cancelledPayoutHoldIgnored() {
+		LocalDateTime now = LocalDateTime.now(AiToolTrace.ZONE);
+		OpsPort.Hold stale = new OpsPort.Hold("ST-CANCEL", "취소된 대회", 10000, "기타", "대회 취소",
+			now.minusMinutes(1), null);
+		OpsPort.Hold real = new OpsPort.Hold("ST-9", "가을 하프", 300000, "기타", "기상 악화로 하프 종목 중단",
+			now.minusMonths(2), null);
+		ops.heldPayouts = List.of(new OpsPort.HeldPayout("ST-9", now.minusMonths(2).minusHours(1)));
+		ops.holds = List.of(stale, real);
+		ops.payoutSummary = new OpsPort.PayoutSummary(null, 0, 1);
+
+		SellerTools.HoldsResult result = (SellerTools.HoldsResult)sellerTools.sellerPayoutHoldReasons(toolContext);
+
+		assertThat(result.holds()).extracting(SellerTools.HoldLine::raceName).containsExactly("가을 하프");
+	}
+
+	@Test
+	@DisplayName("보류 중인 정산이 없으면 정산 내역을 조회하지 않고, 12개월보다 오래된 보류 중 정산은 건수로 알린다")
+	void heldPayoutsOutsideWindow() {
+		sellerTools.sellerPayoutHoldReasons(toolContext);
+		assertThat(ops.holdsCalls).isEmpty();
+
+		ops.payoutSummary = new OpsPort.PayoutSummary(null, 0, 2);
+		SellerTools.HoldsResult result = (SellerTools.HoldsResult)sellerTools.sellerPayoutHoldReasons(toolContext);
+
+		assertThat(result.holds()).isEmpty();
+		assertThat(result.olderHeldPayoutCount()).isEqualTo(2);
+		assertThat(ops.holdsCalls).isEmpty();
 	}
 
 	@Test
@@ -127,6 +214,54 @@ class AiToolsTest {
 		ops.adminWaitingInquiries = 2;
 
 		assertThat(adminTools.adminWaitingInquiries(toolContext)).isEqualTo(new AdminTools.InquiriesResult(5, 2));
+	}
+
+	@Test
+	@DisplayName("이번 달 판매액은 그달 1일부터 오늘까지 주문의 판매·취소 합계를 그대로 담고, 주문·참가자 화면을 출처로 남긴다")
+	void monthlySales() {
+		ops.salesSummary = new OpsPort.SalesSummary(42, 2310000, 3, 165000);
+
+		Object result = sellerTools.monthlySales(trace, LocalDate.of(2026, 11, 16));
+
+		// 취소 건수·환불액도 같은 기간으로 함께 담는다 (BUK-264)
+		assertThat(result).isEqualTo(new SellerTools.SalesResult(LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 16),
+			42, 2310000, 3, 165000));
+		assertThat(ops.salesCall).containsExactly(LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 16));
+		assertThat(trace.sources()).singleElement().satisfies(source -> {
+			assertThat(source.screen()).isEqualTo(AiSource.SELLER_SALES.getScreen());
+			assertThat(source.path()).isEqualTo("/seller/sales");
+			assertThat(source.asOf()).isNotNull();
+		});
+	}
+
+	@Test
+	@DisplayName("월초(1일)에는 그날 하루만, 말일에는 그달 전체를 묻는다. 지난달로 넘어가지 않는다")
+	void monthlySalesBoundary() {
+		sellerTools.monthlySales(trace, LocalDate.of(2026, 12, 1));
+		assertThat(ops.salesCall).containsExactly(LocalDate.of(2026, 12, 1), LocalDate.of(2026, 12, 1));
+
+		sellerTools.monthlySales(trace, LocalDate.of(2026, 2, 28));
+		assertThat(ops.salesCall).containsExactly(LocalDate.of(2026, 2, 1), LocalDate.of(2026, 2, 28));
+	}
+
+	@Test
+	@DisplayName("도구는 한국 날짜의 이번 달을 본다 (서버 시간대와 상관없이)")
+	void monthlySalesUsesKoreanDate() {
+		LocalDate today = LocalDate.now(AiToolTrace.ZONE);
+
+		sellerTools.sellerMonthlySales(toolContext);
+
+		assertThat(ops.salesCall[1]).isIn(today, LocalDate.now(AiToolTrace.ZONE));
+		assertThat(ops.salesCall[0]).isEqualTo(ops.salesCall[1].withDayOfMonth(1));
+	}
+
+	@Test
+	@DisplayName("판매 합계를 가져오지 못하면 숫자 없이 주문·참가자 화면에서 확인하라고 한다")
+	void monthlySalesFailure() {
+		ops.unavailable = true;
+
+		assertThat(sellerTools.sellerMonthlySales(toolContext)).isInstanceOfSatisfying(Map.class,
+			map -> assertThat((String)map.get("error")).contains(AiSource.SELLER_SALES.getScreen()));
 	}
 
 	@Test

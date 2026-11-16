@@ -47,6 +47,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/order/orders")
 public class ApiV1OrderController {
+	static final String PAY_PENDING_MESSAGE = "결제를 확인하고 있습니다. 잠시 뒤 주문 상세에서 결과를 확인해주세요.";
+
 	private static final int MAX_PAGE_SIZE = 100;
 
 	private final OrderFacade orderFacade;
@@ -129,13 +131,19 @@ public class ApiV1OrderController {
 			+ "키트 옵션은 결제 화면에서 고른 kitOptionIds로 받는다. 대회에 옵션이 있으면 옵션 이름마다 하나씩 골라야 하고, "
 			+ "옵션이 없는 대회는 비우거나 본문을 보내지 않는다. 예치금을 빼기 전에 옵션별 판매 수를 판매 상한과 견주어, "
 			+ "다 팔린 옵션이 있으면 409 ORDER_KIT_OPTION_SOLD_OUT과 팔린 옵션 목록(data.soldOut)을 돌려준다"
-			+ "(자리는 결제 기한까지 그대로라 다른 옵션으로 다시 결제한다). 이미 결제한 주문은 kitOptionIds를 보지 않는다.")
+			+ "(자리는 결제 기한까지 그대로라 다른 옵션으로 다시 결제한다). 이미 결제한 주문은 kitOptionIds를 보지 않는다. "
+			+ "결제 중(PAYING)인 주문에 다시 결제를 보내거나, 예치금·자리 판매 결과를 받지 못하면(시간 초과·5xx) 202와 지금 주문"
+			+ "(주문 상세와 같은 모양, status PAYING)을 돌려준다. 결제 재확인이 15초마다 결과를 맞춰 결제 완료(PAID)나 "
+			+ "결제 대기(CREATED, 돈은 돌려줌)로 끝내므로, 주문 상세를 다시 조회해 상태를 본다. "
+			+ "결제 중에는 주문 상품이 ORDERED로 남는다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "결제 완료 또는 이미 결제한 주문",
 			content = @Content(examples = {
 				@ExampleObject(name = "결제 완료", value = OrderApiExamples.PAY_SUCCESS),
 				@ExampleObject(name = "이미 결제함", value = OrderApiExamples.PAY_ALREADY)
 			})),
+		@ApiResponse(responseCode = "202", description = "결제 확인 중 (결제 중인 주문, 예치금·자리 판매 결과를 아직 모름)",
+			content = @Content(examples = @ExampleObject(value = OrderApiExamples.PAY_PENDING))),
 		@ApiResponse(responseCode = "400",
 			description = "주문 ID·회원 ID 오류, 요청 본문 형식 오류, 키트 옵션 ID 오류, 다른 대회·없는 옵션(옵션 없는 대회에 옵션 포함), "
 				+ "옵션 이름 빠짐·겹침",
@@ -168,6 +176,13 @@ public class ApiV1OrderController {
 				@ExampleObject(name = "파티원이 크루를 떠남", value = OrderApiExamples.PARTY_PAYER_NOT_CREW),
 				@ExampleObject(name = "대회 취소", value = OrderApiExamples.PAY_RACE_CANCELED),
 				@ExampleObject(name = "키트 옵션 품절", value = OrderApiExamples.KIT_OPTION_SOLD_OUT)
+			})),
+		@ApiResponse(responseCode = "503",
+			description = "결제 요청이 몰려 예치금에 보내지 못함(돈은 빠지지 않음, 주문은 결제 대기 그대로), 예치금이 결제를 거절함(4xx). "
+				+ "잠시 뒤 같은 주문으로 다시 결제한다",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "결제 몰림", value = OrderApiExamples.PAY_BUSY),
+				@ExampleObject(name = "예치금 연결 실패", value = OrderApiExamples.WALLET_UNAVAILABLE)
 			}))
 	})
 	public ResponseEntity<RsData<OrderDto>> pay(
@@ -177,6 +192,9 @@ public class ApiV1OrderController {
 		@RequestBody(required = false) @Valid OrderPayRequestDto request
 	) {
 		OrderPayResult result = orderFacade.pay(orderId, memberId, request == null ? null : request.getKitOptionIds());
+		if (result.pending()) {
+			return ResponseEntity.accepted().body(RsData.of(HttpStatus.ACCEPTED, PAY_PENDING_MESSAGE, result.order()));
+		}
 		String message = result.alreadyPaid() ? "이미 결제한 주문입니다." : "결제했습니다. 참가가 확정되었습니다.";
 		return ResponseEntity.ok().body(RsData.of(HttpStatus.OK, message, result.order()));
 	}

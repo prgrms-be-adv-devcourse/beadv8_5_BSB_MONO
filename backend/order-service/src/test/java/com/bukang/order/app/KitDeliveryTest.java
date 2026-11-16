@@ -24,6 +24,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -412,6 +417,43 @@ class KitDeliveryTest {
 		assertThat(applyKitTracking(orderId, shipmentId, "999", DeliveryTrackingResult.notTracked(),
 			later.plusDays(8))).isEqualTo(Shipment.TrackingOutcome.TRACKED);
 		assertThat(shipmentOf(orderId).getNextTrackingAt()).isNull();
+	}
+
+	/**
+	 * BUK-234: 배포 중 주문 서버 두 대가 같은 시각에 조회 배치를 돌려도 조회 멈춤 알림은 한 번이다
+	 * 두 쓰레드가 조회 대상을 다 읽은 뒤에 Delivery Tracker를 부르게 맞춘다. 결과는 주문을 잠그고 남기므로 뒤쪽은
+	 * 앞쪽이 멈춘 배송(다음 조회 시각 없음)을 보고 건너뛴다 (고치기 전에는 두 번 나갔다)
+	 */
+	@Test
+	@DisplayName("두 서버가 함께 조회 배치를 돌려도 조회 멈춤 알림은 판매자에게 한 번만 나간다 (BUK-234)")
+	void twoServersNotifyTrackingStoppedOnce() throws Exception {
+		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().minusDays(1)));
+		long orderId = paidOrder();
+		ship(itemIdOf(orderId));
+		LocalDateTime shippedAt = shipmentOf(orderId).getShippedAt();
+		kitTrackingUseCase.track(LocalDateTime.now().truncatedTo(ChronoUnit.MICROS).plusSeconds(1));
+		LocalDateTime stopAt = shippedAt.plusDays(7).plusHours(3);
+
+		CyclicBarrier bothRead = new CyclicBarrier(2);
+		deliveryTrackingPort.beforeTrack(() -> {
+			try {
+				bothRead.await(10, TimeUnit.SECONDS);
+			} catch (Exception exception) {
+				throw new IllegalStateException(exception);
+			}
+		});
+		ExecutorService executor = Executors.newFixedThreadPool(2);
+		try {
+			Future<KitTrackingUseCase.TrackResult> first = executor.submit(() -> kitTrackingUseCase.track(stopAt));
+			Future<KitTrackingUseCase.TrackResult> second = executor.submit(() -> kitTrackingUseCase.track(stopAt));
+			first.get(30, TimeUnit.SECONDS);
+			second.get(30, TimeUnit.SECONDS);
+		} finally {
+			executor.shutdownNow();
+		}
+
+		assertThat(shipmentOf(orderId).getNextTrackingAt()).isNull();
+		verify(notificationSender, times(1)).send(any());
 	}
 
 	private Shipment.TrackingOutcome applyKitTracking(long orderId, long shipmentId, String trackingNumber,

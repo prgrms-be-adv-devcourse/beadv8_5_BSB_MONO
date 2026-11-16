@@ -328,6 +328,14 @@ final class OrderApiExamples {
 		}
 		""";
 
+	static final String PAY_PENDING = """
+		{
+			"status": 202,
+			"message": "결제를 확인하고 있습니다. 잠시 뒤 주문 상세에서 결과를 확인해주세요.",
+			"data": { "id": 1, "orderNo": "OD-20261012-0001", "status": "PAYING", "paidAt": null }
+		}
+		""";
+
 	static final String PAY_NOT_OWNER = """
 		{ "status": 403, "code": "ORDER_FORBIDDEN", "message": "본인의 주문만 결제할 수 있습니다.", "data": null }
 		""";
@@ -443,6 +451,11 @@ final class OrderApiExamples {
 	static final String WALLET_UNAVAILABLE = """
 		{ "status": 503, "code": "ORDER_EXTERNAL_SERVICE_UNAVAILABLE",
 			"message": "예치금 서비스에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요.", "data": null }
+		""";
+
+	static final String PAY_BUSY = """
+		{ "status": 503, "code": "ORDER_PAYMENT_BUSY",
+			"message": "결제 요청이 몰려 있습니다. 잠시 후 다시 시도해주세요.", "data": null }
 		""";
 
 	static final String NOT_PAID_ITEM = """

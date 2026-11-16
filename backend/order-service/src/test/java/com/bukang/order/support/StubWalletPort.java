@@ -1,6 +1,7 @@
 package com.bukang.order.support;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -13,6 +14,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import com.bukang.order.domain.exception.ExternalServiceRejectedException;
 import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
 import com.bukang.order.domain.exception.OrderNotPayableException;
+import com.bukang.order.domain.exception.PaymentBusyException;
 import com.bukang.order.out.wallet.WalletPayResult;
 import com.bukang.order.out.wallet.WalletPort;
 
@@ -38,7 +40,10 @@ public class StubWalletPort implements WalletPort {
 	private final List<Call> cancelCalls = new CopyOnWriteArrayList<>();
 	private final List<Call> refundCalls = new CopyOnWriteArrayList<>();
 	private final List<Long> refundedAmounts = new CopyOnWriteArrayList<>();
+	private final Set<Long> payFailingOrders = new HashSet<>();
+	private volatile boolean payBusy;
 	private boolean payTimesOut;
+	private boolean payRejects;
 	private boolean cancelFails;
 	private boolean refundFails;
 	private boolean refundRejects;
@@ -54,6 +59,10 @@ public class StubWalletPort implements WalletPort {
 	// 멈춰 둔 결제는 모니터를 잡기 전에 기다린다. 그동안 결제 취소 같은 다른 호출이 막히지 않는다
 	@Override
 	public WalletPayResult pay(long orderId, long memberId, long amount) {
+		if (payBusy) {
+			// HttpWalletAdapter가 동시 호출 자리를 못 받았을 때와 같게: D를 부르지 않으므로 payCalls에 남기지 않는다
+			throw new PaymentBusyException();
+		}
 		CountDownLatch entered = payEntered;
 		CountDownLatch released = payReleased;
 		if (entered != null && released != null) {
@@ -67,6 +76,13 @@ public class StubWalletPort implements WalletPort {
 		payCalls.add(amount);
 		if (canceledOrders.contains(orderId)) {
 			throw new OrderNotPayableException("이미 끝난 결제라 다시 결제할 수 없습니다.");
+		}
+		if (payFailingOrders.contains(orderId)) {
+			throw new ExternalServiceUnavailableException(TIMEOUT_MESSAGE);
+		}
+		if (payRejects) {
+			// HttpWalletAdapter가 D의 4xx 거절(409 제외)을 던지는 예외와 같게 둔다. 차감하지 않는다
+			throw new ExternalServiceRejectedException("예치금 서비스에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요.");
 		}
 		WalletPayResult result = charge(orderId, amount);
 		if (payTimesOut) {
@@ -151,6 +167,21 @@ public class StubWalletPort implements WalletPort {
 		this.payTimesOut = payTimesOut;
 	}
 
+	// 결제 동시 호출 자리가 다 찬 것처럼 D를 부르지 않고 거절하게 한다 (BUK-235)
+	public void setPayBusy(boolean payBusy) {
+		this.payBusy = payBusy;
+	}
+
+	// 결제를 D가 4xx로 거절하게 한다 (계약 어긋남·지갑 없음)
+	// 이 주문의 결제만 연결 실패로 둔다 (차감하지 않는다)
+	public synchronized void failPayFor(long orderId) {
+		payFailingOrders.add(orderId);
+	}
+
+	public synchronized void setPayRejects(boolean payRejects) {
+		this.payRejects = payRejects;
+	}
+
 	// 결제 취소가 실패하게 한다 (예치금 서비스 장애)
 	public synchronized void setCancelFails(boolean cancelFails) {
 		this.cancelFails = cancelFails;
@@ -218,7 +249,10 @@ public class StubWalletPort implements WalletPort {
 		cancelCalls.clear();
 		refundCalls.clear();
 		refundedAmounts.clear();
+		payFailingOrders.clear();
+		payBusy = false;
 		payTimesOut = false;
+		payRejects = false;
 		cancelFails = false;
 		refundFails = false;
 		refundRejects = false;

@@ -16,6 +16,7 @@ import java.util.Optional;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.common.global.eventpublisher.EventPublisher;
 import com.bukang.common.shared.notification.NotificationKind;
@@ -55,6 +56,8 @@ import lombok.extern.slf4j.Slf4j;
  * 합류를 확정하면 그 사람의 파티원 신청서(결제 전)를 만든다. "한 대회 한 신청" 유니크가 개인 신청·다른 파티 합류를 막는다
  * 파티원을 바꾸는 요청은 파티 줄을 먼저 잠근다 (잠금 순서: 파티 → 참가 신청)
  * 파티를 만드는 기간은 제한하지 않는다. 대회가 취소됐거나 접수가 마감됐으면 막는다
+ * 만들기·합류는 바깥 트랜잭션 없이 부른다. 상품·회원 HTTP는 트랜잭션 밖에서 먼저 하고, 짧은 트랜잭션에서 잠그고 저장만 한다
+ * (BUK-248). 트랜잭션 안에서 부르면 응답을 기다리는 동안 DB 연결을 쥐어 연결 풀이 바닥난다 (#480 결제와 같은 문제)
  */
 @Slf4j
 @Service
@@ -78,6 +81,7 @@ public class PartyUseCase {
 	private final RaceCoursePort raceCoursePort;
 	private final CrewPort crewPort;
 	private final EventPublisher eventPublisher;
+	private final TransactionTemplate transactionTemplate;
 
 	/**
 	 * @param invitedMemberIds 초대 알림을 보낸 크루원 (고른 사람 중 걸러진 사람은 빠진다)
@@ -97,14 +101,20 @@ public class PartyUseCase {
 			throw new CrewPartyRestrictedException(endAt);
 		});
 		ParticipantInfo checked = checkParticipant(course, participant);
-		checkNoLiveParticipation(course.raceId(), memberId, null);
+		// 초대할 사람을 묻기(최대 50번) 전에 이미 신청한 사람을 거른다
+		transactionTemplate.executeWithoutResult(status -> checkNoLiveParticipation(course.raceId(), memberId, null));
 		List<Long> invitees = findInvitees(crewId, memberId, course.crewSale(), invitedMemberIds);
-		Party party = partyRepository.save(Party.create(crewId, memberId, course.raceId(), course.raceCourseId(), now));
-		partyMemberRepository.save(PartyMember.join(party.getId(), memberId, crewId, crewJoinedAt, now));
-		Participation participation = saveParticipation(party, memberId, course, checked, now);
-		// 커밋된 뒤에만 나간다. 잃어도 되는 메시지라 아웃박스 없이 보낸다 (11/04 결정)
-		invitees.forEach(invitee -> eventPublisher.publish(inviteNotice(invitee, party, course)));
-		return new Created(party, participation, invitees);
+		return transactionTemplate.execute(status -> {
+			// 초대할 사람을 묻는 사이 같은 대회에 신청했을 수 있어 다시 본다 (같은 오류를 주려고. 유니크 제약도 막는다)
+			checkNoLiveParticipation(course.raceId(), memberId, null);
+			Party party = partyRepository.save(
+				Party.create(crewId, memberId, course.raceId(), course.raceCourseId(), now));
+			partyMemberRepository.save(PartyMember.join(party.getId(), memberId, crewId, crewJoinedAt, now));
+			Participation participation = saveParticipation(party, memberId, course, checked, now);
+			// 커밋된 뒤에만 나간다. 잃어도 되는 메시지라 아웃박스 없이 보낸다 (11/04 결정)
+			invitees.forEach(invitee -> eventPublisher.publish(inviteNotice(invitee, party, course)));
+			return new Created(party, participation, invitees);
+		});
 	}
 
 	public Party regenerateJoinLink(long partyId, long memberId, LocalDateTime now) {
@@ -115,31 +125,33 @@ public class PartyUseCase {
 
 	// 종목은 고르지 않는다. 파티 종목으로 신청서를 만들고 나이·티셔츠 확인도 그 종목 기준이다 (11/05)
 	public Participation join(String joinToken, long memberId, ParticipantInfo participant, LocalDateTime now) {
-		long partyId = partyRepository.findIdByJoinToken(joinToken)
-			.orElseThrow(PartyUseCase::joinLinkNotFound);
-		// 상품·회원 서비스를 부르는 확인은 파티를 잠그기 전에 한다. 잠근 채 기다리면 같은 파티의 다른 요청과 DB 연결이 묶인다
+		// 상품·회원 서비스를 부르는 확인은 트랜잭션 밖에서 한다. 잠근 채 기다리면 같은 파티의 다른 요청과 DB 연결이 묶인다
 		// 종목·크루는 파티를 만든 뒤 바뀌지 않으므로 잠그지 않고 읽어도 된다. 엔티티가 아니라 값만 읽는다
 		// (엔티티를 먼저 읽으면 아래 잠금 조회가 같은 엔티티를 돌려줘 기다리는 사이 바뀐 토큰·상태를 못 본다)
-		JoinTarget target = partyRepository.findJoinTarget(partyId).orElseThrow(PartyUseCase::joinLinkNotFound);
+		JoinTarget target = transactionTemplate.execute(status -> partyRepository.findJoinTarget(joinToken))
+			.orElseThrow(PartyUseCase::joinLinkNotFound);
+		long partyId = target.partyId();
 		RaceCourseInfo course = findOpenCourse(target.raceCourseId(), now);
 		LocalDateTime crewJoinedAt = checkCrewMember(target.crewId(), memberId);
-		Party party = lockParty(partyId);
-		// 잠그기를 기다리는 사이 파티장이 링크를 다시 만들었으면 옛 링크다
-		if (!party.getJoinToken().equals(joinToken)) {
-			throw joinLinkNotFound();
-		}
-		party.checkMembersChangeable();
-		party.checkJoinLinkAlive(now);
-		ParticipantInfo checked = checkParticipant(course, participant);
-		Optional<PartyMember> row = partyMemberRepository.findByPartyIdAndMemberId(partyId, memberId);
-		if (row.filter(PartyMember::isActive).isPresent()) {
-			throw PartyConflictException.alreadyJoined(partyId);
-		}
-		checkNotFull(party, course);
-		checkNoLiveParticipation(party.getRaceId(), memberId, partyId);
-		row.ifPresentOrElse(left -> left.rejoin(crewJoinedAt, now),
-			() -> saveMember(partyId, memberId, party.getCrewId(), crewJoinedAt, now));
-		return saveParticipation(party, memberId, course, checked, now);
+		return transactionTemplate.execute(status -> {
+			Party party = lockParty(partyId);
+			// 확인하는 사이 파티장이 링크를 다시 만들었으면 옛 링크다
+			if (!party.getJoinToken().equals(joinToken)) {
+				throw joinLinkNotFound();
+			}
+			party.checkMembersChangeable();
+			party.checkJoinLinkAlive(now);
+			ParticipantInfo checked = checkParticipant(course, participant);
+			Optional<PartyMember> row = partyMemberRepository.findByPartyIdAndMemberId(partyId, memberId);
+			if (row.filter(PartyMember::isActive).isPresent()) {
+				throw PartyConflictException.alreadyJoined(partyId);
+			}
+			checkNotFull(party, course);
+			checkNoLiveParticipation(party.getRaceId(), memberId, partyId);
+			row.ifPresentOrElse(left -> left.rejoin(crewJoinedAt, now),
+				() -> saveMember(partyId, memberId, party.getCrewId(), crewJoinedAt, now));
+			return saveParticipation(party, memberId, course, checked, now);
+		});
 	}
 
 	// 신청 전에만 나갈 수 있다. 신청서는 끝난 상태가 되어 그 대회에 다시 신청할 수 있다
@@ -290,8 +302,8 @@ public class PartyUseCase {
 	// 크루원이 아니거나 파티 예매 시작 7일 전보다 늦게 가입한 사람(합류가 막힘, P4)에게는 보내지 않는다
 	// 크루원 확인이 없으면 아무 회원에게나 알림을 보낼 수 있다. 회원 서비스가 응답하지 않으면(503) 남은 사람은 묻지 않고 멈춘다
 	// (사람마다 2초씩 기다리면 게이트웨이 제한 10초를 넘는다. 초대는 덤이라 파티 만들기는 막지 않는다)
-	// shortcut: 한 번에 여러 명을 묻는 내부 API가 없어 트랜잭션 안에서 한 명씩 묻는다(최대 50번).
-	// 회원 서비스가 느리면 그만큼 DB 연결을 잡는다. 회원에 여러 명 확인 API가 생기면 한 번에 묻는다
+	// shortcut: 한 번에 여러 명을 묻는 내부 API가 없어 한 명씩 묻는다(최대 50번, 트랜잭션 밖이라 DB 연결은 잡지 않는다).
+	// 회원 서비스가 느리면 그만큼 응답이 늦다. 회원에 여러 명 확인 API가 생기면 한 번에 묻는다
 	private List<Long> findInvitees(long crewId, long leaderId, CrewSale crewSale, Collection<Long> memberIds) {
 		if (memberIds == null) {
 			return List.of();

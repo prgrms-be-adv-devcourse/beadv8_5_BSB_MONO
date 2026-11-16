@@ -14,7 +14,8 @@ k3s agent로 묶지 않은 이유: 데이터는 자주 바뀌지 않고, 앱을 
 | 파일 | 하는 일 |
 |---|---|
 | `compose.data.yml` | `backend/compose.yml`의 인프라 정의 위에 덮어쓰기: 재시작, 이름 있는 볼륨, 사설 IP에만 포트 열기, MySQL 계정을 운영 값으로 |
-| `.env.example` | 사설 IP와 MySQL 계정. 서버에서 `.env`로 복사해 채운다 (git 제외) |
+| `.env.example` | 사설 IP와 MySQL 계정, exporter 비밀번호. 서버에서 `.env`로 복사해 채운다 (git 제외) |
+| `exporter-user.sql` | mysqld-exporter 전용 MySQL 계정. 볼륨이 이미 있어 사람이 한 번 실행한다 (아래 「지표 exporter」) |
 | `setup.sh` | 처음 한 번: swap 2GB, ES 커널 설정, Docker 설치, 저장소 받기, `.env` 만들기 |
 | `deploy.sh <main\|커밋 SHA>` | 저장소를 그 커밋으로 맞추고 인프라를 띄운다. 바뀐 것만 다시 만들고, healthy가 될 때까지 기다린다. **main에 들어간 커밋만** 받는다(다른 브랜치·머지 전 커밋은 거부) |
 
@@ -30,11 +31,52 @@ k3s agent로 묶지 않은 이유: 데이터는 자주 바뀌지 않고, 앱을 
 | Redis | 6379 | `bukang-redis` |
 | Redpanda | 29092 (internal 리스너) | `bukang-kafka` |
 | Elasticsearch | 9200 | `bukang-elasticsearch` |
+| Redpanda 관리·지표 | 9644 | 수집기가 `/public_metrics`를 가져감 |
+| redis-exporter | 9121 | 수집기 (job `redis`) |
+| mysqld-exporter | 9104 | 수집기 (job `mysql`) |
+| elasticsearch-exporter | 9114 | 수집기 (job `elasticsearch`) |
+| node-exporter | 9100 | 수집기 (job `node`) |
 
 - Redpanda는 접속한 앱에 `bukang-kafka:29092`로 다시 접속하라고 알려 줍니다. 메인 k3s의 Service `bukang-kafka`가 이 서버의 29092로 이어 주므로 이 포트를 엽니다. external 리스너(9092)는 열지 않습니다.
 - k3s Pod가 이 서버로 나올 때 출발지는 메인 EC2 사설 IP(10.0.1.145)로 바뀝니다. 그래서 보안 그룹에는 메인 EC2(또는 그 보안 그룹)만 허용하면 됩니다.
 - Redis·Elasticsearch에는 비밀번호가 없습니다(앱 설정이 비밀번호를 쓰지 않음). 보안 그룹이 유일한 보호막이므로 다른 출발지를 열지 않습니다.
 - 관리 화면(Kafka Console 8091, Elasticvue 8090)은 띄우지 않습니다.
+
+## 지표 exporter (BUK-257)
+
+메인 k3s의 수집기(에이전트 모드)가 15초마다 사설 IP로 가져가 개인 AWS의 Prometheus로 보냅니다(`infra/monitoring-node`).
+이 서버에는 k3s를 깔지 않고 exporter만 compose로 더합니다. 하나에 20~30MB 정도 씁니다.
+
+| exporter | 보는 것 | 비고 |
+|---|---|---|
+| redis-exporter | Redis 메모리, 키 수, 명령 수 | 정의는 `backend/compose.yml`(로컬과 같음), 여기서는 포트만 엶 |
+| mysqld-exporter | 접속 수, 쿼리 수, 느린 쿼리, 표별 읽기·쓰기 | 전용 계정 `exporter`(앱 데이터는 못 읽음). DB를 서비스별로 나눠도 하나면 됨 |
+| elasticsearch-exporter | ES 힙·GC, 검색 지연, 거부된 요청, 인덱스별 문서 수 | ES에 비밀번호가 없어 계정 준비 없음 |
+| node-exporter | 서버 CPU·메모리·디스크·네트워크 | 서버 네트워크를 그대로 쓰고(host) 사설 IP에서만 들음 |
+| (Redpanda) | 처리량, 지연, 파티션 | exporter 없이 관리 포트 9644의 `/public_metrics` |
+
+Redpanda 관리 포트 9644는 설정을 바꾸는 관리 API도 함께 엽니다. 보안 그룹에서 메인 EC2만 허용하는 것이 보호막입니다.
+
+처음 한 번 (main에 머지된 뒤):
+
+1. 보안 그룹 `sg-0f9a0ff371a92e8eb` 인바운드에 9644·9121·9104·9114·9100을 **메인 EC2 보안 그룹(`sg-09d6700bbf0f7348f`)에서만** 허용합니다.
+2. 보조 EC2에서 `.env`에 비밀번호를 넣고 MySQL 계정을 만듭니다.
+   ```bash
+   cd /opt/crewrun
+   echo "MYSQL_EXPORTER_PASSWORD=$(openssl rand -hex 24)" | sudo tee -a infra/data-node/.env >/dev/null
+   PW=$(sudo grep '^MYSQL_EXPORTER_PASSWORD=' infra/data-node/.env | cut -d= -f2-)
+   { echo "SET @pw = '$PW';"; cat infra/data-node/exporter-user.sql; } \
+     | sudo docker exec -i bukang-db sh -c 'exec mysql -uroot -p"$MYSQL_ROOT_PASSWORD"'
+   unset PW
+   ```
+3. GitHub Actions → **data-node-cd** 실행(main). exporter 4개가 새로 뜨고, Redpanda는 포트가 늘어 다시 만들어집니다(몇 초 끊김, 데이터는 볼륨에 남음).
+4. 메인 EC2에서 응답을 확인합니다.
+   ```bash
+   for p in 9644/public_metrics 9121/metrics 9104/metrics 9114/metrics 9100/metrics; do
+     echo "$p $(curl -s -o /dev/null -w '%{http_code}' http://10.0.2.222:$p)"
+   done
+   curl -s http://10.0.2.222:9104/metrics | grep '^mysql_up'      # 1이면 MySQL 계정 정상
+   ```
 
 ## 처음 준비 (전환 때 한 번, BUK-220 D7)
 

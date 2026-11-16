@@ -16,6 +16,7 @@ import com.bukang.order.app.SellerOrderFacade;
 import com.bukang.order.domain.OrderItemStatus;
 import com.bukang.order.dto.SellerOrderPageDto;
 import com.bukang.order.dto.SellerPartyPageDto;
+import com.bukang.order.dto.SellerSalesSummaryDto;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -29,7 +30,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 
-// 판매자 주문 목록·파티별 내역 (시안 S03·S03-1·S05, BUK-227). 로그인한 회원이 승인된 판매자일 때만 쓴다
+// 판매자 주문 목록·파티별 내역 (시안 S03·S03-1·S05, BUK-227), 기간 판매·취소 합계 (BUK-247·BUK-264). 로그인한 회원이 승인된 판매자일 때만 쓴다
 // 에러 응답은 GlobalExceptionHandler, OrderExceptionHandler가 RsData(data: null) 형식으로 반환한다
 @Tag(name = "SellerOrder", description = "판매자 주문 API (대회별 주문·참가자 목록, 파티별 신청·결제 인원)")
 @RestController
@@ -142,5 +143,44 @@ public class ApiV1SellerOrderController {
 	) {
 		return ResponseEntity.ok().body(RsData.of(HttpStatus.OK, "파티별 내역을 조회했습니다.",
 			sellerOrderFacade.findParties(memberId, raceId, partyId, from, to, page, size)));
+	}
+
+	@GetMapping("/orders/summary")
+	@Operation(summary = "기간 판매·취소 합계",
+		description = "기간은 from~to(종료일 포함, 한 번에 12개월까지)다. "
+			+ "판매(soldCount·soldAmount): 결제일이 기간 안인 판매자 대회 참가권 중 결제 완료·취소 중인 것의 장수와 결제 금액 합. "
+			+ "정산이 판매를 세는 기준과 같다(취소 중은 환불이 거절되면 결제 완료로 돌아오므로 판매로 센다). "
+			+ "취소(canceledCount·refundedAmount): 취소를 마친 시각이 기간 안인 참가권의 장수와 환불액 합(대회 취소 일괄 환불 포함, 취소 중은 아직 안 셈). "
+			+ "결제 전 주문은 빠진다. 판매자 AI 「이번 달 판매액」이 쓴다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "조회 성공 (판매가 없으면 0)",
+			content = @Content(examples = @ExampleObject(value = SellerOrderApiExamples.SALES_SUMMARY_SUCCESS))),
+		@ApiResponse(responseCode = "400", description = "기간 없음·형식 오류, 기간 오류, 회원 ID 오류",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "기간 없음", value = SellerOrderApiExamples.MISSING_FROM),
+				@ExampleObject(name = "날짜 형식", value = SellerOrderApiExamples.INVALID_FORMAT),
+				@ExampleObject(name = "시작일이 종료일보다 늦음", value = SellerOrderApiExamples.PERIOD_REVERSED),
+				@ExampleObject(name = "기간이 12개월 넘음", value = SellerOrderApiExamples.PERIOD_TOO_LONG),
+				@ExampleObject(name = "회원 ID가 0 이하", value = SellerOrderApiExamples.INVALID_MEMBER_ID)
+			})),
+		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = SellerOrderApiExamples.LOGIN_REQUIRED))),
+		@ApiResponse(responseCode = "403", description = "승인된 판매자가 아님",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = SellerOrderApiExamples.NOT_SELLER))),
+		@ApiResponse(responseCode = "503", description = "판매자 확인을 아직 쓸 수 없음",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = SellerOrderApiExamples.SELLER_UNAVAILABLE)))
+	})
+	public ResponseEntity<RsData<SellerSalesSummaryDto>> summarizeSellerSales(
+		@LoginMemberId long memberId,
+		@Parameter(description = "조회 시작일 (결제일)", example = "2026-11-01")
+		@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+		@Parameter(description = "조회 종료일 (이날 결제까지 포함)", example = "2026-11-16")
+		@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
+	) {
+		return ResponseEntity.ok().body(RsData.of(HttpStatus.OK, "판매 합계를 조회했습니다.",
+			sellerOrderFacade.summarizeSales(memberId, from, to)));
 	}
 }

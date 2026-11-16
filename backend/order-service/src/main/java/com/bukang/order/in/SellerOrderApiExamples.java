@@ -1,6 +1,6 @@
 package com.bukang.order.in;
 
-// 판매자 주문 목록·파티별 내역 API 응답 예시 (Swagger, BUK-227)
+// 판매자 주문 목록·파티별 내역·판매 합계 API 응답 예시 (Swagger, BUK-227·BUK-247)
 final class SellerOrderApiExamples {
 	static final String ORDERS_SUCCESS = """
 		{
@@ -57,6 +57,19 @@ final class SellerOrderApiExamples {
 		}
 		""";
 
+	static final String SALES_SUMMARY_SUCCESS = """
+		{
+			"status": 200,
+			"message": "판매 합계를 조회했습니다.",
+			"data": {
+				"soldCount": 42,
+				"soldAmount": 2310000,
+				"canceledCount": 3,
+				"refundedAmount": 165000
+			}
+		}
+		""";
+
 	static final String INVALID_PAGE = """
 		{ "status": 400, "code": "INVALID_REQUEST", "message": "한 번에 100개까지 조회할 수 있습니다.", "data": null }
 		""";
@@ -79,6 +92,10 @@ final class SellerOrderApiExamples {
 
 	static final String MISSING_RACE = """
 		{ "status": 400, "code": "INVALID_REQUEST", "message": "필수 요청 값(raceId)이 없습니다.", "data": null }
+		""";
+
+	static final String MISSING_FROM = """
+		{ "status": 400, "code": "INVALID_REQUEST", "message": "필수 요청 값(from)이 없습니다.", "data": null }
 		""";
 
 	static final String LOGIN_REQUIRED = """
