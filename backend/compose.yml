@@ -498,6 +498,7 @@ services:
   # bootRun의 인프라 자동 실행(프로필 없는 서비스만 띄움)에서는 뜨지 않는다
   # 실행: docker compose --profile monitoring up -d prometheus grafana redis-exporter tempo loki alloy
   # 앱의 추적·로그도 보려면 앱을 SPRING_PROFILES_ACTIVE=dev,monitoring으로 띄운다 (지표는 프로필 없이도 Prometheus가 가져간다)
+  # 호스트 포트는 127.0.0.1에만 연다. 인증 없이 지표·로그를 받고 Grafana 첫 비밀번호가 admin이라, 같은 Wi-Fi의 다른 컴퓨터는 못 들어오게 한다
 
   # 지표 저장소 → http://localhost:9095 (Status → Targets에서 수집 대상 상태 확인)
   # 맥에서 bootRun으로 띄운 서비스의 /actuator/prometheus를 15초마다 가져간다 (설정: docker/prometheus/prometheus.yml)
@@ -511,7 +512,7 @@ services:
     command: [ "--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.path=/prometheus", "--web.enable-remote-write-receiver" ]
     ports:
       # 9090은 S3Mock이 쓰므로 9095 사용
-      - "9095:9090"
+      - "127.0.0.1:9095:9090"
     volumes:
       - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     # 맥·윈도우의 Docker Desktop은 host.docker.internal을 알아서 맞춰 주지만, 리눅스는 이 줄이 있어야 호스트를 찾는다
@@ -526,7 +527,7 @@ services:
     profiles: [ monitoring ]
     ports:
       # 3000은 프론트(Next.js)가 쓰므로 3001 사용
-      - "3001:3000"
+      - "127.0.0.1:3001:3000"
     volumes:
       - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
     depends_on:
@@ -572,8 +573,8 @@ services:
     profiles: [ monitoring ]
     command: [ "run", "--server.http.listen-addr=0.0.0.0:12345", "--storage.path=/var/lib/alloy/data", "/etc/alloy/config.alloy" ]
     ports:
-      - "4318:4318"
-      - "12345:12345"
+      - "127.0.0.1:4318:4318"
+      - "127.0.0.1:12345:12345"
     volumes:
       - ./docker/alloy/config.alloy:/etc/alloy/config.alloy:ro
     depends_on:
