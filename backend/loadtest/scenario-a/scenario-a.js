@@ -95,6 +95,7 @@ const OK_200 = http.expectedStatuses(200);
 const QUEUE_ENTER_OK = http.expectedStatuses(200, 409); // 409: 이미 입장한 회원
 const APPLY_OK = http.expectedStatuses(201, 409); // 409: 이미 신청함 등. 코드는 check로 따로 본다
 const ORDER_OK = http.expectedStatuses(200, 201, 409); // 409: 마감(ORDER_SOLD_OUT) 등
+const PAY_OK = http.expectedStatuses(200, 202); // 202: 결제 확인 중(PAYING). 재확인 배치가 확정한다 (BUK-233)
 
 // 태그: kind는 통과 기준 묶음, name은 주소를 묶는 이름(주소에 주문 번호가 들어가도 한 줄로 모인다)
 function params(token, kind, name, responseCallback, extraHeaders = {}) {
@@ -203,6 +204,9 @@ export function buy() {
 	sleep(10); // 결제 화면 확인
 
 	const pay = http.post(`${BASE_URL}/api/v1/order/orders/${order.json('data.id')}/payment`, null,
-		params(token, 'write', 'POST /api/v1/order/orders/{orderId}/payment', OK_200));
-	check(pay, { '결제됨 200': (r) => r.status === 200 && r.json('data.status') === 'PAID' });
+		params(token, 'write', 'POST /api/v1/order/orders/{orderId}/payment', PAY_OK));
+	check(pay, {
+		'결제됨 200 또는 확인 중 202': (r) => (r.status === 200 && r.json('data.status') === 'PAID')
+			|| (r.status === 202 && r.json('data.status') === 'PAYING'),
+	});
 }
