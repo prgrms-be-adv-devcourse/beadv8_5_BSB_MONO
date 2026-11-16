@@ -12,8 +12,10 @@ import com.bukang.payout.dto.PageDto;
 import com.bukang.payout.dto.PayoutDto;
 import com.bukang.payout.dto.PayoutItemDto;
 import com.bukang.payout.dto.PayoutSummaryDto;
+import com.bukang.payout.dto.PayoutTaxInvoiceDto;
 import com.bukang.payout.dto.SellerPayoutHoldDto;
 import com.bukang.payout.dto.SellerRecoveryDto;
+import com.bukang.payout.dto.SellerSalesReportDto;
 
 import lombok.RequiredArgsConstructor;
 
@@ -31,6 +33,7 @@ import lombok.RequiredArgsConstructor;
 public class PayoutSellerFacade {
 	private final PayoutSellerVerifyUseCase sellerVerifyUseCase;
 	private final PayoutSellerQueryUseCase payoutSellerQueryUseCase;
+	private final PayoutTaxInvoiceQueryUseCase payoutTaxInvoiceQueryUseCase;
 
 	public PayoutSummaryDto summary(long memberId, LocalDate today) {
 		long sellerId = sellerVerifyUseCase.verify(memberId);
@@ -60,5 +63,15 @@ public class PayoutSellerFacade {
 	public List<SellerRecoveryDto> claims(long memberId, LocalDate from, LocalDate to) {
 		long sellerId = sellerVerifyUseCase.verify(memberId);
 		return payoutSellerQueryUseCase.claims(sellerId, from, to);
+	}
+
+	public List<PayoutTaxInvoiceDto> taxInvoices(long memberId) {
+		long sellerId = sellerVerifyUseCase.verify(memberId);
+		return payoutTaxInvoiceQueryUseCase.sellerInvoices(sellerId);
+	}
+
+	public SellerSalesReportDto salesReport(long memberId, YearMonth month) {
+		long sellerId = sellerVerifyUseCase.verify(memberId);
+		return payoutTaxInvoiceQueryUseCase.salesReport(sellerId, month);
 	}
 }

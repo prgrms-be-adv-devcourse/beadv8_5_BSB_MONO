@@ -98,4 +98,17 @@ public interface PayoutRepository extends JpaRepository<Payout, Long> {
 
 	// 판매자 요약: 지급보류 중인 정산 내역 수. 보류가 여러 개 걸린 정산 내역도 한 건으로 센다 (BUK-67 H3)
 	long countBySellerIdAndStatus(long sellerId, PayoutStatus status);
+
+	// 수수료 세금계산서 대상 (BUK-246): 기간 안에 지급 완료된 정산 내역의 수수료를 판매자마다 더한다. 0원인 판매자는 빠진다
+	@Query("""
+		select new com.bukang.payout.out.PayoutRepository$SellerFee(p.sellerId, sum(p.feeAmount)) from Payout p
+		where p.status = com.bukang.payout.domain.PayoutStatus.지급_완료 and p.paidAt >= :from and p.paidAt < :to
+		group by p.sellerId
+		having sum(p.feeAmount) > 0
+		order by p.sellerId
+		""")
+	List<SellerFee> sumPaidFeeBySeller(LocalDateTime from, LocalDateTime to);
+
+	record SellerFee(long sellerId, long feeAmount) {
+	}
 }

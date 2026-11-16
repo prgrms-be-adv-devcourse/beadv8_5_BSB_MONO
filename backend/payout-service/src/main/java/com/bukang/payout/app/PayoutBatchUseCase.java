@@ -40,6 +40,7 @@ import lombok.extern.slf4j.Slf4j;
 public class PayoutBatchUseCase {
 	static final String CREATE_LOCK = "payout-create";
 	static final String PAY_LOCK = "payout-pay";
+	static final String TAX_INVOICE_LOCK = "payout-tax-invoice";
 	// 서버가 죽어도 이 시간이 지나면 잠금이 풀린다. 배치 한 번은 이보다 짧다
 	private static final Duration LOCK_AT_MOST = Duration.ofHours(1);
 	// 서버마다 시계가 조금 달라도 같은 스케줄이 두 번 돌지 않게 끝난 뒤 잠시 잠금을 쥔다
@@ -52,6 +53,7 @@ public class PayoutBatchUseCase {
 	private final PayoutReconcileUseCase payoutReconcileUseCase;
 	private final PayoutPayUseCase payoutPayUseCase;
 	private final PayoutClaimUseCase payoutClaimUseCase;
+	private final PayoutTaxInvoiceUseCase payoutTaxInvoiceUseCase;
 	private final PayoutBatchRunRepository payoutBatchRunRepository;
 
 	// 정산 생성 뒤 같은 기준일 · 시작 시각으로 대사를 돌린다. 대사가 실패해도 생성 결과는 이미 커밋됐다 (AC-67-10)
@@ -72,6 +74,21 @@ public class PayoutBatchUseCase {
 				record(PayoutBatchType.지급, trigger, startedBy, today, now, () -> pay(today, now)),
 				record(PayoutBatchType.청구, trigger, startedBy, today, now, () -> claim(today, now)));
 		});
+	}
+
+	// 지난달 수수료 세금계산서 발행 (BUK-246). 지난 달들의 발행 실패도 다시 시도한다
+	public List<PayoutBatchRunDto> runTaxInvoice(PayoutBatchTrigger trigger, Long startedBy, LocalDate today,
+		LocalDateTime now) {
+		return withLock(TAX_INVOICE_LOCK, "세금계산서 발행", () -> {
+			closeStaleRuns(List.of(PayoutBatchType.세금계산서), now);
+			return List.of(record(PayoutBatchType.세금계산서, trigger, startedBy, today, now, () -> taxInvoice(today, now)));
+		});
+	}
+
+	private Outcome taxInvoice(LocalDate today, LocalDateTime now) {
+		PayoutTaxInvoiceUseCase.Result result = payoutTaxInvoiceUseCase.run(today, now);
+		return new Outcome(result.issued(), result.failed(),
+			"발행 %d · 실패 %d · 비사업자 %d".formatted(result.issued(), result.failed(), result.notBusiness()));
 	}
 
 	private Outcome create(LocalDate today, LocalDateTime now) {

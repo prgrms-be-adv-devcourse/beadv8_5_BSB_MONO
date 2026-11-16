@@ -45,4 +45,14 @@ public interface PayoutItemRepository extends JpaRepository<PayoutItem, Long> {
 				and i.payoutCreateDate between :from and :to
 			""")
 	Page<PayoutItem> findSellerItems(long sellerId, LocalDate from, LocalDate to, Pageable pageable);
+
+	// 판매자 월 매출 참고 자료 (BUK-246): 판매 줄과 판매 취소 줄을 정산 생성일로 더한다
+	// 판매 취소 줄은 원래 판매 줄의 정산 생성일을 그대로 가져가므로 같은 달 안에서 상쇄된다. 1차 정산금은 판매가 아니라 넣지 않는다
+	@Query("""
+		select coalesce(sum(i.amount), 0) from PayoutItem i
+		where i.sellerId = :sellerId and i.payoutCreateDate between :from and :to
+			and i.recordType in (com.bukang.payout.domain.PayoutRecordType.판매,
+				com.bukang.payout.domain.PayoutRecordType.판매_취소)
+		""")
+	long sumSales(long sellerId, LocalDate from, LocalDate to);
 }

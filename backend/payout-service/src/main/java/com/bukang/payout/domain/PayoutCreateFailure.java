@@ -125,6 +125,15 @@ public class PayoutCreateFailure extends BaseIdAndTime {
 			PayoutCreateFailureType.지급_확인_필요, note, runDate);
 	}
 
+	// 수수료 세금계산서를 발행하지 못했다 (BUK-246). 수수료는 최종 정산에서만 떼므로 단계는 최종이고, 대회 칸은 비운다
+	public static PayoutCreateFailure taxInvoice(PayoutCreateFailureType failureType, PayoutTaxInvoice invoice,
+		LocalDate runDate) {
+		String note = "%s 수수료 %d원: %s".formatted(invoice.getSupplyMonth(), invoice.getTotalAmount(),
+			invoice.getFailReason());
+		return new PayoutCreateFailure(PayoutStage.최종_정산, invoice.getSellerId(), null, null, failureType, note,
+			runDate);
+	}
+
 	// 정산 대사가 판매자 × 대회의 어긋남을 찾았다 (BUK-67). 비고에는 장수 · 금액만 쓰고 참가권 ID는 로그에 남긴다
 	// 장수 · 보류 ID는 관리자 이상 감지 상세에 보인다 (BUK-108)
 	public static PayoutCreateFailure reconcileMismatch(PayoutStage stage, long sellerId, long raceId,

@@ -21,8 +21,10 @@ import com.bukang.payout.dto.PageDto;
 import com.bukang.payout.dto.PayoutDto;
 import com.bukang.payout.dto.PayoutItemDto;
 import com.bukang.payout.dto.PayoutSummaryDto;
+import com.bukang.payout.dto.PayoutTaxInvoiceDto;
 import com.bukang.payout.dto.SellerPayoutHoldDto;
 import com.bukang.payout.dto.SellerRecoveryDto;
+import com.bukang.payout.dto.SellerSalesReportDto;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -39,7 +41,7 @@ import lombok.RequiredArgsConstructor;
  * 회원 ID(X-Member-Id)를 회원 서비스에 물어 판매자 ID(판매자 신청서 ID)로 바꾸고, 그 판매자의 기록만 돌려준다.
  * 두 값은 다른 번호라 그대로 쓰면 남의 정산이 보인다. 승인된 판매자가 아니면 403, 탈퇴한 회원은 404다 (PayoutSellerFacade)
  */
-@Tag(name = "PayoutSeller", description = "정산 요약, 정산 내역, 건별 정산, 지급보류 내역, 회수 내역 조회 API (판매자)")
+@Tag(name = "PayoutSeller", description = "정산 요약, 정산 내역, 건별 정산, 지급보류 내역, 회수 내역, 세금계산서, 월 매출 참고 자료 조회 API (판매자)")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/payout/seller")
@@ -263,5 +265,74 @@ public class ApiV1PayoutSellerController {
 	) {
 		List<SellerRecoveryDto> claims = payoutSellerFacade.claims(memberId, from, to);
 		return ResponseEntity.ok(RsData.of(HttpStatus.OK, "회수 내역을 조회했습니다.", claims));
+	}
+
+	@GetMapping("/tax-invoices")
+	@Operation(summary = "수수료 세금계산서 목록 조회 (BUK-246)",
+		description = "플랫폼 수수료 세금계산서를 최근 공급 월부터 돌려준다. 공급 월(지급 완료월)마다 한 장이고, "
+			+ "매달 1일에 지난달 치를 발행한다. 발행에 실패하면 다음 날 다시 발행한다. "
+			+ "공급받는자 정보는 발행 당시 값으로 고정된다. 비사업자 판매자는 세금계산서가 없어 빈 목록이다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "조회 성공 (없으면 빈 목록)",
+			content = @Content(examples = @ExampleObject(value = PayoutSellerApiExamples.TAX_INVOICES_SUCCESS))),
+		@ApiResponse(responseCode = "400", description = "회원 ID 형식 오류 또는 회원 ID가 0 이하",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "회원 ID 형식 오류", value = PayoutSellerApiExamples.INVALID_VALUE_TYPE),
+				@ExampleObject(name = "회원 ID가 0 이하", value = PayoutSellerApiExamples.INVALID_MEMBER_ID)
+			})),
+		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = PayoutSellerApiExamples.LOGIN_REQUIRED))),
+		@ApiResponse(responseCode = "403", description = "판매자 신청이 없거나 대기 · 반려 상태",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = PayoutSellerApiExamples.SELLER_NOT_APPROVED))),
+		@ApiResponse(responseCode = "404", description = "존재하지 않거나 탈퇴한 회원",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = PayoutSellerApiExamples.MEMBER_NOT_FOUND))),
+		@ApiResponse(responseCode = "503", description = "회원 서비스에서 판매자 정보를 확인하지 못함",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = PayoutSellerApiExamples.SELLER_LOOKUP_UNAVAILABLE)))
+	})
+	public ResponseEntity<RsData<List<PayoutTaxInvoiceDto>>> taxInvoices(
+		@LoginMemberId long memberId
+	) {
+		List<PayoutTaxInvoiceDto> invoices = payoutSellerFacade.taxInvoices(memberId);
+		return ResponseEntity.ok(RsData.of(HttpStatus.OK, "세금계산서를 조회했습니다.", invoices));
+	}
+
+	@GetMapping("/sales-report")
+	@Operation(summary = "월 매출 참고 자료 조회 (BUK-246)",
+		description = "정산 생성일이 그 달인 판매 줄에서 판매 취소 줄을 뺀 매출 합계를 돌려준다(참가권, 키트 포함). "
+			+ "과세 · 면세 판단은 판매자 몫이라, 과세 사업자일 때의 공급가액 · 세액(합계 × 10/110, 원 미만 버림)을 함께 준다. "
+			+ "부가세 신고 참고용이며 판매가 없으면 모두 0이다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "조회 성공",
+			content = @Content(examples = @ExampleObject(value = PayoutSellerApiExamples.SALES_REPORT_SUCCESS))),
+		@ApiResponse(responseCode = "400", description = "월 없음, 값 형식 오류 또는 회원 ID가 0 이하",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "월 없음", value = PayoutSellerApiExamples.MISSING_PARAMETER),
+				@ExampleObject(name = "월 · 회원 ID 형식 오류", value = PayoutSellerApiExamples.INVALID_VALUE_TYPE),
+				@ExampleObject(name = "회원 ID가 0 이하", value = PayoutSellerApiExamples.INVALID_MEMBER_ID)
+			})),
+		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = PayoutSellerApiExamples.LOGIN_REQUIRED))),
+		@ApiResponse(responseCode = "403", description = "판매자 신청이 없거나 대기 · 반려 상태",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = PayoutSellerApiExamples.SELLER_NOT_APPROVED))),
+		@ApiResponse(responseCode = "404", description = "존재하지 않거나 탈퇴한 회원",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = PayoutSellerApiExamples.MEMBER_NOT_FOUND))),
+		@ApiResponse(responseCode = "503", description = "회원 서비스에서 판매자 정보를 확인하지 못함",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = PayoutSellerApiExamples.SELLER_LOOKUP_UNAVAILABLE)))
+	})
+	public ResponseEntity<RsData<SellerSalesReportDto>> salesReport(
+		@LoginMemberId long memberId,
+		@Parameter(description = "매출 월 (yyyy-MM)", example = "2026-10")
+		@RequestParam @DateTimeFormat(pattern = "yyyy-MM") YearMonth month
+	) {
+		SellerSalesReportDto report = payoutSellerFacade.salesReport(memberId, month);
+		return ResponseEntity.ok(RsData.of(HttpStatus.OK, "월 매출 참고 자료를 조회했습니다.", report));
 	}
 }
