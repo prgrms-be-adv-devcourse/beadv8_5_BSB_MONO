@@ -25,16 +25,16 @@ import {
   useIdempotencyKey,
   type productModel,
 } from '@/shared/api'
-import { cn, formatWon, useTrackOnce } from '@/shared/lib'
+import { formatWon, useTrackOnce } from '@/shared/lib'
 import {
   Alert,
   BottomCta,
   Button,
+  buttonClassName,
   Checkbox,
   Chip,
   Divider,
   EmptyState,
-  FOCUS_RING,
   KeyValue,
   PhoneField,
   Radio,
@@ -56,7 +56,7 @@ import {
 } from '../model/participant-form'
 import { ApplyProgress } from './ApplyProgress'
 
-const LINK = cn('rounded-sm text-body2-medium text-text-brand', FOCUS_RING)
+const LINK = buttonClassName({ variant: 'ghost', size: 's' })
 
 type KitGroup = productModel.KitOptionGroupDto
 
@@ -328,7 +328,7 @@ function ParticipantForm({
               title="참가자 정보"
               aside={
                 <Link href="/me/edit" className={LINK}>
-                  회원 정보에서 바꾸기 ›
+                  회원 정보에서 바꾸기
                 </Link>
               }
             >
@@ -445,9 +445,6 @@ function ParticipantForm({
                   label={<span className="font-bold">[필수] 개인정보 제3자 제공 동의</span>}
                 />
               </div>
-              <p className="text-caption-regular text-text-tertiary">
-                입력한 정보는 다음 신청 때 자동으로 채워져요.
-              </p>
               <p className="text-caption-regular text-text-tertiary">
                 참가권은 다른 사람에게 양도할 수 없어요. 꼭 본인 정보로 신청해 주세요.
               </p>
