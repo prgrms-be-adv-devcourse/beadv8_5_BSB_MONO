@@ -39,7 +39,7 @@ Prometheus에는 로그인 기능이 없어 Caddy가 비밀번호를 확인합�
 | `Caddyfile` | 주소별로 넘기기, https 인증서, Prometheus 비밀번호 |
 | `prometheus.yml` | 자기 자신만 가져감. 운영 지표의 job 이름은 수집기 설정이 정함 |
 | `grafana/provisioning/` | 데이터 소스(uid `prometheus`)와 대시보드 폴더를 시작할 때 등록 |
-| `fetch-dashboards.sh` | grafana.com 대시보드 4개를 고정 버전으로 받아 `grafana/dashboards/`에 둠 (git 제외) |
+| `fetch-dashboards.sh` | grafana.com 대시보드 5개를 고정 버전으로 받아 `grafana/dashboards/`에 둠 (git 제외) |
 | `setup.sh` | 처음 한 번: swap, Docker, `.env`, Prometheus 비밀번호·해시(`secrets/`, git 제외), 대시보드 받기 |
 | `.env.example` | 도메인과 Grafana 관리자 비밀번호 키 |
 
@@ -48,6 +48,7 @@ Prometheus에는 로그인 기능이 없어 Caddy가 비밀번호를 확인합�
 | JVM (Micrometer) | 4701 | Spring 앱 메모리·GC·스레드. 위쪽 `application`에서 서비스를 고름 |
 | Node Exporter Full | 1860 | 메인·보조 EC2의 CPU·메모리·디스크 |
 | MySQL Exporter Quickstart | 14057 | MySQL 접속 수, 쿼리 |
+| Elasticsearch Exporter Quickstart | 14191 | ES 힙·GC, 검색 지연, 거부된 요청 |
 | k6 Prometheus | 19665 | 부하 테스트 결과 |
 
 ## 처음 준비

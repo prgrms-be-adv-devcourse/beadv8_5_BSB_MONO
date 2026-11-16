@@ -15,6 +15,7 @@ DASHBOARDS=(
 	"4701:10:jvm-micrometer"       # Spring 앱 JVM (메모리, GC, 스레드). application 태그로 서비스를 고른다
 	"1860:46:node-exporter-full"   # 서버 CPU·메모리·디스크·네트워크 (메인·보조 EC2)
 	"14057:1:mysql"                # MySQL 접속 수, 쿼리, 느린 쿼리
+	"14191:1:elasticsearch"        # Elasticsearch 힙·GC, 검색 지연, 거부된 요청 (보조 EC2)
 	"19665:3:k6"                   # k6 부하 테스트 결과 (remote write로 보낸 지표)
 )
 
