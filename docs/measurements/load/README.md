@@ -39,6 +39,6 @@ LABEL=b REP=1 OUT=/tmp/orderload ./run.sh
 
 ## 다른 모니터링 환경에서 쓰기
 
-- 주문은 `MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE=health,prometheus` 환경변수를 주면 `/actuator/prometheus`를 열어요. 기본은 health만 열려요.
+- 주문의 `/actuator/prometheus`는 common `observability.yaml`이 기본으로 열어요(health, prometheus). compose의 `MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE`는 같은 값을 한 번 더 적어 둔 거예요.
 - 그 환경의 Prometheus에 `prometheus.yml`의 `order` 수집 설정을 더하고, `order-pay.js`를 `BASE`만 바꿔 돌리면 돼요.
 - 회원 ID는 `X-Member-Id`로 바로 보내므로 게이트웨이 앞에서는 돌릴 수 없어요(게이트웨이가 헤더를 지워요).
