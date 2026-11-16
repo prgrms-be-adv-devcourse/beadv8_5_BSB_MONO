@@ -4,12 +4,15 @@ import static jakarta.persistence.CascadeType.ALL;
 import static jakarta.persistence.EnumType.STRING;
 import static lombok.AccessLevel.PROTECTED;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
 import org.hibernate.annotations.BatchSize;
+import org.hibernate.annotations.ColumnDefault;
 
 import com.bukang.common.global.jpa.entity.BaseIdAndTime;
 import com.bukang.common.shared.order.event.OrderItemRefundReason;
@@ -59,11 +62,16 @@ import lombok.NoArgsConstructor;
 		// 취소된 대회의 주문 찾기 (일괄 환불, PRO-135)
 		@Index(name = "idx_order_race", columnList = "race_id, id"),
 		// 관리자 주문번호 검색 (BUK-26). 주문 ID 아래 16비트로 만들어 유일하다고 보장하지 않으므로 unique는 걸지 않는다
-		@Index(name = "idx_order_no", columnList = "order_no")
+		@Index(name = "idx_order_no", columnList = "order_no"),
+		// 오래 남은 결제 중 주문 찾기 (결제 재확인 배치, BUK-232)
+		@Index(name = "idx_order_paying", columnList = "status, pay_started_at")
 	}
 )
 public class Order extends BaseIdAndTime {
 	private static final DateTimeFormatter NO_DATE = DateTimeFormatter.ofPattern("yyyyMMdd");
+	// 결제 중 주문은 결제 기한에서 이만큼 더 기다린 뒤 만료 정리가 끝낸다 (BUK-232, 추천값(미확정))
+	// 그 사이 결제 재확인 배치(15초마다)가 결과를 모르는 결제를 몇 번 더 맞춰 볼 수 있게 한다
+	public static final Duration PAYING_GRACE = Duration.ofMinutes(2);
 
 	// 주문 번호: OD-주문한 날-16진수 4자리 (예: OD-20261012-3F9A). 정산 ID(ST-)와 같은 모양, ID를 받은 뒤 정한다
 	@Column(name = "order_no", length = 30)
@@ -94,6 +102,16 @@ public class Order extends BaseIdAndTime {
 
 	@Column(name = "paid_at")
 	private LocalDateTime paidAt;
+
+	// 결제 중이 된 시각 (BUK-232). 결제 재확인 배치가 오래 남은 결제 중을 고르고, 결제 중에 머문 시간을 잰다
+	@Column(name = "pay_started_at")
+	private LocalDateTime payStartedAt;
+
+	// 이번 결제 중에 예치금·자리 판매를 부른 횟수 (요청 1번 + 재확인 배치). 한도를 넘으면 알림 로그를 남긴다
+	// 칸을 더하기 전에 만든 주문과 SQL로 넣는 행이 0을 받게 기본값을 둔다 (Flyway SQL과 같은 값)
+	@ColumnDefault("0")
+	@Column(name = "pay_attempts", nullable = false)
+	private int payAttempts;
 
 	// 주문 목록(PRO-43)에서 주문마다 상품을 따로 읽지 않도록 여러 주문의 상품을 한 번에 읽는다
 	@BatchSize(size = 100)
@@ -165,9 +183,42 @@ public class Order extends BaseIdAndTime {
 		return status == OrderStatus.PAID;
 	}
 
-	// 결제 기한이 지난 결제 대기 주문인지 (만료 정리 대상, OrderExpiryUseCase). 기한 시각부터 지난 것으로 본다
+	public boolean isPaying() {
+		return status == OrderStatus.PAYING;
+	}
+
+	// 만료 정리 대상인지 (OrderExpiryUseCase). 결제 대기는 기한 시각부터, 결제 중은 기한 + 여유(PAYING_GRACE)부터 지난 것으로 본다
 	public boolean isOverdue(LocalDateTime now) {
-		return status == OrderStatus.CREATED && !now.isBefore(paymentDueAt);
+		return status == OrderStatus.CREATED && !now.isBefore(paymentDueAt)
+			|| status == OrderStatus.PAYING && !now.isBefore(paymentDueAt.plus(PAYING_GRACE));
+	}
+
+	/**
+	 * 판매 수를 세고 고른 옵션을 남긴 트랜잭션에서 결제 중으로 바꾸고 커밋한다 (BUK-232). 결제 가능 확인(checkPayable)은 부르는 쪽이 먼저 한다
+	 * 그 뒤 예치금·자리 판매를 잠금 밖에서 부른다
+	 */
+	public void startPaying(LocalDateTime startedAt) {
+		if (status != OrderStatus.CREATED) {
+			throw new OrderNotPayableException(
+				"결제할 수 없는 주문입니다(현재 상태: %s).".formatted(status.getLabel()));
+		}
+		this.status = OrderStatus.PAYING;
+		// DB(datetime(6))에 저장된 값과 같게 맞춘다. 되돌리기가 같은 결제 시도인지 이 값으로 가린다
+		this.payStartedAt = startedAt.truncatedTo(ChronoUnit.MICROS);
+		this.payAttempts = 1;
+	}
+
+	// 결제 재확인 배치가 다시 부르기 전에 센다. 센 뒤의 횟수를 돌려준다
+	public int countPayAttempt() {
+		return ++payAttempts;
+	}
+
+	// 예치금이 확실히 거절했거나 자리 기한이 지나 결제 중을 풀고 결제 대기로 되돌린다. 판매 수·옵션은 부르는 쪽이 되돌린다
+	public void revertPaying() {
+		if (status != OrderStatus.PAYING) {
+			throw new IllegalStateException("결제 중인 주문만 되돌릴 수 있습니다(현재 상태: %s).".formatted(status.getLabel()));
+		}
+		this.status = OrderStatus.CREATED;
 	}
 
 	// 결제하지 않고 기한이 지났다. 예치금 결제 취소를 부른 뒤에 바꾼다 (OrderExpiryUseCase)
@@ -175,7 +226,7 @@ public class Order extends BaseIdAndTime {
 	public void expire(LocalDateTime now) {
 		if (!isOverdue(now)) {
 			throw new IllegalStateException(
-				"결제 기한이 지난 결제 대기 주문만 만료할 수 있습니다(현재 상태: %s).".formatted(status.getLabel()));
+				"결제 기한이 지난 결제 대기·결제 중 주문만 만료할 수 있습니다(현재 상태: %s).".formatted(status.getLabel()));
 		}
 		this.status = OrderStatus.EXPIRED;
 		publishEvent(new OrderExpiredEvent(getId(), participationId()));
@@ -185,8 +236,9 @@ public class Order extends BaseIdAndTime {
 	// 키트가 있으면 주문 상품을 한 상자로 보낼 발송 대기 배송을 만든다 (BUK-6)
 	// kitShippingAddress는 참가 신청의 배송지다. 키트가 없는 종목은 신청서에 배송지를 남기지 않아 null이다
 	// (ParticipationApplyUseCase.checkShippingAddress가 신청·수정 때 키트 여부에 맞춰 넣고 뺀다)
+	// 옛 결제 흐름(order.pay.split.enabled=false)은 결제 대기에서, 나눈 결제(BUK-232)는 결제 중에서 바꾼다
 	public void markPaid(LocalDateTime paidAt, ShippingAddress kitShippingAddress) {
-		if (status != OrderStatus.CREATED) {
+		if (status != OrderStatus.CREATED && status != OrderStatus.PAYING) {
 			throw new OrderNotPayableException(
 				"결제할 수 없는 주문입니다(현재 상태: %s).".formatted(status.getLabel()));
 		}

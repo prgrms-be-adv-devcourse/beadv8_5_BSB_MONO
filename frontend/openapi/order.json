@@ -7449,6 +7449,172 @@
         }
       }
     },
+    "/api/v1/order/seller/orders/summary": {
+      "get": {
+        "tags": [
+          "SellerOrder"
+        ],
+        "summary": "기간 판매 합계",
+        "description": "결제일이 from~to(종료일 포함, 한 번에 12개월까지)인 판매자 대회 참가권 중 결제 완료·취소 중인 것의 장수와 결제 금액 합을 돌려준다. 정산이 판매를 세는 기준과 같다(취소 중은 환불이 거절되면 결제 완료로 돌아오므로 판매로 센다). 취소된 참가권과 결제 전 주문은 빠진다. 판매자 AI 「이번 달 판매액」이 쓴다.",
+        "operationId": "summarizeSellerSales",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "조회 시작일 (결제일)",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-11-01"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "조회 종료일 (이날 결제까지 포함)",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-11-16"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "조회 성공 (판매가 없으면 0)",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "판매 합계를 조회했습니다.",
+                  "data": {
+                    "soldCount": 42,
+                    "soldAmount": 2310000
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "기간 없음·형식 오류, 기간 오류, 회원 ID 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "기간 없음": {
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "필수 요청 값(from)이 없습니다.",
+                      "data": null
+                    }
+                  },
+                  "날짜 형식": {
+                    "description": "없는 상태·숫자 아닌 값·날짜 형식",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "요청 값의 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  },
+                  "시작일이 종료일보다 늦음": {
+                    "description": "시작일이 종료일보다 늦음",
+                    "value": {
+                      "status": 400,
+                      "code": "ORDER_INVALID_SEARCH_PERIOD",
+                      "message": "조회 시작일이 종료일보다 늦습니다.",
+                      "data": null
+                    }
+                  },
+                  "기간이 12개월 넘음": {
+                    "description": "기간이 12개월 넘음",
+                    "value": {
+                      "status": 400,
+                      "code": "ORDER_INVALID_SEARCH_PERIOD",
+                      "message": "조회 기간은 한 번에 12개월까지입니다.",
+                      "data": null
+                    }
+                  },
+                  "회원 ID가 0 이하": {
+                    "description": "회원 ID가 0 이하",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "회원 ID가 올바르지 않습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "code": "LOGIN_REQUIRED",
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "승인된 판매자가 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 403,
+                  "code": "ORDER_SELLER_FORBIDDEN",
+                  "message": "승인된 판매자만 쓸 수 있습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "판매자 확인을 아직 쓸 수 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 503,
+                  "code": "ORDER_EXTERNAL_SERVICE_UNAVAILABLE",
+                  "message": "판매자 기능을 아직 쓸 수 없습니다. 잠시 뒤 다시 시도해주세요.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/order/seller/orders": {
       "get": {
         "tags": [
