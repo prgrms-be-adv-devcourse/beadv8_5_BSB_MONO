@@ -414,14 +414,13 @@ class KitDeliveryTest {
 	}
 
 	/**
-	 * BUK-234 재현: 배포 중 주문 서버 두 대가 같은 시각에 조회 배치를 돌리면 조회 멈춤 알림이 두 번 나간다
-	 * 두 쓰레드가 조회 대상을 다 읽은 뒤에 Delivery Tracker를 부르게 맞춘다. 결과를 남길 때 주문을 잠그지만,
-	 * Shipment.applyTracking이 이미 멈춘 배송(다음 조회 시각 없음)에도 다시 STOPPED를 돌려줘 두 번째 서버도 알린다
-	 * 고치면(이미 멈췄으면 TRACKED) times(2)를 times(1)로 바꾼다
+	 * BUK-234: 배포 중 주문 서버 두 대가 같은 시각에 조회 배치를 돌려도 조회 멈춤 알림은 한 번이다
+	 * 두 쓰레드가 조회 대상을 다 읽은 뒤에 Delivery Tracker를 부르게 맞춘다. 결과는 주문을 잠그고 남기므로 뒤쪽은
+	 * 앞쪽이 멈춘 배송(다음 조회 시각 없음)을 보고 건너뛴다 (고치기 전에는 두 번 나갔다)
 	 */
 	@Test
-	@DisplayName("[BUK-234 문제] 두 서버가 함께 조회 배치를 돌리면 조회 멈춤 알림이 판매자에게 두 번 나간다")
-	void twoServersNotifyTrackingStoppedTwice() throws Exception {
+	@DisplayName("두 서버가 함께 조회 배치를 돌려도 조회 멈춤 알림은 판매자에게 한 번만 나간다 (BUK-234)")
+	void twoServersNotifyTrackingStoppedOnce() throws Exception {
 		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().minusDays(1)));
 		long orderId = paidOrder();
 		ship(itemIdOf(orderId));
@@ -448,7 +447,7 @@ class KitDeliveryTest {
 		}
 
 		assertThat(shipmentOf(orderId).getNextTrackingAt()).isNull();
-		verify(notificationSender, times(2)).send(any());
+		verify(notificationSender, times(1)).send(any());
 	}
 
 	private Shipment.TrackingOutcome applyKitTracking(long orderId, long shipmentId, String trackingNumber,
