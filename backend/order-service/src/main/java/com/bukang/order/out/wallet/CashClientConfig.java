@@ -21,11 +21,13 @@ public class CashClientConfig {
 	public HttpWalletAdapter httpWalletAdapter(
 		@Value("${order.clients.cash.base-url}") String baseUrl,
 		@Value("${order.clients.timeout}") Duration timeout,
+		@Value("${order.clients.cash.max-concurrent-pay}") int maxConcurrentPay,
+		@Value("${order.clients.cash.pay-acquire-timeout}") Duration payAcquireTimeout,
 		@Value("${internal.api-key}") String internalKey
 	) {
 		// cash 내부 API는 내부 인증 키가 없으면 401로 막는다
 		return new HttpWalletAdapter(InternalHttpClients.create(baseUrl, timeout).mutate()
 			.defaultHeader(InternalKeyHeader.NAME, internalKey)
-			.build());
+			.build(), maxConcurrentPay, payAcquireTimeout);
 	}
 }

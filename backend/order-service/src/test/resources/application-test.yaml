@@ -2,7 +2,9 @@
 spring:
   datasource:
     # MySQL 대신 H2 인메모리 DB 사용 (MySQL 문법 호환 모드)
-    url: jdbc:h2:mem:bukang-order-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
+    # 컨텍스트마다 다른 DB를 쓴다. 이름이 같으면 캐시된 컨텍스트들이 한 DB를 같이 써서,
+    # 한 컨텍스트가 닫힐 때 create-drop이 다른 컨텍스트의 표까지 지운다 (dev CI 11/16, Table not found)
+    url: jdbc:h2:mem:bukang-order-test-${random.uuid};MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
     username: sa
     password:
     driver-class-name: org.h2.Driver

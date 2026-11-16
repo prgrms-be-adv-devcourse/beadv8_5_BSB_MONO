@@ -123,7 +123,10 @@ export function AxBriefing({ screen, askHref, basisHref, className }: AxBriefing
         <div className="flex flex-col gap-3">
           <p className="text-caption-medium text-text-secondary">평소와 다른 지표</p>
           {metrics.map((metric) => (
-            <div key={metric.label} className="flex flex-col gap-1 rounded-lg bg-bg-subtle p-4">
+            <div
+              key={metric.label}
+              className="flex flex-col gap-1 rounded-lg bg-bg-surface p-4 inset-ring inset-ring-border-default"
+            >
               <span className="text-caption-regular text-text-secondary">{metric.label}</span>
               <span className="flex items-baseline gap-2">
                 <span className="text-title2">{metric.value}</span>

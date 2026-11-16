@@ -431,7 +431,7 @@ describe('RaceApplyPage 대기열 남은 시간 띠', () => {
     renderPage({}, { previewRemainingSeconds: 583 })
 
     expect(screen.getByRole('timer')).toHaveTextContent(
-      '내 차례예요. 시간 안에 신청과 결제를 마쳐 주세요09:43',
+      '남은 시간차례가 됐어요. 시간 안에 신청과 결제를 마쳐 주세요09:43',
     )
   })
 
@@ -460,7 +460,7 @@ describe('RaceApplyPage 대기열 남은 시간 띠', () => {
       renderPage({}, { race: { ...RACE, id: '1' } })
 
       expect(await screen.findByRole('timer')).toHaveTextContent(
-        '내 차례예요. 시간 안에 신청과 결제를 마쳐 주세요00:02',
+        '남은 시간차례가 됐어요. 시간 안에 신청과 결제를 마쳐 주세요00:02',
       )
       await act(() => vi.advanceTimersByTimeAsync(2000))
       await vi.waitFor(() =>

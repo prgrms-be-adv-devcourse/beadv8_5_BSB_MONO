@@ -28,7 +28,7 @@ class CashClientConfigInternalKeyTest {
 	@DisplayName("예치금 서비스 내부 API를 부를 때 내부 인증 키 헤더를 붙인다")
 	void sendsInternalKey(CapturedOutput output) throws IOException {
 		String key = sendAndCaptureKey("{}", output, baseUrl -> new CashClientConfig()
-			.httpWalletAdapter(baseUrl, TIMEOUT, "key-1")
+			.httpWalletAdapter(baseUrl, TIMEOUT, 4, TIMEOUT, "key-1")
 			.cancelPayment(1, 7));
 
 		assertThat(key).isEqualTo("key-1");

@@ -107,7 +107,7 @@ export const getFindCartResponseMock = (): RsDataCartDto => ({"status":200,"mess
 
 export const getRemoveItemResponseMock = (): RsDataCartDto => ({"status":200,"message":"장바구니에서 뺐습니다.","data":{"memberId":1,"items":[]}})
 
-export const getSummarizeSellerSalesResponseMock = (): RsDataSellerSalesSummaryDto => ({"status":200,"message":"판매 합계를 조회했습니다.","data":{"soldCount":42,"soldAmount":2310000}})
+export const getSummarizeSellerSalesResponseMock = (): RsDataSellerSalesSummaryDto => ({"status":200,"message":"판매 합계를 조회했습니다.","data":{"soldCount":42,"soldAmount":2310000,"canceledCount":3,"refundedAmount":165000}})
 
 export const getFindSellerOrdersResponseMock = (): RsDataSellerOrderPageDto => ({"status":200,"message":"주문 목록을 조회했습니다.","data":{"orders":[{"orderItemId":12,"orderId":10,"orderNo":"OD-20261016-000C","orderedAt":"2026-10-16T10:15:00","paidAt":"2026-10-16T10:17:30","raceId":1,"raceCourseId":1,"courseName":"10K","status":"PAID","participantName":"김러너","tshirtSize":null,"kitOptions":[{"kitOptionId":12,"name":"T-shirt","value":"L"}],"partyId":3}],"page":0,"size":20,"totalElements":1,"totalPages":1}})
 

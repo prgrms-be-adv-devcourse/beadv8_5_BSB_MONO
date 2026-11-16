@@ -65,12 +65,12 @@ class HttpOpsAdapterTest {
 	void sales() {
 		server.expect(requestTo("http://svc/api/v1/order/seller/orders/summary?from=2026-11-01&to=2026-11-16"))
 			.andExpect(header("X-Member-Id", "3"))
-			.andRespond(ok("{\"soldCount\":42,\"soldAmount\":2310000}"));
+			.andRespond(ok("{\"soldCount\":42,\"soldAmount\":2310000,\"canceledCount\":3,\"refundedAmount\":165000}"));
 		server.expect(requestTo("http://svc/api/v1/order/seller/orders/summary?from=2026-11-01&to=2026-11-16"))
-			.andRespond(ok("{\"soldCount\":42}"));
+			.andRespond(ok("{\"soldCount\":42,\"soldAmount\":2310000,\"canceledCount\":3}"));
 
 		assertThat(adapter.salesSummary(3L, LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 16)))
-			.isEqualTo(new OpsPort.SalesSummary(42, 2310000));
+			.isEqualTo(new OpsPort.SalesSummary(42, 2310000, 3, 165000));
 		assertThatThrownBy(() -> adapter.salesSummary(3L, LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 16)))
 			.isInstanceOf(RuntimeException.class);
 		server.verify();

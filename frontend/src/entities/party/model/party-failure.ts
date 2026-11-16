@@ -38,3 +38,9 @@ export function individualParticipationId(error: unknown): number | undefined {
 export function isCrewSeatShortage(error: unknown) {
   return error instanceof ApiError && error.code === 'ORDER_PARTY_CREW_SEAT_SHORTAGE'
 }
+
+/** 결제율 미달로 크루가 파티를 만들 수 없을 때(403) 서버가 data.endAt으로 주는 제한 끝 시각 */
+export function crewPartyRestrictedEndAt(error: unknown): string | undefined {
+  if (!(error instanceof ApiError) || error.code !== 'ORDER_CREW_PARTY_RESTRICTED') return
+  return (error.body as { data?: { endAt?: string } })?.data?.endAt
+}
