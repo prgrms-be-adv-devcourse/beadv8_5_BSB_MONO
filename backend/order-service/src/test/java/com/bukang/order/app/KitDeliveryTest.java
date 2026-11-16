@@ -72,6 +72,7 @@ import com.bukang.order.out.QueueAdmissionRepository;
 import com.bukang.order.out.ShipmentRepository;
 import com.bukang.order.out.delivery.DeliveryTrackingResult;
 import com.bukang.order.out.race.RaceCourseInfo;
+import com.bukang.order.out.race.RaceSellerPort;
 import com.bukang.order.support.QueueEntry;
 import com.bukang.order.support.StubDeliveryTrackingPort;
 import com.bukang.order.support.StubDeliveryTrackingPortConfig;
@@ -158,6 +159,9 @@ class KitDeliveryTest {
 
 	@MockitoSpyBean
 	private NotificationKafkaSender notificationSender;
+
+	@MockitoSpyBean
+	private RaceSellerPort raceSellerPort;
 
 	@Autowired
 	private KitShipNoticeUseCase kitShipNoticeUseCase;
@@ -340,6 +344,8 @@ class KitDeliveryTest {
 		verify(notificationSender, times(1)).send(sent.capture());
 		assertThat(sent.getValue().memberId()).isEqualTo(SELLER_ID);
 		assertThat(sent.getValue().kind()).isEqualTo(NotificationKind.KIT_TRACKING_STOPPED);
+		// 판매자 ID가 아니라 주문의 대회 ID로 판매자를 찾는다 (BUK-237)
+		verify(raceSellerPort).findSellerMemberId(RACE_ID);
 
 		// 멈춘 뒤에는 부르지 않고 다시 알리지도 않는다
 		int calls = deliveryTrackingPort.calls().size();
@@ -570,6 +576,92 @@ class KitDeliveryTest {
 		assertThat(kitDeliveryUseCase.summarize(SELLER_ID, null, LocalDateTime.now()).getShipping()).isEqualTo(1);
 		kitDeliveryUseCase.completeDelivery(SELLER_ID, itemId, LocalDateTime.now());
 		assertThat(shipmentOf(orderId).getStatus()).isEqualTo(ShipmentStatus.DELIVERED);
+	}
+
+	@Test
+	@DisplayName("구매자는 배송 중에도 키트 수령을 확인할 수 있고, 두 번 눌러도 처음 시각 그대로다. 확인한 참가권은 취소할 수 없다 (BUK-225)")
+	void confirmReceiptWhileShipping() throws Exception {
+		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().minusDays(1)));
+		long orderId = paidOrder();
+		long itemId = itemIdOf(orderId);
+		confirmReceipt(MEMBER_ID, orderId, itemId)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.message").value("아직 발송하지 않은 키트입니다."));
+		ship(itemId);
+		confirmReceipt(MEMBER_ID + 1, orderId, itemId).andExpect(status().isForbidden());
+		findOrder(orderId).andExpect(jsonPath("$.data.items[0].kitReceivedAt").isEmpty());
+
+		confirmReceipt(MEMBER_ID, orderId, itemId)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.kitDeliveryStatus").value("SHIPPING"))
+			.andExpect(jsonPath("$.data.kitReceivedAt").isNotEmpty());
+		LocalDateTime receivedAt = shipmentOf(orderId).getReceivedAt();
+		assertThat(receivedAt).isNotNull();
+		confirmReceipt(MEMBER_ID, orderId, itemId).andExpect(status().isOk());
+		assertThat(shipmentOf(orderId).getReceivedAt()).isEqualTo(receivedAt);
+		findOrder(orderId).andExpect(jsonPath("$.data.items[0].kitReceivedAt").isNotEmpty());
+
+		// 일정이 바뀌어 다시 환불할 수 있는 기간이어도, 수령을 확인했으면 환불을 부르지 않고 409로 막는다
+		raceCoursePort.put(StubRaceCoursePort.openCourse(COURSE_ID, RACE_ID, 14, null, LocalDate.now().minusDays(1),
+			LocalDateTime.now()));
+		mockMvc.perform(post("/api/v1/order/orders/" + orderId + "/items/" + itemId + "/cancel")
+				.header("X-Member-Id", MEMBER_ID))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.message").value("키트 수령을 확인한 참가권은 취소할 수 없습니다."));
+		assertThat(walletPort.refundCalls()).isEmpty();
+		findOrder(orderId).andExpect(jsonPath("$.data.items[0].status").value("PAID"));
+	}
+
+	@Test
+	@DisplayName("발송 전에 취소한 키트와, 환불 결과를 기다리는 취소 중 참가권의 키트는 수령 확인을 409로 막는다 (BUK-225)")
+	void confirmReceiptRejectedWhenCanceled() throws Exception {
+		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().plusDays(1)));
+		long readyOrderId = paidOrder(MEMBER_ID);
+		long readyItemId = itemIdOf(readyOrderId);
+		mockMvc.perform(post("/api/v1/order/orders/" + readyOrderId + "/items/" + readyItemId + "/cancel")
+				.header("X-Member-Id", MEMBER_ID))
+			.andExpect(status().isOk());
+		confirmReceipt(MEMBER_ID, readyOrderId, readyItemId)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.message").value("발송 전에 취소된 키트입니다."));
+
+		// 보낸 뒤 일정 변경 환불 기간에 취소했는데 예치금 응답을 받지 못해 취소 중으로 남았다
+		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().minusDays(1)));
+		long orderId = paidOrder(MEMBER_ID + 1);
+		long itemId = itemIdOf(orderId);
+		ship(itemId);
+		raceCoursePort.put(StubRaceCoursePort.openCourse(COURSE_ID, RACE_ID, 14, null, LocalDate.now().minusDays(1),
+			LocalDateTime.now()));
+		walletPort.setRefundFails(true);
+		mockMvc.perform(post("/api/v1/order/orders/" + orderId + "/items/" + itemId + "/cancel")
+				.header("X-Member-Id", MEMBER_ID + 1))
+			.andExpect(status().isAccepted());
+		confirmReceipt(MEMBER_ID + 1, orderId, itemId)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.message").value("취소 처리 중인 참가권입니다. 잠시 뒤 주문 내역에서 확인해주세요."));
+		assertThat(shipmentOf(orderId).getReceivedAt()).isNull();
+	}
+
+	@Test
+	@DisplayName("배송 완료 7일이 지나도록 수령 확인이 없으면 배치가 한 번만 자동으로 확인하고, 7일 전이면 두지 않는다 (BUK-225)")
+	void autoConfirmReceiptAfterSevenDays() throws Exception {
+		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().minusDays(1)));
+		LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
+		long overdueOrderId = paidOrder(MEMBER_ID);
+		long recentOrderId = paidOrder(MEMBER_ID + 1);
+		long shippingOrderId = paidOrder(MEMBER_ID + 2);
+		for (long orderId : List.of(overdueOrderId, recentOrderId, shippingOrderId)) {
+			ship(itemIdOf(orderId));
+		}
+		kitDeliveryUseCase.completeDelivery(SELLER_ID, itemIdOf(overdueOrderId), now.minusDays(7));
+		kitDeliveryUseCase.completeDelivery(SELLER_ID, itemIdOf(recentOrderId), now.minusDays(7).plusMinutes(1));
+
+		assertThat(kitDeliveryUseCase.confirmOverdueReceipts(now)).isEqualTo(1);
+		assertThat(shipmentOf(overdueOrderId).getReceivedAt()).isEqualTo(now);
+		assertThat(shipmentOf(recentOrderId).getReceivedAt()).isNull();
+		assertThat(shipmentOf(shippingOrderId).getReceivedAt()).isNull();
+		assertThat(kitDeliveryUseCase.confirmOverdueReceipts(now.plusSeconds(30))).isZero();
+		assertThat(shipmentOf(overdueOrderId).getReceivedAt()).isEqualTo(now);
 	}
 
 	@Test
@@ -1002,6 +1094,11 @@ class KitDeliveryTest {
 
 	private OrderItemDto ship(long orderItemId) {
 		return kitDeliveryUseCase.ship(SELLER_ID, orderItemId, CARRIER_ID, TRACKING_NUMBER, LocalDateTime.now());
+	}
+
+	private ResultActions confirmReceipt(long memberId, long orderId, long orderItemId) throws Exception {
+		return mockMvc.perform(post("/api/v1/order/orders/" + orderId + "/items/" + orderItemId + "/kit-receipt")
+			.header("X-Member-Id", memberId));
 	}
 
 	private ResultActions findOrder(long orderId) throws Exception {

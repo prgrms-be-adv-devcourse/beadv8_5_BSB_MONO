@@ -2,6 +2,7 @@
 
 import {
   Children,
+  isValidElement,
   useCallback,
   useEffect,
   useRef,
@@ -187,7 +188,7 @@ export function Carousel({ label, children, autoPlayMs = 5000, className }: Caro
       >
         {slides.map((slide, i) => (
           <div
-            key={i}
+            key={slideKey(slide, i)}
             role="group"
             aria-roledescription="slide"
             aria-label={`${i + 1} / ${count}`}
@@ -205,9 +206,9 @@ export function Carousel({ label, children, autoPlayMs = 5000, className }: Caro
       </div>
       {count > 1 && (
         <div className="flex items-center gap-1.5">
-          {slides.map((_, i) => (
+          {slides.map((slide, i) => (
             <button
-              key={i}
+              key={slideKey(slide, i)}
               type="button"
               aria-label={`${i + 1}번째 배너 보기`}
               aria-current={i === index}
@@ -256,4 +257,9 @@ export function CarouselSlide({ image, chip, title, description }: CarouselSlide
       )}
     </div>
   )
+}
+
+// Children.toArray가 자식마다 붙인 key를 쓴다. 글자 자식처럼 key가 없을 때만 순서를 쓴다
+function slideKey(slide: ReactNode, i: number) {
+  return isValidElement(slide) && slide.key !== null ? slide.key : i
 }

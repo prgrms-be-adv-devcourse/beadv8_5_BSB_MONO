@@ -43,6 +43,9 @@ images:
   - name: bukang-notification-service
     newName: ghcr.io/prgrms-be-adv-devcourse/bukang-notification-service
     newTag: deploy-sha
+  - name: bukang-inquiry-service
+    newName: ghcr.io/prgrms-be-adv-devcourse/bukang-inquiry-service
+    newTag: deploy-sha
   - name: bukang-board-service
     newName: ghcr.io/prgrms-be-adv-devcourse/bukang-board-service
     newTag: deploy-sha

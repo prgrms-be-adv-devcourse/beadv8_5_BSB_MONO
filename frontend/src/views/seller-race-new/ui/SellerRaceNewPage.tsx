@@ -3,7 +3,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { isAfter, isBefore, parseISO, startOfToday } from 'date-fns'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Controller, useFieldArray, useForm, useWatch, type Resolver } from 'react-hook-form'
 
 import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
@@ -20,8 +20,6 @@ import {
   ImageCropDialog,
   ImageListDialog,
   ImageUpload,
-  Radio,
-  RadioGroup,
   TextField,
   useImageList,
   type ImageUploadValue,
@@ -120,7 +118,8 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
   const [dropped, setDropped] = useState<File | null>(null)
   const [intro, setIntro] = useState<ImageUploadValue[]>([])
   const [listOpen, setListOpen] = useState(false)
-  // 소개 이미지 미리보기 주소 → 원본 파일. 등록할 때 원본을 올린다
+  // 소개 이미지 미리보기 주소 → 원본 파일. 등록할 때 원본을 올린다.
+  // 목록 창의 미리보기 주소는 창에서 빼면 바로 해제돼, 저장한 목록이 쓸 주소는 이 화면이 따로 만들고 해제한다
   const [introFiles, setIntroFiles] = useState<Record<string, File>>({})
   const keepLocal: UploadImage = async (file, onProgress) => {
     const url = URL.createObjectURL(file)
@@ -128,14 +127,41 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
     onProgress(1)
     return url
   }
+  /** 저장한 소개 이미지(kept)가 쓰지 않는 주소를 해제한다 */
+  function releaseIntro(kept: ImageUploadValue[]) {
+    const used = new Set(kept.map((v) => v.url))
+    Object.keys(introFiles).forEach((url) => !used.has(url) && URL.revokeObjectURL(url))
+    setIntroFiles((prev) =>
+      Object.fromEntries(
+        Object.entries(prev).filter(([url]) => used.has(url) || !(url in introFiles)),
+      ),
+    )
+  }
+  // 화면을 떠날 때 남은 주소를 해제하려고 마지막 값을 들고 있는다
+  const latestIntroFiles = useRef(introFiles)
+  useEffect(() => {
+    latestIntroFiles.current = introFiles
+  }, [introFiles])
+  useEffect(() => {
+    const latest = latestIntroFiles
+    return () => Object.keys(latest.current).forEach((url) => URL.revokeObjectURL(url))
+  }, [])
+  // 대표 이미지는 바꾸거나 지우거나 화면을 떠나면 이전 주소를 해제한다
+  const coverUrl = cover[0]?.url
+  useEffect(() => {
+    if (coverUrl) return () => URL.revokeObjectURL(coverUrl)
+  }, [coverUrl])
   const list = useImageList({ upload: keepLocal, rules: { minWidth: 1080 } })
   const introError =
     intro.length > MAX_INTRO_IMAGES
       ? `소개 이미지는 ${MAX_INTRO_IMAGES}장까지 올릴 수 있어요.`
       : undefined
 
+  // 등록에 성공해 화면을 옮기는 동안에도 잠가 두 번 등록하지 않는다
+  const locked = registerRace.isPending || registerRace.isSuccess
   const submit = handleSubmit(
     (values) => {
+      if (locked) return
       if (!coverFile || introError) {
         if (!coverFile) setCoverError(RACE_FORM_ERRORS.coverRequired)
         tracking.formError(errorSections({}, true))
@@ -185,7 +211,7 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
       actions={
         <>
           <Button variant="secondary">미리보기</Button>
-          <Button type="submit" form={FORM_ID} loading={registerRace.isPending}>
+          <Button type="submit" form={FORM_ID} loading={locked}>
             등록하기
           </Button>
         </>
@@ -471,17 +497,6 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
             판매가 시작되면 옵션을 바꿀 수 없고 준비 수량만 늘릴 수 있어요.
           </p>
         </ConsoleCard>
-
-        <ConsoleCard title="공개 범위">
-          <RadioGroup defaultValue="public" className="flex-row gap-6">
-            <Radio value="public" label="전체 공개 (기본)" />
-            <Radio value="link" label="링크로만 공개" />
-          </RadioGroup>
-          <p className="text-caption-regular text-text-tertiary">
-            링크로만 공개하면 대회 목록 · 검색에 나오지 않아요. 링크로 들어온 회원은 신청할 수 있고,
-            링크가 퍼져도 막지 않아요.
-          </p>
-        </ConsoleCard>
       </form>
 
       <CourseAddDialog
@@ -502,17 +517,20 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
       />
       <ImageListDialog
         open={listOpen}
-        onOpenChange={setListOpen}
+        onOpenChange={(open) => {
+          if (!open) releaseIntro(intro)
+          setListOpen(open)
+        }}
         items={list.items}
         onFilesAdd={(files) => void list.add(files)}
         onRemove={list.remove}
         onMove={list.move}
         onSave={() => {
-          setIntro(
-            list.items
-              .filter((item) => item.status === 'done')
-              .map((item) => ({ id: item.id, url: item.url ?? item.previewUrl, name: item.name })),
-          )
+          const saved = list.items
+            .filter((item) => item.status === 'done')
+            .map((item) => ({ id: item.id, url: item.url ?? item.previewUrl, name: item.name }))
+          setIntro(saved)
+          releaseIntro(saved)
           setListOpen(false)
         }}
       />

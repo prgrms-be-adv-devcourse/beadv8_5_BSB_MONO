@@ -35,12 +35,14 @@ export function BirthDateField({
   ref,
 }: BirthDateFieldProps) {
   const inputRef = useRef<HTMLInputElement | null>(null)
-  const [initial, setInitial] = useState('')
+  // 처음 값(숨은 input의 DOM 값)과 오늘 날짜는 렌더 중에 읽을 수 없어 마운트 뒤 한 번 함께 읽는다
+  const [mounted, setMounted] = useState<{ initial: string; today: Date }>()
   useEffect(() => {
-    setInitial(inputRef.current?.value ?? '')
+    setMounted({ initial: inputRef.current?.value ?? '', today: new Date() })
   }, [])
+  const initial = mounted?.initial ?? ''
 
-  const latest = parseBirth(latestJoinableBirth()) ?? new Date()
+  const latest = mounted && (parseBirth(latestJoinableBirth(mounted.today)) ?? mounted.today)
   const initialDate = parseBirth(initial) ?? undefined
 
   return (

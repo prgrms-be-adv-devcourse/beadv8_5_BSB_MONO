@@ -43,6 +43,9 @@ public record MyTicketDto(
 		example = "7") Long orderItemId,
 	@Schema(description = "주문 상품 상태 ORDERED(결제 대기) / PAID(결제 완료) / CANCELING(취소 중) / CANCELED(취소). "
 		+ "주문 전이면 null", example = "PAID") OrderItemStatus orderItemStatus,
+	@Schema(description = "신청을 취소한 시각 (BUK-229). 결제 뒤 취소는 환불까지 마친 시각이다. "
+		+ "취소가 아니면(취소 중 포함) null", example = "2026-11-13T09:30:00")
+	LocalDateTime canceledAt,
 	@Schema(description = "결제 금액. 주문 전이면 null", example = "50000") Long amount,
 	@Schema(description = "결제 때 고른 키트 옵션 (이름·값, 고른 순). 결제 전이거나 옵션이 없는 종목이면 빈 목록")
 	List<KitOptionChoiceDto> kitOptions,
@@ -50,6 +53,9 @@ public record MyTicketDto(
 		+ "결제 전이거나 키트가 없으면 null", example = "SHIPPING") KitDeliveryStatus kitDeliveryStatus,
 	@Schema(description = "택배사. 발송 전이면 null", example = "CJ대한통운") String kitCarrier,
 	@Schema(description = "송장 번호. 발송 전이면 null", example = "123456789012") String kitTrackingNumber,
+	@Schema(description = "키트 수령을 확인한 시각 (BUK-225). 구매자가 누르거나 배송 완료 7일 뒤 자동으로 채운다. "
+		+ "확인 전이면 null이고, 배송 중·배송 완료인데 null이면 [수령 확인]을 보인다. 확인한 참가권은 취소할 수 없다",
+		example = "2026-11-08T12:00:00") LocalDateTime kitReceivedAt,
 	@Schema(description = "파티 ID. 개인 신청이면 null", example = "1") Long partyId,
 	@Schema(description = "크루 ID. 크루 이름은 GET /api/v1/member/crews/me에서 찾는다. 개인 신청이면 null", example = "7")
 	Long crewId,

@@ -7,6 +7,7 @@ import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.convert.ApplicationConversionService;
 import org.springframework.boot.env.YamlPropertySourceLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.core.env.PropertySource;
@@ -16,7 +17,11 @@ import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
 
 class SellerLookupAdapterTest {
 	private final ApplicationContextRunner runner = new ApplicationContextRunner()
-		.withUserConfiguration(FakeSellerLookupAdapter.class, DisabledSellerLookupAdapter.class);
+		.withInitializer(context -> context.getBeanFactory()
+			.setConversionService(ApplicationConversionService.getSharedInstance()))
+		.withUserConfiguration(FakeSellerLookupAdapter.class, DisabledSellerLookupAdapter.class,
+			SellerClientConfig.class)
+		.withPropertyValues("order.clients.timeout=2s", "order.clients.member.base-url=http://localhost:8080");
 
 	@Test
 	@DisplayName("mode가 fake이거나 값이 없으면 가짜 어댑터가 회원 ID를 판매자 ID로 답한다")
@@ -43,12 +48,22 @@ class SellerLookupAdapterTest {
 	}
 
 	@Test
-	@DisplayName("운영(prod) 설정은 판매자 확인을 막아 둔다 (실제 어댑터를 붙이기 전까지)")
-	void prodProfileDisablesSeller() throws Exception {
+	@DisplayName("mode가 http면 회원 서비스를 부르는 실제 어댑터만 등록된다")
+	void http() {
+		runner.withPropertyValues("order.clients.seller.mode=http").run(context ->
+			assertThat(context).getBean(SellerLookupPort.class).isInstanceOf(HttpSellerLookupAdapter.class));
+	}
+
+	@Test
+	@DisplayName("운영(prod) 설정은 판매자 확인을 실제 회원 서비스에 묻는다 (BUK-237)")
+	void prodProfileUsesHttp() throws Exception {
 		List<PropertySource<?>> prod = new YamlPropertySourceLoader()
 			.load("prod", new ClassPathResource("application-prod.yaml"));
 
-		assertThat(prod).anySatisfy(source ->
-			assertThat(source.getProperty("order.clients.seller.mode")).isEqualTo("disabled"));
+		assertThat(prod).anySatisfy(source -> {
+			assertThat(source.getProperty("order.clients.seller.mode")).isEqualTo("http");
+			assertThat(source.getProperty("order.clients.member.base-url"))
+				.isEqualTo("http://bukang-member-service:8080");
+		});
 	}
 }

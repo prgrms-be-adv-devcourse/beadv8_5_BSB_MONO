@@ -70,7 +70,7 @@ public record PartyRaceStatusDto(
 	) {
 		public static MyParticipation from(Participation participation) {
 			return new MyParticipation(participation.getId(), participation.getParticipationType(),
-				participation.getStatus(), participation.getPaymentDueAt());
+				participation.getStatus(), participation.visiblePaymentDueAt());
 		}
 	}
 
