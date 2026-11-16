@@ -27,7 +27,7 @@ import {
 import { DayPicker, type DayButtonProps } from 'react-day-picker'
 import { ko as dayPickerKo } from 'react-day-picker/locale'
 
-import { cn } from '@/shared/lib'
+import { cn, useNow } from '@/shared/lib'
 
 import { Button } from '../button/Button'
 import { IconButton } from '../button/IconButton'
@@ -324,8 +324,13 @@ function WeekRow({
 // 피그마 DatePicker. 하루(single)·기간(range)·여러 날(multiple)을 고른다.
 // 한 달 보기는 react-day-picker가 표·키보드 이동·접근성을 맡고, 시안과 다른 기간 규칙·한 주 보기·연·월 휠은 직접 만든다.
 export function DatePicker(props: DatePickerProps) {
-  const { view = 'month', isDateDisabled, readOnly = false, footer, className } = props
-  const today = new Date()
+  // 렌더 중에 현재 시각을 읽으면 서버와 브라우저의 첫 화면이 어긋나, 마운트 뒤에 그린다
+  const today = useNow()
+  return today ? <DatePickerBody {...props} today={today} /> : null
+}
+
+function DatePickerBody(props: DatePickerProps & { today: Date }) {
+  const { view = 'month', isDateDisabled, readOnly = false, footer, className, today } = props
   const startMonth = props.startMonth ?? startOfMonth(addYears(today, -DEFAULT_YEARS))
   const endMonth = props.endMonth ?? endOfMonth(addYears(today, DEFAULT_YEARS))
 
