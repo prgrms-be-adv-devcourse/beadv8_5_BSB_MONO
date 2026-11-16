@@ -1,0 +1,13 @@
+# 모니터링 서버 Prometheus 설정 (BUK-259)
+# 운영 지표는 여기서 가져가지(Pull) 않는다. 메인 EC2의 수집기가 모아서 보낸다(remote write, compose.yml의 받기 기능)
+# 그래서 job 이름(gateway, member-service, redis 등)은 수집기 설정이 정한다. 로컬 backend/docker/prometheus/prometheus.yml과 같은 이름을 쓴다
+
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  # 이 Prometheus 자신의 상태만 가져간다 (저장량, 받기 오류 확인용)
+  # 보내오는 지표의 job 이름과 겹치지 않게 이름을 따로 짓는다
+  - job_name: monitoring-prometheus
+    static_configs:
+      - targets: [ "localhost:9090" ]
