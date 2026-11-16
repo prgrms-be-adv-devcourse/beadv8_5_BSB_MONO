@@ -59,10 +59,13 @@ public class SellerTools {
 		});
 	}
 
-	@Tool(description = "마지막 질문이 이번 달 판매액·판매 장수를 물을 때만 부른다(예: 「이번 달 얼마 팔았어?」). "
-		+ "참가자 수·신청자 명단이 아니므로 「참가자 몇 명이 신청했어?」에는 부르지 않는다. from~to: 이번 달 1일부터 오늘까지(한국 날짜, 결제일 기준). "
-		+ "soldCount: 그동안 결제된 참가권 장수, soldAmount: 그 결제 금액 합(원). "
-		+ "취소된 참가권은 빠지고, 환불을 처리 중인 참가권은 정산처럼 판매로 센다. 정산 예정액이나 입금액이 아니다")
+	@Tool(description = "마지막 질문이 이번 달 판매액·판매 장수나 이번 달 취소·환불 현황을 물을 때만 부른다"
+		+ "(예: 「이번 달 얼마 팔았어?」, 「환불 요청 들어온 거 있어?」, 「이번 달 취소 몇 건이야?」). "
+		+ "참가자 수·신청자 명단이 아니므로 「참가자 몇 명이 신청했어?」에는 부르지 않는다. from~to: 이번 달 1일부터 오늘까지(한국 날짜). "
+		+ "soldCount: 결제일이 이 기간인 참가권 장수, soldAmount: 그 결제 금액 합(원). "
+		+ "취소된 참가권은 판매에서 빠지고, 환불을 처리 중인 참가권은 정산처럼 판매로 센다. 정산 예정액이나 입금액이 아니다. "
+		+ "canceledCount: 취소를 마친 때가 이 기간인 참가권 장수(대회 취소 환불 포함), refundedAmount: 그 환불액 합(원). "
+		+ "환불을 처리 중인 참가권은 아직 취소로 세지 않는다")
 	public Object sellerMonthlySales(ToolContext toolContext) {
 		return monthlySales(AiToolTrace.of(toolContext), LocalDate.now(AiToolTrace.ZONE));
 	}
@@ -72,7 +75,8 @@ public class SellerTools {
 		return trace.run(AiSource.SELLER_SALES, () -> {
 			LocalDate from = today.withDayOfMonth(1);
 			OpsPort.SalesSummary sales = opsPort.salesSummary(trace.memberId(), from, today);
-			return new SalesResult(from, today, sales.soldCount(), sales.soldAmount());
+			return new SalesResult(from, today, sales.soldCount(), sales.soldAmount(), sales.canceledCount(),
+				sales.refundedAmount());
 		});
 	}
 
@@ -124,7 +128,8 @@ public class SellerTools {
 		long notListedCount) {
 	}
 
-	record SalesResult(LocalDate from, LocalDate to, long soldCount, long soldAmount) {
+	record SalesResult(LocalDate from, LocalDate to, long soldCount, long soldAmount, long canceledCount,
+		long refundedAmount) {
 	}
 
 	record HoldsResult(long heldPayoutCount, List<HoldLine> holds, int notListedCount, long olderHeldPayoutCount) {

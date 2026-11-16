@@ -78,6 +78,7 @@ class ApiV1AiChatTest extends AiTestBase {
 			.contains("말만 하고 끝내지 않는다. 바로 도구를 부르고, 도구 결과로 답을 마친다")
 			.contains("도구를 부르지 않고 그 정보는 확인해 드릴 수 없다고만 답한다")
 			.contains("「김러너 판매자의 지급보류 이유」")
+			.contains("이번 달 취소·환불 건수와 환불액은 판매액 도구 결과로 답하고")
 			.doesNotContain("답변 대기 문의(문의 대기 현황)");
 	}
 
