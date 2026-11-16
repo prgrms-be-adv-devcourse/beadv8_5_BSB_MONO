@@ -9,3 +9,13 @@ resources:
   # 앱의 비밀값 (Secret app-secret). secret.yaml.example을 secret.yaml로 복사해 채운다 (secret.yaml은 git에 올라가지 않는다)
   # 비밀이 아닌 설정은 base의 app-config.yaml(ConfigMap)이 맡는다. 두 곳에 같은 키를 두지 않는다
   - secret.yaml
+
+patches:
+  # 로컬은 compose의 bukang-db 하나를 모든 서비스가 함께 쓴다. 운영(aws)은 MYSQL_DB를 주지 않아 서비스마다 crewrun_<서비스>를 쓴다 (BUK-238)
+  - patch: |-
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: app-config
+      data:
+        MYSQL_DB: bukang-db
