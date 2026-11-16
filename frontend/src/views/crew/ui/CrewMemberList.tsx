@@ -6,6 +6,7 @@ import { useState, type ReactNode } from 'react'
 
 import { CREW_ROLE_LABEL, CREW_ROLE_TONE } from '@/entities/crew'
 import type { memberModel } from '@/shared/api'
+import { cn } from '@/shared/lib'
 import { Avatar, Badge, Button, buttonClassName } from '@/shared/ui'
 
 /** 크루원 목록에서 처음 보여 주는 수. 나머지는 「크루원 N명 더 보기」로 펼친다. */
@@ -36,13 +37,18 @@ export function CrewMemberList({
   const hidden = members.length - shown.length
   return (
     <>
-      {/* 닉네임 칸 폭을 고정해 닉네임 길이와 상관없이 역할 뱃지가 늘 같은 자리에 온다.
-          8rem(시안 128px)은 한글 닉네임 7자가 들어가는 폭이다. 더 긴 영문 닉네임은 말줄임으로 자르고 전체 이름은 title로 보여 준다. */}
+      {/* 닉네임 칸이 남는 폭을 채워 역할 뱃지가 늘 줄 오른쪽 끝(줄 버튼이 있으면 그 앞)에 온다.
+          남는 폭보다 긴 닉네임은 말줄임으로 자르고 전체 이름은 title로 보여 준다. */}
       <ul className="flex flex-col gap-3">
         {shown.map((member) => (
           <li
             key={member.memberId}
-            className="grid grid-cols-[auto_8rem_auto_1fr] items-center gap-3"
+            className={cn(
+              'grid items-center gap-3',
+              action
+                ? 'grid-cols-[auto_minmax(0,1fr)_auto_auto]'
+                : 'grid-cols-[auto_minmax(0,1fr)_auto]',
+            )}
           >
             <Avatar size="m" name={member.nickname} />
             <span
@@ -53,7 +59,7 @@ export function CrewMemberList({
               {member.nickname}
             </span>
             <Badge tone={CREW_ROLE_TONE[member.role]}>{CREW_ROLE_LABEL[member.role]}</Badge>
-            <div className="justify-self-end">{action?.(member)}</div>
+            {action && <div>{action(member)}</div>}
           </li>
         ))}
       </ul>

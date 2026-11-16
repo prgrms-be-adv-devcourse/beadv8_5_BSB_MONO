@@ -12,6 +12,7 @@ import { canInvite, CREW_ROLE_LABEL } from '@/entities/crew'
 import { useCrewActiveParties, type PartySummary } from '@/entities/party'
 import { ApiError, memberApi, productApi, unwrapData, type memberModel } from '@/shared/api'
 import {
+  Avatar,
   Badge,
   Button,
   buttonClassName,
@@ -19,16 +20,20 @@ import {
   Divider,
   EmptyState,
   Skeleton,
+  Tab,
+  TabBar,
+  TabPanel,
+  Tabs,
   useToast,
 } from '@/shared/ui'
 
 import { crewActionMessage } from '../model/crew-action-failure'
-import { CrewBand, CrewHomeError, CrewIdentityBand, retryCrewQuery } from './CrewBand'
+import { CrewBand, CrewHomeError, retryCrewQuery } from './CrewBand'
 import { CrewMemberList } from './CrewMemberList'
 
-// 피그마 시안v4 · M09 크루 홈 (크루장 · 크루원 · 크루원이 아님).
+// 피그마 Main Design · M09 크루 홈 v3 (11/16 프로필 + 탭 C안).
 // 크루 정보와 크루원은 크루 홈 API(GET /api/v1/member/crews/{crewId})로 불러온다. 크루원이 아니면 403 CREW_NOT_MEMBER다.
-// 크루 탈퇴(2그룹)는 시안에 자리가 없어 크루원 목록 아래 띠에 둔다.
+// 크루 떠나기는 크루원 탭 맨 아래.
 export function CrewHomePage({ crewId }: { crewId: number }) {
   const crew = memberApi.useFindCrew(crewId, {
     query: {
@@ -50,79 +55,90 @@ export function CrewHomePage({ crewId }: { crewId: number }) {
           <CrewHomeError error={crew.error} onRetry={() => crew.refetch()} />
         ) : (
           <>
-            <CrewIdentityBand
-              name={crew.data.name}
-              summary={`나는 ${CREW_ROLE_LABEL[crew.data.myRole]}`}
-              action={
-                canInvite(crew.data.myRole) && (
+            <CrewBand className="gap-4">
+              <div className="flex flex-col items-center gap-2 text-center">
+                <Avatar size="xl" name={crew.data.name} />
+                <h2 className="w-full truncate text-title1">{crew.data.name}</h2>
+                <p className="text-body2-regular text-text-secondary">
+                  나는 {CREW_ROLE_LABEL[crew.data.myRole]} · 크루원 {crew.data.memberCount}명
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Link
+                  href={`/parties/new?crewId=${crewId}` as Route}
+                  className={buttonClassName({
+                    variant: 'primary',
+                    size: 'm',
+                    className: 'flex-1',
+                  })}
+                >
+                  파티 만들기
+                </Link>
+                {canInvite(crew.data.myRole) && (
                   <Link
                     href={`/crews/${crewId}/invites` as Route}
-                    className={buttonClassName({ variant: 'secondary', size: 's' })}
+                    className={buttonClassName({
+                      variant: 'secondary',
+                      size: 'm',
+                      className: 'flex-1',
+                    })}
                   >
                     초대 링크 만들기
                   </Link>
-                )
-              }
-            />
-            <CrewBand>
-              <Link
-                href={`/parties/new?crewId=${crewId}` as Route}
-                className={buttonClassName({ variant: 'primary', size: 'l' })}
-              >
-                파티 만들기
-              </Link>
-              <h2 className="text-title3">
-                진행 중인 파티{parties.data?.length ? ` ${parties.data.length}개` : ''}
-              </h2>
-              {parties.isPending ? (
-                <Skeleton shape="rect" className="h-20 w-full" />
-              ) : parties.isError ? (
-                <CrewHomeError error={parties.error} onRetry={() => parties.refetch()} />
-              ) : parties.data.length === 0 ? (
-                <EmptyState
-                  title="진행 중인 파티가 없어요"
-                  description="대회 상세에서 「크루로 신청」을 누르면 파티를 만들 수 있어요."
-                  action={
-                    <Link
-                      href="/races"
-                      className={buttonClassName({ variant: 'secondary', size: 'm' })}
-                    >
-                      대회 둘러보기
-                    </Link>
-                  }
-                />
-              ) : (
-                parties.data.map((party) => <PartyCard key={party.id} party={party} />)
-              )}
-            </CrewBand>
-            <Divider type="section" />
-            <CrewBand>
-              <div className="flex items-center justify-between gap-2">
-                <h2 className="text-title3">크루원 {crew.data.memberCount}명</h2>
-                {crew.data.myRole === 'LEADER' && (
-                  <Link
-                    href={`/crews/${crewId}/manage` as Route}
-                    className={buttonClassName({ variant: 'ghost', size: 's' })}
-                  >
-                    크루 관리
-                  </Link>
                 )}
               </div>
-              <CrewMemberList
-                members={crew.data.members}
-                moreHref={`/crews/${crewId}/members` as Route}
-              />
             </CrewBand>
-            {crew.data.myRole !== 'LEADER' && (
-              <>
-                <Divider type="section" />
-                <LeaveCrew
-                  crew={crew.data}
-                  joinedParty={parties.data?.find((party) => party.myParty)}
-                  onStale={() => void crew.refetch()}
-                />
-              </>
-            )}
+            <Tabs defaultValue="parties">
+              <TabBar>
+                <Tab value="parties">
+                  파티{parties.data?.length ? ` ${parties.data.length}` : ''}
+                </Tab>
+                <Tab value="members">크루원 {crew.data.memberCount}</Tab>
+              </TabBar>
+              <TabPanel value="parties">
+                <CrewBand>
+                  {parties.isPending ? (
+                    <Skeleton shape="rect" className="h-20 w-full" />
+                  ) : parties.isError ? (
+                    <CrewHomeError error={parties.error} onRetry={() => parties.refetch()} />
+                  ) : parties.data.length === 0 ? (
+                    <EmptyState title="진행 중인 파티가 없어요" />
+                  ) : (
+                    parties.data.map((party) => <PartyCard key={party.id} party={party} />)
+                  )}
+                </CrewBand>
+              </TabPanel>
+              <TabPanel value="members">
+                <CrewBand>
+                  {crew.data.myRole === 'LEADER' && (
+                    <Link
+                      href={`/crews/${crewId}/manage` as Route}
+                      className={buttonClassName({
+                        variant: 'ghost',
+                        size: 's',
+                        className: 'self-end',
+                      })}
+                    >
+                      크루 관리
+                    </Link>
+                  )}
+                  <CrewMemberList
+                    members={crew.data.members}
+                    moreHref={`/crews/${crewId}/members` as Route}
+                  />
+                </CrewBand>
+                {crew.data.myRole !== 'LEADER' && (
+                  <>
+                    <Divider type="section" />
+                    <LeaveCrew
+                      crew={crew.data}
+                      joinedParty={parties.data?.find((party) => party.myParty)}
+                      onStale={() => void crew.refetch()}
+                    />
+                  </>
+                )}
+              </TabPanel>
+            </Tabs>
           </>
         )}
       </main>
@@ -259,44 +275,23 @@ function LeaveCrew({
   )
 }
 
-// 시안에 없는 상태: 크루 홈 로딩. 내 크루 목록(M09-0) 로딩처럼 회색 줄로 자리만 잡는다.
+// 시안에 없는 상태: 크루 홈 로딩. 프로필 · 버튼 줄 · 파티 카드 자리만 회색으로 잡는다.
 function CrewHomeSkeleton() {
   return (
     <>
-      <CrewBand>
+      <CrewBand className="items-center gap-4">
         <span role="status" className="sr-only">
           크루를 불러오는 중
         </span>
-        <div className="flex items-center gap-3">
-          <Skeleton shape="circle" className="size-14" />
-          <Skeleton className="flex-1" />
-        </div>
-      </CrewBand>
-      <CrewBand>
+        <Skeleton shape="circle" className="size-14" />
         <Skeleton className="w-1/3" />
-        <Skeleton shape="rect" className="h-34 w-full" />
-        <CircleLines />
+        <Skeleton className="w-1/2" />
+        <Skeleton shape="rect" className="h-11 w-full" />
       </CrewBand>
-      <Divider type="section" />
       <CrewBand>
-        <Skeleton className="w-1/4" />
-        {[0, 1, 2, 3].map((i) => (
-          <CircleLines key={i} />
-        ))}
+        <Skeleton shape="rect" className="h-34 w-full" />
+        <Skeleton shape="rect" className="h-34 w-full" />
       </CrewBand>
     </>
-  )
-}
-
-// 시안 1333:25728: 동그라미 하나와 긴 줄 · 짧은 줄 두 줄
-function CircleLines() {
-  return (
-    <div className="flex items-center gap-3">
-      <Skeleton shape="circle" className="size-8 shrink-0" />
-      <div className="flex flex-1 flex-col gap-2">
-        <Skeleton className="w-full" />
-        <Skeleton className="w-1/3" />
-      </div>
-    </div>
   )
 }
