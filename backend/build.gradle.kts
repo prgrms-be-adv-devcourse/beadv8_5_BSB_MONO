@@ -60,5 +60,7 @@ subprojects {
 
 	tasks.withType<Test> {
 		useJUnitPlatform()
+		// 운영 컨테이너(Dockerfile의 TZ=Asia/Seoul)와 같은 시계로 테스트한다. CI 러너는 UTC라 한국 0~9시엔 날짜가 하루 어긋난다
+		systemProperty("user.timezone", "Asia/Seoul")
 	}
 }

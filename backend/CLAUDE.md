@@ -22,7 +22,7 @@
 | `notification-service` | Spring Boot 앱 | 8087 | 내 알림. 다른 서비스가 보낸 `push.notification.requested`를 저장하고 조회·읽음 API를 연다 (BUK-69) |
 | `inquiry-service` | Spring Boot 앱 | 8088 | 대회 문의. 회원이 문의를 남기면 담당(판매자·관리자)이 한 번 답하고, 알림이 간다 (BUK-154) |
 | `board-service` | Spring Boot 앱 | 8089 | 커뮤니티 자유 게시판. 글·댓글·답글·좋아요(읽기는 로그인 없이), 회원 이벤트로 닉네임·판매자 복사본(`BoardMember`) (BUK-156) |
-| `ai-service` | Spring Boot 앱 | 8092 | 판매자·관리자 센터의 챗봇 「크루런 AI」. 질문을 모델에 보내 답하고 운영 숫자는 도구로 각 서비스 API에서 가져오고 출처를 붙인다. 대화 기록은 Redis. DB·Kafka 없음 (BUK-165, BUK-170) |
+| `ai-service` | Spring Boot 앱 | 8092 | 판매자·관리자 센터의 챗봇 「크루런 AI」. 질문을 모델에 보내 답하고 운영 숫자는 도구로 각 서비스 API에서 가져오고 출처를 붙인다. 대화 기록은 Redis. DB·Kafka 없음 (BUK-165, BUK-170). 문의 답변 초안도 만든다(BUK-191) |
 
 인프라(`compose.yml`: MySQL, Kafka, Elasticsearch, Redis, 로컬 S3 대체재 S3Mock)는 모든 서비스가 공용으로 씁니다.
 
@@ -132,13 +132,15 @@ backend/
 │   ├── QueueApplication       (뼈대만 있음)
 │   └── in/                    QueueExceptionHandler (헤더 누락·형식 오류를 RsData로 응답)
 └── ai-service/      com.bukang.ai
-    ├── in/                    ApiV1AiChatController (POST·DELETE /api/v1/ai/{seller|admin}/chat: 질문, 새 대화)
+    ├── in/                    ApiV1AiChatController (POST·DELETE /api/v1/ai/{seller|admin}/chat: 질문, 새 대화),
+    │                          ApiV1AiInquiryDraftController (POST /api/v1/ai/{seller|admin}/inquiries/{id}/draft: 문의 답변 초안, BUK-191)
     ├── app/                   AiChatUseCase (역할 확인 → 화면에 맞는 도구를 붙여 앞 대화와 함께 모델 호출 → 답 + 출처 + 목록),
-    │                          SellerTools·AdminTools (운영 숫자 조회 도구, BUK-170), AiToolTrace (도구에 넘기는 회원 번호 + 부른 도구 기록)
+    │                          SellerTools·AdminTools (운영 숫자 조회 도구, BUK-170), AiToolTrace (도구에 넘기는 회원 번호 + 부른 도구 기록),
+    │                          AiInquiryDraftUseCase (문의 상세를 읽어 초안 한 번 쓰기, 대화 기록·도구 없음), PersonalInfoMasker (본문 속 연락처·계좌 가리기)
     ├── config/                AiChatConfig (ChatClient + Redis 대화 기록, 최근 10개만)
     ├── domain/                AiScreen(화면 종류, 대화 번호 = 화면-회원 번호), AiSource(도구별 출처 화면·버튼·프론트 경로), exception/
     ├── out/member/            MemberRolePort (관리자·승인된 판매자 확인. prod=http, dev=fake)
-    └── out/ops/               OpsPort·HttpOpsAdapter (도구가 주문·정산·문의·회원의 화면용 API를 X-Member-Id로 직접 부른다. 가짜 모드 없음)
+    └── out/ops/               OpsPort·HttpOpsAdapter (도구와 문의 초안이 주문·정산·문의·회원의 화면용 API를 X-Member-Id로 직접 부른다. 가짜 모드 없음)
 ```
 
 - 파일은 브라우저가 presigned PUT으로 S3 `{환경}/uploads/`에 직접 올리고, 완료 API가 `{환경}/files/`로 옮긴 뒤 형식·크기를 확인한다 (README "파일 저장소" 참고).

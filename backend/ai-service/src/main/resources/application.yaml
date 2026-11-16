@@ -110,3 +110,6 @@ ai:
       base-url: http://localhost:8084
     inquiry:
       base-url: http://localhost:8088
+      # 문의 상세(답변 초안)만 따로 길게 둔다. 문의 서비스가 회원(관리자 확인)·회원(닉네임)·주문을 차례로 각 2초 제한으로 부르므로
+      # 2초로 끊으면 문의 서비스는 답할 수 있는데도 503이 난다. 추천값(미확정)
+      detail-timeout: 7s

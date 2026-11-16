@@ -166,7 +166,7 @@ function CheckoutResult({
               {result.action}
             </Button>
           ) : (
-            <Link href={href} className={buttonClassName({ size: 'l' })}>
+            <Link href={href} replace className={buttonClassName({ size: 'l' })}>
               {result.action}
             </Link>
           )
