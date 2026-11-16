@@ -4,7 +4,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
+import com.bukang.ai.domain.AiScreen;
 import com.bukang.ai.out.ops.OpsPort;
 
 // 주문·정산·문의·회원 서비스 대역. 정해 둔 값을 돌려주고, 어느 회원 번호로 불렸는지 남긴다
@@ -20,6 +22,10 @@ public class StubOpsPort implements OpsPort {
 	public LocalDate holdsFrom;
 	public LocalDate holdsTo;
 	public boolean unavailable;
+	// 문의 상세: 없으면 문의 서비스의 404와 같다. 어느 화면용 상세로 불렸는지 남긴다
+	public Inquiry inquiry;
+	public AiScreen inquiryScreen;
+	public Long inquiryId;
 
 	public void reset() {
 		calledMemberIds.clear();
@@ -31,6 +37,9 @@ public class StubOpsPort implements OpsPort {
 		adminWaitingInquiries = 0;
 		pendingRequestedAts = List.of();
 		unavailable = false;
+		inquiry = null;
+		inquiryScreen = null;
+		inquiryId = null;
 	}
 
 	@Override
@@ -69,6 +78,14 @@ public class StubOpsPort implements OpsPort {
 	public List<LocalDateTime> pendingSellerRequestedAts(long memberId) {
 		called(memberId);
 		return pendingRequestedAts;
+	}
+
+	@Override
+	public Optional<Inquiry> inquiry(long memberId, AiScreen screen, long inquiryId) {
+		called(memberId);
+		inquiryScreen = screen;
+		this.inquiryId = inquiryId;
+		return Optional.ofNullable(inquiry);
 	}
 
 	private void called(long memberId) {
