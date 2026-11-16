@@ -2,6 +2,7 @@ package com.bukang.order.in;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 import org.springframework.kafka.annotation.BackOff;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -45,6 +46,8 @@ public class OrderKafkaConsumer {
 	// DLT는 OrderKafkaDltConsumer가 받으므로, @RetryableTopic이 기본으로 띄우는 DLT 리스너는 시작하지 않는다
 	// (켜 두면 같은 DLT 메시지를 두 곳에서 받는다)
 	private static final String AUTO_START_DEFAULT_DLT_HANDLER = "false";
+	// 환불 기간은 한국 날짜로 센다. 서버 시간대(UTC 등)와 상관없이 한국 기준 「오늘」을 넘긴다 (InternalV1OrderController와 같음)
+	private static final ZoneId RACE_ZONE = ZoneId.of("Asia/Seoul");
 
 	private final RaceCancelRefundUseCase raceCancelRefundUseCase;
 	private final OrderInboxUseCase orderInboxUseCase;
@@ -142,7 +145,7 @@ public class OrderKafkaConsumer {
 			throw new IllegalArgumentException("대회 변경 메시지에 raceId·raceDate가 없습니다. payload=" + payload);
 		}
 		raceScheduleNoticeUseCase.notifyChanged(event.raceId(), event.raceDate(), event.scheduleChangedAt(),
-			LocalDate.now());
+			LocalDate.now(RACE_ZONE));
 		orderInboxUseCase.record(messageId, GROUP_ID, KafkaTopics.RACE_CHANGED, LocalDateTime.now());
 		orderDltUseCase.completeByResend(messageId, LocalDateTime.now());
 	}

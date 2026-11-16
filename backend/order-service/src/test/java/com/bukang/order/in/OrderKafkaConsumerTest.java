@@ -1,5 +1,6 @@
 package com.bukang.order.in;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -9,10 +10,14 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.TimeZone;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import com.bukang.common.global.json.JsonConverter;
 import com.bukang.common.shared.kafka.KafkaTopics;
@@ -120,5 +125,28 @@ class OrderKafkaConsumerTest {
 			"{\"crewId\":7,\"joinedAt\":\"2026-11-01T09:00:00\"}", MESSAGE_ID))
 			.isInstanceOf(IllegalArgumentException.class);
 		verifyNoInteractions(crewMemberLeftUseCase);
+	}
+
+	@Test
+	@DisplayName("일정 변경 알림의 「오늘」은 서버 시간대와 상관없이 한국 날짜로 넘긴다 (UTC 서버의 한국 0~9시)")
+	void passesKoreanToday() {
+		ZoneId korea = ZoneId.of("Asia/Seoul");
+		LocalDate koreanToday = LocalDate.now(korea);
+		// 지금 한국 날짜와 다른 날짜가 되는 시간대를 서버 시간대로 둔다 (UTC-12는 한국 0~20시, UTC+14는 19~23시에 다르다)
+		ZoneId behind = ZoneId.of("Etc/GMT+12");
+		ZoneId serverZone = LocalDate.now(behind).equals(koreanToday) ? ZoneId.of("Etc/GMT-14") : behind;
+		TimeZone original = TimeZone.getDefault();
+		TimeZone.setDefault(TimeZone.getTimeZone(serverZone));
+		try {
+			consumer.handleRaceChanged("{\"raceId\":300,\"raceDate\":\"2027-03-01T08:30:00\","
+				+ "\"scheduleChangedAt\":\"2026-11-16T10:00:00\"}", MESSAGE_ID);
+		} finally {
+			TimeZone.setDefault(original);
+		}
+
+		ArgumentCaptor<LocalDate> today = ArgumentCaptor.forClass(LocalDate.class);
+		verify(raceScheduleNoticeUseCase).notifyChanged(eq(300L), eq(LocalDateTime.of(2027, 3, 1, 8, 30)),
+			eq(LocalDateTime.of(2026, 11, 16, 10, 0)), today.capture());
+		assertThat(today.getValue()).isEqualTo(koreanToday);
 	}
 }
