@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -79,4 +79,20 @@ describe('ConsoleSidebar 크루런 홈으로', () => {
       expect(home.compareDocumentPosition(logout) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     },
   )
+})
+
+describe('ConsoleSidebar 크루런 AI', () => {
+  it.each(['seller', 'admin'] as const)('%s 메뉴에 크루런 AI로 가는 링크가 있다', (role) => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ConsoleSidebar role={role} />
+      </QueryClientProvider>,
+    )
+
+    const nav = screen.getByRole('navigation')
+    expect(within(nav).getByRole('link', { name: '크루런 AI' })).toHaveAttribute(
+      'href',
+      `/${role}/ai`,
+    )
+  })
 })
