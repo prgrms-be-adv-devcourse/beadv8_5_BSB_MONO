@@ -19,9 +19,11 @@ public class OpsClientConfig {
 		@Value("${ai.clients.payout.base-url}") String payoutUrl,
 		@Value("${ai.clients.inquiry.base-url}") String inquiryUrl,
 		@Value("${ai.clients.member.base-url}") String memberUrl,
-		@Value("${ai.clients.timeout}") Duration timeout
+		@Value("${ai.clients.timeout}") Duration timeout,
+		@Value("${ai.clients.inquiry.detail-timeout}") Duration inquiryDetailTimeout
 	) {
 		return new HttpOpsAdapter(restClient(orderUrl, timeout), restClient(payoutUrl, timeout),
-			restClient(inquiryUrl, timeout), restClient(memberUrl, timeout));
+			restClient(inquiryUrl, timeout), restClient(memberUrl, timeout),
+			restClient(inquiryUrl, inquiryDetailTimeout));
 	}
 }

@@ -15,15 +15,15 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/seller',
 }))
 
-const reloadToLogin = vi.hoisted(() => vi.fn())
+const reloadAfterLogout = vi.hoisted(() => vi.fn())
 vi.mock('@/features/auth/lib/login-redirect', async (importOriginal) => ({
   ...(await importOriginal<object>()),
-  reloadToLogin,
+  reloadAfterLogout,
 }))
 
 beforeEach(() => {
   replace.mockClear()
-  reloadToLogin.mockClear()
+  reloadAfterLogout.mockClear()
 })
 
 describe('ConsoleSidebar 로그아웃', () => {
@@ -50,9 +50,9 @@ describe('ConsoleSidebar 로그아웃', () => {
     await user.click(screen.getByRole('button', { name: '로그아웃' }))
 
     await vi.waitFor(() => expect(called).toBe(true))
-    expect(reloadToLogin).not.toHaveBeenCalled()
+    expect(reloadAfterLogout).not.toHaveBeenCalled()
     release()
-    await vi.waitFor(() => expect(reloadToLogin).toHaveBeenCalledTimes(1))
+    await vi.waitFor(() => expect(reloadAfterLogout).toHaveBeenCalledTimes(1))
     expect(called).toBe(true)
     expect(replace).not.toHaveBeenCalled()
     // 새로 불러오기 전까지 토큰을 그대로 두어 「로그인이 필요해요」 안내가 잠깐 보이지 않는다

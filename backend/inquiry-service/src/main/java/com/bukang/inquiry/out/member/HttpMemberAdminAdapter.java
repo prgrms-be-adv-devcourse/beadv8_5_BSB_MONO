@@ -66,17 +66,7 @@ public class HttpMemberAdminAdapter implements MemberAdminPort {
 
 	// 회원 서비스가 회원을 찾지 못했다고 답한 404인지 (오류 응답 RsData의 code)
 	static boolean isMemberNotFound(HttpClientErrorException exception) {
-		try {
-			ErrorResponse body = exception.getResponseBodyAs(ErrorResponse.class);
-			return body != null && MEMBER_NOT_FOUND_CODE.equals(body.code());
-		} catch (RuntimeException parseFailure) {
-			return false;
-		}
-	}
-
-	// 회원 서비스 오류 응답에서 판정에 쓰는 값만 받는다
-	@JsonIgnoreProperties(ignoreUnknown = true)
-	record ErrorResponse(String code) {
+		return InternalHttpClients.hasErrorCode(exception, MEMBER_NOT_FOUND_CODE);
 	}
 
 	// 회원 서비스 응답의 data (member MemberAdminDto). 빈 응답을 구분하려고 Boolean으로 받는다

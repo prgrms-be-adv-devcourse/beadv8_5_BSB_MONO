@@ -30,7 +30,7 @@ export function socialAuthorizeHref(
 
 /** 화면을 제공자 로그인으로 옮긴다. 테스트에서 바꿔 끼울 수 있게 따로 둔다. */
 export function goToSocialLogin(href: string) {
-  window.location.assign(href)
+  window.location.replace(href)
 }
 
 const LINKING_KEY = 'crewrun:social-link-provider'

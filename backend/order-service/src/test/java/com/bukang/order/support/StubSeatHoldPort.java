@@ -6,6 +6,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
 import com.bukang.order.out.seat.SeatHoldPort;
 import com.bukang.order.out.seat.SeatHoldResult;
 import com.bukang.order.out.seat.SeatSellResult;
@@ -21,6 +22,14 @@ public class StubSeatHoldPort implements SeatHoldPort {
 	private final Set<Long> sold = ConcurrentHashMap.newKeySet();
 	// 자리 확보 때 예상하지 못한 오류(타임아웃 등)를 낼 종목
 	private final Set<Long> failingCourses = ConcurrentHashMap.newKeySet();
+	// 자리를 잡은 뒤 답을 돌려주기 전에 할 일 (응답을 잃는 경우, 확보 중 잠금 확인)
+	private volatile Runnable afterHold = () -> {
+	};
+	// 자리 판매가 연결 거절·시간 초과로 결과를 주지 못하게 한다 (HttpSeatHoldAdapter가 던지는 예외와 같게)
+	private volatile boolean sellFails;
+	// 판매한 뒤 답을 돌려주기 전에 할 일 (판매와 확정 사이에 만료 정리가 끼어드는 경우)
+	private volatile Runnable afterSell = () -> {
+	};
 
 	@Override
 	public SeatHoldResult hold(long raceCourseId, long participationId, LocalDateTime requestedExpiresAt) {
@@ -40,11 +49,21 @@ public class StubSeatHoldPort implements SeatHoldPort {
 			return SeatHoldResult.soldOut();
 		}
 		expiresAt.put(participationId, requestedExpiresAt);
+		afterHold.run();
 		return SeatHoldResult.held(requestedExpiresAt);
 	}
 
 	@Override
 	public SeatSellResult sell(long participationId) {
+		if (sellFails) {
+			throw new ExternalServiceUnavailableException("상품 서비스에 연결하지 못했습니다. (테스트)");
+		}
+		SeatSellResult result = sellNow(participationId);
+		afterSell.run();
+		return result;
+	}
+
+	private SeatSellResult sellNow(long participationId) {
 		// 이미 판매한 자리는 기한과 상관없이 SOLD (SeatHoldPort.sell의 멱등 계약)
 		if (sold.contains(participationId)) {
 			return SeatSellResult.SOLD;
@@ -67,8 +86,20 @@ public class StubSeatHoldPort implements SeatHoldPort {
 		return sold.contains(participationId);
 	}
 
+	public void setSellFails(boolean sellFails) {
+		this.sellFails = sellFails;
+	}
+
+	public void afterSell(Runnable action) {
+		afterSell = action;
+	}
+
 	public void failHold(long raceCourseId) {
 		failingCourses.add(raceCourseId);
+	}
+
+	public void afterHold(Runnable action) {
+		afterHold = action;
 	}
 
 	public void setRemainingSeats(long raceCourseId, int seats) {
@@ -85,5 +116,10 @@ public class StubSeatHoldPort implements SeatHoldPort {
 		expiresAt.clear();
 		sold.clear();
 		failingCourses.clear();
+		afterHold = () -> {
+		};
+		sellFails = false;
+		afterSell = () -> {
+		};
 	}
 }

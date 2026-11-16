@@ -9,6 +9,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -21,6 +22,7 @@ import org.springframework.test.web.client.ResponseCreator;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
+import com.bukang.ai.domain.AiScreen;
 import com.bukang.ai.out.ops.HttpOpsAdapter;
 import com.bukang.ai.out.ops.OpsPort;
 
@@ -37,7 +39,7 @@ class HttpOpsAdapterTest {
 		RestClient.Builder builder = RestClient.builder().baseUrl("http://svc");
 		server = MockRestServiceServer.bindTo(builder).build();
 		RestClient client = builder.build();
-		adapter = new HttpOpsAdapter(client, client, client, client);
+		adapter = new HttpOpsAdapter(client, client, client, client, client);
 	}
 
 	@Test
@@ -59,10 +61,15 @@ class HttpOpsAdapterTest {
 	}
 
 	@Test
-	@DisplayName("정산: 요약과 지급보류 내역")
+	@DisplayName("정산: 요약, 보류 중인 정산 내역, 지급보류 내역")
 	void payout() {
 		server.expect(requestTo("http://svc/api/v1/payout/seller/summary")).andExpect(header("X-Member-Id", "3"))
 			.andRespond(ok("{\"nextPayDate\":\"2026-11-20\",\"scheduledPayoutAmount\":1250000,\"heldCount\":1}"));
+		server.expect(requestTo("http://svc/api/v1/payout/seller/payouts?fromMonth=2025-12&toMonth=2026-11"))
+			.andExpect(header("X-Member-Id", "3"))
+			.andRespond(ok("[{\"id\":9,\"payoutCode\":\"P-9\",\"status\":\"지급보류\","
+				+ "\"settledAt\":\"2026-10-01T03:00:00\",\"payoutAmount\":120000},"
+				+ "{\"id\":8,\"payoutCode\":\"P-8\",\"status\":\"지급_예정\",\"settledAt\":\"2026-10-01T03:00:00\"}]"));
 		server.expect(requestTo("http://svc/api/v1/payout/seller/holds?from=2026-10-12&to=2026-11-11"))
 			.andExpect(header("X-Member-Id", "3"))
 			.andRespond(ok("[{\"id\":1,\"holdCode\":\"H-1\",\"payoutId\":9,\"payoutCode\":\"P-9\",\"raceId\":4,"
@@ -72,8 +79,11 @@ class HttpOpsAdapterTest {
 
 		assertThat(adapter.payoutSummary(3L))
 			.isEqualTo(new OpsPort.PayoutSummary(LocalDate.of(2026, 11, 20), 1250000, 1));
+		// 지급보류 상태인 정산만 남긴다
+		assertThat(adapter.heldPayouts(3L, YearMonth.of(2025, 12), YearMonth.of(2026, 11)))
+			.containsExactly(new OpsPort.HeldPayout("P-9", LocalDateTime.of(2026, 10, 1, 3, 0)));
 		assertThat(adapter.holds(3L, LocalDate.of(2026, 10, 12), LocalDate.of(2026, 11, 11))).containsExactly(
-			new OpsPort.Hold("한강 나이트런", 120000, "정산_계좌_미등록", "계좌를 등록해 주세요",
+			new OpsPort.Hold("P-9", "한강 나이트런", 120000, "정산_계좌_미등록", "계좌를 등록해 주세요",
 				LocalDateTime.of(2026, 11, 3, 9, 0), null));
 		server.verify();
 	}
@@ -128,6 +138,43 @@ class HttpOpsAdapterTest {
 
 		assertThatThrownBy(() -> adapter.payoutSummary(3L)).isInstanceOf(RestClientException.class);
 		assertThatThrownBy(() -> adapter.payoutSummary(3L)).isInstanceOf(IllegalStateException.class);
+	}
+
+	@Test
+	@DisplayName("문의 상세: 화면 종류대로 판매자용·관리자용 상세를 부르고, 회원 닉네임은 읽지 않는다")
+	void inquiry() {
+		server.expect(requestTo("http://svc/api/v1/inquiry/admin/inquiries/12"))
+			.andExpect(header("X-Member-Id", "20"))
+			.andRespond(ok("{\"id\":12,\"type\":\"APPLY_PAYMENT\",\"assignee\":\"ADMIN\",\"title\":\"환불\","
+				+ "\"body\":\"언제 되나요\",\"status\":\"WAITING\",\"createDate\":\"2026-11-03T09:12:00\","
+				+ "\"memberNickname\":\"한강러너\",\"order\":{\"orderNo\":\"OD-1\",\"paymentAmount\":45000,"
+				+ "\"status\":\"PAID\",\"items\":[{\"raceId\":1,\"raceName\":\"춘천\",\"courseName\":\"10K\","
+				+ "\"kitSummary\":null,\"deliveryStatus\":null}]}}"));
+		server.expect(requestTo("http://svc/api/v1/inquiry/seller/inquiries/13"))
+			.andExpect(header("X-Member-Id", "3"))
+			.andRespond(ok("{\"type\":\"RACE_VENUE\",\"title\":\"주차\",\"body\":\"어디\",\"status\":\"WAITING\","
+				+ "\"order\":null}"));
+
+		assertThat(adapter.inquiry(20L, AiScreen.ADMIN, 12)).contains(new OpsPort.Inquiry("APPLY_PAYMENT", "환불",
+			"언제 되나요", "WAITING", LocalDateTime.of(2026, 11, 3, 9, 12), new OpsPort.InquiryOrder("OD-1", 45000L,
+			"PAID", List.of(new OpsPort.InquiryOrderItem("춘천", "10K", null, null)))));
+		assertThat(adapter.inquiry(3L, AiScreen.SELLER, 13)).get()
+			.extracting(OpsPort.Inquiry::order).isNull();
+		server.verify();
+	}
+
+	@Test
+	@DisplayName("문의 없음(INQUIRY_NOT_FOUND)만 빈 값이고, 다른 404는 계약이 어긋난 것이라 예외다")
+	void inquiryNotFound() {
+		server.expect(requestTo("http://svc/api/v1/inquiry/seller/inquiries/12"))
+			.andRespond(withStatus(HttpStatus.NOT_FOUND).contentType(MediaType.APPLICATION_JSON)
+				.body("{\"status\":404,\"code\":\"INQUIRY_NOT_FOUND\",\"message\":\"문의를 찾을 수 없습니다.\"}"));
+		server.expect(requestTo("http://svc/api/v1/inquiry/seller/inquiries/12"))
+			.andRespond(withStatus(HttpStatus.NOT_FOUND).contentType(MediaType.APPLICATION_JSON)
+				.body("{\"status\":404,\"message\":\"No static resource\"}"));
+
+		assertThat(adapter.inquiry(3L, AiScreen.SELLER, 12)).isEmpty();
+		assertThatThrownBy(() -> adapter.inquiry(3L, AiScreen.SELLER, 12)).isInstanceOf(RestClientException.class);
 	}
 
 	private static ResponseCreator ok(String data) {

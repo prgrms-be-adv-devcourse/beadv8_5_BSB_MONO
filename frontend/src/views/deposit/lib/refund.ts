@@ -42,6 +42,8 @@ const LastWithdrawal = z.object({
   /** 서버가 나눈 몫: 카드 결제취소 요청 · 계좌로 보냄 · 결과 확인 중 · 카드 결제취소가 거절돼 예치금에 되돌림 */
   cardAmount: z.number(),
   accountAmount: z.number(),
+  /** 계좌로 보낸 금액 중 카드 결제취소가 거절돼 계좌로 바꾼 몫. 이 값이 없던 때 저장된 것도 읽으려고 기본값 0 */
+  switchedToAccountAmount: z.number().default(0),
   processingAmount: z.number(),
   revertedAmount: z.number(),
   /** 계좌로 보낼 몫이 없어 계좌 없이 신청했으면 세 값 모두 없다 */
@@ -61,6 +63,15 @@ export function saveLastWithdrawal(withdrawal: LastWithdrawal) {
     sessionStorage.setItem(KEY, JSON.stringify(withdrawal))
   } catch {
     // 저장이 막혀 있으면 완료 화면이 예치금 화면으로 보낸다
+  }
+}
+
+/** 완료 화면을 떠나면 예금주 · 가린 계좌 · 잔액을 남기지 않는다 */
+export function clearLastWithdrawal() {
+  try {
+    sessionStorage.removeItem(KEY)
+  } catch {
+    // 저장소를 쓸 수 없으면 남은 값도 없다
   }
 }
 

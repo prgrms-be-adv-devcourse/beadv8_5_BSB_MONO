@@ -5,15 +5,14 @@ import { http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { clearAccessToken, setAccessToken } from '@/shared/api'
-import { boardHandlers, resetBoardMock, server } from '@/shared/testing'
+import { boardHandlers, resetBoardMock, resetNavigationMock, server } from '@/shared/testing'
 import { ToastProvider } from '@/shared/ui'
 
 import { CommunityPage } from './CommunityPage'
 
-vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn(), back: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
-  usePathname: () => '/community',
-}))
+vi.mock('next/navigation', async () =>
+  (await import('@/shared/testing')).navigationMock('/community'),
+)
 
 const emptyList = http.get('*/api/v1/board/posts', () =>
   HttpResponse.json({ status: 200, message: '조회', data: [] }),
@@ -33,6 +32,7 @@ function renderPage(login: boolean) {
 }
 
 beforeEach(() => {
+  resetNavigationMock()
   resetBoardMock()
   server.use(...boardHandlers)
 })

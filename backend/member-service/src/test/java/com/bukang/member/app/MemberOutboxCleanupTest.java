@@ -23,9 +23,9 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.bukang.common.shared.kafka.outbox.OutboxStatus;
 import com.bukang.common.shared.member.event.MemberJoinedEvent;
 import com.bukang.member.domain.MemberOutboxEvent;
-import com.bukang.member.domain.MemberOutboxStatus;
 import com.bukang.member.out.MemberOutboxEventRepository;
 
 /**
@@ -79,7 +79,7 @@ class MemberOutboxCleanupTest {
 		assertThat(deleted).isEqualTo(1);
 		assertThat(allRows()).extracting(MemberOutboxEvent::getRefId).containsExactly(2L, 3L, 4L);
 		assertThat(allRows()).extracting(MemberOutboxEvent::getStatus).containsExactly(
-			MemberOutboxStatus.SENT, MemberOutboxStatus.SEND_FAILED, MemberOutboxStatus.PENDING);
+			OutboxStatus.SENT, OutboxStatus.SEND_FAILED, OutboxStatus.PENDING);
 	}
 
 	@Test

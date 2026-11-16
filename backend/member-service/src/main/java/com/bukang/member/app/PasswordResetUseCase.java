@@ -1,11 +1,7 @@
 package com.bukang.member.app;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.Base64;
-import java.util.HexFormat;
 import java.util.Locale;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -56,8 +52,8 @@ public class PasswordResetUseCase {
 	@Transactional(readOnly = true)
 	public void request(String rawEmail, String clientIp) {
 		String email = rawEmail.trim();
-		if (!store.tryAcquireIpRequest(sha256(clientIp), properties.ipDailyLimit(), properties.dailyWindow())
-			|| !store.tryAcquireRequest(sha256(email.toLowerCase(Locale.ROOT)), properties.requestCooldown(),
+		if (!store.tryAcquireIpRequest(Sha256.hex(clientIp), properties.ipDailyLimit(), properties.dailyWindow())
+			|| !store.tryAcquireRequest(Sha256.hex(email.toLowerCase(Locale.ROOT)), properties.requestCooldown(),
 			properties.dailyLimit(), properties.dailyWindow())) {
 			throw new PasswordResetTooManyRequestsException(TOO_MANY_MESSAGE);
 		}
@@ -67,7 +63,7 @@ public class PasswordResetUseCase {
 
 	// 새 비밀번호 화면을 열 때 링크가 아직 쓸 수 있는지 미리 본다. 토큰을 지우지 않는다
 	public void verify(String token) {
-		store.findMemberId(sha256(token))
+		store.findMemberId(Sha256.hex(token))
 			.orElseThrow(() -> new PasswordResetTokenInvalidException(TOKEN_INVALID_MESSAGE));
 	}
 
@@ -78,7 +74,7 @@ public class PasswordResetUseCase {
 	 */
 	@Transactional
 	public void confirm(String token, String newPassword) {
-		long memberId = store.takeMemberId(sha256(token))
+		long memberId = store.takeMemberId(Sha256.hex(token))
 			.orElseThrow(() -> new PasswordResetTokenInvalidException(TOKEN_INVALID_MESSAGE));
 		// 링크를 받은 뒤 탈퇴했거나 소셜 전용 회원이 됐으면 바꾸지 않는다
 		Member member = memberRepository.findActiveById(memberId)
@@ -104,7 +100,7 @@ public class PasswordResetUseCase {
 		}
 
 		String token = newToken();
-		String tokenHash = sha256(token);
+		String tokenHash = Sha256.hex(token);
 		long memberId = member.getId();
 		store.saveToken(memberId, tokenHash, properties.tokenTtl());
 		// 다시 보내기 전에 그사이 새 링크를 요청했는지 본다. 무효가 된 링크는 보내지 않는다
@@ -130,15 +126,5 @@ public class PasswordResetUseCase {
 		byte[] bytes = new byte[TOKEN_BYTES];
 		secureRandom.nextBytes(bytes);
 		return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-	}
-
-	// 토큰은 32바이트 무작위 값이라 해시에서 원문을 찾을 수 없다. 그래서 느린 해시(BCrypt) 대신 SHA-256을 쓴다
-	static String sha256(String value) {
-		try {
-			MessageDigest digest = MessageDigest.getInstance("SHA-256");
-			return HexFormat.of().formatHex(digest.digest(value.getBytes(StandardCharsets.UTF_8)));
-		} catch (NoSuchAlgorithmException e) {
-			throw new IllegalStateException("SHA-256을 쓸 수 없습니다", e);
-		}
 	}
 }

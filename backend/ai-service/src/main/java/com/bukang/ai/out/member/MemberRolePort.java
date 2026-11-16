@@ -1,5 +1,7 @@
 package com.bukang.ai.out.member;
 
+import com.bukang.ai.domain.AiScreen;
+
 /**
  * 챗봇을 부른 회원의 역할을 회원 서비스에 묻는다
  * 게이트웨이는 토큰만 확인하고 역할은 보지 않으므로 AI 서비스가 직접 막는다
@@ -10,4 +12,12 @@ public interface MemberRolePort {
 	boolean isAdmin(long memberId);
 
 	boolean isApprovedSeller(long memberId);
+
+	// 그 화면을 쓸 수 있는 역할인지 (판매자 센터: 승인된 판매자, 관리자 센터: 관리자)
+	default boolean hasRole(long memberId, AiScreen screen) {
+		return switch (screen) {
+			case SELLER -> isApprovedSeller(memberId);
+			case ADMIN -> isAdmin(memberId);
+		};
+	}
 }

@@ -2,7 +2,6 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
-import { useState } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
 import { LoadErrorBody } from '@/widgets/status-screens'
@@ -12,7 +11,7 @@ import {
   useNotifications,
   type Notice,
 } from '@/entities/notification'
-import { cn } from '@/shared/lib'
+import { cn, useSearchParamsState } from '@/shared/lib'
 import { Button, FOCUS_RING, Icon, Skeleton, Tab, TabBar, Tabs, useToast } from '@/shared/ui'
 
 import {
@@ -31,7 +30,12 @@ type Filter = 'all' | NoticeCategory
 // 피그마 시나리오 39 · 02 알림 목록 · 02-S 판매자 (+ 01-A 알림 없음)
 // empty는 시안 미리보기(?preview=empty)용. 없으면 알림 API로 불러온다.
 export function NotificationsPage({ empty = false }: { empty?: boolean }) {
-  const [filter, setFilter] = useState<Filter>('all')
+  // 탭은 URL(?tab=)에 담아 상세에 갔다 돌아와도 남긴다
+  const [url, setUrl] = useSearchParamsState(
+    { tab: 'all' },
+    { tab: ['all', ...NOTICE_CATEGORIES.map((c) => c.value)] },
+  )
+  const filter = url.tab as Filter
   const notifications = useNotifications()
   const all = empty ? [] : (notifications.data ?? [])
   const loading = !empty && notifications.isPending
@@ -84,7 +88,7 @@ export function NotificationsPage({ empty = false }: { empty?: boolean }) {
         </main>
       ) : (
         <main className="flex flex-1 flex-col">
-          <Tabs value={filter} onValueChange={(value) => setFilter(value as Filter)}>
+          <Tabs value={filter} onValueChange={(value) => setUrl({ tab: value })}>
             <TabBar layout="hug">
               <Tab
                 value="all"

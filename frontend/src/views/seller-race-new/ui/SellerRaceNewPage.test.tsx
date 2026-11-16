@@ -98,6 +98,12 @@ describe('SellerRaceNewPage', () => {
     expect(screen.getByRole('button', { name: /10월 25일/ })).toBeDisabled()
   })
 
+  it('만들지 않기로 한 공개 범위 칸은 없다', () => {
+    renderPage()
+    expect(screen.queryByText('공개 범위')).not.toBeInTheDocument()
+    expect(screen.queryByRole('radio', { name: '링크로만 공개' })).not.toBeInTheDocument()
+  })
+
   it('종목 표는 등록할 종목 값으로 그린다', () => {
     renderPage()
     expect(screen.getByRole('cell', { name: '₩45,000' })).toBeInTheDocument()
