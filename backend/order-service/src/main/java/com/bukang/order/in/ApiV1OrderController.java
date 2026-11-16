@@ -24,6 +24,7 @@ import com.bukang.order.app.OrderFacade;
 import com.bukang.order.app.OrderPayResult;
 import com.bukang.order.dto.OrderCreateRequestDto;
 import com.bukang.order.dto.OrderDto;
+import com.bukang.order.dto.OrderItemDto;
 import com.bukang.order.dto.OrderPageDto;
 import com.bukang.order.dto.OrderPayRequestDto;
 
@@ -46,6 +47,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/order/orders")
 public class ApiV1OrderController {
+	static final String PAY_PENDING_MESSAGE = "결제를 확인하고 있습니다. 잠시 뒤 주문 상세에서 결과를 확인해주세요.";
+
 	private static final int MAX_PAGE_SIZE = 100;
 
 	private final OrderFacade orderFacade;
@@ -128,13 +131,19 @@ public class ApiV1OrderController {
 			+ "키트 옵션은 결제 화면에서 고른 kitOptionIds로 받는다. 대회에 옵션이 있으면 옵션 이름마다 하나씩 골라야 하고, "
 			+ "옵션이 없는 대회는 비우거나 본문을 보내지 않는다. 예치금을 빼기 전에 옵션별 판매 수를 판매 상한과 견주어, "
 			+ "다 팔린 옵션이 있으면 409 ORDER_KIT_OPTION_SOLD_OUT과 팔린 옵션 목록(data.soldOut)을 돌려준다"
-			+ "(자리는 결제 기한까지 그대로라 다른 옵션으로 다시 결제한다). 이미 결제한 주문은 kitOptionIds를 보지 않는다.")
+			+ "(자리는 결제 기한까지 그대로라 다른 옵션으로 다시 결제한다). 이미 결제한 주문은 kitOptionIds를 보지 않는다. "
+			+ "결제 중(PAYING)인 주문에 다시 결제를 보내거나, 예치금·자리 판매 결과를 받지 못하면(시간 초과·5xx) 202와 지금 주문"
+			+ "(주문 상세와 같은 모양, status PAYING)을 돌려준다. 결제 재확인이 15초마다 결과를 맞춰 결제 완료(PAID)나 "
+			+ "결제 대기(CREATED, 돈은 돌려줌)로 끝내므로, 주문 상세를 다시 조회해 상태를 본다. "
+			+ "결제 중에는 주문 상품이 ORDERED로 남는다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "결제 완료 또는 이미 결제한 주문",
 			content = @Content(examples = {
 				@ExampleObject(name = "결제 완료", value = OrderApiExamples.PAY_SUCCESS),
 				@ExampleObject(name = "이미 결제함", value = OrderApiExamples.PAY_ALREADY)
 			})),
+		@ApiResponse(responseCode = "202", description = "결제 확인 중 (결제 중인 주문, 예치금·자리 판매 결과를 아직 모름)",
+			content = @Content(examples = @ExampleObject(value = OrderApiExamples.PAY_PENDING))),
 		@ApiResponse(responseCode = "400",
 			description = "주문 ID·회원 ID 오류, 요청 본문 형식 오류, 키트 옵션 ID 오류, 다른 대회·없는 옵션(옵션 없는 대회에 옵션 포함), "
 				+ "옵션 이름 빠짐·겹침",
@@ -176,6 +185,9 @@ public class ApiV1OrderController {
 		@RequestBody(required = false) @Valid OrderPayRequestDto request
 	) {
 		OrderPayResult result = orderFacade.pay(orderId, memberId, request == null ? null : request.getKitOptionIds());
+		if (result.pending()) {
+			return ResponseEntity.accepted().body(RsData.of(HttpStatus.ACCEPTED, PAY_PENDING_MESSAGE, result.order()));
+		}
 		String message = result.alreadyPaid() ? "이미 결제한 주문입니다." : "결제했습니다. 참가가 확정되었습니다.";
 		return ResponseEntity.ok().body(RsData.of(HttpStatus.OK, message, result.order()));
 	}
@@ -211,14 +223,16 @@ public class ApiV1OrderController {
 				@ExampleObject(name = "주문에 없는 상품", value = OrderApiExamples.ORDER_ITEM_NOT_FOUND),
 				@ExampleObject(name = "없는 종목", value = OrderApiExamples.COURSE_NOT_FOUND)
 			})),
-		@ApiResponse(responseCode = "409", description = "이미 취소함, 취소 처리 중, 결제 전 상품, 환불 기한 지남, 정산 생성일 지남",
+		@ApiResponse(responseCode = "409",
+			description = "이미 취소함, 취소 처리 중, 결제 전 상품, 환불 기한 지남, 정산 생성일 지남, 키트 수령을 확인함",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "이미 취소함", value = OrderApiExamples.ALREADY_CANCELED),
 				@ExampleObject(name = "취소 처리 중", value = OrderApiExamples.ALREADY_CANCELING),
 				@ExampleObject(name = "결제 전 상품", value = OrderApiExamples.NOT_PAID_ITEM),
 				@ExampleObject(name = "환불 기한 지남", value = OrderApiExamples.REFUND_PERIOD_PASSED),
 				@ExampleObject(name = "환불 기한·일정 변경 환불 기간 지남", value = OrderApiExamples.SCHEDULE_CHANGE_REFUND_PASSED),
-				@ExampleObject(name = "정산 생성일 지남", value = OrderApiExamples.PAYOUT_STARTED)
+				@ExampleObject(name = "정산 생성일 지남", value = OrderApiExamples.PAYOUT_STARTED),
+				@ExampleObject(name = "키트 수령 확인함", value = OrderApiExamples.KIT_RECEIVED_CANCEL)
 			})),
 		@ApiResponse(responseCode = "503",
 			description = "정산 서비스에 환불 가능 여부를 묻지 못함 (연결 실패, 시간 초과, 오류 응답, 응답 형식 오류), "
@@ -242,6 +256,51 @@ public class ApiV1OrderController {
 		}
 		return ResponseEntity.ok().body(RsData.of(HttpStatus.OK,
 			"취소했습니다. 예치금 %,d원을 돌려드렸습니다.".formatted(result.refundedAmount()), result.order()));
+	}
+
+	@PostMapping("/{orderId}/items/{orderItemId}/kit-receipt")
+	@Operation(summary = "키트 수령 확인",
+		description = "구매자가 자기 키트를 받았다고 확인한다. 판매자가 보낸 키트(배송 중·배송 완료)만 되고, 택배사 조회보다 먼저 받았으면 "
+			+ "배송 중에도 누를 수 있다. 이미 확인했으면 처음 확인한 시각 그대로 200으로 답한다(두 번 눌러도 같은 결과). "
+			+ "누르지 않아도 배송 완료 7일 뒤 자동으로 확인된다. 확인한 참가권은 취소(환불)할 수 없다. "
+			+ "참가권이 취소됐어도(대회 취소 등) 이미 보낸 키트는 확인할 수 있다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "수령 확인 (이미 확인했으면 처음 시각)",
+			content = @Content(examples = @ExampleObject(value = OrderApiExamples.KIT_RECEIPT_SUCCESS))),
+		@ApiResponse(responseCode = "400", description = "주문 ID·주문 상품 ID·회원 ID 오류",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "ID 형식 오류", value = OrderApiExamples.INVALID_VALUE_TYPE),
+				@ExampleObject(name = "회원 ID가 0 이하", value = OrderApiExamples.INVALID_MEMBER_ID)
+			})),
+		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = OrderApiExamples.LOGIN_REQUIRED))),
+		@ApiResponse(responseCode = "403", description = "다른 회원의 주문",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = OrderApiExamples.KIT_RECEIPT_NOT_OWNER))),
+		@ApiResponse(responseCode = "404", description = "없는 주문·주문 상품",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "없는 주문", value = OrderApiExamples.ORDER_NOT_FOUND),
+				@ExampleObject(name = "주문에 없는 상품", value = OrderApiExamples.ORDER_ITEM_NOT_FOUND)
+			})),
+		@ApiResponse(responseCode = "409",
+			description = "아직 발송하지 않은 키트, 키트가 없는 참가권, 발송 전에 취소된 키트, 취소 처리 중인 참가권",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "발송 전", value = OrderApiExamples.KIT_NOT_SHIPPED),
+				@ExampleObject(name = "키트 없음", value = OrderApiExamples.KIT_NOT_INCLUDED),
+				@ExampleObject(name = "발송 전에 취소됨", value = OrderApiExamples.KIT_SHIPMENT_CANCELED),
+				@ExampleObject(name = "취소 처리 중", value = OrderApiExamples.KIT_RECEIPT_CANCELING)
+			}))
+	})
+	public ResponseEntity<RsData<OrderItemDto>> confirmKitReceipt(
+		@LoginMemberId long memberId,
+		@Parameter(description = "주문 ID", example = "1")
+		@PathVariable long orderId,
+		@Parameter(description = "수령 확인할 주문 상품 ID (내 참가권의 orderItemId)", example = "1")
+		@PathVariable long orderItemId
+	) {
+		return ResponseEntity.ok().body(RsData.of(HttpStatus.OK, "키트 수령을 확인했습니다.",
+			orderFacade.confirmKitReceipt(orderId, orderItemId, memberId)));
 	}
 
 	@GetMapping

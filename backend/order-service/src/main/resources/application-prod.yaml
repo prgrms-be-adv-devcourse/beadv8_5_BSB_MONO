@@ -46,9 +46,9 @@ order:
     queue:
       mode: http
       base-url: http://bukang-queue-service:8086
-    # 판매자 ID 조회를 실제로 붙이기 전까지 운영에서는 판매자 키트 API를 막는다 (가짜는 누구나 판매자로 봄, PRO-197)
+    # 판매자 확인은 실제 회원 서비스에 묻는다 (주소는 member.base-url, BUK-237)
     seller:
-      mode: disabled
+      mode: http
     # 관리자 확인은 실제 회원 서비스에 묻는다 (BUK-26)
     member:
       mode: http

@@ -114,72 +114,50 @@ function chatHandlers(screen: 'seller' | 'admin', answers: typeof SELLER_ANSWERS
   ]
 }
 
+// ai-service AiBriefingUseCase가 만드는 문장과 같은 모양 (모델을 부르지 않고 숫자로 만든다)
 const SELLER_BRIEFING = {
-  headline: '키트 송장 입력 마감이 이틀 남았어요. 오늘 4건을 넣으면 늦는 키트가 없어요.',
+  headline: '송장 입력 대기 키트가 4건 있어요. 지급보류 1건의 사유를 확인해 주세요.',
   basis: '오전 9:00 기준',
   todos: [
     {
       title: '송장 입력 대기 4건',
-      description: '11/10까지 넣지 않으면 발송이 늦어져요',
-      linkLabel: '주문 관리',
+      description: '환불 기한이 지나면 2건을 더 보낼 수 있어요',
+      linkLabel: '키트 배송 관리',
       href: '/seller/kits',
     },
     {
-      title: '춘천 호수 하프마라톤 판매율 61%',
-      description: '접수 마감 5일 전, 지난 대회 같은 시점보다 12%p 낮아요',
-      linkLabel: '대회 관리',
-      href: '/seller/races',
-    },
-    {
       title: '지급보류 1건',
-      description: '서류를 내면 11/10 지급에 포함돼요',
-      linkLabel: '정산 관리',
-      href: '/seller/settlements',
+      description: '보류가 풀려야 그 정산이 지급돼요',
+      linkLabel: '지급보류 내역',
+      href: '/seller/settlements?tab=holds',
     },
   ],
   metrics: [
-    { label: '취소율 · 최근 7일', value: '4.2%', note: '평소 1.6%', noteTone: 'bad' },
-    {
-      label: '다음 정산 · 11/10 지급',
-      value: '12,480,000원',
-      note: '지난달보다 8% 많음',
-      noteTone: 'good',
-    },
+    { label: '보낼 키트', value: '4건', note: '환불 기한 전 2건' },
+    { label: '다음 정산 · 11/20 지급', value: '₩1,250,000', note: '보류 1건 빼고' },
   ],
 }
 
 const ADMIN_BRIEFING = {
-  headline: '오늘 지급 전에 확인할 건이 3건이에요. 환급 요청 1건은 먼저 봐 주세요.',
+  headline: '판매자 승인 대기가 3건 있어요. 관리자가 답할 문의가 2건 있어요.',
   basis: '오전 9:00 기준',
   todos: [
     {
-      title: '예치금 환급 요청 · 한강러너 ₩40,000',
-      description: '가입 2일 만에 충전한 금액을 모두 환급 요청했어요',
-      flag: '이상 거래 의심',
-      linkLabel: '정산 · 환급 처리',
-      href: '/admin/settlements',
-    },
-    {
-      title: '지급보류 · 춘천러닝클럽 ₩860,000',
-      description: '오늘 11/20 지급 전에 해제할지 정해 주세요',
-      linkLabel: '지급보류 관리',
-      href: '/admin/holds',
-    },
-    {
-      title: '판매자 승인 대기 · 박지민',
-      description: '신청 5일째, 사업자 서류가 빠졌어요',
-      linkLabel: '판매자 관리',
+      title: '판매자 승인 대기 3건',
+      description: '11/12 신청부터 확인해 주세요',
+      linkLabel: '판매자 승인',
       href: '/admin/sellers',
+    },
+    {
+      title: '답변 대기 문의 · 관리자 담당 2건',
+      description: '판매자 담당까지 전체 7건이 답변을 기다려요',
+      linkLabel: '문의 관리',
+      href: '/admin/inquiries',
     },
   ],
   metrics: [
-    {
-      label: '오늘 지급 예정 · 판매자 2명',
-      value: '₩4,536,000',
-      note: '보류 1건 빼고',
-      noteTone: undefined,
-    },
-    { label: '환급 요청 · 최근 7일', value: '9건', note: '지난주 3건', noteTone: 'bad' },
+    { label: '판매자 승인 대기', value: '3건', note: '가장 오래된 신청 5일째' },
+    { label: '답변 대기 문의 · 전체', value: '7건', note: '관리자 담당 2건' },
   ],
 }
 

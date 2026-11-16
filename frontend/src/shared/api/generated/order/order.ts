@@ -68,7 +68,11 @@ import type {
   RsDataSellerKitSummaryDto,
   RsDataSellerOrderPageDto,
   RsDataSellerPartyPageDto,
+  RsDataSellerSalesSummaryDto,
+  SellerKitExportRequestDto,
+  SellerRosterExportRequestDto,
   SummarizeParams,
+  SummarizeSellerSalesParams,
   SummarizeSoldParams
 } from './order.schemas';
 
@@ -3933,6 +3937,115 @@ export const useRemoveItem = <TError = RsData,
       return useMutation(getRemoveItemMutationOptions(options), queryClient);
     }
 
+export const getSummarizeSellerSalesUrl = (params: SummarizeSellerSalesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/order/seller/orders/summary?${stringifiedParams}` : `/api/v1/order/seller/orders/summary`
+}
+
+/**
+ * 결제일이 from~to(종료일 포함, 한 번에 12개월까지)인 판매자 대회 참가권 중 결제 완료·취소 중인 것의 장수와 결제 금액 합을 돌려준다. 정산이 판매를 세는 기준과 같다(취소 중은 환불이 거절되면 결제 완료로 돌아오므로 판매로 센다). 취소된 참가권과 결제 전 주문은 빠진다. 판매자 AI 「이번 달 판매액」이 쓴다.
+ * @summary 기간 판매 합계
+ */
+export const summarizeSellerSales = async (params: SummarizeSellerSalesParams, options?: Parameters<typeof customFetch>[1]): Promise<RsDataSellerSalesSummaryDto> => {
+
+  return customFetch<RsDataSellerSalesSummaryDto>(getSummarizeSellerSalesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getSummarizeSellerSalesQueryKey = (params?: SummarizeSellerSalesParams,) => {
+    return [
+    `/api/v1/order/seller/orders/summary`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getSummarizeSellerSalesQueryOptions = <TData = Awaited<ReturnType<typeof summarizeSellerSales>>, TError = RsData>(params: SummarizeSellerSalesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof summarizeSellerSales>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getSummarizeSellerSalesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof summarizeSellerSales>>> = ({ signal }) => summarizeSellerSales(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof summarizeSellerSales>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type SummarizeSellerSalesQueryResult = NonNullable<Awaited<ReturnType<typeof summarizeSellerSales>>>
+export type SummarizeSellerSalesQueryError = RsData
+
+
+export function useSummarizeSellerSales<TData = Awaited<ReturnType<typeof summarizeSellerSales>>, TError = RsData>(
+ params: SummarizeSellerSalesParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof summarizeSellerSales>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof summarizeSellerSales>>,
+          TError,
+          Awaited<ReturnType<typeof summarizeSellerSales>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useSummarizeSellerSales<TData = Awaited<ReturnType<typeof summarizeSellerSales>>, TError = RsData>(
+ params: SummarizeSellerSalesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof summarizeSellerSales>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof summarizeSellerSales>>,
+          TError,
+          Awaited<ReturnType<typeof summarizeSellerSales>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useSummarizeSellerSales<TData = Awaited<ReturnType<typeof summarizeSellerSales>>, TError = RsData>(
+ params: SummarizeSellerSalesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof summarizeSellerSales>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 기간 판매 합계
+ */
+
+export function useSummarizeSellerSales<TData = Awaited<ReturnType<typeof summarizeSellerSales>>, TError = RsData>(
+ params: SummarizeSellerSalesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof summarizeSellerSales>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getSummarizeSellerSalesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getFindSellerOrdersUrl = (params?: FindSellerOrdersParams,) => {
   const normalizedParams = new URLSearchParams();
 
@@ -4150,4 +4263,182 @@ export function useFindSellerParties<TData = Awaited<ReturnType<typeof findSelle
 
 
 
+
+export const getExportRosterUrl = () => {
+
+
+
+
+  return `/api/v1/order/seller/orders/roster-export`
+}
+
+/**
+ * 대회 당일 확인용 참가자 명단. 결제 완료(참가 확정)인 참가권만 종목·주문 순으로 담는다. 칸: 주문번호, 종목, 참가자 이름, 연락처, 키트 옵션, 파티 번호. 엑셀에서 바로 열리는 CSV(UTF-8 BOM)다. 내려받을 때마다 누가 언제 왜 몇 줄 받았는지 기록한다. 다른 판매자의 대회를 고르면 머리줄만 있는 파일이다.
+ * @summary 참가자 명단 내려받기 (CSV)
+ */
+export const exportRoster = async (sellerRosterExportRequestDto: SellerRosterExportRequestDto, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<unknown>(getExportRosterUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(sellerRosterExportRequestDto)
+  }
+);}
+
+
+
+
+
+export const getExportRosterMutationKey = () => ['exportRoster'] as const;
+
+export const getExportRosterMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof exportRoster>>, TError,ExportRosterMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof exportRoster>>, TError,ExportRosterMutationVariables, TContext> => {
+
+const mutationKey = getExportRosterMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof exportRoster>>, ExportRosterMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  exportRoster(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ExportRosterMutationResult = NonNullable<Awaited<ReturnType<typeof exportRoster>>>
+    export type ExportRosterMutationBody = SellerRosterExportRequestDto
+    export type ExportRosterMutationError = RsData
+    export type ExportRosterMutationVariables = {data: SellerRosterExportRequestDto}
+
+    /**
+ * @summary 참가자 명단 내려받기 (CSV)
+ */
+export const useExportRoster = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof exportRoster>>, TError,ExportRosterMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof exportRoster>>,
+        TError,
+        ExportRosterMutationVariables,
+        TContext
+      > => {
+      return useMutation(getExportRosterMutationOptions(options), queryClient);
+    }
+
+export const getExportKitShipmentsUrl = () => {
+
+
+
+
+  return `/api/v1/order/seller/kits/export`
+}
+
+/**
+ * 키트 배송 관리 목록과 같은 조건(대회·배송 상태)으로 모두 담는다. 칸: 주문번호, 종목, 참가권 상태, 참가자 이름, 받는 분, 받는 분 연락처, 우편번호, 주소, 상세 주소, 키트 옵션, 배송 상태, 택배사, 운송장 번호. 엑셀에서 바로 열리는 CSV(UTF-8 BOM)다. 내려받을 때마다 사유와 함께 기록한다.
+ * @summary 키트 배송 목록 내려받기 (CSV)
+ */
+export const exportKitShipments = async (sellerKitExportRequestDto: SellerKitExportRequestDto, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<unknown>(getExportKitShipmentsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(sellerKitExportRequestDto)
+  }
+);}
+
+
+
+
+
+export const getExportKitShipmentsMutationKey = () => ['exportKitShipments'] as const;
+
+export const getExportKitShipmentsMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof exportKitShipments>>, TError,ExportKitShipmentsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof exportKitShipments>>, TError,ExportKitShipmentsMutationVariables, TContext> => {
+
+const mutationKey = getExportKitShipmentsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof exportKitShipments>>, ExportKitShipmentsMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  exportKitShipments(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ExportKitShipmentsMutationResult = NonNullable<Awaited<ReturnType<typeof exportKitShipments>>>
+    export type ExportKitShipmentsMutationBody = SellerKitExportRequestDto
+    export type ExportKitShipmentsMutationError = RsData
+    export type ExportKitShipmentsMutationVariables = {data: SellerKitExportRequestDto}
+
+    /**
+ * @summary 키트 배송 목록 내려받기 (CSV)
+ */
+export const useExportKitShipments = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof exportKitShipments>>, TError,ExportKitShipmentsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof exportKitShipments>>,
+        TError,
+        ExportKitShipmentsMutationVariables,
+        TContext
+      > => {
+      return useMutation(getExportKitShipmentsMutationOptions(options), queryClient);
+    }
 

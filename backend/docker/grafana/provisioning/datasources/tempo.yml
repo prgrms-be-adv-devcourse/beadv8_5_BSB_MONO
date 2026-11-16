@@ -1,0 +1,24 @@
+# Grafana가 시작할 때 Tempo 데이터 소스를 자동으로 등록한다
+apiVersion: 1
+
+datasources:
+  - name: Tempo
+    type: tempo
+    # 나중에 메트릭·로그에서 trace로 건너가는 링크를 걸 때 이 이름(uid)으로 가리킨다
+    uid: tempo
+    # 같은 compose 네트워크라 컨테이너 이름과 컨테이너 포트(3200)로 접속한다
+    url: http://bukang-tempo:3200
+    access: proxy
+    editable: false
+    jsonData:
+      # 추적 → 로그: span에서 같은 서비스·같은 trace_id의 로그로 건너간다
+      tracesToLogsV2:
+        datasourceUid: loki
+        # span 시작·끝 시각 앞뒤로 1분씩 넓혀 찾는다 (로그 시각과 span 시각이 조금 어긋나도 잡히게)
+        spanStartTimeShift: '-1m'
+        spanEndTimeShift: '1m'
+        # span의 service.name을 Loki 라벨 service_name으로 바꿔 {service_name="…"}을 만든다
+        tags: [ { key: 'service.name', value: 'service_name' } ]
+        # trace_id는 로그 줄이 아니라 구조화 메타데이터라, 줄 검색(|=) 대신 | trace_id= 필터로 찾는다
+        customQuery: true
+        query: '{$${__tags}} | trace_id="$${__trace.traceId}"'

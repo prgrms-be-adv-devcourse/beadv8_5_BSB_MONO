@@ -67,6 +67,12 @@
         "data": {
           "$ref": "#/components/schemas/OrderDto"
         }
+      },
+      "202": {
+        "wrapper": "RsDataOrderDto",
+        "data": {
+          "$ref": "#/components/schemas/OrderDto"
+        }
       }
     },
     "findCart": {
@@ -120,6 +126,14 @@
         "wrapper": "RsDataOrderDto",
         "data": {
           "$ref": "#/components/schemas/OrderDto"
+        }
+      }
+    },
+    "confirmKitReceipt": {
+      "200": {
+        "wrapper": "RsDataOrderItemDto",
+        "data": {
+          "$ref": "#/components/schemas/OrderItemDto"
         }
       }
     },
@@ -305,6 +319,14 @@
         "wrapper": "RsDataSellerPartyPageDto",
         "data": {
           "$ref": "#/components/schemas/SellerPartyPageDto"
+        }
+      }
+    },
+    "summarizeSellerSales": {
+      "200": {
+        "wrapper": "RsDataSellerSalesSummaryDto",
+        "data": {
+          "$ref": "#/components/schemas/SellerSalesSummaryDto"
         }
       }
     }
@@ -562,6 +584,14 @@
           ],
           "format": "date-time"
         },
+        "kitReceivedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time",
+          "description": "키트 수령을 확인한 시각 (BUK-225). 확인 전이면 null. 확인한 참가권은 취소할 수 없다"
+        },
         "kitTracking": {
           "anyOf": [
             {
@@ -602,6 +632,7 @@
           "type": "string",
           "enum": [
             "CREATED",
+            "PAYING",
             "PAID",
             "PARTIAL_CANCELED",
             "CANCELED",
@@ -786,6 +817,7 @@
           "type": "string",
           "enum": [
             "CREATED",
+            "PAYING",
             "PAID",
             "PARTIAL_CANCELED",
             "CANCELED",
@@ -1692,6 +1724,7 @@
           ],
           "enum": [
             "CREATED",
+            "PAYING",
             "PAID",
             "PARTIAL_CANCELED",
             "CANCELED",
@@ -1768,6 +1801,14 @@
             "null"
           ],
           "description": "송장 번호. 발송 전이면 null"
+        },
+        "kitReceivedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time",
+          "description": "키트 수령을 확인한 시각 (BUK-225). 확인 전이면 null. 확인한 참가권은 취소할 수 없다"
         },
         "partyId": {
           "type": [
@@ -2131,6 +2172,26 @@
         "totalPages": {
           "type": "integer",
           "format": "int32"
+        }
+      }
+    },
+    "SellerSalesSummaryDto": {
+      "type": "object",
+      "description": "기간 판매 합계. 결제일이 기간 안인 결제 완료·취소 중 참가권",
+      "required": [
+        "soldCount",
+        "soldAmount"
+      ],
+      "properties": {
+        "soldCount": {
+          "type": "integer",
+          "format": "int64",
+          "description": "판매 장수"
+        },
+        "soldAmount": {
+          "type": "integer",
+          "format": "int64",
+          "description": "결제 금액 합(원)"
         }
       }
     }

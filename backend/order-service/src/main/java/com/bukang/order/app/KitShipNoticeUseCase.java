@@ -16,7 +16,7 @@ import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
 import com.bukang.order.out.KitShipNoticeRepository;
 import com.bukang.order.out.race.RaceCourseInfo;
 import com.bukang.order.out.race.RaceCoursePort;
-import com.bukang.order.out.seller.SellerLookupPort;
+import com.bukang.order.out.race.RaceSellerPort;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,7 +36,7 @@ import lombok.extern.slf4j.Slf4j;
 public class KitShipNoticeUseCase {
 	private final KitShipNoticeRepository kitShipNoticeRepository;
 	private final RaceCoursePort raceCoursePort;
-	private final SellerLookupPort sellerLookupPort;
+	private final RaceSellerPort raceSellerPort;
 	private final EventPublisher eventPublisher;
 	private final TransactionTemplate transactionTemplate;
 
@@ -52,9 +52,9 @@ public class KitShipNoticeUseCase {
 				}
 				Long memberId;
 				try {
-					memberId = sellerLookupPort.findSellerMemberId(course.sellerId()).orElse(null);
+					memberId = raceSellerPort.findSellerMemberId(course.raceId()).orElse(null);
 				} catch (ExternalServiceUnavailableException exception) {
-					// 판매자 조회가 꺼졌거나(운영 disabled) 내려갔다. 남은 대회도 같으니 한 줄만 남기고 다음 배치에서 다시 본다
+					// 상품 서비스가 내려갔다. 남은 대회도 같으니 한 줄만 남기고 다음 배치에서 다시 본다
 					log.warn("판매자 조회를 쓸 수 없어 이번 키트 발송 알림을 멈춥니다. cause={}", exception.getMessage());
 					break;
 				}

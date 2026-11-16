@@ -19,7 +19,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.redis.testcontainers.RedisContainer;
 
 /**
- * AI 서비스 통합 테스트의 공통 준비. 모델과 회원 서비스는 대역으로 바꾸고, 대화 기록은 진짜 Redis에 넣는다 (Docker 필요)
+ * AI 서비스 통합 테스트의 공통 준비. 모델과 다른 서비스(회원, 도구가 부르는 주문·정산·문의)는 대역으로 바꾸고, 대화 기록은 진짜 Redis에 넣는다 (Docker 필요)
  * Redis는 compose와 같은 redis:8.2다. Spring AI의 Redis 대화 기록은 검색·JSON 기능을 써서 가짜 Redis로는 확인할 수 없다
  * 회원: 3·31은 승인된 판매자, 20은 관리자, 5는 판매자이자 관리자, 1은 일반 회원
  */
@@ -48,6 +48,8 @@ public abstract class AiTestBase {
 	@Autowired
 	protected StubMemberRolePort memberRolePort;
 	@Autowired
+	protected StubOpsPort opsPort;
+	@Autowired
 	protected RedisChatMemoryRepository chatMemoryRepository;
 
 	@DynamicPropertySource
@@ -60,6 +62,7 @@ public abstract class AiTestBase {
 	void resetStubs() {
 		chatModel.reset();
 		memberRolePort.setUnavailable(false);
+		opsPort.reset();
 		chatMemoryRepository.findConversationIds().forEach(chatMemoryRepository::deleteByConversationId);
 	}
 
@@ -76,6 +79,13 @@ public abstract class AiTestBase {
 		StubMemberRolePort stubMemberRolePort() {
 			return new StubMemberRolePort(
 				Set.of(SELLER, OTHER_SELLER, SELLER_AND_ADMIN), Set.of(ADMIN, SELLER_AND_ADMIN));
+		}
+
+		// 진짜 어댑터(HttpOpsAdapter) 대신 쓰이게 한다
+		@Bean
+		@Primary
+		StubOpsPort stubOpsPort() {
+			return new StubOpsPort();
 		}
 	}
 }

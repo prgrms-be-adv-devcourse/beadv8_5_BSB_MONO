@@ -58,7 +58,22 @@ subprojects {
 		isIgnoreFailures = true
 	}
 
+	// 실행 앱(Spring Boot 플러그인을 쓴 모듈)에만 지표·추적 부품을 넣는다. common·jwt 같은 라이브러리에는 넣지 않는다
+	// 지표는 /actuator/prometheus로 열고, 설정은 common의 observability.yaml에 모았다 (gateway는 자기 yaml에 직접)
+	// 추적(OTel)은 developmentOnly라 bootRun에만 들어가고 운영 jar에는 빠진다. 운영에서는 지표만 쓴다
+	plugins.withId("org.springframework.boot") {
+		dependencies {
+			"implementation"("org.springframework.boot:spring-boot-starter-actuator")
+			"runtimeOnly"("io.micrometer:micrometer-registry-prometheus")
+			"developmentOnly"("org.springframework.boot:spring-boot-starter-opentelemetry")
+			// Logback 로그를 OTLP로도 보내는 연결 코드. OTel처럼 bootRun에만 들어가고 운영 jar에는 빠진다
+			"developmentOnly"(project(":observability-dev"))
+		}
+	}
+
 	tasks.withType<Test> {
 		useJUnitPlatform()
+		// 운영 컨테이너(Dockerfile의 TZ=Asia/Seoul)와 같은 시계로 테스트한다. CI 러너는 UTC라 한국 0~9시엔 날짜가 하루 어긋난다
+		systemProperty("user.timezone", "Asia/Seoul")
 	}
 }

@@ -13,7 +13,6 @@ spring:
       hibernate:
         show_sql: false
         format_sql: false
-        default_batch_fetch_size: 100
     open-in-view: false
 
   # Spring Batch 실행 기록 테이블(BATCH_)은 JPA 엔티티가 아니라서 위 ddl-auto(validate)와 상관없다

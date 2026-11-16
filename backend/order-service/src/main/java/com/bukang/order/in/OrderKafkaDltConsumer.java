@@ -28,6 +28,7 @@ public class OrderKafkaDltConsumer {
 	private static final String GROUP_ID = "order-dlt";
 	private static final String RACE_CANCEL_DLT = KafkaTopics.ORDER_RACE_CANCEL + OrderKafkaRetry.DLT_TOPIC_SUFFIX;
 	private static final String CREW_MEMBER_LEFT_DLT = KafkaTopics.CREW_MEMBER_LEFT + OrderKafkaRetry.DLT_TOPIC_SUFFIX;
+	private static final String RACE_CHANGED_DLT = KafkaTopics.RACE_CHANGED + OrderKafkaRetry.DLT_TOPIC_SUFFIX;
 
 	private final OrderKafkaFailureFacade orderKafkaFailureFacade;
 
@@ -42,6 +43,13 @@ public class OrderKafkaDltConsumer {
 	@KafkaListener(topics = CREW_MEMBER_LEFT_DLT, groupId = GROUP_ID)
 	public void handleCrewMemberLeftDlt(ConsumerRecord<String, String> record) {
 		log.error("처리하지 못한 크루 떠남 메시지: {}", record.value());
+		record(record);
+	}
+
+	// 일정 변경 알림을 보내지 못했다. 원인을 고친 뒤 다시 보내면 아직 알리지 않은 변경만 알린다 (BUK-82)
+	@KafkaListener(topics = RACE_CHANGED_DLT, groupId = GROUP_ID)
+	public void handleRaceChangedDlt(ConsumerRecord<String, String> record) {
+		log.error("처리하지 못한 대회 변경 메시지: {}", record.value());
 		record(record);
 	}
 
