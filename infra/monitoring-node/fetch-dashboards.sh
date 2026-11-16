@@ -25,9 +25,13 @@ for item in "${DASHBOARDS[@]}"; do
 	echo "[dashboards] ${name} (${id} rev ${revision})"
 	# 가져오기(import)용 JSON은 데이터 소스를 ${DS_PROMETHEUS} 자리로 비워 둔다
 	# 파일로 등록할 때는 이 자리가 채워지지 않으므로, provisioning에 적은 uid(prometheus)로 바꿔 넣는다
+	#   1번째 줄: 옛 대시보드(JVM 4701)는 "datasource": "${DS_PROMETHEUS}"처럼 글자 하나로 적는데, Grafana는 이걸 이름으로 찾는다.
+	#            데이터 소스 이름은 Prometheus(대문자)라 못 찾아 목록·그래프가 비므로, uid로 찾는 모양으로 바꾼다
+	#   2번째 줄: 새 대시보드의 {"uid": "${DS_PROMETHEUS}"} 같은 나머지 자리
 	# ES 대시보드(14191 rev 1) 원본에는 지표 이름 오타(get_tota)가 있어 GET 요청 수 패널이 비므로 바른 이름으로 고친다
 	curl -fsSL "$url" \
-		| sed -e 's/\${DS_PROMETHEUS}/prometheus/g' \
+		| sed -e 's/"datasource": *"\${DS_PROMETHEUS}"/"datasource": {"type": "prometheus", "uid": "prometheus"}/g' \
+			-e 's/\${DS_PROMETHEUS}/prometheus/g' \
 			-e 's/elasticsearch_indices_get_tota{/elasticsearch_indices_get_total{/g' \
 		>"${OUT_DIR}/${name}.json"
 done
