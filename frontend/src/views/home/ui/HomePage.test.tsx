@@ -3,6 +3,7 @@ import { render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { RACE_BANNERS, type RaceSummary } from '@/entities/race'
+import { clearAccessToken, setAccessToken } from '@/shared/api'
 
 import { HomePage } from './HomePage'
 
@@ -39,6 +40,7 @@ function renderHome(closingSoon: RaceSummary[] = []) {
 describe('HomePage', () => {
   beforeEach(() => {
     env.NEXT_PUBLIC_API_MOCKING = 'on'
+    clearAccessToken()
   })
 
   it('실제 API 모드에서는 커뮤니티 탭을 숨긴다', () => {
@@ -92,7 +94,15 @@ describe('HomePage', () => {
     expect(shortcuts.getByRole('link', { name: '크루' })).toHaveAttribute('href', '/crews')
   })
 
-  it('헤더 오른쪽에는 알림만 있다', () => {
+  it('로그아웃 상태면 헤더 오른쪽에 알림 대신 로그인 버튼이 있다 (홈 로그아웃)', () => {
+    clearAccessToken()
+    renderHome()
+    expect(screen.getByRole('link', { name: '로그인' })).toHaveAttribute('href', '/login?next=%2F')
+    expect(screen.queryByRole('link', { name: '알림' })).not.toBeInTheDocument()
+  })
+
+  it('로그인하면 헤더 오른쪽에는 알림만 있다', () => {
+    setAccessToken('test-token')
     renderHome()
     expect(screen.getByRole('link', { name: '알림' })).toHaveAttribute('href', '/notifications')
     expect(screen.queryByRole('link', { name: '대회 찾기' })).not.toBeInTheDocument()

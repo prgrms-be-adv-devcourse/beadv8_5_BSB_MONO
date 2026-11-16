@@ -730,7 +730,9 @@ describe('예치금 돌려받기 · 환급 완료 (M22-1)', () => {
     save({})
     renderWithClient(<DepositRefundDonePage />)
 
-    expect(screen.getByRole('heading', { name: '예치금을 돌려받았어요' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: '예치금 5,000원을 돌려받았어요' }),
+    ).toBeInTheDocument()
     expect(screen.getByText('남은 예치금 전부를 아래 계좌로 보냈어요.')).toBeInTheDocument()
     expect(screen.getByText('계좌로 보낸 금액')).toBeInTheDocument()
     expect(screen.getByText('₩5,000')).toBeInTheDocument()
@@ -751,11 +753,13 @@ describe('예치금 돌려받기 · 환급 완료 (M22-1)', () => {
     })
     renderWithClient(<DepositRefundDonePage />)
 
-    expect(screen.getByRole('heading', { name: '환급을 신청했어요' })).toBeInTheDocument()
-    expect(screen.getByText('카드 결제취소 요청')).toBeInTheDocument()
-    expect(screen.getByText('₩30,000')).toBeInTheDocument()
     expect(
-      screen.getByText('결제한 카드로 결제취소를 요청했어요. 카드사에 따라 며칠 걸릴 수 있어요.'),
+      screen.getByRole('heading', { name: '예치금 130,000원 환급을 신청했어요' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        '30,000원은 결제한 카드의 결제취소를 요청했어요. 카드사에 따라 반영까지 며칠 걸릴 수 있어요. 70,000원은 아래 계좌로 보냈어요. 20,000원은 아직 처리 중이에요. 끝나면 알림으로 알려 드려요.',
+      ),
     ).toBeInTheDocument()
     expect(screen.getByText('₩70,000')).toBeInTheDocument()
     expect(screen.getByText('확인 중인 금액')).toBeInTheDocument()
@@ -776,8 +780,14 @@ describe('예치금 돌려받기 · 환급 완료 (M22-1)', () => {
     })
     renderWithClient(<DepositRefundDonePage />)
 
-    expect(screen.getByRole('heading', { name: '환급을 신청했어요' })).toBeInTheDocument()
-    expect(screen.getByText('카드 결제취소 요청')).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: '예치금 65,000원 환급을 신청했어요' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        '65,000원 전부 결제한 카드의 결제취소를 요청했어요. 카드사에 따라 반영까지 며칠 걸릴 수 있어요.',
+      ),
+    ).toBeInTheDocument()
     expect(screen.queryByText('계좌로 보낸 금액')).not.toBeInTheDocument()
     expect(screen.queryByText('확인 중인 금액')).not.toBeInTheDocument()
     expect(screen.queryByText('예치금으로 되돌린 금액')).not.toBeInTheDocument()
@@ -810,7 +820,9 @@ describe('예치금 돌려받기 · 환급 완료 (M22-1)', () => {
     save({ amount: 65000, balance: 5000, accountAmount: 60000, revertedAmount: 5000 })
     renderWithClient(<DepositRefundDonePage />)
 
-    expect(screen.getByRole('heading', { name: '환급을 신청했어요' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: '예치금 65,000원 환급을 신청했어요' }),
+    ).toBeInTheDocument()
   })
 
   it('완료 화면을 떠나면 예금주 · 계좌 · 잔액을 저장소에서 지운다', async () => {
@@ -855,7 +867,9 @@ describe('예치금 돌려받기 · 환급 완료 (M22-1)', () => {
     save({})
     renderWithClient(<DepositRefundDonePage />)
 
-    expect(screen.getByRole('heading', { name: '예치금을 돌려받았어요' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: '예치금 5,000원을 돌려받았어요' }),
+    ).toBeInTheDocument()
     expect(
       screen.queryByText('입력하신 계좌로 보냈어요.', { exact: false }),
     ).not.toBeInTheDocument()
