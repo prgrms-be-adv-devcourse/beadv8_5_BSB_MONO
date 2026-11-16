@@ -94,6 +94,29 @@ class CashRefundPaymentUseCaseTest {
 	}
 
 	@Test
+	@DisplayName("1차 정산으로 홀딩 지갑의 돈이 판매자에게 나간 뒤 환불하면, 고객은 돌려받고 홀딩 지갑은 음수가 된다 (정책 6장)")
+	void refundAfterFirstPayoutMakesHoldingNegative() {
+		long orderId = 860;
+		long amount = 3_000;
+		long holdingId = cashWalletProperties.holdingMemberId();
+		createCustomerWallet(10_000);
+		createHoldingWallet();
+		cashFacade.completeOrderPayment(orderId, CUSTOMER_ID, amount);
+		// 1차 정산: 홀딩 지갑에 들어온 결제 대금이 판매자에게 나가 홀딩 잔액이 0이 된다
+		transactionTemplate.executeWithoutResult(status -> {
+			Wallet holding = walletRepository.findById(holdingId).orElseThrow();
+			walletLedgerRepository.save(holding.debitAllowingNegative(
+				amount, LedgerType.정산지급__상품판매_대금, LedgerRefType.Payout, 1));
+		});
+
+		cashFacade.refund(orderId, CUSTOMER_ID);
+
+		assertBalance(CUSTOMER_ID, 10_000);
+		assertBalance(holdingId, -3_000);
+		assertLedgerConsistency(CUSTOMER_ID, holdingId);
+	}
+
+	@Test
 	@DisplayName("결제한 지갑과 다른 회원 ID로 환불을 요청하면 거절되고, 어느 지갑도 바뀌지 않는다")
 	void refundRejectsMemberMismatch() {
 		long orderId = 850;
