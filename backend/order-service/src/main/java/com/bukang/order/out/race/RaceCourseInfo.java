@@ -173,9 +173,11 @@ public record RaceCourseInfo(
 
 	// 일정 변경 뒤 전액 환불 기간의 마지막 날 (그날 23:59:59까지). 일정이 바뀐 적 없으면 null
 	public LocalDate scheduleChangeRefundLastDay() {
-		if (scheduleChangedAt == null) {
-			return null;
-		}
+		return scheduleChangedAt == null ? null : scheduleChangeRefundLastDay(scheduleChangedAt);
+	}
+
+	// 일정 변경 알림 문구도 같은 날을 쓴다 (RaceScheduleNoticeUseCase, BUK-82)
+	public static LocalDate scheduleChangeRefundLastDay(LocalDateTime scheduleChangedAt) {
 		return scheduleChangedAt.toLocalDate().plusDays(SCHEDULE_CHANGE_REFUND_DAYS - 1);
 	}
 

@@ -6,20 +6,17 @@ plugins {
 }
 
 dependencies {
+	// webmvc, data-jpa, validation, springdoc, querydsl-jpa(테스트는 webmvc-test)는 common이 넘겨 준다 (common/build.gradle.kts)
 	implementation(project(":common"))
 
 	implementation("org.springframework.boot:spring-boot-h2console") // h2 콘솔
 	implementation("org.springframework.boot:spring-boot-starter-data-elasticsearch") // elastic search
-	implementation("org.springframework.boot:spring-boot-starter-data-jpa") // dataJpa
 	// 표 변경은 Flyway SQL(db/migration)로만 한다 (BE-024). MySQL 지원은 별도 모듈
 	implementation("org.springframework.boot:spring-boot-starter-flyway")
 	implementation("org.flywaydb:flyway-mysql")
 	implementation("org.springframework.boot:spring-boot-starter-kafka") // kafka
 	implementation("org.apache.kafka:kafka-streams") // kafka topic join
 	implementation("org.springframework.boot:spring-boot-starter-security") // spring security
-	implementation("org.springframework.boot:spring-boot-starter-webmvc") // spring-web
-	implementation("org.springframework.boot:spring-boot-starter-validation") // @Valid 요청 검증
-	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.0") //swagger and openapi
 	implementation("org.springframework.boot:spring-boot-starter-data-redis") // redis
 	// 비밀번호 재설정 메일 (BUK-40). 크루런 전용 Gmail 계정의 SMTP로 보낸다
 	implementation("org.springframework.boot:spring-boot-starter-mail")
@@ -36,7 +33,6 @@ dependencies {
 	testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-kafka-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-security-test")
-	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
 	testImplementation(testFixtures(project(":common"))) // GlobalConfigTestExecutionListener (테스트마다 EventPublisher 재설정)
 	testImplementation("org.springframework.boot:spring-boot-starter-data-redis-test") // @DataRedisTest 지원
 
@@ -55,9 +51,8 @@ dependencies {
 	// testImplementation("org.testcontainers:testcontainers-mysql")
 	testImplementation("com.redis:testcontainers-redis")  // Boot BOM 관리. Refresh Token Lua 스크립트를 진짜 Redis로 검증
 
-	// QueryDSL (Jakarta 버전, 버전은 Spring Boot BOM의 querydsl.version 사용)
+	// QueryDSL Q클래스 생성기 (querydsl-jpa는 common이 넘겨 준다. 처리기는 전달되지 않아 모듈마다 적는다)
 	val querydslVersion = dependencyManagement.importedProperties["querydsl.version"]
-	implementation("com.querydsl:querydsl-jpa:${querydslVersion}:jakarta")
 	annotationProcessor("com.querydsl:querydsl-apt:${querydslVersion}:jakarta")
 	annotationProcessor("jakarta.annotation:jakarta.annotation-api")
 	annotationProcessor("jakarta.persistence:jakarta.persistence-api")

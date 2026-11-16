@@ -61,6 +61,22 @@ class HttpOpsAdapterTest {
 	}
 
 	@Test
+	@DisplayName("판매 합계: 기간을 결제일로 넘기고 장수·금액을 읽는다. 칸이 빠지면 0으로 읽지 않고 실패한다")
+	void sales() {
+		server.expect(requestTo("http://svc/api/v1/order/seller/orders/summary?from=2026-11-01&to=2026-11-16"))
+			.andExpect(header("X-Member-Id", "3"))
+			.andRespond(ok("{\"soldCount\":42,\"soldAmount\":2310000}"));
+		server.expect(requestTo("http://svc/api/v1/order/seller/orders/summary?from=2026-11-01&to=2026-11-16"))
+			.andRespond(ok("{\"soldCount\":42}"));
+
+		assertThat(adapter.salesSummary(3L, LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 16)))
+			.isEqualTo(new OpsPort.SalesSummary(42, 2310000));
+		assertThatThrownBy(() -> adapter.salesSummary(3L, LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 16)))
+			.isInstanceOf(RuntimeException.class);
+		server.verify();
+	}
+
+	@Test
 	@DisplayName("정산: 요약, 보류 중인 정산 내역, 지급보류 내역")
 	void payout() {
 		server.expect(requestTo("http://svc/api/v1/payout/seller/summary")).andExpect(header("X-Member-Id", "3"))

@@ -7,6 +7,8 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
+
 import com.bukang.cash.app.recovery.CashRecoveryDepositRelayUseCase;
 import com.bukang.cash.app.recovery.CashRecoveryDepositUseCase;
 
@@ -29,6 +31,7 @@ public class CashRecoveryDepositScheduler {
 	private final CashRecoveryDepositUseCase cashRecoveryDepositUseCase;
 	private final CashRecoveryDepositRelayUseCase cashRecoveryDepositRelayUseCase;
 
+	@SchedulerLock(name = "cash-recovery-deposit", lockAtMostFor = "PT30M")
 	@Scheduled(
 		fixedDelayString = "${cash.recovery.reconcile.interval-millis}",
 		initialDelayString = "${cash.recovery.reconcile.interval-millis}")
