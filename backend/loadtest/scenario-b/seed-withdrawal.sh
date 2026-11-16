@@ -7,6 +7,7 @@
 # (가짜 PG는 결제 키 값을 보지 않으므로 같은 키여도 된다)
 #
 #   카드 1장 910001 ~ 910030 / 3장 910101 ~ 910130 / 5장 910201 ~ 910230, 장마다 1만 원
+#   예열(버림) 카드 1장 910301 ~ 910310: 막 띄운 뒤 첫 환급이 느린 것이 1장 묶음에 몰리지 않게 먼저 환급한다
 set -euo pipefail
 cd "$(dirname "$0")"
 CASH_URL="${CASH_URL:-http://localhost:8081}"
@@ -18,7 +19,8 @@ INSERT INTO lt_w
 WITH RECURSIVE seq (n) AS (SELECT 1 UNION ALL SELECT n + 1 FROM seq WHERE n < 30)
 SELECT 910000 + n, 1 FROM seq UNION ALL
 SELECT 910100 + n, 3 FROM seq UNION ALL
-SELECT 910200 + n, 5 FROM seq;
+SELECT 910200 + n, 5 FROM seq UNION ALL
+SELECT 910300 + n, 1 FROM seq WHERE n <= 10;
 INSERT INTO lt_w VALUES (909999, 0);
 
 -- 이전 B-3 실행의 흔적을 지운다
@@ -53,9 +55,9 @@ WITH RECURSIVE card (k) AS (SELECT 1 UNION ALL SELECT k + 1 FROM card WHERE k < 
 SELECT 10000, 0, NOW() - INTERVAL 1 DAY, NOW() - INTERVAL 1 DAY, CONCAT('lt-b3-', w.id, '-', card.k), @key,
 	@provider, 0, 'COMPLETED', w.id, NOW(), NOW()
 FROM cash_wallet w JOIN card ON card.k <= w.balance / 10000
-WHERE w.id BETWEEN 910001 AND 910230;
+WHERE w.id BETWEEN 910001 AND 910310;
 
 SELECT w.balance / 10000 AS 카드_장수, COUNT(DISTINCT w.id) AS 회원_수, COUNT(c.id) AS 충전_기록
 FROM cash_wallet w JOIN cash_wallet_charge c ON c.wallet_id = w.id
-WHERE w.id BETWEEN 910001 AND 910230 GROUP BY w.balance;
+WHERE w.id BETWEEN 910001 AND 910310 GROUP BY w.balance;
 SQL

@@ -10,15 +10,23 @@ import { CASH_URL } from './lib.js';
 
 // 장수별 회원 30명을 동시 10명씩 처리한다 (seed-withdrawal.sh의 번호대)
 const GROUPS = { 1: 910000, 3: 910100, 5: 910200 };
+// 예열: 카드 1장 회원 10명이 먼저 환급한다. 막 띄운 뒤 첫 환급이 느린 것이 1장 묶음에 몰리지 않게 하고, 판정에는 쓰지 않는다
+const WARMUP_FIRST = 910300;
+const WARMUP_SEC = 20;
 const MEMBERS = 30;
 const VUS = 10;
 
-const scenarios = {};
+const scenarios = {
+	warmup: {
+		executor: 'shared-iterations', vus: VUS, iterations: 10, maxDuration: `${WARMUP_SEC}s`,
+		exec: 'withdraw', env: { CARDS: 'warmup' }, tags: { stage: 'warmup' },
+	},
+};
 const thresholds = {};
 Object.keys(GROUPS).forEach((cards, i) => {
 	scenarios[`cards_${cards}`] = {
 		executor: 'shared-iterations', vus: VUS, iterations: MEMBERS, maxDuration: '2m',
-		startTime: `${i * 30}s`, exec: 'withdraw', env: { CARDS: cards }, tags: { cards },
+		startTime: `${WARMUP_SEC + i * 30}s`, exec: 'withdraw', env: { CARDS: cards }, tags: { cards },
 	};
 	// 판정(README 「판정 기준」): p95 1초·실패 1%는 추천값(미확정). 화면에서 기다리는 요청이라 시나리오 A 쓰기 기준과 같은 값
 	thresholds[`http_req_duration{cards:${cards}}`] = ['p(95)<1000'];
@@ -28,7 +36,8 @@ Object.keys(GROUPS).forEach((cards, i) => {
 export const options = { scenarios, thresholds, summaryTrendStats: ['avg', 'med', 'p(95)', 'max'] };
 
 export function withdraw() {
-	const memberId = GROUPS[__ENV.CARDS] + 1 + exec.scenario.iterationInTest;
+	const base = __ENV.CARDS === 'warmup' ? WARMUP_FIRST : GROUPS[__ENV.CARDS];
+	const memberId = base + 1 + exec.scenario.iterationInTest;
 	// 카드로 다 돌려줄 수 있어 계좌 정보는 보내지 않는다
 	const res = http.post(`${CASH_URL}/api/v1/cash/withdrawals`, '{}', {
 		headers: {
