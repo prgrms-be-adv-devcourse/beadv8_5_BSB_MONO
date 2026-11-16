@@ -82,6 +82,10 @@ order:
     cash:
       mode: fake
       base-url: http://localhost:8081
+      # 예치금 결제 동시 호출 수와 자리 기다림 (BUK-235, 추천값(미확정)). 주문 서버 한 대 기준이라 서버가 2대면 예치금에는 합쳐 8개가 간다
+      # 예치금 DB 연결 10개를 충전·환불도 함께 쓰는 점을 보고 4로 골랐다. 4·10·20 비교 측정은 따로 한다. mode=http일 때만 쓴다
+      max-concurrent-pay: 4
+      pay-acquire-timeout: 1s
     # 대기열 입장 확인 (PRO-191). http면 대기열 서비스 내부 API를 부른다(PRO-226). 로컬은 대기열을 안 띄워도 되게 fake
     queue:
       mode: fake
