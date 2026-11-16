@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 
-import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
+import { CONSOLE_BOX, ConsoleCard, ConsolePage } from '@/widgets/console-page'
 import { cn } from '@/shared/lib'
 import { Badge, DataTable, FOCUS_RING, KeyValue, type BadgeTone } from '@/shared/ui'
 
@@ -132,7 +132,7 @@ export function AdminRacesPage() {
 
         <ConsoleCard title="대회 상세" className="w-95 shrink-0">
           <p className="text-body2-regular text-text-secondary">{race.title}</p>
-          <div className="flex flex-col gap-3 rounded-md bg-bg-subtle p-4">
+          <div className={cn('flex flex-col gap-3 rounded-md p-4', CONSOLE_BOX)}>
             <KeyValue label="상태" value={race.status} />
             <KeyValue label="판매 / 정원" value={`${race.sold}명`} />
             <KeyValue label="대회일" value="11/1 (일) 08:00" />
@@ -141,13 +141,13 @@ export function AdminRacesPage() {
             <KeyValue label="공개 범위" value="전체 공개" />
           </div>
           <p className="text-body2-regular text-text-secondary">판매자</p>
-          <div className="flex flex-col gap-3 rounded-md bg-bg-subtle p-4">
+          <div className={cn('flex flex-col gap-3 rounded-md p-4', CONSOLE_BOX)}>
             <KeyValue label="판매자" value={race.seller} />
             <KeyValue label="구분" value="사업자 · 123-45-67890" />
             <KeyValue label="정산 계좌" value="국민 ****4567" />
           </div>
           <p className="text-body2-regular text-text-secondary">정산 일정</p>
-          <div className="flex flex-col gap-3 rounded-md bg-bg-subtle p-4">
+          <div className={cn('flex flex-col gap-3 rounded-md p-4', CONSOLE_BOX)}>
             <KeyValue label="정산" value="11/20 (금) · 대회 종료 뒤 한 번에" />
           </div>
         </ConsoleCard>

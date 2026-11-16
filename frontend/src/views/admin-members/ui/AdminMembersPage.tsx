@@ -2,9 +2,10 @@
 
 import { useState } from 'react'
 
-import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
+import { CONSOLE_BOX, ConsoleCard, ConsolePage } from '@/widgets/console-page'
 import { useAuthStatus } from '@/features/auth'
 import { cashApi, memberApi, unwrapData } from '@/shared/api'
+import { cn } from '@/shared/lib'
 import {
   Alert,
   Badge,
@@ -98,6 +99,7 @@ export function AdminMembersPage() {
       {tab === 'all' && (
         <>
           <Alert
+            className={CONSOLE_BOX}
             title="개인정보를 조회하면 기록이 남아요"
             description="누가 언제 어떤 정보를 봤는지 남겨요. 업무에 필요한 만큼만 조회해 주세요."
           />
@@ -153,7 +155,7 @@ export function AdminMembersPage() {
                   </p>
                 </div>
               </div>
-              <div className="flex flex-col gap-3 rounded-md bg-bg-subtle p-4">
+              <div className={cn('flex flex-col gap-3 rounded-md p-4', CONSOLE_BOX)}>
                 <KeyValue label="예치금 잔액" value="₩45,000" />
                 <KeyValue label="참가권" value="2장 (쿠키RUN, 춘천 나이트런)" />
                 <KeyValue label="판매자" value="아니요" />

@@ -3,7 +3,7 @@
 import { keepPreviousData } from '@tanstack/react-query'
 import { useState, type ReactNode } from 'react'
 
-import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
+import { CONSOLE_BOX, ConsoleCard, ConsolePage } from '@/widgets/console-page'
 import {
   detailPeriods,
   formatMonthDay,
@@ -352,6 +352,7 @@ function HoldList({ period }: { period: DetailPeriod }) {
         )}
       </QueryRows>
       <Alert
+        className={CONSOLE_BOX}
         title="보류 사유는 두 가지예요"
         description="정산 계좌 미등록 · 대회 취소 처리. 보류된 금액은 지급 완료로 바뀌지 않고, 풀리면 해제일 다음 날 지급해요(원래 지급일보다 앞당기지 않아요)."
       />

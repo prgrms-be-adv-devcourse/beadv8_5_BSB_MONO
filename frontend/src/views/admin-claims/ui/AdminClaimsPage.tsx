@@ -3,10 +3,10 @@
 import { keepPreviousData, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 
-import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
+import { CONSOLE_BOX, ConsoleCard, ConsolePage } from '@/widgets/console-page'
 import { formatMonthDay } from '@/entities/payout'
 import { ApiError, memberApi, payoutApi, unwrapData, type payoutModel } from '@/shared/api'
-import { formatNumber, formatWon } from '@/shared/lib'
+import { cn, formatNumber, formatWon } from '@/shared/lib'
 import {
   Alert,
   Badge,
@@ -217,7 +217,7 @@ function ClaimPanel({ claim, sellerName }: { claim: Claim; sellerName: string })
 
   return (
     <ConsoleCard title="회수 처리">
-      <div className="flex flex-col gap-3 rounded-md bg-bg-subtle p-4">
+      <div className={cn('flex flex-col gap-3 rounded-md p-4', CONSOLE_BOX)}>
         <p className="text-label-m">
           {claim.claimCode} · {sellerName}
         </p>

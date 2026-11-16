@@ -5,7 +5,13 @@ import type { Route } from 'next'
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 
-import { ConsoleCard, ConsoleLoading, ConsoleOffline, ConsolePage } from '@/widgets/console-page'
+import {
+  CONSOLE_BOX,
+  ConsoleCard,
+  ConsoleLoading,
+  ConsoleOffline,
+  ConsolePage,
+} from '@/widgets/console-page'
 import { detailPeriods, formatMonthDay, formatWeekday, HOLD_REASON } from '@/entities/payout'
 import {
   daysUntil,
@@ -176,7 +182,7 @@ function DashboardBody() {
             />
           ) : (
             onSale.map((race) => (
-              <div key={race.id} className="flex flex-col gap-3 rounded-md bg-bg-subtle p-5">
+              <div key={race.id} className={cn('flex flex-col gap-3 rounded-md p-5', CONSOLE_BOX)}>
                 <div className="flex items-center gap-2">
                   <p className="text-body1-medium">{race.title}</p>
                   <Badge tone={race.badge.tone}>{race.badge.label}</Badge>
