@@ -265,3 +265,25 @@ test('계약: 워크플로가 팀원 다섯 명의 BUK·CRU 시크릿을 같은 
   }
   assert.ok(!/\$\{\{\s*toJSON\(secrets\)/.test(yml), '모든 시크릿을 넘기면 안 됨')
 })
+
+test('핸들러: 머지 때도 BUK·CRU가 섞이면 각자 자기 키로 Done이 되고, 키 없는 쪽만 건너뛴다', async () => {
+  const done = { id: 'd', name: 'Done', type: 'completed' }
+  const inReview = { type: 'started', name: 'In Review' }
+  const issues = { 'BUK-1': { state: inReview, states: [done] }, 'CRU-2': { state: inReview, states: [done] } }
+  const merge = (env) => {
+    const t = setup({ draft: false, issues, env })
+    t.context.payload.action = 'closed'
+    t.context.payload.pull_request.merged = true
+    t.context.payload.pull_request.body = 'Closes cru-2'
+    return t
+  }
+  const both = merge({ LINEAR_API_KEY_ME: 'buk-key', LINEAR_API_KEY_CRU_ME: 'cru-key' })
+  await sync({ context: both.context, core: both.core })
+  assert.deepStrictEqual(both.moves, [['BUK-1', 'd'], ['CRU-2', 'd']])
+  assert.deepStrictEqual(authsOf(both, 'CRU-2'), ['cru-key'])
+
+  const onlyBuk = merge({ LINEAR_API_KEY_ME: 'buk-key' })
+  await sync({ context: onlyBuk.context, core: onlyBuk.core })
+  assert.deepStrictEqual(onlyBuk.moves, [['BUK-1', 'd']])
+  assert.deepStrictEqual(failed(onlyBuk), [])
+})
