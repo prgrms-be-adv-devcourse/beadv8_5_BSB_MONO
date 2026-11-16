@@ -11,6 +11,7 @@ export {
 export { useTrackOnce } from './analytics/use-track-once'
 export { trackingClarityId } from './analytics/clarity'
 export { ClarityTag } from './analytics/clarity-tag'
+export { copyText } from './clipboard/copy-text'
 export { cn } from './cn/cn'
 export {
   addRecentSearch,
