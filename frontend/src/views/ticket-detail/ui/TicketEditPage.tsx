@@ -2,7 +2,6 @@
 
 import { zodResolver } from '@hookform/resolvers/zod'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 
@@ -11,6 +10,7 @@ import { AddressSearch, type AddressSearchResult } from '@/features/address-sear
 import { formatDDay } from '@/entities/race'
 import { ticketErrorMessage, useChangeParticipant } from '@/entities/ticket'
 import type { orderModel } from '@/shared/api'
+import { useGoBack } from '@/shared/lib'
 import {
   Alert,
   BottomCta,
@@ -82,7 +82,7 @@ function ParticipantForm({
   closeAt?: string
   sizes: string[]
 }) {
-  const router = useRouter()
+  const goBack = useGoBack()
   const change = useChangeParticipant()
   const hasKit = participant.shippingAddress != null
   const {
@@ -131,7 +131,7 @@ function ParticipantForm({
           onSubmit={handleSubmit((values) =>
             change.mutate(
               { participationId, body: toRequestBody(participant, values) },
-              { onSuccess: () => router.push(`/tickets/${ticketId}`) },
+              { onSuccess: () => goBack(`/tickets/${ticketId}`) },
             ),
           )}
         >

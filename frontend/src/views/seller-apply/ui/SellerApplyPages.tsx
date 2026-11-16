@@ -112,7 +112,7 @@ export function SellerApplyPage() {
           // 응답이 방금 낸 신청이라 결과 화면이 다시 부르지 않고 바로 쓴다.
           queryClient.setQueryData(memberApi.getFindMineQueryKey(), response)
           trackEvent('seller_apply_submit', { isBusiness: values.business === 'business' })
-          router.push('/seller-apply/result')
+          router.replace('/seller-apply/result')
         },
         onError: (error) => setFormError(applyErrorMessage(error)),
       },

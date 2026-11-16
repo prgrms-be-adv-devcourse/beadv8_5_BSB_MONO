@@ -11,14 +11,14 @@ import { memberMock, server } from '@/shared/testing'
 import { SELLER_API_ERRORS } from '../model/seller-apply-api'
 import { SellerApplicationPage, SellerApplyPage, SellerApplyResultPage } from './SellerApplyPages'
 
-const push = vi.fn()
+const replace = vi.fn()
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push, back: vi.fn(), replace: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), back: vi.fn(), replace }),
   usePathname: () => '/seller-apply',
 }))
 
 beforeEach(() => {
-  push.mockClear()
+  replace.mockClear()
   // 기본은 신청 전(404). 명세 예시(반려)가 신청 폼을 미리 채우지 않게 한다.
   server.use(
     http.get('*/api/v1/member/sellers/me', () =>
@@ -80,7 +80,7 @@ describe('SellerApplyPage 신청 폼 검사', () => {
     expect(await screen.findByText('사업자등록번호를 입력해 주세요.')).toBeInTheDocument()
     expect(screen.getByText('상호를 입력해 주세요.')).toBeInTheDocument()
     expect(screen.getByText('대표자를 입력해 주세요.')).toBeInTheDocument()
-    expect(push).not.toHaveBeenCalled()
+    expect(replace).not.toHaveBeenCalled()
   })
 
   it('사업자등록번호 형식이 틀리면 막는다', async () => {
@@ -94,7 +94,7 @@ describe('SellerApplyPage 신청 폼 검사', () => {
     expect(
       await screen.findByText('사업자등록번호를 123-45-67890처럼 입력해 주세요.'),
     ).toBeInTheDocument()
-    expect(push).not.toHaveBeenCalled()
+    expect(replace).not.toHaveBeenCalled()
   })
 
   it('상호가 100자를 넘으면 막는다', async () => {
@@ -107,7 +107,7 @@ describe('SellerApplyPage 신청 폼 검사', () => {
     await user.click(screen.getByRole('checkbox', { name: /판매자 이용약관/ }))
     await user.click(screen.getByRole('button', { name: '신청하기' }))
     expect(await screen.findByText('상호는 100자 이하로 입력해 주세요.')).toBeInTheDocument()
-    expect(push).not.toHaveBeenCalled()
+    expect(replace).not.toHaveBeenCalled()
   })
 
   it('사업자가 아니면 성명 · 연락처만 검사한다', async () => {
@@ -118,7 +118,7 @@ describe('SellerApplyPage 신청 폼 검사', () => {
     await user.click(screen.getByRole('button', { name: '신청하기' }))
     expect(await screen.findByText('성명을 입력해 주세요.')).toBeInTheDocument()
     expect(screen.getByText('연락처를 입력해 주세요.')).toBeInTheDocument()
-    expect(push).not.toHaveBeenCalled()
+    expect(replace).not.toHaveBeenCalled()
   })
 })
 
@@ -136,7 +136,7 @@ describe('SellerApplyPage 신청 보내기', () => {
     await fillBusinessForm(user)
     await user.click(screen.getByRole('button', { name: '신청하기' }))
 
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/seller-apply/result'))
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/seller-apply/result'))
     expect(body).toEqual({
       sellerType: 'BUSINESS',
       businessName: '크루런 스포츠',
@@ -170,7 +170,7 @@ describe('SellerApplyPage 신청 보내기', () => {
     await user.click(screen.getByRole('checkbox', { name: /판매자 이용약관/ }))
     await user.click(screen.getByRole('button', { name: '신청하기' }))
 
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/seller-apply/result'))
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/seller-apply/result'))
     expect(body).toEqual({
       sellerType: 'INDIVIDUAL',
       representativeName: '이춘천',
@@ -192,7 +192,7 @@ describe('SellerApplyPage 신청 보내기', () => {
     await user.click(screen.getByRole('button', { name: '신청하기' }))
 
     expect(await screen.findByText(SELLER_API_ERRORS.alreadyApplied)).toBeInTheDocument()
-    expect(push).not.toHaveBeenCalled()
+    expect(replace).not.toHaveBeenCalled()
   })
 
   it('400 같은 그 밖의 오류는 서버 문구를 그대로 보여 준다', async () => {
@@ -209,7 +209,7 @@ describe('SellerApplyPage 신청 보내기', () => {
     expect(
       await screen.findByText('사업자등록번호는 숫자 10자리로 작성해주세요.'),
     ).toBeInTheDocument()
-    expect(push).not.toHaveBeenCalled()
+    expect(replace).not.toHaveBeenCalled()
   })
 
   it('서버 문구가 없는 오류는 일반 문구를 보여 준다', async () => {
@@ -419,7 +419,7 @@ describe('SellerApplyPage 정산 계좌', () => {
     await user.type(screen.getByLabelText('계좌번호'), '12345')
     await user.click(screen.getByRole('button', { name: '신청하기' }))
     expect(await screen.findByText('계좌번호는 숫자 6~16자리로 입력해 주세요.')).toBeInTheDocument()
-    expect(push).not.toHaveBeenCalled()
+    expect(replace).not.toHaveBeenCalled()
   })
 
   it('사업자가 아니면 사업자 명의를 고를 수 없다', async () => {
@@ -451,7 +451,7 @@ describe('SellerApplyPage 정산 계좌', () => {
     await user.click(screen.getByRole('radio', { name: '사업자 명의' }))
     await user.click(screen.getByRole('button', { name: '신청하기' }))
 
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/seller-apply/result'))
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/seller-apply/result'))
     expect(body).toMatchObject({ accountHolderType: 'BUSINESS' })
   })
 
@@ -480,7 +480,7 @@ describe('SellerApplyPage 정산 계좌', () => {
     await user.click(screen.getByRole('button', { name: '신청하기' }))
 
     expect(await screen.findByText(message)).toBeInTheDocument()
-    expect(push).not.toHaveBeenCalled()
+    expect(replace).not.toHaveBeenCalled()
   })
 })
 

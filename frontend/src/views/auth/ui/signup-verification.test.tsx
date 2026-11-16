@@ -26,8 +26,9 @@ const openPortOne = vi.hoisted(() => vi.fn())
 vi.mock('@portone/browser-sdk/v2', () => ({ requestIdentityVerification: openPortOne }))
 
 const push = vi.fn()
+const replace = vi.fn()
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push, back: vi.fn(), replace: vi.fn() }),
+  useRouter: () => ({ push, back: vi.fn(), replace }),
   usePathname: () => '/signup',
 }))
 
@@ -36,6 +37,7 @@ const TERMS_AGREED: SignupStepInitial = { terms: termChecks(true), termsAgreed: 
 
 beforeEach(() => {
   push.mockClear()
+  replace.mockClear()
   openPortOne.mockReset()
   env.NEXT_PUBLIC_API_MOCKING = 'off'
   env.NEXT_PUBLIC_PORTONE_STORE_ID = 'store-test'
@@ -145,7 +147,7 @@ describe('본인 확인 단계 (포트원)', () => {
 
     const dialog = await screen.findByRole('alertdialog', { name: '이미 가입한 사람이에요' })
     await user.click(within(dialog).getByRole('button', { name: '로그인하기' }))
-    expect(push).toHaveBeenCalledWith('/login')
+    expect(replace).toHaveBeenCalledWith('/login')
     expect(push).not.toHaveBeenCalledWith('/signup/account')
   })
 
