@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   completePostcode,
   installPostcodeFake,
+  orderMock,
   postcodeFake,
   productMock,
   server,
@@ -16,15 +17,15 @@ import { RaceChangeNoticePage } from './RaceChangeNoticePage'
 import { TicketDetailPage } from './TicketDetailPage'
 import { TicketEditPage } from './TicketEditPage'
 
-const push = vi.fn()
+const replace = vi.fn()
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push, back: vi.fn(), replace: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), back: vi.fn(), replace }),
   usePathname: () => '/tickets/1-1',
 }))
 vi.mock('next/script', async () => ({ default: (await import('@/shared/testing')).FakeScript }))
 
 beforeEach(() => {
-  push.mockClear()
+  replace.mockClear()
   installPostcodeFake()
   vi.useFakeTimers({ toFake: ['Date'] })
   vi.setSystemTime(new Date('2026-10-15T12:00:00+09:00'))
@@ -81,7 +82,7 @@ describe('TicketDetailPage', () => {
     await user.click(await screen.findByRole('button', { name: '참가 취소하기' }))
     await user.click(await screen.findByRole('button', { name: '취소하기' }))
 
-    await vi.waitFor(() => expect(push).toHaveBeenCalledWith('/tickets/1-1/canceled'))
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/tickets/1-1/canceled'))
     expect(calls).toEqual(['1/1'])
   })
 
@@ -97,7 +98,19 @@ describe('TicketDetailPage', () => {
     await user.click(await screen.findByRole('button', { name: '취소하기' }))
 
     expect(await screen.findByText(message)).toBeInTheDocument()
-    expect(push).not.toHaveBeenCalled()
+    expect(replace).not.toHaveBeenCalled()
+  })
+
+  it('결제 확인 중인 참가권은 배지만 보여 주고 고치기 · 취소 · 환불 안내를 숨긴다', async () => {
+    server.use(payingOrder())
+    renderWithClient(<TicketDetailPage ticketId="1-1" />)
+
+    expect(await screen.findByText('김러너 · 10K')).toBeInTheDocument()
+    expect(screen.getByText('결제 확인 중')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: '고치기' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '참가 취소하기' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '환불 기준' })).not.toBeInTheDocument()
+    expect(screen.queryByText(/예치금으로 돌려받아요/)).not.toBeInTheDocument()
   })
 
   it('주소의 ID 모양이 틀리거나 없는 주문(404)이면 찾을 수 없다고 보여 준다', async () => {
@@ -118,7 +131,29 @@ describe('TicketDetailPage', () => {
   })
 })
 
+/** 명세 예시 주문 1을 결제 확인 중(PAYING, 상품은 ORDERED)으로 돌려준다 */
+function payingOrder() {
+  return http.get('*/api/v1/order/orders/:orderId', () => {
+    const example = orderMock.getFindById1ResponseMock()
+    return HttpResponse.json({
+      ...example,
+      data: {
+        ...example.data,
+        status: 'PAYING',
+        items: example.data?.items?.map((item) => ({ ...item, status: 'ORDERED' })),
+      },
+    })
+  })
+}
+
 describe('TicketEditPage', () => {
+  it('결제 확인 중인 참가권은 주소로 열어도 수정할 수 없다', async () => {
+    server.use(payingOrder())
+    renderWithClient(<TicketEditPage ticketId="1-1" />)
+
+    expect(await screen.findByText('참가권을 찾을 수 없어요')).toBeInTheDocument()
+  })
+
   it('고친 참가자 정보를 기존 값과 합쳐 보내고 상세로 돌아간다', async () => {
     let body: unknown
     server.use(
@@ -138,7 +173,7 @@ describe('TicketEditPage', () => {
     await user.type(contactName, '김엄마')
     await user.click(screen.getByRole('button', { name: '저장하기' }))
 
-    await vi.waitFor(() => expect(push).toHaveBeenCalledWith('/tickets/1-1'))
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/tickets/1-1'))
     expect(body).toMatchObject({
       name: '김러너',
       birth: '1994-06-25',
@@ -180,7 +215,7 @@ describe('TicketEditPage', () => {
     await user.type(screen.getByLabelText('상세 주소'), '3층')
     await user.click(screen.getByRole('button', { name: '저장하기' }))
 
-    await vi.waitFor(() => expect(push).toHaveBeenCalledWith('/tickets/1-1'))
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/tickets/1-1'))
     expect(body).toMatchObject({
       shippingAddress: {
         recipientName: '김러너',
@@ -229,7 +264,7 @@ describe('TicketEditPage', () => {
     await user.click(await screen.findByRole('button', { name: '저장하기' }))
 
     expect(await screen.findByText(message)).toBeInTheDocument()
-    expect(push).not.toHaveBeenCalled()
+    expect(replace).not.toHaveBeenCalled()
   })
 })
 

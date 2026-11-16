@@ -2,18 +2,19 @@
 
 import { Fragment, useState } from 'react'
 
-import { ConsolePage } from '@/widgets/console-page'
+import { CONSOLE_BOX, ConsolePage } from '@/widgets/console-page'
 import {
   formatStatsDayWithWeekday,
   resolveStatsPeriod,
   seoulToday,
   STATS_PERIOD_ITEMS,
+  statsPeriodQuerySchema,
   type DateSpan,
   type StatsPeriodKind,
   type StatsPeriodQuery,
 } from '@/entities/usage-stats'
 import { clientEnv } from '@/shared/config'
-import { formatNumber } from '@/shared/lib'
+import { cn, formatNumber, useSearchParamsState } from '@/shared/lib'
 import {
   Button,
   buttonClassName,
@@ -33,7 +34,16 @@ import { TrendSection } from './TrendSection'
 // GA4 숫자를 사람 수로만 보여 준다. 영역마다 따로 불러와 따로 실패한다.
 
 export function AdminStatsPage() {
-  const [query, setQuery] = useState<StatsPeriodQuery>({ period: '7d' })
+  // 기간은 URL(?period=&start=&end=)에 담는다. 값이 이상하면 지난 7일로 읽는다
+  const [url, setUrl] = useSearchParamsState({ period: '7d', start: '', end: '' })
+  const parsed = statsPeriodQuerySchema.safeParse(url)
+  const query: StatsPeriodQuery = parsed.success ? parsed.data : { period: '7d' }
+  const setQuery = (next: StatsPeriodQuery) =>
+    setUrl(
+      next.period === 'custom'
+        ? { period: 'custom', start: next.start, end: next.end }
+        : { period: next.period, start: '', end: '' },
+    )
   const realtime = useRealtimeStats()
 
   // 키가 없으면 영역마다 같은 안내를 반복하지 않고 화면 전체에 한 번만 보여 준다
@@ -100,7 +110,9 @@ function PeriodPicker({
   onChange: (next: StatsPeriodQuery) => void
 }) {
   const [kind, setKind] = useState<StatsPeriodKind>(query.period)
-  const [custom, setCustom] = useState<DateSpan>({ start: '', end: '' })
+  const [custom, setCustom] = useState<DateSpan>(
+    query.period === 'custom' ? { start: query.start, end: query.end } : { start: '', end: '' },
+  )
   const today = seoulToday()
   const period = resolveStatsPeriod(query, today)
   const customValid = Boolean(custom.start && custom.end && custom.start <= custom.end)
@@ -162,7 +174,12 @@ function RealtimeSection({ result }: { result: ReturnType<typeof useRealtimeStat
       <SectionState result={result} name="지금 접속 중을">
         {(data) => (
           <div className="flex items-start gap-4">
-            <div className="flex w-80 shrink-0 flex-col items-center gap-1 rounded-lg bg-bg-subtle p-4">
+            <div
+              className={cn(
+                'flex w-80 shrink-0 flex-col items-center gap-1 rounded-lg p-4',
+                CONSOLE_BOX,
+              )}
+            >
               <span className="text-caption-medium text-text-secondary">최근 30분 접속자</span>
               <span className="flex items-baseline gap-1">
                 <span className="text-title2">{formatNumber(data.activeUsers)}</span>

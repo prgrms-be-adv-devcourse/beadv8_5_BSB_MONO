@@ -13,7 +13,7 @@ import {
   ticketNumber,
   useCancelTicket,
 } from '@/entities/ticket'
-import { formatNumber } from '@/shared/lib'
+import { formatNumber, useNow } from '@/shared/lib'
 import { Alert, Badge, BibCard, Button, buttonClassName, Dialog, KeyValue } from '@/shared/ui'
 
 import { fullRefundLastDay } from '../model/refund-period'
@@ -40,6 +40,7 @@ export function TicketDetailPage({
   const router = useRouter()
   const data = useTicket(ticketId)
   const cancel = useCancelTicket()
+  const now = useNow()
   const [cancelOpen, setCancelOpen] = useState(confirmOpen)
   const viewState = ticketViewState(data)
   const { ticket, order, participation, race, course, status } = data
@@ -57,11 +58,15 @@ export function TicketDetailPage({
 
   const participant = participation?.participant
   const closeAt = race.applicationCloseAt
-  const editable = status === 'confirmed' && closeAt !== undefined && new Date(closeAt) > new Date()
+  const editable =
+    status === 'confirmed' && closeAt !== undefined && !!now && new Date(closeAt) > now
   const refundDeadline = race.refundDeadline
   const refundLastDay = fullRefundLastDay(refundDeadline, race.scheduleChangedAt)
   const refundable =
-    status === 'confirmed' && refundLastDay !== undefined && daysUntil(refundLastDay) >= 0
+    status === 'confirmed' &&
+    refundLastDay !== undefined &&
+    !!now &&
+    daysUntil(refundLastDay, now) >= 0
   const amount = `${formatNumber(ticket.amount)}원`
   const kitNote = course?.kitIncluded ? '키트도 함께 취소돼요.' : undefined
   return (
@@ -110,7 +115,7 @@ export function TicketDetailPage({
           </div>
         </section>
 
-        {refundDeadline && (
+        {refundDeadline && status !== 'paying' && (
           <section className="flex flex-col gap-3 border-t-8 border-bg-subtle px-4 py-6">
             <h2 className="text-[18px] leading-6.5 font-bold tracking-[-0.015em]">환불 기준</h2>
             <div className="flex flex-col gap-2">
@@ -171,7 +176,7 @@ export function TicketDetailPage({
           cancel.mutate(
             { orderId: ticket.orderId, orderItemId: ticket.orderItemId },
             {
-              onSuccess: () => router.push(`/tickets/${ticket.id}/canceled`),
+              onSuccess: () => router.replace(`/tickets/${ticket.id}/canceled`),
               onError: () => setCancelOpen(false),
             },
           )

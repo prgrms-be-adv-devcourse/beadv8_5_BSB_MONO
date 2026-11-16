@@ -12,6 +12,7 @@ import com.bukang.order.dto.SellerKitExportRequestDto;
 import com.bukang.order.dto.SellerOrderPageDto;
 import com.bukang.order.dto.SellerPartyPageDto;
 import com.bukang.order.dto.SellerRosterExportRequestDto;
+import com.bukang.order.dto.SellerSalesSummaryDto;
 import com.bukang.order.out.seller.SellerLookupPort;
 
 import lombok.RequiredArgsConstructor;
@@ -47,6 +48,10 @@ public class SellerOrderFacade {
 	public SellerExportFile exportKitShipments(long memberId, SellerKitExportRequestDto request) {
 		return sellerExportUseCase.exportKitShipments(sellerIdOf(memberId), memberId, request.getRaceId(),
 			request.getStatus(), request.getReason(), LocalDate.now());
+	}
+
+	public SellerSalesSummaryDto summarizeSales(long memberId, LocalDate from, LocalDate to) {
+		return sellerOrderQueryUseCase.summarizeSales(sellerIdOf(memberId), from, to);
 	}
 
 	private long sellerIdOf(long memberId) {

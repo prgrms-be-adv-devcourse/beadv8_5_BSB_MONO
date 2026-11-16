@@ -6,6 +6,8 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
+
 import com.bukang.order.app.KitShipNoticeUseCase;
 
 import lombok.RequiredArgsConstructor;
@@ -22,6 +24,7 @@ import lombok.RequiredArgsConstructor;
 public class KitShipNoticeScheduler {
 	private final KitShipNoticeUseCase kitShipNoticeUseCase;
 
+	@SchedulerLock(name = "order-kit-ship-notice", lockAtMostFor = "PT30M", lockAtLeastFor = "PT30S")
 	@Scheduled(cron = "0 0 * * * *")
 	public void notifyShippable() {
 		kitShipNoticeUseCase.notifyShippable(LocalDateTime.now());

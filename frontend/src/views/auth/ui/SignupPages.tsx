@@ -7,7 +7,13 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { useForm, useWatch, type FieldErrors, type UseFormRegister } from 'react-hook-form'
 
-import { checkEmailAvailable, loginHref, safeNextPath, useLogin } from '@/features/auth'
+import {
+  checkEmailAvailable,
+  loginHref,
+  safeNextPath,
+  useAuthStatus,
+  useLogin,
+} from '@/features/auth'
 import {
   IdentityMockNotice,
   LockedIdentityFields,
@@ -17,13 +23,14 @@ import {
   type RejoinInfo,
 } from '@/features/identity-verification'
 import { memberApi } from '@/shared/api'
-import { cn } from '@/shared/lib'
+import { cn, useGoBack } from '@/shared/lib'
 import {
   BottomCta,
   BottomSheet,
   Button,
   Checkbox,
   Dialog,
+  Divider,
   FOCUS_RING,
   Icon,
   Radio,
@@ -42,10 +49,15 @@ import {
   signupProfileSchema,
   type SignupProfileValues,
 } from '../model/schemas'
-import { saveSignupDraft, takeSignupDraft } from '../model/signup-draft'
-import { saveSignupNext, signupStartHref, takeSignupNext } from '../model/signup-next'
+import { clearSignupDraft, saveSignupDraft, takeSignupDraft } from '../model/signup-draft'
+import {
+  peekSignupNext,
+  saveSignupNext,
+  signupStartHref,
+  takeSignupNext,
+} from '../model/signup-next'
 import { useSignupStep } from '../model/signup-store'
-import { requiredTermsChecked, SIGNUP_TERMS } from '../model/signup-terms'
+import { BUNDLED_TERM_IDS, requiredTermsChecked, SIGNUP_TERMS } from '../model/signup-terms'
 import { CenterBody, LineField, StatusScreen, StepHeader, StepIntro } from './parts'
 
 // 시안 가입 · 본인 확인. 가입의 첫 화면이고, 약관 동의(M04-0) 바텀시트를 이 화면 위에 띄운다.
@@ -55,6 +67,12 @@ import { CenterBody, LineField, StatusScreen, StepHeader, StepIntro } from './pa
 // next 없이 들어오면 전에 그만둔 가입이 남긴 값을 지운다. 모바일 본인인증은 지금 주소(?next= 포함)로 돌아오므로 지워도 된다.
 export function SignupIdentityPage({ next }: { next?: string } = {}) {
   const router = useRouter()
+  const goBack = useGoBack()
+  // 이미 로그인한 사람이 가입 화면에 오면 가려던 곳으로 바로 보낸다
+  const authStatus = useAuthStatus()
+  useEffect(() => {
+    if (authStatus === 'authenticated') router.replace(safeNextPath(next))
+  }, [authStatus, next, router])
   useEffect(() => {
     if (next) saveSignupNext(next)
     else takeSignupNext()
@@ -75,7 +93,10 @@ export function SignupIdentityPage({ next }: { next?: string } = {}) {
       setVerification(identity)
       router.push('/signup/account')
     },
-    onBeforeOpen: () => saveSignupDraft({ terms, termsAgreed }),
+    onBeforeOpen: () => {
+      saveSignupDraft({ terms, termsAgreed })
+      return clearSignupDraft
+    },
     onReturn: () => {
       const draft = takeSignupDraft()
       if (draft) {
@@ -93,7 +114,7 @@ export function SignupIdentityPage({ next }: { next?: string } = {}) {
 
   return (
     <>
-      <StepHeader onBack={() => router.back()} />
+      <StepHeader onBack={() => goBack(next ? loginHref(next) : '/login')} />
       <CenterBody center={false}>
         <StepIntro title={'휴대폰으로\n본인 확인을 해 주세요'} />
         {mock && <IdentityMockNotice />}
@@ -124,9 +145,11 @@ export function SignupAccountPage({ invalid = false }: { invalid?: boolean }) {
   const verification = useSignupStep((s) => s.verification)
   const ready = invalid || (termsAgreed && verification !== null)
   const [step, setStep] = useState<'email' | 'password'>(invalid ? 'password' : 'email')
+  const authStatus = useAuthStatus()
   useEffect(() => {
-    if (!ready) router.replace(signupStartHref())
-  }, [ready, router])
+    if (authStatus === 'authenticated') router.replace(safeNextPath(peekSignupNext()))
+    else if (!ready) router.replace(signupStartHref())
+  }, [authStatus, ready, router])
 
   if (!ready) return null
   return step === 'email' ? (
@@ -312,6 +335,7 @@ export function SignupProfilePage() {
 
 function SignupProfileForm({ onDone }: { onDone: (next: Route) => void }) {
   const router = useRouter()
+  const goBack = useGoBack()
   const account = useSignupStep((s) => s.account)
   const terms = useSignupStep((s) => s.terms)
   const profile = useSignupStep((s) => s.profile)
@@ -391,7 +415,7 @@ function SignupProfileForm({ onDone }: { onDone: (next: Route) => void }) {
   return (
     <>
       <form noValidate onSubmit={onSubmit} className="contents">
-        <StepHeader onBack={() => router.back()} />
+        <StepHeader onBack={() => goBack(signupStartHref())} />
         <CenterBody center={false}>
           <StepIntro title={'크루런에서 쓸\n닉네임을 정해 주세요'} />
           <LineField
@@ -461,6 +485,10 @@ export function SignupTermsSheet({
   const agreeTerms = useSignupStep((s) => s.agreeTerms)
   const allChecked = SIGNUP_TERMS.every((t) => terms[t.id])
   const requiredChecked = requiredTermsChecked(terms)
+  const bundledChecked = BUNDLED_TERM_IDS.every((id) => terms[id])
+  const [bundledOpen, setBundledOpen] = useState(false)
+  const age = SIGNUP_TERMS[2]
+  const marketing = SIGNUP_TERMS[3]
   return (
     <BottomSheet
       open={open}
@@ -487,24 +515,62 @@ export function SignupTermsSheet({
           />
         </div>
         <div className="flex flex-col px-1">
-          {SIGNUP_TERMS.map((term) => (
-            <div key={term.id} className="flex min-h-11 items-center justify-between py-3">
-              <Checkbox
-                checked={terms[term.id]}
-                onCheckedChange={(value) => setTerm(term.id, value)}
-                label={term.label}
-              />
-              {'href' in term && (
+          <div className="flex min-h-11 items-center justify-between gap-2 py-3">
+            <Checkbox
+              checked={bundledChecked}
+              onCheckedChange={(value) => BUNDLED_TERM_IDS.forEach((id) => setTerm(id, value))}
+              label={
+                <span className="text-body2-medium">[필수] 크루런 이용약관과 개인정보 동의</span>
+              }
+            />
+            <button
+              type="button"
+              aria-expanded={bundledOpen}
+              aria-label="약관 보기 펼치기"
+              onClick={() => setBundledOpen((v) => !v)}
+              className={cn('rounded-sm text-text-primary', FOCUS_RING)}
+            >
+              <Icon name={bundledOpen ? 'ChevronUp' : 'ChevronDown'} className="size-5" />
+            </button>
+          </div>
+          {bundledOpen && (
+            <div className="flex flex-col items-start gap-2 pb-3 pl-8 text-body2-regular text-text-secondary">
+              {BUNDLED_TERM_IDS.map((id) => (
                 <Link
-                  href={{ pathname: term.href, query: { from: 'signup' } }}
-                  aria-label={`${term.label} 보기`}
-                  className={cn('rounded-sm text-text-primary', FOCUS_RING)}
+                  key={id}
+                  href={{ pathname: `/terms/${id}`, query: { from: 'signup' } }}
+                  className={cn('rounded-sm underline', FOCUS_RING)}
                 >
-                  <Icon name="ChevronRight" className="size-5" />
+                  {id === 'service' ? '서비스 이용약관 보기' : '개인정보 수집 · 이용 보기'}
                 </Link>
-              )}
+              ))}
             </div>
-          ))}
+          )}
+          <div className="flex min-h-11 items-center justify-between py-3">
+            <Checkbox
+              checked={terms.marketing}
+              onCheckedChange={(value) => setTerm('marketing', value)}
+              label={<span className="text-body2-medium">{marketing.label}</span>}
+            />
+            <Link
+              href={{ pathname: marketing.href, query: { from: 'signup' } }}
+              aria-label={`${marketing.label} 보기`}
+              className={cn('rounded-sm text-text-primary', FOCUS_RING)}
+            >
+              <Icon name="ChevronRight" className="size-5" />
+            </Link>
+          </div>
+        </div>
+        <Divider />
+        <div className="flex flex-col gap-1 px-1">
+          <h3 className="text-caption-regular text-text-secondary">나이 확인</h3>
+          <div className="flex min-h-11 items-center py-3">
+            <Checkbox
+              checked={terms.age}
+              onCheckedChange={(value) => setTerm('age', value)}
+              label={<span className="text-body2-medium">{age.label}</span>}
+            />
+          </div>
         </div>
       </div>
     </BottomSheet>
@@ -570,7 +636,10 @@ export function DuplicateIdentityDialog({
       body="로그인하거나 계정을 연결해 주세요."
       cancelLabel="닫기"
       confirmLabel="로그인하기"
-      onConfirm={() => router.push('/login')}
+      onConfirm={() => {
+        const next = takeSignupNext()
+        router.replace(next ? loginHref(next) : '/login')
+      }}
     />
   )
 }

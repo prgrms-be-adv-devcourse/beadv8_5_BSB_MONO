@@ -2,7 +2,6 @@
 
 import { zodResolver } from '@hookform/resolvers/zod'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 
@@ -11,6 +10,7 @@ import { AddressSearch, type AddressSearchResult } from '@/features/address-sear
 import { formatDDay } from '@/entities/race'
 import { ticketErrorMessage, useChangeParticipant } from '@/entities/ticket'
 import type { orderModel } from '@/shared/api'
+import { useGoBack } from '@/shared/lib'
 import {
   Alert,
   BottomCta,
@@ -40,7 +40,8 @@ const FORM_ID = 'participant-form'
 // 피그마 V2 · M23 참가자 정보 수정. 접수 마감 뒤에는 서버가 409로 막는다.
 export function TicketEditPage({ ticketId }: { ticketId: string }) {
   const data = useTicket(ticketId)
-  const viewState = ticketViewState(data)
+  // 결제 확인 중인 참가권은 결과가 나오기 전이라 고칠 수 없다 (상세 화면도 고치기를 숨긴다)
+  const viewState = ticketViewState(data) ?? (data.status === 'paying' ? 'notFound' : undefined)
   const { ticket, participation, race, course } = data
   const participant = participation?.participant
 
@@ -82,7 +83,7 @@ function ParticipantForm({
   closeAt?: string
   sizes: string[]
 }) {
-  const router = useRouter()
+  const goBack = useGoBack()
   const change = useChangeParticipant()
   const hasKit = participant.shippingAddress != null
   const {
@@ -131,7 +132,7 @@ function ParticipantForm({
           onSubmit={handleSubmit((values) =>
             change.mutate(
               { participationId, body: toRequestBody(participant, values) },
-              { onSuccess: () => router.push(`/tickets/${ticketId}`) },
+              { onSuccess: () => goBack(`/tickets/${ticketId}`) },
             ),
           )}
         >

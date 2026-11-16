@@ -1,0 +1,24 @@
+# Grafana가 시작할 때 Loki 데이터 소스를 자동으로 등록한다
+apiVersion: 1
+
+datasources:
+  - name: Loki
+    type: loki
+    # Tempo 데이터 소스(tempo.yml)가 이 uid로 Loki를 가리킨다
+    uid: loki
+    # 같은 compose 네트워크라 컨테이너 이름과 컨테이너 포트(3100)로 접속한다. Loki는 호스트 포트를 열지 않았다
+    url: http://bukang-loki:3100
+    access: proxy
+    editable: false
+    jsonData:
+      # 로그 → 추적: 로그의 trace_id 값을 Tempo 조회 링크로 만든다
+      derivedFields:
+        - name: TraceID
+          # 로그 줄이 아니라 라벨·구조화 메타데이터에서 찾는다 (Loki는 OTLP 로그의 traceId를 trace_id 칸에 넣는다)
+          matcherType: label
+          # 찾을 칸 이름 (정규식)
+          matcherRegex: trace_id
+          datasourceUid: tempo
+          # Tempo에 넣을 조회어 = trace_id 값. $를 두 번 쓰는 건 프로비저닝 파일의 환경변수 치환을 피하려고
+          url: '$${__value.raw}'
+          urlDisplayLabel: trace 보기

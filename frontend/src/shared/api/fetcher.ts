@@ -64,10 +64,12 @@ function isAuthPath(url: string): boolean {
   return new URL(url, window.location.origin).pathname.startsWith(AUTH_PATH)
 }
 
-async function serverFetch(url: string, init: RequestInit): Promise<Response> {
+/** 테스트용으로 내보낸다 */
+export async function serverFetch(url: string, init: RequestInit): Promise<Response> {
   const { getServerEnv } = await import('@/shared/server-env')
   const env = getServerEnv()
-  const request = new Request(new URL(url, env.BACKEND_URL), init)
+  // cache: 'default'는 Next 16에서 옵션을 안 준 것과 같다(auto no cache). 동작은 그대로 두고 값만 드러낸다. 호출자 옵션이 이긴다.
+  const request = new Request(new URL(url, env.BACKEND_URL), { cache: 'default', ...init })
 
   if (env.API_MOCKING === 'on') {
     const { resolveMockResponse } = await import('@/shared/mocks')

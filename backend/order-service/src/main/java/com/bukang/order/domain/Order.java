@@ -385,12 +385,6 @@ public class Order extends BaseIdAndTime {
 		return findShipment(shipmentId).applyTracking(carrierId, trackingNumber, result, trackedAt);
 	}
 
-	// 배송 상자에 든 참가권을 판 판매자 ID (한 상자는 한 판매자의 것이다). 조회를 멈췄다고 알릴 때 쓴다 (BUK-90)
-	public long kitSellerId(long shipmentId) {
-		Shipment shipment = findShipment(shipmentId);
-		return items.stream().filter(shipment::contains).findFirst().orElseThrow().getSellerId();
-	}
-
 	private Shipment findShipment(long shipmentId) {
 		return shipments.stream()
 			.filter(shipment -> shipment.getId() == shipmentId)

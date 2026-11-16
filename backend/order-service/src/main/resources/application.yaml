@@ -3,6 +3,10 @@ server:
   port: 8084
 
 spring:
+  # 지표·추적 공통 설정 (common의 observability.yaml). 불러온 파일의 값이 이 파일 값보다 우선한다
+  config:
+    import: classpath:observability.yaml
+
   application:
     name: order-service
 
@@ -45,6 +49,12 @@ spring:
       properties:
         # 구독한 토픽이 없으면 브로커에 자동 생성을 요청한다 (브로커도 자동 생성을 허용해야 동작)
         "[allow.auto.create.topics]": true
+
+# 스케줄 작업 잠금 (common global/schedulerlock, BUK-206). pod가 여러 개여도 같은 작업은 한 곳에서만 돈다
+# 모든 서비스가 같은 DB를 쓰므로 잠금 표 이름에 서비스 접두사를 붙인다 (Flyway SQL로 만든다)
+scheduler-lock:
+  enabled: true
+  table: order_shedlock
 
 # Swagger / OpenAPI V3 설정 (prod에서는 비활성화)
 springdoc:
@@ -94,7 +104,8 @@ order:
       timeout: 3s
       # 가짜 대기열의 입장 시간(1~15분). 만료를 빨리 확인하려면 줄인다 (정책은 예매창 15분). 더미 페이지: http://localhost:8084/dev/queue-dummy
       fake-admission-minutes: 15
-    # 판매자 키트 API의 판매자 ID 조회 (PRO-197). 실제 연결 전이라 fake(회원 ID = 판매자 ID)만 있다. 운영은 disabled
+    # 판매자 API의 판매자 ID 조회 (PRO-197). http면 회원 서비스 내부 API(member.base-url)를 부른다(BUK-237)
+    # 로컬은 fake(회원 ID = 판매자 ID). disabled는 판매자 API를 503으로 막는다
     seller:
       mode: fake
     # 관리자 API의 관리자 확인 (BUK-26). http면 회원 서비스 내부 API를 부른다. 로컬은 fake(누구나 관리자)

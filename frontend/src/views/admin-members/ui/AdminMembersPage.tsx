@@ -1,10 +1,9 @@
 'use client'
 
-import { useState } from 'react'
-
-import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
+import { CONSOLE_BOX, ConsoleCard, ConsolePage } from '@/widgets/console-page'
 import { useAuthStatus } from '@/features/auth'
 import { cashApi, memberApi, unwrapData } from '@/shared/api'
+import { cn, useSearchParamsState } from '@/shared/lib'
 import {
   Alert,
   Badge,
@@ -68,7 +67,9 @@ const KEYS = [
 // 피그마 V2 · A04 회원 · 주문 조회
 export function AdminMembersPage() {
   const authenticated = useAuthStatus() === 'authenticated'
-  const [tab, setTab] = useState<Tab>('all')
+  // 탭은 URL(?tab=)에 담는다
+  const [url, setUrl] = useSearchParamsState({ tab: 'all' }, { tab: ['all', 'identity', 'charge'] })
+  const tab = url.tab as Tab
   // 탭 배지. 탭을 누르기 전에도 개수가 보이도록 첫 페이지를 항상 불러온다(각 탭의 첫 페이지와 같은 요청이라 한 번만 간다).
   const identity = memberApi.useFindIdentityReview(
     { page: 0, size: ADMIN_MEMBER_PAGE_SIZE },
@@ -86,7 +87,7 @@ export function AdminMembersPage() {
         layout="hug"
         size="l"
         value={tab}
-        onChange={setTab}
+        onChange={(next) => setUrl({ tab: next })}
         items={[
           { value: 'all', label: '전체 회원' },
           { value: 'identity', label: '확인이 필요한 계정', count: identity.data?.totalElements },
@@ -98,6 +99,7 @@ export function AdminMembersPage() {
       {tab === 'all' && (
         <>
           <Alert
+            className={CONSOLE_BOX}
             title="개인정보를 조회하면 기록이 남아요"
             description="누가 언제 어떤 정보를 봤는지 남겨요. 업무에 필요한 만큼만 조회해 주세요."
           />
@@ -153,7 +155,7 @@ export function AdminMembersPage() {
                   </p>
                 </div>
               </div>
-              <div className="flex flex-col gap-3 rounded-md bg-bg-subtle p-4">
+              <div className={cn('flex flex-col gap-3 rounded-md p-4', CONSOLE_BOX)}>
                 <KeyValue label="예치금 잔액" value="₩45,000" />
                 <KeyValue label="참가권" value="2장 (쿠키RUN, 춘천 나이트런)" />
                 <KeyValue label="판매자" value="아니요" />

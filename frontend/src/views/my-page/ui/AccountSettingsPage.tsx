@@ -82,15 +82,15 @@ export function AccountSettingsPage() {
           </p>
         )}
 
-        <MenuGroup title="계정">
+        <MenuGroup title="계정" brand>
           <MenuRow href="/me/settings/email" icon="Settings" label="이메일 정보" />
-          <MenuRow href="/me/edit" icon="User" label="닉네임 변경" />
+          <MenuRow href="/me/edit" label="닉네임 변경" />
           <MenuRow href="/me/accounts" icon="Settings" label="계정 연결" />
           <MenuRow href="/me/notification-settings" icon="Bell" label="알림 설정" />
         </MenuGroup>
 
         <Divider />
-        <MenuGroup title="고객지원">
+        <MenuGroup title="고객지원" brand>
           <MenuRow href="/me/settings/terms" icon="Orders" label="약관 및 동의" />
           <MenuRow href="/me/support" icon="Info" label="고객센터" />
         </MenuGroup>

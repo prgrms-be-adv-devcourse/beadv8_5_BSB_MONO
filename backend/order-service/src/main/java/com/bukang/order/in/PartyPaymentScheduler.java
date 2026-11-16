@@ -6,6 +6,8 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
+
 import com.bukang.order.app.PartyPaymentDeadlineUseCase;
 
 import lombok.RequiredArgsConstructor;
@@ -21,6 +23,7 @@ import lombok.RequiredArgsConstructor;
 public class PartyPaymentScheduler {
 	private final PartyPaymentDeadlineUseCase partyPaymentDeadlineUseCase;
 
+	@SchedulerLock(name = "order-party-payment", lockAtMostFor = "PT10M")
 	@Scheduled(fixedDelay = 60_000, initialDelay = 60_000)
 	public void run() {
 		LocalDateTime now = LocalDateTime.now();

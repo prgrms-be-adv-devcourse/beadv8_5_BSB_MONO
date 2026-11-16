@@ -32,7 +32,6 @@ public class OrderFacade {
 			LocalDateTime.now());
 	}
 
-	@Transactional
 	public OrderPageDto findMine(long memberId, LocalDate from, LocalDate to, int page, int size) {
 		return orderQueryUseCase.findMine(memberId, from, to, page, size);
 	}

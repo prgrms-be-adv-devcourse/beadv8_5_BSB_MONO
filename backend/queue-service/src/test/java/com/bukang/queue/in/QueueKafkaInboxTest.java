@@ -134,7 +134,8 @@ class QueueKafkaInboxTest {
 
 	private String raceMessage(RaceSaleStatus saleStatus, LocalDateTime updatedAt) {
 		return jsonConverter.toJson(
-			new RaceChangedEvent(RACE_ID, saleStatus, INDIVIDUAL_OPEN_AT, APPLICATION_CLOSE_AT, null, null, updatedAt));
+			new RaceChangedEvent(RACE_ID, saleStatus, INDIVIDUAL_OPEN_AT, APPLICATION_CLOSE_AT, null, null, updatedAt,
+				null, null));
 	}
 
 	private String raceCourseMessage(LocalDateTime updatedAt, boolean deleted) {

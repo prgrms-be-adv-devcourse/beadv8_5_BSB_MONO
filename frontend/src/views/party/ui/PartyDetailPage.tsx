@@ -7,7 +7,13 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
-import { formatKstDateTime, parseKstDateTime } from '@/entities/crew'
+import {
+  canInvite,
+  formatKstDateTime,
+  formatKstMonthDayTime,
+  inviteUrl,
+  parseKstDateTime,
+} from '@/entities/crew'
 import {
   partyKeys,
   useLeaveParty,
@@ -25,14 +31,13 @@ import {
   unwrapData,
   useIdempotencyKey,
 } from '@/shared/api'
-import { cn, formatNumber } from '@/shared/lib'
+import { cn, formatNumber, useNow } from '@/shared/lib'
 import {
   Avatar,
   Badge,
   Button,
   buttonClassName,
   Dialog,
-  Divider,
   Skeleton,
   useToast,
   type BadgeTone,
@@ -93,6 +98,10 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
   const crew = memberApi.useFindCrew(party.crewId, { query: { select: unwrapData } })
   const regenerate = useRegenerateJoinLink()
   const leave = useLeaveParty()
+  const createInvite = memberApi.useCreateCrewInvite()
+  // 초대 토큰은 만들 때 응답에만 오므로, 복사가 실패해도 다시 만들지 않게 만든 링크를 들고 있는다.
+  // 참가 링크를 새로 만들면 옛 토큰이 든 링크가 되므로, 만들 때의 참가 토큰과 같을 때만 다시 쓴다.
+  const [friendLink, setFriendLink] = useState<{ url: string; joinToken: string }>()
   const orderKey = useIdempotencyKey()
   const [confirm, setConfirm] = useState<'regenerate' | 'leave' | null>(null)
 
@@ -101,8 +110,8 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
   const course = race.data?.courses?.find((c) => c.raceCourseId === party.raceCourseId)
   const min = race.data?.crewMinCount ?? 0
   const max = race.data?.crewMaxCount
-  const [now] = useState(() => Date.now())
-  const linkAlive = parseKstDateTime(party.joinTokenExpiresAt) > now
+  const now = useNow()
+  const linkAlive = !!now && parseKstDateTime(party.joinTokenExpiresAt) > now.getTime()
   const stepIndex = PARTY_STEP_INDEX[party.status]
   const toastError = (error: unknown) =>
     toast({
@@ -123,14 +132,40 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
     })
   }
 
-  async function copyLink() {
-    if (!party.joinToken) return
+  async function copy(url: string, done: string) {
     try {
-      await navigator.clipboard.writeText(partyJoinUrl(party.joinToken))
-      toast({ message: '참가 링크를 복사했어요', tone: 'success' })
+      await navigator.clipboard.writeText(url)
+      toast({ message: done, tone: 'success' })
     } catch {
       toast({ message: '복사하지 못했어요. 다시 시도해 주세요.', tone: 'error' })
     }
+  }
+
+  // 크루 가입부터 파티 합류까지 링크 하나로 잇는다(BUK-98). 초대 링크는 크루장 · 운영진만 만들 수 있다.
+  const canInviteFriends = crew.data?.myRole !== undefined && canInvite(crew.data.myRole)
+  function inviteFriend() {
+    const joinToken = party.joinToken
+    if (!joinToken) return
+    if (friendLink?.joinToken === joinToken) {
+      return void copy(friendLink.url, '초대 링크를 복사했어요')
+    }
+    createInvite.mutate(
+      { crewId: party.crewId },
+      {
+        onSuccess: (res) => {
+          const inviteToken = res.data?.inviteToken
+          if (!inviteToken) return toastError(undefined)
+          const url = inviteUrl(inviteToken, window.location.origin, joinToken)
+          setFriendLink({ url, joinToken })
+          void copy(url, '초대 링크를 복사했어요')
+        },
+        onError: toastError,
+      },
+    )
+  }
+
+  function copyLink() {
+    if (party.joinToken) void copy(partyJoinUrl(party.joinToken), '참가 링크를 복사했어요')
   }
 
   const pay = useMutation({
@@ -164,11 +199,14 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
         description: '결제 기간이 끝나면 결제할 수 없어요. 이 파티로는 참가가 확정되지 않아요.',
       }
     }
-    if (!isLeader) return { title: '파티장이 파티를 신청하면 결제할 수 있어요' }
+    if (!isLeader) return { title: '파티장이 파티 참가하기를 누르면 결제할 수 있어요' }
     if (!linkAlive) return { title: '참가 링크 기간이 끝났어요' }
     const rest = min - party.memberCount
-    return { title: rest > 0 ? `${rest}명 더 모이면 신청할 수 있어요` : '파티를 신청할 수 있어요' }
+    return { title: rest > 0 ? `${rest}명 더 모이면 참가할 수 있어요` : '파티로 참가할 수 있어요' }
   })()
+
+  // 응답에 결제 기한이 있을 때만 파티장 화면에 마감 시각을 보여 준다.
+  const payDueAt = party.status === 'PAYING' && isLeader && myPaid ? party.paymentDueAt : undefined
 
   const canApply = isLeader && recruiting && min > 0 && party.memberCount >= min
 
@@ -200,12 +238,21 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
           ))}
         </ol>
       </section>
-      <Divider />
       <section className="flex flex-col gap-3 px-4 py-6">
         <p className="text-caption-regular text-text-secondary">지금 할 일</p>
         <h3 className="text-title3">{todo.title}</h3>
         {todo.description && (
           <p className="text-body2-regular text-text-secondary">{todo.description}</p>
+        )}
+        {party.status === 'PAYING' && !isLeader && myPaid && (
+          <p className="text-body2-bold">
+            {party.memberCount}명 중 {party.paidCount}명 결제했어요
+          </p>
+        )}
+        {payDueAt && (
+          <p className="text-body2-regular text-text-secondary">
+            {formatKstMonthDayTime(payDueAt)}까지 파티원이 결제할 수 있어요
+          </p>
         )}
         {recruiting && isLeader && linkAlive && (
           <Link
@@ -220,7 +267,7 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
               !canApply && 'pointer-events-none opacity-40',
             )}
           >
-            파티 신청하기
+            파티 참가하기
           </Link>
         )}
         {recruiting && isLeader && !linkAlive && (
@@ -242,9 +289,15 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
           <div className="flex items-center justify-between text-body2-regular text-text-secondary">
             <span>링크 · {formatKstDateTime(party.joinTokenExpiresAt)}까지</span>
             <span className="flex gap-4">
-              <button type="button" onClick={() => void copyLink()}>
-                링크 복사
-              </button>
+              {canInviteFriends ? (
+                <button type="button" disabled={createInvite.isPending} onClick={inviteFriend}>
+                  친구 초대
+                </button>
+              ) : (
+                <button type="button" onClick={copyLink}>
+                  링크 복사
+                </button>
+              )}
               <button type="button" onClick={() => setConfirm('regenerate')}>
                 새로 만들기
               </button>
@@ -252,7 +305,6 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
           </div>
         )}
       </section>
-      <Divider />
       <section className="flex flex-col gap-3 px-4 py-6">
         {recruiting ? (
           <h3 className="text-body1-medium">
@@ -298,7 +350,8 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
         open={confirm === 'regenerate'}
         onOpenChange={(open) => !open && setConfirm(null)}
         title="참가 링크를 새로 만들까요?"
-        body="새로 만들면 옛 링크로는 합류할 수 없어요."
+        body="새 링크를 만들면 지금 링크로는 합류할 수 없어요. 이미 합류한 파티원은 그대로예요."
+        cancelLabel="돌아가기"
         confirmLabel="새로 만들기"
         onConfirm={makeLink}
         confirming={regenerate.isPending}

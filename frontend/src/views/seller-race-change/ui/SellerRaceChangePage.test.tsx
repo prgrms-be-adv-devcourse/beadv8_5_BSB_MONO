@@ -1,5 +1,10 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, within } from '@testing-library/react'
+import {
+  focusManager,
+  onlineManager,
+  QueryClient,
+  QueryClientProvider,
+} from '@tanstack/react-query'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it, vi } from 'vitest'
@@ -11,9 +16,9 @@ import { ToastProvider } from '@/shared/ui'
 import { RESCHEDULE_ERRORS } from '../model/reschedule-form'
 import { SellerRaceChangePage } from './SellerRaceChangePage'
 
-const push = vi.fn()
+const replace = vi.fn()
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push, back: vi.fn(), replace: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), back: vi.fn(), replace }),
   usePathname: () => '/seller/races/1/change',
 }))
 
@@ -83,6 +88,34 @@ describe('SellerRaceChangePage 일정 변경', () => {
   })
 })
 
+describe('SellerRaceChangePage 입력 유지', () => {
+  it('다른 창에 다녀오거나 네트워크가 다시 연결돼도 수정할 대회를 다시 받지 않아 쓰던 날짜가 남는다', async () => {
+    let fetched = 0
+    server.events.on('request:start', ({ request }) => {
+      if (request.method === 'GET' && /\/product\/races\/1$/.test(new URL(request.url).pathname)) {
+        fetched += 1
+      }
+    })
+    renderPage()
+    const field = await screen.findByLabelText('새 대회일')
+    await userEvent.clear(field)
+    await userEvent.type(field, '2026-11-08')
+
+    act(() => {
+      focusManager.setFocused(false)
+      focusManager.setFocused(true)
+      onlineManager.setOnline(false)
+      onlineManager.setOnline(true)
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    server.events.removeAllListeners()
+    focusManager.setFocused(undefined)
+    expect(fetched).toBe(1)
+    expect(screen.getByLabelText('새 대회일')).toHaveValue('2026-11-08')
+  })
+})
+
 describe('SellerRaceChangePage 대회 취소', () => {
   it('확인하면 취소 API를 부르고 대회 관리로 돌아간다', async () => {
     let canceled = false
@@ -100,7 +133,7 @@ describe('SellerRaceChangePage 대회 취소', () => {
     await userEvent.click(
       await screen.findByRole('button', { name: '대회 취소하기', hidden: false }),
     )
-    await vi.waitFor(() => expect(push).toHaveBeenCalledWith('/seller/races'))
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/seller/races'))
     expect(canceled).toBe(true)
   })
 

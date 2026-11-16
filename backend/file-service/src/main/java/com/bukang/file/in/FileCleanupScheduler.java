@@ -14,6 +14,8 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -32,6 +34,7 @@ public class FileCleanupScheduler {
 	private final JobOperator jobOperator;
 	private final Job fileCleanupJob;
 
+	@SchedulerLock(name = "file-cleanup", lockAtMostFor = "PT1H", lockAtLeastFor = "PT30S")
 	@Scheduled(cron = "0 0 5 * * *", zone = ZONE)
 	public void cleanupFiles() {
 		// 실행 시각을 넣는다. 날마다 값이 달라 새 실행으로 인정되고, Tasklet은 여기서 1일을 빼 정리 기준 시각으로 쓴다

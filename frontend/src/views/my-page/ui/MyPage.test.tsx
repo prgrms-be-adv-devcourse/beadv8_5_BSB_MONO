@@ -15,10 +15,10 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/me',
 }))
 
-const reloadToLogin = vi.hoisted(() => vi.fn())
+const reloadAfterLogout = vi.hoisted(() => vi.fn())
 vi.mock('@/features/auth/lib/login-redirect', async (importOriginal) => ({
   ...(await importOriginal<object>()),
-  reloadToLogin,
+  reloadAfterLogout,
 }))
 
 // 로그아웃 확인 창의 로그아웃 버튼(마이 아래쪽 글자 버튼은 창이 뜨면 가려진다)
@@ -27,7 +27,7 @@ const confirmLogout = async () =>
 
 beforeEach(() => {
   replace.mockClear()
-  reloadToLogin.mockClear()
+  reloadAfterLogout.mockClear()
 })
 
 describe('MyPage 로그아웃', () => {
@@ -55,9 +55,9 @@ describe('MyPage 로그아웃', () => {
     await user.click(await confirmLogout())
 
     await vi.waitFor(() => expect(authorization).toBe('Bearer access-token'))
-    expect(reloadToLogin).not.toHaveBeenCalled()
+    expect(reloadAfterLogout).not.toHaveBeenCalled()
     release()
-    await vi.waitFor(() => expect(reloadToLogin).toHaveBeenCalledTimes(1))
+    await vi.waitFor(() => expect(reloadAfterLogout).toHaveBeenCalledTimes(1))
     expect(authorization).toBe('Bearer access-token')
     expect(replace).not.toHaveBeenCalled()
     // 새로 불러오기 전까지 토큰을 그대로 두어 화면이 로그아웃 상태로 다시 그려지지 않는다
@@ -77,7 +77,7 @@ describe('MyPage 로그아웃', () => {
     await user.click(await screen.findByRole('button', { name: '로그아웃' }))
     await user.click(await confirmLogout())
 
-    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/login'))
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/'))
     expect(getAuthStatus()).toBe('anonymous')
   })
 })

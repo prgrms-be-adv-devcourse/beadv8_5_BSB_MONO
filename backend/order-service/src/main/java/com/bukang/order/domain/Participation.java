@@ -245,6 +245,14 @@ public class Participation extends BaseIdAndTime {
 		this.activeFlag = newStatus.isActive() ? Boolean.TRUE : null;
 	}
 
+	/**
+	 * 화면 응답에 내보낼 결제 기한. 확보 전(PENDING)의 결제 기한 칸은 「자리 잡으러 감」 표시라 내보내지 않는다 (BUK-213)
+	 * 만료 정리 같은 내부 판정은 getPaymentDueAt()을 그대로 쓴다
+	 */
+	public LocalDateTime visiblePaymentDueAt() {
+		return status == ParticipationStatus.PENDING ? null : paymentDueAt;
+	}
+
 	public ParticipationDto toDto() {
 		return toDto(List.of());
 	}
@@ -264,8 +272,7 @@ public class Participation extends BaseIdAndTime {
 			ParticipantInfoDto.from(participant),
 			thirdPartyConsent,
 			consentedAt,
-			// 확보 전(PENDING)의 결제 기한 칸은 「자리 잡으러 감」 표시라 화면에 결제 기한으로 내보내지 않는다 (BUK-213)
-			status == ParticipationStatus.PENDING ? null : paymentDueAt,
+			visiblePaymentDueAt(),
 			kitOptions
 		);
 	}
