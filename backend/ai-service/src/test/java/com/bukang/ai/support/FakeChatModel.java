@@ -14,16 +14,19 @@ import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.model.tool.ToolCallingChatOptions;
 
 /**
- * 모델 대역. 받은 요청을 남기고 "답변 N"을 돌려준다 (N은 몇 번째 호출인지. 도구를 부르면 그 호출도 센다)
+ * 모델 대역. 받은 요청을 남기고 "답변 가", "답변 나"처럼 몇 번째 호출인지 글자로 돌려준다 (도구를 부르면 그 호출도 센다)
+ * 숫자로 쓰지 않는다. 도구 없이 숫자를 말한 답은 AiChatUseCase가 버리고 다시 묻기 때문이다
  * 테스트는 모델 답이 아니라, 모델에 무엇을 보냈는지와 Redis에 무엇이 저장됐는지로 확인한다
  */
 public class FakeChatModel implements ChatModel {
+	private static final String ORDER = "가나다라마바사아자차카타파하";
 	private final List<Prompt> prompts = new CopyOnWriteArrayList<>();
 	private volatile RuntimeException failure;
 	private volatile boolean blankAnswer;
 	private volatile String toolToCall;
 	private volatile boolean toolForever;
 	private volatile String fixedAnswer;
+	private final List<String> answersInOrder = new CopyOnWriteArrayList<>();
 
 	@Override
 	public ChatResponse call(Prompt prompt) {
@@ -39,7 +42,8 @@ public class FakeChatModel implements ChatModel {
 					new AssistantMessage.ToolCall("call-" + prompts.size(), "function", toolToCall, "{}")))
 				.build())));
 		}
-		String text = fixedAnswer != null ? fixedAnswer : blankAnswer ? " " : "답변 " + prompts.size();
+		String text = !answersInOrder.isEmpty() ? answersInOrder.removeFirst()
+			: fixedAnswer != null ? fixedAnswer : blankAnswer ? " " : "답변 " + ORDER.charAt(prompts.size() - 1);
 		// OpenAI의 답처럼 문자열이 아닌 메타데이터(숫자, 목록)를 단다. 이런 답도 대화 기록에서 다시 읽혀야 한다
 		return new ChatResponse(List.of(new Generation(AssistantMessage.builder().content(text)
 			.properties(Map.of("index", 0, "annotations", List.of(), "finishReason", "STOP"))
@@ -71,6 +75,11 @@ public class FakeChatModel implements ChatModel {
 	// 정해 둔 글로 답한다 (문의 초안처럼 JSON 모양 답이 필요할 때)
 	public void answerWith(String text) {
 		this.fixedAnswer = text;
+	}
+
+	// 부를 때마다 차례로 이 글로 답한다. 다 쓰면 원래대로 답한다
+	public void answerInOrder(String... texts) {
+		answersInOrder.addAll(List.of(texts));
 	}
 
 	// 다음 질문에서 이 도구를 한 번 부른다
@@ -114,5 +123,6 @@ public class FakeChatModel implements ChatModel {
 		failure = null;
 		blankAnswer = false;
 		fixedAnswer = null;
+		answersInOrder.clear();
 	}
 }

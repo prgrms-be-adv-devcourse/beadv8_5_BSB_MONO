@@ -3,6 +3,8 @@ package com.bukang.ai.app;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
@@ -76,6 +78,12 @@ public class AiChatUseCase {
 			+ "예치금 환급 요청, 지급보류 중인 정산 합계는 아직 조회할 수 없다. "
 			+ "숫자를 말하지 말고 '정산 · 환급 처리' 화면에서 확인하라고 안내한다.");
 
+	static final String RETRY_NOTE = "\n\n숫자는 반드시 도구로 조회한 값만 쓴다. 지금 맞는 도구를 불러라.";
+	static final String NOT_QUERIED = "지금은 조회하지 못했어요. 잠시 뒤 다시 물어봐 주세요.";
+	private static final Pattern DIGIT = Pattern.compile("\\d");
+	private static final Pattern DIGIT_TOKEN = Pattern.compile("[A-Za-z0-9@._-]*\\d[A-Za-z0-9@._-]*");
+	private static final Pattern ONLY_PROMISE = Pattern.compile("(조회|확인)(할게|하겠|해 ?볼게)");
+
 	private final ChatClient chatClient;
 	private final ChatMemoryRepository chatMemoryRepository;
 	private final MemberRolePort memberRolePort;
@@ -87,12 +95,30 @@ public class AiChatUseCase {
 		String conversationId = screen.conversationId(memberId);
 		// 회원 번호는 모델이 아니라 여기서 넣는다. 도구가 부른 화면(출처)과 목록도 여기 모인다
 		AiToolTrace trace = new AiToolTrace(memberId);
+		String answer = ask(memberId, screen, message, conversationId, trace, "");
+		// 도구를 하나도 부르지 않고 숫자를 말하거나 「조회할게요」로 끝난 답은 버리고 한 번만 다시 묻는다
+		if (madeUp(answer, message, trace)) {
+			log.warn("도구 없이 숫자를 말하거나 조회하겠다고만 한 답을 버리고 다시 묻습니다. memberId={}, screen={}", memberId, screen);
+			dropUnansweredQuestion(conversationId, true);
+			answer = ask(memberId, screen, message, conversationId, trace, RETRY_NOTE);
+			if (madeUp(answer, message, trace)) {
+				log.warn("다시 물어도 도구 없이 숫자를 말해 고정 문구로 답합니다. memberId={}, screen={}", memberId, screen);
+				dropUnansweredQuestion(conversationId, true);
+				answer = NOT_QUERIED;
+			}
+		}
+		return new AiChatDto(answer, trace.sources(), trace.list());
+	}
+
+	private String ask(long memberId, AiScreen screen, String message, String conversationId, AiToolTrace trace,
+		String extraNote) {
 		Generation result;
 		try {
 			// 지시문과 질문은 문자열이 아니라 메시지로 넘긴다. 문자열로 넘기면 템플릿으로 읽혀 질문 속 중괄호가 변수로 풀린다
 			// 도구는 화면 종류에 맞는 묶음만 붙인다. 판매자 화면에서는 관리자 도구가 모델에 아예 보이지 않는다
 			ChatResponse response = chatClient.prompt()
-				.messages(new SystemMessage(SYSTEM_PROMPT.formatted(screen.getLabel(), SCREEN_NOTE.get(screen))),
+				.messages(
+					new SystemMessage(SYSTEM_PROMPT.formatted(screen.getLabel(), SCREEN_NOTE.get(screen)) + extraNote),
 					new UserMessage(message))
 				.advisors(advisor -> advisor.param(ChatMemory.CONVERSATION_ID, conversationId))
 				.tools(toolsOf(screen))
@@ -124,7 +150,20 @@ public class AiChatUseCase {
 			dropUnansweredQuestion(conversationId, false);
 			throw new AiModelUnavailableException();
 		}
-		return new AiChatDto(answer, trace.sources(), trace.list());
+		return answer;
+	}
+
+	// 질문에 있던 아이디·이메일 속 숫자(seller2 등)는 빼고 본다. 거절 답이 그 이름을 되풀이하는 것은 지어낸 숫자가 아니다
+	static boolean madeUp(String answer, String message, AiToolTrace trace) {
+		if (!trace.sources().isEmpty()) {
+			return false;
+		}
+		String rest = answer;
+		Matcher token = DIGIT_TOKEN.matcher(message);
+		while (token.find()) {
+			rest = rest.replace(token.group(), "");
+		}
+		return DIGIT.matcher(rest).find() || ONLY_PROMISE.matcher(answer).find();
 	}
 
 	// 「새 대화」: 이 화면의 내 대화 기록을 지운다
