@@ -27,6 +27,13 @@ spring:
       timeout: 2s
       connect-timeout: 2s
 
+  # 프로파일별 jpa 설정(ddl-auto 등)과 합쳐진다
+  jpa:
+    properties:
+      hibernate:
+        # 지연 로딩 연관을 IN 쿼리로 묶어 가져온다 (N+1 완화, 상품·파일 서비스와 같은 값)
+        default_batch_fetch_size: 100
+
   # Kafka 메시지는 JSON 문자열로 주고받는다 (이유는 member-service의 application.yaml과 README 참고)
   kafka:
     producer:
@@ -59,6 +66,12 @@ queue:
     active:
       # 파티장 활성 시간 (ms, 15분). 승격 시각 + 이 시간이 파티장 active 끝 시각이다
       time: 900000
+
+# 스케줄 작업 잠금 (common global/schedulerlock, BUK-206). pod가 여러 개여도 같은 작업은 한 곳에서만 돈다
+# 모든 서비스가 같은 DB를 쓰므로 잠금 표 이름에 서비스 접두사를 붙인다 (Flyway SQL로 만든다)
+scheduler-lock:
+  enabled: true
+  table: queue_shedlock
 
 # Swagger / OpenAPI V3 설정 (prod에서는 비활성화)
 springdoc:

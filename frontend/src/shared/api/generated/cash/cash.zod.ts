@@ -44,6 +44,7 @@ export const RequestWithdrawalResponse = zod.object({
   "balance": zod.int(),
   "cardAmount": zod.int(),
   "accountAmount": zod.int(),
+  "switchedToAccountAmount": zod.int().describe('카드 결제취소가 거절돼 계좌로 바꿔 보낸 금액. accountAmount에 포함'),
   "processingAmount": zod.int(),
   "revertedAmount": zod.int(),
   "accountRequired": zod.boolean()

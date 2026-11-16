@@ -23,6 +23,7 @@ public class FakeChatModel implements ChatModel {
 	private volatile boolean blankAnswer;
 	private volatile String toolToCall;
 	private volatile boolean toolForever;
+	private volatile String fixedAnswer;
 
 	@Override
 	public ChatResponse call(Prompt prompt) {
@@ -38,7 +39,7 @@ public class FakeChatModel implements ChatModel {
 					new AssistantMessage.ToolCall("call-" + prompts.size(), "function", toolToCall, "{}")))
 				.build())));
 		}
-		String text = blankAnswer ? " " : "답변 " + prompts.size();
+		String text = fixedAnswer != null ? fixedAnswer : blankAnswer ? " " : "답변 " + prompts.size();
 		// OpenAI의 답처럼 문자열이 아닌 메타데이터(숫자, 목록)를 단다. 이런 답도 대화 기록에서 다시 읽혀야 한다
 		return new ChatResponse(List.of(new Generation(AssistantMessage.builder().content(text)
 			.properties(Map.of("index", 0, "annotations", List.of(), "finishReason", "STOP"))
@@ -65,6 +66,11 @@ public class FakeChatModel implements ChatModel {
 
 	public void answerBlank() {
 		this.blankAnswer = true;
+	}
+
+	// 정해 둔 글로 답한다 (문의 초안처럼 JSON 모양 답이 필요할 때)
+	public void answerWith(String text) {
+		this.fixedAnswer = text;
 	}
 
 	// 다음 질문에서 이 도구를 한 번 부른다
@@ -107,5 +113,6 @@ public class FakeChatModel implements ChatModel {
 		prompts.clear();
 		failure = null;
 		blankAnswer = false;
+		fixedAnswer = null;
 	}
 }

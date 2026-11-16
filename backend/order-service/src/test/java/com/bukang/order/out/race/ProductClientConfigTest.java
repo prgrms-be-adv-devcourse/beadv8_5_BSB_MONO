@@ -25,7 +25,7 @@ class ProductClientConfigTest {
 		.withInitializer(context -> context.getBeanFactory()
 			.setConversionService(ApplicationConversionService.getSharedInstance()))
 		.withUserConfiguration(ProductClientConfig.class, FakeRaceCourseAdapter.class, FakeSeatHoldAdapter.class,
-			FakeCrewSeatHoldAdapter.class)
+			FakeCrewSeatHoldAdapter.class, FakeRaceSellerAdapter.class)
 		.withPropertyValues("order.clients.timeout=2s", "order.clients.product.base-url=http://localhost:8085");
 
 	@Test
@@ -33,6 +33,7 @@ class ProductClientConfigTest {
 	void http() {
 		runner.withPropertyValues("order.clients.product.mode=http").run(context -> {
 			assertThat(context).getBean(RaceCoursePort.class).isInstanceOf(HttpRaceCourseAdapter.class);
+			assertThat(context).getBean(RaceSellerPort.class).isInstanceOf(HttpRaceSellerAdapter.class);
 			assertThat(context).getBean(SeatHoldPort.class).isInstanceOf(HttpSeatHoldAdapter.class);
 			assertThat(context).getBean(CrewSeatHoldPort.class).isInstanceOf(HttpCrewSeatHoldAdapter.class);
 		});
@@ -56,11 +57,13 @@ class ProductClientConfigTest {
 	void fake() {
 		runner.withPropertyValues("order.clients.product.mode=fake").run(context -> {
 			assertThat(context).getBean(RaceCoursePort.class).isInstanceOf(FakeRaceCourseAdapter.class);
+			assertThat(context).getBean(RaceSellerPort.class).isInstanceOf(FakeRaceSellerAdapter.class);
 			assertThat(context).getBean(SeatHoldPort.class).isInstanceOf(FakeSeatHoldAdapter.class);
 			assertThat(context).getBean(CrewSeatHoldPort.class).isInstanceOf(FakeCrewSeatHoldAdapter.class);
 		});
 		runner.run(context -> {
 			assertThat(context).getBean(RaceCoursePort.class).isInstanceOf(FakeRaceCourseAdapter.class);
+			assertThat(context).getBean(RaceSellerPort.class).isInstanceOf(FakeRaceSellerAdapter.class);
 			assertThat(context).getBean(SeatHoldPort.class).isInstanceOf(FakeSeatHoldAdapter.class);
 		});
 	}

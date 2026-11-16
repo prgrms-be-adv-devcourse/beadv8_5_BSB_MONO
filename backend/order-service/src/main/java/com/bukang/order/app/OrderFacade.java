@@ -25,13 +25,13 @@ public class OrderFacade {
 	private final OrderCancelUseCase orderCancelUseCase;
 	private final KitDeliveryUseCase kitDeliveryUseCase;
 
-	@Transactional
+	// 상품 HTTP(종목 조회·자리 확보)를 잠금 밖에서 부르려고 트랜잭션은 OrderCreateUseCase가 단계마다 연다 (BUK-213)
+	@Transactional(propagation = Propagation.NOT_SUPPORTED)
 	public OrderCreateResult create(OrderCreateRequestDto request, String idempotencyKey, long memberId) {
 		return orderCreateUseCase.create(memberId, request.getParticipationId(), idempotencyKey,
 			LocalDateTime.now());
 	}
 
-	@Transactional
 	public OrderPageDto findMine(long memberId, LocalDate from, LocalDate to, int page, int size) {
 		return orderQueryUseCase.findMine(memberId, from, to, page, size);
 	}

@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite'
 
+import { PhoneField } from './PhoneField'
 import { Select } from './Select'
 import { SortSelect } from './SortSelect'
 import { Textarea } from './Textarea'
@@ -31,6 +32,17 @@ export const TextFieldStates: Story = {
       />
       <TextField label="이메일" defaultValue="runner@" error="이메일 형식이 아니에요." />
       <TextField label="비활성" defaultValue="수정할 수 없음" disabled />
+    </>
+  ),
+}
+
+/** 숫자만 쳐도 010-1234-5678처럼 하이픈이 들어간다. */
+export const PhoneFieldStates: Story = {
+  name: 'PhoneField',
+  render: () => (
+    <>
+      <PhoneField label="휴대폰 번호" placeholder="010-0000-0000" />
+      <PhoneField label="오류" defaultValue="010-12" error="휴대폰 번호를 끝까지 입력해 주세요." />
     </>
   ),
 }

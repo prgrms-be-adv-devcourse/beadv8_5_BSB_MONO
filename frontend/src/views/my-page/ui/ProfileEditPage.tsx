@@ -2,13 +2,13 @@
 
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueryClient } from '@tanstack/react-query'
-import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 
 import { AppHeader } from '@/widgets/app-header'
 import { useAuthStatus } from '@/features/auth'
 import { memberApi, unwrapData, type memberModel } from '@/shared/api'
+import { useGoBack } from '@/shared/lib'
 import { BottomCta, Button, Dialog, TextField } from '@/shared/ui'
 
 import { toDotDate } from '../model/member-format'
@@ -42,7 +42,7 @@ export function ProfileEditPage() {
 }
 
 function ProfileForm({ member }: { member: memberModel.MemberDto }) {
-  const router = useRouter()
+  const goBack = useGoBack()
   const queryClient = useQueryClient()
   const modify = memberApi.useModifyMe()
   const [formError, setFormError] = useState<string>()
@@ -68,7 +68,7 @@ function ProfileForm({ member }: { member: memberModel.MemberDto }) {
         onSuccess: (response) => {
           // 응답이 바뀐 내 정보라 다시 부르지 않고 캐시에 넣는다.
           queryClient.setQueryData(memberApi.getFindMeQueryKey(), response)
-          router.push('/me/settings')
+          goBack('/me/settings')
         },
         onError: (error) => {
           const { target, message } = modifyErrorMessage(error)
@@ -134,7 +134,7 @@ function ProfileForm({ member }: { member: memberModel.MemberDto }) {
         title="고친 내용을 저장하지 않고 나갈까요?"
         body="나가면 지금 고친 내용이 사라져요."
         cancelLabel="나가기"
-        onCancel={() => router.push('/me/settings')}
+        onCancel={() => goBack('/me/settings')}
         confirmLabel="계속 고치기"
         onConfirm={() => setLeaveOpen(false)}
       />

@@ -25,6 +25,8 @@ public class PartyFacade {
 	private final PartyApplyUseCase partyApplyUseCase;
 	private final ParticipationRepository participationRepository;
 
+	// 상품·회원 HTTP를 트랜잭션 밖에서 부르고 트랜잭션은 PartyUseCase가 짧게 연다 (BUK-248)
+	@Transactional(propagation = Propagation.NOT_SUPPORTED)
 	public PartyCreatedDto create(PartyCreateRequestDto request, long memberId) {
 		PartyUseCase.Created created = partyUseCase.create(memberId, request.getCrewId(), request.getRaceCourseId(),
 			request.getParticipant().toParticipantInfo(), request.getInvitedMemberIds(), LocalDateTime.now());
@@ -36,6 +38,7 @@ public class PartyFacade {
 		return PartyDto.of(partyUseCase.regenerateJoinLink(partyId, memberId, LocalDateTime.now()));
 	}
 
+	@Transactional(propagation = Propagation.NOT_SUPPORTED)
 	public ParticipationDto join(PartyJoinRequestDto request, long memberId) {
 		return partyUseCase.join(request.getJoinToken(), memberId,
 			request.getParticipant().toParticipantInfo(), LocalDateTime.now()).toDto();
