@@ -20,6 +20,7 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * 회원 서비스의 크루 내부 API를 부른다 (BUK-35, member InternalV1CrewController)
+ * 아래는 크루원 여부·크루원 수의 처리다. 파티 만들기 제한은 실패해도 제한 없음으로 본다 (findPartyRestrictionEnd)
  * - 200: 응답 값 그대로 (크루원이 아니어도 200, crewMember=false)
  * - 404 CREW_NOT_FOUND: 크루가 없거나 없앤 크루 → 빈 값
  *   코드가 다른 404(경로가 바뀌어 기본 404)는 계약이 어긋난 것이라 503으로 본다
@@ -31,12 +32,16 @@ import lombok.extern.slf4j.Slf4j;
 public class HttpCrewAdapter implements CrewPort {
 	static final String MEMBERSHIP_PATH = "/internal/v1/member/crews/{crewId}/members/{memberId}";
 	static final String COUNT_PATH = "/internal/v1/member/crews/{crewId}/member-count";
+	static final String PENALTY_PATH = "/internal/v1/member/crews/{crewId}/penalty";
 	static final String CREW_NOT_FOUND_CODE = "CREW_NOT_FOUND";
 	static final String UNAVAILABLE_MESSAGE = "회원 서비스에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요.";
 	private static final ParameterizedTypeReference<RsData<MembershipResponse>> MEMBERSHIP_TYPE =
 		new ParameterizedTypeReference<>() {
 		};
 	private static final ParameterizedTypeReference<RsData<CountResponse>> COUNT_TYPE =
+		new ParameterizedTypeReference<>() {
+		};
+	private static final ParameterizedTypeReference<RsData<PenaltyResponse>> PENALTY_TYPE =
 		new ParameterizedTypeReference<>() {
 		};
 
@@ -72,6 +77,28 @@ public class HttpCrewAdapter implements CrewPort {
 			throw new ExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
 		}
 		return OptionalInt.of(data.get().memberCount());
+	}
+
+	// 묻지 못하거나 응답이 이상하면 제한 없음으로 본다 (CrewPort 주석)
+	@Override
+	public Optional<LocalDateTime> findPartyRestrictionEnd(long crewId) {
+		RsData<PenaltyResponse> response;
+		try {
+			response = restClient.get()
+				.uri(PENALTY_PATH, crewId)
+				.retrieve()
+				.body(PENALTY_TYPE);
+		} catch (RestClientException exception) {
+			log.warn("회원 서비스에 크루 파티 만들기 제한을 묻지 못해 제한 없음으로 봅니다. crewId={}", crewId, exception);
+			return Optional.empty();
+		}
+		PenaltyResponse body = response == null ? null : response.data();
+		if (body == null || body.restricted() == null || body.restricted() && body.endAt() == null) {
+			log.warn("회원 서비스의 크루 파티 만들기 제한 응답에 값이 없어 제한 없음으로 봅니다. crewId={}, response={}",
+				crewId, response);
+			return Optional.empty();
+		}
+		return body.restricted() ? Optional.of(body.endAt()) : Optional.empty();
 	}
 
 	// 크루 없음(404 CREW_NOT_FOUND)은 빈 값, 나머지 실패는 503
@@ -122,5 +149,10 @@ public class HttpCrewAdapter implements CrewPort {
 	// member CrewMemberCountDto
 	@JsonIgnoreProperties(ignoreUnknown = true)
 	record CountResponse(Integer memberCount) {
+	}
+
+	// member CrewPenaltyDto (BUK-187)
+	@JsonIgnoreProperties(ignoreUnknown = true)
+	record PenaltyResponse(Boolean restricted, LocalDateTime endAt) {
 	}
 }

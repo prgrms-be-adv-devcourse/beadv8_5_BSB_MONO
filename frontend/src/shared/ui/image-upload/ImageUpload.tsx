@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { useId, type ReactNode } from 'react'
 
 import { cn } from '@/shared/lib'
@@ -106,8 +107,10 @@ export function ImageUpload({
     const image = value[0]
     body = (
       <div className={cn(BOX, BOX_STATE[state])}>
-        {/* eslint-disable-next-line @next/next/no-img-element -- 업로드 전 blob 주소도 보여 줘야 한다 */}
-        <img src={image.url} alt="" className="size-24 shrink-0 rounded-sm object-cover" />
+        {/* 업로드 전 blob 주소도 보여 줘야 하므로 최적화하지 않는다. */}
+        <div className="relative size-24 shrink-0">
+          <Image src={image.url} alt="" fill unoptimized className="rounded-sm object-cover" />
+        </div>
         <div className="flex min-w-0 flex-col gap-1">
           <p className="truncate text-body2-medium text-text-primary">{image.name}</p>
           {image.meta && <p className="text-caption-regular text-text-tertiary">{image.meta}</p>}
@@ -129,12 +132,14 @@ export function ImageUpload({
       <div className={cn(BOX, BOX_STATE[state], 'flex-wrap gap-3')}>
         <ol className="contents">
           {value.map((image, index) => (
-            <li key={image.id} className="relative">
-              {/* eslint-disable-next-line @next/next/no-img-element -- 업로드 전 blob 주소도 보여 줘야 한다 */}
-              <img
+            <li key={image.id} className="relative h-22.5 w-30">
+              {/* 업로드 전 blob 주소도 보여 줘야 하므로 최적화하지 않는다. */}
+              <Image
                 src={image.url}
                 alt={`${index + 1}번째 소개 이미지`}
-                className="h-[90px] w-30 rounded-sm object-cover"
+                fill
+                unoptimized
+                className="rounded-sm object-cover"
               />
               <span className="absolute top-1.5 left-1.5 rounded-full bg-bg-inverse px-1.5 py-0.5 text-caption-medium text-text-inverse">
                 {index + 1}
@@ -147,7 +152,7 @@ export function ImageUpload({
           onClick={onOpen}
           aria-describedby={description ? helperId : undefined}
           className={cn(
-            'flex h-[90px] w-30 flex-col items-center justify-center gap-1 rounded-sm border border-dashed border-border-strong bg-bg-surface text-text-secondary hover:bg-bg-subtle',
+            'flex h-22.5 w-30 flex-col items-center justify-center gap-1 rounded-sm border border-dashed border-border-strong bg-bg-surface text-text-secondary hover:bg-bg-subtle',
             FOCUS_RING,
           )}
         >

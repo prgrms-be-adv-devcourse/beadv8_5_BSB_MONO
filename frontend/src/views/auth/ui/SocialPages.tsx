@@ -38,7 +38,7 @@ import {
   signupProfileSchema,
   type SignupProfileValues,
 } from '../model/schemas'
-import { saveSignupDraft, takeSignupDraft } from '../model/signup-draft'
+import { clearSignupDraft, saveSignupDraft, takeSignupDraft } from '../model/signup-draft'
 import { useSignupStep } from '../model/signup-store'
 import { agreedTermTypes } from '../model/signup-terms'
 import { CenterBody, StepIntro } from './parts'
@@ -252,14 +252,15 @@ function SocialSignupForm({
             onVerified={setVerification}
             onDuplicate={() => setDuplicate(true)}
             onRejoinTooSoon={setRejoin}
-            onBeforeOpen={() =>
+            onBeforeOpen={() => {
               saveSignupDraft({
                 terms,
                 termsAgreed,
                 email: lockedEmail ? undefined : getValues('email'),
                 nickname: getValues('nickname'),
               })
-            }
+              return clearSignupDraft
+            }}
             onReturn={() => {
               const draft = takeSignupDraft()
               if (!draft) return

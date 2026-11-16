@@ -27,6 +27,9 @@ public final class KafkaTopics {
 	// 종목이 바뀌었다 (등록한 종목, 수정 때 바뀐·새·뺀 종목). 대기열 서비스가 종목 복제본에 저장한다
 	public static final String RACE_COURSE_CHANGED = "queuing.racecourse.changed";
 
+	// 게시판 글이 바뀌었다 (쓰기·고치기·지우기·숨김·되살리기). 게시판 서비스가 보내고 자기가 받아 검색 인덱스를 맞춘다 (BUK-179, key 글 ID)
+	public static final String BOARD_POST_CHANGED = "queuing.post.changed";
+
 	// 대회·종목을 저장한 뒤 이미지 연결을 요청한다 (product → file)
 	public static final String RACE_FILE_LINK_REQUESTED = "race.filelink.requested";
 	// 대기열 활성 시간이 끝나 임시 확보한 자리를 해제한다 (order → product)
@@ -37,7 +40,9 @@ public final class KafkaTopics {
 	public static final String ORDER_RACE_CANCEL = "order.race.cancel";
 	// 참가권을 환불했다. 정산 서비스가 판매자에게서 돌려받을 회수를 남긴다 (order → payout, 발행은 order 담당과 맞춘다)
 	public static final String ORDER_ITEM_REFUNDED = "queuing.orderitem.refunded";
-	// 대회 취소 환불의 보류(HELD)·완료(REFUNDED). 정산이 보류에 지급을 막고 완료에 닫기·회수를 한다 (order → payout, key 대회 ID)
+	// 대회 취소 환불의 보류(HELD)·완료(REFUNDED) (order → payout, key 대회 ID)
+	// 정산은 완료를 받은 대회만 대회 취소 청구를 만든다. 보류에 지급을 막는 일은 아직 없다(BUK-66).
+	// 회수는 참가권마다 ORDER_ITEM_REFUNDED로 한다(BUK-76)
 	// 이름은 정산 담당과 확인 중이다 (11/05 회의 R1)
 	public static final String ORDER_RACE_REFUND = "queuing.order.racerefund";
 

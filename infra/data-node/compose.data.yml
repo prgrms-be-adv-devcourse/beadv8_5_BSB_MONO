@@ -1,0 +1,66 @@
+# 보조 EC2(데이터 서버, 10.0.2.222)용 compose 덮어쓰기
+#   backend/compose.yml의 인프라 정의(이미지·명령·상태 확인)를 그대로 쓰고, 서버에 필요한 것만 덮어쓴다
+#   앱은 메인 EC2의 k3s에서 돌고, 이 서버의 포트로 접속한다 (k8s/overlays/aws의 Service가 이 서버 IP로 잇는다)
+#
+# 실행은 deploy.sh가 한다 (저장소 루트에서)
+#   docker compose -f backend/compose.yml -f infra/data-node/compose.data.yml --env-file infra/data-node/.env \
+#     up -d --wait bukang-db bukang-redis bukang-kafka bukang-elasticsearch
+# 관리 화면(Kafka Console, Elasticvue)은 띄우지 않는다. 이 서버는 외부에서 접속할 수 없고 메모리(3.7GB)가 작다
+#
+# !override는 Docker Compose 2.24.4 이상에서 동작한다 (setup.sh가 설치하는 compose 플러그인은 이보다 새 버전이다)
+
+# compose 프로젝트 이름. 폴더 이름과 상관없이 같은 컨테이너·네트워크를 쓴다
+name: crewrun-data
+
+services:
+  bukang-db:
+    restart: unless-stopped
+    # 앱(메인 EC2)만 접속한다. 보안 그룹이 메인 EC2에서 오는 3306만 허용한다
+    ports: !override
+      - "${DATA_NODE_BIND_IP:?}:3306:3306"
+    # compose.yml의 로컬용 계정(bukang2 등)을 운영 값으로 바꾼다. 처음 볼륨을 만들 때만 쓰인다
+    # 앱 Secret(Parameter Store)의 MYSQL_USER·MYSQL_PASS와 같은 값이어야 한다
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?}
+      MYSQL_USER: ${MYSQL_USER:?}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?}
+    volumes:
+      - bukang-db-data:/var/lib/mysql
+
+  bukang-redis:
+    restart: unless-stopped
+    ports: !override
+      - "${DATA_NODE_BIND_IP:?}:6379:6379"
+    volumes:
+      - bukang-redis-data:/data
+
+  # 앱은 internal 리스너(bukang-kafka:29092)로 접속하고, Redpanda도 이 주소를 알려 준다
+  # 메인 k3s의 Service bukang-kafka가 이 서버의 29092로 이어 주므로 29092만 연다 (external 9092는 쓰지 않는다)
+  bukang-kafka:
+    restart: unless-stopped
+    ports: !override
+      - "${DATA_NODE_BIND_IP:?}:29092:29092"
+    volumes:
+      - bukang-kafka-data:/var/lib/redpanda/data
+
+  # 이미지(nori 플러그인)는 이 서버에서 backend/docker/elasticsearch로 빌드한다 (힙 512MB는 compose.yml 값 그대로)
+  # 인덱스는 볼륨에 남겨, 다시 시작해도 대회 검색 문서를 처음부터 다시 만들지 않게 한다
+  bukang-elasticsearch:
+    restart: unless-stopped
+    ports: !override
+      - "${DATA_NODE_BIND_IP:?}:9200:9200"
+    volumes:
+      - bukang-es-data:/usr/share/elasticsearch/data
+
+  # S3Mock은 띄우지 않는다. 운영은 실제 AWS S3를 쓴다 (운영 .env의 S3_ENDPOINT가 빈 값, 2026-11-15 확인)
+
+volumes:
+  # name을 정해 두어 프로젝트 이름이 바뀌어도 같은 볼륨을 쓴다. down -v 를 하면 데이터가 모두 사라진다
+  bukang-db-data:
+    name: bukang-db-data
+  bukang-redis-data:
+    name: bukang-redis-data
+  bukang-kafka-data:
+    name: bukang-kafka-data
+  bukang-es-data:
+    name: bukang-es-data

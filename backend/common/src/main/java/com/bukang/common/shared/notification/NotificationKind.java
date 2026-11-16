@@ -17,6 +17,8 @@ public enum NotificationKind {
 	CARD_CANCEL_DEADLINE,
 	// 크루에 가입했다 (회원)
 	CREW_JOINED,
+	// 파티장이 파티를 만들며 고른 크루원에게 참가 링크를 보낸다 (주문, BUK-182)
+	PARTY_INVITED,
 	// 파티 신청 뒤 파티원에게 결제를 요청한다 (주문, BUK-37)
 	PARTY_PAYMENT_REQUESTED,
 	// 파티 결제 마감이 다가온다 (주문, BUK-38)

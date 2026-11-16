@@ -14,6 +14,7 @@ dependencies {
 	implementation("org.flywaydb:flyway-mysql")
 	implementation("org.springframework.boot:spring-boot-starter-kafka") // kafka (회원 이벤트 받기, 사진 연결 요청 보내기)
 	implementation("org.springframework.boot:spring-boot-starter-data-redis") // redis (도배 제한)
+	implementation("org.springframework.boot:spring-boot-starter-data-elasticsearch") // elastic search (글 검색, BUK-179). 클라이언트(ElasticsearchClient)만 쓴다
 
 	developmentOnly("org.springframework.boot:spring-boot-devtools") // dev-tools
 	// App 실행시 compose.yml 인프라 자동 실행 (bootRun/IDE 실행에만 포함, 운영 jar에서는 제외)
@@ -24,5 +25,7 @@ dependencies {
 
 	testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-kafka-test")
+	testImplementation("org.testcontainers:testcontainers-junit-jupiter") // @Testcontainers (도커 없으면 건너뜀)
+	testImplementation("org.testcontainers:testcontainers-elasticsearch")
 	testImplementation(testFixtures(project(":common"))) // GlobalConfigTestExecutionListener (테스트마다 EventPublisher 재설정)
 }

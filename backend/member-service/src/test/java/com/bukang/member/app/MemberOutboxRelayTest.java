@@ -49,13 +49,13 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.common.shared.kafka.KafkaMessageId;
 import com.bukang.common.shared.kafka.KafkaTopics;
+import com.bukang.common.shared.kafka.outbox.OutboxStatus;
 import com.bukang.common.shared.member.event.MemberJoinedEvent;
 import com.bukang.common.shared.member.event.MemberModifiedEvent;
 import com.bukang.common.shared.seller.domain.SellerStatus;
 import com.bukang.common.shared.seller.domain.SellerType;
 import com.bukang.common.shared.seller.event.SellerChangedEvent;
 import com.bukang.member.domain.MemberOutboxEvent;
-import com.bukang.member.domain.MemberOutboxStatus;
 import com.bukang.member.out.MemberOutboxEventRepository;
 
 import jakarta.persistence.EntityManager;
@@ -123,7 +123,7 @@ class MemberOutboxRelayTest {
 		assertThat(records.get(1).topic()).isEqualTo(KafkaTopics.SELLER_CHANGED);
 		assertThat(records.get(1).key()).isEqualTo("1002");
 		assertThat(rows).allSatisfy(row -> {
-			assertThat(row.getStatus()).isEqualTo(MemberOutboxStatus.SENT);
+			assertThat(row.getStatus()).isEqualTo(OutboxStatus.SENT);
 			assertThat(row.getSentDate()).isEqualTo(now);
 			assertThat(row.getRetryCount()).isZero();
 		});
@@ -188,10 +188,10 @@ class MemberOutboxRelayTest {
 
 		assertThat(sent).isZero();
 		List<MemberOutboxEvent> rows = allRows();
-		assertThat(rows.get(0).getStatus()).isEqualTo(MemberOutboxStatus.PENDING);
+		assertThat(rows.get(0).getStatus()).isEqualTo(OutboxStatus.PENDING);
 		assertThat(rows.get(0).getRetryCount()).isEqualTo(1);
 		assertThat(rows.get(0).getNextRetryDate()).isEqualTo(now.plusSeconds(1));
-		assertThat(rows.get(1).getStatus()).isEqualTo(MemberOutboxStatus.PENDING);
+		assertThat(rows.get(1).getStatus()).isEqualTo(OutboxStatus.PENDING);
 		assertThat(rows.get(1).getRetryCount()).isZero();
 		verify(kafka(), times(1)).send(any(ProducerRecord.class));
 	}
@@ -210,7 +210,7 @@ class MemberOutboxRelayTest {
 		}
 
 		MemberOutboxEvent row = allRows().get(0);
-		assertThat(row.getStatus()).isEqualTo(MemberOutboxStatus.PENDING);
+		assertThat(row.getStatus()).isEqualTo(OutboxStatus.PENDING);
 		assertThat(row.getRetryCount()).isEqualTo(10);
 		assertThat(row.getNextRetryDate()).isEqualTo(lastRelay.plusMinutes(1));
 	}
@@ -241,11 +241,11 @@ class MemberOutboxRelayTest {
 		succeedSendTo(MEMBER_ID);
 		int sent = relayAt(now.plusHours(3));
 
-		assertThat(afterTwoFailures.getStatus()).isEqualTo(MemberOutboxStatus.PENDING);
+		assertThat(afterTwoFailures.getStatus()).isEqualTo(OutboxStatus.PENDING);
 		List<MemberOutboxEvent> rows = allRows();
-		assertThat(rows.get(0).getStatus()).isEqualTo(MemberOutboxStatus.SEND_FAILED);
+		assertThat(rows.get(0).getStatus()).isEqualTo(OutboxStatus.SEND_FAILED);
 		assertThat(rows.get(0).getRetryCount()).isEqualTo(MemberOutboxRelayUseCase.MAX_MESSAGE_FAILURES);
-		assertThat(rows.get(1).getStatus()).isEqualTo(MemberOutboxStatus.SENT);
+		assertThat(rows.get(1).getStatus()).isEqualTo(OutboxStatus.SENT);
 		assertThat(sent).isEqualTo(1);
 		assertThat(output).contains("포기", rows.get(0).getEventId());
 	}
@@ -265,10 +265,10 @@ class MemberOutboxRelayTest {
 
 		assertThat(sent).isEqualTo(2);
 		List<MemberOutboxEvent> rows = allRows();
-		assertThat(rows.get(0).getStatus()).isEqualTo(MemberOutboxStatus.PENDING);
-		assertThat(rows.get(1).getStatus()).isEqualTo(MemberOutboxStatus.PENDING);
-		assertThat(rows.get(2).getStatus()).isEqualTo(MemberOutboxStatus.SENT);
-		assertThat(rows.get(3).getStatus()).isEqualTo(MemberOutboxStatus.SENT);
+		assertThat(rows.get(0).getStatus()).isEqualTo(OutboxStatus.PENDING);
+		assertThat(rows.get(1).getStatus()).isEqualTo(OutboxStatus.PENDING);
+		assertThat(rows.get(2).getStatus()).isEqualTo(OutboxStatus.SENT);
+		assertThat(rows.get(3).getStatus()).isEqualTo(OutboxStatus.SENT);
 	}
 
 	@Test
@@ -299,7 +299,7 @@ class MemberOutboxRelayTest {
 		assertThat(sent).isEqualTo(1);
 		List<ProducerRecord<String, String>> records = sentRecords(1);
 		assertThat(records.get(0).key()).isEqualTo("1002");
-		assertThat(allRows().get(0).getStatus()).isEqualTo(MemberOutboxStatus.PENDING);
+		assertThat(allRows().get(0).getStatus()).isEqualTo(OutboxStatus.PENDING);
 	}
 
 	@Test
@@ -340,7 +340,7 @@ class MemberOutboxRelayTest {
 		assertThat(sent).isEqualTo(1);
 		assertThat(sentRecords(1).get(0).key()).isEqualTo("1002");
 		List<MemberOutboxEvent> rows = allRows();
-		assertThat(rows.get(1).getStatus()).isEqualTo(MemberOutboxStatus.PENDING);
+		assertThat(rows.get(1).getStatus()).isEqualTo(OutboxStatus.PENDING);
 	}
 
 	@Test
@@ -354,7 +354,7 @@ class MemberOutboxRelayTest {
 		}
 
 		MemberOutboxEvent row = allRows().get(0);
-		assertThat(row.getStatus()).isEqualTo(MemberOutboxStatus.PENDING);
+		assertThat(row.getStatus()).isEqualTo(OutboxStatus.PENDING);
 		assertThat(row.getRetryCount()).isEqualTo(5);
 	}
 
@@ -407,7 +407,7 @@ class MemberOutboxRelayTest {
 		}
 
 		MemberOutboxEvent row = allRows().get(0);
-		assertThat(row.getStatus()).isEqualTo(MemberOutboxStatus.SEND_FAILED);
+		assertThat(row.getStatus()).isEqualTo(OutboxStatus.SEND_FAILED);
 		assertThat(row.getRetryCount()).isEqualTo(MemberOutboxRelayUseCase.MAX_MESSAGE_FAILURES);
 	}
 
