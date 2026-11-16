@@ -25,7 +25,7 @@ export function CrewMembersPage({ crewId }: { crewId: number }) {
     <>
       <AppHeader type="sub" title="크루원" backHref={`/crews/${crewId}` as Route} />
       <main className="flex flex-1 flex-col">
-        {crew.isPending ? (
+        {crew.isPending || me.isPending ? (
           <CrewBand>
             <span role="status" className="sr-only">
               크루원을 불러오는 중
@@ -35,6 +35,8 @@ export function CrewMembersPage({ crewId }: { crewId: number }) {
           </CrewBand>
         ) : crew.isError ? (
           <CrewHomeError error={crew.error} onRetry={() => crew.refetch()} />
+        ) : me.isError ? (
+          <CrewHomeError error={me.error} onRetry={() => me.refetch()} />
         ) : (
           <>
             <CrewBand className="pb-0">

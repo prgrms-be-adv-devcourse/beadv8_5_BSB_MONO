@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { http, HttpResponse } from 'msw'
+import { delay, http, HttpResponse } from 'msw'
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -254,6 +254,35 @@ describe('CrewMembersPage 크루원 목록', () => {
     expect(screen.getByText('나의닉네임')).toBeInTheDocument()
     expect(screen.getByText('러너4')).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /크루원 .*더 보기/ })).not.toBeInTheDocument()
+  })
+})
+
+describe('CrewMembersPage 내 정보가 늦게 올 때', () => {
+  it('내 정보가 올 때까지 목록을 보여 주지 않아 「나」가 크루원에 섞이지 않는다', async () => {
+    const crew = memberMock.getFindCrewResponseMock()
+    const members = [
+      { memberId: 1, nickname: '새벽곰', role: 'LEADER' as const },
+      { memberId: 7, nickname: '나의닉네임', role: 'MEMBER' as const },
+    ]
+    server.use(
+      memberMock.getFindCrewMockHandler({
+        ...crew,
+        data: { ...crew.data!, name: '새벽한강크루', memberCount: 2, members },
+      }),
+      http.get('*/api/v1/member/members/me', async () => {
+        await delay(150)
+        return HttpResponse.json({
+          ...memberMock.getFindMeResponseMock(),
+          data: { ...memberMock.getFindMeResponseMock().data!, id: 7 },
+        })
+      }),
+    )
+    renderPage(<CrewMembersPage crewId={1} />)
+    await act(() => delay(50))
+    expect(screen.getByRole('status')).toHaveTextContent('크루원을 불러오는 중')
+    expect(screen.queryByText('나의닉네임')).not.toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '나' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '크루원 1명' })).toBeInTheDocument()
   })
 })
 
