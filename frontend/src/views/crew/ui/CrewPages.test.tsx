@@ -6,7 +6,7 @@ import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { setAccessToken } from '@/shared/api'
-import { memberMock, server } from '@/shared/testing'
+import { currentSearch, memberMock, resetNavigationMock, server } from '@/shared/testing'
 import { ToastProvider } from '@/shared/ui'
 
 import { CrewHomePage } from './CrewHomePage'
@@ -17,13 +17,25 @@ import { CrewNewPage } from './CrewNewPage'
 import { MyCrewsPage } from './MyCrewsPage'
 
 const replace = vi.fn()
-vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn(), back: vi.fn(), replace }),
-  usePathname: () => '/crews',
-}))
+vi.mock('next/navigation', async () => {
+  const nav = (await import('@/shared/testing')).navigationMock('/crews')
+  return {
+    ...nav,
+    useRouter: () => {
+      const router = nav.useRouter()
+      // 탭 바꾸기(scroll: false)는 주소 쿼리만 바꾸고, 화면 이동만 replace 기록에 남긴다
+      return {
+        ...router,
+        replace: (url: string, options?: { scroll?: boolean }) =>
+          options?.scroll === false ? router.replace(url) : replace(url),
+      }
+    },
+  }
+})
 
 beforeEach(() => {
   replace.mockClear()
+  resetNavigationMock()
   setAccessToken('access-token')
 })
 
@@ -214,6 +226,30 @@ describe('CrewHomePage (M09)', () => {
     await openMembersTab(user)
     expect(await screen.findByRole('button', { name: '크루 떠나기' })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: '크루 관리' })).not.toBeInTheDocument()
+  })
+
+  it('크루원 탭을 고르면 주소에 남아, 뒤로 가기로 돌아와도 크루원 탭이 열린다', async () => {
+    const user = userEvent.setup()
+    const { unmount } = renderPage(<CrewHomePage crewId={1} />)
+    await openMembersTab(user)
+    expect(currentSearch()).toBe('tab=members')
+    expect(replace).not.toHaveBeenCalled()
+    unmount()
+    renderPage(<CrewHomePage crewId={1} />)
+    expect(await screen.findByRole('tab', { name: '크루원 3' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+    expect(await screen.findByText('한강페이서')).toBeInTheDocument()
+  })
+
+  it('주소의 탭 값이 목록 밖이면 파티 탭을 연다', async () => {
+    resetNavigationMock('tab=nope')
+    renderPage(<CrewHomePage crewId={1} />)
+    expect(await screen.findByRole('tab', { name: '파티' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
   })
 
   it('파티를 불러오지 못해도 크루원 탭은 그대로 볼 수 있다', async () => {

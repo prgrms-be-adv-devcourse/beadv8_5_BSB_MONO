@@ -6,7 +6,7 @@ import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { setAccessToken } from '@/shared/api'
-import { memberMock, server } from '@/shared/testing'
+import { memberMock, resetNavigationMock, server } from '@/shared/testing'
 import { ToastProvider } from '@/shared/ui'
 
 import { CrewHomePage } from './CrewHomePage'
@@ -17,14 +17,27 @@ import { CrewManagePage } from './CrewManagePage'
 
 const replace = vi.fn()
 const push = vi.fn()
-vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push, back: vi.fn(), replace }),
-  usePathname: () => '/crews/1',
-}))
+vi.mock('next/navigation', async () => {
+  const nav = (await import('@/shared/testing')).navigationMock('/crews/1')
+  return {
+    ...nav,
+    useRouter: () => {
+      const router = nav.useRouter()
+      // 탭 바꾸기(scroll: false)는 주소 쿼리만 바꾸고, 화면 이동만 replace 기록에 남긴다
+      return {
+        ...router,
+        push,
+        replace: (url: string, options?: { scroll?: boolean }) =>
+          options?.scroll === false ? router.replace(url) : replace(url),
+      }
+    },
+  }
+})
 
 beforeEach(() => {
   replace.mockClear()
   push.mockClear()
+  resetNavigationMock()
   setAccessToken('access-token')
 })
 
@@ -579,6 +592,8 @@ describe('크루원 목록 줄 맞춤', () => {
       expect(name).toHaveAttribute('title', nickname)
       const row = name.closest('li')!
       expect(row.children[2]).toHaveTextContent(/^(크루장|운영진|크루원)$/)
+      // 줄마다 따로 칸을 나누면 줄 버튼이 없는 줄(크루장)만 배지가 오른쪽으로 밀린다. 목록 하나의 칸을 나눠 쓴다
+      expect(row).toHaveClass('grid-cols-subgrid')
     }
   }
 
