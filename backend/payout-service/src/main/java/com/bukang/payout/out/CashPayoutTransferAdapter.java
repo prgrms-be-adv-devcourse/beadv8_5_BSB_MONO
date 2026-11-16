@@ -12,6 +12,7 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
+import com.bukang.common.global.web.InternalKeyHeader;
 import com.bukang.payout.domain.PayoutStage;
 
 /**
@@ -43,11 +44,14 @@ public class CashPayoutTransferAdapter implements PayoutTransferPort {
 
 	@Autowired
 	public CashPayoutTransferAdapter(RestClient.Builder builder,
-		@Value("${payout.services.cash}") String cashServiceUrl) {
+		@Value("${payout.services.cash}") String cashServiceUrl,
+		@Value("${internal.api-key}") String internalKey) {
 		// Boot가 주는 빌더는 주입마다 새로 만들어져(prototype) 다른 어댑터와 baseUrl이 섞이지 않는다
 		this(builder
 			.baseUrl(cashServiceUrl)
 			.requestFactory(requestFactory())
+			// cash 내부 API는 내부 인증 키가 없으면 401로 막는다
+			.defaultHeader(InternalKeyHeader.NAME, internalKey)
 			.build());
 	}
 

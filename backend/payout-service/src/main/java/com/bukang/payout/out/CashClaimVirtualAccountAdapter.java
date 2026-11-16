@@ -12,6 +12,8 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
+import com.bukang.common.global.web.InternalKeyHeader;
+
 /**
  * 캐시 서비스의 청구 가상계좌 발급 내부 API를 HTTP로 부르는 어댑터 (BUK-88, 캐시 쪽 BUK-145)
  * POST {캐시 서비스}/internal/v1/cash/claims/{claimCode}/virtual-account {amount} → data.{bankName, accountNumber}
@@ -33,10 +35,13 @@ public class CashClaimVirtualAccountAdapter implements ClaimVirtualAccountPort {
 
 	@Autowired
 	public CashClaimVirtualAccountAdapter(RestClient.Builder builder,
-		@Value("${payout.services.cash}") String cashServiceUrl) {
+		@Value("${payout.services.cash}") String cashServiceUrl,
+		@Value("${internal.api-key}") String internalKey) {
 		this(builder
 			.baseUrl(cashServiceUrl)
 			.requestFactory(requestFactory())
+			// cash 내부 API는 내부 인증 키가 없으면 401로 막는다
+			.defaultHeader(InternalKeyHeader.NAME, internalKey)
 			.build());
 	}
 

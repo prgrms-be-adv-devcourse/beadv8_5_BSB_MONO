@@ -22,6 +22,7 @@ const NAMES: IconName[] = [
   'Info',
   'CircleCheck',
   'CircleAlert',
+  'Clock',
   'TriangleAlert',
   'Calendar',
   'MapPin',

@@ -24,7 +24,8 @@ public interface OpsPort {
 	// 주문: 배송 준비 키트 목록의 앞 size개와 전체 건수
 	KitPage preparingKits(long memberId, int size);
 
-	// 주문: 결제일이 from~to(종료일 포함)인 결제 완료·취소 중 참가권의 장수와 결제 금액 합 (기간은 최대 12개월)
+	// 주문: 결제일이 from~to(종료일 포함)인 결제 완료·취소 중 참가권의 장수·결제 금액 합과,
+	// 취소를 마친 때가 그 기간인 참가권의 장수·환불액 합 (기간은 최대 12개월)
 	SalesSummary salesSummary(long memberId, LocalDate from, LocalDate to);
 
 	// 정산: 다음 정산일(없으면 null), 정산 예정액, 지급보류 건수
@@ -60,7 +61,8 @@ public interface OpsPort {
 
 	@JsonIgnoreProperties(ignoreUnknown = true)
 	record SalesSummary(@JsonProperty(required = true) long soldCount,
-		@JsonProperty(required = true) long soldAmount) {
+		@JsonProperty(required = true) long soldAmount, @JsonProperty(required = true) long canceledCount,
+		@JsonProperty(required = true) long refundedAmount) {
 	}
 
 	@JsonIgnoreProperties(ignoreUnknown = true)

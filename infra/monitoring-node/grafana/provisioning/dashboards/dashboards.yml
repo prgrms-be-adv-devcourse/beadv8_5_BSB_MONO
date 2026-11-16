@@ -1,0 +1,11 @@
+# Grafana가 시작할 때 /etc/grafana/dashboards의 JSON을 대시보드로 등록한다 (fetch-dashboards.sh가 받아 둔 파일)
+apiVersion: 1
+
+providers:
+  - name: crewrun
+    folder: 크루런
+    type: file
+    # 화면에서 고친 내용은 저장할 수 있지만, 다시 시작하면 파일 내용으로 돌아온다
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/dashboards

@@ -23,6 +23,7 @@ dependencies {
 
 	testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-kafka-test")
+	testImplementation("org.springframework.boot:spring-boot-micrometer-metrics-test") // @AutoConfigureMetrics (결제 잠금 측정 지표 테스트)
 	testImplementation("org.springframework.boot:spring-boot-testcontainers") // @ServiceConnection
 	testImplementation("org.testcontainers:testcontainers-mysql") // H2와 잠금이 다른 동시성은 진짜 MySQL로 확인한다 (BUK-188)
 	testImplementation(testFixtures(project(":common"))) // GlobalConfigTestExecutionListener (테스트마다 EventPublisher 재설정)

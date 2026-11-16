@@ -17,6 +17,10 @@ spring:
     ansi:
       enabled: always
 
+  # 트랜잭션 밖에서 LAZY를 읽지 않도록 OSIV를 끈다. DTO 변환은 유스케이스 트랜잭션 안에서 한다 (BUK-261, 모든 프로파일 공통)
+  jpa:
+    open-in-view: false
+
   # 개발 실행(bootRun/IDE) 시 backend/compose.yml의 인프라를 자동으로 띄운다
   # compose.yml과 .env 경로는 common의 LocalDevEnvironmentPostProcessor가 실행 위치와 상관없이 찾아 준다
   docker:

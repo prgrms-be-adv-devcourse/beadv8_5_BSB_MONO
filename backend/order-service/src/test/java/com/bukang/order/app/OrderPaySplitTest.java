@@ -28,6 +28,7 @@ import com.bukang.order.domain.Order;
 import com.bukang.order.domain.OrderStatus;
 import com.bukang.order.domain.ParticipationStatus;
 import com.bukang.order.domain.exception.OrderNotPayableException;
+import com.bukang.order.domain.exception.PaymentBusyException;
 import com.bukang.order.support.SeatOutboxMessages;
 import com.bukang.order.support.StubKitOptionPortConfig;
 import com.bukang.order.support.StubRaceCoursePort;
@@ -157,6 +158,27 @@ class OrderPaySplitTest extends OrderPaySplitTestSupport {
 		assertThat(sold(SHIRT_M)).isZero();
 		assertThat(choicesOf(orderId)).isZero();
 		assertThat(walletPort.cancelCalls()).isEmpty();
+	}
+
+	@Test
+	@DisplayName("예치금 결제 동시 호출 자리를 못 받으면 예치금을 부르지 않고 판매 수·옵션을 되돌려 결제 대기로 두고 503 ORDER_PAYMENT_BUSY")
+	void walletBusyReverts() throws Exception {
+		long orderId = createOrder(1);
+		walletPort.setPayBusy(true);
+
+		pay(1, orderId).andExpect(status().isServiceUnavailable())
+			.andExpect(jsonPath("$.code").value(PaymentBusyException.CODE));
+
+		assertThat(statusOf(orderId)).isEqualTo(OrderStatus.CREATED);
+		assertThat(sold(SHIRT_M)).isZero();
+		assertThat(choicesOf(orderId)).isZero();
+		assertThat(walletPort.payCalls()).isEmpty();
+		assertThat(walletPort.cancelCalls()).isEmpty();
+
+		// 몰림이 풀리면 같은 주문으로 다시 결제한다
+		walletPort.setPayBusy(false);
+		pay(1, orderId).andExpect(status().isOk());
+		assertThat(statusOf(orderId)).isEqualTo(OrderStatus.PAID);
 	}
 
 	@Test

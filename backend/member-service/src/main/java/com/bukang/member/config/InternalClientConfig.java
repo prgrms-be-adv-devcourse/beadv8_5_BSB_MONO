@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import com.bukang.common.global.web.InternalKeyHeader;
 import com.bukang.member.out.InternalHttpClients;
 import com.bukang.member.out.cash.CashBalancePort;
 import com.bukang.member.out.cash.HttpCashBalanceAdapter;
@@ -27,9 +28,13 @@ public class InternalClientConfig {
 	@Bean
 	public CashBalancePort cashBalancePort(
 		@Value("${member.clients.cash.base-url}") String baseUrl,
-		@Value("${member.clients.timeout}") Duration timeout
+		@Value("${member.clients.timeout}") Duration timeout,
+		@Value("${internal.api-key}") String internalKey
 	) {
-		return new HttpCashBalanceAdapter(InternalHttpClients.create(baseUrl, timeout));
+		// cash 내부 API는 내부 인증 키가 없으면 401로 막는다
+		return new HttpCashBalanceAdapter(InternalHttpClients.create(baseUrl, timeout).mutate()
+			.defaultHeader(InternalKeyHeader.NAME, internalKey)
+			.build());
 	}
 
 	@Bean

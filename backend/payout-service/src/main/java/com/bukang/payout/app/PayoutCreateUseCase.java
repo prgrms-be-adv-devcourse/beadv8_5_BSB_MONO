@@ -153,9 +153,15 @@ public class PayoutCreateUseCase {
 			counts.skip();
 			return;
 		}
-		payoutCreateStepUseCase.createFirst(new FirstPayoutSource(key.sellerId(), key.raceId(), race.raceName(),
-			sellerAccountPort.hasPayoutAccount(key.sellerId()), toCourseSales(courses)), race.refundDeadline(), now);
-		counts.create();
+		boolean created = payoutCreateStepUseCase.createFirst(new FirstPayoutSource(key.sellerId(), key.raceId(),
+			race.raceName(), sellerAccountPort.hasPayoutAccount(key.sellerId()), toCourseSales(courses)),
+			race.refundDeadline(), now);
+		// 위 확인 뒤 다른 실행이 1차 · 최종을 먼저 만들었으면 잠근 뒤 건너뛴다 (BUK-261)
+		if (created) {
+			counts.create();
+		} else {
+			counts.skip();
+		}
 	}
 
 	// 1차는 판매자 × 대회마다 한 번이라 정산 월은 보지 않는다. 판매 시작 뒤에도 환불 마감일을 늦출 수 있어

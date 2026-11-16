@@ -12,6 +12,8 @@ resources:
   - external-infra.yaml
   # 앱의 비밀값 (Secret app-secret). git에 올라가지 않는다. 키 목록은 secret.yaml.example
   - secret.yaml
+  # 운영 지표 수집기와 메인 EC2 node-exporter (BUK-258). 지표는 개인 AWS EC2의 Prometheus로 보낸다
+  - monitoring
 
 # 앱 이미지를 GHCR 주소로 바꾼다. 태그는 deploy.sh가 배포 커밋 SHA로 덮어쓴다 (GitHub Actions가 SHA 태그로 올린다)
 # 여기 적힌 deploy-sha는 자리표시자다. 이 값 그대로 뜨면 이미지를 찾지 못해 ImagePullBackOff가 난다

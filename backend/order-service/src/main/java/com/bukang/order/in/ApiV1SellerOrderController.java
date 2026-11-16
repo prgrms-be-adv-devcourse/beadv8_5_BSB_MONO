@@ -30,7 +30,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 
-// 판매자 주문 목록·파티별 내역 (시안 S03·S03-1·S05, BUK-227), 기간 판매 합계 (BUK-247). 로그인한 회원이 승인된 판매자일 때만 쓴다
+// 판매자 주문 목록·파티별 내역 (시안 S03·S03-1·S05, BUK-227), 기간 판매·취소 합계 (BUK-247·BUK-264). 로그인한 회원이 승인된 판매자일 때만 쓴다
 // 에러 응답은 GlobalExceptionHandler, OrderExceptionHandler가 RsData(data: null) 형식으로 반환한다
 @Tag(name = "SellerOrder", description = "판매자 주문 API (대회별 주문·참가자 목록, 파티별 신청·결제 인원)")
 @RestController
@@ -146,10 +146,12 @@ public class ApiV1SellerOrderController {
 	}
 
 	@GetMapping("/orders/summary")
-	@Operation(summary = "기간 판매 합계",
-		description = "결제일이 from~to(종료일 포함, 한 번에 12개월까지)인 판매자 대회 참가권 중 결제 완료·취소 중인 것의 장수와 결제 금액 합을 돌려준다. "
+	@Operation(summary = "기간 판매·취소 합계",
+		description = "기간은 from~to(종료일 포함, 한 번에 12개월까지)다. "
+			+ "판매(soldCount·soldAmount): 결제일이 기간 안인 판매자 대회 참가권 중 결제 완료·취소 중인 것의 장수와 결제 금액 합. "
 			+ "정산이 판매를 세는 기준과 같다(취소 중은 환불이 거절되면 결제 완료로 돌아오므로 판매로 센다). "
-			+ "취소된 참가권과 결제 전 주문은 빠진다. 판매자 AI 「이번 달 판매액」이 쓴다.")
+			+ "취소(canceledCount·refundedAmount): 취소를 마친 시각이 기간 안인 참가권의 장수와 환불액 합(대회 취소 일괄 환불 포함, 취소 중은 아직 안 셈). "
+			+ "결제 전 주문은 빠진다. 판매자 AI 「이번 달 판매액」이 쓴다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "조회 성공 (판매가 없으면 0)",
 			content = @Content(examples = @ExampleObject(value = SellerOrderApiExamples.SALES_SUMMARY_SUCCESS))),

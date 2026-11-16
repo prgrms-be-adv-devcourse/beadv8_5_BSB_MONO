@@ -7,6 +7,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import com.bukang.common.global.web.InternalKeyHeader;
 import com.bukang.order.out.InternalHttpClients;
 
 /**
@@ -19,8 +20,14 @@ public class CashClientConfig {
 	@Bean
 	public HttpWalletAdapter httpWalletAdapter(
 		@Value("${order.clients.cash.base-url}") String baseUrl,
-		@Value("${order.clients.timeout}") Duration timeout
+		@Value("${order.clients.timeout}") Duration timeout,
+		@Value("${order.clients.cash.max-concurrent-pay}") int maxConcurrentPay,
+		@Value("${order.clients.cash.pay-acquire-timeout}") Duration payAcquireTimeout,
+		@Value("${internal.api-key}") String internalKey
 	) {
-		return new HttpWalletAdapter(InternalHttpClients.create(baseUrl, timeout));
+		// cash 내부 API는 내부 인증 키가 없으면 401로 막는다
+		return new HttpWalletAdapter(InternalHttpClients.create(baseUrl, timeout).mutate()
+			.defaultHeader(InternalKeyHeader.NAME, internalKey)
+			.build(), maxConcurrentPay, payAcquireTimeout);
 	}
 }
