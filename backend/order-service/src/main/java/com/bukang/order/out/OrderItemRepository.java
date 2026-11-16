@@ -204,4 +204,27 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
 		@Param("raceCourseId") Long raceCourseId, @Param("status") OrderItemStatus status,
 		@Param("partyId") Long partyId, @Param("from") LocalDateTime from, @Param("to") LocalDateTime to,
 		Pageable pageable);
+
+	/**
+	 * 대회 참가자 명단 (BUK-228). 결제 완료(참가 확정)인 참가권만, 종목·주문 상품 순으로. 취소 중·취소·결제 전은 빠진다
+	 * 연락처는 참가 신청의 암호화 칸을 읽을 때 풀린다(EncryptedStringConverter)
+	 */
+	@Query("""
+		select new com.bukang.order.out.OrderItemRepository$RosterRow(o.orderNo, i.itemName, p.participant.name,
+			p.participant.phone, p.participant.tshirtSize, p.partyId, p.id)
+		from OrderItem i
+			join i.order o
+			join Participation p on p.id = i.participationId
+		where i.sellerId = :sellerId
+			and i.raceId = :raceId
+			and i.status = com.bukang.order.domain.OrderItemStatus.PAID
+			and (:raceCourseId is null or i.raceCourseId = :raceCourseId)
+		order by i.raceCourseId, i.id
+		""")
+	List<RosterRow> findRoster(@Param("sellerId") long sellerId, @Param("raceId") long raceId,
+		@Param("raceCourseId") Long raceCourseId);
+
+	record RosterRow(String orderNo, String courseName, String participantName, String phone, String tshirtSize,
+		Long partyId, long participationId) {
+	}
 }
