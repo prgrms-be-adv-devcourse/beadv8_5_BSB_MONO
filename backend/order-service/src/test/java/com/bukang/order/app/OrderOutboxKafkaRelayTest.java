@@ -16,8 +16,7 @@ import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CyclicBarrier;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -343,32 +342,36 @@ class OrderOutboxKafkaRelayTest {
 	 * 두 쓰레드가 행을 다 읽은 뒤에 보내게 맞춘다. 커밋은 한쪽이 기다리거나 실패해도 행은 SENT로 끝난다
 	 */
 	@Test
-	@DisplayName("[BUK-234] 두 서버가 함께 릴레이를 돌리면 같은 메시지를 같은 메시지 ID로 두 번 보내고, 행은 SENT로 끝난다")
-	void twoServersSendSameRowTwiceWithSameMessageId() throws Exception {
+	@DisplayName("[BUK-234] 두 서버가 함께 릴레이를 돌려도 한 서버가 잠근 행은 다른 서버가 건너뛰어 한 번만 보내고, 행은 SENT로 끝난다")
+	void twoServersSendLockedRowOnce() throws Exception {
 		restore(PARTICIPATION_ID);
 		String messageId = allEvents().getFirst().getMessageId();
-		CyclicBarrier bothRead = new CyclicBarrier(2);
+		CountDownLatch firstSending = new CountDownLatch(1);
+		CountDownLatch secondDone = new CountDownLatch(1);
+		// 첫 서버가 행을 잠근 채 보내는 동안 둘째 서버가 릴레이를 한 번 끝낸다 (공용 릴레이는 잠긴 행을 건너뛴다)
 		doAnswer(invocation -> {
-			bothRead.await(10, TimeUnit.SECONDS);
+			firstSending.countDown();
+			secondDone.await(10, TimeUnit.SECONDS);
 			return CompletableFuture.completedFuture(null);
 		}).when(kafka()).send(record(null, null, null));
 
-		ExecutorService executor = Executors.newFixedThreadPool(2);
+		ExecutorService executor = Executors.newSingleThreadExecutor();
 		try {
-			List<Future<Integer>> runs = List.of(executor.submit(() -> relayAt(now)),
-				executor.submit(() -> relayAt(now)));
-			for (Future<Integer> run : runs) {
-				try {
-					run.get(30, TimeUnit.SECONDS);
-				} catch (ExecutionException exception) {
-					// 뒤에 커밋한 쪽이 행 잠금에서 실패할 수 있다. 메시지는 이미 나갔다
-				}
+			Future<Integer> first = executor.submit(() -> relayAt(now));
+			assertThat(firstSending.await(10, TimeUnit.SECONDS)).isTrue();
+			int secondSent;
+			try {
+				secondSent = relayAt(now);
+			} finally {
+				secondDone.countDown();
 			}
+			assertThat(secondSent).isZero();
+			assertThat(first.get(30, TimeUnit.SECONDS)).isEqualTo(1);
 		} finally {
 			executor.shutdownNow();
 		}
 
-		verify(kafka(), times(2)).send(withMessageId(messageId));
+		verify(kafka(), times(1)).send(withMessageId(messageId));
 		assertThat(allEvents()).extracting(OrderOutboxKafkaEvent::getStatus).containsOnly(OutboxStatus.SENT);
 	}
 
