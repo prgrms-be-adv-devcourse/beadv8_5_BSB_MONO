@@ -70,6 +70,13 @@ class InquiryDraftPolicyTest {
 	}
 
 	@Test
+	@DisplayName("환급 카드 취소 거절은 사유에 따라 예치금·계좌·처리 중으로 나뉜다 (정책 5장 2차 1 거절 처리 표, #546 리뷰)")
+	void withdrawalRejection() {
+		assertThat(InquiryPolicy.WITHDRAWAL_DETAIL.getRules())
+			.contains("거절 사유에 따라 처리가 다르다", "그 몫을 예치금으로 돌려주고", "그 몫은 계좌로 보낸다", "처리 중으로 보인다");
+	}
+
+	@Test
 	@DisplayName("맞는 정책이 없는 종류는 없다고 적고, 참고한 정보에는 용어만 남는다")
 	void noPolicy() {
 		OpsPort.Inquiry inquiry = inquiry("KIT_DELIVERY", "키트가 안 와요");
