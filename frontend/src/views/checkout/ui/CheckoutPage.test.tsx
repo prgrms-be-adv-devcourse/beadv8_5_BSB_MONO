@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { saveKitOptionIds } from '@/features/booking'
+import { readKitOptionIds, saveKitOptionIds } from '@/features/booking'
 import { cashApi, orderApi } from '@/shared/api'
 import { orderMock, server } from '@/shared/testing'
 
@@ -30,7 +30,7 @@ const DUE_AT = '2026-10-14T10:10:00'
 /** 상품 API 명세 예시의 대회 1 · 종목 1(10K, 45,000원)을 결제 대기로 잡아 둔 주문 */
 function orderResponse(
   patch: {
-    status?: 'CREATED' | 'EXPIRED' | 'PAID'
+    status?: 'CREATED' | 'PAYING' | 'EXPIRED' | 'PAID'
     paymentDueAt?: string
     totalAmount?: number
   } = {},
@@ -597,6 +597,179 @@ describe('결제 화면', () => {
     renderCheckout()
 
     await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/checkout/complete?orderId=1'))
+  })
+
+  describe('결제 확인 중 (BUK-232)', () => {
+    const CONFIRMING = '결제를 확인하고 있어요'
+    const LATE = '결제 확인이 늦어지고 있어요'
+    /** 주문 조회가 차례대로 돌려줄 상태. 마지막 것을 계속 돌려준다 */
+    const orderSequence = (...statuses: ('CREATED' | 'PAYING' | 'PAID' | 'EXPIRED')[]) => {
+      let call = 0
+      return http.get('*/api/v1/order/orders/:orderId', () =>
+        HttpResponse.json(
+          orderResponse({ status: statuses[Math.min(call++, statuses.length - 1)] }),
+        ),
+      )
+    }
+
+    it('결제 응답이 202(결제 중)이면 실패나 완료 대신 결제 확인 중 화면을 보여 준다', async () => {
+      server.use(
+        orderSequence('CREATED', 'PAYING'),
+        payHandler(() =>
+          HttpResponse.json(
+            {
+              status: 202,
+              message: '결제를 확인하고 있어요',
+              data: orderResponse({ status: 'PAYING' }).data,
+            },
+            { status: 202 },
+          ),
+        ),
+      )
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+      renderCheckout()
+
+      const pay = await screen.findByRole('button', { name: '45,000원 결제' })
+      await agree(user)
+      await user.click(pay)
+
+      expect(await screen.findByText(CONFIRMING)).toBeInTheDocument()
+      expect(screen.queryByText('결제하지 못했어요')).not.toBeInTheDocument()
+      expect(replace).not.toHaveBeenCalledWith('/checkout/complete?orderId=1')
+    })
+
+    it('결제 중인 주문으로 들어오면 결제 확인 중 화면을 보여 주고 다시 결제하는 버튼은 없다', async () => {
+      server.use(orderSequence('PAYING'))
+      renderCheckout()
+
+      expect(await screen.findByText(CONFIRMING)).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /결제/ })).not.toBeInTheDocument()
+    })
+
+    it('결제 기한이 지나도 결제 중이면 시간 초과 대신 결제 확인 중을 보여 준다', async () => {
+      server.use(
+        http.get('*/api/v1/order/orders/:orderId', () =>
+          HttpResponse.json(
+            orderResponse({ status: 'PAYING', paymentDueAt: '2026-10-14T09:59:00' }),
+          ),
+        ),
+      )
+      renderCheckout()
+
+      expect(await screen.findByText(CONFIRMING)).toBeInTheDocument()
+      expect(screen.queryByText('결제 시간이 지났어요')).not.toBeInTheDocument()
+    })
+
+    it('3초마다 주문을 다시 조회해 결제 완료가 되면 완료 화면으로 간다', async () => {
+      server.use(orderSequence('PAYING', 'PAYING', 'PAID'))
+      renderCheckout()
+      await screen.findByText(CONFIRMING)
+
+      await act(() => vi.advanceTimersByTimeAsync(3000))
+      expect(replace).not.toHaveBeenCalled()
+      await act(() => vi.advanceTimersByTimeAsync(3000))
+
+      await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/checkout/complete?orderId=1'))
+    })
+
+    it('결제 중이던 주문이 결제 대기로 돌아오면(결제 거절) 결제 실패 화면을 보여 준다', async () => {
+      server.use(orderSequence('PAYING', 'CREATED'))
+      renderCheckout()
+      await screen.findByText(CONFIRMING)
+
+      await act(() => vi.advanceTimersByTimeAsync(3000))
+
+      expect(await screen.findByText('결제하지 못했어요')).toBeInTheDocument()
+    })
+
+    it('202를 받으면 주문을 다시 받기 전에도 바로 결제 확인 중을 보여 주고, 고른 키트 옵션은 남겨 둔다', async () => {
+      saveKitOptionIds(1, [11])
+      server.use(
+        payHandler(() =>
+          HttpResponse.json(
+            {
+              status: 202,
+              message: '결제를 확인하고 있어요',
+              data: orderResponse({ status: 'PAYING' }).data,
+            },
+            { status: 202 },
+          ),
+        ),
+      )
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+      renderCheckout()
+
+      const pay = await screen.findByRole('button', { name: '45,000원 결제' })
+      await agree(user)
+      await user.click(pay)
+
+      expect(await screen.findByText(CONFIRMING)).toBeInTheDocument()
+      expect(readKitOptionIds(1)).toEqual([11])
+    })
+
+    it('결제 중에 주문 재조회가 실패해도 결제 실패로 바꾸지 않는다', async () => {
+      let call = 0
+      server.use(
+        http.get('*/api/v1/order/orders/:orderId', () =>
+          call++ === 0
+            ? HttpResponse.json(orderResponse({ status: 'PAYING' }))
+            : HttpResponse.json({ status: 500, message: '오류', data: null }, { status: 500 }),
+        ),
+      )
+      renderCheckout()
+      await screen.findByText(CONFIRMING)
+
+      await act(() => vi.advanceTimersByTimeAsync(3000))
+      await act(() => vi.advanceTimersByTimeAsync(3000))
+
+      expect(call).toBeGreaterThan(1)
+      expect(screen.getByText(CONFIRMING)).toBeInTheDocument()
+      expect(screen.queryByText('결제하지 못했어요')).not.toBeInTheDocument()
+    })
+
+    it('재조회는 3초 간격이다', async () => {
+      let calls = 0
+      server.use(
+        http.get('*/api/v1/order/orders/:orderId', () => {
+          calls++
+          return HttpResponse.json(orderResponse({ status: 'PAYING' }))
+        }),
+      )
+      renderCheckout()
+      await screen.findByText(CONFIRMING)
+      const first = calls
+
+      await act(() => vi.advanceTimersByTimeAsync(2900))
+      expect(calls).toBe(first)
+      await act(() => vi.advanceTimersByTimeAsync(200))
+      expect(calls).toBe(first + 1)
+    })
+
+    it('재조회로 결제 완료가 되면 고른 키트 옵션을 지우고 완료 화면으로 간다', async () => {
+      saveKitOptionIds(1, [11])
+      server.use(orderSequence('PAYING', 'PAID'))
+      renderCheckout()
+      await screen.findByText(CONFIRMING)
+
+      await act(() => vi.advanceTimersByTimeAsync(3000))
+
+      await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/checkout/complete?orderId=1'))
+      expect(readKitOptionIds(1)).toEqual([])
+    })
+
+    it('2분이 지나도 결제 중이면 내 참가권에서 결과를 보라고 안내한다', async () => {
+      server.use(orderSequence('PAYING'))
+      renderCheckout()
+      await screen.findByText(CONFIRMING)
+
+      await act(() => vi.advanceTimersByTimeAsync(2 * 60 * 1000))
+
+      expect(await screen.findByText(LATE)).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: '내 참가권 보기' })).toHaveAttribute(
+        'href',
+        '/tickets',
+      )
+    })
   })
 
   it('?preview=offline 시안은 시안의 남은 시간에서 센다', () => {

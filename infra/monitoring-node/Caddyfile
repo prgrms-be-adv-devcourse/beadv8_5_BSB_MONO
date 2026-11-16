@@ -1,0 +1,21 @@
+# 모니터링 서버 입구 (BUK-259)
+# 주소마다 https 인증서를 자동으로 받는다. 80은 인증서 확인과 https로 넘기기에만 쓴다
+# {$DOMAIN}은 compose.yml이 넘기는 환경 변수 (예: bukang-devops.duckdns.org)
+
+# Grafana 화면. 로그인은 Grafana 계정으로 한다
+grafana.{$DOMAIN} {
+	encode gzip
+	reverse_proxy grafana:3000
+}
+
+# Prometheus. 수집기·k6가 지표를 보내는 곳(/api/v1/write)이자 질의 API
+# Prometheus에는 로그인 기능이 없어 Caddy가 비밀번호를 확인한다 (setup.sh가 만든 해시)
+prom.{$DOMAIN} {
+	import /etc/caddy/secrets/prom-auth.caddy
+	reverse_proxy prometheus:9090
+}
+
+# 맨 주소로 들어오면 Grafana로 보낸다
+{$DOMAIN} {
+	redir https://grafana.{$DOMAIN}{uri}
+}

@@ -1360,13 +1360,17 @@ export interface SellerPartyPageDto {
 }
 
 /**
- * 기간 판매 합계. 결제일이 기간 안인 결제 완료·취소 중 참가권
+ * 기간 판매·취소 합계. 판매는 결제일 기준 결제 완료·취소 중, 취소는 취소를 마친 시각 기준
  */
 export interface SellerSalesSummaryDto {
   /** 판매 장수 */
   soldCount: number;
   /** 결제 금액 합(원) */
   soldAmount: number;
+  /** 취소를 마친 참가권 수(대회 취소 환불 포함) */
+  canceledCount: number;
+  /** 그 환불액 합(원) */
+  refundedAmount: number;
 }
 
 export interface RsDataOrderItemDto {

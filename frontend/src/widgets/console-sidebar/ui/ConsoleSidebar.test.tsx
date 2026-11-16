@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -12,7 +12,7 @@ import { ConsoleSidebar } from './ConsoleSidebar'
 const replace = vi.fn()
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), back: vi.fn(), replace }),
-  usePathname: () => '/seller',
+  usePathname: () => '/seller/ai',
 }))
 
 const reloadAfterLogout = vi.hoisted(() => vi.fn())
@@ -61,9 +61,12 @@ describe('ConsoleSidebar 로그아웃', () => {
 })
 
 describe('ConsoleSidebar 크루런 홈으로', () => {
-  it.each(['seller', 'admin'] as const)(
-    '%s 콘솔의 설정과 로그아웃 사이에 크루런 홈(/)으로 가는 링크가 있다',
-    (role) => {
+  it.each([
+    ['seller', '판매자 정보'],
+    ['admin', '설정'],
+  ] as const)(
+    '%s 콘솔의 %s와 로그아웃 사이에 크루런 홈(/)으로 가는 링크가 있다',
+    (role, settingsLabel) => {
       render(
         <QueryClientProvider client={new QueryClient()}>
           <ConsoleSidebar role={role} />
@@ -73,10 +76,70 @@ describe('ConsoleSidebar 크루런 홈으로', () => {
       const home = screen.getByRole('link', { name: '크루런 홈으로' })
       expect(home).toHaveAttribute('href', '/')
       expect(home).not.toHaveAttribute('aria-current')
-      const settings = screen.getByRole('link', { name: '설정' })
+      const settings = screen.getByRole('link', { name: settingsLabel })
       const logout = screen.getByRole('button', { name: '로그아웃' })
       expect(settings.compareDocumentPosition(home) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
       expect(home.compareDocumentPosition(logout) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     },
   )
+})
+
+describe('ConsoleSidebar 크루런 AI', () => {
+  it.each([
+    ['seller', '/seller/ai'],
+    ['admin', '/admin/ai'],
+  ] as const)('%s 콘솔 메뉴에 크루런 AI 링크가 있다', (role, href) => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ConsoleSidebar role={role} />
+      </QueryClientProvider>,
+    )
+
+    expect(screen.getByRole('link', { name: '크루런 AI' })).toHaveAttribute('href', href)
+  })
+
+  it('/seller/ai에서는 크루런 AI만 선택 표시되고 대시보드는 선택되지 않는다', () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ConsoleSidebar role="seller" />
+      </QueryClientProvider>,
+    )
+
+    expect(screen.getByRole('link', { name: '크루런 AI' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('link', { name: '대시보드' })).not.toHaveAttribute('aria-current')
+  })
+})
+
+describe('ConsoleSidebar 메뉴 순서', () => {
+  // 피그마 판매자 센터(1388:60976) · 관리자 센터(1388:66074) 사이드바 순서
+  it.each([
+    ['seller', ['대시보드', '상품 관리', '주문 관리', '정산 관리', '문의', '크루런 AI']],
+    [
+      'admin',
+      [
+        '대시보드',
+        '회원 관리',
+        '판매자 관리',
+        '정산 · 환급 처리',
+        '회수 관리',
+        '대회 관리',
+        '문의',
+        '크루런 AI',
+        '이용 통계',
+      ],
+    ],
+  ] as const)('%s 콘솔 메뉴가 시안 순서대로 나온다', (role, labels) => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ConsoleSidebar role={role} />
+      </QueryClientProvider>,
+    )
+
+    const nav = screen.getByRole('navigation')
+    expect(
+      within(nav)
+        .getAllByRole('link')
+        .map((link) => link.textContent),
+    ).toEqual(labels)
+  })
 })

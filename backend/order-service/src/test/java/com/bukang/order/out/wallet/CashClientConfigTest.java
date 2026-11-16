@@ -18,7 +18,9 @@ class CashClientConfigTest {
 		.withInitializer(context -> context.getBeanFactory()
 			.setConversionService(ApplicationConversionService.getSharedInstance()))
 		.withUserConfiguration(CashClientConfig.class, FakeWalletAdapter.class)
-		.withPropertyValues("order.clients.timeout=2s", "order.clients.cash.base-url=http://localhost:8081");
+		.withPropertyValues("order.clients.timeout=2s", "order.clients.cash.base-url=http://localhost:8081",
+			"order.clients.cash.max-concurrent-pay=4", "order.clients.cash.pay-acquire-timeout=1s",
+			"internal.api-key=test-internal-api-key");
 
 	@Test
 	@DisplayName("mode가 http면 실제 예치금 서비스를 부르는 어댑터만 등록된다")

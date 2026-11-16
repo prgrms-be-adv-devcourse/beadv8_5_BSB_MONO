@@ -7,7 +7,13 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
-import { canInvite, formatKstDateTime, inviteUrl, parseKstDateTime } from '@/entities/crew'
+import {
+  canInvite,
+  formatKstDateTime,
+  formatKstMonthDayTime,
+  inviteUrl,
+  parseKstDateTime,
+} from '@/entities/crew'
 import {
   partyKeys,
   useLeaveParty,
@@ -32,7 +38,6 @@ import {
   Button,
   buttonClassName,
   Dialog,
-  Divider,
   Skeleton,
   useToast,
   type BadgeTone,
@@ -194,11 +199,14 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
         description: '결제 기간이 끝나면 결제할 수 없어요. 이 파티로는 참가가 확정되지 않아요.',
       }
     }
-    if (!isLeader) return { title: '파티장이 파티를 신청하면 결제할 수 있어요' }
+    if (!isLeader) return { title: '파티장이 파티 참가하기를 누르면 결제할 수 있어요' }
     if (!linkAlive) return { title: '참가 링크 기간이 끝났어요' }
     const rest = min - party.memberCount
-    return { title: rest > 0 ? `${rest}명 더 모이면 신청할 수 있어요` : '파티를 신청할 수 있어요' }
+    return { title: rest > 0 ? `${rest}명 더 모이면 참가할 수 있어요` : '파티로 참가할 수 있어요' }
   })()
+
+  // 응답에 결제 기한이 있을 때만 파티장 화면에 마감 시각을 보여 준다.
+  const payDueAt = party.status === 'PAYING' && isLeader && myPaid ? party.paymentDueAt : undefined
 
   const canApply = isLeader && recruiting && min > 0 && party.memberCount >= min
 
@@ -230,12 +238,21 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
           ))}
         </ol>
       </section>
-      <Divider />
       <section className="flex flex-col gap-3 px-4 py-6">
         <p className="text-caption-regular text-text-secondary">지금 할 일</p>
         <h3 className="text-title3">{todo.title}</h3>
         {todo.description && (
           <p className="text-body2-regular text-text-secondary">{todo.description}</p>
+        )}
+        {party.status === 'PAYING' && !isLeader && myPaid && (
+          <p className="text-body2-bold">
+            {party.memberCount}명 중 {party.paidCount}명 결제했어요
+          </p>
+        )}
+        {payDueAt && (
+          <p className="text-body2-regular text-text-secondary">
+            {formatKstMonthDayTime(payDueAt)}까지 파티원이 결제할 수 있어요
+          </p>
         )}
         {recruiting && isLeader && linkAlive && (
           <Link
@@ -250,7 +267,7 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
               !canApply && 'pointer-events-none opacity-40',
             )}
           >
-            파티 신청하기
+            파티 참가하기
           </Link>
         )}
         {recruiting && isLeader && !linkAlive && (
@@ -288,7 +305,6 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
           </div>
         )}
       </section>
-      <Divider />
       <section className="flex flex-col gap-3 px-4 py-6">
         {recruiting ? (
           <h3 className="text-body1-medium">
@@ -334,7 +350,8 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
         open={confirm === 'regenerate'}
         onOpenChange={(open) => !open && setConfirm(null)}
         title="참가 링크를 새로 만들까요?"
-        body="새로 만들면 옛 링크로는 합류할 수 없어요."
+        body="새 링크를 만들면 지금 링크로는 합류할 수 없어요. 이미 합류한 파티원은 그대로예요."
+        cancelLabel="돌아가기"
         confirmLabel="새로 만들기"
         onConfirm={makeLink}
         confirming={regenerate.isPending}

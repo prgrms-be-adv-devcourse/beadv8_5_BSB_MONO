@@ -3,6 +3,10 @@ server:
   port: 8084
 
 spring:
+  # 지표·추적 공통 설정 (common의 observability.yaml). 불러온 파일의 값이 이 파일 값보다 우선한다
+  config:
+    import: classpath:observability.yaml
+
   application:
     name: order-service
 
@@ -46,6 +50,12 @@ spring:
         # 구독한 토픽이 없으면 브로커에 자동 생성을 요청한다 (브로커도 자동 생성을 허용해야 동작)
         "[allow.auto.create.topics]": true
 
+# 스케줄 작업 잠금 (common global/schedulerlock, BUK-206). pod가 여러 개여도 같은 작업은 한 곳에서만 돈다
+# 모든 서비스가 같은 DB를 쓰므로 잠금 표 이름에 서비스 접두사를 붙인다 (Flyway SQL로 만든다)
+scheduler-lock:
+  enabled: true
+  table: order_shedlock
+
 # Swagger / OpenAPI V3 설정 (prod에서는 비활성화)
 springdoc:
   api-docs:
@@ -82,6 +92,10 @@ order:
     cash:
       mode: fake
       base-url: http://localhost:8081
+      # 예치금 결제 동시 호출 수와 자리 기다림 (BUK-235, 추천값(미확정)). 주문 서버 한 대 기준이라 서버가 2대면 예치금에는 합쳐 8개가 간다
+      # 예치금 DB 연결 10개를 충전·환불도 함께 쓰는 점을 보고 4로 골랐다. 4·10·20 비교 측정은 따로 한다. mode=http일 때만 쓴다
+      max-concurrent-pay: 4
+      pay-acquire-timeout: 1s
     # 대기열 입장 확인 (PRO-191). http면 대기열 서비스 내부 API를 부른다(PRO-226). 로컬은 대기열을 안 띄워도 되게 fake
     queue:
       mode: fake

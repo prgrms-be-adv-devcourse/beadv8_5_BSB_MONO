@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useForm } from 'react-hook-form'
 
-import { ConsoleCard } from '@/widgets/console-page'
+import { CONSOLE_BOX, ConsoleCard } from '@/widgets/console-page'
 import { useUpdateRace } from '@/features/seller-race'
 import {
   isRaceEditable,
@@ -136,6 +136,7 @@ function SaleChangeForm({ edit, row }: { edit: RaceForEdit; row: SellerRaceRow }
           {...register('refundDeadline')}
         />
         <Alert
+          className={CONSOLE_BOX}
           title="구매자에게 유리할 때만 바꿀 수 있어요"
           description="판매가 시작되면 참가비는 바꿀 수 없고, 정원 늘리기 · 환불 기한 늦추기만 돼요."
         />

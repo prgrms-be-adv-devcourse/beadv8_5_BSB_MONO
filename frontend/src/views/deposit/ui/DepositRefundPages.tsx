@@ -36,11 +36,32 @@ import {
   readLastWithdrawalRaw,
   saveLastWithdrawal,
   type BankCode,
+  type LastWithdrawal,
 } from '../lib/refund'
 
 const won = (n: number) => `₩${n.toLocaleString('ko-KR')}`
 // 환급 변경안 시안은 정책 문장대로 「65,000원」으로 쓴다. 앱 전체 표기(₩)와 맞출지는 정해지지 않았다
 const wonText = (n: number) => `${n.toLocaleString('ko-KR')}원`
+
+// 제목 아래 설명: 카드 · 계좌 · 처리 중 몫마다 한 문장씩 잇는다
+function withdrawalSummary(w: LastWithdrawal): string {
+  if (w.accountAmount === w.amount) return '남은 예치금 전부를 아래 계좌로 보냈어요.'
+  const sentences: string[] = []
+  if (w.cardAmount > 0) {
+    const part =
+      w.cardAmount === w.amount ? `${wonText(w.amount)} 전부` : `${wonText(w.cardAmount)}은`
+    sentences.push(
+      `${part} 결제한 카드의 결제취소를 요청했어요. 카드사에 따라 반영까지 며칠 걸릴 수 있어요.`,
+    )
+  }
+  if (w.accountAmount > 0) sentences.push(`${wonText(w.accountAmount)}은 아래 계좌로 보냈어요.`)
+  if (w.processingAmount > 0) {
+    sentences.push(
+      `${wonText(w.processingAmount)}은 아직 처리 중이에요. 끝나면 알림으로 알려 드려요.`,
+    )
+  }
+  return sentences.join(' ')
+}
 
 /** 맨 위 문장. 기한은 서버 값 그대로, 금액은 refundPlanSchema가 나눈 값을 넣는다 */
 function refundSentence(plan: RefundPlan) {
@@ -361,6 +382,8 @@ export function DepositRefundDonePage() {
   const allReverted =
     withdrawal.revertedAmount > 0 && withdrawal.revertedAmount === withdrawal.amount
 
+  const summary = withdrawalSummary(withdrawal)
+
   return (
     <>
       <AppHeader type="sub" title="환급 완료" close backHref="/me/deposit" />
@@ -368,16 +391,12 @@ export function DepositRefundDonePage() {
         <div className="flex flex-col gap-2">
           <h2 className="text-title2">
             {done
-              ? '예치금을 돌려받았어요'
+              ? `예치금 ${wonText(withdrawal.amount)}을 돌려받았어요`
               : allReverted
                 ? '예치금으로 되돌아왔어요'
-                : '환급을 신청했어요'}
+                : `예치금 ${wonText(withdrawal.amount)} 환급을 신청했어요`}
           </h2>
-          {withdrawal.accountAmount > 0 && withdrawal.accountAmount === withdrawal.amount && (
-            <p className="text-body2-regular text-text-secondary">
-              남은 예치금 전부를 아래 계좌로 보냈어요.
-            </p>
-          )}
+          {summary && <p className="text-body2-regular text-text-secondary">{summary}</p>}
         </div>
         {!allReverted && (
           <section className="flex flex-col gap-4 rounded-lg bg-bg-surface p-5 shadow-sm inset-ring inset-ring-border-default">
@@ -386,14 +405,6 @@ export function DepositRefundDonePage() {
           </section>
         )}
         <section className="flex flex-col gap-3 rounded-lg bg-bg-surface p-5 shadow-sm inset-ring inset-ring-border-default">
-          {withdrawal.cardAmount > 0 && (
-            <>
-              <KeyValue label="카드 결제취소 요청" value={won(withdrawal.cardAmount)} />
-              <p className="text-caption-regular text-text-tertiary">
-                결제한 카드로 결제취소를 요청했어요. 카드사에 따라 며칠 걸릴 수 있어요.
-              </p>
-            </>
-          )}
           {withdrawal.accountAmount > 0 && (
             <KeyValue label="계좌로 보낸 금액" value={won(withdrawal.accountAmount)} />
           )}

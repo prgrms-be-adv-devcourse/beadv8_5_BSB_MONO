@@ -43,3 +43,7 @@ logging:
     com.bukang: debug
     org.hibernate.SQL: debug
     org.hibernate.orm.jdbc.bind: trace
+
+# 서비스끼리 내부 API(/internal/**)를 부를 때 X-Internal-Key 헤더로 보내는 키 (.env 값, 받는 cash와 부르는 서비스가 같은 키)
+internal:
+  api-key: ${INTERNAL_API_KEY}

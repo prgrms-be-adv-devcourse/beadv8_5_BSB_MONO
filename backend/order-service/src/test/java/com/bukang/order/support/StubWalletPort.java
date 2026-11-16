@@ -14,6 +14,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import com.bukang.order.domain.exception.ExternalServiceRejectedException;
 import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
 import com.bukang.order.domain.exception.OrderNotPayableException;
+import com.bukang.order.domain.exception.PaymentBusyException;
 import com.bukang.order.out.wallet.WalletPayResult;
 import com.bukang.order.out.wallet.WalletPort;
 
@@ -40,6 +41,7 @@ public class StubWalletPort implements WalletPort {
 	private final List<Call> refundCalls = new CopyOnWriteArrayList<>();
 	private final List<Long> refundedAmounts = new CopyOnWriteArrayList<>();
 	private final Set<Long> payFailingOrders = new HashSet<>();
+	private volatile boolean payBusy;
 	private boolean payTimesOut;
 	private boolean payRejects;
 	private boolean cancelFails;
@@ -57,6 +59,10 @@ public class StubWalletPort implements WalletPort {
 	// 멈춰 둔 결제는 모니터를 잡기 전에 기다린다. 그동안 결제 취소 같은 다른 호출이 막히지 않는다
 	@Override
 	public WalletPayResult pay(long orderId, long memberId, long amount) {
+		if (payBusy) {
+			// HttpWalletAdapter가 동시 호출 자리를 못 받았을 때와 같게: D를 부르지 않으므로 payCalls에 남기지 않는다
+			throw new PaymentBusyException();
+		}
 		CountDownLatch entered = payEntered;
 		CountDownLatch released = payReleased;
 		if (entered != null && released != null) {
@@ -161,6 +167,11 @@ public class StubWalletPort implements WalletPort {
 		this.payTimesOut = payTimesOut;
 	}
 
+	// 결제 동시 호출 자리가 다 찬 것처럼 D를 부르지 않고 거절하게 한다 (BUK-235)
+	public void setPayBusy(boolean payBusy) {
+		this.payBusy = payBusy;
+	}
+
 	// 결제를 D가 4xx로 거절하게 한다 (계약 어긋남·지갑 없음)
 	// 이 주문의 결제만 연결 실패로 둔다 (차감하지 않는다)
 	public synchronized void failPayFor(long orderId) {
@@ -239,6 +250,7 @@ public class StubWalletPort implements WalletPort {
 		refundCalls.clear();
 		refundedAmounts.clear();
 		payFailingOrders.clear();
+		payBusy = false;
 		payTimesOut = false;
 		payRejects = false;
 		cancelFails = false;

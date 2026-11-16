@@ -87,6 +87,20 @@ class OrderPayRecheckTest extends OrderPaySplitTestSupport {
 		assertThat(orderOf(stuck).getPayAttempts()).isEqualTo(2);
 	}
 
+	@Test
+	@DisplayName("재확인 배치도 예치금 결제 동시 호출 자리를 지나며, 못 받으면 되돌리지 않고 결제 중으로 둔다 (앞선 시도에 돈이 빠졌을 수 있음)")
+	void busyKeepsPaying() throws Exception {
+		List<Long> orderIds = payingOrders(OrderPayRecheckUseCase.FAILURE_LIMIT + 1);
+		walletPort.setPayBusy(true);
+
+		Run run = recheckStale(BUDGET);
+
+		// 결과를 모르는 것으로 세어 잇달아 나오면 회차를 멈춘다 (몰린 예치금을 계속 두드리지 않는다)
+		assertThat(run).isEqualTo(new Run(OrderPayRecheckUseCase.FAILURE_LIMIT, 0, Stop.FAILURES));
+		assertThat(orderIds).allSatisfy(orderId -> assertThat(statusOf(orderId)).isEqualTo(OrderStatus.PAYING));
+		assertThat(walletPort.payCalls()).isEmpty();
+	}
+
 	private Run recheckStale(Duration budget) {
 		LocalDateTime now = LocalDateTime.now();
 		return orderPayRecheckUseCase.recheckStale(now, now.plusMinutes(1), budget);

@@ -22,7 +22,10 @@ spring:
     enabled: false
 
   kafka:
-    bootstrap-servers: localhost:9092
+    # 9092로 두면 bootRun이 띄운 로컬 Kafka(bukang-kafka)에 테스트 알림이 실제로 쌓인다.
+    # 아무것도 없는 포트로 두어 테스트가 보낸 메시지는 어디에도 닿지 않게 한다 (CI도 Kafka가 없어 같은 상태)
+    # 실제 브로커가 필요한 테스트는 @EmbeddedKafka가 이 값을 임베디드 브로커 주소로 덮어쓴다
+    bootstrap-servers: localhost:9093
     listener:
       # 브로커 없이도 컨텍스트가 뜨도록 리스너 자동 시작을 끈다
       auto-startup: false
@@ -32,10 +35,12 @@ spring:
 
   # Redis는 처음 명령을 보낼 때 연결하므로, Redis 서버 없이도 컨텍스트는 뜬다
   # 실제 Redis 동작이 필요한 테스트는 RedisTestcontainersConfiguration을 @Import해 이 값을 컨테이너 주소로 덮어쓴다
+  # 6379로 두면 bootRun이 띄운 로컬 Redis(bukang-redis)에 붙어, 앞 테스트가 남긴 쿨다운 키에 뒤 테스트가 막힌다.
+  # 아무것도 없는 포트로 두어 나머지 테스트는 항상 Redis 없음(fail-open)으로 돈다
   data:
     redis:
       host: localhost
-      port: 6379
+      port: 6390
 
 logging:
   level:
@@ -58,3 +63,7 @@ cash:
     reconcile:
       stale-in-progress-minutes: 5
       alert-after-minutes: 30
+
+# 내부 API 인증 키 (test 전용 값)
+internal:
+  api-key: test-internal-api-key

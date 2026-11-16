@@ -47,3 +47,7 @@ crypto:
   enabled: true # common global/crypto의 암호화 빈(TextEncryptor, EncryptedStringConverter)을 켠다
   password: ${CRYPTO_PASSWORD}
   salt: ${CRYPTO_SALT}
+
+# 서비스끼리 내부 API(/internal/**)를 부를 때 X-Internal-Key 헤더로 보내는 키 (.env 값, 받는 cash와 부르는 서비스가 같은 키)
+internal:
+  api-key: ${INTERNAL_API_KEY}

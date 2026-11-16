@@ -18,19 +18,20 @@ export function formatTimer(seconds: number) {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
-// 피그마 "timer bar (상단 고정)". 헤더 바로 아래에 붙어 남은 시간을 보여 준다.
-// 대기열 내 차례(M05-Q2) → 참가 신청(M05) → 결제(M07)까지 같은 띠를 쓴다.
+// 피그마 v2/Timer. 시간 제한이 있는 화면(대기열·참가 신청·결제)은 모두 이 카드를 쓴다.
 export function TimerBar({ message, remainingSeconds, className }: TimerBarProps) {
   return (
     <div
       role="timer"
-      className={cn(
-        'sticky top-(--layout-header-height) z-[5] flex items-center justify-between gap-2 bg-bg-brand-subtle px-4 py-3 text-text-brand',
-        className,
-      )}
+      className={cn('sticky top-(--layout-header-height) z-[5] bg-bg-surface px-5 py-3', className)}
     >
-      <p className="text-body2-regular">{message}</p>
-      <p className="text-body1-bold tabular-nums">{formatTimer(remainingSeconds)}</p>
+      <div className="flex items-center justify-between gap-4 rounded-lg bg-bg-brand p-5 text-text-on-brand">
+        <div className="flex min-w-0 flex-col gap-1">
+          <p className="text-body1-bold">남은 시간</p>
+          <p className="text-body2-regular">{message}</p>
+        </div>
+        <p className="font-display text-number-m tabular-nums">{formatTimer(remainingSeconds)}</p>
+      </div>
     </div>
   )
 }
