@@ -185,6 +185,10 @@ final class CashInternalApiExamples {
 		{ "status": 409, "message": "결제한 회원과 요청한 회원이 다릅니다.", "data": null }
 		""";
 
+	static final String PAYMENT_AMOUNT_MISMATCH = """
+		{ "status": 409, "message": "같은 주문에 처음과 다른 금액으로 결제를 요청했습니다.", "data": null }
+		""";
+
 	static final String REFUND_NOT_FOUND = """
 		{ "status": 409, "message": "환불할 결제가 없습니다.", "data": null }
 		""";

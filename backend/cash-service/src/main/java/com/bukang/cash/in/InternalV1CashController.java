@@ -69,10 +69,11 @@ public class InternalV1CashController {
 		@ApiResponse(responseCode = "404", description = "존재하지 않는 지갑",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = CashInternalApiExamples.WALLET_NOT_FOUND))),
-		@ApiResponse(responseCode = "409", description = "이미 취소·환불된 결제 또는 결제한 회원과 요청한 회원이 다름",
+		@ApiResponse(responseCode = "409", description = "이미 취소·환불된 결제, 결제한 회원과 요청한 회원이 다름, 또는 같은 주문에 처음과 다른 금액",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "이미 취소·환불됨", value = CashInternalApiExamples.PAYMENT_ALREADY_FINALIZED),
-				@ExampleObject(name = "결제 회원 불일치", value = CashInternalApiExamples.PAYMENT_MEMBER_MISMATCH)
+				@ExampleObject(name = "결제 회원 불일치", value = CashInternalApiExamples.PAYMENT_MEMBER_MISMATCH),
+				@ExampleObject(name = "결제 금액 불일치", value = CashInternalApiExamples.PAYMENT_AMOUNT_MISMATCH)
 			}))
 	})
 	public ResponseEntity<RsData<CashPaymentResponseDto>> pay(
