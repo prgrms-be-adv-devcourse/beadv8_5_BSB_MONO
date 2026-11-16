@@ -91,7 +91,8 @@ order:
       timeout: 3s
       # 가짜 대기열의 입장 시간(1~15분). 만료를 빨리 확인하려면 줄인다 (정책은 예매창 15분). 더미 페이지: http://localhost:8084/dev/queue-dummy
       fake-admission-minutes: 15
-    # 판매자 키트 API의 판매자 ID 조회 (PRO-197). 실제 연결 전이라 fake(회원 ID = 판매자 ID)만 있다. 운영은 disabled
+    # 판매자 API의 판매자 ID 조회 (PRO-197). http면 회원 서비스 내부 API(member.base-url)를 부른다(BUK-237)
+    # 로컬은 fake(회원 ID = 판매자 ID). disabled는 판매자 API를 503으로 막는다
     seller:
       mode: fake
     # 관리자 API의 관리자 확인 (BUK-26). http면 회원 서비스 내부 API를 부른다. 로컬은 fake(누구나 관리자)
