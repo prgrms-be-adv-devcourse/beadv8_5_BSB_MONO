@@ -32,13 +32,12 @@ import com.bukang.payout.domain.PayoutCreateDate;
 import com.bukang.payout.domain.PayoutCreateFailure;
 import com.bukang.payout.domain.PayoutCreateFailureAction;
 import com.bukang.payout.domain.PayoutHoldReason;
-import com.bukang.payout.domain.PayoutItem;
-import com.bukang.payout.domain.PayoutRecordType;
 import com.bukang.payout.domain.PayoutStage;
 import com.bukang.payout.domain.PayoutStatus;
 import com.bukang.payout.domain.TwoStagePayoutCalculator;
 import com.bukang.payout.out.PayoutRepository;
 import com.bukang.payout.out.RaceSchedule;
+import com.bukang.payout.out.SaleLine;
 import com.bukang.payout.out.SoldEntry;
 import com.bukang.payout.out.SoldSummary;
 
@@ -126,14 +125,15 @@ public class PayoutReconcileStepUseCase {
 			Map<Long, SoldEntry> soldById = sellerEntries.stream()
 				.collect(toMap(SoldEntry::orderItemId, Function.identity()));
 			// 같은 참가권의 판매 줄은 DB 유일 제약으로 하나뿐이다
-			Map<Long, PayoutItem> saleById = payouts.stream()
-				.flatMap(payout -> payout.getItems().stream())
-				.filter(item -> item.getRecordType() == PayoutRecordType.판매)
-				.collect(toMap(PayoutItem::getOrderItemId, Function.identity()));
+			// 줄을 엔티티(payout.getItems())로 읽지 않는다. 참가권 10만 장이면 줄 20만 개가 영속성 컨텍스트에 올라 힙이 넘친다 (BUK-252)
+			Map<Long, SaleLine> saleById = payouts.isEmpty() ? Map.of()
+				: payoutRepository.findSaleLines(payouts).stream()
+					.collect(toMap(SaleLine::orderItemId, Function.identity()));
+			Map<Long, Payout> payoutById = payouts.stream().collect(toMap(Payout::getId, Function.identity()));
 
 			EntryDiff diff = entryDiffer.diff(soldById.keySet(), saleById.keySet());
 			List<Long> priceDiffers = soldById.keySet().stream()
-				.filter(id -> saleById.containsKey(id) && saleById.get(id).getAmount() != soldById.get(id).price())
+				.filter(id -> saleById.containsKey(id) && saleById.get(id).amount() != soldById.get(id).price())
 				.sorted()
 				.toList();
 			if (diff.isEmpty() && priceDiffers.isEmpty()) {
@@ -154,7 +154,7 @@ public class PayoutReconcileStepUseCase {
 				payoutLedgerUseCase.settleReceivable(target, now);
 			}
 			List<Payout> extraPayouts = diff.extra().stream()
-				.map(id -> saleById.get(id).getPayout())
+				.map(id -> payoutById.get(saleById.get(id).payoutId()))
 				.distinct()
 				.toList();
 			extraPayouts.forEach(payout -> payoutHoldUseCase.holdForReconcileMismatch(payout, now));
@@ -163,7 +163,7 @@ public class PayoutReconcileStepUseCase {
 				: added ? PayoutCreateFailureAction.자동_보정 : PayoutCreateFailureAction.기록만;
 
 			LongFunction<Long> soldCourse = id -> soldById.get(id).raceCourseId();
-			LongFunction<Long> saleCourse = id -> saleById.get(id).getRaceCourseId();
+			LongFunction<Long> saleCourse = id -> saleById.get(id).raceCourseId();
 			String note = String.join(", ", Stream.of(
 					part(added ? "빠진 %d장 추가" : "빠진 %d장", diff.missing(), soldCourse),
 					part("더 들어감 %d장", diff.extra(), saleCourse),
