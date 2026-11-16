@@ -20,6 +20,7 @@ const MENU: Record<ConsoleRole, { label: string; home: Route; settings: Route; i
       { href: '/seller/races', label: '대회 관리', icon: 'Calendar' },
       { href: '/seller/sales', label: '주문 · 참가자', icon: 'Orders' },
       { href: '/seller/settlements', label: '정산', icon: 'Inbox' },
+      { href: '/seller/ai', label: '크루런 AI', icon: 'Message' },
     ],
   },
   admin: {
@@ -34,6 +35,7 @@ const MENU: Record<ConsoleRole, { label: string; home: Route; settings: Route; i
       { href: '/admin/claims', label: '회수 관리', icon: 'Inbox' },
       { href: '/admin/races', label: '대회 관리', icon: 'Calendar' },
       { href: '/admin/stats', label: '이용 통계', icon: 'Chart' },
+      { href: '/admin/ai', label: '크루런 AI', icon: 'Message' },
     ],
   },
 }
