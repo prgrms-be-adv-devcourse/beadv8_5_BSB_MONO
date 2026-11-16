@@ -2,6 +2,7 @@ package com.bukang.payout.app;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -11,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.bukang.payout.domain.BusinessDayCalendar;
 import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutCreateDate;
+import com.bukang.payout.domain.PayoutItem;
 import com.bukang.payout.domain.PayoutStage;
 import com.bukang.payout.domain.TwoStagePayoutCalculator;
 import com.bukang.payout.out.PayoutRepository;
@@ -72,11 +74,14 @@ public class PayoutCreateStepUseCase {
 		Payout payout = Payout.finalStage(source.sellerId(), source.raceId(), source.raceName(),
 			raceDate, now, businessDayCalendar);
 
+		// 참가권 줄은 items에 붙이지 않고 금액만 더한 뒤, 정산 내역을 저장해 ID를 받고 JDBC로 일괄 저장한다 (BUK-252)
+		List<PayoutItem> lines = new ArrayList<>(source.entries().size() * 2);
 		source.entries().forEach(entry ->
-			payout.addItem(entry.orderItemId(), entry.raceCourseId(), entry.price(), TwoStagePayoutCalculator.FEE_RATE,
-				createDate));
+			lines.addAll(payout.addItemForBatchInsert(entry.orderItemId(), entry.raceCourseId(), entry.price(),
+				TwoStagePayoutCalculator.FEE_RATE, createDate)));
 
 		save(payout);
+		payoutRepository.insertItems(lines);
 		payoutLedgerUseCase.deductAdvanceAndSettle(payout, now);
 		payoutHoldUseCase.holdNew(payout, source.hasPayoutAccount(), now);
 	}

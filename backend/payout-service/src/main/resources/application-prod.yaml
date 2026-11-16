@@ -1,6 +1,7 @@
 spring:
   datasource:
-    url: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DB}
+    # 정산 줄 JDBC 일괄 INSERT를 한 문장으로 묶어 보낸다 (BUK-252, PayoutItemBatchInsertImpl)
+    url: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DB}?rewriteBatchedStatements=true
     username: ${MYSQL_USER}
     password: ${MYSQL_PASS}
     driver-class-name: com.mysql.cj.jdbc.Driver

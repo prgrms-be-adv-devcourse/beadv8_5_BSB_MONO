@@ -16,7 +16,7 @@ import com.bukang.payout.domain.PayoutStatus;
 
 import jakarta.persistence.LockModeType;
 
-public interface PayoutRepository extends JpaRepository<Payout, Long> {
+public interface PayoutRepository extends JpaRepository<Payout, Long>, PayoutItemBatchInsert {
 	// 최종 정산 생성: 이미 만든 정산 내역인지 확인한다. 유일 조건 (seller_id, race_id, payout_month, payout_stage)과 같은 키다
 	boolean existsBySellerIdAndRaceIdAndPayoutMonthAndPayoutStage(long sellerId, long raceId, String payoutMonth,
 		PayoutStage payoutStage);
