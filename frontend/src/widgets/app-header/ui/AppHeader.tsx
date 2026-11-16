@@ -4,9 +4,10 @@ import type { Route } from 'next'
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 
+import { loginHref, useAuthStatus } from '@/features/auth'
 import { NoticeBellLink } from '@/entities/notification'
 import { cn, useGoBack } from '@/shared/lib'
-import { FOCUS_RING, Icon, IconButton, Logo } from '@/shared/ui'
+import { buttonClassName, FOCUS_RING, Icon, IconButton, Logo } from '@/shared/ui'
 
 // IconButton(M 44, ghost)과 같은 모양의 링크
 const ICON_LINK = cn(
@@ -18,6 +19,8 @@ type MainProps = {
   type?: 'main'
   /** false면 검색 아이콘을 빼고 알림만 둔다(홈) */
   search?: boolean
+  /** true면 로그아웃 상태에서 알림 종 대신 로그인 버튼을 둔다(홈) */
+  loginWhenGuest?: boolean
 }
 type SubProps = {
   type: 'sub'
@@ -55,16 +58,31 @@ export function AppHeader(props: AppHeaderProps) {
         <Logo />
       </Link>
       <div className="flex-1" />
-      <div className="flex">
+      <div className="flex items-center">
         {props.search !== false && (
           <Link href="/races" aria-label="대회 찾기" className={ICON_LINK}>
             <Icon name="Search" />
           </Link>
         )}
-        <NoticeBellLink className={ICON_LINK} />
+        <MainAction loginWhenGuest={props.loginWhenGuest} />
       </div>
     </header>
   )
+}
+
+function MainAction({ loginWhenGuest }: { loginWhenGuest?: boolean }) {
+  const status = useAuthStatus()
+  if (!loginWhenGuest) return <NoticeBellLink className={ICON_LINK} />
+  if (status === 'authenticated') return <NoticeBellLink className={ICON_LINK} />
+  // 확인 중(pending)에는 종과 버튼이 번갈아 깜빡이지 않게 아무것도 그리지 않는다
+  if (status === 'anonymous') {
+    return (
+      <Link href={loginHref('/')} className={buttonClassName({ size: 's', className: 'mr-3' })}>
+        로그인
+      </Link>
+    )
+  }
+  return null
 }
 
 function BackButton({ href, close }: { href?: Route; close?: boolean }) {

@@ -56,6 +56,14 @@ describe('RaceDetailPage 신청하기', () => {
     expect(screen.getByText('이 대회에 이미 신청했어요')).toBeInTheDocument()
   })
 
+  it('문의하기 링크는 이 대회의 문의 작성 화면으로 보낸다 (M02-7)', () => {
+    renderPage()
+    expect(screen.getByRole('link', { name: '이 대회에 문의하기' })).toHaveAttribute(
+      'href',
+      `/me/inquiries/new?raceId=${RACE_DETAIL.id}`,
+    )
+  })
+
   it('다시 신청할 수 없는 대회는 버튼을 끈다 (M02-4)', () => {
     renderPage({ reapplyBlocked: true })
     expect(screen.getByRole('button', { name: '다시 신청할 수 없는 대회예요' })).toBeDisabled()

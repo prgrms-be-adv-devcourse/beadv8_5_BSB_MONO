@@ -41,6 +41,9 @@ describe('SellerSettingsPage', () => {
     renderPage()
 
     expect(await screen.findByText('123-45-67890')).toBeInTheDocument()
+    // 피그마 S06-5: 화면 제목과 사이드바 메뉴 이름이 같은 「판매자 정보」
+    expect(screen.getByRole('heading', { level: 1, name: '판매자 정보' })).toBeInTheDocument()
+    expect(screen.getByText('판매자 종류')).toBeInTheDocument()
     expect(screen.getByText('크루런 스포츠')).toBeInTheDocument()
     expect(screen.getByText('김러너')).toBeInTheDocument()
     expect(screen.getByText('승인')).toBeInTheDocument()
@@ -52,7 +55,7 @@ describe('SellerSettingsPage', () => {
     }
   })
 
-  it('비사업자는 판매자 유형과 성명만 보여 준다', async () => {
+  it('비사업자는 판매자 종류와 성명만 보여 준다', async () => {
     renderPage({ sellerType: 'INDIVIDUAL', businessName: null, businessNumber: null })
 
     expect(await screen.findByText('비사업자')).toBeInTheDocument()

@@ -10,31 +10,42 @@ import { FOCUS_RING, Icon, Logo, type IconName } from '@/shared/ui'
 
 type Item = { href: Route; label: string; icon: IconName }
 
-const MENU: Record<ConsoleRole, { label: string; home: Route; settings: Route; items: Item[] }> = {
+const MENU: Record<
+  ConsoleRole,
+  {
+    label: string
+    home: Route
+    settings: Item
+    items: Item[]
+  }
+> = {
   seller: {
     label: '판매자',
     home: '/seller',
-    settings: '/seller/settings',
+    settings: { href: '/seller/settings', label: '판매자 정보', icon: 'User' },
     items: [
       { href: '/seller', label: '대시보드', icon: 'Dashboard' },
-      { href: '/seller/ai', label: '크루런 AI', icon: 'Search' },
-      { href: '/seller/races', label: '대회 관리', icon: 'Calendar' },
-      { href: '/seller/sales', label: '주문 · 참가자', icon: 'Orders' },
-      { href: '/seller/settlements', label: '정산', icon: 'Inbox' },
+      { href: '/seller/races', label: '상품 관리', icon: 'Package' },
+      { href: '/seller/sales', label: '주문 관리', icon: 'Orders' },
+      { href: '/seller/settlements', label: '정산 관리', icon: 'Inbox' },
+      { href: '/seller/inquiries', label: '문의', icon: 'Help' },
+      { href: '/seller/ai', label: '크루런 AI', icon: 'Message' },
     ],
   },
   admin: {
     label: '관리자',
     home: '/admin',
-    settings: '/admin/settings',
+    settings: { href: '/admin/settings', label: '설정', icon: 'Settings' },
     items: [
       { href: '/admin', label: '대시보드', icon: 'Dashboard' },
-      { href: '/admin/ai', label: '크루런 AI', icon: 'Search' },
-      { href: '/admin/sellers', label: '판매자 승인', icon: 'Users' },
-      { href: '/admin/members', label: '회원 · 주문', icon: 'Orders' },
+      { href: '/admin/members', label: '회원 관리', icon: 'User' },
+      { href: '/admin/sellers', label: '판매자 관리', icon: 'Users' },
       { href: '/admin/settlements', label: '정산 · 환급 처리', icon: 'Inbox' },
+      // 시안 메뉴에는 없지만 회수 관리 화면으로 가는 길이 여기뿐이라 남긴다
       { href: '/admin/claims', label: '회수 관리', icon: 'Inbox' },
       { href: '/admin/races', label: '대회 관리', icon: 'Calendar' },
+      { href: '/admin/inquiries', label: '문의', icon: 'Help' },
+      { href: '/admin/ai', label: '크루런 AI', icon: 'Message' },
       { href: '/admin/stats', label: '이용 통계', icon: 'Chart' },
     ],
   },
@@ -70,7 +81,7 @@ export function ConsoleSidebar({ role }: { role: ConsoleRole }) {
       </nav>
       <div className="flex-1" />
       <div className="flex w-full flex-col gap-1">
-        <SidebarItem href={menu.settings} label="설정" icon="Settings" selected={false} />
+        <SidebarItem {...menu.settings} selected={isActive(menu.settings.href)} />
         {/* 콘솔 밖 크루런 홈으로 나가는 링크라 선택 표시를 하지 않는다. 로그인 상태는 그대로다 */}
         <SidebarItem href="/" label="크루런 홈으로" icon="Home" selected={false} />
         <LogoutItem />

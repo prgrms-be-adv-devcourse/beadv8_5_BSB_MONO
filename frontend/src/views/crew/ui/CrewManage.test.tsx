@@ -157,28 +157,17 @@ describe('CrewHomePage 크루 탈퇴', () => {
     expect(requests).toHaveLength(1)
   })
 
-  it('크루장이 누르면 요청 없이 크루장을 넘기라고 안내한다', async () => {
+  it('크루장에게는 크루 떠나기 버튼을 보이지 않는다', async () => {
     mockCrew({ myRole: 'LEADER' })
-    const requests = capture('delete', '*/api/v1/member/crews/:crewId/members/me')
-    const user = userEvent.setup()
     renderPage(<CrewHomePage crewId={1} />)
-    await user.click(await screen.findByRole('button', { name: '크루 떠나기' }))
-    const dialog = await screen.findByRole('alertdialog')
-    expect(within(dialog).getByText('크루장을 넘긴 뒤에 나갈 수 있어요')).toBeInTheDocument()
-    await user.click(within(dialog).getByRole('button', { name: '크루 관리로 가기' }))
-    expect(push).toHaveBeenCalledWith('/crews/1/manage')
-    expect(requests).toHaveLength(0)
+    expect(await screen.findByText('나는 크루장')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '크루 떠나기' })).not.toBeInTheDocument()
   })
 
-  it('혼자 남은 크루장에게는 크루 없애기를 안내한다', async () => {
-    mockCrew({ myRole: 'LEADER', alone: true })
-    const user = userEvent.setup()
+  it('운영진은 크루 떠나기 버튼을 본다', async () => {
+    mockCrew({ myRole: 'MANAGER' })
     renderPage(<CrewHomePage crewId={1} />)
-    await user.click(await screen.findByRole('button', { name: '크루 떠나기' }))
-    const dialog = await screen.findByRole('alertdialog')
-    expect(
-      within(dialog).getByText('크루원이 나뿐이라 크루 관리에서 크루를 없앨 수 있어요.'),
-    ).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: '크루 떠나기' })).toBeInTheDocument()
   })
 
   it('그사이 크루장을 넘겨받았으면(409) 성공처럼 보이지 않고 넘기라고 안내한다', async () => {

@@ -43,6 +43,15 @@ final class AuthApiExamples {
 		}
 		""";
 
+	static final String LOGIN_LOCKED = """
+		{
+			"status": 429,
+			"code": "AUTH_LOGIN_LOCKED",
+			"message": "로그인을 5번 실패해 10분 동안 로그인할 수 없습니다. 잠시 뒤 다시 시도해주세요.",
+			"data": null
+		}
+		""";
+
 	static final String REISSUE_SUCCESS = """
 		{
 			"status": 200,

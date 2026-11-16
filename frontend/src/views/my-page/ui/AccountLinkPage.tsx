@@ -15,7 +15,7 @@ import {
   type SocialProviderId,
 } from '@/features/auth'
 import { ApiError, memberApi, unwrapData } from '@/shared/api'
-import { Badge, Button, Dialog, Icon, useToast } from '@/shared/ui'
+import { Badge, Button, Dialog, Divider, Icon, useToast } from '@/shared/ui'
 
 import { SocialMark } from './SocialMark'
 
@@ -130,6 +130,7 @@ export function AccountLinkPage({ linked, error }: { linked?: string; error?: st
             )
           })}
         </ul>
+        <Divider type="section" />
         {actionError && (
           <p role="alert" className="px-4 pt-3 text-caption-regular text-text-danger">
             {(actionError instanceof ApiError && actionError.serverMessage) ||
