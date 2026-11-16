@@ -1,7 +1,7 @@
 # 시나리오 B: 예치금(cash) 부하 테스트
 
 시나리오 A는 게이트웨이부터 결제까지 전체 흐름을 봤어요. 그때 결제는 초당 4건이라 cash에는 부하가 거의 없었어요.
-B는 cash API를 직접 불러 cash 한 곳의 한계를 봐요. 숫자는 운영 성능이 아니라, 고치기 전과 후를 같은 조건에서 비교하는 기준값이에요.
+B는 cash API를 직접 불러 cash 한 곳의 한계를 봐요. 숫자는 운영 성능이 아니라, 맥 한 대에서 같은 조건으로 다시 잴 수 있는 값이에요.
 
 | | 무엇을 보나 | 코드에서 의심한 곳 |
 |---|---|---|
@@ -57,6 +57,6 @@ k6 run -e RUN=3 loadtest/scenario-b/b2-payment-with-payout.js && ./loadtest/scen
 ./loadtest/scenario-b/db.sh < loadtest/scenario-b/sql/99-cleanup.sql
 ```
 
-- 정리한 결과는 `docs/measurements/`에 남겨요(첫 결과: `docs/measurements/2026-11-16-예치금-부하-전.md`). 실행 조건(맥, Docker 메모리, 로그·추적 설정)과 Grafana 「예치금(cash)」 대시보드 숫자를 같이 적어요.
+- 정리한 결과는 `docs/measurements/`에 남겨요(첫 결과: `docs/measurements/2026-11-16-예치금-부하.md`). 실행 조건(맥, Docker 메모리, 로그·추적 설정)과 Grafana 「예치금(cash)」 대시보드 숫자를 같이 적어요.
 - k6 요약(`--summary-export`)·확인 SQL 출력·맥 기록 같은 원본은 `results/`에 둬요.
 - cash 내부 API 키 검사가 들어오면 `k6 run -e INTERNAL_API_KEY=...`로 `.env`의 값을 넘겨요.
