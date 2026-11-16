@@ -19,9 +19,9 @@ import lombok.extern.slf4j.Slf4j;
  * 대회 취소 처리: 그 대회의 정산 내역을 지급 전후로 나눠 처리한다 (payout.md 4-2 · 4-3, PRO-34 · PRO-214)
  * - 지급 전(정산 예정 · 지급보류): 취소로 닫고 원장 줄을 반대 부호로 되돌린다. 보류로 막아 두면
  *   일찍 풀었을 때 돈이 나가므로 닫는다
- * - 지급 완료: 판매자가 손에 든 돈만큼 회수를 대회당 1건 만들도록 원장(PayoutLedgerUseCase)에 부탁한다
- * - 지급 중: 돈이 나갔는지 몰라 닫지 않고 대회 취소를 표시한다. 회수는 그 대회의 지급 중이 모두 끝난 뒤 만든다 (PRO-253)
- * 정책 원문대로 구매자 환불은 회수가 끝난 뒤에 나간다. 주문 서비스 연결은 order 담당과 맞춘다
+ * - 지급 완료: 그대로 둔다. 회수는 주문이 환불한 참가권마다 보내는 환불 알림으로 만든다 (선 환불 후 회수, BUK-76)
+ * - 지급 중: 돈이 나갔는지 몰라 닫지 않고 대회 취소를 표시한다. 거절되면 지급 단계가 닫고 회수를 되돌린다 (PRO-253)
+ * - 지급 전 1차를 닫았으면 그 판매자 × 대회의 회수를 되돌린다. 판매자가 받은 돈이 없다 (R9)
  * 세미는 정산 생성일(대회 다음 날) 전에 대회가 취소되므로 처리할 정산 내역이 없는 게 보통이다 (payout.md 2-5)
  */
 @Slf4j
@@ -34,10 +34,12 @@ public class PayoutRaceCancelUseCase {
 	private final PayoutLedgerUseCase payoutLedgerUseCase;
 
 	// 한 트랜잭션으로 묶는다. 지급 배치와 부딪혀 낙관적 락으로 실패하면 모두 되돌리고, 메시지를 다시 처리한다
-	// 다시 처리해도 이미 닫은 정산 내역은 취소라 건너뛰고, 회수는 이미 있으면 만들지 않는다
+	// 다시 처리해도 이미 닫은 정산 내역은 취소라 건너뛰고, 회수 되돌리기는 이미 되돌린 회수를 다시 고르지 않는다
+	// 회수는 여기서 만들지 않는다. 주문이 환불한 참가권마다 보내는 환불 알림으로 만든다 (BUK-76, PayoutRefundUseCase)
 	@Transactional
 	public CancelResult cancelRace(long raceId, LocalDateTime now) {
-		List<Payout> payouts = payoutRepository.findByRaceId(raceId);
+		// 첫 문장에서 잠근다. 같은 대회의 환불 회수와 한 번에 하나만 돌아, 되돌리기가 막 만든 회수를 놓치지 않는다
+		List<Payout> payouts = payoutRepository.findForUpdateByRaceId(raceId);
 		int canceled = 0;
 		boolean firstCanceled = false;
 		int paying = 0;
@@ -47,75 +49,58 @@ public class PayoutRaceCancelUseCase {
 				canceled++;
 				firstCanceled |= payout.getPayoutStage() == PayoutStage.일차_정산;
 			} else if (payout.getStatus().isAwaitingPayResult()) {
-				// 돈이 나갔는지 아직 모른다(지급 중 · 지급 확인 필요). 표시만 하고, 회수는 지급 결과가 나온 뒤 만든다 (PRO-253, BUK-166)
+				// 돈이 나갔는지 아직 모른다(지급 중 · 지급 확인 필요). 표시만 한다. 거절되면 지급 단계가 취소로 닫는다 (PRO-253)
 				payout.markRaceCanceled(now);
 				paying++;
 			}
 		}
 		if (firstCanceled) {
-			revertOffsetIfNoFinal(payouts, payouts.getFirst().getSellerId(), raceId);
+			revertIfNoFinal(payouts, payouts.getFirst().getSellerId(), raceId);
 		}
-
-		boolean recoveryCreated = false;
-		if (paying > 0) {
-			// 지금 회수를 만들면 거절될 지급 중 금액까지 돌려받으려 한다. 회수는 대회당 1건이라 나중에 고치기도 어렵다
-			log.info("대회 취소 처리: raceId={}, 지급 중 {}건의 결과가 나온 뒤 회수를 만듭니다", raceId, paying);
-		} else if (!payouts.isEmpty()) {
-			recoveryCreated = payoutLedgerUseCase.recoverRaceCancel(payouts.getFirst().getSellerId(), raceId, now)
-				.isPresent();
-		}
-		log.info("대회 취소 처리: raceId={}, 정산 내역 {}건 중 {}건 취소, 회수 생성 {}",
-			raceId, payouts.size(), canceled, recoveryCreated);
-		return new CancelResult(payouts.size(), canceled, recoveryCreated);
+		log.info("대회 취소 처리: raceId={}, 정산 내역 {}건 중 {}건 취소, 지급 중 {}건", raceId, payouts.size(), canceled, paying);
+		return new CancelResult(payouts.size(), canceled);
 	}
 
 	/**
-	 * 대회 취소를 표시한 지급 중 정산 내역의 지급 결과(지급 완료 · 거절 뒤 취소)를 적은 뒤 부른다 (PRO-253)
-	 * 그 대회에 지급 중이 더 없으면, 그때의 원장 잔고로 대회 취소 회수를 만든다. 지급 완료는 회수에 들어가고, 취소는 빠진다
-	 * 지급 단계(PayoutPayStepUseCase)의 트랜잭션 안에서 돈다
-	 *
-	 * @return 이번에 회수를 만들었는지
+	 * 주문이 그 대회의 참가권을 모두 환불했다 (queuing.order.racerefund의 환불 완료, PR #467 리뷰)
+	 * 그 대회 정산 내역에 환불 완료 시각을 적는다. 청구 배치는 이 값이 있는 대회만 대회 취소 청구를 만든다
+	 * 환불이 남아 있을 때 청구하면, 늦게 온 환불이 갚을 돈을 늘려 입금 확인이 금액 불일치로 막힌다
+	 * 정산 내역이 없는 대회는 준 돈도 회수도 없어 적을 것이 없다
 	 */
 	@Transactional
-	public boolean recoverAfterPayResult(long sellerId, long raceId, LocalDateTime now) {
-		boolean stillPaying = payoutRepository.findByRaceId(raceId).stream()
-			.anyMatch(payout -> payout.getStatus().isAwaitingPayResult());
-		if (stillPaying) {
-			return false;
-		}
-		return payoutLedgerUseCase.recoverRaceCancel(sellerId, raceId, now).isPresent();
+	public void markRefunded(long raceId, LocalDateTime refundedAt) {
+		payoutRepository.findForUpdateByRaceId(raceId).forEach(payout -> payout.markRaceRefunded(refundedAt));
 	}
 
 	/**
 	 * 대회 취소를 표시한 지급 중 정산 내역이 거절돼 취소로 닫힌 뒤 부른다 (PRO-253, PR #284 리뷰)
-	 * 1차가 거절로 닫히면 돈이 나가지 않았으므로 지급 전 대회 취소와 같다. 상계로 끝난 회수를 되돌린 뒤 회수를 만든다
+	 * 1차가 거절로 닫히면 돈이 나가지 않았으므로 지급 전 대회 취소와 같다. 그 판매자 × 대회의 회수를 되돌린다
 	 * 지급 단계(PayoutPayStepUseCase)의 트랜잭션 안에서 돈다
-	 *
-	 * @return 이번에 회수를 만들었는지
 	 */
 	@Transactional
-	public boolean recoverAfterRejectedCancel(Payout canceled, LocalDateTime now) {
-		if (canceled.getPayoutStage() == PayoutStage.일차_정산) {
-			revertOffsetIfNoFinal(payoutRepository.findByRaceId(canceled.getRaceId()), canceled.getSellerId(),
-				canceled.getRaceId());
+	public void revertAfterRejectedCancel(Payout canceled) {
+		if (canceled.getPayoutStage() != PayoutStage.일차_정산) {
+			return;
 		}
-		return recoverAfterPayResult(canceled.getSellerId(), canceled.getRaceId(), now);
+		// 환불 회수와 겹치지 않게 같은 판매자 × 대회를 잠근다. 회수 읽기도 잠금 읽기라 막 커밋한 회수까지 본다
+		payoutLedgerUseCase.lockSellerRace(canceled.getSellerId(), canceled.getRaceId());
+		revertIfNoFinal(payoutRepository.findByRaceId(canceled.getRaceId()), canceled.getSellerId(),
+			canceled.getRaceId());
 	}
 
-	// 1차를 돈이 나가기 전에 닫았을 때: 그 1차 정산 내역에서 상계로 끝났던 회수도 되돌린다 (R9). 회수를 만들기 전에 한다
+	// 1차를 돈이 나가기 전에 닫았을 때: 그 판매자 × 대회의 회수를 되돌린다 (R9, BUK-76)
 	// 최종이 있으면 상계는 최종 정산 내역에서 일어난 것이라 되돌리지 않는다
-	private void revertOffsetIfNoFinal(List<Payout> payouts, long sellerId, long raceId) {
+	private void revertIfNoFinal(List<Payout> payouts, long sellerId, long raceId) {
 		boolean hasFinal = payouts.stream().anyMatch(payout -> payout.getPayoutStage() == PayoutStage.최종_정산);
 		if (!hasFinal) {
-			payoutLedgerUseCase.revertOffsetRecoveries(sellerId, raceId);
+			payoutLedgerUseCase.revertRecoveries(sellerId, raceId);
 		}
 	}
 
 	/**
 	 * @param found 그 대회의 정산 내역 수
 	 * @param canceled 이번에 취소로 닫은 정산 내역 수
-	 * @param recoveryCreated 이번에 회수를 만들었는지
 	 */
-	public record CancelResult(int found, int canceled, boolean recoveryCreated) {
+	public record CancelResult(int found, int canceled) {
 	}
 }

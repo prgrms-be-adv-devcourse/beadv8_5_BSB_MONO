@@ -17,14 +17,24 @@ public class StubDeliveryTrackingPort implements DeliveryTrackingPort {
 	private final Map<String, DeliveryTrackingResult> results = new ConcurrentHashMap<>();
 	private final Map<String, RuntimeException> failures = new ConcurrentHashMap<>();
 	private final List<String> calls = new ArrayList<>();
+	// 조회 직전에 부른다. 두 쓰레드가 대상을 다 읽은 뒤에 조회하게 맞출 때 쓴다 (BUK-234). 잠금 밖에서 불러 서로 막지 않는다
+	private volatile Runnable beforeTrack = () -> {
+	};
 
 	@Override
-	public synchronized DeliveryTrackingResult track(String carrierId, String trackingNumber) {
-		calls.add(trackingNumber);
-		if (failures.containsKey(trackingNumber)) {
-			throw failures.get(trackingNumber);
+	public DeliveryTrackingResult track(String carrierId, String trackingNumber) {
+		beforeTrack.run();
+		synchronized (this) {
+			calls.add(trackingNumber);
+			if (failures.containsKey(trackingNumber)) {
+				throw failures.get(trackingNumber);
+			}
+			return results.getOrDefault(trackingNumber, DeliveryTrackingResult.notTracked());
 		}
-		return results.getOrDefault(trackingNumber, DeliveryTrackingResult.notTracked());
+	}
+
+	public void beforeTrack(Runnable hook) {
+		this.beforeTrack = hook;
 	}
 
 	public void put(String trackingNumber, DeliveryTrackingResult result) {
@@ -46,6 +56,8 @@ public class StubDeliveryTrackingPort implements DeliveryTrackingPort {
 	}
 
 	public synchronized void clear() {
+		beforeTrack = () -> {
+		};
 		results.clear();
 		failures.clear();
 		calls.clear();

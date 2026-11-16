@@ -28,6 +28,7 @@ import com.bukang.common.shared.crew.event.CrewMemberLeftReason;
 import com.bukang.common.shared.kafka.KafkaEventHeaders;
 import com.bukang.common.shared.kafka.KafkaMessageId;
 import com.bukang.common.shared.kafka.KafkaTopics;
+import com.bukang.common.shared.kafka.outbox.OutboxStatus;
 import com.bukang.common.shared.member.event.MarketingConsentChangedEvent;
 import com.bukang.common.shared.member.event.MemberJoinedEvent;
 import com.bukang.common.shared.member.event.MemberModifiedEvent;
@@ -37,7 +38,7 @@ import com.bukang.common.shared.seller.domain.SellerType;
 import com.bukang.common.shared.seller.event.SellerChangedEvent;
 import com.bukang.member.domain.Member;
 import com.bukang.member.domain.MemberOutboxEvent;
-import com.bukang.member.domain.MemberOutboxStatus;
+import com.bukang.member.domain.PayoutAccountHolderType;
 import com.bukang.member.domain.TermsType;
 import com.bukang.member.domain.exception.DuplicateEmailException;
 import com.bukang.member.dto.MemberDto;
@@ -53,6 +54,7 @@ import com.bukang.member.out.cash.CashBalancePort;
 import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
 import com.bukang.member.out.identity.VerifiedIdentity;
 import com.bukang.member.out.order.ActiveTicketPort;
+import com.bukang.member.out.payoutaccount.InMemoryPayoutAccountVerifyLimiter;
 
 /**
  * 회원·판매자 이벤트가 회원 데이터와 같은 트랜잭션에서 아웃박스 행으로 남는지 확인한다 (BUK-41)
@@ -63,7 +65,7 @@ import com.bukang.member.out.order.ActiveTicketPort;
  */
 @SpringBootTest
 @ActiveProfiles("test")
-@Import(InMemoryIdentityVerificationStore.Config.class)
+@Import({InMemoryIdentityVerificationStore.Config.class, InMemoryPayoutAccountVerifyLimiter.Config.class})
 class MemberOutboxAppendTest {
 	private static final LocalDate BIRTH_DATE = LocalDate.of(1995, 4, 12);
 	// 회원 아웃박스 message-id 형식: member-outbox-{UUID}
@@ -128,7 +130,7 @@ class MemberOutboxAppendTest {
 		MemberOutboxEvent row = rows.get(0);
 		MemberJoinedEvent body = jsonConverter.fromJson(row.getPayload(), MemberJoinedEvent.class);
 		assertThat(row.getTopic()).isEqualTo(KafkaTopics.MEMBER_MEMBER_JOINED);
-		assertThat(row.getStatus()).isEqualTo(MemberOutboxStatus.PENDING);
+		assertThat(row.getStatus()).isEqualTo(OutboxStatus.PENDING);
 		assertThat(row.getRetryCount()).isZero();
 		assertThat(row.getRefType()).isEqualTo("Member");
 		assertThat(row.getRefId()).isEqualTo(member.getId());
@@ -230,7 +232,8 @@ class MemberOutboxAppendTest {
 		memberFacade.grantAdmin("outbox-admin@crewrun.com");
 
 		SellerDto seller = sellerFacade.apply(member.getId(),
-			new SellerApplyRequestDto(SellerType.BUSINESS, "크루런 스포츠", "1234567890", "신청대표"));
+			new SellerApplyRequestDto(SellerType.BUSINESS, "크루런 스포츠", "1234567890", "신청대표",
+				"004", "1101230000678", PayoutAccountHolderType.PERSONAL));
 		sellerFacade.approve(admin.getId(), seller.getId());
 
 		List<MemberOutboxEvent> sellerRows = allRows().stream()

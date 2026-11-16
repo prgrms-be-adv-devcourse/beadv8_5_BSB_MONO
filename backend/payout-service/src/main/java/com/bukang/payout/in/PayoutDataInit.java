@@ -45,7 +45,8 @@ import lombok.extern.slf4j.Slf4j;
  *   6 2026 여름 야간 레이스 / 7 2026 한강 나이트런 / 8 2026 가을 하프마라톤 / 9 2026 서울숲 가을 10K
  *   (2 ~ 5는 대회 전이라 정산 생성일이 오지 않아 정산 데이터가 없다)
  */
-@Profile("dev")
+// 부하 테스트(dev,loadtest)는 빈 DB에서 재야 하므로 샘플을 넣지 않는다 (재시작마다 다시 넣어 DB에서 지워도 소용없음)
+@Profile("dev & !loadtest")
 @Configuration
 @Slf4j
 public class PayoutDataInit {

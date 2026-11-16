@@ -126,8 +126,8 @@ public class CrewFacade {
 		LocalDateTime now = now();
 		String token = CrewInviteToken.generate();
 		CrewInvite invite = crewInviteRepository.save(
-			CrewInvite.create(crewId, CrewInviteToken.hash(token), memberId, now));
-		// 토큰 원문은 이 응답에만 담고 저장·로그 출력하지 않는다
+			CrewInvite.create(crewId, token, CrewInviteToken.hash(token), memberId, now));
+		// 토큰 원문은 로그에 남기지 않는다
 		return new CrewInviteCreatedDto(invite.getId(), token, invite.getCreatedAt(), invite.getExpiresAt());
 	}
 
@@ -153,6 +153,7 @@ public class CrewFacade {
 		return invites.stream()
 			.map(invite -> new CrewInviteDto(
 				invite.getId(),
+				invite.getInviteToken(),
 				new CrewInviteSenderDto(invite.getCreatedBy(), nicknames.get(invite.getCreatedBy())),
 				invite.getCreatedAt(),
 				invite.getExpiresAt()))

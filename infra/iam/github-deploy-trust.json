@@ -1,0 +1,21 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::823315816237:oidc-provider/token.actions.githubusercontent.com"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+          "token.actions.githubusercontent.com:sub": [
+            "repo:prgrms-be-adv-devcourse@227967906/beadv8_5_BSB_MONO@1406664700:ref:refs/heads/main",
+            "repo:prgrms-be-adv-devcourse/beadv8_5_BSB_MONO:ref:refs/heads/main"
+          ]
+        }
+      }
+    }
+  ]
+}

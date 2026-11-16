@@ -41,6 +41,7 @@ class OrderSoldSummaryAdapterTest {
 	void mapsSoldSummaries() {
 		server.expect(requestTo(URL))
 			.andExpect(method(HttpMethod.GET))
+			// ticketCount는 주문 응답 칸 이름이라 주문 서비스(SoldSummaryDto)와 함께 바꿔야 한다
 			.andRespond(withSuccess("""
 				{
 					"status": 200,

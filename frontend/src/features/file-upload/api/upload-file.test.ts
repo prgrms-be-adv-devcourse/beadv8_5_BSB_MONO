@@ -38,6 +38,30 @@ describe('uploadFile', () => {
     expect(contentType).toBe('image/png')
   })
 
+  it('취소 신호가 오면 S3 PUT을 멈추고 AbortError를 던지며 완료를 부르지 않는다', async () => {
+    let completed = false
+    server.use(
+      http.put('*/api/mock-s3/files/:fileId', async ({ request }) => {
+        // 취소되거나 0.3초가 지나면 답한다
+        await new Promise((resolve) => {
+          request.signal.addEventListener('abort', resolve)
+          setTimeout(resolve, 300)
+        })
+        return new HttpResponse(null, { status: 200 })
+      }),
+      http.post('*/api/v1/file/files/:fileId/complete', () => {
+        completed = true
+        return HttpResponse.json({ status: 200, message: '', data: {} })
+      }),
+    )
+    const controller = new AbortController()
+    const uploading = uploadFile(png(), 'THUMBNAIL', { signal: controller.signal })
+    setTimeout(() => controller.abort(), 20)
+
+    await expect(uploading).rejects.toMatchObject({ name: 'AbortError' })
+    expect(completed).toBe(false)
+  })
+
   it('S3 PUT이 실패하면 완료를 부르지 않고 오류를 던진다', async () => {
     let completed = false
     server.use(

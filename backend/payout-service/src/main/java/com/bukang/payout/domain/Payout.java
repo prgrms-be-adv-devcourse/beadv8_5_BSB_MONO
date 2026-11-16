@@ -17,6 +17,7 @@ import java.util.stream.Stream;
 
 import com.bukang.common.global.jpa.entity.BaseIdAndTime;
 import com.bukang.payout.domain.exception.PayoutHoldConflictException;
+import com.bukang.payout.domain.exception.PayoutPayCheckConflictException;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -111,6 +112,9 @@ public class Payout extends BaseIdAndTime {
 	// 지급 결과가 나오면 성공은 지급 완료로 바꾼 뒤 회수를 만들고, 거절은 정산 예정으로 되돌리지 않고 취소로 닫는다
 	private LocalDateTime raceCanceledAt;
 
+	// 주문이 그 대회의 참가권을 모두 환불했다고 알린 시각 (BUK-76). 대회 취소 청구는 이 값이 있을 때만 만든다
+	private LocalDateTime raceRefundedAt;
+
 	// 지급 결과를 모른(타임아웃 · 5xx) 날의 수 (BUK-166). MAX_UNKNOWN_PAY번이 되면 다시 요청하지 않고 지급_확인_필요로 멈춘다
 	// 거절(4xx) · 불일치(409)는 세지 않는다. 돈이 나갔는지 아는 결과다
 	// 같은 기준일에는 한 번만 센다. 관리자가 같은 날 지급 배치를 여러 번 돌려도 몇 분 만에 멈추지 않게 한다 (PR #427 리뷰)
@@ -184,14 +188,14 @@ public class Payout extends BaseIdAndTime {
 	 * 1차 정산금 = DOWN(1장 가격 × 40%) × 장수는 장마다 40%를 버려 더한 값(정책 Q7)과 같다. 회수 몫(1장 × 40%)과도 정확히 맞는다
 	 * 가격 합이 장수로 나누어떨어지지 않으면 가격이 섞인 것이므로 계산하지 않고 실패로 남긴다
 	 */
-	public PayoutItem recordAdvance(long raceCourseId, long priceSum, int ticketCount, LocalDate payoutCreateDate) {
+	public PayoutItem recordAdvance(long raceCourseId, long priceSum, int entryCount, LocalDate payoutCreateDate) {
 		if (payoutStage != PayoutStage.일차_정산) {
 			throw new IllegalStateException("선금은 1차 정산에만 씁니다. payoutStage=%s".formatted(payoutStage));
 		}
-		if (ticketCount <= 0 || priceSum % ticketCount != 0) {
+		if (entryCount <= 0 || priceSum % entryCount != 0) {
 			throw new IllegalStateException(
-				"한 코스의 참가권 가격이 하나가 아닙니다. raceId=%d, raceCourseId=%d, priceSum=%d, ticketCount=%d"
-					.formatted(raceId, raceCourseId, priceSum, ticketCount));
+				"한 코스의 참가권 가격이 하나가 아닙니다. raceId=%d, raceCourseId=%d, priceSum=%d, entryCount=%d"
+					.formatted(raceId, raceCourseId, priceSum, entryCount));
 		}
 		boolean alreadyRecorded = items.stream()
 			.anyMatch(item -> item.getRecordType() == PayoutRecordType.선금
@@ -201,7 +205,7 @@ public class Payout extends BaseIdAndTime {
 				"선금 줄은 코스마다 하나만 씁니다. raceId=%d, raceCourseId=%d".formatted(raceId, raceCourseId));
 		}
 		salesAmount += priceSum;
-		long share = TwoStagePayoutCalculator.firstShare(priceSum / ticketCount) * ticketCount;
+		long share = TwoStagePayoutCalculator.firstShare(priceSum / entryCount) * entryCount;
 		return addLine(PayoutRecordType.선금, null, raceCourseId, share, null, payoutCreateDate);
 	}
 
@@ -472,6 +476,17 @@ public class Payout extends BaseIdAndTime {
 		return raceCanceledAt != null;
 	}
 
+	// 같은 환불 완료 메시지를 다시 받아도 처음 시각을 그대로 둔다. 상태와 상관없이 적는다 (닫힌 정산 내역도 기록은 남긴다)
+	public void markRaceRefunded(LocalDateTime refundedAt) {
+		if (raceRefundedAt == null) {
+			this.raceRefundedAt = refundedAt;
+		}
+	}
+
+	public boolean isRaceRefunded() {
+		return raceRefundedAt != null;
+	}
+
 	// 대회 취소를 표시한 지급 중 정산 내역의 지급이 거절됐다. 돈이 나가지 않았으므로 정산 예정으로 되돌리지 않고 취소로 닫는다
 	// (되돌리면 다음 지급 배치가 취소된 대회의 정산금을 내보낸다, PRO-253)
 	public void cancelRejected(LocalDateTime canceledAt, String reason) {
@@ -480,6 +495,38 @@ public class Payout extends BaseIdAndTime {
 				.formatted(getId(), status));
 		}
 		close(PayoutHold.SYSTEM_MEMBER_ID, canceledAt, reason);
+	}
+
+	/**
+	 * 지급 확인 필요 닫기 (BUK-174): 관리자가 캐시 서비스에서 돈이 나간 것을 확인했다
+	 * 실제로 돈이 나간 시각은 모르므로 확인한 시각을 지급 시각으로 남긴다. 회수가 필요하면 부른 쪽이 만든다
+	 */
+	public void confirmPaid(long confirmedBy, LocalDateTime confirmedAt, String memo) {
+		requirePayCheck();
+		changeStatus(PayoutStatus.지급_완료, confirmedBy, confirmedAt, memo);
+		this.paidAt = confirmedAt;
+	}
+
+	/**
+	 * 지급 확인 필요 닫기 (BUK-174): 관리자가 캐시 서비스에서 돈이 나가지 않은 것을 확인했다
+	 * 대회 취소 표시가 있으면 취소로 닫는다(되돌리면 취소된 대회의 정산금이 나간다, PRO-253)
+	 * 없으면 지급 예정으로 되돌린다. 지급 예정일은 이미 지났으므로 다음 지급 배치가 다시 지급한다
+	 */
+	public void confirmNotPaid(long confirmedBy, LocalDateTime confirmedAt, String memo) {
+		requirePayCheck();
+		if (raceCanceledAt != null) {
+			close(confirmedBy, confirmedAt, memo);
+			return;
+		}
+		changeStatus(PayoutStatus.지급_예정, confirmedBy, confirmedAt, memo);
+		unknownPayCount = 0;
+		lastUnknownPayDate = null;
+	}
+
+	private void requirePayCheck() {
+		if (status != PayoutStatus.지급_확인_필요) {
+			throw new PayoutPayCheckConflictException();
+		}
 	}
 
 	// 원장 줄을 반대 부호로 되돌리고 취소로 닫는다

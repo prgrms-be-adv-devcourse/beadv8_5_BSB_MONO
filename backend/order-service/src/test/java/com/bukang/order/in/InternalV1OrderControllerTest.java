@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.UUID;
 
 import org.junit.jupiter.api.AfterEach;
@@ -186,13 +187,14 @@ class InternalV1OrderControllerTest {
 	@Test
 	@DisplayName("끝나지 않은 참가권은 내 결제 완료 참가권 중 대회가 오늘 이후(오늘 0시 포함)인 것만 센다")
 	void countActiveTickets() throws Exception {
-		LocalDate today = LocalDate.now();
-		// 지난 대회는 신청·결제가 막히므로, 앞날 종목으로 결제한 뒤 주문 상품의 대회 일시 사본만 바꾼다
-		raceCoursePort.put(courseOn(COURSE_TODAY, 102, LocalDateTime.of(2026, 11, 20, 8, 0)));
-		raceCoursePort.put(courseOn(COURSE_YESTERDAY, 103, LocalDateTime.of(2026, 11, 21, 8, 0)));
-		raceCoursePort.put(courseOn(COURSE_UNPAID, 104, LocalDateTime.of(2026, 11, 22, 8, 0)));
-		raceCoursePort.put(courseOn(COURSE_OVERDUE, 105, LocalDateTime.of(2026, 11, 23, 8, 0)));
-		paidOrderItem(1, COURSE_1115);
+		LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul")); // 컨트롤러가 한국 날짜로 「오늘」을 잡는다
+		// 지난 대회는 신청·결제가 막히므로, 오늘 기준 앞날 종목으로 결제한 뒤 주문 상품의 대회 일시 사본만 바꾼다
+		raceCoursePort.put(courseOn(COURSE_TODAY, 102, today.plusDays(4).atTime(8, 0)));
+		raceCoursePort.put(courseOn(COURSE_YESTERDAY, 103, today.plusDays(5).atTime(8, 0)));
+		raceCoursePort.put(courseOn(COURSE_UNPAID, 104, today.plusDays(6).atTime(8, 0)));
+		raceCoursePort.put(courseOn(COURSE_OVERDUE, 105, today.plusDays(7).atTime(8, 0)));
+		// 고정 날짜(11/15) 종목이라 대회 일시를 앞날로 옮겨, 테스트를 언제 돌려도 「끝나지 않은 참가권」이 되게 한다
+		changeRaceDate(paidOrderItem(1, COURSE_1115), today.plusDays(1).atTime(8, 0));
 		changeRaceDate(paidOrderItem(1, COURSE_TODAY), today.atStartOfDay());
 		// 결제 기한 안의 결제 대기 주문도 센다 (탈퇴 뒤 남은 Access Token으로 결제하는 것을 막기 위해)
 		createdOrder(1, COURSE_UNPAID);

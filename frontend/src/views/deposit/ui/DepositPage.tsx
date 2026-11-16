@@ -2,22 +2,18 @@
 
 import { useInfiniteQuery } from '@tanstack/react-query'
 import Link from 'next/link'
-import { useState } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
-import { LedgerCategory, useMyBalance, walletLedgersQueryOptions } from '@/entities/wallet'
-import { formatNumber } from '@/shared/lib'
 import {
-  Alert,
-  BottomCta,
-  Button,
-  buttonClassName,
-  Chip,
-  EmptyState,
-  KeyValue,
-  Skeleton,
-} from '@/shared/ui'
+  LedgerCategory,
+  useMyBalance,
+  walletLedgersQueryOptions,
+  type WalletLedger,
+} from '@/entities/wallet'
+import { formatNumber, useSearchParamsState } from '@/shared/lib'
+import { Alert, BottomCta, Button, buttonClassName, Chip, EmptyState, Skeleton } from '@/shared/ui'
 
+import { chargeRemaining } from '../api/refund-contract'
 import {
   formatLedgerAmount,
   formatLedgerTime,
@@ -39,7 +35,12 @@ const FILTERS: { value: Filter; label: string }[] = [
 
 // 피그마 V2 · M17 예치금 (+ M17-1 돌려받는 중)
 export function DepositPage({ refunding = false }: { refunding?: boolean }) {
-  const [filter, setFilter] = useState<Filter>('all')
+  // 거르기는 URL(?filter=)에 담는다
+  const [url, setUrl] = useSearchParamsState(
+    { filter: 'all' },
+    { filter: FILTERS.map((f) => f.value) },
+  )
+  const filter = url.filter as Filter
   const { balance, isPending, isError, loggedIn } = useMyBalance()
   const ledgers = useInfiniteQuery({
     ...walletLedgersQueryOptions(filter === 'all' ? undefined : filter),
@@ -82,7 +83,11 @@ export function DepositPage({ refunding = false }: { refunding?: boolean }) {
           <h2 className="text-body1-bold">내역</h2>
           <div className="flex flex-wrap gap-2">
             {FILTERS.map((f) => (
-              <Chip key={f.value} selected={filter === f.value} onClick={() => setFilter(f.value)}>
+              <Chip
+                key={f.value}
+                selected={filter === f.value}
+                onClick={() => setUrl({ filter: f.value })}
+              >
                 {f.label}
               </Chip>
             ))}
@@ -117,6 +122,7 @@ export function DepositPage({ refunding = false }: { refunding?: boolean }) {
                     <p className="text-caption-regular text-text-tertiary">
                       {formatLedgerTime(row.createdAt)}
                     </p>
+                    <ChargeRemainingLine row={row} />
                   </div>
                   <p className="text-body2-bold tabular-nums">{formatLedgerAmount(row.amount)}</p>
                 </li>
@@ -136,7 +142,9 @@ export function DepositPage({ refunding = false }: { refunding?: boolean }) {
 
         <section className="flex flex-col gap-3">
           <h2 className="text-body1-bold">돌려받는 방법</h2>
-          <KeyValue label="계좌로 돌려받기" value="남은 예치금 전부" />
+          <p className="text-body2-regular text-text-secondary">
+            결제한 카드로 먼저 돌려드리고, 카드 취소 기한이 지난 몫만 계좌로 보내 드려요.
+          </p>
         </section>
       </main>
       <BottomCta
@@ -168,5 +176,20 @@ export function DepositPage({ refunding = false }: { refunding?: boolean }) {
         }
       />
     </>
+  )
+}
+
+/** 남은 금액이 있는 충전 줄에만 붙는 한 줄. 금액과 기한은 서버 값 그대로 쓴다 */
+function ChargeRemainingLine({ row }: { row: WalletLedger }) {
+  const left = chargeRemaining(row)
+  if (!left) return null
+  return (
+    <p className="text-caption-regular text-text-tertiary">
+      {`남은 금액 ${left.remainingAmount.toLocaleString('ko-KR')}원 · `}
+      {/* 기한이 지난 몫은 계좌로 가므로 「까지」라고 쓰면 아직 카드로 받을 수 있는 것처럼 읽힌다 */}
+      {left.expired
+        ? `카드 취소 기한(${left.cardCancelDate})이 지났어요`
+        : `카드 취소 ${left.cardCancelDate}까지`}
+    </p>
   )
 }

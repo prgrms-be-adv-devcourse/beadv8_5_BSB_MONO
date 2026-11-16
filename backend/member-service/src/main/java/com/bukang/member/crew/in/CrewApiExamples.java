@@ -73,6 +73,7 @@ final class CrewApiExamples {
 			"data": [
 				{
 					"inviteId": 3,
+					"inviteToken": "q3Xv9kLm2NpR7tYw4ZaB1c",
 					"createdBy": { "memberId": 1, "nickname": "새벽러너" },
 					"createdAt": "2026-11-02T20:30:00",
 					"expiresAt": "2026-11-03T20:30:00"
@@ -275,6 +276,33 @@ final class CrewApiExamples {
 			"status": 409,
 			"code": "CREW_LEADER_CANNOT_LEAVE",
 			"message": "크루장은 크루장을 넘긴 뒤 탈퇴할 수 있습니다. 다른 크루원이 없으면 크루를 없애주세요.",
+			"data": null
+		}
+		""";
+
+	static final String CREW_LEAVE_PARTY_BLOCKED = """
+		{
+			"status": 409,
+			"code": "CREW_LEAVE_PARTY_BLOCKED",
+			"message": "참여 중인 파티가 있어 크루를 나갈 수 없습니다. 파티에서 나온 뒤 다시 시도해주세요.",
+			"data": null
+		}
+		""";
+
+	static final String CREW_KICK_PARTY_BLOCKED = """
+		{
+			"status": 409,
+			"code": "CREW_KICK_PARTY_BLOCKED",
+			"message": "결제가 진행 중이거나 끝난 파티에 들어 있는 크루원은 내보낼 수 없습니다. 파티가 끝난 뒤 다시 시도해주세요.",
+			"data": null
+		}
+		""";
+
+	static final String CREW_PARTY_CHECK_FAILED = """
+		{
+			"status": 503,
+			"code": "CREW_PARTY_CHECK_FAILED",
+			"message": "파티 상태를 확인하지 못했습니다. 잠시 뒤 다시 시도해주세요.",
 			"data": null
 		}
 		""";

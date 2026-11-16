@@ -3,9 +3,9 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import type { ReactNode } from 'react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { getAuthStatus } from '@/shared/api'
+import { clearAccessToken, getAuthStatus, setAccessToken } from '@/shared/api'
 import { server } from '@/shared/testing'
 import { ToastProvider } from '@/shared/ui'
 
@@ -277,7 +277,7 @@ describe('회원가입 단계', () => {
 
       expect(await screen.findByText('이미 가입한 사람이에요')).toBeInTheDocument()
       await user.click(screen.getByRole('button', { name: '로그인하기' }))
-      expect(push).toHaveBeenCalledWith('/login')
+      expect(replace).toHaveBeenCalledWith('/login')
     },
   )
 
@@ -351,6 +351,31 @@ describe('회원가입 단계', () => {
     expect(screen.getByText(AUTH_ERRORS.passwordTooLong)).toBeInTheDocument()
     expect(screen.getByText('10자 이상이에요')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '다음' })).toBeDisabled()
+  })
+})
+
+describe('이미 로그인한 사람이 가입 화면에 오면', () => {
+  beforeEach(() => setAccessToken('test-token'))
+  afterEach(() => clearAccessToken())
+
+  it('본인 확인 화면은 next(안전한 경로)로 replace한다', () => {
+    const client = new QueryClient()
+    render(
+      <QueryClientProvider client={client}>
+        <ToastProvider>
+          <SignupStepProvider>
+            <SignupIdentityPage next="/races/1/apply" />
+          </SignupStepProvider>
+        </ToastProvider>
+      </QueryClientProvider>,
+    )
+    expect(replace).toHaveBeenCalledWith('/races/1/apply')
+  })
+
+  it('계정 화면은 남겨 둔 돌아갈 화면이 없으면 홈으로 replace한다', () => {
+    renderSignup('account')
+    expect(replace).toHaveBeenCalledWith('/')
+    expect(replace).not.toHaveBeenCalledWith('/signup')
   })
 })
 

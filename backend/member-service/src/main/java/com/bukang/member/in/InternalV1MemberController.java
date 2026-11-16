@@ -18,6 +18,7 @@ import com.bukang.member.dto.MemberAdminDto;
 import com.bukang.member.dto.MemberNicknameDto;
 import com.bukang.member.dto.MemberReplicaPageDto;
 import com.bukang.member.dto.MemberSellerDto;
+import com.bukang.member.dto.SellerPayoutAccountDto;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -34,7 +35,8 @@ import lombok.RequiredArgsConstructor;
  * 회원이 아니라 서비스가 부르므로 회원 ID 헤더를 받지 않는다
  */
 @Tag(name = "MemberInternal",
-	description = "회원의 판매자 ID 조회, 관리자 여부 조회, 광고 수신 거부 링크 발급, 닉네임 여러 명 조회, 회원 복사본 목록 조회 API (서비스 간 내부 호출 전용)")
+	description = "회원의 판매자 ID 조회, 관리자 여부 조회, 판매자 정산 계좌 등록 여부 조회, 광고 수신 거부 링크 발급, "
+		+ "닉네임 여러 명 조회, 회원 복사본 목록 조회 API (서비스 간 내부 호출 전용)")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/internal/v1/member")
@@ -86,6 +88,28 @@ public class InternalV1MemberController {
 	) {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "관리자 여부를 조회했습니다.", memberFacade.checkAdmin(memberId)));
+	}
+
+	@GetMapping("/sellers/{sellerId}/payout-account")
+	@Operation(summary = "판매자 정산 계좌 등록 여부 조회",
+		description = "정산 서비스가 계좌 미등록 판매자의 정산을 보류하려고 부른다. 판매자 신청 때 계좌실명조회를 통과한 "
+			+ "정산 계좌가 있으면 registered=true, 없으면(이 기능 전에 신청한 판매자) false를 돌려준다. 계좌번호는 돌려주지 않는다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "조회 성공 (계좌가 없어도 200)",
+			content = @Content(examples = {
+				@ExampleObject(name = "계좌 등록됨", value = MemberInternalApiExamples.PAYOUT_ACCOUNT_REGISTERED),
+				@ExampleObject(name = "계좌 없음", value = MemberInternalApiExamples.PAYOUT_ACCOUNT_NOT_REGISTERED)
+			})),
+		@ApiResponse(responseCode = "404", description = "존재하지 않는 판매자 신청",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = MemberInternalApiExamples.SELLER_NOT_FOUND)))
+	})
+	public ResponseEntity<RsData<SellerPayoutAccountDto>> findPayoutAccount(
+		@Parameter(description = "판매자 ID (판매자 신청서 ID)", example = "3") @PathVariable long sellerId
+	) {
+		return ResponseEntity.ok()
+			.body(RsData.of(HttpStatus.OK, "판매자 정산 계좌 등록 여부를 조회했습니다.",
+				sellerFacade.findPayoutAccount(sellerId)));
 	}
 
 	// CRM이 광고 메시지를 만들 때 회원마다 부른다. 토큰을 만드는 서명 키는 회원 서비스에만 있다 (BUK-75, BE-039)

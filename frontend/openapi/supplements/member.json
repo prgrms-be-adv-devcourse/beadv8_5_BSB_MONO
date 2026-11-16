@@ -511,7 +511,7 @@
     },
     "CrewInviteCreatedDto": {
       "type": "object",
-      "description": "만든 초대 링크. inviteToken은 이 응답에서만 받는다",
+      "description": "만든 초대 링크",
       "properties": {
         "inviteId": {
           "type": "integer",
@@ -559,6 +559,12 @@
         "inviteId": {
           "type": "integer",
           "format": "int64"
+        },
+        "inviteToken": {
+          "type": "string",
+          "nullable": true,
+          "description": "초대 링크 토큰. 원문을 저장하기 전(BUK-195)에 만든 초대는 null",
+          "example": "q3Xv9kLm2NpR7tYw4ZaB1c"
         },
         "createdBy": {
           "$ref": "#/components/schemas/CrewInviteSenderDto"

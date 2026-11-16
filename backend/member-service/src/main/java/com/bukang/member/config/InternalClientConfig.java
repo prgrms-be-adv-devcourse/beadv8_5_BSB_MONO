@@ -10,7 +10,9 @@ import com.bukang.member.out.InternalHttpClients;
 import com.bukang.member.out.cash.CashBalancePort;
 import com.bukang.member.out.cash.HttpCashBalanceAdapter;
 import com.bukang.member.out.order.ActiveTicketPort;
+import com.bukang.member.out.order.CrewPartyStatusPort;
 import com.bukang.member.out.order.HttpActiveTicketAdapter;
+import com.bukang.member.out.order.HttpCrewPartyStatusAdapter;
 import com.bukang.member.out.product.HttpLowPaymentCrewAdapter;
 import com.bukang.member.out.product.LowPaymentCrewPort;
 
@@ -36,6 +38,15 @@ public class InternalClientConfig {
 		@Value("${member.clients.timeout}") Duration timeout
 	) {
 		return new HttpActiveTicketAdapter(InternalHttpClients.create(baseUrl, timeout));
+	}
+
+	// 크루 나가기·내보내기 전 파티 확인 (BUK-102). 가짜 어댑터는 두지 않는다
+	@Bean
+	public CrewPartyStatusPort crewPartyStatusPort(
+		@Value("${member.clients.order.base-url}") String baseUrl,
+		@Value("${member.clients.timeout}") Duration timeout
+	) {
+		return new HttpCrewPartyStatusAdapter(InternalHttpClients.create(baseUrl, timeout));
 	}
 
 	@Bean
