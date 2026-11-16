@@ -13,11 +13,13 @@ import org.springframework.web.method.annotation.HandlerMethodValidationExceptio
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import com.bukang.common.global.rsdata.RsData;
+import com.bukang.order.domain.exception.CrewPartyRestrictedException;
 import com.bukang.order.domain.exception.IndividualParticipationExistsException;
 import com.bukang.order.domain.exception.InsufficientBalanceException;
 import com.bukang.order.domain.exception.KitOptionSoldOutException;
 import com.bukang.order.domain.exception.PartyConflictException;
 import com.bukang.order.domain.exception.PartyCrewSeatShortageException;
+import com.bukang.order.dto.CrewPartyRestrictedDto;
 import com.bukang.order.dto.IndividualParticipationExistsDto;
 import com.bukang.order.dto.InsufficientBalanceDto;
 import com.bukang.order.dto.KitOptionSoldOutDto;
@@ -66,6 +68,17 @@ public class OrderExceptionHandler {
 			.status(exception.getStatus())
 			.body(RsData.of(exception.getStatus(), exception.getCode(), exception.getMessage(),
 				new IndividualParticipationExistsDto(exception.getParticipationId())));
+	}
+
+	// 크루가 파티 만들기 제한 중: 끝나는 시각(data.endAt)을 더한다 (BUK-190)
+	@ExceptionHandler(CrewPartyRestrictedException.class)
+	public ResponseEntity<RsData<CrewPartyRestrictedDto>> crewPartyRestrictedException(
+		CrewPartyRestrictedException exception
+	) {
+		return ResponseEntity
+			.status(exception.getStatus())
+			.body(RsData.of(exception.getStatus(), exception.getCode(), exception.getMessage(),
+				new CrewPartyRestrictedDto(exception.getEndAt())));
 	}
 
 	// 파티 거절: 파티 번호·상태(data.partyId, data.partyStatus)를 더한다. 담을 값이 없으면 data는 null (BUK-36)

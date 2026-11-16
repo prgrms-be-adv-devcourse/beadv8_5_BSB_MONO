@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import com.bukang.common.global.json.JsonConverter;
 import com.bukang.common.shared.kafka.KafkaTopics;
 import com.bukang.order.app.CrewMemberLeftUseCase;
+import com.bukang.order.app.OrderDltUseCase;
 import com.bukang.order.app.OrderInboxUseCase;
 import com.bukang.order.app.RaceCancelRefundUseCase;
 
@@ -33,7 +34,8 @@ class OrderKafkaConsumerTest {
 	private final RaceCancelRefundUseCase useCase = mock();
 	private final OrderInboxUseCase inbox = mock();
 	private final CrewMemberLeftUseCase crewMemberLeftUseCase = mock();
-	private final OrderKafkaConsumer consumer = new OrderKafkaConsumer(useCase, inbox, crewMemberLeftUseCase,
+	private final OrderDltUseCase dlt = mock();
+	private final OrderKafkaConsumer consumer = new OrderKafkaConsumer(useCase, inbox, crewMemberLeftUseCase, dlt,
 		new JsonConverter(JsonMapper.builder().build()));
 
 	@Test
@@ -47,6 +49,8 @@ class OrderKafkaConsumerTest {
 		verify(useCase).refundAll(eq(300L), any(LocalDateTime.class));
 		verify(inbox)
 			.record(eq(MESSAGE_ID), eq("order"), eq(KafkaTopics.ORDER_RACE_CANCEL), any(LocalDateTime.class));
+		// DLT에서 다시 보낸 메시지였으면 실패 행을 처리 완료로 바꾼다 (BUK-180)
+		verify(dlt).completeByResend(eq(MESSAGE_ID), any(LocalDateTime.class));
 	}
 
 	@Test
@@ -57,6 +61,8 @@ class OrderKafkaConsumerTest {
 		consumer.handleRaceCancel(PAYLOAD, MESSAGE_ID);
 
 		verifyNoInteractions(useCase);
+		// 다시 보낸 메시지를 그사이 처리했어도 실패 행이 다시 보냄에 멈추지 않게 처리 완료로 바꾼다 (BUK-180)
+		verify(dlt).completeByResend(eq(MESSAGE_ID), any(LocalDateTime.class));
 	}
 
 	@Test
@@ -69,6 +75,7 @@ class OrderKafkaConsumerTest {
 			.isInstanceOf(IllegalStateException.class);
 		// 남기지 않아야 다시 받았을 때 실패한 주문을 다시 환불한다
 		verify(inbox, never()).record(any(), any(), any(), any());
+		verifyNoInteractions(dlt);
 	}
 
 	@Test
@@ -88,6 +95,7 @@ class OrderKafkaConsumerTest {
 			any(LocalDateTime.class));
 		verify(inbox)
 			.record(eq(MESSAGE_ID), eq("order"), eq(KafkaTopics.CREW_MEMBER_LEFT), any(LocalDateTime.class));
+		verify(dlt).completeByResend(eq(MESSAGE_ID), any(LocalDateTime.class));
 	}
 
 	@Test
@@ -98,6 +106,7 @@ class OrderKafkaConsumerTest {
 		consumer.handleCrewMemberLeft(CREW_LEFT_PAYLOAD.formatted("LEFT"), MESSAGE_ID);
 
 		verifyNoInteractions(crewMemberLeftUseCase);
+		verify(dlt).completeByResend(eq(MESSAGE_ID), any(LocalDateTime.class));
 	}
 
 	@Test

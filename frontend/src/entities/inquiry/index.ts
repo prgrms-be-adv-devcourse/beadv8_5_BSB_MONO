@@ -1,5 +1,5 @@
+export { inquiryErrorMessage, type ManageFilters, type ManageRole } from './api/inquiry-api'
 export {
-  inquiryErrorMessage,
   useAnswerInquiry,
   useCreateInquiry,
   useDeleteInquiry,
@@ -11,9 +11,7 @@ export {
   useRaceDate,
   useRaceName,
   useRaceSellerName,
-  type ManageFilters,
-  type ManageRole,
-} from './api/inquiry-api'
+} from './api/use-inquiry'
 export {
   ANSWERER_NOTE,
   ASSIGNEE_ANSWERER,

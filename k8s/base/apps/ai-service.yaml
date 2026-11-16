@@ -1,0 +1,53 @@
+# 크루런 AI (8092). 대화 기록만 Redis에 두고 DB·Kafka는 쓰지 않는다. OPENAI_API_KEY가 비어도 뜬다(질문하면 503)
+# 공통 설정(설정 주입·JVM 옵션·메모리·상태 확인)은 patches/spring-common.yaml이 붙인다
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bukang-ai-service
+  # Deployment 자체에 붙는 라벨
+  #   name: 이 앱의 이름표. 설정에서 읽는 곳은 없다 (kubectl get deploy -l app.kubernetes.io/name=... 로 고를 때 쓴다)
+  #   component: spring → base/kustomization.yaml의 patches가 이 값인 Deployment에만 공통 설정(patches/spring-common.yaml)을 붙인다.
+  #              지우면 메모리 상한·JVM 옵션·Secret/ConfigMap 주입·상태 확인이 이 앱에 붙지 않는다
+  labels:
+    app.kubernetes.io/name: ai-service
+    app.kubernetes.io/component: spring
+spec:
+  # 스케줄 작업이 Pod마다 돌지 않게 하는 분산 락(BUK-206)이 머지되기 전까지 1개로 둔다
+  replicas: 1
+  selector:
+    # 이 Deployment가 "내 Pod"로 보는 기준. 아래 template의 Pod 라벨에 같은 값이 있어야 한다
+    # (template에는 라벨이 더 있어도 된다. 한 번 만든 뒤에는 이 값을 바꿀 수 없다)
+    matchLabels:
+      app.kubernetes.io/name: ai-service
+  template:
+    metadata:
+      # Deployment가 만드는 Pod에 붙는 라벨
+      #   name: 위 selector와 아래 Service의 selector가 이 값으로 Pod를 찾는다 (필수)
+      #   component: Pod 쪽은 설정에서 읽는 곳이 없다. kubectl get pods -l app.kubernetes.io/component=spring 처럼 묶어 볼 때 쓴다
+      labels:
+        app.kubernetes.io/name: ai-service
+        app.kubernetes.io/component: spring
+    spec:
+      containers:
+        - name: app
+          image: bukang-ai-service
+          ports:
+            - name: http
+              containerPort: 8092
+---
+# 다른 앱은 compose 때와 같은 이름(bukang-ai-service:8092)으로 부른다 (각 서비스의 application-prod.yaml)
+apiVersion: v1
+kind: Service
+metadata:
+  name: bukang-ai-service
+  # Service 자체에 붙는 이름표. 설정에서 읽는 곳은 없다
+  labels:
+    app.kubernetes.io/name: ai-service
+spec:
+  # 이 라벨이 붙은 Pod(위 Deployment의 template 라벨)로 요청을 보낸다
+  selector:
+    app.kubernetes.io/name: ai-service
+  ports:
+    - name: http
+      port: 8092
+      targetPort: http
