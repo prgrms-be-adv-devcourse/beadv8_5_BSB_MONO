@@ -27,6 +27,13 @@ spring:
       timeout: 2s
       connect-timeout: 2s
 
+  # 프로파일별 jpa 설정(ddl-auto 등)과 합쳐진다
+  jpa:
+    properties:
+      hibernate:
+        # 지연 로딩 연관을 IN 쿼리로 묶어 가져온다 (N+1 완화, 상품·파일 서비스와 같은 값)
+        default_batch_fetch_size: 100
+
   # Kafka 메시지는 JSON 문자열로 주고받는다 (이유는 member-service의 application.yaml과 README 참고)
   kafka:
     producer:
