@@ -35,6 +35,7 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * 키트 옵션 고르기와 판매 수 세기 (11/07·11/09 결정). 상품은 준비 수량(stock)만 주고 판매 수는 주문이 센다
  * - 결제: 잠그기 전에 고른 옵션을 확인하고(choose), 예치금 결제 전에 판매 수를 +1 한다(reserve). 결제가 실패하면 함께 되돌아간다
+ *   결제 나누기(BUK-232)는 +1과 옵션 사본을 먼저 커밋하므로, 확실히 실패하면 unreserve로 되돌린다
  * - 결제한 참가권 취소: 고른 옵션의 판매 수를 -1 한다(release). 참가 확정 → 취소와 같은 트랜잭션에서 부르므로 한 번만 줄어든다
  * 잠금 순서: 주문 → 참가 신청 → 판매 수 줄(옵션 ID 오름차순). 결제·취소가 같은 순서라 서로 막혀 멈추지 않는다
  */
@@ -156,6 +157,15 @@ public class KitOptionSaleUseCase {
 			.map(option -> ParticipationKitOption.of(participationId, option.kitOptionId(), option.name(),
 				option.value()))
 			.toList());
+	}
+
+	/**
+	 * 결제 중을 되돌린다 (BUK-232). 늘린 판매 수를 줄이고 미리 남긴 옵션 사본을 지운다. 주문을 잠근 트랜잭션 안에서 부른다
+	 * 사본이 없으면(되돌린 뒤 다시 불림) 아무것도 하지 않아 판매 수가 두 번 줄지 않는다
+	 */
+	public void unreserve(long participationId) {
+		release(participationId);
+		participationKitOptionRepository.deleteByParticipationId(participationId);
 	}
 
 	/**

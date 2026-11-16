@@ -500,6 +500,7 @@ export type OrderDtoStatus = typeof OrderDtoStatus[keyof typeof OrderDtoStatus];
 
 export const OrderDtoStatus = {
   CREATED: 'CREATED',
+  PAYING: 'PAYING',
   PAID: 'PAID',
   PARTIAL_CANCELED: 'PARTIAL_CANCELED',
   CANCELED: 'CANCELED',
@@ -591,6 +592,7 @@ export type OrderSummaryDtoStatus = typeof OrderSummaryDtoStatus[keyof typeof Or
 
 export const OrderSummaryDtoStatus = {
   CREATED: 'CREATED',
+  PAYING: 'PAYING',
   PAID: 'PAID',
   PARTIAL_CANCELED: 'PARTIAL_CANCELED',
   CANCELED: 'CANCELED',
@@ -1072,6 +1074,7 @@ export type MyTicketDtoOrderStatus = typeof MyTicketDtoOrderStatus[keyof typeof 
 
 export const MyTicketDtoOrderStatus = {
   CREATED: 'CREATED',
+  PAYING: 'PAYING',
   PAID: 'PAID',
   PARTIAL_CANCELED: 'PARTIAL_CANCELED',
   CANCELED: 'CANCELED',
