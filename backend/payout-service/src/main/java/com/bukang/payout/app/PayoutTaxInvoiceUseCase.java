@@ -68,9 +68,16 @@ public class PayoutTaxInvoiceUseCase {
 		try {
 			SellerBusiness buyer = sellerBusinessPort.find(invoice.getSellerId());
 			if (!buyer.isBusiness()) {
+				// 첫 조회가 실패해 발행 실패 행이 남았던 비사업자면 지운다. 남겨 두면 매일 다시 조회되고 목록에 실패로 보인다 (PR 531 리뷰)
+				if (invoice.getId() != 0) {
+					payoutTaxInvoiceRepository.delete(invoice);
+				}
 				result.notBusiness++;
 				return;
 			}
+			// 발행 요청 전에 행을 먼저 저장해 ID를 정한다. 발행 뒤 저장이 실패해 다음 날 다시 불러도
+			// 같은 ID로 부르므로 발행 쪽이 한 장으로 처리한다 (TaxInvoiceIssuePort의 멱등 계약, PR 531 리뷰)
+			payoutTaxInvoiceRepository.save(invoice);
 			String approvalNumber = taxInvoiceIssuePort.issue(invoice, buyer);
 			invoice.issue(buyer.businessName(), buyer.businessNumber(), buyer.representativeName(), approvalNumber,
 				now);

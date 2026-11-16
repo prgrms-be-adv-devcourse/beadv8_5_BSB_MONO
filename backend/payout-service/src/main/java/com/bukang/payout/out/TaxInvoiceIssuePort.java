@@ -9,6 +9,9 @@ import com.bukang.payout.domain.PayoutTaxInvoice;
 @FunctionalInterface
 public interface TaxInvoiceIssuePort {
 	/**
+	 * 멱등 계약: 같은 세금계산서 ID(invoice.getId())로 여러 번 불러도 국세청에는 한 장만 발행하고 같은 승인번호를 돌려준다.
+	 * 배치는 발행 요청 전에 행을 저장해 ID를 정하고, 발행 뒤 저장이 실패하면 다음 날 같은 ID로 다시 부른다 (PR 531 리뷰)
+	 *
 	 * @return 승인번호
 	 * @throws RuntimeException 발행 실패. 배치는 발행 실패로 남기고 다음 날 다시 시도한다
 	 */

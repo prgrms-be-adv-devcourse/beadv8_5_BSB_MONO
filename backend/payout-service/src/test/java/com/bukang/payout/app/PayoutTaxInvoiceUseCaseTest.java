@@ -8,6 +8,8 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.AfterEach;
@@ -30,6 +32,7 @@ import com.bukang.payout.domain.PayoutTaxInvoiceStatus;
 import com.bukang.payout.domain.PayoutTaxQuarter;
 import com.bukang.payout.domain.exception.PayoutQueryException;
 import com.bukang.payout.dto.PayoutQuarterSalesReportDto;
+import com.bukang.payout.out.MockHometaxAdapter;
 import com.bukang.payout.out.PayoutCreateFailureRepository;
 import com.bukang.payout.out.PayoutItemRepository;
 import com.bukang.payout.out.PayoutRepository;
@@ -203,6 +206,48 @@ class PayoutTaxInvoiceUseCaseTest {
 		assertThat(payoutCreateFailureRepository.findAll())
 			.extracting(PayoutCreateFailure::getFailureType)
 			.containsExactly(PayoutCreateFailureType.세금계산서_발행_실패, PayoutCreateFailureType.세금계산서_기한_지남);
+	}
+
+	@Test
+	@DisplayName("조회 실패로 발행 실패 행이 남은 판매자가 다음 실행에서 비사업자로 확인되면 그 행을 지운다 (PR 531 리뷰)")
+	void deletesFailedRowWhenSellerIsIndividual() {
+		savePaid(SELLER_ID, 50_000, LocalDateTime.of(2026, 10, 20, 4, 0));
+		useCase(sellerId -> {
+			throw new IllegalStateException("회원 서비스 응답 없음");
+		}).run(TODAY, NOW);
+		assertThat(payoutTaxInvoiceRepository.findAll()).hasSize(1);
+
+		PayoutTaxInvoiceUseCase.Result result = useCase(sellerId -> INDIVIDUAL).run(TODAY.plusDays(1), NOW.plusDays(1));
+
+		assertThat(result.notBusiness()).isEqualTo(1);
+		assertThat(payoutTaxInvoiceRepository.findAll()).isEmpty();
+	}
+
+	@Test
+	@DisplayName("발행 요청 전에 행을 저장해 ID를 넘기고, 목업은 같은 ID면 같은 승인번호를 돌려준다 (멱등 계약, PR 531 리뷰)")
+	void issueIsIdempotentById() {
+		savePaid(SELLER_ID, 50_000, LocalDateTime.of(2026, 10, 20, 4, 0));
+		MockHometaxAdapter hometax = new MockHometaxAdapter();
+		List<Long> idsAtIssue = new ArrayList<>();
+		new PayoutTaxInvoiceUseCase(payoutRepository, payoutTaxInvoiceRepository, payoutCreateFailureRepository,
+			sellerId -> BUSINESS, (invoice, buyer) -> {
+				idsAtIssue.add(invoice.getId());
+				return hometax.issue(invoice, buyer);
+			}).run(TODAY, NOW);
+
+		PayoutTaxInvoice invoice = payoutTaxInvoiceRepository.findAll().getFirst();
+		assertThat(idsAtIssue).containsExactly(invoice.getId());
+		assertThat(hometax.issue(invoice, BUSINESS)).isEqualTo(invoice.getApprovalNumber());
+	}
+
+	@Test
+	@DisplayName("실패 사유가 길어도 이상 감지 비고는 255자로 잘린다 (PR 531 리뷰)")
+	void failureNoteIsTruncated() {
+		PayoutTaxInvoice invoice = new PayoutTaxInvoice(SELLER_ID, YearMonth.of(2026, 10), 2_750);
+		invoice.fail("x".repeat(300));
+
+		assertThat(PayoutCreateFailure.taxInvoice(PayoutCreateFailureType.세금계산서_발행_실패, invoice, TODAY).getNote())
+			.hasSize(255);
 	}
 
 	@Test
