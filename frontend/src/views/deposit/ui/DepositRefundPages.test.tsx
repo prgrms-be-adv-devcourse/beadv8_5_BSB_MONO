@@ -490,7 +490,7 @@ describe('예치금 돌려받기 (M22, 환급 변경안 11/5)', () => {
 
     await user.click(await submit())
 
-    await vi.waitFor(() => expect(push).toHaveBeenCalledWith('/me/deposit/refund/done'))
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/me/deposit/refund/done'))
     expect(JSON.parse(sessionStorage.getItem('crewrun:last-withdrawal') ?? '{}')).toMatchObject({
       switchedToAccountAmount: 30000,
     })

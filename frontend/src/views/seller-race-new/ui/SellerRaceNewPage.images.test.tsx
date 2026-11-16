@@ -16,8 +16,9 @@ vi.hoisted(() => {
 })
 
 const push = vi.fn()
+const replace = vi.fn()
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push, back: vi.fn(), replace: vi.fn() }),
+  useRouter: () => ({ push, back: vi.fn(), replace }),
   usePathname: () => '/seller/races/new',
 }))
 vi.mock('next/script', async () => ({ default: (await import('@/shared/testing')).FakeScript }))
@@ -87,6 +88,7 @@ let revoked: string[] = []
 beforeEach(() => {
   installPostcodeFake()
   push.mockClear()
+  replace.mockClear()
   created = []
   revoked = []
   // jsdom에는 blob 주소 함수가 없다. 만들 때마다 다른 주소를 돌려준다
@@ -231,7 +233,7 @@ describe('SellerRaceNewPage 두 번 제출', () => {
 
     const button = screen.getByRole('button', { name: '등록하기' })
     await userEvent.click(button)
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/seller/races?registered=9'))
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/seller/races?registered=9'))
 
     expect(button).toHaveAttribute('aria-disabled', 'true')
     await userEvent.click(button)
