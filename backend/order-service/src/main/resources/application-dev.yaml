@@ -47,3 +47,9 @@ logging:
 # 서비스끼리 내부 API(/internal/**)를 부를 때 X-Internal-Key 헤더로 보내는 키 (.env 값, 받는 cash와 부르는 서비스가 같은 키)
 internal:
   api-key: ${INTERNAL_API_KEY}
+
+# 결제 나누기를 켠다 (BUK-233). 운영과 같은 흐름으로 로컬에서 확인한다
+order:
+  pay:
+    split:
+      enabled: true
