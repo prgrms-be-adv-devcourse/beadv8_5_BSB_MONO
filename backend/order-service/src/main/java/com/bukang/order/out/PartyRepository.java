@@ -20,16 +20,13 @@ import com.bukang.order.domain.PartyStatus;
 import jakarta.persistence.LockModeType;
 
 public interface PartyRepository extends JpaRepository<Party, Long> {
-	// 참가 링크로 파티 ID만 찾는다. 잠그기 전에 엔티티를 읽지 않으려고 ID만 돌려준다 (uk_party_join_token)
-	@Query("select p.id from Party p where p.joinToken = :joinToken")
-	Optional<Long> findIdByJoinToken(@Param("joinToken") String joinToken);
+	// 합류 때 참가 링크로 잠그기 전에 확인할 파티·종목·크루를 찾는다 (uk_party_join_token)
+	// 엔티티를 읽으면 뒤에서 잠가 읽을 때 옛 상태가 그대로 돌아오므로 값만 읽는다
+	@Query("select new com.bukang.order.out.PartyRepository$JoinTarget(p.id, p.raceCourseId, p.crewId) from Party p "
+		+ "where p.joinToken = :joinToken")
+	Optional<JoinTarget> findJoinTarget(@Param("joinToken") String joinToken);
 
-	// 합류 때 잠그기 전에 확인할 종목·크루. 엔티티를 읽으면 뒤에서 잠가 읽을 때 옛 상태가 그대로 돌아오므로 값만 읽는다
-	@Query("select new com.bukang.order.out.PartyRepository$JoinTarget(p.raceCourseId, p.crewId) from Party p "
-		+ "where p.id = :id")
-	Optional<JoinTarget> findJoinTarget(@Param("id") long id);
-
-	record JoinTarget(long raceCourseId, long crewId) {
+	record JoinTarget(long partyId, long raceCourseId, long crewId) {
 	}
 
 	// 파티 신청 때 잠그기 전에 파티장·상태로 먼저 거른다. 상품·회원을 부르기 전에 빨리 거절하려는 것이고, 잠근 뒤 다시 본다

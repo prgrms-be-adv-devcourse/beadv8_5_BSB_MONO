@@ -380,10 +380,10 @@ public class Race extends BaseIdAndTime {
 		return crewSaleEndAt.toLocalDate().plusDays(1).atStartOfDay();
 	}
 
-	// 대기열에 보낼 대회 변경 메시지 (개인·파티 대기열 진입 판정에 쓰는 칸과 수정 일시)
+	// 대회 변경 메시지 (대기열 진입 판정에 쓰는 칸과 수정 일시, 주문 일정 변경 알림에 쓰는 대회 일시·일정 변경 일시)
 	public RaceChangedEvent toChangedEvent() {
 		return new RaceChangedEvent(getId(), saleStatus, individualOpenAt, applicationCloseAt,
-			crewSaleStartAt, crewSaleEndAt, getModifyDate());
+			crewSaleStartAt, crewSaleEndAt, getModifyDate(), raceDate, scheduleChangedAt);
 	}
 
 	// AI 추천 벡터를 만들 글 (BUK-162). 이 글이 바뀔 때만 임베딩 동기화 이벤트를 남긴다

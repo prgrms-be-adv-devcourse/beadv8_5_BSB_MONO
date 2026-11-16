@@ -10,25 +10,19 @@ plugins {
 val asciidoctorExt: Configuration by configurations.creating
 
 dependencies {
+	// webmvc, data-jpa, validation, springdoc, querydsl-jpa(테스트는 webmvc-test)는 common이 넘겨 준다 (common/build.gradle.kts)
 	implementation(project(":common"))
 
-	implementation("org.springframework.boot:spring-boot-starter-webmvc") // spring-web
 	// RestClient.Builder 자동 설정 (Boot 4에서 분리된 모듈). 어댑터가 이 빌더를 받아야 나가는 HTTP 요청에 Observation이 붙는다
 	implementation("org.springframework.boot:spring-boot-starter-restclient")
 	// 부하 테스트 측정용 지표(Micrometer). 웹으로는 기본값대로 /actuator/health만 열린다
 	implementation("org.springframework.boot:spring-boot-starter-actuator")
 	// Actuator 지표를 Prometheus 형식(/actuator/prometheus)으로 내보낸다. 엔드포인트는 dev 프로필에서만 연다
 	runtimeOnly("io.micrometer:micrometer-registry-prometheus")
-	implementation("org.springframework.boot:spring-boot-starter-data-jpa") // dataJpa
 	// 표 변경은 Flyway SQL(db/migration)로만 한다 (PR #265). MySQL 지원은 별도 모듈
 	implementation("org.springframework.boot:spring-boot-starter-flyway")
 	implementation("org.flywaydb:flyway-mysql")
-	implementation("org.springframework.boot:spring-boot-starter-validation") // @Valid 요청 검증
-	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.0") //swagger and openapi
 	implementation("org.springframework.boot:spring-boot-starter-kafka") // kafka (대회 취소 이벤트 수신)
-	// 서버가 여러 대여도 정산 배치(생성 · 지급)가 한 곳에서만 돌게 DB 행으로 잠근다 (BUK-167)
-	implementation("net.javacrumbs.shedlock:shedlock-spring:7.10.1")
-	implementation("net.javacrumbs.shedlock:shedlock-provider-jdbc-template:7.10.1")
 
 	developmentOnly("org.springframework.boot:spring-boot-devtools") // dev-tools
 	// App 실행시 compose.yml 인프라 자동 실행 (bootRun/IDE 실행에만 포함, 운영 jar에서는 제외)
@@ -38,7 +32,6 @@ dependencies {
 	runtimeOnly("com.mysql:mysql-connector-j")
 
 	testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
-	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-kafka-test")
 	testImplementation("org.springframework.boot:spring-boot-micrometer-metrics-test") // @AutoConfigureMetrics (테스트는 지표 내보내기가 기본으로 꺼져 있다)
 	testImplementation("org.openjdk.jol:jol-core:0.17") // 대사 비교 방식(집합 · 비트맵)의 메모리 크기 측정 (EntryDifferMemoryTest)
@@ -49,9 +42,8 @@ dependencies {
 	testImplementation("org.springframework.restdocs:spring-restdocs-mockmvc")
 	asciidoctorExt("org.springframework.restdocs:spring-restdocs-asciidoctor")
 
-	// QueryDSL (Jakarta 버전, 버전은 Spring Boot BOM의 querydsl.version 사용)
+	// QueryDSL Q클래스 생성기 (querydsl-jpa는 common이 넘겨 준다. 처리기는 전달되지 않아 모듈마다 적는다)
 	val querydslVersion = dependencyManagement.importedProperties["querydsl.version"]
-	implementation("com.querydsl:querydsl-jpa:${querydslVersion}:jakarta")
 	annotationProcessor("com.querydsl:querydsl-apt:${querydslVersion}:jakarta")
 	annotationProcessor("jakarta.annotation:jakarta.annotation-api")
 	annotationProcessor("jakarta.persistence:jakarta.persistence-api")

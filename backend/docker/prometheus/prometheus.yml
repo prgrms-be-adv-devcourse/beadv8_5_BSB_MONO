@@ -1,0 +1,70 @@
+# Prometheus 설정 (로컬 전용, compose.yml의 prometheus 서비스가 읽기 전용으로 붙인다)
+# Prometheus가 각 서비스의 /actuator/prometheus를 주기적으로 가져간다(Pull)
+
+global:
+  # 지표를 가져가는 주기. 짧을수록 그래프가 촘촘하지만 저장량이 늘어난다
+  scrape_interval: 15s
+
+scrape_configs:
+  # 앱(gateway, 서비스 11개). 맥에서 bootRun(dev)으로 띄우고 Prometheus는 컨테이너라서,
+  # 컨테이너 안에서 맥을 가리키는 host.docker.internal로 접속한다 (localhost는 컨테이너 자신이다)
+  # 띄우지 않은 앱은 Targets에서 DOWN으로 보인다
+  - job_name: gateway
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: [ "host.docker.internal:8000" ]
+  - job_name: member-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: [ "host.docker.internal:8080" ]
+  - job_name: cash-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: [ "host.docker.internal:8081" ]
+  - job_name: payout-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: [ "host.docker.internal:8082" ]
+  - job_name: file-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: [ "host.docker.internal:8083" ]
+  - job_name: order-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: [ "host.docker.internal:8084" ]
+  - job_name: product-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: [ "host.docker.internal:8085" ]
+  - job_name: queue-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: [ "host.docker.internal:8086" ]
+  - job_name: notification-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: [ "host.docker.internal:8087" ]
+  - job_name: inquiry-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: [ "host.docker.internal:8088" ]
+  - job_name: board-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: [ "host.docker.internal:8089" ]
+  - job_name: ai-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: [ "host.docker.internal:8092" ]
+  # Redis. Redis는 HTTP 지표 주소가 없어 redis-exporter가 대신 연다
+  # Exporter는 컨테이너라 host.docker.internal이 아니라 같은 Docker 네트워크의 컨테이너 이름으로 접속한다
+  - job_name: redis
+    static_configs:
+      - targets: [ "bukang-redis-exporter:9121" ]
+  # Redpanda(Kafka). 관리 포트 9644에 지표 주소가 들어 있어 Exporter가 필요 없다
+  # /public_metrics는 운영 확인용으로 고른 지표(redpanda_ 접두사), /metrics는 내부 디버깅용이라 양이 많다
+  - job_name: redpanda
+    metrics_path: /public_metrics
+    static_configs:
+      - targets: [ "bukang-kafka:9644" ]
