@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import com.bukang.cash.app.CashSupport;
 import com.bukang.cash.app.CashSupport.LockedWallets;
 import com.bukang.cash.domain.exception.payment.PaymentAlreadyFinalizedException;
+import com.bukang.cash.domain.exception.payment.PaymentAmountMismatchException;
 import com.bukang.cash.domain.exception.payment.PaymentMemberMismatchException;
 import com.bukang.cash.domain.payment.Payment;
 import com.bukang.cash.domain.payment.PaymentFailReason;
@@ -48,11 +49,16 @@ public class CashCompleteOrderPaymentUseCase {
 		//Complete : 이미 끝
 		//이미 CANCELED(주문 후 실패 해서 결제 취소) / REFUNDED(환불에서): 이미 처리됨 → 그대로 끝 (멱등)
 		//Failed이거나 방금 생성된 주문이면 여기까지 내려옴
-		if (payment.getStatus() == PaymentStatus.COMPLETED) {
-			return CashPaymentResponseDto.paid();
-		}
 		if (payment.getStatus() == PaymentStatus.CANCELED || payment.getStatus() == PaymentStatus.REFUNDED) {
 			throw new PaymentAlreadyFinalizedException("이미 취소·환불된 결제입니다.");
+		}
+		// 같은 주문은 처음 금액으로만 결제한다. 다른 금액으로 빼면 취소·환불이 돌려주는 결제 기록 금액과 어긋난다
+		// 취소가 먼저 와서 0원으로 선점한 행은 위에서 이미 거절했으므로 여기서 금액을 비교한다
+		if (payment.getAmount() != salePrice) {
+			throw new PaymentAmountMismatchException("같은 주문에 처음과 다른 금액으로 결제를 요청했습니다.");
+		}
+		if (payment.getStatus() == PaymentStatus.COMPLETED) {
+			return CashPaymentResponseDto.paid();
 		}
 
 		//4.잔액 확인

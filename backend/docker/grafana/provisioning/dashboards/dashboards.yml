@@ -1,0 +1,11 @@
+# Grafana가 시작할 때 이 폴더의 JSON 대시보드를 「크루런」 폴더에 자동으로 등록한다
+apiVersion: 1
+
+providers:
+  - name: crewrun
+    folder: 크루런
+    type: file
+    # 화면에서 고친 내용은 저장하지 않는다. 고치려면 화면에서 JSON으로 내보내 이 폴더 파일을 바꾼다
+    allowUiUpdates: false
+    options:
+      path: /etc/grafana/provisioning/dashboards

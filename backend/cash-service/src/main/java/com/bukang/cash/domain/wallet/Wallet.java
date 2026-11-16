@@ -49,7 +49,19 @@ public class Wallet extends BaseManualIdAndTime {
 		return credit(amount, ledgerType, LedgerRefType.WalletCharge, charge.getId());
 	}
 
+	// 회원·시스템 지갑은 잔액보다 많이 뺄 수 없다. 부르는 쪽이 먼저 잔액을 보지만, 그 확인이 빠진 코드가 생겨도 음수가 되지 않게 막는다
 	public WalletLedger debit(long amount, LedgerType ledgerType, LedgerRefType refTypeCode, long refId) {
+		if (balance < amount) {
+			throw new IllegalStateException("지갑 잔액보다 많이 뺄 수 없습니다. walletId=%d, balance=%d, amount=%d"
+				.formatted(getId(), balance, amount));
+		}
+		return debitAllowingNegative(amount, ledgerType, refTypeCode, refId);
+	}
+
+	// 홀딩 지갑 전용. 1차 정산 뒤 환불되면 판매자 회수금이 들어올 때까지 잠시 모자랄 수 있어 음수를 허용한다 (정책 6장)
+	public WalletLedger debitAllowingNegative(
+		long amount, LedgerType ledgerType, LedgerRefType refTypeCode, long refId
+	) {
 		balance -= amount;
 		return addLedger(-amount, ledgerType, refTypeCode, refId);
 	}

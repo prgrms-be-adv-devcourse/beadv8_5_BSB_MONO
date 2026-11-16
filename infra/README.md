@@ -283,3 +283,4 @@ sudo systemctl enable crewrun                             # 0단계에서 enable
 - `k8s-cd.yml`을 main push 때 자동으로 돌게 했고, `app-cd.yml`(compose 배포)은 지웠습니다. 메인 EC2의 셀프호스티드 러너는 서비스를 멈추고 GitHub에서 등록을 지웁니다.
 - 옛 compose 컨테이너·볼륨, `~/migration` 백업, 꺼 둔 `crewrun.service`는 되돌리기용으로 며칠 남겼다가 지울지 정합니다(`backend/compose.prod.yml`도 같음).
 - 보조 EC2 보안 그룹의 22번은 메인 SG에서만 받도록 좁힙니다(80·443은 지움). 메인 EC2의 22번은 SSM Session Manager로 접속할 수 있으니 좁힐지 정합니다.
+  - 2026-11-16 확인: 80·443은 지워졌고, 22번은 아직 0.0.0.0/0입니다. 보조 EC2에 공인 IP(13.125.183.172)가 붙어 있지만 서브넷이 메인 EC2 NAT로만 나가서 인터넷에서는 닿지 않습니다. 그래도 서브넷 설정이 바뀌면 열리므로 22번은 메인 SG로 좁히고, 쓰지 않는 공인 IP는 떼는 것을 권합니다.

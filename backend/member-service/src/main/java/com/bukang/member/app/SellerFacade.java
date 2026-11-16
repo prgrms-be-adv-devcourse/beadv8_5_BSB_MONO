@@ -14,6 +14,7 @@ import com.bukang.member.domain.exception.MemberNotFoundException;
 import com.bukang.member.domain.exception.SellerNotFoundException;
 import com.bukang.member.dto.MemberSellerDto;
 import com.bukang.member.dto.SellerApplyRequestDto;
+import com.bukang.member.dto.SellerBusinessInfoDto;
 import com.bukang.member.dto.SellerDto;
 import com.bukang.member.dto.SellerPayoutAccountDto;
 import com.bukang.member.out.MemberRepository;
@@ -75,6 +76,13 @@ public class SellerFacade {
 	public SellerPayoutAccountDto findPayoutAccount(long sellerId) {
 		return sellerRepository.findById(sellerId)
 			.map(seller -> new SellerPayoutAccountDto(seller.hasPayoutAccount()))
+			.orElseThrow(() -> new SellerNotFoundException("존재하지 않는 판매자 신청입니다."));
+	}
+
+	// 정산 서비스가 수수료 세금계산서의 공급받는자 칸을 채우려고 묻는다 (BUK-246)
+	public SellerBusinessInfoDto findBusinessInfo(long sellerId) {
+		return sellerRepository.findById(sellerId)
+			.map(SellerBusinessInfoDto::from)
 			.orElseThrow(() -> new SellerNotFoundException("존재하지 않는 판매자 신청입니다."));
 	}
 

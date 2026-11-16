@@ -31,6 +31,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import com.bukang.cash.app.CashFacade;
 import com.bukang.cash.config.CashWalletProperties;
 import com.bukang.cash.domain.exception.payment.PaymentAlreadyFinalizedException;
+import com.bukang.cash.domain.exception.payment.PaymentAmountMismatchException;
 import com.bukang.cash.domain.member.CashMember;
 import com.bukang.cash.domain.payment.Payment;
 import com.bukang.cash.domain.payment.PaymentStatus;
@@ -165,6 +166,39 @@ class CashCompleteOrderPaymentUseCaseTest {
 		assertThat(countLedgersForOrder(orderId)).isEqualTo(2);
 		assertLedgerConsistency(CUSTOMER_ID, cashWalletProperties.holdingMemberId());
 		assertTotalPreserved(10_000);
+	}
+
+	@Test
+	@DisplayName("P4-1: 잔액 부족으로 실패한 주문을 다른 금액으로 재결제하면 409로 거절하고, 결제 금액·상태·잔액은 그대로다")
+	void p4_retryFailedOrderWithDifferentAmount_isRejected() {
+		long orderId = 410;
+		createCustomerWallet(10_000);
+		createHoldingWallet();
+		cashFacade.completeOrderPayment(orderId, CUSTOMER_ID, 15_000);
+
+		assertThatThrownBy(() -> cashFacade.completeOrderPayment(orderId, CUSTOMER_ID, 8_000))
+			.isInstanceOf(PaymentAmountMismatchException.class);
+
+		Payment payment = paymentRepository.findByOrderId(orderId).orElseThrow();
+		assertThat(payment.getAmount()).isEqualTo(15_000);
+		assertThat(payment.getStatus()).isEqualTo(PaymentStatus.FAILED);
+		assertBalance(CUSTOMER_ID, 10_000);
+		assertThat(countLedgersForOrder(orderId)).isZero();
+	}
+
+	@Test
+	@DisplayName("P4-2: 결제가 끝난 주문에 다른 금액으로 다시 요청하면 PAID로 넘기지 않고 409로 거절한다")
+	void p4_retryCompletedOrderWithDifferentAmount_isRejected() {
+		long orderId = 420;
+		createCustomerWallet(10_000);
+		createHoldingWallet();
+		cashFacade.completeOrderPayment(orderId, CUSTOMER_ID, 3_000);
+
+		assertThatThrownBy(() -> cashFacade.completeOrderPayment(orderId, CUSTOMER_ID, 5_000))
+			.isInstanceOf(PaymentAmountMismatchException.class);
+
+		assertBalance(CUSTOMER_ID, 7_000);
+		assertThat(countLedgersForOrder(orderId)).isEqualTo(2);
 	}
 
 	@Test

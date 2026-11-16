@@ -228,6 +228,30 @@ final class PayoutSellerApiExamples {
 		{ "status": 404, "message": "정산 내역을 찾을 수 없습니다.", "data": null }
 		""";
 
+	static final String TAX_INVOICES_SUCCESS = """
+		{
+			"status": 200,
+			"message": "세금계산서를 조회했습니다.",
+			"data": [
+				{
+					"id": 1, "sellerId": 3, "supplyMonth": "2026-10", "totalAmount": 8250, "supplyAmount": 7500,
+					"taxAmount": 750, "status": "발행_완료", "approvalNumber": "20261101-41000000-01234567",
+					"businessName": "크루런 스포츠", "businessNumber": "123-45-67890", "representativeName": "김러너",
+					"issuedAt": "2026-11-01T05:00:02", "failReason": null
+				}
+			]
+		}
+		""";
+
+	static final String SALES_REPORT_SUCCESS = """
+		{
+			"status": 200,
+			"message": "월 매출 참고 자료를 조회했습니다.",
+			"data": { "month": "2026-10", "salesAmount": 1100000, "taxableSupplyAmount": 1000000,
+				"taxableTaxAmount": 100000 }
+		}
+		""";
+
 	private PayoutSellerApiExamples() {
 	}
 }
