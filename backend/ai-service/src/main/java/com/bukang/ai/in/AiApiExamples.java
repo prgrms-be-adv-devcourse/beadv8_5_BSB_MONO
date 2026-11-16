@@ -74,6 +74,63 @@ final class AiApiExamples {
 		{ "status": 503, "code": "AI_MODEL_UNAVAILABLE", "message": "지금은 답변을 만들 수 없습니다. 잠시 뒤 다시 시도해주세요.", "data": null }
 		""";
 
+	static final String BRIEFING_SELLER = """
+		{
+			"status": 200,
+			"message": "브리핑을 만들었습니다.",
+			"data": {
+				"headline": "송장 입력 대기 키트가 4건 있어요. 지급보류 1건의 사유를 확인해 주세요.",
+				"basis": "오전 9:00 기준",
+				"todos": [
+					{
+						"title": "송장 입력 대기 4건",
+						"description": "환불 기한이 지나면 2건을 더 보낼 수 있어요",
+						"linkLabel": "키트 배송 관리",
+						"href": "/seller/kits"
+					},
+					{
+						"title": "지급보류 1건",
+						"description": "보류가 풀려야 그 정산이 지급돼요",
+						"linkLabel": "지급보류 내역",
+						"href": "/seller/settlements?tab=holds"
+					}
+				],
+				"metrics": [
+					{ "label": "보낼 키트", "value": "4건", "note": "환불 기한 전 2건" },
+					{ "label": "다음 정산 · 11/20 지급", "value": "₩1,250,000", "note": "보류 1건 빼고" }
+				]
+			}
+		}
+		""";
+	static final String BRIEFING_PARTLY_FAILED = """
+		{
+			"status": 200,
+			"message": "브리핑을 만들었습니다.",
+			"data": {
+				"headline": "판매자 승인 대기가 3건 있어요.",
+				"basis": "오후 3:42 기준",
+				"todos": [
+					{
+						"title": "판매자 승인 대기 3건",
+						"description": "11/12 신청부터 확인해 주세요",
+						"linkLabel": "판매자 승인",
+						"href": "/admin/sellers"
+					},
+					{
+						"title": "답변 대기 문의",
+						"description": "지금 불러오지 못했어요. 화면에서 확인해 주세요.",
+						"linkLabel": "문의 관리",
+						"href": "/admin/inquiries"
+					}
+				],
+				"metrics": [
+					{ "label": "판매자 승인 대기", "value": "3건", "note": "가장 오래된 신청 5일째" },
+					{ "label": "답변 대기 문의 · 전체", "value": "-", "note": "불러오지 못했어요" }
+				]
+			}
+		}
+		""";
+
 	private AiApiExamples() {
 	}
 }
