@@ -4,7 +4,8 @@
 #
 #   ./scripts/e2e-lunch.sh prepare <이름>   점심 전. 내 서비스 bootJar 빌드
 #   ./scripts/e2e-lunch.sh pretest <이름>   12:50. 10분 안에 환경 확인. 통과하면 앱을 켜 둔 채 끝난다
-#   ./scripts/e2e-lunch.sh run <이름>       내 시나리오 실행 → e2e-<이름>.json, 끝나면 앱·컨테이너 정리
+#   ./scripts/e2e-lunch.sh run <이름> [번호] 내 시나리오 실행 → e2e-<이름>.json, 끝나면 앱·컨테이너 정리
+#                                          번호를 주면 그 시나리오만 다시 돌린다. 예: run dawit "25|37"
 #   ./scripts/e2e-lunch.sh stop             켜 둔 앱·프론트·컨테이너 정리
 #
 # 이름: jihoon dawit youngho sohee hobin. 운영 서버에는 아무것도 보내지 않는다(모두 localhost).
@@ -243,14 +244,22 @@ case $cmd in
 		deadline=$(date -j -f '%H:%M:%S' '13:50:00' +%s 2>/dev/null || date -d '13:50' +%s)
 		[ "$deadline" -gt "$(date +%s)" ] || deadline=$(( $(date +%s) + 3600 ))
 		deadline=${E2E_DEADLINE:-$deadline}
-		say "시나리오 실행: @$name (마감 $(date -r "$deadline" '+%H:%M' 2>/dev/null || date -d "@$deadline" '+%H:%M'))"
+		# 세 번째 인자로 시나리오 번호를 주면 그 시나리오만 다시 돌린다. 예: run dawit "25|37"
+		grep="@$name"
+		[ -n "${3:-}" ] && grep="(${3}) .*@$name"
+		say "시나리오 실행: $grep (마감 $(date -r "$deadline" '+%H:%M' 2>/dev/null || date -d "@$deadline" '+%H:%M'))"
 		(cd "$FRONT" && E2E_BASE_URL=http://localhost:$FRONT_PORT E2E_DEADLINE=$deadline E2E_JSON="$FRONT/e2e-$name.json" \
-			pnpm exec playwright test -c playwright.lunch.config.ts --grep "@$name")
+			pnpm exec playwright test -c playwright.lunch.config.ts --grep "$grep")
 		rc=$?
 		say "결과 파일: frontend/e2e-$name.json (실패 화면은 frontend/test-results/)"
 		say "앱 · 프론트 · 컨테이너 정리"
 		stop_all
 		(cd "$BACK" && docker compose down >/dev/null 2>&1)
+		if [ "$rc" != 0 ]; then
+			echo
+			echo "실패한 시나리오가 있어요. 아래 명령을 실행하면 Claude가 원인을 나누고 다시 돌려요."
+			echo "  claude \"frontend/e2e/FIX.md대로 e2e-$name.json의 실패를 고치고 다시 돌려 줘\""
+		fi
 		exit $rc
 		;;
 
