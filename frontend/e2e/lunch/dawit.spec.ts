@@ -231,15 +231,15 @@ test.describe('다윗', { tag: '@dawit' }, () => {
       `begin; select id from cash_wallet where id = ${memberIdOf(buyer)} for update; do sleep(12); commit;`,
     ])
     const released = new Promise((resolve) => lock.on('exit', resolve))
-    await eventually(
-      () =>
-        Number(
-          sqlOne(
-            "select count(*) from information_schema.innodb_trx where trx_query like 'do sleep(12)%'",
-          ),
-        ) > 0,
-      10_000,
-    )
+    // 잠금이 잡혔는지는 같은 줄을 기다리지 않고 잠가 보아 확인한다(테스트 DB 계정은 잠금 목록을 볼 권한이 없다)
+    await eventually(() => {
+      try {
+        sql(`select id from cash_wallet where id = ${memberIdOf(buyer)} for update nowait`)
+        return false
+      } catch {
+        return true
+      }
+    }, 10_000)
 
     const paying = page.waitForResponse(
       (res) =>
