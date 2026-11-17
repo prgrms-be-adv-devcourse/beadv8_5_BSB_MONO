@@ -146,6 +146,7 @@ public class ParticipationApplyUseCase {
 		}
 		checkAge(course, participant);
 		ParticipantInfo checked = checkTshirtSize(course, checkShippingAddress(course, participant));
+		checkTshirtSizeKept(participation, checked);
 		participation.changeParticipant(checked);
 		order.ifPresent(found -> found.changeKitShippingAddress(checked.getShippingAddress()));
 		return participation;
@@ -208,6 +209,16 @@ public class ParticipationApplyUseCase {
 				.formatted(sizes));
 		}
 		return participant;
+	}
+
+	// 결제한 참가권은 티셔츠 사이즈를 바꿀 수 없다. 바꾸려면 환불 기한 안에 취소하고 다시 신청한다 (11/17 사용자, 정책 회의 결정 대기)
+	// 종목이 티셔츠를 더 주지 않아 사이즈가 비는 경우는 막지 않는다
+	private static void checkTshirtSizeKept(Participation participation, ParticipantInfo checked) {
+		if (participation.getStatus() == ParticipationStatus.CONFIRMED && checked.getTshirtSize() != null
+			&& !checked.getTshirtSize().equals(participation.getParticipant().getTshirtSize())) {
+			throw TshirtSizeNotAvailableException.locked(
+				"결제한 참가권은 티셔츠 사이즈를 바꿀 수 없습니다. 바꾸려면 환불 기한 안에 취소하고 다시 신청해주세요.");
+		}
 	}
 
 	static void checkAge(RaceCourseInfo course, ParticipantInfo participant) {

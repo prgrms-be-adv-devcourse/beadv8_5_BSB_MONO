@@ -154,6 +154,24 @@ describe('TicketEditPage', () => {
     expect(await screen.findByText('참가권을 찾을 수 없어요')).toBeInTheDocument()
   })
 
+  it('결제한 참가권은 티셔츠 사이즈를 바꿀 수 없고 취소 뒤 다시 신청하라고 안내한다', async () => {
+    const example = orderMock.getFindByIdResponseMock()
+    server.use(
+      orderMock.getFindByIdMockHandler({
+        ...example,
+        data: { ...example.data, status: 'CONFIRMED' },
+      }),
+    )
+    renderWithClient(<TicketEditPage ticketId="1-1" />)
+
+    expect(
+      await screen.findByText(
+        '결제한 뒤에는 사이즈를 바꿀 수 없어요. 바꾸려면 환불 기한 안에 취소하고 다시 신청해 주세요.',
+      ),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: '기념품 티셔츠 사이즈' })).toBeDisabled()
+  })
+
   it('고친 참가자 정보를 기존 값과 합쳐 보내고 상세로 돌아간다', async () => {
     let body: unknown
     server.use(

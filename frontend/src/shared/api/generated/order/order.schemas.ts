@@ -1038,7 +1038,7 @@ export interface SellerKitOptionSaleDto {
 }
 
 /**
- * 키트 옵션 품절 409(ORDER_KIT_OPTION_SOLD_OUT)의 data. 결제와 키트 옵션 바꾸기(PUT /participations/{id}/kit-options)가 함께 쓴다. 판매 상한에 닿은 옵션을 모두 담는다
+ * 키트 옵션 품절 409(ORDER_KIT_OPTION_SOLD_OUT)의 data. 결제가 쓴다. 판매 상한에 닿은 옵션을 모두 담는다
  */
 export interface KitOptionSoldOutDto {
   soldOut: KitOptionChoiceDto[];

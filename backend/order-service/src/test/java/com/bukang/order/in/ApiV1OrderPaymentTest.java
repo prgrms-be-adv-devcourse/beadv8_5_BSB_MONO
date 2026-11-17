@@ -305,20 +305,46 @@ class ApiV1OrderPaymentTest {
 		assertThat(participationOf(orderId).getStatus()).isEqualTo(ParticipationStatus.CONFIRMED);
 	}
 
+	@Test
+	@DisplayName("결제 전에는 티셔츠 사이즈를 바꿀 수 있고, 결제 뒤에는 400이며 사이즈가 그대로다. 같은 사이즈면 다른 정보는 고쳐진다")
+	void tshirtSizeLockedAfterPay() throws Exception {
+		long orderId = orderAndGetId(MEMBER_ID);
+		long participationId = participationOf(orderId).getId();
+		changeParticipant(MEMBER_ID, participationId, "김러너", "M")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.participant.tshirtSize").value("M"));
+		pay(MEMBER_ID, orderId).andExpect(status().isOk());
+
+		changeParticipant(MEMBER_ID, participationId, "김러너", "XL")
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("ORDER_TSHIRT_SIZE_LOCKED"));
+		assertThat(participationOf(orderId).getParticipant().getTshirtSize()).isEqualTo("M");
+
+		changeParticipant(MEMBER_ID, participationId, "박러너", "M")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.participant.name").value("박러너"))
+			.andExpect(jsonPath("$.data.participant.tshirtSize").value("M"));
+	}
+
 	private ResultActions pay(long memberId, long orderId) throws Exception {
 		return mockMvc.perform(post(BASE_URL + "/" + orderId + "/payment").header("X-Member-Id", memberId));
 	}
 
 	private ResultActions changeParticipantName(long memberId, long participationId, String name) throws Exception {
+		return changeParticipant(memberId, participationId, name, "L");
+	}
+
+	private ResultActions changeParticipant(long memberId, long participationId, String name, String tshirtSize)
+		throws Exception {
 		return mockMvc.perform(put("/api/v1/order/participations/" + participationId + "/participant")
 			.header("X-Member-Id", memberId)
 			.contentType(MediaType.APPLICATION_JSON)
 			.content("""
 				{ "name": "%s", "birth": "1994-06-25", "gender": "MALE", "phone": "010-1234-5678",
-					"emergencyContactName": "김가족", "emergencyContactPhone": "010-9876-5432", "tshirtSize": "L",
+					"emergencyContactName": "김가족", "emergencyContactPhone": "010-9876-5432", "tshirtSize": "%s",
 						"shippingAddress": { "recipientName": "김러너", "recipientPhone": "010-1234-5678",
 							"zipcode": "04700", "address": "서울 성동구 왕십리로 00", "addressDetail": "101동 1001호" } }
-				""".formatted(name)));
+				""".formatted(name, tshirtSize)));
 	}
 
 	private Participation participationOf(long orderId) {
