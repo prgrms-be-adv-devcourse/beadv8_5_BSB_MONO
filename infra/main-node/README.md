@@ -16,7 +16,8 @@
 | `install-k3s.sh` | 80·443 비었는지 확인 → NAT 규칙 기록 → jq·aws CLI 설치 → Traefik 설정 두기 → k3s 설치(metrics-server 끔, Secret 암호화) → NAT 규칙 다시 확인 | 전환 때 한 번 |
 | `traefik-config.yaml` | Traefik 설정: 접속자 IP 유지(`externalTrafficPolicy: Local`), HTTP→HTTPS, Let's Encrypt 인증서와 보관 | install-k3s.sh가 이메일을 채워 k3s 폴더에 둠 |
 | `env-to-parameter-store.sh` | 지금 운영 `.env`의 비밀값을 Parameter Store로 옮김 (기본은 미리보기, `--apply`로 쓰기) | 전환 전 한 번 |
-| `deploy.sh <main\|SHA>` | 커밋 맞추기 → Parameter Store에서 Secret 만들기 → GHCR 로그인 Secret → 이미지 태그를 SHA로 바꿔 적용 → 새 Pod 확인 | 배포마다 (GitHub Actions가 SSM으로 부름) |
+| `deploy.sh <main\|SHA>` | 커밋 맞추기 → Parameter Store에서 Secret 만들기 → GHCR 로그인 Secret → 바뀐 앱만 골라 하나씩 교체 → 새 Pod 확인. `DEPLOY_DRY_RUN=1`이면 계획과 바뀔 내용만 찍음 | 배포마다 (GitHub Actions가 SSM으로 부름) |
+| `changed-apps.sh <이전> <새>` | 두 커밋 사이에 이미지를 다시 만들어야 하는 앱 목록을 찍음 (CRU-31). `k8s-cd.yml`(무엇을 빌드할지)과 `deploy.sh`(무엇을 교체할지)가 같은 규칙을 쓰게 한 곳에 둠 | deploy.sh·k8s-cd가 부름 |
 
 ## 배포 한 번의 흐름 (`deploy.sh`)
 
@@ -26,14 +27,22 @@
      꼭 채움 키(MYSQL_USER·MYSQL_PASS·JWT_SECRET·CRYPTO_* 3개)가 비면 멈춤
 ③ /crewrun/registry/GHCR_AUTH → Secret ghcr-pull (GHCR 이미지가 비공개라 필요)
    /crewrun/prod/MONITORING_RW_PASSWORD → Secret monitoring-remote-write (지표 수집기용, 없으면 경고만)
-④ 임시 kustomization: overlays/aws + 이미지 태그 = 커밋 SHA + 설정 표시(config-hash)
-     → kubectl kustomize | kubectl apply
-⑤ Deployment마다 rollout status (최대 10분). 실패하면 Pod 상태를 찍고 실패로 끝남
+④ 교체 계획: 앱마다 지금 떠 있는 이미지 태그·설정 표시(config-hash)를 읽음 (읽지 못하면 멈춤)
+     지금 태그 ~ 배포 커밋 사이에 소스가 바뀐 앱(changed-apps.sh) → 새 SHA 태그, 나머지 → 지금 태그 그대로
+     설정 표시가 달라진 앱(app-config·Secret이 바뀜) → 태그는 위대로, 교체 대상
+⑤ 적용 (임시 kustomization → kubectl kustomize | kubectl apply)
+     1단계: 교체 대상 앱은 지금 값 그대로 두고 나머지 적용 (ConfigMap·Secret·nginx·지표 수집기·처음 뜨는 앱)
+     2단계부터: 교체 대상을 하나씩 적용 → rollout status(최대 10분) → 다음 앱. 실패하면 남은 앱은 그대로 두고 멈춤
+     끝: 모든 Deployment rollout status
 ⑥ secret.yaml·임시 폴더 지우기 (실패해도)
 ```
 
+- **하나씩 교체 (CRU-31):** 앱은 RollingUpdate라 새 Pod가 준비된 뒤 옛 Pod가 내려갑니다. 13개를 한꺼번에 바꾸면 13개가 동시에 두 벌이 되어 메모리(7.6GB)가 차고 k3s가 멈췄습니다(2026-11-17). 지금은 한 번에 한 앱만 두 벌이 됩니다.
+  - 공통 모듈(`backend/common` 등)이나 설정이 바뀌면 13개를 하나씩 바꾸므로 30~40분 걸립니다. k8s-cd의 서버 명령 제한은 50분입니다.
+  - `k8s/base/apps/<앱>.yaml` 자체가 바뀐 앱은 1단계에서 바로 다시 뜹니다. 여러 앱의 이 파일을 한 번에 바꾸면 그 앱들은 동시에 바뀝니다.
 - **설정 표시(config-hash):** `app-config.yaml`·Secret 값이 바뀌면 Pod 템플릿의 표시가 바뀌어 Pod가 다시 뜹니다. 같은 커밋을 다시 배포해도 비밀값만 바뀌었으면 반영됩니다.
-- **이미지:** GitHub Actions(`k8s-cd.yml`의 build 잡)가 커밋 SHA 태그로 GHCR에 먼저 올립니다. 그 커밋의 이미지가 없으면 ImagePullBackOff가 납니다.
+- **이미지:** GitHub Actions(`k8s-cd.yml`)가 바뀐 앱만 빌드하고, 안 바뀐 앱은 직전 커밋 이미지에 이번 커밋 SHA 태그만 붙입니다. 그래서 배포한 커밋마다 13개 이미지가 다 있고, 예전 커밋으로 되돌리기도 됩니다. 그 커밋의 이미지가 없으면 ImagePullBackOff가 나고, 그 앱은 옛 Pod가 계속 서비스합니다.
+- **계획만 보기:** `sudo DEPLOY_DRY_RUN=1 bash deploy.sh <SHA>` → 교체 계획과 `kubectl diff`만 찍고 클러스터는 바꾸지 않습니다. 저장소 checkout은 하므로, 운영 저장소를 건드리지 않으려면 복사본을 만들어 `APP_DIR=<복사본>`으로 줍니다.
 
 ## 비밀값 (SSM Parameter Store)
 
