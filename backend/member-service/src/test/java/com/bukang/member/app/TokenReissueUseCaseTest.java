@@ -57,7 +57,7 @@ class TokenReissueUseCaseTest {
 	void setUp() {
 		repository = mock(RefreshTokenRepository.class);
 		useCase = new TokenReissueUseCase(jwtProvider, JWT_PROPERTIES, REFRESH_PROPERTIES, repository, clock);
-		presentedToken = jwtProvider.issueRefreshToken(MEMBER_ID, FAMILY_ID, NOW.plus(Duration.ofDays(13)));
+		presentedToken = jwtProvider.issueRefreshToken(MEMBER_ID, FAMILY_ID, NOW.plus(Duration.ofDays(13)), false);
 		given(repository.findFamilyExpiresAt(MEMBER_ID)).willReturn(Optional.of(LOGIN_AT.plus(Duration.ofDays(30))));
 	}
 
@@ -225,7 +225,7 @@ class TokenReissueUseCaseTest {
 	@DisplayName("만료된 Refresh Token은 Redis를 보지 않고 만료 메시지로 거절한다")
 	void rejectExpiredToken() {
 		JwtProvider pastProvider = new JwtProvider(JWT_PROPERTIES, Clock.fixed(LOGIN_AT, ZoneOffset.UTC));
-		String expiredToken = pastProvider.issueRefreshToken(MEMBER_ID, FAMILY_ID, LOGIN_AT.plusSeconds(60));
+		String expiredToken = pastProvider.issueRefreshToken(MEMBER_ID, FAMILY_ID, LOGIN_AT.plusSeconds(60), false);
 
 		assertThatThrownBy(() -> useCase.reissue(expiredToken))
 			.isInstanceOf(InvalidRefreshTokenException.class)

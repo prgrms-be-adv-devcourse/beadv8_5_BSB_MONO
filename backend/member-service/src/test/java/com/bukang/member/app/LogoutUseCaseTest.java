@@ -48,7 +48,7 @@ class LogoutUseCaseTest {
 	@Test
 	@DisplayName("토큰의 familyId로 Redis 기록 삭제를 요청한다")
 	void deletesByFamily() {
-		String refreshToken = jwtProvider.issueRefreshToken(MEMBER_ID, "family-1", NOW.plus(Duration.ofDays(14)));
+		String refreshToken = jwtProvider.issueRefreshToken(MEMBER_ID, "family-1", NOW.plus(Duration.ofDays(14)), false);
 
 		logoutUseCase.logout(refreshToken, null);
 
@@ -81,7 +81,7 @@ class LogoutUseCaseTest {
 	@DisplayName("Access Token과 Refresh Token을 함께 보내면 둘 다 처리한다")
 	void revokesAccessAndDeletesRefreshTogether() {
 		String accessToken = jwtProvider.issueAccessToken(MEMBER_ID);
-		String refreshToken = jwtProvider.issueRefreshToken(MEMBER_ID, "family-1", NOW.plus(Duration.ofDays(14)));
+		String refreshToken = jwtProvider.issueRefreshToken(MEMBER_ID, "family-1", NOW.plus(Duration.ofDays(14)), false);
 
 		logoutUseCase.logout(refreshToken, "Bearer " + accessToken);
 
@@ -106,7 +106,7 @@ class LogoutUseCaseTest {
 		logoutUseCase.logout(null, "Bearer " + pastProvider.issueAccessToken(MEMBER_ID));
 		logoutUseCase.logout(null, "Bearer " + otherProvider.issueAccessToken(MEMBER_ID));
 		logoutUseCase.logout(null, "Bearer "
-			+ jwtProvider.issueRefreshToken(MEMBER_ID, "family-1", NOW.plus(Duration.ofDays(14))));
+			+ jwtProvider.issueRefreshToken(MEMBER_ID, "family-1", NOW.plus(Duration.ofDays(14)), false));
 
 		verify(revokedAccessTokenRepository, never()).revoke(anyString(), any(Duration.class));
 	}
@@ -115,7 +115,7 @@ class LogoutUseCaseTest {
 	@DisplayName("Access 차단 기록이 Redis 오류로 실패해도 Refresh 기록은 지우고 로그아웃은 끝난다")
 	void continuesWhenAccessRevokeFails() {
 		String accessToken = jwtProvider.issueAccessToken(MEMBER_ID);
-		String refreshToken = jwtProvider.issueRefreshToken(MEMBER_ID, "family-1", NOW.plus(Duration.ofDays(14)));
+		String refreshToken = jwtProvider.issueRefreshToken(MEMBER_ID, "family-1", NOW.plus(Duration.ofDays(14)), false);
 		doThrow(new QueryTimeoutException("redis down")).when(revokedAccessTokenRepository)
 			.revoke(anyString(), any(Duration.class));
 

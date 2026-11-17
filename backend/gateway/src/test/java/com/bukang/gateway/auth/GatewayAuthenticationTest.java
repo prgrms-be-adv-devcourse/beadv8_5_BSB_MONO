@@ -447,6 +447,29 @@ class GatewayAuthenticationTest {
 			.POST(HttpRequest.BodyPublishers.noBody()));
 
 		assertThat(response.statusCode()).isEqualTo(200);
+		// 공개 주소의 쓰기 요청에는 읽기 전용 토큰의 회원 ID를 붙이지 않는다. 회원 ID를 쓰는 공개 POST가 생겨도 막힌다
+		assertThat(RECEIVED_MEMBER_IDS).containsExactly("없음");
+	}
+
+	@Test
+	@DisplayName("읽기 전용 토큰으로 공개 주소를 조회(GET)하면 회원 ID를 붙여 넘긴다")
+	void forwardsMemberIdForPublicReadWithReadOnlyToken() throws Exception {
+		HttpResponse<String> response = send(request("/api/v1/product/races/1")
+			.header("Authorization", "Bearer " + jwtProvider.issueAccessToken(42L, true)));
+
+		assertThat(response.statusCode()).isEqualTo(200);
+		assertThat(RECEIVED_MEMBER_IDS).containsExactly("42");
+	}
+
+	@Test
+	@DisplayName("읽기 전용 토큰으로 HEAD 요청은 회원 ID를 붙여 넘긴다")
+	void forwardsHeadWithReadOnlyToken() throws Exception {
+		HttpResponse<String> response = send(request("/api/v1/order/orders")
+			.header("Authorization", "Bearer " + jwtProvider.issueAccessToken(42L, true))
+			.method("HEAD", HttpRequest.BodyPublishers.noBody()));
+
+		assertThat(response.statusCode()).isEqualTo(200);
+		assertThat(RECEIVED_MEMBER_IDS).containsExactly("42");
 	}
 
 	@Test

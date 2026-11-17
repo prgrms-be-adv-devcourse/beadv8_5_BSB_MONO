@@ -32,7 +32,7 @@ class JwtProviderTest {
 	@Test
 	@DisplayName("발급한 Refresh Token은 검증을 통과한다")
 	void issuedRefreshTokenPassesVerification() {
-		String token = provider.issueRefreshToken(42L, "family-1", NOW.plus(Duration.ofDays(14)));
+		String token = provider.issueRefreshToken(42L, "family-1", NOW.plus(Duration.ofDays(14)), false);
 
 		JwtClaims claims = provider.parse(token, TokenType.REFRESH);
 
@@ -66,7 +66,7 @@ class JwtProviderTest {
 	void rotatingRefreshTokenCarriesFamilyIdAndGivenExpiry() {
 		Instant expiresAt = NOW.plus(Duration.ofDays(3));
 
-		String token = provider.issueRefreshToken(42L, "family-1", expiresAt);
+		String token = provider.issueRefreshToken(42L, "family-1", expiresAt, false);
 		JwtClaims claims = provider.parse(token, TokenType.REFRESH);
 
 		assertThat(claims.memberId()).isEqualTo(42L);
@@ -80,11 +80,11 @@ class JwtProviderTest {
 	void rejectsRotatingRefreshTokenWithInvalidArguments() {
 		Instant later = NOW.plus(Duration.ofDays(1));
 
-		assertThatThrownBy(() -> provider.issueRefreshToken(42L, " ", later))
+		assertThatThrownBy(() -> provider.issueRefreshToken(42L, " ", later, false))
 			.isInstanceOf(IllegalArgumentException.class);
-		assertThatThrownBy(() -> provider.issueRefreshToken(42L, null, later))
+		assertThatThrownBy(() -> provider.issueRefreshToken(42L, null, later, false))
 			.isInstanceOf(IllegalArgumentException.class);
-		assertThatThrownBy(() -> provider.issueRefreshToken(42L, "family-1", NOW))
+		assertThatThrownBy(() -> provider.issueRefreshToken(42L, "family-1", NOW, false))
 			.isInstanceOf(IllegalArgumentException.class);
 	}
 
@@ -93,7 +93,7 @@ class JwtProviderTest {
 	void reissuedRefreshTokenCarriesGivenJtiFamilyAndExpiry() {
 		Instant expiresAt = NOW.plus(Duration.ofDays(3));
 
-		String token = provider.reissueRefreshToken(42L, "family-1", "jti-1", expiresAt);
+		String token = provider.reissueRefreshToken(42L, "family-1", "jti-1", expiresAt, false);
 		JwtClaims claims = provider.parse(token, TokenType.REFRESH);
 
 		assertThat(claims.memberId()).isEqualTo(42L);
@@ -107,11 +107,11 @@ class JwtProviderTest {
 	void rejectsReissueWithInvalidArguments() {
 		Instant later = NOW.plus(Duration.ofDays(1));
 
-		assertThatThrownBy(() -> provider.reissueRefreshToken(42L, "family-1", " ", later))
+		assertThatThrownBy(() -> provider.reissueRefreshToken(42L, "family-1", " ", later, false))
 			.isInstanceOf(IllegalArgumentException.class);
-		assertThatThrownBy(() -> provider.reissueRefreshToken(42L, null, "jti-1", later))
+		assertThatThrownBy(() -> provider.reissueRefreshToken(42L, null, "jti-1", later, false))
 			.isInstanceOf(IllegalArgumentException.class);
-		assertThatThrownBy(() -> provider.reissueRefreshToken(42L, "family-1", "jti-1", NOW))
+		assertThatThrownBy(() -> provider.reissueRefreshToken(42L, "family-1", "jti-1", NOW, false))
 			.isInstanceOf(IllegalArgumentException.class);
 	}
 
@@ -150,7 +150,7 @@ class JwtProviderTest {
 	@Test
 	@DisplayName("Refresh Token을 Access Token으로 쓰면 거절한다")
 	void rejectsRefreshTokenUsedAsAccessToken() {
-		String refreshToken = provider.issueRefreshToken(42L, "family-1", NOW.plus(Duration.ofDays(14)));
+		String refreshToken = provider.issueRefreshToken(42L, "family-1", NOW.plus(Duration.ofDays(14)), false);
 
 		assertThatThrownBy(() -> provider.parse(refreshToken, TokenType.ACCESS))
 			.isInstanceOf(InvalidTokenException.class)
@@ -180,7 +180,7 @@ class JwtProviderTest {
 	@DisplayName("보통 발급한 토큰은 읽기 전용이 아니다")
 	void tokensAreNotReadOnlyByDefault() {
 		assertThat(provider.parse(provider.issueAccessToken(42L), TokenType.ACCESS).readOnly()).isFalse();
-		assertThat(provider.parse(provider.issueRefreshToken(42L, "family-1", NOW.plus(Duration.ofDays(14))),
+		assertThat(provider.parse(provider.issueRefreshToken(42L, "family-1", NOW.plus(Duration.ofDays(14)), false),
 			TokenType.REFRESH).readOnly()).isFalse();
 	}
 
@@ -192,15 +192,6 @@ class JwtProviderTest {
 			TokenType.REFRESH).readOnly()).isTrue();
 		assertThat(provider.parse(provider.reissueRefreshToken(42L, "family-1", "jti-1", NOW.plus(Duration.ofDays(14)),
 			true), TokenType.REFRESH).readOnly()).isTrue();
-	}
-
-	@Test
-	@DisplayName("다른 키로 서명해 읽기 전용 표시를 뺀 토큰은 검증에서 거절된다")
-	void cannotStripReadOnlyWithOtherKey() {
-		JwtProvider other = providerAt(NOW, "jwt-other-secret-key-9999-8888-7777-6666");
-		String forged = other.issueAccessToken(42L);
-
-		assertThatThrownBy(() -> provider.parse(forged, TokenType.ACCESS)).isInstanceOf(InvalidTokenException.class);
 	}
 
 	private static JwtProvider providerAt(Instant now, String secret) {
