@@ -259,6 +259,59 @@ export interface PayoutAdminClaimsDto {
   claims: PayoutClaimPageDto;
 }
 
+/**
+ * 배치가 한 조치
+ */
+export type PayoutCreateFailureAction = typeof PayoutCreateFailureAction[keyof typeof PayoutCreateFailureAction];
+
+
+export const PayoutCreateFailureAction = {
+  지급보류: '지급보류',
+  자동_보정: '자동_보정',
+  기록만: '기록만',
+} as const;
+
+export interface PayoutCreateFailureDto {
+  id: number;
+  recordedAt: string;
+  runDate: string;
+  payoutStage: PayoutStage;
+  /** @nullable */
+  sellerId: number | null;
+  /** @nullable */
+  raceId: number | null;
+  /** @nullable */
+  raceCourseId: number | null;
+  /** @nullable */
+  payoutTargetDate: string | null;
+  /** 실패 종류 (CreateFailuresType). 백엔드에 먼저 생긴 종류도 올 수 있어 문자열로 받는다 */
+  failureType: string;
+  actionTaken: PayoutCreateFailureAction | null;
+  /** @nullable */
+  note: string | null;
+  /** @nullable */
+  soldCount: number | null;
+  /** @nullable */
+  settledCount: number | null;
+  /** @nullable */
+  holdCode: string | null;
+}
+
+export interface PayoutCreateFailurePageDto {
+  content: PayoutCreateFailureDto[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
+export interface PayoutCreateFailuresDto {
+  mismatchCount: number;
+  autoFilledCount: number;
+  orderLookupFailureCount: number;
+  records: PayoutCreateFailurePageDto;
+}
+
 export interface RsDataPayoutHoldDto {
   status?: number;
   message?: string;
@@ -293,6 +346,12 @@ export interface RsDataListSellerPayoutHoldDto {
   status?: number;
   message?: string;
   data?: SellerPayoutHoldDto[];
+}
+
+export interface RsDataPayoutCreateFailuresDto {
+  status?: number;
+  message?: string;
+  data?: PayoutCreateFailuresDto;
 }
 
 export interface RsDataPayoutAdminClaimsDto {
