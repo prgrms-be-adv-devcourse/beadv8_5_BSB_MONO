@@ -188,6 +188,11 @@ describe('LoginPage', () => {
     expect(screen.getByRole('link', { name: '회원가입' })).toHaveAttribute('href', '/signup')
   })
 
+  it('하단 「고객센터」는 마이(/me)가 아니라 고객센터 화면(/me/support)으로 연결한다 (CRU-19)', () => {
+    render(withQueryClient(<LoginPage />))
+    expect(screen.getByRole('link', { name: '고객센터' })).toHaveAttribute('href', '/me/support')
+  })
+
   it('소셜로 가입한 계정이면(AUTH_SOCIAL_ACCOUNT) 칸 문구 대신 모달로 가입한 제공자를 알려 주고, 닫을 수 있다', async () => {
     server.use(
       http.post('*/api/v1/auth/login', () =>
