@@ -7,6 +7,8 @@ const baseURL = process.env.E2E_BASE_URL ?? `http://localhost:${PORT}`
 
 export default defineConfig({
   testDir: './e2e',
+  // 점심 로컬 E2E는 실제 백엔드가 필요해 playwright.lunch.config.ts로만 돌린다
+  testIgnore: 'lunch/**',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
