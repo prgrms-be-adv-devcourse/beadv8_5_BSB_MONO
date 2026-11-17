@@ -28,9 +28,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 
 /**
- * 테스트 계정 로그인. member.auth.demo-login.enabled가 true일 때만 빈을 만든다
+ * 발표 시연용 데모 로그인. member.auth.demo-login.enabled가 true일 때만 빈을 만든다
  * 꺼져 있으면 이 주소가 아예 없어 GET·POST 모두 404가 되고, 프론트는 버튼을 숨긴다
- * 켜져 있는 동안에는 누구나 설정에 적힌 시연 전용 계정으로 로그인한다. 토큰이 읽기 전용이라 게이트웨이가 쓰기를 막는다
+ * 켜져 있는 동안에는 누구나 설정에 적힌 계정(관리자)으로 로그인할 수 있으므로 시연할 때만 켠다
  */
 @Tag(name = "Auth", description = "회원가입, 로그인, 토큰 재발급, 로그아웃 API")
 @RestController
@@ -55,7 +55,7 @@ public class ApiV1AuthDemoLoginController {
 	// JSON 형식 요청만 받는다. 다른 사이트가 폼 전송으로 방문자를 데모 계정에 로그인시키지 못하게 한다
 	// (다른 사이트에서 JSON 형식으로 보내려면 브라우저가 사전 확인 요청을 먼저 보내고, CORS가 막는다)
 	@PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
-	@Operation(summary = "데모 로그인", description = "서버 설정에 적힌 시연 전용 계정 하나로 비밀번호 없이 로그인한다. 토큰은 읽기 전용이라 조회만 할 수 있다. "
+	@Operation(summary = "데모 로그인", description = "서버 설정에 적힌 시연용 계정 하나로 비밀번호 없이 로그인한다. "
 		+ "응답과 쿠키는 이메일 로그인과 같다. 같은 IP는 1분에 10번까지 부를 수 있다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "로그인 성공",

@@ -42,12 +42,11 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 	// 경로에 있으면 거절하는 문자열 (소문자로 바꾼 경로와 비교한다)
 	private static final List<String> FORBIDDEN_PATH_PARTS = List.of(";", "\\", "%2e", "%2f", "%5c", "%25");
 
-	// 400·401·403 응답의 code. 프론트가 오류 원인을 구분하는 값이라 이 한곳에서만 정의한다
+	// 400·401 응답의 code. 프론트가 오류 원인을 구분하는 값이라 이 한곳에서만 정의한다
 	private static final String CODE_INVALID_PATH = "AUTH_INVALID_PATH";
 	private static final String CODE_LOGIN_REQUIRED = "AUTH_LOGIN_REQUIRED";
 	private static final String CODE_TOKEN_EXPIRED = "AUTH_TOKEN_EXPIRED";
 	private static final String CODE_INVALID_TOKEN = "AUTH_INVALID_TOKEN";
-	private static final String CODE_READ_ONLY = "AUTH_READ_ONLY";
 
 	// Redis가 끊기지 않고 느려지기만 해도 모든 요청이 늦어지지 않게 확인에 따로 건 제한. 넘으면 실패와 같게 통과시킨다
 	private static final Duration REVOKED_CHECK_TIMEOUT = Duration.ofMillis(200);
@@ -97,12 +96,6 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 			return reject(exchange.getResponse(), HttpStatus.UNAUTHORIZED, CODE_INVALID_TOKEN, "유효하지 않은 토큰입니다.");
 		}
 
-		// 테스트 계정(읽기 전용 토큰)은 조회만 한다. 로그인이 필요한 주소에서 GET·HEAD가 아니면 서비스로 넘기지 않는다
-		// 공개 주소(재발급·로그아웃 등)는 위에서 이미 넘겼다. 로그인하지 않은 사람도 부를 수 있고 회원 ID를 쓰지 않는다
-		if (claims.readOnly() && !isRead(request.getMethod())) {
-			return reject(exchange.getResponse(), HttpStatus.FORBIDDEN, CODE_READ_ONLY, "테스트 계정은 조회만 할 수 있습니다.");
-		}
-
 		ServerHttpRequest authenticated = request.mutate()
 			.header(MEMBER_ID_HEADER, String.valueOf(claims.memberId()))
 			.build();
@@ -145,10 +138,6 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 			}
 		}
 		return false;
-	}
-
-	private static boolean isRead(HttpMethod method) {
-		return HttpMethod.GET.equals(method) || HttpMethod.HEAD.equals(method);
 	}
 
 	// CORS 사전 요청(OPTIONS)은 브라우저가 토큰 없이 보내므로 통과시킨다

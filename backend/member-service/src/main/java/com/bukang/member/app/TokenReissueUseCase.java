@@ -51,8 +51,7 @@ public class TokenReissueUseCase {
 			// family 최종 만료가 지났다. 보통은 키 TTL로 먼저 사라지지만, 시계 차이로 남아 있을 수 있다
 			throw new InvalidRefreshTokenException(EXPIRED_MESSAGE);
 		}
-		// 읽기 전용(테스트 계정) 표시는 제시한 Refresh Token에서 이어받는다
-		String newToken = jwtProvider.issueRefreshToken(memberId, claims.familyId(), newExpiresAt, claims.readOnly());
+		String newToken = jwtProvider.issueRefreshToken(memberId, claims.familyId(), newExpiresAt);
 		String newJti = jwtProvider.parse(newToken, TokenType.REFRESH).jti();
 
 		RotationResult result = refreshTokenRepository.rotate(memberId, new Rotation(
@@ -61,7 +60,7 @@ public class TokenReissueUseCase {
 		String issuedRefreshToken = switch (result.outcome()) {
 			case ROTATED -> newToken;
 			// 유예: 방금 회전한 요청이 받은 토큰과 같은 jti·만료로 다시 서명해 돌려준다. 미리 만든 newToken은 버린다
-			case GRACE -> regraceToken(memberId, claims.familyId(), result, claims.readOnly());
+			case GRACE -> regraceToken(memberId, claims.familyId(), result);
 			case THEFT -> {
 				// 토큰 값은 로그에 남기지 않는다
 				log.warn("이미 쓴 Refresh Token이 다시 들어와 family를 끊었습니다. 탈취가 의심됩니다. memberId={}", memberId);
@@ -72,14 +71,13 @@ public class TokenReissueUseCase {
 		};
 
 		Instant refreshExpiresAt = jwtProvider.parse(issuedRefreshToken, TokenType.REFRESH).expiresAt();
-		return new AuthTokens(jwtProvider.issueAccessToken(memberId, claims.readOnly()), issuedRefreshToken,
+		return new AuthTokens(jwtProvider.issueAccessToken(memberId), issuedRefreshToken,
 			Duration.between(now, refreshExpiresAt));
 	}
 
-	private String regraceToken(long memberId, String familyId, RotationResult result, boolean readOnly) {
+	private String regraceToken(long memberId, String familyId, RotationResult result) {
 		try {
-			return jwtProvider.reissueRefreshToken(memberId, familyId, result.currentJti(), result.currentExpiresAt(),
-				readOnly);
+			return jwtProvider.reissueRefreshToken(memberId, familyId, result.currentJti(), result.currentExpiresAt());
 		} catch (IllegalArgumentException e) {
 			// 저장된 만료 시각이 이미 지났다. 키 TTL이 먼저 지우므로 보통 오지 않지만, 시계 차이로 남아 있을 수 있다
 			throw new InvalidRefreshTokenException(INVALID_MESSAGE);

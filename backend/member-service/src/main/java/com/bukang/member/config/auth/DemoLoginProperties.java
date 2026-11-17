@@ -12,6 +12,6 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 @ConfigurationProperties("member.auth.demo-login")
 public record DemoLoginProperties(
 	@DefaultValue("false") boolean enabled,
-	@DefaultValue("demo@crewrun.com") String email
+	@DefaultValue("admin@crewrun.com") String email
 ) {
 }
