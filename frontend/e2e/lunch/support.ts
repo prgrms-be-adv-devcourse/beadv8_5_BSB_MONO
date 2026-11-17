@@ -5,7 +5,6 @@ import { expect, type Page } from '@playwright/test'
 // 시드 계정·비밀번호는 member-service의 MemberDataInit(dev 프로필)과 같다.
 export const GATEWAY = process.env.E2E_API_URL ?? 'http://localhost:8000'
 export const PASSWORD = '12345678910'
-const ORDER = process.env.E2E_ORDER_URL ?? 'http://localhost:8084'
 export const USERS = {
   admin: 'admin@crewrun.com',
   seller: 'seller1@crewrun.com',
@@ -173,24 +172,19 @@ export const participant = (name: string) => ({
 })
 
 // API로 참가 신청 → 주문 → 예치금 결제까지 한다. 화면을 확인하려는 시나리오의 준비 단계에서 쓴다
-export async function buyTicket(api: Api, courseId: number) {
+export async function buyTicket(api: Api, { raceId, courseId }: Omit<Course, 'title'>) {
   const apply = await api.call<{ id: number }>('POST', '/api/v1/order/participations', {
     raceCourseId: courseId,
     thirdPartyConsent: true,
     participant: participant(`E2E${api.memberId}`),
   })
   expect(apply.status, `참가 신청 ${JSON.stringify(apply.raw)}`).toBe(201)
-  // 주문은 대기열 입장권이 있어야 한다. 주문 서비스(8084)의 개발용 가짜 입장 API로 받는다(dev, 대기열 가짜 모드 전용).
-  // 게이트웨이에 길이 없어 주문 서비스를 직접 부르고, 게이트웨이가 넣는 회원 헤더를 직접 붙인다
-  const admit = await api.call(
-    'POST',
-    `${ORDER}/dev/queue-dummy/enter?raceCourseId=${courseId}`,
-    undefined,
-    {
-      'X-Member-Id': String(api.memberId),
-    },
+  // 주문은 저장된 대기열 입장 끝 시각이 있어야 한다. 신청서 화면처럼 입장 상태 API를 불러 저장시킨다(가짜 대기열은 이때 입장시킨다)
+  const admit = await api.call<{ admitted: boolean }>(
+    'GET',
+    `/api/v1/order/queue/admission?raceId=${raceId}&raceCourseId=${courseId}`,
   )
-  expect(admit.status, `대기열 입장 ${JSON.stringify(admit.raw)}`).toBeLessThan(300)
+  expect(admit.data?.admitted, `대기열 입장 ${JSON.stringify(admit.raw)}`).toBe(true)
   const order = await api.call<{ id: number; items: { id: number }[] }>(
     'POST',
     '/api/v1/order/orders',
@@ -306,6 +300,12 @@ export function cloneBuyer(email: string) {
       insert into member_member select * from t;`)
   }
   const id = memberIdOf(email)
+  // 지갑이 캐시 회원 복제본을 외래 키로 가리키므로 복제본도 user3 행을 복사해 먼저 만든다
+  if (!sqlOne(`select id from cash_member where id = ${id}`)) {
+    sql(`create temporary table cm as select * from cash_member where id = ${memberIdOf(USERS.user3)};
+      update cm set id = ${id}, nickname = 'e2e${id}';
+      insert into cash_member select * from cm;`)
+  }
   if (!sqlOne(`select holder_id from cash_wallet where holder_id = ${id}`)) {
     sql(`create temporary table w as select * from cash_wallet where holder_id = ${memberIdOf(USERS.user3)};
       update w set id = (select max(id) + 1 from cash_wallet), holder_id = ${id}, balance = 0;
