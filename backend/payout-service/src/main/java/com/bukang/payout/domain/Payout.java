@@ -215,15 +215,36 @@ public class Payout extends BaseIdAndTime {
 	// 지급액은 언제나 이 정산 내역 원장 줄의 합이다
 	public PayoutItem addItem(long orderItemId, Long raceCourseId, long price, BigDecimal feeRate,
 		LocalDate payoutCreateDate) {
+		List<PayoutItem> lines = recordItem(orderItemId, raceCourseId, price, feeRate, payoutCreateDate);
+		items.addAll(lines);
+		return lines.getFirst();
+	}
+
+	/**
+	 * addItem과 같은 판매 · 수수료 두 줄을 만들고 금액 캐시도 똑같이 더하지만, items에는 붙이지 않는다 (BUK-252)
+	 * 부르는 쪽이 정산 내역을 저장한 뒤 PayoutRepository.insertItems로 같은 트랜잭션에서 일괄 저장한다
+	 * 참가권 10만 장이면 줄이 20만 개라, 영속성 컨텍스트에 붙여 커밋까지 들고 있으면 힙이 넘친다
+	 * 이 정산 내역 객체의 getItems()에는 이 줄들이 보이지 않는다. 다시 읽어야 보인다
+	 */
+	public List<PayoutItem> addItemForBatchInsert(long orderItemId, Long raceCourseId, long price, BigDecimal feeRate,
+		LocalDate payoutCreateDate) {
+		return recordItem(orderItemId, raceCourseId, price, feeRate, payoutCreateDate);
+	}
+
+	private List<PayoutItem> recordItem(long orderItemId, Long raceCourseId, long price, BigDecimal feeRate,
+		LocalDate payoutCreateDate) {
 		if (payoutStage != PayoutStage.최종_정산) {
 			throw new IllegalStateException("1차 정산은 참가권 줄 없이 recordAdvance로 만듭니다. raceId=%d".formatted(raceId));
 		}
-		salesAmount += price;
 		long fee = TwoStagePayoutCalculator.rate(price, feeRate);
+		salesAmount += price;
 		feeAmount += fee;
-		PayoutItem sale = addLine(PayoutRecordType.판매, orderItemId, raceCourseId, price, feeRate, payoutCreateDate);
-		addLine(PayoutRecordType.수수료, orderItemId, raceCourseId, -fee, feeRate, payoutCreateDate);
-		return sale;
+		payoutAmount += price - fee;
+		return List.of(
+			PayoutItem.ofPayout(this, PayoutRecordType.판매, orderItemId, raceCourseId, price, feeRate,
+				payoutCreateDate),
+			PayoutItem.ofPayout(this, PayoutRecordType.수수료, orderItemId, raceCourseId, -fee, feeRate,
+				payoutCreateDate));
 	}
 
 	// 코스를 모를 때(테스트 · 샘플 데이터)
