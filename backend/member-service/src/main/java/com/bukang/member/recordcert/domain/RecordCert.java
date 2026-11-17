@@ -72,6 +72,10 @@ public class RecordCert {
 	@Column(name = "created_at", nullable = false)
 	private LocalDateTime createdAt;
 
+	// 끝난 지 30일 지나 원본 사진을 file-service에서 지운 시각 (BUK-278). 값은 남는다
+	@Column(name = "file_deleted_at")
+	private LocalDateTime fileDeletedAt;
+
 	public CertValues values() {
 		return new CertValues(netTimeSeconds, raceDate, courseClass, bib);
 	}
