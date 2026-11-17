@@ -323,6 +323,11 @@ case $cmd in
 		note() { echo "$*" >>"$FIXMD"; say "$*"; }
 		[ -f "$FIXMD" ] || printf '# %s 점심 E2E 실패 기록\n\n' "$name" >"$FIXMD"
 
+		# prepare를 건너뛰었어도 자동 수정을 쓸 수 있게 Claude Code 로그인을 여기서도 확인한다
+		if [ ! -f "$STATE/claude-ok" ] && command -v claude >/dev/null && with_timeout 90 claude -p "ok" >/dev/null 2>&1; then
+			touch "$STATE/claude-ok"
+		fi
+		[ -f "$STATE/claude-ok" ] || say "주의: Claude Code 설치와 로그인이 필요해요. 이번에는 자동 수정 없이 테스트만 돌려요"
 		say "auto 시작: $name, 마감 $(date -r "$deadline" '+%H:%M' 2>/dev/null || date -d "@$deadline" '+%H:%M')"
 		if ! "$0" pretest "$name"; then
 			note "- $(date '+%H:%M') 프리테스트 실패. 위 로그의 원인 줄을 확인해 주세요. 한 번 더 시도해요"
