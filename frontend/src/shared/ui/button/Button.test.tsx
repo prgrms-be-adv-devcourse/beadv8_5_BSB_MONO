@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import { Button, buttonClassName, type ButtonSize, type ButtonVariant } from './Button'
 
-const VARIANTS: ButtonVariant[] = ['primary', 'secondary', 'ghost', 'text', 'danger', 'accent']
+const VARIANTS: ButtonVariant[] = ['primary', 'secondary', 'ghost', 'text', 'danger']
 const SIZES: ButtonSize[] = ['s', 'm', 'l']
 
 describe('buttonClassName', () => {

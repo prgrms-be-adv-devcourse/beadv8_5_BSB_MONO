@@ -67,7 +67,7 @@ export const Orders: Story = {
                   order.status === '결제 완료'
                     ? 'success'
                     : order.status === '결제 대기'
-                      ? 'info'
+                      ? 'neutral'
                       : 'neutral'
                 }
               >
