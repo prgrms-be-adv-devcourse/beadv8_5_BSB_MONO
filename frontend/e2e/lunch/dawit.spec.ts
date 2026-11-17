@@ -26,19 +26,26 @@ import {
 } from './support'
 
 // 크루 예매 대회(파티 시나리오)와 키트 대회(96·81)를 한 번에 만들어 판매 상태 배치(5분 주기)를 한 번만 기다린다.
-// 크루 정원은 등록 값(20)에서 100으로 늘려 신청하는 파티 여럿(65·71·72·53·73)이 함께 쓴다
-let testRaces: Promise<{ crew: Course; kit: Course }> | undefined
+// 크루 정원은 등록 값(20)에서 100으로 늘려 신청하는 파티 여럿(65·71·72·53·73)이 함께 쓴다.
+// 정원·접수 마감을 바꾸는 시나리오(마지막 자리·30)는 더미 대회를 건드리지 않게 따로 만든 대회(limited)를 쓴다
+let testRaces: Promise<{ crew: Course; kit: Course; limited: Course }> | undefined
 function races() {
   testRaces ??= (async () => {
     const seller = await apiLogin(USERS.seller)
     const stamp = Date.now() % 100_000
     const crew = await registerRace(seller, `E2E 파티 ${stamp}`, { crew: true })
     const kit = await registerRace(seller, `E2E 키트 ${stamp}`, { kit: true })
+    const limited = await registerRace(seller, `E2E 제한 ${stamp}`)
     sql(`update race_course set crew_quota = 100 where race_id = ${crew.raceId}`)
     pullSaleToNow(crew.raceId, { crew: true })
     pullSaleToNow(kit.raceId)
-    await Promise.all([waitStatus(crew.raceId, 'ON_SALE'), waitStatus(kit.raceId, 'ON_SALE')])
-    return { crew, kit }
+    pullSaleToNow(limited.raceId)
+    await Promise.all([
+      waitStatus(crew.raceId, 'ON_SALE'),
+      waitStatus(kit.raceId, 'ON_SALE'),
+      waitStatus(limited.raceId, 'ON_SALE'),
+    ])
+    return { crew, kit, limited }
   })()
   return testRaces
 }
@@ -740,6 +747,225 @@ test.describe('다윗', { tag: '@dawit' }, () => {
     await expect(page).toHaveURL(/\/login\?next=/, { timeout: 20_000 })
     await fillLogin(page, buyer)
     await expect(page).toHaveURL(new RegExp(`/races/${course.raceId}/apply`), { timeout: 30_000 })
+  })
+
+  test('26 참가자 정보와 키트 옵션 수정', async ({ page }) => {
+    test.setTimeout(10 * 60_000)
+    const { kit: course } = await races()
+    const buyer = freshBuyer('26')
+    const api = await apiLogin(buyer)
+    const { orderId, participationId } = await createOrder(api, course)
+    const optionId = sqlOne(
+      `select kit_option_id from product_kit_option where race_id = ${course.raceId} and value = '230-250'`,
+    )
+    const pay = await api.call('POST', `/api/v1/order/orders/${orderId}/payment`, {
+      kitOptionIds: [Number(optionId)],
+    })
+    expect(pay.status, JSON.stringify(pay.raw)).toBe(200)
+    const itemId = sqlOne(`select id from order_order_item where order_id = ${orderId}`)
+
+    // 결제 뒤에도 참가자 정보(비상 연락처)는 화면에서 고칠 수 있다
+    await uiLogin(page, buyer)
+    await page.route(/postcode\.v2\.js/, (route) => route.abort())
+    // 수정 화면은 저장 뒤 뒤로 가므로 상세에서 「고치기」로 들어간다
+    await page.goto(`/tickets/${orderId}-${itemId}`)
+    await page.getByRole('link', { name: '고치기' }).click()
+    await expect(page).toHaveURL(/\/edit$/, { timeout: 20_000 })
+    await page.getByRole('textbox', { name: '이름', exact: true }).fill('새보호자')
+    await page.getByRole('button', { name: '저장하기' }).click()
+    await expect(page).toHaveURL(new RegExp(`/tickets/${orderId}-${itemId}$`), {
+      timeout: 20_000,
+    })
+    expect(
+      sqlOne(
+        `select emergency_contact_name from order_participation where id = ${participationId}`,
+      ),
+    ).toBe('새보호자')
+
+    // 키트 옵션 바꾸기 API는 없어졌고(#573), 참가자 정보를 다시 저장해도 고른 옵션은 그대로다.
+    // 티셔츠 사이즈 잠금은 사이즈 옵션이 있는 종목에서만 보인다. registerRace가 사이즈 옵션을 넣지 않아 여기서는 보지 않는다
+    const kitChange = await api.call(
+      'PUT',
+      `/api/v1/order/participations/${participationId}/kit-options`,
+      { kitOptionIds: [Number(optionId) + 1] },
+    )
+    expect(kitChange.status, JSON.stringify(kitChange.raw)).toBeGreaterThanOrEqual(400)
+    const again = await api.call(
+      'PUT',
+      `/api/v1/order/participations/${participationId}/participant`,
+      participant(`E2E${api.memberId}`),
+    )
+    expect(again.status, JSON.stringify(again.raw)).toBe(200)
+    expect(
+      sql(
+        `select option_value from order_participation_kit_option where participation_id = ${participationId}`,
+      ),
+    ).toEqual([['230-250']])
+  })
+
+  test('30 신청할 수 없는 대회', async () => {
+    test.setTimeout(10 * 60_000)
+    const { limited: course } = await races()
+    const buyer = freshBuyer('30')
+    const api = await apiLogin(buyer)
+    const apply = (birth = '1995-01-01') =>
+      api.call('POST', '/api/v1/order/participations', {
+        raceCourseId: course.courseId,
+        thirdPartyConsent: true,
+        participant: { ...participant(`E2E${api.memberId}`), birth },
+      })
+    const code = (r: { raw: unknown }) => (r.raw as { code?: string }).code
+
+    // 나이 제한(만 14세 이상) 밖
+    const young = await apply('2020-01-01')
+    expect(young.status, JSON.stringify(young.raw)).toBe(400)
+    expect(code(young)).toBe('ORDER_AGE_RESTRICTED')
+
+    // 접수 마감 뒤
+    const closeAt = sqlOne(`select application_close_at from race where race_id = ${course.raceId}`)
+    try {
+      sql(
+        `update race set application_close_at = now() - interval 1 minute where race_id = ${course.raceId}`,
+      )
+      const closed = await apply()
+      expect(closed.status, JSON.stringify(closed.raw)).toBe(409)
+      expect(code(closed)).toBe('ORDER_APPLICATION_CLOSED')
+    } finally {
+      sql(`update race set application_close_at = '${closeAt}' where race_id = ${course.raceId}`)
+    }
+
+    // 매진: 남은 자리를 0으로 만들면 신청은 되지만 주문(자리 확보)에서 막히고 돈은 그대로다
+    sql(
+      `update race_course set individual_quota = individual_reserved + individual_sold where race_course_id = ${course.courseId}`,
+    )
+    const before = balanceOf(buyer)
+    const ok = await apply()
+    expect(ok.status, JSON.stringify(ok.raw)).toBe(201)
+    await api.call(
+      'GET',
+      `/api/v1/order/queue/admission?raceId=${course.raceId}&raceCourseId=${course.courseId}`,
+    )
+    const order = await api.call(
+      'POST',
+      '/api/v1/order/orders',
+      { participationId: (ok.data as { id: number }).id },
+      { 'Idempotency-Key': crypto.randomUUID() },
+    )
+    expect(order.status, JSON.stringify(order.raw)).toBe(409)
+    expect(code(order)).toBe('ORDER_SOLD_OUT')
+    expect(balanceOf(buyer)).toBe(before)
+  })
+
+  test('33 내 참가권 불러오기', async ({ page }) => {
+    const course = await onSaleCourse(DUMMY_RACES[0])
+    const buyer = freshBuyer('33')
+    const api = await apiLogin(buyer)
+    const { orderId, itemId } = await buyTicket(api, course)
+    const [orderNo, total] = sql(
+      `select order_no, total_amount from order_order where id = ${orderId}`,
+    )[0]
+
+    await uiLogin(page, buyer)
+    await page.goto('/tickets')
+    await page.getByText(course.title).first().click()
+    await expect(page).toHaveURL(new RegExp(`/tickets/${orderId}-${itemId}$`), {
+      timeout: 20_000,
+    })
+    // 상세의 주문번호·참가자·결제액이 결제한 주문과 같다
+    await expect(page.getByText(`주문번호 ${orderNo}`)).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByText(`E2E${api.memberId}`).first()).toBeVisible()
+    await expect(page.getByText(`${Number(total).toLocaleString('ko-KR')}원`).first()).toBeVisible()
+  })
+
+  // 판매자 주문·참가자 화면(seller/sales)은 「참가자 목록은 준비 중이에요」만 보여 주고 주문 상세 창이 아직 없다
+  test.fixme('82 판매자 주문 상세 창', async () => {})
+
+  test('결제 두 번 눌러도 예치금은 한 번만 빠짐', async () => {
+    const course = await onSaleCourse(DUMMY_RACES[1])
+    const buyer = freshBuyer('41')
+    const api = await apiLogin(buyer)
+    const before = balanceOf(buyer)
+    const { orderId } = await createOrder(api, course)
+    const total = Number(sqlOne(`select total_amount from order_order where id = ${orderId}`))
+
+    const pays = await Promise.all(
+      [1, 2].map(() => api.call('POST', `/api/v1/order/orders/${orderId}/payment`)),
+    )
+    const statuses = pays.map((p) => p.status)
+    expect(
+      statuses.some((s) => s === 200 || s === 202),
+      JSON.stringify(statuses),
+    ).toBe(true)
+    await expect
+      .poll(() => sqlOne(`select status from order_order where id = ${orderId}`), {
+        timeout: 30_000,
+      })
+      .toBe('PAID')
+    // 결제 재확인이 끝난 뒤에도 한 번만 빠져 있어야 한다
+    await new Promise((r) => setTimeout(r, 3_000))
+    expect(balanceOf(buyer)).toBe(before - total)
+  })
+
+  test('마지막 자리 동시 결제', async () => {
+    test.setTimeout(10 * 60_000)
+    const { limited: course } = await races()
+    sql(
+      `update race_course set individual_quota = individual_reserved + individual_sold + 1 where race_course_id = ${course.courseId}`,
+    )
+    const buyers = ['421', '422'].map(freshBuyer)
+    const before = buyers.map(balanceOf)
+    const apis = await Promise.all(buyers.map((b) => apiLogin(b)))
+    const results = await Promise.allSettled(apis.map((a) => buyTicket(a, course)))
+
+    // 한 명만 자리를 얻고, 판매 수가 정원을 넘지 않으며, 진 사람의 돈은 그대로다
+    expect(
+      results.filter((r) => r.status === 'fulfilled').length,
+      JSON.stringify(results.map((r) => (r.status === 'rejected' ? String(r.reason) : 'ok'))),
+    ).toBe(1)
+    const [quota, sold, reserved] = sql(
+      `select individual_quota, individual_sold, individual_reserved from race_course where race_course_id = ${course.courseId}`,
+    )[0].map(Number)
+    expect(sold + reserved).toBeLessThanOrEqual(quota)
+    const loser = results.findIndex((r) => r.status === 'rejected')
+    expect(balanceOf(buyers[loser])).toBe(before[loser])
+  })
+
+  test('결제 기한 지난 주문 결제', async () => {
+    const course = await onSaleCourse(DUMMY_RACES[2])
+    const buyer = freshBuyer('43')
+    const api = await apiLogin(buyer)
+    const before = balanceOf(buyer)
+    const { orderId, participationId } = await createOrder(api, course)
+    sql(`update order_order set payment_due_at = now() - interval 1 minute where id = ${orderId};
+      update order_participation set payment_due_at = now() - interval 1 minute where id = ${participationId}`)
+
+    const pay = await api.call('POST', `/api/v1/order/orders/${orderId}/payment`)
+    expect(pay.status, JSON.stringify(pay.raw)).toBe(409)
+    expect((pay.raw as { code?: string }).code).toBe('ORDER_PAYMENT_DEADLINE_PASSED')
+    expect(balanceOf(buyer)).toBe(before)
+  })
+
+  test('환불 기한 지난 취소', async () => {
+    // 정책 5장 환불 기준은 「(회의 후 채움)」이라 코드 기준으로 본다: 기한이 지나면 수수료를 떼고 돌려주지 않고 취소를 막는다
+    const course = await onSaleCourse(DUMMY_RACES[2])
+    const buyer = freshBuyer('44')
+    const api = await apiLogin(buyer)
+    const bought = await buyTicket(api, course)
+    const afterPay = balanceOf(buyer)
+    const deadline = sqlOne(`select refund_deadline from race where race_id = ${course.raceId}`)
+    try {
+      sql(`update race set refund_deadline = '${kstDate(-1)}' where race_id = ${course.raceId}`)
+      const late = await api.call(
+        'POST',
+        `/api/v1/order/orders/${bought.orderId}/items/${bought.itemId}/cancel`,
+      )
+      expect(late.status, JSON.stringify(late.raw)).toBe(409)
+      expect((late.raw as { code?: string }).code).toBe('ORDER_REFUND_PERIOD_PASSED')
+      expect(balanceOf(buyer)).toBe(afterPay)
+      expect(sqlOne(`select status from order_order_item where id = ${bought.itemId}`)).toBe('PAID')
+    } finally {
+      sql(`update race set refund_deadline = '${deadline}' where race_id = ${course.raceId}`)
+    }
   })
 
   test('81 판매자 발송 처리 → 29 구매자 배송 확인 → 34 수령 확인', async ({ page }) => {
