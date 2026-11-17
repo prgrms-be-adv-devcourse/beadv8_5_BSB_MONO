@@ -31,6 +31,8 @@ import com.bukang.payout.out.SoldEntryPort;
 import com.bukang.payout.out.SoldSummaryPort;
 import com.bukang.payout.support.StubRacePort;
 
+import jakarta.persistence.EntityManager;
+
 /**
  * 대사 대상 범위 (AC-67-8): 정산 생성과 대사를 11/9 · 11/10 두 번 돌린다. 실행 시작 시각만 바꾸고 시계는 고정하지 않는다
  * 대회 30(대회일 11/8)은 11/10 실행에서 ①(새로 대상이 된 대회, 대회일 11/9)에 들지 않는다
@@ -48,6 +50,9 @@ class PayoutReconcileTargetTest {
 
 	@Autowired
 	private PayoutRepository payoutRepository;
+
+	@Autowired
+	private EntityManager entityManager;
 
 	@Autowired
 	private PayoutItemRepository payoutItemRepository;
@@ -93,6 +98,9 @@ class PayoutReconcileTargetTest {
 
 		new PayoutCreateUseCase(payoutRepository, stepUseCase, soldEntryPort, sellerId -> true, racePort, noFirst,
 			failureUseCase).run(today, now);
+		// 운영에서는 정산 내역마다 트랜잭션이 끝나 다시 읽는다. 일괄 저장한 줄(BUK-252)은 비워야 보인다
+		entityManager.flush();
+		entityManager.clear();
 		new PayoutReconcileUseCase(payoutRepository, racePort, noFirst, soldEntryPort,
 			new PayoutReconcileStepUseCase(payoutRepository, payoutHoldUseCase,
 				new PayoutLedgerUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository),

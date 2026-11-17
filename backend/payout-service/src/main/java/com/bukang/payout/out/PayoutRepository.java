@@ -19,7 +19,15 @@ import com.bukang.payout.dto.PayoutStatusSummaryDto;
 
 import jakarta.persistence.LockModeType;
 
-public interface PayoutRepository extends JpaRepository<Payout, Long> {
+public interface PayoutRepository extends JpaRepository<Payout, Long>, PayoutItemBatchInsert {
+	// 최종 대사: 정산 내역들의 판매 줄을 엔티티가 아닌 값으로 읽는다 (BUK-252). 같은 참가권의 판매 줄은 유일 제약으로 하나다
+	@Query("""
+		select new com.bukang.payout.out.SaleLine(i.orderItemId, i.amount, i.raceCourseId, i.payout.id)
+		from PayoutItem i
+		where i.payout in :payouts and i.recordType = com.bukang.payout.domain.PayoutRecordType.판매
+		""")
+	List<SaleLine> findSaleLines(Collection<Payout> payouts);
+
 	// 최종 정산 생성: 이미 만든 정산 내역인지 확인한다. 유일 조건 (seller_id, race_id, payout_month, payout_stage)과 같은 키다
 	boolean existsBySellerIdAndRaceIdAndPayoutMonthAndPayoutStage(long sellerId, long raceId, String payoutMonth,
 		PayoutStage payoutStage);

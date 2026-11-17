@@ -2,11 +2,13 @@ package com.bukang.payout.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
+import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -151,5 +153,36 @@ class PayoutTest {
 		assertThat(last.getFeeAmount()).isEqualTo(18_330L);
 		assertThat(last.getAdvanceDeductionAmount()).isEqualTo(133_330L);
 		assertThat(last.getPayoutAmount()).isEqualTo(181_670L);
+	}
+
+	@Test
+	@DisplayName("일괄 저장용 참가권 줄은 addItem과 같은 금액을 더하지만 items에 붙이지 않는다 (BUK-252)")
+	void itemLinesForBatchInsertKeepAmountsWithoutItems() {
+		Payout viaItems = newPayout();
+		Payout viaBatch = newPayout();
+
+		viaItems.addItem(100, 10L, 10_010L, FEE_RATE, TARGET_DATE);
+		List<PayoutItem> lines = viaBatch.addItemForBatchInsert(100, 10L, 10_010L, FEE_RATE, TARGET_DATE);
+
+		assertThat(viaBatch.getItems()).isEmpty();
+		assertThat(lines)
+			.extracting(PayoutItem::getRecordType, PayoutItem::getOrderItemId, PayoutItem::getRaceCourseId,
+				PayoutItem::getAmount, PayoutItem::getPayout)
+			.containsExactly(
+				tuple(PayoutRecordType.판매, 100L, 10L, 10_010L, viaBatch),
+				tuple(PayoutRecordType.수수료, 100L, 10L, -550L, viaBatch));
+		assertThat(viaBatch)
+			.extracting(Payout::getSalesAmount, Payout::getFeeAmount, Payout::getPayoutAmount)
+			.containsExactly(viaItems.getSalesAmount(), viaItems.getFeeAmount(), viaItems.getPayoutAmount());
+		assertThat(viaBatch.getPayoutAmount()).isEqualTo(lines.stream().mapToLong(PayoutItem::getAmount).sum());
+	}
+
+	@Test
+	@DisplayName("1차 정산에는 일괄 저장용 참가권 줄을 만들지 않는다")
+	void itemLinesForBatchInsertRejectFirstStage() {
+		Payout first = firstPayout(LocalDate.of(2026, 9, 30));
+
+		assertThatThrownBy(() -> first.addItemForBatchInsert(100, 10L, 50_000L, FEE_RATE, TARGET_DATE))
+			.isInstanceOf(IllegalStateException.class);
 	}
 }

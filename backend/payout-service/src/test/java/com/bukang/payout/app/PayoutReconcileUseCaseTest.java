@@ -45,6 +45,8 @@ import com.bukang.payout.out.SoldSummary;
 import com.bukang.payout.out.SoldSummaryPort;
 import com.bukang.payout.support.StubRacePort;
 
+import jakarta.persistence.EntityManager;
+
 /**
  * 정산 대사 (BUK-67). 기준 실행은 11/10 03:00이고, 대상은 1차 = 환불 마감일 11/9, 최종 = 대회일 11/9인 대회다
  * 정산 내역은 이번 실행에서 만들어진 것처럼 정산 시각(settledAt)을 실행 시작 시각으로 둔다
@@ -68,6 +70,9 @@ class PayoutReconcileUseCaseTest {
 
 	@Autowired
 	private PayoutRepository payoutRepository;
+
+	@Autowired
+	private EntityManager entityManager;
 
 	@Autowired
 	private PayoutHoldRepository payoutHoldRepository;
@@ -215,6 +220,43 @@ class PayoutReconcileUseCaseTest {
 		useCase(List.of(), soldFiveOfSeller2()).run(TODAY, NOW);
 
 		assertThat(mismatches()).isEmpty();
+	}
+
+	@Test
+	@DisplayName("최종 대사는 정산 내역의 원장 줄을 엔티티로 읽지 않는다 (BUK-252, 줄 20만 개면 힙이 넘친다)")
+	void finalDoesNotLoadItems() {
+		Payout saved = saveFinal(2, LongStream.rangeClosed(101, 105).mapToObj(id -> entry(id, COURSE_A, 10_000))
+			.toArray(long[][]::new));
+		entityManager.flush();
+		entityManager.clear();
+
+		useCase(List.of(), soldFiveOfSeller2()).run(TODAY, NOW);
+
+		assertThat(mismatches()).isEmpty();
+		Payout payout = payoutRepository.findById(saved.getId()).orElseThrow();
+		assertThat(entityManager.getEntityManagerFactory().getPersistenceUnitUtil().isLoaded(payout, "items"))
+			.isFalse();
+	}
+
+	@Test
+	@DisplayName("빠진 참가권을 더해도 정산 내역의 원장 줄 목록을 읽지 않는다 (BUK-252, 줄은 추가만 쌓아 둔다)")
+	void finalMissingAddsWithoutLoadingItems() {
+		Payout saved = saveFinal(2, entry(101, COURSE_A, 10_000), entry(102, COURSE_A, 10_000),
+			entry(104, COURSE_A, 10_000), entry(105, COURSE_A, 10_000));
+		entityManager.flush();
+		entityManager.clear();
+
+		useCase(List.of(), soldFiveOfSeller2()).run(TODAY, NOW);
+
+		Payout payout = payoutRepository.findById(saved.getId()).orElseThrow();
+		assertThat(entityManager.getEntityManagerFactory().getPersistenceUnitUtil().isLoaded(payout, "items"))
+			.isFalse();
+		entityManager.flush();
+		assertThat(payoutItemRepository.findAll())
+			.filteredOn(item -> Long.valueOf(103).equals(item.getOrderItemId()))
+			.extracting(PayoutItem::getRecordType, PayoutItem::getAmount)
+			.containsExactlyInAnyOrder(tuple(PayoutRecordType.판매, 10_000L), tuple(PayoutRecordType.수수료, -550L));
+		assertThat(payout.getSalesAmount()).isEqualTo(50_000);
 	}
 
 	@Test

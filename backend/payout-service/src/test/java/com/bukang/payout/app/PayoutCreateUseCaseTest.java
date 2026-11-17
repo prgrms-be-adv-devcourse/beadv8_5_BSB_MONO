@@ -43,6 +43,8 @@ import com.bukang.payout.out.SoldSummaryPort;
 import com.bukang.payout.support.PayoutFixture;
 import com.bukang.payout.support.StubRacePort;
 
+import jakarta.persistence.EntityManager;
+
 @DataJpaTest
 @ActiveProfiles("test")
 class PayoutCreateUseCaseTest {
@@ -62,6 +64,9 @@ class PayoutCreateUseCaseTest {
 
 	@Autowired
 	private PayoutRepository payoutRepository;
+
+	@Autowired
+	private EntityManager entityManager;
 
 	@Autowired
 	private PayoutCreateFailureRepository payoutCreateFailureRepository;
@@ -160,6 +165,9 @@ class PayoutCreateUseCaseTest {
 		));
 
 		useCase.run(TARGET_DATE, NOW);
+		// 운영에서는 정산 내역마다 트랜잭션이 끝나 다시 읽는다. 일괄 저장한 줄(BUK-252)은 비워야 보인다
+		entityManager.flush();
+		entityManager.clear();
 
 		List<Payout> payouts = payoutRepository.findAll();
 		assertThat(payouts).hasSize(2);
@@ -243,6 +251,9 @@ class PayoutCreateUseCaseTest {
 
 		// 9/29 03:00 실행은 서버가 없어 돌지 않았다
 		useCase.run(LocalDate.of(2026, 9, 30), LocalDateTime.of(2026, 9, 30, 3, 0));
+		// 운영에서는 정산 내역마다 트랜잭션이 끝나 다시 읽는다. 일괄 저장한 줄(BUK-252)은 비워야 보인다
+		entityManager.flush();
+		entityManager.clear();
 
 		Payout payout = payoutOf(1);
 		assertThat(payout.getPayoutMonth()).isEqualTo("2026-09");
