@@ -27,6 +27,8 @@ public class JwtProvider {
 	private static final String TYPE_CLAIM = "type";
 	// 쿠키에 실려 매 재발급마다 오가므로 짧은 이름을 쓴다
 	private static final String FAMILY_ID_CLAIM = "fid";
+	// 읽기 전용(테스트 계정) 표시. 붙은 토큰만 값이 있고, 게이트웨이가 조회가 아닌 요청을 막는다
+	private static final String READ_ONLY_CLAIM = "ro";
 
 	private final SecretKey key;
 	private final JwtParser parser;
@@ -44,8 +46,15 @@ public class JwtProvider {
 	}
 
 	public String issueAccessToken(long memberId) {
+		return issueAccessToken(memberId, false);
+	}
+
+	/**
+	 * @param readOnly 테스트 계정처럼 조회만 허용할 토큰이면 true. 게이트웨이가 GET·HEAD가 아닌 요청을 막는다
+	 */
+	public String issueAccessToken(long memberId, boolean readOnly) {
 		return issue(memberId, TokenType.ACCESS, clock.instant().plus(accessTokenExpiration), null,
-			UUID.randomUUID().toString());
+			UUID.randomUUID().toString(), readOnly);
 	}
 
 	/**
@@ -56,13 +65,20 @@ public class JwtProvider {
 	 * @param expiresAt 만료 시각. 지금보다 뒤여야 한다
 	 */
 	public String issueRefreshToken(long memberId, String familyId, Instant expiresAt) {
+		return issueRefreshToken(memberId, familyId, expiresAt, false);
+	}
+
+	/**
+	 * @param readOnly 재발급할 때 새 토큰에 이어 줄 읽기 전용 표시
+	 */
+	public String issueRefreshToken(long memberId, String familyId, Instant expiresAt, boolean readOnly) {
 		if (familyId == null || familyId.isBlank()) {
 			throw new IllegalArgumentException("familyId는 비어 있을 수 없습니다");
 		}
 		if (!expiresAt.isAfter(clock.instant())) {
 			throw new IllegalArgumentException("만료 시각은 지금보다 뒤여야 합니다: " + expiresAt);
 		}
-		return issue(memberId, TokenType.REFRESH, expiresAt, familyId, UUID.randomUUID().toString());
+		return issue(memberId, TokenType.REFRESH, expiresAt, familyId, UUID.randomUUID().toString(), readOnly);
 	}
 
 	/**
@@ -70,13 +86,18 @@ public class JwtProvider {
 	 * Redis에는 토큰 원문 대신 jti와 만료 시각만 남기므로, 유예(GRACE) 때 지금 토큰을 이 메서드로 되살린다.
 	 */
 	public String reissueRefreshToken(long memberId, String familyId, String jti, Instant expiresAt) {
+		return reissueRefreshToken(memberId, familyId, jti, expiresAt, false);
+	}
+
+	public String reissueRefreshToken(long memberId, String familyId, String jti, Instant expiresAt,
+		boolean readOnly) {
 		if (familyId == null || familyId.isBlank() || jti == null || jti.isBlank()) {
 			throw new IllegalArgumentException("familyId와 jti는 비어 있을 수 없습니다");
 		}
 		if (!expiresAt.isAfter(clock.instant())) {
 			throw new IllegalArgumentException("만료 시각은 지금보다 뒤여야 합니다: " + expiresAt);
 		}
-		return issue(memberId, TokenType.REFRESH, expiresAt, familyId, jti);
+		return issue(memberId, TokenType.REFRESH, expiresAt, familyId, jti, readOnly);
 	}
 
 	/**
@@ -102,13 +123,15 @@ public class JwtProvider {
 		try {
 			long memberId = Long.parseLong(claims.getSubject());
 			return new JwtClaims(memberId, expectedType, claims.getExpiration().toInstant(),
-				claims.getId(), claims.get(FAMILY_ID_CLAIM, String.class));
+				claims.getId(), claims.get(FAMILY_ID_CLAIM, String.class),
+				Boolean.TRUE.equals(claims.get(READ_ONLY_CLAIM, Boolean.class)));
 		} catch (NumberFormatException e) {
 			throw new InvalidTokenException(InvalidTokenException.Reason.INVALID, "회원 ID가 올바르지 않습니다", e);
 		}
 	}
 
-	private String issue(long memberId, TokenType type, Instant expiresAt, String familyId, String jti) {
+	private String issue(long memberId, TokenType type, Instant expiresAt, String familyId, String jti,
+		boolean readOnly) {
 		JwtBuilder builder = Jwts.builder()
 			.id(jti)
 			.subject(String.valueOf(memberId))
@@ -117,6 +140,9 @@ public class JwtProvider {
 			.expiration(Date.from(expiresAt));
 		if (familyId != null) {
 			builder.claim(FAMILY_ID_CLAIM, familyId);
+		}
+		if (readOnly) {
+			builder.claim(READ_ONLY_CLAIM, true);
 		}
 		return builder.signWith(key).compact();
 	}

@@ -32,13 +32,18 @@ public class TokenIssueUseCase {
 	// 로그인마다 새 family를 만든다. 이후 재발급(회전)은 이 family를 이어받고, 다른 기기에서 다시 로그인하면 family가 바뀐다
 	// family는 로그인부터 최대 기간(30일)까지만 이어 갈 수 있어, 첫 토큰의 만료도 그 상한을 넘지 않는다
 	public AuthTokens issue(long memberId) {
+		return issue(memberId, false);
+	}
+
+	// readOnly: 데모 로그인(테스트 계정)이면 true. 토큰 두 개에 모두 붙여 재발급할 때도 이어지게 한다
+	public AuthTokens issue(long memberId, boolean readOnly) {
 		Instant now = clock.instant();
 		Instant familyExpiresAt = now.plus(refreshTokenProperties.maxLifetime());
 		Instant tokenExpiresAt = earlier(now.plus(jwtProperties.refreshTokenExpiration()), familyExpiresAt);
 		String familyId = UUID.randomUUID().toString();
 
-		String accessToken = jwtProvider.issueAccessToken(memberId);
-		String refreshToken = jwtProvider.issueRefreshToken(memberId, familyId, tokenExpiresAt);
+		String accessToken = jwtProvider.issueAccessToken(memberId, readOnly);
+		String refreshToken = jwtProvider.issueRefreshToken(memberId, familyId, tokenExpiresAt, readOnly);
 		// jti는 JwtProvider가 정하므로, Redis에 적으려고 방금 만든 토큰에서 다시 꺼낸다
 		String jti = jwtProvider.parse(refreshToken, TokenType.REFRESH).jti();
 

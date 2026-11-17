@@ -19,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 /**
  * 발표 시연용 데모 로그인. 설정(member.auth.demo-login.email)에 적힌 계정 하나만 비밀번호 없이 로그인시킨다
  * 토큰은 이메일 로그인과 같은 TokenIssueUseCase로 발급해 Refresh Token 회전·재사용 탐지를 그대로 받는다
+ * 토큰에는 읽기 전용 표시를 붙여, 게이트웨이가 조회가 아닌 요청을 막는다
  */
 @Service
 @RequiredArgsConstructor
@@ -43,6 +44,6 @@ public class DemoLoginUseCase {
 		}
 		Member member = memberRepository.findActiveByEmail(properties.email())
 			.orElseThrow(() -> new MemberNotFoundException("데모 로그인 계정이 없습니다."));
-		return new MemberLoginResult(member.toDto(), tokenIssueUseCase.issue(member.getId()));
+		return new MemberLoginResult(member.toDto(), tokenIssueUseCase.issue(member.getId(), true));
 	}
 }

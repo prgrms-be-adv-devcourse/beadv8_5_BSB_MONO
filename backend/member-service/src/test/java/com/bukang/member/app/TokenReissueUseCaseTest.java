@@ -3,6 +3,7 @@ package com.bukang.member.app;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
@@ -169,7 +170,7 @@ class TokenReissueUseCaseTest {
 	void rejectsGraceWhenExpiryPassesBeforeResigning() {
 		JwtProvider provider = org.mockito.Mockito.spy(jwtProvider);
 		org.mockito.Mockito.doThrow(new IllegalArgumentException("만료 시각은 지금보다 뒤여야 합니다"))
-			.when(provider).reissueRefreshToken(anyLong(), any(), any(), any());
+			.when(provider).reissueRefreshToken(anyLong(), any(), any(), any(), anyBoolean());
 		TokenReissueUseCase raceUseCase =
 			new TokenReissueUseCase(provider, JWT_PROPERTIES, REFRESH_PROPERTIES, repository, clock);
 		given(repository.rotate(eq(MEMBER_ID), any(Rotation.class)))
