@@ -14,6 +14,11 @@ const isId = (id: number | undefined): id is number => Number.isInteger(id) && (
 
 const statusOf = (error: unknown) => (error instanceof ApiError ? error.status : undefined)
 
+export const queueKeys = {
+  register: (raceId: number, raceCourseId: number) =>
+    ['queue-register', raceId, raceCourseId] as const,
+}
+
 /**
  * 대기열 줄서기 (POST /api/v1/queue → GET /api/v1/queue/races/{raceId}/racecourses/{raceCourseId}).
  * 화면에 들어오면 한 번 등록하고, 입장(canEnter)할 때까지 ADMISSION_POLL_MS마다 순번을 다시 묻는다.
@@ -31,7 +36,7 @@ export function useQueuePosition(raceId: number | undefined, raceCourseId: numbe
   const id = { raceId: raceId ?? 0, raceCourseId: raceCourseId ?? 0 }
 
   const register = useQuery({
-    queryKey: ['queue-register', id.raceId, id.raceCourseId],
+    queryKey: queueKeys.register(id.raceId, id.raceCourseId),
     queryFn: () => queueApi.register({ raceId: id.raceId, raceCourseId: id.raceCourseId }),
     select: unwrapData,
     enabled,
