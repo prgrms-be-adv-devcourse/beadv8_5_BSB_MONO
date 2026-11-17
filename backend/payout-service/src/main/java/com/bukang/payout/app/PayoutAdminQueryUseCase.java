@@ -91,8 +91,8 @@ public class PayoutAdminQueryUseCase {
 		return new PayoutHoldSummaryDto(
 			payoutHoldRepository.countByStatus(PayoutHoldStatus.지급보류),
 			payoutHoldRepository.sumHeldPayoutAmount(),
-			payoutHoldRepository.countByReleasedAtGreaterThanEqualAndReleasedAtLessThan(
-				monthStart, monthStart.plusMonths(1)));
+			payoutHoldRepository.countByStatusAndReleasedAtGreaterThanEqualAndReleasedAtLessThan(
+				PayoutHoldStatus.해제, monthStart, monthStart.plusMonths(1)));
 	}
 
 	// 정산 목록 (BUK-168): 지급 예정일 하루의 정산. 진행 중 보류는 페이지의 정산들을 모아 한 번에 읽는다

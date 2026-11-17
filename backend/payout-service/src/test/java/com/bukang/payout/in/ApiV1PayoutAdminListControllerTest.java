@@ -35,6 +35,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.bukang.payout.app.PayoutHoldUseCase;
+import com.bukang.payout.app.PayoutRaceCancelUseCase;
 import com.bukang.payout.domain.BusinessDayCalendar;
 import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutHoldReason;
@@ -72,6 +73,9 @@ class ApiV1PayoutAdminListControllerTest {
 
 	@Autowired
 	private PayoutHoldUseCase payoutHoldUseCase;
+
+	@Autowired
+	private PayoutRaceCancelUseCase payoutRaceCancelUseCase;
 
 	@MockitoBean
 	private MemberAdminPort memberAdminPort;
@@ -140,7 +144,7 @@ class ApiV1PayoutAdminListControllerTest {
 			.andDo(document("payout-admin-holds",
 				requestHeaders(MEMBER_ID_HEADER),
 				queryParameters(
-					parameterWithName("status").description("보류 상태 (지급보류, 해제). 없으면 전체").optional(),
+					parameterWithName("status").description("보류 상태 (지급보류, 해제, 취소). 없으면 전체").optional(),
 					parameterWithName("code").description("지급보류 ID(HD-) 또는 정산 ID(ST-). 주면 상태는 보지 않는다")
 						.optional(),
 					parameterWithName("page").description("페이지 번호 (0부터, 기본 0)").optional(),
@@ -160,7 +164,7 @@ class ApiV1PayoutAdminListControllerTest {
 					fieldWithPath("data.holds.content[].reasonType").description("보류 사유"),
 					fieldWithPath("data.holds.content[].reason").description("사유 상세").optional()
 						.type(JsonFieldType.STRING),
-					fieldWithPath("data.holds.content[].status").description("보류 상태 (지급보류, 해제)"),
+					fieldWithPath("data.holds.content[].status").description("보류 상태 (지급보류, 해제, 취소: 대회 취소로 정산과 함께 닫힘)"),
 					fieldWithPath("data.holds.content[].heldAt").description("보류 일시"),
 					fieldWithPath("data.holds.content[].releasedAt").description("해제 일시 (보류 중에는 null)").optional()
 						.type(JsonFieldType.STRING)
@@ -269,6 +273,27 @@ class ApiV1PayoutAdminListControllerTest {
 		mockMvc.perform(get("/api/v1/payout/admin/payouts").header("X-Member-Id", ADMIN_ID))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.payDate").value(expected.toString()));
+	}
+
+	@Test
+	@DisplayName("대회가 취소된 정산의 보류는 닫혀 카드 두 숫자와 정산 목록의 진행 중 보류에서 빠진다 (PR 569 리뷰)")
+	void canceledRaceHoldIsClosed() throws Exception {
+		Payout canceled = savePayout(4, 40, LocalDate.of(2026, 10, 17), 70_000);
+		payoutHoldUseCase.hold(canceled.getId(), PayoutHoldReason.정산_계좌_미등록, null, ADMIN_ID,
+			LocalDateTime.now(ZONE));
+		payoutRaceCancelUseCase.cancelRace(40, LocalDateTime.now(ZONE));
+
+		mockMvc.perform(get("/api/v1/payout/admin/holds").header("X-Member-Id", ADMIN_ID))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.summary.heldCount").value(2))
+			.andExpect(jsonPath("$.data.summary.heldAmount").value(heldPayout.getPayoutAmount()))
+			.andExpect(jsonPath("$.data.summary.releasedThisMonthCount").value(1))
+			.andExpect(jsonPath("$.data.holds.content[0].status").value("취소"));
+		mockMvc.perform(get("/api/v1/payout/admin/payouts").header("X-Member-Id", ADMIN_ID)
+				.param("payDate", "2026-11-20").param("status", "취소"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.payouts.content[0].payout.id").value(canceled.getId()))
+			.andExpect(jsonPath("$.data.payouts.content[0].holds").isEmpty());
 	}
 
 	@Test

@@ -40,7 +40,9 @@ public interface PayoutHoldRepository extends JpaRepository<PayoutHold, Long> {
 
 	long countByStatus(PayoutHoldStatus status);
 
-	long countByReleasedAtGreaterThanEqualAndReleasedAtLessThan(LocalDateTime start, LocalDateTime end);
+	// 취소로 닫힌 보류도 releasedAt을 채우므로 상태로 해제만 고른다
+	long countByStatusAndReleasedAtGreaterThanEqualAndReleasedAtLessThan(PayoutHoldStatus status, LocalDateTime start,
+		LocalDateTime end);
 
 	// 카드 「보류 금액」: 진행 중 보류가 걸린 정산의 지급액 합. 보류가 여럿 걸린 정산도 한 번만 더한다 (11/17 결정)
 	@Query("""
