@@ -10,10 +10,13 @@ import com.bukang.order.domain.OrderItem;
 import com.bukang.order.domain.OrderItemStatus;
 import com.bukang.order.domain.Participation;
 import com.bukang.order.domain.Shipment;
+import com.bukang.order.domain.ShipmentStatus;
 
 /**
  * 판매자 주문 상세 창 (CRU-39, 피그마 S03-4). 주문 상품(참가권 1장) 하나다
  * 배송지·연락처는 키트 배송 목록(SellerKitDto)과 같은 범위로 보여 준다. 키트가 없거나 결제 전이면 배송 칸이 모두 null이다
+ * 취소된 주문은 배송지가 null이다: 목록에서 빠지는 배송(보내기 전 취소, 취소 중)은 배송지·요청사항을 가린다(추천값(미확정))
+ * 보낸 뒤 취소된 참가권은 키트가 가고 있어 목록에 남으므로 배송지도 보여 준다
  * 대회 이름·대회일·환불 마감은 넣지 않는다. 화면이 상품 대회 상세 API로 붙인다
  */
 public record SellerOrderDetailDto(
@@ -57,13 +60,16 @@ public record SellerOrderDetailDto(
 	public static SellerOrderDetailDto of(Order order, OrderItem item, Participation participation,
 		Shipment shipment, List<KitOptionChoiceDto> kitOptions) {
 		boolean kit = shipment != null;
+		// 키트 배송 목록(ShipmentRepository.findSellerKits)에서 빠지는 조건과 같다
+		boolean showAddress = kit && shipment.getStatus() != ShipmentStatus.CANCELED
+			&& item.getStatus() != OrderItemStatus.CANCELING;
 		return new SellerOrderDetailDto(item.getId(), order.getId(), order.getOrderNo(), order.getCreateDate(),
 			order.getPaidAt(), item.getRaceId(), item.getRaceCourseId(), item.getItemName(), item.getStatus(),
 			participation.getParticipant().getName(), participation.getParticipant().getTshirtSize(), kitOptions,
 			participation.getPartyId(), item.getUnitPrice(), item.getQuantity(), item.getAmount(),
 			item.getCanceledAt(), item.getCanceledAmount(), item.getCancelReason(),
-			kit ? ShippingAddressDto.from(shipment.getShippingAddress()) : null,
-			kit ? shipment.getDeliveryMemo() : null,
+			showAddress ? ShippingAddressDto.from(shipment.getShippingAddress()) : null,
+			showAddress ? shipment.getDeliveryMemo() : null,
 			kit ? shipment.getStatus().getKitDeliveryStatus() : null,
 			kit ? shipment.getCarrier() : null,
 			kit ? shipment.getTrackingNumber() : null,

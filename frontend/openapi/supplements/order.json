@@ -2328,14 +2328,14 @@
               "type": "null"
             }
           ],
-          "description": "키트 배송지. 키트가 없으면 null"
+          "description": "키트 배송지. 키트가 없으면 null. 취소된 주문(보내기 전 취소, 취소 중)은 배송지가 null (보낸 뒤 취소된 참가권은 보임)"
         },
         "deliveryMemo": {
           "type": [
             "string",
             "null"
           ],
-          "description": "배송 요청사항"
+          "description": "배송 요청사항. 배송지와 같이 취소된 주문은 null"
         },
         "kitDeliveryStatus": {
           "type": [

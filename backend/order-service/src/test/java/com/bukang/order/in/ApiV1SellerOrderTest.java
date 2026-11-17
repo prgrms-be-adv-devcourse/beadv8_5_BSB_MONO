@@ -344,7 +344,7 @@ class ApiV1SellerOrderTest {
 	}
 
 	@Test
-	@DisplayName("주문 상세: 보내기 전에 취소된 키트 주문도 열리고 취소 시각·환불 금액·취소 이유가 보인다")
+	@DisplayName("주문 상세: 보내기 전에 취소된 키트 주문도 열리고 취소 시각·환불 금액·취소 이유가 보이며 배송지는 가린다")
 	void detailOfCanceledBeforeShipping() throws Exception {
 		setUpCourses();
 		long orderId = paidOrder(BUYER_ID, COURSE_ID);
@@ -362,7 +362,8 @@ class ApiV1SellerOrderTest {
 			.andExpect(jsonPath("$.data.cancelReason").value("BUYER_CANCELED"))
 			.andExpect(jsonPath("$.data.kitDeliveryStatus").value("PREPARING"))
 			.andExpect(jsonPath("$.data.kitTrackingNumber").doesNotExist())
-			.andExpect(jsonPath("$.data.shippingAddress.recipientName").value("김러너"));
+			.andExpect(jsonPath("$.data.shippingAddress").doesNotExist())
+			.andExpect(jsonPath("$.data.deliveryMemo").doesNotExist());
 	}
 
 	@Test

@@ -92,7 +92,8 @@ public class SellerOrderQueryUseCase {
 		if (!item.isSoldBy(sellerId)) {
 			throw new SellerAccessDeniedException("본인 대회의 주문만 볼 수 있습니다.");
 		}
-		Participation participation = participationRepository.findById(item.getParticipationId()).orElseThrow();
+		Participation participation = participationRepository.findById(item.getParticipationId())
+			.orElseThrow(() -> new OrderItemNotFoundException("주문에 없는 상품입니다."));
 		List<KitOptionChoiceDto> options = participationKitOptionRepository
 			.findChoicesByParticipationIds(List.of(participation.getId()))
 			.getOrDefault(participation.getId(), List.of());
