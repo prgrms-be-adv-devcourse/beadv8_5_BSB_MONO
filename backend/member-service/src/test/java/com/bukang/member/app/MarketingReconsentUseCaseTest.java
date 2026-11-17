@@ -32,7 +32,8 @@ import com.bukang.member.support.MemberFixture;
 /**
  * 마케팅에 동의한 지 2년 된 회원에게 재동의 알림을 요청한다 (CRU-22)
  * - 마지막 마케팅 기록이 "동의"이고 동의 시각이 2년 전인 회원만 대상이다
- * - 시각은 유스케이스에 직접 넣는다. 알림 ID는 동의 기록마다 고정이라 같은 기록에 두 번 보내도 받는 쪽이 하나만 저장한다
+ * - 2년마다(2·4·6년…) 다시 알린다. 동의 기록은 같은 값이면 새로 쌓이지 않아 처음 동의 시각이 기준이다
+ * - 시각은 유스케이스에 직접 넣는다. 알림 ID는 동의 기록·햇수마다 고정이라 며칠 겹쳐 보내도 받는 쪽이 하나만 저장한다
  */
 @SpringBootTest
 @ActiveProfiles("test")
@@ -82,9 +83,25 @@ class MarketingReconsentUseCaseTest {
 		assertThat(events).singleElement().satisfies(event -> {
 			assertThat(event.memberId()).isEqualTo(due.getId());
 			assertThat(event.kind()).isEqualTo(NotificationKind.MARKETING_RECONSENT);
-			assertThat(event.eventId()).isEqualTo("marketing-reconsent-" + dueAgreement.getId());
+			assertThat(event.eventId()).isEqualTo("marketing-reconsent-" + dueAgreement.getId() + "-2");
 		});
 		assertThat(never.getId()).isNotEqualTo(due.getId());
+	}
+
+	@Test
+	@DisplayName("2년마다 다시 알린다: 4년 된 동의는 대상이고, 3년 된 동의는 대상이 아니다")
+	void notifiesEveryTwoYears() {
+		Member fourYears = member();
+		TermsAgreement fourYearsAgreement = agree(fourYears, true, NOW.minusYears(4).minusHours(1));
+		Member threeYears = member();
+		agree(threeYears, true, NOW.minusYears(3));
+
+		assertThat(marketingReconsentUseCase.notifyDue(NOW)).isOne();
+		assertThat(applicationEvents.stream(NotificationRequestedEvent.class).toList())
+			.singleElement().satisfies(event -> {
+				assertThat(event.memberId()).isEqualTo(fourYears.getId());
+				assertThat(event.eventId()).isEqualTo("marketing-reconsent-" + fourYearsAgreement.getId() + "-4");
+			});
 	}
 
 	@Test
