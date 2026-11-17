@@ -24,7 +24,7 @@ on:
         required: false
         default: ''
       limit:
-        description: '첫 A에서 B-1 한계(약 11분, 판정 안 함)도 돈다 (1이면)'
+        description: '모든 회차에서 B-1 한계(약 11분, 판정 안 함)도 돈다 (1이면)'
         required: false
         default: '1'
       quick:
@@ -41,7 +41,7 @@ jobs:
   measure:
     if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'cash-load-test'
     runs-on: ubuntu-latest
-    # 한 바퀴 약 40분. A·B 번갈아 3번이면 약 4시간
+    # 한 바퀴 약 40분(B-1 한계 포함). A·B 번갈아 3번이면 약 4시간
     timeout-minutes: 350
     # 측정끼리 같은 머신 자원을 나눠 쓰지 않게 하나씩만 돈다 (주문 측정과는 다른 실행 머신이라 따로 둔다)
     concurrency:
@@ -92,7 +92,7 @@ jobs:
           for rep in $(seq 1 "$REPEAT"); do
             for label in $labels; do
               scenarios="$base"
-              if [ "$rep" = 1 ] && [ "$label" = a ] && [ "$LIMIT" = 1 ]; then scenarios="$base b1-limit"; fi
+              if [ "$LIMIT" = 1 ]; then scenarios="$base b1-limit"; fi
               # 한 바퀴가 실패해도 남은 반복은 돈다. 실패한 바퀴는 요약에 남긴다
               LABEL=$label REP=$rep SCENARIOS="$scenarios" backend/loadtest/scenario-b/container/run.sh \
                 || echo "$label rep$rep" >> "$OUT/failed-runs.txt"

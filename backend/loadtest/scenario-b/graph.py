@@ -3,6 +3,7 @@
 
 필요한 것: matplotlib (python3 -m venv .venv && .venv/bin/pip install matplotlib)
 실행(backend/에서):
+  python3 loadtest/scenario-b/graph.py b0 "2026-11-17 10:00:00" <출력 폴더>   # B-0 시작 시각
   python3 loadtest/scenario-b/graph.py b1 "2026-11-16 15:48:31" <출력 폴더>   # B-1 한계(도착 속도 올림) 시작 시각
   python3 loadtest/scenario-b/graph.py b1c "2026-11-17 10:00:00" <출력 폴더>  # B-1 동시 4·8개 시작 시각
   python3 loadtest/scenario-b/graph.py b2 "2026-11-16 17:29:45" <출력 폴더>   # B-2 시작 시각
@@ -39,9 +40,12 @@ PAY = APP + ',uri="/internal/v1/cash/payments/{orderId}"'
 PAYOUT = APP + ',uri="/internal/v1/cash/payouts/{payoutId}"'
 BANK = APP + ',uri="/fakebank/v1/transfers"'
 CHARGE = APP + ',uri="/api/v1/cash/charges/confirm"'
+REFUND = APP + ',uri="/internal/v1/cash/payments/{orderId}/refund"'
 ROW_LOCK_WAITS = f"rate(mysql_global_status_innodb_row_lock_waits[{W}])"
 DB_ACTIVE = f"hikaricp_connections_active{{{APP}}}"
 DB_PENDING = f"hikaricp_connections_pending{{{APP}}}"
+# 처리 중인 요청 수. 퍼센트 히스토그램을 켜서 _active_count가 아니라 _gcount로 나온다
+IN_FLIGHT = f"sum(http_server_requests_active_seconds_gcount{{{APP}}})"
 
 # 맥 기본 한글 글꼴, 리눅스(Actions)는 Noto CJK. 없으면 기본 글꼴로 그린다(한글이 네모로 보일 수 있음)
 for path in ["/System/Library/Fonts/AppleSDGothicNeo.ttc", "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"]:
@@ -103,6 +107,25 @@ def timeline(start_text, edges, labels, panels, title, name, out, log_panels=(),
     save(fig, out, name)
 
 
+def bank_avg_ms():
+    return (f"sum(rate(http_client_requests_seconds_sum{{{BANK}}}[{W}])) / "
+            f"sum(rate(http_client_requests_seconds_count{{{BANK}}}[{W}])) * 1000")
+
+
+def b0(start_text, out):
+    # b0-integrity.js: 같은 주문·정산·충전 동시 요청은 0~30초, 결제→환불·정산 섞기는 20~80초
+    timeline(start_text, [0, 20, 80], ["같은 요청 동시", "결제→환불 초당 30 + 정산 초당 10"], [
+        ("처리 (초당)", [(rate(PAY), "결제"), (rate(REFUND), "환불"), (rate(PAYOUT), "정산 지급")]),
+        ("서버 응답 p95 (ms)", [(quantile(PAY, 0.95), "결제"), (quantile(REFUND, 0.95), "환불"),
+                              (quantile(PAYOUT, 0.95), "정산 지급")]),
+        ("cash → 가짜 은행 호출 평균 (ms, 5초 넘으면 결과 모름)", [(bank_avg_ms(), "은행 호출")]),
+        ("처리 중인 요청 (개, 스레드 200개까지)", [(IN_FLIGHT, "처리 중")]),
+        ("DB 연결 (개)", [(DB_ACTIVE, "사용 중"), (DB_PENDING, "기다리는 요청")]),
+        ("예치금 CPU (제한 0.5개 중 쓴 비율)", [(f"process_cpu_usage{{{APP}}}", "CPU")]),
+        ("MySQL 행 락 대기 (초당)", [(ROW_LOCK_WAITS, "대기")]),
+    ], "B-0 같은 요청이 동시에 몰릴 때", "b0-integrity.png", out, from_zero=True)
+
+
 def b1(start_text, out):
     timeline(start_text, [0, 30, 150, 270, 390, 510, 630], ["워밍업", "초당 20", "50", "100", "200", "400"], [
         ("결제 처리 (초당)", [(rate(PAY), "처리")]),
@@ -126,24 +149,21 @@ def b1c(start_text, out):
 def b2(start_text, out):
     phase = int(os.environ.get("PHASE_SEC", 60))
     warmup = min(30, phase)
-    avg_ms = (f"sum(rate(http_client_requests_seconds_sum{{{BANK}}}[{W}])) / "
-              f"sum(rate(http_client_requests_seconds_count{{{BANK}}}[{W}])) * 1000")
     timeline(start_text, [0, warmup, warmup + phase, warmup + phase * 2, warmup + phase * 3],
              ["워밍업", "앞", "가운데 (정산 섞음)", "뒤"], [
                  ("처리 (초당)", [(rate(PAY), "결제"), (rate(PAYOUT), "정산 지급")]),
                  ("서버 응답 p95 (ms)", [(quantile(PAY, 0.95), "결제"), (quantile(PAYOUT, 0.95), "정산 지급")]),
-                 ("cash → 가짜 은행 호출 평균 (ms)", [(avg_ms, "은행 호출")]),
+                 ("cash → 가짜 은행 호출 평균 (ms)", [(bank_avg_ms(), "은행 호출")]),
                  ("MySQL 행 락 대기 (초당)", [(ROW_LOCK_WAITS, "대기")]),
              ], "B-2 결제 중 정산 지급 몰림: 가운데 구간만 정산 섞음", "b2-payment-with-payout.png", out, from_zero=True)
 
 
 def b5(start_text, out):
     duration = int(os.environ.get("DURATION_SEC", 600))
-    active = f"sum(http_server_requests_active_seconds_active_count{{{APP}}})"
     timeline(start_text, [0, duration], ["충전 승인 초당 48건 (가짜 PG 승인 1초)"], [
         ("충전 처리 (초당)", [(rate(CHARGE), "처리")]),
         ("서버 충전 응답 (ms)", [(quantile(CHARGE, 0.95), "p95"), (quantile(CHARGE, 0.99), "p99")]),
-        ("처리 중인 요청 (개, 스레드 200개까지)", [(active, "처리 중")]),
+        ("처리 중인 요청 (개, 스레드 200개까지)", [(IN_FLIGHT, "처리 중")]),
         ("DB 연결 (개)", [(DB_ACTIVE, "사용 중"), (DB_PENDING, "기다리는 요청")]),
     ], "B-5 접수가 열렸을 때 충전 승인", "b5-charge.png", out, from_zero=True)
 
@@ -212,7 +232,7 @@ def save(fig, out, name):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 4 or sys.argv[1] not in ("b1", "b1c", "b2", "b3", "b4", "b5"):
+    if len(sys.argv) != 4 or sys.argv[1] not in ("b0", "b1", "b1c", "b2", "b3", "b4", "b5"):
         print(__doc__)
         sys.exit(1)
     globals()[sys.argv[1]](sys.argv[2], sys.argv[3])

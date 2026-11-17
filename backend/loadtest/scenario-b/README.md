@@ -80,7 +80,7 @@ k6 run -e RUN=3 loadtest/scenario-b/b2-payment-with-payout.js && ./loadtest/scen
 ```bash
 # 확인용으로 짧게 (지금 코드를 LABEL=local로 빌드, 약 10분)
 QUICK=1 OUT=/tmp/cashload loadtest/scenario-b/container/run.sh
-# 전체 한 바퀴 (약 40분). B-1 한계는 넣을 때만 돈다
+# 전체 한 바퀴 (약 40분). B-1 한계는 넣을 때만 돈다 (워크플로는 모든 회차에 넣음)
 LABEL=local REP=1 OUT=/tmp/cashload SCENARIOS="warmup b0 b1 b2 b3 b4 b5 b5-limit b1-limit" loadtest/scenario-b/container/run.sh
 ```
 

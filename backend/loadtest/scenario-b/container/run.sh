@@ -6,7 +6,7 @@
 #   REP       : 반복 번호 (결과 폴더 이름). 기본 1
 #   OUT       : 결과를 모을 폴더. 결과는 $OUT/<LABEL>/rep<REP>/ 에 쌓인다
 #   SCENARIOS : 돌릴 시나리오 (공백 구분). 기본 "warmup b0 b1 b2 b3 b4 b5 b5-limit"
-#               B-1 한계(b1-limit, 약 11분)는 판정에 쓰지 않아 첫 A에서만 넣는다
+#               B-1 한계(b1-limit, 약 11분, 판정 안 함)는 넣을 때만 돈다 (워크플로는 모든 회차에 넣음)
 #   QUICK=1   : 확인용으로 시간을 줄인다 (단계 15초, B-4는 100명만, 한계 몰림 200명)
 #   PYTHON    : 그래프를 그릴 python (matplotlib 필요). 없으면 그래프만 건너뛴다
 # 필요한 것: docker(compose v2), curl, python3. k6는 컨테이너(grafana/k6)로 돈다
@@ -81,7 +81,9 @@ for s in $SCENARIOS; do
 			for n in $B4_SIZES; do
 				log "B-4 대상 ${n}명 (배치가 매분 0초에 돈다)"
 				"$SB/b4-notice.sh" "$n" > "$RUN_DIR/r-b4-$n-1.txt" 2>&1 || log "B-4 ${n}명 실패"
-			done ;;
+			done
+			# 배치가 매분 돌므로 대상이 남으면 뒤 시나리오와 겹친다 (기준선 측정에서 B-5·한계가 매분 1만 명 배치와 겹침)
+			"$SB/db.sh" < "$SB/sql/13-cleanup-notice.sql" > "$RUN_DIR/b4-cleanup.txt" ;;
 		b5)
 			"$SB/seed-charge.sh" > "$RUN_DIR/b5-seed.txt" 2>&1
 			k6 b5 b5-charge.js -e MODE=flow -e DURATION_SEC="$DURATION_SEC" ;;
@@ -97,6 +99,7 @@ log "그래프 (Prometheus가 떠 있는 동안)"
 # 돌리지 않은 시나리오(시작 시각 파일이 없음)는 건너뛴다
 graph() { [ -f "$RUN_DIR/$2.start" ] || return 0; "$PYTHON" "$SB/graph.py" "$1" "$(cat "$RUN_DIR/$2.start")" "$RUN_DIR" >/dev/null; }
 if "$PYTHON" -c 'import matplotlib' 2>/dev/null; then
+	graph b0 b0 || log "B-0 그래프 실패"
 	graph b1c b1 || log "B-1 그래프 실패"
 	graph b1 b1-limit || log "B-1 한계 그래프 실패"
 	graph b2 b2 || log "B-2 그래프 실패"
