@@ -83,6 +83,31 @@ include::{snippets}/payout-hold-release-not-found/http-response.adoc[]
 .이미 해제됨 (409)
 include::{snippets}/payout-hold-release-conflict/http-response.adoc[]
 
+[[payout-admin-lists]]
+== 지급보류 · 정산 목록 (관리자)
+
+[[payout-admin-holds]]
+=== 지급보류 목록
+
+카드 숫자(보류 중 건수, 보류 금액, 이번 달 해제 건수)와 지급보류 목록을 최근 보류부터 돌려준다.
+카드 숫자는 `status` · `code`와 상관없이 전체 기준이고, 보류 금액은 보류가 여럿 걸린 정산도 지급액을 한 번만 더한다.
+`code`에 `HD-`를 주면 그 보류를, `ST-`를 주면 그 정산에 걸린 보류를 모두 찾는다. 줄의 `id`로 위의 지급보류 풀기를 부른다.
+
+operation::payout-admin-holds[snippets='http-request,request-headers,query-parameters,http-response,response-fields']
+
+==== 실패 예시
+
+.관리자가 아님 (403)
+include::{snippets}/payout-admin-holds-forbidden/http-response.adoc[]
+
+[[payout-admin-payouts]]
+=== 지급일별 정산 목록
+
+지급 예정일 하루의 정산과 상태별 건수 · 지급액 합을 돌려준다. `payDate`를 빼면 오늘보다 뒤인 가장 가까운 20일(20일 당일이면 다음 달 20일)이고, 응답의 `payDate`에 담긴다.
+줄마다 진행 중인 지급보류가 붙고, 그 `id`로 지급보류 풀기를 부른다.
+
+operation::payout-admin-payouts[snippets='http-request,request-headers,query-parameters,http-response,response-fields']
+
 [[payout-admin-claims]]
 == 회수 관리 (관리자)
 

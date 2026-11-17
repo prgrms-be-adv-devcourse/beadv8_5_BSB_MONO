@@ -63,6 +63,7 @@ public class PayoutHold extends BaseIdAndTime {
 	private LocalDateTime releasedAt;
 
 	// 보류를 푼 회원 ID. 돈이 나가게 되는 처리라 누가 풀었는지 남긴다. 보류 중에는 NULL
+	// 상태가 취소면 정산 내역을 취소로 닫은 회원 ID다(대회 취소는 SYSTEM_MEMBER_ID). releasedAt도 같다
 	private Long releasedBy;
 
 	// 보류는 Payout을 통해서만 건다.
@@ -82,11 +83,18 @@ public class PayoutHold extends BaseIdAndTime {
 
 	// 해제는 Payout.release를 통해서만 한다. 정산 내역 상태와 지급 예정일을 함께 바꿔야 하기 때문이다
 	void markReleased(long releasedBy, LocalDateTime releasedAt) {
-		if (status == PayoutHoldStatus.해제) {
+		if (status != PayoutHoldStatus.지급보류) {
 			throw new PayoutHoldConflictException("이미 해제된 지급보류입니다.");
 		}
 		this.status = PayoutHoldStatus.해제;
 		this.releasedBy = releasedBy;
 		this.releasedAt = releasedAt;
+	}
+
+	// 정산 내역을 취소로 닫을 때 Payout이 부른다. 닫은 사람 · 시각은 해제 칸에 함께 남긴다
+	void markCanceled(long canceledBy, LocalDateTime canceledAt) {
+		this.status = PayoutHoldStatus.취소;
+		this.releasedBy = canceledBy;
+		this.releasedAt = canceledAt;
 	}
 }

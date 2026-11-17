@@ -112,7 +112,7 @@ class PayoutRaceCancelUseCaseTest {
 	}
 
 	@Test
-	@DisplayName("다른 사유로 보류 중인 정산 내역도 취소로 닫는다. 보류 기록은 그대로 두고 이력에 지급보류 → 취소가 남는다")
+	@DisplayName("다른 사유로 보류 중인 정산 내역도 취소로 닫는다. 보류 기록도 취소로 닫고 이력에 지급보류 → 취소가 남는다")
 	void cancelsHeldPayout() {
 		Payout payout = savePayout(RACE_ID, YearMonth.of(2026, 9), 50_000);
 		holdUseCase().hold(payout.getId(), PayoutHoldReason.정산_계좌_미등록, null, ADMIN_ID,
@@ -126,7 +126,7 @@ class PayoutRaceCancelUseCaseTest {
 			.extracting(PayoutStatusHistory::getToStatus)
 			.containsExactly(PayoutStatus.지급_예정, PayoutStatus.지급보류, PayoutStatus.취소);
 		assertThat(payoutHoldRepository.findAll()).singleElement()
-			.extracting(PayoutHold::getStatus).isEqualTo(PayoutHoldStatus.지급보류);
+			.extracting(PayoutHold::getStatus).isEqualTo(PayoutHoldStatus.취소);
 	}
 
 	@Test

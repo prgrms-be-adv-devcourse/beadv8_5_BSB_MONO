@@ -9,15 +9,20 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutBatchTrigger;
 import com.bukang.payout.domain.PayoutClaimStatus;
 import com.bukang.payout.domain.PayoutCreateFailureType;
 import com.bukang.payout.domain.PayoutHoldReason;
+import com.bukang.payout.domain.PayoutHoldStatus;
 import com.bukang.payout.domain.PayoutPayCheckResult;
 import com.bukang.payout.domain.PayoutQueryPeriod;
+import com.bukang.payout.domain.PayoutStatus;
 import com.bukang.payout.domain.PayoutTaxQuarter;
 import com.bukang.payout.domain.exception.PayoutBatchFutureDateException;
 import com.bukang.payout.dto.PayoutAdminClaimsDto;
+import com.bukang.payout.dto.PayoutAdminHoldsDto;
+import com.bukang.payout.dto.PayoutAdminPayoutsDto;
 import com.bukang.payout.dto.PayoutBatchRunDto;
 import com.bukang.payout.dto.PayoutClaimDto;
 import com.bukang.payout.dto.PayoutCreateFailuresDto;
@@ -85,6 +90,21 @@ public class PayoutAdminFacade {
 		PayoutCreateFailureType type, int page, int size) {
 		payoutAdminVerifyUseCase.verify(memberId);
 		return payoutAdminQueryUseCase.createFailures(from, to, type, page, size);
+	}
+
+	// 관리자 지급보류 관리 화면: 카드 숫자와 보류 목록 (BUK-168)
+	public PayoutAdminHoldsDto holds(long memberId, PayoutHoldStatus status, String code, int page, int size,
+		LocalDate today) {
+		payoutAdminVerifyUseCase.verify(memberId);
+		return payoutAdminQueryUseCase.holds(status, code, page, size, today);
+	}
+
+	// 관리자 정산 목록 (BUK-168). 지급일을 빼면 오늘보다 뒤인 가장 가까운 20일이다
+	public PayoutAdminPayoutsDto payouts(long memberId, LocalDate payDate, PayoutStatus status, int page, int size,
+		LocalDate today) {
+		payoutAdminVerifyUseCase.verify(memberId);
+		LocalDate date = payDate != null ? payDate : Payout.nextPayDayAfter(today);
+		return payoutAdminQueryUseCase.payouts(date, status, page, size);
 	}
 
 	// 정산 생성 배치를 다시 돌린다 (BUK-167). 스케줄과 같은 잠금을 써서 이미 돌고 있으면 409다
