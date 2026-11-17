@@ -237,7 +237,7 @@ class ApiV1AdminIdentityReviewTest {
 	private long joinWithoutCi(String name, LocalDate birthDate, String phone, String email) {
 		String token = identityStore.verify(name, birthDate, phone, null);
 		return memberFacade.join(new MemberJoinRequestDto(email, "password1234", "카카오" + phone.substring(9),
-			null, List.of(TermsType.SERVICE, TermsType.PRIVACY), token)).getId();
+			null, List.of(TermsType.SERVICE, TermsType.PRIVACY, TermsType.AGE_OVER_14), token)).getId();
 	}
 
 	private void setJoinedAt(long memberId, LocalDateTime joinedAt) {

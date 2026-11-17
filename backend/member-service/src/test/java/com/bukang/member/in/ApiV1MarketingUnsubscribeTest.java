@@ -82,7 +82,7 @@ class ApiV1MarketingUnsubscribeTest {
 
 	@BeforeEach
 	void setUp() {
-		List<TermsType> withMarketing = List.of(TermsType.SERVICE, TermsType.PRIVACY, TermsType.MARKETING);
+		List<TermsType> withMarketing = List.of(TermsType.SERVICE, TermsType.PRIVACY, TermsType.AGE_OVER_14, TermsType.MARKETING);
 		memberId = memberFacade.join(MemberFixture.joinRequest().agreedTerms(withMarketing).build(identityStore))
 			.getId();
 		otherMemberId = memberFacade.join(MemberFixture.joinRequest().agreedTerms(withMarketing).build(identityStore))

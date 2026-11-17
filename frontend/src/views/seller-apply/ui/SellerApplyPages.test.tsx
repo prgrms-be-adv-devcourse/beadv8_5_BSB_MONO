@@ -146,6 +146,7 @@ describe('SellerApplyPage 신청 보내기', () => {
       // 하이픈은 빼고 숫자만 보낸다
       accountNumber: '110123000678',
       accountHolderType: 'PERSONAL',
+      sellerTermsAgreed: true,
     })
     // 결과 화면이 다시 부르지 않고 쓰도록 응답을 내 신청 캐시에 넣는다
     expect(client.getQueryData(memberApi.getFindMineQueryKey())).toMatchObject({
@@ -177,6 +178,7 @@ describe('SellerApplyPage 신청 보내기', () => {
       bankCode: '004',
       accountNumber: '110123000678',
       accountHolderType: 'PERSONAL',
+      sellerTermsAgreed: true,
     })
   })
 
