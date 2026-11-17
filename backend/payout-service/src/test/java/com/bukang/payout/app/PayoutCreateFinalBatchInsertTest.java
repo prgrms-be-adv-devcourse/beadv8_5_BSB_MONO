@@ -27,6 +27,7 @@ import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutItem;
 import com.bukang.payout.domain.PayoutRecordType;
 import com.bukang.payout.out.PayoutHoldRepository;
+import com.bukang.payout.out.PayoutItemBatchInsert;
 import com.bukang.payout.out.PayoutItemRepository;
 import com.bukang.payout.out.PayoutRecoveryRepository;
 import com.bukang.payout.out.PayoutRepository;
@@ -110,6 +111,20 @@ class PayoutCreateFinalBatchInsertTest {
 			.isEqualTo(ENTRY_COUNT * (PRICE - FEE))
 			.isEqualTo(lines.stream().mapToLong(PayoutItem::getAmount).sum());
 		assertThat(payoutHoldRepository.count()).isOne();
+	}
+
+	@Test
+	@DisplayName("줄이 묶음 크기(1000줄)에 딱 맞아도 빠지거나 두 번 들어가는 줄이 없다")
+	void linesExactlyOneBatch() {
+		int entryCount = PayoutItemBatchInsert.BATCH_SIZE / 2;
+		createFinal(entries(1, entryCount));
+
+		Payout payout = payoutRepository.findAll().getFirst();
+		// 참가권 줄 1000개 + 선지급 차감 줄 1개(0원)
+		assertThat(payoutItemRepository.findAll())
+			.filteredOn(line -> line.getOrderItemId() != null)
+			.hasSize(PayoutItemBatchInsert.BATCH_SIZE);
+		assertThat(payout.getSalesAmount()).isEqualTo(entryCount * PRICE);
 	}
 
 	@Test

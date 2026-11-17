@@ -15,6 +15,7 @@ import com.bukang.payout.domain.PayoutCreateDate;
 import com.bukang.payout.domain.PayoutItem;
 import com.bukang.payout.domain.PayoutStage;
 import com.bukang.payout.domain.TwoStagePayoutCalculator;
+import com.bukang.payout.out.PayoutItemBatchInsert;
 import com.bukang.payout.out.PayoutRepository;
 import com.bukang.payout.out.SoldEntry;
 
@@ -86,16 +87,30 @@ public class PayoutCreateStepUseCase {
 		Payout payout = Payout.finalStage(source.sellerId(), source.raceId(), source.raceName(),
 			raceDate, now, businessDayCalendar);
 
-		// 참가권 줄은 items에 붙이지 않고 금액만 더한 뒤, 정산 내역을 저장해 ID를 받고 JDBC로 일괄 저장한다 (BUK-252)
-		List<PayoutItem> lines = new ArrayList<>(source.entries().size() * 2);
-		source.entries().forEach(entry ->
-			lines.addAll(payout.addItemForBatchInsert(entry.orderItemId(), entry.raceCourseId(), entry.price(),
-				TwoStagePayoutCalculator.FEE_RATE, createDate)));
-
+		// 줄이 정산 내역 ID를 가리켜야 하므로 먼저 저장한다. 금액은 0으로 들어가고, 아래에서 더한 금액은
+		// 같은 트랜잭션 안에서 UPDATE된다 (다음 조회 전 자동 flush나 커밋 때. @Version도 그때 오른다)
 		save(payout);
-		payoutRepository.insertItems(lines);
+		// 참가권 줄은 items에 붙이지 않고 금액만 더하며 JDBC로 일괄 저장한다 (BUK-252)
+		// 줄을 다 만든 뒤 한 번에 넘기면 10만 장에 40만 줄을 커밋까지 들고 있어, BATCH_SIZE만큼 모이면 쓰고 비운다
+		List<PayoutItem> lines = new ArrayList<>(PayoutItemBatchInsert.BATCH_SIZE);
+		for (SoldEntry entry : source.entries()) {
+			lines.addAll(payout.addItemForBatchInsert(entry.orderItemId(), entry.raceCourseId(), entry.price(),
+				TwoStagePayoutCalculator.FEE_RATE, createDate));
+			if (lines.size() >= PayoutItemBatchInsert.BATCH_SIZE) {
+				insertAndClear(lines);
+			}
+		}
+		insertAndClear(lines);
 		payoutLedgerUseCase.deductAdvanceAndSettle(payout, now);
 		payoutHoldUseCase.holdNew(payout, source.hasPayoutAccount(), now);
+	}
+
+	private void insertAndClear(List<PayoutItem> lines) {
+		if (lines.isEmpty()) {
+			return;
+		}
+		payoutRepository.insertItems(lines);
+		lines.clear();
 	}
 
 	// 정산 ID의 끝 4자리는 PK에서 만들므로 저장해서 ID를 받은 뒤에 붙인다
