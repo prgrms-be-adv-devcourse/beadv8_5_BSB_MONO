@@ -63,13 +63,7 @@ public class JwtProvider {
 	 *
 	 * @param familyId 로그인할 때 만들고 회전해도 그대로 이어받는 묶음 ID
 	 * @param expiresAt 만료 시각. 지금보다 뒤여야 한다
-	 */
-	public String issueRefreshToken(long memberId, String familyId, Instant expiresAt) {
-		return issueRefreshToken(memberId, familyId, expiresAt, false);
-	}
-
-	/**
-	 * @param readOnly 재발급할 때 새 토큰에 이어 줄 읽기 전용 표시
+	 * @param readOnly 읽기 전용 표시. 재발급할 때 이어 주도록 기본값 없이 늘 받는다
 	 */
 	public String issueRefreshToken(long memberId, String familyId, Instant expiresAt, boolean readOnly) {
 		if (familyId == null || familyId.isBlank()) {
@@ -85,10 +79,6 @@ public class JwtProvider {
 	 * 이미 발급한 Refresh Token을 같은 jti·familyId·만료 시각으로 다시 서명한다.
 	 * Redis에는 토큰 원문 대신 jti와 만료 시각만 남기므로, 유예(GRACE) 때 지금 토큰을 이 메서드로 되살린다.
 	 */
-	public String reissueRefreshToken(long memberId, String familyId, String jti, Instant expiresAt) {
-		return reissueRefreshToken(memberId, familyId, jti, expiresAt, false);
-	}
-
 	public String reissueRefreshToken(long memberId, String familyId, String jti, Instant expiresAt,
 		boolean readOnly) {
 		if (familyId == null || familyId.isBlank() || jti == null || jti.isBlank()) {

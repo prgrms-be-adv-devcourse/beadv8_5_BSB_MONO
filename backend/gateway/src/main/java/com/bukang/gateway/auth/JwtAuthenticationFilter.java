@@ -159,6 +159,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 	}
 
 	// 로그아웃한 토큰도 무효한 토큰처럼 로그인하지 않은 요청으로 본다
+	// 읽기 전용 토큰의 쓰기 요청도 로그인하지 않은 요청으로 넘겨, 회원 ID를 쓰는 공개 POST가 생겨도 쓰기를 할 수 없게 한다
 	private Mono<ServerHttpRequest> withMemberIdIfValid(ServerHttpRequest request, String token) {
 		if (token == null) {
 			return Mono.just(request);
@@ -167,6 +168,9 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 		try {
 			claims = jwtProvider.parse(token, TokenType.ACCESS);
 		} catch (InvalidTokenException e) {
+			return Mono.just(request);
+		}
+		if (claims.readOnly() && !isRead(request.getMethod())) {
 			return Mono.just(request);
 		}
 		return isRevoked(claims).map(revoked -> revoked
