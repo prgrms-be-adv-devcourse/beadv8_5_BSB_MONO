@@ -1,6 +1,7 @@
 package com.bukang.cash.out.charge;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -20,6 +21,8 @@ public interface WalletChargeRepository extends JpaRepository<WalletCharge, Long
 	long countByStatus(ChargeStatus status);
 
 	List<WalletCharge> findByWalletAndStatus(Wallet wallet, ChargeStatus status);
+
+	List<WalletCharge> findByWalletIdInAndStatus(Collection<Long> walletIds, ChargeStatus status);
 
 	List<WalletCharge> findByStatusAndModifyDateBefore(ChargeStatus status, LocalDateTime threshold);
 
