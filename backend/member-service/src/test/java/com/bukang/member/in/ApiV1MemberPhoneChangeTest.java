@@ -406,7 +406,8 @@ class ApiV1MemberPhoneChangeTest {
 		String token = identityStore.verify(name, birthDate, phone, ciHash);
 		MemberJoinRequestDto request = MemberFixture.joinRequest().build(identityStore);
 		return memberFacade.join(new MemberJoinRequestDto(request.getEmail(), request.getPassword(),
-			request.getNickname(), null, List.of(TermsType.SERVICE, TermsType.PRIVACY, TermsType.AGE_OVER_14), token)).getId();
+			request.getNickname(), null,
+			List.of(TermsType.SERVICE, TermsType.PRIVACY, TermsType.AGE_OVER_14), token)).getId();
 	}
 
 	// 본인인증 해시가 생기기 전(BUK-33)에 가입한 회원처럼 만든다

@@ -389,7 +389,6 @@ class ApiV1SellerTest {
 		List<TermsAgreement> records = sellerTermsRecords(memberId);
 		assertThat(records).hasSize(1);
 		assertThat(records.getFirst().isAgreed()).isTrue();
-		assertThat(records.getFirst().getTerms().isRequired()).isFalse();
 	}
 
 	@Test

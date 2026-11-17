@@ -170,7 +170,8 @@ class MemberOutboxAppendTest {
 	@Test
 	@DisplayName("중복 이메일로 가입에 실패하면 실패한 가입의 아웃박스 행은 남지 않는다")
 	void duplicateJoinLeavesNoRow() {
-		join("outbox-dup@crewrun.com", "먼저가입", "010-3000-0004", List.of(TermsType.SERVICE, TermsType.PRIVACY, TermsType.AGE_OVER_14));
+		join("outbox-dup@crewrun.com", "먼저가입", "010-3000-0004",
+			List.of(TermsType.SERVICE, TermsType.PRIVACY, TermsType.AGE_OVER_14));
 
 		assertThatThrownBy(() -> join("outbox-dup@crewrun.com", "중복가입", "010-3000-0005",
 			List.of(TermsType.SERVICE, TermsType.PRIVACY, TermsType.AGE_OVER_14)))

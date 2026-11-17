@@ -70,7 +70,7 @@ class MarketingReconsentUseCaseTest {
 	@DisplayName("동의한 지 2년 된 회원에게만 재동의 알림을 요청하고, 알림 ID는 동의 기록으로 고정된다")
 	void notifiesOnlyDueMembers() {
 		Member due = member();
-		TermsAgreement dueAgreement = agree(due, true, TWO_YEARS_AGO.plusHours(1));
+		TermsAgreement dueAgreement = agree(due, true, TWO_YEARS_AGO.minusHours(1));
 		Member notYet = member();
 		agree(notYet, true, NOW.minusYears(1));
 		Member never = member();
@@ -91,10 +91,10 @@ class MarketingReconsentUseCaseTest {
 	@DisplayName("마지막 기록이 거부이거나 탈퇴한 회원은 대상이 아니다")
 	void skipsWithdrawnConsentAndWithdrawnMember() {
 		Member turnedOff = member();
-		agree(turnedOff, true, TWO_YEARS_AGO.plusHours(1));
+		agree(turnedOff, true, TWO_YEARS_AGO.minusHours(1));
 		agree(turnedOff, false, NOW.minusMonths(1));
 		Member withdrawn = member();
-		agree(withdrawn, true, TWO_YEARS_AGO.plusHours(1));
+		agree(withdrawn, true, TWO_YEARS_AGO.minusHours(1));
 		withdrawn.withdraw(NOW.minusDays(1));
 		memberRepository.save(withdrawn);
 
