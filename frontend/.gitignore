@@ -50,3 +50,7 @@ next-env.d.ts
 /test-results/
 /playwright-report/
 /blob-report/
+
+# 점심 로컬 E2E (scripts/e2e-lunch.sh)
+/.e2e-lunch/
+/e2e-*.json
