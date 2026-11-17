@@ -2,9 +2,7 @@ package com.bukang.payout.out;
 
 import java.time.Duration;
 import java.time.LocalDate;
-import java.util.Comparator;
 import java.util.List;
-import java.util.stream.Stream;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,8 +17,9 @@ import com.bukang.payout.domain.exception.PayoutOrderLookupUnavailableException;
 
 /**
  * 주문 서비스의 정산용 판매 내역 내부 API를 HTTP로 부르는 어댑터 (PRO-62)
- * GET {주문 서비스}/internal/v1/order/sold-entries?raceId= → RsData.data의 코스 묶음을 풀어 SoldEntry 목록으로 바꾼다
- * 응답은 참가권마다 칸을 반복하지 않고 대회 · 코스로 묶어 줄였다 (BUK-244). 포트의 SoldEntry 모양은 그대로다
+ * GET {주문 서비스}/internal/v1/order/sold-entries?raceId= → RsData.data의 코스 묶음을 SoldCourses로 바꾼다
+ * 응답은 참가권마다 칸을 반복하지 않고 대회 · 코스로 묶어 줄였다 (BUK-244)
+ * 최종 정산 생성은 findSoldCourses로 묶음을 그대로 받아 참가권 목록으로 풀지 않는다
  *
  * 주문 서비스가 멈추거나 오류로 응답하면 예외를 던진다. 배치는 그 대회를 실패로 남기고,
  * 다음 실행이 되돌아보기(7일)로 따라잡는다 (PRO-61). 빈 목록으로 바꾸면 그 대회 정산을 조용히 건너뛴 것처럼 보이므로 삼키지 않는다
@@ -50,8 +49,14 @@ public class OrderSoldEntryAdapter implements SoldEntryPort {
 		this.restClient = restClient;
 	}
 
+	// 대사는 참가권 목록으로 비교하므로 묶음을 풀어 준다
 	@Override
 	public List<SoldEntry> findSoldEntries(long raceId) {
+		return findSoldCourses(raceId).toEntriesSortedById();
+	}
+
+	@Override
+	public SoldCourses findSoldCourses(long raceId) {
 		RsData<SoldEntriesResponse> body;
 		try {
 			body = restClient.get()
@@ -72,11 +77,13 @@ public class OrderSoldEntryAdapter implements SoldEntryPort {
 			throw new PayoutOrderLookupUnavailableException(raceId,
 				new IllegalStateException("주문 서비스의 판매 내역에 판매자나 대회일이 없습니다."));
 		}
-		// 묶기 전처럼 주문 상품 ID 순으로 돌려준다
-		return data.courses().stream()
-			.flatMap(course -> course.toSoldEntries(raceId, data.sellerId(), data.raceDate()))
-			.sorted(Comparator.comparingLong(SoldEntry::orderItemId))
-			.toList();
+		try {
+			return new SoldCourses(data.courses().stream()
+				.map(course -> course.toCourse(raceId, data.sellerId(), data.raceDate()))
+				.toList());
+		} catch (IllegalArgumentException exception) {
+			throw new PayoutOrderLookupUnavailableException(raceId, exception);
+		}
 	}
 
 	private static SimpleClientHttpRequestFactory requestFactory() {
@@ -93,12 +100,12 @@ public class OrderSoldEntryAdapter implements SoldEntryPort {
 
 	// blockingIds는 결제 완료가 아닌 판매(지금은 취소 중뿐)다. 있으면 그 판매자 × 대회의 최종 정산을 미룬다 (BUK-52)
 	private record CourseResponse(Long raceCourseId, long price, List<Long> paidIds, List<Long> blockingIds) {
-		Stream<SoldEntry> toSoldEntries(long raceId, long sellerId, LocalDate raceDate) {
-			return Stream.concat(
-				paidIds.stream().map(id ->
-					new SoldEntry(id, sellerId, raceId, raceCourseId, raceDate, price, SoldEntryStatus.결제_완료)),
-				blockingIds.stream().map(id ->
-					new SoldEntry(id, sellerId, raceId, raceCourseId, raceDate, price, SoldEntryStatus.취소_중)));
+		SoldCourses.Course toCourse(long raceId, long sellerId, LocalDate raceDate) {
+			if (paidIds == null) {
+				throw new IllegalArgumentException("코스의 결제 완료 ID가 없습니다. raceCourseId=" + raceCourseId);
+			}
+			return new SoldCourses.Course(new SoldCourses.Key(sellerId, raceId, raceDate, raceCourseId, price),
+				PaidIds.of(paidIds), blockingIds == null ? List.of() : blockingIds);
 		}
 	}
 }

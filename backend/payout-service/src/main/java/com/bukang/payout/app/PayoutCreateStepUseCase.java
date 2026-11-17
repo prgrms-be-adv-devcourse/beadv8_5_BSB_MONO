@@ -17,6 +17,7 @@ import com.bukang.payout.domain.PayoutStage;
 import com.bukang.payout.domain.TwoStagePayoutCalculator;
 import com.bukang.payout.out.PayoutItemBatchInsert;
 import com.bukang.payout.out.PayoutRepository;
+import com.bukang.payout.out.SoldCourses;
 import com.bukang.payout.out.SoldEntry;
 
 import lombok.RequiredArgsConstructor;
@@ -93,13 +94,13 @@ public class PayoutCreateStepUseCase {
 		// 참가권 줄은 items에 붙이지 않고 금액만 더하며 JDBC로 일괄 저장한다 (BUK-252)
 		// 줄을 다 만든 뒤 한 번에 넘기면 10만 장에 40만 줄을 커밋까지 들고 있어, BATCH_SIZE만큼 모이면 쓰고 비운다
 		List<PayoutItem> lines = new ArrayList<>(PayoutItemBatchInsert.BATCH_SIZE);
-		for (SoldEntry entry : source.entries()) {
+		source.entries().forEachEntry(entry -> {
 			lines.addAll(payout.addItemForBatchInsert(entry.orderItemId(), entry.raceCourseId(), entry.price(),
 				TwoStagePayoutCalculator.FEE_RATE, createDate));
 			if (lines.size() >= PayoutItemBatchInsert.BATCH_SIZE) {
 				insertAndClear(lines);
 			}
-		}
+		});
 		insertAndClear(lines);
 		payoutLedgerUseCase.deductAdvanceAndSettle(payout, now);
 		payoutHoldUseCase.holdNew(payout, source.hasPayoutAccount(), now);
@@ -135,6 +136,11 @@ public class PayoutCreateStepUseCase {
 	 * 최종 정산 내역 하나(판매자 × 대회)를 만들 재료: 참가권과, 저장에 필요한 다른 서비스의 값
 	 */
 	public record FinalPayoutSource(long sellerId, long raceId, String raceName, boolean hasPayoutAccount,
-		List<SoldEntry> entries) {
+		SoldCourses entries) {
+		// 참가권 목록으로 만드는 곳(테스트)용
+		public FinalPayoutSource(long sellerId, long raceId, String raceName, boolean hasPayoutAccount,
+			List<SoldEntry> entries) {
+			this(sellerId, raceId, raceName, hasPayoutAccount, SoldCourses.of(entries));
+		}
 	}
 }
