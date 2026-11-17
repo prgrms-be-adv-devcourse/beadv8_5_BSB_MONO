@@ -85,12 +85,9 @@ public class CashPayoutUseCase {
 		// 1차 정산은 수수료가 없다. 최종 정산도 상계로 대금만 0원이 되고 수수료는 남을 수 있다
 		boolean withFee = payoutStage == PayoutStage.FINAL && feeAmount > 0;
 
-		// 1.없는 판매자에게 송금하지 않도록 먼저 확인한다 (대금이 없으면 확인할 필요도 없다)
-		if (withSettlement) {
-			cashSupport.resolveSellerMemberId(sellerId);
-		}
-
-		// 2.지갑 잠금 (홀딩은 항상, 시스템은 수수료가 있을 때만, ID 작은 쪽부터)
+		// 1.지갑 잠금 (홀딩은 항상, 시스템은 수수료가 있을 때만, ID 작은 쪽부터)
+		// 잠금보다 먼저 일반 조회를 하지 않는다. MySQL은 트랜잭션의 첫 일반 조회 때 읽기 시점을 잡아서,
+		// 잠금을 기다린 뒤에도 앞 요청이 저장한 이동 기록이 안 보이고 같은 기록을 또 넣다가 유니크 키에 걸린다(500)
 		List<Long> holderIds = new ArrayList<>();
 		holderIds.add(holdingMemberId);
 		if (withFee) {
@@ -98,6 +95,11 @@ public class CashPayoutUseCase {
 		}
 		Map<Long, Wallet> wallets = cashSupport.lockWallets(holderIds.stream().mapToLong(Long::longValue).toArray());
 		Wallet holdingWallet = wallets.get(holdingMemberId);
+
+		// 2.없는 판매자에게 송금하지 않도록 확인한다 (대금이 없으면 확인할 필요도 없다)
+		if (withSettlement) {
+			cashSupport.resolveSellerMemberId(sellerId);
+		}
 
 		// 3.같은 payoutId로 이미 처리된 이동이 있으면, 지갑을 잠근 뒤(동시 요청 직렬화) 이번 요청과 값이 같은지 먼저 확인한다
 		Optional<PayoutTransfer> existingSettlement =
