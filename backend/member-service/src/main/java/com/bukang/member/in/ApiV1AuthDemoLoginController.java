@@ -28,9 +28,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 
 /**
- * 발표 시연용 데모 로그인. member.auth.demo-login.enabled가 true일 때만 빈을 만든다
+ * 테스트 계정 로그인. member.auth.demo-login.enabled가 true일 때만 빈을 만든다
  * 꺼져 있으면 이 주소가 아예 없어 GET·POST 모두 404가 되고, 프론트는 버튼을 숨긴다
- * 켜져 있는 동안에는 누구나 설정에 적힌 계정(관리자)으로 로그인할 수 있으므로 시연할 때만 켠다
+ * 켜져 있는 동안에는 누구나 설정에 적힌 계정(관리자 겸 판매자)으로 로그인해 쓰기까지 할 수 있다. 운영 설정에서만 켠다
  */
 @Tag(name = "Auth", description = "회원가입, 로그인, 토큰 재발급, 로그아웃 API")
 @RestController

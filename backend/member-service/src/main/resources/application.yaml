@@ -142,8 +142,8 @@ member:
     login-attempt:
       max-failures: 5
       block-duration: 10m
-    # 발표 시연용 데모 로그인 (DemoLoginProperties). 켜져 있는 동안은 누구나 아래 계정(관리자)으로 로그인하므로 시연할 때만 켠다
-    # 운영은 k8s/overlays/aws/app-config.yaml의 DEMO_LOGIN_ENABLED로 켜고 끈다
+    # 테스트 계정 로그인 (DemoLoginProperties). 켜져 있는 동안은 누구나 아래 계정(관리자 겸 판매자)으로 로그인해 쓰기까지 한다
+    # 기본은 꺼짐이다. 운영은 k8s/overlays/aws/app-config.yaml의 DEMO_LOGIN_ENABLED·DEMO_LOGIN_EMAIL로 켠다
     demo-login:
       enabled: ${DEMO_LOGIN_ENABLED:false}
       email: ${DEMO_LOGIN_EMAIL:admin@crewrun.com}

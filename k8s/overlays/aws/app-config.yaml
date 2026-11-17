@@ -29,8 +29,10 @@ data:
   # 포트원 본인인증 상점 아이디. 프론트 빌드 값(NEXT_PUBLIC_PORTONE_STORE_ID)과 같아 화면 코드에도 드러난다 (API 비밀 키는 secret.yaml)
   PORTONE_STORE_ID: "store-e71a8c6a-722e-4a25-b2e9-4dbe6f8084cd"
 
-  # 발표 시연용 데모 로그인(로그인 화면 「테스트 계정으로 로그인」). 켜져 있는 동안은 누구나 관리자 계정으로 로그인한다
-  # 시연 직전에 "true"로 바꿔 적용하고 회원 서비스를 다시 띄운다. 시연이 끝나면 "false"로 되돌린다
-  # 끄기만 하면 이미 로그인한 사람은 재발급으로 최대 30일 동안 계속 쓴다. 끈 뒤 Redis에서
-  # members:{데모 계정 회원 ID}:refreshToken 키를 지워 로그인을 끊는다 (Access Token은 남은 30분 안에 만료된다)
-  DEMO_LOGIN_ENABLED: "false"
+  # 테스트 계정 로그인(로그인 화면 「테스트 계정으로 로그인」). 면접관이 운영 사이트를 직접 써 볼 수 있게 배포 기간 내내 켠다
+  # 누구나 버튼 하나로 아래 계정에 로그인해 관리자·판매자·회원 기능을 모두 쓴다(쓰기 포함). 비밀번호 없이 들어오므로 이 계정의 데이터는 누구나 바꿀 수 있다
+  # admin@email.com은 운영에 이미 있는 관리자 겸 승인된 판매자(대회 10개)다. 다른 계정으로 바꾸면 그 계정도 관리자이면서 승인된 판매자여야 한다
+  # 한 사람이 버튼을 누르면 앞사람의 로그인 유지가 끊긴다(Refresh Token 기록이 회원당 하나). 끊긴 사람은 다시 누르면 된다
+  # 끌 때는 "false"로 바꿔 적용하고, Redis에서 members:{이 계정 회원 ID}:refreshToken 키를 지워 남은 로그인을 끊는다
+  DEMO_LOGIN_ENABLED: "true"
+  DEMO_LOGIN_EMAIL: "admin@email.com"
