@@ -1,0 +1,897 @@
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+
+     execution: local
+        script: loadtest/board/board.js
+ web dashboard: http://127.0.0.1:5665
+        output: csv (loadtest/results/2026-11-16-board-load.csv.gz)
+
+     scenarios: (100.00%) 9 scenarios, 1360 max VUs, 5m30s max duration (incl. graceful stop):
+              * category: 10.00 iterations/s for 5m0s (maxVUs: 20-100, exec: category, gracefulStop: 30s)
+              * comment: 5.00 iterations/s for 5m0s (maxVUs: 10-50, exec: comment, gracefulStop: 30s)
+              * comments: 30.00 iterations/s for 5m0s (maxVUs: 60-300, exec: comments, gracefulStop: 30s)
+              * detail: 30.00 iterations/s for 5m0s (maxVUs: 60-300, exec: detail, gracefulStop: 30s)
+              * latest: 40.00 iterations/s for 5m0s (maxVUs: 80-400, exec: latest, gracefulStop: 30s)
+              * like: 5.00 iterations/s for 5m0s (maxVUs: 10-50, exec: like, gracefulStop: 30s)
+              * popular: 10.00 iterations/s for 5m0s (maxVUs: 20-100, exec: popular, gracefulStop: 30s)
+              * post: 1.00 iterations/s for 5m0s (maxVUs: 2-10, exec: post, gracefulStop: 30s)
+              * search: 5.00 iterations/s for 5m0s (maxVUs: 10-50, exec: search, gracefulStop: 30s)
+
+
+running (0m01.0s), 0055/0272 VUs, 0 complete and 0 interrupted iterations
+category   [   0% ] 004/020 VUs  0m00.4s/5m0s  10.00 iters/s
+comment    [   0% ] 02/10 VUs    0m00.4s/5m0s  5.00 iters/s
+comments   [   0% ] 012/060 VUs  0m00.4s/5m0s  30.00 iters/s
+detail     [   0% ] 012/060 VUs  0m00.4s/5m0s  30.00 iters/s
+latest     [   0% ] 016/080 VUs  0m00.4s/5m0s  40.00 iters/s
+like       [   0% ] 02/10 VUs    0m00.4s/5m0s  5.00 iters/s
+popular    [   0% ] 004/020 VUs  0m00.4s/5m0s  10.00 iters/s
+post       [   0% ] 01/02 VUs    0m00.4s/5m0s  1.00 iters/s
+search     [   0% ] 02/10 VUs    0m00.4s/5m0s  5.00 iters/s
+
+running (0m02.0s), 0183/0272 VUs, 8 complete and 0 interrupted iterations
+category   [   0% ] 013/020 VUs  0m01.4s/5m0s  10.00 iters/s
+comment    [   0% ] 06/10 VUs    0m01.4s/5m0s  5.00 iters/s
+comments   [   0% ] 041/060 VUs  0m01.4s/5m0s  30.00 iters/s
+detail     [   0% ] 041/060 VUs  0m01.4s/5m0s  30.00 iters/s
+latest     [   0% ] 055/080 VUs  0m01.4s/5m0s  40.00 iters/s
+like       [   0% ] 07/10 VUs    0m01.4s/5m0s  5.00 iters/s
+popular    [   0% ] 013/020 VUs  0m01.4s/5m0s  10.00 iters/s
+post       [   0% ] 01/02 VUs    0m01.4s/5m0s  1.00 iters/s
+search     [   0% ] 06/10 VUs    0m01.4s/5m0s  5.00 iters/s
+
+running (0m03.0s), 0290/0296 VUs, 13 complete and 0 interrupted iterations
+category   [   1% ] 021/022 VUs  0m02.4s/5m0s  10.00 iters/s
+comment    [   1% ] 10/11 VUs    0m02.4s/5m0s  5.00 iters/s
+comments   [   1% ] 064/065 VUs  0m02.4s/5m0s  30.00 iters/s
+detail     [   1% ] 065/065 VUs  0m02.4s/5m0s  30.00 iters/s
+latest     [   1% ] 086/087 VUs  0m02.4s/5m0s  40.00 iters/s
+like       [   1% ] 11/11 VUs    0m02.4s/5m0s  5.00 iters/s
+popular    [   1% ] 021/022 VUs  0m02.4s/5m0s  10.00 iters/s
+post       [   1% ] 02/02 VUs    0m02.4s/5m0s  1.00 iters/s
+search     [   1% ] 10/11 VUs    0m02.4s/5m0s  5.00 iters/s
+
+running (0m04.0s), 0356/0363 VUs, 16 complete and 0 interrupted iterations
+category   [   1% ] 026/027 VUs  0m03.4s/5m0s  10.00 iters/s
+comment    [   1% ] 13/13 VUs    0m03.4s/5m0s  5.00 iters/s
+comments   [   1% ] 078/079 VUs  0m03.4s/5m0s  30.00 iters/s
+detail     [   1% ] 079/080 VUs  0m03.4s/5m0s  30.00 iters/s
+latest     [   1% ] 106/107 VUs  0m03.4s/5m0s  40.00 iters/s
+like       [   1% ] 13/14 VUs    0m03.4s/5m0s  5.00 iters/s
+popular    [   1% ] 026/027 VUs  0m03.4s/5m0s  10.00 iters/s
+post       [   1% ] 02/03 VUs    0m03.4s/5m0s  1.00 iters/s
+search     [   1% ] 13/13 VUs    0m03.4s/5m0s  5.00 iters/s
+
+running (0m05.0s), 0416/0423 VUs, 32 complete and 0 interrupted iterations
+category   [   1% ] 031/031 VUs  0m04.4s/5m0s  10.00 iters/s
+comment    [   1% ] 15/16 VUs    0m04.4s/5m0s  5.00 iters/s
+comments   [   1% ] 091/092 VUs  0m04.4s/5m0s  30.00 iters/s
+detail     [   1% ] 094/094 VUs  0m04.4s/5m0s  30.00 iters/s
+latest     [   1% ] 122/123 VUs  0m04.4s/5m0s  40.00 iters/s
+like       [   1% ] 16/16 VUs    0m04.4s/5m0s  5.00 iters/s
+popular    [   1% ] 030/032 VUs  0m04.4s/5m0s  10.00 iters/s
+post       [   1% ] 03/03 VUs    0m04.4s/5m0s  1.00 iters/s
+search     [   1% ] 14/16 VUs    0m04.4s/5m0s  5.00 iters/s
+
+running (0m06.0s), 0484/0490 VUs, 33 complete and 0 interrupted iterations
+category   [   2% ] 036/036 VUs  0m05.4s/5m0s  10.00 iters/s
+comment    [   2% ] 18/18 VUs    0m05.4s/5m0s  5.00 iters/s
+comments   [   2% ] 106/107 VUs  0m05.4s/5m0s  30.00 iters/s
+detail     [   2% ] 108/109 VUs  0m05.4s/5m0s  30.00 iters/s
+latest     [   2% ] 142/143 VUs  0m05.4s/5m0s  40.00 iters/s
+like       [   2% ] 18/19 VUs    0m05.4s/5m0s  5.00 iters/s
+popular    [   2% ] 036/036 VUs  0m05.4s/5m0s  10.00 iters/s
+post       [   2% ] 03/04 VUs    0m05.4s/5m0s  1.00 iters/s
+search     [   2% ] 17/18 VUs    0m05.4s/5m0s  5.00 iters/s
+
+running (0m07.0s), 0546/0552 VUs, 45 complete and 0 interrupted iterations
+category   [   2% ] 040/041 VUs  0m06.4s/5m0s  10.00 iters/s
+comment    [   2% ] 20/21 VUs    0m06.4s/5m0s  5.00 iters/s
+comments   [   2% ] 120/120 VUs  0m06.4s/5m0s  30.00 iters/s
+detail     [   2% ] 122/123 VUs  0m06.4s/5m0s  30.00 iters/s
+latest     [   2% ] 160/161 VUs  0m06.4s/5m0s  40.00 iters/s
+like       [   2% ] 20/21 VUs    0m06.4s/5m0s  5.00 iters/s
+popular    [   2% ] 041/041 VUs  0m06.4s/5m0s  10.00 iters/s
+post       [   2% ] 04/04 VUs    0m06.4s/5m0s  1.00 iters/s
+search     [   2% ] 19/20 VUs    0m06.4s/5m0s  5.00 iters/s
+
+running (0m08.0s), 0592/0599 VUs, 88 complete and 0 interrupted iterations
+category   [   2% ] 044/045 VUs  0m07.4s/5m0s  10.00 iters/s
+comment    [   2% ] 22/22 VUs    0m07.4s/5m0s  5.00 iters/s
+comments   [   2% ] 127/130 VUs  0m07.4s/5m0s  30.00 iters/s
+detail     [   2% ] 130/131 VUs  0m07.4s/5m0s  30.00 iters/s
+latest     [   2% ] 177/178 VUs  0m07.4s/5m0s  40.00 iters/s
+like       [   2% ] 23/23 VUs    0m07.4s/5m0s  5.00 iters/s
+popular    [   2% ] 044/044 VUs  0m07.4s/5m0s  10.00 iters/s
+post       [   2% ] 04/04 VUs    0m07.4s/5m0s  1.00 iters/s
+search     [   2% ] 21/22 VUs    0m07.4s/5m0s  5.00 iters/s
+
+running (0m09.0s), 0647/0654 VUs, 114 complete and 0 interrupted iterations
+category   [   3% ] 047/048 VUs  0m08.4s/5m0s  10.00 iters/s
+comment    [   3% ] 23/23 VUs    0m08.4s/5m0s  5.00 iters/s
+comments   [   3% ] 142/143 VUs  0m08.4s/5m0s  30.00 iters/s
+detail     [   3% ] 144/144 VUs  0m08.4s/5m0s  30.00 iters/s
+latest     [   3% ] 193/194 VUs  0m08.4s/5m0s  40.00 iters/s
+like       [   3% ] 25/26 VUs    0m08.4s/5m0s  5.00 iters/s
+popular    [   3% ] 047/048 VUs  0m08.4s/5m0s  10.00 iters/s
+post       [   3% ] 04/05 VUs    0m08.4s/5m0s  1.00 iters/s
+search     [   3% ] 22/23 VUs    0m08.4s/5m0s  5.00 iters/s
+
+running (0m10.0s), 0708/0712 VUs, 131 complete and 0 interrupted iterations
+category   [   3% ] 052/053 VUs  0m09.4s/5m0s  10.00 iters/s
+comment    [   3% ] 25/26 VUs    0m09.4s/5m0s  5.00 iters/s
+comments   [   3% ] 155/155 VUs  0m09.4s/5m0s  30.00 iters/s
+detail     [   3% ] 156/156 VUs  0m09.4s/5m0s  30.00 iters/s
+latest     [   3% ] 212/212 VUs  0m09.4s/5m0s  40.00 iters/s
+like       [   3% ] 27/28 VUs    0m09.4s/5m0s  5.00 iters/s
+popular    [   3% ] 051/052 VUs  0m09.4s/5m0s  10.00 iters/s
+post       [   3% ] 05/05 VUs    0m09.4s/5m0s  1.00 iters/s
+search     [   3% ] 25/25 VUs    0m09.4s/5m0s  5.00 iters/s
+time="2026-11-16T15:37:16+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/38\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:16+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/34/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:16+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/39\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:16+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:16+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/34/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:16+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/30/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:16+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:16+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?q=%EB%B6%80%ED%95%98&size=20\": unexpected EOF"
+
+running (0m11.0s), 0731/0764 VUs, 192 complete and 0 interrupted iterations
+category   [   3% ] 054/058 VUs  0m10.4s/5m0s  10.00 iters/s
+comment    [   3% ] 26/28 VUs    0m10.4s/5m0s  5.00 iters/s
+comments   [   3% ] 159/164 VUs  0m10.4s/5m0s  30.00 iters/s
+detail     [   3% ] 159/165 VUs  0m10.4s/5m0s  30.00 iters/s
+latest     [   3% ] 221/229 VUs  0m10.4s/5m0s  40.00 iters/s
+like       [   3% ] 29/30 VUs    0m10.4s/5m0s  5.00 iters/s
+popular    [   3% ] 052/057 VUs  0m10.4s/5m0s  10.00 iters/s
+post       [   3% ] 05/06 VUs    0m10.4s/5m0s  1.00 iters/s
+search     [   3% ] 26/27 VUs    0m10.4s/5m0s  5.00 iters/s
+
+running (0m12.0s), 0692/0767 VUs, 364 complete and 0 interrupted iterations
+category   [   4% ] 052/058 VUs  0m11.4s/5m0s  10.00 iters/s
+comment    [   4% ] 22/29 VUs    0m11.4s/5m0s  5.00 iters/s
+comments   [   4% ] 153/164 VUs  0m11.4s/5m0s  30.00 iters/s
+detail     [   4% ] 151/165 VUs  0m11.4s/5m0s  30.00 iters/s
+latest     [   4% ] 204/229 VUs  0m11.4s/5m0s  40.00 iters/s
+like       [   4% ] 32/32 VUs    0m11.4s/5m0s  5.00 iters/s
+popular    [   4% ] 047/057 VUs  0m11.4s/5m0s  10.00 iters/s
+post       [   4% ] 05/06 VUs    0m11.4s/5m0s  1.00 iters/s
+search     [   4% ] 26/27 VUs    0m11.4s/5m0s  5.00 iters/s
+
+running (0m13.0s), 0748/0774 VUs, 437 complete and 0 interrupted iterations
+category   [   4% ] 054/058 VUs  0m12.4s/5m0s  10.00 iters/s
+comment    [   4% ] 23/29 VUs    0m12.4s/5m0s  5.00 iters/s
+comments   [   4% ] 166/166 VUs  0m12.4s/5m0s  30.00 iters/s
+detail     [   4% ] 166/167 VUs  0m12.4s/5m0s  30.00 iters/s
+latest     [   4% ] 221/229 VUs  0m12.4s/5m0s  40.00 iters/s
+like       [   4% ] 34/34 VUs    0m12.4s/5m0s  5.00 iters/s
+popular    [   4% ] 053/057 VUs  0m12.4s/5m0s  10.00 iters/s
+post       [   4% ] 06/06 VUs    0m12.4s/5m0s  1.00 iters/s
+search     [   4% ] 25/28 VUs    0m12.4s/5m0s  5.00 iters/s
+
+running (0m14.0s), 0821/0827 VUs, 447 complete and 0 interrupted iterations
+category   [   4% ] 061/061 VUs  0m13.4s/5m0s  10.00 iters/s
+comment    [   4% ] 28/29 VUs    0m13.4s/5m0s  5.00 iters/s
+comments   [   4% ] 179/180 VUs  0m13.4s/5m0s  30.00 iters/s
+detail     [   4% ] 180/180 VUs  0m13.4s/5m0s  30.00 iters/s
+latest     [   4% ] 244/245 VUs  0m13.4s/5m0s  40.00 iters/s
+like       [   4% ] 35/36 VUs    0m13.4s/5m0s  5.00 iters/s
+popular    [   4% ] 059/060 VUs  0m13.4s/5m0s  10.00 iters/s
+post       [   4% ] 06/07 VUs    0m13.4s/5m0s  1.00 iters/s
+search     [   4% ] 29/29 VUs    0m13.4s/5m0s  5.00 iters/s
+
+running (0m15.0s), 0864/0880 VUs, 487 complete and 0 interrupted iterations
+category   [   5% ] 063/066 VUs  0m14.4s/5m0s  10.00 iters/s
+comment    [   5% ] 30/31 VUs    0m14.4s/5m0s  5.00 iters/s
+comments   [   5% ] 189/191 VUs  0m14.4s/5m0s  30.00 iters/s
+detail     [   5% ] 189/191 VUs  0m14.4s/5m0s  30.00 iters/s
+latest     [   5% ] 258/261 VUs  0m14.4s/5m0s  40.00 iters/s
+like       [   5% ] 37/38 VUs    0m14.4s/5m0s  5.00 iters/s
+popular    [   5% ] 061/063 VUs  0m14.4s/5m0s  10.00 iters/s
+post       [   5% ] 06/07 VUs    0m14.4s/5m0s  1.00 iters/s
+search     [   5% ] 31/32 VUs    0m14.4s/5m0s  5.00 iters/s
+
+running (0m16.0s), 0897/0918 VUs, 552 complete and 0 interrupted iterations
+category   [   5% ] 064/068 VUs  0m15.4s/5m0s  10.00 iters/s
+comment    [   5% ] 33/33 VUs    0m15.4s/5m0s  5.00 iters/s
+comments   [   5% ] 199/199 VUs  0m15.4s/5m0s  30.00 iters/s
+detail     [   5% ] 198/198 VUs  0m15.4s/5m0s  30.00 iters/s
+latest     [   5% ] 262/273 VUs  0m15.4s/5m0s  40.00 iters/s
+like       [   5% ] 39/40 VUs    0m15.4s/5m0s  5.00 iters/s
+popular    [   5% ] 064/066 VUs  0m15.4s/5m0s  10.00 iters/s
+post       [   5% ] 06/07 VUs    0m15.4s/5m0s  1.00 iters/s
+search     [   5% ] 32/34 VUs    0m15.4s/5m0s  5.00 iters/s
+
+running (0m17.0s), 0974/0977 VUs, 552 complete and 0 interrupted iterations
+category   [   5% ] 071/071 VUs  0m16.4s/5m0s  10.00 iters/s
+comment    [   5% ] 35/36 VUs    0m16.4s/5m0s  5.00 iters/s
+comments   [   5% ] 214/214 VUs  0m16.4s/5m0s  30.00 iters/s
+detail     [   5% ] 213/213 VUs  0m16.4s/5m0s  30.00 iters/s
+latest     [   5% ] 287/288 VUs  0m16.4s/5m0s  40.00 iters/s
+like       [   5% ] 42/42 VUs    0m16.4s/5m0s  5.00 iters/s
+popular    [   5% ] 070/070 VUs  0m16.4s/5m0s  10.00 iters/s
+post       [   5% ] 07/07 VUs    0m16.4s/5m0s  1.00 iters/s
+search     [   5% ] 35/36 VUs    0m16.4s/5m0s  5.00 iters/s
+
+running (0m18.0s), 1042/1045 VUs, 552 complete and 0 interrupted iterations
+category   [   6% ] 076/076 VUs  0m17.4s/5m0s  10.00 iters/s
+comment    [   6% ] 38/38 VUs    0m17.4s/5m0s  5.00 iters/s
+comments   [   6% ] 229/229 VUs  0m17.4s/5m0s  30.00 iters/s
+detail     [   6% ] 228/228 VUs  0m17.4s/5m0s  30.00 iters/s
+latest     [   6% ] 307/308 VUs  0m17.4s/5m0s  40.00 iters/s
+like       [   6% ] 44/45 VUs    0m17.4s/5m0s  5.00 iters/s
+popular    [   6% ] 075/075 VUs  0m17.4s/5m0s  10.00 iters/s
+post       [   6% ] 07/08 VUs    0m17.4s/5m0s  1.00 iters/s
+search     [   6% ] 38/38 VUs    0m17.4s/5m0s  5.00 iters/s
+
+running (0m19.0s), 0930/1077 VUs, 768 complete and 0 interrupted iterations
+category   [   6% ] 069/079 VUs  0m18.4s/5m0s  10.00 iters/s
+comment    [   6% ] 36/40 VUs    0m18.4s/5m0s  5.00 iters/s
+comments   [   6% ] 206/235 VUs  0m18.4s/5m0s  30.00 iters/s
+detail     [   6% ] 206/234 VUs  0m18.4s/5m0s  30.00 iters/s
+latest     [   6% ] 268/317 VUs  0m18.4s/5m0s  40.00 iters/s
+like       [   6% ] 41/46 VUs    0m18.4s/5m0s  5.00 iters/s
+popular    [   6% ] 063/078 VUs  0m18.4s/5m0s  10.00 iters/s
+post       [   6% ] 08/08 VUs    0m18.4s/5m0s  1.00 iters/s
+search     [   6% ] 33/40 VUs    0m18.4s/5m0s  5.00 iters/s
+
+running (0m20.0s), 1017/1078 VUs, 816 complete and 0 interrupted iterations
+category   [   6% ] 073/079 VUs  0m19.4s/5m0s  10.00 iters/s
+comment    [   6% ] 40/40 VUs    0m19.4s/5m0s  5.00 iters/s
+comments   [   6% ] 225/235 VUs  0m19.4s/5m0s  30.00 iters/s
+detail     [   6% ] 232/234 VUs  0m19.4s/5m0s  30.00 iters/s
+latest     [   6% ] 288/317 VUs  0m19.4s/5m0s  40.00 iters/s
+like       [   6% ] 46/46 VUs    0m19.4s/5m0s  5.00 iters/s
+popular    [   6% ] 071/078 VUs  0m19.4s/5m0s  10.00 iters/s
+post       [   6% ] 08/09 VUs    0m19.4s/5m0s  1.00 iters/s
+search     [   6% ] 34/40 VUs    0m19.4s/5m0s  5.00 iters/s
+
+running (0m21.0s), 1102/1117 VUs, 828 complete and 0 interrupted iterations
+category   [   7% ] 080/081 VUs  0m20.4s/5m0s  10.00 iters/s
+comment    [   7% ] 41/43 VUs    0m20.4s/5m0s  5.00 iters/s
+comments   [   7% ] 245/245 VUs  0m20.4s/5m0s  30.00 iters/s
+detail     [   7% ] 246/248 VUs  0m20.4s/5m0s  30.00 iters/s
+latest     [   7% ] 320/322 VUs  0m20.4s/5m0s  40.00 iters/s
+like       [   7% ] 48/49 VUs    0m20.4s/5m0s  5.00 iters/s
+popular    [   7% ] 076/080 VUs  0m20.4s/5m0s  10.00 iters/s
+post       [   7% ] 09/09 VUs    0m20.4s/5m0s  1.00 iters/s
+search     [   7% ] 37/40 VUs    0m20.4s/5m0s  5.00 iters/s
+time="2026-11-16T15:37:27+09:00" level=warning msg="Insufficient VUs, reached 50 active VUs and cannot initialize more" executor=constant-arrival-rate scenario=like
+
+running (0m22.0s), 1175/1178 VUs, 828 complete and 0 interrupted iterations
+category   [   7% ] 085/086 VUs  0m21.4s/5m0s  10.00 iters/s
+comment    [   7% ] 44/45 VUs    0m21.4s/5m0s  5.00 iters/s
+comments   [   7% ] 260/260 VUs  0m21.4s/5m0s  30.00 iters/s
+detail     [   7% ] 262/262 VUs  0m21.4s/5m0s  30.00 iters/s
+latest     [   7% ] 341/341 VUs  0m21.4s/5m0s  40.00 iters/s
+like       [   7% ] 50/50 VUs    0m21.4s/5m0s  5.00 iters/s
+popular    [   7% ] 083/083 VUs  0m21.4s/5m0s  10.00 iters/s
+post       [   7% ] 09/10 VUs    0m21.4s/5m0s  1.00 iters/s
+search     [   7% ] 41/41 VUs    0m21.4s/5m0s  5.00 iters/s
+
+running (0m23.0s), 1189/1222 VUs, 901 complete and 0 interrupted iterations
+category   [   7% ] 088/090 VUs  0m22.4s/5m0s  10.00 iters/s
+comment    [   7% ] 44/47 VUs    0m22.4s/5m0s  5.00 iters/s
+comments   [   7% ] 257/269 VUs  0m22.4s/5m0s  30.00 iters/s
+detail     [   7% ] 257/271 VUs  0m22.4s/5m0s  30.00 iters/s
+latest     [   7% ] 355/355 VUs  0m22.4s/5m0s  40.00 iters/s
+like       [   7% ] 50/50 VUs    0m22.4s/5m0s  5.00 iters/s
+popular    [   7% ] 086/087 VUs  0m22.4s/5m0s  10.00 iters/s
+post       [   7% ] 09/10 VUs    0m22.4s/5m0s  1.00 iters/s
+search     [   7% ] 43/43 VUs    0m22.4s/5m0s  5.00 iters/s
+time="2026-11-16T15:37:29+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/43/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:29+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/44\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:29+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:29+09:00" level=warning msg="Request Failed" error="Post \"https://crewrun.duckdns.org/api/v1/board/posts/22/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:29+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:29+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?category=FREE&size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:29+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+
+running (0m24.0s), 1197/1226 VUs, 1023 complete and 0 interrupted iterations
+category   [   8% ] 090/090 VUs  0m23.4s/5m0s  10.00 iters/s
+comment    [   8% ] 40/47 VUs    0m23.4s/5m0s  5.00 iters/s
+comments   [   8% ] 261/269 VUs  0m23.4s/5m0s  30.00 iters/s
+detail     [   8% ] 259/271 VUs  0m23.4s/5m0s  30.00 iters/s
+latest     [   8% ] 356/356 VUs  0m23.4s/5m0s  40.00 iters/s
+like       [   8% ] 50/50 VUs    0m23.4s/5m0s  5.00 iters/s
+popular    [   8% ] 088/089 VUs  0m23.4s/5m0s  10.00 iters/s
+post       [   8% ] 09/10 VUs    0m23.4s/5m0s  1.00 iters/s
+search     [   8% ] 44/44 VUs    0m23.4s/5m0s  5.00 iters/s
+time="2026-11-16T15:37:30+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+
+running (0m25.0s), 1201/1258 VUs, 1119 complete and 0 interrupted iterations
+category   [   8% ] 090/094 VUs  0m24.4s/5m0s  10.00 iters/s
+comment    [   8% ] 39/47 VUs    0m24.4s/5m0s  5.00 iters/s
+comments   [   8% ] 259/275 VUs  0m24.4s/5m0s  30.00 iters/s
+detail     [   8% ] 261/275 VUs  0m24.4s/5m0s  30.00 iters/s
+latest     [   8% ] 361/369 VUs  0m24.4s/5m0s  40.00 iters/s
+like       [   8% ] 50/50 VUs    0m24.4s/5m0s  5.00 iters/s
+popular    [   8% ] 088/092 VUs  0m24.4s/5m0s  10.00 iters/s
+post       [   8% ] 07/10 VUs    0m24.4s/5m0s  1.00 iters/s
+search     [   8% ] 46/46 VUs    0m24.4s/5m0s  5.00 iters/s
+
+running (0m26.0s), 1251/1268 VUs, 1190 complete and 0 interrupted iterations
+category   [   8% ] 092/094 VUs  0m25.4s/5m0s  10.00 iters/s
+comment    [   8% ] 42/47 VUs    0m25.4s/5m0s  5.00 iters/s
+comments   [   8% ] 275/275 VUs  0m25.4s/5m0s  30.00 iters/s
+detail     [   8% ] 276/277 VUs  0m25.4s/5m0s  30.00 iters/s
+latest     [   8% ] 372/373 VUs  0m25.4s/5m0s  40.00 iters/s
+like       [   8% ] 50/50 VUs    0m25.4s/5m0s  5.00 iters/s
+popular    [   8% ] 090/094 VUs  0m25.4s/5m0s  10.00 iters/s
+post       [   8% ] 07/10 VUs    0m25.4s/5m0s  1.00 iters/s
+search     [   8% ] 47/48 VUs    0m25.4s/5m0s  5.00 iters/s
+
+running (0m27.0s), 1271/1294 VUs, 1275 complete and 0 interrupted iterations
+category   [   9% ] 090/095 VUs  0m26.4s/5m0s  10.00 iters/s
+comment    [   9% ] 47/47 VUs    0m26.4s/5m0s  5.00 iters/s
+comments   [   9% ] 284/285 VUs  0m26.4s/5m0s  30.00 iters/s
+detail     [   9% ] 283/286 VUs  0m26.4s/5m0s  30.00 iters/s
+latest     [   9% ] 369/378 VUs  0m26.4s/5m0s  40.00 iters/s
+like       [   9% ] 50/50 VUs    0m26.4s/5m0s  5.00 iters/s
+popular    [   9% ] 092/094 VUs  0m26.4s/5m0s  10.00 iters/s
+post       [   9% ] 08/10 VUs    0m26.4s/5m0s  1.00 iters/s
+search     [   9% ] 48/49 VUs    0m26.4s/5m0s  5.00 iters/s
+time="2026-11-16T15:37:34+09:00" level=warning msg="Insufficient VUs, reached 50 active VUs and cannot initialize more" executor=constant-arrival-rate scenario=search
+
+running (0m28.0s), 1305/1331 VUs, 1334 complete and 0 interrupted iterations
+category   [   9% ] 091/096 VUs  0m27.4s/5m0s  10.00 iters/s
+comment    [   9% ] 49/50 VUs    0m27.4s/5m0s  5.00 iters/s
+comments   [   9% ] 297/297 VUs  0m27.4s/5m0s  30.00 iters/s
+detail     [   9% ] 297/297 VUs  0m27.4s/5m0s  30.00 iters/s
+latest     [   9% ] 376/385 VUs  0m27.4s/5m0s  40.00 iters/s
+like       [   9% ] 50/50 VUs    0m27.4s/5m0s  5.00 iters/s
+popular    [   9% ] 090/096 VUs  0m27.4s/5m0s  10.00 iters/s
+post       [   9% ] 08/10 VUs    0m27.4s/5m0s  1.00 iters/s
+search     [   9% ] 47/50 VUs    0m27.4s/5m0s  5.00 iters/s
+time="2026-11-16T15:37:34+09:00" level=warning msg="Insufficient VUs, reached 50 active VUs and cannot initialize more" executor=constant-arrival-rate scenario=comment
+time="2026-11-16T15:37:34+09:00" level=warning msg="Insufficient VUs, reached 300 active VUs and cannot initialize more" executor=constant-arrival-rate scenario=detail
+time="2026-11-16T15:37:34+09:00" level=warning msg="Insufficient VUs, reached 300 active VUs and cannot initialize more" executor=constant-arrival-rate scenario=comments
+
+running (0m29.0s), 1344/1347 VUs, 1368 complete and 0 interrupted iterations
+category   [   9% ] 097/097 VUs  0m28.4s/5m0s  10.00 iters/s
+comment    [   9% ] 50/50 VUs    0m28.4s/5m0s  5.00 iters/s
+comments   [   9% ] 300/300 VUs  0m28.4s/5m0s  30.00 iters/s
+detail     [   9% ] 300/300 VUs  0m28.4s/5m0s  30.00 iters/s
+latest     [   9% ] 393/393 VUs  0m28.4s/5m0s  40.00 iters/s
+like       [   9% ] 50/50 VUs    0m28.4s/5m0s  5.00 iters/s
+popular    [   9% ] 096/097 VUs  0m28.4s/5m0s  10.00 iters/s
+post       [   9% ] 09/10 VUs    0m28.4s/5m0s  1.00 iters/s
+search     [   9% ] 49/50 VUs    0m28.4s/5m0s  5.00 iters/s
+time="2026-11-16T15:37:35+09:00" level=warning msg="Insufficient VUs, reached 400 active VUs and cannot initialize more" executor=constant-arrival-rate scenario=latest
+time="2026-11-16T15:37:35+09:00" level=warning msg="Insufficient VUs, reached 100 active VUs and cannot initialize more" executor=constant-arrival-rate scenario=category
+
+running (0m30.0s), 1357/1360 VUs, 1428 complete and 0 interrupted iterations
+category   [  10% ] 100/100 VUs  0m29.4s/5m0s  10.00 iters/s
+comment    [  10% ] 50/50 VUs    0m29.4s/5m0s  5.00 iters/s
+comments   [  10% ] 300/300 VUs  0m29.4s/5m0s  30.00 iters/s
+detail     [  10% ] 297/300 VUs  0m29.4s/5m0s  30.00 iters/s
+latest     [  10% ] 400/400 VUs  0m29.4s/5m0s  40.00 iters/s
+like       [  10% ] 50/50 VUs    0m29.4s/5m0s  5.00 iters/s
+popular    [  10% ] 100/100 VUs  0m29.4s/5m0s  10.00 iters/s
+post       [  10% ] 10/10 VUs    0m29.4s/5m0s  1.00 iters/s
+search     [  10% ] 50/50 VUs    0m29.4s/5m0s  5.00 iters/s
+time="2026-11-16T15:37:36+09:00" level=warning msg="Insufficient VUs, reached 100 active VUs and cannot initialize more" executor=constant-arrival-rate scenario=popular
+time="2026-11-16T15:37:36+09:00" level=warning msg="Insufficient VUs, reached 10 active VUs and cannot initialize more" executor=constant-arrival-rate scenario=post
+
+running (0m31.0s), 1351/1360 VUs, 1516 complete and 0 interrupted iterations
+category   [  10% ] 100/100 VUs  0m30.4s/5m0s  10.00 iters/s
+comment    [  10% ] 46/50 VUs    0m30.4s/5m0s  5.00 iters/s
+comments   [  10% ] 299/300 VUs  0m30.4s/5m0s  30.00 iters/s
+detail     [  10% ] 300/300 VUs  0m30.4s/5m0s  30.00 iters/s
+latest     [  10% ] 399/400 VUs  0m30.4s/5m0s  40.00 iters/s
+like       [  10% ] 50/50 VUs    0m30.4s/5m0s  5.00 iters/s
+popular    [  10% ] 099/100 VUs  0m30.4s/5m0s  10.00 iters/s
+post       [  10% ] 10/10 VUs    0m30.4s/5m0s  1.00 iters/s
+search     [  10% ] 48/50 VUs    0m30.4s/5m0s  5.00 iters/s
+
+running (0m32.0s), 1359/1360 VUs, 1552 complete and 0 interrupted iterations
+category   [  10% ] 100/100 VUs  0m31.4s/5m0s  10.00 iters/s
+comment    [  10% ] 50/50 VUs    0m31.4s/5m0s  5.00 iters/s
+comments   [  10% ] 299/300 VUs  0m31.4s/5m0s  30.00 iters/s
+detail     [  10% ] 300/300 VUs  0m31.4s/5m0s  30.00 iters/s
+latest     [  10% ] 400/400 VUs  0m31.4s/5m0s  40.00 iters/s
+like       [  10% ] 50/50 VUs    0m31.4s/5m0s  5.00 iters/s
+popular    [  10% ] 100/100 VUs  0m31.4s/5m0s  10.00 iters/s
+post       [  10% ] 10/10 VUs    0m31.4s/5m0s  1.00 iters/s
+search     [  10% ] 50/50 VUs    0m31.4s/5m0s  5.00 iters/s
+
+running (0m33.0s), 1355/1360 VUs, 1585 complete and 0 interrupted iterations
+category   [  11% ] 100/100 VUs  0m32.4s/5m0s  10.00 iters/s
+comment    [  11% ] 50/50 VUs    0m32.4s/5m0s  5.00 iters/s
+comments   [  11% ] 298/300 VUs  0m32.4s/5m0s  30.00 iters/s
+detail     [  11% ] 298/300 VUs  0m32.4s/5m0s  30.00 iters/s
+latest     [  11% ] 400/400 VUs  0m32.4s/5m0s  40.00 iters/s
+like       [  11% ] 50/50 VUs    0m32.4s/5m0s  5.00 iters/s
+popular    [  11% ] 100/100 VUs  0m32.4s/5m0s  10.00 iters/s
+post       [  11% ] 10/10 VUs    0m32.4s/5m0s  1.00 iters/s
+search     [  11% ] 49/50 VUs    0m32.4s/5m0s  5.00 iters/s
+
+running (0m34.0s), 1343/1360 VUs, 1710 complete and 0 interrupted iterations
+category   [  11% ] 099/100 VUs  0m33.4s/5m0s  10.00 iters/s
+comment    [  11% ] 49/50 VUs    0m33.4s/5m0s  5.00 iters/s
+comments   [  11% ] 295/300 VUs  0m33.4s/5m0s  30.00 iters/s
+detail     [  11% ] 299/300 VUs  0m33.4s/5m0s  30.00 iters/s
+latest     [  11% ] 395/400 VUs  0m33.4s/5m0s  40.00 iters/s
+like       [  11% ] 50/50 VUs    0m33.4s/5m0s  5.00 iters/s
+popular    [  11% ] 099/100 VUs  0m33.4s/5m0s  10.00 iters/s
+post       [  11% ] 10/10 VUs    0m33.4s/5m0s  1.00 iters/s
+search     [  11% ] 47/50 VUs    0m33.4s/5m0s  5.00 iters/s
+
+running (0m35.0s), 1359/1360 VUs, 1729 complete and 0 interrupted iterations
+category   [  11% ] 099/100 VUs  0m34.4s/5m0s  10.00 iters/s
+comment    [  11% ] 50/50 VUs    0m34.4s/5m0s  5.00 iters/s
+comments   [  11% ] 300/300 VUs  0m34.4s/5m0s  30.00 iters/s
+detail     [  11% ] 300/300 VUs  0m34.4s/5m0s  30.00 iters/s
+latest     [  11% ] 400/400 VUs  0m34.4s/5m0s  40.00 iters/s
+like       [  11% ] 50/50 VUs    0m34.4s/5m0s  5.00 iters/s
+popular    [  11% ] 100/100 VUs  0m34.4s/5m0s  10.00 iters/s
+post       [  11% ] 10/10 VUs    0m34.4s/5m0s  1.00 iters/s
+search     [  11% ] 50/50 VUs    0m34.4s/5m0s  5.00 iters/s
+
+running (0m36.0s), 1360/1360 VUs, 1815 complete and 0 interrupted iterations
+category   [  12% ] 100/100 VUs  0m35.4s/5m0s  10.00 iters/s
+comment    [  12% ] 50/50 VUs    0m35.4s/5m0s  5.00 iters/s
+comments   [  12% ] 300/300 VUs  0m35.4s/5m0s  30.00 iters/s
+detail     [  12% ] 300/300 VUs  0m35.4s/5m0s  30.00 iters/s
+latest     [  12% ] 400/400 VUs  0m35.4s/5m0s  40.00 iters/s
+like       [  12% ] 50/50 VUs    0m35.4s/5m0s  5.00 iters/s
+popular    [  12% ] 100/100 VUs  0m35.4s/5m0s  10.00 iters/s
+post       [  12% ] 10/10 VUs    0m35.4s/5m0s  1.00 iters/s
+search     [  12% ] 50/50 VUs    0m35.4s/5m0s  5.00 iters/s
+
+running (0m37.0s), 1335/1360 VUs, 1929 complete and 0 interrupted iterations
+category   [  12% ] 096/100 VUs  0m36.4s/5m0s  10.00 iters/s
+comment    [  12% ] 50/50 VUs    0m36.4s/5m0s  5.00 iters/s
+comments   [  12% ] 298/300 VUs  0m36.4s/5m0s  30.00 iters/s
+detail     [  12% ] 291/300 VUs  0m36.4s/5m0s  30.00 iters/s
+latest     [  12% ] 394/400 VUs  0m36.4s/5m0s  40.00 iters/s
+like       [  12% ] 50/50 VUs    0m36.4s/5m0s  5.00 iters/s
+popular    [  12% ] 097/100 VUs  0m36.4s/5m0s  10.00 iters/s
+post       [  12% ] 10/10 VUs    0m36.4s/5m0s  1.00 iters/s
+search     [  12% ] 49/50 VUs    0m36.4s/5m0s  5.00 iters/s
+
+running (0m38.0s), 1307/1360 VUs, 2047 complete and 0 interrupted iterations
+category   [  12% ] 098/100 VUs  0m37.4s/5m0s  10.00 iters/s
+comment    [  12% ] 46/50 VUs    0m37.4s/5m0s  5.00 iters/s
+comments   [  12% ] 284/300 VUs  0m37.4s/5m0s  30.00 iters/s
+detail     [  12% ] 279/300 VUs  0m37.4s/5m0s  30.00 iters/s
+latest     [  12% ] 396/400 VUs  0m37.4s/5m0s  40.00 iters/s
+like       [  12% ] 48/50 VUs    0m37.4s/5m0s  5.00 iters/s
+popular    [  12% ] 099/100 VUs  0m37.4s/5m0s  10.00 iters/s
+post       [  12% ] 09/10 VUs    0m37.4s/5m0s  1.00 iters/s
+search     [  12% ] 48/50 VUs    0m37.4s/5m0s  5.00 iters/s
+
+running (0m39.0s), 1333/1360 VUs, 2091 complete and 0 interrupted iterations
+category   [  13% ] 098/100 VUs  0m38.4s/5m0s  10.00 iters/s
+comment    [  13% ] 47/50 VUs    0m38.4s/5m0s  5.00 iters/s
+comments   [  13% ] 297/300 VUs  0m38.4s/5m0s  30.00 iters/s
+detail     [  13% ] 294/300 VUs  0m38.4s/5m0s  30.00 iters/s
+latest     [  13% ] 391/400 VUs  0m38.4s/5m0s  40.00 iters/s
+like       [  13% ] 49/50 VUs    0m38.4s/5m0s  5.00 iters/s
+popular    [  13% ] 098/100 VUs  0m38.4s/5m0s  10.00 iters/s
+post       [  13% ] 09/10 VUs    0m38.4s/5m0s  1.00 iters/s
+search     [  13% ] 50/50 VUs    0m38.4s/5m0s  5.00 iters/s
+
+running (0m40.0s), 1352/1360 VUs, 2170 complete and 0 interrupted iterations
+category   [  13% ] 100/100 VUs  0m39.4s/5m0s  10.00 iters/s
+comment    [  13% ] 46/50 VUs    0m39.4s/5m0s  5.00 iters/s
+comments   [  13% ] 296/300 VUs  0m39.4s/5m0s  30.00 iters/s
+detail     [  13% ] 300/300 VUs  0m39.4s/5m0s  30.00 iters/s
+latest     [  13% ] 400/400 VUs  0m39.4s/5m0s  40.00 iters/s
+like       [  13% ] 50/50 VUs    0m39.4s/5m0s  5.00 iters/s
+popular    [  13% ] 100/100 VUs  0m39.4s/5m0s  10.00 iters/s
+post       [  13% ] 10/10 VUs    0m39.4s/5m0s  1.00 iters/s
+search     [  13% ] 50/50 VUs    0m39.4s/5m0s  5.00 iters/s
+
+running (0m41.0s), 1356/1360 VUs, 2216 complete and 0 interrupted iterations
+category   [  13% ] 100/100 VUs  0m40.4s/5m0s  10.00 iters/s
+comment    [  13% ] 49/50 VUs    0m40.4s/5m0s  5.00 iters/s
+comments   [  13% ] 299/300 VUs  0m40.4s/5m0s  30.00 iters/s
+detail     [  13% ] 299/300 VUs  0m40.4s/5m0s  30.00 iters/s
+latest     [  13% ] 399/400 VUs  0m40.4s/5m0s  40.00 iters/s
+like       [  13% ] 50/50 VUs    0m40.4s/5m0s  5.00 iters/s
+popular    [  13% ] 100/100 VUs  0m40.4s/5m0s  10.00 iters/s
+post       [  13% ] 10/10 VUs    0m40.4s/5m0s  1.00 iters/s
+search     [  13% ] 50/50 VUs    0m40.4s/5m0s  5.00 iters/s
+
+running (0m42.0s), 1244/1360 VUs, 2445 complete and 0 interrupted iterations
+category   [  14% ] 088/100 VUs  0m41.4s/5m0s  10.00 iters/s
+comment    [  14% ] 46/50 VUs    0m41.4s/5m0s  5.00 iters/s
+comments   [  14% ] 278/300 VUs  0m41.4s/5m0s  30.00 iters/s
+detail     [  14% ] 275/300 VUs  0m41.4s/5m0s  30.00 iters/s
+latest     [  14% ] 370/400 VUs  0m41.4s/5m0s  40.00 iters/s
+like       [  14% ] 45/50 VUs    0m41.4s/5m0s  5.00 iters/s
+popular    [  14% ] 086/100 VUs  0m41.4s/5m0s  10.00 iters/s
+post       [  14% ] 08/10 VUs    0m41.4s/5m0s  1.00 iters/s
+search     [  14% ] 48/50 VUs    0m41.4s/5m0s  5.00 iters/s
+time="2026-11-16T15:37:49+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?q=%EB%B6%80%ED%95%98&size=20\": unexpected EOF"
+time="2026-11-16T15:37:49+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": unexpected EOF"
+time="2026-11-16T15:37:49+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/61\": unexpected EOF"
+time="2026-11-16T15:37:49+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/33/comments\": unexpected EOF"
+
+running (0m43.0s), 1187/1360 VUs, 2638 complete and 0 interrupted iterations
+category   [  14% ] 092/100 VUs  0m42.4s/5m0s  10.00 iters/s
+comment    [  14% ] 47/50 VUs    0m42.4s/5m0s  5.00 iters/s
+comments   [  14% ] 255/300 VUs  0m42.4s/5m0s  30.00 iters/s
+detail     [  14% ] 261/300 VUs  0m42.4s/5m0s  30.00 iters/s
+latest     [  14% ] 349/400 VUs  0m42.4s/5m0s  40.00 iters/s
+like       [  14% ] 47/50 VUs    0m42.4s/5m0s  5.00 iters/s
+popular    [  14% ] 083/100 VUs  0m42.4s/5m0s  10.00 iters/s
+post       [  14% ] 07/10 VUs    0m42.4s/5m0s  1.00 iters/s
+search     [  14% ] 46/50 VUs    0m42.4s/5m0s  5.00 iters/s
+
+running (0m44.0s), 1065/1360 VUs, 2896 complete and 0 interrupted iterations
+category   [  14% ] 076/100 VUs  0m43.4s/5m0s  10.00 iters/s
+comment    [  14% ] 43/50 VUs    0m43.4s/5m0s  5.00 iters/s
+comments   [  14% ] 226/300 VUs  0m43.4s/5m0s  30.00 iters/s
+detail     [  14% ] 242/300 VUs  0m43.4s/5m0s  30.00 iters/s
+latest     [  14% ] 313/400 VUs  0m43.4s/5m0s  40.00 iters/s
+like       [  14% ] 45/50 VUs    0m43.4s/5m0s  5.00 iters/s
+popular    [  14% ] 074/100 VUs  0m43.4s/5m0s  10.00 iters/s
+post       [  14% ] 08/10 VUs    0m43.4s/5m0s  1.00 iters/s
+search     [  14% ] 38/50 VUs    0m43.4s/5m0s  5.00 iters/s
+
+running (0m45.0s), 1165/1360 VUs, 2932 complete and 0 interrupted iterations
+category   [  15% ] 083/100 VUs  0m44.4s/5m0s  10.00 iters/s
+comment    [  15% ] 45/50 VUs    0m44.4s/5m0s  5.00 iters/s
+comments   [  15% ] 252/300 VUs  0m44.4s/5m0s  30.00 iters/s
+detail     [  15% ] 268/300 VUs  0m44.4s/5m0s  30.00 iters/s
+latest     [  15% ] 338/400 VUs  0m44.4s/5m0s  40.00 iters/s
+like       [  15% ] 49/50 VUs    0m44.4s/5m0s  5.00 iters/s
+popular    [  15% ] 083/100 VUs  0m44.4s/5m0s  10.00 iters/s
+post       [  15% ] 09/10 VUs    0m44.4s/5m0s  1.00 iters/s
+search     [  15% ] 38/50 VUs    0m44.4s/5m0s  5.00 iters/s
+time="2026-11-16T15:37:51+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/42/comments\": unexpected EOF"
+time="2026-11-16T15:37:52+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": unexpected EOF"
+time="2026-11-16T15:37:52+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": EOF"
+
+running (0m46.0s), 1272/1360 VUs, 2958 complete and 0 interrupted iterations
+category   [  15% ] 093/100 VUs  0m45.4s/5m0s  10.00 iters/s
+comment    [  15% ] 50/50 VUs    0m45.4s/5m0s  5.00 iters/s
+comments   [  15% ] 273/300 VUs  0m45.4s/5m0s  30.00 iters/s
+detail     [  15% ] 291/300 VUs  0m45.4s/5m0s  30.00 iters/s
+latest     [  15% ] 371/400 VUs  0m45.4s/5m0s  40.00 iters/s
+like       [  15% ] 50/50 VUs    0m45.4s/5m0s  5.00 iters/s
+popular    [  15% ] 093/100 VUs  0m45.4s/5m0s  10.00 iters/s
+post       [  15% ] 10/10 VUs    0m45.4s/5m0s  1.00 iters/s
+search     [  15% ] 41/50 VUs    0m45.4s/5m0s  5.00 iters/s
+
+running (0m47.0s), 1352/1360 VUs, 2983 complete and 0 interrupted iterations
+category   [  15% ] 100/100 VUs  0m46.4s/5m0s  10.00 iters/s
+comment    [  15% ] 50/50 VUs    0m46.4s/5m0s  5.00 iters/s
+comments   [  15% ] 298/300 VUs  0m46.4s/5m0s  30.00 iters/s
+detail     [  15% ] 300/300 VUs  0m46.4s/5m0s  30.00 iters/s
+latest     [  15% ] 399/400 VUs  0m46.4s/5m0s  40.00 iters/s
+like       [  15% ] 50/50 VUs    0m46.4s/5m0s  5.00 iters/s
+popular    [  15% ] 100/100 VUs  0m46.4s/5m0s  10.00 iters/s
+post       [  15% ] 10/10 VUs    0m46.4s/5m0s  1.00 iters/s
+search     [  15% ] 45/50 VUs    0m46.4s/5m0s  5.00 iters/s
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": read tcp 192.168.10.151:51067->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/14/comments\": read tcp 192.168.10.151:51089->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?sort=POPULAR&size=20\": read tcp 192.168.10.151:51144->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?category=RACE_REVIEW&size=20\": read tcp 192.168.10.151:51092->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/56\": read tcp 192.168.10.151:51151->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Post \"https://crewrun.duckdns.org/api/v1/board/posts/59/comments\": read tcp 192.168.10.151:51230->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?q=%EB%B6%80%ED%95%98&size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?category=FREE&size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?sort=POPULAR&size=20\": read tcp 192.168.10.151:51097->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?sort=POPULAR&size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/44/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/23/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?category=FREE&size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?sort=POPULAR&size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/53/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?sort=POPULAR&size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/27/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?sort=POPULAR&size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/33\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/15\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/46/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?q=%EB%B6%80%ED%95%98&size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Post \"https://crewrun.duckdns.org/api/v1/board/posts/17/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/25/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/29\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/12\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/39/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?sort=POPULAR&size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/13/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/34\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/36/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Delete \"https://crewrun.duckdns.org/api/v1/board/posts/48/like\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?sort=POPULAR&size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/56/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/13/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/46\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/50\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Post \"https://crewrun.duckdns.org/api/v1/board/posts/58/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?q=%EB%B6%80%ED%95%98&size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Delete \"https://crewrun.duckdns.org/api/v1/board/posts/21/like\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/45\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Post \"https://crewrun.duckdns.org/api/v1/board/posts/30/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?sort=POPULAR&size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?sort=POPULAR&size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?category=FREE&size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/25/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/25/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/23/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/47/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/28\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/23\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/50\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/14/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/24\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/16\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/45/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?sort=POPULAR&size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/22\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?category=RACE_REVIEW&size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Delete \"https://crewrun.duckdns.org/api/v1/board/posts/34/like\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/34/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/22\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?category=RUN_TOGETHER&size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?category=FREE&size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/28\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?sort=POPULAR&size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Post \"https://crewrun.duckdns.org/api/v1/board/posts/55/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Put \"https://crewrun.duckdns.org/api/v1/board/posts/35/like\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/40\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/14/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/61\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/22\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?category=RUN_TOGETHER&size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/32\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/55/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/44/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/17\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/43/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/15/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Delete \"https://crewrun.duckdns.org/api/v1/board/posts/31/like\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?category=RACE_REVIEW&size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/38/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/30/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Post \"https://crewrun.duckdns.org/api/v1/board/posts/52/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/33/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/41/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?sort=POPULAR&size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/61\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/27\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?category=RUN_TOGETHER&size=20\": read tcp 192.168.10.151:51225->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Post \"https://crewrun.duckdns.org/api/v1/board/posts\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/40\": read tcp 192.168.10.151:51086->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/61/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/36\": unexpected EOF"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/31\": read tcp 192.168.10.151:51233->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?sort=POPULAR&size=20\": read tcp 192.168.10.151:51260->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?category=RUN_TOGETHER&size=20\": read tcp 192.168.10.151:51052->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/31\": read tcp 192.168.10.151:51050->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": read tcp 192.168.10.151:51074->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/37\": read tcp 192.168.10.151:50976->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?sort=POPULAR&size=20\": read tcp 192.168.10.151:51060->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": unexpected EOF"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": read tcp 192.168.10.151:51112->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/43\": read tcp 192.168.10.151:51235->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/57/comments\": read tcp 192.168.10.151:51236->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?q=%EB%B6%80%ED%95%98&size=20\": read tcp 192.168.10.151:51157->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/51/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/16\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?category=RUN_TOGETHER&size=20\": unexpected EOF"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/40/comments\": read tcp 192.168.10.151:51234->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/35/comments\": read tcp 192.168.10.151:51196->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": read tcp 192.168.10.151:51216->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?sort=POPULAR&size=20\": read tcp 192.168.10.151:51046->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/55\": read tcp 192.168.10.151:51045->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": read tcp 192.168.10.151:51044->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": read tcp 192.168.10.151:51248->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/18\": read tcp 192.168.10.151:51165->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/27\": read tcp 192.168.10.151:51195->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": read tcp 192.168.10.151:51252->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/25\": read tcp 192.168.10.151:51209->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/36\": read tcp 192.168.10.151:51201->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": read tcp 192.168.10.151:51173->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/21/comments\": read tcp 192.168.10.151:51213->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/29\": read tcp 192.168.10.151:51212->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/55\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:53+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": read tcp 192.168.10.151:51218->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/31/comments\": read tcp 192.168.10.151:51222->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": read tcp 192.168.10.151:51220->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/25\": read tcp 192.168.10.151:51215->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/37/comments\": read tcp 192.168.10.151:51217->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/40\": unexpected EOF"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Post \"https://crewrun.duckdns.org/api/v1/board/posts/37/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": read tcp 192.168.10.151:51224->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?sort=POPULAR&size=20\": read tcp 192.168.10.151:51119->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?q=%EB%B6%80%ED%95%98&size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/51\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/34/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/59\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?category=FREE&size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/27/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?category=RUN_TOGETHER&size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Put \"https://crewrun.duckdns.org/api/v1/board/posts/15/like\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/16\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/33\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?sort=POPULAR&size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/17\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/39\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/52/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Put \"https://crewrun.duckdns.org/api/v1/board/posts/47/like\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/23/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/28/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/42\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/16/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/16/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?category=QUESTION&size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?sort=POPULAR&size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/14/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/44/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/46\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/23/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/56/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/55/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/56\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/33/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Post \"https://crewrun.duckdns.org/api/v1/board/posts/28/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?sort=POPULAR&size=20\": read tcp 192.168.10.151:50897->15.164.150.76:443: read: connection reset by peer"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Post \"https://crewrun.duckdns.org/api/v1/board/posts/34/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?q=%EB%B6%80%ED%95%98&size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/13\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/34\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?sort=POPULAR&size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="http2: server sent GOAWAY and closed the connection; LastStreamID=7, ErrCode=NO_ERROR, debug=\"\""
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?sort=POPULAR&size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/42/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/12/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?sort=POPULAR&size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Post \"https://crewrun.duckdns.org/api/v1/board/posts/43/comments\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts/50\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Get \"https://crewrun.duckdns.org/api/v1/board/posts?sort=POPULAR&size=20\": dial tcp 15.164.150.76:443: connect: connection refused"
+time="2026-11-16T15:37:54+09:00" level=warning msg="Request Failed" error="Put \"https://crewrun.duckdns.org/api/v1/board/posts/15/like\": dial tcp 15.164.150.76:443: connect: connection refused"
+
+running (0m48.0s), 1170/1360 VUs, 3249 complete and 0 interrupted iterations
+category   [  16% ] 090/100 VUs  0m47.4s/5m0s  10.00 iters/s
+comment    [  16% ] 40/50 VUs    0m47.4s/5m0s  5.00 iters/s
+comments   [  16% ] 257/300 VUs  0m47.4s/5m0s  30.00 iters/s
+detail     [  16% ] 246/300 VUs  0m47.4s/5m0s  30.00 iters/s
+latest     [  16% ] 355/400 VUs  0m47.4s/5m0s  40.00 iters/s
+like       [  16% ] 48/50 VUs    0m47.4s/5m0s  5.00 iters/s
+popular    [  16% ] 082/100 VUs  0m47.4s/5m0s  10.00 iters/s
+post       [  16% ] 09/10 VUs    0m47.4s/5m0s  1.00 iters/s
+search     [  16% ] 43/50 VUs    0m47.4s/5m0s  5.00 iters/s
+
+
+  █ THRESHOLDS 
+
+    checks
+    ✗ 'rate>0.99' rate=92.40%
+
+    dropped_iterations
+    ✗ 'count==0' count=2028
+
+    http_req_duration{kind:read}
+    ✗ 'p(95)<300' p(95)=14.89s
+
+    http_req_duration{kind:write}
+    ✗ 'p(95)<1000' p(95)=15.84s
+
+    http_req_failed
+    ✗ 'rate<0.05' rate=7.65%
+
+      {kind:read}
+      ✗ 'rate<0.01' rate=7.69%
+
+      {kind:write}
+      ✗ 'rate<0.01' rate=7.27%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 3304   68.837864/s
+    checks_succeeded...: 92.40% 3053 out of 3304
+    checks_failed......: 7.59%  251 out of 3304
+
+    ✗ 글 목록 200
+      ↳  92% — ✓ 1473 / ✗ 120
+    ✗ 댓글 목록 200
+      ↳  92% — ✓ 679 / ✗ 57
+    ✗ 글 상세 200
+      ↳  92% — ✓ 667 / ✗ 58
+    ✗ 댓글 201
+      ↳  90% — ✓ 107 / ✗ 11
+    ✗ 글 201
+      ↳  95% — ✓ 21 / ✗ 1
+    ✓ 좋아요 200
+    ✗ 좋아요 취소 200
+      ↳  92% — ✓ 51 / ✗ 4
+
+    HTTP
+    http_req_duration..............: avg=9.38s  min=0s       med=9.22s  max=22.64s p(90)=14.02s p(95)=15.1s 
+      { expected_response:true }...: avg=9.62s  min=147.78ms med=9.42s  max=22.64s p(90)=14.16s p(95)=15.26s
+      { kind:read }................: avg=9.35s  min=0s       med=9.14s  max=22.64s p(90)=13.95s p(95)=14.89s
+      { kind:write }...............: avg=9.85s  min=0s       med=9.86s  max=19.34s p(90)=14.54s p(95)=15.84s
+    http_req_failed................: 7.65%  255 out of 3330
+      { kind:read }................: 7.69%  235 out of 3054
+      { kind:write }...............: 7.27%  20 out of 275
+    http_reqs......................: 3330   69.379566/s
+
+    EXECUTION
+    dropped_iterations.............: 2028   42.252781/s
+    iteration_duration.............: avg=12.43s min=14.35ms  med=10.67s max=40.02s p(90)=21.82s p(95)=24.25s
+    iterations.....................: 3249   67.691955/s
+    vus............................: 1170   min=56          max=1360
+    vus_max........................: 1360   min=272         max=1360
+
+    NETWORK
+    data_received..................: 19 MB  390 kB/s
+    data_sent......................: 2.8 MB 58 kB/s
+
+
+
+
+running (0m48.0s), 0000/1360 VUs, 3249 complete and 1174 interrupted iterations
+category ✗ [  16% ] 068/100 VUs  0m47.4s/5m0s  10.00 iters/s
+comment  ✗ [  16% ] 41/50 VUs    0m47.4s/5m0s  5.00 iters/s
+comments ✗ [  16% ] 229/300 VUs  0m47.4s/5m0s  30.00 iters/s
+detail   ✗ [  16% ] 246/300 VUs  0m47.4s/5m0s  30.00 iters/s
+latest   ✗ [  16% ] 356/400 VUs  0m47.4s/5m0s  40.00 iters/s
+like     ✗ [  16% ] 05/50 VUs    0m47.4s/5m0s  5.00 iters/s
+popular  ✗ [  16% ] 070/100 VUs  0m47.4s/5m0s  10.00 iters/s
+post     ✗ [  16% ] 03/10 VUs    0m47.4s/5m0s  1.00 iters/s
+search   ✗ [  16% ] 24/50 VUs    0m47.4s/5m0s  5.00 iters/s
+time="2026-11-16T15:37:55+09:00" level=error msg="thresholds on metrics 'checks, dropped_iterations, http_req_duration{kind:read}, http_req_duration{kind:write}, http_req_failed, http_req_failed{kind:read}, http_req_failed{kind:write}' were crossed; at least one has abortOnFail enabled, stopping test prematurely"
