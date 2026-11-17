@@ -6,6 +6,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -13,10 +15,19 @@ import org.springframework.data.jpa.repository.Query;
 import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutStage;
 import com.bukang.payout.domain.PayoutStatus;
+import com.bukang.payout.dto.PayoutStatusSummaryDto;
 
 import jakarta.persistence.LockModeType;
 
-public interface PayoutRepository extends JpaRepository<Payout, Long> {
+public interface PayoutRepository extends JpaRepository<Payout, Long>, PayoutItemBatchInsert {
+	// 최종 대사: 정산 내역들의 판매 줄을 엔티티가 아닌 값으로 읽는다 (BUK-252). 같은 참가권의 판매 줄은 유일 제약으로 하나다
+	@Query("""
+		select new com.bukang.payout.out.SaleLine(i.orderItemId, i.amount, i.raceCourseId, i.payout.id)
+		from PayoutItem i
+		where i.payout in :payouts and i.recordType = com.bukang.payout.domain.PayoutRecordType.판매
+		""")
+	List<SaleLine> findSaleLines(Collection<Payout> payouts);
+
 	// 최종 정산 생성: 이미 만든 정산 내역인지 확인한다. 유일 조건 (seller_id, race_id, payout_month, payout_stage)과 같은 키다
 	boolean existsBySellerIdAndRaceIdAndPayoutMonthAndPayoutStage(long sellerId, long raceId, String payoutMonth,
 		PayoutStage payoutStage);
@@ -123,4 +134,22 @@ public interface PayoutRepository extends JpaRepository<Payout, Long> {
 
 	record SellerFee(long sellerId, long feeAmount) {
 	}
+
+	// 관리자 정산 목록 (BUK-168): 지급 예정일 하루의 정산. status가 null이면 그날의 모든 상태
+	@Query(value = """
+		select p from Payout p
+		where p.scheduledPayDate = :payDate and (:status is null or p.status = :status)
+		order by p.id""",
+		countQuery = """
+			select count(p) from Payout p
+			where p.scheduledPayDate = :payDate and (:status is null or p.status = :status)""")
+	Page<Payout> findAdminPayouts(LocalDate payDate, PayoutStatus status, Pageable pageable);
+
+	// 관리자 정산 목록 카드: 그날의 상태별 건수 · 지급액 합. 정산이 없는 상태는 줄이 없다
+	@Query("""
+		select new com.bukang.payout.dto.PayoutStatusSummaryDto(p.status, count(p), coalesce(sum(p.payoutAmount), 0))
+		from Payout p
+		where p.scheduledPayDate = :payDate
+		group by p.status""")
+	List<PayoutStatusSummaryDto> sumByStatusOn(LocalDate payDate);
 }

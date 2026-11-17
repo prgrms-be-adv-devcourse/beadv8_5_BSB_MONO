@@ -77,7 +77,7 @@ class ApiV1PayoutHoldControllerTest {
 		fieldWithPath("data.payoutId").description("보류된 정산 내역 ID"),
 		fieldWithPath("data.reasonType").description("보류 사유 (정산_계좌_미등록, 대회_취소_처리)"),
 		fieldWithPath("data.reason").description("사유 상세").optional().type(JsonFieldType.STRING),
-		fieldWithPath("data.status").description("보류 상태 (지급보류: 지급보류, 해제: 해제)"),
+		fieldWithPath("data.status").description("보류 상태 (지급보류, 해제, 취소: 대회 취소로 정산과 함께 닫힘)"),
 		fieldWithPath("data.heldBy").description("보류한 관리자 회원 ID"),
 		fieldWithPath("data.heldAt").description("보류 일시"),
 		fieldWithPath("data.releasedBy").description("푼 관리자 회원 ID (보류 중에는 null)")

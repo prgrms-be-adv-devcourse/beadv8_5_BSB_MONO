@@ -8,17 +8,19 @@ final class OrderInternalApiExamples {
 		{
 			"status": 200,
 			"message": "판매 내역을 조회했습니다.",
-			"data": [
-				{ "orderItemId": 1, "sellerId": 3, "raceId": 5, "raceCourseId": 11, "raceDate": "2026-11-09",
-					"price": 50000, "status": "PAID" },
-				{ "orderItemId": 4, "sellerId": 8, "raceId": 5, "raceCourseId": 12, "raceDate": "2026-11-09",
-					"price": 50000, "status": "CANCELING" }
-			]
+			"data": {
+				"raceId": 5, "raceDate": "2026-11-09", "sellerId": 3,
+				"courses": [
+					{ "raceCourseId": 11, "price": 50000, "paidIds": [1, 2], "blockingIds": [] },
+					{ "raceCourseId": 12, "price": 70000, "paidIds": [3], "blockingIds": [4] }
+				]
+			}
 		}
 		""";
 
 	static final String SOLD_ENTRIES_EMPTY = """
-		{ "status": 200, "message": "판매 내역을 조회했습니다.", "data": [] }
+		{ "status": 200, "message": "판매 내역을 조회했습니다.",
+			"data": { "raceId": 5, "raceDate": null, "sellerId": null, "courses": [] } }
 		""";
 
 	static final String INVALID_VALUE_TYPE = """

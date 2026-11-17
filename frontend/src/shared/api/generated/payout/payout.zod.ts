@@ -275,7 +275,37 @@ export const CreateFailuresQueryParams = zod.object({
   "size": zod.int().default(createFailuresQuerySizeDefault).describe('페이지 크기 (1 ~ 100)')
 })
 
-export const CreateFailuresResponse = zod.unknown()
+export const CreateFailuresResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.object({
+  "mismatchCount": zod.int(),
+  "autoFilledCount": zod.int(),
+  "orderLookupFailureCount": zod.int(),
+  "records": zod.object({
+  "content": zod.array(zod.object({
+  "id": zod.int(),
+  "recordedAt": zod.iso.datetime({"offset":true}),
+  "runDate": zod.iso.date(),
+  "payoutStage": zod.enum(['일차_정산', '최종_정산']).describe('정산 단계 (일차_정산: 1차 정산, 최종_정산: 최종 정산)'),
+  "sellerId": zod.int().nullable(),
+  "raceId": zod.int().nullable(),
+  "raceCourseId": zod.int().nullable(),
+  "payoutTargetDate": zod.iso.date().nullable(),
+  "failureType": zod.string().describe('실패 종류 (CreateFailuresType). 백엔드에 먼저 생긴 종류도 올 수 있어 문자열로 받는다'),
+  "actionTaken": zod.union([zod.enum(['지급보류', '자동_보정', '기록만']).describe('배치가 한 조치'),zod.null()]),
+  "note": zod.string().nullable(),
+  "soldCount": zod.int().nullable(),
+  "settledCount": zod.int().nullable(),
+  "holdCode": zod.string().nullable()
+})),
+  "page": zod.int(),
+  "size": zod.int(),
+  "totalElements": zod.int(),
+  "totalPages": zod.int()
+})
+}).optional()
+})
 
 
 /**

@@ -215,15 +215,36 @@ public class Payout extends BaseIdAndTime {
 	// 지급액은 언제나 이 정산 내역 원장 줄의 합이다
 	public PayoutItem addItem(long orderItemId, Long raceCourseId, long price, BigDecimal feeRate,
 		LocalDate payoutCreateDate) {
+		List<PayoutItem> lines = recordItem(orderItemId, raceCourseId, price, feeRate, payoutCreateDate);
+		items.addAll(lines);
+		return lines.getFirst();
+	}
+
+	/**
+	 * addItem과 같은 판매 · 수수료 두 줄을 만들고 금액 캐시도 똑같이 더하지만, items에는 붙이지 않는다 (BUK-252)
+	 * 부르는 쪽이 정산 내역을 저장한 뒤 PayoutRepository.insertItems로 같은 트랜잭션에서 일괄 저장한다
+	 * 참가권 10만 장이면 줄이 20만 개라, 영속성 컨텍스트에 붙여 커밋까지 들고 있으면 힙이 넘친다
+	 * 이 정산 내역 객체의 getItems()에는 이 줄들이 보이지 않는다. 다시 읽어야 보인다
+	 */
+	public List<PayoutItem> addItemForBatchInsert(long orderItemId, Long raceCourseId, long price, BigDecimal feeRate,
+		LocalDate payoutCreateDate) {
+		return recordItem(orderItemId, raceCourseId, price, feeRate, payoutCreateDate);
+	}
+
+	private List<PayoutItem> recordItem(long orderItemId, Long raceCourseId, long price, BigDecimal feeRate,
+		LocalDate payoutCreateDate) {
 		if (payoutStage != PayoutStage.최종_정산) {
 			throw new IllegalStateException("1차 정산은 참가권 줄 없이 recordAdvance로 만듭니다. raceId=%d".formatted(raceId));
 		}
-		salesAmount += price;
 		long fee = TwoStagePayoutCalculator.rate(price, feeRate);
+		salesAmount += price;
 		feeAmount += fee;
-		PayoutItem sale = addLine(PayoutRecordType.판매, orderItemId, raceCourseId, price, feeRate, payoutCreateDate);
-		addLine(PayoutRecordType.수수료, orderItemId, raceCourseId, -fee, feeRate, payoutCreateDate);
-		return sale;
+		payoutAmount += price - fee;
+		return List.of(
+			PayoutItem.ofPayout(this, PayoutRecordType.판매, orderItemId, raceCourseId, price, feeRate,
+				payoutCreateDate),
+			PayoutItem.ofPayout(this, PayoutRecordType.수수료, orderItemId, raceCourseId, -fee, feeRate,
+				payoutCreateDate));
 	}
 
 	// 코스를 모를 때(테스트 · 샘플 데이터)
@@ -425,7 +446,7 @@ public class Payout extends BaseIdAndTime {
 		if (hold.getPayout().getId() != getId()) {
 			throw new IllegalArgumentException("이 정산 내역의 지급보류가 아닙니다. payoutId=%d".formatted(getId()));
 		}
-		// 대회 취소로 닫힌 정산 내역에는 보류 기록이 지급보류로 남아 있을 수 있다. 풀어도 지급 예정으로 돌리지 않는다
+		// 취소로 닫으면 보류도 함께 닫지만, 닫힌 정산 내역을 지급 예정으로 되돌리는 일은 여기서도 한 번 더 막는다
 		if (status == PayoutStatus.취소) {
 			throw new PayoutHoldConflictException("취소된 정산 내역의 지급보류는 풀 수 없습니다.");
 		}
@@ -444,7 +465,7 @@ public class Payout extends BaseIdAndTime {
 	// 대회 취소로 닫기: 지급 전(지급_예정 · 지급보류) 정산 내역을 취소로 바꿔 다시는 지급되지 않게 한다 (PRO-34)
 	// 원장 줄은 지우지 않고 반대 부호 줄을 더해 되돌린다(PRO-214). 그래서 조건 없이 더해도 1차 정산금 · 갚을 돈 잔고가 맞는다
 	// 지급액(줄의 합)은 0이 되고, 판매액 · 수수료 칸은 만들 때 그대로 둔다(얼마가 나갈 뻔했는지 남긴다)
-	// 보류 중이었으면 보류 기록은 지급보류로 두고 상태만 최신으로 바꾼다. 무엇이었는지는 상태 이력에 남는다
+	// 보류 중이었으면 보류 기록도 취소로 닫는다. 정산이 지급보류였는지는 상태 이력에 남는다
 	// 이미 지급한 정산 내역은 닫지 않는다. 지급 뒤 대회 취소는 회수(PRO-33)가 맡는다
 	// 지급 중에도 돈이 이미 나갔을 수 있어 닫지 않는다. 대신 markRaceCanceled로 표시하고 지급 결과를 기다린다 (PRO-253)
 	public void cancel(long canceledBy, LocalDateTime canceledAt, String reason) {
@@ -530,10 +551,12 @@ public class Payout extends BaseIdAndTime {
 	}
 
 	// 원장 줄을 반대 부호로 되돌리고 취소로 닫는다
+	// 진행 중 보류도 취소로 닫는다. 남겨 두면 관리자 보류 카드 · 목록에 풀 수 없는 보류로 남는다 (PR 569 리뷰)
 	private void close(long canceledBy, LocalDateTime canceledAt, String reason) {
 		List<PayoutItem> original = List.copyOf(items);
 		original.forEach(item -> addLine(item.getRecordType().canceled(), item.getOrderItemId(),
 			item.getRaceCourseId(), -item.getAmount(), item.getFeeRate(), item.getPayoutCreateDate()));
+		activeHolds().toList().forEach(hold -> hold.markCanceled(canceledBy, canceledAt));
 		changeStatus(PayoutStatus.취소, canceledBy, canceledAt, reason);
 	}
 
@@ -546,5 +569,11 @@ public class Payout extends BaseIdAndTime {
 	// calendar는 지금 쓰지 않는다. 휴일 보정을 다시 켤 때 호출부를 다시 고치지 않도록 인자로 남겨 둔다 (10/28과 같은 방식)
 	public static LocalDate payDayOf(YearMonth month, BusinessDayCalendar calendar) {
 		return month.atDay(PAY_DAY_OF_MONTH);
+	}
+
+	// 관리자 정산 목록의 기본 지급일: 오늘보다 뒤인 가장 가까운 20일. 20일 당일이면 다음 달 20일이다 (BUK-168, 11/17 결정)
+	public static LocalDate nextPayDayAfter(LocalDate today) {
+		LocalDate payDay = today.withDayOfMonth(PAY_DAY_OF_MONTH);
+		return payDay.isAfter(today) ? payDay : payDay.plusMonths(1);
 	}
 }

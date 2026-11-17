@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.bukang.common.global.eventpublisher.EventPublisher;
 import com.bukang.payout.domain.BusinessDayCalendar;
 import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutHoldReason;
@@ -41,7 +42,7 @@ import com.bukang.payout.out.PayoutStatusHistoryRepository;
 @DataJpaTest
 @ActiveProfiles("test")
 @Import({PayoutPayStepUseCase.class, PayoutRaceCancelUseCase.class, PayoutLedgerUseCase.class,
-	PayoutHoldUseCase.class, BusinessDayCalendar.class})
+	PayoutHoldUseCase.class, EventPublisher.class, BusinessDayCalendar.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class PayoutPayTransactionTest {
 	private static final LocalDate PAY_DATE = LocalDate.of(2026, 11, 20);

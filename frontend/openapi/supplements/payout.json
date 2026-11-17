@@ -69,6 +69,14 @@
           "$ref": "#/components/schemas/PayoutAdminClaimsDto"
         }
       }
+    },
+    "createFailures": {
+      "200": {
+        "wrapper": "RsDataPayoutCreateFailuresDto",
+        "data": {
+          "$ref": "#/components/schemas/PayoutCreateFailuresDto"
+        }
+      }
     }
   },
   "schemas": {
@@ -596,6 +604,179 @@
       "required": [
         "summary",
         "claims"
+      ]
+    },
+    "PayoutCreateFailureAction": {
+      "type": "string",
+      "enum": [
+        "지급보류",
+        "자동_보정",
+        "기록만"
+      ],
+      "description": "배치가 한 조치"
+    },
+    "PayoutCreateFailureDto": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "recordedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "runDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "payoutStage": {
+          "$ref": "#/components/schemas/PayoutStage"
+        },
+        "sellerId": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "raceId": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "raceCourseId": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "payoutTargetDate": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "failureType": {
+          "type": "string",
+          "description": "실패 종류 (CreateFailuresType). 백엔드에 먼저 생긴 종류도 올 수 있어 문자열로 받는다"
+        },
+        "actionTaken": {
+          "oneOf": [
+            {
+              "$ref": "#/components/schemas/PayoutCreateFailureAction"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "note": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "soldCount": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int32"
+        },
+        "settledCount": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int32"
+        },
+        "holdCode": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "recordedAt",
+        "runDate",
+        "payoutStage",
+        "sellerId",
+        "raceId",
+        "raceCourseId",
+        "payoutTargetDate",
+        "failureType",
+        "actionTaken",
+        "note",
+        "soldCount",
+        "settledCount",
+        "holdCode"
+      ]
+    },
+    "PayoutCreateFailurePageDto": {
+      "type": "object",
+      "properties": {
+        "content": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/PayoutCreateFailureDto"
+          }
+        },
+        "page": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "size": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "totalElements": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "totalPages": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "required": [
+        "content",
+        "page",
+        "size",
+        "totalElements",
+        "totalPages"
+      ]
+    },
+    "PayoutCreateFailuresDto": {
+      "type": "object",
+      "properties": {
+        "mismatchCount": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "autoFilledCount": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "orderLookupFailureCount": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "records": {
+          "$ref": "#/components/schemas/PayoutCreateFailurePageDto"
+        }
+      },
+      "required": [
+        "mismatchCount",
+        "autoFilledCount",
+        "orderLookupFailureCount",
+        "records"
       ]
     }
   }

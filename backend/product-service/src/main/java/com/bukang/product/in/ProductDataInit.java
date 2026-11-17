@@ -50,7 +50,7 @@ public class ProductDataInit {
 	// 더미 페이지(race-register-test.html, race-query-test.html)의 기본 회원 ID·판매자 ID도 이 값이다
 	private static final long SELLER_MEMBER_ID = 7;
 	private static final long SELLER_ID = 7;
-	// 더미 대회 종목의 대표 이미지 파일 ID. 등록 검사(종목마다 대표 이미지 1장)를 통과시키려고 넣는 값이고,
+	// 더미 대회의 대표 이미지 파일 ID. 등록 검사(대회마다 대표 이미지 1장)를 통과시키려고 넣는 값이고,
 	// file-service에 없는 파일이라 연결은 실패해 file-service DLT 로그가 남는다 (사용자 결정 10/15)
 	private static final long DUMMY_THUMBNAIL_FILE_ID = 999_999_999;
 
@@ -155,15 +155,15 @@ public class ProductDataInit {
 		RaceSaveDto saved = productFacade.registerRace(SELLER_MEMBER_ID, UUID.randomUUID().toString(),
 			new RaceSaveRequestDto(title, "대기열 복제본 확인용 더미 대회", location, regionSido, regionSigungu, raceDate,
 				null, null, individualOpenAt, applicationCloseAt, applicationCloseAt.toLocalDate(),
-				"환불 기한까지 취소하면 전액 환불됩니다.", 5, null, List.of(course))).race();
+				"환불 기한까지 취소하면 전액 환불됩니다.", 5, null, List.of(course),
+				List.of(new RaceImageRequestDto(DUMMY_THUMBNAIL_FILE_ID, FileType.THUMBNAIL, 0)))).race();
 		log.info("더미 대회 생성: raceId={}, title={}, individualOpenAt={}", saved.getRaceId(), title, individualOpenAt);
 	}
 
-	// 개인 예매만 하는 종목 (크루 정원 0, 키트 없음, 만 14세 이상, 노면 도로)
+	// 개인 예매만 하는 종목 (크루 정원 0, 키트 없음, 만 14세 이상, 노면 도로, 이미지 없음. 대표 이미지는 대회에 붙인다)
 	private RaceCourseSaveRequestDto dummyCourse(String name, CourseType courseType, String distanceKm,
 		int timeLimitMinutes, long price, int individualQuota) {
 		return new RaceCourseSaveRequestDto(null, name, courseType, CourseSurface.ROAD, new BigDecimal(distanceKm),
-			timeLimitMinutes, price, false, 0L, 14, null, 0, individualQuota,
-			List.of(new RaceImageRequestDto(DUMMY_THUMBNAIL_FILE_ID, FileType.THUMBNAIL, 0)));
+			timeLimitMinutes, price, false, 0L, 14, null, 0, individualQuota, List.of());
 	}
 }

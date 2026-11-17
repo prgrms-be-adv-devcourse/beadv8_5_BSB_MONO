@@ -291,17 +291,16 @@ class ApiV1RaceRegisterTest extends ProductIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("등록이 커밋되면 race.filelink.requested로 종목별 이미지 연결을 1번 요청한다 (소유자 회원 9001, refType RaceCourse, key 대회 ID)")
+	@DisplayName("등록이 커밋되면 race.filelink.requested로 대표 이미지는 대회에, 나머지는 종목별로 연결을 1번 요청한다 (소유자 회원 9001, key 대회 ID)")
 	void publishFileLink() throws Exception {
-		RaceImageRequestDto tenKThumbnail = thumbnail();
+		RaceImageRequestDto raceThumbnail = thumbnail();
 		RaceImageRequestDto tenKDetail = image(FileType.DETAIL, 0);
 		RaceImageRequestDto tenKSecondDetail = image(FileType.DETAIL, 1);
-		RaceImageRequestDto halfThumbnail = thumbnail();
 		RaceImageRequestDto halfKit = image(FileType.KIT, 0);
 
 		RegisteredRace registered = register(upcomingRace()
-			.course(course().images(tenKThumbnail, tenKDetail, tenKSecondDetail),
-				halfCourse().images(halfThumbnail, halfKit))
+			.images(raceThumbnail)
+			.course(course().images(tenKDetail, tenKSecondDetail), halfCourse().images(halfKit))
 			.build());
 
 		List<String> payloads = outboxPayloads(KafkaTopics.RACE_FILE_LINK_REQUESTED);
@@ -310,22 +309,27 @@ class ApiV1RaceRegisterTest extends ProductIntegrationTest {
 		long ownerId = JsonIds.readLong(payload, "$.ownerId");
 		List<String> refTypes = JsonPath.read(payload, "$.refs[*].refType");
 		List<Long> refIds = JsonIds.readLongs(payload, "$.refs[*].refId");
-		List<Long> tenKFileIds = JsonIds.readLongs(payload, "$.refs[0].files[*].fileId");
-		List<String> tenKFileTypes = JsonPath.read(payload, "$.refs[0].files[*].fileType");
-		List<Integer> tenKSortNos = JsonPath.read(payload, "$.refs[0].files[*].sortNo");
-		List<Long> halfFileIds = JsonIds.readLongs(payload, "$.refs[1].files[*].fileId");
-		List<String> halfFileTypes = JsonPath.read(payload, "$.refs[1].files[*].fileType");
+		List<Long> raceFileIds = JsonIds.readLongs(payload, "$.refs[0].files[*].fileId");
+		List<String> raceFileTypes = JsonPath.read(payload, "$.refs[0].files[*].fileType");
+		List<Long> tenKFileIds = JsonIds.readLongs(payload, "$.refs[1].files[*].fileId");
+		List<String> tenKFileTypes = JsonPath.read(payload, "$.refs[1].files[*].fileType");
+		List<Integer> tenKSortNos = JsonPath.read(payload, "$.refs[1].files[*].sortNo");
+		List<Long> halfFileIds = JsonIds.readLongs(payload, "$.refs[2].files[*].fileId");
+		List<String> halfFileTypes = JsonPath.read(payload, "$.refs[2].files[*].fileType");
 
 		// 파일 소유자는 판매자 ID(7001)가 아니라 등록한 회원 ID다 (파일을 올린 회원과 같아야 연결된다)
 		assertThat(ownerId).isEqualTo(SELLER_MEMBER_ID);
-		assertThat(refTypes).containsExactly("RaceCourse", "RaceCourse");
-		assertThat(refIds).containsExactlyElementsOf(registered.courseIds());
-		assertThat(tenKFileIds)
-			.containsExactly(tenKThumbnail.getFileId(), tenKDetail.getFileId(), tenKSecondDetail.getFileId());
-		assertThat(tenKFileTypes).containsExactly("THUMBNAIL", "DETAIL", "DETAIL");
-		assertThat(tenKSortNos).containsExactly(0, 0, 1);
-		assertThat(halfFileIds).containsExactly(halfThumbnail.getFileId(), halfKit.getFileId());
-		assertThat(halfFileTypes).containsExactly("THUMBNAIL", "KIT");
+		// 대표 이미지는 대회에, 나머지 이미지는 종목에 붙는다
+		assertThat(refTypes).containsExactly("Race", "RaceCourse", "RaceCourse");
+		assertThat(refIds.getFirst()).isEqualTo(registered.raceId());
+		assertThat(refIds.subList(1, 3)).containsExactlyElementsOf(registered.courseIds());
+		assertThat(raceFileIds).containsExactly(raceThumbnail.getFileId());
+		assertThat(raceFileTypes).containsExactly("THUMBNAIL");
+		assertThat(tenKFileIds).containsExactly(tenKDetail.getFileId(), tenKSecondDetail.getFileId());
+		assertThat(tenKFileTypes).containsExactly("DETAIL", "DETAIL");
+		assertThat(tenKSortNos).containsExactly(0, 1);
+		assertThat(halfFileIds).containsExactly(halfKit.getFileId());
+		assertThat(halfFileTypes).containsExactly("KIT");
 		// 같은 대회의 메시지가 순서대로 처리되도록 대회 ID를 key로 보낸다
 		assertThat(outboxKeys(KafkaTopics.RACE_FILE_LINK_REQUESTED))
 			.containsExactly(String.valueOf(registered.raceId()));
@@ -401,7 +405,7 @@ class ApiV1RaceRegisterTest extends ProductIntegrationTest {
 				"참가 최소 나이는 만 14세 이상이어야 합니다."),
 			Arguments.of("개인 정원 -1명", upcomingRace().course(course().quota(0, -1)).build(), "개인 정원은 0 이상이어야 합니다."),
 			Arguments.of("이미지 파일 ID 0",
-				upcomingRace().course(course().images(new RaceImageRequestDto(0L, FileType.THUMBNAIL, 0))).build(),
+				upcomingRace().images(new RaceImageRequestDto(0L, FileType.THUMBNAIL, 0)).build(),
 				"파일 ID는 0보다 커야 합니다.")
 		);
 	}
@@ -552,20 +556,20 @@ class ApiV1RaceRegisterTest extends ProductIntegrationTest {
 	// ---------- RaceRequestValidator: 이미지 ----------
 
 	@Test
-	@DisplayName("10K 종목의 대표 이미지가 0장(이미지 없음, 소개 이미지만 1장)이거나 2장이면 400")
+	@DisplayName("대회의 대표 이미지가 0장(이미지 없음, 대표 이미지 없이 종목 소개 이미지만 1장)이거나 2장이면 400")
 	void rejectWithoutSingleThumbnail() throws Exception {
-		String message = "10K 종목의 대표 이미지를 1장 연결해주세요.";
+		String message = "대회의 대표 이미지를 1장 연결해주세요.";
 
-		assertRejected(upcomingRace().course(course().images()).build(), message);
-		assertRejected(upcomingRace().course(course().images(image(FileType.DETAIL, 0))).build(), message);
-		assertRejected(upcomingRace().course(course().images(thumbnail(), thumbnail())).build(), message);
+		assertRejected(upcomingRace().images().build(), message);
+		assertRejected(upcomingRace().images().course(course().images(image(FileType.DETAIL, 0))).build(), message);
+		assertRejected(upcomingRace().images(thumbnail(), thumbnail()).build(), message);
 	}
 
 	@Test
 	@DisplayName("10K 종목에 키트 이미지를 2장 넣으면(최대 1장) 400")
 	void rejectTooManyKitImages() throws Exception {
 		assertRejected(upcomingRace()
-			.course(course().images(thumbnail(), image(FileType.KIT, 0), image(FileType.KIT, 1)))
+			.course(course().images(image(FileType.KIT, 0), image(FileType.KIT, 1)))
 			.build(), "10K 종목의 키트 이미지 최대 개수(1개)를 넘었습니다.");
 	}
 
@@ -574,28 +578,31 @@ class ApiV1RaceRegisterTest extends ProductIntegrationTest {
 	void rejectRosterOnCourse() throws Exception {
 		RaceImageRequestDto roster = image(FileType.ROSTER, 0);
 
-		assertRejected(upcomingRace().course(course().images(thumbnail(), roster)).build(),
-			"10K 종목에는 크루원 명단을 연결할 수 없습니다. (fileId: %d, fileType: ROSTER)".formatted(roster.getFileId()));
+		assertRejected(upcomingRace().course(course().images(roster)).build(),
+			"10K 종목에는 대표 이미지·크루원 명단을 연결할 수 없습니다. (fileId: %d, fileType: ROSTER)"
+				.formatted(roster.getFileId()));
 	}
 
 	@Test
-	@DisplayName("10K와 하프 두 종목에 같은 대표 이미지 파일을 넣으면 400")
-	void rejectSameFileInTwoCourses() throws Exception {
-		RaceImageRequestDto shared = thumbnail();
+	@DisplayName("대회 대표 이미지와 같은 파일을 10K 종목 소개 이미지로도 넣으면 400")
+	void rejectSameFileInRaceAndCourse() throws Exception {
+		RaceImageRequestDto raceThumbnail = thumbnail();
+		RaceImageRequestDto sameFileAsDetail = new RaceImageRequestDto(raceThumbnail.getFileId(), FileType.DETAIL, 0);
 
-		assertRejected(upcomingRace().course(course().images(shared), halfCourse().images(shared)).build(),
-			"같은 파일을 두 번 연결할 수 없습니다. (fileId: %d, fileType: THUMBNAIL)".formatted(shared.getFileId()));
+		// 대회 이미지를 먼저 보므로 두 번째로 나온 항목(종목 소개 이미지)을 메시지에 넣는다
+		assertRejected(upcomingRace().images(raceThumbnail).course(course().images(sameFileAsDetail)).build(),
+			"같은 파일을 두 번 연결할 수 없습니다. (fileId: %d, fileType: DETAIL)".formatted(raceThumbnail.getFileId()));
 	}
 
 	@Test
-	@DisplayName("한 종목에 같은 파일을 대표 이미지와 소개 이미지로 두 번 넣으면 400")
+	@DisplayName("한 종목에 같은 파일을 소개 이미지와 코스 안내 이미지로 두 번 넣으면 400")
 	void rejectSameFileTwiceInOneCourse() throws Exception {
-		RaceImageRequestDto thumbnailImage = thumbnail();
-		RaceImageRequestDto sameFileAsDetail = new RaceImageRequestDto(thumbnailImage.getFileId(), FileType.DETAIL, 0);
+		RaceImageRequestDto detail = image(FileType.DETAIL, 0);
+		RaceImageRequestDto sameFileAsCourseMap = new RaceImageRequestDto(detail.getFileId(), FileType.COURSE, 0);
 
-		// 두 번째로 나온 항목(소개 이미지)을 메시지에 넣는다
-		assertRejected(upcomingRace().course(course().images(thumbnailImage, sameFileAsDetail)).build(),
-			"같은 파일을 두 번 연결할 수 없습니다. (fileId: %d, fileType: DETAIL)".formatted(thumbnailImage.getFileId()));
+		// 두 번째로 나온 항목(코스 안내 이미지)을 메시지에 넣는다
+		assertRejected(upcomingRace().course(course().images(detail, sameFileAsCourseMap)).build(),
+			"같은 파일을 두 번 연결할 수 없습니다. (fileId: %d, fileType: COURSE)".formatted(detail.getFileId()));
 	}
 
 	// ---------- 요청 본문 형식 ----------
@@ -639,7 +646,7 @@ class ApiV1RaceRegisterTest extends ProductIntegrationTest {
 			request.getRegionSido(), request.getRegionSigungu(), request.getRaceDate(), request.getCrewSaleStartAt(),
 			request.getCrewSaleEndAt(), request.getIndividualOpenAt(), request.getApplicationCloseAt(),
 			request.getRefundDeadline(), request.getRefundPolicy(), request.getCrewMinCount(),
-			request.getCrewMaxCount(), courses);
+			request.getCrewMaxCount(), courses, request.getImages());
 	}
 
 	private ResultActions postRaw(String content) throws Exception {

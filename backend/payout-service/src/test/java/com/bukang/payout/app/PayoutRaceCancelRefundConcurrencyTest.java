@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.bukang.common.global.eventpublisher.EventPublisher;
 import com.bukang.common.shared.order.event.OrderItemRefundReason;
 import com.bukang.common.shared.order.event.OrderItemRefundedEvent;
 import com.bukang.payout.app.PayoutCreateStepUseCase.CourseSale;
@@ -48,7 +49,7 @@ import com.bukang.payout.support.MySqlContainerTest;
 @ActiveProfiles("test")
 @MySqlContainerTest
 @Import({PayoutLedgerUseCase.class, PayoutCreateStepUseCase.class, PayoutHoldUseCase.class,
-	PayoutRefundUseCase.class, PayoutRaceCancelUseCase.class, BusinessDayCalendar.class})
+	EventPublisher.class, PayoutRefundUseCase.class, PayoutRaceCancelUseCase.class, BusinessDayCalendar.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class PayoutRaceCancelRefundConcurrencyTest {
 	private static final long SELLER_ID = 1;

@@ -12,6 +12,8 @@ import {
   type BadgeTone,
 } from '@/shared/ui'
 
+import { PayCheckRequiredCard, PayCheckRequiredTile } from './PayCheckRequired'
+
 type Payout = { seller: string; id: string; amount: string; status: string; tone: BadgeTone }
 type Refund = { at: string; member: string; amount: string; status: string; tone: BadgeTone }
 
@@ -67,6 +69,7 @@ export function AdminDashboardPage() {
         <Link href="/admin/holds" className={cn('flex flex-1 rounded-lg', FOCUS_RING)}>
           <StatTile label="지급보류 중" value="2" unit="건" />
         </Link>
+        <PayCheckRequiredTile />
       </div>
 
       <div className="flex flex-wrap items-start gap-6">
@@ -138,6 +141,8 @@ export function AdminDashboardPage() {
             ]}
           />
         </ConsoleCard>
+
+        <PayCheckRequiredCard />
       </div>
     </ConsolePage>
   )

@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -13,11 +15,13 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.test.context.ActiveProfiles;
 
+import com.bukang.common.global.eventpublisher.EventPublisher;
 import com.bukang.payout.domain.BusinessDayCalendar;
 import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutHold;
 import com.bukang.payout.domain.PayoutHoldReason;
 import com.bukang.payout.domain.PayoutHoldStatus;
+import com.bukang.payout.domain.PayoutStage;
 import com.bukang.payout.domain.PayoutStatus;
 import com.bukang.payout.domain.exception.PayoutHoldNotFoundException;
 import com.bukang.payout.domain.exception.PayoutNotFoundException;
@@ -35,6 +39,8 @@ import jakarta.persistence.EntityManager;
 class PayoutHoldUseCaseTest {
 	private static final long ADMIN_ID = 99;
 	private static final LocalDateTime HELD_AT = LocalDateTime.of(2026, 10, 12, 10, 0);
+	// 보류가 트랜잭션 안에서 발행한 보류 이벤트를 모은다. 판매자 찾기 · 알림은 커밋 뒤 리스너가 한다
+	private final List<PayoutHeldEvent> heldEvents = new ArrayList<>();
 
 	@Autowired
 	private PayoutRepository payoutRepository;
@@ -61,7 +67,12 @@ class PayoutHoldUseCaseTest {
 	}
 
 	private PayoutHoldUseCase useCase() {
-		return new PayoutHoldUseCase(payoutRepository, payoutHoldRepository, new BusinessDayCalendar());
+		return new PayoutHoldUseCase(payoutRepository, payoutHoldRepository, new BusinessDayCalendar(),
+			new EventPublisher(event -> {
+				if (event instanceof PayoutHeldEvent held) {
+					heldEvents.add(held);
+				}
+			}));
 	}
 
 	private PayoutPayUseCase payUseCase() {
@@ -72,7 +83,12 @@ class PayoutHoldUseCaseTest {
 
 	// 대회일 10/17 토: 지급 예정일 10/19 월
 	private Payout saveFinalPayout() {
-		return payoutRepository.save(Payout.finalStage(1, 10, "테스트 대회", LocalDate.of(2026, 10, 17),
+		return saveFinalPayout(1);
+	}
+
+	// 같은 대회(10)에 판매자 ID만 다른 정산 내역. 판매자 · 대회 · 정산 월 · 단계가 같으면 두 번 저장할 수 없다
+	private Payout saveFinalPayout(long sellerId) {
+		return payoutRepository.save(Payout.finalStage(sellerId, 10, "테스트 대회", LocalDate.of(2026, 10, 17),
 			LocalDateTime.of(2026, 10, 18, 3, 0), new BusinessDayCalendar()));
 	}
 
@@ -84,6 +100,41 @@ class PayoutHoldUseCaseTest {
 		entityManager.flush();
 		entityManager.clear();
 		return payoutRepository.findById(payout.getId()).orElseThrow();
+	}
+
+	@Test
+	@DisplayName("보류를 걸면 알림 문구에 필요한 값을 담은 보류 이벤트를 한 번 발행한다 (판매자 찾기는 커밋 뒤)")
+	void holdPublishesHeldEvent() {
+		Payout payout = saveFinalPayout();
+
+		PayoutHoldDto hold = holdOf(payout);
+
+		assertThat(heldEvents).singleElement().isEqualTo(new PayoutHeldEvent(10, "테스트 대회", PayoutStage.최종_정산,
+			PayoutHoldReason.정산_계좌_미등록, hold.getHoldCode()));
+	}
+
+	@Test
+	@DisplayName("같은 사유로 이미 보류 중이면 대사 보류를 다시 걸지 않고 보류 이벤트도 발행하지 않는다")
+	void alreadyHeldSendsNoNotification() {
+		Payout payout = saveFinalPayout();
+		assertThat(useCase().holdForReconcileMismatch(payout, HELD_AT)).isTrue();
+
+		assertThat(useCase().holdForReconcileMismatch(payout, HELD_AT)).isFalse();
+
+		assertThat(heldEvents).hasSize(1);
+	}
+
+	@Test
+	@DisplayName("정산 계좌가 있으면 자동 보류를 걸지 않아 이벤트도 없고, 없으면 자동 보류와 이벤트가 한 번 나온다")
+	void autoHoldNotifiesOnlyWhenHeld() {
+		Payout withAccount = saveFinalPayout();
+		useCase().holdNew(withAccount, true, HELD_AT);
+		assertThat(heldEvents).isEmpty();
+
+		Payout withoutAccount = saveFinalPayout(2);
+		useCase().holdNew(withoutAccount, false, HELD_AT);
+		assertThat(heldEvents).singleElement()
+			.satisfies(event -> assertThat(event.reasonType()).isEqualTo(PayoutHoldReason.정산_계좌_미등록));
 	}
 
 	@Test
