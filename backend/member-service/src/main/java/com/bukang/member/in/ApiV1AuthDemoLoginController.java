@@ -3,6 +3,7 @@ package com.bukang.member.in;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -51,7 +52,9 @@ public class ApiV1AuthDemoLoginController {
 	}
 
 	// 요청 본문·쿼리·헤더를 받지 않는다. 로그인할 계정은 서버 설정 하나로만 정해진다
-	@PostMapping
+	// JSON 형식 요청만 받는다. 다른 사이트가 폼 전송으로 방문자를 데모 계정에 로그인시키지 못하게 한다
+	// (다른 사이트에서 JSON 형식으로 보내려면 브라우저가 사전 확인 요청을 먼저 보내고, CORS가 막는다)
+	@PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
 	@Operation(summary = "데모 로그인", description = "서버 설정에 적힌 시연용 계정 하나로 비밀번호 없이 로그인한다. "
 		+ "응답과 쿠키는 이메일 로그인과 같다. 같은 IP는 1분에 10번까지 부를 수 있다.")
 	@ApiResponses({
@@ -62,6 +65,7 @@ public class ApiV1AuthDemoLoginController {
 		@ApiResponse(responseCode = "404", description = "데모 로그인이 꺼져 있거나 시연용 계정이 없음",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = AuthApiExamples.DEMO_LOGIN_MEMBER_NOT_FOUND))),
+		@ApiResponse(responseCode = "415", description = "Content-Type이 application/json이 아님", content = @Content),
 		@ApiResponse(responseCode = "429", description = "같은 IP가 1분에 10번을 넘게 부름",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = AuthApiExamples.DEMO_LOGIN_TOO_MANY)))

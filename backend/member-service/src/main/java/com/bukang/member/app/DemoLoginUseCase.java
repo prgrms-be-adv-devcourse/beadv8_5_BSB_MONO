@@ -24,7 +24,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class DemoLoginUseCase {
 	static final String TOO_MANY_MESSAGE = "요청이 너무 많습니다. 잠시 뒤 다시 시도해주세요.";
-	// 호출마다 30일짜리 Refresh Token 기록이 Redis에 쌓이므로 같은 IP의 횟수를 막는다
+	// 같은 IP의 반복 호출을 막는다. Refresh Token 기록은 회원당 하나라 누가 로그인할 때마다 이전 로그인이 끊긴다
+	// Redis 오류는 그대로 올려 실패시킨다. 횟수를 못 세는 동안 관리자 계정 로그인을 열어 두지 않는다
 	private static final int LIMIT = 10;
 	private static final Duration WINDOW = Duration.ofMinutes(1);
 

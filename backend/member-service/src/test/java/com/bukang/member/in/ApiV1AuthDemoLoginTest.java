@@ -189,7 +189,8 @@ class ApiV1AuthDemoLoginTest {
 	@DisplayName("X-Forwarded-For를 바꿔도 X-Real-IP로 세므로 한도를 피할 수 없다")
 	void forgedForwardedForCannotBypass() throws Exception {
 		for (int i = 0; i < 10; i++) {
-			mockMvc.perform(json(post(PATH)).header("X-Real-IP", "203.0.113.7").header("X-Forwarded-For", "10.0.0." + i))
+			mockMvc.perform(json(post(PATH)).header("X-Real-IP", "203.0.113.7")
+					.header("X-Forwarded-For", "10.0.0." + i))
 				.andExpect(status().isOk());
 		}
 

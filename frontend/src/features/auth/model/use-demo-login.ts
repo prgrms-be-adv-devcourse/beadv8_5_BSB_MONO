@@ -20,7 +20,10 @@ export function useDemoLogin() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async () => {
-      const { accessToken, member } = unwrapData(await memberApi.demoLogin())
+      // 서버는 JSON 형식 요청만 받는다(다른 사이트의 폼 전송을 막으려고). 본문은 보내지 않는다
+      const { accessToken, member } = unwrapData(
+        await memberApi.demoLogin({ headers: { 'Content-Type': 'application/json' } }),
+      )
       if (!accessToken) throw new Error('로그인 응답에 Access Token이 없습니다.')
       return { accessToken, member }
     },
