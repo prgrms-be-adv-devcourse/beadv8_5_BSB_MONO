@@ -232,6 +232,95 @@ describe('LoginPage', () => {
   })
 })
 
+describe('LoginPage 테스트 계정 로그인', () => {
+  const DEMO_PATH = '*/api/v1/auth/demo-login'
+  const DEMO_BUTTON = '테스트 계정으로 로그인'
+
+  beforeEach(() => clearAccessToken())
+
+  function demoEnabled() {
+    server.use(
+      http.get(DEMO_PATH, () =>
+        HttpResponse.json({ status: 200, message: '데모 로그인을 쓸 수 있습니다.', data: null }),
+      ),
+    )
+  }
+
+  it('서버에서 꺼져 있으면(GET 404) 버튼을 보여 주지 않는다', async () => {
+    let asked = false
+    server.use(
+      http.get(DEMO_PATH, () => {
+        asked = true
+        return HttpResponse.json({ status: 404, message: 'Not Found', data: null }, { status: 404 })
+      }),
+    )
+    render(withQueryClient(<LoginPage />))
+
+    await vi.waitFor(() => expect(asked).toBe(true))
+    expect(screen.queryByRole('button', { name: DEMO_BUTTON })).not.toBeInTheDocument()
+  })
+
+  it('서버에서 켜져 있으면 버튼을 보여 준다', async () => {
+    demoEnabled()
+    render(withQueryClient(<LoginPage />))
+
+    expect(await screen.findByRole('button', { name: DEMO_BUTTON })).toBeInTheDocument()
+  })
+
+  it('누르면 본문 없이 데모 로그인 API만 부르고, 성공하면 로그인 상태가 되어 가려던 곳으로 간다', async () => {
+    demoEnabled()
+    let body: string | undefined
+    server.use(
+      http.post(DEMO_PATH, async ({ request }) => {
+        body = await request.text()
+        return HttpResponse.json(memberMock.getLoginResponseMock())
+      }),
+    )
+    const user = userEvent.setup()
+    render(withQueryClient(<LoginPage next="/admin" />))
+
+    await user.click(await screen.findByRole('button', { name: DEMO_BUTTON }))
+
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/admin'))
+    expect(body).toBe('')
+    expect(getAuthStatus()).toBe('authenticated')
+  })
+
+  it('비밀번호 입력 없이도 누를 수 있다', async () => {
+    demoEnabled()
+    render(withQueryClient(<LoginPage />))
+
+    expect(await screen.findByRole('button', { name: DEMO_BUTTON })).toBeEnabled()
+  })
+
+  it('실패하면(429) 서버 문구를 보여 주고 이동하지 않는다', async () => {
+    demoEnabled()
+    server.use(
+      http.post(DEMO_PATH, () =>
+        HttpResponse.json(
+          {
+            status: 429,
+            code: 'DEMO_LOGIN_TOO_MANY',
+            message: '요청이 너무 많습니다. 잠시 뒤 다시 시도해주세요.',
+            data: null,
+          },
+          { status: 429 },
+        ),
+      ),
+    )
+    const user = userEvent.setup()
+    render(withQueryClient(<LoginPage />))
+
+    await user.click(await screen.findByRole('button', { name: DEMO_BUTTON }))
+
+    expect(
+      await screen.findByText('요청이 너무 많습니다. 잠시 뒤 다시 시도해주세요.'),
+    ).toBeInTheDocument()
+    expect(replace).not.toHaveBeenCalled()
+    expect(getAuthStatus()).not.toBe('authenticated')
+  })
+})
+
 describe('SignupProfilePage', () => {
   it('닉네임이 짧으면 오류가 뜨고 가입 완료 버튼이 꺼진다', async () => {
     const user = userEvent.setup()
