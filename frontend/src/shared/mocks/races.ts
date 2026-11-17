@@ -299,6 +299,11 @@ export function findMockRace(raceId: number, now: number = Date.now()): MockRace
   return getMockRaces(now).find((race) => race.detail.raceId === raceId)
 }
 
+/** 대회 ID로 그 대회의 대표 이미지 (없으면 undefined) */
+export function mockImageOfRace(raceId: number): string | undefined {
+  return RACE_SEEDS.find((race) => race.id === raceId)?.image
+}
+
 /** 종목 ID로 그 종목이 속한 대회의 이미지 (없으면 undefined) */
 export function mockImageOfCourse(raceCourseId: number): string | undefined {
   const seed = RACE_SEEDS.find((race) => race.courses.some((course) => course.id === raceCourseId))
