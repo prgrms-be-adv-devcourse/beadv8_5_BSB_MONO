@@ -40,10 +40,12 @@ class ServerCheckTest {
 		"1 : 30 : 05|MATCH",
 		"01:30:06|MISMATCH",
 		"01:30:05 01:31:10|UNREADABLE",
+		"01:30:05 01:30:05|MATCH",
+		"01:30:05 1시간 30분 5초|MATCH",
 		"기록 없음|UNREADABLE",
 		"23.04.12|UNREADABLE"
 	})
-	@DisplayName("넷타임: 시간이 하나일 때만 비교하고, 없거나 둘 이상이면 읽지 못함")
+	@DisplayName("넷타임: 서로 다른 시간이 하나일 때만 비교하고(같은 값 여러 번은 하나), 없거나 둘 이상이면 읽지 못함")
 	void netTime(String text, FieldCheck expected) {
 		assertThat(checkOne(CheckField.NET_TIME, text)).isEqualTo(expected);
 	}
@@ -71,6 +73,7 @@ class ServerCheckTest {
 		"12th April 2023|MATCH",
 		"2023.04.13|MISMATCH",
 		"2023.04.12 ~ 2023.04.13|UNREADABLE",
+		"2023.04.12 Apr 12, 2023|MATCH",
 		"4월 12일|UNREADABLE"
 	})
 	@DisplayName("대회일: 날짜가 하나일 때만 비교한다")
