@@ -147,7 +147,10 @@ backend/
 
 - 파일은 브라우저가 presigned PUT으로 S3 `{환경}/uploads/`에 직접 올리고, 완료 API가 `{환경}/files/`로 옮긴 뒤 형식·크기를 확인한다 (README "파일 저장소" 참고).
   `{환경}`은 `file.storage.s3.key-prefix`로, 프로파일별 yaml에 적는다(dev=`dev`, prod=`prod`, 테스트=`test`). 로컬과 운영이 같은 버킷을 써도 경로가 나뉜다.
-- 다른 서비스는 파일을 파일 ID로만 참조한다. 대상(대회 등)을 저장할 때 `/internal/v1/file/refs/{refType}/{refId}/files`를 동기 호출해 연결하고, `/internal/**`은 게이트웨이에 노출하지 않는다.
+- 다른 서비스는 파일을 파일 ID로만 참조한다. 대상(대회 등)을 저장하면 같은 트랜잭션에서 아웃박스에 파일 연결 메시지(`FileLinkRequestedEvent`, 토픽 `race.filelink.requested`)를 남기고,
+  커밋 뒤 Kafka로 보낸다. file-service가 받아 대상마다 보낸 목록으로 파일을 통째로 바꾼다(빈 목록이면 모두 뗀다).
+  대표 이미지는 대회(`Race`), 나머지 대회 이미지는 종목(`RaceCourse`)에 붙는다. 동기로 연결하는 내부 API(`/internal/v1/file/refs/{refType}/{refId}/files`)도 남아 있지만 상품 서비스는 쓰지 않는다.
+  `/internal/**`은 게이트웨이에 노출하지 않는다.
 - 회원에게 알림을 띄우려면 트랜잭션 안에서 `eventPublisher.publish(NotificationRequestedEvent.of(회원 ID, NotificationKind.*, 제목, 내용, 링크))`
   한 줄을 부른다. common의 `NotificationKafkaSender`가 커밋된 뒤에만 Kafka로 보내고(롤백되면 안 보냄), 실패하면 로그만 남긴다
   (알림은 잃어도 되는 메시지라 아웃박스를 쓰지 않는다, 11/04 결정). AFTER_COMMIT 리스너 안에서 부르면 보내지지 않는다.

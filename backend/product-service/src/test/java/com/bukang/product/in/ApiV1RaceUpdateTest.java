@@ -552,8 +552,9 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 		RaceCourse added = findCourse(newCourseId);
 		assertThat(added.getName()).isEqualTo("5K");
 		assertThat(added.getStatus()).isEqualTo(CourseStatus.OPEN);
-		// 새 종목의 이미지도 요청 순서대로 연결을 요청한다
+		// 새 종목의 이미지도 요청 순서대로 연결을 요청한다 (맨 앞의 대회 Ref 다음에 종목 Ref가 온다)
 		assertThat(lastFileLink().refs())
+			.filteredOn(ref -> ref.refType().equals("RaceCourse"))
 			.extracting(FileLinkRequestedEvent.Ref::refId)
 			.containsExactly(newCourseId, registered.courseId());
 	}
@@ -565,7 +566,10 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 		long halfCourseId = registered.courseIds().get(1);
 		assertThat(raceCourseDocumentRepository.existsById(String.valueOf(halfCourseId))).isTrue();
 
-		update(registered.raceId(), scheduledRace().course(sameCourse(registered.courseId())).build())
+		// 남긴 종목에는 소개 이미지 1장을 보내, 뺀 종목만 빈 목록이 되는지 본다
+		update(registered.raceId(), scheduledRace()
+			.course(sameCourse(registered.courseId()).images(image(FileType.DETAIL, 0)))
+			.build())
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.courseIds.length()").value(1))
 			.andExpect(jsonPath("$.data.courseIds[0]").value(registered.courseId()));
@@ -694,7 +698,7 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 	// ---------- 수정 뒤 파일 연결 메시지·검색 문서·종목 상태 ----------
 
 	@Test
-	@DisplayName("수정이 커밋되면 새 이미지 목록(대표·소개 이미지)으로 파일 연결 메시지를 보내고 검색 문서를 새 대회명·참가비로 다시 만든다")
+	@DisplayName("수정이 커밋되면 새 대표 이미지는 대회에, 소개 이미지는 종목에 파일 연결 메시지를 보내고 검색 문서를 새 대회명·참가비로 다시 만든다")
 	void publishFileLinkAndReindexAfterUpdate() throws Exception {
 		RegisteredRace registered = register(scheduledRace().build());
 		RaceImageRequestDto newThumbnail = thumbnail();
@@ -702,7 +706,8 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 
 		update(registered.raceId(), scheduledRace()
 			.title("2026 부산 바다 런")
-			.course(sameCourse(registered.courseId()).price(50_000).images(newThumbnail, detail))
+			.images(newThumbnail)
+			.course(sameCourse(registered.courseId()).price(50_000).images(detail))
 			.build())
 			.andExpect(status().isOk());
 
@@ -710,13 +715,15 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 		assertThat(fileLinkMessages()).hasSize(2);
 		FileLinkRequestedEvent fileLink = lastFileLink();
 		assertThat(fileLink.ownerId()).isEqualTo(SELLER_MEMBER_ID);
-		assertThat(fileLink.refs()).hasSize(1);
-		FileLinkRequestedEvent.Ref ref = fileLink.refs().getFirst();
-		assertThat(ref.refType()).isEqualTo("RaceCourse");
-		assertThat(ref.refId()).isEqualTo(registered.courseId());
-		assertThat(ref.files())
+		// 대회 Ref가 먼저, 종목 Ref가 다음이다
+		assertThat(fileLink.refs()).extracting(FileLinkRequestedEvent.Ref::refType)
+			.containsExactly("Race", "RaceCourse");
+		assertThat(raceRefOf(fileLink, registered.raceId()).files())
 			.extracting(FileLinkRequestedEvent.Item::fileId)
-			.containsExactly(newThumbnail.getFileId(), detail.getFileId());
+			.containsExactly(newThumbnail.getFileId());
+		assertThat(refOf(fileLink, registered.courseId()).files())
+			.extracting(FileLinkRequestedEvent.Item::fileId)
+			.containsExactly(detail.getFileId());
 
 		syncRaceDocuments();
 		RaceCourseDocument document = findDocument(registered.courseId());
@@ -842,9 +849,17 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 		return jsonConverter.fromJson(fileLinkMessages().getLast(), FileLinkRequestedEvent.class);
 	}
 
+	// 대회 Ref와 종목 Ref의 ID가 같은 숫자일 수 있어 대상 종류도 함께 본다
 	private FileLinkRequestedEvent.Ref refOf(FileLinkRequestedEvent fileLink, long courseId) {
 		return fileLink.refs().stream()
-			.filter(ref -> ref.refId() == courseId)
+			.filter(ref -> ref.refType().equals("RaceCourse") && ref.refId() == courseId)
+			.findFirst()
+			.orElseThrow();
+	}
+
+	private FileLinkRequestedEvent.Ref raceRefOf(FileLinkRequestedEvent fileLink, long raceId) {
+		return fileLink.refs().stream()
+			.filter(ref -> ref.refType().equals("Race") && ref.refId() == raceId)
 			.findFirst()
 			.orElseThrow();
 	}

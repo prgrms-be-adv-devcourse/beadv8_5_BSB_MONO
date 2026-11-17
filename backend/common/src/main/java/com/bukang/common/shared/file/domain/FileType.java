@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum FileType {
+	// 대회마다 1장. 종목이 아니라 대회에 붙인다
 	THUMBNAIL("대표 이미지", FileKind.IMAGE, 1),
 	DETAIL("대회 소개 이미지", FileKind.IMAGE, 5),
 	// 종목(풀·하프·30km대·10km·5km·5km 미만 건강달리기·울트라)마다 1장
