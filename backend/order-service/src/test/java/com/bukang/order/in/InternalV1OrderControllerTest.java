@@ -161,6 +161,21 @@ class InternalV1OrderControllerTest {
 	}
 
 	@Test
+	@DisplayName("같은 대회에 코스 가격이나 판매자가 다른 줄이 섞이면, 틀린 돈으로 정산하지 않게 500으로 막는다")
+	void soldEntriesMixedPriceOrSellerFails() throws Exception {
+		paidOrderItem(1, COURSE_1115);
+		long second = paidOrderItem(2, COURSE_1115);
+
+		setOrderItemField(second, "amount", TICKET_PRICE + 5_000);
+		findSoldEntries(100).andExpect(status().isInternalServerError());
+
+		setOrderItemField(second, "amount", TICKET_PRICE);
+		findSoldEntries(100).andExpect(status().isOk());
+		setOrderItemField(second, "sellerId", 999L);
+		findSoldEntries(100).andExpect(status().isInternalServerError());
+	}
+
+	@Test
 	@DisplayName("결제 전(CREATED)·만료(EXPIRED) 주문 상품과 다른 대회의 참가권은 나오지 않는다")
 	void soldEntriesOnlyPaidOfThatRace() throws Exception {
 		long paid = paidOrderItem(1, COURSE_1115);
@@ -441,8 +456,12 @@ class InternalV1OrderControllerTest {
 	}
 
 	private void markStatus(long orderItemId, OrderItemStatus itemStatus) {
+		setOrderItemField(orderItemId, "status", itemStatus);
+	}
+
+	private void setOrderItemField(long orderItemId, String field, Object value) {
 		transactionTemplate.executeWithoutResult(status -> ReflectionTestUtils.setField(
-			findOrderItem(orderItemId), "status", itemStatus));
+			findOrderItem(orderItemId), field, value));
 	}
 
 	// 신청서 → [결제하기] → 결제까지 마친 주문의 주문 상품 ID
