@@ -176,6 +176,10 @@ final class FileApiExamples {
 		{ "status": 403, "message": "연결된 파일이 아닙니다(현재 상태: 업로드 완료). 본인이 올린 파일만 볼 수 있습니다.", "data": null }
 		""";
 
+	static final String NOT_CERT_OWNER = """
+		{ "status": 403, "message": "기록증은 본인이 올린 파일만 볼 수 있습니다.", "data": null }
+		""";
+
 	static final String FILE_NOT_FOUND = """
 		{ "status": 404, "message": "존재하지 않는 파일입니다.", "data": null }
 		""";

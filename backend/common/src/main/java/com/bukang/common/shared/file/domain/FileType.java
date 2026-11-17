@@ -22,7 +22,9 @@ public enum FileType {
 	INTRO_VIDEO("대회 소개 영상", FileKind.VIDEO, 1, 0),
 	ROSTER("크루원 명단", FileKind.EXCEL, 1, 0),
 	// 게시판 글에 붙이는 사진. 글마다 최대 5장
-	POST_IMAGE("게시글 사진", FileKind.IMAGE, 5, 0);
+	POST_IMAGE("게시글 사진", FileKind.IMAGE, 5, 0),
+	// 참가자가 낸 기록증 사진. 개인정보가 있어 대상에 연결돼도 올린 회원만 공개 API로 볼 수 있다 (BUK-278)
+	RECORD_CERT("기록증", FileKind.IMAGE, 1, 0);
 
 	// 화면과 메시지에 쓰는 이름
 	private final String label;

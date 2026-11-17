@@ -118,6 +118,10 @@ public class StoredFile extends BaseIdAndTime {
 		return status == FileStatus.ACTIVE;
 	}
 
+	public boolean isRecordCert() {
+		return fileType == FileType.RECORD_CERT;
+	}
+
 	public boolean isLinkedTo(String targetRefType, long targetRefId) {
 		return isActive() && targetRefType.equals(refType) && refId != null && refId == targetRefId;
 	}
