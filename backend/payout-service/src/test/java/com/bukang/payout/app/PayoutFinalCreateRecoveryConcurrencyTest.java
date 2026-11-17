@@ -32,7 +32,6 @@ import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutAccount;
 import com.bukang.payout.domain.PayoutRecoveryReason;
 import com.bukang.payout.domain.PayoutStage;
-import com.bukang.payout.out.FakeRaceSellerAdapter;
 import com.bukang.payout.out.PayoutHoldRepository;
 import com.bukang.payout.out.PayoutItemRepository;
 import com.bukang.payout.out.PayoutRecoveryRepository;
@@ -50,8 +49,7 @@ import com.bukang.payout.support.MySqlContainerTest;
 @ActiveProfiles("test")
 @MySqlContainerTest
 @Import({PayoutLedgerUseCase.class, PayoutCreateStepUseCase.class, PayoutHoldUseCase.class,
-	FakeRaceSellerAdapter.class, EventPublisher.class,
-	BusinessDayCalendar.class})
+	EventPublisher.class, BusinessDayCalendar.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class PayoutFinalCreateRecoveryConcurrencyTest {
 	private static final long SELLER_ID = 1;

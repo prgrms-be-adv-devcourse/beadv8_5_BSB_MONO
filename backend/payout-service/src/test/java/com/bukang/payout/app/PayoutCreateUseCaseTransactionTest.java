@@ -32,7 +32,6 @@ import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutItem;
 import com.bukang.payout.domain.PayoutStage;
 import com.bukang.payout.dto.PayoutCreateResultDto;
-import com.bukang.payout.out.FakeRaceSellerAdapter;
 import com.bukang.payout.out.PayoutCreateFailureRepository;
 import com.bukang.payout.out.PayoutHoldRepository;
 import com.bukang.payout.out.PayoutItemRepository;
@@ -53,7 +52,7 @@ import com.bukang.payout.support.StubRacePort;
 @DataJpaTest
 @ActiveProfiles("test")
 @Import({PayoutCreateStepUseCase.class, BusinessDayCalendar.class, PayoutLedgerUseCase.class,
-	PayoutHoldUseCase.class, FakeRaceSellerAdapter.class, EventPublisher.class})
+	PayoutHoldUseCase.class, EventPublisher.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class PayoutCreateUseCaseTransactionTest {
 	private static final LocalDate RACE_DATE = LocalDate.of(2026, 9, 25);

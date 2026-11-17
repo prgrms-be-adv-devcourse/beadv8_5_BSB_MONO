@@ -29,7 +29,6 @@ import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutHoldReason;
 import com.bukang.payout.domain.PayoutStatus;
 import com.bukang.payout.domain.exception.PayoutHoldConflictException;
-import com.bukang.payout.out.FakeRaceSellerAdapter;
 import com.bukang.payout.out.PayoutHoldRepository;
 import com.bukang.payout.out.PayoutItemRepository;
 import com.bukang.payout.out.PayoutRepository;
@@ -43,7 +42,7 @@ import com.bukang.payout.out.PayoutStatusHistoryRepository;
 @DataJpaTest
 @ActiveProfiles("test")
 @Import({PayoutPayStepUseCase.class, PayoutRaceCancelUseCase.class, PayoutLedgerUseCase.class,
-	PayoutHoldUseCase.class, FakeRaceSellerAdapter.class, EventPublisher.class, BusinessDayCalendar.class})
+	PayoutHoldUseCase.class, EventPublisher.class, BusinessDayCalendar.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class PayoutPayTransactionTest {
 	private static final LocalDate PAY_DATE = LocalDate.of(2026, 11, 20);
