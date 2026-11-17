@@ -69,6 +69,8 @@ const eslintConfig = defineConfig([
     'build/**',
     'next-env.d.ts',
     'src/shared/api/generated/**',
+    // 기록증 OCR 실행 파일(onnxruntime-web 복사본)
+    'public/ocr/**',
   ]),
 ])
 

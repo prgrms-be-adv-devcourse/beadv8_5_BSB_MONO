@@ -1,0 +1,78 @@
+{
+  "specVersion": "1",
+  "note": "브라우저(onnxruntime-web)와 Spring(Java ONNX Runtime)이 함께 읽는 기록증 OCR 명세 초안. 값은 2026-11-13 ONNX 시험 코드(PaddleOCR 3.x 기본값을 옮긴 것)에서 가져왔다.",
+  "models": {
+    "det": {
+      "name": "PP-OCRv5_mobile_det",
+      "file": "ch_PP-OCRv5_det_mobile.onnx",
+      "sha256": "4d97c44a20d30a81aad087d6a396b08f786c4635742afc391f6621f5c6ae78ae",
+      "source": "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/onnx/PP-OCRv5/det/ch_PP-OCRv5_det_mobile.onnx",
+      "usedBy": ["browser"]
+    },
+    "rec": {
+      "name": "korean_PP-OCRv5_mobile_rec",
+      "file": "korean_PP-OCRv5_rec_mobile.onnx",
+      "sha256": "cd6e2ea50f6943ca7271eb8c56a877a5a90720b7047fe9c41a2e541a25773c9b",
+      "source": "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/onnx/PP-OCRv5/rec/korean_PP-OCRv5_rec_mobile.onnx",
+      "usedBy": ["browser", "server"]
+    },
+    "dict": {
+      "file": "ppocrv5_korean_dict.txt",
+      "sha256": "a88071c68c01707489baa79ebe0405b7beb5cca229f4fc94cc3ef992328802d7",
+      "classes": "blank(0) + 사전 줄 + 공백 = 11947 (인식 모델 출력 차원과 같아야 함)"
+    }
+  },
+  "image": {
+    "original": "사진을 자르거나 다시 저장하지 않고 원본 그대로 올린다(판매자에게 원본 전체를 보여 주기 위함, 11/16 결정).",
+    "exif": "브라우저와 서버 모두 EXIF 회전을 적용한 방향을 기준으로 좌표를 잡는다. 서버(Java ImageIO)는 자동 적용하지 않으므로 직접 적용해야 한다.",
+    "roi": "참가자가 짚은 '읽을 부분' 네모의 꼭짓점 4개(원본 픽셀, EXIF 적용 방향 기준). 검출은 이 영역 안에서만 하고, 좌표는 원본 기준으로 저장한다.",
+    "channelOrder": "BGR (OpenCV 기준). 브라우저 캔버스는 RGB라 바꿔서 넣는다.",
+    "coordinates": "모든 상자 좌표는 업로드한 원본 픽셀 기준. 검출용으로 줄인 그림의 좌표는 되돌려서 보낸다."
+  },
+  "det": {
+    "limitSideLen": 960,
+    "limitType": "max (긴 변이 960보다 크면 줄이고, 작으면 그대로)",
+    "roundTo": 32,
+    "maxSide": 4000,
+    "mean": [0.485, 0.456, 0.406],
+    "std": [0.229, 0.224, 0.225],
+    "scale": "x / 255 뒤에 (x - mean) / std",
+    "thresh": 0.3,
+    "boxThresh": 0.6,
+    "unclipRatio": 1.5,
+    "maxCandidates": 1000,
+    "minSize": 3
+  },
+  "crop": {
+    "method": "minAreaRect 꼭짓점 4개 → 원근 보정(warpPerspective)",
+    "interpolation": "cubic",
+    "border": "replicate",
+    "rotateIf": "높이 / 너비 >= 1.5 이면 90도 회전"
+  },
+  "rec": {
+    "height": 48,
+    "minWidth": 320,
+    "maxWidth": 3200,
+    "resize": "비율 유지, 높이 48, 너비는 ceil(48 * w / h)",
+    "interpolation": "bilinear",
+    "normalize": "(x / 255 - 0.5) / 0.5",
+    "padding": "오른쪽을 0으로 채움",
+    "batch": {
+      "prefill": "가로세로 비로 정렬해 6개씩 묶고, 묶음 안 최대 너비까지 채움 (기준 정확도와 같게 하려면 이대로)",
+      "verify": "조각 하나씩(batch 1). 채움 너비 = int(48 * max(320/48, w/h)) (내림), 그림 너비 = min(ceil(48 * w / h), 채움 너비). 기준 구현 rec_input과 같고 골든 세트도 이 규칙으로 만들었다. 서버 검증은 이 방식만 쓴다"
+    },
+    "decode": "CTC greedy: argmax, 같은 글자 연속 제거, blank(0) 제거. 확신도 = 남은 글자 확률의 평균"
+  },
+  "verify": {
+    "fields": {
+      "netTime": "필수. 값 상자 + 넷타임 표시 단어 상자",
+      "raceDate": "필수. 날짜 상자 (판정의 기록 인정 기간)",
+      "course": "필수. 종목 상자 (판정의 종목 조건, 종목 구분 5가지 + 기타로 해석)",
+      "bib": "확인하지 않음 (중복 의심을 MVP에서 뺐기 때문, 11/16). 참가자 입력 칸으로만 남음"
+    },
+    "compare": "문자열이 아니라 해석한 값으로 비교 (넷타임은 H:MM:SS 정수, 대회일은 YYYY-MM-DD, 종목은 종목 구분)",
+    "onSkip": "브라우저가 상자를 못 찾아 참가자가 직접 입력한 칸은 서버가 맞춰 볼 자리가 없음 → 심사 필요",
+    "onMismatch": "심사 필요 (조작으로 단정하지 않음)",
+    "onSpecMismatch": "브라우저가 보낸 specVersion 또는 모델 sha256이 서버와 다르면 검증하지 않고 심사 필요"
+  }
+}
