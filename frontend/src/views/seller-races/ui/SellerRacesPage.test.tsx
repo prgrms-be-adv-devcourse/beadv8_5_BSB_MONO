@@ -92,7 +92,9 @@ describe('SellerRacesPage', () => {
 
     expect(await screen.findByText('변경을 저장했어요')).toBeInTheDocument()
     expect(body?.courses[0]).toMatchObject({ courseId: 1, individualQuota: 700, price: 45000 })
-    expect(body?.courses[0].images.map((i) => i.fileType)).toEqual(['THUMBNAIL', 'DETAIL'])
+    // 대표 이미지는 대회 쪽에, 소개 이미지는 종목 쪽에 그대로 다시 보낸다 (CRU-6)
+    expect(body?.images.map((i) => i.fileType)).toEqual(['THUMBNAIL'])
+    expect(body?.courses[0].images.map((i) => i.fileType)).toEqual(['DETAIL'])
     expect(body).toMatchObject({
       title: '2026 용감한 쿠키RUN in 서울',
       refundDeadline: '2026-10-31',
