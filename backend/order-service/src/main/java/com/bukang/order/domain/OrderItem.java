@@ -43,7 +43,9 @@ import lombok.NoArgsConstructor;
 		// 이름을 바꾼 건 dev(ddl-auto: update)가 같은 이름의 옛 인덱스를 고치지 않아서다
 		@Index(name = "idx_order_item_status_race_date", columnList = "status, race_date"),
 		// 판매자 주문 목록이 판매자 ID로 찾고 최근 것부터 읽는다 (BUK-227)
-		@Index(name = "idx_order_item_seller", columnList = "seller_id, id")
+		@Index(name = "idx_order_item_seller", columnList = "seller_id, id"),
+		// 정산 판매 내역·대회 취소 환불 대조·일정 변경 알림이 대회 ID로 찾고 상태로 거른다 (CRU-8)
+		@Index(name = "idx_order_item_race_status", columnList = "race_id, status")
 	}
 )
 public class OrderItem extends BaseIdAndTime {
