@@ -368,6 +368,8 @@ case $cmd in
 
 			if [ -f "$STATE/claude-ok" ] && command -v claude >/dev/null; then
 				say "자동 수정 시작 (최대 10분)"
+				# 실행 전 상태를 저장해 둔다. 팀원이 원래 갖고 있던 변경과 파일은 건드리지 않으려고, 실행 뒤 새로 생긴 항목만 본다
+				(cd "$FRONT/.." && git status --porcelain -z | tr '\0' '\n' | sort) >"$STATE/status-before"
 				(cd "$FRONT/.." && with_timeout 600 claude -p \
 					"frontend/e2e/FIX.md대로 frontend/e2e-$name.json의 실패를 고쳐 줘. 다시 돌리기는 스크립트가 하니 테스트 코드 수정과 frontend/e2e-$name-fix.md 기록만 해 줘. 질문하지 말고 끝까지 진행해 줘." \
 					--allowedTools "Read" "Grep" "Glob" "Edit(frontend/e2e/lunch/**)" "Write(frontend/e2e/lunch/**)" \
@@ -376,15 +378,21 @@ case $cmd in
 					"Bash(tail:*)" "Bash(head:*)" "Bash(grep:*)" "Bash(git diff:*)" "Bash(git status:*)")
 				crc=$?
 				[ $crc = 124 ] && note "- $(date '+%H:%M') 자동 수정이 10분을 넘겨 이번 회차는 건너뛰었어요"
-				# 허용한 곳 밖의 변경은 되돌린다
-				outside=$(cd "$FRONT/.." && git status --porcelain | awk '{print $2}' \
-					| grep -vE "^frontend/(e2e/lunch/|e2e-[a-z]+(-first)?\.json|e2e-$name-(fix\.md|fix\.patch|auto\.log)|test-results/|\.e2e-lunch/)" || true)
-				if [ -n "$outside" ]; then
-					note "- 경고: 자동 수정이 허용 범위 밖 파일을 바꿔 되돌렸어요: $(echo $outside)"
-					(cd "$FRONT/.." && for f in $outside; do
-						git checkout -- "$f" 2>/dev/null || rm -rf "$f"
-					done)
-				fi
+				# 허용한 곳 밖에서 새로 바뀐 git 관리 파일만 되돌린다. 새로 생긴 git 밖 파일은 지우지 않고 경고만 남긴다
+				(cd "$FRONT/.." && git status --porcelain -z | tr '\0' '\n' | sort) >"$STATE/status-after"
+				comm -13 "$STATE/status-before" "$STATE/status-after" | while IFS= read -r line; do
+					path=${line:3}
+					case $path in
+						frontend/e2e/lunch/* | "frontend/e2e-$name-fix.md" | "frontend/e2e-$name-fix.patch") continue ;;
+						"" | frontend/e2e-*.json | "frontend/e2e-$name-auto.log") continue ;;
+					esac
+					if [ "${line:0:2}" = "??" ]; then
+						note "- 경고: 자동 수정이 허용 범위 밖에 새 파일을 만들었어요(지우지 않음): $path"
+					elif (cd "$FRONT/.." && git ls-files --error-unmatch -- "$path" >/dev/null 2>&1); then
+						(cd "$FRONT/.." && git checkout -- "$path") \
+							&& note "- 경고: 자동 수정이 허용 범위 밖 파일을 바꿔 되돌렸어요: $path"
+					fi
+				done
 				(cd "$FRONT/.." && git diff -- frontend/e2e/lunch >"$FRONT/e2e-$name-fix.patch")
 			else
 				note "- Claude Code가 없어 자동 수정 없이 다시 돌려요"
