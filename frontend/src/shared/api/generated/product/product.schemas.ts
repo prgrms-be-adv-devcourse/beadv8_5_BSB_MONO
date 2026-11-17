@@ -118,7 +118,7 @@ export interface RaceCourseSaveRequestDto {
      * @minimum 0
      */
   individualQuota: number;
-  /** 종목 이미지 목록 (대표 이미지 1장 필수, 소개 이미지·소개 영상·코스 안내·키트 이미지는 선택) */
+  /** 종목 이미지 목록 (소개 이미지·소개 영상·코스 안내·키트 이미지, 대표 이미지는 받지 않음) */
   images: RaceImageRequestDto[];
 }
 
@@ -178,6 +178,8 @@ export interface RaceSaveRequestDto {
      * @minItems 1
      */
   courses: RaceCourseSaveRequestDto[];
+  /** 대회에 붙이는 이미지 (대표 이미지 1장) */
+  images: RaceImageRequestDto[];
 }
 
 export interface RsData {
