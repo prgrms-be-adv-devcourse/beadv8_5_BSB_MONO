@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
+import { needsRecordCert, RecordCertEntry } from '@/features/record-cert'
 import { daysUntil, formatRaceDate, formatRaceDateTime } from '@/entities/race'
 import {
   maskPhone,
@@ -13,6 +14,7 @@ import {
   ticketNumber,
   useCancelTicket,
 } from '@/entities/ticket'
+import { orderModel } from '@/shared/api'
 import { formatNumber, useNow } from '@/shared/lib'
 import { Alert, Badge, BibCard, Button, buttonClassName, Dialog, KeyValue } from '@/shared/ui'
 
@@ -114,6 +116,15 @@ export function TicketDetailPage({
             )}
           </div>
         </section>
+
+        {ticket.itemStatus === orderModel.OrderItemDtoStatus.PAID &&
+          !ticket.paying &&
+          needsRecordCert(course) && (
+            <RecordCertEntry
+              orderItemId={ticket.orderItemId}
+              href={`/tickets/${ticket.id}/record-cert`}
+            />
+          )}
 
         {refundDeadline && status !== 'paying' && (
           <section className="flex flex-col gap-3 border-t-8 border-bg-subtle px-4 py-6">

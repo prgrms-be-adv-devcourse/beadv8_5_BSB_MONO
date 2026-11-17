@@ -72,6 +72,7 @@ import {
   mockImageOfRace,
   searchMockRaces,
 } from './races'
+import { recordCertHandlers } from './record-certs'
 import { resetMockKitsForTesting, sellerKitHandlers } from './seller-kits'
 import { balanceCookieHeaders, payFromMockWallet, walletHandlers } from './wallet'
 
@@ -784,6 +785,7 @@ export const handlers = [
   ...identityVerificationHandlers,
   ...signupHandlers,
   ...fileUploadHandlers,
+  ...recordCertHandlers,
   myOrdersHandler,
   ...raceHandlers,
   ...queueHandlers,
