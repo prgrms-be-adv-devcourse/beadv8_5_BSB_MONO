@@ -347,6 +347,16 @@ describe('판매자가 보낸 문의', () => {
     expect(await screen.findByText('보낸 문의가 없어요')).toBeInTheDocument()
   })
 
+  it('관리자 주소에 보낸 문의 탭이 있어도 답변 대기로 연다', async () => {
+    resetNavigationMock('filter=SENT')
+    renderBoard('admin')
+
+    expect(await screen.findByRole('button', { name: '답변 대기 1' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+  })
+
   it('관리자 화면에는 보낸 문의 탭이 없다', async () => {
     renderBoard('admin')
 
