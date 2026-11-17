@@ -547,4 +547,10 @@ public class Payout extends BaseIdAndTime {
 	public static LocalDate payDayOf(YearMonth month, BusinessDayCalendar calendar) {
 		return month.atDay(PAY_DAY_OF_MONTH);
 	}
+
+	// 관리자 정산 목록의 기본 지급일: 오늘보다 뒤인 가장 가까운 20일. 20일 당일이면 다음 달 20일이다 (BUK-168, 11/17 결정)
+	public static LocalDate nextPayDayAfter(LocalDate today) {
+		LocalDate payDay = today.withDayOfMonth(PAY_DAY_OF_MONTH);
+		return payDay.isAfter(today) ? payDay : payDay.plusMonths(1);
+	}
 }
