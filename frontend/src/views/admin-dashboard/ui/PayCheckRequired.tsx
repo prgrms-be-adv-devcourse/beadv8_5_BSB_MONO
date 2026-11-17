@@ -10,6 +10,10 @@ import { PAY_CHECK_PAGE_SIZE, usePayCheckRequired } from '../model/use-pay-check
 
 export function PayCheckRequiredTile() {
   const failures = usePayCheckRequired()
+  // 요청이 실패하면 data가 비어 있어 스켈레톤이 끝없이 남으므로 값 자리에 -를 보인다 (PR 571 리뷰)
+  if (failures.isError) {
+    return <StatTile label="지급 확인 필요 (최근 1개월)" value="-" />
+  }
   if (!failures.data) {
     return <Skeleton className="h-24 flex-1" />
   }

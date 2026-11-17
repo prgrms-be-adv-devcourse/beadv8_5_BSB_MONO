@@ -89,4 +89,20 @@ describe('지급 확인 필요 (관리자 홈)', () => {
 
     expect(await screen.findByText('지급 결과를 확인해야 하는 정산이 없어요')).toBeInTheDocument()
   })
+
+  it('요청이 실패하면 타일에 -를 보이고 로딩 모양을 남기지 않는다', async () => {
+    server.use(
+      http.get('*/api/v1/payout/admin/create-failures', () =>
+        HttpResponse.json(
+          { status: 503, message: '정산 서비스가 응답하지 않아요.' },
+          { status: 503 },
+        ),
+      ),
+    )
+    const { container } = renderBoth()
+
+    expect(await screen.findByText('지급 확인 필요 기록을 불러오지 못했어요')).toBeInTheDocument()
+    expect(screen.getByText('-')).toBeInTheDocument()
+    expect(container.querySelector('.animate-pulse')).toBeNull()
+  })
 })
