@@ -5,6 +5,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -13,6 +16,9 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.test.context.ActiveProfiles;
 
+import com.bukang.common.global.eventpublisher.EventPublisher;
+import com.bukang.common.shared.notification.NotificationKind;
+import com.bukang.common.shared.notification.event.NotificationRequestedEvent;
 import com.bukang.payout.domain.BusinessDayCalendar;
 import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutHold;
@@ -27,6 +33,7 @@ import com.bukang.payout.out.PayoutHoldRepository;
 import com.bukang.payout.out.PayoutItemRepository;
 import com.bukang.payout.out.PayoutRecoveryRepository;
 import com.bukang.payout.out.PayoutRepository;
+import com.bukang.payout.out.RaceSellerPort;
 
 import jakarta.persistence.EntityManager;
 
@@ -35,6 +42,12 @@ import jakarta.persistence.EntityManager;
 class PayoutHoldUseCaseTest {
 	private static final long ADMIN_ID = 99;
 	private static final LocalDateTime HELD_AT = LocalDateTime.of(2026, 10, 12, 10, 0);
+	// saveFinalPayout의 대회(10) 판매자의 회원 ID. 판매자 ID(1)와 다른 값이다
+	private static final long SELLER_MEMBER_ID = 500;
+
+	// 보류가 보낸 알림 요청을 모은다
+	private final List<NotificationRequestedEvent> notifications = new ArrayList<>();
+	private RaceSellerPort raceSellerPort = raceId -> raceId == 10 ? Optional.of(SELLER_MEMBER_ID) : Optional.empty();
 
 	@Autowired
 	private PayoutRepository payoutRepository;
@@ -61,7 +74,12 @@ class PayoutHoldUseCaseTest {
 	}
 
 	private PayoutHoldUseCase useCase() {
-		return new PayoutHoldUseCase(payoutRepository, payoutHoldRepository, new BusinessDayCalendar());
+		return new PayoutHoldUseCase(payoutRepository, payoutHoldRepository, new BusinessDayCalendar(),
+			raceSellerPort, new EventPublisher(event -> {
+				if (event instanceof NotificationRequestedEvent notification) {
+					notifications.add(notification);
+				}
+			}));
 	}
 
 	private PayoutPayUseCase payUseCase() {
@@ -72,7 +90,12 @@ class PayoutHoldUseCaseTest {
 
 	// 대회일 10/17 토: 지급 예정일 10/19 월
 	private Payout saveFinalPayout() {
-		return payoutRepository.save(Payout.finalStage(1, 10, "테스트 대회", LocalDate.of(2026, 10, 17),
+		return saveFinalPayout(1);
+	}
+
+	// 같은 대회(10)에 판매자 ID만 다른 정산 내역. 판매자 · 대회 · 정산 월 · 단계가 같으면 두 번 저장할 수 없다
+	private Payout saveFinalPayout(long sellerId) {
+		return payoutRepository.save(Payout.finalStage(sellerId, 10, "테스트 대회", LocalDate.of(2026, 10, 17),
 			LocalDateTime.of(2026, 10, 18, 3, 0), new BusinessDayCalendar()));
 	}
 
@@ -84,6 +107,63 @@ class PayoutHoldUseCaseTest {
 		entityManager.flush();
 		entityManager.clear();
 		return payoutRepository.findById(payout.getId()).orElseThrow();
+	}
+
+	@Test
+	@DisplayName("보류를 걸면 그 대회 판매자의 회원에게 정산 보류 알림을 한 번 보낸다")
+	void holdNotifiesSeller() {
+		Payout payout = saveFinalPayout();
+
+		holdOf(payout);
+
+		assertThat(notifications).singleElement().satisfies(notification -> {
+			assertThat(notification.memberId()).isEqualTo(SELLER_MEMBER_ID);
+			assertThat(notification.kind()).isEqualTo(NotificationKind.PAYOUT_HELD);
+			assertThat(notification.body()).contains("테스트 대회", "정산 계좌 미등록");
+			assertThat(notification.href()).isEqualTo("/seller/settlements");
+		});
+	}
+
+	@Test
+	@DisplayName("같은 사유로 이미 보류 중이면 대사 보류를 다시 걸지 않고 알림도 보내지 않는다")
+	void alreadyHeldSendsNoNotification() {
+		Payout payout = saveFinalPayout();
+		assertThat(useCase().holdForReconcileMismatch(payout, HELD_AT)).isTrue();
+
+		assertThat(useCase().holdForReconcileMismatch(payout, HELD_AT)).isFalse();
+
+		assertThat(notifications).hasSize(1);
+	}
+
+	@Test
+	@DisplayName("정산 계좌가 있으면 자동 보류를 걸지 않아 알림도 없고, 없으면 자동 보류와 알림이 한 번 간다")
+	void autoHoldNotifiesOnlyWhenHeld() {
+		Payout withAccount = saveFinalPayout();
+		useCase().holdNew(withAccount, true, HELD_AT);
+		assertThat(notifications).isEmpty();
+
+		Payout withoutAccount = saveFinalPayout(2);
+		useCase().holdNew(withoutAccount, false, HELD_AT);
+		assertThat(notifications).singleElement()
+			.satisfies(notification -> assertThat(notification.memberId()).isEqualTo(SELLER_MEMBER_ID));
+	}
+
+	@Test
+	@DisplayName("판매자의 회원을 찾지 못하거나 상품 서비스가 실패해도 보류는 걸리고, 알림만 빠진다")
+	void lookupFailureKeepsHold() {
+		raceSellerPort = raceId -> {
+			throw new IllegalStateException("상품 서비스 응답 없음");
+		};
+		Payout down = saveFinalPayout();
+		holdOf(down);
+		assertThat(reload(down).getStatus()).isEqualTo(PayoutStatus.지급보류);
+
+		raceSellerPort = raceId -> Optional.empty();
+		Payout missing = saveFinalPayout(2);
+		holdOf(missing);
+		assertThat(reload(missing).getStatus()).isEqualTo(PayoutStatus.지급보류);
+
+		assertThat(notifications).isEmpty();
 	}
 
 	@Test

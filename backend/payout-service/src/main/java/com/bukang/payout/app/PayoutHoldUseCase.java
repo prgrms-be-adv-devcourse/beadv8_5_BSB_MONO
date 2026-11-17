@@ -2,41 +2,54 @@ package com.bukang.payout.app;
 
 import java.time.LocalDateTime;
 import java.util.Locale;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.bukang.common.global.eventpublisher.EventPublisher;
+import com.bukang.common.shared.notification.NotificationKind;
+import com.bukang.common.shared.notification.event.NotificationRequestedEvent;
 import com.bukang.payout.domain.BusinessDayCalendar;
 import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutHold;
 import com.bukang.payout.domain.PayoutHoldReason;
+import com.bukang.payout.domain.PayoutStage;
 import com.bukang.payout.domain.exception.PayoutHoldNotFoundException;
 import com.bukang.payout.domain.exception.PayoutNotFoundException;
 import com.bukang.payout.dto.PayoutDto;
 import com.bukang.payout.dto.PayoutHoldDto;
 import com.bukang.payout.out.PayoutHoldRepository;
 import com.bukang.payout.out.PayoutRepository;
+import com.bukang.payout.out.RaceSellerPort;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * 지급보류 걸기 · 풀기 (payout.md 1장 지급보류, 2-5)
  * 관리자가 거는 보류와, 정산 생성 배치가 만들 때 거는 자동 보류를 모두 여기서 건다
  * 상태 규칙은 Payout이 지키고, 여기서는 찾아서 넘기고 저장만 한다
  * 지급 배치와 동시에 같은 정산 내역을 바꾸면 Payout의 @Version으로 늦게 커밋한 쪽이 실패한다
+ * 보류를 새로 걸면 판매자에게 정산 보류 알림(PAYOUT_HELD)을 보낸다. 보류와 같은 트랜잭션에서 발행해 롤백되면 보내지 않는다
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PayoutHoldUseCase {
 	// 자동 보류의 사유 상세. 관리자가 건 보류와 구분되도록 고정 문구를 남긴다
 	private static final String AUTO_HOLD_REASON = "정산 계좌 미등록으로 자동 보류";
 	private static final String RECONCILE_HOLD_REASON = "정산 대사에서 정산이 판매보다 많아 자동 보류";
+	private static final String HELD_NOTICE_TITLE = "정산이 보류됐어요";
+	private static final String HELD_NOTICE_HREF = "/seller/settlements";
 
 	private final PayoutRepository payoutRepository;
 	private final PayoutHoldRepository payoutHoldRepository;
 	private final BusinessDayCalendar businessDayCalendar;
+	private final RaceSellerPort raceSellerPort;
+	private final EventPublisher eventPublisher;
 
 	// open-in-view가 꺼져 있어 트랜잭션 밖에서 hold.getPayout()을 읽지 않도록, 안에서 DTO로 바꿔 돌려준다
 	@Transactional
@@ -104,9 +117,38 @@ public class PayoutHoldUseCase {
 	}
 
 	// 지급보류 ID의 끝 4자리는 PK에서 만들므로 저장해서 ID를 받은 뒤에 붙인다
+	// 보류 기록은 새로 걸 때만 만들어지므로(같은 사유가 걸려 있으면 Payout.hold가 막는다) 여기서 알리면 한 번만 간다
 	private PayoutHold save(PayoutHold hold) {
 		payoutHoldRepository.save(hold);
 		hold.assignHoldCode();
+		notifyHeld(hold);
 		return hold;
+	}
+
+	// 알림은 잃어도 되는 메시지라(11/04 결정) 판매자를 찾지 못해도 보류는 그대로 건다
+	private void notifyHeld(PayoutHold hold) {
+		Payout payout = hold.getPayout();
+		Optional<Long> sellerMemberId;
+		try {
+			sellerMemberId = raceSellerPort.findSellerMemberId(payout.getRaceId());
+		} catch (RuntimeException exception) {
+			log.warn("판매자 회원을 찾지 못해 정산 보류 알림을 보내지 않았습니다. holdCode={}, raceId={}, cause={}",
+				hold.getHoldCode(), payout.getRaceId(), exception.toString());
+			return;
+		}
+		if (sellerMemberId.isEmpty()) {
+			log.warn("대회가 없어 정산 보류 알림을 보내지 않았습니다. holdCode={}, raceId={}", hold.getHoldCode(),
+				payout.getRaceId());
+			return;
+		}
+		eventPublisher.publish(NotificationRequestedEvent.of(sellerMemberId.get(), NotificationKind.PAYOUT_HELD,
+			HELD_NOTICE_TITLE, heldNoticeBody(payout, hold), HELD_NOTICE_HREF));
+	}
+
+	private static String heldNoticeBody(Payout payout, PayoutHold hold) {
+		String stage = payout.getPayoutStage() == PayoutStage.일차_정산 ? "1차 정산" : "최종 정산";
+		String reason = hold.getReasonType().name().replace('_', ' ');
+		return "%s %s의 지급이 멈췄어요.\n사유: %s\n보류가 풀리면 다시 지급 일정이 잡혀요."
+			.formatted(payout.getRaceName(), stage, reason);
 	}
 }
