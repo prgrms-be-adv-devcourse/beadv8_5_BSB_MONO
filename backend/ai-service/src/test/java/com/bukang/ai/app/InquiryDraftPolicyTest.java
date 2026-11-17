@@ -33,6 +33,11 @@ class InquiryDraftPolicyTest {
 		// 정해지지 않은 일(122 파티 결제 기한, 126 주차)에는 붙이지 않는다
 		assertThat(InquiryPolicy.of("APPLY_PAYMENT", "파티로 신청했는데 저만 결제 시간 안에 결제를 못 했어요")).isEmpty();
 		assertThat(InquiryPolicy.of("RACE_VENUE", "근처에 주차할 곳이 있나요?")).isEmpty();
+		// 넓은 낱말이 다른 상황에 붙지 않는다 (#리뷰: 결제 기한, 파티 이름, 사이즈 오배송, 종목 교환)
+		assertThat(InquiryPolicy.of("APPLY_PAYMENT", "파티 결제 기한이 지났는데 제 자리는 어떻게 되나요?")).isEmpty();
+		assertThat(InquiryPolicy.of("APPLY_PAYMENT", "파티 이름을 잘못 지었어요")).isEmpty();
+		assertThat(InquiryPolicy.of("APPLY_PAYMENT", "참가권 종목을 하프로 교환할 수 있나요?")).isEmpty();
+		assertThat(InquiryPolicy.of("KIT_DELIVERY", "XL을 시켰는데 L 사이즈가 왔어요")).containsExactly(InquiryPolicy.KIT_RETURN);
 		// 파티원 취소는 파티와 취소가 함께 있어야 한다
 		assertThat(InquiryPolicy.of("APPLY_PAYMENT", "파티에서 제 참가권만 취소할 수 있나요?"))
 			.containsExactly(InquiryPolicy.PARTY_CANCEL);
