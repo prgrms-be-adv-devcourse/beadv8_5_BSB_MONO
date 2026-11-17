@@ -181,8 +181,8 @@ export const participant = (name: string) => ({
   },
 })
 
-// API로 참가 신청 → 주문 → 예치금 결제까지 한다. 화면을 확인하려는 시나리오의 준비 단계에서 쓴다
-export async function buyTicket(api: Api, { raceId, courseId }: Omit<Course, 'title'>) {
+// API로 참가 신청 → 주문까지 한다(결제 전). 결제 화면을 확인하려는 시나리오의 준비 단계에서 쓴다
+export async function createOrder(api: Api, { raceId, courseId }: Omit<Course, 'title'>) {
   const apply = await api.call<{ id: number }>('POST', '/api/v1/order/participations', {
     raceCourseId: courseId,
     thirdPartyConsent: true,
@@ -202,16 +202,25 @@ export async function buyTicket(api: Api, { raceId, courseId }: Omit<Course, 'ti
     { 'Idempotency-Key': crypto.randomUUID() },
   )
   expect(order.status, `주문 ${JSON.stringify(order.raw)}`).toBe(201)
-  const pay = await api.call('POST', `/api/v1/order/orders/${order.data.id}/payment`)
+  return { participationId: apply.data.id, orderId: order.data.id, itemId: order.data.items[0].id }
+}
+
+// API로 참가 신청 → 주문 → 예치금 결제까지 한다. 화면을 확인하려는 시나리오의 준비 단계에서 쓴다
+export async function buyTicket(api: Api, course: Omit<Course, 'title'>) {
+  const bought = await createOrder(api, course)
+  const pay = await api.call('POST', `/api/v1/order/orders/${bought.orderId}/payment`)
   expect([200, 202], `결제 ${JSON.stringify(pay.raw)}`).toContain(pay.status)
   // 202는 예치금 응답이 늦어 「결제 확인 중」이라는 뜻이다. 결제 재확인(15초 주기)이 끝낼 때까지 기다린다
   if (pay.status === 202) {
     await eventually(async () => {
-      const got = await api.call<{ status: string }>('GET', `/api/v1/order/orders/${order.data.id}`)
+      const got = await api.call<{ status: string }>(
+        'GET',
+        `/api/v1/order/orders/${bought.orderId}`,
+      )
       return got.data?.status === 'PAID'
     }, 30_000)
   }
-  return { participationId: apply.data.id, orderId: order.data.id, itemId: order.data.items[0].id }
+  return bought
 }
 
 // 서비스 사이 이벤트(1초 주기)를 기다린다. 설계 문서의 최대 대기 시간 15초
@@ -236,8 +245,8 @@ const day = (n: number, time = '10:00:00') => {
 }
 
 // 판매자 API로 대회를 등록한다. 판매 시작일은 이틀 뒤부터만 정할 수 있어 등록 직후에는 판매 예정이다.
-// crew: true면 크루 예매(파티)를 받는 종목으로 만든다
-export async function registerRace(seller: Api, title: string, { crew = false } = {}) {
+// crew: true면 크루 예매(파티)를 받는 종목으로, kit: true면 키트(양말 옵션 2개)가 있는 종목으로 만든다
+export async function registerRace(seller: Api, title: string, { crew = false, kit = false } = {}) {
   const body = {
     title,
     description: '점심 E2E 테스트 대회',
@@ -262,16 +271,18 @@ export async function registerRace(seller: Api, title: string, { crew = false } 
         distanceKm: 10,
         timeLimitMinutes: 90,
         price: 40_000,
-        kitIncluded: false,
-        kitPrice: 0,
+        kitIncluded: kit,
+        kitPrice: kit ? 10_000 : 0,
         minAge: 14,
         maxAge: null,
         crewQuota: crew ? 20 : 0,
         individualQuota: 100,
-        // ProductDataInit과 같은 가짜 대표 이미지 ID. 등록 검사만 통과하고 파일 연결은 실패한다
-        images: [{ fileId: 999_999_999, fileType: 'THUMBNAIL', sortNo: 0 }],
+        images: [],
       },
     ],
+    // ProductDataInit과 같은 가짜 대표 이미지 ID. 등록 검사만 통과하고 파일 연결은 실패한다.
+    // 대표 이미지는 대회에 1장 붙인다(#584부터 종목에 붙이면 400)
+    images: [{ fileId: 999_999_999, fileType: 'THUMBNAIL', sortNo: 0 }],
   }
   const res = await seller.call<{ race?: { raceId: number }; raceId?: number }>(
     'POST',
@@ -286,6 +297,16 @@ export async function registerRace(seller: Api, title: string, { crew = false } 
   const courseId = Number(
     sqlOne(`select race_course_id from race_course where race_id = ${raceId} limit 1`),
   )
+  if (kit) {
+    // 키트 옵션은 대회를 등록한 뒤 판매 시작 전에 따로 붙인다
+    const options = await seller.call('POST', `/api/v1/product/races/${raceId}/kit-options`, {
+      kitOptions: [
+        { name: '양말', value: '230-250', stock: null },
+        { name: '양말', value: '255-280', stock: null },
+      ],
+    })
+    expect(options.status, `키트 옵션 등록 ${JSON.stringify(options.raw)}`).toBe(201)
+  }
   return { raceId, courseId, title }
 }
 
