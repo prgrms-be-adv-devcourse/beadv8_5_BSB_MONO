@@ -4935,10 +4935,11 @@
           },
           "agreedTerms": {
             "type": "array",
-            "description": "동의한 약관 종류 (SERVICE, PRIVACY는 필수). 동의하지 않은 선택 약관은 빼고 보낸다",
+            "description": "동의한 약관 종류 (SERVICE, PRIVACY, AGE_OVER_14는 필수). 동의하지 않은 선택 약관(MARKETING, NIGHT_MARKETING)은 빼고 보낸다",
             "example": [
               "SERVICE",
               "PRIVACY",
+              "AGE_OVER_14",
               "MARKETING"
             ],
             "items": {
@@ -4946,7 +4947,10 @@
               "enum": [
                 "SERVICE",
                 "PRIVACY",
-                "MARKETING"
+                "MARKETING",
+                "AGE_OVER_14",
+                "NIGHT_MARKETING",
+                "SELLER"
               ]
             }
           },
@@ -5020,6 +5024,11 @@
               "PERSONAL"
             ],
             "example": "PERSONAL"
+          },
+          "sellerTermsAgreed": {
+            "type": "boolean",
+            "description": "판매자 약관에 동의했으면 true (필수, false면 400)",
+            "example": true
           }
         },
         "required": [
@@ -5027,6 +5036,7 @@
           "accountNumber",
           "bankCode",
           "representativeName",
+          "sellerTermsAgreed",
           "sellerType"
         ]
       },
@@ -5080,10 +5090,11 @@
           },
           "agreedTerms": {
             "type": "array",
-            "description": "동의한 약관 종류 (SERVICE, PRIVACY는 필수). 동의하지 않은 선택 약관은 빼고 보낸다",
+            "description": "동의한 약관 종류 (SERVICE, PRIVACY, AGE_OVER_14는 필수). 동의하지 않은 선택 약관(MARKETING, NIGHT_MARKETING)은 빼고 보낸다",
             "example": [
               "SERVICE",
               "PRIVACY",
+              "AGE_OVER_14",
               "MARKETING"
             ],
             "items": {
@@ -5091,7 +5102,10 @@
               "enum": [
                 "SERVICE",
                 "PRIVACY",
-                "MARKETING"
+                "MARKETING",
+                "AGE_OVER_14",
+                "NIGHT_MARKETING",
+                "SELLER"
               ]
             }
           },
