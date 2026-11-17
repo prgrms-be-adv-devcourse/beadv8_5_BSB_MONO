@@ -28,6 +28,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import com.bukang.jwt.JwtProvider;
 import com.bukang.jwt.TokenType;
@@ -143,7 +144,7 @@ class ApiV1AuthDemoLoginTest {
 	@Test
 	@DisplayName("쿼리 파라미터·X-Member-Id 헤더로도 다른 계정을 고를 수 없다")
 	void ignoresQueryAndHeader() throws Exception {
-		mockMvc.perform(post(PATH)
+		mockMvc.perform(json(post(PATH))
 				.param("email", OTHER_EMAIL)
 				.header("X-Member-Id", otherMemberId))
 			.andExpect(status().isOk())
@@ -188,11 +189,11 @@ class ApiV1AuthDemoLoginTest {
 	@DisplayName("X-Forwarded-For를 바꿔도 X-Real-IP로 세므로 한도를 피할 수 없다")
 	void forgedForwardedForCannotBypass() throws Exception {
 		for (int i = 0; i < 10; i++) {
-			mockMvc.perform(post(PATH).header("X-Real-IP", "203.0.113.7").header("X-Forwarded-For", "10.0.0." + i))
+			mockMvc.perform(json(post(PATH)).header("X-Real-IP", "203.0.113.7").header("X-Forwarded-For", "10.0.0." + i))
 				.andExpect(status().isOk());
 		}
 
-		mockMvc.perform(post(PATH).header("X-Real-IP", "203.0.113.7").header("X-Forwarded-For", "10.0.0.99"))
+		mockMvc.perform(json(post(PATH)).header("X-Real-IP", "203.0.113.7").header("X-Forwarded-For", "10.0.0.99"))
 			.andExpect(status().isTooManyRequests());
 	}
 
@@ -204,11 +205,29 @@ class ApiV1AuthDemoLoginTest {
 		assertThat(result.getRequest().getSession(false)).isNull();
 	}
 
+	@Test
+	@DisplayName("JSON이 아닌 요청(다른 사이트의 폼 전송)은 415이고 토큰을 주지 않는다")
+	void refusesNonJsonRequest() throws Exception {
+		MvcResult result = mockMvc.perform(post(PATH)
+				.contentType(MediaType.APPLICATION_FORM_URLENCODED))
+			.andExpect(status().isUnsupportedMediaType())
+			.andReturn();
+		mockMvc.perform(post(PATH)).andExpect(status().isUnsupportedMediaType());
+
+		assertThat(result.getResponse().getHeader(HttpHeaders.SET_COOKIE)).isNull();
+		verify(refreshTokenRepository, never()).create(anyLong(), any(NewFamily.class));
+	}
+
+	// 브라우저는 다른 사이트에서 JSON 형식으로 보내려면 사전 확인 요청을 먼저 보내므로, 폼 전송으로는 부를 수 없다
+	private static MockHttpServletRequestBuilder json(MockHttpServletRequestBuilder request) {
+		return request.contentType(MediaType.APPLICATION_JSON);
+	}
+
 	private ResultActions demoLogin() throws Exception {
-		return mockMvc.perform(post(PATH));
+		return mockMvc.perform(json(post(PATH)));
 	}
 
 	private ResultActions demoLogin(String ip) throws Exception {
-		return mockMvc.perform(post(PATH).header("X-Real-IP", ip));
+		return mockMvc.perform(json(post(PATH)).header("X-Real-IP", ip));
 	}
 }

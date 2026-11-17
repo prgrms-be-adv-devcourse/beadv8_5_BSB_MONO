@@ -270,9 +270,11 @@ describe('LoginPage 테스트 계정 로그인', () => {
   it('누르면 본문 없이 데모 로그인 API만 부르고, 성공하면 로그인 상태가 되어 가려던 곳으로 간다', async () => {
     demoEnabled()
     let body: string | undefined
+    let contentType: string | null = null
     server.use(
       http.post(DEMO_PATH, async ({ request }) => {
         body = await request.text()
+        contentType = request.headers.get('content-type')
         return HttpResponse.json(memberMock.getLoginResponseMock())
       }),
     )
@@ -283,6 +285,8 @@ describe('LoginPage 테스트 계정 로그인', () => {
 
     await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/admin'))
     expect(body).toBe('')
+    // 서버는 JSON 형식 요청만 받는다(다른 사이트의 폼 전송을 막는다)
+    expect(contentType).toBe('application/json')
     expect(getAuthStatus()).toBe('authenticated')
   })
 
