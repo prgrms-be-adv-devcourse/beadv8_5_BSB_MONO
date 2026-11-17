@@ -7,8 +7,8 @@
   },
   "tags": [
     {
-      "name": "PayoutSeller",
-      "description": "정산 요약, 정산 내역, 건별 정산, 지급보류 내역, 회수 내역 조회 API (판매자)"
+      "name": "PayoutDlt",
+      "description": "Kafka 처리 실패 메시지 목록, 다시 보내기, 처리 완료 API (운영자 내부 호출 전용)"
     },
     {
       "name": "Payout",
@@ -16,7 +16,11 @@
     },
     {
       "name": "Payout",
-      "description": "이상 감지 기록 조회 API (관리자)"
+      "description": "이상 감지 기록 조회, 정산 배치 다시 돌리기 · 실행 기록 API (관리자)"
+    },
+    {
+      "name": "PayoutSeller",
+      "description": "정산 요약, 정산 내역, 건별 정산, 지급보류 내역, 회수 내역, 세금계산서, 월 매출 참고 자료 조회 API (판매자)"
     },
     {
       "name": "PayoutClaim",
@@ -32,6 +36,264 @@
     }
   ],
   "paths": {
+    "/internal/v1/payout/kafka-failures/{id}/resend": {
+      "post": {
+        "tags": [
+          "PayoutDlt"
+        ],
+        "summary": "처리 실패 메시지 다시 보내기",
+        "description": "처리 실패 상태의 메시지를 message-id 헤더째 정산의 첫 재시도 토픽으로 다시 보내고 다시 보냄으로 바꾼다. 정산만 다시 받고(같은 토픽을 받는 다른 서비스는 받지 않음), 처리되면 처리 완료로, 또 실패하면 처리 실패로 돌아가 Slack으로 다시 알린다. Kafka로 보내지 못하면 처리 실패로 되돌리고 503으로 응답한다.",
+        "operationId": "resend",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "DLT 실패 행 ID (Slack 알림의 행 ID)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 15
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "다시 보냄",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "메시지를 다시 보냈습니다.",
+                  "data": {
+                    "id": 15,
+                    "status": "RESENT",
+                    "originalTopic": "order.race.cancel",
+                    "dltTopic": "order.race.cancel.payout.dlt",
+                    "dltPartition": 0,
+                    "dltOffset": 7,
+                    "messageKey": "42",
+                    "messageId": "product-outbox-5d8a3f2e-1b4c-4e7a-9f0d-2c6b8e1a7d42",
+                    "payload": "{\"raceId\":42}",
+                    "exceptionClass": "org.springframework.dao.DataIntegrityViolationException",
+                    "exceptionMessage": "could not execute statement",
+                    "createDate": "2026-11-04T10:15:30",
+                    "resentDate": "2026-11-04T11:02:10",
+                    "completedDate": null,
+                    "completeMemo": null
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ID 형식 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 400,
+                  "message": "요청 값의 형식이 올바르지 않습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "없는 행",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 404,
+                  "code": "KAFKA_DLT_NOT_FOUND",
+                  "message": "[payout] DLT 메시지 15번이 없습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "처리 실패 상태가 아님 (이미 다시 보냈거나 처리 완료)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 409,
+                  "code": "KAFKA_DLT_INVALID_STATUS",
+                  "message": "[payout] DLT 메시지 15번은 다시 보냄 상태라 다시 보낼 수 없습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Kafka로 보내지 못함 (처리 실패로 되돌림)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 503,
+                  "code": "KAFKA_DLT_RESEND_FAILED",
+                  "message": "[payout] DLT 메시지 15번을 Kafka로 다시 보내지 못했습니다. 잠시 뒤 다시 시도하세요.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/payout/kafka-failures/{id}/complete": {
+      "post": {
+        "tags": [
+          "PayoutDlt"
+        ],
+        "summary": "처리 실패 메시지 처리 완료",
+        "description": "원인을 직접 고쳤거나 버릴 메시지를 메모와 함께 처리 완료로 닫는다. 처리 완료가 아니면(처리 실패, 다시 보냄) 닫을 수 있다.",
+        "operationId": "complete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "DLT 실패 행 ID (Slack 알림의 행 ID)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 15
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DltCompleteRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "처리 완료",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "처리 완료로 바꿨습니다.",
+                  "data": {
+                    "id": 15,
+                    "status": "COMPLETED",
+                    "originalTopic": "order.race.cancel",
+                    "dltTopic": "order.race.cancel.payout.dlt",
+                    "dltPartition": 0,
+                    "dltOffset": 7,
+                    "messageKey": "42",
+                    "messageId": "product-outbox-5d8a3f2e-1b4c-4e7a-9f0d-2c6b8e1a7d42",
+                    "payload": "{\"raceId\":42}",
+                    "exceptionClass": "org.springframework.dao.DataIntegrityViolationException",
+                    "exceptionMessage": "could not execute statement",
+                    "createDate": "2026-11-04T10:15:30",
+                    "resentDate": null,
+                    "completedDate": "2026-11-04T11:05:00",
+                    "completeMemo": "정산 내역에 직접 지급보류를 걸어 다시 보내지 않고 닫음"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "메모 없음, 메모가 500자 초과, 요청 본문 형식 오류 또는 ID 형식 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "메모 없음": {
+                    "description": "메모 없음",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "처리 완료 메모를 작성해주세요.",
+                      "data": null
+                    }
+                  },
+                  "메모가 500자 초과": {
+                    "description": "메모가 500자 초과",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "처리 완료 메모는 500자 이하로 작성해주세요.",
+                      "data": null
+                    }
+                  },
+                  "요청 본문 형식 오류": {
+                    "description": "요청 본문 형식 오류",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "요청 본문 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  },
+                  "ID 형식 오류": {
+                    "description": "ID 형식 오류",
+                    "value": {
+                      "status": 400,
+                      "message": "요청 값의 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "없는 행",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 404,
+                  "code": "KAFKA_DLT_NOT_FOUND",
+                  "message": "[payout] DLT 메시지 15번이 없습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "이미 처리 완료",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 409,
+                  "code": "KAFKA_DLT_INVALID_STATUS",
+                  "message": "[payout] DLT 메시지 15번은 처리 완료 상태라 처리 완료로 바꿀 수 없습니다.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/payout/payouts/{payoutId}/holds": {
       "post": {
         "tags": [
@@ -658,6 +920,633 @@
         }
       }
     },
+    "/api/v1/payout/admin/payouts/{payoutId}/pay-check": {
+      "post": {
+        "tags": [
+          "Payout"
+        ],
+        "summary": "지급 확인 필요 정산 내역 닫기 (BUK-174)",
+        "description": "지급 결과를 3번 몰라 멈춘 정산 내역을, 관리자가 캐시 서비스에서 확인한 결과대로 닫는다. 지급됨이면 지급 완료로, 지급_안_됨이면 지급 예정으로 되돌려 다음 지급 배치가 다시 지급한다. 대회 취소 표시가 있으면 지급됨은 회수를 만들고, 지급_안_됨은 취소로 닫고 회수를 계산한다. 판단 근거 메모는 상태 이력에 남는다.",
+        "operationId": "closePayCheck",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          },
+          {
+            "name": "payoutId",
+            "in": "path",
+            "description": "정산 내역 ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 2
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PayoutPayCheckRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "닫음",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "지급 확인 필요 정산 내역을 닫았습니다.",
+                  "data": {
+                    "id": 2,
+                    "payoutCode": "ST-20260926-0002",
+                    "raceId": 10,
+                    "raceName": "2026 한강 나이트런",
+                    "payoutStage": "최종_정산",
+                    "payoutMonth": "2026-09",
+                    "salesAmount": 100000,
+                    "refundAmount": 0,
+                    "feeAmount": 5500,
+                    "advanceDeductionAmount": 40000,
+                    "payoutAmount": 54500,
+                    "status": "지급_완료",
+                    "settledAt": "2026-09-26T03:00:00",
+                    "scheduledPayDate": "2026-10-20",
+                    "paidAt": "2026-10-23T10:00:00"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "결과 없음, 메모 없음 · 255자 초과, 본문 · ID 형식 오류 또는 회원 ID가 0 이하",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "결과 없음": {
+                    "description": "결과 없음",
+                    "value": {
+                      "status": 400,
+                      "message": "지급 결과를 선택해주세요.",
+                      "data": null
+                    }
+                  },
+                  "메모 없음": {
+                    "description": "메모 없음",
+                    "value": {
+                      "status": 400,
+                      "message": "판단 근거 메모를 작성해주세요.",
+                      "data": null
+                    }
+                  },
+                  "메모 255자 초과": {
+                    "description": "메모 255자 초과",
+                    "value": {
+                      "status": 400,
+                      "message": "판단 근거 메모는 255자 이하로 작성해주세요.",
+                      "data": null
+                    }
+                  },
+                  "본문 형식 오류": {
+                    "description": "본문 형식 오류",
+                    "value": {
+                      "status": 400,
+                      "message": "요청 본문 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  },
+                  "ID · 회원 ID 형식 오류": {
+                    "description": "ID · 회원 ID 형식 오류",
+                    "value": {
+                      "status": 400,
+                      "message": "요청 값의 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  },
+                  "회원 ID가 0 이하": {
+                    "description": "회원 ID가 0 이하",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "회원 ID가 올바르지 않습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "code": "LOGIN_REQUIRED",
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "관리자가 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 403,
+                  "code": "PAYOUT_NOT_ADMIN",
+                  "message": "관리자만 이용할 수 있습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "헤더의 회원이 없거나 탈퇴함, 또는 정산 내역이 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "회원 없음": {
+                    "description": "회원 없음",
+                    "value": {
+                      "status": 404,
+                      "code": "PAYOUT_MEMBER_NOT_FOUND",
+                      "message": "존재하지 않는 회원입니다.",
+                      "data": null
+                    }
+                  },
+                  "정산 내역 없음": {
+                    "description": "정산 내역 없음",
+                    "value": {
+                      "status": 404,
+                      "message": "정산 내역을 찾을 수 없습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "지급 확인 필요가 아님 (이미 닫혔거나 다른 상태) 또는 동시에 바뀜",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "지급 확인 필요가 아님": {
+                    "description": "지급 확인 필요가 아님",
+                    "value": {
+                      "status": 409,
+                      "code": "PAYOUT_NOT_PAY_CHECK",
+                      "message": "지급 확인이 필요한 정산 내역이 아닙니다.",
+                      "data": null
+                    }
+                  },
+                  "동시에 바뀜": {
+                    "description": "동시에 바뀜",
+                    "value": {
+                      "status": 409,
+                      "message": "다른 요청이 먼저 정산 내역을 바꿨습니다. 다시 시도해주세요.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "회원 서비스가 응답하지 않아 관리자인지 확인하지 못함",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 503,
+                  "code": "PAYOUT_MEMBER_UNAVAILABLE",
+                  "message": "회원 서비스에 연결하지 못해 관리자인지 확인하지 못했습니다. 잠시 뒤 다시 시도해주세요.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payout/admin/batches/pay": {
+      "post": {
+        "tags": [
+          "Payout"
+        ],
+        "summary": "정산 지급 배치 다시 돌리기 (BUK-167)",
+        "description": "지급과 회수 청구 · 알림을 기준일로 다시 돌린다. 스케줄과 같은 잠금을 써서 이미 돌고 있으면 409로 거절한다. 배치 종류마다 실행 기록 한 줄을 남기고 돌려준다. 기준일을 빼면 오늘(한국 시간)이다. 오늘보다 뒤인 기준일은 400으로 거절한다(과거 날짜는 놓친 날을 따라잡는 데 쓴다).",
+        "operationId": "runPay",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "description": "배치 기준일 (yyyy-MM-dd, 없으면 오늘)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-11-20"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "배치를 돌림 (일부 실패여도 200, 기록의 status로 본다)",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "정산 지급 배치를 돌렸습니다.",
+                  "data": [
+                    {
+                      "id": 12,
+                      "batchType": "지급",
+                      "triggerType": "관리자",
+                      "runDate": "2026-11-20",
+                      "startedBy": 99,
+                      "startedAt": "2026-11-20T10:00:00",
+                      "finishedAt": "2026-11-20T10:00:03",
+                      "status": "일부_실패",
+                      "doneCount": 5,
+                      "problemCount": 1,
+                      "summary": "지급 완료 5 · 실패 0 · 결과 모름 1 · 불일치 0"
+                    },
+                    {
+                      "id": 13,
+                      "batchType": "청구",
+                      "triggerType": "관리자",
+                      "runDate": "2026-11-20",
+                      "startedBy": 99,
+                      "startedAt": "2026-11-20T10:00:03",
+                      "finishedAt": "2026-11-20T10:00:04",
+                      "status": "완료",
+                      "doneCount": 1,
+                      "problemCount": 0,
+                      "summary": "청구 1 · 판매자 알림 1 · 관리자 알림 0"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "기준일이 오늘보다 뒤, 기준일 · 회원 ID 형식 오류 또는 회원 ID가 0 이하",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "기준일이 오늘보다 뒤": {
+                    "description": "기준일이 오늘보다 뒤",
+                    "value": {
+                      "status": 400,
+                      "code": "PAYOUT_BATCH_FUTURE_DATE",
+                      "message": "배치 기준일은 오늘보다 뒤일 수 없습니다.",
+                      "data": null
+                    }
+                  },
+                  "기준일 · 회원 ID 형식 오류": {
+                    "description": "기준일 · 회원 ID 형식 오류",
+                    "value": {
+                      "status": 400,
+                      "message": "요청 값의 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  },
+                  "회원 ID가 0 이하": {
+                    "description": "회원 ID가 0 이하",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "회원 ID가 올바르지 않습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "code": "LOGIN_REQUIRED",
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "관리자가 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 403,
+                  "code": "PAYOUT_NOT_ADMIN",
+                  "message": "관리자만 이용할 수 있습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "헤더의 회원이 없거나 탈퇴함",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 404,
+                  "code": "PAYOUT_MEMBER_NOT_FOUND",
+                  "message": "존재하지 않는 회원입니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "같은 배치가 이미 돌고 있거나 막 끝남 (끝난 뒤 30초 동안)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 409,
+                  "code": "PAYOUT_BATCH_RUNNING",
+                  "message": "정산 지급 배치가 이미 돌고 있거나 막 끝났습니다. 잠시 뒤 다시 돌려주세요.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "회원 서비스가 응답하지 않아 관리자인지 확인하지 못함",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 503,
+                  "code": "PAYOUT_MEMBER_UNAVAILABLE",
+                  "message": "회원 서비스에 연결하지 못해 관리자인지 확인하지 못했습니다. 잠시 뒤 다시 시도해주세요.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payout/admin/batches/create": {
+      "post": {
+        "tags": [
+          "Payout"
+        ],
+        "summary": "정산 생성 배치 다시 돌리기 (BUK-167)",
+        "description": "정산 생성과 대사를 기준일로 다시 돌린다. 스케줄과 같은 잠금을 써서 이미 돌고 있으면 409로 거절한다. 배치 종류마다 실행 기록 한 줄을 남기고 돌려준다. 기준일을 빼면 오늘(한국 시간)이다. 오늘보다 뒤인 기준일은 400으로 거절한다(과거 날짜는 놓친 날을 따라잡는 데 쓴다).",
+        "operationId": "runCreate",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "description": "배치 기준일 (yyyy-MM-dd, 없으면 오늘)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-11-20"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "배치를 돌림 (일부 실패여도 200, 기록의 status로 본다)",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "정산 지급 배치를 돌렸습니다.",
+                  "data": [
+                    {
+                      "id": 12,
+                      "batchType": "지급",
+                      "triggerType": "관리자",
+                      "runDate": "2026-11-20",
+                      "startedBy": 99,
+                      "startedAt": "2026-11-20T10:00:00",
+                      "finishedAt": "2026-11-20T10:00:03",
+                      "status": "일부_실패",
+                      "doneCount": 5,
+                      "problemCount": 1,
+                      "summary": "지급 완료 5 · 실패 0 · 결과 모름 1 · 불일치 0"
+                    },
+                    {
+                      "id": 13,
+                      "batchType": "청구",
+                      "triggerType": "관리자",
+                      "runDate": "2026-11-20",
+                      "startedBy": 99,
+                      "startedAt": "2026-11-20T10:00:03",
+                      "finishedAt": "2026-11-20T10:00:04",
+                      "status": "완료",
+                      "doneCount": 1,
+                      "problemCount": 0,
+                      "summary": "청구 1 · 판매자 알림 1 · 관리자 알림 0"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "기준일이 오늘보다 뒤, 기준일 · 회원 ID 형식 오류 또는 회원 ID가 0 이하",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "기준일이 오늘보다 뒤": {
+                    "description": "기준일이 오늘보다 뒤",
+                    "value": {
+                      "status": 400,
+                      "code": "PAYOUT_BATCH_FUTURE_DATE",
+                      "message": "배치 기준일은 오늘보다 뒤일 수 없습니다.",
+                      "data": null
+                    }
+                  },
+                  "기준일 · 회원 ID 형식 오류": {
+                    "description": "기준일 · 회원 ID 형식 오류",
+                    "value": {
+                      "status": 400,
+                      "message": "요청 값의 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  },
+                  "회원 ID가 0 이하": {
+                    "description": "회원 ID가 0 이하",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "회원 ID가 올바르지 않습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "code": "LOGIN_REQUIRED",
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "관리자가 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 403,
+                  "code": "PAYOUT_NOT_ADMIN",
+                  "message": "관리자만 이용할 수 있습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "헤더의 회원이 없거나 탈퇴함",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 404,
+                  "code": "PAYOUT_MEMBER_NOT_FOUND",
+                  "message": "존재하지 않는 회원입니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "같은 배치가 이미 돌고 있거나 막 끝남 (끝난 뒤 30초 동안)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 409,
+                  "code": "PAYOUT_BATCH_RUNNING",
+                  "message": "정산 지급 배치가 이미 돌고 있거나 막 끝났습니다. 잠시 뒤 다시 돌려주세요.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "회원 서비스가 응답하지 않아 관리자인지 확인하지 못함",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 503,
+                  "code": "PAYOUT_MEMBER_UNAVAILABLE",
+                  "message": "회원 서비스에 연결하지 못해 관리자인지 확인하지 못했습니다. 잠시 뒤 다시 시도해주세요.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/internal/v1/payout/sellers/{sellerId}/receivable": {
       "get": {
         "tags": [
@@ -804,6 +1693,252 @@
         }
       }
     },
+    "/internal/v1/payout/kafka-failures": {
+      "get": {
+        "tags": [
+          "PayoutDlt"
+        ],
+        "summary": "처리 실패 메시지 목록",
+        "description": "상태별 DLT 실패 행을 최근 것부터 size건 돌려준다. 상태를 빼면 처리 실패(사람이 봐야 하는 메시지)를 보여 준다.",
+        "operationId": "list",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "상태 (FAILED 처리 실패, RESENT 다시 보냄, COMPLETED 처리 완료)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "FAILED",
+              "enum": [
+                "FAILED",
+                "RESENT",
+                "COMPLETED"
+              ]
+            },
+            "example": "FAILED"
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "조회 건수 (1~100)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1
+            },
+            "example": 50
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "조회 성공",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "처리 실패 메시지를 조회했습니다.",
+                  "data": [
+                    {
+                      "id": 15,
+                      "status": "FAILED",
+                      "originalTopic": "order.race.cancel",
+                      "dltTopic": "order.race.cancel.payout.dlt",
+                      "dltPartition": 0,
+                      "dltOffset": 7,
+                      "messageKey": "42",
+                      "messageId": "product-outbox-5d8a3f2e-1b4c-4e7a-9f0d-2c6b8e1a7d42",
+                      "payload": "{\"raceId\":42}",
+                      "exceptionClass": "org.springframework.dao.DataIntegrityViolationException",
+                      "exceptionMessage": "could not execute statement",
+                      "createDate": "2026-11-04T10:15:30",
+                      "resentDate": null,
+                      "completedDate": null,
+                      "completeMemo": null
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "없는 상태 값 또는 조회 건수 범위 밖",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "없는 상태 값": {
+                    "description": "없는 상태 값",
+                    "value": {
+                      "status": 400,
+                      "message": "요청 값의 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  },
+                  "조회 건수 범위 밖": {
+                    "description": "조회 건수 범위 밖",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "한 번에 100건까지 조회할 수 있습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payout/seller/tax-invoices": {
+      "get": {
+        "tags": [
+          "PayoutSeller"
+        ],
+        "summary": "수수료 세금계산서 목록 조회 (BUK-246)",
+        "description": "플랫폼 수수료 세금계산서를 최근 공급 월부터 돌려준다. 공급 월(지급 완료월)마다 한 장이고, 매달 1일에 지난달 치를 발행한다. 발행에 실패하면 다음 날 다시 발행한다. 공급받는자 정보는 발행 당시 값으로 고정된다. 비사업자 판매자는 세금계산서가 없어 빈 목록이다.",
+        "operationId": "taxInvoices",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "조회 성공 (없으면 빈 목록)",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "세금계산서를 조회했습니다.",
+                  "data": [
+                    {
+                      "id": 1,
+                      "sellerId": 3,
+                      "supplyMonth": "2026-10",
+                      "totalAmount": 8250,
+                      "supplyAmount": 7500,
+                      "taxAmount": 750,
+                      "status": "발행_완료",
+                      "approvalNumber": "20261101-41000000-01234567",
+                      "businessName": "크루런 스포츠",
+                      "businessNumber": "123-45-67890",
+                      "representativeName": "김러너",
+                      "issuedAt": "2026-11-01T05:00:02",
+                      "failReason": null
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "회원 ID 형식 오류 또는 회원 ID가 0 이하",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "회원 ID 형식 오류": {
+                    "description": "회원 ID 형식 오류",
+                    "value": {
+                      "status": 400,
+                      "message": "요청 값의 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  },
+                  "회원 ID가 0 이하": {
+                    "description": "회원 ID가 0 이하",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "회원 ID가 올바르지 않습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "code": "LOGIN_REQUIRED",
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "판매자 신청이 없거나 대기 · 반려 상태",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 403,
+                  "message": "승인된 판매자만 정산을 조회할 수 있습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "존재하지 않거나 탈퇴한 회원",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 404,
+                  "message": "존재하지 않는 회원입니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "회원 서비스에서 판매자 정보를 확인하지 못함",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 503,
+                  "message": "판매자 정보를 확인하지 못했습니다. 잠시 뒤 다시 시도해주세요.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/payout/seller/summary": {
       "get": {
         "tags": [
@@ -869,6 +2004,156 @@
                 "examples": {
                   "회원 ID 형식 오류": {
                     "description": "회원 ID 형식 오류",
+                    "value": {
+                      "status": 400,
+                      "message": "요청 값의 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  },
+                  "회원 ID가 0 이하": {
+                    "description": "회원 ID가 0 이하",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "회원 ID가 올바르지 않습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "code": "LOGIN_REQUIRED",
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "판매자 신청이 없거나 대기 · 반려 상태",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 403,
+                  "message": "승인된 판매자만 정산을 조회할 수 있습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "존재하지 않거나 탈퇴한 회원",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 404,
+                  "message": "존재하지 않는 회원입니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "회원 서비스에서 판매자 정보를 확인하지 못함",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 503,
+                  "message": "판매자 정보를 확인하지 못했습니다. 잠시 뒤 다시 시도해주세요.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payout/seller/sales-report": {
+      "get": {
+        "tags": [
+          "PayoutSeller"
+        ],
+        "summary": "월 매출 참고 자료 조회 (BUK-246)",
+        "description": "정산 생성일이 그 달인 판매 줄에서 판매 취소 줄을 뺀 매출 합계를 돌려준다(참가권, 키트 포함). 과세 · 면세 판단은 판매자 몫이라, 과세 사업자일 때의 공급가액 · 세액(합계 × 10/110, 원 미만 버림)을 함께 준다. 부가세 신고 참고용이며 판매가 없으면 모두 0이다.",
+        "operationId": "salesReport",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          },
+          {
+            "name": "month",
+            "in": "query",
+            "description": "매출 월 (yyyy-MM)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "2026-10"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "조회 성공",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "월 매출 참고 자료를 조회했습니다.",
+                  "data": {
+                    "month": "2026-10",
+                    "salesAmount": 1100000,
+                    "taxableSupplyAmount": 1000000,
+                    "taxableTaxAmount": 100000
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "월 없음, 값 형식 오류 또는 회원 ID가 0 이하",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "월 없음": {
+                    "description": "월 없음",
+                    "value": {
+                      "status": 400,
+                      "message": "필수 요청 값이 없습니다.",
+                      "data": null
+                    }
+                  },
+                  "월 · 회원 ID 형식 오류": {
+                    "description": "월 · 회원 ID 형식 오류",
                     "value": {
                       "status": 400,
                       "message": "요청 값의 형식이 올바르지 않습니다.",
@@ -1697,7 +2982,10 @@
                       "reasonType": "일정_변경",
                       "status": "회수_요청",
                       "requestedAt": "2026-11-01T09:00:00",
-                      "completedAt": null
+                      "completedAt": null,
+                      "virtualBankName": "국민은행",
+                      "virtualAccountNumber": "X6000123456789",
+                      "dueDate": "2026-12-02"
                     }
                   ]
                 }
@@ -1998,6 +3286,877 @@
         }
       }
     },
+    "/api/v1/payout/admin/tax-reports/quarterly": {
+      "get": {
+        "tags": [
+          "Payout"
+        ],
+        "summary": "통신판매중개자 분기 판매 자료 조회 (BUK-246)",
+        "description": "부가가치세법 75조에 따라 분기마다 국세청에 내는 판매자별 판매 건수 · 금액을 돌려준다. 정산 생성일(대회 다음 날)이 분기 안인 판매 줄에서 판매 취소 줄을 뺀다. 제출 기한은 분기 말일의 다음 달 15일이다. 판매자 상호 · 사업자번호는 판매자 목록과 합쳐서 보여 준다. 판매가 없는 판매자는 목록에 없다.",
+        "operationId": "quarterSalesReport",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          },
+          {
+            "name": "year",
+            "in": "query",
+            "description": "연도",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "example": 2026
+          },
+          {
+            "name": "quarter",
+            "in": "query",
+            "description": "분기 (1 ~ 4)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "example": 4
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "조회 성공 (판매가 없으면 빈 목록)",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "분기 판매 자료를 조회했습니다.",
+                  "data": {
+                    "year": 2026,
+                    "quarter": 4,
+                    "from": "2026-10-01",
+                    "to": "2026-12-31",
+                    "dueDate": "2027-01-15",
+                    "totalCount": 182,
+                    "totalAmount": 23350000,
+                    "sellers": [
+                      {
+                        "sellerId": 3,
+                        "salesCount": 120,
+                        "salesAmount": 18310000
+                      },
+                      {
+                        "sellerId": 5,
+                        "salesCount": 62,
+                        "salesAmount": 5040000
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "분기가 1 ~ 4가 아님, 값 없음, 값 형식 오류 또는 회원 ID가 0 이하",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "분기 범위 밖": {
+                    "description": "분기 범위 밖",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "분기는 1 이상 4 이하여야 합니다.",
+                      "data": null
+                    }
+                  },
+                  "값 없음": {
+                    "description": "값 없음",
+                    "value": {
+                      "status": 400,
+                      "message": "필수 요청 값이 없습니다.",
+                      "data": null
+                    }
+                  },
+                  "값 · 회원 ID 형식 오류": {
+                    "description": "값 · 회원 ID 형식 오류",
+                    "value": {
+                      "status": 400,
+                      "message": "요청 값의 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  },
+                  "회원 ID가 0 이하": {
+                    "description": "회원 ID가 0 이하",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "회원 ID가 올바르지 않습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "code": "LOGIN_REQUIRED",
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "관리자가 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 403,
+                  "code": "PAYOUT_NOT_ADMIN",
+                  "message": "관리자만 이용할 수 있습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "헤더의 회원이 없거나 탈퇴함",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 404,
+                  "code": "PAYOUT_MEMBER_NOT_FOUND",
+                  "message": "존재하지 않는 회원입니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "회원 서비스가 응답하지 않아 관리자인지 확인하지 못함",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 503,
+                  "code": "PAYOUT_MEMBER_UNAVAILABLE",
+                  "message": "회원 서비스에 연결하지 못해 관리자인지 확인하지 못했습니다. 잠시 뒤 다시 시도해주세요.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payout/admin/tax-invoices": {
+      "get": {
+        "tags": [
+          "Payout"
+        ],
+        "summary": "수수료 세금계산서 발행 현황 조회 (BUK-246)",
+        "description": "공급 월(지급 완료월) 한 달의 수수료 세금계산서를 판매자 순으로 돌려준다. 발행 실패도 함께 보인다. 비사업자와 수수료가 0원인 판매자는 세금계산서가 없어 목록에 없다. 법정 기한은 공급 월 다음 달 10일이다.",
+        "operationId": "taxInvoices_1",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          },
+          {
+            "name": "month",
+            "in": "query",
+            "description": "공급 월 (yyyy-MM)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "2026-10"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "조회 성공 (없으면 빈 목록)",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "세금계산서 발행 현황을 조회했습니다.",
+                  "data": [
+                    {
+                      "id": 1,
+                      "sellerId": 3,
+                      "supplyMonth": "2026-10",
+                      "totalAmount": 8250,
+                      "supplyAmount": 7500,
+                      "taxAmount": 750,
+                      "status": "발행_완료",
+                      "approvalNumber": "20261101-41000000-01234567",
+                      "businessName": "크루런 스포츠",
+                      "businessNumber": "123-45-67890",
+                      "representativeName": "김러너",
+                      "issuedAt": "2026-11-01T05:00:02",
+                      "failReason": null
+                    },
+                    {
+                      "id": 2,
+                      "sellerId": 5,
+                      "supplyMonth": "2026-10",
+                      "totalAmount": 5500,
+                      "supplyAmount": 5000,
+                      "taxAmount": 500,
+                      "status": "발행_실패",
+                      "approvalNumber": null,
+                      "businessName": null,
+                      "businessNumber": null,
+                      "representativeName": null,
+                      "issuedAt": null,
+                      "failReason": "ResourceAccessException: I/O error on GET request"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "월 없음, 값 형식 오류 또는 회원 ID가 0 이하",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "월 없음": {
+                    "description": "월 없음",
+                    "value": {
+                      "status": 400,
+                      "message": "필수 요청 값이 없습니다.",
+                      "data": null
+                    }
+                  },
+                  "월 · 회원 ID 형식 오류": {
+                    "description": "월 · 회원 ID 형식 오류",
+                    "value": {
+                      "status": 400,
+                      "message": "요청 값의 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  },
+                  "회원 ID가 0 이하": {
+                    "description": "회원 ID가 0 이하",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "회원 ID가 올바르지 않습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "code": "LOGIN_REQUIRED",
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "관리자가 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 403,
+                  "code": "PAYOUT_NOT_ADMIN",
+                  "message": "관리자만 이용할 수 있습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "헤더의 회원이 없거나 탈퇴함",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 404,
+                  "code": "PAYOUT_MEMBER_NOT_FOUND",
+                  "message": "존재하지 않는 회원입니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "회원 서비스가 응답하지 않아 관리자인지 확인하지 못함",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 503,
+                  "code": "PAYOUT_MEMBER_UNAVAILABLE",
+                  "message": "회원 서비스에 연결하지 못해 관리자인지 확인하지 못했습니다. 잠시 뒤 다시 시도해주세요.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payout/admin/payouts": {
+      "get": {
+        "tags": [
+          "Payout"
+        ],
+        "summary": "지급일별 정산 목록 조회 (BUK-168)",
+        "description": "지급 예정일 하루의 정산 내역을 돌려준다. 지급일을 빼면 오늘(한국 시간)보다 뒤인 가장 가까운 20일이고, 20일 당일이면 다음 달 20일이다. 조회한 지급일은 응답의 payDate에 담긴다. 카드 숫자는 그날의 상태별 건수 · 지급액 합으로, 상태 선택과 상관없이 모든 상태를 0건까지 돌려준다. 줄마다 진행 중인 지급보류가 붙고, 그 id로 보류 해제 API를 부른다. 보류를 풀면 지급 예정일이 해제일 + 1일로 늦춰질 수 있어 20일이 아닌 날도 조회할 수 있다.",
+        "operationId": "payouts_1",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          },
+          {
+            "name": "payDate",
+            "in": "query",
+            "description": "지급 예정일 (yyyy-MM-dd, 없으면 오늘보다 뒤인 가장 가까운 20일)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-11-20"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "정산 상태 (없으면 그날의 모든 상태)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "지급_예정",
+                "지급보류",
+                "지급_중",
+                "지급_완료",
+                "취소",
+                "지급_불일치",
+                "지급_확인_필요"
+              ]
+            },
+            "example": "지급보류"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "페이지 번호 (0부터)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            },
+            "example": 0
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "페이지 크기 (1 ~ 100)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            },
+            "example": 50
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "조회 성공 (없으면 빈 목록과 카드 0)",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "정산 목록을 조회했습니다.",
+                  "data": {
+                    "payDate": "2026-11-20",
+                    "summary": [
+                      {
+                        "status": "지급_예정",
+                        "count": 1,
+                        "payoutAmount": 860000
+                      },
+                      {
+                        "status": "지급보류",
+                        "count": 1,
+                        "payoutAmount": 2400000
+                      },
+                      {
+                        "status": "지급_중",
+                        "count": 0,
+                        "payoutAmount": 0
+                      },
+                      {
+                        "status": "지급_완료",
+                        "count": 0,
+                        "payoutAmount": 0
+                      },
+                      {
+                        "status": "취소",
+                        "count": 0,
+                        "payoutAmount": 0
+                      },
+                      {
+                        "status": "지급_불일치",
+                        "count": 0,
+                        "payoutAmount": 0
+                      },
+                      {
+                        "status": "지급_확인_필요",
+                        "count": 0,
+                        "payoutAmount": 0
+                      }
+                    ],
+                    "payouts": {
+                      "content": [
+                        {
+                          "payout": {
+                            "id": 7,
+                            "payoutCode": "ST-20261018-0007",
+                            "raceId": 10,
+                            "raceName": "2026 한강 나이트런",
+                            "payoutStage": "최종_정산",
+                            "payoutMonth": "2026-10",
+                            "salesAmount": 2540000,
+                            "refundAmount": 0,
+                            "feeAmount": 140000,
+                            "advanceDeductionAmount": 0,
+                            "payoutAmount": 2400000,
+                            "status": "지급보류",
+                            "settledAt": "2026-10-18T03:00:00",
+                            "scheduledPayDate": "2026-11-20",
+                            "paidAt": null
+                          },
+                          "sellerId": 1,
+                          "holds": [
+                            {
+                              "id": 2,
+                              "holdCode": "HD-20261025-0C13",
+                              "payoutId": 7,
+                              "reasonType": "대회_취소_처리",
+                              "reason": null,
+                              "status": "지급보류",
+                              "heldBy": 99,
+                              "heldAt": "2026-10-25T10:12:00",
+                              "releasedBy": null,
+                              "releasedAt": null
+                            }
+                          ]
+                        }
+                      ],
+                      "page": 0,
+                      "size": 50,
+                      "totalElements": 1,
+                      "totalPages": 1
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "페이지 번호·크기 범위 오류, 값 형식 오류(없는 상태 포함) 또는 회원 ID가 0 이하",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "페이지 번호 음수": {
+                    "description": "페이지 번호 음수",
+                    "value": {
+                      "status": 400,
+                      "message": "페이지 번호는 0 이상이어야 합니다.",
+                      "data": null
+                    }
+                  },
+                  "페이지 크기 범위 밖": {
+                    "description": "페이지 크기 범위 밖",
+                    "value": {
+                      "status": 400,
+                      "message": "페이지 크기는 1 이상 100 이하여야 합니다.",
+                      "data": null
+                    }
+                  },
+                  "지급일 · 상태 · 회원 ID 형식 오류": {
+                    "description": "지급일 · 상태 · 회원 ID 형식 오류",
+                    "value": {
+                      "status": 400,
+                      "message": "요청 값의 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  },
+                  "회원 ID가 0 이하": {
+                    "description": "회원 ID가 0 이하",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "회원 ID가 올바르지 않습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "code": "LOGIN_REQUIRED",
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "관리자가 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 403,
+                  "code": "PAYOUT_NOT_ADMIN",
+                  "message": "관리자만 이용할 수 있습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "헤더의 회원이 없거나 탈퇴함",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 404,
+                  "code": "PAYOUT_MEMBER_NOT_FOUND",
+                  "message": "존재하지 않는 회원입니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "회원 서비스가 응답하지 않아 관리자인지 확인하지 못함",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 503,
+                  "code": "PAYOUT_MEMBER_UNAVAILABLE",
+                  "message": "회원 서비스에 연결하지 못해 관리자인지 확인하지 못했습니다. 잠시 뒤 다시 시도해주세요.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payout/admin/holds": {
+      "get": {
+        "tags": [
+          "Payout"
+        ],
+        "summary": "지급보류 목록 조회 (BUK-168)",
+        "description": "지급보류를 최근 보류부터 돌려준다. 줄마다 판매자 ID · 정산 ID(ST-) · 지급액이 붙는다. code에 지급보류 ID(HD-)를 주면 그 보류를, 정산 ID(ST-)를 주면 그 정산에 걸린 보류를 모두 찾고 상태는 보지 않는다. 카드 숫자(보류 중 건수 · 보류 금액 · 이번 달 해제 건수)는 필터와 상관없이 전체로 센다. 보류 금액은 보류가 여럿 걸린 정산도 지급액을 한 번만 더한다. 줄의 id로 보류 해제 API를 부른다.",
+        "operationId": "holds_1",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "보류 상태 (없으면 전체)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "지급보류",
+                "해제",
+                "취소"
+              ]
+            },
+            "example": "지급보류"
+          },
+          {
+            "name": "code",
+            "in": "query",
+            "description": "지급보류 ID(HD-) 또는 정산 ID(ST-). 대소문자 · 앞뒤 공백 무시",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "HD-20261025-0C13"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "페이지 번호 (0부터)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            },
+            "example": 0
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "페이지 크기 (1 ~ 100)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            },
+            "example": 50
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "조회 성공 (없으면 빈 목록)",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "지급보류 목록을 조회했습니다.",
+                  "data": {
+                    "summary": {
+                      "heldCount": 2,
+                      "heldAmount": 3260000,
+                      "releasedThisMonthCount": 1
+                    },
+                    "holds": {
+                      "content": [
+                        {
+                          "id": 2,
+                          "holdCode": "HD-20261025-0C13",
+                          "sellerId": 1,
+                          "payoutId": 7,
+                          "payoutCode": "ST-20261018-0007",
+                          "payoutAmount": 2400000,
+                          "reasonType": "대회_취소_처리",
+                          "reason": null,
+                          "status": "지급보류",
+                          "heldAt": "2026-10-25T10:12:00",
+                          "releasedAt": null
+                        }
+                      ],
+                      "page": 0,
+                      "size": 50,
+                      "totalElements": 1,
+                      "totalPages": 1
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "페이지 번호·크기 범위 오류, 값 형식 오류(없는 상태 포함) 또는 회원 ID가 0 이하",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "페이지 번호 음수": {
+                    "description": "페이지 번호 음수",
+                    "value": {
+                      "status": 400,
+                      "message": "페이지 번호는 0 이상이어야 합니다.",
+                      "data": null
+                    }
+                  },
+                  "페이지 크기 범위 밖": {
+                    "description": "페이지 크기 범위 밖",
+                    "value": {
+                      "status": 400,
+                      "message": "페이지 크기는 1 이상 100 이하여야 합니다.",
+                      "data": null
+                    }
+                  },
+                  "상태 · 회원 ID 형식 오류": {
+                    "description": "상태 · 회원 ID 형식 오류",
+                    "value": {
+                      "status": 400,
+                      "message": "요청 값의 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  },
+                  "회원 ID가 0 이하": {
+                    "description": "회원 ID가 0 이하",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "회원 ID가 올바르지 않습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "code": "LOGIN_REQUIRED",
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "관리자가 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 403,
+                  "code": "PAYOUT_NOT_ADMIN",
+                  "message": "관리자만 이용할 수 있습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "헤더의 회원이 없거나 탈퇴함",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 404,
+                  "code": "PAYOUT_MEMBER_NOT_FOUND",
+                  "message": "존재하지 않는 회원입니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "회원 서비스가 응답하지 않아 관리자인지 확인하지 못함",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 503,
+                  "code": "PAYOUT_MEMBER_UNAVAILABLE",
+                  "message": "회원 서비스에 연결하지 못해 관리자인지 확인하지 못했습니다. 잠시 뒤 다시 시도해주세요.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/payout/admin/create-failures": {
       "get": {
         "tags": [
@@ -2057,7 +4216,9 @@
                 "주문_조회_실패",
                 "취소_중이라_미룸",
                 "대사_불일치",
-                "지급_확인_필요"
+                "지급_확인_필요",
+                "세금계산서_발행_실패",
+                "세금계산서_기한_지남"
               ]
             },
             "example": "대사_불일치"
@@ -2541,10 +4702,232 @@
           }
         }
       }
+    },
+    "/api/v1/payout/admin/batch-runs": {
+      "get": {
+        "tags": [
+          "Payout"
+        ],
+        "summary": "배치 실행 기록 조회 (BUK-167)",
+        "description": "정산 생성 · 지급 · 청구 배치의 실행 기록을 실행 기준일 기간으로 최근 것부터 돌려준다. 끝 날이 시작 날 + 1개월 전이어야 한다(최대 1개월). 기록이 없으면 빈 목록이다.",
+        "operationId": "batchRuns",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "조회 시작 실행 기준일 (yyyy-MM-dd)",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-11-01"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "조회 끝 실행 기준일 (yyyy-MM-dd, 포함)",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-11-20"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "조회 성공 (기록이 없어도 200)",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "배치 실행 기록을 조회했습니다.",
+                  "data": [
+                    {
+                      "id": 11,
+                      "batchType": "생성",
+                      "triggerType": "스케줄",
+                      "runDate": "2026-11-20",
+                      "startedBy": null,
+                      "startedAt": "2026-11-20T03:00:00",
+                      "finishedAt": "2026-11-20T03:00:08",
+                      "status": "완료",
+                      "doneCount": 3,
+                      "problemCount": 0,
+                      "summary": "만듦 3 · 건너뜀 0 · 실패 0"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "기간 한도 초과, 시작이 끝보다 늦음, 기간 없음, 값 형식 오류 또는 회원 ID가 0 이하",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "1개월 초과": {
+                    "description": "1개월 초과",
+                    "value": {
+                      "status": 400,
+                      "message": "배치 실행 기록은 최대 1개월까지 조회할 수 있습니다.",
+                      "data": null
+                    }
+                  },
+                  "시작이 끝보다 늦음": {
+                    "description": "시작이 끝보다 늦음",
+                    "value": {
+                      "status": 400,
+                      "message": "조회 시작이 끝보다 늦습니다.",
+                      "data": null
+                    }
+                  },
+                  "기간 없음": {
+                    "description": "기간 없음",
+                    "value": {
+                      "status": 400,
+                      "message": "필수 요청 값이 없습니다.",
+                      "data": null
+                    }
+                  },
+                  "기간 · 회원 ID 형식 오류": {
+                    "description": "기간 · 회원 ID 형식 오류",
+                    "value": {
+                      "status": 400,
+                      "message": "요청 값의 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  },
+                  "회원 ID가 0 이하": {
+                    "description": "회원 ID가 0 이하",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "회원 ID가 올바르지 않습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "code": "LOGIN_REQUIRED",
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "관리자가 아님",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 403,
+                  "code": "PAYOUT_NOT_ADMIN",
+                  "message": "관리자만 이용할 수 있습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "헤더의 회원이 없거나 탈퇴함",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 404,
+                  "code": "PAYOUT_MEMBER_NOT_FOUND",
+                  "message": "존재하지 않는 회원입니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "회원 서비스가 응답하지 않아 관리자인지 확인하지 못함",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 503,
+                  "code": "PAYOUT_MEMBER_UNAVAILABLE",
+                  "message": "회원 서비스에 연결하지 못해 관리자인지 확인하지 못했습니다. 잠시 뒤 다시 시도해주세요.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "RsData": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {}
+        }
+      },
+      "DltCompleteRequestDto": {
+        "type": "object",
+        "description": "DLT 메시지 처리 완료 요청",
+        "properties": {
+          "memo": {
+            "type": "string",
+            "description": "처리 완료 메모 (무엇을 했는지, 500자 이하)",
+            "example": "정산 내역에 직접 지급보류를 걸어 다시 보내지 않고 닫음",
+            "maxLength": 500,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "memo"
+        ]
+      },
       "PayoutHoldRequestDto": {
         "type": "object",
         "description": "지급보류 걸기 요청",
@@ -2571,21 +4954,31 @@
           "reasonType"
         ]
       },
-      "RsData": {
+      "PayoutPayCheckRequestDto": {
         "type": "object",
+        "description": "지급 확인 필요 정산 내역 닫기 요청",
         "properties": {
-          "status": {
-            "type": "integer",
-            "format": "int32"
+          "result": {
+            "type": "string",
+            "description": "캐시 서비스에서 확인한 지급 결과 (지급됨: 지급 완료로, 지급_안_됨: 지급 예정으로 되돌려 다시 지급)",
+            "enum": [
+              "지급됨",
+              "지급_안_됨"
+            ],
+            "example": "지급됨"
           },
-          "code": {
-            "type": "string"
-          },
-          "message": {
-            "type": "string"
-          },
-          "data": {}
-        }
+          "memo": {
+            "type": "string",
+            "description": "판단 근거 메모 (255자 이하)",
+            "example": "캐시 정산 이동 기록에서 대금 · 수수료 이동 확인",
+            "maxLength": 255,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "memo",
+          "result"
+        ]
       }
     }
   }

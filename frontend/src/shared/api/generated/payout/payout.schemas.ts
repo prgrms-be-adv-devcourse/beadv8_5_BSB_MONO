@@ -5,6 +5,25 @@
  * 크루 중심 마라톤 대회 예매·커머스 플랫폼 정산 API
  * OpenAPI spec version: v1
  */
+export interface RsData {
+  status?: number;
+  code?: string;
+  message?: string;
+  data?: unknown;
+}
+
+/**
+ * DLT 메시지 처리 완료 요청
+ */
+export interface DltCompleteRequestDto {
+  /**
+     * 처리 완료 메모 (무엇을 했는지, 500자 이하)
+     * @minLength 0
+     * @maxLength 500
+     */
+  memo: string;
+}
+
 /**
  * 보류 사유 (정산_계좌_미등록: 정산 계좌 미등록, 대회_취소_처리: 대회 취소 처리)
  */
@@ -31,11 +50,29 @@ export interface PayoutHoldRequestDto {
   reason?: string;
 }
 
-export interface RsData {
-  status?: number;
-  code?: string;
-  message?: string;
-  data?: unknown;
+/**
+ * 캐시 서비스에서 확인한 지급 결과 (지급됨: 지급 완료로, 지급_안_됨: 지급 예정으로 되돌려 다시 지급)
+ */
+export type PayoutPayCheckRequestDtoResult = typeof PayoutPayCheckRequestDtoResult[keyof typeof PayoutPayCheckRequestDtoResult];
+
+
+export const PayoutPayCheckRequestDtoResult = {
+  지급됨: '지급됨',
+  지급_안_됨: '지급_안_됨',
+} as const;
+
+/**
+ * 지급 확인 필요 정산 내역 닫기 요청
+ */
+export interface PayoutPayCheckRequestDto {
+  /** 캐시 서비스에서 확인한 지급 결과 (지급됨: 지급 완료로, 지급_안_됨: 지급 예정으로 되돌려 다시 지급) */
+  result: PayoutPayCheckRequestDtoResult;
+  /**
+     * 판단 근거 메모 (255자 이하)
+     * @minLength 0
+     * @maxLength 255
+     */
+  memo: string;
 }
 
 export interface PayoutSummaryDto {
@@ -155,7 +192,7 @@ export const PayoutHoldReason = {
 } as const;
 
 /**
- * 지급보류 상태 (지급보류: 지급보류, 해제: 해제)
+ * 지급보류 상태 (지급보류: 지급보류, 해제: 해제, 취소: 대회 취소로 정산과 함께 닫힘)
  */
 export type PayoutHoldStatus = typeof PayoutHoldStatus[keyof typeof PayoutHoldStatus];
 
@@ -163,6 +200,7 @@ export type PayoutHoldStatus = typeof PayoutHoldStatus[keyof typeof PayoutHoldSt
 export const PayoutHoldStatus = {
   지급보류: '지급보류',
   해제: '해제',
+  취소: '취소',
 } as const;
 
 export interface SellerPayoutHoldDto {
@@ -301,11 +339,54 @@ export interface RsDataPayoutAdminClaimsDto {
   data?: PayoutAdminClaimsDto;
 }
 
+export type RunPayParams = {
+/**
+ * 배치 기준일 (yyyy-MM-dd, 없으면 오늘)
+ */
+date?: string;
+};
+
+export type RunCreateParams = {
+/**
+ * 배치 기준일 (yyyy-MM-dd, 없으면 오늘)
+ */
+date?: string;
+};
+
 export type RefundEligibilityParams = {
 /**
  * 참가권의 대회일 (yyyy-MM-dd)
  */
 raceDate: string;
+};
+
+export type ListParams = {
+/**
+ * 상태 (FAILED 처리 실패, RESENT 다시 보냄, COMPLETED 처리 완료)
+ */
+status?: ListStatus;
+/**
+ * 조회 건수 (1~100)
+ * @minimum 1
+ * @maximum 100
+ */
+size?: number;
+};
+
+export type ListStatus = typeof ListStatus[keyof typeof ListStatus];
+
+
+export const ListStatus = {
+  FAILED: 'FAILED',
+  RESENT: 'RESENT',
+  COMPLETED: 'COMPLETED',
+} as const;
+
+export type SalesReportParams = {
+/**
+ * 매출 월 (yyyy-MM)
+ */
+month: string;
 };
 
 export type PayoutsParams = {
@@ -371,6 +452,84 @@ export type FindPayoutParams = {
 code: string;
 };
 
+export type QuarterSalesReportParams = {
+/**
+ * 연도
+ */
+year: number;
+/**
+ * 분기 (1 ~ 4)
+ */
+quarter: number;
+};
+
+export type TaxInvoices1Params = {
+/**
+ * 공급 월 (yyyy-MM)
+ */
+month: string;
+};
+
+export type Payouts1Params = {
+/**
+ * 지급 예정일 (yyyy-MM-dd, 없으면 오늘보다 뒤인 가장 가까운 20일)
+ */
+payDate?: string;
+/**
+ * 정산 상태 (없으면 그날의 모든 상태)
+ */
+status?: Payouts1Status;
+/**
+ * 페이지 번호 (0부터)
+ */
+page?: number;
+/**
+ * 페이지 크기 (1 ~ 100)
+ */
+size?: number;
+};
+
+export type Payouts1Status = typeof Payouts1Status[keyof typeof Payouts1Status];
+
+
+export const Payouts1Status = {
+  지급_예정: '지급_예정',
+  지급보류: '지급보류',
+  지급_중: '지급_중',
+  지급_완료: '지급_완료',
+  취소: '취소',
+  지급_불일치: '지급_불일치',
+  지급_확인_필요: '지급_확인_필요',
+} as const;
+
+export type Holds1Params = {
+/**
+ * 보류 상태 (없으면 전체)
+ */
+status?: Holds1Status;
+/**
+ * 지급보류 ID(HD-) 또는 정산 ID(ST-). 대소문자 · 앞뒤 공백 무시
+ */
+code?: string;
+/**
+ * 페이지 번호 (0부터)
+ */
+page?: number;
+/**
+ * 페이지 크기 (1 ~ 100)
+ */
+size?: number;
+};
+
+export type Holds1Status = typeof Holds1Status[keyof typeof Holds1Status];
+
+
+export const Holds1Status = {
+  지급보류: '지급보류',
+  해제: '해제',
+  취소: '취소',
+} as const;
+
 export type CreateFailuresParams = {
 /**
  * 조회 시작 실행일 (yyyy-MM-dd)
@@ -408,6 +567,8 @@ export const CreateFailuresType = {
   취소_중이라_미룸: '취소_중이라_미룸',
   대사_불일치: '대사_불일치',
   지급_확인_필요: '지급_확인_필요',
+  세금계산서_발행_실패: '세금계산서_발행_실패',
+  세금계산서_기한_지남: '세금계산서_기한_지남',
 } as const;
 
 export type AdminClaimsParams = {
@@ -436,4 +597,15 @@ export const AdminClaimsStatus = {
   청구_중: '청구_중',
   입금_확인: '입금_확인',
 } as const;
+
+export type BatchRunsParams = {
+/**
+ * 조회 시작 실행 기준일 (yyyy-MM-dd)
+ */
+from: string;
+/**
+ * 조회 끝 실행 기준일 (yyyy-MM-dd, 포함)
+ */
+to: string;
+};
 

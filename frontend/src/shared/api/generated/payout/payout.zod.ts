@@ -8,6 +8,37 @@
 import * as zod from 'zod';
 
 /**
+ * 처리 실패 상태의 메시지를 message-id 헤더째 정산의 첫 재시도 토픽으로 다시 보내고 다시 보냄으로 바꾼다. 정산만 다시 받고(같은 토픽을 받는 다른 서비스는 받지 않음), 처리되면 처리 완료로, 또 실패하면 처리 실패로 돌아가 Slack으로 다시 알린다. Kafka로 보내지 못하면 처리 실패로 되돌리고 503으로 응답한다.
+ * @summary 처리 실패 메시지 다시 보내기
+ */
+export const ResendParams = zod.object({
+  "id": zod.int().describe('DLT 실패 행 ID (Slack 알림의 행 ID)')
+})
+
+export const ResendResponse = zod.unknown()
+
+
+/**
+ * 원인을 직접 고쳤거나 버릴 메시지를 메모와 함께 처리 완료로 닫는다. 처리 완료가 아니면(처리 실패, 다시 보냄) 닫을 수 있다.
+ * @summary 처리 실패 메시지 처리 완료
+ */
+export const CompleteParams = zod.object({
+  "id": zod.int().describe('DLT 실패 행 ID (Slack 알림의 행 ID)')
+})
+
+export const completeBodyMemoMin = 0;
+export const completeBodyMemoMax = 500;
+
+
+
+export const CompleteBody = zod.object({
+  "memo": zod.string().min(completeBodyMemoMin).max(completeBodyMemoMax).describe('처리 완료 메모 (무엇을 했는지, 500자 이하)')
+}).describe('DLT 메시지 처리 완료 요청')
+
+export const CompleteResponse = zod.unknown()
+
+
+/**
  * 정산 예정인 정산 내역에 지급보류를 걸어 지급 배치에서 지급되지 않게 한다. 한 정산 내역에는 보류를 하나만 걸 수 있고, 지급보류 ID(HD-)를 붙인다.
  * @summary 지급보류 걸기
  */
@@ -34,7 +65,7 @@ export const HoldResponse = zod.object({
   "payoutId": zod.int(),
   "reasonType": zod.enum(['정산_계좌_미등록', '대회_취소_처리', '대사_불일치']).describe('보류 사유 (정산_계좌_미등록: 정산 계좌 미등록, 대회_취소_처리: 대회 취소 처리, 대사_불일치: 대사 불일치)'),
   "reason": zod.string().nullish(),
-  "status": zod.enum(['지급보류', '해제']).describe('지급보류 상태 (지급보류: 지급보류, 해제: 해제)'),
+  "status": zod.enum(['지급보류', '해제', '취소']).describe('지급보류 상태 (지급보류: 지급보류, 해제: 해제, 취소: 대회 취소로 정산과 함께 닫힘)'),
   "heldBy": zod.int(),
   "heldAt": zod.iso.datetime({"offset":true}),
   "releasedBy": zod.int().nullish(),
@@ -60,7 +91,7 @@ export const ReleaseResponse = zod.object({
   "payoutId": zod.int(),
   "reasonType": zod.enum(['정산_계좌_미등록', '대회_취소_처리', '대사_불일치']).describe('보류 사유 (정산_계좌_미등록: 정산 계좌 미등록, 대회_취소_처리: 대회 취소 처리, 대사_불일치: 대사 불일치)'),
   "reason": zod.string().nullish(),
-  "status": zod.enum(['지급보류', '해제']).describe('지급보류 상태 (지급보류: 지급보류, 해제: 해제)'),
+  "status": zod.enum(['지급보류', '해제', '취소']).describe('지급보류 상태 (지급보류: 지급보류, 해제: 해제, 취소: 대회 취소로 정산과 함께 닫힘)'),
   "heldBy": zod.int(),
   "heldAt": zod.iso.datetime({"offset":true}),
   "releasedBy": zod.int().nullish(),
@@ -98,6 +129,49 @@ export const ConfirmResponse = zod.object({
 
 
 /**
+ * 지급 결과를 3번 몰라 멈춘 정산 내역을, 관리자가 캐시 서비스에서 확인한 결과대로 닫는다. 지급됨이면 지급 완료로, 지급_안_됨이면 지급 예정으로 되돌려 다음 지급 배치가 다시 지급한다. 대회 취소 표시가 있으면 지급됨은 회수를 만들고, 지급_안_됨은 취소로 닫고 회수를 계산한다. 판단 근거 메모는 상태 이력에 남는다.
+ * @summary 지급 확인 필요 정산 내역 닫기 (BUK-174)
+ */
+export const ClosePayCheckParams = zod.object({
+  "payoutId": zod.int().describe('정산 내역 ID')
+})
+
+export const closePayCheckBodyMemoMin = 0;
+export const closePayCheckBodyMemoMax = 255;
+
+
+
+export const ClosePayCheckBody = zod.object({
+  "result": zod.enum(['지급됨', '지급_안_됨']).describe('캐시 서비스에서 확인한 지급 결과 (지급됨: 지급 완료로, 지급_안_됨: 지급 예정으로 되돌려 다시 지급)'),
+  "memo": zod.string().min(closePayCheckBodyMemoMin).max(closePayCheckBodyMemoMax).describe('판단 근거 메모 (255자 이하)')
+}).describe('지급 확인 필요 정산 내역 닫기 요청')
+
+export const ClosePayCheckResponse = zod.unknown()
+
+
+/**
+ * 지급과 회수 청구 · 알림을 기준일로 다시 돌린다. 스케줄과 같은 잠금을 써서 이미 돌고 있으면 409로 거절한다. 배치 종류마다 실행 기록 한 줄을 남기고 돌려준다. 기준일을 빼면 오늘(한국 시간)이다. 오늘보다 뒤인 기준일은 400으로 거절한다(과거 날짜는 놓친 날을 따라잡는 데 쓴다).
+ * @summary 정산 지급 배치 다시 돌리기 (BUK-167)
+ */
+export const RunPayQueryParams = zod.object({
+  "date": zod.iso.date().optional().describe('배치 기준일 (yyyy-MM-dd, 없으면 오늘)')
+})
+
+export const RunPayResponse = zod.unknown()
+
+
+/**
+ * 정산 생성과 대사를 기준일로 다시 돌린다. 스케줄과 같은 잠금을 써서 이미 돌고 있으면 409로 거절한다. 배치 종류마다 실행 기록 한 줄을 남기고 돌려준다. 기준일을 빼면 오늘(한국 시간)이다. 오늘보다 뒤인 기준일은 400으로 거절한다(과거 날짜는 놓친 날을 따라잡는 데 쓴다).
+ * @summary 정산 생성 배치 다시 돌리기 (BUK-167)
+ */
+export const RunCreateQueryParams = zod.object({
+  "date": zod.iso.date().optional().describe('배치 기준일 (yyyy-MM-dd, 없으면 오늘)')
+})
+
+export const RunCreateResponse = zod.unknown()
+
+
+/**
  * 판매자가 대회 취소 · 일정 변경 환불로 플랫폼에 돌려줄 정산금(갚을 돈)이 남은 대회가 있는지 돌려준다. 대회마다 원장 잔고를 따로 더해 0원보다 큰 대회만 센다.
  * @summary 판매자 갚을 돈 조회
  */
@@ -120,6 +194,31 @@ export const RefundEligibilityResponse = zod.unknown()
 
 
 /**
+ * 상태별 DLT 실패 행을 최근 것부터 size건 돌려준다. 상태를 빼면 처리 실패(사람이 봐야 하는 메시지)를 보여 준다.
+ * @summary 처리 실패 메시지 목록
+ */
+export const listQueryStatusDefault = `FAILED`;
+export const listQuerySizeDefault = 50;
+export const listQuerySizeMax = 100;
+
+
+
+export const ListQueryParams = zod.object({
+  "status": zod.enum(['FAILED', 'RESENT', 'COMPLETED']).default(listQueryStatusDefault).describe('상태 (FAILED 처리 실패, RESENT 다시 보냄, COMPLETED 처리 완료)'),
+  "size": zod.int().min(1).max(listQuerySizeMax).default(listQuerySizeDefault).describe('조회 건수 (1~100)')
+})
+
+export const ListResponse = zod.unknown()
+
+
+/**
+ * 플랫폼 수수료 세금계산서를 최근 공급 월부터 돌려준다. 공급 월(지급 완료월)마다 한 장이고, 매달 1일에 지난달 치를 발행한다. 발행에 실패하면 다음 날 다시 발행한다. 공급받는자 정보는 발행 당시 값으로 고정된다. 비사업자 판매자는 세금계산서가 없어 빈 목록이다.
+ * @summary 수수료 세금계산서 목록 조회 (BUK-246)
+ */
+export const TaxInvoicesResponse = zod.unknown()
+
+
+/**
  * 다음 정산일, 정산 예정액(다음 정산일에 나갈 지급액 합계, 보류 제외), 지급보류 중인 정산 내역 수를 돌려준다. 1차가 아직 지급되지 않아 기다리는 최종 정산은 다음 정산일 · 정산 예정액에서 뺀다. 조회 기간과 상관없이 판매자의 지금 상태로 계산한다. 지급 예정 정산 내역이 없으면 다음 정산일은 null, 정산 예정액은 0이다.
  * @summary 정산 요약 조회
  */
@@ -132,6 +231,17 @@ export const SummaryResponse = zod.object({
   "heldCount": zod.int()
 }).optional()
 })
+
+
+/**
+ * 정산 생성일이 그 달인 판매 줄에서 판매 취소 줄을 뺀 매출 합계를 돌려준다(참가권, 키트 포함). 과세 · 면세 판단은 판매자 몫이라, 과세 사업자일 때의 공급가액 · 세액(합계 × 10/110, 원 미만 버림)을 함께 준다. 부가세 신고 참고용이며 판매가 없으면 모두 0이다.
+ * @summary 월 매출 참고 자료 조회 (BUK-246)
+ */
+export const SalesReportQueryParams = zod.object({
+  "month": zod.string().describe('매출 월 (yyyy-MM)')
+})
+
+export const SalesReportResponse = zod.unknown()
 
 
 /**
@@ -230,7 +340,7 @@ export const HoldsResponse = zod.object({
   "payoutAmount": zod.int(),
   "reasonType": zod.enum(['정산_계좌_미등록', '대회_취소_처리', '대사_불일치']).describe('보류 사유 (정산_계좌_미등록: 정산 계좌 미등록, 대회_취소_처리: 대회 취소 처리, 대사_불일치: 대사 불일치)'),
   "reason": zod.string().nullish(),
-  "status": zod.enum(['지급보류', '해제']).describe('지급보류 상태 (지급보류: 지급보류, 해제: 해제)'),
+  "status": zod.enum(['지급보류', '해제', '취소']).describe('지급보류 상태 (지급보류: 지급보류, 해제: 해제, 취소: 대회 취소로 정산과 함께 닫힘)'),
   "heldAt": zod.iso.datetime({"offset":true}),
   "releasedAt": zod.iso.datetime({"offset":true}).nullish()
 })).optional()
@@ -261,6 +371,63 @@ export const FindPayoutResponse = zod.unknown()
 
 
 /**
+ * 부가가치세법 75조에 따라 분기마다 국세청에 내는 판매자별 판매 건수 · 금액을 돌려준다. 정산 생성일(대회 다음 날)이 분기 안인 판매 줄에서 판매 취소 줄을 뺀다. 제출 기한은 분기 말일의 다음 달 15일이다. 판매자 상호 · 사업자번호는 판매자 목록과 합쳐서 보여 준다. 판매가 없는 판매자는 목록에 없다.
+ * @summary 통신판매중개자 분기 판매 자료 조회 (BUK-246)
+ */
+export const QuarterSalesReportQueryParams = zod.object({
+  "year": zod.int().describe('연도'),
+  "quarter": zod.int().describe('분기 (1 ~ 4)')
+})
+
+export const QuarterSalesReportResponse = zod.unknown()
+
+
+/**
+ * 공급 월(지급 완료월) 한 달의 수수료 세금계산서를 판매자 순으로 돌려준다. 발행 실패도 함께 보인다. 비사업자와 수수료가 0원인 판매자는 세금계산서가 없어 목록에 없다. 법정 기한은 공급 월 다음 달 10일이다.
+ * @summary 수수료 세금계산서 발행 현황 조회 (BUK-246)
+ */
+export const TaxInvoices1QueryParams = zod.object({
+  "month": zod.string().describe('공급 월 (yyyy-MM)')
+})
+
+export const TaxInvoices1Response = zod.unknown()
+
+
+/**
+ * 지급 예정일 하루의 정산 내역을 돌려준다. 지급일을 빼면 오늘(한국 시간)보다 뒤인 가장 가까운 20일이고, 20일 당일이면 다음 달 20일이다. 조회한 지급일은 응답의 payDate에 담긴다. 카드 숫자는 그날의 상태별 건수 · 지급액 합으로, 상태 선택과 상관없이 모든 상태를 0건까지 돌려준다. 줄마다 진행 중인 지급보류가 붙고, 그 id로 보류 해제 API를 부른다. 보류를 풀면 지급 예정일이 해제일 + 1일로 늦춰질 수 있어 20일이 아닌 날도 조회할 수 있다.
+ * @summary 지급일별 정산 목록 조회 (BUK-168)
+ */
+export const payouts1QueryPageDefault = 0;
+export const payouts1QuerySizeDefault = 50;
+
+export const Payouts1QueryParams = zod.object({
+  "payDate": zod.iso.date().optional().describe('지급 예정일 (yyyy-MM-dd, 없으면 오늘보다 뒤인 가장 가까운 20일)'),
+  "status": zod.enum(['지급_예정', '지급보류', '지급_중', '지급_완료', '취소', '지급_불일치', '지급_확인_필요']).optional().describe('정산 상태 (없으면 그날의 모든 상태)'),
+  "page": zod.int().default(payouts1QueryPageDefault).describe('페이지 번호 (0부터)'),
+  "size": zod.int().default(payouts1QuerySizeDefault).describe('페이지 크기 (1 ~ 100)')
+})
+
+export const Payouts1Response = zod.unknown()
+
+
+/**
+ * 지급보류를 최근 보류부터 돌려준다. 줄마다 판매자 ID · 정산 ID(ST-) · 지급액이 붙는다. code에 지급보류 ID(HD-)를 주면 그 보류를, 정산 ID(ST-)를 주면 그 정산에 걸린 보류를 모두 찾고 상태는 보지 않는다. 카드 숫자(보류 중 건수 · 보류 금액 · 이번 달 해제 건수)는 필터와 상관없이 전체로 센다. 보류 금액은 보류가 여럿 걸린 정산도 지급액을 한 번만 더한다. 줄의 id로 보류 해제 API를 부른다.
+ * @summary 지급보류 목록 조회 (BUK-168)
+ */
+export const holds1QueryPageDefault = 0;
+export const holds1QuerySizeDefault = 50;
+
+export const Holds1QueryParams = zod.object({
+  "status": zod.enum(['지급보류', '해제', '취소']).optional().describe('보류 상태 (없으면 전체)'),
+  "code": zod.string().optional().describe('지급보류 ID(HD-) 또는 정산 ID(ST-). 대소문자 · 앞뒤 공백 무시'),
+  "page": zod.int().default(holds1QueryPageDefault).describe('페이지 번호 (0부터)'),
+  "size": zod.int().default(holds1QuerySizeDefault).describe('페이지 크기 (1 ~ 100)')
+})
+
+export const Holds1Response = zod.unknown()
+
+
+/**
  * 정산 생성 배치가 남긴 실패 기록(대사 불일치 · 주문 조회 실패 등)을 실행일 기간으로 최근 것부터 돌려준다. 카드 숫자(대사 불일치 · 자동으로 채운 참가권 · 주문 조회 실패 건수)는 종류 선택과 상관없이 기간 전체로 센다. 끝 날이 시작 날 + 1개월 전이어야 한다(최대 1개월). 기록이 없으면 빈 목록과 카드 0을 돌려준다.
  * @summary 이상 감지 기록 조회
  */
@@ -270,7 +437,7 @@ export const createFailuresQuerySizeDefault = 50;
 export const CreateFailuresQueryParams = zod.object({
   "from": zod.iso.date().describe('조회 시작 실행일 (yyyy-MM-dd)'),
   "to": zod.iso.date().describe('조회 끝 실행일 (yyyy-MM-dd, 포함)'),
-  "type": zod.enum(['주문_정산_대회일_불일치', '정산_계좌_조회_실패', '정산_저장_실패', '정산_조회_실패', '알_수_없는_실패', '대회_조회_실패', '주문_조회_실패', '취소_중이라_미룸', '대사_불일치', '지급_확인_필요']).optional().describe('실패 종류 (없으면 전체)'),
+  "type": zod.enum(['주문_정산_대회일_불일치', '정산_계좌_조회_실패', '정산_저장_실패', '정산_조회_실패', '알_수_없는_실패', '대회_조회_실패', '주문_조회_실패', '취소_중이라_미룸', '대사_불일치', '지급_확인_필요', '세금계산서_발행_실패', '세금계산서_기한_지남']).optional().describe('실패 종류 (없으면 전체)'),
   "page": zod.int().default(createFailuresQueryPageDefault).describe('페이지 번호 (0부터)'),
   "size": zod.int().default(createFailuresQuerySizeDefault).describe('페이지 크기 (1 ~ 100)')
 })
@@ -323,3 +490,15 @@ export const AdminClaimsResponse = zod.object({
 })
 }).optional()
 })
+
+
+/**
+ * 정산 생성 · 지급 · 청구 배치의 실행 기록을 실행 기준일 기간으로 최근 것부터 돌려준다. 끝 날이 시작 날 + 1개월 전이어야 한다(최대 1개월). 기록이 없으면 빈 목록이다.
+ * @summary 배치 실행 기록 조회 (BUK-167)
+ */
+export const BatchRunsQueryParams = zod.object({
+  "from": zod.iso.date().describe('조회 시작 실행 기준일 (yyyy-MM-dd)'),
+  "to": zod.iso.date().describe('조회 끝 실행 기준일 (yyyy-MM-dd, 포함)')
+})
+
+export const BatchRunsResponse = zod.unknown()

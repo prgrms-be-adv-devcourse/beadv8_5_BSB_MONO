@@ -41,6 +41,26 @@ export const getHoldsResponseMock = (): RsDataListSellerPayoutHoldDto => ({"stat
 export const getAdminClaimsResponseMock = (): RsDataPayoutAdminClaimsDto => ({"status":200,"message":"청구 목록을 조회했습니다.","data":{"summary":{"claimingCount":1,"claimingAmount":105500,"confirmedThisMonthCount":1},"claims":{"content":[{"id":2,"claimCode":"RC-20261215-0002","sellerId":1,"raceId":7,"amount":105500,"startDate":"2026-12-14","dueDate":"2027-01-13","status":"청구_중","confirmedBy":null,"confirmedAt":null,"virtualBankName":"국민은행","virtualAccountNumber":"12345678901234"},{"id":1,"claimCode":"RC-20261215-0001","sellerId":3,"raceId":7,"amount":50000,"startDate":"2026-12-14","dueDate":"2027-01-13","status":"입금_확인","confirmedBy":99,"confirmedAt":"2026-12-20T10:00:00","virtualBankName":"국민은행","virtualAccountNumber":"98765432109876"}],"page":0,"size":50,"totalElements":2,"totalPages":1}}})
 
 
+export const getResendMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
+  return http.post('*/internal/v1/payout/kafka-failures/:id/resend', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+
+    return new HttpResponse(null,
+      { status: 200
+      })
+  }, options)
+}
+
+export const getCompleteMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
+  return http.post('*/internal/v1/payout/kafka-failures/:id/complete', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+
+    return new HttpResponse(null,
+      { status: 200
+      })
+  }, options)
+}
+
 export const getHoldMockHandler = (overrideResponse?: RsDataPayoutHoldDto | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<RsDataPayoutHoldDto> | RsDataPayoutHoldDto), options?: RequestHandlerOptions) => {
   return http.post('*/api/v1/payout/payouts/:payoutId/holds', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
 
@@ -77,6 +97,36 @@ export const getConfirmMockHandler = (overrideResponse?: RsDataPayoutClaimDto | 
   }, options)
 }
 
+export const getClosePayCheckMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
+  return http.post('*/api/v1/payout/admin/payouts/:payoutId/pay-check', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+
+    return new HttpResponse(null,
+      { status: 200
+      })
+  }, options)
+}
+
+export const getRunPayMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
+  return http.post('*/api/v1/payout/admin/batches/pay', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+
+    return new HttpResponse(null,
+      { status: 200
+      })
+  }, options)
+}
+
+export const getRunCreateMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
+  return http.post('*/api/v1/payout/admin/batches/create', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+
+    return new HttpResponse(null,
+      { status: 200
+      })
+  }, options)
+}
+
 export const getReceivableMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
   return http.get('*/internal/v1/payout/sellers/:sellerId/receivable', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
   if (typeof overrideResponse === 'function') {await overrideResponse(info); }
@@ -97,6 +147,26 @@ export const getRefundEligibilityMockHandler = (overrideResponse?: unknown | ((i
   }, options)
 }
 
+export const getListMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
+  return http.get('*/internal/v1/payout/kafka-failures', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+
+    return new HttpResponse(null,
+      { status: 200
+      })
+  }, options)
+}
+
+export const getTaxInvoicesMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
+  return http.get('*/api/v1/payout/seller/tax-invoices', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+
+    return new HttpResponse(null,
+      { status: 200
+      })
+  }, options)
+}
+
 export const getSummaryMockHandler = (overrideResponse?: RsDataPayoutSummaryDto | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<RsDataPayoutSummaryDto> | RsDataPayoutSummaryDto), options?: RequestHandlerOptions) => {
   return http.get('*/api/v1/payout/seller/summary', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
 
@@ -104,6 +174,16 @@ export const getSummaryMockHandler = (overrideResponse?: RsDataPayoutSummaryDto 
     return HttpResponse.json(overrideResponse !== undefined
     ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
     : getSummaryResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
+export const getSalesReportMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
+  return http.get('*/api/v1/payout/seller/sales-report', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+
+    return new HttpResponse(null,
       { status: 200
       })
   }, options)
@@ -165,6 +245,46 @@ export const getFindPayoutMockHandler = (overrideResponse?: unknown | ((info: Pa
   }, options)
 }
 
+export const getQuarterSalesReportMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
+  return http.get('*/api/v1/payout/admin/tax-reports/quarterly', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+
+    return new HttpResponse(null,
+      { status: 200
+      })
+  }, options)
+}
+
+export const getTaxInvoices1MockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
+  return http.get('*/api/v1/payout/admin/tax-invoices', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+
+    return new HttpResponse(null,
+      { status: 200
+      })
+  }, options)
+}
+
+export const getPayouts1MockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
+  return http.get('*/api/v1/payout/admin/payouts', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+
+    return new HttpResponse(null,
+      { status: 200
+      })
+  }, options)
+}
+
+export const getHolds1MockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
+  return http.get('*/api/v1/payout/admin/holds', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+
+    return new HttpResponse(null,
+      { status: 200
+      })
+  }, options)
+}
+
 export const getCreateFailuresMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
   return http.get('*/api/v1/payout/admin/create-failures', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
   if (typeof overrideResponse === 'function') {await overrideResponse(info); }
@@ -186,18 +306,41 @@ export const getAdminClaimsMockHandler = (overrideResponse?: RsDataPayoutAdminCl
       })
   }, options)
 }
+
+export const getBatchRunsMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
+  return http.get('*/api/v1/payout/admin/batch-runs', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+
+    return new HttpResponse(null,
+      { status: 200
+      })
+  }, options)
+}
 export const getBukangPayoutAPIMock = () => [
+  getResendMockHandler(),
+  getCompleteMockHandler(),
   getHoldMockHandler(),
   getReleaseMockHandler(),
   getConfirmMockHandler(),
+  getClosePayCheckMockHandler(),
+  getRunPayMockHandler(),
+  getRunCreateMockHandler(),
   getReceivableMockHandler(),
   getRefundEligibilityMockHandler(),
+  getListMockHandler(),
+  getTaxInvoicesMockHandler(),
   getSummaryMockHandler(),
+  getSalesReportMockHandler(),
   getPayoutsMockHandler(),
   getItemsMockHandler(),
   getHoldsMockHandler(),
   getClaimsMockHandler(),
   getFindPayoutMockHandler(),
+  getQuarterSalesReportMockHandler(),
+  getTaxInvoices1MockHandler(),
+  getPayouts1MockHandler(),
+  getHolds1MockHandler(),
   getCreateFailuresMockHandler(),
-  getAdminClaimsMockHandler()
+  getAdminClaimsMockHandler(),
+  getBatchRunsMockHandler()
 ]

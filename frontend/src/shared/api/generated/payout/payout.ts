@@ -26,13 +26,20 @@ import type {
 
 import type {
   AdminClaimsParams,
+  BatchRunsParams,
   ClaimsParams,
   CreateFailuresParams,
+  DltCompleteRequestDto,
   FindPayoutParams,
+  Holds1Params,
   HoldsParams,
   ItemsParams,
+  ListParams,
   PayoutHoldRequestDto,
+  PayoutPayCheckRequestDto,
+  Payouts1Params,
   PayoutsParams,
+  QuarterSalesReportParams,
   RefundEligibilityParams,
   RsData,
   RsDataListPayoutDto,
@@ -41,7 +48,11 @@ import type {
   RsDataPayoutClaimDto,
   RsDataPayoutHoldDto,
   RsDataPayoutItemPageDto,
-  RsDataPayoutSummaryDto
+  RsDataPayoutSummaryDto,
+  RunCreateParams,
+  RunPayParams,
+  SalesReportParams,
+  TaxInvoices1Params
 } from './payout.schemas';
 
 import { customFetch } from '../../fetcher';
@@ -65,6 +76,171 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getResendUrl = (id: number,) => {
+
+
+
+
+  return `/internal/v1/payout/kafka-failures/${id}/resend`
+}
+
+/**
+ * 처리 실패 상태의 메시지를 message-id 헤더째 정산의 첫 재시도 토픽으로 다시 보내고 다시 보냄으로 바꾼다. 정산만 다시 받고(같은 토픽을 받는 다른 서비스는 받지 않음), 처리되면 처리 완료로, 또 실패하면 처리 실패로 돌아가 Slack으로 다시 알린다. Kafka로 보내지 못하면 처리 실패로 되돌리고 503으로 응답한다.
+ * @summary 처리 실패 메시지 다시 보내기
+ */
+export const resend = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getResendUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getResendMutationKey = () => ['resend'] as const;
+
+export const getResendMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resend>>, TError,ResendMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resend>>, TError,ResendMutationVariables, TContext> => {
+
+const mutationKey = getResendMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resend>>, ResendMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  resend(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResendMutationResult = NonNullable<Awaited<ReturnType<typeof resend>>>
+
+    export type ResendMutationError = RsData
+    export type ResendMutationVariables = {id: number}
+
+    /**
+ * @summary 처리 실패 메시지 다시 보내기
+ */
+export const useResend = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resend>>, TError,ResendMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof resend>>,
+        TError,
+        ResendMutationVariables,
+        TContext
+      > => {
+      return useMutation(getResendMutationOptions(options), queryClient);
+    }
+
+export const getCompleteUrl = (id: number,) => {
+
+
+
+
+  return `/internal/v1/payout/kafka-failures/${id}/complete`
+}
+
+/**
+ * 원인을 직접 고쳤거나 버릴 메시지를 메모와 함께 처리 완료로 닫는다. 처리 완료가 아니면(처리 실패, 다시 보냄) 닫을 수 있다.
+ * @summary 처리 실패 메시지 처리 완료
+ */
+export const complete = async (id: number,
+    dltCompleteRequestDto: DltCompleteRequestDto, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<unknown>(getCompleteUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(dltCompleteRequestDto)
+  }
+);}
+
+
+
+
+
+export const getCompleteMutationKey = () => ['complete'] as const;
+
+export const getCompleteMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof complete>>, TError,CompleteMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof complete>>, TError,CompleteMutationVariables, TContext> => {
+
+const mutationKey = getCompleteMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof complete>>, CompleteMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  complete(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CompleteMutationResult = NonNullable<Awaited<ReturnType<typeof complete>>>
+    export type CompleteMutationBody = DltCompleteRequestDto
+    export type CompleteMutationError = RsData
+    export type CompleteMutationVariables = {id: number;data: DltCompleteRequestDto}
+
+    /**
+ * @summary 처리 실패 메시지 처리 완료
+ */
+export const useComplete = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof complete>>, TError,CompleteMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof complete>>,
+        TError,
+        CompleteMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCompleteMutationOptions(options), queryClient);
+    }
 
 export const getHoldUrl = (payoutId: number,) => {
 
@@ -306,6 +482,260 @@ export const useConfirm = <TError = RsData,
       return useMutation(getConfirmMutationOptions(options), queryClient);
     }
 
+export const getClosePayCheckUrl = (payoutId: number,) => {
+
+
+
+
+  return `/api/v1/payout/admin/payouts/${payoutId}/pay-check`
+}
+
+/**
+ * 지급 결과를 3번 몰라 멈춘 정산 내역을, 관리자가 캐시 서비스에서 확인한 결과대로 닫는다. 지급됨이면 지급 완료로, 지급_안_됨이면 지급 예정으로 되돌려 다음 지급 배치가 다시 지급한다. 대회 취소 표시가 있으면 지급됨은 회수를 만들고, 지급_안_됨은 취소로 닫고 회수를 계산한다. 판단 근거 메모는 상태 이력에 남는다.
+ * @summary 지급 확인 필요 정산 내역 닫기 (BUK-174)
+ */
+export const closePayCheck = async (payoutId: number,
+    payoutPayCheckRequestDto: PayoutPayCheckRequestDto, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<unknown>(getClosePayCheckUrl(payoutId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(payoutPayCheckRequestDto)
+  }
+);}
+
+
+
+
+
+export const getClosePayCheckMutationKey = () => ['closePayCheck'] as const;
+
+export const getClosePayCheckMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof closePayCheck>>, TError,ClosePayCheckMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof closePayCheck>>, TError,ClosePayCheckMutationVariables, TContext> => {
+
+const mutationKey = getClosePayCheckMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof closePayCheck>>, ClosePayCheckMutationVariables> = (props) => {
+          const {payoutId,data} = props ?? {};
+
+          return  closePayCheck(payoutId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ClosePayCheckMutationResult = NonNullable<Awaited<ReturnType<typeof closePayCheck>>>
+    export type ClosePayCheckMutationBody = PayoutPayCheckRequestDto
+    export type ClosePayCheckMutationError = RsData
+    export type ClosePayCheckMutationVariables = {payoutId: number;data: PayoutPayCheckRequestDto}
+
+    /**
+ * @summary 지급 확인 필요 정산 내역 닫기 (BUK-174)
+ */
+export const useClosePayCheck = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof closePayCheck>>, TError,ClosePayCheckMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof closePayCheck>>,
+        TError,
+        ClosePayCheckMutationVariables,
+        TContext
+      > => {
+      return useMutation(getClosePayCheckMutationOptions(options), queryClient);
+    }
+
+export const getRunPayUrl = (params?: RunPayParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/payout/admin/batches/pay?${stringifiedParams}` : `/api/v1/payout/admin/batches/pay`
+}
+
+/**
+ * 지급과 회수 청구 · 알림을 기준일로 다시 돌린다. 스케줄과 같은 잠금을 써서 이미 돌고 있으면 409로 거절한다. 배치 종류마다 실행 기록 한 줄을 남기고 돌려준다. 기준일을 빼면 오늘(한국 시간)이다. 오늘보다 뒤인 기준일은 400으로 거절한다(과거 날짜는 놓친 날을 따라잡는 데 쓴다).
+ * @summary 정산 지급 배치 다시 돌리기 (BUK-167)
+ */
+export const runPay = async (params?: RunPayParams, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getRunPayUrl(params),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRunPayMutationKey = () => ['runPay'] as const;
+
+export const getRunPayMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runPay>>, TError,RunPayMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof runPay>>, TError,RunPayMutationVariables, TContext> => {
+
+const mutationKey = getRunPayMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof runPay>>, RunPayMutationVariables> = (props) => {
+          const {params} = props ?? {};
+
+          return  runPay(params,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RunPayMutationResult = NonNullable<Awaited<ReturnType<typeof runPay>>>
+
+    export type RunPayMutationError = RsData
+    export type RunPayMutationVariables = {params?: RunPayParams}
+
+    /**
+ * @summary 정산 지급 배치 다시 돌리기 (BUK-167)
+ */
+export const useRunPay = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runPay>>, TError,RunPayMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof runPay>>,
+        TError,
+        RunPayMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRunPayMutationOptions(options), queryClient);
+    }
+
+export const getRunCreateUrl = (params?: RunCreateParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/payout/admin/batches/create?${stringifiedParams}` : `/api/v1/payout/admin/batches/create`
+}
+
+/**
+ * 정산 생성과 대사를 기준일로 다시 돌린다. 스케줄과 같은 잠금을 써서 이미 돌고 있으면 409로 거절한다. 배치 종류마다 실행 기록 한 줄을 남기고 돌려준다. 기준일을 빼면 오늘(한국 시간)이다. 오늘보다 뒤인 기준일은 400으로 거절한다(과거 날짜는 놓친 날을 따라잡는 데 쓴다).
+ * @summary 정산 생성 배치 다시 돌리기 (BUK-167)
+ */
+export const runCreate = async (params?: RunCreateParams, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getRunCreateUrl(params),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRunCreateMutationKey = () => ['runCreate'] as const;
+
+export const getRunCreateMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runCreate>>, TError,RunCreateMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof runCreate>>, TError,RunCreateMutationVariables, TContext> => {
+
+const mutationKey = getRunCreateMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof runCreate>>, RunCreateMutationVariables> = (props) => {
+          const {params} = props ?? {};
+
+          return  runCreate(params,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RunCreateMutationResult = NonNullable<Awaited<ReturnType<typeof runCreate>>>
+
+    export type RunCreateMutationError = RsData
+    export type RunCreateMutationVariables = {params?: RunCreateParams}
+
+    /**
+ * @summary 정산 생성 배치 다시 돌리기 (BUK-167)
+ */
+export const useRunCreate = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runCreate>>, TError,RunCreateMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof runCreate>>,
+        TError,
+        RunCreateMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRunCreateMutationOptions(options), queryClient);
+    }
+
 export const getReceivableUrl = (sellerId: number,) => {
 
 
@@ -517,6 +947,217 @@ export function useRefundEligibility<TData = Awaited<ReturnType<typeof refundEli
 
 
 
+export const getListUrl = (params?: ListParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/internal/v1/payout/kafka-failures?${stringifiedParams}` : `/internal/v1/payout/kafka-failures`
+}
+
+/**
+ * 상태별 DLT 실패 행을 최근 것부터 size건 돌려준다. 상태를 빼면 처리 실패(사람이 봐야 하는 메시지)를 보여 준다.
+ * @summary 처리 실패 메시지 목록
+ */
+export const list = async (params?: ListParams, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getListUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListQueryKey = (params?: ListParams,) => {
+    return [
+    `/internal/v1/payout/kafka-failures`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListQueryOptions = <TData = Awaited<ReturnType<typeof list>>, TError = RsData>(params?: ListParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof list>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof list>>> = ({ signal }) => list(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof list>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ListQueryResult = NonNullable<Awaited<ReturnType<typeof list>>>
+export type ListQueryError = RsData
+
+
+export function useList<TData = Awaited<ReturnType<typeof list>>, TError = RsData>(
+ params: undefined |  ListParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof list>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof list>>,
+          TError,
+          Awaited<ReturnType<typeof list>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useList<TData = Awaited<ReturnType<typeof list>>, TError = RsData>(
+ params?: ListParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof list>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof list>>,
+          TError,
+          Awaited<ReturnType<typeof list>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useList<TData = Awaited<ReturnType<typeof list>>, TError = RsData>(
+ params?: ListParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof list>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 처리 실패 메시지 목록
+ */
+
+export function useList<TData = Awaited<ReturnType<typeof list>>, TError = RsData>(
+ params?: ListParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof list>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getTaxInvoicesUrl = () => {
+
+
+
+
+  return `/api/v1/payout/seller/tax-invoices`
+}
+
+/**
+ * 플랫폼 수수료 세금계산서를 최근 공급 월부터 돌려준다. 공급 월(지급 완료월)마다 한 장이고, 매달 1일에 지난달 치를 발행한다. 발행에 실패하면 다음 날 다시 발행한다. 공급받는자 정보는 발행 당시 값으로 고정된다. 비사업자 판매자는 세금계산서가 없어 빈 목록이다.
+ * @summary 수수료 세금계산서 목록 조회 (BUK-246)
+ */
+export const taxInvoices = async ( options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getTaxInvoicesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getTaxInvoicesQueryKey = () => {
+    return [
+    `/api/v1/payout/seller/tax-invoices`
+    ] as const;
+    }
+
+
+export const getTaxInvoicesQueryOptions = <TData = Awaited<ReturnType<typeof taxInvoices>>, TError = RsData>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof taxInvoices>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getTaxInvoicesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof taxInvoices>>> = ({ signal }) => taxInvoices({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof taxInvoices>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type TaxInvoicesQueryResult = NonNullable<Awaited<ReturnType<typeof taxInvoices>>>
+export type TaxInvoicesQueryError = RsData
+
+
+export function useTaxInvoices<TData = Awaited<ReturnType<typeof taxInvoices>>, TError = RsData>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof taxInvoices>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof taxInvoices>>,
+          TError,
+          Awaited<ReturnType<typeof taxInvoices>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useTaxInvoices<TData = Awaited<ReturnType<typeof taxInvoices>>, TError = RsData>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof taxInvoices>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof taxInvoices>>,
+          TError,
+          Awaited<ReturnType<typeof taxInvoices>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useTaxInvoices<TData = Awaited<ReturnType<typeof taxInvoices>>, TError = RsData>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof taxInvoices>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 수수료 세금계산서 목록 조회 (BUK-246)
+ */
+
+export function useTaxInvoices<TData = Awaited<ReturnType<typeof taxInvoices>>, TError = RsData>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof taxInvoices>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getTaxInvoicesQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getSummaryUrl = () => {
 
 
@@ -607,6 +1248,115 @@ export function useSummary<TData = Awaited<ReturnType<typeof summary>>, TError =
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getSummaryQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSalesReportUrl = (params: SalesReportParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/payout/seller/sales-report?${stringifiedParams}` : `/api/v1/payout/seller/sales-report`
+}
+
+/**
+ * 정산 생성일이 그 달인 판매 줄에서 판매 취소 줄을 뺀 매출 합계를 돌려준다(참가권, 키트 포함). 과세 · 면세 판단은 판매자 몫이라, 과세 사업자일 때의 공급가액 · 세액(합계 × 10/110, 원 미만 버림)을 함께 준다. 부가세 신고 참고용이며 판매가 없으면 모두 0이다.
+ * @summary 월 매출 참고 자료 조회 (BUK-246)
+ */
+export const salesReport = async (params: SalesReportParams, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getSalesReportUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getSalesReportQueryKey = (params?: SalesReportParams,) => {
+    return [
+    `/api/v1/payout/seller/sales-report`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getSalesReportQueryOptions = <TData = Awaited<ReturnType<typeof salesReport>>, TError = RsData>(params: SalesReportParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof salesReport>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getSalesReportQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof salesReport>>> = ({ signal }) => salesReport(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof salesReport>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type SalesReportQueryResult = NonNullable<Awaited<ReturnType<typeof salesReport>>>
+export type SalesReportQueryError = RsData
+
+
+export function useSalesReport<TData = Awaited<ReturnType<typeof salesReport>>, TError = RsData>(
+ params: SalesReportParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof salesReport>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof salesReport>>,
+          TError,
+          Awaited<ReturnType<typeof salesReport>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useSalesReport<TData = Awaited<ReturnType<typeof salesReport>>, TError = RsData>(
+ params: SalesReportParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof salesReport>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof salesReport>>,
+          TError,
+          Awaited<ReturnType<typeof salesReport>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useSalesReport<TData = Awaited<ReturnType<typeof salesReport>>, TError = RsData>(
+ params: SalesReportParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof salesReport>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 월 매출 참고 자료 조회 (BUK-246)
+ */
+
+export function useSalesReport<TData = Awaited<ReturnType<typeof salesReport>>, TError = RsData>(
+ params: SalesReportParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof salesReport>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getSalesReportQueryOptions(params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 
@@ -1164,6 +1914,442 @@ export function useFindPayout<TData = Awaited<ReturnType<typeof findPayout>>, TE
 
 
 
+export const getQuarterSalesReportUrl = (params: QuarterSalesReportParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/payout/admin/tax-reports/quarterly?${stringifiedParams}` : `/api/v1/payout/admin/tax-reports/quarterly`
+}
+
+/**
+ * 부가가치세법 75조에 따라 분기마다 국세청에 내는 판매자별 판매 건수 · 금액을 돌려준다. 정산 생성일(대회 다음 날)이 분기 안인 판매 줄에서 판매 취소 줄을 뺀다. 제출 기한은 분기 말일의 다음 달 15일이다. 판매자 상호 · 사업자번호는 판매자 목록과 합쳐서 보여 준다. 판매가 없는 판매자는 목록에 없다.
+ * @summary 통신판매중개자 분기 판매 자료 조회 (BUK-246)
+ */
+export const quarterSalesReport = async (params: QuarterSalesReportParams, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getQuarterSalesReportUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getQuarterSalesReportQueryKey = (params?: QuarterSalesReportParams,) => {
+    return [
+    `/api/v1/payout/admin/tax-reports/quarterly`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getQuarterSalesReportQueryOptions = <TData = Awaited<ReturnType<typeof quarterSalesReport>>, TError = RsData>(params: QuarterSalesReportParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof quarterSalesReport>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getQuarterSalesReportQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof quarterSalesReport>>> = ({ signal }) => quarterSalesReport(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof quarterSalesReport>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type QuarterSalesReportQueryResult = NonNullable<Awaited<ReturnType<typeof quarterSalesReport>>>
+export type QuarterSalesReportQueryError = RsData
+
+
+export function useQuarterSalesReport<TData = Awaited<ReturnType<typeof quarterSalesReport>>, TError = RsData>(
+ params: QuarterSalesReportParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof quarterSalesReport>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof quarterSalesReport>>,
+          TError,
+          Awaited<ReturnType<typeof quarterSalesReport>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useQuarterSalesReport<TData = Awaited<ReturnType<typeof quarterSalesReport>>, TError = RsData>(
+ params: QuarterSalesReportParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof quarterSalesReport>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof quarterSalesReport>>,
+          TError,
+          Awaited<ReturnType<typeof quarterSalesReport>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useQuarterSalesReport<TData = Awaited<ReturnType<typeof quarterSalesReport>>, TError = RsData>(
+ params: QuarterSalesReportParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof quarterSalesReport>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 통신판매중개자 분기 판매 자료 조회 (BUK-246)
+ */
+
+export function useQuarterSalesReport<TData = Awaited<ReturnType<typeof quarterSalesReport>>, TError = RsData>(
+ params: QuarterSalesReportParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof quarterSalesReport>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getQuarterSalesReportQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getTaxInvoices1Url = (params: TaxInvoices1Params,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/payout/admin/tax-invoices?${stringifiedParams}` : `/api/v1/payout/admin/tax-invoices`
+}
+
+/**
+ * 공급 월(지급 완료월) 한 달의 수수료 세금계산서를 판매자 순으로 돌려준다. 발행 실패도 함께 보인다. 비사업자와 수수료가 0원인 판매자는 세금계산서가 없어 목록에 없다. 법정 기한은 공급 월 다음 달 10일이다.
+ * @summary 수수료 세금계산서 발행 현황 조회 (BUK-246)
+ */
+export const taxInvoices1 = async (params: TaxInvoices1Params, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getTaxInvoices1Url(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getTaxInvoices1QueryKey = (params?: TaxInvoices1Params,) => {
+    return [
+    `/api/v1/payout/admin/tax-invoices`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getTaxInvoices1QueryOptions = <TData = Awaited<ReturnType<typeof taxInvoices1>>, TError = RsData>(params: TaxInvoices1Params, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof taxInvoices1>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getTaxInvoices1QueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof taxInvoices1>>> = ({ signal }) => taxInvoices1(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof taxInvoices1>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type TaxInvoices1QueryResult = NonNullable<Awaited<ReturnType<typeof taxInvoices1>>>
+export type TaxInvoices1QueryError = RsData
+
+
+export function useTaxInvoices1<TData = Awaited<ReturnType<typeof taxInvoices1>>, TError = RsData>(
+ params: TaxInvoices1Params, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof taxInvoices1>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof taxInvoices1>>,
+          TError,
+          Awaited<ReturnType<typeof taxInvoices1>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useTaxInvoices1<TData = Awaited<ReturnType<typeof taxInvoices1>>, TError = RsData>(
+ params: TaxInvoices1Params, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof taxInvoices1>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof taxInvoices1>>,
+          TError,
+          Awaited<ReturnType<typeof taxInvoices1>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useTaxInvoices1<TData = Awaited<ReturnType<typeof taxInvoices1>>, TError = RsData>(
+ params: TaxInvoices1Params, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof taxInvoices1>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 수수료 세금계산서 발행 현황 조회 (BUK-246)
+ */
+
+export function useTaxInvoices1<TData = Awaited<ReturnType<typeof taxInvoices1>>, TError = RsData>(
+ params: TaxInvoices1Params, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof taxInvoices1>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getTaxInvoices1QueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getPayouts1Url = (params?: Payouts1Params,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/payout/admin/payouts?${stringifiedParams}` : `/api/v1/payout/admin/payouts`
+}
+
+/**
+ * 지급 예정일 하루의 정산 내역을 돌려준다. 지급일을 빼면 오늘(한국 시간)보다 뒤인 가장 가까운 20일이고, 20일 당일이면 다음 달 20일이다. 조회한 지급일은 응답의 payDate에 담긴다. 카드 숫자는 그날의 상태별 건수 · 지급액 합으로, 상태 선택과 상관없이 모든 상태를 0건까지 돌려준다. 줄마다 진행 중인 지급보류가 붙고, 그 id로 보류 해제 API를 부른다. 보류를 풀면 지급 예정일이 해제일 + 1일로 늦춰질 수 있어 20일이 아닌 날도 조회할 수 있다.
+ * @summary 지급일별 정산 목록 조회 (BUK-168)
+ */
+export const payouts1 = async (params?: Payouts1Params, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getPayouts1Url(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getPayouts1QueryKey = (params?: Payouts1Params,) => {
+    return [
+    `/api/v1/payout/admin/payouts`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getPayouts1QueryOptions = <TData = Awaited<ReturnType<typeof payouts1>>, TError = RsData>(params?: Payouts1Params, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof payouts1>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getPayouts1QueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof payouts1>>> = ({ signal }) => payouts1(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof payouts1>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type Payouts1QueryResult = NonNullable<Awaited<ReturnType<typeof payouts1>>>
+export type Payouts1QueryError = RsData
+
+
+export function usePayouts1<TData = Awaited<ReturnType<typeof payouts1>>, TError = RsData>(
+ params: undefined |  Payouts1Params, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof payouts1>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof payouts1>>,
+          TError,
+          Awaited<ReturnType<typeof payouts1>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function usePayouts1<TData = Awaited<ReturnType<typeof payouts1>>, TError = RsData>(
+ params?: Payouts1Params, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof payouts1>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof payouts1>>,
+          TError,
+          Awaited<ReturnType<typeof payouts1>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function usePayouts1<TData = Awaited<ReturnType<typeof payouts1>>, TError = RsData>(
+ params?: Payouts1Params, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof payouts1>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 지급일별 정산 목록 조회 (BUK-168)
+ */
+
+export function usePayouts1<TData = Awaited<ReturnType<typeof payouts1>>, TError = RsData>(
+ params?: Payouts1Params, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof payouts1>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getPayouts1QueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getHolds1Url = (params?: Holds1Params,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/payout/admin/holds?${stringifiedParams}` : `/api/v1/payout/admin/holds`
+}
+
+/**
+ * 지급보류를 최근 보류부터 돌려준다. 줄마다 판매자 ID · 정산 ID(ST-) · 지급액이 붙는다. code에 지급보류 ID(HD-)를 주면 그 보류를, 정산 ID(ST-)를 주면 그 정산에 걸린 보류를 모두 찾고 상태는 보지 않는다. 카드 숫자(보류 중 건수 · 보류 금액 · 이번 달 해제 건수)는 필터와 상관없이 전체로 센다. 보류 금액은 보류가 여럿 걸린 정산도 지급액을 한 번만 더한다. 줄의 id로 보류 해제 API를 부른다.
+ * @summary 지급보류 목록 조회 (BUK-168)
+ */
+export const holds1 = async (params?: Holds1Params, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getHolds1Url(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getHolds1QueryKey = (params?: Holds1Params,) => {
+    return [
+    `/api/v1/payout/admin/holds`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getHolds1QueryOptions = <TData = Awaited<ReturnType<typeof holds1>>, TError = RsData>(params?: Holds1Params, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof holds1>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getHolds1QueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof holds1>>> = ({ signal }) => holds1(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof holds1>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type Holds1QueryResult = NonNullable<Awaited<ReturnType<typeof holds1>>>
+export type Holds1QueryError = RsData
+
+
+export function useHolds1<TData = Awaited<ReturnType<typeof holds1>>, TError = RsData>(
+ params: undefined |  Holds1Params, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof holds1>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof holds1>>,
+          TError,
+          Awaited<ReturnType<typeof holds1>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useHolds1<TData = Awaited<ReturnType<typeof holds1>>, TError = RsData>(
+ params?: Holds1Params, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof holds1>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof holds1>>,
+          TError,
+          Awaited<ReturnType<typeof holds1>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useHolds1<TData = Awaited<ReturnType<typeof holds1>>, TError = RsData>(
+ params?: Holds1Params, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof holds1>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 지급보류 목록 조회 (BUK-168)
+ */
+
+export function useHolds1<TData = Awaited<ReturnType<typeof holds1>>, TError = RsData>(
+ params?: Holds1Params, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof holds1>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getHolds1QueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getCreateFailuresUrl = (params: CreateFailuresParams,) => {
   const normalizedParams = new URLSearchParams();
 
@@ -1370,6 +2556,115 @@ export function useAdminClaims<TData = Awaited<ReturnType<typeof adminClaims>>, 
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getAdminClaimsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getBatchRunsUrl = (params: BatchRunsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/payout/admin/batch-runs?${stringifiedParams}` : `/api/v1/payout/admin/batch-runs`
+}
+
+/**
+ * 정산 생성 · 지급 · 청구 배치의 실행 기록을 실행 기준일 기간으로 최근 것부터 돌려준다. 끝 날이 시작 날 + 1개월 전이어야 한다(최대 1개월). 기록이 없으면 빈 목록이다.
+ * @summary 배치 실행 기록 조회 (BUK-167)
+ */
+export const batchRuns = async (params: BatchRunsParams, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getBatchRunsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getBatchRunsQueryKey = (params?: BatchRunsParams,) => {
+    return [
+    `/api/v1/payout/admin/batch-runs`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getBatchRunsQueryOptions = <TData = Awaited<ReturnType<typeof batchRuns>>, TError = RsData>(params: BatchRunsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof batchRuns>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getBatchRunsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof batchRuns>>> = ({ signal }) => batchRuns(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof batchRuns>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type BatchRunsQueryResult = NonNullable<Awaited<ReturnType<typeof batchRuns>>>
+export type BatchRunsQueryError = RsData
+
+
+export function useBatchRuns<TData = Awaited<ReturnType<typeof batchRuns>>, TError = RsData>(
+ params: BatchRunsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof batchRuns>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof batchRuns>>,
+          TError,
+          Awaited<ReturnType<typeof batchRuns>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useBatchRuns<TData = Awaited<ReturnType<typeof batchRuns>>, TError = RsData>(
+ params: BatchRunsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof batchRuns>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof batchRuns>>,
+          TError,
+          Awaited<ReturnType<typeof batchRuns>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useBatchRuns<TData = Awaited<ReturnType<typeof batchRuns>>, TError = RsData>(
+ params: BatchRunsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof batchRuns>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 배치 실행 기록 조회 (BUK-167)
+ */
+
+export function useBatchRuns<TData = Awaited<ReturnType<typeof batchRuns>>, TError = RsData>(
+ params: BatchRunsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof batchRuns>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getBatchRunsQueryOptions(params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

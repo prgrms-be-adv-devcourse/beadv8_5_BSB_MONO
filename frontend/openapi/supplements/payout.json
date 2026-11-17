@@ -408,9 +408,10 @@
       "type": "string",
       "enum": [
         "지급보류",
-        "해제"
+        "해제",
+        "취소"
       ],
-      "description": "지급보류 상태 (지급보류: 지급보류, 해제: 해제)"
+      "description": "지급보류 상태 (지급보류: 지급보류, 해제: 해제, 취소: 대회 취소로 정산과 함께 닫힘)"
     },
     "PayoutHoldReason": {
       "type": "string",
