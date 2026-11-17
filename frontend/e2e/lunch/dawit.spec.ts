@@ -4,29 +4,18 @@ import {
   apiLogin,
   balanceOf,
   buyTicket,
-  cloneBuyer,
   DUMMY_RACES,
+  freshBuyer,
   onSaleCourse,
   participant,
   pullSaleToNow,
   registerRace,
   sql,
   sqlOne,
-  topUp,
   uiLogin,
   USERS,
   waitStatus,
 } from './support'
-
-// 한 사람은 한 대회에 살아 있는 신청을 하나만 가질 수 있어(409 ORDER_DUPLICATE_PARTICIPATION)
-// 다시 돌려도 겹치지 않게 실행마다 새 구매자를 만든다
-const RUN = Date.now() % 1_000_000
-const freshBuyer = (key: string) => {
-  const email = `e2e-${key}-${RUN}@crewrun.com`
-  cloneBuyer(email)
-  topUp(email)
-  return email
-}
 
 test.describe('다윗', { tag: '@dawit' }, () => {
   test('22 개인 일반 예매', async ({ page }) => {

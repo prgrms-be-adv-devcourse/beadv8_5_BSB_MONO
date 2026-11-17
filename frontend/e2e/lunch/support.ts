@@ -123,6 +123,16 @@ export async function uiLogin(page: Page, email: string, password = PASSWORD) {
   await expect(page).not.toHaveURL(/\/login/, { timeout: 30_000 })
 }
 
+// 한 사람은 한 대회에 살아 있는 신청을 하나만 가질 수 있어(409 ORDER_DUPLICATE_PARTICIPATION)
+// 다시 돌려도 겹치지 않게 실행마다 새 구매자를 만들고 예치금을 넣는다. key에는 숫자만 쓴다(닉네임이 숫자로 만들어진다)
+const RUN = Date.now() % 1_000_000
+export function freshBuyer(key: string) {
+  const email = `e2e-${key}-${RUN}@crewrun.com`
+  cloneBuyer(email)
+  topUp(email)
+  return email
+}
+
 export const memberIdOf = (email: string) =>
   Number(sqlOne(`select member_id from member_member where email = '${email}'`))
 
@@ -193,7 +203,14 @@ export async function buyTicket(api: Api, { raceId, courseId }: Omit<Course, 'ti
   )
   expect(order.status, `주문 ${JSON.stringify(order.raw)}`).toBe(201)
   const pay = await api.call('POST', `/api/v1/order/orders/${order.data.id}/payment`)
-  expect(pay.status, `결제 ${JSON.stringify(pay.raw)}`).toBe(200)
+  expect([200, 202], `결제 ${JSON.stringify(pay.raw)}`).toContain(pay.status)
+  // 202는 예치금 응답이 늦어 「결제 확인 중」이라는 뜻이다. 결제 재확인(15초 주기)이 끝낼 때까지 기다린다
+  if (pay.status === 202) {
+    await eventually(async () => {
+      const got = await api.call<{ status: string }>('GET', `/api/v1/order/orders/${order.data.id}`)
+      return got.data?.status === 'PAID'
+    }, 30_000)
+  }
   return { participationId: apply.data.id, orderId: order.data.id, itemId: order.data.items[0].id }
 }
 
