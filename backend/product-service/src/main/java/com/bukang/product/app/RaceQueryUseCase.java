@@ -15,6 +15,7 @@ import com.bukang.product.dto.KitOptionListResponseDto;
 import com.bukang.product.dto.RaceCourseInfoDto;
 import com.bukang.product.dto.RaceDetailDto;
 import com.bukang.product.dto.RaceSellerMemberDto;
+import com.bukang.product.dto.RecordCertRuleDto;
 import com.bukang.product.dto.SellerRaceDto;
 import com.bukang.product.out.KitOptionRepository;
 import com.bukang.product.out.ProductSellerRepository;
@@ -72,5 +73,11 @@ public class RaceQueryUseCase {
 		RaceCourse course = raceCourseRepository.findById(raceCourseId)
 			.orElseThrow(RaceCourseNotFoundException::new);
 		return RaceCourseInfoDto.from(course);
+	}
+
+	public RecordCertRuleDto findRecordCertRule(long raceCourseId) {
+		RaceCourse course = raceCourseRepository.findById(raceCourseId)
+			.orElseThrow(RaceCourseNotFoundException::new);
+		return RecordCertRuleDto.from(course);
 	}
 }

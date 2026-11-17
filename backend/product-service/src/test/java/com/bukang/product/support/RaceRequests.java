@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
 import com.bukang.common.shared.file.domain.FileType;
@@ -13,6 +14,7 @@ import com.bukang.product.domain.CourseType;
 import com.bukang.product.dto.RaceCourseSaveRequestDto;
 import com.bukang.product.dto.RaceImageRequestDto;
 import com.bukang.product.dto.RaceSaveRequestDto;
+import com.bukang.product.dto.RecordCertRuleRequestDto;
 
 /**
  * 대회 등록·수정 요청을 만든다. 기본값은 "한 시간 전에 개인 예매가 열린 서울 대회(대표 이미지 1장), 10K 종목 1개(개인 정원 100, 이미지 없음)"다.
@@ -162,6 +164,7 @@ public final class RaceRequests {
 		private Integer crewQuota = 0;
 		private Integer individualQuota = 100;
 		private List<RaceImageRequestDto> images;
+		private RecordCertRuleRequestDto recordCertRule;
 
 		// 수정 요청에서 기존 종목을 가리킬 때
 		public CourseBuilder courseId(Long courseId) {
@@ -218,6 +221,20 @@ public final class RaceRequests {
 			return this;
 		}
 
+		// 기록증 규칙. 부르지 않으면 규칙 없는 종목이다. 칸을 null로 넣으면 일부만 넣은 요청이 된다
+		public CourseBuilder recordCertRule(LocalDate recognizedSince, Integer maxNetSeconds,
+			CourseType... allowedCourseTypes) {
+			this.recordCertRule = new RecordCertRuleRequestDto(recognizedSince, maxNetSeconds,
+				allowedCourseTypes == null ? null : Set.of(allowedCourseTypes));
+			return this;
+		}
+
+		// 규칙을 지우는 요청 (세 칸 모두 비운 {})
+		public CourseBuilder noRecordCertRule() {
+			this.recordCertRule = new RecordCertRuleRequestDto(null, null, null);
+			return this;
+		}
+
 		// 부르지 않으면 이미지 없이 보낸다 (대표 이미지는 대회에 붙인다)
 		public CourseBuilder images(RaceImageRequestDto... images) {
 			this.images = List.of(images);
@@ -228,7 +245,7 @@ public final class RaceRequests {
 			List<RaceImageRequestDto> requestImages = images != null ? images : List.of();
 			return new RaceCourseSaveRequestDto(courseId, name, courseType, surface, distanceKm, timeLimitMinutes,
 				price, kitIncluded, kitPrice, minAge, maxAge, crewQuota, individualQuota,
-				requestImages);
+				requestImages, recordCertRule);
 		}
 	}
 }

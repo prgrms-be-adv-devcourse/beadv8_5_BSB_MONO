@@ -41,6 +41,7 @@ import com.bukang.product.dto.RaceSellerMemberDto;
 import com.bukang.product.dto.RaceSuggestionDto;
 import com.bukang.product.dto.RaceSummaryDto;
 import com.bukang.product.dto.RaceSyncEventDto;
+import com.bukang.product.dto.RecordCertRuleDto;
 import com.bukang.product.dto.SellerRaceDto;
 
 import lombok.RequiredArgsConstructor;
@@ -296,6 +297,11 @@ public class ProductFacade {
 
 	public RaceCourseInfoDto findCourseInfo(long raceCourseId) {
 		return raceQueryUseCase.findCourseInfo(raceCourseId);
+	}
+
+	// member가 기록증을 판정 · 심사할 종목 규칙과 판매자 회원 (내부 API, BUK-270)
+	public RecordCertRuleDto findRecordCertRule(long raceCourseId) {
+		return raceQueryUseCase.findRecordCertRule(raceCourseId);
 	}
 
 	// 문의 서비스가 문의를 받을 판매자 회원을 확인한다 (내부 API, BUK-159)

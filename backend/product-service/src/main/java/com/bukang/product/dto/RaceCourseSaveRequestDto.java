@@ -88,4 +88,10 @@ public class RaceCourseSaveRequestDto {
 	@Schema(description = "종목 이미지 목록 (대표 이미지 1장 필수, 소개 이미지·소개 영상·코스 안내·키트 이미지는 선택)")
 	@NotNull(message = "종목 이미지 목록을 작성해주세요.")
 	private final List<@Valid @NotNull(message = "이미지 항목을 작성해주세요.") RaceImageRequestDto> images;
+
+	// 칸이 없으면(null) 기존 규칙을 그대로 둔다(새 종목은 규칙 없음). 지우려면 세 칸을 모두 비운 {}를 보낸다 (11/17)
+	@Schema(description = "기록증 규칙. 보내지 않으면 기존 규칙 유지(새 종목은 규칙 없음), {}를 보내면 규칙 삭제. "
+		+ "판매 시작 뒤에는 바꿀 수 없다")
+	@Valid
+	private final RecordCertRuleRequestDto recordCertRule;
 }
