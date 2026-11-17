@@ -8,6 +8,8 @@ plugins {
 dependencies {
 	// webmvc, data-jpa, validation, springdoc, querydsl-jpa(테스트는 webmvc-test)는 common이 넘겨 준다 (common/build.gradle.kts)
 	implementation(project(":common"))
+	// 정산용 판매 내역의 결제 완료 ID를 압축 비트맵으로 주고받는다 (SoldEntriesFormat.ROARING, 부하 테스트 비교용)
+	implementation("org.roaringbitmap:RoaringBitmap:1.3.0")
 
 	// 표 변경은 Flyway SQL(db/migration)로만 한다 (BUK-29). MySQL 지원은 별도 모듈
 	implementation("org.springframework.boot:spring-boot-starter-flyway")

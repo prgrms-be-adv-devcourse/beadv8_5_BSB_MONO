@@ -21,6 +21,7 @@ import com.bukang.order.app.SoldSummaryQueryUseCase;
 import com.bukang.order.dto.ActiveTicketCountDto;
 import com.bukang.order.dto.OrderLookupDto;
 import com.bukang.order.dto.SoldEntriesDto;
+import com.bukang.order.dto.SoldEntriesFormat;
 import com.bukang.order.dto.SoldSummaryDto;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -55,24 +56,31 @@ public class InternalV1OrderController {
 		description = "정산 서비스가 최종 정산 생성 · 대사 배치에서 부른다. 이 대회의 주문 상품 중 결제 완료이거나 취소 중인 참가권을 "
 			+ "코스로 묶어 돌려준다. 대회 · 판매자 · 대회일(주문 때 복사)은 맨 위에 한 번, 코스마다 1장 가격과 "
 			+ "결제 완료(paidIds) · 취소 중(blockingIds) 주문 상품 ID를 준다. 코스는 코스 ID 순, ID는 주문 상품 ID 순이다. "
-			+ "판매가 없거나 없는 대회면 courses가 빈 배열이고 raceDate · sellerId는 null이다.")
+			+ "판매가 없거나 없는 대회면 courses가 빈 배열이고 raceDate · sellerId는 null이다. "
+			+ "format이 BITSET · ROARING이면 결제 완료 ID를 paidIds 대신 비트맵으로 준다: paidFormat(형식), "
+			+ "paidBase(위치 0의 주문 상품 ID), paidCount(장수), paidBitmap(base64). ID = paidBase + 켜진 비트 위치다. "
+			+ "ID 범위가 int를 넘는 코스는 비트맵을 요청해도 paidIds로 준다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "조회 성공 (없으면 courses가 빈 배열)",
 			content = @Content(examples = {
 				@ExampleObject(name = "판매 내역 있음", value = OrderInternalApiExamples.SOLD_ENTRIES_SUCCESS),
+				@ExampleObject(name = "비트맵으로 받기 (format=BITSET)", value = OrderInternalApiExamples.SOLD_ENTRIES_BITMAP),
 				@ExampleObject(name = "판매 내역 없음", value = OrderInternalApiExamples.SOLD_ENTRIES_EMPTY)
 			})),
-		@ApiResponse(responseCode = "400", description = "대회 ID 없음 또는 형식 오류",
+		@ApiResponse(responseCode = "400", description = "대회 ID 없음, 대회 ID 형식 오류, format 값 오류(IDS · BITSET · ROARING 밖)",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "대회 ID 없음", value = OrderInternalApiExamples.MISSING_RACE_ID),
-				@ExampleObject(name = "대회 ID 형식 오류", value = OrderInternalApiExamples.INVALID_VALUE_TYPE)
+				@ExampleObject(name = "대회 ID · format 형식 오류", value = OrderInternalApiExamples.INVALID_VALUE_TYPE)
 			}))
 	})
 	public ResponseEntity<RsData<SoldEntriesDto>> findSoldEntries(
-		@Parameter(description = "대회 ID", example = "5") @RequestParam long raceId
+		@Parameter(description = "대회 ID", example = "5") @RequestParam long raceId,
+		@Parameter(description = "결제 완료 ID를 담는 방식. IDS(기본, 숫자 배열) · BITSET · ROARING(비트맵 base64)", example = "IDS")
+		@RequestParam(defaultValue = "IDS") SoldEntriesFormat format
 	) {
 		return ResponseEntity.ok()
-			.body(RsData.of(HttpStatus.OK, "판매 내역을 조회했습니다.", soldEntryQueryUseCase.findSoldEntries(raceId)));
+			.body(RsData.of(HttpStatus.OK, "판매 내역을 조회했습니다.",
+				soldEntryQueryUseCase.findSoldEntries(raceId, format)));
 	}
 
 	@GetMapping("/sold-summary")

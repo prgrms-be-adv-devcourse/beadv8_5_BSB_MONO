@@ -1,19 +1,28 @@
 package com.bukang.order.in;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.BitSet;
+import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.roaringbitmap.RoaringBitmap;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -29,6 +38,7 @@ import com.bukang.order.app.OrderExpiryUseCase;
 import com.bukang.order.domain.OrderItem;
 import com.bukang.order.domain.OrderItemStatus;
 import com.bukang.order.domain.ParticipationKitOption;
+import com.bukang.order.dto.SoldEntriesFormat;
 import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationKitOptionRepository;
 import com.bukang.order.out.ParticipationRepository;
@@ -397,6 +407,45 @@ class InternalV1OrderControllerTest {
 		LocalDateTime raceDate = LocalDateTime.of(2026, 11, 15, 8, 0);
 		raceCoursePort.put(courseOn(COURSE_1115_HALF, 100, raceDate));
 		raceCoursePort.put(courseOf(COURSE_1115_OTHER_SELLER, 100, raceDate, OTHER_SELLER_ID));
+	}
+
+	@ParameterizedTest
+	@EnumSource(value = SoldEntriesFormat.class, names = {"BITSET", "ROARING"})
+	@DisplayName("format이 비트맵이면 결제 완료 ID를 paidIds 대신 기준 ID · 개수 · 비트맵으로 주고, 풀면 같은 ID다")
+	void soldEntriesAsBitmap(SoldEntriesFormat format) throws Exception {
+		long first = paidOrderItem(1, COURSE_1115);
+		long second = paidOrderItem(2, COURSE_1115);
+		long canceling = paidOrderItem(3, COURSE_1115);
+		long third = paidOrderItem(4, COURSE_1115);
+		markStatus(canceling, OrderItemStatus.CANCELING);
+
+		String body = mockMvc.perform(get(URL).param("raceId", "100").param("format", format.name()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.courses[0].paidIds").doesNotExist())
+			.andExpect(jsonPath("$.data.courses[0].paidFormat").value(format.name()))
+			.andExpect(jsonPath("$.data.courses[0].paidBase").value(first))
+			.andExpect(jsonPath("$.data.courses[0].paidCount").value(3))
+			.andExpect(jsonPath("$.data.courses[0].blockingIds[0]").value(canceling))
+			.andReturn().getResponse().getContentAsString();
+
+		byte[] bytes = Base64.getDecoder().decode(JsonPath.<String>read(body, "$.data.courses[0].paidBitmap"));
+		List<Long> ids = new ArrayList<>();
+		if (format == SoldEntriesFormat.BITSET) {
+			BitSet.valueOf(bytes).stream().forEach(index -> ids.add(first + index));
+		} else {
+			RoaringBitmap bitmap = new RoaringBitmap();
+			bitmap.deserialize(ByteBuffer.wrap(bytes));
+			bitmap.forEach((int index) -> ids.add(first + index));
+		}
+		assertThat(ids).containsExactly(first, second, third);
+	}
+
+	@Test
+	@DisplayName("format이 IDS · BITSET · ROARING 밖이면 400이다")
+	void soldEntriesUnknownFormat() throws Exception {
+		mockMvc.perform(get(URL).param("raceId", "100").param("format", "PARQUET"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
 	}
 
 	private ResultActions countActiveTickets(long memberId) throws Exception {

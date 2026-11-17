@@ -18,6 +18,21 @@ final class OrderInternalApiExamples {
 		}
 		""";
 
+	// format=BITSET: 결제 완료 1 · 2 → 기준 1에서 위치 0 · 1의 비트(0b11 = 0x03 → base64 "Aw==")
+	static final String SOLD_ENTRIES_BITMAP = """
+		{
+			"status": 200,
+			"message": "판매 내역을 조회했습니다.",
+			"data": {
+				"raceId": 5, "raceDate": "2026-11-09", "sellerId": 3,
+				"courses": [
+					{ "raceCourseId": 11, "price": 50000, "blockingIds": [],
+						"paidFormat": "BITSET", "paidBase": 1, "paidCount": 2, "paidBitmap": "Aw==" }
+				]
+			}
+		}
+		""";
+
 	static final String SOLD_ENTRIES_EMPTY = """
 		{ "status": 200, "message": "판매 내역을 조회했습니다.",
 			"data": { "raceId": 5, "raceDate": null, "sellerId": null, "courses": [] } }

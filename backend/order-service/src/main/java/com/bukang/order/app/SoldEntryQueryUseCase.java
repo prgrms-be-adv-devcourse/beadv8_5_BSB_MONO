@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.bukang.order.domain.OrderItemStatus;
 import com.bukang.order.dto.SoldEntriesDto;
+import com.bukang.order.dto.SoldEntriesFormat;
 import com.bukang.order.dto.SoldEntryDto;
 import com.bukang.order.out.OrderItemRepository;
 
@@ -28,7 +29,8 @@ public class SoldEntryQueryUseCase {
 
 	// 묶기는 메모리에서 한다. 쿼리는 그대로 두고 ID 목록만 나누면 되고, 대회 하나는 많아야 수만 줄이다
 	// shortcut: 판매자 · 대회일 · 코스 가격은 첫 줄 값을 쓴다(정책상 같음). 섞일 수 있게 바뀌면 묶는 기준에 넣는다
-	public SoldEntriesDto findSoldEntries(long raceId) {
+	// 결제 완료 ID를 format대로 담는다. 묶는 기준 · blockingIds는 format과 상관없이 같다
+	public SoldEntriesDto findSoldEntries(long raceId, SoldEntriesFormat format) {
 		List<SoldEntryDto> rows = orderItemRepository.findSoldEntries(raceId);
 		if (rows.isEmpty()) {
 			return new SoldEntriesDto(raceId, null, null, List.of());
@@ -41,6 +43,9 @@ public class SoldEntryQueryUseCase {
 			ids.add(row.getOrderItemId());
 		}
 		SoldEntryDto first = rows.getFirst();
-		return new SoldEntriesDto(raceId, first.getRaceDate(), first.getSellerId(), List.copyOf(courses.values()));
+		List<SoldEntriesDto.Course> encoded = courses.values().stream()
+			.map(course -> SoldIdsEncoder.encode(course, format))
+			.toList();
+		return new SoldEntriesDto(raceId, first.getRaceDate(), first.getSellerId(), encoded);
 	}
 }
