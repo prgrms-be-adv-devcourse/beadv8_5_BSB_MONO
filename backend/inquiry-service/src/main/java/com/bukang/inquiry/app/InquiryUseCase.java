@@ -162,8 +162,12 @@ public class InquiryUseCase {
 			throw lostRace(inquiryId);
 		}
 		Inquiry inquiry = inquiryRepository.findById(inquiryId).orElseThrow(InquiryNotFoundException::new);
+		// 판매자가 관리자에게 보낸 문의는 구매자 화면이 아니라 판매자 콘솔의 보낸 문의 화면으로 연결한다
+		String href = inquiry.getType() == InquiryType.SELLER_SUPPORT
+			? "/seller/inquiries/" + inquiry.getId() + "?filter=SENT"
+			: "/me/inquiries/" + inquiry.getId();
 		eventPublisher.publish(NotificationRequestedEvent.of(inquiry.getMemberId(), NotificationKind.INQUIRY_ANSWERED,
-			"문의에 답변이 달렸어요", inquiry.getTitle() + "\n답변을 확인해 보세요.", "/me/inquiries/" + inquiry.getId()));
+			"문의에 답변이 달렸어요", inquiry.getTitle() + "\n답변을 확인해 보세요.", href));
 		return InquiryDto.from(inquiry);
 	}
 
