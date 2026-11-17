@@ -86,4 +86,7 @@ LABEL=local REP=1 OUT=/tmp/cashload SCENARIOS="warmup b0 b1 b2 b3 b4 b5 b5-limit
 
 - 결과는 `$OUT/<LABEL>/rep<N>/`에 쌓여요: k6 요약(`*.json`, `*.txt`), 돈 확인(`*.verify.txt`), 락 통계, 그래프 PNG, 예치금 로그.
 - 그래프는 `PYTHON`(기본 `python3`)에 matplotlib이 있을 때만 그려요.
-- GitHub Actions: 기본 브랜치에 들어간 뒤에는 Actions → `cash-load-test` → Run workflow. 그 전에는 PR에 `cash-load-test` 라벨을 붙이면 그 PR 커밋을 A로 3번 재요.
+- GitHub Actions: 기본 브랜치에 들어간 뒤에는 Actions → `cash-load-test` → Run workflow. 그 전에는 PR에 라벨을 붙여요.
+  - `cash-load-test`: 그 PR 커밋을 A로 3번 재요.
+  - `cash-load-test-ab`: B는 그 PR 커밋, A는 B에서 `container/ab-fixes.txt`의 커밋만 되돌린 코드예요. A·B를 번갈아 3번 재요(약 4시간).
+    고친 커밋이 늘면 이 파일에 최근 커밋부터 더해요.
