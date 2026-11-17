@@ -98,6 +98,9 @@ start_app() {
 	case $name in
 		inquiry) extra="INQUIRY_CLIENTS_MEMBER_MODE=http INQUIRY_CLIENTS_PRODUCT_MODE=http INQUIRY_CLIENTS_ORDER_MODE=http" ;;
 		board) extra="BOARD_CLIENTS_MEMBER_MODE=http" ;;
+		# 주문은 로컬 기본값이 가짜 어댑터라(모든 종목에 키트 있음, 결제는 예치금을 안 빼고 성공) 실제 상품·예치금·회원을 부른다.
+		# 대기열은 테스트가 입장 상태 API로 입장하므로 가짜로 둔다
+		order) extra="ORDER_CLIENTS_PRODUCT_MODE=http ORDER_CLIENTS_CASH_MODE=http ORDER_CLIENTS_MEMBER_MODE=http ORDER_CLIENTS_SELLER_MODE=http ORDER_CLIENTS_CREW_MODE=http" ;;
 	esac
 	: >"$STATE/logs/$name.log"
 	# backend/에서 띄운다. 앱이 이 폴더의 .env를 읽는다

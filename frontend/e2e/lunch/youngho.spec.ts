@@ -25,7 +25,7 @@ test.describe('영호', { tag: '@youngho' }, () => {
     const course = await onSaleCourse(DUMMY_RACES[2])
     topUp(USERS.user3)
     const buyer = await apiLogin(USERS.user3)
-    await buyTicket(buyer, course.courseId)
+    await buyTicket(buyer, course)
 
     // 대회가 어제 열린 것으로 만든다. 상품(대회)과 주문(주문 상품) 양쪽 날짜를 함께 옮긴다
     sql(`update race set race_date = now() - interval 1 day, refund_deadline = curdate() - interval 2 day,
@@ -87,7 +87,7 @@ test.describe('영호', { tag: '@youngho' }, () => {
 
     topUp(USERS.user1)
     const buyer = await apiLogin(USERS.user1)
-    const bought = await buyTicket(buyer, race.courseId)
+    const bought = await buyTicket(buyer, race)
     const afterPay = balanceOf(USERS.user1)
 
     const canceled = await seller.call('POST', `/api/v1/product/races/${race.raceId}/cancel`)
