@@ -88,4 +88,24 @@ final class OrderInternalApiExamples {
 	static final String ORDER_NOT_FOUND = """
 		{ "status": 404, "code": "ORDER_NOT_FOUND", "message": "존재하지 않는 주문입니다.", "data": null }
 		""";
+
+	static final String TICKET_PAID = """
+		{
+			"status": 200,
+			"message": "참가권을 조회했습니다.",
+			"data": { "buyerId": 3, "raceId": 5, "raceCourseId": 10, "status": "PAID" }
+		}
+		""";
+
+	static final String TICKET_CANCELED = """
+		{
+			"status": 200,
+			"message": "참가권을 조회했습니다.",
+			"data": { "buyerId": 3, "raceId": 5, "raceCourseId": 10, "status": "CANCELED" }
+		}
+		""";
+
+	static final String TICKET_NOT_FOUND = """
+		{ "status": 404, "code": "ORDER_ITEM_NOT_FOUND", "message": "존재하지 않는 참가권입니다.", "data": null }
+		""";
 }
