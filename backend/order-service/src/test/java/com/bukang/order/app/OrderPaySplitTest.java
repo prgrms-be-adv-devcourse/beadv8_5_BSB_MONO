@@ -40,7 +40,7 @@ import com.bukang.order.support.StubWalletPortConfig;
  * 결제 나누기 (BUK-232): 판매 수 +1·결제 중을 먼저 커밋하고 예치금·자리 판매를 잠금 밖에서 부른다
  * 결과를 모르는 결제는 결제 중으로 남고 재확인 배치(recheck)나 만료 정리가 끝낸다. 돈·판매 수·자리가 어긋나지 않는지 본다
  */
-@SpringBootTest(properties = "order.pay.split.enabled=true")
+@SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Import({StubRaceCoursePortConfig.class, StubSeatHoldPortConfig.class, StubWalletPortConfig.class,
