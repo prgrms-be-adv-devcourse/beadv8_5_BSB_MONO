@@ -201,7 +201,7 @@ class ApiV1OrderCancelTest {
 		// 취소한 참가권은 정산용 판매 내역에서 빠지고, 같은 대회에 다시 신청할 수 있다
 		long raceId = raceCoursePort.findCourse(COURSE_ID).orElseThrow().raceId();
 		mockMvc.perform(get("/internal/v1/order/sold-entries").param("raceId", String.valueOf(raceId)))
-			.andExpect(jsonPath("$.data.length()").value(0));
+			.andExpect(jsonPath("$.data.courses.length()").value(0));
 		applyAndGetId(MEMBER_ID);
 	}
 
@@ -735,9 +735,8 @@ class ApiV1OrderCancelTest {
 		cancel(MEMBER_ID, paid.orderId(), paid.orderItemId()).andExpect(status().isAccepted());
 
 		mockMvc.perform(get("/internal/v1/order/sold-entries").param("raceId", String.valueOf(RACE_ID)))
-			.andExpect(jsonPath("$.data.length()").value(1))
-			.andExpect(jsonPath("$.data[0].orderItemId").value(paid.orderItemId()))
-			.andExpect(jsonPath("$.data[0].status").value("CANCELING"));
+			.andExpect(jsonPath("$.data.courses[0].paidIds.length()").value(0))
+			.andExpect(jsonPath("$.data.courses[0].blockingIds[0]").value(paid.orderItemId()));
 		mockMvc.perform(get("/internal/v1/order/sold-summary").param("raceId", String.valueOf(RACE_ID)))
 			.andExpect(jsonPath("$.data[0].ticketCount").value(1));
 		mockMvc.perform(get("/internal/v1/order/members/" + MEMBER_ID + "/active-tickets/count"))

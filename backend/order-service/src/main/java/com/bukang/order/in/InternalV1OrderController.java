@@ -20,7 +20,7 @@ import com.bukang.order.app.SoldEntryQueryUseCase;
 import com.bukang.order.app.SoldSummaryQueryUseCase;
 import com.bukang.order.dto.ActiveTicketCountDto;
 import com.bukang.order.dto.OrderLookupDto;
-import com.bukang.order.dto.SoldEntryDto;
+import com.bukang.order.dto.SoldEntriesDto;
 import com.bukang.order.dto.SoldSummaryDto;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -52,12 +52,12 @@ public class InternalV1OrderController {
 
 	@GetMapping("/sold-entries")
 	@Operation(summary = "정산용 판매 내역 조회",
-		description = "정산 서비스가 최종 정산 생성 배치에서 부른다. 이 대회의 주문 상품 중 결제 완료이거나 취소 중인 참가권을 "
-			+ "주문 상품 ID 순으로 돌려준다. 판매가 없거나 없는 대회면 빈 목록이다. "
-			+ "필드는 정산 서비스의 SoldEntry와 같고, raceCourseId는 참가권의 코스, raceDate는 주문 때 복사한 대회 날짜, "
-			+ "price는 1장 값(키트 포함), status는 결제 완료(PAID) 또는 취소 중(CANCELING)이다.")
+		description = "정산 서비스가 최종 정산 생성 · 대사 배치에서 부른다. 이 대회의 주문 상품 중 결제 완료이거나 취소 중인 참가권을 "
+			+ "코스로 묶어 돌려준다. 대회 · 판매자 · 대회일(주문 때 복사)은 맨 위에 한 번, 코스마다 1장 가격과 "
+			+ "결제 완료(paidIds) · 취소 중(blockingIds) 주문 상품 ID를 준다. 코스는 코스 ID 순, ID는 주문 상품 ID 순이다. "
+			+ "판매가 없거나 없는 대회면 courses가 빈 배열이고 raceDate · sellerId는 null이다.")
 	@ApiResponses({
-		@ApiResponse(responseCode = "200", description = "조회 성공 (없으면 빈 목록)",
+		@ApiResponse(responseCode = "200", description = "조회 성공 (없으면 courses가 빈 배열)",
 			content = @Content(examples = {
 				@ExampleObject(name = "판매 내역 있음", value = OrderInternalApiExamples.SOLD_ENTRIES_SUCCESS),
 				@ExampleObject(name = "판매 내역 없음", value = OrderInternalApiExamples.SOLD_ENTRIES_EMPTY)
@@ -68,7 +68,7 @@ public class InternalV1OrderController {
 				@ExampleObject(name = "대회 ID 형식 오류", value = OrderInternalApiExamples.INVALID_VALUE_TYPE)
 			}))
 	})
-	public ResponseEntity<RsData<List<SoldEntryDto>>> findSoldEntries(
+	public ResponseEntity<RsData<SoldEntriesDto>> findSoldEntries(
 		@Parameter(description = "대회 ID", example = "5") @RequestParam long raceId
 	) {
 		return ResponseEntity.ok()
