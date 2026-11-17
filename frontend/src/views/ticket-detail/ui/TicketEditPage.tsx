@@ -60,7 +60,7 @@ export function TicketEditPage({ ticketId }: { ticketId: string }) {
           title={[race.title, course?.name].filter(Boolean).join(' · ')}
           closeAt={race.applicationCloseAt}
           sizes={course?.tshirtSizeOption ?? []}
-          sizeLocked={participation.status === 'CONFIRMED'}
+          sizeLocked={participation.status === 'CONFIRMED' && participant.tshirtSize != null}
         />
       )}
     </>
@@ -84,7 +84,7 @@ function ParticipantForm({
   title: string
   closeAt?: string
   sizes: string[]
-  // 결제한 참가권은 사이즈를 바꿀 수 없다. 서버도 400으로 막는다
+  // 결제할 때 고른 사이즈는 바꿀 수 없다. 서버도 400으로 막는다
   sizeLocked: boolean
 }) {
   const goBack = useGoBack()

@@ -41,6 +41,7 @@ import com.bukang.order.domain.ParticipationStatus;
 import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationRepository;
 import com.bukang.order.out.QueueAdmissionRepository;
+import com.bukang.order.out.race.RaceCourseInfo;
 import com.bukang.order.support.QueueEntry;
 import com.bukang.order.support.StubRaceCoursePort;
 import com.bukang.order.support.StubRaceCoursePortConfig;
@@ -323,6 +324,17 @@ class ApiV1OrderPaymentTest {
 		changeParticipant(MEMBER_ID, participationId, "박러너", "M")
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.participant.name").value("박러너"))
+			.andExpect(jsonPath("$.data.participant.tshirtSize").value("M"));
+
+		// 판매자가 사이즈 목록에서 M을 빼도 결제한 사이즈는 남고 다른 정보는 고쳐진다
+		RaceCourseInfo open = StubRaceCoursePort.openCourse(COURSE_ID, 100, 14, null);
+		raceCoursePort.put(new RaceCourseInfo(open.raceCourseId(), open.raceId(), open.raceDate(),
+			open.applicationOpenAt(), open.applicationCloseAt(), open.minAge(), open.maxAge(), open.sellerId(),
+			open.courseName(), open.price(), open.kitIncluded(), open.refundDeadline(), null, false,
+			List.of("S", "L")));
+		changeParticipant(MEMBER_ID, participationId, "최러너", "M")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.participant.name").value("최러너"))
 			.andExpect(jsonPath("$.data.participant.tshirtSize").value("M"));
 	}
 
