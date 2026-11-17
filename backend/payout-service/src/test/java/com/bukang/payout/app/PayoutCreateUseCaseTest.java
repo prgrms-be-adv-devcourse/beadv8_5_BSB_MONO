@@ -104,7 +104,7 @@ class PayoutCreateUseCaseTest {
 		PayoutCreateStepUseCase payoutCreateStepUseCase =
 			new PayoutCreateStepUseCase(payoutRepository, new BusinessDayCalendar(),
 				new PayoutLedgerUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository),
-				new PayoutHoldUseCase(payoutRepository, payoutHoldRepository, new BusinessDayCalendar()));
+				PayoutHoldUseCases.withoutNotification(payoutRepository, payoutHoldRepository, new BusinessDayCalendar()));
 		return new PayoutCreateUseCase(payoutRepository, payoutCreateStepUseCase, soldEntriesReturning(entries),
 			sellerAccountPort, new StubRacePort(RACE_NAMES, schedules, entries), summariesOf(entries),
 			new PayoutCreateFailureUseCase(payoutCreateFailureRepository));
@@ -327,7 +327,7 @@ class PayoutCreateUseCaseTest {
 		PayoutCreateStepUseCase payoutCreateStepUseCase =
 			new PayoutCreateStepUseCase(payoutRepository, new BusinessDayCalendar(),
 				new PayoutLedgerUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository),
-				new PayoutHoldUseCase(payoutRepository, payoutHoldRepository, new BusinessDayCalendar()));
+				PayoutHoldUseCases.withoutNotification(payoutRepository, payoutHoldRepository, new BusinessDayCalendar()));
 		PayoutCreateUseCase useCase = new PayoutCreateUseCase(payoutRepository, payoutCreateStepUseCase, race20Down,
 			sellerId -> true, new StubRacePort(RACE_NAMES, List.of(), entries), summariesOf(entries),
 			new PayoutCreateFailureUseCase(payoutCreateFailureRepository));
@@ -360,7 +360,7 @@ class PayoutCreateUseCaseTest {
 		PayoutCreateStepUseCase payoutCreateStepUseCase =
 			new PayoutCreateStepUseCase(payoutRepository, new BusinessDayCalendar(),
 				new PayoutLedgerUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository),
-				new PayoutHoldUseCase(payoutRepository, payoutHoldRepository, new BusinessDayCalendar()));
+				PayoutHoldUseCases.withoutNotification(payoutRepository, payoutHoldRepository, new BusinessDayCalendar()));
 		PayoutCreateUseCase useCase = new PayoutCreateUseCase(payoutRepository, payoutCreateStepUseCase,
 			soldEntriesReturning(entries), sellerId -> true, firstLookupDown, summariesOf(entries),
 			new PayoutCreateFailureUseCase(payoutCreateFailureRepository));
@@ -502,7 +502,7 @@ class PayoutCreateUseCaseTest {
 		PayoutCreateStepUseCase payoutCreateStepUseCase =
 			new PayoutCreateStepUseCase(payoutRepository, new BusinessDayCalendar(),
 				new PayoutLedgerUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository),
-				new PayoutHoldUseCase(payoutRepository, payoutHoldRepository, new BusinessDayCalendar()));
+				PayoutHoldUseCases.withoutNotification(payoutRepository, payoutHoldRepository, new BusinessDayCalendar()));
 		PayoutCreateUseCase useCase = new PayoutCreateUseCase(payoutRepository, payoutCreateStepUseCase,
 			soldEntriesReturning(entries), sellerId -> true, new StubRacePort(RACE_NAMES, schedules, entries), flaky,
 			new PayoutCreateFailureUseCase(payoutCreateFailureRepository));

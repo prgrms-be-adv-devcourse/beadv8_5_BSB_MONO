@@ -65,7 +65,7 @@ class PayoutRaceCancelUseCaseTest {
 	}
 
 	private PayoutHoldUseCase holdUseCase() {
-		return new PayoutHoldUseCase(payoutRepository, payoutHoldRepository, new BusinessDayCalendar());
+		return PayoutHoldUseCases.withoutNotification(payoutRepository, payoutHoldRepository, new BusinessDayCalendar());
 	}
 
 	// 유일 조건 (seller_id, race_id, payout_month)에 걸리지 않도록 정산 월을 달리해 만든다

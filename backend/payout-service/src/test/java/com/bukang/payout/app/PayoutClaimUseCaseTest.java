@@ -109,7 +109,7 @@ class PayoutClaimUseCaseTest {
 		BusinessDayCalendar calendar = new BusinessDayCalendar();
 		ledgerUseCase = new PayoutLedgerUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository);
 		creator = new PayoutCreateStepUseCase(payoutRepository, calendar, ledgerUseCase,
-			new PayoutHoldUseCase(payoutRepository, payoutHoldRepository, calendar));
+			PayoutHoldUseCases.withoutNotification(payoutRepository, payoutHoldRepository, calendar));
 		raceCancelUseCase = new PayoutRaceCancelUseCase(payoutRepository, ledgerUseCase);
 		payUseCase = new PayoutPayUseCase(new PayoutPayStepUseCase(payoutRepository, raceCancelUseCase,
 				payoutCreateFailureRepository), transfer -> {

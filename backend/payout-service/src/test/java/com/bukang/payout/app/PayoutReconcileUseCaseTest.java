@@ -97,7 +97,7 @@ class PayoutReconcileUseCaseTest {
 	}
 
 	private PayoutReconcileUseCase useCase(SoldSummaryPort soldSummaryPort, SoldEntryPort soldEntryPort) {
-		PayoutHoldUseCase payoutHoldUseCase = new PayoutHoldUseCase(payoutRepository, payoutHoldRepository, CALENDAR);
+		PayoutHoldUseCase payoutHoldUseCase = PayoutHoldUseCases.withoutNotification(payoutRepository, payoutHoldRepository, CALENDAR);
 		return new PayoutReconcileUseCase(payoutRepository,
 			new StubRacePort(raceId -> Optional.empty(), List.of(FIRST_RACE, FINAL_RACE), List.of()),
 			soldSummaryPort, soldEntryPort,
