@@ -246,7 +246,7 @@ case $cmd in
 		deadline=${E2E_DEADLINE:-$deadline}
 		# 세 번째 인자로 시나리오 번호를 주면 그 시나리오만 다시 돌린다. 예: run dawit "25|37"
 		grep="@$name"
-		[ -n "${3:-}" ] && grep="(${3}) .*@$name"
+		[ -n "${3:-}" ] && grep="^(?=.*@$name)(?=.*(${3}) )"
 		say "시나리오 실행: $grep (마감 $(date -r "$deadline" '+%H:%M' 2>/dev/null || date -d "@$deadline" '+%H:%M'))"
 		(cd "$FRONT" && E2E_BASE_URL=http://localhost:$FRONT_PORT E2E_DEADLINE=$deadline E2E_JSON="$FRONT/e2e-$name.json" \
 			pnpm exec playwright test -c playwright.lunch.config.ts --grep "$grep")
