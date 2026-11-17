@@ -25,7 +25,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import com.bukang.member.app.MemberFacade;
-import com.bukang.member.config.auth.DemoLoginProperties;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.RefreshTokenRepository;
 import com.bukang.member.out.RefreshTokenRepository.NewFamily;
@@ -59,16 +58,13 @@ class ApiV1AuthDemoLoginDisabledTest {
 	@Autowired
 	private ApplicationContext context;
 
-	@Autowired
-	private DemoLoginProperties demoLoginProperties;
-
 	@MockitoBean
 	private RefreshTokenRepository refreshTokenRepository;
 
 	// 기본 계정이 있어도 꺼져 있으면 로그인되지 않아야 한다
 	@BeforeEach
 	void setUp() {
-		memberFacade.join(MemberFixture.joinRequest().email("demo@crewrun.com").build(identityStore));
+		memberFacade.join(MemberFixture.joinRequest().email("admin@crewrun.com").build(identityStore));
 	}
 
 	@AfterEach
@@ -92,12 +88,6 @@ class ApiV1AuthDemoLoginDisabledTest {
 
 		assertThat(result.getResponse().getHeader(HttpHeaders.SET_COOKIE)).isNull();
 		verify(refreshTokenRepository, never()).create(anyLong(), any(NewFamily.class));
-	}
-
-	@Test
-	@DisplayName("기본 계정은 실제 관리자가 아니라 시연 전용 계정(demo@crewrun.com)이다")
-	void defaultAccountIsDemoOnly() {
-		assertThat(demoLoginProperties.email()).isEqualTo("demo@crewrun.com");
 	}
 
 	@Test

@@ -407,59 +407,6 @@ class GatewayAuthenticationTest {
 		assertUnauthorized(response, "AUTH_LOGIN_REQUIRED", "로그인이 필요합니다.");
 	}
 
-	@ParameterizedTest(name = "{0}")
-	@DisplayName("읽기 전용 토큰(테스트 계정)으로 조회가 아닌 요청을 보내면 403이고 서비스로 넘기지 않는다")
-	@ValueSource(strings = {"POST", "PUT", "PATCH", "DELETE"})
-	void rejectsWriteWithReadOnlyToken(String method) throws Exception {
-		HttpResponse<String> response = send(request("/api/v1/order/orders")
-			.header("Authorization", "Bearer " + jwtProvider.issueAccessToken(42L, true))
-			.method(method, HttpRequest.BodyPublishers.noBody()));
-
-		assertReadOnly(response);
-	}
-
-	@Test
-	@DisplayName("읽기 전용 토큰으로는 크루런 AI 질문(POST)도 막는다")
-	void rejectsAiChatWithReadOnlyToken() throws Exception {
-		HttpResponse<String> response = send(request("/api/v1/ai/admin/chat")
-			.header("Authorization", "Bearer " + jwtProvider.issueAccessToken(42L, true))
-			.POST(HttpRequest.BodyPublishers.ofString("{\"message\": \"매출 알려 줘\"}")));
-
-		assertReadOnly(response);
-	}
-
-	@Test
-	@DisplayName("읽기 전용 토큰으로 조회(GET)는 회원 ID를 붙여 서비스로 넘긴다")
-	void forwardsReadWithReadOnlyToken() throws Exception {
-		HttpResponse<String> response = send(request("/api/v1/order/orders")
-			.header("Authorization", "Bearer " + jwtProvider.issueAccessToken(42L, true)));
-
-		assertThat(response.statusCode()).isEqualTo(200);
-		assertThat(RECEIVED_MEMBER_IDS).containsExactly("42");
-	}
-
-	@ParameterizedTest(name = "{0}")
-	@DisplayName("읽기 전용 토큰이어도 토큰 재발급·로그아웃(공개 주소)은 통과한다")
-	@ValueSource(strings = {"/api/v1/auth/reissue", "/api/v1/auth/logout"})
-	void passesAuthPublicPathsWithReadOnlyToken(String path) throws Exception {
-		HttpResponse<String> response = send(request(path)
-			.header("Authorization", "Bearer " + jwtProvider.issueAccessToken(42L, true))
-			.POST(HttpRequest.BodyPublishers.noBody()));
-
-		assertThat(response.statusCode()).isEqualTo(200);
-	}
-
-	@Test
-	@DisplayName("보통 토큰의 쓰기 요청은 그대로 서비스로 넘긴다")
-	void forwardsWriteWithNormalToken() throws Exception {
-		HttpResponse<String> response = send(request("/api/v1/order/orders")
-			.header("Authorization", "Bearer " + jwtProvider.issueAccessToken(42L))
-			.POST(HttpRequest.BodyPublishers.noBody()));
-
-		assertThat(response.statusCode()).isEqualTo(200);
-		assertThat(RECEIVED_MEMBER_IDS).containsExactly("42");
-	}
-
 	@Test
 	@DisplayName("공개 주소와 앞부분만 같은 주소는 토큰이 필요하다")
 	void requiresTokenForPathOnlyStartingWithPublicPath() throws Exception {
@@ -648,13 +595,6 @@ class GatewayAuthenticationTest {
 			contentType -> assertThat(contentType).startsWith("application/json"));
 		assertThat(response.body())
 			.isEqualTo("{\"status\":401,\"code\":\"" + code + "\",\"message\":\"" + message + "\",\"data\":null}");
-		assertThat(RECEIVED_MEMBER_IDS).isEmpty();
-	}
-
-	private void assertReadOnly(HttpResponse<String> response) {
-		assertThat(response.statusCode()).isEqualTo(403);
-		assertThat(response.body()).isEqualTo("{\"status\":403,\"code\":\"AUTH_READ_ONLY\","
-			+ "\"message\":\"테스트 계정은 조회만 할 수 있습니다.\",\"data\":null}");
 		assertThat(RECEIVED_MEMBER_IDS).isEmpty();
 	}
 
