@@ -28,3 +28,7 @@ data:
 
   # 포트원 본인인증 상점 아이디. 프론트 빌드 값(NEXT_PUBLIC_PORTONE_STORE_ID)과 같아 화면 코드에도 드러난다 (API 비밀 키는 secret.yaml)
   PORTONE_STORE_ID: "store-e71a8c6a-722e-4a25-b2e9-4dbe6f8084cd"
+
+  # 발표 시연용 데모 로그인(로그인 화면 「테스트 계정으로 로그인」). 켜져 있는 동안은 누구나 관리자 계정으로 로그인한다
+  # 시연 직전에 "true"로 바꿔 적용하고 회원 서비스를 다시 띄운다. 시연이 끝나면 "false"로 되돌린다
+  DEMO_LOGIN_ENABLED: "false"
