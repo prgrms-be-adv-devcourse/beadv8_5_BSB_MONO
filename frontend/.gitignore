@@ -56,3 +56,4 @@ next-env.d.ts
 /e2e-*.json
 /e2e-*-fix.patch
 /e2e-*-fix.md
+/e2e-*-auto.log

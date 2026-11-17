@@ -4,6 +4,10 @@
 `scripts/e2e-lunch.sh run <이름>`이 끝났을 때 실패한 시나리오가 있으면 이 규칙대로 고치고 다시 돌려요.
 `<이름>`은 jihoon, dawit, youngho, sohee, hobin 중 하나예요.
 
+점심시간에는 팀원이 자리를 비워서 `scripts/e2e-lunch.sh auto <이름>`이 Claude를 사람 없이 실행해요.
+그래서 질문하지 않아요. 판단이 애매하면 실제 버그로 기록하고 다음 실패로 넘어가요.
+auto 모드에서는 테스트 코드 수정과 `-fix.md` 기록만 해요. 다시 돌리기와 `-fix.patch` 만들기는 스크립트가 해요.
+
 ## 1. 실패 목록 보기
 
 `frontend/e2e-<이름>.json`에서 결과가 실패인 테스트를 모두 찾아요.
