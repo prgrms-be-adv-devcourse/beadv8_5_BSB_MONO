@@ -433,7 +433,7 @@ class ApiV1PayoutSellerControllerTest {
 					fieldWithPath("data[].reasonType").description(
 						"보류 사유 (정산_계좌_미등록: 정산 계좌 미등록, 대회_취소_처리: 대회 취소 처리)"),
 					fieldWithPath("data[].reason").description("사유 상세").optional().type(JsonFieldType.STRING),
-					fieldWithPath("data[].status").description("보류 상태 (지급보류: 지급보류, 해제: 해제)"),
+					fieldWithPath("data[].status").description("보류 상태 (지급보류, 해제, 취소: 대회 취소로 정산과 함께 닫힘)"),
 					fieldWithPath("data[].heldAt").description("보류 일시"),
 					fieldWithPath("data[].releasedAt").description("해제 일시 (보류 중에는 null)")
 						.optional().type(JsonFieldType.STRING)

@@ -40,6 +40,73 @@ final class PayoutAdminApiExamples {
 		}
 		""";
 
+	static final String HOLDS_SUCCESS = """
+		{
+			"status": 200,
+			"message": "지급보류 목록을 조회했습니다.",
+			"data": {
+				"summary": { "heldCount": 2, "heldAmount": 3260000, "releasedThisMonthCount": 1 },
+				"holds": {
+					"content": [
+						{
+							"id": 2, "holdCode": "HD-20261025-0C13", "sellerId": 1, "payoutId": 7,
+							"payoutCode": "ST-20261018-0007", "payoutAmount": 2400000, "reasonType": "대회_취소_처리",
+							"reason": null, "status": "지급보류", "heldAt": "2026-10-25T10:12:00", "releasedAt": null
+						}
+					],
+					"page": 0,
+					"size": 50,
+					"totalElements": 1,
+					"totalPages": 1
+				}
+			}
+		}
+		""";
+
+	static final String PAYOUTS_SUCCESS = """
+		{
+			"status": 200,
+			"message": "정산 목록을 조회했습니다.",
+			"data": {
+				"payDate": "2026-11-20",
+				"summary": [
+					{ "status": "지급_예정", "count": 1, "payoutAmount": 860000 },
+					{ "status": "지급보류", "count": 1, "payoutAmount": 2400000 },
+					{ "status": "지급_중", "count": 0, "payoutAmount": 0 },
+					{ "status": "지급_완료", "count": 0, "payoutAmount": 0 },
+					{ "status": "취소", "count": 0, "payoutAmount": 0 },
+					{ "status": "지급_불일치", "count": 0, "payoutAmount": 0 },
+					{ "status": "지급_확인_필요", "count": 0, "payoutAmount": 0 }
+				],
+				"payouts": {
+					"content": [
+						{
+							"payout": {
+								"id": 7, "payoutCode": "ST-20261018-0007", "raceId": 10, "raceName": "2026 한강 나이트런",
+								"payoutStage": "최종_정산", "payoutMonth": "2026-10", "salesAmount": 2540000,
+								"refundAmount": 0, "feeAmount": 140000, "advanceDeductionAmount": 0,
+								"payoutAmount": 2400000, "status": "지급보류", "settledAt": "2026-10-18T03:00:00",
+								"scheduledPayDate": "2026-11-20", "paidAt": null
+							},
+							"sellerId": 1,
+							"holds": [
+								{
+									"id": 2, "holdCode": "HD-20261025-0C13", "payoutId": 7, "reasonType": "대회_취소_처리",
+									"reason": null, "status": "지급보류", "heldBy": 99, "heldAt": "2026-10-25T10:12:00",
+									"releasedBy": null, "releasedAt": null
+								}
+							]
+						}
+					],
+					"page": 0,
+					"size": 50,
+					"totalElements": 1,
+					"totalPages": 1
+				}
+			}
+		}
+		""";
+
 	static final String CREATE_FAILURES_EMPTY = """
 		{
 			"status": 200,
@@ -157,6 +224,46 @@ final class PayoutAdminApiExamples {
 
 	static final String MISSING_PARAMETER = """
 		{ "status": 400, "message": "필수 요청 값이 없습니다.", "data": null }
+		""";
+
+	static final String TAX_INVOICES_SUCCESS = """
+		{
+			"status": 200,
+			"message": "세금계산서 발행 현황을 조회했습니다.",
+			"data": [
+				{
+					"id": 1, "sellerId": 3, "supplyMonth": "2026-10", "totalAmount": 8250, "supplyAmount": 7500,
+					"taxAmount": 750, "status": "발행_완료", "approvalNumber": "20261101-41000000-01234567",
+					"businessName": "크루런 스포츠", "businessNumber": "123-45-67890", "representativeName": "김러너",
+					"issuedAt": "2026-11-01T05:00:02", "failReason": null
+				},
+				{
+					"id": 2, "sellerId": 5, "supplyMonth": "2026-10", "totalAmount": 5500, "supplyAmount": 5000,
+					"taxAmount": 500, "status": "발행_실패", "approvalNumber": null, "businessName": null,
+					"businessNumber": null, "representativeName": null, "issuedAt": null,
+					"failReason": "ResourceAccessException: I/O error on GET request"
+				}
+			]
+		}
+		""";
+
+	static final String QUARTER_SALES_REPORT_SUCCESS = """
+		{
+			"status": 200,
+			"message": "분기 판매 자료를 조회했습니다.",
+			"data": {
+				"year": 2026, "quarter": 4, "from": "2026-10-01", "to": "2026-12-31", "dueDate": "2027-01-15",
+				"totalCount": 182, "totalAmount": 23350000,
+				"sellers": [
+					{ "sellerId": 3, "salesCount": 120, "salesAmount": 18310000 },
+					{ "sellerId": 5, "salesCount": 62, "salesAmount": 5040000 }
+				]
+			}
+		}
+		""";
+
+	static final String INVALID_QUARTER = """
+		{ "status": 400, "code": "INVALID_REQUEST", "message": "분기는 1 이상 4 이하여야 합니다.", "data": null }
 		""";
 
 	private PayoutAdminApiExamples() {

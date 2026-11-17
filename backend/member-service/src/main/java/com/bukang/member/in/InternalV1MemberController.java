@@ -18,6 +18,7 @@ import com.bukang.member.dto.MemberAdminDto;
 import com.bukang.member.dto.MemberNicknameDto;
 import com.bukang.member.dto.MemberReplicaPageDto;
 import com.bukang.member.dto.MemberSellerDto;
+import com.bukang.member.dto.SellerBusinessInfoDto;
 import com.bukang.member.dto.SellerPayoutAccountDto;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -35,7 +36,7 @@ import lombok.RequiredArgsConstructor;
  * 회원이 아니라 서비스가 부르므로 회원 ID 헤더를 받지 않는다
  */
 @Tag(name = "MemberInternal",
-	description = "회원의 판매자 ID 조회, 관리자 여부 조회, 판매자 정산 계좌 등록 여부 조회, 광고 수신 거부 링크 발급, "
+	description = "회원의 판매자 ID 조회, 관리자 여부 조회, 판매자 정산 계좌 등록 여부 조회, 판매자 사업자 정보 조회, 광고 수신 거부 링크 발급, "
 		+ "닉네임 여러 명 조회, 회원 복사본 목록 조회 API (서비스 간 내부 호출 전용)")
 @RestController
 @RequiredArgsConstructor
@@ -110,6 +111,27 @@ public class InternalV1MemberController {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "판매자 정산 계좌 등록 여부를 조회했습니다.",
 				sellerFacade.findPayoutAccount(sellerId)));
+	}
+
+	@GetMapping("/sellers/{sellerId}/business-info")
+	@Operation(summary = "판매자 사업자 정보 조회 (BUK-246)",
+		description = "정산 서비스가 수수료 세금계산서를 발행할 때 부른다. 판매자 유형 · 상호 · 사업자번호 · 대표자를 돌려준다. "
+			+ "비사업자는 상호 · 사업자번호가 null이다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "조회 성공",
+			content = @Content(examples = {
+				@ExampleObject(name = "사업자", value = MemberInternalApiExamples.BUSINESS_INFO_BUSINESS),
+				@ExampleObject(name = "비사업자", value = MemberInternalApiExamples.BUSINESS_INFO_INDIVIDUAL)
+			})),
+		@ApiResponse(responseCode = "404", description = "존재하지 않는 판매자 신청",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = MemberInternalApiExamples.SELLER_NOT_FOUND)))
+	})
+	public ResponseEntity<RsData<SellerBusinessInfoDto>> findBusinessInfo(
+		@Parameter(description = "판매자 ID (판매자 신청서 ID)", example = "3") @PathVariable long sellerId
+	) {
+		return ResponseEntity.ok()
+			.body(RsData.of(HttpStatus.OK, "판매자 사업자 정보를 조회했습니다.", sellerFacade.findBusinessInfo(sellerId)));
 	}
 
 	// CRM이 광고 메시지를 만들 때 회원마다 부른다. 토큰을 만드는 서명 키는 회원 서비스에만 있다 (BUK-75, BE-039)

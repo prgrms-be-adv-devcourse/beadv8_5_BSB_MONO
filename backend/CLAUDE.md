@@ -187,7 +187,11 @@ backend/
   도메인 예외에 코드를 붙이려면 `BusinessException(status, code, message)` 생성자를 쓰고, 코드 이름은 `도메인_상황` 대문자 스네이크로 짓습니다.
 - 엔티티 테이블 이름은 `<서비스>_<엔티티>` 형식입니다 (예: `MEMBER_MEMBER`, `CASH_MEMBER`, `ORDER_CART`).
   접두사는 서비스 모듈 이름(`member`, `cash`, `payout`, `file`, `order`, `product`, `queue`)을 대문자로 씁니다.
-  지금은 모든 서비스가 같은 DB(`bukang-db`)를 쓰고 접두사로 구분합니다.
+  로컬(dev bootRun, compose 앱 컨테이너, k3d)은 모든 서비스가 같은 DB(`bukang-db`)를 쓰고 접두사로 구분합니다.
+  운영(k3s)만 서비스마다 자기 DB(`crewrun_<서비스>`, 같은 MySQL 서버)를 씁니다(BUK-238). 앱 계정 하나가 모든 서비스 DB 권한을 가집니다.
+  `application-prod.yaml`의 주소가 `${MYSQL_DB:crewrun_<서비스>}`라, `MYSQL_DB`를 주면(로컬 `.env`, k3d) 그 DB 하나로, 안 주면(운영) 서비스 DB로 붙습니다.
+  운영 DB는 보조 EC2 compose(`infra/data-node/compose.data.yml`)가 붙이는 `docker/mysql/initdb/service-dbs.sh`가 만듭니다.
+  서비스를 더하면 그 목록과 서비스의 `application-prod.yaml` 기본값을 함께 고칩니다. 다른 서비스 표를 읽는 SQL은 로컬에서는 돌지만 운영에서는 실패하므로 쓰지 않습니다.
   테이블 이름 규칙(naming strategy)을 따로 두지 않아 실제 DB에는 소문자(`member_member`)로 만들어지므로, SQL을 직접 쓸 때는 소문자로 씁니다.
   규칙과 다른 기존 테이블(상품의 `race`, `race_course`, `participation_hold`)은 서비스별로 DB를 나눌 때(최종, Flyway) 맞춥니다.
   테이블 이름을 바꿀 때는 Flyway가 없는 서비스라면 배포 전에 서버 DB에서 `RENAME TABLE`을 먼저 실행합니다.
@@ -197,7 +201,7 @@ backend/
   - Flyway 서비스: 엔티티를 고치면 같은 커밋에 `src/main/resources/db/migration/V<날짜시각>__설명.sql`을 더합니다. 이미 돈 SQL 파일은 고치지 않습니다.
     dev·prod는 `ddl-auto: validate`라 SQL을 빠뜨리면 앱이 뜨지 않습니다. `Flyway*ValidateTest`가 빈 DB에 SQL을 모두 돌린 뒤 칸 이름·타입을
     엔티티와 맞춰 보므로, 칸을 빠뜨리면 테스트에서 먼저 실패합니다(길이·not null·인덱스·제약은 Hibernate validate가 보지 않으니 리뷰로 봅니다).
-    같은 DB를 함께 쓰므로 기록 표 이름을 서비스마다 다르게 둡니다(`flyway_schema_history_<서비스>`). 설정은 `member-service`의 `application-dev.yaml`을 따릅니다.
+    예전에 같은 DB를 함께 써서 기록 표 이름을 서비스마다 다르게 두었고, 지금도 그 이름을 씁니다(`flyway_schema_history_<서비스>`). 설정은 `member-service`의 `application-dev.yaml`을 따릅니다.
   - `payout-service`·`cash-service`의 enum 칸은 DB ENUM이라 enum 값을 더할 때도 ENUM 목록을 바꾸는 SQL이 필요합니다
     (`PayoutEnumColumnTest`·`CashEnumColumnTest`가 확인). cash의 Flyway 테스트는 H2가 아니라 MySQL(Testcontainers)로 돌아 Docker가 필요합니다.
     `order-service`도 동시성 테스트 일부를 `@MySqlContainerTest`로 MySQL에서 다시 돌려 Docker가 필요합니다 (BUK-188).
@@ -230,7 +234,7 @@ Spring Boot 4의 모듈화된 스타터를 사용합니다. 테스트 지원도 
 
 - `backend/.env`와 `backend/compose.yml`은 `common`의 `global/config/LocalDevEnvironmentPostProcessor`가 실행 위치(working directory)와 상관없이 찾아 적용합니다.
 - 프로파일: `dev`(기본, 로컬 MySQL 등 compose 인프라), `test`(H2, Kafka 리스너 꺼짐), `prod`(값은 `.env` 환경변수).
-- dev의 암호화 키와 JWT 키는 prod처럼 `.env`에서 읽습니다(`JWT_SECRET`, `CRYPTO_*`, `MARKETING_UNSUBSCRIBE_KEY`). 값이 없으면 dev 서버가 뜨지 않습니다. test 키만 yaml에 있습니다.
+- dev의 암호화 키와 JWT 키는 prod처럼 `.env`에서 읽습니다(`JWT_SECRET`, `CRYPTO_*`, `MARKETING_UNSUBSCRIBE_KEY`, `INTERNAL_API_KEY`). 값이 없으면 dev 서버가 뜨지 않습니다. test 키만 yaml에 있습니다.
 - 인증은 JWT + Redis(Stateless)입니다. Access Token은 게이트웨이가 검사하고, 서비스는 게이트웨이가 넣어 준 `X-Member-Id` 헤더로 회원을 알아봅니다. 서비스는 세션을 만들지 않습니다 (`member-service`의 `security/WebConfig`).
 - 개인정보(휴대폰 번호)는 AES로 암호화해 저장하고 해시 컬럼으로 조회합니다. 암호화한 필드로 직접 조회하지 않습니다 (README 참고).
 

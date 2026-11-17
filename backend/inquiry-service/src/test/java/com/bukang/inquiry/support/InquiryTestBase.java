@@ -9,18 +9,19 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -75,10 +76,19 @@ public abstract class InquiryTestBase {
 	@MockitoBean
 	protected KafkaTemplate<String, String> kafkaTemplate;
 
-	// NotificationKafkaSender는 커밋 뒤 공용 ForkJoin 풀에서 보낸다. 끝나지 않은 전송이 다음 테스트의 목에 늦게 잡히지 않게 기다린다
+	@Autowired
+	@Qualifier("applicationTaskExecutor")
+	private ThreadPoolTaskExecutor notificationExecutor;
+
+	// NotificationKafkaSender는 커밋 뒤 작업 실행기에서 보낸다. 끝나지 않은 전송이 다음 테스트의 목에 늦게 잡히지 않게 기다린다
 	@AfterEach
-	void waitForAsyncNotifications() {
-		ForkJoinPool.commonPool().awaitQuiescence(5, TimeUnit.SECONDS);
+	void waitForAsyncNotifications() throws InterruptedException {
+		long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+		while ((notificationExecutor.getActiveCount() > 0
+			|| !notificationExecutor.getThreadPoolExecutor().getQueue().isEmpty())
+			&& System.nanoTime() < deadline) {
+			Thread.sleep(10);
+		}
 	}
 
 	@BeforeEach

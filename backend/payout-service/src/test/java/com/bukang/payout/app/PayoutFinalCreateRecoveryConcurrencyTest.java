@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.bukang.common.global.eventpublisher.EventPublisher;
 import com.bukang.payout.app.PayoutCreateStepUseCase.CourseSale;
 import com.bukang.payout.app.PayoutCreateStepUseCase.FinalPayoutSource;
 import com.bukang.payout.app.PayoutCreateStepUseCase.FirstPayoutSource;
@@ -36,6 +37,7 @@ import com.bukang.payout.out.PayoutItemRepository;
 import com.bukang.payout.out.PayoutRecoveryRepository;
 import com.bukang.payout.out.PayoutRepository;
 import com.bukang.payout.out.SoldEntry;
+import com.bukang.payout.support.MySqlContainerTest;
 
 /**
  * 회수와 최종 정산 생성이 겹쳐도 판매자 몫이 한 번만 깎이는지 확인한다 (BUK-52, 판매자 × 대회의 1차 정산 내역 잠금)
@@ -45,8 +47,9 @@ import com.bukang.payout.out.SoldEntry;
  */
 @DataJpaTest
 @ActiveProfiles("test")
+@MySqlContainerTest
 @Import({PayoutLedgerUseCase.class, PayoutCreateStepUseCase.class, PayoutHoldUseCase.class,
-	BusinessDayCalendar.class})
+	EventPublisher.class, BusinessDayCalendar.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class PayoutFinalCreateRecoveryConcurrencyTest {
 	private static final long SELLER_ID = 1;
@@ -167,6 +170,41 @@ class PayoutFinalCreateRecoveryConcurrencyTest {
 		createFinalWhileRecoveryIsOpen();
 
 		assertThat(sellerTotal()).isEqualTo(NORMAL_TOTAL);
+	}
+
+	@Test
+	@DisplayName("최종 정산 생성이 커밋 전일 때 1차 정산 생성이 오면, 기다렸다가 최종이 있으므로 1차를 만들지 않는다 (BUK-261)")
+	void firstCreationWaitsForFinalAndSkips() throws Exception {
+		CountDownLatch finalCreated = new CountDownLatch(1);
+		List<Throwable> errors = new CopyOnWriteArrayList<>();
+		// 1차가 실패한 실행에서 최종이 먼저 만들어지는 중이다 (1차 정산금 차감 0원)
+		CompletableFuture<Void> finalCreation = CompletableFuture.runAsync(() -> {
+			try {
+				new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+					creator.createFinal(finalSource(), RACE_DATE, FINAL_AT);
+					finalCreated.countDown();
+					sleep(HOLD_LOCK_MILLIS);
+				});
+			} catch (RuntimeException e) {
+				errors.add(e);
+				finalCreated.countDown();
+			}
+		});
+		assertThat(finalCreated.await(5, TimeUnit.SECONDS)).isTrue();
+		// 같은 판매자 × 대회의 1차 생성: 바깥에서 최종이 없다고 본 뒤 들어온다
+		CompletableFuture<Void> firstCreation = CompletableFuture.runAsync(() -> {
+			try {
+				createFirst();
+			} catch (RuntimeException e) {
+				errors.add(e);
+			}
+		});
+		CompletableFuture.allOf(finalCreation, firstCreation).get(10, TimeUnit.SECONDS);
+
+		assertThat(errors).isEmpty();
+		// 1차까지 생기면 최종이 이미 전액을 계산했는데 1차 정산금이 한 번 더 나간다
+		assertThat(payoutRepository.findByRaceId(RACE_ID)).extracting(Payout::getPayoutStage)
+			.containsExactly(PayoutStage.최종_정산);
 	}
 
 	private static void sleep(long millis) {

@@ -1,0 +1,4 @@
+# Prometheus 비밀번호와 Caddy 해시 (setup.sh가 서버에서 만든다)
+secrets/
+# grafana.com에서 받는 대시보드 JSON (fetch-dashboards.sh)
+grafana/dashboards/

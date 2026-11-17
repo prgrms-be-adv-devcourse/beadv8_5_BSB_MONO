@@ -82,7 +82,7 @@ class PayoutCreateFinalBatchInsertTest {
 		BusinessDayCalendar calendar = new BusinessDayCalendar();
 		PayoutCreateStepUseCase step = new PayoutCreateStepUseCase(payoutRepository, calendar,
 			new PayoutLedgerUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository),
-			new PayoutHoldUseCase(payoutRepository, payoutHoldRepository, calendar));
+			PayoutHoldUseCases.withoutNotification(payoutRepository, payoutHoldRepository, calendar));
 		// 계좌 미등록이라 자동 보류가 함께 생긴다
 		FinalPayoutSource source = new FinalPayoutSource(SELLER_ID, RACE_ID, "대회 A", false, entries);
 		new TransactionTemplate(transactionManager).executeWithoutResult(

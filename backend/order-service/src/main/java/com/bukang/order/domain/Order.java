@@ -236,7 +236,7 @@ public class Order extends BaseIdAndTime {
 	// 키트가 있으면 주문 상품을 한 상자로 보낼 발송 대기 배송을 만든다 (BUK-6)
 	// kitShippingAddress는 참가 신청의 배송지다. 키트가 없는 종목은 신청서에 배송지를 남기지 않아 null이다
 	// (ParticipationApplyUseCase.checkShippingAddress가 신청·수정 때 키트 여부에 맞춰 넣고 뺀다)
-	// 옛 결제 흐름(order.pay.split.enabled=false)은 결제 대기에서, 나눈 결제(BUK-232)는 결제 중에서 바꾼다
+	// 결제(BUK-232)는 결제 중에서 바꾼다. 결제 대기에서 바로 바꾸는 것은 도메인 테스트 준비용으로 남겨 둔다
 	public void markPaid(LocalDateTime paidAt, ShippingAddress kitShippingAddress) {
 		if (status != OrderStatus.CREATED && status != OrderStatus.PAYING) {
 			throw new OrderNotPayableException(
@@ -281,14 +281,6 @@ public class Order extends BaseIdAndTime {
 	public boolean isCanceling(long participationId) {
 		return items.stream()
 			.anyMatch(item -> item.getParticipationId() == participationId && item.isCanceling());
-	}
-
-	// 참가 신청의 키트를 이미 보냈는지 (배송 중·배송 완료). 보낸 뒤에는 키트 옵션을 바꾸지 못한다 (BUK-226)
-	public boolean isKitShipped(long participationId) {
-		return items.stream()
-			.filter(item -> item.getParticipationId() == participationId)
-			.map(this::findKitShipment)
-			.anyMatch(shipment -> shipment != null && shipment.isShipped());
 	}
 
 	// 주문 상품 하나를 취소한다. 모두 취소되면 CANCELED, 일부만이면 PARTIAL_CANCELED (정책 5장, ERD D3)

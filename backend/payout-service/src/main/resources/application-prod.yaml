@@ -1,7 +1,8 @@
 spring:
   datasource:
+    # 운영(k8s)은 MYSQL_DB를 주지 않아 이 서비스 DB(crewrun_payout)를 쓴다. 로컬 compose·부하 측정은 MYSQL_DB=bukang-db로 한 DB를 쓴다 (BUK-238)
     # 정산 줄 JDBC 일괄 INSERT를 한 문장으로 묶어 보낸다 (BUK-252, PayoutItemBatchInsertImpl)
-    url: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DB}?rewriteBatchedStatements=true
+    url: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DB:crewrun_payout}?rewriteBatchedStatements=true
     username: ${MYSQL_USER}
     password: ${MYSQL_PASS}
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -14,7 +15,6 @@ spring:
       hibernate:
         show_sql: false
         format_sql: false
-    open-in-view: false
 
   # 표 변경은 Flyway SQL(db/migration)로만 한다 (PR #265, member-service와 같은 방식)
   # 모든 서비스가 같은 스키마를 쓰므로, 기록 표는 payout 전용 이름으로 둔다 (다른 서비스의 기록 표와 섞이지 않게)
@@ -49,3 +49,8 @@ payout:
     cash: http://bukang-cash-service:8081
     product: http://bukang-product-service:8085
     member: http://bukang-member-service:8080
+
+# 서비스끼리 내부 API(/internal/**)를 부를 때 X-Internal-Key 헤더로 보내는 키 (openssl rand -base64 32 로 만든 값)
+# 받는 cash와 부르는 서비스(주문·회원·정산)가 같은 값을 써야 한다. 비어 있으면 cash가 뜨지 않는다
+internal:
+  api-key: ${INTERNAL_API_KEY}

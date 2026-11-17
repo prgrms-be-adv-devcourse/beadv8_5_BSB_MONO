@@ -2,6 +2,7 @@ package com.bukang.payout.in;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.List;
 
@@ -20,11 +21,17 @@ import com.bukang.common.global.rsdata.RsData;
 import com.bukang.common.shared.member.web.LoginMemberId;
 import com.bukang.payout.app.PayoutAdminFacade;
 import com.bukang.payout.domain.PayoutCreateFailureType;
+import com.bukang.payout.domain.PayoutHoldStatus;
 import com.bukang.payout.domain.PayoutItemPaging;
+import com.bukang.payout.domain.PayoutStatus;
+import com.bukang.payout.dto.PayoutAdminHoldsDto;
+import com.bukang.payout.dto.PayoutAdminPayoutsDto;
 import com.bukang.payout.dto.PayoutBatchRunDto;
 import com.bukang.payout.dto.PayoutCreateFailuresDto;
 import com.bukang.payout.dto.PayoutDto;
 import com.bukang.payout.dto.PayoutPayCheckRequestDto;
+import com.bukang.payout.dto.PayoutQuarterSalesReportDto;
+import com.bukang.payout.dto.PayoutTaxInvoiceDto;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -101,6 +108,96 @@ public class ApiV1PayoutAdminController {
 	) {
 		PayoutCreateFailuresDto failures = payoutAdminFacade.createFailures(memberId, from, to, type, page, size);
 		return ResponseEntity.ok(RsData.of(HttpStatus.OK, "이상 감지 기록을 조회했습니다.", failures));
+	}
+
+	@GetMapping("/holds")
+	@Operation(summary = "지급보류 목록 조회 (BUK-168)",
+		description = "지급보류를 최근 보류부터 돌려준다. 줄마다 판매자 ID · 정산 ID(ST-) · 지급액이 붙는다. "
+			+ "code에 지급보류 ID(HD-)를 주면 그 보류를, 정산 ID(ST-)를 주면 그 정산에 걸린 보류를 모두 찾고 상태는 보지 않는다. "
+			+ "카드 숫자(보류 중 건수 · 보류 금액 · 이번 달 해제 건수)는 필터와 상관없이 전체로 센다. "
+			+ "보류 금액은 보류가 여럿 걸린 정산도 지급액을 한 번만 더한다. 줄의 id로 보류 해제 API를 부른다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "조회 성공 (없으면 빈 목록)",
+			content = @Content(examples = @ExampleObject(value = PayoutAdminApiExamples.HOLDS_SUCCESS))),
+		@ApiResponse(responseCode = "400", description = "페이지 번호·크기 범위 오류, 값 형식 오류(없는 상태 포함) 또는 회원 ID가 0 이하",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "페이지 번호 음수", value = PayoutAdminApiExamples.INVALID_PAGE),
+				@ExampleObject(name = "페이지 크기 범위 밖", value = PayoutAdminApiExamples.INVALID_PAGE_SIZE),
+				@ExampleObject(name = "상태 · 회원 ID 형식 오류", value = PayoutApiExamples.INVALID_VALUE_TYPE),
+				@ExampleObject(name = "회원 ID가 0 이하", value = PayoutApiExamples.INVALID_MEMBER_ID)
+			})),
+		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = PayoutApiExamples.LOGIN_REQUIRED))),
+		@ApiResponse(responseCode = "403", description = "관리자가 아님",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = PayoutApiExamples.NOT_ADMIN))),
+		@ApiResponse(responseCode = "404", description = "헤더의 회원이 없거나 탈퇴함",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = PayoutApiExamples.MEMBER_NOT_FOUND))),
+		@ApiResponse(responseCode = "503", description = "회원 서비스가 응답하지 않아 관리자인지 확인하지 못함",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = PayoutApiExamples.MEMBER_UNAVAILABLE)))
+	})
+	public ResponseEntity<RsData<PayoutAdminHoldsDto>> holds(
+		@LoginMemberId long memberId,
+		@Parameter(description = "보류 상태 (없으면 전체)", example = "지급보류")
+		@RequestParam(required = false) PayoutHoldStatus status,
+		@Parameter(description = "지급보류 ID(HD-) 또는 정산 ID(ST-). 대소문자 · 앞뒤 공백 무시", example = "HD-20261025-0C13")
+		@RequestParam(required = false) String code,
+		@Parameter(description = "페이지 번호 (0부터)", example = "0")
+		@RequestParam(defaultValue = "0") int page,
+		@Parameter(description = "페이지 크기 (1 ~ 100)", example = "50")
+		@RequestParam(defaultValue = "" + PayoutItemPaging.DEFAULT_SIZE) int size
+	) {
+		PayoutAdminHoldsDto holds = payoutAdminFacade.holds(memberId, status, code, page, size, LocalDate.now(ZONE));
+		return ResponseEntity.ok(RsData.of(HttpStatus.OK, "지급보류 목록을 조회했습니다.", holds));
+	}
+
+	@GetMapping("/payouts")
+	@Operation(summary = "지급일별 정산 목록 조회 (BUK-168)",
+		description = "지급 예정일 하루의 정산 내역을 돌려준다. 지급일을 빼면 오늘(한국 시간)보다 뒤인 가장 가까운 20일이고, "
+			+ "20일 당일이면 다음 달 20일이다. 조회한 지급일은 응답의 payDate에 담긴다. "
+			+ "카드 숫자는 그날의 상태별 건수 · 지급액 합으로, 상태 선택과 상관없이 모든 상태를 0건까지 돌려준다. "
+			+ "줄마다 진행 중인 지급보류가 붙고, 그 id로 보류 해제 API를 부른다. "
+			+ "보류를 풀면 지급 예정일이 해제일 + 1일로 늦춰질 수 있어 20일이 아닌 날도 조회할 수 있다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "조회 성공 (없으면 빈 목록과 카드 0)",
+			content = @Content(examples = @ExampleObject(value = PayoutAdminApiExamples.PAYOUTS_SUCCESS))),
+		@ApiResponse(responseCode = "400", description = "페이지 번호·크기 범위 오류, 값 형식 오류(없는 상태 포함) 또는 회원 ID가 0 이하",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "페이지 번호 음수", value = PayoutAdminApiExamples.INVALID_PAGE),
+				@ExampleObject(name = "페이지 크기 범위 밖", value = PayoutAdminApiExamples.INVALID_PAGE_SIZE),
+				@ExampleObject(name = "지급일 · 상태 · 회원 ID 형식 오류", value = PayoutApiExamples.INVALID_VALUE_TYPE),
+				@ExampleObject(name = "회원 ID가 0 이하", value = PayoutApiExamples.INVALID_MEMBER_ID)
+			})),
+		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = PayoutApiExamples.LOGIN_REQUIRED))),
+		@ApiResponse(responseCode = "403", description = "관리자가 아님",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = PayoutApiExamples.NOT_ADMIN))),
+		@ApiResponse(responseCode = "404", description = "헤더의 회원이 없거나 탈퇴함",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = PayoutApiExamples.MEMBER_NOT_FOUND))),
+		@ApiResponse(responseCode = "503", description = "회원 서비스가 응답하지 않아 관리자인지 확인하지 못함",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = PayoutApiExamples.MEMBER_UNAVAILABLE)))
+	})
+	public ResponseEntity<RsData<PayoutAdminPayoutsDto>> payouts(
+		@LoginMemberId long memberId,
+		@Parameter(description = "지급 예정일 (yyyy-MM-dd, 없으면 오늘보다 뒤인 가장 가까운 20일)", example = "2026-11-20")
+		@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate payDate,
+		@Parameter(description = "정산 상태 (없으면 그날의 모든 상태)", example = "지급보류")
+		@RequestParam(required = false) PayoutStatus status,
+		@Parameter(description = "페이지 번호 (0부터)", example = "0")
+		@RequestParam(defaultValue = "0") int page,
+		@Parameter(description = "페이지 크기 (1 ~ 100)", example = "50")
+		@RequestParam(defaultValue = "" + PayoutItemPaging.DEFAULT_SIZE) int size
+	) {
+		PayoutAdminPayoutsDto payouts = payoutAdminFacade.payouts(memberId, payDate, status, page, size,
+			LocalDate.now(ZONE));
+		return ResponseEntity.ok(RsData.of(HttpStatus.OK, "정산 목록을 조회했습니다.", payouts));
 	}
 
 	@PostMapping("/batches/create")
@@ -273,5 +370,77 @@ public class ApiV1PayoutAdminController {
 		PayoutDto payout = payoutAdminFacade.closePayCheck(memberId, payoutId, request.result(), request.memo(),
 			LocalDateTime.now(ZONE));
 		return ResponseEntity.ok(RsData.of(HttpStatus.OK, "지급 확인 필요 정산 내역을 닫았습니다.", payout));
+	}
+
+	@GetMapping("/tax-invoices")
+	@Operation(summary = "수수료 세금계산서 발행 현황 조회 (BUK-246)",
+		description = "공급 월(지급 완료월) 한 달의 수수료 세금계산서를 판매자 순으로 돌려준다. 발행 실패도 함께 보인다. "
+			+ "비사업자와 수수료가 0원인 판매자는 세금계산서가 없어 목록에 없다. 법정 기한은 공급 월 다음 달 10일이다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "조회 성공 (없으면 빈 목록)",
+			content = @Content(examples = @ExampleObject(value = PayoutAdminApiExamples.TAX_INVOICES_SUCCESS))),
+		@ApiResponse(responseCode = "400", description = "월 없음, 값 형식 오류 또는 회원 ID가 0 이하",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "월 없음", value = PayoutAdminApiExamples.MISSING_PARAMETER),
+				@ExampleObject(name = "월 · 회원 ID 형식 오류", value = PayoutApiExamples.INVALID_VALUE_TYPE),
+				@ExampleObject(name = "회원 ID가 0 이하", value = PayoutApiExamples.INVALID_MEMBER_ID)
+			})),
+		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = PayoutApiExamples.LOGIN_REQUIRED))),
+		@ApiResponse(responseCode = "403", description = "관리자가 아님",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = PayoutApiExamples.NOT_ADMIN))),
+		@ApiResponse(responseCode = "404", description = "헤더의 회원이 없거나 탈퇴함",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = PayoutApiExamples.MEMBER_NOT_FOUND))),
+		@ApiResponse(responseCode = "503", description = "회원 서비스가 응답하지 않아 관리자인지 확인하지 못함",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = PayoutApiExamples.MEMBER_UNAVAILABLE)))
+	})
+	public ResponseEntity<RsData<List<PayoutTaxInvoiceDto>>> taxInvoices(
+		@LoginMemberId long memberId,
+		@Parameter(description = "공급 월 (yyyy-MM)", example = "2026-10")
+		@RequestParam @DateTimeFormat(pattern = "yyyy-MM") YearMonth month
+	) {
+		List<PayoutTaxInvoiceDto> invoices = payoutAdminFacade.taxInvoices(memberId, month);
+		return ResponseEntity.ok(RsData.of(HttpStatus.OK, "세금계산서 발행 현황을 조회했습니다.", invoices));
+	}
+
+	@GetMapping("/tax-reports/quarterly")
+	@Operation(summary = "통신판매중개자 분기 판매 자료 조회 (BUK-246)",
+		description = "부가가치세법 75조에 따라 분기마다 국세청에 내는 판매자별 판매 건수 · 금액을 돌려준다. "
+			+ "정산 생성일(대회 다음 날)이 분기 안인 판매 줄에서 판매 취소 줄을 뺀다. 제출 기한은 분기 말일의 다음 달 15일이다. "
+			+ "판매자 상호 · 사업자번호는 판매자 목록과 합쳐서 보여 준다. 판매가 없는 판매자는 목록에 없다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "조회 성공 (판매가 없으면 빈 목록)",
+			content = @Content(examples = @ExampleObject(value = PayoutAdminApiExamples.QUARTER_SALES_REPORT_SUCCESS))),
+		@ApiResponse(responseCode = "400", description = "분기가 1 ~ 4가 아님, 값 없음, 값 형식 오류 또는 회원 ID가 0 이하",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "분기 범위 밖", value = PayoutAdminApiExamples.INVALID_QUARTER),
+				@ExampleObject(name = "값 없음", value = PayoutAdminApiExamples.MISSING_PARAMETER),
+				@ExampleObject(name = "값 · 회원 ID 형식 오류", value = PayoutApiExamples.INVALID_VALUE_TYPE),
+				@ExampleObject(name = "회원 ID가 0 이하", value = PayoutApiExamples.INVALID_MEMBER_ID)
+			})),
+		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = PayoutApiExamples.LOGIN_REQUIRED))),
+		@ApiResponse(responseCode = "403", description = "관리자가 아님",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = PayoutApiExamples.NOT_ADMIN))),
+		@ApiResponse(responseCode = "404", description = "헤더의 회원이 없거나 탈퇴함",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = PayoutApiExamples.MEMBER_NOT_FOUND))),
+		@ApiResponse(responseCode = "503", description = "회원 서비스가 응답하지 않아 관리자인지 확인하지 못함",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = PayoutApiExamples.MEMBER_UNAVAILABLE)))
+	})
+	public ResponseEntity<RsData<PayoutQuarterSalesReportDto>> quarterSalesReport(
+		@LoginMemberId long memberId,
+		@Parameter(description = "연도", example = "2026") @RequestParam int year,
+		@Parameter(description = "분기 (1 ~ 4)", example = "4") @RequestParam int quarter
+	) {
+		PayoutQuarterSalesReportDto report = payoutAdminFacade.quarterSalesReport(memberId, year, quarter);
+		return ResponseEntity.ok(RsData.of(HttpStatus.OK, "분기 판매 자료를 조회했습니다.", report));
 	}
 }

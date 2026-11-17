@@ -45,4 +45,34 @@ public interface PayoutItemRepository extends JpaRepository<PayoutItem, Long> {
 				and i.payoutCreateDate between :from and :to
 			""")
 	Page<PayoutItem> findSellerItems(long sellerId, LocalDate from, LocalDate to, Pageable pageable);
+
+	// 판매자 월 매출 참고 자료 (BUK-246): 판매 줄과 판매 취소 줄을 정산 생성일로 더한다
+	// 판매 취소 줄은 원래 판매 줄의 정산 생성일을 그대로 가져가므로 같은 달 안에서 상쇄된다. 1차 정산금은 판매가 아니라 넣지 않는다
+	@Query("""
+		select coalesce(sum(i.amount), 0) from PayoutItem i
+		where i.sellerId = :sellerId and i.payoutCreateDate between :from and :to
+			and i.recordType in (com.bukang.payout.domain.PayoutRecordType.판매,
+				com.bukang.payout.domain.PayoutRecordType.판매_취소)
+		""")
+	long sumSales(long sellerId, LocalDate from, LocalDate to);
+
+	// 통신판매중개자 분기 판매 자료 (BUK-246, 부가가치세법 75조): 판매자마다 판매 건수 · 금액을 정산 생성일로 더한다
+	// 판매 취소 줄은 건수 −1, 금액은 음수로 상쇄된다. 건수 · 금액이 모두 0인 판매자는 뺀다
+	@Query("""
+		select new com.bukang.payout.out.PayoutItemRepository$SellerSales(i.sellerId,
+			sum(case when i.recordType = com.bukang.payout.domain.PayoutRecordType.판매 then 1 else -1 end),
+			sum(i.amount))
+		from PayoutItem i
+		where i.payoutCreateDate between :from and :to
+			and i.recordType in (com.bukang.payout.domain.PayoutRecordType.판매,
+				com.bukang.payout.domain.PayoutRecordType.판매_취소)
+		group by i.sellerId
+		having sum(i.amount) <> 0
+			or sum(case when i.recordType = com.bukang.payout.domain.PayoutRecordType.판매 then 1 else -1 end) <> 0
+		order by i.sellerId
+		""")
+	List<SellerSales> sumSalesBySeller(LocalDate from, LocalDate to);
+
+	record SellerSales(long sellerId, long salesCount, long salesAmount) {
+	}
 }

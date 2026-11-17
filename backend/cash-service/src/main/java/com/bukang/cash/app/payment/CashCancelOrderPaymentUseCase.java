@@ -60,7 +60,7 @@ public class CashCancelOrderPaymentUseCase {
 			walletLedgerRepository.save(
 				customerWallet.credit(amount, LedgerType.환불__주문취소, LedgerRefType.Order, orderId));
 			walletLedgerRepository.save(
-				holdingWallet.debit(amount, LedgerType.임시보관반환__주문취소, LedgerRefType.Order, orderId));
+				holdingWallet.debitAllowingNegative(amount, LedgerType.임시보관반환__주문취소, LedgerRefType.Order, orderId));
 		}
 
 		payment.markCanceled();

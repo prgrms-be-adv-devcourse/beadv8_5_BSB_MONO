@@ -9,11 +9,22 @@
 # 사용 (보조 EC2에서, root)
 #   sudo bash /opt/crewrun/infra/data-node/deploy.sh main        # main 최신 커밋
 #   sudo bash /opt/crewrun/infra/data-node/deploy.sh <커밋 SHA>  # main에 들어간 커밋 (Actions가 쓰는 방식)
+#
+# 이 스크립트는 1단계에서 git checkout으로 자기 파일을 바꾼다 (infra/main-node/deploy.sh와 같은 처리)
+#   - 본문을 main() 함수로 감싸 맨 끝에서 부른다 → 파일을 끝까지 읽은 뒤 실행해 도중에 바뀌어도 꼬이지 않는다
+#   - checkout 뒤 이 파일이 바뀌었으면 배포할 커밋의 deploy.sh로 한 번 다시 실행한다 → 새로 더한 서비스(exporter 등)가 첫 배포부터 뜬다
 set -euo pipefail
 
+SELF="$(readlink -f "${BASH_SOURCE[0]}")"
+# checkout 전 이 파일의 내용 지문. 1단계 끝에서 바뀌었는지 비교한다
+SELF_SUM="$(sha256sum "$SELF" | cut -d' ' -f1)"
+
+main() {
 REF="${1:?배포할 main 또는 main에 들어간 커밋 SHA를 주세요. 예: deploy.sh main}"
 APP_DIR="${APP_DIR:-/opt/crewrun}"
-SERVICES=(bukang-db bukang-redis bukang-kafka bukang-elasticsearch)
+# 뒤의 4개는 지표 exporter (BUK-257). 메인 k3s의 수집기가 가져간다
+SERVICES=(bukang-db bukang-redis bukang-kafka bukang-elasticsearch
+	redis-exporter mysqld-exporter elasticsearch-exporter node-exporter)
 
 log() { echo "[data-deploy] $*"; }
 
@@ -47,7 +58,14 @@ if ! git merge-base --is-ancestor "$TARGET" origin/main; then
 	exit 1
 fi
 git checkout --detach "$TARGET"
-log "지금 커밋: $(git rev-parse --short HEAD) $(git log -1 --format=%s)"
+SHA=$(git rev-parse HEAD)
+log "지금 커밋: ${SHA:0:8} $(git log -1 --format=%s)"
+
+# 배포할 커밋에서 deploy.sh가 바뀌었으면 그 deploy.sh로 다시 실행한다 (커밋 SHA로 넘겨 한 번만)
+if [ "${DEPLOY_REEXEC:-}" != "$SHA" ] && [ "$(sha256sum "$SELF" | cut -d' ' -f1)" != "$SELF_SUM" ]; then
+	log "deploy.sh가 바뀌어 ${SHA:0:8}의 deploy.sh로 다시 실행"
+	DEPLOY_REEXEC="$SHA" exec bash "$SELF" "$SHA"
+fi
 
 # 2·3. 띄우기. ES 이미지(nori)는 여기서 빌드한다. --wait는 healthy가 될 때까지 기다리고 실패하면 0이 아닌 값으로 끝난다
 COMPOSE=(docker compose -f backend/compose.yml -f infra/data-node/compose.data.yml --env-file infra/data-node/.env)
@@ -56,3 +74,8 @@ log "인프라 띄우기: ${SERVICES[*]}"
 
 "${COMPOSE[@]}" ps --format 'table {{.Name}}\t{{.Status}}\t{{.Ports}}'
 log "완료"
+}
+
+# 파일을 끝까지 읽은 뒤 실행한다 (위 설명). exit로 끝내 이 뒤에 무엇이 붙어도 읽지 않는다
+main "$@"
+exit

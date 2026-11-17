@@ -2,7 +2,7 @@
 
 Spring Boot 4.1 / Java 25 백엔드입니다. 명령은 이 폴더(`backend/`)에서 실행합니다.
 
-Gradle 멀티 모듈로 `common`·`jwt`(공통 라이브러리), `gateway`(API 게이트웨이, 8000), `member-service`(8080), `cash-service`(8081), `payout-service`(8082), `file-service`(8083), `order-service`(8084), `product-service`(8085), `queue-service`(8086)가 있습니다. 구조는 [`CLAUDE.md`](CLAUDE.md)를 참고합니다.
+Gradle 멀티 모듈로 `common`·`jwt`(공통 라이브러리), `gateway`(API 게이트웨이, 8000), `member-service`(8080), `cash-service`(8081), `payout-service`(8082), `file-service`(8083), `order-service`(8084), `product-service`(8085), `queue-service`(8086), `notification-service`(8087), `inquiry-service`(8088), `board-service`(8089), `ai-service`(8092)가 있습니다. 구조는 [`CLAUDE.md`](CLAUDE.md)를 참고합니다.
 
 ## 실행 환경
 
@@ -27,13 +27,16 @@ Gradle 멀티 모듈로 `common`·`jwt`(공통 라이브러리), `gateway`(API �
 | `order-service` | 주문 서비스 (prod 프로파일) | 호스트에 열지 않음 (`bukang-order-service:8084`) |
 | `product-service` | 상품 서비스 (prod 프로파일) | 호스트에 열지 않음 (`bukang-product-service:8085`) |
 | `queue-service` | 대기열 서비스 (prod 프로파일) | 호스트에 열지 않음 (`bukang-queue-service:8086`) |
+| `notification-service` | 알림 서비스 (prod 프로파일) | 호스트에 열지 않음 (`bukang-notification-service:8087`) |
+| `inquiry-service` | 문의 서비스 (prod 프로파일) | 호스트에 열지 않음 (`bukang-inquiry-service:8088`) |
+| `board-service` | 게시판 서비스 (prod 프로파일) | 호스트에 열지 않음 (`bukang-board-service:8089`) |
 | `ai-service` | 크루런 AI 서비스 (prod 프로파일, 모델은 OpenAI) | 호스트에 열지 않음 (`bukang-ai-service:8092`) |
 | `bukang-ollama` | 로컬 모델 서버 Ollama (`ai` 프로파일로 분리, 아래 [크루런 AI](#크루런-ai) 참고) | `localhost:11434` |
 
-앱 서비스(`nginx`, `web`, `gateway`, `member-service`, `cash-service`, `payout-service`, `file-service`, `order-service`, `product-service`, `queue-service`)는 `app` 프로파일로 분리되어 있어서 `--profile app`을 붙일 때만 실행됩니다.
-서비스 7개는 호스트에 포트를 열지 않고 `gateway`를 거쳐서만 부를 수 있습니다. 서비스는 `X-Member-Id` 헤더를 로그인한 회원으로 믿기 때문에,
+앱 서비스(`nginx`, `web`, `gateway`, `member-service`, `cash-service`, `payout-service`, `file-service`, `order-service`, `product-service`, `queue-service`, `notification-service`, `inquiry-service`, `board-service`, `ai-service`)는 `app` 프로파일로 분리되어 있어서 `--profile app`을 붙일 때만 실행됩니다.
+서비스 11개는 호스트에 포트를 열지 않고 `gateway`를 거쳐서만 부를 수 있습니다. 서비스는 `X-Member-Id` 헤더를 로그인한 회원으로 믿기 때문에,
 서비스 포트로 직접 오면 헤더를 위조할 수 있어서입니다. 서비스를 직접 부르며 확인하려면 컨테이너 대신 `bootRun`으로 띄웁니다.
-시작 순서는 서비스 7개 → `gateway` → `web` → `nginx`입니다. 앞 컨테이너가 healthy(포트가 열려 요청을 받을 수 있는 상태)가 된 뒤에 다음 컨테이너가 시작합니다.
+시작 순서는 서비스 11개 → `gateway` → `web` → `nginx`입니다. 앞 컨테이너가 healthy(포트가 열려 요청을 받을 수 있는 상태)가 된 뒤에 다음 컨테이너가 시작합니다.
 
 ### 개발 실행 (앱 컨테이너 제외)
 
@@ -45,6 +48,23 @@ IntelliJ에서는 `MemberApplication`, `CashApplication`, `PayoutApplication`, `
 `common`의 `global/config/LocalDevEnvironmentPostProcessor`가 `backend/compose.yml`과 `backend/.env`를 찾아 적용합니다.
 
 `docker/elasticsearch/Dockerfile`을 수정했다면 `docker compose up -d --build`로 이미지를 다시 만듭니다.
+
+### 서비스별 DB
+
+**로컬은 지금처럼 `bukang-db` 하나를 모든 서비스가 함께 씁니다. 운영만 서비스마다 DB를 나눕니다**(BUK-238).
+
+| 어디서 | 쓰는 DB | 정하는 곳 |
+|---|---|---|
+| bootRun (dev) | `bukang-db` | 서비스의 `application-dev.yaml` |
+| compose 앱 컨테이너 (`--profile app`), 부하 측정 | `bukang-db` | `.env`·`compose.load.yml`의 `MYSQL_DB` |
+| 로컬 k3d | `bukang-db` | `k8s/overlays/local`의 `MYSQL_DB` |
+| 운영 k3s | `crewrun_<서비스>` | `MYSQL_DB`가 없어 `application-prod.yaml`의 기본값 `${MYSQL_DB:crewrun_<서비스>}` |
+
+- 운영 MySQL(보조 EC2) 안에는 `crewrun_member`, `crewrun_cash`, `crewrun_payout`, `crewrun_file`, `crewrun_order`, `crewrun_product`, `crewrun_queue`,
+  `crewrun_notification`, `crewrun_inquiry`, `crewrun_board`가 있고, 앱 계정 하나가 모든 DB 권한을 가집니다.
+  DB 목록과 권한은 `docker/mysql/initdb/service-dbs.sh`, 표는 각 서비스의 Flyway가 만듭니다. 처음 옮기는 절차는 `infra/data-node/README.md` 「서비스별 DB로 옮기기」에 있습니다.
+- 로컬은 한 DB라서 다른 서비스 표를 읽는 SQL도 돌아갑니다. 운영에서는 DB가 달라 실패하므로 그런 SQL은 쓰지 않습니다.
+- 커넥션 풀은 DB가 아니라 서비스마다 하나라서(`spring.datasource.hikari.*`), 로컬과 운영에 같은 값을 주면 같은 조건으로 시험할 수 있습니다.
 
 ### 운영(prod) 앱 컨테이너 실행
 
@@ -61,8 +81,9 @@ IntelliJ에서는 `MemberApplication`, `CashApplication`, `PayoutApplication`, `
    | `CRYPTO_HMAC_KEY` | `openssl rand -base64 32`로 생성 (아래 [민감정보 암호화](#민감정보-암호화) 참고) |
    | `CRYPTO_PASSWORD` | `openssl rand -base64 32`로 생성 (암호화를 켠 모든 서비스가 같은 키를 씀) |
    | `CRYPTO_SALT` | `openssl rand -hex 8`로 생성 |
-   | `MYSQL_USER` / `MYSQL_PASS` / `MYSQL_DB` | `compose.yml`의 `bukang-db` 값과 동일 |
+   | `MYSQL_USER` / `MYSQL_PASS` | `compose.yml`의 `bukang-db` 값과 동일 (DB 이름은 서비스마다 `crewrun_<서비스>`로 정해져 있어 넣지 않음) |
    | `JWT_SECRET` | 32자 이상의 임의 문자열 |
+   | `INTERNAL_API_KEY` | `openssl rand -base64 32`로 생성. 서비스끼리 내부 API를 부를 때 쓰는 공유 키라 cash·주문·회원·정산이 같은 값을 읽음. 비우면 이 서비스들이 시작하다 멈춤 (`InternalKeyFilter`) |
 
 2. IDE나 `bootRun`으로 실행 중인 게이트웨이가 있으면 종료합니다. 같은 포트(8000)를 사용합니다. 서비스 컨테이너는 호스트 포트를 쓰지 않아 `bootRun` 서비스와 겹치지 않습니다.
 
@@ -95,7 +116,7 @@ IntelliJ에서는 `MemberApplication`, `CashApplication`, `PayoutApplication`, `
 빈 DB에서 확인하려면 먼저 볼륨까지 지웁니다: `docker compose --profile app down -v` (기존 dev 데이터도 지워지니 주의).
 
 1. [ ] `docker compose --profile app up -d --build`가 오류 없이 끝남
-2. [ ] `docker compose --profile app ps`에서 서비스 6개·`gateway`가 `healthy`, `web`·`nginx`가 `Up`
+2. [ ] `docker compose --profile app ps`에서 서비스 11개·`gateway`가 `healthy`, `web`·`nginx`가 `Up`
 3. [ ] http://localhost 접속 시 홈 화면이 보임
 4. [ ] 회원가입 → 로그인 성공
 5. [ ] 새로고침해도 로그인이 유지됨 (Refresh Token 쿠키로 재발급. 아래 "Secure 쿠키" 참고)
@@ -108,8 +129,8 @@ IntelliJ에서는 `MemberApplication`, `CashApplication`, `PayoutApplication`, `
 docker compose --profile app ps -a                          # 어느 컨테이너가 unhealthy·Exited인지
 docker compose logs --tail=200 <서비스>                      # 예: member-service, order-service, gateway, web, nginx
 docker compose logs <서비스> 2>&1 | grep -iE "missing table|Schema-validation|Flyway|APPLICATION FAILED|Caused by"
-docker compose exec bukang-db mysql -ubukang2 -pbukang2 bukang-db -e "show tables;"
-docker compose exec bukang-db mysql -ubukang2 -pbukang2 bukang-db -e "select version, description, success from flyway_schema_history_member;"
+docker compose exec bukang-db mysql -ubukang2 -pbukang2 crewrun_member -e "show tables;"   # DB는 서비스마다 crewrun_<서비스>
+docker compose exec bukang-db mysql -ubukang2 -pbukang2 crewrun_member -e "select version, description, success from flyway_schema_history_member;"
 ```
 
 `member-service` Flyway(`flyway_schema_history_member`, 기준선 0)는 실제 MySQL에서 아래 세 경우를 확인합니다.

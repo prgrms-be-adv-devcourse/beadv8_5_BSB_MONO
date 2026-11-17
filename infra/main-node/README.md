@@ -25,6 +25,7 @@
 ② Parameter Store /crewrun/prod/* 읽기 → k8s/overlays/aws/secret.yaml 만들기 (키 목록은 secret.yaml.example)
      꼭 채움 키(MYSQL_USER·MYSQL_PASS·JWT_SECRET·CRYPTO_* 3개)가 비면 멈춤
 ③ /crewrun/registry/GHCR_AUTH → Secret ghcr-pull (GHCR 이미지가 비공개라 필요)
+   /crewrun/prod/MONITORING_RW_PASSWORD → Secret monitoring-remote-write (지표 수집기용, 없으면 경고만)
 ④ 임시 kustomization: overlays/aws + 이미지 태그 = 커밋 SHA + 설정 표시(config-hash)
      → kubectl kustomize | kubectl apply
 ⑤ Deployment마다 rollout status (최대 10분). 실패하면 Pod 상태를 찍고 실패로 끝남
@@ -40,11 +41,36 @@
 |---|---|---|
 | `/crewrun/prod/<키>` | 앱 비밀값 22개 (`k8s/overlays/aws/secret.yaml.example`의 목록) | `env-to-parameter-store.sh --apply` |
 | `/crewrun/registry/GHCR_AUTH` | GHCR 로그인 (`아이디:토큰`을 base64로 바꾼 값) | 같은 스크립트가 서버 docker 로그인에서 옮김 |
+| `/crewrun/prod/MONITORING_RW_PASSWORD` | 지표 수집기가 개인 AWS EC2 Prometheus로 보낼 때 쓰는 비밀번호 (BUK-258). 앱 Secret에는 넣지 않고 Secret `monitoring-remote-write`로만 만듦 | 아래 「지표 수집기」 |
 
 - 모두 SecureString(KMS로 암호화)입니다. 값은 서버 안에서 옮기고 PC·채팅으로 가져오지 않습니다.
 - Parameter Store는 빈 값을 저장할 수 없습니다. 운영 `.env`에서 빈 키(예: `ELASTICSEARCH_USERNAME`)는 건너뛰고, deploy.sh가 빈 값으로 넣습니다.
 - 메인 EC2 역할(`team05-bukang-main-ec2-role`)에는 **읽기만** 줍니다(`infra/iam/main-ec2-policy.json`). 옮길 때만 임시 쓰기 정책을 붙였다가 지웁니다(`infra/README.md` D6 순서 5).
 - 공개해도 되는 운영 값(버킷 이름, 사이트 주소, 소셜 로그인 앱 ID, 포트원 상점 ID)은 `k8s/overlays/aws/app-config.yaml`에 커밋되어 있습니다.
+
+## 지표 수집기 (BUK-258)
+
+`k8s/overlays/aws/monitoring/`의 수집기(`metrics-agent`, Prometheus 에이전트 모드)가 15초마다 Spring 앱·보조 EC2 exporter·서버·Pod 지표를 모아
+개인 AWS EC2의 Prometheus(`https://prom.bukang-devops.duckdns.org`, `infra/monitoring-node`)로 보냅니다. 이 서버에는 저장하지 않습니다.
+
+비밀번호 넣기 (처음 한 번). 값은 개인 EC2의 `/opt/monitoring-node/secrets/prom-password`입니다.
+쓰기는 앞의 비밀값 옮기기처럼 메인 EC2 역할에 임시 쓰기 정책을 붙이고 메인 EC2에서 넣은 뒤 정책을 지웁니다.
+
+```bash
+# 메인 EC2 (임시 쓰기 정책을 붙인 동안). read -s 라 입력한 값이 화면·기록에 남지 않음
+read -rs -p "개인 EC2 prom-password 값: " PW; echo
+aws ssm put-parameter --name /crewrun/prod/MONITORING_RW_PASSWORD --type SecureString --value "$PW" --overwrite >/dev/null
+unset PW
+```
+
+다음 배포 때 deploy.sh가 Secret을 만듭니다. 이미 떠 있는 수집기는 보낼 때마다 비밀번호 파일을 다시 읽어서, 보통 1~2분 안에 새 값이 반영됩니다.
+반영되지 않으면 `sudo k3s kubectl -n crewrun rollout restart deploy/metrics-agent`로 다시 띄웁니다.
+
+```bash
+sudo k3s kubectl -n crewrun get pods -l app.kubernetes.io/name=metrics-agent        # Running, READY 1/1
+sudo k3s kubectl -n crewrun logs deploy/metrics-agent | grep -iE "error|401" | tail  # 비어 있으면 정상
+sudo k3s kubectl -n crewrun scale deploy/metrics-agent --replicas=0                  # 문제가 생기면 수집기만 끔 (앱 영향 없음)
+```
 
 ## HTTPS
 

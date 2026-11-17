@@ -2,25 +2,34 @@ package com.bukang.payout.app;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutBatchTrigger;
 import com.bukang.payout.domain.PayoutClaimStatus;
 import com.bukang.payout.domain.PayoutCreateFailureType;
 import com.bukang.payout.domain.PayoutHoldReason;
+import com.bukang.payout.domain.PayoutHoldStatus;
 import com.bukang.payout.domain.PayoutPayCheckResult;
 import com.bukang.payout.domain.PayoutQueryPeriod;
+import com.bukang.payout.domain.PayoutStatus;
+import com.bukang.payout.domain.PayoutTaxQuarter;
 import com.bukang.payout.domain.exception.PayoutBatchFutureDateException;
 import com.bukang.payout.dto.PayoutAdminClaimsDto;
+import com.bukang.payout.dto.PayoutAdminHoldsDto;
+import com.bukang.payout.dto.PayoutAdminPayoutsDto;
 import com.bukang.payout.dto.PayoutBatchRunDto;
 import com.bukang.payout.dto.PayoutClaimDto;
 import com.bukang.payout.dto.PayoutCreateFailuresDto;
 import com.bukang.payout.dto.PayoutDto;
 import com.bukang.payout.dto.PayoutHoldDto;
+import com.bukang.payout.dto.PayoutQuarterSalesReportDto;
+import com.bukang.payout.dto.PayoutTaxInvoiceDto;
 import com.bukang.payout.out.PayoutBatchRunRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -44,6 +53,7 @@ public class PayoutAdminFacade {
 	private final PayoutBatchUseCase payoutBatchUseCase;
 	private final PayoutPayCheckUseCase payoutPayCheckUseCase;
 	private final PayoutBatchRunRepository payoutBatchRunRepository;
+	private final PayoutTaxInvoiceQueryUseCase payoutTaxInvoiceQueryUseCase;
 
 	public PayoutHoldDto hold(long memberId, long payoutId, PayoutHoldReason reasonType, String reason,
 		LocalDateTime now) {
@@ -82,6 +92,21 @@ public class PayoutAdminFacade {
 		return payoutAdminQueryUseCase.createFailures(from, to, type, page, size);
 	}
 
+	// 관리자 지급보류 관리 화면: 카드 숫자와 보류 목록 (BUK-168)
+	public PayoutAdminHoldsDto holds(long memberId, PayoutHoldStatus status, String code, int page, int size,
+		LocalDate today) {
+		payoutAdminVerifyUseCase.verify(memberId);
+		return payoutAdminQueryUseCase.holds(status, code, page, size, today);
+	}
+
+	// 관리자 정산 목록 (BUK-168). 지급일을 빼면 오늘보다 뒤인 가장 가까운 20일이다
+	public PayoutAdminPayoutsDto payouts(long memberId, LocalDate payDate, PayoutStatus status, int page, int size,
+		LocalDate today) {
+		payoutAdminVerifyUseCase.verify(memberId);
+		LocalDate date = payDate != null ? payDate : Payout.nextPayDayAfter(today);
+		return payoutAdminQueryUseCase.payouts(date, status, page, size);
+	}
+
 	// 정산 생성 배치를 다시 돌린다 (BUK-167). 스케줄과 같은 잠금을 써서 이미 돌고 있으면 409다
 	public List<PayoutBatchRunDto> runCreate(long memberId, LocalDate today, LocalDateTime now) {
 		payoutAdminVerifyUseCase.verify(memberId);
@@ -117,5 +142,17 @@ public class PayoutAdminFacade {
 		return payoutBatchRunRepository.findByRunDateBetweenOrderByIdDesc(from, to).stream()
 			.map(PayoutBatchRunDto::from)
 			.toList();
+	}
+
+	// 수수료 세금계산서 발행 현황 (BUK-246). 공급 월 한 달의 발행 완료 · 실패를 판매자 순으로 돌려준다
+	public List<PayoutTaxInvoiceDto> taxInvoices(long memberId, YearMonth month) {
+		payoutAdminVerifyUseCase.verify(memberId);
+		return payoutTaxInvoiceQueryUseCase.monthInvoices(month);
+	}
+
+	// 통신판매중개자 분기 판매 자료 (BUK-246, 부가가치세법 75조). 분기 범위 검사는 PayoutTaxQuarter가 한다
+	public PayoutQuarterSalesReportDto quarterSalesReport(long memberId, int year, int quarter) {
+		payoutAdminVerifyUseCase.verify(memberId);
+		return payoutTaxInvoiceQueryUseCase.quarterSalesReport(new PayoutTaxQuarter(year, quarter));
 	}
 }

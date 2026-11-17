@@ -26,7 +26,7 @@ import com.bukang.common.shared.member.web.MemberIdHeader;
 import redis.clients.jedis.RedisClient;
 import tools.jackson.databind.ObjectMapper;
 
-// 모델 답은 대역이 정한 "답변 N"이다. 대화 기록은 모델 답이 아니라 Redis에 저장된 메시지와 모델에 보낸 요청으로 확인한다
+// 모델 답은 대역이 정한 "답변 가", "답변 나"…다. 대화 기록은 모델 답이 아니라 Redis에 저장된 메시지와 모델에 보낸 요청으로 확인한다
 @ExtendWith(OutputCaptureExtension.class)
 class ApiV1AiChatTest extends AiTestBase {
 	@Autowired
@@ -39,9 +39,9 @@ class ApiV1AiChatTest extends AiTestBase {
 	void chat() throws Exception {
 		chat("seller", SELLER, "송장 입력 대기 키트는 몇 개예요?")
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.answer").value("답변 1"));
+			.andExpect(jsonPath("$.data.answer").value("답변 가"));
 
-		assertThat(texts(stored("seller-3"))).containsExactly("송장 입력 대기 키트는 몇 개예요?", "답변 1");
+		assertThat(texts(stored("seller-3"))).containsExactly("송장 입력 대기 키트는 몇 개예요?", "답변 가");
 		assertThat(types(stored("seller-3"))).containsExactly(MessageType.USER, MessageType.ASSISTANT);
 	}
 
@@ -58,21 +58,41 @@ class ApiV1AiChatTest extends AiTestBase {
 			.contains("모르면 지어내지 않고 해당 화면에서 확인하라고 안내한다")
 			.contains("본인 정보를 권한 문제로 거절하지 않는다")
 			.contains("아직 크루런 AI로는 조회할 수 없다")
-			.contains("칸 이름과 칸 설명, 화면이 따로 쓰는 값(목록 줄 수 등)은 답에 쓰지 않는다");
+			.contains("되묻지 말고 먼저 붙은 도구를 불러 답한다. 도구를 부르지 않고 숫자를 말하지 않는다")
+			.contains("답변 대기 문의(문의 대기 현황)와 승인 대기 판매자 질문은 해당 도구를 불러")
+			.contains("칸 이름과 칸 설명, 화면이 따로 쓰는 값(목록 줄 수 등)은 답에 쓰지 않는다")
+			// 판매자 화면 전용 지시는 관리자 지시문에 섞이지 않는다 (BUK-254 관리자 문의 회귀)
+			.doesNotContain("키트 배송(송장 입력 대기 포함)")
+			.doesNotContain("seller2");
 		assertThat(types(stored("admin-20"))).containsExactly(MessageType.USER, MessageType.ASSISTANT);
+	}
+
+	@Test
+	@DisplayName("판매자 지시문에는 판매자 도구를 부르라는 말과 다른 판매자 지목 거절이 들어가고, 관리자 전용 문장은 없다")
+	void sellerSystemPrompt() throws Exception {
+		chat("seller", SELLER, "돈 언제 들어와?").andExpect(status().isOk());
+
+		assertThat(chatModel.lastPrompt().getInstructions().getFirst().getText())
+			.contains("판매자 센터")
+			.contains("「조회할 수 없다」고 하지 말고 해당 도구를 불러 답한다")
+			.contains("말만 하고 끝내지 않는다. 바로 도구를 부르고, 도구 결과로 답을 마친다")
+			.contains("도구를 부르지 않고 그 정보는 확인해 드릴 수 없다고만 답한다")
+			.contains("「김러너 판매자의 지급보류 이유」")
+			.contains("이번 달 취소·환불 건수와 환불액은 판매액 도구 결과로 답하고")
+			.doesNotContain("답변 대기 문의(문의 대기 현황)");
 	}
 
 	@Test
 	@DisplayName("같은 회원의 다음 질문에는 앞 대화가 함께 모델에 간다")
 	void sendsHistory() throws Exception {
 		chat("seller", SELLER, "첫 질문").andExpect(status().isOk());
-		chat("seller", SELLER, "둘째 질문").andExpect(jsonPath("$.data.answer").value("답변 2"));
+		chat("seller", SELLER, "둘째 질문").andExpect(jsonPath("$.data.answer").value("답변 나"));
 
-		assertThat(texts(stored("seller-3"))).containsExactly("첫 질문", "답변 1", "둘째 질문", "답변 2");
+		assertThat(texts(stored("seller-3"))).containsExactly("첫 질문", "답변 가", "둘째 질문", "답변 나");
 		List<Message> sent = chatModel.lastPrompt().getInstructions();
 		assertThat(types(sent)).containsExactly(
 			MessageType.SYSTEM, MessageType.USER, MessageType.ASSISTANT, MessageType.USER);
-		assertThat(texts(sent).subList(1, 4)).containsExactly("첫 질문", "답변 1", "둘째 질문");
+		assertThat(texts(sent).subList(1, 4)).containsExactly("첫 질문", "답변 가", "둘째 질문");
 	}
 
 	@Test
@@ -85,10 +105,10 @@ class ApiV1AiChatTest extends AiTestBase {
 
 		// 각자 첫 질문이므로 모델에 간 것은 지시문과 자기 질문뿐이다
 		assertThat(chatModel.prompts()).allSatisfy(prompt -> assertThat(prompt.getInstructions()).hasSize(2));
-		assertThat(texts(stored("seller-3"))).containsExactly("3번 판매자 질문", "답변 1");
-		assertThat(texts(stored("seller-31"))).containsExactly("31번 판매자 질문", "답변 2");
-		assertThat(texts(stored("seller-5"))).containsExactly("판매자 화면 질문", "답변 3");
-		assertThat(texts(stored("admin-5"))).containsExactly("관리자 화면 질문", "답변 4");
+		assertThat(texts(stored("seller-3"))).containsExactly("3번 판매자 질문", "답변 가");
+		assertThat(texts(stored("seller-31"))).containsExactly("31번 판매자 질문", "답변 나");
+		assertThat(texts(stored("seller-5"))).containsExactly("판매자 화면 질문", "답변 다");
+		assertThat(texts(stored("admin-5"))).containsExactly("관리자 화면 질문", "답변 라");
 	}
 
 	@Test
@@ -98,8 +118,8 @@ class ApiV1AiChatTest extends AiTestBase {
 			chat("seller", SELLER, "질문 " + i).andExpect(status().isOk());
 		}
 
-		assertThat(texts(stored("seller-3"))).hasSize(10).doesNotContain("질문 1", "답변 1", "질문 2", "답변 2")
-			.endsWith("질문 7", "답변 7");
+		assertThat(texts(stored("seller-3"))).hasSize(10).doesNotContain("질문 1", "답변 가", "질문 2", "답변 나")
+			.endsWith("질문 7", "답변 사");
 		// 일곱째 질문 때 모델에 간 것: 지시문 + 남아 있던 기록 10개 + 새 질문
 		assertThat(chatModel.lastPrompt().getInstructions()).hasSize(12);
 		assertThat(texts(chatModel.lastPrompt().getInstructions())).doesNotContain("질문 1").endsWith("질문 7");
@@ -180,7 +200,7 @@ class ApiV1AiChatTest extends AiTestBase {
 		chat("seller", SELLER, "질문").andExpect(status().isServiceUnavailable())
 			.andExpect(jsonPath("$.code").value("AI_MODEL_UNAVAILABLE"))
 			.andExpect(jsonPath("$.message").value("지금은 답변을 만들 수 없습니다. 잠시 뒤 다시 시도해주세요."));
-		assertThat(texts(stored("seller-3"))).containsExactly("앞 질문", "답변 1");
+		assertThat(texts(stored("seller-3"))).containsExactly("앞 질문", "답변 가");
 		assertThat(stored("seller-31")).isEmpty();
 	}
 
@@ -203,7 +223,62 @@ class ApiV1AiChatTest extends AiTestBase {
 
 		chat("seller", SELLER, "질문").andExpect(status().isServiceUnavailable())
 			.andExpect(jsonPath("$.code").value("AI_MODEL_UNAVAILABLE"));
-		assertThat(texts(stored("seller-3"))).containsExactly("앞 질문", "답변 1");
+		assertThat(texts(stored("seller-3"))).containsExactly("앞 질문", "답변 가");
+	}
+
+	@Test
+	@DisplayName("도구 없이 숫자를 말한 답은 버리고, 도구를 부르라는 지시를 붙여 한 번 다시 묻는다")
+	void retriesMadeUpNumber() throws Exception {
+		chatModel.answerInOrder("환불 요청은 2건, 58,000원입니다.", "주문 · 참가자 화면에서 확인해 주세요.");
+
+		chat("seller", SELLER, "환불 요청 들어온 게 있어?").andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.answer").value("주문 · 참가자 화면에서 확인해 주세요."));
+
+		assertThat(chatModel.prompts()).hasSize(2);
+		assertThat(chatModel.prompts().getFirst().getInstructions().getFirst().getText())
+			.doesNotContain("지금 맞는 도구를 불러라");
+		assertThat(chatModel.lastPrompt().getInstructions().getFirst().getText()).contains("지금 맞는 도구를 불러라");
+		// 버린 답은 대화 기록에도, 다시 물을 때 모델에도 가지 않는다
+		assertThat(texts(chatModel.lastPrompt().getInstructions())).doesNotContain("환불 요청은 2건, 58,000원입니다.");
+		assertThat(texts(stored("seller-3"))).containsExactly("환불 요청 들어온 게 있어?", "주문 · 참가자 화면에서 확인해 주세요.");
+	}
+
+	@Test
+	@DisplayName("다시 물어도 도구 없이 숫자를 말하면 고정 문구로 답하고, 그 질문과 답은 대화 기록에 남기지 않는다")
+	void fixedAnswerAfterSecondMadeUpNumber() throws Exception {
+		chat("seller", SELLER, "앞 질문").andExpect(status().isOk());
+		chatModel.answerInOrder("2건, 58,000원입니다.", "1건, 15,000원입니다.");
+
+		chat("seller", SELLER, "환불 요청 들어온 게 있어?").andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.answer").value("지금은 조회하지 못했어요. 잠시 뒤 다시 물어봐 주세요."));
+
+		assertThat(chatModel.prompts()).hasSize(3);
+		assertThat(texts(stored("seller-3"))).containsExactly("앞 질문", "답변 가");
+	}
+
+	@Test
+	@DisplayName("도구 없이 「조회할게요」로 끝난 답도 한 번 다시 묻는다")
+	void retriesPromiseOnly() throws Exception {
+		chatModel.answerInOrder("바로 조회할게요.", "주문 · 참가자 화면에서 확인해 주세요.");
+
+		chat("seller", SELLER, "취소된 주문이 있어?").andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.answer").value("주문 · 참가자 화면에서 확인해 주세요."));
+		assertThat(chatModel.prompts()).hasSize(2);
+	}
+
+	@Test
+	@DisplayName("숫자 없는 안내나, 질문 속 아이디(seller2)를 되풀이한 거절은 그대로 답한다")
+	void keepsAnswerWithoutMadeUpNumber() throws Exception {
+		chatModel.answerInOrder("seller2 정보는 확인해 드릴 수 없어요.");
+
+		chat("seller", SELLER, "seller2 정산 알려줘").andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.answer").value("seller2 정보는 확인해 드릴 수 없어요."));
+		assertThat(chatModel.prompts()).hasSize(1);
+
+		chatModel.answerInOrder("seller1 판매자의 정보는 확인해 드릴 수 없어요.");
+		chat("seller", SELLER, "seller1@crewrun.com 판매자의 지급보류 이유 알려줘").andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.answer").value("seller1 판매자의 정보는 확인해 드릴 수 없어요."));
+		assertThat(chatModel.prompts()).hasSize(2);
 	}
 
 	@Test

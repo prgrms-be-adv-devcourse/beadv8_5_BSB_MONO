@@ -1038,7 +1038,7 @@ export interface SellerKitOptionSaleDto {
 }
 
 /**
- * 키트 옵션 품절 409(ORDER_KIT_OPTION_SOLD_OUT)의 data. 결제와 키트 옵션 바꾸기(PUT /participations/{id}/kit-options)가 함께 쓴다. 판매 상한에 닿은 옵션을 모두 담는다
+ * 키트 옵션 품절 409(ORDER_KIT_OPTION_SOLD_OUT)의 data. 결제가 쓴다. 판매 상한에 닿은 옵션을 모두 담는다
  */
 export interface KitOptionSoldOutDto {
   soldOut: KitOptionChoiceDto[];
@@ -1360,13 +1360,17 @@ export interface SellerPartyPageDto {
 }
 
 /**
- * 기간 판매 합계. 결제일이 기간 안인 결제 완료·취소 중 참가권
+ * 기간 판매·취소 합계. 판매는 결제일 기준 결제 완료·취소 중, 취소는 취소를 마친 시각 기준
  */
 export interface SellerSalesSummaryDto {
   /** 판매 장수 */
   soldCount: number;
   /** 결제 금액 합(원) */
   soldAmount: number;
+  /** 취소를 마친 참가권 수(대회 취소 환불 포함) */
+  canceledCount: number;
+  /** 그 환불액 합(원) */
+  refundedAmount: number;
 }
 
 export interface RsDataOrderItemDto {

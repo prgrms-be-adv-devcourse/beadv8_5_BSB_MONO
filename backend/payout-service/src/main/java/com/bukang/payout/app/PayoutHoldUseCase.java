@@ -4,9 +4,11 @@ import java.time.LocalDateTime;
 import java.util.Locale;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.bukang.common.global.eventpublisher.EventPublisher;
 import com.bukang.payout.domain.BusinessDayCalendar;
 import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutHold;
@@ -25,6 +27,7 @@ import lombok.RequiredArgsConstructor;
  * 관리자가 거는 보류와, 정산 생성 배치가 만들 때 거는 자동 보류를 모두 여기서 건다
  * 상태 규칙은 Payout이 지키고, 여기서는 찾아서 넘기고 저장만 한다
  * 지급 배치와 동시에 같은 정산 내역을 바꾸면 Payout의 @Version으로 늦게 커밋한 쪽이 실패한다
+ * 보류를 새로 걸면 보류 이벤트를 발행한다. 판매자 찾기와 알림은 커밋 뒤 PayoutHeldNotifier가 한다 (롤백되면 보내지 않음)
  */
 @Service
 @RequiredArgsConstructor
@@ -36,12 +39,13 @@ public class PayoutHoldUseCase {
 	private final PayoutRepository payoutRepository;
 	private final PayoutHoldRepository payoutHoldRepository;
 	private final BusinessDayCalendar businessDayCalendar;
+	private final EventPublisher eventPublisher;
 
 	// open-in-view가 꺼져 있어 트랜잭션 밖에서 hold.getPayout()을 읽지 않도록, 안에서 DTO로 바꿔 돌려준다
 	@Transactional
 	public PayoutHoldDto hold(long payoutId, PayoutHoldReason reasonType, String reason, long heldBy,
 		LocalDateTime now) {
-		Payout payout = payoutRepository.findById(payoutId).orElseThrow(PayoutNotFoundException::new);
+		Payout payout = payoutRepository.findByIdForUpdate(payoutId).orElseThrow(PayoutNotFoundException::new);
 		return PayoutHoldDto.from(save(payout.hold(reasonType, reason, heldBy, now)));
 	}
 
@@ -53,10 +57,15 @@ public class PayoutHoldUseCase {
 		return PayoutDto.from(payoutRepository.findByPayoutCode(code).orElseThrow(PayoutNotFoundException::new));
 	}
 
-	@Transactional
+	// 잠금 쿼리는 보류 ID로 찾으려고 보류 표를 함께 읽는데, Hibernate가 정산 내역만 잠가(for update of) 보류 표는 일반 조회가 된다
+	// REPEATABLE READ면 그 일반 조회가 잠금을 기다리기 전에 스냅숏을 잡아, 잠금을 얻은 뒤에도 동시에 풀린 보류를 걸린 것으로 본다.
+	// 그래서 READ COMMITTED로 돌려 잠금 뒤의 읽기가 먼저 커밋한 해제를 보게 한다 (BUK-242, MySQL 동시성 테스트로 확인)
+	@Transactional(isolation = Isolation.READ_COMMITTED)
 	public PayoutHoldDto release(long holdId, long releasedBy, LocalDateTime now) {
+		// 정산 내역부터 잠그고, 보류는 잠금 뒤에 읽는다. 같은 보류를 두 번 풀어도 늦은 쪽이 이미 풀린 상태를 본다
+		Payout payout = payoutRepository.findByHoldIdForUpdate(holdId).orElseThrow(PayoutHoldNotFoundException::new);
 		PayoutHold hold = payoutHoldRepository.findById(holdId).orElseThrow(PayoutHoldNotFoundException::new);
-		hold.getPayout().release(hold, releasedBy, now, businessDayCalendar);
+		payout.release(hold, releasedBy, now, businessDayCalendar);
 		return PayoutHoldDto.from(hold);
 	}
 
@@ -98,9 +107,14 @@ public class PayoutHoldUseCase {
 	}
 
 	// 지급보류 ID의 끝 4자리는 PK에서 만들므로 저장해서 ID를 받은 뒤에 붙인다
+	// 보류 기록은 새로 걸 때만 만들어지므로(같은 사유가 걸려 있으면 Payout.hold가 막는다) 여기서 발행하면 한 번만 간다
 	private PayoutHold save(PayoutHold hold) {
 		payoutHoldRepository.save(hold);
 		hold.assignHoldCode();
+		Payout payout = hold.getPayout();
+		// 상품 서비스 조회는 잠금을 쥔 이 트랜잭션에서 하지 않고, 문구에 쓸 값만 담아 커밋 뒤로 넘긴다
+		eventPublisher.publish(new PayoutHeldEvent(payout.getRaceId(), payout.getRaceName(), payout.getPayoutStage(),
+			hold.getReasonType(), hold.getHoldCode()));
 		return hold;
 	}
 }

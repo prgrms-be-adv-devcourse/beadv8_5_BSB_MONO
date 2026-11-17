@@ -1,5 +1,9 @@
 package com.bukang.order.out.wallet;
 
+import java.time.Duration;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
+
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -11,9 +15,9 @@ import com.bukang.common.global.rsdata.RsData;
 import com.bukang.order.domain.exception.ExternalServiceRejectedException;
 import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
 import com.bukang.order.domain.exception.OrderNotPayableException;
+import com.bukang.order.domain.exception.PaymentBusyException;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -25,9 +29,10 @@ import lombok.extern.slf4j.Slf4j;
  * 409(이미 취소·환불된 결제, 결제한 회원과 다름)는 다시 해도 풀리지 않으므로 결제는 409로, 결제 취소·환불은 503으로 알린다
  * 같은 주문 ID로 다시 결제하면 D가 한 번만 차감하고, 포기한 주문은 만료 처리가 결제 취소로 돌려받는다 (WalletPort)
  * 등록은 CashClientConfig가 한다 (order.clients.cash.mode=http)
+ * 결제만 동시 호출 수를 제한한다(BUK-235). 막 뜬 예치금이 느릴 때 결제가 한꺼번에 몰려 더 느려지는 것을 막는다
+ * 결제 취소·환불은 제한하지 않는다: 같은 문을 쓰면 결제가 몰릴 때 돈을 돌려주는 호출이 밀린다
  */
 @Slf4j
-@RequiredArgsConstructor
 public class HttpWalletAdapter implements WalletPort {
 	static final String PAY_PATH = "/internal/v1/cash/payments/{orderId}";
 	static final String CANCEL_PATH = "/internal/v1/cash/payments/{orderId}/cancel";
@@ -42,9 +47,51 @@ public class HttpWalletAdapter implements WalletPort {
 	};
 
 	private final RestClient restClient;
+	// 결제 동시 호출 자리. 주문 서버 한 대 기준이다(서버가 2대면 예치금에는 합쳐 두 배가 간다)
+	private final Semaphore payPermits;
+	private final long payAcquireTimeoutMillis;
 
+	// 제한 없음 (테스트용)
+	public HttpWalletAdapter(RestClient restClient) {
+		this(restClient, Integer.MAX_VALUE, Duration.ZERO);
+	}
+
+	public HttpWalletAdapter(RestClient restClient, int maxConcurrentPay, Duration payAcquireTimeout) {
+		if (maxConcurrentPay < 1 || payAcquireTimeout.isNegative()) {
+			throw new IllegalArgumentException("예치금 결제 동시 호출 수는 1 이상, 자리 기다림은 0 이상이어야 합니다.");
+		}
+		this.restClient = restClient;
+		this.payPermits = new Semaphore(maxConcurrentPay);
+		this.payAcquireTimeoutMillis = payAcquireTimeout.toMillis();
+	}
+
+	/**
+	 * 동시 호출 자리를 기다렸다가(order.clients.cash.pay-acquire-timeout) 결제를 보낸다
+	 * 자리를 못 받으면 예치금을 부르지 않고 PaymentBusyException(503)을 던진다. 돈이 빠지지 않은 것이 확실한 실패다
+	 */
 	@Override
 	public WalletPayResult pay(long orderId, long memberId, long amount) {
+		if (!acquirePayPermit()) {
+			log.warn("예치금 결제 동시 호출 자리를 받지 못해 결제를 보내지 않았습니다. orderId={}", orderId);
+			throw new PaymentBusyException();
+		}
+		try {
+			return send(orderId, memberId, amount);
+		} finally {
+			payPermits.release();
+		}
+	}
+
+	private boolean acquirePayPermit() {
+		try {
+			return payPermits.tryAcquire(payAcquireTimeoutMillis, TimeUnit.MILLISECONDS);
+		} catch (InterruptedException exception) {
+			Thread.currentThread().interrupt();
+			return false;
+		}
+	}
+
+	private WalletPayResult send(long orderId, long memberId, long amount) {
 		RsData<PayBody> response;
 		try {
 			response = restClient.post()

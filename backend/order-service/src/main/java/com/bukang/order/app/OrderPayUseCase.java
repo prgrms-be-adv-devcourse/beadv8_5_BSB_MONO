@@ -4,7 +4,6 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.TransactionException;
@@ -24,6 +23,7 @@ import com.bukang.order.domain.exception.OrderNotPayableException;
 import com.bukang.order.domain.exception.ParticipationNotFoundException;
 import com.bukang.order.domain.exception.PartyConflictException;
 import com.bukang.order.domain.exception.PartyNotFoundException;
+import com.bukang.order.domain.exception.PaymentBusyException;
 import com.bukang.order.domain.exception.RaceCourseNotFoundException;
 import com.bukang.order.out.OrderItemRepository;
 import com.bukang.order.out.OrderRepository;
@@ -47,10 +47,9 @@ import lombok.extern.slf4j.Slf4j;
  * 임시 확보한 주문을 예치금으로 결제하고 참가를 확정한다 (정책 4장 결제, ERD 추천안 v4 9쪽 결제 순서)
  * 순서: 키트 옵션 판매 수 +1 → 예치금 차감(D) → 자리 판매(B, 기한 안일 때만) → 주문 PAID·참가 신청 CONFIRMED·고른 옵션 사본
  * 기한이 지나 판매가 거절되면 차감한 예치금을 돌려준다. 중복 차감 방지·동시성은 D가 주문 ID로 맡는다
- * 결제 나누기(BUK-232, order.pay.split.enabled=true): 판매 수 +1·옵션 사본·주문 결제 중(PAYING)을 짧은 트랜잭션으로 커밋해
+ * 결제 나누기(BUK-232): 판매 수 +1·옵션 사본·주문 결제 중(PAYING)을 짧은 트랜잭션으로 커밋해
  * 판매 수 줄 잠금을 풀고, 예치금·자리 판매는 잠금 밖에서 부른 뒤 주문을 다시 잠가 확정한다. 인기 옵션 한 줄에 결제가 몰려도
  * 예치금·상품 HTTP 동안 줄을 잡지 않는다. 결과를 모르면 결제 중으로 남기고 결제 재확인 배치(recheck)가 같은 순서로 끝낸다
- * 스위치가 꺼져 있으면 옛 흐름(한 트랜잭션)으로 결제한다. 재확인 배치·결제 중 만료는 스위치와 상관없이 돈다
  */
 @Slf4j
 @Service
@@ -75,22 +74,14 @@ public class OrderPayUseCase {
 	private final OrderQueryUseCase orderQueryUseCase;
 	private final OrderOutboxKafkaAppendUseCase orderOutboxKafkaAppendUseCase;
 
-	// 결제 나누기 스위치 (BUK-232). 프론트 「결제 확인 중」 화면과 예치금 재결제 계약이 맞춰질 때까지 꺼 둔다
-	@Value("${order.pay.split.enabled:false}")
-	private boolean splitEnabled;
-
 	/**
 	 * 바깥 트랜잭션 없이 부른다. 상품 HTTP(종목·키트 옵션)·회원 HTTP(크루원 확인)와 판매 수 줄 만들기는 잠그기 전에 끝낸다
-	 * 이미 결제 중인 주문이면 아무것도 부르지 않고 지금 주문을 돌려준다(202, 스위치와 상관없이)
+	 * 이미 결제 중인 주문이면 아무것도 부르지 않고 지금 주문을 돌려준다(202)
 	 */
 	public OrderPayResult pay(long memberId, long orderId, List<Long> kitOptionIds, LocalDateTime now) {
 		Prepared prepared = prepare(memberId, orderId, kitOptionIds, now);
 		if (prepared == Prepared.PAYING) {
 			return pending(memberId, orderId);
-		}
-		if (!splitEnabled) {
-			OrderPayResult result = transactionTemplate.execute(status -> payLocked(memberId, orderId, prepared, now));
-			return result != null ? result : pending(memberId, orderId);
 		}
 		Paying paying = transactionTemplate.execute(status -> startPaying(memberId, orderId, prepared, now));
 		if (paying.done() != null) {
@@ -99,7 +90,7 @@ public class OrderPayUseCase {
 		if (paying.alreadyPaying()) {
 			return pending(memberId, orderId);
 		}
-		OrderPayResult result = drive(paying, now);
+		OrderPayResult result = drive(paying, now, false);
 		return result != null ? result : pending(memberId, orderId);
 	}
 
@@ -123,7 +114,7 @@ public class OrderPayUseCase {
 			}
 			return Paying.of(order);
 		});
-		return paying != null && drive(paying, now) != null;
+		return paying != null && drive(paying, now, true) != null;
 	}
 
 	/**
@@ -133,12 +124,21 @@ public class OrderPayUseCase {
 	 * 예치금 거절(잔액 부족, 4xx) → 결제 취소는 부르지 않는다(차감되지 않았다)
 	 * 자리 기한 지남 → 결제 취소 뒤 되돌린다. 주문은 결제 대기로 돌아가 만료 정리가 기존처럼 끝낸다
 	 * (예치금 결제 취소는 같은 주문의 결제를 영구히 막으므로, 결과를 모를 때는 부르지 않는다)
+	 * 예치금 결제 동시 호출 자리를 못 받으면(PaymentBusyException, 예치금을 부르지 않음) 요청은 되돌리고 503,
+	 * 재확인 배치(recheck=true)는 결제 중으로 둔다: 앞선 시도의 결과를 아직 모르므로 돈이 빠졌을 수 있다
 	 */
-	private OrderPayResult drive(Paying paying, LocalDateTime now) {
+	private OrderPayResult drive(Paying paying, LocalDateTime now, boolean recheck) {
 		long orderId = paying.orderId();
 		WalletPayResult payment;
 		try {
 			payment = walletPort.pay(orderId, paying.memberId(), paying.amount());
+		} catch (PaymentBusyException exception) {
+			if (recheck) {
+				log.warn("예치금 결제 동시 호출 자리를 받지 못해 결제 중으로 두고 다음 회차에 다시 봅니다. orderId={}", orderId);
+				return null;
+			}
+			revert(paying);
+			throw exception;
 		} catch (OrderNotPayableException | ExternalServiceRejectedException exception) {
 			revert(paying);
 			throw exception;
@@ -382,40 +382,6 @@ public class OrderPayUseCase {
 			throw new OrderNotPayableException(STATE_CHANGED_MESSAGE);
 		}
 		return participation;
-	}
-
-	// 옛 결제 흐름(스위치 꺼짐): 판매 수 +1부터 확정까지 한 트랜잭션. 결제 중인 주문을 만나면 null(202로 지금 주문을 준다)
-	private OrderPayResult payLocked(long memberId, long orderId, Prepared prepared, LocalDateTime now) {
-		Order order = lockPayable(memberId, orderId);
-		// 앞 요청이 이미 결제했으면 다시 차감하지 않고 그대로 돌려준다 (같은 결제 요청 두 번)
-		if (order.isPaid()) {
-			return OrderPayResult.alreadyPaid(order.toDto());
-		}
-		if (order.isPaying()) {
-			return null;
-		}
-		Participation participation = checkLocked(order, prepared, now);
-		// 다른 확인을 모두 끝낸 뒤, 예치금 바로 전에 판매 수를 센다. 늘린 판매 수 줄은 이 트랜잭션이 끝날 때까지 잠겨
-		// 같은 옵션의 다른 결제가 기다리므로(예치금·자리 판매 HTTP 동안), 잠그는 시간을 줄이려고 맨 뒤에 둔다
-		kitOptionSaleUseCase.reserve(prepared.kitOptions());
-
-		WalletPayResult payment = walletPort.pay(order.getId(), memberId, order.getTotalAmount());
-		if (payment.outcome() == WalletPayResult.Outcome.INSUFFICIENT_BALANCE) {
-			// 주문과 자리는 그대로 둔다. 기한 안에 충전하고 같은 주문으로 다시 결제한다 (충전은 D PRO-81·82)
-			throw new InsufficientBalanceException(payment.shortage());
-		}
-
-		if (seatHoldPort.sell(order.participationId()) == SeatSellResult.EXPIRED) {
-			// 차감은 됐는데 자리가 기한을 넘겼다. 돈을 돌려주고 결제를 거절한다. 주문은 만료 정리가 EXPIRED로 끝낸다
-			walletPort.cancelPayment(order.getId(), memberId);
-			throw OrderNotPayableException.deadlinePassed("결제 기한이 지나 결제하지 못했습니다. 빠져나간 예치금은 돌려드렸습니다.");
-		}
-
-		// 키트가 있으면 이 때 참가 신청의 배송지로 발송 대기 배송을 만든다 (BUK-6)
-		order.markPaid(now, participation.getParticipant().getShippingAddress());
-		participation.markConfirmed(now);
-		kitOptionSaleUseCase.saveChoices(participation.getId(), prepared.kitOptions());
-		return OrderPayResult.paid(order.toDto());
 	}
 
 	/**

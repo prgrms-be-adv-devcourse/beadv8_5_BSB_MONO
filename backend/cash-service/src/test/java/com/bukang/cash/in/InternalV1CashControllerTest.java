@@ -50,11 +50,14 @@ import com.bukang.cash.out.wallet.WalletLedgerRepository;
 import com.bukang.cash.out.wallet.WalletRepository;
 import com.bukang.cash.out.withdrawal.WalletWithdrawalItemRepository;
 import com.bukang.cash.out.withdrawal.WalletWithdrawalRepository;
+import com.bukang.common.global.web.InternalKeyHeader;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class InternalV1CashControllerTest {
+	// application-test.yaml의 internal.api-key
+	private static final String INTERNAL_KEY = "test-internal-api-key";
 	private static final long CUSTOMER_ID = 3;
 	private static final long ORDER_ID = 100;
 
@@ -117,6 +120,7 @@ class InternalV1CashControllerTest {
 	@DisplayName("정산이 청구 ID와 금액으로 가상계좌를 요청하면 발급한 은행 이름과 계좌번호를 돌려준다 (가짜 PG)")
 	void issueClaimVirtualAccount() throws Exception {
 		mockMvc.perform(post("/internal/v1/cash/claims/{claimCode}/virtual-account", "RC-20261214-0A3F")
+				.header(InternalKeyHeader.NAME, INTERNAL_KEY)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"amount\": 400000}"))
 			.andExpect(status().isOk())
@@ -204,6 +208,7 @@ class InternalV1CashControllerTest {
 	@DisplayName("회원 ID나 금액이 없으면 400이다")
 	void invalidRequest() throws Exception {
 		mockMvc.perform(post("/internal/v1/cash/payments/" + ORDER_ID)
+				.header(InternalKeyHeader.NAME, INTERNAL_KEY)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{}"))
 			.andExpect(status().isBadRequest());
@@ -389,6 +394,7 @@ class InternalV1CashControllerTest {
 	@DisplayName("정산 지급 요청에 필수 값이 없으면 400이다")
 	void payoutInvalidRequest() throws Exception {
 		mockMvc.perform(post("/internal/v1/cash/payouts/904")
+				.header(InternalKeyHeader.NAME, INTERNAL_KEY)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{}"))
 			.andExpect(status().isBadRequest());
@@ -407,13 +413,23 @@ class InternalV1CashControllerTest {
 	}
 
 	@Test
+	@DisplayName("내부 인증 키 없이 내부 API를 부르면 401로 막는다")
+	void rejectsWithoutInternalKey() throws Exception {
+		mockMvc.perform(get("/internal/v1/cash/wallets/{memberId}/balance", CUSTOMER_ID))
+			.andExpect(status().isUnauthorized())
+			.andExpect(jsonPath("$.code").value("CASH_INTERNAL_KEY_INVALID"));
+	}
+
+	@Test
 	@DisplayName("회원 잔액 조회는 지갑 잔액을 주고, 지갑이 없는 회원은 404가 아니라 0원을 준다")
 	void balanceForWithdrawal() throws Exception {
-		mockMvc.perform(get("/internal/v1/cash/wallets/{memberId}/balance", CUSTOMER_ID))
+		mockMvc.perform(get("/internal/v1/cash/wallets/{memberId}/balance", CUSTOMER_ID)
+			.header(InternalKeyHeader.NAME, INTERNAL_KEY))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.message").value("잔액을 조회했습니다."))
 			.andExpect(jsonPath("$.data.balance").value(10_000));
-		mockMvc.perform(get("/internal/v1/cash/wallets/{memberId}/balance", 999))
+		mockMvc.perform(get("/internal/v1/cash/wallets/{memberId}/balance", 999)
+			.header(InternalKeyHeader.NAME, INTERNAL_KEY))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.balance").value(0));
 	}
@@ -421,7 +437,8 @@ class InternalV1CashControllerTest {
 	@Test
 	@DisplayName("경로의 회원 ID가 숫자가 아니면 400 INVALID_REQUEST로 응답한다")
 	void balanceWithNonNumericMemberId() throws Exception {
-		mockMvc.perform(get("/internal/v1/cash/wallets/abc/balance"))
+		mockMvc.perform(get("/internal/v1/cash/wallets/abc/balance")
+			.header(InternalKeyHeader.NAME, INTERNAL_KEY))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
 			.andExpect(jsonPath("$.message").value("요청 값의 형식이 올바르지 않습니다."));
@@ -479,18 +496,21 @@ class InternalV1CashControllerTest {
 
 	private ResultActions resolveWithdrawalItem(long itemId, String body) throws Exception {
 		return mockMvc.perform(post("/internal/v1/cash/withdrawal-items/{itemId}/resolve", itemId)
+			.header(InternalKeyHeader.NAME, INTERNAL_KEY)
 			.contentType(MediaType.APPLICATION_JSON)
 			.content(body));
 	}
 
 	private ResultActions issueClaimVirtualAccount(String claimCode, String body) throws Exception {
 		return mockMvc.perform(post("/internal/v1/cash/claims/{claimCode}/virtual-account", claimCode)
+			.header(InternalKeyHeader.NAME, INTERNAL_KEY)
 			.contentType(MediaType.APPLICATION_JSON)
 			.content(body));
 	}
 
 	private ResultActions pay(long orderId, long memberId, long amount) throws Exception {
 		return mockMvc.perform(post("/internal/v1/cash/payments/" + orderId)
+			.header(InternalKeyHeader.NAME, INTERNAL_KEY)
 			.contentType(MediaType.APPLICATION_JSON)
 			.content("{\"memberId\": %d, \"amount\": %d}".formatted(memberId, amount)));
 	}
@@ -498,12 +518,14 @@ class InternalV1CashControllerTest {
 
 	private ResultActions cancelPayment(long orderId, long memberId) throws Exception {
 		return mockMvc.perform(post("/internal/v1/cash/payments/" + orderId + "/cancel")
+			.header(InternalKeyHeader.NAME, INTERNAL_KEY)
 			.contentType(MediaType.APPLICATION_JSON)
 			.content("{\"memberId\": %d}".formatted(memberId)));
 	}
 
 	private ResultActions refund(long orderId, long memberId) throws Exception {
 		return mockMvc.perform(post("/internal/v1/cash/payments/" + orderId + "/refund")
+			.header(InternalKeyHeader.NAME, INTERNAL_KEY)
 			.contentType(MediaType.APPLICATION_JSON)
 			.content("{\"memberId\": %d}".formatted(memberId)));
 	}
@@ -511,6 +533,7 @@ class InternalV1CashControllerTest {
 	private ResultActions payout(long payoutId, long sellerId, String payoutStage, long settlementAmount,
 		long feeAmount) throws Exception {
 		return mockMvc.perform(post("/internal/v1/cash/payouts/" + payoutId)
+			.header(InternalKeyHeader.NAME, INTERNAL_KEY)
 			.contentType(MediaType.APPLICATION_JSON)
 			.content(("{\"sellerId\": %d, \"payoutStage\": \"%s\", \"settlementAmount\": %d, \"feeAmount\": %d}")
 				.formatted(sellerId, payoutStage, settlementAmount, feeAmount)));

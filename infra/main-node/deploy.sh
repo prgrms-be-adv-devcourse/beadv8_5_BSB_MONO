@@ -2,7 +2,7 @@
 # 메인 EC2의 k3s에 앱을 배포한다. GitHub Actions(k8s-cd.yml)가 SSM으로 이 스크립트를 부른다 (손으로 실행해도 된다)
 #   1. 저장소를 배포할 커밋으로 맞춘다 (main 또는 main에 머지된 커밋만)
 #   2. Parameter Store(/crewrun/prod/*)에서 비밀값을 읽어 secret.yaml을 만든다 (꼭 채움 키가 비면 멈춘다)
-#   3. GHCR 이미지를 받을 로그인 정보(Secret ghcr-pull)를 만든다
+#   3. GHCR 이미지를 받을 로그인 정보(Secret ghcr-pull)와 지표 수집기 비밀번호(Secret monitoring-remote-write)를 만든다
 #   4. 앱 이미지 태그를 그 커밋 SHA로 바꾸고, 설정이 바뀌었으면 Pod가 다시 뜨게 표시를 붙여 적용한다
 #   5. 모든 Deployment가 새 Pod로 바뀔 때까지 기다린다 (실패하면 Pod 상태를 찍고 실패로 끝난다)
 #   끝나면(실패해도) secret.yaml과 임시 파일을 지운다
@@ -11,8 +11,18 @@
 #   sudo bash /opt/crewrun/infra/main-node/deploy.sh main
 #   sudo bash /opt/crewrun/infra/main-node/deploy.sh <커밋 SHA>   # Actions가 쓰는 방식
 # 이미지는 GitHub Actions가 커밋 SHA 태그로 GHCR에 먼저 올려 둔다. 그 커밋의 이미지가 없으면 ImagePullBackOff가 난다
+#
+# 이 스크립트는 1단계에서 git checkout으로 자기 파일을 바꾼다. bash는 파일을 읽으면서 실행하므로
+#   - 본문을 main() 함수로 감싸 맨 끝에서 부른다 → 파일을 끝까지 읽은 뒤 실행해 도중에 바뀌어도 꼬이지 않는다
+#   - checkout 뒤 이 파일이 바뀌었으면 배포할 커밋의 deploy.sh로 한 번 다시 실행한다 (1-1단계)
+#   (2026-11-16: 이 처리가 없어 옛 흐름으로 배포되어 수집기 비밀번호 Secret과 새 앱 inquiry-service가 빠졌다)
 set -euo pipefail
 
+SELF="$(readlink -f "${BASH_SOURCE[0]}")"
+# checkout 전 이 파일의 내용 지문. 1-1단계에서 바뀌었는지 비교한다
+SELF_SUM="$(sha256sum "$SELF" | cut -d' ' -f1)"
+
+main() {
 REF="${1:?배포할 main 또는 main에 들어간 커밋 SHA를 주세요. 예: deploy.sh main}"
 APP_DIR="${APP_DIR:-/opt/crewrun}"
 NAMESPACE=crewrun
@@ -22,7 +32,7 @@ REGISTRY=ghcr.io/prgrms-be-adv-devcourse
 APPS=(gateway member-service cash-service payout-service file-service order-service
 	product-service queue-service notification-service inquiry-service board-service ai-service web)
 # 비면 앱이 뜨지 않거나 저장된 데이터를 읽지 못하는 키
-REQUIRED=(MYSQL_USER MYSQL_PASS JWT_SECRET CRYPTO_HMAC_KEY CRYPTO_PASSWORD CRYPTO_SALT)
+REQUIRED=(MYSQL_USER MYSQL_PASS JWT_SECRET CRYPTO_HMAC_KEY CRYPTO_PASSWORD CRYPTO_SALT INTERNAL_API_KEY)
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 
 log() { echo "[deploy] $*"; }
@@ -52,6 +62,14 @@ git checkout --quiet --detach "$TARGET"
 SHA=$(git rev-parse HEAD)
 log "배포 커밋: ${SHA:0:8} $(git log -1 --format=%s)"
 
+# 1-1. 배포할 커밋에서 deploy.sh가 바뀌었으면 그 deploy.sh로 다시 실행한다
+#   지금 도는 것은 checkout 전 내용이라, 그대로 가면 새로 더한 단계·앱이 이번 배포에서 빠진다
+#   커밋 SHA로 넘겨 같은 커밋을 다시 맞추고, DEPLOY_REEXEC로 한 번만 다시 실행한다 (secret.yaml을 만들기 전이라 지울 것이 없다)
+if [ "${DEPLOY_REEXEC:-}" != "$SHA" ] && [ "$(sha256sum "$SELF" | cut -d' ' -f1)" != "$SELF_SUM" ]; then
+	log "deploy.sh가 바뀌어 ${SHA:0:8}의 deploy.sh로 다시 실행"
+	DEPLOY_REEXEC="$SHA" exec bash "$SELF" "$SHA"
+fi
+
 # 2. 비밀값 → secret.yaml
 #    키 목록은 secret.yaml.example에서 읽는다. Parameter Store에 없는 키는 빈 값으로 넣는다 (앱 기본값이 없는 키도 있어 키 자체는 꼭 있어야 한다)
 #    JSON으로 만든다(YAML로 읽힌다). 여러 줄 값(GA4 서비스 계정 키 등)도 그대로 들어간다
@@ -80,6 +98,21 @@ kubectl get namespace "$NAMESPACE" >/dev/null 2>&1 || kubectl create namespace "
 kubectl -n "$NAMESPACE" create secret generic ghcr-pull --type=kubernetes.io/dockerconfigjson \
 	--from-file=.dockerconfigjson="$WORK/dockerconfig.json" --dry-run=client -o yaml | kubectl apply -f -
 rm -f "$WORK/dockerconfig.json"
+
+# 3-1. 지표 수집기(metrics-agent)가 개인 AWS EC2의 Prometheus로 보낼 때 쓰는 비밀번호 (BUK-258)
+#   2단계에서 읽어 둔 PARAMS에서 이 키만 골라 따로 Secret을 만든다
+#   secret.yaml.example에 키가 없어 app-secret에는 들어가지 않는다 → 앱 12개의 환경 변수로 퍼지지 않는다
+#   값이 없으면 경고만 하고 배포는 계속한다. 수집기는 Secret 없이도 뜨고 보내기만 실패한다 (metrics-agent.yaml의 optional)
+RW_PASSWORD_PARAM="$PARAM_PATH/MONITORING_RW_PASSWORD"
+# -j: 끝에 줄바꿈을 붙이지 않는다. 값은 파일로만 다루고 화면에 찍지 않는다
+jq -j --arg name "$RW_PASSWORD_PARAM" '.[] | select(.k == $name) | .v' <<<"$PARAMS" > "$WORK/rw-password"
+if [ -s "$WORK/rw-password" ]; then
+	kubectl -n "$NAMESPACE" create secret generic monitoring-remote-write \
+		--from-file=password="$WORK/rw-password" --dry-run=client -o yaml | kubectl apply -f -
+else
+	log "지표 수집기 비밀번호가 없어 지표를 보내지 못합니다 (앱 배포는 계속): $RW_PASSWORD_PARAM"
+fi
+rm -f "$WORK/rw-password"
 
 # 4. 이미지 태그와 설정 표시를 덧붙인 임시 kustomization을 만들어 적용한다 (저장소 파일은 고치지 않는다)
 #    설정 표시: app-config·Secret이 바뀌면 값이 달라져 Pod가 다시 뜬다 (환경변수는 Pod가 시작할 때만 읽으므로)
@@ -118,3 +151,8 @@ if [ "${#FAILED[@]}" -gt 0 ]; then
 fi
 kubectl -n "$NAMESPACE" get pods
 log "완료: ${SHA:0:8}"
+}
+
+# 파일을 끝까지 읽은 뒤 실행한다 (위 설명). exit로 끝내 이 뒤에 무엇이 붙어도 읽지 않는다
+main "$@"
+exit

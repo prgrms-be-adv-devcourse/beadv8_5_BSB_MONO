@@ -120,7 +120,7 @@ class PayoutCreateUseCaseFailureRecordTest {
 	private PayoutCreateStepUseCase realStep() {
 		return new PayoutCreateStepUseCase(payoutRepository, new BusinessDayCalendar(),
 			new PayoutLedgerUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository),
-			new PayoutHoldUseCase(payoutRepository, payoutHoldRepository, new BusinessDayCalendar()));
+			PayoutHoldUseCases.withoutNotification(payoutRepository, payoutHoldRepository, new BusinessDayCalendar()));
 	}
 
 	// 최종 정산 내역 저장(PayoutCreateStepUseCase)이 exception으로 실패한다

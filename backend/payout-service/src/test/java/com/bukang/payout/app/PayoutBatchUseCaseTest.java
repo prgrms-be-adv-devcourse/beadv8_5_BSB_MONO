@@ -63,6 +63,7 @@ class PayoutBatchUseCaseTest {
 	private final PayoutReconcileUseCase reconcileUseCase = mock(PayoutReconcileUseCase.class);
 	private final PayoutPayUseCase payUseCase = mock(PayoutPayUseCase.class);
 	private final PayoutClaimUseCase claimUseCase = mock(PayoutClaimUseCase.class);
+	private final PayoutTaxInvoiceUseCase taxInvoiceUseCase = mock(PayoutTaxInvoiceUseCase.class);
 	private PayoutBatchUseCase useCase;
 
 	@BeforeEach
@@ -70,7 +71,7 @@ class PayoutBatchUseCaseTest {
 		SchedulerLockConfig lockConfig = new SchedulerLockConfig();
 		useCase = new PayoutBatchUseCase(
 			lockConfig.lockingTaskExecutor(lockConfig.lockProvider(dataSource, "payout_shedlock")),
-			createUseCase, reconcileUseCase, payUseCase, claimUseCase, payoutBatchRunRepository);
+			createUseCase, reconcileUseCase, payUseCase, claimUseCase, taxInvoiceUseCase, payoutBatchRunRepository);
 		given(createUseCase.run(any(), any())).willReturn(new PayoutCreateResultDto(TODAY, TODAY, 3, 1, 0));
 		given(payUseCase.run(any(), any())).willReturn(new PayoutPayResultDto(TODAY, 5, 0, 0, 0));
 		given(claimUseCase.run(any(), any())).willReturn(new ClaimRunResult(1, 1, 0));

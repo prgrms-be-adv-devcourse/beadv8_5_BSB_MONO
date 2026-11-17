@@ -14,7 +14,8 @@ data:
 
   MYSQL_HOST: bukang-db
   MYSQL_PORT: "3306"
-  MYSQL_DB: bukang-db
+  # MYSQL_DB는 여기 두지 않는다. 없으면 서비스마다 application-prod.yaml의 기본값(crewrun_<서비스>)을 쓴다 (BUK-238)
+  # 운영(aws)에 넣으면 모든 서비스가 그 DB 하나로 붙는다. 로컬 k3d만 overlays/local에서 bukang-db를 넣는다
 
   # Redpanda가 앱에 알려 주는 주소(internal 리스너)와 같아야 한다
   KAFKA_BOOTSTRAP_SERVERS: bukang-kafka:29092

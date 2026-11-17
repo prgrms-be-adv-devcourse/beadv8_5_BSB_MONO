@@ -28,6 +28,7 @@ Service 이름은 compose의 컨테이너 이름(`bukang-*`)과 같습니다. �
 | `base/edge/` | 입구 nginx(Deployment·Service·k8s용 default.conf)와 Ingress |
 | `overlays/local/` | k3d용: 인프라 이름을 내 PC로 잇는 Service, Secret(`secret.yaml`, git 제외), Kafka 포트를 여는 compose 덮어쓰기 |
 | `overlays/aws/` | 운영용 (BUK-220에서 만든다) |
+| `overlays/aws/monitoring/` | 운영 지표 수집기(Prometheus 에이전트 모드)와 메인 EC2 node-exporter. 지표는 개인 AWS EC2로 보낸다 (BUK-258, `infra/monitoring-node`) |
 | `scripts/local-images.sh` | 이미지를 빌드해 k3d에 직접 넣는다 |
 | `scripts/local-apply.sh` | base + overlays/local을 합쳐 k3d에 적용한다 (`--wait`이면 다 뜰 때까지 기다림) |
 

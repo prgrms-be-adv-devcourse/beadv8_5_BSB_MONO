@@ -6,6 +6,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -13,6 +15,7 @@ import org.springframework.data.jpa.repository.Query;
 import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutStage;
 import com.bukang.payout.domain.PayoutStatus;
+import com.bukang.payout.dto.PayoutStatusSummaryDto;
 
 import jakarta.persistence.LockModeType;
 
@@ -67,6 +70,18 @@ public interface PayoutRepository extends JpaRepository<Payout, Long>, PayoutIte
 	@Query("select p from Payout p where p.raceId = :raceId order by p.id")
 	List<Payout> findForUpdateByRaceId(long raceId);
 
+	// 지급보류 걸기 · 풀기: 정산 내역 하나를 잠가서 읽는다 (BUK-242)
+	// 겹친 두 요청이 서로의 보류를 못 본 채 상태를 정하면, 보류가 남았는데 지급 예정이 되거나 보류가 없는데 지급보류로 남는다
+	// 트랜잭션의 첫 문장에서 부른다. 일반 조회가 먼저 나가면 잠금을 기다린 뒤에도 옛 보류 목록을 읽을 수 있다
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("select p from Payout p where p.id = :id")
+	Optional<Payout> findByIdForUpdate(long id);
+
+	// 지급보류 풀기: 보류가 걸린 정산 내역을 잠가서 읽는다. 보류 행을 먼저 일반 조회하지 않으려고 한 번에 찾는다 (BUK-242)
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("select p from Payout p join PayoutHold h on h.payout = p where h.id = :holdId")
+	Optional<Payout> findByHoldIdForUpdate(long holdId);
+
 	// 정산 ID(ST-)로 찾기 (BUK-109): 관리자는 전체에서, 판매자는 자기 정산 내역 안에서만 찾는다. payout_code는 유일하다
 	Optional<Payout> findByPayoutCode(String payoutCode);
 
@@ -106,4 +121,35 @@ public interface PayoutRepository extends JpaRepository<Payout, Long>, PayoutIte
 
 	// 판매자 요약: 지급보류 중인 정산 내역 수. 보류가 여러 개 걸린 정산 내역도 한 건으로 센다 (BUK-67 H3)
 	long countBySellerIdAndStatus(long sellerId, PayoutStatus status);
+
+	// 수수료 세금계산서 대상 (BUK-246): 기간 안에 지급 완료된 정산 내역의 수수료를 판매자마다 더한다. 0원인 판매자는 빠진다
+	@Query("""
+		select new com.bukang.payout.out.PayoutRepository$SellerFee(p.sellerId, sum(p.feeAmount)) from Payout p
+		where p.status = com.bukang.payout.domain.PayoutStatus.지급_완료 and p.paidAt >= :from and p.paidAt < :to
+		group by p.sellerId
+		having sum(p.feeAmount) > 0
+		order by p.sellerId
+		""")
+	List<SellerFee> sumPaidFeeBySeller(LocalDateTime from, LocalDateTime to);
+
+	record SellerFee(long sellerId, long feeAmount) {
+	}
+
+	// 관리자 정산 목록 (BUK-168): 지급 예정일 하루의 정산. status가 null이면 그날의 모든 상태
+	@Query(value = """
+		select p from Payout p
+		where p.scheduledPayDate = :payDate and (:status is null or p.status = :status)
+		order by p.id""",
+		countQuery = """
+			select count(p) from Payout p
+			where p.scheduledPayDate = :payDate and (:status is null or p.status = :status)""")
+	Page<Payout> findAdminPayouts(LocalDate payDate, PayoutStatus status, Pageable pageable);
+
+	// 관리자 정산 목록 카드: 그날의 상태별 건수 · 지급액 합. 정산이 없는 상태는 줄이 없다
+	@Query("""
+		select new com.bukang.payout.dto.PayoutStatusSummaryDto(p.status, count(p), coalesce(sum(p.payoutAmount), 0))
+		from Payout p
+		where p.scheduledPayDate = :payDate
+		group by p.status""")
+	List<PayoutStatusSummaryDto> sumByStatusOn(LocalDate payDate);
 }

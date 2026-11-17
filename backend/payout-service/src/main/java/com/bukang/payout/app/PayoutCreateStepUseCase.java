@@ -40,9 +40,20 @@ public class PayoutCreateStepUseCase {
 	 * 1차 정산금 = DOWN(1장 가격 × 40%) × 장수. 참가권 목록은 받지 않는다 (PRO-214)
 	 * 다른 서비스에 묻는 값(대회 이름, 계좌 등록 여부)은 부르는 쪽이 미리 구해 넘긴다
 	 * (다른 서비스 응답을 기다리는 동안 DB 트랜잭션을 열어 두지 않기 위해서다)
+	 * 부르는 쪽이 트랜잭션 밖에서 "1차 · 최종 없음"을 봤어도, 그 사이 최종이 만들어졌을 수 있어 잠근 뒤 다시 본다 (BUK-261)
+	 * @return 만들었으면 true, 잠근 뒤 보니 1차 · 최종이 이미 있어 건너뛰었으면 false
 	 */
 	@Transactional
-	public void createFirst(FirstPayoutSource source, LocalDate refundDeadline, LocalDateTime now) {
+	public boolean createFirst(FirstPayoutSource source, LocalDate refundDeadline, LocalDateTime now) {
+		// 최종 생성 · 회수와 같은 판매자 × 대회 잠금. 최종이 커밋 전이면 끝날 때까지 기다린다
+		payoutLedgerUseCase.lockSellerRace(source.sellerId(), source.raceId());
+		// 최종이 먼저 생겼으면 이미 1차 정산금 차감 0원으로 전액을 계산했으므로, 1차를 만들면 1차 정산금이 한 번 더 나간다
+		if (payoutRepository.existsBySellerIdAndRaceIdAndPayoutStage(source.sellerId(), source.raceId(),
+			PayoutStage.최종_정산)
+			|| payoutRepository.existsBySellerIdAndRaceIdAndPayoutStage(source.sellerId(), source.raceId(),
+			PayoutStage.일차_정산)) {
+			return false;
+		}
 		LocalDate createDate = PayoutCreateDate.firstOf(refundDeadline);
 		Payout payout = Payout.first(source.sellerId(), source.raceId(), source.raceName(),
 			refundDeadline, now, businessDayCalendar);
@@ -51,6 +62,7 @@ public class PayoutCreateStepUseCase {
 
 		save(payout);
 		payoutHoldUseCase.holdNew(payout, source.hasPayoutAccount(), now);
+		return true;
 	}
 
 	/**

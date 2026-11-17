@@ -24,6 +24,9 @@ class ApiV1AiInquiryDraftTest extends AiTestBase {
 		{"draft": "안녕하세요, 크루런이에요. 환불 일정은 [확인 필요: 환불 일정] 확인 후 안내해 드릴게요.",
 		"missing": [{"title": "환불 일정을 넣지 못했어요", "reason": "대회 취소 환불 일정이 자료에 없어요."}]}
 		""";
+	private static final String GLOSSARY = "용어 「취소」·「환불」·「환급」 뜻";
+	// 신청·결제 문의에서 「대회가 취소되면」을 물을 때 붙는 정책 출처
+	private static final String RACE_CANCEL = "정책 5장 2차 2-3·2-5 대회 취소 (잠정)";
 	private static final OpsPort.InquiryOrder ORDER = new OpsPort.InquiryOrder("OD-20261030-0217", 45000L, "PAID",
 		List.of(new OpsPort.InquiryOrderItem("춘천 호수 하프마라톤", "10K", "티셔츠 M", "PREPARING")));
 
@@ -40,7 +43,7 @@ class ApiV1AiInquiryDraftTest extends AiTestBase {
 			.andExpect(jsonPath("$.data.missing[0].title").value("환불 일정을 넣지 못했어요"))
 			.andExpect(jsonPath("$.data.missing[0].reason").value("대회 취소 환불 일정이 자료에 없어요."))
 			.andExpect(jsonPath("$.data.references").value(contains(
-				"주문 OD-20261030-0217", "결제 금액(예치금)", "키트 배송 상태", "용어 「취소」·「환불」·「환급」 뜻")))
+				"주문 OD-20261030-0217", "결제 금액(예치금)", "키트 배송 상태", RACE_CANCEL, GLOSSARY)))
 			.andExpect(jsonPath("$.data.asOf").isNotEmpty());
 
 		assertThat(opsPort.calledMemberIds).containsExactly(ADMIN);
@@ -74,7 +77,7 @@ class ApiV1AiInquiryDraftTest extends AiTestBase {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.missing").isEmpty())
 			.andExpect(jsonPath("$.data.references").value(contains(
-				"주문 OD-1", "용어 「취소」·「환불」·「환급」 뜻")));
+				"주문 OD-1", GLOSSARY)));
 
 		assertThat(opsPort.inquiryScreen).isEqualTo(AiScreen.SELLER);
 		assertThat(chatModel.lastPrompt().getContents()).contains("판매자 센터").doesNotContain("결제 금액:");
@@ -89,7 +92,7 @@ class ApiV1AiInquiryDraftTest extends AiTestBase {
 		draft("admin", ADMIN, 12)
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.references").value(contains(
-				"용어 「취소」·「환불」·「환급」 뜻")));
+				GLOSSARY)));
 		assertThat(chatModel.lastPrompt().getContents()).contains("[주문]\n없음");
 	}
 

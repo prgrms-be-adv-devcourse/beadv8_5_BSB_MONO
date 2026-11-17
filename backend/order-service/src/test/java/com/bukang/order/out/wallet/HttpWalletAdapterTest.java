@@ -10,9 +10,21 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.SocketTimeoutException;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -26,7 +38,9 @@ import org.springframework.web.client.RestClient;
 import com.bukang.order.domain.exception.ExternalServiceRejectedException;
 import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
 import com.bukang.order.domain.exception.OrderNotPayableException;
+import com.bukang.order.domain.exception.PaymentBusyException;
 import com.bukang.order.out.InternalHttpClients;
+import com.sun.net.httpserver.HttpServer;
 
 class HttpWalletAdapterTest {
 	private static final String BASE_URL = "http://cash";
@@ -167,6 +181,103 @@ class HttpWalletAdapterTest {
 				.isInstanceOf(ExternalServiceUnavailableException.class)
 				.hasMessage(HttpWalletAdapter.PAY_UNKNOWN_MESSAGE);
 			assertThat(Duration.ofNanos(System.nanoTime() - startedAt)).isLessThan(Duration.ofSeconds(2));
+		}
+	}
+
+	@Test
+	@DisplayName("결제 동시 호출 제한: 5개가 함께 오면 4개만 예치금에 닿고, 1개는 1초 기다린 뒤 예치금을 부르지 않고 503으로 거절한다")
+	void payConcurrencyLimit() throws Exception {
+		AtomicInteger arrived = new AtomicInteger();
+		CountDownLatch fourArrived = new CountDownLatch(4);
+		CountDownLatch release = new CountDownLatch(1);
+		AtomicBoolean warmUp = new AtomicBoolean(true);
+		HttpServer cash = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
+		cash.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
+		// 들어온 결제를 붙잡아 자리 4개를 다 쥐게 한다 (첫 결제는 몸풀기라 바로 답한다)
+		cash.createContext("/", exchange -> {
+			if (!warmUp.getAndSet(false)) {
+				arrived.incrementAndGet();
+				fourArrived.countDown();
+				awaitQuietly(release);
+			}
+			byte[] body = payResponse("PAID", 0).getBytes(StandardCharsets.UTF_8);
+			exchange.getResponseHeaders().add("Content-Type", "application/json");
+			exchange.sendResponseHeaders(200, body.length);
+			exchange.getResponseBody().write(body);
+			exchange.close();
+		});
+		cash.start();
+		HttpWalletAdapter limited = new HttpWalletAdapter(
+			InternalHttpClients.create("http://localhost:" + cash.getAddress().getPort(), Duration.ofSeconds(10)),
+			4, Duration.ofSeconds(1));
+		// 첫 응답은 JDK가 Date 헤더 시간대 데이터 등을 처음 읽느라 느린 CI에서 5초를 넘기기도 해서, 재기 전에 한 번 보낸다
+		assertThat(limited.pay(ORDER_ID - 1, MEMBER_ID, 50_000)).isEqualTo(WalletPayResult.paid());
+		try (ExecutorService callers = Executors.newVirtualThreadPerTaskExecutor()) {
+			List<Future<WalletPayResult>> calls = new ArrayList<>();
+			long submittedAt = System.nanoTime();
+			for (int i = 0; i < 5; i++) {
+				long orderId = ORDER_ID + i;
+				calls.add(callers.submit(() -> limited.pay(orderId, MEMBER_ID, 50_000)));
+			}
+			assertThat(fourArrived.await(5, TimeUnit.SECONDS)).isTrue();
+
+			// 나머지 하나는 1초 기다린 뒤 거절된다. 그동안 예치금에는 4개만 닿아 있다
+			long startedAt = System.nanoTime();
+			Future<WalletPayResult> rejected = null;
+			while (rejected == null) {
+				rejected = calls.stream().filter(Future::isDone).findFirst().orElse(null);
+				Thread.sleep(20);
+				assertThat(Duration.ofNanos(System.nanoTime() - startedAt)).isLessThan(Duration.ofSeconds(3));
+			}
+			assertThat(Duration.ofNanos(System.nanoTime() - submittedAt))
+				.isGreaterThanOrEqualTo(Duration.ofMillis(900));
+			assertThatThrownBy(rejected::get).isInstanceOf(ExecutionException.class)
+				.cause().isInstanceOf(PaymentBusyException.class);
+			assertThat(arrived).hasValue(4);
+
+			release.countDown();
+			calls.remove(rejected);
+			for (Future<WalletPayResult> call : calls) {
+				assertThat(call.get(5, TimeUnit.SECONDS)).isEqualTo(WalletPayResult.paid());
+			}
+			assertThat(arrived).hasValue(4);
+		} finally {
+			release.countDown();
+			cash.stop(0);
+		}
+	}
+
+	@Test
+	@DisplayName("결제 동시 호출 제한: 예치금이 5xx·409·잘못된 응답·연결 실패로 끝나도 자리를 돌려준다 (자리 1개, 기다림 없음)")
+	void payPermitReleasedOnFailure() {
+		RestClient.Builder builder = RestClient.builder().baseUrl(BASE_URL);
+		MockRestServiceServer limitedServer = MockRestServiceServer.bindTo(builder).build();
+		HttpWalletAdapter limited = new HttpWalletAdapter(builder.build(), 1, Duration.ZERO);
+		limitedServer.expect(requestTo(PAY_URL)).andRespond(withServerError());
+		limitedServer.expect(requestTo(PAY_URL)).andRespond(withStatus(HttpStatus.CONFLICT));
+		limitedServer.expect(requestTo(PAY_URL)).andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
+		limitedServer.expect(requestTo(PAY_URL)).andRespond(withException(new SocketTimeoutException()));
+		limitedServer.expect(requestTo(PAY_URL))
+			.andRespond(withSuccess(payResponse("PAID", 0), MediaType.APPLICATION_JSON));
+
+		assertThatThrownBy(() -> limited.pay(ORDER_ID, MEMBER_ID, 50_000))
+			.isInstanceOf(ExternalServiceUnavailableException.class);
+		assertThatThrownBy(() -> limited.pay(ORDER_ID, MEMBER_ID, 50_000))
+			.isInstanceOf(OrderNotPayableException.class);
+		assertThatThrownBy(() -> limited.pay(ORDER_ID, MEMBER_ID, 50_000))
+			.isInstanceOf(ExternalServiceUnavailableException.class);
+		assertThatThrownBy(() -> limited.pay(ORDER_ID, MEMBER_ID, 50_000))
+			.isInstanceOf(ExternalServiceUnavailableException.class);
+		// 자리가 새었다면 여기서 PaymentBusyException이 난다
+		assertThat(limited.pay(ORDER_ID, MEMBER_ID, 50_000)).isEqualTo(WalletPayResult.paid());
+		limitedServer.verify();
+	}
+
+	private static void awaitQuietly(CountDownLatch latch) {
+		try {
+			latch.await(10, TimeUnit.SECONDS);
+		} catch (InterruptedException exception) {
+			Thread.currentThread().interrupt();
 		}
 	}
 
