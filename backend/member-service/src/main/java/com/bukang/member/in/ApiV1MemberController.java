@@ -174,6 +174,57 @@ public class ApiV1MemberController {
 				memberFacade.changeMarketingConsent(memberId, marketingConsentRequestDto.agreed())));
 	}
 
+	// 마케팅 동의와 같은 방식으로 따로 켜고 끈다. 동의 변경 이벤트는 보내지 않는다 (CRU-22)
+	@GetMapping("/me/night-marketing-consent")
+	@Operation(summary = "야간 광고 수신 동의 조회",
+		description = "X-Member-Id 헤더의 회원이 야간(밤 9시~아침 8시) 광고 수신에 동의했는지와 마지막으로 정한 시각을 돌려준다. "
+			+ "기록이 없으면 agreed=false, decidedAt=null이다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "조회 성공",
+			content = @Content(examples = @ExampleObject(value = MemberApiExamples.FIND_MARKETING_CONSENT_SUCCESS))),
+		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음 (로그인하지 않은 요청)",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = MemberApiExamples.LOGIN_REQUIRED))),
+		@ApiResponse(responseCode = "404", description = "헤더의 회원이 없거나 탈퇴함",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = MemberApiExamples.MEMBER_NOT_FOUND)))
+	})
+	public ResponseEntity<RsData<MarketingConsentDto>> findNightMarketingConsent(
+		@LoginMemberId long memberId
+	) {
+		return ResponseEntity.ok()
+			.body(RsData.of(HttpStatus.OK, "야간 광고 수신 동의 상태를 조회했습니다.",
+				memberFacade.findNightMarketingConsent(memberId)));
+	}
+
+	@PutMapping("/me/night-marketing-consent")
+	@Operation(summary = "야간 광고 수신 동의 변경",
+		description = "X-Member-Id 헤더의 회원의 야간(밤 9시~아침 8시) 광고 수신 동의를 켜거나 끈다. 바뀌면 동의 기록을 새 줄로 남기고, "
+			+ "지금과 같은 값이면 아무것도 남기지 않고 지금 상태를 그대로 돌려준다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "변경 성공 (같은 값이어도 200)",
+			content = @Content(examples = @ExampleObject(value = MemberApiExamples.CHANGE_MARKETING_CONSENT_SUCCESS))),
+		@ApiResponse(responseCode = "400", description = "agreed 누락 또는 요청 본문 형식 오류",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "agreed 누락", value = MemberApiExamples.CHANGE_MARKETING_CONSENT_INVALID_INPUT),
+				@ExampleObject(name = "요청 본문 형식 오류", value = MemberApiExamples.INVALID_BODY)
+			})),
+		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음 (로그인하지 않은 요청)",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = MemberApiExamples.LOGIN_REQUIRED))),
+		@ApiResponse(responseCode = "404", description = "헤더의 회원이 없거나 탈퇴함",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = MemberApiExamples.MEMBER_NOT_FOUND)))
+	})
+	public ResponseEntity<RsData<MarketingConsentDto>> changeNightMarketingConsent(
+		@LoginMemberId long memberId,
+		@Valid @RequestBody MarketingConsentRequestDto marketingConsentRequestDto
+	) {
+		return ResponseEntity.ok()
+			.body(RsData.of(HttpStatus.OK, "야간 광고 수신 동의를 변경했습니다.",
+				memberFacade.changeNightMarketingConsent(memberId, marketingConsentRequestDto.agreed())));
+	}
+
 	// 탈퇴는 남은 예치금·끝나지 않은 참가권이 없을 때만 바로 끝내고, 줄은 남긴 채 개인정보 칸을 비운다 (BE-022)
 	@DeleteMapping("/me")
 	@Operation(summary = "회원 탈퇴",

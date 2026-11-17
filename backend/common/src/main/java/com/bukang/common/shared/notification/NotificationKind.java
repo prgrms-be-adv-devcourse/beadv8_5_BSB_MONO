@@ -32,5 +32,7 @@ public enum NotificationKind {
 	// 회원이 대회에 문의를 남겼다. 그 대회 판매자에게 알린다 (문의, BUK-136)
 	INQUIRY_RECEIVED,
 	// 문의에 답변이 달렸다. 문의한 회원에게 알린다 (문의, BUK-136)
-	INQUIRY_ANSWERED
+	INQUIRY_ANSWERED,
+	// 마케팅에 동의한 지 2년이 돼 다시 동의할지 묻는다 (회원, CRU-22)
+	MARKETING_RECONSENT
 }

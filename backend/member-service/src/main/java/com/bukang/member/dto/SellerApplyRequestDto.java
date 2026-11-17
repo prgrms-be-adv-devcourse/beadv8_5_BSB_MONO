@@ -51,6 +51,12 @@ public class SellerApplyRequestDto {
 	@NotNull(message = "계좌 명의를 선택해주세요.")
 	private final PayoutAccountHolderType accountHolderType;
 
+	// 판매자 약관 동의는 필수다. 칸이 없거나 false면 400이다 (CRU-22)
+	@Schema(description = "판매자 약관에 동의했으면 true (필수, false면 400)", example = "true")
+	@NotNull(message = "판매자 약관 동의 여부를 보내주세요.")
+	@AssertTrue(message = "판매자 약관에 동의해주세요.")
+	private final Boolean sellerTermsAgreed;
+
 	// 종류에 따라 필수가 달라 필드 애노테이션으로 표현할 수 없어 검사 메서드로 둔다
 	// 요청 JSON과 Swagger 스키마에 칸으로 나오지 않도록 @JsonIgnore를 붙인다
 	@JsonIgnore
