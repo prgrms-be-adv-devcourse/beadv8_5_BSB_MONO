@@ -111,6 +111,10 @@ export const updateBodyCoursesItemImagesItemFileIdMin = 0;
 export const updateBodyCoursesItemImagesItemSortNoMin = 0;
 
 
+export const updateBodyImagesItemFileIdMin = 0;
+
+export const updateBodyImagesItemSortNoMin = 0;
+
 
 
 export const UpdateBody = zod.object({
@@ -146,8 +150,13 @@ export const UpdateBody = zod.object({
   "fileId": zod.int().min(updateBodyCoursesItemImagesItemFileIdMin).describe('업로드 완료된 파일 ID'),
   "fileType": zod.enum(['THUMBNAIL', 'DETAIL', 'COURSE', 'KIT', 'INTRO_VIDEO', 'ROSTER']).describe('파일 용도 (업로드 URL 발급 때 정한 값)'),
   "sortNo": zod.int().min(updateBodyCoursesItemImagesItemSortNoMin).describe('같은 용도 안에서의 노출 순서 (0부터)')
-}).describe('연결할 이미지 하나 (file-service에 업로드를 마친 파일)')).describe('종목 이미지 목록 (대표 이미지 1장 필수, 소개 이미지·소개 영상·코스 안내·키트 이미지는 선택)')
-}).describe('종목 등록·수정 요청')).min(1).describe('종목 목록')
+}).describe('연결할 이미지 하나 (file-service에 업로드를 마친 파일)')).describe('종목 이미지 목록 (소개 이미지·소개 영상·코스 안내·키트 이미지, 대표 이미지는 받지 않음)')
+}).describe('종목 등록·수정 요청')).min(1).describe('종목 목록'),
+  "images": zod.array(zod.object({
+  "fileId": zod.int().min(updateBodyImagesItemFileIdMin).describe('업로드 완료된 파일 ID'),
+  "fileType": zod.enum(['THUMBNAIL', 'DETAIL', 'COURSE', 'KIT', 'INTRO_VIDEO', 'ROSTER']).describe('파일 용도 (업로드 URL 발급 때 정한 값)'),
+  "sortNo": zod.int().min(updateBodyImagesItemSortNoMin).describe('같은 용도 안에서의 노출 순서 (0부터)')
+}).describe('연결할 이미지 하나 (file-service에 업로드를 마친 파일)')).describe('대회에 붙이는 이미지 (대표 이미지 1장)')
 }).describe('대회 등록·수정 요청 (수정할 때도 대회 전체를 보낸다)')
 
 export const UpdateResponse = zod.object({
@@ -481,6 +490,10 @@ export const registerBodyCoursesItemImagesItemFileIdMin = 0;
 export const registerBodyCoursesItemImagesItemSortNoMin = 0;
 
 
+export const registerBodyImagesItemFileIdMin = 0;
+
+export const registerBodyImagesItemSortNoMin = 0;
+
 
 
 export const RegisterBody = zod.object({
@@ -516,8 +529,13 @@ export const RegisterBody = zod.object({
   "fileId": zod.int().min(registerBodyCoursesItemImagesItemFileIdMin).describe('업로드 완료된 파일 ID'),
   "fileType": zod.enum(['THUMBNAIL', 'DETAIL', 'COURSE', 'KIT', 'INTRO_VIDEO', 'ROSTER']).describe('파일 용도 (업로드 URL 발급 때 정한 값)'),
   "sortNo": zod.int().min(registerBodyCoursesItemImagesItemSortNoMin).describe('같은 용도 안에서의 노출 순서 (0부터)')
-}).describe('연결할 이미지 하나 (file-service에 업로드를 마친 파일)')).describe('종목 이미지 목록 (대표 이미지 1장 필수, 소개 이미지·소개 영상·코스 안내·키트 이미지는 선택)')
-}).describe('종목 등록·수정 요청')).min(1).describe('종목 목록')
+}).describe('연결할 이미지 하나 (file-service에 업로드를 마친 파일)')).describe('종목 이미지 목록 (소개 이미지·소개 영상·코스 안내·키트 이미지, 대표 이미지는 받지 않음)')
+}).describe('종목 등록·수정 요청')).min(1).describe('종목 목록'),
+  "images": zod.array(zod.object({
+  "fileId": zod.int().min(registerBodyImagesItemFileIdMin).describe('업로드 완료된 파일 ID'),
+  "fileType": zod.enum(['THUMBNAIL', 'DETAIL', 'COURSE', 'KIT', 'INTRO_VIDEO', 'ROSTER']).describe('파일 용도 (업로드 URL 발급 때 정한 값)'),
+  "sortNo": zod.int().min(registerBodyImagesItemSortNoMin).describe('같은 용도 안에서의 노출 순서 (0부터)')
+}).describe('연결할 이미지 하나 (file-service에 업로드를 마친 파일)')).describe('대회에 붙이는 이미지 (대표 이미지 1장)')
 }).describe('대회 등록·수정 요청 (수정할 때도 대회 전체를 보낸다)')
 
 export const RegisterResponse = zod.unknown()
