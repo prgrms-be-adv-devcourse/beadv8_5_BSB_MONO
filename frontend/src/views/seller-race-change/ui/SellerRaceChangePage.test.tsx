@@ -58,7 +58,10 @@ describe('SellerRaceChangePage 일정 변경', () => {
       raceDate: '2026-11-08T08:00:00',
       title: '2026 용감한 쿠키RUN in 서울',
     })
+    // 지금 연결된 이미지를 그대로 다시 보낸다. 대표 이미지는 대회 쪽에만 둔다 (CRU-6)
+    expect(body?.images.map((i) => i.fileType)).toEqual(['THUMBNAIL'])
     expect(body?.courses[0].images.length).toBeGreaterThan(0)
+    expect(body?.courses[0].images.map((i) => i.fileType)).not.toContain('THUMBNAIL')
   })
 
   it('지금과 같은 날이면 보내지 않고 알려 준다', async () => {
