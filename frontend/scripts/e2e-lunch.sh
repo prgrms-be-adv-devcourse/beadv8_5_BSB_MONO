@@ -90,6 +90,8 @@ env_value() { grep -E "^$1=" "$BACK/.env" 2>/dev/null | tail -1 | cut -d= -f2-; 
 healthy() {
 	local code
 	code=$(curl -s -o /dev/null -m 3 -w '%{http_code}' "http://localhost:$(port_of "$1")/actuator/health")
+	# 11/14 전에 빌드한 게이트웨이 jar에는 actuator가 없어 /actuator/health가 404다. 게이트웨이는 어떤 응답이든 오면 뜬 것으로 본다
+	if [ "$1" = gateway ]; then [ "$code" != 000 ]; return; fi
 	[ "$code" = 200 ] || [ "$code" = 503 ]
 }
 
@@ -331,6 +333,8 @@ case $cmd in
 			touch "$STATE/claude-ok"
 		fi
 		[ -f "$STATE/claude-ok" ] || say "주의: Claude Code 설치와 로그인이 필요해요. 이번에는 자동 수정 없이 테스트만 돌려요"
+		# 오래전에 빌드한 jar로 띄우면 최신 dev와 달라 앱이 다르게 동작한다. 바뀐 모듈만 다시 빌드한다
+		"$0" prepare "$name" || { note "- $(date '+%H:%M') 빌드(prepare) 실패. 위 로그를 확인해 주세요"; exit 1; }
 		say "auto 시작: $name, 마감 $(date -r "$deadline" '+%H:%M' 2>/dev/null || date -d "@$deadline" '+%H:%M')"
 		if ! "$0" pretest "$name"; then
 			note "- $(date '+%H:%M') 프리테스트 실패. 위 로그의 원인 줄을 확인해 주세요. 한 번 더 시도해요"
