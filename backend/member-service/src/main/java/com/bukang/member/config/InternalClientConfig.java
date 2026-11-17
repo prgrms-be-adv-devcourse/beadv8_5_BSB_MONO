@@ -14,8 +14,12 @@ import com.bukang.member.out.order.ActiveTicketPort;
 import com.bukang.member.out.order.CrewPartyStatusPort;
 import com.bukang.member.out.order.HttpActiveTicketAdapter;
 import com.bukang.member.out.order.HttpCrewPartyStatusAdapter;
+import com.bukang.member.out.payout.HttpUnpaidPayoutAdapter;
+import com.bukang.member.out.payout.UnpaidPayoutPort;
 import com.bukang.member.out.product.HttpLowPaymentCrewAdapter;
+import com.bukang.member.out.product.HttpSellerRaceAdapter;
 import com.bukang.member.out.product.LowPaymentCrewPort;
+import com.bukang.member.out.product.SellerRacePort;
 
 /**
  * 다른 서비스 내부 API 클라이언트. 주소는 프로파일별 yaml(member.clients.*)에 있다
@@ -52,6 +56,24 @@ public class InternalClientConfig {
 		@Value("${member.clients.timeout}") Duration timeout
 	) {
 		return new HttpCrewPartyStatusAdapter(InternalHttpClients.create(baseUrl, timeout));
+	}
+
+	// 판매자 탈퇴 전 판매 중인 대회 확인 (CRU-23)
+	@Bean
+	public SellerRacePort sellerRacePort(
+		@Value("${member.clients.product.base-url}") String baseUrl,
+		@Value("${member.clients.timeout}") Duration timeout
+	) {
+		return new HttpSellerRaceAdapter(InternalHttpClients.create(baseUrl, timeout));
+	}
+
+	// 판매자 탈퇴 전 지급 안 된 정산금 확인 (CRU-23)
+	@Bean
+	public UnpaidPayoutPort unpaidPayoutPort(
+		@Value("${member.clients.payout.base-url}") String baseUrl,
+		@Value("${member.clients.timeout}") Duration timeout
+	) {
+		return new HttpUnpaidPayoutAdapter(InternalHttpClients.create(baseUrl, timeout));
 	}
 
 	@Bean

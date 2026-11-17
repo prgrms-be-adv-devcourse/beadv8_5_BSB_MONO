@@ -201,3 +201,6 @@ member:
     # 크루 파티 만들기 제한에 쓰는 결제율 미달 크루 조회 (BUK-187)
     product:
       base-url: http://localhost:8085
+    # 판매자 탈퇴 전 지급 안 된 정산금 확인 (CRU-23)
+    payout:
+      base-url: http://localhost:8082
