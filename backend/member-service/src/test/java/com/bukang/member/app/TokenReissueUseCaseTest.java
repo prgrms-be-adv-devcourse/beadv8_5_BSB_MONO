@@ -85,6 +85,44 @@ class TokenReissueUseCaseTest {
 	}
 
 	@Test
+	@DisplayName("읽기 전용 Refresh Token을 재발급하면 새 Access·Refresh Token도 읽기 전용이다")
+	void keepsReadOnlyWhenRotated() {
+		String readOnlyToken = jwtProvider.issueRefreshToken(MEMBER_ID, FAMILY_ID, NOW.plus(Duration.ofDays(13)), true);
+		given(repository.rotate(eq(MEMBER_ID), any(Rotation.class)))
+			.willReturn(RotationResult.of(RotationOutcome.ROTATED));
+
+		AuthTokens tokens = useCase.reissue(readOnlyToken);
+
+		assertThat(jwtProvider.parse(tokens.accessToken(), TokenType.ACCESS).readOnly()).isTrue();
+		assertThat(jwtProvider.parse(tokens.refreshToken(), TokenType.REFRESH).readOnly()).isTrue();
+	}
+
+	@Test
+	@DisplayName("읽기 전용 Refresh Token을 유예 시간 안에 다시 내면, 다시 서명한 토큰도 읽기 전용이다")
+	void keepsReadOnlyWithinGrace() {
+		String readOnlyToken = jwtProvider.issueRefreshToken(MEMBER_ID, FAMILY_ID, NOW.plus(Duration.ofDays(13)), true);
+		given(repository.rotate(eq(MEMBER_ID), any(Rotation.class)))
+			.willReturn(new RotationResult(RotationOutcome.GRACE, "J-current", NOW.plus(Duration.ofDays(14))));
+
+		AuthTokens tokens = useCase.reissue(readOnlyToken);
+
+		assertThat(jwtProvider.parse(tokens.accessToken(), TokenType.ACCESS).readOnly()).isTrue();
+		assertThat(jwtProvider.parse(tokens.refreshToken(), TokenType.REFRESH).readOnly()).isTrue();
+	}
+
+	@Test
+	@DisplayName("보통 Refresh Token을 재발급하면 읽기 전용이 아니다")
+	void staysWritableWhenRotated() {
+		given(repository.rotate(eq(MEMBER_ID), any(Rotation.class)))
+			.willReturn(RotationResult.of(RotationOutcome.ROTATED));
+
+		AuthTokens tokens = useCase.reissue(presentedToken);
+
+		assertThat(jwtProvider.parse(tokens.accessToken(), TokenType.ACCESS).readOnly()).isFalse();
+		assertThat(jwtProvider.parse(tokens.refreshToken(), TokenType.REFRESH).readOnly()).isFalse();
+	}
+
+	@Test
 	@DisplayName("새 Refresh Token의 만료는 로그인 + 30일을 넘지 않는다")
 	void capsNewTokenAtFamilyExpiry() {
 		Instant familyExpiresAt = NOW.plus(Duration.ofDays(3));

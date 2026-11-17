@@ -176,6 +176,33 @@ class JwtProviderTest {
 			.hasMessageContaining("32바이트");
 	}
 
+	@Test
+	@DisplayName("보통 발급한 토큰은 읽기 전용이 아니다")
+	void tokensAreNotReadOnlyByDefault() {
+		assertThat(provider.parse(provider.issueAccessToken(42L), TokenType.ACCESS).readOnly()).isFalse();
+		assertThat(provider.parse(provider.issueRefreshToken(42L, "family-1", NOW.plus(Duration.ofDays(14))),
+			TokenType.REFRESH).readOnly()).isFalse();
+	}
+
+	@Test
+	@DisplayName("읽기 전용으로 발급한 Access·Refresh Token은 검증한 뒤에도 읽기 전용이다")
+	void readOnlyTokensKeepFlag() {
+		assertThat(provider.parse(provider.issueAccessToken(42L, true), TokenType.ACCESS).readOnly()).isTrue();
+		assertThat(provider.parse(provider.issueRefreshToken(42L, "family-1", NOW.plus(Duration.ofDays(14)), true),
+			TokenType.REFRESH).readOnly()).isTrue();
+		assertThat(provider.parse(provider.reissueRefreshToken(42L, "family-1", "jti-1", NOW.plus(Duration.ofDays(14)),
+			true), TokenType.REFRESH).readOnly()).isTrue();
+	}
+
+	@Test
+	@DisplayName("다른 키로 서명해 읽기 전용 표시를 뺀 토큰은 검증에서 거절된다")
+	void cannotStripReadOnlyWithOtherKey() {
+		JwtProvider other = providerAt(NOW, "jwt-other-secret-key-9999-8888-7777-6666");
+		String forged = other.issueAccessToken(42L);
+
+		assertThatThrownBy(() -> provider.parse(forged, TokenType.ACCESS)).isInstanceOf(InvalidTokenException.class);
+	}
+
 	private static JwtProvider providerAt(Instant now, String secret) {
 		JwtProperties properties = new JwtProperties(secret, Duration.ofMinutes(30), Duration.ofDays(14));
 		return new JwtProvider(properties, Clock.fixed(now, ZoneOffset.UTC));

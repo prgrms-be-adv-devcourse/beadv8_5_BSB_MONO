@@ -103,6 +103,8 @@ class ApiV1AuthLoginTest {
 		String accessToken = JsonPath.read(result.getResponse().getContentAsString(), "$.data.accessToken");
 		JwtClaims accessClaims = jwtProvider.parse(accessToken, TokenType.ACCESS);
 		assertThat(accessClaims.memberId()).isEqualTo(memberId);
+		// 이메일 로그인은 데모 로그인과 달리 읽기 전용이 아니다
+		assertThat(accessClaims.readOnly()).isFalse();
 
 		String setCookie = result.getResponse().getHeader(HttpHeaders.SET_COOKIE);
 		assertThat(setCookie)

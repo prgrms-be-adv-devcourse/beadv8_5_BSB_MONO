@@ -116,12 +116,15 @@ class ApiV1AuthDemoLoginTest {
 
 		String accessToken = JsonPath.read(result.getResponse().getContentAsString(), "$.data.accessToken");
 		assertThat(jwtProvider.parse(accessToken, TokenType.ACCESS).memberId()).isEqualTo(demoMemberId);
+		// 게이트웨이가 쓰기 요청을 막도록 읽기 전용 표시가 붙는다. 재발급할 때도 Refresh Token에서 이어받는다
+		assertThat(jwtProvider.parse(accessToken, TokenType.ACCESS).readOnly()).isTrue();
 
 		assertThat(result.getResponse().getHeader(HttpHeaders.SET_COOKIE))
 			.startsWith("refreshToken=")
 			.contains("Path=/api/v1/auth", "Secure", "HttpOnly", "SameSite=Lax");
 		String refreshToken = result.getResponse().getCookie("refreshToken").getValue();
 		assertThat(jwtProvider.parse(refreshToken, TokenType.REFRESH).memberId()).isEqualTo(demoMemberId);
+		assertThat(jwtProvider.parse(refreshToken, TokenType.REFRESH).readOnly()).isTrue();
 
 		// 이메일 로그인과 같은 발급 경로라 Refresh Token family가 저장되어 회전·재사용 탐지를 그대로 받는다
 		verify(refreshTokenRepository).create(eq(demoMemberId), any(NewFamily.class));
