@@ -68,6 +68,15 @@ class InquiryDraftPolicyTest {
 	}
 
 	@Test
+	@DisplayName("환불 기한 뒤 예외는 주문 판정과 같고(대회 취소·일정 변경 7일), 판매 시작 뒤 기한은 앞당기기만 막는다 (#574 리뷰)")
+	void refundDeadlineMatchesCode() {
+		assertThat(InquiryPolicy.REFUND_DEADLINE.getRules())
+			.contains("예외는 대회 취소와, 대회 일정이 바뀐 날부터 7일 동안의 전액 환불이다.",
+				"판매가 시작된 뒤에는 판매자가 환불 기한을 앞당길 수 없다.")
+			.doesNotContain("환불 기한을 바꿀 수 없다", "전액 환불뿐");
+	}
+
+	@Test
 	@DisplayName("잠정 정책은 아직 없는 기능(본인인증 입력, 결제 요청 알림, 1년 뒤 파기)을 약속하지 않는다")
 	void provisionalPoliciesPromiseNoFutureFeature() {
 		assertThat(Arrays.stream(InquiryPolicy.values()).map(InquiryPolicy::getRules))
