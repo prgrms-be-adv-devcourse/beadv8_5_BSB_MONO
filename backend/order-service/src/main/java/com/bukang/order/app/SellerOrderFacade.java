@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.bukang.order.domain.OrderItemStatus;
 import com.bukang.order.domain.exception.SellerAccessDeniedException;
 import com.bukang.order.dto.SellerKitExportRequestDto;
+import com.bukang.order.dto.SellerOrderDetailDto;
 import com.bukang.order.dto.SellerOrderPageDto;
 import com.bukang.order.dto.SellerPartyPageDto;
 import com.bukang.order.dto.SellerRosterExportRequestDto;
@@ -33,6 +34,10 @@ public class SellerOrderFacade {
 		Long partyId, LocalDate from, LocalDate to, int page, int size) {
 		return sellerOrderQueryUseCase.findOrders(sellerIdOf(memberId), raceId, raceCourseId, status, partyId, from,
 			to, page, size);
+	}
+
+	public SellerOrderDetailDto findOrder(long memberId, long orderItemId) {
+		return sellerOrderQueryUseCase.findOrder(sellerIdOf(memberId), orderItemId);
 	}
 
 	public SellerPartyPageDto findParties(long memberId, long raceId, Long partyId, LocalDate from, LocalDate to,
