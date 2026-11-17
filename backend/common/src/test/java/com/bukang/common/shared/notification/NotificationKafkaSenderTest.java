@@ -8,14 +8,18 @@ import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import org.springframework.kafka.core.KafkaTemplate;
 
 import com.bukang.common.global.json.JsonConverter;
@@ -29,7 +33,9 @@ class NotificationKafkaSenderTest {
 	@SuppressWarnings("unchecked")
 	private final KafkaTemplate<String, String> kafkaTemplate = mock(KafkaTemplate.class);
 	private final JsonConverter jsonConverter = new JsonConverter(JsonMapper.builder().build());
-	private final NotificationKafkaSender sender = new NotificationKafkaSender(kafkaTemplate, jsonConverter);
+	// 운영의 작업 실행기처럼 부른 쪽 쓰레드가 새 쓰레드를 만들어, 그 쓰레드가 부른 쪽 클래스 로더를 이어받는다
+	private final NotificationKafkaSender sender =
+		new NotificationKafkaSender(kafkaTemplate, jsonConverter, new SimpleAsyncTaskExecutor());
 
 	private final NotificationRequestedEvent event = new NotificationRequestedEvent("event-1", 7L,
 		NotificationKind.REFUND_COMPLETED, "환불이 끝났어요", "본문", "/me/deposit", LocalDateTime.of(2026, 11, 4, 9, 30));
@@ -50,6 +56,30 @@ class NotificationKafkaSenderTest {
 		assertThat(new String(record.headers().lastHeader(KafkaMessageId.HEADER).value(),
 			StandardCharsets.UTF_8)).isEqualTo("event-1");
 		assertThat(jsonConverter.fromJson(record.value(), NotificationRequestedEvent.class)).isEqualTo(event);
+	}
+
+	@Test
+	@DisplayName("부른 쪽의 클래스 로더로 보낸다 (jar로 띄우면 공용 ForkJoin 풀 쓰레드는 Kafka 클래스를 찾지 못한다)")
+	@SuppressWarnings("unchecked")
+	void sendsWithCallerClassLoader() throws Exception {
+		CompletableFuture<ClassLoader> sendLoader = new CompletableFuture<>();
+		when(kafkaTemplate.send(any(ProducerRecord.class))).thenAnswer(invocation -> {
+			sendLoader.complete(Thread.currentThread().getContextClassLoader());
+			return new CompletableFuture<>();
+		});
+		// jar로 띄운 앱의 클래스 로더 대신 쓴다
+		ClassLoader appLoader = new URLClassLoader(new URL[0], getClass().getClassLoader());
+		Thread caller = Thread.currentThread();
+		ClassLoader original = caller.getContextClassLoader();
+
+		caller.setContextClassLoader(appLoader);
+		try {
+			sender.send(event);
+		} finally {
+			caller.setContextClassLoader(original);
+		}
+
+		assertThat(sendLoader.get(2, TimeUnit.SECONDS)).isSameAs(appLoader);
 	}
 
 	@Test

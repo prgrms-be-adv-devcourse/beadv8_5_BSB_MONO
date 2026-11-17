@@ -23,6 +23,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -189,13 +190,16 @@ class HttpWalletAdapterTest {
 		AtomicInteger arrived = new AtomicInteger();
 		CountDownLatch fourArrived = new CountDownLatch(4);
 		CountDownLatch release = new CountDownLatch(1);
+		AtomicBoolean warmUp = new AtomicBoolean(true);
 		HttpServer cash = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
 		cash.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
-		// 들어온 결제를 붙잡아 자리 4개를 다 쥐게 한다
+		// 들어온 결제를 붙잡아 자리 4개를 다 쥐게 한다 (첫 결제는 몸풀기라 바로 답한다)
 		cash.createContext("/", exchange -> {
-			arrived.incrementAndGet();
-			fourArrived.countDown();
-			awaitQuietly(release);
+			if (!warmUp.getAndSet(false)) {
+				arrived.incrementAndGet();
+				fourArrived.countDown();
+				awaitQuietly(release);
+			}
 			byte[] body = payResponse("PAID", 0).getBytes(StandardCharsets.UTF_8);
 			exchange.getResponseHeaders().add("Content-Type", "application/json");
 			exchange.sendResponseHeaders(200, body.length);
@@ -206,6 +210,8 @@ class HttpWalletAdapterTest {
 		HttpWalletAdapter limited = new HttpWalletAdapter(
 			InternalHttpClients.create("http://localhost:" + cash.getAddress().getPort(), Duration.ofSeconds(10)),
 			4, Duration.ofSeconds(1));
+		// 첫 응답은 JDK가 Date 헤더 시간대 데이터 등을 처음 읽느라 느린 CI에서 5초를 넘기기도 해서, 재기 전에 한 번 보낸다
+		assertThat(limited.pay(ORDER_ID - 1, MEMBER_ID, 50_000)).isEqualTo(WalletPayResult.paid());
 		try (ExecutorService callers = Executors.newVirtualThreadPerTaskExecutor()) {
 			List<Future<WalletPayResult>> calls = new ArrayList<>();
 			long submittedAt = System.nanoTime();

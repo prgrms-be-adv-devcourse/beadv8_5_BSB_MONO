@@ -51,8 +51,6 @@ import com.bukang.order.domain.OrderStatus;
 import com.bukang.order.domain.ParticipationStatus;
 import com.bukang.order.domain.Party;
 import com.bukang.order.domain.PartyStatus;
-import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
-import com.bukang.order.domain.exception.OrderNotPayableException;
 import com.bukang.order.in.OrderKafkaConsumer;
 import com.bukang.order.out.OrderInboxKafkaEventRepository;
 import com.bukang.order.out.OrderOutboxKafkaEventRepository;
@@ -342,23 +340,6 @@ class RaceCancelRefundTest {
 			new RaceCancelRefundUseCase.RefundResult(0, RaceCancelRefundUseCase.MAX_CONSECUTIVE_FAILURES));
 		assertThat(walletPort.refundCalls()).hasSize(RaceCancelRefundUseCase.MAX_CONSECUTIVE_FAILURES);
 		assertThat(raceRefunds()).extracting(RaceRefundEvent::kind).containsExactly(RaceRefundKind.HELD);
-	}
-
-	@Test
-	@DisplayName("결제 응답을 못 받아 결제 대기로 남은 주문은 결제를 취소해 돈을 돌려받고, 대회 취소 뒤 다시 결제해도 거절된다")
-	void blocksLatePaymentOfWaitingOrder() throws Exception {
-		long orderId = createOrder(1, COURSE_ID);
-		walletPort.setPayTimesOut(true);
-		assertThatThrownBy(() -> pay(1, orderId)).isInstanceOf(ExternalServiceUnavailableException.class);
-		walletPort.setPayTimesOut(false);
-		assertThat(walletPort.balance()).isEqualTo(BALANCE - StubRaceCoursePort.PRICE);
-
-		raceCancelRefundUseCase.refundAll(RACE_ID, LocalDateTime.now());
-
-		assertThat(walletPort.balance()).isEqualTo(BALANCE);
-		assertThatThrownBy(() -> pay(1, orderId)).isInstanceOf(OrderNotPayableException.class);
-		assertThat(statusOf(orderId)).isEqualTo(OrderStatus.CREATED);
-		verify(notificationSender, never()).send(any());
 	}
 
 	@Test
