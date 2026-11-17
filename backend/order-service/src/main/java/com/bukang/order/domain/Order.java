@@ -236,7 +236,7 @@ public class Order extends BaseIdAndTime {
 	// 키트가 있으면 주문 상품을 한 상자로 보낼 발송 대기 배송을 만든다 (BUK-6)
 	// kitShippingAddress는 참가 신청의 배송지다. 키트가 없는 종목은 신청서에 배송지를 남기지 않아 null이다
 	// (ParticipationApplyUseCase.checkShippingAddress가 신청·수정 때 키트 여부에 맞춰 넣고 뺀다)
-	// 옛 결제 흐름(order.pay.split.enabled=false)은 결제 대기에서, 나눈 결제(BUK-232)는 결제 중에서 바꾼다
+	// 결제(BUK-232)는 결제 중에서 바꾼다. 결제 대기에서 바로 바꾸는 것은 도메인 테스트 준비용으로 남겨 둔다
 	public void markPaid(LocalDateTime paidAt, ShippingAddress kitShippingAddress) {
 		if (status != OrderStatus.CREATED && status != OrderStatus.PAYING) {
 			throw new OrderNotPayableException(

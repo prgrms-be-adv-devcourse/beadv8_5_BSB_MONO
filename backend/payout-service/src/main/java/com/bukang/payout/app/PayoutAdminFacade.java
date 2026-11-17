@@ -2,6 +2,7 @@ package com.bukang.payout.app;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -14,6 +15,7 @@ import com.bukang.payout.domain.PayoutCreateFailureType;
 import com.bukang.payout.domain.PayoutHoldReason;
 import com.bukang.payout.domain.PayoutPayCheckResult;
 import com.bukang.payout.domain.PayoutQueryPeriod;
+import com.bukang.payout.domain.PayoutTaxQuarter;
 import com.bukang.payout.domain.exception.PayoutBatchFutureDateException;
 import com.bukang.payout.dto.PayoutAdminClaimsDto;
 import com.bukang.payout.dto.PayoutBatchRunDto;
@@ -21,6 +23,8 @@ import com.bukang.payout.dto.PayoutClaimDto;
 import com.bukang.payout.dto.PayoutCreateFailuresDto;
 import com.bukang.payout.dto.PayoutDto;
 import com.bukang.payout.dto.PayoutHoldDto;
+import com.bukang.payout.dto.PayoutQuarterSalesReportDto;
+import com.bukang.payout.dto.PayoutTaxInvoiceDto;
 import com.bukang.payout.out.PayoutBatchRunRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -44,6 +48,7 @@ public class PayoutAdminFacade {
 	private final PayoutBatchUseCase payoutBatchUseCase;
 	private final PayoutPayCheckUseCase payoutPayCheckUseCase;
 	private final PayoutBatchRunRepository payoutBatchRunRepository;
+	private final PayoutTaxInvoiceQueryUseCase payoutTaxInvoiceQueryUseCase;
 
 	public PayoutHoldDto hold(long memberId, long payoutId, PayoutHoldReason reasonType, String reason,
 		LocalDateTime now) {
@@ -117,5 +122,17 @@ public class PayoutAdminFacade {
 		return payoutBatchRunRepository.findByRunDateBetweenOrderByIdDesc(from, to).stream()
 			.map(PayoutBatchRunDto::from)
 			.toList();
+	}
+
+	// 수수료 세금계산서 발행 현황 (BUK-246). 공급 월 한 달의 발행 완료 · 실패를 판매자 순으로 돌려준다
+	public List<PayoutTaxInvoiceDto> taxInvoices(long memberId, YearMonth month) {
+		payoutAdminVerifyUseCase.verify(memberId);
+		return payoutTaxInvoiceQueryUseCase.monthInvoices(month);
+	}
+
+	// 통신판매중개자 분기 판매 자료 (BUK-246, 부가가치세법 75조). 분기 범위 검사는 PayoutTaxQuarter가 한다
+	public PayoutQuarterSalesReportDto quarterSalesReport(long memberId, int year, int quarter) {
+		payoutAdminVerifyUseCase.verify(memberId);
+		return payoutTaxInvoiceQueryUseCase.quarterSalesReport(new PayoutTaxQuarter(year, quarter));
 	}
 }

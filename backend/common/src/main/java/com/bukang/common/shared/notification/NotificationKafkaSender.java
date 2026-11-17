@@ -6,6 +6,8 @@ import java.util.concurrent.CompletableFuture;
 
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.header.Headers;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
@@ -17,7 +19,6 @@ import com.bukang.common.shared.kafka.KafkaMessageId;
 import com.bukang.common.shared.kafka.KafkaTopics;
 import com.bukang.common.shared.notification.event.NotificationRequestedEvent;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -27,17 +28,29 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class NotificationKafkaSender {
 	private final KafkaTemplate<String, String> kafkaTemplate;
 	private final JsonConverter jsonConverter;
+	private final TaskExecutor taskExecutor;
+
+	// Spring Boot가 만드는 작업 실행기. 쓰레드가 앱 클래스 로더를 이어받아, jar로 띄워도 Kafka 클래스를 찾는다
+	public NotificationKafkaSender(
+		KafkaTemplate<String, String> kafkaTemplate,
+		JsonConverter jsonConverter,
+		@Qualifier("applicationTaskExecutor") TaskExecutor taskExecutor
+	) {
+		this.kafkaTemplate = kafkaTemplate;
+		this.jsonConverter = jsonConverter;
+		this.taskExecutor = taskExecutor;
+	}
 
 	@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
 	public void send(NotificationRequestedEvent event) {
 		// 커밋 뒤 콜백에서 예외가 나면 부른 쪽이 커밋을 실패로 보므로, 메시지를 만드는 일까지 모두 잡는다
 		// 브로커가 없으면 send()가 max.block.ms(기본 60초)까지 멈추므로, 커밋을 마친 요청 쓰레드가 기다리지 않게 따로 보낸다
-		// shortcut: 공용 ForkJoin 풀에서 보낸다. 알림을 보내는 서비스가 늘고 Kafka 장애가 길어지면 전용 실행기로 바꾼다
-		CompletableFuture.supplyAsync(() -> kafkaTemplate.send(record(event)))
+		// 공용 ForkJoin 풀은 쓰지 않는다. 그 쓰레드는 시스템 클래스 로더라 jar 안의 Kafka 클래스를 찾지 못하고,
+		// 처음 보낼 때 Kafka 설정 클래스 초기화가 실패하면 앱을 다시 띄울 때까지 그 앱의 Kafka 전송이 모두 막힌다
+		CompletableFuture.supplyAsync(() -> kafkaTemplate.send(record(event)), taskExecutor)
 			.thenCompose(sent -> sent)
 			.exceptionally(failure -> {
 				log.warn("알림을 보내지 못했습니다 (버림). eventId={}, memberId={}, kind={}, cause={}",

@@ -33,7 +33,7 @@ import com.bukang.order.support.StubSeatHoldPort;
 import com.bukang.order.support.StubWalletPort;
 import com.jayway.jsonpath.JsonPath;
 
-// 결제 나누기(BUK-232) 테스트가 함께 쓰는 준비와 확인. 스위치 켬·끔 테스트가 각자 Spring 설정을 정한다
+// 결제 나누기(BUK-232) 테스트가 함께 쓰는 준비와 확인
 abstract class OrderPaySplitTestSupport {
 	static final String BASE_URL = "/api/v1/order/orders";
 	static final long COURSE_ID = 10;

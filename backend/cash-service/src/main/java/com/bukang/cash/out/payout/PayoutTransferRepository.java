@@ -14,4 +14,6 @@ public interface PayoutTransferRepository extends JpaRepository<PayoutTransfer, 
 	Optional<PayoutTransfer> findByPayoutIdAndTransferType(long payoutId, PayoutTransferType transferType);
 
 	List<PayoutTransfer> findByStatusIn(Collection<PayoutTransferStatus> statuses);
+
+	long countByStatus(PayoutTransferStatus status);
 }

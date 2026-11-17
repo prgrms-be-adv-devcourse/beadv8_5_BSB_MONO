@@ -4,6 +4,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
@@ -14,7 +16,6 @@ import com.bukang.common.shared.file.event.FileLinkRequestedEvent;
 import com.bukang.common.shared.kafka.KafkaMessageId;
 import com.bukang.common.shared.kafka.KafkaTopics;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -24,17 +25,28 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class BoardFileLinkSender {
 	private final KafkaTemplate<String, String> kafkaTemplate;
 	private final JsonConverter jsonConverter;
+	private final TaskExecutor taskExecutor;
+
+	// Spring Boot가 만드는 작업 실행기. 쓰레드가 앱 클래스 로더를 이어받아, jar로 띄워도 Kafka 클래스를 찾는다
+	public BoardFileLinkSender(
+		KafkaTemplate<String, String> kafkaTemplate,
+		JsonConverter jsonConverter,
+		@Qualifier("applicationTaskExecutor") TaskExecutor taskExecutor
+	) {
+		this.kafkaTemplate = kafkaTemplate;
+		this.jsonConverter = jsonConverter;
+		this.taskExecutor = taskExecutor;
+	}
 
 	@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
 	public void send(FileLinkRequestedEvent event) {
 		// 커밋 뒤 콜백에서 예외가 나면 부른 쪽이 커밋을 실패로 보므로, 메시지를 만드는 일까지 모두 잡는다
 		// 브로커가 없으면 send()가 max.block.ms까지 멈추므로, 커밋을 마친 요청 쓰레드가 기다리지 않게 따로 보낸다
-		// shortcut: 공용 ForkJoin 풀에서 보낸다. 글쓰기가 많아지고 Kafka 장애가 길어지면 전용 실행기로 바꾼다
-		CompletableFuture.supplyAsync(() -> kafkaTemplate.send(record(event)))
+		// 공용 ForkJoin 풀은 쓰지 않는다. 그 쓰레드는 시스템 클래스 로더라 jar 안의 Kafka 클래스를 찾지 못한다 (NotificationKafkaSender와 같음)
+		CompletableFuture.supplyAsync(() -> kafkaTemplate.send(record(event)), taskExecutor)
 			.thenCompose(sent -> sent)
 			.exceptionally(failure -> {
 				log.warn("사진 연결 요청을 보내지 못했습니다 (글은 저장됨). refs={}, cause={}", event.refs(), failure.toString());

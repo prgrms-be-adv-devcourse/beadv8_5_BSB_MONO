@@ -11,8 +11,18 @@
 #   sudo bash /opt/crewrun/infra/main-node/deploy.sh main
 #   sudo bash /opt/crewrun/infra/main-node/deploy.sh <커밋 SHA>   # Actions가 쓰는 방식
 # 이미지는 GitHub Actions가 커밋 SHA 태그로 GHCR에 먼저 올려 둔다. 그 커밋의 이미지가 없으면 ImagePullBackOff가 난다
+#
+# 이 스크립트는 1단계에서 git checkout으로 자기 파일을 바꾼다. bash는 파일을 읽으면서 실행하므로
+#   - 본문을 main() 함수로 감싸 맨 끝에서 부른다 → 파일을 끝까지 읽은 뒤 실행해 도중에 바뀌어도 꼬이지 않는다
+#   - checkout 뒤 이 파일이 바뀌었으면 배포할 커밋의 deploy.sh로 한 번 다시 실행한다 (1-1단계)
+#   (2026-11-16: 이 처리가 없어 옛 흐름으로 배포되어 수집기 비밀번호 Secret과 새 앱 inquiry-service가 빠졌다)
 set -euo pipefail
 
+SELF="$(readlink -f "${BASH_SOURCE[0]}")"
+# checkout 전 이 파일의 내용 지문. 1-1단계에서 바뀌었는지 비교한다
+SELF_SUM="$(sha256sum "$SELF" | cut -d' ' -f1)"
+
+main() {
 REF="${1:?배포할 main 또는 main에 들어간 커밋 SHA를 주세요. 예: deploy.sh main}"
 APP_DIR="${APP_DIR:-/opt/crewrun}"
 NAMESPACE=crewrun
@@ -51,6 +61,14 @@ git merge-base --is-ancestor "$TARGET" origin/main || fail "main에 들어간 �
 git checkout --quiet --detach "$TARGET"
 SHA=$(git rev-parse HEAD)
 log "배포 커밋: ${SHA:0:8} $(git log -1 --format=%s)"
+
+# 1-1. 배포할 커밋에서 deploy.sh가 바뀌었으면 그 deploy.sh로 다시 실행한다
+#   지금 도는 것은 checkout 전 내용이라, 그대로 가면 새로 더한 단계·앱이 이번 배포에서 빠진다
+#   커밋 SHA로 넘겨 같은 커밋을 다시 맞추고, DEPLOY_REEXEC로 한 번만 다시 실행한다 (secret.yaml을 만들기 전이라 지울 것이 없다)
+if [ "${DEPLOY_REEXEC:-}" != "$SHA" ] && [ "$(sha256sum "$SELF" | cut -d' ' -f1)" != "$SELF_SUM" ]; then
+	log "deploy.sh가 바뀌어 ${SHA:0:8}의 deploy.sh로 다시 실행"
+	DEPLOY_REEXEC="$SHA" exec bash "$SELF" "$SHA"
+fi
 
 # 2. 비밀값 → secret.yaml
 #    키 목록은 secret.yaml.example에서 읽는다. Parameter Store에 없는 키는 빈 값으로 넣는다 (앱 기본값이 없는 키도 있어 키 자체는 꼭 있어야 한다)
@@ -133,3 +151,8 @@ if [ "${#FAILED[@]}" -gt 0 ]; then
 fi
 kubectl -n "$NAMESPACE" get pods
 log "완료: ${SHA:0:8}"
+}
+
+# 파일을 끝까지 읽은 뒤 실행한다 (위 설명). exit로 끝내 이 뒤에 무엇이 붙어도 읽지 않는다
+main "$@"
+exit

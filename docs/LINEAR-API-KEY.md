@@ -10,22 +10,29 @@ Linear 공식 GitHub 연동이 동작하지 않아, `linear-sync` 워크플로�
 Linear에 "누가 바꿨는지"가 제대로 남도록 **팀원마다 자기 Linear 개인 API 키**를 저장소 시크릿으로 등록한다.
 등록하지 않으면 내가 올리거나 머지한 PR은 Linear에 반영되지 않는다.
 
+Linear 워크스페이스가 두 개라 키도 두 개 등록한다. API 키는 만든 워크스페이스의 이슈만 볼 수 있기 때문이다.
+
+- **`CRU` 워크스페이스(새 이슈)**: `LINEAR_API_KEY_CRU_<GitHub 아이디>`
+- **`BUK` 워크스페이스(bukang-final, 기존 이슈)**: `LINEAR_API_KEY_<GitHub 아이디>`. 이미 등록했으면 그대로 둔다.
+
+한쪽 키만 있으면 그 워크스페이스의 이슈만 동기화되고, 다른 쪽 이슈는 경고를 남기고 건너뛴다.
+
 Claude Code의 Linear 연결(`/mcp`, 커넥터 인증)과는 별개다. 그건 그대로 두고 이것만 추가로 한다.
 
 ## 기본 정보
 
 - 저장소: `prgrms-be-adv-devcourse/beadv8_5_BSB_MONO`
-- 시크릿 이름: `LINEAR_API_KEY_<GitHub 아이디>` (대문자, `-`는 `_`로)
+- 시크릿 이름: GitHub 아이디는 대문자로 쓰고 `-`는 `_`로 바꾼다.
 
-| 팀원   | GitHub 아이디 | 시크릿 이름                 |
-| ------ | ------------- | --------------------------- |
-| (작성자) | `Jieunsse`    | `LINEAR_API_KEY_JIEUNSSE`   |
-| 김호빈 | `khb3025`     | `LINEAR_API_KEY_KHB3025`    |
-| 손영호 | `bbangHo`     | `LINEAR_API_KEY_BBANGHO`    |
-| 김소희 | `ksoheee`     | `LINEAR_API_KEY_KSOHEEE`    |
-| 이다윗 | `Dawit-lee`   | `LINEAR_API_KEY_DAWIT_LEE`  |
+| 팀원   | GitHub 아이디 | `CRU` 시크릿 이름(새로 등록)     | `BUK` 시크릿 이름(기존)     |
+| ------ | ------------- | -------------------------------- | --------------------------- |
+| (작성자) | `Jieunsse`    | `LINEAR_API_KEY_CRU_JIEUNSSE`    | `LINEAR_API_KEY_JIEUNSSE`   |
+| 김호빈 | `khb3025`     | `LINEAR_API_KEY_CRU_KHB3025`     | `LINEAR_API_KEY_KHB3025`    |
+| 손영호 | `bbangHo`     | `LINEAR_API_KEY_CRU_BBANGHO`     | `LINEAR_API_KEY_BBANGHO`    |
+| 김소희 | `ksoheee`     | `LINEAR_API_KEY_CRU_KSOHEEE`     | `LINEAR_API_KEY_KSOHEEE`    |
+| 이다윗 | `Dawit-lee`   | `LINEAR_API_KEY_CRU_DAWIT_LEE`   | `LINEAR_API_KEY_DAWIT_LEE`  |
 
-워크플로(`.github/workflows/linear-sync.yml`)는 이 표의 다섯 이름만 읽는다. 표에 없는 이름으로 등록하면 쓰이지 않는다.
+워크플로(`.github/workflows/linear-sync.yml`)는 이 표의 열 개 이름만 읽는다. 표에 없는 이름으로 등록하면 쓰이지 않는다.
 
 ## Claude 진행 순서
 
@@ -46,24 +53,24 @@ gh api repos/prgrms-be-adv-devcourse/beadv8_5_BSB_MONO --jq .permissions.admin
 ```
 
 - `gh`가 없거나 로그인이 안 돼 있으면: 설치(`brew install gh`) 후 사용자에게 `gh auth login`을 직접 실행하게 한다.
-- 두 번째 결과로 위 표에서 사용자 행과 시크릿 이름을 찾는다. 표에 없는 아이디면 진행을 멈추고
+- 두 번째 결과로 위 표에서 사용자 행과 시크릿 이름을 찾는다. `gh secret list`로 이미 등록된 이름을 보고, 없는 쪽만 등록하게 한다. 표에 없는 아이디면 진행을 멈추고
   "워크플로에 내 이름이 없다"고 `Jieunsse`에게 알리라고 안내한다.
 - 세 번째 결과가 `true`가 아니면 시크릿을 등록할 권한이 없다. 진행을 멈추고 `Jieunsse`에게 알리라고 안내한다.
 
 ### 2. 키 발급·등록 안내 (사람이 직접)
 
 키 발급과 등록은 사람이 한다(키를 입력창에 붙여 넣어야 해서 Claude가 대신 실행하지 않는다).
-아래 블록 안의 내용을 **그대로** 사용자에게 보낸다. `<시크릿 이름>`만 1단계에서 찾은 이름으로 바꾸고,
-다른 문장은 고치거나 줄이지 않는다.
+아래 블록 안의 내용을 **그대로** 사용자에게 보낸다. `<워크스페이스>`와 `<시크릿 이름>`만 1단계에서 찾은 값으로 바꾸고,
+다른 문장은 고치거나 줄이지 않는다. 두 워크스페이스 키를 모두 등록해야 하면 블록을 워크스페이스마다 한 번씩 보낸다.
 
 ````md
 키는 직접 붙여 넣으셔야 해서, 아래 명령을 **본인 터미널에서** 실행해 주세요.
 
-**1 → 새 키 발급:** Linear에서 개인 API 키를 만듭니다.
+**1 → 새 키 발급:** Linear 왼쪽 위에서 **`<워크스페이스>` 워크스페이스로 바꾼 뒤** 개인 API 키를 만듭니다.
 
 - 경로: **Settings → Account → Security & access → Personal API keys → New API key**
 - 이름은 `crewrun linear-sync`처럼 알아보기 쉽게 짓습니다.
-- 권한은 **Read + Write**, 팀은 **`BUK`(bukang-final 워크스페이스)를 포함**해 주세요.
+- 권한은 **Read + Write**, 팀은 **`<워크스페이스>` 팀을 포함**해 주세요.
 - 만든 키(`lin_api_...`)를 복사해 둡니다. 창을 닫으면 다시 볼 수 없으니 바로 2번으로 넘어가세요.
 
 **2 → 등록:** 아래 명령을 실행하면 `? Paste your secret` 입력창이 뜹니다. 키를 붙여 넣고 Enter를 누르면 됩니다.
@@ -88,17 +95,18 @@ gh secret list --repo prgrms-be-adv-devcourse/beadv8_5_BSB_MONO
 
 ### 4. 실제 동작 확인 (다음 PR 때)
 
-다음에 이슈 번호(`BUK-<번호>`)가 들어간 PR을 열면, PR의 **Checks** 탭 `linear-sync` 로그에
-`LINEAR_API_KEY_<내 아이디> 키로 동기화합니다.`가 찍히고 Linear 이슈에 PR 링크가 붙는다.
+다음에 이슈 번호(`CRU-<번호>`)가 들어간 PR을 열면, PR의 **Checks** 탭 `linear-sync` 로그에
+`CRU 이슈는 LINEAR_API_KEY_CRU_<내 아이디> 키로 동기화합니다.`가 찍히고 Linear 이슈에 PR 링크가 붙는다.
+`BUK-<번호>` 이슈는 같은 자리에 `LINEAR_API_KEY_<내 아이디>`가 찍힌다.
 
 | 로그                                         | 원인과 조치                                                       |
 | -------------------------------------------- | ----------------------------------------------------------------- |
-| `... 시크릿이 없어 Linear 동기화를 건너뜁니다` | 시크릿 이름 오타. 3단계 목록에서 이름을 표와 비교하고 2단계를 다시 한다 |
+| `... 시크릿이 없어 CRU 이슈 동기화를 건너뜁니다` | 그 워크스페이스 키가 없거나 이름이 틀렸다. 3단계 목록에서 이름을 표와 비교하고 2단계를 다시 한다 |
 | 체크가 빨간색, 경고에 `Authentication` 관련 오류 | 키가 틀렸거나 지워졌다. Linear에서 새 키를 만들어 2단계를 다시 한다      |
-| 경고에 이슈를 찾을 수 없다는 오류              | 키 권한에 `BUK` 팀이 없다. 권한을 고쳐 새 키로 다시 등록한다   |
+| 경고에 이슈를 찾을 수 없다는 오류              | 다른 워크스페이스에서 만든 키를 등록했거나, 키 권한에 그 팀이 없다. 맞는 워크스페이스에서 새 키를 만들어 다시 등록한다 |
 
 ## 키를 바꾸거나 없앨 때
 
 - 바꾸기: Linear에서 새 키를 만들고 2단계 명령을 다시 실행한다(같은 이름이면 덮어쓴다). 옛 키는 Linear에서 지운다.
-- 없애기: `gh secret delete LINEAR_API_KEY_<내 아이디> --repo prgrms-be-adv-devcourse/beadv8_5_BSB_MONO`
+- 없애기: `gh secret delete <시크릿 이름> --repo prgrms-be-adv-devcourse/beadv8_5_BSB_MONO`
   후 Linear에서 키를 지운다. 지우기 전에 사용자에게 한 번 더 확인받는다.

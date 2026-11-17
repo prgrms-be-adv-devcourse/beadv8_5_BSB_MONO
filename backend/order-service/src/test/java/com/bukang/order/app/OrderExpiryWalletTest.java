@@ -1,7 +1,6 @@
 package com.bukang.order.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.reset;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -32,7 +31,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 import com.bukang.order.domain.Order;
 import com.bukang.order.domain.OrderStatus;
 import com.bukang.order.domain.ParticipationStatus;
-import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
 import com.bukang.order.out.OrderOutboxKafkaEventRepository;
 import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationRepository;
@@ -118,51 +116,6 @@ class OrderExpiryWalletTest {
 		seatHoldPort.clear();
 		orderOutboxKafkaEventRepository.deleteAll();
 		walletPort.clear();
-	}
-
-	@Test
-	@DisplayName("결제 응답 시간 초과는 실패로 끝내지 않는다: 주문은 결제 대기로 남고 결제 취소는 부르지 않으며, 같은 주문으로 다시 결제하면 한 번만 차감된다")
-	void payTimeoutKeepsOrderPayable() throws Exception {
-		long orderId = createOrder();
-		walletPort.setPayTimesOut(true);
-
-		assertThatThrownBy(() -> pay(orderId)).isInstanceOf(ExternalServiceUnavailableException.class);
-
-		assertThat(statusOf(orderId)).isEqualTo(OrderStatus.CREATED);
-		assertThat(participationStatusOf(orderId)).isEqualTo(ParticipationStatus.APPLIED);
-		assertThat(walletPort.cancelCalls()).isEmpty();
-		// D는 이미 차감했다
-		assertThat(walletPort.chargedOrders()).containsExactly(orderId);
-
-		walletPort.setPayTimesOut(false);
-		pay(orderId);
-
-		assertThat(statusOf(orderId)).isEqualTo(OrderStatus.PAID);
-		assertThat(walletPort.payCalls()).hasSize(2);
-		assertThat(walletPort.balance()).isEqualTo(BALANCE - StubRaceCoursePort.PRICE);
-		assertThat(walletPort.cancelCalls()).isEmpty();
-	}
-
-	@Test
-	@DisplayName("돈만 빠진 채 결제 대기로 남은 주문은 기한이 지나면 만료 정리가 주문 ID·회원 ID로 결제를 취소해 돌려준 뒤 만료한다")
-	void expiryCancelsChargedPayment() throws Exception {
-		long orderId = createOrder();
-		walletPort.setPayTimesOut(true);
-		assertThatThrownBy(() -> pay(orderId)).isInstanceOf(ExternalServiceUnavailableException.class);
-		assertThat(walletPort.balance()).isEqualTo(BALANCE - StubRaceCoursePort.PRICE);
-
-		OrderExpiryUseCase.ExpiryResult result = orderExpiryUseCase.expireOverdue(dueOf(orderId));
-
-		assertThat(result).isEqualTo(new OrderExpiryUseCase.ExpiryResult(1, 1, 0));
-		assertThat(walletPort.cancelCalls()).containsExactly(new StubWalletPort.Call(orderId, MEMBER_ID));
-		assertThat(walletPort.balance()).isEqualTo(BALANCE);
-		assertThat(walletPort.chargedOrders()).isEmpty();
-		assertThat(statusOf(orderId)).isEqualTo(OrderStatus.EXPIRED);
-		assertThat(participationStatusOf(orderId)).isEqualTo(ParticipationStatus.RELEASED);
-		// 판매된 채 남았을 수 있는 자리는 복구하고, 결제하지 않은 자리는 풀어 달라고 만료 트랜잭션 안에서 아웃박스에 남긴다 (PRO-270)
-		long participationId = participationIdOf(orderId);
-		assertThat(restoredSeats()).containsExactly(participationId);
-		assertThat(releasedSeats()).containsExactly(participationId);
 	}
 
 	@Test
@@ -274,10 +227,6 @@ class OrderExpiryWalletTest {
 	}
 
 	// 컨트롤러와 같이 한 트랜잭션에서 결제한다 (OrderFacade.pay)
-	private OrderPayResult pay(long orderId) {
-		return pay(MEMBER_ID, orderId, LocalDateTime.now());
-	}
-
 	private OrderPayResult pay(long memberId, long orderId, LocalDateTime now) {
 		return transactionTemplate.execute(status -> orderPayUseCase.pay(memberId, orderId, List.of(), now));
 	}

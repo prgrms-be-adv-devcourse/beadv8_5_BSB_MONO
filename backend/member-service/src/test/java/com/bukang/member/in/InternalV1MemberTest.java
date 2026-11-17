@@ -19,9 +19,12 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
+import com.bukang.common.shared.seller.domain.SellerType;
 import com.bukang.member.app.MemberFacade;
 import com.bukang.member.app.SellerFacade;
 import com.bukang.member.domain.Member;
+import com.bukang.member.domain.PayoutAccountHolderType;
+import com.bukang.member.dto.SellerApplyRequestDto;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.SellerRepository;
 import com.bukang.member.out.TermsAgreementRepository;
@@ -42,6 +45,7 @@ class InternalV1MemberTest {
 	private static final String SELLER_OF_MEMBER = "/internal/v1/member/members/{memberId}/seller";
 	private static final String ADMIN_OF_MEMBER = "/internal/v1/member/members/{memberId}/admin";
 	private static final String PAYOUT_ACCOUNT = "/internal/v1/member/sellers/{sellerId}/payout-account";
+	private static final String BUSINESS_INFO = "/internal/v1/member/sellers/{sellerId}/business-info";
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -228,6 +232,41 @@ class InternalV1MemberTest {
 	@DisplayName("없는 판매자 신청서의 정산 계좌를 물으면 404 SELLER_NOT_FOUND다")
 	void payoutAccountOfUnknownSeller() throws Exception {
 		mockMvc.perform(get(PAYOUT_ACCOUNT, 99999L))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("SELLER_NOT_FOUND"));
+	}
+
+	@Test
+	@DisplayName("사업자 판매자의 사업자 정보는 유형 · 상호 · 사업자번호 · 대표자를 돌려준다 (BUK-246)")
+	void businessInfoOfBusinessSeller() throws Exception {
+		long sellerId = sellerFacade.apply(memberId, MemberFixture.sellerApplyRequest()).getId();
+
+		mockMvc.perform(get(BUSINESS_INFO, sellerId))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.message").value("판매자 사업자 정보를 조회했습니다."))
+			.andExpect(jsonPath("$.data.sellerType").value("BUSINESS"))
+			.andExpect(jsonPath("$.data.businessName").value("크루런 스포츠"))
+			.andExpect(jsonPath("$.data.businessNumber").value("123-45-67890"))
+			.andExpect(jsonPath("$.data.representativeName").value("김러너"));
+	}
+
+	@Test
+	@DisplayName("비사업자 판매자는 상호 · 사업자번호가 null이다 (BUK-246)")
+	void businessInfoOfIndividualSeller() throws Exception {
+		long sellerId = sellerFacade.apply(memberId, new SellerApplyRequestDto(SellerType.INDIVIDUAL, null, null,
+			"김러너", "004", "1101230000678", PayoutAccountHolderType.PERSONAL)).getId();
+
+		mockMvc.perform(get(BUSINESS_INFO, sellerId))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.sellerType").value("INDIVIDUAL"))
+			.andExpect(jsonPath("$.data.businessName").isEmpty())
+			.andExpect(jsonPath("$.data.businessNumber").isEmpty());
+	}
+
+	@Test
+	@DisplayName("없는 판매자 신청서의 사업자 정보를 물으면 404 SELLER_NOT_FOUND다 (BUK-246)")
+	void businessInfoOfUnknownSeller() throws Exception {
+		mockMvc.perform(get(BUSINESS_INFO, 99999L))
 			.andExpect(status().isNotFound())
 			.andExpect(jsonPath("$.code").value("SELLER_NOT_FOUND"));
 	}
