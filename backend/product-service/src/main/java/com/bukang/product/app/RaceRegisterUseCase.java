@@ -28,7 +28,7 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * 승인된 판매자가 대회와 종목을 판매 예정(SCHEDULED)으로 등록한다. 판매 시작일은 오늘로부터 이틀 뒤부터 정할 수 있다.
- * 이미지 연결 메시지(이미지는 모두 종목, 즉 RaceCourse 대상)는 여기서 만들기만 하고,
+ * 이미지 연결 메시지(대표 이미지는 대회, 즉 Race 대상이고 나머지 이미지는 종목, 즉 RaceCourse 대상)는 여기서 만들기만 하고,
  * ProductFacade가 커밋한 뒤 Kafka로 보낸다.
  * 같은 Idempotency-Key로 이미 등록한 대회가 있는지는 ProductFacade가 findRegistered로 먼저 확인한다.
  */
@@ -58,6 +58,8 @@ public class RaceRegisterUseCase {
 		raceRepository.save(race);
 
 		List<FileLinkRequestedEvent.Ref> refs = new ArrayList<>();
+		// 대표 이미지는 대회에 붙인다
+		refs.add(FileLinkRequestedEvent.Ref.of(FileRef.of(race), RaceImageRequestDto.toItems(request.getImages())));
 		imagesByCourse.forEach((course, images) ->
 			refs.add(FileLinkRequestedEvent.Ref.of(FileRef.of(course), RaceImageRequestDto.toItems(images))));
 		// 등록한 종목은 모두 대기열에 알린다 (종목마다 1건)

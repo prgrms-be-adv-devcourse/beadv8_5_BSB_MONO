@@ -77,10 +77,15 @@ public class RaceSaveRequestDto {
 	@Schema(description = "크루 최대 인원 (비우면 상한 없음, 최소 인원 이상)", example = "20")
 	private final Integer crewMaxCount;
 
-	// 이미지는 종목마다 받는다 (대회에 붙이는 이미지는 없다)
+	// 대표 이미지를 뺀 나머지 이미지(소개·코스·키트·영상)는 종목마다 받는다
 	@Schema(description = "종목 목록")
 	@NotEmpty(message = "종목을 1개 이상 작성해주세요.")
 	private final List<@Valid @NotNull(message = "종목 항목을 작성해주세요.") RaceCourseSaveRequestDto> courses;
+
+	// 대표 이미지는 대회마다 1장이라 종목이 아니라 대회에 붙인다 (기획 1차 2-1). 개수는 RaceRequestValidator가 본다
+	@Schema(description = "대회에 붙이는 이미지 (대표 이미지 1장)")
+	@NotNull(message = "대회 이미지 목록을 작성해주세요.")
+	private final List<@Valid @NotNull(message = "이미지 항목을 작성해주세요.") RaceImageRequestDto> images;
 
 	// 키트 옵션은 받지 않는다. 대회를 등록한 뒤 키트 옵션 등록·수정 API로 따로 붙인다 (BUK-137)
 	// 옛 화면이 kitOptions를 보내도 모르는 칸이라 무시된다
