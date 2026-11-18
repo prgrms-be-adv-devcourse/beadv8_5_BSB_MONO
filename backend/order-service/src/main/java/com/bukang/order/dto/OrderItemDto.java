@@ -7,6 +7,7 @@ import com.bukang.order.domain.OrderItemStatus;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.With;
 
 @AllArgsConstructor
 @Getter
@@ -35,4 +36,8 @@ public class OrderItemDto {
 	private final LocalDateTime kitReceivedAt;
 	// Delivery Tracker에서 받아 온 배송 상태와 이동 기록 (BUK-55). 발송 전이거나 자동 조회하지 않는 배송이면 null
 	private final KitTrackingDto kitTracking;
+	// 구매자 「배송 조회」 버튼이 여는 Delivery Tracker 주소 (CRU-38). 구매자 주문 상세·수령 확인 응답에서만 채운다
+	// 발송 전, 택배사 ID 없는 옛 배송, 서버에 Client ID가 없으면 null (KitTrackingLink)
+	@With
+	private final String kitTrackingUrl;
 }
