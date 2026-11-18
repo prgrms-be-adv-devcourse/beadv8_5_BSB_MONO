@@ -128,7 +128,7 @@ export function LoginPage({
             links={[
               { href: '/terms/service', label: '이용약관' },
               { href: '/terms/privacy', label: '개인정보처리방침' },
-              { href: '/me', label: '고객센터' },
+              { href: '/me/support', label: '고객센터' },
             ]}
           />
           <p className="text-caption-regular text-text-tertiary">
@@ -199,7 +199,7 @@ type RowLink = {
     | '/password-reset'
     | '/terms/service'
     | '/terms/privacy'
-    | '/me'
+    | '/me/support'
   label: string
 }
 
