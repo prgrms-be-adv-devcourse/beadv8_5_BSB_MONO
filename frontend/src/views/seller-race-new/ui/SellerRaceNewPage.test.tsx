@@ -64,6 +64,12 @@ describe('SellerRaceNewPage', () => {
     expect(requested).toBe(false)
   })
 
+  it('기능이 없는 미리보기 버튼은 막혀 있다', () => {
+    renderPage()
+
+    expect(screen.getByRole('button', { name: '미리보기' })).toBeDisabled()
+  })
+
   it('날짜 칸에는 시간 입력이 없다', () => {
     renderPage()
     expect(screen.queryByRole('textbox', { name: /시간/ })).not.toBeInTheDocument()

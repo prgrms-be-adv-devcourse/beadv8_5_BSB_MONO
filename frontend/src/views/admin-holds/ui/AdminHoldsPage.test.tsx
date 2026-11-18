@@ -27,6 +27,12 @@ describe('AdminHoldsPage', () => {
     expect(screen.getByRole('button', { name: '보류 해제' })).toBeDisabled()
   })
 
+  it('기능이 없는 엑셀로 내려받기 버튼은 막혀 있다', () => {
+    renderPage()
+
+    expect(screen.getByRole('button', { name: '엑셀로 내려받기' })).toBeDisabled()
+  })
+
   it('정산 내역 번호와 사유로 보류를 건다', async () => {
     let request: { path: string; body: unknown } | null = null
     server.use(
