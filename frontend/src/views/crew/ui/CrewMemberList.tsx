@@ -4,10 +4,10 @@ import type { Route } from 'next'
 import Link from 'next/link'
 import { useState, type ReactNode } from 'react'
 
-import { CREW_ROLE_LABEL, CREW_ROLE_TONE } from '@/entities/crew'
+import { CREW_ROLE_LABEL } from '@/entities/crew'
 import type { memberModel } from '@/shared/api'
 import { cn } from '@/shared/lib'
-import { Avatar, Badge, Button, buttonClassName } from '@/shared/ui'
+import { Avatar, Button, buttonClassName } from '@/shared/ui'
 
 /** 크루원 목록에서 처음 보여 주는 수. 나머지는 「크루원 N명 더 보기」로 펼친다. */
 const VISIBLE_MEMBERS = 5
@@ -58,7 +58,9 @@ export function CrewMemberList({
             >
               {member.nickname}
             </span>
-            <Badge tone={CREW_ROLE_TONE[member.role]}>{CREW_ROLE_LABEL[member.role]}</Badge>
+            <span className="text-body2-regular text-text-secondary">
+              {CREW_ROLE_LABEL[member.role]}
+            </span>
             {action && <div>{action(member)}</div>}
           </li>
         ))}

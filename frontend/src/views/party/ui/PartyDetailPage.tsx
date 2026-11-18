@@ -35,7 +35,6 @@ import {
 import { cn, formatNumber, useNow } from '@/shared/lib'
 import {
   Avatar,
-  Badge,
   BottomCta,
   Button,
   buttonClassName,
@@ -51,6 +50,14 @@ import {
 import { PARTY_STATUS_LABEL } from '../lib/party-copy'
 import { partyJoinUrl } from '../lib/party-url'
 import { PartyLoadError } from './PartyFailureScreen'
+
+const BADGE_TEXT: Record<BadgeTone, string> = {
+  brand: 'text-text-brand',
+  success: 'text-text-success',
+  warning: 'text-text-warning',
+  danger: 'text-text-danger',
+  neutral: 'text-text-secondary',
+}
 
 const ERROR_FALLBACK = '잠시 후 다시 시도해 주세요.'
 
@@ -334,9 +341,11 @@ function PartyDetailBody({
                 </span>
               </div>
               {!recruiting && (
-                <Badge tone={memberBadge(m, party.status).tone}>
+                <span
+                  className={cn('text-body2-medium', BADGE_TEXT[memberBadge(m, party.status).tone])}
+                >
                   {memberBadge(m, party.status).label}
-                </Badge>
+                </span>
               )}
             </li>
           ))}

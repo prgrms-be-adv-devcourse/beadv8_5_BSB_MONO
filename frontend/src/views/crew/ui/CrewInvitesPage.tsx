@@ -282,8 +282,9 @@ export function CrewInvitesPage({
                       </div>
                       {canCancel(invite) && (
                         <Button
-                          variant="secondary"
+                          variant="text"
                           size="s"
+                          className="underline"
                           onClick={() => setCancelTarget(invite.inviteId)}
                         >
                           초대 취소

@@ -536,6 +536,19 @@ describe('파티 신청', () => {
     expect(screen.getByText('청구된 금액 없음')).toBeInTheDocument()
   })
 
+  it('대회 정보를 못 불러와도 결과 화면에 빈 제목 줄을 만들지 않는다', async () => {
+    const user = userEvent.setup()
+    renderPage(<PartyApplyPage partyId={9} />)
+    await user.click(await screen.findByRole('button', { name: /명 파티 신청하기/ }))
+    server.use(
+      productMock.getFindRaceMockHandler(() =>
+        HttpResponse.json({ status: 500, message: '오류', data: null }, { status: 500 }),
+      ),
+    )
+    expect(await screen.findByText('신청 안 됨')).toBeInTheDocument()
+    expect(screen.queryAllByRole('heading', { level: 2 }).every((h) => h.textContent)).toBe(true)
+  })
+
   it('신청에 성공하면 파티 상세로 간다', async () => {
     const user = userEvent.setup()
     renderPage(<PartyApplyPage partyId={1} />)
