@@ -26,15 +26,15 @@ export const Race: Story = {
     watermark: '21K',
     badges: (
       <>
-        <Badge tone="live">접수 중</Badge>
-        <Badge tone="onHero">D-37</Badge>
+        <Badge tone="brand">접수 중</Badge>
+        <Badge tone="neutral">D-37</Badge>
       </>
     ),
     children: (
       <>
         <ProgressBar tone="onHero" label="접수율" valueText="72%" value={72} />
         <div>
-          <Button variant="accent" size="l">
+          <Button variant="primary" size="l">
             크루로 신청하기
           </Button>
         </div>
@@ -50,7 +50,7 @@ export const Crew: Story = {
     eyebrow: 'CREW STATUS',
     title: '한강러닝크루',
     subtitle: '서울 하프 마라톤 · 단체 접수',
-    badges: <Badge tone="accent">할인 조건 달성</Badge>,
+    badges: <Badge tone="brand">할인 조건 달성</Badge>,
     children: (
       <>
         <ProgressBar tone="onHero" label="결제 완료" valueText="5/8명" value={62.5} />

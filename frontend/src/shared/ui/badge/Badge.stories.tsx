@@ -7,7 +7,6 @@ const TONES: { tone: BadgeTone; text: string }[] = [
   { tone: 'success', text: '결제 완료' },
   { tone: 'warning', text: '마감 임박' },
   { tone: 'neutral', text: '마감' },
-  { tone: 'info', text: '결제 대기' },
   { tone: 'danger', text: '실패' },
 ]
 
@@ -18,17 +17,7 @@ const meta = {
   argTypes: {
     tone: {
       control: 'select',
-      options: [
-        'brand',
-        'success',
-        'warning',
-        'danger',
-        'info',
-        'neutral',
-        'accent',
-        'live',
-        'onHero',
-      ],
+      options: ['brand', 'success', 'warning', 'danger', 'neutral'],
     },
   },
 } satisfies Meta<typeof Badge>
@@ -50,13 +39,12 @@ export const Tones: Story = {
   ),
 }
 
-/** accent·live·onHero는 네이비·코발트 면 위에서 쓴다. */
+/** 네이비·코발트 면 위에서도 brand·neutral을 쓴다. */
 export const OnHero: Story = {
   render: () => (
     <div className="flex w-fit flex-wrap gap-2 rounded-lg bg-bg-hero p-4">
-      <Badge tone="accent">참가 확정</Badge>
-      <Badge tone="live">LIVE</Badge>
-      <Badge tone="onHero">D-12</Badge>
+      <Badge tone="brand">참가 확정</Badge>
+      <Badge tone="neutral">D-12</Badge>
     </div>
   ),
 }

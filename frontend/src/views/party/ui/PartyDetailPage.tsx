@@ -55,7 +55,7 @@ function memberBadge(
   status: PartyDetail['status'],
 ): { label: string; tone: BadgeTone } {
   if (status === 'PAID' || status === 'CLOSED') {
-    return m.paid ? { label: '참가 확정', tone: 'accent' } : { label: '결제 안 함', tone: 'danger' }
+    return m.paid ? { label: '참가 확정', tone: 'brand' } : { label: '결제 안 함', tone: 'danger' }
   }
   if (status === 'PAYING') {
     return m.paid ? { label: '결제 완료', tone: 'neutral' } : { label: '결제 전', tone: 'warning' }
