@@ -1,5 +1,6 @@
 'use client'
 
+import { format } from 'date-fns'
 import { Fragment, useState } from 'react'
 
 import { CONSOLE_BOX, ConsolePage } from '@/widgets/console-page'
@@ -14,16 +15,9 @@ import {
   type StatsPeriodQuery,
 } from '@/entities/usage-stats'
 import { clientEnv } from '@/shared/config'
+import { DateTimeField } from '@/shared/date-picker'
 import { cn, formatNumber, useSearchParamsState } from '@/shared/lib'
-import {
-  Button,
-  buttonClassName,
-  DataTable,
-  Divider,
-  EmptyState,
-  Segmented,
-  TextField,
-} from '@/shared/ui'
+import { Button, buttonClassName, DataTable, Divider, EmptyState, Segmented } from '@/shared/ui'
 
 import { useRealtimeStats } from '../model/use-usage-stats'
 import { FunnelSection } from './FunnelSection'
@@ -138,19 +132,22 @@ function PeriodPicker({
       )}
       {kind === 'custom' && (
         <div className="flex items-end gap-2">
-          <TextField
-            label="시작 날짜"
-            type="date"
-            max={today}
-            value={custom.start}
-            onChange={(e) => setCustom((c) => ({ ...c, start: e.target.value }))}
-          />
-          <TextField
-            label="끝 날짜"
-            type="date"
-            max={today}
-            value={custom.end}
-            onChange={(e) => setCustom((c) => ({ ...c, end: e.target.value }))}
+          <DateTimeField
+            mode="range"
+            withTime={false}
+            label="기간"
+            className="w-80"
+            endMonth={new Date(`${today}T00:00:00`)}
+            isDateDisabled={(d) => format(d, 'yyyy-MM-dd') > today}
+            defaultValue={
+              custom.start && custom.end
+                ? {
+                    from: new Date(`${custom.start}T00:00:00`),
+                    to: new Date(`${custom.end}T00:00:00`),
+                  }
+                : undefined
+            }
+            onValueChange={({ from, to }) => setCustom({ start: from, end: to })}
           />
           <Button
             variant="secondary"
