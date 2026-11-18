@@ -952,3 +952,35 @@ export const FindIdentityReviewResponse = zod.object({
   "totalPages": zod.int()
 }).optional().describe('확인이 필요한 계정 한 페이지. totalElements는 묶음 수')
 })
+
+
+/**
+ * 켜져 있으면 200, 꺼져 있으면 404다. 로그인 화면이 버튼을 보여 줄지 정한다.
+ * @summary 데모 로그인 켜짐 확인
+ */
+export const DemoLoginAvailabilityResponse = zod.unknown()
+
+
+/**
+ * 서버 설정에 적힌 시연용 계정 하나로 비밀번호 없이 로그인한다. 응답과 쿠키는 이메일 로그인과 같다. 같은 IP는 1분에 10번까지 부를 수 있다.
+ * @summary 데모 로그인
+ */
+export const DemoLoginResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.object({
+  "accessToken": zod.string().optional().describe('Access Token. 인증이 필요한 요청에 Authorization: Bearer {accessToken} 헤더로 보낸다'),
+  "member": zod.object({
+  "id": zod.int().optional(),
+  "createDate": zod.iso.datetime({"offset":true}).optional(),
+  "modifyDate": zod.iso.datetime({"offset":true}).optional(),
+  "nickname": zod.string().optional(),
+  "email": zod.string().optional(),
+  "phone": zod.string().optional(),
+  "name": zod.string().optional(),
+  "birthDate": zod.iso.date().optional(),
+  "socialProviders": zod.array(zod.enum(['KAKAO', 'GOOGLE'])).optional().describe('연결된 소셜 로그인 제공자'),
+  "passwordSet": zod.boolean().optional().describe('비밀번호가 있으면 true. false면 소셜 로그인으로만 로그인한다')
+}).optional().describe('로그인한 회원')
+}).optional().describe('로그인 응답')
+})

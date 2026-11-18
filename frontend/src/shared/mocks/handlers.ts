@@ -156,6 +156,16 @@ const authHandlers = [
       },
     )
   }),
+  // 데모 로그인은 시연용 기존 회원으로 로그인한다. 재발급이 이어서 성공하도록 로그인과 같은 쿠키를 심는다
+  http.post('*/api/v1/auth/demo-login', () =>
+    HttpResponse.json(getLoginResponseMock(), {
+      headers: withCookies(
+        issueMockRefreshCookie(),
+        issueMockLoginMarkCookie(),
+        clearMockMemberCookie(),
+      ),
+    }),
+  ),
   // 소셜 가입은 로그인과 같이 Refresh Token 쿠키를 심는다(재발급이 이어서 성공해야 로그인 상태가 유지된다).
   // 시작 · 콜백(제공자 화면을 다녀오는 302)은 목으로 흉내 내지 않는다.
   http.post('*/api/v1/auth/oauth2/join', async ({ request }) => {
