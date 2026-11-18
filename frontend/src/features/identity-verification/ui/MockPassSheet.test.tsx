@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -42,5 +42,24 @@ describe('MockPassSheet', () => {
       birthDate: '1995-03-02',
       phone: '010-1234-5678',
     })
+  })
+
+  it('인증 완료를 빠르게 두 번 눌러도 인증 요청은 한 번만 보낸다', async () => {
+    verify.mockReset()
+    verify.mockReturnValue(new Promise(() => {}))
+    const user = userEvent.setup()
+    render(<MockPassSheet open onOpenChange={vi.fn()} onVerified={vi.fn()} />)
+    await user.type(screen.getByRole('textbox', { name: '이름' }), '김러너')
+    await user.type(screen.getByRole('textbox', { name: '휴대폰 번호' }), '010-1234-5678')
+    await pickDate(user, '생년월일', '1995-03-02')
+    const request = screen.getByRole('button', { name: '인증 요청' })
+    await waitFor(() => expect(request).toBeEnabled())
+    await user.click(request)
+
+    // 검사가 끝나기 전에 연달아 눌린 두 번째 클릭도 막혀야 한다
+    const complete = await screen.findByRole('button', { name: '인증 완료' })
+    fireEvent.click(complete)
+    fireEvent.click(complete)
+    await waitFor(() => expect(verify).toHaveBeenCalledTimes(1))
   })
 })

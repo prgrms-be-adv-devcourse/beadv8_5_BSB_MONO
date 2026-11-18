@@ -57,7 +57,7 @@ export function MockPassSheet({ open, onOpenChange, onVerified }: MockPassSheetP
     control,
     register,
     handleSubmit,
-    formState: { isValid },
+    formState: { isValid, isSubmitting },
   } = useForm<MockPassFormValues>({
     resolver: zodResolver(mockPassFormSchema),
     mode: 'onChange',
@@ -152,7 +152,7 @@ export function MockPassSheet({ open, onOpenChange, onVerified }: MockPassSheetP
               title={PROGRESS_TITLE[method]}
               description="체험용 화면이라 알림은 오지 않아요. 아래 「인증 완료」를 누르면 인증이 끝나요"
               action={
-                <Button size="l" loading={pending} onClick={() => void finish()}>
+                <Button size="l" loading={pending || isSubmitting} onClick={() => void finish()}>
                   인증 완료
                 </Button>
               }
