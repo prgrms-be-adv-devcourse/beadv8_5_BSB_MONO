@@ -5,10 +5,26 @@ import { keepPreviousData } from '@tanstack/react-query'
 import { ConsoleCard } from '@/widgets/console-page'
 import { useAuthStatus } from '@/features/auth'
 import { memberApi, unwrapData } from '@/shared/api'
-import { useSearchParamsState } from '@/shared/lib'
-import { Alert, Badge, DataTable, Pagination } from '@/shared/ui'
+import { cn, useSearchParamsState } from '@/shared/lib'
+import { Alert, DataTable, Pagination } from '@/shared/ui'
 
 import { ADMIN_MEMBER_PAGE_SIZE, loadErrorMessage, toDateTime } from '../model/admin-members-api'
+
+// 상태는 칩 대신 뜻 색 글자로 보여 준다 (완료 초록, 실패 빨강, 나머지 보조 글자)
+const STATUS_TEXT = {
+  success: 'text-text-success',
+  danger: 'text-text-danger',
+  other: 'text-text-secondary',
+}
+const statusText = (tone: string) =>
+  cn(
+    'text-body2-medium',
+    tone === 'success'
+      ? STATUS_TEXT.success
+      : tone === 'danger'
+        ? STATUS_TEXT.danger
+        : STATUS_TEXT.other,
+  )
 
 // 확인이 필요한 계정: 같은 사람으로 보이는 계정 묶음. 묶음마다 카드 하나, 표 하나.
 export function IdentityReviewTab() {
@@ -46,9 +62,9 @@ export function IdentityReviewTab() {
                 header: '인증',
                 render: (m) =>
                   m.ciVerified ? (
-                    <Badge tone="success">CI 있음</Badge>
+                    <span className={statusText('success')}>CI 있음</span>
                   ) : (
-                    <Badge tone="warning">CI 없음</Badge>
+                    <span className={statusText('warning')}>CI 없음</span>
                   ),
               },
               {

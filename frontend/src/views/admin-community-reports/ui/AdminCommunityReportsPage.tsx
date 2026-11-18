@@ -10,17 +10,24 @@ import {
   type ReportReason,
 } from '@/entities/board'
 import { ApiError } from '@/shared/api'
-import {
-  Badge,
-  Button,
-  DataTable,
-  EmptyState,
-  KeyValue,
-  Skeleton,
-  StatTile,
-  useToast,
-  type BadgeTone,
-} from '@/shared/ui'
+import { cn } from '@/shared/lib'
+import { Button, DataTable, EmptyState, KeyValue, Skeleton, StatTile, useToast } from '@/shared/ui'
+
+// 상태는 칩 대신 뜻 색 글자로 보여 준다 (완료 초록, 실패 빨강, 나머지 보조 글자)
+const STATUS_TEXT = {
+  success: 'text-text-success',
+  danger: 'text-text-danger',
+  other: 'text-text-secondary',
+}
+const statusText = (tone: string) =>
+  cn(
+    'text-body2-medium',
+    tone === 'success'
+      ? STATUS_TEXT.success
+      : tone === 'danger'
+        ? STATUS_TEXT.danger
+        : STATUS_TEXT.other,
+  )
 
 const REASON: Record<ReportReason, string> = {
   AD: '광고',
@@ -28,7 +35,7 @@ const REASON: Record<ReportReason, string> = {
   OBSCENE: '음란',
   OTHER: '기타',
 }
-const STATUS: Record<AdminReport['status'], { label: string; tone: BadgeTone }> = {
+const STATUS: Record<AdminReport['status'], { label: string; tone: string }> = {
   HIDDEN: { label: '숨김', tone: 'warning' },
   RESTORED: { label: '되살림', tone: 'neutral' },
   DELETED: { label: '지움', tone: 'danger' },
@@ -139,7 +146,9 @@ export function AdminCommunityReportsPage() {
                     header: '상태',
                     width: 'w-25',
                     render: (r) => (
-                      <Badge tone={STATUS[r.status].tone}>{STATUS[r.status].label}</Badge>
+                      <span className={statusText(STATUS[r.status].tone)}>
+                        {STATUS[r.status].label}
+                      </span>
                     ),
                   },
                 ]}

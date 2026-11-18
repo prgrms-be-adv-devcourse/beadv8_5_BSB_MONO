@@ -4,21 +4,27 @@ import { CONSOLE_BOX, ConsoleCard, ConsolePage } from '@/widgets/console-page'
 import { useAuthStatus } from '@/features/auth'
 import { cashApi, memberApi, unwrapData } from '@/shared/api'
 import { cn, useSearchParamsState } from '@/shared/lib'
-import {
-  Alert,
-  Badge,
-  Button,
-  DataTable,
-  KeyValue,
-  Segmented,
-  Select,
-  TextField,
-  type BadgeTone,
-} from '@/shared/ui'
+import { Alert, Button, DataTable, KeyValue, Segmented, Select, TextField } from '@/shared/ui'
 
 import { ADMIN_MEMBER_PAGE_SIZE } from '../model/admin-members-api'
 import { ChargeReviewTab } from './ChargeReviewTab'
 import { IdentityReviewTab } from './IdentityReviewTab'
+
+// 상태는 칩 대신 뜻 색 글자로 보여 준다 (완료 초록, 실패 빨강, 나머지 보조 글자)
+const STATUS_TEXT = {
+  success: 'text-text-success',
+  danger: 'text-text-danger',
+  other: 'text-text-secondary',
+}
+const statusText = (tone: string) =>
+  cn(
+    'text-body2-medium',
+    tone === 'success'
+      ? STATUS_TEXT.success
+      : tone === 'danger'
+        ? STATUS_TEXT.danger
+        : STATUS_TEXT.other,
+  )
 
 type Tab = 'all' | 'identity' | 'charge'
 
@@ -27,7 +33,7 @@ type Order = {
   product: string
   amount: string
   status: string
-  tone: BadgeTone
+  tone: string
   paidAt: string
 }
 
@@ -131,7 +137,7 @@ export function AdminMembersPage() {
                     key: 'status',
                     header: '상태',
                     width: 'w-29',
-                    render: (o) => <Badge tone={o.tone}>{o.status}</Badge>,
+                    render: (o) => <span className={statusText(o.tone)}>{o.status}</span>,
                   },
                   {
                     key: 'paidAt',

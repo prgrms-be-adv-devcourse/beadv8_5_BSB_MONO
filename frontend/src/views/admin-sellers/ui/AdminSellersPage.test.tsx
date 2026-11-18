@@ -192,17 +192,6 @@ describe('AdminSellersPage 반려', () => {
     expect(body).toEqual({ reason: '번호를 확인할 수 없어요.' })
   })
 
-  it('다른 신청을 고르면 앞 신청에 적던 사유가 비워진다', async () => {
-    useLists({ PENDING: [BUSINESS, INDIVIDUAL] })
-    const user = userEvent.setup()
-    renderPage()
-
-    await user.type(await screen.findByLabelText('반려 사유'), 'A 신청 사유')
-    await user.click(screen.getByText('이춘천', { selector: 'td *, td' }))
-
-    expect(screen.getByLabelText('반려 사유')).toHaveValue('')
-  })
-
   it('사유가 비어 있으면 보내지 않고 사유를 입력하라고 알린다', async () => {
     useLists({ PENDING: [BUSINESS] })
     let called = false

@@ -4,14 +4,30 @@ import { useState } from 'react'
 
 import { CONSOLE_BOX, ConsoleCard, ConsolePage } from '@/widgets/console-page'
 import { cn } from '@/shared/lib'
-import { Badge, DataTable, FOCUS_RING, KeyValue, type BadgeTone } from '@/shared/ui'
+import { DataTable, FOCUS_RING, KeyValue } from '@/shared/ui'
+
+// 상태는 칩 대신 뜻 색 글자로 보여 준다 (완료 초록, 실패 빨강, 나머지 보조 글자)
+const STATUS_TEXT = {
+  success: 'text-text-success',
+  danger: 'text-text-danger',
+  other: 'text-text-secondary',
+}
+const statusText = (tone: string) =>
+  cn(
+    'text-body2-medium',
+    tone === 'success'
+      ? STATUS_TEXT.success
+      : tone === 'danger'
+        ? STATUS_TEXT.danger
+        : STATUS_TEXT.other,
+  )
 
 type Race = {
   id: string
   title: string
   seller: string
   status: string
-  tone: BadgeTone
+  tone: string
   sold: string
   date: string
 }
@@ -110,7 +126,7 @@ export function AdminRacesPage() {
                 key: 'status',
                 header: '상태',
                 width: 'w-24',
-                render: (r) => <Badge tone={r.tone}>{r.status}</Badge>,
+                render: (r) => <span className={statusText(r.tone)}>{r.status}</span>,
               },
               {
                 key: 'sold',

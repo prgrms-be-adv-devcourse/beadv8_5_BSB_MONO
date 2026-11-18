@@ -9,7 +9,6 @@ import { ApiError, memberApi, payoutApi, unwrapData, type payoutModel } from '@/
 import { cn, formatNumber, formatWon, useSearchParamsState } from '@/shared/lib'
 import {
   Alert,
-  Badge,
   Button,
   DataTable,
   Dialog,
@@ -22,6 +21,22 @@ import {
   TextField,
   useToast,
 } from '@/shared/ui'
+
+// 상태는 칩 대신 뜻 색 글자로 보여 준다 (완료 초록, 실패 빨강, 나머지 보조 글자)
+const STATUS_TEXT = {
+  success: 'text-text-success',
+  danger: 'text-text-danger',
+  other: 'text-text-secondary',
+}
+const statusText = (tone: string) =>
+  cn(
+    'text-body2-medium',
+    tone === 'success'
+      ? STATUS_TEXT.success
+      : tone === 'danger'
+        ? STATUS_TEXT.danger
+        : STATUS_TEXT.other,
+  )
 
 type Status = payoutModel.PayoutClaimStatus
 type Claim = payoutModel.PayoutClaimDto
@@ -178,9 +193,9 @@ export function AdminClaimsPage() {
                   header: '상태',
                   width: 'w-24',
                   render: (c) => (
-                    <Badge tone={c.status === '청구_중' ? 'warning' : 'neutral'}>
+                    <span className={statusText(c.status === '청구_중' ? 'warning' : 'neutral')}>
                       {STATUS_LABEL[c.status]}
-                    </Badge>
+                    </span>
                   ),
                 },
               ]}
