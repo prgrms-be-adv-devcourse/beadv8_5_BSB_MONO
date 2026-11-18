@@ -16,7 +16,7 @@ import {
 } from '@/entities/ticket'
 import { orderModel } from '@/shared/api'
 import { formatNumber, useNow } from '@/shared/lib'
-import { Alert, Badge, BibCard, Button, buttonClassName, Dialog, KeyValue } from '@/shared/ui'
+import { Alert, BibCard, Button, buttonClassName, Dialog, KeyValue } from '@/shared/ui'
 
 import { fullRefundLastDay } from '../model/refund-period'
 import { useTicket } from '../model/use-ticket'
@@ -83,7 +83,9 @@ export function TicketDetailPage({
             eyebrow={race.title ?? ticket.itemName}
             status={
               status !== 'confirmed' && (
-                <Badge tone={TICKET_STATUS[status].tone}>{TICKET_STATUS[status].label}</Badge>
+                <span className="text-body2-medium text-text-on-brand">
+                  {TICKET_STATUS[status].label}
+                </span>
               )
             }
             unit="No."

@@ -7,7 +7,7 @@ import { BottomNav } from '@/widgets/bottom-nav'
 import { LoadErrorBody } from '@/widgets/status-screens'
 import { TICKET_STATUS } from '@/entities/ticket'
 import { cn } from '@/shared/lib'
-import { Badge, BibCard, buttonClassName, EmptyState, FOCUS_RING, Skeleton } from '@/shared/ui'
+import { BibCard, buttonClassName, EmptyState, FOCUS_RING, Skeleton } from '@/shared/ui'
 
 import { useTicketCards, type TicketCard } from '../model/use-ticket-cards'
 
@@ -87,9 +87,9 @@ function TicketGroup({ title, tickets }: { title: string; tickets: TicketCard[] 
             // 참가 확정은 기본이라 글자를 붙이지 않고, 다른 상태일 때만 붙인다
             status={
               ticket.status !== 'confirmed' && (
-                <Badge tone={TICKET_STATUS[ticket.status].tone}>
+                <span className="text-body2-medium text-text-on-brand">
                   {TICKET_STATUS[ticket.status].label}
-                </Badge>
+                </span>
               )
             }
             unit="No."

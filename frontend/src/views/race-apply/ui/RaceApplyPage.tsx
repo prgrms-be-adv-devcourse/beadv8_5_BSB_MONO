@@ -345,7 +345,7 @@ function ParticipantForm({
                 {...register('phone')}
               />
               <fieldset className="flex flex-col gap-2">
-                <legend className="mb-2 text-body2-medium">성별</legend>
+                <legend className="text-body2-medium">성별</legend>
                 <Controller
                   control={control}
                   name="gender"
