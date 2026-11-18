@@ -3,7 +3,7 @@
 import { keepPreviousData } from '@tanstack/react-query'
 import { useState, type ReactNode } from 'react'
 
-import { CONSOLE_BOX, ConsoleCard, ConsoleLoading, ConsolePage } from '@/widgets/console-page'
+import { ConsoleCard, ConsoleLoading, ConsolePage } from '@/widgets/console-page'
 import {
   detailPeriods,
   formatMonthDay,
@@ -20,7 +20,6 @@ import { ApiError, payoutApi, payoutModel, unwrapData } from '@/shared/api'
 import { cn, formatNumber, formatWon, useNow, useSearchParamsState } from '@/shared/lib'
 import {
   Alert,
-  Badge,
   Button,
   DataTable,
   EmptyState,
@@ -29,7 +28,6 @@ import {
   Segmented,
   Select,
   Skeleton,
-  StatTile,
   TextField,
 } from '@/shared/ui'
 
@@ -76,11 +74,6 @@ function SettlementsBody({ initialTab, today }: { initialTab: SettlementTab; tod
   return (
     <ConsolePage
       title={isHolds ? '정산 내역' : '정산'}
-      description={
-        isHolds
-          ? '1차 정산은 환불 마감일, 최종 정산은 대회일이 속한 달의 다음 달 20일(주말이어도 그날)에 지급해요. 보류가 풀리면 해제일 다음 날 지급해요(원래 지급일보다 앞당기지 않아요).'
-          : '매월 20일(주말이어도 그날)에 지급해요. 1차 정산은 환불 마감일, 최종 정산은 대회일이 속한 달의 다음 달 20일이에요.'
-      }
       // TODO(api): 정산 내역 엑셀 내려받기 API가 없어 막아 둔다
       actions={
         <Button variant="secondary" disabled title="엑셀 내려받기는 준비 중이에요">
@@ -88,33 +81,41 @@ function SettlementsBody({ initialTab, today }: { initialTab: SettlementTab; tod
         </Button>
       }
     >
-      <div className="flex gap-6">
-        {summary.data ? (
-          <>
-            {/* 지급 예정 정산이 없으면 다음 정산일이 null이라 「-」로 보여 준다 */}
-            <StatTile
-              label="다음 정산일"
-              value={summary.data.nextPayDate ? formatMonthDay(summary.data.nextPayDate) : '-'}
-              unit={summary.data.nextPayDate && `(${formatWeekday(summary.data.nextPayDate)})`}
-            />
-            <StatTile
-              tone="accent"
-              label="정산 예정액"
-              value={formatNumber(summary.data.scheduledPayoutAmount)}
-              unit="원"
-            />
-            <StatTile label="지급보류" value={formatNumber(summary.data.heldCount)} unit="건" />
-          </>
-        ) : summary.isError ? (
-          <Alert
-            tone="danger"
-            title="정산 요약을 불러오지 못했어요"
-            description={errorText(summary.error)}
+      {summary.data ? (
+        <div
+          role="group"
+          aria-label="정산 요약"
+          className="flex divide-x divide-border-default rounded-md border border-border-default py-6"
+        >
+          {/* 지급 예정 정산이 없으면 다음 정산일이 null이라 「-」로 보여 준다 */}
+          <Figure
+            label="다음 정산일"
+            value={summary.data.nextPayDate ? formatMonthDay(summary.data.nextPayDate) : '-'}
+            unit={summary.data.nextPayDate && `(${formatWeekday(summary.data.nextPayDate)})`}
           />
-        ) : (
-          <Skeleton className="h-24 flex-1" />
-        )}
-      </div>
+          <Figure
+            label="정산 예정액"
+            value={formatNumber(summary.data.scheduledPayoutAmount)}
+            unit="원"
+          />
+          {summary.data.heldCount > 0 && (
+            <Figure
+              label="지급보류"
+              value={formatNumber(summary.data.heldCount)}
+              unit="건"
+              danger
+            />
+          )}
+        </div>
+      ) : summary.isError ? (
+        <Alert
+          tone="danger"
+          title="정산 요약을 불러오지 못했어요"
+          description={errorText(summary.error)}
+        />
+      ) : (
+        <Skeleton className="h-24 w-full" />
+      )}
 
       <Segmented
         label="정산 보기"
@@ -122,7 +123,7 @@ function SettlementsBody({ initialTab, today }: { initialTab: SettlementTab; tod
         value={tab}
         onChange={(next) => setUrl({ tab: next })}
         items={[
-          { value: 'monthly', label: '월별 정산' },
+          { value: 'monthly', label: '대회별 정산' },
           { value: 'orders', label: '건별 정산' },
           { value: 'holds', label: '지급보류', count: summary.data?.heldCount },
         ]}
@@ -131,11 +132,13 @@ function SettlementsBody({ initialTab, today }: { initialTab: SettlementTab; tod
       {tab === 'monthly' && <MonthlyPayouts today={today} />}
 
       {(tab === 'orders' || isHolds) && (
-        <ConsoleCard title={isHolds ? '지급보류 내역' : '건별 정산'}>
+        <ConsoleCard
+          className="rounded-md border border-border-default shadow-none"
+          title={isHolds ? '지급보류 내역' : '건별 정산'}
+        >
           <div className="flex items-start gap-4">
             <Select
               label="조회 기간"
-              helper="건별 정산·지급보류는 한 번에 최대 1개월까지"
               items={periods}
               value={period.value}
               onValueChange={(next) => next && setUrl({ period: next, page: '0' })}
@@ -162,6 +165,7 @@ function MonthlyPayouts({ today }: { today: Date }) {
 
   return (
     <ConsoleCard
+      className="rounded-md border border-border-default shadow-none"
       title="대회별 월 정산"
       aside={
         // TODO(api): 정산 ID로 찾기 API가 아직 없어 막아 둔다
@@ -242,10 +246,6 @@ function MonthlyPayouts({ today }: { today: Date }) {
           />
         )}
       </QueryRows>
-      <p className="text-caption-regular text-text-tertiary">
-        환불 마감 뒤 판매액의 40%를 1차 정산으로 먼저 지급하고, 대회가 끝나면 나머지를 최종 정산으로
-        지급해요. 최종 정산에서 수수료((판매액 − 환불액)의 5.5%, 부가세 포함)와 1차 정산금을 빼요.
-      </p>
     </ConsoleCard>
   )
 }
@@ -354,7 +354,9 @@ function HoldList({ period }: { period: DetailPeriod }) {
                 key: 'status',
                 header: '상태',
                 width: 'w-30',
-                render: (r) => <Badge tone={HOLD_STATUS[r.status].tone}>{holdStatusText(r)}</Badge>,
+                render: (r) => (
+                  <StatusText label={holdStatusText(r)} tone={HOLD_STATUS[r.status].tone} />
+                ),
               },
               {
                 key: 'heldAt',
@@ -367,11 +369,6 @@ function HoldList({ period }: { period: DetailPeriod }) {
           />
         )}
       </QueryRows>
-      <Alert
-        className={CONSOLE_BOX}
-        title="보류 사유는 두 가지예요"
-        description="정산 계좌 미등록 · 대회 취소 처리. 보류된 금액은 지급 완료로 바뀌지 않고, 풀리면 해제일 다음 날 지급해요(원래 지급일보다 앞당기지 않아요)."
-      />
     </>
   )
 }
@@ -414,7 +411,45 @@ function QueryRows<Row>({
   return children(query.data)
 }
 
+// 상태는 칩 대신 14 Medium 글자: 완료 초록, 실패·보류 빨강, 그 밖은 보조 글자색
+const TONE_TEXT: Record<string, string> = {
+  success: 'text-text-success',
+  danger: 'text-text-danger',
+  warning: 'text-text-danger',
+}
+
+function StatusText({ label, tone }: { label: string; tone: string }) {
+  return (
+    <span className={cn('text-body2-medium', TONE_TEXT[tone] ?? 'text-text-secondary')}>
+      {label}
+    </span>
+  )
+}
+
 function PayoutStatusBadge({ status }: { status: string }) {
   const { label, tone } = payoutStatusLabel(status)
-  return <Badge tone={tone}>{label}</Badge>
+  return <StatusText label={label} tone={tone} />
+}
+
+// 숫자 요약: 이름 14 보조, 숫자 24 굵게. 칸 사이는 세로 1px 선
+function Figure({
+  label,
+  value,
+  unit,
+  danger,
+}: {
+  label: string
+  value: string
+  unit?: string | null
+  danger?: boolean
+}) {
+  return (
+    <div className="flex flex-1 flex-col gap-1 px-6">
+      <p className="text-body2-regular text-text-secondary">{label}</p>
+      <p className={cn('flex items-baseline gap-1 text-title2', danger && 'text-text-danger')}>
+        {value}
+        {unit && <span className="text-body2-regular text-text-secondary">{unit}</span>}
+      </p>
+    </div>
+  )
 }
