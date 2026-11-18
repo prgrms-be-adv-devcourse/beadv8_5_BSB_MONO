@@ -737,7 +737,7 @@ test.describe('다윗', { tag: '@dawit' }, () => {
 
     // 다시 신청하면 처음부터 줄을 서고, 차례가 오면 신청서로 간다
     await page.unroute(queue)
-    await page.getByRole('link', { name: '신청하기' }).first().click()
+    await page.getByRole('button', { name: '신청하기' }).first().click()
     await expect(page).toHaveURL(/\/apply/, { timeout: 30_000 })
   })
 
@@ -745,7 +745,7 @@ test.describe('다윗', { tag: '@dawit' }, () => {
     const course = await onSaleCourse(DUMMY_RACES[2])
     const buyer = freshBuyer('97')
     await page.goto(`/races/${course.raceId}`)
-    await page.getByRole('button', { name: '신청하기' }).first().click()
+    await page.getByRole('link', { name: '신청하기' }).first().click()
     // 로그인 화면으로 가고, 로그인하면 대기열을 지나 신청서로 이어진다
     await expect(page).toHaveURL(/\/login\?next=/, { timeout: 20_000 })
     await fillLogin(page, buyer)
