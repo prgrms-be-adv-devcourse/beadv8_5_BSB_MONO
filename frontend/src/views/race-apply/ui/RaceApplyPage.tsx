@@ -87,7 +87,7 @@ export function RaceApplyPage({
     'follow',
   )
   const remaining = preview ? previewRemainingSeconds : timer.remaining
-  // 0 참가자 정보, 1 키트 옵션. 헤더 뒤로 가기가 키트 옵션 단계에서 참가자 정보 단계로 돌아간다.
+  // 0 참가자 정보, 1 키트 옵션. 헤더 뒤로 가기가 키트 옵션 단계에서 참가자 정보 단계로 돌아간다. 키트 조회 오류 화면이면 단계를 바꾸지 않고 이전 페이지로 간다.
   const [step, setStep] = useState(0)
   useTrackOnce('apply_start', preview ? null : { raceId: race.id, courseId: option.id })
   return (
@@ -95,7 +95,7 @@ export function RaceApplyPage({
       <AppHeader
         type="sub"
         title="참가 신청"
-        onBack={step === 1 ? () => setStep(0) : undefined}
+        onBack={step === 1 && !kit.isError ? () => setStep(0) : undefined}
         action={remaining !== null && <HeaderTimer remainingSeconds={remaining} />}
       />
       {kit.isError ? (

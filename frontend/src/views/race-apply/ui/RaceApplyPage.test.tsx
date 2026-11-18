@@ -88,6 +88,8 @@ function StoreProbe() {
   return <output data-testid="store">{JSON.stringify({ selection, applications })}</output>
 }
 
+let lastClient: QueryClient
+
 function renderPage(
   initialState: BookingFlowInitial = {},
   {
@@ -96,6 +98,7 @@ function renderPage(
   }: { race?: typeof RACE; previewRemainingSeconds?: number } = {},
 ) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  lastClient = client
   render(
     <QueryClientProvider client={client}>
       <BookingFlowProvider initialState={initialState}>
@@ -339,6 +342,34 @@ describe('참가 신청 · 참가자 정보', () => {
     await user.click(await screen.findByRole('button', { name: '뒤로 가기' }))
 
     expect(await screen.findByLabelText('비상 연락처 이름')).toHaveValue('박가족')
+  })
+
+  it('키트 옵션 단계에서 키트 조회 오류 화면이 떠 있으면 뒤로 가기는 단계가 아니라 이전 페이지로 보낸다', async () => {
+    server.use(KIT_OPTIONS)
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByLabelText('비상 연락처 이름')
+    await agree(user)
+    await user.click(screen.getByRole('button', { name: '다음' }))
+    await screen.findByRole('button', { name: '결제하기' })
+
+    // 키트 옵션을 다시 받다가 실패한다
+    server.use(
+      http.get('*/api/v1/product/races/:raceId/kit-options', () =>
+        HttpResponse.json({ status: 500, message: '오류', data: null }, { status: 500 }),
+      ),
+    )
+    await act(() =>
+      lastClient
+        .refetchQueries({
+          predicate: (query) => String(query.queryKey[0]).endsWith('/kit-options'),
+        })
+        .catch(() => undefined),
+    )
+    expect(await screen.findByText('키트 옵션을 불러오지 못했어요')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '뒤로 가기' }))
+    expect(replace).toHaveBeenCalledWith('/')
   })
 
   it('같은 대회에 이미 신청했으면(409) 서버 문구를 보여 주고 넘어가지 않는다', async () => {
