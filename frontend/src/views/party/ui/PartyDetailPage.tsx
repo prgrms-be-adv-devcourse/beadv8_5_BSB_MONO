@@ -72,11 +72,20 @@ function memberBadge(
 export function PartyDetailPage({ partyId }: { partyId: number }) {
   const party = usePartyDetail(partyId)
   const data = party.data
+  // 머리글 ⋮ 메뉴가 여는 파티 나가기 확인 창. 확인 창은 본문이 그린다
+  const [leaveOpen, setLeaveOpen] = useState(false)
 
   return (
     <>
-      {/* 파티를 불러온 뒤에는 ⋮ 메뉴가 든 머리글을 본문이 그린다 */}
-      {!data && <AppHeader type="sub" title="파티 상세" />}
+      <AppHeader
+        type="sub"
+        title="파티 상세"
+        action={
+          data?.status === 'RECRUITING' ? (
+            <PartyMoreMenu onLeave={() => setLeaveOpen(true)} />
+          ) : undefined
+        }
+      />
       <main className="flex flex-1 flex-col bg-bg-surface">
         {party.isPending ? (
           <div className="flex flex-col gap-4 p-4" aria-busy>
@@ -85,7 +94,7 @@ export function PartyDetailPage({ partyId }: { partyId: number }) {
             <Skeleton className="h-24 w-full" />
           </div>
         ) : data ? (
-          <PartyDetailBody party={data} />
+          <PartyDetailBody party={data} leaveOpen={leaveOpen} onLeaveOpenChange={setLeaveOpen} />
         ) : (
           <PartyLoadError onRetry={() => void party.refetch()} />
         )}
@@ -94,7 +103,15 @@ export function PartyDetailPage({ partyId }: { partyId: number }) {
   )
 }
 
-function PartyDetailBody({ party }: { party: PartyDetail }) {
+function PartyDetailBody({
+  party,
+  leaveOpen,
+  onLeaveOpenChange,
+}: {
+  party: PartyDetail
+  leaveOpen: boolean
+  onLeaveOpenChange: (open: boolean) => void
+}) {
   const router = useRouter()
   const toast = useToast()
   const queryClient = useQueryClient()
@@ -109,7 +126,7 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
   // 참가 링크를 새로 만들면 옛 토큰이 든 링크가 되므로, 만들 때의 참가 토큰과 같을 때만 다시 쓴다.
   const [friendLink, setFriendLink] = useState<{ url: string; joinToken: string }>()
   const orderKey = useIdempotencyKey()
-  const [confirm, setConfirm] = useState<'regenerate' | 'leave' | null>(null)
+  const [confirm, setConfirm] = useState<'regenerate' | null>(null)
 
   const isLeader = raceStatus.data?.role === 'LEADER'
   const recruiting = party.status === 'RECRUITING'
@@ -217,11 +234,6 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
 
   return (
     <>
-      <AppHeader
-        type="sub"
-        title="파티 상세"
-        action={recruiting ? <PartyMoreMenu onLeave={() => setConfirm('leave')} /> : undefined}
-      />
       <section className="flex flex-col gap-1 px-5 py-4">
         <span className="text-body2-medium text-text-brand">
           {PARTY_STATUS_LABEL[party.status]}
@@ -362,8 +374,8 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
         confirming={regenerate.isPending}
       />
       <Dialog
-        open={confirm === 'leave'}
-        onOpenChange={(open) => !open && setConfirm(null)}
+        open={leaveOpen}
+        onOpenChange={onLeaveOpenChange}
         type="danger"
         title="파티에서 나갈까요?"
         body={
@@ -378,7 +390,7 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
           leave.mutate(party.id, {
             onSuccess: () => router.replace(`/crews/${party.crewId}` as Route),
             onError: (error) => {
-              setConfirm(null)
+              onLeaveOpenChange(false)
               toastError(error)
             },
           })

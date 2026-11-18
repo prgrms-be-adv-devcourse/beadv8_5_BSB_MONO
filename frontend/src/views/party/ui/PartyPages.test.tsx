@@ -164,6 +164,13 @@ describe('파티 상세', () => {
     expect(screen.queryByRole('button', { name: '파티 나가기' })).not.toBeInTheDocument()
   })
 
+  it('⋮ 메뉴 버튼은 main 밖의 머리글(banner) 안에 있다', async () => {
+    renderPage(<PartyDetailPage partyId={1} />)
+    const more = await screen.findByRole('button', { name: '더보기' })
+    expect(within(screen.getByRole('banner')).getByRole('button', { name: '더보기' })).toBe(more)
+    expect(within(screen.getByRole('main')).queryByRole('banner')).not.toBeInTheDocument()
+  })
+
   it('⋮ 메뉴는 Esc로 닫히고 나가기 확인 창을 띄우지 않는다', async () => {
     const user = userEvent.setup()
     renderPage(<PartyDetailPage partyId={1} />)

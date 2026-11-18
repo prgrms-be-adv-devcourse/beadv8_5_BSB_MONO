@@ -66,11 +66,11 @@ describe('MyCrewsPage (M09-0)', () => {
   it('새 크루 만들기는 제목 줄 오른쪽 링크이고, 아래 고정 버튼은 없다', async () => {
     renderPage(<MyCrewsPage />)
     await screen.findByText('가입한 크루 2')
-    expect(screen.getByRole('link', { name: '+ 새 크루 만들기' })).toHaveAttribute(
-      'href',
-      '/crews/new',
-    )
-    expect(screen.queryByRole('link', { name: '새 크루 만들기' })).not.toBeInTheDocument()
+    // 「+」는 읽는 프로그램에 읽히지 않아 링크 이름은 「새 크루 만들기」다
+    const links = screen.getAllByRole('link', { name: '새 크루 만들기' })
+    expect(links).toHaveLength(1)
+    expect(links[0]).toHaveAttribute('href', '/crews/new')
+    expect(links[0]).toHaveTextContent('+ 새 크루 만들기')
   })
 
   it('머리글은 로고와 알림이고 아래에 주요 메뉴가 있다', async () => {
@@ -92,7 +92,7 @@ describe('MyCrewsPage (M09-0)', () => {
     renderPage(<MyCrewsPage />)
     expect(await screen.findByText('아직 가입한 크루가 없어요')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '크루 만들기' })).toHaveAttribute('href', '/crews/new')
-    expect(screen.queryByRole('link', { name: '+ 새 크루 만들기' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: '새 크루 만들기' })).not.toBeInTheDocument()
   })
 
   it('불러오지 못하면 다시 불러오기를 보여 준다', async () => {
