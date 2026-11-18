@@ -81,10 +81,10 @@ export function netSeconds(text: string): number | null {
 
 export const SUBMISSION_STATUS: Record<
   SubmissionStatus,
-  { label: string; tone: 'info' | 'success' | 'danger' | 'neutral' }
+  { label: string; tone: 'brand' | 'success' | 'danger' | 'neutral' }
 > = {
-  CHECKING: { label: '확인 중', tone: 'info' },
-  NEEDS_REVIEW: { label: '판매자 확인 중', tone: 'info' },
+  CHECKING: { label: '확인 중', tone: 'brand' },
+  NEEDS_REVIEW: { label: '판매자 확인 중', tone: 'brand' },
   AUTO_APPROVED: { label: '인정됨', tone: 'success' },
   APPROVED: { label: '인정됨', tone: 'success' },
   REJECTED: { label: '인정 안 됨', tone: 'danger' },
