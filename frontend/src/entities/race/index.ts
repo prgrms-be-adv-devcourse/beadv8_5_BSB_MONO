@@ -44,6 +44,7 @@ export {
   isRaceEditable,
   isSaleStarted,
   SELLER_SALE_STATUS,
+  SELLER_SALE_STATUS_TEXT,
   toSellerRaceRow,
   type SellerRaceBadge,
   type SellerRaceRow,

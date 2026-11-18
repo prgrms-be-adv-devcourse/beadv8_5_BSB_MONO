@@ -16,8 +16,17 @@ export const SELLER_SALE_STATUS: Record<SellerSaleStatus, SellerRaceBadge> = {
   SCHEDULED: { label: '판매 예정', tone: 'neutral' },
   ON_SALE: { label: '판매 중', tone: 'brand' },
   STOPPED: { label: '판매 중지', tone: 'warning' },
-  CLOSED: { label: '종료', tone: 'neutral' },
+  CLOSED: { label: '판매 종료', tone: 'neutral' },
   CANCELED: { label: '대회 취소', tone: 'danger' },
+}
+
+/** 상태는 칩 대신 14 Medium 글자로 쓴다. 판매 중은 초록, 중지·취소는 빨강, 그 밖은 보조 글자색 */
+export const SELLER_SALE_STATUS_TEXT: Record<SellerSaleStatus, string> = {
+  SCHEDULED: 'text-text-secondary',
+  ON_SALE: 'text-text-success',
+  STOPPED: 'text-text-danger',
+  CLOSED: 'text-text-secondary',
+  CANCELED: 'text-text-danger',
 }
 
 /** 판매가 시작된 대회. 참가비·키트 금액을 바꿀 수 없고 정원은 늘리기만, 환불 기한은 늦추기만 된다. */
