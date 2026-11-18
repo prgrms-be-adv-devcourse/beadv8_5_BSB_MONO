@@ -14,9 +14,9 @@
 | 판정 | 개수 |
 |---|---|
 | 지금 바꿈 | 29 |
-| v3 뒤로 미룸 | 22 |
+| v3 뒤로 미룸 | 24 |
 | #619 뒤로 미룸 | 1 |
-| 그대로 둠 | 15 |
+| 그대로 둠 | 16 |
 | 남음 | 0 |
 
 ## 지금 바꿈 (29)
@@ -47,13 +47,13 @@
 | views/seller-race-new/ui/SellerRaceNewPage.tsx:485 | 글자 버튼(옵션 삭제) | `Button` (글자형) | 위와 같음 |
 | views/admin-settlements/ui/AdminSettlementsPage.tsx:109 | 글자 버튼(비활성) | `Button` (글자형) | 위와 같음 |
 | views/admin-settlements/ui/AdminSettlementsPage.tsx:154 | 글자 버튼(환급 완료로 바꾸기) | `Button` (글자형) | 위와 같음 |
-| views/party/ui/ParticipantFields.tsx:94 | `TextField type="date"` 생년월일 | `BirthDateField` (`register` 그대로 연결) | 같은 칸을 가입·본인인증이 이미 이 부품으로 씀. 값은 `YYYY-MM-DD` 그대로. 만 14세 미만 불가는 정책과 같음 |
+| views/party/ui/ParticipantFields.tsx:94 | `TextField type="date"` 생년월일 | `BirthDateField` (`register` 그대로 연결) | 같은 칸을 가입·본인인증이 이미 이 부품으로 씀. 값은 `YYYY-MM-DD` 그대로. 참가 나이는 서버가 대회 당일 만 나이로 판단하고 화면은 제한하지 않음(`restrictAge={false}`, 1900-01-01부터 오늘까지) |
 | views/race-apply/ui/RaceApplyPage.tsx:371 | `TextField type="date"` 생년월일 | `BirthDateField` (`register` 그대로 연결) | 위와 같음 |
-| features/record-cert/ui/RecordCertFlow.tsx:329 | `TextField type="date"` 대회일 | `DateTimeField` (날짜만, `Controller`) | 값은 `YYYY-MM-DD` 그대로 |
+| features/record-cert/ui/RecordCertFlow.tsx:329 | `TextField type="date"` 대회일 | `DateTimeField` (날짜만, `Controller`) | 값은 `YYYY-MM-DD` 그대로. 오늘 뒤 날짜는 고를 수 없고, 제출 실패 때 포커스가 열기 버튼으로 감 |
 | views/admin-stats/ui/AdminStatsPage.tsx:144 | `TextField type="date"` 시작 날짜 | `DateTimeField` (날짜만) | 오늘 이후는 고를 수 없음. 값은 `YYYY-MM-DD` 그대로 |
 | views/admin-stats/ui/AdminStatsPage.tsx:151 | `TextField type="date"` 끝 날짜 | `DateTimeField` (날짜만) | 시작·끝이 따로 바뀌어도 되는 칸이라 기간 고르기(range) 대신 칸 두 개로 둠. 끝이 시작보다 빠르면 적용 버튼이 꺼지는 동작 그대로 |
 
-## v3 뒤로 미룸 (22)
+## v3 뒤로 미룸 (24)
 
 | 파일:줄 | 지금 | 필요한 부품 또는 옵션 | 이유 |
 |---|---|---|---|
@@ -79,6 +79,8 @@
 | views/community/ui/CommunityPage.tsx:188 | 정렬 글자 버튼 + `BottomSheet` | `SortSelect` | 시트에서 드롭다운으로 쓰임이 달라짐. 시안 결정 필요 |
 | views/community-write/ui/CommunityWritePage.tsx:251,288 | 사진 추가·삭제 버튼 | 여러 장 사진 올리기 부품 | `ImageUpload`는 한 장·창 흐름 |
 | views/party/ui/PartyDetailPage.tsx:3 | `@base-ui` `Menu` 직접 사용 | `Menu` | 공통 부품 없음 |
+| views/admin-stats/ui/TrendSection.tsx:82 | 직접 그린 검정 `<span>` 배지(증감) | `Badge`의 반전(검정) 색 | `Badge`에 반전 색이 없음 |
+| 글자 버튼 7곳: SellerRaceNewPage(4곳), SellerRacesPage, SellerKitsPage, AdminHoldsPage, AdminRacesPage, SellerSettlementsPage, CommentSection | `Button` 글자형에 `className="text-text-brand"` 덮어쓰기 | `Button` 글자형의 브랜드색 종류 | `Button` 글자형에 브랜드색 종류 필요. 지금은 className으로 덮어 포커스 때 검게 보일 수 있음 |
 
 ## #619 뒤로 미룸 (1)
 
@@ -86,7 +88,7 @@
 |---|---|---|
 | views/deposit/ui/DepositChargePage.tsx:62 | 금액 `<input>` | `features/deposit-charge`, `DepositChargePage`, `DepositChargeReturnPage`는 PR #619가 고치는 중 |
 
-## 그대로 둠 (15)
+## 그대로 둠 (16)
 
 | 파일:줄 | 지금 | 이유 |
 |---|---|---|
@@ -103,5 +105,6 @@
 | views/my-page/ui/MenuRow.tsx:57 | 메뉴 행 버튼 | 링크 행과 같은 모양을 공유 |
 | widgets/console-sidebar/ui/ConsoleSidebar.tsx:110 | 사이드바 항목 | 같은 목록의 링크 항목과 같은 모양 |
 | widgets/race-share-sheet/ui/RaceShareSheet.tsx:53 | 아이콘 + 글자 타일 | 카카오 가이드 색 타일 |
+| views/race-detail/ui/RaceDetailPage.tsx:113 | 사진 위 장수 표시 알약(`1 / N`) | 사진 위에 얹는 반투명 표시라 `Badge`(상태 태그) 색과 쓰임이 다름 |
 | 여러 파일 `<p role="alert">` | 칸 아래 오류 문구 | 필드 보조 문구라 상자형 `Alert`가 아님 |
 | 여러 파일 `role="status"` 스켈레톤 | 불러오는 중 영역 | 이미 `Skeleton`을 안에 씀 |
