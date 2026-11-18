@@ -36,3 +36,10 @@ data:
   # 끌 때는 "false"로 바꿔 적용하고, Redis에서 members:{이 계정 회원 ID}:refreshToken 키를 지워 남은 로그인을 끊는다
   DEMO_LOGIN_ENABLED: "true"
   DEMO_LOGIN_EMAIL: "admin@email.com"
+
+  # 회원 메일·링크 (member)
+  #   FRONT_PUBLIC_BASE_URL: 메일·카카오톡 버튼 링크의 앞부분(비밀번호 재설정, 광고 수신 거부, 크루 초대). 비면 링크가 열리지 않는다
+  #   MAIL_HOST: 메일 서버. 비면 운영은 경고만 남기고 메일을 보내지 않는다. 포트(587)·STARTTLS는 앱 기본값이 Gmail에 맞다
+  #   메일 계정·앱 비밀번호(MAIL_USERNAME·MAIL_PASSWORD)는 secret.yaml
+  FRONT_PUBLIC_BASE_URL: https://crewrun.duckdns.org
+  MAIL_HOST: smtp.gmail.com
