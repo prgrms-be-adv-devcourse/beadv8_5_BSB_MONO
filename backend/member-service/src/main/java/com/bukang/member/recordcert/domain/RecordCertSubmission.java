@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import com.bukang.member.recordcert.domain.exception.SubmissionNotCheckingException;
+import com.bukang.member.recordcert.domain.exception.SubmissionNotReviewableException;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -91,6 +92,17 @@ public class RecordCertSubmission {
 	@Column(name = "course_check", columnDefinition = "varchar(12)")
 	private FieldCheck courseCheck;
 
+	// 판매자 심사 (BUK-276). 승인 불가 사유 · 메모는 승인 불가일 때만 있다
+	@Enumerated(STRING)
+	@Column(name = "deny_reason", columnDefinition = "varchar(20)")
+	private DenyReason denyReason;
+
+	@Column(name = "deny_memo", length = DenyReason.MEMO_MAX_LENGTH)
+	private String denyMemo;
+
+	@Column(name = "reviewed_at")
+	private LocalDateTime reviewedAt;
+
 	// 낙관적 잠금 (judgement-spec 3장, 11/18). 결과 반영 · 판매자 심사 · 환불 닫기가 같은 제출을 동시에 바꾸면 늦게 저장한 쪽이 실패한다
 	@Version
 	@Column(name = "version", nullable = false)
@@ -144,6 +156,26 @@ public class RecordCertSubmission {
 			throw new SubmissionNotCheckingException();
 		}
 		this.status = SubmissionStatus.NEEDS_REVIEW;
+		this.updatedAt = now;
+	}
+
+	// 판매자 심사는 심사 필요에서만 (BUK-276). 이미 끝난 결과가 뒤집히지 않게 한다
+	public void approve(LocalDateTime now) {
+		review(SubmissionStatus.APPROVED, now);
+	}
+
+	public void deny(DenyReason reason, String memo, LocalDateTime now) {
+		review(SubmissionStatus.DENIED, now);
+		this.denyReason = reason;
+		this.denyMemo = memo == null || memo.isBlank() ? null : memo.strip();
+	}
+
+	private void review(SubmissionStatus result, LocalDateTime now) {
+		if (status != SubmissionStatus.NEEDS_REVIEW) {
+			throw new SubmissionNotReviewableException();
+		}
+		this.status = result;
+		this.reviewedAt = now;
 		this.updatedAt = now;
 	}
 
