@@ -34,7 +34,9 @@ public class CachingKitOptionPort implements KitOptionPort {
 			return Optional.of(entry.options());
 		}
 		Optional<List<KitOption>> options = delegate.findKitOptions(raceId);
-		options.ifPresentOrElse(list -> entries.put(raceId, new Entry(List.copyOf(list), now)),
+		// 늦게 끝난 옛 응답이 먼저 들어온 새 응답을 덮지 않게 더 늦게 시작한 쪽을 남긴다
+		options.ifPresentOrElse(list -> entries.merge(raceId, new Entry(List.copyOf(list), now),
+				(old, loaded) -> loaded.loadedAt() - old.loadedAt() >= 0 ? loaded : old),
 			() -> entries.remove(raceId));
 		return options;
 	}

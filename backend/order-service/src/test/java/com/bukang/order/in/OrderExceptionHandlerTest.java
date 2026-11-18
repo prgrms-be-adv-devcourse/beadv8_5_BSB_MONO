@@ -97,7 +97,8 @@ class OrderExceptionHandlerTest {
 		mockMvc.perform(get("/test/db-busy").header("X-Member-Id", "7"))
 			.andExpect(status().isServiceUnavailable())
 			.andExpect(jsonPath("$.status").value(503))
-			.andExpect(jsonPath("$.code").value("ORDER_DB_BUSY"));
+			.andExpect(jsonPath("$.code").value("ORDER_DB_BUSY"))
+			.andExpect(jsonPath("$.message").value(OrderExceptionHandler.DB_BUSY_MESSAGE));
 	}
 
 	// standalone MockMvc는 @Controller가 붙은 클래스만 핸들러로 인식한다

@@ -68,4 +68,24 @@ class CachingKitOptionPortTest {
 		assertThat(port.findKitOptions(3)).contains(List.of());
 		assertThat(calls).isEqualTo(2);
 	}
+
+	@Test
+	@DisplayName("늦게 끝난 옛 응답은 그사이 들어온 새 응답을 덮지 않는다")
+	void olderResponseDoesNotOverwrite() {
+		KitOption shirtL = new KitOption(12, "T-shirt", "L", 10);
+		AtomicLong clock = new AtomicLong();
+		CachingKitOptionPort[] holder = new CachingKitOptionPort[1];
+		holder[0] = new CachingKitOptionPort(raceId -> {
+			if (clock.get() == 0) {
+				// 첫 요청이 상품을 기다리는 사이 1초 뒤 다른 요청이 새 목록을 받아 넣는다
+				clock.set(Duration.ofSeconds(1).toNanos());
+				holder[0].findKitOptions(raceId);
+				return Optional.of(List.of(SHIRT_M));
+			}
+			return Optional.of(List.of(shirtL));
+		}, Duration.ofSeconds(5), clock::get);
+
+		assertThat(holder[0].findKitOptions(2)).contains(List.of(SHIRT_M));
+		assertThat(holder[0].findKitOptions(2)).contains(List.of(shirtL));
+	}
 }

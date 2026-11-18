@@ -475,6 +475,11 @@ final class OrderApiExamples {
 			"message": "결제 요청이 몰려 있습니다. 잠시 후 다시 시도해주세요.", "data": null }
 		""";
 
+	static final String DB_BUSY = """
+		{ "status": 503, "code": "ORDER_DB_BUSY",
+			"message": "요청이 몰려 처리 결과를 확인하지 못했습니다. 잠시 뒤 주문 내역을 확인하거나 다시 시도해주세요.", "data": null }
+		""";
+
 	static final String NOT_PAID_ITEM = """
 		{ "status": 409, "code": "ORDER_ITEM_NOT_CANCELABLE",
 			"message": "결제한 상품만 취소할 수 있습니다(현재 상태: 결제 대기).", "data": null }
