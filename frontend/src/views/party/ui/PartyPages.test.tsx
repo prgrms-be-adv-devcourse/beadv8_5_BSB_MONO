@@ -112,7 +112,9 @@ describe('파티 상세', () => {
     const cta = await screen.findByRole('link', { name: '파티 참가하기' })
     expect(cta).toHaveClass('bg-bg-brand-disabled')
     expect(cta).not.toHaveClass('opacity-40')
-    expect(cta.closest('div.border-t')).not.toBeNull()
+    // v3: 고정 영역 위 회색 선은 없다
+    expect(cta.closest('div.border-t')).toBeNull()
+    expect(cta.closest('div.bg-bg-surface')).not.toBeNull()
   })
 
   it('4명이 모이면 신청 버튼이 켜진다', async () => {
@@ -534,6 +536,19 @@ describe('파티 신청', () => {
     await user.click(await screen.findByRole('button', { name: /명 파티 신청하기/ }))
     expect(await screen.findByText('크루 전용 자리가 2자리 모자랐어요')).toBeInTheDocument()
     expect(screen.getByText('청구된 금액 없음')).toBeInTheDocument()
+  })
+
+  it('대회 정보를 못 불러와도 결과 화면에 빈 제목 줄을 만들지 않는다', async () => {
+    const user = userEvent.setup()
+    renderPage(<PartyApplyPage partyId={9} />)
+    await user.click(await screen.findByRole('button', { name: /명 파티 신청하기/ }))
+    server.use(
+      productMock.getFindRaceMockHandler(() =>
+        HttpResponse.json({ status: 500, message: '오류', data: null }, { status: 500 }),
+      ),
+    )
+    expect(await screen.findByText('신청 안 됨')).toBeInTheDocument()
+    expect(screen.queryAllByRole('heading', { level: 2 }).every((h) => h.textContent)).toBe(true)
   })
 
   it('신청에 성공하면 파티 상세로 간다', async () => {

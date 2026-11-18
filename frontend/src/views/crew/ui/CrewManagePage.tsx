@@ -166,19 +166,20 @@ export function CrewManagePage({ crewId }: { crewId: number }) {
                 action={(member) =>
                   member.role !== 'LEADER' && (
                     <Button
-                      variant="ghost"
+                      variant="text"
                       size="s"
+                      aria-label="관리"
                       aria-describedby={memberLabelId(member)}
                       onClick={() => setMenuTarget(member)}
                     >
-                      관리
+                      <Icon name="ChevronRight" className="size-5" />
                     </Button>
                   )
                 }
               />
               <Link
                 href={`/crews/${crewId}/invites` as Route}
-                className={buttonClassName({ variant: 'secondary', size: 'm' })}
+                className={buttonClassName({ variant: 'ghost', size: 'm' })}
               >
                 초대 링크 만들기
               </Link>
@@ -186,9 +187,9 @@ export function CrewManagePage({ crewId }: { crewId: number }) {
             <Divider type="section" />
             <CrewBand>
               <Button
-                variant="ghost"
+                variant="text"
                 size="m"
-                className="self-start"
+                className="self-start text-text-danger"
                 // 크루원이 남아 있으면 요청 없이 막힘 안내만 띄운다(시안 11/9)
                 onClick={() =>
                   crew.data.memberCount > 1 ? setBlockedOpen(true) : ask({ kind: 'disband' })

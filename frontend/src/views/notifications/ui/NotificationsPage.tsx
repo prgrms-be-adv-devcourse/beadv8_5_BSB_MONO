@@ -71,7 +71,7 @@ export function NotificationsPage({ empty = false }: { empty?: boolean }) {
           {categories
             .filter((category) => category.tab)
             .map((category) => (
-              <div key={category.value} className="flex items-center gap-3 px-4 py-3.5">
+              <div key={category.value} className="flex items-center gap-3 px-5 py-3.5">
                 <Skeleton shape="circle" className="size-12" />
                 <Skeleton className="w-32" />
               </div>
@@ -113,7 +113,7 @@ export function NotificationsPage({ empty = false }: { empty?: boolean }) {
                 <li key={group.value}>
                   <Link
                     href={`/notifications/${group.value}`}
-                    className={cn('flex items-center gap-3 px-4 py-3.5', FOCUS_RING)}
+                    className={cn('flex items-center gap-3 px-5 py-3.5', FOCUS_RING)}
                   >
                     <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-bg-brand-subtle text-text-brand">
                       <Icon name={group.icon} />

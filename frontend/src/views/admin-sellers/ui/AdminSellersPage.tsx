@@ -1,22 +1,16 @@
 'use client'
 
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
+import { Controller, useForm } from 'react-hook-form'
+import { z } from 'zod'
 
 import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
 import { useAuthStatus } from '@/features/auth'
 import { memberApi, unwrapData, type memberModel } from '@/shared/api'
-import { useSearchParamsState } from '@/shared/lib'
-import {
-  Alert,
-  Badge,
-  Button,
-  DataTable,
-  Dialog,
-  Segmented,
-  Textarea,
-  TextField,
-} from '@/shared/ui'
+import { cn, useSearchParamsState } from '@/shared/lib'
+import { Alert, Button, DataTable, Dialog, Segmented, Textarea } from '@/shared/ui'
 
 import {
   loadErrorMessage,
@@ -28,6 +22,15 @@ import {
 } from '../model/admin-sellers-api'
 import { rejectFormSchema } from '../model/reject-form'
 
+// 상태는 칩 대신 뜻 색 글자로 보여 준다 (완료 초록, 실패 빨강, 나머지 보조 글자)
+const STATUS_TEXT: Record<string, string> = {
+  success: 'text-text-success',
+  danger: 'text-text-danger',
+  warning: 'text-text-warning',
+}
+const statusText = (tone: string) =>
+  cn('text-body2-medium', STATUS_TEXT[tone] ?? 'text-text-secondary')
+
 type Tab = 'pending' | 'approved' | 'rejected'
 
 const STATUS_BY_TAB = {
@@ -38,6 +41,7 @@ const STATUS_BY_TAB = {
 
 // 서버가 반려 사유를 500자까지 받는다.
 const REASON_MAX_LENGTH = 500
+type RejectValues = z.infer<typeof rejectFormSchema>
 
 // 피그마 V2 · A01 판매자 승인 (+ A01-1 반려 사유 입력)
 // 신청 목록(GET /api/v1/member/admin/sellers?status=)을 탭별로 불러오고, 승인·반려(POST .../{id}/approval · rejection)를 보낸다.
@@ -53,8 +57,10 @@ export function AdminSellersPage({ rejectOpen = false }: { rejectOpen?: boolean 
   const tab = url.tab as Tab
   const [selectedId, setSelectedId] = useState<number>()
   const [dialogOpen, setDialogOpen] = useState(rejectOpen)
-  const [reason, setReason] = useState('')
-  const [reasonError, setReasonError] = useState<string>()
+  const rejectForm = useForm<RejectValues>({
+    resolver: zodResolver(rejectFormSchema),
+    defaultValues: { reason: '' },
+  })
   const [reviewError, setReviewError] = useState<string>()
 
   const list = memberApi.useFindAll(
@@ -79,8 +85,7 @@ export function AdminSellersPage({ rejectOpen = false }: { rejectOpen?: boolean 
   // 다른 신청을 고르거나 탭을 바꾸면 앞 신청에 적던 사유가 남지 않게 비운다.
   const resetReviewInput = () => {
     setReviewError(undefined)
-    setReason('')
-    setReasonError(undefined)
+    rejectForm.reset()
   }
 
   const onReviewed = () => {
@@ -99,19 +104,14 @@ export function AdminSellersPage({ rejectOpen = false }: { rejectOpen?: boolean 
     setReviewError(undefined)
     approve.mutate({ id: app.id }, { onSuccess: onReviewed, onError: onReviewFailed })
   }
-  const onReject = () => {
+  const onReject = rejectForm.handleSubmit(({ reason }) => {
     if (!app) return
-    const parsed = rejectFormSchema.safeParse({ reason })
-    if (!parsed.success) {
-      setReasonError(parsed.error.issues[0].message)
-      return
-    }
     setReviewError(undefined)
     reject.mutate(
-      { id: app.id, data: parsed.data },
+      { id: app.id, data: { reason } },
       { onSuccess: onReviewed, onError: onReviewFailed },
     )
-  }
+  })
 
   return (
     <ConsolePage
@@ -182,16 +182,6 @@ export function AdminSellersPage({ rejectOpen = false }: { rejectOpen?: boolean 
             </dl>
             {app.status === 'PENDING' ? (
               <>
-                <TextField
-                  label="반려 사유"
-                  helper="반려하면 이 사유가 신청자에게 보여요"
-                  maxLength={REASON_MAX_LENGTH}
-                  value={reason}
-                  onChange={(event) => {
-                    setReason(event.target.value)
-                    setReasonError(undefined)
-                  }}
-                />
                 {reviewError && <Alert tone="danger" title={reviewError} />}
                 <div className="flex gap-2">
                   <Button
@@ -209,9 +199,9 @@ export function AdminSellersPage({ rejectOpen = false }: { rejectOpen?: boolean 
               </>
             ) : (
               <div className="flex items-start justify-between gap-4">
-                <Badge tone={app.status === 'APPROVED' ? 'success' : 'danger'}>
+                <span className={statusText(app.status === 'APPROVED' ? 'success' : 'danger')}>
                   {app.status === 'APPROVED' ? '승인' : '반려'}
-                </Badge>
+                </span>
                 {app.status === 'REJECTED' && app.rejectReason && (
                   <p className="text-body2-regular text-text-secondary">사유: {app.rejectReason}</p>
                 )}
@@ -232,17 +222,19 @@ export function AdminSellersPage({ rejectOpen = false }: { rejectOpen?: boolean 
               반려하면 신청자에게 알림이 가고, 사유가 신청자 화면(S01-1)에 그대로 보여요. 신청자는
               고쳐서 다시 신청할 수 있어요.
             </p>
-            <Textarea
-              label="반려 사유 (필수)"
-              helper="신청자 화면에 그대로 보여요"
-              showCounter
-              maxLength={REASON_MAX_LENGTH}
-              value={reason}
-              error={reasonError}
-              onChange={(event) => {
-                setReason(event.target.value)
-                setReasonError(undefined)
-              }}
+            <Controller
+              control={rejectForm.control}
+              name="reason"
+              render={({ field, fieldState }) => (
+                <Textarea
+                  label="반려 사유 (필수)"
+                  helper="신청자 화면에 그대로 보여요"
+                  showCounter
+                  maxLength={REASON_MAX_LENGTH}
+                  error={fieldState.error?.message}
+                  {...field}
+                />
+              )}
             />
           </div>
         }

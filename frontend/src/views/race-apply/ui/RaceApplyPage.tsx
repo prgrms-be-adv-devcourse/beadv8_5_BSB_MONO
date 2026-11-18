@@ -5,7 +5,7 @@ import { useMutation } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { Controller, useForm } from 'react-hook-form'
+import { Controller, useForm, useWatch } from 'react-hook-form'
 
 import { AppHeader } from '@/widgets/app-header'
 import { AddressSearch, type AddressSearchResult } from '@/features/address-search'
@@ -15,7 +15,6 @@ import {
   isQueueNotAdmitted,
   useAdmissionTimer,
 } from '@/features/queue-admission'
-import { BirthDateField } from '@/entities/member'
 import { RaceTicketCard, type RaceDetail, type RaceOption } from '@/entities/race'
 import {
   ApiError,
@@ -36,6 +35,7 @@ import {
   EmptyState,
   FOCUS_RING,
   HeaderTimer,
+  KeyValue,
   PhoneField,
   Radio,
   RadioGroup,
@@ -47,6 +47,7 @@ import {
 
 import {
   EMPTY_PARTICIPANT_FORM,
+  formatBirth,
   PARTICIPANT_ERRORS,
   participantFormSchema,
   toParticipantFormValues,
@@ -75,7 +76,7 @@ export function RaceApplyPage({
   /** 시안 미리보기(?preview=admitted). 있으면 API를 부르지 않고 이 남은 초로 띠를 붙인다 */
   previewRemainingSeconds?: number
 }) {
-  const defaults = useParticipantDefaults(option)
+  const { defaults, memberFailed, retryMember } = useParticipantDefaults(option)
   const preview = previewRemainingSeconds !== undefined
   // 키트 옵션이 있으면 참가자 정보 다음에 키트 옵션 단계를 둔다.
   // 못 불러오면 옵션이 없는 것으로 보지 않는다. 옵션이 있는 대회는 결제가 매번 거절되므로 진행을 막고 다시 시도하게 한다.
@@ -90,13 +91,15 @@ export function RaceApplyPage({
   const remaining = preview ? previewRemainingSeconds : timer.remaining
   // 0 참가자 정보, 1 키트 옵션. 헤더 뒤로 가기가 키트 옵션 단계에서 참가자 정보 단계로 돌아간다. 키트 조회 오류 화면이면 단계를 바꾸지 않고 이전 페이지로 간다.
   const [step, setStep] = useState(0)
+  // 결제를 저장하는 중에는 헤더 뒤로 가기로 단계를 바꿀 수 없다
+  const [saving, setSaving] = useState(false)
   useTrackOnce('apply_start', preview ? null : { raceId: race.id, courseId: option.id })
   return (
     <>
       <AppHeader
         type="sub"
         title="참가 신청"
-        onBack={step === 1 && !kit.isError ? () => setStep(0) : undefined}
+        onBack={step === 1 && !kit.isError ? () => !saving && setStep(0) : undefined}
         action={remaining !== null && <HeaderTimer remainingSeconds={remaining} />}
       />
       {kit.isError ? (
@@ -114,12 +117,17 @@ export function RaceApplyPage({
         </main>
       ) : defaults && !kit.isPending ? (
         <ParticipantForm
+          // 회원 정보를 다시 받으면 입력 칸의 처음 값도 새로 채우려고 폼을 다시 만든다
+          key={memberFailed ? 'member-failed' : 'member-ready'}
           race={race}
           option={option}
           defaults={defaults}
+          memberFailed={memberFailed}
+          retryMember={retryMember}
           kitGroups={kit.data?.kitOptions ?? []}
           step={step}
           setStep={setStep}
+          setSaving={setSaving}
         />
       ) : (
         <main aria-busy className="flex flex-1 flex-col gap-4 bg-bg-surface px-4 py-5">
@@ -133,40 +141,60 @@ export function RaceApplyPage({
 
 /**
  * 입력 칸의 처음 값. 불러오는 동안은 null.
- * 지난 신청이 없으면 회원 정보에서 휴대폰 번호를 채운다 (회원 정보에는 이름·생년월일·성별이 없다).
- * 불러오지 못하면 빈 칸으로 시작한다.
+ * 이름 · 생년월일 · 휴대폰 번호는 회원 정보 값을 쓰고 참가자가 바꿀 수 없다(바꾸려면 회원 정보에서).
+ * 나머지는 이번에 입력해 둔 값 → 지난 신청 값 순으로 채운다. 불러오지 못하면 빈 칸으로 시작한다.
  */
-function useParticipantDefaults(option: RaceOption): ParticipantFormValues | null {
+function useParticipantDefaults(option: RaceOption) {
   const saved = useBookingFlow((s) => s.participant)
   const latest = orderApi.useFindLatestParticipant({
     query: { enabled: !saved, select: (response) => response.data ?? null },
   })
-  const needMember = !saved && latest.isSuccess && latest.data === null
-  const me = memberApi.useFindMe({ query: { enabled: needMember, select: unwrapData } })
+  const me = memberApi.useFindMe({ query: { select: unwrapData } })
 
-  if (saved) return toParticipantFormValues(saved, option)
-  if (latest.isError) return EMPTY_PARTICIPANT_FORM
-  if (!latest.isSuccess) return null
-  if (latest.data) return toParticipantFormValues(latest.data, option)
-  if (me.isError) return EMPTY_PARTICIPANT_FORM
-  if (!me.isSuccess) return null
-  return { ...EMPTY_PARTICIPANT_FORM, phone: me.data.phone ?? '' }
+  const loading = (!saved && latest.isPending) || me.isPending
+  const base = saved
+    ? toParticipantFormValues(saved, option)
+    : latest.isSuccess && latest.data
+      ? toParticipantFormValues(latest.data, option)
+      : EMPTY_PARTICIPANT_FORM
+  const defaults: ParticipantFormValues | null = loading
+    ? null
+    : me.isSuccess
+      ? {
+          ...base,
+          name: me.data.name ?? base.name,
+          birth: me.data.birthDate ?? base.birth,
+          phone: me.data.phone ?? base.phone,
+        }
+      : base
+  return {
+    defaults,
+    // 회원 정보를 못 불러오면 이름 · 생년월일 · 휴대폰 번호를 채울 수 없어 신청을 막는다
+    memberFailed: me.isError,
+    retryMember: () => void me.refetch(),
+  }
 }
 
 function ParticipantForm({
   race,
   option,
   defaults,
+  memberFailed,
+  retryMember,
   kitGroups,
   step,
   setStep,
+  setSaving,
 }: {
   race: RaceDetail
   option: RaceOption
   defaults: ParticipantFormValues
+  memberFailed: boolean
+  retryMember: () => void
   kitGroups: KitGroup[]
   step: number
   setStep: (step: number) => void
+  setSaving: (saving: boolean) => void
 }) {
   const router = useRouter()
   const refundDeadline = race.schedule.find((row) => row.label === '전액 환불 기한')?.value
@@ -190,6 +218,7 @@ function ParticipantForm({
     resolver: zodResolver(participantFormSchema(kitStep ? { ...option, shirtSizes: [] } : option)),
     defaultValues: defaults,
   })
+  const address = useWatch({ control, name: 'address' })
   // 주소 검색을 불러오지 못했을 때만 우편번호 · 주소를 직접 입력하게 연다
   const [manualAddress, setManualAddress] = useState(false)
   const pickAddress = ({ zipcode, address }: AddressSearchResult) => {
@@ -262,6 +291,8 @@ function ParticipantForm({
       saveKitOptionIds(orderId, kitStep ? kitGroups.flatMap((g) => picked[g.name] ?? []) : [])
       return orderId
     },
+    onMutate: () => setSaving(true),
+    onSettled: () => setSaving(false),
     onSuccess: (orderId) => router.replace(`/checkout?orderId=${orderId}`),
     // 결제가 대기열 입장 전(입장 시간이 끝남)이라 막히면 입장 시간 만료 화면(M07-1)으로 간다.
     onError: (error) => {
@@ -366,18 +397,21 @@ function ParticipantForm({
               }
               className="gap-3"
             >
-              <TextField label="이름" error={errors.name?.message} {...register('name')} />
-              <BirthDateField
-                restrictAge={false}
-                label="생년월일"
-                error={errors.birth?.message}
-                {...register('birth')}
-              />
-              <PhoneField
-                label="휴대폰 번호"
-                error={errors.phone?.message}
-                {...register('phone')}
-              />
+              {memberFailed ? (
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-body2-regular text-text-danger">
+                    회원 정보를 불러오지 못했어요
+                  </p>
+                  <Button size="s" variant="secondary" onClick={retryMember}>
+                    다시 시도하기
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <KeyValue label="이름" value={defaults.name || '-'} />
+                  <KeyValue label="생년월일" value={formatBirth(defaults.birth)} />
+                </>
+              )}
             </Section>
 
             <Section className="gap-6 pt-2">
@@ -435,28 +469,57 @@ function ParticipantForm({
               {option.kitIncluded && (
                 <>
                   <TextField
-                    label="키트 배송 우편번호"
-                    inputMode="numeric"
-                    readOnly={!manualAddress}
-                    error={errors.zipcode?.message}
-                    {...register('zipcode')}
+                    label="받는 사람"
+                    placeholder="받는 사람 이름"
+                    error={errors.recipientName?.message}
+                    {...register('recipientName')}
                   />
-                  <TextField
-                    label="키트 배송 주소"
-                    readOnly={!manualAddress}
-                    helper={`환불 기한(${refundDeadline})이 지난 뒤 이 주소로 키트를 보내요.`}
-                    error={errors.address?.message}
-                    {...register('address')}
+                  <PhoneField
+                    label="받는 사람 연락처"
+                    error={errors.recipientPhone?.message}
+                    {...register('recipientPhone')}
                   />
-                  <AddressSearch
-                    onSelect={pickAddress}
-                    onUnavailable={() => setManualAddress(true)}
-                  />
-                  <TextField
-                    label="상세 주소"
-                    error={errors.addressDetail?.message}
-                    {...register('addressDetail')}
-                  />
+                  <div className="flex flex-col gap-2">
+                    {!manualAddress && <span className="text-body2-medium">키트 배송 주소</span>}
+                    {manualAddress && (
+                      <TextField
+                        label="키트 배송 우편번호"
+                        inputMode="numeric"
+                        error={errors.zipcode?.message}
+                        {...register('zipcode')}
+                      />
+                    )}
+                    {manualAddress ? (
+                      <TextField
+                        label="키트 배송 주소"
+                        error={errors.address?.message}
+                        {...register('address')}
+                      />
+                    ) : null}
+                    {/* 우편번호는 주소 검색 결과로만 저장하고 화면에는 쓰지 않는다 */}
+                    <AddressSearch
+                      onSelect={pickAddress}
+                      onUnavailable={() => setManualAddress(true)}
+                      summary={address || undefined}
+                      label={address ? '다시 검색' : '주소 검색'}
+                      variant={address ? 'text' : 'secondary'}
+                    />
+                    {!manualAddress && errors.address?.message && (
+                      <p role="alert" className="text-caption-regular text-text-danger">
+                        {errors.address.message}
+                      </p>
+                    )}
+                    {address && (
+                      <TextField
+                        label="상세 주소"
+                        error={errors.addressDetail?.message}
+                        {...register('addressDetail')}
+                      />
+                    )}
+                    <p className="text-caption-regular text-text-secondary">
+                      환불 기한({refundDeadline})이 지난 뒤 이 주소로 키트를 보내요.
+                    </p>
+                  </div>
                 </>
               )}
             </Section>
@@ -503,7 +566,7 @@ function ParticipantForm({
               결제하기
             </Button>
           ) : (
-            <Button size="l" disabled={!agreed || busy} onClick={next}>
+            <Button size="l" disabled={!agreed || busy || memberFailed} onClick={next}>
               다음
             </Button>
           )
