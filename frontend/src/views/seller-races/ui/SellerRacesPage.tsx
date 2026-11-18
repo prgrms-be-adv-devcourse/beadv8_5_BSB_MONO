@@ -1,12 +1,16 @@
 'use client'
 
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useEffect, useRef } from 'react'
+import { useForm, useWatch } from 'react-hook-form'
+import { z } from 'zod'
 
 import { ConsoleLoading, ConsolePage } from '@/widgets/console-page'
 import {
   myRacesQueryOptions,
+  SaleRateBar,
   SELLER_SALE_STATUS,
   SELLER_SALE_STATUS_TEXT,
   toSellerRaceRow,
@@ -20,14 +24,16 @@ import {
   Chip,
   EmptyState,
   FOCUS_RING,
-  ProgressBar,
+  Icon,
+  TextField,
   useToast,
 } from '@/shared/ui'
 
 const n = formatNumber
 
 // 상태 칩 순서. 「판매 전」은 쓰지 않고 코드의 다섯 가지 상태를 그대로 쓴다
-const STATUS_ORDER = Object.keys(SELLER_SALE_STATUS) as SellerSaleStatus[]
+const STATUS_ORDER: SellerSaleStatus[] = ['ON_SALE', 'SCHEDULED', 'CLOSED', 'STOPPED', 'CANCELED']
+const searchSchema = z.object({ q: z.string().trim().max(50) })
 const FILTERS = ['ALL', ...STATUS_ORDER]
 
 // 피그마 Final v3 · 판매자 · 대회 관리: 내 대회 표를 본문 폭 전체로, 줄을 누르면 대회 상세
@@ -37,6 +43,12 @@ export function SellerRacesPage({ registeredRaceId }: { registeredRaceId?: strin
     select: (list) => list.map(toSellerRaceRow),
   })
   const [url, setUrl] = useSearchParamsState({ status: 'ALL' }, { status: FILTERS })
+  // 대회 이름 찾기: 칸 하나라 zod로 검사만 하고 화면 안에서 거른다
+  const { register, control } = useForm<{ q: string }>({
+    resolver: zodResolver(searchSchema),
+    defaultValues: { q: '' },
+  })
+  const query = (useWatch({ control, name: 'q' }) ?? '').trim().toLowerCase()
   const toast = useToast()
   const shown = useRef(false)
 
@@ -63,7 +75,8 @@ export function SellerRacesPage({ registeredRaceId }: { registeredRaceId?: strin
   }, [registeredRaceId, toast])
 
   const all = races.data ?? []
-  const rows = url.status === 'ALL' ? all : all.filter((r) => r.saleStatus === url.status)
+  const byStatus = url.status === 'ALL' ? all : all.filter((r) => r.saleStatus === url.status)
+  const rows = query ? byStatus.filter((r) => r.title.toLowerCase().includes(query)) : byStatus
   const countOf = (status: string) =>
     status === 'ALL' ? all.length : all.filter((r) => r.saleStatus === status).length
 
@@ -72,7 +85,7 @@ export function SellerRacesPage({ registeredRaceId }: { registeredRaceId?: strin
       title="대회 관리"
       actions={
         <Link href="/seller/races/new?from=races" className={buttonClassName()}>
-          대회 등록
+          대회 등록하기
         </Link>
       }
     >
@@ -100,66 +113,93 @@ export function SellerRacesPage({ registeredRaceId }: { registeredRaceId?: strin
           }
         />
       ) : (
-        <div className="flex flex-col gap-4 rounded-md border border-border-default p-6">
-          <div className="flex flex-wrap gap-2" role="group" aria-label="판매 상태">
-            {FILTERS.map((status) => (
-              <Chip
-                key={status}
-                selected={url.status === status}
-                onClick={() => setUrl({ status })}
-              >
-                {status === 'ALL' ? '전체' : SELLER_SALE_STATUS[status as SellerSaleStatus].label}{' '}
-                {countOf(status)}
-              </Chip>
-            ))}
+        <>
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-wrap gap-2" role="group" aria-label="판매 상태">
+              {FILTERS.map((status) => (
+                <Chip
+                  key={status}
+                  selected={url.status === status}
+                  onClick={() => setUrl({ status })}
+                >
+                  {status === 'ALL' ? '전체' : SELLER_SALE_STATUS[status as SellerSaleStatus].label}{' '}
+                  {countOf(status)}
+                </Chip>
+              ))}
+            </div>
+            <TextField
+              aria-label="대회 이름으로 찾기"
+              placeholder="대회 이름으로 찾기"
+              className="w-80"
+              {...register('q')}
+            />
           </div>
-          {rows.length === 0 ? (
-            <EmptyState title="해당하는 대회가 없어요" />
-          ) : (
-            <table aria-label="내 대회" className="w-full table-fixed text-body2-regular">
-              <thead>
-                <tr className="border-b border-border-default text-body2-medium text-text-secondary">
-                  <th className="h-11 text-left font-medium">대회</th>
-                  <th className="h-11 w-28 text-right font-medium">대회일</th>
-                  <th className="h-11 w-36 text-right font-medium">판매 / 정원</th>
-                  <th className="h-11 w-48 pl-6 text-left font-medium">판매율</th>
-                  <th className="h-11 w-28 pl-4 text-left font-medium">상태</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => (
-                  <tr key={row.id} className="h-14 border-b border-border-default last:border-b-0">
-                    <td className="truncate">
-                      <Link
-                        href={`/seller/races/${row.id}`}
-                        className={cn('rounded-sm text-body2-medium', FOCUS_RING)}
-                      >
-                        {row.title}
-                      </Link>
-                    </td>
-                    <td className="text-right tabular-nums">{row.date}</td>
-                    <td className="text-right tabular-nums">{`${n(row.sold)} / ${n(row.capacity)}`}</td>
-                    <td className="pl-6">
-                      <ProgressBar
-                        size="s"
-                        aria-label={`${row.title} 판매율`}
-                        value={row.capacity > 0 ? Math.round((row.sold / row.capacity) * 100) : 0}
-                      />
-                    </td>
-                    <td
-                      className={cn(
-                        'pl-4 text-body2-medium',
-                        row.saleStatus ? SELLER_SALE_STATUS_TEXT[row.saleStatus] : '',
-                      )}
-                    >
-                      {row.badge.label}
-                    </td>
+          <div className="rounded-md border border-border-default px-6 py-2">
+            {rows.length === 0 ? (
+              <EmptyState title="해당하는 대회가 없어요" />
+            ) : (
+              <table aria-label="내 대회" className="w-full table-fixed text-body2-regular">
+                <thead>
+                  <tr className="border-b border-border-default text-body2-medium text-text-secondary">
+                    <th className="h-11 text-left font-medium">대회</th>
+                    <th className="h-11 w-28 text-left font-medium">대회일</th>
+                    <th className="h-11 w-36 text-left font-medium">종목</th>
+                    <th className="h-11 w-72 text-left font-medium">판매 / 정원</th>
+                    <th className="h-11 w-24 text-left font-medium">상태</th>
+                    <th className="h-11 w-10">
+                      <span className="sr-only">상세</span>
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+                </thead>
+                <tbody>
+                  {rows.map((row) => (
+                    <tr
+                      key={row.id}
+                      className="h-16 border-b border-border-default last:border-b-0"
+                    >
+                      <td className="truncate pr-4">
+                        <Link
+                          href={`/seller/races/${row.id}`}
+                          className={cn('rounded-sm text-body2-medium', FOCUS_RING)}
+                        >
+                          {row.title}
+                        </Link>
+                      </td>
+                      <td className="tabular-nums">{row.date}</td>
+                      <td className="truncate pr-2">{row.courseNames}</td>
+                      <td>
+                        <SaleRateBar
+                          aria-label={`${row.title} 판매율`}
+                          percent={
+                            row.capacity > 0 ? Math.round((row.sold / row.capacity) * 100) : 0
+                          }
+                          label={`${n(row.sold)} / ${n(row.capacity)}`}
+                        />
+                      </td>
+                      <td
+                        className={cn(
+                          'text-body2-medium',
+                          row.saleStatus ? SELLER_SALE_STATUS_TEXT[row.saleStatus] : '',
+                        )}
+                      >
+                        {row.badge.label}
+                      </td>
+                      <td>
+                        <Link
+                          href={`/seller/races/${row.id}`}
+                          aria-label={`${row.title} 상세`}
+                          className={cn('flex justify-end rounded-sm', FOCUS_RING)}
+                        >
+                          <Icon name="ChevronRight" className="size-4" />
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </>
       )}
     </ConsolePage>
   )

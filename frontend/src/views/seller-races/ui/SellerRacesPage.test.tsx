@@ -40,15 +40,27 @@ describe('SellerRacesPage', () => {
   it('내 대회 목록을 판매 수 · 정원 · 판매 상태와 함께 보여 준다', async () => {
     renderPage()
     expect(await screen.findByRole('button', { name: '전체 1' })).toBeInTheDocument()
-    expect(screen.getByRole('cell', { name: '15 / 600' })).toBeInTheDocument()
+    expect(screen.getByRole('cell', { name: /15 \/ 600/ })).toBeInTheDocument()
     expect(screen.getAllByText('판매 중').length).toBeGreaterThan(0)
     expect(screen.queryByText('작성 중')).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /쿠키RUN/ })).toHaveAttribute('href', '/seller/races/1')
+    expect(screen.getAllByRole('link', { name: /쿠키RUN/ })[0]).toHaveAttribute(
+      'href',
+      '/seller/races/1',
+    )
   })
 
   it('상태 칩으로 걸러 결과가 없으면 빈 상태를 보여 준다', async () => {
     renderPage()
     await userEvent.click(await screen.findByRole('button', { name: '취소됨 0' }))
+
+    expect(await screen.findByText('해당하는 대회가 없어요')).toBeInTheDocument()
+  })
+
+  it('대회 이름으로 찾으면 맞는 대회만 남기고, 종목은 하프 · 10K처럼 이어 보여 준다', async () => {
+    renderPage()
+    await screen.findByRole('table', { name: '내 대회' })
+    expect(screen.getByText('10K')).toBeInTheDocument()
+    await userEvent.type(screen.getByLabelText('대회 이름으로 찾기'), '없는대회')
 
     expect(await screen.findByText('해당하는 대회가 없어요')).toBeInTheDocument()
   })

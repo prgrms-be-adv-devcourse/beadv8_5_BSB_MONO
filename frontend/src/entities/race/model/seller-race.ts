@@ -48,6 +48,8 @@ export type SellerRaceRow = {
   period: string
   sold: number
   capacity: number
+  /** 종목 이름을 「하프 · 10K」처럼 이은 글자 */
+  courseNames: string
   saleStatus?: SellerSaleStatus
   badge: SellerRaceBadge
 }
@@ -68,6 +70,10 @@ export function toSellerRaceRow(race: productModel.SellerRaceDto): SellerRaceRow
     title: race.title ?? '',
     date: race.raceDate ? formatRaceDate(race.raceDate) : '-',
     period: toPeriodText(race),
+    courseNames: courses
+      .map((c) => c.name)
+      .filter(Boolean)
+      .join(' · '),
     sold: courses.reduce((sum, c) => sum + (c.sold ?? 0), 0),
     capacity: courses.reduce((sum, c) => sum + (c.quota ?? 0), 0),
     saleStatus: race.saleStatus,
