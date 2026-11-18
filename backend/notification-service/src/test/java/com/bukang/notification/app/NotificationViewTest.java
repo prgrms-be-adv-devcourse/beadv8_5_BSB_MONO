@@ -34,6 +34,12 @@ class NotificationViewTest {
 	}
 
 	@Test
+	@DisplayName("마케팅 재동의 알림은 Bell 아이콘이다")
+	void reconsentIcon() {
+		assertThat(NotificationView.icon(NotificationKind.MARKETING_RECONSENT)).isEqualTo("Bell");
+	}
+
+	@Test
 	@DisplayName("종류 이름과 서울 시각(+09:00) 발송 시각을 함께 준다")
 	void kindAndSentAt() {
 		LocalDateTime occurredAt = LocalDateTime.of(2026, 11, 2, 10, 0);

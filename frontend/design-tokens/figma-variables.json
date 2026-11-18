@@ -153,7 +153,8 @@
         },
         "color/text/tertiary": {
           "type": "COLOR",
-          "values": { "Light": { "alias": "neutral/400" }, "Dark": { "alias": "navy/300" } }
+          "values": { "Light": { "alias": "neutral/500" }, "Dark": { "alias": "navy/200" } },
+          "description": "글자 회색은 두 단계만 쓴다(날짜·보조 글자도 secondary)."
         },
         "color/text/inverse": {
           "type": "COLOR",

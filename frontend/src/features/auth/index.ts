@@ -1,6 +1,7 @@
 export { checkEmailAvailable } from './model/check-email-availability'
 export { loginHref, safeInternalPath, safeNextPath } from './lib/login-redirect'
 export { useAuthStatus } from './model/use-auth-status'
+export { useDemoLogin, useDemoLoginAvailable } from './model/use-demo-login'
 export { useLogin } from './model/use-login'
 export { useLogout } from './model/use-logout'
 export { useWithdraw, withdrawFailure, type WithdrawFailure } from './model/use-withdraw'

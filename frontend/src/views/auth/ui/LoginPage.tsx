@@ -17,6 +17,8 @@ import {
   socialLoginErrorMessage,
   socialProviderOf,
   useAuthStatus,
+  useDemoLogin,
+  useDemoLoginAvailable,
   useLogin,
 } from '@/features/auth'
 import { ApiError } from '@/shared/api'
@@ -42,6 +44,9 @@ export function LoginPage({
 }) {
   const router = useRouter()
   const login = useLogin()
+  // 발표 시연용. 서버에서 켜져 있을 때만 버튼을 보여 준다
+  const demoAvailable = useDemoLoginAvailable()
+  const demoLogin = useDemoLogin()
   // 이미 로그인한 사람이 로그인 화면에 오면 가려던 곳으로 바로 보낸다
   const authStatus = useAuthStatus()
   useEffect(() => {
@@ -120,6 +125,29 @@ export function LoginPage({
           </div>
           <p className="mt-9 mb-3 text-caption-regular text-text-tertiary">SNS 계정으로 시작하기</p>
           <SocialLoginButtons next={next} />
+          {demoAvailable && (
+            <div className="mt-6 flex w-full flex-col gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                size="m"
+                disabled={demoLogin.isPending}
+                onClick={() =>
+                  demoLogin.mutate(undefined, {
+                    onSuccess: () => router.replace(safeNextPath(next)),
+                  })
+                }
+              >
+                테스트 계정으로 로그인
+              </Button>
+              {demoLogin.isError && (
+                <p role="alert" className="text-center text-caption-regular text-text-danger">
+                  {(demoLogin.error instanceof ApiError && demoLogin.error.serverMessage) ||
+                    AUTH_ERRORS.loginUnavailable}
+                </p>
+              )}
+            </div>
+          )}
         </form>
         <div className="flex-1" />
         <footer className="flex flex-col items-center gap-2 pt-4 pb-6 text-center">
@@ -128,7 +156,7 @@ export function LoginPage({
             links={[
               { href: '/terms/service', label: '이용약관' },
               { href: '/terms/privacy', label: '개인정보처리방침' },
-              { href: '/me', label: '고객센터' },
+              { href: '/me/support', label: '고객센터' },
             ]}
           />
           <p className="text-caption-regular text-text-tertiary">
@@ -199,7 +227,7 @@ type RowLink = {
     | '/password-reset'
     | '/terms/service'
     | '/terms/privacy'
-    | '/me'
+    | '/me/support'
   label: string
 }
 

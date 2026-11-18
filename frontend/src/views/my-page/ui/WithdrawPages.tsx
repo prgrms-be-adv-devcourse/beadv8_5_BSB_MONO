@@ -77,7 +77,7 @@ export function WithdrawPage() {
             {hasCash && (
               <div className="flex flex-col items-start gap-1 border-b border-border-default py-4 last:border-b-0">
                 <p className="flex items-center gap-2 text-body2-medium">
-                  <Badge tone="info">안내</Badge>
+                  <Badge tone="neutral">안내</Badge>
                   남은 예치금 {formatNumber(remaining.balance)}원
                 </p>
                 <p className="text-body2-regular text-text-secondary">

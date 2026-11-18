@@ -1,8 +1,9 @@
 import { render, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { resetInAppHistory, useGoBack } from './go-back'
+import { resetInAppHistory } from './go-back'
 import { InAppHistoryTracker } from './InAppHistoryTracker'
+import { useGoBack } from './use-go-back'
 
 const router = { back: vi.fn(), replace: vi.fn(), push: vi.fn() }
 vi.mock('next/navigation', () => ({ useRouter: () => router }))

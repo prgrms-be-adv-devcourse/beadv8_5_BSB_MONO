@@ -10,7 +10,7 @@ import {
   type RsData,
 } from '@/shared/api'
 
-import { courseImage, toRaceDetail } from '../model/mappers'
+import { coverImage, toRaceDetail } from '../model/mappers'
 import type { RaceDetail } from '../model/types'
 
 // 대회 조회 API는 로그인 없이 부르는 공개 API다 (토큰을 붙이지 않는다).
@@ -79,10 +79,13 @@ export function raceSuggestionsQueryOptions(keyword: string) {
   })
 }
 
-/** 종목 이미지 (file 서비스). URL이 30분 뒤 만료되므로 화면을 그릴 때마다 새로 받는다. 실패하면 이미지 없이 그린다. */
-async function fetchCourseFiles(raceCourseId: number) {
+/**
+ * 대회(대표 이미지) · 종목(소개 이미지) 파일 (file 서비스). URL이 30분 뒤 만료되므로 화면을 그릴 때마다 새로 받는다.
+ * 실패하면 이미지 없이 그린다.
+ */
+async function fetchFiles(refType: 'Race' | 'RaceCourse', refId: number) {
   try {
-    return unwrapData(await fileApi.findByRef({ refType: 'RaceCourse', refId: raceCourseId }))
+    return unwrapData(await fileApi.findByRef({ refType, refId }))
   } catch {
     return []
   }
@@ -107,8 +110,14 @@ export async function fetchRaceDetail(raceId: string): Promise<RaceDetail | null
   const courseIds = (race.courses ?? []).flatMap((c) =>
     c.raceCourseId === undefined ? [] : [c.raceCourseId],
   )
-  const files = await Promise.all(courseIds.map(fetchCourseFiles))
-  return toRaceDetail(race, Object.fromEntries(courseIds.map((id, i) => [id, files[i]])))
+  const [raceFiles, ...courseFiles] = await Promise.all([
+    fetchFiles('Race', id),
+    ...courseIds.map((courseId) => fetchFiles('RaceCourse', courseId)),
+  ])
+  return toRaceDetail(race, {
+    race: raceFiles,
+    courses: Object.fromEntries(courseIds.map((courseId, i) => [courseId, courseFiles[i]])),
+  })
 }
 
 /**
@@ -123,12 +132,12 @@ export function raceQueryOptions(raceId: number) {
   })
 }
 
-/** 종목 대표 이미지 한 장 (file 서비스). 없거나 못 받으면 null → 이미지 없이 그린다. URL이 30분 뒤 만료된다. */
-export function courseImageQueryOptions(raceCourseId: number) {
-  const params = { refType: 'RaceCourse', refId: raceCourseId } as const
+/** 대회 대표 이미지 한 장 (file 서비스). 없거나 못 받으면 null → 이미지 없이 그린다. URL이 30분 뒤 만료된다. */
+export function raceCoverQueryOptions(raceId: number) {
+  const params = { refType: 'Race', refId: raceId } as const
   return queryOptions({
     queryKey: [...fileApi.getFindByRefQueryKey(params), 'image'],
-    queryFn: async () => courseImage(await fetchCourseFiles(raceCourseId)) ?? null,
+    queryFn: async () => coverImage(await fetchFiles('Race', raceId)) ?? null,
     staleTime: 10 * 60 * 1000,
   })
 }

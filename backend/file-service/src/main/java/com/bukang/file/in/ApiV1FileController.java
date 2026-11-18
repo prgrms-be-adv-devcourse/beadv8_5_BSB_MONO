@@ -133,15 +133,20 @@ public class ApiV1FileController {
 	@PostMapping("/{fileId}/complete")
 	@Operation(summary = "업로드 완료 확인",
 		description = "S3에 올라간 파일의 크기와 앞부분(매직 바이트)이 발급 때 신고한 크기·형식과 같은지 확인해 업로드 완료로 바꾸고, "
-			+ "이미지를 볼 수 있는 presigned GET URL(30분)을 돌려준다. 다르면 올라간 파일을 지운다. 이미 확인한 파일은 같은 결과를 돌려준다.")
+			+ "이미지를 볼 수 있는 presigned GET URL(30분)을 돌려준다. 이미지는 가로·세로 4000px 이하, "
+			+ "대회 소개 이미지(DETAIL)는 가로 1080px 이상인지도 본다(사진 회전 정보는 반영하지 않는다). "
+			+ "맞지 않으면 올라간 파일을 지운다. 이미 확인한 파일은 같은 결과를 돌려준다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "확인 성공",
 			content = @Content(examples = @ExampleObject(value = FileApiExamples.COMPLETE_SUCCESS))),
 		@ApiResponse(responseCode = "400",
-			description = "업로드 안 됨, 신고한 형식·크기와 다름, 파일 ID·회원 ID 형식 오류 또는 회원 ID가 0 이하",
+			description = "업로드 안 됨, 신고한 형식·크기와 다름, 이미지 규격(가로·세로)에 어긋남, 파일 ID·회원 ID 형식 오류 또는 회원 ID가 0 이하",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "업로드 안 됨", value = FileApiExamples.NOT_UPLOADED),
 				@ExampleObject(name = "신고한 형식·크기와 다름", value = FileApiExamples.CONTENT_MISMATCH),
+				@ExampleObject(name = "가로·세로 4000px 초과", value = FileApiExamples.IMAGE_TOO_LARGE),
+				@ExampleObject(name = "소개 이미지 가로 1080px 미만", value = FileApiExamples.IMAGE_TOO_NARROW),
+				@ExampleObject(name = "이미지 크기를 읽지 못함", value = FileApiExamples.IMAGE_UNREADABLE),
 				@ExampleObject(name = "파일 ID·회원 ID 형식 오류", value = FileApiExamples.INVALID_VALUE_TYPE),
 				@ExampleObject(name = "회원 ID가 0 이하", value = FileApiExamples.INVALID_MEMBER_ID)
 			})),

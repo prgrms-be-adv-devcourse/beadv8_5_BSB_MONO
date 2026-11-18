@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 
+import com.bukang.common.shared.race.domain.RaceSaleStatus;
 import com.bukang.common.shared.seller.domain.SellerStatus;
 import com.bukang.product.domain.ProductSeller;
 import com.bukang.product.domain.Race;
@@ -25,11 +26,15 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * DB에서 읽는 대회 조회: 대회 상세, 키트 옵션 목록, 판매자의 내 대회, 주문 서비스에 주는 종목 정보,
- * 문의 서비스에 주는 대회 판매자의 회원 ID
+ * 문의 서비스에 주는 대회 판매자의 회원 ID, 회원 서비스에 주는 판매자의 끝나지 않은 대회 여부
  */
 @Service
 @RequiredArgsConstructor
 public class RaceQueryUseCase {
+	// 판매가 끝나지 않은 상태 (판매 종료·대회 취소 말고 모두). 새 상태가 생기면 여기에 넣을지 정한다
+	private static final List<RaceSaleStatus> UNFINISHED_SALE_STATUSES = List.of(
+		RaceSaleStatus.SCHEDULED, RaceSaleStatus.ON_SALE, RaceSaleStatus.STOPPED);
+
 	private final ProductSellerRepository productSellerRepository;
 	private final RaceRepository raceRepository;
 	private final RaceCourseRepository raceCourseRepository;
@@ -65,6 +70,17 @@ public class RaceQueryUseCase {
 		Race race = raceRepository.findById(raceId)
 			.orElseThrow(RaceNotFoundException::new);
 		return RaceSellerMemberDto.from(race);
+	}
+
+	// 회원 서비스의 판매자 탈퇴 확인 계약: memberId는 판매자의 회원 ID다 (대회의 판매자 ID가 아니다)
+	// 판매자 복제본이 없는 회원이면 대회를 읽지 않고, 탈퇴를 막도록 true로 답한다
+	// 판매자면 판매 예정·판매 중·판매 중지 대회가 하나라도 있을 때 true다. 날짜는 보지 않는다 (상태 배치가 상태를 바꾼다)
+	public SellerOnSaleRaceResult findSellerOnSaleRace(long memberId) {
+		if (!productSellerRepository.existsByMemberId(memberId)) {
+			return SellerOnSaleRaceResult.notSeller();
+		}
+		return SellerOnSaleRaceResult.checked(
+			raceRepository.existsBySellerMemberIdAndSaleStatusIn(memberId, UNFINISHED_SALE_STATUSES));
 	}
 
 	// 주문 서비스 RaceCoursePort 계약: 없는 종목이면 찾지 못한 것으로 본다
