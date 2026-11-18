@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Controller, useForm, useWatch } from 'react-hook-form'
 
-import { CONSOLE_BOX, ConsoleCard } from '@/widgets/console-page'
+import { ConsoleCard } from '@/widgets/console-page'
 import { loginHref, useAuthStatus } from '@/features/auth'
 import { formatSellerDate, isNoApplication, SELLER_STATUS } from '@/entities/member'
 import { memberApi, unwrapData, type memberModel } from '@/shared/api'
@@ -121,11 +121,7 @@ export function SellerApplyPage() {
 
   return (
     <form onSubmit={onSubmit} noValidate>
-      <FormBody
-        width="w-160"
-        title="판매자 등록 신청"
-        description="승인되면 대회를 등록할 수 있어요. 결과는 알림으로 알려 드려요."
-      >
+      <FormBody width="w-160" title="판매자 등록 신청">
         <ConsoleCard title="판매자 정보">
           <Controller
             control={control}
@@ -251,24 +247,11 @@ export function SellerApplyPage() {
               보기
             </Link>
           </div>
-          <p className="text-caption-regular text-text-tertiary">
-            동의한 약관 버전과 시각을 기록해요.
-          </p>
         </ConsoleCard>
-
-        <Alert
-          className={CONSOLE_BOX}
-          title="크루런은 통신판매중개자예요"
-          description="거래 당사자는 판매자님이에요. 판매자 정보는 대회 상세 화면에서 구매자에게 보여요."
-        />
 
         {formError && <Alert tone="danger" title={formError} />}
 
         <div className="flex justify-end gap-2">
-          {/* TODO(api): PRO-129 임시 저장 API가 생기면 켠다 */}
-          <Button type="button" variant="secondary" size="l" disabled>
-            임시 저장
-          </Button>
           <Button type="submit" size="l" disabled={!agreed} loading={apply.isPending}>
             신청하기
           </Button>
