@@ -138,6 +138,15 @@ public class RecordCertSubmission {
 		this.updatedAt = now;
 	}
 
+	// 서버 확인 결과를 끝내 처리하지 못했을 때(실패 토픽) 판매자가 원본을 보고 정하게 넘긴다. 판정 사유 · 칸별 결과는 비어 있다
+	public void giveUpCheck(LocalDateTime now) {
+		if (status != SubmissionStatus.CHECKING) {
+			throw new SubmissionNotCheckingException();
+		}
+		this.status = SubmissionStatus.NEEDS_REVIEW;
+		this.updatedAt = now;
+	}
+
 	public List<JudgementReason> judgementReasons() {
 		if (judgementReasons == null || judgementReasons.isEmpty()) {
 			return List.of();
