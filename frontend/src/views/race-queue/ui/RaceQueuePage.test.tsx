@@ -96,6 +96,18 @@ describe('RaceQueuePage', () => {
     expect(admissionAsked).toBe(0)
   })
 
+  it('v3 기다리는 화면은 러너 그림 없이 제목 · 진행 막대 · 안내 문구만 둔다', () => {
+    mockQueue([queueStatus(2)])
+    renderQueue()
+
+    const main = screen.getByRole('main')
+    expect(main.querySelector('svg, img')).toBeNull()
+    expect(within(main).getByRole('progressbar')).toBeInTheDocument()
+    expect(within(main).getByText('이 화면을 나가면 순서가 처음으로 돌아가요.')).toBeInTheDocument()
+    // 닫기는 제목 줄 없이 오른쪽 위에 하나만 있다
+    expect(screen.getAllByRole('button', { name: '닫기' })).toHaveLength(1)
+  })
+
   it('기다리는 화면은 제목 줄 없이 닫기만 두고, 순번이 줄면 숫자 없이 막대만 차오른다', async () => {
     // 등록 때 순번 5 → 첫 순번 조회 때 순번 2. 조회 응답을 테스트가 열 때까지 붙잡아 실행 속도와 상관없이 같은 순서로 본다.
     mockQueue([queueStatus(1)], queueStatus(4))

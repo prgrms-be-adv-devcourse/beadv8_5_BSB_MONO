@@ -33,7 +33,7 @@ const FILTERS: { value: Filter; label: string }[] = [
   { value: LedgerCategory.WITHDRAWAL, label: '환급' },
 ]
 
-// 피그마 V2 · M17 예치금 (+ M17-1 돌려받는 중)
+// 피그마 V3 · 예치금(1949:21095) (+ M17-1 돌려받는 중)
 export function DepositPage({ refunding = false }: { refunding?: boolean }) {
   // 거르기는 URL(?filter=)에 담는다
   const [url, setUrl] = useSearchParamsState(
@@ -51,10 +51,10 @@ export function DepositPage({ refunding = false }: { refunding?: boolean }) {
   return (
     <>
       <AppHeader type="sub" title="예치금" />
-      <main className="flex flex-1 flex-col gap-6 px-4 py-6">
-        <section className="flex flex-col gap-3">
+      <main className="flex flex-1 flex-col pb-8">
+        <section className="flex flex-col gap-3 px-5 py-6">
           <div className="flex flex-col gap-1">
-            <p className="text-body2-regular text-text-secondary">보유 예치금</p>
+            <p className="text-body2-medium text-text-secondary">보유 예치금</p>
             {isPending ? (
               <Skeleton shape="rect" className="h-9 w-32" />
             ) : (
@@ -79,7 +79,7 @@ export function DepositPage({ refunding = false }: { refunding?: boolean }) {
           )}
         </section>
 
-        <section className="flex flex-col gap-3">
+        <section className="flex flex-col gap-3 px-5 py-4">
           <h2 className="text-body1-bold">내역</h2>
           <div className="flex flex-wrap gap-2">
             {FILTERS.map((f) => (
@@ -113,7 +113,7 @@ export function DepositPage({ refunding = false }: { refunding?: boolean }) {
           ) : (
             <ul className="flex flex-col">
               {rows.map((row) => (
-                <li key={ledgerKey(row)} className="flex items-center justify-between gap-2 py-4">
+                <li key={ledgerKey(row)} className="flex items-center justify-between gap-2 py-3">
                   <div className="flex min-w-0 flex-1 flex-col gap-1">
                     <p className="text-body2-medium">{ledgerTitle(row)}</p>
                     <p className="text-caption-regular text-text-tertiary">
@@ -135,13 +135,6 @@ export function DepositPage({ refunding = false }: { refunding?: boolean }) {
               {ledgers.isFetchingNextPage ? '불러오는 중' : '더 보기'}
             </Button>
           )}
-        </section>
-
-        <section className="flex flex-col gap-3">
-          <h2 className="text-body1-bold">돌려받는 방법</h2>
-          <p className="text-body2-regular text-text-secondary">
-            결제한 카드로 먼저 돌려드리고, 카드 취소 기한이 지난 몫만 계좌로 보내 드려요.
-          </p>
         </section>
       </main>
       <BottomCta

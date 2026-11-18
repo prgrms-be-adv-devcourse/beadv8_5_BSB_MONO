@@ -4,6 +4,7 @@ import type { Route } from 'next'
 import Link from 'next/link'
 
 import { AppHeader } from '@/widgets/app-header'
+import { BottomNav } from '@/widgets/bottom-nav'
 import { useAuthStatus } from '@/features/auth'
 import { CREW_ROLE_LABEL } from '@/entities/crew'
 import { memberApi, unwrapData } from '@/shared/api'
@@ -12,7 +13,7 @@ import { Avatar, buttonClassName, EmptyState, FOCUS_RING, Icon, Skeleton } from 
 
 import { CrewBand, CrewLoadError } from './CrewBand'
 
-// 피그마 시안v4 · M09-0 내 크루 목록 (기본 · 없음 · 로딩). 마이 화면의 「내 크루」 메뉴로 들어온다.
+// 피그마 v3 · 내 크루 목록 (기본 · 없음 · 로딩). 아래 주요 메뉴의 「크루」 탭이다.
 // 크루는 내 크루 목록(GET /api/v1/member/crews/me)으로 불러온다.
 export function MyCrewsPage() {
   const crews = memberApi.useFindMyCrews({
@@ -22,7 +23,7 @@ export function MyCrewsPage() {
 
   return (
     <>
-      <AppHeader type="sub" title="내 크루" backHref="/me" />
+      <AppHeader search={false} />
       <main className="flex flex-1 flex-col">
         {crews.isPending ? (
           <MyCrewsSkeleton />
@@ -43,9 +44,9 @@ export function MyCrewsPage() {
             }
           />
         ) : (
-          <CrewBand>
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-title3">가입한 크루 {list.length}개</h2>
+          <CrewBand className="gap-2 px-5 pt-4 pb-0">
+            <div className="flex items-center justify-between">
+              <h2 className="text-body1-bold">가입한 크루 {list.length}</h2>
               <Link
                 href="/crews/new"
                 className={cn('rounded-sm text-body2-medium text-text-brand', FOCUS_RING)}
@@ -53,21 +54,21 @@ export function MyCrewsPage() {
                 <span aria-hidden>+ </span>새 크루 만들기
               </Link>
             </div>
-            <ul className="flex flex-col gap-3">
+            <ul className="flex flex-col">
               {list.map((crew) => (
                 <li key={crew.crewId}>
                   <Link
                     href={`/crews/${crew.crewId}` as Route}
-                    className={cn('flex items-center gap-3 rounded-md', FOCUS_RING)}
+                    className={cn('flex items-center gap-3 rounded-md py-3', FOCUS_RING)}
                   >
-                    <Avatar size="l" name={crew.name} />
+                    <Avatar size="xl" name={crew.name} className="size-12" />
                     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                       <span className="truncate text-body1-bold">{crew.name}</span>
-                      <span className="text-caption-regular text-text-secondary">
+                      <span className="text-body2-regular text-text-secondary">
                         크루원 {crew.memberCount}명 · {CREW_ROLE_LABEL[crew.myRole]}
                       </span>
                     </span>
-                    <Icon name="ChevronRight" className="size-5 shrink-0 text-text-tertiary" />
+                    <Icon name="ChevronRight" className="size-5 text-text-secondary" />
                   </Link>
                 </li>
               ))}
@@ -75,6 +76,7 @@ export function MyCrewsPage() {
           </CrewBand>
         )}
       </main>
+      <BottomNav />
     </>
   )
 }

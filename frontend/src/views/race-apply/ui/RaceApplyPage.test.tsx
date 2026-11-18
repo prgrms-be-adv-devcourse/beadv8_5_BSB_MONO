@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -88,6 +88,8 @@ function StoreProbe() {
   return <output data-testid="store">{JSON.stringify({ selection, applications })}</output>
 }
 
+let lastClient: QueryClient
+
 function renderPage(
   initialState: BookingFlowInitial = {},
   {
@@ -96,6 +98,7 @@ function renderPage(
   }: { race?: typeof RACE; previewRemainingSeconds?: number } = {},
 ) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  lastClient = client
   render(
     <QueryClientProvider client={client}>
       <BookingFlowProvider initialState={initialState}>
@@ -335,9 +338,38 @@ describe('참가 신청 · 참가자 정보', () => {
     await user.type(emergencyName, '박가족')
     await agree(user)
     await user.click(screen.getByRole('button', { name: '다음' }))
-    await user.click(await screen.findByRole('button', { name: '참가자 정보' }))
+    // 헤더의 뒤로 가기는 키트 옵션 단계에서 참가자 정보 단계로 돌아간다
+    await user.click(await screen.findByRole('button', { name: '뒤로 가기' }))
 
     expect(await screen.findByLabelText('비상 연락처 이름')).toHaveValue('박가족')
+  })
+
+  it('키트 옵션 단계에서 키트 조회 오류 화면이 떠 있으면 뒤로 가기는 단계가 아니라 이전 페이지로 보낸다', async () => {
+    server.use(KIT_OPTIONS)
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByLabelText('비상 연락처 이름')
+    await agree(user)
+    await user.click(screen.getByRole('button', { name: '다음' }))
+    await screen.findByRole('button', { name: '결제하기' })
+
+    // 키트 옵션을 다시 받다가 실패한다
+    server.use(
+      http.get('*/api/v1/product/races/:raceId/kit-options', () =>
+        HttpResponse.json({ status: 500, message: '오류', data: null }, { status: 500 }),
+      ),
+    )
+    await act(() =>
+      lastClient
+        .refetchQueries({
+          predicate: (query) => String(query.queryKey[0]).endsWith('/kit-options'),
+        })
+        .catch(() => undefined),
+    )
+    expect(await screen.findByText('키트 옵션을 불러오지 못했어요')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '뒤로 가기' }))
+    expect(replace).toHaveBeenCalledWith('/')
   })
 
   it('같은 대회에 이미 신청했으면(409) 서버 문구를 보여 주고 넘어가지 않는다', async () => {
@@ -426,16 +458,15 @@ describe('참가 신청 · 참가자 정보', () => {
   })
 })
 
-describe('RaceApplyPage 대기열 남은 시간 띠', () => {
-  it('시안 미리보기는 시안의 남은 초로 헤더 아래에 mm:ss 띠를 붙인다', () => {
+describe('RaceApplyPage 대기열 남은 시간', () => {
+  it('시안 미리보기는 시안의 남은 초를 헤더 오른쪽에 mm:ss로만 보여 준다', () => {
     renderPage({}, { previewRemainingSeconds: 583 })
 
-    expect(screen.getByRole('timer')).toHaveTextContent(
-      '남은 시간차례가 됐어요. 시간 안에 신청과 결제를 마쳐 주세요09:43',
-    )
+    expect(within(screen.getByRole('banner')).getByRole('timer')).toHaveTextContent(/^09:43$/)
+    expect(screen.queryByText(/시간 안에 신청과 결제를 마쳐 주세요/)).not.toBeInTheDocument()
   })
 
-  it('대기열에 입장 중이 아니면 띠를 그리지 않는다', async () => {
+  it('대기열에 입장 중이 아니면 남은 시간을 그리지 않는다', async () => {
     server.use(
       orderMock.getFindAdmissionMockHandler({
         status: 200,
@@ -448,7 +479,7 @@ describe('RaceApplyPage 대기열 남은 시간 띠', () => {
     expect(screen.queryByRole('timer')).not.toBeInTheDocument()
   })
 
-  it('대기열에서 받은 남은 시간을 이어 받아 띠를 붙이고, 0이 되면 입장 시간 만료 화면(M07-1)으로 간다', async () => {
+  it('대기열에서 받은 남은 시간을 이어 받아 헤더에 보여 주고, 0이 되면 입장 시간 만료 화면(M07-1)으로 간다', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     try {
       server.use(
@@ -459,9 +490,7 @@ describe('RaceApplyPage 대기열 남은 시간 띠', () => {
       )
       renderPage({}, { race: { ...RACE, id: '1' } })
 
-      expect(await screen.findByRole('timer')).toHaveTextContent(
-        '남은 시간차례가 됐어요. 시간 안에 신청과 결제를 마쳐 주세요00:02',
-      )
+      expect(await screen.findByRole('timer')).toHaveTextContent(/^00:02$/)
       await act(() => vi.advanceTimersByTimeAsync(2000))
       await vi.waitFor(() =>
         expect(replace).toHaveBeenCalledWith('/checkout?result=timeout&raceId=1'),
@@ -469,6 +498,53 @@ describe('RaceApplyPage 대기열 남은 시간 띠', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+describe('참가 신청 v3 배치', () => {
+  it('참가자 정보 단계는 단계 제목 · 대회 요약(변경) · 회원 정보 묶음 순이고 진행 막대는 없다', async () => {
+    renderPage()
+
+    expect(
+      await screen.findByRole('heading', { level: 2, name: '참가자 정보' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '선택한 대회' })).not.toBeInTheDocument()
+    expect(document.querySelector('[aria-current="step"]')).toBeNull()
+    expect(screen.getByRole('link', { name: '변경' })).toHaveAttribute('href', `/races/${RACE.id}`)
+    expect(screen.getByRole('heading', { level: 2, name: '회원 정보' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '회원 정보에서 바꾸기' })).toHaveAttribute(
+      'href',
+      '/me/edit',
+    )
+  })
+
+  it('개인정보 제3자 제공은 카드 없이 받는 곳 · 목적 · 항목 · 보유 기간 줄이고, 시안에 없는 양도 안내는 없다', async () => {
+    renderPage()
+
+    const heading = await screen.findByRole('heading', { name: '개인정보 제3자 제공' })
+    const block = heading.closest('section')!
+    for (const label of ['받는 곳', '목적', '항목', '보유 기간']) {
+      expect(within(block).getByText(label)).toBeInTheDocument()
+    }
+    expect(within(block).getByText('대회 종료 후 1년')).toBeInTheDocument()
+    expect(within(block).getByText('동의하지 않으면 신청할 수 없어요.')).toBeInTheDocument()
+    expect(screen.queryByText(/양도할 수 없어요/)).not.toBeInTheDocument()
+  })
+
+  it('키트 옵션 단계는 단계 제목 아래에 옵션 이름마다 칩 묶음을 보여 준다', async () => {
+    server.use(KIT_OPTIONS)
+    const user = userEvent.setup()
+    renderPage()
+
+    await screen.findByLabelText('이름')
+    await agree(user)
+    await user.click(screen.getByRole('button', { name: '다음' }))
+
+    expect(await screen.findByRole('heading', { level: 2, name: '키트 옵션' })).toBeInTheDocument()
+    expect(screen.queryByLabelText('이름')).not.toBeInTheDocument()
+    expect(screen.getByRole('group', { name: '기념 티셔츠' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: '양말' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: '회원 정보에서 바꾸기' })).not.toBeInTheDocument()
   })
 })
 
