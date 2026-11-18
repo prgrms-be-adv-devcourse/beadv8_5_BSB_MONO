@@ -25,6 +25,7 @@ import {
   useIdempotencyKey,
   type productModel,
 } from '@/shared/api'
+import { DateTimeField } from '@/shared/date-picker'
 import { formatWon, useTrackOnce } from '@/shared/lib'
 import {
   Alert,
@@ -33,7 +34,6 @@ import {
   buttonClassName,
   Checkbox,
   Chip,
-  Divider,
   EmptyState,
   KeyValue,
   PhoneField,
@@ -54,7 +54,6 @@ import {
   toParticipantRequest,
   type ParticipantFormValues,
 } from '../model/participant-form'
-import { ApplyProgress } from './ApplyProgress'
 
 const LINK = buttonClassName({ variant: 'ghost', size: 's' })
 
@@ -279,16 +278,12 @@ function ParticipantForm({
 
   return (
     <>
-      <main className="flex flex-1 flex-col gap-2 bg-bg-surface">
-        <div className="bg-bg-surface px-4 py-5">
-          <ApplyProgress
-            steps={kitStep ? ['참가자 정보', '키트 옵션', '결제'] : ['참가자 정보', '결제']}
-            current={step}
-            onStep={setStep}
-          />
-        </div>
+      <main className="flex flex-1 flex-col bg-bg-surface">
+        <h1 className="bg-bg-surface px-5 pt-6 text-title2">
+          {step === 1 ? '키트 옵션' : '참가자 정보'}
+        </h1>
 
-        <Section title="선택한 대회">
+        <Section>
           <RaceTicketCard
             image={race.images[0]}
             title={race.title}
@@ -303,7 +298,7 @@ function ParticipantForm({
         </Section>
 
         {step === 1 ? (
-          <Section title="키트 옵션">
+          <Section>
             {kitGroups.map((group) => (
               <fieldset key={group.name} className="flex flex-col gap-3">
                 <legend className="mb-3 text-body2-medium">{group.name}</legend>
@@ -324,27 +319,31 @@ function ParticipantForm({
           </Section>
         ) : (
           <>
-            <Section
-              title="참가자 정보"
-              aside={
-                <Link href="/me/edit" className={LINK}>
-                  회원 정보에서 바꾸기
-                </Link>
-              }
-            >
+            <Section className="gap-7">
               <TextField label="이름" error={errors.name?.message} {...register('name')} />
-              <TextField
-                label="생년월일"
-                type="date"
-                error={errors.birth?.message}
-                {...register('birth')}
+              <Controller
+                control={control}
+                name="birth"
+                render={({ field }) => (
+                  <DateTimeField
+                    mode="single"
+                    withTime={false}
+                    label="생년월일"
+                    defaultValue={field.value ? new Date(`${field.value}T00:00:00`) : undefined}
+                    defaultMonth={new Date(1990, 0)}
+                    startMonth={new Date(1900, 0)}
+                    endMonth={new Date()}
+                    isDateDisabled={(date) => date > new Date()}
+                    onValueChange={field.onChange}
+                    error={errors.birth?.message}
+                  />
+                )}
               />
               <PhoneField
                 label="휴대폰 번호"
                 error={errors.phone?.message}
                 {...register('phone')}
               />
-              <Divider />
               <fieldset className="flex flex-col gap-2">
                 <legend className="mb-2 text-body2-medium">성별</legend>
                 <Controller
@@ -426,8 +425,8 @@ function ParticipantForm({
             </Section>
 
             <Section>
-              <div className="flex flex-col gap-4 rounded-lg bg-bg-surface p-5 shadow-sm inset-ring inset-ring-border-default">
-                <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-3">
                   <KeyValue label="받는 곳" value={`${race.seller.company} (판매자)`} />
                   <KeyValue label="목적" value="대회 운영 · 보험 가입" />
                   <KeyValue
@@ -435,9 +434,6 @@ function ParticipantForm({
                     value="이름 · 생년월일 · 성별 · 연락처 2개 · 키트 옵션 · 배송 주소"
                   />
                   <KeyValue label="보유 기간" value="대회 종료 후 1년" />
-                  <p className="text-caption-regular text-text-tertiary">
-                    동의하지 않으면 신청할 수 없어요.
-                  </p>
                 </div>
                 <Checkbox
                   checked={agreed}
@@ -445,9 +441,6 @@ function ParticipantForm({
                   label={<span className="font-bold">[필수] 개인정보 제3자 제공 동의</span>}
                 />
               </div>
-              <p className="text-caption-regular text-text-tertiary">
-                참가권은 다른 사람에게 양도할 수 없어요. 꼭 본인 정보로 신청해 주세요.
-              </p>
               {saveError && <Alert tone="danger" title={saveError} />}
             </Section>
           </>
@@ -455,6 +448,13 @@ function ParticipantForm({
       </main>
       <BottomCta
         className="sticky bottom-0 z-10"
+        secondary={
+          step === 1 ? (
+            <Button size="l" variant="secondary" onClick={() => setStep(0)}>
+              이전
+            </Button>
+          ) : undefined
+        }
         primary={
           step === 1 ? (
             <Button size="l" disabled={!allPicked || busy} onClick={pay}>

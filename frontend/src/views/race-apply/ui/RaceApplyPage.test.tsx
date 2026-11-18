@@ -335,7 +335,7 @@ describe('참가 신청 · 참가자 정보', () => {
     await user.type(emergencyName, '박가족')
     await agree(user)
     await user.click(screen.getByRole('button', { name: '다음' }))
-    await user.click(await screen.findByRole('button', { name: '참가자 정보' }))
+    await user.click(await screen.findByRole('button', { name: '이전' }))
 
     expect(await screen.findByLabelText('비상 연락처 이름')).toHaveValue('박가족')
   })

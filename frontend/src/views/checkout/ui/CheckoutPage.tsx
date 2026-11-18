@@ -17,7 +17,7 @@ import { useQueueAdmission } from '@/features/queue-admission'
 import { parseKstDateTime, RACE_DETAIL, raceDetailQueryOptions } from '@/entities/race'
 import { invalidateTicketQueries, orderQueryOptions } from '@/entities/ticket'
 import { orderApi, orderModel, unwrapData } from '@/shared/api'
-import { cn, formatNumber, orderTrackItems, useNow, useTrackOnce } from '@/shared/lib'
+import { formatNumber, orderTrackItems, useNow, useTrackOnce } from '@/shared/lib'
 import {
   Alert,
   Badge,
@@ -480,27 +480,6 @@ const kitOptionLabel = (tshirtSize?: string | null) =>
 const shipToLabel = (address?: orderModel.ShippingAddressDto | null) =>
   address?.address ? [address.address, address.addressDetail].filter(Boolean).join(' ') : undefined
 
-/** 결제 단계 막대 (피그마 M07: 단계마다 위에 막대, 지금 단계만 굵은 글씨) */
-function StepBars({ steps, current }: { steps: string[]; current: number }) {
-  return (
-    <ol className="flex gap-2">
-      {steps.map((label, i) => (
-        <li
-          key={label}
-          aria-current={i === current ? 'step' : undefined}
-          className={cn(
-            'flex flex-1 flex-col gap-2 border-t-4 pt-2 text-body2-regular',
-            i <= current ? 'border-border-brand' : 'border-border-default',
-            i === current ? 'font-bold text-text-primary' : 'text-text-secondary',
-          )}
-        >
-          {label}
-        </li>
-      ))}
-    </ol>
-  )
-}
-
 function CheckoutSkeleton() {
   return (
     <>
@@ -569,7 +548,7 @@ function CheckoutForm({
           <Radio value="toss" label="카드 · 간편결제 (토스페이먼츠)" />
         </RadioGroup>
       ) : (
-        <div className="flex flex-col gap-2 rounded-md bg-bg-brand-subtle p-4 inset-ring-2 inset-ring-border-brand">
+        <div className="flex flex-col gap-2 rounded-md bg-bg-surface p-4 inset-ring-2 inset-ring-text-primary">
           <p className="text-body2-bold">예치금</p>
           <p className="text-body1-bold">{balance === undefined ? '-' : won(balance)}</p>
           {payment && payment.charge > 0 && (
@@ -593,9 +572,7 @@ function CheckoutForm({
         }
         remainingSeconds={remaining}
       />
-      <main className="flex flex-1 flex-col gap-7 px-8 py-6">
-        <StepBars steps={['참가자 정보', '키트 옵션', '결제']} current={2} />
-
+      <main className="flex flex-1 flex-col gap-7 px-5 py-6">
         {offline && (
           <Alert
             tone="info"

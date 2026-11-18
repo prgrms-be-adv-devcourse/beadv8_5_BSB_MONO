@@ -132,7 +132,6 @@ describe('MyTicketsPage', () => {
     expect(screen.getByText('결제 확인 중')).toBeInTheDocument()
     await act(() => vi.advanceTimersByTimeAsync(12_000))
 
-    expect(await screen.findByText('참가 확정')).toBeInTheDocument()
     expect(screen.queryByText('결제 확인 중')).not.toBeInTheDocument()
   })
 

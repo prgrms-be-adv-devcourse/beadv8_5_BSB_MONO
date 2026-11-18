@@ -22,7 +22,6 @@ import {
 
 import { useQueueProgress } from '../model/use-queue-progress'
 import { useQueueTracking } from '../model/use-queue-tracking'
-import { RunnerFigure } from './RunnerFigure'
 
 // 피그마 V2 · 대기열 A안(확정) · 나가기 확인 / M05-Q2 대기열 · 내 차례
 // 같은 주소에서 입장 여부에 따라 두 화면을 바꿔 그린다.
@@ -194,15 +193,14 @@ export function RaceQueuePage({
                 {optionName ? `${race.data.title} · ${optionName}` : race.data.title}
               </p>
             )}
-            <RunnerFigure className="mt-9 size-24" />
             {/* 대기 인원 · 순번 숫자 없이 진행 정도만 보여 준다. 순번을 모르는 동안은 값 없이 움직인다 */}
             <ProgressBar
               value={progress}
               indeterminate={progress === undefined}
               aria-label="대기 진행 정도"
-              className="mt-9 w-full"
+              className="mt-12 w-full"
             />
-            <p className="pt-9 text-caption-regular text-text-tertiary">
+            <p className="pt-9 text-body2-regular text-text-primary">
               이 화면을 나가면 순서가 처음으로 돌아가요.
             </p>
           </main>

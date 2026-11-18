@@ -76,12 +76,16 @@ export function TicketDetailPage({
       <AppHeader type="sub" title="참가권" backHref="/tickets" />
       <main className="flex flex-1 flex-col pb-6">
         {/* 참가자 이름 · 연락처는 Clarity 화면 녹화에서 가린다 */}
-        <div className="px-4 py-4" data-clarity-mask="true">
+        <div className="px-5 py-4" data-clarity-mask="true">
           <BibCard
             image={data.image}
             imagePosition="50% 12%"
             eyebrow={race.title ?? ticket.itemName}
-            status={<Badge tone={TICKET_STATUS[status].tone}>{TICKET_STATUS[status].label}</Badge>}
+            status={
+              status !== 'confirmed' && (
+                <Badge tone={TICKET_STATUS[status].tone}>{TICKET_STATUS[status].label}</Badge>
+              )
+            }
             unit="No."
             number={ticketNumber(ticket.orderNo)}
             title={[participant?.name, course?.name ?? ticket.itemName].filter(Boolean).join(' · ')}
@@ -94,10 +98,7 @@ export function TicketDetailPage({
           />
         </div>
 
-        <section
-          className="flex flex-col gap-3 border-t-8 border-bg-subtle px-4 py-6"
-          data-clarity-mask="true"
-        >
+        <section className="flex flex-col gap-3 px-5 py-7" data-clarity-mask="true">
           <div className="flex items-center justify-between">
             <h2 className="text-[18px] leading-6.5 font-bold tracking-[-0.015em]">참가자 정보</h2>
             {editable && (
@@ -127,7 +128,7 @@ export function TicketDetailPage({
           )}
 
         {refundDeadline && status !== 'paying' && (
-          <section className="flex flex-col gap-3 border-t-8 border-bg-subtle px-4 py-6">
+          <section className="flex flex-col gap-3 px-5 py-7">
             <h2 className="text-[18px] leading-6.5 font-bold tracking-[-0.015em]">환불 기준</h2>
             <div className="flex flex-col gap-2">
               <KeyValue

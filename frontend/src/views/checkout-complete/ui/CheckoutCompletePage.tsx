@@ -8,7 +8,7 @@ import { raceDetailQueryOptions } from '@/entities/race'
 import { useMyBalance } from '@/entities/wallet'
 import { orderApi, unwrapData } from '@/shared/api'
 import { formatNumber, orderTrackItems, useTrackOnce } from '@/shared/lib'
-import { Badge, BibCard, BottomCta, buttonClassName, KeyValue, Skeleton } from '@/shared/ui'
+import { BibCard, BottomCta, buttonClassName, KeyValue, Skeleton } from '@/shared/ui'
 
 // 피그마 V2 · M08 참가 확정
 // 결제한 주문(/checkout/complete?orderId=)을 주문 API로 불러와 그린다. 주문은 로그인이 필요해 클라이언트에서 부른다.
@@ -61,7 +61,6 @@ export function CheckoutCompletePage({ orderId }: { orderId: number }) {
                 image={race.data?.images[0]}
                 imagePosition="50% 12%"
                 eyebrow={race.data?.title ?? ''}
-                status={<Badge tone="brand">참가 확정</Badge>}
                 unit="No."
                 number="-"
                 title={[participant, option?.name].filter(Boolean).join(' · ')}

@@ -293,10 +293,7 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
               <li key={race.id} className="relative">
                 <Link
                   href={`/races/${race.id}`}
-                  className={cn(
-                    'flex gap-3 border border-border-default bg-bg-surface py-4 pr-12',
-                    FOCUS_RING,
-                  )}
+                  className={cn('flex gap-3 bg-bg-surface py-4 pr-12', FOCUS_RING)}
                 >
                   {race.image ? (
                     <Image
@@ -398,7 +395,7 @@ function ListSkeleton() {
   return (
     <div role="status" aria-label="불러오는 중" className="flex flex-col">
       {[0, 1, 2, 3].map((i) => (
-        <div key={i} className="flex gap-3 border border-border-default bg-bg-surface py-4 pr-12">
+        <div key={i} className="flex gap-3 bg-bg-surface py-4 pr-12">
           <Skeleton shape="rect" className="size-24 shrink-0" />
           <div className="flex flex-1 flex-col items-start gap-2">
             <Skeleton shape="rect" className="h-4 w-12" />

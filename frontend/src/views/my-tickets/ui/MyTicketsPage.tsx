@@ -84,10 +84,13 @@ function TicketGroup({ title, tickets }: { title: string; tickets: TicketCard[] 
             image={ticket.image}
             imagePosition="50% 12%"
             eyebrow={ticket.eyebrow}
+            // 참가 확정은 기본이라 글자를 붙이지 않고, 다른 상태일 때만 붙인다
             status={
-              <Badge tone={TICKET_STATUS[ticket.status].tone}>
-                {TICKET_STATUS[ticket.status].label}
-              </Badge>
+              ticket.status !== 'confirmed' && (
+                <Badge tone={TICKET_STATUS[ticket.status].tone}>
+                  {TICKET_STATUS[ticket.status].label}
+                </Badge>
+              )
             }
             unit="No."
             number={ticket.number}
@@ -105,10 +108,7 @@ function TicketSkeletons() {
   return (
     <div role="status" aria-label="불러오는 중" className="flex flex-col gap-3">
       {[0, 1].map((i) => (
-        <div
-          key={i}
-          className="flex flex-col gap-4 rounded-lg bg-bg-surface p-5 shadow-md inset-ring inset-ring-border-default"
-        >
+        <div key={i} className="flex flex-col gap-4 rounded-lg bg-bg-surface p-5 shadow-md">
           <div className="flex justify-between">
             <Skeleton className="w-24" />
             <Skeleton shape="rect" className="h-4 w-16 rounded-full" />

@@ -120,9 +120,6 @@ export function RaceDetailPage({
           </div>
 
           <div className="flex flex-col gap-3 px-4 py-5">
-            <div className="flex gap-1">
-              <Badge tone={race.status.tone}>{race.status.label}</Badge>
-            </div>
             <h2 className="text-title1">{race.title}</h2>
             <p className="flex items-center gap-2 text-body2-regular text-text-secondary">
               <Icon name="Calendar" className="size-4" />
@@ -325,8 +322,8 @@ function OptionCard({
       className={cn(
         'flex h-27 items-center gap-4 rounded-lg p-4 text-left',
         selected
-          ? 'bg-bg-brand-subtle inset-ring-2 inset-ring-border-brand'
-          : 'bg-bg-surface inset-ring inset-ring-border-default',
+          ? 'bg-bg-surface inset-ring-2 inset-ring-text-primary'
+          : 'bg-bg-surface shadow-field',
         FOCUS_RING,
       )}
     >
