@@ -39,12 +39,19 @@ describe('SellerKitsPage', () => {
   it('송장 번호를 넣어 발송하면 배송 중이 되고 건수가 줄어든다', async () => {
     renderPage()
     await userEvent.click(await screen.findByRole('checkbox', { name: 'OD-20261004-0101 고르기' }))
-    await userEvent.type(screen.getByLabelText('송장 번호'), '684912345678')
+    await userEvent.type(screen.getByLabelText('OD-20261004-0101 송장 번호'), '684912345678')
     await userEvent.click(screen.getByRole('button', { name: '배송 중으로 바꾸기' }))
 
     expect(await screen.findByText('1건을 배송 중으로 바꿨어요')).toBeInTheDocument()
     await tabCount('송장 입력 대기', '2')
     await tabCount('배송 중', '2')
+  })
+
+  it('송장 입력 대기 표의 줄마다 택배사와 송장 번호 칸이 있다', async () => {
+    renderPage()
+    await screen.findByText('OD-20261004-0101')
+    expect(screen.getByLabelText('OD-20261004-0101 송장 번호')).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'OD-20261004-0101 택배사' })).toBeInTheDocument()
   })
 
   it('송장 번호가 없으면 발송 버튼이 닫혀 있다', async () => {
@@ -80,13 +87,9 @@ describe('SellerKitsPage', () => {
     renderPage()
     await userEvent.click(await screen.findByRole('checkbox', { name: 'OD-20261004-0101 고르기' }))
     await userEvent.click(screen.getByRole('checkbox', { name: 'OD-20261005-0125 고르기' }))
-    await userEvent.type(screen.getByLabelText('송장 번호'), '1111{enter}2222')
-    // 줄은 표 순서대로 주문에 붙으므로, 보내기 전에 짝을 보여 준다
-    const pairs = within(screen.getByRole('list', { name: '발송 미리보기' })).getAllByRole(
-      'listitem',
-    )
-    expect(pairs[0]).toHaveTextContent('OD-20261004-0101→1111')
-    expect(pairs[1]).toHaveTextContent('OD-20261005-0125→2222')
+    // 송장 번호는 줄 안에서 주문마다 넣는다
+    await userEvent.type(screen.getByLabelText('OD-20261004-0101 송장 번호'), '1111')
+    await userEvent.type(screen.getByLabelText('OD-20261005-0125 송장 번호'), '2222')
     await userEvent.click(screen.getByRole('button', { name: '배송 중으로 바꾸기' }))
 
     expect(await screen.findByText('1건은 바꾸지 못했어요')).toBeInTheDocument()
