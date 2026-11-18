@@ -385,7 +385,7 @@ public class Order extends BaseIdAndTime {
 	}
 
 	// 주문 상품이 든 배송. 재발송이 생기면 여러 건일 수 있어 가장 나중 것을 쓴다. 키트가 없거나 결제 전이면 null
-	private Shipment findKitShipment(OrderItem item) {
+	public Shipment findKitShipment(OrderItem item) {
 		return shipments.reversed().stream()
 			.filter(shipment -> shipment.contains(item))
 			.findFirst()

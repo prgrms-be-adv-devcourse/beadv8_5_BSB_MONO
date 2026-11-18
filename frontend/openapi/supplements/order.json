@@ -321,6 +321,14 @@
           "$ref": "#/components/schemas/SellerSalesSummaryDto"
         }
       }
+    },
+    "findSellerOrder": {
+      "200": {
+        "wrapper": "RsDataSellerOrderDetailDto",
+        "data": {
+          "$ref": "#/components/schemas/SellerOrderDetailDto"
+        }
+      }
     }
   },
   "schemas": {
@@ -2203,6 +2211,196 @@
           "type": "integer",
           "format": "int64",
           "description": "그 환불액 합(원)"
+        }
+      }
+    },
+    "SellerOrderDetailDto": {
+      "type": "object",
+      "description": "판매자 주문 상세 창 (주문 상품 = 참가권 1장). 키트가 없거나 결제 전이면 배송 칸이 모두 null",
+      "properties": {
+        "orderItemId": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "orderId": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "orderNo": {
+          "type": "string"
+        },
+        "orderedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "paidAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time",
+          "description": "결제 전이면 null"
+        },
+        "raceId": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "raceCourseId": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "courseName": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "ORDERED",
+            "PAID",
+            "CANCELING",
+            "CANCELED"
+          ]
+        },
+        "participantName": {
+          "type": "string"
+        },
+        "tshirtSize": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "옛 티셔츠 사이즈. kitOptions가 비어 있을 때만 쓴다"
+        },
+        "kitOptions": {
+          "type": "array",
+          "description": "결제 때 고른 키트 옵션. 없으면 빈 목록",
+          "items": {
+            "$ref": "#/components/schemas/KitOptionChoiceDto"
+          }
+        },
+        "partyId": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int32",
+          "description": "파티로 신청했으면 파티 ID, 개인 신청이면 null"
+        },
+        "unitPrice": {
+          "type": "integer",
+          "format": "int32",
+          "description": "주문 당시 참가권 단가"
+        },
+        "quantity": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "amount": {
+          "type": "integer",
+          "format": "int32",
+          "description": "결제 금액"
+        },
+        "canceledAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time",
+          "description": "취소를 마친 시각. 취소가 아니면 null"
+        },
+        "canceledAmount": {
+          "type": "integer",
+          "format": "int32",
+          "description": "환불한 금액. 취소가 아니면 0"
+        },
+        "cancelReason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "SCHEDULE_CHANGED",
+            "BUYER_CANCELED",
+            "RACE_CANCELED",
+            null
+          ],
+          "description": "취소 이유 (일정 변경 뒤 환불 / 구매자 취소 / 대회 취소). 취소가 아니면 null"
+        },
+        "shippingAddress": {
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/ShippingAddressDto"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "키트 배송지. 키트가 없으면 null. 취소된 주문(보내기 전 취소, 취소 중)은 배송지가 null (보낸 뒤 취소된 참가권은 보임)"
+        },
+        "deliveryMemo": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "배송 요청사항. 배송지와 같이 취소된 주문은 null"
+        },
+        "kitDeliveryStatus": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "PREPARING",
+            "SHIPPING",
+            "DELIVERED",
+            null
+          ],
+          "description": "보내기 전에 취소된 키트도 PREPARING. 키트가 없으면 null"
+        },
+        "kitCarrier": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "kitTrackingNumber": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "kitShippedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "kitDeliveredAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "kitReceivedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time",
+          "description": "구매자가 수령을 확인한 시각"
+        },
+        "kitTracking": {
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/KitTrackingDto"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "키트 배송 조회. 발송 전이거나 자동 조회하지 않는 배송이면 null"
         }
       }
     }
