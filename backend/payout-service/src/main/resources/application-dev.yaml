@@ -2,7 +2,7 @@ spring:
   # 지금은 다른 서비스와 같은 DB(bukang-db)를 쓰고, 테이블 이름 접두사(PAYOUT_)로 구분한다
   datasource:
     # 정산 줄 JDBC 일괄 INSERT를 한 문장으로 묶어 보낸다 (BUK-252, PayoutItemBatchInsertImpl)
-    url: jdbc:mysql://localhost:3306/bukang-db?rewriteBatchedStatements=true
+    url: jdbc:mysql://localhost:3306/bukang-db?rewriteBatchedStatements=true&useCursorFetch=true
     username: bukang2
     password: bukang2
     driver-class-name: com.mysql.cj.jdbc.Driver
