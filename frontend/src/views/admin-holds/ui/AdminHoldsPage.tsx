@@ -12,7 +12,6 @@ import {
   Button,
   DataTable,
   Divider,
-  FOCUS_RING,
   KeyValue,
   Select,
   StatTile,
@@ -107,12 +106,9 @@ export function AdminHoldsPage() {
       <ConsoleCard
         title={`지급보류 ${HOLDS.length}건`}
         aside={
-          <button
-            type="button"
-            className={cn('rounded-sm text-body2-medium text-text-brand', FOCUS_RING)}
-          >
+          <Button variant="text" size="s" className="text-text-brand">
             ID로 찾기
-          </button>
+          </Button>
         }
       >
         <DataTable
