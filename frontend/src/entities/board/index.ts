@@ -36,6 +36,12 @@ export {
   type ReportReason,
 } from './api/types'
 export { formatDateTime, formatRelative } from './lib/format'
+export {
+  commentSchema,
+  postSearchSchema,
+  postWriteSchema,
+  type PostWriteValues,
+} from './model/schemas'
 export { CommentIcon } from './ui/CommentIcon'
 export { LoginSheet } from './ui/LoginSheet'
 export { PostListItem } from './ui/PostListItem'
