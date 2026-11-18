@@ -34,7 +34,6 @@ import com.bukang.order.domain.SellerExportLog;
 import com.bukang.order.domain.SellerExportType;
 import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationRepository;
-import com.bukang.order.out.QueueAdmissionRepository;
 import com.bukang.order.out.SellerExportLogRepository;
 import com.bukang.order.out.race.RaceCourseInfo;
 import com.bukang.order.support.QueueEntry;
@@ -79,9 +78,6 @@ class ApiV1SellerExportTest {
 	private ParticipationRepository participationRepository;
 
 	@Autowired
-	private QueueAdmissionRepository queueAdmissionRepository;
-
-	@Autowired
 	private SellerExportLogRepository sellerExportLogRepository;
 
 	@Autowired
@@ -112,7 +108,6 @@ class ApiV1SellerExportTest {
 	void tearDown() {
 		orderRepository.deleteAll();
 		participationRepository.deleteAll();
-		queueAdmissionRepository.deleteAll();
 		sellerExportLogRepository.deleteAll();
 		raceCoursePort.clear();
 		seatHoldPort.clear();

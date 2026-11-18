@@ -35,7 +35,6 @@ import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
 import com.bukang.order.out.OrderOutboxKafkaEventRepository;
 import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationRepository;
-import com.bukang.order.out.QueueAdmissionRepository;
 import com.bukang.order.support.QueueEntry;
 import com.bukang.order.support.SeatOutboxMessages;
 import com.bukang.order.support.StubRaceCoursePort;
@@ -71,9 +70,6 @@ class OrderHoldCleanupTest {
 	private ParticipationRepository participationRepository;
 
 	@Autowired
-	private QueueAdmissionRepository queueAdmissionRepository;
-
-	@Autowired
 	private OrderOutboxKafkaEventRepository orderOutboxKafkaEventRepository;
 
 	@Autowired
@@ -101,7 +97,6 @@ class OrderHoldCleanupTest {
 	void tearDown() {
 		orderRepository.deleteAll();
 		participationRepository.deleteAll();
-		queueAdmissionRepository.deleteAll();
 		orderOutboxKafkaEventRepository.deleteAll();
 		raceCoursePort.clear();
 		seatHoldPort.clear();
