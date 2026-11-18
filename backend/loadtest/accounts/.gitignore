@@ -1,0 +1,4 @@
+# login.js가 만드는 30분짜리 토큰 파일. 커밋하지 않는다
+.accounts.json
+.accounts-issued-at.txt
+.password

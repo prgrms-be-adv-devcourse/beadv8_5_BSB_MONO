@@ -54,6 +54,20 @@ class PayoutTest {
 		assertThat(payout.getPayoutMonth()).isEqualTo(YearMonth.from(refundDeadline).toString());
 	}
 
+	// 관리자 정산 목록의 기본 지급일: 오늘보다 뒤인 가장 가까운 20일. 20일 당일이면 다음 달 20일이다 (BUK-168, 11/17 결정)
+	@ParameterizedTest(name = "오늘 {0} → {1}")
+	@CsvSource({
+		"2026-11-17, 2026-11-20",
+		"2026-11-19, 2026-11-20",
+		"2026-11-20, 2026-12-20",
+		"2026-11-25, 2026-12-20",
+		"2026-12-21, 2027-01-20"
+	})
+	@DisplayName("다음 지급일은 오늘보다 뒤인 가장 가까운 20일이다")
+	void nextPayDayAfter(LocalDate today, LocalDate expected) {
+		assertThat(Payout.nextPayDayAfter(today)).isEqualTo(expected);
+	}
+
 	// 최종도 정산 월(대회일의 달)의 다음 달 20일이다. 마감일과 대회일이 같은 달이면 1차와 같은 날 지급된다 (10/29 결정)
 	@ParameterizedTest(name = "대회일 {0} → {1} 지급")
 	@CsvSource({

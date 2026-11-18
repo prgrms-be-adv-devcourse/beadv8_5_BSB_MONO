@@ -72,6 +72,8 @@ class FlywayExistingTablesTest {
 		jdbcTemplate.execute("alter table order_shipment drop column received_at");
 		// 서버 표에는 아직 판매자 주문 목록 인덱스가 없다 (BUK-227)
 		jdbcTemplate.execute("drop index idx_order_item_seller");
+		// 서버 표에는 아직 대회 ID 인덱스가 없다 (CRU-8)
+		jdbcTemplate.execute("drop index idx_order_item_race_status");
 
 		// dev·운영과 같은 Flyway 설정 (BUK-29)
 		MigrateResult result = Flyway.configure()
@@ -94,6 +96,11 @@ class FlywayExistingTablesTest {
 			"select count(*) from information_schema.table_constraints"
 				+ " where table_name = 'order_participation' and constraint_name = 'fk_participation_party'",
 			Integer.class)).isEqualTo(1);
+		// 지운 대회 ID 인덱스를 Flyway가 다시 만든다 (CRU-8)
+		assertThat(jdbcTemplate.queryForObject(
+			"select count(*) from information_schema.indexes"
+				+ " where table_name = 'order_order_item' and index_name = 'idx_order_item_race_status'",
+			Integer.class)).isPositive();
 		// 이미 있던 아웃박스 행은 행마다 다른 order-outbox-{UUID}로 채워진다
 		assertThat(jdbcTemplate.queryForList("select message_id from order_outbox_kafka_event", String.class))
 			.hasSize(2)

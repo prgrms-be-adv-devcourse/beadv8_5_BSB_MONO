@@ -90,7 +90,7 @@ class PayoutReconcileTargetTest {
 		SoldSummaryPort noFirst = raceId -> List.of();
 		StubRacePort racePort = new StubRacePort(raceId -> Optional.empty(), List.of(RACE), List.of());
 		BusinessDayCalendar calendar = new BusinessDayCalendar();
-		PayoutHoldUseCase payoutHoldUseCase = new PayoutHoldUseCase(payoutRepository, payoutHoldRepository, calendar);
+		PayoutHoldUseCase payoutHoldUseCase = PayoutHoldUseCases.withoutNotification(payoutRepository, payoutHoldRepository, calendar);
 		PayoutCreateFailureUseCase failureUseCase = new PayoutCreateFailureUseCase(payoutCreateFailureRepository);
 		PayoutCreateStepUseCase stepUseCase = new PayoutCreateStepUseCase(payoutRepository, calendar,
 			new PayoutLedgerUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository),
@@ -141,7 +141,7 @@ class PayoutReconcileTargetTest {
 			new StubRacePort(raceId -> Optional.empty(), List.of(RACE), List.of()), raceId -> List.of(),
 			raceId -> orderEntries,
 			new PayoutReconcileStepUseCase(payoutRepository,
-				new PayoutHoldUseCase(payoutRepository, payoutHoldRepository, new BusinessDayCalendar()),
+				PayoutHoldUseCases.withoutNotification(payoutRepository, payoutHoldRepository, new BusinessDayCalendar()),
 				new PayoutLedgerUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository),
 				new SetEntryDiffer()),
 			new PayoutCreateFailureUseCase(payoutCreateFailureRepository)).run(DAY2, NOW2);

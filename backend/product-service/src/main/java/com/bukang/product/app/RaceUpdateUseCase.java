@@ -96,6 +96,8 @@ public class RaceUpdateUseCase {
 		raceRepository.flush();
 
 		List<FileLinkRequestedEvent.Ref> refs = new ArrayList<>();
+		// 대표 이미지는 대회에 붙인다. 보낸 목록으로 통째로 바뀌므로 대표 이미지를 바꾸면 옛 파일은 떨어진다
+		refs.add(FileLinkRequestedEvent.Ref.of(FileRef.of(race), RaceImageRequestDto.toItems(request.getImages())));
 		imagesByCourse.forEach((course, images) ->
 			refs.add(FileLinkRequestedEvent.Ref.of(FileRef.of(course), RaceImageRequestDto.toItems(images))));
 		// 뺀 종목에 붙어 있던 이미지는 빈 목록으로 보내 모두 뗀다 (file-service가 삭제 상태로 바꾼다)

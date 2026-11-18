@@ -64,6 +64,7 @@ import {
 } from './mock-session'
 import { notificationHandlers } from './notifications'
 import { partyHandlers } from './party'
+import { payoutHandlers } from './payout'
 import { findMockRace, getMockRaces, mockImageOfCourse, searchMockRaces } from './races'
 import { resetMockKitsForTesting, sellerKitHandlers } from './seller-kits'
 import { balanceCookieHeaders, payFromMockWallet, walletHandlers } from './wallet'
@@ -762,5 +763,6 @@ export const handlers = [
   ...orderHandlers,
   ...walletHandlers,
   ...sellerKitHandlers,
+  ...payoutHandlers,
   ...generatedHandlers,
 ]

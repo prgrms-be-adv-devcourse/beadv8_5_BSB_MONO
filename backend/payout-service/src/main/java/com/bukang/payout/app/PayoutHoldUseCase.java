@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.bukang.common.global.eventpublisher.EventPublisher;
 import com.bukang.payout.domain.BusinessDayCalendar;
 import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutHold;
@@ -26,6 +27,7 @@ import lombok.RequiredArgsConstructor;
  * 관리자가 거는 보류와, 정산 생성 배치가 만들 때 거는 자동 보류를 모두 여기서 건다
  * 상태 규칙은 Payout이 지키고, 여기서는 찾아서 넘기고 저장만 한다
  * 지급 배치와 동시에 같은 정산 내역을 바꾸면 Payout의 @Version으로 늦게 커밋한 쪽이 실패한다
+ * 보류를 새로 걸면 보류 이벤트를 발행한다. 판매자 찾기와 알림은 커밋 뒤 PayoutHeldNotifier가 한다 (롤백되면 보내지 않음)
  */
 @Service
 @RequiredArgsConstructor
@@ -37,6 +39,7 @@ public class PayoutHoldUseCase {
 	private final PayoutRepository payoutRepository;
 	private final PayoutHoldRepository payoutHoldRepository;
 	private final BusinessDayCalendar businessDayCalendar;
+	private final EventPublisher eventPublisher;
 
 	// open-in-view가 꺼져 있어 트랜잭션 밖에서 hold.getPayout()을 읽지 않도록, 안에서 DTO로 바꿔 돌려준다
 	@Transactional
@@ -104,9 +107,14 @@ public class PayoutHoldUseCase {
 	}
 
 	// 지급보류 ID의 끝 4자리는 PK에서 만들므로 저장해서 ID를 받은 뒤에 붙인다
+	// 보류 기록은 새로 걸 때만 만들어지므로(같은 사유가 걸려 있으면 Payout.hold가 막는다) 여기서 발행하면 한 번만 간다
 	private PayoutHold save(PayoutHold hold) {
 		payoutHoldRepository.save(hold);
 		hold.assignHoldCode();
+		Payout payout = hold.getPayout();
+		// 상품 서비스 조회는 잠금을 쥔 이 트랜잭션에서 하지 않고, 문구에 쓸 값만 담아 커밋 뒤로 넘긴다
+		eventPublisher.publish(new PayoutHeldEvent(payout.getRaceId(), payout.getRaceName(), payout.getPayoutStage(),
+			hold.getReasonType(), hold.getHoldCode()));
 		return hold;
 	}
 }

@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.bukang.common.global.eventpublisher.EventPublisher;
 import com.bukang.payout.domain.BusinessDayCalendar;
 import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutHoldReason;
@@ -39,7 +40,7 @@ import com.bukang.payout.support.MySqlContainerTest;
 @DataJpaTest
 @ActiveProfiles("test")
 @MySqlContainerTest
-@Import({PayoutHoldUseCase.class, BusinessDayCalendar.class})
+@Import({PayoutHoldUseCase.class, EventPublisher.class, BusinessDayCalendar.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class PayoutHoldConcurrencyTest {
 	private static final long ADMIN_ID = 99;

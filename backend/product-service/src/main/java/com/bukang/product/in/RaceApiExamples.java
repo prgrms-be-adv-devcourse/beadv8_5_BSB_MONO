@@ -96,7 +96,7 @@ final class RaceApiExamples {
 		""";
 
 	static final String THUMBNAIL_REQUIRED = """
-		{ "status": 400, "message": "10K 종목의 대표 이미지를 1장 연결해주세요.", "data": null }
+		{ "status": 400, "message": "대회의 대표 이미지를 1장 연결해주세요.", "data": null }
 		""";
 
 	static final String DUPLICATE_FILE = """

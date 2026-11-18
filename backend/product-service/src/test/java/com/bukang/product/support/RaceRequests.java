@@ -15,7 +15,7 @@ import com.bukang.product.dto.RaceImageRequestDto;
 import com.bukang.product.dto.RaceSaveRequestDto;
 
 /**
- * 대회 등록·수정 요청을 만든다. 기본값은 "한 시간 전에 개인 예매가 열린 서울 대회, 10K 종목 1개(개인 정원 100, 대표 이미지 1장)"다.
+ * 대회 등록·수정 요청을 만든다. 기본값은 "한 시간 전에 개인 예매가 열린 서울 대회(대표 이미지 1장), 10K 종목 1개(개인 정원 100, 이미지 없음)"다.
  * 테스트마다 바꿀 값만 고친다. 예: race().title("부산 바다 런").course(course().price(30000)).build()
  */
 public final class RaceRequests {
@@ -61,6 +61,7 @@ public final class RaceRequests {
 		private Integer crewMinCount = 5;
 		private Integer crewMaxCount;
 		private final List<RaceCourseSaveRequestDto> courses = new ArrayList<>();
+		private List<RaceImageRequestDto> images;
 
 		public RaceBuilder title(String title) {
 			this.title = title;
@@ -123,6 +124,12 @@ public final class RaceRequests {
 			return this;
 		}
 
+		// 부르지 않으면 대표 이미지 1장을 넣는다. 빈 목록이면 대회 이미지 없이 보낸다
+		public RaceBuilder images(RaceImageRequestDto... images) {
+			this.images = List.of(images);
+			return this;
+		}
+
 		public LocalDateTime now() {
 			return now;
 		}
@@ -133,9 +140,10 @@ public final class RaceRequests {
 				requestCourses.add(RaceRequests.course().build());
 			}
 			LocalDate deadline = refundDeadline != null ? refundDeadline : raceDate.toLocalDate();
+			List<RaceImageRequestDto> requestImages = images != null ? images : List.of(thumbnail());
 			return new RaceSaveRequestDto(title, description, location, regionSido, regionSigungu, raceDate,
 				crewSaleStartAt, crewSaleEndAt, individualOpenAt, applicationCloseAt, deadline, refundPolicy,
-				crewMinCount, crewMaxCount, requestCourses);
+				crewMinCount, crewMaxCount, requestCourses, requestImages);
 		}
 	}
 
@@ -210,14 +218,14 @@ public final class RaceRequests {
 			return this;
 		}
 
-		// 부르지 않으면 대표 이미지 1장을 넣는다. 빈 목록이면 이미지 없이 보낸다
+		// 부르지 않으면 이미지 없이 보낸다 (대표 이미지는 대회에 붙인다)
 		public CourseBuilder images(RaceImageRequestDto... images) {
 			this.images = List.of(images);
 			return this;
 		}
 
 		public RaceCourseSaveRequestDto build() {
-			List<RaceImageRequestDto> requestImages = images != null ? images : List.of(thumbnail());
+			List<RaceImageRequestDto> requestImages = images != null ? images : List.of();
 			return new RaceCourseSaveRequestDto(courseId, name, courseType, surface, distanceKm, timeLimitMinutes,
 				price, kitIncluded, kitPrice, minAge, maxAge, crewQuota, individualQuota,
 				requestImages);

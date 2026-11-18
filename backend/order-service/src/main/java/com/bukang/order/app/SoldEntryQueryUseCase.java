@@ -28,21 +28,26 @@ public class SoldEntryQueryUseCase {
 	private final OrderItemRepository orderItemRepository;
 
 	// 묶기는 메모리에서 한다. 쿼리는 그대로 두고 ID 목록만 나누면 되고, 대회 하나는 많아야 수만 줄이다
-	// shortcut: 판매자 · 대회일 · 코스 가격은 첫 줄 값을 쓴다(정책상 같음). 섞일 수 있게 바뀌면 묶는 기준에 넣는다
+	// 판매자 · 코스 가격은 정책상 하나라 맨 위 · 코스에 한 번만 담는다. 다르면 정산이 틀린 돈을 내지 않게 500으로 막는다
+	// shortcut: 대회일은 일정 변경 뒤 섞일 수 있어 첫 줄 값을 쓴다(정산 기준일은 상품에서 받음). 섞임을 알려야 하면 묶는 기준에 넣는다
 	// 결제 완료 ID를 format대로 담는다. 묶는 기준 · blockingIds는 format과 상관없이 같다
 	public SoldEntriesDto findSoldEntries(long raceId, SoldEntriesFormat format) {
 		List<SoldEntryDto> rows = orderItemRepository.findSoldEntries(raceId);
 		if (rows.isEmpty()) {
 			return new SoldEntriesDto(raceId, null, null, List.of());
 		}
+		SoldEntryDto first = rows.getFirst();
 		Map<Long, SoldEntriesDto.Course> courses = new TreeMap<>();
 		for (SoldEntryDto row : rows) {
 			SoldEntriesDto.Course course = courses.computeIfAbsent(row.getRaceCourseId(),
 				id -> new SoldEntriesDto.Course(id, row.getPrice(), new ArrayList<>(), new ArrayList<>()));
+			if (row.getPrice() != course.price() || row.getSellerId() != first.getSellerId()) {
+				throw new IllegalStateException("판매 내역의 코스 가격 또는 판매자가 섞여 있습니다. raceId=" + raceId
+					+ ", orderItemId=" + row.getOrderItemId());
+			}
 			List<Long> ids = row.getStatus() == OrderItemStatus.PAID ? course.paidIds() : course.blockingIds();
 			ids.add(row.getOrderItemId());
 		}
-		SoldEntryDto first = rows.getFirst();
 		List<SoldEntriesDto.Course> encoded = courses.values().stream()
 			.map(course -> SoldIdsEncoder.encode(course, format))
 			.toList();

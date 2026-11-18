@@ -132,7 +132,8 @@
       <li>[등록] POST /api/v1/product/races → 201, 판매 예정(SCHEDULED)으로 저장되고 바로 공개됩니다. 판매 시작일이 오늘로부터 이틀 뒤보다 빠르면 400.
         판매 시작일 0시 정각에 상태 배치(5분 정각마다)가 판매 중(ON_SALE)으로 바꾸고, 이때부터 판매 시작 뒤 수정 규칙이 걸립니다.
         판매 상태는 판매자 화면용이고, 자리 확보는 크루 예매 시작·개인 예매 오픈 시각부터 됩니다. 성공하면 대회 ID와 종목별 courseId를 채웁니다.</li>
-      <li>[불러오기] GET /api/v1/product/races/{raceId} → 폼을 채우고, 종목마다 file-service GET /api/v1/file/files?refType=RaceCourse&amp;refId={종목 ID}로 이미지 표를 채웁니다. 취소된 대회는 등록한 회원 ID로만 보입니다(아니면 404).</li>
+      <li>[불러오기] GET /api/v1/product/races/{raceId} → 폼을 채우고, file-service GET /api/v1/file/files?refType=Race&amp;refId={대회 ID}로 대표 이미지 표를,
+        종목마다 refType=RaceCourse&amp;refId={종목 ID}로 종목 이미지 표를 채웁니다. 취소된 대회는 등록한 회원 ID로만 보입니다(아니면 404).</li>
       <li>[수정] PUT /api/v1/product/races/{raceId} (등록과 같은 본문). courseId가 있는 종목은 고치고, 없는 종목은 추가하고, 요청에 없는 기존 종목은 뺍니다. 이미지 목록도 통째로 바뀝니다.
         취소된 대회와 판매가 끝난 대회(대회일 다음 날 0시부터)는 수정할 수 없습니다(409).</li>
       <li>[대회 취소] POST /api/v1/product/races/{raceId}/cancel → 200 "대회를 취소했습니다.", saleStatus CANCELED. 되돌릴 수 없습니다.</li>
@@ -183,16 +184,36 @@
     <div class="actions"><button type="button" class="secondary" id="resetSchedule">일정 기본값 다시 채우기 (지금 기준)</button></div>
   </div>
 
+  <div class="panel" id="raceImages" data-image-scope="race">
+    <h2>대표 이미지 (대회 images)</h2>
+    <ul class="hint">
+      <li>대표 이미지는 대회마다 1장 필수이고 대회에 붙입니다(종목에는 붙일 수 없습니다). 파일을 고르면 아래 종목 이미지와 같은 방법으로 file-service에 올립니다.</li>
+    </ul>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr>
+            <th class="required">용도</th><th class="required">순서</th><th>파일</th>
+            <th class="required">fileId</th><th>업로드 상태</th><th></th>
+          </tr>
+        </thead>
+        <tbody data-images></tbody>
+      </table>
+    </div>
+    <p class="hint" data-image-note></p>
+    <div class="actions"><button type="button" data-add-image>+ 대표 이미지 추가</button></div>
+  </div>
+
   <div class="panel">
     <h2>종목 · 참가권</h2>
     <ul class="hint">
       <li>종목은 1개 이상이어야 합니다. 판매 시작 뒤에는 참가비·키트 금액 변경, 정원 줄이기, 참가 조건(거리·종목 구분·노면·제한 시간·나이 제한·키트 포함 여부) 변경,
         종목 빼기를 할 수 없습니다(409).</li>
-      <li>이미지는 종목마다 붙입니다. 용도를 고르고 파일을 선택하면 file-service(8083)로 ① 업로드 URL 발급 → ② S3에 직접 PUT → ③ 업로드 완료 확인을 하고 fileId를 채웁니다.
+      <li>대표 이미지를 뺀 이미지는 종목마다 붙입니다. 용도를 고르고 파일을 선택하면 file-service(8083)로 ① 업로드 URL 발급 → ② S3에 직접 PUT → ③ 업로드 완료 확인을 하고 fileId를 채웁니다.
         file-service가 dev로 떠 있어야 합니다(dev에만 8085를 허용하는 CORS가 있습니다).</li>
       <li>이미지(대표·소개·코스·키트)는 JPG·PNG·WebP 10MB 이하, 소개 영상은 MP4·MOV 100MB 이하입니다(올린 뒤 파일 앞부분으로 형식을 다시 확인합니다).</li>
-      <li>종목마다 대표 이미지 1장 필수. 최대 개수: 대회 소개 이미지 5, 코스 안내 이미지 7, 키트 이미지 1, 대회 소개 영상 1. 순서(sortNo)는 0 이상.</li>
-      <li>같은 파일(fileId)은 한 번만 연결됩니다(종목끼리도 안 됨). 위 회원 ID로 올린 파일만 연결되고, 연결은 저장 뒤 Kafka(race.filelink.requested)로 따로 처리되어 실패하면 file-service 로그에만 남습니다.
+      <li>종목 이미지는 없어도 됩니다. 최대 개수: 대회 소개 이미지 5, 코스 안내 이미지 7, 키트 이미지 1, 대회 소개 영상 1. 순서(sortNo)는 0 이상.</li>
+      <li>같은 파일(fileId)은 한 번만 연결됩니다(대회와 종목, 종목끼리도 안 됨). 위 회원 ID로 올린 파일만 연결되고, 연결은 저장 뒤 Kafka(race.filelink.requested)로 따로 처리되어 실패하면 file-service 로그에만 남습니다.
         올린 뒤 1일 안에 연결되지 않은 파일은 정리 배치가 지웁니다.</li>
     </ul>
     <div id="courses"></div>
@@ -228,13 +249,18 @@
     const SALE_STATUSES = {
       SCHEDULED: '판매 예정', ON_SALE: '판매 중', STOPPED: '판매 중지', CLOSED: '판매 종료', CANCELED: '취소',
     };
-    // common FileType 중 종목에 붙이는 용도와 최대 개수 (크루원 명단 ROSTER는 종목에 붙일 수 없다)
+    // common FileType 중 대회·종목에 붙이는 용도와 최대 개수 (크루원 명단 ROSTER는 붙일 수 없다)
     const FILE_TYPES = {
       THUMBNAIL: { label: '대표 이미지', maxCount: 1, kind: 'IMAGE' },
       DETAIL: { label: '대회 소개 이미지', maxCount: 5, kind: 'IMAGE' },
       COURSE: { label: '코스 안내 이미지', maxCount: 7, kind: 'IMAGE' },
       KIT: { label: '키트 이미지', maxCount: 1, kind: 'IMAGE' },
       INTRO_VIDEO: { label: '대회 소개 영상', maxCount: 1, kind: 'VIDEO' },
+    };
+    // 대표 이미지는 대회에만, 나머지는 종목에만 붙인다 (product-service RaceRequestValidator와 같은 나눔)
+    const FILE_TYPES_BY_SCOPE = {
+      race: ['THUMBNAIL'],
+      course: ['DETAIL', 'COURSE', 'KIT', 'INTRO_VIDEO'],
     };
     // file-service FileFormat과 같은 형식 (파일 고르기 창에서 이 형식만 보여 준다)
     const ACCEPT_BY_KIND = {
@@ -452,10 +478,11 @@
         .join('');
     }
 
-    function fileTypeOptions(selected) {
-      return Object.entries(FILE_TYPES)
-        .map(([value, type]) =>
-          `<option value="${value}" ${value === selected ? 'selected' : ''}>${type.label} (최대 ${type.maxCount}개)</option>`)
+    // 이미지 표가 있는 곳(대회 패널 또는 종목 카드)에 붙일 수 있는 용도만 고르게 한다
+    function fileTypeOptions(scope, selected) {
+      return FILE_TYPES_BY_SCOPE[scope]
+        .map((value) =>
+          `<option value="${value}" ${value === selected ? 'selected' : ''}>${FILE_TYPES[value].label} (최대 ${FILE_TYPES[value].maxCount}개)</option>`)
         .join('');
     }
 
@@ -470,6 +497,7 @@
     function addCourseCard(course = {}) {
       const card = document.createElement('div');
       card.className = 'course';
+      card.dataset.imageScope = 'course';
       card.innerHTML = `
         <div class="course-head">
           <h3>종목: <span data-course-title></span></h3>
@@ -534,24 +562,26 @@
     }
 
     // 같은 용도 안에서 다음 노출 순서
-    function nextSortNo(card, fileType) {
-      return [...card.querySelectorAll('[data-images] [data-key=fileType]')]
+    function nextSortNo(container, fileType) {
+      return [...container.querySelectorAll('[data-images] [data-key=fileType]')]
         .filter((select) => select.value === fileType)
         .length;
     }
 
-    function addImageRow(card, image = {}) {
-      const fileType = image.fileType ?? 'DETAIL';
-      const sortNo = image.sortNo ?? nextSortNo(card, fileType);
+    // container는 대표 이미지 패널(#raceImages) 또는 종목 카드. data-image-scope로 고를 수 있는 용도가 정해진다
+    function addImageRow(container, image = {}) {
+      const scope = container.dataset.imageScope;
+      const fileType = image.fileType ?? FILE_TYPES_BY_SCOPE[scope][0];
+      const sortNo = image.sortNo ?? nextSortNo(container, fileType);
       const row = document.createElement('tr');
       row.innerHTML = `
-        <td><select data-key="fileType">${fileTypeOptions(fileType)}</select></td>
+        <td><select data-key="fileType">${fileTypeOptions(scope, fileType)}</select></td>
         <td><input data-key="sortNo" type="number" min="0" value="${sortNo}"></td>
         <td><input type="file" accept="${acceptOf(fileType)}" data-upload></td>
         <td><input data-key="fileId" type="number" min="1" value="${image.fileId ?? ''}"></td>
         <td class="status"></td>
         <td><button type="button" class="secondary" data-remove>삭제</button></td>`;
-      card.querySelector('[data-images]').append(row);
+      container.querySelector('[data-images]').append(row);
       setStatus(row.querySelector('.status'), image.url ? 'ok' : 'wait', image.statusText ?? '파일을 고르면 올립니다', image.url);
       return row;
     }
@@ -692,13 +722,18 @@
       return value.length === 16 ? `${value}:00` : value;
     }
 
-    function buildCourse(card) {
-      const value = (key) => field(card, key).value.trim();
-      const images = [...card.querySelector('[data-images]').children].map((row) => ({
+    // 이미지 표(대표 이미지 패널 또는 종목 카드)의 행 → 요청의 images
+    function imagesOf(container) {
+      return [...container.querySelector('[data-images]').children].map((row) => ({
         fileId: integer(row.querySelector('[data-key=fileId]').value.trim()),
         fileType: row.querySelector('[data-key=fileType]').value,
         sortNo: integer(row.querySelector('[data-key=sortNo]').value.trim()),
       }));
+    }
+
+    function buildCourse(card) {
+      const value = (key) => field(card, key).value.trim();
+      const images = imagesOf(card);
       return {
         courseId: integer(value('courseId')),
         name: value('name') || null,
@@ -734,6 +769,7 @@
         crewMinCount: integer($('crewMinCount').value.trim()),
         crewMaxCount: integer($('crewMaxCount').value.trim()),
         courses: [...$('courses').children].map(buildCourse),
+        images: imagesOf($('raceImages')),
       };
     }
 
@@ -785,19 +821,19 @@
       $('crewMaxCount').value = race.crewMaxCount ?? '';
     }
 
-    // 대회 상세에는 이미지가 없어서 종목마다 file-service에서 받는다
-    async function loadCourseImages(card, raceCourseId) {
-      const note = card.querySelector('[data-image-note]');
+    // 대회 상세에는 이미지가 없어서 file-service에서 받는다 (대표 이미지는 refType=Race, 종목 이미지는 refType=RaceCourse)
+    async function loadImages(container, refType, refId, label) {
+      const note = container.querySelector('[data-image-note]');
       try {
-        const result = await callFileApi(`종목 ${raceCourseId} 이미지 목록`, 'GET',
-          `/api/v1/file/files?refType=RaceCourse&refId=${raceCourseId}`);
+        const result = await callFileApi(`${label} 이미지 목록`, 'GET',
+          `/api/v1/file/files?refType=${refType}&refId=${refId}`);
         if (result.httpStatus !== 200) {
           note.className = 'hint fail';
           note.textContent = `이미지 목록을 받지 못했습니다 (${result.httpStatus}): ${result.body.message}`;
           return;
         }
         const files = result.body.data ?? [];
-        files.forEach((file) => addImageRow(card, {
+        files.forEach((file) => addImageRow(container, {
           fileId: file.id,
           fileType: file.fileType,
           sortNo: file.sortNo,
@@ -847,10 +883,12 @@
       const race = result.body.data;
       fillRaceForm(race);
       showRaceState(race);
+      $('raceImages').querySelector('[data-images]').replaceChildren();
+      await loadImages($('raceImages'), 'Race', raceId, `대회 ${raceId}`);
       $('courses').replaceChildren();
       for (const course of race.courses) {
         const card = addCourseCard({ ...course, courseId: course.raceCourseId });
-        await loadCourseImages(card, course.raceCourseId);
+        await loadImages(card, 'RaceCourse', course.raceCourseId, `종목 ${course.raceCourseId}`);
       }
       renderPreview();
     }
@@ -911,7 +949,7 @@
         target.closest('.course').remove();
         renderPreview();
       } else if (target.matches('[data-add-image]')) {
-        addImageRow(target.closest('.course'), { fileType: 'DETAIL' });
+        addImageRow(target.closest('[data-image-scope]'));
         renderPreview();
       } else if (target.matches('[data-copy]')) {
         copyText(target.dataset.copy);
@@ -923,8 +961,7 @@
     bindAction('updateRace', updateRace);
     bindAction('cancelRace', cancelRace);
     $('addCourse').addEventListener('click', () => {
-      const card = addCourseCard();
-      addImageRow(card, { fileType: 'THUMBNAIL', sortNo: 0 });
+      addCourseCard();
       renderPreview();
     });
     $('resetSchedule').addEventListener('click', () => {
@@ -935,14 +972,14 @@
       $('log').textContent = '';
     });
 
-    // 처음 화면: 지금 기준 일정과 예시 종목 하나(매진 시험이 쉽게 개인 정원 3), 대표 이미지 칸을 채워 둔다
+    // 처음 화면: 지금 기준 일정과 예시 종목 하나(매진 시험이 쉽게 개인 정원 3), 대회 대표 이미지 칸을 채워 둔다
     fillDefaultSchedule();
-    const firstCourse = addCourseCard({
+    addCourseCard({
       name: '10K', courseType: 'KM_10', surface: 'ROAD', distanceKm: 10, timeLimitMinutes: 90,
       price: 45000, kitIncluded: true, kitPrice: 0,
       minAge: 14, crewQuota: 0, individualQuota: 3,
     });
-    addImageRow(firstCourse, { fileType: 'THUMBNAIL', sortNo: 0 });
+    addImageRow($('raceImages'), { fileType: 'THUMBNAIL', sortNo: 0 });
     renderPreview();
   </script>
 </body>

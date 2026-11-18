@@ -11,6 +11,8 @@ import {
   useAnswerInquiry,
   useManageInquiries,
   useManageInquiry,
+  useMyInquiries,
+  useMyInquiry,
   useRaceName,
   type Inquiry,
   type InquiryOrder,
@@ -29,7 +31,7 @@ import {
   useToast,
 } from '@/shared/ui'
 
-type Filter = 'WAITING' | 'ANSWERED' | 'SELLER'
+type Filter = 'WAITING' | 'ANSWERED' | 'SELLER' | 'SENT'
 
 // 주문 서비스가 정한 값은 한글로 바꾸고, 모르는 값은 그대로 보여 준다
 const DELIVERY: Record<string, string> = {
@@ -58,6 +60,7 @@ function Who({ inquiry }: { inquiry: Inquiry }) {
 
 // 피그마 S13 · A13 문의 (판매자 · 관리자 공통): 왼쪽에 문의 줄, 오른쪽에 고른 문의와 답변
 // 탭은 「답변 대기 N · 답변 완료」, 관리자는 「판매자 담당」이 더해진다(판매자가 답할 문의를 볼 수만 있다)
+// 판매자는 「보낸 문의」가 더해진다. 크루런에 보낸 문의는 판매자 목록 API에 없어 내 문의 API로 받는다
 // initialId: 알림 링크(/seller/inquiries/12)로 들어왔을 때 처음 고를 문의
 export function InquiryBoard({
   role,
@@ -72,17 +75,29 @@ export function InquiryBoard({
   // 거르기는 URL(?filter=)에 담는다
   const [url, setUrl] = useSearchParamsState(
     { filter: 'WAITING' },
-    { filter: ['WAITING', 'ANSWERED', 'SELLER'] },
+    // 역할에 없는 탭(관리자의 SENT, 판매자의 SELLER)은 주소에 있어도 답변 대기로 읽는다
+    {
+      filter:
+        role === 'seller' ? ['WAITING', 'ANSWERED', 'SENT'] : ['WAITING', 'ANSWERED', 'SELLER'],
+    },
   )
   const filter = url.filter as Filter
   const setFilter = (next: Filter) => setUrl({ filter: next })
+  const sent = role === 'seller' && filter === 'SENT'
   const [picked, setPicked] = useState<number | null>(initialId ?? null)
   const filters: ManageFilters = {
-    status: filter === 'SELLER' ? undefined : filter,
+    status: filter === 'WAITING' || filter === 'ANSWERED' ? filter : undefined,
     assignee: filter === 'SELLER' ? 'SELLER' : undefined,
   }
-  const list = useManageInquiries(role, filters)
-  const items = list.data?.inquiries
+  // 보낸 문의 탭에서도 「답변 대기 N」 개수를 보여 주려고 판매자 목록은 계속 받는다
+  const managed = useManageInquiries(role, filters)
+  const mine = useMyInquiries(sent)
+  const list = sent ? mine : managed
+  // 구매자로 남긴 문의는 판매자 콘솔에 섞지 않는다
+  // shortcut: 내 문의 첫 20개 안에서만 보인다, 판매자 문의가 쌓이면 더 보기나 판매자 문의만 주는 API로 바꾼다
+  const items = sent
+    ? mine.data?.inquiries.filter((i) => i.type === 'SELLER_SUPPORT')
+    : managed.data?.inquiries
   const selectedId =
     picked !== null && items?.some((i) => i.id === picked) ? picked : (items?.[0]?.id ?? null)
 
@@ -104,7 +119,7 @@ export function InquiryBoard({
     <div className="flex flex-col gap-6">
       <div className="flex gap-2">
         <Chip selected={filter === 'WAITING'} onClick={() => setFilter('WAITING')}>
-          답변 대기{list.data ? ` ${list.data.waitingCount}` : ''}
+          답변 대기{managed.data ? ` ${managed.data.waitingCount}` : ''}
         </Chip>
         <Chip selected={filter === 'ANSWERED'} onClick={() => setFilter('ANSWERED')}>
           답변 완료
@@ -112,6 +127,11 @@ export function InquiryBoard({
         {role === 'admin' && (
           <Chip selected={filter === 'SELLER'} onClick={() => setFilter('SELLER')}>
             판매자 담당
+          </Chip>
+        )}
+        {role === 'seller' && (
+          <Chip selected={sent} onClick={() => setFilter('SENT')}>
+            보낸 문의
           </Chip>
         )}
       </div>
@@ -127,7 +147,7 @@ export function InquiryBoard({
               ))}
             </div>
           ) : items.length === 0 ? (
-            <EmptyState title="문의가 없어요" />
+            <EmptyState title={sent ? '보낸 문의가 없어요' : '문의가 없어요'} />
           ) : (
             <ul className="flex flex-col">
               {items.map((inquiry) => (
@@ -172,6 +192,7 @@ export function InquiryBoard({
               key={selectedId}
               role={role}
               id={selectedId}
+              sent={sent}
               renderAnswer={renderAnswer}
               onSent={() => {
                 // 답변을 보내면 답변 완료 목록으로 옮겨 가고, 방금 답한 문의가 그대로 열려 있다
@@ -189,15 +210,20 @@ export function InquiryBoard({
 function Detail({
   role,
   id,
+  sent,
   renderAnswer,
   onSent,
 }: {
   role: ManageRole
   id: number
+  /** 판매자가 크루런에 보낸 문의. 내 문의 API로 받고 답변칸이 없다 */
+  sent: boolean
   renderAnswer: RenderAnswer
   onSent: () => void
 }) {
-  const detail = useManageInquiry(role, id)
+  const managed = useManageInquiry(role, sent ? null : id)
+  const mine = useMyInquiry(id, sent)
+  const detail = sent ? mine : managed
   const data = detail.data
   const raceName = useRaceName(data?.raceId ?? null)
 
@@ -225,7 +251,7 @@ function Detail({
     .filter(Boolean)
     .join(' · ')
   // 관리자는 관리자 담당 문의에만 답한다. 판매자 담당 문의는 서버가 404로 막는다
-  const answerable = role === 'seller' || data.assignee === 'ADMIN'
+  const answerable = !sent && (role === 'seller' || data.assignee === 'ADMIN')
   const badge =
     data.status === 'ANSWERED'
       ? { label: '답변 완료', tone: 'success' as const }

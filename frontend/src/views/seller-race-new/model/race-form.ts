@@ -378,10 +378,11 @@ export const RACE_FORM_DEFAULTS: RaceFormValues = {
   kitOptions: ['S', 'M', 'L', 'XL', 'XXL'].map((value) => ({ name: '티셔츠', value, stock: '' })),
 }
 
-/** 검사를 마친 입력과 종목별 이미지로 대회 등록 요청을 만든다. images는 courses와 같은 순서다. */
+/** 검사를 마친 입력과 대회 이미지(대표 이미지) · 종목별 이미지로 대회 등록 요청을 만든다. courseImages는 courses와 같은 순서다. */
 export function toRaceSaveRequest(
   values: RaceFormValues,
-  images: productModel.RaceImageRequestDto[][],
+  raceImages: productModel.RaceImageRequestDto[],
+  courseImages: productModel.RaceImageRequestDto[][],
 ): productModel.RaceSaveRequestDto {
   const at = (text: string, time: string) => `${parseRaceDateInput(text) ?? text}T${time}`
   return {
@@ -395,11 +396,12 @@ export function toRaceSaveRequest(
     // 환불 기한은 서버도 날짜(LocalDate)로 받는다
     refundDeadline: parseRaceDateInput(values.refundDeadline) ?? values.refundDeadline,
     crewMinCount: CREW_MIN_COUNT,
+    images: raceImages,
     // 세미는 크루 예매가 없어 크루 예매 기간을 비우고 크루 몫 정원은 0으로 보낸다
     courses: values.courses.map((course, i) => ({
       ...course,
       crewQuota: 0,
-      images: images[i] ?? [],
+      images: courseImages[i] ?? [],
     })),
   }
 }

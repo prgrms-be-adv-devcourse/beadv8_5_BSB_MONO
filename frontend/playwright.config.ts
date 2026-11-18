@@ -7,6 +7,8 @@ const baseURL = process.env.E2E_BASE_URL ?? `http://localhost:${PORT}`
 
 export default defineConfig({
   testDir: './e2e',
+  // 점심 로컬 E2E(lunch)와 운영 스모크(smoke)는 각자 설정 파일로만 돌린다
+  testIgnore: ['lunch/**', 'smoke/**'],
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,

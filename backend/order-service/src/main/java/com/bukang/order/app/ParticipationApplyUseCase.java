@@ -145,7 +145,11 @@ public class ParticipationApplyUseCase {
 			throw new ApplicationPeriodException("접수가 마감되어 참가자 정보를 고칠 수 없습니다.");
 		}
 		checkAge(course, participant);
-		ParticipantInfo checked = checkTshirtSize(course, checkShippingAddress(course, participant));
+		ParticipantInfo withAddress = checkShippingAddress(course, participant);
+		String paidSize = participation.getStatus() == ParticipationStatus.CONFIRMED
+			? participation.getParticipant().getTshirtSize() : null;
+		ParticipantInfo checked = paidSize == null
+			? checkTshirtSize(course, withAddress) : keepPaidTshirtSize(paidSize, withAddress);
 		participation.changeParticipant(checked);
 		order.ifPresent(found -> found.changeKitShippingAddress(checked.getShippingAddress()));
 		return participation;
@@ -208,6 +212,17 @@ public class ParticipationApplyUseCase {
 				.formatted(sizes));
 		}
 		return participant;
+	}
+
+	// 결제한 참가권은 티셔츠 사이즈를 바꿀 수 없다. 바꾸려면 환불 기한 안에 취소하고 다시 신청한다 (11/17 사용자, 정책 회의 결정 대기)
+	// 결제 때 사이즈를 그대로 둔다. 판매자가 뒤에 사이즈 목록을 바꿔도 다시 검사하지 않아 다른 정보 수정이 막히지 않는다
+	// 결제 때 고른 사이즈가 없으면(결제 뒤 종목이 티셔츠를 주기 시작함) 부르는 쪽이 신청서처럼 검사한다
+	private static ParticipantInfo keepPaidTshirtSize(String paidSize, ParticipantInfo participant) {
+		if (participant.getTshirtSize() != null && !participant.getTshirtSize().equals(paidSize)) {
+			throw TshirtSizeNotAvailableException.locked(
+				"결제한 참가권은 티셔츠 사이즈를 바꿀 수 없습니다. 바꾸려면 환불 기한 안에 취소하고 다시 신청해주세요.");
+		}
+		return participant.withTshirtSize(paidSize);
 	}
 
 	static void checkAge(RaceCourseInfo course, ParticipantInfo participant) {

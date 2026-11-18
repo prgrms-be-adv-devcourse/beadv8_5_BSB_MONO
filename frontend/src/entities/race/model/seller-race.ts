@@ -66,15 +66,17 @@ export function toSellerRaceRow(race: productModel.SellerRaceDto): SellerRaceRow
   }
 }
 
-const IMAGE_TYPES = new Set<string>(['THUMBNAIL', 'DETAIL', 'COURSE', 'KIT', 'INTRO_VIDEO'])
+// 대표 이미지는 대회에만, 나머지 이미지는 종목에만 붙는다 (CRU-6)
+const RACE_IMAGE_TYPES = new Set<string>(['THUMBNAIL'])
+const COURSE_IMAGE_TYPES = new Set<string>(['DETAIL', 'COURSE', 'KIT', 'INTRO_VIDEO'])
 
-/** 종목에 연결된 파일 → 수정 요청의 이미지 목록. 수정은 이미지도 통째로 바꾸므로 지금 연결된 것을 그대로 다시 보낸다. */
-function toImageRequests(files: fileModel.FileDto[]): productModel.RaceImageRequestDto[] {
+/** 연결된 파일 → 수정 요청의 이미지 목록. 수정은 이미지도 통째로 바꾸므로 지금 연결된 것을 그대로 다시 보낸다. */
+function toImageRequests(
+  files: fileModel.FileDto[],
+  types: Set<string>,
+): productModel.RaceImageRequestDto[] {
   return files.flatMap((file) =>
-    file.id !== undefined &&
-    file.fileType &&
-    IMAGE_TYPES.has(file.fileType) &&
-    file.status !== 'DELETED'
+    file.id !== undefined && file.fileType && types.has(file.fileType) && file.status !== 'DELETED'
       ? [
           {
             fileId: file.id,
@@ -87,11 +89,12 @@ function toImageRequests(files: fileModel.FileDto[]): productModel.RaceImageRequ
 }
 
 /**
- * 대회 상세 + 종목별 파일 → 지금 상태 그대로의 수정 요청 (PUT은 대회 전체를 보낸다).
+ * 대회 상세 + 대회 파일 + 종목별 파일 → 지금 상태 그대로의 수정 요청 (PUT은 대회 전체를 보낸다).
  * 화면은 여기서 바꿀 값만 덮어써 보낸다.
  */
 export function toRaceEditRequest(
   race: productModel.RaceDetailDto,
+  raceFiles: fileModel.FileDto[],
   filesByCourse: Record<number, fileModel.FileDto[]>,
 ): productModel.RaceSaveRequestDto {
   return {
@@ -109,6 +112,7 @@ export function toRaceEditRequest(
     refundPolicy: race.refundPolicy ?? undefined,
     crewMinCount: race.crewMinCount ?? 5,
     crewMaxCount: race.crewMaxCount ?? undefined,
+    images: toImageRequests(raceFiles, RACE_IMAGE_TYPES),
     courses: (race.courses ?? []).map((course) => ({
       courseId: course.raceCourseId,
       name: course.name ?? '',
@@ -126,6 +130,7 @@ export function toRaceEditRequest(
       individualQuota: course.individualQuota ?? 0,
       images: toImageRequests(
         course.raceCourseId === undefined ? [] : (filesByCourse[course.raceCourseId] ?? []),
+        COURSE_IMAGE_TYPES,
       ),
     })),
   }

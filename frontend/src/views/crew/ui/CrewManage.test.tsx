@@ -6,7 +6,7 @@ import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { setAccessToken } from '@/shared/api'
-import { memberMock, server } from '@/shared/testing'
+import { memberMock, resetNavigationMock, server } from '@/shared/testing'
 import { ToastProvider } from '@/shared/ui'
 
 import { CrewHomePage } from './CrewHomePage'
@@ -17,14 +17,27 @@ import { CrewManagePage } from './CrewManagePage'
 
 const replace = vi.fn()
 const push = vi.fn()
-vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push, back: vi.fn(), replace }),
-  usePathname: () => '/crews/1',
-}))
+vi.mock('next/navigation', async () => {
+  const nav = (await import('@/shared/testing')).navigationMock('/crews/1')
+  return {
+    ...nav,
+    useRouter: () => {
+      const router = nav.useRouter()
+      // 탭 바꾸기(scroll: false)는 주소 쿼리만 바꾸고, 화면 이동만 replace 기록에 남긴다
+      return {
+        ...router,
+        push,
+        replace: (url: string, options?: { scroll?: boolean }) =>
+          options?.scroll === false ? router.replace(url) : replace(url),
+      }
+    },
+  }
+})
 
 beforeEach(() => {
   replace.mockClear()
   push.mockClear()
+  resetNavigationMock()
   setAccessToken('access-token')
 })
 
@@ -82,6 +95,11 @@ async function findErrorToast(text: string) {
   return (await screen.findAllByText(text))[0]
 }
 
+// 크루 홈 v3: 크루원 목록 · 크루 관리 · 크루 떠나기는 크루원 탭에 있다
+async function openMembersTab(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole('tab', { name: /^크루원/ }))
+}
+
 async function openMenu(user: ReturnType<typeof userEvent.setup>, nickname: string) {
   const row = (await screen.findByText(nickname)).closest('li')!
   await user.click(within(row).getByRole('button', { name: '관리' }))
@@ -93,6 +111,7 @@ describe('CrewHomePage 크루 탈퇴', () => {
     const requests = capture('delete', '*/api/v1/member/crews/:crewId/members/me')
     const user = userEvent.setup()
     renderPage(<CrewHomePage crewId={1} />)
+    await openMembersTab(user)
     await user.click(await screen.findByRole('button', { name: '크루 떠나기' }))
     const dialog = await screen.findByRole('alertdialog')
     expect(within(dialog).getByText('새벽한강크루에서 떠날까요?')).toBeInTheDocument()
@@ -132,7 +151,8 @@ describe('CrewHomePage 크루 탈퇴', () => {
     const user = userEvent.setup()
     renderPage(<CrewHomePage crewId={1} />)
     await screen.findByText(/파티장 달리는곰/)
-    await user.click(screen.getByRole('button', { name: '크루 떠나기' }))
+    await openMembersTab(user)
+    await user.click(await screen.findByRole('button', { name: '크루 떠나기' }))
     const dialog = await screen.findByRole('alertdialog')
     expect(within(dialog).getByText('진행 중인 파티가 끝난 뒤 떠날 수 있어요')).toBeInTheDocument()
     await user.click(within(dialog).getByRole('button', { name: '확인' }))
@@ -147,6 +167,7 @@ describe('CrewHomePage 크루 탈퇴', () => {
     })
     const user = userEvent.setup()
     renderPage(<CrewHomePage crewId={1} />)
+    await openMembersTab(user)
     await user.click(await screen.findByRole('button', { name: '크루 떠나기' }))
     const confirm = within(await screen.findByRole('alertdialog')).getByRole('button', {
       name: '떠나기',
@@ -159,14 +180,19 @@ describe('CrewHomePage 크루 탈퇴', () => {
 
   it('크루장에게는 크루 떠나기 버튼을 보이지 않는다', async () => {
     mockCrew({ myRole: 'LEADER' })
+    const user = userEvent.setup()
     renderPage(<CrewHomePage crewId={1} />)
-    expect(await screen.findByText('나는 크루장')).toBeInTheDocument()
+    expect(await screen.findByText('나는 크루장 · 크루원 3명')).toBeInTheDocument()
+    await openMembersTab(user)
+    await screen.findByText('한강페이서')
     expect(screen.queryByRole('button', { name: '크루 떠나기' })).not.toBeInTheDocument()
   })
 
   it('운영진은 크루 떠나기 버튼을 본다', async () => {
     mockCrew({ myRole: 'MANAGER' })
+    const user = userEvent.setup()
     renderPage(<CrewHomePage crewId={1} />)
+    await openMembersTab(user)
     expect(await screen.findByRole('button', { name: '크루 떠나기' })).toBeInTheDocument()
   })
 
@@ -177,6 +203,7 @@ describe('CrewHomePage 크루 탈퇴', () => {
     )
     const user = userEvent.setup()
     renderPage(<CrewHomePage crewId={1} />)
+    await openMembersTab(user)
     await user.click(await screen.findByRole('button', { name: '크루 떠나기' }))
     await user.click(
       within(await screen.findByRole('alertdialog')).getByRole('button', { name: '떠나기' }),
@@ -192,6 +219,7 @@ describe('CrewHomePage 크루 탈퇴', () => {
     capture('delete', '*/api/v1/member/crews/:crewId/members/me', () => failWith(503))
     const user = userEvent.setup()
     renderPage(<CrewHomePage crewId={1} />)
+    await openMembersTab(user)
     await user.click(await screen.findByRole('button', { name: '크루 떠나기' }))
     await user.click(
       within(await screen.findByRole('alertdialog')).getByRole('button', { name: '떠나기' }),
@@ -202,9 +230,11 @@ describe('CrewHomePage 크루 탈퇴', () => {
 })
 
 describe('CrewHomePage 크루 관리 입구', () => {
-  it('크루장은 크루원 목록 옆에서 크루 관리로 간다', async () => {
+  it('크루장은 크루원 탭에서 크루 관리로 간다', async () => {
     mockCrew({ myRole: 'LEADER' })
+    const user = userEvent.setup()
     renderPage(<CrewHomePage crewId={1} />)
+    await openMembersTab(user)
     expect(await screen.findByRole('link', { name: '크루 관리' })).toHaveAttribute(
       'href',
       '/crews/1/manage',
@@ -213,8 +243,10 @@ describe('CrewHomePage 크루 관리 입구', () => {
 
   it.each<Role>(['MANAGER', 'MEMBER'])('%s는 크루 관리를 보지 못한다', async (myRole) => {
     mockCrew({ myRole })
+    const user = userEvent.setup()
     renderPage(<CrewHomePage crewId={1} />)
-    await screen.findByRole('heading', { name: '크루원 3명' })
+    await openMembersTab(user)
+    await screen.findByText('한강페이서')
     expect(screen.queryByRole('link', { name: '크루 관리' })).not.toBeInTheDocument()
   })
 })
@@ -552,7 +584,7 @@ describe('크루원 목록 줄 맞춤', () => {
     )
   }
 
-  /** 줄마다 닉네임 칸에는 닉네임만 있고(말줄임 · 전체 이름 툴팁), 뱃지는 늘 세 번째 칸에 있다 */
+  /** 줄마다 닉네임 칸에는 닉네임만 있고(말줄임 · 전체 이름 툴팁), 닉네임 칸이 남는 폭을 채워 뱃지가 오른쪽 끝(세 번째 칸)에 온다 */
   function expectAlignedRows(nicknames: string[]) {
     for (const nickname of nicknames) {
       const name = screen.getByText(nickname)
@@ -560,6 +592,8 @@ describe('크루원 목록 줄 맞춤', () => {
       expect(name).toHaveAttribute('title', nickname)
       const row = name.closest('li')!
       expect(row.children[2]).toHaveTextContent(/^(크루장|운영진|크루원)$/)
+      // 줄마다 따로 칸을 나누면 줄 버튼이 없는 줄(크루장)만 배지가 오른쪽으로 밀린다. 목록 하나의 칸을 나눠 쓴다
+      expect(row).toHaveClass('grid-cols-subgrid')
     }
   }
 
@@ -573,8 +607,15 @@ describe('크루원 목록 줄 맞춤', () => {
 
   it('크루 홈: 가장 긴 닉네임도 뱃지가 같은 칸에 있다', async () => {
     mockLongNames()
+    const user = userEvent.setup()
     renderPage(<CrewHomePage crewId={1} />)
+    await openMembersTab(user)
     await screen.findByText(LONGEST[1])
     expectAlignedRows(['곰돌', ...LONGEST])
+    // 줄 버튼이 없으면 뱃지가 줄의 마지막 칸이라 오른쪽 끝에 붙는다(빈 칸 · 남는 간격 없음)
+    for (const nickname of ['곰돌', ...LONGEST]) {
+      const row = screen.getByText(nickname).closest('li')!
+      expect(row.lastElementChild).toHaveTextContent(/^(크루장|운영진|크루원)$/)
+    }
   })
 })
