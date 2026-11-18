@@ -1,2 +1,4 @@
 # 셸 스크립트는 Windows에서 받아도 LF로 둔다 (CRLF면 컨테이너의 sh가 실행하지 못한다)
 *.sh text eol=lf
+# 기록증 인식 모델 · 사전: 서버가 뜰 때 sha256을 확인하므로 줄바꿈을 바꾸지 않는다
+backend/ai-service/src/main/resources/recordcert/* -text
