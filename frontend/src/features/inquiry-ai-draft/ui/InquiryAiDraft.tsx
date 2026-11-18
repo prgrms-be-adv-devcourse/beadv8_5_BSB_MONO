@@ -41,7 +41,8 @@ export function InquiryAiDraft({
     request.mutate(inquiryId, {
       onSuccess: (result) => {
         setDraft(result)
-        setText(result.draft)
+        // 초안이 답변 글자 수 한도보다 길면 잘라 넣는다. 자르지 않으면 보내기가 안내 없이 꺼진다
+        setText(result.draft.slice(0, ANSWER_MAX))
         setConfirmed(false)
       },
     })
