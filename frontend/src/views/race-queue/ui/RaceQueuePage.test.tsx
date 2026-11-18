@@ -170,9 +170,9 @@ describe('RaceQueuePage', () => {
     // 내 차례 상태를 먼저 보여 주고, 최소 1.5초가 지나야 신청서로 넘어간다
     expect(await screen.findByRole('heading', { name: /내 차례예요/ })).toBeInTheDocument()
     expect(screen.queryByRole('timer')).not.toBeInTheDocument()
-    await act(() => vi.advanceTimersByTimeAsync(ADMITTED_HOLD_MS - 100))
+    // shouldAdvanceTime이라 실제 시간도 흐른다. 경계 직전 확인은 흔들려서, 내 차례가 뜬 직후에는 안 넘어감만 본다
     expect(replace).not.toHaveBeenCalled()
-    await act(() => vi.advanceTimersByTimeAsync(100))
+    await act(() => vi.advanceTimersByTimeAsync(ADMITTED_HOLD_MS))
     expect(replace).toHaveBeenCalledWith('/races/1/apply?option=2')
 
     // 차례가 오면 더 묻지 않는다

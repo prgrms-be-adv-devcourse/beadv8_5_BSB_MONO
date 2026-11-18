@@ -698,7 +698,7 @@ describe('파티 · 키트 배송지', () => {
 
   const SHIPPING = {
     recipientName: '김러너',
-    recipientPhone: '01012345678',
+    recipientPhone: '010-1234-5678',
     zipcode: '04768',
     address: '서울특별시 성동구 뚝섬로 273',
     addressDetail: '3층',
