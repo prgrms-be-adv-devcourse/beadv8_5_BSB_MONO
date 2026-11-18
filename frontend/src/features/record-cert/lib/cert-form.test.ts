@@ -50,6 +50,12 @@ describe('prefill', () => {
     expect(boxes.NET_LABEL).toBeUndefined()
   })
 
+  it('달력에 없는 날짜(2월 31일)로 읽으면 대회일을 비우고 상자도 보내지 않는다', () => {
+    const { values, boxes } = prefill(extractFields([B('대회일 2023.02.31', 0, 0, 200)]))
+    expect(values.raceDate).toBe('')
+    expect(boxes.RACE_DATE).toBeUndefined()
+  })
+
   it('못 읽으면 모두 빈 칸', () => {
     expect(prefill(extractFields([])).values).toEqual({
       netTime: '',
