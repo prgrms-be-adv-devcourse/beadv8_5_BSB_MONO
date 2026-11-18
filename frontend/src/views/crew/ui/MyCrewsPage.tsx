@@ -5,18 +5,10 @@ import Link from 'next/link'
 
 import { AppHeader } from '@/widgets/app-header'
 import { useAuthStatus } from '@/features/auth'
-import { CREW_ROLE_LABEL, CREW_ROLE_TONE } from '@/entities/crew'
+import { CREW_ROLE_LABEL } from '@/entities/crew'
 import { memberApi, unwrapData } from '@/shared/api'
 import { cn } from '@/shared/lib'
-import {
-  Avatar,
-  Badge,
-  BottomCta,
-  buttonClassName,
-  EmptyState,
-  FOCUS_RING,
-  Skeleton,
-} from '@/shared/ui'
+import { Avatar, buttonClassName, EmptyState, FOCUS_RING, Icon, Skeleton } from '@/shared/ui'
 
 import { CrewBand, CrewLoadError } from './CrewBand'
 
@@ -52,7 +44,12 @@ export function MyCrewsPage() {
           />
         ) : (
           <CrewBand>
-            <h2 className="text-title3">가입한 크루 {list.length}개</h2>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-title3">가입한 크루 {list.length}개</h2>
+              <Link href="/crews/new" className="text-body2-medium text-text-brand">
+                + 새 크루 만들기
+              </Link>
+            </div>
             <ul className="flex flex-col gap-3">
               {list.map((crew) => (
                 <li key={crew.crewId}>
@@ -64,10 +61,10 @@ export function MyCrewsPage() {
                     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                       <span className="truncate text-body1-bold">{crew.name}</span>
                       <span className="text-caption-regular text-text-secondary">
-                        크루원 {crew.memberCount}명
+                        크루원 {crew.memberCount}명 · {CREW_ROLE_LABEL[crew.myRole]}
                       </span>
                     </span>
-                    <Badge tone={CREW_ROLE_TONE[crew.myRole]}>{CREW_ROLE_LABEL[crew.myRole]}</Badge>
+                    <Icon name="ChevronRight" className="size-5 shrink-0 text-text-tertiary" />
                   </Link>
                 </li>
               ))}
@@ -75,16 +72,6 @@ export function MyCrewsPage() {
           </CrewBand>
         )}
       </main>
-      {list.length > 0 && (
-        <BottomCta
-          className="sticky bottom-0 z-10"
-          primary={
-            <Link href="/crews/new" className={buttonClassName({ variant: 'primary', size: 'l' })}>
-              새 크루 만들기
-            </Link>
-          }
-        />
-      )}
     </>
   )
 }

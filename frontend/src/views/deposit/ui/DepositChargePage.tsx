@@ -44,7 +44,7 @@ export function DepositChargePage() {
   return (
     <>
       <AppHeader type="sub" title="예치금 충전" />
-      <main className="flex flex-1 flex-col gap-4 px-4 py-6">
+      <main className="flex flex-1 flex-col gap-7 px-5 pt-6 pb-6">
         {/* 결제창을 띄우지 못했을 때. 시안에 문구가 없어 결제 실패(M07-3) 문구를 쓴다 */}
         {failed && (
           <Alert
@@ -58,7 +58,7 @@ export function DepositChargePage() {
           <label htmlFor="charge-amount" className="text-body2-medium">
             충전할 금액
           </label>
-          <div className="flex items-baseline justify-end gap-1 border-b border-border-strong px-1 py-3">
+          <div className="flex items-baseline justify-end gap-1 border-b-2 border-text-primary px-1 py-3">
             <input
               id="charge-amount"
               inputMode="numeric"
@@ -75,7 +75,7 @@ export function DepositChargePage() {
             {STEPS.map((step) => (
               <Button
                 key={step}
-                variant="secondary"
+                variant="ghost"
                 className="flex-1"
                 onClick={() => setAmount((a) => a + step)}
               >
@@ -83,7 +83,7 @@ export function DepositChargePage() {
               </Button>
             ))}
           </div>
-          <div className="flex flex-col gap-2 border-t border-border-default pt-4">
+          <div className="flex flex-col gap-2 pt-4">
             <KeyValue
               label="지금 예치금"
               value={balance === undefined ? '-' : `${won(balance)}원`}

@@ -57,11 +57,11 @@ describe('MyCrewsPage (M09-0)', () => {
     expect(await screen.findByText('가입한 크루 2개')).toBeInTheDocument()
     const leaderRow = screen.getByRole('link', { name: /새벽한강크루/ })
     expect(leaderRow).toHaveAttribute('href', '/crews/1')
-    expect(within(leaderRow).getByText('크루장')).toBeInTheDocument()
+    expect(within(leaderRow).getByText(/· 크루장/)).toBeInTheDocument()
     expect(
-      within(screen.getByRole('link', { name: /판교점심런/ })).getByText('크루원'),
+      within(screen.getByRole('link', { name: /판교점심런/ })).getByText(/· 크루원/),
     ).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '새 크루 만들기' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '+ 새 크루 만들기' })).toHaveAttribute(
       'href',
       '/crews/new',
     )
@@ -77,7 +77,7 @@ describe('MyCrewsPage (M09-0)', () => {
     renderPage(<MyCrewsPage />)
     expect(await screen.findByText('아직 가입한 크루가 없어요')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '크루 만들기' })).toHaveAttribute('href', '/crews/new')
-    expect(screen.queryByRole('link', { name: '새 크루 만들기' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: '+ 새 크루 만들기' })).not.toBeInTheDocument()
   })
 
   it('불러오지 못하면 다시 불러오기를 보여 준다', async () => {
@@ -193,14 +193,18 @@ describe('CrewHomePage (M09)', () => {
     expect(await screen.findByText(/파티장 달리는곰 · 3명/)).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: '파티 1' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: /진행 중인 파티/ })).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '파티 보기' })).toHaveAttribute('href', '/parties/9')
+    expect(screen.getByRole('link', { name: /파티장 달리는곰/ })).toHaveAttribute(
+      'href',
+      '/parties/9',
+    )
   })
 
   it('내 파티가 아닌 파티 카드는 링크 없이 보여 준다(남의 파티는 403이다)', async () => {
     server.use(partyResponse(false, '남의곰'))
     renderPage(<CrewHomePage crewId={1} />)
     expect(await screen.findByText(/파티장 남의곰/)).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: '파티 보기' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /파티장 남의곰/ })).not.toBeInTheDocument()
+    expect(screen.getByText('내가 없는 파티')).toBeInTheDocument()
   })
 
   it('크루장은 크루원 탭에서 크루원과 크루 관리를 보고, 크루 떠나기는 어디에도 없다', async () => {

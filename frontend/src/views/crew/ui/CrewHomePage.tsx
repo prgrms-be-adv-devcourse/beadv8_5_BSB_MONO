@@ -11,15 +11,16 @@ import { useAuthStatus } from '@/features/auth'
 import { canInvite, CREW_ROLE_LABEL } from '@/entities/crew'
 import { useCrewActiveParties, type PartySummary } from '@/entities/party'
 import { ApiError, memberApi, productApi, unwrapData, type memberModel } from '@/shared/api'
-import { useSearchParamsState } from '@/shared/lib'
+import { cn, useSearchParamsState } from '@/shared/lib'
 import {
   Avatar,
-  Badge,
   Button,
   buttonClassName,
   Dialog,
   Divider,
   EmptyState,
+  FOCUS_RING,
+  Icon,
   Skeleton,
   Tab,
   TabBar,
@@ -160,29 +161,31 @@ const PARTY_STATUS_LABEL: Record<PartySummary['status'], string> = {
 function PartyCard({ party }: { party: PartySummary }) {
   const race = productApi.useFindRace(party.raceId, { query: { select: unwrapData } })
   const max = race.data?.crewMaxCount
-  return (
-    <div className="flex flex-col gap-2 rounded-md border border-border-default bg-bg-surface p-4">
-      <div className="flex min-h-9 items-center justify-between gap-2">
-        <Badge>{PARTY_STATUS_LABEL[party.status]}</Badge>
-        {party.myParty && (
-          <Link
-            href={`/parties/${party.id}` as Route}
-            className={buttonClassName({ variant: 'ghost', size: 's' })}
-          >
-            파티 보기
-          </Link>
+  const body = (
+    <>
+      <div className="flex min-h-6 items-center justify-between gap-2">
+        <span className="text-body2-medium text-text-brand">
+          {PARTY_STATUS_LABEL[party.status]}
+        </span>
+        {party.myParty ? (
+          <Icon name="ChevronRight" className="size-5 shrink-0 text-text-tertiary" />
+        ) : (
+          <span className="text-caption-regular text-text-secondary">내가 없는 파티</span>
         )}
       </div>
       <h3 className="text-body1-medium">{race.data?.title ?? <Skeleton className="w-2/3" />}</h3>
       <p className="text-body2-regular text-text-secondary">
         파티장 {party.leaderNickname} · {party.memberCount}명{max ? ` / 최대 ${max}명` : ''}
       </p>
-      {!party.myParty && (
-        <p className="text-caption-regular text-text-secondary">
-          파티장이 보낸 링크로 합류할 수 있어요
-        </p>
-      )}
-    </div>
+    </>
+  )
+  const card = 'flex flex-col gap-2 rounded-md border border-border-default bg-bg-surface p-4'
+  return party.myParty ? (
+    <Link href={`/parties/${party.id}` as Route} className={cn(card, FOCUS_RING)}>
+      {body}
+    </Link>
+  ) : (
+    <div className={card}>{body}</div>
   )
 }
 

@@ -113,16 +113,16 @@ export function CommentSection({
         </ul>
       </section>
 
-      <div className="sticky bottom-0 z-10 mt-auto border-t border-border-default bg-bg-surface px-4 py-3">
+      <div className="sticky bottom-0 z-10 mt-auto bg-bg-surface px-5 py-3">
         {locked ? (
-          <p className="flex h-11 items-center rounded-full bg-bg-subtle px-4 text-body2-regular text-text-disabled">
+          <p className="flex h-11 items-center rounded-full bg-bg-surface px-4 text-body2-regular text-text-disabled inset-ring inset-ring-border-default">
             댓글을 달 수 없는 글이에요
           </p>
         ) : !authenticated ? (
           <button
             type="button"
             className={cn(
-              'h-11 w-full rounded-full bg-bg-subtle text-body2-medium text-text-brand',
+              'h-11 w-full rounded-full bg-bg-surface text-body2-medium text-text-brand inset-ring inset-ring-border-default',
               FOCUS_RING,
             )}
             onClick={() => setLoginOpen(true)}
@@ -143,7 +143,7 @@ export function CommentSection({
               value={text}
               maxLength={COMMENT_MAX}
               onChange={(e) => setText(e.target.value)}
-              className="h-11 min-w-0 flex-1 rounded-full bg-bg-subtle px-4 text-body2-regular outline-none placeholder:text-text-disabled focus-visible:inset-ring-2 focus-visible:inset-ring-border-brand"
+              className="h-11 min-w-0 flex-1 rounded-full bg-bg-surface px-4 text-body2-regular inset-ring inset-ring-border-default outline-none placeholder:text-text-disabled focus-visible:inset-ring-2 focus-visible:inset-ring-border-brand"
             />
             {mode.kind !== 'new' && (
               <IconButton type="button" size="s" aria-label="취소" onClick={reset}>

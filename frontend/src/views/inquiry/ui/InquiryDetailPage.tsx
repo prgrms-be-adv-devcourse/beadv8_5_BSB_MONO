@@ -15,7 +15,7 @@ import {
   useMyInquiry,
   useRaceSellerName,
 } from '@/entities/inquiry'
-import { Badge, Button, buttonClassName, Dialog, Skeleton, useToast } from '@/shared/ui'
+import { Button, buttonClassName, Dialog, Skeleton, useToast } from '@/shared/ui'
 
 import { InquiryMeta } from './MyInquiriesPage'
 
@@ -64,9 +64,15 @@ export function InquiryDetailPage({ inquiryId }: { inquiryId: number }) {
     <>
       {header}
       <main className="flex flex-1 flex-col gap-3 px-4 pt-4 pb-6">
-        <Badge tone={status.tone} className="self-start">
+        <p
+          className={
+            data.status === 'ANSWERED'
+              ? 'text-body2-medium text-text-success'
+              : 'text-body2-medium text-text-secondary'
+          }
+        >
           {data.status === 'WAITING' ? '답변 기다림' : status.label}
-        </Badge>
+        </p>
         <h2 className="text-title2">{data.title}</h2>
         <p className="text-caption-regular text-text-tertiary">
           <InquiryMeta inquiry={data} suffix={`${dotDateTime(data.createDate)} 보냄`} />

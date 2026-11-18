@@ -34,7 +34,6 @@ import {
 import { cn, formatNumber, useNow } from '@/shared/lib'
 import {
   Avatar,
-  Badge,
   Button,
   buttonClassName,
   Dialog,
@@ -48,6 +47,14 @@ import { partyJoinUrl } from '../lib/party-url'
 import { PartyLoadError } from './PartyFailureScreen'
 
 const ERROR_FALLBACK = '잠시 후 다시 시도해 주세요.'
+
+const BADGE_TEXT: Record<BadgeTone, string> = {
+  brand: 'text-text-brand',
+  success: 'text-text-success',
+  warning: 'text-text-warning',
+  danger: 'text-text-danger',
+  neutral: 'text-text-secondary',
+}
 
 // 시안 파티 04 · 20 · 21 · 22 · 23: 모집 중은 모두 결제 전, 결제 진행 중은 결제 완료 · 결제 전(주황), 결제 끝은 참가 확정 · 결제 안 함(빨강)
 function memberBadge(
@@ -332,9 +339,14 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
                   {m.leader ? '파티장' : '파티원'}
                 </span>
               </div>
-              <Badge tone={memberBadge(m, party.status).tone}>
-                {memberBadge(m, party.status).label}
-              </Badge>
+              {/* 모집 중에는 모두 「결제 전」이라 정보가 없어 숨긴다 */}
+              {party.status !== 'RECRUITING' && (
+                <span
+                  className={cn('text-body2-medium', BADGE_TEXT[memberBadge(m, party.status).tone])}
+                >
+                  {memberBadge(m, party.status).label}
+                </span>
+              )}
             </li>
           ))}
         </ul>

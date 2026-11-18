@@ -113,10 +113,7 @@ export function DepositPage({ refunding = false }: { refunding?: boolean }) {
           ) : (
             <ul className="flex flex-col">
               {rows.map((row) => (
-                <li
-                  key={ledgerKey(row)}
-                  className="flex items-center justify-between gap-2 border-b border-border-default py-3"
-                >
+                <li key={ledgerKey(row)} className="flex items-center justify-between gap-2 py-4">
                   <div className="flex min-w-0 flex-1 flex-col gap-1">
                     <p className="text-body2-medium">{ledgerTitle(row)}</p>
                     <p className="text-caption-regular text-text-tertiary">
