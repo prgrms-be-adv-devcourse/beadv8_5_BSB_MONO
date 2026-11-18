@@ -5,12 +5,15 @@ import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
+import org.hibernate.jpa.HibernateHints;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.QueryHints;
 
 import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutStage;
@@ -18,15 +21,60 @@ import com.bukang.payout.domain.PayoutStatus;
 import com.bukang.payout.dto.PayoutStatusSummaryDto;
 
 import jakarta.persistence.LockModeType;
+import jakarta.persistence.QueryHint;
 
 public interface PayoutRepository extends JpaRepository<Payout, Long>, PayoutItemBatchInsert {
-	// 최종 대사: 정산 내역들의 판매 줄을 엔티티가 아닌 값으로 읽는다 (BUK-252). 같은 참가권의 판매 줄은 유일 제약으로 하나다
+	/**
+	 * 최종 대사: 판매 줄의 참가권 ID만 흘려 읽는다 (CRU-57). 같은 참가권의 판매 줄은 유일 제약으로 하나다
+	 * MySQL 드라이버는 기본으로 결과를 끝까지 메모리에 받으므로, fetch size가 먹으려면 접속 주소에 useCursorFetch=true가 있어야 한다
+	 * 스트림은 트랜잭션 안에서 닫아야 하고, 다 읽기 전에는 같은 연결로 다른 쿼리를 보내지 않는다
+	 */
+	@QueryHints(@QueryHint(name = HibernateHints.HINT_FETCH_SIZE, value = "1000"))
+	@Query("""
+		select i.orderItemId from PayoutItem i
+		where i.payout in :payouts and i.recordType = com.bukang.payout.domain.PayoutRecordType.판매
+		""")
+	Stream<Long> streamSaleLineIds(Collection<Payout> payouts);
+
+	// 최종 대사: 판매 줄을 (코스, 금액)으로 묶어 센다. 판매 가격과 다른 묶음이 있을 때만 그 줄을 읽는다 (CRU-57)
+	@Query("""
+		select new com.bukang.payout.out.SaleLineGroup(i.raceCourseId, i.amount, count(i))
+		from PayoutItem i
+		where i.payout in :payouts and i.recordType = com.bukang.payout.domain.PayoutRecordType.판매
+		group by i.raceCourseId, i.amount
+		""")
+	List<SaleLineGroup> summarizeSaleLines(Collection<Payout> payouts);
+
+	// 최종 대사: 어긋난 참가권의 판매 줄만 값으로 읽는다. ID가 많으면 부르는 쪽이 나눠 부른다
 	@Query("""
 		select new com.bukang.payout.out.SaleLine(i.orderItemId, i.amount, i.raceCourseId, i.payout.id)
 		from PayoutItem i
 		where i.payout in :payouts and i.recordType = com.bukang.payout.domain.PayoutRecordType.판매
+			and i.orderItemId in :orderItemIds
 		""")
-	List<SaleLine> findSaleLines(Collection<Payout> payouts);
+	List<SaleLine> findSaleLines(Collection<Payout> payouts, Collection<Long> orderItemIds);
+
+	// 최종 대사: 한 (코스, 금액) 묶음의 판매 줄. 코스 없는 줄은 = null로 고를 수 없어 따로 묻는다
+	default List<SaleLine> findSaleLines(Collection<Payout> payouts, Long raceCourseId, long amount) {
+		return raceCourseId == null ? findSaleLinesWithoutCourse(payouts, amount)
+			: findSaleLinesOfCourse(payouts, raceCourseId, amount);
+	}
+
+	@Query("""
+		select new com.bukang.payout.out.SaleLine(i.orderItemId, i.amount, i.raceCourseId, i.payout.id)
+		from PayoutItem i
+		where i.payout in :payouts and i.recordType = com.bukang.payout.domain.PayoutRecordType.판매
+			and i.raceCourseId = :raceCourseId and i.amount = :amount
+		""")
+	List<SaleLine> findSaleLinesOfCourse(Collection<Payout> payouts, long raceCourseId, long amount);
+
+	@Query("""
+		select new com.bukang.payout.out.SaleLine(i.orderItemId, i.amount, i.raceCourseId, i.payout.id)
+		from PayoutItem i
+		where i.payout in :payouts and i.recordType = com.bukang.payout.domain.PayoutRecordType.판매
+			and i.raceCourseId is null and i.amount = :amount
+		""")
+	List<SaleLine> findSaleLinesWithoutCourse(Collection<Payout> payouts, long amount);
 
 	// 최종 정산 생성: 이미 만든 정산 내역인지 확인한다. 유일 조건 (seller_id, race_id, payout_month, payout_stage)과 같은 키다
 	boolean existsBySellerIdAndRaceIdAndPayoutMonthAndPayoutStage(long sellerId, long raceId, String payoutMonth,
