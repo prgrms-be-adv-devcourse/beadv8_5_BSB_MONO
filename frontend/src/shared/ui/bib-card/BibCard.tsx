@@ -85,7 +85,7 @@ export function BibCard({
           {type === 'crew' && unitNode}
         </p>
       </div>
-      <div className="flex flex-col gap-1.5 px-5 pt-2 pb-5">
+      <div className="flex flex-col gap-1.5 rounded-b-lg border-x border-b border-border-default px-5 pt-2 pb-5">
         <p className="text-body1-bold text-text-primary">{title}</p>
         {progress}
         {meta && <p className="text-body2-regular text-text-secondary">{meta}</p>}
