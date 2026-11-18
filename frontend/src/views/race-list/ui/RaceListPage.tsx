@@ -379,6 +379,23 @@ function monthRange(now: Date) {
   }
 }
 
+/**
+ * 라우트 로딩(loading.tsx) 화면. 목록 요청(useInfiniteQuery)을 만들지 않는다.
+ * 요청을 먼저 만들면 서버가 미리 받은 첫 페이지가 서버 렌더에 쓰이지 않아 hydration mismatch가 난다.
+ */
+export function RaceListLoading() {
+  return (
+    <>
+      <AppHeader />
+      <main className="flex flex-1 flex-col gap-4 px-4 pt-2 pb-4">
+        <h1 className="sr-only">대회 찾기</h1>
+        <ListSkeleton />
+      </main>
+      <BottomNav />
+    </>
+  )
+}
+
 // 피그마 M18 · 로딩: 실제 목록 줄과 같은 평평한 줄 4개
 function ListSkeleton() {
   return (
