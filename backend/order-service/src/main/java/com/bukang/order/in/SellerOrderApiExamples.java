@@ -86,7 +86,8 @@ final class SellerOrderApiExamples {
 							"location": "서울 마포"
 						}
 					]
-				}
+				},
+				"kitTrackingUrl": "https://link.tracker.delivery/track?client_id=YOUR_CLIENT_ID&carrier_id=kr.cjlogistics&tracking_number=684912345678"
 			}
 		}
 		""";

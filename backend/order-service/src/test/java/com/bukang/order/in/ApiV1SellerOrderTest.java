@@ -54,7 +54,8 @@ import com.jayway.jsonpath.JsonPath;
 /**
  * 판매자 주문 목록·파티별 내역 API (BUK-227), 기간 판매 합계 (BUK-247). 승인된 판매자만 쓰고, 자기 대회 것만 보인다
  */
-@SpringBootTest
+// 주문 상세의 「배송 조회」 링크를 만들려고 Delivery Tracker Client ID를 준다 (CRU-40)
+@SpringBootTest(properties = "order.clients.delivery-tracker.client-id=test-client")
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Import({StubRaceCoursePortConfig.class, StubSeatHoldPortConfig.class, StubWalletPortConfig.class,
@@ -340,7 +341,9 @@ class ApiV1SellerOrderTest {
 			.andExpect(jsonPath("$.data.kitTrackingNumber").value("684912345678"))
 			.andExpect(jsonPath("$.data.kitShippedAt").isString())
 			.andExpect(jsonPath("$.data.kitTracking.status").value("NOT_TRACKED"))
-			.andExpect(jsonPath("$.data.kitTracking.events").isArray());
+			.andExpect(jsonPath("$.data.kitTracking.events").isArray())
+			.andExpect(jsonPath("$.data.kitTrackingUrl").value("https://link.tracker.delivery/track"
+				+ "?client_id=test-client&carrier_id=kr.cjlogistics&tracking_number=684912345678"));
 	}
 
 	@Test
@@ -362,6 +365,7 @@ class ApiV1SellerOrderTest {
 			.andExpect(jsonPath("$.data.cancelReason").value("BUYER_CANCELED"))
 			.andExpect(jsonPath("$.data.kitDeliveryStatus").value("PREPARING"))
 			.andExpect(jsonPath("$.data.kitTrackingNumber").doesNotExist())
+			.andExpect(jsonPath("$.data.kitTrackingUrl").doesNotExist())
 			.andExpect(jsonPath("$.data.shippingAddress").doesNotExist())
 			.andExpect(jsonPath("$.data.deliveryMemo").doesNotExist());
 	}
@@ -381,7 +385,8 @@ class ApiV1SellerOrderTest {
 			.andExpect(jsonPath("$.data.shippingAddress").doesNotExist())
 			.andExpect(jsonPath("$.data.deliveryMemo").doesNotExist())
 			.andExpect(jsonPath("$.data.kitDeliveryStatus").doesNotExist())
-			.andExpect(jsonPath("$.data.kitTracking").doesNotExist());
+			.andExpect(jsonPath("$.data.kitTracking").doesNotExist())
+			.andExpect(jsonPath("$.data.kitTrackingUrl").doesNotExist());
 		detail(SELLER_MEMBER_ID, pending)
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.status").value("ORDERED"))
