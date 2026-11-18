@@ -13,7 +13,6 @@ import { cn, useSearchParamsState } from '@/shared/lib'
 import { Alert, Button, DataTable, Dialog, Segmented, Textarea } from '@/shared/ui'
 
 import {
-  ADMIN_SELLER_ERRORS,
   loadErrorMessage,
   reviewErrorMessage,
   sellerDisplayName,
@@ -21,6 +20,7 @@ import {
   shouldRefetchAfter,
   toShortDate,
 } from '../model/admin-sellers-api'
+import { rejectFormSchema } from '../model/reject-form'
 
 // 상태는 칩 대신 뜻 색 글자로 보여 준다 (완료 초록, 실패 빨강, 나머지 보조 글자)
 const STATUS_TEXT: Record<string, string> = {
@@ -41,10 +41,7 @@ const STATUS_BY_TAB = {
 
 // 서버가 반려 사유를 500자까지 받는다.
 const REASON_MAX_LENGTH = 500
-const rejectSchema = z.object({
-  reason: z.string().trim().min(1, ADMIN_SELLER_ERRORS.reasonRequired).max(REASON_MAX_LENGTH),
-})
-type RejectValues = z.infer<typeof rejectSchema>
+type RejectValues = z.infer<typeof rejectFormSchema>
 
 // 피그마 V2 · A01 판매자 승인 (+ A01-1 반려 사유 입력)
 // 신청 목록(GET /api/v1/member/admin/sellers?status=)을 탭별로 불러오고, 승인·반려(POST .../{id}/approval · rejection)를 보낸다.
@@ -61,7 +58,7 @@ export function AdminSellersPage({ rejectOpen = false }: { rejectOpen?: boolean 
   const [selectedId, setSelectedId] = useState<number>()
   const [dialogOpen, setDialogOpen] = useState(rejectOpen)
   const rejectForm = useForm<RejectValues>({
-    resolver: zodResolver(rejectSchema),
+    resolver: zodResolver(rejectFormSchema),
     defaultValues: { reason: '' },
   })
   const [reviewError, setReviewError] = useState<string>()

@@ -155,15 +155,55 @@ describe('DepositPage 내역', () => {
     expect(screen.getAllByText(/남은 금액/)).toHaveLength(2)
   })
 
-  it('돌려받는 방법은 카드 먼저, 기한 지난 몫만 계좌라고 안내한다', async () => {
+  it('v3 시안: 아래 설명 구역 없이 보유 예치금 · 내역 · 하단 버튼 두 개만 있다', async () => {
     renderPage()
 
-    expect(
-      await screen.findByText(
-        '결제한 카드로 먼저 돌려드리고, 카드 취소 기한이 지난 몫만 계좌로 보내 드려요.',
+    expect(await screen.findByRole('heading', { name: '내역' })).toBeInTheDocument()
+    expect(screen.getByText('보유 예치금')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '돌려받는 방법' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '돌려받기' })).toHaveAttribute(
+      'href',
+      '/me/deposit/refund',
+    )
+    expect(screen.getByRole('link', { name: '충전하기' })).toHaveAttribute(
+      'href',
+      '/me/deposit/charge',
+    )
+  })
+
+  it('보유 예치금 옆에 「돌려받는 방법」 버튼이 있고, 눌러야 짧은 안내가 펼쳐진다', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    const label = await screen.findByText('보유 예치금')
+    const amount = label.parentElement as HTMLElement
+    const toggle = within(amount.parentElement as HTMLElement).getByRole('button', {
+      name: '돌려받는 방법',
+    })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText(/결제한 카드로 먼저 돌려드려요/)).not.toBeInTheDocument()
+
+    await user.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    const note = screen.getByText(/결제한 카드로 먼저 돌려드려요/)
+    expect(note).toHaveTextContent('카드 취소 기한이 지난 몫만 환급으로 계좌에 보내요.')
+    expect(note).not.toHaveTextContent('환불')
+    expect(toggle).toHaveAttribute('aria-controls', note.id)
+
+    await user.click(toggle)
+    expect(screen.queryByText(/결제한 카드로 먼저 돌려드려요/)).not.toBeInTheDocument()
+  })
+
+  it('잔액을 불러오지 못해도 돌려받는 방법 버튼은 남는다', async () => {
+    server.use(
+      http.get('*/api/v1/cash/wallets/balance', () =>
+        HttpResponse.json({ status: 500, message: '오류', data: null }, { status: 500 }),
       ),
-    ).toBeInTheDocument()
-    expect(screen.queryByText('관리자가 확인한 뒤 계좌로 보내 드려요.')).not.toBeInTheDocument()
+    )
+    renderPage()
+
+    expect(await screen.findByText('잔액을 불러오지 못했어요.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '돌려받는 방법' })).toBeInTheDocument()
   })
 
   it('내역이 없으면 빈 목록 안내를 보여 준다', async () => {

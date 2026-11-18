@@ -2,9 +2,10 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
+import { BottomNav } from '@/widgets/bottom-nav'
 import { needsRecordCert, RecordCertEntry } from '@/features/record-cert'
 import { daysUntil, formatRaceDate, formatRaceDateTime } from '@/entities/race'
 import {
@@ -15,23 +16,16 @@ import {
   useCancelTicket,
 } from '@/entities/ticket'
 import { orderModel } from '@/shared/api'
-import { formatNumber, useNow } from '@/shared/lib'
-import { Alert, Badge, BibCard, Button, buttonClassName, Dialog, KeyValue } from '@/shared/ui'
+import { cn, formatNumber, useNow } from '@/shared/lib'
+import { Alert, Badge, BibCard, Dialog, FOCUS_RING } from '@/shared/ui'
 
 import { fullRefundLastDay } from '../model/refund-period'
 import { useTicket } from '../model/use-ticket'
 import { TicketStateView, ticketViewState } from './TicketStateView'
 
-// 피그마 V3 · M16 참가권 상세 · 키트 옵션 표시(1528:17414): 카드 상자 대신 회색 띠로 나눈 구역. (+ M16-1 참가 취소 확인)
-// TODO(api): 크루 신청 구역은 참가권에 크루 정보가 없고, 고른 키트 옵션은 구매자용 참가 응답에 없어 아직 없다.
+// 피그마 V3 · 참가권 상세(1944:20815): 배번표 카드 + 참가자 정보 상자 + 취소·환불 상자. (+ M16-1 참가 취소 확인)
+// TODO(api): 크루 신청 구역은 참가권에 크루 정보가 없고, 고른 키트 옵션(티셔츠 · 양말)은 구매자용 참가 응답에 없어 티셔츠 사이즈만 보여 준다.
 // confirmOpen은 시안 미리보기(?preview=confirm)용. 취소 확인 창을 연 채로 보여 준다.
-/** 2026-10-31 → 2026-11-01. 날짜만 다루므로 시각대와 상관없다 */
-function nextDay(isoDate: string): string {
-  const day = new Date(`${isoDate.slice(0, 10)}T00:00:00Z`)
-  day.setUTCDate(day.getUTCDate() + 1)
-  return day.toISOString()
-}
-
 export function TicketDetailPage({
   ticketId,
   confirmOpen = false,
@@ -71,17 +65,23 @@ export function TicketDetailPage({
     daysUntil(refundLastDay, now) >= 0
   const amount = `${formatNumber(ticket.amount)}원`
   const kitNote = course?.kitIncluded ? '키트도 함께 취소돼요.' : undefined
+  const address = order.shippingAddress
+  const addressLine = [address?.address, address?.addressDetail].filter(Boolean).join(' ')
   return (
     <>
-      <AppHeader type="sub" title="참가권" backHref="/tickets" />
-      <main className="flex flex-1 flex-col pb-6">
+      <AppHeader type="sub" title="참가권" backHref="/tickets" className="border-b-0" />
+      <main className="flex flex-1 flex-col pb-10">
         {/* 참가자 이름 · 연락처는 Clarity 화면 녹화에서 가린다 */}
-        <div className="px-4 py-4" data-clarity-mask="true">
+        <div className="px-5 py-4" data-clarity-mask="true">
           <BibCard
             image={data.image}
             imagePosition="50% 12%"
             eyebrow={race.title ?? ticket.itemName}
-            status={<Badge tone={TICKET_STATUS[status].tone}>{TICKET_STATUS[status].label}</Badge>}
+            status={
+              status !== 'confirmed' && (
+                <Badge tone={TICKET_STATUS[status].tone}>{TICKET_STATUS[status].label}</Badge>
+              )
+            }
             unit="No."
             number={ticketNumber(ticket.orderNo)}
             title={[participant?.name, course?.name ?? ticket.itemName].filter(Boolean).join(' · ')}
@@ -94,28 +94,32 @@ export function TicketDetailPage({
           />
         </div>
 
-        <section
-          className="flex flex-col gap-3 border-t-8 border-bg-subtle px-4 py-6"
-          data-clarity-mask="true"
-        >
-          <div className="flex items-center justify-between">
-            <h2 className="text-[18px] leading-6.5 font-bold tracking-[-0.015em]">참가자 정보</h2>
-            {editable && (
-              <Link
-                href={`/tickets/${ticket.id}/edit`}
-                className={buttonClassName({ variant: 'ghost', size: 's' })}
-              >
-                고치기
-              </Link>
+        <Section title="참가자 정보" mask>
+          <Box
+            footer={
+              editable && (
+                <Link
+                  href={`/tickets/${ticket.id}/edit`}
+                  className={cn(FOOTER, 'text-text-primary', FOCUS_RING)}
+                >
+                  참가자 정보 수정하기
+                </Link>
+              )
+            }
+          >
+            {participant?.tshirtSize && (
+              <InfoRow label="티셔츠 사이즈">{participant.tshirtSize}</InfoRow>
             )}
-          </div>
-          <div className="flex flex-col gap-1 text-body2-regular text-text-secondary">
-            {participant?.tshirtSize && <p>사이즈 {participant.tshirtSize}</p>}
+            {addressLine && <InfoRow label="키트 배송지">{addressLine}</InfoRow>}
             {participant?.emergencyContactPhone && (
-              <p>비상 연락처 {maskPhone(participant.emergencyContactPhone)}</p>
+              <InfoRow label="비상 연락처">
+                {[participant.emergencyContactName, maskPhone(participant.emergencyContactPhone)]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </InfoRow>
             )}
-          </div>
-        </section>
+          </Box>
+        </Section>
 
         {ticket.itemStatus === orderModel.OrderItemDtoStatus.PAID &&
           !ticket.paying &&
@@ -126,58 +130,64 @@ export function TicketDetailPage({
             />
           )}
 
-        {refundDeadline && status !== 'paying' && (
-          <section className="flex flex-col gap-3 border-t-8 border-bg-subtle px-4 py-6">
-            <h2 className="text-[18px] leading-6.5 font-bold tracking-[-0.015em]">환불 기준</h2>
-            <div className="flex flex-col gap-2">
-              <KeyValue
-                label={`~ ${formatRaceDate(refundDeadline)} 23:59${refundable ? ' (지금)' : ''}`}
-                value="전액 환불"
-              />
-              <KeyValue
-                label={`${formatRaceDate(nextDay(refundDeadline))} 00:00 ~`}
-                value="개인 사정 환불 불가"
-              />
-            </div>
-          </section>
-        )}
-
         {cancel.isError && (
           <Alert
-            className="mx-4 w-auto"
+            className="mx-5 mt-4 w-auto"
             tone="danger"
             title="참가를 취소하지 못했어요"
             description={ticketErrorMessage(cancel.error)}
           />
         )}
 
-        {refundable && (
-          <Alert
-            className="mx-4 mt-4 w-auto"
-            title={`오늘 취소하면 ${amount}을 예치금으로 돌려받아요`}
-            description={kitNote}
-          />
-        )}
-
         {status === 'confirmed' && (
-          <div className="flex flex-col gap-2 px-4 pt-6">
-            <Button
-              variant="danger"
-              size="l"
-              className="w-full"
-              onClick={() => setCancelOpen(true)}
+          <Section title="취소·환불">
+            <Box
+              footer={
+                <button
+                  type="button"
+                  onClick={() => setCancelOpen(true)}
+                  className={cn(FOOTER, 'w-full text-text-danger', FOCUS_RING)}
+                >
+                  참가 취소하기
+                </button>
+              }
             >
-              참가 취소하기
-            </Button>
-          </div>
+              {refundable && (
+                <p className="text-body1-bold">
+                  지금 취소하면 <span className="text-text-brand">{amount}</span> 돌려받아요
+                </p>
+              )}
+              {refundLastDay && (
+                <>
+                  <InfoRow label="전액 환불">
+                    <p>
+                      <span className="font-bold text-text-brand">
+                        {formatRaceDate(refundLastDay)} 23:59
+                      </span>
+                      까지 취소
+                    </p>
+                  </InfoRow>
+                  <InfoRow label="그 뒤에 취소">
+                    <span className="font-bold text-text-danger">환불 불가</span>
+                  </InfoRow>
+                </>
+              )}
+              <InfoRow label="돌려받는 곳">예치금</InfoRow>
+            </Box>
+          </Section>
         )}
       </main>
+      <BottomNav />
       <Dialog
         open={cancelOpen}
         onOpenChange={setCancelOpen}
         type="danger"
         title="참가를 취소할까요?"
-        body={[`${amount}을 예치금으로 돌려받아요.`, kitNote, '되돌릴 수 없어요.']
+        body={[
+          refundable ? `${amount}을 예치금으로 돌려받아요.` : '돌려받는 금액이 없어요.',
+          kitNote,
+          '되돌릴 수 없어요.',
+        ]
           .filter(Boolean)
           .join(' ')}
         confirmLabel="취소하기"
@@ -194,5 +204,45 @@ export function TicketDetailPage({
         }
       />
     </>
+  )
+}
+
+const FOOTER = 'flex justify-center border-t border-border-default py-3.5 text-body2-medium'
+
+function Section({
+  title,
+  mask,
+  children,
+}: {
+  title: string
+  mask?: boolean
+  children: ReactNode
+}) {
+  return (
+    <section
+      className="flex flex-col gap-3 px-5 pt-8"
+      data-clarity-mask={mask ? 'true' : undefined}
+    >
+      <h2 className="text-[18px] leading-7 font-bold">{title}</h2>
+      {children}
+    </section>
+  )
+}
+
+function Box({ children, footer }: { children: ReactNode; footer?: ReactNode }) {
+  return (
+    <div className="flex flex-col overflow-hidden rounded-md border border-border-default">
+      <div className="flex flex-col gap-3 p-4">{children}</div>
+      {footer}
+    </div>
+  )
+}
+
+function InfoRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex gap-3 text-body2-regular">
+      <span className="w-22 shrink-0 text-text-secondary">{label}</span>
+      <div className="min-w-0 flex-1 font-medium text-text-primary">{children}</div>
+    </div>
   )
 }

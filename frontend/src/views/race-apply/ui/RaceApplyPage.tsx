@@ -15,6 +15,7 @@ import {
   isQueueNotAdmitted,
   useAdmissionTimer,
 } from '@/features/queue-admission'
+import { BirthDateField } from '@/entities/member'
 import { RaceTicketCard, type RaceDetail, type RaceOption } from '@/entities/race'
 import {
   ApiError,
@@ -25,17 +26,16 @@ import {
   useIdempotencyKey,
   type productModel,
 } from '@/shared/api'
-import { formatWon, useTrackOnce } from '@/shared/lib'
+import { cn, formatWon, useTrackOnce } from '@/shared/lib'
 import {
   Alert,
   BottomCta,
   Button,
-  buttonClassName,
   Checkbox,
   Chip,
-  Divider,
   EmptyState,
-  KeyValue,
+  FOCUS_RING,
+  HeaderTimer,
   PhoneField,
   Radio,
   RadioGroup,
@@ -43,7 +43,6 @@ import {
   Select,
   Skeleton,
   TextField,
-  TimerBar,
 } from '@/shared/ui'
 
 import {
@@ -54,9 +53,9 @@ import {
   toParticipantRequest,
   type ParticipantFormValues,
 } from '../model/participant-form'
-import { ApplyProgress } from './ApplyProgress'
 
-const LINK = buttonClassName({ variant: 'ghost', size: 's' })
+// 피그마 v3: 밑줄 글자 링크 (변경 · 회원 정보에서 바꾸기)
+const LINK = cn('shrink-0 rounded-sm text-body2-medium text-text-secondary underline', FOCUS_RING)
 
 type KitGroup = productModel.KitOptionGroupDto
 
@@ -89,16 +88,17 @@ export function RaceApplyPage({
     'follow',
   )
   const remaining = preview ? previewRemainingSeconds : timer.remaining
+  // 0 참가자 정보, 1 키트 옵션. 헤더 뒤로 가기가 키트 옵션 단계에서 참가자 정보 단계로 돌아간다. 키트 조회 오류 화면이면 단계를 바꾸지 않고 이전 페이지로 간다.
+  const [step, setStep] = useState(0)
   useTrackOnce('apply_start', preview ? null : { raceId: race.id, courseId: option.id })
   return (
     <>
-      <AppHeader type="sub" title="참가 신청" />
-      {remaining !== null && (
-        <TimerBar
-          message="차례가 됐어요. 시간 안에 신청과 결제를 마쳐 주세요"
-          remainingSeconds={remaining}
-        />
-      )}
+      <AppHeader
+        type="sub"
+        title="참가 신청"
+        onBack={step === 1 && !kit.isError ? () => setStep(0) : undefined}
+        action={remaining !== null && <HeaderTimer remainingSeconds={remaining} />}
+      />
       {kit.isError ? (
         <main className="flex flex-1 items-center justify-center bg-bg-surface px-4 py-6">
           <EmptyState
@@ -118,6 +118,8 @@ export function RaceApplyPage({
           option={option}
           defaults={defaults}
           kitGroups={kit.data?.kitOptions ?? []}
+          step={step}
+          setStep={setStep}
         />
       ) : (
         <main aria-busy className="flex flex-1 flex-col gap-4 bg-bg-surface px-4 py-5">
@@ -156,11 +158,15 @@ function ParticipantForm({
   option,
   defaults,
   kitGroups,
+  step,
+  setStep,
 }: {
   race: RaceDetail
   option: RaceOption
   defaults: ParticipantFormValues
   kitGroups: KitGroup[]
+  step: number
+  setStep: (step: number) => void
 }) {
   const router = useRouter()
   const refundDeadline = race.schedule.find((row) => row.label === '전액 환불 기한')?.value
@@ -195,17 +201,51 @@ function ParticipantForm({
   }
   // 필수 동의는 사용자가 직접 체크해야 버튼이 켜진다.
   const [agreed, setAgreed] = useState(false)
-  // 0 참가자 정보, 1 키트 옵션. 키트 옵션 단계로 넘어갈 때 입력값을 들고 간다.
-  const [step, setStep] = useState(0)
+  // 키트 옵션 단계로 넘어갈 때 입력값을 들고 간다.
   const [confirmed, setConfirmed] = useState<ParticipantFormValues>(defaults)
   // 키트 옵션 이름 → 고른 값의 kitOptionId. 처음엔 아무것도 고르지 않는다.
   const [picked, setPicked] = useState<Record<string, number>>({})
   // 같은 참가 신청으로 결제를 다시 누르면(두 번 클릭 · 실패 뒤 재시도) 같은 Idempotency-Key를 보낸다.
   const orderKey = useIdempotencyKey()
 
+  // 이 종목의 결제 대기 주문이 이미 있으면 그 주문으로 결제를 이어 간다. 결제 기한이 지난 주문은 이어 가지 않는다.
+  // 새로 만들면 서버가 「결제를 시작할 수 없는 신청」으로 거절하기 때문이다. 조회가 실패하면 새로 만들어 서버가 판단하게 한다.
+  async function findPendingOrder() {
+    try {
+      const page = unwrapData(await orderApi.findMyTickets({ active: true, size: 50 }))
+      return page.tickets?.find(
+        (t) =>
+          t.raceCourseId === Number(option.id) &&
+          t.participationType === 'INDIVIDUAL' &&
+          t.orderStatus === 'CREATED' &&
+          t.orderItemStatus === 'ORDERED' &&
+          t.orderId != null &&
+          t.paymentDueAt != null &&
+          Date.parse(t.paymentDueAt) > Date.now(),
+      )
+    } catch {
+      return undefined
+    }
+  }
+
   // 참가 신청을 저장하고(이번에 이미 저장한 종목이면 참가자 정보만 고친다) 주문을 만들어 결제로 간다.
+  // 결제 대기 주문이 있으면 새로 만들지 않고, 입력한 참가자 정보로 그 신청을 고친 뒤 그 주문을 결제한다. 고른 키트 옵션도 그 주문에 남긴다.
   const save = useMutation({
     mutationFn: async (values: ParticipantFormValues) => {
+      const pending = applications[option.id] ? undefined : await findPendingOrder()
+      if (pending?.orderId != null) {
+        const pendingOrderId = pending.orderId
+        await orderApi.changeParticipant(
+          pending.participationId,
+          toParticipantRequest(values, option),
+        )
+        if (kitStep)
+          saveKitOptionIds(
+            pendingOrderId,
+            kitGroups.flatMap((g) => picked[g.name] ?? []),
+          )
+        return pendingOrderId
+      }
       const participant = toParticipantRequest(values, option)
       const participation = await saveParticipation(participant)
       submitApplication(
@@ -279,16 +319,9 @@ function ParticipantForm({
 
   return (
     <>
-      <main className="flex flex-1 flex-col gap-2 bg-bg-surface">
-        <div className="bg-bg-surface px-4 py-5">
-          <ApplyProgress
-            steps={kitStep ? ['참가자 정보', '키트 옵션', '결제'] : ['참가자 정보', '결제']}
-            current={step}
-            onStep={setStep}
-          />
-        </div>
-
-        <Section title="선택한 대회">
+      <main className="flex flex-1 flex-col bg-bg-surface">
+        <h2 className="px-4 pt-4 pb-2 text-title3">{step === 1 ? '키트 옵션' : '참가자 정보'}</h2>
+        <div className="px-4 pt-1 pb-6">
           <RaceTicketCard
             image={race.images[0]}
             title={race.title}
@@ -300,13 +333,13 @@ function ParticipantForm({
               </Link>
             }
           />
-        </Section>
+        </div>
 
         {step === 1 ? (
-          <Section title="키트 옵션">
+          <Section className="gap-6 pt-2">
             {kitGroups.map((group) => (
               <fieldset key={group.name} className="flex flex-col gap-3">
-                <legend className="mb-3 text-body2-medium">{group.name}</legend>
+                <legend className="mb-3 text-body1-bold">{group.name}</legend>
                 <div className="flex flex-wrap gap-2">
                   {group.values.map((v) => (
                     <Chip
@@ -325,17 +358,18 @@ function ParticipantForm({
         ) : (
           <>
             <Section
-              title="참가자 정보"
+              title="회원 정보"
               aside={
                 <Link href="/me/edit" className={LINK}>
                   회원 정보에서 바꾸기
                 </Link>
               }
+              className="gap-3"
             >
               <TextField label="이름" error={errors.name?.message} {...register('name')} />
-              <TextField
+              <BirthDateField
+                restrictAge={false}
                 label="생년월일"
-                type="date"
                 error={errors.birth?.message}
                 {...register('birth')}
               />
@@ -344,7 +378,9 @@ function ParticipantForm({
                 error={errors.phone?.message}
                 {...register('phone')}
               />
-              <Divider />
+            </Section>
+
+            <Section className="gap-6 pt-2">
               <fieldset className="flex flex-col gap-2">
                 <legend className="mb-2 text-body2-medium">성별</legend>
                 <Controller
@@ -425,31 +461,37 @@ function ParticipantForm({
               )}
             </Section>
 
-            <Section>
-              <div className="flex flex-col gap-4 rounded-lg bg-bg-surface p-5 shadow-sm inset-ring inset-ring-border-default">
-                <div className="flex flex-col gap-2">
-                  <KeyValue label="받는 곳" value={`${race.seller.company} (판매자)`} />
-                  <KeyValue label="목적" value="대회 운영 · 보험 가입" />
-                  <KeyValue
-                    label="항목"
-                    value="이름 · 생년월일 · 성별 · 연락처 2개 · 키트 옵션 · 배송 주소"
-                  />
-                  <KeyValue label="보유 기간" value="대회 종료 후 1년" />
-                  <p className="text-caption-regular text-text-tertiary">
-                    동의하지 않으면 신청할 수 없어요.
-                  </p>
-                </div>
-                <Checkbox
-                  checked={agreed}
-                  onCheckedChange={setAgreed}
-                  label={<span className="font-bold">[필수] 개인정보 제3자 제공 동의</span>}
-                />
+            <section className="flex flex-col gap-4 px-4 py-5">
+              <div className="flex flex-col">
+                <h3 className="text-body1-bold">개인정보 제3자 제공</h3>
+                {[
+                  ['받는 곳', `${race.seller.company} (판매자)`],
+                  ['목적', '대회 운영 · 보험 가입'],
+                  ['항목', '이름 · 생년월일 · 성별 · 연락처 2개 · 키트 옵션 · 배송 주소'],
+                  ['보유 기간', '대회 종료 후 1년'],
+                ].map(([label, value], i) => (
+                  <div
+                    key={label}
+                    className={cn(
+                      'flex gap-3 py-3 text-body2-regular',
+                      i === 0 ? 'pt-4' : 'border-t border-border-default',
+                    )}
+                  >
+                    <span className="w-18 shrink-0 text-text-secondary">{label}</span>
+                    <span className="min-w-0 flex-1">{value}</span>
+                  </div>
+                ))}
+                <p className="pt-2 text-body2-regular text-text-secondary">
+                  동의하지 않으면 신청할 수 없어요.
+                </p>
               </div>
-              <p className="text-caption-regular text-text-tertiary">
-                참가권은 다른 사람에게 양도할 수 없어요. 꼭 본인 정보로 신청해 주세요.
-              </p>
+              <Checkbox
+                checked={agreed}
+                onCheckedChange={setAgreed}
+                label={<span className="font-bold">[필수] 개인정보 제3자 제공 동의</span>}
+              />
               {saveError && <Alert tone="danger" title={saveError} />}
-            </Section>
+            </section>
           </>
         )}
       </main>

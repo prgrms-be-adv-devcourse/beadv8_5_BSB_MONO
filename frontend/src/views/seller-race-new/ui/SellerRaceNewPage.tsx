@@ -11,12 +11,11 @@ import { AddressSearch } from '@/features/address-search'
 import { parseRaceDateInput } from '@/entities/race'
 import { ApiError } from '@/shared/api'
 import { DateTimeField } from '@/shared/date-picker'
-import { cn, formatNumber, formatWon, type SellerRaceFormEntry } from '@/shared/lib'
+import { formatNumber, formatWon, type SellerRaceFormEntry } from '@/shared/lib'
 import {
   Alert,
   Button,
   DataTable,
-  FOCUS_RING,
   ImageCropDialog,
   ImageListDialog,
   ImageUpload,
@@ -27,6 +26,7 @@ import {
 } from '@/shared/ui'
 
 import {
+  ADULT_MIN_AGE,
   createRaceFormSchema,
   earliestSaleOpenDate,
   MAX_INTRO_IMAGES,
@@ -58,8 +58,6 @@ function dayOf(text: string): Date | undefined {
   return day ? parseISO(day) : undefined
 }
 
-const LINK = cn('rounded-sm text-body2-medium text-text-brand', FOCUS_RING)
-
 // 종목 표의 한 줄 (TODO(PRO-144): 키트 칸 나누기)
 function courseRow(course: RaceCourseInput, id: string, index: number) {
   return {
@@ -68,7 +66,7 @@ function courseRow(course: RaceCourseInput, id: string, index: number) {
     course: course.name,
     price: formatWon(course.price),
     capacity: `${formatNumber(course.crewQuota + course.individualQuota)}명`,
-    age: `만 ${course.minAge}세 ~ ${course.maxAge ? `만 ${course.maxAge}세` : '제한 없음'}`,
+    age: course.minAge >= ADULT_MIN_AGE ? '성인만' : '',
     kit: course.kitIncluded ? '포함' : '없음',
   }
 }
@@ -309,8 +307,8 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
             />
             <TextField
               label="참가 가능 나이"
-              defaultValue="종목마다 최소 · 최대 나이를 정해요"
-              helper="대회 당일 만 나이 · 최소는 만 14세 이상"
+              defaultValue="종목마다 성인만 받을지 정해요"
+              helper="대회 당일 만 나이 · 성인은 만 19세 이상"
               readOnly
               className="flex-1"
             />
@@ -355,9 +353,14 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
         <ConsoleCard
           title="종목 · 참가권"
           aside={
-            <button type="button" className={LINK} onClick={() => setCourseOpen(true)}>
+            <Button
+              variant="text"
+              size="s"
+              className="text-text-brand"
+              onClick={() => setCourseOpen(true)}
+            >
               종목 추가
-            </button>
+            </Button>
           }
         >
           <DataTable
@@ -375,14 +378,15 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
                 header: '',
                 align: 'right',
                 render: (r) => (
-                  <button
-                    type="button"
-                    className={LINK}
+                  <Button
+                    variant="text"
+                    size="s"
+                    className="text-text-brand"
                     aria-label={`${r.course} 종목 삭제`}
                     onClick={() => courseFields.remove(r.index)}
                   >
                     삭제
-                  </button>
+                  </Button>
                 ),
               },
             ]}
@@ -422,13 +426,14 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
         <ConsoleCard
           title="키트 배송"
           aside={
-            <button
-              type="button"
-              className={LINK}
+            <Button
+              variant="text"
+              size="s"
+              className="text-text-brand"
               onClick={() => kitFields.append({ name: '', value: '', stock: '' })}
             >
               옵션 추가
-            </button>
+            </Button>
           }
         >
           <p className="text-caption-regular text-text-tertiary">
@@ -482,14 +487,15 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
                 header: '',
                 align: 'right',
                 render: ({ index }) => (
-                  <button
-                    type="button"
-                    className={LINK}
+                  <Button
+                    variant="text"
+                    size="s"
+                    className="text-text-brand"
                     aria-label={`키트 옵션 ${index + 1} 삭제`}
                     onClick={() => kitFields.remove(index)}
                   >
                     삭제
-                  </button>
+                  </Button>
                 ),
               },
             ]}

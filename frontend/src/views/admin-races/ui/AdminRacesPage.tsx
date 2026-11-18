@@ -4,7 +4,7 @@ import { useState } from 'react'
 
 import { CONSOLE_BOX, ConsoleCard, ConsolePage } from '@/widgets/console-page'
 import { cn } from '@/shared/lib'
-import { DataTable, FOCUS_RING, KeyValue } from '@/shared/ui'
+import { Button, DataTable, KeyValue } from '@/shared/ui'
 
 // 상태는 칩 대신 뜻 색 글자로 보여 준다 (완료 초록, 실패 빨강, 나머지 보조 글자)
 const STATUS_TEXT: Record<string, string> = {
@@ -97,12 +97,9 @@ export function AdminRacesPage() {
         <ConsoleCard
           title={`대회 ${RACES.length}개`}
           aside={
-            <button
-              type="button"
-              className={cn('rounded-sm text-body2-medium text-text-brand', FOCUS_RING)}
-            >
+            <Button variant="text" size="s" className="text-text-brand">
               대회명·판매자로 찾기
-            </button>
+            </Button>
           }
           className="min-w-130 flex-1"
         >

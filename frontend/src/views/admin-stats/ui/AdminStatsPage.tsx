@@ -1,6 +1,6 @@
 'use client'
 
-import { format } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 import { Fragment, useState } from 'react'
 
 import { CONSOLE_BOX, ConsolePage } from '@/widgets/console-page'
@@ -109,7 +109,8 @@ function PeriodPicker({
   )
   const today = seoulToday()
   const period = resolveStatsPeriod(query, today)
-  const customValid = Boolean(custom.start && custom.end && custom.start <= custom.end)
+  const customQuery = statsPeriodQuerySchema.safeParse({ period: 'custom', ...custom })
+  const customValid = customQuery.success && custom.start <= custom.end
 
   const choose = (next: StatsPeriodKind) => {
     setKind(next)
@@ -133,26 +134,29 @@ function PeriodPicker({
       {kind === 'custom' && (
         <div className="flex items-end gap-2">
           <DateTimeField
-            mode="range"
+            mode="single"
             withTime={false}
-            label="기간 직접 고르기"
-            className="w-80"
-            endMonth={new Date(`${today}T00:00:00`)}
-            isDateDisabled={(d) => format(d, 'yyyy-MM-dd') > today}
-            defaultValue={
-              custom.start && custom.end
-                ? {
-                    from: new Date(`${custom.start}T00:00:00`),
-                    to: new Date(`${custom.end}T00:00:00`),
-                  }
-                : undefined
-            }
-            onValueChange={({ from, to }) => setCustom({ start: from, end: to })}
+            label="시작 날짜"
+            className="w-52"
+            defaultValue={custom.start ? parseISO(custom.start) : undefined}
+            endMonth={parseISO(today)}
+            isDateDisabled={(date) => format(date, 'yyyy-MM-dd') > today}
+            onValueChange={(start) => setCustom((c) => ({ ...c, start }))}
+          />
+          <DateTimeField
+            mode="single"
+            withTime={false}
+            label="끝 날짜"
+            className="w-52"
+            defaultValue={custom.end ? parseISO(custom.end) : undefined}
+            endMonth={parseISO(today)}
+            isDateDisabled={(date) => format(date, 'yyyy-MM-dd') > today}
+            onValueChange={(end) => setCustom((c) => ({ ...c, end }))}
           />
           <Button
             variant="secondary"
             disabled={!customValid}
-            onClick={() => onChange({ period: 'custom', ...custom })}
+            onClick={() => customQuery.success && onChange(customQuery.data)}
           >
             적용
           </Button>

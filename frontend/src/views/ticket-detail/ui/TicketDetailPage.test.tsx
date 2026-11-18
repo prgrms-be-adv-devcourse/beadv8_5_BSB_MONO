@@ -45,27 +45,88 @@ function cancelFails(status: number, message: string) {
   )
 }
 
+function mockRace(patch: Record<string, string>) {
+  const race = productMock.getFindRaceResponseMock()
+  server.use(
+    http.get('*/api/v1/product/races/:raceId', () =>
+      HttpResponse.json({ ...race, data: { ...race.data, ...patch } }),
+    ),
+  )
+}
+
 describe('TicketDetailPage', () => {
   it('주문 · 참가 신청 · 대회를 합쳐 참가권을 보여 준다', async () => {
     renderWithClient(<TicketDetailPage ticketId="1-1" />)
 
     expect(await screen.findByText('김러너 · 10K')).toBeInTheDocument()
     expect(screen.getByText('주문번호 OD-20261012-0001 · 11/1 (일) 08:00')).toBeInTheDocument()
-    expect(screen.getByText('사이즈 L')).toBeInTheDocument()
-    expect(screen.getByText('비상 연락처 010-98**-5432')).toBeInTheDocument()
+    // v3 시안: 참가자 정보 상자 (줄마다 이름표 + 값)
+    expect(screen.getByRole('heading', { name: '참가자 정보' })).toBeInTheDocument()
+    expect(screen.getByText('티셔츠 사이즈')).toBeInTheDocument()
+    expect(screen.getByText('L')).toBeInTheDocument()
+    expect(screen.getByText('키트 배송지')).toBeInTheDocument()
+    expect(screen.getByText('서울 성동구 왕십리로 00 101동 1001호')).toBeInTheDocument()
+    expect(screen.getByText('비상 연락처')).toBeInTheDocument()
     // Clarity 화면 녹화에서 참가자 이름 · 연락처를 가린다
     expect(screen.getByText('김러너 · 10K').closest('[data-clarity-mask="true"]')).not.toBeNull()
     expect(
-      screen.getByText('비상 연락처 010-98**-5432').closest('[data-clarity-mask="true"]'),
+      screen.getByText('김가족 · 010-98**-5432').closest('[data-clarity-mask="true"]'),
     ).not.toBeNull()
-    expect(screen.getByText('오늘 취소하면 50,000원을 예치금으로 돌려받아요')).toBeInTheDocument()
-    // 환불 기준: 기한 안(지금) 전액 환불, 기한 다음 날 0시부터 환불 불가
-    expect(screen.getByText(/23:59 \(지금\)$/)).toBeInTheDocument()
-    expect(screen.getByText(/00:00 ~$/)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '고치기' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '참가자 정보 수정하기' })).toHaveAttribute(
       'href',
       '/tickets/1-1/edit',
     )
+    // v3 시안: 참가 확정 카드는 배지 없이 보여 준다
+    expect(screen.queryByText('참가 확정')).not.toBeInTheDocument()
+  })
+
+  it('취소 · 환불 상자에 지금 취소하면 돌려받는 금액 · 전액 환불 기한 · 그 뒤 환불 불가 · 돌려받는 곳을 보여 준다', async () => {
+    renderWithClient(<TicketDetailPage ticketId="1-1" />)
+
+    expect(await screen.findByRole('heading', { name: '취소·환불' })).toBeInTheDocument()
+    const textOf = (text: string) =>
+      screen.getByText((_, el) => el?.tagName === 'P' && el.textContent === text)
+    expect(textOf('지금 취소하면 50,000원 돌려받아요')).toBeInTheDocument()
+    expect(screen.getByText('전액 환불')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        (_, el) => el?.tagName === 'P' && /^.+ 23:59까지 취소$/.test(el.textContent ?? ''),
+      ),
+    ).toBeInTheDocument()
+    expect(screen.getByText('그 뒤에 취소')).toBeInTheDocument()
+    expect(screen.getByText('환불 불가')).toBeInTheDocument()
+    expect(screen.getByText('돌려받는 곳')).toBeInTheDocument()
+    expect(screen.getByText('예치금')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '참가 취소하기' })).toBeInTheDocument()
+  })
+
+  it('일정이 바뀌어 전액 환불 기간이 늘면 날짜 줄도 늘어난 마지막 날을 보여 준다', async () => {
+    mockRace({ refundDeadline: '2026-10-10', scheduleChangedAt: '2026-10-14T10:00:00' })
+    renderWithClient(<TicketDetailPage ticketId="1-1" />)
+
+    expect(await screen.findByRole('heading', { name: '취소·환불' })).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        (_, el) => el?.tagName === 'P' && el.textContent === '지금 취소하면 50,000원 돌려받아요',
+      ),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        (_, el) => el?.tagName === 'P' && el.textContent === '10/20 (화) 23:59까지 취소',
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it('환불 기한이 지났으면 취소 확인 창은 돌려받는 금액이 없다고 안내하고 취소 요청은 그대로 보낸다', async () => {
+    mockRace({ refundDeadline: '2026-10-10' })
+    const user = userEvent.setup()
+    renderWithClient(<TicketDetailPage ticketId="1-1" />)
+
+    await user.click(await screen.findByRole('button', { name: '참가 취소하기' }))
+    expect(await screen.findByText(/돌려받는 금액이 없어요/)).toBeInTheDocument()
+    expect(screen.queryByText(/예치금으로 돌려받아요/)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '취소하기' }))
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/tickets/1-1/canceled'))
   })
 
   it('참가 취소를 확인하면 취소 API를 부르고 취소 완료 화면으로 간다', async () => {
@@ -107,10 +168,10 @@ describe('TicketDetailPage', () => {
 
     expect(await screen.findByText('김러너 · 10K')).toBeInTheDocument()
     expect(screen.getByText('결제 확인 중')).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: '고치기' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: '참가자 정보 수정하기' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '참가 취소하기' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: '환불 기준' })).not.toBeInTheDocument()
-    expect(screen.queryByText(/예치금으로 돌려받아요/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '취소·환불' })).not.toBeInTheDocument()
+    expect(screen.queryByText(/돌려받아요/)).not.toBeInTheDocument()
   })
 
   it('주소의 ID 모양이 틀리거나 없는 주문(404)이면 찾을 수 없다고 보여 준다', async () => {

@@ -36,7 +36,7 @@ import {
 import { CREATE_JOINED_LATE, JOIN_FAILURE } from '../lib/party-copy'
 import {
   EMPTY_PARTICIPANT,
-  participantSchema,
+  participantSchemaFor,
   toParticipantRequest,
   type ParticipantValues,
 } from '../model/participant-form'
@@ -82,8 +82,11 @@ export function PartyNewPage({ crewId }: { crewId?: number }) {
     query: { enabled: crewId !== undefined, select: unwrapData },
   })
   const create = useCreateParty()
+  // 고른 종목에 키트가 들어 있으면 키트 배송지도 받는다
+  const kit = detail.data?.courses?.find((c) => c.raceCourseId === courseId)?.kitIncluded === true
+  const schema = participantSchemaFor(kit)
   const form = useForm<ParticipantValues>({
-    resolver: zodResolver(participantSchema),
+    resolver: zodResolver(schema),
     defaultValues: EMPTY_PARTICIPANT,
   })
 
@@ -94,7 +97,7 @@ export function PartyNewPage({ crewId }: { crewId?: number }) {
       {
         crewId,
         raceCourseId: courseId,
-        participant: toParticipantRequest(participantSchema.parse(values)),
+        participant: toParticipantRequest(schema.parse(values), kit),
         thirdPartyConsent: true,
       },
       {
@@ -156,7 +159,7 @@ export function PartyNewPage({ crewId }: { crewId?: number }) {
           </p>
         </div>
         {serverMessage && <Alert tone="danger" title={serverMessage} />}
-        <ParticipantFields form={form} />
+        <ParticipantFields form={form} kit={kit} />
       </form>
     )
   } else if (races.isPending) {

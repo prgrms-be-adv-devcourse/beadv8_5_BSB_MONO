@@ -10,19 +10,13 @@ import { HOLD_REASON_ITEMS } from '@/entities/payout'
 import { useSearchParamsState } from '@/shared/lib'
 import { Button, Chip, EmptyState, Select, TextField } from '@/shared/ui'
 
+import { holdFormSchema } from '../model/hold-form'
+
 const TABS = ['지급 예정', '지급보류', '지급 완료'] as const
 type Tab = (typeof TABS)[number]
 const isTab = (value: string): value is Tab => TABS.some((tab) => tab === value)
 
-const holdSchema = z.object({
-  // '12' 같은 양의 정수만 정산 내역 번호로 받는다
-  payoutId: z
-    .string()
-    .trim()
-    .regex(/^[1-9]\d*$/, '정산 내역 번호를 숫자로 넣어 주세요.'),
-  reasonType: z.enum(['대회_취소_처리', '정산_계좌_미등록']),
-})
-type HoldValues = z.infer<typeof holdSchema>
+type HoldInput = z.input<typeof holdFormSchema>
 
 // 피그마 v3 · 정산 관리. 지급은 매월 20일 자동이라 관리자는 보기와 지급보류 걸기만 한다.
 // TODO(api): 관리자 정산 목록 API가 openapi에 없어 목록은 비워 둔다. 생기면 칩 건수와 목록을 연결한다.
@@ -57,13 +51,13 @@ function PlaceHoldCard() {
     control,
     handleSubmit,
     formState: { errors },
-  } = useForm<HoldValues>({
-    resolver: zodResolver(holdSchema),
+  } = useForm<HoldInput, unknown, z.output<typeof holdFormSchema>>({
+    resolver: zodResolver(holdFormSchema),
     defaultValues: { payoutId: '', reasonType: '대회_취소_처리' },
   })
 
   const onSubmit = handleSubmit(({ payoutId, reasonType }) =>
-    placeHold.mutate({ payoutId: Number(payoutId), data: { reasonType } }),
+    placeHold.mutate({ payoutId, data: { reasonType } }),
   )
 
   return (
