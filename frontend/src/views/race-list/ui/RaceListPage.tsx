@@ -147,6 +147,7 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
     )
   }
 
+  // 상단(제목 · 검색 · 칩 · 정렬 줄)을 바꾸면 RaceListSkeleton도 같이 바꾼다. 모양이 다르면 로딩에서 넘어올 때 화면이 흔들린다
   return (
     <>
       {!focused && <AppHeader />}
