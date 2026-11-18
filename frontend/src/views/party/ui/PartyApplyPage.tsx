@@ -13,16 +13,7 @@ import {
   useRegisterPartyQueue,
 } from '@/entities/party'
 import { ApiError, memberApi, productApi, unwrapData } from '@/shared/api'
-import {
-  Alert,
-  BottomCta,
-  Button,
-  Divider,
-  EmptyState,
-  KeyValue,
-  ProgressBar,
-  Skeleton,
-} from '@/shared/ui'
+import { Alert, BottomCta, Button, Divider, KeyValue, ProgressBar, Skeleton } from '@/shared/ui'
 
 import { PartyLoadError } from './PartyFailureScreen'
 
@@ -87,20 +78,30 @@ export function PartyApplyPage({ partyId }: { partyId: number }) {
   let body
   if (shortage) {
     body = (
-      <>
-        <EmptyState
-          className="pt-12"
-          role="alert"
-          title={`크루 전용 자리가 ${Math.max(shortage.needed - shortage.remaining, 0)}자리 모자랐어요`}
-          description="자리가 모자라면 파티 전체가 신청되지 않아요. 아무도 신청되지 않았고 결제한 돈도 없어요. 이 파티는 같은 대회에 다시 신청할 수 없어요."
-        />
-        <Divider />
-        <section className="flex flex-col gap-3 bg-bg-surface px-4 py-6">
-          <KeyValue label="신청 인원" value={`파티원 ${shortage.needed}명`} />
-          <KeyValue label="남은 크루 전용 자리" value={`${shortage.remaining}자리`} />
-          <KeyValue label="결제" value="청구된 금액 없음" />
-        </section>
-      </>
+      <section role="alert" className="flex flex-col gap-7 px-5 pt-6 pb-6">
+        <div className="flex flex-col gap-2">
+          <p className="text-body2-medium text-text-danger">신청 안 됨</p>
+          <h2 className="text-title1">{race.data?.title}</h2>
+        </div>
+        <div className="flex flex-col gap-4 rounded-md border border-border-default p-4">
+          <div className="flex flex-col gap-1">
+            <p className="text-body1-bold">
+              크루 전용 자리가 {Math.max(shortage.needed - shortage.remaining, 0)}자리 모자랐어요
+            </p>
+            <p className="text-body2-regular text-text-secondary">
+              아무도 신청되지 않았고 결제한 돈도 없어요.
+            </p>
+          </div>
+          <div className="flex flex-col gap-3 border-t border-border-default pt-4">
+            <KeyValue label="신청 인원" value={`파티원 ${shortage.needed}명`} />
+            <KeyValue label="남은 크루 전용 자리" value={`${shortage.remaining}자리`} />
+            <KeyValue label="결제" value="청구된 금액 없음" />
+          </div>
+        </div>
+        <p className="text-body2-medium text-text-danger">
+          이 파티는 같은 대회에 다시 신청할 수 없어요.
+        </p>
+      </section>
     )
   } else if (party.isPending) {
     body = (

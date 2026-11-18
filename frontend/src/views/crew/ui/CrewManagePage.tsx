@@ -166,19 +166,20 @@ export function CrewManagePage({ crewId }: { crewId: number }) {
                 action={(member) =>
                   member.role !== 'LEADER' && (
                     <Button
-                      variant="ghost"
+                      variant="text"
                       size="s"
+                      aria-label="관리"
                       aria-describedby={memberLabelId(member)}
                       onClick={() => setMenuTarget(member)}
                     >
-                      관리
+                      <Icon name="ChevronRight" className="size-5" />
                     </Button>
                   )
                 }
               />
               <Link
                 href={`/crews/${crewId}/invites` as Route}
-                className={buttonClassName({ variant: 'secondary', size: 'm' })}
+                className={buttonClassName({ variant: 'ghost', size: 'm' })}
               >
                 초대 링크 만들기
               </Link>
@@ -186,9 +187,9 @@ export function CrewManagePage({ crewId }: { crewId: number }) {
             <Divider type="section" />
             <CrewBand>
               <Button
-                variant="ghost"
+                variant="text"
                 size="m"
-                className="self-start"
+                className="self-start text-text-danger"
                 // 크루원이 남아 있으면 요청 없이 막힘 안내만 띄운다(시안 11/9)
                 onClick={() =>
                   crew.data.memberCount > 1 ? setBlockedOpen(true) : ask({ kind: 'disband' })
@@ -238,8 +239,8 @@ export function CrewManagePage({ crewId }: { crewId: number }) {
         open={blockedOpen}
         onOpenChange={setBlockedOpen}
         type="alert"
-        title="크루원이 남아 있어 없앨 수 없어요"
-        body="크루원을 모두 내보낸 뒤 없앨 수 있어요."
+        title={<span className="block text-center">크루원이 남아 있어 없앨 수 없어요</span>}
+        body={<span className="block text-center">크루원을 모두 내보낸 뒤 없앨 수 있어요.</span>}
         confirmLabel="확인"
         onConfirm={() => setBlockedOpen(false)}
       />

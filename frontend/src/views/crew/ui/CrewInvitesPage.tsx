@@ -302,8 +302,10 @@ export function CrewInvitesPage({
         open={cancelTarget !== null}
         onOpenChange={(open) => !open && setCancelTarget(null)}
         type="danger"
-        title="이 초대를 취소할까요?"
-        body="취소하면 이 링크로 크루에 가입할 수 없어요."
+        title={<span className="block text-center">이 초대를 취소할까요?</span>}
+        body={
+          <span className="block text-center">취소하면 이 링크로 크루에 가입할 수 없어요.</span>
+        }
         cancelLabel="돌아가기"
         confirmLabel="초대 취소하기"
         confirming={cancel.isPending}

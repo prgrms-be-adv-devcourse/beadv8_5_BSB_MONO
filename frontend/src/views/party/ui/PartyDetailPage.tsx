@@ -361,8 +361,12 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
       <Dialog
         open={confirm === 'regenerate'}
         onOpenChange={(open) => !open && setConfirm(null)}
-        title="참가 링크를 새로 만들까요?"
-        body="새 링크를 만들면 지금 링크로는 합류할 수 없어요. 이미 합류한 파티원은 그대로예요."
+        title={<span className="block text-center">참가 링크를 새로 만들까요?</span>}
+        body={
+          <span className="block text-center">
+            새 링크를 만들면 지금 링크로는 합류할 수 없어요. 이미 합류한 파티원은 그대로예요.
+          </span>
+        }
         cancelLabel="돌아가기"
         confirmLabel="새로 만들기"
         onConfirm={makeLink}
@@ -372,7 +376,7 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
         open={confirm === 'leave'}
         onOpenChange={(open) => !open && setConfirm(null)}
         type="danger"
-        title="파티에서 나갈까요?"
+        title={<span className="block text-center">파티에서 나갈까요?</span>}
         body={
           party.memberCount <= 1
             ? '남은 사람이 없어 파티가 종료돼요.'

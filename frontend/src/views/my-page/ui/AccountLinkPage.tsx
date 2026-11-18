@@ -15,7 +15,7 @@ import {
   type SocialProviderId,
 } from '@/features/auth'
 import { ApiError, memberApi, unwrapData } from '@/shared/api'
-import { Badge, Button, Dialog, Divider, Icon, useToast } from '@/shared/ui'
+import { Button, Dialog, Divider, Icon, useToast } from '@/shared/ui'
 
 import { SocialMark } from './SocialMark'
 
@@ -80,7 +80,9 @@ export function AccountLinkPage({ linked, error }: { linked?: string; error?: st
             <div className="flex min-w-0 flex-1 flex-col gap-0.5">
               <span className="flex items-center gap-2 text-body1-bold">
                 이메일
-                {me.data?.passwordSet && <Badge>사용 중</Badge>}
+                {me.data?.passwordSet && (
+                  <span className="text-body2-medium text-text-secondary">사용 중</span>
+                )}
               </span>
               {me.data?.passwordSet && (
                 <span
@@ -100,7 +102,9 @@ export function AccountLinkPage({ linked, error }: { linked?: string; error?: st
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span className="flex items-center gap-2 text-body1-bold">
                     {LABEL[provider.id]}
-                    {isConnected && <Badge>연결됨</Badge>}
+                    {isConnected && (
+                      <span className="text-body2-medium text-text-success">연결됨</span>
+                    )}
                   </span>
                   {isConnected && lastMethod && (
                     <span className="text-caption-regular text-text-secondary">
@@ -143,8 +147,12 @@ export function AccountLinkPage({ linked, error }: { linked?: string; error?: st
         open={unlinking !== undefined}
         onOpenChange={(open) => !open && setUnlinking(undefined)}
         type="danger"
-        title={`${unlinking ? LABEL[unlinking] : ''} 연결을 해제할까요?`}
-        body={`해제하면 ${unlinking ? LABEL[unlinking] : ''}로 로그인할 수 없어요. 앞으로는 이메일로 로그인해 주세요.`}
+        title={
+          <span className="block text-center">{`${unlinking ? LABEL[unlinking] : ''} 연결을 해제할까요?`}</span>
+        }
+        body={
+          <span className="block text-center">{`해제하면 ${unlinking ? LABEL[unlinking] : ''}로 로그인할 수 없어요. 앞으로는 이메일로 로그인해 주세요.`}</span>
+        }
         cancelLabel="돌아가기"
         confirmLabel="연결 해제"
         confirming={unlink.isPending}
@@ -163,7 +171,11 @@ export function AccountLinkPage({ linked, error }: { linked?: string; error?: st
           onOpenChange={setErrorOpen}
           type="alert"
           title={socialLinkResultMessage(undefined, error)?.message ?? ''}
-          body="로그인 방법 목록에서 연결 상태를 확인해 주세요."
+          body={
+            <span className="block text-center">
+              로그인 방법 목록에서 연결 상태를 확인해 주세요.
+            </span>
+          }
           confirmLabel="확인"
           onConfirm={() => setErrorOpen(false)}
         />
@@ -172,8 +184,12 @@ export function AccountLinkPage({ linked, error }: { linked?: string; error?: st
           open={errorOpen}
           onOpenChange={setErrorOpen}
           type="alert"
-          title={`이 ${tried ? LABEL[tried.id] : '소셜'} 계정은 다른 크루런 회원에 연결돼 있어요`}
-          body={`그 회원으로 로그인해 연결을 해제하거나, 다른 ${tried ? LABEL[tried.id] : '소셜'} 계정을 연결해 주세요.`}
+          title={
+            <span className="block text-center">{`이 ${tried ? LABEL[tried.id] : '소셜'} 계정은 다른 크루런 회원에 연결돼 있어요`}</span>
+          }
+          body={
+            <span className="block text-center">{`그 회원으로 로그인해 연결을 해제하거나, 다른 ${tried ? LABEL[tried.id] : '소셜'} 계정을 연결해 주세요.`}</span>
+          }
           confirmLabel="확인"
           onConfirm={() => setErrorOpen(false)}
         />
@@ -181,8 +197,12 @@ export function AccountLinkPage({ linked, error }: { linked?: string; error?: st
         <Dialog
           open={errorOpen}
           onOpenChange={setErrorOpen}
-          title={`${tried ? LABEL[tried.id] : '소셜'} 연결을 마치지 못했어요`}
-          body={`동의 화면에서 취소했거나 ${tried ? LABEL[tried.id] : '소셜 계정'}과 연결하지 못했어요. 다시 시도해 주세요.`}
+          title={
+            <span className="block text-center">{`${tried ? LABEL[tried.id] : '소셜'} 연결을 마치지 못했어요`}</span>
+          }
+          body={
+            <span className="block text-center">{`동의 화면에서 취소했거나 ${tried ? LABEL[tried.id] : '소셜 계정'}과 연결하지 못했어요. 다시 시도해 주세요.`}</span>
+          }
           cancelLabel="닫기"
           confirmLabel="다시 시도하기"
           onConfirm={() => {

@@ -264,8 +264,8 @@ export function CommunityPostPage({ postId }: { postId: number }) {
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
         type="danger"
-        title="글을 삭제할까요?"
-        body="삭제한 글과 사진은 되돌릴 수 없어요."
+        title={<span className="block text-center">글을 삭제할까요?</span>}
+        body={<span className="block text-center">삭제한 글과 사진은 되돌릴 수 없어요.</span>}
         confirmLabel="삭제"
         confirming={remove.isPending}
         onConfirm={() =>

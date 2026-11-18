@@ -190,8 +190,8 @@ export function CommentSection({
         open={deleting !== null}
         onOpenChange={(open) => !open && setDeleting(null)}
         type="danger"
-        title="댓글을 삭제할까요?"
-        body="삭제한 댓글은 되돌릴 수 없어요."
+        title={<span className="block text-center">댓글을 삭제할까요?</span>}
+        body={<span className="block text-center">삭제한 댓글은 되돌릴 수 없어요.</span>}
         confirmLabel="삭제"
         confirming={remove.isPending}
         onConfirm={() => {

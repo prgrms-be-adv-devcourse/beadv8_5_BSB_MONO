@@ -25,11 +25,11 @@ export function StepIntro({ title, description }: { title: string; description?:
   )
 }
 
-// 회원 화면 본문이 짧을 때 가운데로 모으는 판 (bg-default, 옆 16 · 위아래 24, 칸 사이 20)
+// 회원 화면 본문이 짧을 때 가운데로 모으는 판 (옆 20 · 위 24, 묶음 사이 28)
 export function CenterBody({ children, center = true }: { children: ReactNode; center?: boolean }) {
   return (
     <main className={center ? 'flex flex-1 flex-col justify-center' : 'flex flex-1 flex-col'}>
-      <div className="flex flex-col gap-5 px-4 py-6">{children}</div>
+      <div className="flex flex-col gap-7 px-5 pt-6 pb-6">{children}</div>
     </main>
   )
 }

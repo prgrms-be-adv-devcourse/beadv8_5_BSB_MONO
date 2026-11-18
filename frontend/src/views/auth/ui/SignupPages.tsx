@@ -241,8 +241,12 @@ function SignupEmailStep({ onNext }: { onNext: () => void }) {
       <Dialog
         open={quitOpen}
         onOpenChange={setQuitOpen}
-        title="가입을 그만둘까요?"
-        body="지금 나가면 적은 내용이 지워져요. 다음에 가입할 때 본인 확인부터 다시 해야 해요."
+        title={<span className="block text-center">가입을 그만둘까요?</span>}
+        body={
+          <span className="block text-center">
+            지금 나가면 적은 내용이 지워져요. 다음에 가입할 때 본인 확인부터 다시 해야 해요.
+          </span>
+        }
         cancelLabel="그만두기"
         confirmLabel="계속 가입하기"
         onCancel={() => {
@@ -632,8 +636,8 @@ export function DuplicateIdentityDialog({
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      title="이미 가입한 사람이에요"
-      body="로그인하거나 계정을 연결해 주세요."
+      title={<span className="block text-center">이미 가입한 사람이에요</span>}
+      body={<span className="block text-center">로그인하거나 계정을 연결해 주세요.</span>}
       cancelLabel="닫기"
       confirmLabel="로그인하기"
       onConfirm={() => {
@@ -659,7 +663,7 @@ export function RejoinTooSoonDialog({
         if (!open) onClose()
       }}
       type="alert"
-      title="아직 다시 가입할 수 없어요"
+      title={<span className="block text-center">아직 다시 가입할 수 없어요</span>}
       body={rejoin ? rejoinMessage(rejoin) : undefined}
       confirmLabel="확인"
       onConfirm={onClose}

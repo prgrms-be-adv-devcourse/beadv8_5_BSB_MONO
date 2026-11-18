@@ -283,7 +283,7 @@ export function PartyNewPage({ crewId }: { crewId?: number }) {
         open={restrictedEnd !== undefined}
         onOpenChange={(open) => !open && setRestrictedEnd(undefined)}
         type="alert"
-        title="파티를 만들 수 없어요"
+        title={<span className="block text-center">파티를 만들 수 없어요</span>}
         body={restrictedEnd ? `${formatKstLastDay(restrictedEnd)}까지 파티 만들기가 제한돼요.` : ''}
         confirmLabel="크루 홈으로"
         onConfirm={() => router.push(`/crews/${crewId}` as Route)}

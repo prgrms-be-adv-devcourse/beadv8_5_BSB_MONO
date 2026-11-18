@@ -120,8 +120,8 @@ export function MyPage() {
       <Dialog
         open={logoutOpen}
         onOpenChange={setLogoutOpen}
-        title="로그아웃할까요?"
-        body="이 기기에서 로그아웃돼요."
+        title={<span className="block text-center">로그아웃할까요?</span>}
+        body={<span className="block text-center">이 기기에서 로그아웃돼요.</span>}
         confirmLabel="로그아웃"
         confirming={logout.isPending}
         onConfirm={() => logout.mutate()}

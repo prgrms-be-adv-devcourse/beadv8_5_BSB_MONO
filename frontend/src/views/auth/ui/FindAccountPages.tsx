@@ -186,7 +186,7 @@ export function PasswordNewPage() {
     return (
       <>
         <AppHeader type="sub" title="비밀번호 재설정" />
-        <main className="flex flex-1 items-center justify-center px-4 py-6">
+        <main className="flex flex-1 items-center justify-center px-5 pt-6 pb-6">
           <EmptyState
             title="링크가 만료됐어요"
             description="재설정 링크는 30분이 지나거나 한 번 쓰면 다시 쓸 수 없어요. 링크를 다시 받아 주세요."
@@ -205,7 +205,7 @@ export function PasswordNewPage() {
     return (
       <>
         <AppHeader type="sub" title="비밀번호 재설정" />
-        <main className="flex flex-1 items-center justify-center px-4 py-6">
+        <main className="flex flex-1 items-center justify-center px-5 pt-6 pb-6">
           <EmptyState title="링크를 확인하지 못했어요" description="잠시 뒤 다시 시도해 주세요." />
         </main>
         <BottomCta
@@ -336,7 +336,7 @@ export function FindEmailResultPage() {
   return (
     <>
       <AppHeader type="sub" title="이메일 찾기" />
-      <main className="flex flex-1 items-center justify-center px-4 py-6">
+      <main className="flex flex-1 items-center justify-center px-5 pt-6 pb-6">
         <EmptyState
           icon="CircleCheck"
           title="가입한 이메일을 찾았어요"
