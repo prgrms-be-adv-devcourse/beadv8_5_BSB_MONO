@@ -266,7 +266,7 @@ const numberText = (pattern: RegExp) =>
   z.string().trim().regex(pattern, COURSE_FORM_ERRORS.number).transform(Number)
 const wholeNumber = numberText(/^\d+$/)
 
-const courseDraftSchema = z
+export const courseDraftSchema = z
   .object({
     name: z
       .string()
@@ -303,6 +303,9 @@ const courseDraftSchema = z
     }
   })
 
+export type CourseDraftInput = z.input<typeof courseDraftSchema>
+export type CourseDraftParsed = z.output<typeof courseDraftSchema>
+
 export type CourseDraftErrors = Partial<Record<keyof CourseDraft, string>>
 
 /**
@@ -321,14 +324,17 @@ export function toCourseInput(
     }
     return { errors }
   }
+  return { course: toCourseInputFromParsed(parsed.data) }
+}
+
+/** 검사를 통과한 종목 입력값에 고정값(노면 · 키트)을 붙여 종목 한 줄로 만든다 */
+export function toCourseInputFromParsed(data: CourseDraftParsed): RaceCourseInput {
   return {
-    course: {
-      ...parsed.data,
-      surface: 'ROAD',
-      kitIncluded: true,
-      kitPrice: 0,
-      crewQuota: 0,
-    },
+    ...data,
+    surface: 'ROAD',
+    kitIncluded: true,
+    kitPrice: 0,
+    crewQuota: 0,
   }
 }
 

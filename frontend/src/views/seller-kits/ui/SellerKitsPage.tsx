@@ -1,7 +1,9 @@
 'use client'
 
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
 import { Fragment, useState } from 'react'
+import { Controller, useForm, useWatch } from 'react-hook-form'
 
 import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
 import { myRacesQueryOptions } from '@/entities/race'
@@ -36,6 +38,13 @@ import {
   TextField,
 } from '@/shared/ui'
 
+import {
+  shipFormSchema,
+  trackingLines,
+  type ShipFormInput,
+  type ShipFormValues,
+} from '../model/ship-form'
+
 type Kit = orderModel.SellerKitDto
 
 /** 발송 · 배송 완료로 바꿀 수 있는 다음 단계 (배송 준비로 되돌리는 API는 없다) */
@@ -69,14 +78,6 @@ function kitOption(kit: Kit) {
   return [kit.courseName, kit.tshirtSize && `티셔츠 ${kit.tshirtSize}`].filter(Boolean).join(' · ')
 }
 
-/** 송장 번호를 줄마다 하나씩 읽는다 (빈 줄은 건너뛴다) */
-function trackingLines(text: string) {
-  return text
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-}
-
 // 피그마 V2 · S08 키트 배송 관리
 export function SellerKitsPage() {
   // 조회에 건 대회 · 상태는 URL에 담는다. 고르는 중인 값(draft)은 화면 상태이고 「조회」를 누르면 URL에 쓴다.
@@ -98,8 +99,6 @@ export function SellerKitsPage() {
 
   const [checked, setChecked] = useState<number[]>([])
   const [next, setNext] = useState<NextStatus>('SHIPPING')
-  const [carrier, setCarrier] = useState(CARRIERS[0].value)
-  const [tracking, setTracking] = useState('')
   const [result, setResult] = useState<{ done: number; failures: KitFailure[] } | null>(null)
 
   const ship = useShipKits()
@@ -122,7 +121,14 @@ export function SellerKitsPage() {
     setResult(null)
   }
 
+  const { control, handleSubmit, resetField } = useForm<ShipFormInput, unknown, ShipFormValues>({
+    resolver: zodResolver(shipFormSchema(selected.length)),
+    defaultValues: { carrier: CARRIERS[0].value, tracking: '' },
+  })
+  const carrier = useWatch({ control, name: 'carrier' })
+  const tracking = useWatch({ control, name: 'tracking' })
   const lines = trackingLines(tracking)
+  const shipCheck = shipFormSchema(selected.length).safeParse({ carrier, tracking })
   const selectedLabels = [
     ...new Set(selected.map((kit) => KIT_STATUS[kit.kitDeliveryStatus ?? 'PREPARING'].label)),
   ]
@@ -131,29 +137,35 @@ export function SellerKitsPage() {
       ? null
       : selected.some((kit) => kit.kitDeliveryStatus !== FROM[next])
         ? `${KIT_STATUS[FROM[next]].label} 상태인 주문만 ${TO[next]} 바꿀 수 있어요.`
-        : next === 'SHIPPING' && lines.length !== selected.length
-          ? `송장 번호를 선택한 ${selected.length}건만큼 줄마다 넣어 주세요.`
+        : next === 'SHIPPING' && !shipCheck.success
+          ? shipCheck.error.issues[0].message
           : null
   const canSubmit = selected.length > 0 && !blocker && !pending
 
-  async function submit() {
+  async function send(request: () => Promise<{ total: number; failures: KitFailure[] }>) {
     setResult(null)
-    const outcome =
-      next === 'SHIPPING'
-        ? await ship.mutateAsync(
-            selected.map((kit, i) => ({
-              orderItemId: kitId(kit),
-              carrier,
-              trackingNumber: lines[i],
-            })),
-          )
-        : await deliver.mutateAsync(selected.map((kit) => ({ orderItemId: kitId(kit) })))
+    const outcome = await request()
     const failedIds = outcome.failures.map((f) => f.orderItemId)
     setResult({ done: outcome.total - failedIds.length, failures: outcome.failures })
     // 성공한 건은 고른 상태에서 빼고, 실패한 건만 남겨 다시 시도하게 한다
     setChecked((prev) => prev.filter((id) => failedIds.includes(id)))
-    if (failedIds.length === 0) setTracking('')
+    if (failedIds.length === 0) resetField('tracking', { defaultValue: '' })
   }
+
+  const submit = () =>
+    next === 'SHIPPING'
+      ? void handleSubmit((values) =>
+          send(() =>
+            ship.mutateAsync(
+              selected.map((kit, i) => ({
+                orderItemId: kitId(kit),
+                carrier: values.carrier,
+                trackingNumber: values.tracking[i],
+              })),
+            ),
+          ),
+        )()
+      : void send(() => deliver.mutateAsync(selected.map((kit) => ({ orderItemId: kitId(kit) }))))
 
   const orderNoOf = (id: number) => rows.find((kit) => kitId(kit) === id)?.orderNo ?? String(id)
 
@@ -313,27 +325,37 @@ export function SellerKitsPage() {
           </div>
           {next === 'SHIPPING' && (
             <>
-              <Select
-                label="택배사"
-                items={CARRIERS}
-                value={carrier}
-                onValueChange={(value) => setCarrier(value ?? CARRIERS[0].value)}
+              <Controller
+                control={control}
+                name="carrier"
+                render={({ field }) => (
+                  <Select
+                    label="택배사"
+                    items={CARRIERS}
+                    value={field.value}
+                    onValueChange={(value) => field.onChange(value ?? CARRIERS[0].value)}
+                  />
+                )}
               />
-              {selected.length > 1 ? (
-                <Textarea
-                  label="송장 번호"
-                  value={tracking}
-                  onChange={(event) => setTracking(event.target.value)}
-                  helper="여러 건을 고르면 줄마다 따로 넣어요"
-                />
-              ) : (
-                <TextField
-                  label="송장 번호"
-                  value={tracking}
-                  onChange={(event) => setTracking(event.target.value)}
-                  helper="여러 건을 고르면 줄마다 따로 넣어요"
-                />
-              )}
+              <Controller
+                control={control}
+                name="tracking"
+                render={({ field }) =>
+                  selected.length > 1 ? (
+                    <Textarea
+                      label="송장 번호"
+                      helper="여러 건을 고르면 줄마다 따로 넣어요"
+                      {...field}
+                    />
+                  ) : (
+                    <TextField
+                      label="송장 번호"
+                      helper="여러 건을 고르면 줄마다 따로 넣어요"
+                      {...field}
+                    />
+                  )
+                }
+              />
               {selected.length > 1 && (
                 // 줄은 표의 위에서부터 순서대로 주문에 붙는다. 한 번 보내면 되돌릴 수 없어서 짝을 미리 보여 준다.
                 <ul aria-label="발송 미리보기" className="flex flex-col gap-1 text-body2-regular">
