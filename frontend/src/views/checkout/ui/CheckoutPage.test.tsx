@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { readKitOptionIds, saveKitOptionIds } from '@/features/booking'
 import { cashApi, orderApi } from '@/shared/api'
-import { orderMock, server } from '@/shared/testing'
+import { orderMock, productMock, server } from '@/shared/testing'
 
 import { CheckoutPage, type CheckoutState } from './CheckoutPage'
 
@@ -856,13 +856,21 @@ describe('결제 화면', () => {
       renderCheckout()
 
       const amount = await screen.findByRole('region', { name: '결제 금액' })
-      await within(await screen.findByRole('region', { name: '예치금' })).findByText(
-        '45,000원 (전액)',
-      )
+      const deposit = await screen.findByRole('region', { name: '예치금' })
+      await within(deposit).findByText('45,000원')
+      expect(within(deposit).queryByText(/전액/)).not.toBeInTheDocument()
       expect(screen.queryByRole('heading', { name: '충전 수단' })).not.toBeInTheDocument()
       expect(within(amount).queryByText('카드로 충전할 금액')).not.toBeInTheDocument()
       expect(within(amount).getByText('-45,000원')).toBeInTheDocument()
       expect(within(amount).getByText('0원')).toBeInTheDocument()
+    })
+
+    it('보유 예치금을 전부 쓰면 쓸 예치금 뒤에 (전액)을 붙인다', async () => {
+      server.use(balanceHandler(45_000))
+      renderCheckout()
+
+      const deposit = await screen.findByRole('region', { name: '예치금' })
+      expect(await within(deposit).findByText('45,000원 (전액)')).toBeInTheDocument()
     })
 
     it('잔액을 못 불러오면 예치금 구역은 값 대신 -를 보여 준다', async () => {
@@ -894,6 +902,27 @@ describe('결제 화면', () => {
           '크루런은 통신판매중개자이며 거래 당사자가 아니에요. 대회 운영과 환불 책임은 판매자에게 있어요.',
         ),
       ).toBeInTheDocument()
+      await agree(user)
+      expect(pay).toBeEnabled()
+    })
+
+    it('환불 기한이 없으면 날짜 문장은 빼고 동의 체크와 이용약관 줄만 남기며, 체크하면 결제할 수 있다', async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+      const example = productMock.getFindRaceResponseMock()
+      server.use(
+        productMock.getFindRaceMockHandler({
+          ...example,
+          data: { ...example.data!, refundDeadline: undefined },
+        }),
+      )
+      renderCheckout()
+
+      const pay = await screen.findByRole('button', { name: '45,000원 결제하기' })
+      const consent = region('결제 동의')
+      await within(consent).findByText('(필수) 결제대행 서비스 이용약관 동의')
+      expect(within(consent).queryByText(/뒤에는 취소해도 환불되지 않아요/)).not.toBeInTheDocument()
+      expect(within(consent).queryByText(/-/)).not.toBeInTheDocument()
+      expect(pay).toBeDisabled()
       await agree(user)
       expect(pay).toBeEnabled()
     })

@@ -493,8 +493,11 @@ function raceSummary(
   return { title: race.title, meta, image: race.images[0] }
 }
 
-const refundDeadlineOf = (race: RaceDetail) =>
-  race.schedule.find((row) => row.label === '전액 환불 기한')?.value
+// 매퍼는 기한이 없으면 '-'를 넣는다. 날짜 문장에는 쓰지 않는다.
+const refundDeadlineOf = (race: RaceDetail) => {
+  const value = race.schedule.find((row) => row.label === '전액 환불 기한')?.value
+  return value === '-' ? undefined : value
+}
 
 const GENDER_LABEL: Record<string, string> = { MALE: '남성', FEMALE: '여성' }
 
@@ -665,7 +668,7 @@ function CheckoutForm({
               strong
               value={
                 payment
-                  ? `${won(payment.fromDeposit)}${payment.fromDeposit > 0 ? ' (전액)' : ''}`
+                  ? `${won(payment.fromDeposit)}${payment.fromDeposit > 0 && payment.fromDeposit === balance ? ' (전액)' : ''}`
                   : '-'
               }
             />
