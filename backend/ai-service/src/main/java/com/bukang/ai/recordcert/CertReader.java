@@ -47,6 +47,9 @@ public class CertReader implements AutoCloseable {
 	// 사진 픽셀 상한 2500만(휴대폰 기본 12MP · 24MP는 통과). 풀면 BGR 3바이트라 약 75MB로 512Mi 안에 든다.
 	// 48MP 원본 모드 사진은 약 144MB라 읽지 않고 실패(→ 심사 필요)로 넘긴다
 	static final long MAX_PIXELS = 25_000_000L;
+	// 상자 하나의 넓이 상한(픽셀). 사진 전체를 덮는 큰 상자가 오면 원본 크기 조각 + 회전본으로 512Mi를 넘길 수 있어 읽지 않는다.
+	// 글자 줄 상자는 작아 400만이면 넉넉하다. 가로·세로 어느 쪽이 길어도 메모리는 넓이에 비례하므로 넓이로 막는다
+	static final long MAX_CROP_PIXELS = 4_000_000L;
 	// 브라우저 좌표 변환의 부동소수 오차를 받아 주는 폭(픽셀). 이만큼 사진 밖이어도 읽는다
 	private static final float EDGE_TOLERANCE = 0.5f;
 
@@ -185,6 +188,9 @@ public class CertReader implements AutoCloseable {
 		int ch = (int)Math.max(norm(topLeft, bottomLeft), norm(topRight, bottomRight));
 		if (cw < 1 || ch < 1) {
 			return new Mat(); // 넓이 없는 상자
+		}
+		if ((long)cw * ch > MAX_CROP_PIXELS) {
+			return new Mat(); // 너무 큰 상자(사진 전체 등) → 읽지 않고 심사로 넘긴다
 		}
 		MatOfPoint2f src = new MatOfPoint2f(pt(topLeft), pt(topRight), pt(bottomRight), pt(bottomLeft));
 		MatOfPoint2f dst = new MatOfPoint2f(new Point(0, 0), new Point(cw, 0), new Point(cw, ch), new Point(0, ch));

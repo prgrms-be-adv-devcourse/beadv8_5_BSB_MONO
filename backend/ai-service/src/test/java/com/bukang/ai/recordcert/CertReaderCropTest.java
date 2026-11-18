@@ -11,6 +11,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.opencv.core.Core;
+import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfByte;
 import org.opencv.imgcodecs.Imgcodecs;
@@ -61,6 +62,28 @@ class CertReaderCropTest {
 			checked++;
 		}
 		assertThat(checked).isEqualTo(4);
+	}
+
+	@Test
+	@DisplayName("상자 넓이가 상한을 넘으면 읽지 않고 빈 조각을 준다 (사진 전체 상자 OOM 방지)")
+	void oversizedBoxReturnsEmpty() {
+		Mat original = new Mat(10, 10, CvType.CV_8UC3);
+		try {
+			int overSide = (int)Math.sqrt(CertReader.MAX_CROP_PIXELS) + 100; // 넓이가 상한을 넘게
+			Mat over = CertReader.crop(original, square(overSide));
+			assertThat(over.empty()).as("상한 초과").isTrue();
+			over.release();
+
+			Mat ok = CertReader.crop(original, square(100)); // 상한 안이면 자른다
+			assertThat(ok.empty()).as("상한 이하").isFalse();
+			ok.release();
+		} finally {
+			original.release();
+		}
+	}
+
+	private static float[][] square(int side) {
+		return new float[][] {{0, 0}, {side, 0}, {side, side}, {0, side}};
 	}
 
 	@Test
