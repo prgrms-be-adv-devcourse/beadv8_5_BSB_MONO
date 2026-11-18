@@ -155,15 +155,20 @@ describe('DepositPage 내역', () => {
     expect(screen.getAllByText(/남은 금액/)).toHaveLength(2)
   })
 
-  it('돌려받는 방법은 카드 먼저, 기한 지난 몫만 계좌라고 안내한다', async () => {
+  it('v3 시안: 아래 설명 구역 없이 보유 예치금 · 내역 · 하단 버튼 두 개만 있다', async () => {
     renderPage()
 
-    expect(
-      await screen.findByText(
-        '결제한 카드로 먼저 돌려드리고, 카드 취소 기한이 지난 몫만 계좌로 보내 드려요.',
-      ),
-    ).toBeInTheDocument()
-    expect(screen.queryByText('관리자가 확인한 뒤 계좌로 보내 드려요.')).not.toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '내역' })).toBeInTheDocument()
+    expect(screen.getByText('보유 예치금')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '돌려받는 방법' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '돌려받기' })).toHaveAttribute(
+      'href',
+      '/me/deposit/refund',
+    )
+    expect(screen.getByRole('link', { name: '충전하기' })).toHaveAttribute(
+      'href',
+      '/me/deposit/charge',
+    )
   })
 
   it('내역이 없으면 빈 목록 안내를 보여 준다', async () => {

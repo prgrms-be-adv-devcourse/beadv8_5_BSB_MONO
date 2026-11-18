@@ -13,11 +13,11 @@ import { myTicketCountQueryOptions } from '@/entities/ticket'
 import { useMyBalance } from '@/entities/wallet'
 import { memberApi, unwrapData } from '@/shared/api'
 import { cn, formatNumber } from '@/shared/lib'
-import { Avatar, buttonClassName, Dialog, Divider, FOCUS_RING, Skeleton } from '@/shared/ui'
+import { Avatar, Dialog, FOCUS_RING, Icon, Skeleton } from '@/shared/ui'
 
 import { EMPTY, MenuGroup, MenuRow } from './MenuRow'
 
-// 피그마 v2 · 마이(1639:16187 내 문의 메뉴가 붙은 최신판, 1333:22460) + 로딩(1333:21220) · 불러오지 못함(1333:21252) · 로그아웃 확인 창(1459:15984)
+// 피그마 V3 · 마이 · 일반 회원(1949:20850) · 관리자 계정(1950:609), v2 로딩(1333:21220) · 불러오지 못함(1333:21252) · 로그아웃 확인 창(1459:15984)
 // 회원 정보는 내 정보 조회(GET /api/v1/member/members/me)로 불러온다.
 // 예치금은 지갑 잔액 API(useMyBalance)로 불러온다.
 // 참가 대회 수는 내 참가권 화면과 같은 목록(주문 API)에서 취소한 참가권만 빼고 센다.
@@ -55,10 +55,15 @@ export function MyPage() {
 
   return (
     <>
-      <AppHeader />
-      <main className="flex flex-1 flex-col pt-(--layout-content-start) pb-6">
+      <AppHeader search={false} className="border-b-0" />
+      <main className="flex flex-1 flex-col pt-(--layout-content-start) pb-8">
         {/* 회원 정보 글자는 Clarity 화면 녹화에서 가린다 */}
-        <div className="flex items-center gap-3 px-4" data-clarity-mask="true">
+        <Link
+          href="/me/settings"
+          aria-label="계정 설정"
+          className={cn('mx-5 flex items-center gap-3 rounded-md', FOCUS_RING)}
+          data-clarity-mask="true"
+        >
           <Avatar size="xl" name={member.nickname} />
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             <p className="truncate text-title3">
@@ -67,38 +72,58 @@ export function MyPage() {
             </p>
             <p className="truncate text-caption-regular text-text-secondary">{member.email}</p>
           </div>
-          <Link
-            href="/me/settings"
-            className={buttonClassName({ variant: 'secondary', size: 's' })}
-          >
-            계정 설정
-          </Link>
-        </div>
+          <Icon name="ChevronRight" className="size-5 shrink-0" />
+        </Link>
 
-        <div className="mx-4 mt-4 flex items-center gap-2 rounded-lg bg-bg-surface p-3 pl-4 inset-ring inset-ring-border-default">
-          <span className="text-body2-regular text-text-secondary">예치금</span>
-          <span className="flex-1 text-body2-bold">
-            {balance === undefined ? EMPTY : `${formatNumber(balance)}원`}
-          </span>
-          <Link href="/me/deposit/charge" className={buttonClassName({ size: 's' })}>
-            충전하기
-          </Link>
+        <div className="mx-5 mt-8 flex flex-col overflow-hidden rounded-md border border-border-default">
+          <div className="flex flex-col gap-0.5 p-4">
+            <span className="text-body2-regular text-text-secondary">예치금</span>
+            <span className="text-title2">
+              {balance === undefined ? EMPTY : `${formatNumber(balance)}원`}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 border-t border-border-default">
+            <Link
+              href="/me/deposit/charge"
+              className={cn('py-3.5 text-center text-body2-medium text-text-brand', FOCUS_RING)}
+            >
+              충전하기
+            </Link>
+            <Link
+              href="/me/deposit/refund"
+              className={cn(
+                'border-l border-border-default py-3.5 text-center text-body2-medium',
+                FOCUS_RING,
+              )}
+            >
+              돌려받기
+            </Link>
+          </div>
         </div>
 
         <MenuGroup title="나의 참가">
           <MenuRow
             href="/tickets"
-            icon="TicketCheck"
+            icon="Orders"
             label="내 참가권"
             value={ticketCount.data === undefined ? undefined : `${ticketCount.data}개`}
           />
           <MenuRow href="/me/deposit" icon="Wallet" label="예치금 내역" />
           <MenuRow href="/crews" icon="Users" label="내 크루" />
-          <MenuRow href="/me/inquiries" icon="Inbox" label="내 문의" />
-          <MenuRow href="/me/inquiries/new" icon="Info" label="참가 · 결제 문의하기" />
         </MenuGroup>
 
-        <Divider />
+        <MenuGroup title="문의">
+          <MenuRow href="/me/inquiries" icon="Inbox" label="내 문의" />
+          <MenuRow href="/me/inquiries/new" icon="Message" label="참가 · 결제 문의하기" />
+          <MenuRow href="/me/support" icon="Help" label="고객센터" />
+        </MenuGroup>
+
+        <MenuGroup title="설정">
+          <MenuRow href="/me/notification-settings" icon="Bell" label="알림 설정" />
+          <MenuRow href="/me/accounts" icon="Link" label="연결된 계정" />
+          <MenuRow href="/me/settings/terms" icon="FileText" label="약관 · 정책" />
+        </MenuGroup>
+
         <MenuGroup title="판매">
           <SellerMenuRow />
         </MenuGroup>
@@ -109,7 +134,7 @@ export function MyPage() {
           onClick={() => setLogoutOpen(true)}
           disabled={logout.isPending}
           className={cn(
-            'mt-6 self-start rounded-sm px-4 py-2 text-caption-regular text-text-secondary',
+            'mx-5 mt-8 self-start rounded-sm text-body2-regular text-text-secondary',
             FOCUS_RING,
           )}
         >
@@ -167,7 +192,6 @@ function SellerMenuRow() {
         href={mine.data.resultCheckedAt ? '/seller' : '/seller-apply/result'}
         icon="Dashboard"
         label="판매자 센터"
-        description="대회 등록 · 판매 현황 · 정산을 관리해요"
       />
     )
   }
@@ -176,7 +200,6 @@ function SellerMenuRow() {
       href={mine.isError && isNoApplication(mine.error) ? '/seller-apply' : '/seller-apply/result'}
       icon="Dashboard"
       label="판매자 등록 신청"
-      description="대회를 열고 참가권을 팔 수 있어요"
     />
   )
 }
@@ -191,11 +214,8 @@ function AdminMenuGroup() {
   )
   if (!admin.isSuccess) return null
   return (
-    <>
-      <Divider />
-      <MenuGroup title="관리">
-        <MenuRow href="/admin" icon="Dashboard" label="관리자 센터" />
-      </MenuGroup>
-    </>
+    <MenuGroup title="관리">
+      <MenuRow href="/admin" icon="Dashboard" label="관리자 센터" />
+    </MenuGroup>
   )
 }

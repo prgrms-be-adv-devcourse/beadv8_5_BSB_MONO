@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, render, screen, within } from '@testing-library/react'
+import { act, cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it, vi } from 'vitest'
@@ -115,12 +115,6 @@ describe('RaceDetailPage 공유 · 일정', () => {
     )
     writeText.mockRestore()
   })
-
-  it('접수 일정은 접수 기간과 정보 수정 기한 두 줄이다', () => {
-    renderPage()
-    expect(screen.getByText('정보 수정 기한')).toBeInTheDocument()
-    expect(screen.queryByText('전액 환불 기한')).not.toBeInTheDocument()
-  })
 })
 
 describe('RaceDetailPage 비슷한 대회 (M02-6)', () => {
@@ -206,5 +200,140 @@ describe('RaceDetailPage 크루 전용 자리 (M02-3)', () => {
 
     expect(await screen.findByRole('button', { name: '파티로 신청 중이에요' })).toBeDisabled()
     expect(screen.getByText('파티로 신청 중인 대회예요')).toBeInTheDocument()
+  })
+})
+
+describe('RaceDetailPage v3 배치', () => {
+  it('대표 사진 위에는 쪽 번호만 있고 제목 글과 상태 배지는 없다', () => {
+    renderPage()
+    expect(screen.getByText(`1 / ${RACE_DETAIL.images.length}`)).toBeInTheDocument()
+    expect(screen.queryByText(RACE_DETAIL.heroTitle)).not.toBeInTheDocument()
+    expect(screen.queryByText(RACE_DETAIL.status.label)).not.toBeInTheDocument()
+  })
+
+  it('제목 아래에 대회일 · 장소 · 접수 마감과 정원 · 최저가를 보여 준다', () => {
+    renderPage()
+    expect(screen.getByRole('heading', { level: 2, name: RACE_DETAIL.title })).toBeInTheDocument()
+    expect(screen.getByText(RACE_DETAIL.startsAt)).toBeInTheDocument()
+    expect(screen.getByText(RACE_DETAIL.place)).toBeInTheDocument()
+    expect(screen.getByText('접수 마감 D-12 · 정원 3,000명')).toBeInTheDocument()
+    // 종목 5K도 35,000원이라 「부터」 바로 앞 글자로 최저가를 찾는다
+    expect(screen.getByText('부터').previousElementSibling).toHaveTextContent('35,000원')
+  })
+
+  it('접수가 끝났으면 「접수 마감」을 한 번만 쓰고, 마감일이 없으면 정원만 쓴다', () => {
+    renderPage({ race: { ...RACE_DETAIL, dDay: '마감' } })
+    expect(screen.getByText('접수 마감 · 정원 3,000명')).toBeInTheDocument()
+    cleanup()
+    renderPage({ race: { ...RACE_DETAIL, dDay: '-' } })
+    expect(screen.getByText('정원 3,000명')).toBeInTheDocument()
+  })
+
+  it('바로 가기 탭은 종목 · 일정 · 환불 · 상세이고, 누르면 그 자리로 스크롤한다', async () => {
+    const scrollIntoView = vi.fn()
+    Element.prototype.scrollIntoView = scrollIntoView
+    renderPage()
+    const nav = screen.getByRole('navigation', { name: '대회 상세 바로 가기' })
+    const links = within(nav).getAllByRole('link')
+    expect(links.map((link) => link.textContent)).toEqual(['종목', '일정', '환불', '상세'])
+    expect(links[0]).toHaveAttribute('aria-current', 'location')
+
+    await userEvent.setup().click(within(nav).getByRole('link', { name: '환불' }))
+    expect(scrollIntoView).toHaveBeenCalled()
+    expect(scrollIntoView.mock.instances.at(-1)).toHaveProperty('id', 'race-refund')
+    expect(within(nav).getByRole('link', { name: '환불' })).toHaveAttribute(
+      'aria-current',
+      'location',
+    )
+  })
+
+  it('설명도 사진도 없으면 바로 가기에서 상세를 뺀다', () => {
+    renderPage({ race: { ...RACE_DETAIL, description: '', images: [] } })
+    const nav = screen.getByRole('navigation', { name: '대회 상세 바로 가기' })
+    expect(
+      within(nav)
+        .getAllByRole('link')
+        .map((link) => link.textContent),
+    ).toEqual(['종목', '일정', '환불'])
+  })
+
+  it('종목 카드는 사진 없이 이름 · 구성 · 가격이고, 눌러서 고른 종목을 바꾼다', async () => {
+    renderPage()
+    const first = screen.getByRole('button', { name: /^10K/ })
+    const second = screen.getByRole('button', { name: /^5K/ })
+    expect(first).toHaveTextContent('1인 · 기념 티셔츠 · 완주 메달')
+    expect(first).toHaveTextContent('45,000원')
+    expect(first.querySelector('img')).toBeNull()
+    expect(first).toHaveAttribute('aria-pressed', 'true')
+
+    await userEvent.setup().click(second)
+    expect(second).toHaveAttribute('aria-pressed', 'true')
+    expect(first).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('정원이 찬 종목은 고를 수 없다', () => {
+    const race: RaceDetail = {
+      ...RACE_DETAIL,
+      options: RACE_DETAIL.options.map((o) => (o.id === '10k' ? { ...o, soldOut: true } : o)),
+    }
+    renderPage({ race })
+    expect(screen.getByRole('button', { name: /^10K/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /^5K/ })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('접수 · 취소 · 환불 · 키트 배송 · 양도를 이름 칸과 내용으로 안내한다', () => {
+    renderPage()
+    for (const name of ['접수', '취소·환불', '키트 배송', '양도']) {
+      expect(screen.getByText(name)).toBeInTheDocument()
+    }
+    expect(screen.getByText('10/14 (수) 10:00 ~ 10/31 (토) 18:00')).toBeInTheDocument()
+    expect(screen.getByText('정보 수정은 10/31 (토) 18:00까지')).toBeInTheDocument()
+    expect(screen.getByText('10/31 (토) 23:59')).toBeInTheDocument()
+    expect(screen.getByText('까지 취소하면 전액 환불')).toBeInTheDocument()
+    expect(screen.getByText('환불 불가')).toBeInTheDocument()
+    expect(screen.getByText('예치금')).toBeInTheDocument()
+    expect(screen.getByText('양도할 수 없어요')).toBeInTheDocument()
+  })
+
+  it('환불 기한이 없는 대회는 기한 상자를 그리지 않는다', () => {
+    const race: RaceDetail = {
+      ...RACE_DETAIL,
+      schedule: RACE_DETAIL.schedule.map((row) =>
+        row.label === '전액 환불 기한' ? { ...row, value: '-' } : row,
+      ),
+    }
+    renderPage({ race })
+    expect(screen.queryByText('까지 취소하면 전액 환불')).not.toBeInTheDocument()
+    expect(screen.queryByText('환불 불가')).not.toBeInTheDocument()
+  })
+
+  it('자주 묻는 질문은 눌러서 답을 펼치고, 질문이 없으면 영역을 숨긴다', async () => {
+    const user = userEvent.setup()
+    const { unmount } = render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ToastProvider>
+          <RaceDetailPage race={RACE_DETAIL} />
+        </ToastProvider>
+      </QueryClientProvider>,
+    )
+    expect(screen.getByRole('heading', { name: '자주 묻는 질문' })).toBeInTheDocument()
+    const { question, answer } = RACE_DETAIL.faq[0]
+    await user.click(screen.getByText(question))
+    expect(screen.getByText(answer)).toBeVisible()
+    unmount()
+
+    renderPage({ race: { ...RACE_DETAIL, faq: [] } })
+    expect(screen.queryByRole('heading', { name: '자주 묻는 질문' })).not.toBeInTheDocument()
+  })
+
+  it('상세 정보 제목 아래에 사진을 보여 주고, 판매자 정보 세 줄이 맨 아래에 있다', () => {
+    renderPage()
+    expect(screen.getByRole('heading', { name: '상세 정보' })).toBeInTheDocument()
+    expect(screen.getAllByRole('img', { name: /상세 정보 이미지/ })).toHaveLength(
+      RACE_DETAIL.images.length,
+    )
+    expect(screen.getByText(RACE_DETAIL.seller.name)).toBeInTheDocument()
+    expect(screen.getByText(RACE_DETAIL.seller.businessNo)).toBeInTheDocument()
+    expect(screen.getByText(RACE_DETAIL.seller.mailOrderNo)).toBeInTheDocument()
   })
 })

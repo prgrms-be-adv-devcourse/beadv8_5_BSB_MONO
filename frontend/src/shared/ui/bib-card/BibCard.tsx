@@ -57,11 +57,11 @@ export function BibCard({
   return (
     <article
       className={cn(
-        'flex w-full flex-col overflow-hidden rounded-lg bg-bg-surface shadow-md',
+        'flex w-full flex-col overflow-hidden rounded-lg border border-border-default bg-bg-surface',
         className,
       )}
     >
-      <div className={cn('relative flex flex-col gap-1.5 overflow-hidden px-5 py-4', colors.band)}>
+      <div className={cn('relative flex flex-col gap-2 overflow-hidden px-5 py-4', colors.band)}>
         {image && (
           <>
             <Image
@@ -79,13 +79,13 @@ export function BibCard({
           <span className={cn('text-caption-medium', colors.eyebrow)}>{eyebrow}</span>
           {status}
         </div>
-        <p className="relative flex items-baseline gap-1.5">
+        <p className="relative flex items-baseline gap-2">
           {type === 'ticket' && unitNode}
           <span className={cn('font-display text-number-l', colors.number)}>{number}</span>
           {type === 'crew' && unitNode}
         </p>
       </div>
-      <div className="flex flex-col gap-1.5 px-5 pt-2 pb-5">
+      <div className="flex flex-col gap-2 px-5 pt-2 pb-5">
         <p className="text-body1-bold text-text-primary">{title}</p>
         {progress}
         {meta && <p className="text-body2-regular text-text-secondary">{meta}</p>}

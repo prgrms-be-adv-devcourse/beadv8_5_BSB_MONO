@@ -7,19 +7,21 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
+import { BottomNav } from '@/widgets/bottom-nav'
 import { useAuthStatus } from '@/features/auth'
 import { canInvite, CREW_ROLE_LABEL } from '@/entities/crew'
 import { useCrewActiveParties, type PartySummary } from '@/entities/party'
 import { ApiError, memberApi, productApi, unwrapData, type memberModel } from '@/shared/api'
-import { useSearchParamsState } from '@/shared/lib'
+import { cn, useSearchParamsState } from '@/shared/lib'
 import {
   Avatar,
-  Badge,
   Button,
   buttonClassName,
   Dialog,
   Divider,
   EmptyState,
+  FOCUS_RING,
+  Icon,
   Skeleton,
   Tab,
   TabBar,
@@ -59,12 +61,14 @@ export function CrewHomePage({ crewId }: { crewId: number }) {
         ) : (
           <>
             <CrewBand className="gap-4">
-              <div className="flex flex-col items-center gap-2 text-center">
+              <div className="flex flex-col items-center gap-3 text-center">
                 <Avatar size="xl" name={crew.data.name} />
-                <h2 className="w-full truncate text-title1">{crew.data.name}</h2>
-                <p className="text-body2-regular text-text-secondary">
-                  나는 {CREW_ROLE_LABEL[crew.data.myRole]} · 크루원 {crew.data.memberCount}명
-                </p>
+                <div className="flex w-full flex-col gap-1">
+                  <h2 className="truncate text-title1">{crew.data.name}</h2>
+                  <p className="text-body2-regular text-text-secondary">
+                    나는 {CREW_ROLE_LABEL[crew.data.myRole]} · 크루원 {crew.data.memberCount}명
+                  </p>
+                </div>
               </div>
               <div className="flex gap-2">
                 <Link
@@ -81,7 +85,7 @@ export function CrewHomePage({ crewId }: { crewId: number }) {
                   <Link
                     href={`/crews/${crewId}/invites` as Route}
                     className={buttonClassName({
-                      variant: 'secondary',
+                      variant: 'ghost',
                       size: 'm',
                       className: 'flex-1',
                     })}
@@ -145,6 +149,7 @@ export function CrewHomePage({ crewId }: { crewId: number }) {
           </>
         )}
       </main>
+      <BottomNav />
     </>
   )
 }
@@ -156,33 +161,35 @@ const PARTY_STATUS_LABEL: Record<PartySummary['status'], string> = {
   CLOSED: '끝난 파티',
 }
 
-// 시안 파티 19 · 크루 홈 진행 중인 파티: 모집 상태 칩, 대회 이름, 파티장 · 인원. 내 파티만 「파티 보기」로 이어진다.
+// v3 시안 · 크루 홈 진행 중인 파티: 모집 상태 글자, 대회 이름, 파티장 · 인원. 내 파티는 카드 전체가 파티 상세로 이어지고, 아닌 파티는 「내가 없는 파티」로만 보여 준다.
 function PartyCard({ party }: { party: PartySummary }) {
   const race = productApi.useFindRace(party.raceId, { query: { select: unwrapData } })
   const max = race.data?.crewMaxCount
-  return (
-    <div className="flex flex-col gap-2 rounded-md border border-border-default bg-bg-surface p-4">
-      <div className="flex min-h-9 items-center justify-between gap-2">
-        <Badge>{PARTY_STATUS_LABEL[party.status]}</Badge>
-        {party.myParty && (
-          <Link
-            href={`/parties/${party.id}` as Route}
-            className={buttonClassName({ variant: 'ghost', size: 's' })}
-          >
-            파티 보기
-          </Link>
+  const body = (
+    <>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-body2-medium text-text-brand">
+          {PARTY_STATUS_LABEL[party.status]}
+        </span>
+        {party.myParty ? (
+          <Icon name="ChevronRight" className="size-5 text-text-secondary" />
+        ) : (
+          <span className="text-body2-regular text-text-secondary">내가 없는 파티</span>
         )}
       </div>
-      <h3 className="text-body1-medium">{race.data?.title ?? <Skeleton className="w-2/3" />}</h3>
+      <h3 className="text-body1-bold">{race.data?.title ?? <Skeleton className="w-2/3" />}</h3>
       <p className="text-body2-regular text-text-secondary">
         파티장 {party.leaderNickname} · {party.memberCount}명{max ? ` / 최대 ${max}명` : ''}
       </p>
-      {!party.myParty && (
-        <p className="text-caption-regular text-text-secondary">
-          파티장이 보낸 링크로 합류할 수 있어요
-        </p>
-      )}
-    </div>
+    </>
+  )
+  const card = 'flex flex-col gap-2 rounded-md border border-border-default bg-bg-surface p-4'
+  return party.myParty ? (
+    <Link href={`/parties/${party.id}` as Route} className={cn(card, 'rounded-md', FOCUS_RING)}>
+      {body}
+    </Link>
+  ) : (
+    <div className={card}>{body}</div>
   )
 }
 
