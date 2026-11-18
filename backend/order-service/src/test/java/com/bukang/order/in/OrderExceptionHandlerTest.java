@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -90,6 +91,15 @@ class OrderExceptionHandlerTest {
 			.andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
 	}
 
+	@Test
+	@DisplayName("DB 연결을 기다리다 못 받으면 500이 아니라 503으로 다시 시도하게 한다 (CRU-45)")
+	void dbConnectionTimeout() throws Exception {
+		mockMvc.perform(get("/test/db-busy").header("X-Member-Id", "7"))
+			.andExpect(status().isServiceUnavailable())
+			.andExpect(jsonPath("$.status").value(503))
+			.andExpect(jsonPath("$.code").value("ORDER_DB_BUSY"));
+	}
+
 	// standalone MockMvc는 @Controller가 붙은 클래스만 핸들러로 인식한다
 	// 앱 전체 테스트(OrderExceptionHandlerIntegrationTest)에서만 쓰도록, 켜지 않는 프로파일에서만 빈이 되게 한다
 	@RestController
@@ -114,6 +124,11 @@ class OrderExceptionHandlerTest {
 			@RequestParam("keyword") String keyword
 		) {
 			return RsData.of(HttpStatus.OK, "요청을 받았습니다.", keyword);
+		}
+
+		@GetMapping("/test/db-busy")
+		RsData<Void> dbBusy(@LoginMemberId long memberId) {
+			throw new CannotCreateTransactionException("Connection is not available, request timed out after 3000ms.");
 		}
 	}
 }

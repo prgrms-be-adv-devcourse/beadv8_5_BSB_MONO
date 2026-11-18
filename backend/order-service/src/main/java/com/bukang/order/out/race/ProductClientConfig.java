@@ -9,6 +9,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestClient;
 
 import com.bukang.order.out.InternalHttpClients;
+import com.bukang.order.out.kit.CachingKitOptionPort;
 import com.bukang.order.out.kit.HttpKitOptionAdapter;
 import com.bukang.order.out.seat.HttpCrewSeatHoldAdapter;
 import com.bukang.order.out.seat.HttpSeatHoldAdapter;
@@ -23,12 +24,15 @@ import com.bukang.order.out.seat.HttpSeatHoldAdapter;
 public class ProductClientConfig {
 	// RestClient는 빈으로 두지 않는다. 다른 서비스용 RestClient가 생겨도 타입으로 주입할 때 겹치지 않게 한다
 	private final RestClient restClient;
+	private final Duration kitOptionCacheTtl;
 
 	public ProductClientConfig(
 		@Value("${order.clients.product.base-url}") String baseUrl,
-		@Value("${order.clients.timeout}") Duration timeout
+		@Value("${order.clients.timeout}") Duration timeout,
+		@Value("${order.clients.product.kit-option-cache-ttl:5s}") Duration kitOptionCacheTtl
 	) {
 		this.restClient = InternalHttpClients.create(baseUrl, timeout);
+		this.kitOptionCacheTtl = kitOptionCacheTtl;
 	}
 
 	@Bean
@@ -41,9 +45,10 @@ public class ProductClientConfig {
 		return new HttpRaceSellerAdapter(restClient);
 	}
 
+	// 결제마다 부르는 옵션 목록을 대회별로 잠깐 기억한다 (CRU-45)
 	@Bean
-	public HttpKitOptionAdapter httpKitOptionAdapter() {
-		return new HttpKitOptionAdapter(restClient);
+	public CachingKitOptionPort kitOptionPort() {
+		return new CachingKitOptionPort(new HttpKitOptionAdapter(restClient), kitOptionCacheTtl, System::nanoTime);
 	}
 
 	@Bean
