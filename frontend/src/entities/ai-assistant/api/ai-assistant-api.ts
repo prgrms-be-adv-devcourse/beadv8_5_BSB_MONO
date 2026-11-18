@@ -55,10 +55,14 @@ export type AxBriefing = {
   metrics: AxBriefingMetric[]
 }
 
+export const aiKeys = {
+  briefing: (screen: AiScreen) => ['ai', screen, 'briefing'] as const,
+}
+
 /** 대시보드 브리핑: GET /api/v1/ai/{screen}/briefing */
 export function axBriefingQueryOptions(screen: AiScreen) {
   return queryOptions({
-    queryKey: ['ai', screen, 'briefing'],
+    queryKey: aiKeys.briefing(screen),
     queryFn: async ({ signal }) =>
       unwrapData(
         await customFetch<RsData<AxBriefing>>(`/api/v1/ai/${screen}/briefing`, { signal }),

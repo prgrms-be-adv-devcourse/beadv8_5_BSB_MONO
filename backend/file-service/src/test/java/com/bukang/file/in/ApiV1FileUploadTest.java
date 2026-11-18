@@ -1,6 +1,7 @@
 package com.bukang.file.in;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.SoftAssertions.assertSoftly;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -295,6 +296,43 @@ class ApiV1FileUploadTest {
 		assertThat(storedFileRepository.findById(fileId).orElseThrow().getStatus()).isEqualTo(FileStatus.DELETED);
 		assertThat(fakeFileStorage.exists(uploadKey)).isFalse();
 		assertThat(fakeFileStorage.exists(uploadKey.replace("test/uploads/", "test/files/"))).isFalse();
+	}
+
+	@Test
+	@DisplayName("가로 1080px 미만 소개 이미지는 업로드 완료가 400이고, 올라간 객체를 지운 뒤 DELETED로 남긴다")
+	void rejectNarrowDetailImage() throws Exception {
+		// given
+		byte[] narrow = TestImages.png(1079, 2000);
+		long fileId = createAndUpload(FileType.DETAIL, narrow, "image/png", narrow);
+		String confirmedKey = s3KeyOf(fileId).replace("test/uploads/", "test/files/");
+
+		// when
+		ResultActions result = complete(MEMBER_ID, fileId);
+
+		// then
+		result.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message")
+				.value("대회 소개 이미지는 가로 1080px 이상만 올릴 수 있습니다(올린 이미지 가로 1079px)."));
+		assertSoftly(softly -> {
+			softly.assertThat(storedFileRepository.findById(fileId).orElseThrow().getStatus())
+				.isEqualTo(FileStatus.DELETED);
+			softly.assertThat(fakeFileStorage.exists(confirmedKey)).isFalse();
+		});
+	}
+
+	@Test
+	@DisplayName("가로나 세로가 4000px을 넘는 이미지는 업로드 완료가 400이다")
+	void rejectTooLargeDimension() throws Exception {
+		// given
+		byte[] tall = TestImages.jpeg(1200, 4001);
+		long fileId = createAndUpload(FileType.DETAIL, tall, "image/jpeg", tall);
+
+		// when
+		ResultActions result = complete(MEMBER_ID, fileId);
+
+		// then
+		result.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message").value("이미지는 가로·세로 4000px 이하만 올릴 수 있습니다(올린 이미지 1200×4001px)."));
 	}
 
 	@Test

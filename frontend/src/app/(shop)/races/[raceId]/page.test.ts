@@ -42,6 +42,9 @@ describe('대회 상세 메타데이터', () => {
           data: { raceId: 1, title: '이미지 없는 대회', courses: [] },
         }),
       ),
+      http.get('*/api/v1/file/files', () =>
+        HttpResponse.json({ status: 200, message: 'ok', data: [] }),
+      ),
     )
 
     const metadata = await metadataFor('1')

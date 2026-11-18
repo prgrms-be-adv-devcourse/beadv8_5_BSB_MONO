@@ -1,10 +1,10 @@
 export {
-  courseImageQueryOptions,
   DEFAULT_RACE_SORT,
   fetchRaceDetail,
   fetchRacePage,
   RACE_PAGE_SIZE,
   raceDetailQueryOptions,
+  raceCoverQueryOptions,
   raceListQueryOptions,
   raceQueryOptions,
   RaceSort,

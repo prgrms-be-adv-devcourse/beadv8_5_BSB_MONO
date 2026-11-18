@@ -39,8 +39,9 @@ public class SocialJoinRequestDto {
 
 	// 동의한 약관 종류. 필수 약관이 빠졌는지는 MemberJoinUseCase에서 확인한다 (BE-021)
 	// 모르는 종류가 오면 JSON을 읽다 실패해 400 INVALID_REQUEST가 된다
-	@Schema(description = "동의한 약관 종류 (SERVICE, PRIVACY는 필수). 동의하지 않은 선택 약관은 빼고 보낸다",
-		example = "[\"SERVICE\", \"PRIVACY\", \"MARKETING\"]")
+	@Schema(description = "동의한 약관 종류 (SERVICE, PRIVACY, AGE_OVER_14는 필수). "
+		+ "동의하지 않은 선택 약관(MARKETING, NIGHT_MARKETING)은 빼고 보낸다",
+		example = "[\"SERVICE\", \"PRIVACY\", \"AGE_OVER_14\", \"MARKETING\"]")
 	@NotNull(message = "동의한 약관 목록을 작성해주세요.")
 	private final List<TermsType> agreedTerms;
 

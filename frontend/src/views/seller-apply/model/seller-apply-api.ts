@@ -23,13 +23,14 @@ export function toApplyStatus(status: memberModel.SellerDtoStatus): SellerApplyS
 /**
  * 폼 값을 신청 요청으로 바꾼다.
  * 비사업자는 성명이 대표자 칸에 들어가고, 상호·사업자등록번호는 보내지 않는다.
- * 정산 계좌는 숫자만 남겨 보낸다. 연락처·약관 동의는 서버가 아직 받지 않는다.
+ * 정산 계좌는 숫자만 남겨 보낸다. 판매자 약관 동의(필수)는 폼 검사를 통과했으므로 항상 true로 보낸다. 연락처는 서버가 아직 받지 않는다.
  */
 export function toApplyRequest(values: SellerApplyFormValues): memberModel.SellerApplyRequestDto {
   const account = {
     bankCode: values.bankCode,
     accountNumber: accountDigits(values.accountNumber),
     accountHolderType: values.accountHolder === 'business' ? 'BUSINESS' : 'PERSONAL',
+    sellerTermsAgreed: true,
   } as const
   if (values.business === 'business') {
     return {

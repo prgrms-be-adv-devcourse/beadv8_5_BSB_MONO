@@ -110,7 +110,7 @@ class ApiV1PasswordResetTest {
 	void setUp() {
 		memberId = memberFacade.join(identityStore.joinRequest(
 			EMAIL, PASSWORD, "김러너", "러너1", "010-1234-5678", LocalDate.of(1995, 4, 12), null,
-			List.of(TermsType.SERVICE, TermsType.PRIVACY)
+			List.of(TermsType.SERVICE, TermsType.PRIVACY, TermsType.AGE_OVER_14)
 		)).getId();
 	}
 
@@ -331,7 +331,7 @@ class ApiV1PasswordResetTest {
 			new PendingSignup(SocialProvider.KAKAO, "kakao-1", socialEmail, null));
 		String identityToken = identityStore.verify("김소셜", LocalDate.of(1995, 4, 12), "010-9876-5432");
 		socialJoinUseCase.join("pending-1", new SocialJoinRequestDto(null, "소셜러너", null,
-			List.of(TermsType.SERVICE, TermsType.PRIVACY), identityToken));
+			List.of(TermsType.SERVICE, TermsType.PRIVACY, TermsType.AGE_OVER_14), identityToken));
 
 		requestReset(socialEmail).andExpect(status().isOk());
 

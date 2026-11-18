@@ -303,6 +303,11 @@ public class ProductFacade {
 		return raceQueryUseCase.findSellerMember(raceId);
 	}
 
+	// 회원 서비스가 판매자 회원 탈퇴 전에 판매가 끝나지 않은 대회가 있는지 확인한다 (내부 API, CRU-34)
+	public SellerOnSaleRaceResult findSellerOnSaleRace(long memberId) {
+		return raceQueryUseCase.findSellerOnSaleRace(memberId);
+	}
+
 	// 정산 서비스의 1차 정산 대상 대회 (내부 API)
 	public List<RaceScheduleDto> findRacesByRefundDeadline(LocalDate from, LocalDate to) {
 		return raceScheduleQueryUseCase.findByRefundDeadline(from, to);

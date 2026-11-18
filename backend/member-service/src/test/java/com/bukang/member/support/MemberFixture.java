@@ -31,7 +31,7 @@ public final class MemberFixture {
 	// 본인 명의 계좌라, 가입 이름(김러너)과 같은 예금주를 돌려주는 테스트 확인을 통과한다
 	public static SellerApplyRequestDto sellerApplyRequest() {
 		return new SellerApplyRequestDto(SellerType.BUSINESS, "크루런 스포츠", "123-45-67890", "김러너",
-			"004", "1101230000678", PayoutAccountHolderType.PERSONAL);
+			"004", "1101230000678", PayoutAccountHolderType.PERSONAL, true);
 	}
 
 	public static final class JoinRequestBuilder {
@@ -42,7 +42,7 @@ public final class MemberFixture {
 		private String phone;
 		private LocalDate birthDate = LocalDate.of(1995, 4, 12);
 		private Gender gender;
-		private List<TermsType> agreedTerms = List.of(TermsType.SERVICE, TermsType.PRIVACY);
+		private List<TermsType> agreedTerms = List.of(TermsType.SERVICE, TermsType.PRIVACY, TermsType.AGE_OVER_14);
 
 		// 테스트가 직접 쓰는 010-1xxx · 010-2xxx 번호와 겹치지 않게 010-9로 시작한다
 		private JoinRequestBuilder(long sequence) {

@@ -128,6 +128,7 @@ export function MyPage() {
         <MenuGroup title="판매">
           <SellerMenuRow />
         </MenuGroup>
+        <AdminMenuGroup />
 
         <button
           type="button"
@@ -201,5 +202,24 @@ function SellerMenuRow() {
       icon="Dashboard"
       label="판매자 등록 신청"
     />
+  )
+}
+
+// 피그마 M30-A(1861:19016): 관리자만 「관리」 묶음에 관리자 센터 줄을 본다.
+// shortcut: 내 정보 응답에 역할이 없어 관리자 전용 신청 목록이 응답하는지로 판단한다(관리자가 아니면 403).
+// 회원 응답에 역할을 더하면 그 값으로 바꾼다.
+function AdminMenuGroup() {
+  const admin = memberApi.useFindAll(
+    { status: 'PENDING' },
+    { query: { enabled: useAuthStatus() === 'authenticated', retry: false } },
+  )
+  if (!admin.isSuccess) return null
+  return (
+    <>
+      <Divider />
+      <MenuGroup title="관리">
+        <MenuRow href="/admin" icon="Dashboard" label="관리자 센터" />
+      </MenuGroup>
+    </>
   )
 }

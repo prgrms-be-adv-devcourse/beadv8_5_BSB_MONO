@@ -8,7 +8,7 @@ import type { CreateInquiryRequest, Inquiry, InquiryManagePage, InquiryPage } fr
 import { BASE, json, KEY, type ManageFilters, type ManageRole } from './inquiry-api'
 
 /** 내 문의 목록 (최신순). 20개씩 받고 fetchNextPage로 다음 쪽을 이어 붙인다 */
-export function useMyInquiries() {
+export function useMyInquiries(enabled = true) {
   return useInfiniteQuery({
     queryKey: [...KEY, 'mine'],
     queryFn: async ({ signal, pageParam }) =>
@@ -20,16 +20,18 @@ export function useMyInquiries() {
     initialPageParam: 0,
     getNextPageParam: (last) => (last.page + 1 < last.totalPages ? last.page + 1 : undefined),
     select: (data) => ({ inquiries: data.pages.flatMap((p) => p.inquiries) }),
+    enabled,
     retry: false,
   })
 }
 
 /** 내 문의 하나 */
-export function useMyInquiry(id: number) {
+export function useMyInquiry(id: number, enabled = true) {
   return useQuery({
     queryKey: [...KEY, 'mine', id],
     queryFn: async ({ signal }) =>
       unwrapData(await customFetch<RsData<Inquiry>>(`${BASE}/inquiries/${id}`, { signal })),
+    enabled,
     retry: false,
   })
 }

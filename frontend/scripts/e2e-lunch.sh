@@ -28,7 +28,8 @@ fail() { echo "[$(date '+%H:%M:%S')] 실패: $*" >&2; exit 1; }
 bundle() {
 	case $1 in
 		jihoon) echo member cash order product inquiry board ;;
-		dawit) echo member product queue order cash ;;
+		# 다윗의 파티 결제 알림(73)은 웹 알림이 쌓이는지 보므로 알림 서비스도 띄운다
+		dawit) echo member product queue order cash notification ;;
 		youngho) echo member product order cash payout ;;
 		sohee) echo member cash order product ;;
 		hobin) echo member product file queue order ;;
@@ -39,7 +40,7 @@ bundle() {
 port_of() {
 	case $1 in
 		gateway) echo 8000 ;; member) echo 8080 ;; cash) echo 8081 ;; payout) echo 8082 ;; file) echo 8083 ;;
-		order) echo 8084 ;; product) echo 8085 ;; queue) echo 8086 ;; inquiry) echo 8088 ;; board) echo 8089 ;;
+		order) echo 8084 ;; product) echo 8085 ;; queue) echo 8086 ;; notification) echo 8087 ;; inquiry) echo 8088 ;; board) echo 8089 ;;
 	esac
 }
 
@@ -90,6 +91,8 @@ env_value() { grep -E "^$1=" "$BACK/.env" 2>/dev/null | tail -1 | cut -d= -f2-; 
 healthy() {
 	local code
 	code=$(curl -s -o /dev/null -m 3 -w '%{http_code}' "http://localhost:$(port_of "$1")/actuator/health")
+	# 11/14 전에 빌드한 게이트웨이 jar에는 actuator가 없어 /actuator/health가 404다. 게이트웨이는 어떤 응답이든 오면 뜬 것으로 본다
+	if [ "$1" = gateway ]; then [ "$code" != 000 ]; return; fi
 	[ "$code" = 200 ] || [ "$code" = 503 ]
 }
 
@@ -99,8 +102,9 @@ start_app() {
 		inquiry) extra="INQUIRY_CLIENTS_MEMBER_MODE=http INQUIRY_CLIENTS_PRODUCT_MODE=http INQUIRY_CLIENTS_ORDER_MODE=http" ;;
 		board) extra="BOARD_CLIENTS_MEMBER_MODE=http" ;;
 		# 주문은 로컬 기본값이 가짜 어댑터라(모든 종목에 키트 있음, 결제는 예치금을 안 빼고 성공) 실제 상품·예치금·회원을 부른다.
-		# 대기열은 테스트가 입장 상태 API로 입장하므로 가짜로 둔다
-		order) extra="ORDER_CLIENTS_PRODUCT_MODE=http ORDER_CLIENTS_CASH_MODE=http ORDER_CLIENTS_MEMBER_MODE=http ORDER_CLIENTS_SELLER_MODE=http ORDER_CLIENTS_CREW_MODE=http" ;;
+		# 대기열은 테스트가 입장 상태 API로 입장하므로 가짜로 둔다.
+		# 키트 배송 조회 배치(기본 30분)는 15초마다 돌려 가짜 택배사 배송 완료를 테스트 안에서 받는다(29)
+		order) extra="ORDER_CLIENTS_PRODUCT_MODE=http ORDER_CLIENTS_CASH_MODE=http ORDER_CLIENTS_MEMBER_MODE=http ORDER_CLIENTS_SELLER_MODE=http ORDER_CLIENTS_CREW_MODE=http ORDER_KIT_TRACKING_INTERVAL=PT15S" ;;
 	esac
 	: >"$STATE/logs/$name.log"
 	# backend/에서 띄운다. 앱이 이 폴더의 .env를 읽는다
@@ -331,6 +335,8 @@ case $cmd in
 			touch "$STATE/claude-ok"
 		fi
 		[ -f "$STATE/claude-ok" ] || say "주의: Claude Code 설치와 로그인이 필요해요. 이번에는 자동 수정 없이 테스트만 돌려요"
+		# 오래전에 빌드한 jar로 띄우면 최신 dev와 달라 앱이 다르게 동작한다. 바뀐 모듈만 다시 빌드한다
+		"$0" prepare "$name" || { note "- $(date '+%H:%M') 빌드(prepare) 실패. 위 로그를 확인해 주세요"; exit 1; }
 		say "auto 시작: $name, 마감 $(date -r "$deadline" '+%H:%M' 2>/dev/null || date -d "@$deadline" '+%H:%M')"
 		if ! "$0" pretest "$name"; then
 			note "- $(date '+%H:%M') 프리테스트 실패. 위 로그의 원인 줄을 확인해 주세요. 한 번 더 시도해요"

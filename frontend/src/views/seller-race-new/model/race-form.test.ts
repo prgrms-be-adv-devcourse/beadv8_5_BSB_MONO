@@ -95,7 +95,7 @@ describe('일정 순서 규칙 (서버 RaceRequestValidator · Race와 같다)',
 
 describe('toRaceSaveRequest 기본 시각', () => {
   it('대회·접수 시작은 00:00, 접수 마감은 23:59:59를 붙이고 환불 기한은 날짜만 보낸다', () => {
-    const request = toRaceSaveRequest(base, [])
+    const request = toRaceSaveRequest(base, [], [])
     expect(request.raceDate).toBe('2026-10-29T00:00:00')
     expect(request.individualOpenAt).toBe('2026-10-23T00:00:00')
     expect(request.applicationCloseAt).toBe('2026-10-28T23:59:59')
@@ -130,11 +130,11 @@ describe('toCourseInput 종목 추가 창', () => {
       crewQuota: 0,
     })
 
-    const request = toRaceSaveRequest({ ...base, courses: [...base.courses, result.course] }, [
+    const request = toRaceSaveRequest(
+      { ...base, courses: [...base.courses, result.course] },
       [],
-      [],
-      [],
-    ])
+      [[], [], []],
+    )
     expect(request.courses.map((c) => c.name)).toEqual(['10K', '5K', '하프'])
   })
 
@@ -218,7 +218,7 @@ describe('키트 옵션 칸 (서버 RaceRequestValidator.validateKitOptions와 �
   })
 
   it('대회 등록 요청에는 키트 옵션을 넣지 않는다 (키트 옵션은 따로 등록한다)', () => {
-    const request = toRaceSaveRequest(base, [])
+    const request = toRaceSaveRequest(base, [], [])
     expect(request).not.toHaveProperty('kitOptions')
     for (const course of request.courses) expect(course).not.toHaveProperty('tshirtSizeOption')
   })

@@ -39,9 +39,14 @@ class TermsRepositoryTest {
 		List<Terms> current = termsRepository.findCurrent(TODAY);
 
 		assertThat(current).extracting(Terms::getType)
-			.containsExactlyInAnyOrder(TermsType.SERVICE, TermsType.PRIVACY, TermsType.MARKETING);
+			.containsExactlyInAnyOrder(TermsType.SERVICE, TermsType.PRIVACY, TermsType.MARKETING,
+				TermsType.AGE_OVER_14, TermsType.NIGHT_MARKETING, TermsType.SELLER);
+		// 가입 때 필수인 것은 서비스·개인정보·만 14세. 판매자 약관은 필수지만 신청 때 받으므로 가입 필수에서 뺀다
+		assertThat(current).filteredOn(terms -> terms.isRequired() && terms.getType().isAskedAtJoin())
+			.extracting(Terms::getType)
+			.containsExactlyInAnyOrder(TermsType.SERVICE, TermsType.PRIVACY, TermsType.AGE_OVER_14);
 		assertThat(current).filteredOn(Terms::isRequired).extracting(Terms::getType)
-			.containsExactlyInAnyOrder(TermsType.SERVICE, TermsType.PRIVACY);
+			.contains(TermsType.SELLER);
 	}
 
 	@Test
@@ -64,7 +69,7 @@ class TermsRepositoryTest {
 		Terms service = currentOf(TermsType.SERVICE);
 
 		assertThat(service.getVersion()).isEqualTo("t-new");
-		assertThat(termsRepository.findCurrent(TODAY)).hasSize(3);
+		assertThat(termsRepository.findCurrent(TODAY)).hasSize(6);
 	}
 
 	private Terms currentOf(TermsType type) {

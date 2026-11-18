@@ -83,6 +83,20 @@ class InquiryNotificationTest extends InquiryTestBase {
 	}
 
 	@Test
+	@DisplayName("관리자가 판매자 문의에 답하면 알림 링크가 판매자 콘솔의 보낸 문의 화면이다")
+	void sellerSupportAnswerLinksToSellerConsole() throws Exception {
+		Inquiry inquiry = saveSellerSupportInquiry(SELLER);
+
+		postAs(BASE + "/admin/inquiries/" + inquiry.getId() + "/answer", ADMIN, answerJson("답"))
+			.andExpect(status().isOk());
+
+		NotificationRequestedEvent event = sentEvents(1).getFirst();
+		assertThat(event.memberId()).isEqualTo(SELLER);
+		assertThat(event.kind()).isEqualTo(NotificationKind.INQUIRY_ANSWERED);
+		assertThat(event.href()).isEqualTo("/seller/inquiries/" + inquiry.getId() + "?filter=SENT");
+	}
+
+	@Test
 	@DisplayName("답변이 막히면(이미 답변·남의 문의) 알림을 보내지 않는다")
 	void rejectedAnswerNoNotification() throws Exception {
 		Inquiry inquiry = saveSellerInquiry(ME, RACE, SELLER);

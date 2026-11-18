@@ -51,7 +51,7 @@ class ApiV1AuthJoinTest {
 	private static final String PASSWORD = "password1234";
 	private static final String NICKNAME = "러너1";
 	private static final String PHONE = "010-1234-5678";
-	private static final String DEFAULT_AGREED_TERMS = "\"agreedTerms\": [\"SERVICE\", \"PRIVACY\"]";
+	private static final String DEFAULT_AGREED_TERMS = "\"agreedTerms\": [\"SERVICE\", \"PRIVACY\", \"AGE_OVER_14\"]";
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -408,23 +408,59 @@ class ApiV1AuthJoinTest {
 	}
 
 	@Test
-	@DisplayName("필수 약관만 동의하면 201이고, 현재 약관 3개에 대해 동의 기록이 남으며 마케팅은 미동의다")
+	@DisplayName("필수 약관만 동의하면 201이고, 가입 때 묻는 약관 5개에 동의 기록이 남으며 선택 약관은 미동의다. 판매자 약관은 남기지 않는다")
 	void joinRecordsAgreementPerTerms() throws Exception {
-		join(EMAIL, NICKNAME, PHONE, "\"agreedTerms\": [\"SERVICE\", \"PRIVACY\"]")
+		join(EMAIL, NICKNAME, PHONE, "\"agreedTerms\": [\"SERVICE\", \"PRIVACY\", \"AGE_OVER_14\"]")
 			.andExpect(status().isCreated());
 
 		long memberId = memberRepository.findByEmail(EMAIL).orElseThrow().getId();
 		Map<TermsType, Boolean> agreedByType = agreedByType(memberId);
-		assertThat(agreedByType).containsOnlyKeys(TermsType.SERVICE, TermsType.PRIVACY, TermsType.MARKETING);
+		assertThat(agreedByType).containsOnlyKeys(TermsType.SERVICE, TermsType.PRIVACY, TermsType.AGE_OVER_14,
+			TermsType.MARKETING, TermsType.NIGHT_MARKETING);
 		assertThat(agreedByType).containsEntry(TermsType.SERVICE, true)
 			.containsEntry(TermsType.PRIVACY, true)
-			.containsEntry(TermsType.MARKETING, false);
+			.containsEntry(TermsType.AGE_OVER_14, true)
+			.containsEntry(TermsType.MARKETING, false)
+			.containsEntry(TermsType.NIGHT_MARKETING, false);
+	}
+
+	@Test
+	@DisplayName("만 14세 이상 동의가 빠지면 400이고 회원도 동의 기록도 저장하지 않는다 (요청 우회 방지)")
+	void joinFailsWithoutAge14() throws Exception {
+		join(EMAIL, NICKNAME, PHONE, "\"agreedTerms\": [\"SERVICE\", \"PRIVACY\", \"MARKETING\"]")
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("MEMBER_REQUIRED_TERMS_NOT_AGREED"));
+
+		assertThat(memberRepository.existsByEmail(EMAIL)).isFalse();
+		assertThat(termsAgreementRepository.count()).isZero();
+	}
+
+	@Test
+	@DisplayName("야간 광고 수신까지 동의하면 그 기록이 동의로 남는다")
+	void joinRecordsNightMarketingAgreed() throws Exception {
+		join(EMAIL, NICKNAME, PHONE,
+			"\"agreedTerms\": [\"SERVICE\", \"PRIVACY\", \"AGE_OVER_14\", \"NIGHT_MARKETING\"]")
+			.andExpect(status().isCreated());
+
+		long memberId = memberRepository.findByEmail(EMAIL).orElseThrow().getId();
+		assertThat(agreedByType(memberId)).containsEntry(TermsType.NIGHT_MARKETING, true);
+	}
+
+	@Test
+	@DisplayName("가입 요청에 판매자 약관이 들어 있어도 가입 때는 기록하지 않는다")
+	void joinIgnoresSellerTerms() throws Exception {
+		join(EMAIL, NICKNAME, PHONE,
+			"\"agreedTerms\": [\"SERVICE\", \"PRIVACY\", \"AGE_OVER_14\", \"SELLER\"]")
+			.andExpect(status().isCreated());
+
+		long memberId = memberRepository.findByEmail(EMAIL).orElseThrow().getId();
+		assertThat(agreedByType(memberId)).doesNotContainKey(TermsType.SELLER);
 	}
 
 	@Test
 	@DisplayName("마케팅까지 동의하면 마케팅 동의 기록이 동의로 남는다")
 	void joinRecordsMarketingAgreed() throws Exception {
-		join(EMAIL, NICKNAME, PHONE, "\"agreedTerms\": [\"SERVICE\", \"PRIVACY\", \"MARKETING\"]")
+		join(EMAIL, NICKNAME, PHONE, "\"agreedTerms\": [\"SERVICE\", \"PRIVACY\", \"AGE_OVER_14\", \"MARKETING\"]")
 			.andExpect(status().isCreated());
 
 		long memberId = memberRepository.findByEmail(EMAIL).orElseThrow().getId();
@@ -454,7 +490,7 @@ class ApiV1AuthJoinTest {
 	@Test
 	@DisplayName("모르는 약관 종류가 있으면 400 INVALID_REQUEST다")
 	void joinFailsWithUnknownTermsType() throws Exception {
-		join(EMAIL, NICKNAME, PHONE, "\"agreedTerms\": [\"SERVICE\", \"PRIVACY\", \"FOO\"]")
+		join(EMAIL, NICKNAME, PHONE, "\"agreedTerms\": [\"SERVICE\", \"PRIVACY\", \"AGE_OVER_14\", \"FOO\"]")
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
 	}

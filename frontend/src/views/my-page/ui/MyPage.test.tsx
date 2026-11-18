@@ -414,3 +414,53 @@ describe('MyPage 판매자 메뉴', () => {
     expect(await sellerLink(/판매자 등록 신청/)).toHaveAttribute('href', '/seller-apply/result')
   })
 })
+
+describe('MyPage 관리자 메뉴', () => {
+  const renderPage = () => {
+    setAccessToken('access-token')
+    render(
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <MyPage />
+      </QueryClientProvider>,
+    )
+  }
+
+  it('관리자 전용 API가 응답하면 관리자 센터 줄이 관리자 홈으로 간다', async () => {
+    server.use(
+      http.get('*/api/v1/member/admin/sellers', () =>
+        HttpResponse.json({ status: 200, message: '조회했습니다.', data: [] }),
+      ),
+    )
+    renderPage()
+
+    expect(await screen.findByRole('link', { name: /관리자 센터/ })).toHaveAttribute(
+      'href',
+      '/admin',
+    )
+  })
+
+  it('관리자가 아니면(403 MEMBER_NOT_ADMIN) 관리자 센터 줄을 보여 주지 않는다', async () => {
+    let called = false
+    server.use(
+      http.get('*/api/v1/member/admin/sellers', () => {
+        called = true
+        return HttpResponse.json(
+          {
+            status: 403,
+            code: 'MEMBER_NOT_ADMIN',
+            message: '관리자만 이용할 수 있습니다.',
+            data: null,
+          },
+          { status: 403 },
+        )
+      }),
+    )
+    renderPage()
+
+    await screen.findByRole('link', { name: /판매자/ })
+    await vi.waitFor(() => expect(called).toBe(true))
+    expect(screen.queryByRole('link', { name: /관리자 센터/ })).not.toBeInTheDocument()
+  })
+})
