@@ -146,12 +146,12 @@ export function TicketDetailPage({
                   지금 취소하면 <span className="text-text-brand">{amount}</span> 돌려받아요
                 </p>
               )}
-              {refundDeadline && (
+              {refundLastDay && (
                 <>
                   <InfoRow label="전액 환불">
                     <p>
                       <span className="font-bold text-text-brand">
-                        {formatRaceDate(refundDeadline)} 23:59
+                        {formatRaceDate(refundLastDay)} 23:59
                       </span>
                       까지 취소
                     </p>
@@ -172,7 +172,11 @@ export function TicketDetailPage({
         onOpenChange={setCancelOpen}
         type="danger"
         title="참가를 취소할까요?"
-        body={[`${amount}을 예치금으로 돌려받아요.`, kitNote, '되돌릴 수 없어요.']
+        body={[
+          refundable ? `${amount}을 예치금으로 돌려받아요.` : '돌려받는 금액이 없어요.',
+          kitNote,
+          '되돌릴 수 없어요.',
+        ]
           .filter(Boolean)
           .join(' ')}
         confirmLabel="취소하기"

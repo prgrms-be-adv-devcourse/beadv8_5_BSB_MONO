@@ -45,6 +45,15 @@ function cancelFails(status: number, message: string) {
   )
 }
 
+function mockRace(patch: Record<string, string>) {
+  const race = productMock.getFindRaceResponseMock()
+  server.use(
+    http.get('*/api/v1/product/races/:raceId', () =>
+      HttpResponse.json({ ...race, data: { ...race.data, ...patch } }),
+    ),
+  )
+}
+
 describe('TicketDetailPage', () => {
   it('주문 · 참가 신청 · 대회를 합쳐 참가권을 보여 준다', async () => {
     renderWithClient(<TicketDetailPage ticketId="1-1" />)
@@ -89,6 +98,35 @@ describe('TicketDetailPage', () => {
     expect(screen.getByText('돌려받는 곳')).toBeInTheDocument()
     expect(screen.getByText('예치금')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '참가 취소하기' })).toBeInTheDocument()
+  })
+
+  it('일정이 바뀌어 전액 환불 기간이 늘면 날짜 줄도 늘어난 마지막 날을 보여 준다', async () => {
+    mockRace({ refundDeadline: '2026-10-10', scheduleChangedAt: '2026-10-14T10:00:00' })
+    renderWithClient(<TicketDetailPage ticketId="1-1" />)
+
+    expect(await screen.findByRole('heading', { name: '취소·환불' })).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        (_, el) => el?.tagName === 'P' && el.textContent === '지금 취소하면 50,000원 돌려받아요',
+      ),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        (_, el) => el?.tagName === 'P' && el.textContent === '10/20 (화) 23:59까지 취소',
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it('환불 기한이 지났으면 취소 확인 창은 돌려받는 금액이 없다고 안내하고 취소 요청은 그대로 보낸다', async () => {
+    mockRace({ refundDeadline: '2026-10-10' })
+    const user = userEvent.setup()
+    renderWithClient(<TicketDetailPage ticketId="1-1" />)
+
+    await user.click(await screen.findByRole('button', { name: '참가 취소하기' }))
+    expect(await screen.findByText(/돌려받는 금액이 없어요/)).toBeInTheDocument()
+    expect(screen.queryByText(/예치금으로 돌려받아요/)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '취소하기' }))
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/tickets/1-1/canceled'))
   })
 
   it('참가 취소를 확인하면 취소 API를 부르고 취소 완료 화면으로 간다', async () => {
