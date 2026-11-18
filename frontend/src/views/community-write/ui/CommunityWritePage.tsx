@@ -122,7 +122,7 @@ function WriteForm({
   const toast = useToast()
   const create = useCreatePost()
   const update = useUpdatePost(postId ?? 0)
-  const { control, handleSubmit } = useForm<PostWriteValues>({
+  const { control, register, handleSubmit } = useForm<PostWriteValues>({
     resolver: zodResolver(postWriteSchema),
     defaultValues: {
       category: initial?.category ?? 'FREE',
@@ -230,27 +230,19 @@ function WriteForm({
           />
         </fieldset>
         <div className="flex flex-col gap-2">
-          <Controller
-            control={control}
-            name="title"
-            render={({ field }) => <TextField label="제목" maxLength={TITLE_MAX} {...field} />}
-          />
+          <TextField label="제목" maxLength={TITLE_MAX} {...register('title')} />
           <p className="text-right text-caption-regular text-text-tertiary">
             {title.length}/{TITLE_MAX}
           </p>
         </div>
-        <Controller
-          control={control}
-          name="content"
-          render={({ field }) => (
-            <Textarea
-              label="본문"
-              maxLength={CONTENT_MAX}
-              showCounter
-              className="[&_textarea]:h-30"
-              {...field}
-            />
-          )}
+        <Textarea
+          label="본문"
+          maxLength={CONTENT_MAX}
+          showCounter
+          // 고치기에서 글자 수 표시가 처음부터 맞도록 초기값을 알려 준다
+          defaultValue={initial?.content}
+          className="[&_textarea]:h-30"
+          {...register('content')}
         />
         <section aria-label="사진" className="flex flex-col gap-2">
           <h2 className="text-body2-medium">사진</h2>

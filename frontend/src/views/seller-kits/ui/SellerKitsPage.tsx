@@ -39,6 +39,7 @@ import {
 } from '@/shared/ui'
 
 import {
+  shipCountMessage,
   shipFormSchema,
   trackingLines,
   type ShipFormInput,
@@ -121,14 +122,15 @@ export function SellerKitsPage() {
     setResult(null)
   }
 
-  const { control, handleSubmit, resetField } = useForm<ShipFormInput, unknown, ShipFormValues>({
+  const { control, register, handleSubmit, resetField } = useForm<
+    ShipFormInput,
+    unknown,
+    ShipFormValues
+  >({
     resolver: zodResolver(shipFormSchema(selected.length)),
     defaultValues: { carrier: CARRIERS[0].value, tracking: '' },
   })
-  const carrier = useWatch({ control, name: 'carrier' })
-  const tracking = useWatch({ control, name: 'tracking' })
-  const lines = trackingLines(tracking)
-  const shipCheck = shipFormSchema(selected.length).safeParse({ carrier, tracking })
+  const lines = trackingLines(useWatch({ control, name: 'tracking' }))
   const selectedLabels = [
     ...new Set(selected.map((kit) => KIT_STATUS[kit.kitDeliveryStatus ?? 'PREPARING'].label)),
   ]
@@ -137,8 +139,8 @@ export function SellerKitsPage() {
       ? null
       : selected.some((kit) => kit.kitDeliveryStatus !== FROM[next])
         ? `${KIT_STATUS[FROM[next]].label} 상태인 주문만 ${TO[next]} 바꿀 수 있어요.`
-        : next === 'SHIPPING' && !shipCheck.success
-          ? shipCheck.error.issues[0].message
+        : next === 'SHIPPING' && lines.length !== selected.length
+          ? shipCountMessage(selected.length)
           : null
   const canSubmit = selected.length > 0 && !blocker && !pending
 
@@ -337,25 +339,19 @@ export function SellerKitsPage() {
                   />
                 )}
               />
-              <Controller
-                control={control}
-                name="tracking"
-                render={({ field }) =>
-                  selected.length > 1 ? (
-                    <Textarea
-                      label="송장 번호"
-                      helper="여러 건을 고르면 줄마다 따로 넣어요"
-                      {...field}
-                    />
-                  ) : (
-                    <TextField
-                      label="송장 번호"
-                      helper="여러 건을 고르면 줄마다 따로 넣어요"
-                      {...field}
-                    />
-                  )
-                }
-              />
+              {selected.length > 1 ? (
+                <Textarea
+                  label="송장 번호"
+                  helper="여러 건을 고르면 줄마다 따로 넣어요"
+                  {...register('tracking')}
+                />
+              ) : (
+                <TextField
+                  label="송장 번호"
+                  helper="여러 건을 고르면 줄마다 따로 넣어요"
+                  {...register('tracking')}
+                />
+              )}
               {selected.length > 1 && (
                 // 줄은 표의 위에서부터 순서대로 주문에 붙는다. 한 번 보내면 되돌릴 수 없어서 짝을 미리 보여 준다.
                 <ul aria-label="발송 미리보기" className="flex flex-col gap-1 text-body2-regular">
