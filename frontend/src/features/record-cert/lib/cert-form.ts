@@ -1,3 +1,5 @@
+import { isValid, parseISO } from 'date-fns'
+
 import type {
   CheckField,
   CourseClass,
@@ -46,17 +48,20 @@ export function prefill(fields: Fields): {
   boxes: Partial<Record<CheckField, Quad>>
 } {
   const net = fields.netTime?.value.length === 3 ? fields.netTime : null
+  // 읽기 규칙은 일을 1~31로만 거른다. 2월 31일처럼 달력에 없는 날은 채우지 않는다
+  const raceDate =
+    fields.raceDate && isValid(parseISO(fields.raceDate.value)) ? fields.raceDate : null
   const boxes: Partial<Record<CheckField, Quad>> = {}
   if (net) {
     boxes.NET_TIME = net.quad
     if (fields.netLabel) boxes.NET_LABEL = fields.netLabel.quad
   }
-  if (fields.raceDate) boxes.RACE_DATE = fields.raceDate.quad
+  if (raceDate) boxes.RACE_DATE = raceDate.quad
   if (fields.course) boxes.COURSE = fields.course.quad
   return {
     values: {
       netTime: net ? `${net.value[0]}:${pad(net.value[1])}:${pad(net.value[2])}` : '',
-      raceDate: fields.raceDate?.value ?? '',
+      raceDate: raceDate?.value ?? '',
       courseClass: fields.course ? toCourseClass(fields.course.value) : undefined,
       bib: fields.bib?.value ?? '',
     },
