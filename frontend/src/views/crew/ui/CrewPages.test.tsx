@@ -76,7 +76,7 @@ describe('MyCrewsPage (M09-0)', () => {
   it('머리글은 로고와 알림이고 아래에 주요 메뉴가 있다', async () => {
     renderPage(<MyCrewsPage />)
     await screen.findByText('가입한 크루 2')
-    expect(screen.getByRole('link', { name: '홈' })).toBeInTheDocument()
+    expect(screen.getAllByRole('link', { name: '홈' })).toHaveLength(2)
     expect(screen.queryByRole('link', { name: '대회 찾기' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '뒤로 가기' })).not.toBeInTheDocument()
     expect(screen.getByRole('navigation', { name: '주요 메뉴' })).toBeInTheDocument()
@@ -183,8 +183,8 @@ describe('CrewHomePage (M09)', () => {
 
   it('아래에 주요 메뉴가 있고, 초대 링크 만들기는 선(테두리) 버튼이다', async () => {
     renderPage(<CrewHomePage crewId={1} />)
-    expect(await screen.findByRole('navigation', { name: '주요 메뉴' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '초대 링크 만들기' })).toHaveClass('inset-ring')
+    expect(await screen.findByRole('link', { name: '초대 링크 만들기' })).toHaveClass('inset-ring')
+    expect(screen.getByRole('navigation', { name: '주요 메뉴' })).toBeInTheDocument()
   })
 
   it('크루원은 파티 만들기를 보고 초대 링크 만들기는 보지 못한다', async () => {
