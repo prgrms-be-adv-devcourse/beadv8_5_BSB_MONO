@@ -94,4 +94,27 @@ describe('InquiryAiDraft', () => {
     await user.click(screen.getByRole('button', { name: '다시 만들기' }))
     expect(await screen.findByText('확인 필요 1곳')).toBeInTheDocument()
   })
+
+  it('공백만 쓴 답은 보낼 수 없다', async () => {
+    server.use(
+      http.post('*/api/v1/ai/seller/inquiries/5/draft', () =>
+        HttpResponse.json(
+          {
+            status: 503,
+            code: 'AI_MODEL_UNAVAILABLE',
+            message: '지금은 만들 수 없어요.',
+            data: null,
+          },
+          { status: 503 },
+        ),
+      ),
+    )
+    const user = userEvent.setup()
+    renderDraft()
+    await screen.findByText('답변 초안을 만들지 못했어요')
+
+    await user.type(screen.getByLabelText('답변'), '   ')
+
+    expect(screen.getByRole('button', { name: '답변 보내기' })).toBeDisabled()
+  })
 })
