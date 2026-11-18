@@ -39,7 +39,6 @@ import com.bukang.order.out.CartItemRepository;
 import com.bukang.order.out.CartRepository;
 import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationRepository;
-import com.bukang.order.out.QueueAdmissionRepository;
 import com.bukang.order.support.QueueEntry;
 import com.bukang.order.support.StubQueueAdmissionPort;
 import com.bukang.order.support.StubQueueAdmissionPortConfig;
@@ -77,9 +76,6 @@ class ApiV1CartCheckoutTest {
 	private ParticipationRepository participationRepository;
 
 	@Autowired
-	private QueueAdmissionRepository queueAdmissionRepository;
-
-	@Autowired
 	private StubRaceCoursePort raceCoursePort;
 
 	@Autowired
@@ -98,7 +94,6 @@ class ApiV1CartCheckoutTest {
 	void tearDown() {
 		orderRepository.deleteAll();
 		participationRepository.deleteAll();
-		queueAdmissionRepository.deleteAll();
 		cartRepository.deleteAll();
 		raceCoursePort.clear();
 		seatHoldPort.clear();

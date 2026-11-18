@@ -24,7 +24,6 @@ import com.bukang.order.out.OrderOutboxKafkaEventRepository;
 import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationKitOptionRepository;
 import com.bukang.order.out.ParticipationRepository;
-import com.bukang.order.out.QueueAdmissionRepository;
 import com.bukang.order.out.ShipmentRepository;
 import com.bukang.order.support.QueueEntry;
 import com.bukang.order.support.StubKitOptionPort;
@@ -52,9 +51,6 @@ abstract class OrderPaySplitTestSupport {
 
 	@Autowired
 	ParticipationRepository participationRepository;
-
-	@Autowired
-	QueueAdmissionRepository queueAdmissionRepository;
 
 	@Autowired
 	ShipmentRepository shipmentRepository;
@@ -104,7 +100,6 @@ abstract class OrderPaySplitTestSupport {
 		shipmentRepository.deleteAll();
 		orderRepository.deleteAll();
 		participationRepository.deleteAll();
-		queueAdmissionRepository.deleteAll();
 		participationKitOptionRepository.deleteAll();
 		kitOptionSaleRepository.deleteAll();
 		orderOutboxKafkaEventRepository.deleteAll();

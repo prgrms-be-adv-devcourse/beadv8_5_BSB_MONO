@@ -57,7 +57,6 @@ import com.bukang.order.out.OrderOutboxKafkaEventRepository;
 import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationRepository;
 import com.bukang.order.out.PartyRepository;
-import com.bukang.order.out.QueueAdmissionRepository;
 import com.bukang.order.support.QueueEntry;
 import com.bukang.order.support.SeatOutboxMessages;
 import com.bukang.order.support.StubRaceCoursePort;
@@ -97,9 +96,6 @@ class RaceCancelRefundTest {
 
 	@Autowired
 	private ParticipationRepository participationRepository;
-
-	@Autowired
-	private QueueAdmissionRepository queueAdmissionRepository;
 
 	@Autowired
 	private PartyRepository partyRepository;
@@ -158,7 +154,6 @@ class RaceCancelRefundTest {
 	void tearDown() {
 		orderRepository.deleteAll();
 		participationRepository.deleteAll();
-		queueAdmissionRepository.deleteAll();
 		raceCoursePort.clear();
 		seatHoldPort.clear();
 		orderOutboxKafkaEventRepository.deleteAll();

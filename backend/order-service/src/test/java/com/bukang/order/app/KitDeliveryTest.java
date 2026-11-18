@@ -73,7 +73,6 @@ import com.bukang.order.dto.SellerKitSummaryDto;
 import com.bukang.order.out.KitShipNoticeRepository;
 import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationRepository;
-import com.bukang.order.out.QueueAdmissionRepository;
 import com.bukang.order.out.ShipmentRepository;
 import com.bukang.order.out.delivery.DeliveryTrackingResult;
 import com.bukang.order.out.race.RaceCourseInfo;
@@ -132,9 +131,6 @@ class KitDeliveryTest {
 	private ParticipationRepository participationRepository;
 
 	@Autowired
-	private QueueAdmissionRepository queueAdmissionRepository;
-
-	@Autowired
 	private OrderCreateUseCase orderCreateUseCase;
 
 	@Autowired
@@ -184,7 +180,6 @@ class KitDeliveryTest {
 		orderRepository.deleteAll();
 		kitShipNoticeRepository.deleteAll();
 		participationRepository.deleteAll();
-		queueAdmissionRepository.deleteAll();
 		raceCoursePort.clear();
 		seatHoldPort.clear();
 		walletPort.clear();
