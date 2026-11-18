@@ -6,6 +6,7 @@ import java.util.Comparator;
 import java.util.List;
 
 import com.bukang.common.shared.race.domain.RaceSaleStatus;
+import com.bukang.product.domain.ProductSeller;
 import com.bukang.product.domain.Race;
 import com.bukang.product.domain.RaceCourse;
 
@@ -38,7 +39,12 @@ public class SellerRaceDto {
 			.map(SellerRaceCourseDto::from)
 			.toList();
 		return new SellerRaceDto(race.getId(), race.getTitle(), race.getRaceDate(), race.getSaleStatus(),
-			race.getSaleOpenDate(), race.getApplicationCloseAt(), race.getSeller().getBusinessName(),
+			race.getSaleOpenDate(), race.getApplicationCloseAt(), sellerName(race.getSeller()),
 			race.getCrewSaleStartAt(), race.getIndividualOpenAt(), race.getRefundDeadline(), courses);
+	}
+
+	// 상호명은 사업자만 있어, 비사업자는 성명을 판매자 이름으로 쓴다
+	private static String sellerName(ProductSeller seller) {
+		return seller.getBusinessName() != null ? seller.getBusinessName() : seller.getRepresentativeName();
 	}
 }
