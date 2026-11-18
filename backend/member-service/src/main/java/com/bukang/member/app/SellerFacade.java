@@ -69,7 +69,7 @@ public class SellerFacade {
 	// 대기·승인 신청이 있으면 다시 신청할 수 없으므로(SellerApplyUseCase) 승인된 신청이 있으면 가장 최근 신청이 그것이다
 	public MemberSellerDto findSellerOfMember(long memberId) {
 		memberRepository.findActiveById(memberId)
-			.orElseThrow(() -> new MemberNotFoundException("존재하지 않는 회원입니다."));
+			.orElseThrow(MemberNotFoundException::new);
 		return sellerRepository.findFirstByMemberIdOrderByIdDesc(memberId)
 			.map(MemberSellerDto::from)
 			.orElse(MemberSellerDto.NONE);

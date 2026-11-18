@@ -33,6 +33,6 @@ public class AdminVerifyUseCase {
 	// 탈퇴한 관리자는 남은 Access Token으로 불러도 없는 회원으로 본다 (PRO-217, BE-022 결정 6)
 	private Member findActive(long memberId) {
 		return memberRepository.findActiveById(memberId)
-			.orElseThrow(() -> new MemberNotFoundException("존재하지 않는 회원입니다."));
+			.orElseThrow(MemberNotFoundException::new);
 	}
 }

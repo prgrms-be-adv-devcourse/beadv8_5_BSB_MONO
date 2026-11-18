@@ -15,7 +15,6 @@ import com.bukang.member.domain.Terms;
 import com.bukang.member.domain.TermsAgreement;
 import com.bukang.member.domain.TermsType;
 import com.bukang.member.domain.VerifiedPayoutAccount;
-import com.bukang.member.domain.exception.MemberNotFoundException;
 import com.bukang.member.domain.exception.RequiredTermsNotAgreedException;
 import com.bukang.member.domain.exception.SellerAlreadyAppliedException;
 import com.bukang.member.out.MemberRepository;
@@ -58,9 +57,7 @@ public class SellerApplyUseCase {
 		// 탈퇴한 회원은 남은 Access Token으로 불러도 없는 회원으로 본다 (PRO-217, BE-022 결정 6)
 		// 회원 줄을 잠가 탈퇴와 신청의 순서를 정한다. 탈퇴가 먼저 커밋되면 여기서 탈퇴한 회원을 보고 404가 된다
 		// 같은 회원이 동시에 두 번 신청해 둘 다 계좌 확인을 지나도, 여기서 줄을 차례로 잡아 두 번째는 409가 된다
-		Member member = memberRepository.findByIdForUpdate(memberId)
-			.filter(found -> !found.isWithdrawn())
-			.orElseThrow(() -> new MemberNotFoundException("존재하지 않는 회원입니다."));
+		Member member = memberRepository.getActiveForUpdate(memberId);
 		if (sellerRepository.existsByMemberIdAndStatusIn(memberId, ACTIVE_STATUSES)) {
 			throw new SellerAlreadyAppliedException("이미 심사 중이거나 승인된 판매자 신청이 있습니다.");
 		}

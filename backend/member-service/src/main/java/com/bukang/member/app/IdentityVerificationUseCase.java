@@ -7,8 +7,6 @@ import java.util.UUID;
 import java.util.function.Consumer;
 
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.bukang.member.domain.exception.IdentityVerificationFailedException;
 import com.bukang.member.domain.exception.IdentityVerificationRequiredException;
@@ -102,12 +100,7 @@ public class IdentityVerificationUseCase {
 		}
 		VerifiedIdentity identity = store.findVerified(verificationToken)
 			.orElseThrow(() -> new IdentityVerificationRequiredException(REQUIRED_MESSAGE));
-		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-			@Override
-			public void afterCommit() {
-				store.deleteVerified(verificationToken);
-			}
-		});
+		AfterCommit.run(() -> store.deleteVerified(verificationToken));
 		return identity;
 	}
 

@@ -31,7 +31,6 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class SocialAccountUseCase {
-	static final String NOT_FOUND_MESSAGE = "존재하지 않는 회원입니다.";
 	static final String ALREADY_LINKED_MESSAGE = "이미 다른 회원에 연결된 소셜 계정입니다.";
 
 	private final MemberRepository memberRepository;
@@ -56,9 +55,7 @@ public class SocialAccountUseCase {
 	// 이미 이 회원에 연결된 같은 계정이면 그대로 성공으로 본다 (두 번 누른 경우)
 	@Transactional
 	public void link(long memberId, SocialIdentity identity) {
-		Member member = memberRepository.findByIdForUpdate(memberId)
-			.filter(found -> !found.isWithdrawn())
-			.orElseThrow(() -> new MemberNotFoundException(NOT_FOUND_MESSAGE));
+		Member member = memberRepository.getActiveForUpdate(memberId);
 		Optional<SocialAccount> existing = socialAccountRepository.findByProviderAndProviderUserId(
 			identity.provider(), identity.providerUserId());
 		if (existing.isPresent()) {
@@ -80,9 +77,7 @@ public class SocialAccountUseCase {
 	// 카카오면 커밋 뒤 카카오 연결 끊기를 부른다 (BE-034, SocialUnlinkEventListener)
 	@Transactional
 	public MemberDto unlink(long memberId, SocialProvider provider) {
-		Member member = memberRepository.findByIdForUpdate(memberId)
-			.filter(found -> !found.isWithdrawn())
-			.orElseThrow(() -> new MemberNotFoundException(NOT_FOUND_MESSAGE));
+		Member member = memberRepository.getActiveForUpdate(memberId);
 		SocialAccount removed = member.unlinkSocial(provider);
 		memberRepository.flush();
 		eventPublisher.publishEvent(new SocialAccountsUnlinkedEvent(
@@ -103,6 +98,6 @@ public class SocialAccountUseCase {
 
 	private Member findActive(long memberId) {
 		return memberRepository.findActiveById(memberId)
-			.orElseThrow(() -> new MemberNotFoundException(NOT_FOUND_MESSAGE));
+			.orElseThrow(MemberNotFoundException::new);
 	}
 }

@@ -9,7 +9,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.domain.PageRequest;
@@ -94,9 +93,7 @@ public class MemberFacade {
 
 	public MemberDto findMe(long memberId) {
 		// 탈퇴한 회원은 없는 회원으로 본다 (BE-022)
-		return memberRepository.findActiveById(memberId)
-			.orElseThrow(() -> new MemberNotFoundException("존재하지 않는 회원입니다."))
-			.toDto();
+		return memberRepository.findActiveById(memberId).orElseThrow(MemberNotFoundException::new).toDto();
 	}
 
 	@Transactional
@@ -125,7 +122,7 @@ public class MemberFacade {
 	// CRM이 광고를 보낼 때 메시지 끝에 붙일 링크를 받아 간다. 서명 키는 회원 서비스 밖으로 나가지 않는다 (BE-039)
 	public MarketingUnsubscribeLinkDto issueUnsubscribeLink(long memberId) {
 		memberRepository.findActiveById(memberId)
-			.orElseThrow(() -> new MemberNotFoundException("존재하지 않는 회원입니다."));
+			.orElseThrow(MemberNotFoundException::new);
 		Instant expiresAt = Instant.now(clock).plus(marketingUnsubscribeProperties.tokenTtl());
 		String token = marketingUnsubscribeTokens.issue(memberId, expiresAt);
 		return new MarketingUnsubscribeLinkDto(marketingUnsubscribeProperties.link(token),
@@ -147,7 +144,7 @@ public class MemberFacade {
 	@Transactional
 	public void grantAdmin(String email) {
 		memberRepository.findByEmail(email)
-			.orElseThrow(() -> new MemberNotFoundException("존재하지 않는 회원입니다."))
+			.orElseThrow(MemberNotFoundException::new)
 			.grantAdmin();
 	}
 
@@ -212,7 +209,7 @@ public class MemberFacade {
 		clearAttempts(emailHash);
 
 		Member member = memberRepository.findActiveByEmail(memberLoginRequestDto.getEmail())
-			.orElseThrow(() -> new MemberNotFoundException("존재하지 않는 회원입니다."));
+			.orElseThrow(MemberNotFoundException::new);
 
 		return new MemberLoginResult(member.toDto(), tokenIssueUseCase.issue(member.getId()));
 	}
@@ -244,9 +241,7 @@ public class MemberFacade {
 
 	// 예: "카카오로 가입한 계정입니다. 카카오로 로그인해주세요." 둘 다 연결돼 있으면 "카카오 또는 구글로"
 	private static String socialAccountMessage(Member member) {
-		String providers = member.socialProviders().stream()
-			.map(SocialProvider::getDisplayName)
-			.collect(Collectors.joining(" 또는 "));
+		String providers = SocialProvider.joinDisplayNames(member.socialProviders());
 		if (providers.isEmpty()) {
 			return "소셜 로그인으로 가입한 계정입니다. 소셜 로그인으로 로그인해주세요.";
 		}
