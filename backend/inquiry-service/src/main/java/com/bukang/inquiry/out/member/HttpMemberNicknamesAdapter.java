@@ -10,7 +10,6 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.web.client.RestClient;
 
 import com.bukang.common.global.rsdata.RsData;
-import com.bukang.inquiry.domain.exception.InquiryExternalServiceUnavailableException;
 import com.bukang.inquiry.out.InternalHttpClients;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
@@ -55,8 +54,9 @@ public class HttpMemberNicknamesAdapter implements MemberNicknamesPort {
 
 	private List<NicknameResponse> call(List<Long> ids) {
 		String joined = ids.stream().map(String::valueOf).collect(Collectors.joining(","));
+		// 404 코드를 정하지 않아(ENDPOINT) 빈 값은 오지 않는다. 실패는 getData가 503으로 던진다
 		List<NicknameResponse> data = InternalHttpClients.getData(restClient, ENDPOINT, RESPONSE_TYPE, PATH, joined)
-			.orElseThrow(() -> new InquiryExternalServiceUnavailableException(UNAVAILABLE_MESSAGE));
+			.orElseThrow();
 		// 한 사람 값이 비었다고 목록 전체를 막지 않는다. 그 사람은 결과에서 빠져 닉네임이 비어 보인다
 		List<NicknameResponse> rows = data.stream()
 			.filter(row -> row.memberId() != null && row.nickname() != null)

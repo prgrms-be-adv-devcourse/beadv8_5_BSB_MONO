@@ -1,4 +1,4 @@
-package com.bukang.inquiry.out;
+package com.bukang.inquiry.out.order;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -6,9 +6,6 @@ import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
-import com.bukang.inquiry.out.order.OrderItemSummary;
-import com.bukang.inquiry.out.order.OrderSummary;
 
 class OrderSummaryTest {
 	private final OrderSummary order = new OrderSummary(7L, "OD-1", 1_000L, "PAID",

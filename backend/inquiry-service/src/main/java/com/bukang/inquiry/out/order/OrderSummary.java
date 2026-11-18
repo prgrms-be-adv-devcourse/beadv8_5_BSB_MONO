@@ -13,6 +13,7 @@ import java.util.List;
  */
 public record OrderSummary(long memberId, String orderNo, long paymentAmount, String status,
 	List<OrderItemSummary> items) {
+	// 주문 주인과 주문에 그 대회가 있는지를 함께 확인한다
 	public boolean isOwnedBy(long memberId, long raceId) {
 		return this.memberId == memberId && hasRace(raceId);
 	}

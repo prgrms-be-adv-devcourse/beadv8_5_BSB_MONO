@@ -33,7 +33,7 @@ import com.bukang.inquiry.support.InquiryTestBase;
  */
 class InquiryNotificationTest extends InquiryTestBase {
 	@Autowired
-	private InquiryCommandUseCase inquiryUseCase;
+	private InquiryCommandUseCase inquiryCommandUseCase;
 	@Autowired
 	private TransactionTemplate transactionTemplate;
 	@Autowired
@@ -118,7 +118,7 @@ class InquiryNotificationTest extends InquiryTestBase {
 	@DisplayName("문의 저장이 롤백되면 알림을 보내지 않는다 (커밋 뒤에만 보낸다)")
 	void rollbackSendsNothing() {
 		assertThatThrownBy(() -> transactionTemplate.executeWithoutResult(status -> {
-			inquiryUseCase.create(new InquiryDraft(ME, SELLER, RACE, ORDER, InquiryType.RACE_VENUE, "제목", "본문"));
+			inquiryCommandUseCase.create(new InquiryDraft(ME, SELLER, RACE, ORDER, InquiryType.RACE_VENUE, "제목", "본문"));
 			throw new IllegalStateException("롤백을 일으키는 실패");
 		})).isInstanceOf(IllegalStateException.class);
 
