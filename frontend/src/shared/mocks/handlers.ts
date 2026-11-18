@@ -32,6 +32,8 @@ import {
 import { getBukangPayoutAPIMock } from '@/shared/api/generated/payout/payout.msw'
 import {
   getBukangProductAPIMock,
+  getFindAdminRacesMockHandler,
+  getFindAdminRacesResponseMock,
   getFindMineMockHandler as getFindMyRacesMockHandler,
   getSearchMockHandler,
   getSuggestMockHandler,
@@ -584,6 +586,16 @@ const raceHandlers = [
     }
   }),
   getFindMyRacesMockHandler(),
+  // 관리자 대회 목록: 상태마다 다른 버튼을 볼 수 있게 판매 예정 · 판매 중 · 판매 중지 대회를 하나씩 준다
+  getFindAdminRacesMockHandler(() => {
+    const example = getFindAdminRacesResponseMock()
+    const [race] = example.data ?? []
+    const statuses = ['SCHEDULED', 'ON_SALE', 'STOPPED'] as const
+    return {
+      ...example,
+      data: statuses.map((saleStatus, i) => ({ ...race, raceId: i + 1, saleStatus })),
+    }
+  }),
   // 가짜 대회 목록(races.ts)에 있는 대회만 열린다. 없는 번호는 진짜 서버처럼 404, 숫자가 아니면 400
   http.get('*/api/v1/product/races/:raceId', ({ params }) => {
     const raceId = Number(params.raceId)

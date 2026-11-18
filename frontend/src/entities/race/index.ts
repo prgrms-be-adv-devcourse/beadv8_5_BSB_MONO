@@ -35,6 +35,7 @@ export { RaceCard, type RaceCardProps } from './ui/RaceCard'
 export { RacePoster, type RacePosterProps } from './ui/RacePoster'
 export { RaceTicketCard, type RaceTicketCardProps } from './ui/RaceTicketCard'
 export {
+  adminRacesQueryOptions,
   fetchRaceForEdit,
   myRacesQueryOptions,
   raceForEditQueryOptions,
@@ -44,7 +45,9 @@ export {
   isRaceEditable,
   isSaleStarted,
   SELLER_SALE_STATUS,
+  toAdminRaceRow,
   toSellerRaceRow,
+  type AdminRaceRow,
   type SellerRaceBadge,
   type SellerRaceRow,
   type SellerSaleStatus,

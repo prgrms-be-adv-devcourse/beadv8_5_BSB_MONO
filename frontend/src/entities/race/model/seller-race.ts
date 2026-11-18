@@ -1,6 +1,6 @@
 import type { fileModel, productModel } from '@/shared/api'
 
-import { formatRaceDate } from '../lib/race-date'
+import { formatRaceDate, formatRaceDateTime } from '../lib/race-date'
 
 // 판매자 대회 관리(S06 · S09)가 쓰는 대회 모양과 변환
 
@@ -63,6 +63,31 @@ export function toSellerRaceRow(race: productModel.SellerRaceDto): SellerRaceRow
     capacity: courses.reduce((sum, c) => sum + (c.quota ?? 0), 0),
     saleStatus: race.saleStatus,
     badge: race.saleStatus ? SELLER_SALE_STATUS[race.saleStatus] : { label: '-', tone: 'neutral' },
+  }
+}
+
+export type AdminRaceRow = SellerRaceRow & {
+  seller: string
+  /** 11/1 (일) 08:00 */
+  raceDateTime: string
+  /** 10/20 (화) 09:00 ~ 10/31 (토) 18:00. 크루 예매가 있으면 크루 예매 시작부터 */
+  applicationPeriod: string
+  /** 10/25 (일) */
+  refundDeadline: string
+}
+
+/** 관리자 대회 관리(A05)의 대회 한 줄. 판매자 한 줄에 판매자 이름과 일정을 더한다. */
+export function toAdminRaceRow(race: productModel.SellerRaceDto): AdminRaceRow {
+  const start = race.crewSaleStartAt ?? race.individualOpenAt
+  return {
+    ...toSellerRaceRow(race),
+    seller: race.sellerName ?? '-',
+    raceDateTime: race.raceDate ? formatRaceDateTime(race.raceDate) : '-',
+    applicationPeriod:
+      start && race.applicationCloseAt
+        ? `${formatRaceDateTime(start)} ~ ${formatRaceDateTime(race.applicationCloseAt)}`
+        : '-',
+    refundDeadline: race.refundDeadline ? formatRaceDate(race.refundDeadline) : '-',
   }
 }
 
