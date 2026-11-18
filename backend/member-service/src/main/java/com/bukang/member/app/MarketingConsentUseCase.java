@@ -1,6 +1,6 @@
 package com.bukang.member.app;
 
-import java.time.LocalDate;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
@@ -27,6 +27,7 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class MarketingConsentUseCase {
+	private final Clock clock;
 	private final MemberRepository memberRepository;
 	private final TermsRepository termsRepository;
 	private final TermsAgreementRepository termsAgreementRepository;
@@ -62,12 +63,12 @@ public class MarketingConsentUseCase {
 		}
 
 		// 지금 버전의 약관에 동의·거부한 것으로 남긴다. TermsDataInit이 켜질 때 만들어 두므로 없으면 설정 오류다
-		Terms marketing = termsRepository.findCurrent(LocalDate.now()).stream()
+		Terms marketing = termsRepository.findCurrent(ClockTimes.today(clock)).stream()
 			.filter(terms -> terms.getType() == type)
 			.findFirst()
 			.orElseThrow(() -> new IllegalStateException("시행 중인 " + type + " 약관이 없습니다."));
 		// DB가 마이크로초까지 저장하므로 맞춰 두어, 기록의 결정 시각과 이벤트의 바꾼 시각이 같게 한다
-		LocalDateTime decidedAt = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
+		LocalDateTime decidedAt = ClockTimes.now(clock).truncatedTo(ChronoUnit.MICROS);
 		TermsAgreement saved = termsAgreementRepository.save(new TermsAgreement(member, marketing, agreed, decidedAt));
 		if (type == TermsType.MARKETING) {
 			member.publishMarketingConsentChangedEvent(agreed, decidedAt);

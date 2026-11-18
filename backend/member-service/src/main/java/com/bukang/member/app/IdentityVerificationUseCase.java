@@ -1,5 +1,6 @@
 package com.bukang.member.app;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.UUID;
@@ -30,6 +31,7 @@ public class IdentityVerificationUseCase {
 	static final String REQUIRED_MESSAGE = "본인인증을 다시 해주세요.";
 	static final String FAILED_MESSAGE = "본인인증을 마치지 못했습니다. 다시 시도해주세요.";
 
+	private final Clock clock;
 	private final IdentityVerificationStore store;
 	private final PortOneIdentityClient portOneIdentityClient;
 	private final IdentityHasher hasher;
@@ -81,7 +83,7 @@ public class IdentityVerificationUseCase {
 			hasher.identity(result.name(), result.birthDate(), phone),
 			hasher.nameBirth(result.name(), result.birthDate()),
 			result.verifiedAt() == null
-				? LocalDateTime.now()
+				? ClockTimes.now(clock)
 				: LocalDateTime.ofInstant(result.verifiedAt(), ZoneId.systemDefault())
 		);
 		// 가입이면 이미 가입한 사람일 때 인증 직후 알려 준다(시안: 「이미 가입한 사람이에요」). 결과는 저장하지 않는다

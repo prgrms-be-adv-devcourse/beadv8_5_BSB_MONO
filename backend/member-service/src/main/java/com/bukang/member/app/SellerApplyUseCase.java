@@ -1,6 +1,6 @@
 package com.bukang.member.app;
 
-import java.time.LocalDate;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -34,6 +34,7 @@ public class SellerApplyUseCase {
 	// 이 상태의 신청이 있으면 다시 신청할 수 없다. 반려(REJECTED)만 남아 있으면 새로 신청한다
 	static final List<SellerStatus> ACTIVE_STATUSES = List.of(SellerStatus.PENDING, SellerStatus.APPROVED);
 
+	private final Clock clock;
 	private final MemberRepository memberRepository;
 	private final SellerRepository sellerRepository;
 	private final TermsRepository termsRepository;
@@ -72,7 +73,7 @@ public class SellerApplyUseCase {
 
 		// 신청과 같은 트랜잭션에서 지금 판매자 약관에 동의한 기록을 남긴다. 신청이 롤백되면 기록도 함께 사라진다
 		// TermsDataInit이 켜질 때 만들어 두므로 없으면 설정 오류다
-		Terms sellerTerms = termsRepository.findCurrent(LocalDate.now()).stream()
+		Terms sellerTerms = termsRepository.findCurrent(ClockTimes.today(clock)).stream()
 			.filter(terms -> terms.getType() == TermsType.SELLER)
 			.findFirst()
 			.orElseThrow(() -> new IllegalStateException("시행 중인 판매자 약관이 없습니다."));

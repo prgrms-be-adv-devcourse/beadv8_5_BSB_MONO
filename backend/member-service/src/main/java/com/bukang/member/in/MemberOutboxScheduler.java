@@ -1,6 +1,6 @@
 package com.bukang.member.in;
 
-import java.time.LocalDateTime;
+import java.time.Clock;
 
 import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 
+import com.bukang.member.app.ClockTimes;
 import com.bukang.member.app.MemberOutboxCleanupUseCase;
 import com.bukang.member.app.MemberOutboxRelayUseCase;
 
@@ -25,6 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 public class MemberOutboxScheduler {
 	private static final String ZONE = "Asia/Seoul";
 
+	private final Clock clock;
 	private final MemberOutboxRelayUseCase memberOutboxRelayUseCase;
 	private final MemberOutboxCleanupUseCase memberOutboxCleanupUseCase;
 
@@ -32,7 +34,7 @@ public class MemberOutboxScheduler {
 	// @SchedulerLock을 붙이지 않는다: 행을 SKIP LOCKED로 읽어 pod 여러 개가 나눠 보낸다 (MemberOutboxRelayUseCase, BUK-206)
 	@Scheduled(fixedDelay = 1_000, initialDelay = 5_000)
 	public void relay() {
-		int sent = memberOutboxRelayUseCase.relay(LocalDateTime.now());
+		int sent = memberOutboxRelayUseCase.relay(ClockTimes.now(clock));
 		if (sent > 0) {
 			log.debug("아웃박스 메시지를 보냈습니다. 건수={}", sent);
 		}
@@ -42,7 +44,7 @@ public class MemberOutboxScheduler {
 	@SchedulerLock(name = "member-outbox-cleanup", lockAtMostFor = "PT30M", lockAtLeastFor = "PT30S")
 	@Scheduled(cron = "0 0 4 * * *", zone = ZONE)
 	public void cleanup() {
-		int deleted = memberOutboxCleanupUseCase.cleanup(LocalDateTime.now());
+		int deleted = memberOutboxCleanupUseCase.cleanup(ClockTimes.now(clock));
 		log.info("보낸 지 7일 지난 아웃박스 행을 지웠습니다. 건수={}", deleted);
 	}
 }
