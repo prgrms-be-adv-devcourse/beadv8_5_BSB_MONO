@@ -208,7 +208,7 @@ function WriteForm({
         title={editing ? '글 수정' : '글쓰기'}
         backHref={editing ? (`/community/${postId}` as Route) : '/community'}
       />
-      <div className="flex flex-1 flex-col gap-6 px-4 py-5">
+      <div className="flex flex-1 flex-col gap-7 px-5 pt-6 pb-6">
         <fieldset className="flex flex-col gap-2">
           <legend className="mb-2 text-body2-medium">말머리</legend>
           <Controller
@@ -253,7 +253,7 @@ function WriteForm({
                 disabled={photos.length >= PHOTO_MAX}
                 onClick={() => fileInput.current?.click()}
                 className={cn(
-                  'flex size-22 flex-col items-center justify-center gap-1 rounded-md bg-bg-subtle text-caption-regular text-text-secondary disabled:opacity-50',
+                  'flex size-22 flex-col items-center justify-center gap-1 rounded-md bg-bg-surface text-caption-regular text-text-secondary inset-ring inset-ring-border-default disabled:opacity-50',
                   FOCUS_RING,
                 )}
               >

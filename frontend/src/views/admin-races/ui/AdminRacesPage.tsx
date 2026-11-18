@@ -8,9 +8,18 @@ import { RaceSaleActionButton } from '@/features/race-sale-status'
 import { adminRacesQueryOptions, toAdminRaceRow } from '@/entities/race'
 import { ApiError } from '@/shared/api'
 import { cn, formatNumber } from '@/shared/lib'
-import { Alert, Badge, DataTable, EmptyState, KeyValue } from '@/shared/ui'
+import { Alert, DataTable, EmptyState, KeyValue } from '@/shared/ui'
 
 const n = formatNumber
+
+// 상태는 칩 대신 뜻 색 글자로 보여 준다 (완료 초록, 실패 빨강, 나머지 보조 글자)
+const STATUS_TEXT: Record<string, string> = {
+  success: 'text-text-success',
+  danger: 'text-text-danger',
+  warning: 'text-text-warning',
+}
+const statusText = (tone: string) =>
+  cn('text-body2-medium', STATUS_TEXT[tone] ?? 'text-text-secondary')
 
 // 피그마 V2 · A05 대회 관리 (대회 정보는 판매자가 고치고, 관리자는 판매 상태만 바꾼다)
 export function AdminRacesPage() {
@@ -53,7 +62,7 @@ export function AdminRacesPage() {
                   key: 'status',
                   header: '상태',
                   width: 'w-24',
-                  render: (r) => <Badge tone={r.badge.tone}>{r.badge.label}</Badge>,
+                  render: (r) => <span className={statusText(r.badge.tone)}>{r.badge.label}</span>,
                 },
                 {
                   key: 'sold',
