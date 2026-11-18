@@ -41,6 +41,8 @@ import {
 import {
   shipCountMessage,
   shipFormSchema,
+  TRACKING_MAX,
+  TRACKING_TOO_LONG_MESSAGE,
   trackingLines,
   type ShipFormInput,
   type ShipFormValues,
@@ -141,7 +143,9 @@ export function SellerKitsPage() {
         ? `${KIT_STATUS[FROM[next]].label} 상태인 주문만 ${TO[next]} 바꿀 수 있어요.`
         : next === 'SHIPPING' && lines.length !== selected.length
           ? shipCountMessage(selected.length)
-          : null
+          : next === 'SHIPPING' && lines.some((line) => line.length > TRACKING_MAX)
+            ? TRACKING_TOO_LONG_MESSAGE
+            : null
   const canSubmit = selected.length > 0 && !blocker && !pending
 
   async function send(request: () => Promise<{ total: number; failures: KitFailure[] }>) {

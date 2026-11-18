@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
-import { shipCountMessage, shipFormSchema, trackingLines } from './ship-form'
+import { orderZod } from '@/shared/api-zod'
+
+import {
+  shipCountMessage,
+  shipFormSchema,
+  TRACKING_TOO_LONG_MESSAGE,
+  trackingLines,
+} from './ship-form'
 
 describe('trackingLines', () => {
   it('줄마다 앞뒤 공백을 빼고 빈 줄은 건너뛴다', () => {
@@ -21,6 +28,19 @@ describe('shipFormSchema', () => {
       const result = shipFormSchema(2).safeParse({ carrier: 'CJ대한통운', tracking })
       expect(result.error?.issues[0].message).toBe(shipCountMessage(2))
     }
+  })
+
+  it('송장 번호 한 줄이 서버 한도보다 길면 거절하고, 한도와 같으면 통과한다', () => {
+    const max = orderZod.shipBodyTrackingNumberMax
+    const tooLong = shipFormSchema(2).safeParse({
+      carrier: 'CJ대한통운',
+      tracking: `111\n${'9'.repeat(max + 1)}`,
+    })
+    expect(tooLong.success).toBe(false)
+    expect(tooLong.error?.issues[0].message).toBe(TRACKING_TOO_LONG_MESSAGE)
+    expect(
+      shipFormSchema(1).safeParse({ carrier: 'CJ대한통운', tracking: '9'.repeat(max) }).success,
+    ).toBe(true)
   })
 
   it('택배사가 비면 거절한다', () => {
