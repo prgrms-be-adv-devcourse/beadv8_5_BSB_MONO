@@ -46,8 +46,11 @@ export function MyCrewsPage() {
           <CrewBand>
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-title3">가입한 크루 {list.length}개</h2>
-              <Link href="/crews/new" className="text-body2-medium text-text-brand">
-                + 새 크루 만들기
+              <Link
+                href="/crews/new"
+                className={cn('rounded-sm text-body2-medium text-text-brand', FOCUS_RING)}
+              >
+                <span aria-hidden>+ </span>새 크루 만들기
               </Link>
             </div>
             <ul className="flex flex-col gap-3">

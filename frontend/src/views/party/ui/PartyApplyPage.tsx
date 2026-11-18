@@ -81,7 +81,11 @@ export function PartyApplyPage({ partyId }: { partyId: number }) {
       <section role="alert" className="flex flex-col gap-7 px-5 pt-6 pb-6">
         <div className="flex flex-col gap-2">
           <p className="text-body2-medium text-text-danger">신청 안 됨</p>
-          <h2 className="text-title1">{race.data?.title}</h2>
+          {race.isPending ? (
+            <Skeleton className="h-8 w-2/3" />
+          ) : (
+            race.data && <h2 className="text-title1">{race.data.title}</h2>
+          )}
         </div>
         <div className="flex flex-col gap-4 rounded-md border border-border-default p-4">
           <div className="flex flex-col gap-1">

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { BIRTH_UNDER_14_MESSAGE, isJoinableAge, parseBirth } from '@/entities/member'
 import type { orderModel } from '@/shared/api'
 
 // 파티 만들기 · 합류의 내 참가 정보. 규칙은 서버(ParticipantInfoRequestDto)와 같다.
@@ -15,7 +16,13 @@ const name = z
 
 export const participantSchema = z.object({
   name,
-  birth: z.string().min(1, '생년월일을 입력해 주세요.'),
+  birth: z
+    .string()
+    .min(1, '생년월일을 입력해 주세요.')
+    .refine((value) => {
+      const date = parseBirth(value)
+      return date !== null && isJoinableAge(date)
+    }, BIRTH_UNDER_14_MESSAGE),
   gender: z.enum(['MALE', 'FEMALE'], { message: '성별을 골라 주세요.' }),
   phone,
   emergencyContactName: name,

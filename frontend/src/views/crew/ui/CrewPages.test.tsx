@@ -61,7 +61,7 @@ describe('MyCrewsPage (M09-0)', () => {
     expect(
       within(screen.getByRole('link', { name: /판교점심런/ })).getByText(/· 크루원/),
     ).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '+ 새 크루 만들기' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '새 크루 만들기' })).toHaveAttribute(
       'href',
       '/crews/new',
     )
@@ -77,7 +77,7 @@ describe('MyCrewsPage (M09-0)', () => {
     renderPage(<MyCrewsPage />)
     expect(await screen.findByText('아직 가입한 크루가 없어요')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '크루 만들기' })).toHaveAttribute('href', '/crews/new')
-    expect(screen.queryByRole('link', { name: '+ 새 크루 만들기' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: '새 크루 만들기' })).not.toBeInTheDocument()
   })
 
   it('불러오지 못하면 다시 불러오기를 보여 준다', async () => {
