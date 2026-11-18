@@ -28,3 +28,10 @@ data:
 
   # 포트원 본인인증 상점 아이디. 프론트 빌드 값(NEXT_PUBLIC_PORTONE_STORE_ID)과 같아 화면 코드에도 드러난다 (API 비밀 키는 secret.yaml)
   PORTONE_STORE_ID: "store-e71a8c6a-722e-4a25-b2e9-4dbe6f8084cd"
+
+  # 회원 메일·링크 (member)
+  #   FRONT_PUBLIC_BASE_URL: 메일·카카오톡 버튼 링크의 앞부분(비밀번호 재설정, 광고 수신 거부, 크루 초대). 비면 링크가 열리지 않는다
+  #   MAIL_HOST: 메일 서버. 비면 운영은 경고만 남기고 메일을 보내지 않는다. 포트(587)·STARTTLS는 앱 기본값이 Gmail에 맞다
+  #   메일 계정·앱 비밀번호(MAIL_USERNAME·MAIL_PASSWORD)는 secret.yaml
+  FRONT_PUBLIC_BASE_URL: https://crewrun.duckdns.org
+  MAIL_HOST: smtp.gmail.com

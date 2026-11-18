@@ -48,7 +48,7 @@
 
 | 경로 | 내용 | 넣는 방법 |
 |---|---|---|
-| `/crewrun/prod/<키>` | 앱 비밀값 22개 (`k8s/overlays/aws/secret.yaml.example`의 목록) | `env-to-parameter-store.sh --apply` |
+| `/crewrun/prod/<키>` | 앱 비밀값 26개 (`k8s/overlays/aws/secret.yaml.example`의 목록. 11/18 메일·수신 거부 3개 추가) | `env-to-parameter-store.sh --apply` |
 | `/crewrun/registry/GHCR_AUTH` | GHCR 로그인 (`아이디:토큰`을 base64로 바꾼 값) | 같은 스크립트가 서버 docker 로그인에서 옮김 |
 | `/crewrun/prod/MONITORING_RW_PASSWORD` | 지표 수집기가 개인 AWS EC2 Prometheus로 보낼 때 쓰는 비밀번호 (BUK-258). 앱 Secret에는 넣지 않고 Secret `monitoring-remote-write`로만 만듦 | 아래 「지표 수집기」 |
 
