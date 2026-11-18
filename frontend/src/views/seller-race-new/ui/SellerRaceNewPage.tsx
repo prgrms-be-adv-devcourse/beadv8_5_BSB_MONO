@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { Controller, useFieldArray, useForm, useWatch, type Resolver } from 'react-hook-form'
 
-import { CONSOLE_BOX, ConsoleCard, ConsolePage } from '@/widgets/console-page'
+import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
 import { AddressSearch } from '@/features/address-search'
 import { parseRaceDateInput } from '@/entities/race'
 import { ApiError } from '@/shared/api'
@@ -19,6 +19,7 @@ import {
   ImageCropDialog,
   ImageListDialog,
   ImageUpload,
+  Textarea,
   TextField,
   useImageList,
   type ImageUploadValue,
@@ -93,6 +94,8 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
   const courseFields = useFieldArray({ control, name: 'courses' })
   const kitFields = useFieldArray({ control, name: 'kitOptions' })
   const [courseOpen, setCourseOpen] = useState(false)
+  const [searching, setSearching] = useState(false)
+  const location = useWatch({ control, name: 'location' })
   // 시·도 · 시·군·구는 주소 검색 결과로만 채운다. 검색을 못 불러오면 둘 다, 시·군·구가 없는 곳(세종)이면 시·군·구만 직접 쓴다
   const [manualRegion, setManualRegion] = useState({ sido: false, sigungu: false })
   const schedule = useWatch({
@@ -205,7 +208,6 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
   return (
     <ConsolePage
       title="대회 등록"
-      description="판매가 시작되면 가격과 취소 · 환불 정책은 바꿀 수 없어요. 구매자에게 유리하게 바꾸는 것만 돼요."
       actions={
         <>
           <Button variant="secondary">미리보기</Button>
@@ -249,40 +251,80 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
               )}
             />
           </div>
-          <div className="flex gap-4">
-            <TextField
-              label="장소"
-              placeholder="서울숲 일대"
-              error={errors.location?.message}
-              className="flex-1"
-              {...register('location')}
-            />
-            <TextField
-              label="시·도"
-              placeholder="서울특별시"
-              helper="대회 찾기의 지역 필터에 쓰여요"
-              readOnly={!manualRegion.sido}
-              error={errors.regionSido?.message}
-              className="flex-1"
-              {...register('regionSido')}
-            />
-            <TextField
-              label="시·군·구"
-              placeholder="성동구"
-              readOnly={!manualRegion.sigungu}
-              error={errors.regionSigungu?.message}
-              className="flex-1"
-              {...register('regionSigungu')}
-            />
+          <div className="flex flex-col gap-2">
+            {manualRegion.sido ? (
+              <TextField
+                label="장소"
+                placeholder="서울숲 일대"
+                error={errors.location?.message}
+                {...register('location')}
+              />
+            ) : (
+              <>
+                <span className="text-body2-medium">장소</span>
+                {location && (
+                  <div className="flex items-center justify-between gap-4">
+                    <p className="text-body2-regular">{location}</p>
+                    <Button
+                      variant="text"
+                      size="s"
+                      className="underline"
+                      onClick={() => setSearching(true)}
+                    >
+                      다시 검색
+                    </Button>
+                  </div>
+                )}
+              </>
+            )}
+            {(!location || searching || manualRegion.sido) && (
+              <AddressSearch
+                defaultOpen={searching}
+                onSelect={({ address, sido, sigungu }) => {
+                  setValue('location', address, { shouldValidate: true, shouldDirty: true })
+                  setValue('regionSido', sido, { shouldValidate: true, shouldDirty: true })
+                  setValue('regionSigungu', sigungu, {
+                    shouldValidate: isSubmitted,
+                    shouldDirty: true,
+                  })
+                  setManualRegion((manual) => ({ ...manual, sigungu: manual.sido || !sigungu }))
+                  setSearching(false)
+                }}
+                onUnavailable={() => setManualRegion({ sido: true, sigungu: true })}
+              />
+            )}
+            {!manualRegion.sido && errors.location?.message && (
+              <p className="text-caption-regular text-text-danger">{errors.location.message}</p>
+            )}
           </div>
-          <AddressSearch
-            onSelect={({ sido, sigungu }) => {
-              setValue('regionSido', sido, { shouldValidate: true, shouldDirty: true })
-              setValue('regionSigungu', sigungu, { shouldValidate: isSubmitted, shouldDirty: true })
-              setManualRegion((manual) => ({ ...manual, sigungu: manual.sido || !sigungu }))
-            }}
-            onUnavailable={() => setManualRegion({ sido: true, sigungu: true })}
-          />
+          {(manualRegion.sido || manualRegion.sigungu) && (
+            <div className="flex gap-4">
+              {manualRegion.sido && (
+                <TextField
+                  label="시·도"
+                  placeholder="서울특별시"
+                  error={errors.regionSido?.message}
+                  className="flex-1"
+                  {...register('regionSido')}
+                />
+              )}
+              <TextField
+                label="시·군·구"
+                placeholder="성동구"
+                error={errors.regionSigungu?.message}
+                className="flex-1"
+                {...register('regionSigungu')}
+              />
+            </div>
+          )}
+          {(location || manualRegion.sido) && (
+            <TextField
+              label="상세 주소"
+              placeholder="건물명, 출입구 등"
+              error={errors.locationDetail?.message}
+              {...register('locationDetail')}
+            />
+          )}
           <div className="flex gap-4">
             {/* 시작은 개인 예매 오픈(그날 00:00), 끝은 접수 마감(그날 23:59:59)으로 보낸다 */}
             <DateTimeField
@@ -313,6 +355,12 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
               className="flex-1"
             />
           </div>
+          <Textarea
+            label="대회 소개"
+            maxLength={2000}
+            error={errors.description?.message}
+            {...register('description')}
+          />
         </ConsoleCard>
 
         <ConsoleCard title="이미지">
@@ -394,11 +442,6 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
           {errors.courses?.message && (
             <p className="text-body2-regular text-text-danger">{errors.courses.message}</p>
           )}
-          <Alert
-            className={CONSOLE_BOX}
-            title="다른 곳에서도 함께 팔 수 있어요"
-            description="정원에는 크루런에 배정할 수량만 적어 주세요. 한 사람 한 대회 1건 규칙은 크루런 안에서만 지켜져요."
-          />
         </ConsoleCard>
 
         <ConsoleCard title="취소 · 환불 정책">

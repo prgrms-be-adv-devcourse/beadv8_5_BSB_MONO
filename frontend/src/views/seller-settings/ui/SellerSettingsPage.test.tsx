@@ -96,8 +96,8 @@ describe('SellerSettingsPage', () => {
       </QueryClientProvider>,
     )
 
-    expect(await screen.findByText('아직 판매자 신청을 하지 않았어요')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '판매자 신청하러 가기' })).toHaveAttribute(
+    expect(await screen.findByText('판매자만 쓸 수 있어요')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '판매자 신청하기' })).toHaveAttribute(
       'href',
       '/seller-apply',
     )

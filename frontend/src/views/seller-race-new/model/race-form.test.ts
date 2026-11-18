@@ -239,3 +239,51 @@ describe('키트 옵션 칸 (서버 RaceRequestValidator.validateKitOptions와 �
     for (const course of request.courses) expect(course).not.toHaveProperty('tshirtSizeOption')
   })
 })
+
+describe('대회 소개 칸', () => {
+  it('2,000자를 넘기면 막고, 비어 있으면 요청에 보내지 않는다', () => {
+    const tooLong = createRaceFormSchema().safeParse({ ...base, description: 'a'.repeat(2001) })
+    expect(tooLong.success).toBe(false)
+    expect(toRaceSaveRequest(base, [], []).description).toBeUndefined()
+  })
+
+  it('앞뒤 공백을 지워 보낸다', () => {
+    expect(toRaceSaveRequest({ ...base, description: '  가을 러닝  ' }, [], []).description).toBe(
+      '가을 러닝',
+    )
+  })
+})
+
+describe('상세 주소 칸', () => {
+  it('도로명 주소 뒤에 상세 주소를 붙여 장소로 보낸다', () => {
+    const request = toRaceSaveRequest(
+      { ...base, location: '서울특별시 성동구 뚝섬로 273', locationDetail: ' 서울숲 1번 출구 ' },
+      [],
+      [],
+    )
+    expect(request.location).toBe('서울특별시 성동구 뚝섬로 273 서울숲 1번 출구')
+  })
+
+  it('상세 주소가 비어 있으면 주소만 보낸다', () => {
+    expect(toRaceSaveRequest(base, [], []).location).toBe('서울숲 일대')
+  })
+
+  it('상세 주소가 100자를 넘으면 막는다', () => {
+    const result = createRaceFormSchema().safeParse({ ...base, locationDetail: 'a'.repeat(101) })
+    expect(result.success).toBe(false)
+  })
+})
+
+describe('기본 종목의 나이', () => {
+  it('화면에 없는 최대 나이를 보내지 않고, 최소 나이는 고를 수 있는 값(14 · 19)이다', () => {
+    const request = toRaceSaveRequest(
+      RACE_FORM_DEFAULTS,
+      [],
+      RACE_FORM_DEFAULTS.courses.map(() => []),
+    )
+    for (const course of request.courses) {
+      expect(JSON.parse(JSON.stringify(course))).not.toHaveProperty('maxAge')
+      expect([14, 19]).toContain(course.minAge)
+    }
+  })
+})

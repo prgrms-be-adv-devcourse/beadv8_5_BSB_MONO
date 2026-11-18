@@ -21,16 +21,7 @@ import {
   type ManageRole,
 } from '@/entities/inquiry'
 import { cn, useSearchParamsState } from '@/shared/lib'
-import {
-  Badge,
-  Button,
-  Chip,
-  EmptyState,
-  FOCUS_RING,
-  KeyValue,
-  Skeleton,
-  useToast,
-} from '@/shared/ui'
+import { Button, Chip, EmptyState, FOCUS_RING, KeyValue, Skeleton, useToast } from '@/shared/ui'
 
 type Filter = 'WAITING' | 'ANSWERED' | 'SELLER' | 'SENT'
 
@@ -139,7 +130,7 @@ export function InquiryBoard({
       <div className="flex items-start gap-6">
         <section
           aria-label="문의 목록"
-          className="w-90 shrink-0 rounded-xl bg-bg-surface p-2 inset-ring inset-ring-border-default"
+          className="w-90 shrink-0 rounded-md bg-bg-surface p-2 inset-ring inset-ring-border-default"
         >
           {items === undefined ? (
             <div role="status" aria-label="불러오는 중" className="flex flex-col gap-2">
@@ -180,7 +171,9 @@ export function InquiryBoard({
                     <span className="w-full truncate text-body2-regular text-text-secondary">
                       {inquiry.title}
                     </span>
-                    <Badge>{TYPE_LABEL[inquiry.type]}</Badge>
+                    <span className="text-caption-medium text-text-secondary">
+                      {TYPE_LABEL[inquiry.type]}
+                    </span>
                   </button>
                 </li>
               ))}
@@ -255,18 +248,22 @@ function Detail({
   const answerable = !sent && (role === 'seller' || data.assignee === 'ADMIN')
   const badge =
     data.status === 'ANSWERED'
-      ? { label: '답변 완료', tone: 'success' as const }
-      : {
-          label: role === 'admin' && !answerable ? '판매자 답변 대기' : '답변 대기',
-          tone: 'warning' as const,
-        }
+      ? { label: '답변 완료' }
+      : { label: role === 'admin' && !answerable ? '판매자 답변 대기' : '답변 대기' }
 
   return (
-    <article className="flex flex-col gap-6 rounded-xl bg-bg-surface p-6 inset-ring inset-ring-border-default">
+    <article className="flex flex-col gap-6 rounded-md bg-bg-surface p-6 inset-ring inset-ring-border-default">
       <header className="flex flex-col gap-2">
         <div className="flex items-center gap-2">
           <h2 className="min-w-0 flex-1 text-title3">{data.title}</h2>
-          <Badge tone={badge.tone}>{badge.label}</Badge>
+          <span
+            className={cn(
+              'shrink-0 text-body2-medium',
+              data.status === 'ANSWERED' ? 'text-text-success' : 'text-text-secondary',
+            )}
+          >
+            {badge.label}
+          </span>
         </div>
         <p className="text-caption-regular text-text-tertiary">{meta}</p>
         <p className="pt-2 text-body2-regular whitespace-pre-wrap">{data.body}</p>
@@ -297,7 +294,7 @@ function OrderInfo({ order }: { order: InquiryOrder }) {
   const item = order.items[0]
   const canceled = order.status === 'CANCELED'
   return (
-    <section className="flex flex-col gap-2 rounded-lg p-4 inset-ring inset-ring-border-default">
+    <section className="flex flex-col gap-2 rounded-md p-4 inset-ring inset-ring-border-default">
       <h3 className="text-body2-bold">주문 정보</h3>
       <KeyValue label="주문번호" value={order.orderNo} />
       {item && <KeyValue label="대회 · 코스" value={`${item.raceName} · ${item.courseName}`} />}
@@ -319,7 +316,7 @@ function OrderInfo({ order }: { order: InquiryOrder }) {
         label="주문 상태"
         value={
           canceled ? (
-            <Badge tone="danger">{ORDER_STATUS[order.status]}</Badge>
+            <span className="text-text-danger">{ORDER_STATUS[order.status]}</span>
           ) : (
             (ORDER_STATUS[order.status] ?? order.status)
           )

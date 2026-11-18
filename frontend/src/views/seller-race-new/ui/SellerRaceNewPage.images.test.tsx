@@ -223,7 +223,6 @@ describe('SellerRaceNewPage 두 번 제출', () => {
     )
     renderPage()
     await userEvent.type(screen.getByRole('textbox', { name: '대회 이름' }), '가을 마라톤')
-    await userEvent.type(screen.getByRole('textbox', { name: '장소' }), '서울숲')
     await userEvent.click(screen.getByRole('button', { name: '주소 검색' }))
     completePostcode()
     await pickDates('대회 날짜', [25])

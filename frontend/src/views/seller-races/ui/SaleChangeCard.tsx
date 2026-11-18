@@ -52,7 +52,7 @@ export function SaleChangeCard({ row }: { row: SellerRaceRow }) {
           </Link>
         )
       }
-      className="w-110 shrink-0"
+      className="max-w-140"
     >
       <p className="text-body2-regular text-text-secondary">
         {row.title} · {row.badge.label}
