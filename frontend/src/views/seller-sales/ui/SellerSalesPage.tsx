@@ -2,7 +2,6 @@
 
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
-import { useState } from 'react'
 
 import { CONSOLE_BOX, ConsoleCard, ConsolePage } from '@/widgets/console-page'
 import {
@@ -13,7 +12,7 @@ import {
   toSellerRaceRow,
 } from '@/entities/race'
 import { ApiError, type productModel } from '@/shared/api'
-import { formatNumber } from '@/shared/lib'
+import { formatNumber, useSearchParamsState } from '@/shared/lib'
 import {
   Alert,
   Button,
@@ -34,14 +33,16 @@ function seatsOf(race: productModel.SellerRaceDto) {
   const sold = courses.reduce((sum, c) => sum + (c.sold ?? 0), 0)
   const quota = courses.reduce((sum, c) => sum + (c.quota ?? 0), 0)
   const reserved = courses.reduce((sum, c) => sum + (c.reserved ?? 0), 0)
-  return { sold, quota, remaining: Math.max(quota - sold - reserved, 0) }
+  return { sold, quota, reserved, remaining: Math.max(quota - sold - reserved, 0) }
 }
 
 // 피그마 V2 · S03 판매 현황 (주문 · 참가자)
 // 대회 정보와 자리 수는 내 대회 목록(GET /api/v1/product/races/mine), 환불 기한은 대회 상세로 채운다.
 export function SellerSalesPage() {
   const races = useQuery(myRacesQueryOptions())
-  const [picked, setPicked] = useState<string | null>(null)
+  // 고른 대회는 주소(?race=)에 담는다. 대회 상세의 바로 가기가 번호를 넘긴다
+  const [url, setUrl] = useSearchParamsState({ race: '' })
+  const picked = url.race
   const list = races.data ?? []
   // 고르기 전에는 판매 중인 대회를 먼저, 없으면 가장 최근 대회
   const race =
@@ -107,7 +108,7 @@ export function SellerSalesPage() {
         className="w-100"
         items={list.map((r) => ({ value: String(r.raceId), label: r.title ?? '' }))}
         value={String(race.raceId)}
-        onValueChange={(value) => setPicked(value)}
+        onValueChange={(value) => setUrl({ race: value ?? '' })}
       />
       <SalesBody race={race} raceId={race.raceId} />
     </ConsolePage>
@@ -130,6 +131,7 @@ function SalesBody({ race, raceId }: { race: productModel.SellerRaceDto; raceId:
           label="전체 판매"
           value={`${formatNumber(seats.sold)} / ${formatNumber(seats.quota)}명`}
         />
+        <Figure label="결제 대기" value={`${formatNumber(seats.reserved)}명`} />
         <Figure label="남은 자리" value={`${formatNumber(seats.remaining)}명`} />
         <Figure
           label="접수 마감"
@@ -138,7 +140,8 @@ function SalesBody({ race, raceId }: { race: productModel.SellerRaceDto; raceId:
         />
         <Figure
           label="환불 기한"
-          value={refundDeadline ? formatDDay(refundDeadline) : detail.isPending ? '' : '-'}
+          value={refundDeadline ? formatDDay(refundDeadline) : '-'}
+          loading={detail.isPending}
           sub={refundDeadline && formatRaceDateTime(refundDeadline)}
         />
       </div>
@@ -189,11 +192,21 @@ function SalesBody({ race, raceId }: { race: productModel.SellerRaceDto; raceId:
 }
 
 // 숫자 요약: 이름 14 보조, 숫자 24 굵게. 칸 사이는 세로 1px 선
-function Figure({ label, value, sub }: { label: string; value: string; sub?: string | null }) {
+function Figure({
+  label,
+  value,
+  sub,
+  loading,
+}: {
+  label: string
+  value: string
+  sub?: string | null
+  loading?: boolean
+}) {
   return (
     <div className="flex flex-1 flex-col gap-1 px-6">
       <p className="text-body2-regular text-text-secondary">{label}</p>
-      <p className="text-title2">{value}</p>
+      {loading ? <Skeleton className="h-8 w-24" /> : <p className="text-title2">{value}</p>}
       {sub && <p className="text-body2-regular text-text-secondary">{sub}</p>}
     </div>
   )

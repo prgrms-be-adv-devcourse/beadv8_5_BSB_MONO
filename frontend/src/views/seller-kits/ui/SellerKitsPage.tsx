@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { Fragment, useState } from 'react'
+import { useState } from 'react'
 
 import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
 import { myRacesQueryOptions } from '@/entities/race'
@@ -24,7 +24,6 @@ import {
   Alert,
   Button,
   Checkbox,
-  Chip,
   DataTable,
   EmptyState,
   FOCUS_RING,
@@ -96,7 +95,8 @@ export function SellerKitsPage() {
   const summary = useSellerKitSummary(filters.raceId)
 
   const [checked, setChecked] = useState<number[]>([])
-  const [next, setNext] = useState<NextStatus>('SHIPPING')
+  // 바꿀 단계는 주소의 탭에서 정한다(?status=로 바로 들어와도 맞는다)
+  const next: NextStatus = url.status === 'SHIPPING' ? 'DELIVERED' : 'SHIPPING'
   // 송장 입력 대기 줄마다 넣는 택배사 · 송장 번호 (주문 번호 → 값)
   const [inputs, setInputs] = useState<Record<number, { carrier?: string; tracking?: string }>>({})
   const setInput = (id: number, patch: { carrier?: string; tracking?: string }) =>
@@ -122,9 +122,6 @@ export function SellerKitsPage() {
     setUrl(patch)
     setChecked([])
     setResult(null)
-    // 탭을 옮기면 그 단계에서 바꿀 다음 단계를 맞춘다
-    if (patch.status === 'SHIPPING') setNext('DELIVERED')
-    if (patch.status === 'PREPARING') setNext('SHIPPING')
   }
 
   const selectedLabels = [
@@ -346,20 +343,6 @@ export function SellerKitsPage() {
             {selected.length}건 선택
             {selectedLabels.length > 0 && ` · ${selectedLabels.join(' · ')}`}
           </p>
-          <div className="flex items-center gap-2">
-            {KIT_FLOW.map((step, i) => (
-              <Fragment key={step}>
-                {i > 0 && <span className="text-body2-medium text-text-tertiary">→</span>}
-                <Chip
-                  selected={step === next}
-                  disabled={step === 'PREPARING'}
-                  onClick={() => setNext(step as NextStatus)}
-                >
-                  {KIT_STATUS[step].label}
-                </Chip>
-              </Fragment>
-            ))}
-          </div>
           {blocker && <p className="text-body2-regular text-text-secondary">{blocker}</p>}
           {result && result.done > 0 && (
             <Alert tone="success" title={`${result.done}건을 ${TO[next]} 바꿨어요`} />

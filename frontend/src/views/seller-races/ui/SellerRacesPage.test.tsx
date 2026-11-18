@@ -46,6 +46,13 @@ describe('SellerRacesPage', () => {
     expect(screen.getByRole('link', { name: /쿠키RUN/ })).toHaveAttribute('href', '/seller/races/1')
   })
 
+  it('상태 칩으로 걸러 결과가 없으면 빈 상태를 보여 준다', async () => {
+    renderPage()
+    await userEvent.click(await screen.findByRole('button', { name: '대회 취소 0' }))
+
+    expect(await screen.findByText('해당하는 대회가 없어요')).toBeInTheDocument()
+  })
+
   it('승인되지 않은 판매자면(403) 서버 문구를 보여 준다', async () => {
     server.use(
       http.get('*/api/v1/product/races/mine', () =>

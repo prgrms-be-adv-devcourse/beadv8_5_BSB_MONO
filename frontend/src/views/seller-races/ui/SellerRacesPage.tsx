@@ -113,48 +113,52 @@ export function SellerRacesPage({ registeredRaceId }: { registeredRaceId?: strin
               </Chip>
             ))}
           </div>
-          <table aria-label="내 대회" className="w-full table-fixed text-body2-regular">
-            <thead>
-              <tr className="border-b border-border-default text-body2-medium text-text-secondary">
-                <th className="h-11 text-left font-medium">대회</th>
-                <th className="h-11 w-28 text-right font-medium">대회일</th>
-                <th className="h-11 w-36 text-right font-medium">판매 / 정원</th>
-                <th className="h-11 w-48 pl-6 text-left font-medium">판매율</th>
-                <th className="h-11 w-28 pl-4 text-left font-medium">상태</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.id} className="h-14 border-b border-border-default last:border-b-0">
-                  <td className="truncate">
-                    <Link
-                      href={`/seller/races/${row.id}`}
-                      className={cn('rounded-sm text-body2-medium', FOCUS_RING)}
-                    >
-                      {row.title}
-                    </Link>
-                  </td>
-                  <td className="text-right tabular-nums">{row.date}</td>
-                  <td className="text-right tabular-nums">{`${n(row.sold)} / ${n(row.capacity)}`}</td>
-                  <td className="pl-6">
-                    <ProgressBar
-                      size="s"
-                      aria-label={`${row.title} 판매율`}
-                      value={row.capacity > 0 ? Math.round((row.sold / row.capacity) * 100) : 0}
-                    />
-                  </td>
-                  <td
-                    className={cn(
-                      'pl-4 text-body2-medium',
-                      row.saleStatus ? SELLER_SALE_STATUS_TEXT[row.saleStatus] : '',
-                    )}
-                  >
-                    {row.badge.label}
-                  </td>
+          {rows.length === 0 ? (
+            <EmptyState title="해당하는 대회가 없어요" />
+          ) : (
+            <table aria-label="내 대회" className="w-full table-fixed text-body2-regular">
+              <thead>
+                <tr className="border-b border-border-default text-body2-medium text-text-secondary">
+                  <th className="h-11 text-left font-medium">대회</th>
+                  <th className="h-11 w-28 text-right font-medium">대회일</th>
+                  <th className="h-11 w-36 text-right font-medium">판매 / 정원</th>
+                  <th className="h-11 w-48 pl-6 text-left font-medium">판매율</th>
+                  <th className="h-11 w-28 pl-4 text-left font-medium">상태</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr key={row.id} className="h-14 border-b border-border-default last:border-b-0">
+                    <td className="truncate">
+                      <Link
+                        href={`/seller/races/${row.id}`}
+                        className={cn('rounded-sm text-body2-medium', FOCUS_RING)}
+                      >
+                        {row.title}
+                      </Link>
+                    </td>
+                    <td className="text-right tabular-nums">{row.date}</td>
+                    <td className="text-right tabular-nums">{`${n(row.sold)} / ${n(row.capacity)}`}</td>
+                    <td className="pl-6">
+                      <ProgressBar
+                        size="s"
+                        aria-label={`${row.title} 판매율`}
+                        value={row.capacity > 0 ? Math.round((row.sold / row.capacity) * 100) : 0}
+                      />
+                    </td>
+                    <td
+                      className={cn(
+                        'pl-4 text-body2-medium',
+                        row.saleStatus ? SELLER_SALE_STATUS_TEXT[row.saleStatus] : '',
+                      )}
+                    >
+                      {row.badge.label}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       )}
     </ConsolePage>

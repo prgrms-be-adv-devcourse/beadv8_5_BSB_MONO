@@ -1,6 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
+import type { Route } from 'next'
 import Link from 'next/link'
 import { useState } from 'react'
 
@@ -115,6 +116,7 @@ export function SellerRaceDetailPage({ raceId }: { raceId: number }) {
                   <th className="h-11 w-32 text-right font-medium">참가비</th>
                   <th className="h-11 w-32 text-right font-medium">정원</th>
                   <th className="h-11 w-32 text-right font-medium">판매</th>
+                  <th className="h-11 w-32 text-right font-medium">결제 대기</th>
                 </tr>
               </thead>
               <tbody>
@@ -127,6 +129,7 @@ export function SellerRaceDetailPage({ raceId }: { raceId: number }) {
                     <td className="text-right tabular-nums">{n(course.price ?? 0)}원</td>
                     <td className="text-right tabular-nums">{n(course.quota ?? 0)}</td>
                     <td className="text-right tabular-nums">{n(course.sold ?? 0)}</td>
+                    <td className="text-right tabular-nums">{n(course.reserved ?? 0)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -136,12 +139,12 @@ export function SellerRaceDetailPage({ raceId }: { raceId: number }) {
             aria-label="바로 가기"
             className="flex flex-col rounded-md border border-border-default px-6"
           >
-            <ShortcutRow href="/seller/sales" label="판매 현황" />
-            <ShortcutRow href="/seller/kits" label="키트 배송" />
+            <ShortcutRow href={`/seller/sales?race=${raceId}` as Route} label="판매 현황" />
+            <ShortcutRow href={`/seller/kits?race=${raceId}` as Route} label="키트 배송" />
             <ShortcutRow href="/seller/settlements" label="정산" />
             {isRaceEditable(row.saleStatus) && (
               <ShortcutRow
-                href={`/seller/races/${raceId}/change`}
+                href={`/seller/races/${raceId}/change` as Route}
                 label="일정 변경 · 대회 취소"
                 danger
               />
@@ -163,15 +166,7 @@ export function SellerRaceDetailPage({ raceId }: { raceId: number }) {
   )
 }
 
-function ShortcutRow({
-  href,
-  label,
-  danger,
-}: {
-  href: '/seller/sales' | '/seller/kits' | '/seller/settlements' | `/seller/races/${number}/change`
-  label: string
-  danger?: boolean
-}) {
+function ShortcutRow({ href, label, danger }: { href: Route; label: string; danger?: boolean }) {
   return (
     <Link
       href={href}

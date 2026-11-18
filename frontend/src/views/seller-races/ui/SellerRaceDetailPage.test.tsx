@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
@@ -30,6 +30,20 @@ describe('SellerRaceDetailPage', () => {
     expect(await screen.findByRole('table', { name: '종목' })).toBeInTheDocument()
     expect(screen.getAllByText('판매 중').length).toBeGreaterThan(0)
     expect(screen.getByRole('button', { name: '판매 멈추기' })).toBeInTheDocument()
+  })
+
+  it('종목 표에 결제 대기 인원을 보여 주고, 바로 가기에 대회 번호를 넘긴다', async () => {
+    renderPage()
+    const table = await screen.findByRole('table', { name: '종목' })
+    expect(within(table).getByRole('columnheader', { name: '결제 대기' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '판매 현황' })).toHaveAttribute(
+      'href',
+      '/seller/sales?race=1',
+    )
+    expect(screen.getByRole('link', { name: '키트 배송' })).toHaveAttribute(
+      'href',
+      '/seller/kits?race=1',
+    )
   })
 
   it('판매가 시작된 대회의 참가비를 바꾸려 하면 막는 문구를 보여 준다', async () => {

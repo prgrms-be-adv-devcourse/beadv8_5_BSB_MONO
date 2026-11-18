@@ -257,3 +257,17 @@ describe('상세 주소 칸', () => {
     expect(result.success).toBe(false)
   })
 })
+
+describe('기본 종목의 나이', () => {
+  it('화면에 없는 최대 나이를 보내지 않고, 최소 나이는 고를 수 있는 값(14 · 19)이다', () => {
+    const request = toRaceSaveRequest(
+      RACE_FORM_DEFAULTS,
+      [],
+      RACE_FORM_DEFAULTS.courses.map(() => []),
+    )
+    for (const course of request.courses) {
+      expect(JSON.parse(JSON.stringify(course))).not.toHaveProperty('maxAge')
+      expect([14, 19]).toContain(course.minAge)
+    }
+  })
+})

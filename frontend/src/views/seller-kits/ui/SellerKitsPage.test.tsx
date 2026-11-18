@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 
-import { server } from '@/shared/testing'
+import { resetNavigationMock, server } from '@/shared/testing'
 
 import { SellerKitsPage } from './SellerKitsPage'
 
@@ -72,15 +72,12 @@ describe('SellerKitsPage', () => {
     await tabCount('배송 중', '0')
   })
 
-  it('상태가 맞지 않는 건을 고르면 바꿀 수 없다고 알린다', async () => {
+  it('주소에 ?status=SHIPPING으로 바로 들어오면 바꿀 단계가 배송 완료로 맞는다', async () => {
+    resetNavigationMock('status=SHIPPING')
     renderPage()
-    await userEvent.click(await screen.findByRole('checkbox', { name: 'OD-20261004-0101 고르기' }))
-    await userEvent.click(screen.getByRole('button', { name: '배송 완료' }))
 
-    expect(
-      screen.getByText('배송 중 상태인 주문만 배송 완료로 바꿀 수 있어요.'),
-    ).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '배송 완료로 바꾸기' })).toBeDisabled()
+    expect(await screen.findByRole('button', { name: '배송 완료로 바꾸기' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '배송 중으로 바꾸기' })).not.toBeInTheDocument()
   })
 
   it('환불 기한 전이라 서버가 거절하면 서버 문구를 보여 주고 다른 건은 그대로 처리한다', async () => {
