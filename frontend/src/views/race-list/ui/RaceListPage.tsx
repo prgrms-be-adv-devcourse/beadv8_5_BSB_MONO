@@ -44,6 +44,7 @@ import {
 
 import { useDebouncedValue } from '../model/use-debounced-value'
 import { CategoryScreen } from './CategoryScreen'
+import { ListSkeleton } from './RaceListSkeleton'
 import { RecentSearches } from './RecentSearches'
 
 export type RaceListState = 'loading' | 'empty' | 'menu' | 'sort'
@@ -391,26 +392,4 @@ function monthRange(now: Date) {
     raceDateFrom: `${y}-${pad(m)}-01`,
     raceDateTo: `${y}-${pad(m)}-${pad(new Date(y, m, 0).getDate())}`,
   }
-}
-
-// 피그마 M18 · 로딩: 실제 목록 줄과 같은 평평한 줄 4개
-function ListSkeleton() {
-  return (
-    <div role="status" aria-label="불러오는 중" className="flex flex-col">
-      {[0, 1, 2, 3].map((i) => (
-        <div key={i} className="flex gap-3 border border-border-default bg-bg-surface py-4 pr-12">
-          <Skeleton shape="rect" className="size-24 shrink-0" />
-          <div className="flex flex-1 flex-col items-start gap-2">
-            <Skeleton shape="rect" className="h-4 w-12" />
-            <Skeleton className="w-11/12" />
-            <Skeleton className="w-4/5" />
-            <div className="flex w-full justify-between pt-1">
-              <Skeleton className="w-10" />
-              <Skeleton className="w-14" />
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  )
 }
