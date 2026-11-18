@@ -96,6 +96,8 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
   const courseFields = useFieldArray({ control, name: 'courses' })
   const kitFields = useFieldArray({ control, name: 'kitOptions' })
   const [courseOpen, setCourseOpen] = useState(false)
+  const [searching, setSearching] = useState(false)
+  const location = useWatch({ control, name: 'location' })
   // 시·도 · 시·군·구는 주소 검색 결과로만 채운다. 검색을 못 불러오면 둘 다, 시·군·구가 없는 곳(세종)이면 시·군·구만 직접 쓴다
   const [manualRegion, setManualRegion] = useState({ sido: false, sigungu: false })
   const schedule = useWatch({
@@ -251,40 +253,79 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
               )}
             />
           </div>
-          <div className="flex gap-4">
-            <TextField
-              label="장소"
-              placeholder="서울숲 일대"
-              error={errors.location?.message}
-              className="flex-1"
-              {...register('location')}
-            />
-            <TextField
-              label="시·도"
-              placeholder="서울특별시"
-              helper="대회 찾기의 지역 필터에 쓰여요"
-              readOnly={!manualRegion.sido}
-              error={errors.regionSido?.message}
-              className="flex-1"
-              {...register('regionSido')}
-            />
-            <TextField
-              label="시·군·구"
-              placeholder="성동구"
-              readOnly={!manualRegion.sigungu}
-              error={errors.regionSigungu?.message}
-              className="flex-1"
-              {...register('regionSigungu')}
-            />
+          <div className="flex flex-col gap-2">
+            {manualRegion.sido ? (
+              <TextField
+                label="장소"
+                placeholder="서울숲 일대"
+                error={errors.location?.message}
+                {...register('location')}
+              />
+            ) : (
+              <>
+                <span className="text-body2-medium">장소</span>
+                {location && (
+                  <div className="flex items-center justify-between gap-4">
+                    <p className="text-body2-regular">{location}</p>
+                    <button
+                      type="button"
+                      className={cn('text-body2-medium underline', FOCUS_RING)}
+                      onClick={() => setSearching(true)}
+                    >
+                      다시 검색
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+            {(!location || searching || manualRegion.sido) && (
+              <AddressSearch
+                defaultOpen={searching}
+                onSelect={({ address, sido, sigungu }) => {
+                  setValue('location', address, { shouldValidate: true, shouldDirty: true })
+                  setValue('regionSido', sido, { shouldValidate: true, shouldDirty: true })
+                  setValue('regionSigungu', sigungu, {
+                    shouldValidate: isSubmitted,
+                    shouldDirty: true,
+                  })
+                  setManualRegion((manual) => ({ ...manual, sigungu: manual.sido || !sigungu }))
+                  setSearching(false)
+                }}
+                onUnavailable={() => setManualRegion({ sido: true, sigungu: true })}
+              />
+            )}
+            {!manualRegion.sido && errors.location?.message && (
+              <p className="text-caption-regular text-text-danger">{errors.location.message}</p>
+            )}
           </div>
-          <AddressSearch
-            onSelect={({ sido, sigungu }) => {
-              setValue('regionSido', sido, { shouldValidate: true, shouldDirty: true })
-              setValue('regionSigungu', sigungu, { shouldValidate: isSubmitted, shouldDirty: true })
-              setManualRegion((manual) => ({ ...manual, sigungu: manual.sido || !sigungu }))
-            }}
-            onUnavailable={() => setManualRegion({ sido: true, sigungu: true })}
-          />
+          {(manualRegion.sido || manualRegion.sigungu) && (
+            <div className="flex gap-4">
+              {manualRegion.sido && (
+                <TextField
+                  label="시·도"
+                  placeholder="서울특별시"
+                  error={errors.regionSido?.message}
+                  className="flex-1"
+                  {...register('regionSido')}
+                />
+              )}
+              <TextField
+                label="시·군·구"
+                placeholder="성동구"
+                error={errors.regionSigungu?.message}
+                className="flex-1"
+                {...register('regionSigungu')}
+              />
+            </div>
+          )}
+          {(location || manualRegion.sido) && (
+            <TextField
+              label="상세 주소"
+              placeholder="건물명, 출입구 등"
+              error={errors.locationDetail?.message}
+              {...register('locationDetail')}
+            />
+          )}
           <div className="flex gap-4">
             {/* 시작은 개인 예매 오픈(그날 00:00), 끝은 접수 마감(그날 23:59:59)으로 보낸다 */}
             <DateTimeField

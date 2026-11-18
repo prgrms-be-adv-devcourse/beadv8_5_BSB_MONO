@@ -48,12 +48,15 @@ type PostcodeWindow = {
 export function AddressSearch({
   onSelect,
   onUnavailable,
+  defaultOpen = false,
 }: {
   onSelect: (result: AddressSearchResult) => void
   /** 스크립트를 못 불러왔을 때. 화면은 주소 칸을 직접 입력할 수 있게 연다. */
   onUnavailable?: () => void
+  /** 처음부터 검색 창을 연 채로 그린다(「다시 검색」용) */
+  defaultOpen?: boolean
 }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(defaultOpen)
   const [failed, setFailed] = useState(false)
   const panel = useRef<HTMLDivElement>(null)
   // 창을 붙인 칸. 처음 불러올 때는 onLoad와 onReady가 둘 다 불려 두 번 붙지 않게 막는다

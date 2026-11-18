@@ -237,3 +237,23 @@ describe('대회 소개 칸', () => {
     )
   })
 })
+
+describe('상세 주소 칸', () => {
+  it('도로명 주소 뒤에 상세 주소를 붙여 장소로 보낸다', () => {
+    const request = toRaceSaveRequest(
+      { ...base, location: '서울특별시 성동구 뚝섬로 273', locationDetail: ' 서울숲 1번 출구 ' },
+      [],
+      [],
+    )
+    expect(request.location).toBe('서울특별시 성동구 뚝섬로 273 서울숲 1번 출구')
+  })
+
+  it('상세 주소가 비어 있으면 주소만 보낸다', () => {
+    expect(toRaceSaveRequest(base, [], []).location).toBe('서울숲 일대')
+  })
+
+  it('상세 주소가 100자를 넘으면 막는다', () => {
+    const result = createRaceFormSchema().safeParse({ ...base, locationDetail: 'a'.repeat(101) })
+    expect(result.success).toBe(false)
+  })
+})

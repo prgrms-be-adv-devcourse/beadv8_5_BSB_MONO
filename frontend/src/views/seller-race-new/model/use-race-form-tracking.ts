@@ -16,6 +16,7 @@ const SECTION_OF: Record<keyof RaceFormValues, string> = {
   description: '기본 정보',
   raceDate: '기본 정보',
   location: '기본 정보',
+  locationDetail: '기본 정보',
   regionSido: '기본 정보',
   regionSigungu: '기본 정보',
   individualOpenAt: '기본 정보',
