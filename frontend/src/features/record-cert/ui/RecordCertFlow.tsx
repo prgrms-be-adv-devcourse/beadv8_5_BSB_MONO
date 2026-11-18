@@ -27,13 +27,14 @@ import type { Roi } from '../lib/cert-reader'
 import { decodeImage } from '../lib/decode-image'
 import { extractFields } from '../lib/extract'
 import { toRoi, wholeImage } from '../lib/roi'
+import { stripGps } from '../lib/strip-gps'
 import { certFormSchema, type CertFormInput } from '../model/cert-form-schema'
 import spec from '../model/ocr-spec.json'
 import { COURSE_CLASSES, type CheckField, type Quad } from '../model/types'
 import { useCertReader } from '../model/use-cert-reader'
 
 // 피그마 기록증 심사 시안 P1(사진 고르기 · 읽을 부분 짚기 · 읽는 중) · P2(값 확인) · P3(제출 뒤). 대상은 노트북 브라우저.
-// 사진은 자르지 않고 원본 그대로 올린다. 읽을 부분은 검출 범위로만 쓰고 좌표를 함께 보낸다.
+// 사진은 자르지 않고 올린다(위치 GPS만 지우고 회전·픽셀은 그대로). 읽을 부분은 검출 범위로만 쓰고 좌표를 함께 보낸다.
 
 type Photo = { file: File; url: string; image: ImageData }
 type ReadResult = {
@@ -281,7 +282,7 @@ export function ConfirmForm({
     let fileId = uploadedFileId
     if (fileId === null) {
       try {
-        fileId = await uploadPhoto(photo.file)
+        fileId = await uploadPhoto(await stripGps(photo.file))
       } catch {
         setUploadError(true)
         return
