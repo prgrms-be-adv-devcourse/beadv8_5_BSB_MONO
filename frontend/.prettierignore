@@ -5,3 +5,5 @@ docs/
 .claude/
 storybook-static/
 openapi/
+public/ocr/
+src/features/record-cert/lib/__fixtures__/

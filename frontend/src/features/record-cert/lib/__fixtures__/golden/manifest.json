@@ -1,0 +1,1243 @@
+{
+ "spec_version": "1",
+ "rec_model_sha256": "cd6e2ea50f6943ca7271eb8c56a877a5a90720b7047fe9c41a2e541a25773c9b",
+ "note": "합성 골든 세트 1389조각 중 칸 · 종류마다 10개에 1개. 원본은 docs-local golden/build_golden.py",
+ "items": [
+  {
+   "id": "synthetic-s-001-value",
+   "field": "netTime",
+   "kind": "value",
+   "file": "synthetic-s-001-value.png",
+   "expected_text": "01:30:05",
+   "expected_value": [
+    1,
+    30,
+    5
+   ]
+  },
+  {
+   "id": "synthetic-s-014-value",
+   "field": "netTime",
+   "kind": "value",
+   "file": "synthetic-s-014-value.png",
+   "expected_text": "01:17:38",
+   "expected_value": [
+    1,
+    17,
+    38
+   ]
+  },
+  {
+   "id": "synthetic-s-026-value",
+   "field": "netTime",
+   "kind": "value",
+   "file": "synthetic-s-026-value.png",
+   "expected_text": "04:29:08",
+   "expected_value": [
+    4,
+    29,
+    8
+   ]
+  },
+  {
+   "id": "synthetic-s-037-value",
+   "field": "netTime",
+   "kind": "value",
+   "file": "synthetic-s-037-value.png",
+   "expected_text": "02:50:36",
+   "expected_value": [
+    2,
+    50,
+    36
+   ]
+  },
+  {
+   "id": "synthetic-s-048-value",
+   "field": "netTime",
+   "kind": "value",
+   "file": "synthetic-s-048-value.png",
+   "expected_text": "2:33:30",
+   "expected_value": [
+    2,
+    33,
+    30
+   ]
+  },
+  {
+   "id": "synthetic-s-059-value",
+   "field": "netTime",
+   "kind": "value",
+   "file": "synthetic-s-059-value.png",
+   "expected_text": "완주기록:3:53:44",
+   "expected_value": [
+    3,
+    53,
+    44
+   ]
+  },
+  {
+   "id": "synthetic-s-071-value",
+   "field": "netTime",
+   "kind": "value",
+   "file": "synthetic-s-071-value.png",
+   "expected_text": "완주기록:3:46:58",
+   "expected_value": [
+    3,
+    46,
+    58
+   ]
+  },
+  {
+   "id": "synthetic-s-082-value",
+   "field": "netTime",
+   "kind": "value",
+   "file": "synthetic-s-082-value.png",
+   "expected_text": "공식 넷타임:03:16:50.36",
+   "expected_value": [
+    3,
+    16,
+    50
+   ]
+  },
+  {
+   "id": "synthetic-s-092-value",
+   "field": "netTime",
+   "kind": "value",
+   "file": "synthetic-s-092-value.png",
+   "expected_text": "01:10:02.36",
+   "expected_value": [
+    1,
+    10,
+    2
+   ]
+  },
+  {
+   "id": "synthetic-s-103-value",
+   "field": "netTime",
+   "kind": "value",
+   "file": "synthetic-s-103-value.png",
+   "expected_text": "01:43:31.80",
+   "expected_value": [
+    1,
+    43,
+    31
+   ]
+  },
+  {
+   "id": "synthetic-s-114-value",
+   "field": "netTime",
+   "kind": "value",
+   "file": "synthetic-s-114-value.png",
+   "expected_text": "04:11:19.87",
+   "expected_value": [
+    4,
+    11,
+    19
+   ]
+  },
+  {
+   "id": "synthetic-s-125-value",
+   "field": "netTime",
+   "kind": "value",
+   "file": "synthetic-s-125-value.png",
+   "expected_text": "0:57:07",
+   "expected_value": [
+    0,
+    57,
+    7
+   ]
+  },
+  {
+   "id": "synthetic-s-137-value",
+   "field": "netTime",
+   "kind": "value",
+   "file": "synthetic-s-137-value.png",
+   "expected_text": "0:47:46",
+   "expected_value": [
+    0,
+    47,
+    46
+   ]
+  },
+  {
+   "id": "synthetic-s-148-value",
+   "field": "netTime",
+   "kind": "value",
+   "file": "synthetic-s-148-value.png",
+   "expected_text": "00:17:28",
+   "expected_value": [
+    0,
+    17,
+    28
+   ]
+  },
+  {
+   "id": "synthetic-s-159-value",
+   "field": "netTime",
+   "kind": "value",
+   "file": "synthetic-s-159-value.png",
+   "expected_text": "03:52:50",
+   "expected_value": [
+    3,
+    52,
+    50
+   ]
+  },
+  {
+   "id": "synthetic-s-170-value",
+   "field": "netTime",
+   "kind": "value",
+   "file": "synthetic-s-170-value.png",
+   "expected_text": "05:20:10.87",
+   "expected_value": [
+    5,
+    20,
+    10
+   ]
+  },
+  {
+   "id": "synthetic-s-181-value",
+   "field": "netTime",
+   "kind": "value",
+   "file": "synthetic-s-181-value.png",
+   "expected_text": "01:44:49",
+   "expected_value": [
+    1,
+    44,
+    49
+   ]
+  },
+  {
+   "id": "synthetic-s-193-value",
+   "field": "netTime",
+   "kind": "value",
+   "file": "synthetic-s-193-value.png",
+   "expected_text": "03:17:53",
+   "expected_value": [
+    3,
+    17,
+    53
+   ]
+  },
+  {
+   "id": "synthetic-s-204-value",
+   "field": "netTime",
+   "kind": "value",
+   "file": "synthetic-s-204-value.png",
+   "expected_text": "00:18:31",
+   "expected_value": [
+    0,
+    18,
+    31
+   ]
+  },
+  {
+   "id": "synthetic-s-215-value",
+   "field": "netTime",
+   "kind": "value",
+   "file": "synthetic-s-215-value.png",
+   "expected_text": "완주기록:0:33:12",
+   "expected_value": [
+    0,
+    33,
+    12
+   ]
+  },
+  {
+   "id": "synthetic-s-226-value",
+   "field": "netTime",
+   "kind": "value",
+   "file": "synthetic-s-226-value.png",
+   "expected_text": "넷타임:2시간 40분57초",
+   "expected_value": [
+    2,
+    40,
+    57
+   ]
+  },
+  {
+   "id": "synthetic-s-236-value",
+   "field": "netTime",
+   "kind": "value",
+   "file": "synthetic-s-236-value.png",
+   "expected_text": "01:16:17",
+   "expected_value": [
+    1,
+    16,
+    17
+   ]
+  },
+  {
+   "id": "synthetic-s-247-value",
+   "field": "netTime",
+   "kind": "value",
+   "file": "synthetic-s-247-value.png",
+   "expected_text": "01:26:52",
+   "expected_value": [
+    1,
+    26,
+    52
+   ]
+  },
+  {
+   "id": "synthetic-s-258-value",
+   "field": "netTime",
+   "kind": "value",
+   "file": "synthetic-s-258-value.png",
+   "expected_text": "3:47:51",
+   "expected_value": [
+    3,
+    47,
+    51
+   ]
+  },
+  {
+   "id": "synthetic-s-269-value",
+   "field": "netTime",
+   "kind": "value",
+   "file": "synthetic-s-269-value.png",
+   "expected_text": "01:16:07",
+   "expected_value": [
+    1,
+    16,
+    7
+   ]
+  },
+  {
+   "id": "synthetic-s-281-value",
+   "field": "netTime",
+   "kind": "value",
+   "file": "synthetic-s-281-value.png",
+   "expected_text": "01:17:45",
+   "expected_value": [
+    1,
+    17,
+    45
+   ]
+  },
+  {
+   "id": "synthetic-s-292-value",
+   "field": "netTime",
+   "kind": "value",
+   "file": "synthetic-s-292-value.png",
+   "expected_text": "00:34:05",
+   "expected_value": [
+    0,
+    34,
+    5
+   ]
+  },
+  {
+   "id": "synthetic-s-001-anchor",
+   "field": "netTime",
+   "kind": "anchor",
+   "file": "synthetic-s-001-anchor.png",
+   "expected_text": "공 식 기 록 (NetTime)",
+   "expected_value": null
+  },
+  {
+   "id": "synthetic-s-014-anchor",
+   "field": "netTime",
+   "kind": "anchor",
+   "file": "synthetic-s-014-anchor.png",
+   "expected_text": "넷타임(NET TIME)",
+   "expected_value": null
+  },
+  {
+   "id": "synthetic-s-027-anchor",
+   "field": "netTime",
+   "kind": "anchor",
+   "file": "synthetic-s-027-anchor.png",
+   "expected_text": "공식 넷타임(NETTIME)",
+   "expected_value": null
+  },
+  {
+   "id": "synthetic-s-040-anchor",
+   "field": "netTime",
+   "kind": "anchor",
+   "file": "synthetic-s-040-anchor.png",
+   "expected_text": "공식 기 록(NET TIME)",
+   "expected_value": null
+  },
+  {
+   "id": "synthetic-s-052-anchor",
+   "field": "netTime",
+   "kind": "anchor",
+   "file": "synthetic-s-052-anchor.png",
+   "expected_text": "공식 기 록(NET TIME)",
+   "expected_value": null
+  },
+  {
+   "id": "synthetic-s-064-anchor",
+   "field": "netTime",
+   "kind": "anchor",
+   "file": "synthetic-s-064-anchor.png",
+   "expected_text": "공식 기 록(NET TIME)",
+   "expected_value": null
+  },
+  {
+   "id": "synthetic-s-077-anchor",
+   "field": "netTime",
+   "kind": "anchor",
+   "file": "synthetic-s-077-anchor.png",
+   "expected_text": "넷타임(Net Time)",
+   "expected_value": null
+  },
+  {
+   "id": "synthetic-s-089-anchor",
+   "field": "netTime",
+   "kind": "anchor",
+   "file": "synthetic-s-089-anchor.png",
+   "expected_text": "넷타임(Net Time)",
+   "expected_value": null
+  },
+  {
+   "id": "synthetic-s-101-anchor",
+   "field": "netTime",
+   "kind": "anchor",
+   "file": "synthetic-s-101-anchor.png",
+   "expected_text": "넷타임(Net Time)",
+   "expected_value": null
+  },
+  {
+   "id": "synthetic-s-113-anchor",
+   "field": "netTime",
+   "kind": "anchor",
+   "file": "synthetic-s-113-anchor.png",
+   "expected_text": "넷타임(Net Time)",
+   "expected_value": null
+  },
+  {
+   "id": "synthetic-s-125-anchor",
+   "field": "netTime",
+   "kind": "anchor",
+   "file": "synthetic-s-125-anchor.png",
+   "expected_text": "넷타임(Net Time)",
+   "expected_value": null
+  },
+  {
+   "id": "synthetic-s-138-anchor",
+   "field": "netTime",
+   "kind": "anchor",
+   "file": "synthetic-s-138-anchor.png",
+   "expected_text": "공 식 완 주 기 록 (NETTIME)",
+   "expected_value": null
+  },
+  {
+   "id": "synthetic-s-151-anchor",
+   "field": "netTime",
+   "kind": "anchor",
+   "file": "synthetic-s-151-anchor.png",
+   "expected_text": "공식 기록(NET TIME)",
+   "expected_value": null
+  },
+  {
+   "id": "synthetic-s-163-anchor",
+   "field": "netTime",
+   "kind": "anchor",
+   "file": "synthetic-s-163-anchor.png",
+   "expected_text": "공식 기록(NET TIME)",
+   "expected_value": null
+  },
+  {
+   "id": "synthetic-s-175-anchor",
+   "field": "netTime",
+   "kind": "anchor",
+   "file": "synthetic-s-175-anchor.png",
+   "expected_text": "공식 기록(NET TIME)",
+   "expected_value": null
+  },
+  {
+   "id": "synthetic-s-187-anchor",
+   "field": "netTime",
+   "kind": "anchor",
+   "file": "synthetic-s-187-anchor.png",
+   "expected_text": "공식 기록(NET TIME)",
+   "expected_value": null
+  },
+  {
+   "id": "synthetic-s-199-anchor",
+   "field": "netTime",
+   "kind": "anchor",
+   "file": "synthetic-s-199-anchor.png",
+   "expected_text": "공식 기록(NET TIME)",
+   "expected_value": null
+  },
+  {
+   "id": "synthetic-s-211-anchor",
+   "field": "netTime",
+   "kind": "anchor",
+   "file": "synthetic-s-211-anchor.png",
+   "expected_text": "록(NET TIME)",
+   "expected_value": null
+  },
+  {
+   "id": "synthetic-s-223-anchor",
+   "field": "netTime",
+   "kind": "anchor",
+   "file": "synthetic-s-223-anchor.png",
+   "expected_text": "공식 기록(NET TIME)",
+   "expected_value": null
+  },
+  {
+   "id": "synthetic-s-235-anchor",
+   "field": "netTime",
+   "kind": "anchor",
+   "file": "synthetic-s-235-anchor.png",
+   "expected_text": "공식 기록(NET TIME)",
+   "expected_value": null
+  },
+  {
+   "id": "synthetic-s-248-anchor",
+   "field": "netTime",
+   "kind": "anchor",
+   "file": "synthetic-s-248-anchor.png",
+   "expected_text": "공인 넷타임(NET TIME)",
+   "expected_value": null
+  },
+  {
+   "id": "synthetic-s-260-anchor",
+   "field": "netTime",
+   "kind": "anchor",
+   "file": "synthetic-s-260-anchor.png",
+   "expected_text": "공인 넷타임(NET TIME)",
+   "expected_value": null
+  },
+  {
+   "id": "synthetic-s-272-anchor",
+   "field": "netTime",
+   "kind": "anchor",
+   "file": "synthetic-s-272-anchor.png",
+   "expected_text": "공인 넷타임(NET TIME)",
+   "expected_value": null
+  },
+  {
+   "id": "synthetic-s-286-anchor",
+   "field": "netTime",
+   "kind": "anchor",
+   "file": "synthetic-s-286-anchor.png",
+   "expected_text": "넷타임:02:50:01",
+   "expected_value": null
+  },
+  {
+   "id": "synthetic-s-298-anchor",
+   "field": "netTime",
+   "kind": "anchor",
+   "file": "synthetic-s-298-anchor.png",
+   "expected_text": "넷타임:00:17:40",
+   "expected_value": null
+  },
+  {
+   "id": "synthetic-s-001-raceDate",
+   "field": "raceDate",
+   "kind": "value",
+   "file": "synthetic-s-001-raceDate.png",
+   "expected_text": "2023.04.12",
+   "expected_value": "2023-04-12"
+  },
+  {
+   "id": "synthetic-s-011-raceDate",
+   "field": "raceDate",
+   "kind": "value",
+   "file": "synthetic-s-011-raceDate.png",
+   "expected_text": "2026년 4월 6일",
+   "expected_value": "2026-04-06"
+  },
+  {
+   "id": "synthetic-s-021-raceDate",
+   "field": "raceDate",
+   "kind": "value",
+   "file": "synthetic-s-021-raceDate.png",
+   "expected_text": "DATE:  2023.05.02",
+   "expected_value": "2023-05-02"
+  },
+  {
+   "id": "synthetic-s-031-raceDate",
+   "field": "raceDate",
+   "kind": "value",
+   "file": "synthetic-s-031-raceDate.png",
+   "expected_text": "2025/11/07·5km Fun Run 완주",
+   "expected_value": "2025-11-07"
+  },
+  {
+   "id": "synthetic-s-041-raceDate",
+   "field": "raceDate",
+   "kind": "value",
+   "file": "synthetic-s-041-raceDate.png",
+   "expected_text": "2026-05-14",
+   "expected_value": "2026-05-14"
+  },
+  {
+   "id": "synthetic-s-051-raceDate",
+   "field": "raceDate",
+   "kind": "value",
+   "file": "synthetic-s-051-raceDate.png",
+   "expected_text": "대회일자:May21,2023",
+   "expected_value": "2023-05-21"
+  },
+  {
+   "id": "synthetic-s-061-raceDate",
+   "field": "raceDate",
+   "kind": "value",
+   "file": "synthetic-s-061-raceDate.png",
+   "expected_text": "2026-05-03",
+   "expected_value": "2026-05-03"
+  },
+  {
+   "id": "synthetic-s-071-raceDate",
+   "field": "raceDate",
+   "kind": "value",
+   "file": "synthetic-s-071-raceDate.png",
+   "expected_text": "2026/04/22",
+   "expected_value": "2026-04-22"
+  },
+  {
+   "id": "synthetic-s-082-raceDate",
+   "field": "raceDate",
+   "kind": "value",
+   "file": "synthetic-s-082-raceDate.png",
+   "expected_text": "건타임(총성):03:18:37|페이스 04'39\"/km|발행일자:November 25,2024",
+   "expected_value": "2024-11-25"
+  },
+  {
+   "id": "synthetic-s-092-raceDate",
+   "field": "raceDate",
+   "kind": "value",
+   "file": "synthetic-s-092-raceDate.png",
+   "expected_text": "계측일시: 3May,2023",
+   "expected_value": "2023-05-03"
+  },
+  {
+   "id": "synthetic-s-102-raceDate",
+   "field": "raceDate",
+   "kind": "value",
+   "file": "synthetic-s-102-raceDate.png",
+   "expected_text": "2025.05.03",
+   "expected_value": "2025-05-03"
+  },
+  {
+   "id": "synthetic-s-112-raceDate",
+   "field": "raceDate",
+   "kind": "value",
+   "file": "synthetic-s-112-raceDate.png",
+   "expected_text": "2026.9.20.",
+   "expected_value": "2026-09-20"
+  },
+  {
+   "id": "synthetic-s-122-raceDate",
+   "field": "raceDate",
+   "kind": "value",
+   "file": "synthetic-s-122-raceDate.png",
+   "expected_text": "2023.03.17",
+   "expected_value": "2023-03-17"
+  },
+  {
+   "id": "synthetic-s-132-raceDate",
+   "field": "raceDate",
+   "kind": "value",
+   "file": "synthetic-s-132-raceDate.png",
+   "expected_text": "OFFICIAL FINISHER CARD I 2024/05/20",
+   "expected_value": "2024-05-20"
+  },
+  {
+   "id": "synthetic-s-142-raceDate",
+   "field": "raceDate",
+   "kind": "value",
+   "file": "synthetic-s-142-raceDate.png",
+   "expected_text": "발행일자:2026.3.4.",
+   "expected_value": "2026-03-04"
+  },
+  {
+   "id": "synthetic-s-152-raceDate",
+   "field": "raceDate",
+   "kind": "value",
+   "file": "synthetic-s-152-raceDate.png",
+   "expected_text": "계측일시:2024년3월 8일",
+   "expected_value": "2024-03-08"
+  },
+  {
+   "id": "synthetic-s-162-raceDate",
+   "field": "raceDate",
+   "kind": "value",
+   "file": "synthetic-s-162-raceDate.png",
+   "expected_text": "2025.05.16",
+   "expected_value": "2025-05-16"
+  },
+  {
+   "id": "synthetic-s-173-raceDate",
+   "field": "raceDate",
+   "kind": "value",
+   "file": "synthetic-s-173-raceDate.png",
+   "expected_text": "April 4,2026",
+   "expected_value": "2026-04-04"
+  },
+  {
+   "id": "synthetic-s-183-raceDate",
+   "field": "raceDate",
+   "kind": "value",
+   "file": "synthetic-s-183-raceDate.png",
+   "expected_text": "대회일자:2026.10.2.",
+   "expected_value": "2026-10-02"
+  },
+  {
+   "id": "synthetic-s-193-raceDate",
+   "field": "raceDate",
+   "kind": "value",
+   "file": "synthetic-s-193-raceDate.png",
+   "expected_text": "2026/10/24",
+   "expected_value": "2026-10-24"
+  },
+  {
+   "id": "synthetic-s-203-raceDate",
+   "field": "raceDate",
+   "kind": "value",
+   "file": "synthetic-s-203-raceDate.png",
+   "expected_text": "2024/10/24",
+   "expected_value": "2024-10-24"
+  },
+  {
+   "id": "synthetic-s-214-raceDate",
+   "field": "raceDate",
+   "kind": "value",
+   "file": "synthetic-s-214-raceDate.png",
+   "expected_text": "발행일자:2024-11-18",
+   "expected_value": "2024-11-18"
+  },
+  {
+   "id": "synthetic-s-224-raceDate",
+   "field": "raceDate",
+   "kind": "value",
+   "file": "synthetic-s-224-raceDate.png",
+   "expected_text": "계측일시:2023.03.24(일)",
+   "expected_value": "2023-03-24"
+  },
+  {
+   "id": "synthetic-s-234-raceDate",
+   "field": "raceDate",
+   "kind": "value",
+   "file": "synthetic-s-234-raceDate.png",
+   "expected_text": "2024.09.06",
+   "expected_value": "2024-09-06"
+  },
+  {
+   "id": "synthetic-s-244-raceDate",
+   "field": "raceDate",
+   "kind": "value",
+   "file": "synthetic-s-244-raceDate.png",
+   "expected_text": "2025.09.07(일)",
+   "expected_value": "2025-09-07"
+  },
+  {
+   "id": "synthetic-s-254-raceDate",
+   "field": "raceDate",
+   "kind": "value",
+   "file": "synthetic-s-254-raceDate.png",
+   "expected_text": "2023/04/09",
+   "expected_value": "2023-04-09"
+  },
+  {
+   "id": "synthetic-s-265-raceDate",
+   "field": "raceDate",
+   "kind": "value",
+   "file": "synthetic-s-265-raceDate.png",
+   "expected_text": "2024/03/12",
+   "expected_value": "2024-03-12"
+  },
+  {
+   "id": "synthetic-s-275-raceDate",
+   "field": "raceDate",
+   "kind": "value",
+   "file": "synthetic-s-275-raceDate.png",
+   "expected_text": "2025.3.13.",
+   "expected_value": "2025-03-13"
+  },
+  {
+   "id": "synthetic-s-285-raceDate",
+   "field": "raceDate",
+   "kind": "value",
+   "file": "synthetic-s-285-raceDate.png",
+   "expected_text": "DATE:  2026.10.25",
+   "expected_value": "2026-10-25"
+  },
+  {
+   "id": "synthetic-s-296-raceDate",
+   "field": "raceDate",
+   "kind": "value",
+   "file": "synthetic-s-296-raceDate.png",
+   "expected_text": "계측일시:2023년 10월 22일",
+   "expected_value": "2023-10-22"
+  },
+  {
+   "id": "synthetic-s-001-course",
+   "field": "course",
+   "kind": "value",
+   "file": "synthetic-s-001-course.png",
+   "expected_text": "참가종목:21.0975km",
+   "expected_value": "HALF"
+  },
+  {
+   "id": "synthetic-s-011-course",
+   "field": "course",
+   "kind": "value",
+   "file": "synthetic-s-011-course.png",
+   "expected_text": "목:하프코스",
+   "expected_value": "HALF"
+  },
+  {
+   "id": "synthetic-s-021-course",
+   "field": "course",
+   "kind": "value",
+   "file": "synthetic-s-021-course.png",
+   "expected_text": "COURSE: Full 코스",
+   "expected_value": "FULL"
+  },
+  {
+   "id": "synthetic-s-032-course",
+   "field": "course",
+   "kind": "value",
+   "file": "synthetic-s-032-course.png",
+   "expected_text": "배번:F-3895 | 울트라 100K",
+   "expected_value": "100K"
+  },
+  {
+   "id": "synthetic-s-042-course",
+   "field": "course",
+   "kind": "value",
+   "file": "synthetic-s-042-course.png",
+   "expected_text": "배번:A-3175|성명:장OO|부문:5km",
+   "expected_value": "5K"
+  },
+  {
+   "id": "synthetic-s-052-course",
+   "field": "course",
+   "kind": "value",
+   "file": "synthetic-s-052-course.png",
+   "expected_text": "부문:10km코스",
+   "expected_value": "10K"
+  },
+  {
+   "id": "synthetic-s-062-course",
+   "field": "course",
+   "kind": "value",
+   "file": "synthetic-s-062-course.png",
+   "expected_text": "풀",
+   "expected_value": "FULL"
+  },
+  {
+   "id": "synthetic-s-074-course",
+   "field": "course",
+   "kind": "value",
+   "file": "synthetic-s-074-course.png",
+   "expected_text": "하프코스",
+   "expected_value": "HALF"
+  },
+  {
+   "id": "synthetic-s-085-course",
+   "field": "course",
+   "kind": "value",
+   "file": "synthetic-s-085-course.png",
+   "expected_text": "참가종목:21.0975km",
+   "expected_value": "HALF"
+  },
+  {
+   "id": "synthetic-s-096-course",
+   "field": "course",
+   "kind": "value",
+   "file": "synthetic-s-096-course.png",
+   "expected_text": "풀",
+   "expected_value": "FULL"
+  },
+  {
+   "id": "synthetic-s-106-course",
+   "field": "course",
+   "kind": "value",
+   "file": "synthetic-s-106-course.png",
+   "expected_text": "종목:42.195km",
+   "expected_value": "FULL"
+  },
+  {
+   "id": "synthetic-s-116-course",
+   "field": "course",
+   "kind": "value",
+   "file": "synthetic-s-116-course.png",
+   "expected_text": "배번:F-4043|21.0975km",
+   "expected_value": "HALF"
+  },
+  {
+   "id": "synthetic-s-127-course",
+   "field": "course",
+   "kind": "value",
+   "file": "synthetic-s-127-course.png",
+   "expected_text": "2025.10.15(일)· HALF완주",
+   "expected_value": "HALF"
+  },
+  {
+   "id": "synthetic-s-138-course",
+   "field": "course",
+   "kind": "value",
+   "file": "synthetic-s-138-course.png",
+   "expected_text": "배번:B-8240|성명:오OO|부문:10.0km",
+   "expected_value": "10K"
+  },
+  {
+   "id": "synthetic-s-148-course",
+   "field": "course",
+   "kind": "value",
+   "file": "synthetic-s-148-course.png",
+   "expected_text": "부문:5km",
+   "expected_value": "5K"
+  },
+  {
+   "id": "synthetic-s-158-course",
+   "field": "course",
+   "kind": "value",
+   "file": "synthetic-s-158-course.png",
+   "expected_text": "하프코스",
+   "expected_value": "HALF"
+  },
+  {
+   "id": "synthetic-s-168-course",
+   "field": "course",
+   "kind": "value",
+   "file": "synthetic-s-168-course.png",
+   "expected_text": "5.0KM",
+   "expected_value": "5K"
+  },
+  {
+   "id": "synthetic-s-178-course",
+   "field": "course",
+   "kind": "value",
+   "file": "synthetic-s-178-course.png",
+   "expected_text": "종목:21.0975km",
+   "expected_value": "HALF"
+  },
+  {
+   "id": "synthetic-s-188-course",
+   "field": "course",
+   "kind": "value",
+   "file": "synthetic-s-188-course.png",
+   "expected_text": "배번:102300|42.195km",
+   "expected_value": "FULL"
+  },
+  {
+   "id": "synthetic-s-198-course",
+   "field": "course",
+   "kind": "value",
+   "file": "synthetic-s-198-course.png",
+   "expected_text": "배번:B-7502|성명:문OO|부문:HALF",
+   "expected_value": "HALF"
+  },
+  {
+   "id": "synthetic-s-208-course",
+   "field": "course",
+   "kind": "value",
+   "file": "synthetic-s-208-course.png",
+   "expected_text": "부문:풀코스",
+   "expected_value": "FULL"
+  },
+  {
+   "id": "synthetic-s-220-course",
+   "field": "course",
+   "kind": "value",
+   "file": "synthetic-s-220-course.png",
+   "expected_text": "부문:Half",
+   "expected_value": "HALF"
+  },
+  {
+   "id": "synthetic-s-231-course",
+   "field": "course",
+   "kind": "value",
+   "file": "synthetic-s-231-course.png",
+   "expected_text": "10K Course",
+   "expected_value": "10K"
+  },
+  {
+   "id": "synthetic-s-241-course",
+   "field": "course",
+   "kind": "value",
+   "file": "synthetic-s-241-course.png",
+   "expected_text": "참 가 종 목:울트라100K",
+   "expected_value": "100K"
+  },
+  {
+   "id": "synthetic-s-251-course",
+   "field": "course",
+   "kind": "value",
+   "file": "synthetic-s-251-course.png",
+   "expected_text": "종 목:풀코스(42.195km)",
+   "expected_value": "FULL"
+  },
+  {
+   "id": "synthetic-s-261-course",
+   "field": "course",
+   "kind": "value",
+   "file": "synthetic-s-261-course.png",
+   "expected_text": "Full",
+   "expected_value": "FULL"
+  },
+  {
+   "id": "synthetic-s-272-course",
+   "field": "course",
+   "kind": "value",
+   "file": "synthetic-s-272-course.png",
+   "expected_text": "배번:M-5159| 풀",
+   "expected_value": "FULL"
+  },
+  {
+   "id": "synthetic-s-282-course",
+   "field": "course",
+   "kind": "value",
+   "file": "synthetic-s-282-course.png",
+   "expected_text": "배번:F-4233|성명:박OO|부문:풀코스",
+   "expected_value": "FULL"
+  },
+  {
+   "id": "synthetic-s-292-course",
+   "field": "course",
+   "kind": "value",
+   "file": "synthetic-s-292-course.png",
+   "expected_text": "부문:10.0km",
+   "expected_value": "10K"
+  },
+  {
+   "id": "synthetic-s-001-bib",
+   "field": "bib",
+   "kind": "value",
+   "file": "synthetic-s-001-bib.png",
+   "expected_text": "참가배번:M-8363",
+   "expected_value": "M8363"
+  },
+  {
+   "id": "synthetic-s-011-bib",
+   "field": "bib",
+   "kind": "value",
+   "file": "synthetic-s-011-bib.png",
+   "expected_text": "참 가번호:F-837",
+   "expected_value": "F837"
+  },
+  {
+   "id": "synthetic-s-021-bib",
+   "field": "bib",
+   "kind": "value",
+   "file": "synthetic-s-021-bib.png",
+   "expected_text": "BIB: 306647",
+   "expected_value": "306647"
+  },
+  {
+   "id": "synthetic-s-031-bib",
+   "field": "bib",
+   "kind": "value",
+   "file": "synthetic-s-031-bib.png",
+   "expected_text": "러너:장0ㅇ| 배번:203639",
+   "expected_value": "203639"
+  },
+  {
+   "id": "synthetic-s-042-bib",
+   "field": "bib",
+   "kind": "value",
+   "file": "synthetic-s-042-bib.png",
+   "expected_text": "배번:A-3175|성명:장OO|부문:5km",
+   "expected_value": "A3175"
+  },
+  {
+   "id": "synthetic-s-052-bib",
+   "field": "bib",
+   "kind": "value",
+   "file": "synthetic-s-052-bib.png",
+   "expected_text": "BIB F-8921",
+   "expected_value": "F8921"
+  },
+  {
+   "id": "synthetic-s-062-bib",
+   "field": "bib",
+   "kind": "value",
+   "file": "synthetic-s-062-bib.png",
+   "expected_text": "F-6470",
+   "expected_value": "F6470"
+  },
+  {
+   "id": "synthetic-s-072-bib",
+   "field": "bib",
+   "kind": "value",
+   "file": "synthetic-s-072-bib.png",
+   "expected_text": "107394",
+   "expected_value": "107394"
+  },
+  {
+   "id": "synthetic-s-082-bib",
+   "field": "bib",
+   "kind": "value",
+   "file": "synthetic-s-082-bib.png",
+   "expected_text": "206189",
+   "expected_value": "206189"
+  },
+  {
+   "id": "synthetic-s-092-bib",
+   "field": "bib",
+   "kind": "value",
+   "file": "synthetic-s-092-bib.png",
+   "expected_text": "배번: F-3069| 10K",
+   "expected_value": "F3069"
+  },
+  {
+   "id": "synthetic-s-102-bib",
+   "field": "bib",
+   "kind": "value",
+   "file": "synthetic-s-102-bib.png",
+   "expected_text": "배번:A-3164|성명:비",
+   "expected_value": "A3164"
+  },
+  {
+   "id": "synthetic-s-112-bib",
+   "field": "bib",
+   "kind": "value",
+   "file": "synthetic-s-112-bib.png",
+   "expected_text": "BIB 303437",
+   "expected_value": "303437"
+  },
+  {
+   "id": "synthetic-s-122-bib",
+   "field": "bib",
+   "kind": "value",
+   "file": "synthetic-s-122-bib.png",
+   "expected_text": "302910",
+   "expected_value": "302910"
+  },
+  {
+   "id": "synthetic-s-132-bib",
+   "field": "bib",
+   "kind": "value",
+   "file": "synthetic-s-132-bib.png",
+   "expected_text": "B-4358",
+   "expected_value": "B4358"
+  },
+  {
+   "id": "synthetic-s-142-bib",
+   "field": "bib",
+   "kind": "value",
+   "file": "synthetic-s-142-bib.png",
+   "expected_text": "F-1234",
+   "expected_value": "F1234"
+  },
+  {
+   "id": "synthetic-s-152-bib",
+   "field": "bib",
+   "kind": "value",
+   "file": "synthetic-s-152-bib.png",
+   "expected_text": "배번:205303|10KM",
+   "expected_value": "205303"
+  },
+  {
+   "id": "synthetic-s-162-bib",
+   "field": "bib",
+   "kind": "value",
+   "file": "synthetic-s-162-bib.png",
+   "expected_text": "배번:305274|",
+   "expected_value": "305274"
+  },
+  {
+   "id": "synthetic-s-172-bib",
+   "field": "bib",
+   "kind": "value",
+   "file": "synthetic-s-172-bib.png",
+   "expected_text": "BIB A-3300",
+   "expected_value": "A3300"
+  },
+  {
+   "id": "synthetic-s-182-bib",
+   "field": "bib",
+   "kind": "value",
+   "file": "synthetic-s-182-bib.png",
+   "expected_text": "M-8482",
+   "expected_value": "M8482"
+  },
+  {
+   "id": "synthetic-s-192-bib",
+   "field": "bib",
+   "kind": "value",
+   "file": "synthetic-s-192-bib.png",
+   "expected_text": "B-8663",
+   "expected_value": "B8663"
+  },
+  {
+   "id": "synthetic-s-202-bib",
+   "field": "bib",
+   "kind": "value",
+   "file": "synthetic-s-202-bib.png",
+   "expected_text": "308801",
+   "expected_value": "308801"
+  },
+  {
+   "id": "synthetic-s-212-bib",
+   "field": "bib",
+   "kind": "value",
+   "file": "synthetic-s-212-bib.png",
+   "expected_text": "배번:F-6403 | 10KM",
+   "expected_value": "F6403"
+  },
+  {
+   "id": "synthetic-s-222-bib",
+   "field": "bib",
+   "kind": "value",
+   "file": "synthetic-s-222-bib.png",
+   "expected_text": "배번:306319|성명:홍00|부문:5KM",
+   "expected_value": "306319"
+  },
+  {
+   "id": "synthetic-s-233-bib",
+   "field": "bib",
+   "kind": "value",
+   "file": "synthetic-s-233-bib.png",
+   "expected_text": "M-7923",
+   "expected_value": "M7923"
+  },
+  {
+   "id": "synthetic-s-243-bib",
+   "field": "bib",
+   "kind": "value",
+   "file": "synthetic-s-243-bib.png",
+   "expected_text": "BIB M-7163",
+   "expected_value": "M7163"
+  },
+  {
+   "id": "synthetic-s-253-bib",
+   "field": "bib",
+   "kind": "value",
+   "file": "synthetic-s-253-bib.png",
+   "expected_text": "참가배번:108770",
+   "expected_value": "108770"
+  },
+  {
+   "id": "synthetic-s-263-bib",
+   "field": "bib",
+   "kind": "value",
+   "file": "synthetic-s-263-bib.png",
+   "expected_text": "참가번호:B-1592",
+   "expected_value": "B1592"
+  },
+  {
+   "id": "synthetic-s-274-bib",
+   "field": "bib",
+   "kind": "value",
+   "file": "synthetic-s-274-bib.png",
+   "expected_text": "202522",
+   "expected_value": "202522"
+  },
+  {
+   "id": "synthetic-s-286-bib",
+   "field": "bib",
+   "kind": "value",
+   "file": "synthetic-s-286-bib.png",
+   "expected_text": "108469",
+   "expected_value": "108469"
+  },
+  {
+   "id": "synthetic-s-296-bib",
+   "field": "bib",
+   "kind": "value",
+   "file": "synthetic-s-296-bib.png",
+   "expected_text": "배번: F-7006 | 10K Course",
+   "expected_value": "F7006"
+  }
+ ]
+}
