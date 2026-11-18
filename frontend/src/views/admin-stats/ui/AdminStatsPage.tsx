@@ -115,7 +115,8 @@ function PeriodPicker({
   )
   const today = seoulToday()
   const period = resolveStatsPeriod(query, today)
-  const customValid = Boolean(custom.start && custom.end && custom.start <= custom.end)
+  const customQuery = statsPeriodQuerySchema.safeParse({ period: 'custom', ...custom })
+  const customValid = customQuery.success && custom.start <= custom.end
 
   const choose = (next: StatsPeriodKind) => {
     setKind(next)
@@ -155,7 +156,7 @@ function PeriodPicker({
           <Button
             variant="secondary"
             disabled={!customValid}
-            onClick={() => onChange({ period: 'custom', ...custom })}
+            onClick={() => customQuery.success && onChange(customQuery.data)}
           >
             적용
           </Button>

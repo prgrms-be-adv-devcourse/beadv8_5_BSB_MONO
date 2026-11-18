@@ -330,4 +330,20 @@ describe('AdminStatsPage', () => {
       ),
     )
   })
+
+  it('직접 고르기는 시작이 끝보다 늦으면 적용할 수 없다', async () => {
+    mockStats()
+    const user = userEvent.setup()
+    renderPage()
+    await within(await screen.findByRole('region', { name: '구매 단계' })).findByText('1,240명')
+
+    await user.click(screen.getByRole('tab', { name: '직접 고르기' }))
+    await user.type(screen.getByLabelText('시작 날짜'), '2026-11-10')
+    await user.type(screen.getByLabelText('끝 날짜'), '2026-11-05')
+    expect(screen.getByRole('button', { name: '적용' })).toBeDisabled()
+
+    await user.clear(screen.getByLabelText('끝 날짜'))
+    await user.type(screen.getByLabelText('끝 날짜'), '2026-11-12')
+    expect(screen.getByRole('button', { name: '적용' })).toBeEnabled()
+  })
 })

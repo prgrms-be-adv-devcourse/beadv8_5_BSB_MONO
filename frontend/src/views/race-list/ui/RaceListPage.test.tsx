@@ -295,4 +295,17 @@ describe('RaceListPage', () => {
     await user.click(await screen.findByRole('button', { name: '필터 초기화' }))
     expect(screen.getByRole('textbox', { name: '대회 찾기' })).toHaveValue('')
   })
+
+  it('검색어 앞뒤 공백은 빼고 최근 검색어에 남긴다', async () => {
+    localStorage.clear()
+    const user = userEvent.setup()
+    renderPage()
+    const input = screen.getByRole('textbox', { name: '대회 찾기' })
+
+    await user.type(input, '  제주 트레일  {Enter}')
+    await user.click(input)
+    await user.clear(input)
+
+    expect(await screen.findByRole('button', { name: '제주 트레일' })).toBeInTheDocument()
+  })
 })

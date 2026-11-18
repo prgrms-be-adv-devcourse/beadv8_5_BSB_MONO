@@ -4,6 +4,7 @@ import { useState } from 'react'
 
 import {
   COMMENT_MAX,
+  commentSchema,
   formatRelative,
   LoginSheet,
   useComments,
@@ -58,8 +59,9 @@ export function CommentSection({
   }
 
   const submit = () => {
-    const content = text.trim()
-    if (!content) return
+    const parsed = commentSchema.safeParse(text)
+    if (!parsed.success) return
+    const content = parsed.data
     const done = {
       onSuccess: reset,
       onError: (e: unknown) =>

@@ -3,13 +3,14 @@ import { describe, expect, it } from 'vitest'
 import {
   COURSE_DRAFT_DEFAULTS,
   COURSE_FORM_ERRORS,
+  courseDraftSchema,
   createRaceFormSchema,
   KIT_OPTION_ERRORS,
   RACE_FORM_DEFAULTS,
   RACE_FORM_ERRORS,
   raceFormSchema,
   saleOpenTooEarlyMessage,
-  toCourseInput,
+  toCourseInputFromParsed,
   toKitOptionsRequest,
   toRaceSaveRequest,
 } from './race-form'
@@ -103,7 +104,7 @@ describe('toRaceSaveRequest 기본 시각', () => {
   })
 })
 
-describe('toCourseInput 종목 추가 창', () => {
+describe('courseDraftSchema 종목 추가 창', () => {
   const draft = {
     ...COURSE_DRAFT_DEFAULTS,
     name: '하프',
@@ -115,10 +116,20 @@ describe('toCourseInput 종목 추가 창', () => {
     minAge: '18',
   }
 
+  // 칸별 첫 오류 문구
+  function errorsOf(input: Record<string, string>) {
+    const result = courseDraftSchema.safeParse(input)
+    if (result.success) throw new Error('오류가 나야 한다')
+    const errors: Record<string, string> = {}
+    for (const issue of result.error.issues) errors[String(issue.path[0])] ??= issue.message
+    return errors
+  }
+
   it('칸이 맞으면 종목 한 줄을 만들고, 등록 요청의 종목 목록에 그대로 들어간다', () => {
-    const result = toCourseInput(draft)
-    if (!('course' in result)) throw new Error('종목이 만들어져야 한다')
-    expect(result.course).toMatchObject({
+    const result = courseDraftSchema.safeParse(draft)
+    if (!result.success) throw new Error('종목이 만들어져야 한다')
+    const course = toCourseInputFromParsed(result.data)
+    expect(course).toMatchObject({
       name: '하프',
       courseType: 'HALF',
       distanceKm: 21.1,
@@ -131,7 +142,7 @@ describe('toCourseInput 종목 추가 창', () => {
     })
 
     const request = toRaceSaveRequest(
-      { ...base, courses: [...base.courses, result.course] },
+      { ...base, courses: [...base.courses, course] },
       [],
       [[], [], []],
     )
@@ -139,9 +150,7 @@ describe('toCourseInput 종목 추가 창', () => {
   })
 
   it('빈 칸 · 숫자가 아닌 값은 칸별 오류로 돌려준다', () => {
-    const result = toCourseInput({ ...COURSE_DRAFT_DEFAULTS, price: '5만원' })
-    if (!('errors' in result)) throw new Error('오류가 나야 한다')
-    expect(result.errors).toMatchObject({
+    expect(errorsOf({ ...COURSE_DRAFT_DEFAULTS, price: '5만원' })).toMatchObject({
       name: COURSE_FORM_ERRORS.nameRequired,
       courseType: COURSE_FORM_ERRORS.courseTypeRequired,
       price: COURSE_FORM_ERRORS.number,
@@ -149,24 +158,24 @@ describe('toCourseInput 종목 추가 창', () => {
   })
 
   it('최대 나이가 최소 나이보다 작으면 막는다', () => {
-    const result = toCourseInput({ ...draft, minAge: '20', maxAge: '19' })
-    expect(result).toEqual({ errors: { maxAge: COURSE_FORM_ERRORS.maxAgeOrder } })
+    expect(errorsOf({ ...draft, minAge: '20', maxAge: '19' })).toEqual({
+      maxAge: COURSE_FORM_ERRORS.maxAgeOrder,
+    })
+  })
+
+  it('최대 나이에 숫자가 아닌 값을 넣으면 한국어 숫자 오류를 준다', () => {
+    expect(errorsOf({ ...draft, maxAge: 'abc' })).toEqual({ maxAge: COURSE_FORM_ERRORS.number })
+    expect(errorsOf({ ...draft, maxAge: '1.5' })).toEqual({ maxAge: COURSE_FORM_ERRORS.number })
   })
 
   it('참가비 · 정원 · 제한 시간이 0이면 막는다 (서버는 참가비 0원을 받지 않는다)', () => {
-    const result = toCourseInput({
-      ...draft,
-      price: '0',
-      individualQuota: '0',
-      timeLimitMinutes: '0',
-    })
-    expect(result).toEqual({
-      errors: {
+    expect(errorsOf({ ...draft, price: '0', individualQuota: '0', timeLimitMinutes: '0' })).toEqual(
+      {
         price: COURSE_FORM_ERRORS.pricePositive,
         individualQuota: COURSE_FORM_ERRORS.quotaPositive,
         timeLimitMinutes: COURSE_FORM_ERRORS.timeLimitPositive,
       },
-    })
+    )
   })
 })
 
