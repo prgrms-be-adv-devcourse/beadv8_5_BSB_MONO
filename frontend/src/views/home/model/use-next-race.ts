@@ -1,7 +1,7 @@
 import { useQueries, useQuery } from '@tanstack/react-query'
 
 import { useAuthStatus } from '@/features/auth'
-import { courseImageQueryOptions, raceQueryOptions } from '@/entities/race'
+import { raceCoverQueryOptions, raceQueryOptions } from '@/entities/race'
 import { myTicketsQueryOptions } from '@/entities/ticket'
 import { useNow } from '@/shared/lib'
 
@@ -21,7 +21,7 @@ export function useNextRace() {
 
   const next = now ? pickNextRace(confirmed, raceById, now) : null
   const image = useQuery({
-    ...courseImageQueryOptions(next?.ticket.raceCourseId ?? 0),
+    ...raceCoverQueryOptions(next?.ticket.raceId ?? 0),
     enabled: next !== null,
   })
   if (!next || !now) return undefined

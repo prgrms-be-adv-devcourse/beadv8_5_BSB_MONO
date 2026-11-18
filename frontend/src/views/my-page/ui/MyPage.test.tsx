@@ -180,8 +180,6 @@ describe('MyPage 회원 정보', () => {
       ).toHaveAttribute('href', href)
     }
     expect(screen.queryByRole('link', { name: /주문 · 배송 내역/ })).not.toBeInTheDocument()
-    // 관리자 센터 메뉴는 회원 정보에 권한 값이 없어 아직 없다
-    expect(screen.queryByRole('link', { name: '관리자 센터' })).not.toBeInTheDocument()
   })
 
   it('내 정보를 불러오는 동안에는 회색 상자 화면을 보여 준다', () => {

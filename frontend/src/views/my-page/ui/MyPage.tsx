@@ -23,7 +23,6 @@ import { EMPTY, MenuGroup, MenuRow } from './MenuRow'
 // 참가 대회 수는 내 참가권 화면과 같은 목록(주문 API)에서 취소한 참가권만 빼고 센다.
 // 판매자 메뉴는 내 판매자 신청 조회(GET /api/v1/member/sellers/me) 상태로 갈 곳을 정한다(SellerMenuRow).
 // 마이는 보기만 한다. 회원 정보 수정 · 계정 연결 · 탈퇴는 계정 설정(/me/settings) 안에서 한다.
-// TODO(api): 시안의 「관리자 센터」는 회원 정보 응답에 권한 값이 없어 두지 않았다.
 // TODO(api): 시안의 「주문·배송 내역」은 구매자용 배송 상태 · 수령 확인 API가 없어 두지 않았다(주문 API는 판매자용 키트 조회뿐).
 export function MyPage() {
   const logout = useLogout()
@@ -215,11 +214,8 @@ function AdminMenuGroup() {
   )
   if (!admin.isSuccess) return null
   return (
-    <>
-      <Divider />
-      <MenuGroup title="관리">
-        <MenuRow href="/admin" icon="Dashboard" label="관리자 센터" />
-      </MenuGroup>
-    </>
+    <MenuGroup title="관리">
+      <MenuRow href="/admin" icon="Dashboard" label="관리자 센터" />
+    </MenuGroup>
   )
 }
