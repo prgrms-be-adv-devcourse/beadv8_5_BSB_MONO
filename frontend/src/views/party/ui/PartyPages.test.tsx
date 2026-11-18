@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import type { ReactNode } from 'react'
@@ -9,6 +9,7 @@ import {
   completePostcode,
   installPostcodeFake,
   memberMock,
+  pickDate,
   productMock,
   server,
 } from '@/shared/testing'
@@ -430,7 +431,7 @@ describe('파티 합류', () => {
   async function fillAndSubmit(user: ReturnType<typeof userEvent.setup>) {
     await user.click(await screen.findByRole('checkbox'))
     await user.type(screen.getByLabelText('참가자 이름'), '김러너')
-    fireEvent.change(screen.getByLabelText('생년월일'), { target: { value: '1994-06-25' } })
+    await pickDate(user, '생년월일', '1994-06-25')
     await user.click(screen.getByRole('radio', { name: '남성' }))
     await user.type(screen.getByLabelText('휴대폰 번호'), '01012345678')
     await user.type(screen.getByLabelText('비상 연락처 이름'), '박보호')
@@ -619,7 +620,7 @@ describe('파티 만들기', () => {
     await user.click(screen.getByRole('button', { name: '10K로 참가 정보 적기' }))
     await user.click(await screen.findByRole('checkbox'))
     await user.type(screen.getByLabelText('참가자 이름'), '김러너')
-    fireEvent.change(screen.getByLabelText('생년월일'), { target: { value: '1994-06-25' } })
+    await pickDate(user, '생년월일', '1994-06-25')
     await user.click(screen.getByRole('radio', { name: '남성' }))
     await user.type(screen.getByLabelText('휴대폰 번호'), '01012345678')
     await user.type(screen.getByLabelText('비상 연락처 이름'), '박보호')
@@ -669,7 +670,7 @@ describe('파티 만들기', () => {
     await user.click(screen.getByRole('button', { name: '10K로 참가 정보 적기' }))
     await user.click(await screen.findByRole('checkbox'))
     await user.type(screen.getByLabelText('참가자 이름'), '김러너')
-    fireEvent.change(screen.getByLabelText('생년월일'), { target: { value: '1994-06-25' } })
+    await pickDate(user, '생년월일', '1994-06-25')
     await user.click(screen.getByRole('radio', { name: '남성' }))
     await user.type(screen.getByLabelText('휴대폰 번호'), '01012345678')
     await user.type(screen.getByLabelText('비상 연락처 이름'), '박보호')
@@ -729,7 +730,7 @@ describe('파티 · 키트 배송지', () => {
   async function fillParticipant(user: ReturnType<typeof userEvent.setup>) {
     await user.click(await screen.findByRole('checkbox'))
     await user.type(screen.getByLabelText('참가자 이름'), '김러너')
-    fireEvent.change(screen.getByLabelText('생년월일'), { target: { value: '1994-06-25' } })
+    await pickDate(user, '생년월일', '1994-06-25')
     await user.click(screen.getByRole('radio', { name: '남성' }))
     await user.type(screen.getByLabelText('휴대폰 번호'), '01012345678')
     await user.type(screen.getByLabelText('비상 연락처 이름'), '박보호')

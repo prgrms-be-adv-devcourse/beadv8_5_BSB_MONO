@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Controller, type UseFormReturn } from 'react-hook-form'
 
 import { AddressSearch, type AddressSearchResult } from '@/features/address-search'
+import { BirthDateField } from '@/entities/member'
 import { Checkbox, PhoneField, Radio, RadioGroup, TextField } from '@/shared/ui'
 
 import type { ParticipantValues } from '../model/participant-form'
@@ -89,12 +90,7 @@ export function ParticipantFields({
           error={errors.name?.message}
           {...register('name')}
         />
-        <TextField
-          label="생년월일"
-          type="date"
-          error={errors.birth?.message}
-          {...register('birth')}
-        />
+        <BirthDateField label="생년월일" error={errors.birth?.message} {...register('birth')} />
         <fieldset className="flex flex-col gap-2">
           <legend className="mb-2 text-body2-medium">성별</legend>
           <Controller

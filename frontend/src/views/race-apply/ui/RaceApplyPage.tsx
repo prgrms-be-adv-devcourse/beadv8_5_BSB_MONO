@@ -15,6 +15,7 @@ import {
   isQueueNotAdmitted,
   useAdmissionTimer,
 } from '@/features/queue-admission'
+import { BirthDateField } from '@/entities/member'
 import { RaceTicketCard, type RaceDetail, type RaceOption } from '@/entities/race'
 import {
   ApiError,
@@ -366,9 +367,8 @@ function ParticipantForm({
               className="gap-3"
             >
               <TextField label="이름" error={errors.name?.message} {...register('name')} />
-              <TextField
+              <BirthDateField
                 label="생년월일"
-                type="date"
                 error={errors.birth?.message}
                 {...register('birth')}
               />
