@@ -35,7 +35,9 @@ public class InternalV1PayoutUnpaidController {
 	@GetMapping("/sellers/{sellerId}/unpaid")
 	@Operation(summary = "판매자 미수령 정산금 조회",
 		description = "판매자가 아직 매듭짓지 않은 정산금이 있는지 돌려준다. 지급 완료(받음) · 취소(대회 취소로 지급 안 함)를 뺀 모든 상태를 센다. "
-			+ "지급 중 · 지급 확인 필요 · 지급 불일치처럼 돈이 나갔는지 확정되지 않은 건도 포함한다. 회원 서비스가 판매자 탈퇴를 막을 때 부른다.")
+			+ "지급 중 · 지급 확인 필요 · 지급 불일치처럼 돈이 나갔는지 확정되지 않은 건도 포함한다. 회원 서비스가 판매자 탈퇴를 막을 때 부른다. "
+			+ "다만 이미 만들어진 정산 내역만 본다. 정산 내역은 대회일 다음 날 새벽 배치에서 만들어지므로, "
+			+ "아직 배치가 돌지 않았거나 실패한 구간에는 받을 돈이 남은 판매자도 미수령 없음으로 나온다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "조회 성공 (받지 않은 정산금이 있는지는 data.hasUnpaid)",
 			content = @Content(examples = {
