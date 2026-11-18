@@ -16,6 +16,11 @@ const PendingCharge = z.object({
    * 이 값이 있으면 돌아온 화면을 다시 열어도 확정을 다시 부르지 않고, 잠시 새 충전도 막는다.
    */
   uncertainAt: z.number().optional(),
+  /**
+   * 결제창으로 떠나기 직전의 history.length. 돌아온 화면과의 차이만큼 기록을 거슬러 충전 화면으로 돌아간다.
+   * 결제창이 쌓은 기록(모바일의 토스 화면 등)으로 뒤로 가기가 다시 들어가지 않게 한다.
+   */
+  historyLength: z.number().int().positive().optional(),
 })
 
 export type PendingCharge = z.infer<typeof PendingCharge>
