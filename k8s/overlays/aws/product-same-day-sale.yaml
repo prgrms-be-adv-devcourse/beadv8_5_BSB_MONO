@@ -1,0 +1,20 @@
+# 운영 상품 서비스의 테스트용 당일 판매 설정 (CRU-36). product-service의 product.race.same-day-sale-enabled를 켜고 끈다
+#   켜면 판매 시작일이 오늘인 대회도 등록되고 처음부터 판매 중이다 (부하·E2E 테스트용. 평소에는 "false")
+#   켜는 법: 아래 값을 "true"로 바꿔 main에 배포한다 → product Pod만 다시 뜬다. 테스트가 끝나면 "false"로 되돌려 배포한다
+#   켜져 있으면 product 시작 로그에 "테스트용 당일 판매가 켜져 있습니다" 경고가 남는다
+#
+# ConfigMap(app-config.yaml)에 두지 않는 이유: deploy.sh가 app-config 전체의 지문을 모든 앱에 붙여,
+#   값 하나만 바꿔도 Spring 앱 11개가 모두 차례로 다시 뜬다. 여기 두면 product Pod 템플릿만 바뀌어 product만 다시 뜬다
+# env 목록은 이름으로 합쳐지므로 공통 설정(base/patches/spring-common.yaml)의 JAVA_TOOL_OPTIONS는 그대로 남는다
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bukang-product-service
+spec:
+  template:
+    spec:
+      containers:
+        - name: app
+          env:
+            - name: PRODUCT_RACE_SAME_DAY_SALE_ENABLED
+              value: "true"

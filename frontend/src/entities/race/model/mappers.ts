@@ -100,8 +100,8 @@ export function toClosingSoonCard(race: SummaryDto, now: Date = new Date()): Rac
   }
 }
 
-/** 종목별 파일 목록에서 대표 이미지 URL (없으면 첫 이미지) */
-export function courseImage(files: FileDto[] | undefined): string | undefined {
+/** 대회 파일 목록에서 대표 이미지 URL (없으면 첫 이미지) */
+export function coverImage(files: FileDto[] | undefined): string | undefined {
   const images = (files ?? []).filter((f) => f.url)
   return (images.find((f) => f.fileType === 'THUMBNAIL') ?? images[0])?.url ?? undefined
 }
@@ -113,32 +113,39 @@ function includesText(course: productModel.RaceDetailCourseDto): string {
   return items.join(' · ')
 }
 
+/** 상세 화면 이미지 (file 서비스). 대표 이미지는 대회 파일, 소개 이미지는 종목별 파일(종목 ID → 파일 목록)에 있다. */
+export interface RaceDetailFiles {
+  race?: FileDto[]
+  courses?: Record<number, FileDto[]>
+}
+
 /**
- * 대회 상세 응답 + 종목별 이미지(file 서비스, 종목 ID → 파일 목록)를 상세 화면 모양으로 바꾼다.
+ * 대회 상세 응답 + 대회·종목 이미지를 상세 화면 모양으로 바꾼다.
  * API에 없는 자주 묻는 질문은 비워 둔다.
  */
 export function toRaceDetail(
   race: DetailDto,
-  courseFiles: Record<number, FileDto[]> = {},
+  files: RaceDetailFiles = {},
   now: Date = new Date(),
 ): RaceDetail {
   const courses = race.courses ?? []
   const names = courseNames(courses)
+  const cover = coverImage(files.race)
   const options: RaceOption[] = courses.map((course) => ({
     id: String(course.raceCourseId),
     name: course.name ?? '',
     includes: includesText(course),
     price: course.price ?? 0,
-    image: courseImage(courseFiles[course.raceCourseId ?? -1]),
+    image: cover,
     soldOut: course.status === 'SOLD_OUT',
     kitIncluded: course.kitIncluded ?? false,
     shirtSizes: course.tshirtSizeOption ?? [],
   }))
-  // 대표 이미지(종목 순) → 나머지 이미지(소개·코스·키트) 순으로, 같은 주소는 한 번만
-  const allFiles = courses.flatMap((c) => courseFiles[c.raceCourseId ?? -1] ?? [])
+  // 대표 이미지 → 종목 소개 이미지(종목 순) 순으로, 같은 주소는 한 번만
+  const courseFiles = courses.flatMap((c) => files.courses?.[c.raceCourseId ?? -1] ?? [])
   const images = [
-    ...options.map((o) => o.image),
-    ...allFiles.filter((f) => f.fileType !== 'THUMBNAIL').map((f) => f.url),
+    cover,
+    ...courseFiles.filter((f) => f.fileType !== 'THUMBNAIL').map((f) => f.url),
   ].filter((url, i, list): url is string => !!url && list.indexOf(url) === i)
 
   const capacity = courses.reduce(

@@ -279,7 +279,7 @@ class ApiV1SellerPayoutAccountTest {
 			return inquiry.applicantName();
 		});
 		SellerApplyRequestDto request = new SellerApplyRequestDto(SellerType.INDIVIDUAL, null, null, "김러너",
-			"004", ACCOUNT_NUMBER, PayoutAccountHolderType.PERSONAL);
+			"004", ACCOUNT_NUMBER, PayoutAccountHolderType.PERSONAL, true);
 
 		ExecutorService executor = Executors.newFixedThreadPool(2);
 		List<Future<?>> futures = new ArrayList<>();
@@ -344,7 +344,8 @@ class ApiV1SellerPayoutAccountTest {
 					"representativeName": "김러너",
 					"bankCode": %s,
 					"accountNumber": %s,
-					"accountHolderType": %s
+					"accountHolderType": %s,
+					"sellerTermsAgreed": true
 				}
 				""".formatted(json(sellerType), json(businessName), json(businessNumber), json(bankCode),
 				json(accountNumber), json(holderType))));

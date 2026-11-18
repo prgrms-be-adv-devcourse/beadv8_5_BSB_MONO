@@ -98,7 +98,7 @@ class MemberOutboxKafkaTest {
 	void headersAndBodyEventIdArriveThroughBroker() {
 		MemberDto member = memberFacade.join(identityStore.joinRequest(
 			"outbox-kafka@crewrun.com", "password1234", "김러너", "헤더러너", "010-4000-0001",
-			LocalDate.of(1995, 4, 12), null, List.of(TermsType.SERVICE, TermsType.PRIVACY)));
+			LocalDate.of(1995, 4, 12), null, List.of(TermsType.SERVICE, TermsType.PRIVACY, TermsType.AGE_OVER_14)));
 		MemberOutboxEvent row = memberOutboxEventRepository.findAll().get(0);
 
 		memberOutboxRelayUseCase.relay(LocalDateTime.now());

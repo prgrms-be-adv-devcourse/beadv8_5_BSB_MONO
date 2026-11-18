@@ -1,11 +1,6 @@
 import { useQueries, useQuery } from '@tanstack/react-query'
 
-import {
-  courseImageQueryOptions,
-  daysUntil,
-  formatRaceDate,
-  raceQueryOptions,
-} from '@/entities/race'
+import { daysUntil, formatRaceDate, raceCoverQueryOptions, raceQueryOptions } from '@/entities/race'
 import {
   myTicketsQueryOptions,
   participationQueryOptions,
@@ -31,7 +26,7 @@ function unique(values: number[]): number[] {
 }
 
 /**
- * 내 참가권 카드. 주문(참가권) → 대회(이름 · 날짜 · 환불 기한) · 종목 이미지 · 참가자 이름을 합친다.
+ * 내 참가권 카드. 주문(참가권) → 대회(이름 · 날짜 · 환불 기한) · 대회 대표 이미지 · 참가자 이름을 합친다.
  * 대회 · 이미지 · 참가자를 아직 못 받았으면 받은 것만으로 그린다.
  */
 export function useTicketCards() {
@@ -42,9 +37,8 @@ export function useTicketCards() {
   const races = useQueries({ queries: raceIds.map((id) => raceQueryOptions(id)) })
   const raceById = new Map(raceIds.map((id, i) => [id, races[i]?.data]))
 
-  const courseIds = unique(list.map((t) => t.raceCourseId))
-  const images = useQueries({ queries: courseIds.map((id) => courseImageQueryOptions(id)) })
-  const imageByCourse = new Map(courseIds.map((id, i) => [id, images[i]?.data ?? undefined]))
+  const covers = useQueries({ queries: raceIds.map((id) => raceCoverQueryOptions(id)) })
+  const coverByRace = new Map(raceIds.map((id, i) => [id, covers[i]?.data ?? undefined]))
 
   const participations = useQueries({
     queries: list.map((t) => participationQueryOptions(t.participationId)),
@@ -60,7 +54,7 @@ export function useTicketCards() {
     return {
       id: ticket.id,
       status,
-      image: imageByCourse.get(ticket.raceCourseId),
+      image: coverByRace.get(ticket.raceId),
       eyebrow: race?.title ?? ticket.itemName,
       number: ticketNumber(ticket.orderNo),
       title: runner ? `${runner} · ${courseName}` : courseName,

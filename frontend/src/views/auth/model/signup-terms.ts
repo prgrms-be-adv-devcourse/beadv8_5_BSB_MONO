@@ -20,8 +20,13 @@ export function requiredTermsChecked(checks: SignupTermChecks): boolean {
   return SIGNUP_TERMS.every((t) => !t.required || checks[t.id])
 }
 
-// 서버 약관 종류. "만 14세 이상" 체크(age)는 약관이 아니라 보내지 않는다.
-const TERM_TYPES = { service: 'SERVICE', privacy: 'PRIVACY', marketing: 'MARKETING' } as const
+// 서버 약관 종류(TermsType). "만 14세 이상"(age)도 필수 약관 종류로 보내 동의 기록을 남긴다.
+const TERM_TYPES = {
+  service: 'SERVICE',
+  privacy: 'PRIVACY',
+  age: 'AGE_OVER_14',
+  marketing: 'MARKETING',
+} as const
 
 /** 체크한 약관을 서버 가입 요청의 agreedTerms 값으로 바꾼다. 체크하지 않은 선택 약관은 뺀다. */
 export function agreedTermTypes(

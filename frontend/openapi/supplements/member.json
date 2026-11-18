@@ -219,6 +219,14 @@
           "$ref": "#/components/schemas/IdentityReviewPageDto"
         }
       }
+    },
+    "demoLogin": {
+      "200": {
+        "wrapper": "RsDataMemberLoginResponseDto",
+        "data": {
+          "$ref": "#/components/schemas/MemberLoginResponseDto"
+        }
+      }
     }
   },
   "schemas": {

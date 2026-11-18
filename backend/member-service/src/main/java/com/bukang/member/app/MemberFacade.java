@@ -23,6 +23,7 @@ import com.bukang.member.config.MarketingUnsubscribeProperties;
 import com.bukang.member.config.auth.LoginAttemptProperties;
 import com.bukang.member.domain.Member;
 import com.bukang.member.domain.SocialProvider;
+import com.bukang.member.domain.TermsType;
 import com.bukang.member.domain.exception.LoginLockedException;
 import com.bukang.member.domain.exception.MemberNicknameLookupTooManyException;
 import com.bukang.member.domain.exception.MemberNotFoundException;
@@ -110,6 +111,15 @@ public class MemberFacade {
 	@Transactional
 	public MarketingConsentDto changeMarketingConsent(long memberId, boolean agreed) {
 		return marketingConsentUseCase.change(memberId, agreed);
+	}
+
+	public MarketingConsentDto findNightMarketingConsent(long memberId) {
+		return marketingConsentUseCase.find(memberId, TermsType.NIGHT_MARKETING);
+	}
+
+	@Transactional
+	public MarketingConsentDto changeNightMarketingConsent(long memberId, boolean agreed) {
+		return marketingConsentUseCase.change(memberId, TermsType.NIGHT_MARKETING, agreed);
 	}
 
 	// CRM이 광고를 보낼 때 메시지 끝에 붙일 링크를 받아 간다. 서명 키는 회원 서비스 밖으로 나가지 않는다 (BE-039)

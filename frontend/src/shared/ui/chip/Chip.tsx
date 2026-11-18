@@ -16,7 +16,7 @@ const chip = cva(
       selected: {
         true: 'bg-bg-inverse text-body2-bold text-text-inverse',
         false:
-          'bg-bg-surface text-body2-medium text-text-secondary inset-ring inset-ring-border-default enabled:hover:bg-bg-subtle disabled:inset-ring-border-disabled',
+          'bg-bg-surface text-body2-medium text-text-primary inset-ring inset-ring-border-default enabled:hover:bg-bg-subtle disabled:inset-ring-border-disabled',
       },
     },
   },

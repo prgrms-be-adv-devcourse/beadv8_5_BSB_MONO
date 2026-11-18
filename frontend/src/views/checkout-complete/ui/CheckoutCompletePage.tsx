@@ -61,7 +61,7 @@ export function CheckoutCompletePage({ orderId }: { orderId: number }) {
                 image={race.data?.images[0]}
                 imagePosition="50% 12%"
                 eyebrow={race.data?.title ?? ''}
-                status={<Badge tone="live">참가 확정</Badge>}
+                status={<Badge tone="brand">참가 확정</Badge>}
                 unit="No."
                 number="-"
                 title={[participant, option?.name].filter(Boolean).join(' · ')}

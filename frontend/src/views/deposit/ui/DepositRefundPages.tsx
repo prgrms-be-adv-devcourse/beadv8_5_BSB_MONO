@@ -1,7 +1,7 @@
 'use client'
 
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
@@ -10,7 +10,7 @@ import { z } from 'zod'
 
 import { AppHeader } from '@/widgets/app-header'
 import { useAuthStatus } from '@/features/auth'
-import { ApiError, createIdempotencyKey, unwrapData } from '@/shared/api'
+import { ApiError, cashApi, createIdempotencyKey, unwrapData } from '@/shared/api'
 import { cashZod } from '@/shared/api-zod'
 import {
   Alert,
@@ -44,6 +44,15 @@ const won = (n: number) => `₩${n.toLocaleString('ko-KR')}`
 const wonText = (n: number) => `${n.toLocaleString('ko-KR')}원`
 
 // 제목 아래 설명: 카드 · 계좌 · 처리 중 몫마다 한 문장씩 잇는다
+// 환급이 끝나면 잔액 · 예치금 내역 · 환급 가능한 충전만 다시 불러온다
+function refreshDeposit(queryClient: QueryClient) {
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: cashApi.getGetBalanceQueryKey() }),
+    queryClient.invalidateQueries({ queryKey: cashApi.getGetLedgersQueryKey() }),
+    queryClient.invalidateQueries({ queryKey: cashApi.getGetRefundableChargesQueryKey() }),
+  ])
+}
+
 function withdrawalSummary(w: LastWithdrawal): string {
   if (w.accountAmount === w.amount) return '남은 예치금 전부를 아래 계좌로 보냈어요.'
   const sentences: string[] = []
@@ -154,7 +163,7 @@ export function DepositRefundPage() {
     onSuccess: ({ result, values }) => {
       pending.reset()
       // 잔액이 바뀐 것을 예치금 화면들이 다시 불러오게 한다
-      void queryClient.invalidateQueries()
+      void refreshDeposit(queryClient)
       // 카드로 돌려줄 수 없는 몫이 계좌 정보가 없어 예치금에 되돌아왔다. 계좌를 받아 다시 신청하게 한다
       if (result.accountRequired) {
         setNeedAccount(true)
@@ -190,7 +199,7 @@ export function DepositRefundPage() {
       if (error instanceof ApiError && error.status >= 400 && error.status < 500) {
         pending.reset()
         // 계좌 필요(400)면 바뀐 충전 내역을 다시 불러온다
-        void queryClient.invalidateQueries()
+        void refreshDeposit(queryClient)
       } else {
         pending.lock()
       }

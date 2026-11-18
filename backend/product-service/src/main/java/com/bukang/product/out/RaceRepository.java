@@ -24,6 +24,10 @@ public interface RaceRepository extends JpaRepository<Race, Long> {
 	// 판매자의 대회 (최근 등록 순)
 	List<Race> findAllBySellerOrderByIdDesc(ProductSeller seller);
 
+	// 그 회원이 판매자인 대회 중 판매 상태가 statuses 중 하나인 대회가 있는지 (회원 서비스의 판매자 탈퇴 확인용)
+	// memberId는 회원 ID다(대회의 seller_id에 든 판매자 ID가 아니다). seller.member.id로 풀린다
+	boolean existsBySellerMemberIdAndSaleStatusIn(long memberId, Collection<RaceSaleStatus> statuses);
+
 	// 같은 이름의 대회가 있는지 (개발용 더미 대회를 한 번만 만들 때 ProductDataInit이 쓴다)
 	boolean existsByTitle(String title);
 

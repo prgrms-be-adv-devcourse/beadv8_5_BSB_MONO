@@ -40,6 +40,10 @@ public class TermsDataInit {
 		make(TermsType.SERVICE, true, "/terms/service");
 		make(TermsType.PRIVACY, true, "/terms/privacy");
 		make(TermsType.MARKETING, false, "/terms/marketing");
+		// 만 14세·야간 광고·판매자 약관은 전용 원문 화면이 아직 없어 가까운 약관 화면을 가리킨다 (CRU-22)
+		make(TermsType.AGE_OVER_14, true, "/terms/service");
+		make(TermsType.NIGHT_MARKETING, false, "/terms/marketing");
+		make(TermsType.SELLER, true, "/terms/service");
 	}
 
 	private void make(TermsType type, boolean required, String contentUrl) {
