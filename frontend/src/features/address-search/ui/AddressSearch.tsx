@@ -48,10 +48,18 @@ type PostcodeWindow = {
 export function AddressSearch({
   onSelect,
   onUnavailable,
+  label = '주소 검색',
+  variant = 'secondary',
+  summary,
 }: {
   onSelect: (result: AddressSearchResult) => void
   /** 스크립트를 못 불러왔을 때. 화면은 주소 칸을 직접 입력할 수 있게 연다. */
   onUnavailable?: () => void
+  /** 여는 버튼 글자. 주소를 고른 뒤에는 「다시 검색」처럼 바꿔 쓴다 */
+  label?: string
+  variant?: 'secondary' | 'text'
+  /** 고른 주소 글. 있으면 버튼과 같은 줄 왼쪽에 둔다 */
+  summary?: string
 }) {
   const [open, setOpen] = useState(false)
   const [failed, setFailed] = useState(false)
@@ -118,15 +126,18 @@ export function AddressSearch({
           {ADDRESS_SEARCH_UNAVAILABLE}
         </p>
       ) : (
-        <Button
-          type="button"
-          variant="secondary"
-          size="m"
-          className="self-start"
-          onClick={() => setOpen(true)}
-        >
-          주소 검색
-        </Button>
+        <div className="flex items-start justify-between gap-3">
+          {summary && <p className="min-w-0 pt-1 text-body2-regular">{summary}</p>}
+          <Button
+            type="button"
+            variant={variant}
+            size={variant === 'text' ? 's' : 'm'}
+            className={variant === 'text' ? 'text-text-brand' : 'self-start'}
+            onClick={() => setOpen(true)}
+          >
+            {label}
+          </Button>
+        </div>
       )}
       {open && (
         <div className="flex flex-col gap-2">

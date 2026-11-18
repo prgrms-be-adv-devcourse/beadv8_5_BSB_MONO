@@ -112,7 +112,9 @@ describe('파티 상세', () => {
     const cta = await screen.findByRole('link', { name: '파티 참가하기' })
     expect(cta).toHaveClass('bg-bg-brand-disabled')
     expect(cta).not.toHaveClass('opacity-40')
-    expect(cta.closest('div.border-t')).not.toBeNull()
+    // v3: 고정 영역 위 회색 선은 없다
+    expect(cta.closest('div.border-t')).toBeNull()
+    expect(cta.closest('div.bg-bg-surface')).not.toBeNull()
   })
 
   it('4명이 모이면 신청 버튼이 켜진다', async () => {
