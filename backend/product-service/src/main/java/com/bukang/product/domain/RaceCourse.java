@@ -72,7 +72,7 @@ public class RaceCourse extends BaseIdAndTime {
 	@Column(nullable = false)
 	private int timeLimitMinutes;
 
-	// 참가 나이 (대회 당일 만 나이). 최소는 만 14세보다 낮게 정할 수 없고, 최대가 null이면 상한이 없다
+	// 참가 나이 (대회 당일 만 나이). 최소는 14(제한 없음)나 19(성인만)이고, 최대는 항상 null이다 (CRU-54)
 	@Column(nullable = false)
 	private int minAge;
 
