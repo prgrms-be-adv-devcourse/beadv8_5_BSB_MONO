@@ -100,6 +100,7 @@ public class ApiV1SellerOrderController {
 			+ "보내기 전에 취소된 키트 주문도 열린다(kitDeliveryStatus는 목록과 같이 PREPARING, status가 CANCELED). "
 			+ "키트가 없거나 결제 전이면 배송 칸은 모두 null이다. 배송지·연락처는 키트 배송 목록과 같은 범위다. "
 			+ "취소된 주문(보내기 전 취소, 취소 중)은 배송지·배송 요청사항이 null이다. 보낸 뒤 취소된 참가권은 보인다. "
+			+ "kitTrackingUrl은 「배송 조회」 버튼이 여는 Delivery Tracker 주소로, 구매자 주문 상세와 같이 송장이 있을 때만 채운다. "
 			+ "대회 이름·대회일·환불 마감은 상품 대회 상세 API로 붙인다. 기한이 지나 만료된 주문은 404다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "조회 성공",

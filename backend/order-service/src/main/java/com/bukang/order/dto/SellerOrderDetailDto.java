@@ -12,6 +12,8 @@ import com.bukang.order.domain.Participation;
 import com.bukang.order.domain.Shipment;
 import com.bukang.order.domain.ShipmentStatus;
 
+import lombok.With;
+
 /**
  * 판매자 주문 상세 창 (CRU-39, 피그마 S03-4). 주문 상품(참가권 1장) 하나다
  * 배송지·연락처는 키트 배송 목록(SellerKitDto)과 같은 범위로 보여 준다. 키트가 없거나 결제 전이면 배송 칸이 모두 null이다
@@ -55,7 +57,10 @@ public record SellerOrderDetailDto(
 	LocalDateTime kitShippedAt,
 	LocalDateTime kitDeliveredAt,
 	LocalDateTime kitReceivedAt,
-	KitTrackingDto kitTracking
+	KitTrackingDto kitTracking,
+	// 「배송 조회」 링크 (CRU-40). 구매자 주문 상세와 같은 규칙으로 KitTrackingLink가 채운다. 송장이 없으면 null
+	@With
+	String kitTrackingUrl
 ) {
 	public static SellerOrderDetailDto of(Order order, OrderItem item, Participation participation,
 		Shipment shipment, List<KitOptionChoiceDto> kitOptions) {
@@ -76,6 +81,7 @@ public record SellerOrderDetailDto(
 			kit ? shipment.getShippedAt() : null,
 			kit ? shipment.getDeliveredAt() : null,
 			kit ? shipment.getReceivedAt() : null,
-			kit ? shipment.toTrackingDto() : null);
+			kit ? shipment.toTrackingDto() : null,
+			null);
 	}
 }
