@@ -365,4 +365,21 @@ describe('AdminStatsPage', () => {
       ),
     )
   })
+  it('끝 날짜는 오늘까지 고를 수 있고 내일부터는 고를 수 없다', async () => {
+    mockStats()
+    const user = userEvent.setup()
+    renderPage()
+    await within(await screen.findByRole('region', { name: '구매 단계' })).findByText('1,240명')
+
+    await user.click(screen.getByRole('tab', { name: '직접 고르기' }))
+    await user.click(screen.getByRole('button', { name: /^끝 날짜/ }))
+    const popup = await screen.findByRole('dialog', { name: '끝 날짜 고르기' })
+    await user.click(within(popup).getByRole('button', { name: /연·월 고르기/ }))
+    await user.click(within(popup).getByRole('option', { name: '2026년' }))
+    await user.click(within(popup).getByRole('option', { name: '11월' }))
+    await user.click(within(popup).getByRole('button', { name: /연·월 고르기/ }))
+
+    expect(within(popup).getByRole('button', { name: /2026년 11월 2일/ })).toBeEnabled()
+    expect(within(popup).getByRole('button', { name: /2026년 11월 3일/ })).toBeDisabled()
+  })
 })
