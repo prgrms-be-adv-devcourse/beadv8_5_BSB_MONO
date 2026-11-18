@@ -11,10 +11,13 @@ import { ConfirmForm } from './RecordCertFlow'
 
 it('제출이 실패하면 알리고, 다시 누르면 사진을 다시 올리지 않고 같은 파일로 낸다', async () => {
   const sent: number[] = []
+  const dates: string[] = []
   let fail = true
   server.use(
     http.post(`*${RECORD_CERTS_PATH}`, async ({ request }) => {
-      sent.push(((await request.json()) as { fileId: number }).fileId)
+      const body = (await request.json()) as { fileId: number; raceDate: string }
+      sent.push(body.fileId)
+      dates.push(body.raceDate)
       if (fail) {
         fail = false
         return HttpResponse.json(
@@ -61,4 +64,6 @@ it('제출이 실패하면 알리고, 다시 누르면 사진을 다시 올리�
   await vi.waitFor(() => expect(onDone).toHaveBeenCalledOnce())
   expect(uploadPhoto).toHaveBeenCalledOnce()
   expect(sent).toEqual([77, 77])
+  // 대회일은 입력 형식 그대로 YYYY-MM-DD로 보낸다
+  expect(dates).toEqual(['2023-04-12', '2023-04-12'])
 })

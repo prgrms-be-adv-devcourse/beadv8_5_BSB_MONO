@@ -346,4 +346,24 @@ describe('AdminStatsPage', () => {
     await user.type(screen.getByLabelText('끝 날짜'), '2026-11-12')
     expect(screen.getByRole('button', { name: '적용' })).toBeEnabled()
   })
+
+  it('직접 고른 기간은 YYYY-MM-DD로 적용해 그 기간으로 다시 묻는다', async () => {
+    mockStats()
+    const user = userEvent.setup()
+    renderPage()
+    await within(await screen.findByRole('region', { name: '구매 단계' })).findByText('1,240명')
+
+    await user.click(screen.getByRole('tab', { name: '직접 고르기' }))
+    await user.type(screen.getByLabelText('시작 날짜'), '2026-10-05')
+    await user.type(screen.getByLabelText('끝 날짜'), '2026-10-12')
+    await user.click(screen.getByRole('button', { name: '적용' }))
+
+    await waitFor(() =>
+      expect(requests).toEqual(
+        expect.arrayContaining([
+          expect.stringMatching(/period=custom&start=2026-10-05&end=2026-10-12/),
+        ]),
+      ),
+    )
+  })
 })
