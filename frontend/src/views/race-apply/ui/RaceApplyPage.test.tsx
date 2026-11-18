@@ -11,6 +11,7 @@ import {
   type BookingFlowInitial,
 } from '@/features/booking'
 import { RACE_DETAIL, type RaceOption } from '@/entities/race'
+import { type orderModel } from '@/shared/api'
 import {
   completePostcode,
   installPostcodeFake,
@@ -75,11 +76,36 @@ beforeEach(() => {
       data: { raceId: 1, kitOptions: [] },
     }),
   )
+  // 기본은 결제 대기 주문이 없는 회원
+  server.use(pendingTickets([]))
   push.mockClear()
   replace.mockClear()
   sessionStorage.clear()
   installPostcodeFake()
 })
+
+/** 내 참가권 목록(살아 있는 신청) 응답. 필요한 칸만 덮어쓴 줄을 돌려준다 */
+function ticket(overrides: Partial<orderModel.MyTicketDto>): orderModel.MyTicketDto {
+  return {
+    ...orderMock.getFindMyTicketsResponseMock().data!.tickets![0],
+    participationType: 'INDIVIDUAL',
+    status: 'APPLIED',
+    orderId: 9,
+    orderStatus: 'CREATED',
+    orderItemStatus: 'ORDERED',
+    raceCourseId: 3,
+    canceledAt: null,
+    ...overrides,
+  }
+}
+
+function pendingTickets(tickets: orderModel.MyTicketDto[]) {
+  return orderMock.getFindMyTicketsMockHandler({
+    status: 200,
+    message: '',
+    data: { tickets, page: 0, size: 20, totalElements: tickets.length, totalPages: 1 },
+  })
+}
 
 // 결제 · 장바구니 화면이 읽을 스토어 값을 그대로 꺼내 본다.
 function StoreProbe() {
@@ -624,5 +650,105 @@ describe('참가 신청 · 키트 배송 주소 검색', () => {
     await user.type(screen.getByLabelText('키트 배송 주소'), '서울특별시 성동구 뚝섬로 273')
     expect(zipcode).toHaveValue('04768')
     expect(screen.getByLabelText('키트 배송 주소')).toHaveValue('서울특별시 성동구 뚝섬로 273')
+  })
+})
+
+describe('참가 신청 · 결제 대기 주문 이어 가기', () => {
+  /** 주문 만들기 요청 본문을 받아 두고 새 주문(ID 1)으로 답한다 */
+  function captureOrders() {
+    const orders: unknown[] = []
+    server.use(
+      http.post('*/api/v1/order/orders', async ({ request }) => {
+        orders.push(await request.json())
+        return HttpResponse.json(orderMock.getCreateResponseMock(), { status: 201 })
+      }),
+    )
+    return orders
+  }
+
+  async function pressNext(user: ReturnType<typeof userEvent.setup>) {
+    await screen.findByLabelText('이름')
+    await agree(user)
+    await user.click(screen.getByRole('button', { name: '다음' }))
+  }
+
+  it('같은 종목에 결제 대기 주문이 있으면 새로 만들지 않고 그 주문의 결제로 간다', async () => {
+    const applies = captureApply()
+    const orders = captureOrders()
+    server.use(pendingTickets([ticket({ orderId: 9 })]))
+    const user = userEvent.setup()
+    renderPage()
+
+    await pressNext(user)
+
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/checkout?orderId=9'))
+    expect(applies).toHaveLength(0)
+    expect(orders).toHaveLength(0)
+  })
+
+  it('다른 종목의 결제 대기 주문은 이어 가지 않고 새 주문을 만든다', async () => {
+    captureApply()
+    const orders = captureOrders()
+    server.use(pendingTickets([ticket({ orderId: 9, raceCourseId: 4 })]))
+    const user = userEvent.setup()
+    renderPage()
+
+    await pressNext(user)
+
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/checkout?orderId=1'))
+    expect(orders).toHaveLength(1)
+  })
+
+  it.each([
+    ['결제 완료', { orderStatus: 'PAID', orderItemStatus: 'PAID' }],
+    ['기한 만료', { orderStatus: 'EXPIRED', orderItemStatus: 'ORDERED' }],
+    ['결제 중', { orderStatus: 'PAYING', orderItemStatus: 'ORDERED' }],
+    ['주문 전', { orderId: null, orderStatus: null, orderItemStatus: null }],
+  ] as const)('같은 종목이어도 주문이 %s이면 이어 가지 않고 새로 만든다', async (_, overrides) => {
+    captureApply()
+    const orders = captureOrders()
+    server.use(pendingTickets([ticket(overrides)]))
+    const user = userEvent.setup()
+    renderPage()
+
+    await pressNext(user)
+
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/checkout?orderId=1'))
+    expect(orders).toHaveLength(1)
+  })
+
+  it('내 참가권을 불러오지 못하면 기존처럼 새 주문을 만든다', async () => {
+    captureApply()
+    const orders = captureOrders()
+    server.use(
+      http.get('*/api/v1/order/participations/me', () =>
+        HttpResponse.json({ status: 500, message: '오류', data: null }, { status: 500 }),
+      ),
+    )
+    const user = userEvent.setup()
+    renderPage()
+
+    await pressNext(user)
+
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/checkout?orderId=1'))
+    expect(orders).toHaveLength(1)
+  })
+
+  it('키트 옵션을 고른 뒤 결제하기도 결제 대기 주문으로 이어 가고, 고른 옵션을 그 주문에 남긴다', async () => {
+    const applies = captureApply()
+    const orders = captureOrders()
+    server.use(KIT_OPTIONS, pendingTickets([ticket({ orderId: 9 })]))
+    const user = userEvent.setup()
+    renderPage()
+
+    await pressNext(user)
+    await user.click(await screen.findByRole('button', { name: 'M' }))
+    await user.click(screen.getByRole('button', { name: '255-280' }))
+    await user.click(screen.getByRole('button', { name: '결제하기' }))
+
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/checkout?orderId=9'))
+    expect(applies).toHaveLength(0)
+    expect(orders).toHaveLength(0)
+    expect(readKitOptionIds(9)).toEqual([11, 22])
   })
 })
