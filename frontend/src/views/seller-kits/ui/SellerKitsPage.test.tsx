@@ -17,10 +17,9 @@ function renderPage() {
   )
 }
 
-/** 건수 타일 (건수를 받아 온 뒤에 잡힌다) */
-async function tile(label: string) {
-  const group = screen.getByRole('group', { name: '키트 배송 건수' })
-  return (await within(group).findByText(label)).parentElement as HTMLElement
+/** 탭 이름 옆 건수 (건수를 받아 온 뒤에 잡힌다) */
+async function tabCount(label: string, count: string) {
+  return screen.findByRole('tab', { name: `${label}${count}` })
 }
 
 describe('SellerKitsPage', () => {
@@ -31,11 +30,10 @@ describe('SellerKitsPage', () => {
     expect(screen.getByText('달리는곰')).toBeInTheDocument()
     expect(screen.getByText('10K · 티셔츠 M')).toBeInTheDocument()
     expect(screen.getByText('서울 마포구')).toBeInTheDocument()
-    expect(screen.getByText('주문 5건')).toBeInTheDocument()
-    expect(await within(await tile('배송 준비')).findByText('3')).toBeInTheDocument()
-    expect(within(await tile('배송 중')).getByText('1')).toBeInTheDocument()
-    expect(within(await tile('배송 완료')).getByText('1')).toBeInTheDocument()
-    expect(within(await tile('환불 기한 전')).getByText('1')).toBeInTheDocument()
+    await tabCount('송장 입력 대기', '3')
+    await tabCount('배송 중', '1')
+    await tabCount('배송 완료', '1')
+    expect(await screen.findByText('환불 기한 전 1건')).toBeInTheDocument()
   })
 
   it('송장 번호를 넣어 발송하면 배송 중이 되고 건수가 줄어든다', async () => {
@@ -45,8 +43,8 @@ describe('SellerKitsPage', () => {
     await userEvent.click(screen.getByRole('button', { name: '배송 중으로 바꾸기' }))
 
     expect(await screen.findByText('1건을 배송 중으로 바꿨어요')).toBeInTheDocument()
-    expect(await within(await tile('배송 준비')).findByText('2')).toBeInTheDocument()
-    expect(within(await tile('배송 중')).getByText('2')).toBeInTheDocument()
+    await tabCount('송장 입력 대기', '2')
+    await tabCount('배송 중', '2')
   })
 
   it('송장 번호가 없으면 발송 버튼이 닫혀 있다', async () => {
@@ -58,23 +56,24 @@ describe('SellerKitsPage', () => {
 
   it('배송 중인 건을 배송 완료로 바꾼다', async () => {
     renderPage()
+    await userEvent.click(await screen.findByRole('tab', { name: /^배송 중/ }))
     await userEvent.click(await screen.findByRole('checkbox', { name: 'OD-20261003-0093 고르기' }))
-    await userEvent.click(screen.getByRole('button', { name: '배송 완료' }))
     await userEvent.click(screen.getByRole('button', { name: '배송 완료로 바꾸기' }))
 
     expect(await screen.findByText('1건을 배송 완료로 바꿨어요')).toBeInTheDocument()
-    expect(await within(await tile('배송 완료')).findByText('2')).toBeInTheDocument()
-    expect(within(await tile('배송 중')).getByText('0')).toBeInTheDocument()
+    await tabCount('배송 완료', '2')
+    await tabCount('배송 중', '0')
   })
 
   it('상태가 맞지 않는 건을 고르면 바꿀 수 없다고 알린다', async () => {
     renderPage()
-    await userEvent.click(await screen.findByRole('checkbox', { name: 'OD-20261003-0093 고르기' }))
+    await userEvent.click(await screen.findByRole('checkbox', { name: 'OD-20261004-0101 고르기' }))
+    await userEvent.click(screen.getByRole('button', { name: '배송 완료' }))
 
     expect(
-      screen.getByText('배송 준비 상태인 주문만 배송 중으로 바꿀 수 있어요.'),
+      screen.getByText('배송 중 상태인 주문만 배송 완료로 바꿀 수 있어요.'),
     ).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '배송 중으로 바꾸기' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '배송 완료로 바꾸기' })).toBeDisabled()
   })
 
   it('환불 기한 전이라 서버가 거절하면 서버 문구를 보여 주고 다른 건은 그대로 처리한다', async () => {
@@ -93,7 +92,7 @@ describe('SellerKitsPage', () => {
     expect(await screen.findByText('1건은 바꾸지 못했어요')).toBeInTheDocument()
     expect(screen.getByText(/OD-20261005-0125: 아직 환불할 수 있는 참가권/)).toBeInTheDocument()
     expect(screen.getByText('1건을 배송 중으로 바꿨어요')).toBeInTheDocument()
-    expect(await within(await tile('배송 중')).findByText('2')).toBeInTheDocument()
+    await tabCount('배송 중', '2')
   })
 
   it('목록 조회가 실패하면 서버 문구를 보여 준다', async () => {

@@ -22,7 +22,6 @@ import { orderModel } from '@/shared/api'
 import { cn, useSearchParamsState } from '@/shared/lib'
 import {
   Alert,
-  Badge,
   Button,
   Checkbox,
   Chip,
@@ -31,7 +30,9 @@ import {
   FOCUS_RING,
   Select,
   Skeleton,
-  StatTile,
+  Tab,
+  TabBar,
+  Tabs,
   Textarea,
   TextField,
 } from '@/shared/ui'
@@ -42,10 +43,19 @@ type Kit = orderModel.SellerKitDto
 type NextStatus = Exclude<KitStatus, 'PREPARING'>
 
 const ALL = ''
-const STATUS_ITEMS = [
-  { value: ALL, label: '전체' },
-  ...KIT_FLOW.map((s) => ({ value: s, label: KIT_STATUS[s].label })),
-]
+// 탭: 송장 입력 대기(배송 준비) · 배송 중 · 배송 완료. 탭 이름 옆에 건수를 붙인다
+const TAB_LABEL: Record<KitStatus, string> = {
+  PREPARING: '송장 입력 대기',
+  SHIPPING: '배송 중',
+  DELIVERED: '배송 완료',
+}
+const TAB_VALUES: string[] = [...KIT_FLOW]
+// 상태는 칩 대신 글자색으로: 완료 초록, 그 밖은 보조 글자색
+const STATUS_TEXT: Record<KitStatus, string> = {
+  PREPARING: 'text-text-secondary',
+  SHIPPING: 'text-text-secondary',
+  DELIVERED: 'text-text-success',
+}
 const CARRIERS = ['CJ대한통운', '롯데택배', '한진택배', '우체국택배'].map((c) => ({
   value: c,
   label: c,
@@ -81,15 +91,13 @@ function trackingLines(text: string) {
 export function SellerKitsPage() {
   // 조회에 건 대회 · 상태는 URL에 담는다. 고르는 중인 값(draft)은 화면 상태이고 「조회」를 누르면 URL에 쓴다.
   const [url, setUrl] = useSearchParamsState(
-    { race: ALL, status: ALL },
-    { status: STATUS_ITEMS.map((item) => item.value) },
+    { race: ALL, status: 'PREPARING' },
+    { status: TAB_VALUES },
   )
-  const [raceDraft, setRaceDraft] = useState(url.race)
-  const [statusDraft, setStatusDraft] = useState(url.status)
   const raceId = Number(url.race)
   const filters: KitFilters = {
     raceId: url.race !== ALL && Number.isInteger(raceId) ? raceId : undefined,
-    status: url.status === ALL ? undefined : (url.status as orderModel.FindKitsStatus),
+    status: url.status as orderModel.FindKitsStatus,
   }
 
   const races = useQuery(myRacesQueryOptions())
@@ -116,10 +124,13 @@ export function SellerKitsPage() {
   const toggle = (id: number, on: boolean) =>
     setChecked((prev) => (on ? [...prev, id] : prev.filter((key) => key !== id)))
 
-  const search = () => {
-    setUrl({ race: raceDraft, status: statusDraft })
+  const changeFilter = (patch: { race?: string; status?: string }) => {
+    setUrl(patch)
     setChecked([])
     setResult(null)
+    // 탭을 옮기면 그 단계에서 바꿀 다음 단계를 맞춘다
+    if (patch.status === 'SHIPPING') setNext('DELIVERED')
+    if (patch.status === 'PREPARING') setNext('SHIPPING')
   }
 
   const lines = trackingLines(tracking)
@@ -159,8 +170,7 @@ export function SellerKitsPage() {
 
   return (
     <ConsolePage
-      title="키트 배송 관리"
-      description="키트는 환불 기한이 지난 뒤 배송해요. 배송 상태는 판매자가 바꾸고, 송장 번호를 넣으면 배송 중이 돼요."
+      title="키트 배송"
       // TODO(api): 배송 목록 엑셀 내려받기 API가 없어 막아 둔다
       actions={
         <Button variant="secondary" disabled title="엑셀 내려받기는 준비 중이에요">
@@ -168,48 +178,52 @@ export function SellerKitsPage() {
         </Button>
       }
     >
-      <div role="group" aria-label="키트 배송 건수" className="flex gap-4">
-        {summary.data ? (
-          <>
-            <StatTile label="배송 준비" value={String(summary.data.preparing ?? 0)} unit="건" />
-            <StatTile label="배송 중" value={String(summary.data.shipping ?? 0)} unit="건" />
-            <StatTile label="배송 완료" value={String(summary.data.delivered ?? 0)} unit="건" />
-            <StatTile
-              label="환불 기한 전"
-              value={String(summary.data.beforeRefundDeadline ?? 0)}
-              unit="건"
-            />
-          </>
-        ) : summary.isError ? (
-          <Alert
-            tone="danger"
-            title="배송 건수를 불러오지 못했어요"
-            description={kitErrorMessage(summary.error)}
-          />
-        ) : (
-          Array.from({ length: 4 }, (_, i) => <Skeleton key={i} className="h-24 flex-1" />)
-        )}
-      </div>
+      {summary.isError && (
+        <Alert
+          tone="danger"
+          title="배송 건수를 불러오지 못했어요"
+          description={kitErrorMessage(summary.error)}
+        />
+      )}
+      <Tabs value={url.status} onValueChange={(status) => changeFilter({ status: String(status) })}>
+        <TabBar layout="hug">
+          {KIT_FLOW.map((step) => (
+            <Tab
+              key={step}
+              value={step}
+              count={
+                summary.data
+                  ? (summary.data[
+                      step === 'PREPARING'
+                        ? 'preparing'
+                        : step === 'SHIPPING'
+                          ? 'shipping'
+                          : 'delivered'
+                    ] ?? 0)
+                  : undefined
+              }
+            >
+              {TAB_LABEL[step]}
+            </Tab>
+          ))}
+        </TabBar>
+      </Tabs>
+      {summary.data && (summary.data.beforeRefundDeadline ?? 0) > 0 && (
+        // 아직 취소될 수 있어 보낼 수 없는 키트 (송장 입력 대기 안에 섞여 있다)
+        <p className="text-body2-medium text-text-secondary">
+          환불 기한 전 {summary.data.beforeRefundDeadline}건
+        </p>
+      )}
 
-      <ConsoleCard>
+      <ConsoleCard className="rounded-md border border-border-default shadow-none">
         <div className="flex items-end gap-4">
           <Select
             label="대회"
             items={raceItems}
-            value={raceDraft}
-            onValueChange={(value) => setRaceDraft(value ?? ALL)}
+            value={url.race}
+            onValueChange={(value) => changeFilter({ race: value ?? ALL })}
             className="flex-1"
           />
-          <Select
-            label="상태"
-            items={STATUS_ITEMS}
-            value={statusDraft}
-            onValueChange={(value) => setStatusDraft(value ?? ALL)}
-            className="flex-1"
-          />
-          <Button variant="secondary" onClick={search}>
-            조회
-          </Button>
         </div>
       </ConsoleCard>
 
@@ -224,7 +238,7 @@ export function SellerKitsPage() {
               주문번호로 찾기
             </button>
           }
-          className="min-w-130 flex-1"
+          className="min-w-130 flex-1 rounded-md border border-border-default shadow-none"
         >
           {kits.isError ? (
             <Alert
@@ -273,7 +287,16 @@ export function SellerKitsPage() {
                   width: 'w-25',
                   render: (k) => {
                     const status = KIT_STATUS[k.kitDeliveryStatus ?? 'PREPARING']
-                    return <Badge tone={status.tone}>{status.label}</Badge>
+                    return (
+                      <span
+                        className={cn(
+                          'text-body2-medium',
+                          STATUS_TEXT[k.kitDeliveryStatus ?? 'PREPARING'],
+                        )}
+                      >
+                        {status.label}
+                      </span>
+                    )
                   },
                 },
                 {
@@ -287,12 +310,12 @@ export function SellerKitsPage() {
               ]}
             />
           )}
-          <p className="text-body2-regular text-text-tertiary">
-            구매자 실명·연락처는 배송 처리에 필요한 범위에서만 보여요.
-          </p>
         </ConsoleCard>
 
-        <ConsoleCard title="배송 상태 바꾸기" className="w-90 shrink-0">
+        <ConsoleCard
+          title="배송 상태 바꾸기"
+          className="w-90 shrink-0 rounded-md border border-border-default shadow-none"
+        >
           <p className="text-body2-regular text-text-secondary">
             {selected.length}건 선택
             {selectedLabels.length > 0 && ` · ${selectedLabels.join(' · ')}`}
@@ -348,9 +371,6 @@ export function SellerKitsPage() {
               )}
             </>
           )}
-          <p className="text-body2-regular text-text-tertiary">
-            키트 배송은 정산과 관계없어요. 정산은 환불 기한과 대회 일정으로 정해져요.
-          </p>
           {blocker && <p className="text-body2-regular text-text-secondary">{blocker}</p>}
           {result && result.done > 0 && (
             <Alert tone="success" title={`${result.done}건을 ${TO[next]} 바꿨어요`} />
