@@ -175,7 +175,9 @@ describe('MyPage 회원 정보', () => {
       ['약관 · 정책', '/me/settings/terms'],
     ]
     for (const [name, href] of hrefs) {
-      expect(screen.getByRole('link', { name: new RegExp(name) })).toHaveAttribute('href', href)
+      expect(
+        within(screen.getByRole('main')).getByRole('link', { name: new RegExp(name) }),
+      ).toHaveAttribute('href', href)
     }
     expect(screen.queryByRole('link', { name: /주문 · 배송 내역/ })).not.toBeInTheDocument()
     // 관리자 센터 메뉴는 회원 정보에 권한 값이 없어 아직 없다
