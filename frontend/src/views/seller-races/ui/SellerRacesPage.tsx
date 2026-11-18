@@ -2,33 +2,41 @@
 
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 
-import { ConsoleCard, ConsoleLoading, ConsolePage } from '@/widgets/console-page'
-import { myRacesQueryOptions, toSellerRaceRow } from '@/entities/race'
+import { ConsoleLoading, ConsolePage } from '@/widgets/console-page'
+import {
+  myRacesQueryOptions,
+  SELLER_SALE_STATUS,
+  SELLER_SALE_STATUS_TEXT,
+  toSellerRaceRow,
+  type SellerSaleStatus,
+} from '@/entities/race'
 import { ApiError } from '@/shared/api'
-import { cn, copyText, formatNumber } from '@/shared/lib'
+import { cn, copyText, formatNumber, useSearchParamsState } from '@/shared/lib'
 import {
   Alert,
-  Badge,
   buttonClassName,
-  DataTable,
+  Chip,
   EmptyState,
   FOCUS_RING,
+  ProgressBar,
   useToast,
 } from '@/shared/ui'
 
-import { SaleChangeCard } from './SaleChangeCard'
-
 const n = formatNumber
 
-// 피그마 V2 · S06 대회 관리 (+ S02-4 등록 완료 토스트)
+// 상태 칩 순서. 「판매 전」은 쓰지 않고 코드의 다섯 가지 상태를 그대로 쓴다
+const STATUS_ORDER = Object.keys(SELLER_SALE_STATUS) as SellerSaleStatus[]
+const FILTERS = ['ALL', ...STATUS_ORDER]
+
+// 피그마 Final v3 · 판매자 · 대회 관리: 내 대회 표를 본문 폭 전체로, 줄을 누르면 대회 상세
 export function SellerRacesPage({ registeredRaceId }: { registeredRaceId?: string }) {
   const races = useQuery({
     ...myRacesQueryOptions(),
     select: (list) => list.map(toSellerRaceRow),
   })
-  const [selectedId, setSelectedId] = useState<number>()
+  const [url, setUrl] = useSearchParamsState({ status: 'ALL' }, { status: FILTERS })
   const toast = useToast()
   const shown = useRef(false)
 
@@ -54,13 +62,14 @@ export function SellerRacesPage({ registeredRaceId }: { registeredRaceId?: strin
     })
   }, [registeredRaceId, toast])
 
-  const rows = races.data ?? []
-  const race = rows.find((r) => r.id === selectedId) ?? rows[0]
+  const all = races.data ?? []
+  const rows = url.status === 'ALL' ? all : all.filter((r) => r.saleStatus === url.status)
+  const countOf = (status: string) =>
+    status === 'ALL' ? all.length : all.filter((r) => r.saleStatus === status).length
 
   return (
     <ConsolePage
       title="대회 관리"
-      description="판매가 시작된 대회는 구매자에게 유리한 변경만 할 수 있어요."
       actions={
         <Link href="/seller/races/new?from=races" className={buttonClassName()}>
           대회 등록
@@ -78,10 +87,9 @@ export function SellerRacesPage({ registeredRaceId }: { registeredRaceId?: strin
             '잠시 후 다시 시도해 주세요.'
           }
         />
-      ) : !race ? (
+      ) : all.length === 0 ? (
         <EmptyState
           title="아직 등록한 대회가 없어요"
-          description="대회를 등록하면 여기에서 판매 현황을 보고 바꿀 수 있어요"
           action={
             <Link
               href="/seller/races/new?from=races"
@@ -92,55 +100,61 @@ export function SellerRacesPage({ registeredRaceId }: { registeredRaceId?: strin
           }
         />
       ) : (
-        <div className="flex flex-wrap items-start gap-6">
-          <ConsoleCard
-            title={`대회 ${rows.length}개`}
-            aside={
-              <button
-                type="button"
-                className={cn('rounded-sm text-body2-medium text-text-brand', FOCUS_RING)}
+        <div className="flex flex-col gap-4 rounded-md border border-border-default p-6">
+          <div className="flex flex-wrap gap-2" role="group" aria-label="판매 상태">
+            {FILTERS.map((status) => (
+              <Chip
+                key={status}
+                selected={url.status === status}
+                onClick={() => setUrl({ status })}
               >
-                대회명으로 찾기
-              </button>
-            }
-            className="min-w-130 flex-1"
-          >
-            <DataTable
-              label="내 대회"
-              rows={rows}
-              rowKey={(r) => String(r.id)}
-              selected={String(race.id)}
-              onRowClick={(r) => setSelectedId(r.id)}
-              columns={[
-                { key: 'title', header: '대회', render: (r) => r.title },
-                {
-                  key: 'date',
-                  header: '대회일',
-                  align: 'right',
-                  width: 'w-24',
-                  render: (r) => r.date,
-                },
-                {
-                  key: 'sold',
-                  header: '판매 / 정원',
-                  align: 'right',
-                  width: 'w-37.5',
-                  render: (r) => `${n(r.sold)} / ${n(r.capacity)}`,
-                },
-                {
-                  key: 'status',
-                  header: '상태',
-                  width: 'w-28',
-                  render: (r) => <Badge tone={r.badge.tone}>{r.badge.label}</Badge>,
-                },
-              ]}
-            />
-            <p className="text-body2-regular text-text-tertiary">
-              줄을 고르면 오른쪽에서 판매 중 변경을 할 수 있어요.
-            </p>
-          </ConsoleCard>
-
-          <SaleChangeCard key={race.id} row={race} />
+                {status === 'ALL' ? '전체' : SELLER_SALE_STATUS[status as SellerSaleStatus].label}{' '}
+                {countOf(status)}
+              </Chip>
+            ))}
+          </div>
+          <table aria-label="내 대회" className="w-full table-fixed text-body2-regular">
+            <thead>
+              <tr className="border-b border-border-default text-body2-medium text-text-secondary">
+                <th className="h-11 text-left font-medium">대회</th>
+                <th className="h-11 w-28 text-right font-medium">대회일</th>
+                <th className="h-11 w-36 text-right font-medium">판매 / 정원</th>
+                <th className="h-11 w-48 pl-6 text-left font-medium">판매율</th>
+                <th className="h-11 w-28 pl-4 text-left font-medium">상태</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.id} className="h-14 border-b border-border-default last:border-b-0">
+                  <td className="truncate">
+                    <Link
+                      href={`/seller/races/${row.id}`}
+                      className={cn('rounded-sm text-body2-medium', FOCUS_RING)}
+                    >
+                      {row.title}
+                    </Link>
+                  </td>
+                  <td className="text-right tabular-nums">{row.date}</td>
+                  <td className="text-right tabular-nums">{`${n(row.sold)} / ${n(row.capacity)}`}</td>
+                  <td className="pl-6">
+                    <ProgressBar
+                      size="s"
+                      aria-label={`${row.title} 판매율`}
+                      value={row.capacity > 0 ? Math.round((row.sold / row.capacity) * 100) : 0}
+                    />
+                  </td>
+                  <td
+                    className={cn(
+                      'pl-4 text-body2-medium',
+                      row.saleStatus ? SELLER_SALE_STATUS_TEXT[row.saleStatus] : '',
+                    )}
+                  >
+                    {row.badge.label}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </ConsolePage>
