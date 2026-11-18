@@ -26,7 +26,7 @@ export function AdminRacesPage() {
     <ConsolePage title="대회 관리" description="등록된 대회를 조회하고 판매 상태를 바꿔요.">
       {races.isPending ? (
         <ConsoleLoading />
-      ) : races.isError ? (
+      ) : races.isError && !races.data ? (
         <Alert
           tone="danger"
           title="대회 목록을 불러오지 못했어요"
