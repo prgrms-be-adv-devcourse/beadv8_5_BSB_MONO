@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import type { ReactNode } from 'react'
@@ -70,6 +70,43 @@ describe('파티 상세', () => {
     )
   })
 
+  it('머리에 모집 상태 글자, 대회 이름, 크루 · 종목을 보여 주고 진행 단계 줄은 그리지 않는다', async () => {
+    renderPage(<PartyDetailPage partyId={1} />)
+    expect(
+      await screen.findByRole('heading', { name: '2026 용감한 쿠키RUN in 서울' }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('모집 중')).toBeInTheDocument()
+    expect(await screen.findByText('성수런 크루 · 10K')).toBeInTheDocument()
+    expect(screen.queryByRole('list', { name: '파티 진행 단계' })).not.toBeInTheDocument()
+  })
+
+  it('초대 링크 상자에 쓸 수 있는 기한과 링크 복사 · 새로 만들기를 함께 둔다', async () => {
+    renderPage(<PartyDetailPage partyId={1} />)
+    const box = (await screen.findByText('초대 링크')).parentElement as HTMLElement
+    expect(within(box).getByText(/까지 쓸 수 있어요/)).toBeInTheDocument()
+    expect(screen.queryByText(/^링크 · /)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '링크 복사' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '새로 만들기' })).toBeInTheDocument()
+  })
+
+  it('모집 중에는 파티원 줄에 이름과 파티장 · 파티원만 보이고 결제 칩은 없다', async () => {
+    renderPage(<PartyDetailPage partyId={1} />)
+    expect(await screen.findByText('달리는곰')).toBeInTheDocument()
+    expect(screen.getAllByText('파티원')).toHaveLength(2)
+    expect(screen.getByText('파티장')).toBeInTheDocument()
+    expect(screen.queryByText('결제 전')).not.toBeInTheDocument()
+  })
+
+  it('파티 참가하기는 아래 고정 영역에 두고, 꺼진 동안은 연한 파랑으로 보인다', async () => {
+    renderPage(<PartyDetailPage partyId={1} />)
+    const cta = await screen.findByRole('link', { name: '파티 참가하기' })
+    expect(cta).toHaveClass('bg-bg-brand-disabled')
+    expect(cta).not.toHaveClass('opacity-40')
+    // v3: 고정 영역 위 회색 선은 없다
+    expect(cta.closest('div.border-t')).toBeNull()
+    expect(cta.closest('div.bg-bg-surface')).not.toBeNull()
+  })
+
   it('4명이 모이면 신청 버튼이 켜진다', async () => {
     renderPage(<PartyDetailPage partyId={4} />)
     expect(await screen.findByText('파티로 참가할 수 있어요')).toBeInTheDocument()
@@ -112,12 +149,47 @@ describe('파티 상세', () => {
     expect(await screen.findByText('파티 정보를 불러오지 못했어요')).toBeInTheDocument()
   })
 
-  it('파티 나가기를 확인하면 크루 홈으로 간다', async () => {
+  it('파티 나가기는 머리글 ⋮ 메뉴에서 열고, 확인하면 크루 홈으로 간다', async () => {
     const user = userEvent.setup()
     renderPage(<PartyDetailPage partyId={1} />)
-    await user.click(await screen.findByRole('button', { name: '파티 나가기' }))
+    await user.click(await screen.findByRole('button', { name: '더보기' }))
+    await user.click(await screen.findByRole('menuitem', { name: '파티 나가기' }))
     await user.click(await screen.findByRole('button', { name: '나가기' }))
     await waitFor(() => expect(replace).toHaveBeenCalledWith('/crews/7'))
+  })
+
+  it('⋮ 메뉴는 닫혀 있고, 화면 아래에는 파티 나가기 버튼이 없다', async () => {
+    renderPage(<PartyDetailPage partyId={1} />)
+    const more = await screen.findByRole('button', { name: '더보기' })
+    expect(more).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByRole('menuitem', { name: '파티 나가기' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '파티 나가기' })).not.toBeInTheDocument()
+  })
+
+  it('⋮ 메뉴 버튼은 main 밖의 머리글(banner) 안에 있다', async () => {
+    renderPage(<PartyDetailPage partyId={1} />)
+    const more = await screen.findByRole('button', { name: '더보기' })
+    expect(within(screen.getByRole('banner')).getByRole('button', { name: '더보기' })).toBe(more)
+    expect(within(screen.getByRole('main')).queryByRole('banner')).not.toBeInTheDocument()
+  })
+
+  it('⋮ 메뉴는 Esc로 닫히고 나가기 확인 창을 띄우지 않는다', async () => {
+    const user = userEvent.setup()
+    renderPage(<PartyDetailPage partyId={1} />)
+    await user.click(await screen.findByRole('button', { name: '더보기' }))
+    expect(await screen.findByRole('menuitem', { name: '파티 나가기' })).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    await waitFor(() =>
+      expect(screen.queryByRole('menuitem', { name: '파티 나가기' })).not.toBeInTheDocument(),
+    )
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(replace).not.toHaveBeenCalled()
+  })
+
+  it('결제가 시작된 파티에는 ⋮ 메뉴가 없다(결제 중에는 나갈 수 없다)', async () => {
+    renderPage(<PartyDetailPage partyId={3} />)
+    await screen.findByText('결제 완료 1 / 3명')
+    expect(screen.queryByRole('button', { name: '더보기' })).not.toBeInTheDocument()
   })
 })
 

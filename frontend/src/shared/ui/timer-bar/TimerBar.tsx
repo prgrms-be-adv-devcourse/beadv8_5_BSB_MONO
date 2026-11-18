@@ -2,6 +2,8 @@ import type { ReactNode } from 'react'
 
 import { cn } from '@/shared/lib'
 
+import { Icon } from '../icon/icons'
+
 export type TimerBarProps = {
   /** 왼쪽 안내 문구 */
   message: ReactNode
@@ -32,6 +34,20 @@ export function TimerBar({ message, remainingSeconds, className }: TimerBarProps
         </div>
         <p className="font-display text-number-m tabular-nums">{formatTimer(remainingSeconds)}</p>
       </div>
+    </div>
+  )
+}
+
+// 피그마 v3 헤더 오른쪽 남은 시간: 시계 아이콘 + mm:ss. 참가 신청 · 결제 헤더(AppHeader action)에 둔다.
+export function HeaderTimer({ remainingSeconds }: { remainingSeconds: number }) {
+  return (
+    <div
+      role="timer"
+      aria-label="남은 시간"
+      className="mr-3 flex shrink-0 items-center gap-1 text-body1-bold text-text-primary tabular-nums"
+    >
+      <Icon name="Clock" className="size-4" aria-hidden />
+      {formatTimer(remainingSeconds)}
     </div>
   )
 }

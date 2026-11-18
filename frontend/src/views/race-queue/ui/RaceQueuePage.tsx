@@ -182,14 +182,14 @@ export function RaceQueuePage({
               <Icon name="X" />
             </IconButton>
           </header>
-          <main className="flex flex-1 flex-col items-center px-6 pt-6 text-center">
+          <main className="flex flex-1 flex-col items-center justify-center gap-2 px-6 pt-6 pb-30 text-center">
             <h1 className="text-title2 text-text-primary">
               신청하는 분이 많아
               <br />
               잠시 기다리고 있어요
             </h1>
             {race.data && (
-              <p className="pt-2 text-body2-regular text-text-secondary">
+              <p className="text-body2-regular text-text-secondary">
                 {optionName ? `${race.data.title} · ${optionName}` : race.data.title}
               </p>
             )}
@@ -198,9 +198,9 @@ export function RaceQueuePage({
               value={progress}
               indeterminate={progress === undefined}
               aria-label="대기 진행 정도"
-              className="mt-12 w-full"
+              className="mt-6 w-full"
             />
-            <p className="pt-9 text-body2-regular text-text-primary">
+            <p className="pt-3 text-body2-regular text-text-primary">
               이 화면을 나가면 순서가 처음으로 돌아가요.
             </p>
           </main>
