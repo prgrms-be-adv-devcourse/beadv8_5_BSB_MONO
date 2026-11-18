@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { server } from '@/shared/testing'
+import { pickDate, server } from '@/shared/testing'
 
 import { AdminStatsPage } from './AdminStatsPage'
 
@@ -338,12 +338,11 @@ describe('AdminStatsPage', () => {
     await within(await screen.findByRole('region', { name: '구매 단계' })).findByText('1,240명')
 
     await user.click(screen.getByRole('tab', { name: '직접 고르기' }))
-    await user.type(screen.getByLabelText('시작 날짜'), '2026-11-10')
-    await user.type(screen.getByLabelText('끝 날짜'), '2026-11-05')
+    await pickDate(user, '시작 날짜', '2026-10-30')
+    await pickDate(user, '끝 날짜', '2026-10-20')
     expect(screen.getByRole('button', { name: '적용' })).toBeDisabled()
 
-    await user.clear(screen.getByLabelText('끝 날짜'))
-    await user.type(screen.getByLabelText('끝 날짜'), '2026-11-12')
+    await pickDate(user, '끝 날짜', '2026-11-01')
     expect(screen.getByRole('button', { name: '적용' })).toBeEnabled()
   })
 
@@ -354,8 +353,8 @@ describe('AdminStatsPage', () => {
     await within(await screen.findByRole('region', { name: '구매 단계' })).findByText('1,240명')
 
     await user.click(screen.getByRole('tab', { name: '직접 고르기' }))
-    await user.type(screen.getByLabelText('시작 날짜'), '2026-10-05')
-    await user.type(screen.getByLabelText('끝 날짜'), '2026-10-12')
+    await pickDate(user, '시작 날짜', '2026-10-05')
+    await pickDate(user, '끝 날짜', '2026-10-12')
     await user.click(screen.getByRole('button', { name: '적용' }))
 
     await waitFor(() =>
