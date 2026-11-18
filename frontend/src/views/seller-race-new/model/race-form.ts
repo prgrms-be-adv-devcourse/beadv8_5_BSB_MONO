@@ -8,6 +8,8 @@ import { productZod } from '@/shared/api-zod'
 export const RACE_FORM_ERRORS = {
   titleRequired: '대회 이름을 입력해 주세요.',
   titleMax: `대회 이름은 ${productZod.registerBodyTitleMax}자 이하로 입력해 주세요.`,
+  locationDetailMax: '상세 주소는 100자 이하로 입력해 주세요.',
+  descriptionMax: '대회 소개는 2,000자 이하로 입력해 주세요.',
   locationRequired: '장소를 입력해 주세요.',
   locationMax: `장소는 ${productZod.registerBodyLocationMax}자 이하로 입력해 주세요.`,
   sidoRequired: '시·도를 입력해 주세요.',
@@ -148,6 +150,8 @@ export function createRaceFormSchema({ today }: { today?: Date } = {}) {
         .trim()
         .min(1, RACE_FORM_ERRORS.titleRequired)
         .max(productZod.registerBodyTitleMax, RACE_FORM_ERRORS.titleMax),
+      locationDetail: z.string().trim().max(100, RACE_FORM_ERRORS.locationDetailMax),
+      description: z.string().trim().max(2000, RACE_FORM_ERRORS.descriptionMax),
       location: z
         .string()
         .trim()
@@ -338,7 +342,9 @@ const DRAFT_COURSES: RaceCourseInput[] = [
 
 export const RACE_FORM_DEFAULTS: RaceFormValues = {
   title: '',
+  description: '',
   location: '',
+  locationDetail: '',
   regionSido: '',
   regionSigungu: '',
   raceDate: '',
@@ -359,7 +365,8 @@ export function toRaceSaveRequest(
   const at = (text: string, time: string) => `${parseRaceDateInput(text) ?? text}T${time}`
   return {
     title: values.title.trim(),
-    location: values.location.trim(),
+    description: values.description.trim() || undefined,
+    location: [values.location.trim(), values.locationDetail.trim()].filter(Boolean).join(' '),
     regionSido: values.regionSido.trim(),
     regionSigungu: values.regionSigungu.trim(),
     raceDate: at(values.raceDate, RACE_DEFAULT_TIMES.raceDate),

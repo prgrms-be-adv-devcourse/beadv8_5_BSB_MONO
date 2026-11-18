@@ -40,7 +40,6 @@ import com.bukang.order.out.OrderInboxKafkaEventRepository;
 import com.bukang.order.out.OrderOutboxKafkaEventRepository;
 import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationRepository;
-import com.bukang.order.out.QueueAdmissionRepository;
 import com.bukang.order.out.RaceScheduleNoticeRepository;
 import com.bukang.order.out.race.RaceCourseInfo;
 import com.bukang.order.support.QueueEntry;
@@ -78,9 +77,6 @@ class RaceScheduleNoticeTest {
 
 	@Autowired
 	private ParticipationRepository participationRepository;
-
-	@Autowired
-	private QueueAdmissionRepository queueAdmissionRepository;
 
 	@Autowired
 	private OrderInboxKafkaEventRepository orderInboxKafkaEventRepository;
@@ -125,7 +121,6 @@ class RaceScheduleNoticeTest {
 	void tearDown() {
 		orderRepository.deleteAll();
 		participationRepository.deleteAll();
-		queueAdmissionRepository.deleteAll();
 		orderInboxKafkaEventRepository.deleteAll();
 		orderOutboxKafkaEventRepository.deleteAll();
 		raceScheduleNoticeRepository.deleteAll();

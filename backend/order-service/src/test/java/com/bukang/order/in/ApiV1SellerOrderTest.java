@@ -37,7 +37,6 @@ import com.bukang.order.domain.ShippingAddress;
 import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationRepository;
 import com.bukang.order.out.PartyRepository;
-import com.bukang.order.out.QueueAdmissionRepository;
 import com.bukang.order.out.race.RaceCourseInfo;
 import com.bukang.order.support.QueueEntry;
 import com.bukang.order.support.StubRaceCoursePort;
@@ -88,9 +87,6 @@ class ApiV1SellerOrderTest {
 	private PartyRepository partyRepository;
 
 	@Autowired
-	private QueueAdmissionRepository queueAdmissionRepository;
-
-	@Autowired
 	private OrderCreateUseCase orderCreateUseCase;
 
 	@Autowired
@@ -122,7 +118,6 @@ class ApiV1SellerOrderTest {
 		orderRepository.deleteAll();
 		participationRepository.deleteAll();
 		partyRepository.deleteAll();
-		queueAdmissionRepository.deleteAll();
 		raceCoursePort.clear();
 		seatHoldPort.clear();
 		walletPort.clear();

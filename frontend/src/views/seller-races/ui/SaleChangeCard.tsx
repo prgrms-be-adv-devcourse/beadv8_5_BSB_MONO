@@ -6,7 +6,6 @@ import Link from 'next/link'
 import { useForm } from 'react-hook-form'
 
 import { CONSOLE_BOX, ConsoleCard } from '@/widgets/console-page'
-import { RaceSaleActionButton } from '@/features/race-sale-status'
 import { useUpdateRace } from '@/features/seller-race'
 import {
   isRaceEditable,
@@ -53,18 +52,11 @@ export function SaleChangeCard({ row }: { row: SellerRaceRow }) {
           </Link>
         )
       }
-      className="w-110 shrink-0"
+      className="max-w-140"
     >
       <p className="text-body2-regular text-text-secondary">
         {row.title} · {row.badge.label}
       </p>
-      <RaceSaleActionButton
-        key={row.id}
-        raceId={row.id}
-        saleStatus={row.saleStatus}
-        by="seller"
-        className="w-full"
-      />
       {edit.isPending ? (
         <div role="status" aria-label="불러오는 중" className="flex flex-col gap-3">
           <Skeleton shape="rect" className="h-24 rounded-md" />

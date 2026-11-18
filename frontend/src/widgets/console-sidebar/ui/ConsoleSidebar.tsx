@@ -31,9 +31,10 @@ const MENU: Record<
     settings: { href: '/seller/settings', label: '판매자 정보', icon: 'User' },
     items: [
       { href: '/seller', label: '대시보드', icon: 'Dashboard' },
-      { href: '/seller/races', label: '상품 관리', icon: 'Package' },
-      { href: '/seller/sales', label: '주문 관리', icon: 'Orders' },
-      { href: '/seller/settlements', label: '정산 관리', icon: 'Inbox' },
+      { href: '/seller/races', label: '대회 관리', icon: 'Package' },
+      { href: '/seller/sales', label: '판매 현황', icon: 'Orders' },
+      { href: '/seller/kits', label: '키트 배송', icon: 'Truck' },
+      { href: '/seller/settlements', label: '정산', icon: 'Inbox' },
       { href: '/seller/inquiries', label: '문의', icon: 'Help' },
       { href: '/seller/ai', label: '크루런 AI', icon: 'Message' },
     ],

@@ -45,6 +45,7 @@ export {
   isRaceEditable,
   isSaleStarted,
   SELLER_SALE_STATUS,
+  SELLER_SALE_STATUS_TEXT,
   toAdminRaceRow,
   toSellerRaceRow,
   type AdminRaceRow,
@@ -52,3 +53,4 @@ export {
   type SellerRaceRow,
   type SellerSaleStatus,
 } from './model/seller-race'
+export { SaleRateBar } from './ui/SaleRateBar'

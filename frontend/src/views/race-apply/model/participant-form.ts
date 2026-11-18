@@ -31,6 +31,8 @@ export type ParticipantFormValues = {
   emergencyContactName: string
   emergencyContactPhone: string
   tshirtSize: string
+  recipientName: string
+  recipientPhone: string
   zipcode: string
   address: string
   addressDetail: string
@@ -64,6 +66,8 @@ export function participantFormSchema(option: Pick<RaceOption, 'kitIncluded' | '
       sizes.length > 0
         ? z.string().refine((v) => sizes.includes(v), PARTICIPANT_ERRORS.sizeRequired)
         : z.string(),
+    recipientName: kit ? name : z.string(),
+    recipientPhone: kit ? phone : z.string(),
     zipcode: kit
       ? z
           .string()
@@ -101,6 +105,8 @@ export const EMPTY_PARTICIPANT_FORM: ParticipantFormValues = {
   emergencyContactName: '',
   emergencyContactPhone: '',
   tshirtSize: '',
+  recipientName: '',
+  recipientPhone: '',
   zipcode: '',
   address: '',
   addressDetail: '',
@@ -122,6 +128,8 @@ export function toParticipantFormValues(
     emergencyContactPhone: participant.emergencyContactPhone ?? '',
     // 지난 대회에서 고른 사이즈가 이번 종목에 없으면 다시 고르게 한다
     tshirtSize: (option.shirtSizes ?? []).includes(size) ? size : '',
+    recipientName: address?.recipientName ?? '',
+    recipientPhone: address?.recipientPhone ?? '',
     zipcode: address?.zipcode ?? '',
     address: address?.address ?? '',
     addressDetail: address?.addressDetail ?? '',
@@ -131,7 +139,7 @@ export function toParticipantFormValues(
 /**
  * 입력값을 주문 API의 참가자 정보로 바꾼다.
  * 티셔츠가 없는 종목은 사이즈를, 키트가 없는 종목은 배송지를 보내지 않는다.
- * 키트 받는 사람은 참가자 본인으로 둔다.
+ * 키트 받는 사람은 화면의 「받는 사람」 입력을 쓴다.
  */
 export function toParticipantRequest(
   values: ParticipantFormValues,
@@ -151,8 +159,8 @@ export function toParticipantRequest(
     ...(option.kitIncluded
       ? {
           shippingAddress: {
-            recipientName: participantName,
-            recipientPhone: participantPhone,
+            recipientName: values.recipientName.trim(),
+            recipientPhone: values.recipientPhone.trim(),
             zipcode: values.zipcode.trim(),
             address: values.address.trim(),
             ...(detail ? { addressDetail: detail } : {}),
@@ -160,4 +168,9 @@ export function toParticipantRequest(
         }
       : {}),
   }
+}
+
+/** 1995-04-12 → 1995.04.12. 값이 없으면 「-」 */
+export function formatBirth(birth: string): string {
+  return birth ? birth.replaceAll('-', '.') : '-'
 }
