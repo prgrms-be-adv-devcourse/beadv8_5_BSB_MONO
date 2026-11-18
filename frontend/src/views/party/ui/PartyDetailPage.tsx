@@ -35,6 +35,7 @@ import { cn, formatNumber, useNow } from '@/shared/lib'
 import {
   Avatar,
   Badge,
+  BottomCta,
   Button,
   buttonClassName,
   Dialog,
@@ -43,7 +44,7 @@ import {
   type BadgeTone,
 } from '@/shared/ui'
 
-import { PARTY_STATUS_STEPS, PARTY_STEP_INDEX } from '../lib/party-copy'
+import { PARTY_STATUS_LABEL } from '../lib/party-copy'
 import { partyJoinUrl } from '../lib/party-url'
 import { PartyLoadError } from './PartyFailureScreen'
 
@@ -112,7 +113,6 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
   const max = race.data?.crewMaxCount
   const now = useNow()
   const linkAlive = !!now && parseKstDateTime(party.joinTokenExpiresAt) > now.getTime()
-  const stepIndex = PARTY_STEP_INDEX[party.status]
   const toastError = (error: unknown) =>
     toast({
       tone: 'error',
@@ -212,35 +212,20 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
 
   return (
     <>
-      <section className="flex flex-col gap-4 px-4 py-6">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-title1">{race.data?.title ?? <Skeleton className="h-8 w-2/3" />}</h2>
-          <p className="text-body2-regular text-text-secondary">
-            {[crew.data && `${crew.data.name} 크루`, course?.name].filter(Boolean).join(' · ')}
-          </p>
-        </div>
-        <ol className="grid grid-cols-3 gap-2" aria-label="파티 진행 단계">
-          {PARTY_STATUS_STEPS.map((label, i) => (
-            <li key={label} className="flex flex-col gap-2">
-              <span
-                className={cn('h-1 rounded-full', i <= stepIndex ? 'bg-bg-brand' : 'bg-bg-muted')}
-              />
-              <span
-                className={cn(
-                  'text-body2-medium',
-                  i === stepIndex ? 'text-text-primary' : 'text-text-tertiary',
-                )}
-                aria-current={i === stepIndex ? 'step' : undefined}
-              >
-                {label}
-              </span>
-            </li>
-          ))}
-        </ol>
+      <section className="flex flex-col gap-1 px-5 py-4">
+        <span className="text-body2-medium text-text-brand">
+          {PARTY_STATUS_LABEL[party.status]}
+        </span>
+        <h2 className="text-title2">{race.data?.title ?? <Skeleton className="h-8 w-2/3" />}</h2>
+        <p className="text-body2-regular text-text-secondary">
+          {[crew.data && `${crew.data.name} 크루`, course?.name].filter(Boolean).join(' · ')}
+        </p>
       </section>
-      <section className="flex flex-col gap-3 px-4 py-6">
-        <p className="text-caption-regular text-text-secondary">지금 할 일</p>
-        <h3 className="text-title3">{todo.title}</h3>
+      <section className="flex flex-col gap-4 px-5 py-6">
+        <div className="flex flex-col gap-2">
+          <p className="text-caption-medium text-text-secondary">지금 할 일</p>
+          <h3 className="text-title3">{todo.title}</h3>
+        </div>
         {todo.description && (
           <p className="text-body2-regular text-text-secondary">{todo.description}</p>
         )}
@@ -253,22 +238,6 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
           <p className="text-body2-regular text-text-secondary">
             {formatKstMonthDayTime(payDueAt)}까지 파티원이 결제할 수 있어요
           </p>
-        )}
-        {recruiting && isLeader && linkAlive && (
-          <Link
-            href={`/parties/${party.id}/apply`}
-            aria-disabled={!canApply}
-            tabIndex={canApply ? undefined : -1}
-            onClick={(e) => {
-              if (!canApply) e.preventDefault()
-            }}
-            className={cn(
-              buttonClassName({ variant: 'primary', size: 'l' }),
-              !canApply && 'pointer-events-none opacity-40',
-            )}
-          >
-            파티 참가하기
-          </Link>
         )}
         {recruiting && isLeader && !linkAlive && (
           <Button size="l" loading={regenerate.isPending} onClick={makeLink}>
@@ -286,59 +255,92 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
           </Link>
         )}
         {recruiting && isLeader && linkAlive && (
-          <div className="flex items-center justify-between text-body2-regular text-text-secondary">
-            <span>링크 · {formatKstDateTime(party.joinTokenExpiresAt)}까지</span>
-            <span className="flex gap-4">
+          <div className="flex flex-col overflow-hidden rounded-md border border-border-default bg-bg-surface">
+            <div className="flex flex-col gap-0.5 px-4 py-4">
+              <span className="text-body2-medium text-text-secondary">초대 링크</span>
+              <span className="text-body1-medium">
+                {formatKstDateTime(party.joinTokenExpiresAt)}까지 쓸 수 있어요
+              </span>
+            </div>
+            <div className="flex divide-x divide-border-default border-t border-border-default *:flex *:h-12 *:flex-1 *:items-center *:justify-center *:text-body2-medium">
               {canInviteFriends ? (
-                <button type="button" disabled={createInvite.isPending} onClick={inviteFriend}>
+                <button
+                  type="button"
+                  disabled={createInvite.isPending}
+                  onClick={inviteFriend}
+                  className="text-text-brand"
+                >
                   친구 초대
                 </button>
               ) : (
-                <button type="button" onClick={copyLink}>
+                <button type="button" onClick={copyLink} className="text-text-brand">
                   링크 복사
                 </button>
               )}
               <button type="button" onClick={() => setConfirm('regenerate')}>
                 새로 만들기
               </button>
-            </span>
+            </div>
           </div>
         )}
       </section>
-      <section className="flex flex-col gap-3 px-4 py-6">
+      <section className="flex flex-col gap-3 px-5 py-4">
         {recruiting ? (
-          <h3 className="text-body1-medium">
+          <h3 className="text-body1-bold">
             {party.memberCount}명 / 최소 {min}명{max ? ` · 최대 ${max}명` : ''}
           </h3>
         ) : (
           <div className="flex items-center justify-between gap-2">
-            <h3 className="text-body1-medium">파티원</h3>
+            <h3 className="text-body1-bold">파티원</h3>
             <span className="text-body2-regular text-text-secondary">
               {party.status === 'PAYING' ? '결제 완료' : '참가 확정'} {party.paidCount} /{' '}
               {party.memberCount}명
             </span>
           </div>
         )}
-        <ul className="flex flex-col gap-3">
+        <ul className="flex flex-col">
           {party.members.map((m) => (
-            <li key={m.memberId} className="flex items-center gap-3">
+            <li key={m.memberId} className="flex items-center gap-3 py-2">
               <Avatar size="m" name={m.nickname} />
               <div className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate text-body2-medium">
                   {m.nickname}
                   {m.memberId === me.data?.id ? ' · 나' : ''}
                 </span>
-                <span className="text-caption-regular text-text-secondary">
+                <span className="text-caption-regular text-text-tertiary">
                   {m.leader ? '파티장' : '파티원'}
                 </span>
               </div>
-              <Badge tone={memberBadge(m, party.status).tone}>
-                {memberBadge(m, party.status).label}
-              </Badge>
+              {!recruiting && (
+                <Badge tone={memberBadge(m, party.status).tone}>
+                  {memberBadge(m, party.status).label}
+                </Badge>
+              )}
             </li>
           ))}
         </ul>
       </section>
+      {recruiting && isLeader && linkAlive && (
+        <BottomCta
+          className="sticky bottom-0 z-10 mt-auto px-5"
+          primary={
+            <Link
+              href={`/parties/${party.id}/apply`}
+              aria-disabled={!canApply}
+              tabIndex={canApply ? undefined : -1}
+              onClick={(e) => {
+                if (!canApply) e.preventDefault()
+              }}
+              className={cn(
+                buttonClassName({ variant: 'primary', size: 'l' }),
+                !canApply && 'pointer-events-none bg-bg-brand-disabled',
+              )}
+            >
+              파티 참가하기
+            </Link>
+          }
+        />
+      )}
       {recruiting && (
         <div className="flex justify-center pb-8">
           <Button variant="text" size="m" onClick={() => setConfirm('leave')}>
