@@ -81,6 +81,8 @@ order:
     product:
       mode: fake
       base-url: http://localhost:8085
+      # 키트 옵션 목록을 대회별로 기억하는 시간 (http일 때만, CRU-45). 결제마다 상품을 부르지 않게 한다. 추천값(미확정)
+      kit-option-cache-ttl: 5s
     payout:
       mode: fake
       base-url: http://localhost:8082
