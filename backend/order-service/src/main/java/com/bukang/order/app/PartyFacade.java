@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.bukang.order.domain.ParticipantInfo;
 import com.bukang.order.dto.ParticipationDto;
 import com.bukang.order.dto.PartyCreateRequestDto;
 import com.bukang.order.dto.PartyCreatedDto;
@@ -14,6 +15,7 @@ import com.bukang.order.dto.PartyJoinRequestDto;
 import com.bukang.order.dto.PartyRaceStatusDto;
 import com.bukang.order.dto.PartyRaceStatusDto.MyParticipation;
 import com.bukang.order.out.ParticipationRepository;
+import com.bukang.order.out.member.MemberIdentityPort;
 
 import lombok.RequiredArgsConstructor;
 
@@ -24,12 +26,15 @@ public class PartyFacade {
 	private final PartyUseCase partyUseCase;
 	private final PartyApplyUseCase partyApplyUseCase;
 	private final ParticipationRepository participationRepository;
+	private final MemberIdentityPort memberIdentityPort;
 
 	// 상품·회원 HTTP를 트랜잭션 밖에서 부르고 트랜잭션은 PartyUseCase가 짧게 연다 (BUK-248)
 	@Transactional(propagation = Propagation.NOT_SUPPORTED)
 	public PartyCreatedDto create(PartyCreateRequestDto request, long memberId) {
+		// 회원 값은 크루 확인·파티 저장보다 먼저 가져와, 회원 서비스가 실패하면 아무것도 남기지 않고 끝낸다 (CRU-59)
+		ParticipantInfo participant = request.getParticipant().toParticipantInfo(memberIdentityPort.findVerified(memberId));
 		PartyUseCase.Created created = partyUseCase.create(memberId, request.getCrewId(), request.getRaceCourseId(),
-			request.getParticipant().toParticipantInfo(), request.getInvitedMemberIds(), LocalDateTime.now());
+			participant, request.getInvitedMemberIds(), LocalDateTime.now());
 		return new PartyCreatedDto(PartyDto.of(created.party()), created.participation().toDto(),
 			created.invitedMemberIds());
 	}
@@ -40,8 +45,8 @@ public class PartyFacade {
 
 	@Transactional(propagation = Propagation.NOT_SUPPORTED)
 	public ParticipationDto join(PartyJoinRequestDto request, long memberId) {
-		return partyUseCase.join(request.getJoinToken(), memberId,
-			request.getParticipant().toParticipantInfo(), LocalDateTime.now()).toDto();
+		ParticipantInfo participant = request.getParticipant().toParticipantInfo(memberIdentityPort.findVerified(memberId));
+		return partyUseCase.join(request.getJoinToken(), memberId, participant, LocalDateTime.now()).toDto();
 	}
 
 	// 상품에 크루 자리를 요청하기 전에 확인을 커밋해야 해서 트랜잭션을 PartyApplyUseCase가 나눠 연다 (BUK-105)

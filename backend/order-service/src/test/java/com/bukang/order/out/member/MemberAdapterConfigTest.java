@@ -20,22 +20,25 @@ class MemberAdapterConfigTest {
 	private final ApplicationContextRunner adminRunner = new ApplicationContextRunner()
 		.withInitializer(context -> context.getBeanFactory()
 			.setConversionService(ApplicationConversionService.getSharedInstance()))
-		.withUserConfiguration(MemberClientConfig.class, FakeMemberAdminAdapter.class, FakeMemberNicknamesAdapter.class)
+		.withUserConfiguration(MemberClientConfig.class, FakeMemberAdminAdapter.class, FakeMemberNicknamesAdapter.class,
+			FakeMemberIdentityAdapter.class)
 		.withPropertyValues("order.clients.timeout=2s", "order.clients.member.base-url=http://localhost:8080");
 
 	private final ApplicationContextRunner nicknameRunner = new ApplicationContextRunner()
 		.withUserConfiguration(FakeMemberNicknameAdapter.class, DisabledMemberNicknameAdapter.class);
 
 	@Test
-	@DisplayName("관리자 확인·닉네임 여러 명: mode가 http면 실제 회원 서비스 어댑터만, fake면 가짜 어댑터만 등록된다")
+	@DisplayName("관리자 확인·닉네임 여러 명·본인인증 값: mode가 http면 실제 회원 서비스 어댑터만, fake면 가짜 어댑터만 등록된다")
 	void adminMode() {
 		adminRunner.withPropertyValues("order.clients.member.mode=http").run(context -> {
 			assertThat(context).getBean(MemberAdminPort.class).isInstanceOf(HttpMemberAdminAdapter.class);
 			assertThat(context).getBean(MemberNicknamesPort.class).isInstanceOf(HttpMemberNicknamesAdapter.class);
+			assertThat(context).getBean(MemberIdentityPort.class).isInstanceOf(HttpMemberIdentityAdapter.class);
 		});
 		adminRunner.withPropertyValues("order.clients.member.mode=fake").run(context -> {
 			assertThat(context).getBean(MemberAdminPort.class).isInstanceOf(FakeMemberAdminAdapter.class);
 			assertThat(context).getBean(MemberNicknamesPort.class).isInstanceOf(FakeMemberNicknamesAdapter.class);
+			assertThat(context).getBean(MemberIdentityPort.class).isInstanceOf(FakeMemberIdentityAdapter.class);
 		});
 	}
 
@@ -43,7 +46,7 @@ class MemberAdapterConfigTest {
 	@DisplayName("mode 설정이 빠지면 가짜 어댑터를 켜지 않아 관리자 확인·닉네임 빈이 없다 (누구나 관리자가 되지 않게)")
 	void missingModeFailsClosed() {
 		adminRunner.run(context -> assertThat(context).doesNotHaveBean(MemberAdminPort.class)
-			.doesNotHaveBean(MemberNicknamesPort.class));
+			.doesNotHaveBean(MemberNicknamesPort.class).doesNotHaveBean(MemberIdentityPort.class));
 		nicknameRunner.run(context -> assertThat(context).doesNotHaveBean(MemberNicknamePort.class));
 	}
 

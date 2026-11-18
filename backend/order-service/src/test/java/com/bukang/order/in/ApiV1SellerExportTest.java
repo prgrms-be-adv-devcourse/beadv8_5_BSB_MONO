@@ -36,8 +36,11 @@ import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationRepository;
 import com.bukang.order.out.QueueAdmissionRepository;
 import com.bukang.order.out.SellerExportLogRepository;
+import com.bukang.order.out.member.MemberIdentityPort.MemberIdentity;
 import com.bukang.order.out.race.RaceCourseInfo;
 import com.bukang.order.support.QueueEntry;
+import com.bukang.order.support.StubMemberPorts;
+import com.bukang.order.support.StubMemberPortsConfig;
 import com.bukang.order.support.StubRaceCoursePort;
 import com.bukang.order.support.StubRaceCoursePortConfig;
 import com.bukang.order.support.StubRefundEligibilityPortConfig;
@@ -56,7 +59,7 @@ import com.jayway.jsonpath.JsonPath;
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Import({StubRaceCoursePortConfig.class, StubSeatHoldPortConfig.class, StubWalletPortConfig.class,
-	StubRefundEligibilityPortConfig.class, StubSellerLookupPortConfig.class})
+	StubRefundEligibilityPortConfig.class, StubSellerLookupPortConfig.class, StubMemberPortsConfig.class})
 class ApiV1SellerExportTest {
 	private static final String ROSTER_URL = "/api/v1/order/seller/orders/roster-export";
 	private static final String KIT_URL = "/api/v1/order/seller/kits/export";
@@ -68,6 +71,9 @@ class ApiV1SellerExportTest {
 	private static final long SELLER_MEMBER_ID = 95;
 	private static final long OTHER_SELLER_MEMBER_ID = 96;
 	private static final long NOT_SELLER_MEMBER_ID = 97;
+
+	@Autowired
+	private StubMemberPorts memberPorts;
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -110,6 +116,7 @@ class ApiV1SellerExportTest {
 
 	@AfterEach
 	void tearDown() {
+		memberPorts.clear();
 		orderRepository.deleteAll();
 		participationRepository.deleteAll();
 		queueAdmissionRepository.deleteAll();
@@ -125,6 +132,8 @@ class ApiV1SellerExportTest {
 	void roster() throws Exception {
 		setUp();
 		paidOrder(BUYER_ID, COURSE_ID, "김러너");
+		// 참가자 이름은 회원 본인인증 값으로 들어간다 (CRU-59)
+		memberPorts.identity(BUYER_ID + 1, new MemberIdentity("=CMD()", LocalDate.of(1994, 6, 25), "010-1234-5678"));
 		paidOrder(BUYER_ID + 1, COURSE_ID, "=CMD()");
 		paidOrder(BUYER_ID + 2, OTHER_COURSE_ID, "남의참가자");
 		createdOrder(BUYER_ID + 3, COURSE_ID, "결제안함");
