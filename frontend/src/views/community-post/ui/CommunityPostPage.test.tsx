@@ -164,4 +164,14 @@ describe('CommunityPostPage', () => {
 
     expect(await screen.findByText('다음 대회도 응원할게요')).toBeInTheDocument()
   })
+
+  it('공백만 쓴 댓글은 등록할 수 없다', async () => {
+    const user = userEvent.setup()
+    renderPage(1, true)
+    await screen.findByText('삭제된 댓글이에요')
+
+    await user.type(screen.getByRole('textbox', { name: '댓글 남기기' }), '   ')
+
+    expect(screen.getByRole('button', { name: '등록' })).toBeDisabled()
+  })
 })
