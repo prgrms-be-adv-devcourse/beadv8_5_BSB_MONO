@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { Controller, useFieldArray, useForm, useWatch, type Resolver } from 'react-hook-form'
 
-import { CONSOLE_BOX, ConsoleCard, ConsolePage } from '@/widgets/console-page'
+import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
 import { AddressSearch } from '@/features/address-search'
 import { parseRaceDateInput } from '@/entities/race'
 import { ApiError } from '@/shared/api'
@@ -68,7 +68,7 @@ function courseRow(course: RaceCourseInput, id: string, index: number) {
     course: course.name,
     price: formatWon(course.price),
     capacity: `${formatNumber(course.crewQuota + course.individualQuota)}명`,
-    age: `만 ${course.minAge}세 ~ ${course.maxAge ? `만 ${course.maxAge}세` : '제한 없음'}`,
+    age: `만 ${course.minAge}세 이상`,
     kit: course.kitIncluded ? '포함' : '없음',
   }
 }
@@ -207,7 +207,6 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
   return (
     <ConsolePage
       title="대회 등록"
-      description="판매가 시작되면 가격과 취소 · 환불 정책은 바꿀 수 없어요. 구매자에게 유리하게 바꾸는 것만 돼요."
       actions={
         <>
           <Button variant="secondary">미리보기</Button>
@@ -307,13 +306,6 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
               }}
               className="flex-1"
             />
-            <TextField
-              label="참가 가능 나이"
-              defaultValue="종목마다 최소 · 최대 나이를 정해요"
-              helper="대회 당일 만 나이 · 최소는 만 14세 이상"
-              readOnly
-              className="flex-1"
-            />
           </div>
         </ConsoleCard>
 
@@ -368,7 +360,7 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
               { key: 'course', header: '종목', render: (r) => r.course },
               { key: 'price', header: '참가비', align: 'right', render: (r) => r.price },
               { key: 'capacity', header: '모집 정원', align: 'right', render: (r) => r.capacity },
-              { key: 'age', header: '참가 나이 (최소 ~ 최대)', render: (r) => r.age },
+              { key: 'age', header: '최소 나이', render: (r) => r.age },
               { key: 'kit', header: '키트 (참가권 포함)', render: (r) => r.kit },
               {
                 key: 'remove',
@@ -390,11 +382,6 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
           {errors.courses?.message && (
             <p className="text-body2-regular text-text-danger">{errors.courses.message}</p>
           )}
-          <Alert
-            className={CONSOLE_BOX}
-            title="다른 곳에서도 함께 팔 수 있어요"
-            description="정원에는 크루런에 배정할 수량만 적어 주세요. 한 사람 한 대회 1건 규칙은 크루런 안에서만 지켜져요."
-          />
         </ConsoleCard>
 
         <ConsoleCard title="취소 · 환불 정책">

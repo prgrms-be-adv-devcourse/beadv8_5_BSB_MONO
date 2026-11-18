@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 
-import { Dialog, Select, TextField } from '@/shared/ui'
+import { Chip, Dialog, Select, TextField } from '@/shared/ui'
 
 import {
   COURSE_DRAFT_DEFAULTS,
@@ -17,6 +17,8 @@ const COURSE_TYPE_ITEMS = Object.entries(COURSE_TYPE_LABELS).map(([value, label]
   value: value as RaceCourseInput['courseType'],
   label,
 }))
+
+const MIN_AGES = [14, 19]
 
 export type CourseAddDialogProps = {
   open: boolean
@@ -84,12 +86,23 @@ export function CourseAddDialog({ open, onOpenChange, onAdd }: CourseAddDialogPr
           </div>
           <div className="flex gap-3">
             {field('price', '참가비 (원)')}
-            {field('individualQuota', '모집 정원 (명)')}
+            {field('individualQuota', '모집 정원 (명)', { helper: '크루런에 배정할 수량' })}
           </div>
-          <div className="flex gap-3">
-            {field('timeLimitMinutes', '제한 시간 (분)')}
-            {field('minAge', '최소 나이 (만)')}
-            {field('maxAge', '최대 나이 (만)', { helper: '비우면 제한 없음' })}
+          <div className="flex gap-3">{field('timeLimitMinutes', '제한 시간 (분)')}</div>
+          {/* 최소 나이는 두 가지 중 하나를 고른다. 최대 나이는 받지 않는다 */}
+          <div className="flex flex-col gap-2" role="group" aria-label="최소 나이">
+            <span className="text-body2-medium">최소 나이</span>
+            <div className="flex gap-2">
+              {MIN_AGES.map((age) => (
+                <Chip
+                  key={age}
+                  selected={draft.minAge === String(age)}
+                  onClick={() => setDraft((prev) => ({ ...prev, minAge: String(age), maxAge: '' }))}
+                >
+                  만 {age}세 이상
+                </Chip>
+              ))}
+            </div>
           </div>
         </div>
       }
