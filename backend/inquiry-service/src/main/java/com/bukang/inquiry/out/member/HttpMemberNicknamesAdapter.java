@@ -8,10 +8,10 @@ import java.util.stream.Collectors;
 
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientException;
 
 import com.bukang.common.global.rsdata.RsData;
 import com.bukang.inquiry.domain.exception.InquiryExternalServiceUnavailableException;
+import com.bukang.inquiry.out.InternalHttpClients;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import lombok.RequiredArgsConstructor;
@@ -35,6 +35,9 @@ public class HttpMemberNicknamesAdapter implements MemberNicknamesPort {
 		new ParameterizedTypeReference<>() {
 		};
 
+	private static final InternalHttpClients.Endpoint ENDPOINT = new InternalHttpClients.Endpoint("회원 서비스",
+		"닉네임 요청", null, UNAVAILABLE_MESSAGE);
+
 	private final RestClient restClient;
 
 	@Override
@@ -52,23 +55,14 @@ public class HttpMemberNicknamesAdapter implements MemberNicknamesPort {
 
 	private List<NicknameResponse> call(List<Long> ids) {
 		String joined = ids.stream().map(String::valueOf).collect(Collectors.joining(","));
-		RsData<List<NicknameResponse>> response;
-		try {
-			response = restClient.get().uri(PATH, joined).retrieve().body(RESPONSE_TYPE);
-		} catch (RestClientException exception) {
-			log.error("회원 서비스에 닉네임을 묻지 못했습니다. ids={}", joined, exception);
-			throw new InquiryExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
-		}
-		if (response == null || response.data() == null) {
-			log.error("회원 서비스의 닉네임 응답이 비어 있습니다. ids={}, response={}", joined, response);
-			throw new InquiryExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
-		}
+		List<NicknameResponse> data = InternalHttpClients.getData(restClient, ENDPOINT, RESPONSE_TYPE, PATH, joined)
+			.orElseThrow(() -> new InquiryExternalServiceUnavailableException(UNAVAILABLE_MESSAGE));
 		// 한 사람 값이 비었다고 목록 전체를 막지 않는다. 그 사람은 결과에서 빠져 닉네임이 비어 보인다
-		List<NicknameResponse> rows = response.data().stream()
+		List<NicknameResponse> rows = data.stream()
 			.filter(row -> row.memberId() != null && row.nickname() != null)
 			.toList();
-		if (rows.size() < response.data().size()) {
-			log.warn("회원 서비스의 닉네임 응답에 빈 줄이 있어 건너뜁니다. ids={}, response={}", joined, response);
+		if (rows.size() < data.size()) {
+			log.warn("회원 서비스의 닉네임 응답에 빈 줄이 있어 건너뜁니다. ids={}, data={}", joined, data);
 		}
 		return rows;
 	}
