@@ -22,7 +22,7 @@ import { Alert, BottomCta, Button, Skeleton } from '@/shared/ui'
 import { JOIN_FAILURE } from '../lib/party-copy'
 import {
   EMPTY_PARTICIPANT,
-  participantSchema,
+  participantSchemaFor,
   toParticipantRequest,
   type ParticipantValues,
 } from '../model/participant-form'
@@ -48,8 +48,12 @@ export function PartyJoinPage({ token }: { token: string }) {
   const [blocked, setBlocked] = useState<PartyFailure>()
   const [individualId, setIndividualId] = useState<number>()
   const [serverMessage, setServerMessage] = useState<string>()
+  const course = race.data?.courses?.find((c) => c.raceCourseId === data?.raceCourseId)
+  // 파티 종목에 키트가 들어 있으면 키트 배송지도 받는다
+  const kit = course?.kitIncluded === true
+  const schema = participantSchemaFor(kit)
   const form = useForm<ParticipantValues>({
-    resolver: zodResolver(participantSchema),
+    resolver: zodResolver(schema),
     defaultValues: EMPTY_PARTICIPANT,
   })
 
@@ -58,7 +62,7 @@ export function PartyJoinPage({ token }: { token: string }) {
     join.mutate(
       {
         joinToken: token,
-        participant: toParticipantRequest(participantSchema.parse(values)),
+        participant: toParticipantRequest(schema.parse(values), kit),
         thirdPartyConsent: true,
       },
       {
@@ -82,7 +86,6 @@ export function PartyJoinPage({ token }: { token: string }) {
     (preview.error ? partyFailureOf(preview.error) : undefined) ??
     (data && !data.joinLinkAlive ? 'LINK_EXPIRED' : undefined) ??
     (data && data.status !== 'RECRUITING' ? 'NOT_RECRUITING' : undefined)
-  const course = race.data?.courses?.find((c) => c.raceCourseId === data?.raceCourseId)
 
   let body
   if (failure && failure !== 'INDIVIDUAL_EXISTS') {
@@ -125,6 +128,7 @@ export function PartyJoinPage({ token }: { token: string }) {
           {serverMessage && <Alert tone="danger" title={serverMessage} />}
           <ParticipantFields
             form={form}
+            kit={kit}
             course={course ? `${course.name} · ${formatNumber(course.price ?? 0)}원` : undefined}
           />
         </form>
