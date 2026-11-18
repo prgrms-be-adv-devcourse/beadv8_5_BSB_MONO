@@ -1,4 +1,4 @@
-# 크루런 AI (8092). 대화 기록만 Redis에 두고 DB·Kafka는 쓰지 않는다. OPENAI_API_KEY가 비어도 뜬다(질문하면 503)
+# 크루런 AI (8092). 대화 기록만 Redis에 두고 DB는 쓰지 않는다. Kafka는 기록증 서버 확인에 쓴다(BUK-275, KAFKA_BOOTSTRAP_SERVERS는 공통 ConfigMap). OPENAI_API_KEY가 비어도 뜬다(질문하면 503)
 # 공통 설정(설정 주입·JVM 옵션·메모리·상태 확인)은 patches/spring-common.yaml이 붙인다
 apiVersion: apps/v1
 kind: Deployment
