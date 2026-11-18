@@ -17,14 +17,13 @@ import {
   type DetailPeriod,
 } from '@/entities/payout'
 import { ApiError, payoutApi, payoutModel, unwrapData } from '@/shared/api'
-import { cn, formatNumber, formatWon, useNow, useSearchParamsState } from '@/shared/lib'
+import { formatNumber, formatWon, useNow, useSearchParamsState } from '@/shared/lib'
 import {
   Alert,
   Badge,
   Button,
   DataTable,
   EmptyState,
-  FOCUS_RING,
   Pagination,
   Segmented,
   Select,
@@ -165,17 +164,15 @@ function MonthlyPayouts({ today }: { today: Date }) {
       title="대회별 월 정산"
       aside={
         // TODO(api): 정산 ID로 찾기 API가 아직 없어 막아 둔다
-        <button
-          type="button"
+        <Button
+          variant="text"
+          size="s"
           disabled
           title="정산 ID로 찾기는 준비 중이에요"
-          className={cn(
-            'rounded-sm text-body2-medium text-text-brand disabled:cursor-not-allowed disabled:text-text-disabled',
-            FOCUS_RING,
-          )}
+          className="text-text-brand"
         >
           정산 ID로 찾기
-        </button>
+        </Button>
       }
     >
       <QueryRows query={payouts} label="대회별 월 정산" emptyTitle="최근 12개월 정산 내역이 없어요">

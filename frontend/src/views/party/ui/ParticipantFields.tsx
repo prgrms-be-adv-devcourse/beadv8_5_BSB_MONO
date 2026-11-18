@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Controller, type UseFormReturn } from 'react-hook-form'
 
 import { AddressSearch, type AddressSearchResult } from '@/features/address-search'
+import { BirthDateField } from '@/entities/member'
 import { Checkbox, PhoneField, Radio, RadioGroup, TextField } from '@/shared/ui'
 
 import type { ParticipantValues } from '../model/participant-form'
@@ -89,9 +90,9 @@ export function ParticipantFields({
           error={errors.name?.message}
           {...register('name')}
         />
-        <TextField
+        <BirthDateField
+          restrictAge={false}
           label="생년월일"
-          type="date"
           error={errors.birth?.message}
           {...register('birth')}
         />

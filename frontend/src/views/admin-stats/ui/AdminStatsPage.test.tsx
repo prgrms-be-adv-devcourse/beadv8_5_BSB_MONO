@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { server } from '@/shared/testing'
+import { pickDate, server } from '@/shared/testing'
 
 import { AdminStatsPage } from './AdminStatsPage'
 
@@ -338,12 +338,48 @@ describe('AdminStatsPage', () => {
     await within(await screen.findByRole('region', { name: '구매 단계' })).findByText('1,240명')
 
     await user.click(screen.getByRole('tab', { name: '직접 고르기' }))
-    await user.type(screen.getByLabelText('시작 날짜'), '2026-11-10')
-    await user.type(screen.getByLabelText('끝 날짜'), '2026-11-05')
+    await pickDate(user, '시작 날짜', '2026-10-30')
+    await pickDate(user, '끝 날짜', '2026-10-20')
     expect(screen.getByRole('button', { name: '적용' })).toBeDisabled()
 
-    await user.clear(screen.getByLabelText('끝 날짜'))
-    await user.type(screen.getByLabelText('끝 날짜'), '2026-11-12')
+    await pickDate(user, '끝 날짜', '2026-11-01')
     expect(screen.getByRole('button', { name: '적용' })).toBeEnabled()
+  })
+
+  it('직접 고른 기간은 YYYY-MM-DD로 적용해 그 기간으로 다시 묻는다', async () => {
+    mockStats()
+    const user = userEvent.setup()
+    renderPage()
+    await within(await screen.findByRole('region', { name: '구매 단계' })).findByText('1,240명')
+
+    await user.click(screen.getByRole('tab', { name: '직접 고르기' }))
+    await pickDate(user, '시작 날짜', '2026-10-05')
+    await pickDate(user, '끝 날짜', '2026-10-12')
+    await user.click(screen.getByRole('button', { name: '적용' }))
+
+    await waitFor(() =>
+      expect(requests).toEqual(
+        expect.arrayContaining([
+          expect.stringMatching(/period=custom&start=2026-10-05&end=2026-10-12/),
+        ]),
+      ),
+    )
+  })
+  it('끝 날짜는 오늘까지 고를 수 있고 내일부터는 고를 수 없다', async () => {
+    mockStats()
+    const user = userEvent.setup()
+    renderPage()
+    await within(await screen.findByRole('region', { name: '구매 단계' })).findByText('1,240명')
+
+    await user.click(screen.getByRole('tab', { name: '직접 고르기' }))
+    await user.click(screen.getByRole('button', { name: /^끝 날짜/ }))
+    const popup = await screen.findByRole('dialog', { name: '끝 날짜 고르기' })
+    await user.click(within(popup).getByRole('button', { name: /연·월 고르기/ }))
+    await user.click(within(popup).getByRole('option', { name: '2026년' }))
+    await user.click(within(popup).getByRole('option', { name: '11월' }))
+    await user.click(within(popup).getByRole('button', { name: /연·월 고르기/ }))
+
+    expect(within(popup).getByRole('button', { name: /2026년 11월 2일/ })).toBeEnabled()
+    expect(within(popup).getByRole('button', { name: /2026년 11월 3일/ })).toBeDisabled()
   })
 })

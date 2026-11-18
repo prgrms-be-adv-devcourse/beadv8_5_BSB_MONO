@@ -11,12 +11,11 @@ import { AddressSearch } from '@/features/address-search'
 import { parseRaceDateInput } from '@/entities/race'
 import { ApiError } from '@/shared/api'
 import { DateTimeField } from '@/shared/date-picker'
-import { cn, formatNumber, formatWon, type SellerRaceFormEntry } from '@/shared/lib'
+import { formatNumber, formatWon, type SellerRaceFormEntry } from '@/shared/lib'
 import {
   Alert,
   Button,
   DataTable,
-  FOCUS_RING,
   ImageCropDialog,
   ImageListDialog,
   ImageUpload,
@@ -57,8 +56,6 @@ function dayOf(text: string): Date | undefined {
   const day = parseRaceDateInput(text)
   return day ? parseISO(day) : undefined
 }
-
-const LINK = cn('rounded-sm text-body2-medium text-text-brand', FOCUS_RING)
 
 // 종목 표의 한 줄 (TODO(PRO-144): 키트 칸 나누기)
 function courseRow(course: RaceCourseInput, id: string, index: number) {
@@ -355,9 +352,14 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
         <ConsoleCard
           title="종목 · 참가권"
           aside={
-            <button type="button" className={LINK} onClick={() => setCourseOpen(true)}>
+            <Button
+              variant="text"
+              size="s"
+              className="text-text-brand"
+              onClick={() => setCourseOpen(true)}
+            >
               종목 추가
-            </button>
+            </Button>
           }
         >
           <DataTable
@@ -375,14 +377,15 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
                 header: '',
                 align: 'right',
                 render: (r) => (
-                  <button
-                    type="button"
-                    className={LINK}
+                  <Button
+                    variant="text"
+                    size="s"
+                    className="text-text-brand"
                     aria-label={`${r.course} 종목 삭제`}
                     onClick={() => courseFields.remove(r.index)}
                   >
                     삭제
-                  </button>
+                  </Button>
                 ),
               },
             ]}
@@ -422,13 +425,14 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
         <ConsoleCard
           title="키트 배송"
           aside={
-            <button
-              type="button"
-              className={LINK}
+            <Button
+              variant="text"
+              size="s"
+              className="text-text-brand"
               onClick={() => kitFields.append({ name: '', value: '', stock: '' })}
             >
               옵션 추가
-            </button>
+            </Button>
           }
         >
           <p className="text-caption-regular text-text-tertiary">
@@ -482,14 +486,15 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
                 header: '',
                 align: 'right',
                 render: ({ index }) => (
-                  <button
-                    type="button"
-                    className={LINK}
+                  <Button
+                    variant="text"
+                    size="s"
+                    className="text-text-brand"
                     aria-label={`키트 옵션 ${index + 1} 삭제`}
                     onClick={() => kitFields.remove(index)}
                   >
                     삭제
-                  </button>
+                  </Button>
                 ),
               },
             ]}

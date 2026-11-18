@@ -174,4 +174,14 @@ describe('CommunityPostPage', () => {
 
     expect(screen.getByRole('button', { name: '등록' })).toBeDisabled()
   })
+
+  it('답글 달기를 누르면 입력창이 답글용으로 바뀐다', async () => {
+    const user = userEvent.setup()
+    renderPage(1, true)
+    await screen.findByText('삭제된 댓글이에요')
+
+    await user.click(screen.getAllByRole('button', { name: '답글 달기' })[0])
+
+    expect(screen.getByRole('textbox', { name: /답글/ })).toBeInTheDocument()
+  })
 })

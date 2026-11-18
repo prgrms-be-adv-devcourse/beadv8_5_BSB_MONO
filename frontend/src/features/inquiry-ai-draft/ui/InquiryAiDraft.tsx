@@ -9,7 +9,7 @@ import {
   type InquiryDraft,
 } from '@/entities/ai-assistant'
 import { ANSWER_MAX, answerSchema } from '@/entities/inquiry'
-import { Alert, Badge, Button, Checkbox, Spinner } from '@/shared/ui'
+import { Alert, Badge, Button, Checkbox, Spinner, Textarea } from '@/shared/ui'
 
 /** 초안이 모르는 정보를 비워 둔 자리 (예: [확인 필요: 발송 예정일]) */
 const UNKNOWN_MARK = /\[확인 필요: [^\]]+\]/g
@@ -89,7 +89,7 @@ export function InquiryAiDraft({
           </Button>
         )}
       </div>
-      <textarea
+      <Textarea
         aria-label="답변"
         value={text}
         maxLength={ANSWER_MAX}
@@ -98,7 +98,6 @@ export function InquiryAiDraft({
           setText(event.target.value)
           setConfirmed(false)
         }}
-        className="h-36 w-full resize-none rounded-md p-4 text-body2-regular text-text-primary inset-ring inset-ring-border-default outline-none focus-visible:inset-ring-border-focus disabled:bg-bg-subtle"
       />
       {draft && draft.references.length > 0 && (
         <p className="text-caption-regular text-text-tertiary">

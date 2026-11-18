@@ -21,7 +21,7 @@ import {
   type KitStatus,
 } from '@/entities/seller-kit'
 import { orderModel } from '@/shared/api'
-import { cn, useSearchParamsState } from '@/shared/lib'
+import { useSearchParamsState } from '@/shared/lib'
 import {
   Alert,
   Badge,
@@ -30,7 +30,6 @@ import {
   Chip,
   DataTable,
   EmptyState,
-  FOCUS_RING,
   Select,
   Skeleton,
   StatTile,
@@ -231,12 +230,9 @@ export function SellerKitsPage() {
         <ConsoleCard
           title={`주문 ${kits.data?.totalElements ?? 0}건`}
           aside={
-            <button
-              type="button"
-              className={cn('rounded-sm text-body2-medium text-text-brand', FOCUS_RING)}
-            >
+            <Button variant="text" size="s" className="text-text-brand">
               주문번호로 찾기
-            </button>
+            </Button>
           }
           className="min-w-130 flex-1"
         >

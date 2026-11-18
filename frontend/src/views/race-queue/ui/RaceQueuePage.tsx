@@ -12,6 +12,7 @@ import { skippedNotice, useAdmissionTimer, useQueuePosition } from '@/features/q
 import { raceDetailQueryOptions } from '@/entities/race'
 import {
   BottomCta,
+  Button,
   buttonClassName,
   Dialog,
   formatTimer,
@@ -134,13 +135,9 @@ export function RaceQueuePage({
           <BottomCta
             className="sticky bottom-0 z-10"
             primary={
-              <button
-                type="button"
-                onClick={queue.retry}
-                className={buttonClassName({ size: 'l' })}
-              >
+              <Button size="l" onClick={queue.retry}>
                 다시 줄 서기
-              </button>
+              </Button>
             }
           />
         </>
