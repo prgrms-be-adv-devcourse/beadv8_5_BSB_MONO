@@ -479,7 +479,7 @@ describe('참가 신청 v3 배치', () => {
     ).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: '선택한 대회' })).not.toBeInTheDocument()
     expect(document.querySelector('[aria-current="step"]')).toBeNull()
-    expect(screen.getByRole('link', { name: '변경' })).toHaveAttribute('href', '/races/1')
+    expect(screen.getByRole('link', { name: '변경' })).toHaveAttribute('href', `/races/${RACE.id}`)
     expect(screen.getByRole('heading', { level: 2, name: '회원 정보' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '회원 정보에서 바꾸기' })).toHaveAttribute(
       'href',
