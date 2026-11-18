@@ -294,6 +294,36 @@ describe('참가 신청 · 참가자 정보', () => {
     })
   })
 
+  it('회원 정보를 불러오지 못하면 안내와 다시 시도를 보여 주고 다음을 누를 수 없다', async () => {
+    let fail = true
+    server.use(
+      http.get('*/api/v1/member/members/me', () =>
+        fail
+          ? HttpResponse.json({ status: 500, message: '오류', data: null }, { status: 500 })
+          : HttpResponse.json({
+              status: 200,
+              message: '',
+              data: { id: 1, name: '김러너', birthDate: '1995-04-12', phone: '010-1234-5678' },
+            }),
+      ),
+    )
+    const user = userEvent.setup()
+    renderPage()
+
+    expect(await screen.findByText('회원 정보를 불러오지 못했어요')).toBeInTheDocument()
+    await agree(user)
+    expect(screen.getByRole('button', { name: '다음' })).toBeDisabled()
+
+    fail = false
+    await user.click(screen.getByRole('button', { name: '다시 시도하기' }))
+
+    expect(await screen.findByText('1995.04.12')).toBeInTheDocument()
+    expect(screen.queryByText('회원 정보를 불러오지 못했어요')).not.toBeInTheDocument()
+    // 폼을 다시 만들므로 동의는 다시 받는다
+    await agree(user)
+    expect(screen.getByRole('button', { name: '다음' })).toBeEnabled()
+  })
+
   it('장바구니 담기 버튼은 없고 하단 버튼은 다음 하나다', async () => {
     renderPage()
 
