@@ -337,6 +337,8 @@ export function ConfirmForm({
             label={<FieldLabel text="대회일" auto={auto(read.values.raceDate)} />}
             error={errors.raceDate?.message}
             defaultValue={field.value ? parseISO(field.value) : undefined}
+            ref={field.ref}
+            isDateDisabled={(date) => date > new Date()}
             onValueChange={field.onChange}
           />
         )}
