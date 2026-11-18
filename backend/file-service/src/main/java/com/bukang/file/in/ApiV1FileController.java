@@ -80,6 +80,7 @@ public class ApiV1FileController {
 	@Operation(summary = "대상별 파일 목록 조회",
 		description = "대상(대회 등)에 연결된 파일을 용도(fileType: 대표 이미지 → 소개 이미지 → 코스 → 키트 → 소개 영상 → 명단) → "
 			+ "노출 순서(sortNo) 순으로 돌려준다. "
+			+ "기록증은 올린 회원에게만 목록에 보인다. "
 			+ "이미지 URL은 30분 뒤 만료되는 presigned GET URL이다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "조회 성공",
@@ -91,18 +92,22 @@ public class ApiV1FileController {
 			}))
 	})
 	public ResponseEntity<RsData<List<FileDto>>> findByRef(
+		@Parameter(in = ParameterIn.HEADER, name = MemberIdHeader.NAME,
+			description = "요청한 회원 ID (본인이 올린 기록증을 볼 때 필요)", example = "1")
+		@LoginMemberId(required = false) @Nullable Long memberId,
 		@Parameter(description = "대상 종류 (대상 엔티티 클래스 이름)", example = "Race")
 		@RequestParam String refType,
 		@Parameter(description = "대상 ID", example = "1")
 		@RequestParam long refId
 	) {
 		return ResponseEntity.ok()
-			.body(RsData.of(HttpStatus.OK, "파일 목록을 조회했습니다.", fileFacade.findByRef(refType, refId)));
+			.body(RsData.of(HttpStatus.OK, "파일 목록을 조회했습니다.", fileFacade.findByRef(refType, refId, memberId)));
 	}
 
 	@GetMapping("/{fileId}")
 	@Operation(summary = "파일 조회",
 		description = "파일 정보와 이미지 URL을 돌려준다. 대상에 연결된 파일은 누구나, 연결 전 파일은 올린 회원만 볼 수 있다. "
+			+ "기록증은 연결돼도 올린 회원만 볼 수 있다. "
 			+ "업로드를 확인하기 전 파일은 URL이 null이다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "조회 성공",
@@ -112,9 +117,11 @@ public class ApiV1FileController {
 				@ExampleObject(name = "파일 ID·회원 ID 형식 오류", value = FileApiExamples.INVALID_VALUE_TYPE),
 				@ExampleObject(name = "회원 ID가 0 이하", value = FileApiExamples.INVALID_MEMBER_ID)
 			})),
-		@ApiResponse(responseCode = "403", description = "다른 회원이 올린, 연결 전 파일",
-			content = @Content(schema = @Schema(implementation = RsData.class),
-				examples = @ExampleObject(value = FileApiExamples.NOT_LINKED))),
+		@ApiResponse(responseCode = "403", description = "다른 회원이 올린, 연결 전 파일 또는 다른 회원의 기록증",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "연결 전 파일", value = FileApiExamples.NOT_LINKED),
+				@ExampleObject(name = "다른 회원의 기록증", value = FileApiExamples.NOT_CERT_OWNER)
+			})),
 		@ApiResponse(responseCode = "404", description = "없거나 삭제된 파일",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = FileApiExamples.FILE_NOT_FOUND)))

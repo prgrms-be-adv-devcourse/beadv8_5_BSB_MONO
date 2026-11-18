@@ -6,6 +6,7 @@ import { useState, type ReactNode } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
 import { BottomNav } from '@/widgets/bottom-nav'
+import { needsRecordCert, RecordCertEntry } from '@/features/record-cert'
 import { daysUntil, formatRaceDate, formatRaceDateTime } from '@/entities/race'
 import {
   maskPhone,
@@ -14,6 +15,7 @@ import {
   ticketNumber,
   useCancelTicket,
 } from '@/entities/ticket'
+import { orderModel } from '@/shared/api'
 import { cn, formatNumber, useNow } from '@/shared/lib'
 import { Alert, Badge, BibCard, Dialog, FOCUS_RING } from '@/shared/ui'
 
@@ -118,6 +120,15 @@ export function TicketDetailPage({
             )}
           </Box>
         </Section>
+
+        {ticket.itemStatus === orderModel.OrderItemDtoStatus.PAID &&
+          !ticket.paying &&
+          needsRecordCert(course) && (
+            <RecordCertEntry
+              orderItemId={ticket.orderItemId}
+              href={`/tickets/${ticket.id}/record-cert`}
+            />
+          )}
 
         {cancel.isError && (
           <Alert

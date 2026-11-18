@@ -6,6 +6,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -14,6 +15,7 @@ import com.bukang.common.global.rsdata.RsData;
 import com.bukang.common.shared.member.web.LoginMemberId;
 import com.bukang.order.app.SellerOrderFacade;
 import com.bukang.order.domain.OrderItemStatus;
+import com.bukang.order.dto.SellerOrderDetailDto;
 import com.bukang.order.dto.SellerOrderPageDto;
 import com.bukang.order.dto.SellerPartyPageDto;
 import com.bukang.order.dto.SellerSalesSummaryDto;
@@ -32,7 +34,7 @@ import lombok.RequiredArgsConstructor;
 
 // 판매자 주문 목록·파티별 내역 (시안 S03·S03-1·S05, BUK-227), 기간 판매·취소 합계 (BUK-247·BUK-264). 로그인한 회원이 승인된 판매자일 때만 쓴다
 // 에러 응답은 GlobalExceptionHandler, OrderExceptionHandler가 RsData(data: null) 형식으로 반환한다
-@Tag(name = "SellerOrder", description = "판매자 주문 API (대회별 주문·참가자 목록, 파티별 신청·결제 인원)")
+@Tag(name = "SellerOrder", description = "판매자 주문 API (대회별 주문·참가자 목록, 주문 상세, 파티별 신청·결제 인원)")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/order/seller")
@@ -89,6 +91,45 @@ public class ApiV1SellerOrderController {
 	) {
 		return ResponseEntity.ok().body(RsData.of(HttpStatus.OK, "주문 목록을 조회했습니다.",
 			sellerOrderFacade.findOrders(memberId, raceId, raceCourseId, status, partyId, from, to, page, size)));
+	}
+
+	@GetMapping("/orders/{orderItemId}")
+	@Operation(summary = "내 대회 주문 상세",
+		description = "판매자 대회의 주문 상품(참가권 1장) 하나를 주문 상세 창에 필요한 칸까지 돌려준다. "
+			+ "참가권 단가·결제 금액, 취소 시각·환불 금액·취소 이유, 키트 배송지·배송 요청사항·택배사·송장·이동 기록을 담는다. "
+			+ "보내기 전에 취소된 키트 주문도 열린다(kitDeliveryStatus는 목록과 같이 PREPARING, status가 CANCELED). "
+			+ "키트가 없거나 결제 전이면 배송 칸은 모두 null이다. 배송지·연락처는 키트 배송 목록과 같은 범위다. "
+			+ "취소된 주문(보내기 전 취소, 취소 중)은 배송지·배송 요청사항이 null이다. 보낸 뒤 취소된 참가권은 보인다. "
+			+ "대회 이름·대회일·환불 마감은 상품 대회 상세 API로 붙인다. 기한이 지나 만료된 주문은 404다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "조회 성공",
+			content = @Content(examples = @ExampleObject(value = SellerOrderApiExamples.ORDER_DETAIL_SUCCESS))),
+		@ApiResponse(responseCode = "400", description = "숫자 아닌 주문 상품 ID, 회원 ID가 0 이하",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "숫자 아닌 값", value = SellerOrderApiExamples.INVALID_FORMAT),
+				@ExampleObject(name = "회원 ID가 0 이하", value = SellerOrderApiExamples.INVALID_MEMBER_ID)
+			})),
+		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = SellerOrderApiExamples.LOGIN_REQUIRED))),
+		@ApiResponse(responseCode = "403", description = "승인된 판매자가 아님, 다른 판매자 대회의 주문",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "승인된 판매자가 아님", value = SellerOrderApiExamples.NOT_SELLER),
+				@ExampleObject(name = "다른 판매자 대회의 주문", value = SellerOrderApiExamples.OTHER_SELLER_ORDER)
+			})),
+		@ApiResponse(responseCode = "404", description = "없는 주문 상품 또는 기한이 지나 만료된 주문",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = SellerOrderApiExamples.ORDER_ITEM_NOT_FOUND))),
+		@ApiResponse(responseCode = "503", description = "판매자 확인을 아직 쓸 수 없음",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = SellerOrderApiExamples.SELLER_UNAVAILABLE)))
+	})
+	public ResponseEntity<RsData<SellerOrderDetailDto>> findSellerOrder(
+		@LoginMemberId long memberId,
+		@Parameter(description = "주문 상품 ID", example = "12") @PathVariable long orderItemId
+	) {
+		return ResponseEntity.ok().body(RsData.of(HttpStatus.OK, "주문 상세를 조회했습니다.",
+			sellerOrderFacade.findOrder(memberId, orderItemId)));
 	}
 
 	@GetMapping("/parties")

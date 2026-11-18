@@ -16,6 +16,8 @@ import com.bukang.member.out.order.HttpActiveTicketAdapter;
 import com.bukang.member.out.order.HttpCrewPartyStatusAdapter;
 import com.bukang.member.out.product.HttpLowPaymentCrewAdapter;
 import com.bukang.member.out.product.LowPaymentCrewPort;
+import com.bukang.member.recordcert.out.FileDeletePort;
+import com.bukang.member.recordcert.out.HttpFileDeleteAdapter;
 
 /**
  * 다른 서비스 내부 API 클라이언트. 주소는 프로파일별 yaml(member.clients.*)에 있다
@@ -52,6 +54,15 @@ public class InternalClientConfig {
 		@Value("${member.clients.timeout}") Duration timeout
 	) {
 		return new HttpCrewPartyStatusAdapter(InternalHttpClients.create(baseUrl, timeout));
+	}
+
+	// 끝난 지 30일 지난 제출의 기록증 사진 삭제 (BUK-278)
+	@Bean
+	public FileDeletePort fileDeletePort(
+		@Value("${member.clients.file.base-url}") String baseUrl,
+		@Value("${member.clients.timeout}") Duration timeout
+	) {
+		return new HttpFileDeleteAdapter(InternalHttpClients.create(baseUrl, timeout));
 	}
 
 	@Bean

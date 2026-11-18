@@ -12,6 +12,7 @@ import com.bukang.order.dto.OrderCreateRequestDto;
 import com.bukang.order.dto.OrderDto;
 import com.bukang.order.dto.OrderItemDto;
 import com.bukang.order.dto.OrderPageDto;
+import com.bukang.order.out.delivery.KitTrackingLink;
 
 import lombok.RequiredArgsConstructor;
 
@@ -24,6 +25,7 @@ public class OrderFacade {
 	private final OrderPayUseCase orderPayUseCase;
 	private final OrderCancelUseCase orderCancelUseCase;
 	private final KitDeliveryUseCase kitDeliveryUseCase;
+	private final KitTrackingLink kitTrackingLink;
 
 	// 상품 HTTP(종목 조회·자리 확보)를 잠금 밖에서 부르려고 트랜잭션은 OrderCreateUseCase가 단계마다 연다 (BUK-213)
 	@Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -37,7 +39,7 @@ public class OrderFacade {
 	}
 
 	public OrderDto findById(long orderId, long memberId) {
-		return orderQueryUseCase.findOwned(memberId, orderId);
+		return kitTrackingLink.addTo(orderQueryUseCase.findOwned(memberId, orderId));
 	}
 
 	// 상품 HTTP를 잠금 밖에서 부르려고 트랜잭션은 OrderPayUseCase가 연다
@@ -55,6 +57,7 @@ public class OrderFacade {
 	// 트랜잭션은 KitDeliveryUseCase가 주문을 잠그며 연다
 	@Transactional(propagation = Propagation.NOT_SUPPORTED)
 	public OrderItemDto confirmKitReceipt(long orderId, long orderItemId, long memberId) {
-		return kitDeliveryUseCase.confirmReceipt(memberId, orderId, orderItemId, LocalDateTime.now());
+		return kitTrackingLink.addTo(
+			kitDeliveryUseCase.confirmReceipt(memberId, orderId, orderItemId, LocalDateTime.now()));
 	}
 }
