@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { RACE_DETAIL, type RaceDetail } from '@/entities/race'
 import { clearAccessToken, setAccessToken } from '@/shared/api'
@@ -11,8 +11,9 @@ import { ToastProvider } from '@/shared/ui'
 
 import { RaceDetailPage, type RaceDetailPageProps } from './RaceDetailPage'
 
+const push = vi.fn()
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn(), back: vi.fn(), replace: vi.fn() }),
+  useRouter: () => ({ push, back: vi.fn(), replace: vi.fn() }),
   usePathname: () => '/races/1',
 }))
 
@@ -41,13 +42,108 @@ describe('RaceDetailPage 신청하기', () => {
     )
   })
 
-  it('로그인했으면 대기열(M05-Q1)로 보낸다', () => {
-    renderPage()
-    const link = applyLink()
-    act(() => setAccessToken('access-token'))
-    expect(link.getAttribute('href')).toMatch(
-      new RegExp(`^/races/${RACE_DETAIL.id}/queue\\?option=`),
-    )
+  describe('로그인한 뒤 신청하기', () => {
+    const queueStatus = (canEnter: boolean) => ({
+      status: 200,
+      message: '대기열에 등록했습니다.',
+      data: {
+        myRank: canEnter ? 0 : 5,
+        ahead: canEnter ? 0 : 4,
+        total: canEnter ? 0 : 9,
+        canEnter,
+      },
+    })
+    const queueHref = new RegExp(`^/races/${RACE_DETAIL.id}/queue\\?option=`)
+    const applyHref = new RegExp(`^/races/${RACE_DETAIL.id}/apply\\?option=`)
+    const asked: unknown[] = []
+    beforeEach(() => {
+      push.mockClear()
+      asked.length = 0
+    })
+    const answer = (response: () => Response | Promise<Response>) =>
+      server.use(
+        http.post('*/api/v1/queue', async ({ request }) => {
+          asked.push(await request.json())
+          return response()
+        }),
+      )
+
+    it('신청하기는 링크가 아니라 버튼이고, 누르면 대기열 등록을 요청하는 동안 버튼만 로딩이 된다', async () => {
+      let open: () => void = () => {}
+      const gate = new Promise<void>((resolve) => (open = resolve))
+      answer(async () => {
+        await gate
+        return HttpResponse.json(queueStatus(false))
+      })
+      renderPage()
+      act(() => setAccessToken('access-token'))
+      const user = userEvent.setup()
+
+      expect(screen.queryByRole('link', { name: '신청하기' })).not.toBeInTheDocument()
+      await user.click(await screen.findByRole('button', { name: '신청하기' }))
+
+      await vi.waitFor(() =>
+        expect(screen.getByRole('button', { name: '신청하기' })).toHaveAttribute(
+          'aria-busy',
+          'true',
+        ),
+      )
+      expect(asked).toEqual([
+        { raceId: Number(RACE_DETAIL.id), raceCourseId: Number(RACE_DETAIL.options[0].id) },
+      ])
+      expect(push).not.toHaveBeenCalled()
+      open()
+      await vi.waitFor(() => expect(push).toHaveBeenCalledTimes(1))
+    })
+
+    it('서버가 바로 입장시키면(canEnter) 대기열 화면 없이 신청서로 간다', async () => {
+      answer(() => HttpResponse.json(queueStatus(true)))
+      renderPage()
+      act(() => setAccessToken('access-token'))
+
+      await userEvent.setup().click(await screen.findByRole('button', { name: '신청하기' }))
+
+      await vi.waitFor(() => expect(push).toHaveBeenCalledTimes(1))
+      expect(push.mock.calls[0][0]).toMatch(applyHref)
+    })
+
+    it('이미 입장한 회원(409)도 신청서로 바로 간다', async () => {
+      answer(() =>
+        HttpResponse.json({ status: 409, message: '이미 입장', data: null }, { status: 409 }),
+      )
+      renderPage()
+      act(() => setAccessToken('access-token'))
+
+      await userEvent.setup().click(await screen.findByRole('button', { name: '신청하기' }))
+
+      await vi.waitFor(() => expect(push).toHaveBeenCalledTimes(1))
+      expect(push.mock.calls[0][0]).toMatch(applyHref)
+    })
+
+    it('기다려야 하면 대기열 화면으로 간다', async () => {
+      answer(() => HttpResponse.json(queueStatus(false)))
+      renderPage()
+      act(() => setAccessToken('access-token'))
+
+      await userEvent.setup().click(await screen.findByRole('button', { name: '신청하기' }))
+
+      await vi.waitFor(() => expect(push).toHaveBeenCalledTimes(1))
+      expect(push.mock.calls[0][0]).toMatch(queueHref)
+    })
+
+    it('등록 요청이 실패하면 로딩을 풀고 대기열 화면의 기존 오류 안내로 넘긴다', async () => {
+      answer(() =>
+        HttpResponse.json({ status: 503, message: '불안정', data: null }, { status: 503 }),
+      )
+      renderPage()
+      act(() => setAccessToken('access-token'))
+
+      await userEvent.setup().click(await screen.findByRole('button', { name: '신청하기' }))
+
+      await vi.waitFor(() => expect(push).toHaveBeenCalledTimes(1))
+      expect(push.mock.calls[0][0]).toMatch(queueHref)
+      expect(screen.getByRole('button', { name: '신청하기' })).not.toHaveAttribute('aria-busy')
+    })
   })
 
   it('이미 신청한 대회는 버튼을 끄고 안내를 보여 준다 (M02-1)', () => {
@@ -170,6 +266,29 @@ describe('RaceDetailPage 크루 전용 자리 (M02-3)', () => {
     expect(within(sheet).getByText('어떻게 신청할까요?')).toBeInTheDocument()
     expect(within(sheet).getByText('개인으로 신청')).toBeInTheDocument()
     expect(await within(sheet).findByText('크루 홈에서 파티 만들기')).toBeInTheDocument()
+  })
+
+  it('시트에서 개인으로 신청을 누르면 대기열 등록을 요청하고 바로 입장이면 신청서로 간다', async () => {
+    push.mockClear()
+    status({ role: 'NONE', canApply: false, reason: 'NO_PARTY' })
+    server.use(
+      http.post('*/api/v1/queue', () =>
+        HttpResponse.json({
+          status: 200,
+          message: 'ok',
+          data: { myRank: 0, ahead: 0, total: 0, canEnter: true },
+        }),
+      ),
+    )
+    renderPage({ race: crewRace })
+    act(() => setAccessToken('access-token'))
+    const user = userEvent.setup()
+
+    await user.click(await screen.findByRole('button', { name: '신청하기' }))
+    await user.click(within(await screen.findByRole('dialog')).getByText('개인으로 신청'))
+
+    await vi.waitFor(() => expect(push).toHaveBeenCalledTimes(1))
+    expect(push.mock.calls[0][0]).toMatch(new RegExp(`^/races/${crewRace.id}/apply\\?option=`))
   })
 
   it('파티장이 인원이 모자라면 파티 항목을 끄고 몇 명이 더 필요한지 알린다', async () => {

@@ -15,6 +15,15 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/races/1/queue',
 }))
 
+/** 내 차례 화면을 보여 주는 최소 시간 */
+const ADMITTED_HOLD_MS = 1500
+/** 내 차례 화면이 뜨면 최소 시간이 지나기를 기다린 뒤 신청서로 갔는지 확인한다 */
+async function expectAppliedAfterHold() {
+  await screen.findByRole('heading', { name: /내 차례예요/ })
+  await act(() => vi.advanceTimersByTimeAsync(ADMITTED_HOLD_MS))
+  expect(replace).toHaveBeenCalledWith('/races/1/apply?option=2')
+}
+
 const NOT_ADMITTED = { admitted: false, admissionEndsAt: null, remainingSeconds: 0 }
 const admitted = (remainingSeconds: number) => ({
   admitted: true,
@@ -157,12 +166,14 @@ describe('RaceQueuePage', () => {
     expect(replace).not.toHaveBeenCalled()
 
     await act(() => vi.advanceTimersByTimeAsync(ADMISSION_POLL_MS))
-    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/races/1/apply?option=2'))
-    expect(admissionAsked).toBe(1)
-    // 넘어가는 동안 내 차례 화면의 전체 화면 남은 시간을 그리지 않고 기다리는 화면을 둔다
+    await vi.waitFor(() => expect(admissionAsked).toBe(1))
+    // 내 차례 상태를 먼저 보여 주고, 최소 1.5초가 지나야 신청서로 넘어간다
+    expect(await screen.findByRole('heading', { name: /내 차례예요/ })).toBeInTheDocument()
     expect(screen.queryByRole('timer')).not.toBeInTheDocument()
-    expect(screen.queryByText(/내 차례예요/)).not.toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: /잠시 기다리고 있어요/ })).toBeInTheDocument()
+    await act(() => vi.advanceTimersByTimeAsync(ADMITTED_HOLD_MS - 100))
+    expect(replace).not.toHaveBeenCalled()
+    await act(() => vi.advanceTimersByTimeAsync(100))
+    expect(replace).toHaveBeenCalledWith('/races/1/apply?option=2')
 
     // 차례가 오면 더 묻지 않는다
     await act(() => vi.advanceTimersByTimeAsync(ADMISSION_POLL_MS * 2))
@@ -170,12 +181,34 @@ describe('RaceQueuePage', () => {
     expect(calls.register).toBe(1)
   })
 
+  it('내 차례 화면을 보는 중에 나가면 신청서로 넘기지 않는다', async () => {
+    mockQueueOpen()
+    server.use(orderMock.getFindAdmissionMockHandler({ status: 200, data: admitted(600) }))
+    const { unmount } = renderQueue()
+
+    await screen.findByRole('heading', { name: /내 차례예요/ })
+    unmount()
+    await act(() => vi.advanceTimersByTimeAsync(ADMITTED_HOLD_MS * 2))
+    expect(replace).not.toHaveBeenCalled()
+  })
+
+  it('내 차례 화면의 신청하러 가기 링크는 신청서 주소로 간다', async () => {
+    mockQueueOpen()
+    server.use(orderMock.getFindAdmissionMockHandler({ status: 200, data: admitted(600) }))
+    renderQueue()
+
+    expect(await screen.findByRole('link', { name: '신청하러 가기' })).toHaveAttribute(
+      'href',
+      '/races/1/apply?option=2',
+    )
+  })
+
   it('이미 입장한 회원의 등록(409)은 곧바로 입장 확인으로 넘어간다', async () => {
     mockQueue([], queueFailure(409))
     server.use(orderMock.getFindAdmissionMockHandler({ status: 200, data: admitted(600) }))
     renderQueue()
 
-    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/races/1/apply?option=2'))
+    await expectAppliedAfterHold()
   })
 
   it('줄에서 사라지면(순번 조회 404) 다시 등록한다', async () => {
@@ -194,7 +227,7 @@ describe('RaceQueuePage', () => {
     )
     renderQueue()
 
-    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/races/1/apply?option=2'))
+    await expectAppliedAfterHold()
     expect(registered).toBe(2)
   })
 
@@ -265,8 +298,7 @@ describe('RaceQueuePage', () => {
     server.use(orderMock.getFindAdmissionMockHandler({ status: 200, data: admitted(2) }))
     renderQueue()
 
-    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/races/1/apply?option=2'))
-    await act(() => vi.advanceTimersByTimeAsync(1000))
+    await expectAppliedAfterHold()
     expect(replace).not.toHaveBeenCalledWith('/checkout?result=timeout&raceId=1')
 
     await act(() => vi.advanceTimersByTimeAsync(1000))
