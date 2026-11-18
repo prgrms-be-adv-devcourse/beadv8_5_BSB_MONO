@@ -132,8 +132,6 @@ class ApiV1SellerExportTest {
 	void roster() throws Exception {
 		setUp();
 		paidOrder(BUYER_ID, COURSE_ID, "김러너");
-		// 참가자 이름은 회원 본인인증 값으로 들어간다 (CRU-59)
-		memberPorts.identity(BUYER_ID + 1, new MemberIdentity("=CMD()", LocalDate.of(1994, 6, 25), "010-1234-5678"));
 		paidOrder(BUYER_ID + 1, COURSE_ID, "=CMD()");
 		paidOrder(BUYER_ID + 2, OTHER_COURSE_ID, "남의참가자");
 		createdOrder(BUYER_ID + 3, COURSE_ID, "결제안함");
@@ -263,6 +261,8 @@ class ApiV1SellerExportTest {
 	}
 
 	private long apply(long buyerId, long courseId, String name) throws Exception {
+		// 참가자 이름은 회원 본인인증 값으로 들어간다 (CRU-59)
+		memberPorts.identity(buyerId, new MemberIdentity(name, LocalDate.of(1994, 6, 25), "010-1234-5678"));
 		QueueEntry.enter(mockMvc, buyerId, courseId);
 		String body = mockMvc.perform(post("/api/v1/order/participations")
 				.header("X-Member-Id", buyerId)

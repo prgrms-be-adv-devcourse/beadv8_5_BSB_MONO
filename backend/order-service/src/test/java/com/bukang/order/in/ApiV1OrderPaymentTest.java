@@ -334,7 +334,7 @@ class ApiV1OrderPaymentTest {
 			List.of("S", "L")));
 		changeParticipant(MEMBER_ID, participationId, "최러너", "M")
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.participant.name").value("최러너"))
+			.andExpect(jsonPath("$.data.participant.emergencyContactName").value("최러너"))
 			.andExpect(jsonPath("$.data.participant.tshirtSize").value("M"));
 	}
 

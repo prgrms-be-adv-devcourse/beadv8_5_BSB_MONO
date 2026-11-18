@@ -16,6 +16,7 @@ import com.bukang.order.dto.PartyRaceStatusDto;
 import com.bukang.order.dto.PartyRaceStatusDto.MyParticipation;
 import com.bukang.order.out.ParticipationRepository;
 import com.bukang.order.out.member.MemberIdentityPort;
+import com.bukang.order.out.member.MemberIdentityPort.MemberIdentity;
 
 import lombok.RequiredArgsConstructor;
 
@@ -32,7 +33,8 @@ public class PartyFacade {
 	@Transactional(propagation = Propagation.NOT_SUPPORTED)
 	public PartyCreatedDto create(PartyCreateRequestDto request, long memberId) {
 		// 회원 값은 크루 확인·파티 저장보다 먼저 가져와, 회원 서비스가 실패하면 아무것도 남기지 않고 끝낸다 (CRU-59)
-		ParticipantInfo participant = request.getParticipant().toParticipantInfo(memberIdentityPort.findVerified(memberId));
+		MemberIdentity identity = memberIdentityPort.findVerified(memberId);
+		ParticipantInfo participant = request.getParticipant().toParticipantInfo(identity);
 		PartyUseCase.Created created = partyUseCase.create(memberId, request.getCrewId(), request.getRaceCourseId(),
 			participant, request.getInvitedMemberIds(), LocalDateTime.now());
 		return new PartyCreatedDto(PartyDto.of(created.party()), created.participation().toDto(),
@@ -45,7 +47,8 @@ public class PartyFacade {
 
 	@Transactional(propagation = Propagation.NOT_SUPPORTED)
 	public ParticipationDto join(PartyJoinRequestDto request, long memberId) {
-		ParticipantInfo participant = request.getParticipant().toParticipantInfo(memberIdentityPort.findVerified(memberId));
+		MemberIdentity identity = memberIdentityPort.findVerified(memberId);
+		ParticipantInfo participant = request.getParticipant().toParticipantInfo(identity);
 		return partyUseCase.join(request.getJoinToken(), memberId, participant, LocalDateTime.now()).toDto();
 	}
 

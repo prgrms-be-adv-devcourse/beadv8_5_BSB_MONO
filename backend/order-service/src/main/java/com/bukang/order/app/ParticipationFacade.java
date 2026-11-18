@@ -16,6 +16,7 @@ import com.bukang.order.dto.ParticipationDto;
 import com.bukang.order.out.ParticipationKitOptionRepository;
 import com.bukang.order.out.ParticipationRepository;
 import com.bukang.order.out.member.MemberIdentityPort;
+import com.bukang.order.out.member.MemberIdentityPort.MemberIdentity;
 
 import lombok.RequiredArgsConstructor;
 
@@ -31,7 +32,8 @@ public class ParticipationFacade {
 	@Transactional
 	public ParticipationDto apply(ParticipationApplyRequestDto request, long memberId) {
 		// 회원 값은 잠금·상품 호출보다 먼저 가져와, 회원 서비스가 실패하면 아무것도 남기지 않고 끝낸다 (CRU-59)
-		ParticipantInfo participant = request.getParticipant().toParticipantInfo(memberIdentityPort.findVerified(memberId));
+		MemberIdentity identity = memberIdentityPort.findVerified(memberId);
+		ParticipantInfo participant = request.getParticipant().toParticipantInfo(identity);
 		return participationApplyUseCase.apply(
 			memberId,
 			request.getRaceCourseId(),
