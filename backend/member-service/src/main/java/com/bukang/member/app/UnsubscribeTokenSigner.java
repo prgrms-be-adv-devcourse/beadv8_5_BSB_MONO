@@ -25,7 +25,7 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 @Component
-public class MarketingUnsubscribeTokens {
+public class UnsubscribeTokenSigner {
 	private static final String ALGORITHM = "HmacSHA256";
 	// HMAC-SHA256 출력 길이. 이보다 짧은 키는 발급된 토큰 하나로 오프라인에서 맞혀 볼 수 있다
 	static final int MIN_KEY_BYTES = 32;
@@ -34,7 +34,7 @@ public class MarketingUnsubscribeTokens {
 
 	private final byte[] key;
 
-	public MarketingUnsubscribeTokens(MarketingUnsubscribeProperties properties) {
+	public UnsubscribeTokenSigner(MarketingUnsubscribeProperties properties) {
 		this.key = properties.secretKey().getBytes(StandardCharsets.UTF_8);
 		// 서버는 띄우되 설정이 빠졌음을 바로 알린다. 서버가 안 뜨면 이 기능과 상관없는 로그인·가입까지 멈춘다
 		if (key.length < MIN_KEY_BYTES || properties.frontBaseUrl().isBlank()) {

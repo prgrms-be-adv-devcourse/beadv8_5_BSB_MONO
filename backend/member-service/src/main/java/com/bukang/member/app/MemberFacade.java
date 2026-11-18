@@ -68,7 +68,7 @@ public class MemberFacade {
 	private final LogoutUseCase logoutUseCase;
 	private final AdminVerifyUseCase adminVerifyUseCase;
 	private final MarketingConsentUseCase marketingConsentUseCase;
-	private final MarketingUnsubscribeTokens marketingUnsubscribeTokens;
+	private final UnsubscribeTokenSigner unsubscribeTokenSigner;
 	private final MarketingUnsubscribeProperties marketingUnsubscribeProperties;
 	private final LoginAttemptStore loginAttemptStore;
 	private final LoginAttemptProperties loginAttemptProperties;
@@ -124,7 +124,7 @@ public class MemberFacade {
 		memberRepository.findActiveById(memberId)
 			.orElseThrow(MemberNotFoundException::new);
 		Instant expiresAt = Instant.now(clock).plus(marketingUnsubscribeProperties.tokenTtl());
-		String token = marketingUnsubscribeTokens.issue(memberId, expiresAt);
+		String token = unsubscribeTokenSigner.issue(memberId, expiresAt);
 		return new MarketingUnsubscribeLinkDto(marketingUnsubscribeProperties.link(token),
 			LocalDateTime.ofInstant(expiresAt, ZoneId.systemDefault()));
 	}
@@ -132,7 +132,7 @@ public class MemberFacade {
 	// 수신 거부는 마케팅 동의 철회로 남긴다. 이미 거부했으면 동의 변경이 아무것도 남기지 않아 두 번 눌러도 같다 (BE-039)
 	@Transactional
 	public void unsubscribeMarketing(String token) {
-		marketingConsentUseCase.change(marketingUnsubscribeTokens.verify(token, Instant.now(clock)), false);
+		marketingConsentUseCase.change(unsubscribeTokenSigner.verify(token, Instant.now(clock)), false);
 	}
 
 	@Transactional
