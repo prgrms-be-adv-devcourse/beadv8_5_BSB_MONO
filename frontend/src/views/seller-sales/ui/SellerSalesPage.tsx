@@ -134,10 +134,12 @@ function SalesBody({ race, raceId }: { race: productModel.SellerRaceDto; raceId:
         <Figure
           label="접수 마감"
           value={race.applicationCloseAt ? formatDDay(race.applicationCloseAt) : '-'}
+          sub={race.applicationCloseAt && formatRaceDateTime(race.applicationCloseAt)}
         />
         <Figure
           label="환불 기한"
           value={refundDeadline ? formatDDay(refundDeadline) : detail.isPending ? '' : '-'}
+          sub={refundDeadline && formatRaceDateTime(refundDeadline)}
         />
       </div>
 
@@ -187,11 +189,12 @@ function SalesBody({ race, raceId }: { race: productModel.SellerRaceDto; raceId:
 }
 
 // 숫자 요약: 이름 14 보조, 숫자 24 굵게. 칸 사이는 세로 1px 선
-function Figure({ label, value }: { label: string; value: string }) {
+function Figure({ label, value, sub }: { label: string; value: string; sub?: string | null }) {
   return (
     <div className="flex flex-1 flex-col gap-1 px-6">
       <p className="text-body2-regular text-text-secondary">{label}</p>
       <p className="text-title2">{value}</p>
+      {sub && <p className="text-body2-regular text-text-secondary">{sub}</p>}
     </div>
   )
 }
