@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 
-import { courseImageQueryOptions, daysUntil, raceQueryOptions } from '@/entities/race'
+import { daysUntil, raceCoverQueryOptions, raceQueryOptions } from '@/entities/race'
 import {
   orderQueryOptions,
   parseTicketId,
@@ -33,7 +33,7 @@ export function useTicket(ticketId: string) {
   })
   const race = useQuery({ ...raceQueryOptions(ticket?.raceId ?? 0), enabled: ticket !== undefined })
   const image = useQuery({
-    ...courseImageQueryOptions(ticket?.raceCourseId ?? 0),
+    ...raceCoverQueryOptions(ticket?.raceId ?? 0),
     enabled: ticket !== undefined,
   })
 

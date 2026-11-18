@@ -65,7 +65,13 @@ import {
 import { notificationHandlers } from './notifications'
 import { partyHandlers } from './party'
 import { payoutHandlers } from './payout'
-import { findMockRace, getMockRaces, mockImageOfCourse, searchMockRaces } from './races'
+import {
+  findMockRace,
+  getMockRaces,
+  mockImageOfCourse,
+  mockImageOfRace,
+  searchMockRaces,
+} from './races'
 import { resetMockKitsForTesting, sellerKitHandlers } from './seller-kits'
 import { balanceCookieHeaders, payFromMockWallet, walletHandlers } from './wallet'
 
@@ -79,13 +85,20 @@ function pathParamCount(handler: RequestHandler): number {
  * 명세 예시의 이미지 주소는 실제로 없는 S3 주소라(next/image 허용 호스트도 아니다) 목에서는 public/mock 이미지로 바꾼다.
  * 생성된 핸들러보다 앞에 둬서 먼저 걸리게 한다.
  */
+/** 대표 이미지(THUMBNAIL)는 대회 파일에, 소개 이미지(DETAIL)는 종목 파일에 있다. 실제 서버와 같게 나눠 준다. */
 const fileImageHandler = getFindByRefMockHandler(({ request }) => {
   const example = getFindByRefResponseMock()
-  const refId = Number(new URL(request.url).searchParams.get('refId'))
-  const image = mockImageOfCourse(refId) ?? '/mock/races/cookierun.webp'
+  const params = new URL(request.url).searchParams
+  const refType = params.get('refType')
+  const refId = Number(params.get('refId'))
+  const isRace = refType === 'Race'
+  const image =
+    (isRace ? mockImageOfRace(refId) : mockImageOfCourse(refId)) ?? '/mock/races/cookierun.webp'
   return {
     ...example,
-    data: example.data?.map((file) => ({ ...file, url: image })),
+    data: example.data
+      ?.filter((file) => (file.fileType === 'THUMBNAIL') === isRace)
+      .map((file) => ({ ...file, refType, refId, url: image })),
   }
 })
 
