@@ -130,4 +130,40 @@ describe('SellerKitsPage', () => {
 
     expect(await screen.findByText('키트 주문이 없어요')).toBeInTheDocument()
   })
+
+  it('여러 건을 고르면 송장 번호 줄 수가 건수와 같아야 보낼 수 있고, 빈 줄은 세지 않는다', async () => {
+    renderPage()
+    await userEvent.click(await screen.findByRole('checkbox', { name: 'OD-20261004-0101 고르기' }))
+    await userEvent.click(screen.getByRole('checkbox', { name: 'OD-20261004-0117 고르기' }))
+
+    const box = screen.getByLabelText('송장 번호')
+    await userEvent.type(box, '111')
+    expect(screen.getByText('송장 번호를 선택한 2건만큼 줄마다 넣어 주세요.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '배송 중으로 바꾸기' })).toBeDisabled()
+
+    await userEvent.type(box, '{Enter}{Enter}  222  ')
+    expect(screen.getByRole('button', { name: '배송 중으로 바꾸기' })).toBeEnabled()
+  })
+
+  it('여러 건을 보내면 줄 순서대로 주문에 송장 번호가 붙고, 앞뒤 공백은 빼고 보낸다', async () => {
+    type Body = { carrier?: string; trackingNumber?: string }
+    const sent: Record<string, Body> = {}
+    server.use(
+      http.post('*/api/v1/order/seller/kits/:orderItemId/shipment', async ({ params, request }) => {
+        sent[String(params.orderItemId)] = (await request.json()) as Body
+        return HttpResponse.json({ status: 200, message: 'ok', data: {} })
+      }),
+    )
+    renderPage()
+    await userEvent.click(await screen.findByRole('checkbox', { name: 'OD-20261004-0101 고르기' }))
+    await userEvent.click(screen.getByRole('checkbox', { name: 'OD-20261004-0117 고르기' }))
+    await userEvent.type(screen.getByLabelText('송장 번호'), '  1111  {Enter}{Enter}  2222  ')
+    await userEvent.click(screen.getByRole('button', { name: '배송 중으로 바꾸기' }))
+
+    expect(await screen.findByText('2건을 배송 중으로 바꿨어요')).toBeInTheDocument()
+    expect(sent).toEqual({
+      '101': { carrier: 'CJ대한통운', trackingNumber: '1111' },
+      '117': { carrier: 'CJ대한통운', trackingNumber: '2222' },
+    })
+  })
 })

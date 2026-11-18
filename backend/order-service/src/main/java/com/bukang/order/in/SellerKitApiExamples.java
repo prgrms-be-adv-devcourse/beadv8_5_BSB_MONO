@@ -78,7 +78,8 @@ final class SellerKitApiExamples {
 					"lastEventAt": null,
 					"lastTrackedAt": null,
 					"events": []
-				}
+				},
+				"kitTrackingUrl": null
 			}
 		}
 		""";
@@ -112,7 +113,8 @@ final class SellerKitApiExamples {
 					"lastEventAt": null,
 					"lastTrackedAt": null,
 					"events": []
-				}
+				},
+				"kitTrackingUrl": null
 			}
 		}
 		""";
@@ -161,7 +163,8 @@ final class SellerKitApiExamples {
 							"location": "서울성동"
 						}
 					]
-				}
+				},
+				"kitTrackingUrl": null
 			}
 		}
 		""";

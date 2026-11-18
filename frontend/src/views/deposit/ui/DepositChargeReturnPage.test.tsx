@@ -17,6 +17,7 @@ vi.mock('next/navigation', () => ({
 }))
 
 const PENDING_KEY = 'crewrun:pending-charge'
+const NOTICE_KEY = 'crewrun:charge-notice'
 // 목의 대회 1은 키트 옵션이 있어 티셔츠 · 양말을 하나씩 골라야 결제된다
 const KIT_CHOICE = { kitOptionIds: [110, 120] }
 const ORDER_ID = 'charge-11111111-2222-3333-4444-555555555555'
@@ -26,6 +27,7 @@ function savePending(pending: {
   amount: number
   returnOrderId?: number
   uncertainAt?: number
+  historyLength?: number
 }) {
   sessionStorage.setItem(PENDING_KEY, JSON.stringify(pending))
 }
@@ -108,17 +110,68 @@ describe('충전 결과 화면 (토스 결제창에서 돌아옴)', () => {
     expect(sessionStorage.getItem(PENDING_KEY)).toBeNull()
   })
 
-  it('예치금 화면에서 한 충전이 FAILED면 거절 사유와 다시 충전하기를 보여 준다', async () => {
+  it('예치금 화면에서 한 충전이 FAILED면 거절 사유를 충전 화면에 넘기고 충전 화면으로 간다', async () => {
     savePending({ orderId: ORDER_ID, amount: 12_000 })
     server.use(confirmHandler('FAILED', [], '카드 한도가 초과되었습니다.'))
 
     renderPage(success())
 
-    expect(await screen.findByText(/카드 한도가 초과되었습니다\./)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '다시 충전하기' })).toHaveAttribute(
-      'href',
-      '/me/deposit/charge',
-    )
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/me/deposit/charge'))
+    expect(JSON.parse(sessionStorage.getItem(NOTICE_KEY) ?? 'null')).toMatchObject({
+      kind: 'failed',
+      message: '카드 한도가 초과되었습니다.',
+    })
+  })
+
+  it('예치금 화면에서 한 충전이 4xx(일일 한도)로 거절되면 서버 문구를 충전 화면에 넘긴다', async () => {
+    savePending({ orderId: ORDER_ID, amount: 12_000 })
+    server.use(confirmErrorHandler(400, '일일 충전 한도는 1,000,000원입니다.'))
+
+    renderPage(success())
+
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/me/deposit/charge'))
+    expect(JSON.parse(sessionStorage.getItem(NOTICE_KEY) ?? 'null')).toMatchObject({
+      kind: 'failed',
+      message: '일일 충전 한도는 1,000,000원입니다.',
+    })
+  })
+
+  it('떠나기 전에 적어 둔 충전이 아니면(앞으로 가기로 다시 연 경우) 실패로 알리지 않고 충전 화면으로 간다', async () => {
+    renderPage(success())
+
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/me/deposit/charge'))
+    expect(sessionStorage.getItem(NOTICE_KEY)).toBeNull()
+  })
+
+  describe('떠날 때 기록 길이를 알면 새 화면을 쌓지 않고 충전 화면까지 거슬러 간다', () => {
+    let go: ReturnType<typeof vi.spyOn>
+    beforeEach(() => {
+      go = vi.spyOn(window.history, 'go').mockImplementation(() => {})
+      // 결제창을 다녀온 것처럼 기록을 쌓아 둔다 (history.length가 2보다 커야 떠날 때 길이를 양수로 적는다)
+      for (let i = 0; i < 3; i++) window.history.pushState(null, '', '')
+    })
+    afterEach(() => go.mockRestore())
+
+    it('충전되면 결제창이 쌓은 기록만큼 돌아가고, 충전 화면이 한 번 더 돌아가게 결과를 남긴다', async () => {
+      savePending({ orderId: ORDER_ID, amount: 12_000, historyLength: window.history.length - 2 })
+
+      renderPage(success())
+
+      await vi.waitFor(() => expect(go).toHaveBeenCalledWith(-2))
+      expect(replace).not.toHaveBeenCalled()
+      expect(JSON.parse(sessionStorage.getItem(NOTICE_KEY) ?? 'null')).toMatchObject({
+        kind: 'completed',
+      })
+    })
+
+    it('결제창을 닫으면 결과를 남기지 않고 충전 화면으로 돌아간다', async () => {
+      savePending({ orderId: ORDER_ID, amount: 12_000, historyLength: window.history.length - 1 })
+
+      renderPage({ result: 'fail', code: 'PAY_PROCESS_CANCELED', orderId: ORDER_ID })
+
+      await vi.waitFor(() => expect(go).toHaveBeenCalledWith(-1))
+      expect(sessionStorage.getItem(NOTICE_KEY)).toBeNull()
+    })
   })
 
   it('확인 중(200 · UNCERTAIN): 기다리라고 안내하고, 다시 결제하게 하거나 충전 전 잔액을 보여 주지 않는다', async () => {
@@ -256,15 +309,18 @@ describe('충전 결과 화면 (토스 결제창에서 돌아옴)', () => {
     expect(bodies).toEqual([])
   })
 
-  it('요청이 잘못됨(400)이면 지금처럼 결제 실패 화면으로 보낸다', async () => {
+  it('결제 중 충전이 4xx로 거절되면 서버 문구를 보여 주고 결제 화면으로 돌아가게 한다', async () => {
     savePending({ orderId: ORDER_ID, amount: 12_000, returnOrderId: 1 })
     server.use(confirmErrorHandler(400, '최소 충전 금액은 10,000원입니다.'))
 
     renderPage(success())
 
-    await vi.waitFor(() =>
-      expect(replace).toHaveBeenCalledWith('/checkout?orderId=1&charge=failed'),
+    expect(await screen.findByText(/최소 충전 금액은 10,000원입니다\./)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '결제 화면으로 돌아가기' })).toHaveAttribute(
+      'href',
+      '/checkout?orderId=1',
     )
+    expect(replace).not.toHaveBeenCalled()
   })
 
   it('돌아온 금액이 떠나기 전에 적어 둔 금액과 다르면 확정하지 않는다', async () => {
@@ -327,7 +383,13 @@ describe('충전 결과 화면 (토스 결제창에서 돌아옴)', () => {
     const navigate = vi.fn()
     await requestCharge(
       { amount: shortage, returnOrderId: 1 },
-      { mocking: true, clientKey: undefined, origin: 'http://localhost', navigate },
+      {
+        mocking: true,
+        clientKey: undefined,
+        origin: 'http://localhost',
+        historyLength: 1,
+        navigate,
+      },
     )
     const back = new URL(navigate.mock.calls[0][0] as string).searchParams
     renderPage({

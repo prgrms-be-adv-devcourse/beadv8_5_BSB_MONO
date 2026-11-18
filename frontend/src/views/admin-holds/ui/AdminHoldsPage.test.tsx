@@ -67,4 +67,31 @@ describe('AdminHoldsPage', () => {
     expect(await screen.findByText('정산 내역 번호를 숫자로 넣어 주세요.')).toBeInTheDocument()
     expect(called).not.toHaveBeenCalled()
   })
+
+  it('0이나 소수처럼 양의 정수가 아닌 번호는 API를 부르지 않고, 앞뒤 공백은 뺀다', async () => {
+    const paths: string[] = []
+    server.use(
+      http.post('*/api/v1/payout/payouts/:payoutId/holds', ({ request }) => {
+        paths.push(new URL(request.url).pathname)
+        return HttpResponse.json(payoutMock.getHoldResponseMock(), { status: 201 })
+      }),
+    )
+    const user = userEvent.setup()
+    renderPage()
+    const box = screen.getByRole('textbox', { name: '정산 내역 번호' })
+
+    for (const bad of ['0', '1.5', '']) {
+      await user.clear(box)
+      if (bad) await user.type(box, bad)
+      await user.click(screen.getByRole('button', { name: '보류 걸기' }))
+      expect(await screen.findByText('정산 내역 번호를 숫자로 넣어 주세요.')).toBeInTheDocument()
+    }
+    expect(paths).toEqual([])
+
+    await user.clear(box)
+    await user.type(box, ' 12 ')
+    await user.click(screen.getByRole('button', { name: '보류 걸기' }))
+    expect(await screen.findByText('지급보류를 걸었어요.')).toBeInTheDocument()
+    expect(paths).toEqual(['/api/v1/payout/payouts/12/holds'])
+  })
 })

@@ -1,4 +1,5 @@
 export { RaceChangeNoticePage } from './ui/RaceChangeNoticePage'
+export { RecordCertPage } from './ui/RecordCertPage'
 export { TicketCanceledPage } from './ui/TicketCanceledPage'
 export { TicketDetailPage } from './ui/TicketDetailPage'
 export { TicketEditPage } from './ui/TicketEditPage'

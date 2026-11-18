@@ -8,8 +8,8 @@ import {
   type AiScreen,
   type InquiryDraft,
 } from '@/entities/ai-assistant'
-import { ANSWER_MAX } from '@/entities/inquiry'
-import { Alert, Badge, Button, Checkbox, Spinner } from '@/shared/ui'
+import { ANSWER_MAX, answerSchema } from '@/entities/inquiry'
+import { Alert, Badge, Button, Checkbox, Spinner, Textarea } from '@/shared/ui'
 
 /** 초안이 모르는 정보를 비워 둔 자리 (예: [확인 필요: 발송 예정일]) */
 const UNKNOWN_MARK = /\[확인 필요: [^\]]+\]/g
@@ -41,7 +41,8 @@ export function InquiryAiDraft({
     request.mutate(inquiryId, {
       onSuccess: (result) => {
         setDraft(result)
-        setText(result.draft)
+        // 초안이 답변 글자 수 한도보다 길면 잘라 넣는다. 자르지 않으면 보내기가 안내 없이 꺼진다
+        setText(result.draft.slice(0, ANSWER_MAX))
         setConfirmed(false)
       },
     })
@@ -57,7 +58,8 @@ export function InquiryAiDraft({
 
   const firstLoading = request.isPending && !draft
   const unknownCount = text.match(UNKNOWN_MARK)?.length ?? 0
-  const canSend = text.trim() !== '' && !sending && (!draft || (confirmed && unknownCount === 0))
+  const answer = answerSchema.safeParse(text)
+  const canSend = answer.success && !sending && (!draft || (confirmed && unknownCount === 0))
 
   return (
     <div className="flex flex-col gap-3">
@@ -87,7 +89,7 @@ export function InquiryAiDraft({
           </Button>
         )}
       </div>
-      <textarea
+      <Textarea
         aria-label="답변"
         value={text}
         maxLength={ANSWER_MAX}
@@ -96,7 +98,6 @@ export function InquiryAiDraft({
           setText(event.target.value)
           setConfirmed(false)
         }}
-        className="h-36 w-full resize-none rounded-md p-4 text-body2-regular text-text-primary inset-ring inset-ring-border-default outline-none focus-visible:inset-ring-border-focus disabled:bg-bg-subtle"
       />
       {draft && draft.references.length > 0 && (
         <p className="text-caption-regular text-text-tertiary">
@@ -126,7 +127,7 @@ export function InquiryAiDraft({
         ) : (
           <span className="text-body2-regular text-text-tertiary">보낸 답변은 고칠 수 없어요</span>
         )}
-        <Button onClick={() => onSend(text)} disabled={!canSend}>
+        <Button onClick={() => answer.success && onSend(answer.data)} disabled={!canSend}>
           답변 보내기
         </Button>
       </div>

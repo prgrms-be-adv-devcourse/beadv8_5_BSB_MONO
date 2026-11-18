@@ -9,26 +9,16 @@ import { clientEnv } from '@/shared/config'
 import { cn } from '@/shared/lib'
 import { Carousel, CarouselSlide, FOCUS_RING, Icon, Skeleton } from '@/shared/ui'
 
+import { NextRaceCard } from './NextRaceCard'
+import { RunnerStories } from './RunnerStories'
+
 export type HomePageProps = {
   state?: 'loading' | 'offline'
   /** 곧 마감 (대회별 카드, 4개) */
   closingSoon: RaceSummary[]
 }
 
-const HOME_TABS = [
-  { label: '홈', href: '/' },
-  { label: '대회 일정', href: '/races' },
-  { label: '크루', href: '/crews' },
-  { label: '커뮤니티', href: '/community' },
-] as const
-
-const SHORTCUTS = [
-  { label: '신청 내역', href: '/tickets', icon: 'TicketCheck' },
-  { label: '예치금', href: '/me/deposit', icon: 'Wallet' },
-  { label: '크루', href: '/crews', icon: 'Users' },
-] as const
-
-// 피그마 시나리오 38 · 02 홈(v2): 로고·알림 → 홈 탭 → 메인 배너 → 바로가기 → 곧 마감돼요(2열 4개)
+// 피그마 V3 · 홈(11/17 확정): 로고·알림 → 메인 배너 → 다음 대회(로그인 + 다가오는 대회) → 곧 마감돼요(2열 4개) → 러너 이야기
 // (+ 홈 로딩, 공통 연결 끊김). 배너는 API가 없어 시안 예시를 그대로 쓴다.
 export function HomePage({ state, closingSoon }: HomePageProps) {
   return (
@@ -42,9 +32,8 @@ export function HomePage({ state, closingSoon }: HomePageProps) {
       ) : (
         <>
           <AppHeader search={false} loginWhenGuest className="border-b-0" />
-          <HomeTabs />
           <main className="flex-1">
-            <Carousel label="접수 중인 대회" className="pt-4 pb-2">
+            <Carousel label="접수 중인 대회" className="pt-1 pb-2">
               {RACE_BANNERS.map((banner, i) => (
                 <CarouselSlide
                   key={banner.id}
@@ -67,37 +56,21 @@ export function HomePage({ state, closingSoon }: HomePageProps) {
               ))}
             </Carousel>
 
-            <nav aria-label="바로가기" className="flex gap-2 px-4 pt-3 pb-2">
-              {SHORTCUTS.map((item) => (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  className={cn(
-                    'flex flex-1 flex-col items-center gap-1.5 rounded-md bg-bg-subtle py-3 text-body2-medium text-text-secondary',
-                    FOCUS_RING,
-                  )}
-                >
-                  <Icon name={item.icon} className="size-5.5" />
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
+            <NextRaceCard />
 
             <section aria-labelledby="closing-soon" className="flex flex-col gap-3.5 px-4 py-7">
-              <div className="flex items-center justify-between">
-                <h2 id="closing-soon" className="flex items-center gap-1.5 text-title3">
+              <h2 id="closing-soon" className="text-title3">
+                <Link
+                  href="/races"
+                  className={cn('flex items-center gap-1 rounded-sm', FOCUS_RING)}
+                >
                   곧 마감돼요
                   {closingSoon.length > 0 && (
                     <span className="text-text-tertiary">{closingSoon.length}</span>
                   )}
-                </h2>
-                <Link
-                  href="/races"
-                  className={cn('rounded-sm text-body2-medium text-text-tertiary', FOCUS_RING)}
-                >
-                  전체 보기
+                  <Icon name="ChevronRight" className="size-5 text-text-tertiary" />
                 </Link>
-              </div>
+              </h2>
               {closingSoon.length === 0 ? (
                 <EmptyRow>곧 마감되는 대회가 없어요</EmptyRow>
               ) : (
@@ -108,6 +81,8 @@ export function HomePage({ state, closingSoon }: HomePageProps) {
                 </div>
               )}
             </section>
+
+            {clientEnv.NEXT_PUBLIC_API_MOCKING === 'on' && <RunnerStories />}
           </main>
         </>
       )}
@@ -116,40 +91,11 @@ export function HomePage({ state, closingSoon }: HomePageProps) {
   )
 }
 
-// 홈 위쪽 탭. 화면을 바꾸는 링크라 Tabs 대신 nav로 그린다.
-function HomeTabs() {
-  return (
-    <nav aria-label="홈 메뉴" className="flex gap-5 bg-bg-surface px-4">
-      {HOME_TABS.filter(
-        // shortcut: 백엔드 글 목록 API가 생기면 조건을 지운다. 지금은 실제 API 모드에서 첫 화면이 늘 오류다.
-        (tab) => tab.href !== '/community' || clientEnv.NEXT_PUBLIC_API_MOCKING === 'on',
-      ).map((tab) => {
-        const current = tab.href === '/'
-        return (
-          <Link
-            key={tab.label}
-            href={tab.href}
-            aria-current={current ? 'page' : undefined}
-            className={cn(
-              'flex flex-col gap-1.5 rounded-sm pt-1 text-body1-bold',
-              current ? 'text-text-primary' : 'text-text-tertiary',
-              FOCUS_RING,
-            )}
-          >
-            {tab.label}
-            <span aria-hidden className={cn('h-0.5', current && 'bg-text-primary')} />
-          </Link>
-        )
-      })}
-    </nav>
-  )
-}
-
 function EmptyRow({ children }: { children: string }) {
   return <p className="py-6 text-center text-body2-regular text-text-tertiary">{children}</p>
 }
 
-// 홈 로딩: 02 홈과 같은 배치(배너 · 바로가기 · 곧 마감 2열 4장)의 회색 틀.
+// 홈 로딩: 02 홈과 같은 배치(배너 · 곧 마감 2열 4장)의 회색 틀.
 // 0.3초 안에 끝나면 보이지 않는다(animate-delayed-show).
 function HomeSkeleton() {
   return (
@@ -160,11 +106,6 @@ function HomeSkeleton() {
     >
       <div className="px-4 pt-4 pb-2">
         <Skeleton shape="rect" className="aspect-568/300 w-full rounded-lg" />
-      </div>
-      <div className="flex gap-2 px-4 pt-3 pb-2">
-        {SHORTCUTS.map((item) => (
-          <Skeleton key={item.label} shape="rect" className="h-18 flex-1" />
-        ))}
       </div>
       <div className="flex flex-col gap-3.5 px-4 py-7">
         <SkeletonHead />

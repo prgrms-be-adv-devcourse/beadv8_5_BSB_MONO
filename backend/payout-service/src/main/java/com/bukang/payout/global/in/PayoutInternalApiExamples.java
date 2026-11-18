@@ -52,6 +52,22 @@ final class PayoutInternalApiExamples {
 		}
 		""";
 
+	static final String HAS_UNPAID = """
+		{
+			"status": 200,
+			"message": "판매자 미수령 정산금을 조회했습니다.",
+			"data": { "sellerId": 1, "hasUnpaid": true }
+		}
+		""";
+
+	static final String NO_UNPAID = """
+		{
+			"status": 200,
+			"message": "판매자 미수령 정산금을 조회했습니다.",
+			"data": { "sellerId": 1, "hasUnpaid": false }
+		}
+		""";
+
 	private PayoutInternalApiExamples() {
 	}
 }

@@ -132,8 +132,18 @@ describe('MyTicketsPage', () => {
     expect(screen.getByText('결제 확인 중')).toBeInTheDocument()
     await act(() => vi.advanceTimersByTimeAsync(12_000))
 
-    expect(await screen.findByText('참가 확정')).toBeInTheDocument()
-    expect(screen.queryByText('결제 확인 중')).not.toBeInTheDocument()
+    // v3 시안: 참가 확정은 배지 없이 카드만 보여 준다
+    expect(await screen.findByText('김러너 · 10K')).toBeInTheDocument()
+    await vi.waitFor(() => expect(screen.queryByText('결제 확인 중')).not.toBeInTheDocument())
+    expect(screen.queryByText('참가 확정')).not.toBeInTheDocument()
+  })
+
+  it('v3 시안: 머리말에는 종만 두고 검색 아이콘은 없다 · 참가 확정 카드에는 배지가 없다', async () => {
+    renderPage()
+
+    expect(await screen.findByText('김러너 · 10K')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: '대회 찾기' })).not.toBeInTheDocument()
+    expect(screen.queryByText('참가 확정')).not.toBeInTheDocument()
   })
 
   it('결제한 주문이 없으면 빈 화면을 보여 준다', async () => {

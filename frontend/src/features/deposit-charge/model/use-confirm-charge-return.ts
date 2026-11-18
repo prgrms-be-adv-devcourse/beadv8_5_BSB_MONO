@@ -33,8 +33,15 @@ type ChargeResult = {
    * 주소를 고치거나 다른 충전의 주소를 다시 열어 상관없는 주문이 저절로 결제되지 않게 한다.
    */
   returnOrderId?: number
-  /** 서버가 알려 준 거절 사유. 충전 확정 응답이 승인 거절(FAILED)일 때만 있다 */
+  /** 서버가 알려 준 거절 사유. 승인 거절(FAILED)이나 4xx 거절(한도 초과 등)일 때 있다 */
   message?: string
+  /**
+   * 충전 화면까지 거슬러 갈 기록 수 (지금 history.length − 떠날 때 history.length).
+   * 떠날 때 길이를 모르거나 기록 길이 상한(50)에 걸려 셀 수 없으면 undefined
+   */
+  backSteps?: number
+  /** 떠나기 전에 적어 둔 충전이 아니다 (앞으로 가기 · 주소를 고쳐 다시 연 경우). 이미 끝난 충전일 수 있어 실패로 알리지 않는다 */
+  unknownCharge?: boolean
 }
 
 async function confirm({
@@ -47,16 +54,22 @@ async function confirm({
   const pending = readPendingCharge()
   const sameCharge = pending !== null && pending.orderId === orderId
   const returnOrderId = sameCharge ? pending.returnOrderId : undefined
+  // 브라우저는 history.length를 50에서 멈춘다. 그 근처면 차이가 실제 기록 수와 달라 세지 않는다
+  const length = window.history.length
+  const steps =
+    sameCharge && pending.historyLength && length < 50 ? length - pending.historyLength : 0
+  const backSteps = steps > 0 ? steps : undefined
+  if (!sameCharge) return { outcome: 'failed', unknownCharge: true }
   if (result !== 'success') {
-    return { outcome: isChargeCanceled(code) ? 'canceled' : 'failed', returnOrderId }
+    return { outcome: isChargeCanceled(code) ? 'canceled' : 'failed', returnOrderId, backSteps }
   }
   // 떠나기 전에 적어 둔 충전과 다르면(주소를 고친 경우 등) 확정하지 않는다
-  if (!paymentKey || !sameCharge || pending.amount !== amount) {
-    return { outcome: 'failed', returnOrderId }
+  if (!paymentKey || pending.amount !== amount) {
+    return { outcome: 'failed', returnOrderId, backSteps }
   }
   // 이미 결과를 모르는 채로 끝난 충전이면(새로고침 · 뒤로 가기) 확정을 다시 부르지 않는다.
   // 다시 부르면 서버가 토스에 승인을 한 번 더 요청한다. 결과는 잔액 조회로 확인한다.
-  if (pending.uncertainAt !== undefined) return { outcome: 'uncertain', returnOrderId }
+  if (pending.uncertainAt !== undefined) return { outcome: 'uncertain', returnOrderId, backSteps }
   // 보내기 전에 적는다. 응답을 기다리는 중에 새로고침해도 확정을 다시 부르지 않게 한다.
   savePendingCharge({ ...pending, uncertainAt: Date.now() })
   const controller = new AbortController()
@@ -67,19 +80,20 @@ async function confirm({
       { signal: controller.signal },
     )
     const outcome = body.data?.outcome
-    if (outcome === 'COMPLETED') return { outcome: 'completed', returnOrderId }
-    if (outcome === 'FAILED') return { outcome: 'failed', returnOrderId, message: body.message }
+    if (outcome === 'COMPLETED') return { outcome: 'completed', returnOrderId, backSteps }
+    if (outcome === 'FAILED')
+      return { outcome: 'failed', returnOrderId, backSteps, message: body.message }
   } catch (error) {
     // 409(먼저 보낸 확정이 처리 중)를 뺀 4xx는 서버가 처리하기 전에 거절한 요청이라 돈이 빠지지 않았다
     if (error instanceof ApiError && error.status < 500 && error.status !== 409) {
-      return { outcome: 'failed', returnOrderId }
+      return { outcome: 'failed', returnOrderId, backSteps, message: error.serverMessage }
     }
   } finally {
     clearTimeout(timer)
   }
   // 확인 중(UNCERTAIN) · 409 · 5xx · 네트워크 오류 · 응답 없음: 서버가 끝까지 처리했는지 모른다.
   // 다시 결제하면 새 주문번호라 카드에서 두 번 빠질 수 있어 기다리라고만 안내한다. 충전 기록은 남겨 둔다.
-  return { outcome: 'uncertain', returnOrderId }
+  return { outcome: 'uncertain', returnOrderId, backSteps }
 }
 
 /**

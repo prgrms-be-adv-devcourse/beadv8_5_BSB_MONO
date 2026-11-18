@@ -213,4 +213,16 @@ describe('AdminClaimsPage', () => {
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
     expect(called).toBe(false)
   })
+
+  it('청구 ID 앞뒤 공백은 빼고 찾는다', async () => {
+    const queries = mockClaims([CLAIMING])
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.type(screen.getByRole('textbox', { name: '청구 ID' }), '  RC-20261215-0002  ')
+    await user.click(screen.getByRole('button', { name: '찾기' }))
+
+    await screen.findByRole('row', { name: /RC-20261215-0002/ })
+    expect(queries.at(-1)?.get('code')).toBe('RC-20261215-0002')
+  })
 })

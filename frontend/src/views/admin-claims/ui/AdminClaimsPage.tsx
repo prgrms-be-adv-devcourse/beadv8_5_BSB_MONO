@@ -71,7 +71,9 @@ export function AdminClaimsPage() {
   const changeStatus = (next: Status) => {
     setUrl({ status: next, page: '0', code: '' })
   }
-  const search = () => setUrl({ code: codeText.trim() })
+  const search = () => {
+    setUrl({ code: codeText.trim() })
+  }
   const clearSearch = () => {
     setCodeText('')
     setUrl({ code: '' })

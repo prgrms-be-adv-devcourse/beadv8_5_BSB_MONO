@@ -12,7 +12,7 @@ import {
   type AxBriefingMetric,
 } from '@/entities/ai-assistant'
 import { cn } from '@/shared/lib'
-import { Alert, buttonClassName, Icon, Skeleton } from '@/shared/ui'
+import { Alert, Badge, Button, buttonClassName, Icon, Skeleton } from '@/shared/ui'
 
 export type AxBriefingProps = {
   screen: AiScreen
@@ -88,11 +88,7 @@ export function AxBriefing({ screen, askHref, basisHref, className }: AxBriefing
                   <span className="flex min-w-0 flex-1 flex-col">
                     <span className="flex items-center gap-2 text-body2-medium">
                       {todo.title}
-                      {todo.flag && (
-                        <span className="rounded-sm bg-bg-badge-danger px-2 text-caption-medium text-text-badge-danger">
-                          {todo.flag}
-                        </span>
-                      )}
+                      {todo.flag && <Badge tone="danger">{todo.flag}</Badge>}
                     </span>
                     <span className="text-caption-regular text-text-secondary">
                       {todo.description}
@@ -147,9 +143,9 @@ export function AxBriefing({ screen, askHref, basisHref, className }: AxBriefing
         <Link href={basisHref} className="hover:underline">
           근거 보기
         </Link>
-        <button type="button" onClick={() => setHidden(true)} className="hover:underline">
+        <Button variant="text" size="s" onClick={() => setHidden(true)}>
           오늘 숨기기
-        </button>
+        </Button>
       </div>
     </section>
   )

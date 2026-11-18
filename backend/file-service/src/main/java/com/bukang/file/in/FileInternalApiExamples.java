@@ -95,6 +95,36 @@ final class FileInternalApiExamples {
 		{ "status": 409, "message": "다른 대상에 연결된 파일입니다. (fileId: 1, fileType: THUMBNAIL, sortNo: 0)", "data": null }
 		""";
 
+	static final String VIEW_URL_SUCCESS = """
+		{
+			"status": 200,
+			"message": "파일 보기 주소를 발급했습니다.",
+			"data": {
+				"id": 7,
+				"createDate": "2026-11-17T09:00:00",
+				"modifyDate": "2026-11-17T09:05:00",
+				"createUser": 3,
+				"originFileName": "record-cert.jpg",
+				"contentType": "image/jpeg",
+				"fileSize": 1048576,
+				"status": "ACTIVE",
+				"refType": "RecordCert",
+				"refId": 5,
+				"fileType": "RECORD_CERT",
+				"sortNo": 0,
+				"url": "https://crewrun-file-dev.s3.ap-northeast-2.amazonaws.com/dev/files/5e6f7a8b-1c2d-4e3f-8a9b-0c1d2e3f4a5b.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Expires=1800&X-Amz-Signature=..."
+			}
+		}
+		""";
+
+	static final String DELETE_SUCCESS = """
+		{ "status": 200, "message": "파일을 지웠습니다.", "data": null }
+		""";
+
+	static final String DELETE_FAILED = """
+		{ "status": 503, "message": "파일을 지우지 못했습니다. 잠시 뒤 다시 시도해주세요.", "data": null }
+		""";
+
 	private FileInternalApiExamples() {
 	}
 }
