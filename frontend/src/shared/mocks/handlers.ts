@@ -271,7 +271,7 @@ const withdrawHandlers = [
 ]
 
 /**
- * 가입 목. 서버처럼 필수 약관(SERVICE, PRIVACY)이 빠지면 400 MEMBER_REQUIRED_TERMS_NOT_AGREED로 답한다.
+ * 가입 목. 서버처럼 필수 약관(SERVICE, PRIVACY, AGE_OVER_14)이 빠지면 400 MEMBER_REQUIRED_TERMS_NOT_AGREED로 답한다.
  * 이메일 중복 확인은 이메일에 "taken"이 들어 있으면 이미 가입된 것으로 본다 (그 밖에는 사용 가능).
  * 생성된 핸들러보다 앞에 둬서 먼저 걸리게 한다.
  */
@@ -290,7 +290,11 @@ const signupHandlers = [
         { status: 400 },
       )
     }
-    if (!agreed.includes('SERVICE') || !agreed.includes('PRIVACY')) {
+    if (
+      !agreed.includes('SERVICE') ||
+      !agreed.includes('PRIVACY') ||
+      !agreed.includes('AGE_OVER_14')
+    ) {
       return HttpResponse.json(
         {
           status: 400,

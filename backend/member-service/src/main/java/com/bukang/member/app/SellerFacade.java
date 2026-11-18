@@ -47,6 +47,7 @@ public class SellerFacade {
 			request.getBusinessNumber(),
 			request.getRepresentativeName(),
 			payoutAccount,
+			Boolean.TRUE.equals(request.getSellerTermsAgreed()),
 			LocalDateTime.now()
 		));
 	}

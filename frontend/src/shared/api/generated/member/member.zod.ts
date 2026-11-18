@@ -168,7 +168,7 @@ export const JoinBody = zod.object({
   "password": zod.string().min(joinBodyPasswordMin).max(joinBodyPasswordMax).describe('비밀번호 (10자 이상)'),
   "nickname": zod.string().min(1).regex(joinBodyNicknameRegExp).describe('닉네임 (한글 2~8자, 영문 4~16자, 한글·영문·숫자만)'),
   "gender": zod.union([zod.literal('MALE'),zod.literal('FEMALE'),zod.literal(null)]).nullish().describe('성별 (선택)'),
-  "agreedTerms": zod.array(zod.enum(['SERVICE', 'PRIVACY', 'MARKETING'])).describe('동의한 약관 종류 (SERVICE, PRIVACY는 필수). 동의하지 않은 선택 약관은 빼고 보낸다'),
+  "agreedTerms": zod.array(zod.enum(['SERVICE', 'PRIVACY', 'MARKETING', 'AGE_OVER_14', 'NIGHT_MARKETING', 'SELLER'])).describe('동의한 약관 종류 (SERVICE, PRIVACY, AGE_OVER_14는 필수). 동의하지 않은 선택 약관(MARKETING, NIGHT_MARKETING)은 빼고 보낸다'),
   "verificationToken": zod.string().min(1).describe('본인인증 결과의 인증 토큰. 이름 · 생년월일 · 휴대폰 번호는 이 인증으로 확인한 값으로 가입한다')
 }).describe('회원가입 요청')
 
@@ -222,7 +222,8 @@ export const ApplyBody = zod.object({
   "representativeName": zod.string().min(applyBodyRepresentativeNameMin).max(applyBodyRepresentativeNameMax).describe('대표자 (비사업자는 본인 성명, 50자 이하)'),
   "bankCode": zod.string().min(1).regex(applyBodyBankCodeRegExp).describe('정산 계좌 은행 표준 코드 (숫자 3자리)'),
   "accountNumber": zod.string().min(1).regex(applyBodyAccountNumberRegExp).describe('정산 계좌번호 (하이픈 없이 숫자 6~16자리)'),
-  "accountHolderType": zod.enum(['BUSINESS', 'PERSONAL']).describe('계좌 명의 (BUSINESS: 사업자 명의, 사업자만 / PERSONAL: 본인 명의)')
+  "accountHolderType": zod.enum(['BUSINESS', 'PERSONAL']).describe('계좌 명의 (BUSINESS: 사업자 명의, 사업자만 / PERSONAL: 본인 명의)'),
+  "sellerTermsAgreed": zod.boolean().describe('판매자 약관에 동의했으면 true (필수, false면 400)')
 }).describe('판매자 등록 신청 요청')
 
 export const ApplyResponse = zod.object({
@@ -447,7 +448,7 @@ export const SocialJoinBody = zod.object({
   "email": zod.email().nullish().describe('이메일. 제공자가 확인된 이메일을 줬으면 무시하고, 안 줬으면 필수'),
   "nickname": zod.string().min(1).regex(socialJoinBodyNicknameRegExp).describe('닉네임 (한글 2~8자, 영문 4~16자, 한글·영문·숫자만)'),
   "gender": zod.union([zod.literal('MALE'),zod.literal('FEMALE'),zod.literal(null)]).nullish().describe('성별 (선택)'),
-  "agreedTerms": zod.array(zod.enum(['SERVICE', 'PRIVACY', 'MARKETING'])).describe('동의한 약관 종류 (SERVICE, PRIVACY는 필수). 동의하지 않은 선택 약관은 빼고 보낸다'),
+  "agreedTerms": zod.array(zod.enum(['SERVICE', 'PRIVACY', 'MARKETING', 'AGE_OVER_14', 'NIGHT_MARKETING', 'SELLER'])).describe('동의한 약관 종류 (SERVICE, PRIVACY, AGE_OVER_14는 필수). 동의하지 않은 선택 약관(MARKETING, NIGHT_MARKETING)은 빼고 보낸다'),
   "verificationToken": zod.string().min(1).describe('본인인증 결과의 인증 토큰. 이름 · 생년월일 · 휴대폰 번호는 이 인증으로 확인한 값으로 가입한다')
 }).describe('소셜 회원가입 요청')
 

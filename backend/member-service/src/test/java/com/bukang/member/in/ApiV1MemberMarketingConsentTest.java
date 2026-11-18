@@ -79,7 +79,7 @@ class ApiV1MemberMarketingConsentTest {
 	@BeforeEach
 	void setUp() {
 		agreedMemberId = memberFacade.join(MemberFixture.joinRequest()
-			.agreedTerms(List.of(TermsType.SERVICE, TermsType.PRIVACY, TermsType.MARKETING))
+			.agreedTerms(List.of(TermsType.SERVICE, TermsType.PRIVACY, TermsType.AGE_OVER_14, TermsType.MARKETING))
 			.build(identityStore)).getId();
 		notAgreedMemberId = memberFacade.join(MemberFixture.joinRequest().build(identityStore)).getId();
 		// 가입 이벤트 행은 세지 않도록 비우고 시작한다

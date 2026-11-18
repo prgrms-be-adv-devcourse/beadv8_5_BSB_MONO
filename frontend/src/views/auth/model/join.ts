@@ -11,7 +11,7 @@ import { agreedTermTypes, type SignupTermChecks } from './signup-terms'
 /**
  * 가입 단계 입력을 가입 요청(POST /api/v1/auth/join) 본문으로 바꾼다.
  * 이름 · 생년월일 · 휴대폰 번호는 보내지 않는다. 서버가 본인인증 토큰으로 확인한 값을 쓴다.
- * 약관은 동의한 종류만 agreedTerms로 보낸다("만 14세 이상"은 약관이 아니라 보내지 않는다). 성별은 고르지 않으면 뺀다.
+ * 약관은 동의한 종류만 agreedTerms로 보낸다("만 14세 이상"도 AGE_OVER_14로 보낸다). 성별은 고르지 않으면 뺀다.
  */
 export function toJoinRequest(
   account: SignupAccountValues,
