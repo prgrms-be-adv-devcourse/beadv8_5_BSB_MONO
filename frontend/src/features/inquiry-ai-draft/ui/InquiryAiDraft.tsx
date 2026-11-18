@@ -35,15 +35,18 @@ export function InquiryAiDraft({
   const [draft, setDraft] = useState<InquiryDraft | null>(null)
   const [text, setText] = useState('')
   const [confirmed, setConfirmed] = useState(false)
+  const [tooLong, setTooLong] = useState(false)
   const started = useRef(false)
 
   function fetchDraft() {
     request.mutate(inquiryId, {
       onSuccess: (result) => {
-        setDraft(result)
-        // 초안이 답변 글자 수 한도보다 길면 잘라 넣는다. 자르지 않으면 보내기가 안내 없이 꺼진다
-        setText(result.draft.slice(0, ANSWER_MAX))
         setConfirmed(false)
+        // 한도보다 긴 초안은 넣지 않는다. 잘라 넣으면 끝의 [확인 필요: …] 표시가 잘려 확인 없이 보낼 수 있다
+        const over = result.draft.length > ANSWER_MAX
+        setTooLong(over)
+        setDraft(over ? null : result)
+        setText(over ? '' : result.draft)
       },
     })
   }
@@ -68,6 +71,13 @@ export function InquiryAiDraft({
           tone="danger"
           title={draft ? '초안을 다시 만들지 못했어요' : '답변 초안을 만들지 못했어요'}
           description={`${aiErrorMessage(request.error)} 직접 쓰거나 다시 만들기를 눌러 주세요.`}
+        />
+      )}
+      {tooLong && !request.isPending && (
+        <Alert
+          tone="danger"
+          title="초안이 너무 길어요"
+          description={`답변은 ${ANSWER_MAX}자까지 보낼 수 있어요. 직접 쓰거나 다시 만들기를 눌러 주세요.`}
         />
       )}
       <div className="flex items-center justify-between gap-2">

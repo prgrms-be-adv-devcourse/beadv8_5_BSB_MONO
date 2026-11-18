@@ -145,6 +145,19 @@ describe('SellerKitsPage', () => {
     expect(screen.getByRole('button', { name: '배송 중으로 바꾸기' })).toBeEnabled()
   })
 
+  it('송장 번호가 50자를 넘으면 한도를 알리고 발송 버튼을 닫는다', async () => {
+    renderPage()
+    await userEvent.click(await screen.findByRole('checkbox', { name: 'OD-20261004-0101 고르기' }))
+
+    const box = screen.getByLabelText('송장 번호')
+    await userEvent.type(box, '9'.repeat(51))
+    expect(screen.getByText('송장 번호는 줄마다 50자 이하로 넣어 주세요.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '배송 중으로 바꾸기' })).toBeDisabled()
+
+    await userEvent.type(box, '{Backspace}')
+    expect(screen.getByRole('button', { name: '배송 중으로 바꾸기' })).toBeEnabled()
+  })
+
   it('여러 건을 보내면 줄 순서대로 주문에 송장 번호가 붙고, 앞뒤 공백은 빼고 보낸다', async () => {
     type Body = { carrier?: string; trackingNumber?: string }
     const sent: Record<string, Body> = {}

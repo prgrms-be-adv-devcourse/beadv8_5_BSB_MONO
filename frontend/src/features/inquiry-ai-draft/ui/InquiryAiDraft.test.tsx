@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it, vi } from 'vitest'
@@ -119,23 +119,25 @@ describe('InquiryAiDraft', () => {
     expect(screen.getByRole('button', { name: '답변 보내기' })).toBeDisabled()
   })
 
-  it('초안이 글자 수 한도보다 길면 한도까지만 칸에 넣어 확인 뒤 보낼 수 있다', async () => {
+  it('초안이 글자 수 한도보다 길면 칸에 넣지 않고 오류로 알린다', async () => {
     server.use(
       http.post('*/api/v1/ai/seller/inquiries/5/draft', () =>
         HttpResponse.json({
           status: 200,
           message: 'ok',
-          data: { draft: '가'.repeat(ANSWER_MAX + 100), references: [], missing: [] },
+          data: {
+            draft: `${'가'.repeat(ANSWER_MAX)}[확인 필요: 발송 예정일]`,
+            references: [],
+            missing: [],
+          },
         }),
       ),
     )
-    const user = userEvent.setup()
     const onSend = renderDraft()
 
-    const box = await screen.findByLabelText('답변')
-    await waitFor(() => expect(box).toHaveValue('가'.repeat(ANSWER_MAX)))
-    await user.click(screen.getByRole('checkbox', { name: '초안 내용을 확인했어요' }))
-    await user.click(screen.getByRole('button', { name: '답변 보내기' }))
-    expect(onSend).toHaveBeenCalledWith('가'.repeat(ANSWER_MAX))
+    expect(await screen.findByText('초안이 너무 길어요')).toBeInTheDocument()
+    expect(screen.getByLabelText('답변')).toHaveValue('')
+    expect(screen.getByRole('button', { name: '답변 보내기' })).toBeDisabled()
+    expect(onSend).not.toHaveBeenCalled()
   })
 })
