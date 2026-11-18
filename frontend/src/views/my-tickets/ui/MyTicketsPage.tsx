@@ -13,7 +13,7 @@ import { useTicketCards, type TicketCard } from '../model/use-ticket-cards'
 
 export type MyTicketsState = 'loading' | 'empty'
 
-// 피그마 v2 · 내 참가권(1333:26919) · 참가권 없음(1333:26995) · 불러오지 못함(1333:27000).
+// 피그마 V3 · 내 참가권 · 목록(1944:20420), v2 참가권 없음(1333:26995) · 불러오지 못함(1333:27000).
 // 참가권 없음 · 불러오지 못함은 시안처럼 뒤로 가기 머리말이고 아래 탭은 없다.
 // 크루 신청 줄은 참가권에 크루 정보가 없어 아직 없다.
 // state는 시안 미리보기(?preview=loading|empty)용. 없으면 주문 API로 불러온다.
@@ -53,7 +53,7 @@ export function MyTicketsPage({ state }: { state?: MyTicketsState }) {
 
   return (
     <>
-      <AppHeader />
+      <AppHeader search={false} className="border-b-0" />
       <main className="flex flex-1 flex-col gap-6 px-4 pt-(--layout-content-start) pb-6">
         {loading && <TicketSkeletons />}
         {!loading && <TicketGroup title="참가 예정" tickets={upcoming} />}
@@ -68,7 +68,7 @@ export function MyTicketsPage({ state }: { state?: MyTicketsState }) {
 function TicketGroup({ title, tickets }: { title: string; tickets: TicketCard[] }) {
   if (tickets.length === 0) return null
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex flex-col gap-4">
       <h2 className="text-title3">
         {title} {tickets.length}
       </h2>
@@ -84,10 +84,13 @@ function TicketGroup({ title, tickets }: { title: string; tickets: TicketCard[] 
             image={ticket.image}
             imagePosition="50% 12%"
             eyebrow={ticket.eyebrow}
+            // v3 시안: 참가 확정은 배지 없이 보여 주고, 확인 중 · 종료 · 취소만 배지를 단다
             status={
-              <Badge tone={TICKET_STATUS[ticket.status].tone}>
-                {TICKET_STATUS[ticket.status].label}
-              </Badge>
+              ticket.status !== 'confirmed' && (
+                <Badge tone={TICKET_STATUS[ticket.status].tone}>
+                  {TICKET_STATUS[ticket.status].label}
+                </Badge>
+              )
             }
             unit="No."
             number={ticket.number}
