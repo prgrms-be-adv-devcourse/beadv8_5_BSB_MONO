@@ -247,7 +247,7 @@ export function CarouselSlide({ image, chip, title, description }: CarouselSlide
       {title && (
         <div className="absolute inset-x-5 bottom-4.5 flex flex-col items-start gap-1.5 text-text-on-image">
           {chip && (
-            <span className="rounded-sm bg-[rgb(255_255_255/0.2)] px-2 py-0.75 text-caption-medium">
+            <span className="rounded-sm bg-neutral-0/20 px-2 py-0.75 text-caption-medium">
               {chip}
             </span>
           )}
