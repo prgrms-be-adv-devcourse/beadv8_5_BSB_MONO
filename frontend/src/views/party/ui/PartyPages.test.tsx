@@ -438,6 +438,52 @@ describe('파티 합류', () => {
     await user.click(screen.getByRole('button', { name: '합류하기' }))
   }
 
+  it('대회 정보를 불러오는 동안은 합류하기를 막고, 불러오면 켠다', async () => {
+    let open: () => void = () => {}
+    const gate = new Promise<void>((resolve) => (open = resolve))
+    server.use(
+      http.get('*/api/v1/product/races/:raceId', async () => {
+        await gate
+        return HttpResponse.json({
+          status: 200,
+          message: '성공',
+          data: { raceId: 100, title: '2026 용감한 쿠키RUN in 서울', courses: [COURSE] },
+        })
+      }),
+    )
+    renderPage(<PartyJoinPage token="ok" />)
+
+    expect(await screen.findByRole('button', { name: '합류하기' })).toBeDisabled()
+    expect(screen.queryByLabelText('참가자 이름')).not.toBeInTheDocument()
+    open()
+    expect(await screen.findByLabelText('참가자 이름')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '합류하기' })).toBeEnabled()
+  })
+
+  it('대회 정보를 불러오지 못하면 합류하기를 막고, 다시 불러오면 이어 간다', async () => {
+    let failing = true
+    server.use(
+      http.get('*/api/v1/product/races/:raceId', () =>
+        failing
+          ? HttpResponse.json({ status: 500, message: '오류', data: null }, { status: 500 })
+          : HttpResponse.json({
+              status: 200,
+              message: '성공',
+              data: { raceId: 100, title: '2026 용감한 쿠키RUN in 서울', courses: [COURSE] },
+            }),
+      ),
+    )
+    const user = userEvent.setup()
+    renderPage(<PartyJoinPage token="ok" />)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('파티 정보를 불러오지 못했어요')
+    expect(screen.getByRole('button', { name: '합류하기' })).toBeDisabled()
+    failing = false
+    await user.click(screen.getByRole('button', { name: '다시 불러오기' }))
+    expect(await screen.findByLabelText('참가자 이름')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '합류하기' })).toBeEnabled()
+  })
+
   it('정보를 적고 합류하면 파티 상세로 간다', async () => {
     const user = userEvent.setup()
     renderPage(<PartyJoinPage token="ok" />)

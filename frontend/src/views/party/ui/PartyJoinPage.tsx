@@ -90,7 +90,7 @@ export function PartyJoinPage({ token }: { token: string }) {
   let body
   if (failure && failure !== 'INDIVIDUAL_EXISTS') {
     body = <PartyFailureScreen copy={JOIN_FAILURE[failure]} crewId={data?.crewId} />
-  } else if (preview.isPending) {
+  } else if (preview.isPending || (race.isPending && !race.isError)) {
     body = (
       <div className="flex flex-col gap-4 p-4" aria-busy>
         <Skeleton className="h-8 w-2/3" />
@@ -99,6 +99,9 @@ export function PartyJoinPage({ token }: { token: string }) {
     )
   } else if (!data) {
     body = <PartyLoadError onRetry={() => void preview.refetch()} />
+  } else if (race.isError) {
+    // 종목 정보 없이는 키트 배송지를 받을지 알 수 없어 합류를 막는다
+    body = <PartyLoadError onRetry={() => void race.refetch()} />
   } else {
     body = (
       <>
@@ -144,7 +147,13 @@ export function PartyJoinPage({ token }: { token: string }) {
         <BottomCta
           className="sticky bottom-0 z-10"
           primary={
-            <Button size="l" type="submit" form={FORM_ID} loading={join.isPending}>
+            <Button
+              size="l"
+              type="submit"
+              form={FORM_ID}
+              loading={join.isPending}
+              disabled={!race.isSuccess}
+            >
               합류하기
             </Button>
           }
