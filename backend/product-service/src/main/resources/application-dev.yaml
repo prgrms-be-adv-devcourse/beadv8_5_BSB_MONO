@@ -63,6 +63,13 @@ spring:
       chat:
         model: qwen2.5:0.5b
 
+# 로컬 개발은 회원 서비스를 띄우지 않아도 되게 fake다 (누구나 관리자). 회원 서비스를 함께 띄웠으면 http로 바꾼다
+product:
+  clients:
+    member:
+      mode: fake
+      base-url: http://localhost:8080
+
 logging:
   level:
     com.bukang: debug

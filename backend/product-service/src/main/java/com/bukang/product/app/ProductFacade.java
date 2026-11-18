@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -22,6 +23,7 @@ import com.bukang.common.shared.seller.domain.SellerType;
 import com.bukang.product.domain.HoldReleaseReason;
 import com.bukang.product.domain.ProductDltKafkaEvent;
 import com.bukang.product.domain.RaceSyncType;
+import com.bukang.product.domain.exception.ProductAdminForbiddenException;
 import com.bukang.product.dto.CrewHoldRequestDto;
 import com.bukang.product.dto.CrewHoldResultDto;
 import com.bukang.product.dto.CrewLowPaymentDto;
@@ -42,6 +44,7 @@ import com.bukang.product.dto.RaceSuggestionDto;
 import com.bukang.product.dto.RaceSummaryDto;
 import com.bukang.product.dto.RaceSyncEventDto;
 import com.bukang.product.dto.SellerRaceDto;
+import com.bukang.product.out.member.MemberAdminPort;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -80,6 +83,7 @@ public class ProductFacade {
 	private final RaceSyncFailureUseCase raceSyncFailureUseCase;
 	private final ProductInboxUseCase productInboxUseCase;
 	private final ProductDltUseCase productDltUseCase;
+	private final MemberAdminPort memberAdminPort;
 
 	// Kafka로 받은 회원 가입·수정 메시지. 인박스에 남긴 뒤 회원 복제본에 덮어쓰고, 이미 처리한 메시지면 건너뛴다
 	// 인박스 행과 복제본 저장이 한 트랜잭션이라, 저장이 실패해 롤백되면 다시 받은 메시지를 처리한다
@@ -188,6 +192,55 @@ public class ProductFacade {
 			appendRaceChanged(resumed);
 			raceDocumentSyncAppendUseCase.append(raceId);
 			return resumed.dto();
+		});
+	}
+
+	// 판매자가 판매 예정 대회를 바로 연다 (CRU-44). 판매 시작 일정이 바뀌므로 대기열에 새 일정이 실린 대회 변경 메시지와
+	// 검색 문서 동기화 이벤트를 멈추기와 같이 남긴다
+	@Transactional(propagation = Propagation.NOT_SUPPORTED)
+	public RaceSaveDto openRace(long memberId, long raceId) {
+		return changeSaleStatus(raceId, () -> raceSaleStopUseCase.open(memberId, raceId, LocalDateTime.now()));
+	}
+
+	// 관리자 대회 관리 (CRU-44). 회원 서비스에 관리자인지 먼저 묻고(DB 트랜잭션 밖), 판매자와 같은 상태 규칙으로 바꾼다
+	@Transactional(propagation = Propagation.NOT_SUPPORTED)
+	public List<SellerRaceDto> findAdminRaces(long adminMemberId) {
+		requireAdmin(adminMemberId);
+		return transactionTemplate.execute(status -> raceQueryUseCase.findAllForAdmin());
+	}
+
+	@Transactional(propagation = Propagation.NOT_SUPPORTED)
+	public RaceSaveDto openRaceByAdmin(long adminMemberId, long raceId) {
+		requireAdmin(adminMemberId);
+		return changeSaleStatus(raceId, () -> raceSaleStopUseCase.openByAdmin(raceId, LocalDateTime.now()));
+	}
+
+	@Transactional(propagation = Propagation.NOT_SUPPORTED)
+	public RaceSaveDto stopRaceByAdmin(long adminMemberId, long raceId) {
+		requireAdmin(adminMemberId);
+		return changeSaleStatus(raceId, () -> raceSaleStopUseCase.stopByAdmin(raceId, LocalDateTime.now()));
+	}
+
+	@Transactional(propagation = Propagation.NOT_SUPPORTED)
+	public RaceSaveDto resumeRaceByAdmin(long adminMemberId, long raceId) {
+		requireAdmin(adminMemberId);
+		return changeSaleStatus(raceId, () -> raceSaleStopUseCase.resumeByAdmin(raceId, LocalDateTime.now()));
+	}
+
+	// 회원 서비스가 답하지 않으면 MemberAdminPort가 503을 던진다 (관리자로도, 관리자가 아닌 것으로도 보지 않는다)
+	private void requireAdmin(long memberId) {
+		if (!memberAdminPort.isAdmin(memberId)) {
+			throw new ProductAdminForbiddenException();
+		}
+	}
+
+	// 판매 상태를 바꾸고, 대기열에 보낼 대회 변경 메시지와 검색 문서 동기화 이벤트를 같은 트랜잭션에서 남긴다
+	private RaceSaveDto changeSaleStatus(long raceId, Supplier<RaceSaveResult> change) {
+		return transactionTemplate.execute(status -> {
+			RaceSaveResult changed = change.get();
+			appendRaceChanged(changed);
+			raceDocumentSyncAppendUseCase.append(raceId);
+			return changed.dto();
 		});
 	}
 
