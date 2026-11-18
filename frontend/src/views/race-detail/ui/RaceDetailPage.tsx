@@ -20,9 +20,6 @@ import {
   IconButton,
   KeyValue,
   Section,
-  Tab,
-  TabBar,
-  Tabs,
 } from '@/shared/ui'
 
 import { ApplyCta } from './ApplyCta'
@@ -77,6 +74,8 @@ export function RaceDetailPage({
   const [shareOpen, setShareOpen] = useState(false)
   const refundDeadline = race.schedule.find((row) => row.label === '전액 환불 기한')?.value ?? '-'
   const [anchor, setAnchor] = useState<Anchor>('options')
+  const hasInfo = !!race.description || race.images.length > 0
+  const anchors = ANCHORS.filter((item) => item.value !== 'info' || hasInfo)
   const minPrice = race.options.length > 0 ? Math.min(...race.options.map((o) => o.price)) : 0
 
   function jumpTo(next: Anchor) {
@@ -164,15 +163,27 @@ export function RaceDetailPage({
         )}
 
         <div className="sticky top-(--layout-header-height) z-[5] bg-bg-surface px-5 py-2">
-          <Tabs value={anchor} onValueChange={(value) => jumpTo(value as Anchor)}>
-            <TabBar>
-              {ANCHORS.map((item) => (
-                <Tab key={item.value} value={item.value}>
-                  {item.label}
-                </Tab>
-              ))}
-            </TabBar>
-          </Tabs>
+          <nav aria-label="대회 상세 바로 가기" className="flex border-b border-border-default">
+            {anchors.map((item) => (
+              <a
+                key={item.value}
+                href={`#race-${item.value}`}
+                aria-current={item.value === anchor ? 'location' : undefined}
+                onClick={(event) => {
+                  event.preventDefault()
+                  jumpTo(item.value)
+                }}
+                className={cn(
+                  'relative flex min-w-0 flex-1 items-center justify-center py-3 text-body1-medium text-text-tertiary',
+                  'aria-[current=location]:font-bold aria-[current=location]:text-text-primary',
+                  'after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:rounded-[1px] aria-[current=location]:after:bg-text-primary',
+                  FOCUS_RING,
+                )}
+              >
+                <span className="truncate whitespace-nowrap">{item.label}</span>
+              </a>
+            ))}
+          </nav>
         </div>
 
         <Section title="종목 선택" className="scroll-mt-32 pt-7 pb-5">
@@ -242,7 +253,7 @@ export function RaceDetailPage({
           </Section>
         )}
 
-        {(race.description || race.images.length > 0) && (
+        {hasInfo && (
           <Section title="상세 정보" className="scroll-mt-32 pt-7 pb-5">
             <div id="race-info" className="flex flex-col gap-3">
               {race.description && (

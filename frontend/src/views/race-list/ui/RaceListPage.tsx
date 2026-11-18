@@ -7,7 +7,6 @@ import { useRef, useState } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
 import { BottomNav } from '@/widgets/bottom-nav'
-import { RaceShareSheet } from '@/widgets/race-share-sheet'
 import {
   DEFAULT_RACE_SORT,
   raceListQueryOptions,
@@ -15,7 +14,6 @@ import {
   RaceSort,
   raceSuggestionsQueryOptions,
   toRaceListItem,
-  type RaceListItem,
   type RaceSearchFilters,
 } from '@/entities/race'
 import { productModel } from '@/shared/api'
@@ -46,7 +44,7 @@ import { useDebouncedValue } from '../model/use-debounced-value'
 import { CategoryScreen } from './CategoryScreen'
 import { RecentSearches } from './RecentSearches'
 
-export type RaceListState = 'loading' | 'empty' | 'menu' | 'sort'
+export type RaceListState = 'loading' | 'empty' | 'sort'
 
 const SORTS = [
   { value: RaceSort.DEADLINE, label: '마감 임박순' },
@@ -97,12 +95,7 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
     'view_item_list',
     state || loading ? null : { hasKeyword: keyword.trim() !== '', resultCount: total },
   )
-  // 'preview': ?preview=menu로 첫 대회의 더보기 메뉴를 열어 둔다
-  const [menuRace, setMenuRace] = useState<RaceListItem | 'preview' | null>(
-    state === 'menu' ? 'preview' : null,
-  )
   const firstImageId = races.find((race) => race.image)?.id
-  const menuTarget = menuRace === 'preview' ? (races[0] ?? null) : menuRace
   const suggestionItems = [
     ...(suggestions.data?.races ?? []).map((r) => ({
       key: `race-${r.raceId}`,
@@ -247,7 +240,7 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
             {loading ? (
               <Skeleton className="w-12" />
             ) : (
-              <p className="text-body1-bold">{`접수 중인 대회 ${formatNumber(total)}`}</p>
+              <p className="text-body1-bold">{`대회 ${formatNumber(total)}개`}</p>
             )}
             <SortSelect
               items={[...SORTS]}
@@ -345,12 +338,6 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
         )}
       </main>
       {!focused && <BottomNav />}
-      <RaceShareSheet
-        open={menuTarget !== null}
-        onOpenChange={(open) => !open && setMenuRace(null)}
-        title={menuTarget?.title ?? ''}
-        url={`${typeof window === 'undefined' ? '' : window.location.origin}/races/${menuTarget?.id ?? ''}`}
-      />
     </>
   )
 }

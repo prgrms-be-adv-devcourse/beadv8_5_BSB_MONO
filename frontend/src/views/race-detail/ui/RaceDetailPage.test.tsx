@@ -225,12 +225,28 @@ describe('RaceDetailPage v3 배치', () => {
     const scrollIntoView = vi.fn()
     Element.prototype.scrollIntoView = scrollIntoView
     renderPage()
-    const tabs = screen.getAllByRole('tab').map((tab) => tab.textContent)
-    expect(tabs).toEqual(['종목', '일정', '환불', '상세'])
+    const nav = screen.getByRole('navigation', { name: '대회 상세 바로 가기' })
+    const links = within(nav).getAllByRole('link')
+    expect(links.map((link) => link.textContent)).toEqual(['종목', '일정', '환불', '상세'])
+    expect(links[0]).toHaveAttribute('aria-current', 'location')
 
-    await userEvent.setup().click(screen.getByRole('tab', { name: '환불' }))
+    await userEvent.setup().click(within(nav).getByRole('link', { name: '환불' }))
     expect(scrollIntoView).toHaveBeenCalled()
     expect(scrollIntoView.mock.instances.at(-1)).toHaveProperty('id', 'race-refund')
+    expect(within(nav).getByRole('link', { name: '환불' })).toHaveAttribute(
+      'aria-current',
+      'location',
+    )
+  })
+
+  it('설명도 사진도 없으면 바로 가기에서 상세를 뺀다', () => {
+    renderPage({ race: { ...RACE_DETAIL, description: '', images: [] } })
+    const nav = screen.getByRole('navigation', { name: '대회 상세 바로 가기' })
+    expect(
+      within(nav)
+        .getAllByRole('link')
+        .map((link) => link.textContent),
+    ).toEqual(['종목', '일정', '환불'])
   })
 
   it('종목 카드는 사진 없이 이름 · 구성 · 가격이고, 눌러서 고른 종목을 바꾼다', async () => {
