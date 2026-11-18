@@ -28,8 +28,7 @@ describe('SellerKitsPage', () => {
 
     expect(await screen.findByText('OD-20261004-0101')).toBeInTheDocument()
     expect(screen.getByText('달리는곰')).toBeInTheDocument()
-    expect(screen.getByText('10K · 티셔츠 M')).toBeInTheDocument()
-    expect(screen.getByText('서울 마포구')).toBeInTheDocument()
+    expect(screen.getByText('티셔츠 M')).toBeInTheDocument()
     await tabCount('송장 입력 대기', '3')
     await tabCount('배송 중', '1')
     await tabCount('배송 완료', '1')
@@ -40,7 +39,7 @@ describe('SellerKitsPage', () => {
     renderPage()
     await userEvent.click(await screen.findByRole('checkbox', { name: 'OD-20261004-0101 고르기' }))
     await userEvent.type(screen.getByLabelText('OD-20261004-0101 송장 번호'), '684912345678')
-    await userEvent.click(screen.getByRole('button', { name: '배송 중으로 바꾸기' }))
+    await userEvent.click(screen.getByRole('button', { name: /건 배송 중으로 바꾸기/ }))
 
     expect(await screen.findByText('1건을 배송 중으로 바꿨어요')).toBeInTheDocument()
     await tabCount('송장 입력 대기', '2')
@@ -54,18 +53,38 @@ describe('SellerKitsPage', () => {
     expect(screen.getByRole('combobox', { name: 'OD-20261004-0101 택배사' })).toBeInTheDocument()
   })
 
+  it('고른 주문이 있으면 표 아래에 선택 막대가 뜨고 선택 풀기로 닫는다', async () => {
+    renderPage()
+    expect(screen.queryByRole('region', { name: '선택한 주문' })).not.toBeInTheDocument()
+    await userEvent.click(await screen.findByRole('checkbox', { name: 'OD-20261004-0101 고르기' }))
+
+    const bar = screen.getByRole('region', { name: '선택한 주문' })
+    expect(bar).toHaveTextContent('1건 선택')
+    await userEvent.click(screen.getByRole('button', { name: '선택 풀기' }))
+    expect(screen.queryByRole('region', { name: '선택한 주문' })).not.toBeInTheDocument()
+  })
+
+  it('주문번호나 이름으로 찾으면 맞는 줄만 남긴다', async () => {
+    renderPage()
+    await screen.findByText('OD-20261004-0101')
+    await userEvent.type(screen.getByLabelText('주문번호 · 이름으로 찾기'), '달리는곰')
+
+    expect(screen.getByText('OD-20261004-0101')).toBeInTheDocument()
+    expect(screen.queryByText('OD-20261005-0125')).not.toBeInTheDocument()
+  })
+
   it('송장 번호가 없으면 발송 버튼이 닫혀 있다', async () => {
     renderPage()
     await userEvent.click(await screen.findByRole('checkbox', { name: 'OD-20261004-0101 고르기' }))
 
-    expect(screen.getByRole('button', { name: '배송 중으로 바꾸기' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /건 배송 중으로 바꾸기/ })).toBeDisabled()
   })
 
   it('배송 중인 건을 배송 완료로 바꾼다', async () => {
     renderPage()
     await userEvent.click(await screen.findByRole('tab', { name: /^배송 중/ }))
     await userEvent.click(await screen.findByRole('checkbox', { name: 'OD-20261003-0093 고르기' }))
-    await userEvent.click(screen.getByRole('button', { name: '배송 완료로 바꾸기' }))
+    await userEvent.click(screen.getByRole('button', { name: /건 배송 완료로 바꾸기/ }))
 
     expect(await screen.findByText('1건을 배송 완료로 바꿨어요')).toBeInTheDocument()
     await tabCount('배송 완료', '2')
@@ -76,8 +95,10 @@ describe('SellerKitsPage', () => {
     resetNavigationMock('status=SHIPPING')
     renderPage()
 
-    expect(await screen.findByRole('button', { name: '배송 완료로 바꾸기' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '배송 중으로 바꾸기' })).not.toBeInTheDocument()
+    await userEvent.click(await screen.findByRole('checkbox', { name: 'OD-20261003-0093 고르기' }))
+
+    expect(await screen.findByRole('button', { name: /건 배송 완료로 바꾸기/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /건 배송 중으로 바꾸기/ })).not.toBeInTheDocument()
   })
 
   it('환불 기한 전이라 서버가 거절하면 서버 문구를 보여 주고 다른 건은 그대로 처리한다', async () => {
@@ -87,7 +108,7 @@ describe('SellerKitsPage', () => {
     // 송장 번호는 줄 안에서 주문마다 넣는다
     await userEvent.type(screen.getByLabelText('OD-20261004-0101 송장 번호'), '1111')
     await userEvent.type(screen.getByLabelText('OD-20261005-0125 송장 번호'), '2222')
-    await userEvent.click(screen.getByRole('button', { name: '배송 중으로 바꾸기' }))
+    await userEvent.click(screen.getByRole('button', { name: /건 배송 중으로 바꾸기/ }))
 
     expect(await screen.findByText('1건은 바꾸지 못했어요')).toBeInTheDocument()
     expect(screen.getByText(/OD-20261005-0125: 아직 환불할 수 있는 참가권/)).toBeInTheDocument()

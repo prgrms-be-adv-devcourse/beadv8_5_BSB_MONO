@@ -1,15 +1,17 @@
 'use client'
 
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
+import { useForm, useWatch } from 'react-hook-form'
+import { z } from 'zod'
 
-import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
+import { ConsolePage } from '@/widgets/console-page'
 import { myRacesQueryOptions } from '@/entities/race'
 import {
   KIT_FLOW,
   KIT_STATUS,
   kitErrorMessage,
-  shortAddress,
   useCompleteKitDeliveries,
   useSellerKits,
   useSellerKitSummary,
@@ -24,9 +26,9 @@ import {
   Alert,
   Button,
   Checkbox,
-  DataTable,
   EmptyState,
   FOCUS_RING,
+  Icon,
   Select,
   Skeleton,
   Tab,
@@ -41,23 +43,21 @@ type Kit = orderModel.SellerKitDto
 type NextStatus = Exclude<KitStatus, 'PREPARING'>
 
 const ALL = ''
-// 탭: 송장 입력 대기(배송 준비) · 배송 중 · 배송 완료. 탭 이름 옆에 건수를 붙인다
+// 탭: 송장 입력 대기(배송 준비) · 배송 중 · 배송 완료. 탭 이름 옆에 건수를 붙인다.
+// 환불 기한 전 · 취소 탭은 목록 API가 없어 두지 않는다(환불 기한 전은 건수만 글자로 보여 준다)
 const TAB_LABEL: Record<KitStatus, string> = {
   PREPARING: '송장 입력 대기',
   SHIPPING: '배송 중',
   DELIVERED: '배송 완료',
 }
 const TAB_VALUES: string[] = [...KIT_FLOW]
-// 상태는 칩 대신 글자색으로: 완료 초록, 그 밖은 보조 글자색
-const STATUS_TEXT: Record<KitStatus, string> = {
-  PREPARING: 'text-text-secondary',
-  SHIPPING: 'text-text-secondary',
-  DELIVERED: 'text-text-success',
-}
 const CARRIERS = ['CJ대한통운', '롯데택배', '한진택배', '우체국택배'].map((c) => ({
   value: c,
   label: c,
 }))
+
+/** 한 쪽에 보여 줄 줄 수. 목록은 한 번에 받아 화면 안에서 나눈다 */
+const PAGE_ROWS = 10
 
 // 버튼 문구의 조사 (배송 중으로 · 배송 완료로)
 const TO: Record<KitStatus, string> = {
@@ -69,19 +69,27 @@ const TO: Record<KitStatus, string> = {
 /** 그 단계로 바꾸려면 지금 이 단계여야 한다 */
 const FROM: Record<NextStatus, KitStatus> = { SHIPPING: 'PREPARING', DELIVERED: 'SHIPPING' }
 
+// 주문번호 · 이름 찾기: 칸 하나라 zod로 검사만 한다
+const searchSchema = z.object({ q: z.string().trim().max(50) })
+
 function kitId(kit: Kit) {
   return kit.orderItemId ?? 0
 }
 
 function kitOption(kit: Kit) {
-  return [kit.courseName, kit.tshirtSize && `티셔츠 ${kit.tshirtSize}`].filter(Boolean).join(' · ')
+  const options = kit.kitOptions?.map((o) => o.value).filter(Boolean) ?? []
+  return (options.length > 0 ? options : [kit.tshirtSize && `티셔츠 ${kit.tshirtSize}`])
+    .filter(Boolean)
+    .join(' · ')
 }
 
-// 피그마 V2 · S08 키트 배송 관리
+const TH = 'h-11 text-left text-body2-medium font-medium text-text-secondary'
+
+// 피그마 Final v3 · 판매자 · 키트 배송: 대회 고르기 + 찾기, 카드 안에 탭 · 표 · 선택 막대
 export function SellerKitsPage() {
-  // 조회에 건 대회 · 상태는 URL에 담는다. 고르는 중인 값(draft)은 화면 상태이고 「조회」를 누르면 URL에 쓴다.
+  // 조회에 건 대회 · 상태 · 쪽은 URL에 담는다.
   const [url, setUrl] = useSearchParamsState(
-    { race: ALL, status: 'PREPARING' },
+    { race: ALL, status: 'PREPARING', page: '1' },
     { status: TAB_VALUES },
   )
   const raceId = Number(url.race)
@@ -89,6 +97,11 @@ export function SellerKitsPage() {
     raceId: url.race !== ALL && Number.isInteger(raceId) ? raceId : undefined,
     status: url.status as orderModel.FindKitsStatus,
   }
+  const { control, register } = useForm<{ q: string }>({
+    resolver: zodResolver(searchSchema),
+    defaultValues: { q: '' },
+  })
+  const query = (useWatch({ control, name: 'q' }) ?? '').trim().toLowerCase()
 
   const races = useQuery(myRacesQueryOptions())
   const kits = useSellerKits(filters)
@@ -108,25 +121,31 @@ export function SellerKitsPage() {
   const deliver = useCompleteKitDeliveries()
   const pending = ship.isPending || deliver.isPending
 
-  const rows = kits.data?.kits ?? []
-  const selected = rows.filter((kit) => checked.includes(kitId(kit)))
+  const all = kits.data?.kits ?? []
+  const rows = query
+    ? all.filter((kit) =>
+        [kit.orderNo, kit.participantName].some((text) => text?.toLowerCase().includes(query)),
+      )
+    : all
+  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_ROWS))
+  const page = Math.min(Math.max(1, Math.trunc(Number(url.page)) || 1), totalPages)
+  const pageRows = rows.slice((page - 1) * PAGE_ROWS, page * PAGE_ROWS)
+  const selected = all.filter((kit) => checked.includes(kitId(kit)))
   const raceItems = [
     { value: ALL, label: '전체 대회' },
     ...(races.data ?? []).map((race) => ({ value: String(race.raceId), label: race.title ?? '' })),
   ]
+  const raceTitle = (id?: number) => races.data?.find((r) => r.raceId === id)?.title ?? ''
 
   const toggle = (id: number, on: boolean) =>
     setChecked((prev) => (on ? [...prev, id] : prev.filter((key) => key !== id)))
 
-  const changeFilter = (patch: { race?: string; status?: string }) => {
-    setUrl(patch)
+  const changeFilter = (patch: { race?: string; status?: string; page?: string }) => {
+    setUrl({ page: '1', ...patch })
     setChecked([])
     setResult(null)
   }
 
-  const selectedLabels = [
-    ...new Set(selected.map((kit) => KIT_STATUS[kit.kitDeliveryStatus ?? 'PREPARING'].label)),
-  ]
   const blocker =
     selected.length === 0
       ? null
@@ -136,6 +155,7 @@ export function SellerKitsPage() {
           ? '고른 주문마다 송장 번호를 넣어 주세요.'
           : null
   const canSubmit = selected.length > 0 && !blocker && !pending
+  const preparing = url.status === 'PREPARING'
 
   async function submit() {
     setResult(null)
@@ -158,7 +178,7 @@ export function SellerKitsPage() {
     )
   }
 
-  const orderNoOf = (id: number) => rows.find((kit) => kitId(kit) === id)?.orderNo ?? String(id)
+  const orderNoOf = (id: number) => all.find((kit) => kitId(kit) === id)?.orderNo ?? String(id)
 
   return (
     <ConsolePage
@@ -170,197 +190,204 @@ export function SellerKitsPage() {
         </Button>
       }
     >
-      {summary.isError && (
-        <Alert
-          tone="danger"
-          title="배송 건수를 불러오지 못했어요"
-          description={kitErrorMessage(summary.error)}
+      <div className="flex items-start gap-3">
+        <Select
+          aria-label="대회"
+          items={raceItems}
+          value={url.race}
+          onValueChange={(value) => changeFilter({ race: value ?? ALL })}
+          className="w-100"
         />
-      )}
-      <Tabs value={url.status} onValueChange={(status) => changeFilter({ status: String(status) })}>
-        <TabBar layout="hug">
-          {KIT_FLOW.map((step) => (
-            <Tab
-              key={step}
-              value={step}
-              count={
-                summary.data
-                  ? (summary.data[
-                      step === 'PREPARING'
-                        ? 'preparing'
-                        : step === 'SHIPPING'
-                          ? 'shipping'
-                          : 'delivered'
-                    ] ?? 0)
-                  : undefined
-              }
-            >
-              {TAB_LABEL[step]}
-            </Tab>
-          ))}
-        </TabBar>
-      </Tabs>
-      {summary.data && (summary.data.beforeRefundDeadline ?? 0) > 0 && (
-        // 아직 취소될 수 있어 보낼 수 없는 키트 (송장 입력 대기 안에 섞여 있다)
-        <p className="text-body2-medium text-text-secondary">
-          환불 기한 전 {summary.data.beforeRefundDeadline}건
-        </p>
-      )}
+        <TextField
+          aria-label="주문번호 · 이름으로 찾기"
+          placeholder="주문번호 · 이름으로 찾기"
+          className="w-80"
+          {...register('q', { onChange: () => setUrl({ page: '1' }) })}
+        />
+      </div>
 
-      <ConsoleCard className="rounded-md border border-border-default shadow-none">
-        <div className="flex items-end gap-4">
-          <Select
-            label="대회"
-            items={raceItems}
-            value={url.race}
-            onValueChange={(value) => changeFilter({ race: value ?? ALL })}
-            className="flex-1"
+      <section
+        aria-label="키트 주문"
+        className="flex flex-col gap-4 rounded-md border border-border-default p-6"
+      >
+        {summary.isError && (
+          <Alert
+            tone="danger"
+            title="배송 건수를 불러오지 못했어요"
+            description={kitErrorMessage(summary.error)}
           />
-        </div>
-      </ConsoleCard>
+        )}
+        <Tabs
+          value={url.status}
+          onValueChange={(status) => changeFilter({ status: String(status) })}
+        >
+          <TabBar layout="hug" className="px-0">
+            {KIT_FLOW.map((step) => (
+              <Tab
+                key={step}
+                value={step}
+                count={
+                  summary.data
+                    ? (summary.data[
+                        step === 'PREPARING'
+                          ? 'preparing'
+                          : step === 'SHIPPING'
+                            ? 'shipping'
+                            : 'delivered'
+                      ] ?? 0)
+                    : undefined
+                }
+              >
+                {TAB_LABEL[step]}
+              </Tab>
+            ))}
+          </TabBar>
+        </Tabs>
+        {summary.data && (summary.data.beforeRefundDeadline ?? 0) > 0 && (
+          // 아직 취소될 수 있어 보낼 수 없는 키트 (송장 입력 대기 안에 섞여 있다)
+          <p className="text-body2-medium text-text-secondary">
+            환불 기한 전 {summary.data.beforeRefundDeadline}건
+          </p>
+        )}
 
-      <div className="flex flex-wrap items-start gap-6">
-        <ConsoleCard
-          title={`주문 ${kits.data?.totalElements ?? 0}건`}
-          aside={
+        {result && result.done > 0 && (
+          <Alert tone="success" title={`${result.done}건을 ${TO[next]} 바꿨어요`} />
+        )}
+        {result && result.failures.length > 0 && (
+          <Alert
+            tone="danger"
+            title={`${result.failures.length}건은 바꾸지 못했어요`}
+            description={result.failures
+              .map((f) => `${orderNoOf(f.orderItemId)}: ${kitErrorMessage(f.error)}`)
+              .join(' / ')}
+          />
+        )}
+
+        {kits.isError ? (
+          <Alert
+            tone="danger"
+            title="키트 주문을 불러오지 못했어요"
+            description={kitErrorMessage(kits.error)}
+          />
+        ) : !kits.data ? (
+          <Skeleton className="h-40 w-full" />
+        ) : rows.length === 0 ? (
+          <EmptyState title="키트 주문이 없어요" />
+        ) : (
+          <table aria-label="키트 주문" className="w-full table-fixed text-body2-regular">
+            <thead>
+              <tr className="border-b border-border-default">
+                <th className={cn(TH, 'w-10')}>
+                  <span className="sr-only">고르기</span>
+                </th>
+                <th className={cn(TH, 'w-44 pl-3')}>주문번호</th>
+                <th className={cn(TH, 'w-28')}>참가자</th>
+                <th className={TH}>대회 · 종목</th>
+                <th className={TH}>키트 옵션</th>
+                <th className={cn(TH, 'w-40')}>택배사</th>
+                <th className={cn(TH, 'w-44')}>송장 번호</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pageRows.map((kit) => {
+                const id = kitId(kit)
+                const editable = preparing && kit.kitDeliveryStatus === 'PREPARING'
+                return (
+                  <tr key={id} className="h-14 border-b border-border-default last:border-b-0">
+                    <td>
+                      <Checkbox
+                        aria-label={`${kit.orderNo} 고르기`}
+                        checked={checked.includes(id)}
+                        onCheckedChange={(on) => toggle(id, on)}
+                      />
+                    </td>
+                    <td className="truncate pl-3">{kit.orderNo}</td>
+                    {/* 참가자 이름은 Clarity 화면 녹화에서 가린다 */}
+                    <td className="truncate" data-clarity-mask="true">
+                      {kit.participantName}
+                    </td>
+                    <td className="truncate pr-2">
+                      {[raceTitle(kit.raceId), kit.courseName].filter(Boolean).join(' · ')}
+                    </td>
+                    <td className="truncate pr-2">{kitOption(kit)}</td>
+                    <td className="pr-2">
+                      {editable ? (
+                        <Select
+                          aria-label={`${kit.orderNo} 택배사`}
+                          items={CARRIERS}
+                          value={inputs[id]?.carrier ?? CARRIERS[0].value}
+                          onValueChange={(value) =>
+                            setInput(id, { carrier: value ?? CARRIERS[0].value })
+                          }
+                        />
+                      ) : (
+                        kit.kitCarrier
+                      )}
+                    </td>
+                    <td>
+                      {editable ? (
+                        <TextField
+                          aria-label={`${kit.orderNo} 송장 번호`}
+                          placeholder="송장 번호"
+                          inputMode="numeric"
+                          value={inputs[id]?.tracking ?? ''}
+                          onChange={(event) => setInput(id, { tracking: event.target.value })}
+                        />
+                      ) : (
+                        kit.kitTrackingNumber
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
+
+        {selected.length > 0 && url.status !== 'DELIVERED' && (
+          // 하나 이상 고르면 표 아래에 뜨는 막대: 검정 2px 테두리
+          <div
+            role="region"
+            aria-label="선택한 주문"
+            className="flex items-center gap-3 rounded-md px-5 py-3 inset-ring-2 inset-ring-text-primary"
+          >
+            <p className="flex-1 text-body1-bold">{selected.length}건 선택</p>
+            {blocker && <p className="text-body2-regular text-text-secondary">{blocker}</p>}
+            <Button variant="secondary" onClick={() => setChecked([])}>
+              선택 풀기
+            </Button>
+            <Button disabled={!canSubmit} loading={pending} onClick={submit}>
+              {selected.length}건 {TO[next]} 바꾸기
+            </Button>
+          </div>
+        )}
+
+        {totalPages > 1 && (
+          <nav aria-label="쪽" className="flex items-center justify-center gap-4">
             <button
               type="button"
-              className={cn('rounded-sm text-body2-medium text-text-brand', FOCUS_RING)}
+              aria-label="이전 쪽"
+              disabled={page <= 1}
+              onClick={() => setUrl({ page: String(page - 1) })}
+              className={cn('rounded-sm disabled:opacity-30', FOCUS_RING)}
             >
-              주문번호로 찾기
+              <Icon name="ChevronLeft" className="size-4" />
             </button>
-          }
-          className="min-w-130 flex-1 rounded-md border border-border-default shadow-none"
-        >
-          {kits.isError ? (
-            <Alert
-              tone="danger"
-              title="키트 주문을 불러오지 못했어요"
-              description={kitErrorMessage(kits.error)}
-            />
-          ) : !kits.data ? (
-            <Skeleton className="h-40 w-full" />
-          ) : rows.length === 0 ? (
-            <EmptyState
-              title="키트 주문이 없어요"
-              description="결제가 끝난 키트 주문이 생기면 여기에 보여요"
-            />
-          ) : (
-            <DataTable
-              label="키트 주문"
-              rows={rows}
-              rowKey={(k) => String(kitId(k))}
-              selected={checked.map(String)}
-              columns={[
-                {
-                  key: 'check',
-                  header: <span className="sr-only">고르기</span>,
-                  width: 'w-12',
-                  render: (k) => (
-                    <Checkbox
-                      aria-label={`${k.orderNo} 고르기`}
-                      checked={checked.includes(kitId(k))}
-                      onCheckedChange={(on) => toggle(kitId(k), on)}
-                    />
-                  ),
-                },
-                { key: 'id', header: '주문번호', width: 'w-40', render: (k) => k.orderNo },
-                {
-                  key: 'buyer',
-                  header: '구매자',
-                  width: 'w-22.5',
-                  // 구매자 이름 · 배송지는 Clarity 화면 녹화에서 가린다
-                  render: (k) => <span data-clarity-mask="true">{k.participantName}</span>,
-                },
-                { key: 'option', header: '키트 옵션', render: kitOption },
-                ...(url.status === 'PREPARING'
-                  ? [
-                      {
-                        key: 'ship',
-                        header: '택배사 · 송장 번호',
-                        width: 'w-80',
-                        render: (k: Kit) => (
-                          <div className="flex gap-2">
-                            <Select
-                              aria-label={`${k.orderNo} 택배사`}
-                              items={CARRIERS}
-                              value={inputs[kitId(k)]?.carrier ?? CARRIERS[0].value}
-                              onValueChange={(value) =>
-                                setInput(kitId(k), { carrier: value ?? CARRIERS[0].value })
-                              }
-                              className="w-32"
-                            />
-                            <TextField
-                              aria-label={`${k.orderNo} 송장 번호`}
-                              inputMode="numeric"
-                              value={inputs[kitId(k)]?.tracking ?? ''}
-                              onChange={(event) =>
-                                setInput(kitId(k), { tracking: event.target.value })
-                              }
-                              className="flex-1"
-                            />
-                          </div>
-                        ),
-                      },
-                    ]
-                  : []),
-                {
-                  key: 'status',
-                  header: '상태',
-                  width: 'w-25',
-                  render: (k) => {
-                    const status = KIT_STATUS[k.kitDeliveryStatus ?? 'PREPARING']
-                    return (
-                      <span
-                        className={cn(
-                          'text-body2-medium',
-                          STATUS_TEXT[k.kitDeliveryStatus ?? 'PREPARING'],
-                        )}
-                      >
-                        {status.label}
-                      </span>
-                    )
-                  },
-                },
-                {
-                  key: 'address',
-                  header: '배송지',
-                  width: 'w-27.5',
-                  render: (k) => (
-                    <span data-clarity-mask="true">{shortAddress(k.shippingAddress?.address)}</span>
-                  ),
-                },
-              ]}
-            />
-          )}
-        </ConsoleCard>
-
-        <ConsoleCard
-          title="배송 상태 바꾸기"
-          className="w-90 shrink-0 rounded-md border border-border-default shadow-none"
-        >
-          <p className="text-body2-regular text-text-secondary">
-            {selected.length}건 선택
-            {selectedLabels.length > 0 && ` · ${selectedLabels.join(' · ')}`}
-          </p>
-          {blocker && <p className="text-body2-regular text-text-secondary">{blocker}</p>}
-          {result && result.done > 0 && (
-            <Alert tone="success" title={`${result.done}건을 ${TO[next]} 바꿨어요`} />
-          )}
-          {result && result.failures.length > 0 && (
-            <Alert
-              tone="danger"
-              title={`${result.failures.length}건은 바꾸지 못했어요`}
-              description={result.failures
-                .map((f) => `${orderNoOf(f.orderItemId)}: ${kitErrorMessage(f.error)}`)
-                .join(' / ')}
-            />
-          )}
-          <Button className="w-full" disabled={!canSubmit} onClick={submit}>
-            {TO[next]} 바꾸기
-          </Button>
-        </ConsoleCard>
-      </div>
+            <span className="text-body2-medium">
+              {page} / {totalPages}
+            </span>
+            <button
+              type="button"
+              aria-label="다음 쪽"
+              disabled={page >= totalPages}
+              onClick={() => setUrl({ page: String(page + 1) })}
+              className={cn('rounded-sm disabled:opacity-30', FOCUS_RING)}
+            >
+              <Icon name="ChevronRight" className="size-4" />
+            </button>
+          </nav>
+        )}
+      </section>
     </ConsolePage>
   )
 }
