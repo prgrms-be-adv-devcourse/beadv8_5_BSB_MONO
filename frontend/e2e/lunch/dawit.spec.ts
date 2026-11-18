@@ -193,7 +193,7 @@ test.describe('다윗', { tag: '@dawit' }, () => {
 
     await uiLogin(page, buyer)
     await page.goto(`/races/${course.raceId}`)
-    await page.getByRole('link', { name: '신청하기' }).first().click()
+    await page.getByRole('button', { name: '신청하기' }).first().click()
     // 대기열을 지나 신청서로 넘어간다(설계 문서의 대기열 최대 대기 30초)
     await expect(page).toHaveURL(/\/apply/, { timeout: 30_000 })
 
@@ -347,7 +347,7 @@ test.describe('다윗', { tag: '@dawit' }, () => {
     // 카카오 주소 검색을 막아 주소를 직접 입력하게 한다(AddressSearch가 불러오기 실패면 칸을 연다)
     await page.route(/postcode\.v2\.js/, (route) => route.abort())
     await page.goto(`/races/${course.raceId}`)
-    await page.getByRole('link', { name: '신청하기' }).first().click()
+    await page.getByRole('button', { name: '신청하기' }).first().click()
     await expect(page).toHaveURL(/\/apply/, { timeout: 30_000 })
 
     const p = participant('키트러너')
@@ -724,7 +724,7 @@ test.describe('다윗', { tag: '@dawit' }, () => {
       await route.fulfill({ response: res, json: body })
     })
     await page.goto(`/races/${course.raceId}`)
-    await page.getByRole('link', { name: '신청하기' }).first().click()
+    await page.getByRole('button', { name: '신청하기' }).first().click()
     await expect(page.getByRole('heading', { name: /잠시 기다리고 있어요/ })).toBeVisible({
       timeout: 30_000,
     })
@@ -745,7 +745,7 @@ test.describe('다윗', { tag: '@dawit' }, () => {
     const course = await onSaleCourse(DUMMY_RACES[2])
     const buyer = freshBuyer('97')
     await page.goto(`/races/${course.raceId}`)
-    await page.getByRole('link', { name: '신청하기' }).first().click()
+    await page.getByRole('button', { name: '신청하기' }).first().click()
     // 로그인 화면으로 가고, 로그인하면 대기열을 지나 신청서로 이어진다
     await expect(page).toHaveURL(/\/login\?next=/, { timeout: 20_000 })
     await fillLogin(page, buyer)
