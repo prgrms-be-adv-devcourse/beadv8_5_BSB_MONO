@@ -189,13 +189,13 @@ async function fillLogin(page: Page, email: string) {
 async function pickBirth(page: Page, birth: string) {
   const [year, month, day] = birth.split('-').map(Number)
   await page.getByRole('button', { name: /^생년월일/ }).click()
-  const popup = page.getByRole('dialog', { name: '생년월일 고르기' })
+  const popup = page.getByRole('dialog', { name: '생년월일 고르기', exact: true })
   await popup.getByRole('button', { name: /연·월 고르기/ }).click()
-  await popup.getByRole('option', { name: `${year}년` }).click()
-  await popup.getByRole('option', { name: `${month}월` }).click()
+  await popup.getByRole('option', { name: `${year}년`, exact: true }).click()
+  await popup.getByRole('option', { name: `${month}월`, exact: true }).click()
   await popup.getByRole('button', { name: /연·월 고르기/ }).click()
   await popup.getByRole('button', { name: new RegExp(`${year}년 ${month}월 ${day}일`) }).click()
-  await popup.getByRole('button', { name: '선택 완료' }).click()
+  await popup.getByRole('button', { name: '선택 완료', exact: true }).click()
 }
 
 test.describe('다윗', { tag: '@dawit' }, () => {
