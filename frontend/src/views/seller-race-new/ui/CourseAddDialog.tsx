@@ -3,7 +3,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Controller, useForm } from 'react-hook-form'
 
-import { Dialog, Select, TextField } from '@/shared/ui'
+import { Checkbox, Dialog, Select, TextField } from '@/shared/ui'
 
 import {
   COURSE_DRAFT_DEFAULTS,
@@ -56,11 +56,10 @@ export function CourseAddDialog({ open, onOpenChange, onAdd }: CourseAddDialogPr
   })
 
   // 숫자 칸은 inputMode로 숫자 자판을 띄우고, 검사는 zod 스키마가 한다
-  const field = (key: keyof CourseDraftInput, label: string, extra?: { helper?: string }) => (
+  const field = (key: Exclude<keyof CourseDraftInput, 'adultOnly'>, label: string) => (
     <TextField
       label={label}
       error={errors[key]?.message}
-      helper={extra?.helper}
       inputMode={key === 'name' ? undefined : 'decimal'}
       className="flex-1"
       {...register(key)}
@@ -99,11 +98,14 @@ export function CourseAddDialog({ open, onOpenChange, onAdd }: CourseAddDialogPr
             {field('price', '참가비 (원)')}
             {field('individualQuota', '모집 정원 (명)')}
           </div>
-          <div className="flex gap-3">
-            {field('timeLimitMinutes', '제한 시간 (분)')}
-            {field('minAge', '최소 나이 (만)')}
-            {field('maxAge', '최대 나이 (만)', { helper: '비우면 제한 없음' })}
-          </div>
+          <div className="flex gap-3">{field('timeLimitMinutes', '제한 시간 (분)')}</div>
+          <Controller
+            control={control}
+            name="adultOnly"
+            render={({ field: { value, onChange } }) => (
+              <Checkbox label="성인만 받기" checked={value} onCheckedChange={onChange} />
+            )}
+          />
         </div>
       }
     />

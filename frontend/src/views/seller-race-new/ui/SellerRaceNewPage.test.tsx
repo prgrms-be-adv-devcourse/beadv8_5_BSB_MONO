@@ -208,8 +208,8 @@ describe('SellerRaceNewPage', () => {
 
     const row = screen.getByRole('cell', { name: '하프' }).closest('tr') as HTMLElement
     expect(within(row).getByRole('cell', { name: '성인만' })).toBeInTheDocument()
-    // 기본 종목은 제한이 없어 나이 문구가 없다
-    expect(screen.queryByText(/만 \d+세/)).not.toBeInTheDocument()
+    // 기본 종목 둘은 제한이 없어 나이 문구가 없다
+    expect(screen.getAllByRole('cell', { name: '성인만' })).toHaveLength(1)
   })
 
   it('종목을 모두 지우고 등록하기를 누르면 종목을 추가하라고 한다', async () => {

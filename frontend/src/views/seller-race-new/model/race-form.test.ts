@@ -117,7 +117,7 @@ describe('courseDraftSchema 종목 추가 창', () => {
   }
 
   // 칸별 첫 오류 문구
-  function errorsOf(input: Record<string, string>) {
+  function errorsOf(input: Record<string, unknown>) {
     const result = courseDraftSchema.safeParse(input)
     if (result.success) throw new Error('오류가 나야 한다')
     const errors: Record<string, string> = {}

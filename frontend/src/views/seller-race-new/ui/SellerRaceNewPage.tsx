@@ -26,6 +26,7 @@ import {
 } from '@/shared/ui'
 
 import {
+  ADULT_MIN_AGE,
   createRaceFormSchema,
   earliestSaleOpenDate,
   MAX_INTRO_IMAGES,
@@ -65,7 +66,7 @@ function courseRow(course: RaceCourseInput, id: string, index: number) {
     course: course.name,
     price: formatWon(course.price),
     capacity: `${formatNumber(course.crewQuota + course.individualQuota)}명`,
-    age: `만 ${course.minAge}세 ~ ${course.maxAge ? `만 ${course.maxAge}세` : '제한 없음'}`,
+    age: course.minAge >= ADULT_MIN_AGE ? '성인만' : '',
     kit: course.kitIncluded ? '포함' : '없음',
   }
 }
@@ -306,8 +307,8 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
             />
             <TextField
               label="참가 가능 나이"
-              defaultValue="종목마다 최소 · 최대 나이를 정해요"
-              helper="대회 당일 만 나이 · 최소는 만 14세 이상"
+              defaultValue="종목마다 성인만 받을지 정해요"
+              helper="대회 당일 만 나이 · 성인은 만 19세 이상"
               readOnly
               className="flex-1"
             />
