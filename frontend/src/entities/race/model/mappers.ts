@@ -72,6 +72,17 @@ export function raceBadge(
   return { label: '접수 중', tone: 'brand' }
 }
 
+/** 목록 사진 위 배지(v3): 접수 중은 없음, 마감 임박은 남은 날(D-2), 오픈 예정은 브랜드 톤 */
+function listBadge(race: SummaryDto, now: Date): RaceBadge | undefined {
+  const badge = raceBadge(race, now)
+  if (badge.label === '접수 중') return undefined
+  if (badge.tone === 'warning' && race.applicationCloseAt) {
+    return { label: formatDDay(race.applicationCloseAt, now), tone: 'warning' }
+  }
+  if (badge.label === '오픈 예정') return { ...badge, tone: 'brand' }
+  return badge
+}
+
 export function toRaceListItem(race: SummaryDto, now: Date = new Date()): RaceListItem {
   const place = race.location ?? ''
   return {
@@ -79,7 +90,7 @@ export function toRaceListItem(race: SummaryDto, now: Date = new Date()): RaceLi
     title: race.title ?? '',
     image: race.imageUrl,
     posterLabel: courseNames(race.courses).join(' · '),
-    badge: raceBadge(race, now),
+    badge: listBadge(race, now),
     meta: race.raceDate ? `${formatRaceDate(race.raceDate)} · ${place}` : place,
     price: `${formatNumber(race.minPrice ?? 0)}원부터`,
   }
