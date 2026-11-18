@@ -12,8 +12,11 @@ export function saveCsv(text: string, fileName: string) {
   const link = document.createElement('a')
   link.href = url
   link.download = fileName
+  // 문서에 붙여야 옛 Firefox도 받고, 주소를 바로 지우면 Safari가 받기 전에 파일이 사라진다
+  document.body.append(link)
   link.click()
-  URL.revokeObjectURL(url)
+  link.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
 /** 서버가 붙이는 이름과 같은 꼴: kit-shipments-<대회 ID 또는 all>-<날짜>.csv */

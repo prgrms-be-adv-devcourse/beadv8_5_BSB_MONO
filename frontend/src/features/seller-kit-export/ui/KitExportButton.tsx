@@ -18,6 +18,8 @@ export function KitExportButton({ filters }: { filters: KitFilters }) {
   const exportKits = useExportKits()
 
   function changeOpen(next: boolean) {
+    // 받는 중에 닫아도 요청은 멈추지 않아 파일이 저장된다. 취소한 줄 알지 않게 닫지 못하게 한다
+    if (!next && exportKits.isPending) return
     setOpen(next)
     if (!next) {
       setReason('')

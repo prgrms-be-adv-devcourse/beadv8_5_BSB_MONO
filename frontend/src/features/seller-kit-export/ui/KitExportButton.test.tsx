@@ -94,6 +94,26 @@ describe('KitExportButton', () => {
     expect(clicked).toHaveLength(0)
   })
 
+  it('받는 중에는 취소를 눌러도 창이 닫히지 않는다', async () => {
+    let finish = () => {}
+    server.use(
+      http.post(EXPORT_URL, async () => {
+        await new Promise<void>((resolve) => (finish = resolve))
+        return new HttpResponse('a\r\n', { headers: { 'Content-Type': 'text/csv' } })
+      }),
+    )
+    renderButton()
+
+    await openAndType('택배사 일괄 접수')
+    await userEvent.click(screen.getByRole('button', { name: '내려받기' }))
+    await vi.waitFor(() => expect(finish).not.toBe(undefined))
+    await userEvent.click(screen.getByRole('button', { name: '취소' }))
+
+    expect(screen.getByLabelText(/내려받는 사유/)).toBeInTheDocument()
+    finish()
+    await vi.waitFor(() => expect(clicked).toHaveLength(1))
+  })
+
   it('서버가 거절하면 서버 문구를 보여 주고 파일을 만들지 않는다', async () => {
     server.use(
       http.post(EXPORT_URL, () =>
