@@ -186,6 +186,39 @@ class ApiV1SellerOrderTest {
 	}
 
 	@Test
+	@DisplayName("keyword 한 칸으로 참가자 이름 또는 주문번호를 부분 일치 검색한다. 없는 말은 빈 목록이고 다른 조건과 함께 걸린다")
+	void keywordSearch() throws Exception {
+		setUpCourses();
+		long first = paidOrder(BUYER_ID, COURSE_ID);
+		paidOrder(BUYER_ID + 1, COURSE_ID);
+		String firstOrderNo = jdbcTemplate.queryForObject("select order_no from order_order where id = ?",
+			String.class, first);
+
+		// 참가자 이름은 두 주문 모두 "김러너"라 이름으로 찾으면 둘 다, 부분 일치도 된다
+		orders(SELLER_MEMBER_ID, "keyword", "김러너")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.totalElements").value(2));
+		orders(SELLER_MEMBER_ID, "keyword", "러너")
+			.andExpect(jsonPath("$.data.totalElements").value(2));
+		// 주문번호로 찾으면 그 주문 하나만
+		orders(SELLER_MEMBER_ID, "keyword", firstOrderNo)
+			.andExpect(jsonPath("$.data.totalElements").value(1))
+			.andExpect(jsonPath("$.data.orders[0].orderItemId").value(itemIdOf(first)));
+		// 없는 말은 빈 목록
+		orders(SELLER_MEMBER_ID, "keyword", "박파티")
+			.andExpect(jsonPath("$.data.totalElements").value(0));
+		// 빈 keyword는 거르지 않는다
+		orders(SELLER_MEMBER_ID, "keyword", "   ")
+			.andExpect(jsonPath("$.data.totalElements").value(2));
+		// 다른 조건과 함께 걸린다: 주문번호가 맞아도 다른 종목으로 거르면 0
+		orders(SELLER_MEMBER_ID, "keyword", firstOrderNo, "raceCourseId", String.valueOf(OTHER_COURSE_ID))
+			.andExpect(jsonPath("$.data.totalElements").value(0));
+		// 자기 대회만: 남의 판매자는 이 주문번호로 못 찾는다
+		orders(OTHER_SELLER_MEMBER_ID, "keyword", firstOrderNo)
+			.andExpect(jsonPath("$.data.totalElements").value(0));
+	}
+
+	@Test
 	@DisplayName("결제 대기 주문은 결제 대기로 나오고, 기한이 지나 만료되면 빠진다. 키트 없는 참가권도 나온다")
 	void pendingExpiredAndKitless() throws Exception {
 		setUpCourses();

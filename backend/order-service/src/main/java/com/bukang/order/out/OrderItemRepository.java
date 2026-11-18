@@ -198,6 +198,7 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
 	/**
 	 * 판매자의 주문 목록 (BUK-227). 주문 상품(참가권 1장)마다 한 줄, 최근 주문 상품부터. 키트 없는 참가권도 나온다
 	 * 기한이 지나 만료된 주문은 판 적이 없으므로 빠진다. 다른 조건은 null이면 거르지 않는다
+	 * keyword가 있으면 참가자 이름 또는 주문번호에 그 말이 든 것만 (한 칸 통합 검색, CRU-54). 호출 쪽이 %로 감싸 넘긴다
 	 * 주문일(o.createDate)은 from 이상 to 미만이다. idx_order_item_seller(seller_id, id)로 찾는다
 	 */
 	@Query(value = """
@@ -214,6 +215,7 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
 			and (:partyId is null or p.partyId = :partyId)
 			and (:from is null or o.createDate >= :from)
 			and (:to is null or o.createDate < :to)
+			and (:keyword is null or p.participant.name like :keyword or o.orderNo like :keyword)
 		order by i.id desc
 		""", countQuery = """
 		select count(i)
@@ -228,11 +230,12 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
 			and (:partyId is null or p.partyId = :partyId)
 			and (:from is null or o.createDate >= :from)
 			and (:to is null or o.createDate < :to)
+			and (:keyword is null or p.participant.name like :keyword or o.orderNo like :keyword)
 		""")
 	Page<SellerOrderDto> findSellerOrders(@Param("sellerId") long sellerId, @Param("raceId") Long raceId,
 		@Param("raceCourseId") Long raceCourseId, @Param("status") OrderItemStatus status,
 		@Param("partyId") Long partyId, @Param("from") LocalDateTime from, @Param("to") LocalDateTime to,
-		Pageable pageable);
+		@Param("keyword") String keyword, Pageable pageable);
 
 	/**
 	 * 대회 참가자 명단 (BUK-228). 결제 완료(참가 확정)인 참가권만, 종목·주문 상품 순으로. 취소 중·취소·결제 전은 빠진다
