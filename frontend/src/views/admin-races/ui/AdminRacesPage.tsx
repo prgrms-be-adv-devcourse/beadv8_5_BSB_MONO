@@ -4,7 +4,7 @@ import { useState } from 'react'
 
 import { CONSOLE_BOX, ConsoleCard, ConsolePage } from '@/widgets/console-page'
 import { cn } from '@/shared/lib'
-import { Badge, DataTable, FOCUS_RING, KeyValue, type BadgeTone } from '@/shared/ui'
+import { Badge, Button, DataTable, KeyValue, type BadgeTone } from '@/shared/ui'
 
 type Race = {
   id: string
@@ -88,12 +88,9 @@ export function AdminRacesPage() {
         <ConsoleCard
           title={`대회 ${RACES.length}개`}
           aside={
-            <button
-              type="button"
-              className={cn('rounded-sm text-body2-medium text-text-brand', FOCUS_RING)}
-            >
+            <Button variant="text" size="s" className="text-text-brand">
               대회명·판매자로 찾기
-            </button>
+            </Button>
           }
           className="min-w-130 flex-1"
         >

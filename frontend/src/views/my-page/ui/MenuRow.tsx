@@ -20,13 +20,8 @@ export function MenuGroup({
   children: ReactNode
 }) {
   return (
-    <section className="flex flex-col px-4 pt-6 pb-2">
-      <h2
-        className={cn(
-          'pb-1 text-caption-regular',
-          brand ? 'text-text-brand' : 'text-text-secondary',
-        )}
-      >
+    <section className="flex flex-col px-5 pt-8">
+      <h2 className={cn('text-body2-medium', brand ? 'text-text-brand' : 'text-text-secondary')}>
         {title}
       </h2>
       {children}
@@ -38,25 +33,19 @@ type MenuRowProps = {
   icon?: IconName
   label: string
   value?: string
-  description?: string
 } & ({ href: Route } | { onClick: () => void; disabled?: boolean })
 
 // 다른 화면으로 가는 줄은 링크, 그 자리에서 실행하는 줄(로그아웃)은 같은 모양의 버튼
-export function MenuRow({ icon, label, value, description, ...action }: MenuRowProps) {
+export function MenuRow({ icon, label, value, ...action }: MenuRowProps) {
   const content = (
     <>
-      {icon && <Icon name={icon} className="size-5 shrink-0" />}
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="text-body1-medium">{label}</span>
-        {description && (
-          <span className="text-caption-regular text-text-secondary">{description}</span>
-        )}
-      </span>
-      {value && <span className="text-body2-medium">{value}</span>}
+      {icon && <Icon name={icon} className="size-6 shrink-0" />}
+      <span className="min-w-0 flex-1 text-body1-medium">{label}</span>
+      {value && <span className="text-body2-medium text-text-secondary">{value}</span>}
       <Icon name="ChevronRight" className="size-5 shrink-0 text-text-tertiary" />
     </>
   )
-  const className = cn('flex items-center gap-3 rounded-md py-3', FOCUS_RING)
+  const className = cn('flex items-center gap-3 rounded-md py-3.5', FOCUS_RING)
   if ('href' in action) {
     return (
       <Link href={action.href} className={className}>

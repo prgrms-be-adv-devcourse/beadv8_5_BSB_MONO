@@ -150,9 +150,9 @@ async function partyOrder(api: Api, partyId: number) {
   return order.data
 }
 
-// 결제 화면에서 동의하고 결제 버튼까지 누른다(충전이 필요하면 「충전하고 결제」 버튼)
-async function agreeAndPay(page: Page, name: RegExp = /원 결제$/) {
-  await page.getByText('[필수] 환불 기한을 확인했어요').click()
+// 결제 화면에서 동의하고 결제 버튼까지 누른다(충전이 필요하면 「충전하고 결제하기」 버튼)
+async function agreeAndPay(page: Page, name: RegExp = /원 결제하기$/) {
+  await page.getByText('주문 내용 확인 및 결제 동의').click()
   await page.getByRole('button', { name }).click()
 }
 
@@ -185,6 +185,19 @@ async function fillLogin(page: Page, email: string) {
   await page.getByRole('button', { name: '로그인', exact: true }).click()
 }
 
+// 생년월일은 공통 달력 칸이다. 칸을 열고 연·월 휠에서 해와 달을 고른 뒤 날짜를 눌러 확정한다
+async function pickBirth(page: Page, birth: string) {
+  const [year, month, day] = birth.split('-').map(Number)
+  await page.getByRole('button', { name: /^생년월일/ }).click()
+  const popup = page.getByRole('dialog', { name: '생년월일 고르기', exact: true })
+  await popup.getByRole('button', { name: /연·월 고르기/ }).click()
+  await popup.getByRole('option', { name: `${year}년`, exact: true }).click()
+  await popup.getByRole('option', { name: `${month}월`, exact: true }).click()
+  await popup.getByRole('button', { name: /연·월 고르기/ }).click()
+  await popup.getByRole('button', { name: new RegExp(`${year}년 ${month}월 ${day}일`) }).click()
+  await popup.getByRole('button', { name: '선택 완료', exact: true }).click()
+}
+
 test.describe('다윗', { tag: '@dawit' }, () => {
   test('22 개인 일반 예매', async ({ page }) => {
     const course = await onSaleCourse(DUMMY_RACES[0])
@@ -193,13 +206,13 @@ test.describe('다윗', { tag: '@dawit' }, () => {
 
     await uiLogin(page, buyer)
     await page.goto(`/races/${course.raceId}`)
-    await page.getByRole('link', { name: '신청하기' }).first().click()
+    await page.getByRole('button', { name: '신청하기' }).first().click()
     // 대기열을 지나 신청서로 넘어간다(설계 문서의 대기열 최대 대기 30초)
     await expect(page).toHaveURL(/\/apply/, { timeout: 30_000 })
 
     const p = participant('김러너')
     await page.getByLabel('이름', { exact: true }).fill(p.name)
-    await page.getByLabel('생년월일').fill(p.birth)
+    await pickBirth(page, p.birth)
     await page.getByLabel('휴대폰 번호').fill(p.phone.replaceAll('-', ''))
     await page.getByRole('radio', { name: '여성' }).check()
     await page.getByLabel('비상 연락처 이름').fill(p.emergencyContactName)
@@ -208,8 +221,8 @@ test.describe('다윗', { tag: '@dawit' }, () => {
     await page.getByRole('button', { name: '다음' }).click()
 
     await expect(page).toHaveURL(/\/checkout\?orderId=\d+/, { timeout: 20_000 })
-    await page.getByText('[필수] 환불 기한을 확인했어요').click()
-    await page.getByRole('button', { name: /원 결제$/ }).click()
+    await page.getByText('주문 내용 확인 및 결제 동의').click()
+    await page.getByRole('button', { name: /원 결제하기$/ }).click()
     await expect(page).toHaveURL(/\/checkout\/complete/, { timeout: 30_000 })
 
     // 예치금이 참가비만큼 줄었는지, 내 참가권에 대회가 보이는지 확인한다
@@ -265,7 +278,9 @@ test.describe('다윗', { tag: '@dawit' }, () => {
 
     await uiLogin(page, buyer)
     await page.goto(`/checkout?orderId=${orderId}`)
-    await expect(page.getByRole('button', { name: /원 결제$/ })).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByRole('button', { name: /원 결제하기$/ })).toBeVisible({
+      timeout: 30_000,
+    })
 
     // 예치금 응답을 늦춘다: 예치금 서비스가 결제 때 잠그는 지갑 줄(지갑 ID = 회원 ID, CashSupport)을 DB에서 12초 잡아 둔다.
     // 주문은 예치금을 2초(order.clients.timeout)만 기다리고 결과를 몰라 결제 중(202)으로 둔다. 앱 설정은 바꾸지 않는다
@@ -323,7 +338,7 @@ test.describe('다윗', { tag: '@dawit' }, () => {
       (res) =>
         res.url().includes(`/orders/${orderId}/payment`) && res.request().method() === 'POST',
     )
-    await agreeAndPay(page, /충전하고 결제$/)
+    await agreeAndPay(page, /충전하고 결제하기$/)
     const res = await paying
     expect(res.status()).toBe(409)
     const body = (await res.json()) as { code?: string; data?: { shortage?: number } }
@@ -345,12 +360,12 @@ test.describe('다윗', { tag: '@dawit' }, () => {
     // 카카오 주소 검색을 막아 주소를 직접 입력하게 한다(AddressSearch가 불러오기 실패면 칸을 연다)
     await page.route(/postcode\.v2\.js/, (route) => route.abort())
     await page.goto(`/races/${course.raceId}`)
-    await page.getByRole('link', { name: '신청하기' }).first().click()
+    await page.getByRole('button', { name: '신청하기' }).first().click()
     await expect(page).toHaveURL(/\/apply/, { timeout: 30_000 })
 
     const p = participant('키트러너')
     await page.getByLabel('이름', { exact: true }).fill(p.name)
-    await page.getByLabel('생년월일').fill(p.birth)
+    await pickBirth(page, p.birth)
     await page.getByLabel('휴대폰 번호').fill(p.phone.replaceAll('-', ''))
     await page.getByRole('radio', { name: '여성' }).check()
     await page.getByLabel('비상 연락처 이름').fill(p.emergencyContactName)
@@ -557,7 +572,7 @@ test.describe('다윗', { tag: '@dawit' }, () => {
     const p = participant('합류러너')
     await page.getByText('개인정보 제3자 제공에 동의해요 (필수)').click()
     await page.getByLabel('참가자 이름').fill(p.name)
-    await page.getByLabel('생년월일').fill(p.birth)
+    await pickBirth(page, p.birth)
     await page.getByRole('radio', { name: '여성' }).check()
     await page.getByLabel('휴대폰 번호').fill(p.phone.replaceAll('-', ''))
     await page.getByLabel('비상 연락처 이름').fill(p.emergencyContactName)
@@ -586,7 +601,8 @@ test.describe('다윗', { tag: '@dawit' }, () => {
     // 파티원은 화면에서 나간다. 나가면 크루 화면으로 가고 내 신청서는 취소된다
     await uiLogin(page, buyers[3])
     await page.goto(`/parties/${partyId}`)
-    await page.getByRole('button', { name: '파티 나가기' }).click()
+    await page.getByRole('button', { name: '더보기' }).click()
+    await page.getByRole('menuitem', { name: '파티 나가기' }).click()
     await page.getByRole('button', { name: '나가기', exact: true }).click()
     await expect(page).toHaveURL(new RegExp(`/crews/${crewId}$`), { timeout: 20_000 })
     expect(participationStatus(partyId, members[2].memberId)).toBe('CANCELED')
@@ -721,7 +737,7 @@ test.describe('다윗', { tag: '@dawit' }, () => {
       await route.fulfill({ response: res, json: body })
     })
     await page.goto(`/races/${course.raceId}`)
-    await page.getByRole('link', { name: '신청하기' }).first().click()
+    await page.getByRole('button', { name: '신청하기' }).first().click()
     await expect(page.getByRole('heading', { name: /잠시 기다리고 있어요/ })).toBeVisible({
       timeout: 30_000,
     })
@@ -734,7 +750,7 @@ test.describe('다윗', { tag: '@dawit' }, () => {
 
     // 다시 신청하면 처음부터 줄을 서고, 차례가 오면 신청서로 간다
     await page.unroute(queue)
-    await page.getByRole('link', { name: '신청하기' }).first().click()
+    await page.getByRole('button', { name: '신청하기' }).first().click()
     await expect(page).toHaveURL(/\/apply/, { timeout: 30_000 })
   })
 
@@ -767,9 +783,9 @@ test.describe('다윗', { tag: '@dawit' }, () => {
     // 결제 뒤에도 참가자 정보(비상 연락처)는 화면에서 고칠 수 있다
     await uiLogin(page, buyer)
     await page.route(/postcode\.v2\.js/, (route) => route.abort())
-    // 수정 화면은 저장 뒤 뒤로 가므로 상세에서 「고치기」로 들어간다
+    // 수정 화면은 저장 뒤 뒤로 가므로 상세에서 「참가자 정보 수정하기」로 들어간다
     await page.goto(`/tickets/${orderId}-${itemId}`)
-    await page.getByRole('link', { name: '고치기' }).click()
+    await page.getByRole('link', { name: '참가자 정보 수정하기' }).click()
     await expect(page).toHaveURL(/\/edit$/, { timeout: 20_000 })
     await page.getByRole('textbox', { name: '이름', exact: true }).fill('새보호자')
     await page.getByRole('button', { name: '저장하기' }).click()

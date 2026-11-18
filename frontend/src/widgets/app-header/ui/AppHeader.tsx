@@ -29,6 +29,8 @@ type SubProps = {
   backHref?: Route
   /** 흐름을 끝내는 화면(결제 결과 등)은 뒤로 가기 대신 닫기(X)를 쓴다 */
   close?: boolean
+  /** 있으면 뒤로 가기 대신 이 함수를 부른다 (한 화면 안의 이전 단계로 돌아갈 때) */
+  onBack?: () => void
   /** 오른쪽 아이콘 버튼 자리 (공유 등) */
   action?: ReactNode
 }
@@ -45,7 +47,7 @@ export function AppHeader(props: AppHeaderProps) {
   if (props.type === 'sub') {
     return (
       <header className={cn(base, 'px-1')}>
-        <BackButton href={props.backHref} close={props.close} />
+        <BackButton href={props.backHref} close={props.close} onBack={props.onBack} />
         <h1 className="min-w-0 flex-1 truncate text-body1-bold">{props.title}</h1>
         {props.action}
       </header>
@@ -85,13 +87,21 @@ function MainAction({ loginWhenGuest }: { loginWhenGuest?: boolean }) {
   return null
 }
 
-function BackButton({ href, close }: { href?: Route; close?: boolean }) {
+function BackButton({
+  href,
+  close,
+  onBack,
+}: {
+  href?: Route
+  close?: boolean
+  onBack?: () => void
+}) {
   const goBack = useGoBack()
   const label = close ? '닫기' : '뒤로 가기'
   const icon = <Icon name={close ? 'X' : 'ChevronLeft'} />
   // 닫기도 뒤로 간다. 끝난 화면은 폼을 replace해 들어왔으므로 출발한 화면으로 돌아가고, 같은 화면이 기록에 겹치지 않는다
   return (
-    <IconButton aria-label={label} onClick={() => goBack(href ?? '/')}>
+    <IconButton aria-label={label} onClick={() => (onBack ? onBack() : goBack(href ?? '/'))}>
       {icon}
     </IconButton>
   )

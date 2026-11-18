@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useState, type ReactNode } from 'react'
 
 import {
+  answerSchema,
   inquiryErrorMessage,
   slashDate,
   slashDateTime,
@@ -339,14 +340,17 @@ function AnswerSender({
   const toast = useToast()
   const answer = useAnswerInquiry(role, id)
 
-  const send = (text: string) =>
-    answer.mutate(text.trim(), {
+  const send = (text: string) => {
+    const parsed = answerSchema.safeParse(text)
+    if (!parsed.success) return
+    answer.mutate(parsed.data, {
       onSuccess: () => {
         toast({ message: '답변을 보냈어요. 답변 완료 목록으로 옮겼어요.' })
         onSent()
       },
       onError: (error) => toast({ message: inquiryErrorMessage(error), tone: 'error' }),
     })
+  }
 
   return <>{renderAnswer({ inquiryId: id, onSend: send, sending: answer.isPending })}</>
 }

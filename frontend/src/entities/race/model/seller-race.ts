@@ -139,8 +139,8 @@ export function toRaceEditRequest(
       kitIncluded: course.kitIncluded ?? false,
       kitPrice: course.kitPrice ?? 0,
       tshirtSizeOption: course.tshirtSizeOption ?? [],
-      minAge: course.minAge ?? 14,
-      maxAge: course.maxAge ?? undefined,
+      // 서버는 14·19만 받는다. 정리 전 옛 값(16 등)이 와도 19 이상만 성인만으로 본다
+      minAge: (course.minAge ?? 0) >= 19 ? 19 : 14,
       crewQuota: course.crewQuota ?? 0,
       individualQuota: course.individualQuota ?? 0,
       images: toImageRequests(

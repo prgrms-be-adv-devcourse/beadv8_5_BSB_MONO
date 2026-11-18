@@ -3,10 +3,11 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
-import { useForm, useWatch } from 'react-hook-form'
+import { Controller, useForm, useWatch } from 'react-hook-form'
 import { z } from 'zod'
 
 import { ConsolePage } from '@/widgets/console-page'
+import { KitExportButton } from '@/features/seller-kit-export'
 import { myRacesQueryOptions } from '@/entities/race'
 import {
   KIT_FLOW,
@@ -36,6 +37,8 @@ import {
   Tabs,
   TextField,
 } from '@/shared/ui'
+
+import { missingTracking, rowKey, shipFormSchema, type ShipFormValues } from '../model/ship-form'
 
 type Kit = orderModel.SellerKitDto
 
@@ -110,11 +113,12 @@ export function SellerKitsPage() {
   const [checked, setChecked] = useState<number[]>([])
   // 바꿀 단계는 주소의 탭에서 정한다(?status=로 바로 들어와도 맞는다)
   const next: NextStatus = url.status === 'SHIPPING' ? 'DELIVERED' : 'SHIPPING'
-  // 송장 입력 대기 줄마다 넣는 택배사 · 송장 번호 (주문 번호 → 값)
-  const [inputs, setInputs] = useState<Record<number, { carrier?: string; tracking?: string }>>({})
-  const setInput = (id: number, patch: { carrier?: string; tracking?: string }) =>
-    setInputs((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }))
-  const trackingOf = (kit: Kit) => (inputs[kitId(kit)]?.tracking ?? '').trim()
+  // 송장 입력 대기 줄마다 넣는 택배사 · 송장 번호
+  const shipForm = useForm<ShipFormValues>({
+    resolver: zodResolver(shipFormSchema),
+    defaultValues: { carrier: {}, tracking: {} },
+  })
+  const tracking = useWatch({ control: shipForm.control, name: 'tracking' }) ?? {}
   const [result, setResult] = useState<{ done: number; failures: KitFailure[] } | null>(null)
 
   const ship = useShipKits()
@@ -151,7 +155,7 @@ export function SellerKitsPage() {
       ? null
       : selected.some((kit) => kit.kitDeliveryStatus !== FROM[next])
         ? `${KIT_STATUS[FROM[next]].label} 상태인 주문만 ${TO[next]} 바꿀 수 있어요.`
-        : next === 'SHIPPING' && selected.some((kit) => !trackingOf(kit))
+        : next === 'SHIPPING' && missingTracking(selected.map(kitId), tracking)
           ? '고른 주문마다 송장 번호를 넣어 주세요.'
           : null
   const canSubmit = selected.length > 0 && !blocker && !pending
@@ -164,8 +168,8 @@ export function SellerKitsPage() {
         ? await ship.mutateAsync(
             selected.map((kit) => ({
               orderItemId: kitId(kit),
-              carrier: inputs[kitId(kit)]?.carrier ?? CARRIERS[0].value,
-              trackingNumber: trackingOf(kit),
+              carrier: shipForm.getValues(`carrier.${rowKey(kitId(kit))}`) ?? CARRIERS[0].value,
+              trackingNumber: (shipForm.getValues(`tracking.${rowKey(kitId(kit))}`) ?? '').trim(),
             })),
           )
         : await deliver.mutateAsync(selected.map((kit) => ({ orderItemId: kitId(kit) })))
@@ -173,23 +177,17 @@ export function SellerKitsPage() {
     setResult({ done: outcome.total - failedIds.length, failures: outcome.failures })
     // 성공한 건은 고른 상태에서 빼고, 실패한 건만 남겨 다시 시도하게 한다
     setChecked((prev) => prev.filter((id) => failedIds.includes(id)))
-    setInputs((prev) =>
-      Object.fromEntries(Object.entries(prev).filter(([id]) => failedIds.includes(Number(id)))),
-    )
+    // 성공한 줄의 입력은 지우고, 실패한 줄은 그대로 둔다
+    for (const kit of selected) {
+      if (failedIds.includes(kitId(kit))) continue
+      shipForm.resetField(`tracking.${rowKey(kitId(kit))}`, { defaultValue: '' })
+    }
   }
 
   const orderNoOf = (id: number) => all.find((kit) => kitId(kit) === id)?.orderNo ?? String(id)
 
   return (
-    <ConsolePage
-      title="키트 배송"
-      // TODO(api): 배송 목록 엑셀 내려받기 API가 없어 막아 둔다
-      actions={
-        <Button variant="secondary" disabled title="엑셀 내려받기는 준비 중이에요">
-          엑셀로 내려받기
-        </Button>
-      }
-    >
+    <ConsolePage title="키트 배송" actions={<KitExportButton filters={filters} />}>
       <div className="flex items-start gap-3">
         <Select
           aria-label="대회"
@@ -312,13 +310,18 @@ export function SellerKitsPage() {
                     <td className="truncate pr-2">{kitOption(kit)}</td>
                     <td className="pr-2">
                       {editable ? (
-                        <Select
-                          aria-label={`${kit.orderNo} 택배사`}
-                          items={CARRIERS}
-                          value={inputs[id]?.carrier ?? CARRIERS[0].value}
-                          onValueChange={(value) =>
-                            setInput(id, { carrier: value ?? CARRIERS[0].value })
-                          }
+                        <Controller
+                          control={shipForm.control}
+                          name={`carrier.${rowKey(id)}`}
+                          defaultValue={CARRIERS[0].value}
+                          render={({ field }) => (
+                            <Select
+                              aria-label={`${kit.orderNo} 택배사`}
+                              items={CARRIERS}
+                              value={field.value}
+                              onValueChange={(value) => field.onChange(value ?? CARRIERS[0].value)}
+                            />
+                          )}
                         />
                       ) : (
                         kit.kitCarrier
@@ -330,8 +333,7 @@ export function SellerKitsPage() {
                           aria-label={`${kit.orderNo} 송장 번호`}
                           placeholder="송장 번호"
                           inputMode="numeric"
-                          value={inputs[id]?.tracking ?? ''}
-                          onChange={(event) => setInput(id, { tracking: event.target.value })}
+                          {...shipForm.register(`tracking.${rowKey(id)}`)}
                         />
                       ) : (
                         kit.kitTrackingNumber
