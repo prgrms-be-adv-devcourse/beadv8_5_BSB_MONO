@@ -52,5 +52,9 @@ export const CREATE_JOINED_LATE: FailureCopy = {
   action: 'races',
 }
 
-export const PARTY_STATUS_STEPS = ['모집 중', '결제 진행 중', '결제 끝'] as const
-export const PARTY_STEP_INDEX = { RECRUITING: 0, PAYING: 1, PAID: 2, CLOSED: 0 } as const
+export const PARTY_STATUS_LABEL = {
+  RECRUITING: '모집 중',
+  PAYING: '결제 진행 중',
+  PAID: '결제 끝',
+  CLOSED: '끝난 파티',
+} as const

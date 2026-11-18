@@ -15,16 +15,7 @@ import {
   type InquiryStatus,
 } from '@/entities/inquiry'
 import { cn, useSearchParamsState } from '@/shared/lib'
-import {
-  Badge,
-  Button,
-  Chip,
-  Divider,
-  EmptyState,
-  FOCUS_RING,
-  Skeleton,
-  useToast,
-} from '@/shared/ui'
+import { Button, Chip, EmptyState, FOCUS_RING, Skeleton, useToast } from '@/shared/ui'
 
 type Filter = 'ALL' | InquiryStatus
 const FILTERS: { value: Filter; label: string }[] = [
@@ -109,9 +100,15 @@ export function MyInquiriesPage({ notice }: { notice?: string }) {
                       <InquiryMeta inquiry={inquiry} />
                     </span>
                   </span>
-                  <Badge tone={STATUS[inquiry.status].tone}>{STATUS[inquiry.status].label}</Badge>
+                  <span
+                    className={cn(
+                      'shrink-0 text-body2-medium',
+                      inquiry.status === 'ANSWERED' ? 'text-text-success' : 'text-text-secondary',
+                    )}
+                  >
+                    {STATUS[inquiry.status].label}
+                  </span>
                 </Link>
-                <Divider />
               </li>
             ))}
           </ul>

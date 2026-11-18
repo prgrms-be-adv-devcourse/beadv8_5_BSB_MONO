@@ -5,6 +5,9 @@ spring:
     username: ${MYSQL_USER}
     password: ${MYSQL_PASS}
     driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      # DB 연결을 기다리는 시간 (기본 30초). 몰릴 때 요청이 30초씩 쌓이지 않고 3초 만에 503으로 끝난다. 추천값(미확정, CRU-45)
+      connection-timeout: 3000
 
   jpa:
     hibernate:
@@ -29,6 +32,12 @@ spring:
   kafka:
     bootstrap-servers:
       - ${KAFKA_BOOTSTRAP_SERVERS}
+
+# 요청 스레드 (기본 200). 연결 10개에 스레드 200개가 줄을 서면 CPU만 쓰고 대기가 길어진다. 추천값(미확정, CRU-45)
+server:
+  tomcat:
+    threads:
+      max: 50
 
 # 다른 서비스는 실제 내부 API로 부른다. compose.yml의 앱 컨테이너끼리는 컨테이너 이름으로 접속한다
 order:

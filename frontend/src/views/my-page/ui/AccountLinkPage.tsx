@@ -15,7 +15,7 @@ import {
   type SocialProviderId,
 } from '@/features/auth'
 import { ApiError, memberApi, unwrapData } from '@/shared/api'
-import { Badge, Button, Dialog, Divider, Icon, useToast } from '@/shared/ui'
+import { Button, Dialog, Divider, Icon, useToast } from '@/shared/ui'
 
 import { SocialMark } from './SocialMark'
 
@@ -80,7 +80,9 @@ export function AccountLinkPage({ linked, error }: { linked?: string; error?: st
             <div className="flex min-w-0 flex-1 flex-col gap-0.5">
               <span className="flex items-center gap-2 text-body1-bold">
                 이메일
-                {me.data?.passwordSet && <Badge>사용 중</Badge>}
+                {me.data?.passwordSet && (
+                  <span className="text-body2-medium text-text-secondary">사용 중</span>
+                )}
               </span>
               {me.data?.passwordSet && (
                 <span
@@ -100,7 +102,9 @@ export function AccountLinkPage({ linked, error }: { linked?: string; error?: st
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span className="flex items-center gap-2 text-body1-bold">
                     {LABEL[provider.id]}
-                    {isConnected && <Badge>연결됨</Badge>}
+                    {isConnected && (
+                      <span className="text-body2-medium text-text-success">연결됨</span>
+                    )}
                   </span>
                   {isConnected && lastMethod && (
                     <span className="text-caption-regular text-text-secondary">

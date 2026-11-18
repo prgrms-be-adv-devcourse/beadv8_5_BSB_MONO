@@ -25,11 +25,11 @@ export function StepIntro({ title, description }: { title: string; description?:
   )
 }
 
-// 회원 화면 본문이 짧을 때 가운데로 모으는 판 (bg-default, 옆 16 · 위아래 24, 칸 사이 20)
+// 회원 화면 본문이 짧을 때 가운데로 모으는 판 (옆 20 · 위 24, 묶음 사이 28)
 export function CenterBody({ children, center = true }: { children: ReactNode; center?: boolean }) {
   return (
     <main className={center ? 'flex flex-1 flex-col justify-center' : 'flex flex-1 flex-col'}>
-      <div className="flex flex-col gap-5 px-4 py-6">{children}</div>
+      <div className="flex flex-col gap-7 px-5 pt-6 pb-6">{children}</div>
     </main>
   )
 }
@@ -83,7 +83,7 @@ export function StepHeader({ onBack, title }: { onBack?: () => void; title?: str
 
 type LineHint = { ok: boolean; text: string }
 
-// 가입 단계의 밑줄 입력 칸. 아래에 오류 문구(빨강)와 조건 확인 줄(맞으면 초록 체크)을 둔다.
+// 가입 단계의 입력 칸(흰 면 + 얇은 선). 아래에 오류 문구(빨강)와 조건 확인 줄(맞으면 초록 체크)을 둔다.
 export function LineField({
   error,
   hints,
@@ -101,15 +101,15 @@ export function LineField({
     <div className="flex flex-col gap-2">
       <div
         className={cn(
-          'flex items-center gap-2 border-b-2',
-          error ? 'border-border-danger' : 'border-text-primary',
+          'flex items-center gap-2 rounded-field bg-bg-surface px-4 inset-ring',
+          error ? 'inset-ring-2 inset-ring-border-danger' : 'inset-ring-border-default',
         )}
       >
         <input
           aria-invalid={error ? true : undefined}
           aria-describedby={messageId}
           className={cn(
-            'min-w-0 flex-1 bg-transparent py-3 text-title3 outline-none placeholder:text-text-tertiary',
+            'min-w-0 flex-1 bg-transparent py-3 text-body1-regular outline-none placeholder:text-text-tertiary',
             className,
           )}
           {...props}

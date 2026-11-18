@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 
-import { server } from '@/shared/testing'
+import { resetNavigationMock, server } from '@/shared/testing'
 
 import { SellerSalesPage } from './SellerSalesPage'
 
@@ -67,9 +67,11 @@ describe('SellerSalesPage', () => {
 
     expect(await screen.findByRole('heading', { name: '2026 춘천 나이트런' })).toBeInTheDocument()
     // 판매 120 + 80 = 200, 정원 500, 남은 자리 500 - 200 - 결제 대기 10 = 290
-    expect(screen.getByText('200')).toBeInTheDocument()
-    expect(screen.getByText('290')).toBeInTheDocument()
-    expect(screen.getAllByText('/ 500명')).toHaveLength(2)
+    expect(screen.getByText('200 / 500명')).toBeInTheDocument()
+    expect(screen.getByText('290명')).toBeInTheDocument()
+    // 결제 대기 10명도 숫자로 보인다
+    expect(screen.getByText('결제 대기')).toBeInTheDocument()
+    expect(screen.getByText('10명')).toBeInTheDocument()
     expect(screen.getByText('참가자 200명')).toBeInTheDocument()
     expect(await screen.findAllByText(/11\/5 \(목\) 23:59/)).not.toHaveLength(0)
   })
@@ -93,5 +95,22 @@ describe('SellerSalesPage', () => {
       'href',
       '/seller/races/new?from=sales',
     )
+  })
+
+  it('주소의 ?race= 로 고른 대회를 연다', async () => {
+    resetNavigationMock('race=8')
+    mockRaces([RACE, { ...RACE, raceId: 8, title: '2026 부산 트레일' }])
+    server.use(
+      http.get('*/api/v1/product/races/8', () =>
+        HttpResponse.json({
+          status: 200,
+          message: 'ok',
+          data: { raceId: 8, title: '2026 부산 트레일' },
+        }),
+      ),
+    )
+    renderPage()
+
+    expect(await screen.findByRole('heading', { name: '2026 부산 트레일' })).toBeInTheDocument()
   })
 })

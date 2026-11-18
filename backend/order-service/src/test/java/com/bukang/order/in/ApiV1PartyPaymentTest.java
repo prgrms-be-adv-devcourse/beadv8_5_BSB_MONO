@@ -57,7 +57,6 @@ import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationRepository;
 import com.bukang.order.out.PartyMemberRepository;
 import com.bukang.order.out.PartyRepository;
-import com.bukang.order.out.QueueAdmissionRepository;
 import com.bukang.order.out.race.RaceCourseInfo;
 import com.bukang.order.support.QueueEntry;
 import com.bukang.order.support.SeatOutboxMessages;
@@ -98,9 +97,6 @@ class ApiV1PartyPaymentTest {
 
 	@Autowired
 	private OrderRepository orderRepository;
-
-	@Autowired
-	private QueueAdmissionRepository queueAdmissionRepository;
 
 	@Autowired
 	private OrderOutboxKafkaEventRepository outboxRepository;
@@ -147,7 +143,6 @@ class ApiV1PartyPaymentTest {
 		participationRepository.deleteAll();
 		partyMemberRepository.deleteAll();
 		partyRepository.deleteAll();
-		queueAdmissionRepository.deleteAll();
 		raceCoursePort.clear();
 		crewPort.clear();
 		walletPort.clear();

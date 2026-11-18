@@ -2,7 +2,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 
 import { cn } from '@/shared/lib'
-import { FOCUS_RING } from '@/shared/ui'
+import { Badge, FOCUS_RING } from '@/shared/ui'
 
 import type { RaceSummary } from '../model/types'
 import { RacePoster } from './RacePoster'
@@ -28,11 +28,10 @@ export function RaceCard({ race, className }: RaceCardProps) {
             className="size-full pt-11"
           />
         )}
-        {/* 이미지 위 반투명 칩은 피그마에도 변수 없이 쓴 값이다 */}
         {race.status && (
-          <span className="absolute top-2.5 left-2.5 rounded-sm bg-[rgb(18_23_33/0.72)] px-2 py-0.75 text-caption-medium text-text-on-image">
+          <Badge tone="warning" className="absolute top-2 left-2">
             {race.status}
-          </span>
+          </Badge>
         )}
       </span>
       <span className="flex flex-col gap-1">

@@ -20,8 +20,17 @@ import com.bukang.order.dto.SellerOrderDto;
 import com.bukang.order.dto.SellerSalesSummaryDto;
 import com.bukang.order.dto.SoldEntryDto;
 import com.bukang.order.dto.SoldSummaryDto;
+import com.bukang.order.dto.TicketDto;
 
 public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
+	// 기록증 제출용 참가권 조회 (BUK-271). 산 회원은 주문의 구매자다
+	@Query("""
+		select new com.bukang.order.dto.TicketDto(i.order.buyerId, i.raceId, i.raceCourseId, i.status)
+		from OrderItem i
+		where i.id = :orderItemId
+		""")
+	Optional<TicketDto> findTicket(@Param("orderItemId") long orderItemId);
+
 	/**
 	 * 대회의 주문 상품 중 결제 완료(PAID)·취소 중(CANCELING)인 것. 취소(CANCELED)·결제 전(ORDERED)은 빠진다
 	 * 정산 배치가 정산 생성일에 부르므로, 그 전에 취소된 참가권은 돌려주지 않는다 (정산 전 취소)

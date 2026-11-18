@@ -58,7 +58,7 @@ function Row({ race }: { race: RaceListItem }) {
         />
       )}
       <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
-        <Badge tone={race.badge.tone}>{race.badge.label}</Badge>
+        {race.badge && <Badge tone={race.badge.tone}>{race.badge.label}</Badge>}
         <p className="text-body1-bold">{race.title}</p>
         <p className="text-body2-regular text-text-secondary">{race.meta}</p>
         <span className="pt-1 text-body2-medium">{race.price}</span>

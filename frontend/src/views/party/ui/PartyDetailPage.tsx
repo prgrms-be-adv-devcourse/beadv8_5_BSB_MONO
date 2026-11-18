@@ -1,5 +1,6 @@
 'use client'
 
+import { Menu } from '@base-ui/react/menu'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { Route } from 'next'
 import Link from 'next/link'
@@ -34,18 +35,29 @@ import {
 import { cn, formatNumber, useNow } from '@/shared/lib'
 import {
   Avatar,
-  Badge,
+  BottomCta,
   Button,
   buttonClassName,
   Dialog,
+  FOCUS_RING,
+  Icon,
+  IconButton,
   Skeleton,
   useToast,
   type BadgeTone,
 } from '@/shared/ui'
 
-import { PARTY_STATUS_STEPS, PARTY_STEP_INDEX } from '../lib/party-copy'
+import { PARTY_STATUS_LABEL } from '../lib/party-copy'
 import { partyJoinUrl } from '../lib/party-url'
 import { PartyLoadError } from './PartyFailureScreen'
+
+const BADGE_TEXT: Record<BadgeTone, string> = {
+  brand: 'text-text-brand',
+  success: 'text-text-success',
+  warning: 'text-text-warning',
+  danger: 'text-text-danger',
+  neutral: 'text-text-secondary',
+}
 
 const ERROR_FALLBACK = '잠시 후 다시 시도해 주세요.'
 
@@ -67,10 +79,20 @@ function memberBadge(
 export function PartyDetailPage({ partyId }: { partyId: number }) {
   const party = usePartyDetail(partyId)
   const data = party.data
+  // 머리글 ⋮ 메뉴가 여는 파티 나가기 확인 창. 확인 창은 본문이 그린다
+  const [leaveOpen, setLeaveOpen] = useState(false)
 
   return (
     <>
-      <AppHeader type="sub" title="파티 상세" />
+      <AppHeader
+        type="sub"
+        title="파티 상세"
+        action={
+          data?.status === 'RECRUITING' ? (
+            <PartyMoreMenu onLeave={() => setLeaveOpen(true)} />
+          ) : undefined
+        }
+      />
       <main className="flex flex-1 flex-col bg-bg-surface">
         {party.isPending ? (
           <div className="flex flex-col gap-4 p-4" aria-busy>
@@ -79,7 +101,7 @@ export function PartyDetailPage({ partyId }: { partyId: number }) {
             <Skeleton className="h-24 w-full" />
           </div>
         ) : data ? (
-          <PartyDetailBody party={data} />
+          <PartyDetailBody party={data} leaveOpen={leaveOpen} onLeaveOpenChange={setLeaveOpen} />
         ) : (
           <PartyLoadError onRetry={() => void party.refetch()} />
         )}
@@ -88,7 +110,15 @@ export function PartyDetailPage({ partyId }: { partyId: number }) {
   )
 }
 
-function PartyDetailBody({ party }: { party: PartyDetail }) {
+function PartyDetailBody({
+  party,
+  leaveOpen,
+  onLeaveOpenChange,
+}: {
+  party: PartyDetail
+  leaveOpen: boolean
+  onLeaveOpenChange: (open: boolean) => void
+}) {
   const router = useRouter()
   const toast = useToast()
   const queryClient = useQueryClient()
@@ -103,7 +133,7 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
   // 참가 링크를 새로 만들면 옛 토큰이 든 링크가 되므로, 만들 때의 참가 토큰과 같을 때만 다시 쓴다.
   const [friendLink, setFriendLink] = useState<{ url: string; joinToken: string }>()
   const orderKey = useIdempotencyKey()
-  const [confirm, setConfirm] = useState<'regenerate' | 'leave' | null>(null)
+  const [confirm, setConfirm] = useState<'regenerate' | null>(null)
 
   const isLeader = raceStatus.data?.role === 'LEADER'
   const recruiting = party.status === 'RECRUITING'
@@ -112,7 +142,6 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
   const max = race.data?.crewMaxCount
   const now = useNow()
   const linkAlive = !!now && parseKstDateTime(party.joinTokenExpiresAt) > now.getTime()
-  const stepIndex = PARTY_STEP_INDEX[party.status]
   const toastError = (error: unknown) =>
     toast({
       tone: 'error',
@@ -212,35 +241,20 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
 
   return (
     <>
-      <section className="flex flex-col gap-4 px-4 py-6">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-title1">{race.data?.title ?? <Skeleton className="h-8 w-2/3" />}</h2>
-          <p className="text-body2-regular text-text-secondary">
-            {[crew.data && `${crew.data.name} 크루`, course?.name].filter(Boolean).join(' · ')}
-          </p>
-        </div>
-        <ol className="grid grid-cols-3 gap-2" aria-label="파티 진행 단계">
-          {PARTY_STATUS_STEPS.map((label, i) => (
-            <li key={label} className="flex flex-col gap-2">
-              <span
-                className={cn('h-1 rounded-full', i <= stepIndex ? 'bg-bg-brand' : 'bg-bg-muted')}
-              />
-              <span
-                className={cn(
-                  'text-body2-medium',
-                  i === stepIndex ? 'text-text-primary' : 'text-text-tertiary',
-                )}
-                aria-current={i === stepIndex ? 'step' : undefined}
-              >
-                {label}
-              </span>
-            </li>
-          ))}
-        </ol>
+      <section className="flex flex-col gap-1 px-5 py-4">
+        <span className="text-body2-medium text-text-brand">
+          {PARTY_STATUS_LABEL[party.status]}
+        </span>
+        <h2 className="text-title2">{race.data?.title ?? <Skeleton className="h-8 w-2/3" />}</h2>
+        <p className="text-body2-regular text-text-secondary">
+          {[crew.data && `${crew.data.name} 크루`, course?.name].filter(Boolean).join(' · ')}
+        </p>
       </section>
-      <section className="flex flex-col gap-3 px-4 py-6">
-        <p className="text-caption-regular text-text-secondary">지금 할 일</p>
-        <h3 className="text-title3">{todo.title}</h3>
+      <section className="flex flex-col gap-4 px-5 py-6">
+        <div className="flex flex-col gap-2">
+          <p className="text-caption-medium text-text-secondary">지금 할 일</p>
+          <h3 className="text-title3">{todo.title}</h3>
+        </div>
         {todo.description && (
           <p className="text-body2-regular text-text-secondary">{todo.description}</p>
         )}
@@ -253,22 +267,6 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
           <p className="text-body2-regular text-text-secondary">
             {formatKstMonthDayTime(payDueAt)}까지 파티원이 결제할 수 있어요
           </p>
-        )}
-        {recruiting && isLeader && linkAlive && (
-          <Link
-            href={`/parties/${party.id}/apply`}
-            aria-disabled={!canApply}
-            tabIndex={canApply ? undefined : -1}
-            onClick={(e) => {
-              if (!canApply) e.preventDefault()
-            }}
-            className={cn(
-              buttonClassName({ variant: 'primary', size: 'l' }),
-              !canApply && 'pointer-events-none opacity-40',
-            )}
-          >
-            파티 참가하기
-          </Link>
         )}
         {recruiting && isLeader && !linkAlive && (
           <Button size="l" loading={regenerate.isPending} onClick={makeLink}>
@@ -286,65 +284,93 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
           </Link>
         )}
         {recruiting && isLeader && linkAlive && (
-          <div className="flex items-center justify-between text-body2-regular text-text-secondary">
-            <span>링크 · {formatKstDateTime(party.joinTokenExpiresAt)}까지</span>
-            <span className="flex gap-4">
+          <div className="flex flex-col overflow-hidden rounded-md border border-border-default bg-bg-surface">
+            <div className="flex flex-col gap-0.5 px-4 py-4">
+              <span className="text-body2-medium text-text-secondary">초대 링크</span>
+              <span className="text-body1-medium">
+                {formatKstDateTime(party.joinTokenExpiresAt)}까지 쓸 수 있어요
+              </span>
+            </div>
+            <div className="flex divide-x divide-border-default border-t border-border-default *:flex *:h-12 *:flex-1 *:items-center *:justify-center *:text-body2-medium">
               {canInviteFriends ? (
-                <button type="button" disabled={createInvite.isPending} onClick={inviteFriend}>
+                <button
+                  type="button"
+                  disabled={createInvite.isPending}
+                  onClick={inviteFriend}
+                  className="text-text-brand"
+                >
                   친구 초대
                 </button>
               ) : (
-                <button type="button" onClick={copyLink}>
+                <button type="button" onClick={copyLink} className="text-text-brand">
                   링크 복사
                 </button>
               )}
               <button type="button" onClick={() => setConfirm('regenerate')}>
                 새로 만들기
               </button>
-            </span>
+            </div>
           </div>
         )}
       </section>
-      <section className="flex flex-col gap-3 px-4 py-6">
+      <section className="flex flex-col gap-3 px-5 py-4">
         {recruiting ? (
-          <h3 className="text-body1-medium">
+          <h3 className="text-body1-bold">
             {party.memberCount}명 / 최소 {min}명{max ? ` · 최대 ${max}명` : ''}
           </h3>
         ) : (
           <div className="flex items-center justify-between gap-2">
-            <h3 className="text-body1-medium">파티원</h3>
+            <h3 className="text-body1-bold">파티원</h3>
             <span className="text-body2-regular text-text-secondary">
               {party.status === 'PAYING' ? '결제 완료' : '참가 확정'} {party.paidCount} /{' '}
               {party.memberCount}명
             </span>
           </div>
         )}
-        <ul className="flex flex-col gap-3">
+        <ul className="flex flex-col">
           {party.members.map((m) => (
-            <li key={m.memberId} className="flex items-center gap-3">
+            <li key={m.memberId} className="flex items-center gap-3 py-2">
               <Avatar size="m" name={m.nickname} />
               <div className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate text-body2-medium">
                   {m.nickname}
                   {m.memberId === me.data?.id ? ' · 나' : ''}
                 </span>
-                <span className="text-caption-regular text-text-secondary">
+                <span className="text-caption-regular text-text-tertiary">
                   {m.leader ? '파티장' : '파티원'}
                 </span>
               </div>
-              <Badge tone={memberBadge(m, party.status).tone}>
-                {memberBadge(m, party.status).label}
-              </Badge>
+              {!recruiting && (
+                <span
+                  className={cn('text-body2-medium', BADGE_TEXT[memberBadge(m, party.status).tone])}
+                >
+                  {memberBadge(m, party.status).label}
+                </span>
+              )}
             </li>
           ))}
         </ul>
       </section>
-      {recruiting && (
-        <div className="flex justify-center pb-8">
-          <Button variant="text" size="m" onClick={() => setConfirm('leave')}>
-            파티 나가기
-          </Button>
-        </div>
+      {recruiting && isLeader && linkAlive && (
+        <BottomCta
+          className="sticky bottom-0 z-10 mt-auto px-5"
+          primary={
+            <Link
+              href={`/parties/${party.id}/apply`}
+              aria-disabled={!canApply}
+              tabIndex={canApply ? undefined : -1}
+              onClick={(e) => {
+                if (!canApply) e.preventDefault()
+              }}
+              className={cn(
+                buttonClassName({ variant: 'primary', size: 'l' }),
+                !canApply && 'pointer-events-none bg-bg-brand-disabled',
+              )}
+            >
+              파티 참가하기
+            </Link>
+          }
+        />
       )}
       <Dialog
         open={confirm === 'regenerate'}
@@ -357,8 +383,8 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
         confirming={regenerate.isPending}
       />
       <Dialog
-        open={confirm === 'leave'}
-        onOpenChange={(open) => !open && setConfirm(null)}
+        open={leaveOpen}
+        onOpenChange={onLeaveOpenChange}
         type="danger"
         title="파티에서 나갈까요?"
         body={
@@ -373,7 +399,7 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
           leave.mutate(party.id, {
             onSuccess: () => router.replace(`/crews/${party.crewId}` as Route),
             onError: (error) => {
-              setConfirm(null)
+              onLeaveOpenChange(false)
               toastError(error)
             },
           })
@@ -381,5 +407,28 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
         confirming={leave.isPending}
       />
     </>
+  )
+}
+
+// 시안 · 파티 상세 ⋮ 메뉴. 모집 중에만 열 수 있고, 지금은 파티 나가기 하나다. Esc · 바깥 누름으로 닫힌다.
+function PartyMoreMenu({ onLeave }: { onLeave: () => void }) {
+  return (
+    <Menu.Root>
+      <Menu.Trigger render={<IconButton aria-label="더보기" />}>
+        <Icon name="MoreVertical" />
+      </Menu.Trigger>
+      <Menu.Portal>
+        <Menu.Positioner align="end" sideOffset={-4} className="z-50 outline-none">
+          <Menu.Popup className="w-40 rounded-md bg-bg-surface py-1.5 shadow-md outline-none">
+            <Menu.Item
+              onClick={onLeave}
+              className={`flex w-full cursor-pointer items-center px-4 py-3 text-body1-medium text-text-danger data-highlighted:bg-bg-subtle ${FOCUS_RING}`}
+            >
+              파티 나가기
+            </Menu.Item>
+          </Menu.Popup>
+        </Menu.Positioner>
+      </Menu.Portal>
+    </Menu.Root>
   )
 }

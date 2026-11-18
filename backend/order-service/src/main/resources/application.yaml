@@ -81,6 +81,8 @@ order:
     product:
       mode: fake
       base-url: http://localhost:8085
+      # 키트 옵션 목록을 대회별로 기억하는 시간 (http일 때만, CRU-45). 결제마다 상품을 부르지 않게 한다. 추천값(미확정)
+      kit-option-cache-ttl: 5s
     payout:
       mode: fake
       base-url: http://localhost:8082
@@ -122,6 +124,8 @@ order:
       base-url: https://apis.tracker.delivery
       client-id: ${DELIVERY_TRACKER_CLIENT_ID:}
       client-secret: ${DELIVERY_TRACKER_CLIENT_SECRET:}
+      # 구매자 「배송 조회」 버튼이 여는 공식 Tracking Link (CRU-38). client-id만 붙이고 secret은 쓰지 않는다. client-id가 비면 링크는 null
+      link-base-url: https://link.tracker.delivery/track
       # Delivery Tracker 권장 시간 제한은 15초까지다
       timeout: 10s
       # 개발용 가짜 택배사(dev.track.dummy)를 발송 목록에 보인다. 운영(prod)은 false

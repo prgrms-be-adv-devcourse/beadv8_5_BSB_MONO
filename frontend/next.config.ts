@@ -27,6 +27,28 @@ const nextConfig: NextConfig = {
         })),
       },
 
+  // opencv.js(기록증 OCR worker)는 Node일 때만 fs · crypto를 부른다. 브라우저 묶음에서는 빈 모듈로 바꿔 묶음이 깨지지 않게 한다
+  turbopack: {
+    resolveAlias: {
+      fs: { browser: './src/features/record-cert/lib/node-builtin-stub.ts' },
+      crypto: { browser: './src/features/record-cert/lib/node-builtin-stub.ts' },
+    },
+  },
+
+  // 기록증 읽기 화면은 OCR WASM을 여러 스레드로 돌리려고 교차 출처 격리(crossOriginIsolated)를 켠다. 꺼지면 한 스레드라 약 4배 느리다.
+  // credentialless는 쿠키 없이 받는 다른 출처 리소스를 막지 않는다. 그 화면이 띄우는 worker · WASM 파일에도 같은 헤더가 있어야 열린다.
+  async headers() {
+    const isolated = [
+      { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
+      { key: 'Cross-Origin-Embedder-Policy', value: 'credentialless' },
+    ]
+    return [
+      { source: '/tickets/:ticketId/record-cert', headers: isolated },
+      { source: '/_next/static/:path*', headers: isolated },
+      { source: '/ocr/:path*', headers: isolated },
+    ]
+  },
+
   // 브라우저는 항상 /api/... 로 부른다.
   // - API_MOCKING=on : rewrites 없음 → src/app/api/[[...path]] 가 MSW 핸들러로 응답
   // - API_MOCKING=off: 여기서 BACKEND_URL로 넘긴다 (로컬·Vercel)

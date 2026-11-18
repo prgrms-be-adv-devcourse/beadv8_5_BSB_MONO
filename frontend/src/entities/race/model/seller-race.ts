@@ -16,8 +16,17 @@ export const SELLER_SALE_STATUS: Record<SellerSaleStatus, SellerRaceBadge> = {
   SCHEDULED: { label: '판매 예정', tone: 'neutral' },
   ON_SALE: { label: '판매 중', tone: 'brand' },
   STOPPED: { label: '판매 중지', tone: 'warning' },
-  CLOSED: { label: '종료', tone: 'neutral' },
-  CANCELED: { label: '대회 취소', tone: 'danger' },
+  CLOSED: { label: '판매 종료', tone: 'neutral' },
+  CANCELED: { label: '취소됨', tone: 'danger' },
+}
+
+/** 상태는 칩 대신 14 Medium 글자로 쓴다. 판매 중은 파랑, 취소됨은 빨강, 그 밖은 보조 글자색 */
+export const SELLER_SALE_STATUS_TEXT: Record<SellerSaleStatus, string> = {
+  SCHEDULED: 'text-text-secondary',
+  ON_SALE: 'text-text-brand',
+  STOPPED: 'text-text-secondary',
+  CLOSED: 'text-text-secondary',
+  CANCELED: 'text-text-danger',
 }
 
 /** 판매가 시작된 대회. 참가비·키트 금액을 바꿀 수 없고 정원은 늘리기만, 환불 기한은 늦추기만 된다. */
@@ -39,6 +48,8 @@ export type SellerRaceRow = {
   period: string
   sold: number
   capacity: number
+  /** 종목 이름을 「하프 · 10K」처럼 이은 글자 */
+  courseNames: string
   saleStatus?: SellerSaleStatus
   badge: SellerRaceBadge
 }
@@ -59,6 +70,10 @@ export function toSellerRaceRow(race: productModel.SellerRaceDto): SellerRaceRow
     title: race.title ?? '',
     date: race.raceDate ? formatRaceDate(race.raceDate) : '-',
     period: toPeriodText(race),
+    courseNames: courses
+      .map((c) => c.name)
+      .filter(Boolean)
+      .join(' · '),
     sold: courses.reduce((sum, c) => sum + (c.sold ?? 0), 0),
     capacity: courses.reduce((sum, c) => sum + (c.quota ?? 0), 0),
     saleStatus: race.saleStatus,
@@ -124,8 +139,8 @@ export function toRaceEditRequest(
       kitIncluded: course.kitIncluded ?? false,
       kitPrice: course.kitPrice ?? 0,
       tshirtSizeOption: course.tshirtSizeOption ?? [],
-      minAge: course.minAge ?? 14,
-      maxAge: course.maxAge ?? undefined,
+      // 서버는 14·19만 받는다. 정리 전 옛 값(16 등)이 와도 19 이상만 성인만으로 본다
+      minAge: (course.minAge ?? 0) >= 19 ? 19 : 14,
       crewQuota: course.crewQuota ?? 0,
       individualQuota: course.individualQuota ?? 0,
       images: toImageRequests(

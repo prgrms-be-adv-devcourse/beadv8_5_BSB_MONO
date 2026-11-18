@@ -57,3 +57,6 @@ next-env.d.ts
 /e2e-*-fix.patch
 /e2e-*-fix.md
 /e2e-*-auto.log
+
+# 기록증 OCR 실행 파일 (scripts/copy-ocr-runtime.mjs가 node_modules에서 복사)
+/public/ocr/ort/

@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { useForm, useWatch } from 'react-hook-form'
+import { Controller, useForm, useWatch } from 'react-hook-form'
 
 import { CONSOLE_BOX, ConsoleCard, ConsoleLoading, ConsolePage } from '@/widgets/console-page'
 import { useCancelRace, useUpdateRace } from '@/features/seller-race'
@@ -17,6 +17,7 @@ import {
   type RaceForEdit,
 } from '@/entities/race'
 import { ApiError } from '@/shared/api'
+import { DateTimeField } from '@/shared/date-picker'
 import { cn, formatNumber } from '@/shared/lib'
 import {
   Alert,
@@ -26,7 +27,6 @@ import {
   KeyValue,
   StatTile,
   Textarea,
-  TextField,
   useToast,
 } from '@/shared/ui'
 
@@ -108,6 +108,8 @@ function ChangeContent({
   const cancel = useCancelRace(raceId)
   const [mode, setMode] = useState<Mode>('reschedule')
   const [cancelOpen, setCancelOpen] = useState(confirmOpen)
+  // 일정 변경은 알림이 바로 나가고 되돌릴 수 없어 확인 창을 한 번 거친다
+  const [notifyDate, setNotifyDate] = useState<string | null>(null)
   const { race, request } = edit
   const editable = isRaceEditable(race.saleStatus)
   const title = race.title ?? ''
@@ -115,7 +117,6 @@ function ChangeContent({
 
   const {
     control,
-    register,
     handleSubmit,
     formState: { errors },
   } = useForm<RescheduleValues>({
@@ -182,28 +183,30 @@ function ChangeContent({
             className="flex flex-col gap-4"
             onSubmit={handleSubmit((values) => {
               cancel.reset()
-              update.mutate(
-                {
-                  ...request,
-                  raceDate:
-                    toRescheduledRaceDate(values.raceDate, currentRaceDate) ?? currentRaceDate,
-                },
-                { onSuccess: () => toast({ message: '대회 일정을 바꿨어요', tone: 'success' }) },
+              setNotifyDate(
+                toRescheduledRaceDate(values.raceDate, currentRaceDate) ?? currentRaceDate,
               )
             })}
           >
             <KeyValue label="지금 대회일" value={formatRaceDateTime(currentRaceDate)} />
-            <TextField
-              label="새 대회일"
-              placeholder="2026-12-13"
-              disabled={!editable}
-              error={errors.raceDate?.message}
-              {...register('raceDate')}
+            <Controller
+              control={control}
+              name="raceDate"
+              render={({ field }) => (
+                <DateTimeField
+                  mode="single"
+                  withTime={false}
+                  label="새 대회일"
+                  disabled={!editable}
+                  defaultValue={new Date(currentRaceDate)}
+                  error={errors.raceDate?.message}
+                  onValueChange={field.onChange}
+                />
+              )}
             />
             {/* TODO(api): 알림 발송 API가 생기면 이 문구를 보낸다. 지금은 미리보기만 */}
             <Textarea
               label="알림 문구 미리보기"
-              helper="참가자 전원에게 앱 알림과 문자로 보내요"
               showCounter
               maxLength={200}
               readOnly
@@ -218,9 +221,6 @@ function ChangeContent({
             <KeyValue label="전액 환불 허용" value={`알린 날부터 7일 (~${refundUntil()})`} />
             <KeyValue label="정산 대상일" value="바뀐 대회일로 다시 잡혀요" />
           </div>
-          <p className="text-body2-regular text-text-tertiary">
-            정산은 대회가 끝난 뒤 한 번만 해서, 지금 환불하면 바로 돌려줘요.
-          </p>
         </ConsoleCard>
       </div>
 
@@ -238,9 +238,7 @@ function ChangeContent({
           ))}
         </div>
         <div className="flex items-center justify-between gap-4">
-          <p className="text-body2-regular text-text-danger">
-            취소하면 되돌릴 수 없어요. 참가자에게 바로 알림이 가요.
-          </p>
+          <span />
           <Button variant="danger" disabled={!editable} onClick={() => setCancelOpen(true)}>
             대회 취소하기
           </Button>
@@ -248,11 +246,29 @@ function ChangeContent({
       </ConsoleCard>
 
       <Dialog
+        open={notifyDate !== null}
+        onOpenChange={(open) => !open && setNotifyDate(null)}
+        title={`참가자 ${n(sold)}명에게 알림을 보낼까요?`}
+        body="보낸 알림은 되돌릴 수 없어요."
+        confirmLabel="알리기"
+        confirming={update.isPending}
+        onConfirm={() =>
+          update.mutate(
+            { ...request, raceDate: notifyDate ?? currentRaceDate },
+            {
+              onSuccess: () => toast({ message: '대회 일정을 바꿨어요', tone: 'success' }),
+              onSettled: () => setNotifyDate(null),
+            },
+          )
+        }
+      />
+
+      <Dialog
         open={cancelOpen}
         onOpenChange={setCancelOpen}
         type="danger"
         title="대회를 취소할까요?"
-        body={`참가자 ${n(sold)}명에게 참가비를 전액 자동 환불하고 바로 알림을 보내요. 되돌릴 수 없어요.`}
+        body={`참가자 ${n(sold)}명 전액 환불\n참가자에게 바로 알림이 가요. 되돌릴 수 없어요.`}
         confirmLabel="대회 취소하기"
         cancelLabel="그대로 두기"
         confirming={cancel.isPending}
@@ -311,7 +327,7 @@ function ModeCard({
       className={cn(
         'flex min-w-100 flex-1 items-center gap-3 rounded-lg p-5 text-left',
         selected
-          ? 'bg-bg-brand-subtle inset-ring-2 inset-ring-border-brand'
+          ? 'bg-bg-surface inset-ring-2 inset-ring-text-primary'
           : 'bg-bg-surface inset-ring inset-ring-border-default',
         FOCUS_RING,
       )}
