@@ -154,6 +154,20 @@ describe('AdminClaimsPage', () => {
     expect(queries.at(-1)?.get('code')).toBe('RC-20261215-0002')
   })
 
+  it('청구 ID에 허용되지 않는 글자가 있으면 찾지 않고 안내한다', async () => {
+    const queries = mockClaims([CLAIMING])
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByRole('row', { name: /RC-20261215-0002/ })
+    const before = queries.length
+
+    await user.type(screen.getByRole('textbox', { name: '청구 ID' }), "RC-1' OR 1=1")
+    await user.click(screen.getByRole('button', { name: '찾기' }))
+
+    expect(await screen.findByText('청구 ID는 영문, 숫자, -만 쓸 수 있어요')).toBeInTheDocument()
+    expect(queries.length).toBe(before)
+  })
+
   it('청구가 없으면 빈 안내를 보여 준다', async () => {
     mockClaims([], [0, 0, 0])
     renderPage()
