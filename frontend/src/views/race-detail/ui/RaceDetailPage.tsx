@@ -128,7 +128,7 @@ export function RaceDetailPage({
             </p>
             <p className="flex items-center gap-2 text-body2-regular text-text-secondary">
               <Icon name="Users" className="size-4" />
-              {`접수 마감 ${race.dDay} · 정원 ${formatNumber(race.capacity)}명`}
+              {capacityLine(race.dDay, race.capacity)}
             </p>
             <p className="flex items-baseline gap-2">
               <span className="text-title2">{formatPrice(minPrice)}</span>
@@ -405,4 +405,10 @@ function FaqList({ items }: { items: RaceDetail['faq'] }) {
       ))}
     </ul>
   )
+}
+
+// dDay는 D-12 · D-DAY · 마감, 마감일이 없으면 -
+function capacityLine(dDay: string, capacity: number) {
+  const close = dDay === '-' ? null : dDay === '마감' ? '접수 마감' : `접수 마감 ${dDay}`
+  return [close, `정원 ${formatNumber(capacity)}명`].filter(Boolean).join(' · ')
 }
