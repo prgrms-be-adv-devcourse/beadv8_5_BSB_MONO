@@ -1,3 +1,5 @@
+'use client'
+
 import { AppHeader } from '@/widgets/app-header'
 import { BottomNav } from '@/widgets/bottom-nav'
 import { DEFAULT_RACE_SORT } from '@/entities/race'
