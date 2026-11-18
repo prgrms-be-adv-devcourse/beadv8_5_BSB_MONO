@@ -48,10 +48,15 @@ type PostcodeWindow = {
 export function AddressSearch({
   onSelect,
   onUnavailable,
+  label = '주소 검색',
+  variant = 'secondary',
 }: {
   onSelect: (result: AddressSearchResult) => void
   /** 스크립트를 못 불러왔을 때. 화면은 주소 칸을 직접 입력할 수 있게 연다. */
   onUnavailable?: () => void
+  /** 여는 버튼 글자. 주소를 고른 뒤에는 「다시 검색」처럼 바꿔 쓴다 */
+  label?: string
+  variant?: 'secondary' | 'text'
 }) {
   const [open, setOpen] = useState(false)
   const [failed, setFailed] = useState(false)
@@ -120,12 +125,12 @@ export function AddressSearch({
       ) : (
         <Button
           type="button"
-          variant="secondary"
-          size="m"
+          variant={variant}
+          size={variant === 'text' ? 's' : 'm'}
           className="self-start"
           onClick={() => setOpen(true)}
         >
-          주소 검색
+          {label}
         </Button>
       )}
       {open && (

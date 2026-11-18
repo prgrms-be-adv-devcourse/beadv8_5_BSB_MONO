@@ -135,8 +135,13 @@ describe('참가 신청 · 참가자 정보', () => {
     renderPage()
 
     // 명세 예시의 지난 신청 값
-    expect(await screen.findByLabelText('이름')).toHaveValue('김러너')
-    expect(screen.getByLabelText('키트 배송 우편번호')).toHaveValue('04700')
+    // 이름 · 생년월일은 회원 정보를 글로만 보여 주고, 휴대폰 번호와 우편번호는 화면에 없다
+    expect(await screen.findByText('김러너')).toBeInTheDocument()
+    expect(screen.getByText('1995.04.12')).toBeInTheDocument()
+    expect(screen.queryByLabelText('이름')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('휴대폰 번호')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('키트 배송 우편번호')).not.toBeInTheDocument()
+    expect(screen.getByText('서울 성동구 왕십리로 00')).toBeInTheDocument()
 
     const emergencyName = screen.getByLabelText('비상 연락처 이름')
     await user.clear(emergencyName)
@@ -151,7 +156,7 @@ describe('참가 신청 · 참가자 정보', () => {
       thirdPartyConsent: true,
       participant: {
         name: '김러너',
-        birth: '1994-06-25',
+        birth: '1995-04-12',
         gender: 'FEMALE',
         phone: '010-1234-5678',
         emergencyContactName: '박가족',
@@ -192,7 +197,7 @@ describe('참가 신청 · 참가자 정보', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await screen.findByLabelText('이름')
+    await screen.findByLabelText('비상 연락처 이름')
     await agree(user)
     await user.click(screen.getByRole('button', { name: '다음' }))
     expect(await screen.findByText('같은 주문 요청을 처리하고 있습니다.')).toBeInTheDocument()
@@ -215,7 +220,7 @@ describe('참가 신청 · 참가자 정보', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await screen.findByLabelText('이름')
+    await screen.findByLabelText('비상 연락처 이름')
     await agree(user)
     await user.click(screen.getByRole('button', { name: '다음' }))
 
@@ -236,7 +241,7 @@ describe('참가 신청 · 참가자 정보', () => {
     const user = userEvent.setup()
     renderPage({}, { race: { ...RACE, id: '1' } })
 
-    await screen.findByLabelText('이름')
+    await screen.findByLabelText('비상 연락처 이름')
     await agree(user)
     await user.click(screen.getByRole('button', { name: '다음' }))
 
@@ -247,24 +252,52 @@ describe('참가 신청 · 참가자 정보', () => {
     expect(replace).not.toHaveBeenCalledWith('/checkout?orderId=1')
   })
 
-  it('지난 신청이 없으면 회원 정보의 휴대폰 번호만 채운다', async () => {
+  it('지난 신청이 없어도 이름 · 생년월일은 회원 정보 값이고, 받는 사람 칸은 비어 있다', async () => {
+    const bodies = captureApply()
+    // 지난 신청에서 받는 사람 · 주소만 비운다 (사이즈는 남겨 둔다)
+    const example = orderMock.getFindLatestParticipantResponseMock()
     server.use(
       orderMock.getFindLatestParticipantMockHandler({
-        status: 200,
-        message: '이전에 신청한 참가자 정보가 없습니다.',
-        data: null,
+        ...example,
+        data: {
+          ...example.data,
+          emergencyContactName: '',
+          emergencyContactPhone: '',
+          shippingAddress: undefined,
+        },
       }),
     )
+    const user = userEvent.setup()
     renderPage()
 
-    expect(await screen.findByLabelText('휴대폰 번호')).toHaveValue('010-1234-5678')
-    expect(screen.getByLabelText('이름')).toHaveValue('')
+    expect(await screen.findByText('1995.04.12')).toBeInTheDocument()
+    expect(screen.getByLabelText('받는 사람')).toHaveValue('')
+    await user.type(screen.getByLabelText('받는 사람'), '박받는')
+    await user.type(screen.getByLabelText('받는 사람 연락처'), '01055556666')
+    await user.type(screen.getByLabelText('비상 연락처 이름'), '박가족')
+    await user.type(screen.getByLabelText('비상 연락처 전화번호'), '01098765432')
+    await user.click(screen.getByRole('radio', { name: '남성' }))
+    await user.click(screen.getByRole('button', { name: '주소 검색' }))
+    completePostcode()
+    await agree(user)
+    await user.click(screen.getByRole('button', { name: '다음' }))
+
+    // 회원 정보의 이름 · 생년월일 · 휴대폰 번호를 그대로 보내고, 키트 받는 사람은 입력값을 보낸다
+    await vi.waitFor(() => expect(bodies).toHaveLength(1))
+    expect(bodies[0]).toMatchObject({
+      participant: {
+        name: '김러너',
+        birth: '1995-04-12',
+        phone: '010-1234-5678',
+        shippingAddress: { recipientName: '박받는', recipientPhone: '010-5555-6666' },
+      },
+    })
   })
 
   it('장바구니 담기 버튼은 없고 하단 버튼은 다음 하나다', async () => {
     renderPage()
 
-    await screen.findByLabelText('이름')
+    await screen.findByLabelText('비상 연락처 이름')
     expect(screen.queryByRole('button', { name: '장바구니 담기' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: '다음' })).toBeInTheDocument()
   })
@@ -275,7 +308,7 @@ describe('참가 신청 · 참가자 정보', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await screen.findByLabelText('이름')
+    await screen.findByLabelText('비상 연락처 이름')
     // 티셔츠 사이즈는 키트 옵션 단계에서 고른다
     expect(screen.queryByLabelText('기념 티셔츠 사이즈')).not.toBeInTheDocument()
     await agree(user)
@@ -324,7 +357,7 @@ describe('참가 신청 · 참가자 정보', () => {
     fail = false
     await user.click(screen.getByRole('button', { name: '다시 시도하기' }))
 
-    expect(await screen.findByLabelText('이름')).toBeInTheDocument()
+    expect(await screen.findByLabelText('비상 연락처 이름')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '다음' })).toBeInTheDocument()
   })
 
@@ -354,7 +387,7 @@ describe('참가 신청 · 참가자 정보', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await screen.findByLabelText('이름')
+    await screen.findByLabelText('비상 연락처 이름')
     await agree(user)
     await user.click(screen.getByRole('button', { name: '다음' }))
     await screen.findByRole('group', { name: '기념 티셔츠' })
@@ -406,7 +439,7 @@ describe('참가 신청 · 참가자 정보', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await screen.findByLabelText('이름')
+    await screen.findByLabelText('비상 연락처 이름')
     await agree(user)
     await user.click(screen.getByRole('button', { name: '다음' }))
 
@@ -424,7 +457,7 @@ describe('참가 신청 · 참가자 정보', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await screen.findByLabelText('이름')
+    await screen.findByLabelText('비상 연락처 이름')
     await agree(user)
     await user.click(screen.getByRole('button', { name: '다음' }))
 
@@ -439,7 +472,7 @@ describe('참가 신청 · 참가자 정보', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await screen.findByLabelText('이름')
+    await screen.findByLabelText('비상 연락처 이름')
     await agree(user)
     await user.click(screen.getByRole('button', { name: '다음' }))
 
@@ -470,7 +503,7 @@ describe('참가 신청 · 참가자 정보', () => {
       },
     })
 
-    await screen.findByLabelText('이름')
+    await screen.findByLabelText('비상 연락처 이름')
     await agree(user)
     await user.click(screen.getByRole('button', { name: '다음' }))
 
@@ -497,7 +530,7 @@ describe('RaceApplyPage 대기열 남은 시간', () => {
     )
     renderPage({}, { race: { ...RACE, id: '1' } })
 
-    await screen.findByLabelText('이름')
+    await screen.findByLabelText('비상 연락처 이름')
     expect(screen.queryByRole('timer')).not.toBeInTheDocument()
   })
 
@@ -558,7 +591,7 @@ describe('참가 신청 v3 배치', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await screen.findByLabelText('이름')
+    await screen.findByLabelText('비상 연락처 이름')
     await agree(user)
     await user.click(screen.getByRole('button', { name: '다음' }))
 
@@ -576,20 +609,17 @@ describe('참가 신청 · 키트 배송 주소 검색', () => {
       orderMock.getFindLatestParticipantMockHandler({ status: 200, message: '', data: null }),
     )
 
-  it('우편번호 · 주소는 주소 검색으로만 채우고, 상세 주소만 직접 입력해 보낸다', async () => {
+  it('주소는 주소 검색으로만 채우고, 고른 뒤에는 글로 보이며 다시 검색할 수 있다', async () => {
     const bodies = captureApply()
     const user = userEvent.setup()
     renderPage()
 
-    const zipcode = await screen.findByLabelText('키트 배송 우편번호')
-    expect(zipcode).toHaveAttribute('readonly')
-    expect(screen.getByLabelText('키트 배송 주소')).toHaveAttribute('readonly')
-
-    // 지난 신청 값(04700)이 있어도 다시 검색하면 바뀐다
-    await user.click(screen.getByRole('button', { name: '주소 검색' }))
+    // 지난 신청 값이 있으면 글로 보이고 버튼은 「다시 검색」이다
+    expect(await screen.findByText('서울 성동구 왕십리로 00')).toBeInTheDocument()
+    expect(screen.queryByLabelText('키트 배송 주소')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '다시 검색' }))
     completePostcode()
-    expect(zipcode).toHaveValue('04768')
-    expect(screen.getByLabelText('키트 배송 주소')).toHaveValue('서울특별시 성동구 뚝섬로 273')
+    expect(await screen.findByText('서울특별시 성동구 뚝섬로 273')).toBeInTheDocument()
 
     const detail = screen.getByLabelText('상세 주소')
     expect(detail).toHaveValue('')
@@ -614,7 +644,7 @@ describe('참가 신청 · 키트 배송 주소 검색', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await screen.findByLabelText('이름')
+    await screen.findByLabelText('비상 연락처 이름')
     await agree(user)
     await user.click(screen.getByRole('button', { name: '다음' }))
     expect(await screen.findByText('키트를 받을 주소를 입력해 주세요.')).toBeInTheDocument()
@@ -637,11 +667,10 @@ describe('참가 신청 · 키트 배송 주소 검색', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await screen.findByLabelText('이름')
+    await screen.findByLabelText('비상 연락처 이름')
     await user.click(screen.getByRole('button', { name: '주소 검색' }))
 
-    const zipcode = screen.getByLabelText('키트 배송 우편번호')
-    await vi.waitFor(() => expect(zipcode).not.toHaveAttribute('readonly'))
+    const zipcode = await screen.findByLabelText('키트 배송 우편번호')
     await user.type(zipcode, '04768')
     await user.type(screen.getByLabelText('키트 배송 주소'), '서울특별시 성동구 뚝섬로 273')
     expect(zipcode).toHaveValue('04768')

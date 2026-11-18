@@ -5,7 +5,7 @@ import { useMutation } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { Controller, useForm } from 'react-hook-form'
+import { Controller, useForm, useWatch } from 'react-hook-form'
 
 import { AppHeader } from '@/widgets/app-header'
 import { AddressSearch, type AddressSearchResult } from '@/features/address-search'
@@ -25,7 +25,6 @@ import {
   useIdempotencyKey,
   type productModel,
 } from '@/shared/api'
-import { DateTimeField } from '@/shared/date-picker'
 import { cn, formatWon, useTrackOnce } from '@/shared/lib'
 import {
   Alert,
@@ -36,6 +35,7 @@ import {
   EmptyState,
   FOCUS_RING,
   HeaderTimer,
+  KeyValue,
   PhoneField,
   Radio,
   RadioGroup,
@@ -47,6 +47,7 @@ import {
 
 import {
   EMPTY_PARTICIPANT_FORM,
+  formatBirth,
   PARTICIPANT_ERRORS,
   participantFormSchema,
   toParticipantFormValues,
@@ -136,24 +137,30 @@ export function RaceApplyPage({
 
 /**
  * 입력 칸의 처음 값. 불러오는 동안은 null.
- * 지난 신청이 없으면 회원 정보에서 휴대폰 번호를 채운다 (회원 정보에는 이름·생년월일·성별이 없다).
- * 불러오지 못하면 빈 칸으로 시작한다.
+ * 이름 · 생년월일 · 휴대폰 번호는 회원 정보 값을 쓰고 참가자가 바꿀 수 없다(바꾸려면 회원 정보에서).
+ * 나머지는 이번에 입력해 둔 값 → 지난 신청 값 순으로 채운다. 불러오지 못하면 빈 칸으로 시작한다.
  */
 function useParticipantDefaults(option: RaceOption): ParticipantFormValues | null {
   const saved = useBookingFlow((s) => s.participant)
   const latest = orderApi.useFindLatestParticipant({
     query: { enabled: !saved, select: (response) => response.data ?? null },
   })
-  const needMember = !saved && latest.isSuccess && latest.data === null
-  const me = memberApi.useFindMe({ query: { enabled: needMember, select: unwrapData } })
+  const me = memberApi.useFindMe({ query: { select: unwrapData } })
 
-  if (saved) return toParticipantFormValues(saved, option)
-  if (latest.isError) return EMPTY_PARTICIPANT_FORM
-  if (!latest.isSuccess) return null
-  if (latest.data) return toParticipantFormValues(latest.data, option)
-  if (me.isError) return EMPTY_PARTICIPANT_FORM
-  if (!me.isSuccess) return null
-  return { ...EMPTY_PARTICIPANT_FORM, phone: me.data.phone ?? '' }
+  if (!saved && latest.isPending) return null
+  if (me.isPending) return null
+  const base = saved
+    ? toParticipantFormValues(saved, option)
+    : latest.isSuccess && latest.data
+      ? toParticipantFormValues(latest.data, option)
+      : EMPTY_PARTICIPANT_FORM
+  if (!me.isSuccess) return base
+  return {
+    ...base,
+    name: me.data.name ?? base.name,
+    birth: me.data.birthDate ?? base.birth,
+    phone: me.data.phone ?? base.phone,
+  }
 }
 
 function ParticipantForm({
@@ -195,6 +202,7 @@ function ParticipantForm({
     resolver: zodResolver(participantFormSchema(kitStep ? { ...option, shirtSizes: [] } : option)),
     defaultValues: defaults,
   })
+  const address = useWatch({ control, name: 'address' })
   // 주소 검색을 불러오지 못했을 때만 우편번호 · 주소를 직접 입력하게 연다
   const [manualAddress, setManualAddress] = useState(false)
   const pickAddress = ({ zipcode, address }: AddressSearchResult) => {
@@ -338,31 +346,8 @@ function ParticipantForm({
               }
               className="gap-3"
             >
-              <TextField label="이름" error={errors.name?.message} {...register('name')} />
-              <Controller
-                control={control}
-                name="birth"
-                render={({ field }) => (
-                  <DateTimeField
-                    mode="single"
-                    withTime={false}
-                    label="생년월일"
-                    defaultValue={field.value ? new Date(`${field.value}T00:00:00`) : undefined}
-                    defaultMonth={new Date(1990, 0)}
-                    startMonth={new Date(1900, 0)}
-                    endMonth={new Date()}
-                    isDateDisabled={(date) => date > new Date()}
-                    onValueChange={field.onChange}
-                    focusTarget={field.ref}
-                    error={errors.birth?.message}
-                  />
-                )}
-              />
-              <PhoneField
-                label="휴대폰 번호"
-                error={errors.phone?.message}
-                {...register('phone')}
-              />
+              <KeyValue label="이름" value={defaults.name || '-'} />
+              <KeyValue label="생년월일" value={formatBirth(defaults.birth)} />
             </Section>
 
             <Section className="gap-6 pt-2">
@@ -420,28 +405,58 @@ function ParticipantForm({
               {option.kitIncluded && (
                 <>
                   <TextField
-                    label="키트 배송 우편번호"
-                    inputMode="numeric"
-                    readOnly={!manualAddress}
-                    error={errors.zipcode?.message}
-                    {...register('zipcode')}
+                    label="받는 사람"
+                    placeholder="받는 사람 이름"
+                    error={errors.recipientName?.message}
+                    {...register('recipientName')}
                   />
-                  <TextField
-                    label="키트 배송 주소"
-                    readOnly={!manualAddress}
-                    helper={`환불 기한(${refundDeadline})이 지난 뒤 이 주소로 키트를 보내요.`}
-                    error={errors.address?.message}
-                    {...register('address')}
+                  <PhoneField
+                    label="받는 사람 연락처"
+                    error={errors.recipientPhone?.message}
+                    {...register('recipientPhone')}
                   />
-                  <AddressSearch
-                    onSelect={pickAddress}
-                    onUnavailable={() => setManualAddress(true)}
-                  />
-                  <TextField
-                    label="상세 주소"
-                    error={errors.addressDetail?.message}
-                    {...register('addressDetail')}
-                  />
+                  <div className="flex flex-col gap-2">
+                    {!manualAddress && <span className="text-body2-medium">키트 배송 주소</span>}
+                    {manualAddress && (
+                      <TextField
+                        label="키트 배송 우편번호"
+                        inputMode="numeric"
+                        error={errors.zipcode?.message}
+                        {...register('zipcode')}
+                      />
+                    )}
+                    {manualAddress ? (
+                      <TextField
+                        label="키트 배송 주소"
+                        error={errors.address?.message}
+                        {...register('address')}
+                      />
+                    ) : (
+                      address && <p className="text-body2-regular">{address}</p>
+                    )}
+                    {/* 우편번호는 주소 검색 결과로만 저장하고 화면에는 쓰지 않는다 */}
+                    <AddressSearch
+                      onSelect={pickAddress}
+                      onUnavailable={() => setManualAddress(true)}
+                      label={address ? '다시 검색' : '주소 검색'}
+                      variant={address ? 'text' : 'secondary'}
+                    />
+                    {!manualAddress && errors.address?.message && (
+                      <p role="alert" className="text-caption-regular text-text-danger">
+                        {errors.address.message}
+                      </p>
+                    )}
+                    {address && (
+                      <TextField
+                        label="상세 주소"
+                        error={errors.addressDetail?.message}
+                        {...register('addressDetail')}
+                      />
+                    )}
+                    <p className="text-caption-regular text-text-secondary">
+                      환불 기한({refundDeadline})이 지난 뒤 이 주소로 키트를 보내요.
+                    </p>
+                  </div>
                 </>
               )}
             </Section>
