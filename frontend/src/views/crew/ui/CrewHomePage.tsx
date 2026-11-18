@@ -249,12 +249,8 @@ function LeaveCrew({
         open={step === 'confirm'}
         onOpenChange={(open) => !open && !leave.isPending && setStep(null)}
         type="danger"
-        title={<span className="block text-center">{`${crew.name}에서 떠날까요?`}</span>}
-        body={
-          <span className="block text-center">
-            떠나면 크루 홈과 크루의 파티를 볼 수 없어요. 다시 들어오려면 새 초대 링크가 필요해요.
-          </span>
-        }
+        title={`${crew.name}에서 떠날까요?`}
+        body="떠나면 크루 홈과 크루의 파티를 볼 수 없어요. 다시 들어오려면 새 초대 링크가 필요해요."
         confirmLabel="떠나기"
         confirming={leave.isPending}
         onConfirm={confirmLeave}
@@ -263,17 +259,15 @@ function LeaveCrew({
         open={step === 'party'}
         onOpenChange={(open) => !open && setStep(null)}
         type="alert"
-        title={<span className="block text-center">진행 중인 파티가 끝난 뒤 떠날 수 있어요</span>}
-        body={
-          <span className="block text-center">{`지금 ${joinedRace.data?.title ?? '파티'} 파티에 들어 있어요. 이 파티가 끝나면 크루를 떠날 수 있어요.`}</span>
-        }
+        title="진행 중인 파티가 끝난 뒤 떠날 수 있어요"
+        body={`지금 ${joinedRace.data?.title ?? '파티'} 파티에 들어 있어요. 이 파티가 끝나면 크루를 떠날 수 있어요.`}
         confirmLabel="확인"
         onConfirm={() => setStep(null)}
       />
       <Dialog
         open={step === 'leader'}
         onOpenChange={(open) => !open && setStep(null)}
-        title={<span className="block text-center">크루장을 넘긴 뒤에 나갈 수 있어요</span>}
+        title="크루장을 넘긴 뒤에 나갈 수 있어요"
         body={
           crew.memberCount <= 1
             ? '크루원이 나뿐이라 크루 관리에서 크루를 없앨 수 있어요.'

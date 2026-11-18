@@ -174,7 +174,7 @@ export function LoginPage({
         open={!!socialError && social?.error === 'AUTH_SOCIAL_EMAIL_TAKEN' && !socialDismissed}
         onOpenChange={(open) => !open && setSocialDismissed(true)}
         type="alert"
-        title={<span className="block text-center">이메일로 가입한 계정이에요</span>}
+        title="이메일로 가입한 계정이에요"
         body={socialError}
         confirmLabel="확인"
         onConfirm={() => setSocialDismissed(true)}
@@ -183,14 +183,8 @@ export function LoginPage({
       <Dialog
         open={!!socialError && social?.error !== 'AUTH_SOCIAL_EMAIL_TAKEN' && !socialDismissed}
         onOpenChange={(open) => !open && setSocialDismissed(true)}
-        title={
-          <span className="block text-center">{`${failedProvider?.label ?? '소셜'} 로그인을 마치지 못했어요`}</span>
-        }
-        body={
-          <span className="block text-center">
-            동의 화면에서 취소했거나 연결하지 못했어요. 다시 시도하거나 이메일로 로그인해 주세요.
-          </span>
-        }
+        title={`${failedProvider?.label ?? '소셜'} 로그인을 마치지 못했어요`}
+        body="동의 화면에서 취소했거나 연결하지 못했어요. 다시 시도하거나 이메일로 로그인해 주세요."
         cancelLabel="닫기"
         confirmLabel="다시 시도하기"
         onConfirm={() => goToSocialLogin(socialAuthorizeHref(retryProvider.id, { next }))}
@@ -199,9 +193,7 @@ export function LoginPage({
       <Dialog
         open={!!socialAccount}
         onOpenChange={(open) => !open && login.reset()}
-        title={
-          <span className="block text-center">{`${socialAccount?.label}로 가입한 계정이에요`}</span>
-        }
+        title={`${socialAccount?.label}로 가입한 계정이에요`}
         body={login.error instanceof ApiError ? login.error.serverMessage : undefined}
         cancelLabel="닫기"
         confirmLabel={`${socialAccount?.label}로 시작하기`}

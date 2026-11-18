@@ -166,7 +166,7 @@ export function WithdrawPage() {
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
         type="danger"
-        title={<span className="block text-center">정말 탈퇴할까요?</span>}
+        title="정말 탈퇴할까요?"
         body={
           <>
             계정과 개인정보가 바로 지워져요.

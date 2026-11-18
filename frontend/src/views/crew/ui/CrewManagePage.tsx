@@ -239,8 +239,8 @@ export function CrewManagePage({ crewId }: { crewId: number }) {
         open={blockedOpen}
         onOpenChange={setBlockedOpen}
         type="alert"
-        title={<span className="block text-center">크루원이 남아 있어 없앨 수 없어요</span>}
-        body={<span className="block text-center">크루원을 모두 내보낸 뒤 없앨 수 있어요.</span>}
+        title="크루원이 남아 있어 없앨 수 없어요"
+        body="크루원을 모두 내보낸 뒤 없앨 수 있어요."
         confirmLabel="확인"
         onConfirm={() => setBlockedOpen(false)}
       />

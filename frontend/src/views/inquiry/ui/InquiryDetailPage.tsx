@@ -118,8 +118,8 @@ export function InquiryDetailPage({ inquiryId }: { inquiryId: number }) {
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
         type="danger"
-        title={<span className="block text-center">문의를 지울까요?</span>}
-        body={<span className="block text-center">지운 문의는 되돌릴 수 없어요.</span>}
+        title="문의를 지울까요?"
+        body="지운 문의는 되돌릴 수 없어요."
         confirmLabel="지우기"
         confirming={remove.isPending}
         onConfirm={onDelete}

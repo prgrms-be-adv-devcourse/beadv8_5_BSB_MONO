@@ -134,8 +134,8 @@ function ProfileForm({ member }: { member: memberModel.MemberDto }) {
       <Dialog
         open={leaveOpen}
         onOpenChange={setLeaveOpen}
-        title={<span className="block text-center">고친 내용을 저장하지 않고 나갈까요?</span>}
-        body={<span className="block text-center">나가면 지금 고친 내용이 사라져요.</span>}
+        title="고친 내용을 저장하지 않고 나갈까요?"
+        body="나가면 지금 고친 내용이 사라져요."
         cancelLabel="나가기"
         onCancel={() => goBack('/me/settings')}
         confirmLabel="계속 고치기"
